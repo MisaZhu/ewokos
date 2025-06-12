@@ -70,6 +70,14 @@ static void prepare_win_content(x_t* x, xwin_t* win) {
 	if(display->g == NULL)
 		return;
 
+	if(display->dirty) {
+		if(x->config.xwm_theme.alpha)
+			win->frame_dirty = true;
+	}
+
+	if(win->frame_dirty)
+		graph_clear(win->frame_g, 0);
+
 	graph_blt(win->ws_g, 0, 0, win->ws_g->w, win->ws_g->h,
 			win->frame_g,
 			win->xinfo->wsr.x - win->xinfo->winr.x,
@@ -77,7 +85,7 @@ static void prepare_win_content(x_t* x, xwin_t* win) {
 			win->xinfo->wsr.w,
 			win->xinfo->wsr.h);
 	
-	if(!win->frame_dirty && !display->dirty)
+	if(!win->frame_dirty)
 		return;
 
 	proto_t in;
@@ -176,21 +184,26 @@ static int draw_win(graph_t* disp_g, x_t* x, xwin_t* win) {
 
 	graph_t* g = win->frame_g;
 	if(g != NULL) {
+		bool do_alpha = false;
 		if(win->xinfo->focused ||
 				win->xinfo->anti_bg_effect ||
 				x->config.xwm_theme.bgEffect == 0) {
-			if(win->xinfo->alpha) {
-				graph_blt_alpha(g, 0, 0, 
-						win->xinfo->winr.w,
-						win->xinfo->winr.h,
-						disp_g,
-						win->xinfo->winr.x,
-						win->xinfo->winr.y,
-						win->xinfo->winr.w,
-						win->xinfo->winr.h, 0xff);
-			}
-			else {
-				graph_blt(g, 0, 0, 
+			if(win->xinfo->alpha || x->config.xwm_theme.alpha)
+				do_alpha = true;
+		}
+
+		if(do_alpha) {
+			graph_blt_alpha(g, 0, 0, 
+					win->xinfo->winr.w,
+					win->xinfo->winr.h,
+					disp_g,
+					win->xinfo->winr.x,
+					win->xinfo->winr.y,
+					win->xinfo->winr.w,
+					win->xinfo->winr.h, 0xff);
+		}
+		else {
+			graph_blt(g, 0, 0, 
 					win->xinfo->winr.w,
 					win->xinfo->winr.h,
 					disp_g,
@@ -198,17 +211,6 @@ static int draw_win(graph_t* disp_g, x_t* x, xwin_t* win) {
 					win->xinfo->winr.y,
 					win->xinfo->winr.w,
 					win->xinfo->winr.h);
-			}
-		}
-		else {
-			graph_blt(g, 0, 0, 
-				win->xinfo->winr.w,
-				win->xinfo->winr.h,
-				disp_g,
-				win->xinfo->winr.x,
-				win->xinfo->winr.y,
-				win->xinfo->winr.w,
-				win->xinfo->winr.h);
 		}
 	}
 
@@ -697,6 +699,10 @@ static void mark_dirty_confirm(x_t* x, xwin_t* win) {
 	while(v != NULL) {
 		if(v->dirty_mark) {
 			v->dirty = true;
+			if(v != win) {
+				if(v->xinfo->alpha || x->config.xwm_theme.alpha)
+					x_dirty(x, v->xinfo->display_index);
+			}
 			v->dirty_mark = false;
 		}
 		v = v->next;
@@ -715,9 +721,9 @@ static void mark_dirty(x_t* x, xwin_t* win) {
 			grect_t r;
 			if(top->xinfo->visible) {
 				if(x->config.xwm_theme.alpha)
-					memcpy(&r, &top->xinfo->wsr, sizeof(grect_t));
-				else
 					memcpy(&r, &top->xinfo->winr, sizeof(grect_t));
+				else
+					memcpy(&r, &top->xinfo->wsr, sizeof(grect_t));
 
 				grect_t *check_r;
 				if(x->config.xwm_theme.alpha)
