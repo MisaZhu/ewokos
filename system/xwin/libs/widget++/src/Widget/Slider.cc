@@ -116,6 +116,7 @@ bool Slider::onMouse(xevent_t* ev) {
         handleRect.y = this->pos;
     }
 
+    bool ret = false;
     switch (ev->state) {
         case MOUSE_STATE_DOWN:
             if (pos.x >= handleRect.x && pos.x < (handleRect.x + handleRect.w) &&
@@ -124,6 +125,7 @@ bool Slider::onMouse(xevent_t* ev) {
                 lastMousePos = horizontal ? pos.x : pos.y;
                 lastMouseOffset = horizontal ? pos.x - handleRect.x : pos.y - handleRect.y;
             }
+            ret = true;
             break;
         case MOUSE_STATE_UP:
             isDragging = false;
@@ -139,8 +141,9 @@ bool Slider::onMouse(xevent_t* ev) {
                     newPos = max - 1;
                 setPos(newPos);
             }
+            ret = true;
             break;
     }
-    return true;
+    return ret;
 }
 }

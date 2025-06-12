@@ -112,8 +112,9 @@ protected:
                 setColor(color);
                 update();
             }
+            return true;
         }
-        return true;
+        return false;
     }
 
     uint32_t getSelectedColor() const {
