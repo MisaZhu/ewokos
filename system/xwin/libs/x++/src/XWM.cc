@@ -181,9 +181,7 @@ static void draw_bg_effect(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool t
 void XWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
-	gsize_t sz;
 
-	int pw = (r->w-sz.w)/2;
 	graph_fill(g, r->x, r->y, r->w, xwm.theme.titleH, bg);//title box
 	graph_box(g, r->x, r->y, r->w, xwm.theme.titleH, fg);//title box
 }

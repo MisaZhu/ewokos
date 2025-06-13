@@ -139,9 +139,8 @@ void OpenCDEWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	int pw = (r->w-sz.w)/2;
 	int ph = (r->h-sz.h)/2;
 
-	graph_fill(g, r->x, r->y, r->w, r->h, bg);
-	if(xwm.theme.alpha && color_a(bg) != 0xFF)
-		graph_glass(g, r->x, r->y, r->w, r->h, 2);
+	//graph_fill(g, r->x, r->y, r->w, r->h, bg);
+	graph_gradation(g, r->x, r->y, r->w, r->h, bg, dark, true);
 
 	graph_draw_text_font(g, r->x+pw+1, r->y+ph+1, info->title, font, xwm.theme.fontSize, 0xff222222);//title
 	graph_draw_text_font(g, r->x+pw, r->y+ph, info->title, font, xwm.theme.fontSize, fg);//title
