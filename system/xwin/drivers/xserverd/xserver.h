@@ -69,7 +69,7 @@ typedef struct {
 typedef struct {
 	fb_t fb;
 	graph_t* g;
-	int32_t  ws_g_shm_id;
+	int32_t  g_shm_id;
 	graph_t* g_fb;
 	grect_t desktop_rect;
 	bool dirty;

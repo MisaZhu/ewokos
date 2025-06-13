@@ -35,7 +35,7 @@ bool X::terminated(void) {
 	return x.terminated;
 }
 
-bool X::getScreenInfo(xscreen_t& scr, int index) {
+bool X::getScreenInfo(xscreen_info_t& scr, int index) {
 	return (x_screen_info(&scr, index) == 0);
 }
 

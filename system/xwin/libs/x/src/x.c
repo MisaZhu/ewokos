@@ -11,6 +11,7 @@
 #include <ewoksys/basic_math.h>
 #include <font/font.h>
 #include <ewoksys/proc.h>
+#include <sys/shm.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -44,18 +45,51 @@ static int x_get_event(int xserv_pid, xevent_t* ev, bool block) {
 	return res;
 }
 
-int x_screen_info(xscreen_t* scr, uint32_t index) {
+int x_screen_info(xscreen_info_t* scr, uint32_t index) {
 	proto_t in, out;
 	PF->init(&out);
 	PF->init(&in)->addi(&in, index);
 
 	int ret = dev_cntl("/dev/x", X_DCNTL_GET_INFO, &in, &out);
 	if(ret == 0)
-		proto_read_to(&out, scr, sizeof(xscreen_t));
+		proto_read_to(&out, scr, sizeof(xscreen_info_t));
 
 	PF->clear(&in);
 	PF->clear(&out);
 	return ret;
+}
+
+typedef struct {
+	xscreen_info_t screen;
+	graph_t g;
+} xscreen_t;
+
+#define SCREEN_MAX 8
+static xscreen_t _x_screens[SCREEN_MAX];
+
+int x_fetch_screen_graph(uint32_t index, graph_t* g) {
+	xscreen_info_t scrinfo;
+	if(g == NULL || index >= SCREEN_MAX)
+		return -1;
+	if(x_screen_info(&scrinfo, index) != 0)
+		return -1;
+	if(scrinfo.g_shm_id == -1)
+		return -1;
+
+	xscreen_t* xscr = &_x_screens[index];
+	uint32_t* buffer = xscr->g.buffer;
+	if(buffer == NULL) {
+		buffer = (uint32_t*)shmat(scrinfo.g_shm_id, 0, 0);
+		if(buffer == NULL)
+			return -1;
+	}
+
+	xscr->g.buffer = buffer;
+	xscr->g.w = scrinfo.size.w;
+	xscr->g.h = scrinfo.size.h;
+	xscr->g.need_free = false;
+	memcpy(g, &xscr->g, sizeof(graph_t));
+	return 0;
 }
 
 int x_get_display_num(void) {
@@ -121,6 +155,7 @@ void  x_init(x_t* x, void* data) {
 	x_get_theme(&_x_theme);
 	_x_theme_loaded = false;
 
+	memset(_x_screens, 0, sizeof(xscreen_info_t)*SCREEN_MAX);
 	memset(x, 0, sizeof(x_t));
 	x->data = data;
 	//sys_signal(SYS_SIG_STOP, sig_stop, x);

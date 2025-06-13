@@ -98,7 +98,7 @@ public:
 
 int main(int argc, char** argv) {
 	X x;
-	xscreen_t scr;
+	xscreen_info_t scr;
 	X::getScreenInfo(scr, 0);
 
 	WidgetWin win;

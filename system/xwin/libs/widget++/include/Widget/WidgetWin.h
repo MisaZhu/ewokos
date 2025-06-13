@@ -19,6 +19,7 @@ protected:
 	void onShow(void);
 	void onFocus(void);
 	void onUnfocus(void);
+	void onMove(void);
 	bool onClose();
 	virtual void onBuild();
 public:

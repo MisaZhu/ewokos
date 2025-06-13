@@ -32,6 +32,11 @@ void WidgetWin::onShow(void) {
 		root->update();
 }
 
+void WidgetWin::onMove(void) {
+	if(root->isAlpha())
+		root->update();
+}
+
 void WidgetWin::onFocus(void) {
 	if(root == NULL)
 		return;

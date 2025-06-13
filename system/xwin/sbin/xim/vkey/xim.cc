@@ -395,7 +395,7 @@ int main(int argc, char* argv[]) {
 	waitX();
 
 	X x;
-	xscreen_t scr;
+	xscreen_info_t scr;
 	x.getScreenInfo(scr, 0);
 
 	int pw = scr.size.w;

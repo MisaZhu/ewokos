@@ -8,6 +8,7 @@ RootWidget::RootWidget() {
 	focusedWidget = NULL;
 	dragedWidget= NULL;
 	xwin = NULL;
+	alpha = false;
 }
 
 /*void RootWidget::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {

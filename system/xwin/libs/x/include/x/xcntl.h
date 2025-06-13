@@ -84,10 +84,11 @@ typedef struct {
 } xinfo_t;
 
 typedef struct {
-	int id;
-	int fps;
+	int32_t id;
+	uint32_t fps;
+	int32_t g_shm_id;
 	gsize_t size;
-} xscreen_t;
+} xscreen_info_t;
 
 #ifdef __cplusplus
 }

@@ -10,7 +10,7 @@ Dialog::Dialog() {
 bool Dialog::popup(XWin* owner, uint32_t w, uint32_t h, const char* title, uint32_t style) {
 	this->owner = owner;
 
-	xscreen_t scr;
+	xscreen_info_t scr;
 	X::getScreenInfo(scr, owner->getDisplayIndex());
 
 	if(w == 0)
