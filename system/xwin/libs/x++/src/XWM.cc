@@ -148,20 +148,28 @@ static void draw_frame(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r
 }
 
 void XWM::drawShadow(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top) {
-	if(!top || xwm.theme.shadow == 0)
-		return;
-	
-	int x = info->winr.w - xwm.theme.shadow;
-	int y = xwm.theme.shadow;
-	int w = xwm.theme.shadow;
-	int h = info->winr.h - xwm.theme.shadow;
-	graph_fill(g, x, y, w, h, 0x66000000);
-	
-	x = xwm.theme.shadow;
-	y = info->winr.h - xwm.theme.shadow;
-	w = info->winr.w - xwm.theme.shadow*2;
-	h = xwm.theme.shadow;
-	graph_fill(g, x, y, w, h, 0x66000000);
+    if(!top || xwm.theme.shadow == 0)
+        return;
+
+    // 右侧阴影，透明度从左到右逐渐减小
+    int rightX = info->winr.w - xwm.theme.shadow;
+    int rightY = xwm.theme.shadow;
+    int rightW = xwm.theme.shadow;
+    int rightH = info->winr.h - xwm.theme.shadow;
+    for (int i = 0; i < rightW; ++i) {
+        int alpha = static_cast<int>(0x88 * (1.0 - static_cast<float>(i) / rightW));
+        graph_line(g, rightX + i, rightY+i, rightX + i, rightY+i + rightH-(rightW), (alpha << 24) | 0x000000);
+    }
+
+    // 底部阴影，透明度从上到下逐渐减小
+    int bottomX = xwm.theme.shadow;
+    int bottomY = info->winr.h - xwm.theme.shadow;
+    int bottomW = info->winr.w - xwm.theme.shadow*2-1;
+    int bottomH = xwm.theme.shadow;
+    for (int i = 0; i < bottomH; ++i) {
+        int alpha = static_cast<int>(0x88 * (1.0 - static_cast<float>(i) / bottomH));
+        graph_line(g, bottomX+i, bottomY + i, bottomX+ i + bottomW, bottomY + i, (alpha << 24) | 0x000000);
+    }
 }
 
 void draw_shadow(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top, void* p) {
