@@ -46,6 +46,14 @@ static int fb_fcntl(int fd,
 
 static void draw_bg(graph_t* g) {
 	graph_gradation(g, 0, 0, g->w, g->h, 0xff8888ff, 0xff000000, true);
+#if __aarch64__
+	graph_t* logo = png_image_new("/usr/system/icons/64bits.png");
+	if(logo != NULL) {
+		graph_blt_alpha(logo, 0, 0, logo->w, logo->h,
+				g, g->w - logo->w - 10, 10, logo->w, logo->h, 0xff);
+		graph_free(logo);
+	}
+#endif
 }
 
 static void default_splash(graph_t* g, const char* logo_fname) {
@@ -56,15 +64,6 @@ static void default_splash(graph_t* g, const char* logo_fname) {
 				g, (g->w-logo->w)/2, (g->h-logo->h)/2, logo->w, logo->h, 0xff);
 		graph_free(logo);
 	}
-
-#if __aarch64__
-	logo = png_image_new("/usr/system/icons/64bits.png");
-	if(logo != NULL) {
-		graph_blt_alpha(logo, 0, 0, logo->w, logo->h,
-				g, g->w - logo->w - 10, 10, logo->w, logo->h, 0xff);
-		graph_free(logo);
-	}
-#endif
 }
 
 static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, int rotate) {
