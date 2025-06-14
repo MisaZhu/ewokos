@@ -824,6 +824,15 @@ static int do_xwin_try_focus(int fd, int from_pid, x_t* x) {
 	return 0;
 }
 
+static bool need_repaint_frame(x_t* x, xwin_t* win) {
+	if((win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0 &&
+				((x->config.xwm_theme.bgEffect && !win->xinfo->focused) ||
+					(win->frame_dirty && x->config.xwm_theme.alpha &&
+					(win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0)))
+			return true;
+	return false;
+}
+
 static int x_update(int fd, int from_pid, x_t* x) {
 	if(fd < 0)
 		return -1;
@@ -837,9 +846,7 @@ static int x_update(int fd, int from_pid, x_t* x) {
 	win->dirty = true;
 	mark_dirty(x, win);
 	if(win->dirty) {
-		if(win->xinfo->alpha ||
-				(x->config.xwm_theme.bgEffect && !win->xinfo->focused) ||
-				(win->frame_dirty && x->config.xwm_theme.alpha && (win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0)) {
+		if(win->xinfo->alpha || need_repaint_frame(x, win)) {
 			x_dirty(x, win->xinfo->display_index);
 		}
 	}
@@ -1059,8 +1066,9 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 		win->xinfo->wsr.h = x->displays[x->current_display].g->h - x->config.xwm_theme.titleH;
 	}
 
-	if(wsr_w != win->xinfo->wsr.w || wsr_h != win->xinfo->wsr.h)
+	if(wsr_w != win->xinfo->wsr.w || wsr_h != win->xinfo->wsr.h) {
 		type = type | X_UPDATE_REBUILD | X_UPDATE_REFRESH;
+	}
 
 	if(get_xwm_win_space(x, (int)win->xinfo->style,
 			&win->xinfo->wsr,

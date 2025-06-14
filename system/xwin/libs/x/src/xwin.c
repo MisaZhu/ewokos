@@ -286,7 +286,7 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 			xwin->on_unfocus(xwin);
 		}
 		xwin->xinfo->focused = false;
-		xwin_update_info(xwin, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
+		xwin_update_info(xwin, X_UPDATE_REFRESH);
 	}
 	else if(ev->value.window.event == XEVT_WIN_REORG) {
 		if(xwin->on_reorg) {
