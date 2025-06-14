@@ -132,7 +132,7 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 
 		if((info.style & XWIN_STYLE_NO_TITLE) == 0) {
 			if(xwm->draw_title != NULL && rtitle.w > 0 && rtitle.h > 0)
-				xwm->draw_title(&frame_g, &info, &rtitle, top, xwm->data);
+				xwm->draw_title(&desktop_g, &frame_g, &info, &rtitle, top, xwm->data);
 
 			if((info.style & XWIN_STYLE_NO_RESIZE) == 0) {
 				if(xwm->draw_max != NULL && rmax.w > 0 && rmax.h > 0)

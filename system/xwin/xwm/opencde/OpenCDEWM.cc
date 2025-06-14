@@ -149,7 +149,7 @@ void OpenCDEWM::drawShadow(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool t
 	graph_blt(desktop_g, x+info->winr.x, y+info->winr.y, w, h, g, x, y, w, h);
 }
 
-void OpenCDEWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
+void OpenCDEWM::drawTitle(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 

@@ -180,15 +180,15 @@ static void draw_bg_effect(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool t
 	((XWM*)p)->__drawBGEffect(desktop_g, g, info, top);
 }
 
-void XWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
+void XWM::drawTitle(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 	graph_fill(g, r->x, r->y, r->w, xwm.theme.titleH, bg);//title box
 	graph_box(g, r->x, r->y, r->w, xwm.theme.titleH, fg);//title box
 }
 
-static void draw_title(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
-	((XWM*)p)->__drawTitle(g, info, r, top);
+static void draw_title(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
+	((XWM*)p)->__drawTitle(desktop_g, g, info, r, top);
 }
 
 void XWM::drawMin(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
@@ -273,11 +273,6 @@ void XWM::drawDesktop(graph_t* g) {
 
 static void draw_desktop(graph_t* g, void* p) {
 	((XWM*)p)->__drawDesktop(g);
-}
-
-
-void XWM::__drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
-	drawTitle(g, info, r, top);
 }
 
 void XWM::getColor(uint32_t *fg, uint32_t* bg, bool top) {

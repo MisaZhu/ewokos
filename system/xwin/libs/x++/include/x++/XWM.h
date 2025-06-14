@@ -27,7 +27,7 @@ protected:
 	virtual void getFrame(xinfo_t* info, grect_t* r);
 
 	virtual void drawDesktop(graph_t* g);
-	virtual void drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top);
+	virtual void drawTitle(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r, bool top);
 	virtual void drawMax(graph_t* g, xinfo_t* info, grect_t* r, bool top);
 	virtual void drawMin(graph_t* g, xinfo_t* info, grect_t* r, bool top);
 	virtual void drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top);
@@ -50,8 +50,7 @@ public:
 	inline void __getFrame(xinfo_t* info, grect_t* r) { getFrame(info, r); }
 	inline void __drawDesktop(graph_t* g) { drawDesktop(g); }
 
-	void __drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top);
-
+	inline void __drawTitle(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r, bool top) {drawTitle(desktop_g, g, info, r, top);}
 	inline void __drawMax(graph_t* g, xinfo_t* info, grect_t* r, bool top) {drawMax(g, info, r, top);}
 	inline void __drawMin(graph_t* g, xinfo_t* info, grect_t* r, bool top) {drawMin(g, info, r, top);}
 	inline void __drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top) {drawClose(g, info, r, top);}

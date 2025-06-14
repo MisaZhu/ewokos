@@ -35,7 +35,7 @@ typedef struct {
 	void (*get_frame)(xinfo_t* info, grect_t* r, void* p);
 
 	void (*draw_desktop)(graph_t* g, void* p);
-	void (*draw_title)(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p);
+	void (*draw_title)(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p);
 	void (*draw_max)(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p);
 	void (*draw_min)(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p);
 	void (*draw_close)(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p);
