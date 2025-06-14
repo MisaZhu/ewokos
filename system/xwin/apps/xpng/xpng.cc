@@ -29,7 +29,9 @@ protected:
 		graph_draw_text_font(g, r.x+4, y, label.c_str(), font, theme->basic.fontSize, theme->basic.titleColor);
 	}
 public:
-	StatusLabel(const char* label) : Label(label) {}
+	StatusLabel(const char* label) : Label(label) {
+		alpha = false;
+	}
 };
 
 class ImageView: public Scrollable {
