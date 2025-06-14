@@ -126,6 +126,29 @@ void OpenCDEWM::drawFrame(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t
 	graph_frame(g, x, y, w, h, xwm.theme.frameW, bg, false);
 }
 
+void OpenCDEWM::drawShadow(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top) {
+	if(!top || xwm.theme.shadow == 0)
+		return;
+	
+	int x = info->winr.w - xwm.theme.shadow;
+	int y = xwm.theme.shadow;
+	int w = xwm.theme.shadow;
+	int h = info->winr.h - xwm.theme.shadow;
+	//graph_fill(g, x, y, w, h, 0x66000000);
+	graph_fill(desktop_g, x+info->winr.x, y+info->winr.y, w, h, 0x66000000);
+	graph_glass(desktop_g, x+info->winr.x, y+info->winr.y, w, h, 3);
+	graph_blt(desktop_g, x+info->winr.x, y+info->winr.y, w, h, g, x, y, w, h);
+
+	x = xwm.theme.shadow;
+	y = info->winr.h - xwm.theme.shadow;
+	w = info->winr.w - xwm.theme.shadow*2;
+	h = xwm.theme.shadow;
+	//graph_fill(g, x, y, w, h, 0x66000000);
+	graph_fill(desktop_g, x+info->winr.x, y+info->winr.y, w, h, 0x66000000);
+	graph_glass(desktop_g, x+info->winr.x, y+info->winr.y, w, h, 3);
+	graph_blt(desktop_g, x+info->winr.x, y+info->winr.y, w, h, g, x, y, w, h);
+}
+
 void OpenCDEWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);

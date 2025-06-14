@@ -16,6 +16,7 @@ protected:
 	void drawMin(graph_t* g, xinfo_t* info, grect_t* r, bool top);
 	void drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top);
 	void drawFrame(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r, bool top);
+	void drawShadow(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top);
 	void drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top);
 	void drawBGEffect(graph_t* desktop_g, graph_t* frame_g, xinfo_t* info, bool top);
 public:
