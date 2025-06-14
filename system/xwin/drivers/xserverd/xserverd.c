@@ -1458,7 +1458,7 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 	if(x->current.win_drag == win && x->current.drag_state != 0) {
 		int mrx = x->cursor.cpos.x - x->current.old_pos.x;
 		int mry = x->cursor.cpos.y - x->current.old_pos.y;
-		if(abs(mrx) > 15 || abs(mry) > 15) {
+		if(abs(mrx) > 8 || abs(mry) > 8) {
 			x->current.pos_delta.x = mrx;
 			x->current.pos_delta.y = mry;
 			x_dirty(x, x->current_display);

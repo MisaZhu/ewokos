@@ -139,7 +139,7 @@ void XWM::drawFrame(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r, b
 
 	//win box
 	for(uint32_t i=0; i<xwm.theme.frameW; i++) {
-		graph_box(g, r->x+i, r->y+i, r->w-i*2, r->h+i*2, fg);
+		graph_box(g, r->x+i, r->y+i, r->w-i*2, r->h-i*2, fg);
 	}
 }
 
