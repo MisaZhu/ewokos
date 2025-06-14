@@ -77,6 +77,7 @@ typedef struct {
 	bool alpha;
 	bool anti_bg_effect;
 	bool focused;
+	bool draging;
 	grect_t wsr; //workspace rect
 	grect_t winr; //window rect
 	char title[XWIN_TITLE_MAX];
