@@ -65,7 +65,7 @@ int x_load_xwm_theme(const char* name, xwm_theme_t* theme) {
 	theme->desktopFGColor = json_get_int_def(conf_var, "desktop_fg_color", 0xff555588);
 	theme->desktopBGColor = json_get_int_def(conf_var, "desktop_bg_color", 0xff8888aa);
 	theme->frameW = json_get_int_def(conf_var, "frame_width", 2);
-	theme->shadow = json_get_int_def(conf_var, "shadow", 2);
+	theme->shadow = json_get_int_def(conf_var, "shadow", 0);
 	theme->titleH = json_get_int_def(conf_var, "title_h", 24);
 	theme->fontSize = json_get_int_def(conf_var, "font_size", 14);
 

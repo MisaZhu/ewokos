@@ -94,8 +94,8 @@ static void get_frame(xinfo_t* info, grect_t* rect, void* p) {
 void XWM::getResize(xinfo_t* info, grect_t* rect) {
 	rect->x = info-> winr.w - 20 - xwm.theme.frameW - xwm.theme.shadow;
 	rect->y = info-> winr.h - 20 - xwm.theme.frameW - xwm.theme.shadow;
-	rect->w = 20 + xwm.theme.frameW - 1;
-	rect->h = 20 + xwm.theme.frameW - 1;
+	rect->w = 20 + xwm.theme.frameW + xwm.theme.shadow - 1;
+	rect->h = 20 + xwm.theme.frameW + xwm.theme.shadow - 1;
 }
 
 static void get_resize(xinfo_t* info, grect_t* rect, void* p) {

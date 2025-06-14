@@ -248,5 +248,10 @@ void graph_glass_cpu(graph_t* g, int x, int y, int w, int h, int8_t r) {
 }
 
 void graph_glass(graph_t* g, int x, int y, int w, int h, int8_t r) {
+    if(r > w)
+        r = w;
+    if(r > h)
+        r = h;
+        
     graph_glass_bsp(g, x, y, w, h, r);
 }
