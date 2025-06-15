@@ -255,3 +255,28 @@ void graph_glass(graph_t* g, int x, int y, int w, int h, int8_t r) {
         
     graph_glass_bsp(g, x, y, w, h, r);
 }
+
+void graph_shadow(graph_t* g, int x, int y, int w, int h, uint8_t shadow, uint32_t color) {
+    if(shadow == 0)
+        return;
+    // 右侧阴影，透明度从左到右逐渐减小
+    int rightX = x + w - shadow;
+    int rightY = y + shadow;
+    int rightW = shadow;
+    int rightH = h - shadow;
+    uint8_t a =  color_a(color);
+    for (int i = 0; i < rightW; ++i) {
+        uint8_t alpha = (uint8_t)(a * (rightW-i)/rightW);
+        graph_line(g, rightX + i, rightY+i, rightX + i, rightY+i + rightH-(rightW), (alpha << 24) | (0x00FFFFFF & color));
+    }
+
+    // 底部阴影，透明度从上到下逐渐减小
+    int bottomX = x + shadow;
+    int bottomY = y + h - shadow;
+    int bottomW = w - shadow*2-1;
+    int bottomH = shadow;
+    for (int i = 0; i < bottomH; ++i) {
+        uint8_t alpha = (uint8_t)(a * (bottomH-i)/bottomH);
+        graph_line(g, bottomX+i, bottomY + i, bottomX+ i + bottomW, bottomY + i, (alpha << 24) | (0x00FFFFFF & color));
+    }
+}

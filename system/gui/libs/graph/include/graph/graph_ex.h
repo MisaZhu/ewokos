@@ -15,6 +15,7 @@ void graph_draw_dot_pattern(graph_t* g,int x, int y, int w, int h, uint32_t c1, 
 void graph_gradation(graph_t* g,int x, int y, int w, int h, uint32_t c1, uint32_t c2, bool vertical);
 void graph_glass_cpu(graph_t* g,int x, int y, int w, int h, int8_t r);
 void graph_glass(graph_t* g,int x, int y, int w, int h, int8_t r);
+void graph_shadow(graph_t* g, int x, int y, int w, int h, uint8_t shadow, uint32_t color);
 
 #ifdef __cplusplus
 }
