@@ -240,7 +240,7 @@ static int draw_win(graph_t* disp_g, x_t* x, xwin_t* win) {
 
 static int drag_win(graph_t* disp_g, x_t* x, xwin_t* win) {
 	if(x->current.win_drag == win &&
-			x->current.win_drag->xinfo->draging &&
+			//x->current.win_drag->xinfo->draging &&
 			(win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0 &&
 			win->xinfo->state != XWIN_STATE_MAX) {
 		draw_drag_frame(x, win->xinfo->display_index);
@@ -1372,44 +1372,35 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 		}
 		
 		if(pos == FRAME_R_TITLE) {//window title 
-			//x->current.win_drag = win;
+			x->current.win_drag = win;
 			x->current.old_pos.x = x->cursor.cpos.x;
 			x->current.old_pos.y = x->cursor.cpos.y;
 			x->current.drag_state = X_win_DRAG_MOVE;
 		}
 		else if(pos == FRAME_R_RESIZE) {//window resize
-			//x->current.win_drag = win;
+			x->current.win_drag = win;
 			x->current.old_pos.x = x->cursor.cpos.x;
 			x->current.old_pos.y = x->cursor.cpos.y;
 			x->current.drag_state = X_win_DRAG_RESIZE;
 		}
-
-		if(pos == FRAME_R_RESIZE) //window resize
-			return;
 	}
 	else if(ev->state ==  MOUSE_STATE_DRAG) {
 		if(win->xinfo->state != XWIN_STATE_MAX) {
-			x->current.win_drag = win;
 			if(pos == FRAME_R_TITLE) {//window title 
-				x->current.win_drag->xinfo->draging = true;
 				x->current.old_pos.x = x->cursor.cpos.x;
 				x->current.old_pos.y = x->cursor.cpos.y;
-				//x->current.drag_state = X_win_DRAG_MOVE;
+				x->current.drag_state = X_win_DRAG_MOVE;
 			}
 			else if(pos == FRAME_R_RESIZE) {//window resize
-				x->current.win_drag->xinfo->draging = true;
 				x->current.old_pos.x = x->cursor.cpos.x;
 				x->current.old_pos.y = x->cursor.cpos.y;
-				//x->current.drag_state = X_win_DRAG_RESIZE;
+				x->current.drag_state = X_win_DRAG_RESIZE;
 			}
 		}
 	}
 	else if(ev->state == MOUSE_STATE_UP) {
 		if(pos == FRAME_R_RESIZE) //window resize
 			return;
-		
-		if(x->current.win_drag != NULL)
-			x->current.win_drag->xinfo->draging = false;
 
 		if(x->current.win_drag == win &&
 				x->current.drag_state != 0 &&
@@ -1461,8 +1452,8 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 		if(abs(mrx) > 8 || abs(mry) > 8) {
 			x->current.pos_delta.x = mrx;
 			x->current.pos_delta.y = mry;
-			x_dirty(x, x->current_display);
 		}
+		x_dirty(x, x->current_display);
 		return; //drag win frame, don't push xwin event.
 	}
 
