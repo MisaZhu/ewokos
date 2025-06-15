@@ -89,7 +89,7 @@ void OpenCDEWM::drawBGEffect(graph_t* desktop_g, graph_t* frame_g, xinfo_t* info
 		info->winr.x,
 		info->winr.y,
 		info->winr.w,
-		info->winr.h, 0x88);
+		info->winr.h, 0xCC);
 
 	switch(xwm.theme.bgEffect) {
 		case BG_EFFECT_TRANSPARENT:

@@ -148,9 +148,10 @@ static void draw_frame(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r
 }
 
 void XWM::drawShadow(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top) {
-    if(!top || xwm.theme.shadow == 0)
+    if(xwm.theme.shadow == 0)
         return;
-	graph_shadow(g, 0, 0, info->winr.w, info->winr.h, xwm.theme.shadow, 0x88000000);
+	uint32_t color = 0x88000000;
+	graph_shadow(g, 0, 0, info->winr.w, info->winr.h, xwm.theme.shadow, color);
 }
 
 void draw_shadow(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top, void* p) {
