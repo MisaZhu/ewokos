@@ -201,7 +201,7 @@ int main(int argc, char** argv) {
 	RootWidget* root = new RootWidget();
 	win.setRoot(root);
 	root->setType(Container::HORIZONTAL);
-	root->setAlpha(false);
+	
 
 	FontList* list = new FontList();
 	list->loadFont();

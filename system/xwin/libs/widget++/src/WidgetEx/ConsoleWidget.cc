@@ -12,13 +12,9 @@ void ConsoleWidget::drawBG(graph_t* g, const grect_t& r) {
 	RootWidget* root = getRoot();
 	if(color_a(terminal.bg_color) != 0xff) {
 		setAlpha(true);
-		if(root)
-			root->setAlpha(true);
 	}
 	else {
 		setAlpha(false);
-		if(root)
-			root->setAlpha(false);
 	}
 }
 

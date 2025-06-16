@@ -53,6 +53,7 @@ class PowerInfo : public Widget {
 
 protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
+		graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
 		grect_t rb = {r.x+4, r.y+4, r.w-8, r.h-8};
 		drawBase(g, rb);
 		if(charging)

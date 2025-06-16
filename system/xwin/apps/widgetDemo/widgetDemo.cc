@@ -189,7 +189,7 @@ int main(int argc, char** argv) {
 	RootWidget* root = new RootWidget();
 	win.setRoot(root);
 	root->setType(Container::VERTICLE);
-	root->setAlpha(false);
+	
 
 	EditLine* editLine = new EditLine();
 	editLine->fix(0, 30);

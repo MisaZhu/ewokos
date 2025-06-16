@@ -1,7 +1,6 @@
 #include <WidgetEx/ColorDialog.h>
 #include <Widget/LabelButton.h>
 #include <Widget/EditLine.h>
-#include <Widget/Blank.h>
 #include <Widget/Slider.h>
 #include <x++/X.h>
 #include <vector>
@@ -24,7 +23,7 @@ std::vector<uint32_t> generate64Colors() {
     return colors;
 }
 
-class ColorPanel: public Blank {
+class ColorPanel: public Widget {
     uint32_t color;
 protected:
     void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {

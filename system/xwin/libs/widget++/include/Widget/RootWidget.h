@@ -12,7 +12,7 @@ class RootWidget: public Container {
 	bool doRefresh;
 	Widget* focusedWidget;
 	Widget* dragedWidget;
-	//void onRepaint(graph_t* g, XTheme* theme, const grect_t& r);
+	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r);
 public:
 	friend WidgetWin;
 	RootWidget();

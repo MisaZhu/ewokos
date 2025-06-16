@@ -56,7 +56,7 @@ int main(int argc, char** argv) {
 	RootWidget* root = new RootWidget();
 	win.setRoot(root);
 	root->setType(Container::VERTICLE);
-	root->setAlpha(false);
+	
 
 	FileManager* fm = new FileManager();
 	root->add(fm);

@@ -1448,7 +1448,7 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 	if(x->current.win_drag == win && x->current.drag_state != 0) {
 		int mrx = x->cursor.cpos.x - x->current.old_pos.x;
 		int mry = x->cursor.cpos.y - x->current.old_pos.y;
-		if(abs(mrx) > 8 || abs(mry) > 8) {
+		if(abs(mrx) > 3 || abs(mry) > 3) {
 			x->current.pos_delta.x = mrx;
 			x->current.pos_delta.y = mry;
 		}
@@ -1501,8 +1501,8 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 		}
 		//else if(ev->value.mouse.from_x != ev->value.mouse.x ||
 			//		ev->value.mouse.from_y != ev->value.mouse.y ||
-		else if(abs(x->mouse_state.last_pos.x - ev->value.mouse.x) > 6 ||
-				abs(x->mouse_state.last_pos.y - ev->value.mouse.y) > 6 ||
+		else if(abs(x->mouse_state.last_pos.x - ev->value.mouse.x) > 3 ||
+				abs(x->mouse_state.last_pos.y - ev->value.mouse.y) > 3 ||
 					x->mouse_state.state == MOUSE_STATE_DRAG) {
 			x->mouse_state.state = MOUSE_STATE_DRAG;
 			ev->state = MOUSE_STATE_DRAG;
