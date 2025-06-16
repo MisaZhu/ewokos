@@ -426,69 +426,147 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
     // 临时缓冲区
     uint32_t* temp = (uint32_t*)malloc(w * h * sizeof(uint32_t));
     
-    // NEON优化水平模糊
+    // NEON优化水平模糊，并行处理4个像素
     for (int j = 0; j < h; j++) {
-        for (int i = 0; i < w; i++) {
-            float32x4_t accum = vdupq_n_f32(0.0f);
+        for (int i = 0; i < w; i += 4) {
+            if (i + 4 > w) {
+                // 处理剩余不足4个像素的情况
+                for (int k = i; k < w; k++) {
+                    float32x4_t accum = vdupq_n_f32(0.0f);
+                    
+                    for (int m = -radius; m <= radius; m++) {
+                        int px = x + k + m;
+                        if (px < x) px = x;
+                        if (px >= x + w) px = x + w - 1;
+                        
+                        uint32_t pixel = pixels[(y + j) * width + px];
+                        float weight = kernel[m + radius];
+                        
+                        // 提取ARGB通道
+                        uint8x8_t vPixel = vreinterpret_u8_u32(vdup_n_u32(pixel));
+                        uint16x8_t vPixel16 = vmovl_u8(vPixel);
+                        uint32x4_t vPixel32 = vmovl_u16(vget_low_u16(vPixel16));
+                        float32x4_t vPixelF = vcvtq_f32_u32(vPixel32);
+                        
+                        // 乘以权重并累加
+                        accum = vmlaq_n_f32(accum, vPixelF, weight);
+                    }
+                    
+                    // 转换为整数并存储
+                    uint32x4_t result = vcvtq_u32_f32(accum);
+                    uint8x8_t res8 = vmovn_u16(vcombine_u16(
+                        vmovn_u32(result),
+                        vmovn_u32(result)
+                    ));
+                    temp[j * w + k] = vget_lane_u32(vreinterpret_u32_u8(res8), 0);
+                }
+                break;
+            }
             
-            for (int k = -radius; k <= radius; k++) {
-                int px = x + i + k;
-                if (px < x) px = x;
-                if (px >= x + w) px = x + w - 1;
-                
-                uint32_t pixel = pixels[(y + j) * width + px];
-                float weight = kernel[k + radius];
-                
-                // 提取ARGB通道
-                uint8x8_t vPixel = vreinterpret_u8_u32(vdup_n_u32(pixel));
-                uint16x8_t vPixel16 = vmovl_u8(vPixel);
-                uint32x4_t vPixel32 = vmovl_u16(vget_low_u16(vPixel16));
-                float32x4_t vPixelF = vcvtq_f32_u32(vPixel32);
-                
-                // 乘以权重并累加
-                accum = vmlaq_n_f32(accum, vPixelF, weight);
+            float32x4_t accum[4] = {vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)};
+            
+            for (int m = -radius; m <= radius; m++) {
+                for (int k = 0; k < 4; k++) {
+                    int px = x + i + k + m;
+                    if (px < x) px = x;
+                    if (px >= x + w) px = x + w - 1;
+                    
+                    uint32_t pixel = pixels[(y + j) * width + px];
+                    float weight = kernel[m + radius];
+                    
+                    // 提取ARGB通道
+                    uint8x8_t vPixel = vreinterpret_u8_u32(vdup_n_u32(pixel));
+                    uint16x8_t vPixel16 = vmovl_u8(vPixel);
+                    uint32x4_t vPixel32 = vmovl_u16(vget_low_u16(vPixel16));
+                    float32x4_t vPixelF = vcvtq_f32_u32(vPixel32);
+                    
+                    // 乘以权重并累加
+                    accum[k] = vmlaq_n_f32(accum[k], vPixelF, weight);
+                }
             }
             
             // 转换为整数并存储
-            uint32x4_t result = vcvtq_u32_f32(accum);
-            uint8x8_t res8 = vmovn_u16(vcombine_u16(
-                vmovn_u32(result),
-                vmovn_u32(result)
-            ));
-            temp[j * w + i] = vget_lane_u32(vreinterpret_u32_u8(res8), 0);
+            for (int k = 0; k < 4; k++) {
+                uint32x4_t result = vcvtq_u32_f32(accum[k]);
+                uint8x8_t res8 = vmovn_u16(vcombine_u16(
+                    vmovn_u32(result),
+                    vmovn_u32(result)
+                ));
+                temp[j * w + i + k] = vget_lane_u32(vreinterpret_u32_u8(res8), 0);
+            }
         }
     }
     
-    // NEON优化垂直模糊
-    for (int j = 0; j < h; j++) {
+    // NEON优化垂直模糊，并行处理4个像素
+    for (int j = 0; j < h; j += 4) {
+        if (j + 4 > h) {
+            // 处理剩余不足4个像素的情况
+            for (int k = j; k < h; k++) {
+                for (int i = 0; i < w; i++) {
+                    float32x4_t accum = vdupq_n_f32(0.0f);
+                    
+                    for (int m = -radius; m <= radius; m++) {
+                        int py = y + k + m;
+                        if (py < y) py = y;
+                        if (py >= y + h) py = y + h - 1;
+                        
+                        uint32_t pixel = temp[(py - y) * w + i];
+                        float weight = kernel[m + radius];
+                        
+                        // 提取ARGB通道
+                        uint8x8_t vPixel = vreinterpret_u8_u32(vdup_n_u32(pixel));
+                        uint16x8_t vPixel16 = vmovl_u8(vPixel);
+                        uint32x4_t vPixel32 = vmovl_u16(vget_low_u16(vPixel16));
+                        float32x4_t vPixelF = vcvtq_f32_u32(vPixel32);
+                        
+                        // 乘以权重并累加
+                        accum = vmlaq_n_f32(accum, vPixelF, weight);
+                    }
+                    
+                    // 转换为整数并存储
+                    uint32x4_t result = vcvtq_u32_f32(accum);
+                    uint8x8_t res8 = vmovn_u16(vcombine_u16(
+                        vmovn_u32(result),
+                        vmovn_u32(result)
+                    ));
+                    pixels[(y + k) * width + (x + i)] = vget_lane_u32(vreinterpret_u32_u8(res8), 0);
+                }
+            }
+            break;
+        }
+        
         for (int i = 0; i < w; i++) {
-            float32x4_t accum = vdupq_n_f32(0.0f);
+            float32x4_t accum[4] = {vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)};
             
-            for (int k = -radius; k <= radius; k++) {
-                int py = y + j + k;
-                if (py < y) py = y;
-                if (py >= y + h) py = y + h - 1;
-                
-                uint32_t pixel = temp[(py - y) * w + i];
-                float weight = kernel[k + radius];
-                
-                // 提取ARGB通道
-                uint8x8_t vPixel = vreinterpret_u8_u32(vdup_n_u32(pixel));
-                uint16x8_t vPixel16 = vmovl_u8(vPixel);
-                uint32x4_t vPixel32 = vmovl_u16(vget_low_u16(vPixel16));
-                float32x4_t vPixelF = vcvtq_f32_u32(vPixel32);
-                
-                // 乘以权重并累加
-                accum = vmlaq_n_f32(accum, vPixelF, weight);
+            for (int m = -radius; m <= radius; m++) {
+                for (int k = 0; k < 4; k++) {
+                    int py = y + j + k + m;
+                    if (py < y) py = y;
+                    if (py >= y + h) py = y + h - 1;
+                    
+                    uint32_t pixel = temp[(py - y) * w + i];
+                    float weight = kernel[m + radius];
+                    
+                    // 提取ARGB通道
+                    uint8x8_t vPixel = vreinterpret_u8_u32(vdup_n_u32(pixel));
+                    uint16x8_t vPixel16 = vmovl_u8(vPixel);
+                    uint32x4_t vPixel32 = vmovl_u16(vget_low_u16(vPixel16));
+                    float32x4_t vPixelF = vcvtq_f32_u32(vPixel32);
+                    
+                    // 乘以权重并累加
+                    accum[k] = vmlaq_n_f32(accum[k], vPixelF, weight);
+                }
             }
             
             // 转换为整数并存储
-            uint32x4_t result = vcvtq_u32_f32(accum);
-            uint8x8_t res8 = vmovn_u16(vcombine_u16(
-                vmovn_u32(result),
-                vmovn_u32(result)
-            ));
-            pixels[(y + j) * width + (x + i)] = vget_lane_u32(vreinterpret_u32_u8(res8), 0);
+            for (int k = 0; k < 4; k++) {
+                uint32x4_t result = vcvtq_u32_f32(accum[k]);
+                uint8x8_t res8 = vmovn_u16(vcombine_u16(
+                    vmovn_u32(result),
+                    vmovn_u32(result)
+                ));
+                pixels[(y + j + k) * width + (x + i)] = vget_lane_u32(vreinterpret_u32_u8(res8), 0);
+            }
         }
     }
     
