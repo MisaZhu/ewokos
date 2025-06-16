@@ -79,18 +79,19 @@ enum {
     BG_EFFECT_GLASS
 };
 
-void OpenCDEWM::drawBGEffect(graph_t* desktop_g, graph_t* frame_g, xinfo_t* info, bool top) {
+void OpenCDEWM::drawBGEffect(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinfo_t* info, bool top) {
 	if(top || info->anti_bg_effect || xwm.theme.bgEffect == BG_EFFECT_NONE)
 		return;
-	graph_blt_alpha(frame_g, 0, 0, 
-		info->winr.w,
-		info->winr.h,
-		desktop_g,
-		info->winr.x,
-		info->winr.y,
-		info->winr.w,
-		info->winr.h, 0xCC);
 
+	graph_blt_alpha(frame_g, 0, 0, 
+			info->winr.w,
+			info->winr.h,
+			desktop_g,
+			info->winr.x,
+			info->winr.y,
+			info->winr.w,
+			info->winr.h, 0xCC);
+	
 	switch(xwm.theme.bgEffect) {
 		case BG_EFFECT_TRANSPARENT:
 			graph_blt(desktop_g, 
@@ -114,7 +115,7 @@ void OpenCDEWM::drawBGEffect(graph_t* desktop_g, graph_t* frame_g, xinfo_t* info
 	}
 }
 
-void OpenCDEWM::drawFrame(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r, bool top) {
+void OpenCDEWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 
@@ -123,10 +124,10 @@ void OpenCDEWM::drawFrame(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t
 	int w = r->w;
 	int h = r->h;
 
-	graph_frame(g, x, y, w, h, xwm.theme.frameW, bg, false);
+	graph_frame(frame_g, x, y, w, h, xwm.theme.frameW, bg, false);
 }
 
-void OpenCDEWM::drawTitle(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r, bool top) {
+void OpenCDEWM::drawTitle(graph_t* desktop_g, graph_t* frame_g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 
@@ -140,11 +141,11 @@ void OpenCDEWM::drawTitle(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t
 	int ph = (r->h-sz.h)/2;
 
 	//graph_fill(g, r->x, r->y, r->w, r->h, bg);
-	graph_gradation(g, r->x, r->y, r->w, r->h, bg, dark, true);
+	graph_gradation(frame_g, r->x, r->y, r->w, r->h, bg, dark, true);
 
-	graph_draw_text_font(g, r->x+pw+1, r->y+ph+1, info->title, font, xwm.theme.fontSize, 0xff222222);//title
-	graph_draw_text_font(g, r->x+pw, r->y+ph, info->title, font, xwm.theme.fontSize, fg);//title
-	graph_box_3d(g, r->x, r->y, r->w, r->h, bright, dark);
+	graph_draw_text_font(frame_g, r->x+pw+1, r->y+ph+1, info->title, font, xwm.theme.fontSize, 0xff222222);//title
+	graph_draw_text_font(frame_g, r->x+pw, r->y+ph, info->title, font, xwm.theme.fontSize, fg);//title
+	graph_box_3d(frame_g, r->x, r->y, r->w, r->h, bright, dark);
 }
 
 OpenCDEWM::~OpenCDEWM(void) {

@@ -240,7 +240,6 @@ static int draw_win(graph_t* disp_g, x_t* x, xwin_t* win) {
 
 static int drag_win(graph_t* disp_g, x_t* x, xwin_t* win) {
 	if(x->current.win_drag == win &&
-			//x->current.win_drag->xinfo->draging &&
 			(win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0 &&
 			win->xinfo->state != XWIN_STATE_MAX) {
 		draw_drag_frame(x, win->xinfo->display_index);

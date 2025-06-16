@@ -40,9 +40,9 @@ typedef struct {
 	void (*draw_min)(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p);
 	void (*draw_close)(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p);
 	void (*draw_resize)(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p);
-	void (*draw_frame)(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p);
-	void (*draw_shadow)(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top, void* p);
-	void (*draw_bg_effect)(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top, void* p);
+	void (*draw_frame)(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinfo_t* info, grect_t* r, bool top, void* p);
+	void (*draw_shadow)(graph_t* desktop_g, graph_t* frame_g, xinfo_t* info, bool top, void* p);
+	void (*draw_bg_effect)(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinfo_t* info, bool top, void* p);
 	void (*draw_drag_frame)(graph_t* g, grect_t* r, void* p);
 } xwm_t;
 

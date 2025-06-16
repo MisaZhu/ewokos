@@ -62,7 +62,22 @@ static bool fetch_frame_graph(xwm_t* xwm, xinfo_t* info, graph_t* g) {
 	return true;
 }
 
-static void free_frame_graph(graph_t* g) {
+static bool fetch_ws_graph(xwm_t* xwm, xinfo_t* info, graph_t* g) {
+	if(info == NULL || info->ws_g_shm_id == -1)
+		return false;
+	memset(g, 0, sizeof(graph_t));
+
+	uint32_t* ws_g_shm = (uint32_t*)shmat(info->ws_g_shm_id, 0, 0);
+	if(ws_g_shm == NULL)
+		return false;
+	g->buffer = ws_g_shm;
+	g->w = info->wsr.w;
+	g->h = info->wsr.h;
+	g->need_free = false;
+	return true;
+}
+
+static void free_win_graph(graph_t* g) {
 	if(g->buffer == NULL)
 		return;
 	shmdt(g->buffer);
@@ -103,9 +118,12 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 
 	graph_t desktop_g;
 	graph_t frame_g;
+	graph_t ws_g;
 	if(!fetch_desktop_graph(xwm, shm_id, xw, xh, &desktop_g))
 		return;
 	if(!fetch_frame_graph(xwm, &info, &frame_g))
+		return;
+	if(!fetch_ws_graph(xwm, &info, &ws_g))
 		return;
 	
 	if((info.style & XWIN_STYLE_NO_FRAME) == 0) {
@@ -147,7 +165,7 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 
 		if(info.state != XWIN_STATE_MAX) {
 			if(xwm->draw_frame != NULL)
-				xwm->draw_frame(&desktop_g, &frame_g, &info, &rframe, top, xwm->data);
+				xwm->draw_frame(&desktop_g, &frame_g, &ws_g, &info, &rframe, top, xwm->data);
 
 			if((info.style & XWIN_STYLE_NO_TITLE) == 0) {
 				if((info.style & XWIN_STYLE_NO_RESIZE) == 0) {
@@ -162,8 +180,9 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 	}
 
 	if(xwm->draw_bg_effect != NULL)
-		xwm->draw_bg_effect(&desktop_g, &frame_g, &info, top, xwm->data);
-	free_frame_graph(&frame_g);
+		xwm->draw_bg_effect(&desktop_g, &frame_g, &ws_g, &info, top, xwm->data);
+	free_win_graph(&frame_g);
+	free_win_graph(&ws_g);
 }
 
 static void get_frame_areas(xwm_t* xwm, proto_t* in, proto_t* out) {

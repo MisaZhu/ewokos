@@ -129,22 +129,22 @@ static void draw_drag_frame(graph_t* g, grect_t* r, void* p) {
 	((XWM*)p)->__drawDragFrame(g, r);
 }
 
-void XWM::drawFrame(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r, bool top) {
+void XWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 
 	if((info->style & XWIN_STYLE_NO_TITLE) == 0) {
-		graph_box(g, r->x, r->y, r->w, xwm.theme.titleH+xwm.theme.frameW, fg);
+		graph_box(frame_g, r->x, r->y, r->w, xwm.theme.titleH+xwm.theme.frameW, fg);
 	}
 
 	//win box
 	for(uint32_t i=0; i<xwm.theme.frameW; i++) {
-		graph_box(g, r->x+i, r->y+i, r->w-i*2, r->h-i*2, fg);
+		graph_box(frame_g, r->x+i, r->y+i, r->w-i*2, r->h-i*2, fg);
 	}
 }
 
-static void draw_frame(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
-	((XWM*)p)->__drawFrame(desktop_g, g, info, r, top);
+static void draw_frame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinfo_t* info, grect_t* r, bool top, void* p) {
+	((XWM*)p)->__drawFrame(desktop_g, frame_g, ws_g, info, r, top);
 }
 
 void XWM::drawShadow(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top) {
@@ -158,8 +158,8 @@ void draw_shadow(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top, void* 
 	((XWM*)p)->__drawShadow(desktop_g, g, info, top);
 }
 
-static void draw_bg_effect(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top, void* p) {
-	((XWM*)p)->__drawBGEffect(desktop_g, g, info, top);
+static void draw_bg_effect(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinfo_t* info, bool top, void* p) {
+	((XWM*)p)->__drawBGEffect(desktop_g, frame_g, ws_g, info, top);
 }
 
 void XWM::drawTitle(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r, bool top) {
