@@ -14,7 +14,7 @@ LOAD_FONT = $(TARGET_DIR)/bin/load_font
 
 
 $(LOAD_FONT): $(LOAD_FONT_OBJS) $(EWOK_LIBC_A)
-	$(LD) -Ttext=100 $(LOAD_FONT_OBJS) -o $(LOAD_FONT) $(LDFLAGS) -ltinyjson -lfont -lgraph -lbsp $(BSP_LFLAGS) $(EWOK_LIBC)
+	$(LD) -Ttext=100 $(LOAD_FONT_OBJS) -o $(LOAD_FONT) $(LDFLAGS) -ltinyjson $(EWOK_LIB_GRAPH) $(BSP_LFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(LOAD_FONT_OBJS) $(LOAD_FONT)

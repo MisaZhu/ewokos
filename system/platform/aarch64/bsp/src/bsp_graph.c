@@ -3,13 +3,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <arm_neon.h>
+#include <openlibm.h>
 
 #ifdef __cplusplus 
 extern "C" { 
 #endif
 
 #ifdef NEON_BOOST
+#include <arm_neon.h>
 
 #define MIN(a, b) (((a) > (b))?(b):(a))
 
@@ -394,6 +395,107 @@ static void graph_glass_neon(graph_t* g, int x, int y, int w, int h, int r) {
 	glass_neon(g->buffer, g->w, g->h, x, y, w, h, 2);
 }
 
+static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
+                       int x, int y, int w, int h, int radius) {
+    if (radius <= 0) return;
+    
+    // 边界检查
+    if (x < 0) x = 0;
+    if (y < 0) y = 0;
+    if (x + w > width) w = width - x;
+    if (y + h > height) h = height - y;
+    if (w <= 0 || h <= 0) return;
+    
+    // 创建高斯核
+    int kernel_size = radius * 2 + 1;
+    float* kernel = (float*)malloc(kernel_size * sizeof(float));
+    float sigma = radius / 2.0f;
+    float sum = 0.0f;
+    
+    for (int i = -radius; i <= radius; i++) {
+        float val = expf(-(i * i) / (2 * sigma * sigma));
+        kernel[i + radius] = val;
+        sum += val;
+    }
+    
+    // 归一化
+    for (int i = 0; i < kernel_size; i++) {
+        kernel[i] /= sum;
+    }
+    
+    // 临时缓冲区
+    uint32_t* temp = (uint32_t*)malloc(w * h * sizeof(uint32_t));
+    
+    // NEON优化水平模糊
+    for (int j = 0; j < h; j++) {
+        for (int i = 0; i < w; i++) {
+            float32x4_t accum = vdupq_n_f32(0.0f);
+            
+            for (int k = -radius; k <= radius; k++) {
+                int px = x + i + k;
+                if (px < x) px = x;
+                if (px >= x + w) px = x + w - 1;
+                
+                uint32_t pixel = pixels[(y + j) * width + px];
+                float weight = kernel[k + radius];
+                
+                // 提取ARGB通道
+                uint8x8_t vPixel = vreinterpret_u8_u32(vdup_n_u32(pixel));
+                uint16x8_t vPixel16 = vmovl_u8(vPixel);
+                uint32x4_t vPixel32 = vmovl_u16(vget_low_u16(vPixel16));
+                float32x4_t vPixelF = vcvtq_f32_u32(vPixel32);
+                
+                // 乘以权重并累加
+                accum = vmlaq_n_f32(accum, vPixelF, weight);
+            }
+            
+            // 转换为整数并存储
+            uint32x4_t result = vcvtq_u32_f32(accum);
+            uint8x8_t res8 = vmovn_u16(vcombine_u16(
+                vmovn_u32(result),
+                vmovn_u32(result)
+            ));
+            temp[j * w + i] = vget_lane_u32(vreinterpret_u32_u8(res8), 0);
+        }
+    }
+    
+    // NEON优化垂直模糊
+    for (int j = 0; j < h; j++) {
+        for (int i = 0; i < w; i++) {
+            float32x4_t accum = vdupq_n_f32(0.0f);
+            
+            for (int k = -radius; k <= radius; k++) {
+                int py = y + j + k;
+                if (py < y) py = y;
+                if (py >= y + h) py = y + h - 1;
+                
+                uint32_t pixel = temp[(py - y) * w + i];
+                float weight = kernel[k + radius];
+                
+                // 提取ARGB通道
+                uint8x8_t vPixel = vreinterpret_u8_u32(vdup_n_u32(pixel));
+                uint16x8_t vPixel16 = vmovl_u8(vPixel);
+                uint32x4_t vPixel32 = vmovl_u16(vget_low_u16(vPixel16));
+                float32x4_t vPixelF = vcvtq_f32_u32(vPixel32);
+                
+                // 乘以权重并累加
+                accum = vmlaq_n_f32(accum, vPixelF, weight);
+            }
+            
+            // 转换为整数并存储
+            uint32x4_t result = vcvtq_u32_f32(accum);
+            uint8x8_t res8 = vmovn_u16(vcombine_u16(
+                vmovn_u32(result),
+                vmovn_u32(result)
+            ));
+            pixels[(y + j) * width + (x + i)] = vget_lane_u32(vreinterpret_u32_u8(res8), 0);
+        }
+    }
+    
+    free(temp);
+    free(kernel);
+}
+
 static void graph_gaussian_neon(graph_t* g, int x, int y, int w, int h, int r) {
     if (g == NULL || r == 0) {
         return;
@@ -407,81 +509,7 @@ static void graph_gaussian_neon(graph_t* g, int x, int y, int w, int h, int r) {
 	w = ir.w;
 	h = ir.h;
 
-    // 分配临时缓冲区
-	uint32_t sz = w * h * sizeof(uint32_t);
-    uint32_t* buffer = (uint32_t*)malloc(sz);
-    if (buffer == NULL) {
-        return;
-    }
-
-	if(ir.x == 0 && ir.y == 0 && ir.w == g->w && ir.h == g->h) {
-		memcpy(buffer, g->buffer, sz);
-	}
-	else {
-		for (int iy = 0; iy < h; iy++) {
-			int off = iy*w;
-			for (int ix = 0; ix < w; ix++) {
-				buffer[off + ix] = graph_get_pixel(g, x + ix, y + iy);
-			}
-		}
-	}
-
-    // 分离的盒模糊：水平方向
-    uint32_t* temp = (uint32_t*)malloc(w * h * sizeof(uint32_t));
-    if (temp == NULL) {
-        free(buffer);
-        return;
-    }
-
-    for (int iy = 0; iy < h; iy++) {
-		int off = iy*w;
-        for (int ix = 0; ix < w; ix++) {
-            int sumR = 0, sumG = 0, sumB = 0, count = 0;
-			uint8_t alpha = 0xFF;
-            for (int dx = -r; dx <= r; dx++) {
-                int nx = ix + dx;
-                if (nx >= 0 && nx < w) {
-                    uint32_t pixel = buffer[off + nx];
-                    alpha = (pixel >> 24) & 0xff;
-                    sumR += (pixel >> 16) & 0xff;
-                    sumG += (pixel >> 8) & 0xff;
-                    sumB += pixel & 0xff;
-                    count++;
-                }
-            }
-            uint8_t avgR = sumR / count;
-            uint8_t avgG = sumG / count;
-            uint8_t avgB = sumB / count;
-            temp[off + ix] = (alpha << 24) | (avgR << 16) | (avgG << 8) | avgB;
-        }
-    }
-
-    // 分离的盒模糊：垂直方向
-    for (int iy = 0; iy < h; iy++) {
-        for (int ix = 0; ix < w; ix++) {
-            int sumR = 0, sumG = 0, sumB = 0, count = 0;
-			uint8_t alpha = 0xFF;
-            for (int dy = -r; dy <= r; dy++) {
-                int ny = iy + dy;
-                if (ny >= 0 && ny < h) {
-                    uint32_t pixel = temp[ny * w + ix];
-                    alpha = (pixel >> 24) & 0xff;
-                    sumR += (pixel >> 16) & 0xff;
-                    sumG += (pixel >> 8) & 0xff;
-                    sumB += pixel & 0xff;
-                    count++;
-                }
-            }
-            uint8_t avgR = sumR / count;
-            uint8_t avgG = sumG / count;
-            uint8_t avgB = sumB / count;
-            graph_pixel(g, x + ix, y + iy, (alpha << 24) | (avgR << 16) | (avgG << 8) | avgB);
-        }
-    }
-
-    // 释放缓冲区
-    free(buffer);
-    free(temp);
+	gaussian_blur_neon(g->buffer, g->w, g->h, x, y, w, h, r);
 }
 
 inline void graph_glass_bsp(graph_t* g, int x, int y, int w, int h, int r) {
