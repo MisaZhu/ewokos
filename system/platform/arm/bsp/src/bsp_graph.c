@@ -8,6 +8,7 @@ extern "C" {
 #endif
 
 #ifdef NEON_BOOST
+#include <arm_neon.h>
 
 #define MIN(a, b) (((a) > (b))?(b):(a))
 
@@ -236,7 +237,130 @@ inline void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw
 	}
 }
 
-static void graph_glass_neon(graph_t* g, int x, int y, int w, int h, int8_t r) {
+static bool seeded = false;
+static void glass_neon(uint32_t* args, int width, int height, 
+                int x, int y, int w, int h, int r) {
+    // 参数检查
+    if (!args || r <= 0 || w <= 0 || h <= 0 || width <= 0 || height <= 0) 
+        return;
+    if (x < 0 || y < 0 || x + w > width || y + h > height)
+        return;
+
+	uint32_t *tmp = (uint32_t*)malloc(width * height * sizeof(uint32_t));
+	if(tmp == NULL)
+		return;
+	memcpy(tmp, args, width * height * sizeof(uint32_t));
+
+    // 使用固定随机种子确保每次效果相同
+    if (!seeded) {
+        srand(0x12345678);  // 固定种子值
+    }
+
+    // 预计算常用值
+    int range = 2*r;
+    int x_end = x + w - 1;
+    int y_end = y + h - 1;
+
+    // NEON寄存器初始化
+    int32x4_t vradius = vdupq_n_s32(r);
+    int32x4_t vrange = vdupq_n_s32(range);
+    int32x4_t vx = vdupq_n_s32(x);
+    int32x4_t vy = vdupq_n_s32(y);
+    int32x4_t vx_end = vdupq_n_s32(x_end);
+    int32x4_t vy_end = vdupq_n_s32(y_end);
+    int32x4_t vwidth = vdupq_n_s32(width);
+
+    // 预生成所有需要的随机数
+    int total_pixels = w * h;
+    int* rand_offsets = malloc(total_pixels * 2 * sizeof(int));
+
+	for (int i = 0; i < total_pixels * 2; i++) {
+		rand_offsets[i] = (rand() % range) - r;
+	}
+
+    // 处理图像区域
+    int offset_index = 0;
+    for (int j = y; j <= y_end; j++) {
+        int32x4_t vj = vdupq_n_s32(j);
+        
+        for (int i = x; i <= x_end; i += 4) {
+            // 处理剩余不足4个像素的情况
+            int remaining = x_end - i + 1;
+            if (remaining < 4) {
+                for (int k = 0; k < remaining; k++) {
+                    int rx = i + k + rand_offsets[offset_index++];
+                    int ry = j + rand_offsets[offset_index++];
+                    
+                    // 边界检查
+                    rx = (rx < x) ? x : ((rx > x_end) ? x_end : rx);
+                    ry = (ry < y) ? y : ((ry > y_end) ? y_end : ry);
+                    
+                    args[j * width + i + k] = args[ry * width + rx];
+                }
+                break;
+            }
+            
+            // 为4个像素生成随机偏移
+            int rand_x[4], rand_y[4];
+            for (int k = 0; k < 4; k++) {
+                rand_x[k] = rand_offsets[offset_index++];
+                rand_y[k] = rand_offsets[offset_index++];
+            }
+            
+            // 加载随机偏移到NEON寄存器
+            int32x4_t vrand_x = vld1q_s32(rand_x);
+            int32x4_t vrand_y = vld1q_s32(rand_y);
+            
+            // 计算当前x位置
+            int32x4_t vi = {i, i+1, i+2, i+3};
+            
+            // 计算随机位置
+            int32x4_t rx = vaddq_s32(vi, vrand_x);
+            int32x4_t ry = vaddq_s32(vj, vrand_y);
+            
+            // 边界检查
+            rx = vmaxq_s32(vx, vminq_s32(vx_end, rx));
+            ry = vmaxq_s32(vy, vminq_s32(vy_end, ry));
+            
+            // 计算随机像素位置(ry * width + rx)
+            int32x4_t rpos = vmlaq_s32(rx, ry, vwidth);
+            
+            // 提取位置到数组
+            int rpos_arr[4];
+            vst1q_s32(rpos_arr, rpos);
+            
+            // 手动收集像素值
+            uint32_t pixels[4];
+            for (int k = 0; k < 4; k++) {
+                pixels[k] = tmp[rpos_arr[k]];
+            }
+            
+            // 存储结果
+            vst1q_u32(&args[j * width + i], vld1q_u32(pixels));
+        }
+    }
+    
+	free(tmp);
+    free(rand_offsets);
+}
+
+static void graph_glass_neon(graph_t* g, int x, int y, int w, int h, int r) {
+    if (g == NULL || r == 0) {
+        return;
+    }
+
+	grect_t ir = {x, y, w, h};
+	if(!graph_insect(g, &ir))
+		return;
+	x = ir.x;
+	y = ir.y;
+	w = ir.w;
+	h = ir.h;
+
+	glass_neon(g->buffer, g->w, g->h, x, y, w, h, 2);
+}
+
+static void graph_gaussian_neon(graph_t* g, int x, int y, int w, int h, int r) {
     if (g == NULL || r == 0) {
         return;
     }
@@ -326,13 +450,18 @@ static void graph_glass_neon(graph_t* g, int x, int y, int w, int h, int8_t r) {
     free(temp);
 }
 
-inline void graph_glass_bsp(graph_t* g, int x, int y, int w, int h, int8_t r) {
+inline void graph_glass_bsp(graph_t* g, int x, int y, int w, int h, int r) {
     graph_glass_neon(g, x, y, w, h, r);
+}
+
+inline void graph_gaussian_bsp(graph_t* g, int x, int y, int w, int h, int r) {
+    graph_gaussian_neon(g, x, y, w, h, r);
 }
 
 bool  graph_2d_boosted_bsp(void) {
 	return true;
 }
+
 
 #else
 
@@ -350,8 +479,12 @@ inline void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw
 	graph_blt_alpha_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
 }
 
-inline void graph_glass_bsp(graph_t* g, int x, int y, int w, int h, int8_t r) {
+inline void graph_glass_bsp(graph_t* g, int x, int y, int w, int h, int r) {
 	graph_glass_cpu(g, x, y, w, h, r);
+}
+
+inline void graph_gaussian_bsp(graph_t* g, int x, int y, int w, int h, int r) {
+    graph_gaussian_cpu(g, x, y, w, h, r);
 }
 
 bool  graph_2d_boosted_bsp(void) {

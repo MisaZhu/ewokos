@@ -117,7 +117,7 @@ void graph_gradation(graph_t* graph, int x, int y, int w, int h, uint32_t c1, ui
 	}
 }
 
-void graph_glass_cpu(graph_t* g, int x, int y, int w, int h, int8_t r) {
+void graph_gaussian_cpu(graph_t* g, int x, int y, int w, int h, int r) {
     if (g == NULL || r <= 0) {
         return;
     }
@@ -247,13 +247,13 @@ void graph_glass_cpu(graph_t* g, int x, int y, int w, int h, int8_t r) {
     free(line_buffer);
 }
 
-void graph_glass(graph_t* g, int x, int y, int w, int h, int8_t r) {
+void graph_gaussian(graph_t* g, int x, int y, int w, int h, int r) {
     if(r > w)
         r = w;
     if(r > h)
         r = h;
         
-    graph_glass_bsp(g, x, y, w, h, r);
+    graph_gaussian_bsp(g, x, y, w, h, r);
 }
 
 void graph_shadow(graph_t* g, int x, int y, int w, int h, uint8_t shadow, uint32_t color) {
@@ -279,4 +279,65 @@ void graph_shadow(graph_t* g, int x, int y, int w, int h, uint8_t shadow, uint32
         uint8_t alpha = (uint8_t)(a * (bottomH-i)/bottomH);
         graph_line(g, bottomX+i, bottomY + i, bottomX+ i + bottomW, bottomY + i, (alpha << 24) | (0x00FFFFFF & color));
     }
+}
+
+/**
+ * 使用普通C实现的毛玻璃效果算法
+ * @param args 图像数据，uint32_t ARGB格式
+ * @param width 图像宽度
+ * @param height 图像高度
+ * @param x 处理区域左上角x坐标
+ * @param y 处理区域左上角y坐标
+ * @param w 处理区域宽度
+ * @param h 处理区域高度
+ * @param r 模糊半径
+ */
+void graph_glass_cpu(graph_t* g, int x, int y, int w, int h, int r) {
+    uint32_t* args = g->buffer;
+    int width = g->w;
+    int height = g->h;
+
+    // 参数检查
+    if (!args || r <= 0 || w <= 0 || h <= 0 || width <= 0 || height <= 0)
+        return;
+    if (x < 0 || y < 0 || x + w > width || y + h > height)
+        return;
+
+    // 创建临时缓冲区
+    uint32_t* temp = (uint32_t*)malloc(width * height * sizeof(uint32_t));
+    if (!temp) return;
+    
+    // 复制原始图像数据到临时缓冲区
+    memcpy(temp, args, width * height * sizeof(uint32_t));
+    
+    // 初始化随机数生成器（使用固定种子确保效果一致）
+    srand(0x12345678);
+    
+    // 处理每个像素
+    for (int j = y; j < y + h; j++) {
+        for (int i = x; i < x + w; i++) {
+            // 随机选择一个周围的像素
+            int rx = i + (rand() % (2 * r + 1)) - r;
+            int ry = j + (rand() % (2 * r + 1)) - r;
+            
+            // 边界检查
+            rx = (rx < x) ? x : ((rx >= x + w) ? x + w - 1 : rx);
+            ry = (ry < y) ? y : ((ry >= y + h) ? y + h - 1 : ry);
+            
+            // 从临时缓冲区中获取随机位置的像素值，并写入原图像
+            args[j * width + i] = temp[ry * width + rx];
+        }
+    }
+    
+    // 释放临时缓冲区
+    free(temp);
+}
+
+void graph_glass(graph_t* g, int x, int y, int w, int h, int r) {
+    if(r > w)
+        r = w;
+    if(r > h)
+        r = h;
+        
+    graph_glass_bsp(g, x, y, w, h, r);
 }

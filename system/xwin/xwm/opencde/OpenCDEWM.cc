@@ -76,7 +76,8 @@ enum {
     BG_EFFECT_NONE = 0,
     BG_EFFECT_TRANSPARENT,
     BG_EFFECT_DOT,
-    BG_EFFECT_GLASS
+    BG_EFFECT_GLASS,
+    BG_EFFECT_GAUSSIAN
 };
 
 void OpenCDEWM::drawBGEffect(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinfo_t* info, bool top) {
@@ -90,7 +91,7 @@ void OpenCDEWM::drawBGEffect(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g
 			info->winr.x,
 			info->winr.y,
 			info->winr.w,
-			info->winr.h, 0xCC);
+			info->winr.h, 0x88);
 	
 	switch(xwm.theme.bgEffect) {
 		case BG_EFFECT_TRANSPARENT:
@@ -107,11 +108,17 @@ void OpenCDEWM::drawBGEffect(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g
 				frame_g, 0, 0, info->winr.w, info->winr.h);
 			return;
 		case BG_EFFECT_GLASS:
-			graph_glass(desktop_g, info->winr.x, info->winr.y, info->winr.w, info->winr.h, 2);
+			graph_glass(desktop_g, info->wsr.x, info->wsr.y, info->wsr.w, info->wsr.h, 3);
 			graph_blt(desktop_g, 
 				info->winr.x, info->winr.y, info->winr.w, info->winr.h, 
 				frame_g, 0, 0, info->winr.w, info->winr.h);
 			return;
+		case BG_EFFECT_GAUSSIAN:
+			graph_gaussian(desktop_g, info->wsr.x, info->wsr.y, info->wsr.w, info->wsr.h, 3);
+			graph_blt(desktop_g, 
+				info->winr.x, info->winr.y, info->winr.w, info->winr.h, 
+				frame_g, 0, 0, info->winr.w, info->winr.h);
+		return;
 	}
 }
 
