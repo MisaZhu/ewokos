@@ -20,7 +20,7 @@ void ConfirmDialog::onBuild() {
 	RootWidget* root = new RootWidget();
 	setRoot(root);
 	root->setType(Container::VERTICLE);
-	
+	root->setAlpha(false);
 
 	Label* label = new Label("");
 	label->setID(1);
