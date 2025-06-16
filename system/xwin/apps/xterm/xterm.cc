@@ -172,6 +172,10 @@ protected:
 				uint32_t color = bgColorDialog.getColor();
 				uint8_t alpha = bgColorDialog.getTransparent();
 				consoleWidget->bgColorChange(color, alpha);
+				if(alpha != 0xFF)
+					setAlpha(true);
+				else
+					setAlpha(false);
 			}
 		}
 	}
@@ -266,6 +270,7 @@ static void* thread_loop(void* p) {
 	win.open(&x, 0, -1, -1, desk.w*2/3, desk.h*2/3, "xconsole", 0);
 	_win_opened = true;
 
+	win.setAlpha(true);
 	win.setTimer(10);
 
 	widgetXRun(&x, &win);
