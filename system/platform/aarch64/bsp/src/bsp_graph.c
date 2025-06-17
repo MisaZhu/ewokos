@@ -13,57 +13,66 @@ extern "C" {
 #include <arm_neon.h>
 
 #define MIN(a, b) (((a) > (b))?(b):(a))
-
-static inline void neon_alpha_8(uint32_t *b, uint32_t *f, uint32_t *d)
+static inline void neon_alpha_8(uint32_t *b, uint32_t *f, uint32_t *d, uint8_t alpha_more)
 {
     __asm volatile(
-        "ld4 {v20.8b, v21.8b, v22.8b, v23.8b}, [%1]\n\t"  // load foreground (R,G,B,A)
+        // 加载前景色(R,G,B,A)
+        "ld4 {v20.8b, v21.8b, v22.8b, v23.8b}, [%1]\n\t"
+        
+        // 计算叠加alpha: alpha = (src_alpha * alpha_more) / 255
+        "dup v31.8b, %w3\n\t"               // 复制alpha_more到整个向量
+        "umull v0.8h, v23.8b, v31.8b\n\t"    // alpha * alpha_more
+        "ushr v0.8h, v0.8h, #8\n\t"         // 除以256
+        "xtn v23.8b, v0.8h\n\t"             // 窄化到8位 (新alpha)
+        
+        // 计算反向alpha: 255 - alpha
         "movi v28.8b, #255\n\t"
-        "sub v28.8b, v28.8b, v23.8b\n\t"                 // 255 - alpha
+        "sub v28.8b, v28.8b, v23.8b\n\t"
         
-        // Multiply foreground by its alpha
-        "umull v1.8h, v20.8b, v23.8b\n\t"                // R * A
-        "umull v3.8h, v21.8b, v23.8b\n\t"                // G * A
-        "umull v5.8h, v22.8b, v23.8b\n\t"                // B * A
+        // 前景色乘以alpha
+        "umull v1.8h, v20.8b, v23.8b\n\t"   // R * A
+        "umull v3.8h, v21.8b, v23.8b\n\t"   // G * A
+        "umull v5.8h, v22.8b, v23.8b\n\t"   // B * A
         
-        "ld4 {v24.8b, v25.8b, v26.8b, v27.8b}, [%0]\n\t"  // load background (R,G,B,A)
+        // 加载背景色
+        "ld4 {v24.8b, v25.8b, v26.8b, v27.8b}, [%0]\n\t"
+        
+        // 背景色乘以反向alpha
+        "umull v2.8h, v24.8b, v28.8b\n\t"   // R * (1-A)
+        "umull v4.8h, v25.8b, v28.8b\n\t"   // G * (1-A)
+        "umull v6.8h, v26.8b, v28.8b\n\t"   // B * (1-A)
+        
+        // 计算最终alpha: oa = oa + (255 - oa) * a / 255
         "movi v29.8b, #255\n\t"
-        "sub v29.8b, v29.8b, v27.8b\n\t"                 // 255 - background alpha
+        "sub v29.8b, v29.8b, v27.8b\n\t"    // 255 - bg_alpha
+        "umull v7.8h, v29.8b, v23.8b\n\t"   // (255-oa)*a
+        "ushr v7.8h, v7.8h, #8\n\t"         // >> 8 (/256)
+        "umull v8.8h, v27.8b, v28.8b\n\t"   // bg_alpha * (1-fg_alpha)
+        "add v7.8h, v7.8h, v8.8h\n\t"       // 最终alpha
         
-        // Multiply background by inverse of foreground alpha
-        "umull v2.8h, v24.8b, v28.8b\n\t"                // R * (1-A)
-        "umull v4.8h, v25.8b, v28.8b\n\t"                // G * (1-A)
-        "umull v6.8h, v26.8b, v28.8b\n\t"                // B * (1-A)
-        
-        // Calculate resulting alpha: oa = oa + (255 - oa) * a / 255
-        "umull v7.8h, v29.8b, v23.8b\n\t"                // (255-oa)*a
-        "ushr v7.8h, v7.8h, #8\n\t"                     // >> 8 (/256)
-        "movi v29.8b, #1\n\t"
-        "umull v8.8h, v29.8b, v27.8b\n\t"                // 1 * oa
-        "add v7.8h, v7.8h, v8.8h\n\t"                    // sum
-        
-        // Sum foreground and background components
+        // 合并前景和背景
         "add v1.8h, v1.8h, v2.8h\n\t"
         "add v3.8h, v3.8h, v4.8h\n\t"
         "add v5.8h, v5.8h, v6.8h\n\t"
         
-        // Shift right by 8 (/256)
+        // 右移8位并窄化到8位
         "ushr v1.8h, v1.8h, #8\n\t"
         "ushr v3.8h, v3.8h, #8\n\t"
         "ushr v5.8h, v5.8h, #8\n\t"
+        "ushr v7.8h, v7.8h, #8\n\t"
         
-        // Narrow to 8-bit
         "xtn v20.8b, v1.8h\n\t"
         "xtn v21.8b, v3.8h\n\t"
         "xtn v22.8b, v5.8h\n\t"
         "xtn v23.8b, v7.8h\n\t"
         
-        // Store result
+        // 存储结果
         "st4 {v20.8b, v21.8b, v22.8b, v23.8b}, [%2]\n\t"
         :
-        : "r"(b), "r"(f), "r"(d)
-        : "memory", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", 
-          "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29");
+        : "r"(b), "r"(f), "r"(d), "r"(alpha_more)
+        : "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8",
+          "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29", "v31"
+    );
 }
 
 static inline void neon_8(uint32_t *s, uint32_t *d)
@@ -95,7 +104,7 @@ static inline void neon_fill_store(uint32_t *d)
 }
 
 static inline void graph_pixel_argb_neon(graph_t *graph, int32_t x, int32_t y,
-								  uint32_t *src, int size)
+								  uint32_t *src, int size, uint8_t alpha)
 {
 	uint32_t fg[8];
 	uint32_t bg[8];
@@ -103,13 +112,13 @@ static inline void graph_pixel_argb_neon(graph_t *graph, int32_t x, int32_t y,
 
 	if (size == 8)
 	{
-		neon_alpha_8(dst, src, dst);
+		neon_alpha_8(dst, src, dst, alpha);
 	}
 	else
 	{
 		memcpy(fg, src, 4 * size);
 		memcpy(bg, dst, 4 * size);
-		neon_alpha_8(bg, fg, bg);
+		neon_alpha_8(bg, fg, bg, alpha);
 		memcpy(dst, bg, 4 * size);
 	}
 }
@@ -164,7 +173,7 @@ void graph_fill_bsp(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint
 		for(; y < ey; y++) {
 			x = r.x;
 			for(; x < ex; x+=8) {
-				graph_pixel_argb_neon(g, x, y, buf, MIN(ex-x, 8));
+				graph_pixel_argb_neon(g, x, y, buf, MIN(ex-x, 8), 0xFF);
 			}
 		}
 	}
@@ -230,7 +239,7 @@ inline void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw
 		register int32_t dx = dr.x;
 		register int32_t offset = sy * src->w;
 		for(; sx < ex; sx+=8, dx+=8) {
-			graph_pixel_argb_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex-sx, 8));	
+			graph_pixel_argb_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex-sx, 8), alpha);	
 		}
 	}
 }
