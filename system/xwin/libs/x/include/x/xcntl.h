@@ -50,17 +50,18 @@ enum {
 #define X_UPDATE_REBUILD 0x1
 #define X_UPDATE_REFRESH 0x2
 
-#define XWIN_STYLE_NORMAL    0x0
-#define XWIN_STYLE_NO_FRAME  0x1
-#define XWIN_STYLE_NO_TITLE  0x2
-#define XWIN_STYLE_NO_RESIZE 0x4
-#define XWIN_STYLE_LAZY      0x8 //ignore all event
-#define XWIN_STYLE_NO_FOCUS  0x10
-#define XWIN_STYLE_SYSTOP    0x20
-#define XWIN_STYLE_SYSBOTTOM 0x40
-#define XWIN_STYLE_XIM       0x80
-#define XWIN_STYLE_LAUNCHER  0x100
-#define XWIN_STYLE_PROMPT    0x200 //prompt win
+#define XWIN_STYLE_NORMAL         0x0
+#define XWIN_STYLE_NO_FRAME       0x1
+#define XWIN_STYLE_NO_TITLE       0x2
+#define XWIN_STYLE_NO_RESIZE      0x4
+#define XWIN_STYLE_LAZY           0x8 //ignore all event
+#define XWIN_STYLE_NO_FOCUS       0x10
+#define XWIN_STYLE_SYSTOP         0x20
+#define XWIN_STYLE_SYSBOTTOM      0x40
+#define XWIN_STYLE_XIM            0x80
+#define XWIN_STYLE_LAUNCHER       0x100
+#define XWIN_STYLE_PROMPT         0x200 //prompt win
+#define XWIN_STYLE_NO_BG_EFFECT   0x400
 
 #define XWIN_TITLE_MAX 32
 #define X_APP_NAME_MAX 128
@@ -75,7 +76,6 @@ typedef struct {
 	bool is_main;
 	bool covered;
 	bool alpha;
-	bool anti_bg_effect;
 	bool focused;
 	grect_t wsr; //workspace rect
 	grect_t winr; //window rect

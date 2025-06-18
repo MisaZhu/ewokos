@@ -234,9 +234,8 @@ int main(int argc, char** argv) {
 	}
 
 	win.open(&x, 0, wr, "xlauncher",
-				XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER);
-				//XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_SYSBOTTOM);
-	win.setAntiBGEffect(true);
+				XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_NO_BG_EFFECT);
+				//XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_SYSBOTTOM  | XWIN_STYLE_NO_BG_EFFECT);
 	widgetXRun(&x, &win);
 	return 0;
 }

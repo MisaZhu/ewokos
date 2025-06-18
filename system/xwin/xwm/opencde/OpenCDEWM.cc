@@ -81,7 +81,7 @@ enum {
 };
 
 void OpenCDEWM::drawBGEffect(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinfo_t* info, bool top) {
-	if(top || info->anti_bg_effect || xwm.theme.bgEffect == BG_EFFECT_NONE)
+	if(top || xwm.theme.bgEffect == BG_EFFECT_NONE)
 		return;
 
 	graph_blt_alpha(frame_g, 0, 0, 

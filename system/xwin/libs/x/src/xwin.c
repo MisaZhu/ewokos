@@ -331,12 +331,6 @@ void xwin_set_alpha(xwin_t* xwin, bool alpha) {
 	xwin->xinfo->alpha = alpha;
 }
 
-void xwin_set_anti_bg_effect(xwin_t* xwin, bool anti_bg_effect) {
-	if(xwin->xinfo == NULL)
-		return;
-	xwin->xinfo->anti_bg_effect = anti_bg_effect;
-}
-
 int xwin_set_visible(xwin_t* xwin, bool visible) {
 	if(xwin->xinfo == NULL || xwin->xinfo->visible == visible)
 		return 0;

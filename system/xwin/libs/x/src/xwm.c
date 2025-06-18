@@ -179,8 +179,11 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 		}
 	}
 
-	if(xwm->draw_bg_effect != NULL)
+	if((info.style & XWIN_STYLE_NO_BG_EFFECT) == 0 &&
+			!info.focused &&
+			xwm->draw_bg_effect != NULL) {
 		xwm->draw_bg_effect(&desktop_g, &frame_g, &ws_g, &info, top, xwm->data);
+	}
 	free_win_graph(&frame_g);
 	free_win_graph(&ws_g);
 }

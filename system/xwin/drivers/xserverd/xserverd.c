@@ -99,6 +99,7 @@ static void prepare_win_content(x_t* x, xwin_t* win) {
 		display->g->w,
 		display->g->h,
 		win->xinfo, sizeof(xinfo_t));
+
 	if(win == x->win_focus)
 		PF->addi(&in, 1); //top win
 	else
