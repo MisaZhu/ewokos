@@ -285,6 +285,7 @@ static int32_t proc_init_space(proc_t* proc) {
 	proc->space->pde_index = pde_index;
 	proc->space->vm = vm;
 	proc->space->heap_size = 0;
+	proc->space->heap_used = 0;
 	return 0;
 }
 
@@ -595,6 +596,10 @@ void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 }
 
 inline void* proc_malloc(proc_t* proc, int32_t size) {
+
+	proc->space->heap_used += size;
+	size = proc->space->heap_used - proc->space->heap_size; 
+
 	if(size == 0)
 		return (void*)proc->space->malloc_base;
 
@@ -619,7 +624,7 @@ inline void* proc_malloc(proc_t* proc, int32_t size) {
 	}
 	else {
 		//printf("kproc expand pages: %d, size: %d\n", pages, size);
-		if(proc_expand_mem(proc, pages+1) != 0)
+		if(proc_expand_mem(proc, pages) != 0)
 			return NULL;
 	}
 	return (void*)proc->space->malloc_base;
@@ -764,6 +769,7 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 
 		uint32_t old_heap_size = ALIGN_UP(proc->space->heap_size, PAGE_SIZE);
 		while (proc->space->heap_size < (vaddr + memsz)) {
+			proc->space->heap_used += PAGE_SIZE;
 			if(proc_expand_mem(proc, 1) != 0){ 
 				kfree(proc_image);
 				return -1;
@@ -961,6 +967,7 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	}
 	flush_tlb();
 	child->space->heap_size = pages * PAGE_SIZE;
+	child->space->heap_used = pages * PAGE_SIZE;
 
 	// copy parent's stack to child's stack
 	int32_t i;

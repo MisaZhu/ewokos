@@ -34,6 +34,7 @@ typedef struct {
 	uint32_t           malloc_base;
 	uint32_t           rw_heap_base;
 	uint32_t           heap_size;
+	uint32_t           heap_used;
 	int32_t            refs;
 	bool               ready_ping;
 	
