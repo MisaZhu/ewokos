@@ -294,22 +294,17 @@ void graph_shadow(graph_t* g, int x, int y, int w, int h, uint8_t shadow, uint32
  */
 void graph_glass_cpu(graph_t* g, int x, int y, int w, int h, int r) {
     uint32_t* args = g->buffer;
-    int width = g->w;
-    int height = g->h;
-
-    // 参数检查
-    if (!args || r <= 0 || w <= 0 || h <= 0 || width <= 0 || height <= 0)
-        return;
-    if (x < 0 || y < 0 || x + w > width || y + h > height)
+    if(args == NULL)
         return;
 
-    // 创建临时缓冲区
-    uint32_t* temp = (uint32_t*)malloc(width * height * sizeof(uint32_t));
-    if (!temp) return;
-    
-    // 复制原始图像数据到临时缓冲区
-    memcpy(temp, args, width * height * sizeof(uint32_t));
-    
+    grect_t ir = {x, y, w, h};
+	if(!graph_insect(g, &ir))
+		return;
+	x = ir.x;
+	y = ir.y;
+	w = ir.w;
+	h = ir.h;
+
     // 初始化随机数生成器（使用固定种子确保效果一致）
     srand(0x12345678);
     
@@ -325,12 +320,9 @@ void graph_glass_cpu(graph_t* g, int x, int y, int w, int h, int r) {
             ry = (ry < y) ? y : ((ry >= y + h) ? y + h - 1 : ry);
             
             // 从临时缓冲区中获取随机位置的像素值，并写入原图像
-            args[j * width + i] = temp[ry * width + rx];
+            args[j * g->w + i] = args[ry * g->w + rx];
         }
     }
-    
-    // 释放临时缓冲区
-    free(temp);
 }
 
 void graph_glass(graph_t* g, int x, int y, int w, int h, int r) {

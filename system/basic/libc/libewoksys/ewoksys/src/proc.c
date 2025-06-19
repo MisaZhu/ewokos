@@ -227,11 +227,14 @@ inline uint32_t proc_get_uuid(int32_t pid) {
 	return _vsyscall_info->proc_info[pid].uuid;
 }
 
-inline void* proc_malloc_expand(uint32_t size) {
+inline void* proc_malloc_expand(int32_t size) {
+	//if(size <= 0)
+		//klog("proc_malloc_expand %d, pid: %d\n", size, getpid());
 	return (void*)syscall1(SYS_MALLOC_EXPAND, (ewokos_addr_t)size);
 }
 
 inline void* proc_malloc_free(void) {
+	//klog("proc_free, pid: %d\n", getpid());
 	syscall0(SYS_FREE);
 }
 

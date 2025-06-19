@@ -418,7 +418,7 @@ _sbrk (ptrdiff_t incr)
   char *prev_heap_end;
 
   __heap_size += incr;
-  __heap_ptr = (void*)syscall1(SYS_MALLOC_EXPAND, (ewokos_addr_t)incr);
+  __heap_ptr = proc_malloc_expand(incr);
   if(incr > 0)
   	memset(__heap_end, 0, incr);
 
@@ -433,7 +433,7 @@ _sbrk (ptrdiff_t incr)
 
 void _libc_init(void){
 	kout(__func__);	
-	__heap_ptr = (void*)syscall1(SYS_MALLOC_EXPAND, 16384);
+	__heap_ptr = proc_malloc_expand(16384);
 	__heap_end = __heap_ptr;
 	__heap_size = 16384;	
 	memset(__heap_ptr, 0, __heap_size);
