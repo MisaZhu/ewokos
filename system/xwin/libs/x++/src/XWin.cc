@@ -117,7 +117,7 @@ bool XWin::open(X* xp, uint32_t dispIndex, int x, int y, uint32_t w, uint32_t h,
 		return false;
 	displayIndex = dispIndex;
 
-	xscreen_t scr;
+	xscreen_info_t scr;
 	X::getScreenInfo(scr, dispIndex);
 
 	uint32_t minW = scr.size.w/3;

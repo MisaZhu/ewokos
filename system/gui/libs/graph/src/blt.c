@@ -37,7 +37,12 @@ int32_t grect_insect(const grect_t* src, grect_t* dst) {
 		dst->h -= (src->y - dst->y);
 		dst->y = src->y;
 	}
-	if(dst->w <= 0 || dst->h <= 0)
+
+	if(dst->w < 0)
+		dst->w = 0;
+	if(dst->h < 0)
+		dst->h = 0;
+	if(dst->w == 0 || dst->h == 0)
 		return 0;
 	return 1;
 }

@@ -112,9 +112,6 @@ static void do_esc_color(gterminal_t* terminal, uint16_t* values, uint8_t vnum) 
             terminal->term_conf.bg_color = g_color(terminal, v, 0);
         }
     }
-
-    if(terminal->term_conf.fg_color == 0)
-        terminal->term_conf.fg_color = terminal->fg_color;
 }
 
 static void do_esc_clear(gterminal_t* terminal, uint16_t* values, uint8_t vnum) {
@@ -271,6 +268,8 @@ static void gterminal_draw_char(graph_t* g,
         void*p) {
     gterminal_t* terminal = (gterminal_t*)p;
     uint32_t fg = tch->color, bg = tch->bg_color;
+    if(fg == 0)
+        fg = terminal->fg_color;
     if(bg == 0)
         bg = terminal->bg_color;
 
@@ -319,15 +318,13 @@ void gterminal_put(gterminal_t* terminal, const char* buf, int size) {
         textchar_t tch;
         tch.c = c;
         if(terminal->term_conf.set == 0) {
-            tch.bg_color = 0;
-            tch.color = terminal->fg_color;
-            tch.state = 0;
+            terminal->term_conf.fg_color = 0;
+            terminal->term_conf.bg_color = 0;
+            terminal->term_conf.state = 0;
         }
-        else {
-            tch.bg_color = terminal->term_conf.bg_color;
-            tch.color = terminal->term_conf.fg_color;
-            tch.state = terminal->term_conf.state;
-        }
+        tch.bg_color = terminal->term_conf.bg_color;
+        tch.color = terminal->term_conf.fg_color;
+        tch.state = terminal->term_conf.state;
         textgrid_push(terminal->textgrid, &tch);
     }
     int32_t start_row = (int32_t)terminal->textgrid->rows - (int32_t)terminal->rows;

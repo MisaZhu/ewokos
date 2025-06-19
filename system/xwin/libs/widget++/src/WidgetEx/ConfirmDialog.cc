@@ -25,6 +25,7 @@ void ConfirmDialog::onBuild() {
 	Label* label = new Label("");
 	label->setID(1);
 	root->add(label);
+	label->setLabel(message);
 
 	Container* c = new Container();
 	c->setType(Container::HORIZONTAL);
@@ -40,17 +41,9 @@ void ConfirmDialog::onBuild() {
 }
 
 ConfirmDialog::ConfirmDialog(const string& msg) {
-    build();
-	setMessage(msg);
+	message = msg;
 }
 
 void ConfirmDialog::setMessage(const string& msg) {
-	if(root == NULL)
-		return;
-
-	Label* label = (Label*)root->get(1);
-	if(label == NULL)
-		return;
-
-	label->setLabel(msg);
+	message = msg;
 }

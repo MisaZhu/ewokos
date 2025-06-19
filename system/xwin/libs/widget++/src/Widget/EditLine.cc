@@ -70,6 +70,7 @@ void EditLine::onInput() {
 EditLine::EditLine() {
 	showCur = true;
 	curTimerCounter = 0;
+	onInputFunc = NULL;
 }
 
 void EditLine::onFocus(void) {

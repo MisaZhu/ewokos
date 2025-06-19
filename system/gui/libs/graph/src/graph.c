@@ -67,6 +67,22 @@ graph_t* graph_new(uint32_t* buffer, int32_t w, int32_t h) {
 	return ret;
 }
 
+graph_t* graph_dup(graph_t* g) {
+	if(g == NULL || g->buffer == NULL)
+		return NULL;
+
+	graph_t* ret = graph_new(NULL, g->w, g->h);
+	if(ret == NULL)
+		return NULL;
+	ret->buffer = (uint32_t*)malloc(g->w*g->h*4);
+	if(ret->buffer == NULL) {
+		graph_free(ret);
+		return NULL;
+	}
+	memcpy(ret->buffer, g->buffer, g->w*g->h*4);
+	return ret;
+}
+
 void graph_free(graph_t* g) {
 	if(g == NULL)
 		return;

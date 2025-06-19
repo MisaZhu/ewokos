@@ -7,6 +7,8 @@
 #include <Widget/Grid.h>
 #include <Widget/Scroller.h>
 #include <WidgetEx/FileDialog.h>
+#include <WidgetEx/ColorDialog.h>
+#include <WidgetEx/Menubar.h>
 
 #include <x++/X.h>
 #include <unistd.h>
@@ -27,7 +29,9 @@ protected:
 		graph_draw_text_font(g, r.x+4, y, label.c_str(), font, theme->basic.fontSize, theme->basic.titleColor);
 	}
 public:
-	StatusLabel(const char* label) : Label(label) {}
+	StatusLabel(const char* label) : Label(label) {
+		alpha = false;
+	}
 };
 
 class ImageView: public Scrollable {
@@ -38,43 +42,10 @@ class ImageView: public Scrollable {
 	float zoom;
 	gpos_t  last_mouse_down;
 	StatusLabel* statusLabel;
+	uint32_t bgColor;
 
 	void background(graph_t* g, uint32_t sz, const grect_t& r) {
-		graph_set(g, r.x, r.y, r.w, r.h, 0);
-		int x = r.x;
-		int y = r.y;
-		uint32_t c1;
-		uint32_t c2;
-		for(int i=0; ;i++) {
-			if((i%2) == 0) {
-				c1 = 0xff888888;
-				c2 = 0xff4444444;
-			}
-			else {
-				c2 = 0xff888888;
-				c1 = 0xff444444;
-			}
-
-			for(int j=0; ;j++) {
-				graph_fill(g, x, y, sz, sz, (j%2)==0? c1:c2);
-				x += sz;
-				if(x >= r.x + r.w)
-					break;
-			}
-			x = 0;
-			y += sz;
-			if(y >= r.y + r.h)
-				break;
-		}
-	}
-	void zoomImg() {
-		if(img != NULL)
-			graph_free(img);
-		img = graph_scalef(imgOrig, zoom);
-		if(img->w < area.w)
-			off_x = 0;
-		if(img->h < area.h)
-			off_y = 0;
+		graph_set(g, r.x, r.y, r.w, r.h, bgColor);
 	}
 protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
@@ -82,27 +53,31 @@ protected:
 		if(img == NULL)
 			return;
 
-		grect_t ir = {r.x-off_x, r.y-off_y, img->w, img->h};
-		int dw = r.x + r.w - ir.x - ir.w;
-		ir.w = ir.w + dw;
-		int dh = r.y + r.h - ir.y - ir.h;
-		ir.h = ir.h + dh;
+		int dw = img->w-off_x;
+		if(dw > r.w)
+			dw = r.w;
 
-		graph_blt_alpha(img, 0, 0, img->w, img->h,
-				g, ir.x, ir.y, ir.w, ir.h, 0xff);
+		int dh = img->h-off_y;
+		if(dh > r.h)
+			dh = r.h;
+		graph_blt_alpha(img, off_x, off_y, img->w-off_x, img->h-off_y,
+				g, r.x, r.y, dw, dh, 0xff);
 	}
 
 	bool onScroll(int step, bool horizontal) {
+		if(img == NULL)
+			return false;
+
 		if(horizontal) {
 			off_x -=  step * dragStep;
-			if(off_x < 0)
+			if(off_x < 0 || (img->w-area.w) < 0)
 				off_x = 0;
 			else if(off_x > (img->w-area.w))
 				off_x = img->w-area.w;
 		}
 		else {
 			off_y -= step * dragStep;
-			if(off_y < 0)
+			if(off_y < 0 || (img->h-area.h) < 0)
 				off_y = 0;
 			else if(off_y > (img->h-area.h))
 				off_y = img->h-area.h;
@@ -126,31 +101,6 @@ protected:
 			statusLabel->setLabel(s);
 		}
 	}
-
-	bool onMouse(xevent_t* ev) {
-		Scrollable::onMouse(ev);
-
-		if(ev->state == MOUSE_STATE_MOVE) {
-			if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP) {
-				zoom += 0.2;
-				if(zoom > 2.0)
-					zoom = 3.0;
-				zoomImg();
-				updateScroller();
-				update();
-			}
-			else if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_DOWN) {
-				zoom -= 0.4;
-				if(zoom < 0.4)
-					zoom = 0.4;
-				zoomImg();
-				updateScroller();
-				update();
-			}
-		}
-		return true;
-	}
-
 
 	bool onIM(xevent_t* ev) {
 		if(ev->state == XIM_STATE_PRESS) {
@@ -196,11 +146,11 @@ public:
 		imgOrig = NULL;
 		off_x = 0;
 		off_y = 0;
+		bgColor = 0x88000000;
 		zoom = 1.0;
 		last_mouse_down.x = 0;
 		last_mouse_down.y = 0;
 		statusLabel = NULL;
-		alpha = true;
 	}
 
 	~ImageView() {
@@ -216,26 +166,68 @@ public:
 			graph_free(imgOrig);
 
 		imgOrig = png_image_new(fname);
-		zoom = 1.0;
-		zoomImg();
-		updateScroller();
-		update();
+		zoomImgTo(1.0);
 	}
 
 	void setStatusLabel(StatusLabel* l) {
 		statusLabel = l;
 	}
+
+	void zoomImgTo(float zoom) {
+		if(zoom < 0.4)
+			zoom = 0.4;
+		else if(zoom > 8.0)
+			zoom = 8.0;
+
+		if(img != NULL)
+			graph_free(img);
+		img = graph_scalef(imgOrig, zoom);
+		if(img->w < area.w)
+			off_x = 0;
+		if(img->h < area.h)
+			off_y = 0;
+		
+		this->zoom = zoom;	
+		updateScroller();
+		update();
+	}
+
+	void zoomImg(bool in) {
+		if(in)
+			zoom += 0.2;
+		else
+			zoom -= 0.2;
+		zoomImgTo(zoom);
+	}
+
+	void setBGColor(uint32_t color, uint8_t alpha) {
+		bgColor = (color & 0x00ffffff) | (alpha << 24);
+		update();
+	}
+
+	uint32_t getBGColor() {
+		return bgColor;
+	}
 };
 
 class PngWin: public WidgetWin{
 	FileDialog fdialog;
+	ColorDialog cdialog;
 	ImageView* imgView;
 protected:
 	void onDialoged(XWin* from, int res) {
 		if(res == Dialog::RES_OK) {
-			string fname = fdialog.getResult();
-			imgView->loadImage(fname.c_str());
-			repaint();
+			if(from == &fdialog) {
+				load(imgView, fdialog.getResult().c_str());
+				string fname = fdialog.getResult();
+				imgView->loadImage(fname.c_str());
+				repaint();
+			}
+			else if(from == &cdialog) {
+				uint32_t color = cdialog.getColor();
+				uint8_t alpha = cdialog.getTransparent();
+				imgView->setBGColor(color, alpha);
+			}
 		}
 	}
 public:
@@ -247,6 +239,12 @@ public:
 		else
 			imgView->loadImage(fname.c_str());
 		repaint();
+	}
+
+	void setBGColor(ImageView* imgView) {
+		this->imgView = imgView;
+		cdialog.popup(this, 256, 160, "bgColor", XWIN_STYLE_NO_RESIZE);
+		cdialog.setColor(imgView->getBGColor());
 	}
 };
 
@@ -264,13 +262,40 @@ public:
 	}
 };
 
+static void onLoadFunc(MenuItem* it, void* p) {
+	ImageView* imgView = (ImageView*)p;
+	PngWin* pngWin = (PngWin*)imgView->getWin();
+	pngWin->load(imgView, "");
+}
+
+static void onZoomInFunc(MenuItem* it, void* p) {
+	ImageView* imgView = (ImageView*)p;
+	imgView->zoomImg(true);
+}
+
+static void onZoomOutFunc(MenuItem* it, void* p) {
+	ImageView* imgView = (ImageView*)p;
+	imgView->zoomImg(false);
+}
+
+static void onBGColorFunc(MenuItem* it, void* p) {
+	ImageView* imgView = (ImageView*)p;
+	PngWin* pngWin = (PngWin*)imgView->getWin();
+	pngWin->setBGColor(imgView);
+}
+
 int main(int argc, char** argv) {
 	X x;
 	PngWin win;
 	RootWidget* root = new RootWidget();
 	win.setRoot(root);
 	root->setType(Container::VERTICLE);
-	root->setAlpha(true);
+	
+
+	Menubar* menubar = new Menubar();
+	root->add(menubar);
+	menubar->fix(0, 20);
+	menubar->setItemSize(72);
 
 	Container* c = new Container();
 	c->setType(Container::HORIZONTAL);
@@ -294,11 +319,13 @@ int main(int argc, char** argv) {
 	statusLabel->fix(0, 20);
 	root->add(statusLabel);
 
-	LoadButton *lbutton = new LoadButton(&win, imgView);
-	lbutton->fix(0, 20);
-	root->add(lbutton);
+	menubar->add("load", NULL, NULL, onLoadFunc, imgView);
+	menubar->add("zoom_in", NULL, NULL, onZoomInFunc, imgView);
+	menubar->add("zoom_out", NULL, NULL, onZoomOutFunc, imgView);
+	menubar->add("BGColor", NULL, NULL, onBGColorFunc, imgView);
 
 	win.open(&x, 0, -1, -1, 400, 300, "xpng", XWIN_STYLE_NORMAL);
+	win.setAlpha(true);
 	if(argc >= 2)
 		win.load(imgView, argv[1]);
 

@@ -11,7 +11,8 @@ class RootWidget: public Container {
 	WidgetWin* xwin;
 	bool doRefresh;
 	Widget* focusedWidget;
-	//void onRepaint(graph_t* g, XTheme* theme, const grect_t& r);
+	Widget* dragedWidget;
+	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r);
 public:
 	friend WidgetWin;
 	RootWidget();
@@ -24,6 +25,8 @@ public:
 	void focus(Widget* wd);
 	void onFocus();
 	inline Widget* getFocused() { return focusedWidget; }
+	inline Widget* getDraged() { return dragedWidget; }
+	inline void drag(Widget* wd) { dragedWidget = wd; }
 
 	void repaintWin();
 	void update();

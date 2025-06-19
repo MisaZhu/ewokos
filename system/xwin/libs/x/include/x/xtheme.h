@@ -49,6 +49,7 @@ typedef struct {
 	char     patternName[THEME_NAME_MAX];
 	uint32_t titleH;
 	uint32_t frameW;
+	uint32_t shadow;
 	uint32_t fontSize;
 	uint32_t bgColor;
 	uint32_t fgColor;
@@ -56,6 +57,8 @@ typedef struct {
 	uint32_t fgTopColor;
 	uint32_t desktopFGColor;
 	uint32_t desktopBGColor;
+	uint32_t bgEffect;
+	bool     alpha;
 } xwm_theme_t;
 
 #ifdef __cplusplus

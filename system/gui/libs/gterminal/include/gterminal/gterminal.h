@@ -20,6 +20,7 @@ typedef struct {
 typedef struct {
 	uint32_t fg_color;
 	uint32_t bg_color;
+	uint8_t  transparent;
 	font_t* font;
 	uint32_t font_size;
 	int32_t char_space;

@@ -169,6 +169,7 @@ int main(int argc, char** argv) {
 	win.setRoot(root);
 	root->setType(Container::HORIZONTAL);
 	root->setAlpha(false);
+	
 
 	Cores* cores = new Cores();
 	root->add(cores);

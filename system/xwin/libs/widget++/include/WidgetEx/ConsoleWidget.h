@@ -17,12 +17,17 @@ public:
 		int32_t charSpace,
 		int32_t lineSpace,
 		uint32_t fgColor,
-		uint32_t bgColor);
+		uint32_t bgColor,
+		uint8_t transparent);
 
 	void push(const char* buf, int size);
 	void flash();
 
 	void setFont(const string& fontName);
+
+	gterminal_t* getTerminal() {
+		return &terminal;
+	}
 
 protected:
 	gterminal_t terminal;

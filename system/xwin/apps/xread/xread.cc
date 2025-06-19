@@ -22,7 +22,9 @@ protected:
 		graph_draw_text_font(g, r.x+4, y, label.c_str(), font, theme->basic.fontSize, theme->basic.titleColor);
 	}
 public:
-	StatusLabel(const char* label) : Label(label) {}
+	StatusLabel(const char* label) : Label(label) {
+		alpha = false;
+	}
 };
 
 class MyText: public Text {
@@ -40,7 +42,6 @@ protected:
 		else
 			snprintf(s, 127, "--%%");
 		statusLabel->setLabel(s);
-		
 	}
 	
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
@@ -163,7 +164,7 @@ int main(int argc, char** argv) {
 	RootWidget* root = new RootWidget();
 	win.setRoot(root);
 	root->setType(Container::VERTICLE);
-	root->setAlpha(false);
+	
 
 	Container* c = new Container();
 	c->setType(Container::HORIZONTAL);

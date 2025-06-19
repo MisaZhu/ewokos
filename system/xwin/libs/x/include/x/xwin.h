@@ -4,6 +4,7 @@
 #include <graph/graph.h>
 #include <x/xcntl.h>
 #include <x/xevent.h>
+#include <pthread.h>
 #include <x/x.h>
 
 #ifdef __cplusplus
@@ -15,10 +16,11 @@ typedef struct st_xwin {
 	int fd;
 	void* data;
 
-	void* g_shm;
+	void* ws_g_shm;
 	int32_t xinfo_shm_id;
 	xinfo_t *xinfo;
 	xinfo_t xinfo_prev; //for backup the state before fullscreen/min/max.
+	pthread_mutex_t painting_lock;
 
 	bool (*on_close)(struct st_xwin* xwin);
 	void (*on_min)(struct st_xwin* xwin);

@@ -1,8 +1,12 @@
 export HW=raspix
 
 ifeq ($(ARCH),)
-export ARCH=arm
-#export ARCH=aarch64
+#export ARCH=arm
+export ARCH=aarch64
+endif
+
+ifeq ($(ARCH),arm)
+export ARCH_VER=v7
 endif
 
 

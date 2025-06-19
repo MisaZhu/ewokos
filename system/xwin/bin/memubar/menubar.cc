@@ -53,6 +53,7 @@ class PowerInfo : public Widget {
 
 protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
+		graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
 		grect_t rb = {r.x+4, r.y+4, r.w-8, r.h-8};
 		drawBase(g, rb);
 		if(charging)
@@ -98,7 +99,7 @@ public:
 
 int main(int argc, char** argv) {
 	X x;
-	xscreen_t scr;
+	xscreen_info_t scr;
 	X::getScreenInfo(scr, 0);
 
 	WidgetWin win;
@@ -131,7 +132,7 @@ int main(int argc, char** argv) {
 	powerInfo->fix(48, 0);
 	root->add(powerInfo);
 
-	win.open(&x, 0, 0, 0, scr.size.w, 20, "", XWIN_STYLE_NO_FOCUS | XWIN_STYLE_SYSBOTTOM | XWIN_STYLE_NO_FRAME);
+	win.open(&x, 0, 0, 0, scr.size.w, 20, "manubar", XWIN_STYLE_NO_FOCUS | XWIN_STYLE_SYSBOTTOM | XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_BG_EFFECT);
 	win.setTimer(2);
 	widgetXRun(&x, &win);
 	return 0;

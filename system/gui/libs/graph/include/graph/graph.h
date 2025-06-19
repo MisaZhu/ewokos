@@ -60,6 +60,7 @@ uint32_t argb_int(uint32_t c);
 void     graph_init(graph_t* g, const uint32_t* buffer, int32_t w, int32_t h);
 graph_t* graph_new(uint32_t* buffer, int32_t w, int32_t h);
 void     graph_free(graph_t* g);
+graph_t* graph_dup(graph_t* g);
 
 int32_t  graph_insect_with(graph_t* src, grect_t* sr, graph_t* dst, grect_t* dr);
 int32_t  graph_insect(graph_t* g, grect_t* r);
@@ -72,6 +73,7 @@ void     graph_pixel_argb(graph_t* graph, int32_t x, int32_t y,
 void     graph_pixel_argb_safe(graph_t* graph, int32_t x, int32_t y,
 			uint8_t a, uint8_t r, uint8_t g, uint8_t b);
 void     graph_pixel(graph_t* g, int32_t x, int32_t y, uint32_t color);
+uint32_t graph_get_pixel(graph_t* g, int32_t x, int32_t y);
 
 void     graph_clear(graph_t* g, uint32_t color);
 
@@ -94,6 +96,9 @@ void     graph_wline(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2,
 
 void     graph_circle(graph_t* g, int32_t x, int32_t y, int32_t radius, uint32_t color);
 void     graph_fill_circle(graph_t* g, int32_t x, int32_t y, int32_t radius, uint32_t color);
+
+void     graph_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, float start_angle, float end_angle, uint32_t color);
+void     graph_fill_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, float start_angle, float end_angle, uint32_t color);
 
 void     graph_fill_round(graph_t* g, int32_t x, int32_t y, 
 			int32_t w, int32_t h,

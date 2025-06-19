@@ -9,11 +9,12 @@ namespace Ewok {
 
 void ConsoleWidget::drawBG(graph_t* g, const grect_t& r) {
 	graph_set(g, r.x, r.y, r.w, r.h, terminal.bg_color);
+	RootWidget* root = getRoot();
 	if(color_a(terminal.bg_color) != 0xff) {
 		setAlpha(true);
-		RootWidget* root = getRoot();
-		if(root)
-			root->setAlpha(true);
+	}
+	else {
+		setAlpha(false);
 	}
 }
 
@@ -34,12 +35,14 @@ bool ConsoleWidget::config(const char* fontName,
 		int32_t charSpace,
 		int32_t lineSpace,
 		uint32_t fgColor,
-		uint32_t bgColor) {
+		uint32_t bgColor,
+		uint8_t transparent) {
 	terminal.font_size = fontSize;
 	terminal.char_space = charSpace;
 	terminal.line_space = lineSpace;
 	terminal.fg_color = fgColor;
-	terminal.bg_color = bgColor;
+	terminal.bg_color = (bgColor & 0x00ffffff) | ((transparent & 0xff) << 24);
+	terminal.transparent = transparent;
 
 	if(fontName != NULL && fontName[0] != 0) {
 		if(terminal.font != NULL)
@@ -107,6 +110,7 @@ void ConsoleWidget::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 bool ConsoleWidget::onMouse(xevent_t* ev) {
 	if(ev->state == MOUSE_STATE_DOWN) {
 		mouse_last_y = ev->value.mouse.y;
+		return true;
 	}
 	else if(ev->state == MOUSE_STATE_DRAG) {
 		if(ev->value.mouse.y > mouse_last_y)
@@ -115,18 +119,21 @@ bool ConsoleWidget::onMouse(xevent_t* ev) {
 			gterminal_scroll(&terminal, 1);
 		mouse_last_y = ev->value.mouse.y;
 		update();
+		return true;
 	}
 	else if(ev->state == MOUSE_STATE_MOVE) {
 		if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP) {
 			gterminal_scroll(&terminal, 1);
 			update();
+			return true;
 		}
 		else if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_DOWN) {
 			gterminal_scroll(&terminal, -1);
 			update();
+			return true;
 		}
 	}
-	return true;
+	return false;
 }
 
 bool ConsoleWidget::onIM(xevent_t* ev) {

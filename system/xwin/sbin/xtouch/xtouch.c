@@ -106,7 +106,7 @@ int main(int argc, char** argv) {
 	while(true) {
 		_x_pid = dev_get_pid("/dev/x");
 		if(_x_pid > 0) {
-			xscreen_t scr;
+			xscreen_info_t scr;
 			x_screen_info(&scr, 0);
 			_scr_w = scr.size.w;
 			_scr_h = scr.size.h;

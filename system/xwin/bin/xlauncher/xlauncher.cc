@@ -199,7 +199,7 @@ int main(int argc, char** argv) {
 	RootWidget* root = new RootWidget();
 	win.setRoot(root);
 	root->setType(Container::HORIZONTAL);
-	root->setAlpha(false);
+	
 
 	AppList* apps = new AppList();
 	apps->loadConfig();
@@ -234,9 +234,8 @@ int main(int argc, char** argv) {
 	}
 
 	win.open(&x, 0, wr, "xlauncher",
-				XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER);
-				//XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_SYSBOTTOM);
-
+				XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_NO_BG_EFFECT);
+				//XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_SYSBOTTOM  | XWIN_STYLE_NO_BG_EFFECT);
 	widgetXRun(&x, &win);
 	return 0;
 }

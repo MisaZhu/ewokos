@@ -215,6 +215,7 @@ Container::Container() {
 	children = NULL;
 	childrenEnd = NULL;
 	type = FIXED;
+	alpha = true;
 	num = 0;
 }
 

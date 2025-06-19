@@ -82,6 +82,7 @@ protected:
 		if(ev->state == MOUSE_STATE_DOWN) {
 			last_mouse_down = ipos.y;
 			update();
+			return true;
 		}
 		else if(ev->state == MOUSE_STATE_DRAG) {
 			int pos = ipos.y;
@@ -90,16 +91,19 @@ protected:
 				last_mouse_down = pos;
 				scroll(mv, false);
 			}
+			return true;
 		}
 		else if(ev->state == MOUSE_STATE_MOVE) {
 			if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP) {
 				scroll(-16, false);
+				return true;
 			}
 			else if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_DOWN) {
 				scroll(16, false);
+				return true;
 			}
 		}
-		return true;
+		return false;
 	}
 
 public: 
@@ -197,7 +201,7 @@ int main(int argc, char** argv) {
 	RootWidget* root = new RootWidget();
 	win.setRoot(root);
 	root->setType(Container::HORIZONTAL);
-	root->setAlpha(false);
+	
 
 	FontList* list = new FontList();
 	list->loadFont();

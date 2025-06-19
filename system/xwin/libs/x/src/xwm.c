@@ -24,7 +24,7 @@ typedef struct {
 
 static xwm_graph_t _xwm_graph;
 
-static int fetch_graph(xwm_t* xwm, int32_t shm_id, int w, int h, graph_t* g) {
+static bool fetch_desktop_graph(xwm_t* xwm, int32_t shm_id, int w, int h, graph_t* g) {
 	(void)xwm;
 	uint8_t* g_buf = NULL;
 	if(w == _xwm_graph.w && h == _xwm_graph.h && shm_id == _xwm_graph.shm_id)
@@ -42,9 +42,45 @@ static int fetch_graph(xwm_t* xwm, int32_t shm_id, int w, int h, graph_t* g) {
 	}
 
 	if(g_buf == NULL)
-		return -1;
+		return false;
 	graph_init(g, g_buf, w, h);
-	return 0;
+	return true;
+}
+
+static bool fetch_frame_graph(xwm_t* xwm, xinfo_t* info, graph_t* g) {
+	if(info == NULL || info->frame_g_shm_id == -1)
+		return false;
+	memset(g, 0, sizeof(graph_t));
+
+	uint32_t* frame_g_shm = (uint32_t*)shmat(info->frame_g_shm_id, 0, 0);
+	if(frame_g_shm == NULL)
+		return false;
+	g->buffer = frame_g_shm;
+	g->w = info->winr.w;
+	g->h = info->winr.h;
+	g->need_free = false;
+	return true;
+}
+
+static bool fetch_ws_graph(xwm_t* xwm, xinfo_t* info, graph_t* g) {
+	if(info == NULL || info->ws_g_shm_id == -1)
+		return false;
+	memset(g, 0, sizeof(graph_t));
+
+	uint32_t* ws_g_shm = (uint32_t*)shmat(info->ws_g_shm_id, 0, 0);
+	if(ws_g_shm == NULL)
+		return false;
+	g->buffer = ws_g_shm;
+	g->w = info->wsr.w;
+	g->h = info->wsr.h;
+	g->need_free = false;
+	return true;
+}
+
+static void free_win_graph(graph_t* g) {
+	if(g->buffer == NULL)
+		return;
+	shmdt(g->buffer);
 }
 
 static void draw_drag_frame(xwm_t* xwm, proto_t* in) {
@@ -58,7 +94,7 @@ static void draw_drag_frame(xwm_t* xwm, proto_t* in) {
 	proto_read_to(in, &r, sizeof(grect_t));
 
 	graph_t g;
-	if(fetch_graph(xwm, shm_id, xw, xh, &g) == 0) {
+	if(fetch_desktop_graph(xwm, shm_id, xw, xh, &g)) {
 		if(xwm->draw_drag_frame != NULL)
 			xwm->draw_drag_frame(&g, &r, xwm->data);
 		else
@@ -80,14 +116,24 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 	if(xw <= 0 || xh <= 0)
 		return;
 
-	graph_t g;
-	if(fetch_graph(xwm, shm_id, xw, xh, &g) == 0) {
-		grect_t rtitle, rclose, rmax, rmin, rresize;
+	graph_t desktop_g;
+	graph_t frame_g;
+	graph_t ws_g;
+	if(!fetch_desktop_graph(xwm, shm_id, xw, xh, &desktop_g))
+		return;
+	if(!fetch_frame_graph(xwm, &info, &frame_g))
+		return;
+	if(!fetch_ws_graph(xwm, &info, &ws_g))
+		return;
+	
+	if((info.style & XWIN_STYLE_NO_FRAME) == 0) {
+		grect_t rtitle, rclose, rmax, rmin, rresize, rframe;
 		memset(&rtitle, 0, sizeof(grect_t));
 		memset(&rclose, 0, sizeof(grect_t));
 		memset(&rmax, 0, sizeof(grect_t));
 		memset(&rmin, 0, sizeof(grect_t));
 		memset(&rresize, 0, sizeof(grect_t));
+		memset(&rframe, 0, sizeof(grect_t));
 
 		if(xwm->get_title != NULL)
 			xwm->get_title(&info, &rtitle, xwm->data);
@@ -99,34 +145,47 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 			xwm->get_min(&info, &rmin, xwm->data);
 		if(xwm->get_resize != NULL)
 			xwm->get_resize(&info, &rresize, xwm->data);
+		if(xwm->get_frame != NULL)
+			xwm->get_frame(&info, &rframe, xwm->data);
 
 		if((info.style & XWIN_STYLE_NO_TITLE) == 0) {
 			if(xwm->draw_title != NULL && rtitle.w > 0 && rtitle.h > 0)
-				xwm->draw_title(&g, &info, &rtitle, top, xwm->data);
+				xwm->draw_title(&desktop_g, &frame_g, &info, &rtitle, top, xwm->data);
 
 			if((info.style & XWIN_STYLE_NO_RESIZE) == 0) {
 				if(xwm->draw_max != NULL && rmax.w > 0 && rmax.h > 0)
-					xwm->draw_max(&g, &info, &rmax, top, xwm->data);
+					xwm->draw_max(&frame_g, &info, &rmax, top, xwm->data);
 				if(xwm->draw_min != NULL && rmin.w > 0 && rmin.h > 0)
-					xwm->draw_min(&g, &info, &rmin, top, xwm->data);
+					xwm->draw_min(&frame_g, &info, &rmin, top, xwm->data);
 			}
 
 			if(xwm->draw_close != NULL && rclose.w > 0 && rclose.h > 0)
-				xwm->draw_close(&g, &info, &rclose, top, xwm->data);
+				xwm->draw_close(&frame_g, &info, &rclose, top, xwm->data);
 		}
 
 		if(info.state != XWIN_STATE_MAX) {
 			if(xwm->draw_frame != NULL)
-				xwm->draw_frame(&g, &info, top, xwm->data);
+				xwm->draw_frame(&desktop_g, &frame_g, &ws_g, &info, &rframe, top, xwm->data);
 
 			if((info.style & XWIN_STYLE_NO_TITLE) == 0) {
 				if((info.style & XWIN_STYLE_NO_RESIZE) == 0) {
 					if(xwm->draw_resize != NULL && rresize.w > 0 && rresize.h > 0)
-						xwm->draw_resize(&g, &info, &rresize, top, xwm->data);
+						xwm->draw_resize(&frame_g, &info, &rresize, top, xwm->data);
 				}
 			}
+
+			if(xwm->draw_shadow!= NULL && xwm->theme.shadow > 0)
+				xwm->draw_shadow(&desktop_g, &frame_g, &info, top, xwm->data);
 		}
 	}
+
+	if((info.style & XWIN_STYLE_NO_BG_EFFECT) == 0 &&
+			!info.focused &&
+			xwm->draw_bg_effect != NULL) {
+		xwm->draw_bg_effect(&desktop_g, &frame_g, &ws_g, &info, top, xwm->data);
+	}
+	free_win_graph(&frame_g);
+	free_win_graph(&ws_g);
 }
 
 static void get_frame_areas(xwm_t* xwm, proto_t* in, proto_t* out) {
@@ -157,6 +216,18 @@ static void get_frame_areas(xwm_t* xwm, proto_t* in, proto_t* out) {
 				xwm->get_resize(&info, &rresize, xwm->data);
 		}
 	}
+
+	rtitle.x += info.winr.x;
+	rtitle.y += info.winr.y;
+	rclose.x += info.winr.x;
+	rclose.y += info.winr.y;
+	rmin.x += info.winr.x;
+	rmin.y += info.winr.y;
+	rmax.x += info.winr.x;
+	rmax.y += info.winr.y;
+	rresize.x += info.winr.x;
+	rresize.y += info.winr.y;
+
 	PF->add(out, &rtitle, sizeof(grect_t))->
 		add(out, &rclose, sizeof(grect_t))->
 		add(out, &rmin, sizeof(grect_t))->
@@ -173,7 +244,7 @@ static void draw_desktop(xwm_t* xwm, proto_t* in) {
 	int xh = proto_read_int(in);
 
 	graph_t g;
-	if(fetch_graph(xwm, shm_id, xw, xh, &g) == 0) {
+	if(fetch_desktop_graph(xwm, shm_id, xw, xh, &g)) {
 		if(xwm->draw_desktop != NULL)
 			xwm->draw_desktop(&g, xwm->data);
 	}

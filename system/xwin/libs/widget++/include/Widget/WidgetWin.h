@@ -7,7 +7,6 @@
 namespace Ewok {
 
 class WidgetWin: public XWin {
-	bool painting;
 	static const uint32_t TIMER_MIN_FPS = 1;
 protected:
 	uint32_t timerFPS;
@@ -19,6 +18,8 @@ protected:
 	void onEvent(xevent_t* ev);
 	void onShow(void);
 	void onFocus(void);
+	void onUnfocus(void);
+	void onMove(void);
 	bool onClose();
 	virtual void onBuild();
 public:
@@ -31,7 +32,6 @@ public:
 	void setTimer(uint32_t fps);
 	void timerTask();
 	void doTimer();
-	inline bool isPainting() { return painting; }
 };
 
 }

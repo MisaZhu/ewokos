@@ -36,6 +36,7 @@ extern "C" {
 #include <WidgetEx/Menu.h>
 #include <Widget/LabelButton.h>
 #include <WidgetEx/FontDialog.h>
+#include <WidgetEx/ColorDialog.h>
 
 #include <x++/X.h>
 #include <pthread.h>
@@ -72,9 +73,10 @@ public:
 		int32_t line_space = json_get_int_def(conf_var, "line_space", 0);
 		uint32_t fg_color = json_get_int_def(conf_var, "fg_color", 0xffdddddd);
 		uint32_t bg_color = json_get_int_def(conf_var, "bg_color", 0xff000000);
+		uint32_t transparent = json_get_int_def(conf_var, "transparent", 255);
 		const char* font_name = json_get_str(conf_var, "font");
 
-		config(font_name, font_size, char_space, line_space, fg_color, bg_color);
+		config(font_name, font_size, char_space, line_space, fg_color, bg_color, transparent);
 
 		if(conf_var != NULL)
 			json_var_unref(conf_var);
@@ -107,6 +109,21 @@ public:
 		unlock();
 	}
 
+	void textColorChange(uint32_t color) {
+		lock();
+		terminal.fg_color = color;
+		update();
+		unlock();
+	}
+
+	void bgColorChange(uint32_t color, uint8_t alpha) {
+		lock();
+		terminal.transparent  = alpha;
+		terminal.bg_color = (color & 0x00ffffff) | (terminal.transparent << 24);
+		update();
+		unlock();
+	}
+
 	void pushStr(const char* s, uint32_t sz) {
 		lock();
 		push(s, sz);
@@ -126,6 +143,9 @@ protected:
 	}
 
 	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
+		if(!getWin()->focused())
+			return;
+
 		if((timerStep % (timerFPS/2)) == 0)
 			flash();
 	}
@@ -134,12 +154,29 @@ protected:
 
 class TermWin: public WidgetWin{
 	FontDialog fontDialog;
+	ColorDialog colorDialog;
+	ColorDialog bgColorDialog;
 
 protected:
 	void onDialoged(XWin* from, int res) {
 		if(res == Dialog::RES_OK) {
-			string fontName = fontDialog.getResult();
-			consoleWidget->setFont(fontName);
+			if(from == &fontDialog) {
+				string fontName = fontDialog.getResult();
+				consoleWidget->setFont(fontName);
+			}
+			else if(from == &colorDialog) {
+				uint32_t color = colorDialog.getColor();
+				consoleWidget->textColorChange(color);
+			}
+			else if(from == &bgColorDialog) {
+				uint32_t color = bgColorDialog.getColor();
+				uint8_t alpha = bgColorDialog.getTransparent();
+				consoleWidget->bgColorChange(color, alpha);
+				if(alpha != 0xFF)
+					setAlpha(true);
+				else
+					setAlpha(false);
+			}
 		}
 	}
 public:
@@ -147,6 +184,16 @@ public:
 
 	void font() {
 		fontDialog.popup(this, 300, 300, "fonts", XWIN_STYLE_NORMAL);
+	}
+
+	void color() {
+		colorDialog.popup(this, 256, 200, "color", XWIN_STYLE_NO_RESIZE);
+		colorDialog.setColor(consoleWidget->getTerminal()->fg_color);
+	}
+
+	void bgColor() {
+		bgColorDialog.popup(this, 256, 200, "bgColor", XWIN_STYLE_NO_RESIZE);
+		bgColorDialog.setColor(consoleWidget->getTerminal()->bg_color);
 	}
 };
 
@@ -179,6 +226,16 @@ static void onFontCharSpaceDecrFunc(MenuItem* it, void* p) {
 	_consoleWidget->charSpaceChange(false);
 }
 
+static void onTextColor(MenuItem* it, void* p) {
+	TermWin* win = (TermWin*)p;
+	win->color();
+}
+
+static void onBGColor(MenuItem* it, void* p) {
+	TermWin* win = (TermWin*)p;
+	win->bgColor();
+}
+
 static bool _win_opened = false;
 static void* thread_loop(void* p) {
 	X x;
@@ -189,15 +246,16 @@ static void* thread_loop(void* p) {
 	root->setType(Container::VERTICLE);
 
 	Menu* menu = new Menu();
-	menu->add("quit", NULL, NULL, onQuitFunc, &win);
+	menu->add("txtcolor", NULL, NULL, onTextColor, &win);
+	menu->add("bgcolor", NULL, NULL, onBGColor, &win);
 
 	Menubar* menubar = new Menubar();
-	menubar->add("term", NULL, menu, NULL, NULL);
 	menubar->add("font", NULL, NULL, onFontFunc, &win);
 	menubar->add("F+", NULL, NULL, onFontZoomInFunc, NULL);
 	menubar->add("F-", NULL, NULL, onFontZoomOutFunc, NULL);
 	menubar->add("]+[", NULL, NULL, onFontCharSpaceIncrFunc, NULL);
 	menubar->add("]-[", NULL, NULL, onFontCharSpaceDecrFunc, NULL);
+	menubar->add("color", NULL, menu, NULL, NULL);
 	menubar->fix(0, 20);
 	root->add(menubar);
 
@@ -212,6 +270,7 @@ static void* thread_loop(void* p) {
 	win.open(&x, 0, -1, -1, desk.w*2/3, desk.h*2/3, "xconsole", 0);
 	_win_opened = true;
 
+	win.setAlpha(true);
 	win.setTimer(10);
 
 	widgetXRun(&x, &win);

@@ -19,6 +19,7 @@ LIB_WIDGET_OBJS =  src/Widget/Widget.o \
 		src/Widget/Grid.o \
 		src/Widget/Scrollable.o \
 		src/Widget/Scroller.o \
+		src/Widget/Slider.o \
 		src/Widget/Button.o \
 		src/Widget/LabelButton.o \
 		src/Widget/RootWidget.o \
@@ -35,6 +36,7 @@ LIB_WIDGET_OBJS =  src/Widget/Widget.o \
 		src/WidgetEx/FileDialog.o \
 		src/WidgetEx/ConsoleWidget.o \
 		src/WidgetEx/FontDialog.o \
+		src/WidgetEx/ColorDialog.o \
 		src/WidgetEx/Popup.o \
 		src/WidgetEx/Menu.o \
 		src/WidgetEx/Menubar.o

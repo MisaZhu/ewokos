@@ -10,7 +10,7 @@ Dialog::Dialog() {
 bool Dialog::popup(XWin* owner, uint32_t w, uint32_t h, const char* title, uint32_t style) {
 	this->owner = owner;
 
-	xscreen_t scr;
+	xscreen_info_t scr;
 	X::getScreenInfo(scr, owner->getDisplayIndex());
 
 	if(w == 0)
@@ -20,7 +20,10 @@ bool Dialog::popup(XWin* owner, uint32_t w, uint32_t h, const char* title, uint3
 
 	int x = (scr.size.w - w)/2;
 	int y = (scr.size.h - h)/2;
-	return open(owner->getX(), owner->getDisplayIndex(), x, y, w, h, title, style|XWIN_STYLE_PROMPT, true);
+	bool ret = open(owner->getX(), owner->getDisplayIndex(), x, y, w, h, title, style|XWIN_STYLE_PROMPT, false);
+	build();
+	setVisible(true);
+	return ret;
 }
 
 void Dialog::submit(int res) {

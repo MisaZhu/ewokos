@@ -26,10 +26,16 @@ typedef struct st_xwin {
 	int from_pid; 
 	int from_main_pid; //main proc pid
 	uint32_t from_main_pid_uuid;
-	graph_t* g;
-	graph_t* g_buf;
+
+	void*    ws_g_shm;
+	graph_t* ws_g; //workspace graph
+
+	void*    frame_g_shm;
+	graph_t* frame_g; //frame graph
+
 	xinfo_t* xinfo;
 	bool dirty;
+	bool frame_dirty;
 	bool dirty_mark;
 	bool busy;
 

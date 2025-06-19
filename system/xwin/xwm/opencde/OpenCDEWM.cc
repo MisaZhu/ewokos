@@ -13,26 +13,34 @@ void OpenCDEWM::drawMin(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 
-	graph_fill_3d(g, r->x, r->y, r->w, r->h, bg, false);
-	graph_fill_3d(g, r->x+(r->w/2)-3, r->y+(r->h/2)-3, 6, 6, bg, false);
+	uint32_t dark, bright;
+	graph_get_3d_color(bg, &dark, &bright);
+
+	graph_box_3d(g, r->x, r->y, r->w, r->h, bright, dark);
+	graph_box_3d(g, r->x+(r->w/2)-3, r->y+(r->h/2)-3, 6, 6, dark, bright);
 }
 
 void OpenCDEWM::drawMax(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	(void)info;
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
-	graph_fill_3d(g, r->x, r->y, r->w, r->h, bg, false);
-	graph_fill_3d(g, r->x+2, r->y+2, r->w-4, r->h-4, bg, false);
+	uint32_t dark, bright;
+	graph_get_3d_color(bg, &dark, &bright);
+
+	graph_box_3d(g, r->x, r->y, r->w, r->h, bright, dark);
+	graph_box_3d(g, r->x+3, r->y+3, r->w-6, r->h-6, dark, bright);
 }
 
 void OpenCDEWM::drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	(void)info;
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
+	uint32_t dark, bright;
+	graph_get_3d_color(bg, &dark, &bright);
 
-	graph_fill_3d(g, r->x, r->y, r->w, r->h, bg, false);
-	graph_fill_3d(g, r->x+5, r->y+(r->h/2)-2,
-			r->w-10, 4, bg, false);
+	graph_box_3d(g, r->x, r->y, r->w, r->h, bright, dark);
+	graph_box_3d(g, r->x+5, r->y+(r->h/2)-2,
+			r->w-10, 4, dark, bright);
 }
 
 void OpenCDEWM::drawDragFrame(graph_t* g, grect_t* r) {
@@ -64,30 +72,69 @@ void OpenCDEWM::drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 			r->x + 1, r->y + r->h, bright);
 }
 
-void OpenCDEWM::drawFrame(graph_t* graph, xinfo_t* info, bool top) {
+enum {
+    BG_EFFECT_NONE = 0,
+    BG_EFFECT_TRANSPARENT,
+    BG_EFFECT_DOT,
+    BG_EFFECT_GLASS,
+    BG_EFFECT_GAUSSIAN
+};
+
+void OpenCDEWM::drawBGEffect(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinfo_t* info, bool top) {
+	if(top || xwm.theme.bgEffect == BG_EFFECT_NONE)
+		return;
+
+	graph_blt_alpha(frame_g, 0, 0, 
+			info->winr.w,
+			info->winr.h,
+			desktop_g,
+			info->winr.x,
+			info->winr.y,
+			info->winr.w,
+			info->winr.h, 0x88);
+	
+	switch(xwm.theme.bgEffect) {
+		case BG_EFFECT_TRANSPARENT:
+			graph_blt(desktop_g, 
+				info->winr.x, info->winr.y, info->winr.w, info->winr.h, 
+				frame_g, 0, 0, info->winr.w, info->winr.h);
+			return;
+		case BG_EFFECT_DOT:
+			graph_draw_dot_pattern(desktop_g, 
+				info->wsr.x, info->wsr.y, info->wsr.w, info->wsr.h,
+				0x33ffffff, 0x33000000, 2, 1);	
+			graph_blt(desktop_g, 
+				info->winr.x, info->winr.y, info->winr.w, info->winr.h, 
+				frame_g, 0, 0, info->winr.w, info->winr.h);
+			return;
+		case BG_EFFECT_GLASS:
+			graph_glass(desktop_g, info->wsr.x, info->wsr.y, info->wsr.w, info->wsr.h, 3);
+			graph_blt(desktop_g, 
+				info->winr.x, info->winr.y, info->winr.w, info->winr.h, 
+				frame_g, 0, 0, info->winr.w, info->winr.h);
+			return;
+		case BG_EFFECT_GAUSSIAN:
+			graph_gaussian(desktop_g, info->wsr.x, info->wsr.y, info->wsr.w, info->wsr.h, 3);
+			graph_blt(desktop_g, 
+				info->winr.x, info->winr.y, info->winr.w, info->winr.h, 
+				frame_g, 0, 0, info->winr.w, info->winr.h);
+		return;
+	}
+}
+
+void OpenCDEWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 
-	int x = info->wsr.x;
-	int y = info->wsr.y;
-	int w = info->wsr.w;
-	int h = info->wsr.h;
+	int x = r->x;
+	int y = r->y;
+	int w = r->w;
+	int h = r->h;
 
-	if((info->style & XWIN_STYLE_NO_TITLE) == 0) {
-		h += xwm.theme.titleH;
-		y -= xwm.theme.titleH;
-	}
-
-	graph_frame(graph, x-xwm.theme.frameW, y-xwm.theme.frameW, w+xwm.theme.frameW*2, h+xwm.theme.frameW*2, xwm.theme.frameW, bg, false);
-	//shadow
-	/*if(top) {
-		graph_fill(graph, x+w+frameW, y, frameW, h+frameW, 0xaa000000);
-		graph_fill(graph, x, y+h+frameW, w+frameW*2, frameW, 0xaa000000);
-	}
-	*/
+	graph_frame(frame_g, x, y, w, h, xwm.theme.frameW, bg, false);
 }
 
-void OpenCDEWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
+void OpenCDEWM::drawTitle(graph_t* desktop_g, graph_t* frame_g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 
@@ -99,10 +146,13 @@ void OpenCDEWM::drawTitle(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	
 	int pw = (r->w-sz.w)/2;
 	int ph = (r->h-sz.h)/2;
-	graph_fill(g, r->x, r->y, r->w, r->h, bg);
-	graph_draw_text_font(g, r->x+pw+1, r->y+ph+1, info->title, font, xwm.theme.fontSize, 0xff222222);//title
-	graph_draw_text_font(g, r->x+pw, r->y+ph, info->title, font, xwm.theme.fontSize, fg);//title
-	graph_box_3d(g, r->x, r->y, r->w, r->h, bright, dark);
+
+	//graph_fill(g, r->x, r->y, r->w, r->h, bg);
+	graph_gradation(frame_g, r->x, r->y, r->w, r->h, bg, dark, true);
+
+	graph_draw_text_font(frame_g, r->x+pw+1, r->y+ph+1, info->title, font, xwm.theme.fontSize, 0xff222222);//title
+	graph_draw_text_font(frame_g, r->x+pw, r->y+ph, info->title, font, xwm.theme.fontSize, fg);//title
+	graph_box_3d(frame_g, r->x, r->y, r->w, r->h, bright, dark);
 }
 
 OpenCDEWM::~OpenCDEWM(void) {

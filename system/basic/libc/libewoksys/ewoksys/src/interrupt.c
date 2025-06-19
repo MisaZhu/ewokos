@@ -32,7 +32,7 @@ int32_t sys_soft_intr(int32_t pid, uint32_t entry, uint32_t data) {
 		sleep(0);
 	}
 
-	if(res != 0)
-		klog("soft interrupt failed (res: %d, from: %d, to: %d)!\n", res, getpid(), pid);
+	//if(res != 0)
+		//klog("soft interrupt failed (res: %d, from: %d, to: %d)!\n", res, getpid(), pid);
 	return res;
 }

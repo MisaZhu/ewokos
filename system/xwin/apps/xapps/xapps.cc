@@ -199,7 +199,7 @@ int main(int argc, char** argv) {
 	RootWidget* root = new RootWidget();
 	win.setRoot(root);
 	root->setType(Container::HORIZONTAL);
-	root->setAlpha(false);
+	
 
 	AppGrid* apps = new AppGrid();
 	apps->setItemSize(_itemSize, _itemSize);
@@ -214,8 +214,8 @@ int main(int argc, char** argv) {
 
 	if(_launcher) {
 		win.open(&x, 0, 0, 0, 320, 240, "xapps", 
-			XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER);
-			//XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_SYSBOTTOM);
+			XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_NO_BG_EFFECT);
+			//XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_SYSBOTTOM | XWIN_STYLE_NO_BG_EFFECT);
 		win.max();
 	}
 	else

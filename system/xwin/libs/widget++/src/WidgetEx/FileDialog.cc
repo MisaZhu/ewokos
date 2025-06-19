@@ -30,7 +30,7 @@ void FileDialog::onBuild() {
 	RootWidget* root = new RootWidget();
 	setRoot(root);
 	root->setType(Container::VERTICLE);
-	root->setAlpha(false);
+	
 
 	fileWidget = new FWidget(this);
 	root->add(fileWidget);
@@ -53,7 +53,6 @@ void FileDialog::onBuild() {
 
 FileDialog::FileDialog(bool path) {
 	pathMode = path;
-   	build();
 }
 
 string FileDialog::getResult() {

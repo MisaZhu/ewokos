@@ -395,7 +395,7 @@ int main(int argc, char* argv[]) {
 	waitX();
 
 	X x;
-	xscreen_t scr;
+	xscreen_info_t scr;
 	x.getScreenInfo(scr, 0);
 
 	int pw = scr.size.w;
@@ -410,7 +410,7 @@ int main(int argc, char* argv[]) {
 
 	XIMX xwin(scr.size.w, scr.size.h, pw, ph);
 	xwin.open(&x, 0, scr.size.w - pw, scr.size.h - ph, pw, ph, "xim",
-			XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_FOCUS | XWIN_STYLE_SYSTOP | XWIN_STYLE_XIM, false);
+			XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_FOCUS | XWIN_STYLE_SYSTOP | XWIN_STYLE_XIM | XWIN_STYLE_NO_BG_EFFECT, false);
 	x.run(NULL, &xwin);
 	return 0;
 }

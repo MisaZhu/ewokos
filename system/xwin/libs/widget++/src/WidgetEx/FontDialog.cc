@@ -223,7 +223,7 @@ void FontDialog::onBuild() {
 	RootWidget* root = new RootWidget();
 	setRoot(root);
 	root->setType(Container::VERTICLE);
-	root->setAlpha(false);
+	
 
 	Container* c = new Container();
 	c->setType(Container::HORIZONTAL);
@@ -271,7 +271,6 @@ void FontDialog::onBuild() {
 }
 
 FontDialog::FontDialog() {
-   	build();
 }
 
 string FontDialog::getResult() {

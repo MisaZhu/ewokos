@@ -32,8 +32,8 @@ protected:
 	inline virtual void onEvent(xevent_t* ev)  { (void)ev; }
 	inline virtual void onDialoged(XWin* from, int res)  { (void)from; (void) res; }
 
-	inline bool repaintLazy(void)  {
-		return xwin->xinfo->repaint_lazy;
+	inline bool covered(void)  {
+		return xwin->xinfo->covered;
 	}
 public:
 	XWin(void);

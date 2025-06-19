@@ -76,7 +76,7 @@ bool Widget::onEvent(xevent_t* ev) {
 		if(ev->value.mouse.x > r.x && ev->value.mouse.x < (r.x+r.w) &&
 				ev->value.mouse.y > r.y && ev->value.mouse.y < (r.y+r.h)) {
 			if(ev->state == MOUSE_STATE_DOWN) {
-				//getRoot()->focus(this);
+				getRoot()->drag(this);
 				ret = true;
 			}
 			if(!disabled && 
@@ -86,7 +86,7 @@ bool Widget::onEvent(xevent_t* ev) {
 		}
 		if(!disabled && 
 				(ev->state == MOUSE_STATE_UP || ev->state == MOUSE_STATE_DRAG) &&
-				getRoot()->getFocused() == this)
+				getRoot()->getDraged() == this)
 			return onMouse(ev);
 	}
 	else if(!disabled &&
@@ -208,6 +208,8 @@ void Widget::resize(int dw, int dh) {
 }
 
 void Widget::show() {
+	if(visible)
+		return;
 	visible = true;
 	if(father != NULL) {
 		father->layout();
@@ -216,6 +218,8 @@ void Widget::show() {
 }
 
 void Widget::hide() {
+	if(!visible)
+		return;
 	visible = false;
 	if(father != NULL) {
 		father->layout();

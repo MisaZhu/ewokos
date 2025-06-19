@@ -65,6 +65,7 @@ int x_load_xwm_theme(const char* name, xwm_theme_t* theme) {
 	theme->desktopFGColor = json_get_int_def(conf_var, "desktop_fg_color", 0xff555588);
 	theme->desktopBGColor = json_get_int_def(conf_var, "desktop_bg_color", 0xff8888aa);
 	theme->frameW = json_get_int_def(conf_var, "frame_width", 2);
+	theme->shadow = json_get_int_def(conf_var, "shadow", 0);
 	theme->titleH = json_get_int_def(conf_var, "title_h", 24);
 	theme->fontSize = json_get_int_def(conf_var, "font_size", 14);
 
@@ -75,6 +76,12 @@ int x_load_xwm_theme(const char* name, xwm_theme_t* theme) {
 	v = json_get_str_def(conf_var, "pattern", "");
 	memset(theme->patternName, 0, THEME_NAME_MAX);
 	strncpy(theme->patternName, v, THEME_NAME_MAX-1);
+
+	theme->bgEffect = json_get_int_def(conf_var, "bg_effect", 0);
+	theme->alpha = json_get_int_def(conf_var, "alpha", 0);
+
+	if(theme->shadow > 0)
+		theme->alpha = true;
 
 	if(conf_var != NULL)
 		json_var_unref(conf_var);

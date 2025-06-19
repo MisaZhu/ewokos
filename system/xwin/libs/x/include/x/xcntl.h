@@ -50,30 +50,31 @@ enum {
 #define X_UPDATE_REBUILD 0x1
 #define X_UPDATE_REFRESH 0x2
 
-#define XWIN_STYLE_NORMAL    0x0
-#define XWIN_STYLE_NO_FRAME  0x1
-#define XWIN_STYLE_NO_TITLE  0x2
-#define XWIN_STYLE_NO_RESIZE 0x4
-#define XWIN_STYLE_LAZY      0x8 //ignore all event
-#define XWIN_STYLE_NO_FOCUS  0x10
-#define XWIN_STYLE_SYSTOP    0x20
-#define XWIN_STYLE_SYSBOTTOM 0x40
-#define XWIN_STYLE_XIM       0x80
-#define XWIN_STYLE_LAUNCHER  0x100
-#define XWIN_STYLE_PROMPT    0x200 //prompt win
+#define XWIN_STYLE_NORMAL         0x0
+#define XWIN_STYLE_NO_FRAME       0x1
+#define XWIN_STYLE_NO_TITLE       0x2
+#define XWIN_STYLE_NO_RESIZE      0x4
+#define XWIN_STYLE_LAZY           0x8 //ignore all event
+#define XWIN_STYLE_NO_FOCUS       0x10
+#define XWIN_STYLE_SYSTOP         0x20
+#define XWIN_STYLE_SYSBOTTOM      0x40
+#define XWIN_STYLE_XIM            0x80
+#define XWIN_STYLE_LAUNCHER       0x100
+#define XWIN_STYLE_PROMPT         0x200 //prompt win
+#define XWIN_STYLE_NO_BG_EFFECT   0x400
 
 #define XWIN_TITLE_MAX 32
 #define X_APP_NAME_MAX 128
 typedef struct {
 	uint32_t win;
-	int32_t  g_shm_id;
-	void*    g_shm;
+	int32_t  ws_g_shm_id;
+	int32_t  frame_g_shm_id;
 	uint32_t display_index;
 	uint32_t style;
 	uint32_t state;
 	bool visible;
 	bool is_main;
-	bool repaint_lazy;
+	bool covered;
 	bool alpha;
 	bool focused;
 	grect_t wsr; //workspace rect
@@ -83,10 +84,11 @@ typedef struct {
 } xinfo_t;
 
 typedef struct {
-	int id;
-	int fps;
+	int32_t id;
+	uint32_t fps;
+	int32_t g_shm_id;
 	gsize_t size;
-} xscreen_t;
+} xscreen_info_t;
 
 #ifdef __cplusplus
 }
