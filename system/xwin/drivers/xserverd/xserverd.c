@@ -73,17 +73,13 @@ static void prepare_win_content(x_t* x, xwin_t* win) {
 	if(display->g == NULL)
 		return;
 
-	if(display->dirty) {
-		if(x->config.xwm_theme.alpha)
-			win->frame_dirty = true;
-		if(win->xinfo->alpha)
-			win->dirty = true;
-	}
+	if(win->dirty || win->xinfo->focused || (win->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) != 0)
+		win->frame_dirty = true;
+	
+	if(!win->frame_dirty)
+		return;
 
-	if(win->frame_dirty)
-		graph_clear(win->frame_g, 0);
-
-	if(win->xinfo->focused || win->frame_dirty)
+	graph_clear(win->frame_g, 0);
 	graph_blt(win->ws_g, 0, 0, win->ws_g->w, win->ws_g->h,
 			win->frame_g,
 			win->xinfo->wsr.x - win->xinfo->winr.x,
@@ -91,9 +87,6 @@ static void prepare_win_content(x_t* x, xwin_t* win) {
 			win->xinfo->wsr.w,
 			win->xinfo->wsr.h);
 	
-	if(!win->frame_dirty)
-		return;
-
 	proto_t in;
 	PF->format(&in, "i,i,i,m",
 		display->g_shm_id,
@@ -192,9 +185,8 @@ static int draw_win(graph_t* disp_g, x_t* x, xwin_t* win) {
 	if(g != NULL) {
 		bool do_alpha = false;
 		if(win->xinfo->alpha ||
-					(win->frame_dirty &&
-					x->config.xwm_theme.alpha && 
-					x->config.xwm_theme.shadow > 0)) {
+					x->config.xwm_theme.alpha || 
+					x->config.xwm_theme.shadow > 0) {
 			do_alpha = true;
 		}
 
@@ -209,29 +201,14 @@ static int draw_win(graph_t* disp_g, x_t* x, xwin_t* win) {
 					win->xinfo->winr.h, 0xff);
 		}
 		else {
-			if(win->frame_dirty || !x->config.xwm_theme.alpha) {
-				graph_blt(g, 0, 0, 
-						win->xinfo->winr.w,
-						win->xinfo->winr.h,
-						disp_g,
-						win->xinfo->winr.x,
-						win->xinfo->winr.y,
-						win->xinfo->winr.w,
-						win->xinfo->winr.h);
-			}
-			else {
-				graph_blt(g,
-					win->xinfo->wsr.x - win->xinfo->winr.x,
-					win->xinfo->wsr.y - win->xinfo->winr.y,
-					win->xinfo->wsr.w,
-					win->xinfo->wsr.h,
+			graph_blt(g, 0, 0, 
+					win->xinfo->winr.w,
+					win->xinfo->winr.h,
 					disp_g,
-					win->xinfo->wsr.x,
-					win->xinfo->wsr.y,
-					win->xinfo->wsr.w,
-					win->xinfo->wsr.h);
-
-			}
+					win->xinfo->winr.x,
+					win->xinfo->winr.y,
+					win->xinfo->winr.w,
+					win->xinfo->winr.h);
 		}
 	}
 
@@ -726,15 +703,13 @@ static void mark_dirty_confirm(x_t* x, xwin_t* win) {
 		if(v->dirty_mark) {
 			v->dirty = true;
 			v->dirty_mark = false;
-			/*
+			
 			if(v != win) {
-				if(v->xinfo->alpha || 
-						((v->xinfo->style & XWIN_STYLE_NO_FRAME) == 0 &&
-						x->config.xwm_theme.alpha)) {
+				if((v->xinfo->style & XWIN_STYLE_NO_FRAME) == 0 &&
+						x->config.xwm_theme.alpha) {
 					x_dirty(x, v->xinfo->display_index);
 				}
 			}
-			*/
 		}
 		v = v->next;
 	}
@@ -830,10 +805,22 @@ static int do_xwin_try_focus(int fd, int from_pid, x_t* x) {
 static bool need_repaint_frame(x_t* x, xwin_t* win) {
 	if((win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0 &&
 				((x->config.xwm_theme.bgEffect && !win->xinfo->focused) ||
-					(win->frame_dirty && x->config.xwm_theme.alpha &&
-					(win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0)))
+					(x->config.xwm_theme.alpha &&
+					(win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0)) ||
+				x->config.xwm_theme.shadow > 0)
 			return true;
 	return false;
+}
+
+static void win_dirty(x_t* x, xwin_t* win) {
+	win->dirty = true;
+	mark_dirty(x, win);
+	if(win->dirty) {
+		if(win->xinfo->alpha || need_repaint_frame(x, win)) {
+			x_dirty(x, win->xinfo->display_index);
+		}
+	}
+	x_repaint_req(x, win->xinfo->display_index);
 }
 
 static int x_update(int fd, int from_pid, x_t* x) {
@@ -857,14 +844,7 @@ static int x_update(int fd, int from_pid, x_t* x) {
 		last_tic = tic;
 	}
 
-	win->dirty = true;
-	mark_dirty(x, win);
-	if(win->dirty) {
-		if(win->xinfo->alpha || need_repaint_frame(x, win)) {
-			x_dirty(x, win->xinfo->display_index);
-		}
-	}
-	x_repaint_req(x, win->xinfo->display_index);
+	win_dirty(x, win);	
 	return 0;
 }
 
@@ -1037,6 +1017,16 @@ static int do_xwin_set_busy(int fd, int from_pid, proto_t* in, x_t* x) {
 	return 0;
 }
 
+static void mark_all_frame_dirty(x_t* x, int32_t disp_index) {
+	xwin_t* w = x->win_tail; 
+	while(w != NULL) {
+		xwin_t* p = w->prev;
+		if(w->xinfo->display_index == disp_index || disp_index < 0)
+			w->frame_dirty = true; //mark dirty temporary
+		w = p;
+	}
+}
+
 static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
 	if(fd < 0)
 		return -1;
@@ -1136,13 +1126,13 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 
 		win->xinfo->frame_g_shm_id = frame_g_shm_id;
 		win->frame_g = graph_new(win->frame_g_shm, win->xinfo->winr.w, win->xinfo->winr.h);
-		graph_clear(win->frame_g, 0x0);
+		//graph_clear(win->frame_g, 0x0);
 		win->frame_dirty = true;
 	}
 	x_update_frame_areas(x, win);
 
 	if((type & X_UPDATE_REFRESH) != 0 || win->xinfo->alpha) {
-		x_dirty(x, win->xinfo->display_index);
+		mark_all_frame_dirty(x, win->xinfo->display_index);
 	}
 	return 0;
 }
