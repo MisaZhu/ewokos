@@ -185,8 +185,8 @@ static int draw_win(graph_t* disp_g, x_t* x, xwin_t* win) {
 	if(g != NULL) {
 		bool do_alpha = false;
 		if(win->xinfo->alpha ||
-					(x->config.xwm_theme.alpha && 
-					x->config.xwm_theme.shadow > 0)) {
+					x->config.xwm_theme.alpha || 
+					x->config.xwm_theme.shadow > 0) {
 			do_alpha = true;
 		}
 
@@ -805,7 +805,7 @@ static int do_xwin_try_focus(int fd, int from_pid, x_t* x) {
 static bool need_repaint_frame(x_t* x, xwin_t* win) {
 	if((win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0 &&
 				((x->config.xwm_theme.bgEffect && !win->xinfo->focused) ||
-					(win->frame_dirty && x->config.xwm_theme.alpha &&
+					(x->config.xwm_theme.alpha &&
 					(win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0)) ||
 				x->config.xwm_theme.shadow > 0)
 			return true;
