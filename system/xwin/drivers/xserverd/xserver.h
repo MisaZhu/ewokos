@@ -61,6 +61,8 @@ typedef struct {
 	bool bg_run;
 	bool force_fullscreen;
 	bool gray_mode;
+	uint32_t bg_proc_priority;
+
 	graph_t* logo;
 	x_theme_t theme;
 	xwm_theme_t xwm_theme;

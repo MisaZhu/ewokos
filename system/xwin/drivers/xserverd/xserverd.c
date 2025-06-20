@@ -33,6 +33,7 @@ static int32_t read_config(x_t* x, const char* fname) {
 	x->config.fps = json_get_int_def(conf_var, "fps", 30);
 	x->config.bg_run = json_get_int_def(conf_var, "bg_run", 0);
 	x->config.gray_mode = json_get_int_def(conf_var, "gray_mode", 0);
+	x->config.bg_proc_priority = json_get_int_def(conf_var, "bg_proc_priority", 2);
 
 	const char* v = json_get_str_def(conf_var, "logo", "/usr/system/icons/xlogo.png");
 	x->config.logo = png_image_new(v);
@@ -322,9 +323,7 @@ static void x_unfocus(x_t* x) {
 	x->win_focus->frame_dirty = true;
 	x_push_event(x, x->win_focus, &e);
 
-	if((x->win_focus->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) == 0)
-		proc_priority(x->win_focus->from_pid, x->config.xwm_theme.bgProcPriority);
-
+	proc_priority(x->win_focus->from_pid, x->config.bg_proc_priority);
 	x->win_focus = NULL;
 }
 

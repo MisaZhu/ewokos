@@ -9,14 +9,14 @@
 #include <ewoksys/session.h>
 
 static const char* _states[] = {
-	"unu",
-	"crt",
-	"slp",
-	"wat",
-	"blk",
-	"rdy",
-	"run",
-	"zmb"
+	"unu", //0
+	"crt", //1
+	"slp", //2
+	"wat", //3
+	"blk", //4
+	"rdy", //5
+	"run", //6
+	"zmb"  //7
 };
 
 static const char* get_state(procinfo_t* proc) {
@@ -29,8 +29,11 @@ static const char* get_state(procinfo_t* proc) {
 	}
 	else if(proc->state == 3)
 		snprintf(ret, 13, "wat[%d]", proc->wait_for);
-	else 
+	else {
 		strcpy(ret, _states[proc->state]);
+		if((proc->state == 5 || proc->state == 6) && proc->priority > 0)
+			snprintf(ret, 13, "%s(%d)", ret, proc->priority);
+	}
 	return ret;
 }
 
