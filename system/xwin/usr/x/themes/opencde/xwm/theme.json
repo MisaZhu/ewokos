@@ -14,6 +14,7 @@
     "shadow": 6,
 
     "bg_effect": 3,
+    "bg_effect_lazy": 1,
     "alpha": 1,
 
     "pattern": "/usr/system/images/patterns/pattern.png"

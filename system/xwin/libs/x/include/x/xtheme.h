@@ -58,6 +58,7 @@ typedef struct {
 	uint32_t desktopFGColor;
 	uint32_t desktopBGColor;
 	uint32_t bgEffect;
+	bool     bgEffectLazy;
 	bool     alpha;
 } xwm_theme_t;
 
