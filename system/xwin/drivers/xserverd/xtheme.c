@@ -78,7 +78,7 @@ int x_load_xwm_theme(const char* name, xwm_theme_t* theme) {
 	strncpy(theme->patternName, v, THEME_NAME_MAX-1);
 
 	theme->bgEffect = json_get_int_def(conf_var, "bg_effect", 0);
-	theme->bgEffectLazy = json_get_int_def(conf_var, "bg_effect_lazy", 1);
+	theme->bgProcPriority = json_get_int_def(conf_var, "bg_proc_priority", 8);
 	theme->alpha = json_get_int_def(conf_var, "alpha", 0);
 
 	if(theme->shadow > 0)

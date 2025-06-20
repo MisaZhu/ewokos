@@ -321,6 +321,10 @@ static void x_unfocus(x_t* x) {
 	x->win_focus->xinfo->focused = false;
 	x->win_focus->frame_dirty = true;
 	x_push_event(x, x->win_focus, &e);
+
+	if((x->win_focus->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) == 0)
+		proc_priority(x->win_focus->from_pid, x->config.xwm_theme.bgProcPriority);
+
 	x->win_focus = NULL;
 }
 
@@ -337,6 +341,8 @@ static void try_focus(x_t* x, xwin_t* win) {
 		win->frame_dirty = true;
 		x_push_event(x, win, &e);
 		x->win_focus = win;
+
+		proc_priority(x->win_focus->from_pid, 0);
 	}
 }
 
@@ -833,18 +839,6 @@ static int x_update(int fd, int from_pid, x_t* x) {
 		return -1;
 	if(!win->xinfo->visible)
 		return 0;
-
-	if(x->config.xwm_theme.bgEffectLazy &&
-			!win->xinfo->focused &&
-			(win->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) == 0) {
-		static uint32_t last_tic = 0;
-		uint32_t tic;
-		kernel_tic(&tic, NULL);
-		if((tic - last_tic) == 0)
-			return 0;
-		last_tic = tic;
-	}
-
 	win_dirty(x, win);	
 	return 0;
 }

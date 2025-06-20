@@ -52,6 +52,7 @@ typedef struct {
 	uint32_t run_usec;
 	uint32_t heap_size;
 	uint32_t shm_size;
+	uint32_t priority;
 	char     cmd[PROC_INFO_MAX_CMD_LEN];
 } procinfo_t;
 	

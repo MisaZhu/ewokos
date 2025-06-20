@@ -143,9 +143,6 @@ protected:
 	}
 
 	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
-		if(!getWin()->focused())
-			return;
-
 		if((timerStep % (timerFPS/2)) == 0)
 			flash();
 	}

@@ -33,6 +33,7 @@ uint32_t proc_malloc_size(void);
 int      proc_usleep(uint32_t usec);
 
 int      proc_exec(const char* cmd_line);
+void     proc_priority(uint32_t pid, uint32_t priority);
 
 extern int _vfsd_pid;
 extern int _cored_pid;

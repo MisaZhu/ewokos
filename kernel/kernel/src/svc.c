@@ -492,6 +492,17 @@ static int32_t sys_proc_ping(int32_t pid) {
 	return 0;
 }
 
+static int32_t sys_proc_priority(int32_t pid, uint32_t priority) {
+	proc_t* cproc = get_current_proc();
+	if(cproc->info.uid > 0)
+		return;
+
+	proc_t* proc = proc_get(pid);
+	if(proc == NULL)
+		return;
+	proc->info.priority = priority;
+}
+
 static void sys_proc_ready_ping(void) {
 	proc_t* proc = proc_get_proc(get_current_proc());
 	proc->space->ready_ping = true;
@@ -815,6 +826,9 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
 		return;
 	case SYS_MMIO_RW:
 		sys_mmio_rw(arg0, arg1, arg2, ctx);
+		return;
+	case SYS_PROC_PRIORITY:
+		sys_proc_priority(arg0, (uint32_t)arg1);
 		return;	
 	}
 }
