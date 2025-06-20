@@ -83,6 +83,7 @@ static void prepare_win_content(x_t* x, xwin_t* win) {
 	if(win->frame_dirty)
 		graph_clear(win->frame_g, 0);
 
+	if(win->xinfo->focused || win->frame_dirty)
 	graph_blt(win->ws_g, 0, 0, win->ws_g->w, win->ws_g->h,
 			win->frame_g,
 			win->xinfo->wsr.x - win->xinfo->winr.x,
@@ -724,6 +725,8 @@ static void mark_dirty_confirm(x_t* x, xwin_t* win) {
 	while(v != NULL) {
 		if(v->dirty_mark) {
 			v->dirty = true;
+			v->dirty_mark = false;
+			/*
 			if(v != win) {
 				if(v->xinfo->alpha || 
 						((v->xinfo->style & XWIN_STYLE_NO_FRAME) == 0 &&
@@ -731,7 +734,7 @@ static void mark_dirty_confirm(x_t* x, xwin_t* win) {
 					x_dirty(x, v->xinfo->display_index);
 				}
 			}
-			v->dirty_mark = false;
+			*/
 		}
 		v = v->next;
 	}
@@ -842,6 +845,17 @@ static int x_update(int fd, int from_pid, x_t* x) {
 		return -1;
 	if(!win->xinfo->visible)
 		return 0;
+
+	if(x->config.xwm_theme.bgEffectLazy &&
+			!win->xinfo->focused &&
+			(win->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) == 0) {
+		static uint32_t last_tic = 0;
+		uint32_t tic;
+		kernel_tic(&tic, NULL);
+		if((tic - last_tic) == 0)
+			return 0;
+		last_tic = tic;
+	}
 
 	win->dirty = true;
 	mark_dirty(x, win);
