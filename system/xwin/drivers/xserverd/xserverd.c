@@ -190,7 +190,7 @@ static int draw_win(graph_t* disp_g, x_t* x, xwin_t* win) {
 			do_alpha = true;
 		}
 
-		if(do_alpha) {
+		if(1) {
 			graph_blt_alpha(g, 0, 0, 
 					win->xinfo->winr.w,
 					win->xinfo->winr.h,
@@ -705,8 +705,9 @@ static void mark_dirty_confirm(x_t* x, xwin_t* win) {
 			v->dirty_mark = false;
 			
 			if(v != win) {
-				if((v->xinfo->style & XWIN_STYLE_NO_FRAME) == 0 &&
-						x->config.xwm_theme.alpha) {
+				if((v->xinfo->alpha || 
+						(v->xinfo->style & XWIN_STYLE_NO_FRAME) == 0 &&
+						x->config.xwm_theme.alpha)) {
 					x_dirty(x, v->xinfo->display_index);
 				}
 			}
@@ -1025,6 +1026,7 @@ static void mark_all_frame_dirty(x_t* x, int32_t disp_index) {
 			w->frame_dirty = true; //mark dirty temporary
 		w = p;
 	}
+	x_dirty(x, disp_index);
 }
 
 static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
