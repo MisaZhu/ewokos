@@ -82,12 +82,13 @@ int x_fetch_screen_graph(uint32_t index, graph_t* g) {
 		buffer = (uint32_t*)shmat(scrinfo.g_shm_id, 0, 0);
 		if(buffer == NULL)
 			return -1;
+
+		xscr->g.buffer = buffer;
+		xscr->g.w = scrinfo.size.w;
+		xscr->g.h = scrinfo.size.h;
+		xscr->g.need_free = false;
 	}
 
-	xscr->g.buffer = buffer;
-	xscr->g.w = scrinfo.size.w;
-	xscr->g.h = scrinfo.size.h;
-	xscr->g.need_free = false;
 	memcpy(g, &xscr->g, sizeof(graph_t));
 	return 0;
 }
