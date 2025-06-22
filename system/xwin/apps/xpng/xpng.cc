@@ -102,6 +102,22 @@ protected:
 		}
 	}
 
+	bool onMouse(xevent_t* ev) {
+		Scrollable::onMouse(ev);
+
+		if(ev->state == MOUSE_STATE_MOVE) {
+			if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP) {
+				scroll(-1, false);
+				return true;
+			}
+			else if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_DOWN) {
+				scroll(1, false);
+				return true;
+			}
+		}
+		return false;
+	}
+
 	bool onIM(xevent_t* ev) {
 		if(ev->state == XIM_STATE_PRESS) {
 			if(ev->value.im.value == KEY_UP) {
