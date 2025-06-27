@@ -450,15 +450,14 @@ static void x_del_win(x_t* x, xwin_t* win) {
 	}
 
 	shmdt(win->xinfo);
-
+	if(win == x->win_focus)
+		x->win_focus = NULL;
 	free(win);
-	x->win_focus = get_next_focus_win(x, false);
+	win = get_next_focus_win(x, false);
 	x->win_last = get_next_focus_win(x, true);
-	if(x->win_focus != NULL) {
-		xevent_t e;
-		e.type = XEVT_WIN;
-		e.value.window.event = XEVT_WIN_FOCUS;
-		x_push_event(x, x->win_focus, &e);
+
+	if(win != NULL) {
+		try_focus(x, win);
 	}
 }
 
