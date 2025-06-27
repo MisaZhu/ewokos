@@ -254,24 +254,47 @@ static int32_t sys_shm_unmap(void* p) {
 	return shm_proc_unmap(cproc, p);
 }
 		
-static ewokos_addr_t sys_dma_map(uint32_t size) {
+static ewokos_addr_t sys_dma_alloc(int32_t dma_block_id, uint32_t size) {
 	proc_t* cproc = proc_get_proc(get_current_proc());
 	if(cproc->info.uid > 0)
 		return 0;
 
-	ewokos_addr_t paddr = dma_alloc(cproc->info.pid, size);
+	ewokos_addr_t paddr = dma_alloc(dma_block_id, cproc->info.pid, size);
 	if(paddr == 0)
 		return 0;
-	ewokos_addr_t vaddr = DMA_BASE + (paddr - _sys_info.dma.phy_base);
+	ewokos_addr_t vaddr = dma_v_addr(dma_block_id, paddr);
+	if(vaddr == 0)
+		return 0;
 
 	map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, PTE_ATTR_NOCACHE);
 	flush_tlb();
 	return vaddr;
 }
 
-static ewokos_addr_t sys_dma_phy(ewokos_addr_t vaddr) {
-	ewokos_addr_t paddr = vaddr - DMA_BASE + _sys_info.dma.phy_base;
-	return paddr;
+static void sys_dma_free(int32_t dma_block_id, ewokos_addr_t vaddr) {
+	proc_t* cproc = proc_get_proc(get_current_proc());
+	if(cproc->info.uid > 0)
+		return;
+
+	ewokos_addr_t paddr = dma_phy_addr(dma_block_id, vaddr);
+	if(paddr == 0)
+		return;
+	uint32_t size = dma_size(dma_block_id, cproc->info.pid, paddr);
+	dma_free(dma_block_id, cproc->info.pid, paddr);
+
+	unmap_pages(cproc->space->vm, vaddr, size/PAGE_SIZE);
+	flush_tlb();
+}
+
+static int32_t sys_dma_set(ewokos_addr_t phy_base, uint32_t size, bool shared) {
+	proc_t* cproc = get_current_proc();
+	if(cproc == NULL)
+		return -1;
+	return dma_set(cproc->info.pid, phy_base, phy_base, size, shared);
+}
+
+static ewokos_addr_t sys_dma_phy(int32_t dma_block_id, ewokos_addr_t vaddr) {
+	return dma_phy_addr(dma_block_id, vaddr);
 }
 
 static uint32_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint32_t size) {
@@ -747,10 +770,16 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
 		ctx->gpr[0] = sys_mem_map(arg0, arg1, (uint32_t)arg2);
 		return;
 	case SYS_DMA_ALLOC:
-		ctx->gpr[0] = sys_dma_map((uint32_t)arg0);
+		ctx->gpr[0] = sys_dma_alloc(arg0, (uint32_t)arg1);
+		return;
+	case SYS_DMA_FREE:
+		sys_dma_free(arg0, (uint32_t)arg1);
+		return;
+	case SYS_DMA_SET:
+		ctx->gpr[0] = sys_dma_set((ewokos_addr_t)arg0, (uint32_t)arg1, arg2);
 		return;
 	case SYS_DMA_PHY_ADDR:
-		ctx->gpr[0] = sys_dma_phy(arg0);
+		ctx->gpr[0] = sys_dma_phy(arg0, (ewokos_addr_t)arg1);
 		return;
 	case SYS_IPC_SETUP:
 		sys_ipc_setup(ctx, arg0, arg1, arg2);

@@ -22,9 +22,10 @@ void sys_info_init_arch(void) {
 	_sys_info.mmio.phy_base = 0x10000000;
 	_sys_info.mmio.size = 4*MB;
 
-	_sys_info.fb.v_base = (uint32_t)_framebuffer_base_raw;
-	_sys_info.fb.phy_base = V2P(_sys_info.fb.v_base);
-	_sys_info.fb.size = _framebuffer_end_raw - _framebuffer_base_raw;
+	_sys_info.gpu.v_base = (uint32_t)_framebuffer_base_raw;
+	_sys_info.gpu.phy_base = V2P(_sys_info.gpu.v_base);
+	_sys_info.gpu.max_size = _framebuffer_end_raw - _framebuffer_base_raw;
+	_sys_info.gpu.size = _sys_info.gpu.max_size;
 
 	_allocable_phy_mem_base = V2P(get_allocable_start());
 	_allocable_phy_mem_top = _sys_info.phy_offset +  
@@ -42,7 +43,7 @@ void kalloc_arch(void) {
 }
 
 int32_t  check_mem_map_arch(ewokos_addr_t phy_base, uint32_t size) {
-	if(phy_base >= _sys_info.fb.phy_base && size <= _sys_info.fb.size)
+	if(phy_base >= _sys_info.gpu.phy_base && size <= _sys_info.gpu.max_size)
 		return 0;
 	if(phy_base >= _sys_info.mmio.phy_base && size <= _sys_info.mmio.size)
 		return 0;

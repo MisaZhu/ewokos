@@ -23,7 +23,7 @@ int32_t vpb_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
   _fb_info.pitch = 0;
   _fb_info.xoffset = 0;
   _fb_info.yoffset = 0;
-  _fb_info.pointer = sysinfo.fb.v_base;
+  _fb_info.pointer = sysinfo.gpu.v_base;
 
   if(w == 640 && h == 480) {
     put32((_mmio_base | 0x1c), 0x2c77);

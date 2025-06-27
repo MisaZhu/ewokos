@@ -122,8 +122,8 @@ struct msg_get_clock_rate {
 static int bcm2835_power_on_module(uint32_t module)
 {
     mail_message_t msg;
-    //struct msg_set_power_state* msg_pwr = (struct msg_set_power_state*)dma_phy_addr(dma_map(sizeof(struct msg_set_power_state)));
-    struct msg_set_power_state* msg_pwr = (struct msg_set_power_state*)(dma_map(sizeof(struct msg_set_power_state)));
+    //struct msg_set_power_state* msg_pwr = (struct msg_set_power_state*)dma_phy_addr(0, dma_alloc(sizeof(struct msg_set_power_state)));
+    struct msg_set_power_state* msg_pwr = (struct msg_set_power_state*)(dma_alloc(0, sizeof(struct msg_set_power_state)));
 
 	BCM2835_MBOX_INIT_HDR(msg_pwr);
 	BCM2835_MBOX_INIT_TAG(&msg_pwr->set_power_state,
@@ -144,8 +144,8 @@ void bcm283x_mbox_pin_ctrl(int idx, int dir, int on) {
 	mail_message_t msg;
 	/*message head + tag head + property*/
 	uint32_t size = 12 + 12 + 24;
-	//uint32_t* buf = (uint32_t*)dma_phy_addr(dma_map(size));
-	uint32_t* buf = (uint32_t*)dma_map(size);
+	//uint32_t* buf = (uint32_t*)dma_phy_addr(dma_alloc(size));
+	uint32_t* buf = (uint32_t*)dma_alloc(0, size);
 
 	/*message head*/
 	buf[0] = size;

@@ -7,8 +7,8 @@
 
 #define PWM_BASE        (_mmio_base + 0x20C000) /* PWM0 register base address on RPi */
 #define CLOCK_BASE      (_mmio_base + 0x101000)
-#define DMA_BASE        (_mmio_base + 0x007100)         /* DMA register base address */
-#define DMA_ENABLE      (DMA_BASE + 0xFF0)                   /* DMA global enable bits */
+#define DMA_V_BASE        (_mmio_base + 0x007100)         /* DMA register base address */
+#define DMA_ENABLE      (DMA_V_BASE + 0xFF0)                   /* DMA global enable bits */
 
 #define BCM283x_PWMCLK_CNTL 40
 #define BCM283x_PWMCLK_DIV  41
@@ -85,10 +85,10 @@ static void audio_init(void) {
 			BCM283x_PWM0_USEFIFO | 
 			BCM283x_PWM0_ENABLE | 1<<6;
 	
-	//_dma_cb = (dma_cb_t*)dma_phy_addr(dma_map(sizeof(dma_cb_t)));
-	//_dma_data_addr = dma_phy_addr((dma_map(DMA_BUF_SIZE))); //4k dma buffer
-	_dma_cb = (dma_cb_t*)(dma_map(sizeof(dma_cb_t)));
-	_dma_data_addr = ((dma_map(DMA_BUF_SIZE))); //4k dma buffer
+	//_dma_cb = (dma_cb_t*)dma_phy_addr(0, dma_alloc(sizeof(dma_cb_t)));
+	//_dma_data_addr = dma_phy_addr(0, (dma_alloc(DMA_BUF_SIZE))); //4k dma buffer
+	_dma_cb = (dma_cb_t*)(dma_alloc(0, sizeof(dma_cb_t)));
+	_dma_data_addr = ((dma_alloc(0, DMA_BUF_SIZE))); //4k dma buffer
 }
 
 
@@ -122,7 +122,7 @@ static void playaudio_dma(uint8_t* data, uint32_t size) {
 
 	// Enable DMA
 	volatile uint32_t *pwm = (uint32_t *)PWM_BASE;
-	volatile uint32_t *dma = (uint32_t *)DMA_BASE;
+	volatile uint32_t *dma = (uint32_t *)DMA_V_BASE;
 	volatile uint32_t *dmae = (uint32_t *)DMA_ENABLE;
 
 	klog("sound: dma enabled\n");

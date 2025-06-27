@@ -169,7 +169,7 @@ static void show_config(void) {
 			_allocable_phy_mem_base, _allocable_phy_mem_top, get_free_mem_size() / (1*MB),
 			_sys_info.mmio.phy_base, _sys_info.mmio.v_base, _sys_info.mmio.size/(1*MB),
 			_sys_info.dma.phy_base, _sys_info.dma.v_base, _sys_info.dma.size/(1*KB),
-			_sys_info.fb.v_base, _sys_info.fb.size/(1*MB),
+			_sys_info.gpu.v_base, _sys_info.gpu.max_size/(1*MB),
 			_kernel_config.max_proc_num,
 			_kernel_config.max_task_num,
 			_kernel_config.max_task_per_proc);
