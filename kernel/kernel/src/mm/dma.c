@@ -45,7 +45,7 @@ void dma_init(void) {
         _dma_blocks[i].size = 0;
         _dma_blocks[i].shared = false;
     }
-    dma_set(-1, _sys_info.dma.phy_base, _sys_info.dma.v_base, _sys_info.dma.size, false);
+    dma_set(-1, _sys_info.sys_dma.phy_base, _sys_info.sys_dma.v_base, _sys_info.sys_dma.size, false);
 }
 
 void dma_free(int32_t dma_block_id, int32_t pid, ewokos_addr_t phy_addr) {

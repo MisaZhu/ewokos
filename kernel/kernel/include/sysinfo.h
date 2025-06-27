@@ -47,7 +47,7 @@ typedef struct {
 	ewokos_addr_t    vector_base;
 
 	mmio_info_t mmio;
-	dma_info_t  dma;
+	dma_info_t  sys_dma;
 	gpu_info_t  gpu;
 	uint32_t    cores;
 	uint32_t    core_idles[MAX_CORE_NUM];

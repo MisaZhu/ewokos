@@ -23,7 +23,7 @@ int main(int argc, char* argv[]) {
 		"phy mem size       %d MB\n"
 		"usable mem size    %d MB\n"
 		"free mem           %d MB\n"
-		"dma                phy:0x%08x, V:0x%08x (%d KB)\n"
+		"sys_dma_base       phy:0x%08x, V:0x%08x (%d KB)\n"
 		"mmio_base          Phy:0x%08x, V:0x%08x (%d MB)\n"
 		"framebuffer_base   Phy:0x%08x, V:0x%08x (%d MB)\n",
 		sys_info.machine,
@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
 		phy_mem,
 		t_mem,
 		fr_mem,
-		sys_info.dma.phy_base, sys_info.dma.v_base, sys_info.dma.size/(1024),
+		sys_info.sys_dma.phy_base, sys_info.sys_dma.v_base, sys_info.sys_dma.size/(1024),
 		sys_info.mmio.phy_base, sys_info.mmio.v_base, sys_info.mmio.size/(1024*1024),
 		sys_info.gpu.phy_base, sys_info.gpu.v_base, sys_info.gpu.max_size/(1024*1024));
 
