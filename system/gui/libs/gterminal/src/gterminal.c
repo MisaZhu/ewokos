@@ -247,7 +247,8 @@ void gterminal_close(gterminal_t* terminal) {
         textgrid_free(terminal->textgrid);
 }
 
-void gterminal_scroll(gterminal_t* terminal, int direction) {
+bool gterminal_scroll(gterminal_t* terminal, int direction) {
+    int32_t old_offset = terminal->scroll_offset;
     if(direction == 0)
         terminal->scroll_offset = 0;
     else if(direction < 0)
@@ -259,6 +260,10 @@ void gterminal_scroll(gterminal_t* terminal, int direction) {
         terminal->scroll_offset = 0;
     else if(abs(terminal->scroll_offset) >= terminal->textgrid_start_row)
         terminal->scroll_offset = -terminal->textgrid_start_row;
+
+    if(terminal->scroll_offset != old_offset)
+        return true;
+    return false;
 }
 
 static void gterminal_draw_char(graph_t* g,

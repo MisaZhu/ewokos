@@ -113,23 +113,26 @@ bool ConsoleWidget::onMouse(xevent_t* ev) {
 		return true;
 	}
 	else if(ev->state == MOUSE_STATE_DRAG) {
-		if(ev->value.mouse.y > mouse_last_y)
-			gterminal_scroll(&terminal, -1);
-		else if(ev->value.mouse.y < mouse_last_y)
-			gterminal_scroll(&terminal, 1);
+		if(ev->value.mouse.y > mouse_last_y) {
+			if(gterminal_scroll(&terminal, -1))
+				update();
+		}
+		else if(ev->value.mouse.y < mouse_last_y) {
+			if(gterminal_scroll(&terminal, 1))
+				update();
+		}
 		mouse_last_y = ev->value.mouse.y;
-		update();
 		return true;
 	}
 	else if(ev->state == MOUSE_STATE_MOVE) {
 		if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP) {
-			gterminal_scroll(&terminal, 1);
-			update();
+			if(gterminal_scroll(&terminal, 1))
+				update();
 			return true;
 		}
 		else if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_DOWN) {
-			gterminal_scroll(&terminal, -1);
-			update();
+			if(gterminal_scroll(&terminal, -1))
+				update();
 			return true;
 		}
 	}
