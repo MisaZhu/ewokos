@@ -773,8 +773,8 @@ int bcm2835_power_on_module(uint32_t module)
 	// 	return -EIO;
 	// }
     msg.data = ((uint32_t)dma_phy_addr(0, msg_pwr) + 0x40000000) >> 4;	
-    bcm283x_mailbox_send(PROPERTY_CHANNEL, &msg);
-	bcm283x_mailbox_read(PROPERTY_CHANNEL, &msg);
+	msg.channel = PROPERTY_CHANNEL;
+    bcm283x_mailbox_call(&msg);
 
 	return 0;
 }
@@ -796,8 +796,8 @@ int bcm2835_set_sdhost_clock(uint32_t rate_hz, uint32_t *rate_1, uint32_t *rate_
 	// 	return -EIO;
 	// }
     msg.data = ((uint32_t)dma_phy_addr(0, msg_sdhost_clk) + 0x40000000) >> 4;	
-    bcm283x_mailbox_send(PROPERTY_CHANNEL, &msg);
-	bcm283x_mailbox_read(PROPERTY_CHANNEL, &msg);
+	msg.channel = PROPERTY_CHANNEL;
+    bcm283x_mailbox_call(&msg);
 
 	*rate_1 = msg_sdhost_clk->set_sdhost_clock.body.resp.rate_1;
 	*rate_2 = msg_sdhost_clk->set_sdhost_clock.body.resp.rate_2;
@@ -827,8 +827,8 @@ int bcm2835_get_mmc_clock(uint32_t clock_id)
 	// 	return -EIO;
 	// }
     msg.data = ((uint32_t)dma_phy_addr(0, msg_clk) + 0x40000000) >> 4;	
-    bcm283x_mailbox_send(PROPERTY_CHANNEL, &msg);
-	bcm283x_mailbox_read(PROPERTY_CHANNEL, &msg); 
+	msg.channel = PROPERTY_CHANNEL;
+    bcm283x_mailbox_call(&msg);
 
 	clock_rate = msg_clk->get_clock_rate.body.resp.rate_hz;
 
@@ -843,8 +843,8 @@ int bcm2835_get_mmc_clock(uint32_t clock_id)
 		// 	return -EIO;
 		// }
         msg.data = ((uint32_t)msg_clk + 0x40000000) >> 4;	
-        bcm283x_mailbox_send(PROPERTY_CHANNEL, &msg);
-	    bcm283x_mailbox_read(PROPERTY_CHANNEL, &msg); 
+		msg.channel = PROPERTY_CHANNEL;
+        bcm283x_mailbox_call(&msg);
 
 		clock_rate = msg_clk->get_clock_rate.body.resp.rate_hz;
 	}

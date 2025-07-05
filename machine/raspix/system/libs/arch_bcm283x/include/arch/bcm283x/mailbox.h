@@ -23,7 +23,8 @@ typedef struct {
 } mail_status_t;
 
 uint32_t bcm283x_mailbox_init(void);
-void     bcm283x_mailbox_read(int channel, mail_message_t* msg);
-void     bcm283x_mailbox_send(int channel, mail_message_t* msg);
+void     bcm283x_mailbox_read(mail_message_t* msg);
+void     bcm283x_mailbox_send(mail_message_t* msg);
+void     bcm283x_mailbox_call(mail_message_t* msg);
 
 #endif

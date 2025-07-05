@@ -22,6 +22,6 @@ void bcm283x_mbox_actled(bool on) {
 	buf[7] = 0;
 	
 	msg.data = ((uint32_t)buf + 0x40000000) >> 4;	
-	bcm283x_mailbox_send(PROPERTY_CHANNEL, &msg);
-	bcm283x_mailbox_read(PROPERTY_CHANNEL, &msg);
+	msg.channel = PROPERTY_CHANNEL;
+	bcm283x_mailbox_call(&msg);
 }

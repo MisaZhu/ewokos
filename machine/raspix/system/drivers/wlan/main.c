@@ -134,8 +134,8 @@ static int bcm2835_power_on_module(uint32_t module)
 		BCM2835_MBOX_SET_POWER_STATE_REQ_WAIT;
 
     msg.data = ((uint32_t)msg_pwr + 0x40000000) >> 4;	
-    bcm283x_mailbox_send(PROPERTY_CHANNEL, &msg);
-	bcm283x_mailbox_read(PROPERTY_CHANNEL, &msg);
+	msg.channel = PROPERTY_CHANNEL;
+    bcm283x_mailbox_call(&msg);
 
 	return 0;
 }
@@ -165,8 +165,8 @@ void bcm283x_mbox_pin_ctrl(int idx, int dir, int on) {
 	buf[11] = 0;
 	
 	msg.data = ((uint32_t)buf + 0x40000000) >> 4;	
-	bcm283x_mailbox_send(PROPERTY_CHANNEL, &msg);
-	bcm283x_mailbox_read(PROPERTY_CHANNEL, &msg);
+	msg.channel = PROPERTY_CHANNEL;
+	bcm283x_mailbox_call(&msg);
 }
 
 #define CM_GP2DIV	(_mmio_base + 0x101084) 

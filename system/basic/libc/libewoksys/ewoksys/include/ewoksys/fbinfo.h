@@ -11,7 +11,7 @@ typedef struct  {
 	uint32_t xoffset, yoffset;
 	uint32_t pointer, size, size_max;
 	int32_t  dma_id;
-	uint32_t phy_base;
+	uint32_t gpu_base;
 } fbinfo_t;
 
 #endif
