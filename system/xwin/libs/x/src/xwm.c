@@ -111,7 +111,8 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 	int xw = proto_read_int(in);
 	int xh = proto_read_int(in);
 	proto_read_to(in, &info, sizeof(xinfo_t));
-	bool top = (proto_read_int(in) != 0);
+	bool bg_effect = (proto_read_int(in) != 0);
+	bool top = info.focused;
 
 	if(xw <= 0 || xh <= 0)
 		return;
@@ -182,7 +183,7 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 	if((info.style & XWIN_STYLE_NO_BG_EFFECT) == 0 &&
 			!info.focused &&
 			xwm->draw_bg_effect != NULL) {
-		xwm->draw_bg_effect(&desktop_g, &frame_g, &ws_g, &info, top, xwm->data);
+		xwm->draw_bg_effect(&desktop_g, &frame_g, &ws_g, &info, bg_effect, xwm->data);
 	}
 	free_win_graph(&frame_g);
 	free_win_graph(&ws_g);

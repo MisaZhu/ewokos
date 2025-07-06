@@ -66,6 +66,14 @@ static bool check_xwm(x_t* x) {
 	return false;
 }
 
+static bool top_proc(x_t* x, xwin_t* win) {
+	if(x->win_focus == NULL)
+		return false;
+	if(win->from_main_pid == x->win_focus->from_main_pid)
+		return true;
+	return false;
+}
+
 static void prepare_win_content(x_t* x, xwin_t* win) {
 	if(!check_xwm(x))
 		return;
@@ -95,7 +103,7 @@ static void prepare_win_content(x_t* x, xwin_t* win) {
 		display->g->h,
 		win->xinfo, sizeof(xinfo_t));
 
-	if(win == x->win_focus)
+	if(top_proc(x, win))
 		PF->addi(&in, 1); //top win
 	else
 		PF->addi(&in, 0);
