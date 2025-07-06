@@ -122,7 +122,7 @@ int main(int argc, char** argv) {
 		if(read(fd, buf, 6) == 6) {
 			uint16_t* mv = (uint16_t*)buf;
 			if(mv[0] == 0 && prev_ev == 0) {
-				proc_usleep(100000);
+				proc_usleep(20000);
 				continue;
 			}
 			prev_ev = mv[0];
@@ -143,7 +143,7 @@ int main(int argc, char** argv) {
 			proc_usleep(20000);
 		}
 		else
-			proc_usleep(100000);
+			proc_usleep(20000);
 	}
 
 	close(fd);
