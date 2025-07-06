@@ -47,10 +47,12 @@ static charbuf_t *_buffer;
 
 class TermWidget : public ConsoleWidget {
 	pthread_mutex_t term_lock;
+	bool showXIM;
 
 public:
 	TermWidget() {
 		pthread_mutex_init(&term_lock, NULL);
+		showXIM = true;
 	}
 
 	~TermWidget() {
@@ -134,6 +136,15 @@ protected:
 	void input(int32_t c) {
 		charbuf_push(_buffer, c, false);
 		proc_wakeup(RW_BLOCK_EVT);
+	}
+
+	bool onMouse(xevent_t* ev) {
+		if(ev->state == MOUSE_STATE_CLICK) {
+			showXIM = !showXIM;
+			getWin()->callXIM(showXIM);
+			return true;
+		}
+		return ConsoleWidget::onMouse(ev);
 	}
 
 	void onResize() {

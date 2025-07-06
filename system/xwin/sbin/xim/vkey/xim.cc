@@ -24,7 +24,6 @@ class XIMX : public XWin {
 
 	gsize_t scrSize;
 	gsize_t panelSize;
-	bool hideMode;
 
 	static const int INPUT_MAX = 128;
 	char inputS[INPUT_MAX];
@@ -32,10 +31,8 @@ class XIMX : public XWin {
 	int col, row, keyw, keyh, keySelect;
 protected:
 	int get_at(int x, int y) {
-		if(!hideMode) {
-			int input_h = FONT_SIZE + 8;
-			y -= input_h;
-		}
+		int input_h = FONT_SIZE + 8;
+		y -= input_h;
 
 		if(x > col * keyw) 
 			return -1;
@@ -59,24 +56,16 @@ protected:
 	}
 
 	void changeMode(bool hide) {
-		hideMode = hide;
-		if(hideMode) {
-			int kw = 16;
-			resizeTo(kw, kw);
-			moveTo(scrSize.w - kw, scrSize.h - kw);
-		}
-		else { //show panel and repos
-			int w = scrSize.w;
-			int h = scrSize.h / 2;
+		int w = scrSize.w;
+		int h = scrSize.h / 2;
 
-			if(panelSize.w > 0)
-				w = panelSize.w;
-			if(panelSize.h > 0)
-				h = panelSize.h;
+		if(panelSize.w > 0)
+			w = panelSize.w;
+		if(panelSize.h > 0)
+			h = panelSize.h;
 
-			resizeTo(w, h);
-			moveTo(scrSize.w-w, scrSize.h-h);
-		}
+		resizeTo(w, h);
+		moveTo(scrSize.w-w, scrSize.h-h);
 	}
 
 	void doKeyIn(char c) {
@@ -114,12 +103,6 @@ protected:
 			}
 		}
 		else if(ev->state == MOUSE_STATE_UP) {
-			if(hideMode) {
-				changeMode(false);
-				keySelect = -1;
-				return;
-			}
-
 			char c = keytable[keytableType][keySelect];
 			doKeyIn(c);	
 			keySelect = -1;
@@ -139,26 +122,18 @@ protected:
 				keySelect++;
 			}
 			else if(c == KEY_UP) {
-				if(hideMode)
-					doKeyIn(c);
-				else if(keySelect > col)
+				if(keySelect > col)
 					keySelect -= col;
 			}
 			else if(c == KEY_DOWN) {
-				if(hideMode)
-					doKeyIn(c);
-				else if((keySelect+col) < keyNum)
+				if((keySelect+col) < keyNum)
 					keySelect += col;
 			}
 			else
 				return;
 		}
 		else { //RELEASE
-			if(c == JOYSTICK_SELECT) {
-				changeMode(!hideMode);
-				return;
-			}
-			else if(c == JOYSTICK_Y) {
+			if(c == JOYSTICK_Y) {
 				doKeyIn('\b');
 				repaint();
 				return;
@@ -179,16 +154,10 @@ protected:
 				return;
 			}
 			else if(c == KEY_ENTER || c == JOYSTICK_A) {
-				if(hideMode) {
-					changeMode(false);
-					return;
-				}
-				else {
-					c = keytable[keytableType][keySelect];
-					doKeyIn(c);
-					repaint();
-					return;
-				}
+				c = keytable[keytableType][keySelect];
+				doKeyIn(c);
+				repaint();
+				return;
 			}
 		}
 
@@ -242,14 +211,6 @@ protected:
 
 	void onRepaint(graph_t* g) {
 		uint32_t font_h = FONT_SIZE;
-		if(hideMode) {
-			graph_clear(g, 0xffaaaaaa);
-			graph_draw_text_font(g,  2, 
-					(g->h - font_h)/2,
-					"|||", font, FONT_SIZE, 0xff000000);
-			graph_box(g, 0, 0, g->w, g->h, 0xffdddddd);
-			return;
-		}
 
 		graph_fill(g, 0, 0, g->w, g->w, 0xffcccccc);
 
@@ -325,10 +286,8 @@ protected:
 			inputS[0] = 0;
 		}
 		else if(c < 0xF0 && len < INPUT_MAX-1) {
-			if(!hideMode) {
-				inputS[len] = c;
-				inputS[len+1] = 0;
-			}	
+			inputS[len] = c;
+			inputS[len+1] = 0;
 		}
 
 		proto_t in;
@@ -351,11 +310,11 @@ public:
 		keytable[1] = ""
 			"1234567890%-+\b"
 			"\\#$&*(){}[]!\r\3"
-			"\2:;\"'<>. \3`?^\1";
+			"\2:;\"'<>. \3`?^/";
 		keytable[0] = ""
-			"qwertyuiop-/|\b"
+			"qwertyuiop-+|\b"
 			"~asdfghjkl@_\r\3"
-			"\2zxcvbnm \3\4,.\1";
+			"\2zxcvbnm \3\4,./";
 		keytableType = 0;
 
 		col = 14;
@@ -364,7 +323,6 @@ public:
 		keyw = FONT_SIZE*2 + 12;
 		xPid = dev_get_pid("/dev/x");
 		keySelect = -1;
-		hideMode = false;
 		inputS[0] = 0;
 	}
 

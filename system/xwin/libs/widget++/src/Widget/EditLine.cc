@@ -69,16 +69,18 @@ void EditLine::onInput() {
 
 EditLine::EditLine() {
 	showCur = true;
+	showXIM = false;
 	curTimerCounter = 0;
 	onInputFunc = NULL;
 }
 
-void EditLine::onFocus(void) {
-	((XWin*)getWin())->callXIM();
-}
-
-void EditLine::onUnfocus(void) {
-	((XWin*)getWin())->callXIM(false);
+bool EditLine::onMouse(xevent_t* ev) {
+	if(ev->state == MOUSE_STATE_CLICK) {
+		showXIM = !showXIM;
+		getWin()->callXIM(showXIM);
+		return true;
+	}
+	return Widget::onMouse(ev);
 }
 
 }

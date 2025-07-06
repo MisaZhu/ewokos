@@ -80,7 +80,6 @@ void ConsoleWidget::setFont(const string& fontName) {
 
 void ConsoleWidget::onFocus(void) {
 	update();
-	getWin()->callXIM();
 }
 
 void ConsoleWidget::onUnfocus(void) {
