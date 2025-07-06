@@ -203,8 +203,6 @@ protected:
 			strcpy(s, "C/#");
 		else if(c == '\1')
 			strcpy(s, "|||");
-		else if(c == '\4')
-			strcpy(s, "RB");
 
 		return s;
 	}
@@ -314,7 +312,7 @@ public:
 		keytable[0] = ""
 			"qwertyuiop-+|\b"
 			"~asdfghjkl@_\r\3"
-			"\2zxcvbnm \3\4,./";
+			"\2zxcvbnm \3&,./";
 		keytableType = 0;
 
 		col = 14;

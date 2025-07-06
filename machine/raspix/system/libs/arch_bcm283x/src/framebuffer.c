@@ -331,8 +331,8 @@ int32_t bcm283x_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	_fb_info.dma_id = dma_set(_fb_info.gpu_base+_fb_info.size, _fb_info.size_max - _fb_info.size, true);
 
 	dma_free(0, (ewokos_addr_t)fbinit);
-	test();
-	sleep(3);
+	//test();
+	//sleep(3);
 	return 0;
 }
 
