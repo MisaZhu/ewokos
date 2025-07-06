@@ -52,7 +52,7 @@ class TermWidget : public ConsoleWidget {
 public:
 	TermWidget() {
 		pthread_mutex_init(&term_lock, NULL);
-		showXIM = true;
+		showXIM = false;
 	}
 
 	~TermWidget() {
