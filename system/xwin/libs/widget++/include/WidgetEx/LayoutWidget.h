@@ -3,17 +3,18 @@
 
 #include <Widget/Container.h>
 #include <string>
+#include <tinyjson/tinyjson.h>
 using namespace std;
 namespace Ewok {
 
 class LayoutWidget: public Container {
+	bool load(Widget* wd, json_var_t* var);
 protected:
 	virtual Widget* createByType(const string& type);
 	
 public:
 	LayoutWidget();
-
-	bool load(const string& dirName);
+	bool loadConfig(const string& fname);
 };
 
 }

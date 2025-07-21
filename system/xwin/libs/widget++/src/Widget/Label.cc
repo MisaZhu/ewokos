@@ -27,4 +27,11 @@ void Label::setLabel(const string& str) {
 	update();
 }
 
+void Label::setAttr(const string& attr, const string& value) {
+	Widget::setAttr(attr, value);
+	if(attr == "label") {
+		setLabel(value);
+	}
+}
+
 }

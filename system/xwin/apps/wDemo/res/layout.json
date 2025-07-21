@@ -1,15 +1,22 @@
 {
     "name": "top",
     "type": "Container",
+    "layout": "horizontal",
     "children": [
         {
             "name": "button",
-            "type": "LabelButton"
+            "type": "LabelButton",
+            "label": "Label"
+            
+        },
+        {
+            "name": "split",
+            "type": "Split"
         },
         {
             "name": "label",
-            "type": "Label"
+            "type": "Label",
+            "label": "Label"
         }
-    ],
-    "layout": "horizontal"
+    ]
 }

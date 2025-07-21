@@ -15,7 +15,7 @@ Widget::Widget(void)  {
 	marginH = 0;
 	marginV = 0;
 	id = 0;
-	isContainer = false;
+	beContainer = false;
 	disabled = false;
 	themePrivate = NULL;
 	visible = true;

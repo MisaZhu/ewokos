@@ -11,6 +11,7 @@ class Label: public Widget {
 protected:
 	string label;
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r);
+	void setAttr(const string& attr, const string& value);
 
 public:
 	Label(const string& str = "");

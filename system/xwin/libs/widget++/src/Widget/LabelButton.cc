@@ -35,4 +35,11 @@ void LabelButton::setLabel(const string& label) {
 	update();
 }
 
+void LabelButton::setAttr(const string& attr, const string& value) {
+	Widget::setAttr(attr, value);
+	if(attr == "label") {
+		setLabel(value);
+	}
+}
+
 }

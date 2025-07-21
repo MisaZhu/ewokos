@@ -21,7 +21,7 @@ class Widget {
 	Widget* next;
 	Widget* prev;
 
-	bool isContainer;
+	bool beContainer;
 protected:
 	XTheme* themePrivate;
 	uint32_t id;
@@ -67,6 +67,8 @@ public:
 	virtual ~Widget(void);
 
 	void setAlpha(bool alpha);
+
+	inline bool isContainer() { return beContainer; }
 
 	inline void setMarginH(int32_t v) { marginH = v; }
 	inline void setMarginV(int32_t v) { marginV = v; }

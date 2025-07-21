@@ -233,7 +233,7 @@ int main(int argc, char** argv) {
 	root->add(split);
 
 	LayoutWidget* layout = new LayoutWidget();
-	layout->load(X::getResName("layout.json")); // 加载布局文件
+	layout->loadConfig(X::getResName("layout.json")); // 加载布局文件
 	root->add(layout);
 
 	win.open(&x, 0, -1, -1, 400, 300, "widgetTest", XWIN_STYLE_NORMAL);
