@@ -12,7 +12,7 @@ protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r);
 
 public:
-	Image(const char* fname);
+	Image(const char* fname = "");
 	~Image(void);
 
 	bool loadImage(const char* fname);

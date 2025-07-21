@@ -13,7 +13,7 @@ protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r);
 
 public:
-	Label(const string& str);
+	Label(const string& str = "");
 	~Label(void);
 
 	void setLabel(const string& str);

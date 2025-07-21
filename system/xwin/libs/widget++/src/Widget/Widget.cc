@@ -28,6 +28,21 @@ Widget::~Widget(void)  {
 		delete themePrivate;
 }
 
+void Widget::setAttr(const string& name, const string& value) {
+	if(name == "id") {
+		setID(atoi(value.c_str()));
+	}
+	else if(name == "name") {
+		setName(value.c_str());
+	}
+	else if(name == "marginH") {
+		setMarginH(atoi(value.c_str()));
+	}
+	else if(name == "marginV") {
+		setMarginV(atoi(value.c_str()));
+	}
+}
+
 void Widget::setTheme(XTheme* theme)  {
 	if(themePrivate != NULL)
 		delete themePrivate;

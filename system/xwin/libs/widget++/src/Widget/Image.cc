@@ -17,8 +17,11 @@ void Image::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 
 Image::Image(const char* fname) {
 	image = NULL;
-	loadImage(fname);
 	alpha = true;
+
+	if(fname == NULL || fname[0] == 0)
+		return;
+	loadImage(fname);
 }
 
 Image::~Image(void) {

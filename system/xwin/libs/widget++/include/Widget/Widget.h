@@ -55,6 +55,7 @@ protected:
 	virtual void onUnfocus() { }
 	virtual void onAdd() { }
 	virtual bool onEvent(xevent_t* ev);
+	virtual void setAttr(const string& attr, const string& value);
 public:
 	friend Container;
 	friend RootWidget;
@@ -107,6 +108,7 @@ public:
 
 	virtual gsize_t getMinSize(void);
 	void update();
+	void set(const string& attr, const string& value) { setAttr(attr, value); }
 };
 
 }

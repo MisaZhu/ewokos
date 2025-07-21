@@ -1,0 +1,15 @@
+{
+    "name": "top",
+    "type": "Container",
+    "children": [
+        {
+            "name": "button",
+            "type": "LabelButton"
+        },
+        {
+            "name": "label",
+            "type": "Label"
+        }
+    ],
+    "layout": "horizontal"
+}

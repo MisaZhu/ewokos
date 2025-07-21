@@ -8,6 +8,7 @@
 #include <Widget/Grid.h>
 #include <Widget/Scroller.h>
 #include <Widget/Split.h>
+#include <WidgetEx/LayoutWidget.h>
 #include <WidgetEx/FileDialog.h>
 #include <WidgetEx/ConfirmDialog.h>
 
@@ -231,16 +232,9 @@ int main(int argc, char** argv) {
 	split->attach(c);
 	root->add(split);
 
-	list = new MyList();
-	root->add(list);
-	list->setItemNum(100);
-	list->setItemSize(20);
-	list->setDefaultScrollType(Scrollable::SCROLL_TYPE_H);
-
-	sr = new Scroller(true);
-	sr->fix(0, 8);
-	list->setScrollerH(sr);
-	root->add(sr);
+	LayoutWidget* layout = new LayoutWidget();
+	layout->load(X::getResName("layout.json")); // 加载布局文件
+	root->add(layout);
 
 	win.open(&x, 0, -1, -1, 400, 300, "widgetTest", XWIN_STYLE_NORMAL);
 	win.setTimer(16);

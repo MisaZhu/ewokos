@@ -15,7 +15,7 @@ protected:
 	virtual void paintDisabled(graph_t* g, XTheme* theme, const grect_t& r);
 
 public:
-	LabelButton(const string& label) { this->label = label; }
+	LabelButton(const string& label = "") { this->label = label; }
 
 	void setLabel(const string& label);
 };
