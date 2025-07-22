@@ -16,6 +16,7 @@ Widget::Widget(void)  {
 	marginV = 0;
 	id = 0;
 	beContainer = false;
+	beRoot = false;
 	disabled = false;
 	themePrivate = NULL;
 	visible = true;
@@ -40,6 +41,15 @@ void Widget::setAttr(const string& name, const string& value) {
 	}
 	else if(name == "marginV") {
 		setMarginV(atoi(value.c_str()));
+	}
+	else if(name == "w") {
+		fix(atoi(value.c_str()), area.h);
+	}
+	else if(name == "h") {
+		fix(area.w, atoi(value.c_str()));
+	}
+	else if(name == "alpha") {
+		setAlpha(atoi(value.c_str()));
 	}
 }
 
@@ -111,7 +121,7 @@ bool Widget::onEvent(xevent_t* ev) {
 	return ret; 
 }
 
-RootWidget* Widget::getRoot(void) {
+Container* Widget::getRootContainer(void) {
 	if(father == NULL) {
 		return NULL;
 	}
@@ -119,6 +129,16 @@ RootWidget* Widget::getRoot(void) {
 	Container* wd = father;
 	while(wd != NULL && wd->father != NULL)
 		wd = wd->father;
+	if(wd == NULL)
+		return NULL;
+	return wd;
+}
+
+RootWidget* Widget::getRoot(void) {
+	Container* wd = getRootContainer();
+	if(wd == NULL || wd->isRoot() == false) {
+		return NULL;
+	}
 	return (RootWidget*)wd;
 }
 

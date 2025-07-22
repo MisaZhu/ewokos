@@ -47,4 +47,11 @@ gsize_t  Image::getMinSize(void) {
 	return sz;
 }
 
+void Image::setAttr(const string& attr, const string& value) {
+	Widget::setAttr(attr, value);
+	if(attr == "file") {
+		loadImage(value.c_str());
+	}	
+}
+
 }

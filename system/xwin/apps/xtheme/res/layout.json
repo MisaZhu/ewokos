@@ -6,17 +6,19 @@
         {
             "name": "button",
             "type": "LabelButton",
-            "label": "Label"
-            
+            "w": 100,
+            "label": "Button"
         },
         {
             "name": "split",
-            "type": "Split"
+            "type": "Split",
+            "attach": "button"
         },
         {
-            "name": "label",
-            "type": "Label",
-            "label": "Label"
+            "name": "image",
+            "type": "Image",
+            "alpha": 0,
+            "file": "/usr/system/icons/apple.png"
         }
     ]
 }

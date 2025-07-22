@@ -1,5 +1,6 @@
 #include <Widget/Split.h>
 #include <Widget/Container.h>
+#include <Widget/RootWidget.h>
 
 namespace Ewok {
 
@@ -131,6 +132,18 @@ Split::Split() {
 	horizontal = false;
 	attachedAfter = false;
 	attachedWidget = NULL;
+}
+
+void Split::setAttr(const string& attr, const string& value) {
+	Widget::setAttr(attr, value);
+	if(attr == "attach") {
+		Container* r = getRootContainer();
+		if(r == NULL)
+			return;
+		Widget* wd = r->get(value);
+		if(wd != NULL)
+			attach(wd);
+	}	
 }
 
 }

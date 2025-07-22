@@ -21,6 +21,8 @@ protected:
 	bool onMouse(xevent_t* ev);
 
 	void onAdd();
+
+	void setAttr(const string& attr, const string& value);
 public:
 	Split();
 

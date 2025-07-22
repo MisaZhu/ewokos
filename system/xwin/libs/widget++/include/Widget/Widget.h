@@ -22,6 +22,7 @@ class Widget {
 	Widget* prev;
 
 	bool beContainer;
+	bool beRoot;
 protected:
 	XTheme* themePrivate;
 	uint32_t id;
@@ -69,6 +70,7 @@ public:
 	void setAlpha(bool alpha);
 
 	inline bool isContainer() { return beContainer; }
+	inline bool isRoot() { return beRoot; }
 
 	inline void setMarginH(int32_t v) { marginH = v; }
 	inline void setMarginV(int32_t v) { marginV = v; }
@@ -98,6 +100,7 @@ public:
 	bool isVisible() { return visible; }
 	Widget* getNext() { return next; }
 	Widget* getPrev() { return prev; }
+	Container* getRootContainer(void);
 	virtual RootWidget* getRoot(void);
 	WidgetWin*  getWin(void);
 	gpos_t getRootPos(int32_t x = 0, int32_t y = 0);

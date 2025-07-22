@@ -75,8 +75,8 @@ bool LayoutWidget::load(Widget* wd, json_var_t* var) {
                     Widget* chd = createByType(type);
                     if(chd == NULL)
                         continue;
-                    load(chd, n->var);
                     ((Container*)wd)->add(chd);
+                    load(chd, n->var);
                 }
 			}
             else { //set attr
