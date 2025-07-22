@@ -1,0 +1,49 @@
+{
+    "type": "Container",
+    "layout": "horizontal",
+    "children": [
+        {
+            "name": "button",
+            "type": "LabelButton",
+            "w": 100,
+            "label": "Button"
+        },
+        {
+            "name": "split",
+            "type": "Split",
+            "attach": "button"
+        },
+        {
+            "name": "image",
+            "type": "Image",
+            "alpha": 0,
+            "file": "/usr/system/icons/apple.png"
+        },
+        {
+            "type": "Split",
+            "attach": "image"
+        },
+        {
+            "type": "Container",
+            "layout": "verticle",
+            "children": [
+                {
+                    "name": "button2",
+                    "type": "LabelButton",
+                    "h": 100,
+                    "label": "Button2"
+                },
+                {
+                    "type": "Split",
+                    "attach": "button2"
+                },
+                {
+                    "name": "image2",
+                    "type": "Image",
+                    "alpha": 0,
+                    "file": "/usr/system/images/logos/apple_old.png"
+                }
+            ]
+        }
+    ]
+}

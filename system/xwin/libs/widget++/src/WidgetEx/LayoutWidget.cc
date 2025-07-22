@@ -16,7 +16,7 @@ LayoutWidget::LayoutWidget() {
     type = HORIZONTAL;
 }
 
-Widget* LayoutWidget::createByType(const string& type) {
+Widget* LayoutWidget::createByBasicType(const string& type) {
     if(type == "Blank") {
         return new Blank();
     }
@@ -53,6 +53,21 @@ Widget* LayoutWidget::createByType(const string& type) {
     return NULL;
 }
 
+Widget* LayoutWidget::createByType(const string& type) {
+    string str = "type: ";
+    str += type;
+    Label* label = new Label(str);
+    label->setAlpha(false);
+    return label;
+}
+
+Widget* LayoutWidget::create(const string& type) {
+    Widget* wd = createByBasicType(type);
+    if(wd != NULL)
+        return wd;
+    return createByType(type);
+}
+
 bool LayoutWidget::load(Widget* wd, json_var_t* var) {
 	for(uint32_t i=0; i<var->children.size; i++) {
 		json_node_t* node = (json_node_t*)var->children.items[i];
@@ -72,7 +87,7 @@ bool LayoutWidget::load(Widget* wd, json_var_t* var) {
                     if(n == NULL || n->var == NULL || n->var->type != JSON_V_OBJECT)
                         continue;
                     const char* type = json_get_str(n->var, "type");
-                    Widget* chd = createByType(type);
+                    Widget* chd = create(type);
                     if(chd == NULL)
                         continue;
                     ((Container*)wd)->add(chd);

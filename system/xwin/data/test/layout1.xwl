@@ -1,0 +1,37 @@
+{
+    "type": "Container",
+    "layout": "horizontal",
+    "children": [
+        {
+            "name": "toolbar",
+            "type": "Container",
+            "layout": "verticle",
+            "w": 48,
+            "children": [
+                {
+                    "name": "b1",
+                    "type": "LabelButton",
+                    "h": 48,
+                    "label": "B1"
+                },
+                {
+                    "name": "b2",
+                    "type": "LabelButton",
+                    "h": 48,
+                    "label": "B2"
+                },
+                {
+                    "name": "b3",
+                    "type": "LabelButton",
+                    "label": "B3"
+                }
+            ]
+        },
+        {
+            "name": "image",
+            "type": "Image",
+            "alpha": 0,
+            "file": "/data/images/mac.png"
+        }
+    ]
+}

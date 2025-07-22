@@ -19,6 +19,11 @@
 using namespace Ewok;
 
 int main(int argc, char** argv) {
+	if(argc < 2) {
+		klog("Usage: %s <xxxx.layout>\n", argv[0]);
+		return 0;
+	}
+	
 	X x;
 	WidgetWin win;
 	RootWidget* root = new RootWidget();
@@ -26,10 +31,10 @@ int main(int argc, char** argv) {
 	root->setType(Container::VERTICLE);
 
 	LayoutWidget* layout = new LayoutWidget();
-	layout->loadConfig(X::getResName("layout.json")); // 加载布局文件
+	layout->loadConfig(argv[1]); // 加载布局文件
 	root->add(layout);
 
-	win.open(&x, 0, -1, -1, 400, 300, "xtheme", XWIN_STYLE_NORMAL);
+	win.open(&x, 0, -1, -1, 400, 300, argv[1], XWIN_STYLE_NORMAL);
 	win.setTimer(16);
 
 	widgetXRun(&x, &win);	

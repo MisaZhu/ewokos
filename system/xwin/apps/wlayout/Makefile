@@ -8,10 +8,10 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I $(BUILD_DIR)/include
 
-TASK_OBJS = xtheme.o
+TASK_OBJS = wlayout.o
 
-TASK_DIR = $(TARGET_DIR)/apps/xtheme
-TASK = $(TASK_DIR)/xtheme
+TASK_DIR = $(TARGET_DIR)/apps/wlayout
+TASK = $(TASK_DIR)/wlayout
 
 all: $(TASK_DIR) $(TASK)
 

@@ -9,7 +9,7 @@ all:
 	cd xprocs; make
 	cd xDemo; make
 	cd wDemo; make
-	cd xtheme; make
+	cd wlayout; make
 	cd clock; make
 
 clean:
@@ -23,5 +23,5 @@ clean:
 	cd xprocs; make clean
 	cd xDemo; make clean
 	cd wDemo; make clean
-	cd xtheme; make clean
+	cd wlayout; make clean
 	cd clock; make clean

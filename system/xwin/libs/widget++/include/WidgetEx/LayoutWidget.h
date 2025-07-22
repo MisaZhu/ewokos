@@ -9,6 +9,8 @@ namespace Ewok {
 
 class LayoutWidget: public Container {
 	bool load(Widget* wd, json_var_t* var);
+	Widget* createByBasicType(const string& type);
+	Widget* create(const string& type);
 protected:
 	virtual Widget* createByType(const string& type);
 	
