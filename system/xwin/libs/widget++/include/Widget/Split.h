@@ -14,6 +14,7 @@ protected:
 	uint32_t barSize;
 	uint32_t step;
 	Widget*  attachedWidget;
+	string   attachedName;
 	bool  attachedAfter;
 	int last_mouse_down;
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r);

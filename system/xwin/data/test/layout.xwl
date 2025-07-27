@@ -21,9 +21,11 @@
         },
         {
             "type": "Split",
-            "attach": "image"
+            "attach": "layout2",
+            "attachAfter": 1
         },
         {
+            "name": "layout2",
             "type": "Container",
             "layout": "verticle",
             "children": [

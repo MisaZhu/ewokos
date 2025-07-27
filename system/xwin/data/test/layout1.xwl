@@ -3,6 +3,17 @@
     "layout": "horizontal",
     "children": [
         {
+            "name": "image",
+            "type": "Image",
+            "alpha": 0,
+            "file": "/data/images/mac.png"
+        },
+        {
+            "type": "Split",
+            "attach": "toolbar",
+            "attachAfter": 1
+        },
+        {
             "name": "toolbar",
             "type": "Container",
             "layout": "verticle",
@@ -26,12 +37,6 @@
                     "label": "B3"
                 }
             ]
-        },
-        {
-            "name": "image",
-            "type": "Image",
-            "alpha": 0,
-            "file": "/data/images/mac.png"
         }
     ]
 }

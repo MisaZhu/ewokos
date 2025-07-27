@@ -33,11 +33,11 @@ void Split::resizeAttach(int d) {
 	grect_t r = attachedWidget->getRootArea();
 
 	if(horizontal) {
-		if((r.x + r.w - d + width) <= (father_area.x + father_area.w))
+		//if((r.x + r.w - d + width) <= (father_area.x + father_area.w))
 			attachedWidget->resize(-d, 0);
 	}
 	else {
-		if((r.y + r.h - d + width) <= (father_area.y + father_area.h))
+		//if((r.y + r.h - d + width) <= (father_area.y + father_area.h))
 			attachedWidget->resize(0, -d);
 	}
 }
@@ -83,6 +83,14 @@ bool Split::moveSplit(xevent_t* ev) {
 }
 
 bool Split::onMouse(xevent_t* ev) {
+	if(attachedWidget == NULL) {
+		Container* r = getRootContainer();
+		if(r == NULL)
+			return false;
+		Widget* wd = r->get(attachedName);
+		if(wd != NULL)
+			attach(wd, attachedAfter);
+	}
 	if(attachedWidget == NULL)
 		return false;
 
@@ -137,13 +145,11 @@ Split::Split() {
 void Split::setAttr(const string& attr, const string& value) {
 	Widget::setAttr(attr, value);
 	if(attr == "attach") {
-		Container* r = getRootContainer();
-		if(r == NULL)
-			return;
-		Widget* wd = r->get(value);
-		if(wd != NULL)
-			attach(wd);
+		attachedName = value;
 	}	
+	else if(attr == "attachAfter") {
+		attachedAfter = atoi(value.c_str());
+	}
 }
 
 }
