@@ -17,6 +17,8 @@ protected:
 public:
 	LayoutWidget();
 	bool loadConfig(const string& fname);
+
+	Widget* (*createByTypeFunc)(const string& type);
 };
 
 }

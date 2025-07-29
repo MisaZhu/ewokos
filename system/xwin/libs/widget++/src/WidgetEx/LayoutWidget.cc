@@ -14,6 +14,7 @@ namespace Ewok {
 
 LayoutWidget::LayoutWidget() {
     type = HORIZONTAL;
+    createByTypeFunc = NULL;
 }
 
 Widget* LayoutWidget::createByBasicType(const string& type) {
@@ -65,6 +66,8 @@ Widget* LayoutWidget::create(const string& type) {
     Widget* wd = createByBasicType(type);
     if(wd != NULL)
         return wd;
+    if(createByTypeFunc != NULL)
+        return createByTypeFunc(type); //use user define create func.
     return createByType(type);
 }
 
