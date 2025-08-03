@@ -214,7 +214,7 @@ Container::Container() {
 	beContainer = true;
 	children = NULL;
 	childrenEnd = NULL;
-	type = FIXED;
+	type = HORIZONTAL;
 	alpha = true;
 	num = 0;
 }

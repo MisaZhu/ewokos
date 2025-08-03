@@ -250,7 +250,7 @@ static int font_get_glyph(font_t* font, uint32_t size, uint32_t c, FT_GlyphSlot 
 
 void font_char_size(uint32_t c, font_t* font, uint32_t size, uint32_t *w, uint32_t* h) {
 	if(w != NULL)
-		*w = 0;
+		*w = size;
 	if(h != NULL)
 		*h = size;
 
@@ -307,9 +307,9 @@ void font_text_size(const char* str,
 void graph_draw_unicode_font(graph_t* g, int32_t x, int32_t y, uint32_t c,
 		font_t* font, uint32_t size, uint32_t color, uint32_t *w, uint32_t *h) {
 	if(w != NULL)
-		*w = 0;
+		*w = size;
 	if(h != NULL)
-		*h = 0;
+		*h = size;
 
 	FT_GlyphSlotRec slot;
 	if(font_get_glyph(font, size, c, &slot) != 0)
@@ -320,7 +320,7 @@ void graph_draw_unicode_font(graph_t* g, int32_t x, int32_t y, uint32_t c,
 	y = y - slot.bitmap_top + (faceinfo->ascender/FACE_PIXEL_DENT);
 	
 	if(c == '\t') {
-		if(w != NULL)
+		if(w != NULL && slot.bitmap.width > 0)
 			*w = slot.bitmap.width*2;
 		if(h != NULL)
 			*h = (faceinfo->height/FACE_PIXEL_DENT);

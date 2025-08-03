@@ -26,9 +26,7 @@ int main(int argc, char** argv) {
 	
 	X x;
 	WidgetWin win;
-	RootWidget* root = new RootWidget();
-	win.setRoot(root);
-	root->setType(Container::VERTICLE);
+	RootWidget* root = win.getRoot();
 
 	LayoutWidget* layout = new LayoutWidget();
 	layout->loadConfig(argv[1]); // 加载布局文件

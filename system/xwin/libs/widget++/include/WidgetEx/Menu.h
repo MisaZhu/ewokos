@@ -22,6 +22,7 @@ protected:
     bool subMenued;
     uint32_t itemSize;
 public:
+    menufunc_t onMenuItemFunc;
     inline void setItemSize(uint32_t size) { itemSize = size; }
     inline uint32_t getItemSize() { return itemSize; }
 
@@ -30,7 +31,7 @@ public:
 
     Menu();
     uint32_t getItemNum();
-    void add(const string& title, graph_t* icon, Menu* menu, menufunc_t func, void* funcArg);
+    void add(uint32_t id, const string& title, graph_t* icon, Menu* menu, menufunc_t func, void* funcArg);
     void subMenu(bool s);
     void hide();
 };
@@ -38,12 +39,14 @@ public:
 class MenuItem {
 public:
     string title;
+    uint32_t id;
     graph_t* icon;
     Menu* menu;
     menufunc_t func;
     void* funcArg;
 
     inline MenuItem() {
+        id = 0;
         icon = NULL;
         menu = NULL;
         func = NULL;

@@ -335,10 +335,10 @@ int main(int argc, char** argv) {
 	statusLabel->fix(0, 20);
 	root->add(statusLabel);
 
-	menubar->add("load", NULL, NULL, onLoadFunc, imgView);
-	menubar->add("zoom_in", NULL, NULL, onZoomInFunc, imgView);
-	menubar->add("zoom_out", NULL, NULL, onZoomOutFunc, imgView);
-	menubar->add("BGColor", NULL, NULL, onBGColorFunc, imgView);
+	menubar->add(0, "load", NULL, NULL, onLoadFunc, imgView);
+	menubar->add(1, "zoom_in", NULL, NULL, onZoomInFunc, imgView);
+	menubar->add(2, "zoom_out", NULL, NULL, onZoomOutFunc, imgView);
+	menubar->add(3, "BGColor", NULL, NULL, onBGColorFunc, imgView);
 
 	win.open(&x, 0, -1, -1, 400, 300, "xpng", XWIN_STYLE_NORMAL);
 	win.setAlpha(true);

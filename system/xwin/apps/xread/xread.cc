@@ -131,19 +131,19 @@ public:
 	}
 };
 
-static void onLoadFunc(MenuItem* it, void* p) {
-	TextWin* win = (TextWin*)p;
-	win->load("");
-}
-
-static void onFontFunc(MenuItem* it, void* p) {
-	TextWin* win = (TextWin*)p;
-	win->font("");
-}
-
-static void onQuitFunc(MenuItem* it, void* p) {
-	TextWin* win = (TextWin*)p;
-	win->close();
+static void onMemuFunc(MenuItem* it, void* p) {
+	if(it->id == 0) {
+		TextWin* win = (TextWin*)p;
+		win->load("");
+	}
+	else if(it->id == 1) {
+		TextWin* win = (TextWin*)p;
+		win->font("");
+	}
+	else if(it->id == 2) {
+		TextWin* win = (TextWin*)p;
+		win->close();
+	}
 }
 
 static void onZoomInClickFunc(Widget* wd) {
@@ -172,11 +172,12 @@ int main(int argc, char** argv) {
 	root->add(c);
 
 	Menu* menu = new Menu();
-	menu->add("open", NULL, NULL, onLoadFunc, &win);
-	menu->add("font", NULL, NULL, onFontFunc, &win);
-	menu->add("quit", NULL, NULL, onQuitFunc, &win);
+	menu->onMenuItemFunc = onMemuFunc;
+	menu->add(0, "open", NULL, NULL, NULL, &win);
+	menu->add(1, "font", NULL, NULL, NULL, &win);
+	menu->add(2, "quit", NULL, NULL, NULL, &win);
 	Menubar* menubar = new Menubar();
-	menubar->add("file", NULL, menu, NULL, NULL);
+	menubar->add(3, "file", NULL, menu, NULL, NULL);
 	c->add(menubar);
 
 	LabelButton* zoomInButton = new LabelButton("+");

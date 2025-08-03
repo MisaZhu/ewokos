@@ -254,16 +254,16 @@ static void* thread_loop(void* p) {
 	root->setType(Container::VERTICLE);
 
 	Menu* menu = new Menu();
-	menu->add("txtcolor", NULL, NULL, onTextColor, &win);
-	menu->add("bgcolor", NULL, NULL, onBGColor, &win);
+	menu->add(0, "txtcolor", NULL, NULL, onTextColor, &win);
+	menu->add(1, "bgcolor", NULL, NULL, onBGColor, &win);
 
 	Menubar* menubar = new Menubar();
-	menubar->add("font", NULL, NULL, onFontFunc, &win);
-	menubar->add("F+", NULL, NULL, onFontZoomInFunc, NULL);
-	menubar->add("F-", NULL, NULL, onFontZoomOutFunc, NULL);
-	menubar->add("]+[", NULL, NULL, onFontCharSpaceIncrFunc, NULL);
-	menubar->add("]-[", NULL, NULL, onFontCharSpaceDecrFunc, NULL);
-	menubar->add("color", NULL, menu, NULL, NULL);
+	menubar->add(2, "font", NULL, NULL, onFontFunc, &win);
+	menubar->add(3, "F+", NULL, NULL, onFontZoomInFunc, NULL);
+	menubar->add(4, "F-", NULL, NULL, onFontZoomOutFunc, NULL);
+	menubar->add(5, "]+[", NULL, NULL, onFontCharSpaceIncrFunc, NULL);
+	menubar->add(6, "]-[", NULL, NULL, onFontCharSpaceDecrFunc, NULL);
+	menubar->add(7, "color", NULL, menu, NULL, NULL);
 	menubar->fix(0, 20);
 	root->add(menubar);
 

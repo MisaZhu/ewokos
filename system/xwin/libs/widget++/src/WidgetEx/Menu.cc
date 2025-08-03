@@ -95,6 +95,7 @@ Menu::Menu() {
     menubar = NULL;
     menu = NULL;
     itemSize = 24;
+    onMenuItemFunc = NULL;
     build();
 }
 
@@ -111,7 +112,7 @@ uint32_t Menu::getItemNum() {
     return list->getItemNum();
 }
 
-void Menu::add(const string& title, graph_t* icon, Menu* menu, menufunc_t func, void* funcArg) {
+void Menu::add(uint32_t id, const string& title, graph_t* icon, Menu* menu, menufunc_t func, void* funcArg) {
     MenuList* list = (MenuList*)root->get(1);
     if(list == NULL)
         return;
@@ -120,10 +121,14 @@ void Menu::add(const string& title, graph_t* icon, Menu* menu, menufunc_t func, 
         menu->attachMenu(this);
 
     MenuItem *item = new MenuItem();
+    item->id = id; 
     item->title = title;
     item->icon = icon;
     item->menu = menu;
-    item->func = func;
+    if(func!= NULL)
+        item->func = func;
+    else
+        item->func = onMenuItemFunc;
     item->funcArg = funcArg;
 
     list->items.push_back(item);
