@@ -40,8 +40,8 @@ int main(int argc, char** argv) {
 	RootWidget* root = win.getRoot();
 
 	LayoutWidget* layout = new LayoutWidget();
-	layout->onMenuItemFunc = onMenuItemFunc;
-	layout->onEventFunc = onEventFunc;
+	layout->setMenuItemFunc(onMenuItemFunc);
+	layout->setEventFunc(onEventFunc);
 	layout->loadConfig(argv[1]); // 加载布局文件
 	root->add(layout);
 

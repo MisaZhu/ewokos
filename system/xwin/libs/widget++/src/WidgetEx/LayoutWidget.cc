@@ -19,7 +19,6 @@ LayoutWidget::LayoutWidget() {
     type = HORIZONTAL;
     createByTypeFunc = NULL;
     onMenuItemFunc = NULL;
-    onEventFunc = NULL;
 }
 
 Widget* LayoutWidget::createByBasicType(const string& type) {
@@ -92,8 +91,7 @@ bool LayoutWidget::loadChildren(Widget* wd, json_node_t* node, const string& typ
         Widget* chd = create(tp);
         if(chd == NULL)
             continue;
-        chd->onEventFunc = this->onEventFunc;
-        chd->onEventFuncArg = this;
+        chd->setEventFunc(onEventFunc, this);
         ((Container*)wd)->add(chd);
         load(chd, n->var, tp);
     }

@@ -21,8 +21,9 @@ protected:
     void onBuild();
     bool subMenued;
     uint32_t itemSize;
-public:
     MenuFuncT onMenuItemFunc;
+public:
+    inline void setMenuItemFunc(MenuFuncT func) { onMenuItemFunc = func; }
     inline void setItemSize(uint32_t size) { itemSize = size; }
     inline uint32_t getItemSize() { return itemSize; }
 

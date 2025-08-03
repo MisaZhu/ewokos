@@ -59,13 +59,18 @@ protected:
 	virtual void onAdd() { }
 	virtual bool onEvent(xevent_t* ev);
 	virtual void setAttr(const string& attr, const string& value);
+
+	WidgetEventFuncT onEventFunc;
+	void* onEventFuncArg;
 public:
 	friend Container;
 	friend RootWidget;
 	friend Stage;
 
-	WidgetEventFuncT onEventFunc;
-	void* onEventFuncArg;
+	inline void setEventFunc(WidgetEventFuncT func, void* arg = NULL) {
+		onEventFunc = func;
+		onEventFuncArg = arg;
+	}
 
 	Widget(void);
 	virtual ~Widget(void);

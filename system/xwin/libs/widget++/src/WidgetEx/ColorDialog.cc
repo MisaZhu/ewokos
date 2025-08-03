@@ -259,11 +259,11 @@ void ColorDialog::onBuild() {
     root->add(c);
 
     LabelButton* okButton = new LabelButton("OK");
-    okButton->onEventFunc = okFunc;
+    okButton->setEventFunc(okFunc);
     c->add(okButton);
 
     LabelButton* cancelButton = new LabelButton("Cancel");
-    cancelButton->onEventFunc = cancelFunc;
+    cancelButton->setEventFunc(cancelFunc);
     c->add(cancelButton);
     setAlpha(true);
 }

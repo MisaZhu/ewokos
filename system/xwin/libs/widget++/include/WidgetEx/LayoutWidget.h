@@ -18,12 +18,13 @@ class LayoutWidget: public Container {
 	Widget* create(const string& type);
 protected:
 	virtual Widget* createByType(const string& type);
-	
+
+	MenuFuncT onMenuItemFunc;
 public:
 	LayoutWidget();
 	bool loadConfig(const string& fname);
 
-	MenuFuncT onMenuItemFunc;
+	inline void setMenuItemFunc(MenuFuncT func) { onMenuItemFunc = func; }
 	Widget* (*createByTypeFunc)(const string& type);
 };
 

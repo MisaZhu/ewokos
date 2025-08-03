@@ -207,7 +207,7 @@ int main(int argc, char** argv) {
 
 	LabelButton* button = new LabelButton("Dialog Test");
 	button->setName("button");
-	button->onEventFunc = win.onEventFunc;
+	button->setEventFunc(win.onEventFunc);
 	c->add(button);
 
 	Split* split = new Split();

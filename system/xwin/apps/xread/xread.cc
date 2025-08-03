@@ -176,7 +176,7 @@ int main(int argc, char** argv) {
 	root->add(c);
 
 	Menu* menu = new Menu();
-	menu->onMenuItemFunc = onMemuFunc;
+	menu->setMenuItemFunc(onMemuFunc);
 	menu->add(0, "open", NULL, NULL, NULL, &win);
 	menu->add(1, "font", NULL, NULL, NULL, &win);
 	menu->add(2, "quit", NULL, NULL, NULL, &win);
@@ -185,12 +185,12 @@ int main(int argc, char** argv) {
 	c->add(menubar);
 
 	LabelButton* zoomInButton = new LabelButton("+");
-	zoomInButton->onEventFunc = onZoomInClickFunc;
+	zoomInButton->setEventFunc(onZoomInClickFunc);
 	zoomInButton->fix(48, 0);
 	c->add(zoomInButton);
 
 	LabelButton* zoomOutButton = new LabelButton("-");
-	zoomOutButton->onEventFunc = onZoomOutClickFunc;
+	zoomOutButton->setEventFunc(onZoomOutClickFunc);
 	zoomOutButton->fix(48, 0);
 	c->add(zoomOutButton);
 
