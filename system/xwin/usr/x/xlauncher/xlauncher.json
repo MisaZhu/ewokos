@@ -9,6 +9,6 @@
         {"name":"xpng", "file": "/apps/xpng/xpng"},
         {"name":"xread", "file": "/apps/xread/xread"},
         {"name":"xprocs", "file": "/apps/xprocs/xprocs"},
-        {"name":"xcores", "file": "/apps/xcores/xcores"}
+        {"name":"xwm_theme", "file": "/apps/xwm_theme/xwm_theme"}
     ]
 }

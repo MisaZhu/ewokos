@@ -63,16 +63,16 @@ static void loadTheme(LayoutWidget* layout) {
 		btn->setColor(_xwm_theme.desktopBGColor);
 	}
 
-	wd = layout->get("frame_bg_top_color");
+	wd = layout->get("frame_bg_color");
 	if(wd != NULL)  {
 		ColorButton* btn = (ColorButton*)wd;
-		btn->setColor(_xwm_theme.frameBGTopColor);
+		btn->setColor(_xwm_theme.frameBGColor);
 	}
 
-	wd = layout->get("frame_fg_top_color");
+	wd = layout->get("frame_fg_color");
 	if(wd != NULL)  {
 		ColorButton* btn = (ColorButton*)wd;
-		btn->setColor(_xwm_theme.frameFGTopColor);
+		btn->setColor(_xwm_theme.frameFGColor);
 	}
 }
 
@@ -87,16 +87,16 @@ static void setTheme(LayoutWidget* layout) {
 		_xwm_theme.desktopBGColor = btn->getColor();
 	}
 
-	wd = layout->get("frame_bg_top_color");
+	wd = layout->get("frame_bg_color");
 	if(wd != NULL)  {
 		ColorButton* btn = (ColorButton*)wd;
-		_xwm_theme.frameBGTopColor = btn->getColor();
+		_xwm_theme.frameBGColor = btn->getColor();
 	}
 
-	wd = layout->get("frame_fg_top_color");
+	wd = layout->get("frame_fg_color");
 	if(wd != NULL)  {
 		ColorButton* btn = (ColorButton*)wd;
-		_xwm_theme.frameFGTopColor = btn->getColor();
+		_xwm_theme.frameFGColor = btn->getColor();
 	}
 
 	proto_t in;

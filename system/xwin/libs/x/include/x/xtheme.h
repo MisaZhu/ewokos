@@ -53,8 +53,6 @@ typedef struct {
 	uint32_t fontSize;
 	uint32_t frameBGColor;
 	uint32_t frameFGColor;
-	uint32_t frameBGTopColor;
-	uint32_t frameFGTopColor;
 	uint32_t desktopFGColor;
 	uint32_t desktopBGColor;
 	uint32_t bgEffect;

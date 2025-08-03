@@ -29,11 +29,11 @@
             "children": [
                 {
                     "type": "Label",
-                    "label": "frame_bg_top_color"
+                    "label": "frame_bg_color"
                     "w": 168 
                 },
                 {
-                    "name": "frame_bg_top_color", 
+                    "name": "frame_bg_color", 
                     "type": "ColorButton",
                 }
             ]
@@ -47,11 +47,11 @@
             "children": [
                 {
                     "type": "Label",
-                    "label": "frame_fg_top_color"
+                    "label": "frame_fg_color"
                     "w": 168 
                 },
                 {
-                    "name": "frame_fg_top_color", 
+                    "name": "frame_fg_color", 
                     "type": "ColorButton",
                 }
             ]
