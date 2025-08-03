@@ -11,11 +11,11 @@
             "children": [
                 {
                     "type": "Label",
-                    "label": "top bg color:"
-                    "w": 128
+                    "label": "desktop_bg_color"
+                    "w": 168
                 },
                 {
-                    "id": 1,
+                    "name": "desktop_bg_color",
                     "type": "ColorButton",
                 }
             ]
@@ -29,11 +29,29 @@
             "children": [
                 {
                     "type": "Label",
-                    "label": "top fg color:"
-                    "w": 128
+                    "label": "frame_bg_top_color"
+                    "w": 168 
                 },
                 {
-                    "id": 2, 
+                    "name": "frame_bg_top_color", 
+                    "type": "ColorButton",
+                }
+            ]
+        },
+        {
+            "type": "Split"
+        },
+        {
+            "layout": "horizontal",
+            "h": 32,
+            "children": [
+                {
+                    "type": "Label",
+                    "label": "frame_fg_top_color"
+                    "w": 168 
+                },
+                {
+                    "name": "frame_fg_top_color", 
                     "type": "ColorButton",
                 }
             ]

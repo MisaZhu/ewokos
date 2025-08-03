@@ -158,6 +158,10 @@ void draw_shadow(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top, void* 
 	((XWM*)p)->__drawShadow(desktop_g, g, info, top);
 }
 
+void update_theme(void* p) {
+	((XWM*)p)->__updateTheme();
+}
+
 static void draw_bg_effect(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinfo_t* info, bool top, void* p) {
 	((XWM*)p)->__drawBGEffect(desktop_g, frame_g, ws_g, info, top);
 }
@@ -238,7 +242,7 @@ graph_t* XWM::genDesktopPattern(void) {
 void XWM::drawDesktop(graph_t* g) {
 	if(desktopPattern == NULL)
 		desktopPattern = genDesktopPattern();
-	graph_clear(g, 0xffffffff);
+	graph_clear(g, xwm.theme.desktopBGColor);
 
 	int x = 0;
 	int y = 0;
@@ -259,12 +263,12 @@ static void draw_desktop(graph_t* g, void* p) {
 
 void XWM::getColor(uint32_t *fg, uint32_t* bg, bool top) {
 	if(top) {
-		*fg = xwm.theme.titleFGTopColor;
-		*bg = xwm.theme.titleBGTopColor;
+		*fg = xwm.theme.frameFGTopColor;
+		*bg = xwm.theme.frameBGTopColor;
 	}
 	else {
-		*fg = xwm.theme.titleFGColor;
-		*bg = xwm.theme.titleBGColor;
+		*fg = xwm.theme.frameFGColor;
+		*bg = xwm.theme.frameBGColor;
 	}
 }
 
@@ -323,10 +327,10 @@ XWM::XWM(void) {
 	desktopPattern = NULL;
 	xwm.theme.desktopBGColor = 0xff555588;
 	xwm.theme.desktopFGColor = 0xff8888aa;
-	xwm.theme.titleBGColor = 0xff666666;
-	xwm.theme.titleFGColor = 0xff888888;
-	xwm.theme.titleBGTopColor = 0xffaaaaaa;
-	xwm.theme.titleFGTopColor = 0xff222222;
+	xwm.theme.frameBGColor = 0xff666666;
+	xwm.theme.frameFGColor = 0xff888888;
+	xwm.theme.frameBGTopColor = 0xffaaaaaa;
+	xwm.theme.frameFGTopColor = 0xff222222;
 	xwm.theme.frameW = 2;
 	xwm.theme.titleH = 24;
 	font = NULL;
@@ -351,6 +355,7 @@ XWM::XWM(void) {
 	xwm.draw_resize = draw_resize;
 	xwm.draw_desktop = draw_desktop;
 	xwm.draw_shadow = draw_shadow;
+	xwm.update_theme = update_theme;
 }
 
 XWM::~XWM(void) {

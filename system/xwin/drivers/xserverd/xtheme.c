@@ -40,7 +40,7 @@ int x_load_theme(const char* name, x_theme_t* theme) {
 	theme->selectBGColor = json_get_int_def(conf_var, "select_bg_color", 0);
 
 	theme->titleColor = json_get_int_def(conf_var, "title_color", 0);
-	theme->titleBGColor = json_get_int_def(conf_var, "title_bg_color", 0);
+	theme->frameBGColor = json_get_int_def(conf_var, "frame_bg_color", 0);
 
 	theme->widgetFGColor = json_get_int_def(conf_var, "widget_color", theme->fgColor);
 	theme->widgetBGColor = json_get_int_def(conf_var, "widget_bg_color", theme->bgColor);
@@ -58,10 +58,10 @@ int x_load_xwm_theme(const char* name, xwm_theme_t* theme) {
 	snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s/xwm/theme.json", X_THEME_ROOT, name);
 	json_var_t* conf_var = json_parse_file(fname);
 
-	theme->titleFGColor = json_get_int_def(conf_var, "title_fg_color", 0xff888888);
-	theme->titleBGColor = json_get_int_def(conf_var, "title_bg_color", 0xff666666);
-	theme->titleFGTopColor = json_get_int_def(conf_var, "title_fg_top_color", 0xff222222);
-	theme->titleBGTopColor = json_get_int_def(conf_var, "title_bg_top_color", 0xffaaaaaa);
+	theme->frameFGColor = json_get_int_def(conf_var, "frame_fg_color", 0xff888888);
+	theme->frameBGColor = json_get_int_def(conf_var, "frame_bg_color", 0xff666666);
+	theme->frameFGTopColor = json_get_int_def(conf_var, "frame_fg_top_color", 0xff222222);
+	theme->frameBGTopColor = json_get_int_def(conf_var, "frame_bg_top_color", 0xffaaaaaa);
 	theme->desktopFGColor = json_get_int_def(conf_var, "desktop_fg_color", 0xff555588);
 	theme->desktopBGColor = json_get_int_def(conf_var, "desktop_bg_color", 0xff8888aa);
 	theme->frameW = json_get_int_def(conf_var, "frame_width", 2);
