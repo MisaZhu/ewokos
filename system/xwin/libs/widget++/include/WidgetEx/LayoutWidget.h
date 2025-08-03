@@ -24,7 +24,6 @@ public:
 	bool loadConfig(const string& fname);
 
 	MenuFuncT onMenuItemFunc;
-	WidgetEventFuncT onEventFunc;
 	Widget* (*createByTypeFunc)(const string& type);
 };
 

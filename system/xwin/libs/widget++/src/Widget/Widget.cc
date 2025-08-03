@@ -22,6 +22,7 @@ Widget::Widget(void)  {
 	visible = true;
 
 	onEventFunc = NULL;
+	onEventFuncArg = NULL;
 }
 
 Widget::~Widget(void)  { 
@@ -99,7 +100,7 @@ bool Widget::onEvent(xevent_t* ev) {
 					ev->state != MOUSE_STATE_UP &&
 					ev->state != MOUSE_STATE_DRAG) {
 				if(onEventFunc != NULL)
-					onEventFunc(this, ev);
+					onEventFunc(this, ev, onEventFuncArg);
 				return onMouse(ev);
 			}
 		}
@@ -107,14 +108,14 @@ bool Widget::onEvent(xevent_t* ev) {
 				(ev->state == MOUSE_STATE_UP || ev->state == MOUSE_STATE_DRAG) &&
 				getRoot()->getDraged() == this) {
 			if(onEventFunc != NULL)
-				onEventFunc(this, ev);
+				onEventFunc(this, ev, onEventFuncArg);
 			return onMouse(ev);
 		}
 	}
 	else if(!disabled &&
 			ev->type == XEVT_IM && getRoot()->getFocused() == this) {
 		if(onEventFunc != NULL)
-			onEventFunc(this, ev);
+			onEventFunc(this, ev, onEventFuncArg);
 		return onIM(ev);
 	}
 	return ret; 

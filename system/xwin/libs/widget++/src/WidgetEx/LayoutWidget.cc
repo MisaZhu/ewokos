@@ -93,6 +93,7 @@ bool LayoutWidget::loadChildren(Widget* wd, json_node_t* node, const string& typ
         if(chd == NULL)
             continue;
         chd->onEventFunc = this->onEventFunc;
+        chd->onEventFuncArg = this;
         ((Container*)wd)->add(chd);
         load(chd, n->var, tp);
     }
@@ -119,7 +120,7 @@ bool LayoutWidget::loadMenuItems(Menu* menu, json_node_t* node) {
 
         const char* label = json_get_str(n->var, "label");
         int32_t id = json_get_int(n->var, "id");
-        menu->add(id, label, NULL, submenu, this->onMenuItemFunc, NULL);
+        menu->add(id, label, NULL, submenu, this->onMenuItemFunc, this);
     }
     return true;
 }
@@ -161,7 +162,7 @@ bool LayoutWidget::loadMenubarItems(Widget* wd, json_node_t* node, const string&
         const char* label = json_get_str(n->var, "label");
         int32_t id = json_get_int(n->var, "id");
         Menubar *mb = (Menubar*)wd;
-        mb->add(id, label, NULL, menu, this->onMenuItemFunc, NULL);
+        mb->add(id, label, NULL, menu, this->onMenuItemFunc, this);
     }
     return true;
 }

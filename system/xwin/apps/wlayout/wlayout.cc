@@ -22,7 +22,7 @@ static void onMenuItemFunc(MenuItem* it, void* data) {
 	klog("onMenuItemFunc: %d\n", it->id);
 }
 
-static void onEventFunc(Widget* wd, xevent_t* evt) {
+static void onEventFunc(Widget* wd, xevent_t* evt, void* arg) {
 	if(evt->type == XEVT_MOUSE && evt->state == MOUSE_STATE_MOVE)
 		return;
 	klog("onEventFunc: id:%d: name: %s, type: %d, state: %d\n", 

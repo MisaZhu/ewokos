@@ -172,7 +172,7 @@ protected:
 
 	ConfirmDialog dialog;
 public:
-	static void onEventFunc(Widget* wd, xevent_t* evt) {
+	static void onEventFunc(Widget* wd, xevent_t* evt, void* arg) {
 		MyWidgetWin* win = (MyWidgetWin*)wd->getWin();
 		win->dialog.setMessage("Dialog Test");
 		win->dialog.popup(win, 200, 100, "dialog", XWIN_STYLE_NO_TITLE);

@@ -19,7 +19,7 @@ class Stage;
 class WidgetWin;
 class Widget;
 
-typedef void (*WidgetEventFuncT)(Widget* wd, xevent_t* evt);
+typedef void (*WidgetEventFuncT)(Widget* wd, xevent_t* evt, void* arg);
 class Widget {
 	Widget* next;
 	Widget* prev;
@@ -65,6 +65,7 @@ public:
 	friend Stage;
 
 	WidgetEventFuncT onEventFunc;
+	void* onEventFuncArg;
 
 	Widget(void);
 	virtual ~Widget(void);
