@@ -9,7 +9,7 @@ class MenuList: public List {
     Menu* menu;
 protected:
     void drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
-        graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.bgColor, false);
+        graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.widgetBGColor, false);
     }
 
     void drawItem(graph_t* g, XTheme* theme, int32_t index, const grect_t& r) {
@@ -30,11 +30,11 @@ protected:
 
         if(item->title.length() > 0) {
             graph_draw_text_font_align(g, r.x+dx, r.y, r.w-dx, r.h, item->title.c_str(),
-                    theme->getFont(), theme->basic.fontSize, theme->basic.fgColor, FONT_ALIGN_CENTER);
+                    theme->getFont(), theme->basic.fontSize, theme->basic.widgetFGColor, FONT_ALIGN_CENTER);
         }
 
         if(item->menu != NULL) {
-            graph_fill(g, r.x+r.w-9, r.y+(r.h/2)-2, 4, 4, theme->basic.fgColor);
+            graph_fill(g, r.x+r.w-9, r.y+(r.h/2)-2, 4, 4, theme->basic.widgetFGColor);
         }
     }
 

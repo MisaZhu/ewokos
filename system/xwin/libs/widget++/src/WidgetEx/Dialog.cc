@@ -5,10 +5,12 @@ using namespace Ewok;
 
 Dialog::Dialog() {
 	owner = NULL;
+	arg = NULL;
 }
 
-bool Dialog::popup(XWin* owner, uint32_t w, uint32_t h, const char* title, uint32_t style) {
+bool Dialog::popup(XWin* owner, uint32_t w, uint32_t h, const char* title, uint32_t style, void* arg) {
 	this->owner = owner;
+	this->arg = arg;
 
 	xscreen_info_t scr;
 	X::getScreenInfo(scr, owner->getDisplayIndex());
@@ -29,6 +31,6 @@ bool Dialog::popup(XWin* owner, uint32_t w, uint32_t h, const char* title, uint3
 void Dialog::submit(int res) {
 	if(owner == NULL)
 		return;
-	owner->dialoged(this, res);
+	owner->dialoged(this, res, arg);
 	close();
 }

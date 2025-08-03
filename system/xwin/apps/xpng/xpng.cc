@@ -231,7 +231,7 @@ class PngWin: public WidgetWin{
 	ColorDialog cdialog;
 	ImageView* imgView;
 protected:
-	void onDialoged(XWin* from, int res) {
+	void onDialoged(XWin* from, int res, void* arg) {
 		if(res == Dialog::RES_OK) {
 			if(from == &fdialog) {
 				load(imgView, fdialog.getResult().c_str());

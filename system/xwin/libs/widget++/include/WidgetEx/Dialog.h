@@ -10,6 +10,7 @@ namespace Ewok {
 
 class Dialog: public WidgetWin {
 protected:
+	void* arg;
 	XWin* owner;
 public:
 	static const int RES_CANCEL =  0;
@@ -20,7 +21,7 @@ public:
 	Dialog();
 
 	void submit(int res);
-	bool popup(XWin* owner, uint32_t w, uint32_t h, const char* title, uint32_t style);
+	bool popup(XWin* owner, uint32_t w, uint32_t h, const char* title, uint32_t style, void* arg = NULL);
 };
 
 }

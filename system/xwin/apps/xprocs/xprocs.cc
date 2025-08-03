@@ -4,7 +4,7 @@
 #include <Widget/Label.h>
 #include <Widget/LabelButton.h>
 #include <Widget/List.h>
-#include <Widget/Split.h>
+#include <Widget/Splitter.h>
 #include <Widget/Columns.h>
 #include <x++/X.h>
 #include <unistd.h>

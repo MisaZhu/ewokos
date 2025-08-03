@@ -260,6 +260,8 @@ void font_char_size(uint32_t c, font_t* font, uint32_t size, uint32_t *w, uint32
 	face_info_t* faceinfo = (face_info_t*)slot.other;
 	if(w != NULL)  {
 		*w = slot.bitmap_left + slot.bitmap.width;
+		if((*w) == 0)
+			*w = size;
 		/*
 		*w = faceinfo->width/FACE_PIXEL_DENT;
 		if(*w > size)
@@ -269,6 +271,8 @@ void font_char_size(uint32_t c, font_t* font, uint32_t size, uint32_t *w, uint32
 
 	if(h != NULL && faceinfo != NULL) {
 		*h = (faceinfo->height/FACE_PIXEL_DENT);
+		if((*h) == 0)
+			*h = size;
 	}
 }
 
@@ -320,10 +324,16 @@ void graph_draw_unicode_font(graph_t* g, int32_t x, int32_t y, uint32_t c,
 	y = y - slot.bitmap_top + (faceinfo->ascender/FACE_PIXEL_DENT);
 	
 	if(c == '\t') {
-		if(w != NULL && slot.bitmap.width > 0)
+		if(w != NULL) {
 			*w = slot.bitmap.width*2;
-		if(h != NULL)
+			if((*w) == 0)
+				*w = size*2;
+		}
+		if(h != NULL) {
 			*h = (faceinfo->height/FACE_PIXEL_DENT);
+			if((*h) == 0)
+				*h = size;
+		}
 		return;
 	}
 
@@ -342,10 +352,14 @@ void graph_draw_unicode_font(graph_t* g, int32_t x, int32_t y, uint32_t c,
 
 	if(h != NULL) {
 		*h = (faceinfo->height/FACE_PIXEL_DENT);
+		if((*h) == 0)
+			*h = size;
 	}
 
 	if(w != NULL) {
 		*w = slot.bitmap_left + slot.bitmap.width;
+		if((*w) == 0)
+			*w = size;
 		/*
 		*w = faceinfo->width/FACE_PIXEL_DENT;
 		if(*w > size)

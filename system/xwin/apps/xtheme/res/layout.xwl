@@ -1,0 +1,64 @@
+{
+    "layout": "verticle",
+    "children": [
+        {
+            "type": "Blank",
+            "h": 3
+        },
+        {
+            "layout": "horizontal",
+            "h": 32,
+            "children": [
+                {
+                    "type": "Label",
+                    "label": "top bg color:"
+                    "w": 128
+                },
+                {
+                    "id": 1,
+                    "type": "ColorButton",
+                }
+            ]
+        },
+        {
+            "type": "Split"
+        },
+        {
+            "layout": "horizontal",
+            "h": 32,
+            "children": [
+                {
+                    "type": "Label",
+                    "label": "top fg color:"
+                    "w": 128
+                },
+                {
+                    "id": 2, 
+                    "type": "ColorButton",
+                }
+            ]
+        },
+        {
+            "type": "Split"
+        },
+        {
+            "type": "Blank"
+        },
+        {
+            "layout": "horizontal",
+            "h": 24,
+            "children": [
+                {
+                    "name": "okButton",
+                    "type": "LabelButton",
+                    "label": "OK"
+                },
+                {
+                    "name": "cancelButton",
+                    "type": "LabelButton",
+                    "label": "Cancel"
+                }
+            ]
+        }
+    ]
+}

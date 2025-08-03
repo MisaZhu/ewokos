@@ -247,7 +247,15 @@ const char* x_get_theme_fname(const char* prefix, const char* app_name, const ch
 }
 
 const char* x_get_res_name(const char* name) {
-	static char ret[FS_FULL_NAME_MAX];
+	static char ret[FS_FULL_NAME_MAX] = "";
+	if(name == NULL || name[0] == 0)
+		return ret;
+	
+	if(name[0] == '/') {
+		strncpy(ret, name, FS_FULL_NAME_MAX-1);
+		return ret;
+	}
+
 	const char* wkdir = x_get_work_dir();
 	if(wkdir[1] == 0 && wkdir[0] == '/')
 		snprintf(ret, FS_FULL_NAME_MAX-1, "/res/%s", name);

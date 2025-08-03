@@ -5,11 +5,13 @@
 namespace Ewok {
 
 void Scroller::drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
-	graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.widgetBGColor, true);
+	graph_fill_3d(g, r.x, r.y, r.w, r.h, 
+		graph_get_dark_color(theme->basic.widgetBGColor),
+		true);
 }
 
 void Scroller::drawPos(graph_t* g, XTheme* theme, const grect_t& r) {
-	graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.widgetFGColor, false);
+	graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.widgetBGColor, false);
 }
 
 void Scroller::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {

@@ -1,5 +1,4 @@
 {
-    "type": "Container",
     "layout": "verticle",
     "children": [
         {
@@ -28,23 +27,21 @@
             ]
         },
         {
-            "type": "Container",
             "layout": "horizontal",
             "children": [
                 {
                     "name": "image",
                     "type": "Image",
-                    "alpha": 0,
+                    "id": 100,
                     "file": "/data/images/mac.png"
                 },
                 {
-                    "type": "Split",
+                    "type": "Splitter",
                     "attach": "toolbar",
                     "attachAfter": 1
                 },
                 {
                     "name": "toolbar",
-                    "type": "Container",
                     "layout": "verticle",
                     "w": 48,
                     "children": [

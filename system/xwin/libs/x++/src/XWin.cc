@@ -101,6 +101,7 @@ XWin::XWin(void) {
 	theme.loadSystem();
 	displayIndex = 0;
 	xwin = NULL;
+	onDialogedFunc = NULL;
 }
 
 void XWin::close() {
@@ -147,6 +148,13 @@ bool XWin::open(X* xp, uint32_t dispIndex, int x, int y, uint32_t w, uint32_t h,
 	onOpen();
 	setVisible(visible);
 	return true;
+}
+
+void XWin::dialoged(XWin* from, int res, void* arg) {
+	if(onDialogedFunc != NULL)
+		onDialogedFunc(this, from, res, arg);
+	else
+		onDialoged(from, res, arg);
 }
 
 bool XWin::open(X* xp, uint32_t dispIndex, const grect_t& r, const char* title, uint32_t style, bool visible) {

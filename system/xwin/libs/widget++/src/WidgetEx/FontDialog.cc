@@ -5,7 +5,7 @@
 #include <Widget/Label.h>
 #include <Widget/LabelButton.h>
 #include <Widget/List.h>
-#include <Widget/Split.h>
+#include <Widget/Splitter.h>
 #include <x++/X.h>
 #include <unistd.h>
 #include <font/font.h>
@@ -245,9 +245,9 @@ void FontDialog::onBuild() {
 	c->add(scrollerV);
 	list->setScrollerV(scrollerV);
 
-	Split* split = new Split();
-	split->attach(list);
-	c->add(split);
+	Splitter* splitter = new Splitter();
+	splitter->attach(list);
+	c->add(splitter);
 
 	FontDemo* demo = new FontDemo();
 	c->add(demo);

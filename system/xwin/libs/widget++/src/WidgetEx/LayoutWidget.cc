@@ -2,6 +2,7 @@
 #include <Widget/Blank.h>
 #include <Widget/Image.h>
 #include <Widget/Split.h>
+#include <Widget/Splitter.h>
 #include <Widget/Slider.h>
 #include <Widget/Button.h>
 #include <Widget/LabelButton.h>
@@ -22,17 +23,20 @@ LayoutWidget::LayoutWidget() {
 }
 
 Widget* LayoutWidget::createByBasicType(const string& type) {
-    if(type == "Blank") {
-        return new Blank();
-    }
-    else if(type == "Container") {
+    if(type == "Container") {
         return new Container();
+    }
+    else if(type == "Blank") {
+        return new Blank();
     }
     else if(type == "Image") {
         return new Image(); 
     }
     else if(type == "Split") {
         return new Split();
+    }
+    else if(type == "Splitter") {
+        return new Splitter();
     }
     else if(type == "Button") {
         return new Button();
@@ -70,12 +74,15 @@ Widget* LayoutWidget::createByType(const string& type) {
 }
 
 Widget* LayoutWidget::create(const string& type) {
-    Widget* wd = createByBasicType(type);
+    string tp = type;
+    if(tp == "")
+        tp = "Container";
+    Widget* wd = createByBasicType(tp);
     if(wd != NULL)
         return wd;
     if(createByTypeFunc != NULL)
-        return createByTypeFunc(type); //use user define create func.
-    return createByType(type);
+        return createByTypeFunc(tp); //use user define create func.
+    return createByType(tp);
 }
 
 bool LayoutWidget::loadChildren(Widget* wd, json_node_t* node, const string& type) {

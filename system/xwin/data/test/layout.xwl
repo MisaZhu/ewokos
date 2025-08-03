@@ -1,5 +1,4 @@
 {
-    "type": "Container",
     "layout": "horizontal",
     "children": [
         {
@@ -10,23 +9,21 @@
         },
         {
             "name": "split",
-            "type": "Split",
+            "type": "Splitter",
             "attach": "button"
         },
         {
             "name": "image",
             "type": "Image",
-            "alpha": 0,
             "file": "/usr/system/icons/apple.png"
         },
         {
-            "type": "Split",
+            "type": "Splitter",
             "attach": "layout2",
             "attachAfter": 1
         },
         {
             "name": "layout2",
-            "type": "Container",
             "layout": "verticle",
             "children": [
                 {
@@ -36,13 +33,12 @@
                     "label": "Button2"
                 },
                 {
-                    "type": "Split",
+                    "type": "Splitter",
                     "attach": "button2"
                 },
                 {
                     "name": "image2",
                     "type": "Image",
-                    "alpha": 0,
                     "file": "/usr/system/images/logos/apple_old.png"
                 }
             ]

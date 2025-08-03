@@ -2,6 +2,7 @@
 #include <Widget/WidgetX.h>
 #include <Widget/Text.h>
 #include <Widget/Label.h>
+#include <Widget/Split.h>
 #include <WidgetEx/Menubar.h>
 #include <WidgetEx/Menu.h>
 #include <Widget/LabelButton.h>
@@ -95,7 +96,7 @@ class TextWin: public WidgetWin{
 		busy(false);
 	}
 protected:
-	void onDialoged(XWin* from, int res) {
+	void onDialoged(XWin* from, int res, void* arg) {
 		if(res == Dialog::RES_OK) {
 			if(from == &fdialog) {
 				string fname = fdialog.getResult();

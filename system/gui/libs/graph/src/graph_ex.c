@@ -1,26 +1,35 @@
 #include <graph/graph_ex.h>
+#include <graph/bsp_graph.h>
+#include <stdlib.h>
 
-void graph_get_3d_color(uint32_t base, uint32_t *dark, uint32_t *bright) {
+uint32_t graph_get_dark_color(uint32_t base) {
+	uint32_t a, r, g, b;
+	a = (base >> 24) & 0xff;
+	r = (base >> 16) & 0xff;
+	g = (base >> 8) & 0xff;
+	b = base & 0xff;
+	return argb(a, (r*2)/3, (g*2)/3, (b*2)/3);
+}
+
+uint32_t graph_get_bright_color(uint32_t base) {
 	uint32_t a, r, g, b;
 	a = (base >> 24) & 0xff;
 	r = (base >> 16) & 0xff;
 	g = (base >> 8) & 0xff;
 	b = base & 0xff;
 
-	/*uint32_t c;
-	c = r<g ? r:g;
-	c = c<b ? c:b;
-	*dark = argb(a, (c*2)/3, (c*2)/3, (c*2)/3);*/
-	*dark = argb(a, (r*2)/3, (g*2)/3, (b*2)/3);
-
 	r = r<0xAA ? r:0xAA;
 	g = g<0xAA ? g:0xAA;
 	b = b<0xAA ? b:0xAA;
 
-	/*c = r>g ? r:g;
-	c = c>b ? c:b;
-	*bright = argb(a, (c*4)/3, (c*4)/3, (c*4)/3);*/
-	*bright = argb(a, (r*4)/3, (g*4)/3, (b*4)/3);
+	return argb(a, (r*4)/3, (g*4)/3, (b*4)/3);
+}
+
+void graph_get_3d_color(uint32_t base, uint32_t *dark, uint32_t *bright) {
+    if(dark != NULL)
+        *dark = graph_get_dark_color(base);
+    if(bright != NULL)
+        *bright = graph_get_bright_color(base);
 }
 
 void graph_fill_3d(graph_t* g, int x, int y, int w, int h, uint32_t color, bool rev) {

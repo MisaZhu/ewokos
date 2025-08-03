@@ -166,7 +166,7 @@ class TermWin: public WidgetWin{
 	ColorDialog bgColorDialog;
 
 protected:
-	void onDialoged(XWin* from, int res) {
+	void onDialoged(XWin* from, int res, void* arg) {
 		if(res == Dialog::RES_OK) {
 			if(from == &fontDialog) {
 				string fontName = fontDialog.getResult();

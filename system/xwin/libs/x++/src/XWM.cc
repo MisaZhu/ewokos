@@ -259,12 +259,12 @@ static void draw_desktop(graph_t* g, void* p) {
 
 void XWM::getColor(uint32_t *fg, uint32_t* bg, bool top) {
 	if(top) {
-		*fg = xwm.theme.fgTopColor;
-		*bg = xwm.theme.bgTopColor;
+		*fg = xwm.theme.titleFGTopColor;
+		*bg = xwm.theme.titleBGTopColor;
 	}
 	else {
-		*fg = xwm.theme.fgColor;
-		*bg = xwm.theme.bgColor;
+		*fg = xwm.theme.titleFGColor;
+		*bg = xwm.theme.titleBGColor;
 	}
 }
 
@@ -323,10 +323,10 @@ XWM::XWM(void) {
 	desktopPattern = NULL;
 	xwm.theme.desktopBGColor = 0xff555588;
 	xwm.theme.desktopFGColor = 0xff8888aa;
-	xwm.theme.bgColor = 0xff666666;
-	xwm.theme.fgColor = 0xff888888;
-	xwm.theme.bgTopColor = 0xffaaaaaa;
-	xwm.theme.fgTopColor = 0xff222222;
+	xwm.theme.titleBGColor = 0xff666666;
+	xwm.theme.titleFGColor = 0xff888888;
+	xwm.theme.titleBGTopColor = 0xffaaaaaa;
+	xwm.theme.titleFGTopColor = 0xff222222;
 	xwm.theme.frameW = 2;
 	xwm.theme.titleH = 24;
 	font = NULL;

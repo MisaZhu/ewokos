@@ -8,6 +8,8 @@
 using namespace std;
 namespace Ewok {
 
+typedef Widget* (*CreateByTypeFuncT)(const string& type);
+
 class LayoutWidget: public Container {
 	bool load(Widget* wd, json_var_t* var, const string& type);
 	bool loadChildren(Widget* wd, json_node_t* node, const string& type);
@@ -20,12 +22,13 @@ protected:
 	virtual Widget* createByType(const string& type);
 
 	MenuFuncT onMenuItemFunc;
+	CreateByTypeFuncT createByTypeFunc;
 public:
 	LayoutWidget();
 	bool loadConfig(const string& fname);
 
 	inline void setMenuItemFunc(MenuFuncT func) { onMenuItemFunc = func; }
-	Widget* (*createByTypeFunc)(const string& type);
+	inline void setCreateByTypeFunc(CreateByTypeFuncT func) { createByTypeFunc = func; }
 };
 
 }
