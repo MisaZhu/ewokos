@@ -208,11 +208,15 @@ public:
 };
 
 static void okFunc(Widget* wd, xevent_t* evt) {
+    if(evt->type != XEVT_MOUSE || evt->state != MOUSE_STATE_CLICK)
+		return;
     ColorDialog* dialog = (ColorDialog*)wd->getWin();
     dialog->submit(Dialog::RES_OK);
 }
 
 static void cancelFunc(Widget* wd, xevent_t* evt) {
+    if(evt->type != XEVT_MOUSE || evt->state != MOUSE_STATE_CLICK)
+		return;
     ColorDialog* dialog = (ColorDialog*)wd->getWin();
     dialog->submit(Dialog::RES_CANCEL);
 }

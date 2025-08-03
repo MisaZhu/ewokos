@@ -147,12 +147,16 @@ static void onMemuFunc(MenuItem* it, void* p) {
 }
 
 static void onZoomInClickFunc(Widget* wd, xevent_t* evt) {
+	if(evt->type != XEVT_MOUSE || evt->state != MOUSE_STATE_CLICK)
+		return;
 	TextWin* win = (TextWin*)wd->getWin();
 	uint32_t size = win->text->getFontSize();
 	win->text->setFontSize(size+4);
 }
 
 static void onZoomOutClickFunc(Widget* wd, xevent_t* evt) {
+	if(evt->type != XEVT_MOUSE || evt->state != MOUSE_STATE_CLICK)
+		return;
 	TextWin* win = (TextWin*)wd->getWin();
 	uint32_t size = win->text->getFontSize();
 	win->text->setFontSize(size-4);
