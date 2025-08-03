@@ -65,7 +65,7 @@ Menubar::~Menubar() {
     }
 }
 
-void Menubar::add(uint32_t id, const string& title, graph_t* icon, Menu* menu, menufunc_t func, void* funcArg) {
+void Menubar::add(uint32_t id, const string& title, graph_t* icon, Menu* menu, MenuFuncT func, void* funcArg) {
     MenuItem *item = new MenuItem();
     item->id = id; 
     item->title = title;

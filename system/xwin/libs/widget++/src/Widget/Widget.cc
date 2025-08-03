@@ -21,7 +21,7 @@ Widget::Widget(void)  {
 	themePrivate = NULL;
 	visible = true;
 
-	onClickFunc = NULL;
+	onEventFunc = NULL;
 }
 
 Widget::~Widget(void)  { 
@@ -60,16 +60,7 @@ void Widget::setTheme(XTheme* theme)  {
 	update();
 }
 
-void Widget::onClick(xevent_t* ev) {
-	if(onClickFunc != NULL)
-		onClickFunc(this);
-}
-
 bool Widget::onMouse(xevent_t* ev) {
-	if(ev->state == MOUSE_STATE_CLICK) {
-		onClick(ev);
-		return true;
-	}
 	return false;
 }
 
@@ -106,16 +97,24 @@ bool Widget::onEvent(xevent_t* ev) {
 			}
 			if(!disabled && 
 					ev->state != MOUSE_STATE_UP &&
-					ev->state != MOUSE_STATE_DRAG)
+					ev->state != MOUSE_STATE_DRAG) {
+				if(onEventFunc != NULL)
+					onEventFunc(this, ev);
 				return onMouse(ev);
+			}
 		}
 		if(!disabled && 
 				(ev->state == MOUSE_STATE_UP || ev->state == MOUSE_STATE_DRAG) &&
-				getRoot()->getDraged() == this)
+				getRoot()->getDraged() == this) {
+			if(onEventFunc != NULL)
+				onEventFunc(this, ev);
 			return onMouse(ev);
+		}
 	}
 	else if(!disabled &&
 			ev->type == XEVT_IM && getRoot()->getFocused() == this) {
+		if(onEventFunc != NULL)
+			onEventFunc(this, ev);
 		return onIM(ev);
 	}
 	return ret; 

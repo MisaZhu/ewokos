@@ -1,5 +1,4 @@
 #include <tinyjson/tinyjson.h>
-#include <WidgetEx/LayoutWidget.h>
 #include <Widget/Blank.h>
 #include <Widget/Image.h>
 #include <Widget/Split.h>
@@ -9,12 +8,18 @@
 #include <Widget/Label.h>
 #include <Widget/EditLine.h>
 #include <Widget/Text.h>
+#include <WidgetEx/Menubar.h>
+#include <WidgetEx/Menu.h>
+
+#include <WidgetEx/LayoutWidget.h>
 
 namespace Ewok {
 
 LayoutWidget::LayoutWidget() {
     type = HORIZONTAL;
     createByTypeFunc = NULL;
+    onMenuItemFunc = NULL;
+    onEventFunc = NULL;
 }
 
 Widget* LayoutWidget::createByBasicType(const string& type) {
@@ -50,6 +55,9 @@ Widget* LayoutWidget::createByBasicType(const string& type) {
     } 
     else if(type == "Text") {
         return new Text();
+    } 
+    else if(type == "Menubar") {
+        return new Menubar();
     }
     return NULL;
 }
@@ -71,7 +79,94 @@ Widget* LayoutWidget::create(const string& type) {
     return createByType(type);
 }
 
-bool LayoutWidget::load(Widget* wd, json_var_t* var) {
+bool LayoutWidget::loadChildren(Widget* wd, json_node_t* node, const string& type) {
+    json_var_t* v = node->var;
+    uint32_t len = json_var_array_size(v);
+
+    uint32_t j;
+    for (j=0; j<len; j++) {
+        json_node_t* n = json_var_array_get(v, j);
+        if(n == NULL || n->var == NULL || n->var->type != JSON_V_OBJECT)
+            continue;
+        const char* tp = json_get_str(n->var, "type");
+        Widget* chd = create(tp);
+        if(chd == NULL)
+            continue;
+        chd->onEventFunc = this->onEventFunc;
+        ((Container*)wd)->add(chd);
+        load(chd, n->var, tp);
+    }
+    return true;
+}
+
+
+bool LayoutWidget::loadMenuItems(Menu* menu, json_node_t* node) {
+    json_var_t* v = node->var;
+    uint32_t len = json_var_array_size(v);
+
+    uint32_t j;
+    for (j=0; j<len; j++) {
+        json_node_t* n = json_var_array_get(v, j);
+        if(n == NULL || n->var == NULL || n->var->type != JSON_V_OBJECT)
+            continue;
+        Menu* submenu = NULL;
+        json_var_t* menu_var = json_get_obj(n->var, "menu");
+        if(menu_var != NULL) {
+            submenu = new Menu();
+            if(!loadMenu(submenu, menu_var))
+                return false;
+        }
+
+        const char* label = json_get_str(n->var, "label");
+        int32_t id = json_get_int(n->var, "id");
+        menu->add(id, label, NULL, submenu, this->onMenuItemFunc, NULL);
+    }
+    return true;
+}
+
+bool LayoutWidget::loadMenu(Menu* menu, json_var_t* menu_var) {
+    for(uint32_t i=0; i<menu_var->children.size; i++) {
+		json_node_t* node = (json_node_t*)menu_var->children.items[i];
+        if(node == NULL)
+            break;
+
+		if(node->name != NULL && node->var != NULL) {
+            if(strcmp(node->name, "items") == 0 &&
+                    node->var->json_is_array) { //load children
+                if(!loadMenuItems(menu, node))
+                    return false;
+			}
+		}
+	}
+    return true;
+}
+
+bool LayoutWidget::loadMenubarItems(Widget* wd, json_node_t* node, const string& type) {
+    json_var_t* v = node->var;
+    uint32_t len = json_var_array_size(v);
+
+    uint32_t j;
+    for (j=0; j<len; j++) {
+        json_node_t* n = json_var_array_get(v, j);
+        if(n == NULL || n->var == NULL || n->var->type != JSON_V_OBJECT)
+            continue;
+        Menu* menu = NULL;
+        json_var_t* menu_var = json_get_obj(n->var, "menu");
+        if(menu_var != NULL) {
+            menu = new Menu();
+            if(!loadMenu(menu, menu_var))
+                return false;
+        }
+
+        const char* label = json_get_str(n->var, "label");
+        int32_t id = json_get_int(n->var, "id");
+        Menubar *mb = (Menubar*)wd;
+        mb->add(id, label, NULL, menu, this->onMenuItemFunc, NULL);
+    }
+    return true;
+}
+
+bool LayoutWidget::load(Widget* wd, json_var_t* var, const string& type) {
 	for(uint32_t i=0; i<var->children.size; i++) {
 		json_node_t* node = (json_node_t*)var->children.items[i];
         if(node == NULL)
@@ -81,21 +176,14 @@ bool LayoutWidget::load(Widget* wd, json_var_t* var) {
 			if(wd->isContainer() &&
                     strcmp(node->name, "children") == 0 &&
                     node->var->json_is_array) { //load children
-                json_var_t* v = node->var;
-                uint32_t len = json_var_array_size(v);
-        
-                uint32_t j;
-                for (j=0; j<len; j++) {
-                    json_node_t* n = json_var_array_get(v, j);
-                    if(n == NULL || n->var == NULL || n->var->type != JSON_V_OBJECT)
-                        continue;
-                    const char* type = json_get_str(n->var, "type");
-                    Widget* chd = create(type);
-                    if(chd == NULL)
-                        continue;
-                    ((Container*)wd)->add(chd);
-                    load(chd, n->var);
-                }
+                if(!loadChildren(wd, node, type))
+                    return false;
+			}
+            else if(type == "Menubar" &&
+                    strcmp(node->name, "items") == 0 &&
+                    node->var->json_is_array) { //load children
+                if(!loadMenubarItems(wd, node, type))
+                    return false;
 			}
             else { //set attr
                 str_t* str = str_new("");
@@ -113,7 +201,7 @@ bool LayoutWidget::loadConfig(const string& fname) {
     if(conf_var == NULL)
         return false;
     
-    bool ret = load(this, conf_var);
+    bool ret = load(this, conf_var, "");
     json_var_unref(conf_var);
     return ret;
 }

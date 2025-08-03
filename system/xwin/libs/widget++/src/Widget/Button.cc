@@ -14,7 +14,6 @@ bool Button::onMouse(xevent_t* ev) {
 		return true;
 	}
 	else if(ev->state == MOUSE_STATE_CLICK) {
-		onClick(ev);
 		return true;
 	}
 	return false;
@@ -52,7 +51,6 @@ void Button::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 
 Button::Button() {
 	state = STATE_UP;
-	onClickFunc = NULL;
 }
 
 }

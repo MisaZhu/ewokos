@@ -17,6 +17,9 @@ class Container;
 class RootWidget;
 class Stage;
 class WidgetWin;
+class Widget;
+
+typedef void (*WidgetEventFuncT)(Widget* wd, xevent_t* evt);
 class Widget {
 	Widget* next;
 	Widget* prev;
@@ -45,7 +48,6 @@ protected:
 	virtual void onMove() { }
 	virtual bool onMouse(xevent_t* ev);
 	virtual bool onIM(xevent_t* ev);
-	virtual void onClick(xevent_t* ev);
 
 	virtual void repaint(graph_t* g, XTheme* theme);
 	virtual void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) = 0;
@@ -62,7 +64,7 @@ public:
 	friend RootWidget;
 	friend Stage;
 
-	void (*onClickFunc)(Widget* wd);
+	WidgetEventFuncT onEventFunc;
 
 	Widget(void);
 	virtual ~Widget(void);

@@ -268,8 +268,11 @@ class LoadButton: public LabelButton {
 	PngWin* pngWin;
 	ImageView* imgView;
 protected:
-	void onClick(xevent_t* ev) {
-		pngWin->load(imgView, "");
+	bool onMouse(xevent_t* ev) {
+		if(ev->state == MOUSE_STATE_DOWN) {
+			pngWin->load(imgView, "");
+			return true;
+		}
 	}
 public:
 	LoadButton(PngWin* pwin, ImageView* imgView) : LabelButton("load") {

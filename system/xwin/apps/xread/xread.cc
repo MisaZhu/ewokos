@@ -146,13 +146,13 @@ static void onMemuFunc(MenuItem* it, void* p) {
 	}
 }
 
-static void onZoomInClickFunc(Widget* wd) {
+static void onZoomInClickFunc(Widget* wd, xevent_t* evt) {
 	TextWin* win = (TextWin*)wd->getWin();
 	uint32_t size = win->text->getFontSize();
 	win->text->setFontSize(size+4);
 }
 
-static void onZoomOutClickFunc(Widget* wd) {
+static void onZoomOutClickFunc(Widget* wd, xevent_t* evt) {
 	TextWin* win = (TextWin*)wd->getWin();
 	uint32_t size = win->text->getFontSize();
 	win->text->setFontSize(size-4);
@@ -181,12 +181,12 @@ int main(int argc, char** argv) {
 	c->add(menubar);
 
 	LabelButton* zoomInButton = new LabelButton("+");
-	zoomInButton->onClickFunc = onZoomInClickFunc;
+	zoomInButton->onEventFunc = onZoomInClickFunc;
 	zoomInButton->fix(48, 0);
 	c->add(zoomInButton);
 
 	LabelButton* zoomOutButton = new LabelButton("-");
-	zoomOutButton->onClickFunc = onZoomOutClickFunc;
+	zoomOutButton->onEventFunc = onZoomOutClickFunc;
 	zoomOutButton->fix(48, 0);
 	c->add(zoomOutButton);
 

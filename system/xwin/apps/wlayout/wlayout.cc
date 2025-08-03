@@ -18,6 +18,17 @@
 
 using namespace Ewok;
 
+static void onMenuItemFunc(MenuItem* it, void* data) {
+	klog("onMenuItemFunc: %d\n", it->id);
+}
+
+static void onEventFunc(Widget* wd, xevent_t* evt) {
+	if(evt->type == XEVT_MOUSE && evt->state == MOUSE_STATE_MOVE)
+		return;
+	klog("onEventFunc: id:%d: name: %s, type: %d, state: %d\n", 
+			wd->getID(), wd->getName().c_str(), evt->type, evt->state);
+}
+
 int main(int argc, char** argv) {
 	if(argc < 2) {
 		klog("Usage: %s <xxxx.layout>\n", argv[0]);
@@ -29,6 +40,8 @@ int main(int argc, char** argv) {
 	RootWidget* root = win.getRoot();
 
 	LayoutWidget* layout = new LayoutWidget();
+	layout->onMenuItemFunc = onMenuItemFunc;
+	layout->onEventFunc = onEventFunc;
 	layout->loadConfig(argv[1]); // 加载布局文件
 	root->add(layout);
 

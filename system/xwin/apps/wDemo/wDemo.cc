@@ -172,7 +172,7 @@ protected:
 
 	ConfirmDialog dialog;
 public:
-	static void onClickFunc(Widget* wd) {
+	static void onEventFunc(Widget* wd, xevent_t* evt) {
 		MyWidgetWin* win = (MyWidgetWin*)wd->getWin();
 		win->dialog.setMessage("Dialog Test");
 		win->dialog.popup(win, 200, 100, "dialog", XWIN_STYLE_NO_TITLE);
@@ -207,7 +207,7 @@ int main(int argc, char** argv) {
 
 	LabelButton* button = new LabelButton("Dialog Test");
 	button->setName("button");
-	button->onClickFunc = win.onClickFunc;
+	button->onEventFunc = win.onEventFunc;
 	c->add(button);
 
 	Split* split = new Split();

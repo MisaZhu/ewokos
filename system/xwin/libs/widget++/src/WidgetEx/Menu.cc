@@ -112,7 +112,7 @@ uint32_t Menu::getItemNum() {
     return list->getItemNum();
 }
 
-void Menu::add(uint32_t id, const string& title, graph_t* icon, Menu* menu, menufunc_t func, void* funcArg) {
+void Menu::add(uint32_t id, const string& title, graph_t* icon, Menu* menu, MenuFuncT func, void* funcArg) {
     MenuList* list = (MenuList*)root->get(1);
     if(list == NULL)
         return;

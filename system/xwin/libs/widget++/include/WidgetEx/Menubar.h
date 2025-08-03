@@ -17,11 +17,11 @@ protected:
 	void drawItem(graph_t* g, XTheme* theme, int32_t index, const grect_t& r);
 	void onEnter(int index);
 public:
-    menufunc_t onMenuItemFunc;
+    MenuFuncT onMenuItemFunc;
 	Menubar();
 	~Menubar();
 
-    void add(uint32_t id, const string& title, graph_t* icon, Menu* menu, menufunc_t func, void* funcArg);
+    void add(uint32_t id, const string& title, graph_t* icon, Menu* menu, MenuFuncT func, void* funcArg);
 };
 
 }

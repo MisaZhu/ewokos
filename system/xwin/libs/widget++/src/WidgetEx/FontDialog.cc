@@ -209,12 +209,12 @@ public:
 	}
 };
 
-static void okFunc(Widget* wd) {
+static void okFunc(Widget* wd, xevent_t* evt) {
 	FontDialog* dialog = (FontDialog*)wd->getWin();
 	dialog->submit(Dialog::RES_OK);
 }
 
-static void cancelFunc(Widget* wd) {
+static void cancelFunc(Widget* wd, xevent_t* evt) {
 	FontDialog* dialog = (FontDialog*)wd->getWin();
 	dialog->submit(Dialog::RES_CANCEL);
 }
@@ -260,11 +260,11 @@ void FontDialog::onBuild() {
 	root->add(c);
 
 	LabelButton* okButton = new LabelButton("OK");
-	okButton->onClickFunc = okFunc;
+	okButton->onEventFunc = okFunc;
 	c->add(okButton);
 
 	LabelButton* cancelButton = new LabelButton("Cancel");
-	cancelButton->onClickFunc = cancelFunc;
+	cancelButton->onEventFunc = cancelFunc;
 	c->add(cancelButton);
 
 	list->select(0);

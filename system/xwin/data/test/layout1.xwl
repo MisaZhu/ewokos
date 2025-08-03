@@ -1,40 +1,71 @@
 {
     "type": "Container",
-    "layout": "horizontal",
+    "layout": "verticle",
     "children": [
         {
-            "name": "image",
-            "type": "Image",
-            "alpha": 0,
-            "file": "/data/images/mac.png"
+            "type": "Menubar",
+            "h": 20,
+            "items": [
+                {
+                    "label": "File",
+                    "id": 0
+                },
+                {
+                    "label": "Edit",
+                    "menu": {
+                        "items": [
+                            {
+                                "label": "Undo"
+                                "id": 1
+                            },
+                            {
+                                "label": "Redo"
+                                "id": 2
+                            }
+                        ]
+                    }
+                }
+            ]
         },
         {
-            "type": "Split",
-            "attach": "toolbar",
-            "attachAfter": 1
-        },
-        {
-            "name": "toolbar",
             "type": "Container",
-            "layout": "verticle",
-            "w": 48,
+            "layout": "horizontal",
             "children": [
                 {
-                    "name": "b1",
-                    "type": "LabelButton",
-                    "h": 48,
-                    "label": "B1"
+                    "name": "image",
+                    "type": "Image",
+                    "alpha": 0,
+                    "file": "/data/images/mac.png"
                 },
                 {
-                    "name": "b2",
-                    "type": "LabelButton",
-                    "h": 48,
-                    "label": "B2"
+                    "type": "Split",
+                    "attach": "toolbar",
+                    "attachAfter": 1
                 },
                 {
-                    "name": "b3",
-                    "type": "LabelButton",
-                    "label": "B3"
+                    "name": "toolbar",
+                    "type": "Container",
+                    "layout": "verticle",
+                    "w": 48,
+                    "children": [
+                        {
+                            "name": "b1",
+                            "type": "LabelButton",
+                            "h": 48,
+                            "label": "B1"
+                        },
+                        {
+                            "name": "b2",
+                            "type": "LabelButton",
+                            "h": 48,
+                            "label": "B2"
+                        },
+                        {
+                            "name": "b3",
+                            "type": "LabelButton",
+                            "label": "B3"
+                        }
+                    ]
                 }
             ]
         }
