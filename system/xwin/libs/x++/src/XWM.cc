@@ -158,8 +158,8 @@ void draw_shadow(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top, void* 
 	((XWM*)p)->__drawShadow(desktop_g, g, info, top);
 }
 
-void update_theme(void* p) {
-	((XWM*)p)->__updateTheme();
+void update_theme(bool loadFromX, void* p) {
+	((XWM*)p)->__updateTheme(loadFromX);
 }
 
 static void draw_bg_effect(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinfo_t* info, bool top, void* p) {
@@ -272,18 +272,20 @@ void XWM::getColor(uint32_t *fg, uint32_t* bg, bool top) {
 	}
 }
 
-void XWM::updateTheme(void) {
-	int xserv_pid = dev_get_pid("/dev/x");
-	if(xserv_pid < 0)
-		return;
+void XWM::updateTheme(bool loadFromX) {
+	if(loadFromX) {
+		int xserv_pid = dev_get_pid("/dev/x");
+		if(xserv_pid < 0)
+			return;
 
-	proto_t out;
-	PF->init(&out);
-	if(dev_cntl_by_pid(xserv_pid, X_DCNTL_GET_XWM_THEME, NULL, &out) != 0) {
-		return;
-	}	
-	proto_read_to(&out, &xwm.theme, sizeof(xwm_theme_t));
-	PF->clear(&out);
+		proto_t out;
+		PF->init(&out);
+		if(dev_cntl_by_pid(xserv_pid, X_DCNTL_GET_XWM_THEME, NULL, &out) != 0) {
+			return;
+		}	
+		proto_read_to(&out, &xwm.theme, sizeof(xwm_theme_t));
+		PF->clear(&out);
+	}
 
 	if(font != NULL) {
 		font_free(font);
@@ -364,6 +366,6 @@ XWM::~XWM(void) {
 }
 
 void XWM::run(void) {
-	updateTheme();
+	updateTheme(true);
 	xwm_run(&xwm);
 }

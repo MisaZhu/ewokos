@@ -276,8 +276,9 @@ static void get_min_size(xwm_t* xwm, proto_t* in, proto_t* out) {
 }
 
 static void set_theme(xwm_t* xwm, proto_t* in, proto_t* out) {
+	proto_read_to(in, &xwm->theme, sizeof(xwm_theme_t));
 	if(xwm->update_theme != NULL)
-		xwm->update_theme(xwm->data);
+		xwm->update_theme(false, xwm->data);
 }
 
 static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {

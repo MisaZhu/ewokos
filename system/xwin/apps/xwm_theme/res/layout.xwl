@@ -58,25 +58,7 @@
         },
         {
             "type": "Split"
-        },
-        {
-            "layout": "horizontal",
-            "h": 32,
-            "children": [
-                {
-                    "type": "Label",
-                    "label": "desktop_image"
-                    "w": 64
-                },
-                {
-                    "name": "desktop_image", 
-                    "type": "LabelButton"
-                }
-            ]
-        },
-        {
-            "type": "Split"
-        },
+        }, 
         {
             "layout": "horizontal",
             "h": 32,
@@ -84,7 +66,7 @@
                 {
                     "type": "Label",
                     "label": "font"
-                    "w": 64
+                    "w":128 
                 },
                 {
                     "name": "font", 
@@ -96,8 +78,24 @@
             "type": "Split"
         },
         {
-            "type": "Blank"
+            "layout": "horizontal",
+            "h": 32,
+            "children": [
+                {
+                    "type": "Label",
+                    "label": "desktop_image"
+                    "w": 128 
+                },
+                {
+                    "name": "desktop_image", 
+                    "type": "LabelButton"
+                }
+            ]
         },
+        {
+           "type": "Image",
+           "name": "image" 
+        }
         {
             "layout": "horizontal",
             "h": 24,

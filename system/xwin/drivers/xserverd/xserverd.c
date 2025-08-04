@@ -1175,11 +1175,12 @@ static int xwm_theme_update(x_t* x) {
 	if(!check_xwm(x))
 		return 0;
 
-	if(ipc_call(x->xwm_pid, XWM_CNTL_SET_THEME, NULL, NULL) != 0) {
-		return -1;
-	}	
+	proto_t in;
+	PF->init(&in)->add(&in, &x->config.xwm_theme, sizeof(xwm_theme_t));
+	int res = ipc_call(x->xwm_pid, XWM_CNTL_SET_THEME, &in, NULL);
+	PF->clear(&in);
 	x_dirty(x, -1);
-	return 0;
+	return res;
 }
 
 static int x_dev_load_xwm_theme(x_t* x, proto_t* in, proto_t* out) {
