@@ -27,13 +27,8 @@ typedef struct {
 	uint32_t docBGColor;
 	uint32_t docFGColor;
 
-	uint32_t bgUnfocusColor;
-	uint32_t fgUnfocusColor;
-
 	uint32_t bgDisableColor;
 	uint32_t fgDisableColor;
-
-	uint32_t hideColor;
 
 	uint32_t selectColor;
 	uint32_t selectBGColor;
