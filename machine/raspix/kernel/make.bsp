@@ -1,4 +1,4 @@
-CFLAGS = -I./lib/bcm283x/include
+CFLAGS += -I./lib/bcm283x/include
 
 ARCH_OBJS += $(BSP_DIR)/hw_info_arch.o \
 	$(BSP_DIR)/start.o \

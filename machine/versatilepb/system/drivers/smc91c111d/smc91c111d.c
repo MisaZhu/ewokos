@@ -3,8 +3,11 @@
 #include <unistd.h>
 #include <string.h>
 #include <ewoksys/vfs.h>
+#include <ewoksys/ipc.h>
 #include <ewoksys/vdevice.h>
 #include <ewoksys/mmio.h>
+#include <ewoksys/klog.h>
+#include <ewoksys/timer.h>
 
 #include "smc91c111d.h"
 
@@ -299,7 +302,7 @@ static int eth_read(int fd, int from_pid, fsinfo_t* node,
 }
 
 static int eth_write(int fd, int from_pid, fsinfo_t* node,
-		void* buf, int size, int offset, void* p) {
+		const void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
 	(void)offset;

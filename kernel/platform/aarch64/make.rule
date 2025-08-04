@@ -32,6 +32,8 @@ else
 endif
 
 CFLAGS += $(OPTM) -Wno-incompatible-pointer-types -Wno-int-conversion \
+		  -Wno-implicit-function-declaration \
+		  -Wno-declaration-missing-parameter-type \
 		  -fPIC \
 		  -march=armv8-a \
 		  -z,align-vaddr=16 \

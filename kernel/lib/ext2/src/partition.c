@@ -1,6 +1,4 @@
-#include <stdio.h>
 #include <stdint.h>
-#include <stdlib.h>
 #include <kstring.h>
 #include <mm/kmalloc.h>
 #include "gpt.h"
@@ -48,7 +46,7 @@ static inline int hw_read_data(uint8_t* dest, uint32_t offset,  int size){
 /* calculate size of entries array in bytes for specified number of entries */
 static inline int gpt_calculate_sizeof_entries(
                 struct gpt_header *hdr,
-                uint32_t nents, size_t *sz)
+                uint32_t nents, uint32_t *sz)
 {
     uint32_t esz = hdr ? le32_to_cpu(hdr->sizeof_partition_entry) :
                  sizeof(struct gpt_entry);
@@ -58,11 +56,11 @@ static inline int gpt_calculate_sizeof_entries(
         return -1;
     }
 
-    *sz = (size_t) nents * esz;
+    *sz = (uint32_t) nents * esz;
     return 0;
 }
 
-static inline int gpt_sizeof_entries(struct gpt_header *hdr, size_t *sz)
+static inline int gpt_sizeof_entries(struct gpt_header *hdr, uint32_t *sz)
 {
     return gpt_calculate_sizeof_entries(hdr, le32_to_cpu(hdr->npartition_entries), sz);
 }
@@ -78,7 +76,7 @@ static uint64_t gpt_partition_size(const struct gpt_entry *e)
 static int valid_pmbr(uint8_t *firstsector)
 {
     int i, part = 0, ret = -1; /* invalid by default */
-    struct gpt_legacy_mbr *pmbr = NULL;
+    struct gpt_legacy_mbr *pmbr = 0;
 
     if (!firstsector)
         goto done;
@@ -118,8 +116,8 @@ done:
     return ret;
 }
 
-static ssize_t read_lba(uint64_t lba,
-            void *buffer, const size_t bytes)
+static int32_t read_lba(uint64_t lba,
+            void *buffer, const uint32_t bytes)
 {
 	for(int i = 0 ; i < (bytes + SECTOR_SIZE - 1)/SECTOR_SIZE; i++)
 	_read_sector(lba+i, (uint8_t*)buffer + i * SECTOR_SIZE);
@@ -161,20 +159,20 @@ done:
 /* Returns the GPT entry array */
 static unsigned char *gpt_read_entries(struct gpt_header *header)
 {
-    size_t sz = 0;
-    ssize_t ssz;
+    uint32_t sz = 0;
+    int32_t ssz;
 
-    unsigned char *ret = NULL;
-    off_t offset;
+    unsigned char *ret = 0;
+    uint32_t offset;
 
     if (gpt_sizeof_entries(header, &sz))
-        return NULL;
+        return 0;
 
     ret = kcalloc(1, sz);
     if (!ret)
-        return NULL;
+        return 0;
 
-    offset = (off_t) le64_to_cpu(header->partition_entry_lba) *
+    offset = (uint32_t) le64_to_cpu(header->partition_entry_lba) *
                SECTOR_SIZE;
 
 	hw_read_data(ret, offset, sz);
@@ -182,20 +180,20 @@ static unsigned char *gpt_read_entries(struct gpt_header *header)
 
 fail:
     kfree(ret);
-    return NULL;
+    return 0;
 }
 
-static inline size_t gpt_get_nentries(struct gpt_label *gpt)
+static inline uint32_t gpt_get_nentries(struct gpt_label *gpt)
 {
-    return (size_t) le32_to_cpu(gpt->pheader->npartition_entries);
+    return (uint32_t) le32_to_cpu(gpt->pheader->npartition_entries);
 }
 
-static inline unsigned char *gpt_get_entry_ptr(struct gpt_label *gpt, size_t i)
+static inline unsigned char *gpt_get_entry_ptr(struct gpt_label *gpt, uint32_t i)
 {
     return gpt->ents + le32_to_cpu(gpt->pheader->sizeof_partition_entry) * i;
 }
 
-static inline struct gpt_entry *gpt_get_entry(struct gpt_label *gpt, size_t i)
+static inline struct gpt_entry *gpt_get_entry(struct gpt_label *gpt, uint32_t i)
 {
     return (struct gpt_entry *) gpt_get_entry_ptr(gpt, i);
 }
@@ -206,9 +204,9 @@ static inline int gpt_entry_is_used(const struct gpt_entry *e)
             sizeof(struct gpt_guid)) != 0;
 }
 
-static size_t partitions_in_use(struct gpt_label *gpt)
+static uint32_t partitions_in_use(struct gpt_label *gpt)
 {
-    size_t i, used = 0;
+    uint32_t i, used = 0;
 
     for (i = 0; i < gpt_get_nentries(gpt); i++) {
         struct gpt_entry *e = gpt_get_entry(gpt, i);
@@ -222,13 +220,13 @@ static size_t partitions_in_use(struct gpt_label *gpt)
 
 static struct gpt_header *gpt_read_header(uint64_t lba, unsigned char **_ents)
 {
-    struct gpt_header *header = NULL;
-    unsigned char *ents = NULL;
+    struct gpt_header *header = 0;
+    unsigned char *ents = 0;
     uint32_t hsz;
 
     header = kcalloc(1, SECTOR_SIZE);
     if (!header)
-        return NULL;
+        return 0;
 
     /* read and verify header */
     if (read_lba(lba, header, SECTOR_SIZE) != 0)
@@ -242,7 +240,7 @@ static struct gpt_header *gpt_read_header(uint64_t lba, unsigned char **_ents)
     if (hsz < GPT_HEADER_MINSZ || hsz > SECTOR_SIZE)
         goto invalid;
 
-    //if (!gpt_check_header_crc(header, NULL))
+    //if (!gpt_check_header_crc(header, 0))
     //    goto invalid;
 
     /* read and verify entries */
@@ -271,7 +269,7 @@ invalid:
     kfree(ents);
 
     printf("read header on LBA %d failed\n", lba);
-    return NULL;
+    return 0;
 }
 
 uint32_t get_rootfs_entry(int32_t (*read_sector)(int32_t sector, void* buf)){
