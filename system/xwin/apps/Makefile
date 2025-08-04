@@ -11,6 +11,7 @@ all:
 	cd wDemo; make
 	cd wlayout; make
 	cd xwm_theme; make
+	cd xtheme; make
 	cd clock; make
 
 clean:
@@ -26,4 +27,5 @@ clean:
 	cd wDemo; make clean
 	cd wlayout; make clean
 	cd xwm_theme; make clean
+	cd xtheme; make clean
 	cd clock; make clean
