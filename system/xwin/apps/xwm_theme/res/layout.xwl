@@ -60,6 +60,42 @@
             "type": "Split"
         },
         {
+            "layout": "horizontal",
+            "h": 32,
+            "children": [
+                {
+                    "type": "Label",
+                    "label": "desktop_image"
+                    "w": 64
+                },
+                {
+                    "name": "desktop_image", 
+                    "type": "LabelButton"
+                }
+            ]
+        },
+        {
+            "type": "Split"
+        },
+        {
+            "layout": "horizontal",
+            "h": 32,
+            "children": [
+                {
+                    "type": "Label",
+                    "label": "font"
+                    "w": 64
+                },
+                {
+                    "name": "font", 
+                    "type": "LabelButton"
+                }
+            ]
+        },
+        {
+            "type": "Split"
+        },
+        {
             "type": "Blank"
         },
         {

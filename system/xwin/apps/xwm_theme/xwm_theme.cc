@@ -9,6 +9,7 @@
 #include <Widget/Splitter.h>
 #include <WidgetEx/LayoutWidget.h>
 #include <WidgetEx/FileDialog.h>
+#include <WidgetEx/FontDialog.h>
 #include <WidgetEx/ColorDialog.h>
 #include <WidgetEx/ConfirmDialog.h>
 
@@ -74,6 +75,18 @@ static void loadTheme(LayoutWidget* layout) {
 		ColorButton* btn = (ColorButton*)wd;
 		btn->setColor(_xwm_theme.frameFGColor);
 	}
+
+	wd = layout->get("font");
+	if(wd != NULL)  {
+		LabelButton* btn = (LabelButton*)wd;
+		btn->setLabel(_xwm_theme.fontName);
+	}
+
+	wd = layout->get("desktop_image");
+	if(wd != NULL)  {
+		LabelButton* btn = (LabelButton*)wd;
+		btn->setLabel(_xwm_theme.patternName);
+	}
 }
 
 static void setTheme(LayoutWidget* layout) {
@@ -99,6 +112,20 @@ static void setTheme(LayoutWidget* layout) {
 		_xwm_theme.frameFGColor = btn->getColor();
 	}
 
+	wd = layout->get("font");
+	if(wd != NULL)  {
+		LabelButton* btn = (LabelButton*)wd;
+		memset(_xwm_theme.fontName, 0, FONT_NAME_MAX);
+		strncpy(_xwm_theme.fontName, btn->getLabel().c_str(), FONT_NAME_MAX-1);
+	}
+
+	wd = layout->get("desktop_image");
+	if(wd != NULL)  {
+		LabelButton* btn = (LabelButton*)wd;
+		memset(_xwm_theme.patternName, 0, THEME_NAME_MAX);
+		strncpy(_xwm_theme.patternName, btn->getLabel().c_str(), THEME_NAME_MAX-1);
+	}
+
 	proto_t in;
 	PF->init(&in)->add(&in, &_xwm_theme, sizeof(xwm_theme_t));
 	dev_cntl_by_pid(xserv_pid, X_DCNTL_SET_XWM_THEME, &in, NULL);
@@ -106,6 +133,8 @@ static void setTheme(LayoutWidget* layout) {
 }
 
 static ColorDialog *_colorDialog = NULL;
+static FontDialog *_fontDialog = NULL;
+static FileDialog *_fileDialog = NULL;
 
 static void onEventFunc(Widget* wd, xevent_t* evt, void* arg) {
 	if(evt->type != XEVT_MOUSE || evt->state != MOUSE_STATE_CLICK)
@@ -116,6 +145,12 @@ static void onEventFunc(Widget* wd, xevent_t* evt, void* arg) {
 		ColorButton* btn = (ColorButton*)wd;
 		_colorDialog->popup(wd->getWin(), 256, 160, "color", XWIN_STYLE_NO_RESIZE, btn);
 		_colorDialog->setColor(btn->getColor());
+	}
+	else if(name == "font") {
+		_fontDialog->popup(wd->getWin(), 256, 160, "font", XWIN_STYLE_NO_RESIZE, wd);
+	}
+	else if(name == "desktop_image") {
+		_fileDialog->popup(wd->getWin(), 256, 160, "image", XWIN_STYLE_NO_RESIZE, wd);
 	}
 	else if(name == "okButton") {
 		setTheme((LayoutWidget*)arg);
@@ -144,6 +179,14 @@ static void _dialogedFunc(XWin* xwin, XWin* from, int res, void* arg) {
 		ColorButton* btn = (ColorButton*)arg;
 		btn->setColor((color & 0x00ffffff) | (alpha << 24));
 	}
+	else if(from == _fontDialog) {
+		LabelButton* btn = (LabelButton*)arg;
+		btn->setLabel(_fontDialog->getResult());
+	}
+	else if(from == _fileDialog) {
+		LabelButton* btn = (LabelButton*)arg;
+		btn->setLabel(_fileDialog->getResult());
+	}
 }
 
 int main(int argc, char** argv) {
@@ -161,10 +204,14 @@ int main(int argc, char** argv) {
 	win.setTimer(16);
 
 	_colorDialog = new ColorDialog();
+	_fontDialog = new FontDialog();
+	_fileDialog = new FileDialog();
 
 	loadTheme(layout);
 	widgetXRun(&x, &win);	
 
 	delete _colorDialog;
+	delete _fontDialog;
+	delete _fileDialog;
 	return 0;
 }

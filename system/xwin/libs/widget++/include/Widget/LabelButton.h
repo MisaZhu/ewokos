@@ -18,6 +18,10 @@ protected:
 public:
 	LabelButton(const string& label = "") { this->label = label; }
 
+	inline const string& getLabel(void) {
+		return label;
+	}
+
 	void setLabel(const string& label);
 };
 
