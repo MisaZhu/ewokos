@@ -5,9 +5,9 @@ namespace Ewok {
 
 void Split::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 	uint32_t d, b;
-	graph_get_3d_color(theme->basic.widgetBGColor, &d, &b);
+	graph_get_3d_color(theme->basic.bgColor, &d, &b);
 	if(!alpha)
-		graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.widgetBGColor);
+		graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
 
 	if(horizontal) {
 		int dx = (r.w - 2)/2;

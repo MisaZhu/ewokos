@@ -314,7 +314,7 @@ protected:
 		if(sysInfo.cores == 0)
 			return;
 
-		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.widgetBGColor, true);
+		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.bgColor, true);
 
 		float xstep = (r.w - x_off*2)/ (float)HEART_BIT_NUM;
 		float yzoom = (r.h - y_off*2)/ 100.0;

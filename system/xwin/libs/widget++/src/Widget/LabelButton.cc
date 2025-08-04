@@ -9,7 +9,7 @@ void LabelButton::paintDown(graph_t* g, XTheme* theme, const grect_t& r) {
 	if(font == NULL)
 		return;
 	graph_draw_text_font_align(g, r.x, r.y, r.w, r.h,
-			label.c_str(), font, theme->basic.fontSize, theme->basic.widgetFGColor, FONT_ALIGN_CENTER);
+			label.c_str(), font, theme->basic.fontSize, theme->basic.fgColor, FONT_ALIGN_CENTER);
 }
 
 void LabelButton::paintUp(graph_t* g, XTheme* theme, const grect_t& r) {
@@ -18,7 +18,7 @@ void LabelButton::paintUp(graph_t* g, XTheme* theme, const grect_t& r) {
 	if(font == NULL)
 		return;
 	graph_draw_text_font_align(g, r.x, r.y, r.w, r.h,
-			label.c_str(), font, theme->basic.fontSize, theme->basic.widgetFGColor, FONT_ALIGN_CENTER);
+			label.c_str(), font, theme->basic.fontSize, theme->basic.fgColor, FONT_ALIGN_CENTER);
 }
 
 void LabelButton::paintDisabled(graph_t* g, XTheme* theme, const grect_t& r) {

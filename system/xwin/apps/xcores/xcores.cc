@@ -126,7 +126,7 @@ protected:
 		if(sysInfo.cores == 0)
 			return;
 
-		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.widgetBGColor, true);
+		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.bgColor, true);
 
 		float xstep = (r.w - x_off*2)/ (float)HEART_BIT_NUM;
 		float yzoom = (r.h - y_off - y_off_bottom)/ 100.0f;
@@ -153,7 +153,7 @@ protected:
 		font_t* font = theme->getFont();
 		uint32_t w;
 		font_text_size(txt, font, 10, &w, NULL);
-		graph_draw_text_font(g, r.x + r.w - w, r.y, txt, theme->getFont(), 10, theme->basic.widgetFGColor);
+		graph_draw_text_font(g, r.x + r.w - w, r.y, txt, theme->getFont(), 10, theme->basic.fgColor);
 	}
 
 	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
