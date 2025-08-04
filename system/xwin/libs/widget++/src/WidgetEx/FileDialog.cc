@@ -52,11 +52,12 @@ void FileDialog::onBuild() {
 	cancelButton->setEventFunc(cancelFunc);
 	c->add(cancelButton);
 
-	fileWidget->loadDir("/");
+	fileWidget->loadDir(initPath);
 }
 
 FileDialog::FileDialog(bool path) {
 	pathMode = path;
+	initPath = "/";
 }
 
 string FileDialog::getResult() {

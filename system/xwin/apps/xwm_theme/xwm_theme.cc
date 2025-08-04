@@ -156,6 +156,11 @@ static void onEventFunc(Widget* wd, xevent_t* evt, void* arg) {
 		_fontDialog->popup(wd->getWin(), 320, 320, "font", XWIN_STYLE_NO_RESIZE, wd);
 	}
 	else if(name == "desktop_image") {
+		LabelButton* btn = (LabelButton*)wd;
+		string fname = btn->getLabel();
+		char dir[FS_FULL_NAME_MAX];
+		vfs_dir_name(fname.c_str(), dir, FS_FULL_NAME_MAX);
+		_fileDialog->setInitPath(dir);
 		_fileDialog->popup(wd->getWin(), 320, 320, "image", XWIN_STYLE_NO_RESIZE, wd);
 	}
 	else if(name == "okButton") {

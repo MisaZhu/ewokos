@@ -34,7 +34,7 @@ typedef struct {
 	uint32_t selectBGColor;
 
 	uint32_t titleColor;
-	uint32_t frameBGColor;
+	uint32_t titleBGColor;
 } x_theme_t;
 
 typedef struct {

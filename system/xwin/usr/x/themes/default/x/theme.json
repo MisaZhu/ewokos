@@ -12,7 +12,7 @@
     "select_color": "0xffffffff",
 
     "title_color": "0xffdddddd",
-    "frame_bg_color": "0xff5890a4",
+    "title_bg_color": "0xff5890a4",
 
     "font": "system",
     "font_size": 12

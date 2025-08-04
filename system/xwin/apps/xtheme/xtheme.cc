@@ -70,6 +70,18 @@ static void loadTheme(LayoutWidget* layout) {
 		btn->setColor(_xtheme.fgColor);
 	}
 
+	wd = layout->get("doc_bg_color");
+	if(wd != NULL)  {
+		ColorButton* btn = (ColorButton*)wd;
+		btn->setColor(_xtheme.docBGColor);
+	}
+
+	wd = layout->get("doc_fg_color");
+	if(wd != NULL)  {
+		ColorButton* btn = (ColorButton*)wd;
+		btn->setColor(_xtheme.docFGColor);
+	}
+
 	wd = layout->get("font");
 	if(wd != NULL)  {
 		LabelButton* btn = (LabelButton*)wd;
@@ -92,6 +104,18 @@ static void setTheme(LayoutWidget* layout) {
 	if(wd != NULL)  {
 		ColorButton* btn = (ColorButton*)wd;
 		_xtheme.fgColor = btn->getColor();
+	}
+
+	wd = layout->get("doc_bg_color");
+	if(wd != NULL)  {
+		ColorButton* btn = (ColorButton*)wd;
+		_xtheme.docBGColor = btn->getColor();
+	}
+
+	wd = layout->get("doc_fg_color");
+	if(wd != NULL)  {
+		ColorButton* btn = (ColorButton*)wd;
+		_xtheme.docFGColor = btn->getColor();
 	}
 
 	wd = layout->get("font");

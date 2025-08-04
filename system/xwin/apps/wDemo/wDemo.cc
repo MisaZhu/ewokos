@@ -173,6 +173,8 @@ protected:
 	ConfirmDialog dialog;
 public:
 	static void onEventFunc(Widget* wd, xevent_t* evt, void* arg) {
+		if(evt->type != XEVT_MOUSE || evt->state != MOUSE_STATE_CLICK)
+			return;
 		MyWidgetWin* win = (MyWidgetWin*)wd->getWin();
 		win->dialog.setMessage("Dialog Test");
 		win->dialog.popup(win, 200, 100, "dialog", XWIN_STYLE_NO_TITLE);

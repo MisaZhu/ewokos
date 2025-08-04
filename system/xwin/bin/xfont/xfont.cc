@@ -34,7 +34,7 @@ private:
 		std::string text = "[ ";
 		text += fontName + " ... ]";
 		
-		graph_fill(g, r.x, r.y, r.w, font_get_height(ft, theme->basic.fontSize), theme->basic.frameBGColor);
+		graph_fill(g, r.x, r.y, r.w, font_get_height(ft, theme->basic.fontSize), theme->basic.titleBGColor);
 		graph_draw_text_font(g, r.x+10, r.y, text.c_str(),
 			ft, 12, theme->basic.docFGColor);
 	}
@@ -51,7 +51,7 @@ protected:
 		uint16_t margin = 2;
 		uint32_t y = 0;
 
-		graph_fill(g, r.x, y, r.w, font_get_height(font, theme->basic.fontSize), theme->basic.frameBGColor);
+		graph_fill(g, r.x, y, r.w, font_get_height(font, theme->basic.fontSize), theme->basic.titleBGColor);
 		std::string text = "[ font: ";
 		text += fontName + " ]";
 		graph_draw_text_font(g, r.x+10, y, text.c_str(), font, theme->basic.fontSize, theme->basic.docFGColor);
