@@ -5,8 +5,8 @@ void bcm283x_mbox_actled(bool on) {
 	mail_message_t msg;
 	/*message head + tag head + property*/
 	uint32_t size = 12 + 12 + 8;
-	//uint32_t* buf = (uint32_t*)dma_phy_addr(dma_map(size));
-	uint32_t* buf = (uint32_t*)(dma_map(size));
+	//uint32_t* buf = (uint32_t*)dma_phy_addr(0, dma_alloc(0, size));
+	uint32_t* buf = (uint32_t*)(dma_alloc(0, size));
 
 	/*message head*/
 	buf[0] = size;
@@ -22,6 +22,6 @@ void bcm283x_mbox_actled(bool on) {
 	buf[7] = 0;
 	
 	msg.data = ((uint32_t)buf + 0x40000000) >> 4;	
-	bcm283x_mailbox_send(PROPERTY_CHANNEL, &msg);
-	bcm283x_mailbox_read(PROPERTY_CHANNEL, &msg);
+	msg.channel = PROPERTY_CHANNEL;
+	bcm283x_mailbox_call(&msg);
 }

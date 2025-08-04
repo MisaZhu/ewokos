@@ -10,6 +10,7 @@ CXXFLAGS += -Iinclude -I$(TARGET_DIR)/include
 
 LIB_WIDGET_OBJS =  src/Widget/Widget.o \
 		src/Widget/Blank.o \
+		src/Widget/Splitter.o \
 		src/Widget/Split.o \
 		src/Widget/Container.o \
 		src/Widget/Image.o \
@@ -38,6 +39,8 @@ LIB_WIDGET_OBJS =  src/Widget/Widget.o \
 		src/WidgetEx/FontDialog.o \
 		src/WidgetEx/ColorDialog.o \
 		src/WidgetEx/Popup.o \
+		src/WidgetEx/LayoutWidget.o \
+		src/WidgetEx/LayoutWin.o \
 		src/WidgetEx/Menu.o \
 		src/WidgetEx/Menubar.o
 

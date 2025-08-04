@@ -755,7 +755,7 @@ int bcm2835_power_on_module(uint32_t module)
 {
 	//ALLOC_CACHE_ALIGN_BUFFER(struct msg_set_power_state, msg_pwr, 1);
     mail_message_t msg;
-    struct msg_set_power_state* msg_pwr = (struct msg_set_power_state*)dma_map(sizeof(struct msg_set_power_state));
+    struct msg_set_power_state* msg_pwr = (struct msg_set_power_state*)dma_alloc(0, sizeof(struct msg_set_power_state));
 
 	BCM2835_MBOX_INIT_HDR(msg_pwr);
 	BCM2835_MBOX_INIT_TAG(&msg_pwr->set_power_state,
@@ -772,9 +772,9 @@ int bcm2835_power_on_module(uint32_t module)
 	// 	       module);
 	// 	return -EIO;
 	// }
-    msg.data = ((uint32_t)dma_phy_addr(msg_pwr) + 0x40000000) >> 4;	
-    bcm283x_mailbox_send(PROPERTY_CHANNEL, &msg);
-	bcm283x_mailbox_read(PROPERTY_CHANNEL, &msg);
+    msg.data = ((uint32_t)dma_phy_addr(0, msg_pwr) + 0x40000000) >> 4;	
+	msg.channel = PROPERTY_CHANNEL;
+    bcm283x_mailbox_call(&msg);
 
 	return 0;
 }
@@ -783,7 +783,7 @@ int bcm2835_set_sdhost_clock(uint32_t rate_hz, uint32_t *rate_1, uint32_t *rate_
 {
 	//ALLOC_CACHE_ALIGN_BUFFER(struct msg_set_sdhost_clock, msg_sdhost_clk, 1);
     mail_message_t msg;
-    struct msg_set_sdhost_clock* msg_sdhost_clk = (struct msg_set_sdhost_clock*)dma_map(sizeof(struct msg_set_sdhost_clock));
+    struct msg_set_sdhost_clock* msg_sdhost_clk = (struct msg_set_sdhost_clock*)dma_alloc(0, sizeof(struct msg_set_sdhost_clock));
 
 	BCM2835_MBOX_INIT_HDR(msg_sdhost_clk);
 	BCM2835_MBOX_INIT_TAG(&msg_sdhost_clk->set_sdhost_clock, SET_SDHOST_CLOCK);
@@ -795,9 +795,9 @@ int bcm2835_set_sdhost_clock(uint32_t rate_hz, uint32_t *rate_1, uint32_t *rate_
 	// 	klog("bcm2835: Could not query sdhost clock rate\n");
 	// 	return -EIO;
 	// }
-    msg.data = ((uint32_t)dma_phy_addr(msg_sdhost_clk) + 0x40000000) >> 4;	
-    bcm283x_mailbox_send(PROPERTY_CHANNEL, &msg);
-	bcm283x_mailbox_read(PROPERTY_CHANNEL, &msg);
+    msg.data = ((uint32_t)dma_phy_addr(0, msg_sdhost_clk) + 0x40000000) >> 4;	
+	msg.channel = PROPERTY_CHANNEL;
+    bcm283x_mailbox_call(&msg);
 
 	*rate_1 = msg_sdhost_clk->set_sdhost_clock.body.resp.rate_1;
 	*rate_2 = msg_sdhost_clk->set_sdhost_clock.body.resp.rate_2;
@@ -811,7 +811,7 @@ int bcm2835_get_mmc_clock(uint32_t clock_id)
 	int ret;
 	uint32_t clock_rate = 0;
     mail_message_t msg;
-    struct msg_get_clock_rate *msg_clk = (struct msg_get_clock_rate*)dma_map(sizeof(struct msg_get_clock_rate)); 
+    struct msg_get_clock_rate *msg_clk = (struct msg_get_clock_rate*)dma_alloc(0, sizeof(struct msg_get_clock_rate)); 
 
 	ret = bcm2835_power_on_module(BCM2835_MBOX_POWER_DEVID_SDHCI);
 	if (ret)
@@ -826,9 +826,9 @@ int bcm2835_get_mmc_clock(uint32_t clock_id)
 	// 	klog("bcm2835: Could not query eMMC clock rate\n");
 	// 	return -EIO;
 	// }
-    msg.data = ((uint32_t)dma_phy_addr(msg_clk) + 0x40000000) >> 4;	
-    bcm283x_mailbox_send(PROPERTY_CHANNEL, &msg);
-	bcm283x_mailbox_read(PROPERTY_CHANNEL, &msg); 
+    msg.data = ((uint32_t)dma_phy_addr(0, msg_clk) + 0x40000000) >> 4;	
+	msg.channel = PROPERTY_CHANNEL;
+    bcm283x_mailbox_call(&msg);
 
 	clock_rate = msg_clk->get_clock_rate.body.resp.rate_hz;
 
@@ -843,8 +843,8 @@ int bcm2835_get_mmc_clock(uint32_t clock_id)
 		// 	return -EIO;
 		// }
         msg.data = ((uint32_t)msg_clk + 0x40000000) >> 4;	
-        bcm283x_mailbox_send(PROPERTY_CHANNEL, &msg);
-	    bcm283x_mailbox_read(PROPERTY_CHANNEL, &msg); 
+		msg.channel = PROPERTY_CHANNEL;
+        bcm283x_mailbox_call(&msg);
 
 		clock_rate = msg_clk->get_clock_rate.body.resp.rate_hz;
 	}

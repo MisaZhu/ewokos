@@ -28,12 +28,14 @@
 #define KMALLOC_END                   (KMALLOC_BASE + KMALLOC_SIZE)
 
 #define MAX_USABLE_MEM_SIZE           (1*GB + 640*MB) //max usable memory for 32bits OS
+
+#define MMIO_MAX_SIZE                 (32*MB)
 #define MMIO_BASE                     (KERNEL_BASE + MAX_USABLE_MEM_SIZE)
-#define MMIO_END                      (MMIO_BASE + _sys_info.mmio.size)
+#define MMIO_END                      (MMIO_BASE + MMIO_MAX_SIZE)
 
 #define DMA_SIZE                      (1*MB)
-#define DMA_BASE                      (MMIO_END)
-#define DMA_END                       (DMA_BASE + DMA_SIZE)
+#define DMA_V_BASE                    (MMIO_END)
+#define DMA_END                       (DMA_V_BASE + DMA_SIZE)
 
 #define FB_BASE                       (DMA_END)
 

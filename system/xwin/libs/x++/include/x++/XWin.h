@@ -10,6 +10,9 @@ using namespace std;
 namespace Ewok {
 
 class X;
+class XWin;
+
+typedef void (*DialogedFuncT)(XWin* xwin, XWin* from, int res, void* arg);
 
 class XWin {
 protected:
@@ -30,16 +33,22 @@ protected:
 	inline virtual void onUnfocus(void) { }
 	inline virtual void onReorg(void)   { }
 	inline virtual void onEvent(xevent_t* ev)  { (void)ev; }
-	inline virtual void onDialoged(XWin* from, int res)  { (void)from; (void) res; }
+	inline virtual void onDialoged(XWin* from, int res, void* arg)  { (void)from; (void) res; (void)arg; }
 
 	inline bool covered(void)  {
 		return xwin->xinfo->covered;
 	}
+
+	DialogedFuncT onDialogedFunc;
 public:
 	XWin(void);
 
 	inline virtual ~XWin(void) {
 		close();
+	}
+
+	inline void setOnDialogedFunc(DialogedFuncT func) {
+		onDialogedFunc = func;
 	}
 
 	inline X* getX(void) {return x;}
@@ -60,7 +69,7 @@ public:
 	inline void __doReorg(void) { onReorg(); }
 	inline void __doEvent(xevent_t* ev) { onEvent(ev); }
 
-	inline void dialoged(XWin* from, int res) { onDialoged(from, res); }
+	void dialoged(XWin* from, int res, void* arg);
 
 	void close(void);
 	bool open(X* xp, uint32_t dispIndex, int x, int y, uint32_t w, uint32_t h,

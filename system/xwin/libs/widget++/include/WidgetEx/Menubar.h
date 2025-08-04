@@ -16,11 +16,13 @@ protected:
 	void drawBG(graph_t* g, XTheme* theme, const grect_t& r);
 	void drawItem(graph_t* g, XTheme* theme, int32_t index, const grect_t& r);
 	void onEnter(int index);
+    MenuFuncT onMenuItemFunc;
 public:
 	Menubar();
 	~Menubar();
 
-    void add(const string& title, graph_t* icon, Menu* menu, menufunc_t func, void* funcArg);
+	inline void setMenuItemFunc(MenuFuncT func) { onMenuItemFunc = func; }
+    void add(uint32_t id, const string& title, graph_t* icon, Menu* menu, MenuFuncT func, void* funcArg);
 };
 
 }

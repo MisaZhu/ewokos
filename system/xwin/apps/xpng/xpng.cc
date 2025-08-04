@@ -23,7 +23,7 @@ using namespace Ewok;
 class StatusLabel: public Label {
 protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
-		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.titleBGColor, true);
+		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.frameBGColor, true);
 		font_t* font = theme->getFont();
 		int y = r.y + (r.h- font_get_height(font, theme->basic.fontSize))/2;
 		graph_draw_text_font(g, r.x+4, y, label.c_str(), font, theme->basic.fontSize, theme->basic.titleColor);
@@ -100,6 +100,22 @@ protected:
 			snprintf(s, 127, "zoom:%.2f, w:%d, h:%d, x:%d, y:%d", zoom, img->w, img->h, off_x, off_y);
 			statusLabel->setLabel(s);
 		}
+	}
+
+	bool onMouse(xevent_t* ev) {
+		Scrollable::onMouse(ev);
+
+		if(ev->state == MOUSE_STATE_MOVE) {
+			if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP) {
+				scroll(-1, false);
+				return true;
+			}
+			else if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_DOWN) {
+				scroll(1, false);
+				return true;
+			}
+		}
+		return false;
 	}
 
 	bool onIM(xevent_t* ev) {
@@ -215,7 +231,7 @@ class PngWin: public WidgetWin{
 	ColorDialog cdialog;
 	ImageView* imgView;
 protected:
-	void onDialoged(XWin* from, int res) {
+	void onDialoged(XWin* from, int res, void* arg) {
 		if(res == Dialog::RES_OK) {
 			if(from == &fdialog) {
 				load(imgView, fdialog.getResult().c_str());
@@ -252,8 +268,11 @@ class LoadButton: public LabelButton {
 	PngWin* pngWin;
 	ImageView* imgView;
 protected:
-	void onClick(xevent_t* ev) {
-		pngWin->load(imgView, "");
+	bool onMouse(xevent_t* ev) {
+		if(ev->state == MOUSE_STATE_DOWN) {
+			pngWin->load(imgView, "");
+			return true;
+		}
 	}
 public:
 	LoadButton(PngWin* pwin, ImageView* imgView) : LabelButton("load") {
@@ -319,10 +338,10 @@ int main(int argc, char** argv) {
 	statusLabel->fix(0, 20);
 	root->add(statusLabel);
 
-	menubar->add("load", NULL, NULL, onLoadFunc, imgView);
-	menubar->add("zoom_in", NULL, NULL, onZoomInFunc, imgView);
-	menubar->add("zoom_out", NULL, NULL, onZoomOutFunc, imgView);
-	menubar->add("BGColor", NULL, NULL, onBGColorFunc, imgView);
+	menubar->add(0, "load", NULL, NULL, onLoadFunc, imgView);
+	menubar->add(1, "zoom_in", NULL, NULL, onZoomInFunc, imgView);
+	menubar->add(2, "zoom_out", NULL, NULL, onZoomOutFunc, imgView);
+	menubar->add(3, "BGColor", NULL, NULL, onBGColorFunc, imgView);
 
 	win.open(&x, 0, -1, -1, 400, 300, "xpng", XWIN_STYLE_NORMAL);
 	win.setAlpha(true);

@@ -4,7 +4,7 @@
 using namespace Ewok;
 
 void Menubar::drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
-    graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.bgColor, false);
+    graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.widgetBGColor, false);
 }
 
 void Menubar::drawItem(graph_t* g, XTheme* theme, int32_t index, const grect_t& r) {
@@ -26,7 +26,7 @@ void Menubar::drawItem(graph_t* g, XTheme* theme, int32_t index, const grect_t& 
     font_t* font = theme->getFont();
     if(item->title.length() > 0) {
         graph_draw_text_font_align(g, r.x+dx, r.y, r.w-dx, r.h, item->title.c_str(),
-                font, theme->basic.fontSize, theme->basic.fgColor, FONT_ALIGN_CENTER);
+                font, theme->basic.fontSize, theme->basic.widgetFGColor, FONT_ALIGN_CENTER);
     }
 }
 
@@ -51,6 +51,7 @@ void Menubar::onEnter(int index) {
 }
 
 Menubar::Menubar() {
+    onMenuItemFunc = NULL;
     itemSelected = -1;
 	setDefaultScrollType(Scrollable::SCROLL_TYPE_H);
     setItemSize(60);
@@ -64,12 +65,16 @@ Menubar::~Menubar() {
     }
 }
 
-void Menubar::add(const string& title, graph_t* icon, Menu* menu, menufunc_t func, void* funcArg) {
+void Menubar::add(uint32_t id, const string& title, graph_t* icon, Menu* menu, MenuFuncT func, void* funcArg) {
     MenuItem *item = new MenuItem();
+    item->id = id; 
     item->title = title;
     item->icon = icon;
     item->menu = menu;
-    item->func = func;
+    if(func!= NULL)
+        item->func = func;
+    else
+        item->func = onMenuItemFunc;
     item->funcArg = funcArg;
 
     if(menu != NULL)

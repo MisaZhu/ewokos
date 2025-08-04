@@ -10,12 +10,21 @@ using namespace Ewok;
 // 生成 64 种颜色
 std::vector<uint32_t> generate64Colors() {
     std::vector<uint32_t> colors;
+    for (int i = 3; i >= 0; --i) {
+        uint8_t red = i * 85;
+        uint8_t green = i * 85;
+        uint8_t blue = i * 85;
+        colors.push_back(0xFF000000 | (red << 16) | (green << 8) | blue);
+    }
+
     for (int r = 0; r < 4; ++r) {
         for (int g = 0; g < 4; ++g) {
             for (int b = 0; b < 4; ++b) {
                 uint8_t red = r * 85;
                 uint8_t green = g * 85;
                 uint8_t blue = b * 85;
+                if(red == green && green == blue)
+                    continue;
                 colors.push_back(0xFF000000 | (red << 16) | (green << 8) | blue);
             }
         }
@@ -198,12 +207,16 @@ public:
     }
 };
 
-static void okFunc(Widget* wd) {
+static void okFunc(Widget* wd, xevent_t* evt, void* arg) {
+    if(evt->type != XEVT_MOUSE || evt->state != MOUSE_STATE_CLICK)
+		return;
     ColorDialog* dialog = (ColorDialog*)wd->getWin();
     dialog->submit(Dialog::RES_OK);
 }
 
-static void cancelFunc(Widget* wd) {
+static void cancelFunc(Widget* wd, xevent_t* evt, void* arg) {
+    if(evt->type != XEVT_MOUSE || evt->state != MOUSE_STATE_CLICK)
+		return;
     ColorDialog* dialog = (ColorDialog*)wd->getWin();
     dialog->submit(Dialog::RES_CANCEL);
 }
@@ -246,11 +259,11 @@ void ColorDialog::onBuild() {
     root->add(c);
 
     LabelButton* okButton = new LabelButton("OK");
-    okButton->onClickFunc = okFunc;
+    okButton->setEventFunc(okFunc);
     c->add(okButton);
 
     LabelButton* cancelButton = new LabelButton("Cancel");
-    cancelButton->onClickFunc = cancelFunc;
+    cancelButton->setEventFunc(cancelFunc);
     c->add(cancelButton);
     setAlpha(true);
 }

@@ -14,23 +14,26 @@ bool Button::onMouse(xevent_t* ev) {
 		return true;
 	}
 	else if(ev->state == MOUSE_STATE_CLICK) {
-		onClick(ev);
 		return true;
 	}
 	return false;
 }
 
+void Button::paintPanel(graph_t* g, XTheme* theme, const grect_t& rect) {
+	graph_fill(g, rect.x, rect.y, rect.w, rect.h, theme->basic.widgetBGColor);
+}
+
 void Button::paintDown(graph_t* g, XTheme* theme, const grect_t& rect) {
-	graph_fill(g, rect.x, rect.y, rect.w, rect.h, theme->basic.bgColor);
+	paintPanel(g, theme, rect);
 	uint32_t d, b;
-	graph_get_3d_color(theme->basic.bgColor, &d, &b);
+	graph_get_3d_color(theme->basic.widgetBGColor, &d, &b);
 	graph_box_3d(g, rect.x, rect.y, rect.w, rect.h, d, b);
 }
 
 void Button::paintUp(graph_t* g, XTheme* theme, const grect_t& rect) {
-	graph_fill(g, rect.x, rect.y, rect.w, rect.h, theme->basic.bgColor);
+	paintPanel(g, theme, rect);
 	uint32_t d, b;
-	graph_get_3d_color(theme->basic.bgColor, &d, &b);
+	graph_get_3d_color(theme->basic.widgetBGColor, &d, &b);
 	graph_box_3d(g, rect.x, rect.y, rect.w, rect.h, b, d);
 }
 
@@ -52,7 +55,6 @@ void Button::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 
 Button::Button() {
 	state = STATE_UP;
-	onClickFunc = NULL;
 }
 
 }

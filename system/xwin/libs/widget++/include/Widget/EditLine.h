@@ -2,12 +2,14 @@
 #define WIDGET_EDIT_LINE_HH
 
 #include <Widget/Widget.h>
+#include <Widget/WidgetWin.h>
 #include <string>
 
 using namespace std;
 namespace Ewok {
 
 class EditLine: public Widget {
+	bool showXIM;
 protected:
 	uint32_t curTimerCounter;
 	bool showCur;
@@ -16,9 +18,8 @@ protected:
 	bool onIM(xevent_t* ev);
 
 	virtual void onInput();
-	void onFocus();
-	void onUnfocus();
 	void onTimer(uint32_t timerFPS, uint32_t timerStep);
+	bool onMouse(xevent_t* ev);
 public:
 	void (*onInputFunc)(Widget* wd);
 

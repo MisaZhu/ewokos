@@ -36,6 +36,10 @@ void proc_exit(void) {
 		pthread_mutex_destroy(&_proc_global_lock);
 }
 
+void proc_priority(uint32_t pid, uint32_t priority) {
+	syscall2(SYS_PROC_PRIORITY, pid, priority);
+}
+
 static inline void proc_global_lock(void) {
 	int tid = pthread_self();
 	if(tid == _lock_thread) {

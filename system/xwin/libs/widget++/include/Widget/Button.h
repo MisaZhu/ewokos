@@ -8,6 +8,7 @@ namespace Ewok {
 class Button: public Widget {
 protected:
 	uint8_t state;
+	virtual void paintPanel(graph_t* g, XTheme* theme, const grect_t& r);
 	virtual void paintDown(graph_t* g, XTheme* theme, const grect_t& r);
 	virtual void paintUp(graph_t* g, XTheme* theme, const grect_t& r);
 	virtual void paintDisabled(graph_t* g, XTheme* theme, const grect_t& r);

@@ -82,12 +82,13 @@ int x_fetch_screen_graph(uint32_t index, graph_t* g) {
 		buffer = (uint32_t*)shmat(scrinfo.g_shm_id, 0, 0);
 		if(buffer == NULL)
 			return -1;
+
+		xscr->g.buffer = buffer;
+		xscr->g.w = scrinfo.size.w;
+		xscr->g.h = scrinfo.size.h;
+		xscr->g.need_free = false;
 	}
 
-	xscr->g.buffer = buffer;
-	xscr->g.w = scrinfo.size.w;
-	xscr->g.h = scrinfo.size.h;
-	xscr->g.need_free = false;
 	memcpy(g, &xscr->g, sizeof(graph_t));
 	return 0;
 }
@@ -246,7 +247,15 @@ const char* x_get_theme_fname(const char* prefix, const char* app_name, const ch
 }
 
 const char* x_get_res_name(const char* name) {
-	static char ret[FS_FULL_NAME_MAX];
+	static char ret[FS_FULL_NAME_MAX] = "";
+	if(name == NULL || name[0] == 0)
+		return ret;
+	
+	if(name[0] == '/') {
+		strncpy(ret, name, FS_FULL_NAME_MAX-1);
+		return ret;
+	}
+
 	const char* wkdir = x_get_work_dir();
 	if(wkdir[1] == 0 && wkdir[0] == '/')
 		snprintf(ret, FS_FULL_NAME_MAX-1, "/res/%s", name);

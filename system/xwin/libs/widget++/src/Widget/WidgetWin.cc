@@ -10,6 +10,10 @@ WidgetWin::WidgetWin() {
 	timerFPS = 1;
 	timerStep = 0;
 	widgetRegWin(this);
+
+	RootWidget* r = new RootWidget();
+	r->setType(Container::VERTICLE);
+	setRoot(r);
 }
 
 WidgetWin::~WidgetWin() {

@@ -404,6 +404,11 @@ inline void proc_ready(proc_t* proc) {
 	proc->info.state = READY;
 	proc->block_event = 0;
 	proc->info.block_by = -1;
+
+	if(proc->priority_count > 0)
+		return;
+	proc->priority_count = proc->info.priority;
+
 	if(queue_in(&_ready_queue[proc->info.core], proc) == NULL)
 		//queue_push_head(&_ready_queue[proc->info.core], proc);
 		queue_push(&_ready_queue[proc->info.core], proc);
@@ -1068,10 +1073,7 @@ static int32_t renew_sleep_counter(uint32_t usec) {
 		if(proc == NULL)
 			continue;
 
-		if(proc->info.state == RUNNING) {
-			proc->run_usec_counter += usec;
-		}
-		else if(proc->info.state == SLEEPING) {
+		if(proc->info.state == SLEEPING) {
 			proc->sleep_counter -= usec;
 			if(proc->sleep_counter <= 0) {
 				proc->sleep_counter = 0;
@@ -1083,6 +1085,23 @@ static int32_t renew_sleep_counter(uint32_t usec) {
 	return res;
 }
 
+static int32_t renew_priority_counter(uint32_t usec) {
+	for(int i=0; i<_kernel_config.max_task_num; i++) {
+		proc_t* proc = _task_table[i];
+		if(proc == NULL)
+			continue;
+
+		if(proc->priority_count > 0)
+			proc->priority_count--;
+		else if(proc->info.state == RUNNING)
+			proc->run_usec_counter += usec;
+	
+		if(proc->info.state == RUNNING || proc->info.state == READY) {
+			proc_ready(proc);
+		}
+	}
+}
+
 static void renew_vsyscall_info(void) {
 	if(_kernel_vsyscall_info == NULL)
 		return;
@@ -1091,6 +1110,7 @@ static void renew_vsyscall_info(void) {
 
 inline int32_t renew_kernel_tic(uint32_t usec) {
 	renew_vsyscall_info();
+	renew_priority_counter(usec);
 	return renew_sleep_counter(usec);	
 }
 

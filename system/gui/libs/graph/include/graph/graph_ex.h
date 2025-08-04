@@ -7,6 +7,8 @@
 extern "C" {
 #endif
 
+uint32_t graph_get_dark_color(uint32_t base);
+uint32_t graph_get_bright_color(uint32_t base);
 void graph_get_3d_color(uint32_t base, uint32_t *dark, uint32_t *bright);
 void graph_box_3d(graph_t* g, int x, int y, int w, int h, uint32_t bright_color, uint32_t dark_color);
 void graph_frame(graph_t* g, int x, int y, int w, int h, int width, uint32_t base_color, bool rev);

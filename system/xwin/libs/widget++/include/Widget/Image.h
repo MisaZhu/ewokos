@@ -10,9 +10,10 @@ class Image: public Widget {
 
 protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r);
+	void setAttr(const string& attr, const string& value);
 
 public:
-	Image(const char* fname);
+	Image(const char* fname = "");
 	~Image(void);
 
 	bool loadImage(const char* fname);

@@ -10,7 +10,7 @@ extern "C" {
 
 #define BSP_SIZE 256
 
-int32_t grect_insect(const grect_t* src, grect_t* dst) {
+bool grect_insect(const grect_t* src, grect_t* dst) {
 	//insect src;
 	if(dst->x >= (int32_t)(src->x+src->w))
 		dst->w = 0;
@@ -18,7 +18,7 @@ int32_t grect_insect(const grect_t* src, grect_t* dst) {
 		dst->h = 0;
 	
 	if(dst->w == 0 || dst->h == 0)
-		return 0;
+		return false;
 
 	int32_t rx, ry;  //chehck w, h
 	rx = dst->x + dst->w;
@@ -43,14 +43,14 @@ int32_t grect_insect(const grect_t* src, grect_t* dst) {
 	if(dst->h < 0)
 		dst->h = 0;
 	if(dst->w == 0 || dst->h == 0)
-		return 0;
-	return 1;
+		return false;
+	return true;
 }
 
 /*will change the value of sr, dr.
 	return 0 for none-insection-area.
 */
-inline int32_t graph_insect(graph_t* g, grect_t* r) {
+inline bool graph_insect(graph_t* g, grect_t* r) {
 	grect_t gr = {0, 0, g->w, g->h};
 	return grect_insect(&gr, r);
 }
@@ -59,7 +59,7 @@ inline int32_t graph_insect(graph_t* g, grect_t* r) {
 	return 0 for none-insection-area.
 */
 
-int32_t graph_insect_with(graph_t* src, grect_t* sr, graph_t* dst, grect_t* dr) {
+bool graph_insect_with(graph_t* src, grect_t* sr, graph_t* dst, grect_t* dr) {
 	int32_t dx = sr->x < dr->x ? sr->x:dr->x;
 	int32_t dy = sr->y < dr->y ? sr->y:dr->y;
 
@@ -79,13 +79,13 @@ int32_t graph_insect_with(graph_t* src, grect_t* sr, graph_t* dst, grect_t* dr) 
 
 	//insect src;
 	if(!graph_insect(src, sr))
-		return 0;
+		return false;
 	if(!graph_insect(dst, dr))
-		return 0;
+		return false;
 
 	if(sr->w <= 0 || sr->h <= 0 ||
 			dr->w <= 0 || dr->h <= 0)
-		return 0;
+		return false;
 
 	if(sr->w > dr->w)
 		sr->w = dr->w;
@@ -96,7 +96,7 @@ int32_t graph_insect_with(graph_t* src, grect_t* sr, graph_t* dst, grect_t* dr) 
 		sr->h = dr->h;
 	else
 		dr->h = sr->h;
-	return 1;
+	return true;
 }
 
 void graph_fill_cpu(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {

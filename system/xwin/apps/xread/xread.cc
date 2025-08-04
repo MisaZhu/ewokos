@@ -2,6 +2,7 @@
 #include <Widget/WidgetX.h>
 #include <Widget/Text.h>
 #include <Widget/Label.h>
+#include <Widget/Split.h>
 #include <WidgetEx/Menubar.h>
 #include <WidgetEx/Menu.h>
 #include <Widget/LabelButton.h>
@@ -16,7 +17,7 @@ using namespace Ewok;
 class StatusLabel: public Label {
 protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
-		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.titleBGColor, true);
+		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.frameBGColor, true);
 		font_t* font = theme->getFont();
 		int y = r.y + (r.h- font_get_height(font, theme->basic.fontSize))/2;
 		graph_draw_text_font(g, r.x+4, y, label.c_str(), font, theme->basic.fontSize, theme->basic.titleColor);
@@ -95,7 +96,7 @@ class TextWin: public WidgetWin{
 		busy(false);
 	}
 protected:
-	void onDialoged(XWin* from, int res) {
+	void onDialoged(XWin* from, int res, void* arg) {
 		if(res == Dialog::RES_OK) {
 			if(from == &fdialog) {
 				string fname = fdialog.getResult();
@@ -131,28 +132,32 @@ public:
 	}
 };
 
-static void onLoadFunc(MenuItem* it, void* p) {
-	TextWin* win = (TextWin*)p;
-	win->load("");
+static void onMemuFunc(MenuItem* it, void* p) {
+	if(it->id == 0) {
+		TextWin* win = (TextWin*)p;
+		win->load("");
+	}
+	else if(it->id == 1) {
+		TextWin* win = (TextWin*)p;
+		win->font("");
+	}
+	else if(it->id == 2) {
+		TextWin* win = (TextWin*)p;
+		win->close();
+	}
 }
 
-static void onFontFunc(MenuItem* it, void* p) {
-	TextWin* win = (TextWin*)p;
-	win->font("");
-}
-
-static void onQuitFunc(MenuItem* it, void* p) {
-	TextWin* win = (TextWin*)p;
-	win->close();
-}
-
-static void onZoomInClickFunc(Widget* wd) {
+static void onZoomInClickFunc(Widget* wd, xevent_t* evt, void* arg) {
+	if(evt->type != XEVT_MOUSE || evt->state != MOUSE_STATE_CLICK)
+		return;
 	TextWin* win = (TextWin*)wd->getWin();
 	uint32_t size = win->text->getFontSize();
 	win->text->setFontSize(size+4);
 }
 
-static void onZoomOutClickFunc(Widget* wd) {
+static void onZoomOutClickFunc(Widget* wd, xevent_t* evt, void* arg) {
+	if(evt->type != XEVT_MOUSE || evt->state != MOUSE_STATE_CLICK)
+		return;
 	TextWin* win = (TextWin*)wd->getWin();
 	uint32_t size = win->text->getFontSize();
 	win->text->setFontSize(size-4);
@@ -172,20 +177,21 @@ int main(int argc, char** argv) {
 	root->add(c);
 
 	Menu* menu = new Menu();
-	menu->add("open", NULL, NULL, onLoadFunc, &win);
-	menu->add("font", NULL, NULL, onFontFunc, &win);
-	menu->add("quit", NULL, NULL, onQuitFunc, &win);
+	menu->setMenuItemFunc(onMemuFunc);
+	menu->add(0, "open", NULL, NULL, NULL, &win);
+	menu->add(1, "font", NULL, NULL, NULL, &win);
+	menu->add(2, "quit", NULL, NULL, NULL, &win);
 	Menubar* menubar = new Menubar();
-	menubar->add("file", NULL, menu, NULL, NULL);
+	menubar->add(3, "file", NULL, menu, NULL, NULL);
 	c->add(menubar);
 
 	LabelButton* zoomInButton = new LabelButton("+");
-	zoomInButton->onClickFunc = onZoomInClickFunc;
+	zoomInButton->setEventFunc(onZoomInClickFunc);
 	zoomInButton->fix(48, 0);
 	c->add(zoomInButton);
 
 	LabelButton* zoomOutButton = new LabelButton("-");
-	zoomOutButton->onClickFunc = onZoomOutClickFunc;
+	zoomOutButton->setEventFunc(onZoomOutClickFunc);
 	zoomOutButton->fix(48, 0);
 	c->add(zoomOutButton);
 

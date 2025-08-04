@@ -5,7 +5,7 @@
 #include <Widget/Label.h>
 #include <Widget/LabelButton.h>
 #include <Widget/List.h>
-#include <Widget/Split.h>
+#include <Widget/Splitter.h>
 #include <x++/X.h>
 #include <unistd.h>
 #include <font/font.h>
@@ -209,12 +209,16 @@ public:
 	}
 };
 
-static void okFunc(Widget* wd) {
+static void okFunc(Widget* wd, xevent_t* evt, void* arg) {
+	if(evt->type != XEVT_MOUSE || evt->state != MOUSE_STATE_CLICK)
+		return;
 	FontDialog* dialog = (FontDialog*)wd->getWin();
 	dialog->submit(Dialog::RES_OK);
 }
 
-static void cancelFunc(Widget* wd) {
+static void cancelFunc(Widget* wd, xevent_t* evt, void* arg) {
+	if(evt->type != XEVT_MOUSE || evt->state != MOUSE_STATE_CLICK)
+		return;
 	FontDialog* dialog = (FontDialog*)wd->getWin();
 	dialog->submit(Dialog::RES_CANCEL);
 }
@@ -241,9 +245,9 @@ void FontDialog::onBuild() {
 	c->add(scrollerV);
 	list->setScrollerV(scrollerV);
 
-	Split* split = new Split();
-	split->attach(list);
-	c->add(split);
+	Splitter* splitter = new Splitter();
+	splitter->attach(list);
+	c->add(splitter);
 
 	FontDemo* demo = new FontDemo();
 	c->add(demo);
@@ -260,11 +264,11 @@ void FontDialog::onBuild() {
 	root->add(c);
 
 	LabelButton* okButton = new LabelButton("OK");
-	okButton->onClickFunc = okFunc;
+	okButton->setEventFunc(okFunc);
 	c->add(okButton);
 
 	LabelButton* cancelButton = new LabelButton("Cancel");
-	cancelButton->onClickFunc = cancelFunc;
+	cancelButton->setEventFunc(cancelFunc);
 	c->add(cancelButton);
 
 	list->select(0);

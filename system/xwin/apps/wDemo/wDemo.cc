@@ -7,7 +7,7 @@
 #include <Widget/EditLine.h>
 #include <Widget/Grid.h>
 #include <Widget/Scroller.h>
-#include <Widget/Split.h>
+#include <Widget/Splitter.h>
 #include <WidgetEx/FileDialog.h>
 #include <WidgetEx/ConfirmDialog.h>
 
@@ -161,7 +161,7 @@ protected:
 
 class MyWidgetWin: public WidgetWin{
 protected:
-	void onDialoged(XWin* from, int res) {
+	void onDialoged(XWin* from, int res, void* arg) {
 		Widget* w = root->get("button");
 		LabelButton* button = (LabelButton*)w;
 		if(res == Dialog::RES_OK)
@@ -172,7 +172,7 @@ protected:
 
 	ConfirmDialog dialog;
 public:
-	static void onClickFunc(Widget* wd) {
+	static void onEventFunc(Widget* wd, xevent_t* evt, void* arg) {
 		MyWidgetWin* win = (MyWidgetWin*)wd->getWin();
 		win->dialog.setMessage("Dialog Test");
 		win->dialog.popup(win, 200, 100, "dialog", XWIN_STYLE_NO_TITLE);
@@ -207,12 +207,12 @@ int main(int argc, char** argv) {
 
 	LabelButton* button = new LabelButton("Dialog Test");
 	button->setName("button");
-	button->onClickFunc = win.onClickFunc;
+	button->setEventFunc(win.onEventFunc);
 	c->add(button);
 
-	Split* split = new Split();
-	split->attach(button);
-	c->add(split);
+	Splitter* splitter = new Splitter();
+	splitter->attach(button);
+	c->add(splitter);
 
 	wd = new PaintWidget();
 	c->add(wd);
@@ -227,9 +227,9 @@ int main(int argc, char** argv) {
 	list->setScrollerV(sr);
 	c->add(sr);
 
-	split = new Split();
-	split->attach(c);
-	root->add(split);
+	splitter = new Splitter();
+	splitter->attach(c);
+	root->add(splitter);
 
 	list = new MyList();
 	root->add(list);

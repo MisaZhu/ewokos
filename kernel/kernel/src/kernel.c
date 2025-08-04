@@ -76,7 +76,7 @@ static void reset_kernel_vm(void) {
 
 static void map_allocable_pages(page_dir_entry_t* vm) {
 	//map kernel dma memory
-	map_pages_size(vm, _sys_info.dma.phy_base, _sys_info.dma.phy_base, _sys_info.dma.size, AP_RW_D, PTE_ATTR_WRBACK);
+	map_pages_size(vm, _sys_info.sys_dma.phy_base, _sys_info.sys_dma.phy_base, _sys_info.sys_dma.size, AP_RW_D, PTE_ATTR_WRBACK);
 	map_pages(vm,
 			P2V(_allocable_phy_mem_base),
 			_allocable_phy_mem_base,
@@ -152,7 +152,7 @@ static void show_config(void) {
 		  "  kmalloc              0x%08x ~ 0x%08x (%d MB)\n"
 		  "  allocable mem info   0x%08x ~ 0x%08x (%d MB)\n"
 		  "  mmio_base            Phy:0x%08x, V: 0x%08x (%d MB)\n"
-		  "  dma_base             Phy:0x%08x, V: 0x%08x (%d KB)\n"
+		  "  sys_dma_base         Phy:0x%08x, V: 0x%08x (%d KB)\n"
 		  "  framebuffer_base     V: 0x%08x (%d MB)\n"
 		  "  max proc num         %d\n"
 		  "  max task total       %d\n"
@@ -168,8 +168,8 @@ static void show_config(void) {
 			V2P(KMALLOC_BASE), V2P(KMALLOC_END), _sys_info.kmalloc_size / (1*MB),
 			_allocable_phy_mem_base, _allocable_phy_mem_top, get_free_mem_size() / (1*MB),
 			_sys_info.mmio.phy_base, _sys_info.mmio.v_base, _sys_info.mmio.size/(1*MB),
-			_sys_info.dma.phy_base, _sys_info.dma.v_base, _sys_info.dma.size/(1*KB),
-			_sys_info.fb.v_base, _sys_info.fb.size/(1*MB),
+			_sys_info.sys_dma.phy_base, _sys_info.sys_dma.v_base, _sys_info.sys_dma.size/(1*KB),
+			_sys_info.gpu.v_base, _sys_info.gpu.max_size/(1*MB),
 			_kernel_config.max_proc_num,
 			_kernel_config.max_task_num,
 			_kernel_config.max_task_per_proc);

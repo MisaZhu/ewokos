@@ -18,7 +18,7 @@ using namespace Ewok;
 class CWDLabel: public Label {
 protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
-		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.titleBGColor, true);
+		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.frameBGColor, true);
 		font_t* font = theme->getFont();
 		int y = r.y + (r.h-font_get_height(font, theme->basic.fontSize))/2;
 		graph_draw_text_font(g, r.x+4, y, label.c_str(), font, theme->basic.fontSize, theme->basic.titleColor);

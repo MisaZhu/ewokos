@@ -46,7 +46,7 @@ typedef struct {
 } graph_t;
 
 
-int32_t grect_insect(const grect_t* src, grect_t* dst);
+bool grect_insect(const grect_t* src, grect_t* dst);
 
 uint32_t argb(uint32_t a, uint32_t r, uint32_t g, uint32_t b);
 
@@ -62,8 +62,8 @@ graph_t* graph_new(uint32_t* buffer, int32_t w, int32_t h);
 void     graph_free(graph_t* g);
 graph_t* graph_dup(graph_t* g);
 
-int32_t  graph_insect_with(graph_t* src, grect_t* sr, graph_t* dst, grect_t* dr);
-int32_t  graph_insect(graph_t* g, grect_t* r);
+bool  graph_insect_with(graph_t* src, grect_t* sr, graph_t* dst, grect_t* dr);
+bool  graph_insect(graph_t* g, grect_t* r);
 void     graph_set_clip(graph_t* g, int x, int y, int w, int h);
 void     graph_unset_clip(graph_t* g);
 

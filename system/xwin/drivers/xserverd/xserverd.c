@@ -33,6 +33,7 @@ static int32_t read_config(x_t* x, const char* fname) {
 	x->config.fps = json_get_int_def(conf_var, "fps", 30);
 	x->config.bg_run = json_get_int_def(conf_var, "bg_run", 0);
 	x->config.gray_mode = json_get_int_def(conf_var, "gray_mode", 0);
+	x->config.bg_proc_priority = json_get_int_def(conf_var, "bg_proc_priority", 2);
 
 	const char* v = json_get_str_def(conf_var, "logo", "/usr/system/icons/xlogo.png");
 	x->config.logo = png_image_new(v);
@@ -65,6 +66,14 @@ static bool check_xwm(x_t* x) {
 	return false;
 }
 
+static bool top_proc(x_t* x, xwin_t* win) {
+	if(x->win_focus == NULL)
+		return false;
+	if(win->from_main_pid == x->win_focus->from_main_pid)
+		return true;
+	return false;
+}
+
 static void prepare_win_content(x_t* x, xwin_t* win) {
 	if(!check_xwm(x))
 		return;
@@ -94,7 +103,7 @@ static void prepare_win_content(x_t* x, xwin_t* win) {
 		display->g->h,
 		win->xinfo, sizeof(xinfo_t));
 
-	if(win == x->win_focus)
+	if(top_proc(x, win))
 		PF->addi(&in, 1); //top win
 	else
 		PF->addi(&in, 0);
@@ -190,7 +199,7 @@ static int draw_win(graph_t* disp_g, x_t* x, xwin_t* win) {
 			do_alpha = true;
 		}
 
-		if(do_alpha) {
+		if(1) {
 			graph_blt_alpha(g, 0, 0, 
 					win->xinfo->winr.w,
 					win->xinfo->winr.h,
@@ -321,6 +330,8 @@ static void x_unfocus(x_t* x) {
 	x->win_focus->xinfo->focused = false;
 	x->win_focus->frame_dirty = true;
 	x_push_event(x, x->win_focus, &e);
+
+	proc_priority(x->win_focus->from_pid, x->config.bg_proc_priority);
 	x->win_focus = NULL;
 }
 
@@ -337,6 +348,8 @@ static void try_focus(x_t* x, xwin_t* win) {
 		win->frame_dirty = true;
 		x_push_event(x, win, &e);
 		x->win_focus = win;
+
+		proc_priority(x->win_focus->from_pid, 0);
 	}
 }
 
@@ -445,15 +458,14 @@ static void x_del_win(x_t* x, xwin_t* win) {
 	}
 
 	shmdt(win->xinfo);
-
+	if(win == x->win_focus)
+		x->win_focus = NULL;
 	free(win);
-	x->win_focus = get_next_focus_win(x, false);
+	win = get_next_focus_win(x, false);
 	x->win_last = get_next_focus_win(x, true);
-	if(x->win_focus != NULL) {
-		xevent_t e;
-		e.type = XEVT_WIN;
-		e.value.window.event = XEVT_WIN_FOCUS;
-		x_push_event(x, x->win_focus, &e);
+
+	if(win != NULL) {
+		try_focus(x, win);
 	}
 }
 
@@ -705,8 +717,9 @@ static void mark_dirty_confirm(x_t* x, xwin_t* win) {
 			v->dirty_mark = false;
 			
 			if(v != win) {
-				if((v->xinfo->style & XWIN_STYLE_NO_FRAME) == 0 &&
-						x->config.xwm_theme.alpha) {
+				if((v->xinfo->alpha || 
+						(v->xinfo->style & XWIN_STYLE_NO_FRAME) == 0 &&
+						x->config.xwm_theme.alpha)) {
 					x_dirty(x, v->xinfo->display_index);
 				}
 			}
@@ -832,18 +845,6 @@ static int x_update(int fd, int from_pid, x_t* x) {
 		return -1;
 	if(!win->xinfo->visible)
 		return 0;
-
-	if(x->config.xwm_theme.bgEffectLazy &&
-			!win->xinfo->focused &&
-			(win->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) == 0) {
-		static uint32_t last_tic = 0;
-		uint32_t tic;
-		kernel_tic(&tic, NULL);
-		if((tic - last_tic) == 0)
-			return 0;
-		last_tic = tic;
-	}
-
 	win_dirty(x, win);	
 	return 0;
 }
@@ -1025,6 +1026,7 @@ static void mark_all_frame_dirty(x_t* x, int32_t disp_index) {
 			w->frame_dirty = true; //mark dirty temporary
 		w = p;
 	}
+	x_dirty(x, disp_index);
 }
 
 static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
@@ -1173,12 +1175,9 @@ static int xwm_theme_update(x_t* x) {
 	if(!check_xwm(x))
 		return 0;
 
-	proto_t i;
-	PF->init(&i)->add(&i, &x->config.xwm_theme, sizeof(xwm_theme_t));
-	if(ipc_call(x->xwm_pid, XWM_CNTL_SET_THEME, &i, NULL) != 0) {
+	if(ipc_call(x->xwm_pid, XWM_CNTL_SET_THEME, NULL, NULL) != 0) {
 		return -1;
 	}	
-	PF->clear(&i);
 	x_dirty(x, -1);
 	return 0;
 }

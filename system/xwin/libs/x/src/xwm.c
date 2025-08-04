@@ -111,7 +111,8 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 	int xw = proto_read_int(in);
 	int xh = proto_read_int(in);
 	proto_read_to(in, &info, sizeof(xinfo_t));
-	bool top = (proto_read_int(in) != 0);
+	bool bg_effect = (proto_read_int(in) != 0);
+	bool top = info.focused;
 
 	if(xw <= 0 || xh <= 0)
 		return;
@@ -182,7 +183,7 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 	if((info.style & XWIN_STYLE_NO_BG_EFFECT) == 0 &&
 			!info.focused &&
 			xwm->draw_bg_effect != NULL) {
-		xwm->draw_bg_effect(&desktop_g, &frame_g, &ws_g, &info, top, xwm->data);
+		xwm->draw_bg_effect(&desktop_g, &frame_g, &ws_g, &info, bg_effect, xwm->data);
 	}
 	free_win_graph(&frame_g);
 	free_win_graph(&ws_g);
@@ -275,11 +276,8 @@ static void get_min_size(xwm_t* xwm, proto_t* in, proto_t* out) {
 }
 
 static void set_theme(xwm_t* xwm, proto_t* in, proto_t* out) {
-	int sz;
-	xwm_theme_t* theme = (xwm_theme_t*)proto_read(in, &sz);
-	if(theme == NULL || sz != sizeof(xwm_theme_t))
-		return;
-	memcpy(&xwm->theme, theme, sz);
+	if(xwm->update_theme != NULL)
+		xwm->update_theme(xwm->data);
 }
 
 static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {

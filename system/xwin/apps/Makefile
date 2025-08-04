@@ -8,7 +8,9 @@ all:
 	cd xpng; make
 	cd xprocs; make
 	cd xDemo; make
-	cd widgetDemo; make
+	cd wDemo; make
+	cd wlayout; make
+	cd xwm_theme; make
 	cd clock; make
 
 clean:
@@ -21,5 +23,7 @@ clean:
 	cd xpng; make clean
 	cd xprocs; make clean
 	cd xDemo; make clean
-	cd widgetDemo; make clean
+	cd wDemo; make clean
+	cd wlayout; make clean
+	cd xwm_theme; make clean
 	cd clock; make clean

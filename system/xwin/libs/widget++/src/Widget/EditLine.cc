@@ -10,8 +10,8 @@ void EditLine::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 	if(font == NULL)
 		return;
 	
-	uint32_t bgColor = theme->basic.bgColor;
-	uint32_t fgColor = theme->basic.fgColor;
+	uint32_t bgColor = theme->basic.widgetBGColor;
+	uint32_t fgColor = theme->basic.widgetFGColor;
 	if(!focused()) {
 		bgColor = theme->basic.bgDisableColor;
 		fgColor = theme->basic.fgDisableColor;
@@ -69,16 +69,18 @@ void EditLine::onInput() {
 
 EditLine::EditLine() {
 	showCur = true;
+	showXIM = false;
 	curTimerCounter = 0;
 	onInputFunc = NULL;
 }
 
-void EditLine::onFocus(void) {
-	((XWin*)getWin())->callXIM();
-}
-
-void EditLine::onUnfocus(void) {
-	((XWin*)getWin())->callXIM(false);
+bool EditLine::onMouse(xevent_t* ev) {
+	if(ev->state == MOUSE_STATE_CLICK) {
+		showXIM = !showXIM;
+		getWin()->callXIM(showXIM);
+		return true;
+	}
+	return Widget::onMouse(ev);
 }
 
 }

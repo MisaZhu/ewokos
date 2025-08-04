@@ -122,16 +122,16 @@ void sys_info_init_arch(void) {
 #elif __arm__
 	strcpy(_sys_info.arch, "armv7");
 #endif
-
-	_sys_info.fb.v_base = FB_BASE;
-	_sys_info.fb.size = FB_SIZE;
 	_sys_info.mmio.size = 31*MB;
+
+	_sys_info.gpu.v_base = FB_BASE;
+	_sys_info.gpu.max_size = FB_SIZE;
 
 	_allocable_phy_mem_base = V2P(get_allocable_start());
 
-	_sys_info.dma.phy_base = _allocable_phy_mem_base;
-	_sys_info.dma.size = DMA_SIZE;
-	_sys_info.dma.v_base = DMA_BASE;
+	_sys_info.sys_dma.phy_base = _allocable_phy_mem_base;
+	_sys_info.sys_dma.size = DMA_SIZE;
+	_sys_info.sys_dma.v_base = DMA_V_BASE;
 	_allocable_phy_mem_base += DMA_SIZE;
 
 	if(_sys_info.total_usable_mem_size <= 1*GB) {
@@ -184,7 +184,7 @@ void start_core(uint32_t core_id) {
 void kalloc_arch(void) {
 	if(_sys_info.total_usable_mem_size > 1*GB) {
 		//skip framebuffer mem block
-		//kalloc_append(P2V(_allocable_phy_mem_base), P2V(_sys_info.fb.phy_base));
+		//kalloc_append(P2V(_allocable_phy_mem_base), P2V(_sys_info.gpu.phy_base));
 		kalloc_append(P2V(_allocable_phy_mem_base), P2V(0x3c100000));
 		kalloc_append(P2V(1*GB), P2V(_allocable_phy_mem_top));
 	}
@@ -193,7 +193,7 @@ void kalloc_arch(void) {
 }
 
 int32_t  check_mem_map_arch(ewokos_addr_t phy_base, uint32_t size) {
-	if(phy_base >= _sys_info.fb.phy_base && size <= FB_SIZE)
+	if(phy_base >= _sys_info.gpu.phy_base && size <= _sys_info.gpu.max_size)
 		return 0;
 	if(phy_base >= _sys_info.mmio.phy_base && size <= _sys_info.mmio.size)
 		return 0;

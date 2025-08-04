@@ -15,17 +15,43 @@ Widget::Widget(void)  {
 	marginH = 0;
 	marginV = 0;
 	id = 0;
-	isContainer = false;
+	beContainer = false;
+	beRoot = false;
 	disabled = false;
 	themePrivate = NULL;
 	visible = true;
 
-	onClickFunc = NULL;
+	onEventFunc = NULL;
+	onEventFuncArg = NULL;
 }
 
 Widget::~Widget(void)  { 
 	if(themePrivate != NULL)
 		delete themePrivate;
+}
+
+void Widget::setAttr(const string& name, const string& value) {
+	if(name == "id") {
+		setID(atoi(value.c_str()));
+	}
+	else if(name == "name") {
+		setName(value.c_str());
+	}
+	else if(name == "marginH") {
+		setMarginH(atoi(value.c_str()));
+	}
+	else if(name == "marginV") {
+		setMarginV(atoi(value.c_str()));
+	}
+	else if(name == "w") {
+		fix(atoi(value.c_str()), area.h);
+	}
+	else if(name == "h") {
+		fix(area.w, atoi(value.c_str()));
+	}
+	else if(name == "alpha") {
+		setAlpha(atoi(value.c_str()));
+	}
 }
 
 void Widget::setTheme(XTheme* theme)  {
@@ -35,16 +61,7 @@ void Widget::setTheme(XTheme* theme)  {
 	update();
 }
 
-void Widget::onClick(xevent_t* ev) {
-	if(onClickFunc != NULL)
-		onClickFunc(this);
-}
-
 bool Widget::onMouse(xevent_t* ev) {
-	if(ev->state == MOUSE_STATE_CLICK) {
-		onClick(ev);
-		return true;
-	}
 	return false;
 }
 
@@ -81,22 +98,30 @@ bool Widget::onEvent(xevent_t* ev) {
 			}
 			if(!disabled && 
 					ev->state != MOUSE_STATE_UP &&
-					ev->state != MOUSE_STATE_DRAG)
+					ev->state != MOUSE_STATE_DRAG) {
+				if(onEventFunc != NULL)
+					onEventFunc(this, ev, onEventFuncArg);
 				return onMouse(ev);
+			}
 		}
 		if(!disabled && 
 				(ev->state == MOUSE_STATE_UP || ev->state == MOUSE_STATE_DRAG) &&
-				getRoot()->getDraged() == this)
+				getRoot()->getDraged() == this) {
+			if(onEventFunc != NULL)
+				onEventFunc(this, ev, onEventFuncArg);
 			return onMouse(ev);
+		}
 	}
 	else if(!disabled &&
 			ev->type == XEVT_IM && getRoot()->getFocused() == this) {
+		if(onEventFunc != NULL)
+			onEventFunc(this, ev, onEventFuncArg);
 		return onIM(ev);
 	}
 	return ret; 
 }
 
-RootWidget* Widget::getRoot(void) {
+Container* Widget::getRootContainer(void) {
 	if(father == NULL) {
 		return NULL;
 	}
@@ -104,6 +129,16 @@ RootWidget* Widget::getRoot(void) {
 	Container* wd = father;
 	while(wd != NULL && wd->father != NULL)
 		wd = wd->father;
+	if(wd == NULL)
+		return NULL;
+	return wd;
+}
+
+RootWidget* Widget::getRoot(void) {
+	Container* wd = getRootContainer();
+	if(wd == NULL || wd->isRoot() == false) {
+		return NULL;
+	}
 	return (RootWidget*)wd;
 }
 
