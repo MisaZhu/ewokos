@@ -101,6 +101,7 @@ static void setTheme(LayoutWidget* layout) {
 		strncpy(_xtheme.fontName, btn->getLabel().c_str(), FONT_NAME_MAX-1);
 	}
 
+	_xtheme.uuid++;
 	proto_t in;
 	PF->init(&in)->add(&in, &_xtheme, sizeof(x_theme_t));
 	dev_cntl_by_pid(xserv_pid, X_DCNTL_SET_THEME, &in, NULL);

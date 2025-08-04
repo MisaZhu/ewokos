@@ -36,6 +36,19 @@ static void _on_resize(xwin_t* xw) {
 	xwin->__doResize();
 }
 
+static void _on_update_theme(xwin_t* xw) {
+	if(xw == NULL)
+		return;
+	XWin* xwin = (XWin*)xw->data;
+	if(xwin == NULL)
+		return;
+
+	XTheme* theme = xwin->getTheme();
+	if(theme == NULL)
+		return;
+	theme->loadSystem();
+}
+
 static void _on_move(xwin_t* xw) {
 	if(xw == NULL)
 		return;
@@ -283,4 +296,5 @@ void XWin::setCWin(xwin_t* xw) {
 	xwin->on_unfocus = _on_unfocus;
 	xwin->on_reorg = _on_reorg;
 	xwin->on_event = _on_event;
+	xwin->on_update_theme = _on_update_theme;
 }

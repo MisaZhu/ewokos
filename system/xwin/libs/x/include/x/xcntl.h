@@ -72,6 +72,8 @@ typedef struct {
 	uint32_t display_index;
 	uint32_t style;
 	uint32_t state;
+
+	bool update_theme;
 	bool visible;
 	bool is_main;
 	bool covered;

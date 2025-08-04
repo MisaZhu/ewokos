@@ -13,6 +13,7 @@ extern "C" {
 #define X_DEFAULT_XTHEME    "opencde"
 
 typedef struct {
+	uint32_t uuid;
 	char     name[THEME_NAME_MAX];
 
 	char     fontName[FONT_NAME_MAX];

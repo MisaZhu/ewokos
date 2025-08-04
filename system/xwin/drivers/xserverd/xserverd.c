@@ -1148,6 +1148,21 @@ static int x_win_space(x_t* x, proto_t* in, proto_t* out) {
 	return 0;
 }
 
+static int x_repaint_all_win(x_t* x) {
+	xevent_t ev;
+	ev.type = XEVT_WIN;
+	ev.value.window.event = XEVT_WIN_REPAINT;
+
+	xwin_t* win = x->win_tail;
+	while(win != NULL) {
+		if(win->xinfo != NULL) 
+			win->xinfo->update_theme = true;
+		x_push_event(x, win, &ev);
+		win = win->prev;
+	}
+	return 0;
+}
+
 static int x_dev_load_theme(x_t* x, proto_t* in, proto_t* out) {
 	PF->clear(out);
 	const char* name = proto_read_str(in);
@@ -1168,6 +1183,7 @@ static int x_dev_set_theme(x_t* x, proto_t* in, proto_t* out) {
 	if(theme == NULL || sz != sizeof(x_theme_t))
 		return -1;
 	memcpy(&x->config.theme, theme, sz);
+	x_repaint_all_win(x);
 	return 0;
 }
 

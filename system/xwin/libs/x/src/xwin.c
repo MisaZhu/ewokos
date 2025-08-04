@@ -195,6 +195,12 @@ graph_t* xwin_fetch_graph(xwin_t* xwin, graph_t* g) {
 
 void xwin_repaint(xwin_t* xwin) {
 	pthread_mutex_lock(&xwin->painting_lock);
+	if(xwin->xinfo != NULL &&
+			xwin->xinfo->update_theme &&
+			xwin->on_update_theme != NULL) {
+		xwin->on_update_theme(xwin);
+	}
+
 	if(!xwin->xinfo->covered) {
 		graph_t g;
 		if(xwin_fetch_graph(xwin, &g) != NULL) {
@@ -203,7 +209,8 @@ void xwin_repaint(xwin_t* xwin) {
 			}
 		}
 		vfs_fcntl_wait(xwin->fd, XWIN_CNTL_UPDATE, NULL);
-	}	
+	}
+	xwin->xinfo->update_theme = false;	
 	pthread_mutex_unlock(&xwin->painting_lock);
 }
 
