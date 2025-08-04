@@ -160,7 +160,6 @@ static void onEventFunc(Widget* wd, xevent_t* evt, void* arg) {
 	}
 	else if(name == "okButton") {
 		setTheme((LayoutWidget*)arg);
-		wd->getWin()->close();
 	}
 	else if(name == "cancelButton") {
 		wd->getWin()->close();

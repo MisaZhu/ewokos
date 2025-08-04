@@ -103,12 +103,12 @@
                 {
                     "name": "okButton",
                     "type": "LabelButton",
-                    "label": "OK"
+                    "label": "Apply"
                 },
                 {
                     "name": "cancelButton",
                     "type": "LabelButton",
-                    "label": "Cancel"
+                    "label": "Quit"
                 }
             ]
         }
