@@ -12,6 +12,7 @@
 #include <ewoksys/core.h>
 #include <procinfo.h>
 #include <unistd.h>
+#include <setenv.h>
 
 #ifdef __cplusplus
 extern "C" {

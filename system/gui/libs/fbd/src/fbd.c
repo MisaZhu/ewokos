@@ -78,7 +78,7 @@ static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, in
 		if(fbinfo->depth == 16)
 			gr = graph_new(NULL, fbinfo->width, fbinfo->height);
 		else
-			gr = graph_new(fbinfo->pointer, fbinfo->width, fbinfo->height);
+			gr = graph_new((uint32_t*)fbinfo->pointer, fbinfo->width, fbinfo->height);
 	}
 	else {
 		graph_init(&g, buf, fbinfo->width, fbinfo->height);
@@ -86,7 +86,7 @@ static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, in
 			if(fbinfo->depth == 16)
 				gr = graph_new(NULL, fbinfo->width, fbinfo->height);
 			else
-				gr = graph_new(fbinfo->pointer, fbinfo->width, fbinfo->height);
+				gr = graph_new((uint32_t*)fbinfo->pointer, fbinfo->width, fbinfo->height);
 		}
 	}
 
@@ -103,9 +103,9 @@ static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, in
 static void init_graph(fb_dma_t* dma) {
 	graph_t g;
 	if(_rotate == G_ROTATE_N90 || _rotate == G_ROTATE_90)
-		graph_init(&g, dma->shm, _fbinfo->height, _fbinfo->width);
+		graph_init(&g, (const uint32_t*)dma->shm, _fbinfo->height, _fbinfo->width);
 	else
-		graph_init(&g, dma->shm, _fbinfo->width, _fbinfo->height);
+		graph_init(&g, (const uint32_t*)dma->shm, _fbinfo->width, _fbinfo->height);
 
 	if(_fbd->splash != NULL)
 		_fbd->splash(&g, _logo);

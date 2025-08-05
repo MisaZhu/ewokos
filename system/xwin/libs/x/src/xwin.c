@@ -37,7 +37,6 @@ void xwin_busy(xwin_t* xwin, bool busy) {
 	PF->init(&in)->addi(&in, busy);
 	int ret = vfs_fcntl_wait(xwin->fd, XWIN_CNTL_SET_BUSY, &in);
 	PF->clear(&in);
-	return ret;
 }
 
 int xwin_call_xim(xwin_t* xwin, bool show) {

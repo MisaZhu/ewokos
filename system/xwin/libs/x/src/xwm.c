@@ -43,7 +43,7 @@ static bool fetch_desktop_graph(xwm_t* xwm, int32_t shm_id, int w, int h, graph_
 
 	if(g_buf == NULL)
 		return false;
-	graph_init(g, g_buf, w, h);
+	graph_init(g, (const uint32_t*)g_buf, w, h);
 	return true;
 }
 

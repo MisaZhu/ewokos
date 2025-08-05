@@ -1,7 +1,7 @@
 .align 3
 .extern _kernel_entry_c
 .section ".init"
-.align 3
+.align 4
 .global __entry
 __entry:
     # Mask exceptions and interrupts
@@ -16,6 +16,7 @@ __entry:
     mov x0, #1
     mov x1, xzr
     bfi x1, x0, #31, #1
+    orr x1, x1, #0x2
     msr HCR_EL2, x1
 
     # Switch to EL1
@@ -26,6 +27,7 @@ __entry:
     eret
 	nop
 
+.align 4
 __el1_entry:	
 	/* Disable Alignment check */
 	mrs     x0, sctlr_el1
@@ -102,7 +104,8 @@ slave_core:
 	msr spsel, #0x1	
 	mov sp, x0
 
-	bl _slave_kernel_entry_c
+    ldr x1, =_slave_kernel_entry_c 
+    br x1
 	b	halt
 #endif
 

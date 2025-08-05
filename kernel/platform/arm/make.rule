@@ -37,6 +37,10 @@ OPTM = -O2
 endif
 
 CFLAGS += $(OPTM) \
+	-Wno-incompatible-pointer-types \
+	-Wno-int-conversion \
+	-Wno-implicit-function-declaration \
+	-Wno-declaration-missing-parameter-type \
 	-I. -I$(SRC_DIR)/lib/include \
 	-I$(SRC_DIR)/kernel/include \
 	-I$(SRC_DIR)/dev/include \

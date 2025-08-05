@@ -288,7 +288,7 @@ void font_text_size(const char* str,
 	if(unicode == NULL)
 		return;
 
-	int n = utf82unicode((uint8_t*)str, sz, unicode);
+	int n = utf82unicode((uint8_t*)str, sz, (unsigned short *)unicode);
 
 	int32_t x = 0;
 	uint32_t th = 0;
@@ -401,7 +401,7 @@ void graph_draw_text_font(graph_t* g, int32_t x, int32_t y, const char* str,
 		return;
 	
 	int len = strlen(str);
-	uint16_t* out = (uint32_t*)malloc((len+1)*2);
+	uint16_t* out = (uint16_t*)malloc((len+1)*2);
 	int n = utf82unicode((uint8_t*)str, len, out);
 	for(int i=0;i <n; i++) {
 		uint32_t w = 0;

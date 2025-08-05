@@ -5,6 +5,7 @@ LD = arm-none-eabi-ld
 OBJDUMP = arm-none-eabi-objdump
 
 CFLAGS = -marm \
+	-Wno-implicit-function-declaration \
 	-mfloat-abi=softfp \
         -Wall -Wextra -fPIC -mapcs-frame \
         -Wno-unused-parameter \
@@ -12,6 +13,7 @@ CFLAGS = -marm \
         -std=c99
 
 CXXFLAGS = -marm \
+	-Wno-implicit-function-declaration \
 	-mfloat-abi=softfp \
         -Wall -Wextra -fPIC -mapcs-frame \
         -Wno-unused-parameter \

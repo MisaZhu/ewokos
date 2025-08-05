@@ -515,7 +515,7 @@ static int32_t sys_proc_ping(int32_t pid) {
 	return 0;
 }
 
-static int32_t sys_proc_priority(int32_t pid, uint32_t priority) {
+static void sys_proc_priority(int32_t pid, uint32_t priority) {
 	proc_t* cproc = get_current_proc();
 	if(cproc->info.uid > 0)
 		return;

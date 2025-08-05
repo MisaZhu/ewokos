@@ -129,7 +129,7 @@ graph_t* fb_fetch_graph(fb_t* fb) {
 	if(dma == NULL) 
 		return NULL;
 	
-	g = graph_new(dma, w, h);
+	g = graph_new((uint32_t*)dma, w, h);
 	fb->dma = dma;
 	fb->g = g;
 	return g;
