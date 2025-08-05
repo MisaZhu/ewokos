@@ -91,6 +91,8 @@ static void loadTheme(LayoutWidget* layout) {
 	wd = layout->get("image");
 	if(wd != NULL)  {
 		Image* img = (Image*)wd;
+		img->dupTheme(layout->getWin()->getTheme());
+		img->getTheme()->basic.bgColor = _xwm_theme.desktopBGColor;
 		img->loadImage(_xwm_theme.patternName);
 	}
 }
@@ -188,6 +190,16 @@ static void _dialogedFunc(XWin* xwin, XWin* from, int res, void* arg) {
 		uint8_t alpha = _colorDialog->getTransparent();
 		ColorButton* btn = (ColorButton*)arg;
 		btn->setColor((color & 0x00ffffff) | (alpha << 24));
+		if(btn->getName() == "desktop_bg_color") {
+			LayoutWidget* layout = ((LayoutWin*)xwin)->getLayoutWidget();
+			if(layout == NULL)
+				return;
+			Image* img = (Image*)layout->get("image");
+			if(img!= NULL) {
+				img->getTheme()->basic.bgColor = color;
+				img->update();
+			}
+		}
 	}
 	else if(from == _fontDialog) {
 		LabelButton* btn = (LabelButton*)arg;

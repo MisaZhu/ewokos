@@ -90,7 +90,7 @@ public:
 	inline void setName(const string& name) { this->name = name; }
 	inline XTheme* getTheme() { return themePrivate; }
 
-	void setTheme(XTheme* theme);
+	void dupTheme(XTheme* theme);
 	void disable();
 	void enable();
 	void fix(const gsize_t& size);
