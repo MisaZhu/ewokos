@@ -144,6 +144,7 @@ static void onEventFunc(Widget* wd, xevent_t* evt, void* arg) {
 		ColorButton* btn = (ColorButton*)wd;
 		_colorDialog->popup(wd->getWin(), 256, 160, "color", XWIN_STYLE_NO_RESIZE, btn);
 		_colorDialog->setColor(btn->getColor());
+
 	}
 	else if(name == "font") {
 		_fontDialog->popup(wd->getWin(), 320, 320, "font", XWIN_STYLE_NO_RESIZE, wd);
@@ -172,11 +173,35 @@ static void _dialogedFunc(XWin* xwin, XWin* from, int res, void* arg) {
 		uint32_t color = _colorDialog->getColor();
 		uint8_t alpha = _colorDialog->getTransparent();
 		ColorButton* btn = (ColorButton*)arg;
-		btn->setColor((color & 0x00ffffff) | (alpha << 24));
+
+		color = (color & 0x00ffffff) | (alpha << 24);
+		btn->setColor(color);
+
+		string name = btn->getName();
+		WidgetWin* win = btn->getWin();
+		XTheme* theme = win->getTheme();
+		if(name == "bg_color")
+			theme->basic.bgColor = color;
+		else if(name == "fg_color")
+			theme->basic.fgColor = color;
+		else if(name == "doc_bg_color")
+			theme->basic.docBGColor = color;
+		else if(name == "doc_fg_color")
+			theme->basic.docFGColor = color;
+		
+		win->getRoot()->update();
+		win->repaint();
 	}
 	else if(from == _fontDialog) {
 		LabelButton* btn = (LabelButton*)arg;
 		btn->setLabel(_fontDialog->getResult());
+		WidgetWin* win = btn->getWin();
+		XTheme* theme = win->getTheme();
+		memset(theme->basic.fontName, 0, FONT_NAME_MAX);
+		strncpy(theme->basic.fontName, _fontDialog->getResult().c_str(), FONT_NAME_MAX-1);
+		theme->setFont(theme->basic.fontName, theme->basic.fontSize);
+		win->getRoot()->update();
+		win->repaint();
 	}
 }
 
