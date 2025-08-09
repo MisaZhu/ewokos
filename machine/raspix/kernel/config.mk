@@ -7,8 +7,8 @@ ifeq ($(ARCH),arm)
 ARCH		  = arm
 ARCH_VER	  = v7
 QEMU_MACHINE  = raspi2b
-LOAD_ADDRESS  = 0x10000 #for qemu
-#LOAD_ADDRESS = 0x8000 #for real hw
+#LOAD_ADDRESS  = 0x10000 #for qemu
+LOAD_ADDRESS = 0x8000 #for real hw
 #-----raspberry aarch64 config----------
 else
 ARCH		  = aarch64
