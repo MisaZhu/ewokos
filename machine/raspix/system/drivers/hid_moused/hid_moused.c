@@ -34,7 +34,7 @@ static int mouse_read(int fd, int from_pid, fsinfo_t* node,
 	}
 
 	d[0] = 1;
-	if(btn == 1){
+	if(btn == 1 || btn == 4){
 		d[1] = 2;
 		last_btn = 1;
 	}else if(btn == 0){
@@ -57,19 +57,29 @@ static int loop(void* p) {
 	(void)p;
 
 	ipc_disable();
-	int8_t buf[8] = {0};
-	int res = read(hid, buf, 7);
 
-	if(res == 7) {
-		btn = buf[0];
-		x = buf[1];
-		y = buf[2];
-		has_data = 1;
-		proc_wakeup(RW_BLOCK_EVT);
+	bool wakeup = false;
+	while(true) {
+		int8_t buf[8] = {0};
+		int res = read(hid, buf, 7);
+		if(res == 7) {
+			btn = buf[0];
+			x = buf[1];
+			y = buf[2];
+			has_data = 1;
+			wakeup = true;
+			usleep(0);
+		}
+		else {
+			break;
+		}
 	}
 
 	ipc_enable();
-	usleep(3000);
+	if(wakeup)
+		proc_wakeup(RW_BLOCK_EVT);
+	else
+		usleep(3000);
 	return 0;
 }
 
