@@ -56,17 +56,21 @@ static uint32_t get_ksize(uint32_t sz) {
 }
 
 static int _list_mode = 0;
+static int _show_hide = 0;
 
 static int doargs(int argc, char* argv[]) {
 	int c = 0;
 	while (c != -1) {
-		c = getopt (argc, argv, "l");
+		c = getopt (argc, argv, "la");
 		if(c == -1)
 			break;
 
 		switch (c) {
 		case 'l':
 			_list_mode = 1;
+			break;
+		case 'a':
+			_show_hide = 1;
 			break;
 		case '?':
 			return -1;
@@ -101,6 +105,9 @@ int main(int argc, char* argv[]) {
 		if(it == NULL) {
 			break;
 		}
+
+		if(it->d_name[0] == '.' && !_show_hide)
+			continue;
 
 		if(strcmp(r, "/") == 0)
 			snprintf(fname, FS_FULL_NAME_MAX, "/%s", it->d_name);
