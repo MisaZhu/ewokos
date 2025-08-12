@@ -5,6 +5,7 @@ LD =  aarch64-none-elf-ld
 OBJDUMP =  aarch64-none-elf-objdump
 
 CFLAGS =  -march=armv8-a -Wno-incompatible-pointer-types -Wno-int-conversion \
+		-Wno-implicit-function-declaration \
         -Wall -Wextra -fPIC \
 		-fno-builtin-memset \
         -Wno-unused-parameter \
@@ -12,6 +13,7 @@ CFLAGS =  -march=armv8-a -Wno-incompatible-pointer-types -Wno-int-conversion \
         -std=c99
 
 CXXFLAGS = -march=armv8-a -Wno-incompatible-pointer-types -Wno-int-conversion \
+		-Wno-implicit-function-declaration \
         -Wall -Wextra -fPIC \
 		-fno-builtin-memset \
         -Wno-unused-parameter \
