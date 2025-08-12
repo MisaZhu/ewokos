@@ -5,12 +5,12 @@
 namespace Ewok {
 
 void Slider::drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
-    graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.widgetBGColor, true);
+    graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.bgColor, true);
 }
 
 void Slider::drawPos(graph_t* g, XTheme* theme, const grect_t& r) {
     graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.bgColor, false);
-    graph_fill_3d(g, r.x+4, r.y+4, r.w-8, r.h-8, theme->basic.widgetBGColor, true);
+    graph_fill_3d(g, r.x+4, r.y+4, r.w-8, r.h-8, theme->basic.bgColor, true);
 }
 
 void Slider::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {

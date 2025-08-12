@@ -10,8 +10,8 @@ void EditLine::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 	if(font == NULL)
 		return;
 	
-	uint32_t bgColor = theme->basic.widgetBGColor;
-	uint32_t fgColor = theme->basic.widgetFGColor;
+	uint32_t bgColor = theme->basic.bgColor;
+	uint32_t fgColor = theme->basic.fgColor;
 	if(!focused()) {
 		bgColor = theme->basic.bgDisableColor;
 		fgColor = theme->basic.fgDisableColor;

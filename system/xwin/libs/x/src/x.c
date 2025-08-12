@@ -121,7 +121,6 @@ const char* x_get_work_dir(void) {
 }
 
 static x_theme_t _x_theme;
-static bool _x_theme_loaded = false;
 
 static int x_update_theme(void) {
 	int xserv_pid = dev_get_pid("/dev/x");
@@ -131,6 +130,7 @@ static int x_update_theme(void) {
 	proto_t out;
 	PF->init(&out);
 	if(dev_cntl_by_pid(xserv_pid, X_DCNTL_GET_THEME, NULL, &out) != 0) {
+		klog("update theme error\n");
 		return -1;
 	}	
 
@@ -142,11 +142,8 @@ static int x_update_theme(void) {
 int x_get_theme(x_theme_t* theme) {
 	if(theme == NULL)
 		return -1;
-	if(!_x_theme_loaded) {
-		if(x_update_theme())
-			return -1;
-		_x_theme_loaded = true;
-	}
+	if(x_update_theme())
+		return -1;
 	memcpy(theme, &_x_theme, sizeof(x_theme_t));
 	return 0;
 }
@@ -154,7 +151,6 @@ int x_get_theme(x_theme_t* theme) {
 void  x_init(x_t* x, void* data) {
 	memset(&_x_theme, 0, sizeof(x_theme_t));
 	x_get_theme(&_x_theme);
-	_x_theme_loaded = false;
 
 	memset(_x_screens, 0, sizeof(xscreen_info_t)*SCREEN_MAX);
 	memset(x, 0, sizeof(x_t));

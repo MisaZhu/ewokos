@@ -29,21 +29,14 @@ int x_load_theme(const char* name, x_theme_t* theme) {
 	theme->docFGColor = json_get_int_def(conf_var, "doc_fg_color", 0xff000000);
 	theme->docBGColor = json_get_int_def(conf_var, "doc_bg_color", 0xffffffff);
 
-	theme->fgUnfocusColor = json_get_int_def(conf_var, "fg_unfocus_color", 0);
-	theme->bgUnfocusColor = json_get_int_def(conf_var, "bg_unfocus_color", 0);
-
 	theme->fgDisableColor = json_get_int_def(conf_var, "fg_disable_color", 0xff444444);
 	theme->bgDisableColor = json_get_int_def(conf_var, "bg_disable_color", 0xff888888);
 
-	theme->hideColor = json_get_int_def(conf_var, "hide_color", 0);
 	theme->selectColor = json_get_int_def(conf_var, "select_color", 0);
 	theme->selectBGColor = json_get_int_def(conf_var, "select_bg_color", 0);
 
 	theme->titleColor = json_get_int_def(conf_var, "title_color", 0);
-	theme->frameBGColor = json_get_int_def(conf_var, "frame_bg_color", 0);
-
-	theme->widgetFGColor = json_get_int_def(conf_var, "widget_color", theme->fgColor);
-	theme->widgetBGColor = json_get_int_def(conf_var, "widget_bg_color", theme->bgColor);
+	theme->titleBGColor = json_get_int_def(conf_var, "title_bg_color", 0);
 
 	if(conf_var != NULL)
 		json_var_unref(conf_var);

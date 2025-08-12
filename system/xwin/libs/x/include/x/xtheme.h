@@ -13,6 +13,7 @@ extern "C" {
 #define X_DEFAULT_XTHEME    "opencde"
 
 typedef struct {
+	uint32_t uuid;
 	char     name[THEME_NAME_MAX];
 
 	char     fontName[FONT_NAME_MAX];
@@ -26,22 +27,14 @@ typedef struct {
 	uint32_t docBGColor;
 	uint32_t docFGColor;
 
-	uint32_t bgUnfocusColor;
-	uint32_t fgUnfocusColor;
-
 	uint32_t bgDisableColor;
 	uint32_t fgDisableColor;
-
-	uint32_t hideColor;
 
 	uint32_t selectColor;
 	uint32_t selectBGColor;
 
 	uint32_t titleColor;
-	uint32_t frameBGColor;
-
-	uint32_t widgetFGColor;
-	uint32_t widgetBGColor;
+	uint32_t titleBGColor;
 } x_theme_t;
 
 typedef struct {

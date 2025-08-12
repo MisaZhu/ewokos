@@ -87,6 +87,14 @@ static void loadTheme(LayoutWidget* layout) {
 		LabelButton* btn = (LabelButton*)wd;
 		btn->setLabel(_xwm_theme.patternName);
 	}
+
+	wd = layout->get("image");
+	if(wd != NULL)  {
+		Image* img = (Image*)wd;
+		img->dupTheme(layout->getWin()->getTheme());
+		img->getTheme()->basic.bgColor = _xwm_theme.desktopBGColor;
+		img->loadImage(_xwm_theme.patternName);
+	}
 }
 
 static void setTheme(LayoutWidget* layout) {
@@ -147,14 +155,18 @@ static void onEventFunc(Widget* wd, xevent_t* evt, void* arg) {
 		_colorDialog->setColor(btn->getColor());
 	}
 	else if(name == "font") {
-		_fontDialog->popup(wd->getWin(), 256, 160, "font", XWIN_STYLE_NO_RESIZE, wd);
+		_fontDialog->popup(wd->getWin(), 320, 320, "font", XWIN_STYLE_NO_RESIZE, wd);
 	}
 	else if(name == "desktop_image") {
-		_fileDialog->popup(wd->getWin(), 256, 160, "image", XWIN_STYLE_NO_RESIZE, wd);
+		LabelButton* btn = (LabelButton*)wd;
+		string fname = btn->getLabel();
+		char dir[FS_FULL_NAME_MAX];
+		vfs_dir_name(fname.c_str(), dir, FS_FULL_NAME_MAX);
+		_fileDialog->setInitPath(dir);
+		_fileDialog->popup(wd->getWin(), 320, 320, "image", XWIN_STYLE_NO_RESIZE, wd);
 	}
 	else if(name == "okButton") {
 		setTheme((LayoutWidget*)arg);
-		wd->getWin()->close();
 	}
 	else if(name == "cancelButton") {
 		wd->getWin()->close();
@@ -178,6 +190,16 @@ static void _dialogedFunc(XWin* xwin, XWin* from, int res, void* arg) {
 		uint8_t alpha = _colorDialog->getTransparent();
 		ColorButton* btn = (ColorButton*)arg;
 		btn->setColor((color & 0x00ffffff) | (alpha << 24));
+		if(btn->getName() == "desktop_bg_color") {
+			LayoutWidget* layout = ((LayoutWin*)xwin)->getLayoutWidget();
+			if(layout == NULL)
+				return;
+			Image* img = (Image*)layout->get("image");
+			if(img!= NULL) {
+				img->getTheme()->basic.bgColor = color;
+				img->update();
+			}
+		}
 	}
 	else if(from == _fontDialog) {
 		LabelButton* btn = (LabelButton*)arg;
@@ -185,7 +207,16 @@ static void _dialogedFunc(XWin* xwin, XWin* from, int res, void* arg) {
 	}
 	else if(from == _fileDialog) {
 		LabelButton* btn = (LabelButton*)arg;
+		string res = _fileDialog->getResult();
 		btn->setLabel(_fileDialog->getResult());
+		LayoutWidget* layout = ((LayoutWin*)xwin)->getLayoutWidget();
+		if(layout == NULL)
+			return;
+
+		Image* img = (Image*)layout->get("image");
+		if(img!= NULL) {
+			img->loadImage(res.c_str());
+		}
 	}
 }
 
@@ -200,7 +231,7 @@ int main(int argc, char** argv) {
 	win.loadConfig(X::getResName("layout.xwl")); // 加载布局文件
 	win.setOnDialogedFunc(_dialogedFunc);
 
-	win.open(&x, 0, -1, -1, 300, 300, "xwm_theme", XWIN_STYLE_NO_RESIZE);
+	win.open(&x, 0, -1, -1, 300, 320, "xwm_theme", XWIN_STYLE_NO_RESIZE);
 	win.setTimer(16);
 
 	_colorDialog = new ColorDialog();

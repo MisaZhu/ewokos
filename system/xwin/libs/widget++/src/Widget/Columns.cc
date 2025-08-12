@@ -19,7 +19,7 @@ void Columns::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 
 	for(uint32_t i=0; i<colNum; i++) {
 		graph_set_clip(g, x, y-off_y, cols[i].width, rowH);
-		graph_fill_3d(g, x, y-off_y, cols[i].width, rowH, theme->basic.widgetBGColor, false);
+		graph_fill_3d(g, x, y-off_y, cols[i].width, rowH, theme->basic.bgColor, false);
 		graph_draw_text_font(g, x+2, y - off_y, cols[i].title.c_str(),
 				font, theme->basic.fontSize, theme->basic.docFGColor);
 		x += cols[i].width;

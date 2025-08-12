@@ -23,6 +23,8 @@ public:
 			return font;
 	}
 
+	static XTheme* dup(XTheme* theme);
+
 	inline ~XTheme() {
 		if(font != NULL)
 			font_free(font);

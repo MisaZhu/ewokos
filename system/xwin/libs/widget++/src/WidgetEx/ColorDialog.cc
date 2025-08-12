@@ -38,7 +38,7 @@ protected:
     void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
         graph_set(g, r.x, r.y, r.w, r.h, color | 0xFF000000);
         graph_set(g, r.x, r.y+r.h/2, r.w, r.h/2, color);
-		graph_frame(g, r.x, r.y, r.w, r.h, 2, theme->basic.widgetBGColor, true);
+		graph_frame(g, r.x, r.y, r.w, r.h, 2, theme->basic.bgColor, true);
     }
 public:
     ColorPanel() {

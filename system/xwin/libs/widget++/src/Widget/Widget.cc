@@ -54,10 +54,10 @@ void Widget::setAttr(const string& name, const string& value) {
 	}
 }
 
-void Widget::setTheme(XTheme* theme)  {
+void Widget::dupTheme(XTheme* theme)  {
 	if(themePrivate != NULL)
 		delete themePrivate;
-	themePrivate = theme;
+	themePrivate = XTheme::dup(theme); 
 	update();
 }
 

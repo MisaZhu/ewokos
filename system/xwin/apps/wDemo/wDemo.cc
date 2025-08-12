@@ -102,7 +102,7 @@ protected:
 
     void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
         // 移除原有的背景填充代码
-        // graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.widgetBGColor);
+        // graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
         
         float rad = angle * 3.1415926f / 180.0f; // 转换为弧度
         float cosAngle = cos(rad);
@@ -146,7 +146,7 @@ protected:
         font_t* font = theme->getFont();
         uint32_t w;
         font_text_size(txt, font, 10, &w, NULL);
-        graph_draw_text_font(g, r.x + r.w - w, r.y, txt, theme->getFont(), 10, theme->basic.widgetFGColor);
+        graph_draw_text_font(g, r.x + r.w - w, r.y, txt, theme->getFont(), 10, theme->basic.fgColor);
     }
 
     void onTimer(uint32_t timerFPS, uint32_t timerStep) {
@@ -173,6 +173,8 @@ protected:
 	ConfirmDialog dialog;
 public:
 	static void onEventFunc(Widget* wd, xevent_t* evt, void* arg) {
+		if(evt->type != XEVT_MOUSE || evt->state != MOUSE_STATE_CLICK)
+			return;
 		MyWidgetWin* win = (MyWidgetWin*)wd->getWin();
 		win->dialog.setMessage("Dialog Test");
 		win->dialog.popup(win, 200, 100, "dialog", XWIN_STYLE_NO_TITLE);

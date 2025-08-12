@@ -27,4 +27,11 @@ XTheme::XTheme(void) {
 	font = NULL;
 }
 
+XTheme* XTheme::dup(XTheme* theme) {
+	XTheme * ret = new XTheme();
+	memcpy(&ret->basic, &theme->basic, sizeof(x_theme_t));
+	ret->setFont(ret->basic.fontName, ret->basic.fontSize);
+	return ret;
+}
+
 }

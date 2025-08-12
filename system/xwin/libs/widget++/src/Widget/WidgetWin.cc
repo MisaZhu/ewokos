@@ -27,7 +27,8 @@ WidgetWin::~WidgetWin() {
 void WidgetWin::onRepaint(graph_t* g) {
 	if(root == NULL)
 		return;
-
+	if(xwin->xinfo != NULL && xwin->xinfo->update_theme)
+		root->dirty = true;
 	root->repaint(g, &theme);
 }
 

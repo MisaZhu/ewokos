@@ -1,0 +1,118 @@
+{
+    "layout": "verticle",
+    "children": [
+        {
+            "type": "Blank",
+            "h": 3
+        },
+        {
+            "layout": "horizontal",
+            "h": 32,
+            "children": [
+                {
+                    "type": "Label",
+                    "label": "bg_color"
+                    "w": 168 
+                },
+                {
+                    "name": "bg_color", 
+                    "type": "ColorButton",
+                }
+            ]
+        },
+        {
+            "type": "Split"
+        },
+        {
+            "layout": "horizontal",
+            "h": 32,
+            "children": [
+                {
+                    "type": "Label",
+                    "label": "fg_color"
+                    "w": 168 
+                },
+                {
+                    "name": "fg_color", 
+                    "type": "ColorButton",
+                }
+            ]
+        },
+        {
+            "type": "Split"
+        }, 
+        {
+            "layout": "horizontal",
+            "h": 32,
+            "children": [
+                {
+                    "type": "Label",
+                    "label": "doc_bg_color"
+                    "w": 168 
+                },
+                {
+                    "name": "doc_bg_color", 
+                    "type": "ColorButton",
+                }
+            ]
+        },
+        {
+            "type": "Split"
+        }, 
+        {
+            "layout": "horizontal",
+            "h": 32,
+            "children": [
+                {
+                    "type": "Label",
+                    "label": "doc_fg_color"
+                    "w": 168 
+                },
+                {
+                    "name": "doc_fg_color", 
+                    "type": "ColorButton",
+                }
+            ]
+        },
+        {
+            "type": "Split"
+        }, 
+        {
+            "layout": "horizontal",
+            "h": 32,
+            "children": [
+                {
+                    "type": "Label",
+                    "label": "font"
+                    "w":128 
+                },
+                {
+                    "name": "font", 
+                    "type": "LabelButton"
+                }
+            ]
+        },
+        {
+            "type": "Split"
+        },
+        {
+           "type": "Blank"
+        }
+        {
+            "layout": "horizontal",
+            "h": 24,
+            "children": [
+                {
+                    "name": "okButton",
+                    "type": "LabelButton",
+                    "label": "Apply"
+                },
+                {
+                    "name": "cancelButton",
+                    "type": "LabelButton",
+                    "label": "Quit"
+                }
+            ]
+        }
+    ]
+}

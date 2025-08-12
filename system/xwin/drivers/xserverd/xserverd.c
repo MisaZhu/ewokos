@@ -1148,6 +1148,21 @@ static int x_win_space(x_t* x, proto_t* in, proto_t* out) {
 	return 0;
 }
 
+static int x_repaint_all_win(x_t* x) {
+	xevent_t ev;
+	ev.type = XEVT_WIN;
+	ev.value.window.event = XEVT_WIN_REPAINT;
+
+	xwin_t* win = x->win_tail;
+	while(win != NULL) {
+		if(win->xinfo != NULL) 
+			win->xinfo->update_theme = true;
+		x_push_event(x, win, &ev);
+		win = win->prev;
+	}
+	return 0;
+}
+
 static int x_dev_load_theme(x_t* x, proto_t* in, proto_t* out) {
 	PF->clear(out);
 	const char* name = proto_read_str(in);
@@ -1168,6 +1183,7 @@ static int x_dev_set_theme(x_t* x, proto_t* in, proto_t* out) {
 	if(theme == NULL || sz != sizeof(x_theme_t))
 		return -1;
 	memcpy(&x->config.theme, theme, sz);
+	x_repaint_all_win(x);
 	return 0;
 }
 
@@ -1175,11 +1191,12 @@ static int xwm_theme_update(x_t* x) {
 	if(!check_xwm(x))
 		return 0;
 
-	if(ipc_call(x->xwm_pid, XWM_CNTL_SET_THEME, NULL, NULL) != 0) {
-		return -1;
-	}	
+	proto_t in;
+	PF->init(&in)->add(&in, &x->config.xwm_theme, sizeof(xwm_theme_t));
+	int res = ipc_call(x->xwm_pid, XWM_CNTL_SET_THEME, &in, NULL);
+	PF->clear(&in);
 	x_dirty(x, -1);
-	return 0;
+	return res;
 }
 
 static int x_dev_load_xwm_theme(x_t* x, proto_t* in, proto_t* out) {
