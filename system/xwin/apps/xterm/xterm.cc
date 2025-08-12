@@ -67,24 +67,6 @@ public:
 		pthread_mutex_unlock(&term_lock);
 	}
 
-	bool readConfig(const char* fname) {
-		json_var_t *conf_var = json_parse_file(fname);	
-
-		uint32_t font_size = json_get_int_def(conf_var, "font_size", 12);
-		int32_t char_space = json_get_int_def(conf_var, "char_space", -1);
-		int32_t line_space = json_get_int_def(conf_var, "line_space", 0);
-		uint32_t fg_color = json_get_int_def(conf_var, "fg_color", 0xffdddddd);
-		uint32_t bg_color = json_get_int_def(conf_var, "bg_color", 0xff000000);
-		uint32_t transparent = json_get_int_def(conf_var, "transparent", 255);
-		const char* font_name = json_get_str(conf_var, "font");
-
-		config(font_name, font_size, char_space, line_space, fg_color, bg_color, transparent);
-
-		if(conf_var != NULL)
-			json_var_unref(conf_var);
-		return true;
-	}
-
 	void fontZoom(bool zoomIn) {
 		lock();
 		if(zoomIn)
@@ -244,6 +226,28 @@ static void onBGColor(MenuItem* it, void* p) {
 	win->bgColor();
 }
 
+static Menubar* _menubar = NULL;
+static bool readConfig(const char* fname) {
+	json_var_t *conf_var = json_parse_file(fname);	
+
+	uint32_t font_size = json_get_int_def(conf_var, "font_size", 12);
+	int32_t char_space = json_get_int_def(conf_var, "char_space", -1);
+	int32_t line_space = json_get_int_def(conf_var, "line_space", 0);
+	uint32_t fg_color = json_get_int_def(conf_var, "fg_color", 0xffdddddd);
+	uint32_t bg_color = json_get_int_def(conf_var, "bg_color", 0xff000000);
+	uint32_t transparent = json_get_int_def(conf_var, "transparent", 255);
+	const char* font_name = json_get_str(conf_var, "font");
+	bool show_menubar = (bool)json_get_int_def(conf_var, "menubar", 1);
+
+	_consoleWidget->config(font_name, font_size, char_space, line_space, fg_color, bg_color, transparent);
+	if(!show_menubar)
+		_menubar->hide();
+
+	if(conf_var != NULL)
+		json_var_unref(conf_var);
+	return true;
+}
+
 static bool _win_opened = false;
 static void* thread_loop(void* p) {
 	X x;
@@ -266,13 +270,14 @@ static void* thread_loop(void* p) {
 	menubar->add(7, "color", NULL, menu, NULL, NULL);
 	menubar->fix(0, 20);
 	root->add(menubar);
+	_menubar = menubar;
 
 	TermWidget *consoleWidget = new TermWidget();
 	root->add(consoleWidget);
 	win.consoleWidget = consoleWidget;
 	root->focus(consoleWidget);
-	consoleWidget->readConfig(X::getResName("theme.json"));
 	_consoleWidget = consoleWidget;
+	readConfig(X::getResName("theme.json"));
 
 	x.getDesktopSpace(desk, 0);
 	win.open(&x, 0, -1, -1, desk.w*2/3, desk.h*2/3, "xconsole", 0);
