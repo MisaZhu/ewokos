@@ -1,4 +1,4 @@
-#@export X_AUTO_MAX=yes
+#@export X_AUTO_FULL_SCREEN=yes
 
 #@export XTHEME=openlook
 #@/bin/ipcserv /sbin/x/xwm_openlook

@@ -118,22 +118,21 @@ xwin_t* xwin_open(x_t* xp, uint32_t disp_index, int x, int y, int w, int h, cons
 	memcpy(&ret->xinfo->wsr, &r, sizeof(grect_t));
 	strncpy(ret->xinfo->title, title, XWIN_TITLE_MAX-1);
 
-	const char* auto_max = getenv("X_AUTO_MAX");
+	const char* auto_max = getenv("X_AUTO_FULL_SCREEN");
 	if(auto_max != NULL &&
 			(style & XWIN_STYLE_NO_TITLE) == 0 &&
 			(style & XWIN_STYLE_NO_RESIZE) == 0 &&
 			(style & XWIN_STYLE_NO_FRAME) == 0) {
-		xwin_fullscreen(ret);
+		ret->xinfo->style |= XWIN_STYLE_NO_RESIZE | XWIN_STYLE_NO_TITLE;
+		ret->xinfo->state = XWIN_STATE_MAX;
 	}
-	else
-		xwin_update_info(ret, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
+	xwin_update_info(ret, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
 	pthread_mutex_init(&ret->painting_lock, NULL);
 	return ret;
 }
 
 int xwin_fullscreen(xwin_t* xwin) {
 	xwin->xinfo->style |= XWIN_STYLE_NO_RESIZE | XWIN_STYLE_NO_TITLE;
-	xwin_update_info(xwin, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
 	return xwin_max(xwin);
 }
 
