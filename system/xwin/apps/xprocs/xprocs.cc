@@ -430,6 +430,10 @@ int main(int argc, char** argv) {
 	cores->fix(0, 72);
 	c->add(cores);
 
+	Splitter *splitter = new Splitter();
+	splitter->attach(c);
+	root->add(splitter);
+
 	Procs* procs = new Procs();
 	root->add(procs);
 	list->setprocs(procs);
