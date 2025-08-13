@@ -161,6 +161,8 @@ static int vjoystick_read(int fd,
 	return _rd;	
 }
 
+static uint8_t _switch_key = JOYSTICK_SELECT;
+
 static int vjoy_loop(void* p){
 	uint64_t tik = kernel_tic_ms(0);
 	uint32_t tm = 1000/_fps;
@@ -173,7 +175,7 @@ static int vjoy_loop(void* p){
 		for(int i=0; i<KEY_NUM; i++) {
 			if(_keys[i] != 0) {
 				_release = true;
-				if(_keys[i] == JOYSTICK_SELECT) {
+				if(_keys[i] == _switch_key) {
 					_mouse_mode = !_mouse_mode;
 					_release = false;
 					break;
@@ -184,6 +186,12 @@ static int vjoy_loop(void* p){
 	}
 	else {
 		memcpy(_keys, keys, rd);
+		for(int i=0; i<rd; i++) {
+			if(keys[i] == _switch_key) {
+				rd = 0;
+				break;
+			}
+		}
 	}
 
 	if(_mouse_mode) {
@@ -224,7 +232,7 @@ static int vjoy_loop(void* p){
 static int doargs(int argc, char* argv[]) {
 	int c = 0;
 	while (c != -1) {
-		c = getopt (argc, argv, "mkf:");
+		c = getopt (argc, argv, "mkf:s:");
 		if(c == -1)
 			break;
 
@@ -238,6 +246,9 @@ static int doargs(int argc, char* argv[]) {
 		case 'f':
 			_fps = atoi(optarg);
 			break;
+		case 's':
+			_switch_key = atoi(optarg);
+			break;
 		default:
 			c = -1;
 			break;
@@ -249,6 +260,7 @@ static int doargs(int argc, char* argv[]) {
 int main(int argc, char** argv) {
 	_mouse_mode = false;
 	_fps = 60;
+	_switch_key = JOYSTICK_SELECT;
 	int32_t argind =  doargs(argc, argv);
 	const char* mnt_point = "/dev/vjoystick";
 	const char* joys_dev = "/dev/joystick";
