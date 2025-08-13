@@ -262,6 +262,7 @@ static void* thread_loop(void* p) {
 	menu->add(1, "bgcolor", NULL, NULL, onBGColor, &win);
 
 	Menubar* menubar = new Menubar();
+	menubar->setItemSize(42);
 	menubar->add(2, "font", NULL, NULL, onFontFunc, &win);
 	menubar->add(3, "F+", NULL, NULL, onFontZoomInFunc, NULL);
 	menubar->add(4, "F-", NULL, NULL, onFontZoomOutFunc, NULL);
