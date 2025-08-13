@@ -216,7 +216,7 @@ int main(int argc, char** argv) {
 	win.loadConfig(X::getResName("layout.xwl")); // 加载布局文件
 	win.setOnDialogedFunc(_dialogedFunc);
 
-	win.open(&x, 0, -1, -1, 300, 320, "xtheme", XWIN_STYLE_NORMAL);
+	win.open(&x, 0, -1, -1, 280, 300, "xtheme", XWIN_STYLE_NORMAL);
 	win.setTimer(16);
 
 	_colorDialog = new ColorDialog();
