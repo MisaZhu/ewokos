@@ -3,6 +3,8 @@ all: drivers
 
 drivers:
 	cd xserverd;make
+	cd vjoystickd;make
 
 clean:
 	cd xserverd;make clean
+	cd vjoystickd;make clean
