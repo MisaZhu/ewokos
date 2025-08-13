@@ -202,6 +202,15 @@ int x_set_top_app(const char* fname) {
 	return res;
 }
 
+int  x_show_cursor(bool show) {
+	proto_t in;
+	PF->init(&in)->addi(&in, (int32_t)show);
+
+	int res = dev_cntl("/dev/x", X_DCNTL_SHOW_CURSOR, &in, NULL);
+	PF->clear(&in);
+	return res;
+}
+
 int x_set_app_name(x_t* x, const char* fname) {
 	if(fname == NULL || fname[0] == 0 ||
 			x == NULL || x->main_win == NULL || x->main_win->xinfo == NULL)

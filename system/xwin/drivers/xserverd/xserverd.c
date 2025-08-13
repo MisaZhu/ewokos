@@ -887,6 +887,7 @@ static int x_update_frame_areas(x_t* x, xwin_t* win) {
 	return res;
 }
 
+
 static void x_get_min_size(x_t* x, xwin_t* win, int *w, int* h) {
 	*w = 100;
 	*h = 100;
@@ -1686,6 +1687,10 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 	else if(cmd == X_DCNTL_SET_TOP) {
 		const char* name = proto_read_str(in);
 		x_set_top(x, name, ret);
+	}
+	else if(cmd == X_DCNTL_SHOW_CURSOR) {
+		x->show_cursor = (bool)proto_read_int(in);
+		x_dirty(x, -1);
 	}
 	else if(cmd == X_DCNTL_QUIT) {
 		x_quit(from_pid);

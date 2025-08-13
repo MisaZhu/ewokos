@@ -9,6 +9,7 @@
 #include <ewoksys/proto.h>
 #include <ewoksys/keydef.h>
 #include <ewoksys/kernel_tic.h>
+#include <x/xcntl.h>
 
 static int  _joys_fd = -1;
 static bool _mouse_mode = false;
@@ -161,6 +162,16 @@ static int vjoystick_read(int fd,
 	return _rd;	
 }
 
+
+static int x_show_cursor(bool show) {
+	proto_t in;
+	PF->init(&in)->addi(&in, (int32_t)show);
+
+	int res = dev_cntl("/dev/x", X_DCNTL_SHOW_CURSOR, &in, NULL);
+	PF->clear(&in);
+	return res;
+}
+
 static uint8_t _switch_key = JOYSTICK_SELECT;
 
 static int vjoy_loop(void* p){
@@ -178,6 +189,7 @@ static int vjoy_loop(void* p){
 				if(_keys[i] == _switch_key) {
 					_mouse_mode = !_mouse_mode;
 					_release = false;
+					x_show_cursor(_mouse_mode);
 					break;
 				}
 			}
