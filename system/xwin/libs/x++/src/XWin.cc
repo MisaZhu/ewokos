@@ -197,6 +197,12 @@ void XWin::setAlpha(bool alpha) {
 	xwin_set_alpha(xwin, alpha);
 }
 
+bool XWin::isAlpha(void) {
+	if(xwin == NULL || xwin->xinfo == NULL)
+		return false;
+	return xwin->xinfo->alpha;
+}
+
 void XWin::top() {
 	if(xwin == NULL)
 		return;

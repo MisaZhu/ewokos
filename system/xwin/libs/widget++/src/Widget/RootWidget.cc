@@ -13,8 +13,7 @@ RootWidget::RootWidget() {
 }
 
 void RootWidget::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
-	if(!alpha)
-		graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
+	graph_set(g, r.x, r.y, r.w, r.h, 0);
 }
  
 RootWidget* RootWidget::getRoot(void) {

@@ -31,6 +31,7 @@ typedef struct {
 } item_t;
 
 #define ITEM_MAX 128
+static bool _launcher = false;
 
 class AppGrid: public Grid {
 	item_t items[ITEM_MAX];	
@@ -109,6 +110,8 @@ protected:
 
 	void onEnter(int index) {
 		x_exec(items[index].fname.c_str());
+		if(!_launcher)
+			getWin()->close();
 	}
 public:
 	AppGrid() {
@@ -150,7 +153,6 @@ public:
 	}
 };
 
-static bool _launcher = false;
 static uint32_t _itemSize = 72;
 static uint32_t _fontSize = 0;
 
@@ -193,8 +195,13 @@ int main(int argc, char** argv) {
 
 	X x;
 	WidgetWin win;
+	XTheme* theme = win.getTheme();
 	if(_fontSize > 0)
-		win.getTheme()->setFont("system", _fontSize);
+		theme->setFont("system", _fontSize);
+	theme->basic.bgColor = 0x88000000;
+	theme->basic.fgColor = 0xffffffff;
+	theme->basic.selectBGColor = 0xdd888888;
+	win.setAlpha(true);
 
 	RootWidget* root = new RootWidget();
 	win.setRoot(root);
@@ -202,12 +209,14 @@ int main(int argc, char** argv) {
 	
 
 	AppGrid* apps = new AppGrid();
+	apps->setAlpha(true);
 	apps->setItemSize(_itemSize, _itemSize);
 	apps->setIconSize(_itemSize/2);
 	root->add(apps);
 	root->focus(apps);
 
 	Scroller* scrollerV = new Scroller();
+	scrollerV->setAlpha(true);
 	scrollerV->fix(8, 0);
 	root->add(scrollerV);
 	apps->setScrollerV(scrollerV);
@@ -215,11 +224,12 @@ int main(int argc, char** argv) {
 	if(_launcher) {
 		win.open(&x, 0, 0, 0, 320, 240, "xapps", 
 			XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_NO_BG_EFFECT);
-			//XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_SYSBOTTOM | XWIN_STYLE_NO_BG_EFFECT);
-		win.max();
 	}
-	else
-		win.open(&x, 0, -1, -1, 320, 240, "xapps", XWIN_STYLE_NORMAL);
+	else {
+		win.open(&x, 0, 0, 0, 320, 240, "xapps", 
+			XWIN_STYLE_NO_TITLE | XWIN_STYLE_NO_BG_EFFECT);
+	}
+	win.max();
 
 	win.busy(true);
 	apps->loadApps();
