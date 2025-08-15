@@ -8,6 +8,7 @@
 #include <x++/X.h>
 #include <unistd.h>
 #include <ewoksys/basic_math.h>
+#include <ewoksys/keydef.h>
 #include <ewoksys/kernel_tic.h>
 #include <ewoksys/proc.h>
 #include <graph/graph_png.h>
@@ -112,6 +113,14 @@ protected:
 		x_exec(items[index].fname.c_str());
 		if(!_launcher)
 			getWin()->close();
+	}
+
+	bool onIM(xevent_t* ev) {
+		if(ev->value.im.value == KEY_ESC) {
+			getWin()->close();
+			return true;
+		}
+		return Grid::onIM(ev);
 	}
 public:
 	AppGrid() {
