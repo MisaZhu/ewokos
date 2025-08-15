@@ -244,7 +244,7 @@ int main(int argc, char** argv) {
 	list->setScrollerH(sr);
 	root->add(sr);
 
-	win.open(&x, 0, -1, -1, 400, 300, "widgetTest", XWIN_STYLE_NORMAL);
+	win.open(&x, 0, -1, -1, 0, 0, "widgetTest", XWIN_STYLE_NORMAL);
 	win.setTimer(16);
 
 	widgetXRun(&x, &win);	

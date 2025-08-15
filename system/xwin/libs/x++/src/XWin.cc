@@ -134,12 +134,12 @@ bool XWin::open(X* xp, uint32_t dispIndex, int x, int y, uint32_t w, uint32_t h,
 	xscreen_info_t scr;
 	X::getScreenInfo(scr, dispIndex);
 
-	uint32_t minW = scr.size.w/3;
-	uint32_t minH = scr.size.h/3;
+	uint32_t minW = scr.size.w*2/3;
+	uint32_t minH = scr.size.h*2/3;
 	if(w == 0)
 		w = minW + random_to(scr.size.w - minW);
 	if(h == 0)
-		h = minH + random_to(scr.size.h - minH - 20);
+		h = minH + random_to(scr.size.h - minH - 32);
 
 	if(x < 0) {
 		x = 0;
@@ -148,9 +148,9 @@ bool XWin::open(X* xp, uint32_t dispIndex, int x, int y, uint32_t w, uint32_t h,
 	}
 
 	if(y < 0) {
-		y = 20;
+		y = 32;
 		if(scr.size.h > h)
-			y += (int32_t)random_to(scr.size.h - h);
+			y += (int32_t)random_to(scr.size.h - h - 32);
 	}	
 
 	xwin_t* xw = xwin_open(xp->c_x(), dispIndex, x, y, w, h, title, style);

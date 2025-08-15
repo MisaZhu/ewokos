@@ -314,7 +314,7 @@ int main(int argc, char** argv) {
 	Menubar* menubar = new Menubar();
 	root->add(menubar);
 	menubar->fix(0, 20);
-	menubar->setItemSize(72);
+	menubar->setItemSize(48);
 
 	Container* c = new Container();
 	c->setType(Container::HORIZONTAL);
@@ -339,11 +339,11 @@ int main(int argc, char** argv) {
 	root->add(statusLabel);
 
 	menubar->add(0, "load", NULL, NULL, onLoadFunc, imgView);
-	menubar->add(1, "zoom_in", NULL, NULL, onZoomInFunc, imgView);
-	menubar->add(2, "zoom_out", NULL, NULL, onZoomOutFunc, imgView);
+	menubar->add(1, "+", NULL, NULL, onZoomInFunc, imgView);
+	menubar->add(2, "-", NULL, NULL, onZoomOutFunc, imgView);
 	menubar->add(3, "BGColor", NULL, NULL, onBGColorFunc, imgView);
 
-	win.open(&x, 0, -1, -1, 400, 300, "xpng", XWIN_STYLE_NORMAL);
+	win.open(&x, 0, -1, -1, 0, 0, "xpng", XWIN_STYLE_NORMAL);
 	win.setAlpha(true);
 	if(argc >= 2)
 		win.load(imgView, argv[1]);

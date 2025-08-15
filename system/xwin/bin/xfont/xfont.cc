@@ -105,7 +105,7 @@ int main(int argc, char** argv) {
 	FontWidget* fontW = new FontWidget(argv[1]);
 	root->add(fontW);
 
-	win.open(&x, 0, -1, -1, 400, 460, "xfont", XWIN_STYLE_NORMAL);
+	win.open(&x, 0, -1, -1, 0, 0, "xfont", XWIN_STYLE_NORMAL);
 	win.setTimer(8);
 
 	widgetXRun(&x, &win);
