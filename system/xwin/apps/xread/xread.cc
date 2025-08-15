@@ -121,14 +121,14 @@ public:
 
 	void load(const string& fname) {
 		if(fname.length() == 0)
-			fdialog.popup(this, 400, 300, "files", XWIN_STYLE_NORMAL);
+			fdialog.popup(this, 0, 0, "files", XWIN_STYLE_NORMAL);
 		else 
 			loadFile(fname);
 	}
 
 	void font(const string& fontName) {
 		if(fontName.length() == 0)
-			fontdialog.popup(this, 400, 300, "fonts", XWIN_STYLE_NORMAL);
+			fontdialog.popup(this, 0, 0, "fonts", XWIN_STYLE_NORMAL);
 	}
 };
 
