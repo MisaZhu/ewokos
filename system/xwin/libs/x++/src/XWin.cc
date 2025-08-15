@@ -149,8 +149,8 @@ bool XWin::open(X* xp, uint32_t dispIndex, int x, int y, uint32_t w, uint32_t h,
 
 	if(y < 0) {
 		y = 32;
-		if(scr.size.h > h)
-			y += (int32_t)random_to(scr.size.h - h - 32);
+		if(scr.size.h > (h+32))
+			y += (int32_t)random_to(scr.size.h - (h + 32));
 	}	
 
 	xwin_t* xw = xwin_open(xp->c_x(), dispIndex, x, y, w, h, title, style);
