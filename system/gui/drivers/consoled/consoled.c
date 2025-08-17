@@ -17,6 +17,7 @@
 #include <ewoksys/charbuf.h>
 #include <sysinfo.h>
 #include <font/font.h>
+#include <keyb/keyb.h>
 
 typedef struct {
 	const char* id;
@@ -187,8 +188,13 @@ static int console_loop(void* p) {
 	}
 
 	if(_keyb_fd > 0) {
-		char c = 0;
-		if(read(_keyb_fd, &c, 1) == 1 && c != 0) {
+		keyb_evt_t evts[KEYB_EVT_MAX];
+		int n = keyb_read(_keyb_fd, evts, KEYB_EVT_MAX);
+		for(int i=0; i<n; i++) {
+			uint8_t c = evts[i].key;
+			if(evts[i].state != KEYB_STATE_PRESS || c > 128)
+				continue;
+
 			if(c == KEY_UP) {
 				gterminal_scroll(&console->terminal, -1);
 				_flush = true;	
@@ -212,13 +218,14 @@ static int console_loop(void* p) {
 			else {
 				gterminal_scroll(&console->terminal, 0);
 				charbuf_push(_buffer, c, true);
-				proc_wakeup(RW_BLOCK_EVT);
 			}
 		}
+		if(n > 0)
+			proc_wakeup(RW_BLOCK_EVT);
 	}
 
 	ipc_enable();
-	usleep(20000);
+	usleep(30000);
 	return 0;
 }
 

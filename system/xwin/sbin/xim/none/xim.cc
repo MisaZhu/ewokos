@@ -35,8 +35,8 @@ public:
 		x_pid = -1;
 		keybFD = -1;
 		while(true) {
-			//keybFD = open(keyb_dev, O_RDONLY | O_NONBLOCK);
-			keybFD = open(keyb_dev, O_RDONLY);
+			keybFD = open(keyb_dev, O_RDONLY | O_NONBLOCK);
+			//keybFD = open(keyb_dev, O_RDONLY);
 			if(keybFD > 0)
 				break;
 			proc_usleep(300000);

@@ -142,7 +142,7 @@ static int keyb_read(int fd, int from_pid, fsinfo_t* node,
 	for(int i=0; i<MAX_KEYS && i<size; i++) {
 		if(_scodes[i] != 0) {
 			res[i] = to_key(_scodes[i]);
-			num++;
+			num = i+1;
 		}
 	}
 
