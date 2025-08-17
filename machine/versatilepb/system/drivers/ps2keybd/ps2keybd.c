@@ -7,7 +7,7 @@
 #include <ewoksys/ipc.h>
 #include <ewoksys/vdevice.h>
 #include <ewoksys/mmio.h>
-#include <ewoksys/charbuf.h>
+#include <ewoksys/keydef.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/interrupt.h>
@@ -69,53 +69,65 @@ static inline void empty(void) {
 #define RSHIFT 0x59
 #define CTRL   0x14
 
-static void do_ctrl(char c) {
-	if(c >= '0' && c <= '9') {
-		core_set_active_ux(c - '0');
-	}
-	else if(c == 19) { //left 
-		core_prev_ux();
-	}
-	else if(c == 4) { //right
-		core_next_ux();
-	}
-}
+#define MAX_KEYS 8
+static uint8_t _scodes[MAX_KEYS] = {0};
 
 static int32_t keyb_handle(uint8_t scode) {
 	if(scode == 0)
-		return 0;
-	char c = 0;
+		return -1;
+
 	//handle release event and key value
 	if(scode == 0xF0) { //release event
 		scode = get_scode(); // scan released code
 		empty(); //set empty data
 		if(scode <= 127 && _held[scode] == 1 && scode)  
 			_held[scode] = 0;
-		return -1; //release 
+		for(int i=0; i<MAX_KEYS; i++) {
+			if(_scodes[i] == scode) {
+				_scodes[i] = 0;
+			}
+		}
+		return 0;
 	}
 	else if(scode == 0xFA) //empty data
-		return 0;
-	
+		return -1;
 	if(scode > 127)
-		return 0;
+		return -1;
 
 	_held[scode] = 1;
-	if(scode == LSHIFT || scode == RSHIFT || scode == CTRL) 
-		return 0;
 
-	if(_held[LSHIFT] == 1 || _held[RSHIFT] == 1) // If shift key held
-		c = _utab[scode];
-	else 
-		c = _ltab[scode];
+	for(int i=0; i<MAX_KEYS; i++) {
+		if(_scodes[i] == scode) {
+			return 0;
+		}
+	}
 
-	if(_held[CTRL] == 0)
-		return c;
-
-	do_ctrl(c);
+	for(int i=0; i<MAX_KEYS; i++) {
+		if(_scodes[i] == 0) {
+			_scodes[i] = scode;
+			break;
+		}
+	}
 	return 0;
 }
 
-static charbuf_t *_buffer;
+static uint8_t to_key(uint8_t scode) {
+	char c = 0;
+	if(scode == 0)
+		return 0;
+
+	if(scode == CTRL) 
+		c = KEY_CTRL;
+	else if(scode == LSHIFT) 
+		c = KEY_LSHIFT;
+	else if(scode == RSHIFT) 
+		c = KEY_RSHIFT;
+	else if(_held[LSHIFT] == 1 || _held[RSHIFT] == 1) // If shift key held
+		c = _utab[scode];
+	else 
+		c = _ltab[scode];
+	return c;
+}
 
 static int keyb_read(int fd, int from_pid, fsinfo_t* node, 
 		void* buf, int size, int offset, void* p) {
@@ -123,28 +135,26 @@ static int keyb_read(int fd, int from_pid, fsinfo_t* node,
 	(void)from_pid;
 	(void)offset;
 	(void)p;
-	(void)size;
 	(void)node;
 
-	char c;
-	int res = charbuf_pop(_buffer, &c);
+	uint8_t* res = (uint8_t*)buf;
+	int num = 0;
+	for(int i=0; i<MAX_KEYS && i<size; i++) {
+		if(_scodes[i] != 0) {
+			res[i] = to_key(_scodes[i]);
+			num++;
+		}
+	}
 
-	if(res != 0)
+	if(num == 0)
 		return VFS_ERR_RETRY;
-
-	((char*)buf)[0] = c;
-	return 1;
+	return num;
 }
 
 static void interrupt_handle(uint32_t interrupt, uint32_t p) {
 	(void)p;
 	uint8_t key_scode = get_scode();
-	int32_t c = keyb_handle(key_scode);
-	if(c != 0) {
-		if(c == -1) //release
-			c = 0;
-
-		charbuf_push(_buffer, c, true);
+	if(keyb_handle(key_scode) == 0) {
 		proc_wakeup(RW_BLOCK_EVT);
 	}
 	return;
@@ -156,7 +166,6 @@ int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/keyb0";
 
 	keyb_init();
-	_buffer = charbuf_new(0);
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
@@ -169,6 +178,5 @@ int main(int argc, char** argv) {
 	sys_interrupt_setup(IRQ_RAW_KEYB, &handler);
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
-	charbuf_free(_buffer);
 	return 0;
 }

@@ -141,7 +141,7 @@ bool ConsoleWidget::onMouse(xevent_t* ev) {
 bool ConsoleWidget::onIM(xevent_t* ev) {
 	if(ev->state == XIM_STATE_PRESS) {
 		int c = ev->value.im.value;
-		if(c != 0) {
+		if(c > 0 && c < 0xF0) {
 			if(c == KEY_UP) {
 				gterminal_scroll(&terminal, -1);
 				update();

@@ -426,8 +426,23 @@ static void push_win(x_t* x, xwin_t* win) {
 		try_focus(x, win);
 }
 
-static xwin_t* get_next_focus_win(x_t* x, bool skip_launcher) {
+static xwin_t* get_top_focus_win(x_t* x, bool skip_launcher) {
 	xwin_t* ret = x->win_tail; 
+	while(ret != NULL) {
+		if(ret->xinfo->visible &&
+				(ret->xinfo->style & XWIN_STYLE_NO_FOCUS) == 0 &&
+				(!skip_launcher || ret != x->win_launcher))
+			return ret;
+		ret = ret->prev;
+	}
+	return NULL;
+}
+
+static xwin_t* get_next_focus_win(x_t* x, bool skip_launcher) {
+	xwin_t* ret = x->win_focus; 
+	if(ret == NULL)
+		return get_top_focus_win(x, skip_launcher);
+
 	while(ret != NULL) {
 		if(ret->xinfo->visible &&
 				(ret->xinfo->style & XWIN_STYLE_NO_FOCUS) == 0 &&
@@ -461,8 +476,8 @@ static void x_del_win(x_t* x, xwin_t* win) {
 	if(win == x->win_focus)
 		x->win_focus = NULL;
 	free(win);
-	win = get_next_focus_win(x, false);
-	x->win_last = get_next_focus_win(x, true);
+	win = get_top_focus_win(x, false);
+	x->win_last = get_top_focus_win(x, true);
 
 	if(win != NULL) {
 		try_focus(x, win);
@@ -783,6 +798,8 @@ static void check_wins(x_t* x) {
 }
 
 static void xwin_top(x_t* x, xwin_t* win) {
+	if(win == x->win_focus)
+		return;
 	remove_win(x, win);
 	push_win(x, win);
 }
@@ -1691,6 +1708,11 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 	else if(cmd == X_DCNTL_SHOW_CURSOR) {
 		x->show_cursor = (bool)proto_read_int(in);
 		x_dirty(x, -1);
+	}
+	else if(cmd == X_DCNTL_NEXT_FOCUS) {
+		xwin_t* win = get_next_focus_win(x, true);
+		if(win != NULL)
+			xwin_top(x, win);
 	}
 	else if(cmd == X_DCNTL_QUIT) {
 		x_quit(from_pid);
