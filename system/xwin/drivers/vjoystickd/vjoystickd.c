@@ -172,7 +172,7 @@ static int x_show_cursor(bool show) {
 	return res;
 }
 
-static uint8_t _switch_key = JOYSTICK_SELECT;
+static uint8_t _switch_key = JOYSTICK_R1;
 
 static int vjoy_loop(void* p){
 	uint64_t tik = kernel_tic_ms(0);
@@ -272,7 +272,7 @@ static int doargs(int argc, char* argv[]) {
 int main(int argc, char** argv) {
 	_mouse_mode = false;
 	_fps = 60;
-	_switch_key = JOYSTICK_SELECT;
+	_switch_key = JOYSTICK_R1;
 	int32_t argind =  doargs(argc, argv);
 	const char* mnt_point = "/dev/vjoystick";
 	const char* joys_dev = "/dev/joystick";

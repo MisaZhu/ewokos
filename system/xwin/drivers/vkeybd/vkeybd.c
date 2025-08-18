@@ -74,8 +74,10 @@ static bool do_ctrl(uint8_t* keys, uint8_t num) {
 	if(i < 0)
 		return false;
 
-	for(; i<num; i++) {
-		uint8_t c = keys[i];
+	for(int j=0; j<num; j++) {
+		if(j == i)
+			continue;
+		uint8_t c = keys[j];
 		if(c >= '0' && c <= '9') {
 			core_set_active_ux(c - '0');
 			return true;
@@ -91,6 +93,37 @@ static bool do_ctrl(uint8_t* keys, uint8_t num) {
 	}
 	return false;
 }
+
+static int sel_down(uint8_t* keys, uint8_t num) {
+	for(int i=0; i<num; i++) {
+		if(_keys[i] == JOYSTICK_SELECT)
+			return i;
+	}
+	return -1;
+}
+
+static bool do_joys(uint8_t* keys, uint8_t num) {
+	int i = sel_down(keys, num);
+	if(i < 0)
+		return false;
+
+	for(int j=0; j<num; j++) {
+		if(j == i)
+			continue;
+		uint8_t c = keys[j];
+		if(c == JOYSTICK_Y) { //left 
+			core_prev_ux();
+			return true;
+		}
+		else if(c == JOYSTICK_A) { //right
+			core_next_ux();
+			return true;
+		}
+	}
+	return false;
+}
+
+static uint8_t _keyb_type = 'k';
 
 static uint32_t ct = 0;
 static int vkeyb_loop(void* p){
@@ -113,8 +146,14 @@ static int vkeyb_loop(void* p){
 	}
 	else {
 		memcpy(_keys, keys, rd);
-		if(do_ctrl(_keys, KEY_NUM))
-			rd = 0;
+		if(_keyb_type == 'k') {
+			if(do_ctrl(_keys, KEY_NUM))
+				rd = 0;
+		}
+		else if(_keyb_type == 'j') {
+			if(do_joys(_keys, KEY_NUM))
+				rd = 0;
+		}
 	}
 
 	_rd = rd;
@@ -134,12 +173,16 @@ static int vkeyb_loop(void* p){
 static int doargs(int argc, char* argv[]) {
 	int c = 0;
 	while (c != -1) {
-		c = getopt (argc, argv, "mkf:s:");
+		c = getopt (argc, argv, "f:t:");
 		if(c == -1)
 			break;
 
 		switch (c) {
+		case 'f':
 			_fps = atoi(optarg);
+			break;
+		case 't':
+			_keyb_type = optarg[0];
 			break;
 		default:
 			c = -1;
@@ -151,6 +194,7 @@ static int doargs(int argc, char* argv[]) {
 
 int main(int argc, char** argv) {
 	_fps = 60;
+	_keyb_type = 'k';
 	int32_t argind =  doargs(argc, argv);
 	const char* mnt_point = "/dev/vkeyb";
 	const char* keyb_dev = "/dev/keyb0";
