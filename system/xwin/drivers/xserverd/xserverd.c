@@ -439,16 +439,13 @@ static xwin_t* get_top_focus_win(x_t* x, bool skip_launcher) {
 }
 
 static xwin_t* get_next_focus_win(x_t* x, bool skip_launcher) {
-	xwin_t* ret = x->win_focus; 
-	if(ret == NULL)
-		return get_top_focus_win(x, skip_launcher);
-
+	xwin_t* ret = x->win_head;
 	while(ret != NULL) {
 		if(ret->xinfo->visible &&
 				(ret->xinfo->style & XWIN_STYLE_NO_FOCUS) == 0 &&
 				(!skip_launcher || ret != x->win_launcher))
 			return ret;
-		ret = ret->prev;
+		ret = ret->next;
 	}
 	return NULL;
 }

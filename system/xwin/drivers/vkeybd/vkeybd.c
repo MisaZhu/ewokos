@@ -61,6 +61,11 @@ static int x_show_cursor(bool show) {
 	return res;
 }
 
+static int x_next_focus(void) {
+	int res = dev_cntl("/dev/x", X_DCNTL_NEXT_FOCUS, NULL, NULL);
+	return res;
+}
+
 static int ctrl_down(uint8_t* keys, uint8_t num) {
 	for(int i=0; i<num; i++) {
 		if(_keys[i] == KEY_CTRL)
@@ -82,12 +87,16 @@ static bool do_ctrl(uint8_t* keys, uint8_t num) {
 			core_set_active_ux(c - '0');
 			return true;
 		}
-		else if(c == 19) { //left 
+		else if(c == KEY_LEFT) { //left 
 			core_prev_ux();
 			return true;
 		}
-		else if(c == 4) { //right
+		else if(c == KEY_RIGHT) { //right
 			core_next_ux();
+			return true;
+		}
+		else if(c == KEY_TAB) { //tab for focus
+			x_next_focus();
 			return true;
 		}
 	}
@@ -119,6 +128,10 @@ static bool do_joys(uint8_t* keys, uint8_t num) {
 			core_next_ux();
 			return true;
 		}
+		else if(c == JOYSTICK_X) { //up for focus
+			x_next_focus();
+			return true;
+		}
 	}
 	return false;
 }
@@ -134,29 +147,51 @@ static int vkeyb_loop(void* p){
 	ipc_disable();
 
 	int32_t rd = read(_keyb_fd, keys, KEY_NUM);
-	if(rd <= 0) {
-		for(int i=0; i<KEY_NUM; i++) {
-			if(_keys[i] != 0) {
-				_release = true;
+	for(int i=0; i<KEY_NUM; i++) {
+		uint32_t c = _keys[i];
+		if(c == 0)
+			continue;
+
+		_release = true;
+		for(int j=0; j<rd; j++) {
+			if(c == keys[j]) {
+				_release = false;
 				break;
 			}
 		}
-		_rd = 0;
-		memset(_keys, 0, KEY_NUM);
+
+		if(_release)
+			break;
 	}
-	else {
-		memcpy(_keys, keys, rd);
+
+	if(_release) {
 		if(_keyb_type == 'k') {
-			if(do_ctrl(_keys, KEY_NUM))
+			if(do_ctrl(_keys, KEY_NUM)) {
 				rd = 0;
+			}
 		}
 		else if(_keyb_type == 'j') {
-			if(do_joys(_keys, KEY_NUM))
+			if(do_joys(_keys, KEY_NUM)) {
 				rd = 0;
+			}
 		}
 	}
 
+	memset(_keys, 0, KEY_NUM);
+	if(rd > 0) {
+		memcpy(_keys, keys, rd);
+		if(_keyb_type == 'k') {
+			if(ctrl_down(_keys, KEY_NUM) >= 0)
+				rd = 0;
+		}
+		else if(_keyb_type == 'j') {
+			if(sel_down(_keys, KEY_NUM) >= 0) {
+				rd = 0;
+			}
+		}
+	}
 	_rd = rd;
+
 	if(_rd > 0 || _release) {
 		proc_wakeup(RW_BLOCK_EVT);
 	}

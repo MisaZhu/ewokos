@@ -6,11 +6,12 @@ extern "C" {
 #endif
 
 #define CONSOLE_LEFT        8
-
-#define KEY_ESC             27
-#define KEY_BACKSPACE       127
+#define KEY_TAB             9
 #define KEY_ENTER           13
+#define KEY_ESC             27
 #define KEY_SPACE           32
+
+#define KEY_BACKSPACE       127
 
 #define KEY_RIGHT           4
 #define KEY_UP              5
