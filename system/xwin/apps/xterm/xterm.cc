@@ -129,6 +129,15 @@ protected:
 		return ConsoleWidget::onMouse(ev);
 	}
 
+	bool onIM(xevent_t* ev) {
+		if(!showXIM) {
+			showXIM = true;
+			getWin()->callXIM(true);
+			return true;
+		}
+		return ConsoleWidget::onIM(ev);
+	}
+
 	void onResize() {
 		lock();
 		ConsoleWidget::onResize();
