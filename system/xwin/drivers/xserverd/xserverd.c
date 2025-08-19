@@ -26,12 +26,10 @@
 
 static int32_t read_config(x_t* x, const char* fname) {
 	x->config.fps = 60;
-	x->config.bg_run = 0;
 
 	json_var_t *conf_var = json_parse_file(fname);	
 
 	x->config.fps = json_get_int_def(conf_var, "fps", 30);
-	x->config.bg_run = json_get_int_def(conf_var, "bg_run", 0);
 	x->config.gray_mode = json_get_int_def(conf_var, "gray_mode", 0);
 	x->config.bg_proc_priority = json_get_int_def(conf_var, "bg_proc_priority", 2);
 
@@ -1384,24 +1382,14 @@ static void xwin_close(x_t* x, xwin_t* win) {
 	x_push_event(x, win, &ev);
 }
  
-static void xwin_bg(x_t* x, xwin_t* win) {
+static void xwin_launcher(x_t* x, xwin_t* win) {
 	if(win == NULL)
 		return;
-	if(!x->config.bg_run &&
-			win != x->win_launcher &&
-			(win->xinfo->style & XWIN_STYLE_SYSTOP) == 0) {
-		xwin_close(x, win);
-		return;
-	}
 
 	if(x->win_focus != x->win_launcher) {
 		x->win_last = x->win_focus;
 		xwin_top(x, x->win_launcher);
 	}
-	else if(x->win_last != NULL) {
-		xwin_top(x, x->win_last);
-	}
-	x_dirty(x, -1);
 }
 
 static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
@@ -1590,18 +1578,6 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 }
 
 static int im_handle(x_t* x, int32_t from_pid, xevent_t* ev) {
-	if(ev->value.im.value == KEY_HOME) {
-		if(ev->state == XIM_STATE_RELEASE)
-			xwin_bg(x, x->win_focus);
-		return 0;
-	}
-
-	if(ev->value.im.value == KEY_END) {
-		if(ev->state == XIM_STATE_RELEASE)
-			xwin_close(x, x->win_focus);
-		return 0;
-	}
-
 	if(ev->state == XIM_STATE_PRESS && x->win_focus)
 		x->im_state.down_win_fd = x->win_focus->fd;
 
@@ -1710,6 +1686,12 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 		xwin_t* win = get_next_focus_win(x, true);
 		if(win != NULL)
 			xwin_top(x, win);
+	}
+	else if(cmd == X_DCNTL_CLOSE_FOCUS) {
+		xwin_close(x, x->win_focus);
+	}
+	else if(cmd == X_DCNTL_LAUNCHER) {
+		xwin_launcher(x, x->win_focus);
 	}
 	else if(cmd == X_DCNTL_QUIT) {
 		x_quit(from_pid);

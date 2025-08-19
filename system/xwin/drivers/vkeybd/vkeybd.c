@@ -66,6 +66,16 @@ static int x_next_focus(void) {
 	return res;
 }
 
+static int x_launcher(void) {
+	int res = dev_cntl("/dev/x", X_DCNTL_LAUNCHER, NULL, NULL);
+	return res;
+}
+
+static int x_close_focus(void) {
+	int res = dev_cntl("/dev/x", X_DCNTL_CLOSE_FOCUS, NULL, NULL);
+	return res;
+}
+
 static int ctrl_down(uint8_t* keys, uint8_t num) {
 	for(int i=0; i<num; i++) {
 		if(_keys[i] == KEY_CTRL)
@@ -74,10 +84,10 @@ static int ctrl_down(uint8_t* keys, uint8_t num) {
 	return -1;
 }
 
-static bool do_ctrl(uint8_t* keys, uint8_t num) {
+static bool do_keyb_spec(uint8_t* keys, uint8_t num) {
 	int i = ctrl_down(keys, num);
 	if(i < 0)
-		return false;
+		return true;
 
 	for(int j=0; j<num; j++) {
 		if(j == i)
@@ -99,6 +109,14 @@ static bool do_ctrl(uint8_t* keys, uint8_t num) {
 			x_next_focus();
 			return true;
 		}
+		else if(c == 'h') { //h for launcher 
+			x_launcher();
+			return true;
+		}
+		else if(c == 'e') { //e for close
+			x_close_focus();
+			return true;
+		}
 	}
 	return false;
 }
@@ -111,25 +129,32 @@ static int sel_down(uint8_t* keys, uint8_t num) {
 	return -1;
 }
 
-static bool do_joys(uint8_t* keys, uint8_t num) {
+static bool do_joys_spec(uint8_t* keys, uint8_t num) {
 	int i = sel_down(keys, num);
-	if(i < 0)
-		return false;
-
 	for(int j=0; j<num; j++) {
-		if(j == i)
-			continue;
 		uint8_t c = keys[j];
-		if(c == JOYSTICK_Y) { //left 
-			core_prev_ux();
-			return true;
+		if(i >= 0) {
+			if(j == i)
+				continue;
+			if(c == JOYSTICK_Y) { //Y for prev ux
+				core_prev_ux();
+				return true;
+			}
+			else if(c == JOYSTICK_A) { //A for next ux
+				core_next_ux();
+				return true;
+			}
+			else if(c == JOYSTICK_X) { //X for next focus
+				x_next_focus();
+				return true;
+			}
+			else if(c == KEY_HOME) { 
+				x_close_focus();
+				return true;
+			}
 		}
-		else if(c == JOYSTICK_A) { //right
-			core_next_ux();
-			return true;
-		}
-		else if(c == JOYSTICK_X) { //up for focus
-			x_next_focus();
+		else if(c == KEY_HOME) {
+			x_launcher();
 			return true;
 		}
 	}
@@ -166,12 +191,12 @@ static int vkeyb_loop(void* p){
 
 	if(_release) {
 		if(_keyb_type == 'k') {
-			if(do_ctrl(_keys, KEY_NUM)) {
+			if(do_keyb_spec(_keys, KEY_NUM)) {
 				rd = 0;
 			}
 		}
 		else if(_keyb_type == 'j') {
-			if(do_joys(_keys, KEY_NUM)) {
+			if(do_joys_spec(_keys, KEY_NUM)) {
 				rd = 0;
 			}
 		}
@@ -181,11 +206,11 @@ static int vkeyb_loop(void* p){
 	if(rd > 0) {
 		memcpy(_keys, keys, rd);
 		if(_keyb_type == 'k') {
-			if(ctrl_down(_keys, KEY_NUM) >= 0)
+			if(ctrl_down(_keys, rd) >= 0)
 				rd = 0;
 		}
 		else if(_keyb_type == 'j') {
-			if(sel_down(_keys, KEY_NUM) >= 0) {
+			if(sel_down(_keys, rd) >= 0) {
 				rd = 0;
 			}
 		}
