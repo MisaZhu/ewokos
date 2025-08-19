@@ -192,7 +192,7 @@ static int console_loop(void* p) {
 		int n = keyb_read(_keyb_fd, evts, KEYB_EVT_MAX);
 		for(int i=0; i<n; i++) {
 			uint8_t c = evts[i].key;
-			if(evts[i].state != KEYB_STATE_PRESS || c > 128)
+			if(evts[i].state != KEYB_STATE_PRESS || c >= 128)
 				continue;
 
 			if(c == KEY_UP) {

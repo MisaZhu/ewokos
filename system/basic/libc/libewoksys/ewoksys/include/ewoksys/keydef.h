@@ -23,8 +23,8 @@ extern "C" {
 #define KEY_END             0xF1
 
 #define KEY_CTRL            0xF2
-#define KEY_LSHIFT          0xF3
-#define KEY_RSHIFT          0xF4
+#define KEY_LSHIFT          0xA2
+#define KEY_RSHIFT          0xA3
 
 #define JOYSTICK_A        97
 #define JOYSTICK_B        98
