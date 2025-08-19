@@ -87,7 +87,7 @@ static int ctrl_down(uint8_t* keys, uint8_t num) {
 static bool do_keyb_spec(uint8_t* keys, uint8_t num) {
 	int i = ctrl_down(keys, num);
 	if(i < 0)
-		return true;
+		return false;
 
 	for(int j=0; j<num; j++) {
 		if(j == i)
@@ -206,11 +206,11 @@ static int vkeyb_loop(void* p){
 	if(rd > 0) {
 		memcpy(_keys, keys, rd);
 		if(_keyb_type == 'k') {
-			if(ctrl_down(_keys, rd) >= 0)
+			if(ctrl_down(_keys, KEY_NUM) >= 0)
 				rd = 0;
 		}
 		else if(_keyb_type == 'j') {
-			if(sel_down(_keys, rd) >= 0) {
+			if(sel_down(_keys, KEY_NUM) >= 0) {
 				rd = 0;
 			}
 		}
