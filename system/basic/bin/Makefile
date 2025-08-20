@@ -39,6 +39,7 @@ builtin_apps:
 	cd json;make 
 	cd sysinfo;make 
 	cd mmio;make
+	cd splash;make
 
 clean:
 	cd cp;make clean
@@ -78,3 +79,4 @@ clean:
 	cd json;make clean
 	cd sysinfo;make clean
 	cd mmio;make clean
+	cd splash;make clean

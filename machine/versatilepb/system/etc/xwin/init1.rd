@@ -1,8 +1,8 @@
-@/bin/ipcserv /drivers/versatilepb/fbd  /dev/fb0
-@/bin/ipcserv /drivers/displayd         
-@/bin/ipcserv /drivers/fontd            
-@/bin/load_font
+@/bin/splash -i /usr/system/images/logos/ewokos.png -m "/drivers/tty_uart" -p 5 
+@/bin/ipcserv /drivers/versatilepb/ttyd /dev/tty0
 
-@export UX_ID=0
-@/bin/ipcserv /drivers/consoled  /dev/klog
-@export KLOG_DEV=/dev/klog
+@/bin/splash -i /usr/system/images/logos/ewokos.png -m "config sessiond" -p 8
+@/bin/ipcserv /sbin/sessiond
+
+@/bin/splash -i /usr/system/images/logos/ewokos.png -m "/dev/tty0" -p 10
+@/bin/bgrun /bin/session -r -t /dev/tty0 

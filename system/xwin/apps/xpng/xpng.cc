@@ -341,7 +341,7 @@ int main(int argc, char** argv) {
 	menubar->add(0, "load", NULL, NULL, onLoadFunc, imgView);
 	menubar->add(1, "+", NULL, NULL, onZoomInFunc, imgView);
 	menubar->add(2, "-", NULL, NULL, onZoomOutFunc, imgView);
-	menubar->add(3, "BGColor", NULL, NULL, onBGColorFunc, imgView);
+	menubar->add(3, "BG", NULL, NULL, onBGColorFunc, imgView);
 
 	win.open(&x, 0, -1, -1, 0, 0, "xpng", XWIN_STYLE_NORMAL);
 	win.setAlpha(true);

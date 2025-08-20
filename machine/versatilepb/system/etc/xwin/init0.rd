@@ -1,3 +1,7 @@
-@/bin/ipcserv /drivers/versatilepb/ttyd /dev/tty0
-@/bin/ipcserv /sbin/sessiond
-@/bin/bgrun /bin/session -r -t /dev/tty0 
+@/bin/ipcserv /drivers/versatilepb/fbd  /dev/fb0
+@/bin/ipcserv /drivers/displayd         
+@/bin/ipcserv /drivers/fontd            
+
+@export UX_ID=0
+@/bin/ipcserv /sbin/splashd
+@/bin/splash -i /usr/system/images/logos/ewokos.png -m "start..."

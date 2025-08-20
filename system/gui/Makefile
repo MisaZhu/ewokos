@@ -3,7 +3,7 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 ROOT_DIR = ..
 
 
-all: mkdirs extra_libs bins extra_driver 
+all: mkdirs extra_libs bins sbins extra_driver 
 	@echo "all done."
 
 mkdirs:
@@ -16,6 +16,9 @@ extra_libs:
 
 bins:
 	cd bin; make
+
+sbins:
+	cd sbin; make
 
 extra_driver:
 	cd drivers; make
