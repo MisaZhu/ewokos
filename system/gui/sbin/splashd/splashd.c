@@ -83,7 +83,7 @@ static void paint(uint32_t persantage, const char* msg, const char* img_fname) {
 	paint_img(img_fname);
 	graph_t* g = _splash_info.scr_g;
 	int32_t off_y = (g->h-_splash_info.h)/2 + 
-		_splash_info.h + _splash_info.item_h*2;
+		_splash_info.h - (_splash_info.item_h*2);
 
 	paint_progress(persantage, off_y);
 	off_y += _splash_info.item_h;
