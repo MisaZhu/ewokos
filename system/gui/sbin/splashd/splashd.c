@@ -32,9 +32,19 @@ typedef struct {
 
 static splashd_info_t _splash_info;
 
+static uint32_t  _font_size = DEFAULT_SYSTEM_FONT_SIZE;
+static uint32_t  _w = 240;
+static uint32_t  _h = 240;
+
 static void paint_bg(void) {
 	graph_t* g = _splash_info.scr_g;
 	graph_clear(g, 0xFFFFFFFF);
+
+	/*
+	int32_t off_x = (g->w- _w)/2;
+	int32_t off_y = (g->h- _h)/2;
+	graph_box_3d(g, off_x, off_y, _w, _h, 0xFFaaaaaa, 0xFF444444);
+	*/
 }
 
 static void paint_img(const char* img_fname) {
@@ -114,9 +124,37 @@ static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	}
 }
 
+static int doargs(int argc, char* argv[]) {
+	int c = 0;
+	while (c != -1) {
+		c = getopt (argc, argv, "w:h:f:");
+		if(c == -1)
+			break;
+
+		switch (c) {
+		case 'f':
+			_font_size = atoi(optarg);
+			break;
+		case 'w':
+			_w = atoi(optarg);
+			break;
+		case 'h':
+			_h = atoi(optarg);
+			break;
+		default:
+			c = -1;
+			break;
+		}
+	}
+	return optind;
+}
+
 int main(int argc, char** argv) {
-	(void)argc;
-	(void)argv;
+	_font_size = DEFAULT_SYSTEM_FONT_SIZE;
+	_w = 240;
+	_h = 240;
+
+	doargs(argc, argv);
 
 	fb_t fb;
     const char* fb_dev = get_display_fb_dev("/dev/display", 0);
@@ -124,9 +162,9 @@ int main(int argc, char** argv) {
 		return -1;
 
 	_splash_info.persantage = 0;
-	_splash_info.w = 240;
-	_splash_info.h = 240;
-	_splash_info.font_size = DEFAULT_SYSTEM_FONT_SIZE;
+	_splash_info.w = _w - 8;
+	_splash_info.h = _h - 8;
+	_splash_info.font_size = _font_size;
 	_splash_info.item_h = _splash_info.font_size+4;
 	_splash_info.scr_g = fb_fetch_graph(&fb);
 	_splash_info.img = NULL;
