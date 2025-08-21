@@ -35,10 +35,14 @@ static splashd_info_t _splash_info;
 static uint32_t  _font_size = DEFAULT_SYSTEM_FONT_SIZE;
 static uint32_t  _w = 240;
 static uint32_t  _h = 240;
+static bool      _dark_mode = false;
 
 static void paint_bg(void) {
 	graph_t* g = _splash_info.scr_g;
-	graph_clear(g, 0xFFFFFFFF);
+	if(_dark_mode)
+		graph_clear(g, 0xFF000000);
+	else
+		graph_clear(g, 0xFFFFFFFF);
 
 	/*
 	int32_t off_x = (g->w- _w)/2;
@@ -81,10 +85,14 @@ static void paint_progress(uint32_t persantage, int32_t off_y) {
 
 static void paint_msg(const char* msg, int32_t off_y) {
 	graph_t* g = _splash_info.scr_g;
+	uint32_t color = 0xFF000000;
+	if(_dark_mode)
+		color = 0xFFFFFFFF;
+	
 	if(msg != NULL && msg[0] != 0) {
 		int32_t off_x = (g->w-_splash_info.w)/2;
 		graph_draw_text_font(g, off_x, off_y,
-				msg, _splash_info.font, _splash_info.font_size, 0xFF000000);
+				msg, _splash_info.font, _splash_info.font_size, color);
 	}
 }
 
@@ -127,7 +135,7 @@ static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 static int doargs(int argc, char* argv[]) {
 	int c = 0;
 	while (c != -1) {
-		c = getopt (argc, argv, "w:h:f:");
+		c = getopt (argc, argv, "w:h:f:d");
 		if(c == -1)
 			break;
 
@@ -141,6 +149,9 @@ static int doargs(int argc, char* argv[]) {
 		case 'h':
 			_h = atoi(optarg);
 			break;
+		case 'd':
+			_dark_mode = true;
+			break;
 		default:
 			c = -1;
 			break;
@@ -153,6 +164,7 @@ int main(int argc, char** argv) {
 	_font_size = DEFAULT_SYSTEM_FONT_SIZE;
 	_w = 240;
 	_h = 240;
+	_dark_mode = false;
 
 	doargs(argc, argv);
 
