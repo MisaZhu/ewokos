@@ -19,7 +19,7 @@ typedef struct {
 	char name[NAME_LEN];
 	char fname[FNAME_LEN];
 	FT_Face face;
-	uint32_t current_size;
+	//uint32_t current_size;
 } ttf_item_t;
 
 #define TTF_MAX  128
@@ -174,13 +174,13 @@ static int font_dev_get_glyph(proto_t* in, proto_t* ret) {
 	}
 
 	FT_Face face = _ttfs[findex].face; 
-	if(_ttfs[findex].current_size != size) {
+	//if(_ttfs[findex].current_size != size) {
 		if(FT_Set_Pixel_Sizes(face, 0, size) != 0) {
 			PF->init(ret)->addi(ret, -1);
 			return -1;
 		}
-		_ttfs[findex].current_size = size;
-	}
+		//_ttfs[findex].current_size = size;
+	//}
 
 	uint32_t c = (uint32_t)proto_read_int(in);
 	FT_GlyphSlotRec slot;
