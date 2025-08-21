@@ -87,7 +87,7 @@ static void prepare_win_content(x_t* x, xwin_t* win) {
 		return;
 
 	graph_clear(win->frame_g, 0);
-	graph_blt(win->ws_g, 0, 0, win->ws_g->w, win->ws_g->h,
+	graph_blt(win->ws_g_buffer, 0, 0, win->ws_g_buffer->w, win->ws_g_buffer->h,
 			win->frame_g,
 			win->xinfo->wsr.x - win->xinfo->winr.x,
 			win->xinfo->wsr.y - win->xinfo->winr.y,
@@ -618,8 +618,8 @@ static void x_close(x_t* x) {
 static void x_repaint(x_t* x, uint32_t display_index) {
 	x_display_t* display = &x->displays[display_index];
 	if(display->g == NULL ||
-			!display->need_repaint ||
-			fb_busy(&display->fb))
+			!display->need_repaint)// ||
+			//fb_busy(&display->fb))
 		return;
 
 	display->need_repaint = false;
@@ -853,8 +853,11 @@ static int x_update(int fd, int from_pid, x_t* x) {
 		return -1;
 	
 	xwin_t* win = x_get_win(x, fd, from_pid);
-	if(win == NULL || win->xinfo == NULL || win->ws_g == NULL)
+	if(win == NULL || win->xinfo == NULL ||
+			win->ws_g == NULL || win->ws_g_buffer == NULL)
 		return -1;
+	memcpy(win->ws_g_buffer->buffer, win->ws_g->buffer,
+			win->ws_g->w * win->ws_g->h * sizeof(uint32_t));
 	if(!win->xinfo->visible)
 		return 0;
 	win_dirty(x, win);	
@@ -1111,6 +1114,11 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 			shmdt(win->ws_g_shm);
 			win->ws_g = NULL;
 			win->ws_g_shm = NULL;
+
+			if(win->ws_g_buffer != NULL) {
+				graph_free(win->ws_g_buffer);
+				win->ws_g_buffer = NULL;
+			}
 		}
 
 		if(win->frame_g != NULL && win->frame_g_shm != NULL) {
@@ -1134,6 +1142,7 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 		win->xinfo->ws_g_shm_id = ws_g_shm_id;
 		win->ws_g = graph_new(win->ws_g_shm, win->xinfo->wsr.w, win->xinfo->wsr.h);
 		graph_clear(win->ws_g, 0x0);
+		win->ws_g_buffer = graph_new(NULL, win->xinfo->wsr.w, win->xinfo->wsr.h);
 
 		key = ((((int32_t)win) +1) << 16) | proc_get_uuid(from_pid);
 		int32_t frame_g_shm_id = shmget(key,
@@ -1446,6 +1455,11 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 					shmdt(win->ws_g_shm);
 					win->ws_g = NULL;
 					win->ws_g_shm = NULL;
+
+					if(win->ws_g_buffer != NULL) {
+						graph_free(win->ws_g_buffer);
+						win->ws_g_buffer = NULL;
+					}
 				}
 			}
 			else if(x->current.drag_state == X_win_DRAG_MOVE) {

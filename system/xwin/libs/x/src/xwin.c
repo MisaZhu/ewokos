@@ -126,6 +126,10 @@ xwin_t* xwin_open(x_t* xp, uint32_t disp_index, int x, int y, int w, int h, cons
 		ret->xinfo->style |= XWIN_STYLE_NO_RESIZE | XWIN_STYLE_NO_TITLE;
 		ret->xinfo->state = XWIN_STATE_MAX;
 	}
+
+	if((style & XWIN_STYLE_MAX) != 0)
+		ret->xinfo->state = XWIN_STATE_MAX;
+
 	xwin_update_info(ret, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
 	pthread_mutex_init(&ret->painting_lock, NULL);
 	return ret;

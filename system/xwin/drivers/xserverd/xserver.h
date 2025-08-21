@@ -29,6 +29,7 @@ typedef struct st_xwin {
 
 	void*    ws_g_shm;
 	graph_t* ws_g; //workspace graph
+	graph_t* ws_g_buffer; //workspace graph buffer
 
 	void*    frame_g_shm;
 	graph_t* frame_g; //frame graph

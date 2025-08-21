@@ -66,6 +66,7 @@ enum {
 #define XWIN_STYLE_LAUNCHER       0x100
 #define XWIN_STYLE_PROMPT         0x200 //prompt win
 #define XWIN_STYLE_NO_BG_EFFECT   0x400
+#define XWIN_STYLE_MAX            0x800
 
 #define XWIN_TITLE_MAX 32
 #define X_APP_NAME_MAX 128

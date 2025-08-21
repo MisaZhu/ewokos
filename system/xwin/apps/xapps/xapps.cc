@@ -232,13 +232,12 @@ int main(int argc, char** argv) {
 
 	if(_launcher) {
 		win.open(&x, 0, 0, 0, 0, 0, "xapps", 
-			XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_NO_BG_EFFECT);
+			XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_NO_BG_EFFECT | XWIN_STYLE_MAX);
 	}
 	else {
 		win.open(&x, 0, 0, 0, 0, 0, "xapps", 
-			XWIN_STYLE_NO_TITLE | XWIN_STYLE_NO_BG_EFFECT);
+			XWIN_STYLE_NO_TITLE | XWIN_STYLE_NO_BG_EFFECT | XWIN_STYLE_MAX);
 	}
-	win.max();
 
 	win.busy(true);
 	apps->loadApps();
