@@ -61,7 +61,6 @@ typedef struct {
 typedef struct {
 	uint32_t fps;
 	bool force_fullscreen;
-	bool gray_mode;
 	uint32_t bg_proc_priority;
 
 	graph_t* logo;

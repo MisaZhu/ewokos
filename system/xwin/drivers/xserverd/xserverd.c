@@ -30,7 +30,6 @@ static int32_t read_config(x_t* x, const char* fname) {
 	json_var_t *conf_var = json_parse_file(fname);	
 
 	x->config.fps = json_get_int_def(conf_var, "fps", 30);
-	x->config.gray_mode = json_get_int_def(conf_var, "gray_mode", 0);
 	x->config.bg_proc_priority = json_get_int_def(conf_var, "bg_proc_priority", 2);
 
 	const char* v = json_get_str_def(conf_var, "logo", "/usr/system/icons/xlogo.png");
@@ -88,8 +87,9 @@ static void prepare_win_content(x_t* x, xwin_t* win) {
 		graph_clear(win->frame_g, 0);
 	
 	if(win->dirty || win->frame_dirty) {
+		graph_t* g = win->ws_g_buffer;
 		//klog("win title: %s win->dirty: %d win->frame_dirty: %d\n", win->xinfo->title, win->dirty, win->frame_dirty);
-		graph_blt(win->ws_g_buffer, 0, 0, win->ws_g_buffer->w, win->ws_g_buffer->h,
+		graph_blt(g, 0, 0, g->w, g->h,
 				win->frame_g,
 				win->xinfo->wsr.x - win->xinfo->winr.x,
 				win->xinfo->wsr.y - win->xinfo->winr.y,
@@ -687,8 +687,6 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 		memcpy(display->g_fb->buffer,
 				display->g->buffer,
 				display->g->w * display->g->h * 4);
-		if(x->config.gray_mode)
-			graph_gray(display->g_fb);
 		fb_flush(&display->fb, false);
 	}
 }
@@ -886,6 +884,7 @@ static int x_update(int fd, int from_pid, x_t* x) {
 	if(win == NULL || win->xinfo == NULL ||
 			win->ws_g == NULL || win->ws_g_buffer == NULL)
 		return -1;
+
 	if(!win->xinfo->visible)
 		return 0;
 
@@ -1175,7 +1174,7 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 		win->ws_g = graph_new(win->ws_g_shm, win->xinfo->wsr.w, win->xinfo->wsr.h);
 		graph_clear(win->ws_g, 0x0);
 		win->ws_g_buffer = graph_new(NULL, win->xinfo->wsr.w, win->xinfo->wsr.h);
-		graph_clear(win->ws_g, 0x0);
+		graph_clear(win->ws_g_buffer, 0x0);
 
 		key = ((((int32_t)win) +1) << 16) | proc_get_uuid(from_pid);
 		int32_t frame_g_shm_id = shmget(key,
