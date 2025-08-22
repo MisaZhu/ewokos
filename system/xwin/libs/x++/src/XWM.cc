@@ -363,6 +363,7 @@ XWM::~XWM(void) {
 		graph_free(desktopPattern);
 	if(font != NULL)
 		font_free(font);
+	font_quit();
 }
 
 void XWM::run(void) {

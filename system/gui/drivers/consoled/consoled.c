@@ -83,6 +83,7 @@ static void close_console(fb_console_t* console) {
 	if(console->icon != NULL)
 		graph_free(console->icon);
 	gterminal_close(&console->terminal);
+	font_quit();
 }
 
 static int reset_console(fb_console_t* console) {

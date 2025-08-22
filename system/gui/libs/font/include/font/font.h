@@ -43,6 +43,7 @@ typedef struct {
 
 
 int     font_init(void);
+void    font_quit(void);
 int     font_close(font_t* font);
 
 font_t* font_new(const char* fname, bool safe);

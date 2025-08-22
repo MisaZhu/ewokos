@@ -32,6 +32,16 @@ int font_init(void) {
 	return 0;
 }
 
+void font_quit() {
+	for(int i=0;i < TTF_MAX; i++) {
+		if(_ttfs[i].face != NULL) {
+			FT_Done_Face(_ttfs[i].face);
+			_ttfs[i].face = NULL;
+		}
+	}
+	FT_Done_FreeType(&_library);
+}
+
 int font_load(const char* name, const char* fname) {
 	for(int i=0; i<TTF_MAX; i++) {
 		if(_ttfs[i].face != NULL &&

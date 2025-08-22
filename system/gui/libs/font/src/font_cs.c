@@ -19,6 +19,10 @@ int font_init(void) {
 	return 0;
 }
 
+void font_quit(void) {
+
+}
+
 const char*  font_name_by_fname(const char* fname) {
 	static char ret[128];
 	memset(ret, 0, 128);

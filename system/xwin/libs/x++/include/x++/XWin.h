@@ -42,10 +42,7 @@ protected:
 	DialogedFuncT onDialogedFunc;
 public:
 	XWin(void);
-
-	inline virtual ~XWin(void) {
-		close();
-	}
+	virtual ~XWin(void);
 
 	inline void setOnDialogedFunc(DialogedFuncT func) {
 		onDialogedFunc = func;

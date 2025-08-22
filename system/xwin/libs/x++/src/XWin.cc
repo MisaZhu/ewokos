@@ -117,6 +117,11 @@ XWin::XWin(void) {
 	onDialogedFunc = NULL;
 }
 
+XWin::~XWin(void) {
+	close();
+	font_quit();
+}
+
 void XWin::close() {
 	if(xwin == NULL)
 		return;
