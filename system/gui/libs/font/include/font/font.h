@@ -11,6 +11,7 @@ extern "C" {
 #endif
 
 #define DEFAULT_SYSTEM_FONT       "system"
+#define DEFAULT_SYSTEM_FONT_PATH  "/usr/system/fonts"
 #define DEFAULT_SYSTEM_FONT_FILE  "/usr/system/fonts/system.ttf"
 #define DEFAULT_SYSTEM_FONT_SIZE  12
 
@@ -53,6 +54,7 @@ const char*  font_name_by_fname(const char* fname);
 int  font_get_height(font_t* font, uint32_t size);
 int  font_get_width(font_t* font, uint32_t size);
 int  font_get_face(font_t* font, uint32_t size, face_info_t* face);
+int  font_get_glyph_info(font_t* font, uint32_t size, uint32_t c, FT_GlyphSlot slot);
 void font_char_size(uint32_t c, font_t* font, uint32_t size, uint32_t *w, uint32_t* h);
 void font_text_size(const char* str, font_t* font , uint32_t size, uint32_t *w, uint32_t* h);
 

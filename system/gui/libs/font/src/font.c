@@ -10,16 +10,7 @@
 extern "C" {
 #endif
 
-static int _font_dev_pid = -1;
-
 #define FACE_PIXEL_DENT   64
-
-int font_init(void) {
-	_font_dev_pid = dev_get_pid("/dev/font");
-	if(_font_dev_pid < 0)
-		return -1;
-	return 0;
-}
 
 const char*  font_name_by_fname(const char* fname) {
 	static char ret[128];
@@ -36,26 +27,6 @@ const char*  font_name_by_fname(const char* fname) {
 		}
 		--i;
 	}
-	return ret;
-}
-
-int font_load(const char* name, const char* fname) {
-	if(_font_dev_pid < 0)
-		return -1;
-
-	if(name == NULL)
-		name = font_name_by_fname(fname);
-	proto_t in, out;
-	PF->init(&out);
-	PF->format(&in, "s,s", name, fname);
-
-	int ret = -1;
-	if(dev_cntl_by_pid(_font_dev_pid, FONT_DEV_LOAD, &in, &out) == 0) {
-		ret = proto_read_int(&out);
-	}
-
-	PF->clear(&in);
-	PF->clear(&out);
 	return ret;
 }
 
@@ -112,6 +83,16 @@ static void font_clear_cache(font_t* font) {
 	}
 }
 
+int font_close(font_t* font) {
+	if(font == NULL)
+		return -1;
+
+	font_clear_cache(font);
+	hashmap_free(font->cache);
+	font->cache = NULL;
+	return 0;
+}
+
 static inline const char* hash_key(uint32_t c, uint32_t size) {
 	static char key[16] = {0};
 	snprintf(key, 15, "%d:%x", size, c);
@@ -154,38 +135,9 @@ static void font_cache(font_t* font, uint32_t size, uint32_t c, FT_GlyphSlot slo
 	hashmap_put(font->cache, hash_key(c, size), p);
 }
 
-int font_close(font_t* font) {
-	if(_font_dev_pid < 0 || font == NULL)
-		return -1;
-
-	font_clear_cache(font);
-	hashmap_free(font->cache);
-	font->cache = NULL;
-	return 0;
-}
-
 FT_GlyphSlot font_init_glyph(FT_GlyphSlot glyph) {
 	memset(glyph, 0, sizeof(FT_GlyphSlotRec));
 	return glyph;
-}
-
-int font_get_face(font_t* font, uint32_t size, face_info_t* face) {
-	if(_font_dev_pid < 0 || font == NULL)
-		return -1;
-	memset(face, 0, sizeof(face_info_t));
-
-	int ret = -1;
-	proto_t in, out;
-	PF->init(&out);
-	PF->format(&in, "i,i", font->id, size);
-
-	if(dev_cntl_by_pid(_font_dev_pid, FONT_DEV_GET_FACE, &in, &out) == 0) {
-		proto_read_to(&out, face, sizeof(face_info_t));
-		ret = 0;
-	}
-	PF->clear(&in);
-	PF->clear(&out);
-	return ret;
 }
 
 int  font_get_height(font_t* font, uint32_t size) {
@@ -203,39 +155,17 @@ int  font_get_width(font_t* font, uint32_t size) {
 }
 
 static int font_get_glyph(font_t* font, uint32_t size, uint32_t c, FT_GlyphSlot slot) {
-	if(_font_dev_pid < 0 || font == NULL)
+	if(font == NULL)
 		return -1;
 	memset(slot, 0, sizeof(FT_GlyphSlotRec));
 
 	int ret = -1;
 	int do_cache = 0;
 	if(font_fetch_cache(font, size, c, slot) != 0) {
-		proto_t in, out;
-		PF->init(&out);
-		PF->format(&in, "i,i,i", font->id, size, c);
-
-		if(dev_cntl_by_pid(_font_dev_pid, FONT_DEV_GET_GLYPH, &in, &out) == 0) {
-			proto_read_to(&out, slot, sizeof(FT_GlyphSlotRec));
-			face_info_t* faceinfo = malloc(sizeof(face_info_t));
-			proto_read_to(&out, faceinfo, sizeof(face_info_t));
-			slot->other = faceinfo;
-
-			
-			int32_t sz;
-			void* p = proto_read(&out, &sz);
-			if(p == NULL || sz <= 0) {
-				slot->bitmap.buffer = NULL;
-			}
-			else {
-				slot->bitmap.buffer = malloc(sz);
-				memcpy(slot->bitmap.buffer, p, sz);
-			}
-
+		if(font_get_glyph_info(font, size, c, slot) == 0) {
 			ret = 0;
 			do_cache = 1;
 		}
-		PF->clear(&in);
-		PF->clear(&out);
 	}
 	else {
 		ret = 0;

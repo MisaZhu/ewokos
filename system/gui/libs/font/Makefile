@@ -8,7 +8,7 @@ LDFLAGS = -L$(TARGET_DIR)/lib
 
 CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_font_OBJS = src/font.o
+LIB_font_OBJS = src/font.o src/font_cs.o
 
 LIB_font = $(TARGET_DIR)/lib/libfont.a
 
