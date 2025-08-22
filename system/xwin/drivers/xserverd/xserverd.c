@@ -80,20 +80,27 @@ static void prepare_win_content(x_t* x, xwin_t* win) {
 	if(display->g == NULL)
 		return;
 
-	if(win->dirty || win->xinfo->focused || (win->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) != 0)
+	if(win->dirty && !win->xinfo->focused &&
+			(win->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) == 0)
 		win->frame_dirty = true;
+	
+	if(win->frame_dirty)
+		graph_clear(win->frame_g, 0);
+	
+	if(win->dirty || win->frame_dirty) {
+		//klog("win title: %s win->dirty: %d win->frame_dirty: %d\n", win->xinfo->title, win->dirty, win->frame_dirty);
+		graph_blt(win->ws_g_buffer, 0, 0, win->ws_g_buffer->w, win->ws_g_buffer->h,
+				win->frame_g,
+				win->xinfo->wsr.x - win->xinfo->winr.x,
+				win->xinfo->wsr.y - win->xinfo->winr.y,
+				win->xinfo->wsr.w,
+				win->xinfo->wsr.h);
+	}
 	
 	if(!win->frame_dirty)
 		return;
-
-	graph_clear(win->frame_g, 0);
-	graph_blt(win->ws_g_buffer, 0, 0, win->ws_g_buffer->w, win->ws_g_buffer->h,
-			win->frame_g,
-			win->xinfo->wsr.x - win->xinfo->winr.x,
-			win->xinfo->wsr.y - win->xinfo->winr.y,
-			win->xinfo->wsr.w,
-			win->xinfo->wsr.h);
 	
+	//klog("win title: %s win->frame_dirty: %d\n", win->xinfo->title, win->frame_dirty);
 	proto_t in;
 	PF->format(&in, "i,i,i,m",
 		display->g_shm_id,
@@ -197,7 +204,7 @@ static int draw_win(graph_t* disp_g, x_t* x, xwin_t* win) {
 			do_alpha = true;
 		}
 
-		if(1) {
+		if(do_alpha) {
 			graph_blt_alpha(g, 0, 0, 
 					win->xinfo->winr.w,
 					win->xinfo->winr.h,
@@ -619,11 +626,21 @@ static void x_close(x_t* x) {
 	}
 }
 
+static bool all_win_ready(x_t* x) {
+	xwin_t* win = x->win_head;
+	while(win != NULL) {
+		if(win->xinfo->visible && !win->ready)
+			return false;
+		win = win->next;
+	}
+	return true;
+}
+
 static void x_repaint(x_t* x, uint32_t display_index) {
 	x_display_t* display = &x->displays[display_index];
 	if(display->g == NULL ||
-			!display->need_repaint)// ||
-			//fb_busy(&display->fb))
+			!display->need_repaint ||
+			!all_win_ready(x))
 		return;
 
 	display->need_repaint = false;
@@ -644,8 +661,13 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 
 	xwin_t* win = x->win_head;
 	while(win != NULL) {
-		if(win->xinfo->visible && win->xinfo->display_index == display_index) {
-			if(display->dirty || win->dirty) {
+		if(win->ready && 
+				win->xinfo->visible &&
+				win->xinfo->display_index == display_index) {
+			if(display->dirty)
+				win->dirty = true;
+
+			if(win->dirty) {
 				if(draw_win(display->g, x, win) == 0)
 					do_flush = true;
 				if(drag_win(display->g, x, win) == 0)
@@ -731,8 +753,8 @@ static void mark_dirty_confirm(x_t* x, xwin_t* win) {
 			v->dirty_mark = false;
 			
 			if(v != win) {
-				if((v->xinfo->alpha || 
-						(v->xinfo->style & XWIN_STYLE_NO_FRAME) == 0 &&
+				if(v->xinfo->alpha || 
+						((v->xinfo->style & XWIN_STYLE_NO_FRAME) == 0 &&
 						x->config.xwm_theme.alpha)) {
 					x_dirty(x, v->xinfo->display_index);
 				}
@@ -763,18 +785,21 @@ static void mark_dirty(x_t* x, xwin_t* win) {
 				check_r = &win->xinfo->wsr;
 
 			grect_insect(check_r, &r);
+			if(r.w > 0 && r.h > 0)
+				top->dirty_mark = true; //mark top win dirty temporary
+			
 			if(r.x == check_r->x &&
 					r.y == check_r->y &&
 					r.w == check_r->w &&
-					r.h == check_r->h &&
-					!top->xinfo->alpha) { 
-				//covered by upon window. don't have to repaint.
-				win->dirty = false;
-				unmark_dirty(x, win);//unmark temporary dirty top win
-				return;
-			}
-			else if(r.w > 0 && r.h > 0) {
-				top->dirty_mark = true; //mark top win dirty temporary
+					r.h == check_r->h) {
+				if(!top->xinfo->alpha && 
+					(top->xinfo->focused ||
+					(top->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) != 0)) { 
+					//covered by upon window. don't have to repaint.
+						win->dirty = false;
+						unmark_dirty(x, win);//unmark temporary dirty top win
+						return;
+				}
 			}
 		}
 		top = top->next;
@@ -832,11 +857,12 @@ static int do_xwin_try_focus(int fd, int from_pid, x_t* x) {
 }
 
 static bool need_repaint_frame(x_t* x, xwin_t* win) {
-	if((win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0 &&
-				((x->config.xwm_theme.bgEffect && !win->xinfo->focused) ||
-					(x->config.xwm_theme.alpha &&
-					(win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0)) ||
-				x->config.xwm_theme.shadow > 0)
+	if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0)
+		return false;
+
+	if(x->config.xwm_theme.shadow > 0 ||
+		(x->config.xwm_theme.bgEffect && !win->xinfo->focused) ||
+		x->config.xwm_theme.alpha)
 			return true;
 	return false;
 }
@@ -860,10 +886,12 @@ static int x_update(int fd, int from_pid, x_t* x) {
 	if(win == NULL || win->xinfo == NULL ||
 			win->ws_g == NULL || win->ws_g_buffer == NULL)
 		return -1;
-	memcpy(win->ws_g_buffer->buffer, win->ws_g->buffer,
-			win->ws_g->w * win->ws_g->h * sizeof(uint32_t));
 	if(!win->xinfo->visible)
 		return 0;
+
+	memcpy(win->ws_g_buffer->buffer, win->ws_g->buffer,
+			win->ws_g->w * win->ws_g->h * sizeof(uint32_t));
+	win->ready = true;
 	win_dirty(x, win);	
 	return 0;
 }
@@ -1042,7 +1070,7 @@ static void mark_all_frame_dirty(x_t* x, int32_t disp_index) {
 	xwin_t* w = x->win_tail; 
 	while(w != NULL) {
 		xwin_t* p = w->prev;
-		if(w->xinfo->display_index == disp_index || disp_index < 0)
+		if(w->xinfo->display_index == (uint32_t)disp_index || disp_index < 0)
 			w->frame_dirty = true; //mark dirty temporary
 		w = p;
 	}
@@ -1147,6 +1175,7 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 		win->ws_g = graph_new(win->ws_g_shm, win->xinfo->wsr.w, win->xinfo->wsr.h);
 		graph_clear(win->ws_g, 0x0);
 		win->ws_g_buffer = graph_new(NULL, win->xinfo->wsr.w, win->xinfo->wsr.h);
+		graph_clear(win->ws_g, 0x0);
 
 		key = ((((int32_t)win) +1) << 16) | proc_get_uuid(from_pid);
 		int32_t frame_g_shm_id = shmget(key,
@@ -1161,8 +1190,8 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 
 		win->xinfo->frame_g_shm_id = frame_g_shm_id;
 		win->frame_g = graph_new(win->frame_g_shm, win->xinfo->winr.w, win->xinfo->winr.h);
-		//graph_clear(win->frame_g, 0x0);
 		win->frame_dirty = true;
+		win->ready = false;
 	}
 	x_update_frame_areas(x, win);
 

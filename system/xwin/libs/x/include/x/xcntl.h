@@ -81,7 +81,6 @@ typedef struct {
 	bool update_theme;
 	bool visible;
 	bool is_main;
-	bool covered;
 	bool alpha;
 	bool focused;
 	grect_t wsr; //workspace rect

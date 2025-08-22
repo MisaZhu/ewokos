@@ -36,6 +36,7 @@ typedef struct st_xwin {
 
 	xinfo_t* xinfo;
 	bool dirty;
+	bool ready;
 	bool frame_dirty;
 	bool dirty_mark;
 	bool busy;

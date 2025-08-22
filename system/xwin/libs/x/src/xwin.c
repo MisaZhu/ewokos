@@ -35,7 +35,7 @@ static int xwin_update_info(xwin_t* xwin, uint8_t type) {
 void xwin_busy(xwin_t* xwin, bool busy) {
 	proto_t in;
 	PF->init(&in)->addi(&in, busy);
-	int ret = vfs_fcntl_wait(xwin->fd, XWIN_CNTL_SET_BUSY, &in);
+	vfs_fcntl_wait(xwin->fd, XWIN_CNTL_SET_BUSY, &in);
 	PF->clear(&in);
 }
 
@@ -52,6 +52,7 @@ int xwin_top(xwin_t* xwin) {
 	return ret;
 }
 
+/*
 static int  x_get_win_rect(int xfd, int style, grect_t* wsr, grect_t* win_space) {
 	proto_t in, out;
 	PF->init(&out);
@@ -63,12 +64,13 @@ static int  x_get_win_rect(int xfd, int style, grect_t* wsr, grect_t* win_space)
 	PF->clear(&out);
 	return ret;
 }
+*/
 
 xwin_t* xwin_open(x_t* xp, uint32_t disp_index, int x, int y, int w, int h, const char* title, int style) {
 	if(w <= 0 || h <= 0)
 		return NULL;
 
-	if(disp_index >= x_get_display_num())
+	if((int32_t)disp_index >= x_get_display_num())
 		disp_index = 0;
 
 	int fd = open("/dev/x", O_RDWR);
@@ -203,15 +205,13 @@ void xwin_repaint(xwin_t* xwin) {
 		xwin->on_update_theme(xwin);
 	}
 
-	if(!xwin->xinfo->covered) {
-		graph_t g;
-		if(xwin_fetch_graph(xwin, &g) != NULL) {
-			if(xwin->on_repaint != NULL) {
-				xwin->on_repaint(xwin, &g);
-			}
+	graph_t g;
+	if(xwin_fetch_graph(xwin, &g) != NULL) {
+		if(xwin->on_repaint != NULL) {
+			xwin->on_repaint(xwin, &g);
 		}
-		vfs_fcntl_wait(xwin->fd, XWIN_CNTL_UPDATE, NULL);
 	}
+	vfs_fcntl_wait(xwin->fd, XWIN_CNTL_UPDATE, NULL);
 	xwin->xinfo->update_theme = false;	
 	pthread_mutex_unlock(&xwin->painting_lock);
 }
@@ -231,7 +231,7 @@ void xwin_repaint_req(xwin_t* xwin) {
 */
 
 int xwin_set_display(xwin_t* xwin, uint32_t display_index) {
-	if(display_index >= x_get_display_num())
+	if((int32_t)display_index >= x_get_display_num())
 		display_index = 0;
 
 	xwin->xinfo->display_index = display_index;

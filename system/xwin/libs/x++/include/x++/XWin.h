@@ -35,10 +35,6 @@ protected:
 	inline virtual void onEvent(xevent_t* ev)  { (void)ev; }
 	inline virtual void onDialoged(XWin* from, int res, void* arg)  { (void)from; (void) res; (void)arg; }
 
-	inline bool covered(void)  {
-		return xwin->xinfo->covered;
-	}
-
 	DialogedFuncT onDialogedFunc;
 public:
 	XWin(void);
