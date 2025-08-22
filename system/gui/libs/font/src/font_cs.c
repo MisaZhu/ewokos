@@ -19,6 +19,24 @@ int font_init(void) {
 	return 0;
 }
 
+const char*  font_name_by_fname(const char* fname) {
+	static char ret[128];
+	memset(ret, 0, 128);
+
+	char sname[FS_FULL_NAME_MAX];
+	vfs_file_name(fname, sname, FS_FULL_NAME_MAX);
+	strncpy(ret, sname, 127);
+	int i = strlen(sname)-1;
+	while(i >= 0) {
+		if(ret[i] == '.') {
+			ret[i] = 0;
+			break;
+		}
+		--i;
+	}
+	return ret;
+}
+
 int font_load(const char* name, const char* fname) {
 	if(_font_dev_pid < 0)
 		return -1;

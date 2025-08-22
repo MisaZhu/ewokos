@@ -12,24 +12,6 @@ extern "C" {
 
 #define FACE_PIXEL_DENT   64
 
-const char*  font_name_by_fname(const char* fname) {
-	static char ret[128];
-	memset(ret, 0, 128);
-
-	char sname[FS_FULL_NAME_MAX];
-	vfs_file_name(fname, sname, FS_FULL_NAME_MAX);
-	strncpy(ret, sname, 127);
-	int i = strlen(sname)-1;
-	while(i >= 0) {
-		if(ret[i] == '.') {
-			ret[i] = 0;
-			break;
-		}
-		--i;
-	}
-	return ret;
-}
-
 static int free_cache(map_t map, const char* key, any_t data, any_t arg) {
 	FT_GlyphSlot slot = (FT_GlyphSlot)data;
 	if(slot == NULL)
