@@ -461,6 +461,10 @@ static void x_del_win(x_t* x, xwin_t* win) {
 		graph_free(win->ws_g);
 		shmdt(win->ws_g_shm);
 	}
+	
+	if(win->ws_g_buffer != NULL) {
+		graph_free(win->ws_g_buffer);
+	}
 
 	if(win->frame_g != NULL) {
 		graph_free(win->frame_g);
@@ -1114,11 +1118,11 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 			shmdt(win->ws_g_shm);
 			win->ws_g = NULL;
 			win->ws_g_shm = NULL;
+		}
 
-			if(win->ws_g_buffer != NULL) {
-				graph_free(win->ws_g_buffer);
-				win->ws_g_buffer = NULL;
-			}
+		if(win->ws_g_buffer != NULL) {
+			graph_free(win->ws_g_buffer);
+			win->ws_g_buffer = NULL;
 		}
 
 		if(win->frame_g != NULL && win->frame_g_shm != NULL) {
