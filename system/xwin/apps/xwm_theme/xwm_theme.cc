@@ -58,37 +58,37 @@ static void loadTheme(LayoutWidget* layout) {
 	proto_read_to(&out, &_xwm_theme, sizeof(xwm_theme_t));
 	PF->clear(&out);
 
-	Widget* wd = layout->get("desktop_bg_color");
+	Widget* wd = layout->getChild("desktop_bg_color");
 	if(wd != NULL)  {
 		ColorButton* btn = (ColorButton*)wd;
 		btn->setColor(_xwm_theme.desktopBGColor);
 	}
 
-	wd = layout->get("frame_bg_color");
+	wd = layout->getChild("frame_bg_color");
 	if(wd != NULL)  {
 		ColorButton* btn = (ColorButton*)wd;
 		btn->setColor(_xwm_theme.frameBGColor);
 	}
 
-	wd = layout->get("frame_fg_color");
+	wd = layout->getChild("frame_fg_color");
 	if(wd != NULL)  {
 		ColorButton* btn = (ColorButton*)wd;
 		btn->setColor(_xwm_theme.frameFGColor);
 	}
 
-	wd = layout->get("font");
+	wd = layout->getChild("font");
 	if(wd != NULL)  {
 		LabelButton* btn = (LabelButton*)wd;
 		btn->setLabel(_xwm_theme.fontName);
 	}
 
-	wd = layout->get("desktop_image");
+	wd = layout->getChild("desktop_image");
 	if(wd != NULL)  {
 		LabelButton* btn = (LabelButton*)wd;
 		btn->setLabel(_xwm_theme.patternName);
 	}
 
-	wd = layout->get("image");
+	wd = layout->getChild("image");
 	if(wd != NULL)  {
 		Image* img = (Image*)wd;
 		img->dupTheme(layout->getWin()->getTheme());
@@ -102,32 +102,32 @@ static void setTheme(LayoutWidget* layout) {
 	if(xserv_pid < 0)
 		return;
 
-	Widget* wd = layout->get("desktop_bg_color");
+	Widget* wd = layout->getChild("desktop_bg_color");
 	if(wd != NULL)  {
 		ColorButton* btn = (ColorButton*)wd;
 		_xwm_theme.desktopBGColor = btn->getColor();
 	}
 
-	wd = layout->get("frame_bg_color");
+	wd = layout->getChild("frame_bg_color");
 	if(wd != NULL)  {
 		ColorButton* btn = (ColorButton*)wd;
 		_xwm_theme.frameBGColor = btn->getColor();
 	}
 
-	wd = layout->get("frame_fg_color");
+	wd = layout->getChild("frame_fg_color");
 	if(wd != NULL)  {
 		ColorButton* btn = (ColorButton*)wd;
 		_xwm_theme.frameFGColor = btn->getColor();
 	}
 
-	wd = layout->get("font");
+	wd = layout->getChild("font");
 	if(wd != NULL)  {
 		LabelButton* btn = (LabelButton*)wd;
 		memset(_xwm_theme.fontName, 0, FONT_NAME_MAX);
 		strncpy(_xwm_theme.fontName, btn->getLabel().c_str(), FONT_NAME_MAX-1);
 	}
 
-	wd = layout->get("desktop_image");
+	wd = layout->getChild("desktop_image");
 	if(wd != NULL)  {
 		LabelButton* btn = (LabelButton*)wd;
 		memset(_xwm_theme.patternName, 0, THEME_NAME_MAX);
@@ -194,7 +194,7 @@ static void _dialogedFunc(XWin* xwin, XWin* from, int res, void* arg) {
 			LayoutWidget* layout = ((LayoutWin*)xwin)->getLayoutWidget();
 			if(layout == NULL)
 				return;
-			Image* img = (Image*)layout->get("image");
+			Image* img = (Image*)layout->getChild("image");
 			if(img!= NULL) {
 				img->getTheme()->basic.bgColor = color;
 				img->update();
@@ -213,7 +213,7 @@ static void _dialogedFunc(XWin* xwin, XWin* from, int res, void* arg) {
 		if(layout == NULL)
 			return;
 
-		Image* img = (Image*)layout->get("image");
+		Image* img = (Image*)layout->getChild("image");
 		if(img!= NULL) {
 			img->loadImage(res.c_str());
 		}

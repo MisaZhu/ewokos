@@ -23,7 +23,7 @@ protected:
 
 	void onAdd();
 
-	void setAttr(const string& attr, const string& value);
+	void setAttr(const string& attr, json_var_t*value);
 public:
 	Splitter();
 

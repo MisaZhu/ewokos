@@ -50,10 +50,10 @@ void Split::onAdd() {
 	setWidth(width);
 }
 
-void Split::setAttr(const string& attr, const string& value) {
+void Split::setAttr(const string& attr, json_var_t*value) {
 	Widget::setAttr(attr, value);
 	if(attr == "width") {
-		setWidth(atoi(value.c_str()));
+		setWidth(json_var_get_int(value));
 	}
 }
 

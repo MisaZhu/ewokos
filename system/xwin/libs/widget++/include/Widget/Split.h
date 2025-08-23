@@ -10,7 +10,7 @@ protected:
 	bool horizontal;
 	uint32_t width;
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r);
-	void setAttr(const string& attr, const string& value);
+	void setAttr(const string& attr, json_var_t*value);
 	void onAdd();
 public:
 	Split();

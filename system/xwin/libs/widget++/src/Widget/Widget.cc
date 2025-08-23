@@ -30,28 +30,57 @@ Widget::~Widget(void)  {
 		delete themePrivate;
 }
 
-void Widget::setAttr(const string& name, const string& value) {
-	if(name == "id") {
-		setID(atoi(value.c_str()));
+void Widget::setAttr(const string& attr, json_var_t*value) {
+	if(attr == "id") {
+		setID(json_var_get_int(value));
 	}
-	else if(name == "name") {
-		setName(value.c_str());
+	else if(attr == "name") {
+		setName(json_var_get_str(value));
 	}
-	else if(name == "marginH") {
-		setMarginH(atoi(value.c_str()));
+	else if(attr == "marginH") {
+		setMarginH(json_var_get_int(value));
 	}
-	else if(name == "marginV") {
-		setMarginV(atoi(value.c_str()));
+	else if(attr == "marginV") {
+		setMarginV(json_var_get_int(value));
 	}
-	else if(name == "w") {
-		fix(atoi(value.c_str()), area.h);
+	else if(attr == "w") {
+		fix(json_var_get_int(value), area.h);
 	}
-	else if(name == "h") {
-		fix(area.w, atoi(value.c_str()));
+	else if(attr == "h") {
+		fix(area.w, json_var_get_int(value));
 	}
-	else if(name == "alpha") {
-		setAlpha(atoi(value.c_str()));
+	else if(attr == "alpha") {
+		setAlpha(json_var_get_int(value));
 	}
+}
+
+json_var_t* Widget::getAttr(const string& attr) {
+	if(attr == "id") {
+		return json_var_new_int(id);
+	}
+	else if(attr == "name") {
+		return json_var_new_str(name.c_str());
+	}
+	else if(attr == "marginH") {
+		return json_var_new_int(marginH);
+	}
+	else if(attr == "marginV") {
+		return json_var_new_int(marginV);
+	}
+	else if(attr == "w") {
+		return json_var_new_int(area.w);
+	}
+	else if(attr == "h") {
+		return json_var_new_int(area.h);
+	}
+	else if(attr == "alpha") {
+		return json_var_new_bool(alpha);
+	}
+	return NULL;
+}
+
+json_var_t* Widget::onCall(const string& funcName, json_var_t* arg) {
+	return NULL;
 }
 
 void Widget::dupTheme(XTheme* theme)  {

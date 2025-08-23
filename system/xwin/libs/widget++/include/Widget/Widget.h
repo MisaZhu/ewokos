@@ -3,6 +3,7 @@
 
 #include <x++/XWin.h>
 #include <string.h>
+#include <tinyjson/tinyjson.h>
 #include <ewoksys/klog.h>
 
 namespace Ewok {
@@ -58,7 +59,9 @@ protected:
 	virtual void onUnfocus() { }
 	virtual void onAdd() { }
 	virtual bool onEvent(xevent_t* ev);
-	virtual void setAttr(const string& attr, const string& value);
+	virtual void setAttr(const string& attr, json_var_t*value);
+	virtual json_var_t* getAttr(const string& attr);
+	virtual json_var_t* onCall(const string& funName, json_var_t* arg);
 
 	WidgetEventFuncT onEventFunc;
 	void* onEventFuncArg;
@@ -121,7 +124,10 @@ public:
 
 	virtual gsize_t getMinSize(void);
 	void update();
-	void set(const string& attr, const string& value) { setAttr(attr, value); }
+
+	inline void set(const string& attr, json_var_t* value) { setAttr(attr, value); }
+	inline json_var_t* get(const string& attr) { return getAttr(attr); }
+	inline json_var_t* call(const string& funcName, json_var_t* arg) { return onCall(funcName, arg); }
 };
 
 }

@@ -170,12 +170,12 @@ json_var_t* json_var_new_obj(void*p, free_func_t fr);
 json_var_t* json_var_new_float(float i);
 json_var_t* json_var_new_str(const char* s);
 json_var_t* json_var_new_str2(const char* s, uint32_t len);
-const char* json_var_json_get_str(json_var_t* var);
+const char* json_var_get_str(json_var_t* var);
 json_var_t* json_var_set_str(json_var_t* var, const char* v);
-int json_var_json_get_int(json_var_t* var);
+int json_var_get_int(json_var_t* var);
 json_var_t* json_var_set_int(json_var_t* var, int v);
-bool json_var_json_get_bool(json_var_t* var);
-float json_var_json_get_float(json_var_t* var);
+bool json_var_get_bool(json_var_t* var);
+float json_var_get_float(json_var_t* var);
 json_var_t* json_var_set_float(json_var_t* var, float v);
 
 void json_var_to_json_str(json_var_t*, str_t*, int);

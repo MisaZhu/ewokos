@@ -26,10 +26,10 @@ void Label::setLabel(const string& str) {
 	update();
 }
 
-void Label::setAttr(const string& attr, const string& value) {
+void Label::setAttr(const string& attr, json_var_t*value) {
 	Widget::setAttr(attr, value);
 	if(attr == "label") {
-		setLabel(value);
+		setLabel(json_var_get_str(value));
 	}
 }
 

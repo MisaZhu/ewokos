@@ -37,7 +37,7 @@ int main(int argc, char** argv) {
 
 	json_var_t* v = json_find_var(var, "/kid/sister/name");
 	if(v != NULL)
-		printf("%s\n", json_var_json_get_str(v));
+		printf("%s\n", json_var_get_str(v));
 
 	json_var_unref(var);
 	return 0;

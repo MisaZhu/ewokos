@@ -58,31 +58,31 @@ static void loadTheme(LayoutWidget* layout) {
 	proto_read_to(&out, &_xtheme, sizeof(x_theme_t));
 	PF->clear(&out);
 
-	Widget* wd = layout->get("bg_color");
+	Widget* wd = layout->getChild("bg_color");
 	if(wd != NULL)  {
 		ColorButton* btn = (ColorButton*)wd;
 		btn->setColor(_xtheme.bgColor);
 	}
 
-	wd = layout->get("fg_color");
+	wd = layout->getChild("fg_color");
 	if(wd != NULL)  {
 		ColorButton* btn = (ColorButton*)wd;
 		btn->setColor(_xtheme.fgColor);
 	}
 
-	wd = layout->get("doc_bg_color");
+	wd = layout->getChild("doc_bg_color");
 	if(wd != NULL)  {
 		ColorButton* btn = (ColorButton*)wd;
 		btn->setColor(_xtheme.docBGColor);
 	}
 
-	wd = layout->get("doc_fg_color");
+	wd = layout->getChild("doc_fg_color");
 	if(wd != NULL)  {
 		ColorButton* btn = (ColorButton*)wd;
 		btn->setColor(_xtheme.docFGColor);
 	}
 
-	wd = layout->get("font");
+	wd = layout->getChild("font");
 	if(wd != NULL)  {
 		LabelButton* btn = (LabelButton*)wd;
 		btn->setLabel(_xtheme.fontName);
@@ -94,31 +94,31 @@ static void setTheme(LayoutWidget* layout) {
 	if(xserv_pid < 0)
 		return;
 
-	Widget* wd = layout->get("bg_color");
+	Widget* wd = layout->getChild("bg_color");
 	if(wd != NULL)  {
 		ColorButton* btn = (ColorButton*)wd;
 		_xtheme.bgColor = btn->getColor();
 	}
 
-	wd = layout->get("fg_color");
+	wd = layout->getChild("fg_color");
 	if(wd != NULL)  {
 		ColorButton* btn = (ColorButton*)wd;
 		_xtheme.fgColor = btn->getColor();
 	}
 
-	wd = layout->get("doc_bg_color");
+	wd = layout->getChild("doc_bg_color");
 	if(wd != NULL)  {
 		ColorButton* btn = (ColorButton*)wd;
 		_xtheme.docBGColor = btn->getColor();
 	}
 
-	wd = layout->get("doc_fg_color");
+	wd = layout->getChild("doc_fg_color");
 	if(wd != NULL)  {
 		ColorButton* btn = (ColorButton*)wd;
 		_xtheme.docFGColor = btn->getColor();
 	}
 
-	wd = layout->get("font");
+	wd = layout->getChild("font");
 	if(wd != NULL)  {
 		LabelButton* btn = (LabelButton*)wd;
 		memset(_xtheme.fontName, 0, FONT_NAME_MAX);

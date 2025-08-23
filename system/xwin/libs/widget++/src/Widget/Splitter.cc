@@ -87,7 +87,7 @@ bool Splitter::onMouse(xevent_t* ev) {
 		Container* r = getRootContainer();
 		if(r == NULL)
 			return false;
-		Widget* wd = r->get(attachedName);
+		Widget* wd = r->getChild(attachedName);
 		if(wd != NULL)
 			attach(wd, attachedAfter);
 	}
@@ -142,16 +142,16 @@ Splitter::Splitter() {
 	attachedWidget = NULL;
 }
 
-void Splitter::setAttr(const string& attr, const string& value) {
+void Splitter::setAttr(const string& attr, json_var_t*value) {
 	Widget::setAttr(attr, value);
 	if(attr == "attach") {
-		attachedName = value;
+		attachedName = json_var_get_str(value);
 	}	
 	else if(attr == "attachAfter") {
-		attachedAfter = atoi(value.c_str());
+		attachedAfter = json_var_get_int(value);
 	}
 	else if(attr == "width") {
-		setWidth(atoi(value.c_str()));
+		setWidth(json_var_get_int(value));
 	}
 }
 

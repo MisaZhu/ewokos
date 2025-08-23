@@ -10,7 +10,7 @@ class Image: public Widget {
 
 protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r);
-	void setAttr(const string& attr, const string& value);
+	void setAttr(const string& attr, json_var_t*value);
 
 public:
 	Image(const char* fname = "");

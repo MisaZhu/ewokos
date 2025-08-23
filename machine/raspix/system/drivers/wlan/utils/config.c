@@ -43,7 +43,7 @@ int config_match_ssid(const char* ssid){
 			if(n){
 				json_node_t* s = json_var_find(n->var, "ssid");
 				if(s && s->var->type == JSON_V_STRING){
-					if(strcmp(ssid, json_var_json_get_str(s->var)) == 0)
+					if(strcmp(ssid, json_var_get_str(s->var)) == 0)
 						return i;
 				}
 			}
@@ -59,7 +59,7 @@ int config_get_priority(int idx){
 		if(n){
 			json_node_t* p = json_var_find(n->var, "priority");
 			if(p && p->var->type == JSON_V_INT){
-				return json_var_json_get_int(p->var);
+				return json_var_get_int(p->var);
 			}
 		}
 	}
@@ -73,7 +73,7 @@ const char* config_get_pmk(int idx){
 		if(n){
 			json_node_t* p = json_var_find(n->var, "pmk");
 			if(p && p->var->type == JSON_V_STRING){
-				return json_var_json_get_str(p->var);
+				return json_var_get_str(p->var);
 			}
 		}
 		}
@@ -87,7 +87,7 @@ const char* config_get_passwd(int idx){
 		if(n){
 			json_node_t* p = json_var_find(n->var, "passwd");
 			if(p && p->var->type == JSON_V_STRING){
-				return json_var_json_get_str(p->var);
+				return json_var_get_str(p->var);
 			}
 		}
 	}
@@ -102,7 +102,7 @@ const char* config_get_ssid(int idx){
 		if(n){
 			json_node_t* p = json_var_find(n->var, "ssid");
 			if(p && p->var->type == JSON_V_STRING){
-					return json_var_json_get_str(p->var);
+					return json_var_get_str(p->var);
 			}
 		}
 	}

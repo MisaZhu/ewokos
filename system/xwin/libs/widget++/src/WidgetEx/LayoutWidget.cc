@@ -192,10 +192,7 @@ bool LayoutWidget::load(Widget* wd, json_var_t* var, const string& type) {
                     return false;
 			}
             else { //set attr
-                str_t* str = str_new("");
-                json_var_to_str(node->var, str);
-                wd->set(node->name, str->cstr);
-                str_free(str);
+                wd->set(node->name, node->var);
             }
 		}
 	}
