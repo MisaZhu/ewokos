@@ -51,6 +51,10 @@ public:
 			graph_free(img_small);
 	}
 protected:
+	void onResize() {
+		tic = 0;
+	}
+
 	void onEvent(xevent_t* ev) {
 		int key = 0;
 		if(ev->type == XEVT_IM) {
