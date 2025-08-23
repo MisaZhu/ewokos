@@ -12,7 +12,7 @@
 extern "C" {
 #endif
 
-#define BUF_SIZE 128
+#define BUF_SIZE 256
 static char _buf[BUF_SIZE+1];
 static int32_t _klog_fd = -1;
 

@@ -8,5 +8,6 @@
     {"ext":".js", "open_with": "/apps/xread/xread", "icon": "icons/js.png" },
     {"ext":".mbc", "open_with": "/bin/mario", "icon": "icons/js.png" },
     {"ext":".xwl", "open_with": "/apps/wlayout/wlayout", "icon": "icons/json.png" },
+    {"ext":".wjs", "open_with": "/bin/wjs", "icon": "icons/json.png" },
     {"ext":".ttf", "open_with": "/bin/x/xfont", "icon": "icons/font.png" }
 ]
