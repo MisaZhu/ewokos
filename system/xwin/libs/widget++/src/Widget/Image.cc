@@ -48,6 +48,7 @@ bool  Image::loadImage(const char* fname) {
 	image = png_image_new(X::getResName(fname));
 	if(image == NULL)
 		return false;
+	update();
 	return true;
 }
 
