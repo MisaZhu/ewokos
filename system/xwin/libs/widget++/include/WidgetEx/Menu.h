@@ -37,7 +37,7 @@ public:
     void hide();
 };
 
-class MenuItem {
+class MenuItem : public UniObject {
 public:
     string title;
     uint32_t id;

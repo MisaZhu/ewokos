@@ -5,10 +5,11 @@
 #include <font/font.h>
 #include <tinyjson/tinyjson.h>
 #include <string.h>
+#include <UniObject/UniObject.h>
 
 namespace Ewok {
 
-class XTheme {
+class XTheme : public UniObject {
 	font_t*  font;
 
 public:

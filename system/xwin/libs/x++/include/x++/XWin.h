@@ -5,6 +5,7 @@
 #include <x++/XTheme.h>
 #include <graph/graph_ex.h>
 #include <string>
+#include <UniObject/UniObject.h>
 
 using namespace std;
 namespace Ewok {
@@ -14,7 +15,7 @@ class XWin;
 
 typedef void (*DialogedFuncT)(XWin* xwin, XWin* from, int res, void* arg);
 
-class XWin {
+class XWin : public UniObject {
 protected:
 	X* x;
 	uint32_t displayIndex;

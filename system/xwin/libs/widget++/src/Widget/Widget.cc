@@ -79,10 +79,6 @@ json_var_t* Widget::getAttr(const string& attr) {
 	return NULL;
 }
 
-json_var_t* Widget::onCall(const string& funcName, json_var_t* arg) {
-	return NULL;
-}
-
 void Widget::dupTheme(XTheme* theme)  {
 	if(themePrivate != NULL)
 		delete themePrivate;

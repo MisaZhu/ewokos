@@ -17,6 +17,7 @@ basic_libs:
 	cd gterminal;make
 	cd c++/stl;make
 	cd c++/c++;make
+	cd c++/object++;make
 
 clean:
 	cd openlibm;make clean

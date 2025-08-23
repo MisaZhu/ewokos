@@ -46,6 +46,7 @@ CXXFLAGS = \
         -fno-builtin-unistd \
         -fno-rtti \
         -fno-exceptions \
+        -fno-use-cxa-atexit \
         -std=c++11
 
 CFLAGS += -D __bss_start__=__bss_start -D __bss_end__=__BSS_END__

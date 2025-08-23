@@ -7,10 +7,11 @@
 #include <ewoksys/vfs.h>
 #include <stdio.h>
 #include <font/font.h>
+#include <UniObject/UniObject.h>
 
 namespace Ewok {
 
-class X {
+class X : public UniObject {
 	x_t x;
 public:
 	inline x_t* c_x(void) { return &x; }

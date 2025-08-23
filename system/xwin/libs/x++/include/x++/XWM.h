@@ -4,11 +4,12 @@
 #include <x/xwm.h>
 #include <graph/graph_ex.h>
 #include <font/font.h>
+#include <UniObject/UniObject.h>
 
 namespace Ewok {
 
 
-class XWM {
+class XWM : public UniObject {
 protected:
 	xwm_t xwm;
 	font_t* font;

@@ -21,6 +21,7 @@ CXXFLAGS = -march=armv8-a -Wno-incompatible-pointer-types -Wno-int-conversion \
 		-fno-rtti \
 		-mstrict-align \
         -fno-exceptions \
+        -fno-use-cxa-atexit \
         -std=c++14
 
 CFLAGS += -DNEON_BOOST

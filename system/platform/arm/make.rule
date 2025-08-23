@@ -21,6 +21,7 @@ CXXFLAGS = -marm \
 	-fno-rtti \
         -fno-exceptions \
         -fno-strict-aliasing \
+        -fno-use-cxa-atexit \
         -std=c++14
 
 ifeq ($(ARCH_VER),v7)
