@@ -1,41 +1,40 @@
 {
-    "jsfile": "/data/test/layout.js",
-    "layout": "horizontal",
+    "layout": "verticle",
     "children": [
         {
-            "name": "button",
-            "type": "LabelButton",
-            "w": 100,
-            "label": "Button"
+            "layout": "horizontal",
+            "name": "buttons",
+            "h": 32,
+            "children": [
+                {
+                    "name": "button1",
+                    "type": "LabelButton",
+                    "label": "button1"
+                },
+                {
+                    "name": "button2",
+                    "type": "LabelButton",
+                    "label": "button1"
+                }
+            ]
         },
         {
             "name": "split",
             "type": "Splitter",
-            "attach": "button"
+            "attach": "buttons"
         },
         {
-            "name": "image",
-            "type": "Image",
-            "file": "/usr/system/icons/apple.png"
-        },
-        {
-            "type": "Splitter",
-            "attach": "layout2",
-            "attachAfter": 1
-        },
-        {
-            "name": "layout2",
-            "layout": "verticle",
+            "layout": "horizontal",
             "children": [
                 {
-                    "name": "button2",
-                    "type": "LabelButton",
-                    "h": 100,
-                    "label": "Button2"
+                    "name": "image1",
+                    "type": "Image",
+                    "file": "/usr/system/icons/apple.png"
                 },
                 {
                     "type": "Splitter",
-                    "attach": "button2"
+                    "attach": "image2",
+                    "attachAfter": 1
                 },
                 {
                     "name": "image2",
