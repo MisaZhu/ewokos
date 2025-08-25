@@ -34,7 +34,7 @@
                 {
                     "type": "Splitter",
                     "attach": "image2",
-                    "attachAfter": 1
+                    "attachAfter": true
                 },
                 {
                     "name": "image2",

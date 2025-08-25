@@ -38,7 +38,7 @@
                 {
                     "type": "Splitter",
                     "attach": "toolbar",
-                    "attachAfter": 1
+                    "attachAfter": true
                 },
                 {
                     "name": "toolbar",

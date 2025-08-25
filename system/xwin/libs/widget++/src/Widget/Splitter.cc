@@ -148,7 +148,7 @@ void Splitter::setAttr(const string& attr, json_var_t*value) {
 		attachedName = json_var_get_str(value);
 	}	
 	else if(attr == "attachAfter") {
-		attachedAfter = json_var_get_int(value);
+		attachedAfter = json_var_get_bool(value);
 	}
 	else if(attr == "width") {
 		setWidth(json_var_get_int(value));
