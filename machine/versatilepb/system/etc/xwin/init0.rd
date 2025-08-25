@@ -1,6 +1,6 @@
 @/bin/ipcserv /drivers/versatilepb/fbd  /dev/fb0
 @/bin/ipcserv /drivers/displayd         
-@/bin/ipcserv /drivers/fontd            
+@/bin/ipcserv /drivers/fontd -l
 
 @export UX_ID=0
 @/bin/ipcserv /sbin/splashd -w 320 -h 240 -f 14
