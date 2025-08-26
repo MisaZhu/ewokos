@@ -165,7 +165,7 @@ static void font_cache(int32_t findex, uint32_t size, uint32_t c, FT_GlyphSlot s
 #endif
 }
 
-static FT_Int _load_mode = FT_LOAD_TARGET_NORMAL;
+static FT_Int _load_mode = FT_LOAD_TARGET_LIGHT;
 static FT_Int _hinting = 0;
 static int font_dev_get_glyph(proto_t* in, proto_t* ret) {
 	int findex = proto_read_int(in);
@@ -282,17 +282,8 @@ static int doargs(int argc, char* argv[]) {
 		case 'l':
 			_load_mode = FT_LOAD_TARGET_LIGHT;
 			break;
-		case 'm':
-			_load_mode = FT_LOAD_TARGET_MONO;
-			break;
 		case 'n':
 			_load_mode = FT_LOAD_TARGET_NORMAL;
-			break;
-		case 'c':
-			_load_mode = FT_LOAD_TARGET_LCD;
-			break;
-		case 'v':
-			_load_mode = FT_LOAD_TARGET_LCD_V;
 			break;
 		case 'h':
 			_hinting = FT_LOAD_FORCE_AUTOHINT;
