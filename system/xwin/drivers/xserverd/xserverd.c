@@ -79,8 +79,9 @@ static void prepare_win_content(x_t* x, xwin_t* win) {
 	if(display->g == NULL)
 		return;
 
-	if(win->dirty && !win->xinfo->focused &&
-			(win->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) == 0)
+	if((win->dirty && !win->xinfo->focused &&
+			(win->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) == 0) ||
+			display->dirty)
 		win->frame_dirty = true;
 	
 	if(win->frame_dirty)
