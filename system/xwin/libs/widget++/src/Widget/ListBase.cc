@@ -7,7 +7,7 @@ namespace Ewok {
 ListBase::ListBase() {
 	itemNum = 0;
 	itemStart = 0;
-	itemMargin = 0;
+	itemMargin = 2;
 	itemSelected = 0;
 }
 
