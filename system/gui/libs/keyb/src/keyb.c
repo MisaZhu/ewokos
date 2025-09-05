@@ -10,7 +10,7 @@ extern "C" {
 #include <unistd.h>
 
 #define KEY_REPEAT_TIMEOUT	50
-#define KEY_HOLD_TIMEOUT	100
+#define KEY_HOLD_TIMEOUT	150
 #define KEY_TIMER	        10000 //100 fps
 
 #define KEY_MAX_ONE_TIME    6

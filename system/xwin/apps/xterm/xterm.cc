@@ -278,7 +278,7 @@ static void* thread_loop(void* p) {
 	_win_opened = true;
 
 	win.setAlpha(true);
-	win.setTimer(10);
+	win.setTimer(30);
 
 	widgetXRun(&x, &win);
 	device_stop(_dev);
