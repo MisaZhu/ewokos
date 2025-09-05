@@ -58,7 +58,7 @@ public:
 		if(ux != UX_X_DEFAULT)
 			return 0;
 
-		keyb_evt_t evts[KEYB_EVT_MAX];
+		keyb_evt_t evts[KEYB_EVT_MAX] = {0};
 		int n = keyb_read(keybFD, evts, KEYB_EVT_MAX);
 		for(int i=0; i<n; i++)
 			input(evts[i].key, evts[i].state);
