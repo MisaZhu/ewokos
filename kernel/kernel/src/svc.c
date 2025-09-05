@@ -27,7 +27,7 @@ static uint32_t _svc_total;
 
 static void sys_kprint(const char* s, int32_t len) {
 	(void)len;
-	printf("%s", s);
+	kout(s);
 }
 
 static void sys_exit(context_t* ctx, int32_t res) {
