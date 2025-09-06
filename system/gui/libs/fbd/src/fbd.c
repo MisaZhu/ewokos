@@ -17,8 +17,9 @@ typedef struct {
 	int32_t  shm_id;
 } fb_dma_t;
 
-static fbinfo_t* _fbinfo = NULL;
+static fbinfo_t _fbinfo = {0};
 static int32_t _rotate = 0;
+static uint32_t _zoom = 1;
 static fbd_t* _fbd = NULL;
 static char _logo[256] = {0};
 
@@ -37,9 +38,9 @@ static int fb_fcntl(int fd,
 	(void)p;
 	if(cmd == FB_CNTL_GET_INFO) { //get fb size
 		if(_rotate == G_ROTATE_N90 || _rotate == G_ROTATE_90)
-			PF->addi(out, _fbinfo->height)->addi(out, _fbinfo->width)->addi(out, _fbinfo->depth);
+			PF->addi(out, _fbinfo.height)->addi(out, _fbinfo.width)->addi(out, _fbinfo.depth);
 		else
-			PF->addi(out, _fbinfo->width)->addi(out, _fbinfo->height)->addi(out, _fbinfo->depth);
+			PF->addi(out, _fbinfo.width)->addi(out, _fbinfo.height)->addi(out, _fbinfo.depth);
 	}
 	return 0;
 }
@@ -90,33 +91,43 @@ static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, in
 		}
 	}
 
+	graph_t* tmp_g = &g;
 	if(gr != NULL) {
 		graph_rotate_to(&g, gr, rotate);
-		uint32_t res = _fbd->flush(fbinfo, gr);
-		graph_free(gr);
-		return res;
+		tmp_g = gr;
 	}
 
-	return 	_fbd->flush(fbinfo, &g);
+	if(_zoom > 1) {
+		graph_t* gzoom = graph_new(NULL, tmp_g->w/_zoom, tmp_g->h/_zoom);
+		graph_scale_to(tmp_g, gzoom, -(int32_t)_zoom);
+		tmp_g = gzoom;
+	}
+
+	uint32_t res = _fbd->flush(fbinfo, tmp_g);
+	if(gr != NULL)
+		graph_free(gr);
+	if(tmp_g != &g)
+		graph_free(tmp_g);
+	return res;
 }
 
 static void init_graph(fb_dma_t* dma) {
 	graph_t g;
 	if(_rotate == G_ROTATE_N90 || _rotate == G_ROTATE_90)
-		graph_init(&g, (const uint32_t*)dma->shm, _fbinfo->height, _fbinfo->width);
+		graph_init(&g, (const uint32_t*)dma->shm, _fbinfo.height, _fbinfo.width);
 	else
-		graph_init(&g, (const uint32_t*)dma->shm, _fbinfo->width, _fbinfo->height);
+		graph_init(&g, (const uint32_t*)dma->shm, _fbinfo.width, _fbinfo.height);
 
 	if(_fbd->splash != NULL)
 		_fbd->splash(&g, _logo);
 	else
 		default_splash(&g, _logo);
-	flush(_fbinfo, dma->shm, dma->size, _rotate);
+	flush(&_fbinfo, dma->shm, dma->size, _rotate);
 }
 
 static int fb_dma_init(fb_dma_t* dma) {
 	memset(dma, 0, sizeof(fb_dma_t));
-	uint32_t sz = _fbinfo->width*_fbinfo->height*4;
+	uint32_t sz = _fbinfo.width*_fbinfo.height*4;
 	key_t key = (((int32_t)dma) << 16) | getpid(); 
 	dma->shm_id = shmget(key, sz + 1, 0666 | IPC_CREAT | IPC_EXCL); //one more byte (head) for busy flag 
 	if(dma->shm_id == -1)
@@ -124,11 +135,18 @@ static int fb_dma_init(fb_dma_t* dma) {
 	dma->shm = shmat(dma->shm_id, 0, 0); //one more byte (head) for busy flag 
 	if(dma->shm == NULL)
 		return -1;
-	//dma->size = _fbinfo->size_max;
+	//dma->size = _fbinfo.size_max;
 	memset(dma->shm, 0, sz+1);
 	dma->size = sz;
 	init_graph(dma);
 	return 0;
+}
+
+static void fb_get_info() {
+	fbinfo_t* info = _fbd->get_info();
+	memcpy(&_fbinfo, info, sizeof(fbinfo_t));
+	_fbinfo.width *= _zoom;
+	_fbinfo.height *= _zoom;
 }
 
 static int fb_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
@@ -142,13 +160,13 @@ static int fb_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p
 		int bpp = proto_read_int(in);
 		if(_fbd->init(w, h, bpp) != 0)
 			return -1;
-		_fbinfo = _fbd->get_info();
+		fb_get_info();
 	}
 	else if(cmd == FB_DEV_CNTL_GET_INFO) {
 		if(_rotate == G_ROTATE_N90 || _rotate == G_ROTATE_90)
-			PF->addi(ret, _fbinfo->height)->addi(ret, _fbinfo->width)->addi(ret, _fbinfo->depth);
+			PF->addi(ret, _fbinfo.height)->addi(ret, _fbinfo.width)->addi(ret, _fbinfo.depth);
 		else
-			PF->addi(ret, _fbinfo->width)->addi(ret, _fbinfo->height)->addi(ret, _fbinfo->depth);
+			PF->addi(ret, _fbinfo.width)->addi(ret, _fbinfo.height)->addi(ret, _fbinfo.depth);
 	}	
 	return 0;
 }
@@ -160,7 +178,7 @@ static int32_t do_flush(fb_dma_t* dma) {
 
 	uint32_t size = dma->size;
 	buf[size] = 1; //busy
-	int32_t res = flush(_fbinfo, buf, size, _rotate);
+	int32_t res = flush(&_fbinfo, buf, size, _rotate);
 	buf[size] = 0; //done
 	return res;
 }
@@ -187,17 +205,23 @@ static int32_t fb_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) 
 	return dma->shm_id;
 }
 
-static void read_config(uint32_t* w, uint32_t* h, uint8_t* dep, int32_t* rotate) {
+static void read_config(uint32_t* w, uint32_t* h, uint8_t* dep, int32_t* rotate, uint32_t* zoom) {
 	json_var_t *conf_var = json_parse_file("/etc/framebuffer.json");	
 
 	const char* v = json_get_str_def(conf_var, "logo", "/usr/system/images/logos/ewokos.png");
 	if(v[0] != 0) 
 		strncpy(_logo, v, 255);
 
+	*zoom = json_get_int_def(conf_var, "zoom", 1);
 	*w = json_get_int_def(conf_var, "width", 0);
 	*h = json_get_int_def(conf_var, "height", 0);
 	*dep = json_get_int_def(conf_var, "depth", 0);
 	*rotate = json_get_int_def(conf_var, "rotate", 0);
+
+	if(*zoom < 1)
+		*zoom = 1;
+	*w *= *zoom;
+	*h *= *zoom;
 
 	if(conf_var != NULL)
 		json_var_unref(conf_var);
@@ -207,17 +231,17 @@ int fbd_run(fbd_t* fbd, const char* mnt_name,
 		uint32_t def_w, uint32_t def_h, int32_t def_rotate) {
 	_fbd = fbd;
 	uint32_t w = def_w, h = def_h;
+	_zoom = 1;
 	uint8_t dep = 32;
 	_rotate = def_rotate;
 
-
-	read_config(&w, &h, &dep, &_rotate);
+	read_config(&w, &h, &dep, &_rotate, &_zoom);
 
 	fb_dma_t dma;
 	dma.shm = NULL;
 	if(fbd->init(w, h, dep) != 0)
 		return -1;
-	_fbinfo = fbd->get_info();
+	fb_get_info();
 	
 	if(fb_dma_init(&dma) != 0)
 		return -1;
