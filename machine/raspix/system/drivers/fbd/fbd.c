@@ -28,7 +28,7 @@ static uint32_t flush(const fbinfo_t* fbinfo, const graph_t* g) {
 
 	uint32_t sz = 4 * g->w * g->h;
 	if(fbinfo->depth == 16)
-		blt16(g->buffer, fbinfo->pointer, fbinfo->width, fbinfo->height);
+		blt16(g->buffer, fbinfo->pointer, g->w, g->h);
 	else if(fbinfo->pointer != g->buffer)
 		memcpy((void*)fbinfo->pointer, g->buffer, sz);
 	return sz;
