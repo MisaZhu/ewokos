@@ -12,8 +12,7 @@ CFLAGS =  -march=armv8-a -Wno-incompatible-pointer-types -Wno-int-conversion \
 		-mstrict-align \
         -std=c99
 
-CXXFLAGS = -march=armv8-a -Wno-incompatible-pointer-types -Wno-int-conversion \
-		-Wno-implicit-function-declaration \
+CXXFLAGS = -march=armv8-a \
         -Wall -Wextra -fPIC \
 		-fno-builtin-memset \
         -Wno-unused-parameter \
