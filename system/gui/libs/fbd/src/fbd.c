@@ -98,8 +98,8 @@ static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, in
 	}
 
 	if(_zoom > 1) {
-		graph_t* gzoom = graph_new(NULL, tmp_g->w/_zoom, tmp_g->h/_zoom);
-		graph_scale_to(tmp_g, gzoom, -(int32_t)_zoom);
+		graph_t* gzoom = graph_new(NULL, tmp_g->w*_zoom, tmp_g->h*_zoom);
+		graph_scale_to(tmp_g, gzoom, _zoom);
 		tmp_g = gzoom;
 	}
 
@@ -145,8 +145,8 @@ static int fb_dma_init(fb_dma_t* dma) {
 static void fb_get_info() {
 	fbinfo_t* info = _fbd->get_info();
 	memcpy(&_fbinfo, info, sizeof(fbinfo_t));
-	_fbinfo.width *= _zoom;
-	_fbinfo.height *= _zoom;
+	_fbinfo.width /= _zoom;
+	_fbinfo.height /= _zoom;
 }
 
 static int fb_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
@@ -220,8 +220,6 @@ static void read_config(uint32_t* w, uint32_t* h, uint8_t* dep, int32_t* rotate,
 
 	if(*zoom < 1)
 		*zoom = 1;
-	*w *= *zoom;
-	*h *= *zoom;
 
 	if(conf_var != NULL)
 		json_var_unref(conf_var);
