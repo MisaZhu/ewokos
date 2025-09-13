@@ -20,6 +20,13 @@ const char* get_display_fb_dev(const char* display_man_dev, uint32_t display_ind
 	return ret;
 }
 
+int  display_fb_open(const char* display_man_dev, uint32_t display_index, fb_t* fb) {
+	const char* fb_dev = get_display_fb_dev(display_man_dev, display_index); 
+	if(fb_open(fb_dev, display_index, fb) != 0)
+		return -1;
+	return 0;
+}
+
 uint32_t get_display_num(const char* display_man_dev) {
 	proto_t out;
 	PF->init(&out);

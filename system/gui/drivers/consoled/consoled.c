@@ -66,8 +66,7 @@ static int init_console(fb_console_t* console, const char* display_dev, const ui
 
 	console->display_dev = display_dev;
 	console->display_index = display_index;
-	const char* fb_dev = get_display_fb_dev(display_dev, console->display_index);
-	if(fb_open(fb_dev, &console->fb) != 0)
+	if(display_fb_open(display_dev, console->display_index, &console->fb) != 0)
 		return -1;
 	init_graph(console);
 	gterminal_init(&console->terminal);
@@ -171,7 +170,7 @@ static int console_read(int fd,
 
 static int console_loop(void* p) {
 	fb_console_t* console = (fb_console_t*)p;
-	if(_ux_index != core_get_active_ux()) {
+	if(console->display_index == 0 && _ux_index != core_get_active_ux()) {
 		usleep(200000);
 		_flush = true;
 		return 0;

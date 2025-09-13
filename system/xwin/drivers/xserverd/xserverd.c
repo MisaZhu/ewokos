@@ -545,8 +545,7 @@ static inline void refresh_cursor(x_t* x) {
 static int x_init_display(x_t* x, int32_t display_index) {
 	uint32_t display_num = get_display_num(x->display_man);
 	if(display_index >= 0 && display_index < (int32_t)display_num) {
-		const char* fb_dev = get_display_fb_dev(x->display_man, display_index);
-		if(fb_open(fb_dev, &x->displays[display_index].fb) != 0)
+		if(display_fb_open(x->display_man, display_index, &x->displays[display_index].fb) != 0)
 			return -1;
 		graph_t *g_fb = fb_fetch_graph(&x->displays[display_index].fb);
 		x->displays[display_index].g_fb = g_fb;
@@ -570,8 +569,7 @@ static int x_init_display(x_t* x, int32_t display_index) {
 	}
 
 	for(uint32_t i=0; i<display_num; i++) {
-		const char* fb_dev = get_display_fb_dev(x->display_man, i);
-		if(fb_open(fb_dev, &x->displays[i].fb) != 0)
+		if(display_fb_open(x->display_man, i, &x->displays[i].fb) != 0)
 			return -1;
 		graph_t *g_fb = fb_fetch_graph(&x->displays[i].fb);
 		x->displays[i].g_fb = g_fb;

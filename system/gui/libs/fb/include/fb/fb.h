@@ -8,6 +8,7 @@ extern "C" {
 #endif
 
 typedef struct {
+	uint32_t display_index;
 	int fd;
 	void* dma;
 	graph_t* g;
@@ -23,7 +24,7 @@ enum {
 };
 
 int      fb_set(const char *dev, int w, int h, int bpp);
-int      fb_open(const char *dev, fb_t* fb);
+int      fb_open(const char *dev, uint32_t disp_index, fb_t* fb);
 int      fb_dev_info(const char *dev, int* w, int* h, int* bpp);
 int      fb_info(fb_t* fb, int* w, int* h, int* bpp);
 graph_t* fb_fetch_graph(fb_t* fb);

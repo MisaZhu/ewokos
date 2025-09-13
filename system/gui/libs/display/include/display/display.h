@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <fb/fb.h>
 
 enum {
     DISP_GET_DISP_DEV = 0,
@@ -15,5 +16,7 @@ enum {
 const char* get_display_fb_dev(const char* display_man_dev, uint32_t display_index);
 uint32_t    add_display_fb_dev(const char* display_man_dev, const char* fb_dev);
 uint32_t    get_display_num(const char* display_man_dev);
+int         display_fb_open(const char* display_man_dev, uint32_t display_index, fb_t* fb);
+
 
 #endif

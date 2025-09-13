@@ -9,8 +9,7 @@
 
 int main(int argc, char** argv) {
     fb_t fb;
-    const char* fb_dev = get_display_fb_dev("/dev/display", 0);
-	if(fb_open(fb_dev, &fb) != 0)
+	if(display_fb_open("/dev/display", 0, &fb) != 0)
 		return -1;
 
 	graph_t *g = fb_fetch_graph(&fb);
