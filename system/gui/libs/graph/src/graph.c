@@ -265,18 +265,71 @@ graph_t* graph_scale(graph_t* g, int scale) {
 }
 
 void graph_scale_tof(graph_t* g, graph_t* dst, float scale) {
-	if(scale <= 0.0 ||
-			dst->w < (int)(g->w*scale) ||
-			dst->h < (int)(g->h*scale))
-		return;
-	
-	for(int i=0; i<dst->h; i++) {
-		int gi = i / scale;
-		for(int j=0; j<dst->w; j++) {
-			int gj = j / scale;
-			dst->buffer[i*dst->w + j] = g->buffer[(gi*g->w + gj)];
-		}
-	}
+    if(scale <= 0.0 ||
+            dst->w < (int)(g->w*scale) ||
+            dst->h < (int)(g->h*scale))
+        return;
+    
+    // 使用双线性插值算法添加抗锯齿平滑
+    for(int i=0; i<dst->h; i++) {
+        float gi = (float)i / scale; // 浮点坐标
+        int gi0 = (int)gi;           // 整数部分
+        float gi_frac = gi - gi0;    // 小数部分
+        
+        // 确保不会越界
+        if(gi0 >= g->h-1) gi0 = g->h-2;
+        if(gi0 < 0) gi0 = 0;
+        
+        for(int j=0; j<dst->w; j++) {
+            float gj = (float)j / scale; // 浮点坐标
+            int gj0 = (int)gj;           // 整数部分
+            float gj_frac = gj - gj0;    // 小数部分
+            
+            // 确保不会越界
+            if(gj0 >= g->w-1) gj0 = g->w-2;
+            if(gj0 < 0) gj0 = 0;
+            
+            // 获取四个相邻像素的颜色
+            uint32_t p00 = g->buffer[gi0*g->w + gj0];
+            uint32_t p01 = g->buffer[gi0*g->w + (gj0+1)];
+            uint32_t p10 = g->buffer[(gi0+1)*g->w + gj0];
+            uint32_t p11 = g->buffer[(gi0+1)*g->w + (gj0+1)];
+            
+            // 分解颜色通道
+            uint8_t r00 = (p00 >> 16) & 0xFF;
+            uint8_t g00 = (p00 >> 8) & 0xFF;
+            uint8_t b00 = p00 & 0xFF;
+            uint8_t a00 = (p00 >> 24) & 0xFF;
+            
+            uint8_t r01 = (p01 >> 16) & 0xFF;
+            uint8_t g01 = (p01 >> 8) & 0xFF;
+            uint8_t b01 = p01 & 0xFF;
+            uint8_t a01 = (p01 >> 24) & 0xFF;
+            
+            uint8_t r10 = (p10 >> 16) & 0xFF;
+            uint8_t g10 = (p10 >> 8) & 0xFF;
+            uint8_t b10 = p10 & 0xFF;
+            uint8_t a10 = (p10 >> 24) & 0xFF;
+            
+            uint8_t r11 = (p11 >> 16) & 0xFF;
+            uint8_t g11 = (p11 >> 8) & 0xFF;
+            uint8_t b11 = p11 & 0xFF;
+            uint8_t a11 = (p11 >> 24) & 0xFF;
+            
+            // 双线性插值计算目标像素颜色
+            uint8_t r = (uint8_t)((1 - gi_frac) * ((1 - gj_frac) * r00 + gj_frac * r01) + 
+                                 gi_frac * ((1 - gj_frac) * r10 + gj_frac * r11));
+            uint8_t g_val = (uint8_t)((1 - gi_frac) * ((1 - gj_frac) * g00 + gj_frac * g01) + 
+                                     gi_frac * ((1 - gj_frac) * g10 + gj_frac * g11));
+            uint8_t b = (uint8_t)((1 - gi_frac) * ((1 - gj_frac) * b00 + gj_frac * b01) + 
+                                 gi_frac * ((1 - gj_frac) * b10 + gj_frac * b11));
+            uint8_t a = (uint8_t)((1 - gi_frac) * ((1 - gj_frac) * a00 + gj_frac * a01) + 
+                                 gi_frac * ((1 - gj_frac) * a10 + gj_frac * a11));
+            
+            // 重新组合颜色通道
+            dst->buffer[i*dst->w + j] = (a << 24) | (r << 16) | (g_val << 8) | b;
+        }
+    }
 }
 
 graph_t* graph_scalef(graph_t* g, float scale) {

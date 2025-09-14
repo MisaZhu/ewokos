@@ -162,7 +162,7 @@ public:
 	}
 };
 
-static uint32_t _itemSize = 72;
+static uint32_t _itemSize = 96;
 static uint32_t _fontSize = 0;
 
 static int doargs(int argc, char* argv[]) {
@@ -220,7 +220,7 @@ int main(int argc, char** argv) {
 	AppGrid* apps = new AppGrid();
 	apps->setAlpha(true);
 	apps->setItemSize(_itemSize, _itemSize);
-	apps->setIconSize(_itemSize/2);
+	apps->setIconSize(_itemSize*2/3);
 	root->add(apps);
 	root->focus(apps);
 
