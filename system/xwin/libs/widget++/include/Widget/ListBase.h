@@ -17,6 +17,7 @@ protected:
 
 	virtual void drawBG(graph_t* g, XTheme* theme, const grect_t& r);
 	virtual void onSelect(int sel);
+	virtual void onUnselect(int sel);
 	virtual void onEnter(int sel);
 
 	virtual void selectByMouse(xevent_t* ev);

@@ -22,6 +22,9 @@ void ListBase::drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
 void ListBase::onSelect(int sel) {
 }
 
+void ListBase::onUnselect(int sel) {
+}
+
 void ListBase::onEnter(int sel) {
 }
 
@@ -57,8 +60,10 @@ bool ListBase::onMouse(xevent_t* ev) {
 }
 
 void ListBase::select(int sel) {
-	if(sel < 0 || sel >= itemNum)
+	if(sel < 0 || sel >= itemNum) {
+		onUnselect(sel);
 		itemSelected = -1;
+	}
 	else {
 		itemSelected = sel;
 		onSelect(sel);

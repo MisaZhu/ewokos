@@ -109,6 +109,10 @@ protected:
 		drawTitle(g, index, theme, r.x , r.y, r.w, r.h);
 	}
 
+	void onUnselect(int index) {
+		getWin()->close();
+	}
+
 	void onEnter(int index) {
 		x_exec(items[index].fname.c_str());
 		if(!_launcher)
