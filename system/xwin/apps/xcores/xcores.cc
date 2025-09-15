@@ -174,7 +174,7 @@ int main(int argc, char** argv) {
 	Cores* cores = new Cores();
 	root->add(cores);
 
-	win.open(&x, 0, -1, -1, 240, 120, "xcores", XWIN_STYLE_NORMAL | XWIN_STYLE_NO_BG_EFFECT);
+	win.open(&x, 0, -1, -1, 320, 120, "xcores", XWIN_STYLE_NORMAL | XWIN_STYLE_NO_BG_EFFECT);
 	win.setTimer(1);
 
 	widgetXRun(&x, &win);	
