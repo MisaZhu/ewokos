@@ -42,6 +42,15 @@ class FileGrid: public Grid {
 	graph_t* devIcon;
 
 	CWDLabel *cwdLabel;
+
+	const char* getFullname(const char* dname) {
+		static char fname[FS_FULL_NAME_MAX+1] = {0};
+		if(strcmp(cwd, "/") == 0)
+			snprintf(fname, FS_FULL_NAME_MAX, "/%s", dname);
+		else
+			snprintf(fname, FS_FULL_NAME_MAX, "%s/%s", cwd, dname);
+		return fname;
+	}
  
 	void drawIcon(graph_t* g, int at, XTheme* theme, int x, int y, int w, int h) {
 		graph_t* img = NULL;
@@ -183,7 +192,8 @@ class FileGrid: public Grid {
 		return ret;
 	}
 
-	graph_t*  getIcon(const char* fname) {
+	graph_t*  getIcon(const char* dname) {
+		const char* fname = getFullname(dname);
 		if(fileTypes == NULL)
 			return NULL;
 		int num = json_var_array_size(fileTypes);
@@ -230,16 +240,11 @@ protected:
 
 	void onEnter(int i) {
 		struct dirent* it = &files[i];
-		char fname[FS_FULL_NAME_MAX+1];
 		if(strcmp(it->d_name, "..") == 0) {
 			upBack();
 			return;
 		}
-		else if(strcmp(cwd, "/") == 0)
-			snprintf(fname, FS_FULL_NAME_MAX, "/%s", it->d_name);
-		else
-			snprintf(fname, FS_FULL_NAME_MAX, "%s/%s", cwd, it->d_name);
-
+		const char *fname = getFullname(it->d_name);
 		if(it->d_type == DT_DIR) {
 			fileWidget->enter(fname);
 			readDir(fname);
@@ -254,11 +259,7 @@ protected:
 
 	void onSelect(int i) {
 		struct dirent* it = &files[i];
-		char fname[FS_FULL_NAME_MAX+1];
-		if(strcmp(cwd, "/") == 0)
-			snprintf(fname, FS_FULL_NAME_MAX, "/%s", it->d_name);
-		else
-			snprintf(fname, FS_FULL_NAME_MAX, "%s/%s", cwd, it->d_name);
+		const char *fname = getFullname(it->d_name);
 		fileWidget->select(fname);
 	}
 
