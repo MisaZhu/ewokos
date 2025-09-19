@@ -19,7 +19,9 @@ typedef struct {
 
 static fbinfo_t _fbinfo = {0};
 static int32_t _rotate = 0;
-static uint32_t _zoom = 1;
+static float _zoom = 1.0;
+static int32_t _zwidth;
+static int32_t _zheight;
 static fbd_t* _fbd = NULL;
 static char _logo[256] = {0};
 
@@ -38,9 +40,9 @@ static int fb_fcntl(int fd,
 	(void)p;
 	if(cmd == FB_CNTL_GET_INFO) { //get fb size
 		if(_rotate == G_ROTATE_N90 || _rotate == G_ROTATE_90)
-			PF->addi(out, _fbinfo.height)->addi(out, _fbinfo.width)->addi(out, _fbinfo.depth);
+			PF->addi(out, _zheight)->addi(out, _zwidth)->addi(out, _fbinfo.depth);
 		else
-			PF->addi(out, _fbinfo.width)->addi(out, _fbinfo.height)->addi(out, _fbinfo.depth);
+			PF->addi(out, _zwidth)->addi(out, _zheight)->addi(out, _fbinfo.depth);
 	}
 	return 0;
 }
@@ -75,19 +77,13 @@ static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, in
 
 	graph_t* gr = NULL;
 	if(rotate == G_ROTATE_N90 || rotate == G_ROTATE_90) {
-		graph_init(&g, buf, fbinfo->height, fbinfo->width);
-		if(fbinfo->depth == 16)
-			gr = graph_new(NULL, fbinfo->width, fbinfo->height);
-		else
-			gr = graph_new((uint32_t*)fbinfo->pointer, fbinfo->width, fbinfo->height);
+		graph_init(&g, buf, _zheight, _zwidth);
+		gr = graph_new(NULL, _zwidth, _zheight);
 	}
 	else {
-		graph_init(&g, buf, fbinfo->width, fbinfo->height);
+		graph_init(&g, buf, _zwidth, _zheight);
 		if(rotate == G_ROTATE_180) {
-			if(fbinfo->depth == 16)
-				gr = graph_new(NULL, fbinfo->width, fbinfo->height);
-			else
-				gr = graph_new((uint32_t*)fbinfo->pointer, fbinfo->width, fbinfo->height);
+			gr = graph_new(NULL, _zwidth, _zheight);
 		}
 	}
 
@@ -97,9 +93,9 @@ static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, in
 		tmp_g = gr;
 	}
 
-	if(_zoom > 1) {
-		graph_t* gzoom = graph_new(NULL, tmp_g->w*_zoom, tmp_g->h*_zoom);
-		graph_scale_to(tmp_g, gzoom, _zoom);
+	if(_zoom > 0.0 && _zoom != 8.0 && _zoom != 1.0) {
+		graph_t* gzoom = graph_new(NULL, fbinfo->width, fbinfo->height);
+		graph_scale_tof(tmp_g, gzoom, _zoom);
 		tmp_g = gzoom;
 	}
 
@@ -114,9 +110,9 @@ static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, in
 static void init_graph(fb_dma_t* dma) {
 	graph_t g;
 	if(_rotate == G_ROTATE_N90 || _rotate == G_ROTATE_90)
-		graph_init(&g, (const uint32_t*)dma->shm, _fbinfo.height, _fbinfo.width);
+		graph_init(&g, (const uint32_t*)dma->shm, _zheight, _zwidth);
 	else
-		graph_init(&g, (const uint32_t*)dma->shm, _fbinfo.width, _fbinfo.height);
+		graph_init(&g, (const uint32_t*)dma->shm, _zwidth, _zheight);
 
 	if(_fbd->splash != NULL)
 		_fbd->splash(&g, _logo);
@@ -127,7 +123,7 @@ static void init_graph(fb_dma_t* dma) {
 
 static int fb_dma_init(fb_dma_t* dma) {
 	memset(dma, 0, sizeof(fb_dma_t));
-	uint32_t sz = _fbinfo.width*_fbinfo.height*4;
+	uint32_t sz = _zwidth * _zheight * 4;
 	key_t key = (((int32_t)dma) << 16) | getpid(); 
 	dma->shm_id = shmget(key, sz + 1, 0666 | IPC_CREAT | IPC_EXCL); //one more byte (head) for busy flag 
 	if(dma->shm_id == -1)
@@ -145,8 +141,8 @@ static int fb_dma_init(fb_dma_t* dma) {
 static void fb_get_info() {
 	fbinfo_t* info = _fbd->get_info();
 	memcpy(&_fbinfo, info, sizeof(fbinfo_t));
-	_fbinfo.width /= _zoom;
-	_fbinfo.height /= _zoom;
+	_zwidth = _fbinfo.width / _zoom;
+	_zheight = _fbinfo.height / _zoom;
 }
 
 static int fb_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
@@ -164,9 +160,9 @@ static int fb_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p
 	}
 	else if(cmd == FB_DEV_CNTL_GET_INFO) {
 		if(_rotate == G_ROTATE_N90 || _rotate == G_ROTATE_90)
-			PF->addi(ret, _fbinfo.height)->addi(ret, _fbinfo.width)->addi(ret, _fbinfo.depth);
+			PF->addi(ret, _zheight)->addi(ret, _zwidth)->addi(ret, _fbinfo.depth);
 		else
-			PF->addi(ret, _fbinfo.width)->addi(ret, _fbinfo.height)->addi(ret, _fbinfo.depth);
+			PF->addi(ret, _zwidth)->addi(ret, _zheight)->addi(ret, _fbinfo.depth);
 	}	
 	return 0;
 }
@@ -205,21 +201,23 @@ static int32_t fb_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) 
 	return dma->shm_id;
 }
 
-static void read_config(uint32_t* w, uint32_t* h, uint8_t* dep, int32_t* rotate, uint32_t* zoom) {
+static void read_config(uint32_t* w, uint32_t* h, uint8_t* dep, int32_t* rotate, float* zoom) {
 	json_var_t *conf_var = json_parse_file("/etc/framebuffer.json");	
 
 	const char* v = json_get_str_def(conf_var, "logo", "/usr/system/images/logos/ewokos.png");
 	if(v[0] != 0) 
 		strncpy(_logo, v, 255);
 
-	*zoom = json_get_int_def(conf_var, "zoom", 1);
+	*zoom = json_get_float_def(conf_var, "zoom", 1.0);
 	*w = json_get_int_def(conf_var, "width", 0);
 	*h = json_get_int_def(conf_var, "height", 0);
 	*dep = json_get_int_def(conf_var, "depth", 0);
 	*rotate = json_get_int_def(conf_var, "rotate", 0);
 
-	if(*zoom < 1)
-		*zoom = 1;
+	if(*zoom <= 0)
+		*zoom = 1.0;
+	else if(*zoom > 8.0)
+		*zoom = 8.0;
 
 	if(conf_var != NULL)
 		json_var_unref(conf_var);
@@ -229,7 +227,7 @@ int fbd_run(fbd_t* fbd, const char* mnt_name,
 		uint32_t def_w, uint32_t def_h, int32_t def_rotate) {
 	_fbd = fbd;
 	uint32_t w = def_w, h = def_h;
-	_zoom = 1;
+	_zoom = 1.0;
 	uint8_t dep = 32;
 	_rotate = def_rotate;
 

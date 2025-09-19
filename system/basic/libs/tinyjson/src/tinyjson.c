@@ -518,7 +518,7 @@ static json_var_t* json_parse_factor(json_lex_t *l) {
 		return json_var_new_int(i);
 	}
 	else if (l->tk==JSON_LEX_FLOAT) {
-		float f = 0.0;//TODO atof(l->tk_str->cstr);
+		float f = atof(l->tk_str->cstr);
 		json_lex_js_chkread(l, JSON_LEX_FLOAT);
 		return json_var_new_float(f);
 	}

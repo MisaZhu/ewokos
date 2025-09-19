@@ -209,9 +209,7 @@ bool str_to_bool(const char* str) {
 }
 
 float str_to_float(const char* str) {
-	//return atof(str);
-	(void)str;
-	return 0.0;
+	return atof(str);
 }
 
 int str_to(const char* str, char c, str_t* res, uint8_t skipspace) {
