@@ -360,13 +360,13 @@ static void try_focus(x_t* x, xwin_t* win) {
 }
 
 static inline void x_repaint_req(x_t* x, int32_t display_index) {
-	if(display_index >= 0) {
+	if(display_index >= 0 && display_index < DISP_MAX) {
 		x_display_t *display = &x->displays[display_index];
 		display->need_repaint = true;
 		return;
 	}
 
-	for(uint32_t i=0; i<x->display_num; i++) {
+	for(uint32_t i=0; i<x->display_num && i<DISP_MAX; i++) {
 		x_display_t *display = &x->displays[i];
 		display->need_repaint = true;
 	}
@@ -1768,8 +1768,8 @@ int xserver_step(void* p) {
 	uint64_t tik = kernel_tic_ms(0);
 	uint32_t tm = 1000/x->config.fps;
 
-	if(x->mouse_state.busy)
-		x_repaint_req(x, x->current_display);
+	//if(x->mouse_state.busy)
+		//x_repaint_req(x, x->current_display);
 
 	ipc_disable();
 	check_wins(x);
