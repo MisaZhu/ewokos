@@ -76,6 +76,24 @@ static void _on_focus(xwin_t* xw) {
 	xwin->__doFocus();
 }
 
+static void _on_show(xwin_t* xw) {
+	if(xw == NULL)
+		return;
+	XWin* xwin = (XWin*)xw->data;
+	if(xwin == NULL)
+		return;
+	xwin->__doShow();
+}
+
+static void _on_hide(xwin_t* xw) {
+	if(xw == NULL)
+		return;
+	XWin* xwin = (XWin*)xw->data;
+	if(xwin == NULL)
+		return;
+	xwin->__doHide();
+}
+
 static void _on_unfocus(xwin_t* xw) {
 	if(xw == NULL)
 		return;
@@ -186,11 +204,6 @@ bool XWin::open(X* xp, uint32_t dispIndex, const grect_t& r, const char* title, 
 bool XWin::setVisible(bool visible) {
 	if(xwin == NULL)
 		return false;
-
-	if(visible) 
-		onShow();
-	else
-		onHide();
 
 	xwin_set_visible(xwin, visible);
 	if(visible) 
@@ -308,6 +321,8 @@ void XWin::setCWin(xwin_t* xw) {
 	xwin->on_resize = _on_resize;
 	xwin->on_move = _on_move;
 	xwin->on_focus = _on_focus;
+	xwin->on_show = _on_show;
+	xwin->on_hide = _on_hide;
 	xwin->on_unfocus = _on_unfocus;
 	xwin->on_reorg = _on_reorg;
 	xwin->on_event = _on_event;

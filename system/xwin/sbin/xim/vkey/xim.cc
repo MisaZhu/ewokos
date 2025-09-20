@@ -29,6 +29,7 @@ class XIMX : public XWin {
 	char inputS[INPUT_MAX];
 
 	int col, row, keyw, keyh, keySelect;
+	bool hideMode;
 protected:
 	int get_at(int x, int y) {
 		int input_h = FONT_SIZE + 8;
@@ -56,6 +57,19 @@ protected:
 	}
 
 	void changeMode(bool hide) {
+		hideMode = hide;
+		if(hide) {
+			int kw = 24;
+			if(col > 0) {
+				xinfo_t info;
+				getInfo(info);
+				kw = info.wsr.w / col;
+			}
+			resizeTo(kw, kw);
+			moveTo(scrSize.w - kw, scrSize.h - kw);
+			return;
+		}
+
 		int w = scrSize.w;
 		int h = scrSize.h / 2;
 
@@ -69,11 +83,7 @@ protected:
 	}
 
 	void doKeyIn(char c) {
-		if(c == '\1') {
-			changeMode(true);
-			return;
-		}
-		else if(c == '\2') {
+		if(c == '\2') {
 			changeKeyTable();
 			return;
 		}
@@ -85,6 +95,13 @@ protected:
 	}
 
 	void doMouseEvent(xevent_t* ev) {
+		if(hideMode) {
+			if(ev->state == MOUSE_STATE_CLICK) {
+				changeMode(false);
+			}
+			return;
+		}
+
 		gpos_t pos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
 		int x = pos.x;
 		int y = pos.y;
@@ -110,11 +127,29 @@ protected:
 		}
 	}
 
+	bool doHideKey(char c) {
+		if(c == JOYSTICK_START)
+			c = KEY_ENTER;
+
+		if(c == KEY_UP ||
+				c == KEY_DOWN ||
+				c == KEY_LEFT ||
+				c == KEY_RIGHT ||
+				c == KEY_ENTER) {
+			inputX(c);
+			return true;
+		}
+		return false;
+	}
+
 	void doIMEvent(xevent_t* ev) {
 		uint8_t c = ev->value.im.value;
 		int32_t keyNum = strlen(keytable[keytableType]);
 
 		if(ev->state == XIM_STATE_PRESS) {
+			if(hideMode)
+				return;
+
 			if(c == KEY_LEFT) {
 				keySelect--;
 			}
@@ -133,14 +168,24 @@ protected:
 				return;
 		}
 		else { //RELEASE
+			if(hideMode) {
+				if(doHideKey(c))
+					return;
+				changeMode(false);
+				return;
+			}
+
 			if(c == JOYSTICK_Y) {
 				doKeyIn('\b');
 				repaint();
 				return;
 			}
+			else if(c == JOYSTICK_L1) {
+				changeMode(true);
+				return;
+			}
 			else if(c == JOYSTICK_START) {
 				doKeyIn('\r');
-				changeMode(true);
 				return;
 			}
 			else if(c == JOYSTICK_X) {
@@ -211,6 +256,10 @@ protected:
 		uint32_t font_h = FONT_SIZE;
 
 		graph_fill(g, 0, 0, g->w, g->w, 0xffcccccc);
+		if(hideMode) {
+			graph_box(g, 0, 0, g->w, g->w, 0xff000000);
+			return;
+		}
 
 		int input_h = font_h + 8;
 		keyh = (g->h - input_h) / row;
@@ -269,12 +318,19 @@ protected:
 		}
 	}
 
-	void input(char c) {
+	void inputX(char c) {
 		xevent_t ev;
 		ev.type = XEVT_IM;
 		ev.value.im.value = c;
 		ev.state = XIM_STATE_PRESS;
 
+		proto_t in;
+		PF->init(&in)->add(&in, &ev, sizeof(xevent_t));
+		dev_cntl_by_pid(xPid, X_DCNTL_INPUT, &in, NULL);
+		PF->clear(&in);
+	}
+
+	void input(char c) {
 		int len = strlen(inputS);
 		if(c == KEY_BACKSPACE) {
 			if(len > 0)
@@ -287,14 +343,10 @@ protected:
 			inputS[len] = c;
 			inputS[len+1] = 0;
 		}
-
-		proto_t in;
-		PF->init(&in)->add(&in, &ev, sizeof(xevent_t));
-		dev_cntl_by_pid(xPid, X_DCNTL_INPUT, &in, NULL);
-		PF->clear(&in);
+		inputX(c);
 	}
 
-	void onFocus(void) {
+	void onShow(void) {
 		changeMode(false);
 	}
 
@@ -322,6 +374,7 @@ public:
 		xPid = dev_get_pid("/dev/x");
 		keySelect = -1;
 		inputS[0] = 0;
+		hideMode = false;
 	}
 
 	inline ~XIMX() {

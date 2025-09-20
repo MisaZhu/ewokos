@@ -59,6 +59,8 @@ public:
 	inline void __doResize(void) { onResize(); }
 	inline void __doMove(void) { onMove(); }
 	inline void __doFocus(void) { onFocus(); }
+	inline void __doShow(void) { onShow(); }
+	inline void __doHide(void) { onHide(); }
 	inline void __doUnfocus(void) { onUnfocus(); }
 	inline void __doReorg(void) { onReorg(); }
 	inline void __doEvent(xevent_t* ev) { onEvent(ev); }

@@ -344,6 +344,15 @@ int xwin_set_visible(xwin_t* xwin, bool visible) {
 	if(xwin->xinfo == NULL || xwin->xinfo->visible == visible)
 		return 0;
 
+	if(visible) {
+		if(xwin->on_show != NULL)
+			xwin->on_show(xwin);
+	}
+	else {
+		if(xwin->on_hide != NULL)
+			xwin->on_hide(xwin);
+	}
+
 	xwin->xinfo->visible = visible;
 	int res = xwin_update_info(xwin, X_UPDATE_REFRESH);
 
