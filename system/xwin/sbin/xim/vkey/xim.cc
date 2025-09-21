@@ -400,6 +400,29 @@ static void waitX() {
 	}
 }
 
+static int32_t _panelW = 0;
+static int32_t _panelH = 0;
+static int doargs(int argc, char* argv[]) {
+	int c = 0;
+	while (c != -1) {
+		c = getopt (argc, argv, "w:h:");
+		if(c == -1)
+			break;
+
+		switch (c) {
+		case 'w':
+			_panelW = atoi(optarg);
+			break;
+		case 'h':
+			_panelH = atoi(optarg);
+		default:
+			c = -1;
+			break;
+		}
+	}
+	return optind;
+}
+
 int main(int argc, char* argv[]) {
 	waitX();
 
@@ -407,18 +430,14 @@ int main(int argc, char* argv[]) {
 	xscreen_info_t scr;
 	x.getScreenInfo(scr, 0);
 
-	int pw = scr.size.w;
-	int ph = scr.size.h/2;
-	if(argc > 1)
-		pw = atoi(argv[1]);
-	if(argc > 2)
-		ph = atoi(argv[2]);
+	doargs(argc, argv);
+	if(_panelW == 0)
+		_panelW = scr.size.w;
+	if(_panelH == 0)
+		_panelH = scr.size.h/2;
 
-	pw = (pw / XIMX::getCols()) * XIMX::getCols();
-	ph = (ph / XIMX::getRows()) * XIMX::getRows();
-
-	XIMX xwin(scr.size.w, scr.size.h, pw, ph);
-	xwin.open(&x, 0, scr.size.w - pw, scr.size.h - ph, pw, ph, "xim",
+	XIMX xwin(scr.size.w, scr.size.h, _panelW, _panelH);
+	xwin.open(&x, 0, scr.size.w - _panelW, scr.size.h - _panelH, _panelW, _panelH, "xim",
 			XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_FOCUS | XWIN_STYLE_SYSTOP | XWIN_STYLE_XIM | XWIN_STYLE_NO_BG_EFFECT, false);
 	x.run(NULL, &xwin);
 	return 0;
