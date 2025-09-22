@@ -73,7 +73,6 @@ ARCH_OBJS += \
 	$(BSP_DIR)/$(BSP)/timer.o \
 	$(BSP_DIR)/$(BSP)/irq.o \
 	$(ARCH_DIR)/$(ARCH)/system.o \
-	$(BSP_DIR)/$(BSP)/fb.o  \
 	$(ARCH_DIR)/common/src/mmu_pte_flags.o \
 	$(ARCH_DIR)/common/src/mmu_arch.o \
 	$(ARCH_DIR)/common/src/memcpy.o \

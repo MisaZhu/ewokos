@@ -3,10 +3,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#ifdef __ARM_NEON
-#include <arm_neon.h>
-#endif
-
 #ifdef __cplusplus 
 extern "C" { 
 #endif
@@ -268,208 +264,6 @@ graph_t* graph_scale(graph_t* g, int scale) {
 	return ret;
 }
 
-void graph_scale_tof_neon(graph_t* g, graph_t* dst, float scale) {
-    if(scale <= 0.0f ||
-            dst->w < (int)(g->w*scale) ||
-            dst->h < (int)(g->h*scale))
-        return;
-    
-    int dst_w = dst->w;
-    int dst_h = dst->h;
-    int src_w = g->w;
-    int src_h = g->h;
-    uint32_t* src_buffer = g->buffer;
-    uint32_t* dst_buffer = dst->buffer;
-    
-    // Process 4 pixels at a time using NEON
-    for(int i = 0; i < dst_h; i++) {
-        float gi = (float)i / scale;
-        int gi0 = (int)gi;
-        float gi_frac = gi - gi0;
-        
-        if(gi0 >= src_h-1) gi0 = src_h-2;
-        if(gi0 < 0) gi0 = 0;
-        
-        int j = 0;
-        // Process 4 pixels in parallel using NEON
-        for(; j <= dst_w - 4; j += 4) {
-            // Calculate source coordinates for 4 pixels
-            float gj[4];
-            int gj0[4];
-            float gj_frac[4];
-            
-            for(int k = 0; k < 4; k++) {
-                gj[k] = (float)(j + k) / scale;
-                gj0[k] = (int)gj[k];
-                gj_frac[k] = gj[k] - gj0[k];
-                
-                if(gj0[k] >= src_w-1) gj0[k] = src_w-2;
-                if(gj0[k] < 0) gj0[k] = 0;
-            }
-            
-            // Load 4 sets of 4 neighboring pixels (16 pixels total)
-            // Each set: p00, p01, p10, p11
-            uint8x8_t pixels_r[4][4];
-            uint8x8_t pixels_g[4][4];
-            uint8x8_t pixels_b[4][4];
-            uint8x8_t pixels_a[4][4];
-            
-            for(int k = 0; k < 4; k++) {
-                // Load 4 pixels for each set
-                uint32_t p00 = src_buffer[gi0 * src_w + gj0[k]];
-                uint32_t p01 = src_buffer[gi0 * src_w + gj0[k] + 1];
-                uint32_t p10 = src_buffer[(gi0 + 1) * src_w + gj0[k]];
-                uint32_t p11 = src_buffer[(gi0 + 1) * src_w + gj0[k] + 1];
-                
-                // Extract RGBA components and duplicate to 8x8 vectors
-                pixels_r[k][0] = vdup_n_u8((p00 >> 16) & 0xFF);
-                pixels_g[k][0] = vdup_n_u8((p00 >> 8) & 0xFF);
-                pixels_b[k][0] = vdup_n_u8(p00 & 0xFF);
-                pixels_a[k][0] = vdup_n_u8((p00 >> 24) & 0xFF);
-                
-                pixels_r[k][1] = vdup_n_u8((p01 >> 16) & 0xFF);
-                pixels_g[k][1] = vdup_n_u8((p01 >> 8) & 0xFF);
-                pixels_b[k][1] = vdup_n_u8(p01 & 0xFF);
-                pixels_a[k][1] = vdup_n_u8((p01 >> 24) & 0xFF);
-                
-                pixels_r[k][2] = vdup_n_u8((p10 >> 16) & 0xFF);
-                pixels_g[k][2] = vdup_n_u8((p10 >> 8) & 0xFF);
-                pixels_b[k][2] = vdup_n_u8(p10 & 0xFF);
-                pixels_a[k][2] = vdup_n_u8((p10 >> 24) & 0xFF);
-                
-                pixels_r[k][3] = vdup_n_u8((p11 >> 16) & 0xFF);
-                pixels_g[k][3] = vdup_n_u8((p11 >> 8) & 0xFF);
-                pixels_b[k][3] = vdup_n_u8(p11 & 0xFF);
-                pixels_a[k][3] = vdup_n_u8((p11 >> 24) & 0xFF);
-            }
-            
-            // Create interpolation weight vectors
-            uint8x8_t gi_frac_vec = vdup_n_u8((uint8_t)(gi_frac * 255));
-            uint8x8_t gi_frac_inv_vec = vdup_n_u8((uint8_t)((1.0f - gi_frac) * 255));
-            
-            uint32_t result_pixels[4];
-            
-            // Perform bilinear interpolation for each of the 4 pixels
-            for(int k = 0; k < 4; k++) {
-                uint8x8_t gj_frac_vec = vdup_n_u8((uint8_t)(gj_frac[k] * 255));
-                uint8x8_t gj_frac_inv_vec = vdup_n_u8((uint8_t)((1.0f - gj_frac[k]) * 255));
-                
-                // Interpolate horizontally first
-                uint16x8_t r_h0 = vmull_u8(pixels_r[k][0], gj_frac_inv_vec);
-                uint16x8_t r_h1 = vmull_u8(pixels_r[k][1], gj_frac_vec);
-                uint16x8_t r_horizontal = vaddq_u16(r_h0, r_h1);
-                
-                uint16x8_t g_h0 = vmull_u8(pixels_g[k][0], gj_frac_inv_vec);
-                uint16x8_t g_h1 = vmull_u8(pixels_g[k][1], gj_frac_vec);
-                uint16x8_t g_horizontal = vaddq_u16(g_h0, g_h1);
-                
-                uint16x8_t b_h0 = vmull_u8(pixels_b[k][0], gj_frac_inv_vec);
-                uint16x8_t b_h1 = vmull_u8(pixels_b[k][1], gj_frac_vec);
-                uint16x8_t b_horizontal = vaddq_u16(b_h0, b_h1);
-                
-                uint16x8_t a_h0 = vmull_u8(pixels_a[k][0], gj_frac_inv_vec);
-                uint16x8_t a_h1 = vmull_u8(pixels_a[k][1], gj_frac_vec);
-                uint16x8_t a_horizontal = vaddq_u16(a_h0, a_h1);
-                
-                uint16x8_t r_h2 = vmull_u8(pixels_r[k][2], gj_frac_inv_vec);
-                uint16x8_t r_h3 = vmull_u8(pixels_r[k][3], gj_frac_vec);
-                uint16x8_t r_horizontal2 = vaddq_u16(r_h2, r_h3);
-                
-                uint16x8_t g_h2 = vmull_u8(pixels_g[k][2], gj_frac_inv_vec);
-                uint16x8_t g_h3 = vmull_u8(pixels_g[k][3], gj_frac_vec);
-                uint16x8_t g_horizontal2 = vaddq_u16(g_h2, g_h3);
-                
-                uint16x8_t b_h2 = vmull_u8(pixels_b[k][2], gj_frac_inv_vec);
-                uint16x8_t b_h3 = vmull_u8(pixels_b[k][3], gj_frac_vec);
-                uint16x8_t b_horizontal2 = vaddq_u16(b_h2, b_h3);
-                
-                uint16x8_t a_h2 = vmull_u8(pixels_a[k][2], gj_frac_inv_vec);
-                uint16x8_t a_h3 = vmull_u8(pixels_a[k][3], gj_frac_vec);
-                uint16x8_t a_horizontal2 = vaddq_u16(a_h2, a_h3);
-                
-                // Interpolate vertically
-                uint16x8_t r_v1 = vmull_u8(vshrn_n_u16(r_horizontal, 8), gi_frac_inv_vec);
-                uint16x8_t r_v2 = vmull_u8(vshrn_n_u16(r_horizontal2, 8), gi_frac_vec);
-                uint16x8_t r_final = vaddq_u16(r_v1, r_v2);
-                
-                uint16x8_t g_v1 = vmull_u8(vshrn_n_u16(g_horizontal, 8), gi_frac_inv_vec);
-                uint16x8_t g_v2 = vmull_u8(vshrn_n_u16(g_horizontal2, 8), gi_frac_vec);
-                uint16x8_t g_final = vaddq_u16(g_v1, g_v2);
-                
-                uint16x8_t b_v1 = vmull_u8(vshrn_n_u16(b_horizontal, 8), gi_frac_inv_vec);
-                uint16x8_t b_v2 = vmull_u8(vshrn_n_u16(b_horizontal2, 8), gi_frac_vec);
-                uint16x8_t b_final = vaddq_u16(b_v1, b_v2);
-                
-                uint16x8_t a_v1 = vmull_u8(vshrn_n_u16(a_horizontal, 8), gi_frac_inv_vec);
-                uint16x8_t a_v2 = vmull_u8(vshrn_n_u16(a_horizontal2, 8), gi_frac_vec);
-                uint16x8_t a_final = vaddq_u16(a_v1, a_v2);
-                
-                // Extract final pixel value
-                uint8x8_t r_final_8 = vshrn_n_u16(r_final, 8);
-                uint8x8_t g_final_8 = vshrn_n_u16(g_final, 8);
-                uint8x8_t b_final_8 = vshrn_n_u16(b_final, 8);
-                uint8x8_t a_final_8 = vshrn_n_u16(a_final, 8);
-                
-                uint8_t r = vget_lane_u8(r_final_8, 0);
-                uint8_t g_val = vget_lane_u8(g_final_8, 0);
-                uint8_t b = vget_lane_u8(b_final_8, 0);
-                uint8_t a = vget_lane_u8(a_final_8, 0);
-                
-                result_pixels[k] = (a << 24) | (r << 16) | (g_val << 8) | b;
-            }
-            
-            // Store 4 result pixels
-            vst1q_u32(&dst_buffer[i * dst_w + j], vld1q_u32(result_pixels));
-        }
-        
-        // Handle remaining pixels
-        for(; j < dst_w; j++) {
-            float gj = (float)j / scale;
-            int gj0 = (int)gj;
-            float gj_frac = gj - gj0;
-            
-            if(gj0 >= src_w-1) gj0 = src_w-2;
-            if(gj0 < 0) gj0 = 0;
-            
-            uint32_t p00 = src_buffer[gi0 * src_w + gj0];
-            uint32_t p01 = src_buffer[gi0 * src_w + gj0 + 1];
-            uint32_t p10 = src_buffer[(gi0 + 1) * src_w + gj0];
-            uint32_t p11 = src_buffer[(gi0 + 1) * src_w + gj0 + 1];
-            
-            uint8_t r00 = (p00 >> 16) & 0xFF;
-            uint8_t g00 = (p00 >> 8) & 0xFF;
-            uint8_t b00 = p00 & 0xFF;
-            uint8_t a00 = (p00 >> 24) & 0xFF;
-            
-            uint8_t r01 = (p01 >> 16) & 0xFF;
-            uint8_t g01 = (p01 >> 8) & 0xFF;
-            uint8_t b01 = p01 & 0xFF;
-            uint8_t a01 = (p01 >> 24) & 0xFF;
-            
-            uint8_t r10 = (p10 >> 16) & 0xFF;
-            uint8_t g10 = (p10 >> 8) & 0xFF;
-            uint8_t b10 = p10 & 0xFF;
-            uint8_t a10 = (p10 >> 24) & 0xFF;
-            
-            uint8_t r11 = (p11 >> 16) & 0xFF;
-            uint8_t g11 = (p11 >> 8) & 0xFF;
-            uint8_t b11 = p11 & 0xFF;
-            uint8_t a11 = (p11 >> 24) & 0xFF;
-            
-            uint8_t r = (uint8_t)((1 - gi_frac) * ((1 - gj_frac) * r00 + gj_frac * r01) + 
-                                 gi_frac * ((1 - gj_frac) * r10 + gj_frac * r11));
-            uint8_t g_val = (uint8_t)((1 - gi_frac) * ((1 - gj_frac) * g00 + gj_frac * g01) + 
-                                     gi_frac * ((1 - gj_frac) * g10 + gj_frac * g11));
-            uint8_t b = (uint8_t)((1 - gi_frac) * ((1 - gj_frac) * b00 + gj_frac * b01) + 
-                                 gi_frac * ((1 - gj_frac) * b10 + gj_frac * b11));
-            uint8_t a = (uint8_t)((1 - gi_frac) * ((1 - gj_frac) * a00 + gj_frac * a01) + 
-                                 gi_frac * ((1 - gj_frac) * a10 + gj_frac * a11));
-            
-            dst_buffer[i * dst_w + j] = (a << 24) | (r << 16) | (g_val << 8) | b;
-        }
-    }
-}
-
 void graph_scale_tof_cpu(graph_t* g, graph_t* dst, float scale) {
     if(scale <= 0.0 ||
             dst->w < (int)(g->w*scale) ||
@@ -538,9 +332,9 @@ void graph_scale_tof_cpu(graph_t* g, graph_t* dst, float scale) {
     }
 }
 
-void graph_scale_tof(graph_t* g, graph_t* dst, float scale) {
-#ifdef NEON_BOOST
-    graph_scale_tof_neon(g, dst, scale);
+inline void graph_scale_tof(graph_t* g, graph_t* dst, float scale) {
+#ifdef BSP_BOOST
+    graph_scale_tof_bsp(g, dst, scale);
 #else
     graph_scale_tof_cpu(g, dst, scale);
 #endif
@@ -559,7 +353,11 @@ graph_t* graph_scalef(graph_t* g, float scale) {
 }
 
 bool graph_2d_boosted(void) {
-		return graph_2d_boosted_bsp();
+#ifdef BSP_BOOST
+    return true;
+#else 
+    return false;
+#endif
 }
 
 #ifdef __cplusplus

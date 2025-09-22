@@ -8,7 +8,7 @@
 extern "C" { 
 #endif
 
-#ifdef NEON_BOOST
+#ifdef BSP_BOOST
 #include <arm_neon.h>
 
 #define MIN(a, b) (((a) > (b))?(b):(a))
@@ -564,11 +564,7 @@ inline void graph_gaussian_bsp(graph_t* g, int x, int y, int w, int h, int r) {
     graph_gaussian_neon(g, x, y, w, h, r);
 }
 
-bool  graph_2d_boosted_bsp(void) {
-	return true;
-}
-
-void graph_scale_tof_bsp(graph_t* g, graph_t* dst, float scale) {
+void graph_scale_tof_bsp(graph_t* g, graph_t* dst, double scale) {
     if(scale <= 0.0f ||
             dst->w < (int)(g->w*scale) ||
             dst->h < (int)(g->h*scale))
@@ -770,37 +766,6 @@ void graph_scale_tof_bsp(graph_t* g, graph_t* dst, float scale) {
     }
 }
 
-#else
-
-inline void graph_fill_bsp(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
-	graph_fill_cpu(g, x, y, w, h, color);
-}
-
-inline void graph_blt_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
-		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
-	graph_blt_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
-}
-
-inline void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
-		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
-	graph_blt_alpha_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
-}
-
-inline void graph_glass_bsp(graph_t* g, int x, int y, int w, int h, int r) {
-	graph_glass_cpu(g, x, y, w, h, r);
-}
-
-inline void graph_gaussian_bsp(graph_t* g, int x, int y, int w, int h, int r) {
-    graph_gaussian_cpu(g, x, y, w, h, r);
-}
-
-inline void  graph_scale_tof_bsp(graph_t* g, graph_t* dst, float scale) {
-    graph_scale_tof_cpu(g, dst, scale);
-}
-
-bool  graph_2d_boosted_bsp(void) {
-	return false;
-}
 #endif
 
 #ifdef __cplusplus

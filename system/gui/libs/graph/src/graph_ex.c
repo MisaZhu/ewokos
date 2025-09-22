@@ -261,8 +261,11 @@ void graph_gaussian(graph_t* g, int x, int y, int w, int h, int r) {
         r = w;
     if(r > h)
         r = h;
-        
+#ifdef BSP_BOOST 
     graph_gaussian_bsp(g, x, y, w, h, r);
+#else
+    graph_gaussian_cpu(g, x, y, w, h, r);
+#endif
 }
 
 void graph_shadow(graph_t* g, int x, int y, int w, int h, uint8_t shadow, uint32_t color) {
@@ -339,6 +342,9 @@ void graph_glass(graph_t* g, int x, int y, int w, int h, int r) {
         r = w;
     if(r > h)
         r = h;
-        
+#ifdef BSP_BOOST 
     graph_glass_bsp(g, x, y, w, h, r);
+#else
+    graph_glass_cpu(g, x, y, w, h, r);
+#endif
 }
