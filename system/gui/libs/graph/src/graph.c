@@ -264,6 +264,8 @@ graph_t* graph_scale(graph_t* g, int scale) {
 	return ret;
 }
 
+#define CLAMP(x, low, high) (((x) > (high)) ? (high) : (((x) < (low)) ? (low) : (x)))
+
 void graph_scale_tof_cpu(graph_t* g, graph_t* dst, float scale) {
     if(scale <= 0.0 ||
             dst->w < (int)(g->w*scale) ||
@@ -271,29 +273,31 @@ void graph_scale_tof_cpu(graph_t* g, graph_t* dst, float scale) {
         return;
     
     // 使用双线性插值算法添加抗锯齿平滑
+	int hmin = g->h-2;
+	int wmin = g->w-2;
     for(int i=0; i<dst->h; i++) {
         float gi = (float)i / scale; // 浮点坐标
         int gi0 = (int)gi;           // 整数部分
         float gi_frac = gi - gi0;    // 小数部分
         
         // 确保不会越界
-        if(gi0 >= g->h-1) gi0 = g->h-2;
-        if(gi0 < 0) gi0 = 0;
+		gi0 = CLAMP(gi0, 0, hmin);
         
+		int gi0w = gi0 * g->w;
+		int gi1w = (gi0+1) * g->w;
         for(int j=0; j<dst->w; j++) {
             float gj = (float)j / scale; // 浮点坐标
             int gj0 = (int)gj;           // 整数部分
             float gj_frac = gj - gj0;    // 小数部分
             
             // 确保不会越界
-            if(gj0 >= g->w-1) gj0 = g->w-2;
-            if(gj0 < 0) gj0 = 0;
+			gj0 = CLAMP(gj0, 0, wmin);
             
             // 获取四个相邻像素的颜色
-            uint32_t p00 = g->buffer[gi0*g->w + gj0];
-            uint32_t p01 = g->buffer[gi0*g->w + (gj0+1)];
-            uint32_t p10 = g->buffer[(gi0+1)*g->w + gj0];
-            uint32_t p11 = g->buffer[(gi0+1)*g->w + (gj0+1)];
+            uint32_t p00 = g->buffer[gi0w + gj0];
+            uint32_t p01 = g->buffer[gi0w + (gj0+1)];
+            uint32_t p10 = g->buffer[gi1w + gj0];
+            uint32_t p11 = g->buffer[gi1w + (gj0+1)];
             
             // 分解颜色通道
             uint8_t r00 = (p00 >> 16) & 0xFF;
@@ -333,11 +337,15 @@ void graph_scale_tof_cpu(graph_t* g, graph_t* dst, float scale) {
 }
 
 inline void graph_scale_tof(graph_t* g, graph_t* dst, float scale) {
-#ifdef BSP_BOOST
+//TODO: 优化下，bsp效率不高
+/*
+#if BSP_BOOST
     graph_scale_tof_bsp(g, dst, scale);
 #else
     graph_scale_tof_cpu(g, dst, scale);
 #endif
+*/
+    graph_scale_tof_cpu(g, dst, scale);
 }
 
 graph_t* graph_scalef(graph_t* g, float scale) {
