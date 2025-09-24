@@ -129,7 +129,7 @@ static int sel_down(uint8_t* keys, uint8_t num) {
 	return -1;
 }
 
-static bool do_joys_spec(uint8_t* keys, uint8_t num) {
+static bool do_joys_spec(uint8_t* keys, uint8_t num, uint8_t* ret_key) {
 	int i = sel_down(keys, num);
 	for(int j=0; j<num; j++) {
 		uint8_t c = keys[j];
@@ -141,11 +141,15 @@ static bool do_joys_spec(uint8_t* keys, uint8_t num) {
 				return true;
 			}
 			else if(c == JOYSTICK_A) { //A for next ux
-				core_next_ux();
+				*ret_key = JOYSTICK_START;
 				return true;
 			}
 			else if(c == JOYSTICK_X) { //X for next focus
 				x_next_focus();
+				return true;
+			}
+			else if(c == JOYSTICK_B) { 
+				*ret_key = JOYSTICK_R1;
 				return true;
 			}
 			else if(c == KEY_HOME) { 
@@ -196,8 +200,13 @@ static int vkeyb_loop(void* p){
 			}
 		}
 		else if(_keyb_type == 'j') {
-			if(do_joys_spec(_keys, KEY_NUM)) {
+			uint8_t ret_key = 0;
+			if(do_joys_spec(_keys, KEY_NUM, &ret_key)) {
 				rd = 0;
+				if(ret_key > 0) {
+					rd = 1;
+					keys[0] = ret_key;
+				}
 			}
 		}
 	}
