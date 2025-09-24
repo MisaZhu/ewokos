@@ -152,7 +152,7 @@ static bool do_joys_spec(uint8_t* keys, uint8_t num, uint8_t* ret_key) {
 				*ret_key = JOYSTICK_R1;
 				return true;
 			}
-			else if(c == KEY_HOME) { 
+			else if(c == KEY_HOME || c == JOYSTICK_START) { 
 				x_close_focus();
 				return true;
 			}
