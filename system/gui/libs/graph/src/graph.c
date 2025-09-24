@@ -27,6 +27,32 @@ inline uint8_t color_b(uint32_t c) {
 	return c & 0xff;
 }
 
+static void* aligned_malloc(uint32_t size, uint32_t alignment) {
+    // 检查对齐值是否为 2 的幂
+    if ((alignment & (alignment - 1)) != 0) {
+        return NULL; // 对齐值必须是 2 的幂
+    }
+    // 计算额外需要的空间（对齐偏移 + 存储原始指针）
+    uint32_t extra = alignment - 1 + sizeof(void*);
+    void* raw_ptr = malloc(size + extra);
+    if (!raw_ptr) return NULL;
+    // 计算对齐后的地址
+    uintptr_t aligned_addr = (uintptr_t)raw_ptr + sizeof(void*);
+    aligned_addr = (aligned_addr + alignment - 1) & ~(alignment - 1);
+    // 保存原始指针供 free 使用
+    *((void**)aligned_addr - 1) = raw_ptr;
+    return (void*)aligned_addr;
+}
+
+// 对应的释放函数
+static void aligned_free(void* ptr) {
+    if (ptr) {
+        // 获取原始指针并释放
+        void* raw_ptr = *((void**)ptr - 1);
+        free(raw_ptr);
+    }
+}
+
 inline void graph_init(graph_t* g, const uint32_t* buffer, int32_t w, int32_t h) {
 	if(w <= 0 || h <= 0)
 		return;
@@ -38,7 +64,7 @@ inline void graph_init(graph_t* g, const uint32_t* buffer, int32_t w, int32_t h)
 		g->need_free = false;
 	}
 	else {
-		g->buffer = (uint32_t*)malloc(w*h*4);
+		g->buffer = (uint32_t*)aligned_malloc(w*h*4, 32);
 		g->need_free = true;
 	}
 	memset(&g->clip, 0, sizeof(grect_t));
@@ -74,7 +100,7 @@ graph_t* graph_dup(graph_t* g) {
 	graph_t* ret = graph_new(NULL, g->w, g->h);
 	if(ret == NULL)
 		return NULL;
-	ret->buffer = (uint32_t*)malloc(g->w*g->h*4);
+	ret->buffer = (uint32_t*)aligned_malloc(g->w*g->h*4, 32);
 	if(ret->buffer == NULL) {
 		graph_free(ret);
 		return NULL;
@@ -87,7 +113,7 @@ void graph_free(graph_t* g) {
 	if(g == NULL)
 		return;
 	if(g->buffer != NULL && g->need_free)
-		free(g->buffer);
+		aligned_free(g->buffer);
 	free(g);
 }
 
