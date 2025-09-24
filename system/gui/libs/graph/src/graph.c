@@ -298,6 +298,10 @@ void graph_scale_tof_cpu(graph_t* g, graph_t* dst, float scale) {
             uint32_t p01 = g->buffer[gi0w + (gj0+1)];
             uint32_t p10 = g->buffer[gi1w + gj0];
             uint32_t p11 = g->buffer[gi1w + (gj0+1)];
+			if(p00 == p01 && p00 == p10 && p00 == p11) {
+            	dst->buffer[i*dst->w + j] = p00;
+				continue;
+			}
             
             // 分解颜色通道
             uint8_t r00 = (p00 >> 16) & 0xFF;
