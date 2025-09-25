@@ -43,6 +43,7 @@ basic_sys: kernel_heads
 	cd libs;make
 	cd $(SYS_ROOT_DIR)/basic;make
 	cd drivers;make basic
+	cd bin;make
 	@cp -r etc/basic/* ${TARGET_DIR}/etc
 
 gui_sys: basic_sys 
@@ -60,6 +61,7 @@ x_sys: gui_sys
 clean:
 	cd libs;make clean
 	cd drivers;make clean
+	cd bin;make clean
 	cd $(SYS_ROOT_DIR)/xwin;make clean
 	cd $(SYS_ROOT_DIR)/gui;make clean
 	cd $(SYS_ROOT_DIR)/basic;make clean

@@ -8,15 +8,15 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-GPIO_OBJS = gpio.o
+TASK_OBJS = bt.o
 
-GPIO = $(TARGET_DIR)/bin/gpio
+TASK = $(TARGET_DIR)/bin/bt
 
-$(GPIO): $(GPIO_OBJS) \
+$(TASK): $(TASK_OBJS) \
 		$(EWOK_LIBC_A)  \
 		$(BUILD_DIR)/lib/libarch_bcm283x.a
-	$(LD) -Ttext=100 $(GPIO_OBJS) -o $(GPIO) $(LDFLAGS) -larch_bcm283x $(EWOK_LIBC)
+	$(LD) -Ttext=100 $(TASK_OBJS) -o $(TASK) $(LDFLAGS) -larch_bcm283x $(EWOK_LIBC)
 
 clean:
-	rm -f $(GPIO_OBJS)
+	rm -f $(TASK_OBJS)
 
