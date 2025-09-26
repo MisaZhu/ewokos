@@ -20,7 +20,7 @@ $(TASK): $(TASK_OBJS) \
 		$(BUILD_DIR)/lib/libfont.a  \
 		$(BUILD_DIR)/lib/libdisplay.a 
 	mkdir -p $(TARGET_DIR)/bin 
-	$(LD) -Ttext=100 $(TASK_OBJS) -o $(TASK) $(LDFLAGS) -lkeyb -lmouse -lfb -ldisplay $(EWOK_LIB_GRAPH) $(BSP_LFLAGS) $(EWOK_LIBC)
+	$(LD) -Ttext=100 $(TASK_OBJS) -o $(TASK) $(LDFLAGS) -lkeyb -lmouse $(EWOK_LIB_GRAPH) $(BSP_LFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(TASK_OBJS)

@@ -18,7 +18,7 @@ $(SPLASHD): $(SPLASHD_OBJS) \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libfont.a  \
 		$(BUILD_DIR)/lib/libdisplay.a 
-	$(LD) -Ttext=100 $(SPLASHD_OBJS) -o $(SPLASHD) $(LDFLAGS) -lfb -ldisplay $(EWOK_LIB_GRAPH) $(EWOK_LIBC)
+	$(LD) -Ttext=100 $(SPLASHD_OBJS) -o $(SPLASHD) $(LDFLAGS) $(EWOK_LIB_GRAPH) $(EWOK_LIBC)
 
 clean:
 	rm -f $(SPLASHD_OBJS) $(SPLASHD)
