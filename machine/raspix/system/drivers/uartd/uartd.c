@@ -68,25 +68,21 @@ static int loop(void* p) {
 	(void)p;
 	char c;
 	if(_mini_uart) {
-		while(bcm283x_mini_uart_ready_to_recv() == 0){
-			c = bcm283x_mini_uart_recv();
-			if(c != '\r' || !_no_return) {
-				ipc_disable();
-				charbuf_push(_RxBuf, c, true);
-				ipc_enable();
-				proc_wakeup(RW_BLOCK_EVT);
-			}
+		c = bcm283x_mini_uart_recv();
+		if(c != '\r' || !_no_return) {
+			ipc_disable();
+			charbuf_push(_RxBuf, c, true);
+			ipc_enable();
+			proc_wakeup(RW_BLOCK_EVT);
 		}
 	}
 	else {
-		while(bcm283x_pl011_uart_ready_to_recv() == 0){
-			c = bcm283x_pl011_uart_recv();
-			if(c != '\r' || !_no_return) {
-				ipc_disable();
-				charbuf_push(_RxBuf, c, true);
-				ipc_enable();
-				proc_wakeup(RW_BLOCK_EVT);
-			}
+		c = bcm283x_pl011_uart_recv(100);
+		if(c != '\r' || !_no_return) {
+			ipc_disable();
+			charbuf_push(_RxBuf, c, true);
+			ipc_enable();
+			proc_wakeup(RW_BLOCK_EVT);
 		}
 	}
 	proc_usleep(10000);

@@ -20,7 +20,7 @@ $(CONSOLED): $(CONSOLED_OBJS) \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libfont.a  \
 		$(BUILD_DIR)/lib/libdisplay.a 
-	$(LD) -Ttext=100 $(CONSOLED_OBJS) -o $(CONSOLED) $(LDFLAGS) -lgterminal -ltextgrid -lfb -ldisplay -ltinyjson $(EWOK_LIB_GRAPH) $(EWOK_LIBC)
+	$(LD) -Ttext=100 $(CONSOLED_OBJS) -o $(CONSOLED) $(LDFLAGS) -lgterminal -ltextgrid -ltinyjson $(EWOK_LIB_GRAPH) $(EWOK_LIBC)
 
 clean:
 	rm -f $(CONSOLED_OBJS)

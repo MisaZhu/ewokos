@@ -2,8 +2,8 @@
 @/bin/ipcserv /sbin/sessiond
 @/bin/bgrun /bin/session -r -t /dev/tty0 
 
-@/bin/ipcserv /drivers/raspix/fbd      /dev/fb0
 @/bin/ipcserv /drivers/displayd        
+@/bin/ipcserv /drivers/raspix/fbd      /dev/fb0
 @/bin/ipcserv /drivers/fontd           
 @/bin/load_font
 

@@ -1,5 +1,5 @@
-@/bin/ipcserv /drivers/versatilepb/fbd  /dev/fb0
 @/bin/ipcserv /drivers/displayd         
+@/bin/ipcserv /drivers/versatilepb/fbd  /dev/fb0
 @/bin/ipcserv /drivers/fontd -l -o
 
 @export UX_ID=0
