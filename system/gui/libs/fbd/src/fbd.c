@@ -223,6 +223,20 @@ static void read_config(uint32_t* w, uint32_t* h, uint8_t* dep, int32_t* rotate,
 		json_var_unref(conf_var);
 }
 
+
+static int fb_dev_read(int fd, int from_pid, fsinfo_t* node,
+		void* buf, int size, int offset, void* p) {
+	(void)fd;
+	(void)from_pid;
+	(void)node;
+	(void)offset;
+	(void)p;
+
+	if(_fbd->read == NULL)
+		return 0;
+	return _fbd->read(buf, size);
+}
+
 int fbd_run(fbd_t* fbd, const char* mnt_name,
 		uint32_t def_w, uint32_t def_h, int32_t def_rotate) {
 	_fbd = fbd;
@@ -249,6 +263,7 @@ int fbd_run(fbd_t* fbd, const char* mnt_name,
 	dev.flush = do_fb_flush;
 	dev.fcntl = fb_fcntl;
 	dev.dev_cntl = fb_dev_cntl;
+	dev.read = fb_dev_read;
 
 	dev.extra_data = &dma;
 
