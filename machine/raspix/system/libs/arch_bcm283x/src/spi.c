@@ -128,28 +128,6 @@ inline void bcm283x_spi_activate(uint8_t enable) {
 	}
 }
 
-inline void bcm283x_spi_send(const uint8_t* send, uint32_t size) {
-	_spi0_regs->size = size;
-	uint32_t write_count = 0;
-
-	while(write_count < size) {
-		while(write_count < size && _spi0_regs->cs & SPI_STAT_TXDATA) {
-			if (send)
-				_spi0_regs->fifo = *send++;
-			else
-				_spi0_regs->fifo = 0;
-			write_count++;
-		}
-	}
-
-	/*while(!(_spi0_regs->cs & SPI_STAT_TXDONE)) {
-		while(_spi0_regs->cs & SPI_STAT_RXDATA) {
-			read_count = _spi0_regs->fifo;
-		}
-	}
-	*/
-}
-
 inline void bcm283x_spi_send_recv(const uint8_t* send, uint8_t* recv, uint32_t size) {
 	_spi0_regs->size = size;
 	uint32_t read_count = 0;
@@ -171,22 +149,6 @@ inline void bcm283x_spi_send_recv(const uint8_t* send, uint8_t* recv, uint32_t s
 			read_count++;
 		}
 	}
-
-	/*while(!(_spi0_regs->cs & SPI_STAT_TXDONE)) {
-		while(_spi0_regs->cs & SPI_STAT_RXDATA) {
-			read_count = _spi0_regs->fifo;
-		}
-	}
-	*/
-}
-
-inline void bcm283x_spi_write(uint8_t data) {
-	/* wait if fifo is full */
-	while (!(_spi0_regs->cs & SPI_STAT_TXDATA));
-	/* write a byte */
-	_spi0_regs->fifo = data;
-	/* wait until done */
-	while (!(_spi0_regs->cs & SPI_STAT_TXDONE));
 }
 
 inline uint8_t bcm283x_spi_transfer(uint8_t data) {
@@ -198,10 +160,4 @@ inline uint8_t bcm283x_spi_transfer(uint8_t data) {
 	while (!(_spi0_regs->cs & SPI_STAT_RXDATA));
 	data  = _spi0_regs->fifo;
 	return data;
-}
-
-inline uint16_t bcm283x_spi_transfer16(uint16_t data) {
-	uint8_t hi = bcm283x_spi_transfer((data >> 8) & 0xff);
-	uint8_t low = bcm283x_spi_transfer(data & 0xff);
-	return (hi << 8) | low;
 }
