@@ -14,7 +14,7 @@ XTHEME = $(TARGET_DIR)/bin/x/xtheme
 
 
 $(XTHEME): $(XTHEME_OBJS) $(EWOK_LIBC_A)
-	$(LD) -Ttext=100 $(XTHEME_OBJS) -o $(XTHEME) $(LDFLAGS)  -lbsp $(BSP_LFLAGS) $(EWOK_LIBC)
+	$(LD) -Ttext=100 $(XTHEME_OBJS) -o $(XTHEME) $(LDFLAGS)   $(BSP_LFLAGS) $(EWOK_LIBC)
 
 clean:
 	rm -f $(XTHEME_OBJS) $(XTHEME)

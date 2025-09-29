@@ -17,7 +17,7 @@ $(SESSIOND): $(SESSIOND_OBJS) \
 		$(BUILD_DIR)/lib/libbsp.a \
 		$(BUILD_DIR)/lib/libsd.a \
 		$(BUILD_DIR)/lib/libext2.a 
-	$(LD) -Ttext=100 $(SESSIOND_OBJS) -o $(SESSIOND) $(LDFLAGS) -lbsp $(BSP_LFLAGS) -lsd -lext2  $(EWOK_LIBC) 
+	$(LD) -Ttext=100 $(SESSIOND_OBJS) -o $(SESSIOND) $(LDFLAGS)  $(BSP_LFLAGS) -lsd -lext2  $(EWOK_LIBC) 
 
 clean:
 	rm -fr $(SESSIOND) $(SESSIOND_OBJS)

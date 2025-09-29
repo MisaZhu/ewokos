@@ -2,6 +2,7 @@
 #define SPI_ARCH_H
 
 #include <stdint.h>
+#include <arch/bcm283x/spi.h>
 
 void     bsp_spi_init(void);
 void     bsp_spi_set_div(int32_t clk_divide);

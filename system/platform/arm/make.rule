@@ -30,7 +30,7 @@ CXXFLAGS += -mfpu=neon-vfpv3 -DBSP_BOOST -mfloat-abi=softfp
 endif
        
 EWOK_LIBC = -lewoksys -lc -lgloss -lsoftfloat
-EWOK_LIB_GRAPH = -lfont -lfreetype -lgraph -lpng -lz -lopenlibm -ldisplay -lfb -lkeyb -lmouse -lbsp $(BSP_LFLAGS)
+EWOK_LIB_GRAPH = -lfont -lfreetype -lgraph -lpng -lz -lopenlibm -ldisplay -lfb -lkeyb -lmouse  $(BSP_LFLAGS)
 EWOK_LIB_X = -lwidget++ -lx++ -lx -ltinyjson -lewokstl
 
 #CFLAGS +=  -g
