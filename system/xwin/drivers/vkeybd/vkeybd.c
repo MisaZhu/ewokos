@@ -161,6 +161,10 @@ static bool do_joys_spec(uint8_t* keys, uint8_t num, uint8_t* ret_key) {
 			x_launcher();
 			return true;
 		}
+		else if(c == KEY_END) {
+			x_close_focus();
+			return true;
+		}
 	}
 	return false;
 }
