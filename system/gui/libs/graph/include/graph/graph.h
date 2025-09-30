@@ -54,6 +54,9 @@ uint8_t  color_a(uint32_t c);
 uint8_t  color_r(uint32_t c);
 uint8_t  color_g(uint32_t c);
 uint8_t  color_b(uint32_t c);
+uint32_t color_gray(uint32_t c);
+uint32_t color_reverse(uint32_t c);
+uint32_t color_reverse_rgb(uint32_t c);
 
 uint32_t argb_int(uint32_t c);
 

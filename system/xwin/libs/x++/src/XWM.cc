@@ -267,8 +267,10 @@ void XWM::getColor(uint32_t *fg, uint32_t* bg, bool top) {
 		*bg = xwm.theme.frameBGColor;
 	}
 	else {
-		*fg = graph_get_dark_color(xwm.theme.frameFGColor);
-		*bg = graph_get_dark_color(xwm.theme.frameBGColor);
+		*fg = color_gray(xwm.theme.frameFGColor);
+		*bg = color_gray(xwm.theme.frameBGColor);
+		//*fg = graph_get_dark_color(xwm.theme.frameFGColor);
+		//*bg = graph_get_dark_color(xwm.theme.frameBGColor);
 	}
 }
 
