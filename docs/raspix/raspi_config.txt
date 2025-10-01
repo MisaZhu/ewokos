@@ -93,16 +93,11 @@ dtoverlay=waveshare-35dpi-4b
 #-------------------------------------------
 
 #-----waveshare 4 inchs usb touch hdmi_lcd------------
-dtparam=i2c_arm=on
-dtoverlay=waveshare-4dpic-3b
-dtoverlay=waveshare-4dpic-4b
 hdmi_force_hotplug=1
 config_hdmi_boost=10
 hdmi_group=2
 hdmi_mode=87
 hdmi_timings=720 0 100 20 100 720 0 20 8 20 0 0 0 60 0 48000000 6
-start_x=0
-gpu_mem=128
 
 
 #-----waveshare mirror hdmi_lcd------------
