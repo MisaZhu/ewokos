@@ -102,7 +102,7 @@ static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, in
 	uint32_t res = _fbd->flush(fbinfo, tmp_g);
 	if(gr != NULL)
 		graph_free(gr);
-	if(tmp_g != &g)
+	if(tmp_g != &g && tmp_g != gr)
 		graph_free(tmp_g);
 	return res;
 }
