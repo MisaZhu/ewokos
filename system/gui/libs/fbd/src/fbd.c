@@ -143,7 +143,6 @@ static void fb_get_info() {
 	memcpy(&_fbinfo, info, sizeof(fbinfo_t));
 	_zwidth = _fbinfo.width / _zoom;
 	_zheight = _fbinfo.height / _zoom;
-	klog("fb_get_info: %d,%d, %f\n", _zwidth, _zheight, _zoom);
 }
 
 static int fb_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
