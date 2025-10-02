@@ -1794,7 +1794,7 @@ int xserver_step(void* p) {
 
 char* xserver_dev_cmd(int from_pid, int argc, char** argv, void* p);
 
-static int _disp_index = 0;
+static int _disp_index = -1;
 static int doargs(int argc, char* argv[]) {
 	int c = 0;
 	while (c != -1) {

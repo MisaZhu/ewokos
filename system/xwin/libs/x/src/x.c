@@ -45,10 +45,23 @@ static int x_get_event(int xserv_pid, xevent_t* ev, bool block) {
 	return res;
 }
 
-int x_screen_info(xscreen_info_t* scr, uint32_t index) {
+uint32_t x_get_display_id(uint32_t index_def) {
+	uint32_t disp_index = index_def;
+	if(index_def == 0) {
+		const char* disp = getenv("DISPLAY_ID");
+		if(disp != NULL && disp[0] != '\0')
+			disp_index = atoi(disp);
+	}
+	if(disp_index >= x_get_display_num())
+		disp_index = index_def;
+	return disp_index;
+}
+
+int x_screen_info(xscreen_info_t* scr, uint32_t disp_index) {
+	disp_index = x_get_display_id(disp_index);
 	proto_t in, out;
 	PF->init(&out);
-	PF->init(&in)->addi(&in, index);
+	PF->init(&in)->addi(&in, disp_index);
 
 	int ret = dev_cntl("/dev/x", X_DCNTL_GET_INFO, &in, &out);
 	if(ret == 0)
@@ -159,6 +172,7 @@ void  x_init(x_t* x, void* data) {
 }
 
 int x_get_desktop_space(int disp_index, grect_t* r) {
+	disp_index = x_get_display_id(disp_index);
 	int res = -1;
 	proto_t out, in;
 	PF->init(&in)->addi(&in, disp_index);

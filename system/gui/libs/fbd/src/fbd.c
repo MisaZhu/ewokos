@@ -214,7 +214,7 @@ static void read_config(const char* conf_file, uint32_t* w, uint32_t* h, uint8_t
 	*zoom = json_get_float_def(conf_var, "zoom", 1.0);
 	*w = json_get_int_def(conf_var, "width", 0);
 	*h = json_get_int_def(conf_var, "height", 0);
-	*dep = json_get_int_def(conf_var, "depth", 0);
+	*dep = json_get_int_def(conf_var, "depth", 32);
 	*rotate = json_get_int_def(conf_var, "rotate", 0);
 
 	if(*zoom <= 0)
@@ -249,7 +249,6 @@ int fbd_run(fbd_t* fbd, const char* mnt_name,
 	_rotate = G_ROTATE_NONE;
 
 	read_config(conf_file, &w, &h, &dep, &_rotate, &_zoom);
-	klog("fbd_run: %d,%d, %f, %d\n", w, h, _zoom, _rotate);
 
 	fb_dma_t dma;
 	dma.shm = NULL;

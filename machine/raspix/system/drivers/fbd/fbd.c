@@ -42,17 +42,39 @@ static int32_t init(uint32_t w, uint32_t h, uint32_t dep) {
 	return bsp_fb_init(w, h, dep);
 }
 
+const char* _conf_file = "";
+static int doargs(int argc, char* argv[]) {
+	int c = 0;
+	while (c != -1) {
+		c = getopt (argc, argv, "c:");
+		if(c == -1)
+			break;
+
+		switch (c) {
+		case 'c':
+			_conf_file = optarg;
+			break;
+		default:
+			c = -1;
+			break;
+		}
+	}
+	return optind;
+}
+
 int main(int argc, char** argv) {
 	fbd_t fbd;
 	_g = NULL;
-	const char* mnt_point = argc > 1 ? argv[1]: "/dev/fb0";
+
+	int opti = doargs(argc, argv);
+	const char* mnt_point = (opti < argc && opti >= 0) ? argv[opti]: "/dev/fb0";
 
 	fbd.splash = NULL;
 	fbd.flush = flush;
 	fbd.init = init;
 	fbd.get_info = get_info;
 
-	int res = fbd_run(&fbd, mnt_point, 640, 480, "");
+	int res = fbd_run(&fbd, mnt_point, 640, 480, _conf_file);
 	if(_g != NULL)
 		graph_free(_g);
 	return res;

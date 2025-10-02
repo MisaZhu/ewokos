@@ -35,6 +35,7 @@ int      x_set_top_app(const char* fname);
 int      x_set_app_name(x_t* x, const char* fname);
 int      x_show_cursor(bool show);
 void     x_push_event(x_t* x, xevent_t* ev);
+uint32_t x_get_display_id(uint32_t index_def);
 int      x_screen_info(xscreen_info_t* scr, uint32_t index);
 int      x_fetch_screen_graph(uint32_t index, graph_t* g);
 int      x_get_display_num(void);
