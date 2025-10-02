@@ -22,7 +22,7 @@ typedef struct {
 extern int fbd_run(fbd_t* fbd, const char* mnt_name,
     uint32_t def_w,
     uint32_t def_h,
-    int32_t def_rotate);
+    const char* conf_file);
 
 #ifdef __cplusplus
 }

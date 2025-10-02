@@ -52,7 +52,7 @@ int main(int argc, char** argv) {
 	fbd.init = init;
 	fbd.get_info = get_info;
 
-	int res = fbd_run(&fbd, mnt_point, 640, 480, G_ROTATE_NONE);
+	int res = fbd_run(&fbd, mnt_point, 640, 480, "");
 	if(_g != NULL)
 		graph_free(_g);
 	return res;

@@ -143,6 +143,7 @@ static void fb_get_info() {
 	memcpy(&_fbinfo, info, sizeof(fbinfo_t));
 	_zwidth = _fbinfo.width / _zoom;
 	_zheight = _fbinfo.height / _zoom;
+	klog("fb_get_info: %d,%d, %f\n", _zwidth, _zheight, _zoom);
 }
 
 static int fb_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
@@ -201,8 +202,10 @@ static int32_t fb_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) 
 	return dma->shm_id;
 }
 
-static void read_config(uint32_t* w, uint32_t* h, uint8_t* dep, int32_t* rotate, float* zoom) {
-	json_var_t *conf_var = json_parse_file("/etc/framebuffer.json");	
+static void read_config(const char* conf_file, uint32_t* w, uint32_t* h, uint8_t* dep, int32_t* rotate, float* zoom) {
+	if(conf_file == NULL || conf_file[0] == 0)
+		conf_file = "/etc/framebuffer.json";
+	json_var_t *conf_var = json_parse_file(conf_file);	
 
 	const char* v = json_get_str_def(conf_var, "logo", "/usr/system/images/logos/ewokos.png");
 	if(v[0] != 0) 
@@ -238,14 +241,15 @@ static int fb_dev_read(int fd, int from_pid, fsinfo_t* node,
 }
 
 int fbd_run(fbd_t* fbd, const char* mnt_name,
-		uint32_t def_w, uint32_t def_h, int32_t def_rotate) {
+		uint32_t def_w, uint32_t def_h, const char* conf_file) {
 	_fbd = fbd;
 	uint32_t w = def_w, h = def_h;
 	_zoom = 1.0;
 	uint8_t dep = 32;
-	_rotate = def_rotate;
+	_rotate = G_ROTATE_NONE;
 
-	read_config(&w, &h, &dep, &_rotate, &_zoom);
+	read_config(conf_file, &w, &h, &dep, &_rotate, &_zoom);
+	klog("fbd_run: %d,%d, %f, %d\n", w, h, _zoom, _rotate);
 
 	fb_dma_t dma;
 	dma.shm = NULL;
