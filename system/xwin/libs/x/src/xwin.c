@@ -66,7 +66,7 @@ static int  x_get_win_rect(int xfd, int style, grect_t* wsr, grect_t* win_space)
 }
 */
 
-xwin_t* xwin_open(x_t* xp, uint32_t disp_index, int x, int y, int w, int h, const char* title, int style) {
+xwin_t* xwin_open(x_t* xp, int32_t disp_index, int x, int y, int w, int h, const char* title, int style) {
 	if(w <= 0 || h <= 0)
 		return NULL;
 	disp_index = x_get_display_id(disp_index);

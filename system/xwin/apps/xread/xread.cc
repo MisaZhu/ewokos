@@ -215,7 +215,7 @@ int main(int argc, char** argv) {
 	text->statusLabel = statusLabel;
 
 	win.loadConfig();
-	win.open(&x, 0, -1, -1, 0, 0, "xread", XWIN_STYLE_NORMAL);
+	win.open(&x, -1, -1, -1, 0, 0, "xread", XWIN_STYLE_NORMAL);
 
 	if(argc >= 2) {
 		win.load(argv[1]);

@@ -68,9 +68,9 @@ public:
 	void dialoged(XWin* from, int res, void* arg);
 
 	void close(void);
-	bool open(X* xp, uint32_t dispIndex, int x, int y, uint32_t w, uint32_t h,
+	bool open(X* xp, int32_t dispIndex, int x, int y, uint32_t w, uint32_t h,
 			const char* title, uint32_t style, bool visible = true);
-	bool open(X* xp, uint32_t dispIndex, const grect_t& r, const char* title, uint32_t style, bool visible = true);
+	bool open(X* xp, int32_t dispIndex, const grect_t& r, const char* title, uint32_t style, bool visible = true);
 	bool setVisible(bool visible);
 	void setAlpha(bool alpha);
 	bool isAlpha(void);

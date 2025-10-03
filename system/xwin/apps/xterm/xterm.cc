@@ -295,7 +295,7 @@ static void* thread_loop(void* p) {
 	readConfig(X::getResName("theme.json"));
 
 	x.getDesktopSpace(desk, 0);
-	win.open(&x, 0, -1, -1, 0, 0, "xconsole", 0);
+	win.open(&x, -1, -1, -1, 0, 0, "xconsole", 0);
 	_win_opened = true;
 
 	win.setAlpha(true);

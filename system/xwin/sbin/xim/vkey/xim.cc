@@ -437,7 +437,7 @@ int main(int argc, char* argv[]) {
 		_panelH = scr.size.h/2;
 
 	XIMX xwin(scr.size.w, scr.size.h, _panelW, _panelH);
-	xwin.open(&x, 0, scr.size.w - _panelW, scr.size.h - _panelH, _panelW, _panelH, "xim",
+	xwin.open(&x, -1, scr.size.w - _panelW, scr.size.h - _panelH, _panelW, _panelH, "xim",
 			XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_FOCUS | XWIN_STYLE_SYSTOP | XWIN_STYLE_XIM | XWIN_STYLE_NO_BG_EFFECT, false);
 	x.run(NULL, &xwin);
 	return 0;

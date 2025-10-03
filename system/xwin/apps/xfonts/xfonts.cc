@@ -228,7 +228,7 @@ int main(int argc, char** argv) {
 	root->add(scrollerV);
 	demo->setScrollerV(scrollerV);
 
-	win.open(&x, 0, -1, -1, 0, 0, "xfont", XWIN_STYLE_NORMAL);
+	win.open(&x, -1, -1, -1, 0, 0, "xfont", XWIN_STYLE_NORMAL);
 	list->select(0);
 	win.repaint();
 

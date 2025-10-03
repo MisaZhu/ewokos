@@ -45,19 +45,19 @@ static int x_get_event(int xserv_pid, xevent_t* ev, bool block) {
 	return res;
 }
 
-uint32_t x_get_display_id(uint32_t index_def) {
+uint32_t x_get_display_id(int32_t index_def) {
 	uint32_t disp_index = index_def;
-	if(index_def == 0) {
+	if(index_def < 0) {
 		const char* disp = getenv("DISPLAY_ID");
 		if(disp != NULL && disp[0] != '\0')
 			disp_index = atoi(disp);
 	}
-	if(disp_index >= x_get_display_num())
-		disp_index = index_def;
+	if(disp_index < 0 || disp_index >= x_get_display_num())
+		disp_index = 0;
 	return disp_index;
 }
 
-int x_screen_info(xscreen_info_t* scr, uint32_t disp_index) {
+int x_screen_info(xscreen_info_t* scr, int32_t disp_index) {
 	disp_index = x_get_display_id(disp_index);
 	proto_t in, out;
 	PF->init(&out);

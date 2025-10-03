@@ -148,12 +148,10 @@ void XWin::close() {
 	xwin = NULL;
 }
 
-bool XWin::open(X* xp, uint32_t dispIndex, int x, int y, uint32_t w, uint32_t h,
+bool XWin::open(X* xp, int32_t dispIndex, int x, int y, uint32_t w, uint32_t h,
 		const char* title, uint32_t style, bool visible) {
 	if(xp == NULL)
 		return false;
-	displayIndex = dispIndex;
-
 	xscreen_info_t scr;
 	X::getScreenInfo(scr, dispIndex);
 
@@ -197,7 +195,7 @@ void XWin::dialoged(XWin* from, int res, void* arg) {
 		onDialoged(from, res, arg);
 }
 
-bool XWin::open(X* xp, uint32_t dispIndex, const grect_t& r, const char* title, uint32_t style, bool visible) {
+bool XWin::open(X* xp, int32_t dispIndex, const grect_t& r, const char* title, uint32_t style, bool visible) {
 	return open(xp, dispIndex, r.x, r.y, r.w, r.h, title, style, visible);
 }
 

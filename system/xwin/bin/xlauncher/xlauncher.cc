@@ -233,7 +233,7 @@ int main(int argc, char** argv) {
 		apps->setDefaultScrollType(Scrollable::SCROLL_TYPE_H);
 	}
 
-	win.open(&x, 0, wr, "xlauncher",
+	win.open(&x, -1, wr, "xlauncher",
 				XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_NO_BG_EFFECT);
 				//XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_SYSBOTTOM  | XWIN_STYLE_NO_BG_EFFECT);
 	widgetXRun(&x, &win);

@@ -43,7 +43,7 @@ int main(int argc, char** argv) {
 	layout->setEventFunc(onEventFunc);
 	win.loadConfig(argv[1]); // 加载布局文件
 
-	win.open(&x, 0, -1, -1, 0, 0, argv[1], XWIN_STYLE_NORMAL);
+	win.open(&x, -1, -1, -1, 0, 0, argv[1], XWIN_STYLE_NORMAL);
 	win.setTimer(16);
 
 	widgetXRun(&x, &win);	

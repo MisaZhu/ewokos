@@ -201,7 +201,7 @@ int main(int argc, char* argv[]) {
 
 	X x;
 	XSession xwin;
-	xwin.open(&x, 0, 0, 0, 0, 0, "XSessioin", XWIN_STYLE_NO_FRAME | XWIN_STYLE_SYSTOP | XWIN_STYLE_NO_BG_EFFECT);
+	xwin.open(&x, -1, 0, 0, 0, 0, "XSessioin", XWIN_STYLE_NO_FRAME | XWIN_STYLE_SYSTOP | XWIN_STYLE_NO_BG_EFFECT);
 	xwin.max();
 	xwin.callXIM();
 
