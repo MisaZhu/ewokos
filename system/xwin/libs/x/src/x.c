@@ -46,7 +46,7 @@ static int x_get_event(int xserv_pid, xevent_t* ev, bool block) {
 }
 
 uint32_t x_get_display_id(int32_t index_def) {
-	uint32_t disp_index = index_def;
+	int32_t disp_index = index_def;
 	if(index_def < 0) {
 		const char* disp = getenv("DISPLAY_ID");
 		if(disp != NULL && disp[0] != '\0')

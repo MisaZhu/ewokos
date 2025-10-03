@@ -94,15 +94,15 @@ static bool do_keyb_spec(uint8_t* keys, uint8_t num) {
 			continue;
 		uint8_t c = keys[j];
 		if(c >= '0' && c <= '9') {
-			core_set_active_ux(c - '0');
+			core_set_active_ux(0, c - '0');
 			return true;
 		}
 		else if(c == KEY_LEFT) { //left 
-			core_prev_ux();
+			core_prev_ux(0);
 			return true;
 		}
 		else if(c == KEY_RIGHT) { //right
-			core_next_ux();
+			core_next_ux(0);
 			return true;
 		}
 		else if(c == KEY_TAB) { //tab for focus
@@ -137,7 +137,7 @@ static bool do_joys_spec(uint8_t* keys, uint8_t num, uint8_t* ret_key) {
 			if(j == i)
 				continue;
 			if(c == JOYSTICK_Y) { //Y for prev ux
-				core_prev_ux();
+				core_prev_ux(0);
 				return true;
 			}
 			else if(c == JOYSTICK_A) { //A for next ux

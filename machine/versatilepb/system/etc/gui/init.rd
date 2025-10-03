@@ -33,7 +33,7 @@
 @export UX_ID=1
 @/bin/ipcserv /drivers/consoled   -i /dev/keyb0
 @/bin/bgrun /bin/session -r -t /dev/console1 
-@setux 1
+@setux 0 1
 
 @export UX_ID=2
 @/bin/ipcserv /drivers/consoled   -i /dev/keyb0

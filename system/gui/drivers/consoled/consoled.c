@@ -123,6 +123,7 @@ static void flush(fb_console_t* console) {
 
 static bool _flush = true;
 static int _ux_index = 0;
+static int _disp_index = 0;
 static int console_write(int fd, 
 		int from_pid,
 		fsinfo_t* node,
@@ -142,7 +143,7 @@ static int console_write(int fd,
 
 	const char* pb = (const char*)buf;
 	gterminal_put(&console->terminal, pb, size);
-	//if(_ux_index == core_get_active_ux())
+	//if(_ux_index == core_get_active_ux(console->display_index))
 		//flush(console);
 	return size;
 }
@@ -170,7 +171,7 @@ static int console_read(int fd,
 
 static int console_loop(void* p) {
 	fb_console_t* console = (fb_console_t*)p;
-	if(console->display_index == 0 && _ux_index != core_get_active_ux()) {
+	if(_ux_index != core_get_active_ux(console->display_index)) {
 		usleep(200000);
 		_flush = true;
 		return 0;
@@ -230,7 +231,6 @@ static int console_loop(void* p) {
 }
 
 static const char* _mnt_point = "";
-static int _disp_index = 0;
 static int doargs(int argc, char* argv[]) {
 	int c = 0;
 	while (c != -1) {
@@ -257,12 +257,11 @@ static int doargs(int argc, char* argv[]) {
 }
 
 int main(int argc, char** argv) {
+	_disp_index = 0;
 	_buffer = charbuf_new(0);
-	_ux_index = core_get_ux();
+	_ux_index = core_get_ux_env();
 	int argind = doargs(argc, argv);
-	core_set_ux(_ux_index);
-	if(_ux_index == 0)
-		core_set_active_ux(0);
+	core_enable_ux(_disp_index, _ux_index);
 
 	char mnt_point[128] = {0};
 	if(argind < argc)

@@ -14,7 +14,7 @@
 extern "C" {
 #endif
 
-int fb_open(const char *dev, uint32_t disp_index, fb_t* fb) {
+int fb_open(const char *dev, int32_t disp_index, fb_t* fb) {
 	if(fb == NULL || dev == NULL)
 		return -1;
 
@@ -75,7 +75,7 @@ int fb_info(fb_t* fb, int* w, int* h, int* bpp) {
 int fb_flush(fb_t* fb, bool waiting) {
 	if(fb == NULL || fb->fd < 0)
 		return -1;
-	if(fb->display_index == 0 && core_get_active_ux() != core_get_ux())
+	if(core_get_active_ux(fb->display_index) != core_get_ux_env())
 		return -1;
 	return vfs_flush(fb->fd, waiting);
 }

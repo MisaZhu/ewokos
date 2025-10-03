@@ -23,17 +23,17 @@ typedef struct {
 
 static proc_info_t *_proc_info_table = NULL;
 static uint32_t _max_proc_table_num = 0;
-static int _ux_index = 0;
 
 typedef struct {
 	bool occupied;	
+	bool actived;
+	int32_t disp_index;	
 } ux_t;
 
 static ux_t _uxs[UX_MAX];
 
 static void core_init(void) {
 	int32_t i;
-	_ux_index = 0;
 
 	sys_info_t sysinfo;
 	syscall1(SYS_GET_SYS_INFO, (ewokos_addr_t)&sysinfo);
@@ -156,33 +156,53 @@ static void do_proc_set_cwd(int pid, proto_t* in, proto_t* out) {
 	PF->clear(out)->addi(out, 0);
 }
 
-static void do_proc_set_ux(int pid, proto_t* in) {
+static void do_proc_enable_ux(int pid, proto_t* in) {
+	int disp_index = proto_read_int(in);
 	int index = proto_read_int(in);
 	if(index < 0 || index >= UX_MAX)
 		return;
 	_uxs[index].occupied = true;
+	_uxs[index].disp_index = disp_index;
 }
 
-static void do_proc_next_ux(void) {
-	int i = _ux_index + 1;
-	while(i != _ux_index) {
+static bool check_disp_index(int32_t disp_index, int32_t i) {
+	return (_uxs[i].disp_index < 0 || _uxs[i].disp_index == disp_index) ;
+}
+
+static uint32_t get_active_ux(int32_t disp_index) {
+	for(int i = 0; i<UX_MAX; i++) {
+		if(_uxs[i].occupied &&
+				check_disp_index(disp_index, i) &&
+				_uxs[i].actived)
+			return i;
+	}
+	return 0;
+}
+
+static void do_proc_next_ux(int32_t disp_index) {
+	int32_t ux_index = get_active_ux(disp_index);
+	int i = ux_index + 1;
+	while(i != ux_index) {
 		if(i >= UX_MAX)
 			i = 0;
-		if(_uxs[i].occupied) {
-			_ux_index = i;
+		if(_uxs[i].occupied && check_disp_index(disp_index, i)) {
+			_uxs[ux_index].actived = false;
+			_uxs[i].actived = true;
 			return;
 		}
 		i++;
 	}
 }
 
-static void do_proc_prev_ux(void) {
-	int i = _ux_index - 1;
-	while(i != _ux_index) {
+static void do_proc_prev_ux(int32_t disp_index) {
+	int32_t ux_index = get_active_ux(disp_index);
+	int i = ux_index - 1;
+	while(i != ux_index) {
 		if(i < 0)
 			i = UX_MAX - 1;
-		if(_uxs[i].occupied) {
-			_ux_index = i;
+		if(_uxs[i].occupied && check_disp_index(disp_index, i)) {
+			_uxs[ux_index].actived = false;
+			_uxs[i].actived = true;
 			return;
 		}
 		i--;
@@ -190,16 +210,22 @@ static void do_proc_prev_ux(void) {
 }
 
 static void do_proc_set_active_ux(int pid, proto_t* in) {
+	int disp_index = proto_read_int(in);
 	int index = proto_read_int(in);
 	if(index < 0 || index >= UX_MAX)
 		return;
 
-	if(_uxs[index].occupied)
-		_ux_index = index;
+	if(_uxs[index].occupied && check_disp_index(disp_index, index)) {
+		int32_t ux_index = get_active_ux(disp_index);
+		_uxs[ux_index].actived = false;
+		_uxs[index].actived = true;
+	}
 }
 
-static void do_proc_get_ux(int pid, proto_t* out) {
-	PF->addi(out, _ux_index);
+static void do_proc_get_ux(int pid, proto_t* in, proto_t* out) {
+	int disp_index = proto_read_int(in);
+	int32_t ux_index = get_active_ux(disp_index);
+	PF->addi(out, ux_index);
 }
 
 static str_t* env_get(map_t envs, const char* key) {
@@ -318,17 +344,17 @@ static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	case CORE_CMD_SET_ACTIVE_UX:
 		do_proc_set_active_ux(pid, in);
 		return;
-	case CORE_CMD_SET_UX:
-		do_proc_set_ux(pid, in);
+	case CORE_CMD_ENABLE_UX:
+		do_proc_enable_ux(pid, in);
 		return;
 	case CORE_CMD_NEXT_UX:
-		do_proc_next_ux();
+		do_proc_next_ux(in);
 		return;
 	case CORE_CMD_PREV_UX:
-		do_proc_prev_ux();
+		do_proc_prev_ux(in);
 		return;
 	case CORE_CMD_GET_UX:
-		do_proc_get_ux(pid, out);
+		do_proc_get_ux(pid, in, out);
 		return;
 	}
 }

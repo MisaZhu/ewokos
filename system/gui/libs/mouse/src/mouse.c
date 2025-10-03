@@ -45,7 +45,7 @@ static void mouse_evt(int8_t bt, int8_t rx, int8_t ry, mouse_evt_t* evt) {
 }
 
 int mouse_read(int fd, mouse_evt_t* evt) {
-	if(core_get_active_ux() != core_get_ux())
+	if(core_get_active_ux(0) != core_get_ux_env())
         return 0;
 
     int8_t mv[MOUSE_EVT_MAX];
