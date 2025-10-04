@@ -90,6 +90,7 @@ int main(int argc, char** argv) {
 	XTheme* theme = win.getTheme();
 	theme->basic.fgColor = 0xFF000000;
 	theme->basic.bgColor = 0xFFFFFFFF;
+	theme->basic.fontSize = 10;
 
 	win.open(&x, -1, -1, -1, 0, 0, "xlog", XWIN_STYLE_NORMAL | XWIN_STYLE_NO_BG_EFFECT);
 	win.setTimer(30);
