@@ -228,7 +228,7 @@ int main(int argc, char** argv) {
 	layout->setEventFunc(onEventFunc);
 	layout->setCreateByTypeFunc(createByTypeFunc);
 
-	win.loadConfig(X::getResName("layout.xwl")); // 加载布局文件
+	win.loadConfig(X::getResName("layout.xwl").c_str()); // 加载布局文件
 	win.setOnDialogedFunc(_dialogedFunc);
 
 	win.open(&x, -1, -1, -1, 280, 300, "xwm_theme", XWIN_STYLE_NORMAL);

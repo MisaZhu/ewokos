@@ -180,17 +180,21 @@ class FileGrid: public Grid {
 	}
 
 	void loadIcons() {
-		fileIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "xfinder", "icons/file.png"));
+		char fname[FS_FULL_NAME_MAX+1] = {0};
+		x_get_theme_fname(X_THEME_ROOT, "xfinder", "icons/file.png", fname, FS_FULL_NAME_MAX);
+		fileIcon = png_image_new(fname);
 		if(fileIcon == NULL)
-			fileIcon = png_image_new(X::getResName("icons/file.png"));
+			fileIcon = png_image_new(X::getResName("icons/file.png").c_str());
 
-		dirIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "xfinder", "icons/folder.png"));
+		x_get_theme_fname(X_THEME_ROOT, "xfinder", "icons/folder.png", fname, FS_FULL_NAME_MAX);
+		dirIcon = png_image_new(fname);
 		if(dirIcon == NULL)
-			dirIcon = png_image_new(X::getResName("icons/folder.png"));
+			dirIcon = png_image_new(X::getResName("icons/folder.png").c_str());
 
-		devIcon = png_image_new(x_get_theme_fname(X_THEME_ROOT, "xfinder", "icons/device.png"));
+		x_get_theme_fname(X_THEME_ROOT, "xfinder", "icons/device.png", fname, FS_FULL_NAME_MAX);
+		devIcon = png_image_new(fname);
 		if(devIcon == NULL)
-			devIcon = png_image_new(X::getResName("icons/device.png"));
+			devIcon = png_image_new(X::getResName("icons/device.png").c_str());
 	}
 
 	json_var_t* loadFileTypes(const char* confFile) {
@@ -255,7 +259,9 @@ class FileGrid: public Grid {
 				if(img != NULL)
 					return img;
 
-				img = png_image_new(x_get_theme_fname(X_THEME_ROOT, "xfinder", icon));
+				char fname[FS_FULL_NAME_MAX+1] = {0};
+				x_get_theme_fname(X_THEME_ROOT, "xfinder", icon, fname, FS_FULL_NAME_MAX);
+				img = png_image_new(fname);
 				if(img == NULL)
 					return NULL;
 				json_var_add(it, "icon_image", json_var_new_obj(img, freeIcon));

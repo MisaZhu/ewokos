@@ -113,8 +113,8 @@ public:
 	MyText* text;
 
 	void loadConfig(void) {
-		const char* fname = X::getResName("config.json");
-		json_var_t *conf_var = json_parse_file(fname);
+		string fname = X::getResName("config.json");
+		json_var_t *conf_var = json_parse_file(fname.c_str());
 		text->setFont(json_get_str_def(conf_var, "font", DEFAULT_SYSTEM_FONT));
 		json_var_unref(conf_var);
 	}

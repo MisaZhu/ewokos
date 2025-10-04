@@ -7,7 +7,10 @@
 #include <ewoksys/vfs.h>
 #include <stdio.h>
 #include <font/font.h>
+#include <string>
 #include <UniObject/UniObject.h>
+
+using namespace std;
 
 namespace Ewok {
 
@@ -20,7 +23,7 @@ public:
 	void terminate(void);
 	bool terminated(void);
 
-	static const char* getResName(const char* name);
+	static string getResName(const char* name);
 
 	static uint32_t getDisplayNum();
 	static bool    getScreenInfo(xscreen_info_t& scr, int index = 0);

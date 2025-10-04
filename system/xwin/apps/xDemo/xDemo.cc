@@ -40,8 +40,8 @@ public:
 		count = 0;
 		mode = CIRCLE;
         imgX = imgY = 0;
-		img_big = png_image_new(X::getResName("data/rokid.png"));	
-		img_small = png_image_new(X::getResName("data/rokid_small.png"));	
+		img_big = png_image_new(X::getResName("data/rokid.png").c_str());	
+		img_small = png_image_new(X::getResName("data/rokid_small.png").c_str());	
 	}
 	
 	inline ~TestX() {

@@ -41,7 +41,9 @@ class AppGrid: public Grid {
 
 	string getIconFname(const char* appName) {
 		//try theme icon first
-		string ret = x_get_theme_fname(X_THEME_ROOT, appName, "icon.png");
+		char fname[FS_FULL_NAME_MAX+1] = {0};
+		x_get_theme_fname(X_THEME_ROOT, appName, "icon.png", fname, FS_FULL_NAME_MAX);
+		string ret = fname;
 		if(access(ret.c_str(), R_OK) == 0)
 			return ret;
 

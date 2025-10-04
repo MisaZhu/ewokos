@@ -248,8 +248,12 @@ int x_exec(const char* fname) {
 	return 0;
 }
 
-const char* x_get_theme_fname(const char* prefix, const char* app_name, const char* fname) {
-	static char ret[256] = {0};
+const char* x_get_theme_fname(const char* prefix,
+		const char* app_name,
+		const char* fname, 
+		char* ret,
+		uint32_t len) {
+	memset(ret, 0, len);
 	if(fname[0] == '/') {
 		strncpy(ret, fname, 255);
 		return ret;
@@ -265,22 +269,22 @@ const char* x_get_theme_fname(const char* prefix, const char* app_name, const ch
 	return ret;
 }
 
-const char* x_get_res_name(const char* name) {
-	static char ret[FS_FULL_NAME_MAX] = "";
+const char* x_get_res_name(const char* name, char* ret, uint32_t len) {
+	memset(ret, 0, len);
 	if(name == NULL || name[0] == 0)
 		return ret;
 	
 	if(name[0] == '/') {
-		strncpy(ret, name, FS_FULL_NAME_MAX-1);
+		strncpy(ret, name, len);
 		return ret;
 	}
 
 	char wkdir[FS_FULL_NAME_MAX+1] = {0};
 	x_get_work_dir(wkdir, FS_FULL_NAME_MAX);
 	if(wkdir[1] == 0 && wkdir[0] == '/')
-		snprintf(ret, FS_FULL_NAME_MAX-1, "/res/%s", name);
+		snprintf(ret, len, "/res/%s", name);
 	else
-		snprintf(ret, FS_FULL_NAME_MAX-1, "%s/res/%s", wkdir, name);
+		snprintf(ret, len, "%s/res/%s", wkdir, name);
 	return ret;
 }
 

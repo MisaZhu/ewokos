@@ -292,7 +292,7 @@ static void* thread_loop(void* p) {
 	win.consoleWidget = consoleWidget;
 	root->focus(consoleWidget);
 	_consoleWidget = consoleWidget;
-	readConfig(X::getResName("theme.json"));
+	readConfig(X::getResName("theme.json").c_str());
 
 	x.getDesktopSpace(desk, 0);
 	win.open(&x, -1, -1, -1, 0, 0, "xconsole", 0);
