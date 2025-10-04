@@ -129,8 +129,8 @@ void x_terminate(x_t* x) {
 	proc_wakeup_pid(getpid(), X_EVT_BLOCK_EVT);
 }
 
-const char* x_get_work_dir(void) {
-	return cmain_get_work_dir();
+void x_get_work_dir(char* ret, uint32_t len) {
+	cmain_get_work_dir(ret, len);
 }
 
 static x_theme_t _x_theme;
@@ -275,7 +275,8 @@ const char* x_get_res_name(const char* name) {
 		return ret;
 	}
 
-	const char* wkdir = x_get_work_dir();
+	char wkdir[FS_FULL_NAME_MAX+1] = {0};
+	x_get_work_dir(wkdir, FS_FULL_NAME_MAX);
 	if(wkdir[1] == 0 && wkdir[0] == '/')
 		snprintf(ret, FS_FULL_NAME_MAX-1, "/res/%s", name);
 	else

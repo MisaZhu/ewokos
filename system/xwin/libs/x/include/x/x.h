@@ -42,7 +42,7 @@ int      x_get_display_num(void);
 void     x_init(x_t* x, void* data);
 int      x_run(x_t* x, void* loop_data);
 void     x_terminate(x_t* x);
-const char* x_get_work_dir(void);
+void     x_get_work_dir(char* ret, uint32_t len);
 int      x_get_theme(x_theme_t* theme);
 const char* x_get_theme_fname(const char* prefix, const char* app_name, const char* fname);
 int      x_get_desktop_space(int disp_index, grect_t* r);

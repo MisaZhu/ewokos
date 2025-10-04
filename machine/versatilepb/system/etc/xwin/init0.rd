@@ -1,3 +1,5 @@
+@/bin/ipcserv /drivers/logd  /dev/log
+
 @/bin/ipcserv /drivers/displayd         
 @/bin/ipcserv /drivers/versatilepb/fbd  /dev/fb0
 @/bin/ipcserv /drivers/fontd -l -o
