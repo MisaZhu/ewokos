@@ -19,11 +19,11 @@ int main (int argc, char **argv) {
   while (1) {
     j++;
     int sz = read(fd, chs, sizeof(chs));
-    klog("adc0 %d, %d:", j, sz);
+    slog("adc0 %d, %d:", j, sz);
     for(int i = 0; i < 16; i++) {
-      klog(" %d:%d", i, chs[i]);
+      slog(" %d:%d", i, chs[i]);
     }
-    klog("\n");
+    slog("\n");
     proc_usleep(100000);
   }
   return 0;

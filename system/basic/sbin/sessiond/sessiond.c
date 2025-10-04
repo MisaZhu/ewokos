@@ -204,7 +204,7 @@ int main(int argc, char** argv) {
 		return -1;
 
 	if(ipc_serv_reg(IPC_SERV_SESSIOND) != 0) {
-		klog("reg sessiond ipc_serv error!\n");
+		slog("reg sessiond ipc_serv error!\n");
 		return -1;
 	}
 

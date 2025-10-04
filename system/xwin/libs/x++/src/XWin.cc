@@ -178,7 +178,7 @@ bool XWin::open(X* xp, int32_t dispIndex, int x, int y, uint32_t w, uint32_t h,
 
 	xwin_t* xw = xwin_open(xp->c_x(), dispIndex, x, y, w, h, title, style);
 	if(xw == NULL) {
-		klog("xwin open failed\n");
+		slog("xwin open failed\n");
 		return false;
 	}
 	this->x = xp;

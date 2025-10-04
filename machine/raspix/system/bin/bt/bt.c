@@ -45,7 +45,7 @@ int32_t bt_send_hci_command_bytes(uint8_t* opcodebytes, uint8_t* data, uint8_t l
 
 	uint8_t res = bcm283x_pl011_uart_recv(100);
 	if(res != HCI_EVENT_PKT)  {
-		klog("bt_send_hci_command_bytes failed, res=0x%X\n", res);
+		slog("bt_send_hci_command_bytes failed, res=0x%X\n", res);
 		return 1;
 	}
 
@@ -56,7 +56,7 @@ int32_t bt_send_hci_command_bytes(uint8_t* opcodebytes, uint8_t* data, uint8_t l
 
 		res = bcm283x_pl011_uart_recv(100);
 		if (res != 0) {
-				klog("Saw HCI COMMAND STATUS error %d\n", res);
+				slog("Saw HCI COMMAND STATUS error %d\n", res);
 				return 12;
 		}
 
@@ -97,7 +97,7 @@ void bt_load_firmware(void) {
 	volatile unsigned char empty[] = {};
 	int32_t res = bt_send_hci_command(OGF_VENDOR, COMMAND_LOAD_FIRMWARE, empty, 0);
 	if(res != 0) {
-		klog("loadFirmware() failed: %d\n", res);
+		slog("loadFirmware() failed: %d\n", res);
 		return;
 	}
 
@@ -115,7 +115,7 @@ void bt_load_firmware(void) {
 
 		int32_t res = bt_send_hci_command_bytes(opcodebytes, data, length);
 		if(res != 0) {
-			klog("bt_send_hci_command_bytes failed, res=%d\n", res);
+			slog("bt_send_hci_command_bytes failed, res=%d\n", res);
 			break;
 		}
 		data += length;
@@ -133,26 +133,26 @@ int main(int argc, char* argv[]) {
 		printf("bt not support with pl011_uart\n");
 		return -1;
 	}
-	klog("bt: init pl011_uart\n");
+	slog("bt: init pl011_uart\n");
 	bcm283x_pl011_uart_init();
 	bcm283x_pl011_uart_recv(100); // 清空接收缓冲区
 	sleep(1);
 
     // 重置蓝牙芯片
-	klog("reset firmware ... ");
+	slog("reset firmware ... ");
     volatile uint8_t empty[] = {};
 	int32_t res = bt_send_hci_command(OGF_HOST_CONTROL, COMMAND_RESET_CHIP, empty, 0);
 	if(res != 0) {
-		klog("failed: %d\n", res);
+		slog("failed: %d\n", res);
 		return -1;
 	}
     usleep(1000000); // 等待重置完成
-	klog("done\n");
+	slog("done\n");
 
 	// 加载蓝牙固件
-	klog("load firmware ... ");
+	slog("load firmware ... ");
     bt_load_firmware();
-	klog("done\n");
+	slog("done\n");
     
 	return 0;
 }

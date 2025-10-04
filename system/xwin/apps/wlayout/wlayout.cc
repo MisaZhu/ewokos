@@ -20,19 +20,19 @@
 using namespace Ewok;
 
 static void onMenuItemFunc(MenuItem* it, void* data) {
-	klog("onMenuItemFunc: %d\n", it->id);
+	slog("onMenuItemFunc: %d\n", it->id);
 }
 
 static void onEventFunc(Widget* wd, xevent_t* evt, void* arg) {
 	if(evt->type == XEVT_MOUSE && evt->state == MOUSE_STATE_MOVE)
 		return;
-	klog("onEventFunc: id:%d: name: %s, type: %d, state: %d\n", 
+	slog("onEventFunc: id:%d: name: %s, type: %d, state: %d\n", 
 			wd->getID(), wd->getName().c_str(), evt->type, evt->state);
 }
 
 int main(int argc, char** argv) {
 	if(argc < 2) {
-		klog("Usage: %s <xxxx.layout>\n", argv[0]);
+		slog("Usage: %s <xxxx.layout>\n", argv[0]);
 		return 0;
 	}
 	

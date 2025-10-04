@@ -34,7 +34,7 @@ protected:
 	}
 
 	void onSelect(int index) {
-		klog("index: %d\n", index);
+		slog("index: %d\n", index);
 	}
 
 public:
