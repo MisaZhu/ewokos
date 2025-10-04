@@ -28,7 +28,8 @@ static int log_read(int fd,
 			break;
 		i++;
 	}
-	return i;	
+
+	return i==0 ? VFS_ERR_RETRY : i;
 }
 
 static int log_write(int fd, 
@@ -54,6 +55,9 @@ static int log_write(int fd,
 			break;
 		i++;
 	}
+
+	if(i > 0)
+		proc_wakeup(RW_BLOCK_EVT);
 	return i;
 }
 
