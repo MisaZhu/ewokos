@@ -64,12 +64,12 @@ int32_t bcm283x_pl011_uart_init(void) {
 	// Fraction part register = (Fractional part * 64) + 0.5
 	// UART_CLOCK = 3000000; Baud = 115200.
 
-	//put32(_mmio_base+UART0_IBRD, 1); // Divider = 3000000 / (16 * 115200) = 1.627 = ~1.
-	//put32(_mmio_base+UART0_FBRD, 40); // Fractional part register = (.627 * 64) + 0.5 = 40.6 = ~40.
+	put32(_mmio_base+UART0_IBRD, 1); // Divider = 3000000 / (16 * 115200) = 1.627 = ~1.
+	put32(_mmio_base+UART0_FBRD, 40); // Fractional part register = (.627 * 64) + 0.5 = 40.6 = ~40.
 
 	// 2. 配置波特率：3000000 = 250MHz / (16 * (IBRD + FBRD/64))
-    put32(_mmio_base+UART0_IBRD, 5);    // 整数部分：250000000 / (16*3000000) ≈ 5.208 → 5
-    put32(_mmio_base+UART0_FBRD, 13);   // 小数部分：0.208 * 64 ≈ 13.312 → 13
+    //put32(_mmio_base+UART0_IBRD, 5);    // 整数部分：250000000 / (16*3000000) ≈ 5.208 → 5
+    //put32(_mmio_base+UART0_FBRD, 13);   // 小数部分：0.208 * 64 ≈ 13.312 → 13
 
 	// Enable FIFO & 8 bit data transmissio (1 stop bit, no parity).
 	put32(_mmio_base+UART0_LCRH, (1 << 4) | (1 << 5) | (1 << 6));

@@ -76,7 +76,31 @@ protected:
 	}
 };
 
+static bool _fullscreen = false;
+static int doargs(int argc, char* argv[]) {
+	int c = 0;
+	while (c != -1) {
+		c = getopt (argc, argv, "f");
+		if(c == -1)
+			break;
+
+		switch (c) {
+		case 'f':
+			_fullscreen = true;
+			break;
+		case '?':
+			return -1;
+		default:
+			c = -1;
+			break;
+		}
+	}
+	return optind;
+}
+
 int main(int argc, char** argv) {
+	doargs(argc, argv);
+
 	X x;
 	WidgetWin win;
 	RootWidget* root = new RootWidget();
@@ -93,6 +117,8 @@ int main(int argc, char** argv) {
 	theme->basic.fontSize = 10;
 
 	win.open(&x, -1, -1, -1, 0, 0, "xlog", XWIN_STYLE_NORMAL | XWIN_STYLE_NO_BG_EFFECT);
+	if(_fullscreen)
+		win.max();
 	win.setTimer(30);
 	widgetXRun(&x, &win);
 	return 0;

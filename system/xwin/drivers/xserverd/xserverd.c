@@ -1113,15 +1113,15 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 
 	if(win->xinfo->state == XWIN_STATE_MAX) {
 		win->xinfo->wsr.x = 0;
-		win->xinfo->wsr.w = x->displays[x->current_display].g->w;
+		win->xinfo->wsr.w = x->displays[win->xinfo->display_index].g->w;
 
       	if((win->xinfo->style & XWIN_STYLE_NO_TITLE) == 0) {
 			win->xinfo->wsr.y = x->config.xwm_theme.titleH;
-			win->xinfo->wsr.h = x->displays[x->current_display].g->h - x->config.xwm_theme.titleH;
+			win->xinfo->wsr.h = x->displays[win->xinfo->display_index].g->h - x->config.xwm_theme.titleH;
 		}
 		else {
 			win->xinfo->wsr.y = 0;
-			win->xinfo->wsr.h = x->displays[x->current_display].g->h;
+			win->xinfo->wsr.h = x->displays[win->xinfo->display_index].g->h;
 		}
 	}
 
