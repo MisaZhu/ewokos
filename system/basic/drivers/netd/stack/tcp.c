@@ -828,9 +828,7 @@ tcp_input(const uint8_t *data, size_t len, ip_addr_t src, ip_addr_t dst, struct 
     seg.wnd = ntoh16(hdr->wnd);
     seg.up = ntoh16(hdr->up);
     mutex_lock(&mutex);
-    debug_flag = 1;
     tcp_segment_arrives(&seg, hdr->flg, (uint8_t *)hdr + hlen, len - hlen, &local, &foreign);
-    debug_flag = 0;
     mutex_unlock(&mutex);
     return;
 }

@@ -237,7 +237,7 @@ udp_output(struct ip_endpoint *src, struct ip_endpoint *dst, const  uint8_t *dat
     pseudo.len = hton16(total);
     psum = ~cksum16((uint16_t *)&pseudo, sizeof(pseudo), 0);
     hdr->sum = cksum16((uint16_t *)hdr, total, psum);
-    debugf("%s => %s, len=%u (payload=%zu)",
+    errorf("%s => %s, len=%u (payload=%zu)",
         ip_endpoint_ntop(src, ep1, sizeof(ep1)), ip_endpoint_ntop(dst, ep2, sizeof(ep2)), total, len);
     udp_dump((uint8_t *)hdr, total);
     int ret = ip_output(IP_PROTOCOL_UDP, (uint8_t *)hdr, total, src->addr, dst->addr);
@@ -366,7 +366,7 @@ udp_sendto(int id, uint8_t *data, size_t len, struct ip_endpoint *foreign)
             return -1;
         }
         local.addr = iface->unicast;
-        debugf("select local address, addr=%s", ip_addr_ntop(local.addr, addr, sizeof(addr)));
+        errorf("select local address, addr=%s", ip_addr_ntop(local.addr, addr, sizeof(addr)));
     }
     if (!pcb->local.port) {
         for (p = UDP_SOURCE_PORT_MIN; p <= UDP_SOURCE_PORT_MAX; p++) {
@@ -402,13 +402,13 @@ udp_recvfrom(int id, uint8_t *buf, size_t size, struct ip_endpoint *foreign)
     }
     while (!(entry = queue_pop(&pcb->queue))) {
         if (sched_sleep(&pcb->ctx, &mutex, NULL) == -1) {
-            debugf("interrupted");
+            errorf("interrupted");
             mutex_unlock(&mutex);
             errno = EINTR;
             return -1;
         }
         if (pcb->state == UDP_PCB_STATE_CLOSING) {
-            debugf("closed");
+            errorf("closed");
             udp_pcb_release(pcb);
             mutex_unlock(&mutex);
             return -1;

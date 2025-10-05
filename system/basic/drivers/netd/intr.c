@@ -58,7 +58,6 @@ int tid;
 
 int dflag [16];
 int dcnt = 0;
-int debug_flag = 0;
 
 void raise_softirq(uint32_t  sig){
     if(sig < SIGMAX){

@@ -75,12 +75,14 @@ int main(int argc, char *argv[]) {
     packet.li_vn_mode = 0x1b; // 0b00 100 11 -> li=0, vn=4, mode=3 (client)
 
     // 发送NTP请求
-    if (sendto(sockfd, &packet, sizeof(packet), 0, 
-               (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+    int res = sendto(sockfd, &packet, sizeof(packet), 0, 
+               (struct sockaddr *)&server_addr, sizeof(server_addr));
+    if(res < 0) {
         printf("Failed to send NTP request\n");
         close(sockfd);
         return 1;
     }
+    printf("send NTP ok :%d, recving\n", res);
 
     // 接收NTP响应
     socklen_t addr_len = sizeof(server_addr);
@@ -91,6 +93,7 @@ int main(int argc, char *argv[]) {
         close(sockfd);
         return 1;
     }
+    printf("recv NTP ok :%d\n", bytes_received);
 
     // 关闭套接字
     close(sockfd);

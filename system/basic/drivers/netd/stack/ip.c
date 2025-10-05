@@ -246,17 +246,31 @@ ip_iface_alloc(const char *unicast, const char *netmask)
     return iface;
 }
 
-void ip_iface_update(struct ip_iface *iface, uint32_t ipaddr, uint32_t netmask, uint32_t gateway){
+// 修改函数签名，使其与实现一致
+int ip_iface_update(struct ip_iface *iface, uint32_t ipaddr, uint32_t netmask, uint32_t gateway){
     if(iface == NULL)
-        return;
+        return -1;
+    
+    // 更新接口的IP地址和子网掩码
     iface->unicast = ipaddr;
     iface->netmask = netmask;
     iface->broadcast = (iface->unicast & iface->netmask) | ~iface->netmask;
 
+    // 添加网络直连路由
     if (!ip_route_add(iface->unicast & iface->netmask, iface->netmask, IP_ADDR_ANY, iface)) {
-        errorf("ip_route_add() failure");
+        errorf("ip_route_add() failure for network route");
         return -1;
-    } 
+    }
+    
+    // 如果提供了gateway参数且不为0.0.0.0，则设置默认网关
+    if (gateway != IP_ADDR_ANY) {
+        if (!ip_route_add(IP_ADDR_ANY, IP_ADDR_ANY, gateway, iface)) {
+            errorf("ip_route_add() failure for default gateway");
+            return -1;
+        }
+    }
+    
+    return 0;
 }
 
 /* NOTE: must not be call after net_run() */
@@ -418,7 +432,7 @@ ip_output_core(struct ip_iface *iface, uint8_t protocol, const uint8_t *data, si
     hdr->dst = dst;
     hdr->sum = cksum16((uint16_t *)hdr, hlen, 0); /* don't convert byteorder */
     memcpy(hdr+1, data, len);
-    debugf("dev=%s, iface=%s, protocol=%s(0x%02x), len=%u",
+    errorf("dev=%s, iface=%s, protocol=%s(0x%02x), len=%u",
         NET_IFACE(iface)->dev->name, ip_addr_ntop(iface->unicast, addr, sizeof(addr)), ip_protocol_name(protocol), protocol, total);
     ip_dump(buf, total);
 
