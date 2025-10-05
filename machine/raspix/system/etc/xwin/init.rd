@@ -1,3 +1,5 @@
+@/bin/ipcserv /sbin/logd /dev/log
+
 @/bin/ipcserv /drivers/raspix/uartd         /dev/tty0
 @/bin/ipcserv /sbin/sessiond
 @/bin/bgrun /bin/session -r -t /dev/tty0 
@@ -9,7 +11,6 @@
 @export UX_ID=0
 @/bin/ipcserv /drivers/consoled        
 @set_stdio /dev/console0
-@export KLOG_DEV=/dev/console0
 
 @/bin/ipcserv /drivers/timerd          
 

@@ -75,8 +75,8 @@ int fb_info(fb_t* fb, int* w, int* h, int* bpp) {
 int fb_flush(fb_t* fb, bool waiting) {
 	if(fb == NULL || fb->fd < 0)
 		return -1;
-	if(core_get_active_ux(fb->display_index) != core_get_ux_env())
-		return -1;
+	//if(core_get_active_ux(fb->display_index) != core_get_ux_env())
+		//return -1;
 	return vfs_flush(fb->fd, waiting);
 }
 

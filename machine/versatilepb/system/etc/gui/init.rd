@@ -1,3 +1,5 @@
+@/bin/ipcserv /sbin/logd /dev/log
+
 @/bin/ipcserv /drivers/versatilepb/ttyd /dev/tty0
 @/bin/ipcserv /sbin/sessiond
 @/bin/bgrun /bin/session -r -t /dev/tty0 
@@ -9,7 +11,6 @@
 @export UX_ID=0
 @/bin/ipcserv /drivers/consoled  /dev/klog
 @set_stdio /dev/klog
-@export KLOG_DEV=/dev/klog
 
 @echo "+---------------------------------------+\n"
 @echo "|  < EwokOS MicroKernel >               |\n" 
