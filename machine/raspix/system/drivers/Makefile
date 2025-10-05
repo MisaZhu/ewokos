@@ -7,7 +7,7 @@ basic:
 	cd hid_moused; make
 	cd hid_joystickd; make
 	cd spi2uart; make
-	#cd wlan; make
+	cd wlan; make
 
 gui:
 	cd fbd; make
@@ -22,4 +22,4 @@ clean:
 	cd hid_moused; make clean
 	cd hid_joystickd; make clean
 	cd spi2uart; make clean
-	#cd wlan; make clean
+	cd wlan; make clean

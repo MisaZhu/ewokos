@@ -6,9 +6,11 @@ basic_drivers:
 	cd logd;make
 	cd ramfsd;make
 	cd timerd;make
+	cd netd;make
 
 clean:
 	cd nulld;make clean
 	cd logd;make clean
 	cd ramfsd;make clean
 	cd timerd;make clean
+	cd netd;make clean

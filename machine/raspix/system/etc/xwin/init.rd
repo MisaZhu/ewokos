@@ -17,6 +17,10 @@
 @/bin/ipcserv /drivers/ramfsd          /tmp
 @/bin/ipcserv /drivers/nulld           /dev/null
 
+#@/bin/ipcserv /drivers/raspix/wland          /dev/wl0
+#@/bin/ipcserv /drivers/netd                  /dev/net0 /dev/wl0
+#@/bin/bgrun /sbin/telnetd
+
 @/bin/load_font
 @/bin/ipcserv /drivers/xserverd        /dev/x
 @/bin/bgrun /bin/x/xsession  misa 
