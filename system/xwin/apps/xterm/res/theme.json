@@ -1,7 +1,7 @@
 {
     "fg_color": "0xffffffff",
     "bg_color": "0xdd000000",
-    "transparent": 128,
+    "transparent": 188,
 
     "font": "system",
     "font_size": 12,
