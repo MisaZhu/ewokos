@@ -99,7 +99,7 @@ void intr_loop(void) {
         start_task();
         usleep(1000);
     }
-    return 0;
+    return;
 }
 
 void* debug_thread(void* p){

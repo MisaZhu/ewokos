@@ -207,7 +207,7 @@ int vfs_new_node(fsinfo_t* info, uint32_t node_to, bool vfs_node_only) {
 void vfs_fullname(const char* fname, char* ret, uint32_t len) {
 	if(fname[0] == '/') {
 		strncpy(ret, fname, len);
-		return ret;
+		return;
 	}
 
 	str_t* fullname = str_new("");
