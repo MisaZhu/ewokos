@@ -180,6 +180,8 @@ json_var_t* json_var_set_float(json_var_t* var, float v);
 
 void json_var_to_json_str(json_var_t*, str_t*, int);
 void json_var_to_str(json_var_t*, str_t*);
+str_t* json_var_to_new_str(json_var_t*);
+char* json_var_to_cstr(json_var_t*);
 
 json_node_t* json_find_member(json_var_t* obj, const char* name);
 json_var_t* json_get_obj(json_var_t* obj, const char* name);

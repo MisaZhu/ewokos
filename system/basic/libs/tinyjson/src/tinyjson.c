@@ -1080,6 +1080,18 @@ void json_var_to_str(json_var_t* var, str_t* ret) {
 	}
 }
 
+inline str_t* json_var_to_new_str(json_var_t* var) {
+	str_t* ret = str_new("");
+	json_var_to_str(var, ret);
+	return ret;
+}
+
+inline char* json_var_to_cstr(json_var_t* var) {
+	str_t* ret = str_new("");
+	json_var_to_str(var, ret);
+	return str_detach(ret);
+}
+
 static void get_parsable_str(json_var_t* var, str_t* ret) {
 	str_reset(ret);
 

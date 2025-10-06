@@ -35,13 +35,17 @@ protected:
 		int input_h = FONT_SIZE + 8;
 		y -= input_h;
 
-		if(x > col * keyw) 
+		/*if(x > col * keyw) 
 			return -1;
+			*/
 		if(y > row * keyh) 
 			return -1;
 
 		int i = (x / keyw);
+		if(i >= col)
+			i = col-1;
 		int j = (y / keyh);
+
 		int at = i+j*col;
 		if(at >= (int)strlen(keytable[keytableType]))
 			return -1;
@@ -283,13 +287,17 @@ protected:
 					c += ('A' - 'a');
 					graph_fill(g, kx, ky, kw, keyh, 0xffeeeeee);
 				}
+				else if(c >= '0' && c <= '9') {
+					graph_fill(g, kx, ky, kw, keyh, 0xffeeeeee);
+				}
 				
 				if(c == '\3') //two key size
 					kx -= keyw;
 				if(c == ' ' || c == '\r' || c == '\3') //two key size
 					kw = keyw * 2;
 
-				if((i+1) == col)
+				if((i+1) == col ||
+						((i+2) == col && c == '\r'))
 					kw = g->w - kx;
 
 				if(keySelect == at) { //hot key
@@ -359,16 +367,18 @@ public:
 		font = font_new(DEFAULT_SYSTEM_FONT, true);
 		keytable[1] = ""
 			"1234567890%-+\b"
+			"abcdefx@~_|='\""
 			"\\#$&*(){}[]!\r\3"
 			"\2:;\"'<>. \3`?^/";
 		keytable[0] = ""
-			"qwertyuiop-+|\b"
+			"1234567890%-+\b"
+			"qwertyuiop<>'\""
 			"~asdfghjkl@_\r\3"
 			"\2zxcvbnm \3&,./";
 		keytableType = 0;
 
 		col = 14;
-		row = 3;
+		row = 4;
 		keyh = FONT_SIZE + 12;
 		keyw = FONT_SIZE*2 + 12;
 		xPid = dev_get_pid("/dev/x");

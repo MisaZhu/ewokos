@@ -25,7 +25,7 @@ NETD = $(TARGET_DIR)/drivers/netd
 
 $(NETD): $(NETD_OBJS) \
 		$(EWOK_LIBC_A) 
-	$(LD) -Ttext=100 $(NETD_OBJS) -o $(NETD) $(LDFLAGS) $(EWOK_LIBC)
+	$(LD) -Ttext=100 $(NETD_OBJS) -o $(NETD) $(LDFLAGS) -ltinyjson $(EWOK_LIBC)
 
 clean:
 	rm -f $(NETD_OBJS)

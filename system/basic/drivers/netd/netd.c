@@ -7,6 +7,7 @@
 #include <ewoksys/vfs.h>
 #include <ewoksys/vdevice.h>
 #include <ewoksys/syscall.h>
+#include <tinyjson/tinyjson.h>
 #include <ewoksys/klog.h>
 #include <ewoksys/proto.h>
 #include <stdio.h>
@@ -164,12 +165,11 @@ void mac2str(uint8_t *mac,  char* str){
 }
 
 char* network_devcmd(int from_pid, int argc, char** argv, void* p) {
-	char* buf = malloc(256);
-	buf[0] = 0;
+	json_var_t* json_var = json_var_new_obj(NULL, NULL);
 	if(strcmp(argv[0], "ip") == 0) {
 		struct ip_iface *iface =  NULL;
-		char* p = buf;
-		while(true){
+		json_node_t* node = json_var_add(json_var, "ips", json_var_new_array());
+		while(node != NULL && node->var != NULL){
 			iface = ip_iface_itor(iface);
 			if(iface == NULL)
 				break;
@@ -180,13 +180,16 @@ char* network_devcmd(int from_pid, int argc, char** argv, void* p) {
 			ip_addr_ntop(iface->netmask, netmask, sizeof(netmask));
 			ip_addr_ntop(iface->broadcast, broadcast, sizeof(broadcast));
 
-			snprintf(p + strlen(p), 256 - strlen(p), "IP Address: %s\n netmask: %s\n broadcast: %s\n", 
-					unicast,
-					netmask,
-					broadcast);
+			json_var_t* var_ip = json_var_new_obj(NULL, NULL);
+			json_var_add(var_ip, "ip", json_var_new_str(unicast));
+			json_var_add(var_ip, "netmask", json_var_new_str(netmask));
+			json_var_add(var_ip, "broadcast", json_var_new_str(broadcast));
+			json_var_array_add(node->var, var_ip);
 		}
 	}
-	return buf;
+	char* ret = json_var_to_cstr(json_var);
+	json_var_unref(json_var);
+	return ret;
 }
 
 int main(int argc, char** argv) {
