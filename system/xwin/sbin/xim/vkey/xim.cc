@@ -372,18 +372,18 @@ public:
 		panelSize.h = ph;
 		font = font_new(DEFAULT_SYSTEM_FONT, true);
 		keytable[1] = ""
-			"-1234567890+\4\3"
-			"%~abcdefx_|='\""
-			"\\#$&*(){}[]!\r\3"
-			"\2\3:;.,<> \3`^?/";
+			"1234567890\4\3"
+			"~abcdefx+-._"
+			"\\#@*(){}[]\r\3"
+			"\2\3:;.,<> \3?/";
 		keytable[0] = ""
-			"-1234567890+\4\3"
-			"@qwertyuiop_'\""
-			"<>asdfghjkl~\r\3"
-			"\2\3&zxcvbnm \3./";
+			"@1234567890\4"
+			".qwertyuiop-"
+			"&asdfghjkl\r\3"
+			"\2\3zxcvbnm \3/";
 		keytableType = 0;
 
-		col = 14;
+		col = 12;
 		row = 4;
 		keyh = FONT_SIZE + 12;
 		keyw = FONT_SIZE*2 + 12;
