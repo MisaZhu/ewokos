@@ -149,7 +149,7 @@ protected:
 		graph_draw_text_font(g, r.x+2, r.y+2, fonts[index].name.c_str(), theme->getFont(), theme->basic.fontSize, color);
 	}
 
-	void onSelect(int index) {
+	void onEnter(int index) {
 		if(demo == NULL)
 			return;
 		demo->setFont(fonts[index].font);

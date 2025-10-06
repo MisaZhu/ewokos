@@ -120,11 +120,28 @@ protected:
 	}
 
 	bool onMouse(xevent_t* ev) {
+		static bool zooming = false;
 		if(ev->state == MOUSE_STATE_CLICK) {
 			showXIM = !showXIM;
 			getWin()->callXIM(showXIM);
 			return true;
 		}
+		else if(ev->state == MOUSE_STATE_DRAG) {
+			if(abs(ev->value.mouse.rx) > abs(ev->value.mouse.ry)) {
+				if(!zooming) {
+					if(ev->value.mouse.rx > 0)
+						fontZoom(true);
+					else
+						fontZoom(false);
+				}
+				zooming = true;
+				return true;
+			}
+		}
+		else if(ev->state == MOUSE_STATE_UP) {
+			zooming = false;
+		}
+
 		return ConsoleWidget::onMouse(ev);
 	}
 
@@ -214,22 +231,6 @@ static void onQuitFunc(MenuItem* it, void* p) {
 	win->close();
 }
 
-static void onFontZoomInFunc(MenuItem* it, void* p) {
-	_consoleWidget->fontZoom(true);
-}
-
-static void onFontZoomOutFunc(MenuItem* it, void* p) {
-	_consoleWidget->fontZoom(false);
-}
-
-static void onFontCharSpaceIncrFunc(MenuItem* it, void* p) {
-	_consoleWidget->charSpaceChange(true);
-}
-
-static void onFontCharSpaceDecrFunc(MenuItem* it, void* p) {
-	_consoleWidget->charSpaceChange(false);
-}
-
 static void onTextColor(MenuItem* it, void* p) {
 	TermWin* win = (TermWin*)p;
 	win->color();
@@ -278,10 +279,6 @@ static void* thread_loop(void* p) {
 	Menubar* menubar = new Menubar();
 	menubar->setItemSize(42);
 	menubar->add(2, "font", NULL, NULL, onFontFunc, &win);
-	menubar->add(3, "F+", NULL, NULL, onFontZoomInFunc, NULL);
-	menubar->add(4, "F-", NULL, NULL, onFontZoomOutFunc, NULL);
-	menubar->add(5, "]+[", NULL, NULL, onFontCharSpaceIncrFunc, NULL);
-	menubar->add(6, "]-[", NULL, NULL, onFontCharSpaceDecrFunc, NULL);
 	menubar->add(7, "color", NULL, menu, NULL, NULL);
 	menubar->fix(0, 20);
 	root->add(menubar);
