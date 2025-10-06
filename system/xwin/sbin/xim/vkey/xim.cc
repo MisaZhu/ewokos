@@ -37,14 +37,17 @@ protected:
 
 		/*if(x > col * keyw) 
 			return -1;
-			*/
 		if(y > row * keyh) 
 			return -1;
+			*/
 
 		int i = (x / keyw);
 		if(i >= col)
-			i = col-1;
+			i = col - 1;
+
 		int j = (y / keyh);
+		if(j >= row)
+			j = row - 1;
 
 		int at = i+j*col;
 		if(at >= (int)strlen(keytable[keytableType]))
@@ -87,14 +90,15 @@ protected:
 	}
 
 	void doKeyIn(char c) {
-		if(c == '\2') {
+		if(c == '\3')
+			c = keytable[keytableType][keySelect-1];
+		
+		if(c == '\4')
+			c = KEY_BACKSPACE;
+		else if(c == '\2') {
 			changeKeyTable();
 			return;
 		}
-		else if(c == '\3')
-			c = keytable[keytableType][keySelect-1];
-		else if(c == '\b')
-			c = KEY_BACKSPACE;
 		input(c);
 	}
 
@@ -180,7 +184,7 @@ protected:
 			}
 
 			if(c == JOYSTICK_Y) {
-				doKeyIn('\b');
+				doKeyIn('\4');
 				repaint();
 				return;
 			}
@@ -246,7 +250,7 @@ protected:
 			strcpy(s, "SPC");
 		else if(c == '\r')
 			strcpy(s, "ENT");
-		else if(c == '\b')
+		else if(c == '\4')
 			strcpy(s, "BK");
 		else if(c == '\2')
 			strcpy(s, "C/#");
@@ -293,12 +297,14 @@ protected:
 				
 				if(c == '\3') //two key size
 					kx -= keyw;
-				if(c == ' ' || c == '\r' || c == '\3') //two key size
+				if(c == ' ' || c == '\r' || c <  '\10') //two key size
 					kw = keyw * 2;
 
 				if((i+1) == col ||
-						((i+2) == col && c == '\r'))
+						((i+2) == col && (c == '\r' || c == '\4')))
 					kw = g->w - kx;
+				if((j+1) == row)
+					kh = g->h - ky;
 
 				if(keySelect == at) { //hot key
 					ky -= (j == 0 ? input_h : keyh/2);
@@ -366,15 +372,15 @@ public:
 		panelSize.h = ph;
 		font = font_new(DEFAULT_SYSTEM_FONT, true);
 		keytable[1] = ""
-			"1234567890%-+\b"
-			"abcdefx@~_|='\""
+			"-1234567890+\4\3"
+			"%~abcdefx_|='\""
 			"\\#$&*(){}[]!\r\3"
-			"\2:;\"'<>. \3`?^/";
+			"\2\3:;.,<> \3`^?/";
 		keytable[0] = ""
-			"1234567890%-+\b"
-			"qwertyuiop<>'\""
-			"~asdfghjkl@_\r\3"
-			"\2zxcvbnm \3&,./";
+			"-1234567890+\4\3"
+			"@qwertyuiop_'\""
+			"<>asdfghjkl~\r\3"
+			"\2\3&zxcvbnm \3./";
 		keytableType = 0;
 
 		col = 14;
