@@ -29,7 +29,7 @@ class XIMX : public XWin {
 	char inputS[INPUT_MAX];
 
 	int col, row, keyw, keyh, keySelect;
-	bool hideMode;
+	bool hideMode, capMode;
 protected:
 	int get_at(int x, int y) {
 		int input_h = FONT_SIZE + 8;
@@ -89,6 +89,11 @@ protected:
 		moveTo(scrSize.w-w, scrSize.h-h);
 	}
 
+	void changeCapMode(void) {
+		capMode = !capMode;
+		repaint();
+	}
+
 	void doKeyIn(char c) {
 		if(c == '\3')
 			c = keytable[keytableType][keySelect-1];
@@ -98,6 +103,15 @@ protected:
 		else if(c == '\2') {
 			changeKeyTable();
 			return;
+		}
+		else if(c == '\5') {
+			changeCapMode();
+			return;
+		}
+
+		if(c >= 'a' && c <= 'z') {
+			if(capMode)
+				c += ('A' - 'a');
 		}
 		input(c);
 	}
@@ -254,6 +268,8 @@ protected:
 			strcpy(s, "BK");
 		else if(c == '\2')
 			strcpy(s, "C/#");
+		else if(c == '\5')
+			strcpy(s, "Cap");
 		else if(c == '\1')
 			strcpy(s, "|||");
 
@@ -288,25 +304,29 @@ protected:
 				kh = keyh;
 
 				if(c >= 'a' && c <= 'z') {
-					c += ('A' - 'a');
+					if(capMode)
+						c += ('A' - 'a');
 					graph_fill(g, kx, ky, kw, keyh, 0xffeeeeee);
 				}
 				else if(c >= '0' && c <= '9') {
 					graph_fill(g, kx, ky, kw, keyh, 0xffeeeeee);
 				}
+				else if(capMode && c == '\5') {
+					graph_fill(g, kx, ky, kw, kh, 0xbb000000);
+				}
 				
 				if(c == '\3') //two key size
 					kx -= keyw;
-				if(c == ' ' || c == '\r' || c <  '\10') //two key size
+				if(c == ' ' || c == '\r' || c <  '\5') //two key size
 					kw = keyw * 2;
 
 				if((i+1) == col ||
-						((i+2) == col && (c == '\r' || c == '\4')))
+						((i+2) == col && (c == '\r' || c < '\5')))
 					kw = g->w - kx;
 				if((j+1) == row)
 					kh = g->h - ky;
 
-				if(keySelect == at) { //hot key
+				if(keySelect == at) {
 					ky -= (j == 0 ? input_h : keyh/2);
 					kh = keyh + (j == 0 ? input_h : keyh/2);
 					graph_fill(g, kx, ky, kw, kh, 0xbb000000);
@@ -323,10 +343,14 @@ protected:
 					graph_draw_text_font(g, kx + (kw-tw)/2, 
 							ky + 2,
 							t, font, FONT_SIZE, 0xffffffff);
-				else
+				else {
+					uint32_t clr = 0xff000000;
+					if(capMode && c == '\5') 
+						clr = 0xffffffff;
 					graph_draw_text_font(g, kx + (kw-tw)/2, 
 							ky + (kh - font_h)/2,
-							t, font, FONT_SIZE, 0xff000000);
+							t, font, FONT_SIZE, clr);
+				}
 				graph_box(g, kx, ky, kw, kh, 0xffaaaaaa);
 			}
 		}
@@ -373,13 +397,13 @@ public:
 		font = font_new(DEFAULT_SYSTEM_FONT, true);
 		keytable[1] = ""
 			"1234567890\4\3"
-			"~abcdefx+-._"
+			"~ABCDEFx+-._"
 			"\\#@*(){}[]\r\3"
 			"\2\3:;.,<> \3?|";
 		keytable[0] = ""
-			"@1234567890\4"
+			"&1234567890\4"
 			".qwertyuiop-"
-			"&asdfghjkl\r\3"
+			"\5asdfghjkl\r\3"
 			"\2\3zxcvbnm \3/";
 		keytableType = 0;
 
@@ -391,6 +415,7 @@ public:
 		keySelect = -1;
 		inputS[0] = 0;
 		hideMode = false;
+		capMode = false;
 	}
 
 	inline ~XIMX() {
