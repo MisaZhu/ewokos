@@ -1,4 +1,4 @@
-@/bin/ipcserv /sbin/logd /dev/log
+@/bin/ipcserv /drivers/logd /dev/log
 
 @/bin/ipcserv /drivers/versatilepb/ttyd /dev/tty0
 @/bin/ipcserv /sbin/sessiond
