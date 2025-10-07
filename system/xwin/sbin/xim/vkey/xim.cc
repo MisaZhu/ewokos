@@ -308,7 +308,7 @@ protected:
 						c += ('A' - 'a');
 					graph_fill(g, kx, ky, kw, keyh, 0xffeeeeee);
 				}
-				else if(c >= '0' && c <= '9') {
+				else if((c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z')) {
 					graph_fill(g, kx, ky, kw, keyh, 0xffeeeeee);
 				}
 				else if(capMode && c == '\5') {
