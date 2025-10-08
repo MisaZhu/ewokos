@@ -42,7 +42,7 @@
 #define DMA_PERMAP_0  0x0     /* PWM0 peripheral for DREQ */
 //#define DMA_PERMAP_1  0x10000 /* PWM1 peripheral for DREQ */
 
-#define DMA_BUF_SIZE  1024
+#define DMA_BUF_SIZE  (1024*16)
 
 typedef struct dma_cb {
    unsigned int ti;
@@ -94,7 +94,7 @@ static void audio_init(void) {
 
 static void playaudio_dma(uint8_t* data, uint32_t size) {
 	// Convert data
-	klog("sound: set data %d\n", size);
+	slog("sound: set data %d\n", size);
 	if(size > DMA_BUF_SIZE)
 		size = DMA_BUF_SIZE;
 
@@ -102,11 +102,11 @@ static void playaudio_dma(uint8_t* data, uint32_t size) {
 	for (uint32_t i = 0; i < size; i++)
 		*(pdata + i) = *(data + i);
 	proc_usleep(200);
-	klog("sound: data ready\n");
+	slog("sound: data ready\n");
 
 	// Set up control block
 	uint32_t phy_pwm_base = syscall1(SYS_V2P, PWM_BASE);
-	klog("sound: pwd base 0x%x\n", phy_pwm_base);
+	slog("sound: pwd base 0x%x\n", phy_pwm_base);
 
 	_dma_cb->ti = DMA_DEST_DREQ + DMA_PERMAP_0 + DMA_SRC_INC;
 	_dma_cb->source_ad = _dma_data_addr;
@@ -118,14 +118,14 @@ static void playaudio_dma(uint8_t* data, uint32_t size) {
 	_dma_cb->null2 = 0x00;
 	proc_usleep(200);
 
-	klog("sound: setup done\n");
+	slog("sound: setup done\n");
 
 	// Enable DMA
 	volatile uint32_t *pwm = (uint32_t *)PWM_BASE;
 	volatile uint32_t *dma = (uint32_t *)DMA_V_BASE;
 	volatile uint32_t *dmae = (uint32_t *)DMA_ENABLE;
 
-	klog("sound: dma enabled\n");
+	slog("sound: dma enabled\n");
 
 	*(pwm + BCM283x_PWM_DMAC) =
 			BCM283x_PWM_ENAB + 0x0707; // Bits 0-7 Threshold For DREQ Signal = 1, Bits 8-15 Threshold For PANIC Signal = 0
@@ -134,11 +134,11 @@ static void playaudio_dma(uint8_t* data, uint32_t size) {
 	proc_usleep(200);
 	*(dma + DMA_CS) = DMA_ACTIVE;
 
-	klog("sound: play\n");
+	slog("sound: play\n");
 
 	while (*(dma + DMA_CS) & 0x1) // Wait for DMA transfer to finish - we could do anything here instead!
 		proc_usleep(200);
-	klog("sound: %d\n", size);
+	slog("sound: %d\n", size);
 }
 
 /*
