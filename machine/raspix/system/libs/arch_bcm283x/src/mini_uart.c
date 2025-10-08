@@ -69,12 +69,16 @@ static inline int32_t bcm283x_mini_uart_ready_to_send(void) {
 }
 
 int32_t bcm283x_mini_uart_recv(void) {
-	while(bcm283x_mini_uart_ready_to_recv() != 0) {}
+	while(bcm283x_mini_uart_ready_to_recv() != 0) {
+		usleep(1000);
+	}
 	return get32(UART_IO_REG) & 0xFF;
 }
 
 int32_t bcm283x_mini_uart_send(uint8_t data) {
-	while(bcm283x_mini_uart_ready_to_send() != 0) {}
+	while(bcm283x_mini_uart_ready_to_send() != 0) {
+		usleep(1000);
+	}
 	put32(UART_IO_REG, data);
 	return 0;
 }

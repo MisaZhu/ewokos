@@ -100,7 +100,9 @@ static inline int32_t bcm283x_pl011_uart_ready_to_recv(void) {
 
 int32_t bcm283x_pl011_uart_send(uint8_t c) {
 	// Wait for UART to become ready to transmit.
-	while(bcm283x_pl011_uart_ready_to_send() != 0) { }
+	while(bcm283x_pl011_uart_ready_to_send() != 0) {
+		usleep(1000);
+	}
 	put32(_mmio_base+UART0_DR, c);
 	return 0;
 }
