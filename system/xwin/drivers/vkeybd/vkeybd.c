@@ -86,34 +86,39 @@ static int ctrl_down(uint8_t* keys, uint8_t num) {
 
 static bool do_keyb_spec(uint8_t* keys, uint8_t num) {
 	int i = ctrl_down(keys, num);
-	if(i < 0)
-		return false;
-
 	for(int j=0; j<num; j++) {
-		if(j == i)
-			continue;
 		uint8_t c = keys[j];
-		if(c >= '0' && c <= '9') {
-			core_set_active_ux(0, c - '0');
-			return true;
+		if(i >= 0) {
+			if(c >= '0' && c <= '9') {
+				core_set_active_ux(0, c - '0');
+				return true;
+			}
+			else if(c == KEY_LEFT) { //left 
+				core_prev_ux(0);
+				return true;
+			}
+			else if(c == KEY_RIGHT) { //right
+				core_next_ux(0);
+				return true;
+			}
+			else if(c == KEY_TAB) { //tab for focus
+				x_next_focus();
+				return true;
+			}
+			else if(c == 'h') { //h for launcher 
+				x_launcher();
+				return true;
+			}
+			else if(c == 'e') { //e for close
+				x_close_focus();
+				return true;
+			}
 		}
-		else if(c == KEY_LEFT) { //left 
-			core_prev_ux(0);
-			return true;
-		}
-		else if(c == KEY_RIGHT) { //right
-			core_next_ux(0);
-			return true;
-		}
-		else if(c == KEY_TAB) { //tab for focus
-			x_next_focus();
-			return true;
-		}
-		else if(c == 'h') { //h for launcher 
+		else if(c == KEY_HOME) {
 			x_launcher();
 			return true;
 		}
-		else if(c == 'e') { //e for close
+		else if(c == KEY_END) {
 			x_close_focus();
 			return true;
 		}
