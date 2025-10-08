@@ -61,7 +61,7 @@ static int log_write(int fd,
 	return i;
 }
 
-#define LOG_SIZE_DEFAULT (1024*4)
+#define LOG_SIZE_DEFAULT (1024*64)
 static uint32_t _log_size = LOG_SIZE_DEFAULT;
 static int doargs(int argc, char* argv[]) {
 	int c = 0;

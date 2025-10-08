@@ -5,8 +5,16 @@
 #include <unistd.h>
 #include <ewoksys/dma.h>
 
+//#define USE_PWM1
+
+#if defined(USE_PWM1)
+#define PWM_BASE        (_mmio_base + 0x20C000 + 0x800) /* PWM1 register base address on RPi4 */
+#define CLOCK_BASE      (_mmio_base + 0x101000 + 0x800)
+#else
 #define PWM_BASE        (_mmio_base + 0x20C000) /* PWM0 register base address on RPi */
 #define CLOCK_BASE      (_mmio_base + 0x101000)
+#endif
+
 #define DMA_V_BASE        (_mmio_base + 0x007100)         /* DMA register base address */
 #define DMA_ENABLE      (DMA_V_BASE + 0xFF0)                   /* DMA global enable bits */
 
@@ -17,12 +25,24 @@
 #define BCM283x_PWM_CONTROL 0
 #define BCM283x_PWM_STATUS  1
 #define BCM283x_PWM_DMAC    2
-#define BCM283x_PWM0_RANGE  4
-#define BCM283x_PWM0_DATA   5
 #define BCM283x_PWM_FIFO    6
 
-#define BCM283x_PWM0_USEFIFO  0x0020  /* Data from FIFO */
-#define BCM283x_PWM0_ENABLE   0x0001  /* Channel enable */
+#ifdef USE_PWM1
+#define BCM283x_PWM_RANGE  8
+#define BCM283x_PWM_DATA   9
+#else
+#define BCM283x_PWM_RANGE  4
+#define BCM283x_PWM_DATA   5
+#endif
+
+#ifdef USE_PWM1
+#define BCM283x_PWM_USEFIFO  0x2000  /* PWM1 Data from FIFO */
+#define BCM283x_PWM_ENABLE   0x0100  /* PWM1 Channel enable */
+#else
+#define BCM283x_PWM_USEFIFO  0x0020  /* PWM0 Data from FIFO */
+#define BCM283x_PWM_ENABLE   0x0001  /* PWM0 Channel enable */
+#endif
+
 #define BCM283x_PWM_ENAB      0x80000000  /* PWM DMA Configuration: DMA Enable (bit 31 set) */
 
 #define BCM283x_GAPO2 0x20
@@ -39,8 +59,12 @@
 #define DMA_ACTIVE    1       /* Active bit set */
 #define DMA_DEST_DREQ 0x40    /* Use DREQ to pace peripheral writes */
 #define DMA_SRC_INC   0x100   /* Increment source address */
-#define DMA_PERMAP_0  0x0     /* PWM0 peripheral for DREQ */
-//#define DMA_PERMAP_1  0x10000 /* PWM1 peripheral for DREQ */
+
+#ifdef USE_PWM1
+#define DMA_PERMAP  0x10000 /* PWM1 peripheral for DREQ */
+#else
+#define DMA_PERMAP  0x0 /* PWM0 peripheral for DREQ */
+#endif	
 
 #define DMA_BUF_SIZE  (1024*16)
 
@@ -61,7 +85,14 @@ static uint32_t _dma_data_addr = 0;
 static void audio_init(void) {   
 	volatile unsigned* clk = (void*)CLOCK_BASE;
 	volatile unsigned* pwm = (void*)PWM_BASE;
+
+#ifdef USE_PWM1
+	bcm283x_gpio_config(40, GPIO_ALTF5); // Ensure PWM1 is mapped to GPIO 18
+	bcm283x_gpio_config(41, GPIO_ALTF5); // Ensure PWM1 is mapped to GPIO 18
+#else
 	bcm283x_gpio_config(18, GPIO_ALTF5); // Ensure PWM0 is mapped to GPIO 18
+#endif
+
 	proc_usleep(2000);
 
 	// Setup clock
@@ -79,11 +110,11 @@ static void audio_init(void) {
 	*(pwm + BCM283x_PWM_CONTROL) = 0;
 	proc_usleep(2000);
 
-	*(pwm+BCM283x_PWM0_RANGE) = 0x264; // 44.1khz, Stereo, 8-bit (54Mhz / 44100 / 2)
+	*(pwm+BCM283x_PWM_RANGE) = 0x264; // 44.1khz, Stereo, 8-bit (54Mhz / 44100 / 2)
 
 	*(pwm+BCM283x_PWM_CONTROL) =
-			BCM283x_PWM0_USEFIFO | 
-			BCM283x_PWM0_ENABLE | 1<<6;
+          BCM283x_PWM_USEFIFO |
+          BCM283x_PWM_ENABLE | 1<<6;
 	
 	//_dma_cb = (dma_cb_t*)dma_phy_addr(0, dma_alloc(sizeof(dma_cb_t)));
 	//_dma_data_addr = dma_phy_addr(0, (dma_alloc(DMA_BUF_SIZE))); //4k dma buffer
@@ -94,7 +125,7 @@ static void audio_init(void) {
 	uint32_t phy_pwm_base = syscall1(SYS_V2P, PWM_BASE);
 	slog("sound: pwd base 0x%x\n", phy_pwm_base);
 
-	_dma_cb->ti = DMA_DEST_DREQ + DMA_PERMAP_0 + DMA_SRC_INC;
+	_dma_cb->ti = DMA_DEST_DREQ + DMA_PERMAP + DMA_SRC_INC;
 	_dma_cb->source_ad = _dma_data_addr;
 	_dma_cb->dest_ad = phy_pwm_base + 0x18; // Points to PWM_FIFO
 	_dma_cb->stride = 0x00;
@@ -119,7 +150,6 @@ static void playaudio_dma(uint8_t* data, uint32_t size) {
 		*(pdata + i) = *(data + i); // Convert uint8_t to uint32_t
 	proc_usleep(200);
 	//slog("sound: data ready\n");
-	slog("D");
 
 	_dma_cb->txfr_len = size * 4;						// They're unsigned ints now, not unsigned chars
 
@@ -135,11 +165,10 @@ static void playaudio_dma(uint8_t* data, uint32_t size) {
 	proc_usleep(200);
 	*(dma + DMA_CS) = DMA_ACTIVE;
 
-	//slog("sound: play\n");
-
-	while (*(dma + DMA_CS) & 0x1) // Wait for DMA transfer to finish - we could do anything here instead!
+	//slog("sound: dma play cs:%d\n", (*(dma + DMA_CS)) & 0x1);
+	while ((*(dma + DMA_CS)) & 0x1) // Wait for DMA transfer to finish - we could do anything here instead!
 		proc_usleep(200);
-	slog("sound: dma played: %d\n", size);
+	//slog("sound: dma played: %d, cs:%d\n", size, (*(dma + DMA_CS)) & 0x1);
 }
 
 /*
