@@ -42,7 +42,7 @@
 #define DMA_PERMAP_0  0x0     /* PWM0 peripheral for DREQ */
 //#define DMA_PERMAP_1  0x10000 /* PWM1 peripheral for DREQ */
 
-#define DMA_BUF_SIZE  (1024*16)
+#define DMA_BUF_SIZE  (1024*4)
 
 typedef struct dma_cb {
    unsigned int ti;

@@ -34,14 +34,18 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 
+	uint32_t total = 0;
 	while(1) {
-		char buf[1024*2];
+		char buf[1024*4];
 		int sz = read(fd_from, buf, sizeof(buf));
 		if(sz > 0)
 			sz = write(fd_to, buf, sz);
 		if(sz <= 0)
 			break;
+		total += sz;
 	}
+
+	slog("sound played '%s' %d bytes\n", argv[1], total);
 
 	close(fd_to);
 	close(fd_from);
