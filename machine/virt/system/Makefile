@@ -18,9 +18,7 @@ BUILD_DIR = $(SYS_ROOT_DIR)/build/$(HW)
 MACHINE_BUILD_DIR = build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
-export NEON=no
-export FPU=no
-export BSP_LFLAGS = -larch_virt
+export BSP_LFLAGS = -lbsp -larch_virt
 
 all: basic
 	@echo "all done."
