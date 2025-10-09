@@ -69,6 +69,8 @@ int devcmd(const char* dev_name) {
 	while(true) {
 		prompt(dev_name);
 		cmd_gets(0, cmd);
+		if(cmd->len == 0 || strcmp(cmd->cstr, "\n") == 0)
+			continue;
 		if(strcmp(cmd->cstr, "exit") == 0)
 			break;
 

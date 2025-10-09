@@ -183,7 +183,7 @@ int main(int argc, char** argv) {
 	_splash_info.fb = &fb;
 
 	if(ipc_serv_reg("sys.splashd") != 0) {
-		klog("reg sys.splashd ipc_serv error!\n");
+		slog("reg sys.splashd ipc_serv error!\n");
 		return -1;
 	}
 

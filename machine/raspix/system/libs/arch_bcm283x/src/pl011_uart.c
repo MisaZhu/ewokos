@@ -64,38 +64,55 @@ int32_t bcm283x_pl011_uart_init(void) {
 	// Fraction part register = (Fractional part * 64) + 0.5
 	// UART_CLOCK = 3000000; Baud = 115200.
 
-	// Divider = 3000000 / (16 * 115200) = 1.627 = ~1.
-	put32(_mmio_base+UART0_IBRD, 1);
-	// Fractional part register = (.627 * 64) + 0.5 = 40.6 = ~40.
-	put32(_mmio_base+UART0_FBRD, 40);
+	put32(_mmio_base+UART0_IBRD, 1); // Divider = 3000000 / (16 * 115200) = 1.627 = ~1.
+	put32(_mmio_base+UART0_FBRD, 40); // Fractional part register = (.627 * 64) + 0.5 = 40.6 = ~40.
+
+	// 2. 配置波特率：3000000 = 250MHz / (16 * (IBRD + FBRD/64))
+    //put32(_mmio_base+UART0_IBRD, 5);    // 整数部分：250000000 / (16*3000000) ≈ 5.208 → 5
+    //put32(_mmio_base+UART0_FBRD, 13);   // 小数部分：0.208 * 64 ≈ 13.312 → 13
 
 	// Enable FIFO & 8 bit data transmissio (1 stop bit, no parity).
 	put32(_mmio_base+UART0_LCRH, (1 << 4) | (1 << 5) | (1 << 6));
 
 	// Mask all interrupts.
-	put32(_mmio_base+UART0_IMSC, (1 << 1) | (1 << 4) | (1 << 5) | (1 << 6) | (1 << 7) |
+	/*put32(_mmio_base+UART0_IMSC,
+			(1 << 1) | (1 << 4) | (1 << 5) | 
+			(1 << 6) | (1 << 7) |
 			(1 << 8) | (1 << 9) | (1 << 10));
+			*/
 
 	// Enable UART0, receive & transfer part of UART.
 	put32(_mmio_base+UART0_CR, (1 << 0) | (1 << 8) | (1 << 9));
 	return 0;
 }
 
-static void uart_trans(char c) {
-	// Wait for UART to become ready to transmit.
-	while (get32(_mmio_base+UART0_FR) & (1 << 5)) {}
-	if(c == '\r')
-		c = '\n';
-	put32(_mmio_base+UART0_DR, c);
+static inline int32_t bcm283x_pl011_uart_ready_to_send(void) {
+	if(get32(_mmio_base+UART0_FR) & (1 << 5))
+		return -1;
+	return 0;
 }
 
-int32_t bcm283x_pl011_uart_ready_to_recv(void) {
+static inline int32_t bcm283x_pl011_uart_ready_to_recv(void) {
 	if(get32(_mmio_base+UART0_FR) & (1 << 4)) 
 		return -1;
 	return 0;
 }
 
-int32_t bcm283x_pl011_uart_recv(void) {
+int32_t bcm283x_pl011_uart_send(uint8_t c) {
+	// Wait for UART to become ready to transmit.
+	while(bcm283x_pl011_uart_ready_to_send() != 0) { }
+	put32(_mmio_base+UART0_DR, c);
+	return 0;
+}
+
+int32_t bcm283x_pl011_uart_recv(uint32_t timeout_ms) {
+	uint32_t ms = 0;
+	while(bcm283x_pl011_uart_ready_to_recv() != 0) {
+		usleep(1000);
+		ms++;
+		if(ms > timeout_ms)
+			return -1;
+	}
 	return get32(_mmio_base+UART0_DR);
 }
 
@@ -103,7 +120,7 @@ int32_t bcm283x_pl011_uart_write(const void* data, uint32_t size) {
   int32_t i;
   for(i=0; i<(int32_t)size; i++) {
     char c = ((char*)data)[i];
-    uart_trans(c);
+    bcm283x_pl011_uart_send(c);
   }
   return i;
 }

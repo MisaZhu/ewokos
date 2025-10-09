@@ -146,7 +146,7 @@ int main(int argc, char** argv) {
     CircularClock* clock = new CircularClock();
     root->add(clock);
 
-    win.open(&x, 0, -1, -1, 160, 160, "Circular Clock", XWIN_STYLE_NO_FRAME);
+    win.open(&x, -1, -1, -1, 160, 160, "Circular Clock", XWIN_STYLE_NO_FRAME);
     win.setTimer(1);
     win.setAlpha(true);
     widgetXRun(&x, &win);

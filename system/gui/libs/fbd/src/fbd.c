@@ -102,7 +102,7 @@ static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, in
 	uint32_t res = _fbd->flush(fbinfo, tmp_g);
 	if(gr != NULL)
 		graph_free(gr);
-	if(tmp_g != &g)
+	if(tmp_g != &g && tmp_g != gr)
 		graph_free(tmp_g);
 	return res;
 }
@@ -201,8 +201,10 @@ static int32_t fb_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) 
 	return dma->shm_id;
 }
 
-static void read_config(uint32_t* w, uint32_t* h, uint8_t* dep, int32_t* rotate, float* zoom) {
-	json_var_t *conf_var = json_parse_file("/etc/framebuffer.json");	
+static void read_config(const char* conf_file, uint32_t* w, uint32_t* h, uint8_t* dep, int32_t* rotate, float* zoom) {
+	if(conf_file == NULL || conf_file[0] == 0)
+		conf_file = "/etc/framebuffer.json";
+	json_var_t *conf_var = json_parse_file(conf_file);	
 
 	const char* v = json_get_str_def(conf_var, "logo", "/usr/system/images/logos/ewokos.png");
 	if(v[0] != 0) 
@@ -211,7 +213,7 @@ static void read_config(uint32_t* w, uint32_t* h, uint8_t* dep, int32_t* rotate,
 	*zoom = json_get_float_def(conf_var, "zoom", 1.0);
 	*w = json_get_int_def(conf_var, "width", 0);
 	*h = json_get_int_def(conf_var, "height", 0);
-	*dep = json_get_int_def(conf_var, "depth", 0);
+	*dep = json_get_int_def(conf_var, "depth", 32);
 	*rotate = json_get_int_def(conf_var, "rotate", 0);
 
 	if(*zoom <= 0)
@@ -223,15 +225,29 @@ static void read_config(uint32_t* w, uint32_t* h, uint8_t* dep, int32_t* rotate,
 		json_var_unref(conf_var);
 }
 
+
+static int fb_dev_read(int fd, int from_pid, fsinfo_t* node,
+		void* buf, int size, int offset, void* p) {
+	(void)fd;
+	(void)from_pid;
+	(void)node;
+	(void)offset;
+	(void)p;
+
+	if(_fbd->read == NULL)
+		return 0;
+	return _fbd->read(buf, size);
+}
+
 int fbd_run(fbd_t* fbd, const char* mnt_name,
-		uint32_t def_w, uint32_t def_h, int32_t def_rotate) {
+		uint32_t def_w, uint32_t def_h, const char* conf_file) {
 	_fbd = fbd;
 	uint32_t w = def_w, h = def_h;
 	_zoom = 1.0;
 	uint8_t dep = 32;
-	_rotate = def_rotate;
+	_rotate = G_ROTATE_NONE;
 
-	read_config(&w, &h, &dep, &_rotate, &_zoom);
+	read_config(conf_file, &w, &h, &dep, &_rotate, &_zoom);
 
 	fb_dma_t dma;
 	dma.shm = NULL;
@@ -249,8 +265,11 @@ int fbd_run(fbd_t* fbd, const char* mnt_name,
 	dev.flush = do_fb_flush;
 	dev.fcntl = fb_fcntl;
 	dev.dev_cntl = fb_dev_cntl;
+	dev.read = fb_dev_read;
 
 	dev.extra_data = &dma;
+
+	add_display_fb_dev("/dev/display", mnt_name);
 	device_run(&dev, mnt_name, FS_TYPE_CHAR, 0666);
 	shmdt(dma.shm);
 	return 0;

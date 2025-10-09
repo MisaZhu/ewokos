@@ -3,14 +3,15 @@
 #include <ewoksys/vfs.h>
 
 int main(int argc, char* argv[]) {
-	const char* fname;
 	if(argc < 2) {
 		printf("Usage: rm <fname>");
 		return -1;
 	}
-	fname = vfs_fullname(argv[1]);
-	if(unlink(fname) != 0) {
-		printf("Can't remove [%s]!\n", fname);
+
+	char fullname[FS_FULL_NAME_MAX+1] = {0};
+	vfs_fullname(argv[1], fullname, FS_FULL_NAME_MAX);
+	if(unlink(fullname) != 0) {
+		printf("Can't remove [%s]!\n", fullname);
 		return -1;
 	}
 	return 0;

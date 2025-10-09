@@ -65,15 +65,15 @@ const char upMap[] = {
 
 static uint8_t do_ctrl(char c) {
 	if(c >= '0' && c <= '9') {
-		core_set_active_ux(c - '0');
+		core_set_active_ux(0, c - '0');
 		return 0;
 	}
 	else if(c == 19) { //left 
-		core_prev_ux();
+		core_prev_ux(0);
 		return 0;
 	}
 	else if(c == 4) { //right
-		core_next_ux();
+		core_next_ux(0);
 		return 0;
 	}
 	return c;

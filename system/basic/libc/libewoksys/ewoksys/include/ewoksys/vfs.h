@@ -25,7 +25,7 @@ typedef struct {
 #define VFS_BACKUP_FD0 (MAX_OPEN_FILE_PER_PROC-3)
 #define VFS_BACKUP_FD1 (MAX_OPEN_FILE_PER_PROC-2)
 
-const char* vfs_fullname(const char* fname);
+void vfs_fullname(const char* fname, char* ret, uint32_t len);
 
 int       vfs_get_flags(int fd);
 int       vfs_set_flags(int fd, int flags);

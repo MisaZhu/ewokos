@@ -24,13 +24,38 @@ void out(void* data, int32_t size) {
 	}
 }
 
+static int _streaming = 0;
+
+static int doargs(int argc, char* argv[]) {
+	int c = 0;
+	while (c != -1) {
+		c = getopt (argc, argv, "s");
+		if(c == -1)
+			break;
+
+		switch (c) {
+		case 's':
+			_streaming = 1;
+			break;
+		default:
+			c = -1;
+			break;
+		}
+	}
+	return optind;
+}
+
 int main(int argc, char** argv) {
-	if(argc != 2) {
+	const char* fname = "";
+	int argind = doargs(argc, argv);
+	if(argind < argc)
+		fname = argv[argind];
+	else {
 		printf("  Usage: cat <file>\n");
 		return -1;
 	}
 
-	int fd = open(argv[1], 0);
+	int fd = open(fname, 0);
 	if(fd < 0) {
 		printf("Can't open [%s]!\n", argv[1]);
 		return -1;
@@ -43,7 +68,7 @@ int main(int argc, char** argv) {
 			out(buf, sz);
 		}
 		else {
-			if(sz == 0 || errno != EAGAIN)
+			if(!_streaming && (sz == 0 || errno != EAGAIN))
 				break;
 		}
 	}

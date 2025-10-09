@@ -34,7 +34,6 @@
 #endif
 
 static const char *inet_ntop4 (const uint8_t *src, char *dst, socklen_t size);
-static const char *inet_ntop6 (const uint8_t *src, char *dst, socklen_t size);
 
 const char *
 inet_ntop (int af, const void *src, char *dst, socklen_t size)

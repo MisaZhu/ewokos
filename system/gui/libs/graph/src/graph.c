@@ -27,6 +27,31 @@ inline uint8_t color_b(uint32_t c) {
 	return c & 0xff;
 }
 
+inline uint32_t color_gray(uint32_t oc) {
+	uint8_t oa = (oc >> 24) & 0xff;
+	uint8_t or = (oc >> 16) & 0xff;
+	uint8_t og = (oc >> 8)  & 0xff;
+	uint8_t ob = oc & 0xff;
+	or = (or + og + ob) / 3;
+	return argb(oa, or, or, or);
+}
+
+inline uint32_t color_reverse(uint32_t oc) {
+	uint8_t oa = (oc >> 24) & 0xff;
+	uint8_t or = 0xff - ((oc >> 16) & 0xff);
+	uint8_t og = 0xff - ((oc >> 8)  & 0xff);
+	uint8_t ob = 0xff - (oc & 0xff);
+	return argb(oa, or, og, ob);
+}
+
+inline uint32_t color_reverse_rgb(uint32_t oc) {
+	uint8_t oa = (oc >> 24) & 0xff;
+	uint8_t or = ((oc) & 0xff);
+	uint8_t og = ((oc >> 8)  & 0xff);
+	uint8_t ob = ((oc >> 16)  & 0xff);
+	return argb(oa, or, og, ob);
+}
+
 static void* aligned_malloc(uint32_t size, uint32_t alignment) {
     // 检查对齐值是否为 2 的幂
     if ((alignment & (alignment - 1)) != 0) {
@@ -137,46 +162,24 @@ void graph_clear(graph_t* g, uint32_t color) {
 void graph_reverse(graph_t* g) {
 	if(g == NULL)
 		return;
-	int32_t i = 0;
-	while(i < g->w*g->h) {
-		uint32_t oc = g->buffer[i];
-		uint8_t oa = (oc >> 24) & 0xff;
-		uint8_t or = 0xff - ((oc >> 16) & 0xff);
-		uint8_t og = 0xff - ((oc >> 8)  & 0xff);
-		uint8_t ob = 0xff - (oc & 0xff);
-		g->buffer[i] = argb(oa, or, og, ob);
-		i++;
+	for(int32_t i=0; i < g->w*g->h; i++) {
+		g->buffer[i] = color_reverse(g->buffer[i]);
 	}
 }
 
 void graph_reverse_rgb(graph_t* g) {
 	if(g == NULL)
 		return;
-	int32_t i = 0;
-	while(i < g->w*g->h) {
-		uint32_t oc = g->buffer[i];
-		uint8_t oa = (oc >> 24) & 0xff;
-		uint8_t or = ((oc) & 0xff);
-		uint8_t og = ((oc >> 8)  & 0xff);
-		uint8_t ob = ((oc >> 16)  & 0xff);
-		g->buffer[i] = argb(oa, or, og, ob);
-		i++;
+	for(int32_t i=0; i < g->w*g->h; i++) {
+		g->buffer[i] = color_reverse_rgb(g->buffer[i]);
 	}
 }
 
 void graph_gray(graph_t* g) {
 	if(g == NULL)
 		return;
-	int32_t i = 0;
-	while(i < g->w*g->h) {
-		uint32_t oc = g->buffer[i];
-		uint8_t oa = (oc >> 24) & 0xff;
-		uint8_t or = (oc >> 16) & 0xff;
-		uint8_t og = (oc >> 8)  & 0xff;
-		uint8_t ob = oc & 0xff;
-		or = (or + og + ob) / 3;
-		g->buffer[i] = argb(oa, or, or, or);
-		i++;
+	for(int32_t i=0; i < g->w*g->h; i++) {
+		g->buffer[i] = color_gray(g->buffer[i]);
 	}
 }
 

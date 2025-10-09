@@ -24,7 +24,7 @@ $(XSERVERD): $(XSERVERD_OBJS) \
 		$(BUILD_DIR)/lib/libx.a  \
 		$(BUILD_DIR)/lib/libfont.a  \
 		$(BUILD_DIR)/lib/libdisplay.a
-	$(LD) -Ttext=100 $(XSERVERD_OBJS) -o $(XSERVERD) $(LDFLAGS) -lx -lfb -ldisplay -ltinyjson $(EWOK_LIB_GRAPH) $(EWOK_LIBC)
+	$(LD) -Ttext=100 $(XSERVERD_OBJS) -o $(XSERVERD) $(LDFLAGS) -lx -ltinyjson $(EWOK_LIB_GRAPH) $(EWOK_LIBC)
 
 clean:
 	rm -f $(XSERVERD_OBJS)

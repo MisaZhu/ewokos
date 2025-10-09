@@ -1,15 +1,16 @@
+@/bin/ipcserv /sbin/logd /dev/log
+
 @/bin/ipcserv /drivers/versatilepb/ttyd /dev/tty0
 @/bin/ipcserv /sbin/sessiond
 @/bin/bgrun /bin/session -r -t /dev/tty0 
 
-@/bin/ipcserv /drivers/versatilepb/fbd  /dev/fb0
 @/bin/ipcserv /drivers/displayd        
+@/bin/ipcserv /drivers/versatilepb/fbd  /dev/fb0
 @/bin/ipcserv /drivers/fontd            
 
 @export UX_ID=0
 @/bin/ipcserv /drivers/consoled  /dev/klog
 @set_stdio /dev/klog
-@export KLOG_DEV=/dev/klog
 
 @echo "+---------------------------------------+\n"
 @echo "|  < EwokOS MicroKernel >               |\n" 
@@ -33,7 +34,7 @@
 @export UX_ID=1
 @/bin/ipcserv /drivers/consoled   -i /dev/keyb0
 @/bin/bgrun /bin/session -r -t /dev/console1 
-@setux 1
+@setux 0 1
 
 @export UX_ID=2
 @/bin/ipcserv /drivers/consoled   -i /dev/keyb0

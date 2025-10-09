@@ -94,9 +94,9 @@
     ldp     q20, q21, [sp], #32
     ldp     q22, q23, [sp], #32
     ldp     q24, q25, [sp], #32
-    ldp     q26, q27, [sp], #32
-    ldp     q28, q29, [sp], #32
-    ldp     q28, q29, [sp], #32
+	ldp     q26, q27, [sp], #32
+	ldp     q28, q29, [sp], #32
+	ldp     q30, q31, [sp], #32
 
 .endm
 
@@ -194,4 +194,4 @@ _undef_exception_entry:
 	mov x0, sp
 	bl dump_ctx 
 _halt:
-	b _halt 
+	b _halt

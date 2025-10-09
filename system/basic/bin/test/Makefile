@@ -13,7 +13,7 @@ TEST = $(TARGET_DIR)/bin/test
 
 $(TEST): $(TEST_OBJS) \
 		$(EWOK_LIBC_A)
-		$(LD) -Ttext=100 $(TEST_OBJS) -o $(TEST) $(LDFLAGS) $(EWOK_LIBC) 
+		$(LD) -Ttext=100 $(TEST_OBJS) -o $(TEST) $(LDFLAGS) -lsocket $(EWOK_LIBC) 
 
 clean:
 	rm -f $(TEST_OBJS)

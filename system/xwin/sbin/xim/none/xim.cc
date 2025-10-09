@@ -54,7 +54,7 @@ public:
 			x_pid = dev_get_pid("/dev/x");
 		if(x_pid <= 0 || keybFD < 0)
 			return 0;
-		int ux = core_get_active_ux();
+		int ux = core_get_active_ux(0);
 		if(ux != UX_X_DEFAULT)
 			return 0;
 
@@ -94,8 +94,7 @@ int main(int argc, char* argv[]) {
 	if(argind < argc)
 		keyb_dev = argv[argind];
 
-	core_set_ux(UX_X_DEFAULT);
-
+	core_enable_ux(-1, UX_X_DEFAULT);
 	XIM xim(keyb_dev);
 	while(true) {
 		//if(xim.read() == 0)

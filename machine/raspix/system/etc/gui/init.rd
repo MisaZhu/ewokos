@@ -1,9 +1,11 @@
+@/bin/ipcserv /sbin/logd /dev/log
+
 @/bin/ipcserv /drivers/raspix/uartd         /dev/tty0
 @/bin/ipcserv /sbin/sessiond
 @/bin/bgrun /bin/session -r -t /dev/tty0 
 
-@/bin/ipcserv /drivers/raspix/fbd      /dev/fb0
 @/bin/ipcserv /drivers/displayd        
+@/bin/ipcserv /drivers/raspix/fbd      /dev/fb0
 @/bin/ipcserv /drivers/fontd           
 
 @export UX_ID=0
@@ -22,4 +24,4 @@
 @export UX_ID=1
 @/bin/ipcserv /drivers/consoled        -i /dev/keyb0
 @/bin/bgrun /bin/session -r -t /dev/console1 
-@setux 1
+@setux 0 1

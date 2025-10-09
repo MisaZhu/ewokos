@@ -50,13 +50,14 @@ int main(int argc, char** argv) {
 	display_man_t display_man;
 	memset(&display_man, 0, sizeof(display_man_t));
 
-	if(argc < 2) {
+	/*if(argc < 2) {
 		add_disp(&display_man, "/dev/fb0");
 	}
 	else {
 		for(int i=1; i<argc; i++)
 			add_disp(&display_man, argv[i]);
 	}
+			*/
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));

@@ -56,38 +56,34 @@ int32_t bcm283x_mini_uart_init(void) {
 #define UART_TXFIFO_EMPTY 0x20
 #define UART_RXFIFO_AVAIL 0x01
 
-static void uart_trans(uint32_t data) {
-	while(!(get32(UART_LSR_REG) & UART_TXFIFO_EMPTY));
-	if(data == '\r')
-		data = '\n';
-	put32(UART_IO_REG, data);
-}
-
-int32_t bcm283x_mini_uart_ready_to_recv(void) {
+static inline int32_t bcm283x_mini_uart_ready_to_recv(void) {
 	if((get32(UART_LSR_REG)&UART_RXFIFO_AVAIL) == 0)
 		return -1;
 	return 0;
 }
 
-int32_t bcm283x_mini_uart_ready_to_send(void) {
+static inline int32_t bcm283x_mini_uart_ready_to_send(void) {
 	if((get32(UART_LSR_REG)&UART_TXFIFO_EMPTY) == 0)
 		return -1;
 	return 0;
 }
 
 int32_t bcm283x_mini_uart_recv(void) {
+	while(bcm283x_mini_uart_ready_to_recv() != 0) {}
 	return get32(UART_IO_REG) & 0xFF;
 }
 
-void bcm283x_mini_uart_send(uint32_t data) {
+int32_t bcm283x_mini_uart_send(uint8_t data) {
+	while(bcm283x_mini_uart_ready_to_send() != 0) {}
 	put32(UART_IO_REG, data);
+	return 0;
 }
 
 int32_t bcm283x_mini_uart_write(const void* data, uint32_t size) {
   int32_t i;
   for(i=0; i<(int32_t)size; i++) {
     char c = ((char*)data)[i];
-    uart_trans(c);
+    bcm283x_mini_uart_send(c);
   }
   return i;
 }

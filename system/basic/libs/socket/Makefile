@@ -8,7 +8,7 @@ LDFLAGS = -L$(TARGET_DIR)/lib
 
 CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_SOCKET_OBJS = src/socket.o
+LIB_SOCKET_OBJS = src/socket.o src/inet_ntoa.o src/inet_ntop.o src/inet_pton.o
 
 SOCKET = $(TARGET_DIR)/lib/libsocket.a
 

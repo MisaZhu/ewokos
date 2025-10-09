@@ -41,7 +41,9 @@ class AppGrid: public Grid {
 
 	string getIconFname(const char* appName) {
 		//try theme icon first
-		string ret = x_get_theme_fname(X_THEME_ROOT, appName, "icon.png");
+		char fname[FS_FULL_NAME_MAX+1] = {0};
+		x_get_theme_fname(X_THEME_ROOT, appName, "icon.png", fname, FS_FULL_NAME_MAX);
+		string ret = fname;
 		if(access(ret.c_str(), R_OK) == 0)
 			return ret;
 
@@ -235,11 +237,11 @@ int main(int argc, char** argv) {
 	apps->setScrollerV(scrollerV);
 
 	if(_launcher) {
-		win.open(&x, 0, 0, 0, 0, 0, "xapps", 
+		win.open(&x, -1, 0, 0, 0, 0, "xapps", 
 			XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_NO_BG_EFFECT | XWIN_STYLE_MAX);
 	}
 	else {
-		win.open(&x, 0, 0, 0, 0, 0, "xapps", 
+		win.open(&x, -1, 0, 0, 0, 0, "xapps", 
 			XWIN_STYLE_NO_TITLE | XWIN_STYLE_NO_BG_EFFECT | XWIN_STYLE_MAX);
 	}
 

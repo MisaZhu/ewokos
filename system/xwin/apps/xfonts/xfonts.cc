@@ -149,7 +149,7 @@ protected:
 		graph_draw_text_font(g, r.x+2, r.y+2, fonts[index].name.c_str(), theme->getFont(), theme->basic.fontSize, color);
 	}
 
-	void onSelect(int index) {
+	void onEnter(int index) {
 		if(demo == NULL)
 			return;
 		demo->setFont(fonts[index].font);
@@ -228,7 +228,7 @@ int main(int argc, char** argv) {
 	root->add(scrollerV);
 	demo->setScrollerV(scrollerV);
 
-	win.open(&x, 0, -1, -1, 0, 0, "xfont", XWIN_STYLE_NORMAL);
+	win.open(&x, -1, -1, -1, 0, 0, "xfont", XWIN_STYLE_NORMAL);
 	list->select(0);
 	win.repaint();
 

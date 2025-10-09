@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-void bsp_bsp_gpio_init(void) {
+void bsp_gpio_init(void) {
 }
 
 void bsp_gpio_config(int32_t bsp_gpio_no, int32_t bsp_gpio_sel) {

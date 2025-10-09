@@ -34,7 +34,7 @@ protected:
 	}
 
 	void onSelect(int index) {
-		klog("index: %d\n", index);
+		slog("index: %d\n", index);
 	}
 
 public:
@@ -74,7 +74,7 @@ public:
 	Anim(EditLine* editLine) {
 		this->editLine = editLine;
 		step = 0;
-		img = png_image_new(X::getResName("data/walk.png"));
+		img = png_image_new(X::getResName("data/walk.png").c_str());
 		steps = 8;
 		pos = 0;
 	}
@@ -244,7 +244,7 @@ int main(int argc, char** argv) {
 	list->setScrollerH(sr);
 	root->add(sr);
 
-	win.open(&x, 0, -1, -1, 0, 0, "widgetTest", XWIN_STYLE_NORMAL);
+	win.open(&x, -1, -1, -1, 0, 0, "widgetTest", XWIN_STYLE_NORMAL);
 	win.setTimer(16);
 
 	widgetXRun(&x, &win);	

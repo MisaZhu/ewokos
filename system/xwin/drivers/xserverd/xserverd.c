@@ -1113,15 +1113,15 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 
 	if(win->xinfo->state == XWIN_STATE_MAX) {
 		win->xinfo->wsr.x = 0;
-		win->xinfo->wsr.w = x->displays[x->current_display].g->w;
+		win->xinfo->wsr.w = x->displays[win->xinfo->display_index].g->w;
 
       	if((win->xinfo->style & XWIN_STYLE_NO_TITLE) == 0) {
 			win->xinfo->wsr.y = x->config.xwm_theme.titleH;
-			win->xinfo->wsr.h = x->displays[x->current_display].g->h - x->config.xwm_theme.titleH;
+			win->xinfo->wsr.h = x->displays[win->xinfo->display_index].g->h - x->config.xwm_theme.titleH;
 		}
 		else {
 			win->xinfo->wsr.y = 0;
-			win->xinfo->wsr.h = x->displays[x->current_display].g->h;
+			win->xinfo->wsr.h = x->displays[win->xinfo->display_index].g->h;
 		}
 	}
 
@@ -1762,6 +1762,7 @@ static int xserver_win_close(int fd, int from_pid, uint32_t node, fsinfo_t* fsin
 	return 0;
 }
 
+static int _disp_index = -1;
 int xserver_step(void* p) {
 	x_t* x = (x_t*)p;
 
@@ -1774,7 +1775,7 @@ int xserver_step(void* p) {
 	ipc_disable();
 	check_wins(x);
 
-	if(core_get_active_ux() == UX_X_DEFAULT) {
+	if(core_get_active_ux(_disp_index) == UX_X_DEFAULT) {
 		for(uint32_t i=0; i<x->display_num; i++) {
 			x_repaint(x, i);
 		}
@@ -1794,7 +1795,6 @@ int xserver_step(void* p) {
 
 char* xserver_dev_cmd(int from_pid, int argc, char** argv, void* p);
 
-static int _disp_index = 0;
 static int doargs(int argc, char* argv[]) {
 	int c = 0;
 	while (c != -1) {
@@ -1819,7 +1819,7 @@ int main(int argc, char** argv) {
 	const char* display_man = "/dev/display";
 	doargs(argc, argv);
 
-	core_set_ux(UX_X_DEFAULT);
+	core_enable_ux(_disp_index, UX_X_DEFAULT);
 
 	x_t x;
 	if(x_init(&x, display_man, _disp_index) != 0)

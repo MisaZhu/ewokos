@@ -267,8 +267,10 @@ void XWM::getColor(uint32_t *fg, uint32_t* bg, bool top) {
 		*bg = xwm.theme.frameBGColor;
 	}
 	else {
-		*fg = graph_get_dark_color(xwm.theme.frameFGColor);
-		*bg = graph_get_dark_color(xwm.theme.frameBGColor);
+		*fg = color_gray(xwm.theme.frameFGColor);
+		*bg = color_gray(xwm.theme.frameBGColor);
+		//*fg = graph_get_dark_color(xwm.theme.frameFGColor);
+		//*bg = graph_get_dark_color(xwm.theme.frameBGColor);
 	}
 }
 
@@ -297,8 +299,11 @@ void XWM::updateTheme(bool loadFromX) {
 		graph_free(desktopPattern);
 		desktopPattern = NULL;
 	}
-	if(xwm.theme.patternName[0] != 0 && strcmp(xwm.theme.patternName, "none") != 0)
-		desktopPattern = png_image_new_bg(x_get_theme_fname(X_THEME_ROOT, "xwm", xwm.theme.patternName), xwm.theme.desktopBGColor);
+	if(xwm.theme.patternName[0] != 0 && strcmp(xwm.theme.patternName, "none") != 0) {
+		char fname[FS_FULL_NAME_MAX+1] = {0};
+		x_get_theme_fname(X_THEME_ROOT, "xwm", xwm.theme.patternName, fname, FS_FULL_NAME_MAX);
+		desktopPattern = png_image_new_bg(fname, xwm.theme.desktopBGColor);
+	}
 }
 
 void XWM::loadTheme(const char* name) {

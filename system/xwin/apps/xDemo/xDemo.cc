@@ -40,8 +40,8 @@ public:
 		count = 0;
 		mode = CIRCLE;
         imgX = imgY = 0;
-		img_big = png_image_new(X::getResName("data/rokid.png"));	
-		img_small = png_image_new(X::getResName("data/rokid_small.png"));	
+		img_big = png_image_new(X::getResName("data/rokid.png").c_str());	
+		img_small = png_image_new(X::getResName("data/rokid_small.png").c_str());	
 	}
 	
 	inline ~TestX() {
@@ -154,7 +154,7 @@ int main(int argc, char* argv[]) {
 
 	X x;
 	TestX xwin;
-	xwin.open(&x, 0, -1, -1, 0, 0, "xtest", XWIN_STYLE_NORMAL);
+	xwin.open(&x, -1, -1, -1, 0, 0, "xtest", XWIN_STYLE_NORMAL);
 	int32_t timerID = timer_set(5000, _timerHandler);
 
 	x.run(loop, &xwin);

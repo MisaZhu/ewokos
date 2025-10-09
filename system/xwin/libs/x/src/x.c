@@ -45,10 +45,23 @@ static int x_get_event(int xserv_pid, xevent_t* ev, bool block) {
 	return res;
 }
 
-int x_screen_info(xscreen_info_t* scr, uint32_t index) {
+uint32_t x_get_display_id(int32_t index_def) {
+	int32_t disp_index = index_def;
+	if(index_def < 0) {
+		const char* disp = getenv("DISPLAY_ID");
+		if(disp != NULL && disp[0] != '\0')
+			disp_index = atoi(disp);
+	}
+	if(disp_index < 0 || disp_index >= x_get_display_num())
+		disp_index = 0;
+	return disp_index;
+}
+
+int x_screen_info(xscreen_info_t* scr, int32_t disp_index) {
+	disp_index = x_get_display_id(disp_index);
 	proto_t in, out;
 	PF->init(&out);
-	PF->init(&in)->addi(&in, index);
+	PF->init(&in)->addi(&in, disp_index);
 
 	int ret = dev_cntl("/dev/x", X_DCNTL_GET_INFO, &in, &out);
 	if(ret == 0)
@@ -116,8 +129,8 @@ void x_terminate(x_t* x) {
 	proc_wakeup_pid(getpid(), X_EVT_BLOCK_EVT);
 }
 
-const char* x_get_work_dir(void) {
-	return cmain_get_work_dir();
+void x_get_work_dir(char* ret, uint32_t len) {
+	cmain_get_work_dir(ret, len);
 }
 
 static x_theme_t _x_theme;
@@ -130,7 +143,7 @@ static int x_update_theme(void) {
 	proto_t out;
 	PF->init(&out);
 	if(dev_cntl_by_pid(xserv_pid, X_DCNTL_GET_THEME, NULL, &out) != 0) {
-		klog("update theme error\n");
+		slog("update theme error\n");
 		return -1;
 	}	
 
@@ -159,6 +172,7 @@ void  x_init(x_t* x, void* data) {
 }
 
 int x_get_desktop_space(int disp_index, grect_t* r) {
+	disp_index = x_get_display_id(disp_index);
 	int res = -1;
 	proto_t out, in;
 	PF->init(&in)->addi(&in, disp_index);
@@ -234,8 +248,12 @@ int x_exec(const char* fname) {
 	return 0;
 }
 
-const char* x_get_theme_fname(const char* prefix, const char* app_name, const char* fname) {
-	static char ret[256] = {0};
+const char* x_get_theme_fname(const char* prefix,
+		const char* app_name,
+		const char* fname, 
+		char* ret,
+		uint32_t len) {
+	memset(ret, 0, len);
 	if(fname[0] == '/') {
 		strncpy(ret, fname, 255);
 		return ret;
@@ -251,21 +269,22 @@ const char* x_get_theme_fname(const char* prefix, const char* app_name, const ch
 	return ret;
 }
 
-const char* x_get_res_name(const char* name) {
-	static char ret[FS_FULL_NAME_MAX] = "";
+const char* x_get_res_name(const char* name, char* ret, uint32_t len) {
+	memset(ret, 0, len);
 	if(name == NULL || name[0] == 0)
 		return ret;
 	
 	if(name[0] == '/') {
-		strncpy(ret, name, FS_FULL_NAME_MAX-1);
+		strncpy(ret, name, len);
 		return ret;
 	}
 
-	const char* wkdir = x_get_work_dir();
+	char wkdir[FS_FULL_NAME_MAX+1] = {0};
+	x_get_work_dir(wkdir, FS_FULL_NAME_MAX);
 	if(wkdir[1] == 0 && wkdir[0] == '/')
-		snprintf(ret, FS_FULL_NAME_MAX-1, "/res/%s", name);
+		snprintf(ret, len, "/res/%s", name);
 	else
-		snprintf(ret, FS_FULL_NAME_MAX-1, "%s/res/%s", wkdir, name);
+		snprintf(ret, len, "%s/res/%s", wkdir, name);
 	return ret;
 }
 

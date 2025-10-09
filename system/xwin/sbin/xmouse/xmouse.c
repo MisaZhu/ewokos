@@ -32,8 +32,7 @@ static void input(mouse_evt_t* mevt) {
 int main(int argc, char** argv) {
 	const char* dev_name = argc < 2 ? "/dev/mouse0":argv[1];
 	_x_pid = -1;
-
-	core_set_ux(UX_X_DEFAULT);
+	core_enable_ux(-1, UX_X_DEFAULT);
 
 	int fd = open(dev_name, O_RDONLY);
 	if(fd < 0) {

@@ -6,7 +6,6 @@
 #include <ewoksys/session.h>
 
 int main(int argc, char* argv[]) {
-	const char* fname;
 	if(argc < 3) {
 		printf("Usage: chown <user> <fname>\n");
 		return -1;
@@ -32,9 +31,10 @@ int main(int argc, char* argv[]) {
 	}	
 
 	int gid = uid;
-	fname = vfs_fullname(argv[2]);
-	if(chown(fname, uid, gid) != 0) {
-		printf("Can't chown [%s]!\n", fname);
+	char fullname[FS_FULL_NAME_MAX+1] = {0};
+	vfs_fullname(argv[2], fullname, FS_FULL_NAME_MAX);
+	if(chown(fullname, uid, gid) != 0) {
+		printf("Can't chown [%s]!\n", fullname);
 		return -1;
 	}
 	return 0;

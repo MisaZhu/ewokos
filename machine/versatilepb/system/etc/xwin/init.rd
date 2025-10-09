@@ -1,9 +1,3 @@
-@/bin/splash -i /usr/system/images/logos/ewokos.png -m "/drivers/consoled" -p 15
-@export UX_ID=6
-@/bin/ipcserv /drivers/consoled  /dev/klog
-@export KLOG_DEV=/dev/klog
-@set_stdio /dev/klog
-
 @echo "+---------------------------------------+\n"
 @echo "|  < EwokOS MicroKernel >               |\n" 
 @echo "+---------------------------------------+\n"
@@ -29,10 +23,10 @@
 @/bin/splash  -m "config ramfsd" -p 70
 @/bin/ipcserv /drivers/ramfsd          /tmp
 
-@/bin/splash  -m "config console1" -p 80
+@/bin/splash  -m "config console" -p 80
 @export UX_ID=1
-@/bin/ipcserv /drivers/consoled   /dev/console1 -i /dev/vkeyb
-@/bin/bgrun /bin/session -r -t /dev/console1 
+@/bin/ipcserv /drivers/consoled   /dev/console0 -i /dev/vkeyb
+@/bin/bgrun /bin/session -r -t /dev/console0
 
 
 @/bin/splash  -m "config fonts"

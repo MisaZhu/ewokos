@@ -49,13 +49,14 @@ static void input(uint16_t state, int16_t tx, int16_t ty) {
 	else if(state == 0) //up
 		ev.state = MOUSE_STATE_UP;
 
-	if(ev.state == MOUSE_STATE_UP &&
+	/*if(ev.state == MOUSE_STATE_UP &&
 			ev.value.mouse.x < 32 && (_scr_h - ev.value.mouse.y) < 32) {
-		core_next_ux();
+		core_next_ux(0);
 		return;
 	}
+	*/
 
-	if(core_get_active_ux() == UX_X_DEFAULT) {
+	if(core_get_active_ux(0) == UX_X_DEFAULT) {
 		proto_t in;
 		PF->init(&in)->add(&in, &ev, sizeof(xevent_t));
 		dev_cntl_by_pid(_x_pid, X_DCNTL_INPUT, &in, NULL);
@@ -87,8 +88,6 @@ static int32_t read_config(const char* fname) {
 int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
-
-	core_set_ux(UX_X_DEFAULT);
 
 	_x_pid = -1;
 	read_config("/etc/x/xtouch.json");

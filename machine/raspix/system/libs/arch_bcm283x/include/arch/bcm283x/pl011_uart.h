@@ -5,7 +5,7 @@
 
 int32_t bcm283x_pl011_uart_init(void);
 int32_t bcm283x_pl011_uart_write(const void* data, uint32_t size);
-int32_t bcm283x_pl011_uart_ready_to_recv(void);
-int32_t bcm283x_pl011_uart_recv(void);
+int32_t bcm283x_pl011_uart_send(const uint8_t c);
+int32_t bcm283x_pl011_uart_recv(uint32_t timeout_ms);
 
 #endif

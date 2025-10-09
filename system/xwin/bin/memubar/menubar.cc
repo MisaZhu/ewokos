@@ -132,7 +132,7 @@ int main(int argc, char** argv) {
 	powerInfo->fix(48, 0);
 	root->add(powerInfo);
 
-	win.open(&x, 0, 0, 0, scr.size.w, 20, "manubar", XWIN_STYLE_NO_FOCUS | XWIN_STYLE_SYSBOTTOM | XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_BG_EFFECT);
+	win.open(&x, -1, 0, 0, scr.size.w, 20, "manubar", XWIN_STYLE_NO_FOCUS | XWIN_STYLE_SYSBOTTOM | XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_BG_EFFECT);
 	win.setTimer(2);
 	widgetXRun(&x, &win);
 	return 0;

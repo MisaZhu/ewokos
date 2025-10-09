@@ -113,8 +113,8 @@ public:
 	MyText* text;
 
 	void loadConfig(void) {
-		const char* fname = X::getResName("config.json");
-		json_var_t *conf_var = json_parse_file(fname);
+		string fname = X::getResName("config.json");
+		json_var_t *conf_var = json_parse_file(fname.c_str());
 		text->setFont(json_get_str_def(conf_var, "font", DEFAULT_SYSTEM_FONT));
 		json_var_unref(conf_var);
 	}
@@ -215,7 +215,7 @@ int main(int argc, char** argv) {
 	text->statusLabel = statusLabel;
 
 	win.loadConfig();
-	win.open(&x, 0, -1, -1, 0, 0, "xread", XWIN_STYLE_NORMAL);
+	win.open(&x, -1, -1, -1, 0, 0, "xread", XWIN_STYLE_NORMAL);
 
 	if(argc >= 2) {
 		win.load(argv[1]);

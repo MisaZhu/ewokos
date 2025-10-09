@@ -1,4 +1,5 @@
 all:
+	cd xlog; make
 	cd xterm; make
 	cd xread; make
 	cd xcores; make
@@ -15,6 +16,7 @@ all:
 	cd clock; make
 
 clean:
+	cd xlog; make clean
 	cd xterm; make clean
 	cd xread; make clean
 	cd xcores; make clean

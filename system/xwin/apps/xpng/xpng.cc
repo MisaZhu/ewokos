@@ -343,7 +343,7 @@ int main(int argc, char** argv) {
 	menubar->add(2, "-", NULL, NULL, onZoomOutFunc, imgView);
 	menubar->add(3, "BG", NULL, NULL, onBGColorFunc, imgView);
 
-	win.open(&x, 0, -1, -1, 0, 0, "xpng", XWIN_STYLE_NORMAL);
+	win.open(&x, -1, -1, -1, 0, 0, "xpng", XWIN_STYLE_NORMAL);
 	win.setAlpha(true);
 	if(argc >= 2)
 		win.load(imgView, argv[1]);
