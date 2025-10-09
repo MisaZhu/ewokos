@@ -7,7 +7,7 @@ ifeq ($(ARCH), aarch64)
 	OS_ELF = kernel8.elf
 	QEMU_CMD = qemu-system-aarch64
 	ARCH_CFLAGS = -Wa,-march=armv8-a
-	QEMU_FLAGS = -S -M $(QEMU_MACHINE),highmem=off -cpu cortex-a53 -m 512 -serial mon:stdio -nographic
+	QEMU_FLAGS = -M $(QEMU_MACHINE),highmem=off -cpu cortex-a53 -m 512 -serial mon:stdio -nographic
 else
 	OS_IMG = kernel7.img
 	OS_ELF = kernel7.elf
