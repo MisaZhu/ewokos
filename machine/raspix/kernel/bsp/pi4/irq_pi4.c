@@ -7,7 +7,7 @@
 static uint32_t irq_enable_flag = 0;
 void irq_arch_init_pi4(void) {
     irq_enable_flag = 0;
-	gic_init(MMIO_BASE + 0x1840000);
+	gic_init(MMIO_BASE + 0x1841000, MMIO_BASE + 0x1842000);
     for(int i = 0; i < 1022; i++){
         gic_irq_disable(0, i);
     }
