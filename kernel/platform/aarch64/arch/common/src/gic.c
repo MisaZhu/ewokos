@@ -20,14 +20,16 @@ uint8_t* get_gic_baseaddr(void)
     return 0;
 }
 
-void gic_init(uint8_t* gicbase) {
+void gic_init(void* gicd, void* gicc) {
 
-    if(!gicbase) 
-        gicbase = get_gic_baseaddr();
-
-    gicd_base = gicbase + GICD_OFFSET; // global variable
-    gicc_base = gicbase + GICC_OFFSET; // global variable
-
+    if(!gicd || !gicc) {
+        uint8_t* gicbase = get_gic_baseaddr();
+        gicd_base = gicbase + GICD_OFFSET;
+        gicc_base = gicbase + GICC_OFFSET;
+    }else{
+        gicd_base = gicd; 
+        gicc_base = gicc;
+    }
     // Global enable forwarding interrupts from distributor to cpu interface
     mmio_write32(gicd_base + GICD_CTLR, GICD_CTLR_GRPEN1);
     
@@ -126,7 +128,7 @@ void gic_eoi(int intn) {
 }
 
 int gic_get_irq(void){
-    int irq = mmio_read32(gicc_base + GICC_IAR);
+    int irq = mmio_read32(gicc_base + GICC_IAR)&0x3FF;
     gic_eoi(irq);
     return irq;
 }

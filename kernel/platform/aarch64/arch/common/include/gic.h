@@ -110,7 +110,7 @@
 	(GIC_HIGHEST_NS_PRIORITY << 16)	|	\
 	(GIC_HIGHEST_NS_PRIORITY << 24))
 
-void gic_init(uint8_t *gicbase);
+void gic_init(void *gicd, void*gicc);
 void gic_irq_enable(int core_id, int irqno);
 void gic_irq_disable(int core_id, int irqno);
 int gic_get_irq(void);

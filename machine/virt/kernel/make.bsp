@@ -1,0 +1,6 @@
+ARCH_OBJS += $(BSP_DIR)/hw_info_arch.o \
+	$(BSP_DIR)/irq.o \
+	$(BSP_DIR)/timer.o \
+	$(BSP_DIR)/sd.o  \
+	$(BSP_DIR)/uart.o \
+	$(BSP_DIR)/start.o

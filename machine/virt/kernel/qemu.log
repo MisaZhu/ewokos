@@ -1,0 +1,1538 @@
+virtio_set_status vdev 0x13f25c950 val 0
+virtio_mmio_setting_irq virtio_mmio setting IRQ 0
+virtio_set_status vdev 0x1303905d0 val 0
+virtio_set_status vdev 0x13f25c950 val 0
+virtio_set_status vdev 0x1303905d0 val 0
+PL011 data written to disabled UART
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+virtio_mmio_read virtio_mmio_read offset 0x0
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+virtio_mmio_read virtio_mmio_read offset 0x4
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+virtio_mmio_read virtio_mmio_read offset 0x8
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+virtio_mmio_write_offset virtio_mmio_write offset 0x70 value 0x0
+virtio_set_status vdev 0x13f25c950 val 0
+virtio_set_status vdev 0x13f25c950 val 0
+virtio_mmio_setting_irq virtio_mmio setting IRQ 0
+virtio_mmio_write_offset virtio_mmio_write offset 0x70 value 0x1
+virtio_set_status vdev 0x13f25c950 val 1
+virtio_mmio_write_offset virtio_mmio_write offset 0x70 value 0x3
+virtio_set_status vdev 0x13f25c950 val 3
+virtio_mmio_read virtio_mmio_read offset 0x10
+virtio_mmio_write_offset virtio_mmio_write offset 0x20 value 0x0
+virtio_mmio_read virtio_mmio_read offset 0x70
+virtio_mmio_write_offset virtio_mmio_write offset 0x70 value 0xb
+virtio_set_status vdev 0x13f25c950 val 11
+virtio_mmio_read virtio_mmio_read offset 0x70
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+virtio_mmio_write_offset virtio_mmio_write offset 0x30 value 0x0
+virtio_mmio_read virtio_mmio_read offset 0x34
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+virtio_mmio_write_offset virtio_mmio_write offset 0x38 value 0x8
+virtio_mmio_queue_write mmio_queue write 0x8 max 1024
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+virtio_mmio_write_offset virtio_mmio_write offset 0x28 value 0x1000
+virtio_mmio_guest_page guest page size 0x1000 shift 12
+virtio_mmio_write_offset virtio_mmio_write offset 0x40 value 0x400a0
+virtio_mmio_read virtio_mmio_read offset 0x70
+virtio_mmio_write_offset virtio_mmio_write offset 0x70 value 0xf
+virtio_set_status vdev 0x13f25c950 val 15
+virtio_queue_notify vdev 0x13f25c950 n 0 vq 0x1487b8000
+virtio_mmio_read virtio_mmio_read offset 0x70
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+virtio_queue_notify vdev 0x13f25c950 n 0 vq 0x1487b8000
+virtio_blk_handle_read vdev 0x13f25c950 req 0x13df22050 sector 1 nsectors 1
+virtio_mmio_read virtio_mmio_read offset 0x60
+virtio_blk_rw_complete vdev 0x13f25c950 req 0x13df22050 ret 0
+virtio_blk_req_complete vdev 0x13f25c950 req 0x13df22050 status 0
+virtio_notify vdev 0x13f25c950 vq 0x1487b8000
+virtio_mmio_setting_irq virtio_mmio setting IRQ 1
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+virtio_mmio_read virtio_mmio_read offset 0x70
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+virtio_mmio_read virtio_mmio_read offset 0x34
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+virtio_mmio_read virtio_mmio_read offset 0x38
+virtio_mmio_read: read of write-only register (0x38)
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+virtio_mmio_read virtio_mmio_read offset 0x60
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+virtio_mmio_write_offset virtio_mmio_write offset 0x64 value 0x1
+virtio_mmio_setting_irq virtio_mmio setting IRQ 0
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+pl011_read: Bad offset 0x60
+PL011 data written to disabled UART
+virtio_set_status vdev 0x1303905d0 val 0
+virtio_set_status vdev 0x13f25c950 val 15
