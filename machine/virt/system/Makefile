@@ -20,7 +20,7 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 
 export NEON=no
 export FPU=no
-export BSP_LFLAGS = -larch_virt
+export BSP_LFLAGS = -lbsp -larch_virt
 
 all: basic
 	@echo "all done."
