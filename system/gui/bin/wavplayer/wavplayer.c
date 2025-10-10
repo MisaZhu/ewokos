@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
-
 #include "utils.h"
 #include "pcm.h"
 
@@ -67,7 +66,7 @@ int play_with_file(const char *fileName)
 
 	struct pcm *pcm = pcm_open("/dev/sound0", &config);
 	if (pcm == NULL) {
-		LOGD("pcm_open() fail, return!");
+		LOGE("pcm_open() fail, return!");
 		return -1;
 	}
 
