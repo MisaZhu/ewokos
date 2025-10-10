@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-CAT_OBJS = aplay.o utils.o pcm.o
+CAT_OBJS = wavplayer.o utils.o pcm.o
 
 CAT = $(TARGET_DIR)/bin/wavplayer
 

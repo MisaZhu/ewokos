@@ -179,113 +179,6 @@ void *push_data_to_pcm(void *data)
 	return NULL;
 }
 
-int play_with_stdin(int bit_depth, int rate, int channels)
-{
-	int ret = 0;
-	int read_size = 0;
-	int buffer_size = 0;
-	char *pbuf = NULL;
-	char *qbuf = NULL;
-	FILE *file = stdin;
-
-	struct pcm_config config = {
-		.bit_depth = bit_depth,
-		.rate = rate,
-		.channels = channels,
-		.period_size = 2048,
-		.period_count = 2,
-		.start_threshold = 2048 * 2,
-		.stop_threshold = 0,
-	};
-
-	struct pcm *pcm = pcm_open("/dev/sound", &config);
-	if (!pcm) {
-		LOGD("pcm_open() fail, return!");
-		return -1;
-	}
-
-	dump_pcm_config(&config);
-
-	buffer_size = config.period_size * 4;
-	pbuf = (char*)malloc(buffer_size);
-	if (!pbuf) {
-		fclose(file);
-		pcm_close(pcm);
-		LOGE("%s() line:%d No memory, return!\n", __func__ ,__LINE__);
-		return -1;
-	}
-
-	qbuf = (char*)malloc(buffer_size);
-	if (!qbuf) {
-		fclose(file);
-		pcm_close(pcm);
-		LOGE("%s() line:%d No memory, return!\n", __func__ ,__LINE__);
-		return -1;
-	}
-
-	struct pq_buf_mgr mgr;
-	mgr.wpcm = pcm;
-	mgr.pcm_exit = 0;
-	mgr.done = 0;
-	mgr.p_addr = pbuf;
-	mgr.p_size = 0;
-	mgr.q_addr = qbuf;
-	mgr.q_size = 0;
-
-	start_playback(&mgr);
-
-	int read_all = 0;
-	for (;;) {
-		int p_size = mgr.p_size;
-		int q_size = mgr.q_size;
-
-		if (p_size == 0) {
-			//LOGD("+%s() req_p %d", __func__, buffer_size);
-			int r_sz = fread(mgr.p_addr + read_all, 1, 8192, stdin);
-			if (r_sz <= 0) {
-				LOGD("%s() fread() EOF\n", __func__);
-				mgr.done = 1;
-			}
-
-			read_all += r_sz;
-			if (read_all < buffer_size) {
-				continue;
-			}
-
-			mgr.p_size = read_all;
-			read_all = 0;
-			//LOGD("-%s() p_size %d", __func__, mgr.p_size);
-		}
-
-		if (q_size == 0) {
-			//LOGD("+%s() req_q %d", __func__, buffer_size);
-			int r_sz = fread(mgr.q_addr + read_all, 1, 8192, stdin);
-			if (r_sz <= 0) {
-				LOGD("%s() fread() EOF\n", __func__);
-				mgr.done = 1;
-			}
-
-			read_all += r_sz;
-			if (read_all < buffer_size) {
-				continue;
-			}
-
-			mgr.q_size = read_all;
-			read_all = 0;
-			//LOGD("-%s() q_size %d", __func__, mgr.q_size);
-		}
-	}
-
-	while(mgr.pcm_exit != 0) {
-		proc_usleep(10 * 1000);
-	}
-
-	free(pbuf);
-	free(qbuf);
-	fclose(file);
-	return ret;
-}
-
 int main(int argc, char *argv[])
 {
 	UNUSED(argc);
@@ -299,7 +192,13 @@ int main(int argc, char *argv[])
 	FILE *file = NULL;
 	int i = 0;
 
-	while(i < argc) {
+	if(argc < 2) {
+		LOGE("Usage: %s [-f wav_file]\n", argv[0]);
+		return -1;
+	}
+	strncpy(wavFileName, argv[1], 127);
+
+	/*while(i < argc) {
 		if (strcmp(argv[i], "-f") == 0) {
 			if (++i >= argc) {
 				break;
@@ -329,12 +228,9 @@ int main(int argc, char *argv[])
 			++i;
 		}
 	}
+	*/
 
-	if (playWav) {
-		play_with_file(wavFileName);
-	} else {
-		play_with_stdin(bit_depth, rate, channels);
-	}
+	play_with_file(wavFileName);
 
 	LOGD("main() end pcm_close()\n");
 	return 0;
