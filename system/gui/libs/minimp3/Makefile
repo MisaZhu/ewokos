@@ -8,9 +8,9 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -Iinclude -I $(BUILD_DIR)/include
 
-MP3PLAY_OBJS = src/mp3play.o
+MP3PLAY_OBJS = src/mp3player.o
 
-MP3PLAY = $(TARGET_DIR)/bin/mp3play
+MP3PLAY = $(TARGET_DIR)/bin/mp3player
 
 $(MP3PLAY): $(MP3PLAY_OBJS) \
 		$(EWOK_LIBC_A)  

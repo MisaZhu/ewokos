@@ -9,5 +9,6 @@
     {"ext":".mbc", "open_with": "/bin/mario", "icon": "icons/js.png" },
     {"ext":".xwl", "open_with": "/apps/wlayout/wlayout", "icon": "icons/json.png" },
     {"ext":".wjs", "open_with": "/bin/wjs", "icon": "icons/json.png" },
-    {"ext":".snd", "open_with": "/bin/aplay", "icon": "icons/file.png" }
+    {"ext":".mp3", "open_with": "/bin/mp3player", "icon": "icons/sound.png" },
+    {"ext":".wav", "open_with": "/bin/wavplayer", "icon": "icons/sound.png" }
 ]
