@@ -65,7 +65,7 @@ int play_with_file(const char *fileName)
 		.stop_threshold = 0,
 	};
 
-	struct pcm *pcm = pcm_open("/dev/sound", &config);
+	struct pcm *pcm = pcm_open("/dev/sound0", &config);
 	if (pcm == NULL) {
 		LOGD("pcm_open() fail, return!");
 		return -1;
@@ -291,7 +291,7 @@ int main(int argc, char *argv[])
 	UNUSED(argc);
 	UNUSED(sineTone1KBuf);
 	int ret;
-	char wavFileName[32] = {0};
+	char wavFileName[128] = {0};
 	int playWav = 0;
 	int rate = 48000; /* Default sample rate */
 	int channels = 2; /* Default channel number */
@@ -305,9 +305,9 @@ int main(int argc, char *argv[])
 				break;
 			}
 			if (argv[i] == NULL) {
-				strncpy(wavFileName, "/data/test/test.wav", 31);
+				strncpy(wavFileName, "/data/test/test.wav", 127);
 			}else {
-				strncpy(wavFileName, argv[i], 31);
+				strncpy(wavFileName, argv[i], 127);
 			}
 			playWav = 1;
 		} else if (strcmp(argv[i], "-r") == 0) {

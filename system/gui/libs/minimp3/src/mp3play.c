@@ -23,7 +23,7 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	int fd = open("/dev/sound", O_WRONLY);
+	int fd = open("/dev/sound0", O_WRONLY);
 	if(fd < 0) {
 		fprintf(stderr, "/dev/sound device not ready!\n");
 		return 1;
