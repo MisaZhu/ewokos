@@ -39,7 +39,7 @@ static int fb_fcntl(int fd,
 	(void)in;
 	(void)p;
 	if(cmd == FB_CNTL_GET_INFO) { //get fb size
-		if(_rotate == G_ROTATE_N90 || _rotate == G_ROTATE_90)
+		if(_rotate == G_ROTATE_270 || _rotate == G_ROTATE_90)
 			PF->addi(out, _zheight)->addi(out, _zwidth)->addi(out, _fbinfo.depth);
 		else
 			PF->addi(out, _zwidth)->addi(out, _zheight)->addi(out, _fbinfo.depth);
@@ -76,7 +76,7 @@ static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, in
 	graph_t g;
 
 	graph_t* gr = NULL;
-	if(rotate == G_ROTATE_N90 || rotate == G_ROTATE_90) {
+	if(rotate == G_ROTATE_270 || rotate == G_ROTATE_90) {
 		graph_init(&g, buf, _zheight, _zwidth);
 		gr = graph_new(NULL, _zwidth, _zheight);
 	}
@@ -109,7 +109,7 @@ static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, in
 
 static void init_graph(fb_dma_t* dma) {
 	graph_t g;
-	if(_rotate == G_ROTATE_N90 || _rotate == G_ROTATE_90)
+	if(_rotate == G_ROTATE_270 || _rotate == G_ROTATE_90)
 		graph_init(&g, (const uint32_t*)dma->shm, _zheight, _zwidth);
 	else
 		graph_init(&g, (const uint32_t*)dma->shm, _zwidth, _zheight);
@@ -159,7 +159,7 @@ static int fb_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p
 		fb_get_info();
 	}
 	else if(cmd == FB_DEV_CNTL_GET_INFO) {
-		if(_rotate == G_ROTATE_N90 || _rotate == G_ROTATE_90)
+		if(_rotate == G_ROTATE_270 || _rotate == G_ROTATE_90)
 			PF->addi(ret, _zheight)->addi(ret, _zwidth)->addi(ret, _fbinfo.depth);
 		else
 			PF->addi(ret, _zwidth)->addi(ret, _zheight)->addi(ret, _fbinfo.depth);

@@ -216,7 +216,7 @@ void graph_rotate_to(graph_t* g, graph_t* ret, int rot) {
 	if(rot == G_ROTATE_90) {
 		rotate_90_clockwise_cache_optimized(g->buffer, ret->buffer, g->w, g->h);
 	}
-	else if(rot == G_ROTATE_N90) {
+	else if(rot == G_ROTATE_270) {
 		rotate_90_counter_clockwise_cache_optimized(g->buffer, ret->buffer, g->w, g->h);
 	}
 	else if(rot == G_ROTATE_180) {
@@ -237,7 +237,7 @@ inline graph_t* graph_rotate(graph_t* g, int rot) {
 		return NULL;
 	graph_t* ret = NULL;
 
-	if(rot == G_ROTATE_90 || rot == G_ROTATE_N90) {
+	if(rot == G_ROTATE_90 || rot == G_ROTATE_270) {
 		ret = graph_new(NULL, g->h, g->w);
 	}
 	else if(rot == G_ROTATE_180) {
