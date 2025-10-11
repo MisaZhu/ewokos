@@ -130,3 +130,14 @@ hdmi_mode=87
 hdmi_timings=720 0 100 20 100 720 0 20 8 20 0 0 0 60 0 48000000 6
 start_x=0
 gpu_mem=128
+
+#-----2.8inch HDMI LCD (H)----------
+hdmi_force_hotplug=1
+hdmi_group=2
+hdmi_mode=87
+hdmi_timings=480 0 100 16 100 640 0 100 20 100 0 0 0 60 0 42000000 6
+dtoverlay=waveshare-28HDMI-3b
+dtoverlay=waveshare-28HDMI-4b
+dtoverlay=waveshare-28HDMI-5b
+start_x=1
+display_hdmi_rotate=3

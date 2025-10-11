@@ -10,7 +10,11 @@
 #define MINIMP3_IMPLEMENTATION
 #include "minimp3/minimp3.h"
 
-int main(int argc, char **argv) {
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
+int mp3_play_file(const char *path, const char *snd_dev) {
 	mp3dec_t mp3;
 	mp3dec_frame_info_t info;
 	void *file_data;
@@ -18,20 +22,13 @@ int main(int argc, char **argv) {
 	signed short sample_buf[MINIMP3_MAX_SAMPLES_PER_FRAME];
 	int bytes_left;
 
-	if(argc < 2) {
-		fprintf(stderr, "Usage: %s [mp3_fname]\n", argv[0]);
-		return 1;
-	}
-
-	int fd = open("/dev/sound0", O_WRONLY);
+	int fd = open(snd_dev, O_WRONLY);
 	if(fd < 0) {
-		fprintf(stderr, "/dev/sound device not ready!\n");
 		return 1;
 	}
 
-	file_data = vfs_readfile(argv[1], &bytes_left);
+	file_data = vfs_readfile(path, &bytes_left);
 	if(file_data == NULL) {
-		fprintf(stderr, "Error: read MP3 audio file failed!\n");
 		return 1;
 	}
 	stream_pos = (unsigned char *) file_data;
@@ -40,12 +37,10 @@ int main(int argc, char **argv) {
 	int simples = mp3dec_decode_frame(&mp3, stream_pos, bytes_left, sample_buf, &info);
 
 	if (simples == 0) {
-		fprintf(stderr, "Error: not a valid MP3 audio file!\n");
 		free(file_data);
 		return 1;
 	}
 
-	fprintf(stderr, "sound write: %d ... \n", bytes_left);
 	while ((bytes_left >= 0) && (simples > 0)) {
 		stream_pos += info.frame_bytes;
 		bytes_left -= info.frame_bytes;
@@ -53,8 +48,11 @@ int main(int argc, char **argv) {
 		//fprintf(stderr, "sound write: %d on %d, left: %d\n", sz, size, bytes_left);
 		simples = mp3dec_decode_frame(&mp3, stream_pos, bytes_left, sample_buf, &info);
 	}
-	fprintf(stderr, "done.\n");
 	free(file_data);
 	close(fd);
 	return 0;
 }
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */

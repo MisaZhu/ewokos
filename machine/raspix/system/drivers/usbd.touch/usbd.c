@@ -107,7 +107,7 @@ static int usb_step(void* p) {
     }
     */
 
-    proc_usleep(3000);
+    proc_usleep(10000);
 	return 0;
 }
 

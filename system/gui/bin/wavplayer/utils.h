@@ -15,13 +15,16 @@ enum log_level {
   WARNING_L,
 };
 
-#define LOGV(FMT, ...) x_log(VERBOSE_L, TAG, FMT, ##__VA_ARGS__)
-
+/*#define LOGV(FMT, ...) x_log(VERBOSE_L, TAG, FMT, ##__VA_ARGS__)
 #define LOGD(FMT, ...) x_log(DEBUG_L, TAG, FMT, ##__VA_ARGS__)
-
 #define LOGE(FMT, ...) x_log(ERROR_L, TAG, FMT, ##__VA_ARGS__)
-
 #define LOGW(FMT, ...) x_log(WARNING_L, TAG, FMT, ##__VA_ARGS__)
+*/
+
+#define LOGV(FMT, ...) slog(FMT, ##__VA_ARGS__)
+#define LOGD(FMT, ...) slog(FMT, ##__VA_ARGS__)
+#define LOGE(FMT, ...) slog(FMT, ##__VA_ARGS__)
+#define LOGW(FMT, ...) slog(FMT, ##__VA_ARGS__)
 
 struct chunk_fmt {
     uint16_t audio_format;

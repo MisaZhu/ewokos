@@ -31,7 +31,7 @@ extern void x_log(int logLevel, const char* tag, const char *fmt, ...)
     };
 
     if (tag == NULL) {
-        fprintf(stderr, "Error! TAG Not defined!\n");
+        slog("Error! TAG Not defined!\n");
         return;
     }
 
@@ -70,7 +70,7 @@ extern void x_log(int logLevel, const char* tag, const char *fmt, ...)
 	va_end(ap);
 	len += arg.index;
 
-	fprintf(stderr, "%s\n", logBuf);
+	slog("%s\n", logBuf);
 }
 
 #define ID_RIFF 0x46464952
@@ -134,7 +134,7 @@ int parse_wav_header(FILE *file, struct chunk_fmt *wavFormat)
     fread(&riff_wave_header, sizeof(riff_wave_header), 1, file);
     if ((riff_wave_header.riff_id != ID_RIFF) ||
         (riff_wave_header.wave_id != ID_WAVE)) {
-        fprintf(stderr, "%s() Error! not a riff/wave file\n", __func__);
+        slog("%s() Error! not a riff/wave file\n", __func__);
         return -1;
     }
 
