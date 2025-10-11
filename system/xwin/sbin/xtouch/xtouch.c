@@ -135,6 +135,8 @@ int main(int argc, char** argv) {
 
 			int16_t tx = xraw - _xtouch.x_offset;
 			int16_t ty = yraw - _xtouch.y_offset;
+			//slog("xtouch: tx:%d rawx:%d xoff:%d xmax:%d\n", tx, xraw, _xtouch.x_offset, _xtouch.x_max);
+			//slog("xtouch: ty:%d rawy:%d yoff:%d ymax:%d\n\n", ty, yraw, _xtouch.y_offset, _xtouch.y_max);
 			tx = tx < 0 ? 0 : tx;
 			ty = ty < 0 ? 0 : ty;
 
