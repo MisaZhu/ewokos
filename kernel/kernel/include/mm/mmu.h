@@ -33,7 +33,7 @@
 #define MMIO_BASE                     (KERNEL_BASE + MAX_USABLE_MEM_SIZE)
 #define MMIO_END                      (MMIO_BASE + MMIO_MAX_SIZE)
 
-#define DMA_SIZE                      (1*MB)
+#define DMA_SIZE                      (16*MB)
 #define DMA_V_BASE                    (MMIO_END)
 #define DMA_END                       (DMA_V_BASE + DMA_SIZE)
 

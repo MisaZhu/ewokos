@@ -1,8 +1,8 @@
-@/bin/ipcserv /drivers/versatilepb/ttyd /dev/tty0
+@/bin/ipcserv /drivers/virt/ttyd /dev/tty0
 @/bin/ipcserv /sbin/sessiond
 @/bin/bgrun /bin/session -r -t /dev/tty0 
 
-@/bin/ipcserv /drivers/versatilepb/fbd  /dev/fb0
+@/bin/ipcserv /drivers/virt/fbd  /dev/fb0
 @/bin/ipcserv /drivers/displayd        
 @/bin/ipcserv /drivers/fontd            
 
@@ -17,14 +17,12 @@
 
 @/bin/ipcserv /drivers/timerd                 
 
-@/bin/ipcserv /drivers/versatilepb/ps2keybd   /dev/keyb0
-@/bin/ipcserv /drivers/versatilepb/ps2moused  /dev/mouse0
+#@/bin/ipcserv /drivers/virt/ps2keybd   /dev/keyb0
+#@/bin/ipcserv /drivers/virt/ps2moused  /dev/mouse0
 
-#@/bin/ipcserv /drivers/versatilepb/smc91c111d /dev/eth0
+#@/bin/ipcserv /drivers/virt/smc91c111d /dev/eth0
 #@/bin/ipcserv /drivers/netd             /dev/net0 /dev/eth0
 #@/bin/bgrun /sbin/telnetd 
-
-@/bin/ipcserv /drivers/versatilepb/powerd     /dev/power0
 
 @/bin/ipcserv /drivers/nulld           /dev/null
 @/bin/ipcserv /drivers/ramfsd          /tmp

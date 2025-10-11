@@ -22,7 +22,7 @@ export NEON=no
 export FPU=no
 export BSP_LFLAGS = -lbsp -larch_virt
 
-all: basic
+all: x
 	@echo "all done."
 
 include $(SYS_ROOT_DIR)/platform/make.inc

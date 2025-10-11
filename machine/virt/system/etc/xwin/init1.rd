@@ -1,4 +1,4 @@
-@/bin/ipcserv /drivers/versatilepb/fbd  /dev/fb0
+@/bin/ipcserv /drivers/virt/fbd  /dev/fb0
 @/bin/ipcserv /drivers/displayd         
 @/bin/ipcserv /drivers/fontd            
 

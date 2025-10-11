@@ -8,7 +8,7 @@ LDFLAGS = -L$(TARGET_DIR)/lib
 
 CFLAGS += -I$(SYS_DIR)/basic/libc/libewoksys/ewoksys/include -Iinclude -I $(TARGET_DIR)/include
 
-LIB_ARCH_virt_OBJS = src/framebuffer.o src/sd.o
+LIB_ARCH_virt_OBJS = src/framebuffer.o src/sd.o src/fw_cfg.o
 
 ARCH_virt = $(TARGET_DIR)/lib/libarch_virt.a
 
