@@ -1,60 +1,55 @@
 #include <string.h>
 #include <arch/virt/framebuffer.h>
+#include <arch/virt/fw_cfg.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/mmio.h>
 #include <sysinfo.h>
 
+#define ALIGN_UP(x, alignment) (((x) + alignment - 1) & ~(alignment - 1))
+
 static fbinfo_t _fb_info;
+
+struct fb_cfg {
+    uint64_t address;
+    uint32_t fourcc; 
+    uint32_t flags;
+    uint32_t width;
+    uint32_t height;
+    uint32_t stride;
+} __attribute__((packed));
+
 int32_t virt_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 	memset(&_fb_info, 0, sizeof(fbinfo_t));
 
-	if(mmio_map() == 0)
-		return -1;
+	_mmio_base = mmio_map();
 	sys_info_t sysinfo;
 	syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
 
-  memset(&_fb_info, 0, sizeof(fbinfo_t));
-	dep = 32;
-  _fb_info.width = w;
-  _fb_info.height = h;
-  _fb_info.vwidth = w;
-  _fb_info.vheight = h;
-  _fb_info.depth = dep;
-  _fb_info.pitch = 0;
-  _fb_info.xoffset = 0;
-  _fb_info.yoffset = 0;
-  _fb_info.pointer = 0;
+	memset(&_fb_info, 0, sizeof(fbinfo_t));
+	_fb_info.width = w;
+  	_fb_info.height = h;
+  	_fb_info.vwidth = w;
+  	_fb_info.vheight = h;
+  	_fb_info.depth = 32;
+  	_fb_info.size = _fb_info.width * _fb_info.height * (_fb_info.depth/8);
+  	_fb_info.size_max = ALIGN_UP(_fb_info.size, 4096);
 
-  if(w == 640 && h == 480) {
-    put32((_mmio_base | 0x1c), 0x2c77);
-    put32((_mmio_base | 0x00120000), 0x3f1f3f9c);
-    put32((_mmio_base | 0x00120004), 0x090b61df);
-    put32((_mmio_base | 0x00120008), 0x067f1800);
-  }
-  else if(w == 800 && h == 600) {
-    put32((_mmio_base | 0x1c), 0x2cac);
-    put32((_mmio_base | 0x00120000), 0x1313a4c4);
-    put32((_mmio_base | 0x00120004), 0x0505f6f7);
-    put32((_mmio_base | 0x00120008), 0x071f1800);
-  }
-  else {
-    //1024x768
-    w = 1024;
-    h = 768;
-    _fb_info.width = w;
-    _fb_info.height = h;
-    _fb_info.vwidth = w;
-    _fb_info.vheight = h;
-    put32((_mmio_base | 0x00120000), 0x3F << 2);
-    put32((_mmio_base | 0x00120004), 767);
-  }
-  put32((_mmio_base | 0x00120010), _fb_info.pointer - sysinfo.kernel_base);
-  put32((_mmio_base | 0x00120018), 0x092b);
+	_fb_info.pointer = dma_alloc(0, _fb_info.size_max + 4096)&0xFFFFFFFF;
+	uint64_t fb_phy = dma_phy_addr(0, _fb_info.pointer)&0xFFFFFFFF;
+	klog("DMA alloc v:%08x p:%08x size:%d\n",  _fb_info.pointer, fb_phy, _fb_info.size_max);
 
-  _fb_info.size = _fb_info.width * _fb_info.height * (_fb_info.depth/8);
-	_fb_info.size_max = 4*1024*1024;
-  syscall3(SYS_MEM_MAP, _fb_info.pointer, _fb_info.pointer-sysinfo.kernel_base, _fb_info.size_max);
-  return 0;
+	struct fb_cfg cfg;
+	cfg.address = BE64(fb_phy);
+    cfg.fourcc = BE32(0x34325258);
+    cfg.flags = BE32(0);
+    cfg.width = BE32(w);
+    cfg.height = BE32(h);
+    cfg.stride = BE32(4 * w);
+
+
+	fw_init((uint8_t*)_fb_info.pointer +  _fb_info.size_max, fb_phy + _fb_info.size_max);
+	fw_set_cfg("etc/ramfb", &cfg, sizeof(cfg));
+  	return 0;
 }
 
 fbinfo_t* virt_get_fbinfo(void) {
