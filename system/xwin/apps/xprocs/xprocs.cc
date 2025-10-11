@@ -119,8 +119,9 @@ protected:
 			str = s;
 		}
 		else if(col == 5) {
-			char s[128] = { 0 };
-			str = vfs_file_name(proc->cmd, s, 127);
+			//char s[128] = { 0 };
+			//str = vfs_file_name(proc->cmd, s, 127);
+			str = proc->cmd;
 			if(proc->type != TASK_TYPE_PROC)
 				str += "[t]";
 		}
