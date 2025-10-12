@@ -28,7 +28,7 @@ typedef struct {
 static mouse_data_t mouse_data[CACHE_SIZE];
 static uint32_t mouse_data_read = 0;
 static uint32_t mouse_data_write = 0;
-static uint8_t mount_btn = 0;
+static uint8_t mouse_btn = 0;
 
 void mouse_init(void){
 
@@ -45,12 +45,15 @@ static int mouse_read(int fd, int from_pid, fsinfo_t* node,
 	uint8_t* d = (uint8_t*)buf;
 	if(mouse_data_write - mouse_data_read > 0){
 		d[0] = 1;
-		d[1] = mount_btn;
+		d[1] = mouse_btn;
 		d[2] = mouse_data[mouse_data_read%CACHE_SIZE].rx;
 		d[3] = mouse_data[mouse_data_read%CACHE_SIZE].ry;
 		memset(&mouse_data[mouse_data_read%CACHE_SIZE], 0, sizeof(mouse_data_t));
 		mouse_data_read++;
 		return 4;
+	}
+	else {
+		mouse_btn = 0;
 	}
 
 	return VFS_ERR_RETRY;
@@ -77,15 +80,15 @@ static int mouse_loop(void* p){
 		}else if(events[i].type == EV_KEY){
 			if(events[i].code == BTN_LEFT){
 				if(events[i].value)
-					mount_btn = 2;
+					mouse_btn = 2;
 				else
-					mount_btn = 1;
+					mouse_btn = 1;
 			}
 			else if(events[i].code == BTN_RIGHT){
 				if(events[i].value)
-					mount_btn = 3;
+					mouse_btn = 3;
 				else
-					mount_btn = 1;
+					mouse_btn = 1;
 			}
 		}else if(events[i].type == EV_SYN){
 			mouse_data_write++;
