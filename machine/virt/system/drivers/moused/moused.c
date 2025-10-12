@@ -20,6 +20,7 @@
 #define BTN_RIGHT       0x111  // 右键
 
 typedef struct {
+	uint8_t btn;
 	int rx;
 	int ry;
 } mouse_data_t;
@@ -28,7 +29,6 @@ typedef struct {
 static mouse_data_t mouse_data[CACHE_SIZE];
 static uint32_t mouse_data_read = 0;
 static uint32_t mouse_data_write = 0;
-static uint8_t mouse_btn = 0;
 
 void mouse_init(void){
 
@@ -45,15 +45,12 @@ static int mouse_read(int fd, int from_pid, fsinfo_t* node,
 	uint8_t* d = (uint8_t*)buf;
 	if(mouse_data_write - mouse_data_read > 0){
 		d[0] = 1;
-		d[1] = mouse_btn;
+		d[1] = mouse_data[mouse_data_read%CACHE_SIZE].btn;
 		d[2] = mouse_data[mouse_data_read%CACHE_SIZE].rx;
 		d[3] = mouse_data[mouse_data_read%CACHE_SIZE].ry;
 		memset(&mouse_data[mouse_data_read%CACHE_SIZE], 0, sizeof(mouse_data_t));
 		mouse_data_read++;
 		return 4;
-	}
-	else {
-		mouse_btn = 0;
 	}
 
 	return VFS_ERR_RETRY;
@@ -67,7 +64,7 @@ struct virtio_input_event {
 
 static int mouse_loop(void* p){
 	virtio_dev_t vio = (virtio_dev_t)p;
-	struct virtio_input_event events[8];
+	struct virtio_input_event events[32];
 	int res = virtio_input_read(vio, events, sizeof(events));
 	for(int i = 0; i < res/sizeof(struct virtio_input_event); i++){
 		if(events[i].type == EV_REL){
@@ -80,15 +77,15 @@ static int mouse_loop(void* p){
 		}else if(events[i].type == EV_KEY){
 			if(events[i].code == BTN_LEFT){
 				if(events[i].value)
-					mouse_btn = 2;
+					mouse_data[mouse_data_write%CACHE_SIZE].btn = 2;
 				else
-					mouse_btn = 1;
+					mouse_data[mouse_data_write%CACHE_SIZE].btn = 1;
 			}
 			else if(events[i].code == BTN_RIGHT){
 				if(events[i].value)
-					mouse_btn = 3;
+					mouse_data[mouse_data_write%CACHE_SIZE].btn = 3;
 				else
-					mouse_btn = 1;
+					mouse_data[mouse_data_write%CACHE_SIZE].btn = 1;
 			}
 		}else if(events[i].type == EV_SYN){
 			mouse_data_write++;
