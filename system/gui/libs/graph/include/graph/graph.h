@@ -131,8 +131,6 @@ void      bitmap_free(bitmap_t* b);
 bitmap_t* graph_to_bitmap(graph_t* g);
 graph_t*  graph_from_bitmap(bitmap_t* b, uint32_t color);
 
-bool     graph_2d_boosted(void);
-
 #ifdef __cplusplus
 }
 #endif
