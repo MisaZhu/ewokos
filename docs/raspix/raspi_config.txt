@@ -9,6 +9,8 @@ max_usb_current=1
 current_limit_override=0x5A000020
 avoid_warnings=2
 
+#disable_splash=1
+
 #-----waveshare 8 inchs usb touch hdmi_lcd------------
 hdmi_group=2
 hdmi_mode=87
