@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <ewoksys/mmio.h>
 #include <ewoksys/proc.h>
+#include <arch/virt/dma.h>
 
 #define BE16(x) __builtin_bswap16(x)
 #define BE64(x) __builtin_bswap64(x)
@@ -11,7 +12,6 @@
 #define selector_register ((uint16_t*)(fw_cfg_base + 8))
 #define data_register ((uint64_t*)(fw_cfg_base + 0))
 #define dma_address ((uint64_t*)(fw_cfg_base + 16))
-
 
 struct fw_dma_access {
     uint32_t control;
@@ -79,10 +79,10 @@ struct fw_file *fw_file_get(const char* path) {
     return NULL;
 }
 
-int fw_init(void* vaddr, void *paddr){
+int fw_init(){
 	uint32_t count;
-	fw_cfg_vaddr = (struct fw_cfg_t*)vaddr;
-	fw_cfg_paddr = (struct fw_cfg_t*)paddr;
+	fw_cfg_vaddr = dma_user_alloc(sizeof(struct fw_cfg_t));
+	fw_cfg_paddr = dma_user_phy(fw_cfg_vaddr);
 	fw_cfg_dma_read(&fw_cfg_paddr->dirs, 0x19, sizeof(struct fw_dir));
 	count = BE32(fw_cfg_vaddr->dirs.count);
 	uint64_t size = sizeof(struct fw_dir) + (sizeof(struct fw_file) * count);
