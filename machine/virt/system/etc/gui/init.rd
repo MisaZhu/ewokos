@@ -18,7 +18,7 @@
 @/bin/ipcserv /drivers/timerd                 
 
 #@/bin/ipcserv /drivers/virt/ps2keybd   /dev/keyb0
-#@/bin/ipcserv /drivers/virt/ps2moused  /dev/mouse0
+@/bin/ipcserv /drivers/virt/moused  /dev/mouse0
 
 #@/bin/ipcserv /drivers/virt/smc91c111d /dev/eth0
 #@/bin/ipcserv /drivers/netd             /dev/net0 /dev/eth0

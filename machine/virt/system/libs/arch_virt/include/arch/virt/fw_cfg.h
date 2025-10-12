@@ -6,7 +6,7 @@
 #define BE32(x) __builtin_bswap32(x)
 
 
-int fw_init(void* vaddr, void* paddr);
+int fw_init(void);
 int fw_set_cfg(const char* path, void* cfg, int len);
 
 #endif
