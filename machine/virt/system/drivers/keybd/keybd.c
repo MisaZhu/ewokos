@@ -14,23 +14,23 @@
 #define EV_ABS          0x03  // 绝对坐标事件（如触摸屏）
 #define EV_SYN          0x00  // 同步事件
 
-#define MAX_KEY (7)
+#define MAX_KEY (6)
 
 typedef struct {
 	uint8_t key_count;
-	uint8_t key_code[7];
+	uint8_t shift;
+	uint8_t key_code[6];
 } key_data_t;
 
 static key_data_t key_data;
 
 void key_press(uint8_t key_code){
-	int i;
-	for(i = 0; i < key_data.key_count; i++){
+	for(int i = 0; i < key_data.key_count; i++){
 		if(key_data.key_code[i] == key_code){
 			return;
 		}
 	}
-	if(i < MAX_KEY){
+	if(key_data.key_count < MAX_KEY){
 		key_data.key_code[key_data.key_count++] = key_code;
 	}
 }
@@ -48,22 +48,16 @@ void key_release(uint8_t key_code){
 }
 
 int get_key_code(char* buf){
-	int shift = 0;
 	int num = 0;
 	for(int i = 0; i < key_data.key_count; i++){
-		if(key_data.key_code[i] < sizeof(keymap)){
-			if(keymap[key_data.key_code[i]] == 0x10){
-				shift = 1;
-			}else if(keymap[key_data.key_code[i]]){
-				buf[num++] = keymap[key_data.key_code[i]];
+		if(key_data.key_code[i] < sizeof(keymapUp)){
+			if(key_data.shift){
+				buf[num] = keymapUp[key_data.key_code[i]];
+			}else{
+				buf[num] = keymapDown[key_data.key_code[i]];
 			}
-		}
-	}
-	if(!shift){
-		for(int i = 0; i < num; i++){
-			if(buf[i] >= 'A' && buf[i] <= 'Z'){
-				buf[i] += 0x20;
-			}
+			if(buf[num])
+				num++;
 		}
 	}
 	return num;
@@ -99,6 +93,9 @@ static int keybd_loop(void* p){
 			}else{
 				key_release(events[i].code);
 			}	
+			if(events[i].code == 0x2a || events[i].code == 0x36){
+				key_data.shift = events[i].value;
+			}
 		}else if(events[i].type == EV_SYN){
 			proc_wakeup(RW_BLOCK_EVT);
 		}
