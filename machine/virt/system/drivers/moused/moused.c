@@ -109,7 +109,7 @@ int main(int argc, char** argv) {
 
 	_mmio_base = mmio_map();
 
-	virtio_dev_t vio = virtio_get(VIRTIO_ID_INPUT);
+	virtio_dev_t vio = virtio_input_get("QEMU Virtio Mouse");
 	if (!vio || virtio_init(vio, 0) != 0) {
         klog("Virtio-input init failed\n");
         return -1;

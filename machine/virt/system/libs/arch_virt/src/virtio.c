@@ -31,6 +31,7 @@
 #define VIRTIO_MMIO_QUEUE_AVAIL_HIGH 0x94
 #define VIRTIO_MMIO_QUEUE_USED_LOW  0xA0
 #define VIRTIO_MMIO_QUEUE_USED_HIGH 0xA4
+#define VIRTIO_MMIO_CONFIG          0x100
 
 // Virtio 设备状态
 #define VIRTIO_STATUS_ACKNOWLEDGE 1
@@ -54,6 +55,15 @@
 #define VIRTIO_BLK_OK       0
 #define VIRTIO_BLK_IOERR    1
 #define VIRTIO_BLK_UNSUPP   2
+
+#define VIRTIO_ID_INPUT 18
+
+#define VIRTIO_INPUT_CFG_ID_NAME    0x01
+#define VIRTIO_INPUT_CFG_ID_SERIAL  0x02
+#define VIRTIO_INPUT_CFG_ID_DEVIDS  0x03
+#define VIRTIO_INPUT_CFG_PROP_BITS  0x10
+#define VIRTIO_INPUT_CFG_EV_BITS    0x11
+#define VIRTIO_INPUT_CFG_ABS_INFO   0x12
 
 // 描述符结构
 struct virtq_desc {
@@ -95,6 +105,34 @@ struct virtio_input_event {
     uint32_t value;
 } __attribute__((packed));
 
+struct virtio_input_absinfo {
+    uint32_t min;
+    uint32_t max;
+    uint32_t fuzz;
+    uint32_t flat;
+    uint32_t res;
+};
+
+struct virtio_input_devids {
+    uint16_t bustype;
+    uint16_t vendor;
+    uint16_t product;
+    uint16_t version;
+};
+
+struct virtio_input_config {
+    uint8_t    select;
+    uint8_t    subsel;
+    uint8_t    size;
+    uint8_t    reserved[5];
+    union {
+        char string[128];
+        uint8_t bitmap[128];
+        struct virtio_input_absinfo abs;
+        struct virtio_input_devids ids;
+    } u;
+};
+
 struct virtq_t {
     struct virtq_desc desc[VIRTIO_QUEUE_SIZE];
     struct virtq_avail avail;
@@ -123,7 +161,30 @@ static uint64_t get_phy_addr(struct virtio_device *dev, void* ptr){
 	return dev->phy + (ptr - (void*)dev->virtq);
 }
 
-// 初始化virtio设备
+virtio_dev_t *virtio_get(int dev_id){
+    for(int i = 0; i < VIRTIO_DEV_MAX; i++){
+        uint32_t magic = get32(VIRTIO_BASE + i * 0x200 + VIRTIO_MMIO_MAGIC);
+        uint32_t id = get32(VIRTIO_BASE + i * 0x200 + VIRTIO_MMIO_DEVICE_ID);
+        uint32_t vendor = get32(VIRTIO_BASE + i * 0x200 + VIRTIO_MMIO_VENDOR_ID);
+        uint32_t features = get32(VIRTIO_BASE + i * 0x200 + VIRTIO_MMIO_DEVICE_FEAT);
+        //klog("i: %d, magic: 0x%x id: %d vender: 0x%x features: 0x%x\n", i, magic, id, vendor, features);
+        if(magic != 0x74726976){
+            continue;
+        }
+
+        if(id == dev_id){
+            virtio_dev_t *dev = malloc(sizeof(virtio_dev_t));
+            memset(dev, 0, sizeof(virtio_dev_t));
+            dev->base = VIRTIO_BASE + i * 0x200;
+            dev->virtq = dma_user_alloc(sizeof(struct virtq_t));
+            dev->phy = dma_user_phy(dev->virtq);
+            //klog("DMA alloc base:%08x v:%08x p:%08x\n", dev->base, dev->virtq, dev->phy);
+            return dev;
+        }
+    }
+    return 0;
+}
+
 int virtio_init(struct virtio_device *dev, uint32_t feature) {
     uint32_t base = dev->base;
 
@@ -155,15 +216,34 @@ int virtio_init(struct virtio_device *dev, uint32_t feature) {
     return 0;
 }
 
-virtio_dev_t *virtio_get(int dev_id){
-    for(int i = 0; i < VIRTIO_DEV_MAX; i++){
-        uint32_t magic = get32(VIRTIO_BASE + i * 0x200 + VIRTIO_MMIO_MAGIC);
-        uint32_t id = get32(VIRTIO_BASE + i * 0x200 + VIRTIO_MMIO_DEVICE_ID);
-        //klog("i: %d, magic: 0x%x id: %d\n", i, magic, id);
-        if(magic != 0x74726976){
+int virtio_get_config(uint32_t base, uint8_t select, uint8_t subsel, void *buffer, uint32_t size){
+    put32(base + VIRTIO_MMIO_CONFIG, select);
+    put32(base + VIRTIO_MMIO_CONFIG + 4, subsel);
+    put32(base + VIRTIO_MMIO_CONFIG + 8, size);
+    struct virtio_input_config *cfg = (struct virtio_input_config *)(base + VIRTIO_MMIO_CONFIG);
+
+    if(buffer && size > 0){
+        for(int i = 0; i < MIN(cfg->size, size); i++){
+            ((uint8_t*)buffer)[i] = cfg->u.string[i];
+        }
+    }
+    return cfg->size;
+}
+
+
+virtio_dev_t *virtio_input_get(const char* name){
+ for(int i = 0; i < VIRTIO_DEV_MAX; i++){
+        uint32_t base = VIRTIO_BASE + i * 0x200;
+        uint32_t magic = get32(base + VIRTIO_MMIO_MAGIC);
+        uint32_t id = get32(base + VIRTIO_MMIO_DEVICE_ID);
+        uint32_t vendor = get32(base + VIRTIO_MMIO_VENDOR_ID);
+        uint32_t features = get32(base + VIRTIO_MMIO_DEVICE_FEAT);  
+        if(magic != 0x74726976 || id != VIRTIO_ID_INPUT){
             continue;
         }
-        if(id == dev_id){
+        char id_name[128] = {0};
+        virtio_get_config(base, VIRTIO_INPUT_CFG_ID_NAME, 0, id_name, sizeof(id_name));
+        if(strcmp(id_name, name) == 0){
             virtio_dev_t *dev = malloc(sizeof(virtio_dev_t));
             memset(dev, 0, sizeof(virtio_dev_t));
             dev->base = VIRTIO_BASE + i * 0x200;

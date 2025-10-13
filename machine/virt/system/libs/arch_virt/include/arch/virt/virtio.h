@@ -43,10 +43,12 @@
 #define VIRTIO_ID_BT            40 /* virtio bluetooth */
 #define VIRTIO_ID_GPIO          41 /* virtio gpio */
 #define VIRTIO_ID_MAX           42 /* max virtio device id */
-
+    
 typedef void* virtio_dev_t;
 
 virtio_dev_t virtio_get(int id);
+virtio_dev_t *virtio_input_get(const char* name);
+
 void virtio_free(virtio_dev_t dev);
 
 int virtio_init(virtio_dev_t dev, uint32_t feature);

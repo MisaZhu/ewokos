@@ -6,7 +6,7 @@
 
 @/bin/ipcserv /drivers/timerd                 
 
-#@/bin/ipcserv /drivers/virt/keybd   /dev/keyb0
+@/bin/ipcserv /drivers/virt/keybd   /dev/keyb0
 @/bin/ipcserv /drivers/virt/moused  /dev/mouse0
 
 #@/bin/ipcserv /drivers/virt/smc91c111d /dev/eth0
@@ -30,5 +30,5 @@
 
 @/bin/ipcserv /drivers/xserverd        /dev/x
 @/bin/bgrun /sbin/x/xmouse /dev/mouse0 
-#@/bin/bgrun /sbin/x/xim_none /dev/keyb0 
+@/bin/bgrun /sbin/x/xim_none /dev/keyb0 
 @/bin/bgrun /bin/x/xsession misa 

@@ -37,8 +37,7 @@ include $(EWOKOS_ROOT_DIR)/kernel/platform/${ARCH}/make.rule
 QEMU_ARGS += -kernel $(OS_IMG)
 QEMU_ARGS += -drive file=$(SYS_FULL_DIR)/root_$(ARCH).ext2,format=raw,id=blk0,if=none -device virtio-blk-device,drive=blk0
 QEMU_ARGS += -device virtio-mouse-device 
-#QEMU_ARGS += -device virtio-tablet-device 
-#QEMU_ARGS += -device virtio-keyboard-device
+QEMU_ARGS += -device virtio-keyboard-device
 
 asm:
 	$(OBJDUMP) -D $(BUILD_DIR)/$(OS_ELF) > $(BUILD_DIR)/kernel.asm
