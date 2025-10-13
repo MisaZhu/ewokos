@@ -17,4 +17,4 @@ endif
 LOAD_ADDRESS  = 0x40080000
 
 #----multi core(SMP)------
-SMP=no
+SMP=yes

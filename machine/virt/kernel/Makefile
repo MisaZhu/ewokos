@@ -8,13 +8,17 @@ ifeq ($(ARCH), aarch64)
 	QEMU_CMD = qemu-system-aarch64
 	ARCH_CFLAGS = -Wa,-march=armv8-a
 	#QEMU_FLAGS = -M $(QEMU_MACHINE),highmem=off,accel=hvf -cpu host -m 512 -serial mon:stdio -nographic
-	QEMU_FLAGS = -M $(QEMU_MACHINE),highmem=off -cpu cortex-a76 -m 512 -serial mon:stdio -device ramfb
+	QEMU_FLAGS = -M $(QEMU_MACHINE),highmem=off,secure=on -cpu cortex-a76 -m 512 -serial mon:stdio -device ramfb
 else
 	OS_IMG = kernel7.img
 	OS_ELF = kernel7.elf
 	QEMU_CMD = qemu-system-arm
 	QEMU_FLAGS = -S -M $(QEMU_MACHINE) -cpu cortex-a15 -m 512 -serial mon:stdio -nographic
 	ARCH_CFLAGS = -march=armv7ve
+endif
+
+ifeq ($(SMP), yes)
+	QEMU_FLAGS += -smp 4
 endif
 
 EWOKOS_ROOT_DIR = ../../..
@@ -55,3 +59,5 @@ gdb:
 	echo "target remote :26000" > /tmp/gdbinit
 	arm-none-eabi-gdb $(BUILD_DIR)/$(OS_ELF) -x /tmp/gdbinit
 	#gdb-multiarch $(BUILD_DIR)/$(OS_ELF) -x /tmp/gdbinit #for ubuntu 18.04 without arm-none-eabi-gdb
+
+dts:
