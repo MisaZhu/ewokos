@@ -220,6 +220,7 @@ int virtio_get_config(uint32_t base, uint8_t select, uint8_t subsel, void *buffe
     put32(base + VIRTIO_MMIO_CONFIG, select);
     put32(base + VIRTIO_MMIO_CONFIG + 4, subsel);
     put32(base + VIRTIO_MMIO_CONFIG + 8, size);
+    proc_usleep(0);
     struct virtio_input_config *cfg = (struct virtio_input_config *)(base + VIRTIO_MMIO_CONFIG);
 
     if(buffer && size > 0){
