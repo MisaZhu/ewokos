@@ -69,8 +69,26 @@ void arch_vm(page_dir_entry_t* vm) {
 
 
 #ifdef KERNEL_SMP
+static unsigned long psci_cpu_on(unsigned long target_cpu, unsigned long entry_point)
+{
+    unsigned long ret;
+    // 使用HVC调用PSCI_CPU_ON功能，传入目标CPU ID和入口地址
+    __asm__ volatile(
+        "mov x0, %1\n"          // PSCI_CPU_ON_64
+        "mov x1, %2\n"          // target_cpu (MPIDR)
+        "mov x2, %3\n"          // entry_point (物理地址)
+        "mov x3, 0\n"           // context_id (通常为0)
+        "hvc #0\n"
+        "mov %0, x0"            // 返回值
+        : "=r" (ret)
+        : "r" (0xc4000003), "r" (target_cpu), "r" (entry_point)
+        : "x0", "x1", "x2", "x3", "memory"
+    );
+    return ret; // 返回0表示成功，非0表示错误
+}
 extern char __entry[];
-void start_core(uint32_t core_id) {
+inline void __attribute__((optimize("O0"))) start_core(uint32_t core_id) { 
+    unsigned long ret = psci_cpu_on(core_id, __entry);
 }
 #endif
 
