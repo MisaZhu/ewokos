@@ -32,11 +32,9 @@ void klog(const char *format, ...) {
 		_klog_fd = open(log_dev, O_WRONLY);
 	}
 
+	syscall2(SYS_KPRINT, (ewokos_addr_t)_buf, (ewokos_addr_t)strlen(_buf));
 	if(_klog_fd > 0) {
 		write(_klog_fd, _buf, strlen(_buf));
-	}
-	else {
-		syscall2(SYS_KPRINT, (ewokos_addr_t)_buf, (ewokos_addr_t)strlen(_buf));
 	}
 }
 
