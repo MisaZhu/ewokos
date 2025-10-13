@@ -259,29 +259,33 @@ virtio_dev_t *virtio_input_get(const char* name){
 
 int virtio_input_read(virtio_dev_t *dev, void *buffer, uint32_t size){
     struct virtq_t *virtq = dev->virtq;
-    volatile int used_idx = dev->virtq->used.idx;
-    volatile int avail_idx = dev->virtq->avail.idx;
     uint32_t ret = 0;
     if(get32(dev->base + VIRTIO_MMIO_INTERRUPT_STATUS) & 0x1){
         put32(dev->base + VIRTIO_MMIO_INTERRUPT_ACK, 0x1);
-        for(int i = avail_idx - VIRTIO_QUEUE_SIZE; i < used_idx; i++){
+        volatile int used_idx = dev->virtq->used.idx;
+        volatile int avail_idx = dev->virtq->avail.idx;
+        for(int i = avail_idx - VIRTIO_QUEUE_SIZE; i < used_idx && ret < size; i++){
             struct virtio_input_event *event = (struct virtio_input_event *)(virtq->buffer + (i%VIRTIO_QUEUE_SIZE) * sizeof(struct virtio_input_event));
             memcpy(buffer + ret, event, sizeof(struct virtio_input_event));
             ret += sizeof(struct virtio_input_event);
         }
     }
 
-    while(avail_idx - used_idx < VIRTIO_QUEUE_SIZE){
-        virtq->desc[avail_idx % VIRTIO_QUEUE_SIZE].addr = get_phy_addr(dev, virtq->buffer + (avail_idx % VIRTIO_QUEUE_SIZE) * sizeof(struct virtio_input_event));
-        virtq->desc[avail_idx % VIRTIO_QUEUE_SIZE].len = sizeof(struct virtio_input_event);
-        virtq->desc[avail_idx % VIRTIO_QUEUE_SIZE].flags = VIRTQ_DESC_F_WRITE;
-        virtq->desc[avail_idx % VIRTIO_QUEUE_SIZE].next = 0;
-        virtq->avail.ring[avail_idx] = avail_idx % VIRTIO_QUEUE_SIZE;
-        avail_idx++;
-        virtq->avail.idx++;
-    }
+    volatile int used_idx = dev->virtq->used.idx;
+    volatile int avail_idx = dev->virtq->avail.idx;
+    if(avail_idx - used_idx < VIRTIO_QUEUE_SIZE){
+        while(avail_idx - used_idx < VIRTIO_QUEUE_SIZE){
+            virtq->desc[avail_idx % VIRTIO_QUEUE_SIZE].addr = get_phy_addr(dev, virtq->buffer + (avail_idx % VIRTIO_QUEUE_SIZE) * sizeof(struct virtio_input_event));
+            virtq->desc[avail_idx % VIRTIO_QUEUE_SIZE].len = sizeof(struct virtio_input_event);
+            virtq->desc[avail_idx % VIRTIO_QUEUE_SIZE].flags = VIRTQ_DESC_F_WRITE;
+            virtq->desc[avail_idx % VIRTIO_QUEUE_SIZE].next = 0;
+            virtq->avail.ring[avail_idx] = avail_idx % VIRTIO_QUEUE_SIZE;
+            avail_idx++;
+            virtq->avail.idx++;
+        }
 
-    put32(dev->base + VIRTIO_MMIO_QUEUE_NOTIFY, 0);
+        put32(dev->base + VIRTIO_MMIO_QUEUE_NOTIFY, 0);
+    }
   
     return ret;
 }
