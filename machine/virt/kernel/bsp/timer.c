@@ -54,6 +54,11 @@ static inline void write_cntv_tval(uint32_t tval) {
 static uint32_t _cntv_step;
 static uint32_t _cntv_us_div;
 
+void timer_init(void){
+	_cntv_us_div = read_cntfrq()/1000000;
+	enable_cntv();
+}
+
 void timer_clear_interrupt(uint32_t id) {
 	(void)id;
 	write_cntv_tval(_cntv_step);	

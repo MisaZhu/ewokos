@@ -55,6 +55,7 @@ void sys_info_init_arch(void) {
 
 #ifdef KERNEL_SMP
 	_sys_info.cores = get_cpu_cores();
+	timer_init();
 #else
 	_sys_info.cores = 1;
 #endif
