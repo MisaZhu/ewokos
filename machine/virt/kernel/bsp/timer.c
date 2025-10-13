@@ -69,5 +69,5 @@ void timer_set_interval(uint32_t id, uint32_t times_per_sec){
 }
 
 uint64_t timer_read_sys_usec(void) { //read usec
-    return (read_cntvct()*132)>>13;;
+    return (read_cntvct()/_cntv_us_div);
 }
