@@ -26,6 +26,11 @@ void irq_enable(uint32_t irq) {
 	}
 }
 
+void irq_enable_core(uint32_t core, uint32_t irq) {
+	(void)core;
+	irq_enable(irq);
+}
+
 void irq_disable(uint32_t irq) {
 	pic_regs_t* pic = (pic_regs_t*)(PIC);
 	sic_regs_t* sic = (sic_regs_t*)(SIC);

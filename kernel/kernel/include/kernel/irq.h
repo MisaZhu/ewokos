@@ -11,6 +11,7 @@ extern void data_abort_handler(context_t* ctx, ewokos_addr_t addr_fault, uint32_
 extern void irq_init(void);
 extern void irq_arch_init(void);
 extern void irq_enable(uint32_t irq);
+extern void irq_enable_core(uint32_t core, uint32_t irq);
 extern void irq_disable(uint32_t irq);
 extern void irq_enable_cpsr(context_t* ctx);
 extern void irq_disable_cpsr(context_t* ctx);

@@ -55,7 +55,7 @@ int32_t interrupt_setup(proc_t* cproc, uint32_t interrupt, ewokos_addr_t entry, 
 		item->handler.uuid = cproc->info.uuid;
 		item->handler.entry = entry;
 		item->handler.data = data;
-		irq_enable(interrupt); //TODO
+		irq_enable_core(cproc->info.core, interrupt); //TODO
 	}
 	return 0;
 }
@@ -75,7 +75,7 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 
 	if(proc->space->interrupt.state != INTR_STATE_IDLE) {
 		if(interrupt != IRQ_SOFT)
-			printf("inter err re-entre: intr:%d, pid:%d\n", interrupt, proc == NULL ? -1:proc->info.pid);
+			printf("inter err re-entre: intr:%d, pid:%d core:%d\n", interrupt, proc == NULL ? -1:proc->info.pid, proc->info.core);
 		ctx->gpr[0] = -1;
 		return -1;
 	}	

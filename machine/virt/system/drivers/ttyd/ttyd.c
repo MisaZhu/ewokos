@@ -91,10 +91,12 @@ static int tty_write(int fd, int from_pid, fsinfo_t* node,
 static void interrupt_handle(uint32_t interrupt, uint32_t p) {
 	(void)p;
 	int rx = 0;
+	put32(UART0 + UART_ICLR, 0x7FF);
 	while(!(get32(UART0 + UART_FLAGS) & 0x10)){
 		charbuf_push(_buffer,  get32(UART0+UART_DATA), true);
 		rx++;
 	}
+
 	if(rx){
 		proc_wakeup(RW_BLOCK_EVT);
 	}	
