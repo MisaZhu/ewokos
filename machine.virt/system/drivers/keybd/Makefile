@@ -1,4 +1,4 @@
-SYS_DIR=../../../../../system
+SYS_DIR=../../../../system
 include $(SYS_DIR)/platform/$(ARCH)/make.rule
 
 BUILD_DIR = $(SYS_DIR)/build/$(HW)
@@ -8,14 +8,14 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-MOUSED_OBJS = moused.o
+KEYBD_OBJS = keybd.o
 
-MOUSED = $(TARGET_DIR)/drivers/virt/moused
+KEYBD = $(TARGET_DIR)/drivers/virt/keybd
 
-$(MOUSED): $(MOUSED_OBJS) \
+$(KEYBD): $(KEYBD_OBJS) \
 		$(EWOK_LIBC_A) \
 		$(BUILD_DIR)/lib/libarch_virt.a 
-	$(LD) -Ttext=100 $(MOUSED_OBJS) -o $(MOUSED) $(LDFLAGS) $(BSP_LFLAGS) $(EWOK_LIBC)
+	$(LD) -Ttext=100 $(KEYBD_OBJS) -o $(KEYBD) $(LDFLAGS) $(BSP_LFLAGS) $(EWOK_LIBC)
 
 clean:
-	rm -f $(MOUSED_OBJS)
+	rm -f $(KEYBD_OBJS)

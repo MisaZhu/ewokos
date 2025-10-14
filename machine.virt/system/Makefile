@@ -10,7 +10,7 @@ export ARCH_VER=v7
 endif
 
 
-EWOKOS_ROOT_DIR = ../../..
+EWOKOS_ROOT_DIR = ../..
 SYS_ROOT_DIR = $(EWOKOS_ROOT_DIR)/system
 INST_DIR = /usr/local/ewokos
 

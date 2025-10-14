@@ -1,4 +1,4 @@
-SYS_DIR=../../../../../system
+SYS_DIR=../../../../system
 include $(SYS_DIR)/platform/$(ARCH)/make.rule
 
 BUILD_DIR = $(SYS_DIR)/build/$(HW)

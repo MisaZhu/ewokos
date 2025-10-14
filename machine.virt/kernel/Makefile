@@ -21,7 +21,7 @@ ifeq ($(SMP), yes)
 	QEMU_FLAGS += -smp 4
 endif
 
-EWOKOS_ROOT_DIR = ../../..
+EWOKOS_ROOT_DIR = ../..
 SYS_DIR=../system
 MACHINE=virt
 
