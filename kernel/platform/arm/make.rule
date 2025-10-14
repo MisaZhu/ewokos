@@ -14,7 +14,6 @@ SRC_DIR=$(EWOKOS_ROOT_DIR)/kernel
 ARCH_DIR=$(SRC_DIR)/platform/arm/arch
 BSP_DIR=bsp
 
-SYS_FULL_DIR = $(EWOKOS_ROOT_DIR)/machine/$(MACHINE)/system
 BUILD_DIR = .
 
 # flags
