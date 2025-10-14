@@ -22,6 +22,7 @@ ifeq ($(SMP), yes)
 endif
 
 EWOKOS_ROOT_DIR = ../../..
+SYS_DIR=../system
 MACHINE=virt
 
 ifeq ($(QEMU_DISPLAY_OPTS),cocoa)
@@ -35,7 +36,7 @@ include make.bsp
 include $(EWOKOS_ROOT_DIR)/kernel/platform/${ARCH}/make.rule
 
 QEMU_ARGS += -kernel $(OS_IMG)
-QEMU_ARGS += -drive file=$(SYS_FULL_DIR)/root_$(ARCH).ext2,format=raw,id=blk0,if=none -device virtio-blk-device,drive=blk0
+QEMU_ARGS += -drive file=$(SYS_DIR)/root_$(ARCH).ext2,format=raw,id=blk0,if=none -device virtio-blk-device,drive=blk0
 QEMU_ARGS += -device virtio-mouse-device 
 QEMU_ARGS += -device virtio-keyboard-device
 

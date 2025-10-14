@@ -15,7 +15,6 @@ SRC_DIR=$(EWOKOS_ROOT_DIR)/kernel
 ARCH_DIR=$(SRC_DIR)/platform/riscv/arch
 BSP_DIR=bsp
 
-SYS_FULL_DIR = $(EWOKOS_ROOT_DIR)/system
 BUILD_DIR = .
 
 # flags
@@ -109,7 +108,6 @@ LOAD_DIR=$(SRC_DIR)/loadinit/sd
 LOAD_OBJS = \
 	$(LOAD_DIR)/loadinit.o
 CFLAGS += -I$(LOAD_DIR)
-#QEMU_ARGS += -sd $(SYS_FULL_DIR)/root.ext2
 
 DEV_DIR = $(SRC_DIR)/dev/src
 
