@@ -106,7 +106,6 @@ int main(int argc, char** argv) {
 	dev.read = mouse_read;
 	dev.loop_step = mouse_loop;
 
-
 	_mmio_base = mmio_map();
 
 	virtio_dev_t vio = virtio_input_get("QEMU Virtio Mouse");
@@ -114,6 +113,8 @@ int main(int argc, char** argv) {
         klog("Virtio-input init failed\n");
         return -1;
     }
+
+	//virtio_interrupt_enable(vio, NULL);
 
 	dev.extra_data = (void*)vio;
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
