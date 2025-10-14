@@ -70,6 +70,11 @@ void ConsoleWidget::flash() {
 	update();
 }
 
+void ConsoleWidget::setMaxRows(uint32_t maxRows) {
+	gterminal_set_max_rows(&terminal, maxRows);
+	update();
+}
+
 void ConsoleWidget::setFont(const string& fontName) {
 	if(terminal.font != NULL)
 		font_free(terminal.font);

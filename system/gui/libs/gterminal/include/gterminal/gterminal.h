@@ -46,6 +46,7 @@ void gterminal_close(gterminal_t* terminal);
 bool gterminal_scroll(gterminal_t* terminal, int direction);
 void gterminal_put(gterminal_t* terminal, const char* buf, int size);
 void gterminal_flash(gterminal_t* terminal);
+void gterminal_set_max_rows(gterminal_t* terminal, uint32_t max_rows);
 void gterminal_paint(gterminal_t* terminal, graph_t* g, int x, int y, int w, int h);
 void gterminal_resize(gterminal_t* terminal, uint32_t gw, uint32_t gh);
 

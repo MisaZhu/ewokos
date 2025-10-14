@@ -19,6 +19,7 @@ typedef struct {
 
 typedef struct {
 	textchar_t* grid;
+	uint32_t max_rows;
 	uint32_t total_rows;
 
 	uint32_t cols;
@@ -34,7 +35,8 @@ extern textgrid_t* textgrid_new(void);
 extern void textgrid_free(textgrid_t* textgrid);
 extern void textgrid_clear(textgrid_t* textgrid);
 extern int textgrid_reset(textgrid_t* textgrid, uint32_t cols);
-extern int textgrid_expand(textgrid_t* textgrid, uint32_t rows);
+extern int textgrid_set_max_rows(textgrid_t* textgrid, uint32_t max_rows);
+//extern int textgrid_expand(textgrid_t* textgrid, uint32_t rows);
 
 extern int textgrid_put(textgrid_t* textgrid, int x, int y, textchar_t* tc);
 extern int textgrid_push(textgrid_t* textgrid, textchar_t* tc);

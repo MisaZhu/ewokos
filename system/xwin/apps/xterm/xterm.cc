@@ -252,12 +252,15 @@ static bool readConfig(const char* fname) {
 	uint32_t bg_color = json_get_int_def(conf_var, "bg_color", 0xff000000);
 	uint32_t transparent = json_get_int_def(conf_var, "transparent", 255);
 	const char* font_name = json_get_str(conf_var, "font");
-	bool show_menubar = (bool)json_get_int_def(conf_var, "menubar", 1);
 
 	_consoleWidget->config(font_name, font_size, char_space, line_space, fg_color, bg_color, transparent);
+	bool show_menubar = (bool)json_get_int_def(conf_var, "menubar", 1);
 	if(!show_menubar)
 		_menubar->hide();
 
+	uint32_t max_rows = json_get_int_def(conf_var, "max_rows", 1024);
+	_consoleWidget->setMaxRows(max_rows);
+	
 	if(conf_var != NULL)
 		json_var_unref(conf_var);
 	return true;
@@ -289,7 +292,7 @@ static void* thread_loop(void* p) {
 	win.consoleWidget = consoleWidget;
 	root->focus(consoleWidget);
 	_consoleWidget = consoleWidget;
-	readConfig(X::getResName("theme.json").c_str());
+	readConfig(X::getResName("config.json").c_str());
 
 	x.getDesktopSpace(desk, 0);
 	win.open(&x, -1, -1, -1, 0, 0, "xconsole", 0);
