@@ -26,12 +26,12 @@ uint32_t irq_get_pi4(void) {
     return 0;
 }
 
-void irq_enable_pi4(uint32_t irq) {
+void irq_enable_pi4(int core, uint32_t irq) {
     if(irq & irq_enable_flag)
         return;
 
 	if(irq == IRQ_TIMER0){
-        gic_irq_enable(0, 27);
+        gic_irq_enable(core, 27);
         irq_enable_flag |= irq;
     }
 }

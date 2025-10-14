@@ -22,11 +22,18 @@ inline uint32_t irq_get(void) {
     return irq_get_pix();
 }
 
-void irq_enable_pi4(uint32_t irq);
+void irq_enable_pi4(uint32_t core, uint32_t irq);
 void irq_enable_pix(uint32_t irq);
 inline void irq_enable(uint32_t irq) {
     if(_pi4)
-        irq_enable_pi4(irq);
+        irq_enable_pi4(0, irq);
+    else
+        irq_enable_pix(irq);
+}
+
+inline void irq_enable_core(int core, uint32_t irq) {
+    if(_pi4)
+        irq_enable_pi4(core, irq);
     else
         irq_enable_pix(irq);
 }

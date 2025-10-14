@@ -17,6 +17,11 @@ void irq_enable(uint32_t irq) {
 	gic_irq_enable(0, irq);
 }
 
+void irq_enable_core(uint32_t core, uint32_t irq) {
+	gic_irq_enable(core, irq);
+}
+
+
 void irq_disable(uint32_t irq) {
 	if(irq == IRQ_TIMER0)
 		irq = 27;
@@ -29,8 +34,6 @@ inline uint32_t irq_get(void) {
 		irqno = IRQ_TIMER0;
 	}else if(irqno == 0){
 		irqno = IRQ_IPI;
-	}else if(irqno == 33){
-		put32(MMIO_BASE + 0x01000000 + 0x44, 0x7FF);
 	}
 	return irqno;
 }

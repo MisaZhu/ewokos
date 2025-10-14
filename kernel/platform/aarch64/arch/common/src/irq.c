@@ -3,13 +3,12 @@
 #include <kernel/proc.h>
 
 inline void irq_enable_cpsr(context_t* ctx) {
-	//ctx->cpsr &= (~0x80);
+	ctx->spsr_el1 &= (~0x80);
 }
 
 inline void irq_disable_cpsr(context_t* ctx) {
-	//ctx->cpsr |= 0x80;
+	ctx->spsr_el1 |= 0x80;
 }
-//uint64_t gpr[30], fpcr, fpsr, sp_el0, x30, spsr_el1, elr_el1;
 
 extern uint64_t* _kernel_vm;
 
