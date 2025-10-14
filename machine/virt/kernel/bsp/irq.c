@@ -17,7 +17,7 @@ void irq_enable(uint32_t irq) {
 	gic_irq_enable(0, irq);
 }
 
-void irq_enable_core(int core, uint32_t irq) {
+void irq_enable_core(uint32_t core, uint32_t irq) {
 	gic_irq_enable(core, irq);
 }
 
