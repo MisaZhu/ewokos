@@ -149,7 +149,7 @@ protected:
 		if(!showXIM) {
 			showXIM = true;
 			getWin()->callXIM(true);
-			return true;
+			//return true;
 		}
 		return ConsoleWidget::onIM(ev);
 	}
@@ -339,9 +339,15 @@ static int console_read(int fd, int from_pid, fsinfo_t* node,
 	}
 
 	((char*)buf)[0] = c;
+	return 1;
+}
+
+static int console_loop(void* p) {
+	proc_usleep(20000);
+
 	if(_consoleWidget)
 		_consoleWidget->update();
-	return 1;
+	return 0;
 }
 
 static void do_signal(int sig, void* p) {
@@ -365,6 +371,7 @@ int run(const char* mnt_point) {
 	strcpy(dev.name, "xconsole");
 	dev.write = console_write;
 	dev.read = console_read;
+	dev.loop_step = console_loop;
 	_dev = &dev;
 
 	pthread_t tid;
