@@ -4,4 +4,3 @@
 
 @export UX_ID=0
 @/bin/ipcserv /drivers/consoled  /dev/klog
-@export KLOG_DEV=/dev/klog
