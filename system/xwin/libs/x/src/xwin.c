@@ -40,10 +40,14 @@ void xwin_busy(xwin_t* xwin, bool busy) {
 }
 
 int xwin_call_xim(xwin_t* xwin, bool show) {
-	proto_t in;
+	proto_t in, out;
 	PF->format(&in, "i", show);
-	int ret = vfs_fcntl(xwin->fd, XWIN_CNTL_CALL_XIM, &in, NULL);
+	PF->init(&out);
+	int ret = vfs_fcntl(xwin->fd, XWIN_CNTL_CALL_XIM, &in, &out);
+	if(ret == 0)
+		ret = proto_read_int(&out);
 	PF->clear(&in);
+	PF->clear(&out);
 	return ret;
 }
 

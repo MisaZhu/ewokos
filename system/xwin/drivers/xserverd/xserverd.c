@@ -1336,11 +1336,17 @@ static int x_set_desktop_space(x_t* x, proto_t* in, proto_t* out) {
 	return 0;
 }
 
-static int xwin_call_xim(x_t* x, proto_t* in) {
+static int xwin_call_xim(x_t* x, proto_t* in, proto_t* out) {
+	if(x->im_state.win_xim == NULL) {
+		PF->clear(out)->addi(out, -1);
+		return -1;
+	}
+
 	if(proto_read_int(in) == 0)
 		hide_win(x, x->im_state.win_xim);
 	else
 		show_win(x, x->im_state.win_xim);
+	PF->clear(out)->addi(out, 0);
 	return 0;
 }
 
@@ -1360,7 +1366,7 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* node,
 		res = x_win_space(x, in, out);
 	}
 	else if(cmd == XWIN_CNTL_CALL_XIM) {
-		res = xwin_call_xim(x, in);
+		res = xwin_call_xim(x, in, out);
 	}
 	else if(cmd == XWIN_CNTL_TRY_FOCUS) {
 		res = do_xwin_try_focus(fd, from_pid, x);

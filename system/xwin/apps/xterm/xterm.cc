@@ -148,8 +148,8 @@ protected:
 	bool onIM(xevent_t* ev) {
 		if(!showXIM) {
 			showXIM = true;
-			getWin()->callXIM(true);
-			//return true;
+			if(getWin()->callXIM(true))
+				return true;
 		}
 		return ConsoleWidget::onIM(ev);
 	}
