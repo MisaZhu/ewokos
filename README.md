@@ -10,7 +10,7 @@
 
 .About
 
-	A microkernel OS for learning operating system. versatilepb / raspi1,2,3 ported well, raspi4 todo....
+	A microkernel OS for learning operating system. virt/ versatilepb / raspi1,2,3,4 ported well, raspi5 todo....
 	-mmu
 	-smp multi-core
  	-64bits & 32bits
@@ -25,20 +25,6 @@
  	-USB
 
 .Environment & Tools
-
-	QEMU: 
-		modified qemu file: hw/sd/sd.c and recompile
-		......
-		if(req.arg & ACMD41_ENQUIRY_MASK) { //modified by Misa.Z 
-		/*if (FIELD_EX32(sd->ocr & req.arg, OCR, VDD_VOLTAGE_WINDOW)) {*/
-			/* We accept any voltage.  10000 V is nothing.
-			*
-			* Once we're powered up, we advance straight to ready state
-			* unless it's an enquiry ACMD41 (bits 23:0 == 0).
-			*/
-			sd->state = sd_ready_state;
-		}
-		......
 	
 	risc-v toolchains:
 		https://github.com/riscv-software-src/homebrew-riscv
