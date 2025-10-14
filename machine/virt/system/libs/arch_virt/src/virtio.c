@@ -300,7 +300,7 @@ static void virtio_input_fill_queue(virtio_dev_t *dev)
             virtq->desc[avail_idx % VIRTIO_QUEUE_SIZE].len = sizeof(struct virtio_input_event);
             virtq->desc[avail_idx % VIRTIO_QUEUE_SIZE].flags = VIRTQ_DESC_F_WRITE;
             virtq->desc[avail_idx % VIRTIO_QUEUE_SIZE].next = 0;
-            virtq->avail.ring[avail_idx] = avail_idx % VIRTIO_QUEUE_SIZE;
+            virtq->avail.ring[avail_idx % VIRTIO_QUEUE_SIZE] = avail_idx % VIRTIO_QUEUE_SIZE;
             avail_idx++;
             virtq->avail.idx++;
         }
