@@ -3,9 +3,9 @@
 @echo "+---------------------------------------+\n"
 @echo "|  < EwokOS MicroKernel >               |\n" 
 @echo "+---------------------------------------+\n"
-
 @/bin/ipcserv /drivers/timerd                 
 
+@/bin/ipcserv /drivers/virt/virtfsd
 @/bin/ipcserv /drivers/virt/keybd   /dev/keyb0
 @/bin/ipcserv /drivers/virt/moused  /dev/mouse0
 
