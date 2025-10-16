@@ -245,7 +245,7 @@ int fbd_run(fbd_t* fbd, const char* mnt_name,
 	uint32_t w = def_w, h = def_h;
 	_zoom = 1.0;
 	uint8_t dep = 32;
-	_rotate = G_ROTATE_NONE;
+	_rotate = G_ROTATE_0;
 
 	read_config(conf_file, &w, &h, &dep, &_rotate, &_zoom);
 
