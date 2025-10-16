@@ -425,6 +425,21 @@ static void do_set(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 	PF->addi(out, res);
 }
 
+static void do_stat(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
+	fsinfo_t info;
+	proto_read_to(in, &info, sizeof(fsinfo_t));
+
+	node_stat_t stat;
+
+	if(dev != NULL && dev->stat != NULL) {
+		int ret = dev->stat(from_pid, &info, &stat, p);
+		PF->addi(out, ret);
+		PF->add(out, &stat, sizeof(node_stat_t));
+	}else{
+		PF->addi(out, -1);
+	}
+}
+
 static char* read_cmd_arg(char* cmd, int* offset) {
 	char* p = NULL;
 	uint8_t quotes = 0;
@@ -560,6 +575,9 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	switch(cmd) {
 	case FS_CMD_OPEN:
 		do_open(dev, from_pid, in, out, p);
+		break;
+	case FS_CMD_STAT:
+		do_stat(dev, from_pid, in, out, p);
 		break;
 	case FS_CMD_CLOSE:
 		do_close(dev, from_pid, in, out, p);

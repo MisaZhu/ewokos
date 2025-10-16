@@ -356,6 +356,52 @@ int virtio_input_read(virtio_dev_t *dev, void *buffer, uint32_t size)
     return ret;
 }
 
+
+int virtio_send_request(struct virtio_device *dev, void *req, uint32_t req_len, void *resp, uint32_t resp_len) {
+    struct virtq_t *virtq = dev->virtq;
+    uint8_t *req_buf = (uint8_t *)virtq->buf0;
+    uint8_t *resp_buf = (uint8_t *)virtq->buf1;
+
+    memcpy(req_buf, req, req_len);
+    // 设置描述符链
+    uint16_t desc_idx = 0;
+    virtq->desc[desc_idx].addr = get_phy_addr(dev, req_buf);
+    virtq->desc[desc_idx].len = req_len;
+    virtq->desc[desc_idx].flags = VIRTQ_DESC_F_NEXT;
+    virtq->desc[desc_idx].next = desc_idx + 1;
+
+    virtq->desc[desc_idx + 1].addr = get_phy_addr(dev, resp_buf);
+    virtq->desc[desc_idx + 1].len = resp_len;
+    virtq->desc[desc_idx + 1].flags = VIRTQ_DESC_F_WRITE;
+    virtq->desc[desc_idx + 1].next = 0;
+    
+    // 添加到可用环
+    uint16_t avail_idx = virtq->avail.idx % VIRTIO_QUEUE_SIZE;
+    virtq->avail.ring[avail_idx] = 0; // 使用第一个描述符
+    
+    // 更新索引
+    virtq->avail.idx++;
+    
+    // 通知设备
+    put32(dev->base + VIRTIO_MMIO_QUEUE_NOTIFY, 0);
+   
+    uint32_t timeout = VIRTIO_TIMEOUT_MS;
+    while (timeout--)
+    {
+        uint32_t irq = get32(dev->base + VIRTIO_MMIO_INTERRUPT_STATUS);
+        if (irq & 0x1)
+        {
+            //klog("irq: 0x%x used idx: %08x %d\n", irq, &virtq->used, virtq->used.idx);
+            put32(dev->base + VIRTIO_MMIO_INTERRUPT_ACK, 0x1);
+            memcpy(resp, resp_buf, resp_len);
+            return resp_len;
+        }
+        proc_usleep(0);
+    }
+
+    return 0;
+}
+
 int virtio_blk_transfer(struct virtio_device *dev, uint64_t sector, void *buffer, uint32_t count, int isWrite)
 {
     uintptr_t base = dev->base;
