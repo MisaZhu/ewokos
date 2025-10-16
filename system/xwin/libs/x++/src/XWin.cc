@@ -237,8 +237,9 @@ void XWin::pop() {
 bool XWin::callXIM(bool show) {
 	if(xwin == NULL)
 		return false;
-	xwin_call_xim(xwin, show);
-	return true;
+	if(xwin_call_xim(xwin, show) == 0)
+		return true;
+	return false;
 }
 
 bool XWin::getInfo(xinfo_t& xinfo) {

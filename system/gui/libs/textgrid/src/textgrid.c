@@ -5,11 +5,13 @@
 extern "C" {
 #endif
 
+#define MAX_ROWS 1024
 textgrid_t* textgrid_new(void) {
 	textgrid_t* textgrid = (textgrid_t*)malloc(sizeof(textgrid_t));
 	if(!textgrid)
 		return NULL;
 	memset(textgrid, 0, sizeof(textgrid_t));
+	textgrid->max_rows = MAX_ROWS;
 	return textgrid;
 }
 
@@ -27,21 +29,32 @@ void textgrid_clear(textgrid_t* textgrid) {
 	if(textgrid->grid)
 		free(textgrid->grid);
 	uint32_t cols = textgrid->cols;
+	uint32_t max_rows = textgrid->max_rows;
 	memset(textgrid, 0, sizeof(textgrid_t));
 	textgrid->cols = cols;
+	textgrid->max_rows = max_rows;
+}
+
+int textgrid_set_max_rows(textgrid_t* textgrid, uint32_t max_rows) {
+	if(!textgrid || max_rows == 0)
+		return -1;
+	textgrid->max_rows = max_rows < MAX_ROWS ? MAX_ROWS : max_rows;
+	textgrid_clear(textgrid);
+	return 0;
 }
 
 int textgrid_reset(textgrid_t* textgrid, uint32_t cols) {
 	if(!textgrid || cols == 0)
 		return -1;
-
 	textchar_t* p = textgrid->grid;
+	uint32_t max_rows = textgrid->max_rows;
 	uint32_t size = 0;
 	if(textgrid->rows > 0) {
 		size = textgrid->cols * (textgrid->rows-1) + textgrid->tail_col+1;
 	}
 	memset(textgrid, 0, sizeof(textgrid_t));
 	textgrid->cols = cols;
+	textgrid->max_rows = max_rows;
 
 	if(p == NULL || size == 0) {
 		return 0;
@@ -57,15 +70,38 @@ int textgrid_reset(textgrid_t* textgrid, uint32_t cols) {
 
 #define EXPAND_ROWS  16
 
-int textgrid_expand(textgrid_t* grid, uint32_t rows) {
+static int textgrid_expand(textgrid_t* grid, uint32_t rows) {
 	if(grid == NULL || grid->cols == 0)
 		return -1;
 
-	grid->grid = (textchar_t*)realloc(grid->grid,
-		(grid->cols*(grid->rows+rows))* sizeof(textchar_t));
-	if(grid->grid == NULL)
-		return -1;
-	grid->total_rows = grid->rows + rows;
+	uint32_t rows_new = grid->rows + rows;
+	if(rows_new < grid->max_rows || grid->rows == 0) {
+		grid->grid = (textchar_t*)realloc(grid->grid,
+			(grid->cols*(rows_new))* sizeof(textchar_t));
+		if(grid->grid == NULL)
+			return -1;
+		grid->total_rows = rows_new;
+	}
+	else {
+		if(rows_new > grid->total_rows)
+			rows_new = grid->total_rows;
+		if(rows > grid->rows)
+			rows = grid->rows;
+		
+		for(int r = rows; r<grid->rows; r++) {
+			for(int c=0; c<grid->cols; c++) {
+				uint32_t at0 = ((r-rows) * grid->cols) + c;
+				uint32_t at1 = (r * grid->cols) + c;
+				memcpy(&grid->grid[at0], &grid->grid[at1], sizeof(textchar_t));
+			}
+		}
+		grid->rows -= rows;
+		if(grid->rows == 0)
+			grid->curs_y = 0;
+		else
+			grid->curs_y = grid->rows-1;
+		grid->curs_x = 0;
+	}
 
 	for(int r=grid->rows; r<grid->total_rows; r++) {
 		for(int c=0; c<grid->cols; c++) {

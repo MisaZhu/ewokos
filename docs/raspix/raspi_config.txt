@@ -17,6 +17,11 @@ hdmi_mode=87
 hdmi_cvt=1280 800 60 6 0 0 0
 hdmi_driver=1
 
+#-----waveshare 4 inchs xtouch hdmi_lcd------------
+hdmi_group=2
+hdmi_mode=87
+hdmi_cvt= 480 800 60 6 0 0 0
+hdmi_driver=1
 
 #-----waveshare 7 inchs 1280x400 hdmi_lcd---
 hdmi_timings=400 0 100 10 140 1280 10 20 20 2 0 0 0 60 0 43000000 3

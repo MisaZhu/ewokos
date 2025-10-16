@@ -7,5 +7,7 @@
     "font_size": 12,
     "char_space": 0,
     "line_space": 0,
-    "menubar": 1
+    "menubar": 1,
+
+    "max_rows": 1024
 }

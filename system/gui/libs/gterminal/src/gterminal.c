@@ -340,6 +340,10 @@ void gterminal_flash(gterminal_t* terminal) {
     terminal->flash_show = !terminal->flash_show;
 }
 
+void gterminal_set_max_rows(gterminal_t* terminal, uint32_t max_rows) {
+    textgrid_set_max_rows(terminal->textgrid, max_rows);
+}
+
 void gterminal_resize(gterminal_t* terminal, uint32_t gw, uint32_t gh) {
     if(terminal->font == NULL)
         return;

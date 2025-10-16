@@ -24,6 +24,7 @@ public:
 	void flash();
 
 	void setFont(const string& fontName);
+	void setMaxRows(uint32_t maxRows);
 
 	gterminal_t* getTerminal() {
 		return &terminal;
