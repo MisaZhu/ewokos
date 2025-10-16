@@ -8,6 +8,7 @@
 
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 
+#define VIRTFS_RLERROR 7
 #define VIRTFS_TREADDIR 40
 #define VIRTFS_TFSYNC 50
 #define VIRTFS_TVERSION 100
@@ -67,8 +68,12 @@ static uint32_t virtrfs_parse_respon(int req, void* data, int size)
         return -1;
     struct virtfs_header *hdr = (struct virtfs_header *)data;
     if(hdr->type != req + 1){
-        DBG("virtfs reqest %d error! tag:%d size:%d type:%d\n", req, hdr->tag, hdr->size, hdr->type);
-        return -1;
+        uint32_t errno = *(uint32_t*)(data + sizeof(struct virtfs_header));
+        DBG("virtfs reqest %d error! tag:%d size:%d type:%d errno:%d\n", req, hdr->tag, hdr->size, hdr->type, errno);
+        if(hdr->type == VIRTFS_RLERROR)
+            return errno;  
+        else
+            return EIO; 
     }
     return 0;
 }
@@ -216,7 +221,8 @@ int virtfs_read(virtfs_t fs, uint16_t tag, uint32_t fid, void *buf, uint64_t off
     uint8_t req[256];
     uint8_t resp[1036];
     struct virtfs_header *hdr = (struct virtfs_header *)req;
-    int ret = 0;
+    int total = 0;
+    int readlen = 0;
     do{
         uint32_t chunk = MIN(size, 1024);
         hdr->type = VIRTFS_TREAD;
@@ -227,15 +233,15 @@ int virtfs_read(virtfs_t fs, uint16_t tag, uint32_t fid, void *buf, uint64_t off
         hdr = (struct virtfs_header *)resp;
         if(virtrfs_parse_respon(VIRTFS_TREAD, resp, ret) < 0)
             return -EIO;
-        uint32_t read = *(uint32_t *)(resp + 7);
-        DBG("VIRTFS_TREAD size: %d chunk: %d ret: %d, read: %d\n", size, chunk, ret, read);
-        memcpy(buf, resp + 11, read);
-        buf += read;
-        size -= read;
-        offset += read;
-        ret += read;
-    }while(size > 0);
-    return ret;
+        readlen = *(uint32_t *)(resp + 7);
+
+        memcpy(buf, resp + 11, readlen);
+        buf += readlen;
+        size -= readlen;
+        offset += readlen;
+        total += readlen;
+    }while(size > 0 && readlen > 0);
+    return total;
 }
 
 int virtfs_close(virtfs_t fs, uint16_t tag, uint32_t fid)
