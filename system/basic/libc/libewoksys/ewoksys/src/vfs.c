@@ -395,8 +395,11 @@ int vfs_get_by_name(const char* fname, fsinfo_t* info) {
 	if(res == 0) {
 		res = proto_read_int(&out); //res = node
 		if(res != 0) {
-			if(info != NULL)
+			if(info != NULL){
 				proto_read_to(&out, info, sizeof(fsinfo_t));
+				//fix me: update stat form device
+				dev_stat(info->mount_pid, info, &info->stat);
+			}
 			res = 0;
 		}
 		else
@@ -546,7 +549,7 @@ void* vfs_readfile(const char* fname, int* rsz) {
 	if(fd >= 0) {
 		while(fsize > 0) {
 			int sz = read(fd, p, VFS_BUF_SIZE < fsize ? VFS_BUF_SIZE:fsize);
-			if(sz < 0 && errno != EAGAIN)
+			if(sz <= 0 && errno != EAGAIN)
 				break;
 			if(sz > 0) {
 				fsize -= sz;
