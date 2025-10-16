@@ -13,6 +13,8 @@
 #include <stdio.h>
 #include <arch/virt/virtfs.h>
 
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+
 #define VIRTFS_DEBUG 0
 #if VIRTFS_DEBUG
 #define FS_DBG(fmt, ...) klog(fmt, ##__VA_ARGS__)
@@ -80,8 +82,8 @@ static void debug_entry(struct virtfs_dir_entry *entry)
 
 static void read_entire_directory(fsinfo_t *info_to, virtfs_t fs, int fid)
 {
-	char *dir = malloc(1024);
-	char path[64];
+	char dir[1024];
+	char name[256];
 	memset(dir, 0, 1024);
 	if (virtfs_open(fs, 1, fid, O_RDONLY) == 0)
 	{
@@ -105,9 +107,10 @@ static void read_entire_directory(fsinfo_t *info_to, virtfs_t fs, int fid)
 				{
 					uint32_t new_fid = get_fid();
 					fsinfo_t new_dir;
-					memset(path, 0, sizeof(path));
-					memcpy(path, entry->name, entry->nlen);
-					if (virtfs_walk(fs, 1, fid, new_fid, path) == 0)
+					int nlen = MIN(entry->nlen, sizeof(name) - 1);
+					memcpy(name, entry->name, nlen);
+					name[nlen] = '\0';
+					if (virtfs_walk(fs, 1, fid, new_fid, name) == 0)
 					{
 						add_dir(info_to, &new_dir, entry, new_fid, fs);
 						read_entire_directory(&new_dir, fs, new_fid);
@@ -117,9 +120,10 @@ static void read_entire_directory(fsinfo_t *info_to, virtfs_t fs, int fid)
 				{
 					fsinfo_t new_file;
 					uint32_t new_fid = get_fid();
-					memset(path, 0, sizeof(path));
-					memcpy(path, entry->name, entry->nlen);
-					if (virtfs_walk(fs, 1, fid, new_fid, path) == 0)
+					int nlen = MIN(entry->nlen, sizeof(name) - 1);
+					memcpy(name, entry->name, nlen);
+					name[nlen] = '\0';
+					if (virtfs_walk(fs, 1, fid, new_fid, name) == 0)
 					{
 						add_file(info_to, entry, new_fid, fs);
 					}
@@ -130,7 +134,6 @@ static void read_entire_directory(fsinfo_t *info_to, virtfs_t fs, int fid)
 		}
 		virtfs_close(fs, 1, fid);
 	}
-	free(dir);
 }
 
 static int _mount(fsinfo_t *info, void *p)
@@ -142,9 +145,6 @@ static int _mount(fsinfo_t *info, void *p)
 	FS_DBG("fid:%d\n", root);
 	virtfs_attach(fs, 2, root, 0xffffffff, "root", "/");
 	read_entire_directory(info, fs, root);
-
-	// virtfs_walk(fs, 1, 1, 2, "test.txt");
-	// add_file(info, "test.txt", 2, fs);
 	return 0;
 }
 
@@ -158,8 +158,7 @@ static int _open(int fd, int from_pid, fsinfo_t *info, int oflag, void *p)
 {
 	FS_DBG("virtfsd open %s %d\n", info->name, info->data);
 	virtfs_t fs = (virtfs_t)p;
-	virtfs_open(fs, 1, info->data, O_RDONLY);
-	return 0;
+	return virtfs_open(fs, 1, info->data, O_RDONLY);
 }
 
 static int _stat(int from_pid, fsinfo_t *info, node_stat_t *stat, void *p)
@@ -212,14 +211,11 @@ static int _unlink(fsinfo_t *info, const char *fname, void *p)
 	return 0;
 }
 
-static int _close(int fd, int from_pid, fsinfo_t *info, void *p)
+static int _close(int fd, int from_pid, uint32_t node, fsinfo_t* info, void* p)
 {
 	FS_DBG("virtfsd close %s %d\n", info->name, info->data);
 	virtfs_t fs = (virtfs_t)p;
-	if (info->data <= 0)
-		return 0;
-	virtfs_close(fs, 1, info->data);
-	return 0;
+	return virtfs_sync(fs, 1, info->data);
 }
 
 int main(int argc, char **argv)

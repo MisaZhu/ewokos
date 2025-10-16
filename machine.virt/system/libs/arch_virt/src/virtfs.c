@@ -4,9 +4,12 @@
 #include <stdint.h>
 #include <string.h>
 
+#define EIO 5
+
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 
 #define VIRTFS_TREADDIR 40
+#define VIRTFS_TFSYNC 50
 #define VIRTFS_TVERSION 100
 #define VIRTFS_TAUTH 102
 #define VIRTFS_TATTACH 104
@@ -25,9 +28,9 @@
 
 #define HAL_DEBUG 0
 #if HAL_DEBUG
-#define HAL_DBG(fmt, ...) klog(fmt, ##__VA_ARGS__)
+#define DBG(fmt, ...) klog(fmt, ##__VA_ARGS__)
 #else
-#define HAL_DBG(fmt, ...) \
+#define DBG(fmt, ...) \
 	do                   \
 	{                    \
 	} while (0)
@@ -57,6 +60,18 @@ struct virtfs_header
     uint8_t type;
     uint16_t tag;
 } __attribute__((packed));
+
+static uint32_t virtrfs_parse_respon(int req, void* data, int size)
+{
+    if(size < sizeof(struct virtfs_header))
+        return -1;
+    struct virtfs_header *hdr = (struct virtfs_header *)data;
+    if(hdr->type != req + 1){
+        DBG("virtfs reqest %d error! tag:%d size:%d type:%d\n", req, hdr->tag, hdr->size, hdr->type);
+        return -1;
+    }
+    return 0;
+}
 
 static uint32_t virtfs_vfill(void *buf, const char *fmt, va_list ap)
 {
@@ -154,12 +169,7 @@ int virtfs_set_version(virtfs_t fs, const char *version, uint32_t msize)
 
     uint8_t resp[32];
     int ret = virtio_send_request(fs->virtio, buf, len, resp, sizeof(resp));
-    if (ret != sizeof(resp) || ((struct virtfs_header *)resp)->type != VIRTFS_TVERSION + 1)
-    {
-        HAL_DBG("virtfs_set_version failed! ret=%d, type=%d\n", ret, ((struct virtfs_header *)resp)->type);
-        return -1;
-    }
-    return 0;
+    return virtrfs_parse_respon(VIRTFS_TVERSION, resp, ret);
 }
 
 int virtfs_attach(virtfs_t fs, uint16_t tag, uint32_t fid, uint32_t afid, const char *uname, const char *aname)
@@ -172,12 +182,7 @@ int virtfs_attach(virtfs_t fs, uint16_t tag, uint32_t fid, uint32_t afid, const 
 
     uint8_t resp[32];
     int ret = virtio_send_request(fs->virtio, req, hdr->size, &resp, sizeof(resp));
-    if (ret != sizeof(resp) || ((struct virtfs_header *)resp)->type != VIRTFS_TATTACH + 1)
-    {
-        HAL_DBG("virtfs_attach failed! ret=%d, type=%d\n", ret, ((struct virtfs_header *)resp)->type);
-        return -1;
-    }
-    return 0;
+    return virtrfs_parse_respon(VIRTFS_TATTACH, resp, ret);
 }
 
 int virtfs_walk(virtfs_t fs, uint16_t tag, uint32_t fid, uint32_t newfid, const char *wname)
@@ -190,12 +195,7 @@ int virtfs_walk(virtfs_t fs, uint16_t tag, uint32_t fid, uint32_t newfid, const 
 
     uint8_t resp[32];
     int ret = virtio_send_request(fs->virtio, req, hdr->size, &resp, sizeof(resp));
-    if (ret != sizeof(resp) || ((struct virtfs_header *)resp)->type != VIRTFS_TWALK + 1)
-    {
-        HAL_DBG("virtfs_walk %s failed! fid:%d new:%d ret=%d, type=%d\n", wname, fid, newfid, ret, ((struct virtfs_header *)resp)->type);
-        return -1;
-    }
-    return 0;
+    return virtrfs_parse_respon(VIRTFS_TWALK, resp, ret);
 }
 
 int virtfs_open(virtfs_t fs, uint16_t tag, uint32_t fid, uint32_t mode)
@@ -208,34 +208,34 @@ int virtfs_open(virtfs_t fs, uint16_t tag, uint32_t fid, uint32_t mode)
 
     uint8_t resp[32];
     int ret = virtio_send_request(fs->virtio, req, hdr->size, &resp, sizeof(resp));
-    if (ret != sizeof(resp) || ((struct virtfs_header *)resp)->type != VIRTFS_TOPEN + 1)
-    {
-        HAL_DBG("virtfs_open %d failed! ret=%d, type=%d\n", fid, ret, ((struct virtfs_header *)resp)->type);
-        return -1;
-    }
-    return 0;
+    return virtrfs_parse_respon(VIRTFS_TOPEN, resp, ret);
 }
 
-int virtfs_read(virtfs_t fs, uint16_t tag, uint32_t fid, void *buf, uint64_t offset, uint32_t max)
+int virtfs_read(virtfs_t fs, uint16_t tag, uint32_t fid, void *buf, uint64_t offset, uint32_t size)
 {
     uint8_t req[256];
-    struct virtfs_header *hdr = (struct virtfs_header *)req;
-    hdr->type = VIRTFS_TREAD;
-    hdr->tag = tag;
-    hdr->size = sizeof(struct virtfs_header) + virtfs_fill(req + sizeof(struct virtfs_header), "dqd", fid, offset, max);
-
     uint8_t resp[1036];
-    int ret = virtio_send_request(fs->virtio, req, hdr->size, &resp, sizeof(resp));
-    if (ret != sizeof(resp) || ((struct virtfs_header *)resp)->type != VIRTFS_TREAD + 1)
-    {
-        //HAL_DBG("virtfs_read failed! ret=%d, type=%d\n", ret, ((struct virtfs_header *)resp)->type);
-        return 0;
-    }
-    hdr = (struct virtfs_header *)resp;
+    struct virtfs_header *hdr = (struct virtfs_header *)req;
+    int ret = 0;
+    do{
+        uint32_t chunk = MIN(size, 1024);
+        hdr->type = VIRTFS_TREAD;
+        hdr->tag = tag;
+        hdr->size = sizeof(struct virtfs_header) + virtfs_fill(req + sizeof(struct virtfs_header), "dqd", fid, offset, chunk);
 
-    uint32_t size = *(uint32_t *)(resp + 7);
-    memcpy(buf, resp + 11, MIN(size, max));
-    return MIN(size, max);
+        int ret = virtio_send_request(fs->virtio, req, hdr->size, &resp, sizeof(resp));
+        hdr = (struct virtfs_header *)resp;
+        if(virtrfs_parse_respon(VIRTFS_TREAD, resp, ret) < 0)
+            return -EIO;
+        uint32_t read = *(uint32_t *)(resp + 7);
+        DBG("VIRTFS_TREAD size: %d chunk: %d ret: %d, read: %d\n", size, chunk, ret, read);
+        memcpy(buf, resp + 11, read);
+        buf += read;
+        size -= read;
+        offset += read;
+        ret += read;
+    }while(size > 0);
+    return ret;
 }
 
 int virtfs_close(virtfs_t fs, uint16_t tag, uint32_t fid)
@@ -248,12 +248,7 @@ int virtfs_close(virtfs_t fs, uint16_t tag, uint32_t fid)
 
     uint8_t resp[32];
     int ret = virtio_send_request(fs->virtio, req, hdr->size, &resp, sizeof(resp));
-    if (ret != sizeof(resp) || ((struct virtfs_header *)resp)->type != VIRTFS_TCLUNK + 1)
-    {
-        HAL_DBG("virtfs_close %d failed! ret=%d, type=%d\n", fid, ret, ((struct virtfs_header *)resp)->type);
-        return -1;
-    }
-    return 0;
+    return virtrfs_parse_respon(VIRTFS_TCLUNK, resp, ret);
 }
 
 int virtfs_stat(virtfs_t fs, uint16_t tag, uint32_t fid, virtfs_stat_t *stat)
@@ -266,14 +261,12 @@ int virtfs_stat(virtfs_t fs, uint16_t tag, uint32_t fid, virtfs_stat_t *stat)
 
     uint8_t resp[256];
     int ret = virtio_send_request(fs->virtio, req, hdr->size, &resp, sizeof(resp));
-    if (ret != sizeof(resp) || ((struct virtfs_header *)resp)->type != VIRTFS_TSTAT + 1)
-    {
-        HAL_DBG("stat %d failed! ret=%d, type=%d\n", fid, ret, ((struct virtfs_header *)resp)->type);
-        return -1;
+    if(virtrfs_parse_respon(VIRTFS_TSTAT, resp, ret) == 0){
+        hdr = (struct virtfs_header *)resp;
+        memcpy(stat, resp + 9, sizeof(virtfs_stat_t));
+        return 0;
     }
-    hdr = (struct virtfs_header *)resp;
-    memcpy(stat, resp + 9, sizeof(virtfs_stat_t));
-    return 0;
+    return -EIO;
 }
 
 int virtfs_readdir(virtfs_t fs, uint16_t tag, uint32_t fid, void *buf, uint64_t offset, uint32_t max)
@@ -286,12 +279,23 @@ int virtfs_readdir(virtfs_t fs, uint16_t tag, uint32_t fid, void *buf, uint64_t 
 
     uint8_t resp[1036];
     int ret = virtio_send_request(fs->virtio, req, hdr->size, &resp, sizeof(resp));
-    if (ret != sizeof(resp) || ((struct virtfs_header *)resp)->type != VIRTFS_TREADDIR + 1)
-    {
-        HAL_DBG("readdir %d failed! ret=%d, type=%d\n", fid, ret, ((struct virtfs_header *)resp)->type);
-        return 0;
+    if(virtrfs_parse_respon(VIRTFS_TREADDIR, resp, ret) == 0){
+        uint32_t len = MIN(*(uint32_t*)&resp[7], max);
+        memcpy(buf, resp + 11, len);
+        return len;
     }
-    uint32_t len = MIN(*(uint32_t*)&resp[7], max);
-    memcpy(buf, resp + 11, len);
-    return len;
+    return -EIO;
+}
+
+int virtfs_sync(virtfs_t fs, uint16_t tag, uint32_t fid)
+{
+    uint8_t req[256];
+    struct virtfs_header *hdr = (struct virtfs_header *)req;
+    hdr->type = VIRTFS_TFSYNC;
+    hdr->tag = tag;
+    hdr->size = sizeof(struct virtfs_header) + virtfs_fill(req + sizeof(struct virtfs_header), "dd", fid, 1);
+
+    uint8_t resp[32];
+    int ret = virtio_send_request(fs->virtio, req, hdr->size, &resp, sizeof(resp));
+    return virtrfs_parse_respon(VIRTFS_TFSYNC, resp, ret);
 }
