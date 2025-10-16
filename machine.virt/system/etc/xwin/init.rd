@@ -5,7 +5,6 @@
 @echo "+---------------------------------------+\n"
 @/bin/ipcserv /drivers/timerd                 
 
-@/bin/ipcserv /drivers/virt/virtfsd
 @/bin/ipcserv /drivers/virt/keybd   /dev/keyb0
 @/bin/ipcserv /drivers/virt/moused  /dev/mouse0
 
@@ -32,3 +31,5 @@
 @/bin/bgrun /sbin/x/xmouse /dev/mouse0 
 @/bin/bgrun /sbin/x/xim_none /dev/keyb0 
 @/bin/bgrun /bin/x/xsession misa 
+
+@/bin/bgrun /drivers/virt/virtfsd

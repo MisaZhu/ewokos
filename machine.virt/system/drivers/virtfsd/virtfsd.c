@@ -85,10 +85,10 @@ static void read_entire_directory(fsinfo_t *info_to, virtfs_t fs, int fid)
 	memset(dir, 0, 1024);
 	if (virtfs_open(fs, 1, fid, O_RDONLY) == 0)
 	{
+		uint64_t offset = 0;
 		while (true)
 		{
-			uint32_t offset = 0;
-			int ret = virtfs_readdir(fs, 1, fid, dir, 0, 1024);
+			int ret = virtfs_readdir(fs, 1, fid, dir, offset, 1024);
 			for (int i = 0; i < ret && ret > 0;)
 			{
 				struct virtfs_dir_entry *entry = (struct virtfs_dir_entry *)&dir[i];
