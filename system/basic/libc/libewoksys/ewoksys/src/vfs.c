@@ -395,8 +395,11 @@ int vfs_get_by_name(const char* fname, fsinfo_t* info) {
 	if(res == 0) {
 		res = proto_read_int(&out); //res = node
 		if(res != 0) {
-			if(info != NULL)
+			if(info != NULL){
 				proto_read_to(&out, info, sizeof(fsinfo_t));
+				//fix me: update stat form device
+				dev_stat(info->mount_pid, info, &info->stat);
+			}
 			res = 0;
 		}
 		else

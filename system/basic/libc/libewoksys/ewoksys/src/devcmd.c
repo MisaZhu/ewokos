@@ -29,6 +29,26 @@ int dev_set(int dev_pid, fsinfo_t* info) {
 	return res;
 }
 
+int dev_stat(int dev_pid,  fsinfo_t* info, node_stat_t* stat) {
+	proto_t in, out;
+	PF->init(&out);
+	PF->init(&out);
+	PF->init(&in)->add(&in, info, sizeof(fsinfo_t));
+	int res = ipc_call(dev_pid, FS_CMD_STAT, &in, &out);
+	PF->clear(&in);
+	if(res != 0) {
+		PF->clear(&out);
+		return res;
+	}
+	res = proto_read_int(&out);
+	if(res == 0)
+		proto_read_to(&out, stat, sizeof(node_stat_t));
+
+	PF->clear(&in);
+	PF->clear(&out);
+	return res;
+}
+
 int dev_unlink(int dev_pid, uint32_t node, const char* fname) {
 	proto_t in, out;
 	PF->init(&out);

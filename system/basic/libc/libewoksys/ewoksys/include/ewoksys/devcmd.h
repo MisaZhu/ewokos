@@ -9,6 +9,7 @@ extern "C" {
 #endif
 
 extern int dev_set(int dev_pid, fsinfo_t* info);
+extern int dev_stat(int dev_pid, fsinfo_t* info, node_stat_t* stat);
 extern int dev_create(int dev_pid, fsinfo_t* info_to, fsinfo_t* info);
 extern int dev_unlink(int dev_pid, uint32_t node, const char* fname);
 extern int dev_open(int dev_pid, int fd, fsinfo_t* node, int oflag);
