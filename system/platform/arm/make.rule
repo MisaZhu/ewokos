@@ -9,6 +9,7 @@ CFLAGS = -marm \
 	-mfloat-abi=softfp \
         -Wall -Wextra -fPIC -mapcs-frame \
         -Wno-unused-parameter \
+		-Wno-int-conversion \
         -fno-strict-aliasing \
         -std=c99
 
@@ -17,6 +18,7 @@ CXXFLAGS = -marm \
 	-mfloat-abi=softfp \
         -Wall -Wextra -fPIC -mapcs-frame \
         -Wno-unused-parameter \
+		-Wno-int-conversion \
         -pedantic \
 	-fno-rtti \
         -fno-exceptions \

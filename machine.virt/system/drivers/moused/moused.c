@@ -7,6 +7,7 @@
 #include <ewoksys/interrupt.h>
 #include <ewoksys/mmio.h>
 #include <arch/virt/virtio.h>
+#include <mouse/mouse.h>
 
 #define EV_KEY 0x01 // 按键事件
 #define EV_REL 0x02 // 相对坐标事件（如鼠标移动）
@@ -19,23 +20,13 @@
 #define BTN_LEFT 0x110	// 左键
 #define BTN_RIGHT 0x111 // 右键
 
-typedef struct
-{
-	uint8_t btn;
-	int rx;
-	int ry;
-} mouse_data_t;
 
 #define CACHE_SIZE (32)
-static mouse_data_t mouse_data[CACHE_SIZE];
+static mouse_evt_t mouse_data[CACHE_SIZE];
 static uint32_t mouse_data_read = 0;
 static uint32_t mouse_data_write = 0;
 
-void mouse_init(void)
-{
-}
-
-static int mouse_read(int fd, int from_pid, fsinfo_t *node,
+static int _read(int fd, int from_pid, fsinfo_t *node,
 					  void *buf, int size, int offset, void *p)
 {
 	(void)fd;
@@ -47,13 +38,10 @@ static int mouse_read(int fd, int from_pid, fsinfo_t *node,
 	uint8_t *d = (uint8_t *)buf;
 	if (mouse_data_write - mouse_data_read > 0)
 	{
-		d[0] = 1;
-		d[1] = mouse_data[mouse_data_read % CACHE_SIZE].btn;
-		d[2] = mouse_data[mouse_data_read % CACHE_SIZE].rx;
-		d[3] = mouse_data[mouse_data_read % CACHE_SIZE].ry;
-		memset(&mouse_data[mouse_data_read % CACHE_SIZE], 0, sizeof(mouse_data_t));
+		memcpy(buf, &mouse_data[mouse_data_read % CACHE_SIZE], sizeof(mouse_evt_t));
+		memset(&mouse_data[mouse_data_read % CACHE_SIZE], 0, sizeof(mouse_evt_t));
 		mouse_data_read++;
-		return 4;
+		return sizeof(mouse_evt_t);
 	}
 
 	return VFS_ERR_RETRY;
@@ -71,30 +59,42 @@ void mouse_interrupt_handle(struct virtio_device *dev, struct virtio_input_event
 	(void)dev;
 	if (event->type == EV_REL)
 	{
+		mouse_data[mouse_data_write % CACHE_SIZE].type = 1;
 		if (event->code == ABS_X)
 		{
-			mouse_data[mouse_data_write % CACHE_SIZE].rx = event->value;
+			mouse_data[mouse_data_write % CACHE_SIZE].x = event->value;
 		}
 		else if (event->code == ABS_Y)
 		{
-			mouse_data[mouse_data_write % CACHE_SIZE].ry = event->value;
+			mouse_data[mouse_data_write % CACHE_SIZE].y = event->value;
+		}
+	}else if(event->type == EV_ABS){
+		mouse_data[mouse_data_write % CACHE_SIZE].type = 2;
+		if(event->code == ABS_X){
+			mouse_data[mouse_data_write % CACHE_SIZE].x = event->value;
+		}else if(event->code == ABS_Y){
+			mouse_data[mouse_data_write % CACHE_SIZE].y = event->value;
 		}
 	}
 	else if (event->type == EV_KEY)
 	{
 		if (event->code == BTN_LEFT)
 		{
-			if (event->value)
-				mouse_data[mouse_data_write % CACHE_SIZE].btn = 2;
-			else
-				mouse_data[mouse_data_write % CACHE_SIZE].btn = 1;
+				mouse_data[mouse_data_write % CACHE_SIZE].button = MOUSE_BUTTON_LEFT;
+			if (event->value){
+				mouse_data[mouse_data_write % CACHE_SIZE].state = MOUSE_STATE_DOWN;
+			}else{
+				mouse_data[mouse_data_write % CACHE_SIZE].state = MOUSE_STATE_UP;
+			}
 		}
 		else if (event->code == BTN_RIGHT)
 		{
-			if (event->value)
-				mouse_data[mouse_data_write % CACHE_SIZE].btn = 3;
-			else
-				mouse_data[mouse_data_write % CACHE_SIZE].btn = 1;
+			mouse_data[mouse_data_write % CACHE_SIZE].button = MOUSE_BUTTON_RIGHT;
+			if (event->value){
+				mouse_data[mouse_data_write % CACHE_SIZE].state = MOUSE_STATE_DOWN;
+			}else{
+				mouse_data[mouse_data_write % CACHE_SIZE].state = MOUSE_STATE_UP;
+			}
 		}
 	}
 	else if (event->type == EV_SYN)
@@ -109,13 +109,12 @@ int main(int argc, char **argv)
 	const char *mnt_point = argc > 1 ? argv[1] : "/dev/mouse0";
 	_mmio_base = mmio_map();
 
-	mouse_init();
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "mouse");
-	dev.read = mouse_read;
+	dev.read = _read;
 
-	virtio_dev_t vio = virtio_input_get("QEMU Virtio Mouse");
+	virtio_dev_t vio = virtio_input_get("QEMU Virtio Tablet");
 	if (!vio || virtio_init(vio, 0) != 0)
 	{
 		klog("Virtio-input init failed\n");

@@ -37,7 +37,7 @@ include $(EWOKOS_ROOT_DIR)/kernel/platform/${ARCH}/make.rule
 
 QEMU_ARGS += -kernel $(OS_IMG)
 QEMU_ARGS += -drive file=$(SYS_DIR)/root_$(ARCH).ext2,format=raw,id=blk0,if=none -device virtio-blk-device,drive=blk0
-QEMU_ARGS += -device virtio-mouse-device 
+QEMU_ARGS += -device virtio-tablet-device 
 QEMU_ARGS += -device virtio-keyboard-device
 QEMU_ARGS += -fsdev local,id=fsdev0,path=$(HOME),security_model=none -device virtio-9p-device,fsdev=fsdev0,mount_tag=hostshare
 

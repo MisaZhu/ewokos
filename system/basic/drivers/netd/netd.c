@@ -22,6 +22,7 @@
 #include "stack/net.h"
 #include "stack/ip.h"
 #include "stack/loopback.h"
+#include "stack/ether_tap.h"
 
 static int network_fcntl(int fd, int from_pid, fsinfo_t* info,
 	int cmd, proto_t* in, proto_t* out, void* p) {
@@ -58,15 +59,13 @@ static int network_write(int fd, int from_pid, fsinfo_t* info,
     return ret > 0? ret : VFS_ERR_RETRY;
 }
 
-static int network_close(int fd, int from_pid, uint32_t node, fsinfo_t* fsinfo, bool delnode,void* p) {
+static int network_close(int fd, int from_pid, uint32_t node, fsinfo_t* fsinfo,void* p) {
 	(void)fd;
 	fsinfo_t* info = dev_get_file(fd, from_pid, node);
 
-	if(delnode){
-		net_task_t *task = (net_task_t *)info->data;
-		if(task)
-			release_task(task);
-	}
+	net_task_t *task = (net_task_t *)info->data;
+	if(task)
+		release_task(task);
 
 	return 0;
 }
