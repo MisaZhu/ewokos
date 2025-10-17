@@ -34,8 +34,13 @@ int main(int argc, char** argv) {
         mouse_evt_t mevt;
         keyb_evt_t kevts[KEYB_EVT_MAX];
         if(mouse_read(mouse_fd, &mevt) == 1) {
-            x+= mevt.rx;
-            y+= mevt.ry;
+            if(mevt.type == MOUSE_TYPE_REL){
+                x += mevt.x;
+                y += mevt.y;
+            }else if(mevt.type == MOUSE_TYPE_ABS) {
+                x = mevt.x*g->w/32768;
+                y = mevt.y*g->h/32768;
+            }
             if(x < 0) x = 0;
             if(y < 0) y = 0;
             if(x > g->w) x = g->w - 10;

@@ -8,6 +8,11 @@ extern "C" {
 #endif
 
 enum {
+	MOUSE_TYPE_REL = 1,
+	MOUSE_TYPE_ABS = 2
+};
+
+enum {
 	MOUSE_STATE_MOVE = 1,
 	MOUSE_STATE_DRAG,
 	MOUSE_STATE_DOWN,

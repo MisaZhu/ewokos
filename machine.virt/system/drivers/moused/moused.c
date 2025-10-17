@@ -7,6 +7,7 @@
 #include <ewoksys/interrupt.h>
 #include <ewoksys/mmio.h>
 #include <arch/virt/virtio.h>
+#include <mouse/mouse.h>
 
 #define EV_KEY 0x01 // 按键事件
 #define EV_REL 0x02 // 相对坐标事件（如鼠标移动）
@@ -19,43 +20,13 @@
 #define BTN_LEFT 0x110	// 左键
 #define BTN_RIGHT 0x111 // 右键
 
-typedef struct {
-	uint8_t type;
-	uint8_t state;
-	uint8_t button;
-	uint8_t scroll;
-	int16_t x;
-	int16_t y;
-} __attribute__((packed)) mouse_data_t;
-
-enum {
-	MOUSE_STATE_MOVE = 1,
-	MOUSE_STATE_DRAG,
-	MOUSE_STATE_DOWN,
-	MOUSE_STATE_UP,
-	MOUSE_STATE_CLICK
-};
-
-enum {
-	MOUSE_BUTTON_NONE = 0,
-	MOUSE_BUTTON_LEFT,
-	MOUSE_BUTTON_MID,
-	MOUSE_BUTTON_RIGHT,
-	MOUSE_BUTTON_SCROLL_UP,
-	MOUSE_BUTTON_SCROLL_DOWN
-};
-
 
 #define CACHE_SIZE (32)
-static mouse_data_t mouse_data[CACHE_SIZE];
+static mouse_evt_t mouse_data[CACHE_SIZE];
 static uint32_t mouse_data_read = 0;
 static uint32_t mouse_data_write = 0;
 
-void mouse_init(void)
-{
-}
-
-static int mouse_read(int fd, int from_pid, fsinfo_t *node,
+static int _read(int fd, int from_pid, fsinfo_t *node,
 					  void *buf, int size, int offset, void *p)
 {
 	(void)fd;
@@ -67,10 +38,10 @@ static int mouse_read(int fd, int from_pid, fsinfo_t *node,
 	uint8_t *d = (uint8_t *)buf;
 	if (mouse_data_write - mouse_data_read > 0)
 	{
-		memcpy(buf, &mouse_data[mouse_data_read % CACHE_SIZE], sizeof(mouse_data_t));
-		memset(&mouse_data[mouse_data_read % CACHE_SIZE], 0, sizeof(mouse_data_t));
+		memcpy(buf, &mouse_data[mouse_data_read % CACHE_SIZE], sizeof(mouse_evt_t));
+		memset(&mouse_data[mouse_data_read % CACHE_SIZE], 0, sizeof(mouse_evt_t));
 		mouse_data_read++;
-		return sizeof(mouse_data_t);
+		return sizeof(mouse_evt_t);
 	}
 
 	return VFS_ERR_RETRY;
@@ -138,11 +109,10 @@ int main(int argc, char **argv)
 	const char *mnt_point = argc > 1 ? argv[1] : "/dev/mouse0";
 	_mmio_base = mmio_map();
 
-	mouse_init();
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "mouse");
-	dev.read = mouse_read;
+	dev.read = _read;
 
 	virtio_dev_t vio = virtio_input_get("QEMU Virtio Tablet");
 	if (!vio || virtio_init(vio, 0) != 0)

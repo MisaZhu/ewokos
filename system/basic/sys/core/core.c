@@ -348,10 +348,10 @@ static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 		do_proc_enable_ux(pid, in);
 		return;
 	case CORE_CMD_NEXT_UX:
-		do_proc_next_ux(in);
+		do_proc_next_ux((uint32_t)in);
 		return;
 	case CORE_CMD_PREV_UX:
-		do_proc_prev_ux(in);
+		do_proc_prev_ux((uint32_t)in);
 		return;
 	case CORE_CMD_GET_UX:
 		do_proc_get_ux(pid, in, out);
