@@ -8,7 +8,7 @@ extern "C" {
 #endif
 
 enum {
-	G_ROTATE_NONE = 0,
+	G_ROTATE_0 = 0,
 	G_ROTATE_90,
 	G_ROTATE_180,
 	G_ROTATE_270

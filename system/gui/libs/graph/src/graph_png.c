@@ -13,6 +13,7 @@ static void png_read_data(png_structp ctx, png_bytep area, png_size_t size)
 }
 
 graph_t* png_image_new(const char* fname) {
+    graph_t* g = NULL;
     const char *error;
     png_structp png_ptr;
     png_infop info_ptr;
@@ -32,6 +33,7 @@ graph_t* png_image_new(const char* fname) {
         /* The error message has been set in SDL_RWFromFile */
         return NULL;
     }
+
 
     /* Initialize the data we will clean up when we're done */
     png_ptr = NULL; info_ptr = NULL; row_pointers = NULL;
@@ -141,7 +143,8 @@ graph_t* png_image_new(const char* fname) {
 	Bmask = 0x0000FF00 >> s;
 	Amask = 0x000000FF >> s;
 #endif
-	graph_t* g = graph_new(NULL, width, height);
+	g = graph_new(NULL, width, height);
+
 	if(g == NULL) {
 		goto done;
 	}
