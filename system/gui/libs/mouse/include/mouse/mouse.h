@@ -25,11 +25,13 @@ enum {
 };
 
 typedef struct {
-	int8_t state;
-	int8_t button;
-	int32_t rx;
-	int32_t ry;
-} mouse_evt_t;
+	uint8_t type;
+	uint8_t state;
+	uint8_t button;
+	uint8_t scroll;
+	int16_t x;
+	int16_t y;
+} __attribute__((packed)) mouse_evt_t;
 
 int mouse_read(int keyb_fd, mouse_evt_t* evt);
 
