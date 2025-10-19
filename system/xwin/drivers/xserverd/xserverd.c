@@ -1475,8 +1475,9 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 		}
 	}
 	else if(ev->state == MOUSE_STATE_UP) {
-		if(pos == FRAME_R_RESIZE) //window resize
+		if(pos == FRAME_R_RESIZE) {//window resize
 			return;
+		}
 
 		if(x->current.win_drag == win &&
 				x->current.drag_state != 0 &&
@@ -1538,6 +1539,8 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 		return; //drag win frame, don't push xwin event.
 	}
 
+	if(ev->type == XEVT_WIN && ev->value.window.event == XEVT_WIN_NONE)
+		return;
 	x_push_event(x, win, ev);
 }
 
