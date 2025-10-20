@@ -100,6 +100,8 @@ void mouse_interrupt_handle(struct virtio_device *dev, struct virtio_input_event
 	else if (event->type == EV_SYN)
 	{
 		mouse_data_write++;
+		if(!mouse_data[mouse_data_write % CACHE_SIZE].state)
+			 mouse_data[mouse_data_write % CACHE_SIZE].state = MOUSE_STATE_MOVE;
 		proc_wakeup(RW_BLOCK_EVT);
 	}
 }
@@ -115,6 +117,9 @@ int main(int argc, char **argv)
 	dev.read = _read;
 
 	virtio_dev_t vio = virtio_input_get("QEMU Virtio Tablet");
+	if(!vio){
+		vio =  virtio_input_get("QEMU Virtio Mouse");
+	}
 	if (!vio || virtio_init(vio, 0) != 0)
 	{
 		klog("Virtio-input init failed\n");
