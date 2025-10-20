@@ -224,12 +224,18 @@ public:
 	uint32_t getBGColor() {
 		return bgColor;
 	}
+
+	graph_t* getImgOrig() {
+		return imgOrig;
+	}
 };
 
 class PngWin: public WidgetWin{
 	FileDialog fdialog;
 	ColorDialog cdialog;
 	ImageView* imgView;
+	StatusLabel* statusLabel;
+	Menubar* menubar;
 protected:
 	void onDialoged(XWin* from, int res, void* arg) {
 		if(res == Dialog::RES_OK) {
@@ -247,6 +253,22 @@ protected:
 		}
 	}
 public:
+	PngWin() {
+		this->menubar = NULL;
+		this->statusLabel = NULL;
+	}
+
+	void setMenubar(Menubar* m) {
+		this->menubar = m;
+	}
+
+	void setStatusLabel(StatusLabel* l) {
+		this->statusLabel = l;
+	}
+
+	graph_t* getImgOrig() {
+		return imgView->getImgOrig();
+	}
 
 	void load(ImageView* imgView, const string& fname) {
 		this->imgView = imgView;
@@ -254,7 +276,18 @@ public:
 			fdialog.popup(this, 0, 0, "files", XWIN_STYLE_NORMAL);
 		else
 			imgView->loadImage(fname.c_str());
-		repaint();
+
+		graph_t* g = imgView->getImgOrig();
+		if(g != NULL) {
+			uint32_t h = g->h;
+			if(menubar != NULL)
+				h += menubar->getRootArea().h;
+			if(statusLabel != NULL)
+				h += statusLabel->getRootArea().h;
+			this->resizeTo(g->w, h);
+		}
+		else 
+			repaint();
 	}
 
 	void setBGColor(ImageView* imgView) {
@@ -315,6 +348,7 @@ int main(int argc, char** argv) {
 	root->add(menubar);
 	menubar->fix(0, 20);
 	menubar->setItemSize(48);
+	win.setMenubar(menubar);
 
 	Container* c = new Container();
 	c->setType(Container::HORIZONTAL);
@@ -337,6 +371,7 @@ int main(int argc, char** argv) {
 	imgView->setStatusLabel(statusLabel);
 	statusLabel->fix(0, 20);
 	root->add(statusLabel);
+	win.setStatusLabel(statusLabel);
 
 	menubar->add(0, "load", NULL, NULL, onLoadFunc, imgView);
 	menubar->add(1, "+", NULL, NULL, onZoomInFunc, imgView);
