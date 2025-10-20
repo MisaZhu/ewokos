@@ -183,9 +183,11 @@ static vfs_node_t* vfs_get_by_name(vfs_node_t* father, const char* name) {
 		if(n[i] == '/') {
 			n[i] = 0; 
 			node = vfs_simple_get(node, n+j);
+			if(name[i+1] == 0)
+				return node;
 			if(node == NULL)
 				return NULL;
-			j= i+1;
+			j = i+1;
 		}
 	}
 	return NULL;

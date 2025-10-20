@@ -15,6 +15,7 @@
 
 static void input(int pid, mouse_evt_t* mevt) {
 	xevent_t ev;
+
 	memset(&ev, 0, sizeof(xevent_t));
 	ev.type = XEVT_MOUSE;
 	ev.state = mevt->state;
@@ -40,7 +41,9 @@ int main(int argc, char** argv) {
 	int xpid = -1;
 	int width = 0, height = 0;
 	int click_detect = 0;
-	long long click_time = 0;
+
+	uint64_t click_time = 0;
+	uint64_t drag_time = 0;
 
 	core_enable_ux(-1, UX_X_DEFAULT);
 
@@ -65,16 +68,35 @@ int main(int argc, char** argv) {
 	while(true) {
 		mouse_evt_t mevt;
 		if(mouse_read(fd, &mevt) == 1) {
+			//calculate absolute position
 			if(mevt.type == 2){
 				mevt.x = mevt.x * width / 32768;
 				mevt.y = mevt.y * height / 32768;
 			}
+
+			//double click detect
 			if(mevt.state == MOUSE_STATE_UP && mevt.button == MOUSE_BUTTON_LEFT){
 				if(kernel_tic_ms(0) - click_time < 300){
 					click_detect ++;
 				}
 				click_time = kernel_tic_ms(0);
 			}
+
+			//drag detect
+			if(mevt.state == MOUSE_STATE_DOWN && mevt.button == MOUSE_BUTTON_LEFT ){
+				drag_time = kernel_tic_ms(0);
+			}
+
+			if(mevt.state == MOUSE_STATE_UP && mevt.button == MOUSE_BUTTON_LEFT ){
+				drag_time = 0;
+			}
+
+			if(mevt.state == MOUSE_STATE_MOVE){
+				if(drag_time != 0 && kernel_tic_ms(0) - drag_time > 100){
+					mevt.state = MOUSE_STATE_DRAG;
+				}
+			}
+
 			//report original event
 			input(xpid, &mevt);
 
