@@ -100,6 +100,12 @@ class RWidget: public RootWidget {
 protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 		graph_set(g, r.x, r.y, r.w, r.h, 0x44000000);
+
+		const char* logo = "EwokOS micro-kernel";
+		graph_draw_text_font(g, r.x+4+1, r.y+1, logo,
+					theme->getFont(), theme->basic.fontSize, 0xff000000);
+		graph_draw_text_font(g, r.x+4, r.y, logo,
+					theme->getFont(), theme->basic.fontSize, 0xffcccccc);
 	}
 };
 
