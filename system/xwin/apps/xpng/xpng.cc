@@ -190,8 +190,8 @@ public:
 	}
 
 	void zoomImgTo(float zoom) {
-		if(zoom < 0.4)
-			zoom = 0.4;
+		if(zoom < 0.1)
+			zoom = 0.1;
 		else if(zoom > 8.0)
 			zoom = 8.0;
 
