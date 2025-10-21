@@ -313,9 +313,6 @@ protected:
 	}
 
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
-		if(sysInfo.cores == 0)
-			return;
-
 		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.bgColor, true);
 
 		float xstep = (r.w - x_off*2)/ (float)HEART_BIT_NUM;
@@ -324,6 +321,9 @@ protected:
 			yzoom = 1.0;
 
 		drawBG(g, xstep, yzoom, r);
+		if(sysInfo.cores == 0)
+			return;
+
 		for(uint32_t i=0; i<sysInfo.cores; i++) {
 			uint32_t color = getColor(i);
 			drawChat(g, i, xstep, yzoom, color, r);

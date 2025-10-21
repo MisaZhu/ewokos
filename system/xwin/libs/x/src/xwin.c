@@ -1,4 +1,5 @@
 #include <x/xwin.h>
+#include <x/x.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/syscall.h>
@@ -78,6 +79,13 @@ xwin_t* xwin_open(x_t* xp, int32_t disp_index, int x, int y, int w, int h, const
 	int fd = open("/dev/x", O_RDWR);
 	if(fd < 0)
 		return NULL;
+
+	grect_t xr;
+	x_get_desktop_space(disp_index, &xr);
+	if(w > xr.w)
+		w = xr.w;
+	if(h > xr.h)
+		h = xr.h;
 
 	grect_t r;
 	r.x = x;
@@ -242,6 +250,13 @@ int xwin_set_display(xwin_t* xwin, uint32_t display_index) {
 }
 
 int xwin_resize_to(xwin_t* xwin, int w, int h) {
+	grect_t xr;
+	x_get_desktop_space(xwin->xinfo->display_index, &xr);
+	if(w > xr.w)
+		w = xr.w;
+	if(h > xr.h)
+		h = xr.h;
+
 	xwin->xinfo->wsr.w = w;
 	xwin->xinfo->wsr.h = h;
 	xwin_update_info(xwin, X_UPDATE_REBUILD | X_UPDATE_REFRESH);

@@ -65,13 +65,15 @@ public:
 
 protected:
 	void drawTitle(graph_t* g, XTheme* theme, uint32_t i, uint32_t color, const grect_t& r) {
-		int x = r.x + x_off + i*60;
+		//int x = r.x + x_off + i*60;
+		int x = r.x + x_off + i*32;
 		graph_fill(g, x, r.y+4, 10, 10, color);
 		char s[16];
 		int32_t perc = 100 - (sysInfo.core_idles[i]/10000);
 		if(perc < 0)
 			perc = 0;
-		snprintf(s, 15, "%d:%d%%", i, perc);
+		//snprintf(s, 15, "%d:%d%%", i, perc);
+		snprintf(s, 15, "%d", i);
 		graph_draw_text_font(g, x+12, r.y, s, theme->getFont(), theme->basic.fontSize, color);
 	}
 
@@ -119,15 +121,10 @@ protected:
 			graph_line(g, r.x + x_off, r.y + r.h - y_off_bottom - i*10*yzoom,
 				r.x + w + x_off, r.y + r.h - y_off_bottom - i*10*yzoom, color);
 		}
-
 	}
 
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
-		if(sysInfo.cores == 0)
-			return;
-
 		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.bgColor, true);
-
 		float xstep = (r.w - x_off*2)/ (float)HEART_BIT_NUM;
 		float yzoom = (r.h - y_off - y_off_bottom)/ 100.0f;
 		if(yzoom <= 0.0)
@@ -136,6 +133,9 @@ protected:
 			yzoom = 10.0;
 
 		drawBG(g, xstep, yzoom, r);
+		if(sysInfo.cores == 0)
+			return;
+
 		for(uint32_t i=0; i<sysInfo.cores; i++) {
 			uint32_t color = colors[i%COLOR_NUM];
 			drawTitle(g, theme, i, color, r);
@@ -152,8 +152,8 @@ protected:
 		snprintf(txt, 31, "%d/%d(m)", fr_mem, t_mem);
 		font_t* font = theme->getFont();
 		uint32_t w;
-		font_text_size(txt, font, 10, &w, NULL);
-		graph_draw_text_font(g, r.x + r.w - w, r.y, txt, theme->getFont(), 10, theme->basic.fgColor);
+		font_text_size(txt, font, theme->basic.fontSize, &w, NULL);
+		graph_draw_text_font(g, r.x+r.w-w-12, r.y, txt, theme->getFont(), theme->basic.fontSize, theme->basic.fgColor);
 	}
 
 	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
@@ -174,8 +174,8 @@ int main(int argc, char** argv) {
 	Cores* cores = new Cores();
 	root->add(cores);
 
-	win.open(&x, -1, -1, -1, 320, 120, "xcores", XWIN_STYLE_NORMAL | XWIN_STYLE_NO_BG_EFFECT);
-	win.setTimer(1);
+	win.open(&x, -1, -1, -1, 240, 80, "xcores", XWIN_STYLE_NORMAL | XWIN_STYLE_NO_BG_EFFECT);
+	win.setTimer(2);
 
 	widgetXRun(&x, &win);	
 	return 0;
