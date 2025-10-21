@@ -31,31 +31,18 @@ final:
 	mv $(TARGET_DIR)/* $(MACHINE_BUILD_DIR)
 	rm -fr $(TARGET_DIR)
 
-basic: basic_sys final
-	@echo "all done."
-
-gui: gui_sys final
-	@echo "all done."
-
-basic_sys: kernel_heads 
+x_sys: kernel_heads
 	rm -f $(BUILD_DIR)/lib/libbsp.a
 	mkdir -p $(TARGET_DIR)/drivers/$(HW)
 	cd libs;make
 	cd $(SYS_ROOT_DIR)/basic;make
-	cd drivers;make basic
-	@cp -r etc/basic/* ${TARGET_DIR}/etc
-
-gui_sys: basic_sys 
 	cd $(SYS_ROOT_DIR)/gui;make
-	cd drivers;make gui
-	@cp -r etc/gui/* ${TARGET_DIR}/etc
+	cd drivers;make
+	cd $(SYS_ROOT_DIR)/xwin;make
+	@cp -r etc ${TARGET_DIR}/
 
 x: x_sys final
 	@echo "all done."
-
-x_sys: gui_sys 
-	cd $(SYS_ROOT_DIR)/xwin;make
-	@cp -r etc/xwin/* ${TARGET_DIR}/etc
 
 clean:
 	cd libs;make clean

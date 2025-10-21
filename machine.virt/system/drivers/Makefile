@@ -1,9 +1,7 @@
-basic: 
+all: 
 	cd ttyd; make
 	cd virtfsd; make
 	cd powerd; make
-
-gui:
 	cd fbd; make
 	cd moused; make
 	cd keybd; make
