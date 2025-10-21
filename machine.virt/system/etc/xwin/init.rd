@@ -25,7 +25,7 @@
 @/bin/bgrun /bin/session -r -t /dev/console2 
 
 
-#@/bin/load_font
+@/bin/load_font
 
 @/bin/ipcserv /drivers/xserverd        /dev/x
 @/bin/bgrun /sbin/x/xmouse /dev/mouse0 
