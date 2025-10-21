@@ -1,6 +1,7 @@
 basic: 
 	cd ttyd; make
 	cd virtfsd; make
+	cd powerd; make
 
 gui:
 	cd fbd; make
@@ -13,3 +14,4 @@ clean:
 	cd fbd; make clean
 	cd moused; make clean
 	cd keybd; make clean
+	cd powerd; make clean

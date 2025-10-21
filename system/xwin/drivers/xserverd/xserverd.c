@@ -854,7 +854,7 @@ static int do_xwin_try_focus(int fd, int from_pid, x_t* x) {
 }
 
 static bool need_repaint_frame(x_t* x, xwin_t* win) {
-	if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0)
+	if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0 && !win->xinfo->alpha)
 		return false;
 
 	if(x->config.xwm_theme.shadow > 0 ||

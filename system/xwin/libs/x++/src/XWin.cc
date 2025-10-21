@@ -132,6 +132,7 @@ XWin::XWin(void) {
 	theme.loadSystem();
 	displayIndex = 0;
 	xwin = NULL;
+	alpha = false;
 	onDialogedFunc = NULL;
 }
 
@@ -177,11 +178,12 @@ bool XWin::open(X* xp, int32_t dispIndex, int x, int y, uint32_t w, uint32_t h,
 	}	
 
 	xwin_t* xw = xwin_open(xp->c_x(), dispIndex, x, y, w, h, title, style);
-	if(xw == NULL) {
+	if(xw == NULL || xw->xinfo == NULL) {
 		slog("xwin open failed\n");
 		return false;
 	}
 	this->x = xp;
+	xw->xinfo->alpha = alpha;
 	setCWin(xw);
 	onOpen();
 	setVisible(visible);
@@ -210,6 +212,7 @@ bool XWin::setVisible(bool visible) {
 }
 
 void XWin::setAlpha(bool alpha) {
+	this->alpha = alpha;
 	if(xwin == NULL)
 		return;
 	xwin_set_alpha(xwin, alpha);

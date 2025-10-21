@@ -8,11 +8,11 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I $(BUILD_DIR)/include
 
-MENU_BAR_OBJS = menubar.o
+TASK_OBJS = statusbar.o
 
-MENU_BAR = $(TARGET_DIR)/bin/x/menubar
+TASK = $(TARGET_DIR)/bin/x/statusbar
 
-$(MENU_BAR): $(MENU_BAR_OBJS) \
+$(TASK): $(TASK_OBJS) \
 		$(EWOK_LIBC_A)  \
 		$(BUILD_DIR)/lib/libewokstl.a \
 		$(BUILD_DIR)/lib/libx++.a \
@@ -20,8 +20,8 @@ $(MENU_BAR): $(MENU_BAR_OBJS) \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libwidget++.a \
 		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(MENU_BAR_OBJS) -o $(MENU_BAR) $(LDFLAGS) $(EWOK_LIB_X) $(EWOK_LIB_GRAPH) $(EWOK_LIBC) -lcxx
+	$(LD) -Ttext=100 $(TASK_OBJS) -o $(TASK) $(LDFLAGS) $(EWOK_LIB_X) $(EWOK_LIB_GRAPH) $(EWOK_LIBC) -lcxx
 
 clean:
-	rm -f $(MENU_BAR_OBJS)
+	rm -f $(TASK_OBJS)
 

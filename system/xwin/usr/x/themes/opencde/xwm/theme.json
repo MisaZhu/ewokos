@@ -11,7 +11,7 @@
     "shadow": 6,
 
     "#bg_effect": "0: none; 1: transparent; 2: dots; 3: glass; 4: gaussian",
-    "bg_effect": 0,
+    "bg_effect": 4,
     "alpha": 0,
 
     "pattern": "/usr/system/images/patterns/pattern.png"

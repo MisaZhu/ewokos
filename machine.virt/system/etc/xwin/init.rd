@@ -5,6 +5,7 @@
 @echo "+---------------------------------------+\n"
 @/bin/ipcserv /drivers/timerd                 
 
+@/bin/ipcserv /drivers/virt/powerd  /dev/power0
 @/bin/ipcserv /drivers/virt/keybd   /dev/keyb0
 @/bin/ipcserv /drivers/virt/moused  /dev/mouse0
 

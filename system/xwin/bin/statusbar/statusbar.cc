@@ -1,8 +1,7 @@
 #include <Widget/WidgetWin.h>
 #include <Widget/WidgetX.h>
-#include <WidgetEx/Menubar.h>
-#include <WidgetEx/Menu.h>
-#include <Widget/LabelButton.h>
+#include <Widget/Blank.h>
+#include <Widget/Label.h>
 #include <x++/X.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -38,10 +37,10 @@ class PowerInfo : public Widget {
 	}
 
 	void drawBase(graph_t* g, grect_t& r) {
-		graph_gradation(g, r.x, r.y+4, 5, r.h-8, 0xffffffff, 0xffaaaaaa, true);
-		graph_box(g, r.x, r.y+4, 5, r.h-8, 0xff000000);
-		r.x += 4;
-		r.w -= 4;
+		graph_gradation(g, r.x, r.y+2, 5, r.h-4, 0xffffffff, 0xffaaaaaa, true);
+		graph_box(g, r.x, r.y+2, 5, r.h-4, 0xff000000);
+		r.x += 2;
+		r.w -= 2;
 
 		graph_gradation(g, r.x, r.y, r.w, r.h, 0xffffffff, 0xff888888, true);
 		graph_box(g, r.x, r.y, r.w, r.h, 0xff000000);
@@ -53,7 +52,7 @@ class PowerInfo : public Widget {
 
 protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
-		graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
+		//graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
 		grect_t rb = {r.x+4, r.y+4, r.w-8, r.h-8};
 		drawBase(g, rb);
 		if(charging)
@@ -97,42 +96,33 @@ public:
 	}
 };
 
+class RWidget: public RootWidget {
+protected:
+	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
+		graph_set(g, r.x, r.y, r.w, r.h, 0x44000000);
+	}
+};
+
 int main(int argc, char** argv) {
 	X x;
 	xscreen_info_t scr;
 	X::getScreenInfo(scr, 0);
 
 	WidgetWin win;
-	RootWidget* root = new RootWidget();
+	RWidget* root = new RWidget();
 	win.setRoot(root);
+	win.setAlpha(true);
 	root->setType(Container::HORIZONTAL);
 
-	Menu* submenu = new Menu();
-	submenu->add(0, "submenu1", NULL, NULL, NULL, NULL);
-	submenu->add(1, "submenu2", NULL, NULL, NULL, NULL);
-	submenu->add(2, "submenu3", NULL, NULL, NULL, NULL);
-
-
-	Menu* submenu1 = new Menu();
-	submenu1->add(3, "submenu1", NULL, NULL, NULL, NULL);
-	submenu1->add(4, "submenu2", NULL, submenu, NULL, NULL);
-	submenu1->add(5, "submenu3", NULL, NULL, NULL, NULL);
-
-	Menu* menu = new Menu();
-	menu->add(6, "submenu1", NULL, NULL, NULL, NULL);
-	menu->add(7, "submenu2", NULL, NULL, NULL, NULL);
-	menu->add(8, "submenu3", NULL, submenu1, NULL, NULL);
-
-
-	Menubar* menubar = new Menubar();
-	menubar->add(9, "menu1", NULL, menu, NULL, NULL);
-	root->add(menubar);
+	Blank* blank = new Blank();
+	blank->setAlpha(true);
+	root->add(blank);
 
 	PowerInfo* powerInfo = new PowerInfo();
 	powerInfo->fix(48, 0);
 	root->add(powerInfo);
 
-	win.open(&x, -1, 0, 0, scr.size.w, 20, "manubar", XWIN_STYLE_NO_FOCUS | XWIN_STYLE_SYSBOTTOM | XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_BG_EFFECT);
+	win.open(&x, -1, 0, 0, scr.size.w, 20, "statusbar", XWIN_STYLE_NO_FOCUS | XWIN_STYLE_SYSBOTTOM | XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_BG_EFFECT);
 	win.setTimer(2);
 	widgetXRun(&x, &win);
 	return 0;

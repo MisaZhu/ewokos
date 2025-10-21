@@ -16,6 +16,7 @@ class XWin;
 typedef void (*DialogedFuncT)(XWin* xwin, XWin* from, int res, void* arg);
 
 class XWin : public UniObject {
+	bool alpha;
 protected:
 	X* x;
 	uint32_t displayIndex;
