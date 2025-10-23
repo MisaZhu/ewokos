@@ -195,7 +195,42 @@ public:
 	}
 };
 
+static int32_t _scr_margin = 8;
+static int32_t _scr_pos = 0; //0: bottom, 1: left, 2: right
+static int doargs(int argc, char* argv[]) {
+	int c = 0;
+	while (c != -1) {
+		c = getopt (argc, argv, "lrm:");
+		if(c == -1)
+			break;
+
+		switch (c) {
+		case 'm':
+			_scr_margin = atoi(optarg);
+			break;
+		case 'l':
+			_scr_pos = 1;
+			break;
+		case 'r':
+			_scr_pos = 2;
+			break;
+		case '?':
+			return -1;
+		default:
+			c = -1;
+			break;
+		}
+	}
+	return optind;
+}
+
 int main(int argc, char** argv) {
+	int ret = doargs(argc, argv);
+	if(ret < 0) {
+		printf("Usage: %s [-m margin] [-l|r]\n", argv[0]);
+		return -1;
+	}
+
 	X x;
 	WidgetWin win;
 	RootWidget* root = new RootWidget();
@@ -215,21 +250,21 @@ int main(int argc, char** argv) {
 	uint32_t itemNum = apps->getItemNumInView();
 
 	grect_t wr;
-	if(argc >=2 && strcmp(argv[1], "left") == 0) {
-		wr.x = 0;
+	if(_scr_pos == 1) {
+		wr.x = _scr_margin;
 		wr.y = (int32_t)(desk.h-itemSize*itemNum)/2,
 		wr.w = itemSize;
 		wr.h = itemSize*itemNum;
 	}
-	else if(argc >=2 && strcmp(argv[1], "right") == 0) {
-		wr.x = desk.w - itemSize;
+	else if(_scr_pos == 2) {
+		wr.x = desk.w - itemSize - _scr_margin;
 		wr.y = (int32_t)(desk.h-itemSize*itemNum)/2,
 		wr.w = itemSize;
 		wr.h = itemSize*itemNum;
 	}
 	else {
 		wr.x = (int32_t)(desk.w-itemSize*itemNum)/2;
-		wr.y = desk.h-itemSize;
+		wr.y = desk.h-itemSize-_scr_margin;
 		wr.w = itemSize*itemNum;
 		wr.h = itemSize;
 		apps->setDefaultScrollType(Scrollable::SCROLL_TYPE_H);
