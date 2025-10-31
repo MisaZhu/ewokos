@@ -63,7 +63,7 @@ static void add_file(fsinfo_t *node_to, struct virtfs_dir_entry *entry, uint32_t
 	f.stat.gid = 100;
 	f.stat.uid = 100;
 	f.stat.mtime = stat.mtime;
-	vfs_new_node(&f, node_to->node, false);
+	vfs_new_node(&f, node_to->node, false, false);
 }
 
 static int add_dir(fsinfo_t *info_to, fsinfo_t *ret, struct virtfs_dir_entry *entry, uint32_t fid, virtfs_t fs)
@@ -81,7 +81,7 @@ static int add_dir(fsinfo_t *info_to, fsinfo_t *ret, struct virtfs_dir_entry *en
 	ret->stat.gid = 100;
 	ret->stat.uid = 100;
 	ret->stat.mtime = stat.mtime;
-	if (vfs_new_node(ret, info_to->node, false) != 0)
+	if (vfs_new_node(ret, info_to->node, false, false) != 0)
 		return -1;
 	return 0;
 }

@@ -603,7 +603,9 @@ static void do_vfs_new_node(int pid, proto_t* in, proto_t* out) {
 		return;
 	uint32_t node_to_id = (uint32_t)proto_read_int(in);
 	bool vfs_node_only = (bool)proto_read_int(in);
+	bool vfs_write_over = (bool)proto_read_int(in);
 
+	vfs_node_t* node = NULL;
 	vfs_node_t* node_to = NULL;
 	if(node_to_id > 0) {
 		node_to = vfs_get_node_by_id(node_to_id);
@@ -620,15 +622,24 @@ static void do_vfs_new_node(int pid, proto_t* in, proto_t* out) {
 			}
 		}
 	
-		if(vfs_get_by_name(node_to, info.name) != NULL) {//existed ! 
-			PF->addi(out, EEXIST);
-			return;
+		node = vfs_get_by_name(node_to, info.name);
+		if(node != NULL) {//existed ! 
+			if(!vfs_write_over) {
+				PF->addi(out, EEXIST);
+				return;
+			}
+		}
+		else {
+			vfs_write_over = false;
 		}
 	}
 
- 	vfs_node_t* node = vfs_new_node();
- 	if(node == NULL)
-		return;
+	if(node == NULL) {
+	 	node = vfs_new_node();
+	 	if(node == NULL)
+			return;
+	}
+
 	info.node = (uint32_t)node;
 	info.mount_pid = -1;
 	memcpy(&node->fsinfo, &info, sizeof(fsinfo_t));
@@ -638,7 +649,7 @@ static void do_vfs_new_node(int pid, proto_t* in, proto_t* out) {
 		node->fsinfo.data = (int32_t)buf;
 	}
 
-	if(node_to != NULL)
+	if(node_to != NULL && !vfs_write_over)
 		vfs_add_node(pid, node_to, node);
 
 	PF->clear(out)->addi(out, 0)->add(out, &info, sizeof(fsinfo_t));

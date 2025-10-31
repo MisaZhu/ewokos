@@ -639,7 +639,7 @@ static int do_mount(vdevice_t* dev, fsinfo_t* mnt_point, int type, int mode) {
 	info.stat.uid = getuid();
 	info.stat.gid = getgid();
 	info.stat.mode = mode;
-	vfs_new_node(&info, 0, true); // 0 means no father node
+	vfs_new_node(&info, 0, true, false); // 0 means no father node
 
 	if(dev->mount != NULL) { //do device mount precess
 		if(dev->mount(&info, dev->extra_data) != 0) {
