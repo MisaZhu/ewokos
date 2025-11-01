@@ -21,6 +21,13 @@ void irq_enable_core(uint32_t core, uint32_t irq) {
 	gic_irq_enable(core, irq);
 }
 
+inline void irq_clear_core(uint32_t core, uint32_t irq) {
+
+}
+
+inline void irq_clear(uint32_t irq) {
+
+}
 
 void irq_disable(uint32_t irq) {
 	if(irq == IRQ_TIMER0)
