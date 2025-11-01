@@ -15,8 +15,6 @@ extern void irq_enable_core(uint32_t core, uint32_t irq);
 extern void irq_clear(uint32_t irq);
 extern void irq_clear_core(uint32_t core, uint32_t irq);
 extern void irq_disable(uint32_t irq);
-extern void irq_enable_cpsr(context_t* ctx);
-extern void irq_disable_cpsr(context_t* ctx);
 extern uint32_t irq_get(void);
 
 #endif

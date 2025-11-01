@@ -45,7 +45,6 @@ static inline void ipi_send_all(void) {
 
 static inline void irq_do_raw(context_t* ctx, uint32_t irq) {
 	//kprintf("irq_raw: 0x%x\n", irq);
-	irq_clear(irq);
 	interrupt_send(ctx, irq);
 }
 

@@ -79,6 +79,7 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 		ctx->gpr[0] = -1;
 		return -1;
 	}	
+	irq_disable(interrupt);
 
 	/*
 	if(proc->ipc_res.state != IPC_IDLE) {
@@ -101,8 +102,8 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 	proc->space->interrupt.data = intr->data;
 	proc->space->interrupt.state = INTR_STATE_START;
 
-	if(interrupt != IRQ_SOFT)
-		irq_disable_cpsr(&proc->ctx); //disable interrupt on proc
+	//if(interrupt != IRQ_SOFT)
+		//irq_disable_cpsr(&proc->ctx); //disable interrupt on proc
 
 	proc_switch_multi_core(ctx, proc, cproc->info.core);
 	return 0;
@@ -145,8 +146,7 @@ void interrupt_end(context_t* ctx) {
 	}
 
 	if(interrupt != IRQ_SOFT) {
-		irq_enable_cpsr(&cproc->ctx); //enable interrupt on proc
+		irq_enable(interrupt);
 	}
 	schedule(ctx);
 }
-

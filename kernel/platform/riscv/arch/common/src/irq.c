@@ -6,14 +6,6 @@
 #include <arch_context.h>
 #include <dev/timer.h>
 
-inline void irq_enable_cpsr(context_t* ctx) {
-
-}
-
-inline void irq_disable_cpsr(context_t* ctx) {
-
-}
-
 void dump_ctx(context_t *ctx)
 {
     printf("\nSP:  " "%016x" " GP:  " "%016x" " TP:  " "%016x" "\n",

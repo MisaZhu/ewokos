@@ -1,14 +1,6 @@
 #include <kernel/irq.h>
 #include <kprintf.h>
 
-inline void irq_enable_cpsr(context_t* ctx) {
-	ctx->cpsr &= (~0x80);
-}
-
-inline void irq_disable_cpsr(context_t* ctx) {
-	ctx->cpsr |= 0x80;
-}
-
 void dump_ctx(context_t* ctx) {
 	printf("ctx dump:\n"
 		"  cpsr=0x%x\n"

@@ -2,14 +2,6 @@
 #include <kprintf.h>
 #include <kernel/proc.h>
 
-inline void irq_enable_cpsr(context_t* ctx) {
-	ctx->spsr_el1 &= (~0x80);
-}
-
-inline void irq_disable_cpsr(context_t* ctx) {
-	ctx->spsr_el1 |= 0x80;
-}
-
 extern uint64_t* _kernel_vm;
 
 #define SPLIT(x)	((uint32_t)(((uint64_t)x)>>32)),((uint32_t)(x))
