@@ -589,11 +589,13 @@ int32_t ext2_write(ext2_t* ext2, INODE* node, const char *data, int32_t nbytes, 
 	return nbytes_copy;
 }
 
-static uint32_t search(ext2_t* ext2, INODE *ip, const char *name) {
+static uint32_t search(ext2_t* ext2, INODE *ip, const char *name, DIR_T* dirp) {
 	int32_t i; 
 	char c, *cp;
 	DIR_T  *dp;
 	char buf[EXT2_BLOCK_SIZE];
+	if(dirp != NULL)
+		memset(dirp, 0, sizeof(DIR_T));
 
 	for (i=0; i<12; i++){
 		if ( ip->i_block[i] ){
@@ -607,6 +609,8 @@ static uint32_t search(ext2_t* ext2, INODE *ip, const char *name) {
 				c = dp->name[dp->name_len];  // save last byte
 				dp->name[dp->name_len] = 0;   
 				if (strcmp(dp->name, name) == 0 ){
+					if(dirp != NULL)
+						memcpy(dirp, dp, sizeof(DIR_T));
 					return dp->inode;
 				}
 				dp->name[dp->name_len] = c; // restore that last byte
@@ -648,7 +652,7 @@ static int32_t split_fname(const char* filename, str_t* name[]) {
 	return depth;
 }
 
-uint32_t ext2_ino_by_fname(ext2_t* ext2, const char* filename) {
+uint32_t ext2_ino_by_fname(ext2_t* ext2, const char* filename, DIR_T* dirp) {
 	char buf[EXT2_BLOCK_SIZE];
 	uint32_t depth, i, ino, blk;
 	str_t* name[MAX_DIR_DEPTH];
@@ -666,7 +670,7 @@ uint32_t ext2_ino_by_fname(ext2_t* ext2, const char* filename) {
 			ip = ((INODE *)buf) + 1;   // ip->root inode #2
 			/* serach for system name */
 			for (i=0; i<depth; i++) {
-				ino = search(ext2, ip, CS(name[i]));
+				ino = search(ext2, ip, CS(name[i]), dirp);
 				if (ino == 0) {
 					break;
 				}
@@ -687,7 +691,7 @@ uint32_t ext2_ino_by_fname(ext2_t* ext2, const char* filename) {
 }
 
 int32_t ext2_node_by_fname(ext2_t* ext2, const char* filename, INODE* inode) {
-	uint32_t ino = ext2_ino_by_fname(ext2, filename);
+	uint32_t ino = ext2_ino_by_fname(ext2, filename, NULL);
 	if(ino == 0)
 		return -1;
 	return ext2_node_by_ino(ext2, ino, inode);
@@ -701,7 +705,7 @@ int32_t ext2_unlink(ext2_t* ext2, const char* fname) {
 	vfs_dir_name(fname, dir, FS_FULL_NAME_MAX);
 	vfs_file_name(fname, name, FS_FULL_NAME_MAX);
 
-	uint32_t fino = ext2_ino_by_fname(ext2, dir);
+	uint32_t fino = ext2_ino_by_fname(ext2, dir, NULL);
 	if(fino == 0) {
 		return -1;
 	}
@@ -711,7 +715,7 @@ int32_t ext2_unlink(ext2_t* ext2, const char* fname) {
 		return -1;
 	}
 
-	uint32_t ino = search(ext2, fnode, name);
+	uint32_t ino = search(ext2, fnode, name, NULL);
 	if(ino == 0) {
 		return -1;
 	}
@@ -812,7 +816,7 @@ void* ext2_readfile(ext2_t* ext2, const char* fname, int32_t* size) {
   if(size != NULL)
     *size = -1;
 
-  uint32_t ino = ext2_ino_by_fname(ext2, fname);
+  uint32_t ino = ext2_ino_by_fname(ext2, fname, NULL);
   if(ino > 0) {
     INODE inode;
     if(ext2_node_by_ino(ext2, ino, &inode) != 0) {

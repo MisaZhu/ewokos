@@ -425,6 +425,19 @@ static void do_set(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 	PF->addi(out, res);
 }
 
+static void do_get(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
+	fsinfo_t info;
+	const char* fname = proto_read_str(in);
+
+	int res = -1;
+	if(dev != NULL && dev->get != NULL)
+		res = dev->get(from_pid, fname, &info, p);
+	if(res == 0)
+		PF->addi(out, res)->add(out, &info, sizeof(fsinfo_t));
+	else
+		PF->addi(out, res);
+}
+
 static void do_stat(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	fsinfo_t info;
 	proto_read_to(in, &info, sizeof(fsinfo_t));
@@ -611,6 +624,9 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 		break;
 	case FS_CMD_SET:
 		do_set(dev, from_pid, in, out, p);
+		break;
+	case FS_CMD_GET:
+		do_get(dev, from_pid, in, out, p);
 		break;
 	case FS_CMD_CMD:
 		do_cmd(dev, from_pid, in, out, p);

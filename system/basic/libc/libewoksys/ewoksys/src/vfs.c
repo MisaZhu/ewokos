@@ -232,6 +232,7 @@ int vfs_open(fsinfo_t* info, int oflag) {
 	PF->clear(&in);
 	if(res == 0) {
 		res = proto_read_int(&out);
+		klog("vfs_open: %s, fd: %d, oflag: %d, mount_pid: %d\n", info->name, res, oflag, info->mount_pid);
 		if(res >= 0) {
 			proto_read_to(&out, info, sizeof(fsinfo_t));
 			fsfile_t* file = vfs_set_file(res, info);	
@@ -384,13 +385,69 @@ int vfs_open_pipe(int fd[2]) {
 	return res;
 }
 
+int vfs_get_mount_by_id(int id, mount_t* mount) {
+	proto_t in, out;
+	PF->init(&in)->addi(&in, id);
+	PF->init(&out);
+	int res = ipc_call(get_vfsd_pid(), VFS_GET_MOUNT_BY_ID, &in, &out);
+	PF->clear(&in);
+
+	if(res == 0) {
+		res = proto_read_int(&out);
+		if(res == 0)
+			proto_read_to(&out, mount, sizeof(mount_t));
+	}
+	PF->clear(&out);
+	return res;
+}
+
+int vfs_get_mount_by_fname(const char* fname, mount_t* mount, char* dev_fname, int dev_fname_sz) {
+	int max_len = 0;
+	for(int i=0; i<FS_MOUNT_MAX; i++) {
+		mount_t mnt;
+		if(vfs_get_mount_by_id(i, &mnt) != 0)
+			continue;
+		const char* p = strstr(fname, mnt.org_name);
+		if(p != NULL) {
+			if(strlen(mnt.org_name) > max_len) {
+				max_len = strlen(mnt.org_name);
+				memset(dev_fname, 0, dev_fname_sz);
+				memcpy(dev_fname, p + strlen(mnt.org_name) - 1, dev_fname_sz-1);
+				if(dev_fname[0] == 0)
+					dev_fname[0] = '//';
+				memcpy(mount, &mnt, sizeof(mount_t));
+			}
+		}
+	}
+	if(max_len > 0)
+		return 0;
+
+	memset(mount, 0, sizeof(mount_t));
+	return -1;
+}
+
 int vfs_get_by_name(const char* fname, fsinfo_t* info) {
+	int res;
 	char fullname[FS_FULL_NAME_MAX+1] = {0};
+	char dev_fname[FS_FULL_NAME_MAX+1] = {0};
 	vfs_fullname(fname, fullname, FS_FULL_NAME_MAX);
+
+	mount_t mnt;
+	res = vfs_get_mount_by_fname(fullname, &mnt, dev_fname, FS_FULL_NAME_MAX);
+	if(res == 0) {
+		res = dev_get_by_name(mnt.pid, dev_fname, info);
+		if(res == 0) {
+			info->mount_pid = mnt.pid;
+			klog("mnt: %d, fs_get_by_name: %s, mnt_point: %s, dev_fname: %s\n",
+					info->mount_pid, fullname, mnt.org_name, dev_fname);
+			return 0;
+		}
+	}
+
 	proto_t in, out;
 	PF->init(&in)->adds(&in, fullname);
 	PF->init(&out);
-	int res = ipc_call(get_vfsd_pid(), VFS_GET_BY_NAME, &in, &out);
+	res = ipc_call(get_vfsd_pid(), VFS_GET_BY_NAME, &in, &out);
 	PF->clear(&in);
 	if(res == 0) {
 		res = proto_read_int(&out); //res = node
@@ -471,21 +528,6 @@ int vfs_get_mount(fsinfo_t* info, mount_t* mount) {
 }
 */
 
-int vfs_get_mount_by_id(int id, mount_t* mount) {
-	proto_t in, out;
-	PF->init(&in)->addi(&in, id);
-	PF->init(&out);
-	int res = ipc_call(get_vfsd_pid(), VFS_GET_MOUNT_BY_ID, &in, &out);
-	PF->clear(&in);
-
-	if(res == 0) {
-		res = proto_read_int(&out);
-		if(res == 0)
-			proto_read_to(&out, mount, sizeof(mount_t));
-	}
-	PF->clear(&out);
-	return res;
-}
 
 int vfs_mount(uint32_t mount_node_to, uint32_t node) {
 	proto_t in, out;

@@ -33,4 +33,4 @@
 @/bin/bgrun /sbin/x/xim_none /dev/keyb0 
 @/bin/bgrun /bin/x/xsession misa 
 
-@/bin/bgrun /drivers/virt/virtfsd
+#@/bin/bgrun /drivers/virt/virtfsd

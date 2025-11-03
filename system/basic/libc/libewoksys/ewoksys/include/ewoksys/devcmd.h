@@ -21,6 +21,8 @@ extern int dev_read_block(int dev_pid, void* buf, uint32_t size, int32_t index);
 extern int dev_write_block(int dev_pid, const void* buf, uint32_t size, int32_t index);
 extern int dev_fcntl(int dev_pid, int fd, fsinfo_t* info, int cmd, proto_t* arg_in, proto_t* arg_out);
 
+extern int dev_get_by_name(int dev_pid, const char* fname, fsinfo_t* info);
+
 
 #ifdef __cplusplus
 }

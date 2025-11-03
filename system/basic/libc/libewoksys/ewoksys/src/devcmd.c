@@ -49,6 +49,29 @@ int dev_stat(int dev_pid,  fsinfo_t* info, node_stat_t* stat) {
 	return res;
 }
 
+int dev_get_by_name(int dev_pid, const char* fname, fsinfo_t* info) {
+	int res;
+	proto_t in, out;
+	PF->init(&in)->adds(&in, fname);
+	PF->init(&out);
+	res = ipc_call(dev_pid, FS_CMD_GET, &in, &out);
+	PF->clear(&in);
+	if(res == 0) {
+		res = proto_read_int(&out); //res = node
+		if(res == 0) {
+			if(info != NULL){
+				proto_read_to(&out, info, sizeof(fsinfo_t));
+				//fix me: update stat form device
+				//dev_stat(info->mount_pid, info, &info->stat);
+			}
+		}
+		else
+			res = -1;
+	}
+	PF->clear(&out);
+	return res;	
+}
+
 int dev_unlink(int dev_pid, uint32_t node, const char* fname) {
 	proto_t in, out;
 	PF->init(&out);

@@ -176,6 +176,29 @@ static int sdext2_set(int from_pid, fsinfo_t* info, void* p) {
 	return 0;
 }
 
+static int sdext2_get(int from_pid, const char* fname, fsinfo_t* info, void* p) {
+	ext2_t* ext2 = (ext2_t*)p;
+	DIR_T dirp;
+	uint32_t ino = ext2_ino_by_fname(ext2, fname, &dirp);
+	if(ino <= 0)
+		return -1;
+
+	INODE inode;
+	if(ext2_node_by_ino(ext2, ino, &inode) != 0)
+		return -1;
+	klog("name: %s, type: %d\n", dirp.name, dirp.file_type);
+
+	memset(info, 0, sizeof(fsinfo_t));
+	strcpy(info->name, dirp.name);
+	if(dirp.file_type == 2)
+		info->type = FS_TYPE_DIR;
+	else if(dirp.file_type == 1)
+		info->type = FS_TYPE_FILE;
+	info->data = (uint32_t)ino;
+	set_fsinfo_stat(&info->stat, &inode);
+	return 0;
+}
+
 static int sdext2_read(int fd, int from_pid, fsinfo_t* info, 
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
@@ -258,6 +281,7 @@ int main(int argc, char** argv) {
 	dev.create = sdext2_create;
 	dev.open = sdext2_open;
 	dev.set = sdext2_set;
+	//dev.get = sdext2_get;
 	dev.unlink = sdext2_unlink;
 	
 	dev.extra_data = &ext2;

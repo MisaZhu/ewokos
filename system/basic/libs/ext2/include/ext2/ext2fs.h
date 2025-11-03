@@ -15,7 +15,7 @@ int32_t ext2_read(ext2_t* ext2, INODE* node, char *buf, int32_t nbytes, int32_t 
 
 int32_t ext2_write(ext2_t* ext2, INODE* node, const char *data, int32_t nbytes, int32_t offset);
 
-uint32_t ext2_ino_by_fname(ext2_t* ext2, const char* fname);
+uint32_t ext2_ino_by_fname(ext2_t* ext2, const char* fname, DIR_T* dirp);
 
 int32_t ext2_node_by_fname(ext2_t* ext2, const char* fname, INODE* node);
 
