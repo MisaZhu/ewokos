@@ -44,7 +44,8 @@ enum {
 	FS_CMD_DEV_CNTL,
 	FS_CMD_SET,
 	FS_CMD_GET,
-	FS_CMD_CMD
+	FS_CMD_CMD,
+	FS_CMD_KIDS
 };
 
 enum {

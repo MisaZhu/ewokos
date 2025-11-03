@@ -232,7 +232,7 @@ int vfs_open(fsinfo_t* info, int oflag) {
 	PF->clear(&in);
 	if(res == 0) {
 		res = proto_read_int(&out);
-		klog("vfs_open: %s, fd: %d, oflag: %d, mount_pid: %d\n", info->name, res, oflag, info->mount_pid);
+		//klog("vfs_open: %s, fd: %d, oflag: %d, mount_pid: %d\n", info->name, res, oflag, info->mount_pid);
 		if(res >= 0) {
 			proto_read_to(&out, info, sizeof(fsinfo_t));
 			fsfile_t* file = vfs_set_file(res, info);	
@@ -432,6 +432,7 @@ int vfs_get_by_name(const char* fname, fsinfo_t* info) {
 	char dev_fname[FS_FULL_NAME_MAX+1] = {0};
 	vfs_fullname(fname, fullname, FS_FULL_NAME_MAX);
 
+	/* //read from mounted dev
 	mount_t mnt;
 	res = vfs_get_mount_by_fname(fullname, &mnt, dev_fname, FS_FULL_NAME_MAX);
 	if(res == 0) {
@@ -443,6 +444,7 @@ int vfs_get_by_name(const char* fname, fsinfo_t* info) {
 			return 0;
 		}
 	}
+		*/
 
 	proto_t in, out;
 	PF->init(&in)->adds(&in, fullname);
@@ -466,14 +468,22 @@ int vfs_get_by_name(const char* fname, fsinfo_t* info) {
 	return res;	
 }
 
-fsinfo_t* vfs_kids(uint32_t node, uint32_t *num) {
+fsinfo_t* vfs_kids(fsinfo_t* info, uint32_t *num) {
+	fsinfo_t* ret = NULL;
+
+	/* //read from mounted dev
+	if(info->mount_pid > 0)
+		ret = dev_kids(info->mount_pid, info, num);
+	if(ret != NULL) 
+		return ret;
+		*/
+
 	proto_t in, out;
-	PF->init(&in)->addi(&in, node);
+	PF->init(&in)->addi(&in, info->node);
 	PF->init(&out);
 	int res = ipc_call(get_vfsd_pid(), VFS_GET_KIDS, &in, &out);
 	PF->clear(&in);
 
-	fsinfo_t* ret = NULL;
 	if(res == 0) {
 		uint32_t n = proto_read_int(&out);
 		*num = n;

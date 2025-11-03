@@ -438,6 +438,28 @@ static void do_get(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 		PF->addi(out, res);
 }
 
+static void do_kids(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
+	(void)from_pid;
+	uint32_t node = proto_read_int(in);
+	fsinfo_t info;
+	proto_read_to(in, &info, sizeof(fsinfo_t));
+	klog("dev_kids: %d, 0x%x\n", info.node, info.stat.mode);
+
+	if(vfs_check_access(from_pid, &info, R_OK) != 0) {
+		klog("error dev_kids: %d\n", info.node);
+		PF->addi(out, -1)->addi(out, EPERM);
+		return;
+	}
+
+	fsinfo_t* kids = NULL;
+	uint32_t num;
+	if(dev != NULL && dev->kids != NULL)
+		kids = dev->kids(&info, &num, p);
+	if(kids == NULL || num == 0)
+		return;
+	PF->clear(out)->addi(out, num)->add(out, kids, sizeof(fsinfo_t)*num);
+}
+
 static void do_stat(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	fsinfo_t info;
 	proto_read_to(in, &info, sizeof(fsinfo_t));
@@ -627,6 +649,9 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 		break;
 	case FS_CMD_GET:
 		do_get(dev, from_pid, in, out, p);
+		break;
+	case FS_CMD_KIDS:
+		do_kids(dev, from_pid, in, out, p);
 		break;
 	case FS_CMD_CMD:
 		do_cmd(dev, from_pid, in, out, p);

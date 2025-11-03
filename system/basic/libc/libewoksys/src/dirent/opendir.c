@@ -9,7 +9,7 @@ DIR* opendir(const char* name) {
 		return NULL;
 	
 	uint32_t num = 0;
-	fsinfo_t* kids = vfs_kids(info.node, &num);
+	fsinfo_t* kids = vfs_kids(&info, &num);
 	DIR* ret = (DIR*)malloc(sizeof(DIR));
 	if(ret == NULL) {
 		if(kids != NULL)

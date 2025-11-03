@@ -45,8 +45,9 @@ int       vfs_seek(int fd, int offset);
 
 int       vfs_update(fsinfo_t* info, bool do_dev);
 int       vfs_get_mount_by_id(int id, mount_t* mount);
+int       vfs_get_mount_by_fname(const char* fname, mount_t* mount, char* dev_fname, int dev_fname_sz);
 
-fsinfo_t* vfs_kids(uint32_t node, uint32_t* num);
+fsinfo_t* vfs_kids(fsinfo_t* info, uint32_t* num);
 
 int       vfs_mount(uint32_t mount_node_to, uint32_t node);
 int       vfs_umount(uint32_t node);

@@ -199,6 +199,71 @@ static int sdext2_get(int from_pid, const char* fname, fsinfo_t* info, void* p) 
 	return 0;
 }
 
+static fsinfo_t* sdext2_kids(fsinfo_t* info_dir, uint32_t* num, void* p) {
+	fsinfo_t* ret = NULL;
+	*num = 0;
+	if(info_dir->type != FS_TYPE_DIR)
+		return NULL;
+
+	ext2_t* ext2 = (ext2_t*)p;
+	int32_t ino_dir = (int32_t)info_dir->data;
+	if(ino_dir == 0) ino_dir = 2;
+
+	INODE inode_dir;
+	if(ext2_node_by_ino(ext2, ino_dir, &inode_dir) != 0)
+		return NULL;
+
+	int32_t i; 
+	char c, *cp;
+	DIR_T  *dp;
+	char buf[EXT2_BLOCK_SIZE+1];
+
+	for (i=0; i<12; i++){
+		if (inode_dir.i_block[i] != 0){
+			ext2->read_block(inode_dir.i_block[i], buf);
+			dp = (DIR_T *)buf;
+			cp = buf;
+
+			if(dp->inode == 0)
+				continue;
+
+			while (cp < (buf + EXT2_BLOCK_SIZE)){
+				if(dp->name_len == 0)
+					break;
+
+				c = dp->name[dp->name_len];  // save last byte
+				dp->name[dp->name_len] = 0;   
+
+				if(strcmp(dp->name, ".") != 0 && strcmp(dp->name, "..") != 0 && dp->inode != 0) {
+					int32_t ino = dp->inode;
+					INODE ip_node;
+					if(ext2_node_by_ino(ext2, ino, &ip_node) == 0) {
+						fsinfo_t f;
+						memset(&f, 0, sizeof(fsinfo_t));
+						strcpy(f.name, dp->name);
+						f.data = (uint32_t)ino;
+						if(dp->file_type == 2) //director
+							f.type = FS_TYPE_DIR;
+						else if(dp->file_type == 1) //file
+							f.type = FS_TYPE_FILE;
+						set_fsinfo_stat(&f.stat, &ip_node);
+
+						ret = realloc(ret, sizeof(fsinfo_t) * (*num + 1));
+						memcpy(&ret[*num], &f, sizeof(fsinfo_t));
+						(*num)++;
+						//klog("add file %s\n", dp->name);
+					}
+				}
+				//add node
+				dp->name[dp->name_len] = c; // restore that last byte
+				cp += dp->rec_len;
+				dp = (DIR_T *)cp;
+			}
+		}
+	}
+	return ret;
+}
+
 static int sdext2_read(int fd, int from_pid, fsinfo_t* info, 
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
@@ -281,11 +346,12 @@ int main(int argc, char** argv) {
 	dev.create = sdext2_create;
 	dev.open = sdext2_open;
 	dev.set = sdext2_set;
-	//dev.get = sdext2_get;
+	dev.get = sdext2_get;
+	dev.kids = sdext2_kids;
 	dev.unlink = sdext2_unlink;
 	
 	dev.extra_data = &ext2;
-	device_run(&dev, "/", FS_TYPE_DIR, 0771);
+	device_run(&dev, "/", FS_TYPE_DIR, 0777);
 	ext2_quit(&ext2);
 	sd_quit();
 	return 0;

@@ -72,6 +72,29 @@ int dev_get_by_name(int dev_pid, const char* fname, fsinfo_t* info) {
 	return res;	
 }
 
+fsinfo_t* dev_kids(int dev_pid, fsinfo_t* info, uint32_t *num) {
+	fsinfo_t* ret = NULL;
+	if(info == NULL)
+		return NULL;
+
+	proto_t in, out;
+	PF->init(&out);
+	PF->format(&in, "i,m",
+		info->node, info, sizeof(fsinfo_t));
+	int res = ipc_call(info->mount_pid, FS_CMD_KIDS, &in, &out);	
+	if(res == 0) {
+		uint32_t n = proto_read_int(&out);
+		*num = n;
+		if(n > 0) {
+			ret = (fsinfo_t*)malloc(n * sizeof(fsinfo_t));
+			proto_read_to(&out, ret, n * sizeof(fsinfo_t));
+		}
+	}
+	PF->clear(&out);
+	PF->clear(&in);
+	return ret;
+}
+
 int dev_unlink(int dev_pid, uint32_t node, const char* fname) {
 	proto_t in, out;
 	PF->init(&out);
