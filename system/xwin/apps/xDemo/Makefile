@@ -6,7 +6,7 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 
 LDFLAGS = -L$(BUILD_DIR)/lib
 
-CXXFLAGS += -I $(BUILD_DIR)/include
+CFLAGS += -I $(BUILD_DIR)/include
 
 TASK_OBJS = xDemo.o
 
@@ -17,12 +17,9 @@ all: $(TASK_DIR) $(TASK)
 
 $(TASK): $(TASK_OBJS) \
 		$(EWOK_LIBC_A)  \
-		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \
-		$(BUILD_DIR)/lib/libfont.a \
-		$(BUILD_DIR)/lib/libewokstl.a \
-		$(BUILD_DIR)/lib/libcxx.a 
-	$(LD) -Ttext=100 $(TASK_OBJS) -o $(TASK) $(LDFLAGS) $(EWOK_LIB_X) $(EWOK_LIB_GRAPH) $(EWOK_LIBC) -lcxx
+		$(BUILD_DIR)/lib/libfont.a
+	$(LD) -Ttext=100 $(TASK_OBJS) -o $(TASK) $(LDFLAGS) $(EWOK_LIB_X) $(EWOK_LIB_GRAPH) $(EWOK_LIBC)
 
 $(TASK_DIR):
 	mkdir -p $(TASK_DIR)
