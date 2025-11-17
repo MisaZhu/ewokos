@@ -7,3 +7,6 @@
 [submodule "extra.apps"]
 	path = extra.apps
 	url = https://github.com/MisaZhu/ewokos.apps.git
+[submodule "mariox"]
+	path = mariox
+	url = https://github.com/MisaZhu/evokes.mariox.git
