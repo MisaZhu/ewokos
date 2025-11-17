@@ -4,3 +4,6 @@
 [submodule "machine.3rd"]
 	path = machine.3rd
 	url = https://github.com/MisaZhu/ewokos.machines.git
+[submodule "extra.apps"]
+	path = extra.apps
+	url = https://github.com/MisaZhu/ewokos.apps.git
