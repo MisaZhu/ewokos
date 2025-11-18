@@ -51,6 +51,7 @@ clean:
 	cd $(SYS_ROOT_DIR)/gui;make clean
 	cd $(SYS_ROOT_DIR)/basic;make clean
 	cd $(EWOKOS_ROOT_DIR)/sw.extra/; make HW=$(HW) clean
+	cd $(EWOKOS_ROOT_DIR)/extra.apps/; make HW=$(HW) clean
 	rm -fr $(BUILD_DIR)
 	rm -fr $(MACHINE_BUILD_DIR)
 
