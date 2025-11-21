@@ -378,10 +378,11 @@ int main(int argc, char** argv) {
 	menubar->add(2, "-", NULL, NULL, onZoomOutFunc, imgView);
 	menubar->add(3, "BG", NULL, NULL, onBGColorFunc, imgView);
 
-	win.open(&x, -1, -1, -1, 0, 0, "xpng", XWIN_STYLE_NORMAL);
+	win.open(&x, -1, -1, -1, 0, 0, "xpng", XWIN_STYLE_NORMAL, false);
 	win.setAlpha(true);
 	if(argc >= 2)
 		win.load(imgView, argv[1]);
+	win.setVisible(true);
 
 	widgetXRun(&x, &win);
 	return 0;
