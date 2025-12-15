@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define PROTO_BUFFER 256 
+#define PROTO_BUFFER 512
 
 typedef struct {
 	char     buffer[PROTO_BUFFER];
