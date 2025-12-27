@@ -9,6 +9,7 @@
 #include <ewoksys/proto.h>
 #include <ewoksys/keydef.h>
 #include <ewoksys/kernel_tic.h>
+#include <mouse/mouse.h>
 #include <x/xcntl.h>
 
 static int  _joys_fd = -1;
@@ -64,7 +65,7 @@ static void joy_2_mouse(int key, int8_t* mv) {
 	case KEY_ENTER:
 	case JOYSTICK_START:
 		//if(!_prs_down) {
-			mv[0] = 2;
+			mv[0] = MOUSE_BUTTON_LEFT;
 			_prs_down = true;
 		//}
 		return;
@@ -103,19 +104,18 @@ static uint32_t mouse_input(char key) {
 	return 0;
 }
 
-static int joymouse_read_buffer(uint8_t* buf) {
-	buf[0] = 0;
+static int joymouse_read_buffer(mouse_evt_t* evt) {
 	if(_minfo_index < _minfo_num) {
-		buf[0] = 1;
-		buf[1] = _minfo[_minfo_index].btn;
-		buf[2] = _minfo[_minfo_index].rx;
-		buf[3] = _minfo[_minfo_index].ry;
+		evt->button =  _minfo[_minfo_index].btn;
+		evt->type = 1; //related
+		evt->x = _minfo[_minfo_index].rx;
+		evt->y = _minfo[_minfo_index].ry;
 
 		_minfo_index++;
 		if(_minfo_index >= _minfo_num) {
 			_minfo_num = _minfo_index = 0;
 		}
-		return 4;
+		return sizeof(mouse_evt_t);
 	}
 	return 0;
 }
@@ -135,7 +135,7 @@ static int vjoystick_read(int fd,
 	(void)p;
 
 	bool mouse = false;
-	if(size == 4) { //4 bytes for reading mouse data , 6 bytes for keyb
+	if(size == sizeof(mouse_evt_t)) { //for reading mouse data , or for keyb
 		mouse = true;
 	}
 
@@ -143,10 +143,12 @@ static int vjoystick_read(int fd,
 		return -1;
 
 	if(mouse) {
-		if(joymouse_read_buffer((uint8_t*)buf) == 0)
+		mouse_evt_t* evt = (mouse_evt_t*)buf;
+		if(joymouse_read_buffer(evt) == 0)
 			//return 0;
 			return VFS_ERR_RETRY;
-		return 4;
+		//slog("vjoystick_read: size=%d, mouse.btn=%d\n", size, evt->button);
+		return sizeof(mouse_evt_t);
 	}
 
 	//key mode
