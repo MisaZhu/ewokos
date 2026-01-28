@@ -22,7 +22,7 @@ typedef struct {
 
 typedef	struct {
 	uint32_t  uid;
-	uint64_t  usec;
+	uint32_t  counter;
 	uint32_t  state;
 	proto_t   arg_ret;
 	int32_t   client_pid;

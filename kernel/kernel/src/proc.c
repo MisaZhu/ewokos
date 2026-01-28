@@ -1110,6 +1110,31 @@ static int32_t renew_interrupt_counter(uint32_t usec) {
 	return res;
 }
 
+static int32_t renew_ipc_counter(uint32_t usec) {
+	uint32_t i;
+	int32_t res = -1;
+	for(i=0; i<_kernel_config.max_task_num; i++) {
+		proc_t* proc = _task_table[i];
+		if(proc == NULL ||
+				proc->info.state == UNUSED || proc->info.state == ZOMBIE)
+			continue;
+		ipc_task_t* ipc = &proc->space->ipc_server.ctask;
+		if(ipc->state == IPC_IDLE)
+			continue;
+
+		ipc->counter += usec;
+		if(ipc->counter >= IPC_TIMEOUT_USEC) {
+			printf("ipc timeout: %d\n", proc->info.pid);
+			memcpy(&proc->ctx, &proc->space->ipc_server.saved_state.ctx, sizeof(context_t));
+			if(proc->info.state == READY || proc->info.state == RUNNING)
+				proc_ready(proc);
+			proc_ipc_close(proc, ipc);
+			proc_wakeup(proc->info.pid, -1, (uint32_t)&proc->space->ipc_server); 
+		}
+	}
+	return res;
+}
+
 static int32_t renew_priority_counter(uint32_t usec) {
 	for(uint32_t i=0; i<_kernel_config.max_task_num; i++) {
 		proc_t* proc = _task_table[i];
@@ -1138,6 +1163,7 @@ inline int32_t renew_kernel_tic(uint32_t usec) {
 	renew_vsyscall_info();
 	renew_priority_counter(usec);
 	renew_interrupt_counter(usec);
+	renew_ipc_counter(usec);
 	return renew_sleep_counter(usec);	
 }
 

@@ -117,7 +117,7 @@ ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id
 	ipc->client_pid = client_proc->info.pid;
 	ipc->client_uuid = client_proc->info.uuid;
 	ipc->call_id = call_id;
-	ipc->usec = usec;
+	ipc->counter = 0;
 	if(arg != NULL && arg->data != NULL) {
 		proto_copy(&ipc->arg_ret, arg->data, arg->size);
 	}
