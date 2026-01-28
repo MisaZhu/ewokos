@@ -21,6 +21,7 @@ typedef struct {
 
 	uint32_t      state;
 	uint32_t      stack; //mapped stack page
+	uint32_t      counter;
 
     ipc_res_t     saved_ipc_res;
 	saved_state_t saved_state;

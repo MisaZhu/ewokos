@@ -101,6 +101,7 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 	proc->space->interrupt.entry = intr->entry;
 	proc->space->interrupt.data = intr->data;
 	proc->space->interrupt.state = INTR_STATE_START;
+	proc->space->interrupt.counter = 0;
 
 	//if(interrupt != IRQ_SOFT)
 		//irq_disable_cpsr(&proc->ctx); //disable interrupt on proc
