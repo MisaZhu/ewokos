@@ -4,7 +4,7 @@
 #include <mm/mmu.h>
 #include <ewokos_config.h>
 
-#define IPC_TIMEOUT_USEC 100000 //ipc timeout as 100ms
+#define IPC_TIMEOUT_USEC 300000 //ipc timeout as 100ms
 #define INTERRUPT_TIMEOUT_USEC 100000 //ipc timeout as 100ms
 #define KERNEL_PROC_RUN_RECOUNT_SEC   2
 #define SCHEDULE_FREQ_DEF     512 // usecs (timer/schedule)
