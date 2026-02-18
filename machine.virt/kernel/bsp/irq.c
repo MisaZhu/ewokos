@@ -35,9 +35,12 @@ void irq_disable(uint32_t irq) {
 	gic_irq_disable(0, irq);
 }
 
-inline uint32_t irq_get(uint32_t* irq_raw) {
+inline uint32_t irq_get(void) {
 	uint32_t irqno = gic_get_irq() & 0x3FF;
-	*irq_raw = irqno;
+	return irqno;
+}
+
+inline uint32_t irq_get_unified(uint32_t irqno) {
 	if(irqno == 27){
 		irqno = IRQ_TIMER0;
 	}else if(irqno == 0){

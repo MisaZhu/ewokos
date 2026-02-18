@@ -15,7 +15,8 @@ extern void irq_enable_core(uint32_t core, uint32_t irq);
 extern void irq_clear(uint32_t irq);
 extern void irq_clear_core(uint32_t core, uint32_t irq);
 extern void irq_disable(uint32_t irq);
-extern uint32_t irq_get(uint32_t* irq_raw);
+extern uint32_t irq_get(void);
+extern uint32_t irq_get_unified(uint32_t irq_raw);
 extern void irq_eoi(uint32_t irq_raw);
 
 #endif

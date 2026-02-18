@@ -75,8 +75,8 @@ static inline void irq_do_timer0(context_t* ctx) {
 
 static inline void _irq_handler(uint32_t cid, context_t* ctx) {
 	uint64_t raw_irqs;
-	uint32_t irq_raw = 0xFFFF;
-	uint32_t irq = irq_get(&irq_raw);
+	uint32_t irq_raw = irq_get();
+	uint32_t irq = irq_get_unified(irq_raw);
 
 	//handle irq
 	if(irq > 0 && irq < IRQ_RAW_TOP) {
