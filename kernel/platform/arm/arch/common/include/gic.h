@@ -113,5 +113,6 @@
 void gic_init(void *gicd, void *gicc);
 void gic_irq_enable(int core_id, int irqno);
 int gic_get_irq(void);
+int gic_eoi(uint32_t irqno);
 void gic_gen_soft_irq(int core, int irq);
 #endif

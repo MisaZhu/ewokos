@@ -137,7 +137,6 @@ void gic_eoi(int intn) {
 
 int gic_get_irq(void){
     int irq = mmio_read32(gicc_base + GICC_IAR)&0x3FF;
-    gic_eoi(irq);
     return irq;
 }
 

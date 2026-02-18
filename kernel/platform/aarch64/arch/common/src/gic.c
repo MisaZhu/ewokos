@@ -123,13 +123,12 @@ void gic_irq_disable(int core_id, int irqno)
 }
 
 
-void gic_eoi(int intn) {
+void gic_eoi(uint32_t intn) {
     mmio_write32(gicc_base + GICC_EOIR, intn); 
 }
 
 int gic_get_irq(void){
     int irq = mmio_read32(gicc_base + GICC_IAR)&0x3FF;
-    gic_eoi(irq);
     return irq;
 }
 
