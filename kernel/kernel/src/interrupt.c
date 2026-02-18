@@ -43,7 +43,7 @@ int32_t interrupt_setup(proc_t* cproc, uint32_t interrupt, ewokos_addr_t entry, 
 	if(entry == 0) {//unregister interrupt
 		if(item == NULL)
 			return -1;
-		//irq_disable(interrupt); //TODO
+		//irq_disable_arch(interrupt); //TODO
 		memset(item, 0, sizeof(interrupt_item_t));
 	}
 	else { //register interrupt
@@ -55,7 +55,7 @@ int32_t interrupt_setup(proc_t* cproc, uint32_t interrupt, ewokos_addr_t entry, 
 		item->handler.uuid = cproc->info.uuid;
 		item->handler.entry = entry;
 		item->handler.data = data;
-		irq_enable_core(cproc->info.core, interrupt); //TODO
+		irq_enable_core_arch(cproc->info.core, interrupt); //TODO
 	}
 	return 0;
 }
@@ -79,7 +79,7 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 		ctx->gpr[0] = -1;
 		return -1;
 	}	
-	irq_disable(interrupt);
+	irq_disable_arch(interrupt);
 
 	/*
 	if(proc->ipc_res.state != IPC_IDLE) {
@@ -147,7 +147,7 @@ void interrupt_end(context_t* ctx) {
 	}
 
 	if(interrupt != IRQ_SOFT) {
-		irq_enable(interrupt);
+		irq_enable_arch(interrupt);
 	}
 	schedule(ctx);
 }

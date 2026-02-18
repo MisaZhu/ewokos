@@ -75,8 +75,8 @@ static inline void irq_do_timer0(context_t* ctx) {
 
 static inline void _irq_handler(uint32_t cid, context_t* ctx) {
 	uint64_t raw_irqs;
-	uint32_t irq_raw = irq_get();
-	uint32_t irq = irq_get_unified(irq_raw);
+	uint32_t irq_raw = irq_get_arch();
+	uint32_t irq = irq_get_unified_arch(irq_raw);
 
 	//handle irq
 	if(irq > 0 && irq < IRQ_RAW_TOP) {
@@ -92,7 +92,7 @@ static inline void _irq_handler(uint32_t cid, context_t* ctx) {
 			schedule(ctx);
 #endif
 	}
-	irq_eoi(irq_raw);
+	irq_eoi_arch(irq_raw);
 }
 
 inline void irq_handler(context_t* ctx) {
@@ -230,7 +230,7 @@ void irq_init(void) {
 	_kernel_usec = 0;
 	_sec_tic = 0;
 	_last_usec = timer_read_sys_usec();
-	irq_enable(IRQ_TIMER0);
+	irq_enable_arch(IRQ_TIMER0);
 
 #ifdef KERNEL_SMP
 	ipi_enable_all();

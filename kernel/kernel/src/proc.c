@@ -493,7 +493,7 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 		proc_ipc_clear(proc);
 		if(proc->space->interrupt.state != INTR_STATE_IDLE) {
 			if(proc->space->interrupt.interrupt != IRQ_SOFT) {
-				irq_enable(proc->space->interrupt.interrupt);
+				irq_enable_arch(proc->space->interrupt.interrupt);
 			}
 			proc->space->interrupt.state = INTR_STATE_IDLE;
 			proc_wakeup(proc->info.pid, -1, (uint32_t)&proc->space->interrupt);
@@ -1103,7 +1103,7 @@ static int32_t renew_interrupt_counter(uint32_t usec) {
 			proc->space->interrupt.counter = 0;
 			proc->space->interrupt.state = INTR_STATE_IDLE;
 			if(proc->space->interrupt.interrupt != IRQ_SOFT)
-				irq_enable(proc->space->interrupt.interrupt);
+				irq_enable_arch(proc->space->interrupt.interrupt);
 			memcpy(&proc->ctx, &proc->space->signal.saved_state.ctx, sizeof(context_t));
 		}
 	}
