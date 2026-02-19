@@ -6,7 +6,7 @@
 #include "arch.h"
 
 extern uint64_t interrupt_table_start[];
-void irq_arch_init(void) {
+void irq_init_arch(void) {
 	gic_init(MMIO_BASE, MMIO_BASE + 0x10000);
 	set_vector_table(&interrupt_table_start);
 }

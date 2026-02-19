@@ -224,7 +224,7 @@ void data_abort_handler(context_t* ctx, ewokos_addr_t addr_fault, uint32_t statu
 }
 
 void irq_init(void) {
-	irq_arch_init();
+	irq_init_arch();
 	interrupt_init();
 	_kernel_sec = 0;
 	_kernel_usec = 0;

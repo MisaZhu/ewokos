@@ -10,7 +10,7 @@ extern void prefetch_abort_handler(context_t* ctx, uint32_t status);
 extern void data_abort_handler(context_t* ctx, ewokos_addr_t addr_fault, uint32_t status);
 extern void irq_init(void);
 
-extern void irq_arch_init(void);
+extern void irq_init_arch(void);
 extern void irq_enable_arch(uint32_t irq);
 extern void irq_enable_core_arch(uint32_t core, uint32_t irq);
 extern void irq_clear_arch(uint32_t irq);
