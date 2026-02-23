@@ -131,7 +131,7 @@ void gic_irq_disable(int core_id, int irqno)
 }
 
 
-void gic_eoi(int intn) {
+void gic_eoi(uint32_t intn) {
     mmio_write32(gicc_base + GICC_EOIR, intn); 
 }
 
