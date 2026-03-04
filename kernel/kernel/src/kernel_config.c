@@ -25,9 +25,7 @@ static void load_kernel_config_file() {
 	if(v[0] != 0) {
 		_allocable_phy_mem_base += ALIGN_UP(atoi(v), PAGE_SIZE);
 		_sys_info.sys_dma.phy_base = _allocable_phy_mem_base;
-		_sys_info.sys_dma.size = DMA_SIZE;
-		_sys_info.sys_dma.v_base = DMA_V_BASE;
-		_allocable_phy_mem_base += DMA_SIZE;
+		_allocable_phy_mem_base += _sys_info.sys_dma.size;
 	}
 	
 	v = sconf_get(sconf, "allocable_top_reserv_size");

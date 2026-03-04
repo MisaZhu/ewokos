@@ -18,14 +18,14 @@
 #define KERNEL_PAGE_DIR_END           (KERNEL_PAGE_DIR_BASE + 256*KB)
 
 #define ALLOCABLE_PAGE_DIR_BASE       KERNEL_PAGE_DIR_END
-#define ALLOCABLE_PAGE_DIR_END        (ALLOCABLE_PAGE_DIR_BASE + 4*MB)
+#define ALLOCABLE_PAGE_DIR_SIZE       (2 * (_sys_info.total_phy_mem_size / KB))
+#define ALLOCABLE_PAGE_DIR_END        (ALLOCABLE_PAGE_DIR_BASE + ALLOCABLE_PAGE_DIR_SIZE)
 
 #define KERNEL_VSYSCALL_INFO_BASE     ALLOCABLE_PAGE_DIR_END
 #define KERNEL_VSYSCALL_INFO_END      (KERNEL_VSYSCALL_INFO_BASE+4*KB)
 
-#define KMALLOC_SIZE                  (8*MB)
 #define KMALLOC_BASE                  KERNEL_VSYSCALL_INFO_END
-#define KMALLOC_END                   (KMALLOC_BASE + KMALLOC_SIZE)
+#define KMALLOC_END                   (KMALLOC_BASE + _sys_info.kmalloc_size)
 
 #define MAX_USABLE_MEM_SIZE           (1*GB + 640*MB) //max usable memory for 32bits OS
 
@@ -33,9 +33,8 @@
 #define MMIO_BASE                     (KERNEL_BASE + MAX_USABLE_MEM_SIZE)
 #define MMIO_END                      (MMIO_BASE + MMIO_MAX_SIZE)
 
-#define DMA_SIZE                      (16*MB)
 #define DMA_V_BASE                    (MMIO_END)
-#define DMA_END                       (DMA_V_BASE + DMA_SIZE)
+#define DMA_END                       (DMA_V_BASE + _sys_info.sys_dma.size)
 
 #define FB_BASE                       (DMA_END)
 
@@ -77,7 +76,5 @@ void unmap_page_ref(page_dir_entry_t *vm, ewokos_addr_t vaddr);
 
 void free_page_tables(page_dir_entry_t *vm);
 ewokos_addr_t resolve_kernel_address(page_dir_entry_t *vm, ewokos_addr_t virtual);
-
-ewokos_addr_t get_allocable_start(void);
 
 #endif
