@@ -150,11 +150,15 @@ static void show_config(void) {
 		  "  mem_offset           0x%08x\n"
 		  "  phy mem size         %d MB\n"
 		  "  usable mem size      %d MB\n"
-		  "  kmalloc              0x%08x ~ 0x%08x (%d MB)\n"
-		  "  allocable mem info   0x%08x ~ 0x%08x (%d MB)\n"
-		  "  mmio_base            Phy:0x%08x, V: 0x%08x (%d MB)\n"
-		  "  sys_dma_base         Phy:0x%08x, V: 0x%08x (%d KB)\n"
-		  "  framebuffer_base     V: 0x%08x (%d MB)\n"
+		  "  mmio_base            Phy:0x%08x V:0x%08x (%d MB)\n"
+		  "  kernel image         Phy:0x%08x ~ 0x%08x (%d KB)\n"
+		  "  vsyscall info        Phy:0x%08x ~ 0x%08x (%d KB)\n"
+		  "  kernel page dir      Phy:0x%08x ~ 0x%08x (%d KB)\n"
+		  "  allocable page dir   Phy:0x%08x ~ 0x%08x (%d MB)\n"
+		  "  kmalloc              Phy:0x%08x ~ 0x%08x (%d MB)\n"
+		  "  sys_dma_base         Phy:0x%08x ~ 0x%08x (%d MB)\n"
+		  "  allocable mem info   Phy:0x%08x ~ 0x%08x (%d MB)\n"
+		  "  framebuffer_base     Phy:0x%08x V:0x%08x (%d MB)\n"
 		  "  max proc num         %d\n"
 		  "  max task total       %d\n"
 		  "  max task per proc    %d\n"
@@ -166,11 +170,15 @@ static void show_config(void) {
 			_sys_info.phy_offset,
 			_sys_info.total_phy_mem_size/(1*MB),
 			_sys_info.total_usable_mem_size / (1*MB),
-			V2P(KMALLOC_BASE), V2P(KMALLOC_END), _sys_info.kmalloc_size / (1*MB),
-			_allocable_phy_mem_base, _allocable_phy_mem_top, get_free_mem_size() / (1*MB),
 			_sys_info.mmio.phy_base, _sys_info.mmio.v_base, _sys_info.mmio.size/(1*MB),
-			_sys_info.sys_dma.phy_base, _sys_info.sys_dma.v_base, _sys_info.sys_dma.size/(1*KB),
-			_sys_info.gpu.v_base, _sys_info.gpu.max_size/(1*MB),
+			V2P(_kernel_start), V2P(_kernel_end), (_kernel_end - _kernel_start) / (1*KB),
+			V2P(KERNEL_VSYSCALL_INFO_BASE), V2P(KERNEL_VSYSCALL_INFO_END), KERNEL_VSYSCALL_INFO_SIZE / (1*KB),
+			V2P(KERNEL_PAGE_DIR_BASE), V2P(KERNEL_PAGE_DIR_END), KERNEL_PAGE_DIR_SIZE / (1*KB),
+			V2P(ALLOCABLE_PAGE_DIR_BASE), V2P(ALLOCABLE_PAGE_DIR_END), ALLOCABLE_PAGE_DIR_SIZE / (1*MB),
+			V2P(KMALLOC_BASE), V2P(KMALLOC_END), _sys_info.kmalloc_size / (1*MB),
+			_sys_info.sys_dma.phy_base, _sys_info.sys_dma.phy_base+_sys_info.sys_dma.size, _sys_info.sys_dma.size/(1*MB),
+			_allocable_phy_mem_base, _allocable_phy_mem_top, get_free_mem_size() / (1*MB),
+			_sys_info.gpu.phy_base, _sys_info.gpu.v_base, _sys_info.gpu.max_size/(1*MB),
 			_kernel_config.max_proc_num,
 			_kernel_config.max_task_num,
 			_kernel_config.max_task_per_proc);

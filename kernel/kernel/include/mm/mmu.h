@@ -12,19 +12,21 @@
 #define V2P(V) ((ewokos_addr_t)(V) - KERNEL_BASE + _sys_info.phy_offset)
 #define P2V(P) ((ewokos_addr_t)(P) - _sys_info.phy_offset + KERNEL_BASE)
 
-#define KERNEL_IMAGE_END              ALIGN_UP((ewokos_addr_t)_kernel_end, PAGE_DIR_SIZE)
+#define KERNEL_IMAGE_END              ALIGN_UP((ewokos_addr_t)_kernel_end, PAGE_SIZE)
 
-#define KERNEL_PAGE_DIR_BASE          KERNEL_IMAGE_END
-#define KERNEL_PAGE_DIR_END           (KERNEL_PAGE_DIR_BASE + 256*KB)
+#define KERNEL_VSYSCALL_INFO_BASE     KERNEL_IMAGE_END
+#define KERNEL_VSYSCALL_INFO_SIZE     (4*KB)
+#define KERNEL_VSYSCALL_INFO_END      (KERNEL_VSYSCALL_INFO_BASE+KERNEL_VSYSCALL_INFO_SIZE)
 
-#define ALLOCABLE_PAGE_DIR_BASE       KERNEL_PAGE_DIR_END
+#define KERNEL_PAGE_DIR_BASE          ALIGN_UP(KERNEL_VSYSCALL_INFO_END, PAGE_DIR_SIZE)
+#define KERNEL_PAGE_DIR_SIZE          (256*KB)
+#define KERNEL_PAGE_DIR_END           (KERNEL_PAGE_DIR_BASE + KERNEL_PAGE_DIR_SIZE)
+
+#define ALLOCABLE_PAGE_DIR_BASE       ALIGN_UP(KERNEL_PAGE_DIR_END, PAGE_DIR_SIZE)
 #define ALLOCABLE_PAGE_DIR_SIZE       (2 * (_sys_info.total_phy_mem_size / KB))
 #define ALLOCABLE_PAGE_DIR_END        (ALLOCABLE_PAGE_DIR_BASE + ALLOCABLE_PAGE_DIR_SIZE)
 
-#define KERNEL_VSYSCALL_INFO_BASE     ALLOCABLE_PAGE_DIR_END
-#define KERNEL_VSYSCALL_INFO_END      (KERNEL_VSYSCALL_INFO_BASE+4*KB)
-
-#define KMALLOC_BASE                  KERNEL_VSYSCALL_INFO_END
+#define KMALLOC_BASE                  ALLOCABLE_PAGE_DIR_END
 #define KMALLOC_END                   (KMALLOC_BASE + _sys_info.kmalloc_size)
 
 #define MAX_USABLE_MEM_SIZE           (1*GB + 640*MB) //max usable memory for 32bits OS

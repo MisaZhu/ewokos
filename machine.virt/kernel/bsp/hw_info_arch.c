@@ -15,7 +15,7 @@ uint32_t _allocable_phy_mem_base = 0;
 uint32_t _core_base_offset = 0;
 uint32_t _pi4 = 0;
 	
-#define FB_SIZE 64*MB
+#define FB_SIZE (0*MB)
 
 void sys_info_init_arch(void) {
 	memset(&_sys_info, 0, sizeof(sys_info_t));
@@ -24,7 +24,7 @@ void sys_info_init_arch(void) {
 	_sys_info.vector_base = 0x40000000;
 	_sys_info.total_phy_mem_size = 512*MB;
 	_sys_info.total_usable_mem_size = _sys_info.total_phy_mem_size;
-	_core_base_offset =  0x01000000;
+	//_core_base_offset =  0x01000000;
 	_sys_info.mmio.phy_base = 0x8000000;
 	strcpy(_sys_info.machine, "virt");
 
