@@ -55,12 +55,12 @@ static share_mem_t* shm_new(void) {
 static void shm_unmap_pages(uint32_t addr, uint32_t pages) {
 	uint32_t i;
 	for (i = 0; i < pages; i++) {
-		uint32_t physical_addr = resolve_phy_address(_kernel_vm, addr);
+		uint32_t physical_addr = resolve_phy_address(_kernel_info.kernel_vm, addr);
 
 		//get the kernel address for kalloc/kfree
 		uint32_t kernel_addr = P2V(physical_addr);
 		kfree4k((void *) kernel_addr);
-		unmap_page(_kernel_vm, addr);
+		unmap_page(_kernel_info.kernel_vm, addr);
 		addr += PAGE_SIZE;
 	}
 	flush_tlb();
@@ -78,7 +78,7 @@ static int32_t shm_map_pages(uint32_t addr, uint32_t pages) {
 		}
 		memset(page, 0, PAGE_SIZE);
 
-		map_page(_kernel_vm,
+		map_page(_kernel_info.kernel_vm,
 				addr,
 				V2P(page),
 				AP_RW_D, PTE_ATTR_NOCACHE);
@@ -322,7 +322,7 @@ void* shm_proc_map(proc_t* proc, int32_t id) {
 
 	uint32_t addr = it->addr;
 	for (i = 0; i < it->pages; i++) {
-		uint32_t physical_addr = resolve_phy_address(_kernel_vm, addr);
+		uint32_t physical_addr = resolve_phy_address(_kernel_info.kernel_vm, addr);
 		map_page(proc->space->vm,
 				addr,
 				physical_addr,

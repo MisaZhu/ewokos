@@ -2,6 +2,7 @@
 #define KERNEL_H
 
 #include <mm/mmu.h>
+#include <kernel/boot.h>
 #include <ewokos_config.h>
 
 #define IPC_TIMEOUT_USEC 3000000 //ipc timeout as 3s
@@ -9,18 +10,16 @@
 #define KERNEL_PROC_RUN_RECOUNT_SEC   2
 #define SCHEDULE_FREQ_DEF     512 // usecs (timer/schedule)
 
-extern uint32_t _kernel_sec;
-extern uint64_t _kernel_usec;
-extern vsyscall_info_t* _kernel_vsyscall_info;
 
-extern char _kernel_start[];
-extern char _kernel_end[];
-extern char _kernel_sp[];
+typedef struct {
+	uint32_t uptime_sec;
+	uint64_t uptime_usec;
+	vsyscall_info_t* vsyscall_info;
+	page_dir_entry_t* kernel_vm;
+} kernel_info_t;
 
-extern char _bss_start[];
-extern char _bss_end[];
+extern kernel_info_t _kernel_info;
 
-extern page_dir_entry_t* _kernel_vm;
 extern void set_vm(page_dir_entry_t* vm);
 
 #define MAX_PROC_NUM_DEF  64

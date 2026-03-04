@@ -226,7 +226,7 @@ static int plat_dma_alloc(void** vaddr, void** paddr, int size){
 	static __attribute__((__aligned__(PAGE_DIR_SIZE))) struct virtq_t virtq;
 	memset(&virtq, 0, sizeof(virtq));
 	ewokos_addr_t phy = (ewokos_addr_t)V2P(&virtq);
-    map_pages_size(_kernel_vm, &virtq, phy, sizeof(virtq), AP_RW_D, PTE_ATTR_DEV);
+    map_pages_size(_kernel_info.kernel_vm, &virtq, phy, sizeof(virtq), AP_RW_D, PTE_ATTR_DEV);
     flush_tlb();
 	*vaddr = &virtq;
 	*paddr = phy;

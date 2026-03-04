@@ -17,8 +17,7 @@
 #include <mm/kalloc.h>
 #include <stddef.h>
 
-uint32_t _kernel_sec = 0;
-uint64_t _kernel_usec = 0;
+
 
 static uint64_t _last_usec = 0;
 static uint32_t _sec_tic = 0;
@@ -54,11 +53,11 @@ static inline void irq_do_timer0(context_t* ctx) {
 	uint32_t usec_gap = usec - _last_usec;
 
 	_last_usec = usec;
-	_kernel_usec += usec_gap;
+	_kernel_info.uptime_usec += usec_gap;
 	_sec_tic += usec_gap;
 
 	if(_sec_tic >= 1000000) { //SEC_TIC sec
-		_kernel_sec++;
+		_kernel_info.uptime_sec++;
 		_sec_tic = 0;
 		renew_kernel_sec();
 	}
@@ -226,8 +225,8 @@ void data_abort_handler(context_t* ctx, ewokos_addr_t addr_fault, uint32_t statu
 void irq_init(void) {
 	irq_init_arch();
 	interrupt_init();
-	_kernel_sec = 0;
-	_kernel_usec = 0;
+	_kernel_info.uptime_sec = 0;
+	_kernel_info.uptime_usec = 0;
 	_sec_tic = 0;
 	_last_usec = timer_read_sys_usec();
 	irq_enable_arch(IRQ_TIMER0);

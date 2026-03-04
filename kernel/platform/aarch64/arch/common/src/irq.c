@@ -2,8 +2,6 @@
 #include <kprintf.h>
 #include <kernel/proc.h>
 
-extern uint64_t* _kernel_vm;
-
 #define SPLIT(x)	((uint32_t)(((uint64_t)x)>>32)),((uint32_t)(x))
 
 void dump_ctx(context_t* ctx) {
@@ -33,7 +31,7 @@ void dump_ctx(context_t* ctx) {
 		printf("x%02d: %08x%08x\t", i, (uint32_t)((ctx->gpr[i]>>32)), (uint32_t)ctx->gpr[i]);
 	}
 	printf("\n");
-	//dump_page_tables(_kernel_vm);
+	//dump_page_tables(_kernel_info.kernel_vm);
 }
 
 void sync_exception_handle(uint64_t esr, uint64_t far, context_t* ctx){

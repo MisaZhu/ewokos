@@ -21,8 +21,9 @@
 #include <sysinfo.h>
 #include <kernel/semaphore.h>
 
-page_dir_entry_t* _kernel_vm = NULL;
-vsyscall_info_t* _kernel_vsyscall_info = NULL;
+
+
+kernel_info_t _kernel_info;
 
 /*Copy interrupt talbe to phymen address 0x00000000.
 	Virtual address #INTERRUPT_VECTOR_BASE(0xFFFF0000 for ARM) must mapped to phymen 0x00000000.
@@ -52,7 +53,7 @@ static void set_kernel_vm(page_dir_entry_t* vm) {
 
 	//map kernel sys_state memory
 	map_pages(vm, KERNEL_VSYSCALL_INFO_BASE, V2P(KERNEL_VSYSCALL_INFO_BASE), V2P(KERNEL_VSYSCALL_INFO_END), AP_RW_RW, PTE_ATTR_DEV);
-	_kernel_vsyscall_info = (vsyscall_info_t*) KERNEL_VSYSCALL_INFO_BASE;
+	_kernel_info.vsyscall_info = (vsyscall_info_t*) KERNEL_VSYSCALL_INFO_BASE;
 
 	//map kernel malloc memory
 	map_pages(vm, KMALLOC_BASE, V2P(KMALLOC_BASE), V2P(KMALLOC_END), AP_RW_D, PTE_ATTR_WRBACK);
@@ -92,22 +93,22 @@ void set_vm(page_dir_entry_t* vm) {
 
 static void init_kernel_vm(void) {
 	_pages_ref.max = 0;
-	_kernel_vm = (page_dir_entry_t*)KERNEL_PAGE_DIR_BASE;
+	_kernel_info.kernel_vm = (page_dir_entry_t*)KERNEL_PAGE_DIR_BASE;
 	//get kalloc(4k memblocks) ready just for kernel page tables.
 	kalloc_reset();
 	kalloc_append(KERNEL_PAGE_DIR_BASE+PAGE_DIR_SIZE, KERNEL_PAGE_DIR_END); 
 
 	//switch to two-levels 4k page_size type paging
-	set_kernel_vm(_kernel_vm);
+	set_kernel_vm(_kernel_info.kernel_vm);
 	//Use physical address of kernel virtual memory as the new virtual memory page dir table base.
-	set_translation_table_base(V2P((uint32_t)_kernel_vm));
+	set_translation_table_base(V2P((uint32_t)_kernel_info.kernel_vm));
 }
 
 static void init_allocable_mem(void) {
 	//printf("kernel: kalloc init for allocable page dir\n");
 	kalloc_append(ALLOCABLE_PAGE_DIR_BASE, ALLOCABLE_PAGE_DIR_END); 
 	//printf("kernel: mapping allocable pages\n");
-	map_allocable_pages(_kernel_vm);
+	map_allocable_pages(_kernel_info.kernel_vm);
 	
 	//_pages_ref.max = kalloc_append(P2V(_allocable_phy_mem_base), P2V(_allocable_phy_mem_top));
 	kalloc_arch();
@@ -119,7 +120,7 @@ static void init_allocable_mem(void) {
 
 #ifdef KERNEL_SMP
 void __attribute__((optimize("O0"))) _slave_kernel_entry_c(void) {
-	set_translation_table_base(V2P((uint32_t)_kernel_vm));
+	set_translation_table_base(V2P((uint32_t)_kernel_info.kernel_vm));
 
 	uint32_t cid = get_core_id();
 	cpu_core_ready(cid);
@@ -270,5 +271,5 @@ void _kernel_entry_c(void) {
 	__irq_enable();
 	halt();
 
-	kfree4k(_kernel_vsyscall_info);
+	kfree4k(_kernel_info.vsyscall_info);
 }

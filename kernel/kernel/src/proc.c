@@ -458,11 +458,12 @@ static void proc_wakeup_waiting(int32_t pid) {
 }
 
 static inline void proc_update_vsyscall(proc_t* proc) {
-	if(_kernel_vsyscall_info == NULL || proc == NULL || proc->info.pid < 0)
+	if(_kernel_info.vsyscall_info == NULL || proc == NULL || proc->info.pid < 0)
 		return;
-	_kernel_vsyscall_info->proc_info[proc->info.pid].father_pid = proc->info.father_pid;
-	_kernel_vsyscall_info->proc_info[proc->info.pid].uuid = proc->info.uuid;
-	_kernel_vsyscall_info->proc_info[proc->info.pid].type = proc->info.type;
+
+	_kernel_info.vsyscall_info->proc_info[proc->info.pid].father_pid = proc->info.father_pid;
+	_kernel_info.vsyscall_info->proc_info[proc->info.pid].uuid = proc->info.uuid;
+	_kernel_info.vsyscall_info->proc_info[proc->info.pid].type = proc->info.type;
 }
 
 static void proc_terminate(context_t* ctx, proc_t* proc) {
@@ -728,7 +729,7 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
 	}
 
 	proc_init_user_stack(proc);
-	proc->info.start_sec = _kernel_sec;
+	proc->info.start_sec = _kernel_info.uptime_sec;
 	CONTEXT_INIT(proc->ctx);
 
 	proc_update_vsyscall(proc);
@@ -1154,9 +1155,10 @@ static int32_t renew_priority_counter(uint32_t usec) {
 }
 
 static void renew_vsyscall_info(void) {
-	if(_kernel_vsyscall_info == NULL)
+	if(_kernel_info.vsyscall_info == NULL)
 		return;
-	_kernel_vsyscall_info->kernel_usec = _kernel_usec;
+
+	_kernel_info.vsyscall_info->kernel_usec = _kernel_info.uptime_usec;
 }
 
 inline int32_t renew_kernel_tic(uint32_t usec) {

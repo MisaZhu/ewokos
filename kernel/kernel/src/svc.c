@@ -231,13 +231,13 @@ static void	sys_get_sys_state(sys_state_t* info) {
 	info->mem.free = get_free_mem_size();
 	info->mem.kfree = kmalloc_free_size();
 	info->mem.shared = shm_alloced_size();
-	info->kernel_usec = _kernel_usec;
+	info->kernel_usec = _kernel_info.uptime_usec;
 	info->svc_total = _svc_total;
 	memcpy(info->svc_counter, _svc_counter, SYS_CALL_NUM*4);
 }
 
 static vsyscall_info_t* sys_get_vsyscall_info(void) {
-	return _kernel_vsyscall_info;
+	return _kernel_info.vsyscall_info;
 }
 
 static int32_t sys_shm_get(int32_t id, uint32_t size, int32_t flag) {
@@ -621,11 +621,11 @@ static int32_t sys_core_proc_pid(void) {
 
 static int32_t sys_get_kernel_tic(uint32_t* sec, uint32_t* hi, uint32_t* low) {
 	if(sec != NULL)
-		*sec = _kernel_sec;
+		*sec = _kernel_info.uptime_sec;
 	if(hi != NULL) 
-		*hi = _kernel_usec >> 32;
+		*hi = _kernel_info.uptime_usec >> 32;
 	if(low != NULL)
-		*low = _kernel_usec & 0xffffffff;
+		*low = _kernel_info.uptime_usec & 0xffffffff;
 	return 0;
 }
 
