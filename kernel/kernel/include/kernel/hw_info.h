@@ -6,8 +6,6 @@
 #include <mm/mmu.h>
 
 extern sys_info_t _sys_info;
-extern ewokos_addr_t   _allocable_phy_mem_top;
-extern ewokos_addr_t   _allocable_phy_mem_base;
 extern ewokos_addr_t   _core_base_offset;
 
 extern void       sys_info_init_arch(void);

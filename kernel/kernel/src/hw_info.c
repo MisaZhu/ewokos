@@ -17,11 +17,11 @@ void sys_info_init(void) {
     if(_sys_info.kmalloc_size == 0)
         _sys_info.kmalloc_size = KMALLOC_SIZE_DEF;
 
-    _allocable_phy_mem_base = V2P(KMALLOC_END);
+    _sys_info.allocable_phy_mem_base = V2P(KMALLOC_END);
 
     _sys_info.sys_dma.v_base = DMA_V_BASE;
-	_sys_info.sys_dma.phy_base = _allocable_phy_mem_base;
+	_sys_info.sys_dma.phy_base = _sys_info.allocable_phy_mem_base;
     if(_sys_info.sys_dma.size == 0)
     	_sys_info.sys_dma.size = DMA_SIZE_DEF;
-	_allocable_phy_mem_base += _sys_info.sys_dma.size;
+	_sys_info.allocable_phy_mem_base += _sys_info.sys_dma.size;
 }

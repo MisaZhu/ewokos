@@ -10,8 +10,7 @@
 #endif
 
 
-uint32_t _allocable_phy_mem_top = 0;
-uint32_t _allocable_phy_mem_base = 0;
+
 uint32_t _core_base_offset = 0;
 uint32_t _pi4 = 0;
 	
@@ -40,11 +39,11 @@ void sys_info_init_arch(void) {
 	_sys_info.mmio.size = 128*MB;
 
 	if(_sys_info.total_usable_mem_size <= 1*GB) {
-		_allocable_phy_mem_top = _sys_info.phy_offset +
-				_sys_info.total_usable_mem_size - FB_SIZE;
+		_sys_info.allocable_phy_mem_top = _sys_info.phy_offset +
+			_sys_info.total_usable_mem_size - FB_SIZE;
 	}
 	else {
-		_allocable_phy_mem_top = _sys_info.phy_offset + _sys_info.total_usable_mem_size;
+		_sys_info.allocable_phy_mem_top = _sys_info.phy_offset + _sys_info.total_usable_mem_size;
 	}
 
 #ifdef KERNEL_SMP
@@ -88,7 +87,7 @@ inline void __attribute__((optimize("O0"))) start_core(uint32_t core_id) {
 #endif
 
 void kalloc_arch(void) {
-	kalloc_append(P2V(_allocable_phy_mem_base), P2V(_allocable_phy_mem_top));
+	kalloc_append(P2V(_sys_info.allocable_phy_mem_base), P2V(_sys_info.allocable_phy_mem_top));
 }
 
 int32_t  check_mem_map_arch(ewokos_addr_t phy_base, uint32_t size) {

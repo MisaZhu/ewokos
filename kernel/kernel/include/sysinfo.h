@@ -37,24 +37,27 @@ typedef struct {
 
 /*static attr*/
 typedef struct {
-	char        machine[MACHINE_MAX];
-	char        arch[ARCH_MAX];
-	ewokos_addr_t    total_phy_mem_size;
-	uint32_t         kmalloc_size;
-	ewokos_addr_t    total_usable_mem_size;
-	ewokos_addr_t    phy_offset;
-	ewokos_addr_t    kernel_base;
-	ewokos_addr_t    vector_base;
+	char           machine[MACHINE_MAX];
+	char           arch[ARCH_MAX];
+	ewokos_addr_t  total_phy_mem_size;
+	uint32_t       kmalloc_size;
+	ewokos_addr_t  total_usable_mem_size;
+	ewokos_addr_t  phy_offset;
+	ewokos_addr_t  kernel_base;
+	ewokos_addr_t  vector_base;
 
-	mmio_info_t mmio;
-	dma_info_t  sys_dma;
-	gpu_info_t  gpu;
-	uint32_t    cores;
-	uint32_t    core_idles[MAX_CORE_NUM];
+	ewokos_addr_t  allocable_phy_mem_top;
+	ewokos_addr_t  allocable_phy_mem_base;
 
-	uint32_t    max_proc_num;
-	uint32_t    max_task_num;
-	uint32_t    max_task_per_proc;
+	mmio_info_t    mmio;
+	dma_info_t     sys_dma;
+	gpu_info_t     gpu;
+	uint32_t       cores;
+	uint32_t       core_idles[MAX_CORE_NUM];
+
+	uint32_t       max_proc_num;
+	uint32_t       max_task_num;
+	uint32_t       max_task_per_proc;
 } sys_info_t;
 
 /*dynamic attr*/

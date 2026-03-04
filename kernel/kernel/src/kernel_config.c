@@ -25,9 +25,9 @@ static void load_kernel_config_file() {
 	if(v[0] != 0) {
 		uint32_t iv = atoi(v);
 		if(iv > 0) {
-			_allocable_phy_mem_base += ALIGN_UP(iv, PAGE_SIZE);
-			_sys_info.sys_dma.phy_base = _allocable_phy_mem_base;
-			_allocable_phy_mem_base += _sys_info.sys_dma.size;
+			_sys_info.allocable_phy_mem_base += ALIGN_UP(iv, PAGE_SIZE);
+			_sys_info.sys_dma.phy_base = _sys_info.allocable_phy_mem_base;
+			_sys_info.allocable_phy_mem_base += _sys_info.sys_dma.size;
 		}
 	}
 	
@@ -35,7 +35,7 @@ static void load_kernel_config_file() {
 	if(v[0] != 0) {
 		uint32_t iv = atoi(v);
 		if(iv > 0)
-			_allocable_phy_mem_top -= ALIGN_UP(atoi(v), PAGE_SIZE);
+			_sys_info.allocable_phy_mem_top -= ALIGN_UP(atoi(v), PAGE_SIZE);
 	}
 
 	v = sconf_get(sconf, "timer_freq");

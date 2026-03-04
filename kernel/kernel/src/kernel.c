@@ -79,9 +79,9 @@ static void map_allocable_pages(page_dir_entry_t* vm) {
 	//map kernel dma memory
 	map_pages_size(vm, _sys_info.sys_dma.phy_base, _sys_info.sys_dma.phy_base, _sys_info.sys_dma.size, AP_RW_D, PTE_ATTR_WRBACK);
 	map_pages(vm,
-			P2V(_allocable_phy_mem_base),
-			_allocable_phy_mem_base,
-			_allocable_phy_mem_top,
+			P2V(_sys_info.allocable_phy_mem_base),
+			_sys_info.allocable_phy_mem_base,
+			_sys_info.allocable_phy_mem_top,
 			AP_RW_D, PTE_ATTR_WRBACK);
 	flush_tlb();
 }
@@ -110,11 +110,11 @@ static void init_allocable_mem(void) {
 	//printf("kernel: mapping allocable pages\n");
 	map_allocable_pages(_kernel_info.kernel_vm);
 	
-	//_pages_ref.max = kalloc_append(P2V(_allocable_phy_mem_base), P2V(_allocable_phy_mem_top));
+	//_pages_ref.max = kalloc_append(P2V(_sys_info.allocable_phy_mem_base), P2V(_sys_info.allocable_phy_mem_top));
 	kalloc_arch();
-	_pages_ref.max = (_allocable_phy_mem_top - _allocable_phy_mem_base) / PAGE_SIZE;
+	_pages_ref.max = (_sys_info.allocable_phy_mem_top - _sys_info.allocable_phy_mem_base) / PAGE_SIZE;
 	_pages_ref.refs = kmalloc(_pages_ref.max * sizeof(page_ref_t));	
-	_pages_ref.phy_base = _allocable_phy_mem_base;
+	_pages_ref.phy_base = _sys_info.allocable_phy_mem_base;
 	memset(_pages_ref.refs, 0, _pages_ref.max * sizeof(page_ref_t));
 }
 
@@ -177,7 +177,7 @@ static void show_config(void) {
 			V2P(ALLOCABLE_PAGE_DIR_BASE), V2P(ALLOCABLE_PAGE_DIR_END), ALLOCABLE_PAGE_DIR_SIZE / (1*MB),
 			V2P(KMALLOC_BASE), V2P(KMALLOC_END), _sys_info.kmalloc_size / (1*MB),
 			_sys_info.sys_dma.phy_base, _sys_info.sys_dma.phy_base+_sys_info.sys_dma.size, _sys_info.sys_dma.size/(1*MB),
-			_allocable_phy_mem_base, _allocable_phy_mem_top, get_free_mem_size() / (1*MB),
+			_sys_info.allocable_phy_mem_base, _sys_info.allocable_phy_mem_top, get_free_mem_size() / (1*MB),
 			_sys_info.gpu.phy_base, _sys_info.gpu.v_base, _sys_info.gpu.max_size/(1*MB),
 			_kernel_config.max_proc_num,
 			_kernel_config.max_task_num,
