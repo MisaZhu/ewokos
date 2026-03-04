@@ -19,8 +19,8 @@
 
 
 
-static uint64_t _last_usec = 0;
-static uint32_t _sec_tic = 0;
+static uint64_t _irq_tic_last_usec = 0;
+static uint32_t _irq_tic_second = 0;
 
 #ifdef KERNEL_SMP
 
@@ -50,15 +50,15 @@ static inline void irq_do_raw(context_t* ctx, uint32_t irq) {
 static inline void irq_do_timer0(context_t* ctx) {
 	(void)ctx;
 	uint64_t usec = timer_read_sys_usec();
-	uint32_t usec_gap = usec - _last_usec;
+	uint32_t usec_gap = usec - _irq_tic_last_usec;
 
-	_last_usec = usec;
+	_irq_tic_last_usec = usec;
 	_kernel_info.uptime_usec += usec_gap;
-	_sec_tic += usec_gap;
+	_irq_tic_second += usec_gap;
 
-	if(_sec_tic >= 1000000) { //SEC_TIC sec
+	if(_irq_tic_second >= 1000000) { //SEC_TIC sec
 		_kernel_info.uptime_sec++;
-		_sec_tic = 0;
+		_irq_tic_second = 0;
 		renew_kernel_sec();
 	}
 	renew_kernel_tic(usec_gap);
@@ -227,8 +227,8 @@ void irq_init(void) {
 	interrupt_init();
 	_kernel_info.uptime_sec = 0;
 	_kernel_info.uptime_usec = 0;
-	_sec_tic = 0;
-	_last_usec = timer_read_sys_usec();
+	_irq_tic_second = 0;
+	_irq_tic_last_usec = timer_read_sys_usec();
 	irq_enable_arch(IRQ_TIMER0);
 
 #ifdef KERNEL_SMP
