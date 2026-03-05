@@ -79,7 +79,9 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 		ctx->gpr[0] = -1;
 		return -1;
 	}	
-	irq_disable_arch(interrupt);
+
+	if(interrupt != IRQ_SOFT)
+		irq_disable_arch(interrupt);
 
 	/*
 	if(proc->ipc_res.state != IPC_IDLE) {
