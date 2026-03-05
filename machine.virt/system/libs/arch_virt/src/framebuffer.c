@@ -37,6 +37,7 @@ int32_t virt_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
 
 	_fb_info.pointer = dma_user_alloc(_fb_info.size_max);
 	uint64_t fb_phy = dma_user_phy(_fb_info.pointer);
+	_fb_info.phy_base = (uint32_t)fb_phy;
 	//klog("DMA alloc v:%08x p:%08x size:%d\n",  _fb_info.pointer, fb_phy, _fb_info.size_max);
 
 	struct fb_cfg cfg;

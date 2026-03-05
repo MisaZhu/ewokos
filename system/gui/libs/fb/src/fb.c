@@ -34,7 +34,7 @@ int fb_set(const char *dev, int w, int h, int bpp) {
 	proto_t in;
 	PF->format(&in, "i,i,i", w, h, bpp);
 
-	int res = dev_cntl(dev, 0, &in, NULL);
+	int res = dev_cntl(dev, FB_DEV_CNTL_SET_INFO, &in, NULL);
 	PF->clear(&in);
 	return res;
 }
@@ -42,7 +42,7 @@ int fb_set(const char *dev, int w, int h, int bpp) {
 int fb_dev_info(const char *dev, int *w, int *h, int *bpp) {
 	proto_t out;
 	PF->init(&out);
-	if(dev_cntl(dev, 1, NULL, &out) != 0)
+	if(dev_cntl(dev, FB_DEV_CNTL_GET_INFO, NULL, &out) != 0)
 		return -1;
 
 	if(w != NULL)
@@ -61,7 +61,7 @@ int fb_info(fb_t* fb, int* w, int* h, int* bpp) {
 
 	proto_t out;
 	PF->init(&out);
-	if(vfs_fcntl(fb->fd, 0, NULL, &out) != 0) { //get fb info
+	if(vfs_fcntl(fb->fd, FB_CNTL_GET_INFO, NULL, &out) != 0) { //get fb info
 		PF->clear(&out);
 		return -1;
 	}
