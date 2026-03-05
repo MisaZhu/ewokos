@@ -20,22 +20,22 @@ int main(int argc, char* argv[]) {
 		"machine            %s\n" 
 		"arch               %s\n"
 		"cores              %d\n"
-		"kmalloc free       %d / %d MB\n"
 		"phy mem size       %d MB\n"
 		"usable mem size    %d MB\n"
+		"kernel mem         phy:0x%08x ~ 0x%08x (%d/%d MB)\n"
 		"sys_dma_base       phy:0x%08x,V:0x%08x (%d MB)\n"
-		"allocable mem      phy:0x%08x ~ 0x%08x (%d MB)\n"
-		"free mem           %d MB\n",
+		"reserved mem       phy:0x%08x ~ 0x%08x (%d MB)\n"
+		"allocable mem      phy:0x%08x ~ 0x%08x (%d/%d MB)\n",
 		//"mmio_base          Phy:0x%08x, V:0x%08x (%d MB)\n",
 		sys_info.machine,
 		sys_info.arch,
 		sys_info.cores,
-		kfr_mem, sys_info.kmalloc_size/(1024*1024),
 		phy_mem,
 		t_mem,
+		sys_info.phy_offset, sys_info.sys_dma.phy_base , kfr_mem, (sys_info.sys_dma.phy_base - sys_info.phy_offset)/(1024*1024),
 		sys_info.sys_dma.phy_base, sys_info.sys_dma.v_base, sys_info.sys_dma.size/(1024*1024),
-		sys_info.allocable_phy_mem_base, sys_info.allocable_phy_mem_top, (sys_info.allocable_phy_mem_top-sys_info.allocable_phy_mem_base)/(1024*1024),
-		fr_mem);
+		sys_info.allocable_phy_mem_top, sys_info.phy_offset + sys_info.total_phy_mem_size, (sys_info.total_phy_mem_size + sys_info.phy_offset -sys_info.allocable_phy_mem_top)/(1024*1024),
+		sys_info.allocable_phy_mem_base, sys_info.allocable_phy_mem_top, fr_mem,(sys_info.allocable_phy_mem_top-sys_info.allocable_phy_mem_base)/(1024*1024));
 		//sys_info.mmio.phy_base, sys_info.mmio.v_base, sys_info.mmio.size/(1024*1024));
 
 	return 0;
