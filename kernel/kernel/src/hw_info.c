@@ -24,4 +24,6 @@ void sys_info_init(void) {
     if(_sys_info.sys_dma.size == 0)
     	_sys_info.sys_dma.size = DMA_SIZE_DEF;
 	_sys_info.allocable_phy_mem_base += _sys_info.sys_dma.size;
+
+    _sys_info.gpu.v_base = _sys_info.sys_dma.v_base + _sys_info.sys_dma.size;
 }
