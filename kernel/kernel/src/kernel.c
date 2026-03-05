@@ -158,7 +158,6 @@ static void show_config(void) {
 		  "  kmalloc              Phy:0x%08x ~ 0x%08x (%d MB)\n"
 		  "  sys_dma_base         Phy:0x%08x ~ 0x%08x (%d MB)\n"
 		  "  allocable mem info   Phy:0x%08x ~ 0x%08x (%d MB)\n"
-		  "  framebuffer_base     Phy:0x%08x V:0x%08x (%d MB)\n"
 		  "  max proc num         %d\n"
 		  "  max task total       %d\n"
 		  "  max task per proc    %d\n"
@@ -178,7 +177,6 @@ static void show_config(void) {
 			V2P(KMALLOC_BASE), V2P(KMALLOC_END), _sys_info.kmalloc_size / (1*MB),
 			_sys_info.sys_dma.phy_base, _sys_info.sys_dma.phy_base+_sys_info.sys_dma.size, _sys_info.sys_dma.size/(1*MB),
 			_sys_info.allocable_phy_mem_base, _sys_info.allocable_phy_mem_top, get_free_mem_size() / (1*MB),
-			_sys_info.gpu.phy_base, _sys_info.gpu.v_base, _sys_info.gpu.max_size/(1*MB),
 			_kernel_config.max_proc_num,
 			_kernel_config.max_task_num,
 			_kernel_config.max_task_per_proc);

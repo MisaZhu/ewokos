@@ -25,8 +25,7 @@ int main(int argc, char* argv[]) {
 		"allocable mem      phy:0x%08x ~ 0x%08x (%d MB)\n"
 		"free mem           %d MB\n"
 		"sys_dma_base       phy:0x%08x, V:0x%08x (%d KB)\n"
-		"mmio_base          Phy:0x%08x, V:0x%08x (%d MB)\n"
-		"framebuffer_base   Phy:0x%08x, V:0x%08x (%d MB)\n",
+		"mmio_base          Phy:0x%08x, V:0x%08x (%d MB)\n",
 		sys_info.machine,
 		sys_info.arch,
 		sys_info.cores,
@@ -36,8 +35,7 @@ int main(int argc, char* argv[]) {
 		sys_info.allocable_phy_mem_base, sys_info.allocable_phy_mem_top, (sys_info.allocable_phy_mem_top-sys_info.allocable_phy_mem_base)/(1024*1024),
 		fr_mem,
 		sys_info.sys_dma.phy_base, sys_info.sys_dma.v_base, sys_info.sys_dma.size/(1024),
-		sys_info.mmio.phy_base, sys_info.mmio.v_base, sys_info.mmio.size/(1024*1024),
-		sys_info.gpu.phy_base, sys_info.gpu.v_base, sys_info.gpu.max_size/(1024*1024));
+		sys_info.mmio.phy_base, sys_info.mmio.v_base, sys_info.mmio.size/(1024*1024));
 
 	return 0;
 }

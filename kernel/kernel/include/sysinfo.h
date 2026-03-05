@@ -12,13 +12,6 @@ typedef struct {
 } mmio_info_t;
 
 typedef struct {
-	ewokos_addr_t phy_base;
-	ewokos_addr_t v_base;
-	uint32_t size;
-	uint32_t max_size;
-} gpu_info_t;
-
-typedef struct {
 	ewokos_addr_t free;
 	ewokos_addr_t kfree;
 	ewokos_addr_t shared;
@@ -51,7 +44,6 @@ typedef struct {
 
 	mmio_info_t    mmio;
 	dma_info_t     sys_dma;
-	gpu_info_t     gpu;
 	uint32_t       cores;
 	uint32_t       core_idles[MAX_CORE_NUM];
 
