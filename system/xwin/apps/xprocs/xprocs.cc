@@ -351,7 +351,7 @@ protected:
 		uint32_t fr_mem = sys_state.mem.free / (1024*1024);
 		uint32_t t_mem = sys_info.total_usable_mem_size / (1024*1024);
 		char txt[32] = { 0 };
-		snprintf(txt, 31, "%dM/%dM", fr_mem, t_mem);
+		snprintf(txt, 31, "%dM/%dM", t_mem - fr_mem, t_mem);
 
 		graph_draw_text_font(g, r.x , r.y + r.h - 16,
 				txt, theme->getFont(), 12, 0xFF000000);
