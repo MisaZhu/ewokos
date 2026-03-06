@@ -9,7 +9,6 @@ all:
 	cd xpng; make
 	cd xprocs; make
 	cd xDemo; make
-	cd xMem; make
 	cd xwm_theme; make
 	cd xtheme; make
 
@@ -24,6 +23,5 @@ clean:
 	cd xpng; make clean
 	cd xprocs; make clean
 	cd xDemo; make clean
-	cd xMem; make clean
 	cd xwm_theme; make clean
 	cd xtheme; make clean
