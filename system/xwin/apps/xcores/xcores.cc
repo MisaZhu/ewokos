@@ -89,7 +89,7 @@ public:
 protected:
 	void drawTitle(graph_t* g, XTheme* theme, uint32_t i, uint32_t color, const grect_t& r) {
 		//int x = r.x + x_off + i*60;
-		int x = r.x + i*(theme->basic.fontSize*3+4) + theme->basic.fontSize*6;
+		int x = r.x + i*(theme->basic.fontSize*3+4) + theme->basic.fontSize*5;
 		graph_fill(g, x, r.y+4, 10, 10, color);
 		char s[16];
 		int32_t perc = 100 - (sysInfo.core_idles[i]/10000);
