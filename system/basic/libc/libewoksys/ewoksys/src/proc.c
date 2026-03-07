@@ -232,8 +232,7 @@ inline uint32_t proc_get_uuid(int32_t pid) {
 }
 
 inline void* proc_malloc_expand(int32_t size) {
-	//if(size <= 0)
-		//klog("proc_malloc_expand %d, pid: %d\n", size, getpid());
+	//klog("proc_malloc_expand %d, pid: %d\n", size, getpid());
 	return (void*)syscall1(SYS_MALLOC_EXPAND, (ewokos_addr_t)size);
 }
 

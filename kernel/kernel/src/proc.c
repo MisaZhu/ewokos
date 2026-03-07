@@ -605,7 +605,6 @@ void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 }
 
 inline void* proc_malloc(proc_t* proc, int32_t size) {
-
 	proc->space->heap_used += size;
 	size = proc->space->heap_used - proc->space->heap_size; 
 
@@ -738,6 +737,7 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
 
 static inline void proc_free_heap(proc_t* proc) {
 	proc_shrink_mem(proc, proc->space->heap_size/PAGE_SIZE);
+	proc->space->heap_used = 0;
 }
 
 /* proc_load loads the given ELF process image into the given process. */
