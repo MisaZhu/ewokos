@@ -430,11 +430,14 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
     // 临时缓冲区
     uint32_t* temp = (uint32_t*)malloc(w * h * sizeof(uint32_t));
     
-    // NEON优化水平模糊，并行处理4个像素
+    // NEON优化水平模糊，并行处理8个像素
     for (int j = 0; j < h; j++) {
-        for (int i = 0; i < w; i += 4) {
-            if (i + 4 > w) {
-                // 处理剩余不足4个像素的情况
+        // 预加载数据到缓存
+        __asm volatile("prfm pldl1keep, [%0, #256]\n\t" : : "r"(&pixels[(y + j) * width + x]));
+        
+        for (int i = 0; i < w; i += 8) {
+            if (i + 8 > w) {
+                // 处理剩余不足8个像素的情况
                 for (int k = i; k < w; k++) {
                     float32x4_t accum = vdupq_n_f32(0.0f);
                     
@@ -467,16 +470,44 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
                 break;
             }
             
-            float32x4_t accum[4] = {vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)};
+            // 并行处理8个像素
+            float32x4_t accum[8] = {
+                vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f),
+                vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)
+            };
             
             for (int m = -radius; m <= radius; m++) {
+                float weight = kernel[m + radius];
+                
+                // 批量加载8个像素
+                uint32x4_t pixels0 = vld1q_u32(&pixels[(y + j) * width + x + i]);
+                uint32x4_t pixels1 = vld1q_u32(&pixels[(y + j) * width + x + i + 4]);
+                
+                // 处理前4个像素
                 for (int k = 0; k < 4; k++) {
                     int px = x + i + k + m;
                     if (px < x) px = x;
                     if (px >= x + w) px = x + w - 1;
                     
                     uint32_t pixel = pixels[(y + j) * width + px];
-                    float weight = kernel[m + radius];
+                    
+                    // 提取ARGB通道
+                    uint8x8_t vPixel = vreinterpret_u8_u32(vdup_n_u32(pixel));
+                    uint16x8_t vPixel16 = vmovl_u8(vPixel);
+                    uint32x4_t vPixel32 = vmovl_u16(vget_low_u16(vPixel16));
+                    float32x4_t vPixelF = vcvtq_f32_u32(vPixel32);
+                    
+                    // 乘以权重并累加
+                    accum[k] = vmlaq_n_f32(accum[k], vPixelF, weight);
+                }
+                
+                // 处理后4个像素
+                for (int k = 4; k < 8; k++) {
+                    int px = x + i + k + m;
+                    if (px < x) px = x;
+                    if (px >= x + w) px = x + w - 1;
+                    
+                    uint32_t pixel = pixels[(y + j) * width + px];
                     
                     // 提取ARGB通道
                     uint8x8_t vPixel = vreinterpret_u8_u32(vdup_n_u32(pixel));
@@ -490,7 +521,7 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
             }
             
             // 转换为整数并存储
-            for (int k = 0; k < 4; k++) {
+            for (int k = 0; k < 8; k++) {
                 uint32x4_t result = vcvtq_u32_f32(accum[k]);
                 uint8x8_t res8 = vmovn_u16(vcombine_u16(
                     vmovn_u32(result),
@@ -501,10 +532,10 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
         }
     }
     
-    // NEON优化垂直模糊，并行处理4个像素
-    for (int j = 0; j < h; j += 4) {
-        if (j + 4 > h) {
-            // 处理剩余不足4个像素的情况
+    // NEON优化垂直模糊，并行处理8个像素
+    for (int j = 0; j < h; j += 8) {
+        if (j + 8 > h) {
+            // 处理剩余不足8个像素的情况
             for (int k = j; k < h; k++) {
                 for (int i = 0; i < w; i++) {
                     float32x4_t accum = vdupq_n_f32(0.0f);
@@ -540,16 +571,25 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
         }
         
         for (int i = 0; i < w; i++) {
-            float32x4_t accum[4] = {vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)};
+            // 预加载数据到缓存
+            __asm volatile("prfm pldl1keep, [%0, #256]\n\t" : : "r"(&temp[i]));
+            
+            // 并行处理8个像素
+            float32x4_t accum[8] = {
+                vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f),
+                vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)
+            };
             
             for (int m = -radius; m <= radius; m++) {
-                for (int k = 0; k < 4; k++) {
+                float weight = kernel[m + radius];
+                
+                // 处理8个像素
+                for (int k = 0; k < 8; k++) {
                     int py = y + j + k + m;
                     if (py < y) py = y;
                     if (py >= y + h) py = y + h - 1;
                     
                     uint32_t pixel = temp[(py - y) * w + i];
-                    float weight = kernel[m + radius];
                     
                     // 提取ARGB通道
                     uint8x8_t vPixel = vreinterpret_u8_u32(vdup_n_u32(pixel));
@@ -563,7 +603,7 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
             }
             
             // 转换为整数并存储
-            for (int k = 0; k < 4; k++) {
+            for (int k = 0; k < 8; k++) {
                 uint32x4_t result = vcvtq_u32_f32(accum[k]);
                 uint8x8_t res8 = vmovn_u16(vcombine_u16(
                     vmovn_u32(result),
