@@ -276,7 +276,7 @@ inline void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw
     }
 }
 
-static bool seeded = false;
+
 static void glass_neon(uint32_t* args, int width, int height, 
                 int x, int y, int w, int h, int r) {
     // 参数检查
@@ -285,15 +285,8 @@ static void glass_neon(uint32_t* args, int width, int height,
     if (x < 0 || y < 0 || x + w > width || y + h > height)
         return;
 
-	uint32_t *tmp = (uint32_t*)malloc(width * height * sizeof(uint32_t));
-	if(tmp == NULL)
-		return;
-	memcpy(tmp, args, width * height * sizeof(uint32_t));
-
     // 使用固定随机种子确保每次效果相同
-    if (!seeded) {
-        srand(0x12345678);  // 固定种子值
-    }
+    srand(0x12345678);  // 每次调用都使用相同的种子值
 
     // 预计算常用值
     int range = 2*r;
@@ -301,8 +294,6 @@ static void glass_neon(uint32_t* args, int width, int height,
     int y_end = y + h - 1;
 
     // NEON寄存器初始化
-    int32x4_t vradius = vdupq_n_s32(r);
-    int32x4_t vrange = vdupq_n_s32(range);
     int32x4_t vx = vdupq_n_s32(x);
     int32x4_t vy = vdupq_n_s32(y);
     int32x4_t vx_end = vdupq_n_s32(x_end);
@@ -322,10 +313,13 @@ static void glass_neon(uint32_t* args, int width, int height,
     for (int j = y; j <= y_end; j++) {
         int32x4_t vj = vdupq_n_s32(j);
         
-        for (int i = x; i <= x_end; i += 4) {
-            // 处理剩余不足4个像素的情况
+        // 预加载数据到缓存
+        __asm volatile("prfm pldl1keep, [%0, #256]\n\t" : : "r"(&args[j * width + x]));
+        
+        for (int i = x; i <= x_end; i += 8) {
+            // 处理剩余不足8个像素的情况
             int remaining = x_end - i + 1;
-            if (remaining < 4) {
+            if (remaining < 8) {
                 for (int k = 0; k < remaining; k++) {
                     int rx = i + k + rand_offsets[offset_index++];
                     int ry = j + rand_offsets[offset_index++];
@@ -339,47 +333,53 @@ static void glass_neon(uint32_t* args, int width, int height,
                 break;
             }
             
-            // 为4个像素生成随机偏移
-            int rand_x[4], rand_y[4];
-            for (int k = 0; k < 4; k++) {
+            // 为8个像素生成随机偏移
+            int rand_x[8], rand_y[8];
+            for (int k = 0; k < 8; k++) {
                 rand_x[k] = rand_offsets[offset_index++];
                 rand_y[k] = rand_offsets[offset_index++];
             }
             
-            // 加载随机偏移到NEON寄存器
-            int32x4_t vrand_x = vld1q_s32(rand_x);
-            int32x4_t vrand_y = vld1q_s32(rand_y);
+            // 处理前4个像素
+            int32x4_t vrand_x0 = vld1q_s32(rand_x);
+            int32x4_t vrand_y0 = vld1q_s32(rand_y);
+            int32x4_t vi0 = {i, i+1, i+2, i+3};
+            int32x4_t rx0 = vaddq_s32(vi0, vrand_x0);
+            int32x4_t ry0 = vaddq_s32(vj, vrand_y0);
+            rx0 = vmaxq_s32(vx, vminq_s32(vx_end, rx0));
+            ry0 = vmaxq_s32(vy, vminq_s32(vy_end, ry0));
+            int32x4_t rpos0 = vmlaq_s32(rx0, ry0, vwidth);
             
-            // 计算当前x位置
-            int32x4_t vi = {i, i+1, i+2, i+3};
-            
-            // 计算随机位置
-            int32x4_t rx = vaddq_s32(vi, vrand_x);
-            int32x4_t ry = vaddq_s32(vj, vrand_y);
-            
-            // 边界检查
-            rx = vmaxq_s32(vx, vminq_s32(vx_end, rx));
-            ry = vmaxq_s32(vy, vminq_s32(vy_end, ry));
-            
-            // 计算随机像素位置(ry * width + rx)
-            int32x4_t rpos = vmlaq_s32(rx, ry, vwidth);
+            // 处理后4个像素
+            int32x4_t vrand_x1 = vld1q_s32(&rand_x[4]);
+            int32x4_t vrand_y1 = vld1q_s32(&rand_y[4]);
+            int32x4_t vi1 = {i+4, i+5, i+6, i+7};
+            int32x4_t rx1 = vaddq_s32(vi1, vrand_x1);
+            int32x4_t ry1 = vaddq_s32(vj, vrand_y1);
+            rx1 = vmaxq_s32(vx, vminq_s32(vx_end, rx1));
+            ry1 = vmaxq_s32(vy, vminq_s32(vy_end, ry1));
+            int32x4_t rpos1 = vmlaq_s32(rx1, ry1, vwidth);
             
             // 提取位置到数组
-            int rpos_arr[4];
-            vst1q_s32(rpos_arr, rpos);
+            int rpos_arr0[4], rpos_arr1[4];
+            vst1q_s32(rpos_arr0, rpos0);
+            vst1q_s32(rpos_arr1, rpos1);
             
-            // 手动收集像素值
-            uint32_t pixels[4];
+            // 批量收集像素值
+            uint32_t pixels[8];
             for (int k = 0; k < 4; k++) {
-                pixels[k] = tmp[rpos_arr[k]];
+                pixels[k] = args[rpos_arr0[k]];
+                pixels[k + 4] = args[rpos_arr1[k]];
             }
             
-            // 存储结果
-            vst1q_u32(&args[j * width + i], vld1q_u32(pixels));
+            // 批量存储结果
+            uint32x4_t pixels0 = vld1q_u32(pixels);
+            uint32x4_t pixels1 = vld1q_u32(&pixels[4]);
+            vst1q_u32(&args[j * width + i], pixels0);
+            vst1q_u32(&args[j * width + i + 4], pixels1);
         }
     }
     
-	free(tmp);
     free(rand_offsets);
 }
 
