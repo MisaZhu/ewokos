@@ -17,7 +17,12 @@ extern "C" {
 static inline void neon_alpha_8(uint32_t *b, uint32_t *f, uint32_t *d, uint8_t alpha_more)
 {
     __asm volatile(
-        "ld4 {v20.8b-v23.8b}, [%1]\n\t"    // Load foreground (R,G,B,A)
+        // 预加载数据到缓存
+        "prfm pldl1keep, [%1, #64]\n\t"
+        "prfm pldl1keep, [%0, #64]\n\t"
+        
+        // Load foreground (R,G,B,A)
+        "ld4 {v20.8b-v23.8b}, [%1]\n\t"
         
         // Load alpha_more and calculate combined alpha
         "dup v31.8b, %w3\n\t"             // Duplicate alpha_more
@@ -28,20 +33,19 @@ static inline void neon_alpha_8(uint32_t *b, uint32_t *f, uint32_t *d, uint8_t a
         "movi v28.8b, #0xff\n\t"
         "sub v28.8b, v28.8b, v23.8b\n\t"   // 255 - alpha
         
-        // Multiply foreground by alpha
-        "umull v1.8h, v20.8b, v23.8b\n\t"
-        "umull v3.8h, v21.8b, v23.8b\n\t"
-        "umull v5.8h, v22.8b, v23.8b\n\t"
-        
         // Load background
         "ld4 {v24.8b-v27.8b}, [%0]\n\t"
         "movi v29.8b, #0xff\n\t"
         "sub v29.8b, v29.8b, v27.8b\n\t"  // 255 - background alpha
         
-        // Multiply background by inverse alpha
-        "umull v2.8h, v24.8b, v28.8b\n\t"
-        "umull v4.8h, v25.8b, v28.8b\n\t"
-        "umull v6.8h, v26.8b, v28.8b\n\t"
+        // 并行计算前景和背景
+        "umull v1.8h, v20.8b, v23.8b\n\t"  // 前景 R * alpha
+        "umull v3.8h, v21.8b, v23.8b\n\t"  // 前景 G * alpha
+        "umull v5.8h, v22.8b, v23.8b\n\t"  // 前景 B * alpha
+        
+        "umull v2.8h, v24.8b, v28.8b\n\t"  // 背景 R * (255 - alpha)
+        "umull v4.8h, v25.8b, v28.8b\n\t"  // 背景 G * (255 - alpha)
+        "umull v6.8h, v26.8b, v28.8b\n\t"  // 背景 B * (255 - alpha)
         
         // Calculate resulting alpha: oa = oa + (255 - oa) * a / 255
         "umull v7.8h, v29.8b, v23.8b\n\t"
@@ -105,8 +109,6 @@ static inline void neon_fill_store_8(uint32_t *d)
 static inline void graph_pixel_argb_neon(graph_t *graph, int32_t x, int32_t y,
                                   uint32_t *src, int size, uint8_t alpha_more)
 {
-    uint32_t fg[8] = {0};
-    uint32_t bg[8] = {0};
     uint32_t *dst = &graph->buffer[y * graph->w + x];
 
     if (size == 8)
@@ -115,6 +117,9 @@ static inline void graph_pixel_argb_neon(graph_t *graph, int32_t x, int32_t y,
     }
     else
     {
+        // 对于 size < 8 的情况，使用 memcpy 处理边界
+        uint32_t fg[8] = {0};
+        uint32_t bg[8] = {0};
         memcpy(fg, src, 4*size);
         memcpy(bg, dst, 4*size);
         neon_alpha_8(bg, fg, bg, alpha_more);
@@ -233,12 +238,40 @@ inline void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw
     ex = sr.x + sr.w;
     ey = sr.y + sr.h;
 
-    for(; sy < ey; sy++, dy++) {
+    // 循环展开，每次处理2行，提高指令级并行性
+    for(; sy < ey - 1; sy += 2, dy += 2) {
+        register int32_t sx = sr.x;
+        register int32_t dx = dr.x;
+        register int32_t offset1 = sy * src->w;
+        register int32_t offset2 = (sy + 1) * src->w;
+        
+        // 预加载下一行数据到缓存
+        __asm volatile("prfm pldl1keep, [%0, #256]\n\t" : : "r"(&src->buffer[offset1]));
+        __asm volatile("prfm pldl1keep, [%0, #256]\n\t" : : "r"(&dst->buffer[dy * dst->w + dx]));
+        __asm volatile("prfm pldl1keep, [%0, #256]\n\t" : : "r"(&dst->buffer[(dy + 1) * dst->w + dx]));
+        
+        for(; sx < ex - 7; sx += 8, dx += 8) {
+            // 并行处理两行数据
+            graph_pixel_argb_neon(dst, dx, dy, &src->buffer[offset1 + sx], 8, alpha);
+            graph_pixel_argb_neon(dst, dx, dy + 1, &src->buffer[offset2 + sx], 8, alpha);
+        }
+        
+        // 处理剩余像素
+        if(sx < ex) {
+            int remain = ex - sx;
+            graph_pixel_argb_neon(dst, dx, dy, &src->buffer[offset1 + sx], remain, alpha);
+            graph_pixel_argb_neon(dst, dx, dy + 1, &src->buffer[offset2 + sx], remain, alpha);
+        }
+    }
+    
+    // 处理最后一行（如果总行数为奇数）
+    if(sy < ey) {
         register int32_t sx = sr.x;
         register int32_t dx = dr.x;
         register int32_t offset = sy * src->w;
-        for(; sx < ex; sx+=8, dx+=8) {
-            graph_pixel_argb_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex-sx, 8), alpha);    
+        
+        for(; sx < ex; sx += 8, dx += 8) {
+            graph_pixel_argb_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex - sx, 8), alpha);
         }
     }
 }
