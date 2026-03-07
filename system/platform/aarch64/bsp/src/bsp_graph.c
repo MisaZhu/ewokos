@@ -14,12 +14,22 @@ extern "C" {
 
 #define MIN(a, b) (((a) > (b))?(b):(a))
 
+static inline void neon_8(uint32_t *s, uint32_t *d)
+{
+    __asm volatile(
+        "ld4 {v20.8b-v23.8b}, [%0]\n\t"    // Load source
+        "st4 {v20.8b-v23.8b}, [%1]\n\t"    // Store to destination
+        :
+        : "r"(s), "r"(d)
+        : "memory", "v20", "v21", "v22", "v23");
+}
+
 static inline void neon_alpha_8(uint32_t *b, uint32_t *f, uint32_t *d, uint8_t alpha_more)
 {
     __asm volatile(
-        // 预加载数据到缓存
-        "prfm pldl1keep, [%1, #64]\n\t"
-        "prfm pldl1keep, [%0, #64]\n\t"
+        // 预加载更多数据到缓存
+        "prfm pldl1keep, [%1, #128]\n\t"
+        "prfm pldl1keep, [%0, #128]\n\t"
         
         // Load foreground (R,G,B,A)
         "ld4 {v20.8b-v23.8b}, [%1]\n\t"
@@ -38,13 +48,12 @@ static inline void neon_alpha_8(uint32_t *b, uint32_t *f, uint32_t *d, uint8_t a
         "movi v29.8b, #0xff\n\t"
         "sub v29.8b, v29.8b, v27.8b\n\t"  // 255 - background alpha
         
-        // 并行计算前景和背景
+        // 优化指令顺序，提高并行度
         "umull v1.8h, v20.8b, v23.8b\n\t"  // 前景 R * alpha
-        "umull v3.8h, v21.8b, v23.8b\n\t"  // 前景 G * alpha
-        "umull v5.8h, v22.8b, v23.8b\n\t"  // 前景 B * alpha
-        
         "umull v2.8h, v24.8b, v28.8b\n\t"  // 背景 R * (255 - alpha)
+        "umull v3.8h, v21.8b, v23.8b\n\t"  // 前景 G * alpha
         "umull v4.8h, v25.8b, v28.8b\n\t"  // 背景 G * (255 - alpha)
+        "umull v5.8h, v22.8b, v23.8b\n\t"  // 前景 B * alpha
         "umull v6.8h, v26.8b, v28.8b\n\t"  // 背景 B * (255 - alpha)
         
         // Calculate resulting alpha: oa = oa + (255 - oa) * a / 255
@@ -76,16 +85,6 @@ static inline void neon_alpha_8(uint32_t *b, uint32_t *f, uint32_t *d, uint8_t a
         : "r"(b), "r"(f), "r"(d), "r"(alpha_more)
         : "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", 
           "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29", "v31");
-}
-
-static inline void neon_8(uint32_t *s, uint32_t *d)
-{
-    __asm volatile(
-        "ld4 {v20.8b-v23.8b}, [%0]\n\t"    // Load source
-        "st4 {v20.8b-v23.8b}, [%1]\n\t"    // Store to destination
-        :
-        : "r"(s), "r"(d)
-        : "memory", "v20", "v21", "v22", "v23");
 }
 
 static inline void neon_fill_load_8(uint32_t *s)
