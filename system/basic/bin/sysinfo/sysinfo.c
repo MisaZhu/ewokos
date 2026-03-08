@@ -28,6 +28,8 @@ int main(int argc, char* argv[]) {
 	get_mem_size_desc(sys_info.phy_offset + sys_info.total_phy_mem_size - sys_info.allocable_phy_mem_top, res_mem);
 	char allocable_mem[8] = {0};
 	get_mem_size_desc(sys_info.allocable_phy_mem_top-sys_info.allocable_phy_mem_base, allocable_mem);
+	char mmio_mem[8] = {0};
+	get_mem_size_desc(sys_info.mmio.size, mmio_mem);
 
 	printf(
 		"machine            %s\n" 
@@ -38,7 +40,8 @@ int main(int argc, char* argv[]) {
 		"kernel mem         phy:0x%08x ~ 0x%08x (%s/%s)\n"
 		"sys_dma_base       phy:0x%08x,V:0x%08x (%s)\n"
 		"reserved mem       phy:0x%08x ~ 0x%08x (%s)\n"
-		"allocable mem      phy:0x%08x ~ 0x%08x (%s/%s)\n",
+		"allocable mem      phy:0x%08x ~ 0x%08x (%s/%s)\n"
+		"mmio               phy:0x%08x,V:0x%08x (%s)\n",
 		sys_info.machine,
 		sys_info.arch,
 		sys_info.cores,
@@ -47,7 +50,8 @@ int main(int argc, char* argv[]) {
 		sys_info.phy_offset, sys_info.sys_dma.phy_base , kfr_mem, kt_mem,
 		sys_info.sys_dma.phy_base, sys_info.sys_dma.v_base, dma_size,
 		sys_info.allocable_phy_mem_top, sys_info.phy_offset + sys_info.total_phy_mem_size, res_mem,
-		sys_info.allocable_phy_mem_base, sys_info.allocable_phy_mem_top, fr_mem, allocable_mem);
+		sys_info.allocable_phy_mem_base, sys_info.allocable_phy_mem_top, fr_mem, allocable_mem,
+		sys_info.mmio.phy_base, sys_info.mmio.v_base, mmio_mem);
 
 	return 0;
 }
