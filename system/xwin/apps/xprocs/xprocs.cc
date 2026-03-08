@@ -348,15 +348,13 @@ protected:
 		sys_state_t sys_state;
 		syscall1(SYS_GET_SYS_INFO, (ewokos_addr_t)(uint64_t)&sys_info);
 		syscall1(SYS_GET_SYS_STATE, (ewokos_addr_t)(uint64_t)&sys_state);
-		uint32_t fr_mem = sys_state.mem.free / (1024*1024);
-		uint32_t t_mem = sys_info.total_usable_mem_size / (1024*1024);
 		char txt[32] = { 0 };
 
-		char fr_mem_str[8] = {0};
-		get_mem_size_desc(fr_mem*1024*1024, fr_mem_str);
+		char used_mem_str[8] = {0};
+		get_mem_size_desc((sys_info.total_usable_mem_size-sys_state.mem.free), used_mem_str);
 		char t_mem_str[8] = {0};
-		get_mem_size_desc(t_mem*1024*1024, t_mem_str);
-		snprintf(txt, 31, "%s/%s", fr_mem_str, t_mem_str);
+		get_mem_size_desc(sys_info.total_usable_mem_size, t_mem_str);
+		snprintf(txt, 31, "%s/%s", used_mem_str, t_mem_str);
 
 		graph_draw_text_font(g, r.x , r.y + r.h - 16,
 				txt, theme->getFont(), 12, 0xFF000000);
