@@ -133,7 +133,7 @@ int main(int argc, char* argv[]) {
 	procinfo_t* procs = (procinfo_t*)malloc(sizeof(procinfo_t)*num);
 	if(num > 0 && procs != NULL && syscall2(SYS_GET_PROCS, (ewokos_addr_t)num, (ewokos_addr_t)procs) == 0) {
 		if(full)
-			printf("OWNER    PID  FATH  CORE  STATE     TIME     HEAP(K) SHM(K) PROC\n"); 
+			printf("OWNER    PID  FATH  CORE  STATE     TIME     HEAP    SHM    PROC\n"); 
 		else
 			printf("OWNER    PID  FATH  CORE  STATE     PROC\n"); 
 		for(int i=0; i<num; i++) {
@@ -146,7 +146,9 @@ int main(int argc, char* argv[]) {
 
 			if(full) {
 				uint32_t sec = csec - proc->start_sec;
-				printf("%-8s %-4d %-4d  %-5s %-9s %02d:%02d:%02d %-6d  %-5d  %s",
+				char heap_size[8] = {0};
+				char shm_size[8] = {0};
+				printf("%-8s %-4d %-4d  %-5s %-9s %02d:%02d:%02d %-6s  %-5s  %s",
 					get_owner(proc),
 					proc->pid,
 					proc->father_pid,
@@ -155,8 +157,8 @@ int main(int argc, char* argv[]) {
 					sec / (3600),
 					sec / 60,
 					sec % 60,
-					proc->heap_size / 1024,
-					proc->shm_size / 1024,
+					get_mem_size_desc(proc->heap_size, heap_size),
+					get_mem_size_desc(proc->shm_size, shm_size),
 					get_cmd(proc, full));
 			}
 			else {

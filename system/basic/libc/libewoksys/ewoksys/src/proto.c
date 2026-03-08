@@ -230,6 +230,20 @@ void proto_free(proto_t* proto) {
 	free(proto);
 }
 
+const char* get_mem_size_desc(uint32_t size, char ret[]) {
+	if(size > (1024*1024)) {
+		uint32_t m = size/(1024*1024);
+		if(size % (1024*1024) != 0)
+			m++;
+		snprintf(ret, 7, "%dM", m);
+	}
+	else if(size == 0)
+		snprintf(ret, 7, "0");
+	else
+		snprintf(ret, 7, "%dK", size/1024);
+	return ret;
+}
+
 #ifdef __cplusplus
 }
 #endif

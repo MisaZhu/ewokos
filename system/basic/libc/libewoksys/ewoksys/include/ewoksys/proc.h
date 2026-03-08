@@ -34,6 +34,7 @@ int      proc_usleep(uint32_t usec);
 
 int      proc_exec(const char* cmd_line);
 void     proc_priority(uint32_t pid, uint32_t priority);
+const char* get_mem_size_desc(uint32_t size, char ret[]);
 
 extern int _vfsd_pid;
 extern int _cored_pid;

@@ -162,7 +162,12 @@ protected:
 		uint32_t usedMem = totalMem - freeMem;
 		uint32_t usedPercent = (totalMem > 0) ? (usedMem * 100 / totalMem) : 0;
 
-		snprintf(s, 63, "Mem: %d/%d MB (%d%%)", usedMem, totalMem, usedPercent);
+		char usedMemStr[8] = {0};
+		get_mem_size_desc(usedMem*1024*1024, usedMemStr);
+		char totalMemStr[8] = {0};
+		get_mem_size_desc(totalMem*1024*1024, totalMemStr);
+
+		snprintf(s, 63, "Mem: %s/%s (%d%%)", usedMemStr, totalMemStr, usedPercent);
 		graph_draw_text_font(g, r.x + x_off, r.y - y_off_bottom + 2, s, theme->getFont(), theme->basic.fontSize, theme->basic.fgColor);
 	}
 

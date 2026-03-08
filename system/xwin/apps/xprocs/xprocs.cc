@@ -115,7 +115,7 @@ protected:
 			str = get_state(proc);
 		}
 		else if(col == 4) {
-			snprintf(s, 15, "%d", (proc->heap_size / 1024));
+			get_mem_size_desc(proc->heap_size, s);
 			str = s;
 		}
 		else if(col == 5) {
@@ -351,7 +351,12 @@ protected:
 		uint32_t fr_mem = sys_state.mem.free / (1024*1024);
 		uint32_t t_mem = sys_info.total_usable_mem_size / (1024*1024);
 		char txt[32] = { 0 };
-		snprintf(txt, 31, "%dM/%dM", t_mem - fr_mem, t_mem);
+
+		char fr_mem_str[8] = {0};
+		get_mem_size_desc(fr_mem*1024*1024, fr_mem_str);
+		char t_mem_str[8] = {0};
+		get_mem_size_desc(t_mem*1024*1024, t_mem_str);
+		snprintf(txt, 31, "%s/%s", fr_mem_str, t_mem_str);
 
 		graph_draw_text_font(g, r.x , r.y + r.h - 16,
 				txt, theme->getFont(), 12, 0xFF000000);
