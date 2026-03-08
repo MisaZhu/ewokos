@@ -149,3 +149,8 @@ signed __aeabi_idivmod(signed numerator, signed denominator)
 
 	return ret_idivmod_values(qr.q, qr.r);
 }
+
+unsigned __aeabi_uldivmod(unsigned numerator, unsigned denominator)
+{
+	return __aeabi_uidivmod(numerator, denominator);
+}
