@@ -259,6 +259,7 @@ int ip_iface_update(struct ip_iface *iface, uint32_t ipaddr, uint32_t netmask, u
     iface->unicast = ipaddr;
     iface->netmask = netmask;
     iface->broadcast = (iface->unicast & iface->netmask) | ~iface->netmask;
+    iface->gateway = gateway;
 
     // 添加网络直连路由
     if (!ip_route_add(iface->unicast & iface->netmask, iface->netmask, IP_ADDR_ANY, iface)) {
@@ -416,8 +417,16 @@ ip_output_device(struct ip_iface *iface, const uint8_t *data, size_t len, ip_add
         if (dst == iface->broadcast || dst == IP_ADDR_BROADCAST) {
             memcpy(hwaddr, NET_IFACE(iface)->dev->broadcast, NET_IFACE(iface)->dev->alen);
         } else {
-            if (ip_resolve_hwaddr(iface, dst, hwaddr) != 0) {
-                infof("arp resolve error\n");
+            int retry = 30;
+            do{
+                ret = arp_resolve(NET_IFACE(iface), dst, hwaddr);
+                if (ret == ARP_RESOLVE_FOUND) {
+                    break;
+                }
+                usleep(100000);
+            }while(--retry > 0);
+            if(ret != ARP_RESOLVE_FOUND) {
+                errorf("arp resolve error");
                 return -1;
             }
         }

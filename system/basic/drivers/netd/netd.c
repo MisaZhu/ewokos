@@ -186,14 +186,17 @@ char* network_devcmd(int from_pid, int argc, char** argv, void* p) {
 			char unicast[16];
 			char netmask[16];	
 			char broadcast[16];
+			char gateway[16];
 			ip_addr_ntop(iface->unicast, unicast, sizeof(unicast));
 			ip_addr_ntop(iface->netmask, netmask, sizeof(netmask));
 			ip_addr_ntop(iface->broadcast, broadcast, sizeof(broadcast));
+			ip_addr_ntop(iface->gateway, gateway, sizeof(gateway));
 
 			json_var_t* var_ip = json_var_new_obj(NULL, NULL);
 			json_var_add(var_ip, "ip", json_var_new_str(unicast));
 			json_var_add(var_ip, "netmask", json_var_new_str(netmask));
 			json_var_add(var_ip, "broadcast", json_var_new_str(broadcast));
+			json_var_add(var_ip, "gateway", json_var_new_str(gateway));
 			json_var_array_add(node->var, var_ip);
 		}
 	}
