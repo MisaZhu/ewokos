@@ -29,8 +29,6 @@
 @/bin/splash -m "start /dev/net0" -p 68
 @/bin/ipcserv /drivers/netd /dev/net0 /dev/eth0 10.0.2.15 255.255.255.0 10.0.2.2
 
-@echo "https test: /bin/https_test <https-url> <ipv4> [timeout_ms]\n"
-
 @/bin/splash -m "start /dev/null" -p 70
 @/bin/ipcserv /drivers/nulld           /dev/null
 
