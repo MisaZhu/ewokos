@@ -271,8 +271,8 @@ static int virtio_net_init(void)
 	_rx_used_idx = _rxq->used.idx;
 	_tx_used_idx = _txq->used.idx;
 	_tx_inflight = false;
-	klog("virtio-net: mac=%02x:%02x:%02x:%02x:%02x:%02x rx_desc=%d\n",
-		 _mac[0], _mac[1], _mac[2], _mac[3], _mac[4], _mac[5], VIRTNET_RX_DESC_COUNT);
+	//klog("virtio-net: mac=%02x:%02x:%02x:%02x:%02x:%02x rx_desc=%d\n",
+		//_mac[0], _mac[1], _mac[2], _mac[3], _mac[4], _mac[5], VIRTNET_RX_DESC_COUNT);
 
 	return 0;
 }

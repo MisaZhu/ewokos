@@ -31,10 +31,13 @@
 @/bin/splash -m "start /dev/net0" -p 68
 @/bin/ipcserv /drivers/netd /dev/net0 /dev/eth0 10.0.2.15 255.255.255.0 10.0.2.2
 
-@/bin/splash -m "start /dev/null" -p 70
+@/bin/splash -m "start /dev/localtimed" -p 70
+@/bin/ipcserv /drivers/localtimed    /dev/localtime
+
+@/bin/splash -m "start /dev/null" -p 73
 @/bin/ipcserv /drivers/nulld           /dev/null
 
-@/bin/splash -m "mount /tmp" -p 70
+@/bin/splash -m "mount /tmp" -p 74
 @/bin/ipcserv /drivers/ramfsd          /tmp
 
 @/bin/splash -m "start /dev/console1" -p 75

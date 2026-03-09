@@ -76,7 +76,6 @@ time_t ntpc_get_time(const char* server_ip, uint16_t port) {
         close(sockfd);
         return 0;
     }
-
     // 接收NTP响应
     socklen_t addr_len = sizeof(server_addr);
     bytes_received = recvfrom(sockfd, &packet, sizeof(packet), 0, 
