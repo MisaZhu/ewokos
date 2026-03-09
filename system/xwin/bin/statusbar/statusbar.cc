@@ -5,6 +5,9 @@
 #include <x++/X.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/kernel_tic.h>
+#include <time.h>
 
 using namespace Ewok;
 
@@ -96,6 +99,69 @@ public:
 	}
 };
 
+
+class DateTime : public Widget {
+	uint32_t sec, sec_init, ksec_start;
+    uint32_t min;
+    uint32_t hour;
+    bool time_inited;
+
+protected:
+	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
+		char txt[16];
+		snprintf(txt, 15, "%02d:%02d:%02d", hour, min, sec);
+		graph_draw_text_font_align(g, r.x+1, r.y+1, r.w, r.h,
+					txt, theme->getFont(), theme->basic.fontSize, 0xff000000, FONT_ALIGN_CENTER);
+		graph_draw_text_font_align(g, r.x, r.y, r.w, r.h,
+					txt, theme->getFont(), theme->basic.fontSize, 0xffcccccc, FONT_ALIGN_CENTER);
+	}
+
+    void onTimer(uint32_t timerFPS, uint32_t timerStep) {
+        if(!time_inited) {
+            updateTime();
+            if(!time_inited)
+                return;
+            kernel_tic(&ksec_start, NULL);
+        }
+
+        uint32_t ksec;
+        kernel_tic(&ksec, NULL);
+        ksec = ksec - ksec_start + sec_init;
+
+        min = (ksec / 60);
+        hour = (min / 60);
+        min = min % 60;
+        sec = ksec % 60;
+        update();
+    }
+
+    void updateTime() {
+        struct tm time_info;
+        proto_t out;
+        PF->init(&out);
+        if(dev_cntl("/dev/localtime", 0, NULL, &out) != 0)
+            return;
+        int res = proto_read_int(&out);
+        if(res == 0)
+            proto_read_to(&out, &time_info, sizeof(time_info));
+        PF->clear(&out);
+        if(res != 0)
+            return;
+        
+        sec_init = time_info.tm_hour * 3600 + time_info.tm_min * 60 + time_info.tm_sec;
+        time_inited = true;
+    }
+public:
+	inline DateTime() {
+        sec = 0;
+        min = 0;
+        hour = 0;
+        sec_init = 0;
+        time_inited = false;
+		setAlpha(true);
+    }
+};
+
 class RWidget: public RootWidget {
 protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
@@ -123,6 +189,10 @@ int main(int argc, char** argv) {
 	Blank* blank = new Blank();
 	blank->setAlpha(true);
 	root->add(blank);
+
+	DateTime* datetime = new DateTime();
+	datetime->fix(96, 0);
+	root->add(datetime);
 
 	PowerInfo* powerInfo = new PowerInfo();
 	powerInfo->fix(48, 0);
