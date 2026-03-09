@@ -83,13 +83,14 @@ int main(int argc, char *argv[]) {
         printf("PING %s\n", ip_addr);
     }
 
-    while (seq < 8) {
+    while (seq < 4) {
         // Construct ICMP packet
         memset(&icmp_pkt, 0, sizeof(icmp_pkt));
         icmp_pkt.type = ICMP_ECHO_REQ;
         icmp_pkt.code = 0;
         icmp_pkt.id = getpid() & 0xFFFF;
-        icmp_pkt.seq = htons(seq++);
+        icmp_pkt.seq = htons(seq);
+        seq++;
         icmp_pkt.checksum = checksum(&icmp_pkt, sizeof(icmp_pkt));
 
         // Send ICMP packet
