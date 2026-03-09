@@ -41,6 +41,7 @@ builtin_apps:
 	cd mmio;make
 	cd splash;make
 	cd ipconfig;make
+	cd host;make
 
 clean:
 	cd cp;make clean
@@ -82,3 +83,4 @@ clean:
 	cd mmio;make clean
 	cd splash;make clean
 	cd ipconfig;make clean
+	cd host;make clean

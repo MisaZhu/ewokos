@@ -6,7 +6,12 @@
 #include <arpa/inet.h>
 
 int main(int argc, char *argv[]) {
-    struct hostent *host = gethostbyname("www.a.shifen.com");
+    if(argc < 2) {
+        printf("Usage: %s <domain>\n", argv[0]);
+        return -1;
+    }
+
+    struct hostent *host = gethostbyname(argv[1]);
     if (host == NULL) {
         return -1;
     }

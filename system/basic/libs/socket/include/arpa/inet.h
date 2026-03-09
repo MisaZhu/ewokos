@@ -1,6 +1,7 @@
 #ifndef _ARPA_INET_H
 #define _ARPA_INET_H    1
 
+#include <stddef.h>
 #include <netinet/in.h>
 
 extern in_addr_t inet_addr (const char *__cp) ;
