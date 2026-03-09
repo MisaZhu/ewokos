@@ -190,8 +190,20 @@ int getsockopt (int fd, int level, int optname, void * optval, uint32_t * optlen
 
 int setsockopt (int fd, int level, int optname,
 		       const void *optval, uint32_t optlen){
-    //TODO:
-    return -1;
+    int ret;
+	proto_t in,out;
+    fsinfo_t info;
+	if(vfs_get_by_fd(fd, &info) != 0)
+		return -1;
+
+    PF->init(&in)->addi(&in, level)->addi(&in, optname)->add(&in, optval, optlen);
+    PF->init(&out);
+	do_vfs_fcntl(fd, SOCK_SETOPT, &in , &out);
+    ret = proto_read_int(&out);
+    PF->clear(&in);
+	PF->clear(&out);
+
+    return ret;
 }
 
 int listen (int fd, int n){

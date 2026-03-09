@@ -46,6 +46,8 @@ struct sock {
     // For RAW sockets
     struct icmp_packet *recv_queue;
     struct icmp_packet *recv_queue_tail;
+    // Timeout in microseconds
+    uint32_t rcv_timeout;
 };
 
 struct sockaddr {
@@ -90,5 +92,13 @@ sock_send(int id, const void *buf, size_t n);
 // Add ICMP packet to RAW socket queue
 extern void
 sock_add_icmp_packet(const uint8_t *data, size_t len, ip_addr_t src, ip_addr_t dst);
+
+// Set socket options
+extern int
+sock_setsockopt(int id, int level, int optname, const void *optval, int optlen);
+
+// Get socket timeout for a given descriptor
+extern uint32_t
+sock_get_timeout(int desc, int type);
 
 #endif

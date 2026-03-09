@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <ewoksys/proc.h>
@@ -58,6 +59,16 @@ int main(int argc, char *argv[]) {
     sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
     if (sockfd < 0) {
         printf("Failed to create socket\n");
+        return -1;
+    }
+
+    // Set timeout for recvfrom
+    struct timeval timeout;
+    timeout.tv_sec = 1; // 1 second
+    timeout.tv_usec = 0;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+        printf("Failed to set socket timeout\n");
+        close(sockfd);
         return -1;
     }
 

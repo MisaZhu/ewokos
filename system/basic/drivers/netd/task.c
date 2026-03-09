@@ -148,9 +148,9 @@ int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p){
 
 
 int do_network_fcntl(net_task_t *task){
-	int domain, sock,type,protocol;
-	char *data;
-	int32_t size, addrlen = sizeof(struct sockaddr);
+	int domain, sock,type,protocol, level, optname;
+	char *data, *optval;
+	int32_t size, addrlen = sizeof(struct sockaddr), optlen;
 	struct sockaddr *paddr;
 	struct sockaddr addr;
 	int ret = -1;
@@ -221,12 +221,19 @@ int do_network_fcntl(net_task_t *task){
 			PF->addi(&task->out, 0);
 			break;
 		case SOCK_CONNECT:
-			paddr = proto_read(&task->in, &addrlen);
-			ret = sock_connect(sock, paddr, addrlen);
-			PF->addi(&task->out, ret);
-			break;
-		default:
-			break;
+		paddr = proto_read(&task->in, &addrlen);
+		ret = sock_connect(sock, paddr, addrlen);
+		PF->addi(&task->out, ret);
+		break;
+	case SOCK_SETOPT:
+		level = proto_read_int(&task->in);
+		optname = proto_read_int(&task->in);
+		optval = proto_read(&task->in, &optlen);
+		ret = sock_setsockopt(sock, level, optname, optval, optlen);
+		PF->addi(&task->out, ret);
+		break;
+	default:
+		break;
 	}
     return 0;
 }

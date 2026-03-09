@@ -1,6 +1,8 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
+#include <errno.h>
 
 #include "util.h"
 #include "net.h"
@@ -9,6 +11,23 @@
 #include "tcp.h"
 
 #include "sock.h"
+
+#define SOL_SOCKET 1
+#define SO_RCVTIMEO 2
+#define ETIMEDOUT 116
+
+// Implement timersub if not defined
+#ifndef timersub
+#define timersub(a, b, result) \
+  do { \
+    (result)->tv_sec = (a)->tv_sec - (b)->tv_sec; \
+    (result)->tv_usec = (a)->tv_usec - (b)->tv_usec; \
+    if ((result)->tv_usec < 0) { \
+      --(result)->tv_sec; \
+      (result)->tv_usec += 1000000; \
+    } \
+  } while (0)
+#endif
 
 static struct sock socks[16];
 
@@ -111,6 +130,7 @@ sock_open(int domain, int type, int protocol)
     s->family = domain;
     s->type = type;
     s->protocol = protocol;
+    s->rcv_timeout = 0; // No timeout by default
     switch (s->type) {
     case SOCK_STREAM:
         s->desc = tcp_open();
@@ -204,7 +224,54 @@ sock_recvfrom(int id, void *buf, size_t n, struct sockaddr *addr, int *addrlen)
                 free(packet);
                 return copy_len;
             }
-            return -1; // No packets available
+            
+            // If no packets and timeout is set, wait with timeout
+            if (s->rcv_timeout > 0) {
+                struct timeval start, now, diff;
+                gettimeofday(&start, NULL);
+                
+                while (1) {
+                    // Check if packet arrived
+                    if (s->recv_queue) {
+                        struct icmp_packet *packet = s->recv_queue;
+                        
+                        // Remove packet from queue
+                        s->recv_queue = packet->next;
+                        if (!s->recv_queue) {
+                            s->recv_queue_tail = NULL;
+                        }
+                        
+                        // Copy packet data to buffer
+                        size_t copy_len = (n < packet->len) ? n : packet->len;
+                        memcpy(buf, packet->data, copy_len);
+                        
+                        // Set source address
+                        if (addr && addrlen) {
+                            ((struct sockaddr_in *)addr)->sin_family = AF_INET;
+                            ((struct sockaddr_in *)addr)->sin_addr = packet->src;
+                            ((struct sockaddr_in *)addr)->sin_port = 0; // ICMP doesn't use port
+                            *addrlen = sizeof(struct sockaddr_in);
+                        }
+                        
+                        // Free the packet
+                        free(packet);
+                        return copy_len;
+                    }
+                    
+                    // Check if timeout occurred
+                    gettimeofday(&now, NULL);
+                    timersub(&now, &start, &diff);
+                    if ((diff.tv_sec * 1000000 + diff.tv_usec) >= s->rcv_timeout) {
+                        errno = ETIMEDOUT;
+                        return -1;
+                    }
+                    
+                    // Sleep for a short time
+                    proc_usleep(10000);
+                }
+            }
+            
+            return -1; // No packets available and no timeout set
         }
         return -1;
     default:
@@ -416,4 +483,43 @@ sock_add_icmp_packet(const uint8_t *data, size_t len, ip_addr_t src, ip_addr_t d
             }
         }
     }
+}
+
+// Set socket options
+int
+sock_setsockopt(int id, int level, int optname, const void *optval, int optlen)
+{
+    struct sock *s = sock_get(id);
+    if (!s) {
+        return -17;
+    }
+    
+    if (level == SOL_SOCKET) {
+        switch (optname) {
+        case SO_RCVTIMEO:
+            if (optlen == sizeof(struct timeval)) {
+                struct timeval *timeout = (struct timeval *)optval;
+                s->rcv_timeout = timeout->tv_sec * 1000000 + timeout->tv_usec;
+                return 0;
+            }
+            break;
+        default:
+            break;
+        }
+    }
+    
+    return -1;
+}
+
+// Get socket timeout for a given descriptor
+uint32_t
+sock_get_timeout(int desc, int type)
+{
+    for (int i = 0; i < countof(socks); i++) {
+        struct sock *s = &socks[i];
+        if (s->used && s->type == type && s->desc == desc) {
+            return s->rcv_timeout;
+        }
+    }
+    return 0;
 }

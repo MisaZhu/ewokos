@@ -84,6 +84,9 @@ struct msghdr {
 #define SHUT_WR		SHUT_WR
 #define SHUT_RDWR	SHUT_RDWR
 
+#define SOL_SOCKET 1
+#define SO_RCVTIMEO 2
+
 #define SOCK_STREAM   1
 #define SOCK_DGRAM    2
 #define SOCK_RAW      3
@@ -107,7 +110,8 @@ struct msghdr {
 #define SOCK_CLOSE      9 
 #define SOCK_LINK       10
 #define SOCK_CONNECT    11
-#define SOCK_PAIR       12
+#define SOCK_SETOPT     12
+#define SOCK_PAIR       13
 
 #define SOCK_REQUEST    100
 #define SOCK_ACK        101

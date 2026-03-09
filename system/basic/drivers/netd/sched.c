@@ -2,6 +2,7 @@
 #include <time.h>
 #include <sys/errno.h>
 #include <unistd.h>
+#include <sys/time.h>
 
 #include "platform.h"
 
@@ -24,7 +25,7 @@ int
 sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timespec *abstime)
 {
     int ret;
-	(void)abstime;
+    struct timeval now, end;
     if (ctx->interrupted) {
         errno = EINTR;
         return -1;
@@ -38,6 +39,20 @@ sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timespec *abstim
 			ret = 0;
 			break;
 		}
+        
+        // Check for timeout if abstime is provided
+        if (abstime) {
+            gettimeofday(&now, NULL);
+            end.tv_sec = abstime->tv_sec;
+            end.tv_usec = abstime->tv_nsec / 1000;
+            
+            if (timercmp(&now, &end, >)) {
+                errno = ETIMEDOUT;
+                ret = -1;
+                break;
+            }
+        }
+        
 		proc_usleep(10000);
     }
 	mutex_lock(mutex);
