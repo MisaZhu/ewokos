@@ -17,6 +17,7 @@
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <syscalls.h>
+#include <sysinfo.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/devcmd.h>
 #include <ewoksys/vfs.h>
@@ -512,17 +513,13 @@ _gettimeofday (struct timeval * tp, void * tzvp)
   struct timezone *tzp = tzvp;
   if (tp)
     {
-    /* Ask the host for the seconds since the Unix epoch.  */
-#ifdef ARM_RDI_MONITOR
-      tp->tv_sec = do_AngelSWI (AngelSWI_Reason_Time,NULL);
-#else
-      {
-        int value;
-        //asm ("swi %a1; mov %0, r0" : "=r" (value): "i" (SWI_Time) : "r0");
-        tp->tv_sec = value;
+      vsyscall_info_t *vsys = (vsyscall_info_t *)syscall0(SYS_GET_VSYSCALL_INFO);
+      uint64_t usec = 0;
+      if (vsys != NULL) {
+        usec = vsys->kernel_usec;
       }
-#endif
-      tp->tv_usec = 0;
+      tp->tv_sec = usec / 1000000;
+      tp->tv_usec = usec % 1000000;
     }
 
   /* Return fixed data for the timezone.  */

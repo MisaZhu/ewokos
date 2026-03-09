@@ -20,7 +20,7 @@ static void task_list_add(net_task_t * task){
         task_list = task;
         task->next = NULL;
     }else{
-        net_task_t *t = task_list->next;
+        net_task_t *t = task_list;
 
         while(t->next != NULL){
             t = t->next;
@@ -106,6 +106,7 @@ int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
     }else if(task->state == NET_TASK_IDLE){
         task->cmd = SOCK_RECV;	
         task->p = p;
+        task->from_pid = from_pid;
         PF->init_data(&task->in, task->inbuf, 4096);
         task->in.size = 0;
         PF->init_data(&task->out, task->outbuf, 4096);
@@ -114,7 +115,6 @@ int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
         task->state = NET_TASK_START;
         proc_wakeup((uint32_t)task);
     }
-    task->from_pid = from_pid;
     return VFS_ERR_RETRY;
 
 }
@@ -134,6 +134,7 @@ int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p){
     }else if(task->state == NET_TASK_IDLE){
         task->cmd = SOCK_SEND;	
         task->p = p;
+        task->from_pid = from_pid;
         PF->init_data(&task->in, task->inbuf, 4096);
         task->in.size = 0;
         PF->init_data(&task->out, task->outbuf, 4096);
@@ -142,7 +143,6 @@ int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p){
         task->state = NET_TASK_START;
         proc_wakeup((uint32_t)task);
     }
-    task->from_pid = from_pid;
     return VFS_ERR_RETRY;
 }
 

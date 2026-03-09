@@ -26,7 +26,6 @@ static int do_vfs_fcntl(int fd, int cmd, proto_t* arg_in, proto_t* arg_out){
 }
 
 int socket (int domain, int type, int protocol){
-    int ret;
 	proto_t in,out;
     int fd = open("/dev/net0", 0);
     if(fd <= 0)
@@ -37,6 +36,11 @@ int socket (int domain, int type, int protocol){
     int sock = proto_read_int(&out);
     PF->clear(&in);
     PF->clear(&out);
+
+    if (sock < 0) {
+        close(fd);
+        return -1;
+    }
 
     fsinfo_t info;
 	if(vfs_get_by_fd(fd, &info) != 0)

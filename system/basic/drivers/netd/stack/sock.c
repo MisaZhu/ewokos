@@ -88,7 +88,11 @@ sock_open(int domain, int type, int protocol)
     if (type != SOCK_STREAM && type != SOCK_DGRAM ) {
         return -1;
     }
-    if (protocol != IPPROTO_TCP && protocol != IPPROTO_UDP) { 
+    if (protocol == 0) {
+        protocol = (type == SOCK_STREAM) ? IPPROTO_TCP : IPPROTO_UDP;
+    }
+    if ((type == SOCK_STREAM && protocol != IPPROTO_TCP) ||
+        (type == SOCK_DGRAM && protocol != IPPROTO_UDP)) {
         return -1;
     }
     s = sock_alloc();
@@ -282,7 +286,7 @@ sock_connect(int id, const struct sockaddr *addr, int addrlen)
     case AF_INET:
         ep.addr = ((struct sockaddr_in *)addr)->sin_addr;
         ep.port = ((struct sockaddr_in *)addr)->sin_port;
-        return tcp_connect(s->desc, &ep);
+        return tcp_connect(s->desc, &ep) < 0 ? -1 : 0;
     }
     return -1;
 }
