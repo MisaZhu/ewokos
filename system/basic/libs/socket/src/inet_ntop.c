@@ -46,13 +46,53 @@ inet_ntop (int af, const void *src, char *dst, socklen_t size)
 	}
 }
 
+static void uint_to_str(uint8_t val, char *buf) {
+	if (val >= 100) {
+		*buf++ = '0' + val / 100;
+		val %= 100;
+	}
+	if (val >= 10) {
+		*buf++ = '0' + val / 10;
+		val %= 10;
+	}
+	*buf++ = '0' + val;
+	*buf = '\0';
+}
+
 static const char *
 inet_ntop4 (const uint8_t *src, char *dst, socklen_t size)
 {
-	static const char fmt[] = "%u.%u.%u.%u";
 	char tmp[sizeof "255.255.255.255"];
+	char *ptr = tmp;
+	char octet_str[4];
+	
+	// Convert first octet
+	uint_to_str(src[0], octet_str);
+	strcpy(ptr, octet_str);
+	ptr += strlen(octet_str);
+	
+	// Add dot and second octet
+	*ptr++ = '.';
+	uint_to_str(src[1], octet_str);
+	strcpy(ptr, octet_str);
+	ptr += strlen(octet_str);
+	
+	// Add dot and third octet
+	*ptr++ = '.';
+	uint_to_str(src[2], octet_str);
+	strcpy(ptr, octet_str);
+	ptr += strlen(octet_str);
+	
+	// Add dot and fourth octet
+	*ptr++ = '.';
+	uint_to_str(src[3], octet_str);
+	strcpy(ptr, octet_str);
+	ptr += strlen(octet_str);
+	
+	// Null terminate
+	*ptr = '\0';
 
-	if (SPRINTF((tmp, fmt, src[0], src[1], src[2], src[3])) >= size) {
+	if (ptr - tmp >= size) {
 		return (NULL);
 	}
 	return strcpy(dst, tmp);

@@ -18,19 +18,34 @@
 
 #define SOCK_STREAM 1
 #define SOCK_DGRAM  2
+#define SOCK_RAW    3
 
 #define IPPROTO_TCP 6
 #define IPPROTO_UDP 17
+#define IPPROTO_ICMP 1
 
 #define INADDR_ANY ((ip_addr_t)0)
 
 #define SOCKADDR_STR_LEN IP_ENDPOINT_STR_LEN
 
+// ICMP packet queue for RAW sockets
+struct icmp_packet {
+    uint8_t data[IP_PAYLOAD_SIZE_MAX];
+    size_t len;
+    ip_addr_t src;
+    ip_addr_t dst;
+    struct icmp_packet *next;
+};
+
 struct sock {
     int used;
     int family;
     int type;
+    int protocol;
     int desc;
+    // For RAW sockets
+    struct icmp_packet *recv_queue;
+    struct icmp_packet *recv_queue_tail;
 };
 
 struct sockaddr {
@@ -71,5 +86,9 @@ extern ssize_t
 sock_recv(int id, void *buf, size_t n);
 extern ssize_t
 sock_send(int id, const void *buf, size_t n);
+
+// Add ICMP packet to RAW socket queue
+extern void
+sock_add_icmp_packet(const uint8_t *data, size_t len, ip_addr_t src, ip_addr_t dst);
 
 #endif

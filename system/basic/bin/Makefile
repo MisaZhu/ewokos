@@ -42,6 +42,7 @@ builtin_apps:
 	cd splash;make
 	cd ipconfig;make
 	cd host;make
+	cd ping;make
 
 clean:
 	cd cp;make clean
@@ -84,3 +85,4 @@ clean:
 	cd splash;make clean
 	cd ipconfig;make clean
 	cd host;make clean
+	cd ping;make clean

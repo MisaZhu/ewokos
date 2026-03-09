@@ -1,10 +1,12 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "util.h"
 #include "ip.h"
 #include "icmp.h"
+#include "sock.h"
 #include "../platform.h"
 
 #define ICMP_BUFSIZ IP_PAYLOAD_SIZE_MAX
@@ -104,6 +106,10 @@ icmp_input(const uint8_t *data, size_t len, ip_addr_t src, ip_addr_t dst, struct
         icmp_type_ntoa(hdr->type), hdr->type, len,
         ip_addr_ntop(iface->unicast, addr3, sizeof(addr3)));
     icmp_dump(data, len);
+    
+    // Add packet to RAW socket queue
+    sock_add_icmp_packet(data, len, src, dst);
+    
     switch (hdr->type) {
     case ICMP_TYPE_ECHO:
         if (dst != iface->unicast) {
@@ -150,6 +156,8 @@ icmp_output(uint8_t type, uint8_t code, uint32_t values, const uint8_t *data, si
     free(buf);
     return ret;
 }
+
+
 
 int
 icmp_init(void)
