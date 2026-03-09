@@ -17,6 +17,8 @@ INST_DIR = /usr/local/ewokos
 BUILD_DIR = $(SYS_ROOT_DIR)/build/$(HW)
 MACHINE_BUILD_DIR = build
 TARGET_DIR = $(BUILD_DIR)/rootfs
+EXTRA_APPS_DIR = $(EWOKOS_ROOT_DIR)/extra.apps
+HTTPS_TEST_BUILD_DIR = $(EXTRA_APPS_DIR)/build/$(HW)/apps/https_test
 
 export BSP_LFLAGS = -lbsp -larch_virt
 
@@ -41,8 +43,15 @@ x_sys: kernel_heads
 	cd $(SYS_ROOT_DIR)/xwin;make
 	@cp -r etc ${TARGET_DIR}/
 
-x: x_sys final
+x: x_sys final https_test_app
 	@echo "all done."
+
+https_test_app:
+	cd $(EXTRA_APPS_DIR)/apps/https_test; make ARCH=$(ARCH) HW=$(HW)
+	mkdir -p $(MACHINE_BUILD_DIR)/apps/https_test
+	cp -r $(HTTPS_TEST_BUILD_DIR)/* $(MACHINE_BUILD_DIR)/apps/https_test/
+	mkdir -p $(MACHINE_BUILD_DIR)/bin
+	cp $(HTTPS_TEST_BUILD_DIR)/https_test $(MACHINE_BUILD_DIR)/bin/https_test
 
 clean:
 	cd libs;make clean

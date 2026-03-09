@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "../platform.h"
 
@@ -41,6 +42,9 @@ struct ip_hdr {
 
 const ip_addr_t IP_ADDR_ANY       = 0x00000000; /* 0.0.0.0 */
 const ip_addr_t IP_ADDR_BROADCAST = 0xffffffff; /* 255.255.255.255 */
+
+#define ARP_RESOLVE_WAIT_RETRY_MAX 50
+#define ARP_RESOLVE_WAIT_US 10000
 
 /* NOTE: if you want to add/delete the entries after net_run(), you need to protect these lists with a mutex. */
 static struct ip_iface *ifaces;
@@ -387,17 +391,32 @@ ip_input(const uint8_t *data, size_t len, struct net_device *dev)
 }
 
 static int
+ip_resolve_hwaddr(struct ip_iface *iface, ip_addr_t dst, uint8_t *hwaddr)
+{
+    char addr[IP_ADDR_STR_LEN];
+    for (int retry = 0; retry < ARP_RESOLVE_WAIT_RETRY_MAX; retry++) {
+        int ret = arp_resolve(NET_IFACE(iface), dst, hwaddr);
+        if (ret == ARP_RESOLVE_FOUND) {
+            return 0;
+        }
+        if (ret == ARP_RESOLVE_ERROR) {
+            return -1;
+        }
+        usleep(ARP_RESOLVE_WAIT_US);
+    }
+    return -1;
+}
+
+static int
 ip_output_device(struct ip_iface *iface, const uint8_t *data, size_t len, ip_addr_t dst)
 {
     uint8_t hwaddr[NET_DEVICE_ADDR_LEN] = {};
-    int ret;
 
     if (NET_IFACE(iface)->dev->flags & NET_DEVICE_FLAG_NEED_ARP) {
         if (dst == iface->broadcast || dst == IP_ADDR_BROADCAST) {
             memcpy(hwaddr, NET_IFACE(iface)->dev->broadcast, NET_IFACE(iface)->dev->alen);
         } else {
-            ret = arp_resolve(NET_IFACE(iface), dst, hwaddr);
-            if (ret != ARP_RESOLVE_FOUND) {
+            if (ip_resolve_hwaddr(iface, dst, hwaddr) != 0) {
                 infof("arp resolve error\n");
                 return -1;
             }

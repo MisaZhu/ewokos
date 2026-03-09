@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <sys/wait.h>
 #include <string.h>
@@ -46,7 +47,7 @@ static int network_read(int fd, int from_pid, fsinfo_t* info,
 
 	net_task_t *task = (net_task_t*)info->data;
 	int ret = task_read(task, from_pid, buf + offset, size, p);
-    return ret > 0? ret : VFS_ERR_RETRY;
+	return ret;
 }
 
 
@@ -56,7 +57,7 @@ static int network_write(int fd, int from_pid, fsinfo_t* info,
 
 	net_task_t *task = (net_task_t*)info->data;
 	int ret = task_write(task, from_pid, buf + offset, size, p);
-    return ret > 0? ret : VFS_ERR_RETRY;
+	return ret;
 }
 
 static int network_close(int fd, int from_pid, uint32_t node, fsinfo_t* fsinfo,void* p) {
@@ -73,12 +74,16 @@ static int network_close(int fd, int from_pid, uint32_t node, fsinfo_t* fsinfo,v
 #define LOOPBACK_IP_ADDR "127.0.0.1"
 #define LOOPBACK_NETMASK "255.0.0.0"
 
-#define ETHER_TAP_IP_ADDR "169.254.72.2"
-#define ETHER_TAP_NETMASK "255.255.0.0"
-
-#define DEFAULT_GATEWAY "169.254.72.1"
+#define ETHER_TAP_IP_ADDR_DEFAULT "169.254.72.2"
+#define ETHER_TAP_NETMASK_DEFAULT "255.255.0.0"
+#define DEFAULT_GATEWAY_DEFAULT "169.254.72.1"
 
 static char ETHER_TAP_NAME[16];
+static char ETHER_TAP_IP_ADDR[16] = ETHER_TAP_IP_ADDR_DEFAULT;
+static char ETHER_TAP_NETMASK[16] = ETHER_TAP_NETMASK_DEFAULT;
+static char DEFAULT_GATEWAY[16] = DEFAULT_GATEWAY_DEFAULT;
+static bool ETHER_TAP_USE_DHCP = true;
+
 void *net_thread(void* p);
 
 static int setup(void)
@@ -124,10 +129,16 @@ static int setup(void)
         return -1;
     }
 
-	if(dhcp_run(dev) == -1){
-        slog("dhcp_run() failure");
+    if (ETHER_TAP_USE_DHCP) {
+	    if(dhcp_run(dev) == -1){
+            slog("dhcp_run() failure");
+            return -1;
+	    }
+    }
+    else if (ip_route_set_default_gateway(iface, DEFAULT_GATEWAY) == -1) {
+        slog("ip_route_set_default_gateway() failure");
         return -1;
-	}
+    }
 
 	pthread_t tid;
     pthread_create(&tid, NULL, net_thread, NULL);
@@ -195,6 +206,17 @@ int main(int argc, char** argv) {
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/net0";
 	const char* net_dev = argc > 2 ? argv[2]: "/dev/eth0";
 	uint8_t mac[6];
+
+    if (argc > 3) {
+        if (argc < 6) {
+            fprintf(stderr, "usage: %s [mnt_point] [net_dev] [ip netmask gateway]\n", argv[0]);
+            return -1;
+        }
+        strncpy(ETHER_TAP_IP_ADDR, argv[3], sizeof(ETHER_TAP_IP_ADDR)-1);
+        strncpy(ETHER_TAP_NETMASK, argv[4], sizeof(ETHER_TAP_NETMASK)-1);
+        strncpy(DEFAULT_GATEWAY, argv[5], sizeof(DEFAULT_GATEWAY)-1);
+        ETHER_TAP_USE_DHCP = false;
+    }
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));

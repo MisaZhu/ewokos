@@ -5,6 +5,7 @@ all:
 	cd fbd; make
 	cd moused; make
 	cd keybd; make
+	cd net; make
 
 clean:	
 	cd ttyd; make clean
@@ -13,3 +14,4 @@ clean:
 	cd moused; make clean
 	cd keybd; make clean
 	cd powerd; make clean
+	cd net; make clean

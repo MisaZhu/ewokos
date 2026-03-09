@@ -1048,9 +1048,9 @@ tcp_connect(int id, struct ip_endpoint *foreign)
     }
     if (!local.port) {
         for (p = TCP_SOURCE_PORT_MIN; p <= TCP_SOURCE_PORT_MAX; p++) {
-            local.port = p;
+            local.port = hton16(p);
             if (!tcp_pcb_select(&local, foreign)) {
-                debugf("dynamic assign source port: %d", ntoh16(local.port));
+                debugf("dynamic assign source port: %d", p);
                 pcb->local.port = local.port;
                 break;
             }

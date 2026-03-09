@@ -23,9 +23,13 @@
 @/bin/splash -m "start /dev/mouse0" -p 60
 @/bin/ipcserv /drivers/virt/moused  /dev/mouse0
 
-#@/bin/ipcserv /drivers/virt/smc91c111d /dev/eth0
-#@/bin/ipcserv /drivers/netd             /dev/net0 /dev/eth0
-#@/bin/bgrun /sbin/telnetd 
+@/bin/splash -m "start /dev/eth0" -p 65
+@/bin/ipcserv /drivers/virt/net /dev/eth0
+
+@/bin/splash -m "start /dev/net0" -p 68
+@/bin/ipcserv /drivers/netd /dev/net0 /dev/eth0 10.0.2.15 255.255.255.0 10.0.2.2
+
+@echo "https test: /bin/https_test <https-url> <ipv4> [timeout_ms]\n"
 
 @/bin/splash -m "start /dev/null" -p 70
 @/bin/ipcserv /drivers/nulld           /dev/null
