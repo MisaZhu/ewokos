@@ -101,7 +101,7 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
-	printf("%s", ret);
+	printf("%s\n", ret);
 	free(ret);
 	return 0;
 }

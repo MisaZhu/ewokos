@@ -175,11 +175,10 @@ void mac2str(uint8_t *mac,  char* str){
 }
 
 char* network_devcmd(int from_pid, int argc, char** argv, void* p) {
-	json_var_t* json_var = json_var_new_obj(NULL, NULL);
+	json_var_t* json_var = json_var_new_array();
 	if(strcmp(argv[0], "ip") == 0) {
 		struct ip_iface *iface =  NULL;
-		json_node_t* node = json_var_add(json_var, "ips", json_var_new_array());
-		while(node != NULL && node->var != NULL){
+		while(true){
 			iface = ip_iface_itor(iface);
 			if(iface == NULL)
 				break;
@@ -197,7 +196,7 @@ char* network_devcmd(int from_pid, int argc, char** argv, void* p) {
 			json_var_add(var_ip, "netmask", json_var_new_str(netmask));
 			json_var_add(var_ip, "broadcast", json_var_new_str(broadcast));
 			json_var_add(var_ip, "gateway", json_var_new_str(gateway));
-			json_var_array_add(node->var, var_ip);
+			json_var_array_add(json_var, var_ip);
 		}
 	}
 	char* ret = json_var_to_cstr(json_var);

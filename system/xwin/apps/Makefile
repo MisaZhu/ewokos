@@ -11,6 +11,7 @@ all:
 	cd xDemo; make
 	cd xwm_theme; make
 	cd xtheme; make
+	cd xipconfig; make
 
 clean:
 	cd xlog; make clean
@@ -25,3 +26,4 @@ clean:
 	cd xDemo; make clean
 	cd xwm_theme; make clean
 	cd xtheme; make clean
+	cd xipconfig; make clean

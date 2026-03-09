@@ -29,7 +29,7 @@
 @/bin/ipcserv /drivers/virt/net /dev/eth0
 
 @/bin/splash -m "start /dev/net0" -p 68
-@/bin/ipcserv /drivers/netd /dev/net0 /dev/eth0 10.0.2.15 255.255.255.0 10.0.2.2
+@/bin/ipcserv /drivers/netd /dev/net0 /dev/eth0
 
 @/bin/splash -m "start /dev/localtimed" -p 70
 @/bin/ipcserv /drivers/localtimed    /dev/localtime
