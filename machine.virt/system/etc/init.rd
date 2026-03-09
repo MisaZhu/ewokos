@@ -1,3 +1,5 @@
+@export TZ=CST-8
+
 @export UX_ID=0
 @/bin/ipcserv /sbin/splashd -w 320 -h 240 -f 14
 @/bin/splash -i /usr/system/images/logos/ewokos.png -m "start..."
