@@ -6,7 +6,7 @@
 #include <arpa/inet.h>
 
 int main(int argc, char *argv[]) {
-    struct hostent *host = gethostbyname("www.a.shifen.com");
+    struct hostent *host = gethostbyname("www.baidu.com");
     if (host == NULL) {
         return -1;
     }

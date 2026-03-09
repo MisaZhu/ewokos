@@ -475,6 +475,7 @@ struct hostent *gethostbyname(const char *name){
         hostent_name_buf[sizeof(hostent_name_buf) - 1] = '\0';
         hostent_name = hostent_name_buf;
         hostent_aliases[0] = NULL;
+        hostent_aliases[1] = NULL;
         hostent_addr_list[0] = (char*)&hostent_addr;
         hostent_addr_list[1] = NULL;
 
@@ -483,7 +484,6 @@ struct hostent *gethostbyname(const char *name){
         hostent_result.h_addrtype = AF_INET;
         hostent_result.h_length = sizeof(struct in_addr);
         hostent_result.h_addr_list = hostent_addr_list;
-        klog("8 gethostbyname: %s\n", name);
         return &hostent_result;
     }
 
@@ -494,6 +494,7 @@ struct hostent *gethostbyname(const char *name){
         hostent_name_buf[sizeof(hostent_name_buf) - 1] = '\0';
         hostent_name = hostent_name_buf;
         hostent_aliases[0] = NULL;
+        hostent_aliases[1] = NULL;
         hostent_addr_list[0] = (char*)&hostent_addr;
         hostent_addr_list[1] = NULL;
 

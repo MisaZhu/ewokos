@@ -15,15 +15,6 @@ int main(int argc, char *argv[]) {
     if (host == NULL) {
         return -1;
     }
-
-    printf("Host name: %s\n", host->h_name);
-    printf("Aliases: ");
-    char **alias = host->h_aliases;
-    while (*alias != NULL) {
-        printf("%s ", *alias);
-        alias++;
-    }
-    printf("\n");
     
     // 打印IP地址
     printf("IP addresses: ");
