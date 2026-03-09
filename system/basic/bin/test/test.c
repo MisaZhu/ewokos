@@ -11,7 +11,7 @@
 #define NTP_PORT 123
 
 // 硬编码一个NTP服务器IP地址（可以根据需要更换）
-#define DEFAULT_NTP_SERVER "210.72.145.44"  // 中国国家授时中心NTP服务器
+#define DEFAULT_NTP_SERVER "202.120.2.101"  // 中国国家授时中心NTP服务器
 
 // NTP时间戳从1900年开始，而UNIX时间戳从1970年开始，相差70年的秒数
 #define NTP_UNIX_OFFSET 2208988800UL
@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
         close(sockfd);
         return 1;
     }
-    printf("send NTP ok :%d, recving\n", res);
+    printf("send NTP ok %s:%d, recving\n", ntp_server_ip, res);
 
     // 接收NTP响应
     socklen_t addr_len = sizeof(server_addr);
