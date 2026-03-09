@@ -40,6 +40,7 @@ builtin_apps:
 	cd sysinfo;make 
 	cd mmio;make
 	cd splash;make
+	cd ipconfig;make
 
 clean:
 	cd cp;make clean
@@ -80,3 +81,4 @@ clean:
 	cd sysinfo;make clean
 	cd mmio;make clean
 	cd splash;make clean
+	cd ipconfig;make clean
