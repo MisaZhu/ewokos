@@ -10,6 +10,7 @@ extern int errno;
 #undef	EPERM
 #undef	EEXIST
 #undef	ERANGE
+#undef	ETIMEDOUT
 
 enum {
 	ENONE = 0,
@@ -18,6 +19,7 @@ enum {
 	ENOENT,
 	EPERM,
 	ERANGE,
+	ETIMEDOUT,
 	EEXIST
 };
 

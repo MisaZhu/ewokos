@@ -18,7 +18,7 @@ PING = $(TARGET_DIR)/bin/ping
 $(PING): $(PING_OBJS) \
 		$(EWOK_LIBC_A) \
 		$(BUILD_DIR)/lib/libsocket.a
-	$(LD) -Ttext=100 $(PING_OBJS) -o $(PING) $(LDFLAGS) $(EWOK_LIBC) -lsocket
+	$(LD) -Ttext=100 $(PING_OBJS) -o $(PING) $(LDFLAGS) -lsocket $(EWOK_LIBC) 
 
 clean:
 	rm -f $(PING_OBJS)

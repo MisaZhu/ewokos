@@ -14,7 +14,6 @@
 
 #define SOL_SOCKET 1
 #define SO_RCVTIMEO 2
-#define ETIMEDOUT 116
 
 // Implement timersub if not defined
 #ifndef timersub

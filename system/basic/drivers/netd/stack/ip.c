@@ -188,7 +188,7 @@ ip_route_lookup(ip_addr_t dst)
 
     for (route = routes; route; route = route->next) {
         if ((dst & route->netmask) == route->network) {
-            if (!candidate || ntoh32(candidate->netmask) < ntoh32(route->netmask)) {
+            if (!candidate || candidate->netmask < route->netmask) {
                 candidate = route;
             }
         }
@@ -499,10 +499,6 @@ ip_output(uint8_t protocol, const uint8_t *data, size_t len, ip_addr_t src, ip_a
     }
 
     iface = route->iface;
-    if (src != IP_ADDR_ANY && src != iface->unicast) {
-        errorf("unable to output with specified source address, addr=%s", ip_addr_ntop(src, addr, sizeof(addr)));
-        return -1;
-    }
     nexthop = (route->nexthop != IP_ADDR_ANY) ? route->nexthop : dst;
     if (NET_IFACE(iface)->dev->mtu < IP_HDR_SIZE_MIN + len) {
         errorf("too long, dev=%s, mtu=%u, tatal=%zu",

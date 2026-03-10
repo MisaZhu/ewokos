@@ -3,32 +3,68 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
 #include <arpa/inet.h>
 
+#define BUFFER_SIZE 1024
+
 int main(int argc, char *argv[]) {
-    struct hostent *host = gethostbyname("www.baidu.com");
-    if (host == NULL) {
-        return -1;
+    /*if (argc != 3) {
+        fprintf(stderr, "Usage: %s <domain> <port>\n", argv[0]);
+        return 1;
+    }
+        */
+
+    const char *domain = "tcpbin.com";//argv[1];
+    int port = 4242;//atoi(argv[2]);
+    int sock = 0;
+    struct sockaddr_in serv_addr;
+    char buffer[BUFFER_SIZE] = {0};
+    char message[BUFFER_SIZE] = {0};
+
+    // Create socket file descriptor
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        printf("Socket creation error\n");
+        return 1;
     }
 
-    printf("Host name: %s\n", host->h_name);
-    printf("Aliases: ");
-    char **alias = host->h_aliases;
-    while (*alias != NULL) {
-        printf("%s ", *alias);
-        alias++;
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_port = htons(port);
+    //serv_addr.sin_port = (port);
+
+    // Resolve domain name to IP address
+    printf("get host %s, %d, %d\n", domain, port, htons(port));
+    struct hostent *host = gethostbyname(domain);
+    if (host == NULL) {
+        printf("Failed to resolve domain: %s\n", domain);
+        return 1;
     }
-    printf("\n");
-    
-    // 打印IP地址
-    printf("IP addresses: ");
-    char **addr_list = host->h_addr_list;
-    while (*addr_list != NULL) {
-        struct in_addr *addr = (struct in_addr*)*addr_list;
-        printf("%s ", inet_ntoa(*addr));
-        addr_list++;
+    printf("get host %s ok\n", domain);
+
+    memcpy(&serv_addr.sin_addr, host->h_addr_list[0], host->h_length);
+    char resolved_ip[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &serv_addr.sin_addr, resolved_ip, INET_ADDRSTRLEN);
+    printf("connect (%s)\n", resolved_ip);
+
+    // Connect to server
+    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+        printf("Connection failed\n");
+        return 1;
     }
-    printf("\n");
-    
+    klog("connect %d\n", sock);
+
+   // Get input from user
+    strcpy(message, "hello\n");
+    // Send message to server
+    int sz = send(sock, message, strlen(message), 0);
+    klog("Message sent: %d:%s\n", sz, message);
+
+    // Read response from server
+    int valread = read(sock, buffer, BUFFER_SIZE);
+    if (valread > 0) {
+        klog("Echo received: %s\n", buffer);
+    }
+
+    close(sock);
     return 0;
 }
