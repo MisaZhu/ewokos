@@ -51,20 +51,19 @@ int main(int argc, char *argv[]) {
         printf("Connection failed\n");
         return 1;
     }
-    klog("connect %d\n", sock);
+    printf("connected\n");
 
    // Get input from user
     strcpy(message, "hello\n");
     // Send message to server
     int sz = send(sock, message, strlen(message), 0);
-    klog("Message sent: %d:%s\n", sz, message);
+    printf("Message sent: %d:%s", sz, message);
 
     // Read response from server
     int valread = read(sock, buffer, BUFFER_SIZE);
     if (valread > 0) {
-        klog("Echo received: %s\n", buffer);
+        printf("Echo received: %s", buffer);
     }
-
     close(sock);
     return 0;
 }
