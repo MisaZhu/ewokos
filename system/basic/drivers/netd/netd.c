@@ -47,9 +47,9 @@ static int network_read(int fd, int from_pid, fsinfo_t* info,
 
 	net_task_t *task = (net_task_t*)info->data;
 	int ret = task_read(task, from_pid, buf + offset, size, p);
+    proc_wakeup_pid(from_pid, RW_BLOCK_EVT);
 	return ret;
 }
-
 
 static int network_write(int fd, int from_pid, fsinfo_t* info,
 		const void* buf, int size, int offset, void* p) {
@@ -57,6 +57,7 @@ static int network_write(int fd, int from_pid, fsinfo_t* info,
 
 	net_task_t *task = (net_task_t*)info->data;
 	int ret = task_write(task, from_pid, buf + offset, size, p);
+    proc_wakeup_pid(from_pid, RW_BLOCK_EVT);
 	return ret;
 }
 
@@ -67,7 +68,7 @@ static int network_close(int fd, int from_pid, uint32_t node, fsinfo_t* fsinfo,v
 	net_task_t *task = (net_task_t *)info->data;
 	if(task)
 		release_task(task);
-
+    proc_wakeup_pid(from_pid, RW_BLOCK_EVT);
 	return 0;
 }
 

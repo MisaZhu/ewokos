@@ -2,11 +2,23 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <pthread.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
 #define BUFFER_SIZE 1024
+
+void *receive_thread(void *arg) {
+    int sock = *((int *)arg);
+    char buffer[BUFFER_SIZE] = {0};
+    int valread;
+    
+    printf("receiving\n");
+    valread = read(sock, buffer, BUFFER_SIZE);
+    printf("Echo received: %s\n", buffer);
+    return NULL;
+}
 
 int main(int argc, char *argv[]) {
     /*if (argc != 3) {
@@ -53,17 +65,21 @@ int main(int argc, char *argv[]) {
     }
     printf("connected\n");
 
-   // Get input from user
+    // Create receive thread
+    pthread_t tid;
+    if (pthread_create(&tid, NULL, receive_thread, &sock) != 0) {
+        printf("Failed to create receive thread\n");
+        close(sock);
+        return 1;
+    }
+
     strcpy(message, "hello\n");
-    // Send message to server
     int sz = send(sock, message, strlen(message), 0);
     printf("Message sent: %d:%s", sz, message);
 
-    // Read response from server
-    int valread = read(sock, buffer, BUFFER_SIZE);
-    if (valread > 0) {
-        printf("Echo received: %s", buffer);
-    }
+    // Wait for user input to exit
+    printf("Press Enter to exit...\n");
+    getchar();
     close(sock);
     return 0;
 }
