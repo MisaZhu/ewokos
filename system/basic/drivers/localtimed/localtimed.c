@@ -8,13 +8,12 @@
 #include <ewoksys/kernel_tic.h>
 #include <ntpc/ntpc.h>
 
-static bool _ntp_inited = false;
 static uint32_t _time_sec_init = 0;
 static time_t _time_init = 0;
 
 static int local_time_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
 	(void)p;
-	if(cmd != 0 || !_ntp_inited) {
+	if(cmd != 0 || _time_init == 0) {
 		PF->addi(ret, -1);
 		return -1;
 	}
@@ -28,11 +27,13 @@ static int local_time_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 }
 
 static int local_time_loop(void* p) {
-	if(!_ntp_inited) {
+	uint32_t current_time_sec;
+	kernel_tic(&current_time_sec, NULL);
+
+	if(_time_init == 0 || (current_time_sec - _time_sec_init) > 3600) {
     	_time_init = ntpc_get_time(DEFAULT_NTP_SERVER, DEFAULT_NTP_PORT);
 		if(_time_init > 0) {
 			kernel_tic(&_time_sec_init, NULL);
-			_ntp_inited = true;
 		}
 	}
 	sleep(2);
