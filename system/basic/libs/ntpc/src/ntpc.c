@@ -2,6 +2,10 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <string.h>
+#include <time.h>
+#include <sys/time.h>
+
 
 // NTP时间戳从1900年开始，而UNIX时间戳从1970年开始，相差70年的秒数
 #define NTP_UNIX_OFFSET 2208988800UL
@@ -43,13 +47,19 @@ time_t ntpc_get_time(const char* server_ip, uint16_t port) {
         ntp_port = DEFAULT_NTP_PORT;
 
     ssize_t bytes_received;
-    time_t current_time;
-    struct tm *time_info;
-    char time_string[64];
 
     // 创建UDP套接字
     sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (sockfd < 0) {
+        return 0;
+    }
+
+    // 设置2秒超时
+    struct timeval timeout;
+    timeout.tv_sec = 2;
+    timeout.tv_usec = 0;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+        close(sockfd);
         return 0;
     }
 
