@@ -51,6 +51,12 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_port = htons(port);
+    memcpy(&serv_addr.sin_addr, host->h_addr_list[0], host->h_length);
+    char resolved_ip[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &serv_addr.sin_addr, resolved_ip, INET_ADDRSTRLEN);
+
     // Create socket file descriptor
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         printf("Socket creation error\n");
@@ -65,15 +71,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(port);
-    //serv_addr.sin_port = (port);
-
-    memcpy(&serv_addr.sin_addr, host->h_addr_list[0], host->h_length);
-    char resolved_ip[INET_ADDRSTRLEN];
-    inet_ntop(AF_INET, &serv_addr.sin_addr, resolved_ip, INET_ADDRSTRLEN);
     printf("connect (%s:%s) ... ", domain, resolved_ip);
-
     // Connect to server
     if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
         printf("failed\n");

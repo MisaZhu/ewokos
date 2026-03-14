@@ -43,6 +43,7 @@ builtin_apps:
 	cd ipconfig;make
 	cd host;make
 	cd ping;make
+	cd telnet;make
 
 clean:
 	cd cp;make clean
@@ -86,3 +87,4 @@ clean:
 	cd ipconfig;make clean
 	cd host;make clean
 	cd ping;make clean
+	cd telnet;make clean
