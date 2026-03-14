@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ewoksys/vfs.h>
+#include <sys/time.h>
 
 
 static int do_vfs_fcntl(int fd, int cmd, proto_t* arg_in, proto_t* arg_out){ 
@@ -308,6 +309,14 @@ static int dns_resolve(const char* domain, struct in_addr* addr) {
     // 创建UDP套接字
     sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (sockfd < 0) {
+        return -1;
+    }
+
+    struct timeval timeout;
+    timeout.tv_sec = 3; // 3秒超时
+    timeout.tv_usec = 0;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+        close(sockfd);
         return -1;
     }
 

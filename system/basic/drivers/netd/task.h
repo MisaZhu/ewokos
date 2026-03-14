@@ -18,15 +18,12 @@ typedef struct net_task{
     int cmd;
     pthread_t tid;
     char* iobuf;
-    char* inbuf;
-    char* outbuf;
 	proto_t in;
 	proto_t out;
 	void *p;
     bool running;
     int state;
     int sock;
-    char *buf;
     struct net_task *next;
 }net_task_t;
 
