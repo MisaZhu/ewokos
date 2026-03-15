@@ -1370,7 +1370,6 @@ tcp_close(int id)
     mutex_lock(&mutex);
     pcb = tcp_pcb_get(id);
     if (!pcb) {
-        errorf("pcb not found %d\n", id);
         mutex_unlock(&mutex);
         return -17;
     }

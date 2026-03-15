@@ -9,6 +9,7 @@
 int
 sched_ctx_init(struct sched_ctx *ctx)
 {
+    ctx->available = 1;
 	ctx->cond = 0;
 	ctx->interrupted = 0;
 	ctx->wc = 0;
@@ -35,7 +36,7 @@ sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timeval *abstime
     
 	mutex_unlock(mutex);
     while(1){
-		if(ctx->cond){
+		if(ctx->cond || !ctx->available){
 			ret = 0;
 			break;
 		}
@@ -49,7 +50,6 @@ sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timeval *abstime
                 break;
             }
         }
-        
 		proc_usleep(10000);
     }
 	mutex_lock(mutex);

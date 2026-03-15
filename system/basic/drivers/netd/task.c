@@ -60,6 +60,9 @@ net_task_t *create_task(int fd, int from_pid, int node){
 void release_task(net_task_t *task){
     sock_close(task->sock);
     task->running = false;
+    if(task->read_task != NULL){
+        proc_wakeup((uint32_t)task->read_task);
+    }
     proc_wakeup((uint32_t)task);
 }
 

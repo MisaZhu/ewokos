@@ -25,6 +25,7 @@ typedef uint32_t mutex_t;
 #define timerclear(t) ((t)->tv_sec = (t)->tv_usec = 0)
 
 struct sched_ctx {
+  int available;
 	int cond;
   int interrupted;
   int wc; /* wait count */

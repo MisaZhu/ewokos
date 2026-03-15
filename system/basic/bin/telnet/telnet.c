@@ -8,6 +8,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/errno.h>
+#include <sys/fcntl.h>
 
 #define BUFFER_SIZE 1024
 
@@ -19,11 +20,13 @@ void *receive_thread(void *arg) {
     int n;
     
     while (!_ended) {
-        printf("recving ... \n");
         n = read(sockfd, buffer, BUFFER_SIZE - 1);
         if (n > 0) {
-            buffer[n] = '\0';
-            printf("%s", buffer);
+            for(int i = 0; i < n; i++) {
+                if(buffer[i] != '\r') {
+                    write(STDOUT_FILENO, &buffer[i], 1);
+                }
+            }
         } else if (n <= 0) {
             printf("\nConnection closed by remote host.\n");
             break;
@@ -40,8 +43,8 @@ int main(int argc, char *argv[]) {
     struct hostent *he;
     char buf[BUFFER_SIZE];
     
-    if (argc != 3) {
-        fprintf(stderr, "Usage: %s <host> <port>\n", argv[0]);
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <host> [port]\n", argv[0]);
         exit(1);
     }
     
@@ -50,7 +53,11 @@ int main(int argc, char *argv[]) {
     // 设置服务器地址
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(atoi(argv[2]));
+    if (argc > 2)
+        server_addr.sin_port = htons(atoi(argv[2]));
+    else
+        server_addr.sin_port = htons(23);
+
     // 尝试通过域名解析
     he = gethostbyname(argv[1]);
     if (he == NULL) {
@@ -92,20 +99,21 @@ int main(int argc, char *argv[]) {
         close(sockfd);
         return -1;
     }
-    printf("ok %d\n", sockfd);
+    printf("ok\n");
     
     // 创建接收线程
     if (pthread_create(&tid, NULL, receive_thread, NULL) != 0) {
         close(sockfd);
         return -1;
     }
+
+    fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
     
     // 主线程用于发送数据
     while (!_ended) {
         n = read(STDIN_FILENO, buf, BUFFER_SIZE - 1);
         if (n > 0) {
             buf[n] = '\0';
-            printf("%s", buf);
             // 特殊字符处理
             /*
             if (c == 0x1D) { // Ctrl+]
@@ -129,11 +137,12 @@ int main(int argc, char *argv[]) {
                 break;
             }
         } 
-        else {
+        else if(errno != EAGAIN){
             printf("\nEOF received. Exiting...\n");
             _ended = true;
             break;
         }
+        usleep(10000);
     }
     // 关闭连接
     close(sockfd);
