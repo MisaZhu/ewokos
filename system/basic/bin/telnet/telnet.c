@@ -33,26 +33,23 @@ static void receive_cmd(void) {
             _ended = true;
             break;
         }
-
-        if(c == 0xff) {
-            uint8_t cmd[2];
-            if(read(sockfd, cmd, 2) != 2) {
-                _ended = true;
-                break;
-            }
-
-            int res = handle_cmd(cmd);
-            if(res == 0)
-                break;
-            else if(res < 0) {
-                _ended = true;
-                break;
-            }
-        }
-        else {
+        if(c != 0xff) {
             write(STDOUT_FILENO, c, 1);
             break;
-        } 
+        }
+
+        uint8_t cmd[2];
+        if(read(sockfd, cmd, 2) != 2) {
+            _ended = true;
+            break;
+        }
+        int res = handle_cmd(cmd);
+        if(res == 0)
+            break;
+        else if(res < 0) {
+            _ended = true;
+            break;
+        }
     }
 }
 
