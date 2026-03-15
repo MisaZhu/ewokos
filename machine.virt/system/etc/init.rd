@@ -34,6 +34,9 @@
 @/bin/splash -m "start /dev/localtimed" -p 70
 @/bin/ipcserv /drivers/localtimed    /dev/localtime
 
+#@/bin/splash -m "start telnetd" -p 72
+#@/bin/bgrun /sbin/telnetd
+
 @/bin/splash -m "start /dev/null" -p 73
 @/bin/ipcserv /drivers/nulld           /dev/null
 
