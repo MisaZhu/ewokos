@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/errno.h>
+#include <sys/time.h>
 
 #include "../platform.h"
 
@@ -403,40 +404,17 @@ udp_recvfrom(int id, uint8_t *buf, size_t size, struct ip_endpoint *foreign)
     }
     
     // Get socket timeout
-    uint32_t rcv_timeout = sock_get_timeout(id, SOCK_DGRAM);
+    struct timeval *rcv_timeout = sock_get_timeout(id, SOCK_DGRAM, SO_RCVTIMEO);
     
     while (!(entry = queue_pop(&pcb->queue))) {
-        if (rcv_timeout > 0) {
-            // Calculate absolute timeout
-            struct timespec abstime;
-            struct timeval now;
-            gettimeofday(&now, NULL);
-            abstime.tv_sec = now.tv_sec + (rcv_timeout / 1000000);
-            abstime.tv_nsec = (now.tv_usec * 1000) + ((rcv_timeout % 1000000) * 1000);
-            if (abstime.tv_nsec >= 1000000000) {
-                abstime.tv_sec++;
-                abstime.tv_nsec -= 1000000000;
-            }
-            
-            if (sched_sleep(&pcb->ctx, &mutex, &abstime) == -1) {
-                if (errno == ETIMEDOUT) {
-                    mutex_unlock(&mutex);
-                    return -1;
-                }
-                errorf("interrupted");
-                mutex_unlock(&mutex);
-                errno = EINTR;
-                return -1;
-            }
-        } else {
-            if (sched_sleep(&pcb->ctx, &mutex, NULL) == -1) {
-                errorf("interrupted");
-                mutex_unlock(&mutex);
-                errno = EINTR;
-                return -1;
-            }
+        struct timeval abs_timeout;
+        if (sched_sleep(&pcb->ctx, &mutex, sock_get_timeout_abs(rcv_timeout, &abs_timeout)) == -1) {
+            errorf("interrupted");
+            mutex_unlock(&mutex);
+            errno = EINTR;
+            return -1;
         }
-        
+
         if (pcb->state == UDP_PCB_STATE_CLOSING) {
             errorf("closed");
             udp_pcb_release(pcb);

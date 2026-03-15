@@ -3,8 +3,13 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <sys/time.h>
 
 #include "ip.h"
+
+#define SOL_SOCKET  0xFFFF
+#define SO_SNDTIMEO 0x1005
+#define SO_RCVTIMEO 0x1006
 
 #define PF_UNSPEC   0
 #define PF_LOCAL    1
@@ -47,7 +52,8 @@ struct sock {
     struct icmp_packet *recv_queue;
     struct icmp_packet *recv_queue_tail;
     // Timeout in microseconds
-    uint32_t rcv_timeout;
+    struct timeval rcv_timeout;
+    struct timeval snd_timeout;
 };
 
 struct sockaddr {
@@ -98,7 +104,12 @@ extern int
 sock_setsockopt(int id, int level, int optname, const void *optval, int optlen);
 
 // Get socket timeout for a given descriptor
-extern uint32_t
-sock_get_timeout(int desc, int type);
+extern struct timeval*
+sock_get_timeout(int desc, int type, int timeout_type);
+
+extern struct timeval*
+sock_get_timeout_abs(struct timeval* timeout, struct timeval* abs_timeout);
+
+extern uint32_t sock_get_timeout_msec(struct timeval*);
 
 #endif

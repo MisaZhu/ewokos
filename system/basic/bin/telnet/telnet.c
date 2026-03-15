@@ -19,6 +19,7 @@ void *receive_thread(void *arg) {
     int n;
     
     while (!_ended) {
+        printf("recving ... \n");
         n = read(sockfd, buffer, BUFFER_SIZE - 1);
         if (n > 0) {
             buffer[n] = '\0';
@@ -71,7 +72,7 @@ int main(int argc, char *argv[]) {
     struct timeval timeout;
     timeout.tv_sec = 3; // 3秒超时
     timeout.tv_usec = 0;
-    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+    if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0) {
         close(sockfd);
         return -1;
     }
@@ -103,6 +104,8 @@ int main(int argc, char *argv[]) {
     while (!_ended) {
         n = read(STDIN_FILENO, buf, BUFFER_SIZE - 1);
         if (n > 0) {
+            buf[n] = '\0';
+            printf("%s", buf);
             // 特殊字符处理
             /*
             if (c == 0x1D) { // Ctrl+]
@@ -120,7 +123,8 @@ int main(int argc, char *argv[]) {
             }
             */
             // 正常字符发送
-            if (write(sockfd, buf, n) < 0) {
+            int sz =  write(sockfd, buf, n);
+            if(sz < 0) {
                 _ended = true;
                 break;
             }
@@ -130,7 +134,6 @@ int main(int argc, char *argv[]) {
             _ended = true;
             break;
         }
-        sleep(0);
     }
     // 关闭连接
     close(sockfd);

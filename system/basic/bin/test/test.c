@@ -17,13 +17,16 @@ void *receive_thread(void *arg) {
     char buffer[BUFFER_SIZE] = {0};
     int valread;
     
-    valread = read(sock, buffer, BUFFER_SIZE);
-    if(valread <= 0) {
-        printf("Message recv: %d\n", valread);
-    }
-    else {
-        buffer[valread] = '\0';
-        printf("Message recv: %d:%s\n", valread, buffer);
+    while(!_ended) {
+        valread = read(sock, buffer, BUFFER_SIZE);
+        if(valread <= 0) {
+            printf("Message recv: %d\n", valread);
+            break;
+        }
+        else {
+            buffer[valread] = '\0';
+            printf("Message recv: %d:%s\n", valread, buffer);
+        }
     }
     _ended = true;
     return NULL;
@@ -88,8 +91,11 @@ int main(int argc, char *argv[]) {
     }
 
     strcpy(message, "hello\n");
-    int sz = write(sock, message, strlen(message));
-    printf("Message sent: %d:%s", sz, message);
+    while(!_ended) {
+        int sz = write(sock, message, strlen(message));
+        printf("Message sent: %d:%s", sz, message);
+        usleep(100000);
+    }
 
     while(!_ended)
         usleep(100000);

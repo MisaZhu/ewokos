@@ -12,9 +12,6 @@
 
 #include "sock.h"
 
-#define SOL_SOCKET 1
-#define SO_RCVTIMEO 2
-
 // Implement timersub if not defined
 #ifndef timersub
 #define timersub(a, b, result) \
@@ -129,7 +126,8 @@ sock_open(int domain, int type, int protocol)
     s->family = domain;
     s->type = type;
     s->protocol = protocol;
-    s->rcv_timeout = 0; // No timeout by default
+    memset(&s->rcv_timeout, 0, sizeof(struct timeval));
+    memset(&s->snd_timeout, 0, sizeof(struct timeval));
     switch (s->type) {
     case SOCK_STREAM:
         s->desc = tcp_open();
@@ -225,7 +223,8 @@ sock_recvfrom(int id, void *buf, size_t n, struct sockaddr *addr, int *addrlen)
             }
             
             // If no packets and timeout is set, wait with timeout
-            if (s->rcv_timeout > 0) {
+            uint32_t rcv_timeout = s->rcv_timeout.tv_sec * 1000000 + s->rcv_timeout.tv_usec;
+            if (rcv_timeout > 0) {
                 struct timeval start, now, diff;
                 gettimeofday(&start, NULL);
                 
@@ -260,7 +259,7 @@ sock_recvfrom(int id, void *buf, size_t n, struct sockaddr *addr, int *addrlen)
                     // Check if timeout occurred
                     gettimeofday(&now, NULL);
                     timersub(&now, &start, &diff);
-                    if ((diff.tv_sec * 1000000 + diff.tv_usec) >= s->rcv_timeout) {
+                    if ((diff.tv_sec * 1000000 + diff.tv_usec) >= rcv_timeout) {
                         errno = ETIMEDOUT;
                         return -1;
                     }
@@ -498,7 +497,14 @@ sock_setsockopt(int id, int level, int optname, const void *optval, int optlen)
         case SO_RCVTIMEO:
             if (optlen == sizeof(struct timeval)) {
                 struct timeval *timeout = (struct timeval *)optval;
-                s->rcv_timeout = timeout->tv_sec * 1000000 + timeout->tv_usec;
+                memcpy(&s->rcv_timeout, timeout, sizeof(struct timeval));
+                return 0;
+            }
+            break;
+        case SO_SNDTIMEO:
+            if (optlen == sizeof(struct timeval)) {
+                struct timeval *timeout = (struct timeval *)optval;
+                memcpy(&s->snd_timeout, timeout, sizeof(struct timeval));
                 return 0;
             }
             break;
@@ -511,14 +517,41 @@ sock_setsockopt(int id, int level, int optname, const void *optval, int optlen)
 }
 
 // Get socket timeout for a given descriptor
-uint32_t
-sock_get_timeout(int desc, int type)
+struct timeval*
+sock_get_timeout(int desc, int type, int timeout_type)
 {
     for (int i = 0; i < countof(socks); i++) {
         struct sock *s = &socks[i];
         if (s->used && s->type == type && s->desc == desc) {
-            return s->rcv_timeout;
+            if (timeout_type == SO_RCVTIMEO) {
+                return &s->rcv_timeout;
+            } else if (timeout_type == SO_SNDTIMEO) {
+                return &s->snd_timeout;
+            }
         }
     }
+    return NULL;
+}
+
+// Get socket absolute timeout for a given descriptor
+struct timeval*
+sock_get_timeout_abs(struct timeval* timeout, struct timeval* abs_timeout) {
+    if (timeout && (timeout->tv_sec > 0 || timeout->tv_usec > 0)) {
+        struct timeval now;
+        gettimeofday(&now, NULL);
+        abs_timeout->tv_sec = now.tv_sec + timeout->tv_sec;
+        abs_timeout->tv_usec = now.tv_usec + timeout->tv_usec;
+        if (abs_timeout->tv_usec >= 1000000) {
+            abs_timeout->tv_sec++;
+            abs_timeout->tv_usec -= 1000000;
+        }
+        return abs_timeout;
+    }
+    return NULL;
+}
+
+inline uint32_t sock_get_timeout_msec(struct timeval* timeout) {
+    if(timeout)
+        return timeout->tv_sec * 1000 + timeout->tv_usec / 1000;
     return 0;
 }

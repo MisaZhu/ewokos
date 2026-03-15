@@ -87,7 +87,7 @@ int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *o
 
 int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
     if(task->state == NET_TASK_FINISH){
-        if(SOCK_RECV != task->cmd || from_pid != task->from_pid){
+        if(SOCK_RECV != task->cmd || from_pid != task->from_pid) {
             //klog("read ipc error task_cmd:%d(should:%d) frompid:%d task->frompid:%d\n",
             //        task->cmd, SOCK_RECV, from_pid, task->from_pid);
             return VFS_ERR_RETRY;

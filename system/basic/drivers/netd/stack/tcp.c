@@ -4,10 +4,13 @@
 #include <string.h>
 #include <sys/errno.h>
 #include <sys/time.h>
+#include <ewoksys/vfs.h>
+#include <ewoksys/kernel_tic.h>
 
 #include "../platform.h"
 
 #include "util.h"
+#include "sock.h"
 #include "net.h"
 #include "ip.h"
 #include "tcp.h"
@@ -1221,6 +1224,8 @@ tcp_send(int id, uint8_t *data, size_t len)
         mutex_unlock(&mutex);
         return -17;
     }
+
+    struct timeval *snd_timeout = sock_get_timeout(id, SOCK_STREAM, SO_SNDTIMEO);
 RETRY:
     switch (pcb->state) {
     case TCP_PCB_STATE_CLOSED:
@@ -1250,8 +1255,8 @@ RETRY:
         while (sent < (ssize_t)len) {
             cap = pcb->snd.wnd - (pcb->snd.nxt - pcb->snd.una);
             if (!cap) {
-                if (sched_sleep(&pcb->ctx, &mutex, NULL) == -1) {
-                    debugf("interrupted");
+                struct timeval abs_timeout;
+                if (sched_sleep(&pcb->ctx, &mutex, sock_get_timeout_abs(snd_timeout, &abs_timeout)) == -1) {
                     if (!sent) {
                         mutex_unlock(&mutex);
                         errno = EINTR;
@@ -1303,6 +1308,8 @@ tcp_receive(int id, uint8_t *buf, size_t size)
         mutex_unlock(&mutex);
         return -17;
     }
+
+    struct timeval *rcv_timeout = sock_get_timeout(id, SOCK_STREAM, SO_RCVTIMEO);
 RETRY:
     switch (pcb->state) {
     case TCP_PCB_STATE_CLOSED:
@@ -1321,8 +1328,8 @@ RETRY:
     case TCP_PCB_STATE_FIN_WAIT2:
         remain = sizeof(pcb->buf) - pcb->rcv.wnd;
         if (!remain) {
-            if (sched_sleep(&pcb->ctx, &mutex, NULL) == -1) {
-                debugf("interrupted");
+            struct timeval abs_timeout;
+            if (sched_sleep(&pcb->ctx, &mutex, sock_get_timeout_abs(rcv_timeout, &abs_timeout)) == -1) {
                 mutex_unlock(&mutex);
                 errno = EINTR;
                 return -1;

@@ -4,6 +4,10 @@
 #include <stdint.h>
 #include <netinet/in.h>
 
+#define SOL_SOCKET  0xFFFF
+#define SO_SNDTIMEO 0x1005
+#define SO_RCVTIMEO 0x1006
+
 struct sockaddr
 {
   unsigned short int sa_family;
@@ -83,9 +87,6 @@ struct msghdr {
 #define SHUT_RD		SHUT_RD
 #define SHUT_WR		SHUT_WR
 #define SHUT_RDWR	SHUT_RDWR
-
-#define SOL_SOCKET 1
-#define SO_RCVTIMEO 2
 
 #define SOCK_STREAM   1
 #define SOCK_DGRAM    2

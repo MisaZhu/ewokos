@@ -22,17 +22,17 @@ sched_ctx_destroy(struct sched_ctx *ctx)
 }
 
 int
-sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timespec *abstime)
+sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timeval *abstime)
 {
     int ret;
-    struct timeval now, end;
+    struct timeval now;
     if (ctx->interrupted) {
         errno = EINTR;
         return -1;
     }
     ctx->wc++;
 	ctx->cond = 0;
-	
+    
 	mutex_unlock(mutex);
     while(1){
 		if(ctx->cond){
@@ -43,10 +43,7 @@ sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timespec *abstim
         // Check for timeout if abstime is provided
         if (abstime) {
             gettimeofday(&now, NULL);
-            end.tv_sec = abstime->tv_sec;
-            end.tv_usec = abstime->tv_nsec / 1000;
-            
-            if (timercmp(&now, &end, >)) {
+            if (timercmp(&now, abstime, >)) {
                 errno = ETIMEDOUT;
                 ret = -1;
                 break;
