@@ -15,10 +15,52 @@
 bool _ended = false;
 int sockfd = -1;
 
-void *receive_thread(void *arg) {
+static int handle_cmd(uint8_t *cmd) {
+    if(cmd[0] == 0xfb) {
+        if(cmd[1] == 0x00) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+static void receive_cmd(void) {
     char buffer[BUFFER_SIZE];
     int n;
-    
+    while (!_ended) {
+        uint8_t c;
+        if(read(sockfd, &c, 1) <= 0) {
+            _ended = true;
+            break;
+        }
+
+        if(c == 0xff) {
+            uint8_t cmd[2];
+            if(read(sockfd, cmd, 2) != 2) {
+                _ended = true;
+                break;
+            }
+
+            int res = handle_cmd(cmd);
+            if(res == 0)
+                break;
+            else if(res < 0) {
+                _ended = true;
+                break;
+            }
+        }
+        else {
+            write(STDOUT_FILENO, c, 1);
+            break;
+        } 
+    }
+}
+
+static void *receive_thread(void *arg) {
+    char buffer[BUFFER_SIZE];
+    int n;
+    receive_cmd();
+        
     while (!_ended) {
         n = read(sockfd, buffer, BUFFER_SIZE - 1);
         if (n > 0) {
