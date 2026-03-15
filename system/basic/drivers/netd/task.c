@@ -48,8 +48,10 @@ net_task_t *create_task(int fd, int from_pid, int node){
     task->from_pid = 0;
     task->node = node;
     task->running = false;
+    task->read_task = NULL;
+    task->state = NET_TASK_IDLE;
     task->sock = -1;
-    task->read_buf = malloc(4096);
+    task->read_buf = NULL;
     task_list_add(task);
     //pthread_create(&task->tid, NULL, task_thread, task);
     return task;
@@ -86,8 +88,12 @@ int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *o
 }
 
 int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
+    if(!task->is_read_task){
+        return VFS_ERR_RETRY;
+    }
+
     if(task->state == NET_TASK_FINISH){
-        if(SOCK_RECV != task->cmd || from_pid != task->from_pid) {
+        if(from_pid != task->from_pid || SOCK_RECV != task->cmd) {
             //klog("read ipc error task_cmd:%d(should:%d) frompid:%d task->frompid:%d\n",
             //        task->cmd, SOCK_RECV, from_pid, task->from_pid);
             return VFS_ERR_RETRY;
@@ -111,7 +117,6 @@ int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
         proc_wakeup((uint32_t)task);
     }
     return VFS_ERR_RETRY;
-
 }
 
 int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p){
@@ -171,6 +176,9 @@ int do_network_fcntl(net_task_t *task){
 			break;
 		case SOCK_RECVFROM:
 			size = proto_read_int(&task->in);
+            if(task->read_buf == NULL){
+                task->read_buf = malloc(4096);
+            }
             ret = sock_recvfrom(sock, task->read_buf, size, &addr, &addrlen);
             PF->addi(&task->out, ret);
             if(ret > 0){
@@ -187,6 +195,9 @@ int do_network_fcntl(net_task_t *task){
 			break;
 		case SOCK_RECV:
 			size = proto_read_int(&task->in);
+            if(task->read_buf == NULL){
+                task->read_buf = malloc(4096);
+            }
             ret = sock_recv(sock, task->read_buf, size);
             PF->addi(&task->out, ret);
             if(ret > 0){
@@ -256,8 +267,16 @@ static void* task_thread(void* arg){
 
     PF->clear(&task->in);
     PF->clear(&task->out);
-    sock_close(task->sock);
-    free(task->read_buf);
+    if(task->read_buf != NULL)
+        free(task->read_buf);
+
+    if(!task->is_read_task) {
+        sock_close(task->sock);
+        if(task->read_task != NULL) {
+            task->read_task->running = false;
+            proc_wakeup((uint32_t)task->read_task);
+        }
+    }
     free(task);
     return NULL;
 }

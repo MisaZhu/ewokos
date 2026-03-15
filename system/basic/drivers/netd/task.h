@@ -22,9 +22,12 @@ typedef struct net_task{
 	proto_t out;
 	void *p;
     bool running;
+    bool is_read_task;
     int state;
     int sock;
-    struct net_task *next;
+    struct net_task* read_task;
+
+    struct net_task* next;
 }net_task_t;
 
 net_task_t *create_task(int fd, int from_pid, int node);

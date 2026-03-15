@@ -29,6 +29,17 @@ static int network_fcntl(int fd, int from_pid, fsinfo_t* info,
 	int cmd, proto_t* in, proto_t* out, void* p) {
     (void)p;
 	net_task_t *task = (net_task_t*)info->data;
+
+	if(cmd == SOCK_RECVFROM){
+		if(task->read_task == NULL){
+			task->read_task = create_task(fd, from_pid, info->node);
+			task->read_task->sock = task->sock;
+			task->read_task->is_read_task = true;
+		}
+		task = task->read_task;
+		task->cmd = SOCK_RECVFROM;
+	}
+
 	return task_cntl(task, from_pid, cmd, in, out, p);
 }
 
@@ -46,6 +57,13 @@ static int network_read(int fd, int from_pid, fsinfo_t* info,
 	(void)p;
 
 	net_task_t *task = (net_task_t*)info->data;
+	if(task->read_task == NULL){
+		task->read_task = create_task(fd, from_pid, info->node);
+		task->read_task->sock = task->sock;
+		task->read_task->is_read_task = true;
+	}
+
+	task = task->read_task;
 	int ret = task_read(task, from_pid, buf + offset, size, p);
     proc_wakeup_pid(from_pid, RW_BLOCK_EVT);
 	return ret;
