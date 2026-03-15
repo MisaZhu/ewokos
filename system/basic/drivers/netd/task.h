@@ -17,7 +17,7 @@ typedef struct net_task{
 	int node;
     int cmd;
     pthread_t tid;
-    char* iobuf;
+    char* read_buf;
 	proto_t in;
 	proto_t out;
 	void *p;
