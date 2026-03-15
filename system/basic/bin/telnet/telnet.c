@@ -76,13 +76,14 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    struct timeval timeout;
+    /*struct timeval timeout;
     timeout.tv_sec = 3; // 3秒超时
     timeout.tv_usec = 0;
     if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0) {
         close(sockfd);
         return -1;
     }
+    */
     
     // 显示连接信息
     char addr_str[INET_ADDRSTRLEN];

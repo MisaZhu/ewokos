@@ -98,9 +98,6 @@ int main(int argc, char *argv[]) {
         usleep(100000);
         cnt++;
     }
-
-    while(!_ended)
-        usleep(100000);
     close(sock);
     return 0;
 }
