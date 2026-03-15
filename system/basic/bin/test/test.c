@@ -91,10 +91,12 @@ int main(int argc, char *argv[]) {
     }
 
     strcpy(message, "hello\n");
-    while(!_ended) {
+    uint32_t cnt = 0;
+    while(!_ended && cnt < 100) {
         int sz = write(sock, message, strlen(message));
-        printf("Message sent: %d:%s", sz, message);
+        printf("%d: Message sent: %d:%s", cnt, sz, message);
         usleep(100000);
+        cnt++;
     }
 
     while(!_ended)

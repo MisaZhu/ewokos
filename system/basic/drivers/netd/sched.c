@@ -24,7 +24,7 @@ sched_ctx_destroy(struct sched_ctx *ctx)
 int
 sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timeval *abstime)
 {
-    int ret;
+    int ret = 1;
     struct timeval now;
     if (ctx->interrupted) {
         errno = EINTR;

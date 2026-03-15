@@ -118,6 +118,13 @@ static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	int fd = proto_read_int(in);
 	uint32_t node = (uint32_t)proto_read_int(in);
 	fsinfo_t* fsinfo = proto_read(in, NULL);
+	int core_from_pid = proto_read_int(in);
+	if(core_from_pid > 0) {
+		int vfsd_pid = get_vfsd_pid(); //from vfsd for proc exit closing.
+		if(vfsd_pid == from_pid) {
+			from_pid = core_from_pid;
+		}
+	}
 
 	if(dev != NULL && dev->close != NULL) {
 		dev->close(fd, from_pid, node, fsinfo, p);

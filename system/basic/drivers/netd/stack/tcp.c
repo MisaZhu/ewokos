@@ -1416,6 +1416,7 @@ tcp_close(int id)
         mutex_unlock(&mutex);
         return -1;
     }
+
     if (pcb->state == TCP_PCB_STATE_CLOSED) {
         tcp_pcb_release(pcb);
     } else {

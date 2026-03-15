@@ -26,8 +26,8 @@ typedef uint32_t mutex_t;
 
 struct sched_ctx {
 	int cond;
-    int interrupted;
-    int wc; /* wait count */
+  int interrupted;
+  int wc; /* wait count */
 };
 
 #define gettimeofday gettimeofday_plat

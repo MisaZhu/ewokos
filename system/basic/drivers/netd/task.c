@@ -58,6 +58,7 @@ net_task_t *create_task(int fd, int from_pid, int node){
 }
 
 void release_task(net_task_t *task){
+    sock_close(task->sock);
     task->running = false;
     proc_wakeup((uint32_t)task);
 }
@@ -262,7 +263,10 @@ static void* task_thread(void* arg){
             task->state = NET_TASK_FINISH;
             proc_wakeup_pid(task->from_pid, RW_BLOCK_EVT);
         }
-        proc_block_by(getpid(), (uint32_t)task);
+
+        if(task->running) {
+            proc_block_by(getpid(), (uint32_t)task);
+        }
     }
 
     PF->clear(&task->in);

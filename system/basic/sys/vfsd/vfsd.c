@@ -938,6 +938,14 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 	PF->clear(out)->addi(out, 0); //retry
 }
 
+static void vfs_driver_close(int32_t pid, int32_t fd, vfs_node_t* node) {
+	proto_t in;
+	PF->format(&in, "i,i,m,i",
+		fd, (uint32_t)node, &node->fsinfo, sizeof(fsinfo_t), pid);
+	int res = ipc_call(node->fsinfo.mount_pid, FS_CMD_CLOSE, &in, NULL);	
+	PF->clear(&in);
+}
+
 static void vfs_proc_exit(int32_t cpid) {
 	if(cpid < 0)
 		return;
@@ -945,6 +953,7 @@ static void vfs_proc_exit(int32_t cpid) {
 	for(i=0; i<MAX_OPEN_FILE_PER_PROC; i++) {
 		file_t *f = &_proc_fds_table[cpid].fds[i];
 		if(f->node != NULL) {
+			vfs_driver_close(cpid, i, f->node);
 			proc_file_close(cpid, i, f);
 		}
 		memset(f, 0, sizeof(file_t));

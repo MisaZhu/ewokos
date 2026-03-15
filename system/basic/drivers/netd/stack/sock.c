@@ -149,7 +149,6 @@ int
 sock_close(int id)
 {
     struct sock *s;
-    slog("sock close %d\n", id);
     s = sock_get(id);
     if (!s) {
         return -17;
@@ -430,7 +429,8 @@ sock_recv(int id, void *buf, size_t n)
     }
     switch (s->family) {
     case AF_INET:
-        return tcp_receive(s->desc, (uint8_t *)buf, n);
+        int ret = tcp_receive(s->desc, (uint8_t *)buf, n);
+        return ret;
     }
     return -1;
 }
