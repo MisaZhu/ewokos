@@ -1,0 +1,233 @@
+name: Ubuntu-Macos-Windows Tests
+
+# START OF COMMON SECTION
+on:
+  push:
+    branches: [ 'master', 'main', 'release/**' ]
+  pull_request:
+    branches: [ '*' ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+# END OF COMMON SECTION
+
+jobs:
+  make_check:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-24.04, macos-latest ]
+        config: [
+          # Add new configs here
+          '',
+          '--enable-all --enable-asn=template',
+          '--enable-all --enable-asn=original',
+          '--enable-all --enable-asn=template CPPFLAGS=-DWOLFSSL_OLD_OID_SUM',
+          '--enable-all --enable-asn=original CPPFLAGS=-DWOLFSSL_OLD_OID_SUM',
+          '--enable-harden-tls',
+          '--enable-tls13 --enable-session-ticket --enable-dtls --enable-dtls13
+             --enable-opensslextra --enable-sessioncerts
+             CPPFLAGS=''-DWOLFSSL_DTLS_NO_HVR_ON_RESUME -DHAVE_EXT_CACHE
+             -DWOLFSSL_TICKET_HAVE_ID -DHAVE_EX_DATA -DSESSION_CACHE_DYNAMIC_MEM'' ',
+          '--enable-all --enable-secure-renegotiation',
+          '--enable-all --enable-haproxy --enable-quic',
+          '--enable-dtls --enable-dtls13 --enable-earlydata
+             --enable-session-ticket --enable-psk
+             CPPFLAGS=''-DWOLFSSL_DTLS13_NO_HRR_ON_RESUME'' ',
+          '--enable-experimental --enable-kyber --enable-dtls --enable-dtls13
+             --enable-dtls-frag-ch',
+          '--enable-all --enable-dtls13 --enable-dtls-frag-ch',
+          '--enable-dtls --enable-dtls13 --enable-dtls-frag-ch
+           --enable-dtls-mtu',
+          '--enable-dtls --enable-dtlscid --enable-dtls13 --enable-secure-renegotiation
+            --enable-psk --enable-aesccm --enable-nullcipher
+            CPPFLAGS=-DWOLFSSL_STATIC_RSA',
+          '--enable-ascon --enable-experimental',
+          '--enable-ascon CPPFLAGS=-DWOLFSSL_ASCON_UNROLL --enable-experimental',
+          '--enable-all CPPFLAGS=''-DNO_AES_192 -DNO_AES_256'' ',
+          '--enable-sniffer --enable-curve25519 --enable-curve448 --enable-enckeys
+            CPPFLAGS=-DWOLFSSL_DH_EXTRA',
+          '--enable-dtls --enable-dtls13 --enable-dtls-frag-ch
+            --enable-dtls-mtu CPPFLAGS=-DWOLFSSL_DTLS_RECORDS_CAN_SPAN_DATAGRAMS',
+          '--enable-opensslall --enable-opensslextra CPPFLAGS=-DWC_RNG_SEED_CB',
+          '--enable-opensslall --enable-opensslextra
+            CPPFLAGS=''-DWC_RNG_SEED_CB -DWOLFSSL_NO_GETPID'' ',
+          # PKCS#7 with RSA-PSS (CMS RSASSA-PSS signers)
+          '--enable-pkcs7 CPPFLAGS=-DWC_RSA_PSS',
+          # PKCS#7 without RSA-PSS
+          '--enable-pkcs7',
+          '--enable-opensslextra CPPFLAGS=''-DWOLFSSL_NO_CA_NAMES'' ',
+          '--enable-opensslextra=x509small',
+          'CPPFLAGS=''-DWOLFSSL_EXTRA'' ',
+          '--enable-lms=small,verify-only --enable-xmss=small,verify-only',
+          '--disable-sys-ca-certs',
+          '--enable-all CPPFLAGS=-DWOLFSSL_DEBUG_CERTS ',
+          '--enable-all CPPFLAGS="-DWOLFSSL_CHECK_MEM_ZERO"',
+          '--enable-coding=no',
+          '--enable-dtls --enable-dtls13 --enable-ocspstapling --enable-ocspstapling2
+           --enable-cert-setup-cb --enable-sessioncerts',
+          '--enable-dtls --enable-dtls13 --enable-tls13
+           CPPFLAGS=-DWOLFSSL_TLS13_IGNORE_PT_ALERT_ON_ENC',
+          '--disable-sni --disable-ecc --disable-tls13 --disable-secure-renegotiation-info',
+          'CPPFLAGS=-DWOLFSSL_BLIND_PRIVATE_KEY',
+          '--enable-all --enable-certgencache',
+          '--enable-sessionexport --enable-dtls --enable-dtls13',
+          '--enable-sessionexport',
+          '--enable-cryptocb --enable-aesgcm CPPFLAGS="-DWOLF_CRYPTO_CB_AES_SETKEY -DWOLF_CRYPTO_CB_FREE"',
+          '--disable-tls --enable-cryptocb --enable-aesgcm CPPFLAGS="-DWOLF_CRYPTO_CB_AES_SETKEY -DWOLF_CRYPTO_CB_FREE"',
+          '--enable-all --enable-dilithium --enable-cryptocb --enable-cryptocbutils --enable-pkcallbacks',
+          '--enable-cryptocb --enable-aesgcm CPPFLAGS="-DWOLF_CRYPTO_CB_AES_SETKEY"',
+          '--disable-examples CPPFLAGS=-DWOLFSSL_NO_MALLOC',
+          'CPPFLAGS=-DNO_WOLFSSL_CLIENT',
+          'CPPFLAGS=-DNO_WOLFSSL_SERVER',
+          'CPPFLAGS=-DWOLFSSL_NO_CLIENT_AUTH',
+          'CPPFLAGS=''-DNO_WOLFSSL_CLIENT -DWOLFSSL_NO_CLIENT_AUTH''',
+          'CPPFLAGS=''-DNO_WOLFSSL_SERVER -DWOLFSSL_NO_CLIENT_AUTH''',
+          '--enable-all CPPFLAGS=-DNO_WOLFSSL_CLIENT',
+          '--enable-all CPPFLAGS=-DNO_WOLFSSL_SERVER',
+          '--enable-all CPPFLAGS=-DWOLFSSL_NO_CLIENT_AUTH',
+          '--enable-all CPPFLAGS=''-DNO_WOLFSSL_CLIENT -DWOLFSSL_NO_CLIENT_AUTH''',
+          '--enable-all CPPFLAGS=''-DNO_WOLFSSL_SERVER -DWOLFSSL_NO_CLIENT_AUTH''',
+          '--enable-curve25519=nonblock --enable-ecc=nonblock --enable-sp=yes,nonblock CPPFLAGS="-DWOLFSSL_PUBLIC_MP -DWOLFSSL_DEBUG_NONBLOCK"',
+          '--enable-certreq --enable-certext --enable-certgen --disable-secure-renegotiation-info CPPFLAGS="-DNO_TLS"',
+          '--enable-ocsp --enable-ocsp-responder --enable-ocspstapling',
+        ]
+    name: make check
+    if: github.repository_owner == 'wolfssl'
+    runs-on: ${{ matrix.os }}
+    # This should be a safe limit for the tests to run.
+    timeout-minutes: 14
+    steps:
+      - name: Build and test wolfSSL
+        uses: wolfSSL/actions-build-autotools-project@v1
+        with:
+          configure: CFLAGS="-pedantic -Wno-overlength-strings -Wdeclaration-after-statement -DTEST_LIBWOLFSSL_SOURCES_INCLUSION_SEQUENCE" ${{ matrix.config }}
+          check: true
+
+  make_user_settings:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-24.04, macos-latest ]
+        user-settings: [
+          # Add new user_settings.h here
+          'examples/configs/user_settings_all.h',
+        ]
+    name: make user_setting.h
+    if: github.repository_owner == 'wolfssl'
+    runs-on: ${{ matrix.os }}
+    # This should be a safe limit for the tests to run.
+    timeout-minutes: 14
+    steps:
+      - name: Build and test wolfSSL
+        uses: wolfSSL/actions-build-autotools-project@v1
+        with:
+          configure: --enable-usersettings
+          check: true
+          user-settings: ${{ matrix.user-settings }}
+
+  make_user_settings_testwolfcrypt:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-24.04, macos-latest ]
+        user-settings: [
+          # Add new user_settings.h here (alphabetical order)
+          'examples/configs/user_settings_ca.h',
+          'examples/configs/user_settings_dtls13.h',
+          'examples/configs/user_settings_EBSnet.h',
+          'examples/configs/user_settings_eccnonblock.h',
+          'examples/configs/user_settings_curve25519nonblock.h',
+          'examples/configs/user_settings_min_ecc.h',
+          'examples/configs/user_settings_openssl_compat.h',
+          'examples/configs/user_settings_pkcs7.h',
+          'examples/configs/user_settings_rsa_only.h',
+          'examples/configs/user_settings_template.h',
+          'examples/configs/user_settings_tls12.h',
+          'examples/configs/user_settings_tls13.h',
+          'examples/configs/user_settings_wolfboot_keytools.h',
+          'examples/configs/user_settings_wolfssh.h',
+          'examples/configs/user_settings_wolftpm.h',
+          # Not included (require special setup):
+          # - user_settings_pq.h: Requires --enable-experimental
+          # - user_settings_baremetal.h: Requires static memory, custom platform
+        ]
+    name: make user_setting.h (testwolfcrypt only)
+    if: github.repository_owner == 'wolfssl'
+    runs-on: ${{ matrix.os }}
+    # This should be a safe limit for the tests to run.
+    timeout-minutes: 14
+    steps:
+      - name: Build and test wolfSSL
+        uses: wolfSSL/actions-build-autotools-project@v1
+        with:
+          configure: --enable-usersettings --disable-examples
+          check: false
+          user-settings: ${{ matrix.user-settings }}
+
+      - name: Run wolfcrypt/test/testwolfcrypt
+        run: ./wolfcrypt/test/testwolfcrypt
+
+  # Has to be dedicated function due to the sed call
+  make_user_all:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-24.04, macos-latest ]
+    name: make user_setting.h (with sed)
+    if: github.repository_owner == 'wolfssl'
+    runs-on: ${{ matrix.os }}
+    # This should be a safe limit for the tests to run.
+    timeout-minutes: 14
+    steps:
+    - uses: actions/checkout@v4
+    - if: ${{ matrix.os == 'macos-latest' }}
+      run: brew install automake libtool
+    - run: ./autogen.sh
+    - name: user_settings_all.h with compatibility layer
+      run: |
+        cp ./examples/configs/user_settings_all.h user_settings.h
+        sed -i -e "s/if 0/if 1/" user_settings.h
+        ./configure --enable-usersettings
+        make
+        make check
+
+  windows_build:
+    name: Windows Build Test
+    if: github.repository_owner == 'wolfssl'
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [ x64, Win32, ARM64 ]
+    # This should be a safe limit for the tests to run.
+    timeout-minutes: 6
+    env:
+      # Path to the solution file relative to the root of the project.
+      SOLUTION_FILE_PATH: wolfssl64.sln
+
+      # Configuration type to build.
+      # You can convert this to a build matrix if you need coverage of multiple configuration types.
+      # https://docs.github.com/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
+      BUILD_CONFIGURATION: Release
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Add MSBuild to PATH
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Restore NuGet packages
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      run: nuget restore ${{env.SOLUTION_FILE_PATH}}
+
+    - name: Build
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      # Add additional options to the MSBuild command line here (like platform or verbosity level).
+      # See https://docs.microsoft.com/visualstudio/msbuild/msbuild-command-line-reference
+      run: msbuild /m /p:PlatformToolset=v142 /p:Platform=${{matrix.arch}} /p:Configuration=${{env.BUILD_CONFIGURATION}} ${{env.SOLUTION_FILE_PATH}}
+
+    - if: ${{ matrix.arch != 'ARM64' }}
+      name: Run Test
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      run: Release/${{matrix.arch}}/testsuite.exe

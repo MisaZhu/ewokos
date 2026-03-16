@@ -1,0 +1,45 @@
+name: Async Tests
+
+# START OF COMMON SECTION
+on:
+  push:
+    branches: [ 'master', 'main', 'release/**' ]
+  pull_request:
+    branches: [ '*' ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+# END OF COMMON SECTION
+
+jobs:
+  make_check:
+    strategy:
+      matrix:
+        config: [
+          # Add new configs here
+          '--enable-asynccrypt --enable-all --enable-dtls13 CFLAGS="-pedantic -Wdeclaration-after-statement -DTEST_LIBWOLFSSL_SOURCES_INCLUSION_SEQUENCE -DWOLFCRYPT_TEST_LINT"',
+          '--enable-asynccrypt-sw --enable-ocspstapling --enable-ocspstapling2 CFLAGS="-pedantic -Wdeclaration-after-statement -DTEST_LIBWOLFSSL_SOURCES_INCLUSION_SEQUENCE"',
+          '--enable-ocsp CFLAGS="-DTEST_NONBLOCK_CERTS -pedantic -Wdeclaration-after-statement -DTEST_LIBWOLFSSL_SOURCES_INCLUSION_SEQUENCE"',
+        ]
+    name: make check
+    if: github.repository_owner == 'wolfssl'
+    runs-on: ubuntu-24.04
+    # This should be a safe limit for the tests to run.
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        name: Checkout wolfSSL
+
+      - name: Test wolfSSL async
+        run: |
+          ./autogen.sh
+          ./configure ${{ matrix.config }}
+          make check
+
+      - name: Print errors
+        if: ${{ failure() }}
+        run: |
+          if [ -f test-suite.log ] ; then
+            cat test-suite.log
+          fi

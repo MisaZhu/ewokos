@@ -1,0 +1,637 @@
+/*!
+    \ingroup DSA
+
+    \brief This function initializes a DsaKey object in order to use it for
+    authentication via the Digital Signature Algorithm (DSA).
+
+    \return 0 Returned on success.
+    \return BAD_FUNC_ARG Returned if a NULL key is passed in.
+
+    \param key pointer to the DsaKey structure to initialize
+
+    _Example_
+    \code
+    DsaKey key;
+    int ret;
+    ret = wc_InitDsaKey(&key); // initialize DSA key
+    \endcode
+
+    \sa wc_FreeDsaKey
+*/
+int wc_InitDsaKey(DsaKey* key);
+
+/*!
+    \ingroup DSA
+
+    \brief This function frees a DsaKey object after it has been used.
+
+    \return none No returns.
+
+    \param key pointer to the DsaKey structure to free
+
+    _Example_
+    \code
+    DsaKey key;
+    // initialize key, use for authentication
+    ...
+    wc_FreeDsaKey(&key); // free DSA key
+    \endcode
+
+    \sa wc_FreeDsaKey
+*/
+void wc_FreeDsaKey(DsaKey* key);
+
+/*!
+    \ingroup DSA
+
+    \brief This function signs the input digest and stores the result in the
+    output buffer, out.
+
+    \return 0 Returned on successfully signing the input digest
+    \return MP_INIT_E may be returned if there is an error in processing the
+    DSA signature.
+    \return MP_READ_E may be returned if there is an error in processing the
+    DSA signature.
+    \return MP_CMP_E may be returned if there is an error in processing the
+    DSA signature.
+    \return MP_INVMOD_E may be returned if there is an error in processing the
+    DSA signature.
+    \return MP_EXPTMOD_E may be returned if there is an error in processing
+    the DSA signature.
+    \return MP_MOD_E may be returned if there is an error in processing the
+    DSA signature.
+    \return MP_MUL_E may be returned if there is an error in processing the
+    DSA signature.
+    \return MP_ADD_E may be returned if there is an error in processing the
+    DSA signature.
+    \return MP_MULMOD_E may be returned if there is an error in processing
+    the DSA signature.
+    \return MP_TO_E may be returned if there is an error in processing the
+    DSA signature.
+    \return MP_MEM may be returned if there is an error in processing the
+    DSA signature.
+
+    \param digest pointer to the hash to sign
+    \param out pointer to the buffer in which to store the signature
+    \param key pointer to the initialized DsaKey structure with which to
+    generate the signature
+    \param rng pointer to an initialized RNG to use with the signature
+    generation
+
+    _Example_
+    \code
+    DsaKey key;
+    // initialize DSA key, load private Key
+    int ret;
+    WC_RNG rng;
+    wc_InitRng(&rng);
+    byte hash[] = { // initialize with hash digest };
+    byte signature[40]; // signature will be 40 bytes (320 bits)
+
+    ret = wc_DsaSign(hash, signature, &key, &rng);
+    if (ret != 0) {
+	    // error generating DSA signature
+    }
+    \endcode
+
+    \sa wc_DsaVerify
+*/
+int wc_DsaSign(const byte* digest, byte* out,
+                           DsaKey* key, WC_RNG* rng);
+
+/*!
+    \ingroup DSA
+
+    \brief This function verifies the signature of a digest, given a private
+    key. It stores whether the key properly verifies in the answer parameter,
+    with 1 corresponding to a successful verification, and 0 corresponding to
+    failed verification.
+
+    \return 0 Returned on successfully processing the verify request. Note:
+    this does not mean that the signature is verified, only that the function
+    succeeded
+    \return MP_INIT_E may be returned if there is an error in processing the
+    DSA signature.
+    \return MP_READ_E may be returned if there is an error in processing the
+    DSA signature.
+    \return MP_CMP_E may be returned if there is an error in processing the
+    DSA signature.
+    \return MP_INVMOD_E may be returned if there is an error in processing
+    the DSA signature.
+    \return MP_EXPTMOD_E may be returned if there is an error in processing
+    the DSA signature.
+    \return MP_MOD_E may be returned if there is an error in processing the
+    DSA signature.
+    \return MP_MUL_E may be returned if there is an error in processing the
+    DSA signature.
+    \return MP_ADD_E may be returned if there is an error in processing the
+    DSA signature.
+    \return MP_MULMOD_E may be returned if there is an error in processing
+    the DSA signature.
+    \return MP_TO_E may be returned if there is an error in processing the
+    DSA signature.
+    \return MP_MEM may be returned if there is an error in processing the
+    DSA signature.
+
+    \param digest pointer to the digest containing the subject of the signature
+    \param sig pointer to the buffer containing the signature to verify
+    \param key pointer to the initialized DsaKey structure with which to
+    verify the signature
+    \param answer pointer to an integer which will store whether the
+    verification was successful
+
+    _Example_
+    \code
+    DsaKey key;
+    // initialize DSA key, load public Key
+
+    int ret;
+    int verified;
+    byte hash[] = { // initialize with hash digest };
+    byte signature[] = { // initialize with signature to verify };
+    ret = wc_DsaVerify(hash, signature, &key, &verified);
+    if (ret != 0) {
+    	// error processing verify request
+    } else if (answer == 0) {
+    	// invalid signature
+    }
+    \endcode
+
+    \sa wc_DsaSign
+*/
+int wc_DsaVerify(const byte* digest, const byte* sig,
+                             DsaKey* key, int* answer);
+
+/*!
+    \ingroup DSA
+
+    \brief This function decodes a DER formatted certificate buffer containing
+    a DSA public key, and stores the key in the given DsaKey structure. It
+    also sets the inOutIdx parameter according to the length of the input read.
+
+    \return 0 Returned on successfully setting the public key for the DsaKey
+    object
+    \return ASN_PARSE_E Returned if there is an error in the encoding while
+    reading the certificate buffer
+    \return ASN_DH_KEY_E Returned if one of the DSA parameters is incorrectly
+    formatted
+
+    \param input pointer to the buffer containing the DER formatted DSA
+    public key
+    \param inOutIdx pointer to an integer in which to store the final index
+    of the certificate read
+    \param key pointer to the DsaKey structure in which to store the public key
+    \param inSz size of the input buffer
+
+    _Example_
+    \code
+    int ret, idx=0;
+
+    DsaKey key;
+    wc_InitDsaKey(&key);
+    byte derBuff[] = { // DSA public key};
+    ret = wc_DsaPublicKeyDecode(derBuff, &idx, &key, inSz);
+    if (ret != 0) {
+    	// error reading public key
+    }
+    \endcode
+
+    \sa wc_InitDsaKey
+    \sa wc_DsaPrivateKeyDecode
+*/
+int wc_DsaPublicKeyDecode(const byte* input, word32* inOutIdx,
+                                      DsaKey* key, word32 inSz);
+
+/*!
+    \ingroup DSA
+
+    \brief This function decodes a DER formatted certificate buffer containing
+    a DSA private key, and stores the key in the given DsaKey structure. It
+    also sets the inOutIdx parameter according to the length of the input read.
+
+    \return 0 Returned on successfully setting the private key for the DsaKey
+    object
+    \return ASN_PARSE_E Returned if there is an error in the encoding while
+    reading the certificate buffer
+    \return ASN_DH_KEY_E Returned if one of the DSA parameters is incorrectly
+    formatted
+
+    \param input pointer to the buffer containing the DER formatted DSA
+    private key
+    \param inOutIdx pointer to an integer in which to store the final index
+    of the certificate read
+    \param key pointer to the DsaKey structure in which to store the private
+    key
+    \param inSz size of the input buffer
+
+    _Example_
+    \code
+    int ret, idx=0;
+
+    DsaKey key;
+    wc_InitDsaKey(&key);
+    byte derBuff[] = { // DSA private key };
+    ret = wc_DsaPrivateKeyDecode(derBuff, &idx, &key, inSz);
+    if (ret != 0) {
+    	// error reading private key
+    }
+    \endcode
+
+    \sa wc_InitDsaKey
+    \sa wc_DsaPublicKeyDecode
+*/
+int wc_DsaPrivateKeyDecode(const byte* input, word32* inOutIdx,
+                                       DsaKey* key, word32 inSz);
+
+/*!
+    \ingroup DSA
+
+    \brief Convert DsaKey key to DER format, write to output (inLen),
+    return bytes written.
+
+    \return outLen Success, number of bytes written
+    \return BAD_FUNC_ARG key or output are null or key->type is not
+    DSA_PRIVATE.
+    \return MEMORY_E Error allocating memory.
+
+    \param key Pointer to DsaKey structure to convert.
+    \param output Pointer to output buffer for converted key.
+    \param inLen Length of key input.
+
+    _Example_
+    \code
+    DsaKey key;
+    WC_RNG rng;
+    int derSz;
+    int bufferSize = // Sufficient buffer size;
+    byte der[bufferSize];
+
+    wc_InitDsaKey(&key);
+    wc_InitRng(&rng);
+    wc_MakeDsaKey(&rng, &key);
+    derSz = wc_DsaKeyToDer(&key, der, bufferSize);
+    \endcode
+
+    \sa wc_InitDsaKey
+    \sa wc_FreeDsaKey
+    \sa wc_MakeDsaKey
+*/
+int wc_DsaKeyToDer(DsaKey* key, byte* output, word32 inLen);
+
+/*!
+    \ingroup DSA
+
+    \brief Create a DSA key.
+
+    \return MP_OKAY Success
+    \return BAD_FUNC_ARG Either rng or dsa is null.
+    \return MEMORY_E Couldn't allocate memory for buffer.
+    \return MP_INIT_E Error initializing mp_int
+
+    \param rng Pointer to WC_RNG structure.
+    \param dsa Pointer to DsaKey structure.
+
+    _Example_
+    \code
+    WC_RNG rng;
+    DsaKey dsa;
+    wc_InitRng(&rng);
+    wc_InitDsa(&dsa);
+    if(wc_MakeDsaKey(&rng, &dsa) != 0)
+    {
+        // Error creating key
+    }
+    \endcode
+
+    \sa wc_InitDsaKey
+    \sa wc_FreeDsaKey
+    \sa wc_DsaSign
+*/
+int wc_MakeDsaKey(WC_RNG *rng, DsaKey *dsa);
+
+/*!
+    \ingroup DSA
+
+    \brief FIPS 186-4 defines valid for modulus_size values as
+    (1024, 160) (2048, 256) (3072, 256)
+
+    \return 0 Success
+    \return BAD_FUNC_ARG rng or dsa is null or modulus_size is invalid.
+    \return MEMORY_E Error attempting to allocate memory.
+
+    \param rng pointer to wolfCrypt rng.
+    \param modulus_size 1024, 2048, or 3072 are valid values.
+    \param dsa Pointer to a DsaKey structure.
+
+    _Example_
+    \code
+    DsaKey key;
+    WC_RNG rng;
+    wc_InitDsaKey(&key);
+    wc_InitRng(&rng);
+    if(wc_MakeDsaParameters(&rng, 1024, &genKey) != 0)
+    {
+        // Handle error
+    }
+    \endcode
+
+    \sa wc_MakeDsaKey
+    \sa wc_DsaKeyToDer
+    \sa wc_InitDsaKey
+*/
+int wc_MakeDsaParameters(WC_RNG *rng, int modulus_size, DsaKey *dsa);
+/*!
+    \ingroup DSA
+    \brief Initializes DSA key with heap hint.
+
+    \return 0 on success
+    \return negative on failure
+
+    \param key DSA key structure
+    \param h Heap hint for memory allocation
+
+    _Example_
+    \code
+    DsaKey key;
+    int ret = wc_InitDsaKey_h(&key, NULL);
+    \endcode
+
+    \sa wc_InitDsaKey
+*/
+int wc_InitDsaKey_h(DsaKey* key, void* h);
+
+/*!
+    \ingroup DSA
+    \brief Signs digest with extended parameters.
+
+    \return 0 on success
+    \return negative on failure
+
+    \param digest Digest to sign
+    \param digestSz Digest size
+    \param out Output signature buffer
+    \param key DSA key
+    \param rng Random number generator
+
+    _Example_
+    \code
+    byte digest[WC_SHA_DIGEST_SIZE];
+    byte sig[40];
+    WC_RNG rng;
+    int ret = wc_DsaSign_ex(digest, sizeof(digest), sig, &key,
+                            &rng);
+    \endcode
+
+    \sa wc_DsaSign
+*/
+int wc_DsaSign_ex(const byte* digest, word32 digestSz, byte* out,
+    DsaKey* key, WC_RNG* rng);
+
+/*!
+    \ingroup DSA
+    \brief Verifies signature with extended parameters.
+
+    \return 0 on success
+    \return negative on failure
+
+    \param digest Digest
+    \param digestSz Digest size
+    \param sig Signature buffer
+    \param key DSA key
+    \param answer Verification result
+
+    _Example_
+    \code
+    byte digest[WC_SHA_DIGEST_SIZE];
+    byte sig[40];
+    int answer;
+    int ret = wc_DsaVerify_ex(digest, sizeof(digest), sig, &key,
+                              &answer);
+    \endcode
+
+    \sa wc_DsaVerify
+*/
+int wc_DsaVerify_ex(const byte* digest, word32 digestSz,
+    const byte* sig, DsaKey* key, int* answer);
+
+/*!
+    \ingroup DSA
+    \brief Sets DSA public key in output buffer.
+
+    \return Size on success
+    \return negative on failure
+
+    \param output Output buffer
+    \param key DSA key
+    \param outLen Output buffer length
+    \param with_header Include header flag
+
+    _Example_
+    \code
+    byte output[256];
+    int ret = wc_SetDsaPublicKey(output, &key, sizeof(output), 1);
+    \endcode
+
+    \sa wc_DsaKeyToPublicDer
+*/
+int wc_SetDsaPublicKey(byte* output, DsaKey* key, int outLen,
+    int with_header);
+
+/*!
+    \ingroup DSA
+    \brief Converts DSA key to public DER format.
+
+    \return Size on success
+    \return negative on failure
+
+    \param key DSA key
+    \param output Output buffer
+    \param inLen Output buffer length
+
+    _Example_
+    \code
+    DsaKey key;
+    WC_RNG rng;
+    byte output[256];
+
+    // Initialize key and RNG
+    wc_InitDsaKey(&key);
+    wc_InitRng(&rng);
+
+    // Generate DSA key or import existing key
+    wc_MakeDsaKey(&rng, &key);
+
+    // Convert to public DER format
+    int ret = wc_DsaKeyToPublicDer(&key, output, sizeof(output));
+    if (ret > 0) {
+        // output contains DER encoded public key of size ret
+    }
+
+    wc_FreeDsaKey(&key);
+    wc_FreeRng(&rng);
+    \endcode
+
+    \sa wc_SetDsaPublicKey
+*/
+int wc_DsaKeyToPublicDer(DsaKey* key, byte* output, word32 inLen);
+
+/*!
+    \ingroup DSA
+    \brief Imports DSA parameters from raw format. The parameters p, q, and
+    g must be provided as ASCII hexadecimal strings (without 0x prefix).
+    These represent the DSA domain parameters: p is the prime modulus, q is
+    the prime divisor (subgroup order), and g is the generator.
+
+    \return 0 on success
+    \return negative on failure
+
+    \param dsa DSA key structure (must be initialized)
+    \param p P parameter as ASCII hex string (prime modulus)
+    \param q Q parameter as ASCII hex string (prime divisor/subgroup order)
+    \param g G parameter as ASCII hex string (generator)
+
+    _Example_
+    \code
+    DsaKey dsa;
+    wc_InitDsaKey(&dsa);
+
+    // DSA parameters as ASCII hexadecimal strings (example values)
+    const char* pStr = "E0A67598CD1B763BC98C8ABB333E5DDA0CD3AA0E5E1F"
+                       "B5BA8A7B4EABC10BA338FAE06DD4B90FDA70D7CF0CB0"
+                       "C638BE3341BEC0AF8A7330A3307DED2299A0EE606DF0"
+                       "35177A239C34A912C202AA5F83B9C4A7CF0235B5316B"
+                       "FC6EFB9A248411258B30B839AF172440F32563056CB6"
+                       "7A861158DDD90E6A894C72A5BBEF9E286C6B";
+    const char* qStr = "E950511EAB424B9A19A2AEB4E159B7844C589C4F";
+    const char* gStr = "D29D5121B0423C2769AB21843E5A3240FF19CACC792D"
+                       "C6E7925E6D1A4E6E4E3D119A3D133C8D3C8C8C8C8C8C"
+                       "8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C"
+                       "8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C";
+
+    int ret = wc_DsaImportParamsRaw(&dsa, pStr, qStr, gStr);
+    if (ret == 0) {
+        // DSA parameters successfully imported
+        // Can now use dsa for key generation or signing
+    }
+    wc_FreeDsaKey(&dsa);
+    \endcode
+
+    \sa wc_DsaImportParamsRawCheck
+    \sa wc_InitDsaKey
+*/
+int wc_DsaImportParamsRaw(DsaKey* dsa, const char* p, const char* q,
+    const char* g);
+
+/*!
+    \ingroup DSA
+    \brief Imports DSA parameters from raw format with optional validation.
+    The parameters p, q, and g must be provided as ASCII hexadecimal strings
+    (without 0x prefix). The trusted parameter controls whether the prime p
+    is validated: when trusted=1, prime checking is skipped (use when
+    parameters come from a trusted source); when trusted=0, performs full
+    primality testing on p (recommended for untrusted sources).
+
+    \return 0 on success
+    \return DH_CHECK_PUB_E if p fails primality test (when trusted=0)
+    \return negative on other failures
+
+    \param dsa DSA key structure (must be initialized)
+    \param p P parameter as ASCII hex string (prime modulus)
+    \param q Q parameter as ASCII hex string (prime divisor/subgroup order)
+    \param g G parameter as ASCII hex string (generator)
+    \param trusted If 1, skip prime validation (trusted source); if 0,
+    perform full primality test on p
+    \param rng Random number generator (required when trusted=0 for
+    primality testing)
+
+    _Example_
+    \code
+    DsaKey dsa;
+    WC_RNG rng;
+
+    // Initialize DSA key and RNG
+    wc_InitDsaKey(&dsa);
+    wc_InitRng(&rng);
+
+    // DSA parameters as ASCII hexadecimal strings
+    const char* pStr = "E0A67598CD1B763BC98C8ABB333E5DDA0CD3AA0E5E1F"
+                       "B5BA8A7B4EABC10BA338FAE06DD4B90FDA70D7CF0CB0"
+                       "C638BE3341BEC0AF8A7330A3307DED2299A0EE606DF0"
+                       "35177A239C34A912C202AA5F83B9C4A7CF0235B5316B"
+                       "FC6EFB9A248411258B30B839AF172440F32563056CB6"
+                       "7A861158DDD90E6A894C72A5BBEF9E286C6B";
+    const char* qStr = "E950511EAB424B9A19A2AEB4E159B7844C589C4F";
+    const char* gStr = "D29D5121B0423C2769AB21843E5A3240FF19CACC792D"
+                       "C6E7925E6D1A4E6E4E3D119A3D133C8D3C8C8C8C8C8C"
+                       "8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C"
+                       "8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C8C";
+
+    // Import with validation (trusted=0 performs primality test on p)
+    int ret = wc_DsaImportParamsRawCheck(&dsa, pStr, qStr, gStr, 0,
+                                         &rng);
+    if (ret == 0) {
+        // Parameters imported and validated successfully
+    }
+
+    wc_FreeDsaKey(&dsa);
+    wc_FreeRng(&rng);
+    \endcode
+
+    \sa wc_DsaImportParamsRaw
+    \sa wc_InitDsaKey
+*/
+int wc_DsaImportParamsRawCheck(DsaKey* dsa, const char* p,
+    const char* q, const char* g, int trusted, WC_RNG* rng);
+
+/*!
+    \ingroup DSA
+    \brief Exports DSA parameters to raw format.
+
+    \return 0 on success
+    \return negative on failure
+
+    \param dsa DSA key structure
+    \param p P parameter buffer
+    \param pSz P parameter size (in/out)
+    \param q Q parameter buffer
+    \param qSz Q parameter size (in/out)
+    \param g G parameter buffer
+    \param gSz G parameter size (in/out)
+
+    _Example_
+    \code
+    byte p[256], q[32], g[256];
+    word32 pSz = sizeof(p), qSz = sizeof(q), gSz = sizeof(g);
+    int ret = wc_DsaExportParamsRaw(&dsa, p, &pSz, q, &qSz, g,
+                                    &gSz);
+    \endcode
+
+    \sa wc_DsaImportParamsRaw
+*/
+int wc_DsaExportParamsRaw(DsaKey* dsa, byte* p, word32* pSz, byte* q,
+    word32* qSz, byte* g, word32* gSz);
+
+/*!
+    \ingroup DSA
+    \brief Exports DSA key to raw format.
+
+    \return 0 on success
+    \return negative on failure
+
+    \param dsa DSA key structure
+    \param x Private key buffer
+    \param xSz Private key size (in/out)
+    \param y Public key buffer
+    \param ySz Public key size (in/out)
+
+    _Example_
+    \code
+    byte x[32], y[256];
+    word32 xSz = sizeof(x), ySz = sizeof(y);
+    int ret = wc_DsaExportKeyRaw(&dsa, x, &xSz, y, &ySz);
+    \endcode
+
+    \sa wc_DsaImportParamsRaw
+*/
+int wc_DsaExportKeyRaw(DsaKey* dsa, byte* x, word32* xSz, byte* y,
+    word32* ySz);
