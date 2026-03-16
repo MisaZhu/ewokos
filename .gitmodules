@@ -10,6 +10,4 @@
 [submodule "mariox"]
 	path = mariox
 	url = https://github.com/MisaZhu/evokes.mariox.git
-[submodule "system/basic/libs/wolfssl"]
-	path = system/basic/libs/wolfssl
-	url = https://github.com/wolfSSL/wolfssl
+
