@@ -10,7 +10,6 @@ basic_libs:
 	cd tinyjson;make
 	cd zlib;make
 	cd gpio;make
-	cd wolfssl;make
 
 clean:
 	cd ext2;make clean
@@ -21,4 +20,3 @@ clean:
 	cd tinyjson;make clean
 	cd gpio;make clean
 	cd zlib;make clean
-	cd wolfssl;make clean
