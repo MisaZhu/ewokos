@@ -84,8 +84,10 @@ static int network_write(int fd, int from_pid, fsinfo_t* info,
 
 static int network_close(int fd, int from_pid, uint32_t node, fsinfo_t* fsinfo,void* p) {
 	net_task_t *task = (net_task_t *)fsinfo->data;
-	if(task)
+	if(task) {
 		release_task(task);
+		fsinfo->data = NULL;
+	}
     proc_wakeup_pid(from_pid, RW_BLOCK_EVT);
 	return 0;
 }

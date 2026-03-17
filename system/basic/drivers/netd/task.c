@@ -168,16 +168,24 @@ int do_network_fcntl(net_task_t *task){
 			task->sock = sock;
 			break;
 		case SOCK_BIND:
-			paddr = proto_read(&task->in, &addrlen);
+		paddr = proto_read(&task->in, &addrlen);
+		if(paddr == NULL) {
+			ret = -1;
+		} else {
 			ret = sock_bind(sock, paddr, addrlen);
-			PF->addi(&task->out, ret);
-			break;
-		case SOCK_SENDTO:
-			data = proto_read(&task->in, &size);
-			paddr = proto_read(&task->in, &addrlen);
+		}
+		PF->addi(&task->out, ret);
+		break;
+	case SOCK_SENDTO:
+		data = proto_read(&task->in, &size);
+		paddr = proto_read(&task->in, &addrlen);
+		if(data == NULL || paddr == NULL) {
+			ret = -1;
+		} else {
 			ret = sock_sendto(sock, data, size, paddr, addrlen);
-			PF->addi(&task->out, ret);
-			break;
+		}
+		PF->addi(&task->out, ret);
+		break;
 		case SOCK_RECVFROM:
 			size = proto_read_int(&task->in);
             if(task->read_buf == NULL){
@@ -230,15 +238,23 @@ int do_network_fcntl(net_task_t *task){
 			PF->addi(&task->out, 0);
 			break;
 		case SOCK_CONNECT:
-		paddr = proto_read(&task->in, &addrlen);
+	paddr = proto_read(&task->in, &addrlen);
+	if(paddr == NULL) {
+		ret = -1;
+	} else {
 		ret = sock_connect(sock, paddr, addrlen);
-		PF->addi(&task->out, ret);
-		break;
+	}
+	PF->addi(&task->out, ret);
+	break;
 	case SOCK_SETOPT:
 		level = proto_read_int(&task->in);
 		optname = proto_read_int(&task->in);
 		optval = proto_read(&task->in, &optlen);
-		ret = sock_setsockopt(sock, level, optname, optval, optlen);
+		if(optval == NULL) {
+			ret = -1;
+		} else {
+			ret = sock_setsockopt(sock, level, optname, optval, optlen);
+		}
 		PF->addi(&task->out, ret);
 		break;
 	default:
