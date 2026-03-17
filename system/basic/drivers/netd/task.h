@@ -11,13 +11,14 @@ enum{
     NET_TASK_FINISH
 };
 
+#define TASK_READ_BUF_SIZE 1024
 typedef struct net_task{
     int fd;
 	int from_pid;
 	int node;
     int cmd;
     pthread_t tid;
-    char* read_buf;
+    char read_buf[TASK_READ_BUF_SIZE];
 	proto_t in;
 	proto_t out;
 	void *p;

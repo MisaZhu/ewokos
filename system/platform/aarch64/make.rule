@@ -30,7 +30,7 @@ EWOK_LIBC = -lewoksys -lc -lgloss
 EWOK_LIB_GRAPH = -lfont -lfreetype -lgraph -lpng -lz -lopenlibm -ldisplay -lfb -lkeyb -lmouse  $(BSP_LFLAGS)
 EWOK_LIB_X = -lwidget++ -lx++ -lx -ltinyjson -lewokstl
 
-#CFLAGS +=  -g
-CFLAGS +=  -O2
-#CXXFLAGS +=  -g
-CXXFLAGS +=  -O2
+CFLAGS +=  -g
+#CFLAGS +=  -O2
+CXXFLAGS +=  -g
+#CXXFLAGS +=  -O2

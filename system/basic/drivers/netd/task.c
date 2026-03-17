@@ -51,7 +51,6 @@ net_task_t *create_task(int fd, int from_pid, int node){
     task->read_task = NULL;
     task->state = NET_TASK_IDLE;
     task->sock = -1;
-    task->read_buf = NULL;
     task_list_add(task);
     //pthread_create(&task->tid, NULL, task_thread, task);
     return task;
@@ -188,13 +187,11 @@ int do_network_fcntl(net_task_t *task){
 		break;
 		case SOCK_RECVFROM:
 			size = proto_read_int(&task->in);
-            if(task->read_buf == NULL){
-                task->read_buf = malloc(4096);
-            }
+            size = size < TASK_READ_BUF_SIZE ? size:TASK_READ_BUF_SIZE;
             ret = sock_recvfrom(sock, task->read_buf, size, &addr, &addrlen);
             PF->addi(&task->out, ret);
             if(ret > 0){
-                PF->add(&task->out, task->read_buf, size);
+                PF->add(&task->out, task->read_buf, ret);
                 PF->add(&task->out, &addr, addrlen);	
             }
 			break;
@@ -207,9 +204,7 @@ int do_network_fcntl(net_task_t *task){
 			break;
 		case SOCK_RECV:
 			size = proto_read_int(&task->in);
-            if(task->read_buf == NULL){
-                task->read_buf = malloc(4096);
-            }
+            size = size < TASK_READ_BUF_SIZE ? size:TASK_READ_BUF_SIZE;
             ret = sock_recv(sock, task->read_buf, size);
             PF->addi(&task->out, ret);
             if(ret > 0){
@@ -290,8 +285,6 @@ static void* task_thread(void* arg){
 
     PF->clear(&task->in);
     PF->clear(&task->out);
-    if(task->read_buf != NULL)
-        free(task->read_buf);
 
     if(!task->is_read_task) {
         sock_close(task->sock);
