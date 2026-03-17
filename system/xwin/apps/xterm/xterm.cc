@@ -302,6 +302,7 @@ static void* thread_loop(void* p) {
 	win.setTimer(30);
 
 	widgetXRun(&x, &win);
+	_consoleWidget = NULL;
 	device_stop(_dev);
 	return NULL;
 }
