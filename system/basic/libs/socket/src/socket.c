@@ -295,7 +295,7 @@ static struct in_addr hostent_addr;
 static char* hostent_addr_list[2];
 
 // DNS解析函数
-static int dns_resolve(const char* domain, struct in_addr* addr) {
+static int dns_resolve(const char* domain, struct in_addr* addr, const char* dns_server_ipv4) {
     int sockfd;
     struct sockaddr_in server_addr, from_addr;
     socklen_t from_len;
@@ -324,7 +324,7 @@ static int dns_resolve(const char* domain, struct in_addr* addr) {
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(53);
-    server_addr.sin_addr.s_un.s_addr = inet_addr("8.8.8.8");
+    server_addr.sin_addr.s_un.s_addr = inet_addr(dns_server_ipv4);
 
     // 构造DNS查询数据包
     header = (struct dns_header*)buf;
@@ -508,24 +508,29 @@ struct hostent *gethostbyname(const char *name){
         return &hostent_result;
     }
 
-    // 尝试DNS解析
-    if (dns_resolve(name, &hostent_addr) == 0) {
-        // 成功解析域名
-        strncpy(hostent_name_buf, name, sizeof(hostent_name_buf));
-        hostent_name_buf[sizeof(hostent_name_buf) - 1] = '\0';
-        hostent_name = hostent_name_buf;
-        hostent_aliases[0] = NULL;
-        hostent_aliases[1] = NULL;
-        hostent_addr_list[0] = (char*)&hostent_addr;
-        hostent_addr_list[1] = NULL;
+    int num = 2;
+    const char* dns_servers[] = {
+            "223.5.5.5", //ali-cloud
+            "8.8.8.8" //google
+        };
 
-        hostent_result.h_name = hostent_name;
-        hostent_result.h_aliases = hostent_aliases;
-        hostent_result.h_addrtype = AF_INET;
-        hostent_result.h_length = sizeof(struct in_addr);
-        hostent_result.h_addr_list = hostent_addr_list;
+    for(int i=0; i<num; i++) {
+        if (dns_resolve(name, &hostent_addr, dns_servers[i]) == 0) {
+            strncpy(hostent_name_buf, name, sizeof(hostent_name_buf));
+            hostent_name_buf[sizeof(hostent_name_buf) - 1] = '\0';
+            hostent_name = hostent_name_buf;
+            hostent_aliases[0] = NULL;
+            hostent_aliases[1] = NULL;
+            hostent_addr_list[0] = (char*)&hostent_addr;
+            hostent_addr_list[1] = NULL;
 
-        return &hostent_result;
+            hostent_result.h_name = hostent_name;
+            hostent_result.h_aliases = hostent_aliases;
+            hostent_result.h_addrtype = AF_INET;
+            hostent_result.h_length = sizeof(struct in_addr);
+            hostent_result.h_addr_list = hostent_addr_list;
+            return &hostent_result;
+        }
     }
 
     // 解析失败
