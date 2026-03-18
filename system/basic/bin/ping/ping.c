@@ -104,6 +104,10 @@ int main(int argc, char *argv[]) {
         seq++;
         icmp_pkt.checksum = checksum(&icmp_pkt, sizeof(icmp_pkt));
 
+        // Record send time
+        struct timeval send_time, recv_time;
+        gettimeofday(&send_time, NULL);
+
         // Send ICMP packet
         if (sendto(sockfd, &icmp_pkt, sizeof(icmp_pkt), 0, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
             printf("Failed to send ICMP packet\n");
@@ -118,13 +122,25 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
+        // Record receive time
+        gettimeofday(&recv_time, NULL);
+
+        // Calculate RTT in milliseconds
+        long rtt_sec = recv_time.tv_sec - send_time.tv_sec;
+        long rtt_usec = recv_time.tv_usec - send_time.tv_usec;
+        if (rtt_usec < 0) {
+            rtt_sec--;
+            rtt_usec += 1000000;
+        }
+        double rtt_ms = rtt_sec * 1000.0 + rtt_usec / 1000.0;
+
         // Check if it's an ICMP echo reply
         struct ip *ip_hdr = (struct ip *)recv_buf;
         int ip_len = ip_hdr->ip_hl * 4;
         icmp_hdr_t *recv_icmp = (icmp_hdr_t *)(recv_buf + ip_len);
 
         if (recv_icmp->type == ICMP_ECHO_REPLY && recv_icmp->id == (getpid() & 0xFFFF)) {
-            printf("%d bytes from %s: icmp_seq=%d\n", n - ip_len, resolved_ip, ntohs(recv_icmp->seq));
+            printf("%d bytes from %s: icmp_seq=%d time=%.1f ms\n", n - ip_len, resolved_ip, ntohs(recv_icmp->seq), rtt_ms);
         }
 
         proc_usleep(1000000); // 1 second
