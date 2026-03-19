@@ -50,8 +50,9 @@ static void uint_to_str(uint8_t val, char *buf) {
 	if (val >= 100) {
 		*buf++ = '0' + val / 100;
 		val %= 100;
-	}
-	if (val >= 10) {
+		*buf++ = '0' + val / 10;
+		val %= 10;
+	} else if (val >= 10) {
 		*buf++ = '0' + val / 10;
 		val %= 10;
 	}
