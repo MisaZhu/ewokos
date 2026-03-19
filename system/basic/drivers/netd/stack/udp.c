@@ -362,8 +362,9 @@ udp_sendto(int id, uint8_t *data, size_t len, struct ip_endpoint *foreign)
     if (local.addr == IP_ADDR_ANY) {
         iface = ip_route_get_iface(foreign->addr);
         if (!iface) {
-            errorf("iface not found that can reach foreign address, addr=%s",
+            /*errorf("iface not found that can reach foreign address, addr=%s",
                 ip_addr_ntop(foreign->addr, addr, sizeof(addr)));
+            */
             mutex_unlock(&mutex);
             return -1;
         }

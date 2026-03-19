@@ -461,8 +461,9 @@ ip_output_core(struct ip_iface *iface, uint8_t protocol, const uint8_t *data, si
     hdr->dst = dst;
     hdr->sum = cksum16((uint16_t *)hdr, hlen, 0); /* don't convert byteorder */
     memcpy(hdr+1, data, len);
-    errorf("dev=%s, iface=%s, protocol=%s(0x%02x), len=%u",
+    /*errorf("dev=%s, iface=%s, protocol=%s(0x%02x), len=%u",
         NET_IFACE(iface)->dev->name, ip_addr_ntop(iface->unicast, addr, sizeof(addr)), ip_protocol_name(protocol), protocol, total);
+    */
     ip_dump(buf, total);
 
     int ret = ip_output_device(iface, buf, total, nexthop);
@@ -508,7 +509,7 @@ ip_output(uint8_t protocol, const uint8_t *data, size_t len, ip_addr_t src, ip_a
     id = ip_generate_id();
     if (ip_output_core(iface, protocol, data, len, iface->unicast, dst, nexthop, id, 0) == -1) {
         TRACE(); 
-        errorf("ip_output_core() failure");
+        //errorf("ip_output_core() failure");
         return -1;
     }
     TRACE();

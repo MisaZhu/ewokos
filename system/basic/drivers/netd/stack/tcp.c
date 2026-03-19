@@ -1085,16 +1085,19 @@ AGAIN:
     // waiting for state changed
     while (pcb->state == state) {
         if (sched_sleep(&pcb->ctx, &mutex, NULL) == -1) {
-            debugf("interrupted");
+            //debugf("interrupted");
             pcb->state = TCP_PCB_STATE_CLOSED;
             tcp_pcb_release(pcb);
             mutex_unlock(&mutex);
             errno = EINTR;
             return -1;
         }
+        sleep(0);
     }
+
     if (pcb->state != TCP_PCB_STATE_ESTABLISHED) {
         if (pcb->state == TCP_PCB_STATE_SYN_RECEIVED) {
+            sleep(0);
             goto AGAIN;
         }
         errorf("open error: %d", pcb->state);
