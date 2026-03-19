@@ -140,9 +140,6 @@ static int32_t ext2_bdealloc(ext2_t* ext2, uint32_t block) {
 	char buf[EXT2_BLOCK_SIZE];
 	if (block == 0)
 		return -1;
-	memset(buf, 0, EXT2_BLOCK_SIZE);	
-	if(ext2->write_block(block, buf) != 0)
-		return -1;
 
 	uint32_t index = get_gd_index_by_block(ext2, block);
 	uint32_t block_g = get_block_in_group(ext2, block, index);
@@ -158,6 +155,12 @@ static int32_t ext2_bdealloc(ext2_t* ext2, uint32_t block) {
 		return -1;
 	// update free inode count in SUPER and GD
 	inc_free_blocks(ext2, block);
+
+	// Zero out the block content
+	memset(buf, 0, EXT2_BLOCK_SIZE);
+	if(ext2->write_block(block, buf) != 0)
+		return -1;
+
 	return 0;
 }
 
@@ -239,13 +242,14 @@ static int32_t write_child(ext2_t* ext2, INODE* pip, uint32_t ino, const char *n
 			if(ext2->read_block(pip->i_block[i], buf) != 0)
 				return -1;
 			memset(buf, 0, EXT2_BLOCK_SIZE);
+			dp = (DIR_T *)buf;
 			dp->inode = ino;
 			dp->rec_len = EXT2_BLOCK_SIZE;
 			dp->name_len = strlen(name);
 			dp->file_type = (uint8_t)ftype;
 			strcpy(dp->name, name);
 			return ext2->write_block(pip->i_block[i], buf);
-		}		
+		}
 
 		//if block alloced , initialize it
 		if(ext2->read_block(pip->i_block[i], buf) != 0)
@@ -299,6 +303,7 @@ static int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name) {
 		if(ext2->read_block(ip->i_block[i], buf) != 0)
 			return -1;
 		cp = buf;
+		precp = NULL;
 		while(cp < (buf + EXT2_BLOCK_SIZE)) {
 			dp = (DIR_T *)cp;
 			if(found == 0 && dp->inode != 0 && strcmp(dp->name, name) == 0){
@@ -308,7 +313,7 @@ static int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name) {
 					return ext2->write_block(ip->i_block[i], buf);
 				}
 				//(2).2. else if LAST entry in block
-				else if(precp != NULL && (dp->rec_len + (cp - buf)) == EXT2_BLOCK_SIZE){
+				else if(precp != NULL && (cp + dp->rec_len) == (buf + EXT2_BLOCK_SIZE)){
 					dp = (DIR_T *)precp;
 					dp->rec_len = EXT2_BLOCK_SIZE - (precp - buf);
 					return ext2->write_block(ip->i_block[i], buf);
@@ -326,11 +331,17 @@ static int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name) {
 		}
 
 		if(found == 1) {
-			dp->rec_len += rec_len;			
+			// Shift remaining entries left
 			char cpbuf[EXT2_BLOCK_SIZE];
 			memset(cpbuf, 0, EXT2_BLOCK_SIZE);
 			memcpy(cpbuf, buf, first_len);
 			memcpy(cpbuf + first_len, buf + first_len + rec_len, EXT2_BLOCK_SIZE-(first_len+rec_len));
+			// Update the last entry's rec_len
+			cp = cpbuf;
+			while((cp + ((DIR_T *)cp)->rec_len) < (cpbuf + EXT2_BLOCK_SIZE)) {
+				cp += ((DIR_T *)cp)->rec_len;
+			}
+			((DIR_T *)cp)->rec_len = EXT2_BLOCK_SIZE - (cp - cpbuf);
 			return ext2->write_block(ip->i_block[i], cpbuf);
 		}
 	}
@@ -523,48 +534,105 @@ int32_t ext2_write(ext2_t* ext2, INODE* node, const char *data, int32_t nbytes, 
 	//(2)
 	int32_t blk =0, lbk = 0, start_byte = 0, remain = 0;
 	int32_t nbytes_copy = 0;
+	int32_t total_bytes = nbytes;
 	//(3)
-	/*(4) Compute LOGICAL BLOCK number lbk and start_byte in that block from offset;
+	while(nbytes > 0) {
+		/*(4) Compute LOGICAL BLOCK number lbk and start_byte in that block from offset;
 		lbk       = oftp->offset / EXT2_BLOCK_SIZE;
-		start_byte = oftp->offset % EXT2_BLOCK_SIZE;*/	
-	lbk = (offset / EXT2_BLOCK_SIZE);
-	start_byte = offset % EXT2_BLOCK_SIZE;
-	//5.1 direct
-	if(lbk < 12){
-		//if its the first one of the new block, allocatea new one
-		if(node->i_block[lbk] == 0){
-			node->i_block[lbk] = ext2_balloc(ext2);
+		start_byte = oftp->offset % EXT2_BLOCK_SIZE;*/
+		lbk = (offset / EXT2_BLOCK_SIZE);
+		start_byte = offset % EXT2_BLOCK_SIZE;
+		//5.1 direct
+		if(lbk < 12){
+			//if its the first one of the new block, allocate a new one
+			if(node->i_block[lbk] == 0){
+				node->i_block[lbk] = ext2_balloc(ext2);
+				if(node->i_block[lbk] == 0)
+					return nbytes_copy;
+			}
+			blk = node->i_block[lbk];
 		}
-		blk = node->i_block[lbk];
-	}
-	//5.2 indirect 
-	else if(lbk >=12 && lbk < 256+12){
-		int32_t* indirect_buf = (int32_t*)buf;
-		//if its the first one of the new block, allocatea new one
-		if(node->i_block[12] == 0){
-			node->i_block[12] = ext2_balloc(ext2);
-			memset(indirect_buf, 0, EXT2_BLOCK_SIZE);
-			if(ext2->write_block(node->i_block[12], (char*)indirect_buf) != 0)
-				return 0;
+		//5.2 indirect 
+		else if(lbk >=12 && lbk < 256+12){
+			int32_t* indirect_buf = (int32_t*)buf;
+			//if its the first one of the new block, allocate a new one
+			if(node->i_block[12] == 0){
+				node->i_block[12] = ext2_balloc(ext2);
+				if(node->i_block[12] == 0)
+					return nbytes_copy;
+				memset(indirect_buf, 0, EXT2_BLOCK_SIZE);
+				if(ext2->write_block(node->i_block[12], (char*)indirect_buf) != 0)
+					return nbytes_copy;
+			}
+			if(ext2->read_block(node->i_block[12], (char*)indirect_buf) != 0)
+				return nbytes_copy;
+			if(indirect_buf[lbk-12] == 0){
+				indirect_buf[lbk-12] = ext2_balloc(ext2);
+				if(indirect_buf[lbk-12] == 0)
+					return nbytes_copy;
+				if(ext2->write_block(node->i_block[12], (char*)indirect_buf) != 0)
+					return nbytes_copy;
+			}
+			blk = indirect_buf[lbk-12]; 
 		}
-		if(ext2->read_block(node->i_block[12], (char*)indirect_buf) != 0)
-			return 0;
-		if(indirect_buf[lbk-12] == 0){
-			indirect_buf[lbk-12] = ext2_balloc(ext2);
-			if(ext2->write_block(node->i_block[12], (char*)indirect_buf) != 0)
-				return 0;
+		//5.3 double indirect
+		else if(lbk >= 256+12 && lbk < 256*256+256+12){
+			int32_t* double_buf1 = (int32_t*)buf;
+			int32_t count = lbk - 12 - 256;
+			int32_t num = count / 256;
+			int32_t pos_offset = count % 256;
+			
+			// allocate double indirect block if needed
+			if(node->i_block[13] == 0){
+				node->i_block[13] = ext2_balloc(ext2);
+				if(node->i_block[13] == 0)
+					return nbytes_copy;
+				memset(double_buf1, 0, EXT2_BLOCK_SIZE);
+				if(ext2->write_block(node->i_block[13], (char*)double_buf1) != 0)
+					return nbytes_copy;
+			}
+			
+			if(ext2->read_block(node->i_block[13], (char*)double_buf1) != 0)
+				return nbytes_copy;
+			
+			// allocate indirect block if needed
+			if(double_buf1[num] == 0){
+				double_buf1[num] = ext2_balloc(ext2);
+				if(double_buf1[num] == 0)
+					return nbytes_copy;
+				char indirect_buf[EXT2_BLOCK_SIZE];
+				memset(indirect_buf, 0, EXT2_BLOCK_SIZE);
+				if(ext2->write_block(double_buf1[num], indirect_buf) != 0)
+					return nbytes_copy;
+				if(ext2->write_block(node->i_block[13], (char*)double_buf1) != 0)
+					return nbytes_copy;
+			}
+			
+			// read indirect block
+			int32_t indirect_buf[256];
+			if(ext2->read_block(double_buf1[num], (char*)indirect_buf) != 0)
+				return nbytes_copy;
+			
+			// allocate data block if needed
+			if(indirect_buf[pos_offset] == 0){
+				indirect_buf[pos_offset] = ext2_balloc(ext2);
+				if(indirect_buf[pos_offset] == 0)
+					return nbytes_copy;
+				if(ext2->write_block(double_buf1[num], (char*)indirect_buf) != 0)
+					return nbytes_copy;
+			}
+			
+			blk = indirect_buf[pos_offset];
 		}
-		blk = indirect_buf[lbk-12]; 
-	}
-	else{
-		return nbytes_copy;
-	}
+		else{
+			return nbytes_copy;
+		}
 
-	if(ext2->read_block(blk, buf) != 0)
-		return 0;
-	cp = buf + start_byte;
-	remain = EXT2_BLOCK_SIZE - start_byte;
-	while(remain > 0){
+		if(ext2->read_block(blk, buf) != 0)
+			return nbytes_copy;
+		cp = buf + start_byte;
+		remain = EXT2_BLOCK_SIZE - start_byte;
+		
 		int32_t min = 0;
 		if(nbytes<=remain){
 			min = nbytes;
@@ -572,20 +640,19 @@ int32_t ext2_write(ext2_t* ext2, INODE* node, const char *data, int32_t nbytes, 
 		else{
 			min = remain;
 		}
-		memcpy(cp, cq, nbytes);
+		memcpy(cp, cq, min);
 		nbytes_copy += min;
 		nbytes -= min;
 		remain -= min;
 		offset += min;
+		cq += min;
 		if(offset > (int32_t)node->i_size){
-			node->i_size += min;
-		}			
-		if(nbytes<=0){
-			break;
+			node->i_size = offset;
 		}
+		
+		if(ext2->write_block(blk, buf) != 0)
+			return nbytes_copy;
 	}
-	if(ext2->write_block(blk, buf) != 0)
-		return 0;
 	return nbytes_copy;
 }
 
