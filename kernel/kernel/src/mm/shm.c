@@ -153,7 +153,8 @@ static int32_t shm_alloc(int32_t key, uint32_t size, int32_t flag) {
 	i->used = 1;
 	i->key = key;
 	i->id = id_counter++;
-	i->owner_pid = get_current_proc()->info.pid;
+	proc_t* current_proc = get_current_proc();
+	i->owner_pid = current_proc ? current_proc->info.pid : -1;
 	i->flag = flag;
 
 	return i->id;
@@ -255,10 +256,13 @@ static uint32_t check_access(proc_t* proc, share_mem_t* it) {
 	if(proc->info.uid == 0)
 		return (SHM_R | SHM_W);
 	
+	if(it->owner_pid < 0)
+		return (SHM_R | SHM_W); // Allow access if no owner
+	
 	proc_t* owner = proc_get(it->owner_pid);
 	owner = proc_get_proc(owner);
 	if(owner == NULL)
-		return SHM_N;
+		return (SHM_R | SHM_W); // Allow access if owner not found
 	
 	if(owner == proc)
 		return (SHM_R | SHM_W);

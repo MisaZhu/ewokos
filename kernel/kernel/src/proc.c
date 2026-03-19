@@ -747,13 +747,23 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 	uint32_t i = 0;
 
 	proc->info.uuid = ++_proc_uuid; //load elf means a totally new proc
-	uint8_t* proc_image = (uint8_t*)kmalloc_vm(proc->space->vm, size);
+	int32_t shm_id = shm_get(0, size, 0666);
+	if(shm_id <= 0) {
+		return -1;
+	}
+	uint8_t* proc_image = (uint8_t*)shm_proc_map(proc, shm_id);
+	if(proc_image == NULL) {
+		// Don't unmap if mapping failed
+		return -1;
+	}
 	memcpy(proc_image, image, size);
 	proc_free_heap(proc);
 
 	/*read elf format from saved proc image*/
-	if (ELF_TYPE(proc_image) != ELFTYPE_EXECUTABLE)
+	if (ELF_TYPE(proc_image) != ELFTYPE_EXECUTABLE) {
+		shm_proc_unmap(proc, (void*)proc_image);
 		return -1;
+	}
 
 	prog_header_count = ELF_PHNUM(proc_image);
 	uint32_t *debug = 0;
@@ -765,7 +775,7 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 		uint32_t offset = ELF_POFFSET(proc_image, i);
 		uint32_t flags = ELF_PFLAGS(proc_image, i);
 
-		uint8_t rdonly = 0;	
+		uint8_t rdonly = 0; 
 		if((flags & 0x2) == 0) {
 			rdonly = 1;
 		}
@@ -780,7 +790,7 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 		while (proc->space->heap_size < (vaddr + memsz)) {
 			proc->space->heap_used += PAGE_SIZE;
 			if(proc_expand_mem(proc, 1) != 0){ 
-				kfree(proc_image);
+				shm_proc_unmap(proc, (void*)proc_image);
 				return -1;
 			}
 		}
@@ -820,7 +830,7 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 	proc->ctx.pc = ELF_ENTRY(proc_image);
 	proc->ctx.lr = ELF_ENTRY(proc_image);
 	proc_ready(proc);
-	kfree_vm(proc->space->vm, proc_image);
+	shm_proc_unmap(proc, (void*)proc_image);
 
 	proc_update_vsyscall(proc);
 	return 0;
