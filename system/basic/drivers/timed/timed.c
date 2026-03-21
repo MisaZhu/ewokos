@@ -29,7 +29,7 @@ static int time_loop(void* p) {
 	uint32_t current_time_sec;
 	kernel_tic(&current_time_sec, NULL);
 
-	if(_time_init == 0 || (current_time_sec - _time_sec_init) > 3600) {
+	if(_time_init == 0 || (current_time_sec - _time_sec_init) > 600) {
     	_time_init = ntpc_get_time(DEFAULT_NTP_SERVER, DEFAULT_NTP_PORT);
 		if(_time_init > 0) {
 			kernel_tic(&_time_sec_init, NULL);

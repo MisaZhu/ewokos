@@ -21,6 +21,7 @@
 #include <ewoksys/syscall.h>
 #include <ewoksys/devcmd.h>
 #include <ewoksys/vfs.h>
+#include <ewoksys/kernel_tic.h>
 #include <ewoksys/core.h>
 
 #define EBADF 9
@@ -506,32 +507,42 @@ _unlink (const char *path)
   return 0;
 }
 
+uint64_t get_kernel_usec(void) {
+	vsyscall_info_t *vsys = (vsyscall_info_t *)syscall0(SYS_GET_VSYSCALL_INFO);
+	if (vsys != NULL)
+			return  vsys->kernel_usec;
+	return 0;
+}
+
 int
 _gettimeofday (struct timeval * tp, void * tzvp)
 {
 	kout(__func__);
+	static uint32_t init_sec = 0;
+	static uint32_t init_sec_tic = 0;
+
 	struct timezone *tzp = tzvp;
 	if (tp)
     {
-		proto_t out;
-		PF->init(&out);
-		int res = -1;
-		if(dev_cmd_cntl("/dev/time", 0, NULL, &out) == 0) {
-			res = proto_read_int(&out);
-			if(res == 0) {
-				tp->tv_sec = proto_read_int(&out);
-			}
-		}
-		PF->clear(&out);
+		uint64_t now_usec = get_kernel_usec();
+		uint32_t now_sec = now_usec / 1000000;
 
-		if(res != 0) {
-			uint64_t usec = 0;
-			vsyscall_info_t *vsys = (vsyscall_info_t *)syscall0(SYS_GET_VSYSCALL_INFO);
-			if (vsys != NULL)
-				usec = vsys->kernel_usec;
-			tp->tv_sec = usec / 1000000;
-			tp->tv_usec = usec % 1000000;
+		if(init_sec == 0 || (now_sec - init_sec_tic) > 600) {
+			proto_t out;
+			PF->init(&out);
+			int res = -1;
+			if(dev_cmd_cntl("/dev/time", 0, NULL, &out) == 0) {
+				res = proto_read_int(&out);
+				if(res == 0) {
+					init_sec = proto_read_int(&out);
+					init_sec_tic = now_sec;
+				}
+			}
+			PF->clear(&out);
 		}
+
+		tp->tv_usec = now_usec % 1000000;
+		tp->tv_sec = now_sec - init_sec_tic + init_sec;
     }
 
   /* Return fixed data for the timezone.  */
