@@ -9,6 +9,8 @@
 #ifndef __HASHMAP_H__
 #define __HASHMAP_H__
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -41,7 +43,7 @@ typedef int (*PFany)(map_t in, const char*, any_t, any_t);
 /*
  * Return an empty hashmap. Returns NULL if empty.
 */
-extern map_t hashmap_new(void);
+extern map_t hashmap_new(uint32_t init_size);
 
 /*
  * Iteratively call f with argument (item, data) for

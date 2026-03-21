@@ -21,7 +21,7 @@ extern "C" {
 static map_t  _files_hash = NULL;
 
 static void device_init(vdevice_t* dev) {
-	_files_hash = hashmap_new();
+	_files_hash = hashmap_new(0);
 }
 
 static inline const char* file_hash_key(int fd, int pid, uint32_t node) {

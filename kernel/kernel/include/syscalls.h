@@ -1,6 +1,12 @@
 #ifndef SYSCALLS_H
 #define SYSCALLS_H
 
+
+#define IPC_ERROR_RETRY      -1
+#define IPC_ERROR_SELF       -2
+#define IPC_ERROR_NO_READY   -3
+#define IPC_ERROR_IN_INTR    -3
+
 #define DMA_MAGIC   0xCAFECAFF
 
 enum {

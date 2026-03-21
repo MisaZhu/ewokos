@@ -1110,7 +1110,7 @@ static int32_t renew_interrupt_counter(uint32_t usec) {
 
 		proc->space->interrupt.counter += usec;
 		if(proc->space->interrupt.counter >= INTERRUPT_TIMEOUT_USEC) {
-			printf("interrupt timeout: %d\n", proc->space->interrupt.interrupt);
+			printf("interrupt timeout: %d , %d\n", proc->space->interrupt.interrupt, proc->info.pid);
 			proc->space->interrupt.counter = 0;
 			proc->space->interrupt.state = INTR_STATE_IDLE;
 			if(proc->space->interrupt.interrupt != IRQ_SOFT)

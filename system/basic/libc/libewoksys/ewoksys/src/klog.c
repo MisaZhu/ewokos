@@ -24,7 +24,7 @@ void kout(const char *str) {
 void klog(const char *format, ...) {
 	va_list ap;
 	va_start(ap, format);
-	vsnprintf(_buf, sizeof(_buf), format, ap);
+	vsnprintf(_buf, BUF_SIZE, format, ap);
 	va_end(ap);
 
 	syscall2(SYS_KPRINT, (ewokos_addr_t)_buf, (ewokos_addr_t)strlen(_buf));
@@ -43,7 +43,7 @@ void klog(const char *format, ...) {
 void slog(const char *format, ...) {
 	va_list ap;
 	va_start(ap, format);
-	vsnprintf(_buf, sizeof(_buf), format, ap);
+	vsnprintf(_buf, BUF_SIZE, format, ap);
 	va_end(ap);
 
 	const char* log_dev = "/dev/log";

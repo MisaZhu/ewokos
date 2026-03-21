@@ -337,6 +337,10 @@ int dev_read_block(int pid, void* buf, uint32_t size, int32_t index) {
 	return res;
 }
 
+int dev_cmd_cntl(const char* fname, int cmd, proto_t* in, proto_t* out) {
+	return dev_cntl(fname, cmd, in, out);
+}
+
 #ifdef __cplusplus
 }
 #endif

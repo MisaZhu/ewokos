@@ -32,7 +32,7 @@ static FT_Library _library;
 static map_t _font_cache = NULL;
 
 static void font_dev_init(void) {
-	_font_cache = hashmap_new();
+	_font_cache = hashmap_new(0);
 
 	FT_Init_FreeType(&_library);
 	for(int i=0;i < TTF_MAX; i++)

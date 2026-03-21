@@ -509,17 +509,29 @@ _unlink (const char *path)
 int
 _gettimeofday (struct timeval * tp, void * tzvp)
 {
-  kout(__func__);
-  struct timezone *tzp = tzvp;
-  if (tp)
+	kout(__func__);
+	struct timezone *tzp = tzvp;
+	if (tp)
     {
-      vsyscall_info_t *vsys = (vsyscall_info_t *)syscall0(SYS_GET_VSYSCALL_INFO);
-      uint64_t usec = 0;
-      if (vsys != NULL) {
-        usec = vsys->kernel_usec;
-      }
-      tp->tv_sec = usec / 1000000;
-      tp->tv_usec = usec % 1000000;
+		proto_t out;
+		PF->init(&out);
+		int res = -1;
+		if(dev_cmd_cntl("/dev/time", 0, NULL, &out) == 0) {
+			res = proto_read_int(&out);
+			if(res == 0) {
+				tp->tv_sec = proto_read_int(&out);
+			}
+		}
+		PF->clear(&out);
+
+		if(res != 0) {
+			uint64_t usec = 0;
+			vsyscall_info_t *vsys = (vsyscall_info_t *)syscall0(SYS_GET_VSYSCALL_INFO);
+			if (vsys != NULL)
+				usec = vsys->kernel_usec;
+			tp->tv_sec = usec / 1000000;
+			tp->tv_usec = usec % 1000000;
+		}
     }
 
   /* Return fixed data for the timezone.  */

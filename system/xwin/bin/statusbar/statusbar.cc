@@ -116,29 +116,10 @@ protected:
 	}
 
     uint32_t updateTime() {
-		static uint32_t sec_init = 0 , ksec_start = 0;
-		uint32_t curr_sec;
-        kernel_tic(&curr_sec, NULL);
-		uint32_t sec_offset = curr_sec - ksec_start;
-
-        if(sec_init == 0 || sec_offset >= 3600) {
-			struct tm time_info;
-			proto_t out;
-			PF->init(&out);
-			if(dev_cntl("/dev/localtime", 0, NULL, &out) == 0) {
-				int res = proto_read_int(&out);
-				if(res == 0) {
-					proto_read_to(&out, &time_info, sizeof(time_info));
-					sec_init = time_info.tm_hour * 3600 + time_info.tm_min * 60 + time_info.tm_sec;
-					kernel_tic(&ksec_start, NULL);
-					sec_offset = 0;
-				}
-				PF->clear(&out);
-			}
-		}
-        if(sec_init == 0)
-            return 0;
-        return sec_offset + sec_init;
+		time_t now = time(NULL);
+		struct tm time_info;
+        localtime_r(&now, &time_info);
+		return time_info.tm_hour * 3600 + time_info.tm_min * 60 + time_info.tm_sec;
     }
 
     void onTimer(uint32_t timerFPS, uint32_t timerStep) {

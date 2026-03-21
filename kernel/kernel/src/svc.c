@@ -326,6 +326,7 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 
 	if(client_proc->info.pid == serv_pid) { //can't do self ipc
 		//printf("ipc can't call self service (client: %d, server: %d, call: 0x%x\n", client_proc->info.pid, serv_pid, call_id);
+		ctx->gpr[0] = IPC_ERROR_SELF;
 		return;
 	}
 
@@ -333,26 +334,28 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 	if(serv_proc == NULL ||
 			serv_proc->space->ipc_server.entry == 0) {//no ipc service setup
 		//printf("ipc not ready (client: %d, server: %d, call: 0x%x\n", client_proc->info.pid, serv_pid, call_id);
+		ctx->gpr[0] = IPC_ERROR_NO_READY;
 		return;
 	}
 
 	if(client_proc->info.type == TASK_TYPE_PROC && 
-			client_proc->space->interrupt.state == INTR_STATE_WORKING &&
-			client_proc->space->interrupt.interrupt != IRQ_SOFT) {
-		printf("ipc can't call in interrupt (client: %d, server: %d, call: 0x%x\n",
-				client_proc->info.pid, serv_pid, call_id);
+			client_proc->space->interrupt.state == INTR_STATE_WORKING) {
+			//client_proc->space->interrupt.interrupt != IRQ_SOFT) {
+		//printf("ipc can't call in interrupt (client: %d, server: %d, call: 0x%x\n",
+		//		client_proc->info.pid, serv_pid, call_id);
+		ctx->gpr[0] = IPC_ERROR_IN_INTR;
 		return;
 	}
 
 	if(serv_proc->space->ipc_server.disabled) {
-		ctx->gpr[0] = -1; // blocked if server disabled, should retry
+		ctx->gpr[0] = IPC_ERROR_RETRY; // blocked if server disabled, should retry
 		proc_block_on(ctx, serv_pid, (uint32_t)&serv_proc->space->ipc_server.disabled);
 		return;
 	}
 
 	if(serv_proc->space->interrupt.state != INTR_STATE_IDLE) {
 		//if((call_id & IPC_NON_RETURN) == 0) {
-			ctx->gpr[0] = -1; // blocked if proc is on interrupt task, should retry
+			ctx->gpr[0] = IPC_ERROR_RETRY; // blocked if proc is on interrupt task, should retry
 			proc_block_on(ctx, serv_pid, (uint32_t)&serv_proc->space->interrupt);
 			return;
 		//}
@@ -362,7 +365,7 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 
 	ipc_task_t* ipc = proc_ipc_req(serv_proc, client_proc, call_id, arg);
 	if(ipc == NULL) {
-		ctx->gpr[0] = -1; 
+		ctx->gpr[0] = IPC_ERROR_RETRY; 
 		proc_block_on(ctx, serv_pid, (uint32_t)&serv_proc->space->ipc_server);
 		return;
 	}

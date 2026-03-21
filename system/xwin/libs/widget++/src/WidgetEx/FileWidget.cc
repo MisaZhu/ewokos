@@ -320,7 +320,7 @@ public:
 		scrollerV = NULL;
 		loadIcons();
 		fileTypes = loadFileTypes("/usr/system/filetypes.json");
-		iconCache = hashmap_new();
+		iconCache = hashmap_new(0);
 	}
 
 	~FileGrid() {

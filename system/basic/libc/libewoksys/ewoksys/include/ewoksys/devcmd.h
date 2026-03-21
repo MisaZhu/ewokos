@@ -20,6 +20,7 @@ extern int dev_dma(int dev_pid, int fd, uint32_t node, int* size);
 extern int dev_read_block(int dev_pid, void* buf, uint32_t size, int32_t index);
 extern int dev_write_block(int dev_pid, const void* buf, uint32_t size, int32_t index);
 extern int dev_fcntl(int dev_pid, int fd, fsinfo_t* info, int cmd, proto_t* arg_in, proto_t* arg_out);
+extern int dev_cmd_cntl(const char* fname, int cmd, proto_t* in, proto_t* out);
 
 extern int dev_get_by_name(int dev_pid, const char* fname, fsinfo_t* info);
 extern fsinfo_t* dev_kids(int dev_pid, fsinfo_t* info, uint32_t *num);

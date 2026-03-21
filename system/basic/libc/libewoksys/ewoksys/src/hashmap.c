@@ -33,14 +33,16 @@ typedef struct _hashmap_map{
 /*
  * Return an empty hashmap, or NULL on failure.
  */
-map_t hashmap_new() {
+map_t hashmap_new(uint32_t init_size) {
 	hashmap_map* m = (hashmap_map*) malloc(sizeof(hashmap_map));
 	if(!m) goto err;
+	if(init_size == 0)
+		init_size = INITIAL_SIZE;
 
-	m->data = (hashmap_element*) calloc(INITIAL_SIZE, sizeof(hashmap_element));
+	m->data = (hashmap_element*) calloc(init_size, sizeof(hashmap_element));
 	if(!m->data) goto err;
 
-	m->table_size = INITIAL_SIZE;
+	m->table_size = init_size;
 	m->size = 0;
 
 	return m;

@@ -34,7 +34,7 @@ font_t* font_new(const char* name, bool safe) {
 	strncpy(font->name, name, FONT_NAME_MAX-1);
 	int id = font_load(name, "");
 	if(id >= 0) {
-		font->cache = hashmap_new();
+		font->cache = hashmap_new(0);
 		font->id = id;
 		return font;
 	}
@@ -43,7 +43,7 @@ font_t* font_new(const char* name, bool safe) {
 		if(id >= 0) {
 			strncpy(font->name, DEFAULT_SYSTEM_FONT, FONT_NAME_MAX-1);
 			font->id = id;
-			font->cache = hashmap_new();
+			font->cache = hashmap_new(0);
 			return font;
 		}
 	}

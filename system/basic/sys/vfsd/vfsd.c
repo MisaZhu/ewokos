@@ -91,7 +91,7 @@ static void vfsd_init(void) {
 		memset(&_proc_fds_table[i], 0, sizeof(proc_fds_t));
 	}
 
-	_nodes_hash = hashmap_new();
+	_nodes_hash = hashmap_new(0);
 	_vfs_root = vfs_new_node();
 	strcpy(_vfs_root->fsinfo.name, "/");
 }

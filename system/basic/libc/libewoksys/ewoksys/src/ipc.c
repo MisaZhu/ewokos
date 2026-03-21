@@ -81,13 +81,14 @@ extern "C"
 		while (true) {
 			if (opkg == NULL)
 				call_id |= IPC_NON_RETURN;
-			ipc_id = syscall3(SYS_IPC_CALL, (ewokos_addr_t)to_pid, (ewokos_addr_t)call_id, (ewokos_addr_t)ipkg);
+			int res = syscall3(SYS_IPC_CALL, (ewokos_addr_t)to_pid, (ewokos_addr_t)call_id, (ewokos_addr_t)ipkg);
 
-			if (ipc_id == -1)
-				continue;
-			if (ipc_id == 0) {
-				return -1;
+			if (res < 0) {
+				if (res == IPC_ERROR_RETRY)
+					continue;
+				return res;
 			}
+			ipc_id = res;
 			break;
 		}
 

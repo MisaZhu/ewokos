@@ -42,7 +42,7 @@ static void core_init(void) {
 
 	for(i = 0; i<_max_proc_table_num; i++) {
 		_proc_info_table[i].cwd = str_new("/");
-		_proc_info_table[i].envs = hashmap_new();
+		_proc_info_table[i].envs = hashmap_new(16);
 	}
 
 	for(i = 0; i<UX_MAX; i++) {
@@ -308,7 +308,7 @@ static void do_proc_clone(int fpid, int cpid) {
 	str_cpy(_proc_info_table[cpid].cwd, CS(_proc_info_table[fpid].cwd));	
 	hashmap_iterate(_proc_info_table[cpid].envs, free_envs, NULL);	
 	hashmap_free(_proc_info_table[cpid].envs);
-	_proc_info_table[cpid].envs = hashmap_new();
+	_proc_info_table[cpid].envs = hashmap_new(16);
 	hashmap_iterate(_proc_info_table[fpid].envs, copy_envs, _proc_info_table[cpid].envs);	
 }
 
@@ -416,7 +416,7 @@ int main(int argc, char** argv) {
 	(void)argv;
 
 	core_init();
-	_ipc_servs = hashmap_new();
+	_ipc_servs = hashmap_new(16);
 
 	ipc_serv_run(handle_ipc, NULL, NULL, IPC_NON_BLOCK);
 	syscall0(SYS_CORE_READY);

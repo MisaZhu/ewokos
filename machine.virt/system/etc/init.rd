@@ -31,8 +31,8 @@
 @/bin/splash -m "start /dev/net0" -p 68
 @/bin/ipcserv /drivers/netd /dev/net0 /dev/eth0
 
-@/bin/splash -m "start /dev/localtimed" -p 70
-@/bin/ipcserv /drivers/localtimed    /dev/localtime
+@/bin/splash -m "start /dev/timed" -p 70
+@/bin/ipcserv /drivers/timed    /dev/time
 
 #@/bin/splash -m "start telnetd" -p 72
 #@/bin/bgrun /sbin/telnetd
