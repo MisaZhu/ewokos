@@ -129,48 +129,88 @@ static void run_esc_cmd(gterminal_t* terminal, UNICODE16 cmd, uint16_t* values, 
     if(cmd == 'm') { //color and state
         do_esc_color(terminal, values, vnum);
     }
-    else if(cmd == 'J') { //clear
-        do_esc_clear(terminal, values, vnum);
+    else if(cmd == 'J') { //clear screen
+        if(values[0] == 2) {
+            // Clear entire screen
+            textgrid_clear(terminal->textgrid);
+            textgrid_move_to(terminal->textgrid, 0, terminal->textgrid_start_row);
+        }
     }
-    else if(cmd == 'H') { //move curs y,x
-        do_esc_xy(terminal, values, vnum);
+    else if(cmd == 'H' || cmd == 'f') { //move curs y,x
+        uint16_t row = (vnum >= 1 && values[0] > 0) ? values[0] - 1 : 0;
+        uint16_t col = (vnum >= 2 && values[1] > 0) ? values[1] - 1 : 0;
+        textgrid_move_to(terminal->textgrid, col, row + terminal->textgrid_start_row);
     }
     else if(cmd == 'A') { //move curs up
-        int16_t y = (int16_t)terminal->textgrid->curs_y - values[0];
+        int16_t y = (int16_t)terminal->textgrid->curs_y - (vnum > 0 ? values[0] : 1);
         if(y < 0)
             y = 0;
-        textgrid_move_to(terminal->textgrid, terminal->textgrid->curs_x, y+terminal->textgrid_start_row);
+        textgrid_move_to(terminal->textgrid, terminal->textgrid->curs_x, y + terminal->textgrid_start_row);
     }
     else if(cmd == 'B') { //move curs down
-        uint16_t y = terminal->textgrid->curs_y + values[0];
+        uint16_t y = terminal->textgrid->curs_y + (vnum > 0 ? values[0] : 1);
         if(y >= terminal->textgrid->rows)
-            y = terminal->textgrid->rows-1;
-        textgrid_move_to(terminal->textgrid, terminal->textgrid->curs_x, y+terminal->textgrid_start_row);
+            y = terminal->textgrid->rows - 1;
+        textgrid_move_to(terminal->textgrid, terminal->textgrid->curs_x, y + terminal->textgrid_start_row);
     }
     else if(cmd == 'D') { //move curs left
-        int16_t x = (int16_t)terminal->textgrid->curs_x - values[0];
+        int16_t x = (int16_t)terminal->textgrid->curs_x - (vnum > 0 ? values[0] : 1);
         if(x < 0)
             x = 0;
-        textgrid_move_to(terminal->textgrid, x, terminal->textgrid->curs_y+terminal->textgrid_start_row);
+        textgrid_move_to(terminal->textgrid, x, terminal->textgrid->curs_y + terminal->textgrid_start_row);
     }
     else if(cmd == 'C') { //move curs right
-        uint16_t x = terminal->textgrid->curs_x + values[0];
+        uint16_t x = terminal->textgrid->curs_x + (vnum > 0 ? values[0] : 1);
         if(x >= terminal->textgrid->cols)
-            x = terminal->textgrid->cols-1;
-        textgrid_move_to(terminal->textgrid, x, terminal->textgrid->curs_y+terminal->textgrid_start_row);
+            x = terminal->textgrid->cols - 1;
+        textgrid_move_to(terminal->textgrid, x, terminal->textgrid->curs_y + terminal->textgrid_start_row);
+    }
+    else if(cmd == 'E') { //move to beginning of next line
+        uint16_t y = terminal->textgrid->curs_y + (vnum > 0 ? values[0] : 1);
+        if(y >= terminal->textgrid->rows)
+            y = terminal->textgrid->rows - 1;
+        textgrid_move_to(terminal->textgrid, 0, y + terminal->textgrid_start_row);
+    }
+    else if(cmd == 'F') { //move to beginning of previous line
+        int16_t y = (int16_t)terminal->textgrid->curs_y - (vnum > 0 ? values[0] : 1);
+        if(y < 0)
+            y = 0;
+        textgrid_move_to(terminal->textgrid, 0, y + terminal->textgrid_start_row);
+    }
+    else if(cmd == 'G') { //move to column
+        uint16_t x = (vnum > 0 && values[0] > 0) ? values[0] - 1 : 0;
+        if(x >= terminal->textgrid->cols)
+            x = terminal->textgrid->cols - 1;
+        textgrid_move_to(terminal->textgrid, x, terminal->textgrid->curs_y + terminal->textgrid_start_row);
     }
     else if(cmd == 's') { //save curs pos
         terminal->curs_pos.x = terminal->textgrid->curs_x;
         terminal->curs_pos.y = terminal->textgrid->curs_y;
     }
     else if(cmd == 'u') { //restore curs pos
-        textgrid_move_to(terminal->textgrid, terminal->curs_pos.x, terminal->curs_pos.y+terminal->textgrid_start_row);
+        textgrid_move_to(terminal->textgrid, terminal->curs_pos.x, terminal->curs_pos.y + terminal->textgrid_start_row);
     }
-    else if(cmd == 'l') { //hide curs
-        terminal->show_curs = false;
+    else if(cmd == 'l') { //hide curs or reset mode
+        if(vnum > 0) {
+            // Handle mode reset
+            if(values[0] == 25) {
+                terminal->show_curs = false;
+            }
+        }
+        else {
+            terminal->show_curs = false;
+        }
     }
-    else if(cmd == 'h') { //show curs
-        terminal->show_curs = true;
+    else if(cmd == 'h') { //show curs or set mode
+        if(vnum > 0) {
+            // Handle mode set
+            if(values[0] == 25) {
+                terminal->show_curs = true;
+            }
+        }
+        else {
+            terminal->show_curs = true;
+        }
     }
 }
 

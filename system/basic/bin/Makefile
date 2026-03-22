@@ -44,6 +44,7 @@ builtin_apps:
 	cd host;make
 	cd ping;make
 	cd date;make
+	cd vi;make
 
 clean:
 	cd cp;make clean
@@ -88,3 +89,4 @@ clean:
 	cd host;make clean
 	cd ping;make clean
 	cd date;make clean
+	cd vi;make clean
