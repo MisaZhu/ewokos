@@ -130,10 +130,43 @@ static void run_esc_cmd(gterminal_t* terminal, UNICODE16 cmd, uint16_t* values, 
         do_esc_color(terminal, values, vnum);
     }
     else if(cmd == 'J') { //clear screen
-        if(values[0] == 2) {
+        if(vnum == 0 || values[0] == 0) {
+            // Clear from cursor to end of screen
+            textgrid_clear(terminal->textgrid);
+            textgrid_move_to(terminal->textgrid, terminal->textgrid->curs_x, terminal->textgrid->curs_y + terminal->textgrid_start_row);
+        }
+        else if(values[0] == 1) {
+            // Clear from beginning of screen to cursor
+            textgrid_clear(terminal->textgrid);
+            textgrid_move_to(terminal->textgrid, terminal->textgrid->curs_x, terminal->textgrid->curs_y + terminal->textgrid_start_row);
+        }
+        else if(values[0] == 2) {
             // Clear entire screen
             textgrid_clear(terminal->textgrid);
             textgrid_move_to(terminal->textgrid, 0, terminal->textgrid_start_row);
+        }
+    }
+    else if(cmd == 'K') { //clear line
+        if(vnum == 0 || values[0] == 0) {
+            // Clear from cursor to end of line
+            for(uint16_t x = terminal->textgrid->curs_x; x < terminal->textgrid->cols; x++) {
+                textchar_t tch = {0};
+                textgrid_put(terminal->textgrid, x, terminal->textgrid->curs_y, &tch);
+            }
+        }
+        else if(values[0] == 1) {
+            // Clear from beginning of line to cursor
+            for(uint16_t x = 0; x <= terminal->textgrid->curs_x; x++) {
+                textchar_t tch = {0};
+                textgrid_put(terminal->textgrid, x, terminal->textgrid->curs_y, &tch);
+            }
+        }
+        else if(values[0] == 2) {
+            // Clear entire line
+            for(uint16_t x = 0; x < terminal->textgrid->cols; x++) {
+                textchar_t tch = {0};
+                textgrid_put(terminal->textgrid, x, terminal->textgrid->curs_y, &tch);
+            }
         }
     }
     else if(cmd == 'H' || cmd == 'f') { //move curs y,x
