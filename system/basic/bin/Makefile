@@ -5,7 +5,7 @@ builtin_apps:
 	cd cp;make
 	cd ipcserv;make
 	cd bgrun;make
-	cd test;make
+#	cd test;make
 	cd tsaver;make
 	cd clear;make
 	cd echo;make
@@ -46,7 +46,7 @@ clean:
 	cd cp;make clean
 	cd ipcserv;make clean
 	cd bgrun;make clean
-	cd test;make clean
+#	cd test;make clean
 	cd tsaver;make clean
 	cd clear;make clean
 	cd echo;make clean

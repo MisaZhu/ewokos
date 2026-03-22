@@ -46,16 +46,17 @@ basic_sys: kernel_heads
 	mkdir -p $(TARGET_DIR)/drivers/$(HW)
 	cd libs;make
 	cd $(SYS_ROOT_DIR)/basic;make
-	cd drivers;make
+	cd drivers;make basic
 	@cp -r etc/basic/* ${TARGET_DIR}/etc
 
 network_sys: basic_sys
 	cd $(SYS_ROOT_DIR)/network;make
+	cd drivers;make network
 	@cp -r etc/network/* ${TARGET_DIR}/etc
 
 gui_sys: network_sys
 	cd $(SYS_ROOT_DIR)/gui;make
-	cd drivers;make
+	cd drivers;make gui
 	@cp -r etc/gui/* ${TARGET_DIR}/etc
 
 x_sys: gui_sys

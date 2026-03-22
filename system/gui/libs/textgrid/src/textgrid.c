@@ -83,6 +83,9 @@ static int textgrid_expand(textgrid_t* grid, uint32_t rows) {
 		grid->total_rows = rows_new;
 	}
 	else {
+		if(grid->grid == NULL)
+			return -1;
+			
 		if(rows_new > grid->total_rows)
 			rows_new = grid->total_rows;
 		if(rows > grid->rows)

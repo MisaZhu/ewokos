@@ -139,12 +139,12 @@ static void run_esc_cmd(gterminal_t* terminal, UNICODE16 cmd, uint16_t* values, 
             textchar_t tch = {0};
             // Clear current line from cursor to end
             for(uint16_t x = terminal->textgrid->curs_x; x < terminal->textgrid->cols; x++) {
-                textgrid_put(terminal->textgrid, x, terminal->textgrid->curs_y, &tch);
+                textgrid_put(terminal->textgrid, x, terminal->textgrid->curs_y + terminal->textgrid_start_row, &tch);
             }
             // Clear all lines below cursor
             for(uint16_t y = terminal->textgrid->curs_y + 1; y < terminal->textgrid->rows; y++) {
                 for(uint16_t x = 0; x < terminal->textgrid->cols; x++) {
-                    textgrid_put(terminal->textgrid, x, y, &tch);
+                    textgrid_put(terminal->textgrid, x, y + terminal->textgrid_start_row, &tch);
                 }
             }
         }
@@ -153,24 +153,27 @@ static void run_esc_cmd(gterminal_t* terminal, UNICODE16 cmd, uint16_t* values, 
             textchar_t tch = {0};
             // Clear current line from beginning to cursor
             for(uint16_t x = 0; x <= terminal->textgrid->curs_x; x++) {
-                textgrid_put(terminal->textgrid, x, terminal->textgrid->curs_y, &tch);
+                textgrid_put(terminal->textgrid, x, terminal->textgrid->curs_y+terminal->textgrid_start_row, &tch);
             }
             // Clear all lines above cursor
             for(uint16_t y = 0; y < terminal->textgrid->curs_y; y++) {
                 for(uint16_t x = 0; x < terminal->textgrid->cols; x++) {
-                    textgrid_put(terminal->textgrid, x, y, &tch);
+                    textgrid_put(terminal->textgrid, x, y+terminal->textgrid_start_row, &tch);
                 }
             }
         }
         else if(values[0] == 2) {
             // Clear entire screen
+            /*textgrid_clear(terminal->textgrid);
+            textgrid_move_to(terminal->textgrid, 0, terminal->textgrid_start_row);
+            */
             textchar_t tch = {0};
-            for(uint16_t y = 0; y < terminal->textgrid->rows; y++) {
+            for(uint16_t y = terminal->textgrid_start_row; y < terminal->textgrid->rows; y++) {
                 for(uint16_t x = 0; x < terminal->textgrid->cols; x++) {
                     textgrid_put(terminal->textgrid, x, y, &tch);
                 }
             }
-            textgrid_move_to(terminal->textgrid, 0, 0);
+            textgrid_move_to(terminal->textgrid, 0, terminal->textgrid_start_row);
         }
     }
     else if(cmd == 'K') { //clear line
@@ -178,28 +181,28 @@ static void run_esc_cmd(gterminal_t* terminal, UNICODE16 cmd, uint16_t* values, 
             // Clear from cursor to end of line
             for(uint16_t x = terminal->textgrid->curs_x; x < terminal->textgrid->cols; x++) {
                 textchar_t tch = {0};
-                textgrid_put(terminal->textgrid, x, terminal->textgrid->curs_y, &tch);
+                textgrid_put(terminal->textgrid, x, terminal->textgrid->curs_y + terminal->textgrid_start_row, &tch);
             }
         }
         else if(values[0] == 1) {
             // Clear from beginning of line to cursor
             for(uint16_t x = 0; x <= terminal->textgrid->curs_x; x++) {
                 textchar_t tch = {0};
-                textgrid_put(terminal->textgrid, x, terminal->textgrid->curs_y, &tch);
+                textgrid_put(terminal->textgrid, x, terminal->textgrid->curs_y + terminal->textgrid_start_row, &tch);
             }
         }
         else if(values[0] == 2) {
             // Clear entire line
             for(uint16_t x = 0; x < terminal->textgrid->cols; x++) {
                 textchar_t tch = {0};
-                textgrid_put(terminal->textgrid, x, terminal->textgrid->curs_y, &tch);
+                textgrid_put(terminal->textgrid, x, terminal->textgrid->curs_y + terminal->textgrid_start_row, &tch);
             }
         }
     }
     else if(cmd == 'H' || cmd == 'f') { //move curs y,x
         uint16_t row = (vnum >= 1 && values[0] > 0) ? values[0] - 1 : 0;
         uint16_t col = (vnum >= 2 && values[1] > 0) ? values[1] - 1 : 0;
-        textgrid_move_to(terminal->textgrid, col, row);
+        textgrid_move_to(terminal->textgrid, col, row + terminal->textgrid_start_row);
     }
     else if(cmd == 'A') { //move curs up
         int16_t y = (int16_t)terminal->textgrid->curs_y - (vnum > 0 ? values[0] : 1);
@@ -458,8 +461,7 @@ void gterminal_put(gterminal_t* terminal, const char* buf, int size) {
         tch.state = terminal->term_conf.state;
         textgrid_push(terminal->textgrid, &tch);
     }
-    _esc_size = 0;
-    _in_esc = false;
+
     int32_t start_row = (int32_t)terminal->textgrid->rows - (int32_t)terminal->rows;
     terminal->textgrid_start_row = start_row < 0 ? 0:start_row;
 }

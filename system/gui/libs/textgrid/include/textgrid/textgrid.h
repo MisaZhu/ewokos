@@ -18,17 +18,17 @@ typedef struct {
 } textchar_t;
 
 typedef struct {
-	textchar_t* grid;
-	uint32_t max_rows;
-	uint32_t total_rows;
+	textchar_t* grid;        // The grid buffer storing all text characters
+	uint32_t max_rows;       // Maximum number of rows the grid can hold
+	uint32_t total_rows;     // Total allocated rows in the grid
 
-	uint32_t cols;
-	uint32_t rows;
+	uint32_t cols;           // Number of columns per row
+	uint32_t rows;           // Current number of rows with content
 
-	int32_t curs_x;
-	int32_t curs_y;
+	int32_t curs_x;          // Current cursor column position
+	int32_t curs_y;          // Current cursor row position
 
-	int32_t  tail_col;
+	int32_t  tail_col;       // Last column with content in the last row
 } textgrid_t;
 
 extern textgrid_t* textgrid_new(void);
