@@ -60,9 +60,11 @@ int textgrid_reset(textgrid_t* textgrid, uint32_t cols) {
 		return 0;
 	}
 
-	for(uint32_t i=0; i<size; i++) 
-		textgrid_push(textgrid, &p[i]);
-	
+	for(uint32_t i=0; i<size; i++) {
+		if(textgrid_push(textgrid, &p[i]) != 0)
+			break;
+	}
+
 	if(p != NULL)
 		free(p);
 	return 0;
