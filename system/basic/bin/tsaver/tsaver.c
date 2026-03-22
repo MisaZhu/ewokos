@@ -6,7 +6,7 @@
 #include <ewoksys/vfs.h>
 #include <ewoksys/basic_math.h>
 
-#define CLEAR() printf ("\033[2J")
+#define CLEAR() printf ("\033[H\033[2J")
 #define MOVEUP(x) printf ("\033[%dA", (x))
 #define MOVEDOWN(x) printf ("\033[%dB", (x))
 #define MOVELEFT(y) printf ("\033[%dD", (y))
@@ -59,8 +59,8 @@ void saver() {
   }
   RESET();
 
-  //BGCOLOR(YELLOW);
-  //COLOR(BLACK);
+  COLOR(YELLOW);
+  BGCOLOR(BLACK);
   REVERSE();
   x = random_to(80-strlen(s[0]));
   y = random_to(22);
