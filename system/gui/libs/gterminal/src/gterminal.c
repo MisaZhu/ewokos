@@ -189,7 +189,6 @@ static void run_esc_cmd(gterminal_t* terminal, UNICODE16 cmd, uint16_t* values, 
     else if(cmd == 'H' || cmd == 'f') { //move curs y,x
         uint16_t row = (vnum >= 1 && values[0] > 0) ? values[0] - 1 : 0;
         uint16_t col = (vnum >= 2 && values[1] > 0) ? values[1] - 1 : 0;
-        klog("row: %d, col: %d\n", row, col);
         textgrid_move_to(terminal->textgrid, col, row + terminal->textgrid_start_row);
     }
     else if(cmd == 'A') { //move curs up
