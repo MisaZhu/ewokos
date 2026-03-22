@@ -142,9 +142,9 @@ static void run_esc_cmd(gterminal_t* terminal, UNICODE16 cmd, uint16_t* values, 
                 textgrid_put(terminal->textgrid, x, terminal->textgrid->curs_y + terminal->textgrid_start_row, &tch);
             }
             // Clear all lines below cursor
-            for(uint16_t y = terminal->textgrid->curs_y + 1; y < terminal->textgrid->rows; y++) {
+            for(uint16_t y = terminal->textgrid->curs_y + 1 + terminal->textgrid_start_row; y < terminal->textgrid->rows; y++) {
                 for(uint16_t x = 0; x < terminal->textgrid->cols; x++) {
-                    textgrid_put(terminal->textgrid, x, y + terminal->textgrid_start_row, &tch);
+                    textgrid_put(terminal->textgrid, x, y, &tch);
                 }
             }
         }
