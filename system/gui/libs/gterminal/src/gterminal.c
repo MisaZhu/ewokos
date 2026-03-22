@@ -183,7 +183,7 @@ static uint32_t do_esc_cmd(gterminal_t* terminal, UNICODE16* uni, uint32_t from,
     if(from >= size || c != '[')
         return from;
 
-    uint16_t values[8];
+    uint16_t values[8] = { 0 };
     uint8_t vnum = 0;
     c = uni[from++];
     if(from > size || c == 0)
@@ -309,14 +309,35 @@ void gterminal_paint(gterminal_t* terminal, graph_t* g, int x, int y, int w, int
 	draw_curs(terminal, g, x, y, w, h);
 }
 
+static bool _in_esc = false;
+static uint16_t _esc_buf[8] = {0};
+static uint16_t _esc_size = 0;
+
 void gterminal_put(gterminal_t* terminal, const char* buf, int size) {
     uint16_t* unicode = (uint16_t*)malloc((size+1)*2);
     size = utf82unicode((unsigned char*)buf, size, unicode);
 
     for(uint32_t i=0; i<size; i++) {
         UNICODE16 c = unicode[i];
+        if(c == 0)
+            break;
+        
         if(c == ESC_CMD) {
-            i = do_esc_cmd(terminal, unicode, i+1, size);
+            _in_esc = true;
+            _esc_size = 0;
+            continue;
+        }
+        //else
+            //klog("put %d, %d, (%c)\n", size, i, c);
+
+        if(_in_esc) {
+            _esc_buf[_esc_size] = c;
+            _esc_size++;
+            if((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
+                do_esc_cmd(terminal, _esc_buf, 0, _esc_size);
+                _esc_size = 0;
+                _in_esc = false;
+            }
             continue;
         }
 
