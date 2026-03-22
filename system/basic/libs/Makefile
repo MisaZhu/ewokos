@@ -5,8 +5,6 @@ basic_libs:
 	cd sd;make
 	cd ext2;make
 	cd elf;make
-	cd socket;make
-	cd ntpc;make
 	cd tinyjson;make
 	cd zlib;make
 	cd gpio;make
@@ -15,8 +13,6 @@ clean:
 	cd ext2;make clean
 	cd elf;make clean
 	cd sd;make clean
-	cd socket;make clean 
-	cd ntpc;make clean
 	cd tinyjson;make clean
 	cd gpio;make clean
 	cd zlib;make clean

@@ -32,15 +32,35 @@ final:
 	mv $(TARGET_DIR)/* $(MACHINE_BUILD_DIR)
 	rm -fr $(TARGET_DIR)
 
-x_sys: kernel_heads
+basic: basic_sys final
+	@echo "all done."
+
+network: network_sys final
+	@echo "all done."
+
+gui: gui_sys final
+	@echo "all done."
+
+basic_sys: kernel_heads 
 	rm -f $(BUILD_DIR)/lib/libbsp.a
 	mkdir -p $(TARGET_DIR)/drivers/$(HW)
 	cd libs;make
 	cd $(SYS_ROOT_DIR)/basic;make
+	cd drivers;make
+	@cp -r etc/basic/* ${TARGET_DIR}/etc
+
+network_sys: basic_sys
+	cd $(SYS_ROOT_DIR)/network;make
+	@cp -r etc/network/* ${TARGET_DIR}/etc
+
+gui_sys: network_sys
 	cd $(SYS_ROOT_DIR)/gui;make
 	cd drivers;make
+	@cp -r etc/gui/* ${TARGET_DIR}/etc
+
+x_sys: gui_sys
 	cd $(SYS_ROOT_DIR)/xwin;make
-	@cp -r etc ${TARGET_DIR}/
+	@cp -r etc/xwin/* ${TARGET_DIR}/etc
 
 x: x_sys final 
 	@echo "all done."
@@ -50,6 +70,7 @@ clean:
 	cd drivers;make clean
 	cd $(SYS_ROOT_DIR)/xwin;make clean
 	cd $(SYS_ROOT_DIR)/gui;make clean
+	cd $(SYS_ROOT_DIR)/network;make clean
 	cd $(SYS_ROOT_DIR)/basic;make clean
 	cd $(EWOKOS_ROOT_DIR)/sw.extra/; make HW=$(HW) clean
 	cd $(EWOKOS_ROOT_DIR)/extra.apps/; make HW=$(HW) clean

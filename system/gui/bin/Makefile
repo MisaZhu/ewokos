@@ -2,6 +2,7 @@ all: builtin_apps
 	@echo "all done."
 
 builtin_apps:
+	cd splash;make
 	cd fbtest;make
 	cd wavplayer;make
 	cd mp3player;make
@@ -9,6 +10,7 @@ builtin_apps:
 	cd load_font;make
 
 clean:
+	cd splash;make clean
 	cd fbtest;make clean
 	cd wavplayer;make clean
 	cd mp3player;make clean

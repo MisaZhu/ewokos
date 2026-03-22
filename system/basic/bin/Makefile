@@ -39,10 +39,6 @@ builtin_apps:
 	cd json;make 
 	cd sysinfo;make 
 	cd mmio;make
-	cd splash;make
-	cd ipconfig;make
-	cd host;make
-	cd ping;make
 	cd date;make
 	cd vi;make
 
@@ -84,9 +80,5 @@ clean:
 	cd json;make clean
 	cd sysinfo;make clean
 	cd mmio;make clean
-	cd splash;make clean
-	cd ipconfig;make clean
-	cd host;make clean
-	cd ping;make clean
 	cd date;make clean
 	cd vi;make clean
