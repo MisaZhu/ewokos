@@ -56,7 +56,7 @@ time_t ntpc_get_time(const char* server_ip, uint16_t port) {
 
     // 设置2秒超时
     struct timeval timeout;
-    timeout.tv_sec = 2;
+    timeout.tv_sec = 5;
     timeout.tv_usec = 0;
     if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
         close(sockfd);

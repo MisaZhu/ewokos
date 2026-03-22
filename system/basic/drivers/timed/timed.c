@@ -30,10 +30,12 @@ static int time_loop(void* p) {
 	kernel_tic(&current_time_sec, NULL);
 
 	if(_time_init == 0 || (current_time_sec - _time_sec_init) > 600) {
-    	_time_init = ntpc_get_time(DEFAULT_NTP_SERVER, DEFAULT_NTP_PORT);
-		if(_time_init > 0) {
+    	time_t t = ntpc_get_time(DEFAULT_NTP_SERVER, DEFAULT_NTP_PORT);
+		if(t > 0) {
+			_time_init = t;
 			kernel_tic(&_time_sec_init, NULL);
 		}
+		//slog("%d->%d\n", _time_init, _time_sec_init);
 	}
 	usleep(300000);
 	return 0;

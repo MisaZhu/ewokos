@@ -536,15 +536,10 @@ sock_get_timeout(int desc, int type, int timeout_type)
 // Get socket absolute timeout for a given descriptor
 struct timeval*
 sock_get_timeout_abs(struct timeval* timeout, struct timeval* abs_timeout) {
-    if (timeout && (timeout->tv_sec > 0 || timeout->tv_usec > 0)) {
+    if (timeout && abs_timeout && (timeout->tv_sec > 0 || timeout->tv_usec > 0)) {
         struct timeval now;
-        gettimeofday(&now, NULL);
+        kernel_tic(&now.tv_sec, NULL);
         abs_timeout->tv_sec = now.tv_sec + timeout->tv_sec;
-        abs_timeout->tv_usec = now.tv_usec + timeout->tv_usec;
-        if (abs_timeout->tv_usec >= 1000000) {
-            abs_timeout->tv_sec++;
-            abs_timeout->tv_usec -= 1000000;
-        }
         return abs_timeout;
     }
     return NULL;

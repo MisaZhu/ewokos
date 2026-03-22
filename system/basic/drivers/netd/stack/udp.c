@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/errno.h>
 #include <sys/time.h>
+#include <ewoksys/kernel_tic.h>
 
 #include "../platform.h"
 
@@ -407,6 +408,7 @@ udp_recvfrom(int id, uint8_t *buf, size_t size, struct ip_endpoint *foreign)
     // Get socket timeout
     struct timeval *rcv_timeout = sock_get_timeout(id, SOCK_DGRAM, SO_RCVTIMEO);
     
+    slog("recvfrom timeout:%d ... ", rcv_timeout->tv_sec);
     while (!(entry = queue_pop(&pcb->queue))) {
         struct timeval abs_timeout;
         if (sched_sleep(&pcb->ctx, &mutex, sock_get_timeout_abs(rcv_timeout, &abs_timeout)) == -1) {
@@ -423,6 +425,7 @@ udp_recvfrom(int id, uint8_t *buf, size_t size, struct ip_endpoint *foreign)
             return -1;
         }
     }
+    slog("recved\n");
     mutex_unlock(&mutex);
     if (foreign) {
         *foreign = entry->foreign;

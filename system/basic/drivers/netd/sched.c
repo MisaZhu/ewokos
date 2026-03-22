@@ -43,7 +43,7 @@ sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timeval *abstime
         
         // Check for timeout if abstime is provided
         if (abstime) {
-            gettimeofday(&now, NULL);
+            kernel_tic(&now.tv_sec, NULL);
             if (timercmp(&now, abstime, >)) {
                 errno = ETIMEDOUT;
                 ret = -1;
