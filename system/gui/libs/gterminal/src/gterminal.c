@@ -118,17 +118,6 @@ static void do_esc_color(gterminal_t* terminal, uint16_t* values, uint8_t vnum) 
     }
 }
 
-static void do_esc_clear(gterminal_t* terminal, uint16_t* values, uint8_t vnum) {
-    if(values[0] == 2) {
-        textgrid_clear(terminal->textgrid);
-        textgrid_move_to(terminal->textgrid, 0, terminal->textgrid_start_row);
-    }
-}
-
-static void do_esc_xy(gterminal_t* terminal, uint16_t* values, uint8_t vnum) {
-    textgrid_move_to(terminal->textgrid, values[1], values[0]+terminal->textgrid_start_row);
-}
-
 static void run_esc_cmd(gterminal_t* terminal, UNICODE16 cmd, uint16_t* values, uint8_t vnum) {
     if(cmd == 'm') { //color and state
         do_esc_color(terminal, values, vnum);

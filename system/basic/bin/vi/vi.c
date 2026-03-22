@@ -3735,7 +3735,8 @@ int main(int argc, char** argv) {
 
     // "Save cursor, use alternate screen buffer, clear screen"
     //puts_no_eol(ESC "[?1049h");
-    puts_no_eol(ESC "[2Jh");
+    puts_no_eol(ESC "[H");
+    puts_no_eol(ESC "[2J");
     fflush(stdout);
     // This is the main file handling loop
     if (argc == 0)
@@ -3760,7 +3761,8 @@ done:
         free(last_search_pattern);
     // "Use normal screen buffer, restore cursor"
     //puts_no_eol(ESC "[?1049l");
-    puts_no_eol(ESC "[2Jh");
+    puts_no_eol(ESC "[H");
+    puts_no_eol(ESC "[2J");
     fflush(stdout);
     return 0;
 }
