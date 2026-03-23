@@ -37,6 +37,12 @@ typedef struct {
 	uint32_t titleBGColor;
 } x_theme_t;
 
+enum {
+	DESKTOP_PATTERN_TILE = 0,
+	DESKTOP_PATTERN_CENTER,
+	DESKTOP_PATTERN_FIT
+};
+
 typedef struct {
 	char     fontName[FONT_NAME_MAX];
 	char     patternName[THEME_NAME_MAX];
@@ -48,6 +54,7 @@ typedef struct {
 	uint32_t frameFGColor;
 	uint32_t desktopFGColor;
 	uint32_t desktopBGColor;
+	uint32_t desktopPatternMode;
 	uint32_t bgEffect;
 	bool     alpha;
 } xwm_theme_t;

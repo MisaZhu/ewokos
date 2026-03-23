@@ -15,6 +15,7 @@ protected:
 	font_t* font;
 
 	graph_t* desktopPattern;
+	bool     patternFit;
 	virtual graph_t* genDesktopPattern(void);
 
 	virtual void getColor(uint32_t *fg, uint32_t* bg, bool top);

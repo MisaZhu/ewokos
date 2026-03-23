@@ -240,20 +240,57 @@ graph_t* XWM::genDesktopPattern(void) {
 }
 
 void XWM::drawDesktop(graph_t* g) {
-	if(desktopPattern == NULL)
+	if(desktopPattern == NULL) {
 		desktopPattern = genDesktopPattern();
+	}
+	else if(!patternFit && xwm.theme.desktopPatternMode == DESKTOP_PATTERN_FIT) {
+		// Calculate scale to fit desktop while maintaining aspect ratio
+		// Use the smaller dimension to ensure the pattern fills the entire screen
+		float scale = 1.0;
+		float scaleX = (float)g->w / desktopPattern->w;
+		float scaleY = (float)g->h / desktopPattern->h;
+		if(scaleX >= 0 || scaleY >= 0)
+			scale = (scaleX < scaleY) ? scaleX : scaleY;
+		else
+			scale = (scaleX > scaleY) ? scaleX : scaleY;
+		
+		graph_t * desktopPatternFit = graph_scalef(desktopPattern, scale);
+		if(desktopPatternFit != NULL) {
+			graph_free(desktopPattern);
+			desktopPattern = desktopPatternFit; 
+		}
+		patternFit = true;
+	}
+
+
 	graph_clear(g, xwm.theme.desktopBGColor);
 
-	int x = 0;
-	int y = 0;
-	for(int i=0; y<g->h; i++) {
-		for(int j=0; x<g->w;j++) {
-			graph_blt(desktopPattern, 0, 0, desktopPattern->w, desktopPattern->h,
-					g, x, y, desktopPattern->w, desktopPattern->h);
-			x += desktopPattern->w;
+	// Calculate center of screen
+	int centerX = g->w / 2;
+	int centerY = g->h / 2;
+	
+	// Calculate starting position to center the pattern
+	// Align so that a pattern is centered at the screen center
+	int startX = centerX - (desktopPattern->w / 2);
+	int startY = centerY - (desktopPattern->h / 2);
+	
+	if(xwm.theme.desktopPatternMode == DESKTOP_PATTERN_TILE) {
+		// Adjust to ensure we cover the entire screen by going backwards first
+		while(startX > 0) startX -= desktopPattern->w;
+		while(startY > 0) startY -= desktopPattern->h;
+		
+		// Tile from the adjusted start position to cover entire screen
+		for(int y = startY; y < g->h; y += desktopPattern->h) {
+			for(int x = startX; x < g->w; x += desktopPattern->w) {
+				graph_blt(desktopPattern, 0, 0, desktopPattern->w, desktopPattern->h,
+						g, x, y, desktopPattern->w, desktopPattern->h);
+			}
 		}
-		x = 0;
-		y += desktopPattern->h;
+	}
+	else if(xwm.theme.desktopPatternMode == DESKTOP_PATTERN_CENTER ||
+			xwm.theme.desktopPatternMode == DESKTOP_PATTERN_FIT) {
+		graph_blt(desktopPattern, 0, 0, desktopPattern->w, desktopPattern->h,
+				g, startX, startY, desktopPattern->w, desktopPattern->h);
 	}
 }
 
@@ -295,6 +332,7 @@ void XWM::updateTheme(bool loadFromX) {
 	}
  	font = font_new(xwm.theme.fontName, true);
 
+	patternFit = false;
 	if(desktopPattern != NULL) {
 		graph_free(desktopPattern);
 		desktopPattern = NULL;
@@ -332,6 +370,7 @@ XWM::XWM(void) {
 	memset(&xwm, 0, sizeof(xwm_t));
 
 	desktopPattern = NULL;
+	patternFit = false;
 	xwm.theme.desktopBGColor = 0xff555588;
 	xwm.theme.desktopFGColor = 0xff8888aa;
 	xwm.theme.frameBGColor = 0xffaaaaaa;
