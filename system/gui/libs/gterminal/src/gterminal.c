@@ -154,14 +154,14 @@ static void run_esc_cmd(gterminal_t* terminal, UNICODE16 cmd, uint16_t* values, 
         }
         else if(values[0] == 2) {
             // Clear entire screen
-            textgrid_clear(terminal->textgrid);
             textchar_t tch = {0};
             for(uint16_t y = terminal->textgrid_start_row; y < terminal->textgrid->rows; y++) {
                 for(uint16_t x = 0; x < terminal->textgrid->cols; x++) {
                     textgrid_put(terminal->textgrid, x, y, &tch);
                 }
             }
-            textgrid_move_to(terminal->textgrid, 0, terminal->textgrid_start_row);
+            //textgrid_move_to(terminal->textgrid, 0, terminal->textgrid_start_row);
+            textgrid_clear(terminal->textgrid);
         }
     }
     else if(cmd == 'K') { //clear line
