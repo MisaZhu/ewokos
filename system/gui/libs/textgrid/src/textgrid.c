@@ -74,7 +74,10 @@ static int textgrid_expand(textgrid_t* grid, uint32_t rows) {
 		return -1;
 
 	uint32_t rows_new = grid->rows + rows;
-	if(rows_new < grid->max_rows || grid->rows == 0) {
+	if(rows_new <= grid->max_rows || grid->rows == 0) {
+		// 检查整数溢出
+		if(grid->cols > 0 && rows_new > UINT32_MAX / (grid->cols * sizeof(textchar_t)))
+			return -1;
 		grid->grid = (textchar_t*)realloc(grid->grid,
 			(grid->cols*(rows_new))* sizeof(textchar_t));
 		if(grid->grid == NULL)
