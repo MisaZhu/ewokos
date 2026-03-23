@@ -23,7 +23,8 @@ static gpos_t get_pos(gterminal_t* terminal, int x, int y, int w, int h) {
         row = 0;
 
     uint32_t at = terminal->textgrid->curs_x + (terminal->textgrid->curs_y*terminal->textgrid->cols);
-    int col = terminal->textgrid->curs_x + 1;
+    //int col = terminal->textgrid->curs_x + 1;
+    int col = terminal->textgrid->curs_x;
     if(terminal->textgrid->grid[at].c == '\n') {
         col = 0;
         row++;

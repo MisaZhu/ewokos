@@ -48,10 +48,7 @@ int textgrid_reset(textgrid_t* textgrid, uint32_t cols) {
 		return -1;
 	textchar_t* p = textgrid->grid;
 	uint32_t max_rows = textgrid->max_rows;
-	uint32_t size = 0;
-	if(textgrid->rows > 0) {
-		size = textgrid->cols * (textgrid->rows-1) + textgrid->tail_col+1;
-	}
+	uint32_t size = textgrid->cols * (textgrid->rows) + textgrid->tail_col+1;
 	memset(textgrid, 0, sizeof(textgrid_t));
 	textgrid->cols = cols;
 	textgrid->max_rows = max_rows;
@@ -151,7 +148,7 @@ int textgrid_push(textgrid_t* grid, textchar_t* tch) {
 		is_tail = true;
 	
 	if(grid->grid != NULL && grid->rows > 0) {
-		uint32_t at = (grid->curs_y)*grid->cols + grid->curs_x;
+		uint32_t at = (grid->curs_y)*grid->cols + (grid->curs_x > 0 ? grid->curs_x-1 : grid->curs_x);
 		if(tch->c == KEY_BACKSPACE || tch->c == CONSOLE_LEFT) {
 			grid->grid[at].c = 0;
 
@@ -171,22 +168,23 @@ int textgrid_push(textgrid_t* grid, textchar_t* tch) {
 		}
 
 		if(grid->grid[at].c == '\r' || grid->grid[at].c == '\n') {
+		//if(tch->c == '\r' || tch->c == '\n') {
 			int col_index = grid->curs_x + 1;
+			//int col_index = grid->curs_x;
 			while(col_index < grid->cols) {
 				at = (grid->curs_y)*grid->cols + col_index;
 				grid->grid[at].c = 0;
 				col_index++;
 			}
-			grid->curs_x = grid->cols - 1;
+			grid->curs_x = grid->cols-1;
 			if(is_tail) {
 				grid->tail_col = grid->curs_x;
 			}
 		}
 	}
 
-	grid->curs_x++;
 	bool new_line = false;
-	if(grid->curs_x >= grid->cols || grid->rows == 0) { //new line needed
+	if((grid->curs_x+1) >= grid->cols || grid->rows == 0) { //new line needed
 		new_line = true;
 		grid->curs_x = 0;
 	}
@@ -207,6 +205,7 @@ int textgrid_push(textgrid_t* grid, textchar_t* tch) {
 	if(is_tail) {
 		grid->tail_col = grid->curs_x;
 	}
+	grid->curs_x++;
 	return 0;
 }
 

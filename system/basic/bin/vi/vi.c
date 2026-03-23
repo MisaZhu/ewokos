@@ -600,6 +600,8 @@ static char* format_line(char* src /*, int li*/) {
                     while ((co % tabstop) != (tabstop - 1)) {
                         dest[co++] = c;
                     }
+                    // Skip the extra space since we already filled the tab
+                    continue;
                 } else {
                     dest[co++] = '^';
                     if (c == 0x7f)
