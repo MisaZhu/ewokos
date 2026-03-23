@@ -48,7 +48,8 @@ static int fb_fcntl(int fd,
 }
 
 static void draw_bg(graph_t* g) {
-	graph_gradation(g, 0, 0, g->w, g->h, 0xff8888ff, 0xff000000, true);
+	//graph_gradation(g, 0, 0, g->w, g->h, 0xff8888ff, 0xff000000, true);
+	graph_gradation(g, 0, 0, g->w, g->h, 0xff444488, 0xff000000, true);
 #if __aarch64__
 	graph_t* logo = png_image_new("/usr/system/icons/64bits.png");
 	if(logo != NULL) {

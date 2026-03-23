@@ -39,10 +39,13 @@ static bool      _dark_mode = false;
 
 static void paint_bg(void) {
 	graph_t* g = _splash_info.scr_g;
-	if(_dark_mode)
-		graph_clear(g, 0xFF000000);
-	else
-		graph_clear(g, 0xFFFFFFFF);
+	if(_dark_mode) {
+		//graph_clear(g, 0xFF000000);
+		graph_gradation(g, 0, 0, g->w, g->h, 0xff444488, 0xff000000, true);
+	}
+	else {
+		graph_gradation(g, 0, 0, g->w, g->h, 0xffffffff, 0xff444488 , true);
+	}
 
 	/*
 	int32_t off_x = (g->w- _w)/2;
