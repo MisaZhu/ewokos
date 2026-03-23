@@ -10,6 +10,7 @@ namespace Ewok {
 
 
 class XWM : public UniObject {
+	uint32_t getPatternMode(graph_t* g, float* scale);
 protected:
 	xwm_t xwm;
 	font_t* font;

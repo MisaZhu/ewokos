@@ -239,29 +239,45 @@ graph_t* XWM::genDesktopPattern(void) {
 	return g;
 }
 
+uint32_t XWM::getPatternMode(graph_t* g, float* scale) {
+	if(xwm.theme.desktopPatternMode != DESKTOP_PATTERN_AUTO)
+		return xwm.theme.desktopPatternMode;
+	
+	float sc = 1.0;
+	float scaleX = (float)g->w / desktopPattern->w;
+	float scaleY = (float)g->h / desktopPattern->h;
+	if(scaleX >= 0 || scaleY >= 0)
+		sc = (scaleX < scaleY) ? scaleX : scaleY;
+	else
+		sc = (scaleX > scaleY) ? scaleX : scaleY;
+	*scale = sc;
+
+	if(sc < 1.0)
+		return DESKTOP_PATTERN_FIT;
+	else if(sc > 2.0)
+		return DESKTOP_PATTERN_TILE;
+	return DESKTOP_PATTERN_CENTER;
+}
+
 void XWM::drawDesktop(graph_t* g) {
+	uint32_t patternMode = xwm.theme.desktopPatternMode;
 	if(desktopPattern == NULL) {
 		desktopPattern = genDesktopPattern();
 	}
-	else if(!patternFit && xwm.theme.desktopPatternMode == DESKTOP_PATTERN_FIT) {
-		// Calculate scale to fit desktop while maintaining aspect ratio
-		// Use the smaller dimension to ensure the pattern fills the entire screen
+	else {
 		float scale = 1.0;
-		float scaleX = (float)g->w / desktopPattern->w;
-		float scaleY = (float)g->h / desktopPattern->h;
-		if(scaleX >= 0 || scaleY >= 0)
-			scale = (scaleX < scaleY) ? scaleX : scaleY;
-		else
-			scale = (scaleX > scaleY) ? scaleX : scaleY;
-		
-		graph_t * desktopPatternFit = graph_scalef(desktopPattern, scale);
-		if(desktopPatternFit != NULL) {
-			graph_free(desktopPattern);
-			desktopPattern = desktopPatternFit; 
+		patternMode = getPatternMode(g, &scale);
+		if(scale != 1.0 && !patternFit && patternMode == DESKTOP_PATTERN_FIT) {
+			// Calculate scale to fit desktop while maintaining aspect ratio
+			// Use the smaller dimension to ensure the pattern fills the entire screen
+			graph_t * desktopPatternFit = graph_scalef(desktopPattern, scale);
+			if(desktopPatternFit != NULL) {
+				graph_free(desktopPattern);
+				desktopPattern = desktopPatternFit; 
+			}
+			patternFit = true;
 		}
-		patternFit = true;
 	}
-
 
 	graph_clear(g, xwm.theme.desktopBGColor);
 
@@ -274,7 +290,7 @@ void XWM::drawDesktop(graph_t* g) {
 	int startX = centerX - (desktopPattern->w / 2);
 	int startY = centerY - (desktopPattern->h / 2);
 	
-	if(xwm.theme.desktopPatternMode == DESKTOP_PATTERN_TILE) {
+	if(patternMode == DESKTOP_PATTERN_TILE) {
 		// Adjust to ensure we cover the entire screen by going backwards first
 		while(startX > 0) startX -= desktopPattern->w;
 		while(startY > 0) startY -= desktopPattern->h;
@@ -287,8 +303,8 @@ void XWM::drawDesktop(graph_t* g) {
 			}
 		}
 	}
-	else if(xwm.theme.desktopPatternMode == DESKTOP_PATTERN_CENTER ||
-			xwm.theme.desktopPatternMode == DESKTOP_PATTERN_FIT) {
+	else if(patternMode == DESKTOP_PATTERN_CENTER ||
+			patternMode == DESKTOP_PATTERN_FIT) {
 		graph_blt(desktopPattern, 0, 0, desktopPattern->w, desktopPattern->h,
 				g, startX, startY, desktopPattern->w, desktopPattern->h);
 	}
@@ -371,6 +387,7 @@ XWM::XWM(void) {
 
 	desktopPattern = NULL;
 	patternFit = false;
+
 	xwm.theme.desktopBGColor = 0xff555588;
 	xwm.theme.desktopFGColor = 0xff8888aa;
 	xwm.theme.frameBGColor = 0xffaaaaaa;
