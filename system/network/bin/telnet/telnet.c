@@ -75,6 +75,20 @@ static void *receive_thread(void *arg) {
     return NULL;
 }
 
+bool sepcial_char_check(uint8_t c) {
+    // 特殊字符处理
+    if (c == 0x1D) { // Ctrl+]
+        printf("\nCtrl+] Exiting connection...\n");
+        _ended = true;
+        return true;
+    } else if (c == 0x04) { // Ctrl+D
+        printf("\nCtrl+D Exiting connection...\n");
+        _ended = true;
+        return true;
+    }
+    return false;
+}
+
 int main(int argc, char *argv[]) {
     struct sockaddr_in server_addr;
     pthread_t tid;
@@ -158,23 +172,12 @@ int main(int argc, char *argv[]) {
                 if(buf[i] == '\n') {
                     buf[i] = '\r';
                 }
+                if(sepcial_char_check(buf[i]))
+                    break;
             }
-            // 特殊字符处理
-            /*
-            if (c == 0x1D) { // Ctrl+]
-                printf("\nExiting...\n");
-                _ended = true;
+            if(_ended)
                 break;
-            } else if (c == 0x03) { // Ctrl+C
-                printf("\nExiting...\n");
-                _ended = true;
-                break;
-            } else if (c == 0x04) { // Ctrl+D
-                printf("\nEOF received. Exiting...\n");
-                _ended = true;
-                break;
-            }
-            */
+
             // 正常字符发送
             int sz =  write(sockfd, buf, n);
             if(sz < 0) {
