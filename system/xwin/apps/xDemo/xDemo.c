@@ -124,7 +124,7 @@ static void on_repaint(xwin_t* xwin, graph_t* g) {
 		if(endangle == 0)
 			endangle = 119;
 		graph_fill_arc(g, x, y, h/2, 0, endangle, c);
-		graph_arc(g, x, y, h/2+2, 0, endangle, c);
+		graph_arc(g, x, y, h/2+4, 2, 0, endangle, c);
 	}
 	else if(_xtest_info.mode == ROUND) {
 		graph_fill_round(g, x, y, w, h, 12, c);
