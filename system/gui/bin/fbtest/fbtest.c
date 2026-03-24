@@ -6,6 +6,7 @@
 #include <keyb/keyb.h>
 #include <ewoksys/keydef.h>
 #include <fcntl.h>
+#include <math.h>
 
 int main(int argc, char** argv) {
     fb_t fb;
@@ -23,10 +24,10 @@ int main(int argc, char** argv) {
     bool quit = false;
     while(!quit) {
         if(dirty) {
-            graph_clear(g, 0xffffffff);
+		    graph_gradation(g, 0, 0, g->w, g->h, 0xff444488, 0xff000000, true);
             snprintf(txt, 63, "x:%d, y:%d", x, y);
-            graph_fill_round(g, x, y, 100, 20, 4, 0xffff0000);
-            graph_draw_text_font(g, x, y, txt, font, 12, 0xff000000);
+            graph_fill_round_3d(g, x, y, 120, 48, 16, 3, 0xff008800, true);
+            graph_draw_text_font(g, x+10, y+10, txt, font, 12, 0xff000000);
             dirty = false;
             fb_flush(&fb, true);
         }

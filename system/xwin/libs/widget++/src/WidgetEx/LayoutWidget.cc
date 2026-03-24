@@ -5,7 +5,9 @@
 #include <Widget/Splitter.h>
 #include <Widget/Slider.h>
 #include <Widget/Button.h>
+#include <Widget/RoundButton.h>
 #include <Widget/LabelButton.h>
+#include <Widget/RoundLabelButton.h>
 #include <Widget/Label.h>
 #include <Widget/EditLine.h>
 #include <Widget/Text.h>
@@ -41,6 +43,9 @@ Widget* LayoutWidget::createByBasicType(const string& type) {
     else if(type == "Button") {
         return new Button();
     }
+    else if(type == "RoundButton") {
+        return new RoundButton();
+    }
     else if(type == "EditLine") {
         return new EditLine();
     }
@@ -49,6 +54,9 @@ Widget* LayoutWidget::createByBasicType(const string& type) {
     }
     else if(type == "LabelButton") {
         return new LabelButton();
+    }
+    else if(type == "RoundLabelButton") {
+        return new RoundLabelButton();
     }
     else if(type == "Scoller") {
         return new Scroller();

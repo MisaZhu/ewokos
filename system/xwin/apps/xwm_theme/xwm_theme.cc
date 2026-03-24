@@ -1,7 +1,8 @@
 #include <Widget/WidgetX.h>
 #include <Widget/Image.h>
 #include <Widget/Label.h>
-#include <Widget/LabelButton.h>
+#include <Widget/RoundLabelButton.h>
+#include <Widget/RoundLabelButton.h>
 #include <Widget/List.h>
 #include <Widget/EditLine.h>
 #include <Widget/Grid.h>
@@ -22,11 +23,12 @@
 using namespace Ewok;
 
 
-class ColorButton : public Button {
+class ColorButton : public RoundButton {
 	uint32_t color;
 protected:
 	virtual void paintPanel(graph_t* g, XTheme* theme, const grect_t& rect) {
-		graph_fill(g, rect.x, rect.y, rect.w, rect.h, color);
+		//graph_fill(g, rect.x, rect.y, rect.w, rect.h, color);
+		graph_fill_round(g, rect.x, rect.y, rect.w, rect.h, round, color);
 	}
 public:
 	ColorButton() {
@@ -78,13 +80,13 @@ static void loadTheme(LayoutWidget* layout) {
 
 	wd = layout->getChild("font");
 	if(wd != NULL)  {
-		LabelButton* btn = (LabelButton*)wd;
+		RoundLabelButton* btn = (RoundLabelButton*)wd;
 		btn->setLabel(_xwm_theme.fontName);
 	}
 
 	wd = layout->getChild("desktop_image");
 	if(wd != NULL)  {
-		LabelButton* btn = (LabelButton*)wd;
+		RoundLabelButton* btn = (RoundLabelButton*)wd;
 		btn->setLabel(_xwm_theme.patternName);
 	}
 
@@ -122,14 +124,14 @@ static void setTheme(LayoutWidget* layout) {
 
 	wd = layout->getChild("font");
 	if(wd != NULL)  {
-		LabelButton* btn = (LabelButton*)wd;
+		RoundLabelButton* btn = (RoundLabelButton*)wd;
 		memset(_xwm_theme.fontName, 0, FONT_NAME_MAX);
 		strncpy(_xwm_theme.fontName, btn->getLabel().c_str(), FONT_NAME_MAX-1);
 	}
 
 	wd = layout->getChild("desktop_image");
 	if(wd != NULL)  {
-		LabelButton* btn = (LabelButton*)wd;
+		RoundLabelButton* btn = (RoundLabelButton*)wd;
 		memset(_xwm_theme.patternName, 0, THEME_NAME_MAX);
 		strncpy(_xwm_theme.patternName, btn->getLabel().c_str(), THEME_NAME_MAX-1);
 	}
@@ -158,7 +160,7 @@ static void onEventFunc(Widget* wd, xevent_t* evt, void* arg) {
 		_fontDialog->popup(wd->getWin(), 320, 320, "font", XWIN_STYLE_NO_RESIZE, wd);
 	}
 	else if(name == "desktop_image") {
-		LabelButton* btn = (LabelButton*)wd;
+		RoundLabelButton* btn = (RoundLabelButton*)wd;
 		string fname = btn->getLabel();
 		char dir[FS_FULL_NAME_MAX];
 		vfs_dir_name(fname.c_str(), dir, FS_FULL_NAME_MAX);
@@ -202,11 +204,11 @@ static void _dialogedFunc(XWin* xwin, XWin* from, int res, void* arg) {
 		}
 	}
 	else if(from == _fontDialog) {
-		LabelButton* btn = (LabelButton*)arg;
+		RoundLabelButton* btn = (RoundLabelButton*)arg;
 		btn->setLabel(_fontDialog->getResult());
 	}
 	else if(from == _fileDialog) {
-		LabelButton* btn = (LabelButton*)arg;
+		RoundLabelButton* btn = (RoundLabelButton*)arg;
 		string res = _fileDialog->getResult();
 		btn->setLabel(_fileDialog->getResult());
 		LayoutWidget* layout = ((LayoutWin*)xwin)->getLayoutWidget();
@@ -231,7 +233,7 @@ int main(int argc, char** argv) {
 	win.loadConfig(X::getResName("layout.xwl").c_str()); // 加载布局文件
 	win.setOnDialogedFunc(_dialogedFunc);
 
-	win.open(&x, -1, -1, -1, 280, 300, "xwm_theme", XWIN_STYLE_NORMAL);
+	win.open(&x, -1, -1, -1, 280, 320, "xwm_theme", XWIN_STYLE_NORMAL);
 	win.setTimer(16);
 
 	_colorDialog = new ColorDialog();

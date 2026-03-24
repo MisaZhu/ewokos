@@ -70,7 +70,7 @@
                 },
                 {
                     "name": "font", 
-                    "type": "LabelButton"
+                    "type": "RoundLabelButton"
                 }
             ]
         },
@@ -88,7 +88,7 @@
                 },
                 {
                     "name": "desktop_image", 
-                    "type": "LabelButton"
+                    "type": "RoundLabelButton"
                 }
             ]
         },
@@ -102,12 +102,12 @@
             "children": [
                 {
                     "name": "okButton",
-                    "type": "LabelButton",
+                    "type": "RoundLabelButton",
                     "label": "Apply"
                 },
                 {
                     "name": "cancelButton",
-                    "type": "LabelButton",
+                    "type": "RoundLabelButton",
                     "label": "Quit"
                 }
             ]

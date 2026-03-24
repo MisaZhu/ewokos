@@ -8,7 +8,7 @@ RootWidget::RootWidget() {
 	focusedWidget = NULL;
 	dragedWidget= NULL;
 	xwin = NULL;
-	alpha = true;
+	alpha = false;
 	beRoot = true;
 }
 

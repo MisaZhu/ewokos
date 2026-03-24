@@ -348,3 +348,166 @@ void graph_glass(graph_t* g, int x, int y, int w, int h, int r) {
     graph_glass_cpu(g, x, y, w, h, r);
 #endif
 }
+
+// 3D rounded rectangle function
+void graph_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, uint32_t color, bool reverse) {
+    if(w <= 0 || h <= 0 || r < 0)
+        return;
+    // Limit radius to half of width/height
+    if(r > w/2) r = w/2;
+    if(r > h/2) r = h/2;
+    if(rw > r/2) rw = r/2;
+    
+    // Calculate 3D effect colors
+    uint32_t highlight_color;
+    uint32_t deep_color;
+    if(reverse) {
+        deep_color = graph_get_bright_color(color);  // Top/left highlight
+        highlight_color = graph_get_dark_color(color);      // Bottom/right shadow
+    }
+    else {
+        highlight_color = graph_get_bright_color(color);  // Top/left highlight
+        deep_color = graph_get_dark_color(color);      // Bottom/right shadow
+    }
+    
+    // Draw highlight on top edge
+    for(int i = 0; i < rw; i++) {
+        int yy = y + i;
+        if(yy >= 0 && yy < g->h) {
+            for(int xx = x + r; xx < x + w - r; xx++) {
+                if(xx >= 0 && xx < g->w) {
+                    graph_pixel_alpha(g, xx, yy, highlight_color);
+                }
+            }
+        }
+    }
+    
+    // Draw highlight on left edge
+    for(int i = 0; i < rw; i++) {
+        int xx = x + i;
+        if(xx >= 0 && xx < g->w) {
+            for(int yy = y + r; yy < y + h - r; yy++) {
+                if(yy >= 0 && yy < g->h) {
+                    graph_pixel_alpha(g, xx, yy, highlight_color);
+                }
+            }
+        }
+    }
+    
+    // Draw shadow on bottom edge
+    for(int i = 0; i < rw; i++) {
+        int yy = y + h - 1 - i;
+        if(yy >= 0 && yy < g->h) {
+            for(int xx = x + r; xx < x + w - r; xx++) {
+                if(xx >= 0 && xx < g->w) {
+                    graph_pixel_alpha(g, xx, yy, deep_color);
+                }
+            }
+        }
+    }
+    
+    // Draw shadow on right edge
+    for(int i = 0; i < rw; i++) {
+        int xx = x + w - 1 - i;
+        if(xx >= 0 && xx < g->w) {
+            for(int yy = y + r; yy < y + h - r; yy++) {
+                if(yy >= 0 && yy < g->h) {
+                    graph_pixel_alpha(g, xx, yy, deep_color);
+                }
+            }
+        }
+    }
+
+    // Draw rounded corners with gradient effect
+    // Top-left corner (highlight) - quarter circle arc
+    for(int i = 0; i < rw; i++) {
+        for(int cy = 0; cy < r; cy++) {
+            for(int cx = 0; cx < r; cx++) {
+                // Check if point is within the quarter circle
+                // The arc center is at (x+r, y+r), we want the part outside the circle
+                int dx = cx - r - i;
+                int dy = cy - r - i;
+                int dist_sq = dx*dx + dy*dy;
+                if(dist_sq >= (r-1)*(r-1) && dist_sq <= r*r) {
+                    int px = x + cx;
+                    int py = y + cy;
+                    if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
+                        graph_pixel_alpha(g, px, py, highlight_color);
+                    }
+                }
+            }
+        }
+    }
+
+    // Top-right corner - upper half with highlight, lower half with shadow
+    for(int i = 0; i < rw; i++) {
+        for(int cy = 0; cy < r; cy++) {
+            for(int cx = 0; cx < r; cx++) {
+                int dx = cx + i;
+                int dy = cy - r - i;
+                int dist_sq = dx*dx + dy*dy;
+                if(dist_sq >= (r-1)*(r-1) && dist_sq <= r*r) {
+                    int px = x + w - r + cx;
+                    int py = y + cy;
+                    if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
+                        // Lower half uses shadow_color
+                        uint32_t c = ((cy-i) >= r/2) ? deep_color : highlight_color;
+                        graph_pixel_alpha(g, px, py, c);
+                    }
+                }
+            }
+        }
+    }
+
+    // Bottom-left corner - upper half with highlight, lower half with shadow
+    for(int i = 0; i < rw; i++) {
+        for(int cy = 0; cy < r; cy++) {
+            for(int cx = 0; cx < r; cx++) {
+                int dx = cx - r - i;
+                int dy = cy + i;
+                int dist_sq = dx*dx + dy*dy;
+                if(dist_sq >= (r-1)*(r-1) && dist_sq <= r*r) {
+                    int px = x + cx;
+                    int py = y + h - r + cy;
+                    if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
+                        // Lower half uses shadow_color
+                        uint32_t c = ((cy+i) >= r/2) ? deep_color : highlight_color;
+                        graph_pixel_alpha(g, px, py, c);
+                    }
+                }
+            }
+        }
+    }
+
+    // Bottom-right corner (shadow) - quarter circle arc
+    for(int i = 0; i < rw; i++) {
+        for(int cy = 0; cy < r; cy++) {
+            for(int cx = 0; cx < r; cx++) {
+                int dx = cx + i;
+                int dy = cy + i;
+                int dist_sq = dx*dx + dy*dy;
+                if(dist_sq >= (r-1)*(r-1) && dist_sq <= r*r) {
+                    int px = x + w - r + cx;
+                    int py = y + h - r + cy;
+                    if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
+                        graph_pixel_alpha(g, px, py, deep_color);
+                    }
+                }
+            }
+        }
+    }
+}
+
+// 3D rounded rectangle function
+void graph_fill_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, uint32_t color, bool reverse) {
+    if(w <= 0 || h <= 0 || r < 0)
+        return;
+    // Limit radius to half of width/height
+    if(r > w/2) r = w/2;
+    if(r > h/2) r = h/2;
+    if(rw > r/2) rw = r/2;
+    
+    // Draw main rounded rectangle with base color
+    graph_fill_round(g, x, y, w, h, r, color);
+    graph_round_3d(g, x, y, w, h, r, rw, color, reverse);
+}

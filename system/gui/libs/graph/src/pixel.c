@@ -74,6 +74,22 @@ inline void graph_pixel_argb_safe(graph_t* graph, int32_t x, int32_t y,
 	graph_pixel_argb(graph, x, y, a, r, g, b);
 }
 
+inline void  graph_pixel_alpha(graph_t* graph, int32_t x, int32_t y, uint32_t color) {
+	register uint8_t a = (color >> 24) & 0xff;
+	register uint8_t r = (color >> 16) & 0xff;
+	register uint8_t g = (color >> 8)  & 0xff;
+	register uint8_t b = color & 0xff;
+	graph_pixel_argb(graph, x, y, a, r, g, b);
+}
+
+inline void  graph_pixel_alpha_safe(graph_t* graph, int32_t x, int32_t y, uint32_t color) {
+	register uint8_t a = (color >> 24) & 0xff;
+	register uint8_t r = (color >> 16) & 0xff;
+	register uint8_t g = (color >> 8)  & 0xff;
+	register uint8_t b = color & 0xff;
+	graph_pixel_argb_safe(graph, x, y, a, r, g, b);
+}
+
 #ifdef __cplusplus
 }
 #endif

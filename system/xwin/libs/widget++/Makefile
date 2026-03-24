@@ -30,6 +30,8 @@ LIB_WIDGET_OBJS =  src/Widget/Widget.o \
 		src/Widget/Columns.o \
 		src/Widget/WidgetWin.o \
 		src/Widget/WidgetX.o \
+		src/Widget/RoundButton.o \
+		src/Widget/RoundLabelButton.o \
 		\
 		src/WidgetEx/FileWidget.o \
 		src/WidgetEx/Dialog.o \
