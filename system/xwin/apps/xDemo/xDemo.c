@@ -117,7 +117,7 @@ static void on_repaint(xwin_t* xwin, graph_t* g) {
 
 	if(_xtest_info.mode == CIRCLE) {
 		graph_fill_circle(g, x, y, h/2, c);
-		graph_circle(g, x, y, h/2+4, c);
+		graph_circle(g, x, y, h/2+6, 3, c);
 	}
 	else if(_xtest_info.mode == ARC) {
 		int endangle = c%5 * 44;

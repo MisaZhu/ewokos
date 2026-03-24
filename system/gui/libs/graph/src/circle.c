@@ -28,7 +28,7 @@ void graph_fill_circle(graph_t* g, int32_t x, int32_t y, int32_t radius, uint32_
 	}
 }
 
-void graph_circle(graph_t* g, int32_t x, int32_t y, int32_t radius, uint32_t color, int32_t rw) {
+void graph_circle(graph_t* g, int32_t x, int32_t y, int32_t radius, int32_t rw, uint32_t color) {
 	if(radius <= 0 || rw <= 0)
 		return;
 	if(rw > radius/2) rw = radius/2;
