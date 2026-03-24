@@ -24,10 +24,12 @@ int main(int argc, char** argv) {
     bool quit = false;
     while(!quit) {
         if(dirty) {
+            int w = 128, h = 64, r = 15, rw = 3;
 		    graph_gradation(g, 0, 0, g->w, g->h, 0xff444488, 0xff000000, true);
             snprintf(txt, 63, "x:%d, y:%d", x, y);
-            graph_fill_round_3d(g, x, y, 120, 48, 16, 5, 0xff008800, true);
-            graph_draw_text_font(g, x+10, y+10, txt, font, 12, 0xff000000);
+            graph_fill_round_3d(g, x, y, w, h, r, rw, 0xff008800, false);
+            graph_fill_round_3d(g, x+rw, y+rw, w-2*rw, h-2*rw, r-rw, rw, 0xff008800, true);
+            graph_draw_text_font(g, x+2*rw+4, y+2*rw+4, txt, font, 12, 0xff000000);
             dirty = false;
             fb_flush(&fb, true);
         }
