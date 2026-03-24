@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
         if(dirty) {
 		    graph_gradation(g, 0, 0, g->w, g->h, 0xff444488, 0xff000000, true);
             snprintf(txt, 63, "x:%d, y:%d", x, y);
-            graph_fill_round_3d(g, x, y, 120, 48, 16, 3, 0xff008800, true);
+            graph_fill_round_3d(g, x, y, 120, 48, 16, 6, 0xff008800, true);
             graph_draw_text_font(g, x+10, y+10, txt, font, 12, 0xff000000);
             dirty = false;
             fb_flush(&fb, true);

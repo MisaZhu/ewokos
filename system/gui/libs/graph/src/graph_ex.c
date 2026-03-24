@@ -419,79 +419,72 @@ void graph_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, uint3
     }
 
     // Draw rounded corners with gradient effect
-    // Top-left corner (highlight) - quarter circle arc
-    for(int i = 0; i < rw; i++) {
-        for(int cy = 0; cy < r; cy++) {
-            for(int cx = 0; cx < r; cx++) {
-                // Check if point is within the quarter circle
-                // The arc center is at (x+r, y+r), we want the part outside the circle
-                int dx = cx - r - i;
-                int dy = cy - r - i;
-                int dist_sq = dx*dx + dy*dy;
-                if(dist_sq >= (r-1)*(r-1) && dist_sq <= r*r) {
-                    int px = x + cx;
-                    int py = y + cy;
-                    if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
-                        graph_pixel_alpha(g, px, py, highlight_color);
-                    }
+    // For border width rw, we draw arcs with thickness by checking distance range
+    
+    // Top-left corner (highlight) - quarter circle arc with thickness
+    for(int cy = 0; cy < r; cy++) {
+        for(int cx = 0; cx < r; cx++) {
+            int dx = cx - r;
+            int dy = cy - r;
+            int dist_sq = dx*dx + dy*dy;
+            // Draw arc with thickness rw
+            if(dist_sq >= (r-rw)*(r-rw) && dist_sq <= r*r) {
+                int px = x + cx;
+                int py = y + cy;
+                if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
+                    graph_pixel_alpha(g, px, py, highlight_color);
                 }
             }
         }
     }
 
-    // Top-right corner - upper half with highlight, lower half with shadow
-    for(int i = 0; i < rw; i++) {
-        for(int cy = 0; cy < r; cy++) {
-            for(int cx = 0; cx < r; cx++) {
-                int dx = cx + i;
-                int dy = cy - r - i;
-                int dist_sq = dx*dx + dy*dy;
-                if(dist_sq >= (r-1)*(r-1) && dist_sq <= r*r) {
-                    int px = x + w - r + cx;
-                    int py = y + cy;
-                    if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
-                        // Lower half uses shadow_color
-                        uint32_t c = ((cy-i) >= r/2) ? deep_color : highlight_color;
-                        graph_pixel_alpha(g, px, py, c);
-                    }
+    // Top-right corner - 45 degree diagonal split
+    for(int cy = 0; cy < r; cy++) {
+        for(int cx = 0; cx < r; cx++) {
+            int dx = cx;
+            int dy = cy - r;
+            int dist_sq = dx*dx + dy*dy;
+            if(dist_sq >= (r-rw)*(r-rw) && dist_sq <= r*r) {
+                int px = x + w - r + cx;
+                int py = y + cy;
+                if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
+                    // 45 degree diagonal: cx + cy >= r means lower-right area
+                    uint32_t c = (cx + cy >= r) ? deep_color : highlight_color;
+                    graph_pixel_alpha(g, px, py, c);
                 }
             }
         }
     }
 
-    // Bottom-left corner - upper half with highlight, lower half with shadow
-    for(int i = 0; i < rw; i++) {
-        for(int cy = 0; cy < r; cy++) {
-            for(int cx = 0; cx < r; cx++) {
-                int dx = cx - r - i;
-                int dy = cy + i;
-                int dist_sq = dx*dx + dy*dy;
-                if(dist_sq >= (r-1)*(r-1) && dist_sq <= r*r) {
-                    int px = x + cx;
-                    int py = y + h - r + cy;
-                    if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
-                        // Lower half uses shadow_color
-                        uint32_t c = ((cy+i) >= r/2) ? deep_color : highlight_color;
-                        graph_pixel_alpha(g, px, py, c);
-                    }
+    // Bottom-left corner - 45 degree diagonal split
+    for(int cy = 0; cy < r; cy++) {
+        for(int cx = 0; cx < r; cx++) {
+            int dx = cx - r;
+            int dy = cy;
+            int dist_sq = dx*dx + dy*dy;
+            if(dist_sq >= (r-rw)*(r-rw) && dist_sq <= r*r) {
+                int px = x + cx;
+                int py = y + h - r + cy;
+                if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
+                    // 45 degree diagonal: cx + cy >= r means lower-right area
+                    uint32_t c = (cx + cy >= r) ? deep_color : highlight_color;
+                    graph_pixel_alpha(g, px, py, c);
                 }
             }
         }
     }
 
-    // Bottom-right corner (shadow) - quarter circle arc
-    for(int i = 0; i < rw; i++) {
-        for(int cy = 0; cy < r; cy++) {
-            for(int cx = 0; cx < r; cx++) {
-                int dx = cx + i;
-                int dy = cy + i;
-                int dist_sq = dx*dx + dy*dy;
-                if(dist_sq >= (r-1)*(r-1) && dist_sq <= r*r) {
-                    int px = x + w - r + cx;
-                    int py = y + h - r + cy;
-                    if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
-                        graph_pixel_alpha(g, px, py, deep_color);
-                    }
+    // Bottom-right corner (shadow) - quarter circle arc with thickness
+    for(int cy = 0; cy < r; cy++) {
+        for(int cx = 0; cx < r; cx++) {
+            int dx = cx;
+            int dy = cy;
+            int dist_sq = dx*dx + dy*dy;
+            if(dist_sq >= (r-rw)*(r-rw) && dist_sq <= r*r) {
+                int px = x + w - r + cx;
+                int py = y + h - r + cy;
+                if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
+                    graph_pixel_alpha(g, px, py, deep_color);
                 }
             }
         }
