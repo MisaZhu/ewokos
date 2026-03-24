@@ -14,7 +14,7 @@
 #include <stdio.h>
 #include <bsp/bsp_sd.h>
 
-#define SD_BUFFER_SIZE (1024*1024*16) //16M buffer size
+#define SD_BUFFER_SIZE (1024*1024*64) //64M buffer size
 
 static void set_fsinfo_stat(node_stat_t* stat, INODE* inode) {
 	stat->atime = inode->i_atime;

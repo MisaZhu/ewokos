@@ -869,7 +869,7 @@ int32_t ext2_init(ext2_t* ext2, read_block_func_t read_block, write_block_func_t
 		return -1;
 	memcpy(&ext2->super, buf, sizeof(SUPER));
 	get_gds(ext2);
-	sd_set_max_sector_index(ext2->super.s_blocks_count);
+	sd_set_max_sector_index(ext2->super.s_blocks_count * (EXT2_BLOCK_SIZE / SECTOR_SIZE));
 	sd_set_buffer_size(buffer_size);
 	return 0;
 }
