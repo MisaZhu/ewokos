@@ -3,26 +3,26 @@
 #include <stdlib.h>
 
 uint32_t graph_get_dark_color(uint32_t base) {
-	uint32_t a, r, g, b;
-	a = (base >> 24) & 0xff;
-	r = (base >> 16) & 0xff;
-	g = (base >> 8) & 0xff;
-	b = base & 0xff;
-	return argb(a, (r*2)/3, (g*2)/3, (b*2)/3);
+        uint32_t a, r, g, b;
+        a = (base >> 24) & 0xff;
+        r = (base >> 16) & 0xff;
+        g = (base >> 8) & 0xff;
+        b = base & 0xff;
+        return argb(a, (r*2)/3, (g*2)/3, (b*2)/3);
 }
 
 uint32_t graph_get_bright_color(uint32_t base) {
-	uint32_t a, r, g, b;
-	a = (base >> 24) & 0xff;
-	r = (base >> 16) & 0xff;
-	g = (base >> 8) & 0xff;
-	b = base & 0xff;
+        uint32_t a, r, g, b;
+        a = (base >> 24) & 0xff;
+        r = (base >> 16) & 0xff;
+        g = (base >> 8) & 0xff;
+        b = base & 0xff;
 
-	r = r<0xAA ? r:0xAA;
-	g = g<0xAA ? g:0xAA;
-	b = b<0xAA ? b:0xAA;
+        r = r<0xAA ? r:0xAA;
+        g = g<0xAA ? g:0xAA;
+        b = b<0xAA ? b:0xAA;
 
-	return argb(a, (r*4)/3, (g*4)/3, (b*4)/3);
+        return argb(a, (r*4)/3, (g*4)/3, (b*4)/3);
 }
 
 void graph_get_3d_color(uint32_t base, uint32_t *dark, uint32_t *bright) {
@@ -33,97 +33,97 @@ void graph_get_3d_color(uint32_t base, uint32_t *dark, uint32_t *bright) {
 }
 
 void graph_fill_3d(graph_t* g, int x, int y, int w, int h, uint32_t color, bool rev) {
-	uint32_t dark, bright;
-	if(rev)
-		graph_get_3d_color(color, &bright, &dark);
-	else
-		graph_get_3d_color(color, &dark, &bright);
+        uint32_t dark, bright;
+        if(rev)
+                graph_get_3d_color(color, &bright, &dark);
+        else
+                graph_get_3d_color(color, &dark, &bright);
 
-	graph_fill(g, x+1, y+1, w-2, h-2, color);
-	graph_box_3d(g, x, y, w, h, bright, dark);
+        graph_fill(g, x+1, y+1, w-2, h-2, color);
+        graph_box_3d(g, x, y, w, h, bright, dark);
 }
 
 void graph_box_3d(graph_t* g,
-		int x, int y, int w, int h,
-		uint32_t bright_color, uint32_t dark_color) {
-	graph_line(g, x, y, x+w-1, y, bright_color);
-	graph_line(g, x, y+1, x, y+h-1, bright_color);
-	graph_line(g, x+w-1, y, x+w-1, y+h-1, dark_color);
-	graph_line(g, x, y+h-1, x+w-1, y+h-1, dark_color);
+                int x, int y, int w, int h,
+                uint32_t bright_color, uint32_t dark_color) {
+        graph_line(g, x, y, x+w-1, y, bright_color);
+        graph_line(g, x, y+1, x, y+h-1, bright_color);
+        graph_line(g, x+w-1, y, x+w-1, y+h-1, dark_color);
+        graph_line(g, x, y+h-1, x+w-1, y+h-1, dark_color);
 }
 
 void graph_frame(graph_t* g, int x, int y, int w, int h, int width, uint32_t base_color, bool rev) {
-	uint32_t dark, bright;
-	if(rev)
-		graph_get_3d_color(base_color, &bright, &dark);
-	else
-		graph_get_3d_color(base_color, &dark, &bright);
+        uint32_t dark, bright;
+        if(rev)
+                graph_get_3d_color(base_color, &bright, &dark);
+        else
+                graph_get_3d_color(base_color, &dark, &bright);
 
-	graph_box_3d(g, x, y, w, h, bright, dark);
-	for(int i=1; i<(width-1); i++) {
-		graph_box(g, x+i, y+i, w-i*2, h-i*2, base_color);
-	}
-	graph_box_3d(g, x+width-1, y+width-1, w-width*2+2, h-width*2+2, dark, bright);
+        graph_box_3d(g, x, y, w, h, bright, dark);
+        for(int i=1; i<(width-1); i++) {
+                graph_box(g, x+i, y+i, w-i*2, h-i*2, base_color);
+        }
+        graph_box_3d(g, x+width-1, y+width-1, w-width*2+2, h-width*2+2, dark, bright);
 }
 
 void graph_draw_dot_pattern(graph_t* g,int x, int y, int w, int h, uint32_t c1, uint32_t c2, uint8_t dspace, uint8_t dw) {
-	int i = 0;
-	int j = 0;
-	bool shift = false;
-	grect_t ir = {x, y, w, h};
+        int i = 0;
+        int j = 0;
+        bool shift = false;
+        grect_t ir = {x, y, w, h};
     if(!graph_insect(g, &ir))
         return;
-	
-	x = ir.x;
-	y = ir.y;
-	w = ir.w;
-	h = ir.h;
 
-	graph_fill(g, x, y, w, h, c1);
-	while(j < h) {
-		while(i < w) {
-			if(dw == 1)
-				graph_pixel(g, x+i, y+j, c2);
-			else
-				graph_fill(g, x+i, y+j, dw, dw, c2);
-			i += dw + dspace;
-		}
-		i = shift ? 0:(dw + dspace)/2;
-		shift = !shift;
-		j += (dw + dspace);
-	}
+        x = ir.x;
+        y = ir.y;
+        w = ir.w;
+        h = ir.h;
+
+        graph_fill(g, x, y, w, h, c1);
+        while(j < h) {
+                while(i < w) {
+                        if(dw == 1)
+                                graph_pixel(g, x+i, y+j, c2);
+                        else
+                                graph_fill(g, x+i, y+j, dw, dw, c2);
+                        i += dw + dspace;
+                }
+                i = shift ? 0:(dw + dspace)/2;
+                shift = !shift;
+                j += (dw + dspace);
+        }
 }
 
 void graph_gradation(graph_t* graph, int x, int y, int w, int h, uint32_t c1, uint32_t c2, bool vertical) {
-	int32_t a1 = (c1 >> 24) & 0xff;
-	int32_t a2 = (c2 >> 24) & 0xff;
-	int32_t r1 = (c1 >> 16) & 0xff;
-	int32_t r2 = (c2 >> 16) & 0xff;
-	int32_t g1 = (c1 >> 8) & 0xff;
-	int32_t g2 = (c2 >> 8) & 0xff;
-	int32_t b1 = c1 & 0xff;
-	int32_t b2 = c2 & 0xff;
+        int32_t a1 = (c1 >> 24) & 0xff;
+        int32_t a2 = (c2 >> 24) & 0xff;
+        int32_t r1 = (c1 >> 16) & 0xff;
+        int32_t r2 = (c2 >> 16) & 0xff;
+        int32_t g1 = (c1 >> 8) & 0xff;
+        int32_t g2 = (c2 >> 8) & 0xff;
+        int32_t b1 = c1 & 0xff;
+        int32_t b2 = c2 & 0xff;
 
-	if(!vertical) {
-			for(int32_t i=1; i<=w; i++) {
-				int32_t a = a1 + (((a2 - a1) * i ) / w);
-				int32_t r = r1 + (((r2 - r1) * i ) / w);
-				int32_t g = g1 + (((g2 - g1) * i ) / w);
-				int32_t b = b1 + (((b2 - b1) * i ) / w);
-				uint32_t c = (uint32_t)((a << 24) | (r << 16) | (g << 8) | b);
-				graph_line(graph, x+i-1, y, x+i-1, y+h-1, c);
-			}
-	}
-	else {
-			for(int32_t i=1; i<=h; i++) {
-				int32_t a = a1 + (((a2 - a1) * i ) / h);
-				int32_t r = r1 + (((r2 - r1) * i ) / h);
-				int32_t g = g1 + (((g2 - g1) * i ) / h);
-				int32_t b = b1 + (((b2 - b1) * i ) / h);
-				uint32_t c = (uint32_t)((a << 24) | (r << 16) | (g << 8) | b);
-				graph_line(graph, x, y+i-1, x+w-1, y+i-1, c);
-			}
-	}
+        if(!vertical) {
+                        for(int32_t i=1; i<=w; i++) {
+                                int32_t a = a1 + (((a2 - a1) * i ) / w);
+                                int32_t r = r1 + (((r2 - r1) * i ) / w);
+                                int32_t g = g1 + (((g2 - g1) * i ) / w);
+                                int32_t b = b1 + (((b2 - b1) * i ) / w);
+                                uint32_t c = (uint32_t)((a << 24) | (r << 16) | (g << 8) | b);
+                                graph_line(graph, x+i-1, y, x+i-1, y+h-1, c);
+                        }
+        }
+        else {
+                        for(int32_t i=1; i<=h; i++) {
+                                int32_t a = a1 + (((a2 - a1) * i ) / h);
+                                int32_t r = r1 + (((r2 - r1) * i ) / h);
+                                int32_t g = g1 + (((g2 - g1) * i ) / h);
+                                int32_t b = b1 + (((b2 - b1) * i ) / h);
+                                uint32_t c = (uint32_t)((a << 24) | (r << 16) | (g << 8) | b);
+                                graph_line(graph, x, y+i-1, x+w-1, y+i-1, c);
+                        }
+        }
 }
 
 void graph_gaussian_cpu(graph_t* g, int x, int y, int w, int h, int r) {
@@ -310,12 +310,12 @@ void graph_glass_cpu(graph_t* g, int x, int y, int w, int h, int r) {
         return;
 
     grect_t ir = {x, y, w, h};
-	if(!graph_insect(g, &ir))
-		return;
-	x = ir.x;
-	y = ir.y;
-	w = ir.w;
-	h = ir.h;
+        if(!graph_insect(g, &ir))
+                return;
+        x = ir.x;
+        y = ir.y;
+        w = ir.w;
+        h = ir.h;
 
     // 初始化随机数生成器（使用固定种子确保效果一致）
     srand(0x12345678);
@@ -420,17 +420,20 @@ void graph_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, uint3
 
     // Draw rounded corners with gradient effect
     // For border width rw, we draw arcs with thickness by checking distance range
+    // All corners use positive dx/cy, dy/cy for consistent rounding (same as bottom-right)
     
     // Top-left corner (highlight) - quarter circle arc with thickness
+    // Use the same dx=cx, dy=cy as bottom-right for consistent rounding
     for(int cy = 0; cy < r; cy++) {
         for(int cx = 0; cx < r; cx++) {
-            int dx = cx - r;
-            int dy = cy - r;
+            int dx = cx;
+            int dy = cy;
             int dist_sq = dx*dx + dy*dy;
             // Draw arc with thickness rw
             if(dist_sq >= (r-rw)*(r-rw) && dist_sq <= r*r) {
-                int px = x + cx;
-                int py = y + cy;
+                // For top-left, mirror the position from bottom-right pattern
+                int px = x + (r - 1 - cx);
+                int py = y + (r - 1 - cy);
                 if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
                     graph_pixel_alpha(g, px, py, highlight_color);
                 }
@@ -438,36 +441,40 @@ void graph_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, uint3
         }
     }
 
-    // Top-right corner - 45 degree diagonal split
+    // Top-right corner - quarter circle arc with thickness
+    // Use the same dx=cx, dy=cy as bottom-right for consistent rounding
     for(int cy = 0; cy < r; cy++) {
         for(int cx = 0; cx < r; cx++) {
             int dx = cx;
-            int dy = cy - r;
+            int dy = cy;
             int dist_sq = dx*dx + dy*dy;
             if(dist_sq >= (r-rw)*(r-rw) && dist_sq <= r*r) {
+                // For top-right, mirror vertically from bottom-right pattern
                 int px = x + w - r + cx;
-                int py = y + cy;
+                int py = y + (r - 1 - cy);
                 if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
                     // 45 degree diagonal: cx + cy >= r means lower-right area
-                    uint32_t c = (cx + cy >= r) ? deep_color : highlight_color;
+                    uint32_t c = (cx - cy <= 0) ?  highlight_color : deep_color;
                     graph_pixel_alpha(g, px, py, c);
                 }
             }
         }
     }
 
-    // Bottom-left corner - 45 degree diagonal split
+    // Bottom-left corner - quarter circle arc with thickness
+    // Use the same dx=cx, dy=cy as bottom-right for consistent rounding
     for(int cy = 0; cy < r; cy++) {
         for(int cx = 0; cx < r; cx++) {
-            int dx = cx - r;
+            int dx = cx;
             int dy = cy;
             int dist_sq = dx*dx + dy*dy;
             if(dist_sq >= (r-rw)*(r-rw) && dist_sq <= r*r) {
-                int px = x + cx;
+                // For bottom-left, mirror horizontally from bottom-right pattern
+                int px = x + (r - 1 - cx);
                 int py = y + h - r + cy;
                 if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
                     // 45 degree diagonal: cx + cy >= r means lower-right area
-                    uint32_t c = (cx + cy >= r) ? deep_color : highlight_color;
+                    uint32_t c = (cx - cy <= 0) ?  deep_color : highlight_color;
                     graph_pixel_alpha(g, px, py, c);
                 }
             }
@@ -475,6 +482,7 @@ void graph_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, uint3
     }
 
     // Bottom-right corner (shadow) - quarter circle arc with thickness
+    // Original pattern that all others mirror
     for(int cy = 0; cy < r; cy++) {
         for(int cx = 0; cx < r; cx++) {
             int dx = cx;

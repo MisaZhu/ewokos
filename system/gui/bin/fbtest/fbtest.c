@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
     bool quit = false;
     while(!quit) {
         if(dirty) {
-            int w = 128, h = 64, r = 15, rw = 3;
+            int w = 128, h = 64, r = 16, rw = 3;
 		    graph_gradation(g, 0, 0, g->w, g->h, 0xff444488, 0xff000000, true);
             snprintf(txt, 63, "x:%d, y:%d", x, y);
             graph_fill_round_3d(g, x, y, w, h, r, rw, 0xff008800, false);
