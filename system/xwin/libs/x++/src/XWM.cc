@@ -254,7 +254,7 @@ uint32_t XWM::getPatternMode(graph_t* g, float* scale) {
 
 	if(sc < 1.0)
 		return DESKTOP_PATTERN_FIT;
-	else if(sc > 2.0)
+	else if(sc > 1.6)
 		return DESKTOP_PATTERN_TILE;
 	return DESKTOP_PATTERN_CENTER;
 }
