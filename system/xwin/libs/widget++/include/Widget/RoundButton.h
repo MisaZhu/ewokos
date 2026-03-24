@@ -13,12 +13,10 @@ protected:
 	virtual void paintDown(graph_t* g, XTheme* theme, const grect_t& r);
 	virtual void paintUp(graph_t* g, XTheme* theme, const grect_t& r);
 	virtual void paintDisabled(graph_t* g, XTheme* theme, const grect_t& r);
-public:
-	inline void setRound(uint32_t round, uint32_t roundWdith) {
-		this->round = round;
-		this->roundWidth = roundWidth;
-	}
+	void setAttr(const string& attr, json_var_t*value);
 
+public:
+	void setRound(uint32_t round, uint32_t roundWdith);
 	RoundButton();
 };
 

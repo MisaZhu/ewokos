@@ -501,6 +501,6 @@ void graph_fill_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, 
     if(rw > r/2) rw = r/2;
     
     // Draw main rounded rectangle with base color
-    graph_fill_round(g, x, y, w, h, r, color);
+    graph_fill_round(g, x+rw, y+rw, w-2*rw, h-2*rw, r-rw, color);
     graph_round_3d(g, x, y, w, h, r, rw, color, reverse);
 }

@@ -36,7 +36,7 @@ void RoundLabelButton::setLabel(const string& label) {
 }
 
 void RoundLabelButton::setAttr(const string& attr, json_var_t*value) {
-	Widget::setAttr(attr, value);
+	RoundButton::setAttr(attr, value);
 	if(attr == "label") {
 		setLabel(json_var_get_str(value));
 	}

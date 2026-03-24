@@ -3,7 +3,8 @@
 namespace Ewok {
 
 void RoundButton::paintPanel(graph_t* g, XTheme* theme, const grect_t& rect) {
-	graph_fill_round(g, rect.x, rect.y, rect.w, rect.h, round, theme->basic.bgColor);
+	graph_fill_round(g, rect.x+roundWidth, rect.y+roundWidth,
+			rect.w-2*roundWidth, rect.h-2*roundWidth, round-roundWidth, theme->basic.bgColor);
 }
 
 void RoundButton::paintDown(graph_t* g, XTheme* theme, const grect_t& rect) {
@@ -20,9 +21,28 @@ void RoundButton::paintDisabled(graph_t* g, XTheme* theme, const grect_t& rect) 
 	graph_fill_round_3d(g, rect.x, rect.y, rect.w, rect.h, round, roundWidth, theme->basic.bgDisableColor, false);
 }
 
+void RoundButton::setRound(uint32_t r, uint32_t rw) {
+	round = r;
+	roundWidth = rw;
+
+	if(round < 3)
+		round = 3;
+	if(roundWidth > (r/2))
+		roundWidth = r/2;
+}
+
+void RoundButton::setAttr(const string& attr, json_var_t*value) {
+	Button::setAttr(attr, value);
+	if(attr == "round") {
+		setRound(json_var_get_int(value), roundWidth);
+	}
+	else if(attr == "roundWidth") {
+		setRound(round, json_var_get_int(value));
+	}
+}
+
 RoundButton::RoundButton() {
-	round = 6;
-	roundWidth = 1;
+	setRound(6, 1);
 }
 
 }
