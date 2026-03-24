@@ -504,3 +504,11 @@ void graph_fill_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, 
     graph_fill_round(g, x+rw, y+rw, w-2*rw, h-2*rw, r-rw, color);
     graph_round_3d(g, x, y, w, h, r, rw, color, reverse);
 }
+
+void graph_circle_3d(graph_t* g, int x, int y, int r, int rw, uint32_t color, bool reverse) {
+    graph_round_3d(g, x-r, y-r, r*2, r*2, r, rw, color, reverse);
+}
+
+void graph_fill_circle_3d(graph_t* g, int x, int y, int r, int rw, uint32_t color, bool reverse) {
+    graph_fill_round_3d(g, x-r, y-r, r*2, r*2, r, rw, color, reverse);
+}

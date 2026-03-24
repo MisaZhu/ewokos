@@ -99,7 +99,7 @@ void     graph_set(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint3
 void     graph_line(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t color);
 void     graph_wline(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t color, uint32_t w);
 
-void     graph_circle(graph_t* g, int32_t x, int32_t y, int32_t radius, uint32_t color);
+void     graph_circle(graph_t* g, int32_t x, int32_t y, int32_t radius, uint32_t color, int32_t rw);
 void     graph_fill_circle(graph_t* g, int32_t x, int32_t y, int32_t radius, uint32_t color);
 
 void     graph_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, float start_angle, float end_angle, uint32_t color);
