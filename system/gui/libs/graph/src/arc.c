@@ -58,9 +58,7 @@ void graph_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, int32_t rw, flo
                 if(in_range) {
                     int px = x + cx;
                     int py = y + cy;
-                    if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
-                        graph_pixel_alpha(g, px, py, color);
-                    }
+                    graph_pixel(g, px, py, color);
                 }
             }
         }
@@ -109,9 +107,7 @@ void graph_fill_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, float star
                 if(in_range) {
                     int px = x + cx;
                     int py = y + cy;
-                    if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
-                        graph_pixel_alpha(g, px, py, color);
-                    }
+                    graph_pixel(g, px, py, color);
                 }
             }
         }

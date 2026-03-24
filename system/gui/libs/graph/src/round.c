@@ -33,9 +33,7 @@ void graph_fill_round(graph_t* g, int32_t x, int32_t y,
 			if(dx*dx + dy*dy <= r*r) {
 				int px = x + (r - 1 - cx);
 				int py = y + (r - 1 - cy);
-				if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
-					graph_pixel_alpha(g, px, py, color);
-				}
+				graph_pixel(g, px, py, color);
 			}
 		}
 	}
@@ -48,9 +46,7 @@ void graph_fill_round(graph_t* g, int32_t x, int32_t y,
 			if(dx*dx + dy*dy <= r*r) {
 				int px = x + w - r + cx;
 				int py = y + (r - 1 - cy);
-				if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
-					graph_pixel_alpha(g, px, py, color);
-				}
+				graph_pixel(g, px, py, color);
 			}
 		}
 	}
@@ -63,9 +59,7 @@ void graph_fill_round(graph_t* g, int32_t x, int32_t y,
 			if(dx*dx + dy*dy <= r*r) {
 				int px = x + (r - 1 - cx);
 				int py = y + h - r + cy;
-				if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
-					graph_pixel_alpha(g, px, py, color);
-				}
+				graph_pixel(g, px, py, color);
 			}
 		}
 	}
@@ -78,9 +72,7 @@ void graph_fill_round(graph_t* g, int32_t x, int32_t y,
 			if(dx*dx + dy*dy <= r*r) {
 				int px = x + w - r + cx;
 				int py = y + h - r + cy;
-				if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
-					graph_pixel_alpha(g, px, py, color);
-				}
+				graph_pixel(g, px, py, color);
 			}
 		}
 	}
@@ -113,9 +105,7 @@ void graph_round(graph_t* g, int32_t x, int32_t y,
 		int yy = y + i;
 		if(yy >= 0 && yy < g->h) {
 			for(int xx = x + r; xx < x + w - r; xx++) {
-				if(xx >= 0 && xx < g->w) {
-					graph_pixel_alpha(g, xx, yy, color);
-				}
+				graph_pixel(g, xx, yy, color);
 			}
 		}
 	}
@@ -123,9 +113,7 @@ void graph_round(graph_t* g, int32_t x, int32_t y,
 		int yy = y + h - 1 - i;
 		if(yy >= 0 && yy < g->h) {
 			for(int xx = x + r; xx < x + w - r; xx++) {
-				if(xx >= 0 && xx < g->w) {
-					graph_pixel_alpha(g, xx, yy, color);
-				}
+				graph_pixel(g, xx, yy, color);
 			}
 		}
 	}
@@ -133,9 +121,7 @@ void graph_round(graph_t* g, int32_t x, int32_t y,
 		int xx = x + i;
 		if(xx >= 0 && xx < g->w) {
 			for(int yy = y + r; yy < y + h - r; yy++) {
-				if(yy >= 0 && yy < g->h) {
-					graph_pixel_alpha(g, xx, yy, color);
-				}
+				graph_pixel(g, xx, yy, color);
 			}
 		}
 	}
@@ -143,9 +129,7 @@ void graph_round(graph_t* g, int32_t x, int32_t y,
 		int xx = x + w - 1 - i;
 		if(xx >= 0 && xx < g->w) {
 			for(int yy = y + r; yy < y + h - r; yy++) {
-				if(yy >= 0 && yy < g->h) {
-					graph_pixel_alpha(g, xx, yy, color);
-				}
+				graph_pixel(g, xx, yy, color);
 			}
 		}
 	}
@@ -162,9 +146,7 @@ void graph_round(graph_t* g, int32_t x, int32_t y,
 			if(dist_sq >= (r-rw)*(r-rw) && dist_sq <= r*r) {
 				int px = x + (r - 1 - cx);
 				int py = y + (r - 1 - cy);
-				if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
-					graph_pixel_alpha(g, px, py, color);
-				}
+				graph_pixel(g, px, py, color);
 			}
 		}
 	}
@@ -178,9 +160,7 @@ void graph_round(graph_t* g, int32_t x, int32_t y,
 			if(dist_sq >= (r-rw)*(r-rw) && dist_sq <= r*r) {
 				int px = x + w - r + cx;
 				int py = y + (r - 1 - cy);
-				if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
-					graph_pixel_alpha_safe(g, px, py, color);
-				}
+				graph_pixel(g, px, py, color);
 			}
 		}
 	}
@@ -194,9 +174,7 @@ void graph_round(graph_t* g, int32_t x, int32_t y,
 			if(dist_sq >= (r-rw)*(r-rw) && dist_sq <= r*r) {
 				int px = x + (r - 1 - cx);
 				int py = y + h - r + cy;
-				if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
-					graph_pixel_alpha_safe(g, px, py, color);
-				}
+				graph_pixel(g, px, py, color);
 			}
 		}
 	}
@@ -210,9 +188,7 @@ void graph_round(graph_t* g, int32_t x, int32_t y,
 			if(dist_sq >= (r-rw)*(r-rw) && dist_sq <= r*r) {
 				int px = x + w - r + cx;
 				int py = y + h - r + cy;
-				if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
-					graph_pixel_alpha_safe(g, px, py, color);
-				}
+				graph_pixel(g, px, py, color);
 			}
 		}
 	}

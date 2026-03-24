@@ -113,7 +113,7 @@ void graph_fill_cpu(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint
 		for(; y < ey; y++) {
 			x = r.x;
 			for(; x < ex; x++) {
-				graph_pixel(g, x, y, color);
+				graph_set_pixel(g, x, y, color);
 			}
 		}
 	}
@@ -125,7 +125,7 @@ void graph_fill_cpu(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint
 		for(; y < ey; y++) {
 			x = r.x;
 			for(; x < ex; x++) {
-				graph_pixel_argb(g, x, y, ca, cr, cg, cb);
+				graph_pixel_argb_raw(g, x, y, ca, cr, cg, cb);
 			}
 		}
 	}
@@ -238,7 +238,7 @@ void graph_blt_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32
 		register int32_t offset = sy * src->w;
 		for(; sx < ex; sx++, dx++) {
 			register uint32_t color = src->buffer[offset + sx];
-			graph_pixel_argb(dst, dx, dy,
+			graph_pixel_argb_raw(dst, dx, dy,
 					//(((color >> 24) & 0xff) * alpha)/0xff,
 					(((color >> 24) & 0xff) * alpha)>>8,
 					(color >> 16) & 0xff,

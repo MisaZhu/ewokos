@@ -70,14 +70,12 @@ bool  graph_insect(graph_t* g, grect_t* r);
 void     graph_set_clip(graph_t* g, int x, int y, int w, int h);
 void     graph_unset_clip(graph_t* g);
 
-void     graph_pixel_safe(graph_t* g, int32_t x, int32_t y, uint32_t color);
+void     graph_pixel(graph_t* g, int32_t x, int32_t y, uint32_t color);
+void     graph_pixel_argb_raw(graph_t* graph, int32_t x, int32_t y,
+			uint8_t a, uint8_t r, uint8_t g, uint8_t b);
 void     graph_pixel_argb(graph_t* graph, int32_t x, int32_t y,
 			uint8_t a, uint8_t r, uint8_t g, uint8_t b);
-void     graph_pixel_argb_safe(graph_t* graph, int32_t x, int32_t y,
-			uint8_t a, uint8_t r, uint8_t g, uint8_t b);
-void     graph_pixel(graph_t* g, int32_t x, int32_t y, uint32_t color);
-void     graph_pixel_alpha(graph_t* g, int32_t x, int32_t y, uint32_t color);
-void     graph_pixel_alpha_safe(graph_t* g, int32_t x, int32_t y, uint32_t color);
+void     graph_set_pixel(graph_t* g, int32_t x, int32_t y, uint32_t color);
 uint32_t graph_get_pixel(graph_t* g, int32_t x, int32_t y);
 
 void     graph_clear(graph_t* g, uint32_t color);

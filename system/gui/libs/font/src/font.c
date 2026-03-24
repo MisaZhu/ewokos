@@ -253,7 +253,7 @@ void graph_draw_unicode_font(graph_t* g, int32_t x, int32_t y, uint32_t c,
 		for (int32_t j = 0; j < slot.bitmap.rows; j++) {
 			for (int32_t i = 0; i < slot.bitmap.width; i++) {
 				uint8_t pv = slot.bitmap.buffer[j*slot.bitmap.width+i];
-				graph_pixel_argb_safe(g, x+i, y+j,
+				graph_pixel_argb(g, x+i, y+j,
 						(color >> 24) & pv & 0xff,
 						(color >> 16) & 0xff,
 						(color >> 8) & 0xff,
@@ -295,7 +295,7 @@ void graph_draw_char_font_fixed(graph_t* g, int32_t x, int32_t y, uint32_t c,
 		for (int32_t j = 0; j < slot.bitmap.rows; j++) {
 			for (int32_t i = 0; i < slot.bitmap.width; i++) {
 				uint8_t pv = slot.bitmap.buffer[j*slot.bitmap.width+i];
-				graph_pixel_argb_safe(g, 
+				graph_pixel_argb(g, 
 						x+i,
 						y+j,
 						(color >> 24) & pv & 0xff,

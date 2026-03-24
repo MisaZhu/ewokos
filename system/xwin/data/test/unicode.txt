@@ -7,7 +7,7 @@ void MacWM::drawDesktop(graph_t* g) {
 	int32_t x, y;
 	for(y=10; y<(int32_t)g->h; y+=10) {
 		for(x=0; x<(int32_t)g->w; x+=10) {
-			graph_pixel(g, x, y, desktopFGColor);
+			graph_set_pixel(g, x, y, desktopFGColor);
 		}
 	}
 

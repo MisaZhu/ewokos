@@ -14,9 +14,9 @@ void graph_line(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint
 
 	if(x1 == x2 && y1 == y2) {
 		if(color_a(color) == 0xff)
-			graph_pixel_safe(g, x1, y1, color);
+			graph_pixel(g, x1, y1, color);
 		else
-			graph_pixel_argb_safe(g, x1, y1,
+			graph_pixel_argb(g, x1, y1,
 					(color >> 24) & 0xff,
 					(color >> 16) & 0xff,
 					(color >> 8) & 0xff,
@@ -56,7 +56,7 @@ void graph_line(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint
 	e = 2 * dy - dx;
 	if(color_a(color) == 0xff) {
 		for (i=0; i<=dx; i++) {
-			graph_pixel_safe(g, x, y, color);
+			graph_pixel(g, x, y, color);
 			while (e>=0) {
 				if (swap==1)
 					x += s1;
@@ -78,7 +78,7 @@ void graph_line(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint
 		register uint8_t cb = (color) & 0xff;
 	
 		for (i=0; i<=dx; i++) {
-			graph_pixel_argb_safe(g, x, y, ca, cr, cg, cb);
+			graph_pixel_argb(g, x, y, ca, cr, cg, cb);
 			while (e>=0) {
 				if (swap==1)
 					x += s1;

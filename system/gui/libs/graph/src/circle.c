@@ -21,9 +21,7 @@ void graph_fill_circle(graph_t* g, int32_t x, int32_t y, int32_t radius, uint32_
 			if(dist_sq <= r_sq_plus) {
 				int px = x + cx;
 				int py = y + cy;
-				if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
-					graph_pixel_alpha(g, px, py, color);
-				}
+				graph_pixel(g, px, py, color);
 			}
 		}
 	}
@@ -48,9 +46,7 @@ void graph_circle(graph_t* g, int32_t x, int32_t y, int32_t radius, int32_t rw, 
 			if(dist_sq >= inner_r_sq && dist_sq <= outer_r_sq) {
 				int px = x + cx;
 				int py = y + cy;
-				if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
-					graph_pixel_alpha(g, px, py, color);
-				}
+				graph_pixel(g, px, py, color);
 			}
 		}
 	}

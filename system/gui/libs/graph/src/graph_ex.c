@@ -83,7 +83,7 @@ void graph_draw_dot_pattern(graph_t* g,int x, int y, int w, int h, uint32_t c1, 
         while(j < h) {
                 while(i < w) {
                         if(dw == 1)
-                                graph_pixel(g, x+i, y+j, c2);
+                                graph_set_pixel(g, x+i, y+j, c2);
                         else
                                 graph_fill(g, x+i, y+j, dw, dw, c2);
                         i += dw + dspace;
@@ -248,7 +248,7 @@ void graph_gaussian_cpu(graph_t* g, int x, int y, int w, int h, int r) {
             uint8_t avgR = sumR / count;
             uint8_t avgG = sumG / count;
             uint8_t avgB = sumB / count;
-            graph_pixel(g, x + ix, y + iy, (alpha << 24) | (avgR << 16) | (avgG << 8) | avgB);
+            graph_set_pixel(g, x + ix, y + iy, (alpha << 24) | (avgR << 16) | (avgG << 8) | avgB);
         }
     }
     
@@ -375,9 +375,7 @@ void graph_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, uint3
         int yy = y + i;
         if(yy >= 0 && yy < g->h) {
             for(int xx = x + r; xx < x + w - r; xx++) {
-                if(xx >= 0 && xx < g->w) {
-                    graph_pixel_alpha(g, xx, yy, highlight_color);
-                }
+                graph_pixel(g, xx, yy, highlight_color);
             }
         }
     }
@@ -387,9 +385,7 @@ void graph_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, uint3
         int xx = x + i;
         if(xx >= 0 && xx < g->w) {
             for(int yy = y + r; yy < y + h - r; yy++) {
-                if(yy >= 0 && yy < g->h) {
-                    graph_pixel_alpha(g, xx, yy, highlight_color);
-                }
+                graph_pixel(g, xx, yy, highlight_color);
             }
         }
     }
@@ -399,9 +395,7 @@ void graph_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, uint3
         int yy = y + h - 1 - i;
         if(yy >= 0 && yy < g->h) {
             for(int xx = x + r; xx < x + w - r; xx++) {
-                if(xx >= 0 && xx < g->w) {
-                    graph_pixel_alpha(g, xx, yy, deep_color);
-                }
+                graph_pixel(g, xx, yy, deep_color);
             }
         }
     }
@@ -411,9 +405,7 @@ void graph_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, uint3
         int xx = x + w - 1 - i;
         if(xx >= 0 && xx < g->w) {
             for(int yy = y + r; yy < y + h - r; yy++) {
-                if(yy >= 0 && yy < g->h) {
-                    graph_pixel_alpha(g, xx, yy, deep_color);
-                }
+                graph_pixel(g, xx, yy, deep_color);
             }
         }
     }
@@ -434,9 +426,7 @@ void graph_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, uint3
                 // For top-left, mirror the position from bottom-right pattern
                 int px = x + (r - 1 - cx);
                 int py = y + (r - 1 - cy);
-                if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
-                    graph_pixel_alpha(g, px, py, highlight_color);
-                }
+                graph_pixel(g, px, py, highlight_color);
             }
         }
     }
@@ -452,11 +442,9 @@ void graph_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, uint3
                 // For top-right, mirror vertically from bottom-right pattern
                 int px = x + w - r + cx;
                 int py = y + (r - 1 - cy);
-                if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
                     // 45 degree diagonal: cx + cy >= r means lower-right area
-                    uint32_t c = (cx - cy <= 0) ?  highlight_color : deep_color;
-                    graph_pixel_alpha(g, px, py, c);
-                }
+                uint32_t c = (cx - cy <= 0) ?  highlight_color : deep_color;
+                graph_pixel(g, px, py, c);
             }
         }
     }
@@ -472,11 +460,9 @@ void graph_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, uint3
                 // For bottom-left, mirror horizontally from bottom-right pattern
                 int px = x + (r - 1 - cx);
                 int py = y + h - r + cy;
-                if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
                     // 45 degree diagonal: cx + cy >= r means lower-right area
-                    uint32_t c = (cx - cy <= 0) ?  deep_color : highlight_color;
-                    graph_pixel_alpha(g, px, py, c);
-                }
+                uint32_t c = (cx - cy <= 0) ?  deep_color : highlight_color;
+                graph_pixel(g, px, py, c);
             }
         }
     }
@@ -491,9 +477,7 @@ void graph_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, uint3
             if(dist_sq >= (r-rw)*(r-rw) && dist_sq <= r*r) {
                 int px = x + w - r + cx;
                 int py = y + h - r + cy;
-                if(px >= 0 && px < g->w && py >= 0 && py < g->h) {
-                    graph_pixel_alpha(g, px, py, deep_color);
-                }
+                graph_pixel(g, px, py, deep_color);
             }
         }
     }

@@ -7,7 +7,7 @@
 extern "C" { 
 #endif
 
-inline void graph_pixel(graph_t* g, int32_t x, int32_t y, uint32_t color) {
+inline void graph_set_pixel(graph_t* g, int32_t x, int32_t y, uint32_t color) {
 	g->buffer[y * g->w + x] = color;
 }
 
@@ -15,22 +15,7 @@ inline uint32_t graph_get_pixel(graph_t* g, int32_t x, int32_t y) {
 	return g->buffer[y * g->w + x];
 }
 
-inline void graph_pixel_safe(graph_t* g, int32_t x, int32_t y, uint32_t color) {
-	if(g == NULL)
-		return;
-	if(g->clip.w == 0 || g->clip.h == 0) {
-		if(x < 0 || x >= g->w || y < 0 || y >= g->h)
-			return;
-	}
-	else {
-		if(x < g->clip.x || x >= (g->clip.x + g->clip.w) ||
-				y < g->clip.y || y >= (g->clip.y + g->clip.h))
-			return;
-	}
-	graph_pixel(g, x, y, color);
-}
-
-inline void graph_pixel_argb(graph_t* graph, int32_t x, int32_t y,
+inline void graph_pixel_argb_raw(graph_t* graph, int32_t x, int32_t y,
 		uint8_t a, uint8_t r, uint8_t g, uint8_t b) {
 	if(a == 0)
 		return;
@@ -58,7 +43,33 @@ inline void graph_pixel_argb(graph_t* graph, int32_t x, int32_t y,
 	graph->buffer[y * graph->w + x] = argb(oa, or, og, ob);
 }
 
-inline void graph_pixel_argb_safe(graph_t* graph, int32_t x, int32_t y,
+inline void graph_pixel(graph_t* g, int32_t x, int32_t y, uint32_t color) {
+	register uint8_t a = (color >> 24) & 0xff;
+	if(g == NULL || a == 0)
+		return;
+
+	if(g->clip.w == 0 || g->clip.h == 0) {
+		if(x < 0 || x >= g->w || y < 0 || y >= g->h)
+			return;
+	}
+	else {
+		if(x < g->clip.x || x >= (g->clip.x + g->clip.w) ||
+				y < g->clip.y || y >= (g->clip.y + g->clip.h))
+			return;
+	}
+
+	if(a == 0xff) {
+		graph_set_pixel(g, x, y, color);
+		return;
+	}
+
+	register uint8_t r = (color >> 16) & 0xff;
+	register uint8_t gc = (color >> 8)  & 0xff;
+	register uint8_t b = color & 0xff;
+	graph_pixel_argb_raw(g, x, y, a, r, gc, b);
+}
+
+inline void graph_pixel_argb(graph_t* graph, int32_t x, int32_t y,
 		uint8_t a, uint8_t r, uint8_t g, uint8_t b) {
 	if(graph == NULL || a == 0)
 		return;
@@ -71,23 +82,7 @@ inline void graph_pixel_argb_safe(graph_t* graph, int32_t x, int32_t y,
 				y < graph->clip.y || y >= (graph->clip.y + graph->clip.h))
 			return;
 	}
-	graph_pixel_argb(graph, x, y, a, r, g, b);
-}
-
-inline void  graph_pixel_alpha(graph_t* graph, int32_t x, int32_t y, uint32_t color) {
-	register uint8_t a = (color >> 24) & 0xff;
-	register uint8_t r = (color >> 16) & 0xff;
-	register uint8_t g = (color >> 8)  & 0xff;
-	register uint8_t b = color & 0xff;
-	graph_pixel_argb(graph, x, y, a, r, g, b);
-}
-
-inline void  graph_pixel_alpha_safe(graph_t* graph, int32_t x, int32_t y, uint32_t color) {
-	register uint8_t a = (color >> 24) & 0xff;
-	register uint8_t r = (color >> 16) & 0xff;
-	register uint8_t g = (color >> 8)  & 0xff;
-	register uint8_t b = color & 0xff;
-	graph_pixel_argb_safe(graph, x, y, a, r, g, b);
+	graph_pixel_argb_raw(graph, x, y, a, r, g, b);
 }
 
 #ifdef __cplusplus
