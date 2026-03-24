@@ -216,12 +216,11 @@ int main(int argc, char** argv) {
 	theme->basic.bgColor = 0x88000000;
 	theme->basic.fgColor = 0xffffffff;
 	theme->basic.selectBGColor = 0xdd888888;
-	win.setAlpha(true);
 
 	RootWidget* root = new RootWidget();
+	root->setAlpha(true);
 	win.setRoot(root);
 	root->setType(Container::HORIZONTAL);
-	
 
 	AppGrid* apps = new AppGrid();
 	apps->setAlpha(true);
