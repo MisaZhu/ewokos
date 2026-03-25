@@ -180,6 +180,10 @@ int virtio_blk_rw(struct virtio_device *dev, void *buffer, uint32_t count, int w
     uint8_t *buf_ptr = (uint8_t *)virtq->buffer;
     uint32_t bytes = count * 512;
 
+    if (write) {
+        memcpy(buf_ptr, buffer, bytes);
+    }
+
     uint16_t head_idx = 0;
     
     virtq->desc[head_idx].addr = get_phy_addr(dev, &virtq->req);
@@ -207,7 +211,8 @@ int virtio_blk_rw(struct virtio_device *dev, void *buffer, uint32_t count, int w
 		uint32_t irq = mmio_read(base + VIRTIO_MMIO_INTERRUPT_STATUS);
 		if(irq & 0x1){
 			mmio_write(base + VIRTIO_MMIO_INTERRUPT_ACK, 0x1);
-	        memcpy(buffer, buf_ptr, bytes);
+	        if (!write)
+	            memcpy(buffer, buf_ptr, bytes);
 			break;
 		}
         for (volatile int i = 0; i < 1000; i++);

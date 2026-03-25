@@ -24,5 +24,5 @@ int32_t virt_sd_read_sector(int32_t sector, void* buf) {
 }
 
 int32_t virt_sd_write_sector(int32_t sector, const void* buf) {
-	return 0;
+	return virtio_blk_transfer(dev, sector, (void*)buf, 1, 1);
 }

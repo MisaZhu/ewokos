@@ -415,6 +415,10 @@ int virtio_blk_transfer(struct virtio_device *dev, uint64_t sector, void *buffer
     uint32_t bytes = count * 512;
     buf[bytes] = 0xFF;
 
+    if (isWrite) {
+        memcpy(buf, buffer, bytes);
+    }
+
     uint16_t head_idx = 0;
 
     virtq->desc[head_idx].addr = get_phy_addr(dev, req);
