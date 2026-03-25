@@ -29,6 +29,9 @@ void WidgetWin::onRepaint(graph_t* g) {
 		return;
 	if(xwin->xinfo != NULL && xwin->xinfo->update_theme)
 		root->dirty = true;
+
+	if(root->isAlpha())
+		graph_clear(g, 0);
 	root->repaint(g, &theme);
 }
 
