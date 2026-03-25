@@ -61,7 +61,7 @@
 @/bin/bgrun /sbin/x/xim_none /dev/keyb0 
 
 @/bin/splash -m "startx" -p 100
-#@/bin/bgrun /bin/x/xsession misa 
-@/bin/bgrun /bin/x/xsession
+@/bin/bgrun /bin/x/xsession misa 
+#@/bin/bgrun /bin/x/xsession
 
 #@/bin/bgrun /drivers/virt/virtfsd
