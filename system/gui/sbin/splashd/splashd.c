@@ -80,10 +80,10 @@ static void paint_progress(uint32_t persantage, int32_t off_y) {
 
 	uint32_t persantage_w = _splash_info.w * persantage / 100;
 
-	graph_fill_3d(g, off_x-1, off_y, _splash_info.w+2, _splash_info.item_h, 
-		graph_get_dark_color(color), true);
-	graph_fill_3d(g, off_x, off_y+2, persantage_w, _splash_info.item_h-4, 
-		color, false);
+	graph_fill_round_3d(g, off_x-2, off_y, _splash_info.w+4, _splash_info.item_h, 
+		10, 1, graph_get_dark_color(color), true);
+	graph_fill_round_3d(g, off_x, off_y+2, persantage_w, _splash_info.item_h-4, 
+		10, 1, color, false);
 }
 
 static void paint_msg(const char* msg, int32_t off_y) {

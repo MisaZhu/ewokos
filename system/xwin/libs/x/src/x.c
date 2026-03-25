@@ -143,7 +143,7 @@ static int x_update_theme(void) {
 	proto_t out;
 	PF->init(&out);
 	if(dev_cntl_by_pid(xserv_pid, X_DCNTL_GET_THEME, NULL, &out) != 0) {
-		slog("update theme error\n");
+		klog("update theme error\n");
 		return -1;
 	}	
 

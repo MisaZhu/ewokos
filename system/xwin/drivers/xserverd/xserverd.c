@@ -72,9 +72,6 @@ static bool top_proc(x_t* x, xwin_t* win) {
 }
 
 static void prepare_win_content(x_t* x, xwin_t* win) {
-	if(!check_xwm(x))
-		return;
-
 	x_display_t *display = &x->displays[win->xinfo->display_index];
 	if(display->g == NULL)
 		return;
@@ -97,10 +94,13 @@ static void prepare_win_content(x_t* x, xwin_t* win) {
 				win->xinfo->wsr.w,
 				win->xinfo->wsr.h);
 	}
-	
+
 	if(!win->frame_dirty)
 		return;
-	
+
+	if(!check_xwm(x))
+		return;
+
 	//klog("win title: %s win->frame_dirty: %d\n", win->xinfo->title, win->frame_dirty);
 	proto_t in;
 	PF->format(&in, "i,i,i,m",
@@ -677,7 +677,7 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 	}
 
 	if(x->current_display == display_index) {
-		if((x->show_cursor || x->mouse_state.busy) && check_xwm(x))
+		if(x->show_cursor || x->mouse_state.busy)
 			refresh_cursor(x);
 	}
 
@@ -1835,6 +1835,7 @@ int main(int argc, char** argv) {
 		return -1;
 
 	read_config(&x, "/etc/x/x.json");
+	cursor_init("default", &x.cursor);
 	x_load_theme("default", &x.config.theme);
 
 	vdevice_t dev;

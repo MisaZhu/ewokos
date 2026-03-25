@@ -57,9 +57,9 @@ class XSession : public XWin {
 
 	void drawFrame(graph_t* g, const grect_t& r) {
 		font_t* font = theme.getFont();
-		graph_fill(g, r.x, r.y, r.w, r.h, theme.basic.bgColor);
-		graph_fill(g, r.x, r.y, r.w, theme.basic.fontSize+2, 0xffffbb88);
-		graph_draw_text_font(g, r.x+8, r.y,
+		graph_fill_round_3d(g, r.x-2, r.y-2, r.w+4, r.h+4, 10, 1, theme.basic.bgColor, false);
+		graph_fill_round_3d(g, r.x, r.y, r.w, theme.basic.fontSize+8, 10, 1, 0xffffbb88, true);
+		graph_draw_text_font(g, r.x+8, r.y+2,
 				"EwokOS(M-kernel)", font, theme.basic.fontSize, theme.basic.fgColor);
 
 		graph_t* logo = logoUser;
@@ -67,18 +67,20 @@ class XSession : public XWin {
 			logo = logoPasswd;
 		graph_blt_alpha(logo, 0, 0, logo->w, logo->h,
 				g, r.x+r.w-logo->w, r.y, logo->w, logo->h, 0xff);
-		graph_box_3d(g, r.x, r.y, r.w, r.h, theme.basic.bgColor, false);
+		//graph_box_3d(g, r.x, r.y, r.w, r.h, theme.basic.bgColor, false);
 	}
 
 	void drawInput(graph_t* g, const grect_t& r, const char* title, const char* input) {
 		font_t* font = theme.getFont();
 
-		int y = r.y + theme.basic.fontSize+8;
+		int y = r.y + theme.basic.fontSize+16;
 		graph_draw_text_font(g, r.x+8, y, 
 				title, font, theme.basic.fontSize , theme.basic.fgColor);
 
 		y += theme.basic.fontSize+8;
-		graph_fill_3d(g, r.x+8, y, r.w-16, theme.basic.fontSize+2, theme.basic.bgColor, true);
+		graph_fill_round_3d(g, r.x+2, y, r.w-4, theme.basic.fontSize+8, 10, 1, 0xffdddddd, true);
+		y += 4;
+
 		if(passwordMode) {
 			std::string pwd;
 			int len = strlen(input);
@@ -96,7 +98,7 @@ class XSession : public XWin {
 					input, font, theme.basic.fontSize, theme.basic.fgColor, FONT_ALIGN_CENTER);
 
 		if(errMsg.length() != 0) {
-			y += theme.basic.fontSize;
+			y += theme.basic.fontSize + 8;
 			graph_draw_text_font_align(g, r.x, y, r.w, theme.basic.fontSize, 
 					errMsg.c_str(), font, theme.basic.fontSize, 0xffff0000, FONT_ALIGN_CENTER);
 		}
@@ -108,15 +110,19 @@ protected:
 		const char* input = passwordMode ? password.c_str() : username.c_str();
 		const char* title = passwordMode ? "password" : "username";
 
-		uint32_t tw = 0, th = theme.basic.fontSize + 2;
-		uint32_t iw = 0, ih = theme.basic.fontSize + 2;
+		uint32_t tw = 0;
+		uint32_t iw = 0;
+		uint32_t ih = theme.basic.fontSize + 2;
 		font_text_size(title, font, theme.basic.fontSize, &tw, NULL);
 		font_text_size(input, font, theme.basic.fontSize, &iw, NULL);
 		if(iw < 180)
 			iw = 180;
 
-		uint32_t fw = iw+16;
+		uint32_t fw = iw+64;
 		uint32_t fh = ih * 5;
+		if(errMsg.length() != 0)
+			fh += ih;
+
 		grect_t frameR = { (g->w - fw) / 2, (g->h - fh) / 2, fw, fh };
 
 		drawBG(g);
