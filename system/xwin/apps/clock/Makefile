@@ -1,3 +1,6 @@
+TASK = clock
+TASK_OBJS = clock.o
+
 SYS_DIR=../../..
 include $(SYS_DIR)/platform/$(ARCH)/make.rule
 
@@ -6,9 +9,6 @@ TARGET_ROOT_DIR = $(BUILD_DIR)/rootfs
 
 LDFLAGS = -L$(BUILD_DIR)/lib
 CXXFLAGS += -I $(BUILD_DIR)/include
-
-TASK_OBJS = clock.o
-TASK = clock
 
 APP_DIR = $(TARGET_ROOT_DIR)/apps/$(TASK)
 
