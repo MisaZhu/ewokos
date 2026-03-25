@@ -112,12 +112,15 @@ void graph_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, int32_t rw, flo
 
     float outer_r = (float)radius;
     float inner_r = (float)(radius - rw);
+    // 抗锯齿边界：半径 + 0.5，确保边缘像素都被处理
+    float aa_outer_r = outer_r + 0.5f;
+    float aa_outer_r_sq = aa_outer_r * aa_outer_r;
     
-    // 计算边界框
-    int32_t min_y = y - radius - 1;
-    int32_t max_y = y + radius + 1;
-    int32_t min_x = x - radius - 1;
-    int32_t max_x = x + radius + 1;
+    // 计算边界框（包含抗锯齿区域）
+    int32_t min_y = y - (int32_t)(aa_outer_r + 0.5f);
+    int32_t max_y = y + (int32_t)(aa_outer_r + 0.5f);
+    int32_t min_x = x - (int32_t)(aa_outer_r + 0.5f);
+    int32_t max_x = x + (int32_t)(aa_outer_r + 0.5f);
     
     // 裁剪到画布边界
     if (min_y < 0) min_y = 0;
@@ -125,17 +128,60 @@ void graph_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, int32_t rw, flo
     if (min_x < 0) min_x = 0;
     if (max_x >= g->w) max_x = g->w - 1;
 
+    // 按行扫描优化
     for(int32_t py = min_y; py <= max_y; py++) {
-        for(int32_t px = min_x; px <= max_x; px++) {
-            float cx = (float)(px - x);
-            float cy = (float)(py - y);
-            float dist = sqrtf(cx*cx + cy*cy);
+        float cy = (float)(py - y);
+        float cy_sq = cy * cy;
+        
+        // 计算这一行在外圆内的x范围
+        float outer_x_sq = aa_outer_r_sq - cy_sq;
+        if (outer_x_sq < 0) continue; // 这一行在圆外
+        
+        float outer_x = sqrtf(outer_x_sq);
+        int32_t row_min_x = x - (int32_t)(outer_x + 0.5f);
+        int32_t row_max_x = x + (int32_t)(outer_x + 0.5f);
+        
+        if (row_min_x < min_x) row_min_x = min_x;
+        if (row_max_x > max_x) row_max_x = max_x;
+        
+        // 计算这一行在内圆内的x范围
+        float inner_x_sq = inner_r * inner_r - cy_sq;
+        int32_t inner_row_min_x = row_min_x;
+        int32_t inner_row_max_x = row_max_x;
+        
+        if (inner_x_sq > 0) {
+            float inner_x = sqrtf(inner_x_sq);
+            inner_row_min_x = x - (int32_t)(inner_x + 0.5f);
+            inner_row_max_x = x + (int32_t)(inner_x + 0.5f);
             
-            // 计算到内外边界的距离
+            if (inner_row_min_x < min_x) inner_row_min_x = min_x;
+            if (inner_row_max_x > max_x) inner_row_max_x = max_x;
+        }
+        
+        // 绘制左外边界（抗锯齿）
+        for (int32_t px = row_min_x; px < inner_row_min_x; px++) {
+            float cx = (float)(px - x);
+            float dist = sqrtf(cx*cx + cy_sq);
+            float outer_edge = dist - outer_r;
+            float radial_intensity = aa_intensity_arc(outer_edge);
+            
+            if (radial_intensity > 0.0f) {
+                float angle = atan2f(cy, cx);
+                float angle_intens = angle_intensity(angle, start_rad, end_rad, swap);
+                if (angle_intens > 0.0f) {
+                    float final_intensity = radial_intensity * angle_intens;
+                    draw_aa_pixel_arc(g, px, py, color, final_intensity);
+                }
+            }
+        }
+        
+        // 绘制圆环内部（需要检查角度）
+        for (int32_t px = inner_row_min_x; px <= inner_row_max_x; px++) {
+            float cx = (float)(px - x);
+            float dist = sqrtf(cx*cx + cy_sq);
             float outer_edge = dist - outer_r;
             float inner_edge = inner_r - dist;
             
-            // 计算径向抗锯齿强度
             float radial_intensity = 0.0f;
             if (outer_edge >= -0.5f && outer_edge <= 0.5f) {
                 radial_intensity = aa_intensity_arc(outer_edge);
@@ -147,10 +193,24 @@ void graph_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, int32_t rw, flo
             
             if (radial_intensity > 0.0f) {
                 float angle = atan2f(cy, cx);
-                
-                // 计算角度抗锯齿强度
                 float angle_intens = angle_intensity(angle, start_rad, end_rad, swap);
-                
+                if (angle_intens > 0.0f) {
+                    float final_intensity = radial_intensity * angle_intens;
+                    draw_aa_pixel_arc(g, px, py, color, final_intensity);
+                }
+            }
+        }
+        
+        // 绘制右外边界（抗锯齿）
+        for (int32_t px = inner_row_max_x + 1; px <= row_max_x; px++) {
+            float cx = (float)(px - x);
+            float dist = sqrtf(cx*cx + cy_sq);
+            float outer_edge = dist - outer_r;
+            float radial_intensity = aa_intensity_arc(outer_edge);
+            
+            if (radial_intensity > 0.0f) {
+                float angle = atan2f(cy, cx);
+                float angle_intens = angle_intensity(angle, start_rad, end_rad, swap);
                 if (angle_intens > 0.0f) {
                     float final_intensity = radial_intensity * angle_intens;
                     draw_aa_pixel_arc(g, px, py, color, final_intensity);
@@ -177,12 +237,15 @@ void graph_fill_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, float star
     float end_rad = DEG_TO_RAD(end_angle);
 
     float r_f = (float)radius;
+    // 抗锯齿边界：半径 + 0.5，确保边缘像素都被处理
+    float aa_radius = r_f + 0.5f;
+    float aa_radius_sq = aa_radius * aa_radius;
     
-    // 计算边界框
-    int32_t min_y = y - radius - 1;
-    int32_t max_y = y + radius + 1;
-    int32_t min_x = x - radius - 1;
-    int32_t max_x = x + radius + 1;
+    // 计算边界框（包含抗锯齿区域）
+    int32_t min_y = y - (int32_t)(aa_radius + 0.5f);
+    int32_t max_y = y + (int32_t)(aa_radius + 0.5f);
+    int32_t min_x = x - (int32_t)(aa_radius + 0.5f);
+    int32_t max_x = x + (int32_t)(aa_radius + 0.5f);
     
     // 裁剪到画布边界
     if (min_y < 0) min_y = 0;
@@ -190,22 +253,31 @@ void graph_fill_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, float star
     if (min_x < 0) min_x = 0;
     if (max_x >= g->w) max_x = g->w - 1;
 
+    // 按行扫描优化
     for(int32_t py = min_y; py <= max_y; py++) {
-        for(int32_t px = min_x; px <= max_x; px++) {
+        float cy = (float)(py - y);
+        float cy_sq = cy * cy;
+        
+        // 计算这一行的x范围（考虑抗锯齿区域）
+        float x_range_sq = aa_radius_sq - cy_sq;
+        if (x_range_sq < 0) continue; // 这一行在圆外
+        
+        float x_range = sqrtf(x_range_sq);
+        int32_t row_min_x = x - (int32_t)(x_range + 0.5f);
+        int32_t row_max_x = x + (int32_t)(x_range + 0.5f);
+        
+        if (row_min_x < min_x) row_min_x = min_x;
+        if (row_max_x > max_x) row_max_x = max_x;
+        
+        // 绘制这一行的每个像素
+        for (int32_t px = row_min_x; px <= row_max_x; px++) {
             float cx = (float)(px - x);
-            float cy = (float)(py - y);
-            float dist = sqrtf(cx*cx + cy*cy);
-            
-            // 计算到圆边界的距离
+            float dist = sqrtf(cx*cx + cy_sq);
             float edge_dist = dist - r_f;
-            
-            // 计算径向抗锯齿强度
             float radial_intensity = aa_intensity_arc(edge_dist);
             
             if (radial_intensity > 0.0f) {
                 float angle = atan2f(cy, cx);
-                
-                // 计算角度抗锯齿强度
                 float angle_intens = angle_intensity(angle, start_rad, end_rad, swap);
                 
                 if (angle_intens > 0.0f) {
