@@ -42,6 +42,9 @@ class XSession : public XWin {
 		if(res != 0)
 			return res;
 
+		vfs_create(info.home, NULL, FS_TYPE_DIR, 0750, false, true);
+		chown(info.home, info.uid, info.gid);
+
 		close();
 		run_xinit(&info);
 		return 0;
@@ -193,6 +196,9 @@ int main(int argc, char* argv[]) {
 		//no login check
 		session_info_t info;
 		if(session_get_by_name(argv[1], &info) == 0) {
+			vfs_create(info.home, NULL, FS_TYPE_DIR, 0750, false, true);
+			chown(info.home, info.uid, info.gid);
+
 			run_xinit(&info);
 			return 0;
 		}
