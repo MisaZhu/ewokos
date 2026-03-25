@@ -1,16 +1,16 @@
 SYS_DIR=../../..
 include $(SYS_DIR)/platform/$(ARCH)/make.rule
 
-TARGET_DIR = $(SYS_DIR)/build/$(HW)
-BUILD_DIR = $(TARGET_DIR)/rootfs
+BUILD_DIR = $(SYS_DIR)/build/$(HW)
+TARGET_ROOT_DIR = $(BUILD_DIR)/rootfs
 
-LDFLAGS = -L$(TARGET_DIR)/lib
-CXXFLAGS += -I $(TARGET_DIR)/include
+LDFLAGS = -L$(BUILD_DIR)/lib
+CXXFLAGS += -I $(BUILD_DIR)/include
 
 TASK_OBJS = clock.o
 TASK = clock
 
-APP_DIR = $(BUILD_DIR)/apps/$(TASK)
+APP_DIR = $(TARGET_ROOT_DIR)/apps/$(TASK)
 
 all: $(TASK)
 
