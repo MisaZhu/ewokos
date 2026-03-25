@@ -42,7 +42,7 @@ void RoundButton::setAttr(const string& attr, json_var_t*value) {
 }
 
 RoundButton::RoundButton() {
-	setRound(6, 1);
+	setRound(10, 1);
 }
 
 }
