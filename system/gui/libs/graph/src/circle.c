@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <math.h>
 
 #ifdef __cplusplus 
 extern "C" { 
@@ -41,11 +42,17 @@ void graph_fill_circle(graph_t* g, int32_t cx, int32_t cy, int32_t radius, uint3
     if (radius <= 0 || g == NULL)
         return;
     
-    // 计算边界框
-    int32_t min_y = cy - radius - 1;
-    int32_t max_y = cy + radius + 1;
-    int32_t min_x = cx - radius - 1;
-    int32_t max_x = cx + radius + 1;
+    float r_f = (float)radius;
+    float r_sq = r_f * r_f;
+    // 抗锯齿边界：半径 + 0.5，确保边缘像素都被处理
+    float aa_radius = r_f + 0.5f;
+    float aa_radius_sq = aa_radius * aa_radius;
+    
+    // 计算边界框（包含抗锯齿区域）
+    int32_t min_y = cy - (int32_t)(aa_radius + 0.5f);
+    int32_t max_y = cy + (int32_t)(aa_radius + 0.5f);
+    int32_t min_x = cx - (int32_t)(aa_radius + 0.5f);
+    int32_t max_x = cx + (int32_t)(aa_radius + 0.5f);
     
     // 裁剪到画布边界
     if (min_y < 0) min_y = 0;
@@ -53,23 +60,31 @@ void graph_fill_circle(graph_t* g, int32_t cx, int32_t cy, int32_t radius, uint3
     if (min_x < 0) min_x = 0;
     if (max_x >= g->w) max_x = g->w - 1;
     
-    float r_f = (float)radius;
-    
+    // 优化：按行扫描
     for (int32_t py = min_y; py <= max_y; py++) {
-        for (int32_t px = min_x; px <= max_x; px++) {
+        float dy = (float)(py - cy);
+        float dy_sq = dy * dy;
+        
+        // 计算这一行的x范围（考虑抗锯齿区域）
+        float x_range_sq = aa_radius_sq - dy_sq;
+        if (x_range_sq < 0) continue; // 这一行在圆外
+        
+        float x_range = sqrtf(x_range_sq);
+        int32_t row_min_x = cx - (int32_t)(x_range + 0.5f);
+        int32_t row_max_x = cx + (int32_t)(x_range + 0.5f);
+        
+        if (row_min_x < min_x) row_min_x = min_x;
+        if (row_max_x > max_x) row_max_x = max_x;
+        
+        // 绘制这一行的每个像素
+        for (int32_t px = row_min_x; px <= row_max_x; px++) {
             float dx = (float)(px - cx);
-            float dy = (float)(py - cy);
-            float dist = sqrtf(dx * dx + dy * dy);
-            
-            // 计算到圆边界的距离（负值在内部，正值在外部）
+            float dist = sqrtf(dx * dx + dy_sq);
             float edge_dist = dist - r_f;
+            float intensity = aa_intensity(edge_dist);
             
-            if (edge_dist >= 0.0f) {
-                float intensity = aa_intensity(edge_dist);
+            if (intensity > 0.0f) {
                 draw_aa_pixel(g, px, py, color, intensity);
-            }
-            else {
-                graph_pixel(g, px, py, color);
             }
         }
     }
