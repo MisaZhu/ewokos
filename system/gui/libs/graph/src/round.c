@@ -10,32 +10,6 @@ extern "C" {
 
 #ifdef BSP_BOOST
 
-// 辅助函数：混合两个颜色（与graph_pixel_argb_raw一致的混合方式）
-// alpha是前景色的强度(0.0-1.0)，fg是前景色，bg是背景色
-static inline uint32_t blend_colors(uint32_t bg, uint32_t fg, float alpha) {
-    if (alpha <= 0.0f) return bg;
-    if (alpha >= 1.0f) return fg;
-    
-    // 将float alpha转换为0-255范围的整数，与graph_pixel_argb_raw一致
-    uint8_t a = (uint8_t)(alpha * 255.0f);
-    
-    uint8_t bg_r = (bg >> 16) & 0xFF;
-    uint8_t bg_g = (bg >> 8) & 0xFF;
-    uint8_t bg_b = bg & 0xFF;
-    
-    uint8_t fg_r = (fg >> 16) & 0xFF;
-    uint8_t fg_g = (fg >> 8) & 0xFF;
-    uint8_t fg_b = fg & 0xFF;
-    
-    // 使用与graph_pixel_argb_raw相同的混合公式
-    uint8_t out_r = ((fg_r * a) >> 8) + ((bg_r * (255 - a)) >> 8);
-    uint8_t out_g = ((fg_g * a) >> 8) + ((bg_g * (255 - a)) >> 8);
-    uint8_t out_b = ((fg_b * a) >> 8) + ((bg_b * (255 - a)) >> 8);
-    
-    // alpha通道：结果alpha = 255（不透明），因为我们是在绘制到已存在的背景上
-    return ((uint32_t)0xFF << 24) | ((uint32_t)out_r << 16) | ((uint32_t)out_g << 8) | out_b;
-}
-
 // 辅助函数：计算抗锯齿强度（基于到理想边界的距离）
 // 距离为0表示完全在内部，距离为1表示完全在外部
 static inline float aa_intensity(float dist) {
@@ -64,6 +38,122 @@ static inline void draw_aa_pixel(graph_t* g, int32_t x, int32_t y, uint32_t colo
     }
 }
 
+// 辅助函数：绘制圆角（按行扫描优化）
+// corner_x, corner_y: 圆角矩形区域的起始坐标
+// cx, cy: 圆角中心相对于corner的偏移
+// r: 圆角半径
+static inline void draw_round_corner_fill(graph_t* g, int32_t corner_x, int32_t corner_y, 
+                                          int32_t cx, int32_t cy, int32_t r, 
+                                          uint32_t color, int mirror_x, int mirror_y) {
+    float r_f = (float)r;
+    float r_sq = r_f * r_f;
+    // 抗锯齿边界：半径 + 0.5，确保边缘像素都被处理
+    float aa_radius = r_f + 0.5f;
+    float aa_radius_sq = aa_radius * aa_radius;
+    
+    // 计算边界框（相对于圆角中心）
+    int32_t min_dy = 0;
+    int32_t max_dy = (int32_t)(aa_radius + 0.5f);
+    
+    // 按行扫描
+    for (int32_t dy = min_dy; dy <= max_dy; dy++) {
+        float dy_f = (float)dy + 0.5f;
+        float dy_sq = dy_f * dy_f;
+        
+        // 计算这一行的x范围
+        float x_range_sq = aa_radius_sq - dy_sq;
+        if (x_range_sq < 0) continue;
+        
+        float x_range = sqrtf(x_range_sq);
+        int32_t max_dx = (int32_t)(x_range + 0.5f);
+        
+        // 绘制这一行
+        for (int32_t dx = 0; dx <= max_dx; dx++) {
+            float dx_f = (float)dx + 0.5f;
+            float dist = sqrtf(dx_f * dx_f + dy_sq);
+            float edge_dist = dist - r_f;
+            float intensity = aa_intensity(edge_dist);
+            
+            if (intensity > 0.0f) {
+                int px = corner_x + cx + (mirror_x ? -dx : dx);
+                int py = corner_y + cy + (mirror_y ? -dy : dy);
+                draw_aa_pixel(g, px, py, color, intensity);
+            }
+        }
+    }
+}
+
+// 辅助函数：绘制圆角边框（按行扫描优化）
+static inline void draw_round_corner_round(graph_t* g, int32_t corner_x, int32_t corner_y, 
+                                           int32_t cx, int32_t cy, int32_t r, int32_t rw,
+                                           uint32_t color, int mirror_x, int mirror_y) {
+    float r_f = (float)r;
+    float inner_r_f = (float)(r - rw);
+    float aa_radius = r_f + 0.5f;
+    float aa_radius_sq = aa_radius * aa_radius;
+    
+    // 计算边界框
+    int32_t min_dy = 0;
+    int32_t max_dy = (int32_t)(aa_radius + 0.5f);
+    
+    // 按行扫描
+    for (int32_t dy = min_dy; dy <= max_dy; dy++) {
+        float dy_f = (float)dy + 0.5f;
+        float dy_sq = dy_f * dy_f;
+        
+        // 计算这一行在外圆内的x范围
+        float outer_x_sq = aa_radius_sq - dy_sq;
+        if (outer_x_sq < 0) continue;
+        
+        float outer_x = sqrtf(outer_x_sq);
+        int32_t max_dx = (int32_t)(outer_x + 0.5f);
+        
+        // 计算这一行在内圆内的x范围
+        float inner_x_sq = inner_r_f * inner_r_f - dy_sq;
+        int32_t inner_max_dx = 0;
+        if (inner_x_sq > 0) {
+            inner_max_dx = (int32_t)(sqrtf(inner_x_sq) + 0.5f);
+        }
+        
+        // 绘制左外边界（抗锯齿）
+        for (int32_t dx = inner_max_dx + 1; dx <= max_dx; dx++) {
+            float dx_f = (float)dx + 0.5f;
+            float dist = sqrtf(dx_f * dx_f + dy_sq);
+            float outer_edge = dist - r_f;
+            float intensity = aa_intensity(outer_edge);
+            
+            if (intensity > 0.0f) {
+                int px = corner_x + cx + (mirror_x ? -dx : dx);
+                int py = corner_y + cy + (mirror_y ? -dy : dy);
+                draw_aa_pixel(g, px, py, color, intensity);
+            }
+        }
+        
+        // 绘制圆环内部
+        for (int32_t dx = 0; dx <= inner_max_dx; dx++) {
+            float dx_f = (float)dx + 0.5f;
+            float dist = sqrtf(dx_f * dx_f + dy_sq);
+            float outer_edge = dist - r_f;
+            float inner_edge = inner_r_f - dist;
+            
+            float intensity = 0.0f;
+            if (outer_edge >= -0.5f && outer_edge <= 0.5f) {
+                intensity = aa_intensity(outer_edge);
+            } else if (inner_edge >= -0.5f && inner_edge <= 0.5f) {
+                intensity = aa_intensity(inner_edge);
+            } else if (outer_edge < 0.0f && inner_edge < 0.0f) {
+                intensity = 1.0f;
+            }
+            
+            if (intensity > 0.0f) {
+                int px = corner_x + cx + (mirror_x ? -dx : dx);
+                int py = corner_y + cy + (mirror_y ? -dy : dy);
+                draw_aa_pixel(g, px, py, color, intensity);
+            }
+        }
+    }
+}
+
 void graph_fill_round(graph_t* g, int32_t x, int32_t y,
 		int32_t w, int32_t h,
 		int32_t r, uint32_t color) {
@@ -74,8 +164,6 @@ void graph_fill_round(graph_t* g, int32_t x, int32_t y,
 	// Limit radius to half of width/height
 	if(r > w/2) r = w/2;
 	if(r > h/2) r = h/2;
-
-	float r_f = (float)r;
 
 	// Draw main rectangle body (non-corner area)
 	graph_fill(g, x+r, y+r, w-r*2, h-r*2, color);
@@ -90,66 +178,18 @@ void graph_fill_round(graph_t* g, int32_t x, int32_t y,
 	// Right bar (between corners)
 	graph_fill(g, x+w-r, y+r, r, h-r*2, color);
 
-	// Draw four corners with anti-aliasing
+	// Draw four corners with anti-aliasing (按行扫描优化)
 	// Top-left corner
-	for(int cy = 0; cy < r; cy++) {
-		for(int cx = 0; cx < r; cx++) {
-			float dx = (float)cx + 0.5f;
-			float dy = (float)cy + 0.5f;
-			float dist = sqrtf(dx * dx + dy * dy);
-			float edge_dist = dist - r_f;
-			float intensity = aa_intensity(edge_dist);
-			
-			int px = x + (r - 1 - cx);
-			int py = y + (r - 1 - cy);
-			draw_aa_pixel(g, px, py, color, intensity);
-		}
-	}
-
+	draw_round_corner_fill(g, x, y, r-1, r-1, r, color, 1, 1);
+	
 	// Top-right corner
-	for(int cy = 0; cy < r; cy++) {
-		for(int cx = 0; cx < r; cx++) {
-			float dx = (float)cx + 0.5f;
-			float dy = (float)cy + 0.5f;
-			float dist = sqrtf(dx * dx + dy * dy);
-			float edge_dist = dist - r_f;
-			float intensity = aa_intensity(edge_dist);
-			
-			int px = x + w - r + cx;
-			int py = y + (r - 1 - cy);
-			draw_aa_pixel(g, px, py, color, intensity);
-		}
-	}
-
+	draw_round_corner_fill(g, x+w-r, y, 0, r-1, r, color, 0, 1);
+	
 	// Bottom-left corner
-	for(int cy = 0; cy < r; cy++) {
-		for(int cx = 0; cx < r; cx++) {
-			float dx = (float)cx + 0.5f;
-			float dy = (float)cy + 0.5f;
-			float dist = sqrtf(dx * dx + dy * dy);
-			float edge_dist = dist - r_f;
-			float intensity = aa_intensity(edge_dist);
-			
-			int px = x + (r - 1 - cx);
-			int py = y + h - r + cy;
-			draw_aa_pixel(g, px, py, color, intensity);
-		}
-	}
-
+	draw_round_corner_fill(g, x, y+h-r, r-1, 0, r, color, 1, 0);
+	
 	// Bottom-right corner
-	for(int cy = 0; cy < r; cy++) {
-		for(int cx = 0; cx < r; cx++) {
-			float dx = (float)cx + 0.5f;
-			float dy = (float)cy + 0.5f;
-			float dist = sqrtf(dx * dx + dy * dy);
-			float edge_dist = dist - r_f;
-			float intensity = aa_intensity(edge_dist);
-			
-			int px = x + w - r + cx;
-			int py = y + h - r + cy;
-			draw_aa_pixel(g, px, py, color, intensity);
-		}
-	}
+	draw_round_corner_fill(g, x+w-r, y+h-r, 0, 0, r, color, 0, 0);
 }
 
 void graph_round(graph_t* g, int32_t x, int32_t y, 
@@ -163,9 +203,6 @@ void graph_round(graph_t* g, int32_t x, int32_t y,
 	if(r > w/2) r = w/2;
 	if(r > h/2) r = h/2;
 	if(rw > r/2) rw = r/2;
-	
-	float r_f = (float)r;
-	float inner_r_f = (float)(r - rw);
 	
 	// Draw straight edges
 	for(int i = 0; i < rw; i++) {
@@ -201,115 +238,18 @@ void graph_round(graph_t* g, int32_t x, int32_t y,
 		}
 	}
 	
-	// Draw four corners with anti-aliasing
+	// Draw four corners with anti-aliasing (按行扫描优化)
 	// Top-left corner
-	for(int cy = 0; cy < r; cy++) {
-		for(int cx = 0; cx < r; cx++) {
-			float dx = (float)cx + 0.5f;
-			float dy = (float)cy + 0.5f;
-			float dist = sqrtf(dx * dx + dy * dy);
-			
-			// 计算到内外边界的距离
-			float outer_edge = dist - r_f;
-			float inner_edge = inner_r_f - dist;
-			
-			// 计算抗锯齿强度
-			float intensity = 0.0f;
-			
-			if (outer_edge >= -0.5f && outer_edge <= 0.5f) {
-				// 在外边缘
-				intensity = aa_intensity(outer_edge);
-			} else if (inner_edge >= -0.5f && inner_edge <= 0.5f) {
-				// 在内边缘
-				intensity = aa_intensity(inner_edge);
-			} else if (outer_edge < 0.0f && inner_edge < 0.0f) {
-				// 在圆环内部
-				intensity = 1.0f;
-			}
-			
-			int px = x + (r - 1 - cx);
-			int py = y + (r - 1 - cy);
-			draw_aa_pixel(g, px, py, color, intensity);
-		}
-	}
+	draw_round_corner_round(g, x, y, r-1, r-1, r, rw, color, 1, 1);
 	
 	// Top-right corner
-	for(int cy = 0; cy < r; cy++) {
-		for(int cx = 0; cx < r; cx++) {
-			float dx = (float)cx + 0.5f;
-			float dy = (float)cy + 0.5f;
-			float dist = sqrtf(dx * dx + dy * dy);
-			
-			float outer_edge = dist - r_f;
-			float inner_edge = inner_r_f - dist;
-			
-			float intensity = 0.0f;
-			
-			if (outer_edge >= -0.5f && outer_edge <= 0.5f) {
-				intensity = aa_intensity(outer_edge);
-			} else if (inner_edge >= -0.5f && inner_edge <= 0.5f) {
-				intensity = aa_intensity(inner_edge);
-			} else if (outer_edge < 0.0f && inner_edge < 0.0f) {
-				intensity = 1.0f;
-			}
-			
-			int px = x + w - r + cx;
-			int py = y + (r - 1 - cy);
-			draw_aa_pixel(g, px, py, color, intensity);
-		}
-	}
+	draw_round_corner_round(g, x+w-r, y, 0, r-1, r, rw, color, 0, 1);
 	
 	// Bottom-left corner
-	for(int cy = 0; cy < r; cy++) {
-		for(int cx = 0; cx < r; cx++) {
-			float dx = (float)cx + 0.5f;
-			float dy = (float)cy + 0.5f;
-			float dist = sqrtf(dx * dx + dy * dy);
-			
-			float outer_edge = dist - r_f;
-			float inner_edge = inner_r_f - dist;
-			
-			float intensity = 0.0f;
-			
-			if (outer_edge >= -0.5f && outer_edge <= 0.5f) {
-				intensity = aa_intensity(outer_edge);
-			} else if (inner_edge >= -0.5f && inner_edge <= 0.5f) {
-				intensity = aa_intensity(inner_edge);
-			} else if (outer_edge < 0.0f && inner_edge < 0.0f) {
-				intensity = 1.0f;
-			}
-			
-			int px = x + (r - 1 - cx);
-			int py = y + h - r + cy;
-			draw_aa_pixel(g, px, py, color, intensity);
-		}
-	}
+	draw_round_corner_round(g, x, y+h-r, r-1, 0, r, rw, color, 1, 0);
 	
 	// Bottom-right corner
-	for(int cy = 0; cy < r; cy++) {
-		for(int cx = 0; cx < r; cx++) {
-			float dx = (float)cx + 0.5f;
-			float dy = (float)cy + 0.5f;
-			float dist = sqrtf(dx * dx + dy * dy);
-			
-			float outer_edge = dist - r_f;
-			float inner_edge = inner_r_f - dist;
-			
-			float intensity = 0.0f;
-			
-			if (outer_edge >= -0.5f && outer_edge <= 0.5f) {
-				intensity = aa_intensity(outer_edge);
-			} else if (inner_edge >= -0.5f && inner_edge <= 0.5f) {
-				intensity = aa_intensity(inner_edge);
-			} else if (outer_edge < 0.0f && inner_edge < 0.0f) {
-				intensity = 1.0f;
-			}
-			
-			int px = x + w - r + cx;
-			int py = y + h - r + cy;
-			draw_aa_pixel(g, px, py, color, intensity);
-		}
-	}
+	draw_round_corner_round(g, x+w-r, y+h-r, 0, 0, r, rw, color, 0, 0);
 }
 
 #else
