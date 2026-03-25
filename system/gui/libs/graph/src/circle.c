@@ -64,10 +64,13 @@ void graph_fill_circle(graph_t* g, int32_t cx, int32_t cy, int32_t radius, uint3
             // 计算到圆边界的距离（负值在内部，正值在外部）
             float edge_dist = dist - r_f;
             
-            // 计算抗锯齿强度
-            float intensity = aa_intensity(edge_dist);
-            
-            draw_aa_pixel(g, px, py, color, intensity);
+            if (edge_dist >= 0.0f) {
+                float intensity = aa_intensity(edge_dist);
+                draw_aa_pixel(g, px, py, color, intensity);
+            }
+            else {
+                graph_pixel(g, px, py, color);
+            }
         }
     }
 }
