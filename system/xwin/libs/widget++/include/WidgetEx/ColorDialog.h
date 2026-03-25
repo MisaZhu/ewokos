@@ -11,11 +11,13 @@ class ColorDialog : public Dialog {
 private:
     class ColorWidget;
     ColorWidget* colorWidget;
+    uint32_t color;
 
     void onBuild() override;
 
 public:
     ColorDialog();
+    ~ColorDialog();
     uint32_t getColor();
     void setColor(uint32_t color);
     uint8_t getTransparent();

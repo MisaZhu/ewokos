@@ -221,6 +221,22 @@ static void cancelFunc(Widget* wd, xevent_t* evt, void* arg) {
     dialog->submit(Dialog::RES_CANCEL);
 }
 
+ColorDialog::ColorDialog() {
+    color = 0;
+    colorWidget = NULL;
+}
+
+ColorDialog::~ColorDialog() {
+    // colorWidget is managed by RootWidget, no need to delete it here
+}
+
+void ColorDialog::setColor(uint32_t color) {
+    if(colorWidget != NULL)
+        colorWidget->setColor(color);
+    else
+        this->color = color;
+}
+
 void ColorDialog::onBuild() {
     RootWidget* root = new RootWidget();
     setRoot(root);
@@ -234,10 +250,10 @@ void ColorDialog::onBuild() {
 	root->add(c);
 	c->fix(0, 60);
 
-    ColorPanel* color = new ColorPanel();
-	color->fix(60, 0);
-    c->add(color);
-    colorWidget->setColorPanel(color);
+    ColorPanel* colorPanel = new ColorPanel();
+	colorPanel->fix(60, 0);
+    c->add(colorPanel);
+    colorWidget->setColorPanel(colorPanel);
 
     Container* v = new Container();
     v->setType(Container::VERTICLE);
@@ -266,19 +282,20 @@ void ColorDialog::onBuild() {
     cancelButton->setEventFunc(cancelFunc);
     c->add(cancelButton);
     setAlpha(true);
-}
-
-ColorDialog::ColorDialog() {
-}
-
-void ColorDialog::setColor(uint32_t color) {
-    colorWidget->setColor(color);
+    
+    // 设置颜色
+    if(color != 0)
+        colorWidget->setColor(color);
 }
 
 uint32_t ColorDialog::getColor() {
-    return colorWidget->getColor();
+    if(colorWidget != NULL)
+        return colorWidget->getColor();
+    return 0xFF000000;
 }
 
 uint8_t ColorDialog::getTransparent() {
-    return  colorWidget->getTransparent();
+    if(colorWidget != NULL)
+        return colorWidget->getTransparent();
+    return 0;
 }
