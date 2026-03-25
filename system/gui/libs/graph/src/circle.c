@@ -8,8 +8,6 @@
 extern "C" { 
 #endif
 
-#ifdef BSP_BOOST
-
 // 辅助函数：绘制抗锯齿像素（使用整数alpha）
 static inline void draw_aa_pixel_int(graph_t* g, int32_t x, int32_t y, uint32_t color, uint8_t alpha) {
     if (alpha <= 0) return;
@@ -176,23 +174,23 @@ void graph_circle(graph_t* g, int32_t cx, int32_t cy, int32_t radius, int32_t rw
     if (rw > radius / 2) 
         rw = radius / 2;
     
-    uint8_t fg_alpha = (color >> 24) & 0xFF;
+    float outer_r = (float)radius;
+    float inner_r = (float)(radius - rw);
     
-    // 外圆和内圆的半径平方
-    int32_t outer_r_sq = radius * radius;
-    int32_t inner_r = radius - rw;
-    int32_t inner_r_sq = inner_r * inner_r;
+    // 抗锯齿边界：外圆半径 + 0.5，内圆半径 - 0.5
+    float outer_aa_r = outer_r + 0.5f;
+    float inner_aa_r = inner_r - 0.5f;
     
-    // 抗锯齿边界
-    int32_t outer_aa_sq = outer_r_sq + radius + 1;  // (r + 0.5)^2 近似
-    int32_t inner_aa_sq = inner_r_sq - inner_r + 1; // (r - 0.5)^2 近似，如果inner_r > 0
-    if (inner_r <= 0) inner_aa_sq = 0;
+    float outer_aa_sq = outer_aa_r * outer_aa_r;
+    float outer_r_sq = outer_r * outer_r;
+    float inner_r_sq = inner_r * inner_r;
+    float inner_aa_sq = inner_aa_r > 0 ? inner_aa_r * inner_aa_r : 0;
     
     // 计算边界框
-    int32_t min_y = cy - radius - 1;
-    int32_t max_y = cy + radius + 1;
-    int32_t min_x = cx - radius - 1;
-    int32_t max_x = cx + radius + 1;
+    int32_t min_y = cy - (int32_t)(outer_aa_r + 0.5f);
+    int32_t max_y = cy + (int32_t)(outer_aa_r + 0.5f);
+    int32_t min_x = cx - (int32_t)(outer_aa_r + 0.5f);
+    int32_t max_x = cx + (int32_t)(outer_aa_r + 0.5f);
     
     // 裁剪到画布边界
     if (min_y < 0) min_y = 0;
@@ -200,179 +198,59 @@ void graph_circle(graph_t* g, int32_t cx, int32_t cy, int32_t radius, int32_t rw
     if (min_x < 0) min_x = 0;
     if (max_x >= g->w) max_x = g->w - 1;
     
-    // 按行扫描
+    // 逐像素扫描
     for (int32_t py = min_y; py <= max_y; py++) {
-        int32_t dy = py - cy;
-        int32_t dy_sq = dy * dy;
+        float dy = (float)(py - cy);
+        float dy_sq = dy * dy;
         
-        // 计算这一行在外圆抗锯齿边界内的x范围
-        int32_t outer_x_range_sq = outer_aa_sq - dy_sq;
-        if (outer_x_range_sq < 0) continue;
-        
-        int32_t outer_x_range = 0;
-        while (outer_x_range * outer_x_range <= outer_x_range_sq && outer_x_range <= radius + 1) {
-            outer_x_range++;
-        }
-        outer_x_range--;
-        
-        int32_t row_min_x = cx - outer_x_range;
-        int32_t row_max_x = cx + outer_x_range;
-        
-        if (row_min_x < min_x) row_min_x = min_x;
-        if (row_max_x > max_x) row_max_x = max_x;
-        
-        // 计算内圆的范围
-        int32_t inner_x_range_sq = inner_r_sq - dy_sq;
-        int32_t inner_row_min_x = cx;
-        int32_t inner_row_max_x = cx;
-        
-        if (inner_x_range_sq > 0) {
-            int32_t inner_x_range = 0;
-            while (inner_x_range * inner_x_range <= inner_x_range_sq && inner_x_range <= inner_r) {
-                inner_x_range++;
-            }
-            inner_x_range--;
-            inner_row_min_x = cx - inner_x_range;
-            inner_row_max_x = cx + inner_x_range;
-        }
-        
-        if (inner_row_min_x < min_x) inner_row_min_x = min_x;
-        if (inner_row_max_x > max_x) inner_row_max_x = max_x;
-        
-        // 绘制左外边界（抗锯齿）
-        for (int32_t px = row_min_x; px < inner_row_min_x; px++) {
-            int32_t dx = px - cx;
-            int32_t dist_sq = dx * dx + dy_sq;
+        for (int32_t px = min_x; px <= max_x; px++) {
+            float dx = (float)(px - cx);
+            float dist_sq = dx * dx + dy_sq;
             
-            // 外边缘抗锯齿
-            if (dist_sq >= outer_r_sq && dist_sq <= outer_aa_sq) {
-                int32_t range = outer_aa_sq - outer_r_sq;
-                int32_t dist_from_outer = outer_aa_sq - dist_sq;
-                uint8_t alpha = (uint8_t)((fg_alpha * dist_from_outer + range / 2) / range);
-                if (alpha > 0) {
-                    draw_aa_pixel_int(g, px, py, color, alpha);
-                }
-            } else if (dist_sq < outer_r_sq && dist_sq >= inner_aa_sq) {
-                // 在圆环内部
-                if (fg_alpha >= 255) {
+            // 完全在抗锯齿区域外，跳过
+            if (dist_sq > outer_aa_sq) continue;
+            
+            // 完全在内圆内部（圆环空心部分），跳过
+            if (dist_sq < inner_aa_sq) continue;
+            
+            float dist = sqrtf(dist_sq);
+            float intensity = 0.0f;
+            
+            // 外边缘抗锯齿区域
+            if (dist >= outer_r - 0.5f && dist <= outer_r + 0.5f) {
+                float edge_dist = dist - outer_r;
+                intensity = 0.5f - edge_dist; // 线性插值：从外向内 intensity 从 0 到 1
+                if (intensity < 0.0f) intensity = 0.0f;
+                if (intensity > 1.0f) intensity = 1.0f;
+            }
+            // 内边缘抗锯齿区域
+            else if (dist >= inner_r - 0.5f && dist <= inner_r + 0.5f) {
+                float edge_dist = inner_r - dist;
+                intensity = 0.5f - edge_dist; // 线性插值：从内向外 intensity 从 0 到 1
+                if (intensity < 0.0f) intensity = 0.0f;
+                if (intensity > 1.0f) intensity = 1.0f;
+            }
+            // 圆环内部
+            else if (dist > inner_r + 0.5f && dist < outer_r - 0.5f) {
+                intensity = 1.0f;
+            }
+            
+            if (intensity > 0.0f) {
+                uint8_t fg_alpha = (color >> 24) & 0xFF;
+                uint8_t final_alpha = (uint8_t)(fg_alpha * intensity + 0.5f);
+                
+                if (final_alpha >= 255) {
                     graph_pixel(g, px, py, color);
-                } else if (fg_alpha > 0) {
+                } else if (final_alpha > 0) {
                     uint8_t r = (color >> 16) & 0xFF;
                     uint8_t gc = (color >> 8) & 0xFF;
                     uint8_t b = color & 0xFF;
-                    graph_pixel_argb(g, px, py, fg_alpha, r, gc, b);
-                }
-            }
-        }
-        
-        // 绘制圆环内部
-        for (int32_t px = inner_row_min_x; px <= inner_row_max_x; px++) {
-            int32_t dx = px - cx;
-            int32_t dist_sq = dx * dx + dy_sq;
-            
-            // 检查是否在内边缘抗锯齿区域
-            if (dist_sq >= inner_aa_sq && dist_sq <= inner_r_sq) {
-                int32_t range = inner_r_sq - inner_aa_sq;
-                int32_t dist_from_inner = dist_sq - inner_aa_sq;
-                uint8_t alpha = (uint8_t)((fg_alpha * dist_from_inner + range / 2) / range);
-                if (alpha > 0) {
-                    draw_aa_pixel_int(g, px, py, color, alpha);
-                }
-            } else if (dist_sq > inner_r_sq && dist_sq < outer_r_sq) {
-                // 圆环内部
-                if (fg_alpha >= 255) {
-                    graph_pixel(g, px, py, color);
-                } else if (fg_alpha > 0) {
-                    uint8_t r = (color >> 16) & 0xFF;
-                    uint8_t gc = (color >> 8) & 0xFF;
-                    uint8_t b = color & 0xFF;
-                    graph_pixel_argb(g, px, py, fg_alpha, r, gc, b);
-                }
-            } else if (dist_sq >= outer_r_sq && dist_sq <= outer_aa_sq) {
-                // 外边缘抗锯齿
-                int32_t range = outer_aa_sq - outer_r_sq;
-                int32_t dist_from_outer = outer_aa_sq - dist_sq;
-                uint8_t alpha = (uint8_t)((fg_alpha * dist_from_outer + range / 2) / range);
-                if (alpha > 0) {
-                    draw_aa_pixel_int(g, px, py, color, alpha);
-                }
-            }
-        }
-        
-        // 绘制右外边界（抗锯齿）
-        for (int32_t px = inner_row_max_x + 1; px <= row_max_x; px++) {
-            int32_t dx = px - cx;
-            int32_t dist_sq = dx * dx + dy_sq;
-            
-            if (dist_sq >= outer_r_sq && dist_sq <= outer_aa_sq) {
-                int32_t range = outer_aa_sq - outer_r_sq;
-                int32_t dist_from_outer = outer_aa_sq - dist_sq;
-                uint8_t alpha = (uint8_t)((fg_alpha * dist_from_outer + range / 2) / range);
-                if (alpha > 0) {
-                    draw_aa_pixel_int(g, px, py, color, alpha);
-                }
-            } else if (dist_sq < outer_r_sq && dist_sq >= inner_aa_sq) {
-                if (fg_alpha >= 255) {
-                    graph_pixel(g, px, py, color);
-                } else if (fg_alpha > 0) {
-                    uint8_t r = (color >> 16) & 0xFF;
-                    uint8_t gc = (color >> 8) & 0xFF;
-                    uint8_t b = color & 0xFF;
-                    graph_pixel_argb(g, px, py, fg_alpha, r, gc, b);
+                    graph_pixel_argb(g, px, py, final_alpha, r, gc, b);
                 }
             }
         }
     }
 }
-
-#else
-
-void graph_fill_circle(graph_t* g, int32_t x, int32_t y, int32_t radius, uint32_t color) {
-	if(radius <= 0)
-		return;
-	
-	int32_t r_plus_half = radius + 1;
-	int32_t r_sq_plus = (r_plus_half * r_plus_half) - 1;
-	
-	for(int cy = -radius - 1; cy <= radius + 1; cy++) {
-		for(int cx = -radius - 1; cx <= radius + 1; cx++) {
-			int dist_sq = cx*cx + cy*cy;
-			
-			if(dist_sq <= r_sq_plus) {
-				int px = x + cx;
-				int py = y + cy;
-				graph_pixel(g, px, py, color);
-			}
-		}
-	}
-}
-
-void graph_circle(graph_t* g, int32_t x, int32_t y, int32_t radius, int32_t rw, uint32_t color) {
-	if(radius <= 0 || rw <= 0)
-		return;
-	if(rw > radius/2) rw = radius/2;
-	
-	int32_t outer_r = radius + 1;
-	int32_t outer_r_sq = outer_r * outer_r - 1;
-	
-	int32_t inner_r = radius - rw;
-	int32_t inner_r_adj = inner_r;
-	int32_t inner_r_sq = inner_r_adj * inner_r_adj;
-	
-	for(int cy = -radius - 1; cy <= radius + 1; cy++) {
-		for(int cx = -radius - 1; cx <= radius + 1; cx++) {
-			int dist_sq = cx*cx + cy*cy;
-			
-			if(dist_sq >= inner_r_sq && dist_sq <= outer_r_sq) {
-				int px = x + cx;
-				int py = y + cy;
-				graph_pixel(g, px, py, color);
-			}
-		}
-	}
-}
-
-#endif
 
 #ifdef __cplusplus
 }
