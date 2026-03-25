@@ -14,10 +14,13 @@
 #include <x/xwin.h>
 #include <ewoksys/timer.h>
 
-static const int CIRCLE = 0;
-static const int RECT   = 1;
-static const int ARC  = 2;
-static const int ROUND  = 3;
+enum {
+	CIRCLE = 0,
+	RECT,
+	ARC,
+	ROUND,
+	ROUND_3D
+};
 
 typedef struct {
 	int count, fps, imgX, imgY;
@@ -105,7 +108,7 @@ static void on_repaint(xwin_t* xwin, graph_t* g) {
 		_xtest_info.count = 0;
 
 		_xtest_info.mode++;
-		if(_xtest_info.mode > ROUND)
+		if(_xtest_info.mode > ROUND_3D)
 			_xtest_info.mode = 0;
 
 		graph_fill(g, 0, 0, gW, gH, 0xff000000);
@@ -129,6 +132,9 @@ static void on_repaint(xwin_t* xwin, graph_t* g) {
 	else if(_xtest_info.mode == ROUND) {
 		graph_fill_round(g, x, y, w, h, 12, c);
 		graph_round(g, x-4, y-4, w+8, h+8, 16, 2, c);
+	}
+	else if(_xtest_info.mode == ROUND_3D) {
+		graph_fill_round_3d(g, x, y, w, h, 12, 2, c, true);
 	}
 	else if(_xtest_info.mode == RECT) {
 		graph_fill(g, x, y, w, h, c);
