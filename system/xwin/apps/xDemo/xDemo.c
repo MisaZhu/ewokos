@@ -88,7 +88,7 @@ static void on_repaint(xwin_t* xwin, graph_t* g) {
 	int y = random_to(gH);
 	int w = random_to(gW/4);
 	int h = random_to(gH/4);
-	int c = rand();
+	int c = rand() | 0x66000000;
 
 	uint32_t low;
 	kernel_tic32(NULL, NULL, &low); 
@@ -123,11 +123,20 @@ static void on_repaint(xwin_t* xwin, graph_t* g) {
 		graph_circle(g, x, y, h/2+6, 3, c);
 	}
 	else if(_xtest_info.mode == ARC) {
-		int endangle = c%5 * 44;
+		//int endangle = rand()%5 * 44;
+		int endangle = rand()%360;
+		int start = rand()%360;
 		if(endangle == 0)
 			endangle = 119;
-		graph_fill_arc(g, x, y, h/2, 0, endangle, c);
-		graph_arc(g, x, y, h/2+4, 2, 0, endangle, c);
+
+		if(start > endangle) {
+			int temp = endangle;
+			endangle = start;
+			start = temp;
+		}
+
+		graph_fill_arc(g, x, y, h/2, start, endangle, c);
+		graph_arc(g, x, y, h/2+4, 2, start, endangle, c);
 	}
 	else if(_xtest_info.mode == ROUND) {
 		graph_fill_round(g, x, y, w, h, 12, c);

@@ -170,83 +170,70 @@ void graph_fill_circle(graph_t* g, int32_t cx, int32_t cy, int32_t radius, uint3
 void graph_circle(graph_t* g, int32_t cx, int32_t cy, int32_t radius, int32_t rw, uint32_t color) {
     if (radius <= 0 || rw <= 0 || g == NULL)
         return;
-    
-    if (rw > radius / 2) 
+
+    if (rw > radius / 2)
         rw = radius / 2;
-    
-    float outer_r = (float)radius;
-    float inner_r = (float)(radius - rw);
-    
-    // 抗锯齿边界：外圆半径 + 0.5，内圆半径 - 0.5
-    float outer_aa_r = outer_r + 0.5f;
-    float inner_aa_r = inner_r - 0.5f;
-    
-    float outer_aa_sq = outer_aa_r * outer_aa_r;
-    float outer_r_sq = outer_r * outer_r;
-    float inner_r_sq = inner_r * inner_r;
-    float inner_aa_sq = inner_aa_r > 0 ? inner_aa_r * inner_aa_r : 0;
-    
+
+    uint8_t fg_alpha = (color >> 24) & 0xFF;
+
+    // 外圆和内圆的半径平方
+    int32_t outer_r_sq = radius * radius;
+    int32_t inner_r = radius - rw;
+    int32_t inner_r_sq = inner_r * inner_r;
+
+    // 抗锯齿边界
+    int32_t outer_aa_sq = outer_r_sq + radius + 1;  // (r + 0.5)^2 近似
+    int32_t inner_aa_sq = inner_r_sq - inner_r + 1; // (r - 0.5)^2 近似，如果inner_r > 0
+    if (inner_r <= 0) inner_aa_sq = 0;
+
     // 计算边界框
-    int32_t min_y = cy - (int32_t)(outer_aa_r + 0.5f);
-    int32_t max_y = cy + (int32_t)(outer_aa_r + 0.5f);
-    int32_t min_x = cx - (int32_t)(outer_aa_r + 0.5f);
-    int32_t max_x = cx + (int32_t)(outer_aa_r + 0.5f);
-    
+    int32_t min_y = cy - radius - 1;
+    int32_t max_y = cy + radius + 1;
+    int32_t min_x = cx - radius - 1;
+    int32_t max_x = cx + radius + 1;
+
     // 裁剪到画布边界
     if (min_y < 0) min_y = 0;
     if (max_y >= g->h) max_y = g->h - 1;
     if (min_x < 0) min_x = 0;
     if (max_x >= g->w) max_x = g->w - 1;
-    
-    // 逐像素扫描
+
+    // 逐像素扫描（非浮点，统一处理所有边缘）
     for (int32_t py = min_y; py <= max_y; py++) {
-        float dy = (float)(py - cy);
-        float dy_sq = dy * dy;
-        
+        int32_t dy = py - cy;
+        int32_t dy_sq = dy * dy;
+
         for (int32_t px = min_x; px <= max_x; px++) {
-            float dx = (float)(px - cx);
-            float dist_sq = dx * dx + dy_sq;
-            
+            int32_t dx = px - cx;
+            int32_t dist_sq = dx * dx + dy_sq;
+
             // 完全在抗锯齿区域外，跳过
             if (dist_sq > outer_aa_sq) continue;
-            
-            // 完全在内圆内部（圆环空心部分），跳过
+
+            // 完全在内圆内部（空心部分），跳过
             if (dist_sq < inner_aa_sq) continue;
-            
-            float dist = sqrtf(dist_sq);
-            float intensity = 0.0f;
-            
+
+            uint8_t alpha = 0;
+
             // 外边缘抗锯齿区域
-            if (dist >= outer_r - 0.5f && dist <= outer_r + 0.5f) {
-                float edge_dist = dist - outer_r;
-                intensity = 0.5f - edge_dist; // 线性插值：从外向内 intensity 从 0 到 1
-                if (intensity < 0.0f) intensity = 0.0f;
-                if (intensity > 1.0f) intensity = 1.0f;
+            if (dist_sq >= outer_r_sq && dist_sq <= outer_aa_sq) {
+                int32_t range = outer_aa_sq - outer_r_sq;
+                int32_t dist_from_outer = outer_aa_sq - dist_sq;
+                alpha = (uint8_t)((fg_alpha * dist_from_outer + range / 2) / range);
             }
             // 内边缘抗锯齿区域
-            else if (dist >= inner_r - 0.5f && dist <= inner_r + 0.5f) {
-                float edge_dist = inner_r - dist;
-                intensity = 0.5f - edge_dist; // 线性插值：从内向外 intensity 从 0 到 1
-                if (intensity < 0.0f) intensity = 0.0f;
-                if (intensity > 1.0f) intensity = 1.0f;
+            else if (dist_sq >= inner_aa_sq && dist_sq <= inner_r_sq) {
+                int32_t range = inner_r_sq - inner_aa_sq;
+                int32_t dist_from_inner = dist_sq - inner_aa_sq;
+                alpha = (uint8_t)((fg_alpha * dist_from_inner + range / 2) / range);
             }
-            // 圆环内部
-            else if (dist > inner_r + 0.5f && dist < outer_r - 0.5f) {
-                intensity = 1.0f;
+            // 圆环内部（完全在内外圆之间）
+            else if (dist_sq > inner_r_sq && dist_sq < outer_r_sq) {
+                alpha = fg_alpha;
             }
-            
-            if (intensity > 0.0f) {
-                uint8_t fg_alpha = (color >> 24) & 0xFF;
-                uint8_t final_alpha = (uint8_t)(fg_alpha * intensity + 0.5f);
-                
-                if (final_alpha >= 255) {
-                    graph_pixel(g, px, py, color);
-                } else if (final_alpha > 0) {
-                    uint8_t r = (color >> 16) & 0xFF;
-                    uint8_t gc = (color >> 8) & 0xFF;
-                    uint8_t b = color & 0xFF;
-                    graph_pixel_argb(g, px, py, final_alpha, r, gc, b);
-                }
+
+            if (alpha > 0) {
+                draw_aa_pixel_int(g, px, py, color, alpha);
             }
         }
     }

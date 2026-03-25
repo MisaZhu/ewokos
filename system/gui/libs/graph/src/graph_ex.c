@@ -350,29 +350,17 @@ void graph_glass(graph_t* g, int x, int y, int w, int h, int r) {
 #endif
 }
 
-#ifdef BSP_BOOST
+// 辅助函数：绘制抗锯齿像素（使用整数alpha）
+static inline void draw_aa_pixel_int_ex(graph_t* g, int32_t x, int32_t y, uint32_t color, uint8_t alpha) {
+    if (alpha <= 0) return;
 
-// 辅助函数：计算抗锯齿强度（基于到理想边界的距离）
-static inline float aa_intensity_ex(float dist) {
-    if (dist <= -0.5f) return 1.0f;
-    if (dist >= 0.5f) return 0.0f;
-    return 0.5f - dist;
-}
-
-// 辅助函数：绘制抗锯齿像素
-static inline void draw_aa_pixel_ex(graph_t* g, int32_t x, int32_t y, uint32_t color, float intensity) {
-    if (intensity <= 0.0f) return;
-    
-    uint8_t fg_alpha = (color >> 24) & 0xFF;
-    uint8_t final_alpha = (uint8_t)((fg_alpha * intensity) + 0.5f);
-    
-    if (final_alpha >= 0xFF) {
+    if (alpha >= 255) {
         graph_pixel(g, x, y, (color & 0x00FFFFFF) | 0xFF000000);
-    } else if (final_alpha > 0) {
+    } else {
         uint8_t r = (color >> 16) & 0xFF;
         uint8_t gc = (color >> 8) & 0xFF;
         uint8_t b = color & 0xFF;
-        graph_pixel_argb(g, x, y, final_alpha, r, gc, b);
+        graph_pixel_argb(g, x, y, alpha, r, gc, b);
     }
 }
 
@@ -388,7 +376,114 @@ static inline uint32_t get_45deg_color(int cx, int cy, int r, uint32_t upper_col
     return (cx - cy <= 0) ? upper_color : lower_color;
 }
 
-// 3D rounded rectangle function with anti-aliasing
+// 辅助函数：绘制3D圆角（非浮点实现，带45度分割）
+// corner_x, corner_y: 圆角矩形区域的起始坐标
+// cx, cy: 圆角中心相对于corner的偏移
+// r: 圆角半径
+// rw: 边框宽度
+// upper_color: 对角线左上/上方的颜色
+// lower_color: 对角线右下/下方的颜色
+// swap_45deg: 是否交换45度分割判断（用于bottom-left角）
+static inline void draw_round_corner_3d(graph_t* g, int32_t corner_x, int32_t corner_y,
+                                        int32_t cx, int32_t cy, int32_t r, int32_t rw,
+                                        uint32_t upper_color, uint32_t lower_color,
+                                        int mirror_x, int mirror_y, bool swap_45deg) {
+    uint8_t upper_alpha = (upper_color >> 24) & 0xFF;
+    uint8_t lower_alpha = (lower_color >> 24) & 0xFF;
+
+    // 外圆和内圆的半径平方
+    int32_t outer_r_sq = r * r;
+    int32_t inner_r = r - rw;
+    int32_t inner_r_sq = inner_r * inner_r;
+
+    // 抗锯齿边界
+    int32_t outer_aa_sq = outer_r_sq + r + 1;  // (r + 0.5)^2 近似
+    int32_t inner_aa_sq = inner_r_sq - inner_r + 1; // (r - 0.5)^2 近似
+    if (inner_r <= 0) inner_aa_sq = 0;
+
+    // 计算边界框，限制在 r-1 范围内以与四边对齐
+    int32_t max_dy = r - 1;
+
+    // 按行扫描
+    for (int32_t dy = 0; dy <= max_dy; dy++) {
+        int32_t dy_sq = dy * dy;
+
+        // 计算这一行在外圆内的x范围
+        int32_t outer_x_sq = outer_aa_sq - dy_sq;
+        if (outer_x_sq < 0) continue;
+
+        int32_t max_dx = 0;
+        while (max_dx * max_dx <= outer_x_sq && max_dx <= r - 1) {
+            max_dx++;
+        }
+        max_dx--;
+        if (max_dx < 0) max_dx = 0;
+
+        // 计算这一行在内圆内的x范围
+        int32_t inner_x_sq = inner_r_sq - dy_sq;
+        int32_t inner_max_dx = 0;
+        if (inner_x_sq > 0) {
+            while (inner_max_dx * inner_max_dx <= inner_x_sq && inner_max_dx <= inner_r) {
+                inner_max_dx++;
+            }
+            inner_max_dx--;
+        }
+
+        // 绘制这一行
+        for (int32_t dx = 0; dx <= max_dx; dx++) {
+            int32_t dist_sq = dx * dx + dy_sq;
+
+            // 完全在抗锯齿区域外，跳过
+            if (dist_sq > outer_aa_sq) continue;
+
+            // 完全在内圆内部（空心部分），跳过
+            if (dist_sq < inner_aa_sq) continue;
+
+            // 计算像素位置
+            int px = corner_x + cx + (mirror_x ? -dx : dx);
+            int py = corner_y + cy + (mirror_y ? -dy : dy);
+
+            // 检查是否在画布范围内
+            if (px < 0 || px >= g->w || py < 0 || py >= g->h) continue;
+
+            // 确定颜色（45度分割）
+            uint32_t color;
+            uint8_t fg_alpha;
+            if (swap_45deg) {
+                color = get_45deg_color(dx, dy, r, lower_color, upper_color);
+                fg_alpha = (dx - dy <= 0) ? lower_alpha : upper_alpha;
+            } else {
+                color = get_45deg_color(dx, dy, r, upper_color, lower_color);
+                fg_alpha = (dx - dy <= 0) ? upper_alpha : lower_alpha;
+            }
+
+            uint8_t alpha = 0;
+
+            // 外边缘抗锯齿区域
+            if (dist_sq >= outer_r_sq && dist_sq <= outer_aa_sq) {
+                int32_t range = outer_aa_sq - outer_r_sq;
+                int32_t dist_from_outer = outer_aa_sq - dist_sq;
+                alpha = (uint8_t)((fg_alpha * dist_from_outer + range / 2) / range);
+            }
+            // 内边缘抗锯齿区域
+            else if (dist_sq >= inner_aa_sq && dist_sq <= inner_r_sq) {
+                int32_t range = inner_r_sq - inner_aa_sq;
+                int32_t dist_from_inner = dist_sq - inner_aa_sq;
+                alpha = (uint8_t)((fg_alpha * dist_from_inner + range / 2) / range);
+            }
+            // 圆环内部（完全在内外圆之间）
+            else if (dist_sq > inner_r_sq && dist_sq < outer_r_sq) {
+                alpha = fg_alpha;
+            }
+
+            if (alpha > 0) {
+                draw_aa_pixel_int_ex(g, px, py, color, alpha);
+            }
+        }
+    }
+}
+
+// 3D rounded rectangle function with anti-aliasing (非浮点实现)
 void graph_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, uint32_t color, bool reverse) {
     if(w <= 0 || h <= 0 || r < 0)
         return;
@@ -396,7 +491,7 @@ void graph_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, uint3
     if(r > w/2) r = w/2;
     if(r > h/2) r = h/2;
     if(rw > r/2) rw = r/2;
-    
+
     // Calculate 3D effect colors
     uint32_t highlight_color;
     uint32_t deep_color;
@@ -408,10 +503,7 @@ void graph_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, uint3
         highlight_color = graph_get_bright_color(color);
         deep_color = graph_get_dark_color(color);
     }
-    
-    float r_f = (float)r;
-    float inner_r_f = (float)(r - rw);
-    
+
     // Draw highlight on top edge
     for(int i = 0; i < rw; i++) {
         int yy = y + i;
@@ -421,7 +513,7 @@ void graph_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, uint3
             }
         }
     }
-    
+
     // Draw highlight on left edge
     for(int i = 0; i < rw; i++) {
         int xx = x + i;
@@ -431,7 +523,7 @@ void graph_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, uint3
             }
         }
     }
-    
+
     // Draw shadow on bottom edge
     for(int i = 0; i < rw; i++) {
         int yy = y + h - 1 - i;
@@ -441,7 +533,7 @@ void graph_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, uint3
             }
         }
     }
-    
+
     // Draw shadow on right edge
     for(int i = 0; i < rw; i++) {
         int xx = x + w - 1 - i;
@@ -452,254 +544,21 @@ void graph_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, uint3
         }
     }
 
-    // Draw rounded corners with anti-aliasing and 45-degree split
-    
+    // Draw rounded corners with anti-aliasing and 45-degree split (非浮点实现)
+
     // Top-left corner (all highlight)
-    for(int cy = 0; cy < r; cy++) {
-        for(int cx = 0; cx < r; cx++) {
-            float dx = (float)cx + 0.5f;
-            float dy = (float)cy + 0.5f;
-            float dist = sqrtf(dx * dx + dy * dy);
-            
-            float outer_edge = dist - r_f;
-            float inner_edge = inner_r_f - dist;
-            
-            float intensity = 0.0f;
-            if (outer_edge >= -0.5f && outer_edge <= 0.5f) {
-                intensity = aa_intensity_ex(outer_edge);
-            } else if (inner_edge >= -0.5f && inner_edge <= 0.5f) {
-                intensity = aa_intensity_ex(inner_edge);
-            } else if (outer_edge < 0.0f && inner_edge < 0.0f) {
-                intensity = 1.0f;
-            }
-            
-            int px = x + (r - 1 - cx);
-            int py = y + (r - 1 - cy);
-            draw_aa_pixel_ex(g, px, py, highlight_color, intensity);
-        }
-    }
+    draw_round_corner_3d(g, x, y, r-1, r-1, r, rw, highlight_color, highlight_color, 1, 1, false);
 
     // Top-right corner (45-degree split: upper-left=highlight, lower-right=deep)
-    for(int cy = 0; cy < r; cy++) {
-        for(int cx = 0; cx < r; cx++) {
-            float dx = (float)cx + 0.5f;
-            float dy = (float)cy + 0.5f;
-            float dist = sqrtf(dx * dx + dy * dy);
-            
-            float outer_edge = dist - r_f;
-            float inner_edge = inner_r_f - dist;
-            
-            float intensity = 0.0f;
-            if (outer_edge >= -0.5f && outer_edge <= 0.5f) {
-                intensity = aa_intensity_ex(outer_edge);
-            } else if (inner_edge >= -0.5f && inner_edge <= 0.5f) {
-                intensity = aa_intensity_ex(inner_edge);
-            } else if (outer_edge < 0.0f && inner_edge < 0.0f) {
-                intensity = 1.0f;
-            }
-            
-            int px = x + w - r + cx;
-            int py = y + (r - 1 - cy);
-            // 45度分割: cx - cy <= 0 是 highlight (左上), > 0 是 deep (右下)
-            uint32_t c = get_45deg_color(cx, cy, r, highlight_color, deep_color);
-            draw_aa_pixel_ex(g, px, py, c, intensity);
-        }
-    }
+    draw_round_corner_3d(g, x+w-r, y, 0, r-1, r, rw, highlight_color, deep_color, 0, 1, false);
 
     // Bottom-left corner (45-degree split: upper-left=highlight, lower-right=deep)
-    // 注意：这里需要镜像坐标来正确判断45度分割
-    for(int cy = 0; cy < r; cy++) {
-        for(int cx = 0; cx < r; cx++) {
-            float dx = (float)cx + 0.5f;
-            float dy = (float)cy + 0.5f;
-            float dist = sqrtf(dx * dx + dy * dy);
-            
-            float outer_edge = dist - r_f;
-            float inner_edge = inner_r_f - dist;
-            
-            float intensity = 0.0f;
-            if (outer_edge >= -0.5f && outer_edge <= 0.5f) {
-                intensity = aa_intensity_ex(outer_edge);
-            } else if (inner_edge >= -0.5f && inner_edge <= 0.5f) {
-                intensity = aa_intensity_ex(inner_edge);
-            } else if (outer_edge < 0.0f && inner_edge < 0.0f) {
-                intensity = 1.0f;
-            }
-            
-            int px = x + (r - 1 - cx);
-            int py = y + h - r + cy;
-            // 45度分割: 在底部左侧，需要镜像判断
-            // 原始 cx 从 0(左) 到 r-1(右), cy 从 0(上) 到 r-1(下)
-            // 镜像后: (r-1-cx) 从 r-1(左) 到 0(右)
-            // 所以判断条件反转: (r-1-cx) - cy <= 0 即 (r-1) <= cx + cy
-            // 简化: 当 cx 大且 cy 小时是 deep 色
-            uint32_t c = get_45deg_color(cx, cy, r, deep_color, highlight_color);
-            draw_aa_pixel_ex(g, px, py, c, intensity);
-        }
-    }
+    // 需要swap_45deg因为坐标镜像了
+    draw_round_corner_3d(g, x, y+h-r, r-1, 0, r, rw, highlight_color, deep_color, 1, 0, true);
 
     // Bottom-right corner (all deep)
-    for(int cy = 0; cy < r; cy++) {
-        for(int cx = 0; cx < r; cx++) {
-            float dx = (float)cx + 0.5f;
-            float dy = (float)cy + 0.5f;
-            float dist = sqrtf(dx * dx + dy * dy);
-            
-            float outer_edge = dist - r_f;
-            float inner_edge = inner_r_f - dist;
-            
-            float intensity = 0.0f;
-            if (outer_edge >= -0.5f && outer_edge <= 0.5f) {
-                intensity = aa_intensity_ex(outer_edge);
-            } else if (inner_edge >= -0.5f && inner_edge <= 0.5f) {
-                intensity = aa_intensity_ex(inner_edge);
-            } else if (outer_edge < 0.0f && inner_edge < 0.0f) {
-                intensity = 1.0f;
-            }
-            
-            int px = x + w - r + cx;
-            int py = y + h - r + cy;
-            draw_aa_pixel_ex(g, px, py, deep_color, intensity);
-        }
-    }
+    draw_round_corner_3d(g, x+w-r, y+h-r, 0, 0, r, rw, deep_color, deep_color, 0, 0, false);
 }
-
-#else
-
-void graph_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, uint32_t color, bool reverse) {
-    if(w <= 0 || h <= 0 || r < 0)
-        return;
-    // Limit radius to half of width/height
-    if(r > w/2) r = w/2;
-    if(r > h/2) r = h/2;
-    if(rw > r/2) rw = r/2;
-    
-    // Calculate 3D effect colors
-    uint32_t highlight_color;
-    uint32_t deep_color;
-    if(reverse) {
-        deep_color = graph_get_bright_color(color);  // Top/left highlight
-        highlight_color = graph_get_dark_color(color);      // Bottom/right shadow
-    }
-    else {
-        highlight_color = graph_get_bright_color(color);  // Top/left highlight
-        deep_color = graph_get_dark_color(color);      // Bottom/right shadow
-    }
-    
-    // Draw highlight on top edge
-    for(int i = 0; i < rw; i++) {
-        int yy = y + i;
-        if(yy >= 0 && yy < g->h) {
-            for(int xx = x + r; xx < x + w - r; xx++) {
-                graph_pixel(g, xx, yy, highlight_color);
-            }
-        }
-    }
-    
-    // Draw highlight on left edge
-    for(int i = 0; i < rw; i++) {
-        int xx = x + i;
-        if(xx >= 0 && xx < g->w) {
-            for(int yy = y + r; yy < y + h - r; yy++) {
-                graph_pixel(g, xx, yy, highlight_color);
-            }
-        }
-    }
-    
-    // Draw shadow on bottom edge
-    for(int i = 0; i < rw; i++) {
-        int yy = y + h - 1 - i;
-        if(yy >= 0 && yy < g->h) {
-            for(int xx = x + r; xx < x + w - r; xx++) {
-                graph_pixel(g, xx, yy, deep_color);
-            }
-        }
-    }
-    
-    // Draw shadow on right edge
-    for(int i = 0; i < rw; i++) {
-        int xx = x + w - 1 - i;
-        if(xx >= 0 && xx < g->w) {
-            for(int yy = y + r; yy < y + h - r; yy++) {
-                graph_pixel(g, xx, yy, deep_color);
-            }
-        }
-    }
-
-    // Draw rounded corners with gradient effect
-    // For border width rw, we draw arcs with thickness by checking distance range
-    // All corners use positive dx/cy, dy/cy for consistent rounding (same as bottom-right)
-    
-    // Top-left corner (highlight) - quarter circle arc with thickness
-    // Use the same dx=cx, dy=cy as bottom-right for consistent rounding
-    for(int cy = 0; cy < r; cy++) {
-        for(int cx = 0; cx < r; cx++) {
-            int dx = cx;
-            int dy = cy;
-            int dist_sq = dx*dx + dy*dy;
-            // Draw arc with thickness rw
-            if(dist_sq >= (r-rw)*(r-rw) && dist_sq <= r*r) {
-                // For top-left, mirror the position from bottom-right pattern
-                int px = x + (r - 1 - cx);
-                int py = y + (r - 1 - cy);
-                graph_pixel(g, px, py, highlight_color);
-            }
-        }
-    }
-
-    // Top-right corner - quarter circle arc with thickness
-    // Use the same dx=cx, dy=cy as bottom-right for consistent rounding
-    for(int cy = 0; cy < r; cy++) {
-        for(int cx = 0; cx < r; cx++) {
-            int dx = cx;
-            int dy = cy;
-            int dist_sq = dx*dx + dy*dy;
-            if(dist_sq >= (r-rw)*(r-rw) && dist_sq <= r*r) {
-                // For top-right, mirror vertically from bottom-right pattern
-                int px = x + w - r + cx;
-                int py = y + (r - 1 - cy);
-                    // 45 degree diagonal: cx + cy >= r means lower-right area
-                uint32_t c = (cx - cy <= 0) ?  highlight_color : deep_color;
-                graph_pixel(g, px, py, c);
-            }
-        }
-    }
-
-    // Bottom-left corner - quarter circle arc with thickness
-    // Use the same dx=cx, dy=cy as bottom-right for consistent rounding
-    for(int cy = 0; cy < r; cy++) {
-        for(int cx = 0; cx < r; cx++) {
-            int dx = cx;
-            int dy = cy;
-            int dist_sq = dx*dx + dy*dy;
-            if(dist_sq >= (r-rw)*(r-rw) && dist_sq <= r*r) {
-                // For bottom-left, mirror horizontally from bottom-right pattern
-                int px = x + (r - 1 - cx);
-                int py = y + h - r + cy;
-                    // 45 degree diagonal: cx + cy >= r means lower-right area
-                uint32_t c = (cx - cy <= 0) ?  deep_color : highlight_color;
-                graph_pixel(g, px, py, c);
-            }
-        }
-    }
-
-    // Bottom-right corner (shadow) - quarter circle arc with thickness
-    // Original pattern that all others mirror
-    for(int cy = 0; cy < r; cy++) {
-        for(int cx = 0; cx < r; cx++) {
-            int dx = cx;
-            int dy = cy;
-            int dist_sq = dx*dx + dy*dy;
-            if(dist_sq >= (r-rw)*(r-rw) && dist_sq <= r*r) {
-                int px = x + w - r + cx;
-                int py = y + h - r + cy;
-                graph_pixel(g, px, py, deep_color);
-            }
-        }
-    }
-}
-
-#endif
 
 // 3D rounded rectangle function
 void graph_fill_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, uint32_t color, bool reverse) {
