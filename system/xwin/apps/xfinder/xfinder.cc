@@ -45,7 +45,6 @@ protected:
 		int pid = fork();
 		if(pid == 0)  {
 			proc_detach();
-			slog("open_with: %s\n", open_with.c_str());
 			setenv("X_APP_NAME", open_with.c_str());
 			proc_exec(cmd);
 			exit(0);

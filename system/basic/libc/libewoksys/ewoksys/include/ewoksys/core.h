@@ -34,6 +34,7 @@ int      core_set_active_ux(int32_t disp_index, int ux_index);
 int      core_get_active_ux(int32_t disp_index);
 int      core_get_ux_env(void);
 int      core_enable_ux(int32_t disp_index, int ux_index);
+int      core_set_env(const char* name, const char* value);
 
 #ifdef __cplusplus
 }
