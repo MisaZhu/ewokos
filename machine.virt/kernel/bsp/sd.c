@@ -180,9 +180,10 @@ int virtio_blk_rw(struct virtio_device *dev, void *buffer, uint32_t count, int w
     uint8_t *buf_ptr = (uint8_t *)virtq->buffer;
     uint32_t bytes = count * 512;
 
-    if (write) {
+    /*if (write) {
         memcpy(buf_ptr, buffer, bytes);
     }
+    */
 
     uint16_t head_idx = 0;
     

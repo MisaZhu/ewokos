@@ -1448,16 +1448,19 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 		}
 		
 		if(pos == FRAME_R_TITLE) {//window title 
-			x->current.win_drag = win;
 			x->current.old_pos.x = x->cursor.cpos.x;
 			x->current.old_pos.y = x->cursor.cpos.y;
 			x->current.drag_state = X_win_DRAG_MOVE;
 		}
 		else if(pos == FRAME_R_RESIZE) {//window resize
-			x->current.win_drag = win;
 			x->current.old_pos.x = x->cursor.cpos.x;
 			x->current.old_pos.y = x->cursor.cpos.y;
 			x->current.drag_state = X_win_DRAG_RESIZE;
+		}
+		else if(win->xinfo->style & XWIN_STYLE_NO_FRAME) {
+			x->current.old_pos.x = x->cursor.cpos.x;
+			x->current.old_pos.y = x->cursor.cpos.y;
+			x->current.win_drag = win;
 		}
 	}
 	else if(ev->state ==  MOUSE_STATE_DRAG) {
