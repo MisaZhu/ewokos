@@ -1,6 +1,6 @@
 #include <Widget/WidgetWin.h>
 #include <Widget/WidgetX.h>
-#include <Widget/Sprite.h>
+#include <Widget/SpriteWin.h>
 #include <x++/X.h>
 #include <unistd.h>
 #include <ewoksys/kernel_tic.h>
@@ -10,7 +10,7 @@
 
 using namespace Ewok;
 
-void Sprite::onEvent(xevent_t* ev) {
+void SpriteWin::onEvent(xevent_t* ev) {
     if (ev->type == XEVT_MOUSE) {
         static int lastX = -1, lastY = -1;
         if (ev->state == MOUSE_STATE_CLICK) {
@@ -36,7 +36,7 @@ void Sprite::onEvent(xevent_t* ev) {
     }
 }
 
-void Sprite::onRepaint(graph_t* g) {
+void SpriteWin::onRepaint(graph_t* g) {
     WidgetWin::onRepaint(g);
     if(focused()) {
         graph_fill_circle(g, 12, 12, 8, 0xffcccccc);

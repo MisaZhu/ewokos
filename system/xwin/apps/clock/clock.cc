@@ -1,4 +1,4 @@
-#include <Widget/Sprite.h>
+#include <Widget/SpriteWin.h>
 #include <Widget/WidgetX.h>
 #include <x++/X.h>
 #include <unistd.h>
@@ -128,7 +128,7 @@ public:
 
 int main(int argc, char** argv) {
     X x;
-    Sprite win;
+    SpriteWin win;
 
     RootWidget* root = new RootWidget();
     win.setRoot(root);
@@ -137,7 +137,7 @@ int main(int argc, char** argv) {
     CircularClock* clock = new CircularClock();
     root->add(clock);
 
-    win.open(&x, -1, -1, -1, 160, 160, "Circular Clock", XWIN_STYLE_NO_FRAME);
+    win.open(&x, -1, -1, -1, 160, 160, "Circular Clock", XWIN_STYLE_SPRITE);
     win.setTimer(1);
     win.setAlpha(true);
     widgetXRun(&x, &win);

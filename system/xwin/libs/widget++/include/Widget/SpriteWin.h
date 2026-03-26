@@ -1,16 +1,16 @@
-#ifndef SPRITE_HH
-#define SPRITE_HH
+#ifndef SPRITE_WIN_HH
+#define SPRITE_WIN_HH
 
 #include <Widget/WidgetWin.h>
 
 namespace Ewok {
 
-class Sprite : public WidgetWin {
+class SpriteWin : public WidgetWin {
 protected:
     void onEvent(xevent_t* ev);
     void onRepaint(graph_t* g);
 public:
-    Sprite() { }
+    SpriteWin() { }
 };
 
 }
