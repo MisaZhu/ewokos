@@ -18,9 +18,6 @@ extern "C" { extern int setenv(const char*, const char*);}
 #endif
 
 static void run_xinit(session_info_t* info) {
-	vfs_create(info->home, NULL, FS_TYPE_DIR, 0750, false, true);
-	chown(info->home, info->uid, info->gid);
-
 	if(info != NULL) {
 		setgid(info->gid);
 		setuid(info->uid);
