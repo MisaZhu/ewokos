@@ -11,6 +11,11 @@
 using namespace Ewok;
 
 void SpriteWin::onEvent(xevent_t* ev) {
+	if(root && root->sendEvent(ev)) {
+		root->refresh();
+        return;
+    }
+
     if (ev->type == XEVT_MOUSE) {
         static int lastX = -1, lastY = -1;
         if (ev->state == MOUSE_STATE_CLICK) {
