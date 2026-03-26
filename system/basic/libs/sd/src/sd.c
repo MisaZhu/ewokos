@@ -15,7 +15,6 @@ static partition_t _partition;
 
 typedef struct {
 	ewokos_addr_t* data;
-	uint32_t refs;
 	uint32_t counter; //for mark free priority
 } sector_buf_block_t;
 
@@ -66,16 +65,12 @@ static inline void free_buffer_block_by_priority() {
 				if(buf_block->data[i] != 0) {
 					free((void*)buf_block->data[i]);
 					buf_block->data[i] = 0;
-					if(buf_block->refs > 0)
-						buf_block->refs--;
 					if(_sd_buffer.sector_buffered > 0)
 						_sd_buffer.sector_buffered--;
 				}
 			}
-			if(buf_block->refs == 0) {
-				free((void*)buf_block->data);
-				buf_block->data = 0;
-			}
+			free((void*)buf_block->data);
+			buf_block->data = 0;
 		}
 		block_num--;
 	}
@@ -107,7 +102,6 @@ static inline void sector_buf_set(uint32_t index, const void* data) {
 		_sd_buffer.sector_buf[block_index].data[index] = (ewokos_addr_t)malloc(SECTOR_SIZE);
 
 	memcpy((void*)_sd_buffer.sector_buf[block_index].data[index], data, SECTOR_SIZE);
-	_sd_buffer.sector_buf[block_index].refs++;
 	_sd_buffer.last_counter++;
 	_sd_buffer.sector_buf[block_index].counter = _sd_buffer.last_counter;
 	_sd_buffer.sector_buffered++;
@@ -123,7 +117,8 @@ static inline void* sector_buf_get(uint32_t index) {
 	index = index % BUF_BLOCK_SIZE;
 	if(_sd_buffer.sector_buf[block_index].data == NULL)
 		return NULL;
-
+	_sd_buffer.last_counter++;
+	_sd_buffer.sector_buf[block_index].counter = _sd_buffer.last_counter;
 	return (void*)_sd_buffer.sector_buf[block_index].data[index];
 }
 
