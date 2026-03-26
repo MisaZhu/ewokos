@@ -1,0 +1,6 @@
+{
+    "image": "walk.png",
+    "steps": 8,
+    "zoom": 0.6,
+    "fps": 12
+}
