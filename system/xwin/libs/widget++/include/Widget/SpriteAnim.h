@@ -23,7 +23,7 @@ public:
 	inline uint32_t getFPS(void) { return fps; }
 	gsize_t getSpriteSize(void);
 
-    bool setSprite(const std::string& fname, uint32_t steps, uint32_t fps);
+    bool setSprite(const std::string& fname, uint32_t steps, float zoom, uint32_t fps);
     bool setSpriteByScript(const std::string& fname);
 };
 

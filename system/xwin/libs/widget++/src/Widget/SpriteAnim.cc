@@ -55,12 +55,19 @@ void SpriteAnim::onTimer(uint32_t timerFPS, uint32_t timerStep) {
     update();
 };
 
-bool SpriteAnim::setSprite(const std::string& fname, uint32_t steps, uint32_t fps) {
+bool SpriteAnim::setSprite(const std::string& fname, uint32_t steps, float zoom, uint32_t fps) {
     if(spriteImg != NULL)
         graph_free(spriteImg);
     spriteImg = png_image_new(fname.c_str());
     if(spriteImg == NULL)
         return false;
+
+    graph_t* tmp = graph_scalef(spriteImg, zoom);
+    if(tmp == NULL)
+        return false;
+    graph_free(spriteImg);
+    spriteImg = tmp;
+
     this->steps = steps;
     this->fps = fps;
     return true;
@@ -74,6 +81,7 @@ bool SpriteAnim::setSpriteByScript(const std::string& fname) {
     const char* img_file = json_get_str_def(json_var, "image", "");
     uint32_t steps = json_get_int_def(json_var, "steps", 1);
     uint32_t fps = json_get_int_def(json_var, "fps", 1);
+    float zoom = json_get_float_def(json_var, "zoom", 1.0f);
     if(img_file[0] == '\0' || steps == 0)
         return false;
     
@@ -92,16 +100,16 @@ bool SpriteAnim::setSpriteByScript(const std::string& fname) {
             if(full_path != NULL) {
                 memcpy(full_path, fname_cstr, dir_len);
                 strcpy(full_path + dir_len, img_file);
-                res = setSprite(full_path, steps, fps);
+                res = setSprite(full_path, steps, zoom, fps);
                 free(full_path);
             } else {
-                res = setSprite(img_file, steps, fps);
+                res = setSprite(img_file, steps, zoom, fps);
             }
         } else {
-            res = setSprite(img_file, steps, fps);
+            res = setSprite(img_file, steps, zoom, fps);
         }
     } else {
-        res = setSprite(img_file, steps, fps);
+        res = setSprite(img_file, steps, zoom, fps);
     }
     
     json_var_unref(json_var);    
