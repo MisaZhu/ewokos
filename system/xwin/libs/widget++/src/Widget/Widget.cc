@@ -108,6 +108,11 @@ void Widget::doTimer() {
 	timerTick.tick = false;
 }
 
+void Widget::setEventFunc(WidgetEventFuncT func, void* arg) {
+	onEventFunc = func;
+	onEventFuncArg = arg;
+}
+
 bool Widget::onEvent(xevent_t* ev) { 
 	if(!visible)
 		return false;

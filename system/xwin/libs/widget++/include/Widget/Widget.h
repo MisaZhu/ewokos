@@ -70,10 +70,7 @@ public:
 	friend RootWidget;
 	friend Stage;
 
-	inline void setEventFunc(WidgetEventFuncT func, void* arg = NULL) {
-		onEventFunc = func;
-		onEventFuncArg = arg;
-	}
+	void setEventFunc(WidgetEventFuncT func, void* arg = NULL);
 
 	Widget(void);
 	virtual ~Widget(void);

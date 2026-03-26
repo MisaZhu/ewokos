@@ -28,3 +28,8 @@ extra:
 apps: 
 	cd $(EWOKOS_ROOT_DIR)/extra.apps/; make HW=$(HW)
 	cp -r $(EWOKOS_ROOT_DIR)/extra.apps/build/$(HW)/apps $(MACHINE_BUILD_DIR)/
+
+mariox: 
+	cd $(EWOKOS_ROOT_DIR)/mariox/; make HW=$(HW)
+	cp -r $(EWOKOS_ROOT_DIR)/mariox/build/$(HW)/bin $(MACHINE_BUILD_DIR)/
+	cp -r $(EWOKOS_ROOT_DIR)/mariox/data $(MACHINE_BUILD_DIR)/
