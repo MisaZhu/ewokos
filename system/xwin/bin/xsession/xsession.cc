@@ -18,8 +18,9 @@ extern "C" { extern int setenv(const char*, const char*);}
 #endif
 
 static void run_xinit(session_info_t* info) {
-	//vfs_create(info->home, NULL, FS_TYPE_DIR, 0750, false, true);
-	//chown(info->home, info->uid, info->gid);
+	vfs_create(info->home, NULL, FS_TYPE_DIR, 0750, false, true);
+	chown(info->home, info->uid, info->gid);
+
 	if(info != NULL) {
 		setgid(info->gid);
 		setuid(info->uid);
@@ -41,9 +42,6 @@ class XSession : public XWin {
 		int res = session_check(username.c_str(), password.c_str(), &info);
 		if(res != 0)
 			return res;
-
-		vfs_create(info.home, NULL, FS_TYPE_DIR, 0750, false, true);
-		chown(info.home, info.uid, info.gid);
 
 		close();
 		run_xinit(&info);
@@ -202,9 +200,6 @@ int main(int argc, char* argv[]) {
 		//no login check
 		session_info_t info;
 		if(session_get_by_name(argv[1], &info) == 0) {
-			vfs_create(info.home, NULL, FS_TYPE_DIR, 0750, false, true);
-			chown(info.home, info.uid, info.gid);
-
 			run_xinit(&info);
 			return 0;
 		}

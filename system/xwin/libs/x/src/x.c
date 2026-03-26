@@ -239,10 +239,10 @@ int x_exec(const char* fname) {
 	if(x_set_top_app(fname) == 0)
 		return 0;
 
-	setenv("X_APP_NAME", fname);
 	int pid = fork();
 	if(pid == 0) {
 		proc_detach();
+		setenv("X_APP_NAME", fname);
 		proc_exec(fname); 
 	}
 	return 0;

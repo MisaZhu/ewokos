@@ -7,10 +7,14 @@
 #include <elf/elf.h>
 #include <graph/graph_png.h>
 #include <dirent.h>
-
 #include <string>
+
 using namespace std;
 using namespace Ewok;
+
+#ifdef __cplusplus
+extern "C" { extern int setenv(const char*, const char*);}
+#endif
 
 class FileManager: public FileWidget {
 
@@ -41,6 +45,8 @@ protected:
 		int pid = fork();
 		if(pid == 0)  {
 			proc_detach();
+			slog("open_with: %s\n", open_with.c_str());
+			setenv("X_APP_NAME", open_with.c_str());
 			proc_exec(cmd);
 			exit(0);
 		}

@@ -23,6 +23,7 @@ extra:
 	cp -r $(EWOKOS_ROOT_DIR)/sw.extra/build/$(HW)/bin $(MACHINE_BUILD_DIR)/
 	cp -r $(EWOKOS_ROOT_DIR)/sw.extra/usr $(MACHINE_BUILD_DIR)/
 	cp -r $(EWOKOS_ROOT_DIR)/sw.extra/etc $(MACHINE_BUILD_DIR)/
+	cp -r $(EWOKOS_ROOT_DIR)/sw.extra/data $(MACHINE_BUILD_DIR)/
 
 apps: 
 	cd $(EWOKOS_ROOT_DIR)/extra.apps/; make HW=$(HW)
