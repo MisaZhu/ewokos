@@ -9,5 +9,5 @@
 	url = https://github.com/MisaZhu/ewokos.apps.git
 [submodule "mariox"]
 	path = mariox
-	url = ./mariox
+	url = https://github.com/misazhu/ewokos.mariox
 
