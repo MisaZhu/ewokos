@@ -40,23 +40,26 @@ void klog(const char *format, ...) {
 	*/
 }
 
-void slog(const char *format, ...) {
-	va_list ap;
-	va_start(ap, format);
-	vsnprintf(_buf, BUF_SIZE, format, ap);
-	va_end(ap);
-
+void sout(const char *str) {
 	const char* log_dev = "/dev/log";
 	if(_slog_fd <= 0 && log_dev != NULL) {
 		_slog_fd = open(log_dev, O_WRONLY);
 	}
 
 	if(_slog_fd > 0) {
-		write(_slog_fd, _buf, strlen(_buf));
+		write(_slog_fd, str, strlen(str));
 	}
 	else {
-		syscall2(SYS_KPRINT, (ewokos_addr_t)_buf, (ewokos_addr_t)strlen(_buf));
+		kout(str);
 	}
+}
+
+void slog(const char *format, ...) {
+	va_list ap;
+	va_start(ap, format);
+	vsnprintf(_buf, BUF_SIZE, format, ap);
+	va_end(ap);
+	sout(_buf);
 }
 
 #ifdef __cplusplus 

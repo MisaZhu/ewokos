@@ -8,6 +8,7 @@ extern "C" {
 void kout(const char *str);
 void klog(const char *format, ...);
 void slog(const char *format, ...);
+void sout(const char *str);
 
 #ifdef __cplusplus
 }
