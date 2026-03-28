@@ -81,7 +81,7 @@ static uint32_t mouse_input(char key) {
 	if(key == 0 && _prs_down) {
 		key = 1;
 		_prs_down = false;
-		mv[0] = 1;
+		mv[0] = MOUSE_BUTTON_LEFT;
 	}
 	if(key != 0) {
 		//read new event
@@ -110,7 +110,10 @@ static int joymouse_read_buffer(mouse_evt_t* evt) {
 		evt->type = 1; //related
 		evt->x = _minfo[_minfo_index].rx;
 		evt->y = _minfo[_minfo_index].ry;
-		evt->state = _prs_down ? MOUSE_STATE_DOWN : MOUSE_STATE_UP;
+		if(_minfo[_minfo_index].btn != MOUSE_BUTTON_NONE)
+			evt->state = _prs_down ? MOUSE_STATE_DOWN : MOUSE_STATE_UP;
+		else
+			evt->state = MOUSE_STATE_MOVE;
 
 		_minfo_index++;
 		if(_minfo_index >= _minfo_num) {
