@@ -24,4 +24,5 @@ network_driver:
 clean:
 	cd libs; make clean
 	cd bin; make clean
+	cd sbin; make clean
 	cd drivers; make clean
