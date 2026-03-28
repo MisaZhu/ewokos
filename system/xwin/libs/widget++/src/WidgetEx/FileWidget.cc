@@ -179,22 +179,29 @@ class FileGrid: public Grid {
 		updateScroller();
 	}
 
-	void loadIcons() {
+	void loadBasicIcons() {
 		char fname[FS_FULL_NAME_MAX+1] = {0};
-		x_get_theme_fname(X_THEME_ROOT, "xfinder", "icons/file.png", fname, FS_FULL_NAME_MAX);
-		fileIcon = png_image_new(fname);
-		if(fileIcon == NULL)
-			fileIcon = png_image_new(X::getResName("icons/file.png").c_str());
+		if(fileIcon == NULL) {
+			x_get_theme_fname(X_THEME_ROOT, "xfinder", "icons/file.png", fname, FS_FULL_NAME_MAX);
+			fileIcon = getImgIconAndCache(fname);
+			if(fileIcon == NULL)
+				fileIcon = getImgIconAndCache(X::getResName("icons/file.png").c_str());
+		}
 
-		x_get_theme_fname(X_THEME_ROOT, "xfinder", "icons/folder.png", fname, FS_FULL_NAME_MAX);
-		dirIcon = png_image_new(fname);
-		if(dirIcon == NULL)
-			dirIcon = png_image_new(X::getResName("icons/folder.png").c_str());
+		if(dirIcon == NULL) {
+			x_get_theme_fname(X_THEME_ROOT, "xfinder", "icons/folder.png", fname, FS_FULL_NAME_MAX);
+			graph_free(dirIcon);
+			dirIcon = getImgIconAndCache(fname);
+			if(dirIcon == NULL)
+				dirIcon = getImgIconAndCache(X::getResName("icons/folder.png").c_str());
+		}
 
-		x_get_theme_fname(X_THEME_ROOT, "xfinder", "icons/device.png", fname, FS_FULL_NAME_MAX);
-		devIcon = png_image_new(fname);
-		if(devIcon == NULL)
-			devIcon = png_image_new(X::getResName("icons/device.png").c_str());
+		if(devIcon == NULL) {
+			x_get_theme_fname(X_THEME_ROOT, "xfinder", "icons/device.png", fname, FS_FULL_NAME_MAX);
+			devIcon = getImgIconAndCache(fname);
+			if(devIcon == NULL)
+				devIcon = getImgIconAndCache(X::getResName("icons/device.png").c_str());
+		}
 	}
 
 	json_var_t* loadFileTypes(const char* confFile) {
@@ -261,7 +268,7 @@ class FileGrid: public Grid {
 
 				char fname[FS_FULL_NAME_MAX+1] = {0};
 				x_get_theme_fname(X_THEME_ROOT, "xfinder", icon, fname, FS_FULL_NAME_MAX);
-				img = png_image_new(fname);
+				img = getImgIconAndCache(fname);
 				if(img == NULL)
 					return NULL;
 				json_var_add(it, "icon_image", json_var_new_obj(img, freeIcon));
@@ -318,9 +325,11 @@ public:
 		this->fileWidget = fileWidget;
 		cwdLabel = NULL;
 		scrollerV = NULL;
-		loadIcons();
-		fileTypes = loadFileTypes("/usr/system/filetypes.json");
 		iconCache = hashmap_new(0);
+		fileIcon = NULL;
+		dirIcon = NULL;
+		devIcon = NULL;
+		fileTypes = loadFileTypes("/usr/system/filetypes.json");
 	}
 
 	~FileGrid() {
@@ -332,6 +341,11 @@ public:
 
 	void setCWDLabel(CWDLabel* l) {
 		cwdLabel = l;
+	}
+
+	void setItemSize(int w, int h) {
+		Grid::setItemSize(w, h);
+		loadBasicIcons();
 	}
 };
 
