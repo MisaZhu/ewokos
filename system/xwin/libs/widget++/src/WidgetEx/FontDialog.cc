@@ -141,7 +141,7 @@ typedef struct {
 
 class FontList: public List {
 	FontDialog* dialog;
-	static const int32_t MAX_FONTS = 32;
+	static const int32_t MAX_FONTS = 128;
 	FontItem_t fonts[MAX_FONTS];
 	FontDemo* demo;
 protected:
