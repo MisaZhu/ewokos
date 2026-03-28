@@ -69,6 +69,7 @@ clean:
 	cd bin;make clean
 	cd $(SYS_ROOT_DIR)/xwin;make clean
 	cd $(SYS_ROOT_DIR)/gui;make clean
+	cd $(SYS_ROOT_DIR)/network;make clean
 	cd $(SYS_ROOT_DIR)/basic;make clean
 	cd $(EWOKOS_ROOT_DIR)/sw.extra/; make HW=$(HW) clean
 	rm -fr $(BUILD_DIR)
