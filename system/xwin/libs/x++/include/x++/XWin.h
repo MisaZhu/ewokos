@@ -56,6 +56,9 @@ public:
 	void setWorkingDir(const string& dir);
 	string getWorkingDir(void);
 
+	string getOwnDir(void);
+	string getResFullName(const char* fname);
+
 	inline xwin_t* getCWin(void) { return xwin; }
 
 	inline void __doRepaint(graph_t* g) { onRepaint(g); }

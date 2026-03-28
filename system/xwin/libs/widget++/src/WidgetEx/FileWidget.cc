@@ -185,7 +185,7 @@ class FileGrid: public Grid {
 			x_get_theme_fname(X_THEME_ROOT, "xfinder", "icons/file.png", fname, FS_FULL_NAME_MAX);
 			fileIcon = getImgIconAndCache(fname);
 			if(fileIcon == NULL)
-				fileIcon = getImgIconAndCache(X::getResName("icons/file.png").c_str());
+				fileIcon = getImgIconAndCache(X::getResFullName("icons/file.png").c_str());
 		}
 
 		if(dirIcon == NULL) {
@@ -193,14 +193,14 @@ class FileGrid: public Grid {
 			graph_free(dirIcon);
 			dirIcon = getImgIconAndCache(fname);
 			if(dirIcon == NULL)
-				dirIcon = getImgIconAndCache(X::getResName("icons/folder.png").c_str());
+				dirIcon = getImgIconAndCache(X::getResFullName("icons/folder.png").c_str());
 		}
 
 		if(devIcon == NULL) {
 			x_get_theme_fname(X_THEME_ROOT, "xfinder", "icons/device.png", fname, FS_FULL_NAME_MAX);
 			devIcon = getImgIconAndCache(fname);
 			if(devIcon == NULL)
-				devIcon = getImgIconAndCache(X::getResName("icons/device.png").c_str());
+				devIcon = getImgIconAndCache(X::getResFullName("icons/device.png").c_str());
 		}
 	}
 

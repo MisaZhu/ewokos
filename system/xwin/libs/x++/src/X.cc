@@ -43,7 +43,7 @@ uint32_t X::getDisplayNum() {
 	return x_get_display_num();
 }
 
-string X::getResName(const char* name) {
+string X::getResFullName(const char* name) {
 	char ret[FS_FULL_NAME_MAX+1] = {0};
 	return x_get_res_name(name, ret, FS_FULL_NAME_MAX);
 }

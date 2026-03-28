@@ -322,6 +322,14 @@ string XWin::getWorkingDir(void) {
 	return workingDir;
 }
 
+string XWin::getOwnDir(void) {
+	return x_get_own_dir(NULL, 0);
+}
+
+string XWin::getResFullName(const char* fname) {
+	return X::getResFullName(fname);
+}
+
 void XWin::setCWin(xwin_t* xw) {
 	xw->data = this;
 	xwin = xw;

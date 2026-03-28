@@ -23,7 +23,7 @@ public:
 	void terminate(void);
 	bool terminated(void);
 
-	static string getResName(const char* name);
+	static string getResFullName(const char* name);
 
 	static uint32_t getDisplayNum();
 	static bool    getScreenInfo(xscreen_info_t& scr, int index = 0);

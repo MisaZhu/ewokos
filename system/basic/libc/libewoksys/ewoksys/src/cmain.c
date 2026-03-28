@@ -56,17 +56,24 @@ static char* read_cmain_arg(void) {
 	return p;
 }
 
-void cmain_get_work_dir(char* ret, uint32_t len) {
+const char* cmain_get_own_dir(char* ret, uint32_t len) {
+	static char own_dir[FS_FULL_NAME_MAX];
+	if(ret == NULL) {
+		ret = own_dir;
+		len = FS_FULL_NAME_MAX;
+	}
 	memset(ret, 0, len);
+
 	int i = strlen(_argv0) - 1;
 	while(i >= 0 && i < PROC_INFO_MAX_CMD_LEN && i < len) {
 		if(_argv0[i] == '/') {
 			strncpy(ret, _argv0, i);
-			return;
+			return ret;
 		}
 		i--;
 	}
 	strncpy(ret, "", len);
+	return ret;
 }
 
 static void close_stdio(void) {

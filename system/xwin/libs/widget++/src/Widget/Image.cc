@@ -46,7 +46,7 @@ Image::~Image(void) {
 bool  Image::loadImage(const char* fname) {
 	if(image != NULL)
 		graph_free(image);
-	image = png_image_new(X::getResName(fname).c_str());
+	image = png_image_new(X::getResFullName(fname).c_str());
 	if(image == NULL)
 		return false;
 	update();
