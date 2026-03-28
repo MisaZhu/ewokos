@@ -77,7 +77,6 @@ clean:
 
 SD = root_$(ARCH).ext2
 sd: 
-	rm -fr $(MACHINE_BUILD_DIR)
 	mkdir -p $(MACHINE_BUILD_DIR)
 	cp -r $(TARGET_DIR)/* $(MACHINE_BUILD_DIR)
 
