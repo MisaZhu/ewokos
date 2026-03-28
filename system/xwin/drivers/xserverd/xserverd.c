@@ -1565,6 +1565,9 @@ static void cursor_safe(x_t* x, x_display_t* display) {
 }
 
 static int mouse_handle(x_t* x, xevent_t* ev) {
+	if(x->mouse_state.state == MOUSE_STATE_NONE && ev->state == MOUSE_STATE_UP)
+		return 0;
+
 	if(ev->value.mouse.relative != 0) {
 		mouse_cxy(x, x->current_display, ev->value.mouse.rx, ev->value.mouse.ry);
 		ev->value.mouse.x = x->cursor.cpos.x;
@@ -1606,7 +1609,7 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 	}
 	else if(ev->state ==  MOUSE_STATE_UP) {
 		x->cursor.down = false;
-		x->mouse_state.state = 0;
+		x->mouse_state.state = MOUSE_STATE_NONE;
 		ev->value.mouse.from_x = x->mouse_state.down_pos.x;
 		ev->value.mouse.from_y = x->mouse_state.down_pos.y;
 		ev->value.mouse.rx = ev->value.mouse.x - x->mouse_state.last_pos.x;

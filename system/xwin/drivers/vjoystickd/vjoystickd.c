@@ -78,10 +78,12 @@ static uint32_t mouse_input(char key) {
 	if(mv[1] != 0 || mv[2] != 0)
 		_move = true;
 
-	if(key == 0 && _prs_down) {
-		key = 1;
+	if(key == 0) {
+		if(_prs_down) {
+			key = 1;
+			mv[0] = MOUSE_BUTTON_LEFT;
+		}
 		_prs_down = false;
-		mv[0] = MOUSE_BUTTON_LEFT;
 	}
 	if(key != 0) {
 		//read new event

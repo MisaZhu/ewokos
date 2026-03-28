@@ -80,6 +80,7 @@ int main(int argc, char** argv) {
 					click_detect ++;
 				}
 				click_time = kernel_tic_ms(0);
+				drag_time = 0;
 			}
 
 			//drag detect
@@ -87,11 +88,9 @@ int main(int argc, char** argv) {
 				drag_time = kernel_tic_ms(0);
 			}
 
-			if(mevt.state == MOUSE_STATE_UP && mevt.button == MOUSE_BUTTON_LEFT ){
-				drag_time = 0;
-			}
-
 			if(mevt.state == MOUSE_STATE_MOVE){
+				click_detect = 0;
+				click_time = 0;
 				if(drag_time != 0 && kernel_tic_ms(0) - drag_time > 100){
 					mevt.state = MOUSE_STATE_DRAG;
 				}
@@ -101,12 +100,13 @@ int main(int argc, char** argv) {
 			input(xpid, &mevt);
 
 			//report doubole click event
-			if(click_detect > 0){
+			/*if(click_detect > 0){
 				click_detect = 0;
 				click_time = 0;
-				mevt.state = MOUSE_STATE_CLICK;
+				mevt.state = MOUSE_STATE_DOUBLE_CLICK;
 				input(xpid, &mevt);
 			}
+			*/
 		}
 		else 
 			proc_usleep(5000);
