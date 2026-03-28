@@ -1,5 +1,6 @@
 #include <Widget/Image.h>
 #include <x++/X.h>
+#include <Widget/WidgetWin.h>
 #include <graph/graph_png.h>
 
 namespace Ewok {
@@ -64,7 +65,18 @@ gsize_t  Image::getMinSize(void) {
 void Image::setAttr(const string& attr, json_var_t*value) {
 	Widget::setAttr(attr, value);
 	if(attr == "file") {
-		loadImage(json_var_get_str(value));
+		const char* fname = json_var_get_str(value);
+		char fullname[FS_FULL_NAME_MAX] = {0};
+		if(fname[0] == '/')
+			strcpy(fullname, fname);
+		else {
+			WidgetWin* win = getWin();
+			if(win == NULL)
+				return;
+			string workdir = win->getWorkingDir();
+			snprintf(fullname, FS_FULL_NAME_MAX, "%s/%s", workdir.c_str(), fname);
+		}
+		loadImage(fullname);
 	}	
 }
 

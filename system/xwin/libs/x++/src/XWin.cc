@@ -314,6 +314,14 @@ gpos_t XWin::getScreenPos(int32_t x, int32_t y) {
 	return pos;
 }
 
+void XWin::setWorkingDir(const string& dir) {
+	workingDir = dir;
+}
+
+string XWin::getWorkingDir(void) {
+	return workingDir;
+}
+
 void XWin::setCWin(xwin_t* xw) {
 	xw->data = this;
 	xwin = xw;

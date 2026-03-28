@@ -21,6 +21,7 @@ protected:
 	X* x;
 	uint32_t displayIndex;
 	xwin_t* xwin;
+	string workingDir;
 	XTheme theme;
 	virtual void onRepaint(graph_t* g) = 0;
 
@@ -51,6 +52,9 @@ public:
 	inline uint32_t getDisplayIndex(void) {return displayIndex;}
 
 	void setCWin(xwin_t* xw);
+
+	void setWorkingDir(const string& dir);
+	string getWorkingDir(void);
 
 	inline xwin_t* getCWin(void) { return xwin; }
 

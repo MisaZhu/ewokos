@@ -13,6 +13,7 @@
 #include <Widget/Text.h>
 #include <WidgetEx/Menubar.h>
 #include <WidgetEx/Menu.h>
+#include <ewoksys/vfs.h>
 
 #include <WidgetEx/LayoutWidget.h>
 
@@ -211,7 +212,10 @@ bool LayoutWidget::loadConfig(const string& fname) {
     json_var_t* conf_var = json_parse_file(fname.c_str());
     if(conf_var == NULL)
         return false;
-    
+    XWin* win = getWin();
+    if(win != NULL)
+        win->setWorkingDir(vfs_dir_name(fname.c_str(), NULL, 0));
+
     bool ret = load(this, conf_var, "");
     json_var_unref(conf_var);
     return ret;

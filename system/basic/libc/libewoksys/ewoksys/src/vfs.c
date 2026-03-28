@@ -675,7 +675,16 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_no
 }
 
 const char* vfs_dir_name(const char* fname, char* ret, uint32_t len) {
+	static char ret_buf[FS_FULL_NAME_MAX];
+	if(ret == NULL) {
+		ret = ret_buf;
+		len = FS_FULL_NAME_MAX;
+	}
 	memset(ret, 0, len);
+
+	if(fname == NULL)
+		return ret;
+
 	strncpy(ret, fname, len-1);
 	int i = strlen(ret)-1;
 	while(i >= 0) {
@@ -692,7 +701,16 @@ const char* vfs_dir_name(const char* fname, char* ret, uint32_t len) {
 }
 
 const char* vfs_file_name(const char* fname, char* ret, uint32_t len) {
+	static char ret_buf[FS_FULL_NAME_MAX];
+	if(ret == NULL) {
+		ret = ret_buf;
+		len = FS_FULL_NAME_MAX;
+	}
 	memset(ret, 0, len);
+
+	if(fname == NULL)
+		return ret;
+
 	int i = strlen(fname)-1;
 	while(i >= 0) {
 		if(fname[i] == '/') {
@@ -702,6 +720,28 @@ const char* vfs_file_name(const char* fname, char* ret, uint32_t len) {
 	}
 	++i;
 	strncpy(ret, fname+i, len-1);
+	return ret;
+}
+
+const char* vfs_full_file_name(const char* fname, const char* ref_fname, char* ret, uint32_t len) {
+	static char ret_buf[FS_FULL_NAME_MAX];
+	if(ret == NULL) {
+		ret = ret_buf;
+		len = FS_FULL_NAME_MAX;
+	}
+	memset(ret, 0, len);
+
+	if(fname == NULL)
+		return ret;
+
+	if(fname[0] == '/') {
+		strncpy(ret, fname, len-1);
+		return ret;
+	}
+
+	char dir_name[FS_FULL_NAME_MAX] = {0};
+	vfs_dir_name(ref_fname, dir_name, FS_FULL_NAME_MAX);
+	snprintf(ret, len-1, "%s/%s", dir_name, fname);
 	return ret;
 }
 

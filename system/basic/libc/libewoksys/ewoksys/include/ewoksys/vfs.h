@@ -56,6 +56,7 @@ int       vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool 
 void*     vfs_readfile(const char* fname, int* sz);
 const char* vfs_dir_name(const char* fname, char* ret, uint32_t len);
 const char* vfs_file_name(const char* fname, char* ret, uint32_t len);
+const char* vfs_full_file_name(const char* fname, const char* ref_fname, char* ret, uint32_t len);
 int       vfs_dup(int fd);
 int       vfs_dup2(int fd, int to);
 int       vfs_open_pipe(int fd[2]);
