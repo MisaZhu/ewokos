@@ -70,9 +70,9 @@ void graph_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, int32_t rw, flo
     int32_t outer_r_sq = outer_r * outer_r;
     int32_t inner_r_sq = inner_r * inner_r;
     
-    // 抗锯齿边界：(r + 0.5)^2 = r^2 + r + 0.25，使用整数近似
-    int32_t outer_aa_sq = outer_r_sq + outer_r + 1;
-    int32_t inner_aa_sq = inner_r_sq - inner_r + 1;
+    // 抗锯齿边界（扩大到1像素宽度以获得更平滑的效果）
+    int32_t outer_aa_sq = outer_r_sq + 2 * outer_r;  // (r + 1)^2
+    int32_t inner_aa_sq = (inner_r > 0) ? inner_r_sq - 2 * inner_r + 1 : 0;  // (inner_r - 1)^2
     if (inner_aa_sq < 0) inner_aa_sq = 0;
     
     // 计算边界框（包含抗锯齿区域）
@@ -114,13 +114,19 @@ void graph_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, int32_t rw, flo
             if (dist_sq >= outer_r_sq && dist_sq <= outer_aa_sq) {
                 int32_t range = outer_aa_sq - outer_r_sq;
                 int32_t dist_from_outer = outer_aa_sq - dist_sq;
-                alpha = (uint8_t)((fg_alpha * dist_from_outer + range / 2) / range);
+                // 使用平方函数获得更平滑的过渡
+                int32_t t = (dist_from_outer * 256) / range;
+                int32_t smoothed = (t * t) / 256;
+                alpha = (uint8_t)((fg_alpha * smoothed) / 256);
             }
             // 内边缘抗锯齿区域
             else if (dist_sq >= inner_aa_sq && dist_sq <= inner_r_sq) {
                 int32_t range = inner_r_sq - inner_aa_sq;
                 int32_t dist_from_inner = dist_sq - inner_aa_sq;
-                alpha = (uint8_t)((fg_alpha * dist_from_inner + range / 2) / range);
+                // 使用平方函数获得更平滑的过渡
+                int32_t t = (dist_from_inner * 256) / range;
+                int32_t smoothed = (t * t) / 256;
+                alpha = (uint8_t)((fg_alpha * smoothed) / 256);
             }
             // 圆环内部
             else if (dist_sq > inner_r_sq && dist_sq < outer_r_sq) {
@@ -150,10 +156,10 @@ void graph_fill_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, float star
     float start_rad = DEG_TO_RAD(start_angle);
     float end_rad = DEG_TO_RAD(end_angle);
 
-    // 整数半径和抗锯齿边界
+    // 整数半径和抗锯齿边界（扩大到1像素宽度以获得更平滑的效果）
     int32_t r_sq = radius * radius;
-    int32_t r_aa_sq = r_sq + radius + 1;  // (r + 0.5)^2 近似
-    int32_t r_inner_sq = r_sq - radius + 1;  // (r - 0.5)^2 近似
+    int32_t r_aa_sq = r_sq + 2 * radius;  // (r + 1)^2
+    int32_t r_inner_sq = (radius > 1) ? (radius - 1) * (radius - 1) : 0;  // (r - 1)^2
     if (r_inner_sq < 0) r_inner_sq = 0;
     
     // 计算边界框（包含抗锯齿区域）
@@ -201,7 +207,10 @@ void graph_fill_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, float star
             else {
                 int32_t range = r_aa_sq - r_inner_sq;
                 int32_t dist_from_outer = r_aa_sq - dist_sq;
-                uint8_t alpha = (uint8_t)((fg_alpha * dist_from_outer + range / 2) / range);
+                // 使用平方函数获得更平滑的过渡
+                int32_t t = (dist_from_outer * 256) / range;
+                int32_t smoothed = (t * t) / 256;
+                uint8_t alpha = (uint8_t)((fg_alpha * smoothed) / 256);
                 if (alpha > 0) {
                     draw_aa_pixel_arc_int(g, px, py, color, alpha);
                 }
