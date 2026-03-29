@@ -80,7 +80,7 @@ class CircularClock : public Widget {
         double minAngle = (min + sec / 60.0) * (M_PI / 30);
         int minX = centerX + (int)(radius * 0.7 * cos(minAngle - M_PI / 2));
         int minY = centerY + (int)(radius * 0.7 * sin(minAngle - M_PI / 2));
-        graph_wline(g, centerX, centerY, minX, min, minHandWidth, 0xff000000);
+        graph_wline(g, centerX, centerY, minX, minY, minHandWidth, 0xff000000);
     
         // 秒针
         double secAngle = sec * (M_PI / 30);
