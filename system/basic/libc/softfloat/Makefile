@@ -46,7 +46,7 @@ SOFTFLOAT_OPTS ?= -DSOFTFLOAT_ROUND_ODD -DINLINE_LEVEL=5
 
 DELETE = rm -f
 CP = cp
-C_INCLUDES = -I. -I$(SOURCE_DIR)/$(SPECIALIZE_TYPE) -I$(SOURCE_DIR)/include
+C_INCLUDES = -I. -I $(SOURCE_DIR)/$(SPECIALIZE_TYPE) -I $(SOURCE_DIR)/include
 COMPILE_C = \
   $(CC) -c -Werror-implicit-function-declaration $(SOFTFLOAT_OPTS) \
     $(C_INCLUDES) -O2 -o $@

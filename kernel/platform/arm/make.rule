@@ -17,7 +17,7 @@ BSP_DIR=bsp
 BUILD_DIR = .
 
 # flags
-ASFLAGS = $(OPTM) -I. -I$(SRC_DIR)/include -marm $(ARCH_CFLAGS)
+ASFLAGS = $(OPTM) -I. -I $(SRC_DIR)/include -marm $(ARCH_CFLAGS)
 
 ifeq ($(SMP),yes)
 CFLAGS += -DKERNEL_SMP
@@ -40,11 +40,11 @@ CFLAGS += $(OPTM) \
 	-Wno-int-conversion \
 	-Wno-implicit-function-declaration \
 	-Wno-declaration-missing-parameter-type \
-	-I. -I$(SRC_DIR)/lib/include \
-	-I$(SRC_DIR)/kernel/include \
-	-I$(SRC_DIR)/dev/include \
-	-I$(ARCH_DIR)/$(ARCH_VER) \
-	-I$(ARCH_DIR)/common/include \
+	-I. -I $(SRC_DIR)/lib/include \
+	-I $(SRC_DIR)/kernel/include \
+	-I $(SRC_DIR)/dev/include \
+	-I $(ARCH_DIR)/$(ARCH_VER) \
+	-I $(ARCH_DIR)/common/include \
 	-marm $(ARCH_CFLAGS) \
 	-Wstrict-prototypes \
 	-pedantic -Wall -Wextra -msoft-float -fPIC -mapcs-frame \
@@ -80,11 +80,11 @@ endif
 
 LIB_EXT2_DIR=$(SRC_DIR)/lib/ext2
 LIB_EXT2_OBJS = $(LIB_EXT2_DIR)/src/partition.o $(LIB_EXT2_DIR)/src/ext2read.o 
-CFLAGS += -I$(LIB_EXT2_DIR)/include
+CFLAGS += -I $(LIB_EXT2_DIR)/include
 
 LIB_SCONF_DIR=$(SRC_DIR)/lib/sconf
 LIB_SCONF_OBJS = $(LIB_SCONF_DIR)/src/sconf.o 
-CFLAGS += -I$(LIB_SCONF_DIR)/include
+CFLAGS += -I $(LIB_SCONF_DIR)/include
 
 LIB_DIR = $(SRC_DIR)/lib/src
 LIB_OBJS = \
@@ -104,7 +104,7 @@ LOAD_OBJS = \
 
 DEV_DIR = $(SRC_DIR)/dev/src
 
-CFLAGS += -I$(LOAD_DIR)
+CFLAGS += -I $(LOAD_DIR)
 
 KERNEL_DIR = $(SRC_DIR)/kernel/src
 KERNEL_OBJS = \

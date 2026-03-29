@@ -6,7 +6,7 @@ TARGET_DIR = $(BUILD_DIR)
 
 LDFLAGS = -L$(TARGET_DIR)/lib
 
-CFLAGS += -Iinclude -I$(TARGET_DIR)/include
+CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
 LIB_X_OBJS = src/x.o \
 	src/xwin.o \

@@ -6,10 +6,10 @@ TARGET_DIR = $(BUILD_DIR)
 
 LDFLAGS = -L$(TARGET_DIR)/lib
 
-CFLAGS += -I$(SYS_DIR)/basic/libc/libewoksys/ewoksys/include \
-	-I$(SYS_DIR)/basic/libs/sd/include \
-	-I$(SYS_DIR)/basic/libs/gpio/include \
-	-I$(SYS_DIR)/gui/libs/graph/include \
+CFLAGS += -I $(SYS_DIR)/basic/libc/libewoksys/ewoksys/include \
+	-I $(SYS_DIR)/basic/libs/sd/include \
+	-I $(SYS_DIR)/basic/libs/gpio/include \
+	-I $(SYS_DIR)/gui/libs/graph/include \
 	-Iinclude -I $(TARGET_DIR)/include
 
 LIB_BSP_OBJS = src/bsp_sd.o src/bsp_fb.o src/bsp_gpio.o
