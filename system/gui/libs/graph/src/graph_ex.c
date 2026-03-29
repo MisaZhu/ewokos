@@ -661,89 +661,111 @@ void graph_fill_ring_arc(graph_t* g, int cx, int cy, int radius, int thickness,
     if (g == NULL || radius <= 0 || thickness <= 0 || thickness > radius)
         return;
 
-    // Handle full circle case
-    if (end_angle - start_angle >= 360 || (start_angle == 0 && end_angle == 360)) {
-        // Draw full ring without angle check
-        int inner_radius = radius - thickness;
-        if (inner_radius < 0) inner_radius = 0;
-
-        int outer_r_sq = radius * radius;
-        int inner_r_sq = inner_radius * inner_radius;
-
-        int min_x = cx - radius;
-        int max_x = cx + radius;
-        int min_y = cy - radius;
-        int max_y = cy + radius;
-
-        if (min_x < 0) min_x = 0;
-        if (min_y < 0) min_y = 0;
-        if (max_x >= g->w) max_x = g->w - 1;
-        if (max_y >= g->h) max_y = g->h - 1;
-
-        for (int y = min_y; y <= max_y; y++) {
-            for (int x = min_x; x <= max_x; x++) {
-                int dx = x - cx;
-                int dy = y - cy;
-                int dist_sq = dx * dx + dy * dy;
-
-                if (dist_sq >= inner_r_sq && dist_sq <= outer_r_sq) {
-                    graph_pixel(g, x, y, color);
-                }
-            }
-        }
-        return;
-    }
-
-    // Normalize angles
-    while (start_angle < 0) start_angle += 360;
-    while (end_angle < 0) end_angle += 360;
-    while (start_angle >= 360) start_angle -= 360;
-    while (end_angle >= 360) end_angle -= 360;
+    uint8_t fg_alpha = (color >> 24) & 0xFF;
 
     int inner_radius = radius - thickness;
     if (inner_radius < 0) inner_radius = 0;
 
-    int outer_r_sq = radius * radius;
-    int inner_r_sq = inner_radius * inner_radius;
+    // 外圆和内圆的半径平方
+    int32_t outer_r_sq = radius * radius;
+    int32_t inner_r_sq = inner_radius * inner_radius;
 
-    int min_x = cx - radius;
-    int max_x = cx + radius;
-    int min_y = cy - radius;
-    int max_y = cy + radius;
+    // 抗锯齿边界（扩大到1像素宽度以获得更平滑的效果）
+    int32_t outer_aa_sq = outer_r_sq + 2 * radius;  // (r + 1)^2
+    int32_t inner_aa_sq = (inner_radius > 0) ? inner_r_sq - 2 * inner_radius + 1 : 0;  // (inner_r - 1)^2
+    if (inner_aa_sq < 0) inner_aa_sq = 0;
+
+    // 计算边界框（包含抗锯齿区域）
+    int min_x = cx - radius - 1;
+    int max_x = cx + radius + 1;
+    int min_y = cy - radius - 1;
+    int max_y = cy + radius + 1;
 
     if (min_x < 0) min_x = 0;
     if (min_y < 0) min_y = 0;
     if (max_x >= g->w) max_x = g->w - 1;
     if (max_y >= g->h) max_y = g->h - 1;
 
-    int cross_zero = (start_angle > end_angle);
+    // 角度归一化
+    float start_rad = start_angle * M_PI / 180.0;
+    float end_rad = end_angle * M_PI / 180.0;
 
+    int swap = 0;
+    if (start_angle > end_angle) {
+        swap = 1;
+    }
+
+    // 逐像素扫描
     for (int y = min_y; y <= max_y; y++) {
+        int32_t dy = y - cy;
+        int32_t dy_sq = dy * dy;
+
         for (int x = min_x; x <= max_x; x++) {
-            int dx = x - cx;
-            int dy = y - cy;
-            int dist_sq = dx * dx + dy * dy;
+            int32_t dx = x - cx;
+            int32_t dist_sq = dx * dx + dy_sq;
 
-            if (dist_sq < inner_r_sq || dist_sq > outer_r_sq)
-                continue;
+            // 完全在抗锯齿区域外，跳过
+            if (dist_sq > outer_aa_sq) continue;
 
-            int angle;
-            if (dx == 0 && dy == 0) {
-                angle = 0;
+            // 完全在内圆内部（空心部分），跳过
+            if (dist_sq < inner_aa_sq) continue;
+
+            // 检查角度范围
+            float angle = atan2f(-dy, dx);
+            int in_range = 0;
+            
+            // 归一化角度到 [0, 2*PI)
+            while (angle < 0) angle += 2 * M_PI;
+            while (angle >= 2 * M_PI) angle -= 2 * M_PI;
+            
+            if (swap) {
+                // 交换的情况：范围是 start_rad 到 2*PI 或 0 到 end_rad
+                if (angle >= start_rad || angle <= end_rad) {
+                    in_range = 1;
+                }
             } else {
-                angle = (int)(atan2(-dy, dx) * 180.0 / M_PI);
-                if (angle < 0) angle += 360;
+                // 正常情况：范围是 start_rad 到 end_rad
+                if (angle >= start_rad && angle <= end_rad) {
+                    in_range = 1;
+                }
+            }
+            
+            if (!in_range) continue;
+
+            uint8_t alpha = 0;
+
+            // 外边缘抗锯齿区域
+            if (dist_sq >= outer_r_sq && dist_sq <= outer_aa_sq) {
+                int32_t range = outer_aa_sq - outer_r_sq;
+                int32_t dist_from_outer = outer_aa_sq - dist_sq;
+                // 使用平方函数获得更平滑的过渡
+                int32_t t = (dist_from_outer * 256) / range;
+                int32_t smoothed = (t * t) / 256;
+                alpha = (uint8_t)((fg_alpha * smoothed) / 256);
+            }
+            // 内边缘抗锯齿区域
+            else if (dist_sq >= inner_aa_sq && dist_sq <= inner_r_sq) {
+                int32_t range = inner_r_sq - inner_aa_sq;
+                int32_t dist_from_inner = dist_sq - inner_aa_sq;
+                // 使用平方函数获得更平滑的过渡
+                int32_t t = (dist_from_inner * 256) / range;
+                int32_t smoothed = (t * t) / 256;
+                alpha = (uint8_t)((fg_alpha * smoothed) / 256);
+            }
+            // 圆环内部（完全在内外圆之间）
+            else if (dist_sq > inner_r_sq && dist_sq < outer_r_sq) {
+                alpha = fg_alpha;
             }
 
-            int in_arc = 0;
-            if (cross_zero) {
-                in_arc = (angle >= start_angle || angle <= end_angle);
-            } else {
-                in_arc = (angle >= start_angle && angle <= end_angle);
-            }
-
-            if (in_arc) {
-                graph_pixel(g, x, y, color);
+            if (alpha > 0) {
+                if (alpha >= 255) {
+                    graph_pixel(g, x, y, (color & 0x00FFFFFF) | 0xFF000000);
+                } else {
+                    uint8_t r = (color >> 16) & 0xFF;
+                    uint8_t gc = (color >> 8) & 0xFF;
+                    uint8_t b = color & 0xFF;
+                    graph_pixel_argb(g, x, y, alpha, r, gc, b);
+                }
             }
         }
     }
