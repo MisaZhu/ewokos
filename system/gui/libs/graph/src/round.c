@@ -113,9 +113,9 @@ static inline void draw_round_corner_round(graph_t* g, int32_t corner_x, int32_t
     int32_t inner_r = r - rw;
     int32_t inner_r_sq = inner_r * inner_r;
 
-    // 抗锯齿边界
-    int32_t outer_aa_sq = outer_r_sq + r + 1;  // (r + 0.5)^2 近似
-    int32_t inner_aa_sq = inner_r_sq - inner_r + 1; // (r - 0.5)^2 近似
+    // 抗锯齿边界（扩大到1像素宽度以获得更平滑的效果）
+    int32_t outer_aa_sq = outer_r_sq + 2 * r;  // (r + 1)^2
+    int32_t inner_aa_sq = (inner_r > 0) ? inner_r_sq - 2 * inner_r + 1 : 0;  // (inner_r - 1)^2
     if (inner_r <= 0) inner_aa_sq = 0;
 
     // 计算边界框，限制在 r-1 范围内以与四边对齐
@@ -169,13 +169,19 @@ static inline void draw_round_corner_round(graph_t* g, int32_t corner_x, int32_t
             if (dist_sq >= outer_r_sq && dist_sq <= outer_aa_sq) {
                 int32_t range = outer_aa_sq - outer_r_sq;
                 int32_t dist_from_outer = outer_aa_sq - dist_sq;
-                alpha = (uint8_t)((fg_alpha * dist_from_outer + range / 2) / range);
+                // 使用平方函数获得更平滑的过渡
+                int32_t t = (dist_from_outer * 256) / range;
+                int32_t smoothed = (t * t) / 256;
+                alpha = (uint8_t)((fg_alpha * smoothed) / 256) / 2;
             }
             // 内边缘抗锯齿区域
             else if (dist_sq >= inner_aa_sq && dist_sq <= inner_r_sq) {
                 int32_t range = inner_r_sq - inner_aa_sq;
                 int32_t dist_from_inner = dist_sq - inner_aa_sq;
-                alpha = (uint8_t)((fg_alpha * dist_from_inner + range / 2) / range);
+                // 使用平方函数获得更平滑的过渡
+                int32_t t = (dist_from_inner * 256) / range;
+                int32_t smoothed = (t * t) / 256;
+                alpha = (uint8_t)((fg_alpha * smoothed) / 256);
             }
             // 圆环内部（完全在内外圆之间）
             else if (dist_sq > inner_r_sq && dist_sq < outer_r_sq) {
