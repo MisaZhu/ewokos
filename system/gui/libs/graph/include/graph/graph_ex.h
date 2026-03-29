@@ -25,6 +25,15 @@ void graph_gaussian_cpu(graph_t* g,int x, int y, int w, int h, int r);
 void graph_gaussian(graph_t* g,int x, int y, int w, int h, int r);
 void graph_shadow(graph_t* g, int x, int y, int w, int h, uint8_t shadow, uint32_t color);
 
+// Ring (annulus) drawing functions
+void graph_ring_arc(graph_t* g, int cx, int cy, int radius, int thickness, int rw,
+                    int start_angle, int end_angle, uint32_t color);
+void graph_fill_ring_arc(graph_t* g, int cx, int cy, int radius, int thickness,
+                         int start_angle, int end_angle, uint32_t color);
+void graph_ring(graph_t* g, int cx, int cy, int radius, int thickness, int rw, uint32_t color);
+void graph_ring_sector(graph_t* g, int cx, int cy, int radius, int thickness,
+                       int start_angle, int end_angle, uint32_t color);
+
 #ifdef __cplusplus
 }
 #endif

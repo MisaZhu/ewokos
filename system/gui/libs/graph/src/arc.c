@@ -11,8 +11,6 @@ extern "C" {
 // 角度转弧度
 #define DEG_TO_RAD(deg) ((deg) * M_PI / 180.0)
 
-#ifdef BSP_BOOST
-
 // 辅助函数：绘制抗锯齿像素（使用整数alpha）
 static inline void draw_aa_pixel_arc_int(graph_t* g, int32_t x, int32_t y, uint32_t color, uint8_t alpha) {
     if (alpha <= 0) return;
@@ -107,7 +105,7 @@ void graph_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, int32_t rw, flo
             if (dist_sq < inner_aa_sq) continue;
             
             // 检查角度范围
-            float angle = atan2f(dy, dx);
+            float angle = atan2f(-dy, dx);
             if (!angle_in_range(angle, start_rad, end_rad, swap)) continue;
             
             uint8_t alpha = 0;
@@ -185,9 +183,9 @@ void graph_fill_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, float star
             if (dist_sq > r_aa_sq) continue;
             
             // 检查角度范围
-            float angle = atan2f(dy, dx);
+            float angle = atan2f(-dy, dx);
             if (!angle_in_range(angle, start_rad, end_rad, swap)) continue;
-            
+
             // 完全在内部区域，直接绘制
             if (dist_sq <= r_inner_sq) {
                 if (fg_alpha >= 255) {
@@ -211,113 +209,6 @@ void graph_fill_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, float star
         }
     }
 }
-
-#else
-
-// 绘制圆弧
-void graph_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, int32_t rw, float start_angle, float end_angle, uint32_t color) {
-    if(radius <= 0 || rw <= 0)
-        return;
-    if(rw > radius/2) rw = radius/2;
-
-    int swap = 0;
-    if(start_angle > end_angle) {
-        float temp = start_angle;
-        start_angle = end_angle;
-        end_angle = temp;
-        swap = 1;
-    }
-
-    start_angle = DEG_TO_RAD(start_angle);
-    end_angle = DEG_TO_RAD(end_angle);
-
-    int32_t outer_r = radius + 1;
-    int32_t outer_r_sq = outer_r * outer_r - 1;
-    
-    int32_t inner_r = radius - rw;
-    int32_t inner_r_adj = inner_r;
-    int32_t inner_r_sq = inner_r_adj * inner_r_adj;
-
-    for(int cy = -radius - 1; cy <= radius + 1; cy++) {
-        for(int cx = -radius - 1; cx <= radius + 1; cx++) {
-            int dist_sq = cx*cx + cy*cy;
-            
-            if(dist_sq >= inner_r_sq && dist_sq <= outer_r_sq) {
-                float angle = atan2f(cy, cx);
-                if(angle < 0) angle += 2 * M_PI;
-                
-                int in_range = 0;
-                if(swap) {
-                    if(angle >= start_angle || angle <= end_angle) {
-                        in_range = 1;
-                    }
-                }
-                else {
-                    if(angle >= start_angle && angle <= end_angle) {
-                        in_range = 1;
-                    }
-                }
-                
-                if(in_range) {
-                    int px = x + cx;
-                    int py = y + cy;
-                    graph_pixel(g, px, py, color);
-                }
-            }
-        }
-    }
-}
-
-// 绘制填充圆弧
-void graph_fill_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, float start_angle, float end_angle, uint32_t color) {
-    if(radius <= 0)
-        return;
-
-    int swap = 0;
-    if(start_angle > end_angle) {
-        float temp = start_angle;
-        start_angle = end_angle;
-        end_angle = temp;
-        swap = 1;
-    }
-
-    start_angle = DEG_TO_RAD(start_angle);
-    end_angle = DEG_TO_RAD(end_angle);
-
-    int32_t r_plus_half = radius + 1;
-    int32_t r_sq_plus = (r_plus_half * r_plus_half) - 1;
-
-    for(int cy = -radius - 1; cy <= radius + 1; cy++) {
-        for(int cx = -radius - 1; cx <= radius + 1; cx++) {
-            int dist_sq = cx*cx + cy*cy;
-            
-            if(dist_sq <= r_sq_plus) {
-                float angle = atan2f(cy, cx);
-                if(angle < 0) angle += 2 * M_PI;
-                
-                int in_range = 0;
-                if(swap) {
-                    if(angle >= start_angle || angle <= end_angle) {
-                        in_range = 1;
-                    }
-                }
-                else {
-                    if(angle >= start_angle && angle <= end_angle) {
-                        in_range = 1;
-                    }
-                }
-                
-                if(in_range) {
-                    int px = x + cx;
-                    int py = y + cy;
-                    graph_pixel(g, px, py, color);
-                }
-            }
-        }
-    }
-}
-
-#endif
 
 #ifdef __cplusplus
 }

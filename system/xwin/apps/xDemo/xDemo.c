@@ -6,6 +6,7 @@
 
 #include <ewoksys/proc.h>
 #include <graph/graph_png.h>
+#include <graph/graph_ex.h>
 #include <ewoksys/basic_math.h>
 #include <ewoksys/kernel_tic.h>
 #include <ewoksys/ipc.h>
@@ -19,7 +20,11 @@ enum {
 	RECT,
 	ARC,
 	ROUND,
-	ROUND_3D
+	ROUND_3D,
+	RING,
+	RING_ARC,
+	RING_FILL_ARC,
+	MAX_MODE
 };
 
 typedef struct {
@@ -103,12 +108,13 @@ static void on_repaint(xwin_t* xwin, graph_t* g) {
 	w = w < 32 ? 32 : w;
 	h = h < 32 ? 32 : h;
 
+
 	if(_xtest_info.tic == low) { //3 second
 		_xtest_info.fps = _xtest_info.count/3;
 		_xtest_info.count = 0;
 
 		_xtest_info.mode++;
-		if(_xtest_info.mode > ROUND_3D)
+		if(_xtest_info.mode >= MAX_MODE)
 			_xtest_info.mode = 0;
 
 		graph_fill(g, 0, 0, gW, gH, 0xff000000);
@@ -129,12 +135,6 @@ static void on_repaint(xwin_t* xwin, graph_t* g) {
 		if(endangle == 0)
 			endangle = 119;
 
-		if(start > endangle) {
-			int temp = endangle;
-			endangle = start;
-			start = temp;
-		}
-
 		graph_fill_arc(g, x, y, h/2, start, endangle, c);
 		graph_arc(g, x, y, h/2+4, 2, start, endangle, c);
 	}
@@ -148,6 +148,38 @@ static void on_repaint(xwin_t* xwin, graph_t* g) {
 	else if(_xtest_info.mode == RECT) {
 		graph_fill(g, x, y, w, h, c);
 		graph_box(g, x-4, y-4, w+8, h+8, c);
+	}
+	else if(_xtest_info.mode == RING) {
+		// Full ring (360 degrees)
+		int radius = h/2;
+		int thickness = radius/4 + 4;
+		graph_ring(g, x, y, radius, thickness, 3, c);
+	}
+	else if(_xtest_info.mode == RING_ARC) {
+		// Ring arc (partial ring) - hollow ring arc
+		int radius = h/2;
+		int thickness = radius/4 + 4;
+		int start = rand()%360;
+		int endangle = rand()%360;
+		if(start > endangle) {
+			int temp = endangle;
+			endangle = start;
+			start = temp;
+		}
+		graph_ring_arc(g, x, y, radius, thickness, 3, start, endangle, c);
+	}
+	else if(_xtest_info.mode == RING_FILL_ARC) {
+		// Filled ring arc (pie chart style) - fills from center to outer radius
+		int radius = h/2;
+		int thickness = radius/4 + 4;
+		int endangle = rand()%360;
+		int start = rand()%360;
+		if(start > endangle) {
+			int temp = endangle;
+			endangle = start;
+			start = temp;
+		}
+		graph_fill_ring_arc(g, x, y, radius, thickness, start, endangle, c);
 	}
 
 	char str[32];
@@ -164,7 +196,7 @@ static void loop(void* p) {
 	if(_repaint)
 		xwin_repaint(xwin);
 	_repaint = false;
-	proc_usleep(3000);
+	proc_usleep(30000);
 }
 
 static void _timerHandler(void) {
@@ -180,7 +212,7 @@ int main(int argc, char* argv[]) {
 	xtest_init();
 
 	x.on_loop = loop;
-	xwin_t* xwin = xwin_open(&x, -1, 32, 32, 320, 200, "xtest", XWIN_STYLE_NORMAL);
+	xwin_t* xwin = xwin_open(&x, -1, 32, 32, 320, 200, "xDemo", XWIN_STYLE_NORMAL);
 	xwin->on_resize = on_resize;
 	xwin->on_event = on_event;
 	xwin->on_repaint = on_repaint;

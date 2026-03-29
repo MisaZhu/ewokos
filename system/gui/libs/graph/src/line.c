@@ -108,7 +108,7 @@ void graph_line(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint
 	}
 }
 
-void graph_wline(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t color, uint32_t w) {
+void graph_wline(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t w, uint32_t color) {
 	if(w == 0)
 		return;
 
@@ -162,15 +162,15 @@ void graph_wline(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uin
 					int32_t py = sub_y - y1 * 2;
 					
 					int32_t dot = px * dx + py * dy;
-					int32_t t;
-					
-					if(dot < 0) {
-						t = 0;
-					} else if(dot > len_sq * 4) {
-						t = len_sq * 4;
-					} else {
-						t = dot;
-					}
+				int32_t t;
+				
+				if(dot < 0) {
+					t = 0;
+				} else if(dot > len_sq * 2) {
+					t = len_sq * 2;
+				} else {
+					t = dot;
+				}
 					
 					int32_t closest_x = x1 * 2 + (dx * t) / len_sq;
 					int32_t closest_y = y1 * 2 + (dy * t) / len_sq;

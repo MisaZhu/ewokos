@@ -74,19 +74,19 @@ class CircularClock : public Widget {
         double hourAngle = (hour % 12 + min / 60.0) * (M_PI / 6);
         int hourX = centerX + (int)(radius * 0.5 * cos(hourAngle - M_PI / 2));
         int hourY = centerY + (int)(radius * 0.5 * sin(hourAngle - M_PI / 2));
-        graph_wline(g, centerX, centerY, hourX, hourY, 0xff000000, hourHandWidth);
+        graph_wline(g, centerX, centerY, hourX, hourY, hourHandWidth, 0xff000000);
     
         // 分针
         double minAngle = (min + sec / 60.0) * (M_PI / 30);
         int minX = centerX + (int)(radius * 0.7 * cos(minAngle - M_PI / 2));
         int minY = centerY + (int)(radius * 0.7 * sin(minAngle - M_PI / 2));
-        graph_wline(g, centerX, centerY, minX, minY, 0xff000000, minHandWidth);
+        graph_wline(g, centerX, centerY, minX, min, minHandWidth, 0xff000000);
     
         // 秒针
         double secAngle = sec * (M_PI / 30);
         int secX = centerX + (int)(radius * 0.8 * cos(secAngle - M_PI / 2));
         int secY = centerY + (int)(radius * 0.8 * sin(secAngle - M_PI / 2));
-        graph_wline(g, centerX, centerY, secX, secY, 0xffff0000, secHandWidth);
+        graph_wline(g, centerX, centerY, secX, secY, secHandWidth, 0xffff0000);
     
         // 绘制指针根部的圆形
         int rootRadius = 5; // 根部圆形的半径，可以根据需要调整

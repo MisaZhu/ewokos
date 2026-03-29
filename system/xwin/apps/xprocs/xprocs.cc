@@ -285,7 +285,7 @@ protected:
 			if(last_y < 0)
 				last_y = y;
 
-			graph_wline(g, r.x+x_off+last_x, r.y+last_y, r.x+x_off+x, r.y+y, color, 2);
+			graph_wline(g, r.x+x_off+last_x, r.y+last_y, r.x+x_off+x, r.y+y, 2, color);
 			last_x = x;
 			last_y = y;
 		}

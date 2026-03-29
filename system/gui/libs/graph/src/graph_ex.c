@@ -3,6 +3,10 @@
 #include <stdlib.h>
 #include <math.h>
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 uint32_t graph_get_dark_color(uint32_t base) {
         uint32_t a, r, g, b;
         a = (base >> 24) & 0xff;
@@ -579,5 +583,191 @@ void graph_circle_3d(graph_t* g, int x, int y, int r, int rw, uint32_t color, bo
 }
 
 void graph_fill_circle_3d(graph_t* g, int x, int y, int r, int rw, uint32_t color, bool reverse) {
-    graph_fill_round_3d(g, x-r, y-r, r*2, r*2, r, rw, color, reverse);
+	graph_fill_round_3d(g, x-r, y-r, r*2, r*2, r, rw, color, reverse);
+}
+
+/**
+ * Draw a ring (annulus) arc outline with specified start angle, end angle, radius and thickness
+ * Only draws the outline (inner and outer arc lines), does not fill the ring area
+ * @param g Graph context
+ * @param cx Center X coordinate
+ * @param cy Center Y coordinate
+ * @param radius Outer radius of the ring
+ * @param thickness Thickness of the ring (inner radius = radius - thickness)
+ * @param start_angle Start angle in degrees (0-360, 0 is at 3 o'clock, counter-clockwise)
+ * @param end_angle End angle in degrees (0-360)
+ * @param color Ring color
+ */
+void graph_ring_arc(graph_t* g, int cx, int cy, int radius, int thickness, int rw,
+                    int start_angle, int end_angle, uint32_t color) {
+    if (g == NULL || radius <= 0 || thickness <= 0 || thickness > radius)
+        return;
+
+    int inner_radius = radius - thickness;
+    if (inner_radius < 0) inner_radius = 0;
+
+    // Draw outer arc (line width = 1)
+    graph_arc(g, cx, cy, radius, rw, (float)start_angle, (float)end_angle, color);
+    // Draw inner arc
+    if (inner_radius > 0) {
+        graph_arc(g, cx, cy, inner_radius, rw, (float)start_angle, (float)end_angle, color);
+    }
+
+    
+    // Draw radial lines at start and end angles
+    // graph_arc uses standard math angles (counter-clockwise from positive X)
+    // Screen Y increases downward, so we negate sin: y = cy - r*sin(a)
+    if((end_angle - start_angle) == 360)
+        return;
+
+    double start_rad = start_angle * M_PI / 180.0;
+    double end_rad = end_angle * M_PI / 180.0;
+
+    // Start angle radial line
+    int x1 = cx + (int)(inner_radius * cos(start_rad) + 0.5);
+    int y1 = cy - (int)(inner_radius * sin(start_rad) + 0.5);
+    int x2 = cx + (int)(radius * cos(start_rad) + 0.5);
+    int y2 = cy - (int)(radius * sin(start_rad) + 0.5);
+    graph_wline(g, x1, y1, x2, y2, rw, color);
+
+    // End angle radial line
+    x1 = cx + (int)(inner_radius * cos(end_rad) + 0.5);
+    y1 = cy - (int)(inner_radius * sin(end_rad) + 0.5);
+    x2 = cx + (int)(radius * cos(end_rad) + 0.5);
+    y2 = cy - (int)(radius * sin(end_rad) + 0.5);
+    graph_wline(g, x1, y1, x2, y2, rw, color);
+}
+
+/**
+ * Draw a filled ring (annulus) arc with specified start angle, end angle, radius and thickness
+ * Fills the entire ring area between inner and outer radius
+ * @param g Graph context
+ * @param cx Center X coordinate
+ * @param cy Center Y coordinate
+ * @param radius Outer radius of the ring
+ * @param thickness Thickness of the ring (inner radius = radius - thickness)
+ * @param start_angle Start angle in degrees (0-360, 0 is at 3 o'clock, counter-clockwise)
+ * @param end_angle End angle in degrees (0-360)
+ * @param color Ring color
+ */
+void graph_fill_ring_arc(graph_t* g, int cx, int cy, int radius, int thickness,
+                    int start_angle, int end_angle, uint32_t color) {
+    if (g == NULL || radius <= 0 || thickness <= 0 || thickness > radius)
+        return;
+
+    // Handle full circle case
+    if (end_angle - start_angle >= 360 || (start_angle == 0 && end_angle == 360)) {
+        // Draw full ring without angle check
+        int inner_radius = radius - thickness;
+        if (inner_radius < 0) inner_radius = 0;
+
+        int outer_r_sq = radius * radius;
+        int inner_r_sq = inner_radius * inner_radius;
+
+        int min_x = cx - radius;
+        int max_x = cx + radius;
+        int min_y = cy - radius;
+        int max_y = cy + radius;
+
+        if (min_x < 0) min_x = 0;
+        if (min_y < 0) min_y = 0;
+        if (max_x >= g->w) max_x = g->w - 1;
+        if (max_y >= g->h) max_y = g->h - 1;
+
+        for (int y = min_y; y <= max_y; y++) {
+            for (int x = min_x; x <= max_x; x++) {
+                int dx = x - cx;
+                int dy = y - cy;
+                int dist_sq = dx * dx + dy * dy;
+
+                if (dist_sq >= inner_r_sq && dist_sq <= outer_r_sq) {
+                    graph_pixel(g, x, y, color);
+                }
+            }
+        }
+        return;
+    }
+
+    // Normalize angles
+    while (start_angle < 0) start_angle += 360;
+    while (end_angle < 0) end_angle += 360;
+    while (start_angle >= 360) start_angle -= 360;
+    while (end_angle >= 360) end_angle -= 360;
+
+    int inner_radius = radius - thickness;
+    if (inner_radius < 0) inner_radius = 0;
+
+    int outer_r_sq = radius * radius;
+    int inner_r_sq = inner_radius * inner_radius;
+
+    int min_x = cx - radius;
+    int max_x = cx + radius;
+    int min_y = cy - radius;
+    int max_y = cy + radius;
+
+    if (min_x < 0) min_x = 0;
+    if (min_y < 0) min_y = 0;
+    if (max_x >= g->w) max_x = g->w - 1;
+    if (max_y >= g->h) max_y = g->h - 1;
+
+    int cross_zero = (start_angle > end_angle);
+
+    for (int y = min_y; y <= max_y; y++) {
+        for (int x = min_x; x <= max_x; x++) {
+            int dx = x - cx;
+            int dy = y - cy;
+            int dist_sq = dx * dx + dy * dy;
+
+            if (dist_sq < inner_r_sq || dist_sq > outer_r_sq)
+                continue;
+
+            int angle;
+            if (dx == 0 && dy == 0) {
+                angle = 0;
+            } else {
+                angle = (int)(atan2(-dy, dx) * 180.0 / M_PI);
+                if (angle < 0) angle += 360;
+            }
+
+            int in_arc = 0;
+            if (cross_zero) {
+                in_arc = (angle >= start_angle || angle <= end_angle);
+            } else {
+                in_arc = (angle >= start_angle && angle <= end_angle);
+            }
+
+            if (in_arc) {
+                graph_pixel(g, x, y, color);
+            }
+        }
+    }
+}
+
+/**
+ * Draw a complete ring (full 360 degrees)
+ * @param g Graph context
+ * @param cx Center X coordinate
+ * @param cy Center Y coordinate
+ * @param radius Outer radius of the ring
+ * @param thickness Thickness of the ring
+ * @param color Ring color
+ */
+void graph_ring(graph_t* g, int cx, int cy, int radius, int thickness, int rw, uint32_t color) {
+    graph_ring_arc(g, cx, cy, radius, thickness, rw, 0, 360, color);
+}
+
+/**
+ * Draw a filled ring sector (pie chart style)
+ * @param g Graph context
+ * @param cx Center X coordinate
+ * @param cy Center Y coordinate
+ * @param radius Outer radius
+ * @param thickness Thickness of the ring
+ * @param start_angle Start angle in degrees
+ * @param end_angle End angle in degrees
+ * @param color Ring color
+ */
+void graph_ring_sector(graph_t* g, int cx, int cy, int radius, int thickness,
+                       int start_angle, int end_angle, uint32_t color) {
+    graph_fill_ring_arc(g, cx, cy, radius, thickness, start_angle, end_angle, color);
 }
