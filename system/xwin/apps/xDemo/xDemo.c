@@ -17,6 +17,8 @@
 
 enum {
 	CIRCLE = 0,
+	CIRCLE_3D,
+	FILL_CIRCLE_3D,
 	RECT,
 	ARC,
 	ROUND,
@@ -132,10 +134,18 @@ static void on_repaint(xwin_t* xwin, graph_t* g) {
 		graph_fill_circle(g, x, y, h/2, c);
 		graph_circle(g, x, y, h/2+6, 3, c);
 	}
+	else if(_xtest_info.mode == CIRCLE_3D) {
+		graph_circle_3d(g, x, y, h/2, 4, c, true);
+	}
+	else if(_xtest_info.mode == FILL_CIRCLE_3D) {
+		graph_fill_circle_3d(g, x, y, h/2, 4, c, true);
+	}
 	else if(_xtest_info.mode == ARC) {
 		//int endangle = rand()%5 * 44;
-		int endangle = rand()%360;
-		int start = rand()%360;
+		//int endangle = rand()%360;
+		//int start = rand()%360;
+		int start = 270;
+		int endangle = 360;
 		if(endangle == 0)
 			endangle = 119;
 

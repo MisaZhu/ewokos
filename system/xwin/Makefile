@@ -23,6 +23,7 @@ all: mkdirs
 	cd bin; make
 	cd sbin; make
 	cd xwm/opencde; make
+	cd xwm/ewokwm; make
 	cd apps; make
 
 clean:
@@ -31,4 +32,5 @@ clean:
 	cd bin; make clean
 	cd sbin; make clean
 	cd xwm/opencde; make clean
+	cd xwm/ewokwm; make clean
 	cd apps; make clean

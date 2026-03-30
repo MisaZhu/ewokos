@@ -120,9 +120,11 @@ void XWM::drawDragFrame(graph_t* g, grect_t* r) {
 	int w = r->w - xwm.theme.shadow;
 	int h = r->h - xwm.theme.shadow;
 
-	for(uint32_t i=0; i<xwm.theme.frameW; i++) {
-		graph_box(g, x-(xwm.theme.frameW-i), y-(xwm.theme.frameW-i), w+(xwm.theme.frameW-i)*2, h+(xwm.theme.frameW-i)*2, 0x88000000);
-	}
+	int wd = xwm.theme.frameW;
+	if(wd <= 0)
+		wd = 2;
+	graph_frame(g, r->x-wd, r->y-wd, 
+			r->w+wd*2, r->h+wd*2, wd, 0x88ffffff, false);
 }
 
 static void draw_drag_frame(graph_t* g, grect_t* r, void* p) {
@@ -312,6 +314,48 @@ void XWM::drawDesktop(graph_t* g) {
 
 static void draw_desktop(graph_t* g, void* p) {
 	((XWM*)p)->__drawDesktop(g);
+}
+
+void XWM::drawBGEffect(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinfo_t* info, bool top) {
+	if(top || xwm.theme.bgEffect == BG_EFFECT_NONE)
+		return;
+
+	graph_blt_alpha(frame_g, 0, 0, 
+			info->winr.w,
+			info->winr.h,
+			desktop_g,
+			info->winr.x,
+			info->winr.y,
+			info->winr.w,
+			info->winr.h, 0x88);
+	
+	switch(xwm.theme.bgEffect) {
+		case BG_EFFECT_TRANSPARENT:
+			graph_blt(desktop_g, 
+				info->winr.x, info->winr.y, info->winr.w, info->winr.h, 
+				frame_g, 0, 0, info->winr.w, info->winr.h);
+			return;
+		case BG_EFFECT_DOT:
+			graph_draw_dot_pattern(desktop_g, 
+				info->wsr.x, info->wsr.y, info->wsr.w, info->wsr.h,
+				0x33ffffff, 0x33000000, 2, 1);	
+			graph_blt(desktop_g, 
+				info->winr.x, info->winr.y, info->winr.w, info->winr.h, 
+				frame_g, 0, 0, info->winr.w, info->winr.h);
+			return;
+		case BG_EFFECT_GLASS:
+			graph_glass(desktop_g, info->wsr.x, info->wsr.y, info->wsr.w, info->wsr.h, 3);
+			graph_blt(desktop_g, 
+				info->winr.x, info->winr.y, info->winr.w, info->winr.h, 
+				frame_g, 0, 0, info->winr.w, info->winr.h);
+			return;
+		case BG_EFFECT_GAUSSIAN:
+			graph_gaussian(desktop_g, info->wsr.x, info->wsr.y, info->wsr.w, info->wsr.h, 3);
+			graph_blt(desktop_g, 
+				info->winr.x, info->winr.y, info->winr.w, info->winr.h, 
+				frame_g, 0, 0, info->winr.w, info->winr.h);
+		return;
+	}
 }
 
 void XWM::getColor(uint32_t *fg, uint32_t* bg, bool top) {

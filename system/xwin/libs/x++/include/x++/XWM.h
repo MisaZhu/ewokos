@@ -8,6 +8,13 @@
 
 namespace Ewok {
 
+enum {
+    BG_EFFECT_NONE = 0,
+    BG_EFFECT_TRANSPARENT,
+    BG_EFFECT_DOT,
+    BG_EFFECT_GLASS,
+    BG_EFFECT_GAUSSIAN
+};
 
 class XWM : public UniObject {
 	uint32_t getPatternMode(graph_t* g, float* scale);
@@ -39,7 +46,7 @@ protected:
 	virtual void drawShadow(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top);
 	virtual void drawDragFrame(graph_t* g, grect_t* r);
 	virtual void onLoadTheme(void) { }
-	virtual void drawBGEffect(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinfo_t* info, bool top) { };
+	virtual void drawBGEffect(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinfo_t* info, bool top);
 
 	void updateTheme(bool loadFromX);
 public:

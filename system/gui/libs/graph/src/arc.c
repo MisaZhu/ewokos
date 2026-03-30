@@ -32,6 +32,23 @@ static inline int angle_in_range(float angle, float start_angle, float end_angle
     while (angle < 0) angle += 2 * M_PI;
     while (angle >= 2 * M_PI) angle -= 2 * M_PI;
     
+    // Handle the case where end_angle is 2*PI (360 degrees)
+    // In this case, we need to check if angle is in [start_angle, 2*PI) or angle is close to 0
+    if (end_angle >= 2 * M_PI - 0.0001f) {
+        // end_angle is effectively 2*PI
+        if (swap) {
+            // This shouldn't happen when end_angle = 2*PI
+            return 1;
+        } else {
+            // Check if angle >= start_angle (since end is 2*PI)
+            // or angle is very close to 0 (which represents 360 degrees)
+            if (angle >= start_angle || angle < 0.0001f) {
+                return 1;
+            }
+        }
+        return 0;
+    }
+    
     if (swap) {
         // Swap case: range is start_angle to 2*PI or 0 to end_angle
         if (angle >= start_angle || angle <= end_angle) {
@@ -187,6 +204,20 @@ void graph_fill_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, float star
             
             // Completely outside anti-aliasing area, skip
             if (dist_sq > r_aa_sq) continue;
+            
+            // For filled arc, the center point (dist_sq == 0) should always be drawn
+            // because it's the intersection of all angles
+            if (dist_sq == 0) {
+                if (fg_alpha >= 255) {
+                    graph_set_pixel(g, px, py, color);
+                } else if (fg_alpha > 0) {
+                    uint8_t r = (color >> 16) & 0xFF;
+                    uint8_t gc = (color >> 8) & 0xFF;
+                    uint8_t b = color & 0xFF;
+                    graph_pixel_argb_raw(g, px, py, fg_alpha, r, gc, b);
+                }
+                continue;
+            }
             
             // Check angle range
             float angle = atan2f(-dy, dx);

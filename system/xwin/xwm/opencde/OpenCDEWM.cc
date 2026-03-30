@@ -44,8 +44,11 @@ void OpenCDEWM::drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 }
 
 void OpenCDEWM::drawDragFrame(graph_t* g, grect_t* r) {
-	graph_frame(g, r->x-xwm.theme.frameW, r->y-xwm.theme.frameW, 
-			r->w+xwm.theme.frameW*2, r->h+xwm.theme.frameW*2, xwm.theme.frameW, 0x88ffffff, false);
+	int wd = xwm.theme.frameW;
+	if(wd <= 0)
+		wd = 2;
+	graph_frame(g, r->x-wd, r->y-wd, 
+			r->w+wd*2, r->h+wd*2, wd, 0x88ffffff, false);
 }
 
 void OpenCDEWM::drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
@@ -70,56 +73,6 @@ void OpenCDEWM::drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	graph_line(g,
 			r->x + 1, r->y + r->h - xwm.theme.frameW + 1,
 			r->x + 1, r->y + r->h, bright);
-}
-
-enum {
-    BG_EFFECT_NONE = 0,
-    BG_EFFECT_TRANSPARENT,
-    BG_EFFECT_DOT,
-    BG_EFFECT_GLASS,
-    BG_EFFECT_GAUSSIAN
-};
-
-void OpenCDEWM::drawBGEffect(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinfo_t* info, bool top) {
-	if(top || xwm.theme.bgEffect == BG_EFFECT_NONE)
-		return;
-
-	graph_blt_alpha(frame_g, 0, 0, 
-			info->winr.w,
-			info->winr.h,
-			desktop_g,
-			info->winr.x,
-			info->winr.y,
-			info->winr.w,
-			info->winr.h, 0x88);
-	
-	switch(xwm.theme.bgEffect) {
-		case BG_EFFECT_TRANSPARENT:
-			graph_blt(desktop_g, 
-				info->winr.x, info->winr.y, info->winr.w, info->winr.h, 
-				frame_g, 0, 0, info->winr.w, info->winr.h);
-			return;
-		case BG_EFFECT_DOT:
-			graph_draw_dot_pattern(desktop_g, 
-				info->wsr.x, info->wsr.y, info->wsr.w, info->wsr.h,
-				0x33ffffff, 0x33000000, 2, 1);	
-			graph_blt(desktop_g, 
-				info->winr.x, info->winr.y, info->winr.w, info->winr.h, 
-				frame_g, 0, 0, info->winr.w, info->winr.h);
-			return;
-		case BG_EFFECT_GLASS:
-			graph_glass(desktop_g, info->wsr.x, info->wsr.y, info->wsr.w, info->wsr.h, 3);
-			graph_blt(desktop_g, 
-				info->winr.x, info->winr.y, info->winr.w, info->winr.h, 
-				frame_g, 0, 0, info->winr.w, info->winr.h);
-			return;
-		case BG_EFFECT_GAUSSIAN:
-			graph_gaussian(desktop_g, info->wsr.x, info->wsr.y, info->wsr.w, info->wsr.h, 3);
-			graph_blt(desktop_g, 
-				info->winr.x, info->winr.y, info->winr.w, info->winr.h, 
-				frame_g, 0, 0, info->winr.w, info->winr.h);
-		return;
-	}
 }
 
 void OpenCDEWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinfo_t* info, grect_t* r, bool top) {

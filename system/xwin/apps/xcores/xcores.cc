@@ -144,14 +144,6 @@ protected:
 		for(uint32_t i=0; i<=10; i++) {
 			graph_line(g, r.x + x_off, r.y + r.h - y_off_bottom - i*10*yzoom,
 				r.x + w + x_off, r.y + r.h - y_off_bottom - i*10*yzoom, color);
-			
-			// Draw percentage labels for memory graph
-			if(isMem) {
-				char s[8];
-				snprintf(s, 7, "%d%%", i*10);
-				graph_draw_text_font(g, r.x + x_off - 30, r.y + r.h - y_off_bottom - i*10*yzoom - 5, 
-					s, theme->getFont(), theme->basic.fontSize, color);
-			}
 		}
 	}
 

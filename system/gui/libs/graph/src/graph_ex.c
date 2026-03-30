@@ -585,11 +585,121 @@ void graph_fill_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, 
 }
 
 void graph_circle_3d(graph_t* g, int x, int y, int r, int rw, uint32_t color, bool reverse) {
-    graph_round_3d(g, x-r, y-r, r*2, r*2, r, rw, color, reverse);
+    if(r <= 0 || rw <= 0 || g == NULL)
+        return;
+    if(rw > r/2) rw = r/2;
+
+    // Calculate 3D effect colors
+    uint32_t highlight_color;
+    uint32_t deep_color;
+    if(reverse) {
+        deep_color = graph_get_bright_color(color);
+        highlight_color = graph_get_dark_color(color);
+    }
+    else {
+        highlight_color = graph_get_bright_color(color);
+        deep_color = graph_get_dark_color(color);
+    }
+
+    uint8_t fg_alpha = (color >> 24) & 0xFF;
+
+    // Outer and inner circle radius squared
+    int32_t outer_r_sq = r * r;
+    int32_t inner_r = r - rw;
+    int32_t inner_r_sq = inner_r * inner_r;
+
+    // Anti-aliasing boundary (expanded to 1 pixel width for smoother effect)
+    int32_t outer_aa_sq = outer_r_sq + 2 * r;  // (r + 1)^2
+    int32_t inner_aa_sq = (inner_r > 0) ? inner_r_sq - 2 * inner_r + 1 : 0;  // (inner_r - 1)^2
+    if (inner_r <= 0) inner_aa_sq = 0;
+
+    // Calculate bounding box
+    int32_t min_y = y - r - 1;
+    int32_t max_y = y + r + 1;
+    int32_t min_x = x - r - 1;
+    int32_t max_x = x + r + 1;
+
+    // Clip to canvas bounds
+    if (min_y < 0) min_y = 0;
+    if (max_y >= g->h) max_y = g->h - 1;
+    if (min_x < 0) min_x = 0;
+    if (max_x >= g->w) max_x = g->w - 1;
+
+    // Scan pixel by pixel
+    for (int32_t py = min_y; py <= max_y; py++) {
+        int32_t dy = py - y;
+        int32_t dy_sq = dy * dy;
+
+        for (int32_t px = min_x; px <= max_x; px++) {
+            int32_t dx = px - x;
+            int32_t dist_sq = dx * dx + dy_sq;
+
+            // Completely outside anti-aliasing area, skip
+            if (dist_sq > outer_aa_sq) continue;
+
+            // Completely inside inner circle (hollow part), skip
+            if (dist_sq < inner_aa_sq) continue;
+
+            uint8_t alpha = 0;
+
+            // Outer edge anti-aliasing area
+            if (dist_sq >= outer_r_sq && dist_sq <= outer_aa_sq) {
+                int32_t range = outer_aa_sq - outer_r_sq;
+                int32_t dist_from_outer = outer_aa_sq - dist_sq;
+                int32_t t = (dist_from_outer * 256) / range;
+                int32_t smoothed = (t * t) / 256;
+                alpha = (uint8_t)((fg_alpha * smoothed) / 256);
+            }
+            // Inner edge anti-aliasing area
+            else if (dist_sq >= inner_aa_sq && dist_sq <= inner_r_sq) {
+                int32_t range = inner_r_sq - inner_aa_sq;
+                int32_t dist_from_inner = dist_sq - inner_aa_sq;
+                int32_t t = (dist_from_inner * 256) / range;
+                int32_t smoothed = (t * t) / 256;
+                alpha = (uint8_t)((fg_alpha * smoothed) / 256);
+            }
+            // Inside ring (completely between inner and outer circles)
+            else if (dist_sq > inner_r_sq && dist_sq < outer_r_sq) {
+                alpha = fg_alpha;
+            }
+
+            if (alpha > 0) {
+                // Determine color based on 45-degree diagonal
+                // For 3D effect with light source from top-left:
+                // - Top-left quadrant (dx < 0, dy < 0): highlight
+                // - Bottom-right quadrant (dx > 0, dy > 0): deep
+                // - Top-right and bottom-left quadrants: split by diagonal
+                uint32_t pixel_color;
+                if (dx <= 0 && dy <= 0) {
+                    // Top-left quadrant: highlight
+                    pixel_color = highlight_color;
+                } else if (dx >= 0 && dy >= 0) {
+                    // Bottom-right quadrant: deep
+                    pixel_color = deep_color;
+                } else if (dx > 0 && dy < 0) {
+                    // Top-right quadrant: split by dx + dy = 0
+                    // dx + dy <= 0 means closer to top-left (highlight)
+                    pixel_color = (dx + dy <= 0) ? highlight_color : deep_color;
+                } else {
+                    // Bottom-left quadrant (dx < 0, dy > 0): split by dx + dy = 0
+                    // dx + dy <= 0 means closer to top-left (highlight)
+                    pixel_color = (dx + dy <= 0) ? highlight_color : deep_color;
+                }
+                draw_aa_pixel_int_ex(g, px, py, pixel_color, alpha);
+            }
+        }
+    }
 }
 
 void graph_fill_circle_3d(graph_t* g, int x, int y, int r, int rw, uint32_t color, bool reverse) {
-	graph_fill_round_3d(g, x-r, y-r, r*2, r*2, r, rw, color, reverse);
+    if(r <= 0 || g == NULL)
+        return;
+    if(rw > r/2) rw = r/2;
+
+    // Draw main filled circle with base color
+    graph_fill_circle(g, x, y, r - rw, color);
+    // Draw 3D border
+    graph_circle_3d(g, x, y, r, rw, color, reverse);
 }
 
 void graph_semi_round_3d(graph_t* g, int x, int y, int w, int r, int rw, uint32_t color, bool reverse, bool top_half) {
