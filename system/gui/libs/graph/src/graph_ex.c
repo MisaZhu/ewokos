@@ -145,21 +145,21 @@ void graph_gaussian_cpu(graph_t* g, int x, int y, int w, int h, int r) {
     w = ir.w;
     h = ir.h;
     
-    // 分配临时缓冲区 (只需要一行大小)
+    // Allocate temporary buffer (only need one line size)
     uint32_t* line_buffer = (uint32_t*)malloc(w * sizeof(uint32_t));
     if (line_buffer == NULL) {
         return;
     }
     
-    // 预计算左右边界的偏移量，避免重复计算
+    // Pre-calculate left and right boundary offsets to avoid repeated calculation
     int left_bound = r;
     int right_bound = w - r;
     
-    // 水平模糊并存储结果到line_buffer
+    // Horizontal blur and store result to line_buffer
     for (int iy = 0; iy < h; iy++) {
         int src_y = y + iy;
         
-        // 处理左边界区域
+        // Process left boundary area
         for (int ix = 0; ix < left_bound; ix++) {
             int sumR = 0, sumG = 0, sumB = 0, count = 0;
             uint8_t alpha = 0xFF;
@@ -182,12 +182,12 @@ void graph_gaussian_cpu(graph_t* g, int x, int y, int w, int h, int r) {
             line_buffer[ix] = (alpha << 24) | (avgR << 16) | (avgG << 8) | avgB;
         }
         
-        // 处理中间区域 (使用滑动窗口优化)
+        // Process middle area (using sliding window optimization)
         for (int ix = left_bound; ix < right_bound; ix++) {
             int sumR = 0, sumG = 0, sumB = 0;
             uint8_t alpha = 0xFF;
             
-            // 初始化窗口
+            // Initialize window
             for (int dx = -r; dx <= r; dx++) {
                 uint32_t pixel = graph_get_pixel(g, x + ix + dx, src_y);
                 alpha = (pixel >> 24) & 0xff;
@@ -202,7 +202,7 @@ void graph_gaussian_cpu(graph_t* g, int x, int y, int w, int h, int r) {
             line_buffer[ix] = (alpha << 24) | (avgR << 16) | (avgG << 8) | avgB;
         }
         
-        // 处理右边界区域
+        // Process right boundary area
         for (int ix = right_bound; ix < w; ix++) {
             int sumR = 0, sumG = 0, sumB = 0, count = 0;
             uint8_t alpha = 0xFF;
@@ -225,7 +225,7 @@ void graph_gaussian_cpu(graph_t* g, int x, int y, int w, int h, int r) {
             line_buffer[ix] = (alpha << 24) | (avgR << 16) | (avgG << 8) | avgB;
         }
         
-        // 垂直模糊并直接应用到原图
+        // Vertical blur and apply directly to original image
         for (int ix = 0; ix < w; ix++) {
             int sumR = 0, sumG = 0, sumB = 0, count = 0;
             uint8_t alpha = 0xFF;
@@ -235,10 +235,10 @@ void graph_gaussian_cpu(graph_t* g, int x, int y, int w, int h, int r) {
                 if (ny >= 0 && ny < h) {
                     uint32_t pixel;
                     if (dy == 0) {
-                        // 当前行已经在line_buffer中
+                        // Current line is already in line_buffer
                         pixel = line_buffer[ix];
                     } else {
-                        // 其他行需要重新获取
+                        // Other lines need to be re-fetched
                         pixel = graph_get_pixel(g, x + ix, y + ny);
                     }
                     
@@ -257,7 +257,7 @@ void graph_gaussian_cpu(graph_t* g, int x, int y, int w, int h, int r) {
         }
     }
     
-    // 释放缓冲区
+    // Free buffer
     free(line_buffer);
 }
 
@@ -276,7 +276,7 @@ void graph_gaussian(graph_t* g, int x, int y, int w, int h, int r) {
 void graph_shadow(graph_t* g, int x, int y, int w, int h, uint8_t shadow, uint32_t color) {
     if(shadow == 0)
         return;
-    // 右侧阴影，透明度从左到右逐渐减小
+    // Right shadow, transparency decreases from left to right
     int rightX = x + w - shadow;
     int rightY = y + shadow;
     int rightW = shadow;
@@ -287,7 +287,7 @@ void graph_shadow(graph_t* g, int x, int y, int w, int h, uint8_t shadow, uint32
         graph_line(g, rightX + i, rightY+i, rightX + i, rightY+i + rightH-(rightW), (alpha << 24) | (0x00FFFFFF & color));
     }
 
-    // 底部阴影，透明度从上到下逐渐减小
+    // Bottom shadow, transparency decreases from top to bottom
     int bottomX = x + shadow;
     int bottomY = y + h - shadow;
     int bottomW = w - shadow*2-1;
@@ -322,21 +322,21 @@ void graph_glass_cpu(graph_t* g, int x, int y, int w, int h, int r) {
         w = ir.w;
         h = ir.h;
 
-    // 初始化随机数生成器（使用固定种子确保效果一致）
+    // Initialize random number generator (use fixed seed for consistent effect)
     srand(0x12345678);
     
-    // 处理每个像素
+    // Process each pixel
     for (int j = y; j < y + h; j++) {
         for (int i = x; i < x + w; i++) {
-            // 随机选择一个周围的像素
+            // Randomly select a surrounding pixel
             int rx = i + (rand() % (2 * r + 1)) - r;
             int ry = j + (rand() % (2 * r + 1)) - r;
             
-            // 边界检查
+            // Boundary check
             rx = (rx < x) ? x : ((rx >= x + w) ? x + w - 1 : rx);
             ry = (ry < y) ? y : ((ry >= y + h) ? y + h - 1 : ry);
             
-            // 从临时缓冲区中获取随机位置的像素值，并写入原图像
+            // Get pixel value from random position in temporary buffer and write to original image
             args[j * g->w + i] = args[ry * g->w + rx];
         }
     }
@@ -354,7 +354,7 @@ void graph_glass(graph_t* g, int x, int y, int w, int h, int r) {
 #endif
 }
 
-// 辅助函数：绘制抗锯齿像素（使用整数alpha）
+// Helper function: draw anti-aliased pixel (using integer alpha)
 static inline void draw_aa_pixel_int_ex(graph_t* g, int32_t x, int32_t y, uint32_t color, uint8_t alpha) {
     if (alpha <= 0) return;
 
@@ -368,26 +368,26 @@ static inline void draw_aa_pixel_int_ex(graph_t* g, int32_t x, int32_t y, uint32
     }
 }
 
-// 辅助函数：根据45度对角线判断颜色
-// cx, cy: 相对于圆角中心的坐标 (0,0) 到 (r-1, r-1)
-// r: 圆角半径
-// upper_color: 对角线左上/上方的颜色
-// lower_color: 对角线右下/下方的颜色
+// Helper function: determine color based on 45-degree diagonal
+// cx, cy: coordinates relative to corner center (0,0) to (r-1, r-1)
+// r: corner radius
+// upper_color: color for upper-left/above diagonal
+// lower_color: color for lower-right/below diagonal
 static inline uint32_t get_45deg_color(int cx, int cy, int r, uint32_t upper_color, uint32_t lower_color) {
-    // 45度对角线: cx - cy = 0 (即 cx = cy)
-    // cx - cy <= 0 表示在对角线上方/左侧
-    // cx - cy > 0 表示在对角线下方/右侧
+    // 45-degree diagonal: cx - cy = 0 (i.e., cx = cy)
+    // cx - cy <= 0 means above/left of diagonal
+    // cx - cy > 0 means below/right of diagonal
     return (cx - cy <= 0) ? upper_color : lower_color;
 }
 
-// 辅助函数：绘制3D圆角（非浮点实现，带45度分割）
-// corner_x, corner_y: 圆角矩形区域的起始坐标
-// cx, cy: 圆角中心相对于corner的偏移
-// r: 圆角半径
-// rw: 边框宽度
-// upper_color: 对角线左上/上方的颜色
-// lower_color: 对角线右下/下方的颜色
-// swap_45deg: 是否交换45度分割判断（用于bottom-left角）
+// Helper function: draw 3D rounded corner (non-floating point implementation with 45-degree split)
+// corner_x, corner_y: starting coordinates of corner rectangle area
+// cx, cy: offset of corner center relative to corner
+// r: corner radius
+// rw: border width
+// upper_color: color for upper-left/above diagonal
+// lower_color: color for lower-right/below diagonal
+// swap_45deg: whether to swap 45-degree split judgment (for bottom-left corner)
 static inline void draw_round_corner_3d(graph_t* g, int32_t corner_x, int32_t corner_y,
                                         int32_t cx, int32_t cy, int32_t r, int32_t rw,
                                         uint32_t upper_color, uint32_t lower_color,
@@ -395,24 +395,24 @@ static inline void draw_round_corner_3d(graph_t* g, int32_t corner_x, int32_t co
     uint8_t upper_alpha = (upper_color >> 24) & 0xFF;
     uint8_t lower_alpha = (lower_color >> 24) & 0xFF;
 
-    // 外圆和内圆的半径平方
+    // Outer and inner circle radius squared
     int32_t outer_r_sq = r * r;
     int32_t inner_r = r - rw;
     int32_t inner_r_sq = inner_r * inner_r;
 
-    // 抗锯齿边界（扩大到1像素宽度以获得更平滑的效果）
+    // Anti-aliasing boundary (expanded to 1 pixel width for smoother effect)
     int32_t outer_aa_sq = outer_r_sq + 2 * r;  // (r + 1)^2
     int32_t inner_aa_sq = (inner_r > 0) ? inner_r_sq - 2 * inner_r + 1 : 0;  // (inner_r - 1)^2
     if (inner_r <= 0) inner_aa_sq = 0;
 
-    // 计算边界框，限制在 r-1 范围内以与四边对齐
+    // Calculate bounding box, limited to r-1 range to align with edges
     int32_t max_dy = r - 1;
 
-    // 按行扫描
+    // Scan line by line
     for (int32_t dy = 0; dy <= max_dy; dy++) {
         int32_t dy_sq = dy * dy;
 
-        // 计算这一行在外圆内的x范围
+        // Calculate x range for this line within outer circle
         int32_t outer_x_sq = outer_aa_sq - dy_sq;
         if (outer_x_sq < 0) continue;
 
@@ -423,7 +423,7 @@ static inline void draw_round_corner_3d(graph_t* g, int32_t corner_x, int32_t co
         max_dx--;
         if (max_dx < 0) max_dx = 0;
 
-        // 计算这一行在内圆内的x范围
+        // Calculate x range for this line within inner circle
         int32_t inner_x_sq = inner_r_sq - dy_sq;
         int32_t inner_max_dx = 0;
         if (inner_x_sq > 0) {
@@ -433,24 +433,24 @@ static inline void draw_round_corner_3d(graph_t* g, int32_t corner_x, int32_t co
             inner_max_dx--;
         }
 
-        // 绘制这一行
+        // Draw this line
         for (int32_t dx = 0; dx <= max_dx; dx++) {
             int32_t dist_sq = dx * dx + dy_sq;
 
-            // 完全在抗锯齿区域外，跳过
+            // Completely outside anti-aliasing area, skip
             if (dist_sq > outer_aa_sq) continue;
 
-            // 完全在内圆内部（空心部分），跳过
+            // Completely inside inner circle (hollow part), skip
             if (dist_sq < inner_aa_sq) continue;
 
-            // 计算像素位置
+            // Calculate pixel position
             int px = corner_x + cx + (mirror_x ? -dx : dx);
             int py = corner_y + cy + (mirror_y ? -dy : dy);
 
-            // 检查是否在画布范围内
+            // Check if within canvas bounds
             if (px < 0 || px >= g->w || py < 0 || py >= g->h) continue;
 
-            // 确定颜色（45度分割）
+            // Determine color (45-degree split)
             uint32_t color;
             uint8_t fg_alpha;
             if (swap_45deg) {
@@ -463,25 +463,25 @@ static inline void draw_round_corner_3d(graph_t* g, int32_t corner_x, int32_t co
 
             uint8_t alpha = 0;
 
-            // 外边缘抗锯齿区域
+            // Outer edge anti-aliasing area
             if (dist_sq >= outer_r_sq && dist_sq <= outer_aa_sq) {
                 int32_t range = outer_aa_sq - outer_r_sq;
                 int32_t dist_from_outer = outer_aa_sq - dist_sq;
-                // 使用平方函数获得更平滑的过渡
+                // Use square function for smoother transition
                 int32_t t = (dist_from_outer * 256) / range;
                 int32_t smoothed = (t * t) / 256;
                 alpha = (uint8_t)((fg_alpha * smoothed) / 256);
             }
-            // 内边缘抗锯齿区域
+            // Inner edge anti-aliasing area
             else if (dist_sq >= inner_aa_sq && dist_sq <= inner_r_sq) {
                 int32_t range = inner_r_sq - inner_aa_sq;
                 int32_t dist_from_inner = dist_sq - inner_aa_sq;
-                // 使用平方函数获得更平滑的过渡
+                // Use square function for smoother transition
                 int32_t t = (dist_from_inner * 256) / range;
                 int32_t smoothed = (t * t) / 256;
                 alpha = (uint8_t)((fg_alpha * smoothed) / 256);
             }
-            // 圆环内部（完全在内外圆之间）
+            // Inside ring (completely between inner and outer circles)
             else if (dist_sq > inner_r_sq && dist_sq < outer_r_sq) {
                 alpha = fg_alpha;
             }
@@ -493,7 +493,7 @@ static inline void draw_round_corner_3d(graph_t* g, int32_t corner_x, int32_t co
     }
 }
 
-// 3D rounded rectangle function with anti-aliasing (非浮点实现)
+// 3D rounded rectangle function with anti-aliasing (non-floating point implementation)
 void graph_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, uint32_t color, bool reverse) {
     if(w <= 0 || h <= 0 || r < 0)
         return;
@@ -554,7 +554,7 @@ void graph_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, uint3
         }
     }
 
-    // Draw rounded corners with anti-aliasing and 45-degree split (非浮点实现)
+    // Draw rounded corners with anti-aliasing and 45-degree split (non-floating point implementation)
 
     // Top-left corner (all highlight)
     draw_round_corner_3d(g, x, y, r-1, r-1, r, rw, highlight_color, highlight_color, 1, 1, false);
@@ -563,7 +563,7 @@ void graph_round_3d(graph_t* g, int x, int y, int w, int h, int r, int rw, uint3
     draw_round_corner_3d(g, x+w-r, y, 0, r-1, r, rw, highlight_color, deep_color, 0, 1, false);
 
     // Bottom-left corner (45-degree split: upper-left=highlight, lower-right=deep)
-    // 需要swap_45deg因为坐标镜像了
+    // Need swap_45deg because coordinates are mirrored
     draw_round_corner_3d(g, x, y+h-r, r-1, 0, r, rw, highlight_color, deep_color, 1, 0, true);
 
     // Bottom-right corner (all deep)
@@ -590,6 +590,84 @@ void graph_circle_3d(graph_t* g, int x, int y, int r, int rw, uint32_t color, bo
 
 void graph_fill_circle_3d(graph_t* g, int x, int y, int r, int rw, uint32_t color, bool reverse) {
 	graph_fill_round_3d(g, x-r, y-r, r*2, r*2, r, rw, color, reverse);
+}
+
+void graph_semi_round_3d(graph_t* g, int x, int y, int w, int r, int rw, uint32_t color, bool reverse, bool top_half) {
+    if(w <= 0 || r < 0)
+        return;
+    // Limit radius to half of width
+    if(r > w/2) r = w/2;
+    if(rw > r/2) rw = r/2;
+
+    // Calculate 3D effect colors
+    uint32_t highlight_color;
+    uint32_t deep_color;
+    if(reverse) {
+        deep_color = graph_get_bright_color(color);
+        highlight_color = graph_get_dark_color(color);
+    }
+    else {
+        highlight_color = graph_get_bright_color(color);
+        deep_color = graph_get_dark_color(color);
+    }
+
+    if(top_half) {
+        // Top half: draw top edge
+        // Draw highlight on top edge
+        for(int i = 0; i < rw; i++) {
+            int yy = y + i;
+            if(yy >= 0 && yy < g->h) {
+                for(int xx = x + r; xx < x + w - r; xx++) {
+                    graph_pixel(g, xx, yy, highlight_color);
+                }
+            }
+        }
+
+        // Draw two top corners with anti-aliasing and 45-degree split
+        // Top-left corner (all highlight)
+        draw_round_corner_3d(g, x, y, r-1, r-1, r, rw, highlight_color, highlight_color, 1, 1, false);
+
+        // Top-right corner (45-degree split: upper-left=highlight, lower-right=deep)
+        draw_round_corner_3d(g, x+w-r, y, 0, r-1, r, rw, highlight_color, deep_color, 0, 1, false);
+    } else {
+        // Bottom half: draw bottom edge
+        // Draw shadow on bottom edge
+        for(int i = 0; i < rw; i++) {
+            int yy = y + r - 1 - i;
+            if(yy >= 0 && yy < g->h) {
+                for(int xx = x + r; xx < x + w - r; xx++) {
+                    graph_pixel(g, xx, yy, deep_color);
+                }
+            }
+        }
+
+        // Draw two bottom corners with anti-aliasing and 45-degree split
+        // Bottom-left corner (45-degree split: upper-left=highlight, lower-right=deep)
+        draw_round_corner_3d(g, x, y, r-1, 0, r, rw, highlight_color, deep_color, 1, 0, true);
+
+        // Bottom-right corner (all deep)
+        draw_round_corner_3d(g, x+w-r, y, 0, 0, r, rw, deep_color, deep_color, 0, 0, false);
+    }
+}
+
+void graph_semi_fill_round_3d(graph_t* g, int x, int y, int w, int r, int rw, uint32_t color, bool reverse, bool top_half) {
+    if(w <= 0 || r < 0)
+        return;
+    // Limit radius to half of width
+    if(r > w/2) r = w/2;
+    if(rw > r/2) rw = r/2;
+
+    // Draw main semi rounded rectangle with base color
+    // Fill area needs to align with border, border width is rw
+    // Fill corner radius is r - rw
+    if(top_half) {
+        // Top half: fill starts from y+rw
+        graph_semi_fill_round(g, x+rw, y+rw, w-2*rw, r-rw, color, top_half);
+    } else {
+        // Bottom half: fill starts from y, but corner radius is r-rw
+        graph_semi_fill_round(g, x+rw, y, w-2*rw, r-rw, color, top_half);
+    }
+    graph_semi_round_3d(g, x, y, w, r, rw, color, reverse, top_half);
 }
 
 /**
@@ -666,16 +744,16 @@ void graph_fill_ring_arc(graph_t* g, int cx, int cy, int radius, int thickness,
     int inner_radius = radius - thickness;
     if (inner_radius < 0) inner_radius = 0;
 
-    // 外圆和内圆的半径平方
+    // Outer and inner circle radius squared
     int32_t outer_r_sq = radius * radius;
     int32_t inner_r_sq = inner_radius * inner_radius;
 
-    // 抗锯齿边界（扩大到1像素宽度以获得更平滑的效果）
+    // Anti-aliasing boundary (expanded to 1 pixel width for smoother effect)
     int32_t outer_aa_sq = outer_r_sq + 2 * radius;  // (r + 1)^2
     int32_t inner_aa_sq = (inner_radius > 0) ? inner_r_sq - 2 * inner_radius + 1 : 0;  // (inner_r - 1)^2
     if (inner_aa_sq < 0) inner_aa_sq = 0;
 
-    // 计算边界框（包含抗锯齿区域）
+    // Calculate bounding box (including anti-aliasing area)
     int min_x = cx - radius - 1;
     int max_x = cx + radius + 1;
     int min_y = cy - radius - 1;
@@ -686,7 +764,7 @@ void graph_fill_ring_arc(graph_t* g, int cx, int cy, int radius, int thickness,
     if (max_x >= g->w) max_x = g->w - 1;
     if (max_y >= g->h) max_y = g->h - 1;
 
-    // 角度归一化
+    // Angle normalization
     float start_rad = start_angle * M_PI / 180.0;
     float end_rad = end_angle * M_PI / 180.0;
 
@@ -695,7 +773,7 @@ void graph_fill_ring_arc(graph_t* g, int cx, int cy, int radius, int thickness,
         swap = 1;
     }
 
-    // 逐像素扫描
+    // Scan pixel by pixel
     for (int y = min_y; y <= max_y; y++) {
         int32_t dy = y - cy;
         int32_t dy_sq = dy * dy;
@@ -704,27 +782,27 @@ void graph_fill_ring_arc(graph_t* g, int cx, int cy, int radius, int thickness,
             int32_t dx = x - cx;
             int32_t dist_sq = dx * dx + dy_sq;
 
-            // 完全在抗锯齿区域外，跳过
+            // Completely outside anti-aliasing area, skip
             if (dist_sq > outer_aa_sq) continue;
 
-            // 完全在内圆内部（空心部分），跳过
+            // Completely inside inner circle (hollow part), skip
             if (dist_sq < inner_aa_sq) continue;
 
-            // 检查角度范围
+            // Check angle range
             float angle = atan2f(-dy, dx);
             int in_range = 0;
             
-            // 归一化角度到 [0, 2*PI)
+            // Normalize angle to [0, 2*PI)
             while (angle < 0) angle += 2 * M_PI;
             while (angle >= 2 * M_PI) angle -= 2 * M_PI;
             
             if (swap) {
-                // 交换的情况：范围是 start_rad 到 2*PI 或 0 到 end_rad
+                // Swap case: range is start_rad to 2*PI or 0 to end_rad
                 if (angle >= start_rad || angle <= end_rad) {
                     in_range = 1;
                 }
             } else {
-                // 正常情况：范围是 start_rad 到 end_rad
+                // Normal case: range is start_rad to end_rad
                 if (angle >= start_rad && angle <= end_rad) {
                     in_range = 1;
                 }
@@ -734,25 +812,25 @@ void graph_fill_ring_arc(graph_t* g, int cx, int cy, int radius, int thickness,
 
             uint8_t alpha = 0;
 
-            // 外边缘抗锯齿区域
+            // Outer edge anti-aliasing area
             if (dist_sq >= outer_r_sq && dist_sq <= outer_aa_sq) {
                 int32_t range = outer_aa_sq - outer_r_sq;
                 int32_t dist_from_outer = outer_aa_sq - dist_sq;
-                // 使用平方函数获得更平滑的过渡
+                // Use square function for smoother transition
                 int32_t t = (dist_from_outer * 256) / range;
                 int32_t smoothed = (t * t) / 256;
                 alpha = (uint8_t)((fg_alpha * smoothed) / 256);
             }
-            // 内边缘抗锯齿区域
+            // Inner edge anti-aliasing area
             else if (dist_sq >= inner_aa_sq && dist_sq <= inner_r_sq) {
                 int32_t range = inner_r_sq - inner_aa_sq;
                 int32_t dist_from_inner = dist_sq - inner_aa_sq;
-                // 使用平方函数获得更平滑的过渡
+                // Use square function for smoother transition
                 int32_t t = (dist_from_inner * 256) / range;
                 int32_t smoothed = (t * t) / 256;
                 alpha = (uint8_t)((fg_alpha * smoothed) / 256);
             }
-            // 圆环内部（完全在内外圆之间）
+            // Inside ring (completely between inner and outer circles)
             else if (dist_sq > inner_r_sq && dist_sq < outer_r_sq) {
                 alpha = fg_alpha;
             }

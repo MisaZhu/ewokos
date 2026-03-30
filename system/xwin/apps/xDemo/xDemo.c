@@ -21,6 +21,10 @@ enum {
 	ARC,
 	ROUND,
 	ROUND_3D,
+	SEMI_ROUND,
+	SEMI_FILL_ROUND,
+	SEMI_ROUND_3D,
+	SEMI_FILL_ROUND_3D,
 	RING,
 	RING_ARC,
 	RING_FILL_ARC,
@@ -139,11 +143,35 @@ static void on_repaint(xwin_t* xwin, graph_t* g) {
 		graph_arc(g, x, y, h/2+4, 2, start, endangle, c);
 	}
 	else if(_xtest_info.mode == ROUND) {
-		//graph_fill_round(g, x, y, w, h, 12, c);
+		graph_fill_round(g, x, y, w, h, 12, c);
 		graph_round(g, x-4, y-4, w+8, h+8, 16, 4, c);
 	}
 	else if(_xtest_info.mode == ROUND_3D) {
 		graph_fill_round_3d(g, x, y, w, h, 12, 2, c, true);
+	}
+	else if(_xtest_info.mode == SEMI_ROUND) {
+		// Test semi-round: alternate between top and bottom half
+		static bool top_half = true;
+		graph_semi_round(g, x, y, w, 20, 3, c, top_half);
+		top_half = !top_half;
+	}
+	else if(_xtest_info.mode == SEMI_FILL_ROUND) {
+		// Test semi-fill-round: alternate between top and bottom half
+		static bool fill_top_half = true;
+		graph_semi_fill_round(g, x, y, w, 20, c, fill_top_half);
+		fill_top_half = !fill_top_half;
+	}
+	else if(_xtest_info.mode == SEMI_ROUND_3D) {
+		// Test semi-round-3d: alternate between top and bottom half
+		static bool round3d_top_half = true;
+		graph_semi_round_3d(g, x, y, w, 20, 3, c, true, round3d_top_half);
+		round3d_top_half = !round3d_top_half;
+	}
+	else if(_xtest_info.mode == SEMI_FILL_ROUND_3D) {
+		// Test semi-fill-round-3d: alternate between top and bottom half
+		static bool fill3d_top_half = true;
+		graph_semi_fill_round_3d(g, x, y, w, 25, 4, c, true, fill3d_top_half);
+		fill3d_top_half = !fill3d_top_half;
 	}
 	else if(_xtest_info.mode == RECT) {
 		graph_fill(g, x, y, w, h, c);
@@ -196,7 +224,7 @@ static void loop(void* p) {
 	if(_repaint)
 		xwin_repaint(xwin);
 	_repaint = false;
-	proc_usleep(3000);
+	proc_usleep(30000);
 }
 
 static void _timerHandler(void) {

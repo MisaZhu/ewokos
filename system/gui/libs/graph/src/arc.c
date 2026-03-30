@@ -8,10 +8,10 @@
 extern "C" { 
 #endif
 
-// 角度转弧度
+// Degrees to radians
 #define DEG_TO_RAD(deg) ((deg) * M_PI / 180.0)
 
-// 辅助函数：绘制抗锯齿像素（使用整数alpha）
+// Helper function: draw anti-aliased pixel (using integer alpha)
 static inline void draw_aa_pixel_arc_int(graph_t* g, int32_t x, int32_t y, uint32_t color, uint8_t alpha) {
     if (alpha <= 0) return;
     
@@ -25,20 +25,20 @@ static inline void draw_aa_pixel_arc_int(graph_t* g, int32_t x, int32_t y, uint3
     }
 }
 
-// 辅助函数：判断角度是否在圆弧范围内（非浮点距离计算版本）
-// 返回0表示不在范围内，1表示在范围内
+// Helper function: check if angle is within arc range (non-floating point distance calculation version)
+// Returns 0 if not in range, 1 if in range
 static inline int angle_in_range(float angle, float start_angle, float end_angle, int swap) {
-    // 归一化角度到 [0, 2*PI)
+    // Normalize angle to [0, 2*PI)
     while (angle < 0) angle += 2 * M_PI;
     while (angle >= 2 * M_PI) angle -= 2 * M_PI;
     
     if (swap) {
-        // 交换的情况：范围是 start_angle 到 2*PI 或 0 到 end_angle
+        // Swap case: range is start_angle to 2*PI or 0 to end_angle
         if (angle >= start_angle || angle <= end_angle) {
             return 1;
         }
     } else {
-        // 正常情况：范围是 start_angle 到 end_angle
+        // Normal case: range is start_angle to end_angle
         if (angle >= start_angle && angle <= end_angle) {
             return 1;
         }
@@ -47,7 +47,7 @@ static inline int angle_in_range(float angle, float start_angle, float end_angle
     return 0;
 }
 
-// 绘制圆弧（非浮点距离计算版本）
+// Draw arc (non-floating point distance calculation version)
 void graph_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, int32_t rw, float start_angle, float end_angle, uint32_t color) {
     if(radius <= 0 || rw <= 0 || g == NULL)
         return;
@@ -64,24 +64,24 @@ void graph_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, int32_t rw, flo
     float start_rad = DEG_TO_RAD(start_angle);
     float end_rad = DEG_TO_RAD(end_angle);
 
-    // 整数半径和抗锯齿边界
+    // Integer radius and anti-aliasing boundary
     int32_t outer_r = radius;
     int32_t inner_r = radius - rw;
     int32_t outer_r_sq = outer_r * outer_r;
     int32_t inner_r_sq = inner_r * inner_r;
     
-    // 抗锯齿边界（扩大到1像素宽度以获得更平滑的效果）
+    // Anti-aliasing boundary (expanded to 1 pixel width for smoother effect)
     int32_t outer_aa_sq = outer_r_sq + 2 * outer_r;  // (r + 1)^2
     int32_t inner_aa_sq = (inner_r > 0) ? inner_r_sq - 2 * inner_r + 1 : 0;  // (inner_r - 1)^2
     if (inner_aa_sq < 0) inner_aa_sq = 0;
     
-    // 计算边界框（包含抗锯齿区域）
+    // Calculate bounding box (including anti-aliasing area)
     int32_t min_y = y - radius - 1;
     int32_t max_y = y + radius + 1;
     int32_t min_x = x - radius - 1;
     int32_t max_x = x + radius + 1;
     
-    // 裁剪到画布边界
+    // Clip to canvas bounds
     if (min_y < 0) min_y = 0;
     if (max_y >= g->h) max_y = g->h - 1;
     if (min_x < 0) min_x = 0;
@@ -89,7 +89,7 @@ void graph_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, int32_t rw, flo
 
     uint8_t fg_alpha = (color >> 24) & 0xFF;
 
-    // 逐像素扫描
+    // Scan pixel by pixel
     for(int32_t py = min_y; py <= max_y; py++) {
         int32_t dy = py - y;
         int32_t dy_sq = dy * dy;
@@ -98,37 +98,37 @@ void graph_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, int32_t rw, flo
             int32_t dx = px - x;
             int32_t dist_sq = dx * dx + dy_sq;
             
-            // 完全在抗锯齿区域外，跳过
+            // Completely outside anti-aliasing area, skip
             if (dist_sq > outer_aa_sq) continue;
             
-            // 完全在内圆内部（空心部分），跳过
+            // Completely inside inner circle (hollow part), skip
             if (dist_sq < inner_aa_sq) continue;
             
-            // 检查角度范围
+            // Check angle range
             float angle = atan2f(-dy, dx);
             if (!angle_in_range(angle, start_rad, end_rad, swap)) continue;
             
             uint8_t alpha = 0;
             
-            // 外边缘抗锯齿区域
+            // Outer edge anti-aliasing area
             if (dist_sq >= outer_r_sq && dist_sq <= outer_aa_sq) {
                 int32_t range = outer_aa_sq - outer_r_sq;
                 int32_t dist_from_outer = outer_aa_sq - dist_sq;
-                // 使用平方函数获得更平滑的过渡
+                // Use square function for smoother transition
                 int32_t t = (dist_from_outer * 256) / range;
                 int32_t smoothed = (t * t) / 256;
                 alpha = (uint8_t)((fg_alpha * smoothed) / 256);
             }
-            // 内边缘抗锯齿区域
+            // Inner edge anti-aliasing area
             else if (dist_sq >= inner_aa_sq && dist_sq <= inner_r_sq) {
                 int32_t range = inner_r_sq - inner_aa_sq;
                 int32_t dist_from_inner = dist_sq - inner_aa_sq;
-                // 使用平方函数获得更平滑的过渡
+                // Use square function for smoother transition
                 int32_t t = (dist_from_inner * 256) / range;
                 int32_t smoothed = (t * t) / 256;
                 alpha = (uint8_t)((fg_alpha * smoothed) / 256);
             }
-            // 圆环内部
+            // Inside ring
             else if (dist_sq > inner_r_sq && dist_sq < outer_r_sq) {
                 alpha = fg_alpha;
             }
@@ -140,7 +140,7 @@ void graph_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, int32_t rw, flo
     }
 }
 
-// 绘制填充圆弧（非浮点距离计算版本）
+// Draw filled arc (non-floating point distance calculation version)
 void graph_fill_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, float start_angle, float end_angle, uint32_t color) {
     if(radius <= 0 || g == NULL)
         return;
@@ -156,19 +156,19 @@ void graph_fill_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, float star
     float start_rad = DEG_TO_RAD(start_angle);
     float end_rad = DEG_TO_RAD(end_angle);
 
-    // 整数半径和抗锯齿边界（扩大到1像素宽度以获得更平滑的效果）
+    // Integer radius and anti-aliasing boundary (expanded to 1 pixel width for smoother effect)
     int32_t r_sq = radius * radius;
     int32_t r_aa_sq = r_sq + 2 * radius;  // (r + 1)^2
     int32_t r_inner_sq = (radius > 1) ? (radius - 1) * (radius - 1) : 0;  // (r - 1)^2
     if (r_inner_sq < 0) r_inner_sq = 0;
     
-    // 计算边界框（包含抗锯齿区域）
+    // Calculate bounding box (including anti-aliasing area)
     int32_t min_y = y - radius - 1;
     int32_t max_y = y + radius + 1;
     int32_t min_x = x - radius - 1;
     int32_t max_x = x + radius + 1;
     
-    // 裁剪到画布边界
+    // Clip to canvas bounds
     if (min_y < 0) min_y = 0;
     if (max_y >= g->h) max_y = g->h - 1;
     if (min_x < 0) min_x = 0;
@@ -176,7 +176,7 @@ void graph_fill_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, float star
 
     uint8_t fg_alpha = (color >> 24) & 0xFF;
 
-    // 逐像素扫描
+    // Scan pixel by pixel
     for(int32_t py = min_y; py <= max_y; py++) {
         int32_t dy = py - y;
         int32_t dy_sq = dy * dy;
@@ -185,14 +185,14 @@ void graph_fill_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, float star
             int32_t dx = px - x;
             int32_t dist_sq = dx * dx + dy_sq;
             
-            // 完全在抗锯齿区域外，跳过
+            // Completely outside anti-aliasing area, skip
             if (dist_sq > r_aa_sq) continue;
             
-            // 检查角度范围
+            // Check angle range
             float angle = atan2f(-dy, dx);
             if (!angle_in_range(angle, start_rad, end_rad, swap)) continue;
 
-            // 完全在内部区域，直接绘制
+            // Completely inside inner area, draw directly
             if (dist_sq <= r_inner_sq) {
                 if (fg_alpha >= 255) {
                     graph_set_pixel(g, px, py, color);
@@ -203,11 +203,11 @@ void graph_fill_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, float star
                     graph_pixel_argb_raw(g, px, py, fg_alpha, r, gc, b);
                 }
             }
-            // 在边缘抗锯齿区域
+            // In edge anti-aliasing area
             else {
                 int32_t range = r_aa_sq - r_inner_sq;
                 int32_t dist_from_outer = r_aa_sq - dist_sq;
-                // 使用平方函数获得更平滑的过渡
+                // Use square function for smoother transition
                 int32_t t = (dist_from_outer * 256) / range;
                 int32_t smoothed = (t * t) / 256;
                 uint8_t alpha = (uint8_t)((fg_alpha * smoothed) / 256);

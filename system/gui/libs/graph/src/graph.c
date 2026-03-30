@@ -53,26 +53,26 @@ inline uint32_t color_reverse_rgb(uint32_t oc) {
 }
 
 static void* aligned_malloc(uint32_t size, uint32_t alignment) {
-    // 检查对齐值是否为 2 的幂
+    // Check if alignment is a power of 2
     if ((alignment & (alignment - 1)) != 0) {
-        return NULL; // 对齐值必须是 2 的幂
+        return NULL; // Alignment must be a power of 2
     }
-    // 计算额外需要的空间（对齐偏移 + 存储原始指针）
+    // Calculate extra space needed (alignment offset + storing original pointer)
     uint32_t extra = alignment - 1 + sizeof(void*);
     void* raw_ptr = malloc(size + extra);
     if (!raw_ptr) return NULL;
-    // 计算对齐后的地址
+    // Calculate aligned address
     uintptr_t aligned_addr = (uintptr_t)raw_ptr + sizeof(void*);
     aligned_addr = (aligned_addr + alignment - 1) & ~(alignment - 1);
-    // 保存原始指针供 free 使用
+    // Save original pointer for free
     *((void**)aligned_addr - 1) = raw_ptr;
     return (void*)aligned_addr;
 }
 
-// 对应的释放函数
+// Corresponding free function
 static void aligned_free(void* ptr) {
     if (ptr) {
-        // 获取原始指针并释放
+        // Get original pointer and free
         void* raw_ptr = *((void**)ptr - 1);
         free(raw_ptr);
     }
@@ -301,28 +301,28 @@ void graph_scale_tof_cpu(graph_t* g, graph_t* dst, float scale) {
             dst->h < (int)(g->h*scale))
         return;
     
-    // 使用双线性插值算法添加抗锯齿平滑
+    // Use bilinear interpolation algorithm for anti-aliasing smoothing
 	int hmin = g->h-2;
 	int wmin = g->w-2;
     for(int i=0; i<dst->h; i++) {
-        float gi = (float)i / scale; // 浮点坐标
-        int gi0 = (int)gi;           // 整数部分
-        float gi_frac = gi - gi0;    // 小数部分
+        float gi = (float)i / scale; // Floating point coordinate
+        int gi0 = (int)gi;           // Integer part
+        float gi_frac = gi - gi0;    // Fractional part
         
-        // 确保不会越界
+        // Ensure no out of bounds
 		gi0 = CLAMP(gi0, 0, hmin);
         
 		int gi0w = gi0 * g->w;
 		int gi1w = (gi0+1) * g->w;
         for(int j=0; j<dst->w; j++) {
-            float gj = (float)j / scale; // 浮点坐标
-            int gj0 = (int)gj;           // 整数部分
-            float gj_frac = gj - gj0;    // 小数部分
+            float gj = (float)j / scale; // Floating point coordinate
+            int gj0 = (int)gj;           // Integer part
+            float gj_frac = gj - gj0;    // Fractional part
             
-            // 确保不会越界
+            // Ensure no out of bounds
 			gj0 = CLAMP(gj0, 0, wmin);
             
-            // 获取四个相邻像素的颜色
+            // Get colors of four adjacent pixels
             uint32_t p00 = g->buffer[gi0w + gj0];
             uint32_t p01 = g->buffer[gi0w + (gj0+1)];
             uint32_t p10 = g->buffer[gi1w + gj0];
@@ -332,7 +332,7 @@ void graph_scale_tof_cpu(graph_t* g, graph_t* dst, float scale) {
 				continue;
 			}
             
-            // 分解颜色通道
+            // Decompose color channels
             uint8_t r00 = (p00 >> 16) & 0xFF;
             uint8_t g00 = (p00 >> 8) & 0xFF;
             uint8_t b00 = p00 & 0xFF;
@@ -353,7 +353,7 @@ void graph_scale_tof_cpu(graph_t* g, graph_t* dst, float scale) {
             uint8_t b11 = p11 & 0xFF;
             uint8_t a11 = (p11 >> 24) & 0xFF;
             
-            // 双线性插值计算目标像素颜色
+            // Bilinear interpolation to calculate target pixel color
             uint8_t r = (uint8_t)((1 - gi_frac) * ((1 - gj_frac) * r00 + gj_frac * r01) + 
                                  gi_frac * ((1 - gj_frac) * r10 + gj_frac * r11));
             uint8_t g_val = (uint8_t)((1 - gi_frac) * ((1 - gj_frac) * g00 + gj_frac * g01) + 
@@ -363,14 +363,14 @@ void graph_scale_tof_cpu(graph_t* g, graph_t* dst, float scale) {
             uint8_t a = (uint8_t)((1 - gi_frac) * ((1 - gj_frac) * a00 + gj_frac * a01) + 
                                  gi_frac * ((1 - gj_frac) * a10 + gj_frac * a11));
             
-            // 重新组合颜色通道
+            // Recombine color channels
             dst->buffer[i*dst->w + j] = (a << 24) | (r << 16) | (g_val << 8) | b;
         }
     }
 }
 
 inline void graph_scale_tof(graph_t* g, graph_t* dst, float scale) {
-//TODO: 优化下，bsp效率不高
+//TODO: optimize, bsp efficiency is not high
 /*
 #if BSP_BOOST
     graph_scale_tof_bsp(g, dst, scale);
