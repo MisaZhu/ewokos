@@ -1494,7 +1494,7 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 				if(x->current.pos_delta.x != 0 ||
 					x->current.pos_delta.y != 0 ) {
 					ev->value.window.event = XEVT_WIN_RESIZE;
-					graph_free(win->ws_g);
+					/*graph_free(win->ws_g);
 					shmdt(win->ws_g_shm);
 					win->ws_g = NULL;
 					win->ws_g_shm = NULL;
@@ -1503,6 +1503,7 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 						graph_free(win->ws_g_buffer);
 						win->ws_g_buffer = NULL;
 					}
+					*/
 				}
 			}
 			else if(x->current.drag_state == X_win_DRAG_MOVE) {

@@ -139,8 +139,8 @@ static void on_repaint(xwin_t* xwin, graph_t* g) {
 		graph_arc(g, x, y, h/2+4, 2, start, endangle, c);
 	}
 	else if(_xtest_info.mode == ROUND) {
-		graph_fill_round(g, x, y, w, h, 12, c);
-		graph_round(g, x-4, y-4, w+8, h+8, 16, 2, c);
+		//graph_fill_round(g, x, y, w, h, 12, c);
+		graph_round(g, x-4, y-4, w+8, h+8, 16, 4, c);
 	}
 	else if(_xtest_info.mode == ROUND_3D) {
 		graph_fill_round_3d(g, x, y, w, h, 12, 2, c, true);
@@ -196,7 +196,7 @@ static void loop(void* p) {
 	if(_repaint)
 		xwin_repaint(xwin);
 	_repaint = false;
-	proc_usleep(30000);
+	proc_usleep(3000);
 }
 
 static void _timerHandler(void) {

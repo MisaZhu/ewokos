@@ -1,5 +1,5 @@
 #include <WidgetEx/ConfirmDialog.h>
-#include <Widget/LabelButton.h>
+#include <Widget/RoundLabelButton.h>
 #include <Widget/Label.h>
 
 #include <x++/X.h>
@@ -36,10 +36,10 @@ void ConfirmDialog::onBuild() {
 	c->fix(0, 20);
 	root->add(c);
 
-	LabelButton* okButton = new LabelButton("OK");
+	RoundLabelButton* okButton = new RoundLabelButton("OK");
 	okButton->setEventFunc(okFunc);
 	c->add(okButton);
-	LabelButton* cancelButton = new LabelButton("Cancel");
+	RoundLabelButton* cancelButton = new RoundLabelButton("Cancel");
 	cancelButton->setEventFunc(cancelFunc);
 	c->add(cancelButton);
 }

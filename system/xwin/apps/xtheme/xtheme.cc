@@ -1,6 +1,7 @@
 #include <Widget/WidgetX.h>
 #include <Widget/Image.h>
 #include <Widget/Label.h>
+#include <Widget/RoundLabelButton.h>
 #include <Widget/LabelButton.h>
 #include <Widget/List.h>
 #include <Widget/EditLine.h>
@@ -22,11 +23,12 @@
 using namespace Ewok;
 
 
-class ColorButton : public Button {
+class ColorButton : public RoundButton {
 	uint32_t color;
 protected:
 	virtual void paintPanel(graph_t* g, XTheme* theme, const grect_t& rect) {
-		graph_fill(g, rect.x, rect.y, rect.w, rect.h, color);
+		//graph_fill(g, rect.x, rect.y, rect.w, rect.h, color);
+		graph_fill_round(g, rect.x, rect.y, rect.w, rect.h, round, color);
 	}
 public:
 	ColorButton() {
@@ -84,7 +86,7 @@ static void loadTheme(LayoutWidget* layout) {
 
 	wd = layout->getChild("font");
 	if(wd != NULL)  {
-		LabelButton* btn = (LabelButton*)wd;
+		RoundLabelButton* btn = (RoundLabelButton*)wd;
 		btn->setLabel(_xtheme.fontName);
 	}
 }
@@ -120,7 +122,7 @@ static void setTheme(LayoutWidget* layout) {
 
 	wd = layout->getChild("font");
 	if(wd != NULL)  {
-		LabelButton* btn = (LabelButton*)wd;
+		RoundLabelButton* btn = (RoundLabelButton*)wd;
 		memset(_xtheme.fontName, 0, FONT_NAME_MAX);
 		strncpy(_xtheme.fontName, btn->getLabel().c_str(), FONT_NAME_MAX-1);
 	}
@@ -193,7 +195,7 @@ static void _dialogedFunc(XWin* xwin, XWin* from, int res, void* arg) {
 		win->repaint();
 	}
 	else if(from == _fontDialog) {
-		LabelButton* btn = (LabelButton*)arg;
+		RoundLabelButton* btn = (RoundLabelButton*)arg;
 		btn->setLabel(_fontDialog->getResult());
 		WidgetWin* win = btn->getWin();
 		XTheme* theme = win->getTheme();
