@@ -257,6 +257,54 @@ inline void graph_blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, in
 #endif
 }
 
+void graph_blt_mask_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
+	if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
+		return;
+
+	grect_t sr = {sx, sy, sw, sh};
+	grect_t dr = {dx, dy, dw, dh};
+	graph_insect(dst, &dr);
+	if(!graph_insect_with(src, &sr, dst, &dr))
+		return;
+
+	if(dx < 0)
+		sr.x -= dx;
+	if(dy < 0)
+		sr.y -= dy;
+
+	register int32_t ex, ey;
+	sy = sr.y;
+	dy = dr.y;
+	ex = sr.x + sr.w;
+	ey = sr.y + sr.h;
+
+	for(; sy < ey; sy++, dy++) {
+		register int32_t sx2 = sr.x;
+		register int32_t dx2 = dr.x;
+		register int32_t src_offset = sy * src->w;
+		register int32_t dst_offset = dy * dst->w;
+		for(; sx2 < ex; sx2++, dx2++) {
+			register uint32_t src_color = src->buffer[src_offset + sx2];
+			register uint32_t dst_color = dst->buffer[dst_offset + dx2];
+			register uint8_t a = ((src_color >> 24) & 0xff) & ((dst_color >> 24) & 0xff);
+			register uint8_t r = ((src_color >> 16) & 0xff) & ((dst_color >> 16) & 0xff);
+			register uint8_t g = ((src_color >> 8) & 0xff) & ((dst_color >> 8) & 0xff);
+			register uint8_t b = (src_color & 0xff) & (dst_color & 0xff);
+			dst->buffer[dst_offset + dx2] = (a << 24) | (r << 16) | (g << 8) | b;
+		}
+	}
+}
+
+inline void graph_blt_mask(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
+#ifdef BSP_BOOST
+	graph_blt_mask_bsp(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
+#else
+	graph_blt_mask_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
+#endif
+}
+
 inline bool check_in_rect(int32_t x, int32_t y, grect_t* rect) {
 	if(x >= rect->x && x < (rect->x+rect->w) && 
 			y >= rect->y && y < (rect->y+rect->h))

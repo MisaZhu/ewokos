@@ -237,25 +237,25 @@ inline void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw
     ex = sr.x + sr.w;
     ey = sr.y + sr.h;
 
-    // 循环展开，每次处理2行，提高指令级并行性
+    // Loop unrolling, process 2 rows at a time for better instruction-level parallelism
     for(; sy < ey - 1; sy += 2, dy += 2) {
         register int32_t sx = sr.x;
         register int32_t dx = dr.x;
         register int32_t offset1 = sy * src->w;
         register int32_t offset2 = (sy + 1) * src->w;
         
-        // 预加载下一行数据到缓存
+        // Preload next row data to cache
         __asm volatile("prfm pldl1keep, [%0, #256]\n\t" : : "r"(&src->buffer[offset1]));
         __asm volatile("prfm pldl1keep, [%0, #256]\n\t" : : "r"(&dst->buffer[dy * dst->w + dx]));
         __asm volatile("prfm pldl1keep, [%0, #256]\n\t" : : "r"(&dst->buffer[(dy + 1) * dst->w + dx]));
         
         for(; sx < ex - 7; sx += 8, dx += 8) {
-            // 并行处理两行数据
+            // Process two rows in parallel
             graph_pixel_argb_neon(dst, dx, dy, &src->buffer[offset1 + sx], 8, alpha);
             graph_pixel_argb_neon(dst, dx, dy + 1, &src->buffer[offset2 + sx], 8, alpha);
         }
         
-        // 处理剩余像素
+        // Process remaining pixels
         if(sx < ex) {
             int remain = ex - sx;
             graph_pixel_argb_neon(dst, dx, dy, &src->buffer[offset1 + sx], remain, alpha);
@@ -263,7 +263,7 @@ inline void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw
         }
     }
     
-    // 处理最后一行（如果总行数为奇数）
+    // Process last row (if total rows is odd)
     if(sy < ey) {
         register int32_t sx = sr.x;
         register int32_t dx = dr.x;
@@ -271,6 +271,105 @@ inline void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw
         
         for(; sx < ex; sx += 8, dx += 8) {
             graph_pixel_argb_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex - sx, 8), alpha);
+        }
+    }
+}
+
+static inline void neon_mask_8(uint32_t *s, uint32_t *d, uint32_t *out)
+{
+    __asm volatile(
+        "ld4 {v20.8b-v23.8b}, [%0]\n\t"    // Load src (R,G,B,A)
+        "ld4 {v24.8b-v27.8b}, [%1]\n\t"    // Load dst (R,G,B,A)
+        
+        // AND operation for each channel
+        "and v20.8b, v20.8b, v24.8b\n\t"   // R = src_R & dst_R
+        "and v21.8b, v21.8b, v25.8b\n\t"   // G = src_G & dst_G
+        "and v22.8b, v22.8b, v26.8b\n\t"   // B = src_B & dst_B
+        "and v23.8b, v23.8b, v27.8b\n\t"   // A = src_A & dst_A
+        
+        "st4 {v20.8b-v23.8b}, [%2]\n\t"    // Store result
+        :
+        : "r"(s), "r"(d), "r"(out)
+        : "memory", "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27");
+}
+
+static inline void graph_pixel_mask_neon(graph_t *graph, int32_t x, int32_t y,
+                                  uint32_t *src, int size)
+{
+    uint32_t *dst = &graph->buffer[y * graph->w + x];
+
+    if (size == 8)
+    {
+        neon_mask_8(dst, src, dst);
+    }
+    else
+    {
+        // For size < 8, use memcpy to handle boundaries
+        uint32_t src_buf[8] = {0};
+        uint32_t dst_buf[8] = {0};
+        memcpy(src_buf, src, 4 * size);
+        memcpy(dst_buf, dst, 4 * size);
+        neon_mask_8(dst_buf, src_buf , dst_buf);
+        memcpy(dst, dst_buf, 4 * size);
+    }
+}
+
+inline void graph_blt_mask_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+        graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
+    if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
+        return;
+
+    grect_t sr = {sx, sy, sw, sh};
+    grect_t dr = {dx, dy, dw, dh};
+    graph_insect(dst, &dr);
+    if(!graph_insect_with(src, &sr, dst, &dr))
+        return;
+
+    if(dx < 0)
+        sr.x -= dx;
+    if(dy < 0)
+        sr.y -= dy;
+
+    register int32_t ex, ey;
+    sy = sr.y;
+    dy = dr.y;
+    ex = sr.x + sr.w;
+    ey = sr.y + sr.h;
+
+    // Loop unrolling, process 2 rows at a time for better instruction-level parallelism
+    for(; sy < ey - 1; sy += 2, dy += 2) {
+        register int32_t sx = sr.x;
+        register int32_t dx = dr.x;
+        register int32_t offset1 = sy * src->w;
+        register int32_t offset2 = (sy + 1) * src->w;
+        
+        // Preload next row data to cache
+        __asm volatile("prfm pldl1keep, [%0, #256]\n\t" : : "r"(&src->buffer[offset1]));
+        __asm volatile("prfm pldl1keep, [%0, #256]\n\t" : : "r"(&dst->buffer[dy * dst->w + dx]));
+        __asm volatile("prfm pldl1keep, [%0, #256]\n\t" : : "r"(&dst->buffer[(dy + 1) * dst->w + dx]));
+        
+        for(; sx < ex - 7; sx += 8, dx += 8) {
+            // Process two rows in parallel
+            graph_pixel_mask_neon(dst, dx, dy, &src->buffer[offset1 + sx], 8);
+            graph_pixel_mask_neon(dst, dx, dy + 1, &src->buffer[offset2 + sx], 8);
+        }
+        
+        // Process remaining pixels
+        if(sx < ex) {
+            int remain = ex - sx;
+            graph_pixel_mask_neon(dst, dx, dy, &src->buffer[offset1 + sx], remain);
+            graph_pixel_mask_neon(dst, dx, dy + 1, &src->buffer[offset2 + sx], remain);
+        }
+    }
+    
+    // Process last row (if total rows is odd)
+    if(sy < ey) {
+        register int32_t sx = sr.x;
+        register int32_t dx = dr.x;
+        register int32_t offset = sy * src->w;
+        
+        for(; sx < ex; sx += 8, dx += 8) {
+            graph_pixel_mask_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex - sx, 8));
         }
     }
 }
