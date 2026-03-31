@@ -287,19 +287,24 @@ void graph_blt_mask_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_
 		for(; sx2 < ex; sx2++, dx2++) {
 			register uint32_t src_color = src->buffer[src_offset + sx2];
 			register uint32_t dst_color = dst->buffer[dst_offset + dx2];
-			register uint8_t a = ((src_color >> 24) & 0xff) & ((dst_color >> 24) & 0xff);
-			register uint8_t r = ((src_color >> 16) & 0xff) & ((dst_color >> 16) & 0xff);
-			register uint8_t g = ((src_color >> 8) & 0xff) & ((dst_color >> 8) & 0xff);
-			register uint8_t b = (src_color & 0xff) & (dst_color & 0xff);
-			dst->buffer[dst_offset + dx2] = (a << 24) | (r << 16) | (g << 8) | b;
+			register uint8_t src_a = (src_color >> 24) & 0xff;
+			register uint8_t dst_a = (dst_color >> 24) & 0xff;
+			
+			// Only apply mask if src alpha > 0
+			if (src_a != 0) {
+				if(dst_a > src_a)
+					dst->buffer[dst_offset + dx2] = (src_a << 24) | (dst_color & 0xffffff);
+			}
+			else 
+				dst->buffer[dst_offset + dx2] = 0;
 		}
 	}
 }
 
-inline void graph_blt_mask(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+inline void graph_blt_alpha_mask(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
 #ifdef BSP_BOOST
-	graph_blt_mask_bsp(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
+	graph_blt_alpha_mask_bsp(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
 #else
 	graph_blt_mask_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
 #endif

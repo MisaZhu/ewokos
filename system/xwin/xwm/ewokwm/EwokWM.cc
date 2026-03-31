@@ -34,19 +34,19 @@ void EwokWM:: markFrameRound(graph_t* frame_g, int r) {
 	graph_t* mask = graph_new(NULL, r, r);
 	graph_clear(mask, 0);
 	graph_fill_arc(mask, mask->w-1, mask->h-1, r, 90, 180, 0xffffffff);
-	graph_blt_mask(mask, 0, 0, mask->w, mask->h, frame_g, 0, 0, mask->w, mask->h);
+	graph_blt_alpha_mask(mask, 0, 0, mask->w, mask->h, frame_g, 0, 0, mask->w, mask->h);
 
 	graph_clear(mask, 0);
 	graph_fill_arc(mask, mask->w-1, 0, r, 180, 270, 0xffffffff);
-	graph_blt_mask(mask, 0, 0, mask->w, mask->h, frame_g, 0, frame_g->h-mask->h, mask->w, mask->h);
+	graph_blt_alpha_mask(mask, 0, 0, mask->w, mask->h, frame_g, 0, frame_g->h-mask->h, mask->w, mask->h);
 
 	graph_clear(mask, 0);
 	graph_fill_arc(mask, 0, mask->h-1, r, 0, 90, 0xffffffff);
-	graph_blt_mask(mask, 0, 0, mask->w, mask->h, frame_g, frame_g->w-mask->w, 0, mask->w, mask->h);
+	graph_blt_alpha_mask(mask, 0, 0, mask->w, mask->h, frame_g, frame_g->w-mask->w, 0, mask->w, mask->h);
 
 	graph_clear(mask, 0);
 	graph_fill_arc(mask, 0, 0, r, 270, 360, 0xffffffff);
-	graph_blt_mask(mask, 0, 0, mask->w, mask->h, frame_g, frame_g->w-mask->w, frame_g->h-mask->h, mask->w, mask->h);
+	graph_blt_alpha_mask(mask, 0, 0, mask->w, mask->h, frame_g, frame_g->w-mask->w, frame_g->h-mask->h, mask->w, mask->h);
 
 	graph_free(mask);
 }
@@ -59,10 +59,11 @@ void EwokWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinf
 		//graph_box(frame_g, r->x, r->y, r->w, xwm.theme.titleH+xwm.theme.frameW, fg);
 	}
 
-	int round = 12;
+	int round = 10;
 	markFrameRound(frame_g, round+1);
 	//graph_round_3d(frame_g, 0, 0, frame_g->w, frame_g->h, round+1, 1, bg, false);
-	graph_round(frame_g, 0, 0, frame_g->w, frame_g->h, round, 1, bg);
+	if(xwm.theme.frameW > 0)
+		graph_round(frame_g, 0, 0, frame_g->w, frame_g->h, round, xwm.theme.frameW, bg);
 }
 
 void EwokWM::drawTitle(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r, bool top) {

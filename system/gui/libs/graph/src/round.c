@@ -172,7 +172,7 @@ static inline void draw_round_corner_round(graph_t* g, int32_t corner_x, int32_t
                 // Use square function for smoother transition
                 int32_t t = (dist_from_outer * 256) / range;
                 int32_t smoothed = (t * t) / 256;
-                alpha = (uint8_t)((fg_alpha * smoothed) / 256) / 2;
+                alpha = (uint8_t)((fg_alpha * smoothed) / 256);
             }
             // Inner edge anti-aliasing area
             else if (dist_sq >= inner_aa_sq && dist_sq <= inner_r_sq) {

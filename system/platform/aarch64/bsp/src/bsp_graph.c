@@ -275,32 +275,54 @@ inline void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw
     }
 }
 
-static inline void neon_mask_8(uint32_t *s, uint32_t *d, uint32_t *out)
+static inline void neon_mask_alpha_8(uint32_t *dst, uint32_t *src)
 {
     __asm volatile(
-        "ld4 {v20.8b-v23.8b}, [%0]\n\t"    // Load src (R,G,B,A)
-        "ld4 {v24.8b-v27.8b}, [%1]\n\t"    // Load dst (R,G,B,A)
+        // Load 8 dst pixels (RGBA)
+        "ld4 {v20.8b-v23.8b}, [%0]\n\t"
+        // Load 8 src pixels (RGBA)
+        "ld4 {v24.8b-v27.8b}, [%1]\n\t"
         
-        // AND operation for each channel
-        "and v20.8b, v20.8b, v24.8b\n\t"   // R = src_R & dst_R
-        "and v21.8b, v21.8b, v25.8b\n\t"   // G = src_G & dst_G
-        "and v22.8b, v22.8b, v26.8b\n\t"   // B = src_B & dst_B
-        "and v23.8b, v23.8b, v27.8b\n\t"   // A = src_A & dst_A
+        // v23 = dst_a, v27 = src_a
+        // Create zero vector
+        "movi v28.8b, #0\n\t"
+        // Compare src_a > 0 (cmhi returns 0xFF where true, 0x00 where false)
+        "cmhi v28.8b, v27.8b, v28.8b\n\t"  // v28: 0xFF where src_a > 0, 0x00 where src_a == 0
         
-        "st4 {v20.8b-v23.8b}, [%2]\n\t"    // Store result
+        // Compare dst_a > src_a
+        "cmhi v29.8b, v23.8b, v27.8b\n\t"  // v29: 0xFF where dst_a > src_a
+        
+        // Create mask for src_a == 0: set all channels to 0
+        "and v20.8b, v20.8b, v28.8b\n\t"    // R
+        "and v21.8b, v21.8b, v28.8b\n\t"    // G
+        "and v22.8b, v22.8b, v28.8b\n\t"    // B
+        "and v23.8b, v23.8b, v28.8b\n\t"    // A
+        
+        // For dst_a > src_a: keep dst RGB, replace alpha with src_a
+        // First, mask src_a where condition is true
+        "and v30.8b, v27.8b, v29.8b\n\t"
+        // Mask dst_a where condition is false
+        "mvn v28.8b, v29.8b\n\t"
+        "and v23.8b, v23.8b, v28.8b\n\t"
+        // Combine
+        "orr v23.8b, v23.8b, v30.8b\n\t"
+        
+        // Store result
+        "st4 {v20.8b-v23.8b}, [%0]\n\t"
         :
-        : "r"(s), "r"(d), "r"(out)
-        : "memory", "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27");
+        : "r"(dst), "r"(src)
+        : "memory", "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27", 
+          "v28", "v29", "v30");
 }
 
-static inline void graph_pixel_mask_neon(graph_t *graph, int32_t x, int32_t y,
+static inline void graph_pixel_alpha_mask_neon(graph_t *graph, int32_t x, int32_t y,
                                   uint32_t *src, int size)
 {
     uint32_t *dst = &graph->buffer[y * graph->w + x];
 
     if (size == 8)
     {
-        neon_mask_8(dst, src, dst);
+        neon_mask_alpha_8(dst, src);
     }
     else
     {
@@ -309,12 +331,12 @@ static inline void graph_pixel_mask_neon(graph_t *graph, int32_t x, int32_t y,
         uint32_t dst_buf[8] = {0};
         memcpy(src_buf, src, 4 * size);
         memcpy(dst_buf, dst, 4 * size);
-        neon_mask_8(dst_buf, src_buf , dst_buf);
+        neon_mask_alpha_8(dst_buf, src_buf);
         memcpy(dst, dst_buf, 4 * size);
     }
 }
 
-inline void graph_blt_mask_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+inline void graph_blt_alpha_mask_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
         graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
     if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
         return;
@@ -350,15 +372,15 @@ inline void graph_blt_mask_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw,
         
         for(; sx < ex - 7; sx += 8, dx += 8) {
             // Process two rows in parallel
-            graph_pixel_mask_neon(dst, dx, dy, &src->buffer[offset1 + sx], 8);
-            graph_pixel_mask_neon(dst, dx, dy + 1, &src->buffer[offset2 + sx], 8);
+            graph_pixel_alpha_mask_neon(dst, dx, dy, &src->buffer[offset1 + sx], 8);
+            graph_pixel_alpha_mask_neon(dst, dx, dy + 1, &src->buffer[offset2 + sx], 8);
         }
         
         // Process remaining pixels
         if(sx < ex) {
             int remain = ex - sx;
-            graph_pixel_mask_neon(dst, dx, dy, &src->buffer[offset1 + sx], remain);
-            graph_pixel_mask_neon(dst, dx, dy + 1, &src->buffer[offset2 + sx], remain);
+            graph_pixel_alpha_mask_neon(dst, dx, dy, &src->buffer[offset1 + sx], remain);
+            graph_pixel_alpha_mask_neon(dst, dx, dy + 1, &src->buffer[offset2 + sx], remain);
         }
     }
     
@@ -369,7 +391,7 @@ inline void graph_blt_mask_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw,
         register int32_t offset = sy * src->w;
         
         for(; sx < ex; sx += 8, dx += 8) {
-            graph_pixel_mask_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex - sx, 8));
+            graph_pixel_alpha_mask_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex - sx, 8));
         }
     }
 }

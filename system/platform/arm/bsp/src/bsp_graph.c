@@ -238,45 +238,69 @@ inline void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw
 	}
 }
 
-static inline void neon_mask_8(uint32_t *s, uint32_t *d, uint32_t *out)
+static inline void neon_mask_alpha_8(uint32_t *dst, uint32_t *src)
 {
-	__asm volatile(
-		"vld4.8    {d20-d23},[%0]\n\t" // Load src (R,G,B,A)
-		"vld4.8    {d24-d27},[%1]\n\t" // Load dst (R,G,B,A)
-		
-		// AND operation for each channel
-		"vand.u8   d20, d20, d24\n\t"  // R = src_R & dst_R
-		"vand.u8   d21, d21, d25\n\t"  // G = src_G & dst_G
-		"vand.u8   d22, d22, d26\n\t"  // B = src_B & dst_B
-		"vand.u8   d23, d23, d27\n\t"  // A = src_A & dst_A
-		
-		"vst4.8   {d20-d23},[%2]\n\t"  // Store result
-		:
-		: "r"(s), "r"(d), "r"(out)
-		: "memory", "d20", "d21", "d22", "d23", "d24", "d25", "d26", "d27");
+    __asm volatile(
+        // Load 8 dst pixels (RGBA)
+        "vld4.8    {d20-d23},[%0]\n\t"
+        // Load 8 src pixels (RGBA)
+        "vld4.8    {d24-d27},[%1]\n\t"
+        
+        // d23 = dst_a, d27 = src_a
+        // Create zero vector
+        "vmov.u8   d28, #0\n\t"
+        
+        // Compare src_a > 0 (vcgt returns 0xFF where true, 0x00 where false)
+        "vcgt.u8   d29, d27, d28\n\t"  // d29: 0xFF where src_a > 0, 0x00 where src_a == 0
+        
+        // Create mask for src_a == 0: set all channels to 0
+        "vand.u8   d20, d20, d29\n\t"    // R
+        "vand.u8   d21, d21, d29\n\t"    // G
+        "vand.u8   d22, d22, d29\n\t"    // B
+        "vand.u8   d23, d23, d29\n\t"    // A
+        
+        // Compare dst_a > src_a
+        "vcgt.u8   d30, d23, d27\n\t"   // d30: 0xFF where dst_a > src_a
+        
+        // For dst_a > src_a: keep dst RGB, replace alpha with src_a
+        // First, mask src_a where condition is true
+        "vand.u8   d31, d27, d30\n\t"
+        // Mask dst_a where condition is false
+        "vmvn.u8   d28, d30\n\t"
+        "vand.u8   d23, d23, d28\n\t"
+        // Combine
+        "vorr.u8   d23, d23, d31\n\t"
+        
+        // Store result
+        "vst4.8   {d20-d23},[%0]\n\t"
+        :
+        : "r"(dst), "r"(src)
+        : "memory", "d20", "d21", "d22", "d23", "d24", "d25", "d26", "d27", 
+          "d28", "d29", "d30", "d31");
 }
 
-static inline void graph_pixel_mask_neon(graph_t *dst, int32_t x, int32_t y,
+static inline void graph_pixel_alpha_mask_neon(graph_t *graph, int32_t x, int32_t y,
 								  uint32_t *src, int size)
 {
-	uint32_t src_buf[8];
-	uint32_t dst_buf[8];
-	uint32_t *dst_ptr = &dst->buffer[y * dst->w + x];
+	uint32_t *dst = &graph->buffer[y * graph->w + x];
 
-	if (size >= 8)
+	if (size == 8)
 	{
-		neon_mask_8(dst_ptr, src , dst_ptr);
+		neon_mask_alpha_8(dst, src);
 	}
 	else
 	{
+		// For size < 8, use memcpy to handle boundaries
+		uint32_t src_buf[8] = {0};
+		uint32_t dst_buf[8] = {0};
 		memcpy(src_buf, src, 4 * size);
-		memcpy(dst_buf, dst_ptr, 4 * size);
-		neon_mask_8(dst_buf, src_buf, dst_buf);
-		memcpy(dst_ptr, dst_buf, 4 * size);
+		memcpy(dst_buf, dst, 4 * size);
+		neon_mask_alpha_8(dst_buf, src_buf);
+		memcpy(dst, dst_buf, 4 * size);
 	}
 }
 
-inline void graph_blt_mask_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+inline void graph_blt_alpha_mask_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
 	if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
 		return;
@@ -303,7 +327,7 @@ inline void graph_blt_mask_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw,
 		register int32_t dx = dr.x;
 		register int32_t offset = sy * src->w;
 		for(; sx < ex; sx+=8, dx+=8) {
-			graph_pixel_mask_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex-sx, 8));	
+			graph_pixel_alpha_mask_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex-sx, 8));	
 		}
 	}
 }
