@@ -19,7 +19,7 @@ kernel_heads:
 extra: 
 	cd $(EWOKOS_ROOT_DIR)/sw.extra/; make HW=$(HW)
 	cp -r $(EWOKOS_ROOT_DIR)/sw.extra/usr $(EWOKOS_ROOT_DIR)/system/build/$(HW)/rootfs/
-	cp -r $(EWOKOS_ROOT_DIR)/sw.extra/etc $(EWOKOS_ROOT_DIR)/system/build/$(HW)/rootfs/
+#	cp -r $(EWOKOS_ROOT_DIR)/sw.extra/etc $(EWOKOS_ROOT_DIR)/system/build/$(HW)/rootfs/
 	cp -r $(EWOKOS_ROOT_DIR)/sw.extra/data $(EWOKOS_ROOT_DIR)/system/build/$(HW)/rootfs/
 	mkdir -p build
 	cp -r $(EWOKOS_ROOT_DIR)/system/build/$(HW)/rootfs/* build
