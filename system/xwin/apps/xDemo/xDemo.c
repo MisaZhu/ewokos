@@ -151,7 +151,7 @@ static void on_repaint(xwin_t* xwin, graph_t* g) {
 	}
 	else if(_xtest_info.mode == ROUND) {
 		graph_fill_round(g, x, y, w, h, 12, c);
-		graph_round(g, x-4, y-4, w+8, h+8, 16, 4, c);
+		graph_round(g, x-4, y-4, w+8, h+8, 16, 2, c);
 	}
 	else if(_xtest_info.mode == ROUND_3D) {
 		graph_fill_round_3d(g, x, y, w, h, 12, 2, c, true);
