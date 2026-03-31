@@ -141,11 +141,8 @@ static void on_repaint(xwin_t* xwin, graph_t* g) {
 		graph_fill_circle_3d(g, x, y, h/2, 4, c, true);
 	}
 	else if(_xtest_info.mode == ARC) {
-		//int endangle = rand()%5 * 44;
-		//int endangle = rand()%360;
-		//int start = rand()%360;
-		int start = 270;
-		int endangle = 360;
+		int endangle = rand()%360;
+		int start = rand()%360;
 		if(endangle == 0)
 			endangle = 119;
 
@@ -234,7 +231,7 @@ static void loop(void* p) {
 	if(_repaint)
 		xwin_repaint(xwin);
 	_repaint = false;
-	proc_usleep(30000);
+	proc_usleep(3000);
 }
 
 static void _timerHandler(void) {

@@ -2,7 +2,7 @@
     "desktop_fg_color": "0xff555588",
     "desktop_bg_color": "0xff6666aa",
 
-    "frame_bg_color": "0xffaa5555",
+    "frame_bg_color": "0xffffaa22",
     "frame_fg_color": "0xffffffff",
 
     "font_size": 13,
@@ -11,7 +11,7 @@
     "shadow": 0,
 
     "#bg_effect": "0: none; 1: transparent; 2: dots; 3: glass; 4: gaussian",
-    "bg_effect": 2,
+    "bg_effect": 1,
     "alpha": 1,
 
     "pattern": "/usr/system/images/wallpapers/wallpaper1.png",

@@ -146,7 +146,8 @@ void EwokWM::drawMax(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 
-	graph_fill_circle_3d(g, r->x+r->w/2, r->y+r->h/2, r->w/2-3, 1, 0xff66aa22, false);
+	graph_fill_circle(g, r->x+r->w/2, r->y+r->h/2, r->w/2-3, 0xff66aa22);
+	//graph_circle_3d(g, r->x+r->w/2, r->y+r->h/2, r->w/2-3, 1, bg, true);
 }
 
 void EwokWM::drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
@@ -154,8 +155,8 @@ void EwokWM::drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 
-	graph_fill_circle_3d(g, r->x+r->w/2, r->y+r->h/2, r->w/2-3, 1, 0xffcc5555, false);
-	//graph_fill_circle_3d(g, r->x+r->w/2, r->y+r->h/2, r->w/2-4, 1, bg, true);
+	graph_fill_circle(g, r->x+r->w/2, r->y+r->h/2, r->w/2-3, 0xffdd6666);
+	//graph_circle_3d(g, r->x+r->w/2, r->y+r->h/2, r->w/2-3, 1, bg, true);
 }
 
 EwokWM::~EwokWM(void) {
