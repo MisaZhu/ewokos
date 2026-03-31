@@ -21,6 +21,7 @@ LIB_GRAPH_OBJS = \
 	src/circle.o \
 	src/arc.o \
 	src/round.o \
+	src/scale.o \
 	src/bitmap.o
 
 GRAPH = $(TARGET_DIR)/lib/libgraph.a
