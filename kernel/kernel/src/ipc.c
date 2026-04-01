@@ -28,26 +28,6 @@ inline ipc_task_t* proc_ipc_get_task(struct st_proc* serv_proc) {
 
 uint32_t proc_ipc_fetch(struct st_proc* serv_proc) {
 	ipc_task_t* ipc = NULL;
-	/*while(true) {
-		ipc = (ipc_task_t*)queue_pop(&serv_proc->space->ipc_server.tasks);
-		if(ipc == NULL) 
-			return 0;
-		proc_t* client_proc = proc_get(ipc->client_pid);
-		if(client_proc != NULL && ipc->client_uuid == client_proc->info.uuid) {//available ipc
-			if(client_proc->ipc_buffered > 0) {
-				client_proc->ipc_buffered--;
-				if(client_proc->ipc_buffered == 0) {
-					if(client_proc->ipc_buffer_clean) {
-						client_proc->ipc_buffer_clean = false;
-						proc_wakeup(client_proc->info.pid, -1, (uint32_t)&client_proc->ipc_buffer_clean); 
-					}
-				}
-			}
-			break;
-		}
-		kfree(ipc); //drop unvailable ipc
-	}
-	*/
 
 	ipc = proc_ipc_get_task(serv_proc);
 	if(ipc == NULL)
@@ -121,15 +101,6 @@ ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id
 	if(arg != NULL && arg->data != NULL) {
 		proto_copy(&ipc->arg_ret, arg->data, arg->size);
 	}
-
-	/*
-	if(serv_proc->space->ipc_server.ctask == NULL) 
-		serv_proc->space->ipc_server.ctask = ipc; //set current task
-	else  {
-		queue_push(&serv_proc->space->ipc_server.tasks, ipc); // buffered
-		client_proc->ipc_buffered++;
-	}
-	*/
 	return ipc; 
 }
 

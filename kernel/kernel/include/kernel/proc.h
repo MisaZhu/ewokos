@@ -55,8 +55,6 @@ typedef struct st_proc {
 
 	uint32_t          priority_count;
 	uint32_t          block_event;
-	uint32_t          ipc_buffered;
-	bool              ipc_buffer_clean;
 	ipc_res_t         ipc_res;
 
 	int64_t           sleep_counter; //sleep usec
