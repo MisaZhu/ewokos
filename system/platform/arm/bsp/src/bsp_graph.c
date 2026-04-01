@@ -660,6 +660,10 @@ inline void graph_gaussian_bsp(graph_t* g, int x, int y, int w, int h, int r) {
 
 #define CLAMP(x, low, high) (((x) > (high)) ? (high) : (((x) < (low)) ? (low) : (x)))
 
+#define WEIGHT_TABLE_SIZE 1024
+static float weight_table[WEIGHT_TABLE_SIZE];
+static int weight_table_initialized = 0;
+
 static inline float fast_sinf(float x) {
     const float PI = 3.141592653589793f;
     const float TWO_PI = 6.283185307179586f;
@@ -692,6 +696,23 @@ static inline float lanczos_kernel(float x, int a) {
     return 0.0f;
 }
 
+static void init_weight_table(void) {
+    if(weight_table_initialized) return;
+    
+    for(int i = 0; i < WEIGHT_TABLE_SIZE; i++) {
+        float x = (float)i / (WEIGHT_TABLE_SIZE - 1) * 6.0f - 3.0f;
+        weight_table[i] = lanczos_kernel(x, 3);
+    }
+    
+    weight_table_initialized = 1;
+}
+
+static inline float get_weight(float x) {
+    int index = (int)((x + 3.0f) / 6.0f * (WEIGHT_TABLE_SIZE - 1));
+    index = CLAMP(index, 0, WEIGHT_TABLE_SIZE - 1);
+    return weight_table[index];
+}
+
 static inline uint32_t get_pixel_clamped_bsp(graph_t* g, int x, int y) {
     x = CLAMP(x, 0, g->w - 1);
     y = CLAMP(y, 0, g->h - 1);
@@ -699,6 +720,8 @@ static inline uint32_t get_pixel_clamped_bsp(graph_t* g, int x, int y) {
 }
 
 void graph_scale_tof_bsp(graph_t* g, graph_t* dst, double scale) {
+    init_weight_table();
+    
     if(scale <= 0.0 ||
             dst->w < (int)(g->w*scale) ||
             dst->h < (int)(g->h*scale))
@@ -739,7 +762,7 @@ void graph_scale_tof_bsp(graph_t* g, graph_t* dst, double scale) {
             float32x4_t sum_weight[2] = {vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)};
 
             for(int y = start_y; y <= end_y; y++) {
-                float ky = lanczos_kernel((y - center_y) * effective_scale, lanczos_a);
+                float ky = get_weight((y - center_y) * effective_scale);
                 if(ky == 0.0f) continue;
                 float32x4_t ky_vec = vdupq_n_f32(ky);
 
@@ -758,7 +781,7 @@ void graph_scale_tof_bsp(graph_t* g, graph_t* dst, double scale) {
                     float kx[8];
                     for(int k = 0; k < 8; k++) {
                         if(x >= start_x[k] && x <= end_x[k]) {
-                            kx[k] = lanczos_kernel((x_scaled - center_x[k] * effective_scale), lanczos_a);
+                            kx[k] = get_weight(x_scaled - center_x[k] * effective_scale);
                         } else {
                             kx[k] = 0.0f;
                         }
