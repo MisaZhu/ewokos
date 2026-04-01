@@ -660,6 +660,19 @@ inline void graph_gaussian_bsp(graph_t* g, int x, int y, int w, int h, int r) {
 
 #define CLAMP(x, low, high) (((x) > (high)) ? (high) : (((x) < (low)) ? (low) : (x)))
 
+static inline float fast_sinf(float x) {
+    const float PI = 3.141592653589793f;
+    const float TWO_PI = 6.283185307179586f;
+    
+    x = fmodf(x, TWO_PI);
+    if(x < -PI) x += TWO_PI;
+    else if(x > PI) x -= TWO_PI;
+    
+    const float x2 = x * x;
+    const float x4 = x2 * x2;
+    return x * (0.99999994f + x2 * (-0.16666665f + x2 * 0.008333329f));
+}
+
 static inline float lanczos_sinc(float x) {
     x = fabsf(x);
     if(x < 0.0001f)
@@ -668,7 +681,7 @@ static inline float lanczos_sinc(float x) {
         return 0.0f;
     const float PI = 3.141592653589793f;
     float pi_x = PI * x;
-    return sinf(pi_x) / pi_x;
+    return fast_sinf(pi_x) / pi_x;
 }
 
 static inline float lanczos_kernel(float x, int a) {
@@ -727,6 +740,7 @@ void graph_scale_tof_bsp(graph_t* g, graph_t* dst, double scale) {
 
             for(int y = start_y; y <= end_y; y++) {
                 float ky = lanczos_kernel((y - center_y) * effective_scale, lanczos_a);
+                if(ky == 0.0f) continue;
                 float32x4_t ky_vec = vdupq_n_f32(ky);
 
                 int max_end_x = start_x[0];
@@ -734,19 +748,27 @@ void graph_scale_tof_bsp(graph_t* g, graph_t* dst, double scale) {
                     if(end_x[k] > max_end_x) max_end_x = end_x[k];
                 }
 
+                int cy = CLAMP(y, 0, g->h - 1);
+                uint32_t* row_ptr = &g->buffer[cy * g->w];
+
                 for(int x = start_x[0]; x <= max_end_x; x++) {
+                    float x_float = (float)x;
+                    float x_scaled = x_float * effective_scale;
+                    
                     float kx[8];
                     for(int k = 0; k < 8; k++) {
-                        kx[k] = (x >= start_x[k] && x <= end_x[k]) ?
-                                lanczos_kernel((x - center_x[k]) * effective_scale, lanczos_a) : 0.0f;
+                        if(x >= start_x[k] && x <= end_x[k]) {
+                            kx[k] = lanczos_kernel((x_scaled - center_x[k] * effective_scale), lanczos_a);
+                        } else {
+                            kx[k] = 0.0f;
+                        }
                     }
 
                     float32x4_t kx0 = (float32x4_t){kx[0], kx[1], kx[2], kx[3]};
                     float32x4_t kx1 = (float32x4_t){kx[4], kx[5], kx[6], kx[7]};
 
                     int cx = CLAMP(x, 0, g->w - 1);
-                    int cy = CLAMP(y, 0, g->h - 1);
-                    uint32_t p = g->buffer[cy * g->w + cx];
+                    uint32_t p = row_ptr[cx];
 
                     float r_val = (float)((p >> 16) & 0xFF);
                     float g_val = (float)((p >> 8) & 0xFF);
