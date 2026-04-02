@@ -231,7 +231,7 @@ class FileGrid: public Grid {
 			scale = (float)(itemW*2/3) / (float)img->w;
 		else
 			scale = (float)(itemH*2/3) / (float)img->h;
-		icon = graph_scalef(img, scale);
+		icon = graph_scalef_fast(img, scale);
 		graph_free(img);
 		if(icon == NULL)
 			return NULL;

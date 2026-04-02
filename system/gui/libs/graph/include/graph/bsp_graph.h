@@ -16,6 +16,7 @@ void  graph_blt_alpha_mask_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw,
 					graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh);	
 
 void  graph_scale_tof_bsp(graph_t* g, graph_t* dst, double scale);
+void  graph_scale_tof_fast_bsp(graph_t* g, graph_t* dst, double scale);
 
 void  graph_glass_bsp(graph_t* g, int x, int y, int w, int h, int r);
 void  graph_gaussian_bsp(graph_t* g, int x, int y, int w, int h, int r);

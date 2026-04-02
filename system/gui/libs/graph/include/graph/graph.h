@@ -85,10 +85,15 @@ void     graph_reverse_rgb(graph_t* g);
 void     graph_gray(graph_t* g);
 void     graph_rotate_to(graph_t* g, graph_t* dst, int rot);
 graph_t* graph_rotate(graph_t* g, int rot);
+
 void     graph_scale_to(graph_t* src, graph_t* dst, int scale);
 graph_t* graph_scale(graph_t* g, int scale);
+
+void     graph_scale_tof_cpu(graph_t* g, graph_t* dst, float scale);
 void     graph_scale_tof(graph_t* src, graph_t* dst, float scale);
 graph_t* graph_scalef(graph_t* g, float scale);
+void     graph_scale_tof_fast(graph_t* g, graph_t* dst, float scale);
+graph_t* graph_scalef_fast(graph_t* g, float scale);
 
 void     graph_box(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
 void     graph_fill(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
@@ -128,8 +133,6 @@ void     graph_blt_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, i
 			graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha);
 void     graph_blt_mask_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 			graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh);	
-
-void     graph_scale_tof_cpu(graph_t* g, graph_t* dst, float scale);
 
 bool     check_in_rect(int32_t x, int32_t y, grect_t* rect);
 
