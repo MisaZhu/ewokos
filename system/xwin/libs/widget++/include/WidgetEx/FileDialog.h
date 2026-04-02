@@ -12,6 +12,7 @@ protected:
 	bool pathMode;
 	string initPath;
 	void onBuild();
+	void onPopup();
 
 public:
 	FileDialog(bool path = false);

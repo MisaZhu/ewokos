@@ -51,12 +51,14 @@ void FileDialog::onBuild() {
 	RoundLabelButton* cancelButton = new RoundLabelButton("Cancel");
 	cancelButton->setEventFunc(cancelFunc);
 	c->add(cancelButton);
+}
 
+void FileDialog::onPopup() {
+	fileWidget->loadDir(initPath);
 }
 
 void FileDialog::setInitPath(const string& path) {
 	initPath = path;
-	fileWidget->loadDir(initPath);
 }
 
 FileDialog::FileDialog(bool path) {

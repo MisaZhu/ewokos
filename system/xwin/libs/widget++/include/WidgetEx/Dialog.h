@@ -12,6 +12,8 @@ class Dialog: public WidgetWin {
 protected:
 	void* arg;
 	XWin* owner;
+
+	virtual void onPopup() {}
 public:
 	static const int RES_CANCEL =  0;
 	static const int RES_OK =      1;

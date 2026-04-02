@@ -1109,6 +1109,10 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 			win->xinfo->wsr.w = minw;
 		if(win->xinfo->wsr.h < minh)
 			win->xinfo->wsr.h = minh;
+
+		int32_t maxh = x->displays[win->xinfo->display_index].g->h - x->config.xwm_theme.titleH;
+		if(win->xinfo->wsr.h > maxh)
+			win->xinfo->wsr.h = maxh;
 	}
 
 	if(win->xinfo->state == XWIN_STATE_MAX) {
