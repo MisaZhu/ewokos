@@ -764,7 +764,7 @@ inline void graph_gaussian_bsp(graph_t* g, int x, int y, int w, int h, int r) {
 
 #define CLAMP(x, low, high) (((x) > (high)) ? (high) : (((x) < (low)) ? (low) : (x)))
 
-#define WEIGHT_TABLE_SIZE 1024
+#define WEIGHT_TABLE_SIZE 256
 static float weight_table[WEIGHT_TABLE_SIZE];
 static int weight_table_initialized = 0;
 
@@ -811,9 +811,11 @@ static void init_weight_table(void) {
     weight_table_initialized = 1;
 }
 
-static inline float get_weight(float x) {
-    int index = (int)((x + 3.0f) / 6.0f * (WEIGHT_TABLE_SIZE - 1));
-    index = CLAMP(index, 0, WEIGHT_TABLE_SIZE - 1);
+static inline float get_weight_fast(float x) {
+    float normalized = (x + 3.0f) * (1.0f / 6.0f);
+    int index = (int)(normalized * (WEIGHT_TABLE_SIZE - 1));
+    if(index < 0) index = 0;
+    if(index >= WEIGHT_TABLE_SIZE) index = WEIGHT_TABLE_SIZE - 1;
     return weight_table[index];
 }
 
@@ -826,22 +828,22 @@ void graph_scale_tof_bsp(graph_t* g, graph_t* dst, double scale) {
         return;
 
     float effective_scale = scale < 1.0f ? scale : 1.0f;
-    int lanczos_a = 3;
+    int lanczos_a = 2;  // Changed from 3 to 2 for Lanczos2
+    float inv_scale = 1.0f / scale;
+    float inv_weight_table_size = 1.0f / (WEIGHT_TABLE_SIZE - 1);
 
     for(int i = 0; i < dst->h; i++) {
-        float gi = (float)i / scale;
+        float gi = (float)i * inv_scale;
 
         int j = 0;
         for(; j <= dst->w - 8; j += 8) {
-            float gj[8];
             float center_x[8];
             float center_y = gi;
             int start_x[8], end_x[8];
             int start_y, end_y;
 
             for(int k = 0; k < 8; k++) {
-                gj[k] = (float)(j + k) / scale;
-                center_x[k] = gj[k];
+                center_x[k] = (float)(j + k) * inv_scale;
             }
 
             float adjusted_a = (float)lanczos_a / effective_scale;
@@ -860,7 +862,8 @@ void graph_scale_tof_bsp(graph_t* g, graph_t* dst, double scale) {
             float32x4_t sum_weight[2] = {vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)};
 
             for(int y = start_y; y <= end_y; y++) {
-                float ky = get_weight((y - center_y) * effective_scale);
+                float ky_arg = (y - center_y) * effective_scale;
+                float ky = get_weight_fast(ky_arg);
                 if(ky == 0.0f) continue;
                 float32x4_t ky_vec = vdupq_n_f32(ky);
 
@@ -873,13 +876,11 @@ void graph_scale_tof_bsp(graph_t* g, graph_t* dst, double scale) {
                 uint32_t* row_ptr = &g->buffer[cy * g->w];
 
                 for(int x = start_x[0]; x <= max_end_x; x++) {
-                    float x_float = (float)x;
-                    float x_scaled = x_float * effective_scale;
-                    
                     float kx[8];
                     for(int k = 0; k < 8; k++) {
                         if(x >= start_x[k] && x <= end_x[k]) {
-                            kx[k] = get_weight(x_scaled - center_x[k] * effective_scale);
+                            float kx_arg = ((float)x - center_x[k]) * effective_scale;
+                            kx[k] = get_weight_fast(kx_arg);
                         } else {
                             kx[k] = 0.0f;
                         }
@@ -917,49 +918,67 @@ void graph_scale_tof_bsp(graph_t* g, graph_t* dst, double scale) {
                 }
             }
 
-            sum_r[0] = vdivq_f32(sum_r[0], sum_weight[0]);
-            sum_r[1] = vdivq_f32(sum_r[1], sum_weight[1]);
-            sum_g[0] = vdivq_f32(sum_g[0], sum_weight[0]);
-            sum_g[1] = vdivq_f32(sum_g[1], sum_weight[1]);
-            sum_b[0] = vdivq_f32(sum_b[0], sum_weight[0]);
-            sum_b[1] = vdivq_f32(sum_b[1], sum_weight[1]);
-            sum_a[0] = vdivq_f32(sum_a[0], sum_weight[0]);
-            sum_a[1] = vdivq_f32(sum_a[1], sum_weight[1]);
+            float32x4_t inv_weight0 = vrecpeq_f32(sum_weight[0]);
+            float32x4_t inv_weight1 = vrecpeq_f32(sum_weight[1]);
+            inv_weight0 = vmulq_f32(inv_weight0, vrecpsq_f32(sum_weight[0], inv_weight0));
+            inv_weight1 = vmulq_f32(inv_weight1, vrecpsq_f32(sum_weight[1], inv_weight1));
+            
+            sum_r[0] = vmulq_f32(sum_r[0], inv_weight0);
+            sum_r[1] = vmulq_f32(sum_r[1], inv_weight1);
+            sum_g[0] = vmulq_f32(sum_g[0], inv_weight0);
+            sum_g[1] = vmulq_f32(sum_g[1], inv_weight1);
+            sum_b[0] = vmulq_f32(sum_b[0], inv_weight0);
+            sum_b[1] = vmulq_f32(sum_b[1], inv_weight1);
+            sum_a[0] = vmulq_f32(sum_a[0], inv_weight0);
+            sum_a[1] = vmulq_f32(sum_a[1], inv_weight1);
 
-            uint32x4_t result_r0 = vcvtq_u32_f32(sum_r[0]);
-            uint32x4_t result_r1 = vcvtq_u32_f32(sum_r[1]);
-            uint32x4_t result_g0 = vcvtq_u32_f32(sum_g[0]);
-            uint32x4_t result_g1 = vcvtq_u32_f32(sum_g[1]);
-            uint32x4_t result_b0 = vcvtq_u32_f32(sum_b[0]);
-            uint32x4_t result_b1 = vcvtq_u32_f32(sum_b[1]);
-            uint32x4_t result_a0 = vcvtq_u32_f32(sum_a[0]);
-            uint32x4_t result_a1 = vcvtq_u32_f32(sum_a[1]);
+            uint16x8_t result_r = vcombine_u16(
+                vqmovn_u32(vcvtq_u32_f32(sum_r[0])),
+                vqmovn_u32(vcvtq_u32_f32(sum_r[1]))
+            );
+            uint16x8_t result_g = vcombine_u16(
+                vqmovn_u32(vcvtq_u32_f32(sum_g[0])),
+                vqmovn_u32(vcvtq_u32_f32(sum_g[1]))
+            );
+            uint16x8_t result_b = vcombine_u16(
+                vqmovn_u32(vcvtq_u32_f32(sum_b[0])),
+                vqmovn_u32(vcvtq_u32_f32(sum_b[1]))
+            );
+            uint16x8_t result_a = vcombine_u16(
+                vqmovn_u32(vcvtq_u32_f32(sum_a[0])),
+                vqmovn_u32(vcvtq_u32_f32(sum_a[1]))
+            );
 
-            uint16x8_t result_r0_16 = vcombine_u16(vqmovn_u32(result_r0), vqmovn_u32(result_r1));
-            uint16x8_t result_g0_16 = vcombine_u16(vqmovn_u32(result_g0), vqmovn_u32(result_g1));
-            uint16x8_t result_b0_16 = vcombine_u16(vqmovn_u32(result_b0), vqmovn_u32(result_b1));
-            uint16x8_t result_a0_16 = vcombine_u16(vqmovn_u32(result_a0), vqmovn_u32(result_a1));
+            uint8x8_t r8 = vqmovn_u16(result_r);
+            uint8x8_t g8 = vqmovn_u16(result_g);
+            uint8x8_t b8 = vqmovn_u16(result_b);
+            uint8x8_t a8 = vqmovn_u16(result_a);
 
-            uint8x8_t result_r8 = vqmovn_u16(result_r0_16);
-            uint8x8_t result_g8 = vqmovn_u16(result_g0_16);
-            uint8x8_t result_b8 = vqmovn_u16(result_b0_16);
-            uint8x8_t result_a8 = vqmovn_u16(result_a0_16);
-
-            uint32_t result0 = (vget_lane_u8(result_a8, 0) << 24) | (vget_lane_u8(result_r8, 0) << 16) | (vget_lane_u8(result_g8, 0) << 8) | vget_lane_u8(result_b8, 0);
-            uint32_t result1 = (vget_lane_u8(result_a8, 1) << 24) | (vget_lane_u8(result_r8, 1) << 16) | (vget_lane_u8(result_g8, 1) << 8) | vget_lane_u8(result_b8, 1);
-            uint32_t result2 = (vget_lane_u8(result_a8, 2) << 24) | (vget_lane_u8(result_r8, 2) << 16) | (vget_lane_u8(result_g8, 2) << 8) | vget_lane_u8(result_b8, 2);
-            uint32_t result3 = (vget_lane_u8(result_a8, 3) << 24) | (vget_lane_u8(result_r8, 3) << 16) | (vget_lane_u8(result_g8, 3) << 8) | vget_lane_u8(result_b8, 3);
-            uint32_t result4 = (vget_lane_u8(result_a8, 4) << 24) | (vget_lane_u8(result_r8, 4) << 16) | (vget_lane_u8(result_g8, 4) << 8) | vget_lane_u8(result_b8, 4);
-            uint32_t result5 = (vget_lane_u8(result_a8, 5) << 24) | (vget_lane_u8(result_r8, 5) << 16) | (vget_lane_u8(result_g8, 5) << 8) | vget_lane_u8(result_b8, 5);
-            uint32_t result6 = (vget_lane_u8(result_a8, 6) << 24) | (vget_lane_u8(result_r8, 6) << 16) | (vget_lane_u8(result_g8, 6) << 8) | vget_lane_u8(result_b8, 6);
-            uint32_t result7 = (vget_lane_u8(result_a8, 7) << 24) | (vget_lane_u8(result_r8, 7) << 16) | (vget_lane_u8(result_g8, 7) << 8) | vget_lane_u8(result_b8, 7);
-
-            vst1q_u32(&dst->buffer[i * dst->w + j], (uint32x4_t){result0, result1, result2, result3});
-            vst1q_u32(&dst->buffer[i * dst->w + j + 4], (uint32x4_t){result4, result5, result6, result7});
+            uint16x8_t ga = vshlq_n_u16(vmovl_u8(g8), 8);
+            uint16x8_t ba = vmovl_u8(b8);
+            uint16x8_t aa = vshlq_n_u16(vmovl_u8(a8), 8);
+            uint16x8_t ra = vmovl_u8(r8);
+            
+            uint16x8_t gb = vorrq_u16(ga, ba);
+            uint16x8_t ar = vorrq_u16(aa, ra);
+            
+            uint16x4_t gb_lo = vget_low_u16(gb);
+            uint16x4_t gb_hi = vget_high_u16(gb);
+            uint16x4_t ar_lo = vget_low_u16(ar);
+            uint16x4_t ar_hi = vget_high_u16(ar);
+            
+            uint32x4_t result_lo = vshlq_n_u32(vmovl_u16(ar_lo), 16);
+            uint32x4_t result_hi = vshlq_n_u32(vmovl_u16(ar_hi), 16);
+            
+            result_lo = vorrq_u32(result_lo, vmovl_u16(gb_lo));
+            result_hi = vorrq_u32(result_hi, vmovl_u16(gb_hi));
+            
+            vst1q_u32(&dst->buffer[i * dst->w + j], result_lo);
+            vst1q_u32(&dst->buffer[i * dst->w + j + 4], result_hi);
         }
 
         for(; j < dst->w; j++) {
-            float gj = (float)j / scale;
+            float gj = (float)j * inv_scale;
             float center_x = gj;
             float center_y = gi;
 
@@ -996,10 +1015,11 @@ void graph_scale_tof_bsp(graph_t* g, graph_t* dst, double scale) {
             }
 
             if(sum_weight != 0.0f) {
-                sum_r /= sum_weight;
-                sum_g /= sum_weight;
-                sum_b /= sum_weight;
-                sum_a /= sum_weight;
+                float inv_weight = 1.0f / sum_weight;
+                sum_r *= inv_weight;
+                sum_g *= inv_weight;
+                sum_b *= inv_weight;
+                sum_a *= inv_weight;
             }
 
             uint8_t r = (uint8_t)CLAMP(sum_r, 0.0f, 255.0f);
