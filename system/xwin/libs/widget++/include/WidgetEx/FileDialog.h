@@ -15,7 +15,7 @@ protected:
 
 public:
 	FileDialog(bool path = false);
-	inline void setInitPath(const string& path) { initPath = path; }
+	void setInitPath(const string& path);
 	string getResult();
 };
 

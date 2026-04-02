@@ -14,7 +14,7 @@ static inline void draw_cursor_raw(graph_t* g, int mx, int my, int mw, int mh, b
 }
 
 void draw_cursor(graph_t* g, cursor_t* cursor, int mx, int my, bool busy) {
-	if(cursor->type == CURSOR_TOUCH && !cursor->down)
+	if(cursor->type == CURSOR_TOUCH && !cursor->down && !busy)
 		return;
 
 	graph_t* img = cursor->img;	
@@ -70,8 +70,7 @@ void cursor_init(const char* theme, cursor_t* cursor) {
 			cursor->offset.y = cursor->size.h - 1;
 	}
 
-	snprintf(fname, 255, "%s/%s/xwm/cursors/%s_busy.json", X_THEME_ROOT, theme,
-			cursor->type == CURSOR_MOUSE ? "mouse":"touch");
+	snprintf(fname, 255, "%s/%s/xwm/cursors/busy.json", X_THEME_ROOT, theme);
 	conf_var = json_parse_file(fname);	
 	cursor->offset_busy.x = json_get_int_def(conf_var, "x_offset", 0);
 	cursor->offset_busy.y = json_get_int_def(conf_var, "y_offset", 0);

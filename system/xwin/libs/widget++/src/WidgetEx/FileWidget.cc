@@ -2,6 +2,7 @@
 #include <Widget/Grid.h>
 #include <Widget/Scroller.h>
 #include <WidgetEx/FileWidget.h>
+#include <Widget/WidgetWin.h>
 #include <Widget/RootWidget.h>
 #include <ewoksys/proc.h>
 #include <tinyjson/tinyjson.h>
@@ -157,6 +158,7 @@ class FileGrid: public Grid {
 		if(r != cwd) {
 			setCWD(r);
 		}
+		getWin()->busy(true);
 
 		strcpy(files[0].d_name, "..");
 		files[0].d_type = DT_DIR;
@@ -170,6 +172,11 @@ class FileGrid: public Grid {
 			if(it->d_name[0] == '.')
 				continue;
 			memcpy(&files[num], it, sizeof(struct dirent));
+
+			if(it->d_type != DT_DIR && check(it->d_name, ".png")) {
+				const char* fname = getFullname(it->d_name);
+				getImgIconAndCache(fname);
+			}
 			num++;
 		}
 		closedir(dirp);
@@ -177,6 +184,7 @@ class FileGrid: public Grid {
 		itemStart = 0;
 		itemSelected = 0;
 		updateScroller();
+		getWin()->busy(false);
 	}
 
 	void loadBasicIcons() {

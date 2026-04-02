@@ -52,6 +52,10 @@ void FileDialog::onBuild() {
 	cancelButton->setEventFunc(cancelFunc);
 	c->add(cancelButton);
 
+}
+
+void FileDialog::setInitPath(const string& path) {
+	initPath = path;
 	fileWidget->loadDir(initPath);
 }
 

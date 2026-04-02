@@ -271,6 +271,7 @@ public:
 	}
 
 	void load(ImageView* imgView, const string& fname) {
+		busy(true);
 		this->imgView = imgView;
 		if(fname.length() == 0)
 			fdialog.popup(this, 0, 0, "files", XWIN_STYLE_NORMAL);
@@ -288,6 +289,7 @@ public:
 		}
 		else 
 			repaint();
+		busy(false);
 	}
 
 	void setBGColor(ImageView* imgView) {
@@ -342,7 +344,6 @@ int main(int argc, char** argv) {
 	RootWidget* root = new RootWidget();
 	win.setRoot(root);
 	root->setType(Container::VERTICLE);
-	
 
 	Menubar* menubar = new Menubar();
 	root->add(menubar);
@@ -378,11 +379,10 @@ int main(int argc, char** argv) {
 	menubar->add(2, "-", NULL, NULL, onZoomOutFunc, imgView);
 	menubar->add(3, "BG", NULL, NULL, onBGColorFunc, imgView);
 
-	win.open(&x, -1, -1, -1, 0, 0, "xpng", XWIN_STYLE_NORMAL, false);
+	win.open(&x, -1, -1, -1, 0, 0, "xpng", XWIN_STYLE_NORMAL);
 	win.setAlpha(true);
 	if(argc >= 2)
 		win.load(imgView, argv[1]);
-	win.setVisible(true);
 
 	widgetXRun(&x, &win);
 	return 0;

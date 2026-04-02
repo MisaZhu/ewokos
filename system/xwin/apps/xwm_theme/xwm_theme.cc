@@ -164,8 +164,8 @@ static void onEventFunc(Widget* wd, xevent_t* evt, void* arg) {
 		string fname = btn->getLabel();
 		char dir[FS_FULL_NAME_MAX];
 		vfs_dir_name(fname.c_str(), dir, FS_FULL_NAME_MAX);
-		_fileDialog->setInitPath(dir);
 		_fileDialog->popup(wd->getWin(), 320, 320, "image", XWIN_STYLE_NO_RESIZE, wd);
+		_fileDialog->setInitPath(dir);
 	}
 	else if(name == "okButton") {
 		setTheme((LayoutWidget*)arg);

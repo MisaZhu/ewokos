@@ -86,8 +86,7 @@ void graph_scale_tof_cpu(graph_t* g, graph_t* dst, float scale) {
 
 inline void graph_scale_tof(graph_t* g, graph_t* dst, float scale) {
 #if BSP_BOOST
-    //graph_scale_tof_bsp(g, dst, scale);
-    graph_scale_tof_fast_bsp(g, dst, scale);
+    graph_scale_tof_bsp(g, dst, scale);
 #else
     graph_scale_tof_cpu(g, dst, scale);
 #endif
