@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <ewoksys/syscall.h>
+#include <ewoksys/klog.h>
 #include <sysinfo.h>
 #include <ewoksys/mmio.h>
 #include <arch/virt/virtio.h>
