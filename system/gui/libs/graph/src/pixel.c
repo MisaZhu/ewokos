@@ -23,22 +23,18 @@ inline void graph_pixel_argb_raw(graph_t* graph, int32_t x, int32_t y,
 		graph->buffer[y * graph->w + x] = argb(a, r, g, b);
 		return;
 	}
-	
+
 	register uint32_t oc = graph->buffer[y * graph->w + x];
 	register uint8_t oa = (oc >> 24) & 0xff;
 	register uint8_t or = (oc >> 16) & 0xff;
 	register uint8_t og = (oc >> 8)  & 0xff;
 	register uint8_t ob = oc & 0xff;
 
-	/*oa = oa + (255 - oa) * a / 255;
-	or = r*a/255 + or*(255-a)/255;
-	og = g*a/255 + og*(255-a)/255;
-	ob = b*a/255 + ob*(255-a)/255;
-	*/
-	oa = oa + ((255 - oa) * a >> 8);
-	or = ((r*a)>>8) + (or*(255-a)>>8);
-	og = ((g*a)>>8) + (og*(255-a)>>8);
-	ob = ((b*a)>>8) + (ob*(255-a)>>8);
+	register uint32_t inv_a = 255 - a;
+	oa = oa + (uint8_t)((255 - oa) * a / 255);
+	or = (uint8_t)((r * a + or * inv_a) / 255);
+	og = (uint8_t)((g * a + og * inv_a) / 255);
+	ob = (uint8_t)((b * a + ob * inv_a) / 255);
 
 	graph->buffer[y * graph->w + x] = argb(oa, or, og, ob);
 }

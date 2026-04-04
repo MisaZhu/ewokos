@@ -466,11 +466,11 @@ static inline void draw_round_corner_3d(graph_t* g, int32_t corner_x, int32_t co
             // Outer edge anti-aliasing area
             if (dist_sq >= outer_r_sq && dist_sq <= outer_aa_sq) {
                 int32_t range = outer_aa_sq - outer_r_sq;
-                int32_t dist_from_outer = outer_aa_sq - dist_sq;
+                int32_t dist_from_inner = dist_sq - outer_r_sq;
                 // Use square function for smoother transition
-                int32_t t = (dist_from_outer * 256) / range;
+                int32_t t = (dist_from_inner * 256) / range;
                 int32_t smoothed = (t * t) / 256;
-                alpha = (uint8_t)((fg_alpha * smoothed) / 256);
+                alpha = (uint8_t)((fg_alpha * (256 - smoothed)) / 256);
             }
             // Inner edge anti-aliasing area
             else if (dist_sq >= inner_aa_sq && dist_sq <= inner_r_sq) {
@@ -645,10 +645,10 @@ void graph_circle_3d(graph_t* g, int x, int y, int r, int rw, uint32_t color, bo
             // Outer edge anti-aliasing area
             if (dist_sq >= outer_r_sq && dist_sq <= outer_aa_sq) {
                 int32_t range = outer_aa_sq - outer_r_sq;
-                int32_t dist_from_outer = outer_aa_sq - dist_sq;
-                int32_t t = (dist_from_outer * 256) / range;
+                int32_t dist_from_inner = dist_sq - outer_r_sq;
+                int32_t t = (dist_from_inner * 256) / range;
                 int32_t smoothed = (t * t) / 256;
-                alpha = (uint8_t)((fg_alpha * smoothed) / 256);
+                alpha = (uint8_t)((fg_alpha * (256 - smoothed)) / 256);
             }
             // Inner edge anti-aliasing area
             else if (dist_sq >= inner_aa_sq && dist_sq <= inner_r_sq) {
@@ -925,11 +925,11 @@ void graph_fill_ring_arc(graph_t* g, int cx, int cy, int radius, int thickness,
             // Outer edge anti-aliasing area
             if (dist_sq >= outer_r_sq && dist_sq <= outer_aa_sq) {
                 int32_t range = outer_aa_sq - outer_r_sq;
-                int32_t dist_from_outer = outer_aa_sq - dist_sq;
+                int32_t dist_from_inner = dist_sq - outer_r_sq;
                 // Use square function for smoother transition
-                int32_t t = (dist_from_outer * 256) / range;
+                int32_t t = (dist_from_inner * 256) / range;
                 int32_t smoothed = (t * t) / 256;
-                alpha = (uint8_t)((fg_alpha * smoothed) / 256);
+                alpha = (uint8_t)((fg_alpha * (256 - smoothed)) / 256);
             }
             // Inner edge anti-aliasing area
             else if (dist_sq >= inner_aa_sq && dist_sq <= inner_r_sq) {

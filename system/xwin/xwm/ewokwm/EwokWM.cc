@@ -59,7 +59,7 @@ void EwokWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinf
 		//graph_box(frame_g, r->x, r->y, r->w, xwm.theme.titleH+xwm.theme.frameW, fg);
 	}
 
-	int round = 10;
+	int round = 13;
 	markFrameRound(frame_g, round+1);
 	//graph_round_3d(frame_g, 0, 0, frame_g->w, frame_g->h, round+1, 1, bg, false);
 	if(xwm.theme.frameW > 0)

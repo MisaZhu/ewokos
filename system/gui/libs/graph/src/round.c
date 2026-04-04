@@ -80,10 +80,12 @@ static inline void draw_round_corner_fill(graph_t* g, int32_t corner_x, int32_t 
 
             // Determine if anti-aliasing is needed
             if (dist_sq >= r_inner_sq && dist_sq <= r_aa_sq) {
-                // Anti-aliasing edge
+                // Anti-aliasing edge - use square function for smoother transition
                 int32_t range = r_aa_sq - r_inner_sq;
                 int32_t dist_from_outer = r_aa_sq - dist_sq;
-                uint8_t alpha = (uint8_t)((fg_alpha * dist_from_outer + range / 2) / range);
+                int32_t t = (dist_from_outer * 256) / range;
+                int32_t smoothed = (t * t) / 256;
+                uint8_t alpha = (uint8_t)((fg_alpha * smoothed) / 256);
                 if (alpha > 0) {
                     draw_aa_pixel_int(g, px, py, color, alpha);
                 }
@@ -168,11 +170,11 @@ static inline void draw_round_corner_round(graph_t* g, int32_t corner_x, int32_t
             // Outer edge anti-aliasing area
             if (dist_sq >= outer_r_sq && dist_sq <= outer_aa_sq) {
                 int32_t range = outer_aa_sq - outer_r_sq;
-                int32_t dist_from_outer = outer_aa_sq - dist_sq;
+                int32_t dist_from_inner = dist_sq - outer_r_sq;
                 // Use square function for smoother transition
-                int32_t t = (dist_from_outer * 256) / range;
+                int32_t t = (dist_from_inner * 256) / range;
                 int32_t smoothed = (t * t) / 256;
-                alpha = (uint8_t)((fg_alpha * smoothed) / 256);
+                alpha = (uint8_t)((fg_alpha * (256 - smoothed)) / 256);
             }
             // Inner edge anti-aliasing area
             else if (dist_sq >= inner_aa_sq && dist_sq <= inner_r_sq) {
