@@ -13,6 +13,7 @@ all:
 	cd xtheme; make
 	cd xipconfig; make
 	cd clock; make
+	cd xmp3; make
 
 clean:
 	cd xlog; make clean
@@ -29,4 +30,5 @@ clean:
 	cd xtheme; make clean
 	cd xipconfig; make clean
 	cd clock; make clean
+	cd xmp3; make clean
 

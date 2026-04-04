@@ -357,8 +357,8 @@ static int snd_init_device(void)
 		return -1;
 	}
 
-	klog("virtio-snd: streams=%u jacks=%u chmaps=%u\n",
-		 _snd.config.streams, _snd.config.jacks, _snd.config.chmaps);
+	//klog("virtio-snd: streams=%u jacks=%u chmaps=%u\n",
+		// _snd.config.streams, _snd.config.jacks, _snd.config.chmaps);
 	return 0;
 }
 
