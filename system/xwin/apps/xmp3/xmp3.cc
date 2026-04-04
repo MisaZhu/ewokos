@@ -291,6 +291,7 @@ public:
         fileData = NULL;
         streamPos = NULL;
         bytesLeft = 0;
+        totalBytes = 0;
         simples = 0;
         playing = false;
         paused = false;
@@ -311,6 +312,7 @@ public:
             return false;
         }
 
+        totalBytes = bytesLeft;
         streamPos = (uint8_t*)fileData;
 
         mp3dec_init(&mp3dec);
@@ -391,10 +393,36 @@ public:
     void replay(const char* device) {
         if (fileData == NULL) return;
 
+        // Close existing PCM device if open
+        if (pcmDev != NULL) {
+            pcm_close(pcmDev);
+            pcmDev = NULL;
+        }
+
+        // Reopen PCM device
+        struct pcm_config config;
+        memset(&config, 0, sizeof(config));
+        config.bit_depth = 16;
+        config.rate = sampleRate;
+        config.channels = channels;
+        config.period_size = 1024;
+        config.period_count = 4;
+        config.start_threshold = 1024 * channels;
+        config.stop_threshold = 0;
+
+        pcmDev = pcm_open(device, &config);
+        if (pcmDev == NULL) {
+            return;
+        }
+
+        // Reset stream position
         streamPos = (uint8_t*)fileData;
+        bytesLeft = totalBytes; // Reset bytesLeft
 
         int firstSamples = mp3dec_decode_frame(&mp3dec, streamPos, bytesLeft, sampleBuf, &info);
         if (firstSamples == 0) {
+            pcm_close(pcmDev);
+            pcmDev = NULL;
             return;
         }
 
@@ -451,6 +479,7 @@ private:
     void* fileData;
     uint8_t* streamPos;
     int bytesLeft;
+    int totalBytes;
     int simples;
     int16_t sampleBuf[MINIMP3_MAX_SAMPLES_PER_FRAME];
     bool playing;
@@ -474,10 +503,15 @@ public:
     static const int BARS = 32;
 
     typedef void (*StateChangeCallback)(void* userData);
+    typedef void (*TimeUpdateCallback)(void* userData);
     void setPlayer(Mp3Player* p) { player = p; }
     void setStateChangeCallback(StateChangeCallback cb, void* ud) {
         stateChangeCb = cb;
         stateChangeUserData = ud;
+    }
+    void setTimeUpdateCallback(TimeUpdateCallback cb, void* ud) {
+        timeUpdateCb = cb;
+        timeUpdateUserData = ud;
     }
 
 protected:
@@ -487,12 +521,16 @@ protected:
     Mp3Player* player;
     StateChangeCallback stateChangeCb;
     void* stateChangeUserData;
+    TimeUpdateCallback timeUpdateCb;
+    void* timeUpdateUserData;
 
 public:
     SpectrumView() {
         player = NULL;
         stateChangeCb = NULL;
         stateChangeUserData = NULL;
+        timeUpdateCb = NULL;
+        timeUpdateUserData = NULL;
         for (int i = 0; i < BARS; i++) {
             magnitudes[i] = 0;
             targetMagnitudes[i] = 0;
@@ -555,6 +593,11 @@ public:
                 player->pause();
                 if (stateChangeCb) stateChangeCb(stateChangeUserData);
             }
+        }
+
+        // Update time label during playback
+        if (player != NULL && player->isLoaded() && timeUpdateCb) {
+            timeUpdateCb(timeUpdateUserData);
         }
 
         for (int i = 0; i < BARS; i++) {
@@ -697,6 +740,18 @@ static void onPlayStateChange(void* userData) {
     win->updatePlayBtn();
 }
 
+static void onTimeUpdate(void* userData) {
+    Mp3Win* win = (Mp3Win*)userData;
+    win->updateTimeLabel();
+}
+
+static void onPlayBtnClick(Widget* wd, xevent_t* evt, void* arg) {
+    if(evt->type != XEVT_MOUSE || evt->state != MOUSE_STATE_CLICK)
+        return;
+    Mp3Win* win = (Mp3Win*)arg;
+    win->togglePlay();
+}
+
 int main(int argc, char** argv) {
     X x;
     Mp3Win win;
@@ -714,6 +769,7 @@ int main(int argc, char** argv) {
     SpectrumView* spectrum = new SpectrumView();
     spectrum->setPlayer(win.getPlayer());
     spectrum->setStateChangeCallback(onPlayStateChange, &win);
+    spectrum->setTimeUpdateCallback(onTimeUpdate, &win);
     root->add(spectrum);
     win.setSpectrum(spectrum);
 
@@ -724,6 +780,7 @@ int main(int argc, char** argv) {
 
     LabelButton* playBtn = new LabelButton(">");
     playBtn->fix(40, 30);
+    playBtn->setEventFunc(onPlayBtnClick, &win);
     controls->add(playBtn);
     win.setPlayBtn(playBtn);
 
@@ -732,7 +789,7 @@ int main(int argc, char** argv) {
     controls->add(timeLabel);
     win.setTimeLabel(timeLabel);
 
-    win.open(&x, -1, -1, -1, 400, 200, "xmp3", XWIN_STYLE_NORMAL | XWIN_STYLE_NO_BG_EFFECT, true);
+    win.open(&x, -1, -1, -1, 300, 140, "xmp3", XWIN_STYLE_NORMAL | XWIN_STYLE_NO_BG_EFFECT, true);
     win.setTimer(120);
 
     if (argc >= 2) {
