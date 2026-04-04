@@ -5,6 +5,7 @@
 
 #include <arch/virt/dma.h>
 #include <arch/virt/virtio.h>
+#include <arch/virt/virtio_net.h>
 #include <arch/virt/virtio_snd.h>
 #include <ewoksys/interrupt.h>
 #include <ewoksys/klog.h>
@@ -55,6 +56,15 @@
 
 #define VIRTIO_INPUT_CFG_ID_NAME 0x01
 
+#define VIRTIO_NET_F_MAC 5
+#define VIRTIO_NET_RX_QUEUE 0
+#define VIRTIO_NET_TX_QUEUE 1
+#define VIRTIO_NET_TX_DESC_ID 0
+#define VIRTIO_NET_HDR_SIZE 10
+#define VIRTIO_NET_FRAME_SIZE_MAX 1514
+#define VIRTIO_NET_RX_BUF_SIZE 2048
+#define VIRTIO_NET_RX_DESC_COUNT 8
+
 #define VIRTIO_DEV_MAX 32
 #define VIRTIO_BASE (_mmio_base + 0x02000000)
 #define VIRTIO_TIMEOUT_LOOPS 100000
@@ -95,6 +105,16 @@ struct virtio_blk_req
 	uint32_t type;
 	uint32_t reserved;
 	uint64_t sector;
+} __attribute__((packed));
+
+struct virtio_net_hdr
+{
+	uint8_t flags;
+	uint8_t gso_type;
+	uint16_t hdr_len;
+	uint16_t gso_size;
+	uint16_t csum_start;
+	uint16_t csum_offset;
 } __attribute__((packed));
 
 struct virtio_input_event
@@ -158,6 +178,20 @@ struct virtio_snd_tx_slot
 	uintptr_t status_phy;
 };
 
+struct virtio_net_state
+{
+	struct virtq_t *rxq;
+	uintptr_t rxq_phy;
+	struct virtq_t *txq;
+	uintptr_t txq_phy;
+	uint8_t *rxbuf;
+	uintptr_t rxbuf_phy;
+	uint16_t rx_used_idx;
+	uint16_t tx_used_idx;
+	bool tx_inflight;
+	uint8_t mac[6];
+};
+
 struct virtio_snd_state
 {
 	struct virtq_t *queues[4];
@@ -185,18 +219,38 @@ struct virtio_device
 	int device_id;
 	interrupt_handler_t virtio_handler;
 	void (*interrupt_handler)(virtio_dev_t dev, struct virtio_input_event *event);
+	struct virtio_net_state *net;
 	struct virtio_snd_state *snd;
 };
 
 static virtio_dev_t _virtio_irq_devs[VIRTIO_DEV_MAX] = {0};
+
+static int virtio_ensure_mmio(void)
+{
+	if (_mmio_base == 0 && mmio_map() == 0)
+	{
+		return -1;
+	}
+	return 0;
+}
 
 static uint64_t get_phy_addr(virtio_dev_t dev, void *ptr)
 {
 	return dev->phy + ((uintptr_t)ptr - (uintptr_t)dev->virtq);
 }
 
+static uint64_t virtio_queue_phy_addr(struct virtq_t *virtq, uintptr_t phy, const void *ptr)
+{
+	return phy + ((uintptr_t)ptr - (uintptr_t)virtq);
+}
+
 static uintptr_t virtio_find_device(int dev_id, const char *input_name, int *interrupt)
 {
+	if (virtio_ensure_mmio() != 0)
+	{
+		return 0;
+	}
+
 	for (int i = 0; i < VIRTIO_DEV_MAX; i++)
 	{
 		uintptr_t base = VIRTIO_BASE + i * 0x200;
@@ -335,9 +389,54 @@ static int virtio_send_request_queue(uintptr_t base, struct virtq_t *virtq, uint
 	return 0;
 }
 
+static struct virtio_net_state *virtio_net_state(virtio_dev_t dev)
+{
+	return dev != NULL ? dev->net : NULL;
+}
+
 static struct virtio_snd_state *virtio_snd_state(virtio_dev_t dev)
 {
 	return dev != NULL ? dev->snd : NULL;
+}
+
+static uint64_t virtio_net_rxbuf_phy_addr(struct virtio_net_state *net, uint16_t desc_id)
+{
+	return net->rxbuf_phy + ((uint64_t)desc_id * VIRTIO_NET_RX_BUF_SIZE);
+}
+
+static uint8_t *virtio_net_rxbuf_addr(struct virtio_net_state *net, uint16_t desc_id)
+{
+	return net->rxbuf + ((size_t)desc_id * VIRTIO_NET_RX_BUF_SIZE);
+}
+
+static void virtio_net_submit_rx_desc(virtio_dev_t dev, struct virtio_net_state *net, uint16_t desc_id)
+{
+	net->rxq->desc[desc_id].addr = virtio_net_rxbuf_phy_addr(net, desc_id);
+	net->rxq->desc[desc_id].len = VIRTIO_NET_RX_BUF_SIZE;
+	net->rxq->desc[desc_id].flags = VIRTQ_DESC_F_WRITE;
+	net->rxq->desc[desc_id].next = 0;
+	net->rxq->avail.ring[net->rxq->avail.idx % VIRTIO_QUEUE_SIZE] = desc_id;
+	__sync_synchronize();
+	net->rxq->avail.idx++;
+	(void)dev;
+}
+
+static void virtio_net_fill_rx_queue(virtio_dev_t dev, struct virtio_net_state *net)
+{
+	for (uint16_t i = 0; i < VIRTIO_NET_RX_DESC_COUNT; i++)
+	{
+		virtio_net_submit_rx_desc(dev, net, i);
+	}
+	put32(dev->base + VIRTIO_MMIO_QUEUE_NOTIFY, VIRTIO_NET_RX_QUEUE);
+}
+
+static void virtio_net_reap_tx(struct virtio_net_state *net)
+{
+	if (net->tx_inflight && net->txq->used.idx != net->tx_used_idx)
+	{
+		net->tx_used_idx = net->txq->used.idx;
+		net->tx_inflight = false;
+	}
 }
 
 static void *virtio_snd_dma_alloc(struct virtio_snd_state *snd, size_t size, size_t align)
@@ -488,6 +587,16 @@ virtio_dev_t virtio_input_get(const char *name)
 	return virtio_alloc_device(base, VIRTIO_ID_INPUT, true, interrupt);
 }
 
+virtio_dev_t virtio_net_get(void)
+{
+	uintptr_t base = virtio_find_device(VIRTIO_ID_NET, NULL, NULL);
+	if (base == 0)
+	{
+		return NULL;
+	}
+	return virtio_alloc_device(base, VIRTIO_ID_NET, true, 0);
+}
+
 virtio_dev_t virtio_snd_get(void)
 {
 	uintptr_t base = virtio_find_device(VIRTIO_ID_SOUND, NULL, NULL);
@@ -503,6 +612,10 @@ void virtio_free(virtio_dev_t dev)
 	if (dev == NULL)
 	{
 		return;
+	}
+	if (dev->net != NULL)
+	{
+		free(dev->net);
 	}
 	if (dev->snd != NULL)
 	{
@@ -633,6 +746,213 @@ int virtio_send_request(virtio_dev_t dev, const void *req, uint32_t req_len, voi
 	return virtio_send_request_queue(dev->base, dev->virtq, dev->phy, 0,
 									 req, req_len, resp, resp_len,
 									 VIRTIO_TIMEOUT_LOOPS, 0);
+}
+
+int virtio_net_init(virtio_dev_t dev)
+{
+	if (dev == NULL || dev->device_id != VIRTIO_ID_NET || dev->virtq == NULL)
+	{
+		return -1;
+	}
+	if (dev->net != NULL)
+	{
+		return 0;
+	}
+
+	struct virtio_net_state *net = calloc(1, sizeof(*net));
+	if (net == NULL)
+	{
+		return -1;
+	}
+
+	net->rxq = dev->virtq;
+	net->rxq_phy = dev->phy;
+
+	net->txq = dma_user_alloc(sizeof(struct virtq_t));
+	if (net->txq == NULL || (intptr_t)net->txq == -1)
+	{
+		free(net);
+		klog("virtio-net: alloc tx queue failed\n");
+		return -1;
+	}
+	net->txq_phy = (uintptr_t)dma_user_phy(net->txq);
+
+	net->rxbuf = dma_user_alloc(VIRTIO_NET_RX_DESC_COUNT * VIRTIO_NET_RX_BUF_SIZE);
+	if (net->rxbuf == NULL || (intptr_t)net->rxbuf == -1)
+	{
+		free(net);
+		klog("virtio-net: alloc rx buffers failed\n");
+		return -1;
+	}
+	net->rxbuf_phy = (uintptr_t)dma_user_phy(net->rxbuf);
+	memset(net->rxbuf, 0, VIRTIO_NET_RX_DESC_COUNT * VIRTIO_NET_RX_BUF_SIZE);
+
+	put32(dev->base + VIRTIO_MMIO_STATUS, 0);
+	put32(dev->base + VIRTIO_MMIO_STATUS, VIRTIO_STATUS_ACKNOWLEDGE);
+	put32(dev->base + VIRTIO_MMIO_STATUS, VIRTIO_STATUS_ACKNOWLEDGE | VIRTIO_STATUS_DRIVER);
+
+	put32(dev->base + VIRTIO_MMIO_DEVICE_FEAT_SEL, 0);
+	uint32_t device_features = get32(dev->base + VIRTIO_MMIO_DEVICE_FEAT);
+	uint32_t driver_features = 0;
+	if (device_features & (1u << VIRTIO_NET_F_MAC))
+	{
+		driver_features |= (1u << VIRTIO_NET_F_MAC);
+	}
+
+	put32(dev->base + VIRTIO_MMIO_DRIVER_FEAT_SEL, 0);
+	put32(dev->base + VIRTIO_MMIO_DRIVER_FEAT, driver_features);
+	put32(dev->base + VIRTIO_MMIO_GUEST_PG_SZ, VIRTIO_PAGE_SIZE);
+
+	uint32_t status = get32(dev->base + VIRTIO_MMIO_STATUS);
+	put32(dev->base + VIRTIO_MMIO_STATUS, status | VIRTIO_STATUS_FEATURES_OK);
+	status = get32(dev->base + VIRTIO_MMIO_STATUS);
+	if ((status & VIRTIO_STATUS_FEATURES_OK) == 0)
+	{
+		put32(dev->base + VIRTIO_MMIO_STATUS, status | VIRTIO_STATUS_FAILED);
+		free(net);
+		klog("virtio-net: feature negotiation failed\n");
+		return -1;
+	}
+
+	if (virtio_setup_queue(dev, VIRTIO_NET_RX_QUEUE, net->rxq, net->rxq_phy) != 0 ||
+		virtio_setup_queue(dev, VIRTIO_NET_TX_QUEUE, net->txq, net->txq_phy) != 0)
+	{
+		put32(dev->base + VIRTIO_MMIO_STATUS, VIRTIO_STATUS_FAILED);
+		free(net);
+		return -1;
+	}
+
+	virtio_net_fill_rx_queue(dev, net);
+
+	if (driver_features & (1u << VIRTIO_NET_F_MAC))
+	{
+		for (int i = 0; i < 6; i++)
+		{
+			net->mac[i] = get8(dev->base + VIRTIO_MMIO_CONFIG + i);
+		}
+	}
+
+	status = get32(dev->base + VIRTIO_MMIO_STATUS);
+	put32(dev->base + VIRTIO_MMIO_STATUS, status | VIRTIO_STATUS_DRIVER_OK);
+
+	net->rx_used_idx = net->rxq->used.idx;
+	net->tx_used_idx = net->txq->used.idx;
+	net->tx_inflight = false;
+	dev->net = net;
+	dev->queue_ready = 1;
+	return 0;
+}
+
+int virtio_net_read_mac(virtio_dev_t dev, uint8_t mac[6])
+{
+	struct virtio_net_state *net = virtio_net_state(dev);
+	if (net == NULL || mac == NULL)
+	{
+		return -1;
+	}
+	memcpy(mac, net->mac, 6);
+	return 0;
+}
+
+int virtio_net_pending_rx(virtio_dev_t dev)
+{
+	struct virtio_net_state *net = virtio_net_state(dev);
+	if (net == NULL || net->rxq == NULL)
+	{
+		return 0;
+	}
+
+	virtio_ack_interrupt(dev->base, 0x3);
+	__sync_synchronize();
+	return (uint16_t)(net->rxq->used.idx - net->rx_used_idx);
+}
+
+int virtio_net_read(virtio_dev_t dev, void *buf, uint32_t size)
+{
+	struct virtio_net_state *net = virtio_net_state(dev);
+	if (net == NULL || buf == NULL)
+	{
+		return -1;
+	}
+	if (virtio_net_pending_rx(dev) <= 0)
+	{
+		return 0;
+	}
+
+	struct virtq_used_elem *used = &net->rxq->used.ring[net->rx_used_idx % VIRTIO_QUEUE_SIZE];
+	uint16_t desc_id = used->id % VIRTIO_QUEUE_SIZE;
+	if (desc_id >= VIRTIO_NET_RX_DESC_COUNT)
+	{
+		klog("virtio-net: invalid rx desc id=%u used_idx=%u\n", desc_id, net->rx_used_idx);
+		net->rx_used_idx++;
+		return 0;
+	}
+
+	uint8_t *frame = virtio_net_rxbuf_addr(net, desc_id);
+	int payload_len = (int)used->len - VIRTIO_NET_HDR_SIZE;
+	if (payload_len < 0)
+	{
+		payload_len = 0;
+	}
+
+	int read_len = payload_len;
+	if ((uint32_t)read_len > size)
+	{
+		read_len = (int)size;
+	}
+	if (read_len > 0)
+	{
+		memcpy(buf, frame + VIRTIO_NET_HDR_SIZE, (size_t)read_len);
+	}
+
+	net->rx_used_idx++;
+	virtio_net_submit_rx_desc(dev, net, desc_id);
+	put32(dev->base + VIRTIO_MMIO_QUEUE_NOTIFY, VIRTIO_NET_RX_QUEUE);
+	return read_len;
+}
+
+int virtio_net_write(virtio_dev_t dev, const void *buf, uint32_t size)
+{
+	struct virtio_net_state *net = virtio_net_state(dev);
+	if (net == NULL || buf == NULL)
+	{
+		return -1;
+	}
+
+	virtio_ack_interrupt(dev->base, 0x3);
+	virtio_net_reap_tx(net);
+	if (net->tx_inflight)
+	{
+		return 0;
+	}
+
+	uint32_t write_len = size;
+	if (write_len > VIRTIO_NET_FRAME_SIZE_MAX)
+	{
+		write_len = VIRTIO_NET_FRAME_SIZE_MAX;
+	}
+	if (write_len == 0)
+	{
+		return 0;
+	}
+
+	struct virtio_net_hdr *hdr = (struct virtio_net_hdr *)net->txq->buf0;
+	memset(hdr, 0, sizeof(*hdr));
+	memcpy(net->txq->buf0 + sizeof(*hdr), buf, write_len);
+
+	net->txq->desc[VIRTIO_NET_TX_DESC_ID].addr =
+		virtio_queue_phy_addr(net->txq, net->txq_phy, net->txq->buf0);
+	net->txq->desc[VIRTIO_NET_TX_DESC_ID].len = sizeof(*hdr) + write_len;
+	net->txq->desc[VIRTIO_NET_TX_DESC_ID].flags = 0;
+	net->txq->desc[VIRTIO_NET_TX_DESC_ID].next = 0;
+
+	net->txq->avail.ring[net->txq->avail.idx % VIRTIO_QUEUE_SIZE] = VIRTIO_NET_TX_DESC_ID;
+	__sync_synchronize();
+	net->txq->avail.idx++;
+	put32(dev->base + VIRTIO_MMIO_QUEUE_NOTIFY, VIRTIO_NET_TX_QUEUE);
+
+	net->tx_inflight = true;
+	return (int)write_len;
 }
 
 int virtio_blk_transfer(virtio_dev_t dev, uint64_t sector, void *buffer, uint32_t count, int isWrite)
