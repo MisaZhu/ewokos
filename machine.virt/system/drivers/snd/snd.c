@@ -138,6 +138,10 @@ static int snd_stop_and_release(bool reset_config)
 	{
 		_snd.configured = false;
 		_snd.stream_id = -1;
+		memset(&_snd.pcm_cfg, 0, sizeof(_snd.pcm_cfg));
+		memset(&_snd.stream_info, 0, sizeof(_snd.stream_info));
+		_snd.period_bytes = 0;
+		_snd.buffer_bytes = 0;
 	}
 	return 0;
 }
@@ -170,6 +174,8 @@ static int snd_hw_params(const struct pcm_config *cfg)
 		return -1;
 	}
 
+	snd_stop_and_release(true);
+
 	if (virtio_snd_tx_init(_snd.dev,
 						   MIN((uint32_t)cfg->period_count, (uint32_t)VIRTIO_SND_TX_SLOT_MAX),
 						   period_bytes) != 0)
@@ -177,11 +183,10 @@ static int snd_hw_params(const struct pcm_config *cfg)
 		return -1;
 	}
 
-	snd_stop_and_release(false);
-
 	if (virtio_snd_pcm_set_params(_snd.dev, (uint32_t)stream_id, buffer_bytes, period_bytes, 0,
 								  (uint8_t)cfg->channels, (uint8_t)fmt_id, (uint8_t)rate_id) != 0)
 	{
+		virtio_snd_tx_reset(_snd.dev);
 		return -1;
 	}
 
@@ -194,7 +199,6 @@ static int snd_hw_params(const struct pcm_config *cfg)
 	_snd.prepared = false;
 	_snd.started = false;
 	virtio_snd_clear_error(_snd.dev);
-	virtio_snd_tx_reset(_snd.dev);
 	return 0;
 }
 
@@ -251,6 +255,7 @@ static int snd_open(int fd, int from_pid, fsinfo_t *info, int oflag, void *p)
 	{
 		return -1;
 	}
+	snd_stop_and_release(true);
 	_snd.open_count = 1;
 	return 0;
 }

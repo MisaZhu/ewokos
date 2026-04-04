@@ -1274,6 +1274,10 @@ void virtio_snd_tx_reset(virtio_dev_t dev)
 		{
 			memset(snd->tx_slots[i].status, 0, sizeof(struct virtio_snd_pcm_status));
 		}
+		if (snd->tx_slots[i].data != NULL && snd->tx_slot_bytes > 0)
+		{
+			memset(snd->tx_slots[i].data, 0, snd->tx_slot_bytes);
+		}
 	}
 	snd->tx_used_idx = snd->queues[VIRTIO_SND_VQ_TX]->used.idx;
 	snd->last_error = 0;
