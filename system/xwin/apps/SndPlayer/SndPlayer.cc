@@ -19,17 +19,117 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <math.h>
 #include <fcntl.h>
 
 #define MINIMP3_IMPLEMENTATION
 #include <minimp3/minimp3.h>
 
+// WAV file format definitions
+#define ID_RIFF 0x46464952
+#define ID_WAVE 0x45564157
+#define ID_FMT  0x20746d66
+#define ID_DATA 0x61746164
+
+struct wav_chunk_fmt {
+    uint16_t audio_format;
+    uint16_t num_channels;
+    uint32_t sample_rate;
+    uint32_t byte_rate;
+    uint16_t block_align;
+    uint16_t bits_per_sample;
+};
+
+struct wav_riff_header {
+    uint32_t riff_id;
+    uint32_t riff_sz;
+    uint32_t wave_id;
+};
+
+struct wav_chunk_header {
+    uint32_t id;
+    uint32_t sz;
+};
+
+enum AudioFormat {
+    FORMAT_UNKNOWN,
+    FORMAT_MP3,
+    FORMAT_WAV
+};
+
 using namespace Ewok;
 
 #define CTRL_PCM_DEV_HW         (0xF0)
 #define CTRL_PCM_DEV_PRPARE     (0xF2)
 #define CTRL_PCM_BUF_AVAIL      (0xF3)
+
+// Check file extension to determine audio format
+static AudioFormat getAudioFormat(const char* path) {
+    const char* ext = strrchr(path, '.');
+    if (ext == NULL) return FORMAT_UNKNOWN;
+    
+    if (strcasecmp(ext, ".mp3") == 0) return FORMAT_MP3;
+    if (strcasecmp(ext, ".wav") == 0) return FORMAT_WAV;
+    
+    // Try to detect by file header
+    int fd = open(path, O_RDONLY);
+    if (fd < 0) return FORMAT_UNKNOWN;
+    
+    uint32_t header;
+    int ret = read(fd, &header, 4);
+    close(fd);
+    
+    if (ret == 4) {
+        if (header == ID_RIFF) return FORMAT_WAV;
+        // MP3 files start with sync word 0xFFE or ID3 tag
+        if ((header & 0xFFE00000) == 0xFFE00000 || header == 0x44493349) return FORMAT_MP3;
+    }
+    
+    return FORMAT_UNKNOWN;
+}
+
+// Parse WAV file header, return data offset or -1 on error
+static int parseWavHeader(const uint8_t* data, int size, int* sampleRate, int* channels, int* bitDepth, int* dataOffset, int* dataSize) {
+    if (size < 44) return -1;
+    
+    const wav_riff_header* riff = (const wav_riff_header*)data;
+    if (riff->riff_id != ID_RIFF || riff->wave_id != ID_WAVE) {
+        return -1;
+    }
+    
+    int pos = sizeof(wav_riff_header);
+    wav_chunk_fmt fmt;
+    int foundFmt = 0;
+    int foundData = 0;
+    
+    while (pos + sizeof(wav_chunk_header) <= size) {
+        const wav_chunk_header* chunk = (const wav_chunk_header*)(data + pos);
+        pos += sizeof(wav_chunk_header);
+        
+        if (chunk->id == ID_FMT) {
+            if (pos + sizeof(wav_chunk_fmt) > size) return -1;
+            memcpy(&fmt, data + pos, sizeof(wav_chunk_fmt));
+            foundFmt = 1;
+            pos += chunk->sz;
+        } else if (chunk->id == ID_DATA) {
+            *dataOffset = pos;
+            *dataSize = chunk->sz;
+            foundData = 1;
+            break;
+        } else {
+            pos += chunk->sz;
+        }
+    }
+    
+    if (!foundFmt || !foundData) return -1;
+    
+    *sampleRate = fmt.sample_rate;
+    *channels = fmt.num_channels;
+    *bitDepth = fmt.bits_per_sample;
+    
+    return 0;
+}
 
 struct pcm_config {
     int bit_depth;
@@ -284,9 +384,9 @@ static int pcm_close(struct pcm_t *pcm)
     return 0;
 }
 
-class Mp3Player {
+class AudioPlayer {
 public:
-    Mp3Player() {
+    AudioPlayer() {
         pcmDev = NULL;
         fileData = NULL;
         streamPos = NULL;
@@ -298,14 +398,25 @@ public:
         eof = false;
         currentMs = 0;
         totalMs = 0;
+        format = FORMAT_UNKNOWN;
+        wavDataOffset = 0;
+        wavDataSize = 0;
+        wavBitDepth = 16;
+        memset(&mp3dec, 0, sizeof(mp3dec));
+        memset(&info, 0, sizeof(info));
     }
 
-    ~Mp3Player() {
+    ~AudioPlayer() {
         stop();
     }
 
     bool load(const char* path, const char* device) {
         stop();
+
+        format = getAudioFormat(path);
+        if (format == FORMAT_UNKNOWN) {
+            return false;
+        }
 
         fileData = vfs_readfile(path, &bytesLeft);
         if (fileData == NULL) {
@@ -315,6 +426,16 @@ public:
         totalBytes = bytesLeft;
         streamPos = (uint8_t*)fileData;
 
+        if (format == FORMAT_MP3) {
+            return loadMp3(device);
+        } else if (format == FORMAT_WAV) {
+            return loadWav(device);
+        }
+
+        return false;
+    }
+
+    bool loadMp3(const char* device) {
         mp3dec_init(&mp3dec);
         simples = mp3dec_decode_frame(&mp3dec, streamPos, bytesLeft, sampleBuf, &info);
 
@@ -362,6 +483,55 @@ public:
         return true;
     }
 
+    bool loadWav(const char* device) {
+        int dataOffset, dataSize;
+        if (parseWavHeader((uint8_t*)fileData, totalBytes, &sampleRate, &channels, &wavBitDepth, &dataOffset, &dataSize) < 0) {
+            free(fileData);
+            fileData = NULL;
+            return false;
+        }
+
+        devicePath = device;
+        if (channels != 1 && channels != 2) channels = 2;
+
+        if (sampleRate != 8000 && sampleRate != 16000 && sampleRate != 32000 &&
+            sampleRate != 44100 && sampleRate != 48000 && sampleRate != 96000) {
+            sampleRate = 44100;
+        }
+
+        struct pcm_config config;
+        memset(&config, 0, sizeof(config));
+        config.bit_depth = wavBitDepth;
+        config.rate = sampleRate;
+        config.channels = channels;
+        config.period_size = 2048;
+        config.period_count = 2;
+        config.start_threshold = 2048 * channels;
+        config.stop_threshold = 0;
+
+        pcmDev = pcm_open(device, &config);
+        if (pcmDev == NULL) {
+            free(fileData);
+            fileData = NULL;
+            return false;
+        }
+
+        wavDataOffset = dataOffset;
+        wavDataSize = dataSize;
+        streamPos = (uint8_t*)fileData + wavDataOffset;
+        bytesLeft = wavDataSize;
+
+        // Estimate total time for WAV
+        int bytesPerSample = (wavBitDepth / 8) * channels;
+        int totalSamples = wavDataSize / bytesPerSample;
+        totalMs = (totalSamples * 1000) / sampleRate;
+        currentMs = 0;
+        playing = false;
+        paused = false;
+
+        return true;
+    }
+
     void play() {
         if (pcmDev == NULL) return;
         playing = true;
@@ -399,6 +569,14 @@ public:
             pcmDev = NULL;
         }
 
+        if (format == FORMAT_MP3) {
+            replayMp3(device);
+        } else if (format == FORMAT_WAV) {
+            replayWav(device);
+        }
+    }
+
+    void replayMp3(const char* device) {
         // Reopen PCM device
         struct pcm_config config;
         memset(&config, 0, sizeof(config));
@@ -417,7 +595,7 @@ public:
 
         // Reset stream position
         streamPos = (uint8_t*)fileData;
-        bytesLeft = totalBytes; // Reset bytesLeft
+        bytesLeft = totalBytes;
 
         int firstSamples = mp3dec_decode_frame(&mp3dec, streamPos, bytesLeft, sampleBuf, &info);
         if (firstSamples == 0) {
@@ -428,6 +606,33 @@ public:
 
         streamPos += info.frame_bytes;
         bytesLeft -= info.frame_bytes;
+
+        currentMs = 0;
+        playing = true;
+        paused = false;
+        eof = false;
+    }
+
+    void replayWav(const char* device) {
+        // Reopen PCM device
+        struct pcm_config config;
+        memset(&config, 0, sizeof(config));
+        config.bit_depth = wavBitDepth;
+        config.rate = sampleRate;
+        config.channels = channels;
+        config.period_size = 2048;
+        config.period_count = 2;
+        config.start_threshold = 2048 * channels;
+        config.stop_threshold = 0;
+
+        pcmDev = pcm_open(device, &config);
+        if (pcmDev == NULL) {
+            return;
+        }
+
+        // Reset stream position
+        streamPos = (uint8_t*)fileData + wavDataOffset;
+        bytesLeft = wavDataSize;
 
         currentMs = 0;
         playing = true;
@@ -447,7 +652,22 @@ public:
     uint32_t getTotalMs() { return totalMs; }
 
     bool decodeFrame() {
-        if (streamPos == NULL || bytesLeft <= 0 || simples == 0) {
+        if (streamPos == NULL || bytesLeft <= 0) {
+            eof = true;
+            return false;
+        }
+
+        if (format == FORMAT_MP3) {
+            return decodeMp3Frame();
+        } else if (format == FORMAT_WAV) {
+            return decodeWavFrame();
+        }
+
+        return false;
+    }
+
+    bool decodeMp3Frame() {
+        if (simples == 0) {
             eof = true;
             return false;
         }
@@ -472,6 +692,47 @@ public:
         return true;
     }
 
+    bool decodeWavFrame() {
+        int periodBytes = 2048 * (wavBitDepth / 8) * channels;
+        int toWrite = bytesLeft < periodBytes ? bytesLeft : periodBytes;
+
+        if (toWrite <= 0) {
+            eof = true;
+            return false;
+        }
+
+        if (playing) {
+            int ret = pcm_write(pcmDev, streamPos, toWrite);
+            if (ret == 0) {
+                int bytesPerSample = (wavBitDepth / 8) * channels;
+                int samples = toWrite / bytesPerSample;
+                currentMs += (samples * 1000) / sampleRate;
+                streamPos += toWrite;
+                bytesLeft -= toWrite;
+            }
+        } else {
+            streamPos += toWrite;
+            bytesLeft -= toWrite;
+        }
+
+        // For WAV, we need to fill the sample buffer for spectrum visualization
+        int samplesToCopy = toWrite / ((wavBitDepth / 8) * channels);
+        if (samplesToCopy > MINIMP3_MAX_SAMPLES_PER_FRAME) samplesToCopy = MINIMP3_MAX_SAMPLES_PER_FRAME;
+        
+        // Convert to 16-bit samples for spectrum
+        if (wavBitDepth == 16) {
+            memcpy(sampleBuf, streamPos - toWrite, samplesToCopy * 2 * channels);
+        } else if (wavBitDepth == 8) {
+            for (int i = 0; i < samplesToCopy * channels; i++) {
+                int8_t sample = *((int8_t*)(streamPos - toWrite) + i);
+                sampleBuf[i] = sample << 8;
+            }
+        }
+        simples = samplesToCopy;
+
+        return true;
+    }
+
 private:
     mp3dec_t mp3dec;
     mp3dec_frame_info_t info;
@@ -490,6 +751,10 @@ private:
     uint32_t currentMs;
     uint32_t totalMs;
     string devicePath;
+    AudioFormat format;
+    int wavDataOffset;
+    int wavDataSize;
+    int wavBitDepth;
 
     uint32_t estimateTotalMs() {
         if (info.frame_bytes <= 0) return 0;
@@ -504,7 +769,7 @@ public:
 
     typedef void (*StateChangeCallback)(void* userData);
     typedef void (*TimeUpdateCallback)(void* userData);
-    void setPlayer(Mp3Player* p) { player = p; }
+    void setPlayer(AudioPlayer* p) { player = p; }
     void setStateChangeCallback(StateChangeCallback cb, void* ud) {
         stateChangeCb = cb;
         stateChangeUserData = ud;
@@ -518,7 +783,7 @@ protected:
     float magnitudes[BARS];
     float targetMagnitudes[BARS];
     uint32_t barColors[BARS];
-    Mp3Player* player;
+    AudioPlayer* player;
     StateChangeCallback stateChangeCb;
     void* stateChangeUserData;
     TimeUpdateCallback timeUpdateCb;
@@ -744,9 +1009,9 @@ protected:
     }
 };
 
-class Mp3Win : public WidgetWin {
+class SoundPlayerWin : public WidgetWin {
     FileDialog fdialog;
-    Mp3Player* player;
+    AudioPlayer* player;
     SpectrumView* spectrum;
     LabelButton* playBtn;
     Label* timeLabel;
@@ -763,15 +1028,15 @@ protected:
     }
 
 public:
-    Mp3Win() {
-        player = new Mp3Player();
+    SoundPlayerWin() {
+        player = new AudioPlayer();
         spectrum = NULL;
         playBtn = NULL;
         timeLabel = NULL;
         progressBar = NULL;
     }
 
-    ~Mp3Win() {
+    ~SoundPlayerWin() {
         delete player;
     }
 
@@ -830,22 +1095,22 @@ public:
         updatePlayBtn();
     }
 
-    Mp3Player* getPlayer() { return player; }
+    AudioPlayer* getPlayer() { return player; }
     FileDialog* getFileDialog() { return &fdialog; }
 };
 
 static void onOpenFunc(MenuItem* it, void* p) {
-    Mp3Win* win = (Mp3Win*)p;
+    SoundPlayerWin* win = (SoundPlayerWin*)p;
     win->getFileDialog()->popup(win, 0, 0, "files", XWIN_STYLE_NORMAL);
 }
 
 static void onPlayStateChange(void* userData) {
-    Mp3Win* win = (Mp3Win*)userData;
+    SoundPlayerWin* win = (SoundPlayerWin*)userData;
     win->updatePlayBtn();
 }
 
 static void onTimeUpdate(void* userData) {
-    Mp3Win* win = (Mp3Win*)userData;
+    SoundPlayerWin* win = (SoundPlayerWin*)userData;
     win->updateTimeLabel();
     win->updateProgressBar();
 }
@@ -853,13 +1118,13 @@ static void onTimeUpdate(void* userData) {
 static void onPlayBtnClick(Widget* wd, xevent_t* evt, void* arg) {
     if(evt->type != XEVT_MOUSE || evt->state != MOUSE_STATE_CLICK)
         return;
-    Mp3Win* win = (Mp3Win*)arg;
+    SoundPlayerWin* win = (SoundPlayerWin*)arg;
     win->togglePlay();
 }
 
 int main(int argc, char** argv) {
     X x;
-    Mp3Win win;
+    SoundPlayerWin win;
 
     RootWidget* root = new RootWidget();
     win.setRoot(root);
