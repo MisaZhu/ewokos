@@ -463,6 +463,7 @@ static void proc_file_close(int pid, int fd, file_t* file) {
 
 	if(del_node)
 		vfs_del_node(node);
+	file->node = NULL;
 }
 
 static void vfs_close(int32_t pid, int32_t fd) {
@@ -942,7 +943,8 @@ static void vfs_driver_close(int32_t pid, int32_t fd, vfs_node_t* node) {
 	proto_t in;
 	PF->format(&in, "i,i,m,i",
 		fd, (uint32_t)node, &node->fsinfo, sizeof(fsinfo_t), pid);
-	int res = ipc_call(node->fsinfo.mount_pid, FS_CMD_CLOSE, &in, NULL);	
+	int32_t mount_pid = get_mount_pid(node);
+	int res = ipc_call(mount_pid, FS_CMD_CLOSE, &in, NULL);	
 	PF->clear(&in);
 }
 
@@ -953,7 +955,8 @@ static void vfs_proc_exit(int32_t cpid) {
 	for(i=0; i<MAX_OPEN_FILE_PER_PROC; i++) {
 		file_t *f = &_proc_fds_table[cpid].fds[i];
 		if(f->node != NULL) {
-			vfs_driver_close(cpid, i, f->node);
+			//TODO
+			//vfs_driver_close(cpid, i, f->node);
 			proc_file_close(cpid, i, f);
 		}
 		memset(f, 0, sizeof(file_t));
@@ -1016,8 +1019,6 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	if(pid < 0)
 		return;
 
-	//klog("pid: %d, cmd: %d\n", pid, cmd);
-
 	switch(cmd) {
 	case VFS_NEW_NODE:
 		do_vfs_new_node(pid, in, out);
@@ -1077,7 +1078,6 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 		do_vfs_proc_exit(pid, in);
 		break;
 	}
-	//klog("vfs cmd done\n");
 }
 
 int main(int argc, char** argv) {
