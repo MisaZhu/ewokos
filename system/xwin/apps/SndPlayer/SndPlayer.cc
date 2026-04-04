@@ -1102,7 +1102,7 @@ public:
     void onTimer(uint32_t timerFPS, uint32_t timerStep) {
         if (player != NULL && player->isPlaying()) {
             player->decodeFrame();
-            // updateSpectrum(player->getSampleBuf(), player->getSimples(), player->getChannels());
+            updateSpectrum(player->getSampleBuf(), player->getSimples(), player->getChannels());
 
             if (player->isEof()) {
                 player->pause();
