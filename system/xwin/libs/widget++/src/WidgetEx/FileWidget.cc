@@ -296,7 +296,7 @@ protected:
 			return;
 
 		if(index == itemSelected)
-			graph_fill_round(g, r.x, r.y, r.w, r.h, 6, theme->basic.selectBGColor);
+			graph_fill_round(g, r.x, r.y, r.w, r.h, 12, theme->basic.selectBGColor);
 
 		drawIcon(g, index, theme, r.x , r.y, r.w, r.h);
 		drawTitle(g, index, theme, r.x , r.y, r.w, r.h);

@@ -11,21 +11,14 @@ extern "C" {
 // Helper function: draw anti-aliased pixel (using integer alpha)
 static inline void draw_aa_pixel_int(graph_t* g, int32_t x, int32_t y, uint32_t color, uint8_t alpha) {
     if (alpha <= 0) return;
-
-    uint8_t fg_alpha = (color >> 24) & 0xFF;
-    uint8_t r = (color >> 16) & 0xFF;
-    uint8_t gc = (color >> 8) & 0xFF;
-    uint8_t b = color & 0xFF;
-
-    uint16_t combined = (uint16_t)fg_alpha * alpha;
-    uint8_t final_alpha = (uint8_t)((combined + 127) / 255);
-
-    if (final_alpha <= 0) return;
-
-    if (final_alpha >= 255) {
-        graph_pixel(g, x, y, (color & 0x00FFFFFF) | 0xFF000000);
+    
+    if (alpha >= 255) {
+        graph_pixel(g, x, y, color);
     } else {
-        graph_pixel_argb(g, x, y, final_alpha, r, gc, b);
+        uint8_t r = (color >> 16) & 0xFF;
+        uint8_t gc = (color >> 8) & 0xFF;
+        uint8_t b = color & 0xFF;
+        graph_pixel_argb(g, x, y, alpha, r, gc, b);
     }
 }
 
@@ -103,37 +96,39 @@ void graph_fill_circle(graph_t* g, int32_t cx, int32_t cy, int32_t radius, uint3
             int32_t dist_sq = dx * dx + dy_sq;
             
             // Calculate anti-aliasing alpha (integer arithmetic)
+            // dist = sqrt(dist_sq), edge_dist = dist - radius
+            // intensity = 0.5 - edge_dist = 0.5 - (dist - radius) = radius + 0.5 - dist
+            // alpha = fg_alpha * intensity
+            
+            // Using integer approximation:
             // When dist_sq is between r_inner_sq and r_aa_sq, anti-aliasing is needed
             if (dist_sq >= r_inner_sq && dist_sq <= r_aa_sq) {
-                // Use square function for smoother transition
+                // Linear interpolation to calculate alpha
+                // intensity = (r_aa_sq - dist_sq) / (r_aa_sq - r_inner_sq) approximation
                 int32_t range = r_aa_sq - r_inner_sq;
                 int32_t dist_from_outer = r_aa_sq - dist_sq;
-                int32_t t = (dist_from_outer * 256) / range;
-                int32_t smoothed = (t * t) / 256;
-                uint8_t alpha = (uint8_t)((fg_alpha * smoothed) / 256);
+                uint8_t alpha = (uint8_t)((fg_alpha * dist_from_outer + range / 2) / range);
                 if (alpha > 0) {
                     draw_aa_pixel_int(g, px, py, color, alpha);
                 }
             }
         }
-
+        
         // Determine if this line is at top/bottom edge (needs y-direction anti-aliasing)
         // When dy_sq > r_inner_sq, it means in top/bottom edge area
         int is_top_bottom_edge = (dy_sq > r_inner_sq);
-
+        
         // Draw inner circle
         if (is_top_bottom_edge) {
             // Top/bottom edge area: entire line needs anti-aliasing
             for (int32_t px = inner_min_x; px <= inner_max_x; px++) {
                 int32_t dx = px - cx;
                 int32_t dist_sq = dx * dx + dy_sq;
-
+                
                 if (dist_sq >= r_inner_sq && dist_sq <= r_aa_sq) {
                     int32_t range = r_aa_sq - r_inner_sq;
                     int32_t dist_from_outer = r_aa_sq - dist_sq;
-                    int32_t t = (dist_from_outer * 256) / range;
-                    int32_t smoothed = (t * t) / 256;
-                    uint8_t alpha = (uint8_t)((fg_alpha * smoothed) / 256);
+                    uint8_t alpha = (uint8_t)((fg_alpha * dist_from_outer + range / 2) / range);
                     if (alpha > 0) {
                         draw_aa_pixel_int(g, px, py, color, alpha);
                     }
@@ -159,13 +154,11 @@ void graph_fill_circle(graph_t* g, int32_t cx, int32_t cy, int32_t radius, uint3
         for (int32_t px = inner_max_x + 1; px <= row_max_x; px++) {
             int32_t dx = px - cx;
             int32_t dist_sq = dx * dx + dy_sq;
-
+            
             if (dist_sq >= r_inner_sq && dist_sq <= r_aa_sq) {
                 int32_t range = r_aa_sq - r_inner_sq;
                 int32_t dist_from_outer = r_aa_sq - dist_sq;
-                int32_t t = (dist_from_outer * 256) / range;
-                int32_t smoothed = (t * t) / 256;
-                uint8_t alpha = (uint8_t)((fg_alpha * smoothed) / 256);
+                uint8_t alpha = (uint8_t)((fg_alpha * dist_from_outer + range / 2) / range);
                 if (alpha > 0) {
                     draw_aa_pixel_int(g, px, py, color, alpha);
                 }
@@ -225,11 +218,11 @@ void graph_circle(graph_t* g, int32_t cx, int32_t cy, int32_t radius, int32_t rw
             // Outer edge anti-aliasing area
             if (dist_sq >= outer_r_sq && dist_sq <= outer_aa_sq) {
                 int32_t range = outer_aa_sq - outer_r_sq;
-                int32_t dist_from_inner = dist_sq - outer_r_sq;
+                int32_t dist_from_outer = outer_aa_sq - dist_sq;
                 // Use square function for smoother transition
-                int32_t t = (dist_from_inner * 256) / range;
+                int32_t t = (dist_from_outer * 256) / range;
                 int32_t smoothed = (t * t) / 256;
-                alpha = (uint8_t)((fg_alpha * (256 - smoothed)) / 256);
+                alpha = (uint8_t)((fg_alpha * smoothed) / 256);
             }
             // Inner edge anti-aliasing area
             else if (dist_sq >= inner_aa_sq && dist_sq <= inner_r_sq) {
