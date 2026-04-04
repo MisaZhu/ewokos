@@ -650,12 +650,107 @@ protected:
     }
 };
 
+class ProgressBar : public Widget {
+public:
+    typedef void (*SeekCallback)(void* userData, float progress);
+
+    ProgressBar() {
+        progress = 0.0f;
+        seekCb = NULL;
+        seekUserData = NULL;
+        dragging = false;
+    }
+
+    void setProgress(float p) {
+        if (p < 0.0f) p = 0.0f;
+        if (p > 1.0f) p = 1.0f;
+        progress = p;
+        update();
+    }
+
+    float getProgress() { return progress; }
+
+    void setSeekCallback(SeekCallback cb, void* ud) {
+        seekCb = cb;
+        seekUserData = ud;
+    }
+
+protected:
+    float progress;
+    SeekCallback seekCb;
+    void* seekUserData;
+    bool dragging;
+
+    void onRepaint(graph_t* g, XTheme* theme, const grect_t& rect) {
+        (void)theme;
+
+        // Background
+        graph_fill(g, rect.x, rect.y, rect.w, rect.h, 0xFF333344);
+
+        // Progress fill
+        int fillWidth = (int)(rect.w * progress);
+        if (fillWidth > 0) {
+            graph_fill(g, rect.x, rect.y, fillWidth, rect.h, 0xFF00AAFF);
+        }
+
+        // Border
+        graph_line(g, rect.x, rect.y, rect.x + rect.w - 1, rect.y, 0xFF555566);
+        graph_line(g, rect.x + rect.w - 1, rect.y, rect.x + rect.w - 1, rect.y + rect.h - 1, 0xFF555566);
+        graph_line(g, rect.x + rect.w - 1, rect.y + rect.h - 1, rect.x, rect.y + rect.h - 1, 0xFF555566);
+        graph_line(g, rect.x, rect.y + rect.h - 1, rect.x, rect.y, 0xFF555566);
+    }
+
+    bool onMouse(xevent_t* ev) {
+        if (ev->type == XEVT_MOUSE) {
+            grect_t r = area;
+            int mx = ev->value.mouse.x;
+            int my = ev->value.mouse.y;
+
+            // Check if mouse is within widget
+            if (mx < r.x || mx >= r.x + r.w || my < r.y || my >= r.y + r.h) {
+                return false;
+            }
+
+            if (ev->state == MOUSE_STATE_DOWN) {
+                dragging = true;
+                updateProgressFromMouse(mx, r);
+                return true;
+            } else if (ev->state == MOUSE_STATE_DRAG) {
+                if (dragging) {
+                    updateProgressFromMouse(mx, r);
+                    return true;
+                }
+            } else if (ev->state == MOUSE_STATE_UP) {
+                if (dragging) {
+                    dragging = false;
+                    updateProgressFromMouse(mx, r);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    void updateProgressFromMouse(int mx, const grect_t& r) {
+        int relX = mx - r.x;
+        float newProgress = (float)relX / r.w;
+        if (newProgress < 0.0f) newProgress = 0.0f;
+        if (newProgress > 1.0f) newProgress = 1.0f;
+        progress = newProgress;
+        update();
+        if (seekCb) {
+            seekCb(seekUserData, progress);
+        }
+    }
+};
+
 class Mp3Win : public WidgetWin {
     FileDialog fdialog;
     Mp3Player* player;
     SpectrumView* spectrum;
     LabelButton* playBtn;
     Label* timeLabel;
+    ProgressBar* progressBar;
 
 protected:
     void onDialoged(XWin* from, int res, void* arg) {
@@ -673,6 +768,7 @@ public:
         spectrum = NULL;
         playBtn = NULL;
         timeLabel = NULL;
+        progressBar = NULL;
     }
 
     ~Mp3Win() {
@@ -682,6 +778,14 @@ public:
     void setSpectrum(SpectrumView* s) { spectrum = s; }
     void setPlayBtn(LabelButton* b) { playBtn = b; }
     void setTimeLabel(Label* l) { timeLabel = l; }
+    void setProgressBar(ProgressBar* p) { progressBar = p; }
+
+    void updateProgressBar() {
+        if (progressBar && player->isLoaded() && player->getTotalMs() > 0) {
+            float progress = (float)player->getCurrentMs() / player->getTotalMs();
+            progressBar->setProgress(progress);
+        }
+    }
 
     void loadAndPlay(const char* path) {
         if (player->load(path, "/dev/sound0")) {
@@ -743,6 +847,7 @@ static void onPlayStateChange(void* userData) {
 static void onTimeUpdate(void* userData) {
     Mp3Win* win = (Mp3Win*)userData;
     win->updateTimeLabel();
+    win->updateProgressBar();
 }
 
 static void onPlayBtnClick(Widget* wd, xevent_t* evt, void* arg) {
@@ -773,19 +878,25 @@ int main(int argc, char** argv) {
     root->add(spectrum);
     win.setSpectrum(spectrum);
 
+    // Progress bar
+    ProgressBar* progressBar = new ProgressBar();
+    progressBar->fix(0, 8);
+    root->add(progressBar);
+    win.setProgressBar(progressBar);
+
     Container* controls = new Container();
     controls->setType(Container::HORIZONTAL);
     root->add(controls);
-    controls->fix(0, 40);
+    controls->fix(0, 24);
 
     LabelButton* playBtn = new LabelButton(">");
-    playBtn->fix(40, 30);
+    playBtn->fix(40, 0);
     playBtn->setEventFunc(onPlayBtnClick, &win);
     controls->add(playBtn);
     win.setPlayBtn(playBtn);
 
     Label* timeLabel = new Label("00:00 / 00:00");
-    timeLabel->fix(140, 20);
+    timeLabel->fix(140, 0);
     controls->add(timeLabel);
     win.setTimeLabel(timeLabel);
 
