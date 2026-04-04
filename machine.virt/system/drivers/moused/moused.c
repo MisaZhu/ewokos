@@ -5,6 +5,7 @@
 #include <ewoksys/vfs.h>
 #include <ewoksys/vdevice.h>
 #include <ewoksys/interrupt.h>
+#include <ewoksys/klog.h>
 #include <ewoksys/mmio.h>
 #include <arch/virt/virtio.h>
 #include <mouse/mouse.h>
@@ -35,7 +36,6 @@ static int _read(int fd, int from_pid, fsinfo_t *node,
 	(void)p;
 	(void)node;
 
-	uint8_t *d = (uint8_t *)buf;
 	if (mouse_data_write - mouse_data_read > 0)
 	{
 		memcpy(buf, &mouse_data[mouse_data_read % CACHE_SIZE], sizeof(mouse_evt_t));

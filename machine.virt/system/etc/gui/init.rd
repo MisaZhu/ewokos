@@ -16,6 +16,8 @@
 
 @/bin/ipcserv /drivers/timerd          
 
+@/bin/ipcserv /drivers/virt/snd /dev/sound0
+
 @/bin/ipcserv /drivers/virt/net /dev/eth0
 @/bin/ipcserv /drivers/netd /dev/net0 /dev/eth0
 

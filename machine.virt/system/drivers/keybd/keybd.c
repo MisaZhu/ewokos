@@ -5,6 +5,7 @@
 #include <ewoksys/vfs.h>
 #include <ewoksys/vdevice.h>
 #include <ewoksys/interrupt.h>
+#include <ewoksys/klog.h>
 #include <ewoksys/mmio.h>
 #include <arch/virt/virtio.h>
 #include "keymap.h"

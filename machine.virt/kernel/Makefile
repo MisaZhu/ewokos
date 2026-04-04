@@ -28,6 +28,10 @@ ifeq ($(QEMU_DISPLAY_OPTS),cocoa)
 QEMU_FLAGS += -display cocoa
 endif
 
+QEMU_AUDIO_ID ?= audio0
+QEMU_AUDIODEV ?= coreaudio
+QEMU_AUDIO_ARGS = -audiodev $(QEMU_AUDIODEV),id=$(QEMU_AUDIO_ID)
+
 
 ARCH_LD_FLAGS = --defsym=start_address=$(LOAD_ADDRESS)
 
@@ -39,6 +43,7 @@ QEMU_ARGS += -drive file=$(SYS_DIR)/root_$(ARCH).ext2,format=raw,id=blk0,if=none
 QEMU_ARGS += -netdev user,id=net0 -device virtio-net-device,netdev=net0
 QEMU_ARGS += -device virtio-tablet-device 
 QEMU_ARGS += -device virtio-keyboard-device
+QEMU_ARGS += $(QEMU_AUDIO_ARGS) -device virtio-sound-device,audiodev=$(QEMU_AUDIO_ID)
 QEMU_ARGS += -fsdev local,id=fsdev0,path=$(HOME),security_model=none -device virtio-9p-device,fsdev=fsdev0,mount_tag=hostshare
 
 asm:

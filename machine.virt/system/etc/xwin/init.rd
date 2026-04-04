@@ -25,6 +25,9 @@
 @/bin/splash -m "start /dev/mouse0" -p 60
 @/bin/ipcserv /drivers/virt/moused  /dev/mouse0
 
+@/bin/splash -m "start /dev/sound0" -p 63
+@/bin/ipcserv /drivers/virt/snd /dev/sound0
+
 @/bin/splash -m "start /dev/eth0" -p 65
 @/bin/ipcserv /drivers/virt/net /dev/eth0
 
