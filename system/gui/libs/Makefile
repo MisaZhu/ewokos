@@ -18,6 +18,8 @@ basic_libs:
 	cd c++/stl;make
 	cd c++/c++;make
 	cd c++/object++;make
+	cd libogg;make
+	cd libvorbis;make
 
 clean:
 	cd openlibm;make clean
@@ -35,3 +37,5 @@ clean:
 	cd fbd;make clean
 	cd c++/stl;make clean
 	cd c++/c++;make clean
+	cd libogg;make clean
+	cd libvorbis;make clean
