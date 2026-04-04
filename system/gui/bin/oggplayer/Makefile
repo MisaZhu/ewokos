@@ -6,6 +6,7 @@ BUILD_DIR = $(SYS_DIR)/build/$(HW)/rootfs/bin
 TASK = oggplayer
 TASK_OBJS = oggplayer.o
 
+CFLAGS += -I $(SYS_DIR)/build/$(HW)/include
 CFLAGS += -I $(SYS_DIR)/gui/libs/libogg/include
 CFLAGS += -I $(SYS_DIR)/gui/libs/libvorbis/include
 

@@ -7,7 +7,7 @@ TARGET_DIR = $(BUILD_DIR)
 DEPDIR := .deps
 
 ASFLAGS = --warn
-CFLAGS += -DHAVE_CONFIG_H -I. -Iinclude -Ilib -O2 -ffreestanding ${ARCH_CFLAGS}
+CFLAGS += -DHAVE_CONFIG_H -I. -Iinclude -Ilib -I../libogg/include -O2 -ffreestanding ${ARCH_CFLAGS}
 CPPFLAGS += $(CFLAGS) -fno-exceptions -fno-unwind-tables -fno-rtti
 
 LIBVORBIS = $(TARGET_DIR)/lib/libvorbis.a

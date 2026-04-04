@@ -12,5 +12,6 @@
     {"ext":".spr", "open_with": "/bin/x/anim", "icon": "icons/sprite.png" },
     {"ext":".wjs", "open_with": "/bin/x/wjs", "icon": "icons/wjs.png" },
     {"ext":".mp3", "open_with": "/apps/SndPlayer/SndPlayer", "icon": "icons/mp3.png" },
-    {"ext":".wav", "open_with": "/apps/SndPlayer/SndPlayer", "icon": "icons/sound.png" }
+    {"ext":".wav", "open_with": "/apps/SndPlayer/SndPlayer", "icon": "icons/sound.png" },
+    {"ext":".ogg", "open_with": "/apps/SndPlayer/SndPlayer", "icon": "icons/sound.png" }
 ]
