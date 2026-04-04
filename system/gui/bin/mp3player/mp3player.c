@@ -20,6 +20,7 @@ int main(int argc, char **argv) {
 		mp3_play_file(argv[1], argv[2]);
 	} else {
 		mp3_play_file(argv[1], "/dev/sound0");
+
 	}
 	return 0;
 }

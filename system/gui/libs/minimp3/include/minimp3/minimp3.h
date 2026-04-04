@@ -8,7 +8,7 @@
 */
 #include <stdint.h>
 
-#define MINIMP3_MAX_SAMPLES_PER_FRAME (1152*2)
+#define MINIMP3_MAX_SAMPLES_PER_FRAME (1152*4)
 
 typedef struct
 {

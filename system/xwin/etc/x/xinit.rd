@@ -14,3 +14,4 @@
 
 @/bin/x/statusbar &
 @/bin/x/xlauncher &
+@/bin/mp3player /usr/system/sounds/start.mp3 &
