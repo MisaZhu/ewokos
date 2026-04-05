@@ -851,6 +851,9 @@ bool AudioPlayer::decodeWavFrame() {
         return false;
     }
 
+    sampleBuf = (int16_t*)streamPos;
+    simples = toWrite / bytesPerSample;
+
     if (playing) {
         int ret = pcm_write(pcmDev, streamPos, toWrite);
         if (ret != 0) {
