@@ -229,6 +229,8 @@ static void do_proc_get_ux(int pid, proto_t* in, proto_t* out) {
 }
 
 static str_t* env_get(map_t envs, const char* key) {
+	if(envs == NULL || key == NULL)
+		return NULL;
 	str_t* ret = NULL;
 	if(hashmap_get(envs, key, (void**)&ret) == MAP_OK) {
 		return ret;
@@ -237,13 +239,17 @@ static str_t* env_get(map_t envs, const char* key) {
 }
 
 static void set_env(map_t envs, const char* key, const char* val) {
+	if(envs == NULL || key == NULL || val == NULL)
+		return;
 	str_t* v = env_get(envs, key);
 	if(v != NULL) {
 		str_cpy(v, val);
 	}
 	else {
 		v = str_new(val);
-		hashmap_put(envs, key, v);
+		if(v != NULL) {
+			hashmap_put(envs, key, v);
+		}
 	}
 }
 
@@ -251,17 +257,22 @@ static void do_proc_set_env(int pid, proto_t* in, proto_t* out) {
 	PF->addi(out, -1);
 	if(pid < 0 || pid >= _max_proc_table_num)
 		return;
+	if(_proc_info_table[pid].envs == NULL)
+		return;
 	const char* key = proto_read_str(in);
 	const char* val = proto_read_str(in);
 
-	set_env(_proc_info_table[pid].envs, key, val);	
+	set_env(_proc_info_table[pid].envs, key, val);
 	PF->clear(out)->addi(out, 0);
 }
 
 static int get_envs(map_t map, const char* key, any_t data, any_t arg) {
+	(void)map;
 	proto_t* out = (proto_t*)arg;
 	str_t* v = (str_t*)data;
 
+	if(key == NULL || v == NULL || out == NULL)
+		return MAP_OK;
 	PF->adds(out, key)->adds(out, v->cstr);
 	return MAP_OK;
 }
@@ -270,6 +281,10 @@ static void do_proc_get_envs(int pid, proto_t* out) {
 	PF->addi(out, -1);
 	if(pid < 0 || pid >= _max_proc_table_num)
 		return;
+	if(_proc_info_table[pid].envs == NULL) {
+		PF->clear(out)->addi(out, 0);
+		return;
+	}
 
 	PF->clear(out)->addi(out, hashmap_length(_proc_info_table[pid].envs));
 	hashmap_iterate(_proc_info_table[pid].envs, get_envs, out);
@@ -278,6 +293,8 @@ static void do_proc_get_envs(int pid, proto_t* out) {
 static void do_proc_get_env(int pid, proto_t* in, proto_t* out) {
 	PF->addi(out, -1);
 	if(pid < 0 || pid >= _max_proc_table_num)
+		return;
+	if(_proc_info_table[pid].envs == NULL)
 		return;
 	const char* key = proto_read_str(in);
 	str_t* v = env_get(_proc_info_table[pid].envs, key);
@@ -288,16 +305,22 @@ static void do_proc_get_env(int pid, proto_t* in, proto_t* out) {
 }
 
 static int copy_envs(map_t map, const char* key, any_t data, any_t arg) {
+	(void)map;
 	map_t to = (map_t)arg;
 	str_t* v = (str_t*)data;
+	if(to == NULL || key == NULL || v == NULL)
+		return MAP_OK;
 	set_env(to, key, v->cstr);
 	return MAP_OK;
 }
 
 static int free_envs(map_t map, const char* key, any_t data, any_t arg) {
+	(void)map;
+	(void)key;
 	str_t* v = (str_t*)data;
-	hashmap_remove(map, key);
-	str_free(v);
+	if(v != NULL) {
+		str_free(v);
+	}
 	return MAP_OK;
 }
 
@@ -305,11 +328,20 @@ static void do_proc_clone(int fpid, int cpid) {
 	if(fpid < 0 || fpid >= _max_proc_table_num ||
 			cpid < 0 || cpid >= _max_proc_table_num)
 		return;
-	str_cpy(_proc_info_table[cpid].cwd, CS(_proc_info_table[fpid].cwd));	
-	hashmap_iterate(_proc_info_table[cpid].envs, free_envs, NULL);	
-	hashmap_free(_proc_info_table[cpid].envs);
+
+	if(_proc_info_table[cpid].cwd != NULL && _proc_info_table[fpid].cwd != NULL) {
+		str_cpy(_proc_info_table[cpid].cwd, CS(_proc_info_table[fpid].cwd));
+	}
+
+	if(_proc_info_table[cpid].envs != NULL) {
+		hashmap_iterate(_proc_info_table[cpid].envs, free_envs, NULL);
+		hashmap_free(_proc_info_table[cpid].envs);
+	}
 	_proc_info_table[cpid].envs = hashmap_new(16);
-	hashmap_iterate(_proc_info_table[fpid].envs, copy_envs, _proc_info_table[cpid].envs);	
+
+	if(_proc_info_table[fpid].envs != NULL && _proc_info_table[cpid].envs != NULL) {
+		hashmap_iterate(_proc_info_table[fpid].envs, copy_envs, _proc_info_table[cpid].envs);
+	}
 }
 
 static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
@@ -393,8 +425,10 @@ static void do_proc_exit(kevent_t* kev) {
 		ipc_call_wait(vfs_pid, VFS_PROC_EXIT, &data);
 	}
 
-	if(_proc_info_table[pid].envs != NULL) {
-		hashmap_iterate(_proc_info_table[pid].envs, free_envs, NULL);	
+	if(pid >= 0 && pid < _max_proc_table_num && _proc_info_table[pid].envs != NULL) {
+		hashmap_iterate(_proc_info_table[pid].envs, free_envs, NULL);
+		hashmap_free(_proc_info_table[pid].envs);
+		_proc_info_table[pid].envs = hashmap_new(16);
 	}
 
 	PF->clear(&data);

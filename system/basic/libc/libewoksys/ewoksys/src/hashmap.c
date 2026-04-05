@@ -338,11 +338,11 @@ int hashmap_iterate(map_t in, PFany f, any_t arg) {
 
 	/* On empty hashmap, return immediately */
 	if (hashmap_length(m) <= 0)
-		return MAP_MISSING;	
+		return MAP_OK;
 
 	/* Linear probing */
 	for(i = 0; i< m->table_size; i++) {
-		if(m->data[i].in_use != 0 || m->data[i].key != NULL) {
+		if(m->data[i].in_use != 0 && m->data[i].key != NULL) {
 			char* key = m->data[i].key;
 			any_t data = (any_t) (m->data[i].data);
 			int status = f(in, key, data, arg);
