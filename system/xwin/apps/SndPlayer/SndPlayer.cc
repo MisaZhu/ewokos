@@ -120,7 +120,9 @@ public:
             updateSpectrum(player->getSampleBuf(), player->getSimples(), player->getChannels());
 
             if (player->isEof()) {
-                player->pause();
+                if (!player->isWriteFailed()) {
+                    player->pause();
+                }
                 if (stateChangeCb) stateChangeCb(stateChangeUserData);
             }
         }
@@ -327,7 +329,7 @@ public:
 
     void updatePlayBtn() {
         if (playBtn && player->isLoaded()) {
-            if (player->isPlaying()) {
+            if (player->isPlaying() && !player->isWriteFailed()) {
                 playBtn->setLabel("||");
             } else {
                 playBtn->setLabel(">");
@@ -350,10 +352,14 @@ public:
     void togglePlay() {
         if (!player->isLoaded()) return;
 
-        if (player->isPlaying()) {
-            player->pause();
+        if (player->isWriteFailed()) {
+            player->reopenDevice("/dev/sound0");
+            player->play();
         } else if (player->isEof()) {
             player->replay("/dev/sound0");
+            player->play();
+        } else if (player->isPlaying()) {
+            player->pause();
         } else {
             player->play();
         }

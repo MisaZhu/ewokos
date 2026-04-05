@@ -34,12 +34,14 @@ public:
     void pause();
     void stop();
     void replay(const char* device);
+    void reopenDevice(const char* device);
     bool decodeFrame();
 
     bool isPlaying();
     bool isPaused();
     bool isLoaded();
     bool isEof();
+    bool isWriteFailed();
     int16_t* getSampleBuf();
     int getSimples();
     int getChannels();
@@ -78,6 +80,7 @@ private:
     bool playing;
     bool paused;
     bool eof;
+    bool writeFailed;
     int channels;
     int sampleRate;
     uint32_t currentMs;

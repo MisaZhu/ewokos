@@ -438,6 +438,7 @@ AudioPlayer::AudioPlayer() {
     playing = false;
     paused = false;
     eof = false;
+    writeFailed = false;
     currentMs = 0;
     totalMs = 0;
     format = FORMAT_UNKNOWN;
@@ -536,6 +537,29 @@ void AudioPlayer::replay(const char* device) {
     }
 }
 
+void AudioPlayer::reopenDevice(const char* device) {
+    if (pcmDev != NULL) {
+        pcm_close(pcmDev);
+        pcmDev = NULL;
+    }
+
+    struct pcm_config config;
+    config.bit_depth = 16;
+    config.rate = sampleRate;
+    config.channels = channels;
+    config.period_size = 1024;
+    config.period_count = 4;
+    config.start_threshold = 1024;
+    config.stop_threshold = 1024 * 4;
+
+    pcmDev = pcm_open(device, &config);
+    if (pcmDev != NULL) {
+        devicePath = device;
+        writeFailed = false;
+        eof = false;
+    }
+}
+
 bool AudioPlayer::decodeFrame() {
     if (format == FORMAT_MP3 || format == FORMAT_WAV) {
         if (streamPos == NULL || bytesLeft <= 0) {
@@ -559,6 +583,7 @@ bool AudioPlayer::isPlaying() { return playing; }
 bool AudioPlayer::isPaused() { return paused; }
 bool AudioPlayer::isLoaded() { return pcmDev != NULL; }
 bool AudioPlayer::isEof() { return eof; }
+bool AudioPlayer::isWriteFailed() { return writeFailed; }
 int16_t* AudioPlayer::getSampleBuf() { return sampleBuf; }
 int AudioPlayer::getSimples() { return simples; }
 int AudioPlayer::getChannels() { return channels; }
@@ -704,6 +729,7 @@ void AudioPlayer::replayMp3(const char* device) {
     bytesLeft = totalBytes;
     currentMs = 0;
     eof = false;
+    writeFailed = false;
 
     mp3dec_init(mp3dec);
 
@@ -734,6 +760,7 @@ void AudioPlayer::replayWav(const char* device) {
     bytesLeft = wavDataSize;
     currentMs = 0;
     eof = false;
+    writeFailed = false;
     sampleBuf = (int16_t*)streamPos;
     simples = 0;
 
@@ -756,6 +783,7 @@ void AudioPlayer::replayOgg(const char* device) {
     ov_raw_seek(oggVf, 0);
     currentMs = 0;
     eof = false;
+    writeFailed = false;
     simples = 1;
     zeroReadCount = 0;
 
@@ -775,6 +803,10 @@ void AudioPlayer::replayOgg(const char* device) {
 }
 
 bool AudioPlayer::decodeMp3Frame() {
+    if (eof) {
+        return false;
+    }
+
     if (simples == 0) {
         eof = true;
         return false;
@@ -790,6 +822,7 @@ bool AudioPlayer::decodeMp3Frame() {
         int ret = pcm_write(pcmDev, sampleBuf, decodedSamples * 2 * channels);
         if (ret != 0) {
             eof = true;
+            writeFailed = true;
             return false;
         }
         currentMs += (decodedSamples * 1000) / sampleRate;
@@ -804,6 +837,10 @@ bool AudioPlayer::decodeMp3Frame() {
 }
 
 bool AudioPlayer::decodeWavFrame() {
+    if (eof) {
+        return false;
+    }
+
     int bytesPerSample = (wavBitDepth / 8) * channels;
     int toWrite = bytesPerSample * 1024;
     if (toWrite > bytesLeft) {
@@ -818,6 +855,7 @@ bool AudioPlayer::decodeWavFrame() {
         int ret = pcm_write(pcmDev, streamPos, toWrite);
         if (ret != 0) {
             eof = true;
+            writeFailed = true;
             return false;
         }
         int samples = toWrite / bytesPerSample;
@@ -874,6 +912,7 @@ bool AudioPlayer::decodeOggFrame() {
         int ret = pcm_write(pcmDev, output_buf, output_bytes);
         if (ret != 0) {
             eof = true;
+            writeFailed = true;
             return false;
         }
         currentMs += (uint32_t)((output_bytes * 1000) / (sampleRate * 4));
