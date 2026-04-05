@@ -45,6 +45,7 @@ typedef struct
 	bool configured;
 	bool prepared;
 	bool started;
+	int occupied_pid;
 } snd_dev_t;
 
 static snd_dev_t _snd = {.stream_id = -1};
@@ -251,12 +252,14 @@ static int snd_open(int fd, int from_pid, fsinfo_t *info, int oflag, void *p)
 	UNUSED(oflag);
 	UNUSED(p);
 
-	if (_snd.open_count > 0)
+	/*if (_snd.open_count > 0)
 	{
 		return -1;
 	}
+	*/
 	snd_stop_and_release(true);
 	_snd.open_count = 1;
+	_snd.occupied_pid = from_pid;
 	return 0;
 }
 
@@ -267,6 +270,10 @@ static int snd_close(int fd, int from_pid, uint32_t node, fsinfo_t *info, void *
 	UNUSED(node);
 	UNUSED(info);
 	UNUSED(p);
+
+	if (_snd.occupied_pid != from_pid) {
+		return -1;
+	}
 
 	_snd.open_count = 0;
 	snd_stop_and_release(true);
@@ -281,10 +288,11 @@ static int snd_write(int fd, int from_pid, fsinfo_t *node,
 	UNUSED(node);
 	UNUSED(p);
 
-	if (!_snd.configured || size <= 0)
+	if (!_snd.configured || size <= 0 || _snd.occupied_pid != from_pid)
 	{
 		return -1;
 	}
+
 	if (snd_prepare_stream() != 0 || snd_start_stream() != 0)
 	{
 		return -1;
@@ -308,6 +316,10 @@ static int snd_dcntl(int from_pid, int cmd, proto_t *in, proto_t *ret, void *p)
 
 	int result = 0;
 	struct pcm_config cfg;
+
+	if (_snd.occupied_pid != from_pid) {
+		return -1;
+	}
 
 	switch (cmd)
 	{

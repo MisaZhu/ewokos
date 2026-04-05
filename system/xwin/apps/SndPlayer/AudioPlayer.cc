@@ -1,3 +1,6 @@
+#define MINIMP3_IMPLEMENTATION
+#include "AudioPlayer.h"
+
 #include <unistd.h>
 #include <string.h>
 #include <strings.h>
@@ -10,12 +13,6 @@
 #include <ewoksys/proc.h>
 #include <ewoksys/proto.h>
 #include <ewoksys/devcmd.h>
-
-#define MINIMP3_IMPLEMENTATION
-#include <minimp3/minimp3.h>
-
-#include <vorbis/codec.h>
-#include <vorbis/vorbisfile.h>
 
 // WAV file format definitions
 #define ID_RIFF 0x46464952
@@ -43,99 +40,11 @@ struct wav_chunk_header {
     uint32_t sz;
 };
 
-enum AudioFormat {
-    FORMAT_UNKNOWN,
-    FORMAT_MP3,
-    FORMAT_WAV,
-    FORMAT_OGG
-};
-
 #define CTRL_PCM_DEV_HW         (0xF0)
 #define CTRL_PCM_DEV_PRPARE     (0xF2)
 #define CTRL_PCM_BUF_AVAIL      (0xF3)
 
-// Check file extension to determine audio format
-static AudioFormat getAudioFormat(const char* path) {
-    const char* ext = strrchr(path, '.');
-    if (ext == NULL) return FORMAT_UNKNOWN;
-
-    if (strcasecmp(ext, ".mp3") == 0) return FORMAT_MP3;
-    if (strcasecmp(ext, ".wav") == 0) return FORMAT_WAV;
-    if (strcasecmp(ext, ".ogg") == 0) return FORMAT_OGG;
-
-    // Try to detect by file header
-    int fd = open(path, O_RDONLY);
-    if (fd < 0) return FORMAT_UNKNOWN;
-
-    char header[4];
-    int ret = read(fd, header, 4);
-    close(fd);
-
-    if (ret == 4) {
-        if (header[0] == 'O' && header[1] == 'g' && header[2] == 'g' && header[3] == 'S') {
-            return FORMAT_OGG;
-        }
-        // Check for RIFF/WAVE
-        if (header[0] == 'R' && header[1] == 'I' && header[2] == 'F' && header[3] == 'F') {
-            return FORMAT_WAV;
-        }
-        // MP3 files start with sync word 0xFFE or ID3 tag
-        uint32_t hdr = *(uint32_t*)header;
-        if ((hdr & 0xFFE00000) == 0xFFE00000 || hdr == 0x44493349) return FORMAT_MP3;
-    }
-
-    return FORMAT_UNKNOWN;
-}
-
-// Parse WAV file header, return data offset or -1 on error
-static int parseWavHeader(const uint8_t* data, int size, int* sampleRate, int* channels, int* bitDepth, int* dataOffset, int* dataSize) {
-    if (size < 44) return -1;
-    
-    const wav_riff_header* riff = (const wav_riff_header*)data;
-    if (riff->riff_id != ID_RIFF || riff->wave_id != ID_WAVE) {
-        return -1;
-    }
-    
-    int pos = sizeof(wav_riff_header);
-    wav_chunk_fmt fmt;
-    int foundFmt = 0;
-    int foundData = 0;
-    
-    while (pos + sizeof(wav_chunk_header) <= size) {
-        const wav_chunk_header* chunk = (const wav_chunk_header*)(data + pos);
-        pos += sizeof(wav_chunk_header);
-        
-        if (chunk->id == ID_FMT) {
-            if (pos + sizeof(wav_chunk_fmt) > size) return -1;
-            memcpy(&fmt, data + pos, sizeof(wav_chunk_fmt));
-            foundFmt = 1;
-            pos += chunk->sz;
-        } else if (chunk->id == ID_DATA) {
-            *dataOffset = pos;
-            *dataSize = chunk->sz;
-            foundData = 1;
-            break;
-        } else {
-            pos += chunk->sz;
-        }
-    }
-    
-    if (!foundFmt || !foundData) return -1;
-    
-    *sampleRate = fmt.sample_rate;
-    *channels = fmt.num_channels;
-    *bitDepth = fmt.bits_per_sample;
-    
-    return 0;
-}
-
 // OGG Vorbis file callbacks
-typedef struct {
-    uint8_t *data;
-    int size;
-    int pos;
-} OggVorbis_DataSource;
-
 static size_t ogg_read_func(void *ptr, size_t size, size_t nmemb, void *datasource)
 {
     OggVorbis_DataSource *ds = (OggVorbis_DataSource *)datasource;
@@ -212,8 +121,6 @@ struct pcm_t {
     int (*hook)(void *data);
     void *user_data;
 };
-
-typedef int (*pcm_hook_t)(void *data);
 
 static int pcm_param_set(struct pcm_t *pcm, struct pcm_config *config)
 {
@@ -445,549 +352,549 @@ static int pcm_close(struct pcm_t *pcm)
     return 0;
 }
 
-class AudioPlayer {
-public:
-    AudioPlayer() {
-        pcmDev = NULL;
-        fileData = NULL;
-        streamPos = NULL;
-        bytesLeft = 0;
-        totalBytes = 0;
-        simples = 0;
-        playing = false;
-        paused = false;
-        eof = false;
-        currentMs = 0;
-        totalMs = 0;
-        format = FORMAT_UNKNOWN;
-        wavDataOffset = 0;
-        wavDataSize = 0;
-        wavBitDepth = 16;
-        oggChannels = 2;
-        oggBitstream = 0;
-        zeroReadCount = 0;
-        oggDs.data = NULL;
-        oggDs.size = 0;
-        oggDs.pos = 0;
-        memset(&mp3dec, 0, sizeof(mp3dec));
-        memset(&info, 0, sizeof(info));
+// Check file extension to determine audio format
+static AudioFormat getAudioFormat(const char* path) {
+    const char* ext = strrchr(path, '.');
+    if (ext == NULL) return FORMAT_UNKNOWN;
+
+    if (strcasecmp(ext, ".mp3") == 0) return FORMAT_MP3;
+    if (strcasecmp(ext, ".wav") == 0) return FORMAT_WAV;
+    if (strcasecmp(ext, ".ogg") == 0) return FORMAT_OGG;
+
+    // Try to detect by file header
+    int fd = open(path, O_RDONLY);
+    if (fd < 0) return FORMAT_UNKNOWN;
+
+    char header[4];
+    int ret = read(fd, header, 4);
+    close(fd);
+
+    if (ret == 4) {
+        if (header[0] == 'O' && header[1] == 'g' && header[2] == 'g' && header[3] == 'S') {
+            return FORMAT_OGG;
+        }
+        // Check for RIFF/WAVE
+        if (header[0] == 'R' && header[1] == 'I' && header[2] == 'F' && header[3] == 'F') {
+            return FORMAT_WAV;
+        }
+        // MP3 files start with sync word 0xFFE or ID3 tag
+        uint32_t hdr = *(uint32_t*)header;
+        if ((hdr & 0xFFE00000) == 0xFFE00000 || hdr == 0x44493349) return FORMAT_MP3;
     }
 
-    ~AudioPlayer() {
-        stop();
+    return FORMAT_UNKNOWN;
+}
+
+// Parse WAV file header, return data offset or -1 on error
+static int parseWavHeader(const uint8_t* data, int size, int* sampleRate, int* channels, int* bitDepth, int* dataOffset, int* dataSize) {
+    if (size < 44) return -1;
+    
+    const wav_riff_header* riff = (const wav_riff_header*)data;
+    if (riff->riff_id != ID_RIFF || riff->wave_id != ID_WAVE) {
+        return -1;
     }
-
-    bool load(const char* path, const char* device) {
-        stop();
-
-        format = getAudioFormat(path);
-        if (format == FORMAT_UNKNOWN) {
-            return false;
-        }
-
-        fileData = vfs_readfile(path, &bytesLeft);
-        if (fileData == NULL) {
-            return false;
-        }
-
-        totalBytes = bytesLeft;
-        streamPos = (uint8_t*)fileData;
-
-        if (format == FORMAT_MP3) {
-            return loadMp3(device);
-        } else if (format == FORMAT_WAV) {
-            return loadWav(device);
-        } else if (format == FORMAT_OGG) {
-            return loadOgg(device);
-        }
-
-        return false;
-    }
-
-    bool loadMp3(const char* device) {
-        mp3dec_init(&mp3dec);
-        simples = mp3dec_decode_frame(&mp3dec, streamPos, bytesLeft, sampleBuf, &info);
-
-        if (simples == 0) {
-            free(fileData);
-            fileData = NULL;
-            return false;
-        }
-
-        devicePath = device;
-        channels = info.channels;
-        if (channels != 1 && channels != 2) channels = 2;
-
-        sampleRate = info.hz;
-        if (sampleRate != 8000 && sampleRate != 16000 && sampleRate != 32000 &&
-            sampleRate != 44100 && sampleRate != 48000 && sampleRate != 96000) {
-            sampleRate = 44100;
-        }
-
-        struct pcm_config config;
-        memset(&config, 0, sizeof(config));
-        config.bit_depth = 16;
-        config.rate = sampleRate;
-        config.channels = channels;
-        config.period_size = 1024;
-        config.period_count = 4;
-        config.start_threshold = 1024 * channels;
-        config.stop_threshold = 0;
-
-        pcmDev = pcm_open(device, &config);
-        if (pcmDev == NULL) {
-            free(fileData);
-            fileData = NULL;
-            return false;
-        }
-
-        streamPos += info.frame_bytes;
-        bytesLeft -= info.frame_bytes;
-
-        totalMs = estimateTotalMs();
-        currentMs = 0;
-        playing = false;
-        paused = false;
-
-        return true;
-    }
-
-    bool loadWav(const char* device) {
-        int dataOffset, dataSize;
-        if (parseWavHeader((uint8_t*)fileData, totalBytes, &sampleRate, &channels, &wavBitDepth, &dataOffset, &dataSize) < 0) {
-            free(fileData);
-            fileData = NULL;
-            return false;
-        }
-
-        devicePath = device;
-        if (channels != 1 && channels != 2) channels = 2;
-
-        if (sampleRate != 8000 && sampleRate != 16000 && sampleRate != 32000 &&
-            sampleRate != 44100 && sampleRate != 48000 && sampleRate != 96000) {
-            sampleRate = 44100;
-        }
-
-        struct pcm_config config;
-        memset(&config, 0, sizeof(config));
-        config.bit_depth = wavBitDepth;
-        config.rate = sampleRate;
-        config.channels = channels;
-        config.period_size = 2048;
-        config.period_count = 2;
-        config.start_threshold = 2048 * channels;
-        config.stop_threshold = 0;
-
-        pcmDev = pcm_open(device, &config);
-        if (pcmDev == NULL) {
-            free(fileData);
-            fileData = NULL;
-            return false;
-        }
-
-        wavDataOffset = dataOffset;
-        wavDataSize = dataSize;
-        streamPos = (uint8_t*)fileData + wavDataOffset;
-        bytesLeft = wavDataSize;
-
-        // Estimate total time for WAV
-        int bytesPerSample = (wavBitDepth / 8) * channels;
-        int totalSamples = wavDataSize / bytesPerSample;
-        totalMs = (totalSamples * 1000) / sampleRate;
-        currentMs = 0;
-        playing = false;
-        paused = false;
-
-        return true;
-    }
-
-    void play() {
-        if (pcmDev == NULL) return;
-        playing = true;
-        paused = false;
-        eof = false;
-    }
-
-    void pause() {
-        playing = false;
-        paused = true;
-    }
-
-    void stop() {
-        playing = false;
-        paused = false;
-        eof = false;
-
-        if (pcmDev != NULL) {
-            pcm_close(pcmDev);
-            pcmDev = NULL;
-        }
-
-        if (format == FORMAT_OGG) {
-            ov_clear(&oggVf);
-            oggDs.data = NULL;
-            oggDs.size = 0;
-            oggDs.pos = 0;
-        }
-
-        if (fileData != NULL) {
-            free(fileData);
-            fileData = NULL;
-        }
-    }
-
-    void replay(const char* device) {
-        if (fileData == NULL) return;
-
-        // Close existing PCM device if open
-        if (pcmDev != NULL) {
-            pcm_close(pcmDev);
-            pcmDev = NULL;
-        }
-
-        if (format == FORMAT_MP3) {
-            replayMp3(device);
-        } else if (format == FORMAT_WAV) {
-            replayWav(device);
-        } else if (format == FORMAT_OGG) {
-            replayOgg(device);
-        }
-    }
-
-    void replayMp3(const char* device) {
-        // Reopen PCM device
-        struct pcm_config config;
-        memset(&config, 0, sizeof(config));
-        config.bit_depth = 16;
-        config.rate = sampleRate;
-        config.channels = channels;
-        config.period_size = 1024;
-        config.period_count = 4;
-        config.start_threshold = 1024 * channels;
-        config.stop_threshold = 0;
-
-        pcmDev = pcm_open(device, &config);
-        if (pcmDev == NULL) {
-            return;
-        }
-
-        // Reset stream position
-        streamPos = (uint8_t*)fileData;
-        bytesLeft = totalBytes;
-
-        int firstSamples = mp3dec_decode_frame(&mp3dec, streamPos, bytesLeft, sampleBuf, &info);
-        if (firstSamples == 0) {
-            pcm_close(pcmDev);
-            pcmDev = NULL;
-            return;
-        }
-
-        streamPos += info.frame_bytes;
-        bytesLeft -= info.frame_bytes;
-
-        currentMs = 0;
-        playing = true;
-        paused = false;
-        eof = false;
-    }
-
-    void replayWav(const char* device) {
-        // Reopen PCM device
-        struct pcm_config config;
-        memset(&config, 0, sizeof(config));
-        config.bit_depth = wavBitDepth;
-        config.rate = sampleRate;
-        config.channels = channels;
-        config.period_size = 2048;
-        config.period_count = 2;
-        config.start_threshold = 2048 * channels;
-        config.stop_threshold = 0;
-
-        pcmDev = pcm_open(device, &config);
-        if (pcmDev == NULL) {
-            return;
-        }
-
-        // Reset stream position
-        streamPos = (uint8_t*)fileData + wavDataOffset;
-        bytesLeft = wavDataSize;
-
-        currentMs = 0;
-        playing = true;
-        paused = false;
-        eof = false;
-    }
-
-    bool isPlaying() { return playing; }
-    bool isPaused() { return paused; }
-    bool isLoaded() { return pcmDev != NULL; }
-    bool isEof() { return eof; }
-    int16_t* getSampleBuf() { return sampleBuf; }
-    int getSimples() { return simples; }
-    int getChannels() { return channels; }
-    int getSampleRate() { return sampleRate; }
-    uint32_t getCurrentMs() { return currentMs; }
-    uint32_t getTotalMs() { return totalMs; }
-
-    bool decodeFrame() {
-        if (format == FORMAT_MP3 || format == FORMAT_WAV) {
-            if (streamPos == NULL || bytesLeft <= 0) {
-                eof = true;
-                return false;
-            }
-        }
-
-        if (format == FORMAT_MP3) {
-            return decodeMp3Frame();
-        } else if (format == FORMAT_WAV) {
-            return decodeWavFrame();
-        } else if (format == FORMAT_OGG) {
-            return decodeOggFrame();
-        }
-
-        return false;
-    }
-
-    bool decodeMp3Frame() {
-        if (simples == 0) {
-            eof = true;
-            return false;
-        }
-
-        int decodedSamples = mp3dec_decode_frame(&mp3dec, streamPos, bytesLeft, sampleBuf, &info);
-        if (decodedSamples == 0) {
-            return false;
-        }
-
-        if (playing) {
-            int ret = pcm_write(pcmDev, sampleBuf, decodedSamples * 2 * channels);
-            if (ret == 0) {
-                currentMs += (decodedSamples * 1000) / sampleRate;
-                streamPos += info.frame_bytes;
-                bytesLeft -= info.frame_bytes;
-            }
-        } else {
-            streamPos += info.frame_bytes;
-            bytesLeft -= info.frame_bytes;
-        }
-
-        return true;
-    }
-
-    bool decodeWavFrame() {
-        int periodBytes = 2048 * (wavBitDepth / 8) * channels;
-        int toWrite = bytesLeft < periodBytes ? bytesLeft : periodBytes;
-
-        if (toWrite <= 0) {
-            eof = true;
-            return false;
-        }
-
-        if (playing) {
-            int ret = pcm_write(pcmDev, streamPos, toWrite);
-            if (ret == 0) {
-                int bytesPerSample = (wavBitDepth / 8) * channels;
-                int samples = toWrite / bytesPerSample;
-                currentMs += (samples * 1000) / sampleRate;
-                streamPos += toWrite;
-                bytesLeft -= toWrite;
-            }
-        } else {
-            streamPos += toWrite;
-            bytesLeft -= toWrite;
-        }
-
-        // For WAV, we need to fill the sample buffer for spectrum visualization
-        int samplesToCopy = toWrite / ((wavBitDepth / 8) * channels);
-        if (samplesToCopy > MINIMP3_MAX_SAMPLES_PER_FRAME) samplesToCopy = MINIMP3_MAX_SAMPLES_PER_FRAME;
+    
+    int pos = sizeof(wav_riff_header);
+    wav_chunk_fmt fmt;
+    int foundFmt = 0;
+    int foundData = 0;
+    
+    while (pos + sizeof(wav_chunk_header) <= size) {
+        const wav_chunk_header* chunk = (const wav_chunk_header*)(data + pos);
+        pos += sizeof(wav_chunk_header);
         
-        // Convert to 16-bit samples for spectrum
-        if (wavBitDepth == 16) {
-            memcpy(sampleBuf, streamPos - toWrite, samplesToCopy * 2 * channels);
-        } else if (wavBitDepth == 8) {
-            for (int i = 0; i < samplesToCopy * channels; i++) {
-                int8_t sample = *((int8_t*)(streamPos - toWrite) + i);
-                sampleBuf[i] = sample << 8;
-            }
+        if (chunk->id == ID_FMT) {
+            if (pos + sizeof(wav_chunk_fmt) > size) return -1;
+            memcpy(&fmt, data + pos, sizeof(wav_chunk_fmt));
+            foundFmt = 1;
+            pos += chunk->sz;
+        } else if (chunk->id == ID_DATA) {
+            *dataOffset = pos;
+            *dataSize = chunk->sz;
+            foundData = 1;
+            break;
+        } else {
+            pos += chunk->sz;
         }
-        simples = samplesToCopy;
+    }
+    
+    if (!foundFmt || !foundData) return -1;
+    
+    *sampleRate = fmt.sample_rate;
+    *channels = fmt.num_channels;
+    *bitDepth = fmt.bits_per_sample;
+    
+    return 0;
+}
 
-        return true;
+// AudioPlayer implementation
+AudioPlayer::AudioPlayer() {
+    pcmDev = NULL;
+    fileData = NULL;
+    streamPos = NULL;
+    bytesLeft = 0;
+    totalBytes = 0;
+    simples = 0;
+    playing = false;
+    paused = false;
+    eof = false;
+    currentMs = 0;
+    totalMs = 0;
+    format = FORMAT_UNKNOWN;
+    wavDataOffset = 0;
+    wavDataSize = 0;
+    wavBitDepth = 16;
+    oggChannels = 2;
+    oggBitstream = 0;
+    zeroReadCount = 0;
+    mp3dec = NULL;
+    info = NULL;
+    oggVf = NULL;
+    oggDs = NULL;
+    oggDecodeBuffer = NULL;
+    oggStereoBuffer = NULL;
+    sampleBuf = NULL;
+}
+
+AudioPlayer::~AudioPlayer() {
+    stop();
+}
+
+bool AudioPlayer::load(const char* path, const char* device) {
+    stop();
+
+    format = getAudioFormat(path);
+    if (format == FORMAT_UNKNOWN) {
+        return false;
     }
 
-    bool loadOgg(const char* device) {
-        oggDs.data = (uint8_t*)fileData;
-        oggDs.size = totalBytes;
-        oggDs.pos = 0;
-
-        ov_callbacks callbacks;
-        callbacks.read_func = ogg_read_func;
-        callbacks.seek_func = ogg_seek_func;
-        callbacks.close_func = ogg_close_func;
-        callbacks.tell_func = ogg_tell_func;
-
-        if (ov_open_callbacks(&oggDs, &oggVf, NULL, 0, callbacks) < 0) {
-            free(fileData);
-            fileData = NULL;
-            return false;
-        }
-
-        vorbis_info *vi = ov_info(&oggVf, -1);
-        devicePath = device;
-        channels = vi->channels;
-        if (channels != 1 && channels != 2) channels = 2;
-
-        // Save original OGG channel count for decoding
-        oggChannels = channels;
-
-        // Force stereo output for PCM device
-        channels = 2;
-
-        sampleRate = vi->rate;
-        if (sampleRate != 8000 && sampleRate != 16000 && sampleRate != 32000 &&
-            sampleRate != 44100 && sampleRate != 48000 && sampleRate != 96000) {
-            sampleRate = 44100;
-        }
-
-        struct pcm_config config;
-        memset(&config, 0, sizeof(config));
-        config.bit_depth = 16;
-        config.rate = sampleRate;
-        config.channels = channels;
-        config.period_size = 2048;
-        config.period_count = 4;
-        config.start_threshold = 2048 * channels;
-        config.stop_threshold = 0;
-
-        pcmDev = pcm_open(device, &config);
-        if (pcmDev == NULL) {
-            ov_clear(&oggVf);
-            free(fileData);
-            fileData = NULL;
-            return false;
-        }
-
-        ogg_int64_t totalTime = ov_time_total(&oggVf, -1);
-        totalMs = (totalTime > 0) ? (uint32_t)(totalTime * 1000) : 0;
-        currentMs = 0;
-        playing = false;
-        paused = false;
-        eof = false;
-        simples = 1152; // Default to reasonable size for spectrum display
-        zeroReadCount = 0;
-
-        return true;
+    fileData = vfs_readfile(path, &bytesLeft);
+    if (fileData == NULL) {
+        return false;
     }
 
-    void replayOgg(const char* device) {
-        oggDs.pos = 0;
-        ov_pcm_seek(&oggVf, 0);
+    totalBytes = bytesLeft;
+    streamPos = (uint8_t*)fileData;
 
-        struct pcm_config config;
-        memset(&config, 0, sizeof(config));
-        config.bit_depth = 16;
-        config.rate = sampleRate;
-        config.channels = channels;
-        config.period_size = 2048;
-        config.period_count = 4;
-        config.start_threshold = 2048 * channels;
-        config.stop_threshold = 0;
-
-        pcmDev = pcm_open(device, &config);
-        if (pcmDev == NULL) {
-            return;
-        }
-
-        currentMs = 0;
-        playing = true;
-        paused = false;
-        eof = false;
-        simples = 1;
-        zeroReadCount = 0;
+    if (format == FORMAT_MP3) {
+        return loadMp3(device);
+    } else if (format == FORMAT_WAV) {
+        return loadWav(device);
+    } else if (format == FORMAT_OGG) {
+        return loadOgg(device);
     }
 
-    bool decodeOggFrame() {
-        static int callCount = 0;
-        callCount++;
-        long bytes_read = ov_read(&oggVf, oggDecodeBuffer, 8192, 0, 2, 1, &oggBitstream);
+    return false;
+}
 
-        if (callCount <= 5) {
-            // Debug output can be enabled here
-        }
+void AudioPlayer::play() {
+    if (pcmDev == NULL) return;
+    playing = true;
+    paused = false;
+    eof = false;
+}
 
-        if (bytes_read == 0) {
+void AudioPlayer::pause() {
+    playing = false;
+    paused = true;
+}
+
+void AudioPlayer::stop() {
+    playing = false;
+    paused = false;
+    eof = false;
+
+    if (pcmDev != NULL) {
+        pcm_close(pcmDev);
+        pcmDev = NULL;
+    }
+
+    if (format == FORMAT_OGG && oggVf != NULL) {
+        ov_clear(oggVf);
+    }
+
+    if (fileData != NULL) {
+        free(fileData);
+        fileData = NULL;
+    }
+}
+
+void AudioPlayer::replay(const char* device) {
+    if (fileData == NULL) return;
+
+    if (pcmDev != NULL) {
+        pcm_close(pcmDev);
+        pcmDev = NULL;
+    }
+
+    if (format == FORMAT_MP3) {
+        replayMp3(device);
+    } else if (format == FORMAT_WAV) {
+        replayWav(device);
+    } else if (format == FORMAT_OGG) {
+        replayOgg(device);
+    }
+}
+
+bool AudioPlayer::decodeFrame() {
+    if (format == FORMAT_MP3 || format == FORMAT_WAV) {
+        if (streamPos == NULL || bytesLeft <= 0) {
             eof = true;
             return false;
         }
+    }
 
-        if (bytes_read < 0) {
-            return true;
+    if (format == FORMAT_MP3) {
+        return decodeMp3Frame();
+    } else if (format == FORMAT_WAV) {
+        return decodeWavFrame();
+    } else if (format == FORMAT_OGG) {
+        return decodeOggFrame();
+    }
+
+    return false;
+}
+
+bool AudioPlayer::isPlaying() { return playing; }
+bool AudioPlayer::isPaused() { return paused; }
+bool AudioPlayer::isLoaded() { return pcmDev != NULL; }
+bool AudioPlayer::isEof() { return eof; }
+int16_t* AudioPlayer::getSampleBuf() { return sampleBuf; }
+int AudioPlayer::getSimples() { return simples; }
+int AudioPlayer::getChannels() { return channels; }
+int AudioPlayer::getSampleRate() { return sampleRate; }
+uint32_t AudioPlayer::getCurrentMs() { return currentMs; }
+uint32_t AudioPlayer::getTotalMs() { return totalMs; }
+
+// Private methods implementation
+
+bool AudioPlayer::loadMp3(const char* device) {
+    mp3dec = (mp3dec_t*)calloc(1, sizeof(mp3dec_t));
+    info = (mp3dec_frame_info_t*)calloc(1, sizeof(mp3dec_frame_info_t));
+    sampleBuf = (int16_t*)calloc(MINIMP3_MAX_SAMPLES_PER_FRAME, sizeof(int16_t));
+    if (mp3dec == NULL || info == NULL || sampleBuf == NULL) {
+        return false;
+    }
+    mp3dec_init(mp3dec);
+
+    int decodedSamples = mp3dec_decode_frame(mp3dec, streamPos, bytesLeft, sampleBuf, info);
+    if (decodedSamples == 0 || info->frame_bytes == 0) {
+        return false;
+    }
+
+    channels = info->channels;
+    sampleRate = info->hz;
+    simples = decodedSamples;
+
+    struct pcm_config config;
+    config.bit_depth = 16;
+    config.rate = sampleRate;
+    config.channels = channels;
+    config.period_size = 1024;
+    config.period_count = 4;
+    config.start_threshold = 1024;
+    config.stop_threshold = 1024 * 4;
+
+    pcmDev = pcm_open(device, &config);
+    if (pcmDev == NULL) {
+        return false;
+    }
+
+    devicePath = device;
+    totalMs = estimateTotalMs();
+    return true;
+}
+
+bool AudioPlayer::loadWav(const char* device) {
+    int wavSampleRate, wavChannels, wavBits;
+    if (parseWavHeader((const uint8_t*)fileData, totalBytes, &wavSampleRate, &wavChannels, &wavBits, &wavDataOffset, &wavDataSize) != 0) {
+        return false;
+    }
+
+    sampleRate = wavSampleRate;
+    channels = wavChannels;
+    wavBitDepth = wavBits;
+
+    streamPos = (uint8_t*)fileData + wavDataOffset;
+    bytesLeft = wavDataSize;
+    sampleBuf = (int16_t*)streamPos;
+    simples = 0;
+
+    struct pcm_config config;
+    config.bit_depth = wavBitDepth;
+    config.rate = sampleRate;
+    config.channels = channels;
+    config.period_size = 1024;
+    config.period_count = 4;
+    config.start_threshold = 1024;
+    config.stop_threshold = 1024 * 4;
+
+    pcmDev = pcm_open(device, &config);
+    if (pcmDev == NULL) {
+        return false;
+    }
+
+    devicePath = device;
+    totalMs = estimateTotalMs();
+    return true;
+}
+
+bool AudioPlayer::loadOgg(const char* device) {
+    oggVf = (OggVorbis_File*)calloc(1, sizeof(OggVorbis_File));
+    oggDs = (OggVorbis_DataSource*)calloc(1, sizeof(OggVorbis_DataSource));
+    if (oggVf == NULL || oggDs == NULL) {
+        return false;
+    }
+
+    oggDs->data = (uint8_t*)fileData;
+    oggDs->size = totalBytes;
+    oggDs->pos = 0;
+
+    ov_callbacks callbacks;
+    callbacks.read_func = ogg_read_func;
+    callbacks.seek_func = ogg_seek_func;
+    callbacks.close_func = ogg_close_func;
+    callbacks.tell_func = ogg_tell_func;
+
+    if (ov_open_callbacks(oggDs, oggVf, NULL, 0, callbacks) < 0) {
+        return false;
+    }
+
+    vorbis_info *vi = ov_info(oggVf, -1);
+    if (vi == NULL) {
+        return false;
+    }
+
+    sampleRate = vi->rate;
+    oggChannels = vi->channels;
+    channels = oggChannels;
+    simples = 1;
+
+    oggDecodeBuffer = (char*)malloc(8192);
+    if (oggChannels == 1) {
+        oggStereoBuffer = (char*)malloc(8192 * 2);
+    }
+
+    struct pcm_config config;
+    config.bit_depth = 16;
+    config.rate = sampleRate;
+    config.channels = 2;
+    config.period_size = 1024;
+    config.period_count = 4;
+    config.start_threshold = 1024;
+    config.stop_threshold = 1024 * 4;
+
+    pcmDev = pcm_open(device, &config);
+    if (pcmDev == NULL) {
+        return false;
+    }
+
+    sampleBuf = (int16_t*)calloc(MINIMP3_MAX_SAMPLES_PER_FRAME, sizeof(int16_t));
+    if (sampleBuf == NULL) {
+        return false;
+    }
+
+    devicePath = device;
+    totalMs = estimateTotalMs();
+    return true;
+}
+
+void AudioPlayer::replayMp3(const char* device) {
+    streamPos = (uint8_t*)fileData;
+    bytesLeft = totalBytes;
+    currentMs = 0;
+    eof = false;
+
+    mp3dec_init(mp3dec);
+
+    int decodedSamples = mp3dec_decode_frame(mp3dec, streamPos, bytesLeft, sampleBuf, info);
+    if (decodedSamples > 0 && info->frame_bytes > 0) {
+        simples = decodedSamples;
+        streamPos += info->frame_bytes;
+        bytesLeft -= info->frame_bytes;
+    }
+
+    struct pcm_config config;
+    config.bit_depth = 16;
+    config.rate = sampleRate;
+    config.channels = channels;
+    config.period_size = 1024;
+    config.period_count = 4;
+    config.start_threshold = 1024;
+    config.stop_threshold = 1024 * 4;
+
+    pcmDev = pcm_open(device, &config);
+    if (pcmDev != NULL) {
+        devicePath = device;
+    }
+}
+
+void AudioPlayer::replayWav(const char* device) {
+    streamPos = (uint8_t*)fileData + wavDataOffset;
+    bytesLeft = wavDataSize;
+    currentMs = 0;
+    eof = false;
+    sampleBuf = (int16_t*)streamPos;
+    simples = 0;
+
+    struct pcm_config config;
+    config.bit_depth = wavBitDepth;
+    config.rate = sampleRate;
+    config.channels = channels;
+    config.period_size = 1024;
+    config.period_count = 4;
+    config.start_threshold = 1024;
+    config.stop_threshold = 1024 * 4;
+
+    pcmDev = pcm_open(device, &config);
+    if (pcmDev != NULL) {
+        devicePath = device;
+    }
+}
+
+void AudioPlayer::replayOgg(const char* device) {
+    ov_raw_seek(oggVf, 0);
+    currentMs = 0;
+    eof = false;
+    simples = 1;
+    zeroReadCount = 0;
+
+    struct pcm_config config;
+    config.bit_depth = 16;
+    config.rate = sampleRate;
+    config.channels = 2;
+    config.period_size = 1024;
+    config.period_count = 4;
+    config.start_threshold = 1024;
+    config.stop_threshold = 1024 * 4;
+
+    pcmDev = pcm_open(device, &config);
+    if (pcmDev != NULL) {
+        devicePath = device;
+    }
+}
+
+bool AudioPlayer::decodeMp3Frame() {
+    if (simples == 0) {
+        eof = true;
+        return false;
+    }
+
+    int decodedSamples = mp3dec_decode_frame(mp3dec, streamPos, bytesLeft, sampleBuf, info);
+
+    if (decodedSamples == 0) {
+        return false;
+    }
+
+    if (playing) {
+        int ret = pcm_write(pcmDev, sampleBuf, decodedSamples * 2 * channels);
+        if (ret != 0) {
+            eof = true;
+            return false;
         }
+        currentMs += (decodedSamples * 1000) / sampleRate;
+        streamPos += info->frame_bytes;
+        bytesLeft -= info->frame_bytes;
+    } else {
+        streamPos += info->frame_bytes;
+        bytesLeft -= info->frame_bytes;
+    }
 
-        char *output_buf = oggDecodeBuffer;
-        int output_bytes = bytes_read;
+    return true;
+}
 
-        if (oggChannels == 1) {
-            int16_t *mono_buf = (int16_t *)oggDecodeBuffer;
-            int16_t *stereo_buf = (int16_t *)oggStereoBuffer;
-            int mono_samples = bytes_read / 2;
-            for (int i = mono_samples - 1; i >= 0; i--) {
-                stereo_buf[i * 2] = mono_buf[i];
-                stereo_buf[i * 2 + 1] = mono_buf[i];
-            }
-            output_buf = oggStereoBuffer;
-            output_bytes = mono_samples * 4;
+bool AudioPlayer::decodeWavFrame() {
+    int bytesPerSample = (wavBitDepth / 8) * channels;
+    int toWrite = bytesPerSample * 1024;
+    if (toWrite > bytesLeft) {
+        toWrite = bytesLeft;
+    }
+    if (toWrite <= 0) {
+        eof = true;
+        return false;
+    }
+
+    if (playing) {
+        int ret = pcm_write(pcmDev, streamPos, toWrite);
+        if (ret != 0) {
+            eof = true;
+            return false;
         }
+        int samples = toWrite / bytesPerSample;
+        currentMs += (samples * 1000) / sampleRate;
+        streamPos += toWrite;
+        bytesLeft -= toWrite;
+    } else {
+        streamPos += toWrite;
+        bytesLeft -= toWrite;
+    }
 
-        if (playing) {
-            int ret = pcm_write(pcmDev, output_buf, output_bytes);
-            currentMs += (uint32_t)((output_bytes * 1000) / (sampleRate * 4));
-        }
+    return true;
+}
 
-        int samples = output_bytes / 4;
-        if (samples > MINIMP3_MAX_SAMPLES_PER_FRAME / 2) {
-            samples = MINIMP3_MAX_SAMPLES_PER_FRAME / 2;
-        }
+bool AudioPlayer::decodeOggFrame() {
+    if (eof) {
+        return false;
+    }
 
-        memcpy(sampleBuf, output_buf, samples * 4);
-        simples = samples;
+    long bytes_read = ov_read(oggVf, oggDecodeBuffer, 8192, 0, 2, 1, &oggBitstream);
 
+    if (bytes_read == 0) {
+        eof = true;
+        return false;
+    }
+
+    if (bytes_read < 0) {
         return true;
     }
 
-private:
-    mp3dec_t mp3dec;
-    mp3dec_frame_info_t info;
-    struct pcm_t* pcmDev;
-    void* fileData;
-    uint8_t* streamPos;
-    int bytesLeft;
-    int totalBytes;
-    int simples;
-    int16_t sampleBuf[MINIMP3_MAX_SAMPLES_PER_FRAME];
-    bool playing;
-    bool paused;
-    bool eof;
-    int channels;
-    int sampleRate;
-    uint32_t currentMs;
-    uint32_t totalMs;
-    const char* devicePath;
-    AudioFormat format;
-    int wavDataOffset;
-    int wavDataSize;
-    int wavBitDepth;
-    OggVorbis_File oggVf;
-    int oggBitstream;
-    int oggChannels;
-    int zeroReadCount;
-    OggVorbis_DataSource oggDs;
-    char oggDecodeBuffer[32768];
-    char oggStereoBuffer[32768];
+    char *output_buf = oggDecodeBuffer;
+    int output_bytes = bytes_read;
 
-    uint32_t estimateTotalMs() {
-        if (info.frame_bytes <= 0) return 0;
-        uint32_t totalFrames = bytesLeft / info.frame_bytes + 1;
-        return (totalFrames * simples * 1000) / sampleRate;
+    if (oggChannels == 1) {
+        int mono_samples = bytes_read / 2;
+        for (int i = 0; i < mono_samples; i++) {
+            int16_t sample = ((int16_t*)oggDecodeBuffer)[i];
+            ((int16_t*)oggStereoBuffer)[i * 2] = sample;
+            ((int16_t*)oggStereoBuffer)[i * 2 + 1] = sample;
+        }
+        output_buf = oggStereoBuffer;
+        output_bytes = mono_samples * 4;
     }
-};
+
+    int samples = output_bytes / 4;
+    if (samples > MINIMP3_MAX_SAMPLES_PER_FRAME / 2) {
+        samples = MINIMP3_MAX_SAMPLES_PER_FRAME / 2;
+    }
+
+    memcpy(sampleBuf, output_buf, samples * 4);
+    simples = samples;
+
+    if (playing) {
+        int ret = pcm_write(pcmDev, output_buf, output_bytes);
+        if (ret != 0) {
+            eof = true;
+            return false;
+        }
+        currentMs += (uint32_t)((output_bytes * 1000) / (sampleRate * 4));
+    }
+
+    return true;
+}
+
+uint32_t AudioPlayer::estimateTotalMs() {
+    if (format == FORMAT_OGG) {
+        long totalSamples = ov_pcm_total(oggVf, -1);
+        if (totalSamples > 0) {
+            return (uint32_t)((totalSamples * 1000) / sampleRate);
+        }
+    }
+
+    int bytesPerSample = 2 * channels;
+    int bytesPerSecond = sampleRate * bytesPerSample;
+    if (bytesPerSecond > 0) {
+        return (uint32_t)((totalBytes * 1000) / bytesPerSecond);
+    }
+    return 0;
+}
+

@@ -24,7 +24,7 @@
 #include <fcntl.h>
 
 // Include AudioPlayer class
-#include "AudioPlayer.cc"
+#include "AudioPlayer.h"
 
 using namespace Ewok;
 

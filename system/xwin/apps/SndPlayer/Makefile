@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I $(BUILD_DIR)/include
 
-SND_PLAYER_OBJS = SndPlayer.o
+SND_PLAYER_OBJS = SndPlayer.o AudioPlayer.o
 
 SND_PLAYER_DIR = $(TARGET_DIR)/apps/SndPlayer
 SND_PLAYER = $(SND_PLAYER_DIR)/SndPlayer
@@ -28,6 +28,10 @@ $(SND_PLAYER): $(SND_PLAYER_OBJS) \
 $(SND_PLAYER_DIR):		
 	mkdir -p $(SND_PLAYER_DIR)
 	cp -r res $(SND_PLAYER_DIR)
+
+# Compile .cc files
+%.o: %.cc
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
 	rm -f $(SND_PLAYER_OBJS)
