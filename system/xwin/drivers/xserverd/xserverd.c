@@ -602,7 +602,9 @@ static int x_init(x_t* x, const char* display_man, int32_t display_index) {
 
 	x_display_t* display = &x->displays[0];
 	x->cursor.cpos.x = display->g->w/2;
-	x->cursor.cpos.y = display->g->h/2; 
+	x->cursor.cpos.y = display->g->h/2;
+	x->mouse_state.last_pos.x = x->cursor.cpos.x;
+	x->mouse_state.last_pos.y = x->cursor.cpos.y;
 	x->show_cursor = true;
 
 	xevent_pool_init();
@@ -1583,6 +1585,11 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 		x->cursor.cpos.y = ev->value.mouse.y;
 	}
 
+	ev->value.mouse.rx = ev->value.mouse.x - x->mouse_state.last_pos.x;
+	ev->value.mouse.ry = ev->value.mouse.y - x->mouse_state.last_pos.y;
+	x->mouse_state.last_pos.x = ev->value.mouse.x;
+	x->mouse_state.last_pos.y = ev->value.mouse.y;
+
 	x_display_t *display = &x->displays[x->current_display];
 	display->cursor_task = true;
 	cursor_safe(x, display);
@@ -1592,10 +1599,6 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 			x->mouse_state.state = MOUSE_STATE_DOWN;
 			x->mouse_state.down_pos.x = ev->value.mouse.x;
 			x->mouse_state.down_pos.y = ev->value.mouse.y;
-			x->mouse_state.last_pos.x = ev->value.mouse.x;
-			x->mouse_state.last_pos.y = ev->value.mouse.y;
-			ev->value.mouse.rx = 0;
-			ev->value.mouse.ry = 0;
 		}
 		//else if(ev->value.mouse.from_x != ev->value.mouse.x ||
 			//		ev->value.mouse.from_y != ev->value.mouse.y ||
@@ -1606,10 +1609,6 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 			ev->state = MOUSE_STATE_DRAG;
 			ev->value.mouse.from_x = x->mouse_state.down_pos.x;
 			ev->value.mouse.from_y = x->mouse_state.down_pos.y;
-			ev->value.mouse.rx = ev->value.mouse.x - x->mouse_state.last_pos.x;
-			ev->value.mouse.ry = ev->value.mouse.y - x->mouse_state.last_pos.y;
-			x->mouse_state.last_pos.x = ev->value.mouse.x;
-			x->mouse_state.last_pos.y = ev->value.mouse.y;
 		}
 	}
 	else if(ev->state ==  MOUSE_STATE_UP) {
@@ -1617,10 +1616,6 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
 		x->mouse_state.state = MOUSE_STATE_NONE;
 		ev->value.mouse.from_x = x->mouse_state.down_pos.x;
 		ev->value.mouse.from_y = x->mouse_state.down_pos.y;
-		ev->value.mouse.rx = ev->value.mouse.x - x->mouse_state.last_pos.x;
-		ev->value.mouse.ry = ev->value.mouse.y - x->mouse_state.last_pos.y;
-		x->mouse_state.last_pos.x = ev->value.mouse.x;
-		x->mouse_state.last_pos.y = ev->value.mouse.y;
 	}
 
 	int pos = -1;

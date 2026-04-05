@@ -25,6 +25,8 @@ int pthread_create(pthread_t* thread,
 
 pthread_t pthread_self(void);
 
+int pthread_join(pthread_t thread, void **retval);
+
 int pthread_mutex_init(pthread_mutex_t* mutex, const pthread_mutexattr_t *attr);
 
 int pthread_mutex_lock(pthread_mutex_t* mutex);
