@@ -203,6 +203,19 @@ int textgrid_push(textgrid_t* grid, textchar_t* tch) {
 			grid->rows = grid->curs_y+1;
 	}
 
+	if(tch->c == '\n' || tch->c == '\r') {
+		if((grid->curs_y+1) >= grid->total_rows) {
+			if(textgrid_expand(grid, EXPAND_ROWS) != 0)
+				return -1;
+		}
+		if(grid->rows != 0)
+			grid->curs_y++;
+		if(grid->curs_y >= grid->rows)
+			grid->rows = grid->curs_y+1;
+		grid->curs_x = 0;
+		return 0;
+	}
+
 	uint32_t at = (grid->curs_y)*grid->cols + grid->curs_x;
 	grid->grid[at] = *tch;
 	if(is_tail) {
