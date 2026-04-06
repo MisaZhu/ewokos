@@ -637,6 +637,22 @@ static bool all_win_ready(x_t* x) {
 	return true;
 }
 
+static bool x_is_hide_cursor_on_win(x_t* x) {
+	xwin_t* win = get_top_focus_win(x, false);
+	if(win == NULL)
+		return false;
+	if(!win->xinfo->hide_cursor)
+		return false;
+
+	int32_t mx = x->cursor.cpos.x;
+	int32_t my = x->cursor.cpos.y;
+
+	if(mx < win->xinfo->winr.x || mx > (win->xinfo->winr.x + win->xinfo->winr.w) ||
+			my < win->xinfo->winr.y || my > (win->xinfo->winr.y + win->xinfo->winr.h))
+		return false;
+	return true;
+}
+
 static void x_repaint(x_t* x, uint32_t display_index) {
 	x_display_t* display = &x->displays[display_index];
 	if(display->g == NULL ||
@@ -652,8 +668,10 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 		do_flush = true;
 	}	
 
-	if((x->show_cursor || x->mouse_state.busy) && x->current_display == display_index)
-		hide_cursor(x);
+	if((x->show_cursor || x->mouse_state.busy) && x->current_display == display_index) {
+		if(!x_is_hide_cursor_on_win(x))
+			hide_cursor(x);
+	}
 
 	if(display->dirty) {
 		draw_desktop(x, display_index);
@@ -679,8 +697,10 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 	}
 
 	if(x->current_display == display_index) {
-		if(x->show_cursor || x->mouse_state.busy)
-			refresh_cursor(x);
+		if(x->show_cursor || x->mouse_state.busy) {
+			if(!x_is_hide_cursor_on_win(x))
+				refresh_cursor(x);
+		}
 	}
 
 	display->dirty = false;

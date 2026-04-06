@@ -357,6 +357,13 @@ void xwin_set_alpha(xwin_t* xwin, bool alpha) {
 	xwin->xinfo->alpha = alpha;
 }
 
+void xwin_hide_cursor(xwin_t* xwin, bool hide) {
+	if(xwin->xinfo == NULL || xwin->xinfo->hide_cursor == hide)
+		return;
+	xwin->xinfo->hide_cursor = hide;
+	xwin_update_info(xwin, X_UPDATE_REFRESH);
+}
+
 int xwin_set_visible(xwin_t* xwin, bool visible) {
 	if(xwin->xinfo == NULL || xwin->xinfo->visible == visible)
 		return 0;

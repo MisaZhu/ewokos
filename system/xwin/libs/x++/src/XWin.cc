@@ -300,6 +300,12 @@ void XWin::busy(bool bs) {
 	xwin_busy(xwin, bs);
 }
 
+void XWin::hideCursor(bool hide) {
+	if(xwin == NULL)	
+		return;
+	xwin_hide_cursor(xwin, hide);
+}
+
 gpos_t XWin::getInsidePos(int32_t x, int32_t y) {
 	gpos_t pos = {0};
 	if(xwin == NULL || xwin->xinfo == NULL)

@@ -57,6 +57,7 @@ int      xwin_event_handle(xwin_t* xwin, xevent_t* ev);
 gpos_t   xwin_get_inside_pos(xwin_t* xwin, int32_t x, int32_t y);
 gpos_t   xwin_get_screen_pos(xwin_t* xwin, int32_t x, int32_t y);
 void     xwin_busy(xwin_t* xwin, bool busy);
+void     xwin_hide_cursor(xwin_t* xwin, bool hide);
 
 #ifdef __cplusplus
 }

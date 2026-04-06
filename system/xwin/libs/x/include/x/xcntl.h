@@ -85,6 +85,7 @@ typedef struct {
 	bool is_main;
 	bool alpha;
 	bool focused;
+	bool hide_cursor;
 	grect_t wsr; //workspace rect
 	grect_t winr; //window rect
 	char title[XWIN_TITLE_MAX];
