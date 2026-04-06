@@ -86,9 +86,6 @@ void     graph_gray(graph_t* g);
 void     graph_rotate_to(graph_t* g, graph_t* dst, int rot);
 graph_t* graph_rotate(graph_t* g, int rot);
 
-void     graph_scale_to(graph_t* src, graph_t* dst, int scale);
-graph_t* graph_scale(graph_t* g, int scale);
-
 void     graph_scale_tof_cpu(graph_t* g, graph_t* dst, float scale);
 void     graph_scale_tof(graph_t* src, graph_t* dst, float scale);
 graph_t* graph_scalef(graph_t* g, float scale);

@@ -1038,208 +1038,180 @@ void graph_scale_tof_fast_bsp(graph_t* g, graph_t* dst, double scale) {
             dst->h < (int)(g->h*scale))
         return;
 
-    float inv_scale = 1.0f / scale;
-    int hmin = g->h - 2;
-    int wmin = g->w - 2;
+    #define FIXED_SHIFT 16
+    #define FIXED_SCALE (1 << FIXED_SHIFT)
+    #define FIXED_MASK (FIXED_SCALE - 1)
+
+    int hmax = g->h - 1;
+    int wmax = g->w - 1;
+    uint32_t inv_scale = (uint32_t)((1.0f / scale) * FIXED_SCALE);
 
     for(int i = 0; i < dst->h; i++) {
-        float gi = (float)i * inv_scale;
+        uint32_t gi = (i * inv_scale) >> FIXED_SHIFT;
         int gi0 = (int)gi;
-        float gi_frac = gi - gi0;
-        
-        gi0 = gi0 < 0 ? 0 : (gi0 > hmin ? hmin : gi0);
-        
+        uint32_t gi_frac = (i * inv_scale) & FIXED_MASK;
+        int gi1 = gi0 + 1;
+
+        if(gi0 < 0) { gi0 = 0; gi1 = 0; gi_frac = 0; }
+        else if(gi0 >= hmax) { gi0 = hmax; gi1 = hmax; gi_frac = 0; }
+        if(gi1 > hmax) gi1 = hmax;
+
         int gi0w = gi0 * g->w;
-        int gi1w = (gi0 + 1) * g->w;
+        int gi1w = gi1 * g->w;
 
         int j = 0;
-        // NEON-optimized path: process 8 pixels at once
-        for(; j <= dst->w - 8; j += 8) {
-            float gj[8];
-            int gj0[8];
-            float gj_frac[8];
-            
-            for(int k = 0; k < 8; k++) {
-                gj[k] = (float)(j + k) * inv_scale;
-                gj0[k] = (int)gj[k];
-                gj_frac[k] = gj[k] - gj0[k];
-                if(gj0[k] < 0) gj0[k] = 0;
-                if(gj0[k] > wmin) gj0[k] = wmin;
+        for(; j <= dst->w - 4; j += 4) {
+            uint32_t gj[4];
+            int gj0[4];
+            int gj1[4];
+            uint32_t gj_frac[4];
+
+            for(int k = 0; k < 4; k++) {
+                gj[k] = (j + k) * inv_scale;
+                gj0[k] = (int)(gj[k] >> FIXED_SHIFT);
+                gj_frac[k] = gj[k] & FIXED_MASK;
+                gj1[k] = gj0[k] + 1;
+                if(gj0[k] < 0) { gj0[k] = 0; gj1[k] = 0; gj_frac[k] = 0; }
+                else if(gj0[k] > wmax) { gj0[k] = wmax; gj1[k] = wmax; gj_frac[k] = 0; }
+                if(gj1[k] > wmax) gj1[k] = wmax;
             }
 
-            uint32x4_t result[2];
-            
-            for(int pair = 0; pair < 2; pair++) {
-                int offset = pair * 4;
-                
-                // Load 4 pixels from top row (p00, p01 pairs)
-                uint32_t p00_0 = g->buffer[gi0w + gj0[offset]];
-                uint32_t p01_0 = g->buffer[gi0w + gj0[offset] + 1];
-                uint32_t p00_1 = g->buffer[gi0w + gj0[offset + 1]];
-                uint32_t p01_1 = g->buffer[gi0w + gj0[offset + 1] + 1];
-                uint32_t p00_2 = g->buffer[gi0w + gj0[offset + 2]];
-                uint32_t p01_2 = g->buffer[gi0w + gj0[offset + 2] + 1];
-                uint32_t p00_3 = g->buffer[gi0w + gj0[offset + 3]];
-                uint32_t p01_3 = g->buffer[gi0w + gj0[offset + 3] + 1];
-                
-                // Load 4 pixels from bottom row (p10, p11 pairs)
-                uint32_t p10_0 = g->buffer[gi1w + gj0[offset]];
-                uint32_t p11_0 = g->buffer[gi1w + gj0[offset] + 1];
-                uint32_t p10_1 = g->buffer[gi1w + gj0[offset + 1]];
-                uint32_t p11_1 = g->buffer[gi1w + gj0[offset + 1] + 1];
-                uint32_t p10_2 = g->buffer[gi1w + gj0[offset + 2]];
-                uint32_t p11_2 = g->buffer[gi1w + gj0[offset + 2] + 1];
-                uint32_t p10_3 = g->buffer[gi1w + gj0[offset + 3]];
-                uint32_t p11_3 = g->buffer[gi1w + gj0[offset + 3] + 1];
-                
-                // Build vectors for top row interpolation
-                uint32x4_t p00_vec = (uint32x4_t){p00_0, p00_1, p00_2, p00_3};
-                uint32x4_t p01_vec = (uint32x4_t){p01_0, p01_1, p01_2, p01_3};
-                uint32x4_t p10_vec = (uint32x4_t){p10_0, p10_1, p10_2, p10_3};
-                uint32x4_t p11_vec = (uint32x4_t){p11_0, p11_1, p11_2, p11_3};
-                
-                // Extract color channels
-                uint32x4_t r00 = vshrq_n_u32(vandq_u32(p00_vec, vdupq_n_u32(0x00FF0000)), 16);
-                uint32x4_t g00 = vshrq_n_u32(vandq_u32(p00_vec, vdupq_n_u32(0x0000FF00)), 8);
-                uint32x4_t b00 = vandq_u32(p00_vec, vdupq_n_u32(0x000000FF));
-                uint32x4_t a00 = vshrq_n_u32(p00_vec, 24);
-                
-                uint32x4_t r01 = vshrq_n_u32(vandq_u32(p01_vec, vdupq_n_u32(0x00FF0000)), 16);
-                uint32x4_t g01 = vshrq_n_u32(vandq_u32(p01_vec, vdupq_n_u32(0x0000FF00)), 8);
-                uint32x4_t b01 = vandq_u32(p01_vec, vdupq_n_u32(0x000000FF));
-                uint32x4_t a01 = vshrq_n_u32(p01_vec, 24);
-                
-                uint32x4_t r10 = vshrq_n_u32(vandq_u32(p10_vec, vdupq_n_u32(0x00FF0000)), 16);
-                uint32x4_t g10 = vshrq_n_u32(vandq_u32(p10_vec, vdupq_n_u32(0x0000FF00)), 8);
-                uint32x4_t b10 = vandq_u32(p10_vec, vdupq_n_u32(0x000000FF));
-                uint32x4_t a10 = vshrq_n_u32(p10_vec, 24);
-                
-                uint32x4_t r11 = vshrq_n_u32(vandq_u32(p11_vec, vdupq_n_u32(0x00FF0000)), 16);
-                uint32x4_t g11 = vshrq_n_u32(vandq_u32(p11_vec, vdupq_n_u32(0x0000FF00)), 8);
-                uint32x4_t b11 = vandq_u32(p11_vec, vdupq_n_u32(0x000000FF));
-                uint32x4_t a11 = vshrq_n_u32(p11_vec, 24);
-                
-                // Convert to float for interpolation
-                float32x4_t gj_frac_vec = (float32x4_t){gj_frac[offset], gj_frac[offset + 1], 
-                                                         gj_frac[offset + 2], gj_frac[offset + 3]};
-                float32x4_t one_minus_gj_frac = vsubq_f32(vdupq_n_f32(1.0f), gj_frac_vec);
-                float32x4_t gi_frac_vec = vdupq_n_f32(gi_frac);
-                float32x4_t one_minus_gi_frac = vsubq_f32(vdupq_n_f32(1.0f), gi_frac_vec);
-                
-                // Horizontal interpolation (top row)
-                float32x4_t r_top = vaddq_f32(vmulq_f32(vcvtq_f32_u32(r00), one_minus_gj_frac),
-                                              vmulq_f32(vcvtq_f32_u32(r01), gj_frac_vec));
-                float32x4_t g_top = vaddq_f32(vmulq_f32(vcvtq_f32_u32(g00), one_minus_gj_frac),
-                                              vmulq_f32(vcvtq_f32_u32(g01), gj_frac_vec));
-                float32x4_t b_top = vaddq_f32(vmulq_f32(vcvtq_f32_u32(b00), one_minus_gj_frac),
-                                              vmulq_f32(vcvtq_f32_u32(b01), gj_frac_vec));
-                float32x4_t a_top = vaddq_f32(vmulq_f32(vcvtq_f32_u32(a00), one_minus_gj_frac),
-                                              vmulq_f32(vcvtq_f32_u32(a01), gj_frac_vec));
-                
-                // Horizontal interpolation (bottom row)
-                float32x4_t r_bot = vaddq_f32(vmulq_f32(vcvtq_f32_u32(r10), one_minus_gj_frac),
-                                              vmulq_f32(vcvtq_f32_u32(r11), gj_frac_vec));
-                float32x4_t g_bot = vaddq_f32(vmulq_f32(vcvtq_f32_u32(g10), one_minus_gj_frac),
-                                              vmulq_f32(vcvtq_f32_u32(g11), gj_frac_vec));
-                float32x4_t b_bot = vaddq_f32(vmulq_f32(vcvtq_f32_u32(b10), one_minus_gj_frac),
-                                              vmulq_f32(vcvtq_f32_u32(b11), gj_frac_vec));
-                float32x4_t a_bot = vaddq_f32(vmulq_f32(vcvtq_f32_u32(a10), one_minus_gj_frac),
-                                              vmulq_f32(vcvtq_f32_u32(a11), gj_frac_vec));
-                
-                // Vertical interpolation
-                float32x4_t r_final = vaddq_f32(vmulq_f32(r_top, one_minus_gi_frac),
-                                                vmulq_f32(r_bot, gi_frac_vec));
-                float32x4_t g_final = vaddq_f32(vmulq_f32(g_top, one_minus_gi_frac),
-                                                vmulq_f32(g_bot, gi_frac_vec));
-                float32x4_t b_final = vaddq_f32(vmulq_f32(b_top, one_minus_gi_frac),
-                                                vmulq_f32(b_bot, gi_frac_vec));
-                float32x4_t a_final = vaddq_f32(vmulq_f32(a_top, one_minus_gi_frac),
-                                                vmulq_f32(a_bot, gi_frac_vec));
-                
-                // Convert back to integers
-                uint32x4_t r_int = vcvtq_u32_f32(r_final);
-                uint32x4_t g_int = vcvtq_u32_f32(g_final);
-                uint32x4_t b_int = vcvtq_u32_f32(b_final);
-                uint32x4_t a_int = vcvtq_u32_f32(a_final);
-                
-                // Clamp to 0-255
-                r_int = vminq_u32(r_int, vdupq_n_u32(255));
-                g_int = vminq_u32(g_int, vdupq_n_u32(255));
-                b_int = vminq_u32(b_int, vdupq_n_u32(255));
-                a_int = vminq_u32(a_int, vdupq_n_u32(255));
-                
-                // Pack into final ARGB format
-                result[pair] = vorrq_u32(
-                    vshlq_n_u32(a_int, 24),
-                    vorrq_u32(
-                        vshlq_n_u32(r_int, 16),
-                        vorrq_u32(
-                            vshlq_n_u32(g_int, 8),
-                            b_int
-                        )
-                    )
-                );
+            uint32_t result[4];
+            for(int k = 0; k < 4; k++) {
+                uint32_t p00 = g->buffer[gi0w + gj0[k]];
+                uint32_t p01 = g->buffer[gi0w + gj1[k]];
+                uint32_t p10 = g->buffer[gi1w + gj0[k]];
+                uint32_t p11 = g->buffer[gi1w + gj1[k]];
+
+                if(p00 == p01 && p00 == p10 && p00 == p11) {
+                    result[k] = p00;
+                    continue;
+                }
+
+                uint32_t one_minus_fx = FIXED_SCALE - gj_frac[k];
+                uint32_t one_minus_fy = FIXED_SCALE - gi_frac;
+
+                uint32_t r00 = (p00 >> 16) & 0xFF;
+                uint32_t g00 = (p00 >> 8) & 0xFF;
+                uint32_t b00 = p00 & 0xFF;
+                uint32_t a00 = (p00 >> 24) & 0xFF;
+
+                uint32_t r01 = (p01 >> 16) & 0xFF;
+                uint32_t g01 = (p01 >> 8) & 0xFF;
+                uint32_t b01 = p01 & 0xFF;
+                uint32_t a01 = (p01 >> 24) & 0xFF;
+
+                uint32_t r10 = (p10 >> 16) & 0xFF;
+                uint32_t g10 = (p10 >> 8) & 0xFF;
+                uint32_t b10 = p10 & 0xFF;
+                uint32_t a10 = (p10 >> 24) & 0xFF;
+
+                uint32_t r11 = (p11 >> 16) & 0xFF;
+                uint32_t g11 = (p11 >> 8) & 0xFF;
+                uint32_t b11 = p11 & 0xFF;
+                uint32_t a11 = (p11 >> 24) & 0xFF;
+
+                uint64_t tmp_r = (uint64_t)one_minus_fx * one_minus_fy * r00 +
+                                 (uint64_t)gj_frac[k] * one_minus_fy * r01 +
+                                 (uint64_t)one_minus_fx * gi_frac * r10 +
+                                 (uint64_t)gj_frac[k] * gi_frac * r11;
+                uint64_t tmp_g = (uint64_t)one_minus_fx * one_minus_fy * g00 +
+                                 (uint64_t)gj_frac[k] * one_minus_fy * g01 +
+                                 (uint64_t)one_minus_fx * gi_frac * g10 +
+                                 (uint64_t)gj_frac[k] * gi_frac * g11;
+                uint64_t tmp_b = (uint64_t)one_minus_fx * one_minus_fy * b00 +
+                                 (uint64_t)gj_frac[k] * one_minus_fy * b01 +
+                                 (uint64_t)one_minus_fx * gi_frac * b10 +
+                                 (uint64_t)gj_frac[k] * gi_frac * b11;
+                uint64_t tmp_a = (uint64_t)one_minus_fx * one_minus_fy * a00 +
+                                 (uint64_t)gj_frac[k] * one_minus_fy * a01 +
+                                 (uint64_t)one_minus_fx * gi_frac * a10 +
+                                 (uint64_t)gj_frac[k] * gi_frac * a11;
+
+                uint32_t r = tmp_r >> (2 * FIXED_SHIFT);
+                uint32_t g_val = tmp_g >> (2 * FIXED_SHIFT);
+                uint32_t b = tmp_b >> (2 * FIXED_SHIFT);
+                uint32_t a = tmp_a >> (2 * FIXED_SHIFT);
+
+                result[k] = (a << 24) | (r << 16) | (g_val << 8) | b;
             }
-            
-            vst1q_u32(&dst->buffer[i * dst->w + j], result[0]);
-            vst1q_u32(&dst->buffer[i * dst->w + j + 4], result[1]);
+            dst->buffer[i * dst->w + j] = result[0];
+            dst->buffer[i * dst->w + j + 1] = result[1];
+            dst->buffer[i * dst->w + j + 2] = result[2];
+            dst->buffer[i * dst->w + j + 3] = result[3];
         }
 
-        // Scalar fallback for remaining pixels
         for(; j < dst->w; j++) {
-            float gj = (float)j * inv_scale;
-            int gj0 = (int)gj;
-            float gj_frac = gj - gj0;
-            
-            if(gj0 < 0) gj0 = 0;
-            if(gj0 > wmin) gj0 = wmin;
-            
+            uint32_t gj = j * inv_scale;
+            int gj0 = (int)(gj >> FIXED_SHIFT);
+            uint32_t gj_frac = gj & FIXED_MASK;
+            int gj1 = gj0 + 1;
+
+            if(gj0 < 0) { gj0 = 0; gj1 = 0; gj_frac = 0; }
+            else if(gj0 >= wmax) { gj0 = wmax; gj1 = wmax; gj_frac = 0; }
+            if(gj1 > wmax) gj1 = wmax;
+
             uint32_t p00 = g->buffer[gi0w + gj0];
-            uint32_t p01 = g->buffer[gi0w + gj0 + 1];
+            uint32_t p01 = g->buffer[gi0w + gj1];
             uint32_t p10 = g->buffer[gi1w + gj0];
-            uint32_t p11 = g->buffer[gi1w + gj0 + 1];
-            
-            // Fast path: if all 4 pixels are the same, skip interpolation
+            uint32_t p11 = g->buffer[gi1w + gj1];
+
             if(p00 == p01 && p00 == p10 && p00 == p11) {
                 dst->buffer[i * dst->w + j] = p00;
                 continue;
             }
-            
-            uint8_t r00 = (p00 >> 16) & 0xFF;
-            uint8_t g00 = (p00 >> 8) & 0xFF;
-            uint8_t b00 = p00 & 0xFF;
-            uint8_t a00 = (p00 >> 24) & 0xFF;
-            
-            uint8_t r01 = (p01 >> 16) & 0xFF;
-            uint8_t g01 = (p01 >> 8) & 0xFF;
-            uint8_t b01 = p01 & 0xFF;
-            uint8_t a01 = (p01 >> 24) & 0xFF;
-            
-            uint8_t r10 = (p10 >> 16) & 0xFF;
-            uint8_t g10 = (p10 >> 8) & 0xFF;
-            uint8_t b10 = p10 & 0xFF;
-            uint8_t a10 = (p10 >> 24) & 0xFF;
-            
-            uint8_t r11 = (p11 >> 16) & 0xFF;
-            uint8_t g11 = (p11 >> 8) & 0xFF;
-            uint8_t b11 = p11 & 0xFF;
-            uint8_t a11 = (p11 >> 24) & 0xFF;
-            
-            float one_minus_gj_frac = 1.0f - gj_frac;
-            float one_minus_gi_frac = 1.0f - gi_frac;
-            
-            uint8_t r = (uint8_t)(one_minus_gi_frac * (one_minus_gj_frac * r00 + gj_frac * r01) +
-                                  gi_frac * (one_minus_gj_frac * r10 + gj_frac * r11));
-            uint8_t g_val = (uint8_t)(one_minus_gi_frac * (one_minus_gj_frac * g00 + gj_frac * g01) +
-                                      gi_frac * (one_minus_gj_frac * g10 + gj_frac * g11));
-            uint8_t b = (uint8_t)(one_minus_gi_frac * (one_minus_gj_frac * b00 + gj_frac * b01) +
-                                  gi_frac * (one_minus_gj_frac * b10 + gj_frac * b11));
-            uint8_t a = (uint8_t)(one_minus_gi_frac * (one_minus_gj_frac * a00 + gj_frac * a01) +
-                                  gi_frac * (one_minus_gj_frac * a10 + gj_frac * a11));
-            
+
+            uint32_t one_minus_fx = FIXED_SCALE - gj_frac;
+            uint32_t one_minus_fy = FIXED_SCALE - gi_frac;
+
+            uint32_t r00 = (p00 >> 16) & 0xFF;
+            uint32_t g00 = (p00 >> 8) & 0xFF;
+            uint32_t b00 = p00 & 0xFF;
+            uint32_t a00 = (p00 >> 24) & 0xFF;
+
+            uint32_t r01 = (p01 >> 16) & 0xFF;
+            uint32_t g01 = (p01 >> 8) & 0xFF;
+            uint32_t b01 = p01 & 0xFF;
+            uint32_t a01 = (p01 >> 24) & 0xFF;
+
+            uint32_t r10 = (p10 >> 16) & 0xFF;
+            uint32_t g10 = (p10 >> 8) & 0xFF;
+            uint32_t b10 = p10 & 0xFF;
+            uint32_t a10 = (p10 >> 24) & 0xFF;
+
+            uint32_t r11 = (p11 >> 16) & 0xFF;
+            uint32_t g11 = (p11 >> 8) & 0xFF;
+            uint32_t b11 = p11 & 0xFF;
+            uint32_t a11 = (p11 >> 24) & 0xFF;
+
+            uint64_t tmp_r = (uint64_t)one_minus_fx * one_minus_fy * r00 +
+                             (uint64_t)gj_frac * one_minus_fy * r01 +
+                             (uint64_t)one_minus_fx * gi_frac * r10 +
+                             (uint64_t)gj_frac * gi_frac * r11;
+            uint64_t tmp_g = (uint64_t)one_minus_fx * one_minus_fy * g00 +
+                             (uint64_t)gj_frac * one_minus_fy * g01 +
+                             (uint64_t)one_minus_fx * gi_frac * g10 +
+                             (uint64_t)gj_frac * gi_frac * g11;
+            uint64_t tmp_b = (uint64_t)one_minus_fx * one_minus_fy * b00 +
+                             (uint64_t)gj_frac * one_minus_fy * b01 +
+                             (uint64_t)one_minus_fx * gi_frac * b10 +
+                             (uint64_t)gj_frac * gi_frac * b11;
+            uint64_t tmp_a = (uint64_t)one_minus_fx * one_minus_fy * a00 +
+                             (uint64_t)gj_frac * one_minus_fy * a01 +
+                             (uint64_t)one_minus_fx * gi_frac * a10 +
+                             (uint64_t)gj_frac * gi_frac * a11;
+
+            uint32_t r = tmp_r >> (2 * FIXED_SHIFT);
+            uint32_t g_val = tmp_g >> (2 * FIXED_SHIFT);
+            uint32_t b = tmp_b >> (2 * FIXED_SHIFT);
+            uint32_t a = tmp_a >> (2 * FIXED_SHIFT);
+
             dst->buffer[i * dst->w + j] = (a << 24) | (r << 16) | (g_val << 8) | b;
         }
     }
+    #undef FIXED_SHIFT
+    #undef FIXED_SCALE
+    #undef FIXED_MASK
 }
 
 #endif

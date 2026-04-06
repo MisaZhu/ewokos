@@ -250,50 +250,6 @@ inline graph_t* graph_rotate(graph_t* g, int rot) {
 	return ret;
 }
 
-void graph_scale_to(graph_t* g, graph_t* dst, int scale) {
-	if(scale == 0 || dst->w < g->w*scale || dst->h < g->h*scale)
-		return;
-	
-	if(scale > 0) { //bigger
-		for(int i=0; i<dst->h; i++) {
-			int gi = i / scale;
-			for(int j=0; j<dst->w; j++) {
-				int gj = j / scale;
-				dst->buffer[i*dst->w + j] = g->buffer[(gi*g->w + gj)];
-			}
-		}
-		return;
-	}
-	//smaller
-	if(scale < 0)
-		scale = -scale;
-	for(int i=0; i<dst->h; i++) {
-		int gi = i * scale;
-		for(int j=0; j<dst->w; j++) {
-			int gj = j * scale;
-			dst->buffer[i*dst->w + j] = g->buffer[(gi*g->w + gj)];
-		}
-	}
-}
-
-graph_t* graph_scale(graph_t* g, int scale) {
-	graph_t* ret = NULL;
-	if(scale == 0)
-		return NULL;
-	
-	if(scale > 0) { //bigger
-		ret = graph_new(NULL, g->w*scale, g->h*scale);
-	}
-	if(scale < 0) {//smaller
-		int sc = -scale;
-		ret = graph_new(NULL, g->w/sc, g->h/sc);
-	}
-	if(ret == NULL)
-		return NULL;
-	graph_scale_to(g, ret, scale);
-	return ret;
-}
-
 #ifdef __cplusplus
 }
 #endif
