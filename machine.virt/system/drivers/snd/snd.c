@@ -9,6 +9,7 @@
 #include <ewoksys/klog.h>
 #include <ewoksys/mmio.h>
 #include <ewoksys/proto.h>
+#include <ewoksys/proc.h>
 #include <ewoksys/vdevice.h>
 
 #define UNUSED(v) ((void)(v))
@@ -207,6 +208,7 @@ static int snd_prepare_stream(void)
 {
 	if (!_snd.configured)
 	{
+		klog("virtio-snd: snd_prepare_stream: stream not configured\n");
 		return -1;
 	}
 	if (_snd.prepared)
@@ -218,6 +220,7 @@ static int snd_prepare_stream(void)
 	virtio_snd_clear_error(_snd.dev);
 	if (virtio_snd_pcm_ctl(_snd.dev, VIRTIO_SND_R_PCM_PREPARE, (uint32_t)_snd.stream_id) != 0)
 	{
+		klog("virtio-snd: snd_prepare_stream: failed to prepare stream\n");
 		return -1;
 	}
 
@@ -259,7 +262,7 @@ static int snd_open(int fd, int from_pid, fsinfo_t *info, int oflag, void *p)
 	*/
 	snd_stop_and_release(true);
 	_snd.open_count = 1;
-	_snd.occupied_pid = from_pid;
+	_snd.occupied_pid = proc_getpid(from_pid);
 	return 0;
 }
 
@@ -271,7 +274,7 @@ static int snd_close(int fd, int from_pid, uint32_t node, fsinfo_t *info, void *
 	UNUSED(info);
 	UNUSED(p);
 
-	if (_snd.occupied_pid != from_pid) {
+	if (_snd.occupied_pid != proc_getpid(from_pid)) {
 		return -1;
 	}
 
@@ -288,7 +291,7 @@ static int snd_write(int fd, int from_pid, fsinfo_t *node,
 	UNUSED(node);
 	UNUSED(p);
 
-	if (!_snd.configured || size <= 0 || _snd.occupied_pid != from_pid)
+	if (!_snd.configured || size <= 0 || _snd.occupied_pid != proc_getpid(from_pid))
 	{
 		return -1;
 	}
@@ -317,7 +320,7 @@ static int snd_dcntl(int from_pid, int cmd, proto_t *in, proto_t *ret, void *p)
 	int result = 0;
 	struct pcm_config cfg;
 
-	if (_snd.occupied_pid != from_pid) {
+	if (_snd.occupied_pid != proc_getpid(from_pid)) {
 		return -1;
 	}
 
