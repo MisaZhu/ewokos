@@ -301,14 +301,18 @@ void XWin::busy(bool bs) {
 }
 
 gpos_t XWin::getInsidePos(int32_t x, int32_t y) {
-	gpos_t pos;
+	gpos_t pos = {0};
+	if(xwin == NULL || xwin->xinfo == NULL)
+		return pos;
 	pos.x = x - xwin->xinfo->wsr.x;
 	pos.y = y - xwin->xinfo->wsr.y;
 	return pos;
 }
 
 gpos_t XWin::getScreenPos(int32_t x, int32_t y) {
-	gpos_t pos;
+	gpos_t pos = {0};
+	if(xwin == NULL || xwin->xinfo == NULL)
+		return pos;
 	pos.x = x + xwin->xinfo->wsr.x;
 	pos.y = y + xwin->xinfo->wsr.y;
 	return pos;

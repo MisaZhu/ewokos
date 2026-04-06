@@ -380,6 +380,24 @@ int xwin_set_visible(xwin_t* xwin, bool visible) {
 	return res;
 }
 
+gpos_t xwin_get_inside_pos(xwin_t* xwin, int32_t x, int32_t y) {
+	gpos_t pos = {0};
+	if(xwin == NULL || xwin->xinfo == NULL)
+		return pos;
+	pos.x = x - xwin->xinfo->wsr.x;
+	pos.y = y - xwin->xinfo->wsr.y;
+	return pos;
+}
+
+gpos_t xwin_get_screen_pos(xwin_t* xwin, int32_t x, int32_t y) {
+	gpos_t pos = {0};
+	if(xwin == NULL || xwin->xinfo == NULL)
+		return pos;
+	pos.x = x + xwin->xinfo->wsr.x;
+	pos.y = y + xwin->xinfo->wsr.y;
+	return pos;
+}
+
 #ifdef __cplusplus
 }
 #endif
