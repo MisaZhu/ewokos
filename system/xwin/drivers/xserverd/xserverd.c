@@ -647,8 +647,8 @@ static bool x_is_hide_cursor_on_win(x_t* x) {
 	int32_t mx = x->cursor.cpos.x;
 	int32_t my = x->cursor.cpos.y;
 
-	if(mx < win->xinfo->winr.x || mx > (win->xinfo->winr.x + win->xinfo->winr.w) ||
-			my < win->xinfo->winr.y || my > (win->xinfo->winr.y + win->xinfo->winr.h))
+	if(mx < win->xinfo->wsr.x || mx > (win->xinfo->wsr.x + win->xinfo->wsr.w) ||
+			my < win->xinfo->wsr.y || my > (win->xinfo->wsr.y + win->xinfo->wsr.h))
 		return false;
 	return true;
 }
