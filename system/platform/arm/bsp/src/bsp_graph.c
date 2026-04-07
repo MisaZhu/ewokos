@@ -829,16 +829,16 @@ void graph_scale_tof_bsp(graph_t* g, graph_t* dst, double scale) {
                     float32x4_t weight0 = vmulq_f32(kx0, ky_vec);
                     float32x4_t weight1 = vmulq_f32(kx1, ky_vec);
 
-                    sum_r[0] = vfmaq_f32(sum_r[0], r_f, weight0);
-                    sum_r[1] = vfmaq_f32(sum_r[1], r_f, weight1);
-                    sum_g[0] = vfmaq_f32(sum_g[0], g_f, weight0);
-                    sum_g[1] = vfmaq_f32(sum_g[1], g_f, weight1);
-                    sum_b[0] = vfmaq_f32(sum_b[0], b_f, weight0);
-                    sum_b[1] = vfmaq_f32(sum_b[1], b_f, weight1);
-                    sum_a[0] = vfmaq_f32(sum_a[0], a_f, weight0);
-                    sum_a[1] = vfmaq_f32(sum_a[1], a_f, weight1);
-                    sum_weight[0] = vfmaq_f32(sum_weight[0], vdupq_n_f32(1.0f), weight0);
-                    sum_weight[1] = vfmaq_f32(sum_weight[1], vdupq_n_f32(1.0f), weight1);
+                    sum_r[0] = vmlaq_f32(sum_r[0], r_f, weight0);
+                    sum_r[1] = vmlaq_f32(sum_r[1], r_f, weight1);
+                    sum_g[0] = vmlaq_f32(sum_g[0], g_f, weight0);
+                    sum_g[1] = vmlaq_f32(sum_g[1], g_f, weight1);
+                    sum_b[0] = vmlaq_f32(sum_b[0], b_f, weight0);
+                    sum_b[1] = vmlaq_f32(sum_b[1], b_f, weight1);
+                    sum_a[0] = vmlaq_f32(sum_a[0], a_f, weight0);
+                    sum_a[1] = vmlaq_f32(sum_a[1], a_f, weight1);
+                    sum_weight[0] = vmlaq_f32(sum_weight[0], vdupq_n_f32(1.0f), weight0);
+                    sum_weight[1] = vmlaq_f32(sum_weight[1], vdupq_n_f32(1.0f), weight1);
                 }
             }
 
