@@ -1,0 +1,298 @@
+#ifndef EWOK_STL_ALGORITHM_H
+#define EWOK_STL_ALGORITHM_H
+
+#include <stddef.h>
+
+namespace std {
+
+template <typename T>
+void swap(T& a, T& b) {
+    T tmp = a;
+    a = b;
+    b = tmp;
+}
+
+template <typename T>
+const T& max(const T& a, const T& b) {
+    return (a > b) ? a : b;
+}
+
+template <typename T, typename Compare>
+const T& max(const T& a, const T& b, Compare comp) {
+    return comp(a, b) ? b : a;
+}
+
+template <typename T>
+const T& min(const T& a, const T& b) {
+    return (a < b) ? a : b;
+}
+
+template <typename T, typename Compare>
+const T& min(const T& a, const T& b, Compare comp) {
+    return comp(a, b) ? a : b;
+}
+
+template <typename Iterator>
+void reverse(Iterator first, Iterator last) {
+    while (first < last) {
+        --last;
+        if (first != last) {
+            swap(*first, *last);
+        }
+        ++first;
+    }
+}
+
+template <typename Iterator, typename T>
+Iterator find(Iterator first, Iterator last, const T& value) {
+    while (first != last) {
+        if (*first == value) {
+            return first;
+        }
+        ++first;
+    }
+    return last;
+}
+
+template <typename Iterator, typename BinaryPredicate>
+Iterator find_if(Iterator first, Iterator last, BinaryPredicate pred) {
+    while (first != last) {
+        if (pred(*first)) {
+            return first;
+        }
+        ++first;
+    }
+    return last;
+}
+
+template <typename Iterator, typename T>
+size_t count(Iterator first, Iterator last, const T& value) {
+    size_t result = 0;
+    while (first != last) {
+        if (*first == value) {
+            ++result;
+        }
+        ++first;
+    }
+    return result;
+}
+
+template <typename Iterator>
+Iterator unique(Iterator first, Iterator last) {
+    if (first == last) return last;
+    Iterator result = first;
+    while (++first != last) {
+        if (!(*result == *first)) {
+            *++result = *first;
+        }
+    }
+    return ++result;
+}
+
+template <typename Iterator>
+void sort(Iterator first, Iterator last) {
+    if (first >= last) return;
+    Iterator min_iter = first;
+    Iterator max_iter = last - 1;
+    if (*min_iter > *max_iter) {
+        swap(*min_iter, *max_iter);
+    }
+    if (first + 1 >= last) return;
+    Iterator pivot = first + 1;
+    if (*pivot < *min_iter) {
+        swap(*pivot, *min_iter);
+    }
+    if (*pivot > *max_iter) {
+        swap(*pivot, *max_iter);
+    }
+    if (first + 2 >= last) return;
+    Iterator low = first + 1;
+    Iterator high = last - 1;
+    while (low < high) {
+        while (low < high && *low < *pivot) {
+            ++low;
+        }
+        while (low < high && *high > *pivot) {
+            --high;
+        }
+        if (low < high) {
+            swap(*low, *high);
+            ++low;
+            --high;
+        }
+    }
+    --low;
+    swap(*pivot, *low);
+    sort(first, low + 1);
+    sort(low + 1, last);
+}
+
+template <typename Iterator, typename Compare>
+void sort(Iterator first, Iterator last, Compare comp) {
+    if (first >= last) return;
+    Iterator min_iter = first;
+    Iterator max_iter = last - 1;
+    if (comp(*max_iter, *min_iter)) {
+        swap(*min_iter, *max_iter);
+    }
+    if (first + 1 >= last) return;
+    Iterator pivot = first + 1;
+    if (comp(*pivot, *min_iter)) {
+        swap(*pivot, *min_iter);
+    }
+    if (comp(*max_iter, *pivot)) {
+        swap(*pivot, *max_iter);
+    }
+    if (first + 2 >= last) return;
+    Iterator low = first + 1;
+    Iterator high = last - 1;
+    while (low < high) {
+        while (low < high && comp(*low, *pivot)) {
+            ++low;
+        }
+        while (low < high && comp(*pivot, *high)) {
+            --high;
+        }
+        if (low < high) {
+            swap(*low, *high);
+            ++low;
+            --high;
+        }
+    }
+    --low;
+    swap(*pivot, *low);
+    sort(first, low + 1, comp);
+    sort(low + 1, last, comp);
+}
+
+template <typename Iterator, typename T>
+Iterator lower_bound(Iterator first, Iterator last, const T& value) {
+    size_t len = last - first;
+    size_t half;
+    Iterator middle;
+    while (len > 0) {
+        half = len / 2;
+        middle = first + half;
+        if (*middle < value) {
+            first = middle + 1;
+            len = len - half - 1;
+        } else {
+            len = half;
+        }
+    }
+    return first;
+}
+
+template <typename Iterator, typename T>
+Iterator upper_bound(Iterator first, Iterator last, const T& value) {
+    size_t len = last - first;
+    size_t half;
+    Iterator middle;
+    while (len > 0) {
+        half = len / 2;
+        middle = first + half;
+        if (value < *middle) {
+            len = half;
+        } else {
+            first = middle + 1;
+            len = len - half - 1;
+        }
+    }
+    return first;
+}
+
+template <typename Iterator1, typename Iterator2>
+bool equal(Iterator1 first1, Iterator1 last1, Iterator2 first2) {
+    while (first1 != last1) {
+        if (!(*first1 == *first2)) {
+            return false;
+        }
+        ++first1;
+        ++first2;
+    }
+    return true;
+}
+
+template <typename Iterator, typename T>
+void fill(Iterator first, Iterator last, const T& value) {
+    while (first != last) {
+        *first = value;
+        ++first;
+    }
+}
+
+template <typename Iterator1, typename Iterator2>
+Iterator2 copy(Iterator1 first, Iterator1 last, Iterator2 result) {
+    while (first != last) {
+        *result = *first;
+        ++first;
+        ++result;
+    }
+    return result;
+}
+
+template <typename Iterator1, typename Iterator2>
+Iterator2 copy_backward(Iterator1 first, Iterator1 last, Iterator2 result) {
+    while (first != last) {
+        --result;
+        --last;
+        *result = *last;
+    }
+    return result;
+}
+
+template <typename Iterator1, typename Iterator2>
+Iterator2 move(Iterator1 first, Iterator1 last, Iterator2 result) {
+    while (first != last) {
+        *result = *first;
+        ++first;
+        ++result;
+    }
+    return result;
+}
+
+template <typename Iterator>
+bool is_sorted(Iterator first, Iterator last) {
+    if (first == last) return true;
+    for (Iterator it = first + 1; it != last; ++it) {
+        if (*it < *first) {
+            return false;
+        }
+        first = it;
+    }
+    return true;
+}
+
+template <typename Iterator, typename Compare>
+bool is_sorted(Iterator first, Iterator last, Compare comp) {
+    if (first == last) return true;
+    for (Iterator it = first + 1; it != last; ++it) {
+        if (comp(*it, *first)) {
+            return false;
+        }
+        first = it;
+    }
+    return true;
+}
+
+template <typename Iterator, typename T>
+Iterator binary_search(Iterator first, Iterator last, const T& value) {
+    Iterator it = lower_bound(first, last, value);
+    if (it != last && !(value < *it)) {
+        return it;
+    }
+    return last;
+}
+
+template <typename Iterator, typename T, typename Compare>
+Iterator binary_search(Iterator first, Iterator last, const T& value, Compare comp) {
+    Iterator it = lower_bound(first, last, value, comp);
+    if (it != last && !comp(value, *it)) {
+        return it;
+    }
+    return last;
+}
+
+}
+
+#endif

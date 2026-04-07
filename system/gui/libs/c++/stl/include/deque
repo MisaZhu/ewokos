@@ -1,0 +1,72 @@
+#ifndef EWOK_STL_DEQUE_H
+#define EWOK_STL_DEQUE_H
+
+#include "iterator"
+
+#include <stddef.h>
+
+namespace std {
+
+template <typename T>
+class deque {
+    public:
+        typedef T value_type;
+        typedef T& reference;
+        typedef const T& const_reference;
+        typedef size_t size_type;
+        typedef random_access_iterator<T> iterator;
+        typedef const random_access_iterator<T> const_iterator;
+
+        deque();
+        deque(size_t n, const T& val=T());
+        deque(const deque<T>& src);
+        ~deque();
+
+        deque<T>& operator=(const deque& rhs);
+
+        iterator begin();
+        const_iterator begin() const;
+        iterator end();
+        const_iterator end() const;
+
+        T& operator[](size_t n);
+        const T& operator[](size_t n) const;
+        T& at(size_t n);
+        const T& at(size_t n) const;
+
+        T& front();
+        const T& front() const;
+        T& back();
+        const T& back() const;
+
+        size_t size() const;
+        bool empty() const;
+
+        void resize(size_t n, T val=T());
+        void push_front(const T& val);
+        void pop_front();
+        void push_back(const T& val);
+        void pop_back();
+
+        void clear();
+
+    private:
+        static const size_t BUFFER_SIZE = 512;
+
+        struct Buffer {
+            T* data;
+            Buffer* prev;
+            Buffer* next;
+            Buffer() : data(nullptr), prev(nullptr), next(nullptr) {}
+        };
+
+        Buffer* first_buffer_;
+        Buffer* last_buffer_;
+        size_t front_index_;
+        size_t back_index_;
+        size_t size_;
+};
+
+}
+
+#endif

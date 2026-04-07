@@ -1,0 +1,127 @@
+#ifndef EWOK_STL_TUPLE_H
+#define EWOK_STL_TUPLE_H
+
+#include "utility"
+#include <stddef.h>
+
+namespace std {
+
+// Forward declarations
+template <size_t I, typename T>
+struct tuple_element;
+
+template <typename... Types>
+struct tuple_size;
+
+// Tuple implementation using inheritance
+template <size_t I, typename T>
+struct tuple_leaf {
+    typedef T value_type;
+    T value;
+    
+    tuple_leaf() : value() {}
+    tuple_leaf(const T& v) : value(v) {}
+    
+    T& get() { return value; }
+    const T& get() const { return value; }
+};
+
+// Recursive tuple implementation
+template <size_t I, typename... Types>
+struct tuple_impl;
+
+// Base case - empty tuple
+template <size_t I>
+struct tuple_impl<I> {
+    void swap(tuple_impl&) {}
+};
+
+// Recursive case
+template <size_t I, typename Head, typename... Tail>
+struct tuple_impl<I, Head, Tail...> : public tuple_leaf<I, Head>, public tuple_impl<I + 1, Tail...> {
+    typedef tuple_leaf<I, Head> head_type;
+    typedef tuple_impl<I + 1, Tail...> tail_type;
+    
+    tuple_impl() : head_type(), tail_type() {}
+    tuple_impl(const Head& h, const Tail&... t) : head_type(h), tail_type(t...) {}
+    
+    void swap(tuple_impl& other) {
+        head_type::swap(other);
+        tail_type::swap(other);
+    }
+};
+
+// Main tuple class
+template <typename... Types>
+class tuple : public tuple_impl<0, Types...> {
+    typedef tuple_impl<0, Types...> base_type;
+    
+public:
+    tuple() : base_type() {}
+    tuple(const Types&... args) : base_type(args...) {}
+    
+    void swap(tuple& other) {
+        base_type::swap(other);
+    }
+};
+
+// Specialization for empty tuple
+template <>
+class tuple<> {
+public:
+    static const size_t size = 0;
+    tuple() {}
+    void swap(tuple&) {}
+};
+
+// Tuple size
+template <typename... Types>
+struct tuple_size<tuple<Types...>> {
+    static const size_t value = sizeof...(Types);
+};
+
+// Helper struct to get Nth type
+template <size_t N, typename... Types>
+struct tuple_element_impl;
+
+template <typename Head, typename... Tail>
+struct tuple_element_impl<0, Head, Tail...> {
+    typedef Head type;
+};
+
+template <size_t N, typename Head, typename... Tail>
+struct tuple_element_impl<N, Head, Tail...> {
+    typedef typename tuple_element_impl<N - 1, Tail...>::type type;
+};
+
+template <size_t I, typename... Types>
+struct tuple_element<I, tuple<Types...>> {
+    typedef typename tuple_element_impl<I, Types...>::type type;
+};
+
+// get<> function by index - using a helper that extracts the correct leaf
+template <size_t N, typename... Types>
+typename tuple_element<N, tuple<Types...>>::type& get(tuple<Types...>& t) {
+    return static_cast<tuple_leaf<N, typename tuple_element<N, tuple<Types...>>::type>&>(t).get();
+}
+
+template <size_t N, typename... Types>
+const typename tuple_element<N, tuple<Types...>>::type& get(const tuple<Types...>& t) {
+    return static_cast<const tuple_leaf<N, typename tuple_element<N, tuple<Types...>>::type>&>(t).get();
+}
+
+// make_tuple
+template <typename... Types>
+tuple<Types...> make_tuple(const Types&... args) {
+    return tuple<Types...>(args...);
+}
+
+// swap
+template <typename... Types>
+void swap(tuple<Types...>& a, tuple<Types...>& b) {
+    a.swap(b);
+}
+
+} // namespace std
+
+#endif // EWOK_STL_TUPLE_H

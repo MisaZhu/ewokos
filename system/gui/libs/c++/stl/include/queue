@@ -1,0 +1,92 @@
+#ifndef EWOK_STL_QUEUE_H
+#define EWOK_STL_QUEUE_H
+
+#include "deque"
+
+namespace std {
+
+template <typename T, typename Container = deque<T>>
+class queue {
+    public:
+        typedef typename Container::value_type value_type;
+        typedef typename Container::size_type size_type;
+        typedef Container container_type;
+
+        explicit queue(const Container& cont = Container());
+        template <typename Alloc>
+        explicit queue(const Alloc& alloc);
+        template <typename Alloc>
+        queue(const Container& cont, const Alloc& alloc);
+
+        bool empty() const;
+        size_type size() const;
+
+        value_type& front();
+        const value_type& front() const;
+        value_type& back();
+        const value_type& back() const;
+
+        void push(const value_type& val);
+        void pop();
+
+    protected:
+        Container c;
+};
+
+template <typename T, typename Container>
+queue<T, Container>::queue(const Container& cont) : c(cont) {
+}
+
+template <typename T, typename Container>
+template <typename Alloc>
+queue<T, Container>::queue(const Alloc& alloc) : c(alloc) {
+}
+
+template <typename T, typename Container>
+template <typename Alloc>
+queue<T, Container>::queue(const Container& cont, const Alloc& alloc) : c(cont, alloc) {
+}
+
+template <typename T, typename Container>
+bool queue<T, Container>::empty() const {
+    return c.empty();
+}
+
+template <typename T, typename Container>
+typename queue<T, Container>::size_type queue<T, Container>::size() const {
+    return c.size();
+}
+
+template <typename T, typename Container>
+typename queue<T, Container>::value_type& queue<T, Container>::front() {
+    return c.front();
+}
+
+template <typename T, typename Container>
+const typename queue<T, Container>::value_type& queue<T, Container>::front() const {
+    return c.front();
+}
+
+template <typename T, typename Container>
+typename queue<T, Container>::value_type& queue<T, Container>::back() {
+    return c.back();
+}
+
+template <typename T, typename Container>
+const typename queue<T, Container>::value_type& queue<T, Container>::back() const {
+    return c.back();
+}
+
+template <typename T, typename Container>
+void queue<T, Container>::push(const value_type& val) {
+    c.push_back(val);
+}
+
+template <typename T, typename Container>
+void queue<T, Container>::pop() {
+    c.pop_front();
+}
+
+}
+
+#endif

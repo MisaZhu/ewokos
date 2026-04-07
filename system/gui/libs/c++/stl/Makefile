@@ -6,7 +6,7 @@ TARGET_DIR = $(BUILD_DIR)
 
 CXXFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_EWOKSTL_OBJS = src/string.o
+LIB_EWOKSTL_OBJS = src/string.o src/list.o src/deque.o src/set.o src/map.o src/unordered_set.o src/unordered_map.o src/new_delete.o
 
 EWOKSTL = $(TARGET_DIR)/lib/libewokstl.a
 
@@ -18,4 +18,3 @@ $(EWOKSTL): $(LIB_EWOKSTL_OBJS)
 clean:
 	rm -f $(LIB_EWOKSTL_OBJS)
 	rm -f $(EWOKSTL)
-

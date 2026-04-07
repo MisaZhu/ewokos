@@ -1,0 +1,84 @@
+#ifndef EWOK_STL_UTILITY_H
+#define EWOK_STL_UTILITY_H
+
+#include <stddef.h>
+
+namespace std {
+
+template <typename T1, typename T2>
+struct pair {
+    typedef T1 first_type;
+    typedef T2 second_type;
+
+    T1 first;
+    T2 second;
+
+    pair() : first(T1()), second(T2()) {}
+    pair(const T1& a, const T2& b) : first(a), second(b) {}
+
+    template <typename U, typename V>
+    pair(const pair<U, V>& other) : first(other.first), second(other.second) {}
+
+    pair& operator=(const pair& other) {
+        first = other.first;
+        second = other.second;
+        return *this;
+    }
+
+    void swap(pair& other) {
+        T1 tmp_first = first;
+        T2 tmp_second = second;
+        first = other.first;
+        second = other.second;
+        other.first = tmp_first;
+        other.second = tmp_second;
+    }
+
+    bool operator==(const pair& other) const {
+        return first == other.first && second == other.second;
+    }
+
+    bool operator!=(const pair& other) const {
+        return !(*this == other);
+    }
+
+    bool operator<(const pair& other) const {
+        return first < other.first || (!(other.first < first) && second < other.second);
+    }
+
+    bool operator<=(const pair& other) const {
+        return !(other < *this);
+    }
+
+    bool operator>(const pair& other) const {
+        return other < *this;
+    }
+
+    bool operator>=(const pair& other) const {
+        return !(*this < other);
+    }
+};
+
+template <typename T1, typename T2>
+pair<T1, T2> make_pair(const T1& a, const T2& b) {
+    return pair<T1, T2>(a, b);
+}
+
+template <typename T1, typename T2>
+void swap(pair<T1, T2>& a, pair<T1, T2>& b) {
+    a.swap(b);
+}
+
+template <typename Iterator>
+void advance(Iterator& it, ptrdiff_t n) {
+    it += n;
+}
+
+template <typename Iterator>
+ptrdiff_t distance(Iterator first, Iterator last) {
+    return last - first;
+}
+
+}
+
+#endif

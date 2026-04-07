@@ -1,0 +1,77 @@
+#ifndef EWOK_STL_SET_H
+#define EWOK_STL_SET_H
+
+#include "iterator"
+
+#include <stddef.h>
+
+namespace std {
+
+enum class Color { RED, BLACK };
+
+template <typename T>
+struct set_node {
+    T key;
+    Color color;
+    set_node* left;
+    set_node* right;
+    set_node* parent;
+    bool is_nil;
+
+    set_node(const T& k, Color c = Color::RED, bool nil = false)
+        : key(k), color(c), left(nullptr), right(nullptr), parent(nullptr), is_nil(nil) {}
+};
+
+template <typename T>
+class set {
+    public:
+        typedef T value_type;
+        typedef T& reference;
+        typedef const T& const_reference;
+        typedef size_t size_type;
+        typedef random_access_iterator<T> iterator;
+        typedef const random_access_iterator<T> const_iterator;
+
+        set();
+        set(const set<T>& src);
+        ~set();
+
+        set<T>& operator=(const set& rhs);
+
+        iterator begin();
+        const_iterator begin() const;
+        iterator end();
+        const_iterator end() const;
+
+        size_t size() const;
+        bool empty() const;
+
+        void clear();
+
+        iterator find(const T& val);
+        const_iterator find(const T& val) const;
+
+        iterator insert(const T& val);
+        size_t erase(const T& val);
+
+        void swap(set& other);
+
+    private:
+        set_node<T>* root_;
+        set_node<T>* nil_;
+        size_t size_;
+
+        void left_rotate(set_node<T>* x);
+        void right_rotate(set_node<T>* x);
+        void insert_fixup(set_node<T>* z);
+        void transplant(set_node<T>* u, set_node<T>* v);
+        set_node<T>* minimum(set_node<T>* x) const;
+        set_node<T>* maximum(set_node<T>* x) const;
+        void erase_fixup(set_node<T>* x);
+        void delete_tree(set_node<T>* x);
+        set_node<T>* copy_tree(set_node<T>* node, set_node<T>* parent);
+};
+
+}
+
+#endif

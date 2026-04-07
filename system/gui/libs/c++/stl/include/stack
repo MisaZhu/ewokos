@@ -1,0 +1,80 @@
+#ifndef EWOK_STL_STACK_H
+#define EWOK_STL_STACK_H
+
+#include "deque"
+
+namespace std {
+
+template <typename T, typename Container = deque<T>>
+class stack {
+    public:
+        typedef typename Container::value_type value_type;
+        typedef typename Container::size_type size_type;
+        typedef Container container_type;
+
+        explicit stack(const Container& cont = Container());
+        template <typename Alloc>
+        explicit stack(const Alloc& alloc);
+        template <typename Alloc>
+        stack(const Container& cont, const Alloc& alloc);
+
+        bool empty() const;
+        size_type size() const;
+
+        value_type& top();
+        const value_type& top() const;
+
+        void push(const value_type& val);
+        void pop();
+
+    protected:
+        Container c;
+};
+
+template <typename T, typename Container>
+stack<T, Container>::stack(const Container& cont) : c(cont) {
+}
+
+template <typename T, typename Container>
+template <typename Alloc>
+stack<T, Container>::stack(const Alloc& alloc) : c(alloc) {
+}
+
+template <typename T, typename Container>
+template <typename Alloc>
+stack<T, Container>::stack(const Container& cont, const Alloc& alloc) : c(cont, alloc) {
+}
+
+template <typename T, typename Container>
+bool stack<T, Container>::empty() const {
+    return c.empty();
+}
+
+template <typename T, typename Container>
+typename stack<T, Container>::size_type stack<T, Container>::size() const {
+    return c.size();
+}
+
+template <typename T, typename Container>
+typename stack<T, Container>::value_type& stack<T, Container>::top() {
+    return c.back();
+}
+
+template <typename T, typename Container>
+const typename stack<T, Container>::value_type& stack<T, Container>::top() const {
+    return c.back();
+}
+
+template <typename T, typename Container>
+void stack<T, Container>::push(const value_type& val) {
+    c.push_back(val);
+}
+
+template <typename T, typename Container>
+void stack<T, Container>::pop() {
+    c.pop_back();
+}
+
+}
+
+#endif

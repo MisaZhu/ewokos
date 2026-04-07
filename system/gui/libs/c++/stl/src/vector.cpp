@@ -1,210 +1,8 @@
-#ifndef EWOK_STL_VECTOR_H
-#define EWOK_STL_VECTOR_H
-
-#include "iterator"
+#include "vector"
+#include <stdlib.h>
+#include <cstring>
 
 namespace std {
-/**
- * @class vector
- * This class represents a dynamic contiguous array
- */
-template <typename T>
-class vector {
-    public:
-        typedef random_access_iterator<T> iterator;
-        typedef const random_access_iterator<T> const_iterator;
-
-        /**
-         * Default constructor
-         * Initializes everything to 0
-         */
-        vector();
-
-        /**
-         * Fill constructor
-         * Constructs a container with n elements. Each element is a copy of val
-         * @param n The number of elements
-         * @param val The value to fill the vector with
-         */
-        vector(size_t n, const T& val=T());
-
-        /**
-         * Range constructor
-         * Constructs a container with as many elements as the range [first, last), with each element
-         * constructed from its corresponding element in that range, in the same order
-         * @param first An iterator specifying the first position of the element in the range of elements
-         * @param last An iterator specifying the last, non-inclusive position of the element in the range of elements
-         */
-        vector(iterator first, iterator last);
-
-        /**
-         * Copy constructor
-         * @param src The vector to copy
-         */
-        vector(const vector<T>& src);
-
-        /**
-         * Destructor
-         * Frees the vector
-         */
-        ~vector();
-
-        /**
-         * Assignment operator
-         * @param rhs The vector to assign to this one
-         */
-        vector<T>& operator=(const vector& rhs);
-
-        /**
-         * Return the iterator at the beginning of the vector
-         */
-        iterator begin();
-        
-        /**
-         * Return a constant iterator at the beginning of the vector
-         */
-        const_iterator begin() const;
-
-        /**
-         * Return an iterator referring to the past-the-end element in the vector
-         */
-        iterator end();
-
-        /**
-         * Return a constant iterator referring to the past-the-end element in the vector
-         */
-        const_iterator end() const;
-
-        /**
-         * Return a reference to the first element in the vector
-         */
-        T& front();
-
-        /**
-         * Return a constant reference to the first element in the vector
-         */
-        const T& front() const;
-
-        /**
-         * Return a reference to the last element in the vector
-         */
-        T& back();
-
-        /**
-         * Return a constant reference to the last element in the vector
-         */
-        const T& back() const;
-
-        size_t size() const { return length_; }
-        size_t capacity() const { return capacity_; }
-        bool empty() const { return length_ == 0; }
-
-        /**
-         * Resize the vector. This reallocates memory to the array only if the requested size is greater than the vector's
-         * current capacity.
-         * @param n The new size of the vector
-         * @param val The value to copy at the end of the vector, in case the new size is larger than our array's
-         */
-        void resize(size_t n, T val=T());
-
-        /**
-         * Reserve memory for the vector. This reallocates memory to the array only if the requested capacity is greater than
-         * the current one. This function does not modify the vector's elements
-         * @param n The new capacity the we want for this vector
-         */
-        void reserve(size_t n);
-
-        /**
-         * Access element
-         * @param n The position at which we want to access the element
-         */
-        T& operator[](size_t n);
-        const T& operator[](size_t n) const;
-
-        /**
-         * Returns a reference to the element at position n in the vector
-         * @param n The position at which we want to access the element
-         */
-        T& at(size_t n);
-        const T& at(size_t n) const;
-
-        /**
-         * Assign a new content to the vector by specifying a range of values from two iterators
-         * @param first The first element to consider in the range
-         * @param last The last, non-inclusive element to consider in the range
-         */
-        void assign(iterator first, iterator last);
-
-        /**
-         * Fill the vector with a value
-         * @param n The new size for the vector
-         * @param val Value to fill the vector with
-         */
-        void assign(size_t n, const T& val);
-
-        /**
-         * Add an element at the end of the vector
-         * @param val The value to add at the end
-         */
-        void push_back(const T& val);
-
-        /**
-         * Remove the last element of the vector
-         */
-        void pop_back();
-
-        /**
-         * Insert a single element in the vector
-         * @param position An iterator specifying the position at which to insert the element
-         * @param val The value of the element to insert
-         * @return An iterator that points to the first of the newly inserted elements
-         */
-        iterator insert(iterator position, const T& val);
-
-        /**
-         * Insert several elements in the vector
-         * @param position An iterator specifying the position at which to insert the elements
-         * @param n The number of elements to insert
-         * @param val The value of the element to insert
-         * @return An iterator that points to the first of the newly inserted elements
-         */
-        iterator insert(iterator position, size_t n, const T& val);
-
-        /** Insert a range of elements from two iterators in the vector
-        * @param position An iterator specifying the position at which to insert the range of elements
-        * @param first An iterator representing the first element in the range of elements to insert
-        * @param last An iterator representing the last, non-inclusive element in the range of elements to insert
-        * @return An iterator that points to the first of the newly inserted elements
-        */
-        iterator insert(iterator position, iterator first, iterator last);
-
-        /**
-         * Erase an element from the vector
-         * @param position An iterator specifying the position at which to remove the element
-         * @return An iterator poiting to the new location of the element that followed the last element erased
-         */
-        iterator erase(iterator position);
-
-        /**
-         * Erase a range of elements from the vector
-         * @param first An iterator representing the first position of the range in the vector
-         * @param last An iterator representing the last, non-inclusive position of the range in the vector
-         * @return An iterator poiting to the new location of the element that followed the last element erased
-         */
-        iterator erase(iterator first, iterator last);
-
-        /**
-         * Clear the vector. This frees the allocated memory
-         */
-        void clear();
-
-    private:
-        T*          data_;      /**< The contiguous dynamic array */
-        size_t      length_;    /**< The length of the array */
-        size_t      capacity_;  /**< The capacity of the array */
-        iterator    begin_;     /**< Iterator representing the first element in the vector */
-        iterator    end_;       /**< Iterator representing the past-the-last element in the vector */
-};
 
 template <typename T>
 vector<T>::vector() : data_(nullptr), length_(0), capacity_(4) {
@@ -464,7 +262,7 @@ typename vector<T>::iterator vector<T>::insert(iterator position, const T& val) 
 
         free(data_);
         data_ = newData;
-        
+
         begin_ = &data_[0];
     }
 
@@ -498,7 +296,7 @@ typename vector<T>::iterator vector<T>::insert(iterator position, size_t n, cons
 
         free(data_);
         data_ = newData;
-        
+
         begin_ = &data_[0];
     }
 
@@ -538,7 +336,7 @@ typename vector<T>::iterator vector<T>::insert(iterator position, iterator first
 
         free(data_);
         data_ = newData;
-        
+
         begin_ = &data_[0];
     }
 
@@ -607,6 +405,7 @@ void vector<T>::clear() {
     length_ = 0;
 }
 
-}
+// Explicit template instantiations
+template class vector<int>;
 
-#endif
+}

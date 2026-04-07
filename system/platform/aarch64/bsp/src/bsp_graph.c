@@ -830,7 +830,6 @@ void graph_scale_tof_bsp(graph_t* g, graph_t* dst, double scale) {
     float effective_scale = scale < 1.0f ? scale : 1.0f;
     int lanczos_a = 2;  // Changed from 3 to 2 for Lanczos2
     float inv_scale = 1.0f / scale;
-    float inv_weight_table_size = 1.0f / (WEIGHT_TABLE_SIZE - 1);
 
     for(int i = 0; i < dst->h; i++) {
         float gi = (float)i * inv_scale;

@@ -1,0 +1,202 @@
+#ifndef EWOK_STL_LIST_H
+#define EWOK_STL_LIST_H
+
+#include "iterator"
+
+#include <stddef.h>
+
+namespace std {
+
+template <typename T>
+class list {
+    public:
+        typedef T value_type;
+        typedef T& reference;
+        typedef const T& const_reference;
+        typedef size_t size_type;
+
+        // Forward declaration of iterator
+        class iterator;
+        class const_iterator;
+
+        list();
+        list(size_t n, const T& val=T());
+        list(const list<T>& src);
+        ~list();
+
+        list<T>& operator=(const list& rhs);
+
+        iterator begin();
+        const_iterator begin() const;
+        iterator end();
+        const_iterator end() const;
+
+        T& front();
+        const T& front() const;
+        T& back();
+        const T& back() const;
+
+        size_t size() const;
+        bool empty() const;
+
+        void resize(size_t n, T val=T());
+
+        void push_front(const T& val);
+        void pop_front();
+        void push_back(const T& val);
+        void pop_back();
+
+        iterator insert(iterator position, const T& val);
+        iterator insert(iterator position, size_t n, const T& val);
+        iterator insert(iterator position, iterator first, iterator last);
+
+        iterator erase(iterator position);
+        iterator erase(iterator first, iterator last);
+
+        void clear();
+
+        void splice(iterator position, list& x);
+        void splice(iterator position, list& x, iterator i);
+        void splice(iterator position, list& x, iterator first, iterator last);
+
+        void remove(const T& val);
+        template <class Predicate>
+        void remove_if(Predicate pred);
+
+        void unique();
+        template <class BinaryPredicate>
+        void unique(BinaryPredicate binary_pred);
+
+        void merge(list& x);
+        template <class Compare>
+        void merge(list& x, Compare comp);
+
+        void sort();
+        template <class Compare>
+        void sort(Compare comp);
+
+        void reverse();
+
+    private:
+        struct Node {
+            T data;
+            Node* prev;
+            Node* next;
+            Node(const T& val, Node* p = nullptr, Node* n = nullptr) : data(val), prev(p), next(n) {}
+        };
+
+        Node* head_;
+        Node* tail_;
+        size_t size_;
+
+    public:
+        // List iterator class
+        class iterator {
+        public:
+            typedef T value_type;
+            typedef T& reference;
+            typedef T* pointer;
+            typedef ptrdiff_t difference_type;
+            typedef bidirectional_iterator_tag iterator_category;
+
+            iterator() : node_(nullptr) {}
+            iterator(Node* node) : node_(node) {}
+            iterator(const iterator& other) : node_(other.node_) {}
+
+            iterator& operator=(const iterator& other) {
+                node_ = other.node_;
+                return *this;
+            }
+
+            T& operator*() { return node_->data; }
+            const T& operator*() const { return node_->data; }
+            T* operator->() { return &node_->data; }
+            const T* operator->() const { return &node_->data; }
+
+            iterator& operator++() {
+                node_ = node_->next;
+                return *this;
+            }
+
+            iterator operator++(int) {
+                iterator tmp(*this);
+                node_ = node_->next;
+                return tmp;
+            }
+
+            iterator& operator--() {
+                node_ = node_->prev;
+                return *this;
+            }
+
+            iterator operator--(int) {
+                iterator tmp(*this);
+                node_ = node_->prev;
+                return tmp;
+            }
+
+            bool operator==(const iterator& other) const { return node_ == other.node_; }
+            bool operator!=(const iterator& other) const { return node_ != other.node_; }
+
+            Node* node() const { return node_; }
+
+        private:
+            Node* node_;
+        };
+
+        class const_iterator {
+        public:
+            typedef T value_type;
+            typedef const T& reference;
+            typedef const T* pointer;
+            typedef ptrdiff_t difference_type;
+            typedef bidirectional_iterator_tag iterator_category;
+
+            const_iterator() : node_(nullptr) {}
+            const_iterator(const Node* node) : node_(node) {}
+            const_iterator(const iterator& other) : node_(other.node()) {}
+            const_iterator(const const_iterator& other) : node_(other.node_) {}
+
+            const_iterator& operator=(const const_iterator& other) {
+                node_ = other.node_;
+                return *this;
+            }
+
+            const T& operator*() const { return node_->data; }
+            const T* operator->() const { return &node_->data; }
+
+            const_iterator& operator++() {
+                node_ = node_->next;
+                return *this;
+            }
+
+            const_iterator operator++(int) {
+                const_iterator tmp(*this);
+                node_ = node_->next;
+                return tmp;
+            }
+
+            const_iterator& operator--() {
+                node_ = node_->prev;
+                return *this;
+            }
+
+            const_iterator operator--(int) {
+                const_iterator tmp(*this);
+                node_ = node_->prev;
+                return tmp;
+            }
+
+            bool operator==(const const_iterator& other) const { return node_ == other.node_; }
+            bool operator!=(const const_iterator& other) const { return node_ != other.node_; }
+
+            const Node* node() const { return node_; }
+
+        private:
+            const Node* node_;
+        };
+};
+
+}
+
+#endif

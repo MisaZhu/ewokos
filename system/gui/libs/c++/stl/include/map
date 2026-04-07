@@ -1,0 +1,160 @@
+#ifndef EWOK_STL_MAP_H
+#define EWOK_STL_MAP_H
+
+#include "iterator"
+#include "utility"
+
+#include <stddef.h>
+
+namespace std {
+
+template <typename T>
+struct map_node {
+    T key;
+    map_node* left;
+    map_node* right;
+    map_node* parent;
+    bool is_nil;
+    bool is_red;
+
+    map_node(const T& k, bool red = true, bool nil = false)
+        : key(k), left(nullptr), right(nullptr), parent(nullptr), is_nil(nil), is_red(red) {}
+};
+
+// Forward declaration
+template <typename Key, typename T>
+class map;
+
+// Map iterator class
+template <typename Key, typename T>
+class map_iterator {
+public:
+    typedef pair<Key, T> value_type;
+    typedef pair<Key, T>& reference;
+    typedef pair<Key, T>* pointer;
+    typedef ptrdiff_t difference_type;
+    typedef bidirectional_iterator_tag iterator_category;
+
+    map_iterator() : node_(nullptr) {}
+    map_iterator(map_node<value_type>* node) : node_(node) {}
+    map_iterator(const map_iterator& other) : node_(other.node_) {}
+
+    map_iterator& operator=(const map_iterator& other) {
+        node_ = other.node_;
+        return *this;
+    }
+
+    reference operator*() { return node_->key; }
+    pointer operator->() { return &node_->key; }
+
+    map_iterator& operator++() {
+        // In-order successor
+        if (node_->right != nullptr && !node_->right->is_nil) {
+            node_ = node_->right;
+            while (node_->left != nullptr && !node_->left->is_nil) {
+                node_ = node_->left;
+            }
+        } else {
+            map_node<value_type>* parent = node_->parent;
+            while (parent != nullptr && node_ == parent->right) {
+                node_ = parent;
+                parent = parent->parent;
+            }
+            node_ = parent;
+        }
+        return *this;
+    }
+
+    map_iterator operator++(int) {
+        map_iterator tmp(*this);
+        ++(*this);
+        return tmp;
+    }
+
+    map_iterator& operator--() {
+        // In-order predecessor
+        if (node_->left != nullptr && !node_->left->is_nil) {
+            node_ = node_->left;
+            while (node_->right != nullptr && !node_->right->is_nil) {
+                node_ = node_->right;
+            }
+        } else {
+            map_node<value_type>* parent = node_->parent;
+            while (parent != nullptr && node_ == parent->left) {
+                node_ = parent;
+                parent = parent->parent;
+            }
+            node_ = parent;
+        }
+        return *this;
+    }
+
+    map_iterator operator--(int) {
+        map_iterator tmp(*this);
+        --(*this);
+        return tmp;
+    }
+
+    bool operator==(const map_iterator& other) const { return node_ == other.node_; }
+    bool operator!=(const map_iterator& other) const { return node_ != other.node_; }
+
+    map_node<value_type>* node() const { return node_; }
+
+private:
+    map_node<value_type>* node_;
+};
+
+template <typename Key, typename T>
+class map {
+    public:
+        typedef pair<Key, T> value_type;
+        typedef T& reference;
+        typedef const T& const_reference;
+        typedef size_t size_type;
+        typedef map_iterator<Key, T> iterator;
+        typedef map_iterator<Key, T> const_iterator;
+
+        map();
+        map(const map<Key, T>& src);
+        ~map();
+
+        map<Key, T>& operator=(const map& rhs);
+
+        iterator begin();
+        const_iterator begin() const;
+        iterator end();
+        const_iterator end() const;
+
+        size_t size() const;
+        bool empty() const;
+
+        void clear();
+
+        iterator find(const Key& key);
+        const_iterator find(const Key& key) const;
+
+        iterator insert(const value_type& val);
+        size_t erase(const Key& key);
+
+        T& operator[](const Key& key);
+
+        void swap(map& other);
+
+    private:
+        map_node<value_type>* root_;
+        map_node<value_type>* nil_;
+        size_t size_;
+
+        void left_rotate(map_node<value_type>* x);
+        void right_rotate(map_node<value_type>* x);
+        void insert_fixup(map_node<value_type>* z);
+        void transplant(map_node<value_type>* u, map_node<value_type>* v);
+        map_node<value_type>* minimum(map_node<value_type>* x) const;
+        void erase_fixup(map_node<value_type>* x);
+        void delete_tree(map_node<value_type>* x);
+        map_node<value_type>* copy_tree(map_node<value_type>* node, map_node<value_type>* parent);
+};
+
+}
+
+#endif

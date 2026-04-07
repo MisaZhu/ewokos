@@ -1,0 +1,66 @@
+#ifndef EWOK_STL_UNORDERED_MAP_H
+#define EWOK_STL_UNORDERED_MAP_H
+
+#include "iterator"
+
+#include <stddef.h>
+
+namespace std {
+
+template <typename Key, typename T>
+struct unordered_map_node {
+    T value;
+    Key key;
+    unordered_map_node* next;
+
+    unordered_map_node(const Key& k, const T& v) : key(k), value(v), next(nullptr) {}
+};
+
+template <typename Key, typename T>
+class unordered_map {
+    public:
+        typedef T value_type;
+        typedef T& reference;
+        typedef const T& const_reference;
+        typedef size_t size_type;
+        typedef random_access_iterator<T> iterator;
+        typedef const random_access_iterator<T> const_iterator;
+
+        unordered_map();
+        unordered_map(const unordered_map<Key, T>& src);
+        ~unordered_map();
+
+        unordered_map<Key, T>& operator=(const unordered_map& rhs);
+
+        iterator begin();
+        const_iterator begin() const;
+        iterator end();
+        const_iterator end() const;
+
+        size_t size() const;
+        bool empty() const;
+
+        void clear();
+
+        iterator find(const Key& key);
+        const_iterator find(const Key& key) const;
+
+        size_t insert(const Key& key, const T& value);
+        size_t erase(const Key& key);
+
+        T& operator[](const Key& key);
+
+        void swap(unordered_map& other);
+
+    private:
+        static const size_t BUCKET_COUNT = 32;
+
+        unordered_map_node<Key, T>** buckets_;
+        size_t size_;
+
+        size_t hash(const Key& key) const;
+};
+
+}
+
+#endif
