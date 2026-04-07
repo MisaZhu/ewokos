@@ -103,6 +103,17 @@ void graph_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, int32_t rw, flo
     if (max_y >= g->h) max_y = g->h - 1;
     if (min_x < 0) min_x = 0;
     if (max_x >= g->w) max_x = g->w - 1;
+    
+    // Apply clip rect constraint (like graph_fill_cpu)
+    if(g->clip.w > 0 && g->clip.h > 0) {
+        grect_t r = {min_x, min_y, max_x - min_x + 1, max_y - min_y + 1};
+        if(!grect_insect(&g->clip, &r))
+            return;
+        min_x = r.x;
+        min_y = r.y;
+        max_x = r.x + r.w - 1;
+        max_y = r.y + r.h - 1;
+    }
 
     uint8_t fg_alpha = (color >> 24) & 0xFF;
 
@@ -190,6 +201,17 @@ void graph_fill_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, float star
     if (max_y >= g->h) max_y = g->h - 1;
     if (min_x < 0) min_x = 0;
     if (max_x >= g->w) max_x = g->w - 1;
+    
+    // Apply clip rect constraint (like graph_fill_cpu)
+    if(g->clip.w > 0 && g->clip.h > 0) {
+        grect_t r = {min_x, min_y, max_x - min_x + 1, max_y - min_y + 1};
+        if(!grect_insect(&g->clip, &r))
+            return;
+        min_x = r.x;
+        min_y = r.y;
+        max_x = r.x + r.w - 1;
+        max_y = r.y + r.h - 1;
+    }
 
     uint8_t fg_alpha = (color >> 24) & 0xFF;
 

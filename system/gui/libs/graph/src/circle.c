@@ -47,7 +47,18 @@ void graph_fill_circle(graph_t* g, int32_t cx, int32_t cy, int32_t radius, uint3
     if (max_y >= g->h) max_y = g->h - 1;
     if (min_x < 0) min_x = 0;
     if (max_x >= g->w) max_x = g->w - 1;
-    
+
+    // Apply clip rect constraint (like graph_fill_cpu)
+    if(g->clip.w > 0 && g->clip.h > 0) {
+        grect_t r = {min_x, min_y, max_x - min_x + 1, max_y - min_y + 1};
+        if(!grect_insect(&g->clip, &r))
+            return;
+        min_x = r.x;
+        min_y = r.y;
+        max_x = r.x + r.w - 1;
+        max_y = r.y + r.h - 1;
+    }
+
     // Scan line by line
     for (int32_t py = min_y; py <= max_y; py++) {
         int32_t dy = py - cy;
@@ -197,6 +208,17 @@ void graph_circle(graph_t* g, int32_t cx, int32_t cy, int32_t radius, int32_t rw
     if (max_y >= g->h) max_y = g->h - 1;
     if (min_x < 0) min_x = 0;
     if (max_x >= g->w) max_x = g->w - 1;
+
+    // Apply clip rect constraint (like graph_fill_cpu)
+    if(g->clip.w > 0 && g->clip.h > 0) {
+        grect_t r = {min_x, min_y, max_x - min_x + 1, max_y - min_y + 1};
+        if(!grect_insect(&g->clip, &r))
+            return;
+        min_x = r.x;
+        min_y = r.y;
+        max_x = r.x + r.w - 1;
+        max_y = r.y + r.h - 1;
+    }
 
     // Scan pixel by pixel (non-floating point, unified handling of all edges)
     for (int32_t py = min_y; py <= max_y; py++) {

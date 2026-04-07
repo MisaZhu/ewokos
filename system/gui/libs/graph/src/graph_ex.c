@@ -408,6 +408,15 @@ static inline void draw_round_corner_3d(graph_t* g, int32_t corner_x, int32_t co
     // Calculate bounding box, limited to r-1 range to align with edges
     int32_t max_dy = r - 1;
 
+    // Calculate clip bounds (like graph_fill_cpu)
+    int32_t clip_min_x = 0, clip_min_y = 0, clip_max_x = g->w - 1, clip_max_y = g->h - 1;
+    if(g->clip.w > 0 && g->clip.h > 0) {
+        clip_min_x = g->clip.x;
+        clip_min_y = g->clip.y;
+        clip_max_x = g->clip.x + g->clip.w - 1;
+        clip_max_y = g->clip.y + g->clip.h - 1;
+    }
+
     // Scan line by line
     for (int32_t dy = 0; dy <= max_dy; dy++) {
         int32_t dy_sq = dy * dy;
@@ -447,8 +456,8 @@ static inline void draw_round_corner_3d(graph_t* g, int32_t corner_x, int32_t co
             int px = corner_x + cx + (mirror_x ? -dx : dx);
             int py = corner_y + cy + (mirror_y ? -dy : dy);
 
-            // Check if within canvas bounds
-            if (px < 0 || px >= g->w || py < 0 || py >= g->h) continue;
+            // Check if within clip bounds (like graph_fill_cpu)
+            if (px < clip_min_x || px > clip_max_x || py < clip_min_y || py > clip_max_y) continue;
 
             // Determine color (45-degree split)
             uint32_t color;
@@ -624,6 +633,17 @@ void graph_circle_3d(graph_t* g, int x, int y, int r, int rw, uint32_t color, bo
     if (max_y >= g->h) max_y = g->h - 1;
     if (min_x < 0) min_x = 0;
     if (max_x >= g->w) max_x = g->w - 1;
+
+    // Apply clip rect constraint (like graph_fill_cpu)
+    if(g->clip.w > 0 && g->clip.h > 0) {
+        grect_t r = {min_x, min_y, max_x - min_x + 1, max_y - min_y + 1};
+        if(!grect_insect(&g->clip, &r))
+            return;
+        min_x = r.x;
+        min_y = r.y;
+        max_x = r.x + r.w - 1;
+        max_y = r.y + r.h - 1;
+    }
 
     // Scan pixel by pixel
     for (int32_t py = min_y; py <= max_y; py++) {
