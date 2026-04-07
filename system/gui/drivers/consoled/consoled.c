@@ -170,6 +170,8 @@ static int console_read(int fd,
 }
 
 static int console_loop(void* p) {
+	static bool shift = false;
+
 	fb_console_t* console = (fb_console_t*)p;
 	if(_ux_index != core_get_active_ux(console->display_index)) {
 		usleep(200000);
@@ -192,8 +194,25 @@ static int console_loop(void* p) {
 		keyb_evt_t evts[KEYB_EVT_MAX];
 		int n = keyb_read(_keyb_fd, evts, KEYB_EVT_MAX);
 		for(int i=0; i<n; i++) {
-			uint8_t c = evts[i].key;
-			if(evts[i].state != KEYB_STATE_PRESS || c >= 128)
+			keyb_evt_t* ev = &evts[i];
+			if(ev->state == KEYB_STATE_PRESS) {
+				if(ev->key == KEY_LSHIFT || ev->key == KEY_RSHIFT) {
+					shift = true;
+				}
+			}
+			else {
+				if(ev->key == KEY_LSHIFT || ev->key == KEY_RSHIFT) {
+					shift = false;
+				}
+			}
+
+			uint8_t c;
+			if(shift)
+				c = keyb_shift_value(ev->key);
+			else
+				c = ev->key;
+
+			if(ev->state != KEYB_STATE_PRESS || c >= 128)
 				continue;
 
 			if(c == KEY_UP) {
