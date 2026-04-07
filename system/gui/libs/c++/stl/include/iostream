@@ -1,0 +1,482 @@
+#ifndef EWOK_STL_IOSTREAM_H
+#define EWOK_STL_IOSTREAM_H
+
+#include <string.h>
+#include <stddef.h>
+
+// Include sstream for shared types
+#include <sstream>
+
+namespace std {
+
+// Forward declarations for external C functions
+extern "C" {
+    int printf(const char* format, ...);
+    int putchar(int c);
+    int getchar(void);
+}
+
+template <typename Char>
+class basic_ostream {
+public:
+    typedef Char char_type;
+    typedef int int_type;
+    typedef long pos_type;
+    typedef long off_type;
+    typedef int streamsize;
+
+    basic_ostream() {}
+
+    basic_ostream& put(char_type c) {
+        putchar(c);
+        return *this;
+    }
+
+    basic_ostream& write(const char_type* s, streamsize n) {
+        for (streamsize i = 0; i < n; ++i) {
+            putchar(s[i]);
+        }
+        return *this;
+    }
+
+    basic_ostream& flush() {
+        return *this;
+    }
+
+    basic_ostream& operator<<(char_type c) {
+        putchar(c);
+        return *this;
+    }
+
+    basic_ostream& operator<<(const char_type* s) {
+        while (*s) {
+            putchar(*s++);
+        }
+        return *this;
+    }
+
+    basic_ostream& operator<<(bool val) {
+        return *this << (val ? "true" : "false");
+    }
+
+    basic_ostream& operator<<(short val) {
+        return *this << static_cast<int>(val);
+    }
+
+    basic_ostream& operator<<(unsigned short val) {
+        return *this << static_cast<unsigned int>(val);
+    }
+
+    basic_ostream& operator<<(int val) {
+        char buf[32];
+        int len = 0;
+        bool neg = false;
+        if (val < 0) {
+            neg = true;
+            val = -val;
+        }
+        if (val == 0) {
+            buf[len++] = '0';
+        } else {
+            while (val > 0) {
+                buf[len++] = '0' + (val % 10);
+                val /= 10;
+            }
+        }
+        if (neg) buf[len++] = '-';
+        for (int i = len - 1; i >= 0; --i) {
+            putchar(buf[i]);
+        }
+        return *this;
+    }
+
+    basic_ostream& operator<<(unsigned int val) {
+        char buf[32];
+        int len = 0;
+        if (val == 0) {
+            buf[len++] = '0';
+        } else {
+            while (val > 0) {
+                buf[len++] = '0' + (val % 10);
+                val /= 10;
+            }
+        }
+        for (int i = len - 1; i >= 0; --i) {
+            putchar(buf[i]);
+        }
+        return *this;
+    }
+
+    basic_ostream& operator<<(long val) {
+        char buf[32];
+        int len = 0;
+        bool neg = false;
+        if (val < 0) {
+            neg = true;
+            val = -val;
+        }
+        if (val == 0) {
+            buf[len++] = '0';
+        } else {
+            while (val > 0) {
+                buf[len++] = '0' + (val % 10);
+                val /= 10;
+            }
+        }
+        if (neg) buf[len++] = '-';
+        for (int i = len - 1; i >= 0; --i) {
+            putchar(buf[i]);
+        }
+        return *this;
+    }
+
+    basic_ostream& operator<<(unsigned long val) {
+        char buf[32];
+        int len = 0;
+        if (val == 0) {
+            buf[len++] = '0';
+        } else {
+            while (val > 0) {
+                buf[len++] = '0' + (val % 10);
+                val /= 10;
+            }
+        }
+        for (int i = len - 1; i >= 0; --i) {
+            putchar(buf[i]);
+        }
+        return *this;
+    }
+
+    basic_ostream& operator<<(float val) {
+        // Simple float output: integer part + decimal part
+        int int_part = static_cast<int>(val);
+        *this << int_part;
+        putchar('.');
+        float frac = val - int_part;
+        if (frac < 0) frac = -frac;
+        for (int i = 0; i < 6; ++i) {
+            frac *= 10;
+            int digit = static_cast<int>(frac);
+            putchar('0' + digit);
+            frac -= digit;
+        }
+        return *this;
+    }
+
+    basic_ostream& operator<<(double val) {
+        return *this << static_cast<float>(val);
+    }
+
+    basic_ostream& operator<<(const void* ptr) {
+        *this << "0x";
+        unsigned long addr = reinterpret_cast<unsigned long>(ptr);
+        char buf[16];
+        int len = 0;
+        if (addr == 0) {
+            buf[len++] = '0';
+        } else {
+            while (addr > 0) {
+                int digit = addr % 16;
+                buf[len++] = (digit < 10) ? ('0' + digit) : ('a' + digit - 10);
+                addr /= 16;
+            }
+        }
+        for (int i = len - 1; i >= 0; --i) {
+            putchar(buf[i]);
+        }
+        return *this;
+    }
+
+    basic_ostream& operator<<(basic_ostream& (*pf)(basic_ostream&)) {
+        return pf(*this);
+    }
+};
+
+template <typename Char>
+class basic_istream {
+public:
+    typedef Char char_type;
+    typedef int int_type;
+    typedef long pos_type;
+    typedef long off_type;
+    typedef int streamsize;
+
+    basic_istream() : eofbit_(false), failbit_(false) {}
+
+    int_type get() {
+        int c = getchar();
+        if (c == -1) {
+            eofbit_ = true;
+        }
+        return c;
+    }
+
+    basic_istream& get(char_type& c) {
+        int_type ch = get();
+        if (ch != -1) {
+            c = static_cast<char_type>(ch);
+        }
+        return *this;
+    }
+
+    basic_istream& getline(char_type* s, streamsize n) {
+        streamsize i = 0;
+        while (i < n - 1) {
+            int_type ch = get();
+            if (ch == -1) {
+                eofbit_ = true;
+                break;
+            }
+            if (ch == '\n') {
+                break;
+            }
+            s[i++] = static_cast<char_type>(ch);
+        }
+        s[i] = '\0';
+        return *this;
+    }
+
+    basic_istream& ignore(streamsize n = 1, int_type delim = -1) {
+        for (streamsize i = 0; i < n; ++i) {
+            int_type ch = get();
+            if (ch == -1 || ch == delim) {
+                break;
+            }
+        }
+        return *this;
+    }
+
+    basic_istream& operator>>(char_type& c) {
+        int_type ch = get();
+        if (ch != -1) {
+            c = static_cast<char_type>(ch);
+        }
+        return *this;
+    }
+
+    basic_istream& operator>>(char_type* s) {
+        // Skip whitespace
+        int_type ch;
+        do {
+            ch = get();
+        } while (ch != -1 && (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r'));
+
+        int i = 0;
+        while (ch != -1 && ch != ' ' && ch != '\t' && ch != '\n' && ch != '\r') {
+            s[i++] = static_cast<char_type>(ch);
+            ch = get();
+        }
+        s[i] = '\0';
+        return *this;
+    }
+
+    basic_istream& operator>>(int& value) {
+        value = 0;
+        char_type c = 0;
+        bool neg = false;
+
+        // Skip leading whitespace
+        while (true) {
+            int_type ch = get();
+            if (ch == -1) {
+                failbit_ = true;
+                return *this;
+            }
+            c = static_cast<char_type>(ch);
+            if (c != ' ' && c != '\n' && c != '\t' && c != '\r') break;
+        }
+
+        // Check for negative sign
+        if (c == '-') {
+            neg = true;
+            int_type ch = get();
+            if (ch == -1) {
+                failbit_ = true;
+                return *this;
+            }
+            c = static_cast<char_type>(ch);
+        }
+
+        // Read digits
+        bool has_digit = false;
+        while (true) {
+            if (c >= '0' && c <= '9') {
+                value = value * 10 + (c - '0');
+                has_digit = true;
+            } else {
+                break;
+            }
+            int_type ch = get();
+            if (ch == -1) break;
+            c = static_cast<char_type>(ch);
+        }
+
+        if (!has_digit) {
+            failbit_ = true;
+        } else if (neg) {
+            value = -value;
+        }
+        return *this;
+    }
+
+    basic_istream& operator>>(unsigned int& value) {
+        value = 0;
+        char_type c = 0;
+
+        // Skip leading whitespace
+        while (true) {
+            int_type ch = get();
+            if (ch == -1) {
+                failbit_ = true;
+                return *this;
+            }
+            c = static_cast<char_type>(ch);
+            if (c != ' ' && c != '\n' && c != '\t' && c != '\r') break;
+        }
+
+        // Read digits
+        bool has_digit = false;
+        while (true) {
+            if (c >= '0' && c <= '9') {
+                value = value * 10 + (c - '0');
+                has_digit = true;
+            } else {
+                break;
+            }
+            int_type ch = get();
+            if (ch == -1) break;
+            c = static_cast<char_type>(ch);
+        }
+
+        if (!has_digit) {
+            failbit_ = true;
+        }
+        return *this;
+    }
+
+    basic_istream& operator>>(long& value) {
+        int tmp;
+        *this >> tmp;
+        value = tmp;
+        return *this;
+    }
+
+    basic_istream& operator>>(unsigned long& value) {
+        unsigned int tmp;
+        *this >> tmp;
+        value = tmp;
+        return *this;
+    }
+
+    basic_istream& operator>>(float& value) {
+        // Simple float parsing
+        int int_part;
+        *this >> int_part;
+        value = static_cast<float>(int_part);
+        
+        // Check for decimal point
+        int_type ch = get();
+        if (ch == '.') {
+            float frac = 0.0f;
+            float divisor = 10.0f;
+            while (true) {
+                ch = get();
+                if (ch == -1 || ch < '0' || ch > '9') break;
+                frac += static_cast<float>(ch - '0') / divisor;
+                divisor *= 10.0f;
+            }
+            if (int_part < 0) {
+                value -= frac;
+            } else {
+                value += frac;
+            }
+        }
+        return *this;
+    }
+
+    basic_istream& operator>>(double& value) {
+        float f;
+        *this >> f;
+        value = f;
+        return *this;
+    }
+
+    basic_istream& operator>>(bool& val) {
+        // Skip whitespace
+        int_type ch;
+        do {
+            ch = get();
+        } while (ch != -1 && (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r'));
+
+        if (ch == '1' || ch == 't' || ch == 'T') {
+            val = true;
+        } else {
+            val = false;
+        }
+        return *this;
+    }
+
+    explicit operator bool() const {
+        return !failbit_ && !eofbit_;
+    }
+
+    bool eof() const { return eofbit_; }
+    bool fail() const { return failbit_; }
+    bool good() const { return !eofbit_ && !failbit_; }
+
+    void clear() {
+        eofbit_ = false;
+        failbit_ = false;
+    }
+
+private:
+    bool eofbit_;
+    bool failbit_;
+};
+
+template <typename Char>
+class basic_iostream : public basic_istream<Char>, public basic_ostream<Char> {
+public:
+    typedef Char char_type;
+    typedef int int_type;
+    typedef long pos_type;
+    typedef long off_type;
+    typedef int streamsize;
+
+    basic_iostream() {}
+};
+
+// Manipulators
+template <typename Char>
+basic_ostream<Char>& endl(basic_ostream<Char>& os) {
+    os.put('\n');
+    os.flush();
+    return os;
+}
+
+template <typename Char>
+basic_ostream<Char>& ends(basic_ostream<Char>& os) {
+    os.put('\0');
+    return os;
+}
+
+template <typename Char>
+basic_ostream<Char>& flush(basic_ostream<Char>& os) {
+    os.flush();
+    return os;
+}
+
+// Standard stream objects
+extern basic_ostream<char> cout;
+extern basic_ostream<char> cerr;
+extern basic_ostream<char> clog;
+extern basic_istream<char> cin;
+
+// Type aliases
+typedef basic_ostream<char> ostream;
+typedef basic_istream<char> istream;
+typedef basic_iostream<char> iostream;
+
+} // namespace std
+
+#endif // EWOK_STL_IOSTREAM_H

@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <iterator>
 #include <sstream>
+#include <iostream>
 
 using namespace std;
 
@@ -474,6 +475,44 @@ TEST(sstream_str) {
     ASSERT_EQ(oss.str(), "changed");
 }
 
+// ==================== IOSTREAM TESTS ====================
+TEST(iostream_ostream_int) {
+    // Test basic_ostream with integers
+    // Since we can't capture stdout, we just verify it compiles and runs
+    cout << 42;
+    cout << -123;
+    cout << 0;
+    cout << endl;
+    ASSERT(true);
+}
+
+TEST(iostream_ostream_char) {
+    // Test basic_ostream with characters
+    cout << 'A';
+    cout << 'b';
+    cout << '1';
+    cout << endl;
+    ASSERT(true);
+}
+
+TEST(iostream_ostream_string) {
+    // Test basic_ostream with strings
+    cout << "Hello";
+    cout << " ";
+    cout << "World";
+    cout << endl;
+    ASSERT(true);
+}
+
+TEST(iostream_ostream_bool) {
+    // Test basic_ostream with bool
+    cout << true;
+    cout << " ";
+    cout << false;
+    cout << endl;
+    ASSERT(true);
+}
+
 int main(int argc, char** argv) {
     printf("=== STL Test Suite ===\n\n");
 
@@ -547,6 +586,12 @@ int main(int argc, char** argv) {
     // Iterator tests
     RUN_TEST(iterator_basic);
     RUN_TEST(iterator_advance);
+
+    // Iostream tests
+    RUN_TEST(iostream_ostream_int);
+    RUN_TEST(iostream_ostream_char);
+    RUN_TEST(iostream_ostream_string);
+    RUN_TEST(iostream_ostream_bool);
 
     printf("\n=== Results: %d/%d tests passed ===\n", pass_count, test_count);
     return (pass_count == test_count) ? 0 : 1;
