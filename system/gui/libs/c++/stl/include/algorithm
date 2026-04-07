@@ -92,77 +92,62 @@ Iterator unique(Iterator first, Iterator last) {
 template <typename Iterator>
 void sort(Iterator first, Iterator last) {
     if (first >= last) return;
-    Iterator min_iter = first;
-    Iterator max_iter = last - 1;
-    if (*min_iter > *max_iter) {
-        swap(*min_iter, *max_iter);
-    }
-    if (first + 1 >= last) return;
-    Iterator pivot = first + 1;
-    if (*pivot < *min_iter) {
-        swap(*pivot, *min_iter);
-    }
-    if (*pivot > *max_iter) {
-        swap(*pivot, *max_iter);
-    }
-    if (first + 2 >= last) return;
-    Iterator low = first + 1;
-    Iterator high = last - 1;
-    while (low < high) {
-        while (low < high && *low < *pivot) {
-            ++low;
-        }
-        while (low < high && *high > *pivot) {
-            --high;
-        }
-        if (low < high) {
-            swap(*low, *high);
-            ++low;
-            --high;
+
+    typedef typename Iterator::value_type T;
+    struct {
+        bool operator()(const T& a, const T& b) const { return a < b; }
+    } less;
+
+    Iterator arr[3] = {first, first + (last - first) / 2, last - 1};
+    if (less(*arr[2], *arr[0])) swap(arr[0], arr[2]);
+    if (less(*arr[1], *arr[0])) swap(arr[0], arr[1]);
+    if (less(*arr[2], *arr[1])) swap(arr[1], arr[2]);
+
+    if (last - first < 3) return;
+
+    Iterator pivot_iter = arr[1];
+    T pivot = *pivot_iter;
+    swap(*pivot_iter, *(last - 1));
+
+    Iterator store = first;
+    for (Iterator i = first; i < last - 1; ++i) {
+        if (less(*i, pivot)) {
+            swap(*i, *store);
+            ++store;
         }
     }
-    --low;
-    swap(*pivot, *low);
-    sort(first, low + 1);
-    sort(low + 1, last);
+    swap(*store, *(last - 1));
+
+    sort(first, store);
+    sort(store + 1, last);
 }
 
 template <typename Iterator, typename Compare>
 void sort(Iterator first, Iterator last, Compare comp) {
     if (first >= last) return;
-    Iterator min_iter = first;
-    Iterator max_iter = last - 1;
-    if (comp(*max_iter, *min_iter)) {
-        swap(*min_iter, *max_iter);
-    }
-    if (first + 1 >= last) return;
-    Iterator pivot = first + 1;
-    if (comp(*pivot, *min_iter)) {
-        swap(*pivot, *min_iter);
-    }
-    if (comp(*max_iter, *pivot)) {
-        swap(*pivot, *max_iter);
-    }
-    if (first + 2 >= last) return;
-    Iterator low = first + 1;
-    Iterator high = last - 1;
-    while (low < high) {
-        while (low < high && comp(*low, *pivot)) {
-            ++low;
-        }
-        while (low < high && comp(*pivot, *high)) {
-            --high;
-        }
-        if (low < high) {
-            swap(*low, *high);
-            ++low;
-            --high;
+
+    Iterator arr[3] = {first, first + (last - first) / 2, last - 1};
+    if (comp(*arr[2], *arr[0])) swap(arr[0], arr[2]);
+    if (comp(*arr[1], *arr[0])) swap(arr[0], arr[1]);
+    if (comp(*arr[2], *arr[1])) swap(arr[1], arr[2]);
+
+    if (last - first < 3) return;
+
+    Iterator pivot_iter = arr[1];
+    typename Iterator::value_type pivot = *pivot_iter;
+    swap(*pivot_iter, *(last - 1));
+
+    Iterator store = first;
+    for (Iterator i = first; i < last - 1; ++i) {
+        if (comp(*i, pivot)) {
+            swap(*i, *store);
+            ++store;
         }
     }
-    --low;
-    swap(*pivot, *low);
-    sort(first, low + 1, comp);
-    sort(low + 1, last, comp);
+    swap(*store, *(last - 1));
+
+    sort(first, store, comp);
+    sort(store + 1, last, comp);
 }
 
 template <typename Iterator, typename T>

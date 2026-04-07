@@ -329,9 +329,6 @@ class weak_ptr {
         constexpr weak_ptr() noexcept : ptr_(nullptr), ref_count_(nullptr) {}
 
         weak_ptr(const shared_ptr<T>& other) noexcept : ptr_(other.ptr_), ref_count_(other.ref_count_) {
-            if (ref_count_) {
-                (*ref_count_)++;
-            }
         }
 
         weak_ptr(const weak_ptr& other) noexcept : ptr_(other.ptr_), ref_count_(other.ref_count_) {

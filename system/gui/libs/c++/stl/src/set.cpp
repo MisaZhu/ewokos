@@ -141,17 +141,20 @@ typename set<T>::iterator set<T>::insert(const T& val) {
 
     while (x != nil_) {
         y = x;
-        if (z->key < x->key) {
+        if (val < x->key) {
             x = x->left;
-        } else {
+        } else if (x->key < val) {
             x = x->right;
+        } else {
+            delete z;
+            return iterator(&x->key);
         }
     }
 
     z->parent = y;
     if (y == nil_) {
         root_ = z;
-    } else if (z->key < y->key) {
+    } else if (val < y->key) {
         y->left = z;
     } else {
         y->right = z;
