@@ -14,6 +14,7 @@
 #include <memory>
 #include <algorithm>
 #include <iterator>
+#include <sstream>
 
 using namespace std;
 
@@ -411,6 +412,68 @@ TEST(iterator_advance) {
     ASSERT_EQ(*it, 4);
 }
 
+// ==================== SSTREAM TESTS ====================
+TEST(sstream_ostringstream_basic) {
+    ostringstream oss;
+    oss << "Hello";
+    oss << " ";
+    oss << "World";
+    ASSERT_EQ(oss.str(), "Hello World");
+}
+
+TEST(sstream_ostringstream_int) {
+    ostringstream oss;
+    oss << 42 << " " << 100;
+    ASSERT_EQ(oss.str(), "42 100");
+}
+
+TEST(sstream_ostringstream_multiple_int) {
+    ostringstream oss;
+    oss << 1 << " + " << 2 << " = " << 3;
+    ASSERT_EQ(oss.str(), "1 + 2 = 3");
+}
+
+TEST(sstream_istringstream_basic) {
+    istringstream iss("Hello World");
+    string s1, s2;
+    iss >> s1 >> s2;
+    ASSERT_EQ(s1, "Hello");
+    ASSERT_EQ(s2, "World");
+}
+
+TEST(sstream_istringstream_int) {
+    istringstream iss("42 100");
+    int a, b;
+    iss >> a >> b;
+    ASSERT_EQ(a, 42);
+    ASSERT_EQ(b, 100);
+}
+
+TEST(sstream_stringstream_basic) {
+    stringstream ss;
+    ss << "test" << " " << 123;
+    string str = ss.str();
+    ASSERT_EQ(str, "test 123");
+}
+
+TEST(sstream_stringstream_read_write) {
+    stringstream ss;
+    ss << 42 << " " << 100;
+    int a, b;
+    ss >> a >> b;
+    ASSERT_EQ(a, 42);
+    ASSERT_EQ(b, 100);
+}
+
+TEST(sstream_str) {
+    ostringstream oss;
+    oss << "initial";
+    ASSERT_EQ(oss.str(), "initial");
+    string s = "changed";
+    oss.str(s);
+    ASSERT_EQ(oss.str(), "changed");
+}
+
 int main(int argc, char** argv) {
     printf("=== STL Test Suite ===\n\n");
 
@@ -470,6 +533,16 @@ int main(int argc, char** argv) {
     RUN_TEST(algorithm_reverse);
     RUN_TEST(algorithm_swap);
     RUN_TEST(algorithm_min_max);
+
+    // Sstream tests
+    RUN_TEST(sstream_ostringstream_basic);
+    RUN_TEST(sstream_ostringstream_int);
+    RUN_TEST(sstream_ostringstream_multiple_int);
+    RUN_TEST(sstream_istringstream_basic);
+    RUN_TEST(sstream_istringstream_int);
+    RUN_TEST(sstream_stringstream_basic);
+    RUN_TEST(sstream_stringstream_read_write);
+    RUN_TEST(sstream_str);
 
     // Iterator tests
     RUN_TEST(iterator_basic);

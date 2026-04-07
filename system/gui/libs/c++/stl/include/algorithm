@@ -94,14 +94,11 @@ void sort(Iterator first, Iterator last) {
     if (first >= last) return;
 
     typedef typename Iterator::value_type T;
-    struct {
-        bool operator()(const T& a, const T& b) const { return a < b; }
-    } less;
 
     Iterator arr[3] = {first, first + (last - first) / 2, last - 1};
-    if (less(*arr[2], *arr[0])) swap(arr[0], arr[2]);
-    if (less(*arr[1], *arr[0])) swap(arr[0], arr[1]);
-    if (less(*arr[2], *arr[1])) swap(arr[1], arr[2]);
+    if (*arr[2] < *arr[0]) { Iterator tmp = arr[0]; arr[0] = arr[2]; arr[2] = tmp; }
+    if (*arr[1] < *arr[0]) { Iterator tmp = arr[0]; arr[0] = arr[1]; arr[1] = tmp; }
+    if (*arr[2] < *arr[1]) { Iterator tmp = arr[1]; arr[1] = arr[2]; arr[2] = tmp; }
 
     if (last - first < 3) return;
 
@@ -111,7 +108,7 @@ void sort(Iterator first, Iterator last) {
 
     Iterator store = first;
     for (Iterator i = first; i < last - 1; ++i) {
-        if (less(*i, pivot)) {
+        if (*i < pivot) {
             swap(*i, *store);
             ++store;
         }
@@ -127,9 +124,9 @@ void sort(Iterator first, Iterator last, Compare comp) {
     if (first >= last) return;
 
     Iterator arr[3] = {first, first + (last - first) / 2, last - 1};
-    if (comp(*arr[2], *arr[0])) swap(arr[0], arr[2]);
-    if (comp(*arr[1], *arr[0])) swap(arr[0], arr[1]);
-    if (comp(*arr[2], *arr[1])) swap(arr[1], arr[2]);
+    if (comp(*arr[2], *arr[0])) { Iterator tmp = arr[0]; arr[0] = arr[2]; arr[2] = tmp; }
+    if (comp(*arr[1], *arr[0])) { Iterator tmp = arr[0]; arr[0] = arr[1]; arr[1] = tmp; }
+    if (comp(*arr[2], *arr[1])) { Iterator tmp = arr[1]; arr[1] = arr[2]; arr[2] = tmp; }
 
     if (last - first < 3) return;
 
