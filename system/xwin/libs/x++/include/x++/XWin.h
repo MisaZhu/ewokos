@@ -95,7 +95,7 @@ public:
 	void top(void);
 	void pop(void);
 	void busy(bool bs);
-	void hideCursor(bool hide);
+	void hideCursor(bool hide = true);
 		
 	gpos_t getInsidePos(int32_t x, int32_t y);
 	gpos_t getScreenPos(int32_t x, int32_t y);
