@@ -168,9 +168,11 @@ bool ConsoleWidget::onIM(xevent_t* ev) {
 				update();
 			}
 			else {
-				input(c);
-				gterminal_scroll(&terminal, 0);
-				update();
+				if(c != KEY_LSHIFT && c != KEY_RSHIFT && c != KEY_CTRL) {
+					input(c);
+					gterminal_scroll(&terminal, 0);
+					update();
+				}
 			}
 		}
 		return true;	

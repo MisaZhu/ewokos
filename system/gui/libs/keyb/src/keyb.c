@@ -119,6 +119,37 @@ int keyb_read(int keyb_fd, keyb_evt_t* evts, uint8_t num) {
 	return key_state_machine(evts, num); 
 }
 
+int keyb_shift_value(int key){
+    if(key >= 'a' && key <= 'z')
+        return key + 'A' - 'a';
+
+    switch(key){
+        case '1': return '!';
+        case '2': return '@';
+        case '3': return '#';
+        case '4': return '$';
+        case '5': return '%';
+        case '6': return '^';
+        case '7': return '&';
+        case '8': return '*';
+        case '9': return '(';
+        case '0': return ')';
+        case '-': return '_';
+        case '=': return '+';
+        case '[': return '{';
+        case ']': return '}';
+        case '\\': return '|';
+        case ';': return ':';
+        case '\'': return '"';
+        case ',': return '<';
+        case '.': return '>';
+        case '/': return '?';
+        case '`': return '~';
+    }
+    return key;
+}
+
+
 #ifdef __cplusplus
 }
 #endif

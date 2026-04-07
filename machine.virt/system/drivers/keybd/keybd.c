@@ -20,8 +20,6 @@
 typedef struct
 {
 	uint8_t key_count;
-	uint8_t shift;
-	uint8_t ctrl;
 	uint8_t key_code[6];
 } key_data_t;
 
@@ -62,39 +60,18 @@ int get_key_code(char *buf)
 {
 	int num = 0;
 	
-	// 检查是否按下了 Ctrl+C、Ctrl+] 或 Ctrl+D
-	if (key_data.ctrl) {
-		for (int i = 0; i < key_data.key_count; i++) {
-			if (key_data.key_code[i] == 0x2e) { // 'c' 键的键码
-				buf[num++] = 3; // ASCII 码 3 代表 Ctrl+C
-				return num;
-			}
-			else if (key_data.key_code[i] == 0x1b) { // ']' 键的键码
-				buf[num++] = 29; // ASCII 码 29 代表 Ctrl+]
-				return num;
-			}
-			else if (key_data.key_code[i] == 0x20) { // 'd' 键的键码
-				buf[num++] = 4; // ASCII 码 4 代表 Ctrl+D
-				return num;
-			}
-		}
-	}
-	
-	// 处理其他按键
+	// 处理所有按下的键
 	for (int i = 0; i < key_data.key_count; i++)
 	{
-		if (key_data.key_code[i] < sizeof(keymapUp))
+		uint8_t key = key_data.key_code[i];
+		// 如果 keymap 中没有映射，则直接使用原始键码
+		if (key < sizeof(keymap) && keymap[key] != 0)
 		{
-			if (key_data.shift)
-			{
-				buf[num] = keymapUp[key_data.key_code[i]];
-			}
-			else
-			{
-				buf[num] = keymapDown[key_data.key_code[i]];
-			}
-			if (buf[num])
-				num++;
+			buf[num++] = keymap[key];
+		}
+		else
+		{
+			buf[num++] = key;
 		}
 	}
 	return num;
@@ -132,14 +109,6 @@ void keybd_interrupt_handle(virtio_dev_t dev, struct virtio_input_event *event)
 		else
 		{
 			key_release(event->code);
-		}
-		if (event->code == 0x2a || event->code == 0x36)
-		{
-			key_data.shift = event->value;
-		}
-		if (event->code == 0x1d || event->code == 0x61)
-		{
-			key_data.ctrl = event->value;
 		}
 	}
 	else if (event->type == EV_SYN)

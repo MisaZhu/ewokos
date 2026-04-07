@@ -51,6 +51,9 @@ typedef struct {
 
 		struct {
 			int32_t value;
+			int32_t key_code;
+			uint32_t shift;
+			uint32_t ctrl;
 		} im;
 
 		struct {

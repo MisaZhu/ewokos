@@ -14,14 +14,45 @@
 #include <ewoksys/vfs.h>
 #include <keyb/keyb.h>
 
+
 class XIM {
 	int x_pid;
 	int keybFD;
 
 	void input(uint8_t c, uint8_t state) {
+		static bool shift = false;
+		static bool ctrl = false;
+
 		xevent_t ev;
 		ev.type = XEVT_IM;
-		ev.value.im.value = c;
+		ev.value.im.shift = 0;
+		ev.value.im.ctrl = 0;
+		ev.value.im.key_code = c;
+
+		if (state == KEYB_STATE_PRESS) {
+			if (c == KEY_LSHIFT) {
+				shift = true;
+				ev.value.im.shift = KEY_LSHIFT;
+			} else if (c == KEY_RSHIFT) {
+				shift = true;
+				ev.value.im.shift = KEY_RSHIFT;
+			} else if (c == KEY_CTRL) {
+				ctrl = true;
+			}
+
+			if (shift) {
+				ev.value.im.value = keyb_shift_value(c);
+			} else {
+				ev.value.im.value = c;
+			}
+		} else {
+			if (c == KEY_LSHIFT || c == KEY_RSHIFT) {
+				shift = false;
+			} else if (c == KEY_CTRL) {
+				ctrl = false;
+			}
+			ev.value.im.value = c;
+		}
 		ev.state = state;
 
 		proto_t in;

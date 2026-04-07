@@ -22,7 +22,7 @@ extern "C" {
 #define KEY_HOME            0xF0 
 #define KEY_END             0xF1
 
-#define KEY_CTRL            0xF2
+#define KEY_CTRL            0x11
 #define KEY_LSHIFT          0xA2
 #define KEY_RSHIFT          0xA3
 
