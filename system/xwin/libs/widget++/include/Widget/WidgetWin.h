@@ -10,9 +10,8 @@ class WidgetWin: public XWin {
 	static const uint32_t TIMER_MIN_FPS = 1;
 protected:
 	uint32_t timerFPS;
-	uint32_t timerStep;
+	uint32_t lastTimerTick;
 	RootWidget* root;
-	uint32_t timerID;
 	void onRepaint(graph_t* g);
 	void onResize(void);
 	void onEvent(xevent_t* ev);
@@ -27,11 +26,12 @@ public:
 	~WidgetWin(void);
 	inline RootWidget* getRoot() { return root; }
 
+	inline uint32_t getTimerFPS() { return timerFPS; }
+
 	void build();
 	void setRoot(RootWidget* root);
 	void setTimer(uint32_t fps);
-	void timerTask();
-	void doTimer();
+	void doTimer(uint64_t tick);
 };
 
 }

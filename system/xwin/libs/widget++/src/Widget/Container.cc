@@ -138,20 +138,12 @@ void  Container::add(Widget* child) {
 	layout();
 }
 
-void  Container::doTimer() {
-	Widget::doTimer();
+void  Container::doTimer(uint32_t fps) {
+	Widget::doTimer(fps);
 
 	Widget* wd = children;
 	while(wd != NULL) {
-		wd->doTimer();
-		wd = wd->next;
-	}
-}
-
-void  Container::timerTrigger(uint32_t timerFPS, uint32_t timerStep) {
-	Widget* wd = children;
-	while(wd != NULL) {
-		wd->timerTrigger(timerFPS, timerStep);
+		wd->doTimer(fps);
 		wd = wd->next;
 	}
 }

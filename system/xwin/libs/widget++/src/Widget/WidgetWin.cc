@@ -6,9 +6,8 @@ namespace Ewok {
 
 WidgetWin::WidgetWin() {
 	root = NULL;
-	timerID = 0;
 	timerFPS = 1;
-	timerStep = 0;
+	lastTimerTick = 0;
 	widgetRegWin(this);
 
 	RootWidget* r = new RootWidget();
@@ -19,8 +18,6 @@ WidgetWin::WidgetWin() {
 WidgetWin::~WidgetWin() {
 	if(root != NULL)
 		delete root;
-	if(timerID > 0)
-		timer_remove(timerID);
 	widgetUnregWin(this);
 }
 
@@ -73,23 +70,17 @@ void WidgetWin::onEvent(xevent_t* ev) {
 }
 
 bool WidgetWin::onClose() {
-	if(timerID > 0)
-		timer_remove(timerID);
 	return true;
 }
 
-void WidgetWin::timerTask() {
-	if(root == NULL)
+void WidgetWin::doTimer(uint64_t tick) {
+	if(root == NULL || timerFPS == 0)
 		return;
 
-	root->timerTrigger(timerFPS, timerStep++);
-}
-
-void WidgetWin::doTimer() {
-	if(root == NULL)
+	if((tick - lastTimerTick) < (1000 / timerFPS))
 		return;
-
-	root->doTimer();
+	lastTimerTick = tick;
+	root->doTimer(timerFPS);
 }
 
 void WidgetWin::setRoot(RootWidget* root) {
@@ -111,21 +102,11 @@ void WidgetWin::onBuild() {
 	setRoot(r);
 }
 
-static WidgetWin* _win = NULL;
-
-static void _timerHandler(void) {
-	_win->timerTask();
-}
-
 void WidgetWin::setTimer(uint32_t fps) {
 	if(fps < TIMER_MIN_FPS)
 		fps = TIMER_MIN_FPS;
 	timerFPS = fps;
-
-	_win = this;
-	if(timerID > 0)
-		timer_remove(timerID);
-	timerID = timer_set(1000*1000/timerFPS, _timerHandler);
+	widgetXSetTimerFPS(timerFPS);
 }
 
 }
