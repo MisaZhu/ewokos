@@ -1,0 +1,655 @@
+#ifndef EWOK_STL_FSTREAM_H
+#define EWOK_STL_FSTREAM_H
+
+#include <string.h>
+#include <stddef.h>
+#include <string>
+
+// Include sstream for shared types
+#include <sstream>
+
+namespace std {
+
+extern "C" {
+    int open(const char* pathname, int flags, ...);
+    int close(int fd);
+    ssize_t read(int fd, void* buf, size_t count);
+    ssize_t write(int fd, const void* buf, size_t count);
+    off_t lseek(int fd, off_t offset, int whence);
+}
+
+#ifndef O_RDONLY
+#define O_RDONLY 0
+#endif
+#ifndef O_WRONLY
+#define O_WRONLY 1
+#endif
+#ifndef O_RDWR
+#define O_RDWR 2
+#endif
+#ifndef O_CREAT
+#define O_CREAT 0100
+#endif
+#ifndef O_TRUNC
+#define O_TRUNC 01000
+#endif
+#ifndef O_APPEND
+#define O_APPEND 02000
+#endif
+
+template <typename Char>
+class basic_filebuf {
+public:
+    typedef Char char_type;
+    typedef int int_type;
+    typedef long pos_type;
+    typedef long off_type;
+    typedef int streamsize;
+
+protected:
+    int fd_;
+    bool is_open_;
+
+public:
+    basic_filebuf() : fd_(-1), is_open_(false) {}
+
+    ~basic_filebuf() {
+        if (is_open_) {
+            std::close(fd_);
+        }
+    }
+
+    bool is_open() const { return is_open_; }
+
+    basic_filebuf* open(const char* filename, int mode) {
+        if (is_open_) {
+            return nullptr;
+        }
+
+        int flags = 0;
+        if ((mode & in) && (mode & out)) {
+            flags = O_RDWR;
+        } else if (mode & out) {
+            flags = O_WRONLY;
+        } else {
+            flags = O_RDONLY;
+        }
+
+        if (mode & trunc) {
+            flags |= O_TRUNC;
+        }
+        if (mode & app) {
+            flags |= O_APPEND;
+        }
+        if (mode & out) {
+            flags |= O_CREAT;
+        }
+
+        fd_ = std::open(filename, flags, 0644);
+        if (fd_ < 0) {
+            return nullptr;
+        }
+        is_open_ = true;
+        return this;
+    }
+
+    basic_filebuf* close() {
+        if (!is_open_) {
+            return nullptr;
+        }
+        std::close(fd_);
+        fd_ = -1;
+        is_open_ = false;
+        return this;
+    }
+
+    int fd() const { return fd_; }
+
+    int_type underflow() {
+        if (!is_open_) return -1;
+        char_type c;
+        ssize_t n = read(fd_, &c, sizeof(char_type));
+        if (n != sizeof(char_type)) {
+            return -1;
+        }
+        lseek(fd_, -static_cast<off_t>(sizeof(char_type)), 1);
+        return static_cast<int_type>(c);
+    }
+
+    int_type uflow() {
+        if (!is_open_) return -1;
+        char_type c;
+        ssize_t n = read(fd_, &c, sizeof(char_type));
+        if (n != sizeof(char_type)) {
+            return -1;
+        }
+        return static_cast<int_type>(c);
+    }
+
+    int_type overflow(int_type c = -1) {
+        if (!is_open_) return -1;
+        if (c != -1) {
+            char_type ch = static_cast<char_type>(c);
+            if (write(fd_, &ch, sizeof(char_type)) != sizeof(char_type)) {
+                return -1;
+            }
+        }
+        return c;
+    }
+
+    streamsize xsgetn(char_type* s, streamsize n) {
+        if (!is_open_) return 0;
+        ssize_t result = read(fd_, s, n * sizeof(char_type));
+        return result > 0 ? result / sizeof(char_type) : 0;
+    }
+
+    streamsize xsputn(const char_type* s, streamsize n) {
+        if (!is_open_) return 0;
+        ssize_t result = write(fd_, s, n * sizeof(char_type));
+        return result > 0 ? result / sizeof(char_type) : 0;
+    }
+
+    pos_type seekoff(off_type off, seekdir dir, int which = (in|out)) {
+        if (!is_open_) return -1;
+        int whence;
+        if (dir == beg) whence = 0;
+        else if (dir == cur) whence = 1;
+        else if (dir == end) whence = 2;
+        else return -1;
+        return lseek(fd_, off * sizeof(char_type), whence);
+    }
+
+    pos_type seekpos(pos_type pos, int which = (in|out)) {
+        if (!is_open_) return -1;
+        return lseek(fd_, pos * sizeof(char_type), 0);
+    }
+};
+
+template <typename Char>
+class basic_ifstream {
+public:
+    typedef Char char_type;
+    typedef int int_type;
+    typedef long pos_type;
+    typedef long off_type;
+    typedef int streamsize;
+
+protected:
+    basic_filebuf<Char> buf_;
+    bool eof_;
+    bool fail_;
+
+public:
+    basic_ifstream() : eof_(false), fail_(false) {}
+
+    explicit basic_ifstream(const char* filename, openmode mode = in) {
+        open(filename, mode);
+    }
+
+    ~basic_ifstream() {
+        if (buf_.is_open()) {
+            buf_.close();
+        }
+    }
+
+    basic_filebuf<Char>* rdbuf() { return &buf_; }
+
+    bool is_open() const { return buf_.is_open(); }
+
+    void open(const char* filename, openmode mode = in) {
+        eof_ = false;
+        fail_ = false;
+        if (!buf_.open(filename, mode | in)) {
+            fail_ = true;
+        }
+    }
+
+    void close() {
+        if (!buf_.close()) {
+            fail_ = true;
+        }
+    }
+
+    int_type get() {
+        int_type ch = buf_.uflow();
+        if (ch == -1) {
+            eof_ = true;
+        }
+        return ch;
+    }
+
+    basic_ifstream& get(char_type& c) {
+        int_type ch = get();
+        if (ch != -1) {
+            c = static_cast<char_type>(ch);
+        }
+        return *this;
+    }
+
+    basic_ifstream& read(char_type* s, streamsize n) {
+        streamsize readn = buf_.xsgetn(s, n);
+        if (readn < n) {
+            eof_ = true;
+        }
+        return *this;
+    }
+
+    basic_ifstream& operator>>(int& value) {
+        value = 0;
+        char_type c = 0;
+        bool neg = false;
+
+        while (true) {
+            int_type ch = get();
+            if (ch == -1) {
+                fail_ = true;
+                return *this;
+            }
+            c = static_cast<char_type>(ch);
+            if (c != ' ' && c != '\n' && c != '\t' && c != '\r') break;
+        }
+
+        if (c == '-') {
+            neg = true;
+            int_type ch = get();
+            if (ch == -1) {
+                fail_ = true;
+                return *this;
+            }
+            c = static_cast<char_type>(ch);
+        }
+
+        bool has_digit = false;
+        while (true) {
+            if (c >= '0' && c <= '9') {
+                value = value * 10 + (c - '0');
+                has_digit = true;
+            } else {
+                break;
+            }
+            int_type ch = get();
+            if (ch == -1) break;
+            c = static_cast<char_type>(ch);
+        }
+
+        if (!has_digit) {
+            fail_ = true;
+        } else if (neg) {
+            value = -value;
+        }
+        return *this;
+    }
+
+    pos_type tellg() {
+        return buf_.seekoff(0, cur, in);
+    }
+
+    basic_ifstream& seekg(pos_type pos) {
+        buf_.seekpos(pos, in);
+        return *this;
+    }
+
+    basic_ifstream& seekg(off_type off, seekdir dir) {
+        buf_.seekoff(off, dir, in);
+        return *this;
+    }
+
+    explicit operator bool() const { return !fail_ && !eof_; }
+    bool eof() const { return eof_; }
+    bool fail() const { return fail_; }
+};
+
+template <typename Char>
+class basic_ofstream {
+public:
+    typedef Char char_type;
+    typedef int int_type;
+    typedef long pos_type;
+    typedef long off_type;
+    typedef int streamsize;
+
+protected:
+    basic_filebuf<Char> buf_;
+    bool fail_;
+
+public:
+    basic_ofstream() : fail_(false) {}
+
+    explicit basic_ofstream(const char* filename, openmode mode = out) {
+        open(filename, mode);
+    }
+
+    ~basic_ofstream() {
+        if (buf_.is_open()) {
+            buf_.close();
+        }
+    }
+
+    basic_filebuf<Char>* rdbuf() { return &buf_; }
+
+    bool is_open() const { return buf_.is_open(); }
+
+    void open(const char* filename, openmode mode = out) {
+        fail_ = false;
+        if (!buf_.open(filename, mode | out)) {
+            fail_ = true;
+        }
+    }
+
+    void close() {
+        if (!buf_.close()) {
+            fail_ = true;
+        }
+    }
+
+    basic_ofstream& put(char_type c) {
+        if (buf_.overflow(static_cast<int_type>(c)) == -1) {
+            fail_ = true;
+        }
+        return *this;
+    }
+
+    basic_ofstream& write(const char_type* s, streamsize n) {
+        if (buf_.xsputn(s, n) != n) {
+            fail_ = true;
+        }
+        return *this;
+    }
+
+    basic_ofstream& operator<<(char_type c) {
+        return put(c);
+    }
+
+    basic_ofstream& operator<<(const char_type* s) {
+        while (*s) {
+            put(*s++);
+        }
+        return *this;
+    }
+
+    basic_ofstream& operator<<(int value) {
+        char buf[32];
+        int len = 0;
+        bool neg = false;
+        if (value < 0) {
+            neg = true;
+            value = -value;
+        }
+        if (value == 0) {
+            buf[len++] = '0';
+        } else {
+            while (value > 0) {
+                buf[len++] = '0' + (value % 10);
+                value /= 10;
+            }
+        }
+        if (neg) buf[len++] = '-';
+        for (int i = len - 1; i >= 0; --i) {
+            put(buf[i]);
+        }
+        return *this;
+    }
+
+    basic_ofstream& operator<<(unsigned int value) {
+        char buf[32];
+        int len = 0;
+        if (value == 0) {
+            buf[len++] = '0';
+        } else {
+            while (value > 0) {
+                buf[len++] = '0' + (value % 10);
+                value /= 10;
+            }
+        }
+        for (int i = len - 1; i >= 0; --i) {
+            put(buf[i]);
+        }
+        return *this;
+    }
+
+    basic_ofstream& operator<<(const ::std::string& s) {
+        for (size_t i = 0; i < s.size(); ++i) {
+            put(s[i]);
+        }
+        return *this;
+    }
+
+    pos_type tellp() {
+        return buf_.seekoff(0, cur, out);
+    }
+
+    basic_ofstream& seekp(pos_type pos) {
+        buf_.seekpos(pos, out);
+        return *this;
+    }
+
+    basic_ofstream& seekp(off_type off, seekdir dir) {
+        buf_.seekoff(off, dir, out);
+        return *this;
+    }
+
+    explicit operator bool() const { return !fail_; }
+    bool fail() const { return fail_; }
+};
+
+template <typename Char>
+class basic_fstream {
+public:
+    typedef Char char_type;
+    typedef int int_type;
+    typedef long pos_type;
+    typedef long off_type;
+    typedef int streamsize;
+
+protected:
+    basic_filebuf<Char> buf_;
+    bool eof_;
+    bool fail_;
+
+public:
+    basic_fstream() : eof_(false), fail_(false) {}
+
+    explicit basic_fstream(const char* filename, openmode mode = in | out) {
+        open(filename, mode);
+    }
+
+    ~basic_fstream() {
+        if (buf_.is_open()) {
+            buf_.close();
+        }
+    }
+
+    basic_filebuf<Char>* rdbuf() { return &buf_; }
+
+    bool is_open() const { return buf_.is_open(); }
+
+    void open(const char* filename, openmode mode = in | out) {
+        eof_ = false;
+        fail_ = false;
+        if (!buf_.open(filename, mode)) {
+            fail_ = true;
+        }
+    }
+
+    void close() {
+        if (!buf_.close()) {
+            fail_ = true;
+        }
+    }
+
+    int_type get() {
+        int_type ch = buf_.uflow();
+        if (ch == -1) {
+            eof_ = true;
+        }
+        return ch;
+    }
+
+    basic_fstream& get(char_type& c) {
+        int_type ch = get();
+        if (ch != -1) {
+            c = static_cast<char_type>(ch);
+        }
+        return *this;
+    }
+
+    basic_fstream& read(char_type* s, streamsize n) {
+        streamsize readn = buf_.xsgetn(s, n);
+        if (readn < n) {
+            eof_ = true;
+        }
+        return *this;
+    }
+
+    basic_fstream& operator>>(int& value) {
+        value = 0;
+        char_type c = 0;
+        bool neg = false;
+
+        while (true) {
+            int_type ch = get();
+            if (ch == -1) {
+                fail_ = true;
+                return *this;
+            }
+            c = static_cast<char_type>(ch);
+            if (c != ' ' && c != '\n' && c != '\t' && c != '\r') break;
+        }
+
+        if (c == '-') {
+            neg = true;
+            int_type ch = get();
+            if (ch == -1) {
+                fail_ = true;
+                return *this;
+            }
+            c = static_cast<char_type>(ch);
+        }
+
+        bool has_digit = false;
+        while (true) {
+            if (c >= '0' && c <= '9') {
+                value = value * 10 + (c - '0');
+                has_digit = true;
+            } else {
+                break;
+            }
+            int_type ch = get();
+            if (ch == -1) break;
+            c = static_cast<char_type>(ch);
+        }
+
+        if (!has_digit) {
+            fail_ = true;
+        } else if (neg) {
+            value = -value;
+        }
+        return *this;
+    }
+
+    basic_fstream& put(char_type c) {
+        if (buf_.overflow(static_cast<int_type>(c)) == -1) {
+            fail_ = true;
+        }
+        return *this;
+    }
+
+    basic_fstream& write(const char_type* s, streamsize n) {
+        if (buf_.xsputn(s, n) != n) {
+            fail_ = true;
+        }
+        return *this;
+    }
+
+    basic_fstream& operator<<(char_type c) {
+        return put(c);
+    }
+
+    basic_fstream& operator<<(const char_type* s) {
+        while (*s) {
+            put(*s++);
+        }
+        return *this;
+    }
+
+    basic_fstream& operator<<(int value) {
+        char buf[32];
+        int len = 0;
+        bool neg = false;
+        if (value < 0) {
+            neg = true;
+            value = -value;
+        }
+        if (value == 0) {
+            buf[len++] = '0';
+        } else {
+            while (value > 0) {
+                buf[len++] = '0' + (value % 10);
+                value /= 10;
+            }
+        }
+        if (neg) buf[len++] = '-';
+        for (int i = len - 1; i >= 0; --i) {
+            put(buf[i]);
+        }
+        return *this;
+    }
+
+    basic_fstream& operator<<(unsigned int value) {
+        char buf[32];
+        int len = 0;
+        if (value == 0) {
+            buf[len++] = '0';
+        } else {
+            while (value > 0) {
+                buf[len++] = '0' + (value % 10);
+                value /= 10;
+            }
+        }
+        for (int i = len - 1; i >= 0; --i) {
+            put(buf[i]);
+        }
+        return *this;
+    }
+
+    pos_type tellg() {
+        return buf_.seekoff(0, cur, in);
+    }
+
+    basic_fstream& seekg(pos_type pos) {
+        buf_.seekpos(pos, in);
+        return *this;
+    }
+
+    basic_fstream& seekg(off_type off, seekdir dir) {
+        buf_.seekoff(off, dir, in);
+        return *this;
+    }
+
+    pos_type tellp() {
+        return buf_.seekoff(0, cur, out);
+    }
+
+    basic_fstream& seekp(pos_type pos) {
+        buf_.seekpos(pos, out);
+        return *this;
+    }
+
+    basic_fstream& seekp(off_type off, seekdir dir) {
+        buf_.seekoff(off, dir, out);
+        return *this;
+    }
+
+    explicit operator bool() const { return !fail_ && !eof_; }
+    bool eof() const { return eof_; }
+    bool fail() const { return fail_; }
+};
+
+typedef basic_filebuf<char> filebuf;
+typedef basic_ifstream<char> ifstream;
+typedef basic_ofstream<char> ofstream;
+typedef basic_fstream<char> fstream;
+
+} // namespace std
+
+#endif // EWOK_STL_FSTREAM_H

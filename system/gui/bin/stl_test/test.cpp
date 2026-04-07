@@ -16,6 +16,7 @@
 #include <iterator>
 #include <sstream>
 #include <iostream>
+#include <fstream>
 
 using namespace std;
 
@@ -513,6 +514,58 @@ TEST(iostream_ostream_bool) {
     ASSERT(true);
 }
 
+// ==================== FSTREAM TESTS ====================
+TEST(fstream_ofstream_basic) {
+    // Test writing to file
+    const char* test_file = "/tmp/test_ofstream.txt";
+    ofstream ofs(test_file);
+    ASSERT(ofs.is_open());
+    ofs << "Hello World";
+    ofs << " ";
+    ofs << 42;
+    ofs.close();
+    ASSERT(!ofs.is_open());
+}
+
+TEST(fstream_ifstream_basic) {
+    // First create a test file
+    const char* test_file = "/tmp/test_ifstream.txt";
+    ofstream ofs(test_file);
+    ofs << "Test content 123";
+    ofs.close();
+
+    // Now read it back
+    ifstream ifs(test_file);
+    ASSERT(ifs.is_open());
+    char buf[32];
+    ifs.read(buf, 16);
+    buf[16] = '\0';
+    ASSERT_EQ(string(buf), "Test content 123");
+    ifs.close();
+}
+
+TEST(fstream_fstream_read_write) {
+    // Test read/write with fstream
+    const char* test_file = "/tmp/test_fstream.txt";
+
+    // Write
+    fstream fs(test_file, (openmode)(out | trunc));
+    ASSERT(fs.is_open());
+    fs << 100;
+    fs << " ";
+    fs << 200;
+    fs.close();
+
+    // Read back
+    fstream fs2(test_file, in);
+    ASSERT(fs2.is_open());
+    int a, b;
+    fs2 >> a >> b;
+    ASSERT_EQ(a, 100);
+    ASSERT_EQ(b, 200);
+    fs2.close();
+}
+
 int main(int argc, char** argv) {
     printf("=== STL Test Suite ===\n\n");
 
@@ -592,6 +645,11 @@ int main(int argc, char** argv) {
     RUN_TEST(iostream_ostream_char);
     RUN_TEST(iostream_ostream_string);
     RUN_TEST(iostream_ostream_bool);
+
+    // Fstream tests
+    RUN_TEST(fstream_ofstream_basic);
+    RUN_TEST(fstream_ifstream_basic);
+    RUN_TEST(fstream_fstream_read_write);
 
     printf("\n=== Results: %d/%d tests passed ===\n", pass_count, test_count);
     return (pass_count == test_count) ? 0 : 1;
