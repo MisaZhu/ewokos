@@ -97,7 +97,7 @@ void  Container::layout() {
 		onLayout();
 		return;
 	}
-	if(type == VERTICLE)
+	if(type == VERTICAL)
 		layoutV();
 	else if(type == HORIZONTAL)
 		layoutH();
@@ -223,7 +223,7 @@ void Container::setAttr(const string& attr, json_var_t*value) {
 		if(str == "horizontal")
 			setType(HORIZONTAL);
 		else if(str == "verticle")
-			setType(VERTICLE);
+			setType(VERTICAL);
 		else if(str == "fixed")
 			setType(FIXED);
 		else if(str == "overlap")

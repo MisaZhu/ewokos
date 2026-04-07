@@ -363,7 +363,7 @@ void FileWidget::onFocus() {
 }
 
 void FileWidget::build() {
-	setType(Container::VERTICLE);
+	setType(Container::VERTICAL);
 	setAlpha(false);
 
 	CWDLabel* cwdLabel = new CWDLabel("/");

@@ -11,7 +11,7 @@ WidgetWin::WidgetWin() {
 	widgetRegWin(this);
 
 	RootWidget* r = new RootWidget();
-	r->setType(Container::VERTICLE);
+	r->setType(Container::VERTICAL);
 	setRoot(r);
 }
 
@@ -97,7 +97,7 @@ void WidgetWin::build() {
 
 void WidgetWin::onBuild() {
 	RootWidget* r = new RootWidget();
-	r->setType(Container::VERTICLE);
+	r->setType(Container::VERTICAL);
 	r->setAlpha(false);
 	setRoot(r);
 }

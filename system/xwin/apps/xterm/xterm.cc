@@ -273,7 +273,7 @@ static void* thread_loop(void* p) {
 	TermWin win;
 	RootWidget* root = new RootWidget();
 	win.setRoot(root);
-	root->setType(Container::VERTICLE);
+	root->setType(Container::VERTICAL);
 
 	Menu* menu = new Menu();
 	menu->add(0, "txtcolor", NULL, NULL, onTextColor, &win);

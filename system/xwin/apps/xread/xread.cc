@@ -168,7 +168,7 @@ int main(int argc, char** argv) {
 	TextWin win;
 	RootWidget* root = new RootWidget();
 	win.setRoot(root);
-	root->setType(Container::VERTICLE);
+	root->setType(Container::VERTICAL);
 	
 
 	Container* c = new Container();

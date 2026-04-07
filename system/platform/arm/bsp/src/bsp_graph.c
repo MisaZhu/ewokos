@@ -140,6 +140,8 @@ void graph_fill_bsp(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint
 	grect_t r = {x, y, w, h};
 	if(!graph_insect(g, &r))
 		return;
+    if(g->clip.w > 0 && g->clip.h > 0)
+        grect_insect(&g->clip, &r);
 
 	register int32_t ex, ey;
 	y = r.y;
@@ -182,6 +184,9 @@ inline void graph_blt_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int3
 	grect_t sr = {sx, sy, sw, sh};
 	grect_t dr = {dx, dy, dw, dh};
 	graph_insect(dst, &dr);
+	if(dst->clip.w > 0 && dst->clip.h > 0)
+		grect_insect(&dst->clip, &dr);
+
 	if(!graph_insect_with(src, &sr, dst, &dr))
 		return;
 
@@ -214,6 +219,9 @@ inline void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw
 	grect_t sr = {sx, sy, sw, sh};
 	grect_t dr = {dx, dy, dw, dh};
 	graph_insect(dst, &dr);
+	if(dst->clip.w > 0 && dst->clip.h > 0)
+		grect_insect(&dst->clip, &dr);
+
 	if(!graph_insect_with(src, &sr, dst, &dr))
 		return;
 
@@ -308,6 +316,9 @@ inline void graph_blt_alpha_mask_bsp(graph_t* src, int32_t sx, int32_t sy, int32
 	grect_t sr = {sx, sy, sw, sh};
 	grect_t dr = {dx, dy, dw, dh};
 	graph_insect(dst, &dr);
+	if(dst->clip.w > 0 && dst->clip.h > 0)
+		grect_insect(&dst->clip, &dr);
+
 	if(!graph_insect_with(src, &sr, dst, &dr))
 		return;
 

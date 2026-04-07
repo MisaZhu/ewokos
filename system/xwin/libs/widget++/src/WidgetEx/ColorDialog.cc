@@ -240,7 +240,7 @@ void ColorDialog::setColor(uint32_t color) {
 void ColorDialog::onBuild() {
     RootWidget* root = new RootWidget();
     setRoot(root);
-    root->setType(Container::VERTICLE);
+    root->setType(Container::VERTICAL);
 
     colorWidget = new ColorWidget(this);
     root->add(colorWidget);
@@ -256,7 +256,7 @@ void ColorDialog::onBuild() {
     colorWidget->setColorPanel(colorPanel);
 
     Container* v = new Container();
-    v->setType(Container::VERTICLE);
+    v->setType(Container::VERTICAL);
     c->add(v);
 
     EditLine* editLine = new EditLine();

@@ -33,11 +33,12 @@ static void cancelFunc(Widget* wd, xevent_t* evt, void* arg) {
 void FileDialog::onBuild() {
 	RootWidget* root = new RootWidget();
 	setRoot(root);
-	root->setType(Container::VERTICLE);
+	root->setType(Container::VERTICAL);
 	
 
 	fileWidget = new FWidget(this);
 	root->add(fileWidget);
+	root->focus(fileWidget);
 
 	Container* c = new Container();
 	c->setType(Container::HORIZONTAL);

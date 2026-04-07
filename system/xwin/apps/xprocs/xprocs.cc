@@ -422,7 +422,7 @@ int main(int argc, char** argv) {
 	root->setAlpha(false);
 
 	Container* c = new Container();
-	c->setType(Container::VERTICLE);
+	c->setType(Container::VERTICAL);
 	c->fix(120, 0);
 	root->add(c);
 

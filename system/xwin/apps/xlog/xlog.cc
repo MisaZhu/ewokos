@@ -105,7 +105,7 @@ int main(int argc, char** argv) {
 	WidgetWin win;
 	RootWidget* root = new RootWidget();
 	win.setRoot(root);
-	root->setType(Container::VERTICLE);
+	root->setType(Container::VERTICAL);
 	
 	TermWidget *consoleWidget = new TermWidget();
 	root->add(consoleWidget);

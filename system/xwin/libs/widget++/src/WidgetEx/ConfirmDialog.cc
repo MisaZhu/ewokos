@@ -23,7 +23,7 @@ static void cancelFunc(Widget* wd, xevent_t* evt, void* arg) {
 void ConfirmDialog::onBuild() {
 	RootWidget* root = new RootWidget();
 	setRoot(root);
-	root->setType(Container::VERTICLE);
+	root->setType(Container::VERTICAL);
 	root->setAlpha(false);
 
 	Label* label = new Label("");

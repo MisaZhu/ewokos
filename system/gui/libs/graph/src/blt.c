@@ -103,6 +103,8 @@ void graph_fill_cpu(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint
 	grect_t r = {x, y, w, h};
 	if(!graph_insect(g, &r))
 		return;
+	if(g->clip.w > 0 && g->clip.h > 0)
+		grect_insect(&g->clip, &r);
 
 	register int32_t ex, ey;
 	y = r.y;
@@ -137,6 +139,8 @@ void graph_set(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t 
 	grect_t r = {x, y, w, h};
 	if(!graph_insect(g, &r))
 		return;
+	if(g->clip.w > 0 && g->clip.h > 0)
+		grect_insect(&g->clip, &r);
 
 	register int32_t ex, ey;
 	y = r.y;
@@ -175,6 +179,8 @@ void graph_blt_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 	grect_t sr = {sx, sy, sw, sh};
 	grect_t dr = {dx, dy, dw, dh};
 	graph_insect(dst, &dr);
+	if(dst->clip.w > 0 && dst->clip.h > 0)
+		grect_insect(&dst->clip, &dr);
 	if(!graph_insect_with(src, &sr, dst, &dr))
 		return;
 
@@ -218,6 +224,9 @@ void graph_blt_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32
 	grect_t sr = {sx, sy, sw, sh};
 	grect_t dr = {dx, dy, dw, dh};
 	graph_insect(dst, &dr);
+	if(dst->clip.w > 0 && dst->clip.h > 0)
+		grect_insect(&dst->clip, &dr);
+
 	if(!graph_insect_with(src, &sr, dst, &dr))
 		return;
 
@@ -265,6 +274,8 @@ void graph_blt_mask_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_
 	grect_t sr = {sx, sy, sw, sh};
 	grect_t dr = {dx, dy, dw, dh};
 	graph_insect(dst, &dr);
+	if(dst->clip.w > 0 && dst->clip.h > 0)
+		grect_insect(&dst->clip, &dr);
 	if(!graph_insect_with(src, &sr, dst, &dr))
 		return;
 

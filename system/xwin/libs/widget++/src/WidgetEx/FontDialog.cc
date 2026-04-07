@@ -226,7 +226,7 @@ static void cancelFunc(Widget* wd, xevent_t* evt, void* arg) {
 void FontDialog::onBuild() {
 	RootWidget* root = new RootWidget();
 	setRoot(root);
-	root->setType(Container::VERTICLE);
+	root->setType(Container::VERTICAL);
 	
 
 	Container* c = new Container();

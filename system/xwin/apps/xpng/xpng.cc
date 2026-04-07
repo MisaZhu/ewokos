@@ -343,7 +343,7 @@ int main(int argc, char** argv) {
 	PngWin win;
 	RootWidget* root = new RootWidget();
 	win.setRoot(root);
-	root->setType(Container::VERTICLE);
+	root->setType(Container::VERTICAL);
 
 	Menubar* menubar = new Menubar();
 	root->add(menubar);

@@ -399,7 +399,7 @@ int main(int argc, char** argv) {
 
     RootWidget* root = new RootWidget();
     win.setRoot(root);
-    root->setType(Container::VERTICLE);
+    root->setType(Container::VERTICAL);
 
     Menubar* menubar = new Menubar();
     root->add(menubar);

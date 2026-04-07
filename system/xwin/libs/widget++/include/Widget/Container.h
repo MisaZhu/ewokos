@@ -22,7 +22,7 @@ protected:
 	void setAttr(const string& attr, json_var_t* value);
 public:
 	static const uint8_t FIXED = 0;
-	static const uint8_t VERTICLE = 1;
+	static const uint8_t VERTICAL = 1;
 	static const uint8_t HORIZONTAL = 2;
 	static const uint8_t OVERLAP = 3;
 
