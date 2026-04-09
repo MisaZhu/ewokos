@@ -8,6 +8,9 @@ basic_libs:
 	cd tinyjson;make
 	cd zlib;make
 	cd gpio;make
+	cd c++/stl;make
+	cd c++/c++;make
+	cd c++/object++;make
 
 clean:
 	cd ext2;make clean
@@ -16,3 +19,6 @@ clean:
 	cd tinyjson;make clean
 	cd gpio;make clean
 	cd zlib;make clean
+	cd c++/stl;make clean
+	cd c++/c++;make clean
+	cd c++/object++;make clean

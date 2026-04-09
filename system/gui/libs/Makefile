@@ -15,9 +15,6 @@ basic_libs:
 	cd fbd;make
 	cd textgrid;make
 	cd gterminal;make
-	cd c++/stl;make
-	cd c++/c++;make
-	cd c++/object++;make
 	cd libogg;make
 	cd libvorbis;make
 
@@ -35,7 +32,5 @@ clean:
 	cd keyb;make clean
 	cd mouse;make clean
 	cd fbd;make clean
-	cd c++/stl;make clean
-	cd c++/c++;make clean
 	cd libogg;make clean
 	cd libvorbis;make clean
