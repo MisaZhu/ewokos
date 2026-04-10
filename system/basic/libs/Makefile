@@ -21,4 +21,3 @@ clean:
 	cd zlib;make clean
 	cd c++/stl;make clean
 	cd c++/c++;make clean
-	cd c++/object++;make clean
