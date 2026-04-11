@@ -2,6 +2,7 @@
 #include <graph/graph_png.h>
 #include <graph/graph_jpeg.h>
 #include <graph/graph_gif.h>
+#include <graph/graph_tga.h>
 #include <string.h>
 #include <strings.h>
 
@@ -17,6 +18,9 @@ graph_t* graph_image_new(const char* filename) {
 		else if(strcasecmp(ext, ".gif") == 0) {
 			return gif_image_new(filename);
 		}
+		else if(strcasecmp(ext, ".tga") == 0) {
+			return tga_image_new(filename);
+		}
 		else {
 			// Try all formats
 			graph_t* img = png_image_new(filename);
@@ -25,7 +29,10 @@ graph_t* graph_image_new(const char* filename) {
 			img = jpeg_image_new(filename);
 			if(img != NULL)
 				return img;
-			return gif_image_new(filename);
+			img = gif_image_new(filename);
+			if(img != NULL)
+				return img;
+			return tga_image_new(filename);
 		}
 	}
 	else {
@@ -36,7 +43,10 @@ graph_t* graph_image_new(const char* filename) {
 		img = jpeg_image_new(filename);
 		if(img != NULL)
 			return img;
-		return gif_image_new(filename);
+		img = gif_image_new(filename);
+		if(img != NULL)
+			return img;
+		return tga_image_new(filename);
 	}
 }
 

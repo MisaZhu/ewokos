@@ -6,7 +6,7 @@
 #include <Widget/RootWidget.h>
 #include <ewoksys/proc.h>
 #include <tinyjson/tinyjson.h>
-#include <graph/graph_png.h>
+#include <graph/graph_image.h>
 #include <dirent.h>
 #include <unistd.h>
 #include <ewoksys/hashmap.h>
@@ -229,7 +229,7 @@ class FileGrid: public Grid {
 		if(icon != NULL)
 			return icon;
 
-		graph_t* img = png_image_new(fname);
+		graph_t* img = graph_image_new(fname);
 		if(img == NULL)
 			return NULL;
 		
@@ -250,7 +250,8 @@ class FileGrid: public Grid {
 	graph_t*  getIcon(const char* dname) {
 		const char* fname = getFullname(dname);
 		graph_t* img = NULL;
-		if(check(fname, ".png")) {
+		if(check(fname, ".png") || check(fname, ".jpg") || 
+				check(fname, ".gif") || check(fname, ".tga")) {
 			img = getImgIconAndCache(fname);
 			if(img != NULL)
 				return img;
