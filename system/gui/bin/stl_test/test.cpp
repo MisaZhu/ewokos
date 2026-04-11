@@ -549,7 +549,7 @@ TEST(fstream_fstream_read_write) {
     const char* test_file = "/tmp/test_fstream.txt";
 
     // Write
-    fstream fs(test_file, (openmode)(out | trunc));
+    fstream fs(test_file, (openmode)(out | trunc_));
     ASSERT(fs.is_open());
     fs << 100;
     fs << " ";

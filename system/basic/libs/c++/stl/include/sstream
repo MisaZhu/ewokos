@@ -8,7 +8,7 @@
 namespace std {
 
 enum seekdir { beg, cur, end };
-enum openmode { in, out, app, ate, binary, trunc };
+enum openmode { in, out, app, ate, binary, trunc_ };
 
 typedef int streamsize;
 typedef long streamoff;

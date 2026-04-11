@@ -75,7 +75,7 @@ public:
             flags = O_RDONLY;
         }
 
-        if (mode & trunc) {
+        if (mode & trunc_) {
             flags |= O_TRUNC;
         }
         if (mode & app) {
