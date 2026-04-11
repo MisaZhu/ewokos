@@ -6,7 +6,7 @@ all:
 	cd xfonts; make
 	cd xapps; make
 	cd xfinder; make
-	cd xpng; make
+	cd ximg; make
 	cd xprocs; make
 	cd xDemo; make
 	cd xwm_theme; make
@@ -23,7 +23,7 @@ clean:
 	cd xfonts; make clean
 	cd xapps; make clean
 	cd xfinder; make clean
-	cd xpng; make clean
+	cd ximg; make clean
 	cd xprocs; make clean
 	cd xDemo; make clean
 	cd xwm_theme; make clean

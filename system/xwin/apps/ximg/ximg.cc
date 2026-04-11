@@ -16,7 +16,7 @@
 #include <ewoksys/basic_math.h>
 #include <ewoksys/kernel_tic.h>
 #include <ewoksys/keydef.h>
-#include <graph/graph_png.h>
+#include <graph/graph_image.h>
 
 using namespace Ewok;
 
@@ -181,7 +181,7 @@ public:
 		if(imgOrig != NULL)
 			graph_free(imgOrig);
 
-		imgOrig = png_image_new(fname);
+		imgOrig = graph_image_new(fname);
 		zoomImgTo(1.0);
 	}
 

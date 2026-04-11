@@ -1,5 +1,7 @@
 [
-    {"ext":".png", "open_with": "/apps/xpng/xpng", "icon": "icons/pic.png" },
+    {"ext":".png", "open_with": "/apps/ximg/ximg", "icon": "icons/pic.png" },
+    {"ext":".jpg", "open_with": "/apps/ximg/ximg", "icon": "icons/pic.png" },
+    {"ext":".gif", "open_with": "/apps/ximg/ximg", "icon": "icons/pic.png" },
     {"ext":".nes", "open_with": "/apps/emu/emu", "icon": "icons/emu.png" },
     {"ext":".txt", "open_with": "/apps/xread/xread", "icon": "icons/xread.png" },
     {"ext":".conf", "open_with": "/apps/xread/xread", "icon": "icons/xread.png" },
