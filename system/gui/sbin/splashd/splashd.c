@@ -12,7 +12,7 @@
 #include <ewoksys/klog.h>
 #include <graph/graph.h>
 #include <graph/graph_ex.h>
-#include <graph/graph_png.h>
+#include <graph/graph_image.h>
 #include <display/display.h>
 #include <fb/fb.h>
 #include <font/font.h>
@@ -58,7 +58,7 @@ static void paint_img(const char* img_fname) {
 	graph_t* g = _splash_info.scr_g;
 	graph_t* img = NULL;
 	if(img_fname != NULL && img_fname[0] != 0)
-		img = png_image_new(img_fname);
+		img = graph_image_new(img_fname);
 
 	if(img != NULL) {
 		if(_splash_info.img != NULL)

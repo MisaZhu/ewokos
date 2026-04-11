@@ -8,7 +8,7 @@
 #include <sys/shm.h>
 #include <fb/fb.h>
 #include <fbd/fbd.h>
-#include <graph/graph_png.h>
+#include <graph/graph_image.h>
 #include <tinyjson/tinyjson.h>
 
 typedef struct {
@@ -51,7 +51,7 @@ static void draw_bg(graph_t* g) {
 	//graph_gradation(g, 0, 0, g->w, g->h, 0xff8888ff, 0xff000000, true);
 	graph_gradation(g, 0, 0, g->w, g->h, 0xff444488, 0xff000000, true);
 #if __aarch64__
-	graph_t* logo = png_image_new("/usr/system/icons/64bits.png");
+	graph_t* logo = graph_image_new("/usr/system/icons/64bits.png");
 	if(logo != NULL) {
 		graph_blt_alpha(logo, 0, 0, logo->w, logo->h,
 				g, g->w - logo->w - 10, 10, logo->w, logo->h, 0xff);
@@ -62,7 +62,7 @@ static void draw_bg(graph_t* g) {
 
 static void default_splash(graph_t* g, const char* logo_fname) {
 	draw_bg(g);
-	graph_t* logo = png_image_new(logo_fname);
+	graph_t* logo = graph_image_new(logo_fname);
 	if(logo != NULL) {
 		graph_blt_alpha(logo, 0, 0, logo->w, logo->h,
 				g, (g->w-logo->w)/2, (g->h-logo->h)/2, logo->w, logo->h, 0xff);

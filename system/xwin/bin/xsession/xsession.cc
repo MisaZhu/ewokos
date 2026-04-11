@@ -8,7 +8,7 @@
 #include <ewoksys/klog.h>
 #include <ewoksys/core.h>
 #include <ewoksys/proc.h>
-#include <graph/graph_png.h>
+#include <graph/graph_image.h>
 #include <x++/X.h>
 
 using namespace Ewok;
@@ -174,8 +174,8 @@ public:
 	XSession() {
 		theme.setFont(theme.basic.fontName, 16);
 		passwordMode = false;
-		logoUser = png_image_new("/usr/system/icons/ewok.png");
-		logoPasswd = png_image_new("/usr/system/icons/storm.png");
+		logoUser = graph_image_new("/usr/system/icons/ewok.png");
+		logoPasswd = graph_image_new("/usr/system/icons/storm.png");
 	}
 
 	~XSession() {

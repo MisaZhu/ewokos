@@ -3,7 +3,7 @@
 #include <string.h>
 #include <font/font.h>
 #include <tinyjson/tinyjson.h>
-#include <graph/graph_png.h>
+#include <graph/graph_image.h>
 #include <x/x.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -400,7 +400,7 @@ void XWM::updateTheme(bool loadFromX) {
 	if(xwm.theme.patternName[0] != 0 && strcmp(xwm.theme.patternName, "none") != 0) {
 		char fname[FS_FULL_NAME_MAX+1] = {0};
 		x_get_theme_fname(X_THEME_ROOT, "xwm", xwm.theme.patternName, fname, FS_FULL_NAME_MAX);
-		desktopPattern = png_image_new_bg(fname, xwm.theme.desktopBGColor);
+		desktopPattern = graph_image_new_bg(fname, xwm.theme.desktopBGColor);
 	}
 }
 

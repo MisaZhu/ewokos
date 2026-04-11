@@ -7,7 +7,6 @@ extern "C" {
 #endif
 
 graph_t* png_image_new(const char* filename);
-graph_t* png_image_new_bg(const char* filename, uint32_t bg_color);
 
 #ifdef __cplusplus
 }

@@ -1,7 +1,7 @@
 #include <Widget/Image.h>
 #include <x++/X.h>
 #include <Widget/WidgetWin.h>
-#include <graph/graph_png.h>
+#include <graph/graph_image.h>
 
 namespace Ewok {
 
@@ -46,7 +46,7 @@ Image::~Image(void) {
 bool  Image::loadImage(const char* fname) {
 	if(image != NULL)
 		graph_free(image);
-	image = png_image_new(X::getResFullName(fname).c_str());
+	image = graph_image_new(X::getResFullName(fname).c_str());
 	if(image == NULL)
 		return false;
 	update();

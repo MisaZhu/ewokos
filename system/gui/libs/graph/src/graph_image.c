@@ -39,3 +39,14 @@ graph_t* graph_image_new(const char* filename) {
 		return gif_image_new(filename);
 	}
 }
+
+graph_t* graph_image_new_bg(const char* filename, uint32_t bg_color) {
+	graph_t* img = graph_image_new(filename);
+	if(img == NULL)
+		return NULL;
+	graph_t* ret = graph_new(NULL, img->w, img->h);
+	graph_clear(ret, bg_color);
+	graph_blt_alpha(img, 0, 0, img->w, img->h, ret, 0, 0, img->w, img->h, 0xff);
+	graph_free(img);
+	return ret;
+}

@@ -5,7 +5,7 @@
 #include <string.h>
 
 #include <ewoksys/proc.h>
-#include <graph/graph_png.h>
+#include <graph/graph_image.h>
 #include <graph/graph_ex.h>
 #include <ewoksys/basic_math.h>
 #include <ewoksys/kernel_tic.h>
@@ -53,8 +53,8 @@ static void xtest_init(void) {
 	_xtest_info.imgX = _xtest_info.imgY = 0;
 
 	char buf[128];
-	_xtest_info.img_big = png_image_new(x_get_res_name("data/rokid.png", buf, sizeof(buf)-1));	
-	_xtest_info.img_small = png_image_new(x_get_res_name("data/rokid_small.png", buf, sizeof(buf)-1));	
+	_xtest_info.img_big = graph_image_new(x_get_res_name("data/rokid.png", buf, sizeof(buf)-1));	
+	_xtest_info.img_small = graph_image_new(x_get_res_name("data/rokid_small.png", buf, sizeof(buf)-1));	
 	x_get_theme(&_xtest_info.theme);
 	_xtest_info.font = font_new(_xtest_info.theme.fontName, true);
 }
