@@ -1,1 +1,0 @@
-raspi2B/2B+, raspi3B/3B+/3A+, raspi zero2W, raspi4B
