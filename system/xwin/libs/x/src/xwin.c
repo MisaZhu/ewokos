@@ -268,6 +268,9 @@ int xwin_max(xwin_t* xwin) {
 	memcpy(&xwin->xinfo_prev, xwin->xinfo, sizeof(xinfo_t));
 	xwin->xinfo->state = XWIN_STATE_MAX;
 	xwin_update_info(xwin, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
+
+	if(xwin->on_resize != NULL)
+		xwin->on_resize(xwin);
 	xwin_repaint(xwin);
 	return 0;
 }
@@ -347,6 +350,8 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 		if(xwin->xinfo->state == XWIN_STATE_MAX) {
 			memcpy(xwin->xinfo, &xwin->xinfo_prev, sizeof(xinfo_t));
 			xwin_update_info(xwin, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
+			if(xwin->on_resize != NULL)
+				xwin->on_resize(xwin);
 			xwin_repaint(xwin);
 		}
 		else {
