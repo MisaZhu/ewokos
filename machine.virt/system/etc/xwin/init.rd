@@ -1,13 +1,7 @@
 @export TZ=CST-8
 
-@export UX_ID=0
 @/bin/ipcserv /sbin/splashd -w 320 -h 240 -f 12 -d
 @/bin/splash -i /usr/system/images/logos/ewokos.png -m "start..."
-
-@/bin/splash -m "start /dev/console0" -p 20
-@export UX_ID=1
-@/bin/ipcserv /drivers/consoled  /dev/console0
-@set_stdio /dev/console0
 
 @echo "+---------------------------------------+\n"
 @echo "|  < EwokOS MicroKernel >               |\n" 
@@ -45,11 +39,6 @@
 
 @/bin/splash -m "mount /tmp" -p 74
 @/bin/ipcserv /drivers/ramfsd          /tmp
-
-@/bin/splash -m "start /dev/console1" -p 75
-@export UX_ID=2
-@/bin/ipcserv /drivers/consoled   /dev/console1 -i /dev/keyb0
-@/bin/bgrun /bin/session -r -t /dev/console1 
 
 @/bin/splash -m "load fonts" -p 80
 @/bin/load_font

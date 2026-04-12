@@ -1806,19 +1806,10 @@ int xserver_step(void* p) {
 	uint64_t tik = kernel_tic_ms(0);
 	uint32_t tm = 1000/x->config.fps;
 
-	//if(x->mouse_state.busy)
-		//x_repaint_req(x, x->current_display);
-
 	ipc_disable();
 	check_wins(x);
-
-	if(core_get_active_ux(_disp_index) == UX_X_DEFAULT) {
-		for(uint32_t i=0; i<x->display_num; i++) {
-			x_repaint(x, i);
-		}
-	}
-	else {
-		x_dirty(x, -1);
+	for(uint32_t i=0; i<x->display_num; i++) {
+		x_repaint(x, i);
 	}
 	ipc_enable();
 
@@ -1855,8 +1846,6 @@ int main(int argc, char** argv) {
 	const char* mnt_point = "/dev/x";
 	const char* display_man = "/dev/display";
 	doargs(argc, argv);
-
-	core_enable_ux(_disp_index, UX_X_DEFAULT);
 
 	x_t x;
 	if(x_init(&x, display_man, _disp_index) != 0)

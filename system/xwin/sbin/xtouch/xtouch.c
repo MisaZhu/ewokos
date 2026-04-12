@@ -56,12 +56,10 @@ static void input(uint16_t state, int16_t tx, int16_t ty) {
 	}
 	*/
 
-	if(core_get_active_ux(0) == UX_X_DEFAULT) {
-		proto_t in;
-		PF->init(&in)->add(&in, &ev, sizeof(xevent_t));
-		dev_cntl_by_pid(_x_pid, X_DCNTL_INPUT, &in, NULL);
-		PF->clear(&in);
-	}
+	proto_t in;
+	PF->init(&in)->add(&in, &ev, sizeof(xevent_t));
+	dev_cntl_by_pid(_x_pid, X_DCNTL_INPUT, &in, NULL);
+	PF->clear(&in);
 }
 
 static int32_t read_config(const char* fname) {

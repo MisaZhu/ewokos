@@ -89,19 +89,7 @@ static bool do_keyb_spec(uint8_t* keys, uint8_t num) {
 	for(int j=0; j<num; j++) {
 		uint8_t c = keys[j];
 		if(i >= 0) {
-			if(c >= '0' && c <= '9') {
-				core_set_active_ux(0, c - '0');
-				return true;
-			}
-			else if(c == KEY_LEFT) { //left 
-				core_prev_ux(0);
-				return true;
-			}
-			else if(c == KEY_RIGHT) { //right
-				core_next_ux(0);
-				return true;
-			}
-			else if(c == KEY_TAB) { //tab for focus
+			if(c == KEY_TAB) { //tab for focus
 				x_next_focus();
 				return true;
 			}
@@ -141,11 +129,7 @@ static bool do_joys_spec(uint8_t* keys, uint8_t num, uint8_t* ret_key) {
 		if(i >= 0) {
 			if(j == i)
 				continue;
-			if(c == JOYSTICK_Y) { //Y for prev ux
-				core_prev_ux(0);
-				return true;
-			}
-			else if(c == JOYSTICK_A) { //A for next ux
+			if(c == JOYSTICK_A) { //A for next ux
 				*ret_key = JOYSTICK_START;
 				return true;
 			}

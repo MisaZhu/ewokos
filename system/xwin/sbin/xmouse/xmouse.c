@@ -45,8 +45,6 @@ int main(int argc, char** argv) {
 	uint64_t click_time = 0;
 	uint64_t drag_time = 0;
 
-	core_enable_ux(-1, UX_X_DEFAULT);
-
 	int fd = open(dev_name, O_RDONLY);
 	if(fd < 0) {
 		fprintf(stderr, "xmouse error: open [%s] failed!\n", dev_name);

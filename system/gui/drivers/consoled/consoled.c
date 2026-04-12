@@ -122,7 +122,6 @@ static void flush(fb_console_t* console) {
 }
 
 static bool _flush = true;
-static int _ux_index = 0;
 static int _disp_index = 0;
 static int console_write(int fd, 
 		int from_pid,
@@ -143,8 +142,6 @@ static int console_write(int fd,
 
 	const char* pb = (const char*)buf;
 	gterminal_put(&console->terminal, pb, size);
-	//if(_ux_index == core_get_active_ux(console->display_index))
-		//flush(console);
 	return size;
 }
 
@@ -173,11 +170,6 @@ static int console_loop(void* p) {
 	static bool shift = false;
 
 	fb_console_t* console = (fb_console_t*)p;
-	if(_ux_index != core_get_active_ux(console->display_index)) {
-		usleep(200000);
-		_flush = true;
-		return 0;
-	}
 
 	ipc_disable();
 	if(_flush) {
@@ -264,9 +256,6 @@ static int doargs(int argc, char* argv[]) {
 		case 'd':
 			_disp_index = atoi(optarg);
 			break;
-		case 'u':
-			_ux_index = atoi(optarg);
-			break;
 		default:
 			c = -1;
 			break;
@@ -278,15 +267,13 @@ static int doargs(int argc, char* argv[]) {
 int main(int argc, char** argv) {
 	_disp_index = 0;
 	_buffer = charbuf_new(0);
-	_ux_index = core_get_ux_env();
 	int argind = doargs(argc, argv);
-	core_enable_ux(_disp_index, _ux_index);
 
 	char mnt_point[128] = {0};
 	if(argind < argc)
 		strncpy(mnt_point, argv[argind], 127);
 	else
-		snprintf(mnt_point, 127, "/dev/console%d", _ux_index);
+		snprintf(mnt_point, 127, "/dev/console0");
 
 	_keyb_fd = -1;
 	const char* display_dev = "/dev/display";

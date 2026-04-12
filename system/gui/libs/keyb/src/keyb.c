@@ -110,9 +110,6 @@ static int key_state_machine(keyb_evt_t* evts, uint8_t num){
 }
 
 int keyb_read(int keyb_fd, keyb_evt_t* evts, uint8_t num) {
-	if(core_get_active_ux(0) != core_get_ux_env())
-        return 0;
-
 	char v[KEYB_EVT_MAX] = { 0 };
 	int rd = read(keyb_fd, v, KEYB_EVT_MAX);
 	update_key_state(v, rd);

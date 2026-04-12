@@ -10,7 +10,6 @@
 @/bin/ipcserv /drivers/raspix/fbd      /dev/fb0
 @/bin/ipcserv /drivers/fontd           
 
-@export UX_ID=0
 @/bin/ipcserv /drivers/consoled        
 @set_stdio /dev/console0
 
