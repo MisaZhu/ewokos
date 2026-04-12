@@ -323,6 +323,8 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 		xwin->xinfo->wsr.w += ev->value.window.v0;
 		xwin->xinfo->wsr.h += ev->value.window.v1;
 		xwin_update_info(xwin, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
+		if(xwin->on_resize != NULL)
+			xwin->on_resize(xwin);
 		xwin_repaint(xwin);
 	}
 	else if(ev->value.window.event == XEVT_WIN_MOVE) {
@@ -339,6 +341,9 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 		xwin_repaint(xwin);
 	}
 	else if(ev->value.window.event == XEVT_WIN_MAX) {
+		if(xwin->on_resize != NULL)
+			xwin->on_resize(xwin);
+
 		if(xwin->xinfo->state == XWIN_STATE_MAX) {
 			memcpy(xwin->xinfo, &xwin->xinfo_prev, sizeof(xinfo_t));
 			xwin_update_info(xwin, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
