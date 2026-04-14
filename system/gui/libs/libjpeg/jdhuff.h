@@ -70,7 +70,7 @@ EXTERN(void) jpeg_make_d_derived_tbl(j_decompress_ptr cinfo, boolean isDC,
  * necessary.
  */
 
-#if !defined(_WIN32) && !defined(SIZEOF_SIZE_T)
+#if !defined(_WIN32) && !defined(SIZEOF_SIZE_T) && !defined(__arm__) && !defined(__ARM_ARCH)
 #error Cannot determine word size
 #endif
 

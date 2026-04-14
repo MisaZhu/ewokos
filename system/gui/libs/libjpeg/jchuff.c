@@ -91,7 +91,8 @@ typedef bit_buf_type simd_bit_buf_type;
 #if (defined(SIZEOF_SIZE_T) && SIZEOF_SIZE_T == 8) || defined(_WIN64) || \
     (defined(__x86_64__) && defined(__ILP32__))
 #define BIT_BUF_SIZE  64
-#elif (defined(SIZEOF_SIZE_T) && SIZEOF_SIZE_T == 4) || defined(_WIN32)
+#elif (defined(SIZEOF_SIZE_T) && SIZEOF_SIZE_T == 4) || defined(_WIN32) || \
+    defined(__arm__) || defined(__ARM_ARCH)
 #define BIT_BUF_SIZE  32
 #else
 #error Cannot determine word size

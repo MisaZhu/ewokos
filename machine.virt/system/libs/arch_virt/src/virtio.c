@@ -15,6 +15,8 @@
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define ALIGN_UP(x, a) (((x) + (a)-1) & ~((a)-1))
 
+#define mem_barrier() __asm__ volatile("" ::: "memory")
+
 #define VIRTIO_MMIO_MAGIC 0x00
 #define VIRTIO_MMIO_VERSION 0x04
 #define VIRTIO_MMIO_DEVICE_ID 0x08
@@ -368,7 +370,7 @@ static int virtio_send_request_queue(uintptr_t base, struct virtq_t *virtq, uint
 
 	uint16_t used_before = virtq->used.idx;
 	virtq->avail.ring[virtq->avail.idx % VIRTIO_QUEUE_SIZE] = 0;
-	__sync_synchronize();
+	mem_barrier();
 	virtq->avail.idx++;
 	put32(base + VIRTIO_MMIO_QUEUE_NOTIFY, queue_idx);
 
@@ -416,7 +418,7 @@ static void virtio_net_submit_rx_desc(virtio_dev_t dev, struct virtio_net_state 
 	net->rxq->desc[desc_id].flags = VIRTQ_DESC_F_WRITE;
 	net->rxq->desc[desc_id].next = 0;
 	net->rxq->avail.ring[net->rxq->avail.idx % VIRTIO_QUEUE_SIZE] = desc_id;
-	__sync_synchronize();
+	mem_barrier();
 	net->rxq->avail.idx++;
 	(void)dev;
 }
@@ -486,7 +488,7 @@ static void virtio_snd_submit_event_desc(virtio_dev_t dev, struct virtio_snd_sta
 	snd->queues[VIRTIO_SND_VQ_EVENT]->desc[desc_id].next = 0;
 	snd->queues[VIRTIO_SND_VQ_EVENT]->avail.ring[
 		snd->queues[VIRTIO_SND_VQ_EVENT]->avail.idx % VIRTIO_QUEUE_SIZE] = desc_id;
-	__sync_synchronize();
+	mem_barrier();
 	snd->queues[VIRTIO_SND_VQ_EVENT]->avail.idx++;
 }
 
@@ -863,7 +865,7 @@ int virtio_net_pending_rx(virtio_dev_t dev)
 	}
 
 	virtio_ack_interrupt(dev->base, 0x3);
-	__sync_synchronize();
+	mem_barrier();
 	return (uint16_t)(net->rxq->used.idx - net->rx_used_idx);
 }
 
@@ -947,7 +949,7 @@ int virtio_net_write(virtio_dev_t dev, const void *buf, uint32_t size)
 	net->txq->desc[VIRTIO_NET_TX_DESC_ID].next = 0;
 
 	net->txq->avail.ring[net->txq->avail.idx % VIRTIO_QUEUE_SIZE] = VIRTIO_NET_TX_DESC_ID;
-	__sync_synchronize();
+	mem_barrier();
 	net->txq->avail.idx++;
 	put32(dev->base + VIRTIO_MMIO_QUEUE_NOTIFY, VIRTIO_NET_TX_QUEUE);
 
@@ -1370,7 +1372,7 @@ int virtio_snd_tx_write(virtio_dev_t dev, uint32_t stream_id, const void *data, 
 
 		snd->queues[VIRTIO_SND_VQ_TX]->avail.ring[
 			snd->queues[VIRTIO_SND_VQ_TX]->avail.idx % VIRTIO_QUEUE_SIZE] = slot->head_desc;
-		__sync_synchronize();
+		mem_barrier();
 		snd->queues[VIRTIO_SND_VQ_TX]->avail.idx++;
 		slot->inflight = true;
 		put32(dev->base + VIRTIO_MMIO_QUEUE_NOTIFY, VIRTIO_SND_VQ_TX);

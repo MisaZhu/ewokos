@@ -63,6 +63,7 @@ void arch_vm(page_dir_entry_t* vm) {
 
 
 #ifdef KERNEL_SMP
+#if __aarch64__
 static unsigned long psci_cpu_on(unsigned long target_cpu, unsigned long entry_point)
 {
     unsigned long ret;
@@ -81,9 +82,14 @@ static unsigned long psci_cpu_on(unsigned long target_cpu, unsigned long entry_p
     return ret; // 返回0表示成功，非0表示错误
 }
 extern char __entry[];
-inline void __attribute__((optimize("O0"))) start_core(uint32_t core_id) { 
+inline void __attribute__((optimize("O0"))) start_core(uint32_t core_id) {
     unsigned long ret = psci_cpu_on(core_id, __entry);
 }
+#else
+inline void __attribute__((optimize("O0"))) start_core(uint32_t core_id) {
+    (void)core_id;
+}
+#endif
 #endif
 
 void kalloc_arch(void) {

@@ -15,7 +15,6 @@ JPEG_CFLAGS = -march=armv8-a \
         -Wall -Wextra -fPIC \
         -fno-builtin-memset \
         -Wno-unused-parameter \
-        -mstrict-align \
         -I $(TARGET_DIR)/include \
         -DHAVE_CONFIG_H \
         -I. \

@@ -61,6 +61,7 @@ typedef unsigned char JUINT8;
 typedef unsigned short JUINT16;
 typedef unsigned int JUINT32;
 #define SIZEOF(size) 1
+#define SIZEOF_SIZE_T 4
 #endif
 
 #ifdef __aarch64__
