@@ -7,7 +7,9 @@ ifeq ($(ARCH), aarch64)
 	OS_ELF = kernel8.elf
 	QEMU_CMD = qemu-system-aarch64
 	ARCH_CFLAGS = -Wa,-march=armv8-a
-	QEMU_FLAGS = -M $(QEMU_MACHINE),highmem=off,accel=hvf -cpu host -m 512 -serial mon:stdio -device ramfb -display cocoa,zoom-interpolation=on,zoom-to-fit=on
+	QEMU_FLAGS = -M $(QEMU_MACHINE),highmem=off,accel=hvf -cpu host -m 512 \
+		-serial mon:stdio -device ramfb \
+		-display cocoa,zoom-to-fit=on,zoom-interpolation=on
 else
 	OS_IMG = kernel7.img
 	OS_ELF = kernel7.elf
