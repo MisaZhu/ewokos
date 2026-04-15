@@ -1485,6 +1485,9 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 			x->current.old_pos.y = x->cursor.cpos.y;
 			x->current.drag_state = X_win_DRAG_RESIZE;
 		}
+		else if(pos == FRAME_R_MAX || pos == FRAME_R_CLOSE) {
+			return;
+		}
 		else if(win->xinfo->style & XWIN_STYLE_NO_FRAME) {
 			x->current.old_pos.x = x->cursor.cpos.x;
 			x->current.old_pos.y = x->cursor.cpos.y;
