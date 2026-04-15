@@ -11,6 +11,7 @@
 #include <x/xevent.h>
 #include <x/xwin.h>
 #include <ewoksys/vfs.h>
+#include <mouse/mouse.h>
 
 static int _x_pid = -1;
 static int _scr_w = 0;
@@ -27,6 +28,7 @@ typedef struct {
 } xtouch_t;
 
 static xtouch_t _xtouch;
+static uint64_t _drag_time = 0;
 
 static void input(uint16_t state, int16_t tx, int16_t ty) {
 	xevent_t ev;
@@ -44,17 +46,18 @@ static void input(uint16_t state, int16_t tx, int16_t ty) {
 	else
 		ev.value.mouse.y = _scr_h - (ty*_scr_h / _xtouch.y_max);
 
-	if(state == 1) //down
-		ev.state = MOUSE_STATE_DOWN;
-	else if(state == 0) //up
+	if(state == 1) { //down
+		if(_drag_time == 0) {
+			ev.state = MOUSE_STATE_DOWN;
+			_drag_time = kernel_tic_ms(0);
+		}
+		else if(_drag_time != 0 && kernel_tic_ms(0) - _drag_time > 100) {
+			ev.state = MOUSE_STATE_DRAG;
+		}
+	} else if(state == 0) { //up
 		ev.state = MOUSE_STATE_UP;
-
-	/*if(ev.state == MOUSE_STATE_UP &&
-			ev.value.mouse.x < 32 && (_scr_h - ev.value.mouse.y) < 32) {
-		core_next_ux(0);
-		return;
+		_drag_time = 0;
 	}
-	*/
 
 	proto_t in;
 	PF->init(&in)->add(&in, &ev, sizeof(xevent_t));
