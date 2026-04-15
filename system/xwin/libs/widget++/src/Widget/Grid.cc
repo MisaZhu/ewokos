@@ -167,6 +167,7 @@ bool Grid::onIM(xevent_t* ev) {
 				ev->value.im.value == JOYSTICK_A) {
 			enter(itemSelected);
 		}
+		update();
 	}
 	return true;
 }

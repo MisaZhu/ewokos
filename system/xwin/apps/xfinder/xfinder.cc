@@ -41,7 +41,7 @@ protected:
 		if(open_with.length() == 0)
 			return;
 
-		snprintf(cmd, FS_FULL_NAME_MAX, "%s %s", open_with.c_str(), fname.c_str());
+		snprintf(cmd, FS_FULL_NAME_MAX, "%s \"%s\"", open_with.c_str(), fname.c_str());
 		int pid = fork();
 		if(pid == 0)  {
 			proc_detach();
