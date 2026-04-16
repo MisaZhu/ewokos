@@ -30,7 +30,6 @@ final:
 #   rm -fr $(MACHINE_BUILD_DIR)
 	mkdir -p $(MACHINE_BUILD_DIR)
 	cp -r $(TARGET_DIR)/* $(MACHINE_BUILD_DIR)
-	rm -fr $(TARGET_DIR)
 
 basic: basic_sys final
 	@echo "all done."
@@ -83,6 +82,8 @@ clean:
 
 SD = root_$(ARCH).ext2
 sd: 
+	mkdir -p $(MACHINE_BUILD_DIR)
+	cp -r $(TARGET_DIR)/* $(MACHINE_BUILD_DIR)
 	@echo "\n====building ext2 format sdcard image===="
 	mkdir -p build
 #256M ext2 sd
