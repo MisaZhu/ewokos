@@ -1,0 +1,45 @@
+Raspberry Pi Baremetal
+
+This a code repository for bare-metal Raspberry Pi libraries and applications
+ports.
+
+   kernel     - Core startup and kernel code, with USB support
+                provided by USPi library
+
+   libpng     - PNG image file format library
+   libogg     - OGG file format library
+   libvorbis  - OGG Vorbis audio decode library
+   SDL2       - Simple Directmedia Library
+   SDL2_image - Image decoding support library for SDL2
+   SDL2_mixer - Audio mixer support library for SDL2
+   zlib       - Z compression library
+
+   abbaye       - Abbaye des Morts, a platform game based on SDL2
+   template     - Simple application template
+   templaye_sdl - SDL-based application template
+
+BUILD
+
+   You need the arm-none-eabi toolchain available from
+   https://launchpad.net/gcc-arm-embedded
+
+   Compile with:
+
+      make all
+
+   Each folder has its own Makefile and can be compiled separately.
+
+INSTALL
+
+   The applications folders abbaye and template builds a kernel.img file that
+   must be copied to an SD card along with the firmware files:
+
+      bootcode.bin
+      config.txt
+      fixup_cd.dat
+      fixup.dat
+      start_cd.elf
+      start.elf
+
+   Firmware files can be downloaded from
+   https://github.com/ewokos/firmware/tree/master/boot

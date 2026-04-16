@@ -63,12 +63,16 @@ x_sys: gui_sys
 	cd $(SYS_ROOT_DIR)/xwin;make
 	@cp -r etc/xwin/* ${TARGET_DIR}/etc
 
-x: x_sys final 
+SDL2_sys: x_sys
+	cd $(SYS_ROOT_DIR)/SDL2;make
+
+x:  SDL2_sys final 
 	@echo "all done."
 
 clean:
 	cd libs;make clean
 	cd drivers;make clean
+	cd $(SYS_ROOT_DIR)/SDL2;make clean
 	cd $(SYS_ROOT_DIR)/xwin;make clean
 	cd $(SYS_ROOT_DIR)/gui;make clean
 	cd $(SYS_ROOT_DIR)/network;make clean
