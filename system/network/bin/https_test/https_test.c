@@ -48,8 +48,9 @@ static void print_preview(const char *body, int body_size) {
 }
 
 static void print_usage(const char *prog) {
-	printf("usage: %s <https-url> [timeout_ms]\n", prog);
+	printf("usage: %s <url> [timeout_ms]\n", prog);
 	printf("example: %s https://dns.google/resolve?name=example.com&type=A 5000\n", prog);
+	printf("example: %s http://httpbin.org/get 5000\n", prog);
 }
 
 int main(int argc, char **argv) {
@@ -72,8 +73,8 @@ int main(int argc, char **argv) {
 		timeout_ms = parse_timeout_ms(argv[3]);
 	}
 
-	if (strncmp(url, "https://", 8) != 0) {
-		printf("error: only https:// URLs are supported by this test app.\n");
+	if (strncmp(url, "https://", 8) != 0 && strncmp(url, "http://", 7) != 0) {
+		printf("error: URL must start with http:// or https://\n");
 		return 1;
 	}
 
