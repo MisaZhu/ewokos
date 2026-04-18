@@ -10,8 +10,6 @@ CXXFLAGS += -I $(BUILD_DIR)/include
 
 STL_TEST_OBJS = stltest.o
 
-$(STL_TEST_OBJS): $(STL_HEADERS_STAMP)
-
 STL_TEST = $(TARGET_DIR)/bin/stltest
 
 $(STL_TEST): $(STL_TEST_OBJS) \

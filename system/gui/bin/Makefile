@@ -7,7 +7,6 @@ builtin_apps:
 	cd wavplayer;make
 	cd mp3player;make
 	cd oggplayer;make
-	cd stltest;make
 	cd load_font;make
 
 clean:
@@ -16,5 +15,4 @@ clean:
 	cd wavplayer;make clean
 	cd mp3player;make clean
 	cd oggplayer;make clean
-	cd stltest;make clean
 	cd load_font;make clean

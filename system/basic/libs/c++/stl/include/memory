@@ -2,8 +2,70 @@
 #define EWOK_STL_MEMORY_H
 
 #include <stddef.h>
+#include <utility>
 
 namespace std {
+
+// Minimal exception base class for bad_weak_ptr
+class exception {
+public:
+    exception() noexcept {}
+    virtual ~exception() noexcept {}
+    virtual const char* what() const noexcept {
+        return "exception";
+    }
+};
+
+// Type traits needed for make_unique SFINAE
+template <typename T>
+struct is_array {
+    static const bool value = false;
+};
+
+template <typename T>
+struct is_array<T[]> {
+    static const bool value = true;
+};
+
+template <typename T, size_t N>
+struct is_array<T[N]> {
+    static const bool value = true;
+};
+
+template <bool B, typename T, typename F = void>
+struct enable_if {
+    typedef T type;
+};
+
+template <typename T, typename F>
+struct enable_if<false, T, F> {
+    typedef F type;
+};
+
+template <typename T>
+struct remove_extent {
+    typedef T type;
+};
+
+template <typename T>
+struct remove_extent<T[]> {
+    typedef T type;
+};
+
+template <typename T, size_t N>
+struct remove_extent<T[N]> {
+    typedef T type;
+};
+
+// bad_weak_ptr exception class
+class bad_weak_ptr : public exception {
+public:
+    bad_weak_ptr() noexcept {}
+    ~bad_weak_ptr() noexcept override {}
+    const char* what() const noexcept override {
+        return "bad_weak_ptr";
+    }
+};
 
 template <typename T>
 class default_delete {
@@ -71,9 +133,16 @@ class unique_ptr {
             if (ptr_) {
                 deleter_(ptr_);
             }
-            ptr_ = other.ptr_;
+            ptr_ = other.release();
             deleter_ = other.get_deleter();
-            other.ptr_ = nullptr;
+            return *this;
+        }
+
+        unique_ptr& operator=(nullptr_t) noexcept {
+            if (ptr_) {
+                deleter_(ptr_);
+            }
+            ptr_ = nullptr;
             return *this;
         }
 
@@ -145,15 +214,26 @@ class unique_ptr<T[], Deleter> {
             other.ptr_ = nullptr;
         }
 
+        template <typename U, typename E>
+        unique_ptr(unique_ptr<U, E>&& other) noexcept : ptr_(other.release()), deleter_() {
+        }
+
         unique_ptr& operator=(unique_ptr&& other) noexcept {
             if (this != &other) {
                 if (ptr_) {
                     deleter_(ptr_);
                 }
-                ptr_ = other.ptr_;
-                deleter_ = other.deleter_;
-                other.ptr_ = nullptr;
+                ptr_ = other.release();
+                deleter_ = other.get_deleter();
             }
+            return *this;
+        }
+
+        unique_ptr& operator=(nullptr_t) noexcept {
+            if (ptr_) {
+                deleter_(ptr_);
+            }
+            ptr_ = nullptr;
             return *this;
         }
 
@@ -205,7 +285,7 @@ template <typename T> class weak_ptr;
 
 // Non-template base control block for type erasure
 class __shared_ptr_control_block_base {
-public:
+protected:
     size_t strong_count_;
     size_t weak_count_;
     
@@ -218,11 +298,16 @@ public:
     void release_strong() {
         if (--strong_count_ == 0) {
             destroy_object();
+            if (weak_count_ == 0) {
+                delete_self();
+            }
         }
     }
-    
+
     void release_weak() {
-        --weak_count_;
+        if (--weak_count_ == 0 && strong_count_ == 0) {
+            delete_self();
+        }
     }
     
     bool expired() const {
@@ -235,15 +320,15 @@ public:
     
     virtual void destroy_object() = 0;
     virtual void delete_self() = 0;
+    
+    template <typename U> friend class shared_ptr;
+    template <typename U> friend class weak_ptr;
 };
 
 // Template control block
 template <typename T, typename Deleter = default_delete<T>>
 class __shared_ptr_control_block : public __shared_ptr_control_block_base {
 public:
-    T* ptr_;
-    Deleter deleter_;
-    
     __shared_ptr_control_block(T* ptr, Deleter d = Deleter()) : ptr_(ptr), deleter_(d) {}
     
     virtual void destroy_object() override {
@@ -256,12 +341,24 @@ public:
     virtual void delete_self() override {
         delete this;
     }
+    
+    T* get_ptr() const { return ptr_; }
+    Deleter& get_deleter() { return deleter_; }
+    const Deleter& get_deleter() const { return deleter_; }
+    
+private:
+    T* ptr_;
+    Deleter deleter_;
+    
+    template <typename U, typename D> friend class __shared_ptr_control_block;
 };
 
 // weak_ptr definition (before shared_ptr)
 template <typename T>
 class weak_ptr {
     public:
+        typedef T element_type;
+
         constexpr weak_ptr() noexcept : ptr_(nullptr), control_block_(nullptr) {}
 
         weak_ptr(const shared_ptr<T>& other) noexcept : ptr_(other.ptr_), control_block_(other.control_block_) {
@@ -276,12 +373,34 @@ class weak_ptr {
             }
         }
 
+        template <typename U>
+        weak_ptr(const shared_ptr<U>& other) noexcept : ptr_(other.ptr_), control_block_(other.control_block_) {
+            if (control_block_) {
+                control_block_->add_weak();
+            }
+        }
+
+        template <typename U>
+        weak_ptr(const weak_ptr<U>& other) noexcept : ptr_(other.ptr_), control_block_(other.control_block_) {
+            if (control_block_) {
+                control_block_->add_weak();
+            }
+        }
+
+        weak_ptr(weak_ptr&& other) noexcept : ptr_(other.ptr_), control_block_(other.control_block_) {
+            other.ptr_ = nullptr;
+            other.control_block_ = nullptr;
+        }
+
+        template <typename U>
+        weak_ptr(weak_ptr<U>&& other) noexcept : ptr_(other.ptr_), control_block_(other.control_block_) {
+            other.ptr_ = nullptr;
+            other.control_block_ = nullptr;
+        }
+
         ~weak_ptr() {
             if (control_block_) {
                 control_block_->release_weak();
-                if (control_block_->expired() && control_block_->weak_count_ == 0) {
-                    control_block_->delete_self();
-                }
             }
         }
 
@@ -289,9 +408,6 @@ class weak_ptr {
             if (this != &other) {
                 if (control_block_) {
                     control_block_->release_weak();
-                    if (control_block_->expired() && control_block_->weak_count_ == 0) {
-                        control_block_->delete_self();
-                    }
                 }
                 ptr_ = other.ptr_;
                 control_block_ = other.control_block_;
@@ -302,6 +418,74 @@ class weak_ptr {
             return *this;
         }
 
+        template <typename U>
+        weak_ptr& operator=(const weak_ptr<U>& other) noexcept {
+            if (control_block_) {
+                control_block_->release_weak();
+            }
+            ptr_ = other.ptr_;
+            control_block_ = other.control_block_;
+            if (control_block_) {
+                control_block_->add_weak();
+            }
+            return *this;
+        }
+
+        template <typename U>
+        weak_ptr& operator=(const shared_ptr<U>& other) noexcept {
+            if (control_block_) {
+                control_block_->release_weak();
+            }
+            ptr_ = other.ptr_;
+            control_block_ = other.control_block_;
+            if (control_block_) {
+                control_block_->add_weak();
+            }
+            return *this;
+        }
+
+        weak_ptr& operator=(weak_ptr&& other) noexcept {
+            if (control_block_) {
+                control_block_->release_weak();
+            }
+            ptr_ = other.ptr_;
+            control_block_ = other.control_block_;
+            other.ptr_ = nullptr;
+            other.control_block_ = nullptr;
+            return *this;
+        }
+
+        template <typename U>
+        weak_ptr& operator=(weak_ptr<U>&& other) noexcept {
+            if (control_block_) {
+                control_block_->release_weak();
+            }
+            ptr_ = other.ptr_;
+            control_block_ = other.control_block_;
+            other.ptr_ = nullptr;
+            other.control_block_ = nullptr;
+            return *this;
+        }
+
+        void reset() noexcept {
+            if (control_block_) {
+                control_block_->release_weak();
+            }
+            ptr_ = nullptr;
+            control_block_ = nullptr;
+        }
+
+        void swap(weak_ptr& other) noexcept {
+            T* tmp_ptr = ptr_;
+            __shared_ptr_control_block_base* tmp_ctrl = control_block_;
+            ptr_ = other.ptr_;
+            control_block_ = other.control_block_;
+            other.ptr_ = tmp_ptr;
+            other.control_block_ = tmp_ctrl;
+        }
+
+        shared_ptr<T> lock() const noexcept;
+
         long use_count() const noexcept {
             return control_block_ ? static_cast<long>(control_block_->use_count()) : 0;
         }
@@ -310,7 +494,15 @@ class weak_ptr {
             return control_block_ == nullptr || control_block_->expired();
         }
 
-        shared_ptr<T> lock() const noexcept;
+        template <typename U>
+        bool owner_before(const shared_ptr<U>& other) const noexcept {
+            return control_block_ < other.control_block_;
+        }
+
+        template <typename U>
+        bool owner_before(const weak_ptr<U>& other) const noexcept {
+            return control_block_ < other.control_block_;
+        }
 
     private:
         T* ptr_;
@@ -325,43 +517,50 @@ class shared_ptr {
     public:
         typedef T element_type;
 
-        template <typename U>
-        friend class shared_ptr;
-
-        template <typename U>
-        friend class weak_ptr;
-
+        // Default constructor
         constexpr shared_ptr() noexcept : ptr_(nullptr), control_block_(nullptr) {}
 
+        // nullptr constructor
         constexpr shared_ptr(nullptr_t) noexcept : ptr_(nullptr), control_block_(nullptr) {}
 
-        template <typename U>
+        // Constructor from raw pointer
+        template <typename U, typename enable_if<!is_array<U>::value, int>::type = 0>
         explicit shared_ptr(U* p) : ptr_(p), control_block_(nullptr) {
             if (p != nullptr) {
                 control_block_ = new __shared_ptr_control_block<U>(p);
             }
         }
 
-        template <typename U, typename Deleter>
-        shared_ptr(U* p, Deleter d) : ptr_(p), control_block_(nullptr) {
+        // Constructor with deleter
+        template <typename U, typename D, typename enable_if<!is_array<U>::value, int>::type = 0>
+        shared_ptr(U* p, D d) : ptr_(p), control_block_(nullptr) {
             if (p != nullptr) {
-                control_block_ = new __shared_ptr_control_block<U, Deleter>(p, d);
+                control_block_ = new __shared_ptr_control_block<U, D>(p, d);
             }
         }
 
-        // Private constructor for weak_ptr::lock()
-        shared_ptr(T* ptr, __shared_ptr_control_block_base* ctrl) : ptr_(ptr), control_block_(ctrl) {
-            if (control_block_) {
-                control_block_->add_strong();
-            }
-        }
-
+        // Copy constructor
         shared_ptr(const shared_ptr& other) noexcept : ptr_(other.ptr_), control_block_(other.control_block_) {
             if (control_block_) {
                 control_block_->add_strong();
             }
         }
 
+        // Move constructor
+        shared_ptr(shared_ptr&& other) noexcept : ptr_(other.ptr_), control_block_(other.control_block_) {
+            other.ptr_ = nullptr;
+            other.control_block_ = nullptr;
+        }
+
+        // Aliasing constructor
+        template <typename U>
+        shared_ptr(const shared_ptr<U>& other, T* p) noexcept : ptr_(p), control_block_(other.control_block_) {
+            if (control_block_) {
+                control_block_->add_strong();
+            }
+        }
+
+        // Copy constructor from compatible type
         template <typename U>
         shared_ptr(const shared_ptr<U>& other) noexcept : ptr_(other.ptr_), control_block_(other.control_block_) {
             if (control_block_) {
@@ -369,63 +568,61 @@ class shared_ptr {
             }
         }
 
-        shared_ptr(shared_ptr&& other) noexcept : ptr_(other.ptr_), control_block_(other.control_block_) {
-            other.ptr_ = nullptr;
-            other.control_block_ = nullptr;
-        }
-
+        // Move constructor from compatible type
         template <typename U>
         shared_ptr(shared_ptr<U>&& other) noexcept : ptr_(other.ptr_), control_block_(other.control_block_) {
             other.ptr_ = nullptr;
             other.control_block_ = nullptr;
         }
 
+        // Constructor from weak_ptr
         explicit shared_ptr(const weak_ptr<T>& w) : ptr_(nullptr), control_block_(nullptr) {
-            if (!w.expired()) {
-                ptr_ = w.ptr_;
-                control_block_ = w.control_block_;
-                if (control_block_) {
-                    control_block_->add_strong();
-                }
+            if (w.expired()) {
+                return;
+            }
+            ptr_ = w.ptr_;
+            control_block_ = w.control_block_;
+            if (control_block_) {
+                control_block_->add_strong();
             }
         }
 
         ~shared_ptr() {
-            release();
+            if (control_block_) {
+                control_block_->release_strong();
+                control_block_ = nullptr;
+            }
+            ptr_ = nullptr;
         }
 
+        // Copy assignment
         shared_ptr& operator=(const shared_ptr& other) noexcept {
+            if (this != &other) {
+                shared_ptr(other).swap(*this);
+            }
+            return *this;
+        }
+
+        // Move assignment
+        shared_ptr& operator=(shared_ptr&& other) noexcept {
             if (this != &other) {
                 release();
                 ptr_ = other.ptr_;
                 control_block_ = other.control_block_;
-                if (control_block_) {
-                    control_block_->add_strong();
-                }
+                other.ptr_ = nullptr;
+                other.control_block_ = nullptr;
             }
             return *this;
         }
 
+        // Copy assignment from compatible type
         template <typename U>
         shared_ptr& operator=(const shared_ptr<U>& other) noexcept {
-            release();
-            ptr_ = other.ptr_;
-            control_block_ = other.control_block_;
-            if (control_block_) {
-                control_block_->add_strong();
-            }
+            shared_ptr<U>(other).swap(*this);
             return *this;
         }
 
-        shared_ptr& operator=(shared_ptr&& other) noexcept {
-            release();
-            ptr_ = other.ptr_;
-            control_block_ = other.control_block_;
-            other.ptr_ = nullptr;
-            other.control_block_ = nullptr;
-            return *this;
-        }
-
+        // Move assignment from compatible type
         template <typename U>
         shared_ptr& operator=(shared_ptr<U>&& other) noexcept {
             release();
@@ -436,21 +633,7 @@ class shared_ptr {
             return *this;
         }
 
-        T* get() const noexcept { return ptr_; }
-        T& operator*() const noexcept {
-            return *ptr_;
-        }
-        T* operator->() const noexcept {
-            return ptr_;
-        }
-
-        long use_count() const noexcept {
-            return control_block_ ? static_cast<long>(control_block_->use_count()) : 0;
-        }
-
-        bool unique() const noexcept { return use_count() == 1; }
-        explicit operator bool() const noexcept { return ptr_ != nullptr; }
-
+        // Reset
         void reset() noexcept {
             release();
             ptr_ = nullptr;
@@ -459,13 +642,15 @@ class shared_ptr {
 
         template <typename U>
         void reset(U* p) {
-            release();
-            ptr_ = p;
-            if (p != nullptr) {
-                control_block_ = new __shared_ptr_control_block<U>(p);
-            }
+            shared_ptr<U>(p).swap(*this);
         }
 
+        template <typename U, typename Deleter>
+        void reset(U* p, Deleter d) {
+            shared_ptr<U>(p, d).swap(*this);
+        }
+
+        // Swap
         void swap(shared_ptr& other) noexcept {
             T* tmp_ptr = ptr_;
             __shared_ptr_control_block_base* tmp_ctrl = control_block_;
@@ -475,28 +660,70 @@ class shared_ptr {
             other.control_block_ = tmp_ctrl;
         }
 
+        // Accessors
+        T* get() const noexcept { return ptr_; }
+        
+        T& operator*() const noexcept {
+            return *ptr_;
+        }
+        
+        T* operator->() const noexcept {
+            return ptr_;
+        }
+
+        T& operator[](size_t i) const noexcept {
+            return ptr_[i];
+        }
+
+        template <typename D>
+        D* get_deleter() const noexcept {
+            return nullptr;
+        }
+
+        // Reference count
+        long use_count() const noexcept {
+            return control_block_ ? static_cast<long>(control_block_->use_count()) : 0;
+        }
+
+        bool unique() const noexcept { return use_count() == 1; }
+        explicit operator bool() const noexcept { return ptr_ != nullptr; }
+
+        // Owner comparison
+        template <typename U>
+        bool owner_before(const shared_ptr<U>& other) const noexcept {
+            return control_block_ < other.control_block_;
+        }
+
+        template <typename U>
+        bool owner_before(const weak_ptr<U>& other) const noexcept {
+            return control_block_ < other.control_block_;
+        }
+
     private:
         void release() {
             if (control_block_) {
                 control_block_->release_strong();
-                if (control_block_->expired() && control_block_->weak_count_ == 0) {
-                    control_block_->delete_self();
-                }
+            }
+        }
+
+        shared_ptr(T* p, __shared_ptr_control_block_base* cb) noexcept : ptr_(p), control_block_(cb) {
+            if (control_block_) {
+                control_block_->add_strong();
             }
         }
 
         T* ptr_;
         __shared_ptr_control_block_base* control_block_;
 
-    template <typename U> friend class weak_ptr;
-    template <typename U> friend class enable_shared_from_this;
-    template <typename U, typename V> friend class __shared_ptr_control_block;
+        template <typename U> friend class shared_ptr;
+        template <typename U> friend class weak_ptr;
+        template <typename U> friend class enable_shared_from_this;
 };
 
 // weak_ptr::lock() implementation (after shared_ptr definition)
 template <typename T>
 shared_ptr<T> weak_ptr<T>::lock() const noexcept {
-    if (expired()) {
+    if (control_block_ == nullptr || control_block_->expired()) {
         return shared_ptr<T>();
     }
     return shared_ptr<T>(ptr_, control_block_);
@@ -507,18 +734,25 @@ template <typename T>
 class enable_shared_from_this {
     public:
         shared_ptr<T> shared_from_this() {
-            if (weak_this_.expired()) {
-                return shared_ptr<T>();
-            }
-            return weak_this_.lock();
+            return shared_ptr<T>(weak_this_);
+        }
+
+        shared_ptr<const T> shared_from_this() const {
+            return shared_ptr<const T>(weak_this_);
+        }
+
+        weak_ptr<T> weak_from_this() noexcept {
+            return weak_this_;
+        }
+
+        weak_ptr<const T> weak_from_this() const noexcept {
+            return weak_this_;
         }
 
     protected:
-        enable_shared_from_this() : weak_this_() {}
-        enable_shared_from_this(const enable_shared_from_this& other) : weak_this_() {
-            (void)other;
-        }
-        enable_shared_from_this& operator=(const enable_shared_from_this&) {
+        enable_shared_from_this() noexcept : weak_this_() {}
+        enable_shared_from_this(const enable_shared_from_this&) noexcept : weak_this_() {}
+        enable_shared_from_this& operator=(const enable_shared_from_this&) noexcept {
             return *this;
         }
         ~enable_shared_from_this() {}
@@ -528,36 +762,34 @@ class enable_shared_from_this {
 
         template <typename U>
         friend class shared_ptr;
-
-        void _internal_weak_this(shared_ptr<T>* p) {
-            weak_this_ = *p;
-        }
-
-    public:
-        void _enable_shared_from_this(shared_ptr<T>* p) {
-            weak_this_ = *p;
-        }
 };
 
-template <typename T, typename... Args>
-unique_ptr<T> make_unique(Args&&... args) {
-    return unique_ptr<T>(new T(args...));
+// Free functions
+
+// make_unique
+template <typename T, typename... Args, typename enable_if<!is_array<T>::value, int>::type = 0>
+unique_ptr<T>
+make_unique(Args&&... args) {
+    return unique_ptr<T>(new T(std::forward<Args>(args)...));
 }
 
-template <typename T>
-unique_ptr<T> make_unique(size_t n) {
-    return unique_ptr<T>(new T[n]());
+template <typename T, typename enable_if<is_array<T>::value, int>::type = 0>
+unique_ptr<T>
+make_unique(size_t n) {
+    typedef typename remove_extent<T>::type element_type;
+    return unique_ptr<T>(new element_type[n]());
 }
 
+// make_shared
 template <typename T, typename... Args>
 shared_ptr<T> make_shared(Args&&... args) {
-    T* ptr = new T(args...);
-    shared_ptr<T> p(ptr);
-    return p;
+    T* ptr = new T(std::forward<Args>(args)...);
+    return shared_ptr<T>(ptr);
 }
 
-template <typename T>
-void swap(unique_ptr<T>& a, unique_ptr<T>& b) noexcept {
+// swap
+template <typename T, typename Deleter>
+void swap(unique_ptr<T, Deleter>& a, unique_ptr<T, Deleter>& b) noexcept {
     a.swap(b);
 }
 
@@ -567,8 +799,128 @@ void swap(shared_ptr<T>& a, shared_ptr<T>& b) noexcept {
 }
 
 template <typename T>
+void swap(weak_ptr<T>& a, weak_ptr<T>& b) noexcept {
+    a.swap(b);
+}
+
+// Pointer cast functions
+template <typename T, typename U>
+shared_ptr<T> static_pointer_cast(const shared_ptr<U>& sp) noexcept {
+    return shared_ptr<T>(sp, static_cast<T*>(sp.get()));
+}
+
+template <typename T, typename U>
+shared_ptr<T> dynamic_pointer_cast(const shared_ptr<U>& sp) noexcept {
+    T* p = static_cast<T*>(sp.get());
+    return shared_ptr<T>(sp, p);
+}
+
+template <typename T, typename U>
+shared_ptr<T> const_pointer_cast(const shared_ptr<U>& sp) noexcept {
+    return shared_ptr<T>(sp, const_cast<T*>(sp.get()));
+}
+
+// Comparison operators for shared_ptr
+template <typename T, typename U>
+bool operator==(const shared_ptr<T>& lhs, const shared_ptr<U>& rhs) noexcept {
+    return lhs.get() == rhs.get();
+}
+
+template <typename T, typename U>
+bool operator!=(const shared_ptr<T>& lhs, const shared_ptr<U>& rhs) noexcept {
+    return !(lhs == rhs);
+}
+
+template <typename T, typename U>
+bool operator<(const shared_ptr<T>& lhs, const shared_ptr<U>& rhs) noexcept {
+    return lhs.get() < rhs.get();
+}
+
+template <typename T, typename U>
+bool operator<=(const shared_ptr<T>& lhs, const shared_ptr<U>& rhs) noexcept {
+    return !(rhs < lhs);
+}
+
+template <typename T, typename U>
+bool operator>(const shared_ptr<T>& lhs, const shared_ptr<U>& rhs) noexcept {
+    return rhs < lhs;
+}
+
+template <typename T, typename U>
+bool operator>=(const shared_ptr<T>& lhs, const shared_ptr<U>& rhs) noexcept {
+    return !(lhs < rhs);
+}
+
+template <typename T>
+bool operator==(const shared_ptr<T>& lhs, nullptr_t) noexcept {
+    return !lhs;
+}
+
+template <typename T>
+bool operator==(nullptr_t, const shared_ptr<T>& rhs) noexcept {
+    return !rhs;
+}
+
+template <typename T>
+bool operator!=(const shared_ptr<T>& lhs, nullptr_t) noexcept {
+    return static_cast<bool>(lhs);
+}
+
+template <typename T>
+bool operator!=(nullptr_t, const shared_ptr<T>& rhs) noexcept {
+    return static_cast<bool>(rhs);
+}
+
+// Comparison operators for weak_ptr
+template <typename T, typename U>
+bool operator<(const weak_ptr<T>& lhs, const weak_ptr<U>& rhs) noexcept {
+    return lhs.lock() < rhs.lock();
+}
+
+// owner_less
+template <typename T = void>
 struct owner_less;
 
+template <typename T>
+struct owner_less<shared_ptr<T>> {
+    bool operator()(const shared_ptr<T>& lhs, const shared_ptr<T>& rhs) const noexcept {
+        return lhs.owner_before(rhs);
+    }
+};
+
+template <typename T>
+struct owner_less<weak_ptr<T>> {
+    bool operator()(const weak_ptr<T>& lhs, const weak_ptr<T>& rhs) const noexcept {
+        return lhs.owner_before(rhs);
+    }
+};
+
+template <>
+struct owner_less<void> {
+    template <typename T, typename U>
+    bool operator()(const shared_ptr<T>& lhs, const shared_ptr<U>& rhs) const noexcept {
+        return lhs.owner_before(rhs);
+    }
+
+    template <typename T, typename U>
+    bool operator()(const weak_ptr<T>& lhs, const weak_ptr<U>& rhs) const noexcept {
+        return lhs.owner_before(rhs);
+    }
+
+    template <typename T, typename U>
+    bool operator()(const shared_ptr<T>& lhs, const weak_ptr<U>& rhs) const noexcept {
+        return lhs.owner_before(rhs);
+    }
+
+    template <typename T, typename U>
+    bool operator()(const weak_ptr<T>& lhs, const shared_ptr<U>& rhs) const noexcept {
+        return lhs.owner_before(rhs);
+    }
+
+    typedef void is_transparent;
+};
+
+// allocator
 template <typename T>
 class allocator {
     public:
@@ -602,36 +954,6 @@ bool operator==(const allocator<T>&, const allocator<U>&) noexcept { return true
 
 template <typename T, typename U>
 bool operator!=(const allocator<T>&, const allocator<U>&) noexcept { return false; }
-
-template <typename T, typename U>
-bool operator==(const shared_ptr<T>& lhs, const shared_ptr<U>& rhs) noexcept {
-    return lhs.get() == rhs.get();
-}
-
-template <typename T, typename U>
-bool operator!=(const shared_ptr<T>& lhs, const shared_ptr<U>& rhs) noexcept {
-    return !(lhs == rhs);
-}
-
-template <typename T>
-bool operator==(const shared_ptr<T>& lhs, nullptr_t) noexcept {
-    return !lhs;
-}
-
-template <typename T>
-bool operator==(nullptr_t, const shared_ptr<T>& rhs) noexcept {
-    return !rhs;
-}
-
-template <typename T>
-bool operator!=(const shared_ptr<T>& lhs, nullptr_t) noexcept {
-    return static_cast<bool>(lhs);
-}
-
-template <typename T>
-bool operator!=(nullptr_t, const shared_ptr<T>& rhs) noexcept {
-    return static_cast<bool>(rhs);
-}
 
 }
 

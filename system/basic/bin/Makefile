@@ -40,6 +40,7 @@ builtin_apps:
 	cd mmio;make
 	cd date;make
 	cd vi;make
+	cd stltest;make
 
 clean:
 	cd cp;make clean
@@ -80,3 +81,4 @@ clean:
 	cd mmio;make clean
 	cd date;make clean
 	cd vi;make clean
+	cd stltest;make clean

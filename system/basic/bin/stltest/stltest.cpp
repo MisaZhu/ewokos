@@ -315,6 +315,29 @@ TEST(unique_ptr_basic) {
     ASSERT(p1.get() == nullptr);
 }
 
+TEST(unique_ptr_move) {
+    unique_ptr<int> p1(new int(42));
+    unique_ptr<int> p2(std::move(p1));
+    ASSERT(p1.get() == nullptr);
+    ASSERT(p2.get() != nullptr);
+    ASSERT_EQ(*p2, 42);
+}
+
+TEST(unique_ptr_array) {
+    unique_ptr<int[]> arr(new int[5]);
+    for (int i = 0; i < 5; ++i) {
+        arr[i] = i * 10;
+    }
+    ASSERT_EQ(arr[0], 0);
+    ASSERT_EQ(arr[4], 40);
+}
+
+TEST(unique_ptr_nullptr_assign) {
+    unique_ptr<int> p1(new int(42));
+    p1 = nullptr;
+    ASSERT(p1.get() == nullptr);
+}
+
 TEST(shared_ptr_basic) {
     shared_ptr<int> p1(new int(42));
     ASSERT_EQ(*p1, 42);
@@ -326,6 +349,64 @@ TEST(shared_ptr_basic) {
 
     p2.reset();
     ASSERT_EQ(p1.use_count(), 1);
+}
+
+TEST(shared_ptr_move) {
+    shared_ptr<int> p1(new int(42));
+    shared_ptr<int> p2(std::move(p1));
+    ASSERT(p1.get() == nullptr);
+    ASSERT_EQ(p2.use_count(), 1);
+    ASSERT_EQ(*p2, 42);
+}
+
+TEST(shared_ptr_make) {
+    shared_ptr<int> p1 = make_shared<int>(100);
+    ASSERT_EQ(*p1, 100);
+    ASSERT_EQ(p1.use_count(), 1);
+}
+
+TEST(shared_ptr_aliasing) {
+    struct Data {
+        int a;
+        int b;
+    };
+    shared_ptr<Data> p1(new Data);
+    p1->a = 10;
+    p1->b = 20;
+    
+    shared_ptr<int> p2(p1, &p1->b);
+    ASSERT_EQ(*p2, 20);
+    ASSERT_EQ(p2.use_count(), 2);
+}
+
+TEST(shared_ptr_reset_with_deleter) {
+    int* counter = new int(0);
+    auto deleter = [counter](int* p) {
+        delete p;
+        *counter = *counter + 1;
+    };
+    shared_ptr<int> p(new int(42), deleter);
+    p.reset(new int(100), deleter);
+    ASSERT_EQ(*counter, 1);  // First deleter called during reset
+    p.reset();
+    ASSERT_EQ(*counter, 2);  // Second deleter called during reset
+    delete counter;
+}
+
+TEST(shared_ptr_unique) {
+    shared_ptr<int> p1(new int(42));
+    ASSERT(p1.unique());
+    shared_ptr<int> p2 = p1;
+    ASSERT(!p1.unique());
+    p2.reset();
+    ASSERT(p1.unique());
+}
+
+TEST(shared_ptr_operator_bool) {
+    shared_ptr<int> p1(new int(42));
+    shared_ptr<int> p2;
+    ASSERT(static_cast<bool>(p1));
+    ASSERT(!static_cast<bool>(p2));
 }
 
 TEST(weak_ptr_basic) {
@@ -349,10 +430,128 @@ TEST(weak_ptr_lock_expired) {
         ASSERT(p2 != nullptr);
         ASSERT_EQ(*p2, 100);
     }
-    // Now p1 is out of scope, wp should be expired
     ASSERT(wp.expired());
     shared_ptr<int> p3 = wp.lock();
     ASSERT(p3 == nullptr);
+}
+
+TEST(weak_ptr_move) {
+    shared_ptr<int> p1(new int(42));
+    weak_ptr<int> wp1 = p1;
+    weak_ptr<int> wp2(std::move(wp1));
+    ASSERT(wp1.expired() || wp1.lock() == nullptr);
+    ASSERT(!wp2.expired());
+}
+
+TEST(weak_ptr_reset) {
+    shared_ptr<int> p1(new int(42));
+    weak_ptr<int> wp = p1;
+    ASSERT(!wp.expired());
+    wp.reset();
+    ASSERT(wp.expired());
+    ASSERT(wp.use_count() == 0);
+}
+
+TEST(weak_ptr_swap) {
+    shared_ptr<int> p1(new int(42));
+    shared_ptr<int> p2(new int(100));
+    weak_ptr<int> wp1 = p1;
+    weak_ptr<int> wp2 = p2;
+    wp1.swap(wp2);
+    ASSERT_EQ(*wp1.lock(), 100);
+    ASSERT_EQ(*wp2.lock(), 42);
+}
+
+TEST(weak_ptr_owner_before) {
+    shared_ptr<int> p1(new int(42));
+    shared_ptr<int> p2(new int(100));
+    weak_ptr<int> wp1 = p1;
+    weak_ptr<int> wp2 = p2;
+    
+    bool b1 = wp1.owner_before(p2);
+    bool b2 = wp2.owner_before(p1);
+    
+    if (b1) {
+        ASSERT(!b2);
+    }
+}
+
+TEST(pointer_casts) {
+    struct Base { virtual ~Base() {} int x; };
+    struct Derived : Base { int y; };
+    
+    shared_ptr<Derived> pd(new Derived);
+    pd->x = 10;
+    pd->y = 20;
+    
+    shared_ptr<Base> pb = static_pointer_cast<Base>(pd);
+    ASSERT_EQ(pb->x, 10);
+    ASSERT_EQ(pb.use_count(), 2);
+    
+    shared_ptr<Derived> pd2 = static_pointer_cast<Derived>(pb);
+    ASSERT(pd2.get() != nullptr);
+    ASSERT_EQ(pd2->y, 20);
+    
+    shared_ptr<const Base> pcb = const_pointer_cast<const Base>(pb);
+    ASSERT_EQ(pcb->x, 10);
+}
+
+TEST(make_unique_basic) {
+    unique_ptr<int> p1 = make_unique<int>(42);
+    ASSERT_EQ(*p1, 42);
+}
+
+TEST(make_unique_array) {
+    unique_ptr<int[]> arr = make_unique<int[]>(5);
+    arr[0] = 10;
+    arr[4] = 50;
+    ASSERT_EQ(arr[0], 10);
+    ASSERT_EQ(arr[4], 50);
+}
+
+TEST(make_unique_object) {
+    struct Foo {
+        int a;
+        int b;
+        Foo(int x, int y) : a(x), b(y) {}
+    };
+    unique_ptr<Foo> p = make_unique<Foo>(1, 2);
+    ASSERT_EQ(p->a, 1);
+    ASSERT_EQ(p->b, 2);
+}
+
+TEST(shared_ptr_comparison) {
+    shared_ptr<int> p1(new int(42));
+    shared_ptr<int> p2(new int(42));
+    shared_ptr<int> p3 = p1;
+    
+    ASSERT(p1 == p3);
+    ASSERT(p1 != p2);
+    ASSERT(p1 < p2 || p2 < p1);
+}
+
+TEST(shared_ptr_nullptr_comparison) {
+    shared_ptr<int> p1(new int(42));
+    shared_ptr<int> p2;
+    
+    ASSERT(p1 != nullptr);
+    ASSERT(p2 == nullptr);
+    ASSERT(nullptr != p1);
+    ASSERT(nullptr == p2);
+}
+
+TEST(swap_pointers) {
+    unique_ptr<int> up1(new int(42));
+    unique_ptr<int> up2(new int(100));
+    swap(up1, up2);
+    ASSERT_EQ(*up1, 100);
+    ASSERT_EQ(*up2, 42);
+    
+    shared_ptr<int> sp1(new int(1));
+    shared_ptr<int> sp2(new int(2));
+    swap(sp1, sp2);
+    ASSERT_EQ(*sp1, 2);
+    ASSERT_EQ(*sp2, 1);
 }
 
 // ==================== ALGORITHM TESTS ====================
@@ -763,9 +962,29 @@ int main(int argc, char** argv) {
 
     // Memory tests
     RUN_TEST(unique_ptr_basic);
+    RUN_TEST(unique_ptr_move);
+    RUN_TEST(unique_ptr_array);
+    RUN_TEST(unique_ptr_nullptr_assign);
     RUN_TEST(shared_ptr_basic);
+    RUN_TEST(shared_ptr_move);
+    RUN_TEST(shared_ptr_make);
+    RUN_TEST(shared_ptr_aliasing);
+    RUN_TEST(shared_ptr_reset_with_deleter);
+    RUN_TEST(shared_ptr_unique);
+    RUN_TEST(shared_ptr_operator_bool);
     RUN_TEST(weak_ptr_basic);
     RUN_TEST(weak_ptr_lock_expired);
+    RUN_TEST(weak_ptr_move);
+    RUN_TEST(weak_ptr_reset);
+    RUN_TEST(weak_ptr_swap);
+    RUN_TEST(weak_ptr_owner_before);
+    RUN_TEST(pointer_casts);
+    RUN_TEST(make_unique_basic);
+    RUN_TEST(make_unique_array);
+    RUN_TEST(make_unique_object);
+    RUN_TEST(shared_ptr_comparison);
+    RUN_TEST(shared_ptr_nullptr_comparison);
+    RUN_TEST(swap_pointers);
 
     // Algorithm tests
     RUN_TEST(algorithm_find);
