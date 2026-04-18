@@ -90,7 +90,7 @@ protected:
 	void drawTitle(graph_t* g, XTheme* theme, uint32_t i, uint32_t color, const grect_t& r) {
 		//int x = r.x + x_off + i*60;
 		int x = r.x + i*(theme->basic.fontSize*3+4) + theme->basic.fontSize*5;
-		graph_fill(g, x, r.y+4, 10, 10, color);
+		graph_fill_rect(g, x, r.y+4, 10, 10, color);
 		char s[16];
 		int32_t perc = 100 - (sysInfo.core_idles[i]/10000);
 		if(perc < 0)
@@ -132,7 +132,7 @@ protected:
 		uint32_t w = xstep * (isMem ? DATA_POINTS : HEART_BIT_NUM);
 		uint32_t h = yzoom * 100;
 
-		graph_fill(g, r.x + x_off, r.y + r.h - h - y_off_bottom,
+		graph_fill_rect(g, r.x + x_off, r.y + r.h - h - y_off_bottom,
 				w, h, bgColor);
 
 		uint32_t points = isMem ? DATA_POINTS : HEART_BIT_NUM;

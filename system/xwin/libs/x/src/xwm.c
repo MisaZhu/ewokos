@@ -98,7 +98,7 @@ static void draw_drag_frame(xwm_t* xwm, proto_t* in) {
 		if(xwm->draw_drag_frame != NULL)
 			xwm->draw_drag_frame(&g, &r, xwm->data);
 		else
-			graph_box(&g, r.x, r.y, r.w, r.h, 0xffffffff);
+			graph_rect(&g, r.x, r.y, r.w, r.h, 0xffffffff);
 	}
 }
 

@@ -135,7 +135,7 @@ class AppList: public List {
 
 protected:
 	void drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
-		graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
+		graph_fill_rect(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
 	}
 
 	void drawItem(graph_t* g, XTheme* theme, int32_t index, const grect_t& r) {

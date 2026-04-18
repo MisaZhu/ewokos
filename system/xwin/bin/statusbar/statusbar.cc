@@ -41,12 +41,12 @@ class PowerInfo : public Widget {
 
 	void drawBase(graph_t* g, grect_t& r) {
 		graph_gradation(g, r.x, r.y+2, 5, r.h-4, 0xffffffff, 0xffaaaaaa, true);
-		graph_box(g, r.x, r.y+2, 5, r.h-4, 0xff000000);
+		graph_rect(g, r.x, r.y+2, 5, r.h-4, 0xff000000);
 		r.x += 2;
 		r.w -= 2;
 
 		graph_gradation(g, r.x, r.y, r.w, r.h, 0xffffffff, 0xff888888, true);
-		graph_box(g, r.x, r.y, r.w, r.h, 0xff000000);
+		graph_rect(g, r.x, r.y, r.w, r.h, 0xff000000);
 		r.x++;
 		r.y++;
 		r.w -= 2;
@@ -55,7 +55,7 @@ class PowerInfo : public Widget {
 
 protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
-		//graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
+		//graph_fill_rect(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
 		grect_t rb = {r.x+4, r.y+4, r.w-8, r.h-8};
 		drawBase(g, rb);
 		if(charging)

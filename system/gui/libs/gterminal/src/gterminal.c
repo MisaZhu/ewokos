@@ -39,7 +39,7 @@ static void draw_curs(gterminal_t* terminal, graph_t* g, int x, int y, int w, in
     if(!terminal->flash_show || !terminal->show_curs || terminal->scroll_offset != 0)
         return;
     gpos_t pos = get_pos(terminal, x, y, w, h);
-    graph_fill(g, x+ pos.x, y + pos.y+4, 4, terminal->char_h-4, terminal->fg_color);
+    graph_fill_rect(g, x+ pos.x, y + pos.y+4, 4, terminal->char_h-4, terminal->fg_color);
 }
 
 static uint32_t g_color(gterminal_t* terminal, uint32_t esc_color, uint8_t fg) {
@@ -376,7 +376,7 @@ static void gterminal_draw_char(graph_t* g,
     }
 
     if(bg != 0 && bg != terminal->bg_color) 
-        graph_fill(g, chx, chy, chw, chh, bg);
+        graph_fill_rect(g, chx, chy, chw, chh, bg);
     
     if((tch->state & TERM_STATE_HIDE) == 0) {
         if((tch->state & TERM_STATE_FLASH) != 0 && !terminal->flash_show) {

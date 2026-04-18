@@ -136,12 +136,12 @@ void XWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinfo_t
 	getColor(&fg, &bg, top);
 
 	if((info->style & XWIN_STYLE_NO_TITLE) == 0) {
-		graph_box(frame_g, r->x, r->y, r->w, xwm.theme.titleH+xwm.theme.frameW, fg);
+		graph_rect(frame_g, r->x, r->y, r->w, xwm.theme.titleH+xwm.theme.frameW, fg);
 	}
 
 	//win box
 	for(uint32_t i=0; i<xwm.theme.frameW; i++) {
-		graph_box(frame_g, r->x+i, r->y+i, r->w-i*2, r->h-i*2, fg);
+		graph_rect(frame_g, r->x+i, r->y+i, r->w-i*2, r->h-i*2, fg);
 	}
 }
 
@@ -171,8 +171,8 @@ static void draw_bg_effect(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, 
 void XWM::drawTitle(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
-	graph_fill(g, r->x, r->y, r->w, xwm.theme.titleH, bg);//title box
-	graph_box(g, r->x, r->y, r->w, xwm.theme.titleH, fg);//title box
+	graph_fill_rect(g, r->x, r->y, r->w, xwm.theme.titleH, bg);//title box
+	graph_rect(g, r->x, r->y, r->w, xwm.theme.titleH, fg);//title box
 }
 
 static void draw_title(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
@@ -184,8 +184,8 @@ void XWM::drawMin(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 
-	graph_fill(g, r->x, r->y, r->w, r->h, bg);
-	graph_box(g, r->x+4, r->y+r->h-8, r->w-8, 4, fg);
+	graph_fill_rect(g, r->x, r->y, r->w, r->h, bg);
+	graph_rect(g, r->x+4, r->y+r->h-8, r->w-8, 4, fg);
 }
 
 static void draw_min(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
@@ -197,9 +197,9 @@ void XWM::drawMax(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 
-	graph_fill(g, r->x, r->y, r->w, r->h, bg);
-	graph_box(g, r->x+4, r->y+4, r->w-12, r->h-12, fg);
-	graph_box(g, r->x+4, r->y+4, r->w-8, r->h-8, fg);
+	graph_fill_rect(g, r->x, r->y, r->w, r->h, bg);
+	graph_rect(g, r->x+4, r->y+4, r->w-12, r->h-12, fg);
+	graph_rect(g, r->x+4, r->y+4, r->w-8, r->h-8, fg);
 }
 
 static void draw_max(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
@@ -211,8 +211,8 @@ void XWM::drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 
-	graph_fill(g, r->x, r->y, r->w, r->h, bg);
-	graph_box(g, r->x+4, r->y+4, r->w-8, r->h-8, fg);
+	graph_fill_rect(g, r->x, r->y, r->w, r->h, bg);
+	graph_rect(g, r->x+4, r->y+4, r->w-8, r->h-8, fg);
 }
 
 static void draw_close(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {
@@ -226,9 +226,9 @@ void XWM::drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 
-	graph_fill(g, r->x, r->y, r->w, r->h, bg);
-	graph_box(g, r->x+3, r->y+3, r->w-6, r->h-6, fg);
-	graph_box(g, r->x, r->y, r->w, r->h, fg);
+	graph_fill_rect(g, r->x, r->y, r->w, r->h, bg);
+	graph_rect(g, r->x+3, r->y+3, r->w-6, r->h-6, fg);
+	graph_rect(g, r->x, r->y, r->w, r->h, fg);
 }
 
 static void draw_resize(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p) {

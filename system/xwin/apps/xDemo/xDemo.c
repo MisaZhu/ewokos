@@ -123,7 +123,7 @@ static void on_repaint(xwin_t* xwin, graph_t* g) {
 		if(_xtest_info.mode >= MAX_MODE)
 			_xtest_info.mode = 0;
 
-		graph_fill(g, 0, 0, gW, gH, 0xff000000);
+		graph_fill_rect(g, 0, 0, gW, gH, 0xff000000);
 		if(gW > img->w)
 			_xtest_info.imgX = random_to(gW - img->w);
 		if(gH > (img->h+font_h))
@@ -181,8 +181,8 @@ static void on_repaint(xwin_t* xwin, graph_t* g) {
 		fill3d_top_half = !fill3d_top_half;
 	}
 	else if(_xtest_info.mode == RECT) {
-		graph_fill(g, x, y, w, h, c);
-		graph_box(g, x-4, y-4, w+8, h+8, c);
+		graph_fill_rect(g, x, y, w, h, c);
+		graph_rect(g, x-4, y-4, w+8, h+8, c);
 	}
 	else if(_xtest_info.mode == RING) {
 		// Full ring (360 degrees)
@@ -219,7 +219,7 @@ static void on_repaint(xwin_t* xwin, graph_t* g) {
 
 	char str[32];
 	snprintf(str, 31, "EwokOS FPS: %d", _xtest_info.fps);
-	graph_fill(g, _xtest_info.imgX, _xtest_info.imgY+img->h+2, img->w, font_h+4, 0xffffffff);
+	graph_fill_rect(g, _xtest_info.imgX, _xtest_info.imgY+img->h+2, img->w, font_h+4, 0xffffffff);
 	graph_draw_text_font(g, _xtest_info.imgX+4, _xtest_info.imgY+img->h+4, str, 
 			_xtest_info.font, _xtest_info.theme.fontSize, 0xff000000);
 	draw_image(g, img);

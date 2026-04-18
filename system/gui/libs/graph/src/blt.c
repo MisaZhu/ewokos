@@ -155,7 +155,7 @@ void graph_set(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t 
 	}
 }
 
-inline void graph_fill(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
+inline void graph_fill_rect(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
 #ifdef BSP_BOOST
 		graph_fill_bsp(g, x, y, w, h, color);
 #else

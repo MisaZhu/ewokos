@@ -201,7 +201,7 @@ void graph_fill_round(graph_t* g, int32_t x, int32_t y,
 		int32_t w, int32_t h,
 		int32_t r, uint32_t color) {
 	if(r <= 1) {
-		graph_fill(g, x, y, w, h, color);
+		graph_fill_rect(g, x, y, w, h, color);
 		return;
 	}
 	// Limit radius to half of width/height
@@ -209,17 +209,17 @@ void graph_fill_round(graph_t* g, int32_t x, int32_t y,
 	if(r > h/2) r = h/2;
 
 	// Draw main rectangle body (non-corner area)
-	graph_fill(g, x+r, y+r, w-r*2, h-r*2, color);
+	graph_fill_rect(g, x+r, y+r, w-r*2, h-r*2, color);
 
 	// Fill the remaining rectangular areas
 	// Top bar (between corners)
-	graph_fill(g, x+r, y, w-r*2, r, color);
+	graph_fill_rect(g, x+r, y, w-r*2, r, color);
 	// Bottom bar (between corners)
-	graph_fill(g, x+r, y+h-r, w-r*2, r, color);
+	graph_fill_rect(g, x+r, y+h-r, w-r*2, r, color);
 	// Left bar (between corners)
-	graph_fill(g, x, y+r, r, h-r*2, color);
+	graph_fill_rect(g, x, y+r, r, h-r*2, color);
 	// Right bar (between corners)
-	graph_fill(g, x+w-r, y+r, r, h-r*2, color);
+	graph_fill_rect(g, x+w-r, y+r, r, h-r*2, color);
 
 	// Draw four corners with anti-aliasing (scanline optimization, non-floating point)
 	// Top-left corner
@@ -239,7 +239,7 @@ void graph_round(graph_t* g, int32_t x, int32_t y,
 		int32_t w, int32_t h,
 		int32_t r, int32_t rw, uint32_t color) {
 	if(r <= 1) {
-		graph_box(g, x, y, w, h, color);
+		graph_rect(g, x, y, w, h, color);
 		return;
 	}
 	// Limit radius to half of width/height
@@ -365,7 +365,7 @@ void graph_semi_round(graph_t* g, int32_t x, int32_t y,
 void graph_semi_fill_round(graph_t* g, int32_t x, int32_t y,
 		int32_t w, int32_t r, uint32_t color, bool top_half) {
 	if(r <= 1) {
-		graph_fill(g, x, y, w, r, color);
+		graph_fill_rect(g, x, y, w, r, color);
 		return;
 	}
 	// Limit radius to half of width
@@ -374,7 +374,7 @@ void graph_semi_fill_round(graph_t* g, int32_t x, int32_t y,
 	if(top_half) {
 		// Top half
 		// Fill top bar (between corners)
-		graph_fill(g, x+r, y, w-r*2, r, color);
+		graph_fill_rect(g, x+r, y, w-r*2, r, color);
 
 		// Draw two top corners with anti-aliasing
 		// Top-left corner
@@ -385,7 +385,7 @@ void graph_semi_fill_round(graph_t* g, int32_t x, int32_t y,
 	} else {
 		// Bottom half
 		// Fill bottom bar (between corners)
-		graph_fill(g, x+r, y, w-r*2, r, color);
+		graph_fill_rect(g, x+r, y, w-r*2, r, color);
 
 		// Draw two bottom corners with anti-aliasing
 		// Bottom-left corner

@@ -44,7 +44,7 @@ void graph_fill_3d(graph_t* g, int x, int y, int w, int h, uint32_t color, bool 
         else
                 graph_get_3d_color(color, &dark, &bright);
 
-        graph_fill(g, x+1, y+1, w-2, h-2, color);
+        graph_fill_rect(g, x+1, y+1, w-2, h-2, color);
         graph_box_3d(g, x, y, w, h, bright, dark);
 }
 
@@ -66,7 +66,7 @@ void graph_frame(graph_t* g, int x, int y, int w, int h, int width, uint32_t bas
 
         graph_box_3d(g, x, y, w, h, bright, dark);
         for(int i=1; i<(width-1); i++) {
-                graph_box(g, x+i, y+i, w-i*2, h-i*2, base_color);
+                graph_rect(g, x+i, y+i, w-i*2, h-i*2, base_color);
         }
         graph_box_3d(g, x+width-1, y+width-1, w-width*2+2, h-width*2+2, dark, bright);
 }
@@ -84,13 +84,13 @@ void graph_draw_dot_pattern(graph_t* g,int x, int y, int w, int h, uint32_t c1, 
         w = ir.w;
         h = ir.h;
 
-        graph_fill(g, x, y, w, h, c1);
+        graph_fill_rect(g, x, y, w, h, c1);
         while(j < h) {
                 while(i < w) {
                         if(dw == 1)
                                 graph_set_pixel(g, x+i, y+j, c2);
                         else
-                                graph_fill(g, x+i, y+j, dw, dw, c2);
+                                graph_fill_rect(g, x+i, y+j, dw, dw, c2);
                         i += dw + dspace;
                 }
                 i = shift ? 0:(dw + dspace)/2;

@@ -157,7 +157,7 @@ static void draw_desktop(x_t* x, uint32_t display_index) {
 	int res = ipc_call_wait(x->xwm_pid, XWM_CNTL_DRAW_DESKTOP, &in);
 	PF->clear(&in);
 	if(res != 0)
-		graph_fill(display->g, 0, 0, display->g->w, display->g->h, 0xff000000);
+		graph_fill_rect(display->g, 0, 0, display->g->w, display->g->h, 0xff000000);
 }
 
 static void draw_drag_frame(x_t* xp, uint32_t display_index) {

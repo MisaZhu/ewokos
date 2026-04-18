@@ -24,7 +24,7 @@ class FontDemo: public Scrollable {
 protected:
 	font_t* font;
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
-		graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.docBGColor);
+		graph_fill_rect(g, r.x, r.y, r.w, r.h, theme->basic.docBGColor);
 
 		if(font == NULL)
 			return;
@@ -143,7 +143,7 @@ protected:
 
 		uint32_t color = theme->basic.fgColor;
 		if(index == itemSelected) {
-			graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.selectBGColor);
+			graph_fill_rect(g, r.x, r.y, r.w, r.h, theme->basic.selectBGColor);
 			color = theme->basic.selectColor;
 		}
 		graph_draw_text_font(g, r.x+2, r.y+2, fonts[index].name.c_str(), theme->getFont(), theme->basic.fontSize, color);

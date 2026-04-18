@@ -127,15 +127,15 @@ protected:
 		}
 		int load = proc->run_usec/10000;
 		if(load >= 80)
-			graph_fill(g, r.x, r.y, r.w, r.h, 0xffff6666);
+			graph_fill_rect(g, r.x, r.y, r.w, r.h, 0xffff6666);
 		else if(load >= 60)
-			graph_fill(g, r.x, r.y, r.w, r.h, 0xffffaaaa);
+			graph_fill_rect(g, r.x, r.y, r.w, r.h, 0xffffaaaa);
 		else if(load >= 40)
-			graph_fill(g, r.x, r.y, r.w, r.h, 0xffaaffaa);
+			graph_fill_rect(g, r.x, r.y, r.w, r.h, 0xffaaffaa);
 		else if(load >= 20)
-			graph_fill(g, r.x, r.y, r.w, r.h, 0xffaaaaff);
+			graph_fill_rect(g, r.x, r.y, r.w, r.h, 0xffaaaaff);
 		else if(load >= 5)
-			graph_fill(g, r.x, r.y, r.w, r.h, 0xffaaaaaa);
+			graph_fill_rect(g, r.x, r.y, r.w, r.h, 0xffaaaaaa);
 
 		graph_draw_text_font(g, r.x, r.y, str.c_str(),
 			font, theme->basic.fontSize, theme->basic.docFGColor);
@@ -254,7 +254,7 @@ public:
 protected:
 	void drawTitle(graph_t* g, XTheme* theme, uint32_t i, uint32_t color, const grect_t& r) {
 		int x = r.x + x_off + i*60;
-		graph_fill(g, x, r.y+4, 10, 10, color);
+		graph_fill_rect(g, x, r.y+4, 10, 10, color);
 		char s[16];
 
 		int32_t perc = 100 - (sysInfo.core_idles[i]/10000);
@@ -297,7 +297,7 @@ protected:
 		uint32_t w = xstep*HEART_BIT_NUM;
 		uint32_t h = yzoom*100;
 
-		graph_fill(g, r.x + x_off, r.y+ r.h - h - y_off,
+		graph_fill_rect(g, r.x + x_off, r.y+ r.h - h - y_off,
 				w, h, bgColor);
 
 		for(uint32_t i=0; i<=HEART_BIT_NUM; i++) {
@@ -366,7 +366,7 @@ protected:
 
 		uint32_t color = theme->basic.fgColor;
 		if(index == itemSelected) {
-			graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.selectBGColor);
+			graph_fill_rect(g, r.x, r.y, r.w, r.h, theme->basic.selectBGColor);
 			//color = theme->basic.selectColor;
 		}
 

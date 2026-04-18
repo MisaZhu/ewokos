@@ -20,7 +20,7 @@ bool Button::onMouse(xevent_t* ev) {
 }
 
 void Button::paintPanel(graph_t* g, XTheme* theme, const grect_t& rect) {
-	graph_fill(g, rect.x, rect.y, rect.w, rect.h, theme->basic.bgColor);
+	graph_fill_rect(g, rect.x, rect.y, rect.w, rect.h, theme->basic.bgColor);
 }
 
 void Button::paintDown(graph_t* g, XTheme* theme, const grect_t& rect) {

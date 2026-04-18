@@ -56,7 +56,7 @@ void EwokWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinf
 	getColor(&fg, &bg, top);
 
 	if((info->style & XWIN_STYLE_NO_TITLE) == 0) {
-		//graph_box(frame_g, r->x, r->y, r->w, xwm.theme.titleH+xwm.theme.frameW, fg);
+		//graph_rect(frame_g, r->x, r->y, r->w, xwm.theme.titleH+xwm.theme.frameW, fg);
 	}
 
 	int round = 13;
@@ -78,11 +78,11 @@ void EwokWM::drawTitle(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r
 
 	int pw = (r->w-sz.w)/2;
 	int ph = (r->h-sz.h)/2;
-	graph_fill(g, r->x, r->y, r->w, r->h, bg);//title box
+	graph_fill_rect(g, r->x, r->y, r->w, r->h, bg);//title box
 	//if(top)
 		//drawTitlePattern(g, r->x, r->y, r->w, r->h, fg);
 
-	//graph_fill(g, r->x+pw-2, r->y, sz.w+4, r->h, bg);//title box
+	//graph_fill_rect(g, r->x+pw-2, r->y, sz.w+4, r->h, bg);//title box
 	graph_draw_text_font(g, r->x+pw, r->y+ph, info->title, font, xwm.theme.fontSize, fg);//title
 	//graph_line(g, r->x, r->y+r->h-1, r->x+r->w, r->y+r->h-1, fg);//title box
 }
@@ -94,10 +94,10 @@ void EwokWM::drawTitle(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 
-	graph_fill(g, r->x, r->y, r->w, r->h, bg & 0x88ffffff);
-	graph_fill(g, r->x+3, r->y+3, r->w-6, r->h-6, 0x88222222);
+	graph_fill_rect(g, r->x, r->y, r->w, r->h, bg & 0x88ffffff);
+	graph_fill_rect(g, r->x+3, r->y+3, r->w-6, r->h-6, 0x88222222);
 	graph_line(g, r->x+3, r->y+r->h-4, r->x+r->w-4, r->y+3, bg & 0x88ffffff);
-	graph_box(g, r->x, r->y, r->w, r->h, fg & 0x88ffffff);
+	graph_rect(g, r->x, r->y, r->w, r->h, fg & 0x88ffffff);
 }
 */
 

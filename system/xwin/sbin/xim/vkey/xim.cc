@@ -249,10 +249,10 @@ protected:
 
 	void draw_input(graph_t* g, int input_h) {
 		uint32_t w;
-		graph_fill(g, 0, 0, g->w, input_h, 0xffffffff);
+		graph_fill_rect(g, 0, 0, g->w, input_h, 0xffffffff);
 		font_text_size(inputS, font, FONT_SIZE, &w, NULL);
 		graph_draw_text_font(g, (g->w-w)/2, 2, inputS, font, FONT_SIZE, 0xff000000);
-		graph_box(g, 0, 0, g->w, input_h, 0xff000000);
+		graph_rect(g, 0, 0, g->w, input_h, 0xff000000);
 	}
 
 	const char* getKeyTitle(char c) {
@@ -279,9 +279,9 @@ protected:
 	void onRepaint(graph_t* g) {
 		uint32_t font_h = FONT_SIZE;
 
-		graph_fill(g, 0, 0, g->w, g->w, 0xffcccccc);
+		graph_fill_rect(g, 0, 0, g->w, g->w, 0xffcccccc);
 		if(hideMode) {
-			graph_box(g, 0, 0, g->w, g->w, 0xff000000);
+			graph_rect(g, 0, 0, g->w, g->w, 0xff000000);
 			return;
 		}
 
@@ -306,13 +306,13 @@ protected:
 				if(c >= 'a' && c <= 'z') {
 					if(capMode)
 						c += ('A' - 'a');
-					graph_fill(g, kx, ky, kw, keyh, 0xffeeeeee);
+					graph_fill_rect(g, kx, ky, kw, keyh, 0xffeeeeee);
 				}
 				else if((c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z')) {
-					graph_fill(g, kx, ky, kw, keyh, 0xffeeeeee);
+					graph_fill_rect(g, kx, ky, kw, keyh, 0xffeeeeee);
 				}
 				else if(capMode && c == '\5') {
-					graph_fill(g, kx, ky, kw, kh, 0xbb000000);
+					graph_fill_rect(g, kx, ky, kw, kh, 0xbb000000);
 				}
 				
 				if(c == '\3') //two key size
@@ -329,7 +329,7 @@ protected:
 				if(keySelect == at) {
 					ky -= (j == 0 ? input_h : keyh/2);
 					kh = keyh + (j == 0 ? input_h : keyh/2);
-					graph_fill(g, kx, ky, kw, kh, 0xbb000000);
+					graph_fill_rect(g, kx, ky, kw, kh, 0xbb000000);
 				}
 
 				if(c != '\3')
@@ -351,7 +351,7 @@ protected:
 							ky + (kh - font_h)/2,
 							t, font, FONT_SIZE, clr);
 				}
-				graph_box(g, kx, ky, kw, kh, 0xffaaaaaa);
+				graph_rect(g, kx, ky, kw, kh, 0xffaaaaaa);
 			}
 		}
 	}

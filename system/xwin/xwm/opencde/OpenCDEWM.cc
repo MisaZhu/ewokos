@@ -100,7 +100,7 @@ void OpenCDEWM::drawTitle(graph_t* desktop_g, graph_t* frame_g, xinfo_t* info, g
 	int pw = (r->w-sz.w)/2;
 	int ph = (r->h-sz.h)/2;
 
-	//graph_fill(g, r->x, r->y, r->w, r->h, bg);
+	//graph_fill_rect(g, r->x, r->y, r->w, r->h, bg);
 	graph_gradation(frame_g, r->x, r->y, r->w, r->h, bg, dark, true);
 
 	graph_draw_text_font(frame_g, r->x+pw+1, r->y+ph+1, info->title, font, xwm.theme.fontSize, 0xff222222);//title

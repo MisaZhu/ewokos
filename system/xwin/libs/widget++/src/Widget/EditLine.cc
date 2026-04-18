@@ -25,7 +25,7 @@ void EditLine::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 	if(focused() && showCur) {
 		int32_t cw;
 		font_text_size(content.c_str(), font, theme->basic.fontSize, (uint32_t*)&cw, NULL);
-		graph_fill(g, r.x+marginH + cw + 2, r.y + (r.h-theme->basic.fontSize)/2, 4, theme->basic.fontSize, fgColor); 
+		graph_fill_rect(g, r.x+marginH + cw + 2, r.y + (r.h-theme->basic.fontSize)/2, 4, theme->basic.fontSize, fgColor); 
 	}
 }
 

@@ -7,7 +7,7 @@
 extern "C" { 
 #endif
 
-void graph_box(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
+void graph_rect(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
 	if(g == NULL || w <= 0 || h <= 0)
 		return;
 

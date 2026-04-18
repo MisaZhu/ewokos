@@ -14,7 +14,7 @@ class IPConfigWidget: public Widget {
 	std::string ipinfo;
 protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
-		graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.docBGColor);
+		graph_fill_rect(g, r.x, r.y, r.w, r.h, theme->basic.docBGColor);
 
 		font_t* font = theme->getFont();
 		if(font == NULL)

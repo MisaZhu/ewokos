@@ -27,7 +27,7 @@ class ColorButton : public RoundButton {
 	uint32_t color;
 protected:
 	virtual void paintPanel(graph_t* g, XTheme* theme, const grect_t& rect) {
-		//graph_fill(g, rect.x, rect.y, rect.w, rect.h, color);
+		//graph_fill_rect(g, rect.x, rect.y, rect.w, rect.h, color);
 		graph_fill_round(g, rect.x, rect.y, rect.w, rect.h, round, color);
 	}
 public:

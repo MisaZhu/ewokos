@@ -7,7 +7,7 @@ namespace Ewok {
 void Splitter::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 	uint32_t d, b;
 	graph_get_3d_color(theme->basic.bgColor, &d, &b);
-	graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
+	graph_fill_rect(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
 
 	if(!horizontal) {
 		int dx = (r.w - barSize)/2;

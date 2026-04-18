@@ -153,7 +153,7 @@ public:
 protected:
     void onRepaint(graph_t* g, XTheme* theme, const grect_t& rect) {
         (void)theme;
-        graph_fill(g, rect.x, rect.y, rect.w, rect.h, 0xFF1a1a2e);
+        graph_fill_rect(g, rect.x, rect.y, rect.w, rect.h, 0xFF1a1a2e);
 
         int barW = rect.w / BARS;
         if (barW < 2) barW = 2;
@@ -166,11 +166,11 @@ protected:
             int bx = rect.x + i * barW + gap/2;
             int by = rect.y + rect.h - barHeight - 2;
 
-            graph_fill(g, bx, by, barW - gap, barHeight, barColors[i]);
+            graph_fill_rect(g, bx, by, barW - gap, barHeight, barColors[i]);
 
             if (barHeight > 4) {
                 uint32_t highlightColor = 0xFFFFFFFF;
-                graph_fill(g, bx, by, barW - gap, 2, highlightColor);
+                graph_fill_rect(g, bx, by, barW - gap, 2, highlightColor);
             }
         }
 
@@ -217,12 +217,12 @@ protected:
         (void)theme;
 
         // Background
-        graph_fill(g, rect.x, rect.y, rect.w, rect.h, 0xFF333344);
+        graph_fill_rect(g, rect.x, rect.y, rect.w, rect.h, 0xFF333344);
 
         // Progress fill
         int fillWidth = (int)(rect.w * progress);
         if (fillWidth > 0) {
-            graph_fill(g, rect.x, rect.y, fillWidth, rect.h, 0xFF00AAFF);
+            graph_fill_rect(g, rect.x, rect.y, fillWidth, rect.h, 0xFF00AAFF);
         }
 
         // Border

@@ -14,7 +14,7 @@ void Text::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 	if(fontSize == 0)
 		fontSize = theme->basic.fontSize;
 
-	graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.docBGColor);
+	graph_fill_rect(g, r.x, r.y, r.w, r.h, theme->basic.docBGColor);
 
 	int i, x=0, y=0;
 	pageSize = 0; 

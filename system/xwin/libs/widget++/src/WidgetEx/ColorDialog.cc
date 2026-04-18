@@ -74,7 +74,7 @@ class ColorDialog::ColorWidget : public Widget {
 
 protected:
     void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
-        graph_fill(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
+        graph_fill_rect(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
 
         // 固定每行 16 个颜色
         const int cols = 16;
@@ -87,7 +87,7 @@ protected:
         for (size_t i = 0; i < colors.size(); ++i) {
             int x = r.x + (i % cols) * cellWidth;
             int y = r.y + (i / cols) * cellHeight;
-            graph_fill(g, x, y, cellWidth, cellHeight, colors[i]);
+            graph_fill_rect(g, x, y, cellWidth, cellHeight, colors[i]);
 
             if (static_cast<int>(i) == selectedIndex) {
                 // 绘制选中边框
