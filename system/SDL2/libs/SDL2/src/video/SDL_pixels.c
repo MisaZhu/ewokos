@@ -996,6 +996,10 @@ SDL_MapSurface(SDL_Surface * src, SDL_Surface * dst)
 
     /* Clear out any previous mapping */
     map = src->map;
+    if (map == NULL) {
+        SDL_SetError("Source surface has no blit map");
+        return -1;
+    }
     if ((src->flags & SDL_RLEACCEL) == SDL_RLEACCEL) {
         SDL_UnRLESurface(src, 1);
     }

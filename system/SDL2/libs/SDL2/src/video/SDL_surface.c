@@ -497,7 +497,7 @@ SDL_LowerBlit(SDL_Surface * src, SDL_Rect * srcrect,
               SDL_Surface * dst, SDL_Rect * dstrect)
 {
     /* Check to make sure the blit mapping is valid */
-    if ((src->map->dst != dst) ||
+    if (src->map == NULL || (src->map->dst != dst) ||
         (dst->format->palette &&
          src->map->dst_palette_version != dst->format->palette->version) ||
         (src->format->palette &&

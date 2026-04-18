@@ -65,24 +65,33 @@ int EWOKOS_CreateWindowFramebuffer(_THIS, SDL_Window * window, Uint32 * format, 
 
 int EWOKOS_UpdateWindowFramebuffer(_THIS, SDL_Window * window, const SDL_Rect * rects, int numrects) {
     SDL_Surface *surface = (SDL_Surface *) SDL_GetWindowSurface(window);
-    if (!surface) {
+    if (surface == NULL) {
         return SDL_SetError("Couldn't find surface for window");
     }
+    if (surface->pixels == NULL) {
+        return SDL_SetError("Surface pixels is NULL");
+    }
     xwin_t* xwin = (xwin_t*)window->driverdata;
-    if(xwin == NULL || xwin->xinfo == NULL)
+    if (xwin == NULL || xwin->xinfo == NULL) {
         return -1;
-    
-    if(surface->w != xwin->xinfo->wsr.w || surface->h != xwin->xinfo->wsr.h)
-        return -1;
+    }
 
-    // Get EwokOS graphics buffer
+    if (surface->w != xwin->xinfo->wsr.w || surface->h != xwin->xinfo->wsr.h) {
+        return -1;
+    }
+
     graph_t g;
-    if(xwin_fetch_graph(xwin, &g) == NULL)
+    if (xwin_fetch_graph(xwin, &g) == NULL) {
         return -1;
+    }
 
-    // Copy SDL surface pixels to EwokOS graphics buffer
-    // surface->pixels is the buffer we allocated in CreateWindowFramebuffer
-    memcpy(g.buffer, surface->pixels, surface->h * surface->pitch);
+    if (g.buffer == NULL) {
+        return -1;
+    }
+
+    size_t copy_size = surface->h * surface->pitch;
+
+    memcpy(g.buffer, surface->pixels, copy_size);
 
     xwin_repaint(xwin);
     return 0;
@@ -90,9 +99,10 @@ int EWOKOS_UpdateWindowFramebuffer(_THIS, SDL_Window * window, const SDL_Rect * 
 
 void EWOKOS_DestroyWindowFramebuffer(_THIS, SDL_Window * window) {
     SDL_Surface *surface = (SDL_Surface *) SDL_GetWindowSurface(window);
-    if (surface && surface->pixels) {
-        SDL_free(surface->pixels);
+    if (surface != NULL && surface->pixels != NULL) {
+        void *pixels = surface->pixels;
         surface->pixels = NULL;
+        SDL_free(pixels);
     }
 }
 
