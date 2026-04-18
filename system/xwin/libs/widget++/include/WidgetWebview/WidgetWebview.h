@@ -15,7 +15,11 @@ public:
     WidgetWebview();
     virtual ~WidgetWebview();
 
-    bool load(const std::string& url);
+    bool loadHtml(const std::string& url);
+    bool loadCSS(const std::string& url);
+
+    bool loadCSSContent(const std::string& content);
+    bool loadHtmlContent(const std::string& content);
 
 protected:
     virtual void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) override;
@@ -23,7 +27,6 @@ protected:
 
 private:
     bool init();
-    bool loadHtmlContent(const std::string& url);
 
     std::shared_ptr<XContainer> m_container;
     litehtml::document::ptr       m_doc;

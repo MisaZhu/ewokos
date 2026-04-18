@@ -42,31 +42,44 @@ bool WidgetWebview::init()
     return true;
 }
 
-bool WidgetWebview::load(const std::string& url)
+bool WidgetWebview::loadHtml(const std::string& url)
 {
-    return loadHtmlContent(url);
-}
-
-bool WidgetWebview::loadHtmlContent(const std::string& url)
-{
-    {
-        std::string strContents = readFileContents("/data/html/master.css");
-        if (!strContents.empty()) {
-            m_browser_context.load_master_stylesheet(strContents.c_str());
-        }
-    }
-
     if(url.starts_with("/"))
     {
         std::string strContents = readFileContents(url.c_str());
-        if (!strContents.empty()) {
-            m_doc = litehtml::document::createFromString(strContents.c_str(), m_container.get(), &m_browser_context);
-            if (m_doc) {
-                m_doc->render(m_clientWidth);
-            }
+        return loadHtmlContent(strContents);
+    }
+    //TODO load remote html
+    return false;
+}
+
+bool WidgetWebview::loadCSS(const std::string& url)
+{
+    if(url.starts_with("/"))
+    {
+        std::string strContents = readFileContents(url.c_str());
+        return loadCSSContent(strContents);
+    }
+    //TODO load remote css
+    return false;
+}
+
+bool WidgetWebview::loadCSSContent(const std::string& content)
+{
+    if (!content.empty()) {
+        m_browser_context.load_master_stylesheet(content.c_str());
+    }
+    return true;
+}
+
+bool WidgetWebview::loadHtmlContent(const std::string& content)
+{
+    if (!content.empty()) {
+        m_doc = litehtml::document::createFromString(content.c_str(), m_container.get(), &m_browser_context);
+        if (m_doc) {
+            m_doc->render(m_clientWidth);
         }
     }
-
     return m_doc != nullptr;
 }
 
