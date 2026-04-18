@@ -148,6 +148,14 @@ class string {
         friend bool operator>=(const string& lhs, const char* rhs);
         friend bool operator>=(const char* lhs, const string& rhs);
 
+        // C++20 starts_with and ends_with
+        bool starts_with(const string& str) const;
+        bool starts_with(const char* s) const;
+        bool starts_with(char c) const;
+        bool ends_with(const string& str) const;
+        bool ends_with(const char* s) const;
+        bool ends_with(char c) const;
+
     private:
         char*   data_;
         size_t  length_;

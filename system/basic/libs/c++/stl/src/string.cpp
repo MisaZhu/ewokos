@@ -1035,4 +1035,46 @@ bool operator>=(const char* lhs, const string& rhs) {
     return rhs.compare(lhs) <= 0;
 }
 
+// starts_with and ends_with implementations
+bool string::starts_with(const string& str) const {
+    if (str.length_ > length_) {
+        return false;
+    }
+    for (size_t i = 0; i < str.length_; i++) {
+        if (data_[i] != str.data_[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool string::starts_with(const char* s) const {
+    return starts_with(string(s));
+}
+
+bool string::starts_with(char c) const {
+    return length_ > 0 && data_[0] == c;
+}
+
+bool string::ends_with(const string& str) const {
+    if (str.length_ > length_) {
+        return false;
+    }
+    size_t offset = length_ - str.length_;
+    for (size_t i = 0; i < str.length_; i++) {
+        if (data_[offset + i] != str.data_[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool string::ends_with(const char* s) const {
+    return ends_with(string(s));
+}
+
+bool string::ends_with(char c) const {
+    return length_ > 0 && data_[length_ - 1] == c;
+}
+
 }
