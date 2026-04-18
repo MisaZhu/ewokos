@@ -43,6 +43,15 @@ void reverse(Iterator first, Iterator last) {
     }
 }
 
+template <typename Iterator, typename Function>
+Function for_each(Iterator first, Iterator last, Function fn) {
+    while (first != last) {
+        fn(*first);
+        ++first;
+    }
+    return fn;
+}
+
 template <typename Iterator, typename T>
 Iterator find(Iterator first, Iterator last, const T& value) {
     while (first != last) {
@@ -273,6 +282,79 @@ Iterator binary_search(Iterator first, Iterator last, const T& value, Compare co
         return it;
     }
     return last;
+}
+
+// remove algorithm
+template <typename Iterator, typename T>
+Iterator remove(Iterator first, Iterator last, const T& value) {
+    Iterator result = first;
+    while (first != last) {
+        if (!(*first == value)) {
+            *result = *first;
+            ++result;
+        }
+        ++first;
+    }
+    return result;
+}
+
+// Stable sort implementation using merge sort
+template <typename Iterator, typename Compare>
+void stable_sort_impl(Iterator first, Iterator last, Compare comp) {
+    size_t n = last - first;
+    if (n <= 1) return;
+
+    size_t mid = n / 2;
+    Iterator middle = first + mid;
+
+    stable_sort_impl(first, middle, comp);
+    stable_sort_impl(middle, last, comp);
+
+    // Merge step - use a temporary buffer
+    typedef typename Iterator::value_type value_type;
+    value_type* temp = (value_type*)malloc(n * sizeof(value_type));
+
+    Iterator left = first;
+    Iterator right = middle;
+    size_t i = 0;
+
+    while (left < middle && right < last) {
+        if (comp(*right, *left)) {
+            new (&temp[i++]) value_type(*right);
+            ++right;
+        } else {
+            new (&temp[i++]) value_type(*left);
+            ++left;
+        }
+    }
+
+    while (left < middle) {
+        new (&temp[i++]) value_type(*left);
+        ++left;
+    }
+
+    while (right < last) {
+        new (&temp[i++]) value_type(*right);
+        ++right;
+    }
+
+    // Copy back
+    for (size_t j = 0; j < n; j++) {
+        first[j] = temp[j];
+        temp[j].~value_type();
+    }
+
+    free(temp);
+}
+
+template <typename Iterator>
+void stable_sort(Iterator first, Iterator last) {
+    stable_sort_impl(first, last, [](const auto& a, const auto& b) { return a < b; });
+}
+
+template <typename Iterator, typename Compare>
+void stable_sort(Iterator first, Iterator last, Compare comp) {
+    stable_sort_impl(first, last, comp);
 }
 
 }

@@ -318,6 +318,14 @@ size_t map<Key, T>::erase(const Key& key) {
 }
 
 template <typename Key, typename T>
+typename map<Key, T>::iterator map<Key, T>::erase(iterator position) {
+    iterator next = position;
+    ++next;
+    erase(position->first);
+    return next;
+}
+
+template <typename Key, typename T>
 void map<Key, T>::transplant(map_node<value_type>* u, map_node<value_type>* v) {
     if (u->parent == nil_) {
         root_ = v;

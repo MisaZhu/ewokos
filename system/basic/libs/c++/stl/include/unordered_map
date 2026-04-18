@@ -2,6 +2,7 @@
 #define EWOK_STL_UNORDERED_MAP_H
 
 #include "iterator"
+#include "utility"
 
 #include <stddef.h>
 
@@ -9,48 +10,236 @@ namespace std {
 
 template <typename Key, typename T>
 struct unordered_map_node {
-    T value;
-    Key key;
+    pair<Key, T> value;
     unordered_map_node* next;
 
-    unordered_map_node(const Key& k, const T& v) : key(k), value(v), next(nullptr) {}
+    unordered_map_node(const Key& k, const T& v) : value(k, v), next(nullptr) {}
+};
+
+// Forward declaration
+template <typename Key, typename T>
+class unordered_map;
+
+// unordered_map iterator
+template <typename Key, typename T>
+class unordered_map_iterator {
+public:
+    typedef pair<Key, T> value_type;
+    typedef pair<Key, T>& reference;
+    typedef pair<Key, T>* pointer;
+    typedef ptrdiff_t difference_type;
+    typedef forward_iterator_tag iterator_category;
+
+    unordered_map_iterator() : node_(nullptr), bucket_(nullptr), bucket_idx_(0), bucket_count_(0) {}
+    unordered_map_iterator(unordered_map_node<Key, T>* node, unordered_map_node<Key, T>** bucket, size_t bucket_idx, size_t bucket_count)
+        : node_(node), bucket_(bucket), bucket_idx_(bucket_idx), bucket_count_(bucket_count) {}
+
+    reference operator*() { return node_->value; }
+    pointer operator->() { return &node_->value; }
+
+    unordered_map_iterator& operator++() {
+        if (node_->next) {
+            node_ = node_->next;
+        } else {
+            // Move to next bucket
+            bucket_idx_++;
+            while (bucket_idx_ < bucket_count_ && bucket_[bucket_idx_] == nullptr) {
+                bucket_idx_++;
+            }
+            if (bucket_idx_ < bucket_count_) {
+                node_ = bucket_[bucket_idx_];
+            } else {
+                node_ = nullptr;
+            }
+        }
+        return *this;
+    }
+
+    unordered_map_iterator operator++(int) {
+        unordered_map_iterator tmp(*this);
+        ++(*this);
+        return tmp;
+    }
+
+    bool operator==(const unordered_map_iterator& other) const { return node_ == other.node_; }
+    bool operator!=(const unordered_map_iterator& other) const { return node_ != other.node_; }
+
+private:
+    unordered_map_node<Key, T>* node_;
+    unordered_map_node<Key, T>** bucket_;
+    size_t bucket_idx_;
+    size_t bucket_count_;
 };
 
 template <typename Key, typename T>
 class unordered_map {
     public:
-        typedef T value_type;
+        typedef pair<Key, T> value_type;
         typedef T& reference;
         typedef const T& const_reference;
         typedef size_t size_type;
-        typedef random_access_iterator<T> iterator;
-        typedef const random_access_iterator<T> const_iterator;
+        typedef unordered_map_iterator<Key, T> iterator;
+        typedef unordered_map_iterator<Key, T> const_iterator;
 
-        unordered_map();
-        unordered_map(const unordered_map<Key, T>& src);
-        ~unordered_map();
+        unordered_map() : size_(0) {
+            buckets_ = new unordered_map_node<Key, T>*[BUCKET_COUNT]();
+        }
 
-        unordered_map<Key, T>& operator=(const unordered_map& rhs);
+        unordered_map(const unordered_map<Key, T>& src) : size_(0) {
+            buckets_ = new unordered_map_node<Key, T>*[BUCKET_COUNT]();
+            for (size_t i = 0; i < BUCKET_COUNT; i++) {
+                buckets_[i] = nullptr;
+            }
+            for (size_t i = 0; i < BUCKET_COUNT; i++) {
+                unordered_map_node<Key, T>* node = src.buckets_[i];
+                while (node) {
+                    insert(node->value.first, node->value.second);
+                    node = node->next;
+                }
+            }
+        }
 
-        iterator begin();
-        const_iterator begin() const;
-        iterator end();
-        const_iterator end() const;
+        ~unordered_map() {
+            clear();
+            delete[] buckets_;
+        }
 
-        size_t size() const;
-        bool empty() const;
+        unordered_map<Key, T>& operator=(const unordered_map& rhs) {
+            if (this != &rhs) {
+                clear();
+                for (size_t i = 0; i < BUCKET_COUNT; i++) {
+                    unordered_map_node<Key, T>* node = rhs.buckets_[i];
+                    while (node) {
+                        insert(node->value.first, node->value.second);
+                        node = node->next;
+                    }
+                }
+            }
+            return *this;
+        }
 
-        void clear();
+        iterator begin() {
+            for (size_t i = 0; i < BUCKET_COUNT; i++) {
+                if (buckets_[i]) {
+                    return iterator(buckets_[i], buckets_, i, BUCKET_COUNT);
+                }
+            }
+            return end();
+        }
 
-        iterator find(const Key& key);
-        const_iterator find(const Key& key) const;
+        const_iterator begin() const {
+            for (size_t i = 0; i < BUCKET_COUNT; i++) {
+                if (buckets_[i]) {
+                    return const_iterator(buckets_[i], buckets_, i, BUCKET_COUNT);
+                }
+            }
+            return end();
+        }
 
-        size_t insert(const Key& key, const T& value);
-        size_t erase(const Key& key);
+        iterator end() {
+            return iterator(nullptr, buckets_, BUCKET_COUNT, BUCKET_COUNT);
+        }
 
-        T& operator[](const Key& key);
+        const_iterator end() const {
+            return const_iterator(nullptr, buckets_, BUCKET_COUNT, BUCKET_COUNT);
+        }
 
-        void swap(unordered_map& other);
+        size_t size() const { return size_; }
+        bool empty() const { return size_ == 0; }
+
+        void clear() {
+            for (size_t i = 0; i < BUCKET_COUNT; i++) {
+                unordered_map_node<Key, T>* node = buckets_[i];
+                while (node) {
+                    unordered_map_node<Key, T>* next = node->next;
+                    delete node;
+                    node = next;
+                }
+                buckets_[i] = nullptr;
+            }
+            size_ = 0;
+        }
+
+        iterator find(const Key& key) {
+            size_t idx = hash(key);
+            unordered_map_node<Key, T>* node = buckets_[idx];
+            while (node) {
+                if (node->value.first == key) {
+                    return iterator(node, buckets_, idx, BUCKET_COUNT);
+                }
+                node = node->next;
+            }
+            return end();
+        }
+
+        const_iterator find(const Key& key) const {
+            size_t idx = hash(key);
+            unordered_map_node<Key, T>* node = buckets_[idx];
+            while (node) {
+                if (node->value.first == key) {
+                    return const_iterator(node, buckets_, idx, BUCKET_COUNT);
+                }
+                node = node->next;
+            }
+            return end();
+        }
+
+        size_t insert(const Key& key, const T& value) {
+            size_t idx = hash(key);
+            unordered_map_node<Key, T>* node = buckets_[idx];
+            while (node) {
+                if (node->value.first == key) {
+                    node->value.second = value;
+                    return 0;
+                }
+                node = node->next;
+            }
+            unordered_map_node<Key, T>* new_node = new unordered_map_node<Key, T>(key, value);
+            new_node->next = buckets_[idx];
+            buckets_[idx] = new_node;
+            size_++;
+            return 1;
+        }
+
+        size_t erase(const Key& key) {
+            size_t idx = hash(key);
+            unordered_map_node<Key, T>* node = buckets_[idx];
+            unordered_map_node<Key, T>* prev = nullptr;
+            while (node) {
+                if (node->value.first == key) {
+                    if (prev) {
+                        prev->next = node->next;
+                    } else {
+                        buckets_[idx] = node->next;
+                    }
+                    delete node;
+                    size_--;
+                    return 1;
+                }
+                prev = node;
+                node = node->next;
+            }
+            return 0;
+        }
+
+        T& operator[](const Key& key) {
+            iterator it = find(key);
+            if (it != end()) {
+                return it->second;
+            }
+            insert(key, T());
+            return find(key)->second;
+        }
+
+        void swap(unordered_map& other) {
+            unordered_map_node<Key, T>** temp_buckets = buckets_;
+            buckets_ = other.buckets_;
+            other.buckets_ = temp_buckets;
+
+            size_t temp_size = size_;
+            size_ = other.size_;
+            other.size_ = temp_size;
+        }
 
     private:
         static const size_t BUCKET_COUNT = 32;
@@ -58,7 +247,15 @@ class unordered_map {
         unordered_map_node<Key, T>** buckets_;
         size_t size_;
 
-        size_t hash(const Key& key) const;
+        size_t hash(const Key& key) const {
+            // Simple hash function
+            size_t h = 0;
+            const char* data = reinterpret_cast<const char*>(&key);
+            for (size_t i = 0; i < sizeof(Key); i++) {
+                h = h * 31 + data[i];
+            }
+            return h % BUCKET_COUNT;
+        }
 };
 
 }

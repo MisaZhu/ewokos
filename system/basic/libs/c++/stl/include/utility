@@ -5,6 +5,39 @@
 
 namespace std {
 
+// remove_reference
+template <typename T>
+struct remove_reference {
+    typedef T type;
+};
+
+template <typename T>
+struct remove_reference<T&> {
+    typedef T type;
+};
+
+template <typename T>
+struct remove_reference<T&&> {
+    typedef T type;
+};
+
+// move
+template <typename T>
+typename remove_reference<T>::type&& move(T&& t) noexcept {
+    return static_cast<typename remove_reference<T>::type&&>(t);
+}
+
+// forward
+template <typename T>
+T&& forward(typename remove_reference<T>::type& t) noexcept {
+    return static_cast<T&&>(t);
+}
+
+template <typename T>
+T&& forward(typename remove_reference<T>::type&& t) noexcept {
+    return static_cast<T&&>(t);
+}
+
 template <typename T1, typename T2>
 struct pair {
     typedef T1 first_type;
@@ -43,7 +76,8 @@ struct pair {
     }
 
     bool operator<(const pair& other) const {
-        return first < other.first || (!(other.first < first) && second < other.second);
+        // Only compare first for map key comparison
+        return first < other.first;
     }
 
     bool operator<=(const pair& other) const {

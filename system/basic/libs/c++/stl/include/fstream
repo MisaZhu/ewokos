@@ -1,12 +1,28 @@
 #ifndef EWOK_STL_FSTREAM_H
 #define EWOK_STL_FSTREAM_H
 
+// Include system types first to get ssize_t and off_t if available
+#include <sys/types.h>
+
 #include <string.h>
 #include <stddef.h>
 #include <string>
+#include <streambuf>
 
 // Include sstream for shared types
 #include <sstream>
+
+// Define missing POSIX types for EwokOS only if system headers didn't define them
+#ifndef _SSIZE_T_DECLARED
+#ifndef ssize_t
+typedef long ssize_t;
+#endif
+#endif
+#ifndef _OFF_T_DECLARED
+#ifndef off_t
+typedef long off_t;
+#endif
+#endif
 
 namespace std {
 

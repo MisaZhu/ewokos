@@ -1,0 +1,57 @@
+#ifndef EWOK_STL_IOSFWD_H
+#define EWOK_STL_IOSFWD_H
+
+#include <stddef.h>
+
+namespace std {
+
+// Forward declarations for char_traits
+template <typename Char> struct char_traits;
+
+template <> struct char_traits<char> {
+    typedef char char_type;
+    typedef int int_type;
+    typedef long pos_type;
+    typedef long off_type;
+    
+    static int_type eof() { return -1; }
+    static char_type to_char_type(int_type c) { return static_cast<char_type>(c); }
+    static int_type to_int_type(char_type c) { return static_cast<int_type>(c); }
+    static bool eq_int_type(int_type a, int_type b) { return a == b; }
+};
+
+// Forward declarations for stream classes
+template <typename Char, typename Traits = char_traits<Char>> class basic_streambuf;
+template <typename Char, typename Traits = char_traits<Char>> class basic_istream;
+template <typename Char, typename Traits = char_traits<Char>> class basic_ostream;
+template <typename Char, typename Traits = char_traits<Char>> class basic_iostream;
+template <typename Char, typename Traits = char_traits<Char>> class basic_stringbuf;
+template <typename Char, typename Traits = char_traits<Char>> class basic_istringstream;
+template <typename Char, typename Traits = char_traits<Char>> class basic_ostringstream;
+template <typename Char, typename Traits = char_traits<Char>> class basic_stringstream;
+template <typename Char, typename Traits = char_traits<Char>> class basic_filebuf;
+template <typename Char, typename Traits = char_traits<Char>> class basic_ifstream;
+template <typename Char, typename Traits = char_traits<Char>> class basic_ofstream;
+template <typename Char, typename Traits = char_traits<Char>> class basic_fstream;
+
+// istreambuf_iterator forward declaration
+template <typename Char, typename Traits = char_traits<Char>> class istreambuf_iterator;
+template <typename Char, typename Traits = char_traits<Char>> class ostreambuf_iterator;
+
+// Typedefs for char
+typedef basic_streambuf<char> streambuf;
+typedef basic_istream<char> istream;
+typedef basic_ostream<char> ostream;
+typedef basic_iostream<char> iostream;
+typedef basic_stringbuf<char> stringbuf;
+typedef basic_istringstream<char> istringstream;
+typedef basic_ostringstream<char> ostringstream;
+typedef basic_stringstream<char> stringstream;
+typedef basic_filebuf<char> filebuf;
+typedef basic_ifstream<char> ifstream;
+typedef basic_ofstream<char> ofstream;
+typedef basic_fstream<char> fstream;
+
+} // namespace std
+
+#endif // EWOK_STL_IOSFWD_H

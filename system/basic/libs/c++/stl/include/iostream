@@ -9,6 +9,9 @@
 
 namespace std {
 
+// Forward declaration for string
+class string;
+
 // Forward declarations for external C functions
 extern "C" {
     int printf(const char* format, ...);
@@ -190,6 +193,9 @@ public:
     basic_ostream& operator<<(basic_ostream& (*pf)(basic_ostream&)) {
         return pf(*this);
     }
+
+    // Forward declaration of string output operator
+    basic_ostream& operator<<(const string& s);
 };
 
 template <typename Char>

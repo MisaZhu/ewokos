@@ -339,6 +339,22 @@ TEST(weak_ptr_basic) {
     ASSERT_EQ(p1.use_count(), 2);
 }
 
+TEST(weak_ptr_lock_expired) {
+    weak_ptr<int> wp;
+    {
+        shared_ptr<int> p1(new int(100));
+        wp = p1;
+        ASSERT(!wp.expired());
+        shared_ptr<int> p2 = wp.lock();
+        ASSERT(p2 != nullptr);
+        ASSERT_EQ(*p2, 100);
+    }
+    // Now p1 is out of scope, wp should be expired
+    ASSERT(wp.expired());
+    shared_ptr<int> p3 = wp.lock();
+    ASSERT(p3 == nullptr);
+}
+
 // ==================== ALGORITHM TESTS ====================
 TEST(algorithm_find) {
     vector<int> v;
@@ -412,6 +428,137 @@ TEST(iterator_advance) {
     auto it = v.begin();
     advance(it, 3);
     ASSERT_EQ(*it, 4);
+}
+
+TEST(iterator_vector_end_comparison) {
+    vector<int> v;
+    v.push_back(1);
+    v.push_back(2);
+    v.push_back(3);
+    
+    // Non-const iterator test
+    auto it = v.begin();
+    ASSERT(it != v.end());
+    
+    int count = 0;
+    for (; it != v.end(); ++it) {
+        count++;
+    }
+    ASSERT_EQ(count, 3);
+}
+
+TEST(iterator_vector_const_end_comparison) {
+    vector<int> v;
+    v.push_back(1);
+    v.push_back(2);
+    v.push_back(3);
+    
+    // Const iterator test
+    const vector<int>& cv = v;
+    auto cit = cv.begin();
+    ASSERT(cit != cv.end());
+    
+    int count = 0;
+    for (; cit != cv.end(); ++cit) {
+        count++;
+    }
+    ASSERT_EQ(count, 3);
+}
+
+TEST(iterator_vector_mixed_comparison) {
+    vector<int> v;
+    v.push_back(1);
+    v.push_back(2);
+    v.push_back(3);
+    
+    // Mix const and non-const iterator comparison
+    auto it = v.begin();
+    const vector<int>& cv = v;
+    auto cit = cv.begin();
+    ASSERT(it == cit);
+    ASSERT(cit == it);
+    ASSERT(it != cv.end());
+    ASSERT(cit != v.end());
+    
+    ++it;
+    ASSERT(it != cit);
+    ASSERT(cit != it);
+}
+
+TEST(iterator_vector_all_comparisons) {
+    vector<int> v;
+    v.push_back(10);
+    v.push_back(20);
+    v.push_back(30);
+    v.push_back(40);
+    v.push_back(50);
+    
+    auto it1 = v.begin();
+    auto it2 = v.begin() + 1;
+    auto it3 = v.end();
+    
+    ASSERT(it1 < it2);
+    ASSERT(it2 > it1);
+    ASSERT(it1 <= it2);
+    ASSERT(it2 >= it1);
+    ASSERT(it1 != it2);
+    ASSERT(it2 != it3);
+    ASSERT(it1 != it3);
+    
+    // Const comparison
+    const vector<int>& cv = v;
+    auto cit1 = cv.begin();
+    auto cit2 = cv.begin() + 1;
+    
+    ASSERT(it1 < cit2);
+    ASSERT(cit2 > it1);
+    ASSERT(it1 <= cit2);
+    ASSERT(cit2 >= it1);
+    ASSERT(it1 != cit2);
+}
+
+TEST(iterator_list_end_comparison) {
+    list<int> l;
+    l.push_back(1);
+    l.push_back(2);
+    l.push_back(3);
+    
+    // Non-const
+    auto it = l.begin();
+    ASSERT(it != l.end());
+    
+    int count = 0;
+    for (; it != l.end(); ++it) {
+        count++;
+    }
+    ASSERT_EQ(count, 3);
+    
+    // Const
+    const list<int>& cl = l;
+    auto cit = cl.begin();
+    ASSERT(cit != cl.end());
+    
+    count = 0;
+    for (; cit != cl.end(); ++cit) {
+        count++;
+    }
+    ASSERT_EQ(count, 3);
+}
+
+TEST(iterator_list_mixed_comparison) {
+    list<int> l;
+    l.push_back(1);
+    l.push_back(2);
+    l.push_back(3);
+    
+    auto it = l.begin();
+    const list<int>& cl = l;
+    auto cit = cl.begin();
+    
+    ASSERT(it == cit);
+    ASSERT(cit == it);
+    ASSERT(it != cl.end());
+    ASSERT(cit != l.end());
 }
 
 // ==================== SSTREAM TESTS ====================
@@ -618,6 +765,7 @@ int main(int argc, char** argv) {
     RUN_TEST(unique_ptr_basic);
     RUN_TEST(shared_ptr_basic);
     RUN_TEST(weak_ptr_basic);
+    RUN_TEST(weak_ptr_lock_expired);
 
     // Algorithm tests
     RUN_TEST(algorithm_find);
@@ -639,6 +787,12 @@ int main(int argc, char** argv) {
     // Iterator tests
     RUN_TEST(iterator_basic);
     RUN_TEST(iterator_advance);
+    RUN_TEST(iterator_vector_end_comparison);
+    RUN_TEST(iterator_vector_const_end_comparison);
+    RUN_TEST(iterator_vector_mixed_comparison);
+    RUN_TEST(iterator_vector_all_comparisons);
+    RUN_TEST(iterator_list_end_comparison);
+    RUN_TEST(iterator_list_mixed_comparison);
 
     // Iostream tests
     RUN_TEST(iostream_ostream_int);

@@ -1,0 +1,57 @@
+#ifndef EWOK_STL_LOCALE_H
+#define EWOK_STL_LOCALE_H
+
+namespace std {
+
+// Simplified locale class for EwokOS
+class locale {
+public:
+    locale() {}
+    
+    static locale classic() {
+        return locale();
+    }
+    
+    static locale global(const locale& loc) {
+        (void)loc;
+        return locale();
+    }
+};
+
+// Simplified tolower/toupper using C functions
+inline char tolower(char c) {
+    if (c >= 'A' && c <= 'Z') {
+        return c + ('a' - 'A');
+    }
+    return c;
+}
+
+inline char tolower(char c, const locale& loc) {
+    (void)loc;
+    return tolower(c);
+}
+
+inline char toupper(char c) {
+    if (c >= 'a' && c <= 'z') {
+        return c - ('a' - 'A');
+    }
+    return c;
+}
+
+inline char toupper(char c, const locale& loc) {
+    (void)loc;
+    return toupper(c);
+}
+
+// Wide character functions (for compatibility)
+inline int iswdigit(wchar_t c) {
+    return c >= L'0' && c <= L'9';
+}
+
+inline int iswspace(wchar_t c) {
+    return c == L' ' || c == L'\t' || c == L'\n' || c == L'\r' || c == L'\f' || c == L'\v';
+}
+
+}
+
+#endif // EWOK_STL_LOCALE_H

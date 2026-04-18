@@ -37,3 +37,5 @@ else
 CFLAGS +=  -O2
 CXXFLAGS +=  -O2
 endif
+
+STL_HEADERS_STAMP = $(BUILD_DIR)/include/.stl_headers_timestamp

@@ -4,13 +4,15 @@
 #include <string.h>
 #include <stddef.h>
 #include <string>
+#include <streambuf>
 
 namespace std {
 
 enum seekdir { beg, cur, end };
 enum openmode { in, out, app, ate, binary, trunc_ };
 
-typedef int streamsize;
+// streamsize is defined in streambuf
+// typedef int streamsize;
 typedef long streamoff;
 typedef long streampos;
 
@@ -212,6 +214,19 @@ public:
     basic_ostringstream& operator<<(char_type c) { return put(c); }
     basic_ostringstream& operator<<(const char_type* s) {
         while (*s) put(*s++);
+        return *this;
+    }
+    basic_ostringstream& operator<<(const ::std::string& s) {
+        for (size_t i = 0; i < s.size(); i++) put(s[i]);
+        return *this;
+    }
+    basic_ostringstream& operator<<(basic_streambuf<Char, std::char_traits<Char>>* sb) {
+        if (sb) {
+            int_type c;
+            while ((c = sb->sbumpc()) != -1) {
+                put(static_cast<char_type>(c));
+            }
+        }
         return *this;
     }
     basic_ostringstream& operator<<(int value) {

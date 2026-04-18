@@ -12,7 +12,7 @@ LIB_CXX_OBJS= src/cxx.o
 
 LIB_CXX = $(TARGET_DIR)/lib/libcxx.a
 
-$(LIB_CXX): $(LIB_CXX_OBJS)
+$(LIB_CXX): $(LIB_CXX_OBJS) $(STL_HEADERS_STAMP)
 	$(AR) rcs $(LIB_CXX) $(LIB_CXX_OBJS)
 
 

@@ -1,0 +1,161 @@
+#ifndef EWOK_STL_STREAMBUF_H
+#define EWOK_STL_STREAMBUF_H
+
+#include <stddef.h>
+
+namespace std {
+
+// char_traits definition
+template <typename Char> struct char_traits;
+
+template <> struct char_traits<char> {
+    typedef char char_type;
+    typedef int int_type;
+    typedef long pos_type;
+    typedef long off_type;
+    
+    static int_type eof() { return -1; }
+    static char_type to_char_type(int_type c) { return static_cast<char_type>(c); }
+    static int_type to_int_type(char_type c) { return static_cast<int_type>(c); }
+    static bool eq_int_type(int_type a, int_type b) { return a == b; }
+};
+
+// streamsize typedef
+typedef ptrdiff_t streamsize;
+
+// Basic streambuf implementation
+template <typename Char, typename Traits>
+class basic_streambuf {
+public:
+    typedef Char char_type;
+    typedef Traits traits_type;
+    typedef typename Traits::int_type int_type;
+    typedef typename Traits::pos_type pos_type;
+    typedef typename Traits::off_type off_type;
+
+protected:
+    char_type* eback_;  // Beginning of get area
+    char_type* gptr_;   // Current get position
+    char_type* egptr_;  // End of get area
+    char_type* pbase_;  // Beginning of put area
+    char_type* pptr_;   // Current put position
+    char_type* epptr_;  // End of put area
+
+    void setg(char_type* gbeg, char_type* gnext, char_type* gend) {
+        eback_ = gbeg;
+        gptr_ = gnext;
+        egptr_ = gend;
+    }
+
+    void setp(char_type* pbeg, char_type* pend) {
+        pbase_ = pbeg;
+        pptr_ = pbeg;
+        epptr_ = pend;
+    }
+
+public:
+    basic_streambuf() : eback_(nullptr), gptr_(nullptr), egptr_(nullptr),
+                        pbase_(nullptr), pptr_(nullptr), epptr_(nullptr) {}
+
+    virtual ~basic_streambuf() {}
+
+    // Get area access
+    char_type* eback() const { return eback_; }
+    char_type* gptr() const { return gptr_; }
+    char_type* egptr() const { return egptr_; }
+
+    // Put area access
+    char_type* pbase() const { return pbase_; }
+    char_type* pptr() const { return pptr_; }
+    char_type* epptr() const { return epptr_; }
+
+    // Get area manipulation
+    void gbump(int n) { gptr_ += n; }
+
+    // Put area manipulation
+    void pbump(int n) { pptr_ += n; }
+
+    // Virtual functions for derived classes
+    virtual int_type underflow() { return traits_type::eof(); }
+    virtual int_type uflow() {
+        int_type c = underflow();
+        if (c != traits_type::eof()) {
+            gbump(1);
+        }
+        return c;
+    }
+
+    virtual int_type overflow(int_type c = traits_type::eof()) { return traits_type::eof(); }
+
+    virtual int_type pbackfail(int_type c = traits_type::eof()) { return traits_type::eof(); }
+
+    // Public interface
+    int_type sgetc() {
+        if (gptr_ && gptr_ < egptr_) {
+            return traits_type::to_int_type(*gptr_);
+        }
+        return underflow();
+    }
+
+    int_type sbumpc() {
+        if (gptr_ && gptr_ < egptr_) {
+            return traits_type::to_int_type(*gptr_++);
+        }
+        return uflow();
+    }
+
+    int_type snextc() {
+        if (sbumpc() == traits_type::eof()) {
+            return traits_type::eof();
+        }
+        return sgetc();
+    }
+
+    streamsize sgetn(char_type* s, streamsize n) {
+        streamsize i = 0;
+        for (; i < n; ++i) {
+            int_type c = sbumpc();
+            if (c == traits_type::eof()) break;
+            s[i] = traits_type::to_char_type(c);
+        }
+        return i;
+    }
+
+    int_type sputc(char_type c) {
+        if (pptr_ && pptr_ < epptr_) {
+            *pptr_++ = c;
+            return traits_type::to_int_type(c);
+        }
+        return overflow(traits_type::to_int_type(c));
+    }
+
+    streamsize sputn(const char_type* s, streamsize n) {
+        streamsize i = 0;
+        for (; i < n; ++i) {
+            if (sputc(s[i]) == traits_type::eof()) break;
+        }
+        return i;
+    }
+
+    int_type sungetc() {
+        if (gptr_ && gptr_ > eback_) {
+            --gptr_;
+            return traits_type::to_int_type(*gptr_);
+        }
+        return pbackfail();
+    }
+
+    int_type sputbackc(char_type c) {
+        if (gptr_ && gptr_ > eback_ && gptr_[-1] == c) {
+            --gptr_;
+            return traits_type::to_int_type(c);
+        }
+        return pbackfail(traits_type::to_int_type(c));
+    }
+};
+
+typedef basic_streambuf<char, char_traits<char>> streambuf;
+
+} // namespace std
+
+#endif // EWOK_STL_STREAMBUF_H

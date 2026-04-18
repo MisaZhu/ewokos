@@ -56,3 +56,5 @@ CFLAGS +=  -g
 CXXFLAGS +=  -g
 #CXXFLAGS +=  -O2
 
+STL_HEADERS_STAMP = $(BUILD_DIR)/include/.stl_headers_timestamp
+

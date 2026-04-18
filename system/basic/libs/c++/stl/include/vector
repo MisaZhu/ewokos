@@ -3,6 +3,10 @@
 
 #include "iterator"
 
+// Define placement new operator
+inline void* operator new(size_t, void* p) noexcept { return p; }
+inline void operator delete(void*, void*) noexcept {}
+
 namespace std {
 /**
  * @class vector
@@ -12,7 +16,9 @@ template <typename T>
 class vector {
     public:
         typedef random_access_iterator<T> iterator;
-        typedef const random_access_iterator<T> const_iterator;
+        typedef const_random_access_iterator<T> const_iterator;
+        typedef std::reverse_iterator<iterator> reverse_iterator;
+        typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
 
         /**
          * Default constructor
@@ -74,6 +80,26 @@ class vector {
          * Return a constant iterator referring to the past-the-end element in the vector
          */
         const_iterator end() const;
+
+        /**
+         * Return a reverse iterator at the beginning of the reversed vector
+         */
+        reverse_iterator rbegin();
+
+        /**
+         * Return a constant reverse iterator at the beginning of the reversed vector
+         */
+        const_reverse_iterator rbegin() const;
+
+        /**
+         * Return a reverse iterator at the end of the reversed vector
+         */
+        reverse_iterator rend();
+
+        /**
+         * Return a constant reverse iterator at the end of the reversed vector
+         */
+        const_reverse_iterator rend() const;
 
         /**
          * Return a reference to the first element in the vector
@@ -149,6 +175,19 @@ class vector {
         void push_back(const T& val);
 
         /**
+         * Add an element at the end of the vector (move version)
+         * @param val The value to add at the end
+         */
+        void push_back(T&& val);
+
+        /**
+         * Construct and add an element at the end of the vector
+         * @param args Arguments to construct the element
+         */
+        template <typename... Args>
+        void emplace_back(Args&&... args);
+
+        /**
          * Remove the last element of the vector
          */
         void pop_back();
@@ -202,40 +241,32 @@ class vector {
         T*          data_;      /**< The contiguous dynamic array */
         size_t      length_;    /**< The length of the array */
         size_t      capacity_;  /**< The capacity of the array */
-        iterator    begin_;     /**< Iterator representing the first element in the vector */
-        iterator    end_;       /**< Iterator representing the past-the-last element in the vector */
 };
 
 template <typename T>
-vector<T>::vector() : data_(nullptr), length_(0), capacity_(4) {
-    data_ = (T*)malloc(sizeof(T) * capacity_);
-    begin_ = &data_[0];
-    end_ = &data_[length_];
+vector<T>::vector() : data_(nullptr), length_(0), capacity_(0) {
+    data_ = (T*)malloc(sizeof(T) * 4);
+    capacity_ = 4;
 }
 
 template <typename T>
 vector<T>::vector(size_t n, const T& val) : length_(n), capacity_(n * 2) {
+    if (capacity_ == 0) capacity_ = 1;
     data_ = (T*)malloc(sizeof(T) * capacity_);
     for (size_t i = 0; i < length_; i++) {
-        data_[i] = val;
+        new (&data_[i]) T(val);
     }
-
-    begin_ = &data_[0];
-    end_ = &data_[length_];
 }
 
 template <typename T>
 vector<T>::vector(iterator first, iterator last) {
-    length_ = ((size_t)&(*last) - (size_t)&(*first)) / sizeof(T);
+    length_ = last - first;
     capacity_ = length_ * 2;
     data_ = (T*)malloc(sizeof(T) * capacity_);
 
     for (size_t i = 0; first != last; ++first, i++) {
-        data_[i] = *first;
+        new (&data_[i]) T(*first);
     }
-
-    begin_ = &data_[0];
-    end_ = &data_[length_];
 }
 
 template <typename T>
@@ -245,11 +276,8 @@ vector<T>::vector(const vector<T>& src) {
     data_ = (T*)malloc(sizeof(T) * capacity_);
 
     for (size_t i = 0; i < length_; i++) {
-        data_[i] = src.data_[i];
+        new (&data_[i]) T(src.data_[i]);
     }
-
-    begin_ = &data_[0];
-    end_ = &data_[length_];
 }
 
 template <typename T>
@@ -269,11 +297,8 @@ vector<T>& vector<T>::operator=(const vector& rhs) {
         data_ = (T*)malloc(sizeof(T) * capacity_);
 
         for (size_t i = 0; i < length_; i++) {
-            data_[i] = rhs.data_[i];
+            new (&data_[i]) T(rhs.data_[i]);
         }
-
-        begin_ = &data_[0];
-        end_ = &data_[length_];
     }
 
     return *this;
@@ -281,22 +306,42 @@ vector<T>& vector<T>::operator=(const vector& rhs) {
 
 template <typename T>
 typename vector<T>::iterator vector<T>::begin() {
-    return begin_;
+    return iterator(data_);
 }
 
 template <typename T>
-const typename vector<T>::const_iterator vector<T>::begin() const {
-    return begin_;
+typename vector<T>::const_iterator vector<T>::begin() const {
+    return const_iterator(data_);
 }
 
 template <typename T>
 typename vector<T>::iterator vector<T>::end() {
-    return end_;
+    return iterator(data_ + length_);
 }
 
 template <typename T>
-const typename vector<T>::const_iterator vector<T>::end() const {
-    return end_;
+typename vector<T>::const_iterator vector<T>::end() const {
+    return const_iterator(data_ + length_);
+}
+
+template <typename T>
+typename vector<T>::reverse_iterator vector<T>::rbegin() {
+    return reverse_iterator(end());
+}
+
+template <typename T>
+typename vector<T>::const_reverse_iterator vector<T>::rbegin() const {
+    return const_reverse_iterator(end());
+}
+
+template <typename T>
+typename vector<T>::reverse_iterator vector<T>::rend() {
+    return reverse_iterator(begin());
+}
+
+template <typename T>
+typename vector<T>::const_reverse_iterator vector<T>::rend() const {
+    return const_reverse_iterator(begin());
 }
 
 template <typename T>
@@ -322,26 +367,18 @@ const T& vector<T>::back() const {
 template <typename T>
 void vector<T>::resize(size_t n, T val) {
     if (n < length_) {
-        capacity_ = n * 2;
-
-        T* newData = (T*)malloc(sizeof(T) * capacity_);
-        for (size_t i = 0; i < n; i++) {
-            newData[i] = data_[i];
-        }
-
         for (size_t i = n; i < length_; i++) {
             data_[i].~T();
         }
-
-        free(data_);
-        data_ = newData;
+        length_ = n;
     } else if (n > length_) {
         if (n > capacity_) {
             capacity_ = n * 2;
 
             T* newData = (T*)malloc(sizeof(T) * capacity_);
             for (size_t i = 0; i < length_; i++) {
-                newData[i] = data_[i];
+                new (&newData[i]) T(static_cast<T&&>(data_[i]));
+                data_[i].~T();
             }
 
             free(data_);
@@ -349,13 +386,10 @@ void vector<T>::resize(size_t n, T val) {
         }
 
         for (size_t i = length_; i < n; i++) {
-            data_[i] = val;
+            new (&data_[i]) T(val);
         }
+        length_ = n;
     }
-
-    length_ = n;
-    begin_ = &data_[0];
-    end_ = &data_[length_];
 }
 
 template <typename T>
@@ -365,14 +399,12 @@ void vector<T>::reserve(size_t n) {
 
         T* newData = (T*)malloc(sizeof(T) * capacity_);
         for (size_t i = 0; i < length_; i++) {
-            newData[i] = data_[i];
+            new (&newData[i]) T(static_cast<T&&>(data_[i]));
+            data_[i].~T();
         }
 
         free(data_);
         data_ = newData;
-
-        begin_ = &data_[0];
-        end_ = &data_[length_];
     }
 }
 
@@ -400,15 +432,12 @@ template <typename T>
 void vector<T>::assign(iterator first, iterator last) {
     clear();
 
-    length_ = ((size_t)&(*last) - (size_t)&(*first)) / sizeof(T);
+    length_ = last - first;
     reserve(length_ * 2);
 
     for (size_t i = 0; first != last; ++first, i++) {
-        data_[i] = *first;
+        new (&data_[i]) T(*first);
     }
-
-    begin_ = &data_[0];
-    end_ = &data_[length_];
 }
 
 template <typename T>
@@ -417,185 +446,253 @@ void vector<T>::assign(size_t n, const T& val) {
     reserve(n * 2);
 
     for (size_t i = 0; i < n; i++) {
-        data_[i] = val;
+        new (&data_[i]) T(val);
     }
 
     length_ = n;
-    end_ = &data_[length_];
 }
 
 template <typename T>
 void vector<T>::push_back(const T& val) {
-    if (length_ + 1 >= capacity_) {
-        capacity_ *= 2;
+	if (length_ + 1 >= capacity_) {
+		capacity_ *= 2;
 
-        T* newData = (T*)malloc(sizeof(T) * capacity_);
-        for (size_t i = 0; i < length_; i++) {
-            newData[i] = data_[i];
-        }
+		T* newData = (T*)malloc(sizeof(T) * capacity_);
+		for (size_t i = 0; i < length_; i++) {
+			new (&newData[i]) T(static_cast<T&&>(data_[i]));
+			data_[i].~T();
+		}
 
-        free(data_);
-        data_ = newData;
-        begin_ = &data_[0];
-    }
+		free(data_);
+		data_ = newData;
+	}
 
-    data_[length_++] = val;
-    end_ = &data_[length_];
+	new (&data_[length_]) T(val);
+	length_++;
+}
+
+template <typename T>
+void vector<T>::push_back(T&& val) {
+	if (length_ + 1 >= capacity_) {
+		capacity_ *= 2;
+
+		T* newData = (T*)malloc(sizeof(T) * capacity_);
+		for (size_t i = 0; i < length_; i++) {
+			new (&newData[i]) T(static_cast<T&&>(data_[i]));
+			data_[i].~T();
+		}
+
+		free(data_);
+		data_ = newData;
+	}
+
+	new (&data_[length_]) T(static_cast<T&&>(val));
+	length_++;
+}
+
+template <typename T>
+template <typename... Args>
+void vector<T>::emplace_back(Args&&... args) {
+	if (length_ + 1 >= capacity_) {
+		capacity_ *= 2;
+
+		T* newData = (T*)malloc(sizeof(T) * capacity_);
+		for (size_t i = 0; i < length_; i++) {
+			new (&newData[i]) T(static_cast<T&&>(data_[i]));
+			data_[i].~T();
+		}
+
+		free(data_);
+		data_ = newData;
+	}
+
+	new (&data_[length_]) T(static_cast<Args&&>(args)...);
+	length_++;
 }
 
 template <typename T>
 void vector<T>::pop_back() {
-    data_[length_-1].~T();
-    length_ -= 1;
-    end_ = &data_[length_];
+    if (length_ > 0) {
+        length_ -= 1;
+        data_[length_].~T();
+    }
 }
 
 template <typename T>
 typename vector<T>::iterator vector<T>::insert(iterator position, const T& val) {
-    size_t pos = ((size_t)&(*position) - (size_t)&(*begin_)) / sizeof(T);
+    size_t pos = length_;
+    if (position.ptr_ != nullptr && length_ > 0) {
+        pos = ((size_t)position.ptr_ - (size_t)data_) / sizeof(T);
+        if (pos > length_) pos = length_;
+    }
 
     if (length_ + 1 > capacity_) {
-        capacity_ *= 2;
-        T* newData = (T*)malloc(capacity_ * sizeof(T));
+        size_t oldLength = length_;
+        size_t newCapacity = (length_ + 1) * 2;
+        T* newData = (T*)malloc(newCapacity * sizeof(T));
 
         for (size_t i = 0; i < length_; i++) {
-            newData[i] = data_[i];
+            new (&newData[i]) T(static_cast<T&&>(data_[i]));
+            data_[i].~T();
         }
 
         free(data_);
         data_ = newData;
-        
-        begin_ = &data_[0];
+        capacity_ = newCapacity;
+        length_ = oldLength;
     }
 
-    T nextVal = val;
-    T curVal;
-    for (size_t i = pos; i < length_; i++) {
-        curVal = data_[i];
-        data_[i] = nextVal;
-        nextVal = curVal;
+    for (size_t i = length_; i > pos; i--) {
+        new (&data_[i]) T(static_cast<T&&>(data_[i-1]));
+        data_[i-1].~T();
     }
-
-    data_[length_] = nextVal;
+    // Use placement new instead of assignment to avoid issues with uninitialized memory
+    new (&data_[pos]) T(val);
     length_ += 1;
 
-    end_ = &data_[length_];
-
-    return begin_ + pos;
+    return begin() + pos;
 }
 
 template <typename T>
 typename vector<T>::iterator vector<T>::insert(iterator position, size_t n, const T& val) {
-    size_t pos = ((size_t)&(*position) - (size_t)&(*begin_)) / sizeof(T);
+    size_t pos = length_;
+    if (position.ptr_ != nullptr && length_ > 0) {
+        pos = ((size_t)position.ptr_ - (size_t)data_) / sizeof(T);
+        if (pos > length_) pos = length_;
+    }
 
     if (length_ + n > capacity_) {
-        capacity_ += n;
-        T* newData = (T*)malloc(capacity_ * sizeof(T));
+        size_t oldLength = length_;
+        size_t newCapacity = length_ + n;
+        T* newData = (T*)malloc(newCapacity * sizeof(T));
 
         for (size_t i = 0; i < length_; i++) {
-            newData[i] = data_[i];
+            new (&newData[i]) T(static_cast<T&&>(data_[i]));
+            data_[i].~T();
         }
 
         free(data_);
         data_ = newData;
-        
-        begin_ = &data_[0];
+        capacity_ = newCapacity;
+        length_ = oldLength;
     }
 
-    T* rightData = (T*)malloc((length_ - pos) * sizeof(T));
-    for (size_t i = pos, idx = 0; i < length_; i++, idx++) {
-        rightData[idx] = data_[i];
+    for (size_t i = length_ + n - 1; i >= pos + n; i--) {
+        new (&data_[i]) T(static_cast<T&&>(data_[i - n]));
+        data_[i - n].~T();
     }
 
-    for (size_t i = pos; i < (pos + n); i++) {
-        data_[i] = val;
+    for (size_t i = pos; i < pos + n; i++) {
+        new (&data_[i]) T(val);
     }
 
-    for (size_t i = (pos + n), idx = 0; i < (n + length_); i++, idx++) {
-        data_[i] = rightData[idx];
-    }
-
-    free(rightData);
     length_ += n;
 
-    end_ = &data_[length_];
-
-    return begin_ + pos;
+    return begin() + pos;
 }
 
 template <typename T>
 typename vector<T>::iterator vector<T>::insert(iterator position, iterator first, iterator last) {
-    size_t pos = ((size_t)&(*position) - (size_t)&(*begin_)) / sizeof(T);
-    size_t size = ((size_t)&(*last) - (size_t)&(*first)) / sizeof(T);
+    size_t pos = length_;
+    size_t size = 0;
+
+    if (position.ptr_ != nullptr && length_ > 0) {
+        pos = ((size_t)position.ptr_ - (size_t)data_) / sizeof(T);
+        if (pos > length_) pos = length_;
+    }
+
+    for (iterator it = first; it != last; ++it) {
+        size++;
+    }
 
     if (length_ + size > capacity_) {
-        capacity_ += size;
-        T* newData = (T*)malloc(capacity_ * sizeof(T));
+        size_t oldLength = length_;
+        size_t newCapacity = length_ + size;
+        T* newData = (T*)malloc(newCapacity * sizeof(T));
 
         for (size_t i = 0; i < length_; i++) {
-            newData[i] = data_[i];
+            new (&newData[i]) T(static_cast<T&&>(data_[i]));
+            data_[i].~T();
         }
 
         free(data_);
         data_ = newData;
-        
-        begin_ = &data_[0];
+        capacity_ = newCapacity;
+        length_ = oldLength;
     }
 
-    T* rightData = (T*)malloc((length_ - pos) * sizeof(T));
-    for (size_t i = pos, idx = 0; i < length_; i++, idx++) {
-        rightData[idx] = data_[i];
+    for (size_t i = length_ + size - 1; i >= pos + size; i--) {
+        new (&data_[i]) T(static_cast<T&&>(data_[i - size]));
+        data_[i - size].~T();
     }
 
-    for (size_t i = pos; i < (pos + size); i++, ++first) {
-        data_[i] = *first;
+    for (size_t i = pos, idx = 0; first != last; ++first, i++, idx++) {
+        new (&data_[i]) T(*first);
     }
 
-    for (size_t i = (pos + size), idx = 0; i < (size + length_); i++, idx++) {
-        data_[i] = rightData[idx];
-    }
-
-    free(rightData);
     length_ += size;
 
-    end_ = &data_[length_];
-
-    return begin_ + pos;
+    return begin() + pos;
 }
 
 template <typename T>
 typename vector<T>::iterator vector<T>::erase(iterator position) {
-    size_t pos = ((size_t)&(*position) - (size_t)&(*begin_)) / sizeof(T);
-    data_[length_ - 1].~T();
-    length_ -= 1;
+    if (length_ == 0) return begin();
 
-    for (size_t i = pos; i < length_; i++) {
-        data_[i] = data_[i + 1];
+    size_t pos = 0;
+    if (position.ptr_ != nullptr) {
+        pos = ((size_t)position.ptr_ - (size_t)data_) / sizeof(T);
+        if (pos >= length_) pos = length_ - 1;
     }
 
-    end_ = &data_[length_];
+    // Move elements to fill the gap
+    for (size_t i = pos; i < length_ - 1; i++) {
+        // Use placement new with move assignment instead of destruct-then-construct
+        data_[i] = static_cast<T&&>(data_[i + 1]);
+    }
+    // Destroy the last element (which was moved from)
+    if (length_ > 0) {
+        data_[length_ - 1].~T();
+    }
+    length_ -= 1;
 
-    return begin_ + pos;
+    return begin() + pos;
 }
 
 template <typename T>
 typename vector<T>::iterator vector<T>::erase(iterator first, iterator last) {
-    size_t pos = ((size_t)&(*first) - (size_t)&(*begin_)) / sizeof(T);
-    size_t endPos = ((size_t)&(*last) - (size_t)&(*begin_)) / sizeof(T);
+    if (length_ == 0) return begin();
 
-    for (size_t i = pos; i < endPos; i++) {
+    size_t pos = 0;
+    size_t endPos = length_;
+
+    if (first.ptr_ != nullptr) {
+        pos = ((size_t)first.ptr_ - (size_t)data_) / sizeof(T);
+        if (pos > length_) pos = length_;
+    }
+
+    if (last.ptr_ != nullptr) {
+        endPos = ((size_t)last.ptr_ - (size_t)data_) / sizeof(T);
+        if (endPos > length_) endPos = length_;
+    }
+
+    if (pos > endPos) pos = endPos;
+
+    size_t diff = endPos - pos;
+
+    // Move elements to fill the gap
+    for (size_t i = pos; i < length_ - diff; i++) {
+        data_[i] = static_cast<T&&>(data_[i + diff]);
+    }
+
+    // Destroy the moved-from elements at the end
+    for (size_t i = length_ - diff; i < length_; i++) {
         data_[i].~T();
     }
 
-    size_t diff = endPos - pos;
     length_ -= diff;
-    for (size_t i = pos; i < length_; i++) {
-        data_[i] = data_[i + diff];
-    }
 
-    end_ = &data_[length_];
-
-    return begin_ + pos;
+    return begin() + pos;
 }
 
 template <typename T>
@@ -603,7 +700,6 @@ void vector<T>::clear() {
     for (size_t i = 0; i < length_; i++) {
         data_[i].~T();
     }
-    end_ = begin_;
     length_ = 0;
 }
 

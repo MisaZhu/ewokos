@@ -1,0 +1,264 @@
+#ifndef EWOK_STL_WSTRING_H
+#define EWOK_STL_WSTRING_H
+
+#include <string.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <stdint.h>
+
+namespace std {
+
+// wchar_t is a C++ built-in type, no need to redefine it
+
+class wstring {
+    public:
+        typedef size_t size_type;
+        static const size_t npos = -1;
+
+        wstring() : data_(nullptr), length_(0), capacity_(0) {
+            data_ = (wchar_t*)malloc(sizeof(wchar_t));
+            data_[0] = 0;
+        }
+
+        wstring(const wstring& str) : data_(nullptr), length_(0), capacity_(0) {
+            length_ = str.length_;
+            capacity_ = length_ + 1;
+            data_ = (wchar_t*)malloc(capacity_ * sizeof(wchar_t));
+            for (size_t i = 0; i <= length_; i++) {
+                data_[i] = str.data_[i];
+            }
+        }
+
+        wstring(const wstring& str, size_t pos, size_t len = npos) : data_(nullptr), length_(0), capacity_(0) {
+            if (pos > str.length_) {
+                pos = str.length_;
+            }
+            if (len == npos || pos + len > str.length_) {
+                len = str.length_ - pos;
+            }
+            length_ = len;
+            capacity_ = length_ + 1;
+            data_ = (wchar_t*)malloc(capacity_ * sizeof(wchar_t));
+            for (size_t i = 0; i < len; i++) {
+                data_[i] = str.data_[pos + i];
+            }
+            data_[length_] = 0;
+        }
+
+        wstring(const wchar_t* s) : data_(nullptr), length_(0), capacity_(0) {
+            length_ = 0;
+            while (s[length_] != 0) length_++;
+            capacity_ = length_ + 1;
+            data_ = (wchar_t*)malloc(capacity_ * sizeof(wchar_t));
+            for (size_t i = 0; i <= length_; i++) {
+                data_[i] = s[i];
+            }
+        }
+
+        wstring(const wchar_t* s, size_t n) : data_(nullptr), length_(0), capacity_(0) {
+            length_ = n;
+            capacity_ = length_ + 1;
+            data_ = (wchar_t*)malloc(capacity_ * sizeof(wchar_t));
+            for (size_t i = 0; i < n; i++) {
+                data_[i] = s[i];
+            }
+            data_[length_] = 0;
+        }
+
+        wstring(size_t n, wchar_t c) : data_(nullptr), length_(0), capacity_(0) {
+            length_ = n;
+            capacity_ = length_ + 1;
+            data_ = (wchar_t*)malloc(capacity_ * sizeof(wchar_t));
+            for (size_t i = 0; i < n; i++) {
+                data_[i] = c;
+            }
+            data_[length_] = 0;
+        }
+
+        ~wstring() {
+            free(data_);
+        }
+
+        wstring& operator=(const wstring& str) {
+            if (this != &str) {
+                free(data_);
+                length_ = str.length_;
+                capacity_ = length_ + 1;
+                data_ = (wchar_t*)malloc(capacity_ * sizeof(wchar_t));
+                for (size_t i = 0; i <= length_; i++) {
+                    data_[i] = str.data_[i];
+                }
+            }
+            return *this;
+        }
+
+        wstring& operator=(const wchar_t* s) {
+            free(data_);
+            length_ = 0;
+            while (s[length_] != 0) length_++;
+            capacity_ = length_ + 1;
+            data_ = (wchar_t*)malloc(capacity_ * sizeof(wchar_t));
+            for (size_t i = 0; i <= length_; i++) {
+                data_[i] = s[i];
+            }
+            return *this;
+        }
+
+        wstring& operator=(wchar_t c) {
+            free(data_);
+            length_ = 1;
+            capacity_ = 2;
+            data_ = (wchar_t*)malloc(capacity_ * sizeof(wchar_t));
+            data_[0] = c;
+            data_[1] = 0;
+            return *this;
+        }
+
+        size_t size() const { return length_; }
+        size_t length() const { return length_; }
+        size_t max_size() const { return -1; }
+
+        void resize(size_t n) {
+            if (n > capacity_) {
+                capacity_ = n + 1;
+                wchar_t* newData = (wchar_t*)malloc(capacity_ * sizeof(wchar_t));
+                for (size_t i = 0; i < length_; i++) {
+                    newData[i] = data_[i];
+                }
+                free(data_);
+                data_ = newData;
+            }
+            if (n > length_) {
+                for (size_t i = length_; i < n; i++) {
+                    data_[i] = 0;
+                }
+            }
+            length_ = n;
+            data_[length_] = 0;
+        }
+
+        void resize(size_t n, wchar_t c) {
+            size_t oldLength = length_;
+            resize(n);
+            if (n > oldLength) {
+                for (size_t i = oldLength; i < n; i++) {
+                    data_[i] = c;
+                }
+            }
+        }
+
+        size_t capacity() const { return capacity_ - 1; }
+
+        void reserve(size_t n = 0) {
+            if (n + 1 > capacity_) {
+                capacity_ = n + 1;
+                wchar_t* newData = (wchar_t*)malloc(capacity_ * sizeof(wchar_t));
+                for (size_t i = 0; i <= length_; i++) {
+                    newData[i] = data_[i];
+                }
+                free(data_);
+                data_ = newData;
+            }
+        }
+
+        void clear() {
+            length_ = 0;
+            data_[0] = 0;
+        }
+
+        bool empty() const { return length_ == 0; }
+
+        wchar_t& operator[](size_t pos) { return data_[pos]; }
+        const wchar_t& operator[](size_t pos) const { return data_[pos]; }
+
+        wchar_t& at(size_t pos) {
+            if (pos >= length_) {
+                // In a real implementation, this would throw std::out_of_range
+                return data_[0];
+            }
+            return data_[pos];
+        }
+
+        const wchar_t& at(size_t pos) const {
+            if (pos >= length_) {
+                return data_[0];
+            }
+            return data_[pos];
+        }
+
+        wstring& operator+=(const wstring& str) {
+            size_t newLength = length_ + str.length_;
+            if (newLength + 1 > capacity_) {
+                capacity_ = newLength + 1;
+                wchar_t* newData = (wchar_t*)malloc(capacity_ * sizeof(wchar_t));
+                for (size_t i = 0; i < length_; i++) {
+                    newData[i] = data_[i];
+                }
+                free(data_);
+                data_ = newData;
+            }
+            for (size_t i = 0; i < str.length_; i++) {
+                data_[length_ + i] = str.data_[i];
+            }
+            length_ = newLength;
+            data_[length_] = 0;
+            return *this;
+        }
+
+        wstring& operator+=(const wchar_t* s) {
+            size_t sLen = 0;
+            while (s[sLen] != 0) sLen++;
+            size_t newLength = length_ + sLen;
+            if (newLength + 1 > capacity_) {
+                capacity_ = newLength + 1;
+                wchar_t* newData = (wchar_t*)malloc(capacity_ * sizeof(wchar_t));
+                for (size_t i = 0; i < length_; i++) {
+                    newData[i] = data_[i];
+                }
+                free(data_);
+                data_ = newData;
+            }
+            for (size_t i = 0; i < sLen; i++) {
+                data_[length_ + i] = s[i];
+            }
+            length_ = newLength;
+            data_[length_] = 0;
+            return *this;
+        }
+
+        wstring& operator+=(wchar_t c) {
+            if (length_ + 2 > capacity_) {
+                capacity_ = length_ + 2;
+                wchar_t* newData = (wchar_t*)malloc(capacity_ * sizeof(wchar_t));
+                for (size_t i = 0; i < length_; i++) {
+                    newData[i] = data_[i];
+                }
+                free(data_);
+                data_ = newData;
+            }
+            data_[length_] = c;
+            length_++;
+            data_[length_] = 0;
+            return *this;
+        }
+
+        const wchar_t* c_str() const { return data_; }
+        const wchar_t* data() const { return data_; }
+
+        bool empty() { return length_ == 0; }
+
+        wstring substr(size_t pos = 0, size_t len = npos) const {
+            if (pos > length_) pos = length_;
+            if (len == npos || pos + len > length_) len = length_ - pos;
+            return wstring(data_ + pos, len);
+        }
+
+    private:
+        wchar_t* data_;
+        size_t length_;
+        size_t capacity_;
+};
+
+}
+
+#endif // EWOK_STL_WSTRING_H

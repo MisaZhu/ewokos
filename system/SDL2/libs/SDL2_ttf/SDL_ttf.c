@@ -1597,9 +1597,8 @@ static SDL_Surface *AllocateAlignedPixels(size_t width, size_t height, Uint32 fo
         return NULL;
     }
 
-    /* Let SDL handle the memory allocation */
-    //textbuf->flags &= ~SDL_PREALLOC;
-    //textbuf->flags |= SDL_SIMD_ALIGNED;
+    textbuf->pixels = ptr;
+    textbuf->flags &= ~SDL_PREALLOC;
 
     if (bytes_per_pixel == 4) {
         SDL_memset4(pixels, bgcolor, data_bytes / 4);

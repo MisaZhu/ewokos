@@ -30,7 +30,7 @@
 #if HAVE_LIBC
 
 /* Useful headers */
-#define HAVE_ALLOCA_H 1
+/* #undef HAVE_ALLOCA_H */
 #define HAVE_SYS_TYPES_H 1
 #define HAVE_STDIO_H 1
 #define STDC_HEADERS 1
@@ -56,7 +56,7 @@
 #define HAVE_CALLOC 1
 #define HAVE_REALLOC 1
 #define HAVE_FREE 1
-#define HAVE_ALLOCA 1
+/* #undef HAVE_ALLOCA */
 /* #undef HAVE_GETENV */
 /* #undef HAVE_SETENV */
 /* #undef HAVE_PUTENV */

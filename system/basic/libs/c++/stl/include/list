@@ -137,6 +137,8 @@ class list {
 
             bool operator==(const iterator& other) const { return node_ == other.node_; }
             bool operator!=(const iterator& other) const { return node_ != other.node_; }
+            bool operator==(const const_iterator& other) const { return node_ == other.node(); }
+            bool operator!=(const const_iterator& other) const { return node_ != other.node(); }
 
             Node* node() const { return node_; }
 
@@ -189,6 +191,8 @@ class list {
 
             bool operator==(const const_iterator& other) const { return node_ == other.node_; }
             bool operator!=(const const_iterator& other) const { return node_ != other.node_; }
+            bool operator==(const iterator& other) const { return node_ == other.node(); }
+            bool operator!=(const iterator& other) const { return node_ != other.node(); }
 
             const Node* node() const { return node_; }
 

@@ -18,6 +18,7 @@ string::string(const string& str) {
     data_[length_] = '\0';
 }
 
+
 string::string(const string& str, size_t pos, size_t len) : data_(nullptr), length_(len), capacity_(len) {
     if (len == npos) {
         length_ = str.length_ - pos;
@@ -683,6 +684,181 @@ size_t string::find(char c, size_t pos) const {
     }
 
     return npos;
+}
+
+size_t string::find_first_of(const string& str, size_t pos) const {
+    if (pos >= length_ || str.length_ == 0) {
+        return npos;
+    }
+
+    for (size_t i = pos; i < length_; i++) {
+        for (size_t j = 0; j < str.length_; j++) {
+            if (data_[i] == str.data_[j]) {
+                return i;
+            }
+        }
+    }
+
+    return npos;
+}
+
+size_t string::find_first_of(const char* s, size_t pos) const {
+    return find_first_of(string(s), pos);
+}
+
+size_t string::find_first_of(const char* s, size_t pos, size_t n) const {
+    return find_first_of(string(s, n), pos);
+}
+
+size_t string::find_first_of(char c, size_t pos) const {
+    return find(c, pos);
+}
+
+size_t string::find_last_of(const string& str, size_t pos) const {
+    if (length_ == 0) {
+        return npos;
+    }
+    size_t start_pos = (pos == npos || pos >= length_) ? length_ - 1 : pos;
+    for (size_t i = start_pos; i != (size_t)-1; i--) {
+        for (size_t j = 0; j < str.length_; j++) {
+            if (data_[i] == str.data_[j]) {
+                return i;
+            }
+        }
+    }
+    return npos;
+}
+
+size_t string::find_last_of(const char* s, size_t pos) const {
+    return find_last_of(string(s), pos);
+}
+
+size_t string::find_last_of(const char* s, size_t pos, size_t n) const {
+    return find_last_of(string(s, n), pos);
+}
+
+size_t string::find_last_of(char c, size_t pos) const {
+    if (length_ == 0) {
+        return npos;
+    }
+    size_t start_pos = (pos == npos || pos >= length_) ? length_ - 1 : pos;
+    for (size_t i = start_pos; i != (size_t)-1; i--) {
+        if (data_[i] == c) {
+            return i;
+        }
+    }
+    return npos;
+}
+
+size_t string::find_first_not_of(const string& str, size_t pos) const {
+    if (pos >= length_) {
+        return npos;
+    }
+    for (size_t i = pos; i < length_; i++) {
+        bool found = false;
+        for (size_t j = 0; j < str.length_; j++) {
+            if (data_[i] == str.data_[j]) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            return i;
+        }
+    }
+    return npos;
+}
+
+size_t string::find_first_not_of(const char* s, size_t pos) const {
+    return find_first_not_of(string(s), pos);
+}
+
+size_t string::find_first_not_of(const char* s, size_t pos, size_t n) const {
+    return find_first_not_of(string(s, n), pos);
+}
+
+size_t string::find_first_not_of(char c, size_t pos) const {
+    if (pos >= length_) {
+        return npos;
+    }
+    for (size_t i = pos; i < length_; i++) {
+        if (data_[i] != c) {
+            return i;
+        }
+    }
+    return npos;
+}
+
+size_t string::find_last_not_of(const string& str, size_t pos) const {
+    if (length_ == 0) {
+        return npos;
+    }
+    size_t end_pos = (pos == npos || pos >= length_) ? length_ - 1 : pos;
+    for (size_t i = end_pos; i != (size_t)-1; i--) {
+        bool found = false;
+        for (size_t j = 0; j < str.length_; j++) {
+            if (data_[i] == str.data_[j]) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            return i;
+        }
+    }
+    return npos;
+}
+
+size_t string::find_last_not_of(const char* s, size_t pos) const {
+    return find_last_not_of(string(s), pos);
+}
+
+size_t string::find_last_not_of(const char* s, size_t pos, size_t n) const {
+    return find_last_not_of(string(s, n), pos);
+}
+
+size_t string::find_last_not_of(char c, size_t pos) const {
+    if (length_ == 0) {
+        return npos;
+    }
+    size_t end_pos = (pos == npos || pos >= length_) ? length_ - 1 : pos;
+    for (size_t i = end_pos; i != (size_t)-1; i--) {
+        if (data_[i] != c) {
+            return i;
+        }
+    }
+    return npos;
+}
+
+// Iterator methods
+string::iterator string::begin() {
+    return data_;
+}
+
+string::const_iterator string::begin() const {
+    return data_;
+}
+
+string::iterator string::end() {
+    return data_ + length_;
+}
+
+string::const_iterator string::end() const {
+    return data_ + length_;
+}
+
+// Erase with iterators
+string::iterator string::erase(iterator p) {
+    size_t pos = p - data_;
+    erase(pos, 1);
+    return data_ + pos;
+}
+
+string::iterator string::erase(iterator first, iterator last) {
+    size_t pos = first - data_;
+    size_t len = last - first;
+    erase(pos, len);
+    return data_ + pos;
 }
 
 int string::compare(const string& str) const {
