@@ -75,13 +75,15 @@ static void joy_2_mouse(int key, int8_t* mv) {
 static uint32_t mouse_input(char key) {
 	int8_t mv[4];
 	joy_2_mouse(key, mv);
+	if(_prs_down)
+		mv[0] = MOUSE_BUTTON_LEFT;
+
 	if(mv[1] != 0 || mv[2] != 0)
 		_move = true;
 
 	if(key == 0) {
 		if(_prs_down) {
 			key = 1;
-			mv[0] = MOUSE_BUTTON_LEFT;
 		}
 		_prs_down = false;
 	}
@@ -112,10 +114,10 @@ static int joymouse_read_buffer(mouse_evt_t* evt) {
 		evt->type = 1; //related
 		evt->x = _minfo[_minfo_index].rx;
 		evt->y = _minfo[_minfo_index].ry;
-		if(_minfo[_minfo_index].btn != MOUSE_BUTTON_NONE)
-			evt->state = _prs_down ? MOUSE_STATE_DOWN : MOUSE_STATE_UP;
-		else
+		if(evt->x != 0 || evt->y != 0)
 			evt->state = MOUSE_STATE_MOVE;
+		else if(_minfo[_minfo_index].btn != MOUSE_BUTTON_NONE)
+			evt->state = _prs_down ? MOUSE_STATE_DOWN : MOUSE_STATE_UP;
 
 		_minfo_index++;
 		if(_minfo_index >= _minfo_num) {
