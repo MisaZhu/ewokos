@@ -7,11 +7,12 @@
 #include <fstream>
 #include <string>
 #include <graph/graph.h>
+#include <x++/X.h>
 
 using namespace Ewok;
 
-static std::string readFileContents(const char* filename) {
-    std::ifstream file(filename);
+static std::string readLocalFileContents(const std::string& filename) {
+    std::ifstream file(filename.c_str());
     if (!file.is_open()) {
         return "";
     }
@@ -44,26 +45,33 @@ bool WidgetWebview::init()
     return true;
 }
 
+const std::string WidgetWebview::loadURL(const std::string& url)
+{
+    std::string content;
+    std::string path;
+    if(url.starts_with("file://"))
+        path = url.substr(6);
+    else if(url.starts_with("res://")) {
+        path = X::getResFullName(url.substr(6).c_str());
+    }
+
+    if(!path.empty()) {
+        content = readLocalFileContents(path.c_str());
+        return content;
+    }
+    return "";
+}
+
 bool WidgetWebview::loadHtml(const std::string& url)
 {
-    if(url.starts_with("/"))
-    {
-        std::string strContents = readFileContents(url.c_str());
-        return loadHtmlContent(strContents);
-    }
-    //TODO load remote html
-    return false;
+    std::string strContents = loadURL(url);
+    return loadHtmlContent(strContents);
 }
 
 bool WidgetWebview::loadCSS(const std::string& url)
 {
-    if(url.starts_with("/"))
-    {
-        std::string strContents = readFileContents(url.c_str());
-        return loadCSSContent(strContents);
-    }
-    //TODO load remote css
-    return false;
+    std::string strContents = loadURL(url);
+    return loadCSSContent(strContents);
 }
 
 bool WidgetWebview::loadCSSContent(const std::string& content)

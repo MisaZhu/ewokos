@@ -6,7 +6,9 @@
 
 #include <iostream>
 #include <graph/graph_ex.h>
+#include <graph/graph_image.h>
 #include <ewoksys/basic_math.h>
+#include <x++/X.h>
 
 using namespace litehtml;
 using namespace Ewok;
@@ -27,6 +29,13 @@ XContainer::~XContainer(void)
         }
     }
     m_fonts.clear();
+
+    for (auto& pair : m_images) {
+        if (pair.second.image) {
+            graph_free(pair.second.image);
+        }
+    }
+    m_images.clear();
 }
 
 uint32_t XContainer::web_color_to_graph(const litehtml::web_color& c)
@@ -168,14 +177,84 @@ void XContainer::draw_list_marker(litehtml::uint_ptr hdc, const litehtml::list_m
     }
 }
 
+const std::string XContainer::getLocalPath(const std::string& src, const std::string& baseurl) {
+    std::string path;
+    if(src.starts_with("file://"))
+        path = src.substr(6);
+    else if(src.starts_with("res://"))
+        path = X::getResFullName(src.substr(6).c_str());
+
+    if(path.empty())
+        return "";
+
+    if (path[0] != '/' && !baseurl.empty()) {
+        if(baseurl[baseurl.length() - 1] != '/')
+            path = baseurl + "/" + path;
+        else
+            path = baseurl + path;
+    }
+    return path;
+}
+
 void XContainer::load_image(const litehtml::tchar_t* src, const litehtml::tchar_t* baseurl, bool redraw_on_ready)
 {
+    if (src == NULL || src[0] == 0)
+        return;
+
+    std::string img_path = std::string(src);
+    std::string base_url = std::string(baseurl);
+    std::string path = getLocalPath(img_path, base_url);
+    if(path.empty())
+        return;
+
+    std::string id = "file:/"; 
+    auto it = m_images.find(id + path);
+
+    if (it != m_images.end()) {
+        it->second.ref_count++;
+        return;
+    }
+
+    graph_t* img = graph_image_new(path.c_str());
+    if (img == NULL) {
+        return;
+    }
+
+    ImageInfo info;
+    info.image = img;
+    info.ref_count = 1;
+    m_images[img_path] = info;
 }
 
 void XContainer::get_image_size(const litehtml::tchar_t* src, const litehtml::tchar_t* baseurl, litehtml::size& sz)
 {
     sz.width = 0;
     sz.height = 0;
+
+    if (src == NULL || src[0] == 0)
+        return;
+
+    std::string img_path = std::string(src);
+    std::string base_url = std::string(baseurl);
+    std::string path = getLocalPath(img_path, base_url);
+    if(path.empty())
+        return;
+
+    std::string id = "file:/"; 
+    auto it = m_images.find(id + path);
+
+    if (it != m_images.end() && it->second.image != NULL) {
+        sz.width = it->second.image->w;
+        sz.height = it->second.image->h;
+        return;
+    }
+
+    graph_t* img = graph_image_new(path.c_str());
+    if (img != NULL) {
+        sz.width = img->w;
+        sz.height = img->h;
+        graph_free(img);
+    }
 }
 
 void XContainer::draw_background(litehtml::uint_ptr hdc, const litehtml::background_paint& bg)
@@ -184,9 +263,33 @@ void XContainer::draw_background(litehtml::uint_ptr hdc, const litehtml::backgro
     if (!g)
         return;
 
+    if (!bg.image.empty() && bg.image_size.width > 0 && bg.image_size.height > 0) {
+        std::string img_path = getLocalPath(bg.image, m_base_url);
+        if (!img_path.empty()) {
+            auto it = m_images.find(img_path);
+            graph_t* img = NULL;
+            if (it != m_images.end() && it->second.image != NULL) {
+                img = it->second.image;
+            } else {
+                img = graph_image_new(img_path.c_str());
+            }
+
+            if (img != NULL) {
+                graph_blt_alpha(img, 0, 0, img->w, img->h,
+                    g, bg.clip_box.x, bg.clip_box.y, bg.clip_box.width, bg.clip_box.height, 0xFF);
+                if (it == m_images.end() && img != NULL) {
+                    ImageInfo info;
+                    info.image = img;
+                    info.ref_count = 1;
+                    m_images[img_path] = info;
+                }
+                return;
+            }
+        }
+    }
+
     uint32_t color = web_color_to_graph(bg.color);
 
-    // Force opaque color if alpha is 0
     if ((color >> 24) == 0) {
         color = 0xFF000000 | (color & 0xFFFFFF);
     }
@@ -202,7 +305,7 @@ void XContainer::draw_borders(litehtml::uint_ptr hdc, const litehtml::borders& b
 
     if (borders.top.width != 0 && borders.top.style > litehtml::border_style_hidden) {
         uint32_t color = web_color_to_graph(borders.top.color);
-        graph_set(g, draw_pos.x, draw_pos.y, draw_pos.width, draw_pos.height, color);
+        graph_rect(g, draw_pos.x, draw_pos.y, draw_pos.width, draw_pos.height, color);
     }
 }
 
@@ -220,6 +323,12 @@ void XContainer::del_clip()
 
 void XContainer::clear_images()
 {
+    for (auto& pair : m_images) {
+        if (pair.second.image) {
+            graph_free(pair.second.image);
+        }
+    }
+    m_images.clear();
 }
 
 void XContainer::get_client_rect(litehtml::position& client) const
@@ -252,6 +361,11 @@ void XContainer::set_caption(const litehtml::tchar_t* caption)
 
 void XContainer::set_base_url(const litehtml::tchar_t* base_url)
 {
+    if (base_url != NULL) {
+        m_base_url = std::string(base_url);
+    } else {
+        m_base_url.clear();
+    }
 }
 
 litehtml::element* XContainer::create_element(const litehtml::tchar_t* tag_name,

@@ -39,8 +39,8 @@
                 {
                     "name": "webview",
                     "type": "Webview",
-                    "css": "/data/test/html/test.css",
-                    "url": "/data/test/html/test.html"
+                    "css": "file://data/test/html/test.css",
+                    "url": "file://data/test/html/test.html"
                 }
             ]
         }

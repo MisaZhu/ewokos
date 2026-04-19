@@ -19,6 +19,12 @@ struct FontInfo {
     int size;
 };
 
+// Store image data
+struct ImageInfo {
+    graph_t* image;
+    int ref_count;
+};
+
 class XContainer : public litehtml::document_container {
 public:
     XContainer(litehtml::context* html_context, Ewok::WidgetWebview* webview);
@@ -62,10 +68,13 @@ private:
     graph_t* m_g;
     Ewok::WidgetWebview* m_webview;
     std::unordered_map<std::string, FontInfo> m_fonts;
+    std::unordered_map<std::string, ImageInfo> m_images;
     int m_client_width;
     int m_client_height;
+    std::string m_base_url;
 
     std::vector<el_input*> m_vecInput;
 
     static uint32_t web_color_to_graph(const litehtml::web_color& c);
+    const std::string getLocalPath(const std::string& src, const std::string& baseurl);
 };
