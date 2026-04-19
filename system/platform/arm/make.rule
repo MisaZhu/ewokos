@@ -33,7 +33,7 @@ endif
        
 EWOK_LIBC = -lewoksys -lc -lgloss -lsoftfloat
 EWOK_LIB_GRAPH = -lfont -lfreetype -lgraph -lpng -ljpeg -lgif -ltga -lz -lopenlibm -ldisplay -lfb -lkeyb -lmouse  $(BSP_LFLAGS)
-EWOK_LIB_X = -lwidget++ -llitehtml -lx++ -lx -ltinyjson -lewokstl
+EWOK_LIB_X = -lwidget++ -llitehtml -lx++ -lx -ltinyjson -lewokstl -ltinyhttpsc -lsocket
 
 #CFLAGS +=  -g
 CFLAGS +=  -O2
