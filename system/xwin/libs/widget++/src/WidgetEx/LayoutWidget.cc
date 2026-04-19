@@ -60,7 +60,7 @@ Widget* LayoutWidget::createByBasicType(const string& type) {
     else if(type == "RoundLabelButton") {
         return new RoundLabelButton();
     }
-    else if(type == "Scoller") {
+    else if(type == "Scroller") {
         return new Scroller();
     }
     else if(type == "Slider") {

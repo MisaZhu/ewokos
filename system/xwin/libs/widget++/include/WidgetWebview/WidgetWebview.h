@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include <Widget/Widget.h>
+#include <Widget/Scrollable.h>
 #include <litehtml.h>
 #include <memory>
 #include <queue>
@@ -23,7 +23,7 @@ extern "C" void* _task_thread(void* p);
 
 namespace Ewok {
 
-class WidgetWebview : public Widget {
+class WidgetWebview : public Scrollable {
 public:
     WidgetWebview();
     virtual ~WidgetWebview();
@@ -44,6 +44,10 @@ protected:
     virtual void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) override;
     virtual void onResize() override;
     virtual void setAttr(const string& attr, json_var_t*value) override;
+
+    virtual bool onScroll(int step, bool horizontal) override;
+    virtual void updateScroller() override;
+    virtual bool onMouse(xevent_t* ev) override;
 
     bool loadHtmlTask(const std::string& url);
     bool loadCSSTask(const std::string& url);
@@ -66,6 +70,10 @@ private:
 
     // Mutex for protecting shared resources (m_doc, m_browser_context)
     pthread_mutex_t m_renderMutex;
+
+    // Scroll offsets
+    int m_scrollX;
+    int m_scrollY;
 };
 
 }

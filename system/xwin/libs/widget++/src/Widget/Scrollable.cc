@@ -1,4 +1,5 @@
 #include <Widget/Scrollable.h>
+#include <Widget/Container.h>
 #include <ewoksys/basic_math.h>
 #include <x++/XTheme.h>
 
@@ -27,15 +28,30 @@ void Scrollable::onResize() {
 
 void Scrollable::setScrollerInfo(uint32_t range, uint32_t pos, uint32_t scrollW, bool horizontal) {
 	if(horizontal) {
-		if(scrollerH == NULL)
-			return;
+		if(scrollerH == NULL) {
+			if(scrollerHName.empty())
+				return;
+
+			Container* r = getRootContainer();
+			Scroller* scrl = (Scroller*)r->getChild(scrollerHName);
+			if(scrl == NULL)
+				return;
+			setScrollerH(scrl);
+		}
 		scrollerH->setRange(range);
 		scrollerH->setPos(pos);
 		scrollerH->setScrollW(scrollW);
 	}
 	else {
-		if(scrollerV == NULL)
-			return;
+		if(scrollerV == NULL) {
+			if(scrollerVName.empty())
+				return;
+			Container* r = getRootContainer();
+			Scroller* scrl = (Scroller*)r->getChild(scrollerVName);
+			if(scrl == NULL)
+				return;
+			setScrollerV(scrl);
+		}
 		scrollerV->setRange(range);
 		scrollerV->setPos(pos);
 		scrollerV->setScrollW(scrollW);
@@ -88,5 +104,14 @@ void Scrollable::setDefaultScrollType(uint8_t type) {
 void Scrollable::setDragStep(uint16_t step) {
 	dragStep = step;	
 }
+
+void Scrollable::setAttr(const string& attr, json_var_t*value) {
+	Widget::setAttr(attr, value);
+	if(attr == "scrollerV")
+		scrollerVName = json_var_get_str(value);
+	else if(attr == "scrollerH")
+		scrollerHName = json_var_get_str(value);
+}
+
 
 }

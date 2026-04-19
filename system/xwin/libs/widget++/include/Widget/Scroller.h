@@ -18,6 +18,7 @@ protected:
 
 	virtual void drawBG(graph_t* g, XTheme* theme, const grect_t& r);
 	virtual void drawPos(graph_t* g, XTheme* theme, const grect_t& r);
+	virtual void setAttr(const string& attr, json_var_t *value);
 public:
 	Scroller(bool h = false);
 

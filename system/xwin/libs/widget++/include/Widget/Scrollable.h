@@ -8,7 +8,10 @@ namespace Ewok {
 class Scrollable : public Widget {
 protected:
     Scroller* scrollerV;
+    string    scrollerVName;
     Scroller* scrollerH;
+    string    scrollerHName;
+
 	gpos_t  last_mouse_down;
 
     uint8_t defaultScrollType;
@@ -22,6 +25,7 @@ protected:
     bool onMouse(xevent_t* ev);
 
     void setScrollerInfo(uint32_t range, uint32_t pos, uint32_t scrollW, bool horizontal);
+	void setAttr(const string& attr, json_var_t*value);
 public:
     static const uint8_t SCROLL_TYPE_V = 0;
     static const uint8_t SCROLL_TYPE_H = 1;

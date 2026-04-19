@@ -20,6 +20,8 @@ WidgetWebview::WidgetWebview()
     : m_clientWidth(640)
     , m_clientHeight(480)
     , m_doc(nullptr)
+    , m_scrollX(0)
+    , m_scrollY(0)
 {
     m_container = std::make_shared<XContainer>(&m_browser_context, this);
     m_task_running = false;
@@ -41,10 +43,9 @@ WidgetWebview::~WidgetWebview()
     pthread_mutex_lock(&m_renderMutex);
     delete m_doc;
     m_doc = nullptr;
-    pthread_mutex_unlock(&m_renderMutex);
-
     // Note: m_container is std::shared_ptr, no need to delete manually
     m_container.reset();
+    pthread_mutex_unlock(&m_renderMutex);
 
     pthread_mutex_destroy(&m_taskMutex);
     pthread_mutex_destroy(&m_renderMutex);
@@ -199,6 +200,9 @@ bool WidgetWebview::loadHtmlContent(const std::string& content)
         }
     }
     pthread_mutex_unlock(&m_renderMutex);
+    m_scrollX = 0;
+    m_scrollY = 0;
+    updateScroller();
     update();
     return m_doc != nullptr;
 }
@@ -206,7 +210,6 @@ bool WidgetWebview::loadHtmlContent(const std::string& content)
 void WidgetWebview::onRepaint(graph_t* g, XTheme* theme, const grect_t& r)
 {
     (void)theme;
-    (void)r;
 
     if (g == NULL)
         return;
@@ -220,7 +223,7 @@ void WidgetWebview::onRepaint(graph_t* g, XTheme* theme, const grect_t& r)
 
     pthread_mutex_lock(&m_renderMutex);
     if (m_doc) {
-        m_doc->draw((litehtml::uint_ptr)g, r.x, r.y, &pos);
+        m_doc->draw((litehtml::uint_ptr)g, r.x - m_scrollX, r.y - m_scrollY, &pos);
     }
     pthread_mutex_unlock(&m_renderMutex);
 }
@@ -231,13 +234,82 @@ void WidgetWebview::onResize()
     m_clientHeight = area.h;
     m_container->set_client_size(m_clientWidth, m_clientHeight);
 
+    pthread_mutex_lock(&m_renderMutex);
     if (m_doc) {
         m_doc->render(m_clientWidth);
     }
+    pthread_mutex_unlock(&m_renderMutex);
+
+    updateScroller();
+}
+
+bool WidgetWebview::onScroll(int step, bool horizontal)
+{
+    pthread_mutex_lock(&m_renderMutex);
+    if (!m_doc) {
+        pthread_mutex_unlock(&m_renderMutex);
+        return false;
+    }
+
+    int docWidth = m_doc->width();
+    int docHeight = m_doc->height();
+    pthread_mutex_unlock(&m_renderMutex);
+
+    if (horizontal) {
+        m_scrollX -= step * dragStep;
+        if (m_scrollX < 0 || (docWidth - area.w) < 0)
+            m_scrollX = 0;
+        else if (m_scrollX > (docWidth - area.w))
+            m_scrollX = docWidth - area.w;
+    } else {
+        m_scrollY -= step * dragStep;
+        if (m_scrollY < 0 || (docHeight - area.h) < 0)
+            m_scrollY = 0;
+        else if (m_scrollY > (docHeight - area.h))
+            m_scrollY = docHeight - area.h;
+    }
+    return true;
+}
+
+void WidgetWebview::updateScroller()
+{
+	pthread_mutex_lock(&m_renderMutex);
+	if (!m_doc) {
+		pthread_mutex_unlock(&m_renderMutex);
+		return;
+	}
+
+	int docWidth = m_doc->width();
+	int docHeight = m_doc->height();
+	pthread_mutex_unlock(&m_renderMutex);
+
+	setScrollerInfo(docWidth, m_scrollX, area.w, true);
+	setScrollerInfo(docHeight, m_scrollY, area.h, false);
+}
+
+bool WidgetWebview::onMouse(xevent_t* ev)
+{
+	// Call parent class onMouse for drag scrolling
+	bool handled = Scrollable::onMouse(ev);
+	if (handled)
+		return true;
+
+	// Handle mouse wheel scrolling
+	if (ev->state == MOUSE_STATE_MOVE) {
+		if (ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP) {
+			scroll(-1, false);
+			return true;
+		}
+		else if (ev->value.mouse.button == MOUSE_BUTTON_SCROLL_DOWN) {
+			scroll(1, false);
+			return true;
+		}
+	}
+	return false;
 }
 
 void WidgetWebview::setAttr(const string& attr, json_var_t*value) {
-	Widget::setAttr(attr, value);
+	Scrollable::setAttr(attr, value);
 	if(attr == "url") {
 		const char* url = json_var_get_str(value);
 		loadHtml(url);

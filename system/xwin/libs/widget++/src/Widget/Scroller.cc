@@ -99,4 +99,13 @@ void Scroller::setPos(uint32_t pos) {
 	update();
 }
 
+void Scroller::setAttr(const string& attr, json_var_t *value) {
+	Widget::setAttr(attr, value);
+	if(attr == "horizontal")
+		horizontal = json_var_get_int(value);
+	else if(attr == "vertical")
+		horizontal = (json_var_get_int(value) == 0);
+}
+
+
 }

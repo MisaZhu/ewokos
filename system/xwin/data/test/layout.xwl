@@ -37,10 +37,17 @@
                     "attachAfter": true
                 },
                 {
-                    "name": "webview",
                     "type": "Webview",
+                    "name": "webview",
                     "css": "file://data/test/html/test.css",
-                    "url": "file://data/test/html/test.html"
+                    "url": "file://data/test/html/test.html",
+                    "scrollerV": "scrollerV"
+                },
+                {
+                    "type": "Scroller",
+                    "name": "scrollerV",
+                    "vertical": 1,
+                    "w": 8
                 }
             ]
         }
