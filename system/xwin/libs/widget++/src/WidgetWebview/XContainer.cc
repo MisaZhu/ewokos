@@ -254,20 +254,20 @@ void XContainer::set_base_url(const litehtml::tchar_t* base_url)
 {
 }
 
-std::shared_ptr<litehtml::element> XContainer::create_element(const litehtml::tchar_t* tag_name,
+litehtml::element* XContainer::create_element(const litehtml::tchar_t* tag_name,
                                     const litehtml::string_map& attributes,
-                                    const std::shared_ptr<litehtml::document>& doc)
+                                    litehtml::document* doc)
 {
     if (!t_strcasecmp(tag_name, _t("input"))) {
         auto iter = attributes.find(_t("type"));
         if (iter != attributes.end()) {
             if (!t_strcasecmp(iter->second.c_str(), _t("text"))) {
-                auto input = std::make_shared<el_input>(doc, this, HtmlInputType::TEXT);
+                auto input = new el_input(doc, this, HtmlInputType::TEXT);
                 m_vecInput.push_back(input);
                 return input;
             }
             else if (!t_strcasecmp(iter->second.c_str(), _t("button"))) {
-                auto input = std::make_shared<el_input>(doc, this, HtmlInputType::BUTTON);
+                auto input = new el_input(doc, this, HtmlInputType::BUTTON);
                 m_vecInput.push_back(input);
                 return input;
             }
@@ -297,6 +297,6 @@ void XContainer::get_language(litehtml::tstring& language, litehtml::tstring& cu
     culture = _t("");
 }
 
-void XContainer::link(const std::shared_ptr<litehtml::document>& ptr, const litehtml::element::ptr& el)
+void XContainer::link(litehtml::document* ptr, const litehtml::element::ptr& el)
 {
 }

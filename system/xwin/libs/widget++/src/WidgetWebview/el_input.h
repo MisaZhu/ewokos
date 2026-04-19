@@ -16,7 +16,7 @@ class el_input : public litehtml::html_tag
 {
 public:
     el_input(
-        const std::shared_ptr<litehtml::document>& doc,
+        litehtml::document* doc,
         XContainer* container,
         HtmlInputType inputType);
     virtual ~el_input(void);

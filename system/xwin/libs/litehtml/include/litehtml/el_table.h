@@ -13,7 +13,7 @@ namespace litehtml
 	class el_table : public html_tag
 	{
 	public:
-		el_table(const std::shared_ptr<litehtml::document>& doc);
+		el_table(litehtml::document* doc);
 		virtual ~el_table();
 
 		virtual bool	appendChild(const litehtml::element::ptr& el) override;

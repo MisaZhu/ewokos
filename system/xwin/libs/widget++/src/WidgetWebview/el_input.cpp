@@ -7,7 +7,7 @@
 #include <graph/graph_ex.h>
 
 el_input::el_input(
-    const std::shared_ptr<litehtml::document>& doc,
+    litehtml::document* doc,
     XContainer* container,
     HtmlInputType inputType) :
     litehtml::html_tag(doc),
@@ -93,7 +93,7 @@ int el_input::render(int x, int y, int max_width, bool second_pass)
 
     m_pos.move_to(x, y);
 
-    document::ptr doc = get_document();
+    document* doc = get_document();
 
     litehtml::size sz;
     get_content_size(sz, max_width);

@@ -26,7 +26,6 @@ $(LIB_EWOKSTL_OBJS): | $(STL_HEADERS_STAMP)
 clean:
 	rm -f $(LIB_EWOKSTL_OBJS)
 	rm -f $(EWOKSTL)
-	rm -f src/iostream.o
 
 clean-headers:
 	rm -f $(STL_HEADERS_STAMP)

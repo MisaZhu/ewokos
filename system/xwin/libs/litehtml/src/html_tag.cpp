@@ -8,7 +8,7 @@
 #include <locale>
 #include "el_before_after.h"
 
-litehtml::html_tag::html_tag(const std::shared_ptr<litehtml::document>& doc) : litehtml::element(doc)
+litehtml::html_tag::html_tag(litehtml::document* doc) : litehtml::element(doc)
 {
 	m_box_sizing			= box_sizing_content_box;
 	m_z_index				= 0;
@@ -42,7 +42,7 @@ bool litehtml::html_tag::appendChild(const element::ptr &el)
 {
 	if(el)
 	{
-		el->parent(shared_from_this());
+		el->parent(this);
 		m_children.push_back(el);
 		return true;
 	}
@@ -51,7 +51,7 @@ bool litehtml::html_tag::appendChild(const element::ptr &el)
 
 bool litehtml::html_tag::removeChild(const element::ptr &el)
 {
-	if(el && el->parent() == shared_from_this())
+	if(el && el->parent() == this)
 	{
 		el->parent(nullptr);
 		m_children.erase(std::remove(m_children.begin(), m_children.end(), el), m_children.end());
@@ -125,7 +125,7 @@ void litehtml::html_tag::select_all(const css_selector& selector, elements_vecto
 {
 	if(select(selector))
 	{
-		res.push_back(shared_from_this());
+		res.push_back(this);
 	}
 	
 	for(auto& el : m_children)
@@ -147,7 +147,7 @@ litehtml::element::ptr litehtml::html_tag::select_one( const css_selector& selec
 {
 	if(select(selector))
 	{
-		return shared_from_this();
+		return this;
 	}
 
 	for(auto& el : m_children)
@@ -317,7 +317,7 @@ void litehtml::html_tag::parse_styles(bool is_reparse)
 	}
 
 	init_font();
-	document::ptr doc = get_document();
+	document* doc = get_document();
 
 	m_el_position	= (element_position)	value_index(get_style_property(_t("position"),		false,	_t("static")),		element_position_strings,	element_position_fixed);
 	m_text_align	= (text_align)			value_index(get_style_property(_t("text-align"),		true,	_t("left")),		text_align_strings,			text_align_left);
@@ -362,7 +362,7 @@ void litehtml::html_tag::parse_styles(bool is_reparse)
 		m_display == display_table_row ||
 		m_display == display_table_row_group)
 	{
-		doc->add_tabular(shared_from_this());
+		doc->add_tabular(this);
 	}
 	// fix inline boxes with absolute/fixed positions
 	else if (m_display != display_none && is_inline_box())
@@ -564,7 +564,7 @@ void litehtml::html_tag::init()
 		table_rows_selector		row_selector;
 		table_cells_selector	cell_selector;
 
-		elements_iterator row_iter(shared_from_this(), &table_selector, &row_selector);
+		elements_iterator row_iter(this, &table_selector, &row_selector);
 
 		element::ptr row = row_iter.next(false);
 		while (row)
@@ -641,7 +641,7 @@ int litehtml::html_tag::select(const css_selector& selector, bool apply_pseudo)
 		case combinator_adjacent_sibling:
 			{
 				bool is_pseudo = false;
-				element::ptr res = el_parent->find_adjacent_sibling(shared_from_this(), *selector.m_left, apply_pseudo, &is_pseudo);
+				element::ptr res = el_parent->find_adjacent_sibling(this, *selector.m_left, apply_pseudo, &is_pseudo);
 				if(!res)
 				{
 					return select_no_match;
@@ -657,7 +657,7 @@ int litehtml::html_tag::select(const css_selector& selector, bool apply_pseudo)
 		case combinator_general_sibling:
 			{
 				bool is_pseudo = false;
-				element::ptr res =  el_parent->find_sibling(shared_from_this(), *selector.m_left, apply_pseudo, &is_pseudo);
+				element::ptr res =  el_parent->find_sibling(this, *selector.m_left, apply_pseudo, &is_pseudo);
 				if(!res)
 				{
 					return select_no_match;
@@ -815,37 +815,37 @@ int litehtml::html_tag::select(const css_element_selector& selector, bool apply_
 				switch(selector)
 				{
 				case pseudo_class_only_child:
-					if (!el_parent->is_only_child(shared_from_this(), false))
+					if (!el_parent->is_only_child(this, false))
 					{
 						return select_no_match;
 					}
 					break;
 				case pseudo_class_only_of_type:
-					if (!el_parent->is_only_child(shared_from_this(), true))
+					if (!el_parent->is_only_child(this, true))
 					{
 						return select_no_match;
 					}
 					break;
 				case pseudo_class_first_child:
-					if (!el_parent->is_nth_child(shared_from_this(), 0, 1, false))
+					if (!el_parent->is_nth_child(this, 0, 1, false))
 					{
 						return select_no_match;
 					}
 					break;
 				case pseudo_class_first_of_type:
-					if (!el_parent->is_nth_child(shared_from_this(), 0, 1, true))
+					if (!el_parent->is_nth_child(this, 0, 1, true))
 					{
 						return select_no_match;
 					}
 					break;
 				case pseudo_class_last_child:
-					if (!el_parent->is_nth_last_child(shared_from_this(), 0, 1, false))
+					if (!el_parent->is_nth_last_child(this, 0, 1, false))
 					{
 						return select_no_match;
 					}
 					break;
 				case pseudo_class_last_of_type:
-					if (!el_parent->is_nth_last_child(shared_from_this(), 0, 1, true))
+					if (!el_parent->is_nth_last_child(this, 0, 1, true))
 					{
 						return select_no_match;
 					}
@@ -865,25 +865,25 @@ int litehtml::html_tag::select(const css_element_selector& selector, bool apply_
 						switch(selector)
 						{
 						case pseudo_class_nth_child:
-							if (!el_parent->is_nth_child(shared_from_this(), num, off, false))
+							if (!el_parent->is_nth_child(this, num, off, false))
 							{
 								return select_no_match;
 							}
 							break;
 						case pseudo_class_nth_of_type:
-							if (!el_parent->is_nth_child(shared_from_this(), num, off, true))
+							if (!el_parent->is_nth_child(this, num, off, true))
 							{
 								return select_no_match;
 							}
 							break;
 						case pseudo_class_nth_last_child:
-							if (!el_parent->is_nth_last_child(shared_from_this(), num, off, false))
+							if (!el_parent->is_nth_last_child(this, num, off, false))
 							{
 								return select_no_match;
 							}
 							break;
 						case pseudo_class_nth_last_of_type:
-							if (!el_parent->is_nth_last_child(shared_from_this(), num, off, true))
+							if (!el_parent->is_nth_last_child(this, num, off, true))
 							{
 								return select_no_match;
 							}
@@ -1539,7 +1539,7 @@ void litehtml::html_tag::parse_background()
 		}
 	}
 
-	document::ptr doc = get_document();
+	document* doc = get_document();
 
 	doc->cvt_units(m_bg.m_position.x,		m_font_size);
 	doc->cvt_units(m_bg.m_position.y,		m_font_size);
@@ -1748,7 +1748,7 @@ bool litehtml::html_tag::on_mouse_over()
 {
 	bool ret = false;
 
-	element::ptr el = shared_from_this();
+	element::ptr el = this;
 	while(el)
 	{
 		if(el->set_pseudo_class(_t("hover"), true))
@@ -1837,7 +1837,7 @@ bool litehtml::html_tag::on_mouse_leave()
 {
 	bool ret = false;
 
-	element::ptr el = shared_from_this();
+	element::ptr el = this;
 	while(el)
 	{
 		if(el->set_pseudo_class(_t("hover"), false))
@@ -1858,7 +1858,7 @@ bool litehtml::html_tag::on_lbutton_down()
 {
     bool ret = false;
 
-	element::ptr el = shared_from_this();
+	element::ptr el = this;
     while (el)
     {
         if (el->set_pseudo_class(_t("active"), true))
@@ -1875,7 +1875,7 @@ bool litehtml::html_tag::on_lbutton_up()
 {
 	bool ret = false;
 
-	element::ptr el = shared_from_this();
+	element::ptr el = this;
     while (el)
     {
         if (el->set_pseudo_class(_t("active"), false))
@@ -1927,7 +1927,7 @@ void litehtml::html_tag::init_font()
 
 	int parent_sz = 0;
 	int doc_font_size = 16; // Default to 16 if document not available
-	document::ptr doc = get_document();
+	document* doc = get_document();
 	if (doc && doc->container())
 	{
 		doc_font_size = doc->container()->get_default_font_size();
@@ -2161,6 +2161,9 @@ int litehtml::html_tag::render_inline(const element::ptr &container, int max_wid
 
 	for (auto& el : m_children)
 	{
+		// Check if element is valid
+		if (!el) continue;
+
 		// skip spaces to make rendering a bit faster
 		if (skip_spaces)
 		{
@@ -2193,11 +2196,12 @@ int litehtml::html_tag::render_inline(const element::ptr &container, int max_wid
 
 int litehtml::html_tag::place_element(const element::ptr &el, int max_width)
 {
+	if(!el) return 0;
 	if(el->get_display() == display_none) return 0;
 
 	if(el->get_display() == display_inline)
 	{
-		return el->render_inline(shared_from_this(), max_width);
+		return el->render_inline(this, max_width);
 	}
 
 	element_position el_position = el->get_element_position();
@@ -3205,7 +3209,7 @@ void litehtml::html_tag::render_positioned(render_type rt)
 				int offset_x = 0;
 				int offset_y = 0;
 				element::ptr cur_el = el->parent();
-				element::ptr this_el = shared_from_this();
+				element::ptr this_el = this;
 				while(cur_el && cur_el != this_el)
 				{
 					offset_x += cur_el->m_pos.x;
@@ -3595,8 +3599,8 @@ litehtml::element::ptr litehtml::html_tag::get_element_before()
 			return m_children.front();
 		}
 	}
-	element::ptr el = std::make_shared<el_before>(get_document());
-	el->parent(shared_from_this());
+	element::ptr el = new el_before(get_document());
+	el->parent(this);
 	m_children.insert(m_children.begin(), el);
 	return el;
 }
@@ -3610,7 +3614,7 @@ litehtml::element::ptr litehtml::html_tag::get_element_after()
 			return m_children.back();
 		}
 	}
-	element::ptr el = std::make_shared<el_after>(get_document());
+	element::ptr el = new el_after(get_document());
 	appendChild(el);
 	return el;
 }
@@ -3874,13 +3878,13 @@ litehtml::element::ptr litehtml::html_tag::get_element_by_point(int x, int y, in
 	{
 		if(is_point_inside(client_x, client_y))
 		{
-			ret = shared_from_this();
+			ret = this;
 		}
 	} else
 	{
 		if(is_point_inside(x, y))
 		{
-			ret = shared_from_this();
+			ret = this;
 		}
 	}
 
@@ -4066,7 +4070,7 @@ int litehtml::html_tag::render_box(int x, int y, int max_width, bool second_pass
 			m_margins.top = std::max(m_boxes.front()->top_margin(), m_margins.top);
 			if (m_margins.top != old_top)
 			{
-				update_floats(m_margins.top - old_top, shared_from_this());
+				update_floats(m_margins.top - old_top, this);
 			}
 		}
 		if (collapse_bottom_margin())
@@ -4550,7 +4554,7 @@ void litehtml::html_tag::draw_children_box(uint_ptr hdc, int x, int y, const pos
 	pos.x += x;
 	pos.y += y;
 
-	document::ptr doc = get_document();
+	document* doc = get_document();
 
 	if (m_overflow > overflow_visible)
 	{

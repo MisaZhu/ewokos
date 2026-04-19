@@ -11,7 +11,7 @@ namespace litehtml
 	class element;
 
 	typedef std::map<litehtml::tstring, litehtml::tstring>			string_map;
-	typedef std::vector< std::shared_ptr<litehtml::element> >		elements_vector;
+	typedef std::vector< litehtml::element* >		elements_vector;
 	typedef std::vector<int>										int_vector;
 	typedef std::vector<litehtml::tstring>							string_vector;
 
@@ -522,9 +522,9 @@ namespace litehtml
 		position		pos;
 		element_float	float_side;
 		element_clear	clear_floats;
-		std::shared_ptr<element>	el;
+		element*	el;
 
-		floated_box() = default;
+		floated_box() : el(nullptr) {}
 		floated_box(const floated_box& val)
 		{
 			pos = val.pos;

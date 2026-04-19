@@ -170,7 +170,7 @@ namespace litehtml
 	class css_selector
 	{
 	public:
-		typedef std::shared_ptr<css_selector>	ptr;
+		typedef css_selector*	ptr;
 		typedef std::vector<css_selector::ptr>	vector;
 	public:
 		selector_specificity	m_specificity;
@@ -197,7 +197,7 @@ namespace litehtml
 			m_right			= val.m_right;
 			if(val.m_left)
 			{
-				m_left			= std::make_shared<css_selector>(*val.m_left);
+				m_left			= new css_selector(*val.m_left);
 			} else
 			{
 				m_left = 0;
@@ -244,15 +244,7 @@ namespace litehtml
 		return (v1.m_specificity < v2.m_specificity);
 	}
 
-	inline bool operator >(const css_selector::ptr& v1, const css_selector::ptr& v2)
-	{
-		return (*v1 > *v2);
-	}
 
-	inline bool operator < (const css_selector::ptr& v1, const css_selector::ptr& v2)
-	{
-		return (*v1 < *v2);
-	}
 
 	//////////////////////////////////////////////////////////////////////////
 

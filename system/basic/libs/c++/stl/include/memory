@@ -57,6 +57,28 @@ struct remove_extent<T[N]> {
     typedef T type;
 };
 
+// is_base_of type trait - simplified version
+// This checks if Derived can be converted to Base*
+template <typename Base, typename Derived>
+struct is_base_of {
+    static const bool value = false;
+};
+
+// Specialization for when Base and Derived are the same
+template <typename T>
+struct is_base_of<T, T> {
+    static const bool value = true;
+};
+
+// true_type and false_type for type traits
+template <bool B>
+struct bool_constant {
+    static const bool value = B;
+};
+
+typedef bool_constant<true> true_type;
+typedef bool_constant<false> false_type;
+
 // bad_weak_ptr exception class
 class bad_weak_ptr : public exception {
 public:
@@ -528,6 +550,8 @@ class shared_ptr {
         explicit shared_ptr(U* p) : ptr_(p), control_block_(nullptr) {
             if (p != nullptr) {
                 control_block_ = new __shared_ptr_control_block<U>(p);
+                // Initialize enable_shared_from_this
+                __try_init_enable_shared_from_this(*this, p);
             }
         }
 
@@ -729,40 +753,133 @@ shared_ptr<T> weak_ptr<T>::lock() const noexcept {
     return shared_ptr<T>(ptr_, control_block_);
 }
 
-// enable_shared_from_this definition (after shared_ptr and weak_ptr)
+
+
+// Forward declaration
+template <typename T> class enable_shared_from_this;
+
+// Forward declaration for helper
+template <typename T> class enable_shared_from_this;
+
+// Helper to initialize enable_shared_from_this base class
+// This is called from shared_ptr constructor when T inherits from enable_shared_from_this
 template <typename T>
-class enable_shared_from_this {
-    public:
-        shared_ptr<T> shared_from_this() {
-            return shared_ptr<T>(weak_this_);
-        }
+void __init_weak_this_impl(const shared_ptr<T>& sp, enable_shared_from_this<T>* base) {
+    if (base) {
+        base->__init_weak_this(sp);
+    }
+}
 
-        shared_ptr<const T> shared_from_this() const {
-            return shared_ptr<const T>(weak_this_);
-        }
 
-        weak_ptr<T> weak_from_this() noexcept {
-            return weak_this_;
-        }
 
-        weak_ptr<const T> weak_from_this() const noexcept {
-            return weak_this_;
-        }
+// Non-template base class for enable_shared_from_this
+class __enable_shared_from_this_base {
+protected:
+    virtual ~__enable_shared_from_this_base() {}
 
-    protected:
-        enable_shared_from_this() noexcept : weak_this_() {}
-        enable_shared_from_this(const enable_shared_from_this&) noexcept : weak_this_() {}
-        enable_shared_from_this& operator=(const enable_shared_from_this&) noexcept {
-            return *this;
-        }
-        ~enable_shared_from_this() {}
+    // Virtual function to initialize weak_this_
+    virtual void __do_init_weak_this(const void* sp) = 0;
 
-    private:
-        mutable weak_ptr<T> weak_this_;
+    // Tag type for detection
+    typedef void __esft_base_tag;
 
-        template <typename U>
-        friend class shared_ptr;
+    // Grant access to shared_ptr
+    template <typename U>
+    friend class shared_ptr;
+
+    // Grant access to the detection helper
+    template <typename U>
+    friend struct __is_enable_shared_from_this;
+
+    // Grant access to the init dispatcher
+    template <typename U, bool>
+    friend struct __esft_init_dispatcher;
 };
+
+// enable_shared_from_this definition
+template <typename T>
+class enable_shared_from_this : public __enable_shared_from_this_base {
+public:
+    shared_ptr<T> shared_from_this() {
+        return shared_ptr<T>(weak_this_);
+    }
+
+    shared_ptr<const T> shared_from_this() const {
+        return shared_ptr<const T>(weak_this_);
+    }
+
+    weak_ptr<T> weak_from_this() noexcept {
+        return weak_this_;
+    }
+
+    weak_ptr<const T> weak_from_this() const noexcept {
+        return weak_this_;
+    }
+
+protected:
+    enable_shared_from_this() noexcept : weak_this_() {}
+    enable_shared_from_this(const enable_shared_from_this&) noexcept : weak_this_() {}
+    enable_shared_from_this& operator=(const enable_shared_from_this&) noexcept {
+        return *this;
+    }
+    ~enable_shared_from_this() {}
+
+private:
+    mutable weak_ptr<T> weak_this_;
+
+    // Virtual function implementation
+    void __do_init_weak_this(const void* sp) override {
+        // Use reinterpret_cast because we're casting from void*
+        const shared_ptr<T>* sp_ptr = reinterpret_cast<const shared_ptr<T>*>(sp);
+        // Only initialize if not already initialized
+        if (weak_this_.expired()) {
+            weak_this_ = *sp_ptr;
+        }
+    }
+
+    // Grant access to shared_ptr
+    template <typename U>
+    friend class shared_ptr;
+};
+
+// Helper to detect if T inherits from enable_shared_from_this
+template <typename T>
+struct __is_enable_shared_from_this {
+    template <typename U>
+    static char test(typename U::__esft_base_tag*);
+    template <typename U>
+    static int test(...);
+    static const bool value = sizeof(test<T>(nullptr)) == sizeof(char);
+};
+
+// Helper struct to dispatch initialization
+template <typename T, bool HasESFT = __is_enable_shared_from_this<T>::value>
+struct __esft_init_dispatcher;
+
+// Specialization for types WITH enable_shared_from_this
+template <typename T>
+struct __esft_init_dispatcher<T, true> {
+    static void init(const shared_ptr<T>& sp, T* p) {
+        if (p) {
+            __enable_shared_from_this_base* base = static_cast<__enable_shared_from_this_base*>(p);
+            base->__do_init_weak_this(&sp);
+        }
+    }
+};
+
+// Specialization for types WITHOUT enable_shared_from_this
+template <typename T>
+struct __esft_init_dispatcher<T, false> {
+    static void init(const shared_ptr<T>&, T*) {
+        // Do nothing
+    }
+};
+
+// Helper to initialize enable_shared_from_this
+template <typename T>
+void __try_init_enable_shared_from_this(const shared_ptr<T>& sp, T* p) {
+    __esft_init_dispatcher<T>::init(sp, p);
+}
 
 // Free functions
 

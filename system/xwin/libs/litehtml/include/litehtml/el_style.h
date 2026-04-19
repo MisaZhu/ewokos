@@ -7,7 +7,7 @@ namespace litehtml
 	{
 		elements_vector		m_children;
 	public:
-		el_style(const std::shared_ptr<litehtml::document>& doc);
+		el_style(litehtml::document* doc);
 		virtual ~el_style();
 
 		virtual void			parse_attributes() override;

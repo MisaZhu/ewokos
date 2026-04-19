@@ -33,7 +33,9 @@ WidgetWebview::WidgetWebview()
 
 WidgetWebview::~WidgetWebview()
 {
-    m_doc.reset();
+    delete m_doc;
+    m_doc = nullptr;
+    // Note: m_container is std::shared_ptr, no need to delete manually
     m_container.reset();
 }
 

@@ -6,7 +6,7 @@ TARGET_DIR = $(BUILD_DIR)
 
 LDFLAGS = -L$(TARGET_DIR)/lib
 
-CXXFLAGS += -Iinclude -I $(TARGET_DIR)/include
+CXXFLAGS += -Iinclude -I $(TARGET_DIR)/include -I $(TARGET_DIR)/include/litehtml
 
 LIB_WIDGET_OBJS =  src/Widget/Widget.o \
 		src/Widget/Blank.o \
