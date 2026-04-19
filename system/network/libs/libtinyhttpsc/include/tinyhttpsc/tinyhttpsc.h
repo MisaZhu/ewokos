@@ -3,6 +3,10 @@
 
 #include <tinyhttpsc/BearHttpsClientOne.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef BearHttpsRequest TinyHttpsRequest;
 typedef BearHttpsResponse TinyHttpsResponse;
 
@@ -169,5 +173,9 @@ int HttpsResponseReadBodyStream(TinyHttpsResponse* response, StreamReadCallback 
  * @return true if more data available, false otherwise
  */
 bool HttpsResponseHasMoreData(TinyHttpsResponse* response);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

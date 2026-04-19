@@ -248,11 +248,26 @@ class unordered_map {
         size_t size_;
 
         size_t hash(const Key& key) const {
-            // Simple hash function
+            // Use a hash specialization if available, otherwise fall back to memory hash
+            return do_hash(key);
+        }
+
+        // Generic hash for types that don't have a specialization
+        template<typename K>
+        size_t do_hash(const K& key) const {
             size_t h = 0;
             const char* data = reinterpret_cast<const char*>(&key);
-            for (size_t i = 0; i < sizeof(Key); i++) {
+            for (size_t i = 0; i < sizeof(K); i++) {
                 h = h * 31 + data[i];
+            }
+            return h % BUCKET_COUNT;
+        }
+
+        // Specialized hash for std::string
+        size_t do_hash(const string& key) const {
+            size_t h = 0;
+            for (size_t i = 0; i < key.size(); i++) {
+                h = h * 31 + key[i];
             }
             return h % BUCKET_COUNT;
         }

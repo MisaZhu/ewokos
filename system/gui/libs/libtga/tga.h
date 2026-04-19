@@ -19,6 +19,9 @@ typedef struct {
 /* Load TGA image from file */
 tga_image_t* tga_load(const char* filename);
 
+/* Load TGA image from memory */
+tga_image_t* tga_load_from_memory(const uint8_t* data, uint32_t size);
+
 /* Free TGA image */
 void tga_free(tga_image_t* img);
 

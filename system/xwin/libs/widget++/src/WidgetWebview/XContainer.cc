@@ -9,6 +9,9 @@
 #include <graph/graph_image.h>
 #include <ewoksys/basic_math.h>
 #include <x++/X.h>
+#include <tinyhttpsc/tinyhttpsc.h>
+#include <stdlib.h>
+#include <string.h>
 
 using namespace litehtml;
 using namespace Ewok;
@@ -177,17 +180,20 @@ void XContainer::draw_list_marker(litehtml::uint_ptr hdc, const litehtml::list_m
     }
 }
 
-const std::string XContainer::getLocalPath(const std::string& src, const std::string& baseurl) {
+const std::string XContainer::getFullURL(const std::string& src, const std::string& baseurl) {
     std::string path;
-    if(src.starts_with("file://"))
-        path = src.substr(6);
-    else if(src.starts_with("res://"))
-        path = X::getResFullName(src.substr(6).c_str());
+    if(src.starts_with("file://") || 
+            src.starts_with("http://") ||
+            src.starts_with("https://")) {
+        return src;
+    }
+    else if(src.starts_with("res://")) {
+        path = "file:/";
+        path += X::getResFullName(src.substr(6).c_str());
+        return path;
+    }
 
-    if(path.empty())
-        return "";
-
-    if (path[0] != '/' && !baseurl.empty()) {
+    if (!baseurl.empty()) {
         if(baseurl[baseurl.length() - 1] != '/')
             path = baseurl + "/" + path;
         else
@@ -196,6 +202,77 @@ const std::string XContainer::getLocalPath(const std::string& src, const std::st
     return path;
 }
 
+uint8_t* XContainer::loadURL(const std::string& url, int* sz)
+{
+    uint8_t* ret = NULL;
+    if(sz != NULL)
+        *sz = 0;
+
+    std::string full_url = getFullURL(url, "");
+    if(full_url.starts_with("file://")) {
+        std::string path = full_url.substr(6);
+        if(!path.empty()) { //local file
+            ret = vfs_readfile(path.c_str(), sz);
+            return ret;
+        }
+    }
+    else if(full_url.starts_with("http://") || full_url.starts_with("https://")) {
+        // Use tinyhttpsc to fetch HTTP/HTTPS URL
+        TinyHttpsRequest* request = NewHttpsRequest(full_url.c_str());
+        if(request == NULL) {
+            return NULL;
+        }
+        
+        // Set timeout and max redirections
+        HttpsRequestSetTimeout(request, 10000); // 10 seconds
+        HttpsRequestSetMaxRedirections(request, 5);
+        
+        // Execute request
+        TinyHttpsResponse* response = HttpsRequestFetch(request);
+        HttpsRequestFree(request);
+        
+        if(response == NULL) {
+            return NULL;
+        }
+        
+        // Check for errors
+        if(HttpsResponseError(response)) {
+            HttpsResponseFree(response);
+            return NULL;
+        }
+        
+        // Check status code
+        int status_code = HttpsResponseGetStatusCode(response);
+        if(status_code != 200) {
+            HttpsResponseFree(response);
+            return NULL;
+        }
+        
+        // Read response body first (this will populate the body size)
+        int body_size = 0;
+        const char* body = HttpsResponseReadBody(response, &body_size);
+        if(body == NULL || body_size <= 0) {
+            HttpsResponseFree(response);
+            return NULL;
+        }
+        
+        // Allocate memory and copy data
+        ret = (uint8_t*)malloc(body_size);
+        if(ret == NULL) {
+            HttpsResponseFree(response);
+            return NULL;
+        }
+        
+        memcpy(ret, body, body_size);
+        if(sz != NULL)
+            *sz = body_size;
+        HttpsResponseFree(response);
+        return ret;
+    }
+    return NULL;
+}
+
+
 void XContainer::load_image(const litehtml::tchar_t* src, const litehtml::tchar_t* baseurl, bool redraw_on_ready)
 {
     if (src == NULL || src[0] == 0)
@@ -203,19 +280,24 @@ void XContainer::load_image(const litehtml::tchar_t* src, const litehtml::tchar_
 
     std::string img_path = std::string(src);
     std::string base_url = std::string(baseurl);
-    std::string path = getLocalPath(img_path, base_url);
-    if(path.empty())
+    std::string full_url = getFullURL(img_path, base_url);
+    if(full_url.empty())
         return;
 
-    std::string id = "file:/"; 
-    auto it = m_images.find(id + path);
-
+    auto it = m_images.find(full_url);
     if (it != m_images.end()) {
         it->second.ref_count++;
         return;
     }
 
-    graph_t* img = graph_image_new(path.c_str());
+    int sz;
+    uint8_t* data = loadURL(full_url, &sz);
+    if(data == NULL) {
+        return;
+    }
+
+    graph_t* img = graph_image_new_from_data(GRAPH_IMAGE_TYPE_AUTO, data, sz);
+    free(data);
     if (img == NULL) {
         return;
     }
@@ -223,7 +305,7 @@ void XContainer::load_image(const litehtml::tchar_t* src, const litehtml::tchar_
     ImageInfo info;
     info.image = img;
     info.ref_count = 1;
-    m_images[img_path] = info;
+    m_images[full_url] = info;
 }
 
 void XContainer::get_image_size(const litehtml::tchar_t* src, const litehtml::tchar_t* baseurl, litehtml::size& sz)
@@ -236,25 +318,17 @@ void XContainer::get_image_size(const litehtml::tchar_t* src, const litehtml::tc
 
     std::string img_path = std::string(src);
     std::string base_url = std::string(baseurl);
-    std::string path = getLocalPath(img_path, base_url);
-    if(path.empty())
+     std::string full_url = getFullURL(img_path, base_url);
+    if(full_url.empty())
         return;
-
-    std::string id = "file:/"; 
-    auto it = m_images.find(id + path);
-
+    
+    auto it = m_images.find(full_url);
     if (it != m_images.end() && it->second.image != NULL) {
         sz.width = it->second.image->w;
         sz.height = it->second.image->h;
         return;
     }
-
-    graph_t* img = graph_image_new(path.c_str());
-    if (img != NULL) {
-        sz.width = img->w;
-        sz.height = img->h;
-        graph_free(img);
-    }
+    return;
 }
 
 void XContainer::draw_background(litehtml::uint_ptr hdc, const litehtml::background_paint& bg)
@@ -264,25 +338,17 @@ void XContainer::draw_background(litehtml::uint_ptr hdc, const litehtml::backgro
         return;
 
     if (!bg.image.empty() && bg.image_size.width > 0 && bg.image_size.height > 0) {
-        std::string img_path = getLocalPath(bg.image, m_base_url);
-        if (!img_path.empty()) {
-            auto it = m_images.find(img_path);
+        std::string full_url = getFullURL(bg.image, m_base_url);
+        if (!full_url.empty()) {
+            auto it = m_images.find(full_url);
             graph_t* img = NULL;
             if (it != m_images.end() && it->second.image != NULL) {
                 img = it->second.image;
-            } else {
-                img = graph_image_new(img_path.c_str());
-            }
+            } 
 
             if (img != NULL) {
                 graph_blt_alpha(img, 0, 0, img->w, img->h,
                     g, bg.clip_box.x, bg.clip_box.y, bg.clip_box.width, bg.clip_box.height, 0xFF);
-                if (it == m_images.end() && img != NULL) {
-                    ImageInfo info;
-                    info.image = img;
-                    info.ref_count = 1;
-                    m_images[img_path] = info;
-                }
                 return;
             }
         }

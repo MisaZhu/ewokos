@@ -11,19 +11,6 @@
 
 using namespace Ewok;
 
-static std::string readLocalFileContents(const std::string& filename) {
-    std::ifstream file(filename.c_str());
-    if (!file.is_open()) {
-        return "";
-    }
-    std::string contents;
-    char c;
-    while (file.get(c)) {
-        contents += c;
-    }
-    return contents;
-}
-
 WidgetWebview::WidgetWebview()
     : m_clientWidth(640)
     , m_clientHeight(480)
@@ -45,32 +32,25 @@ bool WidgetWebview::init()
     return true;
 }
 
-const std::string WidgetWebview::loadURL(const std::string& url)
-{
-    std::string content;
-    std::string path;
-    if(url.starts_with("file://"))
-        path = url.substr(6);
-    else if(url.starts_with("res://")) {
-        path = X::getResFullName(url.substr(6).c_str());
-    }
-
-    if(!path.empty()) {
-        content = readLocalFileContents(path.c_str());
-        return content;
-    }
-    return "";
-}
-
 bool WidgetWebview::loadHtml(const std::string& url)
 {
-    std::string strContents = loadURL(url);
+    uint8_t* content = XContainer::loadURL(url, NULL);
+    if(content == NULL) {
+        return false;
+    }
+    std::string strContents = (char*)content;
+    free(content);
     return loadHtmlContent(strContents);
 }
 
 bool WidgetWebview::loadCSS(const std::string& url)
 {
-    std::string strContents = loadURL(url);
+    uint8_t* content = XContainer::loadURL(url, NULL);
+    if(content == NULL) {
+        return false;
+    }
+    std::string strContents = (char*)content;
+    free(content);
     return loadCSSContent(strContents);
 }
 

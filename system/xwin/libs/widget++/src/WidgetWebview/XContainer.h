@@ -63,6 +63,7 @@ public:
     void                               set_base_url(const litehtml::tchar_t* base_url);
 
     void                               setGraph(graph_t* g) { m_g = g; }
+    static uint8_t*                    loadURL(const std::string& url, int* sz);
 
 private:
     graph_t* m_g;
@@ -76,5 +77,5 @@ private:
     std::vector<el_input*> m_vecInput;
 
     static uint32_t web_color_to_graph(const litehtml::web_color& c);
-    const std::string getLocalPath(const std::string& src, const std::string& baseurl);
+    static const std::string getFullURL(const std::string& src, const std::string& baseurl);
 };

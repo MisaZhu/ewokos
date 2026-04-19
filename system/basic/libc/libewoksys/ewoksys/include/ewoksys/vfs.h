@@ -53,7 +53,7 @@ int       vfs_mount(uint32_t mount_node_to, uint32_t node);
 int       vfs_umount(uint32_t node);
 
 int       vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_node_only, bool autodir);
-void*     vfs_readfile(const char* fname, int* sz);
+uint8_t*  vfs_readfile(const char* fname, int* sz);
 const char* vfs_dir_name(const char* fname, char* ret, uint32_t len);
 const char* vfs_file_name(const char* fname, char* ret, uint32_t len);
 const char* vfs_full_file_name(const char* fname, const char* ref_fname, char* ret, uint32_t len);

@@ -23,3 +23,29 @@ graph_t* tga_image_new(const char* filename) {
     
     return g;
 }
+
+graph_t* tga_image_new_from_data(const uint8_t* data, uint32_t size) {
+    if (data == NULL || size == 0) {
+        return NULL;
+    }
+
+    // Use tga_load_from_memory if available, otherwise use temp file approach
+    tga_image_t* tga = tga_load_from_memory(data, size);
+    if (tga == NULL)
+        return NULL;
+
+    // Use graph_new to create a properly allocated graph_t
+    graph_t* g = graph_new(NULL, tga->width, tga->height);
+    if (g == NULL) {
+        tga_free(tga);
+        return NULL;
+    }
+
+    // Copy pixel data from TGA to graph
+    memcpy(g->buffer, tga->pixels, tga->width * tga->height * sizeof(uint32_t));
+
+    // Free TGA (this frees tga->pixels with standard free)
+    tga_free(tga);
+    
+    return g;
+}
