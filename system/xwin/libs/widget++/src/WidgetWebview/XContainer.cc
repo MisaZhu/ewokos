@@ -283,29 +283,30 @@ void XContainer::load_image(const litehtml::tchar_t* src, const litehtml::tchar_
     std::string full_url = getFullURL(img_path, base_url);
     if(full_url.empty())
         return;
+    m_webview->addTask( { full_url,  HttpTask::TASK_IMAGE } );
+}
 
-    auto it = m_images.find(full_url);
+bool XContainer::loadImageData(const std::string& url, uint8_t* data, int sz)
+{
+    if (data == NULL || sz <= 0 || url.empty())
+        return false;
+
+    auto it = m_images.find(url);
     if (it != m_images.end()) {
         it->second.ref_count++;
-        return;
-    }
-
-    int sz;
-    uint8_t* data = loadURL(full_url, &sz);
-    if(data == NULL) {
-        return;
+        return true;
     }
 
     graph_t* img = graph_image_new_from_data(GRAPH_IMAGE_TYPE_AUTO, data, sz);
-    free(data);
     if (img == NULL) {
-        return;
+        return false;
     }
 
     ImageInfo info;
     info.image = img;
     info.ref_count = 1;
-    m_images[full_url] = info;
+    m_images[url] = info;
+    return true;
 }
 
 void XContainer::get_image_size(const litehtml::tchar_t* src, const litehtml::tchar_t* baseurl, litehtml::size& sz)

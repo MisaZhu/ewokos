@@ -4,6 +4,7 @@
 #include "iterator"
 
 #include <stddef.h>
+#include <stdlib.h>
 
 namespace std {
 
@@ -17,54 +18,117 @@ class deque {
         typedef random_access_iterator<T> iterator;
         typedef const random_access_iterator<T> const_iterator;
 
-        deque();
-        deque(size_t n, const T& val=T());
-        deque(const deque<T>& src);
-        ~deque();
+        deque() : data_(nullptr), size_(0), capacity_(0) {}
 
-        deque<T>& operator=(const deque& rhs);
+        deque(size_t n, const T& val=T()) : data_(nullptr), size_(0), capacity_(0) {
+            resize(n, val);
+        }
 
-        iterator begin();
-        const_iterator begin() const;
-        iterator end();
-        const_iterator end() const;
+        deque(const deque<T>& src) : data_(nullptr), size_(0), capacity_(0) {
+            *this = src;
+        }
 
-        T& operator[](size_t n);
-        const T& operator[](size_t n) const;
-        T& at(size_t n);
-        const T& at(size_t n) const;
+        ~deque() {
+            clear();
+            if (data_) {
+                free(data_);
+            }
+        }
 
-        T& front();
-        const T& front() const;
-        T& back();
-        const T& back() const;
+        deque<T>& operator=(const deque& rhs) {
+            if (this != &rhs) {
+                clear();
+                resize(rhs.size_);
+                for (size_t i = 0; i < rhs.size_; ++i) {
+                    data_[i] = rhs.data_[i];
+                }
+            }
+            return *this;
+        }
 
-        size_t size() const;
-        bool empty() const;
+        iterator begin() { return iterator(data_); }
+        const_iterator begin() const { return const_iterator(data_); }
+        iterator end() { return iterator(data_ + size_); }
+        const_iterator end() const { return const_iterator(data_ + size_); }
 
-        void resize(size_t n, T val=T());
-        void push_front(const T& val);
-        void pop_front();
-        void push_back(const T& val);
-        void pop_back();
+        T& operator[](size_t n) { return data_[n]; }
+        const T& operator[](size_t n) const { return data_[n]; }
+        T& at(size_t n) { return data_[n]; }
+        const T& at(size_t n) const { return data_[n]; }
 
-        void clear();
+        T& front() { return data_[0]; }
+        const T& front() const { return data_[0]; }
+        T& back() { return data_[size_ - 1]; }
+        const T& back() const { return data_[size_ - 1]; }
+
+        size_t size() const { return size_; }
+        bool empty() const { return size_ == 0; }
+
+        void resize(size_t n, T val=T()) {
+            if (n > capacity_) {
+                reserve(n * 2);
+            }
+            for (size_t i = size_; i < n; ++i) {
+                data_[i] = val;
+            }
+            size_ = n;
+        }
+
+        void push_front(const T& val) {
+            if (size_ >= capacity_) {
+                reserve(capacity_ == 0 ? 16 : capacity_ * 2);
+            }
+            for (size_t i = size_; i > 0; --i) {
+                data_[i] = data_[i - 1];
+            }
+            data_[0] = val;
+            ++size_;
+        }
+
+        void pop_front() {
+            if (size_ > 0) {
+                for (size_t i = 0; i < size_ - 1; ++i) {
+                    data_[i] = data_[i + 1];
+                }
+                --size_;
+            }
+        }
+
+        void push_back(const T& val) {
+            if (size_ >= capacity_) {
+                reserve(capacity_ == 0 ? 16 : capacity_ * 2);
+            }
+            data_[size_++] = val;
+        }
+
+        void pop_back() {
+            if (size_ > 0) {
+                --size_;
+            }
+        }
+
+        void clear() {
+            size_ = 0;
+        }
 
     private:
-        static const size_t BUFFER_SIZE = 512;
-
-        struct Buffer {
-            T* data;
-            Buffer* prev;
-            Buffer* next;
-            Buffer() : data(nullptr), prev(nullptr), next(nullptr) {}
-        };
-
-        Buffer* first_buffer_;
-        Buffer* last_buffer_;
-        size_t front_index_;
-        size_t back_index_;
+        T* data_;
         size_t size_;
+        size_t capacity_;
+
+        void reserve(size_t n) {
+            if (n > capacity_) {
+                T* new_data = (T*)malloc(n * sizeof(T));
+                for (size_t i = 0; i < size_; ++i) {
+                    new_data[i] = data_[i];
+                }
+                if (data_) {
+                    free(data_);
+                }
+                data_ = new_data;
+                capacity_ = n;
+            }
+        }
 };
 
 }

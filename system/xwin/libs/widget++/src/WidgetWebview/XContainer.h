@@ -64,6 +64,7 @@ public:
 
     void                               setGraph(graph_t* g) { m_g = g; }
     static uint8_t*                    loadURL(const std::string& url, int* sz);
+    bool                               loadImageData(const std::string& url, uint8_t* data, int sz);
 
 private:
     graph_t* m_g;
