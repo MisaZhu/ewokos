@@ -96,12 +96,12 @@ void WidgetWebview::onRepaint(graph_t* g, XTheme* theme, const grect_t& r)
     m_container->setGraph(g);
 
     // Clear background to white
-    graph_fill_rect(g, area.x, area.y, area.w, area.h, 0xFFFFFFFF);
+    graph_fill_rect(g, r.x, r.y, r.w, r.h, 0xFFFFFFFF);
 
-    litehtml::position pos(area.x, area.y, area.w, area.h);
+    litehtml::position pos(r.x, r.y, r.w, r.h);
 
     if (m_doc) {
-        m_doc->draw((litehtml::uint_ptr)g, area.x, area.y, &pos);
+        m_doc->draw((litehtml::uint_ptr)g, r.x, r.y, &pos);
     }
 }
 
@@ -114,4 +114,16 @@ void WidgetWebview::onResize()
     if (m_doc) {
         m_doc->render(m_clientWidth);
     }
+}
+
+void WidgetWebview::setAttr(const string& attr, json_var_t*value) {
+	Widget::setAttr(attr, value);
+	if(attr == "url") {
+		const char* url = json_var_get_str(value);
+		loadHtml(url);
+	}	
+    else if(attr == "css") {
+		const char* css = json_var_get_str(value);
+		loadCSS(css);
+	}
 }

@@ -6,7 +6,7 @@ namespace Ewok {
 
 WidgetWin::WidgetWin() {
 	root = NULL;
-	timerFPS = 1;
+	timerFPS = 16;
 	lastTimerTick = 0;
 	widgetRegWin(this);
 

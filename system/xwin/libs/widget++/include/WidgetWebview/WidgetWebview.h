@@ -24,6 +24,7 @@ public:
 protected:
     virtual void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) override;
     virtual void onResize() override;
+    virtual void setAttr(const string& attr, json_var_t*value) override;
 
 private:
     bool init();

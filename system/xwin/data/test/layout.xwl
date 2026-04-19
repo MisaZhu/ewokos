@@ -1,0 +1,48 @@
+{
+    "layout": "verticle",
+    "children": [
+        {
+            "layout": "horizontal",
+            "name": "buttons",
+            "h": 32,
+            "children": [
+                {
+                    "name": "button1",
+                    "type": "LabelButton",
+                    "label": "button1"
+                },
+                {
+                    "name": "button2",
+                    "type": "LabelButton",
+                    "label": "button1"
+                }
+            ]
+        },
+        {
+            "name": "split",
+            "type": "Splitter",
+            "attach": "buttons"
+        },
+        {
+            "layout": "horizontal",
+            "children": [
+                {
+                    "name": "image1",
+                    "type": "Image",
+                    "file": "apple.png"
+                },
+                {
+                    "type": "Splitter",
+                    "attach": "webview",
+                    "attachAfter": true
+                },
+                {
+                    "name": "webview",
+                    "type": "Webview",
+                    "css": "/data/test/html/test.css",
+                    "url": "/data/test/html/test.html"
+                }
+            ]
+        }
+    ]
+}
