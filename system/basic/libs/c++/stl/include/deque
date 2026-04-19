@@ -5,6 +5,7 @@
 
 #include <stddef.h>
 #include <stdlib.h>
+#include <string.h>
 
 namespace std {
 
@@ -21,11 +22,15 @@ class deque {
         deque() : data_(nullptr), size_(0), capacity_(0) {}
 
         deque(size_t n, const T& val=T()) : data_(nullptr), size_(0), capacity_(0) {
-            resize(n, val);
+            for (size_t i = 0; i < n; ++i) {
+                push_back(val);
+            }
         }
 
         deque(const deque<T>& src) : data_(nullptr), size_(0), capacity_(0) {
-            *this = src;
+            for (size_t i = 0; i < src.size_; ++i) {
+                push_back(src.data_[i]);
+            }
         }
 
         ~deque() {
@@ -38,9 +43,8 @@ class deque {
         deque<T>& operator=(const deque& rhs) {
             if (this != &rhs) {
                 clear();
-                resize(rhs.size_);
                 for (size_t i = 0; i < rhs.size_; ++i) {
-                    data_[i] = rhs.data_[i];
+                    push_back(rhs.data_[i]);
                 }
             }
             return *this;
@@ -65,30 +69,36 @@ class deque {
         bool empty() const { return size_ == 0; }
 
         void resize(size_t n, T val=T()) {
-            if (n > capacity_) {
-                reserve(n * 2);
+            while (size_ > n) {
+                pop_back();
             }
-            for (size_t i = size_; i < n; ++i) {
-                data_[i] = val;
+            while (size_ < n) {
+                push_back(val);
             }
-            size_ = n;
         }
 
         void push_front(const T& val) {
             if (size_ >= capacity_) {
                 reserve(capacity_ == 0 ? 16 : capacity_ * 2);
             }
+            // Move existing elements using placement new and copy
             for (size_t i = size_; i > 0; --i) {
-                data_[i] = data_[i - 1];
+                new (&data_[i]) T(data_[i-1]);
+                data_[i-1].~T();
             }
-            data_[0] = val;
+            // Construct new element
+            new (&data_[0]) T(val);
             ++size_;
         }
 
         void pop_front() {
             if (size_ > 0) {
+                // Destroy first element
+                data_[0].~T();
+                // Move remaining elements
                 for (size_t i = 0; i < size_ - 1; ++i) {
-                    data_[i] = data_[i + 1];
+                    new (&data_[i]) T(data_[i+1]);
+                    data_[i+1].~T();
                 }
                 --size_;
             }
@@ -98,16 +108,24 @@ class deque {
             if (size_ >= capacity_) {
                 reserve(capacity_ == 0 ? 16 : capacity_ * 2);
             }
-            data_[size_++] = val;
+            // Use placement new to construct element in place
+            new (&data_[size_]) T(val);
+            ++size_;
         }
 
         void pop_back() {
             if (size_ > 0) {
+                // Destroy last element
+                data_[size_ - 1].~T();
                 --size_;
             }
         }
 
         void clear() {
+            // Destroy all elements
+            for (size_t i = 0; i < size_; ++i) {
+                data_[i].~T();
+            }
             size_ = 0;
         }
 
@@ -119,8 +137,10 @@ class deque {
         void reserve(size_t n) {
             if (n > capacity_) {
                 T* new_data = (T*)malloc(n * sizeof(T));
+                // Move existing elements using placement new
                 for (size_t i = 0; i < size_; ++i) {
-                    new_data[i] = data_[i];
+                    new (&new_data[i]) T(data_[i]);
+                    data_[i].~T();
                 }
                 if (data_) {
                     free(data_);

@@ -64,17 +64,11 @@ void* _task_thread(void* p)
         if (widget->getTask(task)) {
             // Process task
             if (task.type == HttpTask::TASK_HTML) {
-                klog("loadHtmlTask: %s\n", task.url.c_str());
                 widget->loadHtmlTask(task.url);
-                klog("loadHtmlTask: %s done\n", task.url.c_str());
             } else if (task.type == HttpTask::TASK_CSS) {
-                klog("loadCSSTask: %s\n", task.url.c_str());
                 widget->loadCSSTask(task.url);
-                klog("loadCSSTask: %s done\n", task.url.c_str());
             } else if (task.type == HttpTask::TASK_IMAGE) {
-                klog("loadImageTask: %s\n", task.url.c_str());
                 widget->loadImageTask(task.url);
-                klog("loadImageTask: %s done\n", task.url.c_str());
             }
         }
         else {
