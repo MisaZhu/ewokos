@@ -111,6 +111,26 @@ int font_get_glyph_info(font_t* font, uint32_t size, uint32_t c, FT_GlyphSlot sl
 	//}
 
 	FT_UInt glyph_index = FT_Get_Char_Index(face, c);
+	// If character not found in font, try to use default character (usually space or replacement char)
+	if(glyph_index == 0) {
+		// Try to get default glyph (index 0 is usually the missing glyph)
+		// For spaces and control characters, use a default width
+		if(c == ' ' || c == '\t' || c == '\n' || c == '\r') {
+			// Space character - use half of max_advance as default space width
+			face_info_t* faceinfo = malloc(sizeof(face_info_t));
+			faceinfo->ascender = face->size->metrics.ascender;
+			faceinfo->descender = face->size->metrics.descender;
+			faceinfo->height = face->size->metrics.ascender - face->size->metrics.descender;
+			// Space width is typically half of max_advance or based on font design
+			FT_Long space_width = face->size->metrics.max_advance / 2;
+			if(space_width == 0) space_width = size * 32; // Fallback: size/2 in 26.6 format
+			faceinfo->width = space_width;
+			slot->other = faceinfo;
+			slot->metrics.horiAdvance = space_width;
+			return 0;
+		}
+	}
+	
 	if(FT_Load_Glyph(face, glyph_index, FT_LOAD_RENDER) != 0) {
 		return -1;
 	}

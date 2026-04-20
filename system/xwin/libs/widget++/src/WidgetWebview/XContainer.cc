@@ -48,12 +48,12 @@ uint32_t XContainer::web_color_to_graph(const litehtml::web_color& c)
 
 litehtml::uint_ptr XContainer::create_font(const litehtml::tchar_t* faceName, int size, int weight, litehtml::font_style italic, unsigned int decoration, litehtml::font_metrics* fm)
 {
-    std::string fontName = "system";
-    std::string key = "system";
+    std::string fontName = "system-cn";
+    std::string key = "system-cn";
 
     if(weight >= 700) {
-        fontName = "system";
-        key = "system";
+        fontName = "system-cn";
+        key = "system-cn";
     }
 
     key += "-" + std::to_string(size) + "px";

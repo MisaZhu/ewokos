@@ -1,6 +1,7 @@
 #include <ewoksys/vdevice.h>
 #include <ewoksys/utf8unicode.h>
 #include <ewoksys/mstr.h>
+#include <ewoksys/klog.h>
 #include <font/font.h>
 #include <string.h>
 #include <unistd.h>
@@ -161,31 +162,32 @@ static int font_get_glyph(font_t* font, uint32_t size, uint32_t c, FT_GlyphSlot 
 }
 
 void font_char_size(uint32_t c, font_t* font, uint32_t size, uint32_t *w, uint32_t* h) {
-	if(w != NULL)
-		*w = size/2;
-	if(h != NULL)
-		*h = size;
+	// Default values
+	uint32_t default_w = size/2;
+	uint32_t default_h = size;
 
 	FT_GlyphSlotRec slot;
-	if(font_get_glyph(font, size, c, &slot) != 0)
+	if(font_get_glyph(font, size, c, &slot) != 0) {
+		if(w != NULL) *w = default_w;
+		if(h != NULL) *h = default_h;
 		return;
+	}
+	
 	face_info_t* faceinfo = (face_info_t*)slot.other;
-	if(w != NULL)  {
-		*w = slot.bitmap_left + slot.bitmap.width;
-		if((*w) == 0)
-			*w = size/2;
-		/*
-		*w = faceinfo->width/FACE_PIXEL_DENT;
-		if(*w > size)
-			*w = size;
-			*/
-	}
-
+	
+	// Calculate width based on metrics
+	default_w = slot.metrics.horiAdvance / FACE_PIXEL_DENT;
+	if(default_w == 0) default_w = size/2;
+	
 	if(h != NULL && faceinfo != NULL) {
-		*h = (faceinfo->height/FACE_PIXEL_DENT);
-		if((*h) == 0)
-			*h = size;
+		default_h = (faceinfo->height/FACE_PIXEL_DENT);
+		if(default_h == 0) default_h = size;
 	}
+	
+	if(w != NULL) *w = default_w;
+	if(h != NULL) *h = default_h;
+
+	// Debug: log character width
 }
 
 void font_text_size(const char* str,
@@ -196,11 +198,11 @@ void font_text_size(const char* str,
 		*h = 0;
 	
 	int sz = strlen(str);
-	uint32_t* unicode = (uint32_t*)malloc((sz+1)*2);
+	uint16_t* unicode = (uint16_t*)malloc((sz+1)*2);
 	if(unicode == NULL)
 		return;
 
-	int n = utf82unicode((uint8_t*)str, sz, (unsigned short *)unicode);
+	int n = utf82unicode((uint8_t*)str, sz, unicode);
 
 	int32_t x = 0;
 	uint32_t th = 0;
@@ -222,15 +224,25 @@ void font_text_size(const char* str,
 
 void graph_draw_unicode_font(graph_t* g, int32_t x, int32_t y, uint32_t c,
 		font_t* font, uint32_t size, uint32_t color, uint32_t *w, uint32_t *h) {
-	if(w != NULL)
-		*w = size/2;
-	if(h != NULL)
-		*h = size;
+	// Default values
+	uint32_t default_w = size/2;
+	uint32_t default_h = size;
 
 	FT_GlyphSlotRec slot;
-	if(font_get_glyph(font, size, c, &slot) != 0)
+	if(font_get_glyph(font, size, c, &slot) != 0) {
+		if(w != NULL) *w = default_w;
+		if(h != NULL) *h = default_h;
 		return;
+	}
+	
 	face_info_t* faceinfo = (face_info_t*)slot.other;
+	
+	// Calculate width based on metrics
+	default_w = slot.metrics.horiAdvance / FACE_PIXEL_DENT;
+	if(default_w == 0) default_w = size/2;
+	
+	default_h = (faceinfo->height/FACE_PIXEL_DENT);
+	if(default_h == 0) default_h = size;
 
 	x += slot.bitmap_left;
 	y = y - slot.bitmap_top + (faceinfo->ascender/FACE_PIXEL_DENT);
@@ -242,9 +254,7 @@ void graph_draw_unicode_font(graph_t* g, int32_t x, int32_t y, uint32_t c,
 				*w = size;
 		}
 		if(h != NULL) {
-			*h = (faceinfo->height/FACE_PIXEL_DENT);
-			if((*h) == 0)
-				*h = size;
+			*h = default_h;
 		}
 		return;
 	}
@@ -263,20 +273,11 @@ void graph_draw_unicode_font(graph_t* g, int32_t x, int32_t y, uint32_t c,
 	}
 
 	if(h != NULL) {
-		*h = (faceinfo->height/FACE_PIXEL_DENT);
-		if((*h) == 0)
-			*h = size;
+		*h = default_h;
 	}
 
 	if(w != NULL) {
-		*w = slot.bitmap_left + slot.bitmap.width;
-		if((*w) == 0)
-			*w = size/2;
-		/*
-		*w = faceinfo->width/FACE_PIXEL_DENT;
-		if(*w > size)
-			*w = size;
-			*/
+		*w = default_w;
 	}
 }
 
