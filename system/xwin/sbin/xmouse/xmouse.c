@@ -19,17 +19,16 @@ static void input(int pid, mouse_evt_t* mevt) {
 	memset(&ev, 0, sizeof(xevent_t));
 	ev.type = XEVT_MOUSE;
 	ev.state = mevt->state;
-	if(mevt->type == 1){
+	if(mevt->type == MOUSE_TYPE_REL){
 		ev.value.mouse.relative = 1;
 		ev.value.mouse.rx = mevt->x;
 		ev.value.mouse.ry = mevt->y;
-	}else if(mevt->type == 2){
+	}else if(mevt->type == MOUSE_TYPE_ABS){
 		ev.value.mouse.relative = 0;
 		ev.value.mouse.x = mevt->x;
 		ev.value.mouse.y = mevt->y;
 	}
 	ev.value.mouse.button = mevt->button;
-
 	proto_t in;
 	PF->init(&in)->add(&in, &ev, sizeof(xevent_t));
 	dev_cntl_by_pid(pid, X_DCNTL_INPUT, &in, NULL);
@@ -44,6 +43,10 @@ int main(int argc, char** argv) {
 
 	uint64_t click_time = 0;
 	uint64_t drag_time = 0;
+
+	// Last known mouse position for wheel events
+	int last_x = 0;
+	int last_y = 0;
 
 	int fd = open(dev_name, O_RDONLY);
 	if(fd < 0) {
@@ -67,9 +70,30 @@ int main(int argc, char** argv) {
 		mouse_evt_t mevt;
 		if(mouse_read(fd, &mevt) == 1) {
 			//calculate absolute position
-			if(mevt.type == 2){
+			if(mevt.type == MOUSE_TYPE_ABS){
 				mevt.x = mevt.x * width / 32768;
 				mevt.y = mevt.y * height / 32768;
+			}
+
+			// Update last known position for relative movement
+			if(mevt.type == MOUSE_TYPE_REL){
+				last_x += mevt.x;
+				last_y += mevt.y;
+				// Clamp to screen bounds
+				if(last_x < 0) last_x = 0;
+				if(last_x >= width) last_x = width - 1;
+				if(last_y < 0) last_y = 0;
+				if(last_y >= height) last_y = height - 1;
+			}
+			else if(mevt.type == MOUSE_TYPE_ABS){
+				last_x = mevt.x;
+				last_y = mevt.y;
+			}
+
+			// For scroll wheel events, use last known position
+			if(mevt.button == MOUSE_BUTTON_SCROLL_UP || mevt.button == MOUSE_BUTTON_SCROLL_DOWN){
+				mevt.x = last_x;
+				mevt.y = last_y;
 			}
 
 			//double click detect

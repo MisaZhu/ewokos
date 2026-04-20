@@ -27,6 +27,7 @@ WidgetWebview::WidgetWebview()
     m_container = std::make_shared<XContainer>(&m_browser_context, this);
     m_task_running = false;
     m_task_ended = false;
+    dragStep = 16;
     pthread_mutex_init(&m_taskMutex, NULL);
     pthread_mutex_init(&m_renderMutex, NULL);
 }

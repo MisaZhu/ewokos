@@ -10,16 +10,21 @@
 #include <arch/virt/virtio.h>
 #include <mouse/mouse.h>
 
-#define EV_KEY 0x01 // 按键事件
-#define EV_REL 0x02 // 相对坐标事件（如鼠标移动）
-#define EV_ABS 0x03 // 绝对坐标事件（如触摸屏）
-#define EV_SYN 0x00 // 同步事件
+#define EV_KEY 0x01 // Key event
+#define EV_REL 0x02 // Relative coordinate event (e.g., mouse movement)
+#define EV_ABS 0x03 // Absolute coordinate event (e.g., touchscreen)
+#define EV_SYN 0x00 // Synchronization event
 
-#define ABS_X 0x00 // 绝对X坐标
-#define ABS_Y 0x01 // 绝对Y坐标
+#define ABS_X 0x00 // Absolute X coordinate
+#define ABS_Y 0x01 // Absolute Y coordinate
 
-#define BTN_LEFT 0x110	// 左键
-#define BTN_RIGHT 0x111 // 右键
+#define REL_X 0x00 // Relative X coordinate
+#define REL_Y 0x01 // Relative Y coordinate
+#define REL_HWHEEL 0x06 // Horizontal wheel
+#define REL_WHEEL 0x08 // Vertical wheel
+
+#define BTN_LEFT 0x110	// Left button
+#define BTN_RIGHT 0x111 // Right button
 
 
 #define CACHE_SIZE (32)
@@ -60,13 +65,33 @@ void mouse_interrupt_handle(struct virtio_device *dev, struct virtio_input_event
 	if (event->type == EV_REL)
 	{
 		mouse_data[mouse_data_write % CACHE_SIZE].type = 1;
-		if (event->code == ABS_X)
+		if (event->code == REL_X)
 		{
 			mouse_data[mouse_data_write % CACHE_SIZE].x = event->value;
 		}
-		else if (event->code == ABS_Y)
+		else if (event->code == REL_Y)
 		{
 			mouse_data[mouse_data_write % CACHE_SIZE].y = event->value;
+		}
+		else if (event->code == REL_WHEEL)
+		{
+			// Vertical wheel: value > 0 scroll up, value < 0 scroll down
+			// Each wheel event is reported independently, without waiting for EV_SYN
+			// Clear current slot before writing to avoid stale data
+			memset(&mouse_data[mouse_data_write % CACHE_SIZE], 0, sizeof(mouse_evt_t));
+			mouse_data[mouse_data_write % CACHE_SIZE].type = 1;
+			// Cast to signed int32_t for proper negative value comparison
+			int32_t wheel_value = (int32_t)event->value;
+			if (wheel_value > 0)
+			{
+				mouse_data[mouse_data_write % CACHE_SIZE].button = MOUSE_BUTTON_SCROLL_DOWN;
+				mouse_data[mouse_data_write % CACHE_SIZE].state = MOUSE_STATE_MOVE;
+			}
+			else if (wheel_value < 0)
+			{
+				mouse_data[mouse_data_write % CACHE_SIZE].button = MOUSE_BUTTON_SCROLL_UP;
+				mouse_data[mouse_data_write % CACHE_SIZE].state = MOUSE_STATE_MOVE;
+			}
 		}
 	}else if(event->type == EV_ABS){
 		mouse_data[mouse_data_write % CACHE_SIZE].type = 2;
