@@ -131,7 +131,8 @@ int font_get_glyph_info(font_t* font, uint32_t size, uint32_t c, FT_GlyphSlot sl
 		}
 	}
 	
-	if(FT_Load_Glyph(face, glyph_index, FT_LOAD_RENDER) != 0) {
+	// Use FT_LOAD_TARGET_NORMAL for anti-aliased rendering (gray scale)
+	if(FT_Load_Glyph(face, glyph_index, FT_LOAD_RENDER | FT_LOAD_TARGET_NORMAL) != 0) {
 		return -1;
 	}
 	memcpy(slot, face->glyph, sizeof(FT_GlyphSlotRec));

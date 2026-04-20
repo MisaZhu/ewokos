@@ -165,7 +165,7 @@ static void font_cache(int32_t findex, uint32_t size, uint32_t c, FT_GlyphSlot s
 #endif
 }
 
-static FT_Int _load_mode = FT_LOAD_TARGET_LIGHT;
+static FT_Int _load_mode = FT_LOAD_TARGET_NORMAL;
 static FT_Int _hinting = 0;
 static int font_dev_get_glyph(proto_t* in, proto_t* ret) {
 	int findex = proto_read_int(in);
