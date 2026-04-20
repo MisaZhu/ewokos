@@ -47,6 +47,12 @@ litehtml::document::~document()
 			m_container->delete_font(f->second.font);
 		}
 	}
+	// Clean up DOM tree
+	if(m_root)
+	{
+		delete m_root;
+		m_root = nullptr;
+	}
 }
 
 litehtml::document::ptr litehtml::document::createFromString( const tchar_t* str, litehtml::document_container* objPainter, litehtml::context* ctx, litehtml::css* user_styles)
@@ -68,7 +74,17 @@ litehtml::document::ptr litehtml::document::createFromUTF8(const char* str, lite
 	if (!root_elements.empty())
 	{
 		doc->m_root = root_elements.back();
+		root_elements.pop_back();
 	}
+	// Clean up any remaining elements in root_elements (shouldn't happen for valid HTML)
+	for(auto& el : root_elements)
+	{
+		if(el)
+		{
+			delete el;
+		}
+	}
+	root_elements.clear();
 	// Destroy GumboOutput
 	gumbo_destroy_output(&kGumboDefaultOptions, output);
 

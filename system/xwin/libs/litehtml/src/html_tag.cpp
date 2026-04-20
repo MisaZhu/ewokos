@@ -35,7 +35,24 @@ litehtml::html_tag::html_tag(litehtml::document* doc) : litehtml::element(doc)
 
 litehtml::html_tag::~html_tag()
 {
-
+	// Clear parent reference for all children before deleting them
+	// to prevent any issues with dangling parent pointers
+	for(auto& child : m_children)
+	{
+		if(child)
+		{
+			child->parent(nullptr);
+		}
+	}
+	// Delete all children to prevent memory leaks
+	for(auto& child : m_children)
+	{
+		if(child)
+		{
+			delete child;
+		}
+	}
+	m_children.clear();
 }
 
 bool litehtml::html_tag::appendChild(const element::ptr &el)

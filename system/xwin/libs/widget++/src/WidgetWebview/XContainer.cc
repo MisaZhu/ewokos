@@ -257,16 +257,18 @@ uint8_t* XContainer::loadURL(const std::string& url, int* sz)
         }
         
         // Allocate memory and copy data
-        ret = (uint8_t*)malloc(body_size);
+        ret = (uint8_t*)malloc(body_size+1);
         if(ret == NULL) {
             HttpsResponseFree(response);
             return NULL;
         }
         
         memcpy(ret, body, body_size);
+        HttpsResponseFree(response);
+        ret[body_size] = 0;
+
         if(sz != NULL)
             *sz = body_size;
-        HttpsResponseFree(response);
         return ret;
     }
     return NULL;
