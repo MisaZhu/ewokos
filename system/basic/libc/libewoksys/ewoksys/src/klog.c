@@ -17,13 +17,16 @@ static char _buf[BUF_SIZE+1];
 static int32_t _slog_fd = -1;
 static int32_t _klog_fd = -1;
 
-void kout(const char *str) {
-	syscall2(SYS_KPRINT, (ewokos_addr_t)str, (ewokos_addr_t)strlen(str));
+void kout(const char *str, uint32_t len) {
+	if(str == NULL || len == 0)
+		return;
+	syscall2(SYS_KPRINT, (ewokos_addr_t)str, (ewokos_addr_t)len);
 }
 
 void klog(const char *format, ...) {
 	va_list ap;
 	va_start(ap, format);
+	memset(_buf, 0, BUF_SIZE+1);
 	vsnprintf(_buf, BUF_SIZE, format, ap);
 	va_end(ap);
 
@@ -40,26 +43,29 @@ void klog(const char *format, ...) {
 	*/
 }
 
-void sout(const char *str) {
+void sout(const char *str, uint32_t len) {
+	if(str == NULL || len == 0)
+		return;
 	const char* log_dev = "/dev/log";
 	if(_slog_fd <= 0 && log_dev != NULL) {
 		_slog_fd = open(log_dev, O_WRONLY);
 	}
 
 	if(_slog_fd > 0) {
-		write(_slog_fd, str, strlen(str));
+		write(_slog_fd, str, len);
 	}
 	else {
-		kout(str);
+		kout(str, len);
 	}
 }
 
 void slog(const char *format, ...) {
 	va_list ap;
 	va_start(ap, format);
+	memset(_buf, 0, BUF_SIZE+1);
 	vsnprintf(_buf, BUF_SIZE, format, ap);
 	va_end(ap);
-	sout(_buf);
+	sout(_buf, strlen(_buf));
 }
 
 #ifdef __cplusplus 

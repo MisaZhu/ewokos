@@ -5,10 +5,10 @@
 extern "C" {
 #endif
 
-void kout(const char *str);
+void kout(const char *str, uint32_t len);
 void klog(const char *format, ...);
 void slog(const char *format, ...);
-void sout(const char *str);
+void sout(const char *str, uint32_t len);
 
 #ifdef __cplusplus
 }

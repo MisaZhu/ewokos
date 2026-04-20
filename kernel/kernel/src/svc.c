@@ -25,9 +25,8 @@
 static uint32_t _svc_counter[SYS_CALL_NUM];
 static uint32_t _svc_total;
 
-static void sys_kprint(const char* s, int32_t len) {
-	(void)len;
-	kout(s);
+static void sys_kprint(const char* s, uint32_t len) {
+	kout(s, len);
 }
 
 static void sys_exit(context_t* ctx, int32_t res) {

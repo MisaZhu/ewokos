@@ -193,26 +193,26 @@ void _kernel_entry_c(void) {
 
 	init_kernel_vm();  
 	uart_dev_init(19200);
-	kout  ("\n=== ewokos booting ===\n\n");
-	kout  ("kernel: init kernel malloc     ... ");
+	kout_str("\n=== ewokos booting ===\n\n");
+	kout_str("kernel: init kernel malloc     ... ");
 	kmalloc_init(); //init kmalloc with min size for just early stage kernel load
-	kout  ("[OK]\n");
+	kout_str("[OK]\n");
 
-	kout  ("kernel: init sd                ... ");
+	kout_str("kernel: init sd                ... ");
 	sd_init();
-	kout  ("[OK]\n");
+	kout_str("[OK]\n");
 
-	kout  ("kernel: load kernel config     ... ");
+	kout_str("kernel: load kernel config     ... ");
 	load_kernel_config();
-	kout  ("[OK]\n");
+	kout_str("[OK]\n");
 
 	uart_dev_init(_kernel_config.uart_baud);
 
-	kout  ("kernel: remapping kernel mem   ... ");
+	kout_str("kernel: remapping kernel mem   ... ");
 	reset_kernel_vm();
 	kmalloc_init(); //init kmalloc again with config info;
 	kmalloc_vm_init(); //init kmalloc extra;
-	kout  ("[OK]\n");
+	kout_str("[OK]\n");
 
 	//printf("kernel: init allocable memory  ... ");
 	init_allocable_mem(); //init the rest allocable memory VM
@@ -221,9 +221,9 @@ void _kernel_entry_c(void) {
 	logo();
 	show_config();
 
-	kout  ("kernel: init kernel event      ... ");
+	kout_str("kernel: init kernel event      ... ");
 	kev_init();
-	kout  ("[OK]\n");
+	kout_str("[OK]\n");
 
 	//printf("kernel: init DMA               ... ");
 	dma_init();
