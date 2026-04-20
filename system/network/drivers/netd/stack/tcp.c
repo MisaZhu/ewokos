@@ -1092,12 +1092,10 @@ AGAIN:
             errno = EINTR;
             return -1;
         }
-        sleep(0);
     }
 
     if (pcb->state != TCP_PCB_STATE_ESTABLISHED) {
         if (pcb->state == TCP_PCB_STATE_SYN_RECEIVED) {
-            sleep(0);
             goto AGAIN;
         }
         errorf("open error: %d", pcb->state);

@@ -1,6 +1,7 @@
 // Webview widget implementation
 
 #include "WidgetWebview/WidgetWebview.h"
+#include "Widget/WidgetWin.h"
 #include "XContainer.h"
 
 #include <iostream>
@@ -65,13 +66,19 @@ void* _task_thread(void* p)
         if (widget->getTask(task)) {
             // Process task
             if (task.type == HttpTask::TASK_HTML) {
-                klog("loadHtmlTask: %s\n", task.url.c_str());
+                slog("loadHtmlTask: %s\n", task.url.c_str());
+                widget->getWin()->busy(true);
                 widget->loadHtmlTask(task.url);
-                klog("loadHtmlTask: %s done\n", task.url.c_str());
+                widget->getWin()->busy(false);
+                slog("loadHtmlTask: %s done\n", task.url.c_str());
             } else if (task.type == HttpTask::TASK_CSS) {
+                slog("loadCSSTask: %s\n", task.url.c_str());
                 widget->loadCSSTask(task.url);
+                slog("loadCSSTask: %s done\n", task.url.c_str());
             } else if (task.type == HttpTask::TASK_IMAGE) {
+                slog("loadImageTask: %s\n", task.url.c_str());
                 widget->loadImageTask(task.url);
+                slog("loadImageTask: %s done\n", task.url.c_str());
             }
         }
         else {
@@ -86,7 +93,6 @@ void* _task_thread(void* p)
 
 bool WidgetWebview::addTask(const HttpTask& task)
 {
-    klog("task: %s\n", task.url.c_str());
     pthread_mutex_lock(&m_taskMutex);
     m_taskQueue.push(task);
     pthread_mutex_unlock(&m_taskMutex);

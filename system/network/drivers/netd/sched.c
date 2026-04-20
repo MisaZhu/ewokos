@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <sys/time.h>
 
+#include <ewoksys/proc.h>
+
 #include "platform.h"
 
 int
@@ -32,15 +34,16 @@ sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timeval *abstime
         return -1;
     }
     ctx->wc++;
-	ctx->cond = 0;
-    
-	mutex_unlock(mutex);
-    while(1){
-		if(ctx->cond || !ctx->available){
-			ret = 0;
-			break;
-		}
-        
+    ctx->cond = 0;
+
+    mutex_unlock(mutex);
+
+    while (1) {
+        if (ctx->cond || !ctx->available) {
+            ret = 0;
+            break;
+        }
+
         // Check for timeout if abstime is provided
         if (abstime) {
             kernel_tic(&now.tv_sec, NULL);
@@ -50,9 +53,13 @@ sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timeval *abstime
                 break;
             }
         }
-		proc_usleep(10000);
+
+        // Use real blocking instead of polling
+        // Block on this sched_ctx, waiting for sched_wakeup to signal
+        proc_block_by(getpid(), (uint32_t)ctx);
     }
-	mutex_lock(mutex);
+
+    mutex_lock(mutex);
 
     ctx->wc--;
     if (ctx->interrupted) {
@@ -68,14 +75,18 @@ sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timeval *abstime
 int
 sched_wakeup(struct sched_ctx *ctx)
 {
-	ctx->cond = 1;
-	return 0;
+    ctx->cond = 1;
+    // Wake up any process blocked on this ctx
+    proc_wakeup((uint32_t)ctx);
+    return 0;
 }
 
 int
 sched_interrupt(struct sched_ctx *ctx)
 {
-	ctx->interrupted = 1;
-	ctx->cond = 1;
-	return 0;
+    ctx->interrupted = 1;
+    ctx->cond = 1;
+    // Wake up any process blocked on this ctx
+    proc_wakeup((uint32_t)ctx);
+    return 0;
 }
