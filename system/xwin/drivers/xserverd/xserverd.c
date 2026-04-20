@@ -1857,6 +1857,7 @@ int main(int argc, char** argv) {
 	read_config(&x, "/etc/x/x.json");
 	cursor_init("default", &x.cursor);
 	x_load_theme("default", &x.config.theme);
+	x_dirty(&x, -1);
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
