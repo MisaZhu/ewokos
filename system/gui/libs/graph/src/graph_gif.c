@@ -1,12 +1,13 @@
 #include "graph/graph_gif.h"
 #include <stdio.h>
 #include <gif_lib.h>
+#include <ewoksys/klog.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-static int next_row[4096];
+static GifByteType next_row[4096];
 
 static int load_gif_init(GifFileType* gf, GifByteType** p)
 {
@@ -57,7 +58,6 @@ graph_t* gif_image_new(const char* filename)
             }
 
             cmap = img_desc->ColorMap ? img_desc->ColorMap : gf->SColorMap;
-
             int interlaced = img_desc->Interlace;
             int pass = 0, i;
             for (i = 0; i < img_desc->Height; i++) {
@@ -76,14 +76,19 @@ graph_t* gif_image_new(const char* filename)
                     break;
                 }
 
-                uint32_t* dst = (uint32_t*)g->buffer + row * width;
-                for (int col = 0; col < img_desc->Width; col++) {
-                    int index = next_row[col];
-                    if (index != transp_index && cmap && index < cmap->ColorCount) {
-                        GifColorType* c = &cmap->Colors[index];
-                        dst[img_desc->Left + col] = (255 << 24) | (c->Red << 16) | (c->Green << 8) | c->Blue;
+                if (row >= 0 && row < height) {
+                    uint32_t* dst = (uint32_t*)g->buffer + (size_t)row * (size_t)width;
+                    for (int col = 0; col < img_desc->Width; col++) {
+                        int index = next_row[col];
+                        if (index != transp_index && cmap && index < cmap->ColorCount) {
+                            GifColorType* c = &cmap->Colors[index];
+                            int dst_col = img_desc->Left + col;
+                            if (dst_col >= 0 && dst_col < width) {
+                                dst[dst_col] = (255 << 24) | (c->Blue << 16) | (c->Green << 8) | c->Red;
+                            }
+                        }
                     }
-                }
+                } 
             }
             frame_count++;
         }
@@ -264,12 +269,17 @@ graph_t* gif_image_new_from_data(const uint8_t* data, uint32_t size) {
                     break;
                 }
 
-                uint32_t* dst = (uint32_t*)g->buffer + row * width;
-                for (int col = 0; col < img_desc->Width; col++) {
-                    int index = next_row[col];
-                    if (index != transp_index && cmap && index < cmap->ColorCount) {
-                        GifColorType* c = &cmap->Colors[index];
-                        dst[img_desc->Left + col] = (255 << 24) | (c->Red << 16) | (c->Green << 8) | c->Blue;
+                if (row >= 0 && row < height) {
+                    uint32_t* dst = (uint32_t*)g->buffer + (size_t)row * (size_t)width;
+                    for (int col = 0; col < img_desc->Width; col++) {
+                        int index = next_row[col];
+                        if (index != transp_index && cmap && index < cmap->ColorCount) {
+                            GifColorType* c = &cmap->Colors[index];
+                            int dst_col = img_desc->Left + col;
+                            if (dst_col >= 0 && dst_col < width) {
+                                dst[dst_col] = (255 << 24) | (c->Red << 16) | (c->Green << 8) | c->Blue;
+                            }
+                        }
                     }
                 }
             }
