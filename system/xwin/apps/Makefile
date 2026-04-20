@@ -14,6 +14,7 @@ all:
 	cd xipconfig; make
 	cd clock; make
 	cd SndPlayer; make
+	cd xBrowser; make
 
 clean:
 	cd xlog; make clean
@@ -31,4 +32,5 @@ clean:
 	cd xipconfig; make clean
 	cd clock; make clean
 	cd SndPlayer; make clean
+	cd xBrowser; make clean
 

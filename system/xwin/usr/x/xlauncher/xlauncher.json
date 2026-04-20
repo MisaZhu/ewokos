@@ -6,7 +6,7 @@
         {"name":"xfinder", "file": "/apps/xfinder/xfinder"},
         {"name":"xapps", "file": "/apps/xapps/xapps"},
         {"name":"xterm", "file": "/apps/xterm/xterm"},
-        {"name":"xread", "file": "/apps/xread/xread"},
+        {"name":"xBrowser", "file": "/apps/xBrowser/xBrowser"},
         {"name":"xcores", "file": "/apps/xcores/xcores"},
         {"name":"xwm_theme", "file": "/apps/xwm_theme/xwm_theme"}
     ]
