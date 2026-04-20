@@ -65,7 +65,9 @@ void* _task_thread(void* p)
         if (widget->getTask(task)) {
             // Process task
             if (task.type == HttpTask::TASK_HTML) {
+                klog("loadHtmlTask: %s\n", task.url.c_str());
                 widget->loadHtmlTask(task.url);
+                klog("loadHtmlTask: %s done\n", task.url.c_str());
             } else if (task.type == HttpTask::TASK_CSS) {
                 widget->loadCSSTask(task.url);
             } else if (task.type == HttpTask::TASK_IMAGE) {
@@ -84,6 +86,7 @@ void* _task_thread(void* p)
 
 bool WidgetWebview::addTask(const HttpTask& task)
 {
+    klog("task: %s\n", task.url.c_str());
     pthread_mutex_lock(&m_taskMutex);
     m_taskQueue.push(task);
     pthread_mutex_unlock(&m_taskMutex);
@@ -193,6 +196,7 @@ bool WidgetWebview::loadImageContent(const std::string& url, uint8_t* content, i
 bool WidgetWebview::loadHtmlContent(const std::string& content)
 {
     pthread_mutex_lock(&m_renderMutex);
+    kout(content.c_str());
     if (!content.empty()) {
         m_doc = litehtml::document::createFromString(content.c_str(), m_container.get(), &m_browser_context);
         if (m_doc) {

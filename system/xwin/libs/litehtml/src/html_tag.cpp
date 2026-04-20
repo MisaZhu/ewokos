@@ -1932,7 +1932,7 @@ void litehtml::html_tag::init_font()
 	{
 		doc_font_size = doc->container()->get_default_font_size();
 	}
-	
+
 	element::ptr el_parent = parent();
 	if (el_parent)
 	{

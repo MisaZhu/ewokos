@@ -43,11 +43,11 @@ bool EditLine::onIM(xevent_t* ev) {
 		if(content.length() > 0)
 			content = content.substr(0, content.length()-1);
 	}
-	else if(v > 27) {
+	else if(v > 27 && v != KEY_LSHIFT && v != KEY_RSHIFT && v != KEY_CTRL) {
 		content += (char)v;
 	}
 
-	onInput();
+	onInput(v);
 	update();
 	return true;
 }
@@ -62,9 +62,14 @@ void EditLine::onTimer(uint32_t timerFPS, uint32_t timerStep) {
 		curTimerCounter++;
 }
 
-void EditLine::onInput() {
+void EditLine::setOnInputFunc(InputFuncT func, void* arg) {
+	onInputFunc = func;
+	onInputFuncArg = arg;
+}
+
+void EditLine::onInput(uint32_t key) {
 	if(onInputFunc != NULL)
-		onInputFunc(this);
+		onInputFunc(this, key, onInputFuncArg);
 }
 
 EditLine::EditLine() {
@@ -72,6 +77,7 @@ EditLine::EditLine() {
 	showXIM = false;
 	curTimerCounter = 0;
 	onInputFunc = NULL;
+	onInputFuncArg = NULL;
 }
 
 bool EditLine::onMouse(xevent_t* ev) {

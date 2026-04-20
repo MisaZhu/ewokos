@@ -182,7 +182,7 @@ public:
             colorPanel->setTransparent(transparent);
     }
 
-    static void onEditLineChange(Widget* wd) {
+    static void onEditLineChange(Widget* wd, uint32_t key, void* arg) {
         EditLine* editLine = (EditLine*)wd;
         ColorDialog* dialog = (ColorDialog*)editLine->getWin();
         ColorWidget* colorWidget = dialog->getColorWidget();
@@ -262,7 +262,7 @@ void ColorDialog::onBuild() {
     EditLine* editLine = new EditLine();
 	v->add(editLine);
     colorWidget->setHexEditLine(editLine);
-    editLine->onInputFunc = ColorWidget::onEditLineChange;
+    editLine->setOnInputFunc(ColorWidget::onEditLineChange, NULL);
 	root->focus(editLine);
 
     TransparentSlider* slider = new TransparentSlider();

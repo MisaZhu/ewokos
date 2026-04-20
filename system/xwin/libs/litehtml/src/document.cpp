@@ -31,6 +31,10 @@ litehtml::document::document(litehtml::document_container* objContainer, litehtm
 {
 	m_container	= objContainer;
 	m_context	= ctx;
+	m_root		= nullptr;
+	m_over_element = nullptr;
+	m_size.width = 0;
+	m_size.height = 0;
 }
 
 litehtml::document::~document()
@@ -115,7 +119,7 @@ litehtml::document::ptr litehtml::document::createFromUTF8(const char* str, lite
 		doc->m_root->parse_styles();
 
 		// Now the m_tabular_elements is filled with tabular elements.
-		// We have to check the tabular elements for missing table elements 
+		// We have to check the tabular elements for missing table elements
 		// and create the anonymous boxes in visual table layout
 		doc->fix_tables_layout();
 

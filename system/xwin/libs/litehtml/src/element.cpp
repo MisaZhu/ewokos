@@ -5,7 +5,7 @@
 #define LITEHTML_EMPTY_FUNC			{}
 #define LITEHTML_RETURN_FUNC(ret)	{return ret;}
 
-litehtml::element::element(litehtml::document* doc) : m_doc(doc)
+litehtml::element::element(litehtml::document* doc) : m_doc(doc), m_parent(nullptr)
 {
 	m_box		= 0;
 	m_skip		= false;
