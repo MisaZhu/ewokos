@@ -906,7 +906,7 @@ event_handler(void *arg)
 int
 tcp_init(void)
 {
-    struct timeval interval = {0,1000};
+    struct timeval interval = {0,3000};
 
     if (ip_protocol_register("TCP", IP_PROTOCOL_TCP, tcp_input) == -1) {
         errorf("ip_protocol_register() failure");
@@ -1390,16 +1390,14 @@ RETRY:
             cap = pcb->snd.wnd - (pcb->snd.nxt - pcb->snd.una);
             if (!cap) {
                 // No window available, need to wait for ACK
-                // If we have already sent some data, return what we've sent
-                // instead of blocking, to improve throughput
-                if (sent > 0) {
-                    break;
-                }
                 struct timeval abs_timeout;
                 if (sched_sleep(&pcb->ctx, &mutex, sock_get_timeout_abs(snd_timeout, &abs_timeout)) == -1) {
-                    mutex_unlock(&mutex);
-                    errno = EINTR;
-                    return -1;
+                    if (!sent) {
+                        mutex_unlock(&mutex);
+                        errno = EINTR;
+                        return -1;
+                    }
+                    break;
                 }
                 goto RETRY;
             }
@@ -1421,11 +1419,6 @@ RETRY:
             // Continue sending if window allows (don't wait for ACK)
             if (cap - slen >= mss && sent < (ssize_t)len) {
                 continue;
-            }
-            // If we have sent a reasonable amount of data and the window is getting low,
-            // break to let the application continue and wait for ACKs
-            if (sent >= (ssize_t)(mss * 4)) {
-                break;
             }
         }
         break;
@@ -1492,20 +1485,20 @@ RETRY:
     case TCP_PCB_STATE_FIN_WAIT2:
         remain = sizeof(pcb->buf) - pcb->rcv.wnd;
         if (!remain) {
-            // Check if we should block or return EAGAIN
-            // If no timeout is set and no data available, return EAGAIN for non-blocking behavior
             struct timeval abs_timeout;
             struct timeval *timeout = sock_get_timeout_abs(rcv_timeout, &abs_timeout);
+            // Use default 30 second timeout if no timeout is set
             if (!timeout) {
-                // Non-blocking mode: return EAGAIN immediately
-                mutex_unlock(&mutex);
-                errno = EAGAIN;
-                return -1;
+                uint64_t usec;
+                kernel_tic(NULL, &usec);
+                abs_timeout.tv_sec = (usec / 1000000) + 30;
+                abs_timeout.tv_usec = usec % 1000000;
+                timeout = &abs_timeout;
             }
             if (sched_sleep(&pcb->ctx, &mutex, timeout) == -1) {
                 // sched_sleep returns with mutex locked on error
                 if (errno == ETIMEDOUT) {
-                    errorf("tcp receive timeout");
+                    errorf("tcp receive timeout after 30 seconds");
                 }
                 mutex_unlock(&mutex);
                 return -1;
