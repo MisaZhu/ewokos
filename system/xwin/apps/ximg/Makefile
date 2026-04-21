@@ -25,8 +25,10 @@ $(XIMG): $(XIMG_OBJS) \
 		$(BUILD_DIR)/lib/libtinyjson.a \
 		$(BUILD_DIR)/lib/libcxx.a \
 		$(BUILD_DIR)/lib/libjpeg.a \
+		$(BUILD_DIR)/lib/libgraph.a \
+		$(BUILD_DIR)/lib/libsvg.a \
 		$(BUILD_DIR)/lib/libgif.a
-	$(LD) -Ttext=100 $(XIMG_OBJS) -o $(XIMG) $(LDFLAGS) $(EWOK_LIB_X) $(EWOK_LIB_GRAPH) -ljpeg -lgif $(EWOK_LIBC) -lcxx
+	$(LD) -Ttext=100 $(XIMG_OBJS) -o $(XIMG) $(LDFLAGS) $(EWOK_LIB_X) $(EWOK_LIB_GRAPH) $(EWOK_LIBC) -lcxx
 
 $(XIMG_DIR):
 	mkdir -p $(XIMG_DIR)

@@ -17,6 +17,7 @@ LIB_GRAPH_OBJS = \
 	src/graph_jpeg.o \
 	src/graph_gif.o \
 	src/graph_tga.o \
+	src/graph_svg.o \
 	src/graph_image.o \
 	src/blt.o \
 	src/pixel.o \

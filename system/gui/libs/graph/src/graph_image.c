@@ -3,6 +3,7 @@
 #include <graph/graph_jpeg.h>
 #include <graph/graph_gif.h>
 #include <graph/graph_tga.h>
+#include <graph/graph_svg.h>
 #include <string.h>
 #include <strings.h>
 
@@ -21,6 +22,9 @@ graph_t* graph_image_new(const char* filename) {
 		else if(strcasecmp(ext, ".tga") == 0) {
 			return tga_image_new(filename);
 		}
+		else if(strcasecmp(ext, ".svg") == 0) {
+			return svg_image_new(filename);
+		}
 		else {
 			// Try all formats
 			graph_t* img = png_image_new(filename);
@@ -32,7 +36,10 @@ graph_t* graph_image_new(const char* filename) {
 			img = gif_image_new(filename);
 			if(img != NULL)
 				return img;
-			return tga_image_new(filename);
+			img = tga_image_new(filename);
+			if(img != NULL)
+				return img;
+			return svg_image_new(filename);
 		}
 	}
 	else {
@@ -46,7 +53,10 @@ graph_t* graph_image_new(const char* filename) {
 		img = gif_image_new(filename);
 		if(img != NULL)
 			return img;
-		return tga_image_new(filename);
+		img = tga_image_new(filename);
+		if(img != NULL)
+			return img;
+		return svg_image_new(filename);
 	}
 }
 
@@ -85,6 +95,17 @@ static enum graph_image_type detect_image_type(const uint8_t* data, uint32_t siz
 		}
 	}
 
+	// SVG signature: starts with <?xml or <svg
+	if (size >= 4 && data[0] == '<' && data[1] == 's' && data[2] == 'v' && data[3] == 'g') {
+		return GRAPH_IMAGE_TYPE_SVG;
+	}
+	if (size >= 5 && data[0] == '<' && data[1] == '?' && data[2] == 'x' && data[3] == 'm' && data[4] == 'l') {
+		const char* svg_ptr = strstr((const char*)data, "<svg");
+		if (svg_ptr != NULL) {
+			return GRAPH_IMAGE_TYPE_SVG;
+		}
+	}
+
 	return GRAPH_IMAGE_TYPE_AUTO;
 }
 
@@ -110,6 +131,8 @@ graph_t* graph_image_new_from_data(enum graph_image_type type, const uint8_t* da
 		return tga_image_new_from_data(data, size);
 	case GRAPH_IMAGE_TYPE_GIF:
 		return gif_image_new_from_data(data, size);
+	case GRAPH_IMAGE_TYPE_SVG:
+		return svg_image_new_from_data(data, size);
 	default:
 		return NULL;
 	}

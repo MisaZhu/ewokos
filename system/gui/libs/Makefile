@@ -10,6 +10,7 @@ basic_libs:
 	cd libjpeg; make
 	cd libgif; make
 	cd libtga; make
+	cd libsvg; make
 	cd freetype; make
 	cd graph;make
 	cd font;make
@@ -30,6 +31,7 @@ clean:
 	cd libjpeg; make clean
 	cd libgif; make clean
 	cd libtga; make clean
+	cd libsvg; make clean
 	cd freetype; make clean
 	cd font;make clean
 	cd minimp3;make clean

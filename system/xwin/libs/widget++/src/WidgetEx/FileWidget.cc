@@ -251,7 +251,7 @@ class FileGrid: public Grid {
 		const char* fname = getFullname(dname);
 		graph_t* img = NULL;
 		if(check(fname, ".png") || check(fname, ".jpg") || 
-				check(fname, ".gif") || check(fname, ".tga")) {
+				check(fname, ".gif") || check(fname, ".tga") || check(fname, ".svg")) {
 			img = getImgIconAndCache(fname);
 			if(img != NULL)
 				return img;

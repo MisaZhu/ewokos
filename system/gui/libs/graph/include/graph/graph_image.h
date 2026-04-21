@@ -11,7 +11,8 @@ enum graph_image_type {
     GRAPH_IMAGE_TYPE_PNG,
     GRAPH_IMAGE_TYPE_JPEG,
     GRAPH_IMAGE_TYPE_TGA,
-    GRAPH_IMAGE_TYPE_GIF
+    GRAPH_IMAGE_TYPE_GIF,
+    GRAPH_IMAGE_TYPE_SVG
 };
 
 typedef struct graph_image graph_image_t;
