@@ -27,7 +27,6 @@ WidgetWebview::WidgetWebview()
     m_container = std::make_shared<XContainer>(&m_browser_context, this);
     m_task_running = false;
     m_task_ended = false;
-    dragStep = 16;
     pthread_mutex_init(&m_taskMutex, NULL);
     pthread_mutex_init(&m_renderMutex, NULL);
 }
@@ -244,6 +243,7 @@ void WidgetWebview::onResize()
     m_clientWidth = area.w;
     m_clientHeight = area.h;
     m_container->set_client_size(m_clientWidth, m_clientHeight);
+    dragStep = area.h / 4;
 
     pthread_mutex_lock(&m_renderMutex);
     if (m_doc) {

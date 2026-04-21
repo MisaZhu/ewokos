@@ -1,50 +1,132 @@
 <html>
 <body>
-    <h1>HTML Test Page</h1>
-    <p>This is a test paragraph to verify text rendering in SDLBrowser.</p>
-    <p>Here is another paragraph with some <strong>bold text</strong> and <em>italic text</em>.</p>
-    
-    <h2>Image Test</h2>
+    <h1>EwokOS</h1>
     <p><img src="res://html/apple_ad.png" /></p>
+    <p><a href="https://github.com/misazhu/ewokos">https://github.com/misazhu/ewokos</a></p>
+    <p>A lightweight microkernel operating system designed for educational purposes and embedded systems.</p>
 
-    <h2>Table Test</h2>
-    <p>Below is a nested table structure with input buttons:</p>
-    
-    <table>       
-        <tr>
-            <td><input type="button" name="search text"></td><td><input type="button" name="search text"></td>
-        </tr>
-        <tr>
-            <td><input type="button" name="search text"></td><td><input type="button" name="search text"></td>
-        </tr>
-        <tr>        
-            <td>
-                <table>
-                    <tr>
-                        <td><input type="button" name="search text"></td><td><input type="button" name="search text"></td>
-                    </tr>
-                     <tr>
-                        <td><input type="button" name="search text"></td><td><input type="button" name="search text"></td>
-                    </tr>
-                    <tr>        
-                        <td>
-                            <table>
-                                <tr>
-                                    <td><input type="button" name="search text"></td><td><input type="button" name="search text"></td>
-                                </tr>
-                                 <tr>
-                                    <td><input type="button" name="search text"></td><td><input type="button" name="search text"></td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
+    <h2>Author</h2>
+    <p>Misa.Z &lt;misa.zhu@gmail.com&gt;</p>
+
+    <h2>Overview</h2>
+    <p>EwokOS is a microkernel-based operating system that demonstrates core OS concepts including memory management, process scheduling, inter-process communication, and device drivers. It is designed to be simple, modular, and easy to understand for learning operating system internals.</p>
+
+    <h2>Supported Platforms</h2>
+    <h3>Architectures</h3>
+    <ul>
+        <li><strong>ARM 32-bit</strong> (ARMv5, ARMv6, ARMv7)</li>
+        <li><strong>ARM 64-bit</strong> (ARMv8/AArch64)</li>
+        <li><strong>RISC-V 64-bit</strong> (RV64)</li>
+    </ul>
+
+    <h3>Main Platforms</h3>
+    <table>
+        <tr><td>Platform</td><td>Architecture</td><td>Status</td><td>Description</td></tr>
+        <tr><td>machine.virt</td><td>ARM64/ARM</td><td>Supported</td><td>QEMU virt machine (recommended for beginners)</td></tr>
+        <tr><td>machine.raspix</td><td>ARM</td><td>Supported</td><td>Raspberry Pi 1/2/3/4, 5 (planned)</td></tr>
     </table>
-    
-    <h2>More Text Content</h2>
-    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
-    <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+
+    <h3>Third-Party Hardware (machine.3rd)</h3>
+    <table>
+        <tr><td>Platform</td><td>Architecture</td><td>Status</td><td>Description</td></tr>
+        <tr><td>clockwork.picocalc</td><td>ARM</td><td>Supported</td><td>Clockwork Pi PicoCalc (RK3506)</td></tr>
+        <tr><td>clockwork.uconsole</td><td>ARM</td><td>Supported</td><td>Clockwork Pi uConsole</td></tr>
+        <tr><td>versatilepb</td><td>ARM</td><td>Supported</td><td>QEMU versatilepb</td></tr>
+        <tr><td>lego.ev3</td><td>ARM</td><td>Supported</td><td>LEGO Mindstorms EV3</td></tr>
+        <tr><td>miyoo</td><td>ARM</td><td>Supported</td><td>Miyoo handheld console</td></tr>
+        <tr><td>orangepi</td><td>ARM64</td><td>Supported</td><td>Orange Pi boards</td></tr>
+        <tr><td>virt.riscv</td><td>RISC-V</td><td>Supported</td><td>QEMU RISC-V virt machine</td></tr>
+        <tr><td>raspix variants</td><td>ARM</td><td>Supported</td><td>Various RPi LCD HATs (Waveshare, etc.)</td></tr>
+    </table>
+
+    <h2>System Features</h2>
+    <h3>Kernel Features</h3>
+    <ul>
+        <li><strong>Microkernel Architecture</strong> - Minimal kernel with services running in user space</li>
+        <li><strong>MMU Support</strong> - Memory Management Unit for virtual memory</li>
+        <li><strong>SMP Multi-Core</strong> - Symmetric Multi-Processing support (up to 4 cores)</li>
+        <li><strong>Copy-on-Write</strong> - Efficient memory sharing between processes</li>
+        <li><strong>Multi-Process</strong> - Multiple processes with preemptive scheduling</li>
+        <li><strong>Multi-Threading</strong> - Thread support within processes</li>
+        <li><strong>IPC</strong> - Inter-Process Communication via message passing</li>
+        <li><strong>Virtual File System</strong> - "Everything is a file" philosophy</li>
+        <li><strong>Signal Handling</strong> - POSIX-like signal mechanism</li>
+        <li><strong>Semaphore</strong> - Synchronization primitives</li>
+    </ul>
+
+    <h3>Device Support</h3>
+    <ul>
+        <li><strong>Framebuffer</strong> - Graphics display support via framebuffer device service</li>
+        <li><strong>UART</strong> - Serial communication via UART device service</li>
+        <li><strong>SD Card</strong> - SD card storage support</li>
+        <li><strong>USB</strong> - USB device support</li>
+        <li><strong>VirtIO</strong> - VirtIO devices for QEMU (block, network, input, 9P)</li>
+        <li><strong>Network</strong> - TCP/IP networking stack</li>
+    </ul>
+
+    <h3>Graphics &amp; UI</h3>
+    <ul>
+        <li><strong>X Window System</strong> - X-like windowing system (xwin)</li>
+        <li><strong>Framebuffer GUI</strong> - Direct framebuffer graphics (fbgui)</li>
+        <li><strong>Window Manager</strong> - Multiple window manager themes (mac1984, openlook, opencde)</li>
+        <li><strong>Applications</strong> - Calculator, Calendar, Tetris, Fireworks, 3D Demo, etc.</li>
+    </ul>
+
+    <h2>Project Structure</h2>
+    <pre>
+ewokos/
+├── kernel/          # Kernel source code
+│   ├── kernel/      # Core kernel (scheduler, IPC, memory)
+│   ├── lib/         # Kernel libraries
+│   ├── dev/         # Device headers
+│   └── platform/    # Architecture-specific code
+├── system/          # System applications and libraries
+│   ├── basic/       # Basic system commands
+│   ├── gui/         # GUI libraries and drivers
+│   ├── xwin/        # X Window system
+│   └── network/     # Network stack
+├── sw.extra/        # Extra applications and libraries
+│   ├── apps/        # Extra GUI applications
+│   ├── libs/        # Additional libraries
+│   └── sdl2/        # SDL2 port
+├── machine.virt/    # QEMU virt machine support
+├── machine.raspix/  # Raspberry Pi support
+└── machine.3rd/     # Third-party machine ports
+    </pre>
+  
+    <h2>System Commands</h2>
+    <p>Basic commands available in EwokOS:</p>
+    <table>
+        <tr><td>Command</td><td>Description</td></tr>
+        <tr><td>ls</td><td>List directory contents</td></tr>
+        <tr><td>ps</td><td>List processes</td></tr>
+        <tr><td>pwd</td><td>Print working directory</td></tr>
+        <tr><td>cat</td><td>Display file contents</td></tr>
+        <tr><td>cp</td><td>Copy files</td></tr>
+        <tr><td>rm</td><td>Remove files</td></tr>
+        <tr><td>mkdir</td><td>Create directories</td></tr>
+        <tr><td>mount</td><td>Mount filesystems</td></tr>
+        <tr><td>vi</td><td>Text editor</td></tr>
+        <tr><td>shell</td><td>Command shell</td></tr>
+    </table>
+
+    <h2>Documentation</h2>
+    <ul>
+        <li><a href="https://deepwiki.com/MisaZhu/ewokos">DeepWiki Documentation</a></li>
+        <li>Source code includes inline comments</li>
+        <li>Architecture-specific documentation in kernel/platform/</li>
+    </ul>
+
+    <h2>Contributing</h2>
+    <p>Contributions are welcome! Please feel free to submit issues and pull requests.</p>
+
+    <h2>License</h2>
+    <p>This project is licensed under the terms specified in the LICENSE file.</p>
+
+    <h2>Tips for Source Code Reading</h2>
+    <blockquote>
+        Don't fall in love with assembly too much ;)
+    </blockquote>
+    <p>Start with the kernel core (kernel/kernel/src/) to understand scheduling and IPC, then explore the platform-specific code for your target architecture.</p>
 </body>
 </html>
