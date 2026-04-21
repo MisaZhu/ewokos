@@ -23,6 +23,10 @@ $(BROWSER): $(BROWSER_OBJS) \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libfont.a \
+		$(BUILD_DIR)/lib/libgraph.a \
+		$(BUILD_DIR)/lib/libjpeg.a \
+		$(BUILD_DIR)/lib/libsvg.a \
+		$(BUILD_DIR)/lib/libtga.a \
 		$(BUILD_DIR)/lib/libcxx.a
 	mkdir -p $(BROWSER_DIR)
 	$(LD) -Ttext=100 $(BROWSER_OBJS) -o $(BROWSER) $(LDFLAGS) \

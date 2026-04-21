@@ -25,7 +25,7 @@
 #define TCP_FLG_IS(x, y) ((x & 0x3f) == (y))
 #define TCP_FLG_ISSET(x, y) ((x & 0x3f) & (y) ? 1 : 0)
 
-#define TCP_PCB_SIZE 32
+#define TCP_PCB_SIZE 128
 
 #define TCP_PCB_MODE_RFC793 1
 #define TCP_PCB_MODE_SOCKET 2
@@ -1080,11 +1080,21 @@ tcp_connect(int id, struct ip_endpoint *foreign)
     pcb->snd.una = pcb->iss;
     pcb->snd.nxt = pcb->iss + 1;
     pcb->state = TCP_PCB_STATE_SYN_SENT;
+
+    struct timeval *snd_timeout = sock_get_timeout(id, SOCK_STREAM, SO_SNDTIMEO);
 AGAIN:
     state = pcb->state;
     // waiting for state changed
     while (pcb->state == state) {
-        if (sched_sleep(&pcb->ctx, &mutex, NULL) == -1) {
+        struct timeval abs_timeout;
+        if (sched_sleep(&pcb->ctx, &mutex, sock_get_timeout_abs(snd_timeout, &abs_timeout)) == -1) {
+            if (errno == ETIMEDOUT) {
+                errorf("connection timeout");
+                pcb->state = TCP_PCB_STATE_CLOSED;
+                tcp_pcb_release(pcb);
+                mutex_unlock(&mutex);
+                return -1;
+            }
             //debugf("interrupted");
             pcb->state = TCP_PCB_STATE_CLOSED;
             tcp_pcb_release(pcb);

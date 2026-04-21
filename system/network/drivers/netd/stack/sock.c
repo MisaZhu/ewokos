@@ -25,7 +25,8 @@
   } while (0)
 #endif
 
-static struct sock socks[16];
+#define SOCKS_MAX 128
+static struct sock socks[SOCKS_MAX];
 
 int
 sockaddr_pton(const char *p, struct sockaddr *n, size_t size)
@@ -540,6 +541,12 @@ sock_get_timeout_abs(struct timeval* timeout, struct timeval* abs_timeout) {
         struct timeval now;
         kernel_tic(&now.tv_sec, NULL);
         abs_timeout->tv_sec = now.tv_sec + timeout->tv_sec;
+        abs_timeout->tv_usec = timeout->tv_usec;
+        // Handle microsecond overflow
+        if (abs_timeout->tv_usec >= 1000000) {
+            abs_timeout->tv_sec += abs_timeout->tv_usec / 1000000;
+            abs_timeout->tv_usec %= 1000000;
+        }
         return abs_timeout;
     }
     return NULL;

@@ -143,9 +143,13 @@ graph_t* png_image_new(const char* fname) {
 	Bmask = 0x0000FF00 >> s;
 	Amask = 0x000000FF >> s;
 #endif
-	g = graph_new(NULL, width, height);
+	// Check for reasonable image dimensions to prevent memory exhaustion
+	if (width > 8192 || height > 8192 || width * height > 64 * 1024 * 1024) {
+		goto done;
+	}
 
-	if(g == NULL) {
+	g = graph_new(NULL, width, height);
+	if (g == NULL || g->buffer == NULL) {
 		goto done;
 	}
 
@@ -309,8 +313,13 @@ graph_t* png_image_new_from_data(const uint8_t* data, uint32_t size) {
         goto done;
     }
 
+    // Check for reasonable image dimensions to prevent memory exhaustion
+    if (width > 8192 || height > 8192 || width * height > 64 * 1024 * 1024) {
+        goto done;
+    }
+
     g = graph_new(NULL, width, height);
-    if (g == NULL) {
+    if (g == NULL || g->buffer == NULL) {
         goto done;
     }
 

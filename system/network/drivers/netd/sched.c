@@ -34,11 +34,11 @@ sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timeval *abstime
         return -1;
     }
     ctx->wc++;
-    ctx->cond = 0;
 
     mutex_unlock(mutex);
 
     while (1) {
+        // Check condition before blocking to avoid race condition
         if (ctx->cond || !ctx->available) {
             ret = 0;
             break;
@@ -56,10 +56,14 @@ sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timeval *abstime
 
         // Use real blocking instead of polling
         // Block on this sched_ctx, waiting for sched_wakeup to signal
-        proc_block_by(getpid(), (uint32_t)ctx);
+        //proc_block_by(getpid(), (uint32_t)ctx);
+        usleep(1000);
     }
 
     mutex_lock(mutex);
+
+    // Clear the condition after waking up to prevent spurious wakeups
+    ctx->cond = 0;
 
     ctx->wc--;
     if (ctx->interrupted) {
@@ -77,7 +81,7 @@ sched_wakeup(struct sched_ctx *ctx)
 {
     ctx->cond = 1;
     // Wake up any process blocked on this ctx
-    proc_wakeup((uint32_t)ctx);
+    //proc_wakeup((uint32_t)ctx);
     return 0;
 }
 
@@ -87,6 +91,6 @@ sched_interrupt(struct sched_ctx *ctx)
     ctx->interrupted = 1;
     ctx->cond = 1;
     // Wake up any process blocked on this ctx
-    proc_wakeup((uint32_t)ctx);
+    //proc_wakeup((uint32_t)ctx);
     return 0;
 }

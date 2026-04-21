@@ -60,8 +60,15 @@ graph_t* jpeg_image_new(const char* filename)
     height = cinfo.output_height;
     row_stride = cinfo.output_width * cinfo.output_components;
 
+    // Check for reasonable image dimensions to prevent memory exhaustion
+    if (width > 8192 || height > 8192 || width * height > 64 * 1024 * 1024) {
+        jpeg_destroy_decompress(&cinfo);
+        fclose(infile);
+        return NULL;
+    }
+
     g = graph_new(NULL, width, height);
-    if (g == NULL) {
+    if (g == NULL || g->buffer == NULL) {
         jpeg_destroy_decompress(&cinfo);
         fclose(infile);
         return NULL;
@@ -72,6 +79,11 @@ graph_t* jpeg_image_new(const char* filename)
     int row = 0;
     while (cinfo.output_scanline < cinfo.output_height) {
         (void)jpeg_read_scanlines(&cinfo, buffer, 1);
+
+        // Safety check: ensure we don't write beyond buffer
+        if (row >= height) {
+            break;
+        }
 
         uint8_t* dst = (uint8_t*)g->buffer + row * (width * 4);
         uint8_t* src = buffer[0];
@@ -183,8 +195,14 @@ graph_t* jpeg_image_new_from_data(const uint8_t* data, uint32_t size) {
     height = cinfo.output_height;
     row_stride = cinfo.output_width * cinfo.output_components;
 
+    // Check for reasonable image dimensions to prevent memory exhaustion
+    if (width > 8192 || height > 8192 || width * height > 64 * 1024 * 1024) {
+        jpeg_destroy_decompress(&cinfo);
+        return NULL;
+    }
+
     g = graph_new(NULL, width, height);
-    if (g == NULL) {
+    if (g == NULL || g->buffer == NULL) {
         jpeg_destroy_decompress(&cinfo);
         return NULL;
     }
@@ -194,6 +212,11 @@ graph_t* jpeg_image_new_from_data(const uint8_t* data, uint32_t size) {
     int row = 0;
     while (cinfo.output_scanline < cinfo.output_height) {
         (void)jpeg_read_scanlines(&cinfo, buffer, 1);
+
+        // Safety check: ensure we don't write beyond buffer
+        if (row >= height) {
+            break;
+        }
 
         uint8_t* dst = (uint8_t*)g->buffer + row * (width * 4);
         uint8_t* src = buffer[0];
