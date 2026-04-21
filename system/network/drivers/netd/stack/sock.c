@@ -150,13 +150,26 @@ int
 sock_close(int id)
 {
     struct sock *s;
+    int retry = 100; // Max 10 seconds wait (100 * 100ms)
     s = sock_get(id);
     if (!s) {
         return -17;
     }
     switch (s->type) {
     case SOCK_STREAM:
-        tcp_close(s->desc);
+        // Try to close TCP connection gracefully
+        while (retry-- > 0) {
+            int ret = tcp_close(s->desc);
+            if (ret == 0) {
+                // Connection closed immediately or in progress
+                break;
+            }
+            // If connection is still closing, wait a bit
+            usleep(100000); // 100ms
+        }
+        if (retry <= 0) {
+            errorf("sock_close: timeout waiting for TCP close");
+        }
         break;    
     case SOCK_DGRAM:
         udp_close(s->desc);
@@ -539,9 +552,12 @@ struct timeval*
 sock_get_timeout_abs(struct timeval* timeout, struct timeval* abs_timeout) {
     if (timeout && abs_timeout && (timeout->tv_sec > 0 || timeout->tv_usec > 0)) {
         struct timeval now;
-        kernel_tic(&now.tv_sec, NULL);
+        uint64_t usec;
+        kernel_tic(NULL, &usec);
+        now.tv_sec = usec / 1000000;
+        now.tv_usec = usec % 1000000;
         abs_timeout->tv_sec = now.tv_sec + timeout->tv_sec;
-        abs_timeout->tv_usec = timeout->tv_usec;
+        abs_timeout->tv_usec = now.tv_usec + timeout->tv_usec;
         // Handle microsecond overflow
         if (abs_timeout->tv_usec >= 1000000) {
             abs_timeout->tv_sec += abs_timeout->tv_usec / 1000000;

@@ -36,6 +36,12 @@ struct sched_ctx {
 void raise_softirq(uint32_t sig);
 
 #define EINTR -1
+#ifndef ECONNRESET
+#define ECONNRESET 104  /* Connection reset by peer */
+#endif
+#ifndef ETIMEDOUT
+#define ETIMEDOUT 116   /* Connection timed out */
+#endif
 
 #define SIGIRQ    0x0
 #define SIGNET    0x1

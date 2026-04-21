@@ -46,7 +46,10 @@ sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timeval *abstime
 
         // Check for timeout if abstime is provided
         if (abstime) {
-            kernel_tic(&now.tv_sec, NULL);
+            uint64_t usec;
+            kernel_tic(NULL, &usec);
+            now.tv_sec = usec / 1000000;
+            now.tv_usec = usec % 1000000;
             if (timercmp(&now, abstime, >)) {
                 errno = ETIMEDOUT;
                 ret = -1;
@@ -56,8 +59,9 @@ sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timeval *abstime
 
         // Use real blocking instead of polling
         // Block on this sched_ctx, waiting for sched_wakeup to signal
-        //proc_block_by(getpid(), (uint32_t)ctx);
-        usleep(1000);
+        proc_block_by(getpid(), (uint32_t)ctx);
+        // After waking up, immediately check condition again
+        // This handles the case where wakeup arrived just after blocking
     }
 
     mutex_lock(mutex);
@@ -81,7 +85,7 @@ sched_wakeup(struct sched_ctx *ctx)
 {
     ctx->cond = 1;
     // Wake up any process blocked on this ctx
-    //proc_wakeup((uint32_t)ctx);
+    proc_wakeup((uint32_t)ctx);
     return 0;
 }
 
@@ -91,6 +95,6 @@ sched_interrupt(struct sched_ctx *ctx)
     ctx->interrupted = 1;
     ctx->cond = 1;
     // Wake up any process blocked on this ctx
-    //proc_wakeup((uint32_t)ctx);
+    proc_wakeup((uint32_t)ctx);
     return 0;
 }

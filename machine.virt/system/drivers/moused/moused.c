@@ -93,6 +93,26 @@ void mouse_interrupt_handle(struct virtio_device *dev, struct virtio_input_event
 				mouse_data[mouse_data_write % CACHE_SIZE].state = MOUSE_STATE_MOVE;
 			}
 		}
+		else if (event->code == REL_HWHEEL)
+		{
+			// Horizontal wheel: value > 0 scroll right, value < 0 scroll left
+			// Each wheel event is reported independently, without waiting for EV_SYN
+			// Clear current slot before writing to avoid stale data
+			memset(&mouse_data[mouse_data_write % CACHE_SIZE], 0, sizeof(mouse_evt_t));
+			mouse_data[mouse_data_write % CACHE_SIZE].type = 1;
+			// Cast to signed int32_t for proper negative value comparison
+			int32_t wheel_value = (int32_t)event->value;
+			if (wheel_value > 0)
+			{
+				mouse_data[mouse_data_write % CACHE_SIZE].button = MOUSE_BUTTON_SCROLL_RIGHT;
+				mouse_data[mouse_data_write % CACHE_SIZE].state = MOUSE_STATE_MOVE;
+			}
+			else if (wheel_value < 0)
+			{
+				mouse_data[mouse_data_write % CACHE_SIZE].button = MOUSE_BUTTON_SCROLL_LEFT;
+				mouse_data[mouse_data_write % CACHE_SIZE].state = MOUSE_STATE_MOVE;
+			}
+		}
 	}else if(event->type == EV_ABS){
 		mouse_data[mouse_data_write % CACHE_SIZE].type = 2;
 		if(event->code == ABS_X){
