@@ -52,8 +52,12 @@ protected:
     bool loadHtmlTask(const std::string& url);
     bool loadCSSTask(const std::string& url);
     bool loadImageTask(const std::string& url);
+
+    virtual void onTaskStart(const HttpTask& task) {}
+    virtual void onTaskEnd(const HttpTask& task) {}
+    virtual void onTaskFailed(const HttpTask& task) {}
+    virtual void onTasksEnd() {}
 private:
-    bool init();
 
     std::shared_ptr<XContainer> m_container;
     litehtml::document::ptr       m_doc;

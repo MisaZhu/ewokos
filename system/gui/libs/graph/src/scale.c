@@ -151,6 +151,90 @@ graph_t* graph_scalef(graph_t* g, float scale) {
 	return ret;
 }
 
+void graph_fit_tof_cpu(graph_t* src, graph_t* dst) {
+    if (src == NULL || dst == NULL || src->buffer == NULL || dst->buffer == NULL)
+        return;
+
+    int src_w = src->w;
+    int src_h = src->h;
+    int dst_w = dst->w;
+    int dst_h = dst->h;
+
+    if (src_w <= 0 || src_h <= 0 || dst_w <= 0 || dst_h <= 0)
+        return;
+
+    // Calculate scale factors for x and y independently (stretch to fit)
+    uint32_t scale_x = ((uint64_t)src_w * FIXED_SCALE) / dst_w;
+    uint32_t scale_y = ((uint64_t)src_h * FIXED_SCALE) / dst_h;
+
+    int src_hmax = src_h - 1;
+    int src_wmax = src_w - 1;
+
+    for (int y = 0; y < dst_h; y++) {
+        // Map destination y to source y
+        uint32_t src_y = (y * scale_y);
+        int src_y0 = src_y >> FIXED_SHIFT;
+        uint32_t src_y_frac = src_y & FIXED_MASK;
+        int src_y1 = src_y0 + 1;
+
+        // Clamp to source bounds
+        if (src_y0 < 0) { src_y0 = 0; src_y1 = 0; src_y_frac = 0; }
+        else if (src_y0 >= src_hmax) { src_y0 = src_hmax; src_y1 = src_hmax; src_y_frac = 0; }
+        if (src_y1 > src_hmax) src_y1 = src_hmax;
+
+        int src_y0_offset = src_y0 * src_w;
+        int src_y1_offset = src_y1 * src_w;
+
+        for (int x = 0; x < dst_w; x++) {
+            // Map destination x to source x
+            uint32_t src_x = (x * scale_x);
+            int src_x0 = src_x >> FIXED_SHIFT;
+            uint32_t src_x_frac = src_x & FIXED_MASK;
+            int src_x1 = src_x0 + 1;
+
+            // Clamp to source bounds
+            if (src_x0 < 0) { src_x0 = 0; src_x1 = 0; src_x_frac = 0; }
+            else if (src_x0 >= src_wmax) { src_x0 = src_wmax; src_x1 = src_wmax; src_x_frac = 0; }
+            if (src_x1 > src_wmax) src_x1 = src_wmax;
+
+            // Get the four surrounding pixels
+            uint32_t p00 = src->buffer[src_y0_offset + src_x0];
+            uint32_t p01 = src->buffer[src_y0_offset + src_x1];
+            uint32_t p10 = src->buffer[src_y1_offset + src_x0];
+            uint32_t p11 = src->buffer[src_y1_offset + src_x1];
+
+            // If all pixels are the same, skip interpolation
+            if (p00 == p01 && p00 == p10 && p00 == p11) {
+                dst->buffer[y * dst_w + x] = p00;
+                continue;
+            }
+
+            // Bilinear interpolation
+            dst->buffer[y * dst_w + x] = bilinear_interp_u8(p00, p01, p10, p11, src_x_frac, src_y_frac);
+        }
+    }
+}
+
+void graph_fit_tof(graph_t* src, graph_t* dst) {
+#if BSP_BOOST
+    graph_fit_tof_cpu(src, dst);
+#else
+    graph_fit_tof_cpu(src, dst);
+#endif
+}
+
+graph_t* graph_fitf(graph_t* g, int32_t w, int32_t h) {
+	graph_t* ret = NULL;
+    if(w <= 0 || h <= 0)
+        return NULL;
+
+	ret = graph_new(NULL, w, h);
+	if(ret == NULL)
+		return NULL;
+	graph_fit_tof(g, ret);
+	return ret;
+}
+
 #ifdef __cplusplus
 }
 #endif

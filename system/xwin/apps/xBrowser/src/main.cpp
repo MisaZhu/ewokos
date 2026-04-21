@@ -5,6 +5,7 @@
 #include <Widget/RootWidget.h>
 #include <Widget/WidgetX.h>
 #include <Widget/EditLine.h>
+#include <Widget/Label.h>
 #include <Widget/Scroller.h>
 #include <Widget/Container.h>
 #include <ewoksys/keydef.h>
@@ -13,6 +14,56 @@
 #include "WidgetWebview/WidgetWebview.h"
 
 using namespace Ewok;
+class StatusBar: public Label {
+protected:
+	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
+		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.docBGColor, true);
+		font_t* font = theme->getFont();
+		int y = r.y + (r.h-font_get_height(font, theme->basic.fontSize))/2;
+		graph_draw_text_font(g, r.x+4, y, label.c_str(), font, theme->basic.fontSize, theme->basic.docFGColor);
+	}
+public:
+	StatusBar(const std::string& label) : Label(label) {}
+};
+
+class BrowserWidget: public WidgetWebview {
+public:
+    BrowserWidget() : WidgetWebview() { statusBar = nullptr; }
+    ~BrowserWidget() {}
+
+    void setStatusBar(StatusBar* statusBar) {
+        this->statusBar = statusBar;
+    }
+protected:
+    StatusBar* statusBar;
+
+    void onTaskStart(const HttpTask& task) override {
+        if(statusBar == nullptr)
+            return;
+        std::string msg = "loading " + task.url;
+        statusBar->setLabel(msg);
+    }
+    void onTaskEnd(const HttpTask& task) override {
+        if(statusBar == nullptr)
+            return;
+        std::string msg = task.url;
+        msg += " loaded";
+        statusBar->setLabel(msg);
+    }
+    void onTaskFailed(const HttpTask& task) override {
+        if(statusBar == nullptr)
+            return;
+        std::string msg = task.url;
+        msg += " failed";
+        statusBar->setLabel(msg);
+    }
+
+    void onTasksEnd() override {
+        if(statusBar == nullptr)
+            return;
+        statusBar->setLabel("");
+    }
+};
 
 static void onInputFunc(Widget* wd, uint32_t key, void* arg) {
     WidgetWebview* webview = (WidgetWebview*)arg;
@@ -48,7 +99,7 @@ int main(int argc, char* argv[])
     c->setType(Container::HORIZONTAL);
     root->add(c);
 
-    WidgetWebview* webview = new WidgetWebview();
+    BrowserWidget* webview = new BrowserWidget();
     c->add(webview);
 
     editline->setOnInputFunc(onInputFunc, webview);
@@ -73,6 +124,11 @@ int main(int argc, char* argv[])
         editline->enable();
         webview->loadHtml("res://html/default.html");
     }
+
+    StatusBar* statusBar = new StatusBar("");
+    webview->setStatusBar(statusBar);
+    statusBar->fix(0, 24);
+    root->add(statusBar);
 
     widgetXRun(&x, &win);
     return 0;

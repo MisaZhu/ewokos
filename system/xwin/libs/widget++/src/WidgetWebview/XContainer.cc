@@ -8,6 +8,7 @@
 #include <graph/graph_ex.h>
 #include <graph/graph_image.h>
 #include <ewoksys/basic_math.h>
+#include <ewoksys/klog.h>
 #include <x++/X.h>
 #include <tinyhttpsc/tinyhttpsc.h>
 #include <stdlib.h>
@@ -192,6 +193,16 @@ const std::string XContainer::getFullURL(const std::string& src, const std::stri
         path += X::getResFullName(src.substr(6).c_str());
         return path;
     }
+    else if(src.starts_with("//")) {
+        // Protocol-relative URL: //example.com/path
+        // Use https by default, or http if baseurl uses http
+        if(baseurl.starts_with("http://")) {
+            path = "http:" + src;
+        } else {
+            path = "https:" + src;
+        }
+        return path;
+    }
 
     if (!baseurl.empty()) {
         if(baseurl[baseurl.length() - 1] != '/')
@@ -340,6 +351,7 @@ void XContainer::draw_background(litehtml::uint_ptr hdc, const litehtml::backgro
     if (!g)
         return;
 
+    bool do_image = false;
     if (!bg.image.empty() && bg.image_size.width > 0 && bg.image_size.height > 0) {
         std::string full_url = getFullURL(bg.image, m_base_url);
         if (!full_url.empty()) {
@@ -350,20 +362,28 @@ void XContainer::draw_background(litehtml::uint_ptr hdc, const litehtml::backgro
             } 
 
             if (img != NULL) {
-                graph_blt_alpha(img, 0, 0, img->w, img->h,
+                graph_t* fit_img = graph_fitf(img, bg.clip_box.width, bg.clip_box.height);
+                if(fit_img == NULL) {
+                    return;
+                }
+                graph_blt_alpha(fit_img, 0, 0, fit_img->w, fit_img->h,
                     g, bg.clip_box.x, bg.clip_box.y, bg.clip_box.width, bg.clip_box.height, 0xFF);
+                graph_free(fit_img);
                 return;
             }
         }
+        do_image = true;
     }
 
     uint32_t color = web_color_to_graph(bg.color);
-
     if ((color >> 24) == 0) {
         color = 0xFF000000 | (color & 0xFFFFFF);
     }
 
-    graph_fill_rect(g, bg.clip_box.x, bg.clip_box.y, bg.clip_box.width, bg.clip_box.height, color);
+    if(!do_image)
+        graph_fill_rect(g, bg.clip_box.x, bg.clip_box.y, bg.clip_box.width, bg.clip_box.height, color);
+    else
+        graph_rect(g, bg.clip_box.x, bg.clip_box.y, bg.clip_box.width, bg.clip_box.height, color);
 }
 
 void XContainer::draw_borders(litehtml::uint_ptr hdc, const litehtml::borders& borders, const litehtml::position& draw_pos, bool root)

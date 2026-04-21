@@ -52,11 +52,6 @@ WidgetWebview::~WidgetWebview()
     pthread_mutex_destroy(&m_renderMutex);
 }
 
-bool WidgetWebview::init()
-{
-    return true;
-}
-
 void* _task_thread(void* p)
 {
     WidgetWebview* widget = (WidgetWebview*)p;
@@ -64,26 +59,29 @@ void* _task_thread(void* p)
     
     while(!widget->m_task_ended) {
         if (widget->getTask(task)) {
-
+            bool res = false;
+            widget->onTaskStart(task);
             // Process task
             if (task.type == HttpTask::TASK_HTML) {
-                slog("loadHtmlTask: %s\n", task.url.c_str());
                 widget->getWin()->busy(true);
-                widget->loadHtmlTask(task.url);
+                res = widget->loadHtmlTask(task.url);
                 widget->getWin()->busy(false);
-                slog("loadHtmlTask: %s done\n", task.url.c_str());
             } else if (task.type == HttpTask::TASK_CSS) {
-                slog("loadCSSTask: %s\n", task.url.c_str());
-                widget->loadCSSTask(task.url);
-                slog("loadCSSTask: %s done\n", task.url.c_str());
+                res = widget->loadCSSTask(task.url);
             } else if (task.type == HttpTask::TASK_IMAGE) {
-                slog("loadImageTask: %s\n", task.url.c_str());
-                widget->loadImageTask(task.url);
-                slog("loadImageTask: %s done\n", task.url.c_str());
+                res = widget->loadImageTask(task.url);
+            }
+
+            if(res) {
+                widget->onTaskEnd(task);
+            }
+            else {
+                widget->onTaskFailed(task);
             }
         }
         else {
             // No task, sleep a bit
+            widget->onTasksEnd();
             proc_usleep(10000);
         }
     }

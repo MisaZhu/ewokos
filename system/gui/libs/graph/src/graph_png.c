@@ -116,8 +116,27 @@ graph_t* png_image_new(const char* fname) {
         }
     }
 
-    if ( color_type == PNG_COLOR_TYPE_GRAY_ALPHA )
+    if (color_type == PNG_COLOR_TYPE_GRAY_ALPHA)
         png_set_gray_to_rgb(png_ptr);
+
+    /* Handle interlaced images */
+    if (interlace_type != PNG_INTERLACE_NONE) {
+        png_set_interlace_handling(png_ptr);
+    }
+
+    /* Ensure we have RGB or RGBA output */
+    if (color_type == PNG_COLOR_TYPE_PALETTE) {
+        png_set_palette_to_rgb(png_ptr);
+    }
+    if (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA) {
+        png_set_gray_to_rgb(png_ptr);
+    }
+    /* Add alpha channel if needed */
+    if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)) {
+        png_set_tRNS_to_alpha(png_ptr);
+    } else if (!(color_type & PNG_COLOR_MASK_ALPHA)) {
+        png_set_filler(png_ptr, 0xFF, PNG_FILLER_AFTER);
+    }
 
     png_read_update_info(png_ptr, info_ptr);
 
@@ -125,11 +144,12 @@ graph_t* png_image_new(const char* fname) {
             &color_type, &interlace_type, NULL, NULL);
 
     /* Allocate the SDL surface to hold the image */
-    Rmask = Gmask = Bmask = Amask = 0 ;
+    Rmask = Gmask = Bmask = Amask = 0;
     num_channels = png_get_channels(png_ptr, info_ptr);
-    if ( num_channels < 3 ) {
-		goto done;
-	}
+    if (num_channels < 3) {
+        /* After all conversions, we should have at least 3 channels (RGB) */
+        goto done;
+    }
 
 #if SDL_BYTEORDER == SDL_LIL_ENDIAN
 	Rmask = 0x000000FF;
@@ -272,35 +292,27 @@ graph_t* png_image_new_from_data(const uint8_t* data, uint32_t size) {
     if (color_type == PNG_COLOR_TYPE_GRAY)
         png_set_expand(png_ptr);
 
-    // For images with a single "transparent colour", set colour key
-    if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)) {
-        int num_trans;
-        uint8_t* trans;
-        png_get_tRNS(png_ptr, info_ptr, &trans, &num_trans, &transv);
-        if (color_type == PNG_COLOR_TYPE_PALETTE) {
-            int j, t = -1;
-            for (j = 0; j < num_trans; j++) {
-                if (trans[j] == 0) {
-                    if (t >= 0) {
-                        break;
-                    }
-                    t = j;
-                } else if (trans[j] != 255) {
-                    break;
-                }
-            }
-            if (j == num_trans) {
-                ckey = t;
-            } else {
-                png_set_expand(png_ptr);
-            }
-        } else {
-            ckey = 0;
-        }
-    }
-
     if (color_type == PNG_COLOR_TYPE_GRAY_ALPHA)
         png_set_gray_to_rgb(png_ptr);
+
+    /* Handle interlaced images */
+    if (interlace_type != PNG_INTERLACE_NONE) {
+        png_set_interlace_handling(png_ptr);
+    }
+
+    /* Ensure we have RGB or RGBA output */
+    if (color_type == PNG_COLOR_TYPE_PALETTE) {
+        png_set_palette_to_rgb(png_ptr);
+    }
+    if (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA) {
+        png_set_gray_to_rgb(png_ptr);
+    }
+    /* Add alpha channel if needed */
+    if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)) {
+        png_set_tRNS_to_alpha(png_ptr);
+    } else if (!(color_type & PNG_COLOR_MASK_ALPHA)) {
+        png_set_filler(png_ptr, 0xFF, PNG_FILLER_AFTER);
+    }
 
     png_read_update_info(png_ptr, info_ptr);
 
@@ -310,6 +322,7 @@ graph_t* png_image_new_from_data(const uint8_t* data, uint32_t size) {
     // Allocate the surface to hold the image
     num_channels = png_get_channels(png_ptr, info_ptr);
     if (num_channels < 3) {
+        /* After all conversions, we should have at least 3 channels (RGB) */
         goto done;
     }
 

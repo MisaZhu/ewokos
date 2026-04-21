@@ -88,7 +88,10 @@ graph_t* graph_rotate(graph_t* g, int rot);
 
 void     graph_scale_tof_cpu(graph_t* g, graph_t* dst, float scale);
 void     graph_scale_tof(graph_t* src, graph_t* dst, float scale);
+void     graph_fit_tof_cpu(graph_t* src, graph_t* dst);
+void     graph_fit_tof(graph_t* src, graph_t* dst);
 graph_t* graph_scalef(graph_t* g, float scale);
+graph_t* graph_fitf(graph_t* g, int32_t w, int32_t h);
 void     graph_scale_tof_fast(graph_t* g, graph_t* dst, float scale);
 graph_t* graph_scalef_fast(graph_t* g, float scale);
 
