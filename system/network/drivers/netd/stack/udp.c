@@ -100,16 +100,24 @@ udp_pcb_release(struct udp_pcb *pcb)
     struct queue_entry *entry;
 
     pcb->state = UDP_PCB_STATE_CLOSING;
+
+    // First, clean up all queued data regardless of sched_ctx_destroy result
+    while ((entry = queue_pop(&pcb->queue)) != NULL) {
+        memory_free(entry);
+    }
+    // Reset queue to empty state
+    pcb->queue.num = 0;
+    pcb->queue.head = NULL;
+    pcb->queue.tail = NULL;
+
     if (sched_ctx_destroy(&pcb->ctx) == -1) {
         sched_wakeup(&pcb->ctx);
-        return;
+        // Even if sched_ctx_destroy fails, we still reset the state to FREE
+        // to prevent the pcb from being used again.
     }
     pcb->state = UDP_PCB_STATE_FREE;
     pcb->local.addr = IP_ADDR_ANY;
     pcb->local.port = 0;
-    while ((entry = queue_pop(&pcb->queue)) != NULL) {
-        memory_free(entry);
-    }
 }
 
 static struct udp_pcb *

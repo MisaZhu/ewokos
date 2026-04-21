@@ -200,17 +200,22 @@ tcp_pcb_release(struct tcp_pcb *pcb)
     char ep1[IP_ENDPOINT_STR_LEN];
     char ep2[IP_ENDPOINT_STR_LEN];
 
-    if (sched_ctx_destroy(&pcb->ctx) == -1) {
-        sched_wakeup(&pcb->ctx);
-        return;
-    }
-
+    // First, clean up all resources regardless of sched_ctx_destroy result
+    // Clean up retransmit queue
     while ((entry = queue_pop(&pcb->queue)) != NULL) {
         memory_free(entry);
     }
+    // Clean up backlog connections
     while ((est = queue_pop(&pcb->backlog)) != NULL) {
         tcp_pcb_release(est);
     }
+
+    if (sched_ctx_destroy(&pcb->ctx) == -1) {
+        sched_wakeup(&pcb->ctx);
+        // Even if sched_ctx_destroy fails, we still need to reset the pcb
+        // to prevent resource leaks. The pcb will be in a semi-released state.
+    }
+
     pcb_release_count++;
     infof("tcp_pcb_release: total=%d, released=%d, state=%d, local=%s, foreign=%s",
           pcb_alloc_count, pcb_release_count, pcb->state,
@@ -1512,13 +1517,8 @@ RETRY:
             }
             // After waking up, re-read remain to get updated buffer state
             // sched_sleep returns with mutex locked
-            remain = sizeof(pcb->buf) - pcb->rcv.wnd;
-            if (!remain) {
-                // Still no data, continue waiting (mutex is already held)
-                goto RETRY;
-            }
-            // Have data, break to read it (mutex is held)
-            break;
+            // Always goto RETRY to re-check state, as connection may have been closed
+            goto RETRY;
         }
         break;
     case TCP_PCB_STATE_CLOSE_WAIT:
@@ -1562,8 +1562,9 @@ tcp_close(int id)
     switch (pcb->state) {
     case TCP_PCB_STATE_CLOSED:
         //errorf("connection does not exist");
+        tcp_pcb_release(pcb);
         mutex_unlock(&mutex);
-        break;
+        return 0;
     case TCP_PCB_STATE_LISTEN:
         pcb->state = TCP_PCB_STATE_CLOSED;
         break;
