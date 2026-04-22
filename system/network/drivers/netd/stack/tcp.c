@@ -1406,6 +1406,15 @@ RETRY:
                     errno = EINTR;
                     return -1;
                 }
+                // After waking up, re-check if pcb is still valid
+                pcb = tcp_pcb_get(id);
+                if (!pcb) {
+                    // Connection was closed while we were sleeping
+                    mutex_unlock(&mutex);
+                    errno = ECONNRESET;
+                    return -1;
+                }
+                mutex_unlock(&mutex);
                 goto RETRY;
             }
             slen = MIN(MIN(mss, len - sent), cap);
@@ -1454,23 +1463,26 @@ RETRY:
 }
 
 ssize_t
-tcp_receive(int id, uint8_t *buf, size_t size)
+tcp_receive(int id, uint8_t *data, size_t size)
 {
     struct tcp_pcb *pcb;
     size_t remain, len;
     struct timeval recv_start, recv_end, recv_diff;
+    int need_ack = 0;
+    size_t prev_wnd;
+    int ret;
+
     gettimeofday(&recv_start, NULL);
+RETRY:
     mutex_lock(&mutex);
     pcb = tcp_pcb_get(id);
     if (!pcb) {
-        // Connection was closed (possibly by RST), return appropriate error
         mutex_unlock(&mutex);
         errno = ECONNRESET;
         return -1;
     }
 
     struct timeval *rcv_timeout = sock_get_timeout(id, SOCK_STREAM, SO_RCVTIMEO);
-RETRY:
     switch (pcb->state) {
     case TCP_PCB_STATE_CLOSED:
         if (pcb->close_reason == 1) {
@@ -1488,7 +1500,6 @@ RETRY:
     case TCP_PCB_STATE_LISTEN:
     case TCP_PCB_STATE_SYN_SENT:
     case TCP_PCB_STATE_SYN_RECEIVED:
-        /* ignore: Queue for processing after entering ESTABLISHED state */
         errorf("insufficient resources");
         mutex_unlock(&mutex);
         return -1;
@@ -1499,7 +1510,6 @@ RETRY:
         if (!remain) {
             struct timeval abs_timeout;
             struct timeval *timeout = sock_get_timeout_abs(rcv_timeout, &abs_timeout);
-            // Use default 30 second timeout if no timeout is set
             if (!timeout) {
                 uint64_t usec;
                 kernel_tic(NULL, &usec);
@@ -1507,17 +1517,21 @@ RETRY:
                 abs_timeout.tv_usec = usec % 1000000;
                 timeout = &abs_timeout;
             }
-            if (sched_sleep(&pcb->ctx, &mutex, timeout) == -1) {
-                // sched_sleep returns with mutex locked on error
+            ret = sched_sleep(&pcb->ctx, &mutex, timeout);
+            if (ret == -1) {
                 if (errno == ETIMEDOUT) {
                     errorf("tcp receive timeout after 30 seconds");
                 }
                 mutex_unlock(&mutex);
                 return -1;
             }
-            // After waking up, re-read remain to get updated buffer state
-            // sched_sleep returns with mutex locked
-            // Always goto RETRY to re-check state, as connection may have been closed
+            pcb = tcp_pcb_get(id);
+            if (!pcb) {
+                mutex_unlock(&mutex);
+                errno = ECONNRESET;
+                return -1;
+            }
+            mutex_unlock(&mutex);
             goto RETRY;
         }
         break;
@@ -1526,7 +1540,8 @@ RETRY:
         if (remain) {
             break;
         }
-        /* fall through */
+        mutex_unlock(&mutex);
+        return 0;
     case TCP_PCB_STATE_CLOSING:
     case TCP_PCB_STATE_LAST_ACK:
     case TCP_PCB_STATE_TIME_WAIT:
@@ -1539,10 +1554,25 @@ RETRY:
         return -1;
     }
     len = MIN(size, remain);
-    memcpy(buf, pcb->buf, len);
+    prev_wnd = pcb->rcv.wnd;
+    memcpy(data, pcb->buf, len);
     memmove(pcb->buf, pcb->buf + len, remain - len);
     pcb->rcv.wnd += len;
+
+    if (prev_wnd < sizeof(pcb->buf) / 2) {
+        need_ack = 1;
+    }
     mutex_unlock(&mutex);
+
+    if (need_ack) {
+        mutex_lock(&mutex);
+        pcb = tcp_pcb_get(id);
+        if (pcb) {
+            tcp_output(pcb, TCP_FLG_ACK, NULL, 0);
+        }
+        mutex_unlock(&mutex);
+    }
+
     gettimeofday(&recv_end, NULL);
     timersub(&recv_end, &recv_start, &recv_diff);
     return len;

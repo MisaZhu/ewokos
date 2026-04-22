@@ -29,6 +29,7 @@ struct sched_ctx {
 	int cond;
   int interrupted;
   int wc; /* wait count */
+  int sleeping; /* set to 1 when sched_sleep is waiting */
 };
 
 #define gettimeofday gettimeofday_plat

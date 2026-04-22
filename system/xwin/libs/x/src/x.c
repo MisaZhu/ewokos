@@ -236,8 +236,8 @@ int x_set_app_name(x_t* x, const char* fname) {
 }
 
 int x_exec(const char* fname) {
-	if(x_set_top_app(fname) == 0)
-		return 0;
+	//if(x_set_top_app(fname) == 0)
+		//return 0;
 
 	int pid = fork();
 	if(pid == 0) {
