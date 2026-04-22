@@ -362,13 +362,8 @@ void XContainer::draw_background(litehtml::uint_ptr hdc, const litehtml::backgro
             } 
 
             if (img != NULL) {
-                graph_t* fit_img = graph_fitf(img, bg.clip_box.width, bg.clip_box.height);
-                if(fit_img == NULL) {
-                    return;
-                }
-                graph_blt_alpha(fit_img, 0, 0, fit_img->w, fit_img->h,
+                graph_blt_fit_alpha(img, 0, 0, img->w, img->h,
                     g, bg.clip_box.x, bg.clip_box.y, bg.clip_box.width, bg.clip_box.height, 0xFF);
-                graph_free(fit_img);
                 return;
             }
         }

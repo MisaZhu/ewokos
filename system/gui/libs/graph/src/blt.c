@@ -321,6 +321,183 @@ inline void graph_blt_alpha_mask(graph_t* src, int32_t sx, int32_t sy, int32_t s
 #endif
 }
 
+void graph_blt_fit_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
+
+	if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
+		return;
+
+	grect_t dr = {dx, dy, dw, dh};
+	graph_insect(dst, &dr);
+	if(dst->clip.w > 0 && dst->clip.h > 0)
+		grect_insect(&dst->clip, &dr);
+
+	if(dr.w <= 0 || dr.h <= 0)
+		return;
+
+	register float scale_x = (float)sw / (float)dw;
+	register float scale_y = (float)sh / (float)dh;
+
+	register int32_t ey = dr.y + dr.h;
+	register int32_t ex = dr.x + dr.w;
+
+	register int32_t y = dr.y;
+	for(; y < ey; y++) {
+		register float src_fy = (y - dr.y) * scale_y + sy;
+		register int32_t src_y0 = (int32_t)src_fy;
+		register int32_t src_y1 = src_y0 + 1;
+		if(src_y1 >= sy + sh) src_y1 = src_y0;
+		register float ty = src_fy - src_y0;
+
+		register int32_t dst_offset_y = y * dst->w;
+
+		for(register int32_t x = dr.x; x < ex; x++) {
+			register float src_fx = (x - dr.x) * scale_x + sx;
+			register int32_t src_x0 = (int32_t)src_fx;
+			register int32_t src_x1 = src_x0 + 1;
+			if(src_x1 >= sx + sw) src_x1 = src_x0;
+			register float tx = src_fx - src_x0;
+
+			register uint32_t p00 = src->buffer[src_y0 * src->w + src_x0];
+			register uint32_t p10 = src->buffer[src_y0 * src->w + src_x1];
+			register uint32_t p01 = src->buffer[src_y1 * src->w + src_x0];
+			register uint32_t p11 = src->buffer[src_y1 * src->w + src_x1];
+
+			register float a00 = (1.0f - tx) * (1.0f - ty);
+			register float a10 = tx * (1.0f - ty);
+			register float a01 = (1.0f - tx) * ty;
+			register float a11 = tx * ty;
+
+			register uint8_t r = (uint8_t)(
+				((p00 >> 16) & 0xff) * a00 +
+				((p10 >> 16) & 0xff) * a10 +
+				((p01 >> 16) & 0xff) * a01 +
+				((p11 >> 16) & 0xff) * a11
+			);
+			register uint8_t g = (uint8_t)(
+				((p00 >> 8) & 0xff) * a00 +
+				((p10 >> 8) & 0xff) * a10 +
+				((p01 >> 8) & 0xff) * a01 +
+				((p11 >> 8) & 0xff) * a11
+			);
+			register uint8_t b = (uint8_t)(
+				(p00 & 0xff) * a00 +
+				(p10 & 0xff) * a10 +
+				(p01 & 0xff) * a01 +
+				(p11 & 0xff) * a11
+			);
+			register uint8_t a = (uint8_t)(
+				((p00 >> 24) & 0xff) * a00 +
+				((p10 >> 24) & 0xff) * a10 +
+				((p01 >> 24) & 0xff) * a01 +
+				((p11 >> 24) & 0xff) * a11
+			);
+
+			dst->buffer[dst_offset_y + x] = (a << 24) | (r << 16) | (g << 8) | b;
+		}
+	}
+}
+
+inline void graph_blt_fit(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
+#ifdef BSP_BOOST
+		//graph_blt_fit_bsp(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
+		graph_blt_fit_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
+#else
+		graph_blt_fit_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
+#endif
+}
+
+void graph_blt_fit_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
+
+	if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0 || alpha == 0)
+		return;
+
+	grect_t dr = {dx, dy, dw, dh};
+	graph_insect(dst, &dr);
+	if(dst->clip.w > 0 && dst->clip.h > 0)
+		grect_insect(&dst->clip, &dr);
+
+	if(dr.w <= 0 || dr.h <= 0)
+		return;
+
+	register float scale_x = (float)sw / (float)dw;
+	register float scale_y = (float)sh / (float)dh;
+
+	register int32_t ey = dr.y + dr.h;
+	register int32_t ex = dr.x + dr.w;
+
+	register int32_t y = dr.y;
+	for(; y < ey; y++) {
+		register float src_fy = (y - dr.y) * scale_y + sy;
+		register int32_t src_y0 = (int32_t)src_fy;
+		register int32_t src_y1 = src_y0 + 1;
+		if(src_y1 >= sy + sh) src_y1 = src_y0;
+		register float ty = src_fy - src_y0;
+
+		register int32_t dst_offset_y = y * dst->w;
+
+		for(register int32_t x = dr.x; x < ex; x++) {
+			register float src_fx = (x - dr.x) * scale_x + sx;
+			register int32_t src_x0 = (int32_t)src_fx;
+			register int32_t src_x1 = src_x0 + 1;
+			if(src_x1 >= sx + sw) src_x1 = src_x0;
+			register float tx = src_fx - src_x0;
+
+			register uint32_t p00 = src->buffer[src_y0 * src->w + src_x0];
+			register uint32_t p10 = src->buffer[src_y0 * src->w + src_x1];
+			register uint32_t p01 = src->buffer[src_y1 * src->w + src_x0];
+			register uint32_t p11 = src->buffer[src_y1 * src->w + src_x1];
+
+			register float a00 = (1.0f - tx) * (1.0f - ty);
+			register float a10 = tx * (1.0f - ty);
+			register float a01 = (1.0f - tx) * ty;
+			register float a11 = tx * ty;
+
+			register uint8_t r = (uint8_t)(
+				((p00 >> 16) & 0xff) * a00 +
+				((p10 >> 16) & 0xff) * a10 +
+				((p01 >> 16) & 0xff) * a01 +
+				((p11 >> 16) & 0xff) * a11
+			);
+			register uint8_t g = (uint8_t)(
+				((p00 >> 8) & 0xff) * a00 +
+				((p10 >> 8) & 0xff) * a10 +
+				((p01 >> 8) & 0xff) * a01 +
+				((p11 >> 8) & 0xff) * a11
+			);
+			register uint8_t b = (uint8_t)(
+				(p00 & 0xff) * a00 +
+				(p10 & 0xff) * a10 +
+				(p01 & 0xff) * a01 +
+				(p11 & 0xff) * a11
+			);
+			register uint8_t a = (uint8_t)(
+				((p00 >> 24) & 0xff) * a00 +
+				((p10 >> 24) & 0xff) * a10 +
+				((p01 >> 24) & 0xff) * a01 +
+				((p11 >> 24) & 0xff) * a11
+			);
+
+			register uint8_t sa = (uint8_t)(((uint32_t)a * alpha) >> 8);
+			if(sa > 0) {
+				graph_pixel_argb_raw(dst, x, y, sa, r, g, b);
+			}
+		}
+	}
+}
+
+inline void graph_blt_fit_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
+#ifdef BSP_BOOST
+		//graph_blt_fit_alpha_bsp(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
+		graph_blt_fit_alpha_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
+#else
+		graph_blt_fit_alpha_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
+#endif
+}
+
 inline bool check_in_rect(int32_t x, int32_t y, grect_t* rect) {
 	if(x >= rect->x && x < (rect->x+rect->w) && 
 			y >= rect->y && y < (rect->y+rect->h))
