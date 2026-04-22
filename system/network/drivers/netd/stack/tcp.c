@@ -416,6 +416,48 @@ tcp_output(struct tcp_pcb *pcb, uint8_t flg, uint8_t *data, size_t len)
     return tcp_output_segment(seq, pcb->rcv.nxt, flg, pcb->rcv.wnd, data, len, &pcb->local, &pcb->foreign);
 }
 
+static void
+tcp_send_ack_only(struct tcp_pcb *pcb)
+{
+    struct tcp_hdr hdr;
+    struct pseudo_hdr pseudo;
+    uint16_t psum;
+    uint16_t total;
+    char ep1[IP_ENDPOINT_STR_LEN];
+    char ep2[IP_ENDPOINT_STR_LEN];
+
+    errorf("[TCP_ACK] id=%d, 1.start", tcp_pcb_id(pcb));
+    hdr.src = pcb->local.port;
+    hdr.dst = pcb->foreign.port;
+    hdr.seq = hton32(pcb->snd.nxt);
+    hdr.ack = hton32(pcb->rcv.nxt);
+    hdr.off = (sizeof(hdr) >> 2) << 4;
+    hdr.flg = TCP_FLG_ACK;
+    hdr.wnd = hton16(pcb->rcv.wnd);
+    hdr.sum = 0;
+    hdr.up = 0;
+    errorf("[TCP_ACK] id=%d, 2.hdr setup done", tcp_pcb_id(pcb));
+    pseudo.src = pcb->local.addr;
+    pseudo.dst = pcb->foreign.addr;
+    pseudo.zero = 0;
+    pseudo.protocol = IP_PROTOCOL_TCP;
+    total = sizeof(hdr);
+    pseudo.len = hton16(total);
+    psum = ~cksum16((uint16_t *)&pseudo, sizeof(pseudo), 0);
+    hdr.sum = cksum16((uint16_t *)&hdr, total, psum);
+    errorf("[TCP_ACK] id=%d, 3.checksum done", tcp_pcb_id(pcb));
+
+    debugf("%s => %s, len=%u (payload=0)",
+        ip_endpoint_ntop(&pcb->local, ep1, sizeof(ep1)), ip_endpoint_ntop(&pcb->foreign, ep2, sizeof(ep2)), total);
+
+    errorf("[TCP_ACK] id=%d, 4.before ip_output", tcp_pcb_id(pcb));
+    TRACE();
+    ip_output(IP_PROTOCOL_TCP, (uint8_t *)&hdr, total, pcb->local.addr, pcb->foreign.addr);
+    errorf("[TCP_ACK] id=%d, 5.after ip_output", tcp_pcb_id(pcb));
+    TRACE();
+    errorf("[TCP_ACK] id=%d, 6.done", tcp_pcb_id(pcb));
+}
+
 /* rfc793 - section 3.9 [Event Processing > SEGMENT ARRIVES] */
 static void
 tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, size_t len, struct ip_endpoint *local, struct ip_endpoint *foreign)
@@ -1612,21 +1654,21 @@ RETRY:
     memcpy(data, pcb->buf, len);
     memmove(pcb->buf, pcb->buf + len, remain - len);
     pcb->rcv.wnd += len;
+    errorf("[TCP_RECV] id=%d, read len=%zu, prev_wnd=%zu, new_wnd=%zu", 
+           id, len, prev_wnd, pcb->rcv.wnd);
 
     if (prev_wnd < sizeof(pcb->buf) / 2) {
         need_ack = 1;
     }
-    mutex_unlock(&mutex);
 
     if (need_ack) {
-        mutex_lock(&mutex);
-        pcb = tcp_pcb_get(id);
-        if (pcb) {
-            tcp_output(pcb, TCP_FLG_ACK, NULL, 0);
-        }
-        mutex_unlock(&mutex);
+        tcp_send_ack_only(pcb);
     }
+    errorf("[TCP_RECV] id=%d, before mutex_unlock", id);
+    mutex_unlock(&mutex);
+    errorf("[TCP_RECV] id=%d, mutex unlocked", id);
 
+    errorf("[TCP_RECV] id=%d, returning len=%zu", id, len);
     gettimeofday(&recv_end, NULL);
     timersub(&recv_end, &recv_start, &recv_diff);
     return len;
