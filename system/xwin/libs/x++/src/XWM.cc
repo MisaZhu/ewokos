@@ -254,11 +254,11 @@ uint32_t XWM::getPatternMode(graph_t* g, float* scale) {
 		sc = (scaleX > scaleY) ? scaleX : scaleY;
 	*scale = sc;
 
-	if(sc < 1.0)
-		return DESKTOP_PATTERN_FIT;
-	else if(sc > 1.6)
+	if(sc > 1.6)
 		return DESKTOP_PATTERN_TILE;
-	return DESKTOP_PATTERN_CENTER;
+	//else if(sc < 1.0)
+	//	return DESKTOP_PATTERN_CENTER;
+	return DESKTOP_PATTERN_FIT;
 }
 
 void XWM::drawDesktop(graph_t* g) {
@@ -272,7 +272,7 @@ void XWM::drawDesktop(graph_t* g) {
 		if(scale != 1.0 && !patternFit && patternMode == DESKTOP_PATTERN_FIT) {
 			// Calculate scale to fit desktop while maintaining aspect ratio
 			// Use the smaller dimension to ensure the pattern fills the entire screen
-			graph_t * desktopPatternFit = graph_scalef_fast(desktopPattern, scale);
+			graph_t * desktopPatternFit = graph_scale_fitf(desktopPattern, g->w, g->h);
 			if(desktopPatternFit != NULL) {
 				graph_free(desktopPattern);
 				desktopPattern = desktopPatternFit; 

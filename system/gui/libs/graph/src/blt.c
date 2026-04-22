@@ -189,21 +189,108 @@ void graph_blt_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 	if(dy < 0)
 		sr.y -= dy;
 
-	register int32_t ex, ey, offset_d, offset_r;
-	sy = sr.y;
-	dy = dr.y;
-	ex = sr.x + sr.w;
-	ey = sr.y + sr.h;
+	int32_t src_w = src->w;
+	int32_t src_h = src->h;
+	float scale_x = (float)sr.w / (float)dr.w;
+	float scale_y = (float)sr.h / (float)dr.h;
+	int is_downscale = (scale_x > 1.0f || scale_y > 1.0f);
+	int32_t ey = dr.y + dr.h;
+	int32_t ex = dr.x + dr.w;
 
-	for(; sy < ey; sy++, dy++) {
-		sx = sr.x;
-		dx = dr.x;
-		offset_d = dy * dst->w;
-		offset_r = sy * src->w;
-		for(; sx < ex; sx++, dx++) {
-			dst->buffer[offset_d + dx] = src->buffer[offset_r + sx];
+	if(!is_downscale && scale_x <= 1.0f && scale_y <= 1.0f && scale_x > 0.9f && scale_y > 0.9f) {
+		int32_t y = dr.y;
+		for(; y < ey; y++) {
+			int32_t src_y = (int32_t)((y - dr.y) * scale_y + sr.y);
+			if(src_y >= src_h) src_y = src_h - 1;
+			int32_t dst_offset_y = y * dst->w;
+			int32_t x = dr.x;
+			int32_t src_offset = src_y * src_w;
+			for(; x < ex; x++) {
+				int32_t src_x = (int32_t)((x - dr.x) * scale_x + sr.x);
+				if(src_x >= sr.w + sr.x) src_x = sr.w + sr.x - 1;
+				dst->buffer[dst_offset_y + x] = src->buffer[src_offset + src_x];
+			}
 		}
-		//memcpy(&dst->buffer[offset_d]+dx, &src->buffer[offset_r], (ex-sx)*4);
+	} else {
+		if(!is_downscale) {
+			for(int32_t y = dr.y; y < ey; y++) {
+				float src_fy = (y - dr.y) * scale_y + sr.y;
+				int32_t src_y0 = (int32_t)src_fy;
+				int32_t src_y1 = src_y0 + 1;
+				if(src_y1 >= sr.y + sr.h) src_y1 = src_y0;
+				float ty = src_fy - src_y0;
+				int32_t dst_offset_y = y * dst->w;
+
+				for(int32_t x = dr.x; x < ex; x++) {
+					float src_fx = (x - dr.x) * scale_x + sr.x;
+					int32_t src_x0 = (int32_t)src_fx;
+					int32_t src_x1 = src_x0 + 1;
+					if(src_x1 >= sr.x + sr.w) src_x1 = src_x0;
+					float tx = src_fx - src_x0;
+
+					uint32_t p00 = src->buffer[src_y0 * src_w + src_x0];
+					uint32_t p10 = src->buffer[src_y0 * src_w + src_x1];
+					uint32_t p01 = src->buffer[src_y1 * src_w + src_x0];
+					uint32_t p11 = src->buffer[src_y1 * src_w + src_x1];
+
+					float a00 = (1.0f - tx) * (1.0f - ty);
+					float a10 = tx * (1.0f - ty);
+					float a01 = (1.0f - tx) * ty;
+					float a11 = tx * ty;
+
+					uint8_t r = (uint8_t)(((p00 >> 16) & 0xff) * a00 + ((p10 >> 16) & 0xff) * a10 + ((p01 >> 16) & 0xff) * a01 + ((p11 >> 16) & 0xff) * a11);
+					uint8_t g = (uint8_t)(((p00 >> 8) & 0xff) * a00 + ((p10 >> 8) & 0xff) * a10 + ((p01 >> 8) & 0xff) * a01 + ((p11 >> 8) & 0xff) * a11);
+					uint8_t b = (uint8_t)((p00 & 0xff) * a00 + (p10 & 0xff) * a10 + (p01 & 0xff) * a01 + (p11 & 0xff) * a11);
+					uint8_t a = (uint8_t)(((p00 >> 24) & 0xff) * a00 + ((p10 >> 24) & 0xff) * a10 + ((p01 >> 24) & 0xff) * a01 + ((p11 >> 24) & 0xff) * a11);
+
+					dst->buffer[dst_offset_y + x] = (a << 24) | (r << 16) | (g << 8) | b;
+				}
+			}
+		} else {
+			for(int32_t y = dr.y; y < ey; y++) {
+				float src_start_y = (y - dr.y) * scale_y + sr.y;
+				float src_end_y = (y - dr.y + 1) * scale_y + sr.y;
+				if(src_start_y < sr.y) src_start_y = sr.y;
+				if(src_end_y > sr.y + sr.h) src_end_y = sr.y + sr.h;
+				int32_t src_y_start = (int32_t)src_start_y;
+				int32_t src_y_end = (int32_t)src_end_y;
+				if(src_y_end >= sr.y + sr.h) src_y_end = sr.y + sr.h - 1;
+				int32_t dst_offset_y = y * dst->w;
+
+				for(int32_t x = dr.x; x < ex; x++) {
+					float src_start_x = (x - dr.x) * scale_x + sr.x;
+					float src_end_x = (x - dr.x + 1) * scale_x + sr.x;
+					if(src_start_x < sr.x) src_start_x = sr.x;
+					if(src_end_x > sr.x + sr.w) src_end_x = sr.x + sr.w;
+					int32_t src_x_start = (int32_t)src_start_x;
+					int32_t src_x_end = (int32_t)src_end_x;
+					if(src_x_end >= sr.x + sr.w) src_x_end = sr.x + sr.w - 1;
+
+					uint64_t sum_r = 0, sum_g = 0, sum_b = 0, sum_a = 0;
+					uint32_t count = 0;
+
+					for(int32_t src_y = src_y_start; src_y <= src_y_end; src_y++) {
+						int32_t row_offset = src_y * src_w;
+						for(int32_t src_x = src_x_start; src_x <= src_x_end; src_x++) {
+							uint32_t p = src->buffer[row_offset + src_x];
+							sum_r += (p >> 16) & 0xff;
+							sum_g += (p >> 8) & 0xff;
+							sum_b += p & 0xff;
+							sum_a += (p >> 24) & 0xff;
+							count++;
+						}
+					}
+
+					if(count > 0) {
+						uint8_t r = (uint8_t)(sum_r / count);
+						uint8_t g = (uint8_t)(sum_g / count);
+						uint8_t b = (uint8_t)(sum_b / count);
+						uint8_t a = (uint8_t)(sum_a / count);
+						dst->buffer[dst_offset_y + x] = (a << 24) | (r << 16) | (g << 8) | b;
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -235,24 +322,109 @@ void graph_blt_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32
 	if(dy < 0)
 		sr.y -= dy;
 
-	register int32_t ex, ey;
-	sy = sr.y;
-	dy = dr.y;
-	ex = sr.x + sr.w;
-	ey = sr.y + sr.h;
+	int32_t src_w = src->w;
+	int32_t src_h = src->h;
+	float scale_x = (float)sr.w / (float)dr.w;
+	float scale_y = (float)sr.h / (float)dr.h;
+	int is_downscale = (scale_x > 1.0f || scale_y > 1.0f);
+	float alpha_f = (float)alpha / 255.0f;
+	int32_t ey = dr.y + dr.h;
+	int32_t ex = dr.x + dr.w;
 
-	for(; sy < ey; sy++, dy++) {
-		register int32_t sx = sr.x;
-		register int32_t dx = dr.x;
-		register int32_t offset = sy * src->w;
-		for(; sx < ex; sx++, dx++) {
-			register uint32_t color = src->buffer[offset + sx];
-			graph_pixel_argb_raw(dst, dx, dy,
-					//(((color >> 24) & 0xff) * alpha)/0xff,
-					(((color >> 24) & 0xff) * alpha)>>8,
-					(color >> 16) & 0xff,
-					(color >> 8) & 0xff,
-					color & 0xff);
+	if(!is_downscale && scale_x <= 1.0f && scale_y <= 1.0f && scale_x > 0.9f && scale_y > 0.9f) {
+		for(int32_t y = dr.y; y < ey; y++) {
+			int32_t src_y = (int32_t)((y - dr.y) * scale_y + sr.y);
+			if(src_y >= src_h) src_y = src_h - 1;
+			int32_t src_offset = src_y * src_w;
+			for(int32_t x = dr.x; x < ex; x++) {
+				int32_t src_x = (int32_t)((x - dr.x) * scale_x + sr.x);
+				if(src_x >= sr.x + sr.w) src_x = sr.x + sr.w - 1;
+				uint32_t color = src->buffer[src_offset + src_x];
+				uint8_t sa = (uint8_t)(((color >> 24) & 0xff) * alpha >> 8);
+				if(sa > 0)
+					graph_pixel_argb_raw(dst, x, y, sa, (color >> 16) & 0xff, (color >> 8) & 0xff, color & 0xff);
+			}
+		}
+	} else {
+		if(!is_downscale) {
+			for(int32_t y = dr.y; y < ey; y++) {
+				float src_fy = (y - dr.y) * scale_y + sr.y;
+				int32_t src_y0 = (int32_t)src_fy;
+				int32_t src_y1 = src_y0 + 1;
+				if(src_y1 >= sr.y + sr.h) src_y1 = src_y0;
+				float ty = src_fy - src_y0;
+
+				for(int32_t x = dr.x; x < ex; x++) {
+					float src_fx = (x - dr.x) * scale_x + sr.x;
+					int32_t src_x0 = (int32_t)src_fx;
+					int32_t src_x1 = src_x0 + 1;
+					if(src_x1 >= sr.x + sr.w) src_x1 = src_x0;
+					float tx = src_fx - src_x0;
+
+					uint32_t p00 = src->buffer[src_y0 * src_w + src_x0];
+					uint32_t p10 = src->buffer[src_y0 * src_w + src_x1];
+					uint32_t p01 = src->buffer[src_y1 * src_w + src_x0];
+					uint32_t p11 = src->buffer[src_y1 * src_w + src_x1];
+
+					float a00 = (1.0f - tx) * (1.0f - ty);
+					float a10 = tx * (1.0f - ty);
+					float a01 = (1.0f - tx) * ty;
+					float a11 = tx * ty;
+
+					uint8_t r = (uint8_t)(((p00 >> 16) & 0xff) * a00 + ((p10 >> 16) & 0xff) * a10 + ((p01 >> 16) & 0xff) * a01 + ((p11 >> 16) & 0xff) * a11);
+					uint8_t g = (uint8_t)(((p00 >> 8) & 0xff) * a00 + ((p10 >> 8) & 0xff) * a10 + ((p01 >> 8) & 0xff) * a01 + ((p11 >> 8) & 0xff) * a11);
+					uint8_t b = (uint8_t)((p00 & 0xff) * a00 + (p10 & 0xff) * a10 + (p01 & 0xff) * a01 + (p11 & 0xff) * a11);
+					uint8_t a = (uint8_t)(((p00 >> 24) & 0xff) * a00 + ((p10 >> 24) & 0xff) * a10 + ((p01 >> 24) & 0xff) * a01 + ((p11 >> 24) & 0xff) * a11);
+
+					uint8_t sa = (uint8_t)((float)a * alpha_f);
+					if(sa > 0)
+						graph_pixel_argb_raw(dst, x, y, sa, r, g, b);
+				}
+			}
+		} else {
+			for(int32_t y = dr.y; y < ey; y++) {
+				float src_start_y = (y - dr.y) * scale_y + sr.y;
+				float src_end_y = (y - dr.y + 1) * scale_y + sr.y;
+				if(src_start_y < sr.y) src_start_y = sr.y;
+				if(src_end_y > sr.y + sr.h) src_end_y = sr.y + sr.h;
+				int32_t src_y_start = (int32_t)src_start_y;
+				int32_t src_y_end = (int32_t)src_end_y;
+				if(src_y_end >= sr.y + sr.h) src_y_end = sr.y + sr.h - 1;
+
+				for(int32_t x = dr.x; x < ex; x++) {
+					float src_start_x = (x - dr.x) * scale_x + sr.x;
+					float src_end_x = (x - dr.x + 1) * scale_x + sr.x;
+					if(src_start_x < sr.x) src_start_x = sr.x;
+					if(src_end_x > sr.x + sr.w) src_end_x = sr.x + sr.w;
+					int32_t src_x_start = (int32_t)src_start_x;
+					int32_t src_x_end = (int32_t)src_end_x;
+					if(src_x_end >= sr.x + sr.w) src_x_end = sr.x + sr.w - 1;
+
+					uint64_t sum_r = 0, sum_g = 0, sum_b = 0, sum_a = 0;
+					uint32_t count = 0;
+
+					for(int32_t src_y = src_y_start; src_y <= src_y_end; src_y++) {
+						int32_t row_offset = src_y * src_w;
+						for(int32_t src_x = src_x_start; src_x <= src_x_end; src_x++) {
+							uint32_t p = src->buffer[row_offset + src_x];
+							sum_r += (p >> 16) & 0xff;
+							sum_g += (p >> 8) & 0xff;
+							sum_b += p & 0xff;
+							sum_a += (p >> 24) & 0xff;
+							count++;
+						}
+					}
+
+					if(count > 0) {
+						uint8_t r = (uint8_t)(sum_r / count);
+						uint8_t g = (uint8_t)(sum_g / count);
+						uint8_t b = (uint8_t)(sum_b / count);
+						uint8_t a = (uint8_t)((float)(sum_a / count) * alpha_f);
+						if(a > 0)
+							graph_pixel_argb_raw(dst, x, y, a, r, g, b);
+					}
+				}
+			}
 		}
 	}
 }
@@ -335,65 +507,112 @@ void graph_blt_fit_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t
 	if(dr.w <= 0 || dr.h <= 0)
 		return;
 
-	register float scale_x = (float)sw / (float)dw;
-	register float scale_y = (float)sh / (float)dh;
+	float scale_x = (float)sw / (float)dw;
+	float scale_y = (float)sh / (float)dh;
+	int32_t ey = dr.y + dr.h;
+	int32_t ex = dr.x + dr.w;
+	int src_w = src->w;
 
-	register int32_t ey = dr.y + dr.h;
-	register int32_t ex = dr.x + dr.w;
+	int is_downscale = (scale_x > 1.0f || scale_y > 1.0f);
 
-	register int32_t y = dr.y;
-	for(; y < ey; y++) {
-		register float src_fy = (y - dr.y) * scale_y + sy;
-		register int32_t src_y0 = (int32_t)src_fy;
-		register int32_t src_y1 = src_y0 + 1;
-		if(src_y1 >= sy + sh) src_y1 = src_y0;
-		register float ty = src_fy - src_y0;
+	if(!is_downscale) {
+		for(int32_t y = dr.y; y < ey; y++) {
+			float src_fy = (y - dr.y) * scale_y + sy;
+			int32_t src_y0 = (int32_t)src_fy;
+			int32_t src_y1 = src_y0 + 1;
+			if(src_y1 >= sy + sh) src_y1 = src_y0;
+			float ty = src_fy - src_y0;
+			int32_t dst_offset_y = y * dst->w;
 
-		register int32_t dst_offset_y = y * dst->w;
+			for(int32_t x = dr.x; x < ex; x++) {
+				float src_fx = (x - dr.x) * scale_x + sx;
+				int32_t src_x0 = (int32_t)src_fx;
+				int32_t src_x1 = src_x0 + 1;
+				if(src_x1 >= sx + sw) src_x1 = src_x0;
+				float tx = src_fx - src_x0;
 
-		for(register int32_t x = dr.x; x < ex; x++) {
-			register float src_fx = (x - dr.x) * scale_x + sx;
-			register int32_t src_x0 = (int32_t)src_fx;
-			register int32_t src_x1 = src_x0 + 1;
-			if(src_x1 >= sx + sw) src_x1 = src_x0;
-			register float tx = src_fx - src_x0;
+				uint32_t p00 = src->buffer[src_y0 * src_w + src_x0];
+				uint32_t p10 = src->buffer[src_y0 * src_w + src_x1];
+				uint32_t p01 = src->buffer[src_y1 * src_w + src_x0];
+				uint32_t p11 = src->buffer[src_y1 * src_w + src_x1];
 
-			register uint32_t p00 = src->buffer[src_y0 * src->w + src_x0];
-			register uint32_t p10 = src->buffer[src_y0 * src->w + src_x1];
-			register uint32_t p01 = src->buffer[src_y1 * src->w + src_x0];
-			register uint32_t p11 = src->buffer[src_y1 * src->w + src_x1];
+				float a00 = (1.0f - tx) * (1.0f - ty);
+				float a10 = tx * (1.0f - ty);
+				float a01 = (1.0f - tx) * ty;
+				float a11 = tx * ty;
 
-			register float a00 = (1.0f - tx) * (1.0f - ty);
-			register float a10 = tx * (1.0f - ty);
-			register float a01 = (1.0f - tx) * ty;
-			register float a11 = tx * ty;
+				uint8_t r = (uint8_t)(
+					((p00 >> 16) & 0xff) * a00 +
+					((p10 >> 16) & 0xff) * a10 +
+					((p01 >> 16) & 0xff) * a01 +
+					((p11 >> 16) & 0xff) * a11
+				);
+				uint8_t g = (uint8_t)(
+					((p00 >> 8) & 0xff) * a00 +
+					((p10 >> 8) & 0xff) * a10 +
+					((p01 >> 8) & 0xff) * a01 +
+					((p11 >> 8) & 0xff) * a11
+				);
+				uint8_t b = (uint8_t)(
+					(p00 & 0xff) * a00 +
+					(p10 & 0xff) * a10 +
+					(p01 & 0xff) * a01 +
+					(p11 & 0xff) * a11
+				);
+				uint8_t a = (uint8_t)(
+					((p00 >> 24) & 0xff) * a00 +
+					((p10 >> 24) & 0xff) * a10 +
+					((p01 >> 24) & 0xff) * a01 +
+					((p11 >> 24) & 0xff) * a11
+				);
 
-			register uint8_t r = (uint8_t)(
-				((p00 >> 16) & 0xff) * a00 +
-				((p10 >> 16) & 0xff) * a10 +
-				((p01 >> 16) & 0xff) * a01 +
-				((p11 >> 16) & 0xff) * a11
-			);
-			register uint8_t g = (uint8_t)(
-				((p00 >> 8) & 0xff) * a00 +
-				((p10 >> 8) & 0xff) * a10 +
-				((p01 >> 8) & 0xff) * a01 +
-				((p11 >> 8) & 0xff) * a11
-			);
-			register uint8_t b = (uint8_t)(
-				(p00 & 0xff) * a00 +
-				(p10 & 0xff) * a10 +
-				(p01 & 0xff) * a01 +
-				(p11 & 0xff) * a11
-			);
-			register uint8_t a = (uint8_t)(
-				((p00 >> 24) & 0xff) * a00 +
-				((p10 >> 24) & 0xff) * a10 +
-				((p01 >> 24) & 0xff) * a01 +
-				((p11 >> 24) & 0xff) * a11
-			);
+				dst->buffer[dst_offset_y + x] = (a << 24) | (r << 16) | (g << 8) | b;
+			}
+		}
+	} else {
+		for(int32_t y = dr.y; y < ey; y++) {
+			float src_start_y = (y - dr.y) * scale_y + sy;
+			float src_end_y = (y - dr.y + 1) * scale_y + sy;
+			if(src_start_y < sy) src_start_y = sy;
+			if(src_end_y > sy + sh) src_end_y = sy + sh;
+			int32_t src_y_start = (int32_t)src_start_y;
+			int32_t src_y_end = (int32_t)src_end_y;
+			if(src_y_end >= sy + sh) src_y_end = sy + sh - 1;
 
-			dst->buffer[dst_offset_y + x] = (a << 24) | (r << 16) | (g << 8) | b;
+			int32_t dst_offset_y = y * dst->w;
+
+			for(int32_t x = dr.x; x < ex; x++) {
+				float src_start_x = (x - dr.x) * scale_x + sx;
+				float src_end_x = (x - dr.x + 1) * scale_x + sx;
+				if(src_start_x < sx) src_start_x = sx;
+				if(src_end_x > sx + sw) src_end_x = sx + sw;
+				int32_t src_x_start = (int32_t)src_start_x;
+				int32_t src_x_end = (int32_t)src_end_x;
+				if(src_x_end >= sx + sw) src_x_end = sx + sw - 1;
+
+				uint64_t sum_r = 0, sum_g = 0, sum_b = 0, sum_a = 0;
+				uint32_t count = 0;
+
+				for(int32_t src_y = src_y_start; src_y <= src_y_end; src_y++) {
+					int32_t row_offset = src_y * src_w;
+					for(int32_t src_x = src_x_start; src_x <= src_x_end; src_x++) {
+						uint32_t p = src->buffer[row_offset + src_x];
+						sum_r += (p >> 16) & 0xff;
+						sum_g += (p >> 8) & 0xff;
+						sum_b += p & 0xff;
+						sum_a += (p >> 24) & 0xff;
+						count++;
+					}
+				}
+
+				if(count > 0) {
+					uint8_t r = (uint8_t)(sum_r / count);
+					uint8_t g = (uint8_t)(sum_g / count);
+					uint8_t b = (uint8_t)(sum_b / count);
+					uint8_t a = (uint8_t)(sum_a / count);
+					dst->buffer[dst_offset_y + x] = (a << 24) | (r << 16) | (g << 8) | b;
+				}
+			}
 		}
 	}
 }
@@ -422,67 +641,118 @@ void graph_blt_fit_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, i
 	if(dr.w <= 0 || dr.h <= 0)
 		return;
 
-	register float scale_x = (float)sw / (float)dw;
-	register float scale_y = (float)sh / (float)dh;
+	float scale_x = (float)sw / (float)dw;
+	float scale_y = (float)sh / (float)dh;
 
-	register int32_t ey = dr.y + dr.h;
-	register int32_t ex = dr.x + dr.w;
+	int32_t ey = dr.y + dr.h;
+	int32_t ex = dr.x + dr.w;
+	int src_w = src->w;
+	float alpha_f = (float)alpha / 255.0f;
 
-	register int32_t y = dr.y;
-	for(; y < ey; y++) {
-		register float src_fy = (y - dr.y) * scale_y + sy;
-		register int32_t src_y0 = (int32_t)src_fy;
-		register int32_t src_y1 = src_y0 + 1;
-		if(src_y1 >= sy + sh) src_y1 = src_y0;
-		register float ty = src_fy - src_y0;
+	int is_downscale = (scale_x > 1.0f || scale_y > 1.0f);
 
-		register int32_t dst_offset_y = y * dst->w;
+	if(!is_downscale) {
+		for(int32_t y = dr.y; y < ey; y++) {
+			float src_fy = (y - dr.y) * scale_y + sy;
+			int32_t src_y0 = (int32_t)src_fy;
+			int32_t src_y1 = src_y0 + 1;
+			if(src_y1 >= sy + sh) src_y1 = src_y0;
+			float ty = src_fy - src_y0;
+			int32_t dst_offset_y = y * dst->w;
 
-		for(register int32_t x = dr.x; x < ex; x++) {
-			register float src_fx = (x - dr.x) * scale_x + sx;
-			register int32_t src_x0 = (int32_t)src_fx;
-			register int32_t src_x1 = src_x0 + 1;
-			if(src_x1 >= sx + sw) src_x1 = src_x0;
-			register float tx = src_fx - src_x0;
+			for(int32_t x = dr.x; x < ex; x++) {
+				float src_fx = (x - dr.x) * scale_x + sx;
+				int32_t src_x0 = (int32_t)src_fx;
+				int32_t src_x1 = src_x0 + 1;
+				if(src_x1 >= sx + sw) src_x1 = src_x0;
+				float tx = src_fx - src_x0;
 
-			register uint32_t p00 = src->buffer[src_y0 * src->w + src_x0];
-			register uint32_t p10 = src->buffer[src_y0 * src->w + src_x1];
-			register uint32_t p01 = src->buffer[src_y1 * src->w + src_x0];
-			register uint32_t p11 = src->buffer[src_y1 * src->w + src_x1];
+				uint32_t p00 = src->buffer[src_y0 * src_w + src_x0];
+				uint32_t p10 = src->buffer[src_y0 * src_w + src_x1];
+				uint32_t p01 = src->buffer[src_y1 * src_w + src_x0];
+				uint32_t p11 = src->buffer[src_y1 * src_w + src_x1];
 
-			register float a00 = (1.0f - tx) * (1.0f - ty);
-			register float a10 = tx * (1.0f - ty);
-			register float a01 = (1.0f - tx) * ty;
-			register float a11 = tx * ty;
+				float a00 = (1.0f - tx) * (1.0f - ty);
+				float a10 = tx * (1.0f - ty);
+				float a01 = (1.0f - tx) * ty;
+				float a11 = tx * ty;
 
-			register uint8_t r = (uint8_t)(
-				((p00 >> 16) & 0xff) * a00 +
-				((p10 >> 16) & 0xff) * a10 +
-				((p01 >> 16) & 0xff) * a01 +
-				((p11 >> 16) & 0xff) * a11
-			);
-			register uint8_t g = (uint8_t)(
-				((p00 >> 8) & 0xff) * a00 +
-				((p10 >> 8) & 0xff) * a10 +
-				((p01 >> 8) & 0xff) * a01 +
-				((p11 >> 8) & 0xff) * a11
-			);
-			register uint8_t b = (uint8_t)(
-				(p00 & 0xff) * a00 +
-				(p10 & 0xff) * a10 +
-				(p01 & 0xff) * a01 +
-				(p11 & 0xff) * a11
-			);
-			register uint8_t a = (uint8_t)(
-				((p00 >> 24) & 0xff) * a00 +
-				((p10 >> 24) & 0xff) * a10 +
-				((p01 >> 24) & 0xff) * a01 +
-				((p11 >> 24) & 0xff) * a11
-			);
+				uint8_t r = (uint8_t)(
+					((p00 >> 16) & 0xff) * a00 +
+					((p10 >> 16) & 0xff) * a10 +
+					((p01 >> 16) & 0xff) * a01 +
+					((p11 >> 16) & 0xff) * a11
+				);
+				uint8_t g = (uint8_t)(
+					((p00 >> 8) & 0xff) * a00 +
+					((p10 >> 8) & 0xff) * a10 +
+					((p01 >> 8) & 0xff) * a01 +
+					((p11 >> 8) & 0xff) * a11
+				);
+				uint8_t b = (uint8_t)(
+					(p00 & 0xff) * a00 +
+					(p10 & 0xff) * a10 +
+					(p01 & 0xff) * a01 +
+					(p11 & 0xff) * a11
+				);
+				uint8_t a = (uint8_t)(
+					((p00 >> 24) & 0xff) * a00 +
+					((p10 >> 24) & 0xff) * a10 +
+					((p01 >> 24) & 0xff) * a01 +
+					((p11 >> 24) & 0xff) * a11
+				);
 
-			register uint8_t sa = (uint8_t)(((uint32_t)a * alpha) >> 8);
-			if(sa > 0) {
-				graph_pixel_argb_raw(dst, x, y, sa, r, g, b);
+				uint8_t sa = (uint8_t)((float)a * alpha_f);
+				if(sa > 0) {
+					graph_pixel_argb_raw(dst, x, y, sa, r, g, b);
+				}
+			}
+		}
+	} else {
+		for(int32_t y = dr.y; y < ey; y++) {
+			float src_start_y = (y - dr.y) * scale_y + sy;
+			float src_end_y = (y - dr.y + 1) * scale_y + sy;
+			if(src_start_y < sy) src_start_y = sy;
+			if(src_end_y > sy + sh) src_end_y = sy + sh;
+			int32_t src_y_start = (int32_t)src_start_y;
+			int32_t src_y_end = (int32_t)src_end_y;
+			if(src_y_end >= sy + sh) src_y_end = sy + sh - 1;
+
+			int32_t dst_offset_y = y * dst->w;
+
+			for(int32_t x = dr.x; x < ex; x++) {
+				float src_start_x = (x - dr.x) * scale_x + sx;
+				float src_end_x = (x - dr.x + 1) * scale_x + sx;
+				if(src_start_x < sx) src_start_x = sx;
+				if(src_end_x > sx + sw) src_end_x = sx + sw;
+				int32_t src_x_start = (int32_t)src_start_x;
+				int32_t src_x_end = (int32_t)src_end_x;
+				if(src_x_end >= sx + sw) src_x_end = sx + sw - 1;
+
+				uint64_t sum_r = 0, sum_g = 0, sum_b = 0, sum_a = 0;
+				uint32_t count = 0;
+
+				for(int32_t src_y = src_y_start; src_y <= src_y_end; src_y++) {
+					int32_t row_offset = src_y * src_w;
+					for(int32_t src_x = src_x_start; src_x <= src_x_end; src_x++) {
+						uint32_t p = src->buffer[row_offset + src_x];
+						sum_r += (p >> 16) & 0xff;
+						sum_g += (p >> 8) & 0xff;
+						sum_b += p & 0xff;
+						sum_a += (p >> 24) & 0xff;
+						count++;
+					}
+				}
+
+				if(count > 0) {
+					uint8_t r = (uint8_t)(sum_r / count);
+					uint8_t g = (uint8_t)(sum_g / count);
+					uint8_t b = (uint8_t)(sum_b / count);
+					uint8_t a = (uint8_t)((float)(sum_a / count) * alpha_f);
+					if(a > 0) {
+						graph_pixel_argb_raw(dst, x, y, a, r, g, b);
+					}
+				}
 			}
 		}
 	}
