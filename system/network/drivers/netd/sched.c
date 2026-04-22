@@ -36,9 +36,6 @@ sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timeval *abstime
     struct timeval now;
     int loop_count = 0;
     
-    errorf("[SCHED_SLEEP] ENTER ctx=%p, cond=%d, wc=%d, avail=%d, intr=%d",
-           ctx, ctx->cond, ctx->wc, ctx->available, ctx->interrupted);
-    
     if (ctx->interrupted) {
         errorf("[SCHED_SLEEP] ctx=%p, already interrupted, return -1", ctx);
         errno = EINTR;
@@ -62,20 +59,14 @@ sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timeval *abstime
     ctx->wc++;
     /* Memory barrier to ensure wc is visible to other cores before we release mutex */
     memory_barrier();
-    errorf("[SCHED_SLEEP] ctx=%p, wc incremented to %d", ctx, ctx->wc);
 
     // Check condition while still holding the mutex
     memory_barrier();
     if (ctx->cond || !ctx->available) {
-        errorf("[SCHED_SLEEP] ctx=%p, condition already met (cond=%d, avail=%d)", 
-               ctx, ctx->cond, ctx->available);
         ctx->wc--;
         memory_barrier();
-        errorf("[SCHED_SLEEP] ctx=%p, wc decremented to %d, returning 0", ctx, ctx->wc);
         return 0;
     }
-
-    errorf("[SCHED_SLEEP] ctx=%p, releasing mutex, entering blocking loop", ctx);
     mutex_unlock(mutex);
 
     while (1) {
@@ -84,8 +75,6 @@ sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timeval *abstime
         // Check condition before blocking
         memory_barrier();
         if (ctx->cond || !ctx->available) {
-            errorf("[SCHED_SLEEP] ctx=%p, loop=%d, condition met (cond=%d, avail=%d), break", 
-                   ctx, loop_count, ctx->cond, ctx->available);
             ret = 0;
             break;
         }
@@ -111,28 +100,33 @@ sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timeval *abstime
             ret = -1;
             break;
         }
-
-        if (loop_count <= 3) {
-            errorf("[SCHED_SLEEP] ctx=%p, loop=%d, calling proc_block_by", ctx, loop_count);
-        }
         
         // Mark that we are about to sleep
         ctx->sleeping = 1;
         memory_barrier();
         
-        // Block on this sched_ctx, waiting for sched_wakeup to signal
-        proc_block_by(getpid(), (uint32_t)ctx);
+        /* CRITICAL: Re-check cond before actually blocking.
+         * This prevents the race where sched_wakeup was called between
+         * checking cond and setting sleeping=1. If cond is already set,
+         * we skip blocking entirely to avoid missing the wakeup. */
+        memory_barrier();
+        if (!ctx->cond && ctx->available) {
+            proc_block_by(getpid(), (uint32_t)ctx);
+        }
         
         // Mark that we are awake
         ctx->sleeping = 0;
         memory_barrier();
         
-        if (loop_count <= 3) {
-            errorf("[SCHED_SLEEP] ctx=%p, loop=%d, proc_block_by returned", ctx, loop_count);
+        // CRITICAL: Immediately check condition after waking up.
+        // This prevents the race where a spurious wakeup occurs but cond is still 0.
+        memory_barrier();
+        if (ctx->cond || !ctx->available) {
+            ret = 0;
+            break;
         }
     }
 
-    errorf("[SCHED_SLEEP] ctx=%p, loop exited, ret=%d, reacquiring mutex", ctx, ret);
     mutex_lock(mutex);
 
     // Clear the condition after waking up to prevent spurious wakeups
@@ -141,7 +135,6 @@ sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timeval *abstime
     ctx->wc--;
     /* Memory barrier to ensure wc update is visible */
     memory_barrier();
-    errorf("[SCHED_SLEEP] ctx=%p, wc decremented to %d", ctx, ctx->wc);
     
     if (ctx->interrupted) {
         if (!ctx->wc) {
@@ -150,45 +143,38 @@ sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timeval *abstime
         errno = EINTR;
         return -1;
     }
-    errorf("[SCHED_SLEEP] EXIT ctx=%p, return %d", ctx, ret);
     return ret;
 }
 
 int
 sched_wakeup(struct sched_ctx *ctx)
 {
-    errorf("[SCHED_WAKEUP] ctx=%p, cond=%d->1, wc=%d, sleeping=%d", ctx, ctx->cond, ctx->wc, ctx->sleeping);
     ctx->cond = 1;
     /* Memory barrier to ensure cond is written before proc_wakeup */
     memory_barrier();
     
-    // Wait for sched_sleep to actually block if it's about to
-    // This prevents the race condition where sched_wakeup is called
-    // before sched_sleep has called proc_block_by
+    /* Wait for sched_sleep to actually set sleeping flag.
+     * This ensures we don't call proc_wakeup before sched_sleep has blocked.
+     * We only wait briefly (100us max) - if sched_sleep hasn't blocked yet,
+     * the cond flag will cause it to skip blocking entirely. */
     int wait_count = 0;
-    while (ctx->wc > 0 && !ctx->sleeping && wait_count < 100) {
-        proc_usleep(10);  // Wait 10us
+    while (ctx->wc > 0 && !ctx->sleeping && wait_count < 10) {
+        proc_usleep(10);
         wait_count++;
-    }
-    if (wait_count > 0) {
-        errorf("[SCHED_WAKEUP] ctx=%p, waited %d times for sleeping=1", ctx, wait_count);
     }
     
     proc_wakeup((uint32_t)ctx);
-    errorf("[SCHED_WAKEUP] ctx=%p, proc_wakeup called (wc=%d)", ctx, ctx->wc);
     return 0;
 }
 
 int
 sched_interrupt(struct sched_ctx *ctx)
 {
-    errorf("[SCHED_INTERRUPT] ctx=%p, cond=%d, wc=%d", ctx, ctx->cond, ctx->wc);
     ctx->interrupted = 1;
     ctx->cond = 1;
     /* Memory barrier to ensure cond is written before proc_wakeup */
     memory_barrier();
     // Wake up any process blocked on this ctx
     proc_wakeup((uint32_t)ctx);
-    errorf("[SCHED_INTERRUPT] ctx=%p, proc_wakeup called", ctx);
     return 0;
 }

@@ -203,16 +203,6 @@ bool WidgetWebview::loadHtmlContent(const std::string& content)
     pthread_mutex_lock(&m_renderMutex);
     //sout(content.c_str(), content.size());
     if (!content.empty()) {
-        // 先释放旧文档，避免内存泄漏
-        if (m_doc) {
-            delete m_doc;
-            m_doc = nullptr;
-        }
-        // 清空之前的图片缓存
-        m_container->clear_images();
-        // 清空输入元素
-        m_container->clear_inputs();
-
         m_doc = litehtml::document::createFromString(content.c_str(), m_container.get(), &m_browser_context);
         if (m_doc) {
             m_doc->render(m_clientWidth);

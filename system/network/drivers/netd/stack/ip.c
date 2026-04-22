@@ -424,7 +424,7 @@ ip_output_device(struct ip_iface *iface, const uint8_t *data, size_t len, ip_add
                 if (ret == ARP_RESOLVE_FOUND) {
                     break;
                 }
-                usleep(100000);
+                usleep(3000);
             }while(--retry > 0);
             if(ret != ARP_RESOLVE_FOUND) {
                 errorf("arp resolve error");

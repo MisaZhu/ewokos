@@ -44,7 +44,7 @@ ether_tap_addr(struct net_device *dev) {
 			proto_read_to(&out, dev->addr, 6);
 		}
 		PF->clear(&out);
-		usleep(100000);
+		usleep(1000);
 	}
     return 0;
 }

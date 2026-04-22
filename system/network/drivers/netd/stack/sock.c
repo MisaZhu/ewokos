@@ -160,12 +160,12 @@ sock_close(int id)
         // Try to close TCP connection gracefully
         while (retry-- > 0) {
             int ret = tcp_close(s->desc);
-            if (ret == 0) {
-                // Connection closed immediately or in progress
+            if (ret == 0 || ret == -17) {
+                // Connection closed successfully or PCB already released (RST)
                 break;
             }
             // If connection is still closing, wait a bit
-            usleep(100000); // 100ms
+            usleep(10000); // 10ms
         }
         if (retry <= 0) {
             errorf("sock_close: timeout waiting for TCP close");
