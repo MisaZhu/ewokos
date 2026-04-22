@@ -420,6 +420,14 @@ void XContainer::clear_images()
     m_images.clear();
 }
 
+void XContainer::clear_inputs()
+{
+    for (auto* input : m_vecInput) {
+        delete input;
+    }
+    m_vecInput.clear();
+}
+
 void XContainer::get_client_rect(litehtml::position& client) const
 {
     client.width = m_client_width;

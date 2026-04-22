@@ -53,6 +53,7 @@ public:
     virtual void                       link(litehtml::document* doc, const litehtml::element::ptr& el) override;
 
     void                               clear_images();
+    void                               clear_inputs();
 
     void                               get_client_rect(litehtml::position& client) const;
     void                               set_client_size(int width, int height);

@@ -25,10 +25,10 @@ typedef uint32_t mutex_t;
 #define timerclear(t) ((t)->tv_sec = (t)->tv_usec = 0)
 
 struct sched_ctx {
-  int available;
-	int cond;
-  int interrupted;
-  int wc; /* wait count */
+  volatile int available;
+	volatile int cond;
+  volatile int interrupted;
+  volatile int wc; /* wait count */
   int sleeping; /* set to 1 when sched_sleep is waiting */
 };
 

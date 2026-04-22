@@ -54,6 +54,8 @@ int textgrid_reset(textgrid_t* textgrid, uint32_t cols) {
 	textgrid->max_rows = max_rows;
 
 	if(p == NULL || size == 0) {
+		if(p != NULL)
+			free(p);
 		return 0;
 	}
 
@@ -106,6 +108,14 @@ static int textgrid_expand(textgrid_t* grid, uint32_t rows) {
 		else
 			grid->curs_y = grid->rows-1;
 		grid->curs_x = 0;
+		
+		// Shrink memory to match new total_rows
+		uint32_t new_size = grid->cols * grid->total_rows;
+		if(new_size > 0) {
+			textchar_t* new_grid = (textchar_t*)realloc(grid->grid, new_size * sizeof(textchar_t));
+			if(new_grid != NULL)
+				grid->grid = new_grid;
+		}
 	}
 
 	for(int r=grid->rows; r<grid->total_rows; r++) {

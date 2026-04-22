@@ -110,11 +110,12 @@ udp_pcb_release(struct udp_pcb *pcb)
     pcb->queue.head = NULL;
     pcb->queue.tail = NULL;
 
-    if (sched_ctx_destroy(&pcb->ctx) == -1) {
-        sched_wakeup(&pcb->ctx);
-        // Even if sched_ctx_destroy fails, we still reset the state to FREE
-        // to prevent the pcb from being used again.
-    }
+    // CRITICAL: Wake up any process waiting on this pcb before releasing it.
+    // This prevents the race condition where sched_sleep is blocked on this ctx
+    // and the pcb is released, causing sched_sleep to access freed memory.
+    sched_ctx_destroy(&pcb->ctx);
+    sched_wakeup(&pcb->ctx);
+
     pcb->state = UDP_PCB_STATE_FREE;
     pcb->local.addr = IP_ADDR_ANY;
     pcb->local.port = 0;
@@ -213,7 +214,10 @@ udp_input(const uint8_t *data, size_t len, ip_addr_t src, ip_addr_t dst, struct 
         errorf("queue_push() failure");
         return;
     }
-    sched_wakeup(&pcb->ctx);
+    // Wake up the process waiting for data (only if there are waiters)
+    if (pcb->ctx.wc > 0) {
+        sched_wakeup(&pcb->ctx);
+    }
     mutex_unlock(&mutex);
 }
 

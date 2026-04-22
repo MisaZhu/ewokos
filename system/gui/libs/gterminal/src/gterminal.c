@@ -332,10 +332,14 @@ void gterminal_init(gterminal_t* terminal) {
 }
 
 void gterminal_close(gterminal_t* terminal) {
-    if(terminal->font != NULL)
+    if(terminal->font != NULL) {
         font_free(terminal->font);
-    if(terminal->textgrid)
+        terminal->font = NULL;
+    }
+    if(terminal->textgrid) {
         textgrid_free(terminal->textgrid);
+        terminal->textgrid = NULL;
+    }
 }
 
 bool gterminal_scroll(gterminal_t* terminal, int direction) {
@@ -411,6 +415,8 @@ static uint16_t _esc_size = 0;
 
 void gterminal_put(gterminal_t* terminal, const char* buf, int size) {
     uint16_t* unicode = (uint16_t*)malloc((size+1)*2);
+    if(!unicode)
+        return;
     size = utf82unicode((unsigned char*)buf, size, unicode);
 
     for(uint32_t i=0; i<size; i++) {
@@ -450,6 +456,7 @@ void gterminal_put(gterminal_t* terminal, const char* buf, int size) {
         textgrid_push(terminal->textgrid, &tch);
     }
 
+    free(unicode);
     int32_t start_row = (int32_t)terminal->textgrid->rows - (int32_t)terminal->rows;
     terminal->textgrid_start_row = start_row < 0 ? 0:start_row;
 }
