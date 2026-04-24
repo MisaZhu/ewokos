@@ -180,15 +180,20 @@ bool WidgetWebview::loadImageTask(const std::string& url)
 
 bool WidgetWebview::loadCSSContent(const std::string& content)
 {
+    bool res = false;
     pthread_mutex_lock(&m_renderMutex);
     if (!content.empty()) {
         m_browser_context.load_master_stylesheet(content.c_str());
         if (m_doc) {
+            m_doc->update_master_styles();
             m_doc->render(m_clientWidth);
+            res = true;
         }
     }
     pthread_mutex_unlock(&m_renderMutex);
-    return true;
+    if(res)
+        update();
+    return res;
 }
 
 bool WidgetWebview::loadImageContent(const std::string& url, uint8_t* content, int sz)

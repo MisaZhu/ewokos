@@ -647,6 +647,15 @@ bool litehtml::document::update_media_lists(const media_features& features)
 	return update_styles;
 }
 
+void litehtml::document::update_master_styles()
+{
+	if(m_root && m_context)
+	{
+		m_root->apply_stylesheet(m_context->master_css());
+		m_root->parse_styles();
+	}
+}
+
 void litehtml::document::add_media_list( media_query_list::ptr list )
 {
 	if(list)

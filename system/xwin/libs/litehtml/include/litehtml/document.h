@@ -95,6 +95,7 @@ namespace litehtml
 		bool							lang_changed();
 		bool                            match_lang(const tstring & lang);
 		void							add_tabular(const element::ptr& el);
+		void							update_master_styles();
 
 		static litehtml::document::ptr createFromString(const tchar_t* str, litehtml::document_container* objPainter, litehtml::context* ctx, litehtml::css* user_styles = 0);
 		static litehtml::document::ptr createFromUTF8(const char* str, litehtml::document_container* objPainter, litehtml::context* ctx, litehtml::css* user_styles = 0);
