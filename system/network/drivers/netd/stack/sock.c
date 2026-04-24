@@ -165,7 +165,7 @@ sock_close(int id)
                 break;
             }
             // If connection is still closing, wait a bit
-            usleep(10000); // 10ms
+            usleep(3000); // 3ms
         }
         if (retry <= 0) {
             errorf("sock_close: timeout waiting for TCP close");

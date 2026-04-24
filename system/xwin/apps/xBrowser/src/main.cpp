@@ -114,7 +114,7 @@ int main(int argc, char* argv[])
 
     win.open(&x, -1, -1, -1, 0, 0, "HTML Browser", XWIN_STYLE_NORMAL);
 
-    webview->loadCSS("res://html/default.css");
+    webview->setDefaultCSS("res://html/default.css");
     if(argc > 1) {
         editline->disable();
         editline->setContent(argv[1]);

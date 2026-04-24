@@ -32,6 +32,7 @@ public:
     bool getTask(HttpTask& task);
 
     bool loadHtml(const std::string& url);
+    void setDefaultCSS(const std::string& url);
     bool loadCSS(const std::string& url);
     bool loadImage(const std::string& url);
 
@@ -58,8 +59,8 @@ protected:
     virtual void onTaskFailed(const HttpTask& task) {}
     virtual void onTasksEnd() {}
 private:
-
-    std::shared_ptr<XContainer> m_container;
+    std::string m_defaultCSSUrl;
+    XContainer*                   m_container;
     litehtml::document::ptr       m_doc;
     litehtml::context            m_browser_context;
 

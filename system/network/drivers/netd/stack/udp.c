@@ -380,7 +380,7 @@ udp_sendto(int id, uint8_t *data, size_t len, struct ip_endpoint *foreign)
             return -1;
         }
         local.addr = iface->unicast;
-        errorf("select local address, addr=%s", ip_addr_ntop(local.addr, addr, sizeof(addr)));
+        //errorf("select local address, addr=%s", ip_addr_ntop(local.addr, addr, sizeof(addr)));
     }
     if (!pcb->local.port) {
         for (p = UDP_SOURCE_PORT_MIN; p <= UDP_SOURCE_PORT_MAX; p++) {

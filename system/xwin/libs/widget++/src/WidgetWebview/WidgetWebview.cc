@@ -21,10 +21,11 @@ WidgetWebview::WidgetWebview()
     : m_clientWidth(640)
     , m_clientHeight(480)
     , m_doc(nullptr)
+    , m_container(nullptr)
     , m_scrollX(0)
     , m_scrollY(0)
 {
-    m_container = std::make_shared<XContainer>(&m_browser_context, this);
+    m_container = new XContainer(&m_browser_context, this);
     m_task_running = false;
     m_task_ended = false;
     pthread_mutex_init(&m_taskMutex, NULL);
@@ -42,14 +43,19 @@ WidgetWebview::~WidgetWebview()
     }
 
     pthread_mutex_lock(&m_renderMutex);
-    delete m_doc;
-    m_doc = nullptr;
-    // Note: m_container is std::shared_ptr, no need to delete manually
-    m_container.reset();
+    if(m_doc)
+        delete m_doc;
+    if(m_container)
+        delete m_container;
     pthread_mutex_unlock(&m_renderMutex);
 
     pthread_mutex_destroy(&m_taskMutex);
     pthread_mutex_destroy(&m_renderMutex);
+}
+
+void WidgetWebview::setDefaultCSS(const std::string& url)
+{
+    m_defaultCSSUrl = url;
 }
 
 void* _task_thread(void* p)
@@ -203,10 +209,26 @@ bool WidgetWebview::loadImageContent(const std::string& url, uint8_t* content, i
 
 bool WidgetWebview::loadHtmlContent(const std::string& content)
 {
+    m_browser_context.master_css().clear(); // Clear CSS styles from browser context
+    if(!m_defaultCSSUrl.empty()) {
+        loadCSSTask(m_defaultCSSUrl);
+    }
+
     pthread_mutex_lock(&m_renderMutex);
     //kout(content.c_str(), content.size());
     if (!content.empty()) {
-        m_doc = litehtml::document::createFromString(content.c_str(), m_container.get(), &m_browser_context);
+        // Clean up old document
+        if(m_doc) {
+            delete m_doc;
+            m_doc = nullptr;
+        }
+
+        // Clean up and recreate container (clears images, fonts, inputs)
+        if(m_container)
+            delete m_container;
+        m_container = new XContainer(&m_browser_context, this);
+
+        m_doc = litehtml::document::createFromString(content.c_str(), m_container, &m_browser_context);
         if (m_doc) {
             m_doc->render(m_clientWidth);
         }

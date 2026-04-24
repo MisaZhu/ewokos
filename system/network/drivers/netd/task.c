@@ -1,8 +1,8 @@
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/time.h>
 
 #include <ewoksys/vfs.h>
 #include <ewoksys/klog.h>
@@ -10,6 +10,8 @@
 
 #include "task.h"
 #include "netd.h"
+
+#define TASK_POLL_INTERVAL_US 1000 /* 1ms */
 
 static void* task_thread(void* arg);
 
@@ -267,10 +269,8 @@ static void* task_thread(void* arg){
         proc_wakeup_pid(task->from_pid, RW_BLOCK_EVT); 
         
     while(task->running){
-		ipc_disable();
         if(task->state == NET_TASK_START)
             task->state = NET_TASK_PROCESS;
-		ipc_enable();
 		
         if(task->state == NET_TASK_PROCESS){
             do_network_fcntl(task);	
@@ -279,7 +279,7 @@ static void* task_thread(void* arg){
         }
 
         if(task->running) {
-            proc_block_by(getpid(), (uint32_t)task);
+            usleep(TASK_POLL_INTERVAL_US);
         }
     }
 
