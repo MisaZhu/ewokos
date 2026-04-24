@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include <pthread.h>
 
 #include <ewoksys/vfs.h>
 #include <ewoksys/klog.h>
@@ -16,6 +17,9 @@
 static void* task_thread(void* arg);
 
 net_task_t *task_list = NULL;
+
+// 添加互斥锁保护任务状态
+static pthread_mutex_t task_list_lock;
 
 static void task_list_add(net_task_t * task){
     if(task_list == NULL){
@@ -33,6 +37,9 @@ static void task_list_add(net_task_t * task){
 }
 
 void start_task(void){
+    // 初始化互斥锁
+    pthread_mutex_init(&task_list_lock, NULL);
+    
     ipc_disable();
     net_task_t *task = task_list;
     while(task!=NULL){
@@ -59,25 +66,42 @@ net_task_t *create_task(int fd, int from_pid, int node){
 }
 
 void release_task(net_task_t *task){
-    sock_close(task->sock);
+    pthread_mutex_lock(&task_list_lock);
+    
+    // 先设置状态，再唤醒，确保线程能看到状态变化
     task->running = false;
+    
     if(task->read_task != NULL){
+        task->read_task->running = false;
+        pthread_mutex_unlock(&task_list_lock);
         proc_wakeup((uint32_t)task->read_task);
+        proc_wakeup_pid(task->read_task->from_pid, RW_BLOCK_EVT);
+    } else {
+        pthread_mutex_unlock(&task_list_lock);
     }
+    
+    // 唤醒任务线程本身
     proc_wakeup((uint32_t)task);
+    
+    // 如果任务正在处理中，还需要唤醒等待的客户端
+    if(task->from_pid > 0) {
+        proc_wakeup_pid(task->from_pid, RW_BLOCK_EVT);
+    }
 }
 
 int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *out, void *p){
+    pthread_mutex_lock(&task_list_lock);
+    
     if(task->state == NET_TASK_FINISH){
         if(cmd != task->cmd || from_pid != task->from_pid){
-            //klog("cntl ipc error task_cmd:%d(should:%d) frompid:%d task->frompid:%d\n",
-            //        task->cmd, cmd, from_pid, task->from_pid);
+            pthread_mutex_unlock(&task_list_lock);
             return VFS_ERR_RETRY;
         }
         PF->copy(out, task->out.data, task->out.size);
         PF->clear(&task->out);
         PF->clear(&task->in);
-        task->state = NET_TASK_IDLE; 
+        task->state = NET_TASK_IDLE;
+        pthread_mutex_unlock(&task_list_lock);
         return 0;
     }else if(task->state == NET_TASK_IDLE){
         task->cmd = cmd;	
@@ -87,7 +111,11 @@ int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *o
         PF->init(&task->out);
         PF->copy(&task->in, in->data, in->size);
         task->state = NET_TASK_START;
+        pthread_mutex_unlock(&task_list_lock);
+        // 先解锁再唤醒，避免死锁
         proc_wakeup((uint32_t)task);
+    } else {
+        pthread_mutex_unlock(&task_list_lock);
     }
     return VFS_ERR_RETRY;
 }
@@ -97,10 +125,11 @@ int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
         return VFS_ERR_RETRY;
     }
 
+    pthread_mutex_lock(&task_list_lock);
+    
     if(task->state == NET_TASK_FINISH){
         if(from_pid != task->from_pid || SOCK_RECV != task->cmd) {
-            //klog("read ipc error task_cmd:%d(should:%d) frompid:%d task->frompid:%d\n",
-            //        task->cmd, SOCK_RECV, from_pid, task->from_pid);
+            pthread_mutex_unlock(&task_list_lock);
             return VFS_ERR_RETRY;
         }
         int len = proto_read_int(&task->out);
@@ -109,7 +138,8 @@ int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
         }
         PF->clear(&task->out);
         PF->clear(&task->in);
-        task->state = NET_TASK_IDLE; 
+        task->state = NET_TASK_IDLE;
+        pthread_mutex_unlock(&task_list_lock);
         return len;
     }else if(task->state == NET_TASK_IDLE){
         task->cmd = SOCK_RECV;	
@@ -119,22 +149,28 @@ int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
         PF->init(&task->out);
         PF->addi(&task->in, size);
         task->state = NET_TASK_START;
+        pthread_mutex_unlock(&task_list_lock);
+        // 先解锁再唤醒，避免死锁
         proc_wakeup((uint32_t)task);
+    } else {
+        pthread_mutex_unlock(&task_list_lock);
     }
     return VFS_ERR_RETRY;
 }
 
 int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p){
+    pthread_mutex_lock(&task_list_lock);
+    
     if(task->state == NET_TASK_FINISH){
         if(SOCK_SEND != task->cmd || from_pid != task->from_pid){
-            //klog("write ipc error task_cmd:%d(should:%d) frompid:%d task->frompid:%d\n",
-            //        task->cmd, SOCK_SEND, from_pid, task->from_pid);
+            pthread_mutex_unlock(&task_list_lock);
             return VFS_ERR_RETRY;
         }
         int ret = proto_read_int(&task->out);
         PF->clear(&task->out);
         PF->clear(&task->in);
-        task->state = NET_TASK_IDLE; 
+        task->state = NET_TASK_IDLE;
+        pthread_mutex_unlock(&task_list_lock);
         return ret;
     }else if(task->state == NET_TASK_IDLE){
         task->cmd = SOCK_SEND;	
@@ -145,7 +181,11 @@ int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p){
         PF->init(&task->out);
         PF->add(&task->in, buf, size);
         task->state = NET_TASK_START;
+        pthread_mutex_unlock(&task_list_lock);
+        // 先解锁再唤醒，避免死锁
         proc_wakeup((uint32_t)task);
+    } else {
+        pthread_mutex_unlock(&task_list_lock);
     }
     return VFS_ERR_RETRY;
 }
@@ -262,23 +302,43 @@ int do_network_fcntl(net_task_t *task){
 
 static void* task_thread(void* arg){
     net_task_t *task = (net_task_t *)arg;
+    
+    pthread_mutex_lock(&task_list_lock);
     task->running = true;
     task->state = NET_TASK_IDLE;
+    pthread_mutex_unlock(&task_list_lock);
 
     if(task->from_pid)
         proc_wakeup_pid(task->from_pid, RW_BLOCK_EVT); 
         
-    while(task->running){
-        if(task->state == NET_TASK_START)
-            task->state = NET_TASK_PROCESS;
-		
-        if(task->state == NET_TASK_PROCESS){
-            do_network_fcntl(task);	
-            task->state = NET_TASK_FINISH;
-            proc_wakeup_pid(task->from_pid, RW_BLOCK_EVT);
+    while(1){
+        pthread_mutex_lock(&task_list_lock);
+        
+        // 检查是否应该退出
+        if(!task->running) {
+            pthread_mutex_unlock(&task_list_lock);
+            break;
         }
-
-        if(task->running) {
+        
+        // 检查状态并处理
+        if(task->state == NET_TASK_START) {
+            task->state = NET_TASK_PROCESS;
+            pthread_mutex_unlock(&task_list_lock);
+            
+            do_network_fcntl(task);	
+            
+            pthread_mutex_lock(&task_list_lock);
+            task->state = NET_TASK_FINISH;
+            int from_pid = task->from_pid;
+            pthread_mutex_unlock(&task_list_lock);
+            
+            // 唤醒等待的客户端
+            if(from_pid > 0) {
+                proc_wakeup_pid(from_pid, RW_BLOCK_EVT);
+            }
+        } else {
+            // 没有任务，短暂等待后重试
+            pthread_mutex_unlock(&task_list_lock);
             usleep(TASK_POLL_INTERVAL_US);
         }
     }
@@ -288,9 +348,14 @@ static void* task_thread(void* arg){
 
     if(!task->is_read_task) {
         sock_close(task->sock);
+        pthread_mutex_lock(&task_list_lock);
         if(task->read_task != NULL) {
             task->read_task->running = false;
+            pthread_mutex_unlock(&task_list_lock);
             proc_wakeup((uint32_t)task->read_task);
+            proc_wakeup_pid(task->read_task->from_pid, RW_BLOCK_EVT);
+        } else {
+            pthread_mutex_unlock(&task_list_lock);
         }
     }
     free(task);

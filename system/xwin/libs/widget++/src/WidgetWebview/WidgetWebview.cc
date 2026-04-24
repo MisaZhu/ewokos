@@ -200,7 +200,7 @@ bool WidgetWebview::loadImageContent(const std::string& url, uint8_t* content, i
 {
     bool res = false;
     pthread_mutex_lock(&m_renderMutex);
-    if (content != NULL && sz > 0) {
+    if (content != NULL && sz > 0 && m_container != NULL) {
         res = m_container->loadImageData(url, content, sz);
         if (res && m_doc) {
             m_doc->render(m_clientWidth);
@@ -222,13 +222,15 @@ bool WidgetWebview::loadHtmlContent(const std::string& content)
     pthread_mutex_lock(&m_renderMutex);
     //kout(content.c_str(), content.size());
     if (!content.empty()) {
-        // Clean up old document
+        // Clean up old document first (before container)
+        // This is important because m_doc holds a reference to m_container
         if(m_doc) {
             delete m_doc;
             m_doc = nullptr;
         }
 
         // Clean up and recreate container (clears images, fonts, inputs)
+        // Must be done after m_doc is deleted to avoid use-after-free
         if(m_container)
             delete m_container;
         m_container = new XContainer(&m_browser_context, this);
@@ -253,14 +255,15 @@ void WidgetWebview::onRepaint(graph_t* g, XTheme* theme, const grect_t& r)
     if (g == NULL)
         return;
 
-    m_container->setGraph(g);
-
     // Clear background to white
     graph_fill_rect(g, r.x, r.y, r.w, r.h, 0xFFFFFFFF);
 
     litehtml::position pos(r.x, r.y, r.w, r.h);
 
     pthread_mutex_lock(&m_renderMutex);
+    if (m_container) {
+        m_container->setGraph(g);
+    }
     if (m_doc) {
         m_doc->draw((litehtml::uint_ptr)g, r.x - m_scrollX, r.y - m_scrollY, &pos);
     }
