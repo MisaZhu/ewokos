@@ -71,21 +71,28 @@ void release_task(net_task_t *task){
     // 先设置状态，再唤醒，确保线程能看到状态变化
     task->running = false;
     
-    if(task->read_task != NULL){
-        task->read_task->running = false;
-        pthread_mutex_unlock(&task_list_lock);
-        proc_wakeup((uint32_t)task->read_task);
-        proc_wakeup_pid(task->read_task->from_pid, RW_BLOCK_EVT);
-    } else {
-        pthread_mutex_unlock(&task_list_lock);
+    // 保存需要在锁外使用的值
+    net_task_t* read_task = task->read_task;
+    int from_pid = task->from_pid;
+    
+    if(read_task != NULL){
+        read_task->running = false;
+    }
+    
+    pthread_mutex_unlock(&task_list_lock);
+    
+    // 在锁外进行唤醒操作
+    if(read_task != NULL){
+        proc_wakeup((uint32_t)read_task);
+        proc_wakeup_pid(read_task->from_pid, RW_BLOCK_EVT);
     }
     
     // 唤醒任务线程本身
     proc_wakeup((uint32_t)task);
     
     // 如果任务正在处理中，还需要唤醒等待的客户端
-    if(task->from_pid > 0) {
-        proc_wakeup_pid(task->from_pid, RW_BLOCK_EVT);
+    if(from_pid > 0) {
+        proc_wakeup_pid(from_pid, RW_BLOCK_EVT);
     }
 }
 
@@ -348,14 +355,17 @@ static void* task_thread(void* arg){
 
     if(!task->is_read_task) {
         sock_close(task->sock);
+        
         pthread_mutex_lock(&task_list_lock);
-        if(task->read_task != NULL) {
-            task->read_task->running = false;
-            pthread_mutex_unlock(&task_list_lock);
-            proc_wakeup((uint32_t)task->read_task);
-            proc_wakeup_pid(task->read_task->from_pid, RW_BLOCK_EVT);
-        } else {
-            pthread_mutex_unlock(&task_list_lock);
+        net_task_t* read_task = task->read_task;
+        if(read_task != NULL) {
+            read_task->running = false;
+        }
+        pthread_mutex_unlock(&task_list_lock);
+        
+        if(read_task != NULL) {
+            proc_wakeup((uint32_t)read_task);
+            proc_wakeup_pid(read_task->from_pid, RW_BLOCK_EVT);
         }
     }
     free(task);
