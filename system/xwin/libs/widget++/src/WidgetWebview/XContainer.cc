@@ -445,6 +445,16 @@ void XContainer::set_cursor(const litehtml::tchar_t* cursor)
 
 void XContainer::import_css(litehtml::tstring& text, const litehtml::tstring& url, litehtml::tstring& baseurl)
 {
+    //klog("import_css: url:%s baseurl:%s text:%s\n", url.c_str(), baseurl.c_str(), text.c_str());
+    if (url.empty())
+        return;
+
+    std::string css_path = std::string(url);
+    std::string base_url = std::string(baseurl);
+    std::string full_url = getFullURL(css_path, base_url);
+    if(full_url.empty())
+        return;
+    m_webview->addTask( { full_url,  HttpTask::TASK_CSS } );
 }
 
 void XContainer::set_caption(const litehtml::tchar_t* caption)

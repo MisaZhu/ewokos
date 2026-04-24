@@ -177,6 +177,9 @@ bool WidgetWebview::loadCSSContent(const std::string& content)
     pthread_mutex_lock(&m_renderMutex);
     if (!content.empty()) {
         m_browser_context.load_master_stylesheet(content.c_str());
+        if (m_doc) {
+            m_doc->render(m_clientWidth);
+        }
     }
     pthread_mutex_unlock(&m_renderMutex);
     return true;
@@ -201,7 +204,7 @@ bool WidgetWebview::loadImageContent(const std::string& url, uint8_t* content, i
 bool WidgetWebview::loadHtmlContent(const std::string& content)
 {
     pthread_mutex_lock(&m_renderMutex);
-    //sout(content.c_str(), content.size());
+    //kout(content.c_str(), content.size());
     if (!content.empty()) {
         m_doc = litehtml::document::createFromString(content.c_str(), m_container.get(), &m_browser_context);
         if (m_doc) {
