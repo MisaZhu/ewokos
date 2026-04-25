@@ -77,8 +77,10 @@ LIB_EWOKSYS_OBJS =  \
 	src/pthread/pthread_mutex_init.o \
 	src/pthread/pthread_mutex_lock.o \
 	src/pthread/pthread_mutex_unlock.o \
+	src/pthread/pthread_mutex_timedlock.o\
 	src/pthread/pthread_self.o\
 	src/pthread/pthread_join.o\
+	src/pthread/pthread_cond.o\
 	\
 	src/stdlib/exit.o \
 	src/stdlib/setenv.o

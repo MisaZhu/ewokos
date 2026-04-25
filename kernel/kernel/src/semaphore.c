@@ -75,7 +75,7 @@ void semaphore_enter(context_t* ctx, uint32_t sem_id) {
 
 	if(_semaphores[sem_id].occupied == SEM_OCCUPIED) {
 		ctx->gpr[0] = -2;
-		proc_block_on(ctx, _semaphores[sem_id].occupied_pid, (uint32_t)_semaphores + sem_id);
+		//proc_block_on(ctx, _semaphores[sem_id].occupied_pid, (uint32_t)_semaphores + sem_id);
 		return;
 	}
 
@@ -102,6 +102,6 @@ int32_t semaphore_quit(uint32_t sem_id) {
 	int pid_by = _semaphores[sem_id].occupied_pid;
 	_semaphores[sem_id].occupied = SEM_IDLE;
 	_semaphores[sem_id].occupied_pid = -1;
-	proc_wakeup(pid_by, -1, (uint32_t)_semaphores + sem_id);
+	//proc_wakeup(pid_by, -1, (uint32_t)_semaphores + sem_id);
 	return 0;
 }
