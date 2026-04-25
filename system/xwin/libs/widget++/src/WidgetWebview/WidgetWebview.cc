@@ -24,6 +24,7 @@ WidgetWebview::WidgetWebview()
     , m_container(nullptr)
     , m_scrollX(0)
     , m_scrollY(0)
+    , m_needsStyleUpdate(false)
 {
     m_container = new XContainer(&m_browser_context, this);
     m_task_running = false;
@@ -185,14 +186,14 @@ bool WidgetWebview::loadCSSContent(const std::string& content)
     if (!content.empty()) {
         m_browser_context.load_master_stylesheet(content.c_str());
         if (m_doc) {
-            m_doc->update_master_styles();
-            m_doc->render(m_clientWidth);
+            // Defer style update to onRepaint to avoid concurrent access to litehtml
+            m_needsStyleUpdate = true;
             res = true;
         }
     }
     pthread_mutex_unlock(&m_renderMutex);
     if(res)
-        update();
+        update();  // Trigger repaint which will apply the styles
     return res;
 }
 
@@ -214,7 +215,10 @@ bool WidgetWebview::loadImageContent(const std::string& url, uint8_t* content, i
 
 bool WidgetWebview::loadHtmlContent(const std::string& content)
 {
+    pthread_mutex_lock(&m_renderMutex);
     m_browser_context.master_css().clear(); // Clear CSS styles from browser context
+    pthread_mutex_unlock(&m_renderMutex);
+    
     if(!m_defaultCSSUrl.empty()) {
         loadCSSTask(m_defaultCSSUrl);
     }
@@ -261,6 +265,14 @@ void WidgetWebview::onRepaint(graph_t* g, XTheme* theme, const grect_t& r)
     litehtml::position pos(r.x, r.y, r.w, r.h);
 
     pthread_mutex_lock(&m_renderMutex);
+    
+    // Apply pending style update if any (must be done in main thread)
+    if (m_needsStyleUpdate && m_doc) {
+        m_doc->update_master_styles();
+        m_doc->render(m_clientWidth);
+        m_needsStyleUpdate = false;
+    }
+    
     if (m_container) {
         m_container->setGraph(g);
     }
@@ -274,10 +286,12 @@ void WidgetWebview::onResize()
 {
     m_clientWidth = area.w;
     m_clientHeight = area.h;
-    m_container->set_client_size(m_clientWidth, m_clientHeight);
     dragStep = area.h / 4;
 
     pthread_mutex_lock(&m_renderMutex);
+    if (m_container) {
+        m_container->set_client_size(m_clientWidth, m_clientHeight);
+    }
     if (m_doc) {
         m_doc->render(m_clientWidth);
     }

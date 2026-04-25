@@ -79,6 +79,9 @@ private:
     // Scroll offsets
     int m_scrollX;
     int m_scrollY;
+    
+    // Flag to indicate that styles need to be updated (set by loadCSSContent, applied in onRepaint)
+    bool m_needsStyleUpdate;
 };
 
 }
