@@ -96,14 +96,11 @@ void release_task(net_task_t *task){
     
     // Wake up outside lock
     if(read_task != NULL){
-        klog("read_task: %d, %d\n", read_task->tid, read_thread_started);
         proc_wakeup((uint32_t)read_task);
         proc_wakeup_pid(read_task->from_pid, RW_BLOCK_EVT);
         // If read_task thread is started, wait for it to exit
         if(read_thread_started){
-            klog("pthread_join: %d\n", read_tid);
             pthread_join(read_tid, NULL);
-            klog("pthread_join: %d done\n", read_tid);
             free(read_task); // We free read_task here
         }
     }
@@ -379,6 +376,7 @@ static void* task_thread(void* arg){
         } else {
             // No task, block until woken up
             pthread_mutex_unlock(&task_list_lock);
+            //proc_usleep(TASK_POLL_INTERVAL_US);
             proc_block_by(getpid(), (uint32_t)task);
         }
     }
