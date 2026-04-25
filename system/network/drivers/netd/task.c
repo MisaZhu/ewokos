@@ -18,8 +18,9 @@ static void* task_thread(void* arg);
 
 net_task_t *task_list = NULL;
 
-// 添加互斥锁保护任务状态
+// Mutex to protect task list and state
 static pthread_mutex_t task_list_lock;
+static int task_list_lock_initialized = 0;
 
 static void task_list_add(net_task_t * task){
     if(task_list == NULL){
@@ -37,13 +38,18 @@ static void task_list_add(net_task_t * task){
 }
 
 void start_task(void){
-    // 初始化互斥锁
-    pthread_mutex_init(&task_list_lock, NULL);
+    if(!task_list_lock_initialized){
+        pthread_mutex_init(&task_list_lock, NULL);
+        task_list_lock_initialized = 1;
+    }
     
     ipc_disable();
     net_task_t *task = task_list;
     while(task!=NULL){
-       pthread_create(&task->tid, NULL, task_thread, task);
+       if(!task->thread_started){
+           pthread_create(&task->tid, NULL, task_thread, task);
+           task->thread_started = 1;
+       }
        task = task->next;
     }
     task_list = NULL;
@@ -60,40 +66,67 @@ net_task_t *create_task(int fd, int from_pid, int node){
     task->read_task = NULL;
     task->state = NET_TASK_IDLE;
     task->sock = -1;
+    task->thread_started = 0;
     task_list_add(task);
-    //pthread_create(&task->tid, NULL, task_thread, task);
     return task;
 }
 
 void release_task(net_task_t *task){
     pthread_mutex_lock(&task_list_lock);
     
-    // 先设置状态，再唤醒，确保线程能看到状态变化
+    // Set state first, then wake up to ensure thread sees state change
     task->running = false;
     
-    // 保存需要在锁外使用的值
+    // Save values needed outside of lock
     net_task_t* read_task = task->read_task;
     int from_pid = task->from_pid;
-    
+    pthread_t main_tid = task->tid;
+    int main_thread_started = task->thread_started;
+    bool is_read_task = task->is_read_task;
+    int sock = task->sock;
+    pthread_t read_tid = 0;
+    int read_thread_started = 0;
     if(read_task != NULL){
         read_task->running = false;
+        read_tid = read_task->tid;
+        read_thread_started = read_task->thread_started;
     }
     
     pthread_mutex_unlock(&task_list_lock);
     
-    // 在锁外进行唤醒操作
+    // Wake up outside lock
     if(read_task != NULL){
+        klog("read_task: %d, %d\n", read_task->tid, read_thread_started);
         proc_wakeup((uint32_t)read_task);
         proc_wakeup_pid(read_task->from_pid, RW_BLOCK_EVT);
+        // If read_task thread is started, wait for it to exit
+        if(read_thread_started){
+            klog("pthread_join: %d\n", read_tid);
+            pthread_join(read_tid, NULL);
+            klog("pthread_join: %d done\n", read_tid);
+            free(read_task); // We free read_task here
+        }
     }
     
-    // 唤醒任务线程本身
+    // Wake up the task thread itself
     proc_wakeup((uint32_t)task);
     
-    // 如果任务正在处理中，还需要唤醒等待的客户端
+    // Also wake up waiting client if task was processing
     if(from_pid > 0) {
         proc_wakeup_pid(from_pid, RW_BLOCK_EVT);
     }
+
+    // Wait for task thread to exit
+    if(main_thread_started){
+        pthread_join(main_tid, NULL);
+    }
+
+    // Now close the socket if this is not a read task
+    if(!is_read_task) {
+        sock_close(sock);
+    }
+    
+    free(task); // We free main task here
 }
 
 int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *out, void *p){
@@ -119,7 +152,7 @@ int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *o
         PF->copy(&task->in, in->data, in->size);
         task->state = NET_TASK_START;
         pthread_mutex_unlock(&task_list_lock);
-        // 先解锁再唤醒，避免死锁
+        // Unlock first then wake up to avoid deadlock
         proc_wakeup((uint32_t)task);
     } else {
         pthread_mutex_unlock(&task_list_lock);
@@ -157,7 +190,7 @@ int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
         PF->addi(&task->in, size);
         task->state = NET_TASK_START;
         pthread_mutex_unlock(&task_list_lock);
-        // 先解锁再唤醒，避免死锁
+        // Unlock first then wake up to avoid deadlock
         proc_wakeup((uint32_t)task);
     } else {
         pthread_mutex_unlock(&task_list_lock);
@@ -189,7 +222,7 @@ int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p){
         PF->add(&task->in, buf, size);
         task->state = NET_TASK_START;
         pthread_mutex_unlock(&task_list_lock);
-        // 先解锁再唤醒，避免死锁
+        // Unlock first then wake up to avoid deadlock
         proc_wakeup((uint32_t)task);
     } else {
         pthread_mutex_unlock(&task_list_lock);
@@ -216,24 +249,24 @@ int do_network_fcntl(net_task_t *task){
 			task->sock = sock;
 			break;
 		case SOCK_BIND:
-		paddr = proto_read(&task->in, &addrlen);
-		if(paddr == NULL) {
-			ret = -1;
-		} else {
-			ret = sock_bind(sock, paddr, addrlen);
-		}
-		PF->addi(&task->out, ret);
-		break;
-	case SOCK_SENDTO:
-		data = proto_read(&task->in, &size);
-		paddr = proto_read(&task->in, &addrlen);
-		if(data == NULL || paddr == NULL) {
-			ret = -1;
-		} else {
-			ret = sock_sendto(sock, data, size, paddr, addrlen);
-		}
-		PF->addi(&task->out, ret);
-		break;
+			paddr = proto_read(&task->in, &addrlen);
+			if(paddr == NULL) {
+				ret = -1;
+			} else {
+				ret = sock_bind(sock, paddr, addrlen);
+			}
+			PF->addi(&task->out, ret);
+			break;
+		case SOCK_SENDTO:
+			data = proto_read(&task->in, &size);
+			paddr = proto_read(&task->in, &addrlen);
+			if(data == NULL || paddr == NULL) {
+				ret = -1;
+			} else {
+				ret = sock_sendto(sock, data, size, paddr, addrlen);
+			}
+			PF->addi(&task->out, ret);
+			break;
 		case SOCK_RECVFROM:
 			size = proto_read_int(&task->in);
             size = size < TASK_READ_BUF_SIZE ? size:TASK_READ_BUF_SIZE;
@@ -282,34 +315,34 @@ int do_network_fcntl(net_task_t *task){
 			PF->addi(&task->out, 0);
 			break;
 		case SOCK_CONNECT:
-	paddr = proto_read(&task->in, &addrlen);
-	if(paddr == NULL) {
-		ret = -1;
-	} else {
-		ret = sock_connect(sock, paddr, addrlen);
-	}
-	PF->addi(&task->out, ret);
-	break;
-	case SOCK_SETOPT:
-		level = proto_read_int(&task->in);
-		optname = proto_read_int(&task->in);
-		optval = proto_read(&task->in, &optlen);
-		if(optval == NULL) {
-			ret = -1;
-		} else {
-			ret = sock_setsockopt(sock, level, optname, optval, optlen);
-		}
-		PF->addi(&task->out, ret);
-		break;
-	default:
-		break;
+			paddr = proto_read(&task->in, &addrlen);
+			if(paddr == NULL) {
+				ret = -1;
+			} else {
+				ret = sock_connect(sock, paddr, addrlen);
+			}
+			PF->addi(&task->out, ret);
+			break;
+		case SOCK_SETOPT:
+			level = proto_read_int(&task->in);
+			optname = proto_read_int(&task->in);
+			optval = proto_read(&task->in, &optlen);
+			if(optval == NULL) {
+				ret = -1;
+			} else {
+				ret = sock_setsockopt(sock, level, optname, optval, optlen);
+			}
+			PF->addi(&task->out, ret);
+			break;
+		default:
+			break;
 	}
     return 0;
 }
 
 static void* task_thread(void* arg){
     net_task_t *task = (net_task_t *)arg;
-    
+
     pthread_mutex_lock(&task_list_lock);
     task->running = true;
     task->state = NET_TASK_IDLE;
@@ -321,13 +354,13 @@ static void* task_thread(void* arg){
     while(1){
         pthread_mutex_lock(&task_list_lock);
         
-        // 检查是否应该退出
+        // Check if we should exit
         if(!task->running) {
             pthread_mutex_unlock(&task_list_lock);
             break;
         }
         
-        // 检查状态并处理
+        // Check state and process
         if(task->state == NET_TASK_START) {
             task->state = NET_TASK_PROCESS;
             pthread_mutex_unlock(&task_list_lock);
@@ -339,35 +372,21 @@ static void* task_thread(void* arg){
             int from_pid = task->from_pid;
             pthread_mutex_unlock(&task_list_lock);
             
-            // 唤醒等待的客户端
+            // Wake up waiting client
             if(from_pid > 0) {
                 proc_wakeup_pid(from_pid, RW_BLOCK_EVT);
             }
         } else {
-            // 没有任务，短暂等待后重试
+            // No task, block until woken up
             pthread_mutex_unlock(&task_list_lock);
-            usleep(TASK_POLL_INTERVAL_US);
+            proc_block_by(getpid(), (uint32_t)task);
         }
     }
 
+    // Clean up in and out
     PF->clear(&task->in);
     PF->clear(&task->out);
 
-    if(!task->is_read_task) {
-        sock_close(task->sock);
-        
-        pthread_mutex_lock(&task_list_lock);
-        net_task_t* read_task = task->read_task;
-        if(read_task != NULL) {
-            read_task->running = false;
-        }
-        pthread_mutex_unlock(&task_list_lock);
-        
-        if(read_task != NULL) {
-            proc_wakeup((uint32_t)read_task);
-            proc_wakeup_pid(read_task->from_pid, RW_BLOCK_EVT);
-        }
-    }
-    free(task);
+    // Don't free here, let main thread do the freeing
     return NULL;
 }

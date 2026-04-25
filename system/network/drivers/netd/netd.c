@@ -18,7 +18,6 @@
 #include "netd.h"
 #include "platform.h"
 #include "task.h"
-
 #include "stack/util.h"
 #include "stack/net.h"
 #include "stack/ip.h"
@@ -31,14 +30,15 @@ static int network_fcntl(int fd, int from_pid, fsinfo_t* info,
 	net_task_t *task = (net_task_t*)info->data;
 
 	if(from_pid != task->from_pid){
-		if(cmd == SOCK_RECVFROM){
+		if(cmd == SOCK_RECVFROM || cmd == SOCK_RECV){
+			klog("network_fcntl: %d\n", task->tid, task->read_task);
 			if(task->read_task == NULL){
 				task->read_task = create_task(fd, from_pid, info->node);
 				task->read_task->sock = task->sock;
 				task->read_task->is_read_task = true;
 			}
 			task = task->read_task;
-			task->cmd = SOCK_RECVFROM;
+			task->cmd = cmd;
 		}
 	}
 
@@ -59,6 +59,7 @@ static int network_read(int fd, int from_pid, fsinfo_t* info,
 	(void)p;
 
 	net_task_t *task = (net_task_t*)info->data;
+	klog("network_read: %d\n", task->tid, task->read_task);
 	if(from_pid != task->from_pid){
 		if(task->read_task == NULL){
 			task->read_task = create_task(fd, from_pid, info->node);
@@ -85,6 +86,7 @@ static int network_write(int fd, int from_pid, fsinfo_t* info,
 static int network_close(int fd, int from_pid, uint32_t node, fsinfo_t* fsinfo,void* p) {
 	net_task_t *task = (net_task_t *)fsinfo->data;
 	if(task) {
+		klog("network_close: %d 0x%x\n", task->tid, task->read_task);
 		release_task(task);
 		fsinfo->data = NULL;
 	}

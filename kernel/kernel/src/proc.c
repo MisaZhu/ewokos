@@ -499,12 +499,12 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 			proc->space->interrupt.state = INTR_STATE_IDLE;
 			proc_wakeup(proc->info.pid, -1, (uint32_t)&proc->space->interrupt);
 		}
-		proc_wakeup_waiting(proc->info.pid);
 		proc->info.father_pid = 0;
 	}
 	else if(proc->info.type == TASK_TYPE_THREAD) { //TODO
 		proc->info.father_pid = 0;
 	}
+	proc_wakeup_waiting(proc->info.pid);
 
 	proc->info.uuid = 0;
 	proc_update_vsyscall(proc);

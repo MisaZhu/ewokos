@@ -15,6 +15,7 @@
 #include <kernel/svc.h>
 #include <kprintf.h>
 #include <mm/kalloc.h>
+#include <mm/mmu.h>
 #include <stddef.h>
 
 
@@ -189,7 +190,9 @@ void data_abort_handler(context_t* ctx, ewokos_addr_t addr_fault, uint32_t statu
 	uint32_t legel_addr_base = cproc->space->rw_heap_base;
 
 	if((status & 0x5) == 0x5 || (status & 0xD) == 0xD) { //permissions fault only
-		if(addr_fault >= legel_addr_base && addr_fault < cproc->space->heap_size) { //in proc heap only
+		uint8_t in_heap = (addr_fault >= legel_addr_base && addr_fault < cproc->space->heap_size);
+		uint8_t in_user_stack = (addr_fault >= USER_STACK_BOTTOM && addr_fault < USER_STACK_TOP);
+		if(in_heap || in_user_stack) { 
 			if (kernel_lock_check() > 0)
 				return;
 
