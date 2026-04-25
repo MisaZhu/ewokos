@@ -304,6 +304,7 @@ static void* thread_loop(void* p) {
 	widgetXRun(&x, &win);
 	_consoleWidget = NULL;
 	device_stop(_dev);
+	proc_wakeup(RW_BLOCK_EVT);
 	return NULL;
 }
 
@@ -334,6 +335,10 @@ static int console_read(int fd, int from_pid, fsinfo_t* node,
 	(void)p;
 	(void)size;
 	(void)node;
+
+	if(_consoleWidget == NULL) {
+		return 0; //closed
+	}
 
 	char c;
 	int res = charbuf_pop(_buffer, &c);

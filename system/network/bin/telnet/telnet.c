@@ -181,16 +181,15 @@ int main(int argc, char *argv[]) {
             // 正常字符发送
             int sz =  write(sockfd, buf, n);
             if(sz < 0) {
+                printf("\nEOF received. Exiting...\n");
                 _ended = true;
                 break;
             }
         } 
-        /*else if(errno != EAGAIN){
-            printf("\nEOF received. Exiting...\n");
+        else if(errno != EAGAIN){
             _ended = true;
             break;
         }
-        */
         usleep(10000);
     }
     // 关闭连接
