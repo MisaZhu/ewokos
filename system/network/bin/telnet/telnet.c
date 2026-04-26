@@ -76,7 +76,7 @@ static void *receive_thread(void *arg) {
 }
 
 bool sepcial_char_check(uint8_t c) {
-    // 特殊字符处理
+    // Special character handling
     if (c == 0x1D) { // Ctrl+]
         printf("\nCtrl+] Exiting connection...\n");
         _ended = true;
@@ -103,7 +103,7 @@ int main(int argc, char *argv[]) {
     
     setbuf(stdout, NULL);
     
-    // 设置服务器地址
+    // Set server address
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     if (argc > 2)
@@ -111,26 +111,26 @@ int main(int argc, char *argv[]) {
     else
         server_addr.sin_port = htons(23);
 
-    // 尝试通过域名解析
+    // Try to resolve by hostname
     he = gethostbyname(argv[1]);
     if (he == NULL) {
-        // 尝试直接解析 IP 地址
+        // Try to resolve IP address directly
         if (inet_pton(AF_INET, argv[1], &server_addr.sin_addr) <= 0) {
             fprintf(stderr, "Invalid address or hostname: %s\n", argv[1]);
             return -1;
         }
     } else {
-        // 使用解析得到的 IP 地址
+        // Use resolved IP address
         memcpy(&server_addr.sin_addr, he->h_addr_list[0], he->h_length);
     }
     
-    // 创建 socket
+    // Create socket
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         return -1;
     }
 
     /*struct timeval timeout;
-    timeout.tv_sec = 3; // 3秒超时
+    timeout.tv_sec = 3; // 3 second timeout
     timeout.tv_usec = 0;
     if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0) {
         close(sockfd);
@@ -138,7 +138,6 @@ int main(int argc, char *argv[]) {
     }
     */
     
-    // 显示连接信息
     char addr_str[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &server_addr.sin_addr, addr_str, INET_ADDRSTRLEN);
     if (he != NULL) {
@@ -147,7 +146,7 @@ int main(int argc, char *argv[]) {
         printf("Connecting to %s:%s ... ", argv[1], argv[2]);
     }
     
-    // 连接服务器
+    // Connect to server
     if (connect(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
         printf("failed\n");
         close(sockfd);
@@ -155,7 +154,6 @@ int main(int argc, char *argv[]) {
     }
     printf("ok\n");
     
-    // 创建接收线程
     if (pthread_create(&tid, NULL, receive_thread, NULL) != 0) {
         close(sockfd);
         return -1;
@@ -163,7 +161,6 @@ int main(int argc, char *argv[]) {
 
     fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
     
-    // 主线程用于发送数据
     while (!_ended) {
         n = read(STDIN_FILENO, buf, BUFFER_SIZE - 1);
         if (n > 0) {
@@ -178,7 +175,7 @@ int main(int argc, char *argv[]) {
             if(_ended)
                 break;
 
-            // 正常字符发送
+            // Send normal characters
             int sz =  write(sockfd, buf, n);
             if(sz < 0) {
                 printf("\nEOF received. Exiting...\n");
@@ -192,7 +189,7 @@ int main(int argc, char *argv[]) {
         }
         usleep(10000);
     }
-    // 关闭连接
+    // Close connection
     close(sockfd);
 
     while (!_ended) {

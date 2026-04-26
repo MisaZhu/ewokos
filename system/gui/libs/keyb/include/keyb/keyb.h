@@ -21,6 +21,7 @@ typedef struct {
 
 int keyb_read(int keyb_fd, keyb_evt_t* evts, uint8_t num);
 int keyb_shift_value(int key);
+int keyb_ctrl_value(int key);
 
 #ifdef __cplusplus
 }

@@ -116,6 +116,12 @@ int keyb_read(int keyb_fd, keyb_evt_t* evts, uint8_t num) {
 	return key_state_machine(evts, num); 
 }
 
+int keyb_ctrl_value(int key){
+    if(key == 'c')
+        return 0x03;//Ctrl+c
+    return key;
+} 
+
 int keyb_shift_value(int key){
     if(key >= 'a' && key <= 'z')
         return key + 'A' - 'a';

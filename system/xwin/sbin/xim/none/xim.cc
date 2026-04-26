@@ -42,6 +42,8 @@ class XIM {
 
 			if (shift) {
 				ev.value.im.value = keyb_shift_value(c);
+			} else if (ctrl) {
+				ev.value.im.value = keyb_ctrl_value(c);
 			} else {
 				ev.value.im.value = c;
 			}
