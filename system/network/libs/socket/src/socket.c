@@ -97,6 +97,8 @@ int getpeername (int fd, struct sockaddr* addr,uint32_t * len){
 }
 
 int32_t send (int fd, const void *buf, uint32_t n, int flags){
+    return write(fd, buf, n);
+    /*
     int ret;
 	proto_t in,out;
     fsinfo_t info;
@@ -109,11 +111,13 @@ int32_t send (int fd, const void *buf, uint32_t n, int flags){
     ret = proto_read_int(&out);
     PF->clear(&in);
 	PF->clear(&out);
-
     return ret;
+    */
 }
 
 int32_t recv (int fd, void *buf, uint32_t n, int flags){
+    return read(fd, buf, n);
+    /*
     int ret;
 	proto_t in,out;
     fsinfo_t info;
@@ -131,6 +135,7 @@ int32_t recv (int fd, void *buf, uint32_t n, int flags){
 	PF->clear(&out);
        
     return ret;
+    */
 }
 
 int32_t sendto (int fd, const void *buf, uint32_t n,
