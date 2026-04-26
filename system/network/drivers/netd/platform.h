@@ -30,6 +30,8 @@ struct sched_ctx {
   volatile int interrupted;
   volatile int wc; /* wait count */
   int sleeping; /* set to 1 when sched_sleep is waiting */
+  volatile int wakeups; /* pending wakeup count */
+  volatile int destroyed; /* set to 1 when ctx is being destroyed */
 };
 
 #define gettimeofday gettimeofday_plat
@@ -56,7 +58,7 @@ extern int dflag[16];
 extern int dcnt;
 #define TRACE()     do{dflag[dcnt%(sizeof(dflag)/sizeof(int))] = __LINE__; dcnt++;}while(0)
 
-#define mutex_lock(x)	      pthread_mutex_lock(x)
-#define mutex_unlock(x)     pthread_mutex_unlock(x)
+#define mutex_lock(x)	      pthread_mutex_lock((void*)x)
+#define mutex_unlock(x)     pthread_mutex_unlock((void*)x)
 
 #endif

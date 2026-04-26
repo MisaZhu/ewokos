@@ -30,6 +30,9 @@ typedef struct net_task{
     int thread_started;
 
     struct net_task* next;
+
+    // Condition variable for task synchronization (uses task_list_lock)
+    pthread_cond_t cond;
 }net_task_t;
 
 net_task_t *create_task(int fd, int from_pid, int node);

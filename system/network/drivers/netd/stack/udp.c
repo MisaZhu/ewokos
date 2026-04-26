@@ -113,8 +113,8 @@ udp_pcb_release(struct udp_pcb *pcb)
     // CRITICAL: Wake up any process waiting on this pcb before releasing it.
     // This prevents the race condition where sched_sleep is blocked on this ctx
     // and the pcb is released, causing sched_sleep to access freed memory.
+    // sched_ctx_destroy will wait for all waiters to exit before returning.
     sched_ctx_destroy(&pcb->ctx);
-    sched_wakeup(&pcb->ctx);
 
     pcb->state = UDP_PCB_STATE_FREE;
     pcb->local.addr = IP_ADDR_ANY;

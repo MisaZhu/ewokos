@@ -213,15 +213,19 @@ tcp_pcb_release(struct tcp_pcb *pcb)
     // CRITICAL: Wake up any process waiting on this pcb before releasing it.
     // This prevents the race condition where sched_sleep is blocked on this ctx
     // and the pcb is released, causing sched_sleep to access freed memory.
+    // sched_ctx_destroy will wait for all waiters to exit before returning.
     sched_ctx_destroy(&pcb->ctx);
-    sched_wakeup(&pcb->ctx);
 
     pcb_release_count++;
     infof("tcp_pcb_release: total=%d, released=%d, state=%d, local=%s, foreign=%s",
           pcb_alloc_count, pcb_release_count, pcb->state,
           ip_endpoint_ntop(&pcb->local, ep1, sizeof(ep1)), ip_endpoint_ntop(&pcb->foreign, ep2, sizeof(ep2)));
-    memset(pcb, 0, sizeof(*pcb));
-
+    
+    // DO NOT memset the pcb here!
+    // There is a race condition where sched_sleep in another thread
+    // may still be accessing pcb->ctx after sched_ctx_destroy returns.
+    // Instead, just mark the pcb as FREE and let tcp_pcb_alloc reuse it.
+    pcb->state = TCP_PCB_STATE_FREE;
 }
 
 static struct tcp_pcb *

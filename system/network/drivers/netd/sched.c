@@ -1,4 +1,3 @@
-#include <pthread.h>
 #include <time.h>
 #include <sys/errno.h>
 #include <unistd.h>
@@ -9,24 +8,31 @@
 #include "platform.h"
 #include "stack/util.h"
 
-#define memory_barrier() __sync_synchronize()
-
 #define SCHED_POLL_INTERVAL_US 1000 /* 1ms */
+
+#define memory_barrier() __sync_synchronize()
 
 int
 sched_ctx_init(struct sched_ctx *ctx)
 {
     ctx->available = 1;
-	ctx->cond = 0;
-	ctx->interrupted = 0;
+    ctx->cond = 0;
+    ctx->interrupted = 0;
     ctx->wc = 0;
+    ctx->sleeping = 0;
+    ctx->wakeups = 0;
+    ctx->destroyed = 0;
     return 0;
 }
 
 int
 sched_ctx_destroy(struct sched_ctx *ctx)
 {
-	return 0;
+    /* Just set flags, do NOT wait. The waiters will exit on their own. */
+    ctx->destroyed = 1;
+    ctx->cond = 1;
+    memory_barrier();
+    return 0;
 }
 
 int
@@ -34,29 +40,32 @@ sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timeval *abstime
 {
     int ret = 1;
     struct timeval now;
-    
-    if (ctx->interrupted) {
+
+    if (ctx->destroyed) {
         errno = EINTR;
         return -1;
     }
-    
+
     ctx->wc++;
     memory_barrier();
 
-    if (ctx->cond || !ctx->available) {
+    if (ctx->cond || !ctx->available || ctx->destroyed) {
         ctx->wc--;
         memory_barrier();
         return 0;
     }
-    pthread_mutex_unlock((pthread_mutex_t*)mutex);
+
+    ctx->sleeping = 1;
+    memory_barrier();
+
+    mutex_unlock(mutex);
 
     while (1) {
         memory_barrier();
-        if (ctx->cond || !ctx->available) {
-            ret = 0;
+        if (ctx->cond || !ctx->available || ctx->destroyed) {
             break;
         }
-        
+
         if (ctx->interrupted) {
             errno = EINTR;
             ret = -1;
@@ -74,17 +83,24 @@ sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timeval *abstime
                 break;
             }
         }
-        
+
         usleep(SCHED_POLL_INTERVAL_US);
     }
 
-    pthread_mutex_lock((pthread_mutex_t*)mutex);
+    mutex_lock(mutex);
 
     ctx->cond = 0;
+    ctx->wakeups = 0;
 
     ctx->wc--;
+    ctx->sleeping = 0;
     memory_barrier();
-    
+
+    if (ctx->destroyed) {
+        errno = EINTR;
+        return -1;
+    }
+
     if (ctx->interrupted) {
         if (!ctx->wc) {
             ctx->interrupted = 0;

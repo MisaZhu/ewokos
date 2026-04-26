@@ -578,6 +578,7 @@ void proc_funeral(proc_t* proc) {
 		if(proc->space->thread_stacks != NULL)
 			kfree(proc->space->thread_stacks);
 		kfree(proc->space);
+		proc->space = NULL;
 	}
 	else {
 		set_translation_table_base(V2P(cproc->space->vm));
@@ -870,7 +871,10 @@ inline void proc_waitpid(context_t* ctx, int32_t pid) {
 }
 
 static void proc_wakeup_all_state(int32_t pid_by, uint32_t event, proc_t* proc) {
-	if((event == 0 || proc->block_event == event) && 
+	if(proc->space == NULL)
+		return;
+
+	if((event == 0 || proc->block_event == event) &&
 			(pid_by < 0 || proc->info.block_by == pid_by )) {
 		proc_ready(proc);
 	}
@@ -1105,6 +1109,7 @@ static int32_t renew_interrupt_counter(uint32_t usec) {
 		proc_t* proc = _task_table[i];
 		if(proc == NULL ||
 				proc->info.state == UNUSED || proc->info.state == ZOMBIE ||
+				proc->space == NULL ||
 				proc->space->interrupt.state == INTR_STATE_IDLE)
 			continue;
 
@@ -1127,7 +1132,8 @@ static int32_t renew_ipc_counter(uint32_t usec) {
 	for(i=0; i<_kernel_config.max_task_num; i++) {
 		proc_t* proc = _task_table[i];
 		if(proc == NULL ||
-				proc->info.state == UNUSED || proc->info.state == ZOMBIE)
+				proc->info.state == UNUSED || proc->info.state == ZOMBIE ||
+				proc->space == NULL)
 			continue;
 		ipc_task_t* ipc = &proc->space->ipc_server.ctask;
 		if(ipc->state == IPC_IDLE)

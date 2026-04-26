@@ -38,7 +38,9 @@ static int network_fcntl(int fd, int from_pid, fsinfo_t* info,
 		task = task->read_task;
 		task->cmd = cmd;
 	}
-	return task_cntl(task, from_pid, cmd, in, out, p);
+	int res = task_cntl(task, from_pid, cmd, in, out, p);
+    proc_wakeup_pid(from_pid, RW_BLOCK_EVT);
+	return res;
 }
 
 int network_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p){

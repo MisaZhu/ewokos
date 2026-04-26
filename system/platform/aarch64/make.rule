@@ -10,6 +10,7 @@ CFLAGS =  -march=armv8-a -Wno-incompatible-pointer-types -Wno-int-conversion \
 		-fno-builtin-memset \
         -Wno-unused-parameter \
 		-mstrict-align \
+        -mno-outline-atomics \
         -std=c99
 
 CXXFLAGS = -march=armv8-a \
@@ -19,6 +20,7 @@ CXXFLAGS = -march=armv8-a \
         -pedantic \
 		-fno-rtti \
 		-mstrict-align \
+        -mno-outline-atomics \
         -fno-exceptions \
         -fno-use-cxa-atexit \
         -std=c++14
