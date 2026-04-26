@@ -530,6 +530,47 @@ sock_setsockopt(int id, int level, int optname, const void *optval, int optlen)
     return -1;
 }
 
+// Get socket options
+int
+sock_getsockopt(int id, int level, int optname, void *optval, int *optlen)
+{
+    struct sock *s = sock_get(id);
+    if (!s) {
+        return -17;
+    }
+    
+    if (level == SOL_SOCKET) {
+        switch (optname) {
+        case SO_ERROR:
+            if (*optlen >= sizeof(int)) {
+                // Always return 0 (no error) for now
+                *(int *)optval = 0;
+                *optlen = sizeof(int);
+                return 0;
+            }
+            break;
+        case SO_RCVTIMEO:
+            if (*optlen >= sizeof(struct timeval)) {
+                memcpy(optval, &s->rcv_timeout, sizeof(struct timeval));
+                *optlen = sizeof(struct timeval);
+                return 0;
+            }
+            break;
+        case SO_SNDTIMEO:
+            if (*optlen >= sizeof(struct timeval)) {
+                memcpy(optval, &s->snd_timeout, sizeof(struct timeval));
+                *optlen = sizeof(struct timeval);
+                return 0;
+            }
+            break;
+        default:
+            break;
+        }
+    }
+    
+    return -1;
+}
+
 // Get socket timeout for a given descriptor
 struct timeval*
 sock_get_timeout(int desc, int type, int timeout_type)

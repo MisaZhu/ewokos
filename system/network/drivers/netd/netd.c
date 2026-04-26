@@ -29,7 +29,7 @@ static int network_fcntl(int fd, int from_pid, fsinfo_t* info,
     (void)p;
 	net_task_t *task = (net_task_t*)info->data;
 
-	if(cmd == SOCK_RECVFROM || cmd == SOCK_RECV){
+	if(cmd == SOCK_RECVFROM == SOCK_RECV){
 		if(task->read_task == NULL){
 			task->read_task = create_task(fd, from_pid, info->node);
 			task->read_task->sock = task->sock;
@@ -54,18 +54,17 @@ int network_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p){
 static int network_read(int fd, int from_pid, fsinfo_t* info, 
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
+	(void)offset;
 	(void)p;
 
 	net_task_t *task = (net_task_t*)info->data;
-	if(from_pid != task->from_pid){
-		if(task->read_task == NULL){
-			task->read_task = create_task(fd, from_pid, info->node);
-			task->read_task->sock = task->sock;
-			task->read_task->is_read_task = true;
-		}
-		task = task->read_task;
+	if(task->read_task == NULL){
+		task->read_task = create_task(fd, from_pid, info->node);
+		task->read_task->sock = task->sock;
+		task->read_task->is_read_task = true;
 	}
-	int ret = task_read(task, from_pid, buf + offset, size, p);
+	task = task->read_task;
+	int ret = task_read(task, from_pid, buf, size, p);
     proc_wakeup_pid(from_pid, RW_BLOCK_EVT);
 	return ret;
 }
@@ -73,9 +72,10 @@ static int network_read(int fd, int from_pid, fsinfo_t* info,
 static int network_write(int fd, int from_pid, fsinfo_t* info,
 		const void* buf, int size, int offset, void* p) {
 	(void)fd;
+	(void)offset;
 
 	net_task_t *task = (net_task_t*)info->data;
-	int ret = task_write(task, from_pid, buf + offset, size, p);
+	int ret = task_write(task, from_pid, buf, size, p);
     proc_wakeup_pid(from_pid, RW_BLOCK_EVT);
 	return ret;
 }

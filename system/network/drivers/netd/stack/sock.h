@@ -10,6 +10,7 @@
 #define SOL_SOCKET  0xFFFF
 #define SO_SNDTIMEO 0x1005
 #define SO_RCVTIMEO 0x1006
+#define SO_ERROR    0x1007
 
 #define PF_UNSPEC   0
 #define PF_LOCAL    1
@@ -102,6 +103,10 @@ sock_add_icmp_packet(const uint8_t *data, size_t len, ip_addr_t src, ip_addr_t d
 // Set socket options
 extern int
 sock_setsockopt(int id, int level, int optname, const void *optval, int optlen);
+
+// Get socket options
+extern int
+sock_getsockopt(int id, int level, int optname, void *optval, int *optlen);
 
 // Get socket timeout for a given descriptor
 extern struct timeval*

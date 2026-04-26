@@ -162,7 +162,7 @@ int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
     pthread_mutex_lock(&task_list_lock);
     
     if(task->state == NET_TASK_FINISH){
-        if(from_pid != task->from_pid || SOCK_RECV != task->cmd) {
+        if(SOCK_RECV != task->cmd) {
             pthread_mutex_unlock(&task_list_lock);
             return VFS_ERR_RETRY;
         }
@@ -318,16 +318,28 @@ int do_network_fcntl(net_task_t *task){
 			PF->addi(&task->out, ret);
 			break;
 		case SOCK_SETOPT:
-			level = proto_read_int(&task->in);
-			optname = proto_read_int(&task->in);
-			optval = proto_read(&task->in, &optlen);
-			if(optval == NULL) {
-				ret = -1;
-			} else {
-				ret = sock_setsockopt(sock, level, optname, optval, optlen);
-			}
-			PF->addi(&task->out, ret);
-			break;
+		level = proto_read_int(&task->in);
+		optname = proto_read_int(&task->in);
+		optval = proto_read(&task->in, &optlen);
+		if(optval == NULL) {
+			ret = -1;
+		} else {
+			ret = sock_setsockopt(sock, level, optname, optval, optlen);
+		}
+		PF->addi(&task->out, ret);
+		break;
+	case SOCK_GETOPT:
+		level = proto_read_int(&task->in);
+		optname = proto_read_int(&task->in);
+		optlen = proto_read_int(&task->in);
+		// First read the optlen, then process
+		ret = sock_getsockopt(sock, level, optname, task->read_buf, &optlen);
+		PF->addi(&task->out, ret);
+		if(ret == 0) {
+			PF->addi(&task->out, optlen);
+			PF->add(&task->out, task->read_buf, optlen);
+		}
+		break;
 		default:
 			break;
 	}

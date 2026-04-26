@@ -7,6 +7,7 @@
 #define SOL_SOCKET  0xFFFF
 #define SO_SNDTIMEO 0x1005
 #define SO_RCVTIMEO 0x1006
+#define SO_ERROR    0x1007
 
 struct sockaddr
 {
@@ -112,7 +113,8 @@ struct msghdr {
 #define SOCK_LINK       10
 #define SOCK_CONNECT    11
 #define SOCK_SETOPT     12
-#define SOCK_PAIR       13
+#define SOCK_GETOPT     13
+#define SOCK_PAIR       14
 
 #define SOCK_REQUEST    100
 #define SOCK_ACK        101
