@@ -1135,7 +1135,7 @@ static int32_t renew_ipc_counter(uint32_t usec) {
 
 		ipc->counter += usec;
 		if(ipc->counter >= IPC_TIMEOUT_USEC) {
-			printf("ipc timeout: %d\n", proc->info.pid);
+			printf("ipc timeout: clt:%d, srv:%d, call:%d/0x%x\n", ipc->client_pid, proc->info.pid, ipc->call_id, ipc->call_id);
 			memcpy(&proc->ctx, &proc->space->ipc_server.saved_state.ctx, sizeof(context_t));
 			if(proc->info.state == READY || proc->info.state == RUNNING)
 				proc_ready(proc);
