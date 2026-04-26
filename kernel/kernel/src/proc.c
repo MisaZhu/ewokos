@@ -861,7 +861,7 @@ inline void proc_block_on(context_t* ctx, int32_t pid_by, uint32_t event) {
 
 inline void proc_waitpid(context_t* ctx, int32_t pid) {
 	proc_t* cproc = get_current_proc();
-	proc_t* p = _task_table[pid];
+	proc_t* p = proc_get(pid);
 	if(cproc == NULL || p == NULL)
 		return;
 

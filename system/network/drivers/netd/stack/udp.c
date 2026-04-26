@@ -417,6 +417,11 @@ udp_recvfrom(int id, uint8_t *buf, size_t size, struct ip_endpoint *foreign)
     
     // Get socket timeout
     struct timeval *rcv_timeout = sock_get_timeout(id, SOCK_DGRAM, SO_RCVTIMEO);
+    if (!rcv_timeout) {
+        errorf("socket not found, id=%d", id);
+        mutex_unlock(&mutex);
+        return -1;
+    }
     
     slog("recvfrom timeout:%d ... ", rcv_timeout->tv_sec);
     while (!(entry = queue_pop(&pcb->queue))) {

@@ -15,14 +15,12 @@
 #define TASK_POLL_INTERVAL_US 1000 /* 1ms */
 
 static void* task_thread(void* arg);
-
+ 
+pthread_mutex_t task_list_lock;
 net_task_t *task_list = NULL;
 
-// Mutex to protect task list and state
-static pthread_mutex_t task_list_lock;
-static int task_list_lock_initialized = 0;
-
 static void task_list_add(net_task_t * task){
+    pthread_mutex_lock(&task_list_lock);
     if(task_list == NULL){
         task_list = task;
         task->next = NULL;
@@ -33,27 +31,44 @@ static void task_list_add(net_task_t * task){
             t = t->next;
         }
         t->next = task;
+        task->prev = t;
         task->next = NULL;
     }
+    pthread_mutex_unlock(&task_list_lock);
+}
+
+static void task_list_remove(net_task_t * task){
+    if(task == NULL)
+        return;
+
+    pthread_mutex_lock(&task_list_lock);
+    if(task == task_list)
+        task_list = task->next;
+
+    if(task->prev)
+        task->prev->next = task->next;
+    if(task->next)
+        task->next->prev = task->prev;
+    pthread_mutex_unlock(&task_list_lock);
 }
 
 void start_task(void){
-    if(!task_list_lock_initialized){
-        pthread_mutex_init(&task_list_lock, NULL);
-        task_list_lock_initialized = 1;
-    }
-
     ipc_disable();
     net_task_t *task = task_list;
     while(task!=NULL){
-       if(!task->thread_started){
-           pthread_create(&task->tid, NULL, task_thread, task);
-           pthread_detach(task->tid);  // Detach thread to auto-cleanup
-           task->thread_started = 1;
-       }
-       task = task->next;
+        net_task_t* next = task->next;
+        if(!task->running) {
+            // Remove task from list safely while holding lock
+            task_list_remove(task);
+            // Unlock before releasing the task
+            release_task(task);
+        }
+        else if(!task->thread_started)  {
+            pthread_create(&task->tid, NULL, task_thread, task);
+            task->thread_started = 1;
+        }
+        task = next;
     }
-    task_list = NULL;
     ipc_enable();
 }
 
@@ -61,65 +76,42 @@ net_task_t *create_task(int fd, int from_pid, int node){
     net_task_t *task = malloc(sizeof(net_task_t));
     memset(task, 0 , sizeof(net_task_t));
     task->fd = fd;
-    task->from_pid = 0;
     task->node = node;
-    task->running = false;
-    task->read_task = NULL;
     task->state = NET_TASK_IDLE;
     task->sock = -1;
-    task->thread_started = 0;
-    pthread_cond_init(&task->cond, NULL);
+    task->running = true;
     task_list_add(task);
     return task;
 }
 
 void release_task(net_task_t *task){
-    pthread_mutex_lock(&task_list_lock);
-
-    // Set state first, then wake up to ensure thread sees state change
+    if(task == NULL)
+        return;
+    
     task->running = false;
-
+    // Set running = false to signal thread to exit
     // Save values needed outside of lock
     net_task_t* read_task = task->read_task;
     int from_pid = task->from_pid;
     bool is_read_task = task->is_read_task;
     int sock = task->sock;
-    int read_thread_started = 0;
-    if(read_task != NULL){
-        read_task->running = false;
-        read_thread_started = read_task->thread_started;
-    }
-
-    pthread_mutex_unlock(&task_list_lock);
-
-    // Wake up outside lock
-    if(read_task != NULL){
-        pthread_cond_signal(&read_task->cond);
-        proc_wakeup_pid(read_task->from_pid, RW_BLOCK_EVT);
-        // For detached threads, we don't wait, just free the task structure
-        if(read_thread_started){
-            pthread_cond_destroy(&read_task->cond);
-            free(read_task); // We free read_task here
-        }
-    }
-
-    // Wake up the task thread itself
-    pthread_cond_signal(&task->cond);
+    int thread_started = task->thread_started;
 
     // Also wake up waiting client if task was processing
     if(from_pid > 0) {
         proc_wakeup_pid(from_pid, RW_BLOCK_EVT);
     }
 
-    // For detached threads, we don't wait for thread exit
-    // The thread will clean up itself after seeing running=false
-    pthread_cond_destroy(&task->cond);
+    // Wait for main task thread to exit before destroying cond and freeing
+    if(thread_started){
+        pthread_join(task->tid, NULL);
+    }
 
     // Now close the socket if this is not a read task
     if(!is_read_task) {
         sock_close(sock);
     }
-
+    // Now safe to destroy condition variable after thread has exited
     free(task); // We free main task here
 }
 
@@ -147,7 +139,6 @@ int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *o
         task->state = NET_TASK_START;
         pthread_mutex_unlock(&task_list_lock);
         // Signal task thread to wake up
-        pthread_cond_signal(&task->cond);
     } else {
         pthread_mutex_unlock(&task_list_lock);
     }
@@ -185,7 +176,6 @@ int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
         task->state = NET_TASK_START;
         pthread_mutex_unlock(&task_list_lock);
         // Signal task thread to wake up
-        pthread_cond_signal(&task->cond);
     } else {
         pthread_mutex_unlock(&task_list_lock);
     }
@@ -217,7 +207,6 @@ int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p){
         task->state = NET_TASK_START;
         pthread_mutex_unlock(&task_list_lock);
         // Signal task thread to wake up
-        pthread_cond_signal(&task->cond);
     } else {
         pthread_mutex_unlock(&task_list_lock);
     }
@@ -354,7 +343,6 @@ static void* task_thread(void* arg){
     PF->init(&task->out);
 
     pthread_mutex_lock(&task_list_lock);
-    task->running = true;
     task->state = NET_TASK_IDLE;
     pthread_mutex_unlock(&task_list_lock);
 
@@ -372,8 +360,8 @@ static void* task_thread(void* arg){
 
         // Check state and process
         if(task->state == NET_TASK_START) {
-            task->state = NET_TASK_PROCESS;
             pthread_mutex_unlock(&task_list_lock);
+            task->state = NET_TASK_PROCESS;
 
             do_network_fcntl(task);
 
@@ -387,8 +375,6 @@ static void* task_thread(void* arg){
                 proc_wakeup_pid(from_pid, RW_BLOCK_EVT);
             }
         } else {
-            // No task, wait on condition variable (atomically releases task_list_lock)
-            pthread_cond_wait(&task->cond, &task_list_lock);
             pthread_mutex_unlock(&task_list_lock);
         }
     }

@@ -1202,6 +1202,13 @@ tcp_connect(int id, struct ip_endpoint *foreign)
     pcb->state = TCP_PCB_STATE_SYN_SENT;
 
     struct timeval *snd_timeout = sock_get_timeout(id, SOCK_STREAM, SO_SNDTIMEO);
+    if (!snd_timeout) {
+        errorf("socket not found, id=%d", id);
+        pcb->state = TCP_PCB_STATE_CLOSED;
+        tcp_pcb_release(pcb);
+        mutex_unlock(&mutex);
+        return -1;
+    }
 AGAIN:
     state = pcb->state;
     // waiting for state changed
@@ -1409,6 +1416,12 @@ tcp_send(int id, uint8_t *data, size_t len)
     }
 
     struct timeval *snd_timeout = sock_get_timeout(id, SOCK_STREAM, SO_SNDTIMEO);
+    if (!snd_timeout) {
+        errorf("socket not found, id=%d", id);
+        mutex_unlock(&mutex);
+        errno = ECONNRESET;
+        return -1;
+    }
 RETRY:
     switch (pcb->state) {
     case TCP_PCB_STATE_CLOSED:
@@ -1557,6 +1570,12 @@ RETRY:
     }
 
     struct timeval *rcv_timeout = sock_get_timeout(id, SOCK_STREAM, SO_RCVTIMEO);
+    if (!rcv_timeout) {
+        errorf("socket not found, id=%d", id);
+        mutex_unlock(&mutex);
+        errno = ECONNRESET;
+        return -1;
+    }
     switch (pcb->state) {
     case TCP_PCB_STATE_CLOSED:
         if (pcb->close_reason == 1) {

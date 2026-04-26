@@ -29,7 +29,7 @@ static int network_fcntl(int fd, int from_pid, fsinfo_t* info,
     (void)p;
 	net_task_t *task = (net_task_t*)info->data;
 
-	if(cmd == SOCK_RECVFROM == SOCK_RECV){
+	if(cmd == SOCK_RECVFROM){
 		if(task->read_task == NULL){
 			task->read_task = create_task(fd, from_pid, info->node);
 			task->read_task->sock = task->sock;
@@ -39,7 +39,6 @@ static int network_fcntl(int fd, int from_pid, fsinfo_t* info,
 		task->cmd = cmd;
 	}
 	int res = task_cntl(task, from_pid, cmd, in, out, p);
-    proc_wakeup_pid(from_pid, RW_BLOCK_EVT);
 	return res;
 }
 
@@ -83,7 +82,9 @@ static int network_write(int fd, int from_pid, fsinfo_t* info,
 static int network_close(int fd, int from_pid, uint32_t node, fsinfo_t* fsinfo,void* p) {
 	net_task_t *task = (net_task_t *)fsinfo->data;
 	if(task) {
-		release_task(task);
+		task->running = false;
+		if(task->read_task != NULL)
+			task->read_task->running = false;
 		fsinfo->data = NULL;
 	}
     proc_wakeup_pid(from_pid, RW_BLOCK_EVT);
@@ -252,6 +253,8 @@ int main(int argc, char** argv) {
 	dev.write = network_write;
 	dev.close = network_close;
 	dev.cmd = network_devcmd;
+    pthread_mutex_init(&task_list_lock, NULL);
 	device_run(&dev, mnt_point, FS_TYPE_ANNOUNIMOUS | FS_TYPE_CHAR, 0666);
+    pthread_mutex_destroy(&task_list_lock);
 	return 0;
 }

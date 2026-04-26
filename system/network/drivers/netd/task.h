@@ -30,9 +30,7 @@ typedef struct net_task{
     int thread_started;
 
     struct net_task* next;
-
-    // Condition variable for task synchronization (uses task_list_lock)
-    pthread_cond_t cond;
+    struct net_task* prev;
 }net_task_t;
 
 net_task_t *create_task(int fd, int from_pid, int node);
@@ -41,5 +39,7 @@ void release_task(net_task_t *task);
 int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *out, void *p);
 int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p);
 int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p);
+
+extern pthread_mutex_t task_list_lock;
 
 #endif
