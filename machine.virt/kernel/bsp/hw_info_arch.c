@@ -37,6 +37,7 @@ void sys_info_init_arch(void) {
 	strcpy(_sys_info.arch, "armv7");
 #endif
 	_sys_info.mmio.size = 128*MB;
+	_sys_info.sys_dma.size = 32*MB;
 
 	if(_sys_info.total_usable_mem_size <= 1*GB) {
 		_sys_info.allocable_phy_mem_top = _sys_info.phy_offset +
