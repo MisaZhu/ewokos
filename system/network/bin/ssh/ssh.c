@@ -432,11 +432,13 @@ int ssh_handle_kex(ssh_session_t *session) {
         return -1;
     }
 
+    printf("ssh_handle_kex: - generate DH key\n");
     if (!DH_generate_key(dh)) {
         ssh_set_error(session, "Failed to generate DH key");
         DH_free(dh);
         return -1;
     }
+    printf("ssh_handle_kex: - generated DH key\n");
 
     const BIGNUM *pub_key = NULL;
     DH_get0_key(dh, &pub_key, NULL);
@@ -477,11 +479,13 @@ int ssh_handle_kex(ssh_session_t *session) {
 
     session->state = SSH_STATE_KEXDH_SENT;
 
+    printf("ssh_handle_kex: step1 - wait for KEXDH_REPLY\n");
     memset(&packet, 0, sizeof(packet));
     if (ssh_packet_receive(session, &packet) < 0) {
         DH_free(dh);
         return -1;
     }
+    printf("ssh_handle_kex: step2 - KEXDH_REPLY received\n");
 
     if (packet.type == SSH_MSG_DISCONNECT) {
         uint32_t reason = ssh_read_uint32(packet.payload);
@@ -492,12 +496,14 @@ int ssh_handle_kex(ssh_session_t *session) {
         DH_free(dh);
         return -1;
     }
+    printf("ssh_handle_kex: step3 - KEXDH_REPLY parsed\n");
 
     if (packet.type != SSH_MSG_KEXDH_REPLY) {
         ssh_set_error(session, "Expected KEXDH_REPLY, got %d", packet.type);
         DH_free(dh);
         return -1;
     }
+    printf("ssh_handle_kex: step4 - KEXDH_REPLY parsed\n");
 
     uint8_t *payload_start = packet.payload;
     (void)payload_start;
@@ -518,8 +524,10 @@ int ssh_handle_kex(ssh_session_t *session) {
     p += 4;
     (void)sig_len;
 
+    printf("ssh_handle_kex: step5 - compute shared secret\n");
     uint8_t shared_secret[256];
     int secret_len = DH_compute_key(shared_secret, f_bn, dh);
+    printf("ssh_handle_kex: step6 - computed shared secret\n");
 
     BN_free(f_bn);
 
@@ -572,6 +580,7 @@ int ssh_handle_kex(ssh_session_t *session) {
         memcpy(session->session_id, exchange_hash, 32);
         session->session_id_len = 32;
     }
+    printf("ssh_handle_kex: step7 - computed exchange hash\n");
 
     /* Derive keys */
     derive_keys(session, shared_secret, secret_len, exchange_hash, 32);
