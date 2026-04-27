@@ -245,20 +245,21 @@ uint32_t XWM::getPatternMode(graph_t* g, float* scale) {
 	if(xwm.theme.desktopPatternMode != DESKTOP_PATTERN_AUTO)
 		return xwm.theme.desktopPatternMode;
 	
-	float sc = 1.0;
 	float scaleX = (float)g->w / desktopPattern->w;
 	float scaleY = (float)g->h / desktopPattern->h;
-	if(scaleX >= 0 || scaleY >= 0)
-		sc = (scaleX < scaleY) ? scaleX : scaleY;
-	else
-		sc = (scaleX > scaleY) ? scaleX : scaleY;
-	*scale = sc;
+	*scale = (scaleX > scaleY) ? scaleX : scaleY;
 
-	if(sc > 1.6)
-		return DESKTOP_PATTERN_TILE;
-	//else if(sc < 1.0)
-	//	return DESKTOP_PATTERN_CENTER;
-	return DESKTOP_PATTERN_FIT;
+	uint32_t patternMode = DESKTOP_PATTERN_TILE;
+	if(scaleX > 1.6 || scaleY > 1.6)
+		patternMode = DESKTOP_PATTERN_TILE;
+	else if(scaleX < 1.0 && scaleY < 1.0)
+		patternMode = DESKTOP_PATTERN_CENTER;
+	else {
+		float sc = scaleX / scaleY;
+		if(sc > 0.8 && sc < 1.2)
+			patternMode = DESKTOP_PATTERN_FIT;
+	}
+	return patternMode;
 }
 
 void XWM::drawDesktop(graph_t* g) {
