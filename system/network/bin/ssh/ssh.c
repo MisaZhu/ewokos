@@ -395,37 +395,64 @@ int ssh_handle_kex(ssh_session_t *session) {
 
     if (!session) return -1;
 
-    /* Create DH parameters */
     dh = DH_new();
     if (!dh) {
         ssh_set_error(session, "Failed to create DH");
         return -1;
     }
 
-    /* Set DH parameters for group14 */
-    BN_hex2bn(&p_bn, dh_group14_p_hex);
-    g_bn = BN_new();
-    BN_set_word(g_bn, 2);
-
-    if (!DH_set0_pqg(dh, p_bn, NULL, g_bn)) {
-        ssh_set_error(session, "Failed to set DH parameters");
+    p_bn = BN_new();
+    if (!p_bn) {
+        ssh_set_error(session, "Failed to create p_bn");
         DH_free(dh);
         return -1;
     }
 
-    /* Generate key pair */
+    if (!BN_hex2bn(&p_bn, dh_group14_p_hex)) {
+        ssh_set_error(session, "Failed to parse DH p parameter");
+        BN_free(p_bn);
+        DH_free(dh);
+        return -1;
+    }
+
+    g_bn = BN_new();
+    if (!g_bn) {
+        ssh_set_error(session, "Failed to create g_bn");
+        BN_free(p_bn);
+        DH_free(dh);
+        return -1;
+    }
+    BN_set_word(g_bn, 2);
+
+    if (!DH_set0_pqg(dh, p_bn, NULL, g_bn)) {
+        ssh_set_error(session, "Failed to set DH parameters");
+        BN_free(p_bn);
+        BN_free(g_bn);
+        DH_free(dh);
+        return -1;
+    }
+
     if (!DH_generate_key(dh)) {
         ssh_set_error(session, "Failed to generate DH key");
         DH_free(dh);
         return -1;
     }
 
-    /* Get public key e */
     const BIGNUM *pub_key = NULL;
     DH_get0_key(dh, &pub_key, NULL);
-    e_len = BN_bn2bin(pub_key, e);
+    if (!pub_key) {
+        ssh_set_error(session, "Failed to get DH public key");
+        DH_free(dh);
+        return -1;
+    }
 
-    /* Send KEXDH_INIT */
+    e_len = BN_bn2bin(pub_key, e);
+    if (e_len <= 0) {
+        ssh_set_error(session, "Failed to convert DH public key");
+        DH_free(dh);
+        return -1;
+    }
+
     memset(&packet, 0, sizeof(packet));
     packet.type = SSH_MSG_KEXDH_INIT;
     p = packet.payload;
@@ -450,7 +477,6 @@ int ssh_handle_kex(ssh_session_t *session) {
 
     session->state = SSH_STATE_KEXDH_SENT;
 
-    /* Receive KEXDH_REPLY */
     memset(&packet, 0, sizeof(packet));
     if (ssh_packet_receive(session, &packet) < 0) {
         DH_free(dh);
@@ -473,86 +499,72 @@ int ssh_handle_kex(ssh_session_t *session) {
         return -1;
     }
 
-    /* Parse KEXDH_REPLY and compute shared secret */
     uint8_t *payload_start = packet.payload;
+    (void)payload_start;
     p = packet.payload;
 
-    /* Get server public host key K_S */
     uint32_t hostkey_len = ssh_read_uint32(p);
     p += 4;
     uint8_t *hostkey = p;
     p += hostkey_len;
 
-    /* Get server DH public key f */
     uint32_t f_len = ssh_read_uint32(p);
     p += 4;
+    uint8_t *f_start = p;
     BIGNUM *f_bn = BN_bin2bn(p, f_len, NULL);
     p += f_len;
 
-    /* Skip signature for now */
-    /* uint32_t sig_len = ssh_read_uint32(p); */
-    /* p += 4 + sig_len; */
+    uint32_t sig_len = ssh_read_uint32(p);
+    p += 4;
+    (void)sig_len;
 
-    /* Compute shared secret K */
     uint8_t shared_secret[256];
     int secret_len = DH_compute_key(shared_secret, f_bn, dh);
 
+    BN_free(f_bn);
+
     if (secret_len <= 0) {
         ssh_set_error(session, "Failed to compute shared secret");
-        BN_free(f_bn);
         DH_free(dh);
         return -1;
     }
 
-    /* Get our public key e (already computed earlier) */
-
-    /* Build exchange hash H */
     uint8_t exchange_hash[32];
     SHA256_CTX ctx;
     SHA256_Init(&ctx);
 
-    /* H = hash(V_C || V_S || I_C || I_S || K_S || e || f || K) */
-    /* V_C - client version string (without length prefix, includes CRLF) */
     uint32_t len = strlen(session->client_version);
     SHA256_Update(&ctx, &len, 4);
     SHA256_Update(&ctx, session->client_version, len);
 
-    /* V_S - server version string (without length prefix, includes CRLF) */
     len = strlen(session->server_version);
     SHA256_Update(&ctx, &len, 4);
     SHA256_Update(&ctx, session->server_version, len);
 
-    /* I_C - client KEXINIT */
     len = session->client_kexinit_len;
     SHA256_Update(&ctx, &len, 4);
     SHA256_Update(&ctx, session->client_kexinit, session->client_kexinit_len);
 
-    /* I_S - server KEXINIT */
     len = session->server_kexinit_len;
     SHA256_Update(&ctx, &len, 4);
     SHA256_Update(&ctx, session->server_kexinit, session->server_kexinit_len);
 
-    /* K_S - server host key */
     SHA256_Update(&ctx, &hostkey_len, 4);
     SHA256_Update(&ctx, hostkey, hostkey_len);
 
-    /* e - our DH public key */
     len = e_len;
     SHA256_Update(&ctx, &len, 4);
     SHA256_Update(&ctx, e, e_len);
 
-    /* f - server DH public key */
     SHA256_Update(&ctx, &f_len, 4);
-    SHA256_Update(&ctx, p - f_len, f_len);
+    SHA256_Update(&ctx, f_start, f_len);
 
-    /* K - shared secret */
     len = secret_len;
     SHA256_Update(&ctx, &len, 4);
     SHA256_Update(&ctx, shared_secret, secret_len);
 
     SHA256_Final(exchange_hash, &ctx);
 
-    BN_free(f_bn);
     DH_free(dh);
 
     /* Save session ID (first exchange hash) */

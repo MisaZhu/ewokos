@@ -87,12 +87,18 @@ int BN_hex2bn(BIGNUM **a, const char *str) {
         else if (c >= 'A' && c <= 'F') val = c - 'A' + 10;
         else if (c >= 'a' && c <= 'f') val = c - 'a' + 10;
         else continue;
-        
-        int byte_pos = (len - 1 - i) / 2;
-        int nibble = (len - 1 - i) % 2;
-        
-        if (nibble == 0) bn->d[byte_pos / sizeof(unsigned long)] |= val;
-        else bn->d[byte_pos / sizeof(unsigned long)] |= val << 4;
+
+        int hex_digit_pos = len - 1 - i;
+        int byte_pos = hex_digit_pos / 2;
+        int nibble = hex_digit_pos % 2;
+
+        int word_pos = byte_pos / sizeof(unsigned long);
+        int byte_in_word = byte_pos % sizeof(unsigned long);
+
+        if (nibble == 0)
+            bn->d[word_pos] |= ((unsigned long)val) << (byte_in_word * 8);
+        else
+            bn->d[word_pos] |= ((unsigned long)val) << (byte_in_word * 8 + 4);
     }
     
     bn->top = (bytes + sizeof(unsigned long) - 1) / sizeof(unsigned long);
@@ -162,30 +168,30 @@ int BN_bn2bin(const BIGNUM *a, unsigned char *to) {
 
 BIGNUM *BN_bin2bn(const unsigned char *s, int len, BIGNUM *ret) {
     if (!s || len < 0) return NULL;
-    
+
     if (!ret) {
         ret = BN_new();
         if (!ret) return NULL;
     }
-    
+
     int words = (len + sizeof(unsigned long) - 1) / sizeof(unsigned long);
     if (ret->dmax < words) {
         ret->dmax = words + 4;
         ret->d = realloc(ret->d, ret->dmax * sizeof(unsigned long));
     }
-    
+
     memset(ret->d, 0, ret->dmax * sizeof(unsigned long));
-    
+
     for (int i = 0; i < len; i++) {
         int word = i / sizeof(unsigned long);
         int byte = i % sizeof(unsigned long);
         ret->d[word] |= ((unsigned long)s[len - 1 - i]) << (byte * 8);
     }
-    
+
     ret->top = words;
     while (ret->top > 0 && ret->d[ret->top - 1] == 0) ret->top--;
     ret->neg = 0;
-    
+
     return ret;
 }
 
