@@ -20,6 +20,8 @@
 #define SSH_MSG_NEWKEYS                         21
 #define SSH_MSG_KEXDH_INIT                      30
 #define SSH_MSG_KEXDH_REPLY                     31
+#define SSH_MSG_KEX_ECDH_INIT                   30
+#define SSH_MSG_KEX_ECDH_REPLY                  31
 #define SSH_MSG_USERAUTH_REQUEST                50
 #define SSH_MSG_USERAUTH_FAILURE                51
 #define SSH_MSG_USERAUTH_SUCCESS                52
@@ -125,6 +127,22 @@ typedef struct ssh_session {
     uint32_t window_remote;
     uint32_t packet_seq_client;
     uint32_t packet_seq_server;
+    
+    /* KEX Negotiation */
+    char selected_kex[64];
+    char selected_hostkey[64];
+    char selected_enc_c2s[64];
+    char selected_enc_s2c[64];
+    char selected_mac_c2s[64];
+    char selected_mac_s2c[64];
+    char selected_comp_c2s[64];
+    char selected_comp_s2c[64];
+    
+    /* Curve25519 state */
+    uint8_t curve25519_private[32];
+    uint8_t curve25519_public[32];
+    uint8_t curve25519_server_public[32];
+    int using_curve25519;
     
     /* Terminal settings */
     int terminal_width;

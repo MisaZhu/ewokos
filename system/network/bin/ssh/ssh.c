@@ -17,8 +17,126 @@
 #include <openssl/hmac.h>
 #include <openssl/rsa.h>
 #include <openssl/ecdsa.h>
+#include <openssl/ed25519.h>
 
 static char ssh_error_buffer[256];
+
+/* Helper: Choose algorithm */
+static int ssh_choose_algorithm(const char *client_list, const char *server_list,
+                                 char *out, size_t out_len) {
+    char client[512];
+    char server[512];
+    char *token, *saveptr;
+    
+    strncpy(client, client_list, sizeof(client)-1);
+    strncpy(server, server_list, sizeof(server)-1);
+    
+    token = strtok_r(client, ",", &saveptr);
+    while (token) {
+        const char *sptr = server;
+        while (*sptr) {
+            /* Skip leading whitespace */
+            while (*sptr == ',') sptr++;
+            
+            /* Compare */
+            const char *t1 = token;
+            const char *t2 = sptr;
+            while (*t1 && *t2 && *t2 != ',' && *t1 == *t2) {
+                t1++; t2++;
+            }
+            
+            /* Check if match */
+            if (*t1 == '\0' && (*t2 == '\0' || *t2 == ',')) {
+                strncpy(out, token, out_len-1);
+                out[out_len-1] = '\0';
+                return 1;
+            }
+            
+            /* Find next algorithm in server list */
+            while (*sptr && *sptr != ',') sptr++;
+            if (*sptr) sptr++;
+        }
+        token = strtok_r(NULL, ",", &saveptr);
+    }
+    return 0;
+}
+
+/* Helper: Parse KEXINIT packet */
+static int ssh_parse_kexinit(const uint8_t *payload, size_t payload_len,
+                              char *kex, char *hostkey,
+                              char *enc_c2s, char *enc_s2c,
+                              char *mac_c2s, char *mac_s2c,
+                              char *comp_c2s, char *comp_s2c) {
+    const uint8_t *p = payload;
+    uint32_t len;
+    
+    /* Skip cookie (16 bytes) */
+    p += 16;
+    
+    /* KEX algorithms */
+    len = ssh_read_uint32(p);
+    p += 4;
+    strncpy(kex, (char*)p, len);
+    kex[len] = '\0';
+    p += len;
+    
+    /* Host key algorithms */
+    len = ssh_read_uint32(p);
+    p += 4;
+    strncpy(hostkey, (char*)p, len);
+    hostkey[len] = '\0';
+    p += len;
+    
+    /* Encryption c->s */
+    len = ssh_read_uint32(p);
+    p += 4;
+    strncpy(enc_c2s, (char*)p, len);
+    enc_c2s[len] = '\0';
+    p += len;
+    
+    /* Encryption s->c */
+    len = ssh_read_uint32(p);
+    p += 4;
+    strncpy(enc_s2c, (char*)p, len);
+    enc_s2c[len] = '\0';
+    p += len;
+    
+    /* MAC c->s */
+    len = ssh_read_uint32(p);
+    p += 4;
+    strncpy(mac_c2s, (char*)p, len);
+    mac_c2s[len] = '\0';
+    p += len;
+    
+    /* MAC s->c */
+    len = ssh_read_uint32(p);
+    p += 4;
+    strncpy(mac_s2c, (char*)p, len);
+    mac_s2c[len] = '\0';
+    p += len;
+    
+    /* Compression c->s */
+    len = ssh_read_uint32(p);
+    p += 4;
+    strncpy(comp_c2s, (char*)p, len);
+    comp_c2s[len] = '\0';
+    p += len;
+    
+    /* Compression s->c */
+    len = ssh_read_uint32(p);
+    p += 4;
+    strncpy(comp_s2c, (char*)p, len);
+    comp_s2c[len] = '\0';
+    
+    return 0;
+}
+
+/* Helper: Check if using Curve25519 */
+static int ssh_is_curve25519(const char *kex) {
+    return (strcmp(kex, "curve25519-sha256@libssh.org") == 0 ||
+            strcmp(kex, "curve25519-sha256") == 0 ||
+            strncmp(kex, "curve25519-", 11) == 0);
+}
 
 /* DH Group 14 parameters (2048-bit) */
 static const char dh_group14_p_hex[] = 
@@ -213,7 +331,7 @@ int ssh_send_kexinit(ssh_session_t *session) {
     memcpy(p, cookie, 16);
     p += 16;
 
-    const char *kex_algs = "diffie-hellman-group14-sha256";
+    const char *kex_algs = "curve25519-sha256,diffie-hellman-group14-sha256";
     ssh_write_uint32(p, strlen(kex_algs));
     p += 4;
     memcpy(p, kex_algs, strlen(kex_algs));
@@ -285,6 +403,9 @@ int ssh_send_kexinit(ssh_session_t *session) {
 
 int ssh_receive_kexinit(ssh_session_t *session) {
     ssh_packet_t packet;
+    
+    char client_kex[512], client_hostkey[512], client_enc[512], client_mac[512], client_comp[512];
+    char server_kex[512], server_hostkey[512], server_enc[512], server_mac[512], server_comp[512];
 
     if (!session || session->socket < 0) return -1;
 
@@ -306,9 +427,65 @@ int ssh_receive_kexinit(ssh_session_t *session) {
         return -1;
     }
 
+    /* Save server KEXINIT for exchange hash */
     memcpy(session->server_kexinit, &packet.type, 1);
     memcpy(session->server_kexinit + 1, packet.payload, packet.payload_len);
     session->server_kexinit_len = packet.payload_len + 1;
+
+    /* Parse client and server KEXINIT packets */
+    /* Parse client list (from known constant) */
+    strncpy(client_kex, "curve25519-sha256,diffie-hellman-group14-sha256", sizeof(client_kex)-1);
+    strncpy(client_hostkey, "ssh-rsa,ssh-dss,ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,ssh-ed25519", sizeof(client_hostkey)-1);
+    strncpy(client_enc, "aes256-ctr,aes192-ctr,aes128-ctr", sizeof(client_enc)-1);
+    strncpy(client_mac, "hmac-sha2-256", sizeof(client_mac)-1);
+    strncpy(client_comp, "none", sizeof(client_comp)-1);
+    
+    /* Parse server KEXINIT */
+    ssh_parse_kexinit(packet.payload, packet.payload_len,
+                       server_kex, server_hostkey,
+                       server_enc, server_enc,
+                       server_mac, server_mac,
+                       server_comp, server_comp);
+
+    /* Choose algorithms */
+    if (!ssh_choose_algorithm(client_kex, server_kex, session->selected_kex, sizeof(session->selected_kex))) {
+        ssh_set_error(session, "No common KEX algorithm");
+        return -1;
+    }
+    if (!ssh_choose_algorithm(client_hostkey, server_hostkey, session->selected_hostkey, sizeof(session->selected_hostkey))) {
+        ssh_set_error(session, "No common hostkey algorithm");
+        return -1;
+    }
+    if (!ssh_choose_algorithm(client_enc, server_enc, session->selected_enc_c2s, sizeof(session->selected_enc_c2s))) {
+        ssh_set_error(session, "No common encryption algorithm");
+        return -1;
+    }
+    if (!ssh_choose_algorithm(client_enc, server_enc, session->selected_enc_s2c, sizeof(session->selected_enc_s2c))) {
+        ssh_set_error(session, "No common encryption algorithm");
+        return -1;
+    }
+    if (!ssh_choose_algorithm(client_mac, server_mac, session->selected_mac_c2s, sizeof(session->selected_mac_c2s))) {
+        ssh_set_error(session, "No common MAC algorithm");
+        return -1;
+    }
+    if (!ssh_choose_algorithm(client_mac, server_mac, session->selected_mac_s2c, sizeof(session->selected_mac_s2c))) {
+        ssh_set_error(session, "No common MAC algorithm");
+        return -1;
+    }
+    if (!ssh_choose_algorithm(client_comp, server_comp, session->selected_comp_c2s, sizeof(session->selected_comp_c2s))) {
+        ssh_set_error(session, "No common compression algorithm");
+        return -1;
+    }
+    if (!ssh_choose_algorithm(client_comp, server_comp, session->selected_comp_s2c, sizeof(session->selected_comp_s2c))) {
+        ssh_set_error(session, "No common compression algorithm");
+        return -1;
+    }
+    
+    session->using_curve25519 = ssh_is_curve25519(session->selected_kex);
+    
+    printf("ssh: Using KEX: %s (curve25519=%d)\n", session->selected_kex, session->using_curve25519);
+    printf("ssh: Hostkey: %s\n", session->selected_hostkey);
+    printf("ssh: Encryption: %s/%s\n", session->selected_enc_c2s, session->selected_enc_s2c);
 
     session->state = SSH_STATE_KEXINIT_RECEIVED;
     return 0;
@@ -388,228 +565,332 @@ static int derive_keys(ssh_session_t *session, const uint8_t *shared_secret, siz
 int ssh_handle_kex(ssh_session_t *session) {
     ssh_packet_t packet;
     uint8_t *p;
-    DH *dh;
-    BIGNUM *p_bn = NULL, *g_bn = NULL;
-    uint8_t e[256];
-    int e_len;
+    uint8_t shared_secret[32];
+    size_t secret_len = 0;
+    uint8_t client_public[256];
+    uint8_t server_public[256];
+    uint32_t client_public_len = 0;
+    uint32_t server_public_len = 0;
+    uint32_t hostkey_len = 0;
+    uint8_t *hostkey = NULL;
 
     if (!session) return -1;
 
-    dh = DH_new();
-    if (!dh) {
-        ssh_set_error(session, "Failed to create DH");
-        return -1;
-    }
+    printf("ssh_handle_kex: Using KEX: %s\n", session->selected_kex);
 
-    p_bn = BN_new();
-    if (!p_bn) {
-        ssh_set_error(session, "Failed to create p_bn");
-        DH_free(dh);
-        return -1;
-    }
-
-    if (!BN_hex2bn(&p_bn, dh_group14_p_hex)) {
-        ssh_set_error(session, "Failed to parse DH p parameter");
-        BN_free(p_bn);
-        DH_free(dh);
-        return -1;
-    }
-
-    g_bn = BN_new();
-    if (!g_bn) {
-        ssh_set_error(session, "Failed to create g_bn");
-        BN_free(p_bn);
-        DH_free(dh);
-        return -1;
-    }
-    BN_set_word(g_bn, 2);
-
-    if (!DH_set0_pqg(dh, p_bn, NULL, g_bn)) {
-        ssh_set_error(session, "Failed to set DH parameters");
-        BN_free(p_bn);
-        BN_free(g_bn);
-        DH_free(dh);
-        return -1;
-    }
-
-    printf("ssh_handle_kex: - generate DH key\n");
-    if (!DH_generate_key(dh)) {
-        ssh_set_error(session, "Failed to generate DH key");
-        DH_free(dh);
-        return -1;
-    }
-    printf("ssh_handle_kex: - generated DH key\n");
-
-    const BIGNUM *pub_key = NULL;
-    DH_get0_key(dh, &pub_key, NULL);
-    if (!pub_key) {
-        ssh_set_error(session, "Failed to get DH public key");
-        DH_free(dh);
-        return -1;
-    }
-
-    e_len = BN_bn2bin(pub_key, e);
-    if (e_len <= 0) {
-        ssh_set_error(session, "Failed to convert DH public key");
-        DH_free(dh);
-        return -1;
-    }
-
-    memset(&packet, 0, sizeof(packet));
-    packet.type = SSH_MSG_KEXDH_INIT;
-    p = packet.payload;
-
-    if (e[0] & 0x80) {
-        ssh_write_uint32(p, e_len + 1);
+    if (session->using_curve25519) {
+        /* Curve25519 KEX */
+        /* 1. Generate key pair */
+        for (int i = 0; i < 32; i++) {
+            session->curve25519_private[i] = rand() & 0xFF;
+        }
+        session->curve25519_private[0] &= 0xF8;
+        session->curve25519_private[31] &= 0x7F;
+        session->curve25519_private[31] |= 0x40;
+        
+        crypto_scalarmult_curve25519_base(session->curve25519_public, session->curve25519_private);
+        printf("ssh_handle_kex: Curve25519 key pair generated\n");
+        
+        /* 2. Send ECDH_INIT */
+        memset(&packet, 0, sizeof(packet));
+        packet.type = SSH_MSG_KEX_ECDH_INIT;
+        p = packet.payload;
+        
+        ssh_write_uint32(p, 32);
         p += 4;
-        *p++ = 0;
+        memcpy(p, session->curve25519_public, 32);
+        p += 32;
+        
+        packet.payload_len = p - packet.payload;
+        client_public_len = 32;
+        memcpy(client_public, session->curve25519_public, 32);
+        
+        if (ssh_packet_send(session, &packet) < 0) {
+            return -1;
+        }
+        
+        session->state = SSH_STATE_KEXDH_SENT;
+        
+        printf("ssh_handle_kex: step1 - wait for KEX_ECDH_REPLY\n");
+        
+        /* 3. Receive ECDH_REPLY */
+        memset(&packet, 0, sizeof(packet));
+        if (ssh_packet_receive(session, &packet) < 0) {
+            return -1;
+        }
+        
+        if (packet.type == SSH_MSG_DISCONNECT) {
+            uint32_t reason = ssh_read_uint32(packet.payload);
+            uint32_t desc_len = ssh_read_uint32(packet.payload + 4);
+            char *desc = (char *)(packet.payload + 8);
+            ssh_set_error(session, "Server disconnected, reason: %u, desc: %.*s",
+                          reason, desc_len > 256 ? 256 : desc_len, desc);
+            return -1;
+        }
+        
+        if (packet.type != SSH_MSG_KEX_ECDH_REPLY) {
+            ssh_set_error(session, "Expected KEX_ECDH_REPLY, got %d", packet.type);
+            return -1;
+        }
+        
+        /* Parse KEX_ECDH_REPLY */
+        p = packet.payload;
+        
+        hostkey_len = ssh_read_uint32(p);
+        p += 4;
+        hostkey = p;
+        p += hostkey_len;
+        
+        server_public_len = ssh_read_uint32(p);
+        p += 4;
+        if (server_public_len != 32) {
+            ssh_set_error(session, "Invalid Curve25519 key length: %u", server_public_len);
+            return -1;
+        }
+        memcpy(server_public, p, 32);
+        memcpy(session->curve25519_server_public, p, 32);
+        p += 32;
+        
+        /* Skip signature */
+        uint32_t sig_len = ssh_read_uint32(p);
+        p += 4;
+        
+        /* Compute shared secret */
+        crypto_scalarmult_curve25519(shared_secret, session->curve25519_private, session->curve25519_server_public);
+        secret_len = 32;
+        printf("ssh_handle_kex: Curve25519 shared secret computed\n");
     } else {
-        ssh_write_uint32(p, e_len);
+        /* Original DH (fallback) */
+        DH *dh;
+        BIGNUM *p_bn = NULL, *g_bn = NULL;
+        uint8_t e[256];
+        int e_len;
+        
+        dh = DH_new();
+        if (!dh) {
+            ssh_set_error(session, "Failed to create DH");
+            return -1;
+        }
+        
+        p_bn = BN_new();
+        if (!p_bn) {
+            ssh_set_error(session, "Failed to create p_bn");
+            DH_free(dh);
+            return -1;
+        }
+        
+        if (!BN_hex2bn(&p_bn, dh_group14_p_hex)) {
+            ssh_set_error(session, "Failed to parse DH p parameter");
+            BN_free(p_bn);
+            DH_free(dh);
+            return -1;
+        }
+        
+        g_bn = BN_new();
+        if (!g_bn) {
+            ssh_set_error(session, "Failed to create g_bn");
+            BN_free(p_bn);
+            DH_free(dh);
+            return -1;
+        }
+        BN_set_word(g_bn, 2);
+        
+        if (!DH_set0_pqg(dh, p_bn, NULL, g_bn)) {
+            ssh_set_error(session, "Failed to set DH parameters");
+            BN_free(p_bn);
+            BN_free(g_bn);
+            DH_free(dh);
+            return -1;
+        }
+        
+        printf("ssh_handle_kex: - generate DH key\n");
+        if (!DH_generate_key(dh)) {
+            ssh_set_error(session, "Failed to generate DH key");
+            DH_free(dh);
+            return -1;
+        }
+        printf("ssh_handle_kex: - generated DH key\n");
+        
+        const BIGNUM *pub_key = NULL;
+        DH_get0_key(dh, &pub_key, NULL);
+        if (!pub_key) {
+            ssh_set_error(session, "Failed to get DH public key");
+            DH_free(dh);
+            return -1;
+        }
+        
+        e_len = BN_bn2bin(pub_key, e);
+        if (e_len <= 0) {
+            ssh_set_error(session, "Failed to convert DH public key");
+            DH_free(dh);
+            return -1;
+        }
+        
+        /* Handle leading zero for sign */
+        if (e[0] & 0x80) {
+            client_public[0] = 0;
+            memcpy(client_public + 1, e, e_len);
+            client_public_len = e_len + 1;
+        } else {
+            memcpy(client_public, e, e_len);
+            client_public_len = e_len;
+        }
+        
+        /* Send KEXDH_INIT */
+        memset(&packet, 0, sizeof(packet));
+        packet.type = SSH_MSG_KEXDH_INIT;
+        p = packet.payload;
+        
+        ssh_write_uint32(p, client_public_len);
         p += 4;
-    }
-    memcpy(p, e, e_len);
-    p += e_len;
-
-    packet.payload_len = p - packet.payload;
-
-    if (ssh_packet_send(session, &packet) < 0) {
+        memcpy(p, client_public, client_public_len);
+        p += client_public_len;
+        
+        packet.payload_len = p - packet.payload;
+        
+        if (ssh_packet_send(session, &packet) < 0) {
+            DH_free(dh);
+            return -1;
+        }
+        
+        session->state = SSH_STATE_KEXDH_SENT;
+        
+        printf("ssh_handle_kex: step1 - wait for KEXDH_REPLY\n");
+        
+        memset(&packet, 0, sizeof(packet));
+        if (ssh_packet_receive(session, &packet) < 0) {
+            DH_free(dh);
+            return -1;
+        }
+        printf("ssh_handle_kex: step2 - KEXDH_REPLY received\n");
+        
+        if (packet.type == SSH_MSG_DISCONNECT) {
+            uint32_t reason = ssh_read_uint32(packet.payload);
+            uint32_t desc_len = ssh_read_uint32(packet.payload + 4);
+            char *desc = (char *)(packet.payload + 8);
+            ssh_set_error(session, "Server disconnected, reason: %u, desc: %.*s",
+                          reason, desc_len > 256 ? 256 : desc_len, desc);
+            DH_free(dh);
+            return -1;
+        }
+        
+        if (packet.type != SSH_MSG_KEXDH_REPLY) {
+            ssh_set_error(session, "Expected KEXDH_REPLY, got %d", packet.type);
+            DH_free(dh);
+            return -1;
+        }
+        
+        p = packet.payload;
+        
+        hostkey_len = ssh_read_uint32(p);
+        p += 4;
+        hostkey = p;
+        p += hostkey_len;
+        
+        server_public_len = ssh_read_uint32(p);
+        p += 4;
+        memcpy(server_public, p, server_public_len);
+        BIGNUM *f_bn = BN_bin2bn(p, server_public_len, NULL);
+        p += server_public_len;
+        
+        /* Skip signature */
+        uint32_t sig_len = ssh_read_uint32(p);
+        p += 4;
+        
+        secret_len = DH_compute_key(shared_secret, f_bn, dh);
+        BN_free(f_bn);
+        
+        if (secret_len <= 0) {
+            ssh_set_error(session, "Failed to compute shared secret");
+            DH_free(dh);
+            return -1;
+        }
+        
         DH_free(dh);
+    }
+    
+    /* Compute exchange hash */
+    uint8_t exchange_hash[32];
+    SHA256_CTX ctx;
+    SHA256_Init(&ctx);
+    
+    uint32_t len = strlen(session->client_version);
+    ssh_write_uint32((uint8_t*)&len, len);
+    SHA256_Update(&ctx, &len, 4);
+    SHA256_Update(&ctx, session->client_version, len);
+    
+    len = strlen(session->server_version);
+    SHA256_Update(&ctx, &len, 4);
+    SHA256_Update(&ctx, session->server_version, len);
+    
+    len = session->client_kexinit_len;
+    SHA256_Update(&ctx, &len, 4);
+    SHA256_Update(&ctx, session->client_kexinit, session->client_kexinit_len);
+    
+    len = session->server_kexinit_len;
+    SHA256_Update(&ctx, &len, 4);
+    SHA256_Update(&ctx, session->server_kexinit, session->server_kexinit_len);
+    
+    SHA256_Update(&ctx, &hostkey_len, 4);
+    SHA256_Update(&ctx, hostkey, hostkey_len);
+    
+    SHA256_Update(&ctx, &client_public_len, 4);
+    SHA256_Update(&ctx, client_public, client_public_len);
+    
+    SHA256_Update(&ctx, &server_public_len, 4);
+    SHA256_Update(&ctx, server_public, server_public_len);
+    
+    SHA256_Update(&ctx, &secret_len, 4);
+    SHA256_Update(&ctx, shared_secret, secret_len);
+    
+    SHA256_Final(exchange_hash, &ctx);
+    
+    /* Save session ID (first exchange hash) */
+    if (session->session_id_len == 0) {
+        memcpy(session->session_id, exchange_hash, 32);
+        session->session_id_len = 32;
+    }
+    printf("ssh_handle_kex: computed exchange hash\n");
+    
+    /* Derive keys */
+    derive_keys(session, shared_secret, secret_len, exchange_hash, 32);
+    
+    /* Send NEWKEYS */
+    memset(&packet, 0, sizeof(packet));
+    packet.type = SSH_MSG_NEWKEYS;
+    packet.payload_len = 0;
+    
+    if (ssh_packet_send(session, &packet) < 0) {
         return -1;
     }
-
-    session->state = SSH_STATE_KEXDH_SENT;
-
-    printf("ssh_handle_kex: step1 - wait for KEXDH_REPLY\n");
+    
+    session->state = SSH_STATE_NEWKEYS_SENT;
+    
+    /* Receive NEWKEYS */
     memset(&packet, 0, sizeof(packet));
     if (ssh_packet_receive(session, &packet) < 0) {
-        DH_free(dh);
         return -1;
     }
-    printf("ssh_handle_kex: step2 - KEXDH_REPLY received\n");
-
+    
     if (packet.type == SSH_MSG_DISCONNECT) {
         uint32_t reason = ssh_read_uint32(packet.payload);
         uint32_t desc_len = ssh_read_uint32(packet.payload + 4);
         char *desc = (char *)(packet.payload + 8);
         ssh_set_error(session, "Server disconnected, reason: %u, desc: %.*s",
                       reason, desc_len > 256 ? 256 : desc_len, desc);
-        DH_free(dh);
         return -1;
     }
-    printf("ssh_handle_kex: step3 - KEXDH_REPLY parsed\n");
-
-    if (packet.type != SSH_MSG_KEXDH_REPLY) {
-        ssh_set_error(session, "Expected KEXDH_REPLY, got %d", packet.type);
-        DH_free(dh);
-        return -1;
-    }
-    printf("ssh_handle_kex: step4 - KEXDH_REPLY parsed\n");
-
-    uint8_t *payload_start = packet.payload;
-    (void)payload_start;
-    p = packet.payload;
-
-    uint32_t hostkey_len = ssh_read_uint32(p);
-    p += 4;
-    uint8_t *hostkey = p;
-    p += hostkey_len;
-
-    uint32_t f_len = ssh_read_uint32(p);
-    p += 4;
-    uint8_t *f_start = p;
-    BIGNUM *f_bn = BN_bin2bn(p, f_len, NULL);
-    p += f_len;
-
-    uint32_t sig_len = ssh_read_uint32(p);
-    p += 4;
-    (void)sig_len;
-
-    printf("ssh_handle_kex: step5 - compute shared secret\n");
-    uint8_t shared_secret[256];
-    int secret_len = DH_compute_key(shared_secret, f_bn, dh);
-    printf("ssh_handle_kex: step6 - computed shared secret\n");
-
-    BN_free(f_bn);
-
-    if (secret_len <= 0) {
-        ssh_set_error(session, "Failed to compute shared secret");
-        DH_free(dh);
-        return -1;
-    }
-
-    uint8_t exchange_hash[32];
-    SHA256_CTX ctx;
-    SHA256_Init(&ctx);
-
-    uint32_t len = strlen(session->client_version);
-    SHA256_Update(&ctx, &len, 4);
-    SHA256_Update(&ctx, session->client_version, len);
-
-    len = strlen(session->server_version);
-    SHA256_Update(&ctx, &len, 4);
-    SHA256_Update(&ctx, session->server_version, len);
-
-    len = session->client_kexinit_len;
-    SHA256_Update(&ctx, &len, 4);
-    SHA256_Update(&ctx, session->client_kexinit, session->client_kexinit_len);
-
-    len = session->server_kexinit_len;
-    SHA256_Update(&ctx, &len, 4);
-    SHA256_Update(&ctx, session->server_kexinit, session->server_kexinit_len);
-
-    SHA256_Update(&ctx, &hostkey_len, 4);
-    SHA256_Update(&ctx, hostkey, hostkey_len);
-
-    len = e_len;
-    SHA256_Update(&ctx, &len, 4);
-    SHA256_Update(&ctx, e, e_len);
-
-    SHA256_Update(&ctx, &f_len, 4);
-    SHA256_Update(&ctx, f_start, f_len);
-
-    len = secret_len;
-    SHA256_Update(&ctx, &len, 4);
-    SHA256_Update(&ctx, shared_secret, secret_len);
-
-    SHA256_Final(exchange_hash, &ctx);
-
-    DH_free(dh);
-
-    /* Save session ID (first exchange hash) */
-    if (session->session_id_len == 0) {
-        memcpy(session->session_id, exchange_hash, 32);
-        session->session_id_len = 32;
-    }
-    printf("ssh_handle_kex: step7 - computed exchange hash\n");
-
-    /* Derive keys */
-    derive_keys(session, shared_secret, secret_len, exchange_hash, 32);
-
-    /* Send NEWKEYS */
-    memset(&packet, 0, sizeof(packet));
-    packet.type = SSH_MSG_NEWKEYS;
-    packet.payload_len = 0;
-
-    if (ssh_packet_send(session, &packet) < 0) {
-        return -1;
-    }
-
-    session->state = SSH_STATE_NEWKEYS_SENT;
-
-    /* Receive NEWKEYS */
-    memset(&packet, 0, sizeof(packet));
-    if (ssh_packet_receive(session, &packet) < 0) {
-        return -1;
-    }
-
+    
     if (packet.type != SSH_MSG_NEWKEYS) {
         ssh_set_error(session, "Expected NEWKEYS, got %d", packet.type);
         return -1;
     }
-
+    
     session->state = SSH_STATE_NEWKEYS_RECEIVED;
     session->encryption_enabled = 1;
-
+    
+    printf("ssh_handle_kex: KEX complete!\n");
+    
     return 0;
 }
 

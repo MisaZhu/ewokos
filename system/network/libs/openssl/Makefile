@@ -8,7 +8,7 @@ LDFLAGS = -L$(TARGET_DIR)/lib
 
 CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_OPENSSL_OBJS = src/ssl.o src/evp.o src/hash.o src/dh.o src/bn.o src/sha.o src/hmac.o src/rsa.o
+LIB_OPENSSL_OBJS = src/ssl.o src/evp.o src/hash.o src/dh.o src/bn.o src/sha.o src/hmac.o src/rsa.o src/ed25519.o
 
 OPENSSL = $(TARGET_DIR)/lib/libopenssl.a
 
