@@ -5,7 +5,7 @@
 #include <Widget/Scrollable.h>
 #include <litehtml.h>
 #include <memory>
-#include <queue>
+#include <vector>
 #include <pthread.h>
 
 class XContainer;
@@ -16,6 +16,7 @@ struct HttpTask {
     static const int TASK_IMAGE  = 2;
     std::string url;
     int type;
+    bool loading;
 };
 
 // Forward declaration in global namespace
@@ -29,6 +30,7 @@ public:
     virtual ~WidgetWebview();
 
     bool addTask(const HttpTask& task);
+    void removeTask(const std::string& url);
     bool getTask(HttpTask& task);
 
     bool loadHtml(const std::string& url);
@@ -60,6 +62,7 @@ protected:
     virtual void onTasksEnd() {}
 private:
     std::string m_defaultCSSUrl;
+    std::string m_currentHtmlUrl;
     XContainer*                   m_container;
     litehtml::document::ptr       m_doc;
     litehtml::context            m_browser_context;
@@ -70,7 +73,7 @@ private:
     int m_clientHeight;
 
     // Task queue
-    std::queue<HttpTask> m_taskQueue;
+    std::vector<HttpTask> m_taskQueue;
     pthread_mutex_t m_taskMutex;
 
     // Mutex for protecting shared resources (m_doc, m_browser_context)

@@ -64,8 +64,10 @@ void* _task_thread(void* p)
     WidgetWebview* widget = (WidgetWebview*)p;
     HttpTask task;
     
+    bool havetask = false;
     while(!widget->m_task_ended) {
         if (widget->getTask(task)) {
+            havetask = true;
             bool res = false;
             widget->onTaskStart(task);
             // Process task
@@ -88,7 +90,10 @@ void* _task_thread(void* p)
         }
         else {
             // No task, sleep a bit
-            widget->onTasksEnd();
+            if(havetask) {
+                havetask = false;
+                widget->onTasksEnd();
+            }
             proc_usleep(10000);
         }
     }
@@ -100,7 +105,15 @@ void* _task_thread(void* p)
 bool WidgetWebview::addTask(const HttpTask& task)
 {
     pthread_mutex_lock(&m_taskMutex);
-    m_taskQueue.push(task);
+
+    for (auto& t : m_taskQueue) {
+        if (t.url == task.url) {
+            pthread_mutex_unlock(&m_taskMutex);
+            return false;
+        }
+    }
+
+    m_taskQueue.push_back(task);
     pthread_mutex_unlock(&m_taskMutex);
 
     if (!m_task_running) {
@@ -109,6 +122,18 @@ bool WidgetWebview::addTask(const HttpTask& task)
         pthread_create(&tid, NULL, _task_thread, this);
     }
     return true;
+}
+
+void WidgetWebview::removeTask(const std::string& url)
+{
+    pthread_mutex_lock(&m_taskMutex);
+    for (size_t i = 0; i < m_taskQueue.size(); i++) {
+        if (m_taskQueue[i].url == url) {
+            m_taskQueue.erase(m_taskQueue.begin() + i);
+            break;
+        }
+    }
+    pthread_mutex_unlock(&m_taskMutex);
 }
 
 bool WidgetWebview::getTask(HttpTask& task)
@@ -122,11 +147,13 @@ bool WidgetWebview::getTask(HttpTask& task)
     }
 
     // Get task from queue
-    if (!m_taskQueue.empty()) {
-        task = m_taskQueue.front();
-        m_taskQueue.pop();
-        pthread_mutex_unlock(&m_taskMutex);
-        return true;
+    for (size_t i = 0; i < m_taskQueue.size(); i++) {
+        if (!m_taskQueue[i].loading) {
+            task = m_taskQueue[i];
+            m_taskQueue[i].loading = true;
+            pthread_mutex_unlock(&m_taskMutex);
+            return true;
+        }
     }
 
     pthread_mutex_unlock(&m_taskMutex);
@@ -147,24 +174,31 @@ bool WidgetWebview::loadCSS(const std::string& url)
 
 bool WidgetWebview::loadHtmlTask(const std::string& url)
 {
+    m_currentHtmlUrl = url;
     uint8_t* content = XContainer::loadURL(url, NULL);
     if(content == NULL) {
+        removeTask(url);
         return false;
     }
     std::string strContents = (char*)content;
     free(content);
-    return loadHtmlContent(strContents);
+    bool res = loadHtmlContent(strContents);
+    removeTask(url);
+    return res;
 }
 
 bool WidgetWebview::loadCSSTask(const std::string& url)
 {
     uint8_t* content = XContainer::loadURL(url, NULL);
     if(content == NULL) {
+        removeTask(url);
         return false;
     }
     std::string strContents = (char*)content;
     free(content);
-    return loadCSSContent(strContents);
+    bool res = loadCSSContent(strContents);
+    removeTask(url);
+    return res;
 }
 
 bool WidgetWebview::loadImageTask(const std::string& url)
@@ -172,10 +206,12 @@ bool WidgetWebview::loadImageTask(const std::string& url)
     int sz;
     uint8_t* content = XContainer::loadURL(url, &sz);
     if(content == NULL) {
+        removeTask(url);
         return false;
     }
     bool res = loadImageContent(url, content, sz);
     free(content);
+    removeTask(url);
     return res;
 }
 
@@ -218,6 +254,10 @@ bool WidgetWebview::loadHtmlContent(const std::string& content)
     pthread_mutex_lock(&m_renderMutex);
     m_browser_context.master_css().clear(); // Clear CSS styles from browser context
     pthread_mutex_unlock(&m_renderMutex);
+
+    pthread_mutex_lock(&m_taskMutex);
+    m_taskQueue.clear();
+    pthread_mutex_unlock(&m_taskMutex);
     
     if(!m_defaultCSSUrl.empty()) {
         loadCSSTask(m_defaultCSSUrl);
