@@ -5,6 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <sys/errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -55,7 +56,7 @@ ether_tap_open(struct net_device *dev)
     struct ether_tap *tap;
 
     tap = PRIV(dev);
-    tap->fd = open(tap->name, 0);
+    tap->fd = open(tap->name, O_RDWR | O_NONBLOCK);
     if (tap->fd < 0) {
         slog("open: %s, dev=%s", strerror(errno), dev->name);
         return -1;
@@ -86,7 +87,14 @@ ether_tap_write(struct net_device *dev, const uint8_t *frame, size_t flen)
     struct ether_tap *tap = PRIV(dev);
     TRACE();
     mutex_lock(&tap->lock);
-    int ret = write(PRIV(dev)->fd, frame, flen);
+    int ret = write(tap->fd, frame, flen);
+    if (ret < 0) {
+        close(tap->fd);
+        tap->fd = open(tap->name, O_RDWR | O_NONBLOCK);
+        if (tap->fd >= 0) {
+            ret = write(tap->fd, frame, flen);
+        }
+    }
     mutex_unlock(&tap->lock);
     TRACE();
     return ret;
@@ -120,18 +128,17 @@ int tap_select(struct net_device *dev){
 	if(dev_pid == 0){
 		dev_pid = dev_get_pid(tap->name);
 	}
-	TRACE();
+    if (dev_pid <= 0) {
+        return 0;
+    }
     proto_t  out;
     PF->init(&out);
-    TRACE();
-    mutex_lock(&tap->lock);
-    if(dev_cntl_by_pid(dev_pid, 1, NULL, &out) == 0){
-       ret =  proto_read_int(&out);
+    int cntl_result = dev_cntl_by_pid(dev_pid, 1, NULL, &out);
+    if(cntl_result == 0){
+       ret = proto_read_int(&out);
 	}
-    mutex_unlock(&tap->lock);
     PF->clear(&out);
-	TRACE();
-    return ret;
+    return ret > 0 ? ret : 0;
 }
 
 static int

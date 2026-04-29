@@ -44,7 +44,7 @@
 #define TCP_PCB_STATE_LAST_ACK    11
 
 #define TCP_DEFAULT_RTO 200000 /* micro seconds */
-#define TCP_RETRANSMIT_DEADLINE 16 /* seconds */
+#define TCP_RETRANSMIT_DEADLINE 60 /* seconds - increased for better reliability */
 #define TCP_TIMEWAIT_SEC 30 /* substitute for 2MSL */
 
 #define TCP_SOURCE_PORT_MIN 49152
@@ -331,10 +331,6 @@ tcp_retransmit_queue_emit(void *arg, void *data)
     gettimeofday(&now, NULL);
     timersub(&now, &entry->first, &diff);
     if (diff.tv_sec >= TCP_RETRANSMIT_DEADLINE) {
-        errorf("retransmit timeout after %ld.%06ld seconds (deadline: %d), closing connection",
-               diff.tv_sec, diff.tv_usec, TCP_RETRANSMIT_DEADLINE);
-        // Send RST to notify peer before closing
-        tcp_output_segment(pcb->snd.nxt, pcb->rcv.nxt, TCP_FLG_RST | TCP_FLG_ACK, 0, NULL, 0, &pcb->local, &pcb->foreign);
         pcb->state = TCP_PCB_STATE_CLOSED;
         pcb->close_reason = 2; /* timeout */
         sched_wakeup(&pcb->ctx);
@@ -637,6 +633,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
     case TCP_PCB_STATE_SYN_RECEIVED:
         if (TCP_FLG_ISSET(flags, TCP_FLG_RST)) {
             pcb->state = TCP_PCB_STATE_CLOSED;
+            pcb->close_reason = 1; /* RST */
             tcp_pcb_release(pcb);
             return;
         }
@@ -646,15 +643,14 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
     case TCP_PCB_STATE_FIN_WAIT2:
     case TCP_PCB_STATE_CLOSE_WAIT:
         if (TCP_FLG_ISSET(flags, TCP_FLG_RST)) {
-            /*char ep1[IP_ENDPOINT_STR_LEN];
+            char ep1[IP_ENDPOINT_STR_LEN];
             char ep2[IP_ENDPOINT_STR_LEN];
-            errorf("connection reset: state=%d, local=%s, foreign=%s, seq=%u, ack=%u, flags=%s",
+            errorf("RST received: state=%d, local=%s, foreign=%s, seq=%u, ack=%u, flags=%s",
                    pcb->state,
                    ip_endpoint_ntop(&pcb->local, ep1, sizeof(ep1)),
                    ip_endpoint_ntop(&pcb->foreign, ep2, sizeof(ep2)),
                    seg->seq, seg->ack,
                    tcp_flg_ntoa(flags));
-                   */
             pcb->state = TCP_PCB_STATE_CLOSED;
             pcb->close_reason = 1; /* RST */
             tcp_pcb_release(pcb);
@@ -666,6 +662,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
     case TCP_PCB_STATE_TIME_WAIT:
         if (TCP_FLG_ISSET(flags, TCP_FLG_RST)) {
             pcb->state = TCP_PCB_STATE_CLOSED;
+            pcb->close_reason = 1; /* RST */
             tcp_pcb_release(pcb);
             return;
         }
@@ -688,8 +685,9 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
     case TCP_PCB_STATE_TIME_WAIT:
         if (TCP_FLG_ISSET(flags, TCP_FLG_SYN)) {
             tcp_output(pcb, TCP_FLG_RST, NULL, 0);
-            errorf("connection reset");
+            errorf("connection reset (unexpected SYN in closing state)");
             pcb->state = TCP_PCB_STATE_CLOSED;
+            pcb->close_reason = 1; /* RST */
             tcp_pcb_release(pcb);
             return;
         }
@@ -770,6 +768,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
     case TCP_PCB_STATE_LAST_ACK:
         if (seg->ack == pcb->snd.nxt) {
             pcb->state = TCP_PCB_STATE_CLOSED;
+            pcb->close_reason = 0; /* normal close */
             tcp_pcb_release(pcb);
         }
         return;
@@ -923,8 +922,6 @@ tcp_timer(void)
 {
     struct tcp_pcb *pcb;
     struct timeval now;
-    char ep1[IP_ENDPOINT_STR_LEN];
-    char ep2[IP_ENDPOINT_STR_LEN];
 
     gettimeofday(&now, NULL);
     mutex_lock(&mutex);
@@ -934,17 +931,17 @@ tcp_timer(void)
         }
         if (pcb->state == TCP_PCB_STATE_TIME_WAIT) {
             if (timercmp(&now, &pcb->tw_timer, >) != 0) {
-                debugf("timewait has elapsed, local=%s, foreign=%s",
-                    ip_endpoint_ntop(&pcb->local, ep1, sizeof(ep1)), ip_endpoint_ntop(&pcb->foreign, ep2, sizeof(ep2)));
                 tcp_pcb_release(pcb);
                 continue;
             }
         }
         // Only process retransmit queue if there are entries
         if (pcb->queue.num > 0) {
+            debugf("tcp_timer: processing queue for pcb state=%d, queue.num=%u", pcb->state, pcb->queue.num);
             queue_foreach(&pcb->queue, tcp_retransmit_queue_emit, pcb);
         }
     }
+    debugf("tcp_timer: finished");
     mutex_unlock(&mutex);
 }
 
@@ -955,7 +952,7 @@ event_handler(void *arg)
 
     mutex_lock(&mutex);
     for (pcb = pcbs; pcb < tailof(pcbs); pcb++) {
-        if (pcb->state != TCP_PCB_STATE_FREE) {
+        if (pcb->state != TCP_PCB_STATE_FREE && pcb->ctx.sleeping) {
             sched_interrupt(&pcb->ctx);
         }
     }
@@ -1016,6 +1013,7 @@ tcp_open_rfc793(struct ip_endpoint *local, struct ip_endpoint *foreign, int acti
         if (tcp_output(pcb, TCP_FLG_SYN, NULL, 0) == -1) {
             errorf("tcp_output() failure");
             pcb->state = TCP_PCB_STATE_CLOSED;
+            pcb->close_reason = 3; /* output failure */
             tcp_pcb_release(pcb);
             mutex_unlock(&mutex);
             return -1;
@@ -1031,6 +1029,7 @@ AGAIN:
         if (sched_sleep(&pcb->ctx, &mutex, NULL) == -1) {
             debugf("interrupted");
             pcb->state = TCP_PCB_STATE_CLOSED;
+            pcb->close_reason = 4; /* interrupted */
             tcp_pcb_release(pcb);
             mutex_unlock(&mutex);
             errno = EINTR;
@@ -1202,19 +1201,16 @@ tcp_connect(int id, struct ip_endpoint *foreign)
     pcb->state = TCP_PCB_STATE_SYN_SENT;
 
     struct timeval *snd_timeout = sock_get_timeout(id, SOCK_STREAM, SO_SNDTIMEO);
-    if (!snd_timeout) {
-        errorf("socket not found, id=%d", id);
-        pcb->state = TCP_PCB_STATE_CLOSED;
-        tcp_pcb_release(pcb);
-        mutex_unlock(&mutex);
-        return -1;
-    }
 AGAIN:
     state = pcb->state;
     // waiting for state changed
     while (pcb->state == state) {
         struct timeval abs_timeout;
-        if (sched_sleep(&pcb->ctx, &mutex, sock_get_timeout_abs(snd_timeout, &abs_timeout)) == -1) {
+        struct timeval *timeout = NULL;
+        if (snd_timeout && (snd_timeout->tv_sec > 0 || snd_timeout->tv_usec > 0)) {
+            timeout = sock_get_timeout_abs(snd_timeout, &abs_timeout);
+        }
+        if (sched_sleep(&pcb->ctx, &mutex, timeout) == -1) {
             if (errno == ETIMEDOUT) {
                 errorf("connection timeout");
                 pcb->state = TCP_PCB_STATE_CLOSED;
@@ -1409,19 +1405,12 @@ tcp_send(int id, uint8_t *data, size_t len)
     mutex_lock(&mutex);
     pcb = tcp_pcb_get(id);
     if (!pcb) {
-        // Connection was closed (possibly by RST), return appropriate error
         mutex_unlock(&mutex);
         errno = ECONNRESET;
         return -1;
     }
 
     struct timeval *snd_timeout = sock_get_timeout(id, SOCK_STREAM, SO_SNDTIMEO);
-    if (!snd_timeout) {
-        errorf("socket not found, id=%d", id);
-        mutex_unlock(&mutex);
-        errno = ECONNRESET;
-        return -1;
-    }
 RETRY:
     switch (pcb->state) {
     case TCP_PCB_STATE_CLOSED:
@@ -1432,7 +1421,7 @@ RETRY:
             errorf("connection timeout");
             errno = ETIMEDOUT;
         } else {
-            errorf("connection closed");
+            errorf("connection closed (reason=%d)", pcb->close_reason);
             errno = ECONNRESET;
         }
         mutex_unlock(&mutex);
@@ -1570,30 +1559,13 @@ RETRY:
     }
 
     struct timeval *rcv_timeout = sock_get_timeout(id, SOCK_STREAM, SO_RCVTIMEO);
-    if (!rcv_timeout) {
-        errorf("socket not found, id=%d", id);
-        mutex_unlock(&mutex);
-        errno = ECONNRESET;
-        return -1;
-    }
     switch (pcb->state) {
     case TCP_PCB_STATE_CLOSED:
-        if (pcb->close_reason == 1) {
-            errorf("connection reset by peer");
-            errno = ECONNRESET;
-        } else if (pcb->close_reason == 2) {
-            errorf("connection timeout");
-            errno = ETIMEDOUT;
-        } else {
-            errorf("connection closed");
-            errno = ECONNRESET;
-        }
         mutex_unlock(&mutex);
         return -1;
     case TCP_PCB_STATE_LISTEN:
     case TCP_PCB_STATE_SYN_SENT:
     case TCP_PCB_STATE_SYN_RECEIVED:
-        errorf("insufficient resources");
         mutex_unlock(&mutex);
         return -1;
     case TCP_PCB_STATE_ESTABLISHED:
@@ -1602,18 +1574,14 @@ RETRY:
         remain = sizeof(pcb->buf) - pcb->rcv.wnd;
         if (!remain) {
             struct timeval abs_timeout;
-            struct timeval *timeout = sock_get_timeout_abs(rcv_timeout, &abs_timeout);
-            if (!timeout) {
-                uint64_t usec;
-                kernel_tic(NULL, &usec);
-                abs_timeout.tv_sec = (usec / 1000000) + 30;
-                abs_timeout.tv_usec = usec % 1000000;
-                timeout = &abs_timeout;
+            struct timeval *timeout = NULL;
+            if (rcv_timeout && (rcv_timeout->tv_sec > 0 || rcv_timeout->tv_usec > 0)) {
+                timeout = sock_get_timeout_abs(rcv_timeout, &abs_timeout);
             }
             ret = sched_sleep(&pcb->ctx, &mutex, timeout);
             if (ret == -1) {
                 if (errno == ETIMEDOUT) {
-                    errorf("tcp receive timeout after 30 seconds");
+                    errorf("tcp receive timeout");
                 }
                 mutex_unlock(&mutex);
                 return -1;
@@ -1643,7 +1611,6 @@ RETRY:
     case TCP_PCB_STATE_CLOSING:
     case TCP_PCB_STATE_LAST_ACK:
     case TCP_PCB_STATE_TIME_WAIT:
-        debugf("connection closing");
         mutex_unlock(&mutex);
         return 0;
     default:
@@ -1682,11 +1649,12 @@ tcp_close(int id)
         return 0;
     case TCP_PCB_STATE_LISTEN:
         pcb->state = TCP_PCB_STATE_CLOSED;
+        pcb->close_reason = 0; /* normal close */
         break;
     case TCP_PCB_STATE_SYN_SENT:
-        // Send RST to notify peer that connection is being closed
         tcp_output_segment(pcb->snd.nxt, pcb->rcv.nxt, TCP_FLG_RST | TCP_FLG_ACK, 0, NULL, 0, &pcb->local, &pcb->foreign);
         pcb->state = TCP_PCB_STATE_CLOSED;
+        pcb->close_reason = 0; /* normal close */
         break;
     case TCP_PCB_STATE_SYN_RECEIVED:
         tcp_output(pcb, TCP_FLG_ACK | TCP_FLG_FIN, NULL, 0);

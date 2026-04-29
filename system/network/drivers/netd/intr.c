@@ -81,17 +81,17 @@ void intr_loop(void) {
     while(1){
         while(gSignel[SIGNET]){
             net_protocol_handler();
-            gSignel[SIGNET]--; 
+            gSignel[SIGNET]--;
         }
         while(gSignel[SIGINT]){
             net_event_handler();
             gSignel[SIGINT]--;
         }
         for (entry = irq_vec; entry; entry = entry->next) {
-                if (entry->irq == SIGIRQ) {
-                    int cnt = tap_select(entry->dev);
-                    for(int i = 0; i < cnt; i++){
-                        entry->handler(entry->irq, entry->dev);
+            if (entry->irq == SIGIRQ) {
+                int cnt = tap_select(entry->dev);
+                for(int i = 0; i < cnt; i++){
+                    entry->handler(entry->irq, entry->dev);
                 }
             }
         }

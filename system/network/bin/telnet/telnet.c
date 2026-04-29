@@ -66,10 +66,14 @@ static void *receive_thread(void *arg) {
                     write(STDOUT_FILENO, &buffer[i], 1);
                 }
             }
-        } else if (n <= 0) {
-            printf("\nConnection closed by remote host.\n");
+        } else if (n == 0) {
+            printf("\nConnection closed by remote host (read returned 0, EOF).\n");
             break;
-        } 
+        } else {
+            printf("\nConnection closed by remote host (read returned %d, errno=%d: %s).\n",
+                   n, errno, strerror(errno));
+            break;
+        }
     }
     _ended = true;
     return NULL;
