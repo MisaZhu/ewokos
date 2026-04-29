@@ -58,6 +58,10 @@ namespace litehtml
 		{
 			parse(txt, baseurl);
 		}
+		void add(const tchar_t* txt, size_t len, const tchar_t* baseurl)
+		{
+			parse(tstring(txt, len).c_str(), baseurl);
+		}
 
 		void add_property(const tchar_t* name, const tchar_t* val, const tchar_t* baseurl, bool important);
 

@@ -3,81 +3,114 @@
 #include <algorithm>
 #include "document.h"
 
-void litehtml::css::parse_stylesheet(const tchar_t* str, const tchar_t* baseurl, document* doc, const media_query_list::ptr& media)
+namespace litehtml
 {
-	tstring text = str;
 
-	// remove comments
-	tstring::size_type c_start = text.find(_t("/*"));
-	while(c_start != tstring::npos)
+static const tchar_t* skip_whitespace(const tchar_t* p)
+{
+	while(*p == ' ' || *p == '\n' || *p == '\r' || *p == '\t') p++;
+	return p;
+}
+
+static const tchar_t* skip_comment(const tchar_t* p)
+{
+	if(p[0] == '/' && p[1] == '*')
 	{
-		tstring::size_type c_end = text.find(_t("*/"), c_start + 2);
-		if(c_end == tstring::npos)
-		{
-			break;
-		}
-		text.erase(c_start, c_end - c_start + 2);
-		c_start = text.find(_t("/*"));
+		p += 2;
+		while(*p && !(p[0] == '*' && p[1] == '/')) p++;
+		if(*p) p += 2;
 	}
+	return p;
+}
 
-	tstring::size_type pos = text.find_first_not_of(_t(" \n\r\t"));
-	while(pos != tstring::npos)
+static const tchar_t* skip_comments_and_ws(const tchar_t* p)
+{
+	while(true)
 	{
-		while(pos != tstring::npos && text[pos] == _t('@'))
-		{
-			tstring::size_type sPos = pos;
-			pos = text.find_first_of(_t("{"), pos);
-			if(pos != tstring::npos && text[pos] == _t('{'))
-			{
-				pos = find_close_bracket(text, pos, _t('{'), _t('}'));
-			}
-			if(pos != tstring::npos)
-			{
-				parse_atrule(text.substr(sPos, pos - sPos + 1), baseurl, doc, media);
-			} else
-			{
-				parse_atrule(text.substr(sPos), baseurl, doc, media);
-			}
+		const tchar_t* next = skip_whitespace(p);
+		next = skip_comment(next);
+		if(next == p) break;
+		p = next;
+	}
+	return p;
+}
 
-			if(pos != tstring::npos)
+static const tchar_t* find_char(const tchar_t* p, tchar_t c)
+{
+	while(*p && *p != c) p++;
+	return p;
+}
+
+static const tchar_t* find_close_bracket_ptr(const tchar_t* p, tchar_t open_b, tchar_t close_b)
+{
+	if(*p != open_b) return p;
+	int cnt = 1;
+	p++;
+	while(*p && cnt)
+	{
+		if(*p == open_b) cnt++;
+		else if(*p == close_b) cnt--;
+		p++;
+	}
+	return p;
+}
+
+static tstring ptr_to_string(const tchar_t* start, const tchar_t* end)
+{
+	return tstring(start, end - start);
+}
+
+void css::parse_stylesheet(const tchar_t* str, const tchar_t* baseurl, document* doc, const media_query_list::ptr& media)
+{
+	const tchar_t* p = str;
+
+	while(*p)
+	{
+		p = skip_comments_and_ws(p);
+		if(!*p) break;
+
+		while(*p == '@')
+		{
+			const tchar_t* sPos = p;
+			p = find_char(p, '{');
+			if(*p == '{')
 			{
-				pos = text.find_first_not_of(_t(" \n\r\t"), pos + 1);
+				p = find_close_bracket_ptr(p, '{', '}');
 			}
+			if(*p)
+			{
+				parse_atrule(ptr_to_string(sPos, p), baseurl, doc, media);
+			}
+			p = skip_comments_and_ws(p);
 		}
 
-		if(pos == tstring::npos)
-		{
-			break;
-		}
+		if(!*p) break;
 
-		tstring::size_type style_start = text.find(_t("{"), pos);
-		tstring::size_type style_end	= text.find(_t("}"), pos);
-		if(style_start != tstring::npos && style_end != tstring::npos && style_end > style_start)
+		const tchar_t* style_start = find_char(p, '{');
+		const tchar_t* style_end = find_char(p, '}');
+		if(*style_start && *style_end && style_end > style_start)
 		{
 			style::ptr st = new style();
-			st->add(text.substr(style_start + 1, style_end - style_start - 1).c_str(), baseurl);
+			st->add(style_start + 1, style_end - style_start - 1, baseurl);
 
-			parse_selectors(text.substr(pos, style_start - pos), st, media);
+			parse_selectors(ptr_to_string(p, style_start), st, media);
 
 			if(media && doc)
 			{
 				doc->add_media_list(media);
 			}
 
-			pos = style_end + 1;
+			p = style_end + 1;
 		} else
 		{
-			pos = tstring::npos;
+			break;
 		}
 
-		if(pos != tstring::npos)
-		{
-			pos = text.find_first_not_of(_t(" \n\r\t"), pos);
-		}
+		p = skip_comments_and_ws(p);
 	}
 }
 
-void litehtml::css::parse_css_url( const tstring& str, tstring& url )
+void css::parse_css_url( const tstring& str, tstring& url )
 {
 	url = _t("");
 	size_t pos1 = str.find(_t('('));
@@ -102,7 +135,7 @@ void litehtml::css::parse_css_url( const tstring& str, tstring& url )
 	}
 }
 
-bool litehtml::css::parse_selectors( const tstring& txt, const litehtml::style::ptr& styles, const media_query_list::ptr& media )
+bool css::parse_selectors( const tstring& txt, const litehtml::style::ptr& styles, const media_query_list::ptr& media )
 {
 	tstring selector = txt;
 	trim(selector);
@@ -127,7 +160,7 @@ bool litehtml::css::parse_selectors( const tstring& txt, const litehtml::style::
 	return added_something;
 }
 
-void litehtml::css::sort_selectors()
+void css::sort_selectors()
 {
 	std::sort(m_selectors.begin(), m_selectors.end(),
 		 [](const css_selector::ptr& v1, const css_selector::ptr& v2)
@@ -137,7 +170,7 @@ void litehtml::css::sort_selectors()
 	);
 }
 
-void litehtml::css::parse_atrule(const tstring& text, const tchar_t* baseurl, document* doc, const media_query_list::ptr& media)
+void css::parse_atrule(const tstring& text, const tchar_t* baseurl, document* doc, const media_query_list::ptr& media)
 {
 	if(text.substr(0, 7) == _t("@import"))
 	{
@@ -220,3 +253,5 @@ void litehtml::css::parse_atrule(const tstring& text, const tchar_t* baseurl, do
 		}
 	}
 }
+
+} // namespace litehtml

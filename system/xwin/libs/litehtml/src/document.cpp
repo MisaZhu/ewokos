@@ -651,7 +651,6 @@ void litehtml::document::update_master_styles()
 {
 	if(m_root && m_context)
 	{
-		m_root->apply_stylesheet(m_context->master_css());
 		m_root->parse_styles();
 	}
 }

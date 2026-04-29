@@ -218,7 +218,7 @@ bool WidgetWebview::loadImageTask(const std::string& url)
 bool WidgetWebview::loadCSSContent(const std::string& content)
 {
     bool res = false;
-    pthread_mutex_lock(&m_renderMutex);
+    //pthread_mutex_lock(&m_renderMutex);
     if (!content.empty()) {
         m_browser_context.load_master_stylesheet(content.c_str());
         if (m_doc) {
@@ -227,7 +227,7 @@ bool WidgetWebview::loadCSSContent(const std::string& content)
             res = true;
         }
     }
-    pthread_mutex_unlock(&m_renderMutex);
+    //pthread_mutex_unlock(&m_renderMutex);
     if(res)
         update();  // Trigger repaint which will apply the styles
     return res;
@@ -305,7 +305,6 @@ void WidgetWebview::onRepaint(graph_t* g, XTheme* theme, const grect_t& r)
     litehtml::position pos(r.x, r.y, r.w, r.h);
 
     pthread_mutex_lock(&m_renderMutex);
-    
     // Apply pending style update if any (must be done in main thread)
     if (m_needsStyleUpdate && m_doc) {
         m_doc->update_master_styles();
