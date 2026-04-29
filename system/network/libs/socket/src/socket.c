@@ -21,7 +21,7 @@ static int do_vfs_fcntl(int fd, int cmd, proto_t* arg_in, proto_t* arg_out){
         ret = vfs_fcntl(fd, cmd,  arg_in , arg_out);
         if(ret != VFS_ERR_RETRY)
             break;
-        proc_block_by(info.mount_pid, RW_BLOCK_EVT);
+        proc_yield();
     };
 
     return ret;

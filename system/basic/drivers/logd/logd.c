@@ -57,7 +57,7 @@ static int log_write(int fd,
 	}
 
 	if(i > 0)
-		proc_wakeup(RW_BLOCK_EVT);
+		vfs_wakeup(-1, RW_BLOCK_EVT);
 	return i;
 }
 

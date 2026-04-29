@@ -98,7 +98,7 @@ static void interrupt_handle(uint32_t interrupt, uint32_t p) {
 	}
 
 	if(rx){
-		proc_wakeup(RW_BLOCK_EVT);
+		vfs_wakeup(-1, RW_BLOCK_EVT);
 	}	
 	return;
 }

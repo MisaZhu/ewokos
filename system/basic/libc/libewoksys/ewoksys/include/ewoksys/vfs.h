@@ -69,6 +69,9 @@ int       vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size);
 int       vfs_fcntl(int fd, int cmd, proto_t* in, proto_t* out);
 int       vfs_fcntl_wait(int fd, int cmd, proto_t* in);
 
+int       vfs_block_by(int by_pid, int type);
+int       vfs_wakeup(int pid, int type);
+
 #ifdef __cplusplus
 }
 #endif

@@ -233,7 +233,7 @@ static int console_loop(void* p) {
 			}
 		}
 		if(n > 0)
-			proc_wakeup(RW_BLOCK_EVT);
+			vfs_wakeup(-1, RW_BLOCK_EVT);
 	}
 
 	ipc_enable();

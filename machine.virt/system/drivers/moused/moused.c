@@ -147,7 +147,7 @@ void mouse_interrupt_handle(struct virtio_device *dev, struct virtio_input_event
 		mouse_data_write++;
 		if(!mouse_data[mouse_data_write % CACHE_SIZE].state)
 			 mouse_data[mouse_data_write % CACHE_SIZE].state = MOUSE_STATE_MOVE;
-		proc_wakeup(RW_BLOCK_EVT);
+		vfs_wakeup(-1, RW_BLOCK_EVT);
 	}
 }
 

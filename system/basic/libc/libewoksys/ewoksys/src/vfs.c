@@ -263,7 +263,7 @@ static int read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block
 	PF->clear(&out);
 
 	if(res == 0 && block == 1) {//empty , do retry
-		proc_block_by(vfsd_pid, node);
+		vfs_block_by(vfsd_pid, node);
 	}
 	return res;	
 }
@@ -283,7 +283,7 @@ static int write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, boo
 	PF->clear(&out);
 
 	if(res == 0 && block == 1) {//empty , do retry
-		proc_block_by(vfsd_pid, node); 
+		vfs_block_by(vfsd_pid, node); 
 	}
 	return res;	
 }
@@ -848,6 +848,16 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 		res = -1;
 	}
 	return res;
+}
+
+int  vfs_block_by(int by_pid, int type) {
+	proc_block_by(by_pid, type);
+	return 0;
+}
+
+int  vfs_wakeup(int pid, int type) {
+	proc_wakeup_pid(pid, type);
+	return 0;
 }
 
 #ifdef __cplusplus

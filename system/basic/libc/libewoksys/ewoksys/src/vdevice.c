@@ -749,7 +749,7 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int mode) {
 			dev->loop_step(dev->extra_data);
 		}
 		else {
-			proc_block_by(getpid(), (uint32_t)dev);
+			proc_block_by(getpid(), (uint32_t)dev); //block self
 		}
 	}
 

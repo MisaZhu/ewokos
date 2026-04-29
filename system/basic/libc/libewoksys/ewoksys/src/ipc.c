@@ -241,7 +241,7 @@ extern "C"
 			ipc_ready();
 
 		if ((flags & IPC_NON_BLOCK) == 0)
-			proc_block_by(getpid(), 0);
+			proc_block_by(getpid(), 0); //block self
 		return ret;
 	}
 

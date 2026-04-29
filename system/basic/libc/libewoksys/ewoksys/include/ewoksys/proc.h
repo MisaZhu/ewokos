@@ -31,6 +31,7 @@ void*    proc_malloc_expand(int32_t size);
 void*    proc_malloc_free(void);
 uint32_t proc_malloc_size(void);
 int      proc_usleep(uint32_t usec);
+void     proc_yield(void);
 
 int      proc_exec(const char* cmd_line);
 void     proc_priority(uint32_t pid, uint32_t priority);

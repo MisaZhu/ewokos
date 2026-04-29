@@ -116,7 +116,7 @@ public:
 protected:
 	void input(int32_t c) {
 		charbuf_push(_buffer, c, false);
-		proc_wakeup(RW_BLOCK_EVT);
+		vfs_wakeup(-1, RW_BLOCK_EVT);
 	}
 
 	bool onMouse(xevent_t* ev) {
@@ -304,7 +304,7 @@ static void* thread_loop(void* p) {
 	widgetXRun(&x, &win);
 	_consoleWidget = NULL;
 	device_stop(_dev);
-	proc_wakeup(RW_BLOCK_EVT);
+	vfs_wakeup(-1, RW_BLOCK_EVT);
 	return NULL;
 }
 
@@ -391,7 +391,7 @@ int run(const char* mnt_point) {
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0600);
 	charbuf_free(_buffer);
-	proc_wakeup(RW_BLOCK_EVT);
+	vfs_wakeup(-1, RW_BLOCK_EVT);
 	exit(0);
 	return 0;
 }

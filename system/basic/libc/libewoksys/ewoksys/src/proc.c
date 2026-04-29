@@ -234,6 +234,10 @@ int proc_usleep(uint32_t usecs) {
 	return 0;
 }
 
+inline void proc_yield(void) {
+	syscall0(SYS_YIELD);
+}
+
 #ifdef __cplusplus
 }
 #endif

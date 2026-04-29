@@ -220,7 +220,7 @@ static int vkeyb_loop(void* p){
 	_rd = rd;
 
 	if(_rd > 0 || _release) {
-		proc_wakeup(RW_BLOCK_EVT);
+		vfs_wakeup(-1, RW_BLOCK_EVT);
 	}
 	ipc_enable();
 
