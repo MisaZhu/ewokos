@@ -187,12 +187,14 @@ int main(int argc, char *argv[]) {
                 break;
             }
         } 
-        else if(errno != EAGAIN){
+        else if(errno != EAGAIN && errno != 0){
             _ended = true;
             break;
         }
         usleep(10000);
     }
+    // Wait for receive thread to finish
+    pthread_join(tid, NULL);
     // Close connection
     close(sockfd);
 

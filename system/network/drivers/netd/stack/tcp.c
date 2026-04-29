@@ -386,17 +386,9 @@ tcp_output_segment(uint32_t seq, uint32_t ack, uint8_t flg, uint16_t wnd, uint8_
     psum = ~cksum16((uint16_t *)&pseudo, sizeof(pseudo), 0);
     hdr->sum = cksum16((uint16_t *)hdr, total, psum);
 
-    debugf("%s => %s, len=%u (payload=%zu)",
-        ip_endpoint_ntop(local, ep1, sizeof(ep1)), ip_endpoint_ntop(foreign, ep2, sizeof(ep2)), total, len);
-    tcp_dump((uint8_t *)hdr, total);
-
-    TRACE();
     int ret = ip_output(IP_PROTOCOL_TCP, (uint8_t *)hdr, total, local->addr, foreign->addr);
-    TRACE();
     free(buf);
-    TRACE();
     if(ret < 0){
-        errorf("ip_output() failure");
     }
     return ret;
 }
@@ -643,14 +635,6 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
     case TCP_PCB_STATE_FIN_WAIT2:
     case TCP_PCB_STATE_CLOSE_WAIT:
         if (TCP_FLG_ISSET(flags, TCP_FLG_RST)) {
-            char ep1[IP_ENDPOINT_STR_LEN];
-            char ep2[IP_ENDPOINT_STR_LEN];
-            errorf("RST received: state=%d, local=%s, foreign=%s, seq=%u, ack=%u, flags=%s",
-                   pcb->state,
-                   ip_endpoint_ntop(&pcb->local, ep1, sizeof(ep1)),
-                   ip_endpoint_ntop(&pcb->foreign, ep2, sizeof(ep2)),
-                   seg->seq, seg->ack,
-                   tcp_flg_ntoa(flags));
             pcb->state = TCP_PCB_STATE_CLOSED;
             pcb->close_reason = 1; /* RST */
             tcp_pcb_release(pcb);
@@ -882,24 +866,16 @@ tcp_input(const uint8_t *data, size_t len, ip_addr_t src, ip_addr_t dst, struct 
     pseudo.len = hton16(len);
     psum = ~cksum16((uint16_t *)&pseudo, sizeof(pseudo), 0);
     if (cksum16((uint16_t *)hdr, len, psum) != 0) {
-        errorf("checksum error: sum=0x%04x, verify=0x%04x", ntoh16(hdr->sum), ntoh16(cksum16((uint16_t *)hdr, len, -hdr->sum + psum)));
         return;
     }
     if (src == IP_ADDR_BROADCAST || src == iface->broadcast || dst == IP_ADDR_BROADCAST || dst == iface->broadcast) {
-        errorf("only supports unicast, src=%s, dst=%s",
-            ip_addr_ntop(src, addr1, sizeof(addr1)), ip_addr_ntop(dst, addr2, sizeof(addr2)));
         return;
     }
-    debugf("%s:%d => %s:%d, len=%zu (payload=%zu)",
-        ip_addr_ntop(src, addr1, sizeof(addr1)), ntoh16(hdr->src),
-        ip_addr_ntop(dst, addr2, sizeof(addr2)), ntoh16(hdr->dst),
-        len, len - sizeof(*hdr));
-    tcp_dump(data, len);
+    hlen = (hdr->off >> 4) << 2;
     local.addr = dst;
     local.port = hdr->dst;
     foreign.addr = src;
     foreign.port = hdr->src;
-    hlen = (hdr->off >> 4) << 2;
     seg.seq = ntoh32(hdr->seq);
     seg.ack = ntoh32(hdr->ack);
     seg.len = len - hlen;
@@ -1652,17 +1628,26 @@ tcp_close(int id)
         pcb->close_reason = 0; /* normal close */
         break;
     case TCP_PCB_STATE_SYN_SENT:
-        tcp_output_segment(pcb->snd.nxt, pcb->rcv.nxt, TCP_FLG_RST | TCP_FLG_ACK, 0, NULL, 0, &pcb->local, &pcb->foreign);
+        if (tcp_output_segment(pcb->snd.nxt, pcb->rcv.nxt, TCP_FLG_RST | TCP_FLG_ACK, 0, NULL, 0, &pcb->local, &pcb->foreign) < 0) {
+            mutex_unlock(&mutex);
+            return -1;
+        }
         pcb->state = TCP_PCB_STATE_CLOSED;
         pcb->close_reason = 0; /* normal close */
         break;
     case TCP_PCB_STATE_SYN_RECEIVED:
-        tcp_output(pcb, TCP_FLG_ACK | TCP_FLG_FIN, NULL, 0);
+        if (tcp_output(pcb, TCP_FLG_ACK | TCP_FLG_FIN, NULL, 0) < 0) {
+            mutex_unlock(&mutex);
+            return -1;
+        }
         pcb->snd.nxt++;
         pcb->state = TCP_PCB_STATE_FIN_WAIT1;
         break;
     case TCP_PCB_STATE_ESTABLISHED:
-        tcp_output(pcb, TCP_FLG_ACK | TCP_FLG_FIN,  NULL, 0);
+        if (tcp_output(pcb, TCP_FLG_ACK | TCP_FLG_FIN, NULL, 0) < 0) {
+            mutex_unlock(&mutex);
+            return -1;
+        }
         pcb->snd.nxt++;
         pcb->state = TCP_PCB_STATE_FIN_WAIT1;
         break;
@@ -1672,9 +1657,12 @@ tcp_close(int id)
         mutex_unlock(&mutex);
         return 0;
     case TCP_PCB_STATE_CLOSE_WAIT:
-        tcp_output(pcb, TCP_FLG_ACK | TCP_FLG_FIN, NULL, 0);
+        if (tcp_output(pcb, TCP_FLG_ACK | TCP_FLG_FIN, NULL, 0) < 0) {
+            mutex_unlock(&mutex);
+            return -1;
+        }
         pcb->snd.nxt++;
-        pcb->state = TCP_PCB_STATE_LAST_ACK; /* RFC793 says "enter CLOSING state", but it seems to be LAST-ACK state */
+        pcb->state = TCP_PCB_STATE_LAST_ACK;
         break;
     case TCP_PCB_STATE_CLOSING:
     case TCP_PCB_STATE_LAST_ACK:
