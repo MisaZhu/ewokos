@@ -144,6 +144,21 @@ typedef struct ssh_session {
     uint8_t curve25519_server_public[32];
     int using_curve25519;
     
+    /* ECDH state - pre-generated for kex-strict mode */
+    uint8_t ecdh_private[128];  /* Large enough for P-521 */
+    uint8_t ecdh_public[133];   /* Large enough for P-521 uncompressed */
+    uint32_t ecdh_private_len;
+    uint32_t ecdh_public_len;
+    int ecdh_nid;
+    int ecdh_ready;
+    
+    /* DH state - pre-generated for kex-strict mode */
+    uint8_t dh_private[256];  /* Large enough for group14 */
+    uint8_t dh_public[256];
+    uint32_t dh_private_len;
+    uint32_t dh_public_len;
+    int dh_ready;
+    
     /* Terminal settings */
     int terminal_width;
     int terminal_height;

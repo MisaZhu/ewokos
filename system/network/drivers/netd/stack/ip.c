@@ -427,7 +427,8 @@ ip_output_device(struct ip_iface *iface, const uint8_t *data, size_t len, ip_add
                 usleep(3000);
             }while(--retry > 0);
             if(ret != ARP_RESOLVE_FOUND) {
-                errorf("arp resolve error");
+                char addr[IP_ADDR_STR_LEN];
+                errorf("arp resolve error, dst=%s", ip_addr_ntop(dst, addr, sizeof(addr)));
                 return -1;
             }
         }
@@ -485,6 +486,7 @@ ip_output(uint8_t protocol, const uint8_t *data, size_t len, ip_addr_t src, ip_a
     struct ip_route *route;
     struct ip_iface *iface;
     char addr[IP_ADDR_STR_LEN];
+    char addr2[IP_ADDR_STR_LEN];
     ip_addr_t nexthop;
     uint16_t id;
 
@@ -501,13 +503,42 @@ ip_output(uint8_t protocol, const uint8_t *data, size_t len, ip_addr_t src, ip_a
 
     iface = route->iface;
     nexthop = (route->nexthop != IP_ADDR_ANY) ? route->nexthop : dst;
+
+    /*
+     * Check if destination is one of our own interface addresses.
+     * If so, route to loopback interface to avoid ARP resolution failure.
+     * Keep the original source address from the route interface.
+     */
+    ip_addr_t src_addr = iface->unicast;
+    struct ip_iface *local_iface = ip_iface_select(dst);
+    
+    char addr3[IP_ADDR_STR_LEN];
+    debugf("ip_output: dst=%s, nexthop=%s, route_iface=%s, local_iface=%p, loopback=%d",
+        ip_addr_ntop(dst, addr, sizeof(addr)),
+        ip_addr_ntop(nexthop, addr3, sizeof(addr3)),
+        ip_addr_ntop(iface->unicast, addr2, sizeof(addr2)),
+        local_iface,
+        (NET_IFACE(iface)->dev->flags & NET_DEVICE_FLAG_LOOPBACK) ? 1 : 0);
+    
+    if (local_iface && !(NET_IFACE(iface)->dev->flags & NET_DEVICE_FLAG_LOOPBACK)) {
+        /* Find loopback interface */
+        struct net_device *loopback_dev = net_device_get_loopback();
+        if (loopback_dev) {
+            struct net_iface *loopback_net_iface = net_device_get_iface(loopback_dev, NET_IFACE_FAMILY_IP);
+            if (loopback_net_iface) {
+                iface = (struct ip_iface *)loopback_net_iface;
+                nexthop = dst;
+                debugf("routing to loopback for local address %s", ip_addr_ntop(dst, addr, sizeof(addr)));
+            }
+        }
+    }
     if (NET_IFACE(iface)->dev->mtu < IP_HDR_SIZE_MIN + len) {
         errorf("too long, dev=%s, mtu=%u, tatal=%zu",
             NET_IFACE(iface)->dev->name, NET_IFACE(iface)->dev->mtu, IP_HDR_SIZE_MIN + len);
         return -1;
     }
     id = ip_generate_id();
-    if (ip_output_core(iface, protocol, data, len, iface->unicast, dst, nexthop, id, 0) == -1) {
+    if (ip_output_core(iface, protocol, data, len, src_addr, dst, nexthop, id, 0) == -1) {
         TRACE(); 
         //errorf("ip_output_core() failure");
         return -1;

@@ -10,6 +10,10 @@
 #include <sys/time.h>
 #endif
 
+#include <openssl/ssl.h>
+#include <openssl/crypto.h>
+#include <openssl/rand.h>
+
 static ssh_session_t *g_session = NULL;
 
 static void do_cleanup(void) {
@@ -169,7 +173,12 @@ int main(int argc, char *argv[]) {
     int no_command = 0;
     int opt;
     int command_start = -1;
-    
+
+    /* Initialize OpenSSL and random seed */
+    OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CRYPTO_STRINGS | OPENSSL_INIT_ADD_ALL_CIPHERS | OPENSSL_INIT_ADD_ALL_DIGESTS, NULL);
+    OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS, NULL);
+    srand(42);  // Initialize random seed for padding generation
+
     /* Parse options */
     while ((opt = getopt(argc, argv, "p:l:i:o:vqtTNfh")) != -1) {
         switch (opt) {
@@ -287,12 +296,14 @@ int main(int argc, char *argv[]) {
         printf("Server version: %s\n", g_session->server_version);
     }
     
-    /* Key exchange */
+    /* Key exchange - send KEXINIT first, then receive (for kex-strict mode) */
     if (ssh_send_kexinit(g_session) < 0) {
         fprintf(stderr, "Failed to send KEXINIT: %s\n", ssh_get_error(g_session));
         goto cleanup;
     }
-    
+
+    usleep(50000);  /* 50ms delay to ensure server processes KEXINIT */
+
     if (ssh_receive_kexinit(g_session) < 0) {
         fprintf(stderr, "Failed to receive KEXINIT: %s\n", ssh_get_error(g_session));
         goto cleanup;

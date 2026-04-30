@@ -141,6 +141,18 @@ net_device_get_iface(struct net_device *dev, int family)
     return entry;
 }
 
+struct net_device *
+net_device_get_loopback(void)
+{
+    struct net_device *dev;
+    for (dev = devices; dev; dev = dev->next) {
+        if (dev->flags & NET_DEVICE_FLAG_LOOPBACK) {
+            return dev;
+        }
+    }
+    return NULL;
+}
+
 int
 net_device_output(struct net_device *dev, uint16_t type, const uint8_t *data, size_t len, const void *dst)
 {
