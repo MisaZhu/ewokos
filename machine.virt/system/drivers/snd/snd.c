@@ -283,12 +283,12 @@ static int snd_close(int fd, int from_pid, uint32_t node, fsinfo_t *info, void *
 	return 0;
 }
 
-static int snd_write(int fd, int from_pid, fsinfo_t *node,
+static int snd_write(int fd, int from_pid, fsinfo_t *info,
 					 const void *buf, int size, int offset, void *p)
 {
 	UNUSED(fd);
 	UNUSED(from_pid);
-	UNUSED(node);
+	UNUSED(info);
 	UNUSED(p);
 
 	if (!_snd.configured || size <= 0 || _snd.occupied_pid != proc_getpid(from_pid))

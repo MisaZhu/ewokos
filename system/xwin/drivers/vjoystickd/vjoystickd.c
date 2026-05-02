@@ -130,7 +130,7 @@ static int joymouse_read_buffer(mouse_evt_t* evt) {
 
 static int vjoystick_read(int fd,
 		int from_pid,
-		fsinfo_t* node,
+		fsinfo_t* info,
 		void* buf,
 		int size,
 		int offset,
@@ -138,7 +138,7 @@ static int vjoystick_read(int fd,
 
 	(void)fd;
 	(void)from_pid;
-	(void)node;
+	(void)info;
 	(void)offset;
 	(void)p;
 

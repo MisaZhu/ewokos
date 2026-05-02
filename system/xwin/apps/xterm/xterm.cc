@@ -310,14 +310,14 @@ static void* thread_loop(void* p) {
 
 static int console_write(int fd, 
 		int from_pid,
-		fsinfo_t* node,
+		fsinfo_t* info,
 		const void* buf,
 		int size,
 		int offset,
 		void* p) {
 	(void)fd;
 	(void)from_pid;
-	(void)node;
+	(void)info;
 	(void)offset;
 
 	if(size <= 0 || _consoleWidget == NULL)
@@ -327,14 +327,14 @@ static int console_write(int fd,
 	return size;
 }
 
-static int console_read(int fd, int from_pid, fsinfo_t* node, 
+static int console_read(int fd, int from_pid, fsinfo_t* info, 
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
 	(void)offset;
 	(void)p;
 	(void)size;
-	(void)node;
+	(void)info;
 
 	if(_consoleWidget == NULL) {
 		return 0; //closed

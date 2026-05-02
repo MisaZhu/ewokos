@@ -77,14 +77,14 @@ int get_key_code(char *buf)
 	return num;
 }
 
-static int keybd_read(int fd, int from_pid, fsinfo_t *node,
+static int keybd_read(int fd, int from_pid, fsinfo_t *info,
 					  void *buf, int size, int offset, void *p)
 {
 	(void)fd;
 	(void)from_pid;
 	(void)offset;
 	(void)p;
-	(void)node;
+	(void)info;
 
 	int num = get_key_code(buf);
 	return num ? num : VFS_ERR_RETRY;

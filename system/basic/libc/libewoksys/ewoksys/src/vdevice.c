@@ -450,7 +450,6 @@ static void do_kids(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 	uint32_t node = proto_read_int(in);
 	fsinfo_t info;
 	proto_read_to(in, &info, sizeof(fsinfo_t));
-	klog("dev_kids: %d, 0x%x\n", info.node, info.stat.mode);
 
 	if(vfs_check_access(from_pid, &info, R_OK) != 0) {
 		klog("error dev_kids: %d\n", info.node);
@@ -675,12 +674,12 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	}
 }
 
-static int do_mount(vdevice_t* dev, fsinfo_t* mnt_point, int type, int mode) {
+static int do_mount(vdevice_t* dev, int type, int mode) {
 	fsinfo_t info;
 	memset(&info, 0, sizeof(fsinfo_t));
 
 	//create a non-father node 
-	strcpy(info.name, mnt_point->name);
+	strcpy(info.name, dev->mnt_info.name);
 	info.type = type;
 	if(type == FS_TYPE_DIR)
 		info.stat.size = 1024;
@@ -697,11 +696,11 @@ static int do_mount(vdevice_t* dev, fsinfo_t* mnt_point, int type, int mode) {
 	}
 
 	//mount the new node to mnt_point, previous node will be saved as well
-	if(vfs_mount(mnt_point->node, info.node) != 0) {
+	if(vfs_mount(dev->mnt_info.node, info.node) != 0) {
 		vfs_del_node(info.node);
 		return -1;
 	}
-	memcpy(mnt_point, &info, sizeof(fsinfo_t));
+	memcpy(&dev->mnt_info, &info, sizeof(fsinfo_t));
 	return 0;
 }
 
@@ -727,14 +726,13 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int mode) {
 
 	sys_signal(SYS_SIG_STOP, sig_stop, dev);
 	
-	fsinfo_t mnt_point_info;
 	if(mnt_point != NULL) {
-		if(vfs_get_by_name(mnt_point, &mnt_point_info) != 0) {
-			if(vfs_create(mnt_point, &mnt_point_info, mnt_type & FS_TYPE_MASK, mode, true, true) != 0)
+		if(vfs_get_by_name(mnt_point, &dev->mnt_info) != 0) {
+			if(vfs_create(mnt_point, &dev->mnt_info, mnt_type & FS_TYPE_MASK, mode, true, true) != 0)
 				return -1;
 		}
 
-		if(do_mount(dev, &mnt_point_info, mnt_type, mode) != 0)
+		if(do_mount(dev, mnt_type, mode) != 0)
 			return -1;
 	}
 
@@ -754,9 +752,9 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int mode) {
 	}
 
 	if(mnt_point != NULL && dev->umount != NULL) {
-		dev->umount(mnt_point_info.node, dev->extra_data);
+		dev->umount(dev->mnt_info.node, dev->extra_data);
 	}
-	vfs_umount(mnt_point_info.node);
+	vfs_umount(dev->mnt_info.node);
 	hashmap_free(_files_hash);
 	return 0;
 }

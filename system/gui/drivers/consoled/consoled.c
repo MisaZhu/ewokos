@@ -125,14 +125,14 @@ static bool _flush = true;
 static int _disp_index = 0;
 static int console_write(int fd, 
 		int from_pid,
-		fsinfo_t* node,
+		fsinfo_t* info,
 		const void* buf,
 		int size,
 		int offset,
 		void* p) {
 	(void)fd;
 	(void)from_pid;
-	(void)node;
+	(void)info;
 	(void)offset;
 
 	_flush = true;
@@ -151,7 +151,7 @@ static charbuf_t *_buffer;
 
 static int console_read(int fd,
 		int from_pid,
-		fsinfo_t* node,
+		fsinfo_t* info,
 		void* buf,
 		int size,
 		int offset,

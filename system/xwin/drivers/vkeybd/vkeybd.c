@@ -22,7 +22,7 @@ static bool _release = false;
 
 static int vkeyb_read(int fd,
 		int from_pid,
-		fsinfo_t* node,
+		fsinfo_t* info,
 		void* buf,
 		int size,
 		int offset,
@@ -30,7 +30,7 @@ static int vkeyb_read(int fd,
 
 	(void)fd;
 	(void)from_pid;
-	(void)node;
+	(void)info;
 	(void)offset;
 	(void)p;
 

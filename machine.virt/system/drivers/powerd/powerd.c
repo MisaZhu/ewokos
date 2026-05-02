@@ -7,11 +7,11 @@
 #include <ewoksys/mmio.h>
 #include <ewoksys/dma.h>
 
-static int power_read(int fd, int from_pid, fsinfo_t* node,
+static int power_read(int fd, int from_pid, fsinfo_t* info,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
-	(void)node;
+	(void)info;
 	(void)offset;
 	(void)p;
 	static int r = 10;

@@ -32,14 +32,14 @@ static mouse_evt_t mouse_data[CACHE_SIZE];
 static uint32_t mouse_data_read = 0;
 static uint32_t mouse_data_write = 0;
 
-static int _read(int fd, int from_pid, fsinfo_t *node,
+static int _read(int fd, int from_pid, fsinfo_t *info,
 					  void *buf, int size, int offset, void *p)
 {
 	(void)fd;
 	(void)from_pid;
 	(void)offset;
 	(void)p;
-	(void)node;
+	(void)info;
 
 	if (mouse_data_write - mouse_data_read > 0)
 	{

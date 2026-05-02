@@ -1097,7 +1097,6 @@ int main(int argc, char** argv) {
 	}
 
 	vfsd_init();
-
 	ipc_serv_run(handle, NULL, NULL, IPC_DEFAULT);
 
 	while(true) {

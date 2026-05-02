@@ -8,7 +8,7 @@
 
 static int log_read(int fd,
 		int from_pid,
-		fsinfo_t* node,
+		fsinfo_t* info,
 		void* buf,
 		int size,
 		int offset,
@@ -16,7 +16,7 @@ static int log_read(int fd,
 
 	(void)fd;
 	(void)from_pid;
-	(void)node;
+	(void)info;
 	(void)offset;
 	(void)p;
 
@@ -34,7 +34,7 @@ static int log_read(int fd,
 
 static int log_write(int fd, 
 		int from_pid,
-		fsinfo_t* node,
+		fsinfo_t* info,
 		const void* buf,
 		int size,
 		int offset,
@@ -42,7 +42,7 @@ static int log_write(int fd,
 		
 	(void)fd;
 	(void)from_pid;
-	(void)node;
+	(void)info;
 	(void)buf;
 	(void)offset;
 	(void)p;

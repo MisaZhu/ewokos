@@ -1376,9 +1376,9 @@ static int xwin_call_xim(x_t* x, proto_t* in, proto_t* out) {
 	return 0;
 }
 
-static int xserver_fcntl(int fd, int from_pid, fsinfo_t* node,
+static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 		int cmd, proto_t* in, proto_t* out, void* p) {
-	(void)node;
+	(void)info;
 	x_t* x = (x_t*)p;
 
 	int res = -1;
@@ -1406,9 +1406,9 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* node,
 	return res;
 }
 
-static int xserver_win_open(int fd, int from_pid, fsinfo_t* node, int oflag, void* p) {
+static int xserver_win_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p) {
 	(void)oflag;
-	(void)node;
+	(void)info;
 	if(fd < 0)
 		return -1;
 
@@ -1785,7 +1785,7 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 }
 
 static int xserver_win_close(int fd, int from_pid, uint32_t node, fsinfo_t* fsinfo, void* p) {
-	(void)node;
+	(void)fsinfo;
 	x_t* x = (x_t*)p;
 	xwin_t* win = x_get_win(x, fd, from_pid);
 	if(win == NULL) {

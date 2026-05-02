@@ -7,12 +7,12 @@
 
 static virtio_dev_t _net = NULL;
 
-static int net_read(int fd, int from_pid, fsinfo_t *node,
+static int net_read(int fd, int from_pid, fsinfo_t *info,
 					void *buf, int size, int offset, void *p)
 {
 	(void)fd;
 	(void)from_pid;
-	(void)node;
+	(void)info;
 	(void)p;
 
 	int ret = virtio_net_read(_net, (uint8_t *)buf + offset, (uint32_t)size);
@@ -23,12 +23,12 @@ static int net_read(int fd, int from_pid, fsinfo_t *node,
 	return ret;
 }
 
-static int net_write(int fd, int from_pid, fsinfo_t *node,
+static int net_write(int fd, int from_pid, fsinfo_t *info,
 					 const void *buf, int size, int offset, void *p)
 {
 	(void)fd;
 	(void)from_pid;
-	(void)node;
+	(void)info;
 	(void)p;
 
 	int ret = virtio_net_write(_net, (const uint8_t *)buf + offset, (uint32_t)size);

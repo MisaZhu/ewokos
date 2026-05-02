@@ -27,7 +27,7 @@ static char _logo[256] = {0};
 
 static int fb_fcntl(int fd, 
 		int from_pid,
-		fsinfo_t* node, 
+		fsinfo_t* info, 
 		int cmd, 
 		proto_t* in, 
 		proto_t* out,
@@ -35,7 +35,7 @@ static int fb_fcntl(int fd,
 
 	(void)fd;
 	(void)from_pid;
-	(void)node;
+	(void)info;
 	(void)in;
 	(void)p;
 	if(cmd == FB_CNTL_GET_INFO) { //get fb size
@@ -227,11 +227,11 @@ static void read_config(const char* conf_file, uint32_t* w, uint32_t* h, uint8_t
 }
 
 
-static int fb_dev_read(int fd, int from_pid, fsinfo_t* node,
+static int fb_dev_read(int fd, int from_pid, fsinfo_t* info,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
-	(void)node;
+	(void)info;
 	(void)offset;
 	(void)p;
 

@@ -60,12 +60,12 @@ static inline void uart_basic_trans(char c) {
 
 static charbuf_t *_buffer;
 
-static int tty_read(int fd, int from_pid, fsinfo_t* node,
+static int tty_read(int fd, int from_pid, fsinfo_t* info,
 		void* buf, int size, int offset, void* p) {
 	(void)fd;
 	(void)from_pid;
 	(void)offset;
-	(void)node;
+	(void)info;
 	(void)size;
 	(void)p;
 
@@ -78,10 +78,10 @@ static int tty_read(int fd, int from_pid, fsinfo_t* node,
 	return (i==0)?VFS_ERR_RETRY:i;
 }
 
-static int tty_write(int fd, int from_pid, fsinfo_t* node,
+static int tty_write(int fd, int from_pid, fsinfo_t* info,
 		const void* buf, int size, int offset, void* p) {
 	(void)fd;
-	(void)node;
+	(void)info;
 	(void)from_pid;
 	(void)offset;
 	(void)p;
