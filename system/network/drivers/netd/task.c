@@ -99,7 +99,7 @@ void release_task(net_task_t *task){
 
     // Also wake up waiting client if task was processing
     if(from_pid > 0) {
-        vfs_wakeup(from_pid, RW_BLOCK_EVT);
+        vfs_wakeup(from_pid, VFS_EVT_CLOSE);
     }
 
     // Wait for main task thread to exit before destroying cond and freeing
@@ -347,7 +347,7 @@ static void* task_thread(void* arg){
     pthread_mutex_unlock(&task_list_lock);
 
     if(task->from_pid)
-        vfs_wakeup(task->from_pid, RW_BLOCK_EVT);
+        vfs_wakeup(task->from_pid, VFS_EVT_RW);
 
     while(1){
         pthread_mutex_lock(&task_list_lock);
@@ -372,7 +372,7 @@ static void* task_thread(void* arg){
 
             // Wake up waiting client
             if(from_pid > 0) {
-                vfs_wakeup(from_pid, RW_BLOCK_EVT);
+                vfs_wakeup(from_pid, VFS_EVT_RW);
             }
         } else {
             pthread_mutex_unlock(&task_list_lock);

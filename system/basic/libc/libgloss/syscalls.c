@@ -291,7 +291,7 @@ _read (int fd, void * buf, size_t size)
 
 		if(errno != EAGAIN || !block)
 			break;
-		vfs_block_by(info.mount_pid, RW_BLOCK_EVT);
+		vfs_block_by(info.mount_pid, VFS_EVT_RW);
 	}
 	return res;
 }
@@ -349,7 +349,7 @@ _write (int fd, const void * buf, size_t size)
 
 		if(errno != EAGAIN || !block)
 			break;
-		vfs_block_by(info.mount_pid, RW_BLOCK_EVT);
+		vfs_block_by(info.mount_pid, VFS_EVT_RW);
 	}
 	return res;
 }

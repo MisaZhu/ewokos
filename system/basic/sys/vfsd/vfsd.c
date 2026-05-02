@@ -30,6 +30,7 @@ typedef struct vfs_node {
   int32_t mount_id;
   uint32_t refs;
   uint32_t refs_w;
+  uint32_t events; //events for poll or select
 } vfs_node_t;
 
 typedef struct {

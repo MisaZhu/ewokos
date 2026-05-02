@@ -113,7 +113,7 @@ void keybd_interrupt_handle(virtio_dev_t dev, struct virtio_input_event *event)
 	}
 	else if (event->type == EV_SYN)
 	{
-		vfs_wakeup(-1, RW_BLOCK_EVT);
+		vfs_wakeup(-1, VFS_EVT_RW);
 	}
 }
 

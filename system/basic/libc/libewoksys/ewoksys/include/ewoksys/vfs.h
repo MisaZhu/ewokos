@@ -18,7 +18,12 @@ typedef struct {
 	fsinfo_t info;
 } fsfile_t;
 
-#define RW_BLOCK_EVT	1
+#define VFS_EVT_RW	    0x01
+#define VFS_EVT_RD	    0x02
+#define VFS_EVT_WR	    0x04
+#define VFS_EVT_CLOSE	0x08
+#define VFS_EVT_ERR 	0x10
+#define VFS_EVT_NVAL 	0x20
 
 #define VFS_BUF_SIZE (10240)
 

@@ -64,7 +64,7 @@ static int network_read(int fd, int from_pid, fsinfo_t* info,
 	}
 	task = task->read_task;
 	int ret = task_read(task, from_pid, buf, size, p);
-    vfs_wakeup(from_pid, RW_BLOCK_EVT);
+    //vfs_wakeup(from_pid, VFS_EVT_RW);
 	return ret;
 }
 
@@ -75,7 +75,7 @@ static int network_write(int fd, int from_pid, fsinfo_t* info,
 
 	net_task_t *task = (net_task_t*)info->data;
 	int ret = task_write(task, from_pid, buf, size, p);
-    vfs_wakeup(from_pid, RW_BLOCK_EVT);
+    //vfs_wakeup(from_pid, VFS_EVT_RW);
 	return ret;
 }
 
@@ -87,7 +87,7 @@ static int network_close(int fd, int from_pid, uint32_t node, fsinfo_t* fsinfo,v
 			task->read_task->running = false;
 		fsinfo->data = NULL;
 	}
-    vfs_wakeup(from_pid, RW_BLOCK_EVT);
+    vfs_wakeup(from_pid, VFS_EVT_CLOSE);
 	return 0;
 }
 

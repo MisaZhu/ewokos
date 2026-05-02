@@ -232,13 +232,13 @@ static int vjoy_loop(void* p){
 			_j_speed_up = 0;
 
 		if(rd > 0)
-			vfs_wakeup(-1, RW_BLOCK_EVT);
+			vfs_wakeup(-1, VFS_EVT_RW);
 		_rd = 0;
 	}
 	else {
 		_rd = rd;
 		if(_rd > 0 || _release) {
-			vfs_wakeup(-1, RW_BLOCK_EVT);
+			vfs_wakeup(-1, VFS_EVT_RW);
 		}
 	}
 	ipc_enable();
