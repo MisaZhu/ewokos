@@ -596,9 +596,18 @@ static void sys_proc_block(context_t* ctx, int32_t pid_by, uint32_t evt) {
 	proc_block_on(ctx, proc_by->info.pid, evt);
 }
 
-static void sys_proc_wakeup(context_t* ctx, int32_t pid, uint32_t evt) {
+static void sys_proc_wakeup(context_t* ctx, int32_t pid, int32_t pid_by, uint32_t evt) {
 	(void)ctx;
-	proc_t* proc_by = proc_get_proc(get_current_proc());
+	proc_t* proc_by = NULL;
+	proc_t* cproc = proc_get_proc(get_current_proc());
+	if(pid_by < 0)
+		proc_by = cproc;
+	else {
+		if(cproc->info.uuid > 0)
+			return;
+		proc_by = proc_get_proc(proc_get(pid_by));
+	}
+	
 	if(proc_by->info.pid != _core_proc_pid) {
 		proc_block_event_t* block_evt = get_block_evt(proc_by, evt);
 		if(block_evt != NULL)
@@ -813,7 +822,7 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
 		sys_get_kevent(ctx, (kevent_t*)arg0);
 		return;
 	case SYS_WAKEUP:
-		sys_proc_wakeup(ctx, arg0, arg1);
+		sys_proc_wakeup(ctx, arg0, arg1, arg2);
 		return;
 	case SYS_BLOCK:
 		sys_proc_block(ctx, arg0, arg1);

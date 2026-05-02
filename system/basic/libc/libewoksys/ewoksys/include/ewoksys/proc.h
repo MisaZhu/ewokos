@@ -21,6 +21,8 @@ void     proc_detach(void);
 void     proc_block_by(int by_pid, uint32_t evt);
 void     proc_wakeup(uint32_t evt);
 void     proc_wakeup_pid(int pid, uint32_t evt);
+void     proc_wakeup_pid_by(int pid, int by_pid, uint32_t evt);
+void     proc_wakeup_by(int by_pid, uint32_t evt);
 void     proc_init(void);
 int      proc_fork(void);
 void     proc_exit(void);
