@@ -32,9 +32,10 @@ static mouse_evt_t mouse_data[CACHE_SIZE];
 static uint32_t mouse_data_read = 0;
 static uint32_t mouse_data_write = 0;
 
-static int _read(int fd, int from_pid, fsinfo_t *info,
+static int _read(vdevice_t* dev, int fd, int from_pid, fsinfo_t *info,
 					  void *buf, int size, int offset, void *p)
 {
+	(void)dev;
 	(void)fd;
 	(void)from_pid;
 	(void)offset;
@@ -59,9 +60,13 @@ struct virtio_input_event
 	uint32_t value;
 } __attribute__((packed));
 
-void mouse_interrupt_handle(struct virtio_device *dev, struct virtio_input_event *event)
+static vdevice_t* _dev = NULL;
+void mouse_interrupt_handle(struct virtio_device *virt_dev, struct virtio_input_event *event)
 {
-	(void)dev;
+	(void)virt_dev;
+	if(_dev == NULL)
+		return;
+
 	if (event->type == EV_REL)
 	{
 		mouse_data[mouse_data_write % CACHE_SIZE].type = 1;
@@ -157,6 +162,8 @@ int main(int argc, char **argv)
 	_mmio_base = mmio_map();
 
 	vdevice_t dev;
+	_dev = &dev;
+
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "mouse");
 	dev.read = _read;

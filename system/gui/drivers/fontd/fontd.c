@@ -49,7 +49,8 @@ static void font_dev_quit(void) {
 		hashmap_free(_font_cache);
 }
 
-static char* font_cmd(int from_pid, int argc, char** argv, void* p) {
+static char* font_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* p) {
+	(void)dev;
 	if(strcmp(argv[0], "list") == 0) {
 		str_t* str = str_new("");
         for(int i=0; i<TTF_MAX; i++) {
@@ -252,7 +253,8 @@ static int font_dev_list(proto_t* in, proto_t* ret) {
 	return 0;
 }
 
-static int font_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
+static int font_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
+	(void)dev;
 	(void)from_pid;
 	(void)p;
 

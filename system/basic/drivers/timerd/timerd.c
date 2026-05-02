@@ -121,7 +121,8 @@ static void interrupt_handle(uint32_t interrupt, uint32_t data) {
 	//ipc_enable();
 }
 
-static int timer_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
+static int timer_dcntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
+	(void)dev;
 	(void)p;
 	from_pid = proc_getpid(from_pid);
 
@@ -151,7 +152,8 @@ static int timer_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p
 	return 0;
 }
 
-static char* timer_cmd(int from_pid, int argc, char** argv, void* p) {
+static char* timer_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* p) {
+	(void)dev;
 	if(strcmp(argv[0], "list") == 0) {
 		str_t* str = str_new("pid  timer\n");
 		interrupt_t* intr = _intr_list;
@@ -172,7 +174,8 @@ static char* timer_cmd(int from_pid, int argc, char** argv, void* p) {
 	return NULL;
 }
 
-static int timer_loop(void* p) {
+static int timer_loop(vdevice_t* dev, void* p) {
+	(void)dev;
 	ipc_disable();
 	interrupt_handle(0, 0);
 	ipc_enable();

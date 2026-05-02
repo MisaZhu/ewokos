@@ -128,7 +128,7 @@ static int joymouse_read_buffer(mouse_evt_t* evt) {
 	return 0;
 }
 
-static int vjoystick_read(int fd,
+static int vjoystick_read(vdevice_t* dev, int fd,
 		int from_pid,
 		fsinfo_t* info,
 		void* buf,
@@ -136,6 +136,7 @@ static int vjoystick_read(int fd,
 		int offset,
 		void* p) {
 
+	(void)dev;
 	(void)fd;
 	(void)from_pid;
 	(void)info;
@@ -184,7 +185,7 @@ static int x_show_cursor(bool show) {
 
 static uint8_t _switch_key = JOYSTICK_R1;
 
-static int vjoy_loop(void* p){
+static int vjoy_loop(vdevice_t* dev, void* p){
 	uint64_t tik = kernel_tic_ms(0);
 	uint32_t tm = 1000/_fps;
 	uint8_t keys[KEY_NUM] = {0};

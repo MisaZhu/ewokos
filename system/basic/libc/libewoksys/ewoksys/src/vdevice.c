@@ -100,7 +100,7 @@ static void do_open(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 	
 	int res = 0;
 	if(fd >= 0 && dev != NULL && dev->open != NULL) {
-		if(dev->open(fd, from_pid, &info, oflag, p) != 0)
+		if(dev->open(dev, fd, from_pid, &info, oflag, p) != 0)
 			res = -1;
 	}
 	PF->addi(out, res);
@@ -127,7 +127,7 @@ static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	}
 
 	if(dev != NULL && dev->close != NULL) {
-		dev->close(fd, from_pid, node, fsinfo, p);
+		dev->close(dev, fd, from_pid, node, fsinfo, p);
 	}
 	file_del(fd, from_pid, node);
 }
@@ -169,7 +169,7 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 			PF->addi(out, -1);
 		}
 		else {
-			int32_t rd = dev->read(fd, from_pid, info, buf, size, offset, p);
+			int32_t rd = dev->read(dev, fd, from_pid, info, buf, size, offset, p);
 			PF->addi(out, rd);
 			if(rd > 0) {
 				if(rd > size)
@@ -221,7 +221,7 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 			PF->addi(out, -1);
 		}
 		else {
-			size = dev->write(fd, from_pid, info, data, size, offset, p);
+			size = dev->write(dev, fd, from_pid, info, data, size, offset, p);
 			info->state |= FS_STATE_CHANGED;
 			dev_update_file(fd, from_pid, info);
 			PF->addi(out, size);
@@ -251,7 +251,7 @@ static void do_read_block(vdevice_t* dev, int from_pid, proto_t *in, proto_t* ou
 			PF->addi(out, -1);
 		}
 		else {
-			size = dev->read_block(from_pid, buf, size, index, p);
+			size = dev->read_block(dev, from_pid, buf, size, index, p);
 			PF->addi(out, size);
 			if(size > 0) {
 				if(shm_id == -1) {
@@ -276,7 +276,7 @@ static void do_write_block(vdevice_t* dev, int from_pid, proto_t *in, proto_t* o
 	index = proto_read_int(in);
 
 	if(dev != NULL && dev->write_block != NULL) {
-		size = dev->write_block(from_pid, data, size, index, p);
+		size = dev->write_block(dev, from_pid, data, size, index, p);
 		PF->addi(out, size);
 	}
 	else {
@@ -293,7 +293,7 @@ static void do_dma(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 	if(dev != NULL && dev->dma != NULL) {
 		fsinfo_t* info = dev_get_file(fd, from_pid, node);
 		if(info != NULL)
-			shm_id = dev->dma(fd, from_pid, info, &size, p);
+			shm_id = dev->dma(dev, fd, from_pid, info, &size, p);
 	}
 	PF->addi(out, shm_id)->addi(out, size);
 }
@@ -318,7 +318,7 @@ static void do_fcntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 
 	int res = -1;
 	if(dev != NULL && dev->fcntl != NULL) {
-		res = dev->fcntl(fd, from_pid, info, cmd, &arg_in, &arg_out, p);
+		res = dev->fcntl(dev, fd, from_pid, info, cmd, &arg_in, &arg_out, p);
 		if(res == 0)
 			dev_update_file(fd, from_pid, info);
 	}
@@ -348,7 +348,7 @@ static void do_flush(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 
 	int ret = 0;
 	if(dev != NULL && dev->flush != NULL) {
-		ret = dev->flush(fd, from_pid, info, p);
+		ret = dev->flush(dev, fd, from_pid, info, p);
 	}
 	PF->addi(out, ret);
 }
@@ -376,7 +376,7 @@ static void do_create(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, v
 
 	int res = 0;
 	if(dev != NULL && dev->create != NULL)
-		res = dev->create(from_pid, &info_to, &info, p);
+		res = dev->create(dev, from_pid, &info_to, &info, p);
 
 	if(res == 0) {
 		PF->addi(out, res)->add(out, &info, sizeof(fsinfo_t));
@@ -403,7 +403,7 @@ static void do_unlink(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, v
 
 	int res = 0;
 	if(dev != NULL && dev->unlink != NULL)
-		res = dev->unlink(&info, fname, p);
+		res = dev->unlink(dev, &info, fname, p);
 	else if(info.type != FS_TYPE_FILE && info.type != FS_TYPE_DIR) {
 		PF->addi(out, -1)->addi(out, EPERM);
 		return;
@@ -428,7 +428,7 @@ static void do_set(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 
 	int res = 0;
 	if(dev != NULL && dev->set != NULL)
-		res = dev->set(from_pid, &info, p);
+		res = dev->set(dev, from_pid, &info, p);
 	PF->addi(out, res);
 }
 
@@ -438,7 +438,7 @@ static void do_get(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 
 	int res = -1;
 	if(dev != NULL && dev->get != NULL)
-		res = dev->get(from_pid, fname, &info, p);
+		res = dev->get(dev, from_pid, fname, &info, p);
 	if(res == 0)
 		PF->addi(out, res)->add(out, &info, sizeof(fsinfo_t));
 	else
@@ -460,7 +460,7 @@ static void do_kids(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 	fsinfo_t* kids = NULL;
 	uint32_t num;
 	if(dev != NULL && dev->kids != NULL)
-		kids = dev->kids(&info, &num, p);
+		kids = dev->kids(dev, &info, &num, p);
 	if(kids == NULL || num == 0)
 		return;
 	PF->clear(out)->addi(out, num)->add(out, kids, sizeof(fsinfo_t)*num);
@@ -473,7 +473,7 @@ static void do_stat(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 	node_stat_t stat;
 
 	if(dev != NULL && dev->stat != NULL) {
-		int ret = dev->stat(from_pid, &info, &stat, p);
+		int ret = dev->stat(dev, from_pid, &info, &stat, p);
 		PF->addi(out, ret);
 		PF->add(out, &stat, sizeof(node_stat_t));
 	}else{
@@ -553,7 +553,7 @@ static void do_cmd(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 
 	char* res = do_basic_cmd(dev, argc, argv);
 	if(res == NULL && dev != NULL && dev->cmd != NULL)
-		res = dev->cmd(from_pid, argc, argv, p);
+		res = dev->cmd(dev, from_pid, argc, argv, p);
 
 	argc = 0;
 	while(argc < ARG_MAX) {
@@ -574,7 +574,7 @@ static void do_clear_buffer(vdevice_t* dev, int from_pid, proto_t *in, proto_t* 
 
 	int res = -1;
 	if(dev != NULL && dev->clear_buffer != NULL)
-		res = dev->clear_buffer(node, p);
+		res = dev->clear_buffer(dev, node, p);
 	PF->addi(out, res);
 }
 
@@ -593,7 +593,7 @@ static void do_dev_cntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out,
 	if(data != NULL && sz > 0) 
 		PF->copy(&in_arg, data, sz);
 
-	if(dev->dev_cntl(from_pid, cmd, &in_arg, &ret, p) == 0) {
+	if(dev->dev_cntl(dev, from_pid, cmd, &in_arg, &ret, p) == 0) {
 		PF->clear(out)->addi(out, 0)->add(out, ret.data, ret.size);
 	}
 	PF->clear(&in_arg);
@@ -602,7 +602,7 @@ static void do_dev_cntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out,
 
 static void do_interrupt(vdevice_t* dev, proto_t *in, void* p) {
 	if(dev != NULL && dev->interrupt != NULL) {
-		dev->interrupt(in, p);
+		dev->interrupt(dev, in, p);
 	}
 }
 
@@ -689,7 +689,7 @@ static int do_mount(vdevice_t* dev, int type, int mode) {
 	vfs_new_node(&info, 0, true, false); // 0 means no father node
 
 	if(dev->mount != NULL) { //do device mount precess
-		if(dev->mount(&info, dev->extra_data) != 0) {
+		if(dev->mount(dev, &info, dev->extra_data) != 0) {
 			vfs_del_node(info.node);
 			return -1;
 		}
@@ -744,7 +744,7 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int mode) {
 
 	while(!dev->terminated) {
 		if(dev->loop_step != NULL) {
-			dev->loop_step(dev->extra_data);
+			dev->loop_step(dev, dev->extra_data);
 		}
 		else {
 			proc_block_by(getpid(), (uint32_t)dev); //block self
@@ -752,7 +752,7 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int mode) {
 	}
 
 	if(mnt_point != NULL && dev->umount != NULL) {
-		dev->umount(dev->mnt_info.node, dev->extra_data);
+		dev->umount(dev, dev->mnt_info.node, dev->extra_data);
 	}
 	vfs_umount(dev->mnt_info.node);
 	hashmap_free(_files_hash);

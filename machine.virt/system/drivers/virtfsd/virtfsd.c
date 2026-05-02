@@ -151,8 +151,9 @@ static void virtfsd_read_directory(fsinfo_t *info_to, virtfs_t fs, int fid)
 	}
 }
 
-static int _mount(fsinfo_t *info, void *p)
+static int _mount(vdevice_t *dev, fsinfo_t *info, void *p)
 {
+	(void)dev;
 	fsinfo_t ret;
 
 	virtfs_t fs = (virtfs_t)p;
@@ -163,14 +164,16 @@ static int _mount(fsinfo_t *info, void *p)
 	return 0;
 }
 
-static int _create(int pid, fsinfo_t *info_to, fsinfo_t *info, void *p)
+static int _create(vdevice_t *dev, int pid, fsinfo_t *info_to, fsinfo_t *info, void *p)
 {
+	(void)dev;
 	FS_DBG("virtfsd create %s\n", info->name);
 	return 0;
 }
 
-static int _open(int fd, int from_pid, fsinfo_t *info, int oflag, void *p)
+static int _open(vdevice_t *dev, int fd, int from_pid, fsinfo_t *info, int oflag, void *p)
 {
+	(void)dev;
 	FS_DBG("virtfsd open %s %d flag:%08x\n", info->name, info->data, oflag);
 	virtfs_t fs = (virtfs_t)p;
 	if(nodes[info->data].flag)
@@ -181,8 +184,9 @@ static int _open(int fd, int from_pid, fsinfo_t *info, int oflag, void *p)
 	return ret;
 }
 
-static int _stat(int from_pid, fsinfo_t *info, node_stat_t *stat, void *p)
+static int _stat(vdevice_t *dev, int from_pid, fsinfo_t *info, node_stat_t *stat, void *p)
 {
+	(void)dev;
 	FS_DBG("virtfsd stat %s %d\n", info->name, info->data);
 	virtfs_t fs = (virtfs_t)p;
 	virtfs_stat_t st;
@@ -201,37 +205,42 @@ static int _stat(int from_pid, fsinfo_t *info, node_stat_t *stat, void *p)
 	return 0;
 }
 
-static int _set(int from_pid, fsinfo_t *info, void *p)
+static int _set(vdevice_t *dev, int from_pid, fsinfo_t *info, void *p)
 {
+	(void)dev;
 	FS_DBG("virtfsd set %s\n", info->name);
 	return 0;
 }
 
-static int _read(int fd, int from_pid, fsinfo_t *info,
+static int _read(vdevice_t *dev, int fd, int from_pid, fsinfo_t *info,
 				 void *buf, int size, int offset, void *p)
 {
+	(void)dev;
 	FS_DBG("virtfsd read %s %d offset:%d size:%d\n", info->name, info->data, offset, size);
 	virtfs_t fs = (virtfs_t)p;
 	return virtfs_read(fs, 1, info->data, buf, offset, size);
 }
 
-static int _write(int fd, int from_pid, fsinfo_t *info,
+static int _write(vdevice_t *dev, int fd, int from_pid, fsinfo_t *info,
 				  const void *buf, int size, int offset, void *p)
 {
+	(void)dev;
 	(void)fd;
 	(void)from_pid;
 	FS_DBG("virtfsd write %s %d\n", info->name, info->data);
 	return size;
 }
 
-static int _unlink(fsinfo_t *info, const char *fname, void *p)
+static int _unlink(vdevice_t *dev, fsinfo_t *info, const char *fname, void *p)
 {
+	(void)dev;
 	FS_DBG("virtfsd unlink %s %d\n", fname, info->data);
 	return 0;
 }
 
-static int _close(int fd, int from_pid, uint32_t node, fsinfo_t* info, void* p)
+static int _close(vdevice_t *dev, int fd, int from_pid, uint32_t node, fsinfo_t* info, void* p)
 {
+	(void)dev;
 	FS_DBG("virtfsd close %s %d\n", info->name, info->data);
 	virtfs_t fs = (virtfs_t)p;
 	return virtfs_sync(fs, 1, info->data);

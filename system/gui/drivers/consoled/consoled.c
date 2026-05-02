@@ -123,13 +123,15 @@ static void flush(fb_console_t* console) {
 
 static bool _flush = true;
 static int _disp_index = 0;
-static int console_write(int fd, 
+static int console_write(vdevice_t* dev,
+		int fd,
 		int from_pid,
 		fsinfo_t* info,
 		const void* buf,
 		int size,
 		int offset,
 		void* p) {
+	(void)dev;
 	(void)fd;
 	(void)from_pid;
 	(void)info;
@@ -149,7 +151,8 @@ static int _keyb_fd = -1;
 static const char* _keyb_dev = "";
 static charbuf_t *_buffer;
 
-static int console_read(int fd,
+static int console_read(vdevice_t* dev,
+		int fd,
 		int from_pid,
 		fsinfo_t* info,
 		void* buf,
@@ -157,6 +160,7 @@ static int console_read(int fd,
 		int offset,
 		void* p) {
 
+	(void)dev;
 	char c;
 	int res = charbuf_pop(_buffer, &c);
 
@@ -166,7 +170,8 @@ static int console_read(int fd,
 	return 1;
 }
 
-static int console_loop(void* p) {
+static int console_loop(vdevice_t* dev, void* p) {
+	(void)dev;
 	static bool shift = false;
 
 	fb_console_t* console = (fb_console_t*)p;

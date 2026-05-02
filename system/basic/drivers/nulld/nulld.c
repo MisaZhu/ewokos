@@ -6,7 +6,8 @@
 #include <ewoksys/vdevice.h>
 #include <ewoksys/syscall.h>
 
-static int null_read(int fd,
+static int null_read(vdevice_t* dev,
+		int fd,
 		int from_pid,
 		fsinfo_t* info,
 		void* buf,
@@ -14,6 +15,7 @@ static int null_read(int fd,
 		int offset,
 		void* p) {
 
+	(void)dev;
 	(void)fd;
 	(void)from_pid;
 	(void)info;
@@ -21,17 +23,19 @@ static int null_read(int fd,
 	(void)size;
 	(void)offset;
 	(void)p;
-	return 0;	
+	return 0;
 }
 
-static int null_write(int fd, 
+static int null_write(vdevice_t* dev,
+		int fd,
 		int from_pid,
 		fsinfo_t* info,
 		const void* buf,
 		int size,
 		int offset,
 		void* p) {
-		
+
+	(void)dev;
 	(void)fd;
 	(void)from_pid;
 	(void)info;

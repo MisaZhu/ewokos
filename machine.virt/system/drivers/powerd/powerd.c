@@ -7,8 +7,9 @@
 #include <ewoksys/mmio.h>
 #include <ewoksys/dma.h>
 
-static int power_read(int fd, int from_pid, fsinfo_t* info,
+static int power_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 		void* buf, int size, int offset, void* p) {
+	(void)dev;
 	(void)fd;
 	(void)from_pid;
 	(void)info;

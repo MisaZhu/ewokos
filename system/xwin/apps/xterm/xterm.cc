@@ -308,13 +308,14 @@ static void* thread_loop(void* p) {
 	return NULL;
 }
 
-static int console_write(int fd, 
+static int console_write(vdevice_t* dev, int fd,
 		int from_pid,
 		fsinfo_t* info,
 		const void* buf,
 		int size,
 		int offset,
 		void* p) {
+	(void)dev;
 	(void)fd;
 	(void)from_pid;
 	(void)info;
@@ -327,8 +328,9 @@ static int console_write(int fd,
 	return size;
 }
 
-static int console_read(int fd, int from_pid, fsinfo_t* info, 
+static int console_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 		void* buf, int size, int offset, void* p) {
+	(void)dev;
 	(void)fd;
 	(void)from_pid;
 	(void)offset;
@@ -351,7 +353,7 @@ static int console_read(int fd, int from_pid, fsinfo_t* info,
 	return 1;
 }
 
-static int console_loop(void* p) {
+static int console_loop(vdevice_t* dev, void* p) {
 	proc_usleep(20000);
 
 	if(_consoleWidget)

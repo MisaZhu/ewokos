@@ -1376,8 +1376,9 @@ static int xwin_call_xim(x_t* x, proto_t* in, proto_t* out) {
 	return 0;
 }
 
-static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
+static int xserver_fcntl(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 		int cmd, proto_t* in, proto_t* out, void* p) {
+	(void)dev;
 	(void)info;
 	x_t* x = (x_t*)p;
 
@@ -1406,7 +1407,8 @@ static int xserver_fcntl(int fd, int from_pid, fsinfo_t* info,
 	return res;
 }
 
-static int xserver_win_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p) {
+static int xserver_win_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int oflag, void* p) {
+	(void)dev;
 	(void)oflag;
 	(void)info;
 	if(fd < 0)
@@ -1695,7 +1697,8 @@ static int x_set_top(x_t* x, const char* name, proto_t* out) {
 	return 0;
 }
 
-static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
+static int xserver_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
+	(void)dev;
 	x_t* x = (x_t*)p;
 
 	if(cmd == DEV_CNTL_REFRESH) {
@@ -1784,7 +1787,8 @@ static int xserver_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, vo
 	return 0;
 }
 
-static int xserver_win_close(int fd, int from_pid, uint32_t node, fsinfo_t* fsinfo, void* p) {
+static int xserver_win_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fsinfo_t* fsinfo, void* p) {
+	(void)dev;
 	(void)fsinfo;
 	x_t* x = (x_t*)p;
 	xwin_t* win = x_get_win(x, fd, from_pid);
@@ -1803,7 +1807,8 @@ static int xserver_win_close(int fd, int from_pid, uint32_t node, fsinfo_t* fsin
 }
 
 static int _disp_index = -1;
-int xserver_step(void* p) {
+int xserver_step(vdevice_t* dev, void* p) {
+	(void)dev;
 	x_t* x = (x_t*)p;
 
 	uint64_t tik = kernel_tic_ms(0);
@@ -1824,7 +1829,7 @@ int xserver_step(void* p) {
 	return 0;
 }
 
-char* xserver_dev_cmd(int from_pid, int argc, char** argv, void* p);
+char* xserver_dev_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* p);
 
 static int doargs(int argc, char* argv[]) {
 	int c = 0;

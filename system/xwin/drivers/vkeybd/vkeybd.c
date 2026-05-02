@@ -20,7 +20,7 @@ static uint8_t _keys[KEY_NUM];
 static int32_t _rd = 0;
 static bool _release = false;
 
-static int vkeyb_read(int fd,
+static int vkeyb_read(vdevice_t* dev, int fd,
 		int from_pid,
 		fsinfo_t* info,
 		void* buf,
@@ -28,6 +28,7 @@ static int vkeyb_read(int fd,
 		int offset,
 		void* p) {
 
+	(void)dev;
 	(void)fd;
 	(void)from_pid;
 	(void)info;
@@ -161,7 +162,7 @@ static bool do_joys_spec(uint8_t* keys, uint8_t num, uint8_t* ret_key) {
 static uint8_t _keyb_type = 'k';
 
 static uint32_t ct = 0;
-static int vkeyb_loop(void* p){
+static int vkeyb_loop(vdevice_t* dev, void* p){
 	uint64_t tik = kernel_tic_ms(0);
 	uint32_t tm = 1000/_fps;
 	uint8_t keys[KEY_NUM] = {0};

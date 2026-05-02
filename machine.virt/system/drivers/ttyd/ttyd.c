@@ -60,8 +60,9 @@ static inline void uart_basic_trans(char c) {
 
 static charbuf_t *_buffer;
 
-static int tty_read(int fd, int from_pid, fsinfo_t* info,
+static int tty_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 		void* buf, int size, int offset, void* p) {
+	(void)dev;
 	(void)fd;
 	(void)from_pid;
 	(void)offset;
@@ -78,8 +79,9 @@ static int tty_read(int fd, int from_pid, fsinfo_t* info,
 	return (i==0)?VFS_ERR_RETRY:i;
 }
 
-static int tty_write(int fd, int from_pid, fsinfo_t* info,
+static int tty_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 		const void* buf, int size, int offset, void* p) {
+	(void)dev;
 	(void)fd;
 	(void)info;
 	(void)from_pid;
@@ -89,7 +91,7 @@ static int tty_write(int fd, int from_pid, fsinfo_t* info,
 }
 
 static void interrupt_handle(uint32_t interrupt, uint32_t p) {
-	(void)p;
+	vdevice_t* dev = (vdevice_t*)p;
 	int rx = 0;
 	put32(UART0 + UART_ICLR, 0x7FF);
 	while(!(get32(UART0 + UART_FLAGS) & 0x10)){

@@ -24,8 +24,9 @@
 #include "stack/loopback.h"
 #include "stack/ether_tap.h"
 
-static int network_fcntl(int fd, int from_pid, fsinfo_t* info,
+static int network_fcntl(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	int cmd, proto_t* in, proto_t* out, void* p) {
+    (void)dev;
     (void)p;
 	net_task_t *task = (net_task_t*)info->data;
 
@@ -42,7 +43,8 @@ static int network_fcntl(int fd, int from_pid, fsinfo_t* info,
 	return res;
 }
 
-int network_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p){
+int network_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int oflag, void* p){
+	(void)dev;
 
 	net_task_t *task = create_task(fd, from_pid, info->node);
 	info->data = task;
@@ -50,8 +52,9 @@ int network_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p){
 	return 0;
 }
 
-static int network_read(int fd, int from_pid, fsinfo_t* info, 
+static int network_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, 
 		void* buf, int size, int offset, void* p) {
+	(void)dev;
 	(void)fd;
 	(void)offset;
 	(void)p;
@@ -68,8 +71,9 @@ static int network_read(int fd, int from_pid, fsinfo_t* info,
 	return ret;
 }
 
-static int network_write(int fd, int from_pid, fsinfo_t* info,
+static int network_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 		const void* buf, int size, int offset, void* p) {
+	(void)dev;
 	(void)fd;
 	(void)offset;
 
@@ -79,7 +83,8 @@ static int network_write(int fd, int from_pid, fsinfo_t* info,
 	return ret;
 }
 
-static int network_close(int fd, int from_pid, uint32_t node, fsinfo_t* fsinfo,void* p) {
+static int network_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fsinfo_t* fsinfo,void* p) {
+	(void)dev;
 	net_task_t *task = (net_task_t *)fsinfo->data;
 	if(task) {
 		task->running = false;
@@ -194,7 +199,8 @@ void mac2str(uint8_t *mac,  char* str){
 	*(str - 1) = '\0';
 }
 
-char* network_devcmd(int from_pid, int argc, char** argv, void* p) {
+char* network_devcmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* p) {
+	(void)dev;
 	json_var_t* json_var = json_var_new_array();
 	if(strcmp(argv[0], "ip") == 0) {
 		struct ip_iface *iface =  NULL;

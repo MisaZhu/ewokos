@@ -77,9 +77,10 @@ int get_key_code(char *buf)
 	return num;
 }
 
-static int keybd_read(int fd, int from_pid, fsinfo_t *info,
+static int keybd_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t *info,
 					  void *buf, int size, int offset, void *p)
 {
+	(void)dev;
 	(void)fd;
 	(void)from_pid;
 	(void)offset;
@@ -97,9 +98,13 @@ struct virtio_input_event
 	uint32_t value;
 } __attribute__((packed));
 
-void keybd_interrupt_handle(virtio_dev_t dev, struct virtio_input_event *event)
+static vdevice_t* _dev = NULL;
+void keybd_interrupt_handle(virtio_dev_t virt_dev, struct virtio_input_event *event)
 {
-	(void)dev;
+	(void)virt_dev;
+	if(_dev == NULL)
+		return;
+
 	if (event->type == EV_KEY)
 	{
 		if (event->value)
@@ -122,6 +127,8 @@ int main(int argc, char **argv)
 	const char *mnt_point = argc > 1 ? argv[1] : "/dev/keyboard0";
 
 	vdevice_t dev;
+	_dev = &dev;
+
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "keyboard");
 	dev.read = keybd_read;

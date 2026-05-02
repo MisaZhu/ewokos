@@ -24,7 +24,8 @@ static void add_disp(display_man_t* display_man, const char* dev) {
 	display_man->display_num++;
 }
 
-static int DISP_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
+static int DISP_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
+	(void)dev;
 	display_man_t* display_man = (display_man_t*)p;
 
 	if(cmd == DISP_GET_DISP_NUM) {

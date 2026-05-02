@@ -6,7 +6,8 @@
 #include <ewoksys/vdevice.h>
 #include <ewoksys/charbuf.h>
 
-static int log_read(int fd,
+static int log_read(vdevice_t* dev,
+		int fd,
 		int from_pid,
 		fsinfo_t* info,
 		void* buf,
@@ -14,6 +15,7 @@ static int log_read(int fd,
 		int offset,
 		void* p) {
 
+	(void)dev;
 	(void)fd;
 	(void)from_pid;
 	(void)info;
@@ -32,14 +34,16 @@ static int log_read(int fd,
 	return i==0 ? VFS_ERR_RETRY : i;
 }
 
-static int log_write(int fd, 
+static int log_write(vdevice_t* dev,
+		int fd,
 		int from_pid,
 		fsinfo_t* info,
 		const void* buf,
 		int size,
 		int offset,
 		void* p) {
-		
+
+	(void)dev;
 	(void)fd;
 	(void)from_pid;
 	(void)info;

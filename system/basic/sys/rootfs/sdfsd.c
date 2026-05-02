@@ -105,7 +105,8 @@ static int32_t add_nodes(ext2_t* ext2, INODE *ip, fsinfo_t* dinfo) {
 	return 0;
 }
 
-static int sdext2_mount(fsinfo_t* info, void* p) {
+static int sdext2_mount(vdevice_t* dev, fsinfo_t* info, void* p) {
+	(void)dev;
 	ext2_t* ext2 = (ext2_t*)p;
 	INODE root_node;
 	ext2_node_by_fname(ext2, "/", &root_node);
@@ -113,7 +114,8 @@ static int sdext2_mount(fsinfo_t* info, void* p) {
 	return 0;
 }
 
-static int sdext2_create(int pid, fsinfo_t* info_to, fsinfo_t* info, void* p) {
+static int sdext2_create(vdevice_t* dev, int pid, fsinfo_t* info_to, fsinfo_t* info, void* p) {
+	(void)dev;
 	ext2_t* ext2 = (ext2_t*)p;
 	int32_t ino_to = (int32_t)info_to->data;
 	if(ino_to == 0) ino_to = 2;
@@ -138,7 +140,8 @@ static int sdext2_create(int pid, fsinfo_t* info_to, fsinfo_t* info, void* p) {
 	return 0;
 }
 
-static int sdext2_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p) {
+static int sdext2_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int oflag, void* p) {
+	(void)dev;
 	(void)fd;
 	(void)from_pid;
 
@@ -160,7 +163,8 @@ static int sdext2_open(int fd, int from_pid, fsinfo_t* info, int oflag, void* p)
 	return 0;	
 }
 
-static int sdext2_set(int from_pid, fsinfo_t* info, void* p) {
+static int sdext2_set(vdevice_t* dev, int from_pid, fsinfo_t* info, void* p) {
+	(void)dev;
 	ext2_t* ext2 = (ext2_t*)p;
 	int32_t ino = (int32_t)info->data;
 	if(ino == 0)
@@ -176,7 +180,8 @@ static int sdext2_set(int from_pid, fsinfo_t* info, void* p) {
 	return 0;
 }
 
-static int sdext2_get(int from_pid, const char* fname, fsinfo_t* info, void* p) {
+static int sdext2_get(vdevice_t* dev, int from_pid, const char* fname, fsinfo_t* info, void* p) {
+	(void)dev;
 	ext2_t* ext2 = (ext2_t*)p;
 	DIR_T dirp;
 	uint32_t ino = ext2_ino_by_fname(ext2, fname, &dirp);
@@ -199,7 +204,8 @@ static int sdext2_get(int from_pid, const char* fname, fsinfo_t* info, void* p) 
 	return 0;
 }
 
-static fsinfo_t* sdext2_kids(fsinfo_t* info_dir, uint32_t* num, void* p) {
+static fsinfo_t* sdext2_kids(vdevice_t* dev, fsinfo_t* info_dir, uint32_t* num, void* p) {
+	(void)dev;
 	fsinfo_t* ret = NULL;
 	*num = 0;
 	if(info_dir->type != FS_TYPE_DIR)
@@ -264,8 +270,9 @@ static fsinfo_t* sdext2_kids(fsinfo_t* info_dir, uint32_t* num, void* p) {
 	return ret;
 }
 
-static int sdext2_read(int fd, int from_pid, fsinfo_t* info, 
+static int sdext2_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 		void* buf, int size, int offset, void* p) {
+	(void)dev;
 	(void)fd;
 	(void)from_pid;
 
@@ -289,8 +296,9 @@ static int sdext2_read(int fd, int from_pid, fsinfo_t* info,
 	return size;	
 }
 
-static int sdext2_write(int fd, int from_pid, fsinfo_t* info,
+static int sdext2_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 		const void* buf, int size, int offset, void* p) {
+	(void)dev;
 	(void)fd;
 	(void)from_pid;
 
@@ -312,7 +320,8 @@ static int sdext2_write(int fd, int from_pid, fsinfo_t* info,
 	return size;	
 }
 
-static int sdext2_unlink(fsinfo_t* info, const char* fname, void* p) {
+static int sdext2_unlink(vdevice_t* dev, fsinfo_t* info, const char* fname, void* p) {
+	(void)dev;
 	ext2_t* ext2 = (ext2_t*)p;
 	if(ext2_unlink(ext2, fname) != 0)
 		return -1;

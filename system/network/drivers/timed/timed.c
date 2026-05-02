@@ -11,7 +11,8 @@
 static uint32_t _time_sec_init = 0;
 static time_t _time_init = 0;
 
-static int time_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
+static int time_dcntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
+	(void)dev;
 	(void)p;
 	if(cmd != 0 || _time_init == 0) {
 		PF->addi(ret, -1);
@@ -25,7 +26,8 @@ static int time_dcntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p)
 	return 0;
 }
 
-static int time_loop(void* p) {
+static int time_loop(vdevice_t* dev, void* p) {
+	(void)dev;
 	uint32_t current_time_sec;
 	kernel_tic(&current_time_sec, NULL);
 

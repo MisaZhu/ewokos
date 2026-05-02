@@ -25,14 +25,15 @@ static int32_t _zheight;
 static fbd_t* _fbd = NULL;
 static char _logo[256] = {0};
 
-static int fb_fcntl(int fd, 
+static int fb_fcntl(vdevice_t* dev, int fd,
 		int from_pid,
-		fsinfo_t* info, 
-		int cmd, 
-		proto_t* in, 
+		fsinfo_t* info,
+		int cmd,
+		proto_t* in,
 		proto_t* out,
 		void* p) {
 
+	(void)dev;
 	(void)fd;
 	(void)from_pid;
 	(void)info;
@@ -146,7 +147,8 @@ static void fb_get_info() {
 	_zheight = _fbinfo.height / _zoom;
 }
 
-static int fb_dev_cntl(int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
+static int fb_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
+	(void)dev;
 	(void)from_pid;
 	(void)ret;
 	(void)p;
@@ -184,7 +186,8 @@ static int32_t do_flush(fb_dma_t* dma) {
 0: error;
 -1: resized;
 >0: size flushed*/
-static int do_fb_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
+static int do_fb_flush(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, void* p) {
+	(void)dev;
 	(void)fd;
 	(void)from_pid;
 	(void)info;
@@ -193,7 +196,8 @@ static int do_fb_flush(int fd, int from_pid, fsinfo_t* info, void* p) {
 	return do_flush(dma);
 }
 
-static int32_t fb_dma(int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
+static int32_t fb_dma(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
+	(void)dev;
 	(void)fd;
 	(void)from_pid;
 	(void)info;
@@ -227,8 +231,9 @@ static void read_config(const char* conf_file, uint32_t* w, uint32_t* h, uint8_t
 }
 
 
-static int fb_dev_read(int fd, int from_pid, fsinfo_t* info,
+static int fb_dev_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 		void* buf, int size, int offset, void* p) {
+	(void)dev;
 	(void)fd;
 	(void)from_pid;
 	(void)info;

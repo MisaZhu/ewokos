@@ -247,13 +247,14 @@ static int snd_start_stream(void)
 	return 0;
 }
 
-static int snd_open(int fd, int from_pid, fsinfo_t *info, int oflag, void *p)
+static int snd_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t *info, int oflag, void *p)
 {
-	UNUSED(fd);
-	UNUSED(from_pid);
-	UNUSED(info);
-	UNUSED(oflag);
-	UNUSED(p);
+	(void)dev;
+	(void)fd;
+	(void)from_pid;
+	(void)info;
+	(void)oflag;
+	(void)p;
 
 	/*if (_snd.open_count > 0)
 	{
@@ -266,13 +267,14 @@ static int snd_open(int fd, int from_pid, fsinfo_t *info, int oflag, void *p)
 	return 0;
 }
 
-static int snd_close(int fd, int from_pid, uint32_t node, fsinfo_t *info, void *p)
+static int snd_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fsinfo_t *info, void *p)
 {
-	UNUSED(fd);
-	UNUSED(from_pid);
-	UNUSED(node);
-	UNUSED(info);
-	UNUSED(p);
+	(void)dev;
+	(void)fd;
+	(void)from_pid;
+	(void)node;
+	(void)info;
+	(void)p;
 
 	if (_snd.occupied_pid != proc_getpid(from_pid)) {
 		return -1;
@@ -283,13 +285,14 @@ static int snd_close(int fd, int from_pid, uint32_t node, fsinfo_t *info, void *
 	return 0;
 }
 
-static int snd_write(int fd, int from_pid, fsinfo_t *info,
+static int snd_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t *info,
 					 const void *buf, int size, int offset, void *p)
 {
-	UNUSED(fd);
-	UNUSED(from_pid);
-	UNUSED(info);
-	UNUSED(p);
+	(void)dev;
+	(void)fd;
+	(void)from_pid;
+	(void)info;
+	(void)p;
 
 	if (!_snd.configured || size <= 0 || _snd.occupied_pid != proc_getpid(from_pid))
 	{
@@ -312,10 +315,11 @@ static int snd_write(int fd, int from_pid, fsinfo_t *info,
 	return ret;
 }
 
-static int snd_dcntl(int from_pid, int cmd, proto_t *in, proto_t *ret, void *p)
+static int snd_dcntl(vdevice_t* dev, int from_pid, int cmd, proto_t *in, proto_t *ret, void *p)
 {
-	UNUSED(from_pid);
-	UNUSED(p);
+	(void)dev;
+	(void)from_pid;
+	(void)p;
 
 	int result = 0;
 	struct pcm_config cfg;

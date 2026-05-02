@@ -9,8 +9,9 @@
 #include <ewoksys/klog.h>
 #include <stdio.h>
 
-static int ramfs_read(int fd, int from_pid, fsinfo_t* info, 
+static int ramfs_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 		void* buf, int size, int offset, void* p) {
+	(void)dev;
 	(void)fd;
 	(void)from_pid;
 	(void)p;
@@ -27,8 +28,9 @@ static int ramfs_read(int fd, int from_pid, fsinfo_t* info,
 	return size;	
 }
 
-static int ramfs_write(int fd, int from_pid, fsinfo_t* info,
+static int ramfs_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 		const void* buf, int size, int offset, void* p) {
+	(void)dev;
 	(void)fd;
 	(void)from_pid;
 	(void)p;
@@ -46,7 +48,8 @@ static int ramfs_write(int fd, int from_pid, fsinfo_t* info,
 	return size;
 }
 
-static int ramfs_unlink(fsinfo_t* info, const char* fname, void* p) {
+static int ramfs_unlink(vdevice_t* dev, fsinfo_t* info, const char* fname, void* p) {
+	(void)dev;
 	(void)fname;
 	(void)p;
 

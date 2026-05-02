@@ -7,9 +7,10 @@
 
 static virtio_dev_t _net = NULL;
 
-static int net_read(int fd, int from_pid, fsinfo_t *info,
+static int net_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t *info,
 					void *buf, int size, int offset, void *p)
 {
+	(void)dev;
 	(void)fd;
 	(void)from_pid;
 	(void)info;
@@ -23,9 +24,10 @@ static int net_read(int fd, int from_pid, fsinfo_t *info,
 	return ret;
 }
 
-static int net_write(int fd, int from_pid, fsinfo_t *info,
+static int net_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t *info,
 					 const void *buf, int size, int offset, void *p)
 {
+	(void)dev;
 	(void)fd;
 	(void)from_pid;
 	(void)info;
@@ -39,8 +41,9 @@ static int net_write(int fd, int from_pid, fsinfo_t *info,
 	return ret;
 }
 
-static int net_dcntl(int from_pid, int cmd, proto_t *in, proto_t *ret, void *p)
+static int net_dcntl(vdevice_t* dev, int from_pid, int cmd, proto_t *in, proto_t *ret, void *p)
 {
+	(void)dev;
 	(void)from_pid;
 	(void)in;
 	(void)p;
