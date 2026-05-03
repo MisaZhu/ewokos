@@ -39,7 +39,7 @@ static int x_get_event(x_t* x, int xserv_pid, xevent_t* ev, bool block) {
 	PF->clear(&out);
 
 	if(res != 0 && block) {
-		vfs_block_by(x->dev_fsinfo.node, VFS_EVT_RD);
+		vfs_block(x->dev_fsinfo.node, VFS_EVT_RD);
 	}
 
 	return res;

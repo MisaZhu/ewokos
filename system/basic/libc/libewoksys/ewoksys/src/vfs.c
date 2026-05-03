@@ -263,7 +263,7 @@ static int read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block
 	PF->clear(&out);
 
 	if(res == 0 && block == 1) {//empty , do retry
-		vfs_block_by(node, VFS_EVT_RD);
+		vfs_block(node, VFS_EVT_RD);
 	}
 	return res;	
 }
@@ -283,7 +283,7 @@ static int write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, boo
 	PF->clear(&out);
 
 	if(res == 0 && block == 1) {//empty , do retry
-		vfs_block_by(node, VFS_EVT_WR); 
+		vfs_block(node, VFS_EVT_WR); 
 	}
 	return res;	
 }
@@ -850,7 +850,7 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 	return res;
 }
 
-int  vfs_block_by(uint32_t node, int event) {
+int  vfs_block(uint32_t node, int event) {
 	proto_t in;
 	PF->init(&in)->
 		addi(&in, node)->

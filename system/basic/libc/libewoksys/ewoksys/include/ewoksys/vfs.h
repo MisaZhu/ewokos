@@ -67,7 +67,7 @@ int       vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size);
 int       vfs_fcntl(int fd, int cmd, proto_t* in, proto_t* out);
 int       vfs_fcntl_wait(int fd, int cmd, proto_t* in);
 
-int       vfs_block_by(uint32_t node, int event);
+int       vfs_block(uint32_t node, int event);
 int       vfs_wakeup(uint32_t node, int event);
 
 #ifdef __cplusplus
