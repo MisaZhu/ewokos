@@ -67,6 +67,7 @@ static int network_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	}
 	task = task->read_task;
 	int ret = task_read(task, from_pid, buf, size, p);
+	//vfs_wakeup(task->node, VFS_EVT_RW);
 	return ret;
 }
 
@@ -78,6 +79,7 @@ static int network_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 
 	net_task_t *task = (net_task_t*)info->data;
 	int ret = task_write(task, from_pid, buf, size, p);
+	//vfs_wakeup(task->node, VFS_EVT_RW);
 	return ret;
 }
 

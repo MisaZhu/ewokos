@@ -1077,7 +1077,6 @@ static void do_vfs_block(int32_t pid, proto_t* in) {
 
 	if(q == NULL)
 		return;
-	//klog("block pid %d\n", pid);
 	queue_push(q, p);
 }
 

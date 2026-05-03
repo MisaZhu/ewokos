@@ -266,7 +266,6 @@ int do_network_fcntl(net_task_t *task){
 			    ret = sock_send(sock, data, size);
             } 
 			PF->addi(&task->out, ret);
-            //vfs_wakeup(task->node, VFS_EVT_RD);
 			break;
 		case SOCK_RECV:
 			size = proto_read_int(&task->in);
@@ -276,7 +275,6 @@ int do_network_fcntl(net_task_t *task){
             if(ret > 0){
                 PF->add(&task->out, task->read_buf, ret);
             }
-            //vfs_wakeup(task->node, VFS_EVT_RD);
 			break;
 		case SOCK_LISTEN:
 			size = proto_read_int(&task->in);
@@ -369,9 +367,9 @@ static void* task_thread(void* arg){
             pthread_mutex_lock(&task_list_lock);
             task->state = NET_TASK_FINISH;
             int from_pid = task->from_pid;
-            pthread_mutex_unlock(&task_list_lock);
-
             vfs_wakeup(task->node, VFS_EVT_RW);
+
+            pthread_mutex_unlock(&task_list_lock);
         } else {
             pthread_mutex_unlock(&task_list_lock);
         }
