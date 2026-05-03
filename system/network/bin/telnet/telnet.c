@@ -63,7 +63,11 @@ static void *receive_thread(void *arg) {
         if (n > 0) {
             for(int i = 0; i < n; i++) {
                 if(buffer[i] != '\r') {
-                    write(STDOUT_FILENO, &buffer[i], 1);
+                    int sz = write(STDOUT_FILENO, &buffer[i], 1);
+                    if(sz <= 0) {
+                        _ended = true;
+                        break;
+                    }
                 }
             }
         } else if (n == 0) {

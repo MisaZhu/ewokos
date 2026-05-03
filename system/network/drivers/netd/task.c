@@ -224,7 +224,7 @@ int do_network_fcntl(net_task_t *task){
 	sock = task->sock;
 
     static uint32_t cnt = 0;
-    klog("%d:sock_network_fcntl sock:%d, node:%p, cmd:%d\n", cnt++, sock, task->node, task->cmd);
+    //klog("%d:sock_network_fcntl sock:%d, node:%p, cmd:%d\n", cnt++, sock, task->node, task->cmd);
 	switch(task->cmd){
 		case SOCK_OPEN:
 			domain = proto_read_int(&task->in);
@@ -367,7 +367,6 @@ static void* task_thread(void* arg){
 
             pthread_mutex_lock(&task_list_lock);
             task->state = NET_TASK_FINISH;
-            vfs_wakeup(task->node, VFS_EVT_RW);
             pthread_mutex_unlock(&task_list_lock);
         } else if(task->state == NET_TASK_FINISH) {
             pthread_mutex_unlock(&task_list_lock);

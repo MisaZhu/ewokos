@@ -328,7 +328,7 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 
 	if(serv_proc == NULL ||
 			serv_proc->space->ipc_server.entry == 0) {//no ipc service setup
-		printf("ipc not ready (client: %d, server: %d, call: 0x%x\n", client_proc->info.pid, serv_pid, call_id);
+		//printf("ipc not ready (client: %d, server: %d, call: 0x%x\n", client_proc->info.pid, serv_pid, call_id);
 		ctx->gpr[0] = IPC_ERROR_NO_READY;
 		return;
 	}

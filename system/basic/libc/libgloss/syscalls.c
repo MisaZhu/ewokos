@@ -264,6 +264,7 @@ _read (int fd, void * buf, size_t size)
 	if(vfs_get_by_fd(fd, &info) != 0)
 		return -1;
 
+	errno = 0;
 	int flags = vfs_get_flags(fd);
 	if(flags == -1)
 	 		return -1;
@@ -323,6 +324,7 @@ _write (int fd, const void * buf, size_t size)
 	if(vfs_get_by_fd(fd, &info) != 0)
 		return -1;
 
+	errno = 0;
 	int flags = vfs_get_flags(fd);
 	if(flags == -1)
 	 		return -1;
