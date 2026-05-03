@@ -116,11 +116,33 @@ void proc_ipc_close(proc_t* serv_proc, ipc_task_t* ipc) {
 
 void proc_ipc_clear(proc_t* serv_proc) {
 	proc_ipc_close(serv_proc, &serv_proc->space->ipc_server.ctask);
-	/*while(true) {
-		ipc_task_t* ipc = (ipc_task_t*)queue_pop(&serv_proc->space->ipc_server.tasks);
-		if(ipc == NULL)
-			break;
-		ipc_free(ipc);
-	}
-	*/
+}
+
+int32_t proc_ipc_wait(context_t* ctx, struct st_proc* serv_proc, proc_t* proc) {
+	if(serv_proc == NULL || proc == NULL)
+		return -1;
+
+	ipc_queue_item_t* item = (ipc_queue_item_t*)kmalloc(sizeof(ipc_queue_item_t));
+	if(item == NULL)
+		return -1;
+
+	item->pid = proc->info.pid;
+	item->uuid = proc->info.uuid;
+	queue_push(&serv_proc->space->ipc_server.wait_queue, item);
+	proc_block(ctx, proc);
+	return 0;
+}
+
+proc_t* proc_ipc_wakeup(struct st_proc* serv_proc) {
+	if(serv_proc == NULL)
+		return NULL;
+
+	ipc_queue_item_t* item = (ipc_queue_item_t*)queue_pop(&serv_proc->space->ipc_server.wait_queue);
+	if(item == NULL)
+		return NULL;
+	proc_t* proc = proc_get(item->pid);
+	if(proc == NULL || proc->info.uuid != item->uuid)
+		return NULL;
+	proc_wakeup(proc);
+	return proc;
 }

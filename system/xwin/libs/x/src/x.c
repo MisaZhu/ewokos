@@ -25,7 +25,7 @@
 extern "C" {
 #endif
 
-static int x_get_event(int xserv_pid, xevent_t* ev, bool block) {
+static int x_get_event(x_t* x, int xserv_pid, xevent_t* ev, bool block) {
 	proto_t out;
 	PF->init(&out);
 	if(dev_cntl_by_pid(xserv_pid, X_DCNTL_GET_EVT, NULL, &out) != 0) {
@@ -39,7 +39,7 @@ static int x_get_event(int xserv_pid, xevent_t* ev, bool block) {
 	PF->clear(&out);
 
 	if(res != 0 && block) {
-		proc_block_by(xserv_pid, X_EVT_BLOCK_EVT);
+		vfs_block_by(x->dev_fsinfo.node, VFS_EVT_RD);
 	}
 
 	return res;
@@ -126,7 +126,6 @@ static void sig_stop(int sig_no, void* p) {
 
 void x_terminate(x_t* x) {
 	x->terminated = true;
-	proc_wakeup_pid(getpid(), X_EVT_BLOCK_EVT);
 }
 
 const char* x_get_own_dir(char* ret, uint32_t len) {
@@ -168,6 +167,7 @@ void  x_init(x_t* x, void* data) {
 	memset(_x_screens, 0, sizeof(xscreen_info_t)*SCREEN_MAX);
 	memset(x, 0, sizeof(x_t));
 	x->data = data;
+	vfs_get_by_name("/dev/x", &x->dev_fsinfo);
 	//sys_signal(SYS_SIG_STOP, sig_stop, x);
 }
 
@@ -305,7 +305,7 @@ int  x_run(x_t* x, void* loop_data) {
 	bool block = x->on_loop==NULL ? true:false;
 	xevent_t xev;
 	while(!x->terminated) {
-		int res = x_get_event(xserv_pid, &xev, block);
+		int res = x_get_event(x, xserv_pid, &xev, block);
 		if(res == 0) {
 			xwin_t* xwin = (xwin_t*)xev.win;
 			if(xwin != NULL) {

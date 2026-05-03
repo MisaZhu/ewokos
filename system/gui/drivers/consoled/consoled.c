@@ -238,7 +238,7 @@ static int console_loop(vdevice_t* dev, void* p) {
 			}
 		}
 		if(n > 0)
-			vfs_wakeup(-1, VFS_EVT_RW);
+			vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
 	}
 
 	ipc_enable();

@@ -132,32 +132,19 @@ inline void proc_detach(void) {
 	syscall0(SYS_DETACH);
 }
 
-inline void proc_block_by(int by_pid, uint32_t evt) {
-	syscall2(SYS_BLOCK, (ewokos_addr_t)by_pid, (ewokos_addr_t)evt);
+inline void proc_block(void) {
+	syscall0(SYS_BLOCK);
 }
 
 /**
  * @brief wakeup process by pid
  * 
  * @param pid wakeup blocked process pid
- * @param by_pid wakeup process blocked by pid
- * @param evt wakeup event
  */
-inline void proc_wakeup_pid_by(int pid, int by_pid, uint32_t evt) {
-	syscall3(SYS_WAKEUP, (ewokos_addr_t)pid, by_pid, (ewokos_addr_t)evt);
+inline void proc_wakeup(int32_t pid) {
+	syscall1(SYS_WAKEUP, (ewokos_addr_t)pid);
 }
 
-inline void proc_wakeup(uint32_t evt) {
-	proc_wakeup_pid_by(-1, -1, (ewokos_addr_t)evt);
-}
-
-inline void proc_wakeup_pid(int pid, uint32_t evt) {
-	proc_wakeup_pid_by(pid, -1, (ewokos_addr_t)evt);
-}
-
-inline void proc_wakeup_by(int by_pid, uint32_t evt) {
-	proc_wakeup_pid_by(-1, by_pid, (ewokos_addr_t)evt);
-}
 
 inline void proc_exec_elf(const char* cmd_line, const char* elf, int32_t size) {
 	if(syscall3(SYS_EXEC_ELF, (ewokos_addr_t)cmd_line, (ewokos_addr_t)elf, (ewokos_addr_t)size) != 0)

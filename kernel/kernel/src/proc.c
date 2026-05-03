@@ -497,7 +497,6 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 				irq_enable_arch(proc->space->interrupt.interrupt);
 			}
 			proc->space->interrupt.state = INTR_STATE_IDLE;
-			proc_wakeup(proc->info.pid, -1, (uint32_t)&proc->space->interrupt);
 		}
 		proc->info.father_pid = 0;
 	}
@@ -847,14 +846,10 @@ inline void proc_usleep(context_t* ctx, uint32_t count) {
 	schedule(ctx);
 }
 	
-inline void proc_block_on(context_t* ctx, int32_t pid_by, uint32_t event) {
-	proc_t* cproc = get_current_proc();
-	if(cproc == NULL)
+inline void proc_block(context_t* ctx, proc_t* proc) {
+	if(proc == NULL)
 		return;
-
-	cproc->block_event = event;
-	cproc->info.block_by = pid_by;
-	proc_unready(cproc, BLOCK);
+	proc_unready(proc, BLOCK);
 	//proc_block_saved_state(pid_by, event, cproc);
 	schedule(ctx);
 }
@@ -870,96 +865,21 @@ inline void proc_waitpid(context_t* ctx, int32_t pid) {
 	schedule(ctx);
 }
 
-static void proc_wakeup_all_state(int32_t pid_by, uint32_t event, proc_t* proc) {
+static void proc_wakeup_all_state(proc_t* proc) {
 	if(proc->space == NULL)
 		return;
 
-	if((event == 0 || proc->block_event == event) &&
-			(pid_by < 0 || proc->info.block_by == pid_by )) {
-		proc_ready(proc);
-	}
-
-	if((pid_by < 0 || proc->space->ipc_server.saved_state.block_by == pid_by) &&
-			(event == 0 || proc->space->ipc_server.saved_state.block_event == event)) {
-		proc->space->ipc_server.saved_state.state = READY;
-		proc->space->ipc_server.saved_state.block_by = -1;
-		proc->space->ipc_server.saved_state.block_event = 0;
-	}	
-
-	if((pid_by < 0 || proc->space->signal.saved_state.block_by == pid_by) &&
-			(event == 0 || proc->space->signal.saved_state.block_event == event)) {
-		proc->space->signal.saved_state.state = READY;
-		proc->space->signal.saved_state.block_by = -1;
-		proc->space->signal.saved_state.block_event = 0;
-	}
-
-	if((pid_by < 0 || proc->space->interrupt.saved_state.block_by == pid_by) &&
-			(event == 0 || proc->space->interrupt.saved_state.block_event == event)) {
-		proc->space->interrupt.saved_state.state = READY;
-		proc->space->interrupt.saved_state.block_by = -1;
-		proc->space->interrupt.saved_state.block_event = 0;
-	}
-
-/*
-	if(proc->info.state == BLOCK && (event == 0 || proc->block_event == event) && 
-			(pid_by < 0 || proc->info.block_by == pid_by )) {
-		proc_ready(proc);
-	}
-
-	if(proc->space->ipc_server.saved_state.state == BLOCK && 
-			(pid_by < 0 || proc->space->ipc_server.saved_state.block_by == pid_by) &&
-			(event == 0 || proc->space->ipc_server.saved_state.block_event == event)) {
-		proc->space->ipc_server.saved_state.state = READY;
-		proc->space->ipc_server.saved_state.block_by = -1;
-		proc->space->ipc_server.saved_state.block_event = 0;
-	}	
-
-	if(proc->space->signal.saved_state.state == BLOCK && 
-			(pid_by < 0 || proc->space->signal.saved_state.block_by == pid_by) &&
-			(event == 0 || proc->space->signal.saved_state.block_event == event)) {
-		proc->space->signal.saved_state.state = READY;
-		proc->space->signal.saved_state.block_by = -1;
-		proc->space->signal.saved_state.block_event = 0;
-	}
-
-	if(proc->space->interrupt.saved_state.state == BLOCK && 
-			(pid_by < 0 || proc->space->interrupt.saved_state.block_by == pid_by) &&
-			(event == 0 || proc->space->interrupt.saved_state.block_event == event)) {
-		proc->space->interrupt.saved_state.state = READY;
-		proc->space->interrupt.saved_state.block_by = -1;
-		proc->space->interrupt.saved_state.block_event = 0;
-	}
-	*/
+	proc_ready(proc);
+	proc->space->ipc_server.saved_state.state = READY;
+	proc->space->signal.saved_state.state = READY;
+	proc->space->interrupt.saved_state.state = READY;
 }
 
-void proc_wakeup(int32_t pid_by, int32_t pid, uint32_t event) {
-	if(pid >= 0) {
-		if(pid >= _kernel_config.max_task_num)
-			return;
-
-		proc_t* proc = _task_table[pid];	
-		if(proc == NULL || proc->info.state == UNUSED ||
-				proc->info.state == ZOMBIE)
-			return;
-
-		if(proc == proc_get_proc(get_current_proc())) //self force wakeup
-			proc_wakeup_all_state(-1, 0, proc);
-		else
-			proc_wakeup_all_state(pid_by, event, proc);
+void proc_wakeup(proc_t* proc) {
+	if(proc == NULL || proc->info.state == UNUSED ||
+			proc->info.state == ZOMBIE)
 		return;
-	} 
-
-	int32_t i = 0;	
-	while(1) {
-		if(i >= _kernel_config.max_task_num)
-			break;
-		proc_t* proc = _task_table[i];	
-		i++;
-		if(proc == NULL || proc->info.state == UNUSED ||
-				proc->info.state == ZOMBIE)
-			continue;
-		proc_wakeup_all_state(pid_by, event, proc);
-	}
+	proc_wakeup_all_state(proc);
 }
 
 static inline void proc_page_clone(proc_t* to, uint32_t to_addr, proc_t* from, uint32_t from_addr) {
@@ -1146,7 +1066,7 @@ static int32_t renew_ipc_counter(uint32_t usec) {
 			if(proc->info.state == READY || proc->info.state == RUNNING)
 				proc_ready(proc);
 			proc_ipc_close(proc, ipc);
-			proc_wakeup(proc->info.pid, -1, (uint32_t)&proc->space->ipc_server); 
+			proc_ipc_wakeup(proc); 
 		}
 	}
 	return res;

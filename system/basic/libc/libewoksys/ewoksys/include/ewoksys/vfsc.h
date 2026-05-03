@@ -7,6 +7,13 @@
 extern "C" {
 #endif
 
+#define VFS_EVT_RW	    0x01
+#define VFS_EVT_RD	    0x02
+#define VFS_EVT_WR	    0x04
+#define VFS_EVT_CLOSE	0x08
+#define VFS_EVT_ERR 	0x10
+#define VFS_EVT_NVAL 	0x20
+
 enum {
 	VFS_GET_BY_NAME = 0,
 	VFS_GET_BY_NODE,
@@ -26,7 +33,9 @@ enum {
 	VFS_GET_MOUNT_BY_ID,
 	VFS_GET_KIDS,
 	VFS_PROC_CLONE,
-	VFS_PROC_EXIT
+	VFS_PROC_EXIT,
+	VFS_BLOCK,
+	VFS_WAKEUP
 };
 
 int  vfs_check_access(int pid, fsinfo_t* info, int mode);

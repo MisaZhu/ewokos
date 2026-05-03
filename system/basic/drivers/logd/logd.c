@@ -61,7 +61,7 @@ static int log_write(vdevice_t* dev,
 	}
 
 	if(i > 0)
-		vfs_wakeup(-1, VFS_EVT_RW);
+		vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
 	return i;
 }
 

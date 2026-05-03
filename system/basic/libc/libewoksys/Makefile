@@ -36,6 +36,7 @@ LIB_EWOKSYS_OBJS =  \
 	ewoksys/src/dma.o  \
 	ewoksys/src/session.o  \
 	ewoksys/src/hashmap.o  \
+	ewoksys/src/queue.o  \
 	ewoksys/src/timer.o \
 	ewoksys/src/sys.o \
 	\

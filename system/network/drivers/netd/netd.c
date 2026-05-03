@@ -92,7 +92,7 @@ static int network_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fs
 			task->read_task->running = false;
 		fsinfo->data = NULL;
 	}
-    vfs_wakeup(from_pid, VFS_EVT_CLOSE);
+    vfs_wakeup(dev->mnt_info.node, VFS_EVT_CLOSE);
 	return 0;
 }
 

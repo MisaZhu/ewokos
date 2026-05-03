@@ -348,14 +348,14 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 
 	if(serv_proc->space->ipc_server.disabled) {
 		ctx->gpr[0] = IPC_ERROR_RETRY; // blocked if server disabled, should retry
-		proc_block_on(ctx, serv_pid, (uint32_t)&serv_proc->space->ipc_server.disabled);
+		proc_ipc_wait(ctx, serv_proc, client_proc);
 		return;
 	}
 
 	if(serv_proc->space->interrupt.state != INTR_STATE_IDLE) {
 		//if((call_id & IPC_NON_RETURN) == 0) {
 			ctx->gpr[0] = IPC_ERROR_RETRY; // blocked if proc is on interrupt task, should retry
-			proc_block_on(ctx, serv_pid, (uint32_t)&serv_proc->space->interrupt);
+			proc_ipc_wait(ctx, serv_proc, client_proc);
 			return;
 		//}
 		//call_id = call_id | IPC_LAZY; //not do task immediately
@@ -365,7 +365,7 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 	ipc_task_t* ipc = proc_ipc_req(serv_proc, client_proc, call_id, arg);
 	if(ipc == NULL) {
 		ctx->gpr[0] = IPC_ERROR_RETRY; 
-		proc_block_on(ctx, serv_pid, (uint32_t)&serv_proc->space->ipc_server);
+		proc_ipc_wait(ctx, serv_proc, client_proc);
 		return;
 	}
 
@@ -393,7 +393,7 @@ static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_
 
 		if((ipc->call_id & IPC_NON_RETURN) == 0 || ipc->uid != uid) {
 			ctx->gpr[0] = -1;
-			proc_block_on(ctx, serv_proc->info.pid, (uint32_t)&client_proc->ipc_res);
+			proc_block(ctx, client_proc);
 			return;
 		}
 		return;
@@ -461,7 +461,7 @@ static void sys_ipc_set_return(context_t* ctx, uint32_t uid, proto_t* data) {
 		if(data != NULL) {
 			proto_copy(&client_proc->ipc_res.data, data->data, data->size);
 		}
-		proc_wakeup(serv_proc->info.pid, client_proc->info.pid, (uint32_t)&client_proc->ipc_res);
+		proc_wakeup(client_proc);
 		proc_switch_multi_core(ctx, client_proc, serv_proc->info.core);
 	}
 }
@@ -481,7 +481,7 @@ static void sys_ipc_end(context_t* ctx) {
 
 	//wake up request proc to get return
 	proc_ipc_close(serv_proc, ipc);
-	proc_wakeup(serv_proc->info.pid, -1, (uint32_t)&serv_proc->space->ipc_server); 
+	proc_ipc_wakeup(serv_proc); 
 
 	/*if(proc_ipc_fetch(serv_proc) != 0)  {//fetch next buffered ipc
 		proc_save_state(serv_proc, &serv_proc->space->ipc_server.saved_state, &serv_proc->space->ipc_server.saved_ipc_res);
@@ -509,7 +509,7 @@ static void sys_ipc_enable(void) {
 		return;
 
 	cproc->space->ipc_server.disabled = false;
-	proc_wakeup(cproc->info.pid, -1, (uint32_t)&cproc->space->ipc_server.disabled);
+	proc_ipc_wakeup(cproc);
 }
 
 static int32_t sys_proc_ping(int32_t pid) {
@@ -570,10 +570,9 @@ static void set_block_evt(proc_t* proc, uint32_t event) {
 	}
 }
 
-static void sys_proc_block(context_t* ctx, int32_t pid_by, uint32_t evt) {
-	proc_t* proc_by = proc_get_proc(proc_get(pid_by));
-	proc_t* cproc = proc_get_proc(get_current_proc());
-	if(proc_by == NULL || cproc == NULL)
+static void sys_proc_block(context_t* ctx) {
+	proc_t* cproc = get_current_proc();
+	if(cproc == NULL)
 		return;
 
 	if(proc_ipc_get_task(cproc) != NULL) {//don't block the proc when it's serving ipc
@@ -581,41 +580,16 @@ static void sys_proc_block(context_t* ctx, int32_t pid_by, uint32_t evt) {
 		return;
 	}
 
-	if(evt != 0 && proc_by->info.pid != _core_proc_pid) {
-		proc_block_event_t* block_evt = get_block_evt(proc_by, evt);
-		if(block_evt != NULL) {
-			if(block_evt->refs > 0) {
-				block_evt->refs--;
-				return;
-			}
-			else
-				block_evt->event = 0;
-		}
-	}	
-
-	proc_block_on(ctx, proc_by->info.pid, evt);
+	proc_block(ctx, cproc);
 }
 
-static void sys_proc_wakeup(context_t* ctx, int32_t pid, int32_t pid_by, uint32_t evt) {
+static void sys_proc_wakeup(context_t* ctx, int32_t pid) {
 	(void)ctx;
-	proc_t* proc_by = NULL;
 	proc_t* cproc = proc_get_proc(get_current_proc());
-	if(pid_by < 0)
-		proc_by = cproc;
-	else {
-		if(cproc->info.uuid > 0)
-			return;
-		proc_by = proc_get_proc(proc_get(pid_by));
-	}
-	
-	if(proc_by->info.pid != _core_proc_pid) {
-		proc_block_event_t* block_evt = get_block_evt(proc_by, evt);
-		if(block_evt != NULL)
-			block_evt->refs++;
-		else
-			set_block_evt(proc_by, evt);
-	}
-	proc_wakeup(proc_by->info.pid, pid, evt);
+	if(cproc->info.uid > 0)
+		return;
+	proc_t* proc = proc_get(pid);
+	proc_wakeup(proc);
 }
 
 static void sys_core_proc_ready(void) {
@@ -822,10 +796,10 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
 		sys_get_kevent(ctx, (kevent_t*)arg0);
 		return;
 	case SYS_WAKEUP:
-		sys_proc_wakeup(ctx, arg0, arg1, arg2);
+		sys_proc_wakeup(ctx, arg0);
 		return;
 	case SYS_BLOCK:
-		sys_proc_block(ctx, arg0, arg1);
+		sys_proc_block(ctx);
 		return;
 	case SYS_CORE_READY:
 		sys_core_proc_ready();

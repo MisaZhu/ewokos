@@ -6,6 +6,7 @@
 #include <sys/errno.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/klog.h>
+#include <ewoksys/vfsc.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/mstr.h>
 #include <ewoksys/buffer.h>
@@ -14,6 +15,7 @@
 #include <ewoksys/vfsc.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/hashmap.h>
+#include <ewoksys/queue.h>
 #include <procinfo.h>
 #include <sysinfo.h>
 
@@ -31,6 +33,8 @@ typedef struct vfs_node {
   uint32_t refs;
   uint32_t refs_w;
   uint32_t events; //events for poll or select
+  queue_t read_wait_queue;
+  queue_t write_wait_queue;
 } vfs_node_t;
 
 typedef struct {
@@ -55,6 +59,8 @@ static void vfs_node_init(vfs_node_t* node) {
 	memset(node, 0, sizeof(vfs_node_t));
 	node->fsinfo.node = (uint32_t)node;
 	node->mount_id = -1;
+	queue_init(&node->read_wait_queue);
+	queue_init(&node->write_wait_queue);
 }
 
 static inline const char* node_hash_key(uint32_t node_id) {
@@ -360,6 +366,8 @@ static int32_t vfs_del_node(vfs_node_t* node) {
 		node->next->prev = node->prev;
 	if(node->prev != NULL)
 		node->prev->next = node->next;
+	queue_clear(&node->read_wait_queue, free);
+	queue_clear(&node->write_wait_queue, free);
 	hashmap_remove(_nodes_hash, node_hash_key((uint32_t)node));
 	free(node);
 	return 0;
@@ -1019,6 +1027,63 @@ static void do_vfs_proc_exit(int32_t pid, proto_t* in) {
 	vfs_proc_exit(cpid);
 }
 
+static void do_vfs_block(int32_t pid, proto_t* in) {
+	int node_id = proto_read_int(in);
+	int event = proto_read_int(in);
+	if(node_id == 0)
+		return;
+    vfs_node_t* node = vfs_get_node_by_id(node_id);
+	if(node == NULL)
+		return;
+
+	int32_t* p = (int32_t*)malloc(sizeof(int32_t));
+	*p = pid;
+
+	queue_t* q = NULL;
+	if(event == VFS_EVT_RD)
+		q = &node->read_wait_queue;
+	else if(event == VFS_EVT_WR)
+		q = &node->write_wait_queue;
+
+	if(q == NULL)
+		return;
+	//klog("block pid %d\n", pid);
+	queue_push(q, p);
+}
+
+static void do_vfs_wakeup(int32_t pid, proto_t* in) {
+	klog("wakeup pid %d\n", pid);
+
+	(void)pid;
+	int node_id = proto_read_int(in);
+	int event = proto_read_int(in);
+	if(node_id == 0)
+		return;
+    vfs_node_t* node = vfs_get_node_by_id(node_id);
+	if(node == NULL)
+		return;
+	klog("wakeup node %d\n", node_id);
+
+	queue_t* q = NULL;
+	if(event == VFS_EVT_RD)
+		q = &node->read_wait_queue;
+	else if(event == VFS_EVT_WR)
+		q = &node->write_wait_queue;
+
+	klog("1 wakeup pid %x\n", q);
+
+	if(q == NULL)
+		return;
+
+	int32_t* p = (int32_t*)queue_pop(q);
+	klog("2 wakeup pid %x\n", p);
+	if(p != NULL) {
+		klog("3 wakeup pid %d\n", *p);
+		proc_wakeup(*p);
+		free(p);
+	}
+}
+
 static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)p;
 	if(_proc_fds_table[pid].state == UNUSED) //maybe thread 
@@ -1083,6 +1148,14 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 		break;
 	case VFS_PROC_EXIT:
 		do_vfs_proc_exit(pid, in);
+		break;
+	case VFS_BLOCK:
+		do_vfs_block(pid, in);
+		break;
+	case VFS_WAKEUP:
+		do_vfs_wakeup(pid, in);
+		break;
+	default:
 		break;
 	}
 }

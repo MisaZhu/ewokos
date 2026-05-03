@@ -306,14 +306,14 @@ static void do_proc_created(kevent_t* kev) {
 		if(res == 0) {
 			PF->clear(&data);
 			do_proc_clone(fpid, cpid);
-			proc_wakeup_pid(cpid, cpid);
-			proc_wakeup_pid(fpid, cpid);
+			proc_wakeup(cpid);
+			proc_wakeup(fpid);
 		}
 	}
 	else {
 		do_proc_clone(fpid, cpid);
-		proc_wakeup_pid(cpid, cpid);
-		proc_wakeup_pid(fpid, cpid);
+		proc_wakeup(cpid);
+		proc_wakeup(fpid);
 	}
 }
 

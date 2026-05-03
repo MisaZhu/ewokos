@@ -5,6 +5,7 @@
 #include <x/xcntl.h>
 #include <x/xevent.h>
 #include <x/xtheme.h>
+#include <ewoksys/vfs.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,6 +29,7 @@ typedef struct st_x {
 	x_event_t* event_tail;
 
 	void (*on_loop)(void* p);
+	fsinfo_t dev_fsinfo;
 } x_t;
 
 int      x_exec(const char* fname);

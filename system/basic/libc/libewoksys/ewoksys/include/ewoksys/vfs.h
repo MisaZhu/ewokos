@@ -18,13 +18,6 @@ typedef struct {
 	fsinfo_t info;
 } fsfile_t;
 
-#define VFS_EVT_RW	    0x01
-#define VFS_EVT_RD	    0x02
-#define VFS_EVT_WR	    0x04
-#define VFS_EVT_CLOSE	0x08
-#define VFS_EVT_ERR 	0x10
-#define VFS_EVT_NVAL 	0x20
-
 #define VFS_BUF_SIZE (10240)
 
 #define VFS_BACKUP_FD0 (MAX_OPEN_FILE_PER_PROC-3)
@@ -74,8 +67,8 @@ int       vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size);
 int       vfs_fcntl(int fd, int cmd, proto_t* in, proto_t* out);
 int       vfs_fcntl_wait(int fd, int cmd, proto_t* in);
 
-int       vfs_block_by(int by_pid, int type);
-int       vfs_wakeup(int pid, int type);
+int       vfs_block_by(uint32_t node, int event);
+int       vfs_wakeup(uint32_t node, int event);
 
 #ifdef __cplusplus
 }

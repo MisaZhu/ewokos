@@ -30,6 +30,10 @@ typedef	struct {
 	int32_t   call_id;
 } ipc_task_t;
 
+typedef struct {
+	int32_t pid;
+	uint32_t uuid;
+} ipc_queue_item_t;
 
 typedef struct {
 	bool          disabled;
@@ -43,6 +47,7 @@ typedef struct {
 
 	ipc_res_t     saved_ipc_res;
 	saved_state_t saved_state;
+	queue_t       wait_queue;
 } ipc_server_t;
 
 extern int32_t     proc_ipc_setup(context_t* ctx, ewokos_addr_t entry, uint32_t extra, uint32_t flags);
@@ -50,7 +55,9 @@ extern int32_t     proc_ipc_do_task(context_t* ctx, struct st_proc* proc, uint32
 extern ipc_task_t* proc_ipc_req(struct st_proc* serv_proc, struct st_proc* client_proc, int32_t call_id, proto_t* arg);
 extern uint32_t    proc_ipc_fetch(struct st_proc* serv_proc);
 extern ipc_task_t* proc_ipc_get_task(struct st_proc* serv_proc);
-extern void        proc_ipc_close(struct st_proc* serv_proc, ipc_task_t* ipc); 
+extern void        proc_ipc_close(struct st_proc* serv_proc, ipc_task_t* ipc);
 extern void        proc_ipc_clear(struct st_proc* serv_proc);
+extern int32_t     proc_ipc_wait(context_t* ctx, struct st_proc* serv_proc, struct st_proc* proc);
+extern struct st_proc*  proc_ipc_wakeup(struct st_proc* serv_proc);
 
 #endif

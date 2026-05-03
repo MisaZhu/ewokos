@@ -135,7 +135,7 @@ void interrupt_end(context_t* ctx) {
 	uint32_t interrupt = cproc->space->interrupt.interrupt;
 
 	cproc->space->interrupt.state = INTR_STATE_IDLE;
-	proc_wakeup(cproc->info.pid, -1, (uint32_t)&cproc->space->interrupt);
+	proc_ipc_wakeup(cproc);
 
 	if(cproc->info.state == UNUSED || cproc->info.state == ZOMBIE) {
 		schedule(ctx);

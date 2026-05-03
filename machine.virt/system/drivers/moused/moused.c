@@ -152,7 +152,7 @@ void mouse_interrupt_handle(struct virtio_device *virt_dev, struct virtio_input_
 		mouse_data_write++;
 		if(!mouse_data[mouse_data_write % CACHE_SIZE].state)
 			 mouse_data[mouse_data_write % CACHE_SIZE].state = MOUSE_STATE_MOVE;
-		vfs_wakeup(-1, VFS_EVT_RW);
+		vfs_wakeup(_dev->mnt_info.node, VFS_EVT_RD);
 	}
 }
 
