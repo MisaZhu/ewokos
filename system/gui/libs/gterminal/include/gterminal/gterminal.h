@@ -34,6 +34,8 @@ typedef struct {
 	textgrid_t* textgrid;
 	int32_t textgrid_start_row;
 	int32_t scroll_offset;
+	uint32_t scroll_top;
+	uint32_t scroll_bottom;
 
 	uint32_t rows;
 	uint32_t cols;

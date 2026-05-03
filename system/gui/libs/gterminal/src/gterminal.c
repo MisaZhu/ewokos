@@ -75,6 +75,34 @@ static uint32_t g_color(gterminal_t* terminal, uint32_t esc_color, uint8_t fg) {
     return colors[esc_color-40];
 }
 
+static uint32_t color256(uint8_t idx) {
+    if(idx < 8) {
+        uint32_t colors[8] = {
+            0xff000000, 0xffbb0000, 0xff00bb00, 0xffbbbb00,
+            0xff0000bb, 0xffbb0066, 0xff00bbbb, 0xffbbbbbb
+        };
+        return colors[idx];
+    }
+    else if(idx < 16) {
+        uint32_t colors[8] = {
+            0xff000000, 0xffff0000, 0xff00ff00, 0xffffff00,
+            0xff0000ff, 0xffff0088, 0xff00ffff, 0xffffffff
+        };
+        return colors[idx - 8];
+    }
+    else if(idx < 232) {
+        idx -= 16;
+        uint8_t r = (idx / 36) * 51;
+        uint8_t g = ((idx % 36) / 6) * 51;
+        uint8_t b = (idx % 6) * 51;
+        return 0xff000000 | (r << 16) | (g << 8) | b;
+    }
+    else {
+        uint8_t gray = (idx - 232) * 10 + 8;
+        return 0xff000000 | (gray << 16) | (gray << 8) | gray;
+    }
+}
+
 static void do_esc_color(gterminal_t* terminal, uint16_t* values, uint8_t vnum) {
     for(uint8_t i=0; i<vnum; i++) {
         uint16_t v = values[i];
@@ -108,160 +136,313 @@ static void do_esc_color(gterminal_t* terminal, uint16_t* values, uint8_t vnum) 
             terminal->term_conf.set = 1;
             terminal->term_conf.state |= TERM_STATE_HIDE;
         }
-        else if(v >= 30 && v <= 39) {
+        else if(v == 38) {
             terminal->term_conf.set = 1;
-            terminal->term_conf.fg_color = g_color(terminal, v, 1);
+            if(i + 2 < vnum && values[i+1] == 5) {
+                terminal->term_conf.fg_color = color256(values[i+2]);
+                i += 2;
+            }
+            else if(i + 4 < vnum && values[i+1] == 2) {
+                terminal->term_conf.fg_color = 0xff000000 |
+                    ((values[i+2] & 0xff) << 16) |
+                    ((values[i+3] & 0xff) << 8) |
+                    (values[i+4] & 0xff);
+                i += 4;
+            }
+            else {
+                terminal->term_conf.fg_color = 0;
+            }
         }
-        else if(v >= 40 && v <= 49) {
+        else if(v == 39) {
+            terminal->term_conf.set = 1;
+            terminal->term_conf.fg_color = 0;
+        }
+        else if(v >= 30 && v <= 37) {
+            terminal->term_conf.set = 1;
+            terminal->term_conf.fg_color = g_color(terminal, v + 10, 0);
+        }
+        else if(v == 48) {
+            terminal->term_conf.set = 1;
+            if(i + 2 < vnum && values[i+1] == 5) {
+                terminal->term_conf.bg_color = color256(values[i+2]);
+                i += 2;
+            }
+            else if(i + 4 < vnum && values[i+1] == 2) {
+                terminal->term_conf.bg_color = 0xff000000 |
+                    ((values[i+2] & 0xff) << 16) |
+                    ((values[i+3] & 0xff) << 8) |
+                    (values[i+4] & 0xff);
+                i += 4;
+            }
+            else {
+                terminal->term_conf.bg_color = 0;
+            }
+        }
+        else if(v == 49) {
+            terminal->term_conf.set = 1;
+            terminal->term_conf.bg_color = 0;
+        }
+        else if(v >= 40 && v <= 47) {
             terminal->term_conf.set = 1;
             terminal->term_conf.bg_color = g_color(terminal, v, 0);
         }
     }
 }
 
-static void run_esc_cmd(gterminal_t* terminal, UNICODE16 cmd, uint16_t* values, uint8_t vnum) {
-    if(cmd == 'm') { //color and state
+static void run_esc_cmd(gterminal_t* terminal, UNICODE16 cmd, uint16_t* values, uint8_t vnum, bool private_mode) {
+    textgrid_t* tg = terminal->textgrid;
+    int32_t top_row = terminal->textgrid_start_row;
+    int32_t bottom_row = top_row + (int32_t)terminal->rows - 1;
+    uint32_t eff_scroll_top = terminal->scroll_top;
+    uint32_t eff_scroll_bottom = (terminal->scroll_bottom < terminal->rows) ?
+        terminal->scroll_bottom : (terminal->rows - 1);
+
+    if(cmd == 'm') {
         do_esc_color(terminal, values, vnum);
     }
-    else if(cmd == 'J') { //clear screen
+    else if(cmd == 'J') {
+        textchar_t tch = {0};
         if(vnum == 0 || values[0] == 0) {
-            // Clear from cursor to end of screen
-            textchar_t tch = {0};
-            // Clear current line from cursor to end
-            for(uint16_t x = terminal->textgrid->curs_x; x < terminal->textgrid->cols; x++) {
-                textgrid_put(terminal->textgrid, x, terminal->textgrid->curs_y + terminal->textgrid_start_row, &tch);
-            }
-            // Clear all lines below cursor
-            for(uint16_t y = terminal->textgrid->curs_y + 1 + terminal->textgrid_start_row; y < terminal->textgrid->rows; y++) {
-                for(uint16_t x = 0; x < terminal->textgrid->cols; x++) {
-                    textgrid_put(terminal->textgrid, x, y, &tch);
-                }
-            }
+            for(uint16_t x = tg->curs_x; x < tg->cols; x++)
+                textgrid_put(tg, x, tg->curs_y, &tch);
+            for(int32_t y = tg->curs_y + 1; y <= bottom_row && y < (int32_t)tg->rows; y++)
+                for(uint16_t x = 0; x < tg->cols; x++)
+                    textgrid_put(tg, x, y, &tch);
         }
         else if(values[0] == 1) {
-            // Clear from beginning of screen to cursor
-            textchar_t tch = {0};
-            // Clear current line from beginning to cursor
-            for(uint16_t x = 0; x <= terminal->textgrid->curs_x; x++) {
-                textgrid_put(terminal->textgrid, x, terminal->textgrid->curs_y+terminal->textgrid_start_row, &tch);
-            }
-            // Clear all lines above cursor
-            for(uint16_t y = 0; y < terminal->textgrid->curs_y; y++) {
-                for(uint16_t x = 0; x < terminal->textgrid->cols; x++) {
-                    textgrid_put(terminal->textgrid, x, y+terminal->textgrid_start_row, &tch);
-                }
-            }
+            for(int32_t y = top_row; y < tg->curs_y && y < (int32_t)tg->rows; y++)
+                for(uint16_t x = 0; x < tg->cols; x++)
+                    textgrid_put(tg, x, y, &tch);
+            for(uint16_t x = 0; x <= tg->curs_x; x++)
+                textgrid_put(tg, x, tg->curs_y, &tch);
         }
         else if(values[0] == 2) {
-            // Clear entire screen
-            textchar_t tch = {0};
-            for(uint16_t y = terminal->textgrid_start_row; y < terminal->textgrid->rows; y++) {
-                for(uint16_t x = 0; x < terminal->textgrid->cols; x++) {
-                    textgrid_put(terminal->textgrid, x, y, &tch);
-                }
-            }
-            //textgrid_move_to(terminal->textgrid, 0, terminal->textgrid_start_row);
-            textgrid_clear(terminal->textgrid);
+            for(int32_t y = top_row; y <= bottom_row && y < (int32_t)tg->rows; y++)
+                for(uint16_t x = 0; x < tg->cols; x++)
+                    textgrid_put(tg, x, y, &tch);
+        }
+        else if(values[0] == 3) {
+            textgrid_clear(tg);
         }
     }
-    else if(cmd == 'K') { //clear line
+    else if(cmd == 'K') {
+        textchar_t tch = {0};
         if(vnum == 0 || values[0] == 0) {
-            // Clear from cursor to end of line
-            for(uint16_t x = terminal->textgrid->curs_x; x < terminal->textgrid->cols; x++) {
-                textchar_t tch = {0};
-                textgrid_put(terminal->textgrid, x, terminal->textgrid->curs_y + terminal->textgrid_start_row, &tch);
-            }
+            for(uint16_t x = tg->curs_x; x < tg->cols; x++)
+                textgrid_put(tg, x, tg->curs_y, &tch);
         }
         else if(values[0] == 1) {
-            // Clear from beginning of line to cursor
-            for(uint16_t x = 0; x <= terminal->textgrid->curs_x; x++) {
-                textchar_t tch = {0};
-                textgrid_put(terminal->textgrid, x, terminal->textgrid->curs_y + terminal->textgrid_start_row, &tch);
-            }
+            for(uint16_t x = 0; x <= tg->curs_x; x++)
+                textgrid_put(tg, x, tg->curs_y, &tch);
         }
         else if(values[0] == 2) {
-            // Clear entire line
-            for(uint16_t x = 0; x < terminal->textgrid->cols; x++) {
-                textchar_t tch = {0};
-                textgrid_put(terminal->textgrid, x, terminal->textgrid->curs_y + terminal->textgrid_start_row, &tch);
-            }
+            for(uint16_t x = 0; x < tg->cols; x++)
+                textgrid_put(tg, x, tg->curs_y, &tch);
         }
     }
-    else if(cmd == 'H' || cmd == 'f') { //move curs y,x
+    else if(cmd == 'H' || cmd == 'f') {
         uint16_t row = (vnum >= 1 && values[0] > 0) ? values[0] - 1 : 0;
         uint16_t col = (vnum >= 2 && values[1] > 0) ? values[1] - 1 : 0;
-        textgrid_move_to(terminal->textgrid, col, row + terminal->textgrid_start_row);
+        if(row >= terminal->rows) row = terminal->rows - 1;
+        if(col >= tg->cols) col = tg->cols - 1;
+        textgrid_move_to(tg, col, row + top_row);
     }
-    else if(cmd == 'A') { //move curs up
-        int16_t y = (int16_t)terminal->textgrid->curs_y - (vnum > 0 ? values[0] : 1);
-        if(y < 0)
-            y = 0;
-        textgrid_move_to(terminal->textgrid, terminal->textgrid->curs_x, y + terminal->textgrid_start_row);
+    else if(cmd == 'A') {
+        int16_t n = (vnum > 0) ? values[0] : 1;
+        int32_t y = tg->curs_y - n;
+        if(y < top_row) y = top_row;
+        textgrid_move_to(tg, tg->curs_x, y);
     }
-    else if(cmd == 'B') { //move curs down
-        uint16_t y = terminal->textgrid->curs_y + (vnum > 0 ? values[0] : 1);
-        if(y >= terminal->textgrid->rows)
-            y = terminal->textgrid->rows - 1;
-        textgrid_move_to(terminal->textgrid, terminal->textgrid->curs_x, y + terminal->textgrid_start_row);
+    else if(cmd == 'B') {
+        int16_t n = (vnum > 0) ? values[0] : 1;
+        int32_t y = tg->curs_y + n;
+        if(y > bottom_row) y = bottom_row;
+        textgrid_move_to(tg, tg->curs_x, y);
     }
-    else if(cmd == 'D') { //move curs left
-        int16_t x = (int16_t)terminal->textgrid->curs_x - (vnum > 0 ? values[0] : 1);
-        if(x < 0)
-            x = 0;
-        textgrid_move_to(terminal->textgrid, x, terminal->textgrid->curs_y + terminal->textgrid_start_row);
+    else if(cmd == 'D') {
+        int16_t n = (vnum > 0) ? values[0] : 1;
+        int32_t x = tg->curs_x - n;
+        if(x < 0) x = 0;
+        textgrid_move_to(tg, x, tg->curs_y);
     }
-    else if(cmd == 'C') { //move curs right
-        uint16_t x = terminal->textgrid->curs_x + (vnum > 0 ? values[0] : 1);
-        if(x >= terminal->textgrid->cols)
-            x = terminal->textgrid->cols - 1;
-        textgrid_move_to(terminal->textgrid, x, terminal->textgrid->curs_y + terminal->textgrid_start_row);
+    else if(cmd == 'C') {
+        int16_t n = (vnum > 0) ? values[0] : 1;
+        int32_t x = tg->curs_x + n;
+        if(x >= (int32_t)tg->cols) x = tg->cols - 1;
+        textgrid_move_to(tg, x, tg->curs_y);
     }
-    else if(cmd == 'E') { //move to beginning of next line
-        uint16_t y = terminal->textgrid->curs_y + (vnum > 0 ? values[0] : 1);
-        if(y >= terminal->textgrid->rows)
-            y = terminal->textgrid->rows - 1;
-        textgrid_move_to(terminal->textgrid, 0, y + terminal->textgrid_start_row);
+    else if(cmd == 'E') {
+        int16_t n = (vnum > 0) ? values[0] : 1;
+        int32_t y = tg->curs_y + n;
+        if(y > bottom_row) y = bottom_row;
+        textgrid_move_to(tg, 0, y);
     }
-    else if(cmd == 'F') { //move to beginning of previous line
-        int16_t y = (int16_t)terminal->textgrid->curs_y - (vnum > 0 ? values[0] : 1);
-        if(y < 0)
-            y = 0;
-        textgrid_move_to(terminal->textgrid, 0, y + terminal->textgrid_start_row);
+    else if(cmd == 'F') {
+        int16_t n = (vnum > 0) ? values[0] : 1;
+        int32_t y = tg->curs_y - n;
+        if(y < top_row) y = top_row;
+        textgrid_move_to(tg, 0, y);
     }
-    else if(cmd == 'G') { //move to column
+    else if(cmd == 'G') {
         uint16_t x = (vnum > 0 && values[0] > 0) ? values[0] - 1 : 0;
-        if(x >= terminal->textgrid->cols)
-            x = terminal->textgrid->cols - 1;
-        textgrid_move_to(terminal->textgrid, x, terminal->textgrid->curs_y + terminal->textgrid_start_row);
+        if(x >= tg->cols) x = tg->cols - 1;
+        textgrid_move_to(tg, x, tg->curs_y);
     }
-    else if(cmd == 's') { //save curs pos
-        terminal->curs_pos.x = terminal->textgrid->curs_x;
-        terminal->curs_pos.y = terminal->textgrid->curs_y;
+    else if(cmd == 'd') {
+        uint16_t row = (vnum > 0 && values[0] > 0) ? values[0] - 1 : 0;
+        if(row >= terminal->rows) row = terminal->rows - 1;
+        textgrid_move_to(tg, tg->curs_x, row + top_row);
     }
-    else if(cmd == 'u') { //restore curs pos
-        textgrid_move_to(terminal->textgrid, terminal->curs_pos.x, terminal->curs_pos.y + terminal->textgrid_start_row);
+    else if(cmd == 's') {
+        terminal->curs_pos.x = tg->curs_x;
+        terminal->curs_pos.y = tg->curs_y;
     }
-    else if(cmd == 'l') { //hide curs or reset mode
-        if(vnum > 0) {
-            // Handle mode reset
-            if(values[0] == 25) {
+    else if(cmd == 'u') {
+        textgrid_move_to(tg, terminal->curs_pos.x, terminal->curs_pos.y);
+    }
+    else if(cmd == 'l') {
+        if(private_mode) {
+            if(vnum > 0 && values[0] == 25)
                 terminal->show_curs = false;
-            }
-        }
-        else {
-            terminal->show_curs = false;
         }
     }
-    else if(cmd == 'h') { //show curs or set mode
-        if(vnum > 0) {
-            // Handle mode set
-            if(values[0] == 25) {
+    else if(cmd == 'h') {
+        if(private_mode) {
+            if(vnum > 0 && values[0] == 25)
                 terminal->show_curs = true;
+        }
+    }
+    else if(cmd == 'L') {
+        if(tg->grid == NULL || tg->cols == 0) return;
+        uint16_t n = (vnum > 0) ? values[0] : 1;
+        int32_t s_bottom = (int32_t)eff_scroll_bottom + top_row;
+        int32_t curs_abs_y = tg->curs_y;
+        if(n > (uint16_t)(s_bottom - curs_abs_y + 1))
+            n = s_bottom - curs_abs_y + 1;
+        for(int32_t y = s_bottom; y >= curs_abs_y + n; y--) {
+            for(uint16_t x = 0; x < tg->cols; x++)
+                tg->grid[y * tg->cols + x] = tg->grid[(y - n) * tg->cols + x];
+        }
+        for(uint16_t i = 0; i < n; i++) {
+            for(uint16_t x = 0; x < tg->cols; x++) {
+                textchar_t tch = {0};
+                tg->grid[(curs_abs_y + i) * tg->cols + x] = tch;
             }
         }
-        else {
-            terminal->show_curs = true;
+    }
+    else if(cmd == 'M') {
+        if(tg->grid == NULL || tg->cols == 0) return;
+        uint16_t n = (vnum > 0) ? values[0] : 1;
+        int32_t s_bottom = (int32_t)eff_scroll_bottom + top_row;
+        int32_t curs_abs_y = tg->curs_y;
+        if(n > (uint16_t)(s_bottom - curs_abs_y + 1))
+            n = s_bottom - curs_abs_y + 1;
+        for(int32_t y = curs_abs_y; y + n <= s_bottom; y++) {
+            for(uint16_t x = 0; x < tg->cols; x++)
+                tg->grid[y * tg->cols + x] = tg->grid[(y + n) * tg->cols + x];
         }
+        for(int32_t y = s_bottom - n + 1; y <= s_bottom; y++) {
+            if(y >= curs_abs_y) {
+                for(uint16_t x = 0; x < tg->cols; x++) {
+                    textchar_t tch = {0};
+                    tg->grid[y * tg->cols + x] = tch;
+                }
+            }
+        }
+    }
+    else if(cmd == 'P') {
+        if(tg->grid == NULL || tg->cols == 0) return;
+        uint16_t n = (vnum > 0) ? values[0] : 1;
+        int32_t y = tg->curs_y;
+        int32_t x = tg->curs_x;
+        if(n > tg->cols - x) n = tg->cols - x;
+        for(int32_t i = x; i < (int32_t)tg->cols - n; i++)
+            tg->grid[y * tg->cols + i] = tg->grid[y * tg->cols + i + n];
+        for(int32_t i = (int32_t)tg->cols - n; i < (int32_t)tg->cols; i++) {
+            textchar_t tch = {0};
+            tg->grid[y * tg->cols + i] = tch;
+        }
+    }
+    else if(cmd == '@') {
+        if(tg->grid == NULL || tg->cols == 0) return;
+        uint16_t n = (vnum > 0) ? values[0] : 1;
+        int32_t y = tg->curs_y;
+        int32_t x = tg->curs_x;
+        if(n > tg->cols - x) n = tg->cols - x;
+        for(int32_t i = (int32_t)tg->cols - 1; i >= x + n; i--)
+            tg->grid[y * tg->cols + i] = tg->grid[y * tg->cols + i - n];
+        for(int32_t i = x; i < x + (int32_t)n; i++) {
+            textchar_t tch = {0};
+            tg->grid[y * tg->cols + i] = tch;
+        }
+    }
+    else if(cmd == 'X') {
+        if(tg->grid == NULL || tg->cols == 0) return;
+        uint16_t n = (vnum > 0) ? values[0] : 1;
+        for(uint16_t i = 0; i < n; i++) {
+            uint16_t x = tg->curs_x + i;
+            if(x >= tg->cols) break;
+            textchar_t tch = {0};
+            tg->grid[tg->curs_y * tg->cols + x] = tch;
+        }
+    }
+    else if(cmd == 'S') {
+        if(tg->grid == NULL || tg->cols == 0) return;
+        uint16_t n = (vnum > 0) ? values[0] : 1;
+        int32_t s_top = (int32_t)eff_scroll_top + top_row;
+        int32_t s_bottom = (int32_t)eff_scroll_bottom + top_row;
+        uint32_t region_size = s_bottom - s_top + 1;
+        if(n >= region_size) {
+            for(int32_t y = s_top; y <= s_bottom; y++)
+                for(uint16_t x = 0; x < tg->cols; x++) {
+                    textchar_t tch = {0};
+                    tg->grid[y * tg->cols + x] = tch;
+                }
+        } else {
+            for(int32_t y = s_top; y + n <= s_bottom; y++)
+                for(uint16_t x = 0; x < tg->cols; x++)
+                    tg->grid[y * tg->cols + x] = tg->grid[(y + n) * tg->cols + x];
+            for(int32_t y = s_bottom - n + 1; y <= s_bottom; y++)
+                for(uint16_t x = 0; x < tg->cols; x++) {
+                    textchar_t tch = {0};
+                    tg->grid[y * tg->cols + x] = tch;
+                }
+        }
+    }
+    else if(cmd == 'T') {
+        if(tg->grid == NULL || tg->cols == 0) return;
+        uint16_t n = (vnum > 0) ? values[0] : 1;
+        int32_t s_top = (int32_t)eff_scroll_top + top_row;
+        int32_t s_bottom = (int32_t)eff_scroll_bottom + top_row;
+        uint32_t region_size = s_bottom - s_top + 1;
+        if(n >= region_size) {
+            for(int32_t y = s_top; y <= s_bottom; y++)
+                for(uint16_t x = 0; x < tg->cols; x++) {
+                    textchar_t tch = {0};
+                    tg->grid[y * tg->cols + x] = tch;
+                }
+        } else {
+            for(int32_t y = s_bottom; y >= s_top + (int32_t)n; y--)
+                for(uint16_t x = 0; x < tg->cols; x++)
+                    tg->grid[y * tg->cols + x] = tg->grid[(y - n) * tg->cols + x];
+            for(uint32_t y = s_top; y < s_top + n; y++)
+                for(uint16_t x = 0; x < tg->cols; x++) {
+                    textchar_t tch = {0};
+                    tg->grid[y * tg->cols + x] = tch;
+                }
+        }
+    }
+    else if(cmd == 'r') {
+        uint32_t top = (vnum >= 1 && values[0] > 0) ? values[0] - 1 : 0;
+        uint32_t bottom = (vnum >= 2 && values[1] > 0) ? values[1] - 1 : terminal->rows - 1;
+        if(top < bottom && bottom < terminal->rows) {
+            terminal->scroll_top = top;
+            terminal->scroll_bottom = bottom;
+        } else {
+            terminal->scroll_top = 0;
+            terminal->scroll_bottom = UINT32_MAX;
+        }
+        textgrid_move_to(tg, 0, top_row);
     }
 }
 
@@ -276,19 +457,21 @@ static uint32_t do_esc_cmd(gterminal_t* terminal, UNICODE16* uni, uint32_t from,
 
     uint16_t values[8] = { 0 };
     uint8_t vnum = 0;
+    bool private_mode = false;
     c = uni[from++];
     if(from > size || c == 0)
         return from;
     
     while(true) {
-        if(c == '?') { //TODO hide/flashShow curs
+        if(c == '?') {
+            private_mode = true;
             c = uni[from++];
             if(from > size || c == 0)
                 return from;
             continue;
         }
         else if((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
-            run_esc_cmd(terminal, c, values, vnum);
+            run_esc_cmd(terminal, c, values, vnum, private_mode);
             from--;
             break;
         }
@@ -329,6 +512,8 @@ void gterminal_init(gterminal_t* terminal) {
     terminal->textgrid = textgrid_new();
     terminal->show_curs = true;
     terminal->flash_show = true;
+    terminal->scroll_top = 0;
+    terminal->scroll_bottom = UINT32_MAX;
 }
 
 void gterminal_close(gterminal_t* terminal) {
@@ -378,6 +563,8 @@ static void gterminal_draw_char(graph_t* g,
         fg = bg;
         bg = tmp_c;
     }
+
+    bg = (bg & 0x00ffffff) | (terminal->bg_color & 0xff000000);
 
     if(bg != 0 && bg != terminal->bg_color) 
         graph_fill_rect(g, chx, chy, chw, chh, bg);
@@ -489,6 +676,8 @@ void gterminal_resize(gterminal_t* terminal, uint32_t gw, uint32_t gh) {
     terminal->cols = gw / font_w;
 
     textgrid_reset(terminal->textgrid, terminal->cols);
+    terminal->scroll_top = 0;
+    terminal->scroll_bottom = UINT32_MAX;
     int32_t start_row = (int32_t)terminal->textgrid->rows - (int32_t)terminal->rows;
     terminal->textgrid_start_row = start_row < 0 ? 0:start_row;
 }
