@@ -9,6 +9,7 @@
 #include <tinyjson/tinyjson.h>
 #include <ewoksys/cmain.h>
 #include <ewoksys/basic_math.h>
+#include <ewoksys/klog.h>
 #include <font/font.h>
 #include <ewoksys/proc.h>
 #include <sys/shm.h>

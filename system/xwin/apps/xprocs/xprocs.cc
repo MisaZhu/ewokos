@@ -36,10 +36,7 @@ static const char* _states[] = {
 static const char* get_state(procinfo_t* proc) {
 	static char ret[16];
 	if(proc->state == 4) {
-		if(proc->block_by < 0)
-			strcpy(ret, "blk[kev]");
-		else 
-			snprintf(ret, 13, "blk[%d]", proc->block_by);
+		strcpy(ret, "blk");
 	}
 	else if(proc->state == 3)
 		snprintf(ret, 13, "wat[%d]", proc->wait_for);

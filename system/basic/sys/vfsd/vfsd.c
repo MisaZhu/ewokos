@@ -1091,8 +1091,6 @@ static void do_vfs_wakeup(int32_t pid, proto_t* in) {
 
 static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)p;
-	if(_proc_fds_table[pid].state == UNUSED) //maybe thread 
-		pid = proc_getpid(pid); //get the main proc pid
 	if(pid < 0)
 		return;
 

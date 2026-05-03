@@ -123,14 +123,10 @@ static void sys_fork(context_t* ctx) {
 
 	if(proc->info.state == CREATED && _core_proc_ready) {
 		proc->info.state = BLOCK;
-		proc->info.block_by = _core_proc_pid;
-		proc->block_event = proc->info.pid;
 
 		proc_t* cproc = get_current_proc();
 		cproc->info.state = BLOCK;
-		cproc->block_event = proc->info.pid;
 		cproc->ctx.gpr[0] = proc->info.pid;
-		cproc->info.block_by = _core_proc_pid;
 		schedule(ctx);
 	}
 }

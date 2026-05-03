@@ -115,7 +115,7 @@ typedef struct {
 	x_im_state_t im_state;
 	x_current_t current;
 	x_conf_t config;
-	vdevice_t* vdev;
+	vdevice_t* dev;
 } x_t;
 
 #endif

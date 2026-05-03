@@ -221,7 +221,7 @@ static int vkeyb_loop(vdevice_t* dev, void* p){
 	_rd = rd;
 
 	if(_rd > 0 || _release) {
-		vfs_wakeup(dev->mnt_info.node, VFS_EVT_RW);
+		vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
 	}
 	ipc_enable();
 

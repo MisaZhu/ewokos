@@ -45,6 +45,7 @@ LIB_EWOKSYS_OBJS =  \
 	src/unistd/sleep.o \
 	src/unistd/getcwd.o \
 	src/unistd/getgid.o \
+	src/unistd/gettid.o \
 	src/unistd/setgid.o \
 	src/unistd/setuid.o \
 	src/unistd/chdir.o \

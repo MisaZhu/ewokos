@@ -298,7 +298,7 @@ static void x_push_event(x_t* x, xwin_t* win, xevent_t* e) {
 		return;
 	e->win = win->xinfo->win;
 	xevent_push(win->from_pid, e);
-	proc_wakeup(X_EVT_BLOCK_EVT);
+	vfs_wakeup(x->dev->mnt_info.node, VFS_EVT_RD);
 }
 
 static void hide_win(x_t* x, xwin_t* win) {
@@ -1874,7 +1874,7 @@ int main(int argc, char** argv) {
 	dev.cmd = xserver_dev_cmd;
 	dev.loop_step = xserver_step;
 	dev.extra_data = &x;
-	x.vdev = &dev;
+	x.dev = &dev;
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR | FS_TYPE_ANNOUNIMOUS, 0666);
 	x_close(&x);

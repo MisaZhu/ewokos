@@ -54,7 +54,6 @@ typedef struct st_proc {
 	bool              is_core_idle_proc;
 
 	uint32_t          priority_count;
-	uint32_t          block_event;
 	ipc_res_t         ipc_res;
 
 	int64_t           sleep_counter; //sleep usec

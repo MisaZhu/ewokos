@@ -46,7 +46,6 @@ typedef struct {
 	int32_t  uid; 
 	int32_t  gid; 
 	int32_t  state; 
-	int32_t  block_by;
 	int32_t  wait_for;
 	uint32_t start_sec;
 	uint32_t run_usec;

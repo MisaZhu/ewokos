@@ -291,16 +291,12 @@ static int32_t proc_init_space(proc_t* proc) {
 
 inline void proc_save_state(proc_t* proc, saved_state_t* saved_state, ipc_res_t* saved_ipc_res) {
 	saved_state->state = proc->info.state;
-	saved_state->block_by = proc->info.block_by;
-	saved_state->block_event = proc->block_event;
 	saved_state->sleep_counter = proc->sleep_counter;
 	memcpy(saved_ipc_res, &proc->ipc_res, sizeof(ipc_res_t));
 }
 
 inline void proc_restore_state(context_t* ctx, proc_t* proc, saved_state_t* saved_state, ipc_res_t* saved_ipc_res) {
 	proc->info.state = saved_state->state;
-	proc->info.block_by = saved_state->block_by;
-	proc->block_event = saved_state->block_event;
 	proc->sleep_counter = saved_state->sleep_counter;
 	//memcpy(&proc->ipc_res, saved_ipc_res, sizeof(ipc_res_t));
 	memcpy(ctx, &saved_state->ctx, sizeof(context_t));
@@ -381,7 +377,6 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 	}
 
 	to->info.state = RUNNING;
-	to->info.block_by = -1;
 	if(cproc != to)
 		set_current_proc(to);
 	memcpy(ctx, &to->ctx, sizeof(context_t));
@@ -402,8 +397,6 @@ inline void proc_ready(proc_t* proc) {
 		return;
 
 	proc->info.state = READY;
-	proc->block_event = 0;
-	proc->info.block_by = -1;
 
 	if(proc->priority_count > 0)
 		return;
