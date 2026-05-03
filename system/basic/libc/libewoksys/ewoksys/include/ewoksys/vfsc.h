@@ -7,6 +7,7 @@
 extern "C" {
 #endif
 
+#define VFS_EVT_RW	    0x01
 #define VFS_EVT_RD	    0x02
 #define VFS_EVT_WR	    0x04
 #define VFS_EVT_CLOSE	0x08

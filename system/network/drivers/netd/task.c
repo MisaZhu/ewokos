@@ -264,19 +264,19 @@ int do_network_fcntl(net_task_t *task){
 			data = proto_read(&task->in, &size);
             if(data && size){
 			    ret = sock_send(sock, data, size);
-                klog("task_send: ret = %d\n", ret);
             } 
 			PF->addi(&task->out, ret);
+            //vfs_wakeup(task->node, VFS_EVT_RD);
 			break;
 		case SOCK_RECV:
 			size = proto_read_int(&task->in);
             size = size < TASK_READ_BUF_SIZE ? size:TASK_READ_BUF_SIZE;
             ret = sock_recv(sock, task->read_buf, size);
             PF->addi(&task->out, ret);
-            klog("task_recv: ret = %d\n", ret);
             if(ret > 0){
                 PF->add(&task->out, task->read_buf, ret);
             }
+            //vfs_wakeup(task->node, VFS_EVT_RD);
 			break;
 		case SOCK_LISTEN:
 			size = proto_read_int(&task->in);
@@ -348,10 +348,7 @@ static void* task_thread(void* arg){
     task->state = NET_TASK_IDLE;
     pthread_mutex_unlock(&task_list_lock);
 
-    if(task->from_pid) {
-        //klog("task_thread: from_pid = %d, 0x%x\n", task->from_pid, task->node);
-        //vfs_wakeup(task->node, VFS_EVT_RD);
-    }
+    vfs_wakeup(task->node, VFS_EVT_RW);
 
     while(1){
         pthread_mutex_lock(&task_list_lock);
@@ -374,11 +371,7 @@ static void* task_thread(void* arg){
             int from_pid = task->from_pid;
             pthread_mutex_unlock(&task_list_lock);
 
-            // Wake up waiting client
-            if(from_pid > 0) {
-                //klog("1 task_thread: from_pid = %d, 0x%x\n", task->from_pid, task->node);
-                vfs_wakeup(task->node, VFS_EVT_RD);
-            }
+            vfs_wakeup(task->node, VFS_EVT_RW);
         } else {
             pthread_mutex_unlock(&task_list_lock);
         }

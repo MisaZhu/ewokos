@@ -444,9 +444,11 @@ static void do_node_wakeup(vfs_node_t* node, int event) {
 		return;
 
 	queue_t* qr = NULL, *qw = NULL;
-	if(event == VFS_EVT_RD || event == VFS_EVT_CLOSE || event == VFS_EVT_ERR || event == VFS_EVT_NVAL)
+	if(event == VFS_EVT_RD || event == VFS_EVT_RW ||
+			event == VFS_EVT_CLOSE || event == VFS_EVT_ERR || event == VFS_EVT_NVAL)
 		qr = &node->read_wait_queue;
-	if(event == VFS_EVT_WR || event == VFS_EVT_CLOSE || event == VFS_EVT_ERR || event == VFS_EVT_NVAL)
+	if(event == VFS_EVT_WR || event == VFS_EVT_RW ||
+			event == VFS_EVT_CLOSE || event == VFS_EVT_ERR || event == VFS_EVT_NVAL)
 		qw = &node->write_wait_queue;
 
 	if(qr != NULL) {
