@@ -62,7 +62,6 @@ int dcnt = 0;
 void raise_softirq(uint32_t  sig){
     if(sig < SIGMAX){
         gSignel[sig]++; 
-        //proc_wakeup(NET_BLOCK_EVT);
     }
 }
 

@@ -222,6 +222,9 @@ int do_network_fcntl(net_task_t *task){
 	struct sockaddr addr;
 	int ret = -1;
 	sock = task->sock;
+
+    static uint32_t cnt = 0;
+    klog("%d:sock_network_fcntl sock:%d, node:%p, cmd:%d\n", cnt++, sock, task->node, task->cmd);
 	switch(task->cmd){
 		case SOCK_OPEN:
 			domain = proto_read_int(&task->in);
@@ -338,12 +341,12 @@ int do_network_fcntl(net_task_t *task){
 static void* task_thread(void* arg){
     net_task_t *task = (net_task_t *)arg;
 
-    // Initialize proto_t before any usage
-    PF->init(&task->in);
-    PF->init(&task->out);
-
     pthread_mutex_lock(&task_list_lock);
-    task->state = NET_TASK_IDLE;
+    if(task->state != NET_TASK_START) {
+        PF->init(&task->in);
+        PF->init(&task->out);
+        task->state = NET_TASK_IDLE;
+    }
     pthread_mutex_unlock(&task_list_lock);
 
     vfs_wakeup(task->node, VFS_EVT_RW);
@@ -351,13 +354,11 @@ static void* task_thread(void* arg){
     while(1){
         pthread_mutex_lock(&task_list_lock);
 
-        // Check if we should exit
         if(!task->running) {
             pthread_mutex_unlock(&task_list_lock);
             break;
         }
 
-        // Check state and process
         if(task->state == NET_TASK_START) {
             pthread_mutex_unlock(&task_list_lock);
             task->state = NET_TASK_PROCESS;
@@ -366,19 +367,20 @@ static void* task_thread(void* arg){
 
             pthread_mutex_lock(&task_list_lock);
             task->state = NET_TASK_FINISH;
-            int from_pid = task->from_pid;
             vfs_wakeup(task->node, VFS_EVT_RW);
-
             pthread_mutex_unlock(&task_list_lock);
+        } else if(task->state == NET_TASK_FINISH) {
+            pthread_mutex_unlock(&task_list_lock);
+            vfs_wakeup(task->node, VFS_EVT_RW);
+            usleep(1000);
         } else {
             pthread_mutex_unlock(&task_list_lock);
+            usleep(1000);
         }
     }
 
-    // Clean up in and out
     PF->clear(&task->in);
     PF->clear(&task->out);
 
-    // Don't free here, let main thread do the freeing
     return NULL;
 }
