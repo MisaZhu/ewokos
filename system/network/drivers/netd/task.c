@@ -264,6 +264,7 @@ int do_network_fcntl(net_task_t *task){
 			data = proto_read(&task->in, &size);
             if(data && size){
 			    ret = sock_send(sock, data, size);
+                klog("task_send: ret = %d\n", ret);
             } 
 			PF->addi(&task->out, ret);
 			break;
@@ -272,6 +273,7 @@ int do_network_fcntl(net_task_t *task){
             size = size < TASK_READ_BUF_SIZE ? size:TASK_READ_BUF_SIZE;
             ret = sock_recv(sock, task->read_buf, size);
             PF->addi(&task->out, ret);
+            klog("task_recv: ret = %d\n", ret);
             if(ret > 0){
                 PF->add(&task->out, task->read_buf, ret);
             }
@@ -374,7 +376,7 @@ static void* task_thread(void* arg){
 
             // Wake up waiting client
             if(from_pid > 0) {
-                klog("1 task_thread: from_pid = %d, 0x%x\n", task->from_pid, task->node);
+                //klog("1 task_thread: from_pid = %d, 0x%x\n", task->from_pid, task->node);
                 vfs_wakeup(task->node, VFS_EVT_RD);
             }
         } else {

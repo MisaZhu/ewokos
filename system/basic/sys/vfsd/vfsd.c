@@ -987,7 +987,8 @@ static void vfs_driver_close(int32_t pid, int32_t fd, vfs_node_t* node) {
 	PF->format(&in, "i,i,m,i",
 		fd, (uint32_t)node, &node->fsinfo, sizeof(fsinfo_t), pid);
 	int32_t mount_pid = vfs_get_mount_pid(node);
-	int res = ipc_call(mount_pid, FS_CMD_CLOSE, &in, NULL);	
+	if(mount_pid > 0)
+		ipc_call(mount_pid, FS_CMD_CLOSE, &in, NULL);	
 	PF->clear(&in);
 }
 
