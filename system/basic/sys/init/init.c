@@ -116,7 +116,7 @@ int main(int argc, char** argv) {
 
 	switch_root();
 	while(true) {
-		proc_block_by(getpid(), (ewokos_addr_t)main);
+		usleep(100000);
 	}
 	return 0;
 }

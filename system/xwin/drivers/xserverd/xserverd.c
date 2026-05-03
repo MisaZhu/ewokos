@@ -1874,6 +1874,7 @@ int main(int argc, char** argv) {
 	dev.cmd = xserver_dev_cmd;
 	dev.loop_step = xserver_step;
 	dev.extra_data = &x;
+	x.vdev = &dev;
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR | FS_TYPE_ANNOUNIMOUS, 0666);
 	x_close(&x);

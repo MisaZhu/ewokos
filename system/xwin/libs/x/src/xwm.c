@@ -316,7 +316,7 @@ void xwm_run(xwm_t* xwm) {
 	dev_cntl("/dev/x", X_DCNTL_SET_XWM, NULL, NULL);
 
 	while(true) {
-		proc_block_by(getpid(), (uint32_t)xwm_run);
+		usleep(100000);
 	}
 	
 	if(_xwm_graph.g != NULL) {

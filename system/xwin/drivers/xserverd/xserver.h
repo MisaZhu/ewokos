@@ -10,6 +10,7 @@
 #include <x/xevent.h>
 #include <x/xtheme.h>
 #include <x/xwm.h>
+#include <ewoksys/vdevice.h>
 #include <display/display.h>
 #include "cursor.h"
 #include "xevtpool.h"
@@ -114,6 +115,7 @@ typedef struct {
 	x_im_state_t im_state;
 	x_current_t current;
 	x_conf_t config;
+	vdevice_t* vdev;
 } x_t;
 
 #endif

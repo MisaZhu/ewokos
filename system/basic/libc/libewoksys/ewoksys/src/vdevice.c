@@ -715,8 +715,6 @@ void device_stop(vdevice_t* dev) {
 		return;
 
 	dev->terminated = true;
-	if(dev->loop_step == NULL)
-		proc_wakeup((uint32_t)dev);
 }
 
 int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int mode) {
@@ -747,7 +745,7 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int mode) {
 			dev->loop_step(dev, dev->extra_data);
 		}
 		else {
-			proc_block_by(getpid(), (uint32_t)dev); //block self
+			usleep(100000);
 		}
 	}
 

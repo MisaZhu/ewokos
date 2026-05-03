@@ -239,9 +239,6 @@ extern "C"
 		int ret = ipc_setup(handle_ipc, p, flags);
 		if (ret == 0)
 			ipc_ready();
-
-		if ((flags & IPC_NON_BLOCK) == 0)
-			proc_block_by(getpid(), 0); //block self
 		return ret;
 	}
 

@@ -211,7 +211,7 @@ int main(int argc, char** argv) {
 	ipc_serv_run(handle_ipc, NULL, NULL, 0);
 
 	while(1) {
-		proc_block_by(getpid(), (uint32_t)main);
+		usleep(100000);
 	}
 	return 0;
 }
