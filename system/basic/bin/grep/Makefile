@@ -13,7 +13,7 @@ GREP_OBJS = grep.o
 GREP = $(TARGET_DIR)/bin/grep
 
 $(GREP): $(GREP_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(GREP_OBJS) -o $(GREP) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

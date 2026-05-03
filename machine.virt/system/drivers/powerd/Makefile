@@ -13,7 +13,7 @@ PMU_OBJS = powerd.o
 PMU = $(TARGET_DIR)/drivers/virt/powerd
 
 $(PMU): $(PMU_OBJS) \
-		$(EWOK_LIBC_A)  \
+		$(BUILD_DIR)/lib/libewoksys.a  \
 		$(BUILD_DIR)/lib/libarch_virt.a 
 	$(LD) -Ttext=100 $(PMU_OBJS) -o $(PMU) $(LDFLAGS) $(BSP_LFLAGS) $(EWOK_LIBC)
 

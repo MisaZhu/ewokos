@@ -13,7 +13,7 @@ LS_OBJS = xmodem.o crc16.o
 RX = $(TARGET_DIR)/bin/rx
 
 $(RX): $(LS_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(LS_OBJS) -o $(RX) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

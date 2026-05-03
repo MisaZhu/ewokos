@@ -13,7 +13,7 @@ SHELL_OBJS = shell.o gets.o cmd.o
 SHELL_PROC = $(TARGET_DIR)/bin/shell
 
 $(SHELL_PROC): $(SHELL_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(SHELL_OBJS) -o $(SHELL_PROC) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

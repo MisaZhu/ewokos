@@ -13,7 +13,7 @@ KEYBD_OBJS = keybd.o
 KEYBD = $(TARGET_DIR)/drivers/virt/keybd
 
 $(KEYBD): $(KEYBD_OBJS) \
-		$(EWOK_LIBC_A) \
+		$(BUILD_DIR)/lib/libewoksys.a \
 		$(BUILD_DIR)/lib/libarch_virt.a 
 	$(LD) -Ttext=100 $(KEYBD_OBJS) -o $(KEYBD) $(LDFLAGS) $(BSP_LFLAGS) $(EWOK_LIBC)
 

@@ -13,7 +13,7 @@ SDFSD_OBJS = sdfsd.o
 SDFSD = $(TARGET_DIR)/sbin/sdfsd
 
 $(SDFSD): $(SDFSD_OBJS) \
-		$(EWOK_LIBC_A)  \
+		$(BUILD_DIR)/lib/libewoksys.a  \
 		$(BUILD_DIR)/lib/libsd.a \
 		$(BUILD_DIR)/lib/libbsp.a \
 		$(BUILD_DIR)/lib/libext2.a 

@@ -11,7 +11,7 @@ CLEAR_OBJS = clear.o
 CLEAR = $(TARGET_DIR)/bin/clear
 
 $(CLEAR): $(CLEAR_OBJS) \
-		$(EWOK_LIBC_A)
+		$(BUILD_DIR)/lib/libewoksys.a
 		$(LD) -Ttext=100 $(CLEAR_OBJS) -o $(CLEAR) $(LDFLAGS) $(EWOK_LIBC) 
 
 clean:

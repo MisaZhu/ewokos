@@ -13,7 +13,7 @@ MKDIR_OBJS = mkfifo.o
 MKDIR = $(TARGET_DIR)/bin/mkfifo
 
 $(MKDIR): $(MKDIR_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(MKDIR_OBJS) -o $(MKDIR) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

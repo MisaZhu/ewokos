@@ -16,7 +16,7 @@ GCORES = $(GCORES_DIR)/xcores
 all: $(GCORES_DIR) $(GCORES)
 
 $(GCORES): $(GCORES_OBJS) \
-		$(EWOK_LIBC_A)  \
+		$(BUILD_DIR)/lib/libewoksys.a  \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libfont.a \

@@ -13,7 +13,7 @@ TASK_OBJS = mp3player.o
 TASK = $(TARGET_DIR)/bin/mp3player
 
 $(TASK): $(TASK_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(TASK_OBJS) -o $(TASK) $(LDFLAGS) -lminimp3 $(EWOK_LIBC)
 
 clean:

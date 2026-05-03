@@ -13,7 +13,7 @@ MP3PLAY_OBJS = src/mp3player.o
 MP3PLAY = $(TARGET_DIR)/lib/libminimp3.a
 
 $(MP3PLAY): $(MP3PLAY_OBJS) \
-		$(EWOK_LIBC_A)  
+		$(BUILD_DIR)/lib/libewoksys.a  
 	$(AR) rcs $(MP3PLAY) $(MP3PLAY_OBJS)
 	cp -r include/* $(BUILD_DIR)/include
 

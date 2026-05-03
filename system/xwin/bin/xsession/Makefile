@@ -13,7 +13,7 @@ XSESSION_OBJS = xsession.o
 XSESSION = $(TARGET_DIR)/bin/x/xsession
 
 $(XSESSION): $(XSESSION_OBJS) \
-		$(EWOK_LIBC_A)  \
+		$(BUILD_DIR)/lib/libewoksys.a  \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libfont.a \

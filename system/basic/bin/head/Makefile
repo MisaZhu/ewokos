@@ -13,7 +13,7 @@ head_OBJS = head.o
 head = $(TARGET_DIR)/bin/head
 
 $(head): $(head_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(head_OBJS) -o $(head) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

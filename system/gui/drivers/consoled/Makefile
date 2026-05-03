@@ -13,7 +13,7 @@ CONSOLED_OBJS = consoled.o
 CONSOLED = $(TARGET_DIR)/drivers/consoled
 
 $(CONSOLED): $(CONSOLED_OBJS) \
-		$(EWOK_LIBC_A)  \
+		$(BUILD_DIR)/lib/libewoksys.a  \
 		$(BUILD_DIR)/lib/libfb.a \
 		$(BUILD_DIR)/lib/libtextgrid.a \
 		$(BUILD_DIR)/lib/libgterminal.a \

@@ -13,7 +13,7 @@ DUMP_OBJS = dump.o
 DUMP = $(TARGET_DIR)/bin/dump
 
 $(DUMP): $(DUMP_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(DUMP_OBJS) -o $(DUMP) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

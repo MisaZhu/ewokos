@@ -13,7 +13,7 @@ SESSION_OBJS = session.o
 SESSION = $(TARGET_DIR)/bin/session
 
 $(SESSION): $(SESSION_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(SESSION_OBJS) -o $(SESSION) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

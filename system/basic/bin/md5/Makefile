@@ -13,7 +13,7 @@ MD5_OBJS = md5.o
 MD5 = $(TARGET_DIR)/bin/md5
 
 $(MD5): $(MD5_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(MD5_OBJS) -o $(MD5) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

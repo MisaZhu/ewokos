@@ -16,7 +16,7 @@ XPROCS = $(XPROCS_DIR)/xprocs
 all: $(XPROCS_DIR) $(XPROCS)
 
 $(XPROCS): $(XPROCS_OBJS) \
-		$(EWOK_LIBC_A)  \
+		$(BUILD_DIR)/lib/libewoksys.a  \
 		$(BUILD_DIR)/lib/libewokstl.a \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \

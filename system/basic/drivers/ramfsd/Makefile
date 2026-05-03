@@ -13,7 +13,7 @@ RAMFSD_OBJS = ramfsd.o
 RAMFSD = $(TARGET_DIR)/drivers/ramfsd
 
 $(RAMFSD): $(RAMFSD_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(RAMFSD_OBJS) -o $(RAMFSD) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

@@ -13,7 +13,7 @@ ECHO_OBJS = echo.o
 ECHO = $(TARGET_DIR)/bin/echo
 
 $(ECHO): $(ECHO_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(ECHO_OBJS) -o $(ECHO) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

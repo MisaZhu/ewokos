@@ -24,7 +24,7 @@ NETD_OBJS = netd.o intr.o sched.o tap.o task.o\
 NETD = $(TARGET_DIR)/drivers/netd
 
 $(NETD): $(NETD_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(NETD_OBJS) -o $(NETD) $(LDFLAGS) -ltinyjson $(EWOK_LIBC)
 
 clean:

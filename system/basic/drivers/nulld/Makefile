@@ -13,7 +13,7 @@ NULLD_OBJS = nulld.o
 NULLD = $(TARGET_DIR)/drivers/nulld
 
 $(NULLD): $(NULLD_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(NULLD_OBJS) -o $(NULLD) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

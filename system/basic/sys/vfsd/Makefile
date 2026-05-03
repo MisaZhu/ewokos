@@ -13,7 +13,7 @@ VFSD_OBJS = vfsd.o
 VFSD = $(TARGET_DIR)/sbin/vfsd
 
 $(VFSD): $(VFSD_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(VFSD_OBJS) -o $(VFSD) $(LDFLAGS)  $(EWOK_LIBC) 
 
 clean:

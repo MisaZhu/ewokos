@@ -12,7 +12,7 @@ TEST_OBJS = test.o
 TEST = $(TARGET_DIR)/bin/test
 
 $(TEST): $(TEST_OBJS) \
-		$(EWOK_LIBC_A)
+		$(BUILD_DIR)/lib/libewoksys.a
 		$(LD) -Ttext=100 $(TEST_OBJS) -o $(TEST) $(LDFLAGS) -lsocket $(EWOK_LIBC) 
 
 clean:

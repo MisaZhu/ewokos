@@ -13,7 +13,7 @@ LOGIN_OBJS = login.o
 LOGIN = $(TARGET_DIR)/bin/login
 
 $(LOGIN): $(LOGIN_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(LOGIN_OBJS) -o $(LOGIN) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

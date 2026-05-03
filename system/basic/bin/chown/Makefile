@@ -13,7 +13,7 @@ CHOWN_OBJS = chown.o
 CHOWN = $(TARGET_DIR)/bin/chown
 
 $(CHOWN): $(CHOWN_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(CHOWN_OBJS) -o $(CHOWN) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

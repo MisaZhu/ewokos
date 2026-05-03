@@ -14,7 +14,7 @@ JSON = $(TARGET_DIR)/bin/json
 
 $(JSON): $(JSON_OBJS) \
 		$(BUILD_DIR)/lib/libtinyjson.a  \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(JSON_OBJS) -o $(JSON) $(LDFLAGS) -ltinyjson $(EWOK_LIBC)
 
 clean:

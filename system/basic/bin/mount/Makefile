@@ -13,7 +13,7 @@ MOUNT_OBJS = mount.o
 MOUNT = $(TARGET_DIR)/bin/mount
 
 $(MOUNT): $(MOUNT_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(MOUNT_OBJS) -o $(MOUNT) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

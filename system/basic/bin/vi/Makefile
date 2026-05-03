@@ -13,7 +13,7 @@ VI_OBJS = vi.o
 VI = $(TARGET_DIR)/bin/vi
 
 $(VI): $(VI_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(VI_OBJS) -o $(VI) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

@@ -13,7 +13,7 @@ XWM_OBJS = xwm.o EwokWM.o
 XWM = $(TARGET_DIR)/sbin/x/xwm_ewok
 
 $(XWM): $(XWM_OBJS) \
-		$(EWOK_LIBC_A)  \
+		$(BUILD_DIR)/lib/libewoksys.a  \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libfont.a \

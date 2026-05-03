@@ -16,7 +16,7 @@ XIPCONFIG = $(XIPCONFIG_DIR)/xipconfig
 all: $(XIPCONFIG_DIR) $(XIPCONFIG)
 
 $(XIPCONFIG): $(XIPCONFIG_OBJS) \
-		$(EWOK_LIBC_A)  \
+		$(BUILD_DIR)/lib/libewoksys.a  \
 		$(BUILD_DIR)/lib/libewokstl.a \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \

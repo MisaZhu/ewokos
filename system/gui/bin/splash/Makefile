@@ -13,7 +13,7 @@ SPLASH_OBJS = splash.o
 SPLASH = $(TARGET_DIR)/bin/splash
 
 $(SPLASH): $(SPLASH_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(SPLASH_OBJS) -o $(SPLASH) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

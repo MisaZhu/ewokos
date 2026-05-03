@@ -13,7 +13,7 @@ SPLASHD_OBJS = splashd.o
 SPLASHD = $(TARGET_DIR)/sbin/splashd
 
 $(SPLASHD): $(SPLASHD_OBJS) \
-		$(EWOK_LIBC_A)  \
+		$(BUILD_DIR)/lib/libewoksys.a  \
 		$(BUILD_DIR)/lib/libfb.a \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libfont.a  \

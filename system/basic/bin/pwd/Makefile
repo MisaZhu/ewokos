@@ -13,7 +13,7 @@ PWD_OBJS = pwd.o
 PWD = $(TARGET_DIR)/bin/pwd
 
 $(PWD): $(PWD_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(PWD_OBJS) -o $(PWD) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

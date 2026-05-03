@@ -13,7 +13,7 @@ PS_OBJS = ps.o
 PS = $(TARGET_DIR)/bin/ps
 
 $(PS): $(PS_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(PS_OBJS) -o $(PS) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

@@ -13,7 +13,7 @@ NET_OBJS = net.o
 NET = $(TARGET_DIR)/drivers/virt/net
 
 $(NET): $(NET_OBJS) \
-		$(EWOK_LIBC_A) \
+		$(BUILD_DIR)/lib/libewoksys.a \
 		$(BUILD_DIR)/lib/libarch_virt.a
 	$(LD) -Ttext=100 $(NET_OBJS) -o $(NET) $(LDFLAGS) $(BSP_LFLAGS) $(EWOK_LIBC)
 

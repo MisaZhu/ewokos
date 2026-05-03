@@ -16,7 +16,7 @@ XFONTS = $(XFONTS_DIR)/xfonts
 all: $(XFONTS_DIR) $(XFONTS)
 
 $(XFONTS): $(XFONTS_OBJS) \
-		$(EWOK_LIBC_A)  \
+		$(BUILD_DIR)/lib/libewoksys.a  \
 		$(BUILD_DIR)/lib/libewokstl.a \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \

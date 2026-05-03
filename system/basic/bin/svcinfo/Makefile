@@ -13,7 +13,7 @@ SVCINFO_OBJS = svcinfo.o
 SVCINFO = $(TARGET_DIR)/bin/svcinfo
 
 $(SVCINFO): $(SVCINFO_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(SVCINFO_OBJS) -o $(SVCINFO) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

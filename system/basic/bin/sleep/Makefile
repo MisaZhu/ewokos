@@ -13,7 +13,7 @@ SLEEP_OBJS = sleep.o
 SLEEP = $(TARGET_DIR)/bin/sleep
 
 $(SLEEP): $(SLEEP_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(SLEEP_OBJS) -o $(SLEEP) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

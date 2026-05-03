@@ -13,7 +13,7 @@ MOUSED_OBJS = moused.o
 MOUSED = $(TARGET_DIR)/drivers/virt/moused
 
 $(MOUSED): $(MOUSED_OBJS) \
-		$(EWOK_LIBC_A) \
+		$(BUILD_DIR)/lib/libewoksys.a \
 		$(BUILD_DIR)/lib/libarch_virt.a 
 	$(LD) -Ttext=100 $(MOUSED_OBJS) -o $(MOUSED) $(LDFLAGS) $(BSP_LFLAGS) $(EWOK_LIBC)
 

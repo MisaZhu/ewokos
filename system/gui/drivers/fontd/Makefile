@@ -13,7 +13,7 @@ FONTD_OBJS = fontd.o
 FONTD = $(TARGET_DIR)/drivers/fontd
 
 $(FONTD): $(FONTD_OBJS) \
-		$(EWOK_LIBC_A)  \
+		$(BUILD_DIR)/lib/libewoksys.a  \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libfreetype.a \
 		$(BUILD_DIR)/lib/libtinyjson.a

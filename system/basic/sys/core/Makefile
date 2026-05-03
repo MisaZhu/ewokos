@@ -13,7 +13,7 @@ CORE_OBJS = core.o
 CORE = $(TARGET_DIR)/sbin/core
 
 $(CORE): $(CORE_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(CORE_OBJS) -o $(CORE) $(LDFLAGS)  $(EWOK_LIBC) 
 
 clean:

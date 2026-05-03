@@ -13,7 +13,7 @@ UNAME_OBJS = uname.o
 UNAME = $(TARGET_DIR)/bin/uname
 
 $(UNAME): $(UNAME_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(UNAME_OBJS) -o $(UNAME) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

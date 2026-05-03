@@ -14,7 +14,7 @@ VJOYSTICKD_OBJS = vjoystickd.o
 VJOYSTICKD = $(TARGET_DIR)/drivers/vjoystickd
 
 $(VJOYSTICKD): $(VJOYSTICKD_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(VJOYSTICKD_OBJS) -o $(VJOYSTICKD) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

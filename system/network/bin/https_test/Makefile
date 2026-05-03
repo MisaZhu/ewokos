@@ -12,7 +12,7 @@ TASK_OBJS = https_test.o
 TASK = $(TARGET_DIR)/bin/https_test
 
 $(TASK): $(TASK_OBJS) \
-		$(EWOK_LIBC_A)
+		$(BUILD_DIR)/lib/libewoksys.a
 		$(LD) -Ttext=100 $(TASK_OBJS) -o $(TASK) $(LDFLAGS) -ltinyhttpsc -lsocket $(EWOK_LIBC) 
 
 clean:

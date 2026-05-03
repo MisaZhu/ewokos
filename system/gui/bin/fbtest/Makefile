@@ -14,7 +14,7 @@ TASK_OBJS = fbtest.o
 TASK = $(TARGET_DIR)/bin/fbtest
 
 $(TASK): $(TASK_OBJS) \
-		$(EWOK_LIBC_A)  \
+		$(BUILD_DIR)/lib/libewoksys.a  \
 		$(BUILD_DIR)/lib/libfb.a \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libfont.a  \

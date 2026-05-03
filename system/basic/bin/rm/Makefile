@@ -13,7 +13,7 @@ RM_OBJS = rm.o
 RM = $(TARGET_DIR)/bin/rm
 
 $(RM): $(RM_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(RM_OBJS) -o $(RM) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

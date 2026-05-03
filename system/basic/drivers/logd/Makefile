@@ -13,7 +13,7 @@ TASK_OBJS = logd.o
 TASK = $(TARGET_DIR)/drivers/logd
 
 $(TASK): $(TASK_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(TASK_OBJS) -o $(TASK) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

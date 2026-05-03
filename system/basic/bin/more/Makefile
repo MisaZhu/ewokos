@@ -13,7 +13,7 @@ more_OBJS = more.o
 more = $(TARGET_DIR)/bin/more
 
 $(more): $(more_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(more_OBJS) -o $(more) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

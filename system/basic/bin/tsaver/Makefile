@@ -12,7 +12,7 @@ TSAVER_OBJS = tsaver.o
 TSAVER = $(TARGET_DIR)/bin/tsaver
 
 $(TSAVER): $(TSAVER_OBJS) \
-		$(EWOK_LIBC_A)
+		$(BUILD_DIR)/lib/libewoksys.a
 		$(LD) -Ttext=100 $(TSAVER_OBJS) -o $(TSAVER) $(LDFLAGS) $(EWOK_LIBC) 
 
 clean:

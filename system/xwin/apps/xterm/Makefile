@@ -16,7 +16,7 @@ XTERM = $(XTERM_DIR)/xterm
 all: $(XTERM_DIR) $(XTERM)
 
 $(XTERM): $(XTERM_OBJS) \
-		$(EWOK_LIBC_A)  \
+		$(BUILD_DIR)/lib/libewoksys.a  \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libtextgrid.a \

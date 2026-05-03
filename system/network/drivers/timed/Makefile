@@ -13,7 +13,7 @@ TASK_OBJS = timed.o
 TASK = $(TARGET_DIR)/drivers/timed
 
 $(TASK): $(TASK_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(TASK_OBJS) -o $(TASK) $(LDFLAGS) -lntpc -lsocket $(EWOK_LIBC)
 
 clean:

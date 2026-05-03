@@ -14,7 +14,7 @@ TELNETD = $(TARGET_DIR)/sbin/telnetd
 
 $(TELNETD): $(TELNETD_OBJS) \
 		$(BUILD_DIR)/lib/libsocket.a \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(TELNETD_OBJS) -o $(TELNETD) $(LDFLAGS)    -lsocket  $(EWOK_LIBC)
 
 clean:

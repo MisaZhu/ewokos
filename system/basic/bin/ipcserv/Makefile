@@ -13,7 +13,7 @@ RUNDEV_OBJS = ipcserv.o
 RUNDEV = $(TARGET_DIR)/bin/ipcserv
 
 $(RUNDEV): $(RUNDEV_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(RUNDEV_OBJS) -o $(RUNDEV) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

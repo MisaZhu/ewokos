@@ -17,7 +17,7 @@ XSERVERD_OBJS = xserverd.o \
 XSERVERD = $(TARGET_DIR)/drivers/xserverd
 
 $(XSERVERD): $(XSERVERD_OBJS) \
-		$(EWOK_LIBC_A)  \
+		$(BUILD_DIR)/lib/libewoksys.a  \
 		$(BUILD_DIR)/lib/libfb.a  \
 		$(BUILD_DIR)/lib/libgraph.a  \
 		$(BUILD_DIR)/lib/libtinyjson.a  \

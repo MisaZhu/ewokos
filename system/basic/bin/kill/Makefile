@@ -13,7 +13,7 @@ KILL_OBJS = kill.o
 KILL = $(TARGET_DIR)/bin/kill
 
 $(KILL): $(KILL_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(KILL_OBJS) -o $(KILL) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

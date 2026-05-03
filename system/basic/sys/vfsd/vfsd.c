@@ -439,6 +439,33 @@ static vfs_node_t* vfs_get_by_fd(int32_t pid, int32_t fd) {
 	return file->node;
 }
 
+static void do_node_wakeup(vfs_node_t* node, int event) {
+	if(node == NULL)
+		return;
+
+	queue_t* qr = NULL, *qw = NULL;
+	if(event == VFS_EVT_RD || event == VFS_EVT_CLOSE || event == VFS_EVT_ERR || event == VFS_EVT_NVAL)
+		qr = &node->read_wait_queue;
+	if(event == VFS_EVT_WR || event == VFS_EVT_CLOSE || event == VFS_EVT_ERR || event == VFS_EVT_NVAL)
+		qw = &node->write_wait_queue;
+
+	if(qr != NULL) {
+		int32_t* p = (int32_t*)queue_pop(qr);
+		if(p != NULL) {
+			proc_wakeup(*p);
+			free(p);
+		}
+	}
+
+	if(qw != NULL) {
+		int32_t* p = (int32_t*)queue_pop(qw);
+		if(p != NULL) {
+			proc_wakeup(*p);
+			free(p);
+		}
+	}
+}
+
 static void proc_file_close(int pid, int fd, file_t* file) {
 	(void)pid;
 	(void)fd;
@@ -467,14 +494,14 @@ static void proc_file_close(int pid, int fd, file_t* file) {
 				node->fsinfo.state = 0;
 			}
 		}
-		proc_wakeup(node_id);
+		do_node_wakeup(node, VFS_EVT_CLOSE);
 	}
 	else if((node->fsinfo.type & FS_TYPE_ANNOUNIMOUS) != 0) {
 		if(node->refs <= 0) {
 			del_node = true;
 			file->node = 0;
 		}
-		proc_wakeup(node_id);
+		do_node_wakeup(node, VFS_EVT_CLOSE);
 	}
 
 	if(del_node)
@@ -890,13 +917,13 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 
 	//if(size < 0 || data == NULL || node == NULL || node->refs < 2) { //closed by other peer
 	if(size < 0 || data == NULL || node == NULL) { //closed by other peer
-		proc_wakeup(node_id); //wakeup reader
+		do_node_wakeup(node, VFS_EVT_RD); //wakeup reader
 		return;
 	}
 
 	buffer_t* buffer = (buffer_t*)node->fsinfo.data;
 	if(buffer == NULL) { //pipe buffer not ready 
-		proc_wakeup(node_id); //wakeup reader
+		do_node_wakeup(node, VFS_EVT_WR);; //wakeup reader
 		return;
 	}
 
@@ -904,7 +931,7 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 	if(size > 0) {
 		node->fsinfo.state |= FS_STATE_CHANGED;
 		PF->clear(out)->addi(out, size);
-		proc_wakeup(node_id); //wakeup reader
+		do_node_wakeup(node, VFS_EVT_RD); //wakeup reader
 		return;
 	}
 
@@ -928,7 +955,7 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 
 	buffer_t* buffer = (buffer_t*)node->fsinfo.data;
 	if(buffer == NULL) { //buffer not ready 
-		proc_wakeup(node_id); //wakeup writer.
+		do_node_wakeup(node, VFS_EVT_WR); //wakeup writer.
 		return;
 	}
 
@@ -936,8 +963,8 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 					(buffer->size == 0 &&
 					(node->refs_w == 0 || node->refs < 2) && 
 					(node->fsinfo.state & FS_STATE_CHANGED) != 0 )) { // close by other peer
-		proc_wakeup(node_id); //wakeup writer.
-   	return;
+		do_node_wakeup(node, VFS_EVT_WR); //wakeup writer.
+   		return;
 	}
 
 	if(buffer->size > 0 && size > 0) {
@@ -946,7 +973,7 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 		if(size > 0) {
 			PF->clear(out)->addi(out, size)->add(out, data, size);
 			free(data);
-			proc_wakeup(node_id); //wakeup writer.
+			do_node_wakeup(node, VFS_EVT_WR); //wakeup writer.
 			return;
 		}
 		free(data);
@@ -1052,36 +1079,13 @@ static void do_vfs_block(int32_t pid, proto_t* in) {
 }
 
 static void do_vfs_wakeup(int32_t pid, proto_t* in) {
-	klog("wakeup pid %d\n", pid);
-
 	(void)pid;
 	int node_id = proto_read_int(in);
 	int event = proto_read_int(in);
 	if(node_id == 0)
 		return;
     vfs_node_t* node = vfs_get_node_by_id(node_id);
-	if(node == NULL)
-		return;
-	klog("wakeup node %d\n", node_id);
-
-	queue_t* q = NULL;
-	if(event == VFS_EVT_RD)
-		q = &node->read_wait_queue;
-	else if(event == VFS_EVT_WR)
-		q = &node->write_wait_queue;
-
-	klog("1 wakeup pid %x\n", q);
-
-	if(q == NULL)
-		return;
-
-	int32_t* p = (int32_t*)queue_pop(q);
-	klog("2 wakeup pid %x\n", p);
-	if(p != NULL) {
-		klog("3 wakeup pid %d\n", *p);
-		proc_wakeup(*p);
-		free(p);
-	}
+	do_node_wakeup(node, event);
 }
 
 static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {

@@ -13,7 +13,7 @@ IPCONFIG_OBJS = ipconfig.o
 IPCONFIG = $(TARGET_DIR)/bin/ipconfig
 
 $(IPCONFIG): $(IPCONFIG_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(IPCONFIG_OBJS) -o $(IPCONFIG) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

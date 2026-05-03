@@ -13,7 +13,7 @@ CHMOD_OBJS = chmod.o
 CHMOD = $(TARGET_DIR)/bin/chmod
 
 $(CHMOD): $(CHMOD_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(CHMOD_OBJS) -o $(CHMOD) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

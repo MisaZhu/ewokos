@@ -13,7 +13,7 @@ CAT_OBJS = wavplayer.o utils.o pcm.o
 CAT = $(TARGET_DIR)/bin/wavplayer
 
 $(CAT): $(CAT_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(CAT_OBJS) -o $(CAT) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

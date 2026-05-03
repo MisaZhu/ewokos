@@ -13,7 +13,7 @@ STL_TEST_OBJS = stltest.o
 STL_TEST = $(TARGET_DIR)/bin/stltest
 
 $(STL_TEST): $(STL_TEST_OBJS) \
-		$(EWOK_LIBC_A)  \
+		$(BUILD_DIR)/lib/libewoksys.a  \
 		$(BUILD_DIR)/lib/libcxx.a \
 		$(BUILD_DIR)/lib/libewokstl.a 
 	$(LD) -Ttext=100 $(STL_TEST_OBJS) -o $(STL_TEST) $(LDFLAGS) -lewokstl $(EWOK_LIBC)

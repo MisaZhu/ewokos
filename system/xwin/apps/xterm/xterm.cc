@@ -44,6 +44,7 @@ extern "C" {
 using namespace Ewok;
 
 static charbuf_t *_buffer;
+static vdevice_t* _dev = NULL;
 
 class TermWidget : public ConsoleWidget {
 	pthread_mutex_t term_lock;
@@ -116,7 +117,7 @@ public:
 protected:
 	void input(int32_t c) {
 		charbuf_push(_buffer, c, false);
-		vfs_wakeup(-1, VFS_EVT_RW);
+		vfs_wakeup(_dev->mnt_info.node, VFS_EVT_RD);
 	}
 
 	bool onMouse(xevent_t* ev) {
@@ -219,7 +220,6 @@ public:
 };
 
 static TermWidget* _consoleWidget = NULL;
-static vdevice_t* _dev = NULL;
 
 static void onFontFunc(MenuItem* it, void* p) {
 	TermWin* win = (TermWin*)p;
@@ -303,8 +303,8 @@ static void* thread_loop(void* p) {
 
 	widgetXRun(&x, &win);
 	_consoleWidget = NULL;
+	vfs_wakeup(_dev->mnt_info.node, VFS_EVT_RD);
 	device_stop(_dev);
-	vfs_wakeup(-1, VFS_EVT_RW);
 	return NULL;
 }
 
@@ -393,7 +393,6 @@ int run(const char* mnt_point) {
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0600);
 	charbuf_free(_buffer);
-	vfs_wakeup(-1, VFS_EVT_RW);
 	exit(0);
 	return 0;
 }

@@ -14,7 +14,7 @@ TASK_OBJS = vkeybd.o
 TASK = $(TARGET_DIR)/drivers/vkeybd
 
 $(TASK): $(TASK_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(TASK_OBJS) -o $(TASK) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

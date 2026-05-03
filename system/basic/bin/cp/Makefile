@@ -13,7 +13,7 @@ cp_OBJS = cp.o
 cp = $(TARGET_DIR)/bin/cp
 
 $(cp): $(cp_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(cp_OBJS) -o $(cp) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

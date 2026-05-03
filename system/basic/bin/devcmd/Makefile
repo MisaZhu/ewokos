@@ -13,7 +13,7 @@ DEVCMD_OBJS = devcmd.o
 DEVCMD = $(TARGET_DIR)/bin/devcmd
 
 $(DEVCMD): $(DEVCMD_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(DEVCMD_OBJS) -o $(DEVCMD) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

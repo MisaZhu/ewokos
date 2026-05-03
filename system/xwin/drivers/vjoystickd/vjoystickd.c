@@ -233,13 +233,14 @@ static int vjoy_loop(vdevice_t* dev, void* p){
 			_j_speed_up = 0;
 
 		if(rd > 0)
-			vfs_wakeup(-1, VFS_EVT_RW);
+			vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
 		_rd = 0;
 	}
 	else {
 		_rd = rd;
 		if(_rd > 0 || _release) {
-			vfs_wakeup(-1, VFS_EVT_RW);
+			vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
+		_rd = 0;
 		}
 	}
 	ipc_enable();

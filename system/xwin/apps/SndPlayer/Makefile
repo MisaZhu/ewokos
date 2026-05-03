@@ -16,7 +16,7 @@ SND_PLAYER = $(SND_PLAYER_DIR)/SndPlayer
 all: $(SND_PLAYER_DIR) $(SND_PLAYER)
 
 $(SND_PLAYER): $(SND_PLAYER_OBJS) \
-		$(EWOK_LIBC_A)  \
+		$(BUILD_DIR)/lib/libewoksys.a  \
 		$(BUILD_DIR)/lib/libx++.a \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libwidget++.a \

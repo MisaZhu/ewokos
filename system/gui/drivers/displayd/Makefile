@@ -13,7 +13,7 @@ DISPLAYD_OBJS = displayd.o
 DISPLAYD = $(TARGET_DIR)/drivers/displayd
 
 $(DISPLAYD): $(DISPLAYD_OBJS) \
-		$(EWOK_LIBC_A)  
+		$(BUILD_DIR)/lib/libewoksys.a  
 	$(LD) -Ttext=100 $(DISPLAYD_OBJS) -o $(DISPLAYD) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

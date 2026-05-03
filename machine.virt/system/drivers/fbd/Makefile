@@ -13,7 +13,7 @@ FBD_OBJS = fbd.o
 FBD = $(TARGET_DIR)/drivers/virt/fbd
 
 $(FBD): $(FBD_OBJS) \
-		$(EWOK_LIBC_A)  \
+		$(BUILD_DIR)/lib/libewoksys.a  \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libpng.a \
 		$(BUILD_DIR)/lib/libtinyjson.a \

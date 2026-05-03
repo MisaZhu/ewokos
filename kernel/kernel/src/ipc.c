@@ -126,8 +126,10 @@ int32_t proc_ipc_wait(context_t* ctx, struct st_proc* serv_proc, proc_t* proc) {
 	if(item == NULL)
 		return -1;
 
+	
 	item->pid = proc->info.pid;
 	item->uuid = proc->info.uuid;
+	//printf("ipc ipc_wait %d %d\n", item->pid, item->uuid);
 	queue_push(&serv_proc->space->ipc_server.wait_queue, item);
 	proc_block(ctx, proc);
 	return 0;
@@ -140,9 +142,13 @@ proc_t* proc_ipc_wakeup(struct st_proc* serv_proc) {
 	ipc_queue_item_t* item = (ipc_queue_item_t*)queue_pop(&serv_proc->space->ipc_server.wait_queue);
 	if(item == NULL)
 		return NULL;
+	//printf("ipc ipc_wakeup %d %d\n", item->pid, item->uuid);
 	proc_t* proc = proc_get(item->pid);
-	if(proc == NULL || proc->info.uuid != item->uuid)
+	if(proc == NULL || proc->info.uuid != item->uuid) {
+		kfree(item);
 		return NULL;
+	}
+	kfree(item);
 	proc_wakeup(proc);
 	return proc;
 }

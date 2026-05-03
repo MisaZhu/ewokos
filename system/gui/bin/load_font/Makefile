@@ -13,7 +13,7 @@ LOAD_FONT_OBJS = load_font.o
 LOAD_FONT = $(TARGET_DIR)/bin/load_font
 
 
-$(LOAD_FONT): $(LOAD_FONT_OBJS) $(EWOK_LIBC_A)
+$(LOAD_FONT): $(LOAD_FONT_OBJS) $(BUILD_DIR)/lib/libewoksys.a
 	$(LD) -Ttext=100 $(LOAD_FONT_OBJS) -o $(LOAD_FONT) $(LDFLAGS) -ltinyjson $(EWOK_LIB_GRAPH) $(BSP_LFLAGS) $(EWOK_LIBC)
 
 clean:

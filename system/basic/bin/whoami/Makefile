@@ -13,7 +13,7 @@ WHOAMI_OBJS = whoami.o
 WHOAMI = $(TARGET_DIR)/bin/whoami
 
 $(WHOAMI): $(WHOAMI_OBJS) \
-		$(EWOK_LIBC_A) 
+		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(WHOAMI_OBJS) -o $(WHOAMI) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
