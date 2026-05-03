@@ -708,3 +708,13 @@ int access(const char *path, int mode){
 }
 
 #endif
+
+void __sync_synchronize(void) {
+#ifdef __aarch64__
+    __asm__ __volatile__("isb" ::: "memory");
+#elif defined(__arm__) && (__ARM_ARCH > 6)
+    __asm__ __volatile__("isb" ::: "memory");
+#else
+    __asm__ __volatile__("" ::: "memory");
+#endif
+}

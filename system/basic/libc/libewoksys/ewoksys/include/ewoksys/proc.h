@@ -19,7 +19,7 @@ int      proc_info(int pid, procinfo_t* info);
 void     proc_detach(void);
 
 void     proc_block(void);
-void     proc_wakeup(int pid);
+void     proc_wakeup(int32_t pid);
 void     proc_init(void);
 int      proc_fork(void);
 void     proc_exit(void);

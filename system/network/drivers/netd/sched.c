@@ -10,7 +10,13 @@
 
 #define SCHED_POLL_INTERVAL_US 1000 /* 1ms */
 
-#define memory_barrier() __sync_synchronize()
+#ifdef __aarch64__
+    #define memory_barrier() __asm__ __volatile__("isb" ::: "memory")
+#elif defined(__arm__) && (__ARM_ARCH > 6)
+    #define memory_barrier() __asm__ __volatile__("isb" ::: "memory")
+#else
+    #define memory_barrier() __asm__ __volatile__("" ::: "memory")
+#endif
 
 int
 sched_ctx_init(struct sched_ctx *ctx)
