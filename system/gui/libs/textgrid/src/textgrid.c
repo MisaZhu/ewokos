@@ -278,8 +278,6 @@ int textgrid_paint(graph_t* g,
 		for(int j=0; j<textgrid->cols; j++) {
 			uint32_t at = i*textgrid->cols + j;
 			textchar_t* ch = &textgrid->grid[at];
-			if(ch->c <= 27)
-				continue;
 			int cx = x + (j*chw);
 			draw_char_func(g, ch, cx, cy, chw, chh, draw_arg);
 		}

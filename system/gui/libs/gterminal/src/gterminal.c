@@ -202,6 +202,10 @@ static void run_esc_cmd(gterminal_t* terminal, UNICODE16 cmd, uint16_t* values, 
     }
     else if(cmd == 'J') {
         textchar_t tch = {0};
+        if(terminal->term_conf.set) {
+            tch.bg_color = terminal->term_conf.bg_color;
+        }
+        
         if(vnum == 0 || values[0] == 0) {
             for(uint16_t x = tg->curs_x; x < tg->cols; x++)
                 textgrid_put(tg, x, tg->curs_y, &tch);
@@ -220,9 +224,11 @@ static void run_esc_cmd(gterminal_t* terminal, UNICODE16 cmd, uint16_t* values, 
             for(int32_t y = top_row; y <= bottom_row && y < (int32_t)tg->rows; y++)
                 for(uint16_t x = 0; x < tg->cols; x++)
                     textgrid_put(tg, x, y, &tch);
+            textgrid_move_to(tg, 0, top_row);
         }
         else if(values[0] == 3) {
             textgrid_clear(tg);
+            textgrid_move_to(tg, 0, top_row);
         }
     }
     else if(cmd == 'K') {
@@ -553,6 +559,7 @@ static void gterminal_draw_char(graph_t* g,
         void*p) {
     gterminal_t* terminal = (gterminal_t*)p;
     uint32_t fg = tch->color, bg = tch->bg_color;
+
     if(fg == 0)
         fg = terminal->fg_color;
     if(bg == 0)
@@ -564,12 +571,12 @@ static void gterminal_draw_char(graph_t* g,
         bg = tmp_c;
     }
 
-    bg = (bg & 0x00ffffff) | (terminal->bg_color & 0xff000000);
+    bg = (bg & 0x00ffffff) | (terminal->transparent  << 24);
 
     if(bg != 0 && bg != terminal->bg_color) 
         graph_fill_rect(g, chx, chy, chw, chh, bg);
     
-    if((tch->state & TERM_STATE_HIDE) == 0) {
+    if((tch->state & TERM_STATE_HIDE) == 0 && tch->c >= 27) {
         if((tch->state & TERM_STATE_FLASH) != 0 && !terminal->flash_show) {
             // Flash mode: hide character when flash_show is false
         } else {
