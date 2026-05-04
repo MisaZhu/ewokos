@@ -121,7 +121,7 @@ static int textgrid_expand(textgrid_t* grid, uint32_t rows) {
 	for(int r=grid->rows; r<grid->total_rows; r++) {
 		for(int c=0; c<grid->cols; c++) {
 			uint32_t at = (r * grid->cols) + c;
-			grid->grid[at].c = 0;
+			memset(&grid->grid[at], 0, sizeof(textchar_t));
 		}
 	}
 	return 0;
@@ -163,8 +163,7 @@ int textgrid_push(textgrid_t* grid, textchar_t* tch) {
 	if(grid->grid != NULL && grid->rows > 0) {
 		uint32_t at = (grid->curs_y)*grid->cols + (grid->curs_x > 0 ? grid->curs_x-1 : grid->curs_x);
 		if(tch->c == KEY_BACKSPACE || tch->c == CONSOLE_LEFT) {
-			grid->grid[at].c = 0;
-
+			memset(&grid->grid[at], 0, sizeof(textchar_t));
 			if(grid->curs_x == 0) {
 				if(grid->curs_y > 0)
 					grid->curs_y--;
@@ -186,7 +185,7 @@ int textgrid_push(textgrid_t* grid, textchar_t* tch) {
 			//int col_index = grid->curs_x;
 			while(col_index < grid->cols) {
 				at = (grid->curs_y)*grid->cols + col_index;
-				grid->grid[at].c = 0;
+				memset(&grid->grid[at], 0, sizeof(textchar_t));
 				col_index++;
 			}
 			grid->curs_x = grid->cols-1;
