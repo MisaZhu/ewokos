@@ -989,12 +989,19 @@ static void vfs_driver_close(int32_t pid, int32_t fd, vfs_node_t* node) {
 	PF->format(&in, "i,i,m,i",
 		fd, (uint32_t)node, &node->fsinfo, sizeof(fsinfo_t), pid);
 	int32_t mount_pid = vfs_get_mount_pid(node);
-	if(mount_pid > 0)
+	if(mount_pid > 0) {
 		ipc_call(mount_pid, FS_CMD_CLOSE, &in, NULL);	
+	}
 	PF->clear(&in);
 }
 
 static void vfs_proc_exit(int32_t cpid) {
+	if(cpid < 0 || cpid >= _max_proc_table_num)
+		return;
+	_proc_fds_table[cpid].state = ZOMBIE;
+}
+
+static void clear_zombie(cpid) {
 	if(cpid < 0)
 		return;
 	int32_t i;
@@ -1010,15 +1017,28 @@ static void vfs_proc_exit(int32_t cpid) {
 	_proc_fds_table[cpid].uuid = 0;
 }
 
+static void clear_zombies(void) {
+	int32_t i;
+	for(i = 0; i<_max_proc_table_num; i++) {
+		if(_proc_fds_table[i].state == ZOMBIE) {
+			clear_zombie(i);
+		}
+	}
+}
+
 static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 	(void)pid;
 	int fpid = proto_read_int(in);
 	int cpid = proto_read_int(in);
-	if(fpid < 0 || cpid < 0)
+	if(fpid < 0 || fpid >= _max_proc_table_num ||
+			cpid < 0 || cpid >= _max_proc_table_num)
 		return;
 
 	if(_proc_fds_table[cpid].state == RUNNING)
 		vfs_proc_exit(cpid);
+	else if(_proc_fds_table[cpid].state == ZOMBIE)
+		clear_zombie(cpid);
+
 	_proc_fds_table[cpid].state = RUNNING;
 	_proc_fds_table[cpid].uuid = proc_get_uuid(cpid);
 	
@@ -1177,7 +1197,8 @@ int main(int argc, char** argv) {
 	ipc_serv_run(handle, NULL, NULL, IPC_DEFAULT);
 
 	while(true) {
-		usleep(100000);
+		usleep(10000);
+		clear_zombies();
 	}
 
 	free(_proc_fds_table);
