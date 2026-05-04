@@ -149,6 +149,11 @@ void mouse_interrupt_handle(struct virtio_device *virt_dev, struct virtio_input_
 	}
 	else if (event->type == EV_SYN)
 	{
+		if (mouse_data_write - mouse_data_read >= CACHE_SIZE)
+		{
+			//klog("moused: buffer overflow, dropping event\n");
+			mouse_data_read++;
+		}
 		mouse_data_write++;
 		if(!mouse_data[mouse_data_write % CACHE_SIZE].state)
 			 mouse_data[mouse_data_write % CACHE_SIZE].state = MOUSE_STATE_MOVE;

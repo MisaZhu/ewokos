@@ -7,7 +7,7 @@
 #include <sys/time.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <sys/errno.h>
+#include <errno.h>
 #include <sys/fcntl.h>
 
 #define BUFFER_SIZE 1024
@@ -15,54 +15,103 @@
 bool _ended = false;
 int sockfd = -1;
 
-static int handle_cmd(uint8_t *cmd) {
-    if(cmd[0] == 0xfb) {
-        if(cmd[1] == 0x00) {
-            return 0;
-        }
-    }
-    return 1;
+/* Handle a complete IAC command (2 bytes after IAC) */
+static void handle_iac_cmd(uint8_t verb, uint8_t opt) {
+    /*
+     * Telnet verbs:
+     *   251 (0xfb) = WILL
+     *   252 (0xfc) = WONT
+     *   253 (0xfd) = DO
+     *   254 (0xfe) = DONT
+     *   250 (0xfa) = SB (subnegotiation begin)
+     *   240 (0xf0) = SE (subnegotiation end)
+     *   255 (0xff) = IAC (data byte 0xff)
+     *
+     * We silently ignore most options. For a full telnet client,
+     * we would negotiate terminal type, window size, echo, etc.
+     */
+    (void)verb;
+    (void)opt;
 }
 
-static void receive_cmd(void) {
-    char buffer[BUFFER_SIZE];
-    int n;
-    while (!_ended) {
-        uint8_t c;
-        if(read(sockfd, &c, 1) <= 0) {
-            _ended = true;
-            break;
-        }
-        if(c != 0xff) {
-            write(STDOUT_FILENO, c, 1);
-            break;
-        }
+/*
+ * Process a single byte from the telnet stream.
+ * Returns 0 if the byte should be passed to stdout, -1 otherwise.
+ */
+static int process_iac_byte(uint8_t c) {
+    static enum { STATE_DATA, STATE_IAC, STATE_CMD } _iac_state = STATE_DATA;
+    static uint8_t _iac_verb = 0;
 
-        uint8_t cmd[2];
-        if(read(sockfd, cmd, 2) != 2) {
-            _ended = true;
-            break;
-        }
-        int res = handle_cmd(cmd);
-        if(res == 0)
-            break;
-        else if(res < 0) {
-            _ended = true;
-            break;
-        }
+    switch(_iac_state) {
+        case STATE_DATA:
+            if(c == 0xff) {
+                _iac_state = STATE_IAC;
+                return -1;
+            }
+            return 0;
+
+        case STATE_IAC:
+            if(c == 0xff) {
+                /* IAC IAC = literal 0xff byte */
+                _iac_state = STATE_DATA;
+                return 0;
+            }
+            if(c == 0xfa) {
+                /* SB - subnegotiation begin */
+                _iac_state = STATE_CMD;
+                _iac_verb = c;
+                return -1;
+            }
+            if(c == 0xf0) {
+                /* SE - subnegotiation end (should not happen without SB) */
+                _iac_state = STATE_DATA;
+                return -1;
+            }
+            /* DO/DONT/WILL/WONT - expect one option byte */
+            _iac_verb = c;
+            _iac_state = STATE_CMD;
+            return -1;
+
+        case STATE_CMD:
+            if(_iac_verb == 0xfa) {
+                /* In subnegotiation, collect bytes until SE */
+                if(c == 0xf0) {
+                    /* End of subnegotiation */
+                    _iac_state = STATE_DATA;
+                    return -1;
+                }
+                if(c == 0xff) {
+                    /* IAC inside SB - next byte should be SE or IAC */
+                    _iac_verb = 0xff;
+                    return -1;
+                }
+                return -1;
+            }
+            /* DO/DONT/WILL/WONT - c is the option byte */
+            handle_iac_cmd(_iac_verb, c);
+            _iac_state = STATE_DATA;
+            return -1;
+
+        default:
+            _iac_state = STATE_DATA;
+            return -1;
     }
 }
 
 static void *receive_thread(void *arg) {
-    char buffer[BUFFER_SIZE];
+    uint8_t buffer[BUFFER_SIZE];
     int n;
-    receive_cmd();
         
     while (!_ended) {
-        n = read(sockfd, buffer, BUFFER_SIZE - 1);
+        n = read(sockfd, buffer, BUFFER_SIZE);
         if (n > 0) {
             for(int i = 0; i < n; i++) {
-                if(buffer[i] != '\r') {
+                if(buffer[i] == '\r') {
+                    /* Skip CR - telnet uses CR LF for newline */
+                    continue;
+                }
+                if(process_iac_byte(buffer[i]) == 0) {
+                    /* Not a telnet command byte, write to stdout */
                     int sz = write(STDOUT_FILENO, &buffer[i], 1);
                     if(sz <= 0) {
                         _ended = true;
@@ -74,8 +123,10 @@ static void *receive_thread(void *arg) {
             printf("\nConnection closed by remote host (read returned 0, EOF).\n");
             break;
         } else {
-            printf("\nConnection closed by remote host (read returned %d, errno=%d: %s).\n",
-                   n, errno, strerror(errno));
+            if(errno != EAGAIN) {
+                printf("\nConnection closed by remote host (read returned %d, errno=%d: %s).\n",
+                       n, errno, strerror(errno));
+            }
             break;
         }
     }

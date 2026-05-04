@@ -696,13 +696,16 @@ static void virtio_interrupt_handle(uint32_t interrupt, uint32_t p)
 	struct virtq_t *virtq = dev->virtq;
 	virtio_ack_interrupt(dev->base, 0x3);
 
-	volatile int used_idx = virtq->used.idx;
-	volatile int avail_idx = virtq->avail.idx;
-	for (int i = avail_idx - VIRTIO_QUEUE_SIZE; i < used_idx; i++)
+	static uint16_t next_used_idx[VIRTIO_DEV_MAX] = {0};
+	volatile int dev_used_idx = virtq->used.idx;
+	while (next_used_idx[p] != dev_used_idx)
 	{
+		uint16_t ring_idx = next_used_idx[p] % VIRTIO_QUEUE_SIZE;
+		uint16_t desc_id = virtq->used.ring[ring_idx].id;
 		struct virtio_input_event *event =
-			(struct virtio_input_event *)(virtq->buf0 + (i % VIRTIO_QUEUE_SIZE) * sizeof(struct virtio_input_event));
+			(struct virtio_input_event *)(virtq->buf0 + (desc_id % VIRTIO_QUEUE_SIZE) * sizeof(struct virtio_input_event));
 		dev->interrupt_handler(dev, event);
+		next_used_idx[p]++;
 	}
 	virtio_input_fill_queue(dev);
 }
@@ -722,17 +725,21 @@ int virtio_input_read(virtio_dev_t dev, void *buffer, uint32_t size)
 {
 	struct virtq_t *virtq = dev->virtq;
 	uint32_t ret = 0;
+	static uint16_t read_used_idx = 0;
+
 	if (get32(dev->base + VIRTIO_MMIO_INTERRUPT_STATUS) & 0x1)
 	{
 		put32(dev->base + VIRTIO_MMIO_INTERRUPT_ACK, 0x1);
-		volatile int used_idx = virtq->used.idx;
-		volatile int avail_idx = virtq->avail.idx;
-		for (int i = avail_idx - VIRTIO_QUEUE_SIZE; i < used_idx && ret < size; i++)
+		volatile int dev_used_idx = virtq->used.idx;
+		while (read_used_idx != dev_used_idx && ret < size)
 		{
+			uint16_t ring_idx = read_used_idx % VIRTIO_QUEUE_SIZE;
+			uint16_t desc_id = virtq->used.ring[ring_idx].id;
 			struct virtio_input_event *event =
-				(struct virtio_input_event *)(virtq->buf0 + (i % VIRTIO_QUEUE_SIZE) * sizeof(struct virtio_input_event));
+				(struct virtio_input_event *)(virtq->buf0 + (desc_id % VIRTIO_QUEUE_SIZE) * sizeof(struct virtio_input_event));
 			memcpy((uint8_t *)buffer + ret, event, sizeof(struct virtio_input_event));
 			ret += sizeof(struct virtio_input_event);
+			read_used_idx++;
 		}
 	}
 	virtio_input_fill_queue(dev);
