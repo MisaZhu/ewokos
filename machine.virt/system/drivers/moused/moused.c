@@ -61,6 +61,7 @@ struct virtio_input_event
 } __attribute__((packed));
 
 static vdevice_t* _dev = NULL;
+static bool _wakeup = false;
 void mouse_interrupt_handle(struct virtio_device *virt_dev, struct virtio_input_event *event)
 {
 	(void)virt_dev;
@@ -157,8 +158,18 @@ void mouse_interrupt_handle(struct virtio_device *virt_dev, struct virtio_input_
 		mouse_data_write++;
 		if(!mouse_data[mouse_data_write % CACHE_SIZE].state)
 			 mouse_data[mouse_data_write % CACHE_SIZE].state = MOUSE_STATE_MOVE;
-		vfs_wakeup(_dev->mnt_info.node, VFS_EVT_RD);
+		_wakeup = true;
 	}
+}
+
+static int mouse_step(struct st_vdevice* dev, void* p) {
+	(void)p;
+	if(_wakeup) {
+		vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
+		_wakeup = false;
+	}
+	usleep(3000);
+	return 0;
 }
 
 int main(int argc, char **argv)
@@ -176,6 +187,7 @@ int main(int argc, char **argv)
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "mouse");
 	dev.read = _read;
+	dev.loop_step = mouse_step;
 
 	virtio_dev_t vio = virtio_input_get("QEMU Virtio Tablet");
 	if(!vio){

@@ -333,7 +333,7 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 		return;
 	}
 
-	/*if(client_proc->info.type == TASK_TYPE_PROC && 
+	if(client_proc->info.type == TASK_TYPE_PROC && 
 			client_proc->space->interrupt.state == INTR_STATE_WORKING) {
 			//client_proc->space->interrupt.interrupt != IRQ_SOFT) {
 		printf("ipc can't call in interrupt (client: %d, server: %d, call: 0x%x\n",
@@ -341,7 +341,6 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 		ctx->gpr[0] = IPC_ERROR_IN_INTR;
 		return;
 	}
-		*/
 
 	if(serv_proc->space->ipc_server.disabled) {
 		ctx->gpr[0] = IPC_ERROR_RETRY; // blocked if server disabled, should retry
