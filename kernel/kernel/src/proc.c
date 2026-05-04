@@ -485,6 +485,8 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 
 		/*free all ipc context*/
 		proc_ipc_clear(proc);
+		proc_ipc_wakeup_all(proc);
+	
 		if(proc->space->interrupt.state != INTR_STATE_IDLE) {
 			if(proc->space->interrupt.interrupt != IRQ_SOFT) {
 				irq_enable_arch(proc->space->interrupt.interrupt);

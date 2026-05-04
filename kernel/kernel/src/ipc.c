@@ -152,3 +152,21 @@ proc_t* proc_ipc_wakeup(struct st_proc* serv_proc) {
 	proc_wakeup(proc);
 	return proc;
 }
+
+void proc_ipc_wakeup_all(struct st_proc* serv_proc) {
+	if(serv_proc == NULL)
+		return;
+
+	while(true) {
+		ipc_queue_item_t* item = (ipc_queue_item_t*)queue_pop(&serv_proc->space->ipc_server.wait_queue);
+		if(item == NULL)
+			break;
+		proc_t* proc = proc_get(item->pid);
+		if(proc == NULL || proc->info.uuid != item->uuid) {
+			kfree(item);
+			continue;
+		}
+		kfree(item);
+		proc_wakeup(proc);
+	}
+}

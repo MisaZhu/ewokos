@@ -59,5 +59,6 @@ extern void        proc_ipc_close(struct st_proc* serv_proc, ipc_task_t* ipc);
 extern void        proc_ipc_clear(struct st_proc* serv_proc);
 extern int32_t     proc_ipc_wait(context_t* ctx, struct st_proc* serv_proc, struct st_proc* proc);
 extern struct st_proc*  proc_ipc_wakeup(struct st_proc* serv_proc);
+extern void        proc_ipc_wakeup_all(struct st_proc* serv_proc);
 
 #endif
