@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdio.h>
 #include <gterminal/gterminal.h>
 #include <ewoksys/keydef.h>
 #include <font/font.h>
@@ -449,6 +450,22 @@ static void run_esc_cmd(gterminal_t* terminal, UNICODE16 cmd, uint16_t* values, 
             terminal->scroll_bottom = UINT32_MAX;
         }
         textgrid_move_to(tg, 0, top_row);
+    }
+    else if(cmd == 'n') {
+        if(terminal->output_callback == NULL)
+            return;
+        if(vnum > 0 && values[0] == 6) {
+            int row = tg->curs_y - top_row + 1;
+            int col = tg->curs_x + 1;
+            if(row < 1) row = 1;
+            if(col < 1) col = 1;
+            char resp[32];
+            snprintf(resp, sizeof(resp), "\e[%d;%dR", row, col);
+            terminal->output_callback(terminal->output_callback_arg, resp, strlen(resp));
+        }
+        else if(vnum > 0 && values[0] == 5) {
+            terminal->output_callback(terminal->output_callback_arg, "\e[0n", 4);
+        }
     }
 }
 

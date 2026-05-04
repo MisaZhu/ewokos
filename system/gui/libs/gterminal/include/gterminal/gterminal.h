@@ -17,6 +17,8 @@ typedef struct {
 	uint32_t bg_color;
 } gterm_conf_t;
 
+typedef void (*gterminal_output_callback_t)(void* p, const char* buf, int size);
+
 typedef struct {
 	uint32_t fg_color;
 	uint32_t bg_color;
@@ -41,6 +43,9 @@ typedef struct {
 	uint32_t cols;
 	uint32_t char_w;
 	uint32_t char_h;
+
+	gterminal_output_callback_t output_callback;
+	void* output_callback_arg;
 } gterminal_t;
 
 void gterminal_init(gterminal_t* terminal);

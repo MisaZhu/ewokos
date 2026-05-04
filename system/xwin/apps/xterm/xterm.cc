@@ -53,6 +53,14 @@ public:
 	TermWidget() {
 		pthread_mutex_init(&term_lock, NULL);
 		showXIM = false;
+		terminal.output_callback = [](void* p, const char* buf, int size) {
+			(void)p;
+			for(int i = 0; i < size; i++) {
+				charbuf_push(_buffer, buf[i], false);
+			}
+			vfs_wakeup(_dev->mnt_info.node, VFS_EVT_RD);
+		};
+		terminal.output_callback_arg = NULL;
 	}
 
 	~TermWidget() {
