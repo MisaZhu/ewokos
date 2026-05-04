@@ -61,7 +61,7 @@ static uint32_t g_color(gterminal_t* terminal, uint32_t esc_color, uint8_t fg) {
         };
 
     uint32_t colorsHi[8] = {
-            0xff000000, //BLACK
+            0xff666666, //BLACK
             0xffff0000, //RED
             0xff00ff00, //GREEN
             0xffffff00, //YELLOW
@@ -86,7 +86,7 @@ static uint32_t color256(uint8_t idx) {
     }
     else if(idx < 16) {
         uint32_t colors[8] = {
-            0xff000000, 0xffff0000, 0xff00ff00, 0xffffff00,
+            0xff666666, 0xffff0000, 0xff00ff00, 0xffffff00,
             0xff0000ff, 0xffff0088, 0xff00ffff, 0xffffffff
         };
         return colors[idx - 8];
