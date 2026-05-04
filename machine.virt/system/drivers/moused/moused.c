@@ -165,6 +165,10 @@ int main(int argc, char **argv)
 {
 	const char *mnt_point = argc > 1 ? argv[1] : "/dev/mouse0";
 	_mmio_base = mmio_map();
+	if (_mmio_base == 0) {
+		klog("moused: mmio_map failed\n");
+		return -1;
+	}
 
 	vdevice_t dev;
 	_dev = &dev;
