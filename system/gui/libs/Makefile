@@ -21,6 +21,7 @@ basic_libs:
 	cd gterminal;make
 	cd libogg;make
 	cd libvorbis;make
+	cd libiconbuf;make
 
 clean:
 	cd openlibm;make clean
@@ -42,3 +43,4 @@ clean:
 	cd fbd;make clean
 	cd libogg;make clean
 	cd libvorbis;make clean
+	cd libiconbuf;make clean

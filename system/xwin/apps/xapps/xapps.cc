@@ -12,6 +12,7 @@
 #include <ewoksys/kernel_tic.h>
 #include <ewoksys/proc.h>
 #include <graph/graph_png.h>
+#include <iconbuf/iconbuf.h>
 #include <dirent.h>
 
 #include <getopt.h>
@@ -67,16 +68,18 @@ class AppGrid: public Grid {
 		int icon_size = iconSize < w ? iconSize : w;
 		graph_t* img = item->iconImg;
 		if(img == NULL) {
-			graph_t* i = png_image_new(icon);
+			graph_t* i = get_icon(icon, icon_size);
 			if(i == NULL)
 				return;
-			if(i->w != icon_size) {
+			/*if(i->w != icon_size) {
 				img = graph_scalef(i, ((float)icon_size) / ((float)i->w));
 				graph_free(i);
 			}
 			else 
 				img = i;
 			item->iconImg = img;
+				*/
+			item->iconImg = i;
 		}
 
 		int dx = (w - img->w)/2;

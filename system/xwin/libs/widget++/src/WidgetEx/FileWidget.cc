@@ -10,6 +10,7 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <ewoksys/hashmap.h>
+#include <iconbuf/iconbuf.h>
 
 #include <x++/X.h>
 
@@ -229,18 +230,8 @@ class FileGrid: public Grid {
 		if(icon != NULL)
 			return icon;
 
-		graph_t* img = graph_image_new(fname);
-		if(img == NULL)
-			return NULL;
-		
-		float scale = 1.0;
-		
-		if(img->w > img->h)
-			scale = (float)(itemW*2/3) / (float)img->w;
-		else
-			scale = (float)(itemH*2/3) / (float)img->h;
-		icon = graph_scalef_fast(img, scale);
-		graph_free(img);
+		int32_t size = itemW > itemH ? itemW : itemH;
+		icon = get_icon(fname, size*2/3);
 		if(icon == NULL)
 			return NULL;
 		hashmap_put(iconCache, fname, icon);
