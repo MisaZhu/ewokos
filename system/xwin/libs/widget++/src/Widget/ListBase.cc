@@ -56,6 +56,9 @@ bool ListBase::onMouse(xevent_t* ev) {
 		enterByMouse(ev);
 		ret = true;
 	}
+
+	if(ret)
+		update();
 	return ret;
 }
 

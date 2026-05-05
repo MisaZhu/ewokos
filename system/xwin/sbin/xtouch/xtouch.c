@@ -34,7 +34,7 @@ static void input(uint16_t state, int16_t tx, int16_t ty) {
 	xevent_t ev;
 	memset(&ev, 0, sizeof(xevent_t));
 	ev.type = XEVT_MOUSE;
-	ev.state = MOUSE_STATE_MOVE;
+	//ev.state = MOUSE_STATE_MOVE;
 	ev.value.mouse.relative = 0;
 	if(_xtouch.x_rev)
 		ev.value.mouse.x = _scr_w - (tx*_scr_w / _xtouch.x_max);
@@ -47,14 +47,18 @@ static void input(uint16_t state, int16_t tx, int16_t ty) {
 		ev.value.mouse.y = _scr_h - (ty*_scr_h / _xtouch.y_max);
 
 	if(state == 1) { //down
+		ev.value.mouse.button = MOUSE_BUTTON_LEFT;
 		if(_drag_time == 0) {
 			ev.state = MOUSE_STATE_DOWN;
 			_drag_time = kernel_tic_ms(0);
 		}
-		else if(_drag_time != 0 && kernel_tic_ms(0) - _drag_time > 100) {
+		else {
+			if((kernel_tic_ms(0) - _drag_time) < 100)
+				return;
 			ev.state = MOUSE_STATE_DRAG;
 		}
 	} else if(state == 0) { //up
+		ev.value.mouse.button = MOUSE_BUTTON_LEFT;
 		ev.state = MOUSE_STATE_UP;
 		_drag_time = 0;
 	}
