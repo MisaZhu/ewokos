@@ -2,13 +2,14 @@
 #include <sys/errno.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include <pthread.h>
 
 #include <ewoksys/proc.h>
 
 #include "platform.h"
 #include "stack/util.h"
 
-#define SCHED_POLL_INTERVAL_US 1000 /* 1ms */
+#define SCHED_TIMEOUT_POLL_INTERVAL_US 3000 /* 3ms */
 
 #ifdef __aarch64__
     #define memory_barrier() __asm__ __volatile__("isb" ::: "memory")
@@ -28,16 +29,19 @@ sched_ctx_init(struct sched_ctx *ctx)
     ctx->sleeping = 0;
     ctx->wakeups = 0;
     ctx->destroyed = 0;
+    ctx->pid = 0;
     return 0;
 }
 
 int
 sched_ctx_destroy(struct sched_ctx *ctx)
 {
-    /* Just set flags, do NOT wait. The waiters will exit on their own. */
     ctx->destroyed = 1;
     ctx->cond = 1;
     memory_barrier();
+    if (ctx->pid > 0) {
+        proc_wakeup(ctx->pid);
+    }
     return 0;
 }
 
@@ -62,6 +66,7 @@ sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timeval *abstime
     }
 
     ctx->sleeping = 1;
+    ctx->pid = (int32_t)pthread_self();
     memory_barrier();
 
     mutex_unlock(mutex);
@@ -90,7 +95,22 @@ sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timeval *abstime
             }
         }
 
-        usleep(SCHED_POLL_INTERVAL_US);
+        if (abstime) {
+            uint64_t usec;
+            kernel_tic(NULL, &usec);
+            now.tv_sec = usec / 1000000;
+            now.tv_usec = usec % 1000000;
+            uint64_t remain_us = (abstime->tv_sec - now.tv_sec) * 1000000 +
+                                  (abstime->tv_usec - now.tv_usec);
+            if (remain_us > SCHED_TIMEOUT_POLL_INTERVAL_US)
+                remain_us = SCHED_TIMEOUT_POLL_INTERVAL_US;
+            usleep(remain_us);
+        } else {
+            memory_barrier();
+            if (!ctx->cond && !ctx->interrupted && !ctx->destroyed) {
+                proc_block();
+            }
+        }
     }
 
     mutex_lock(mutex);
@@ -100,6 +120,7 @@ sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timeval *abstime
 
     ctx->wc--;
     ctx->sleeping = 0;
+    ctx->pid = 0;
     memory_barrier();
 
     if (ctx->destroyed) {
@@ -122,6 +143,9 @@ sched_wakeup(struct sched_ctx *ctx)
 {
     ctx->cond = 1;
     memory_barrier();
+    if (ctx->sleeping && ctx->pid > 0) {
+        proc_wakeup(ctx->pid);
+    }
     return 0;
 }
 
@@ -131,5 +155,8 @@ sched_interrupt(struct sched_ctx *ctx)
     ctx->interrupted = 1;
     ctx->cond = 1;
     memory_barrier();
+    if (ctx->sleeping && ctx->pid > 0) {
+        proc_wakeup(ctx->pid);
+    }
     return 0;
 }

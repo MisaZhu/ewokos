@@ -32,6 +32,7 @@ struct sched_ctx {
   int sleeping; /* set to 1 when sched_sleep is waiting */
   volatile int wakeups; /* pending wakeup count */
   volatile int destroyed; /* set to 1 when ctx is being destroyed */
+  int32_t pid; /* PID of sleeping thread for proc_wakeup */
 };
 
 #define gettimeofday gettimeofday_plat
