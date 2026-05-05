@@ -51,7 +51,7 @@ graph_t* get_icon(const char* icon, uint32_t size) {
     if(sz == 0 || size == sz)
         ret = img;
     else {
-        ret = graph_scalef(img, ((float)size) / ((float)sz));
+        ret = graph_scalef_fast(img, ((float)size) / ((float)sz));
         graph_free(img);
         int fd = open(icon_file, O_WRONLY | O_CREAT);
         if(fd < 0) {
