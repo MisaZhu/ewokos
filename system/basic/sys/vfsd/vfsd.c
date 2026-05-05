@@ -1001,7 +1001,7 @@ static void vfs_proc_exit(int32_t cpid) {
 	_proc_fds_table[cpid].state = ZOMBIE;
 }
 
-static void clear_zombie(cpid) {
+static void clear_zombie(int32_t cpid) {
 	if(cpid < 0)
 		return;
 	int32_t i;
