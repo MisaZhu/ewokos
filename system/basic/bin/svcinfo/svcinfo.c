@@ -124,6 +124,18 @@ static inline const char* svc_name(int32_t code) {
 		return "sys_v2p";
 	case SYS_P2V:
 		return "sys_p2v";
+	case SYS_DMA_ALLOC:
+		return "dma_alloc";
+	case SYS_DMA_FREE:
+		return "dma_free";
+	case SYS_DMA_SET:
+		return "dma_set";
+	case SYS_DMA_PHY_ADDR:
+		return "dma_phy_addr";
+	case SYS_MMIO_RW:
+		return "mmio_rw";
+	case SYS_PROC_PRIORITY:
+		return "proc_priority";
 	}
 	return "unknown";
 }

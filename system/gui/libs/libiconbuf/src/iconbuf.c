@@ -18,9 +18,9 @@ graph_t* get_icon(const char* icon, uint32_t size) {
     char icon_file[FS_FULL_NAME_MAX+1];
     char icon_path[FS_FULL_NAME_MAX+1];
     if(icon[0] == '/')
-        snprintf(icon_file, FS_FULL_NAME_MAX, "%s/%d%s", ICON_BUF_DIR, size, icon);
+        snprintf(icon_file, FS_FULL_NAME_MAX, "%s/%d%s.img", ICON_BUF_DIR, size, icon);
     else
-        snprintf(icon_file, FS_FULL_NAME_MAX, "%s/%d/%s", ICON_BUF_DIR, size, icon);
+        snprintf(icon_file, FS_FULL_NAME_MAX, "%s/%d/%s.img", ICON_BUF_DIR, size, icon);
     char* dir_name = vfs_dir_name(icon_file, icon_path, FS_FULL_NAME_MAX);
 
     if(vfs_get_by_name(dir_name, NULL) != 0) {
