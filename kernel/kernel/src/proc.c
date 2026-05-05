@@ -365,7 +365,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 
 	if(cproc != to && cproc != NULL &&
 			cproc->info.state != UNUSED &&
-			cproc != _cpu_cores[cproc->info.core].halt_proc) {
+			cproc != _cpu_cores[cproc->info.core].idle_proc) {
 			//halt proc can't be pushed into ready queue, can't be scheduled.
 		if(cproc->info.state == RUNNING) {
 			cproc->info.state = READY;
@@ -425,7 +425,7 @@ proc_t* proc_get_next_ready(void) {
 	if(next == NULL) {
 		proc_t*	cproc = get_current_proc();
 		if(cproc != NULL && cproc->info.state == RUNNING &&
-				cproc != _cpu_cores[cproc->info.core].halt_proc)
+				cproc != _cpu_cores[cproc->info.core].idle_proc)
 				//halt proc can't be sheduled.
 			next = cproc;
 	}
@@ -658,10 +658,10 @@ static inline uint32_t core_fetch(proc_t* proc) {
 	//fetch the most idle core.
 	uint32_t ret = 0;
 	for(uint32_t i = 0; i < _sys_info.cores; i++) {
-		if(_cpu_cores[i].halt_proc->info.state == CREATED)
+		if(_cpu_cores[i].idle_proc->info.state == CREATED)
 			return i;
-		if(_cpu_cores[i].halt_proc->info.run_usec >
-				_cpu_cores[ret].halt_proc->info.run_usec)
+		if(_cpu_cores[i].idle_proc->info.run_usec >
+				_cpu_cores[ret].idle_proc->info.run_usec)
 			ret = i;
 	}
 	return ret;
@@ -1141,7 +1141,7 @@ proc_t* kfork_core_halt(uint32_t core) {
 	proc_t* cproc = _task_table[0];
 	proc_t* child = kfork_raw(NULL, TASK_TYPE_PROC, cproc);
 	child->info.core = core;
-	_cpu_cores[core].halt_proc = child;
+	_cpu_cores[core].idle_proc = child;
 	child->is_core_idle_proc = true;
 
 	return child;

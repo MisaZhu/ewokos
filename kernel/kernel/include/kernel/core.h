@@ -24,7 +24,7 @@ extern void     cpu_core_ready(uint32_t core_id);
 
 typedef struct {
 	uint32_t actived;
-	proc_t* halt_proc;
+	proc_t* idle_proc;
 } core_t;
 
 extern core_t _cpu_cores[CPU_MAX_CORES];

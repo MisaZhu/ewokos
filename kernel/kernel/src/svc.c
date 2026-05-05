@@ -215,7 +215,7 @@ static void	sys_get_sys_info(sys_info_t* info) {
 	info->max_task_per_proc = _kernel_config.max_task_per_proc;
 
 	for(uint32_t i=0; i< _sys_info.cores; i++) {
-		info->core_idles[i] = _cpu_cores[i].halt_proc->info.run_usec;
+		info->core_idles[i] = _cpu_cores[i].idle_proc->info.run_usec;
 	}
 }
 

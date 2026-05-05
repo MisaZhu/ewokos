@@ -9,19 +9,19 @@ int32_t schedule(context_t* ctx) {
 	proc_zombie_funeral();
 
 	uint32_t core = get_core_id();
-	proc_t* halt_proc = NULL;
-	if(_cpu_cores[core].halt_proc != NULL) {
+	proc_t* idle_proc = NULL;
+	if(_cpu_cores[core].idle_proc != NULL) {
 		/*halt proc supposed to be suspended with WAIT status.
 			until there is no proc ready to run.
 		*/
-		halt_proc = _cpu_cores[core].halt_proc;
-		halt_proc->info.state = WAIT;
-		halt_proc->info.wait_for = 0;
+		idle_proc = _cpu_cores[core].idle_proc;
+		idle_proc->info.state = WAIT;
+		idle_proc->info.wait_for = 0;
 	}
 	
 	proc_t* next = proc_get_next_ready();
-	if(next == NULL && halt_proc != NULL) { //if no proc ready, switch to halt proc
-		next = halt_proc;
+	if(next == NULL && idle_proc != NULL) {
+		next = idle_proc;
 	}
 
 	if(next != NULL) {

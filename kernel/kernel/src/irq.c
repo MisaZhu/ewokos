@@ -103,6 +103,11 @@ inline void irq_handler(context_t* ctx) {
 	kernel_lock();
 	_irq_handler(cid, ctx);
 	kernel_unlock();
+
+	proc_t* cproc = get_current_proc();
+	if(cproc != NULL && cproc->is_core_idle_proc) {
+		wfi();
+	}
 }
 
 static int32_t copy_on_write(proc_t* proc, ewokos_addr_t v_addr) {

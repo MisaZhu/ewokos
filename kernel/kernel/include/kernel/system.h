@@ -36,4 +36,5 @@ extern void kernel_unlock(void);
 #endif
 
 extern void halt(void);
+extern void wfi(void);
 #endif

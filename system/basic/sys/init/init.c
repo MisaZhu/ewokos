@@ -91,7 +91,7 @@ static void switch_root(void) {
 	run_init("/etc/init.rd");
 }
 
-static void halt(void) {
+static void idle(void) {
 	while(1);
 }
 
@@ -105,7 +105,7 @@ int main(int argc, char** argv) {
 	}
 
 	if(getpid() != 0) //not first proc, must be cpu core idle
-		halt();
+		idle();
 	else
 		syscall1(SYS_PROC_SET_CMD, (int32_t)"/sbin/init");
 
