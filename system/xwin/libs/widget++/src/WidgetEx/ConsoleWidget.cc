@@ -112,11 +112,21 @@ void ConsoleWidget::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 }
 
 bool ConsoleWidget::onMouse(xevent_t* ev) {
-	if(ev->state == MOUSE_STATE_DOWN) {
-		mouse_last_y = ev->value.mouse.y;
+	static bool draging = false;
+	if(ev->state == MOUSE_STATE_UP) {
+		draging = false;
 		return true;
 	}
-	else if(ev->state == MOUSE_STATE_DRAG) {
+
+	if(ev->state == MOUSE_STATE_DOWN) {
+		if(!draging) {
+			mouse_last_y = ev->value.mouse.y;
+			draging = true;
+			return true;
+		}
+	}
+
+	if(ev->state == MOUSE_STATE_DRAG || draging) {
 		if(ev->value.mouse.y > mouse_last_y) {
 			if(gterminal_scroll(&terminal, -1))
 				update();

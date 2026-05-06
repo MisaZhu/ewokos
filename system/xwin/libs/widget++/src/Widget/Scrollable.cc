@@ -75,9 +75,9 @@ bool Scrollable::onMouse(xevent_t* ev) {
 	}
 
 	if(ev->state == MOUSE_STATE_DOWN) {
-		last_mouse_down.x = ipos.x;
-		last_mouse_down.y = ipos.y;
 		if(!draging) {
+			last_mouse_down.x = ipos.x;
+			last_mouse_down.y = ipos.y;
 			draging = true;
 			return true;
 		}
