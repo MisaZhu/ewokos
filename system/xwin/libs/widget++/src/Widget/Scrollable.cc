@@ -66,13 +66,24 @@ Scrollable::Scrollable() {
 }
 
 bool Scrollable::onMouse(xevent_t* ev) {
+	static bool draging = false;
 	gpos_t ipos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
+
+	if(ev->state == MOUSE_STATE_UP) {
+		draging = false;
+		return true;
+	}
+
 	if(ev->state == MOUSE_STATE_DOWN) {
 		last_mouse_down.x = ipos.x;
 		last_mouse_down.y = ipos.y;
-		return true;
+		if(!draging) {
+			draging = true;
+			return true;
+		}
 	}
-	else if(ev->state == MOUSE_STATE_DRAG) {
+
+	if(ev->state == MOUSE_STATE_DRAG || draging) {
 		int dx = last_mouse_down.x - ipos.x;
 		int dy =  last_mouse_down.y - ipos.y;
 
