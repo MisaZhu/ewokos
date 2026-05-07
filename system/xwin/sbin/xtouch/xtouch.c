@@ -48,8 +48,6 @@ static void input(uint16_t state, int16_t tx, int16_t ty) {
 
 	if(state == 1) { //down
 		ev.value.mouse.button = MOUSE_BUTTON_LEFT;
-		ev.state = MOUSE_STATE_DOWN;
-		/*
 		if(_drag_time == 0) {
 			ev.state = MOUSE_STATE_DOWN;
 			_drag_time = kernel_tic_ms(0);
@@ -59,7 +57,6 @@ static void input(uint16_t state, int16_t tx, int16_t ty) {
 				return;
 			ev.state = MOUSE_STATE_DRAG;
 		}
-		*/
 	} else if(state == 0) { //up
 		ev.value.mouse.button = MOUSE_BUTTON_LEFT;
 		ev.state = MOUSE_STATE_UP;
