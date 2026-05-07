@@ -53,8 +53,13 @@ static void input(uint16_t state, int16_t tx, int16_t ty) {
 			_drag_time = kernel_tic_ms(0);
 		}
 		else {
-			if((kernel_tic_ms(0) - _drag_time) < 100)
+			static int prev_x = 0;
+			static int prev_y = 0;
+			if((kernel_tic_ms(0) - _drag_time) < 100 || 
+					(ev.value.mouse.x == prev_x || ev.value.mouse.y == prev_y))	
 				return;
+			prev_x = ev.value.mouse.x;
+			prev_y = ev.value.mouse.y;
 			ev.state = MOUSE_STATE_DRAG;
 		}
 	} else if(state == 0) { //up
