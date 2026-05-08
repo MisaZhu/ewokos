@@ -23,15 +23,9 @@ graph_t* get_icon(const char* icon, uint32_t size) {
         snprintf(icon_file, FS_FULL_NAME_MAX, "%s/%d/%s.img", ICON_BUF_DIR, size, icon);
     char* dir_name = vfs_dir_name(icon_file, icon_path, FS_FULL_NAME_MAX);
 
-    if(vfs_get_by_name(dir_name, NULL) != 0) {
-		if(vfs_create(dir_name, NULL, FS_TYPE_DIR, 0777, false, true) != 0)
-    		return NULL;
-	}
-
     int rd = 0;
     uint8_t* buf;
     int32_t w, h;
-
     buf = vfs_readfile(icon_file, &rd);
     if(buf != NULL) {
         if(rd < 8) {
@@ -43,35 +37,46 @@ graph_t* get_icon(const char* icon, uint32_t size) {
         return graph_new(buf+8, w, h);
     }
 
-    graph_t* ret = NULL;
     graph_t* img = graph_image_new(icon);
     if(img == NULL)
         return NULL;
+
+    graph_t* ret = NULL;
     uint32_t sz = img->w > img->h ? img->w : img->h;
     if(sz == 0 || size == sz)
         ret = img;
     else {
         ret = graph_scalef_fast(img, ((float)size) / ((float)sz));
         graph_free(img);
-        int fd = open(icon_file, O_WRONLY | O_CREAT);
-        if(fd < 0) {
-            graph_free(ret);
-            return NULL;
-        }
-
-        if(write(fd, &ret->w, 4) != 4) {
-            graph_free(ret);
-            return NULL;
-        }
-
-        if(write(fd, &ret->h, 4) != 4) {
-            graph_free(ret);
-            return NULL;
-        }
-
-        write(fd, ret->buffer, ret->w * ret->h * 4);
-        close(fd);
     }
+    
+    if(vfs_get_by_name("/tmp", NULL) != 0 || ret == NULL) {
+        return ret;
+    }
+
+    if(vfs_get_by_name(dir_name, NULL) != 0) {
+		if(vfs_create(dir_name, NULL, FS_TYPE_DIR, 0777, false, true) != 0) {
+    		return ret;
+        }
+	}
+
+    int fd = open(icon_file, O_WRONLY | O_CREAT);
+    if(fd < 0) {
+        return ret;
+    }
+
+    if(write(fd, &ret->w, 4) != 4) {
+        close(fd);
+        return ret;
+    }
+
+    if(write(fd, &ret->h, 4) != 4) {
+        close(fd);
+        return ret;
+    }
+
+    write(fd, ret->buffer, ret->w * ret->h * 4);
+    close(fd);
     return ret;
 }
 
