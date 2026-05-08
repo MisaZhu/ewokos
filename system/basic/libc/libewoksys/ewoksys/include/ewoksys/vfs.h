@@ -18,11 +18,11 @@ typedef struct {
 	fsinfo_t info;
 } fsfile_t;
 
-typedef struct  {
+typedef struct pollfd {
     int      fd;       
-	uint32_t node;
     uint16_t events;   
     uint16_t revents;  
+	uint32_t node;
 } vfs_pollfd_t;
 
 

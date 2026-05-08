@@ -884,6 +884,7 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 	if(num <= 0)
 		return -1;
 
+	//klog("vfs_poll: %d fds\n", num);
 	proto_t in;
 	PF->init(&in)->
 		addi(&in, num);
@@ -892,33 +893,45 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 	if(res != 0)
 		return -1;
 
+	//klog("vfs_poll: %d fds, res = %d\n", num, res);
+
 	for(int i = 0; i < num; ++i) {
 		fsinfo_t info;
 		if(vfs_get_by_fd(fds[i].fd, &info) != 0 || info.node == 0)
 			continue;
+		//klog("vfs_poll: %d fds, fd = %d, node = %d, event = 0x%x\n", num, fds[i].fd, info.node, fds[i].events);
 		fds[i].node = info.node;
+		fds[i].revents = 0;
 		vfs_block_raw(info.node, fds[i].events);
 	}
 	proc_block();
+
+	//klog("vfs_poll: %d fds, res = %d\n", num, res);
 
 	proto_t out;
 	PF->init(&out);
 	ipc_call(get_vfsd_pid(), VFS_GET_POLL_INFO, NULL, &out);
 	int event_num = proto_read_int(&out);
 	res = 0;
+
+	klog("vfs_poll: %d fds, event_num = %d\n", num, event_num);
 	for(int i = 0; i < event_num; ++i) {
 		vfs_poll_event_t event;
-		if(proto_read_to(&out, &event, sizeof(vfs_poll_event_t)) != 0)
-			continue;
+		if(proto_read_to(&out, &event, sizeof(vfs_poll_event_t)) == 0)
+			break;
+
+		//klog("vfs_poll: %d fds, event = 0x%x\n", num, event.event);
 		for(int j = 0; j < num; ++j) {
 			if(event.node == fds[j].node) {
-				fds[j].events = event.event;
+				fds[j].revents |= event.event;
 				res++;
+				klog("vfs_poll: fd = %d, event = 0x%x\n", fds[j].fd, fds[j].revents);
 				break;
 			}
 		}
 	}
 	PF->clear(&out);
+	klog("vfs_poll done!: %d fds, res = %d\n", num, res);
 	return res;
 }
 

@@ -5,6 +5,7 @@ all:
 	cd host; make
 	cd https_test; make
 	cd telnet; make
+	cd polltest; make
 
 clean:
 	cd ipconfig; make clean
@@ -12,3 +13,4 @@ clean:
 	cd host; make clean
 	cd https_test; make clean
 	cd telnet; make clean
+	cd polltest; make clean

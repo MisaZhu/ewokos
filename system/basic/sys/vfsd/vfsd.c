@@ -459,6 +459,7 @@ static void wakeup_proc(int32_t pid, vfs_node_t* node, int32_t event) {
 		return;
 
 	proc_fds_t* fds = &_proc_fds_table[pid];
+	//klog("wakeup_proc: %d, %d, %d\n", pid, vfs_get_node_id(node), event);
 	if(fds->poll_info.waiting && 
 			(fds->poll_info.events_num+1) < fds->poll_info.events_max) {
 		fds->poll_info.events[fds->poll_info.events_num].node = vfs_get_node_id(node);
