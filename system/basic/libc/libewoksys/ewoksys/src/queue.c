@@ -57,11 +57,17 @@ void* queue_pop(queue_t* q) {
 	return ret;
 }
 
-queue_item_t* queue_in(queue_t* q, void* data) {
+queue_item_t* queue_in(queue_t* q, void* data, queue_check_func_t check_func) {
 	queue_item_t* it = q->head;
 	while(it != NULL) {
-		if(it->data == data)
-			return it;
+		if(check_func != NULL) {
+			if(check_func(it->data, data))
+				return it;
+		}
+		else {
+			if(it->data == data)
+				return it;
+		}
 		it = it->next;
 	}
 	return NULL;

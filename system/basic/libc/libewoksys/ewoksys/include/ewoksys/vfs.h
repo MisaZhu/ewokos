@@ -18,6 +18,14 @@ typedef struct {
 	fsinfo_t info;
 } fsfile_t;
 
+typedef struct  {
+    int      fd;       
+	uint32_t node;
+    uint16_t events;   
+    uint16_t revents;  
+} vfs_pollfd_t;
+
+
 #define VFS_BUF_SIZE (10240)
 
 #define VFS_BACKUP_FD0 (MAX_OPEN_FILE_PER_PROC-3)
@@ -69,6 +77,7 @@ int       vfs_fcntl_wait(int fd, int cmd, proto_t* in);
 
 int       vfs_block(uint32_t node, int event);
 int       vfs_wakeup(uint32_t node, int event);
+int       vfs_poll(vfs_pollfd_t* fds, int num, int timeout);
 
 #ifdef __cplusplus
 }

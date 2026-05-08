@@ -35,10 +35,17 @@ enum {
 	VFS_PROC_CLONE,
 	VFS_PROC_EXIT,
 	VFS_BLOCK,
-	VFS_WAKEUP
+	VFS_WAKEUP,
+	VFS_POLL,
+	VFS_GET_POLL_INFO
 };
 
 int  vfs_check_access(int pid, fsinfo_t* info, int mode);
+
+typedef struct {
+	uint32_t node;
+	uint32_t event;
+} vfs_poll_event_t;
 
 #ifdef __cplusplus
 }

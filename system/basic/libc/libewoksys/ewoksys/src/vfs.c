@@ -850,13 +850,19 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 	return res;
 }
 
-int  vfs_block(uint32_t node, int event) {
+static int vfs_block_raw(uint32_t node, int event) {
 	proto_t in;
 	PF->init(&in)->
 		addi(&in, node)->
 		addi(&in, event);
-	ipc_call(get_vfsd_pid(), VFS_BLOCK, &in, NULL);
+	int res = ipc_call(get_vfsd_pid(), VFS_BLOCK, &in, NULL);
 	PF->clear(&in);
+	return res;
+}
+
+int  vfs_block(uint32_t node, int event) {
+	if(vfs_block_raw(node, event) != 0)
+		return -1;
 	proc_block();
 	return 0;
 }
@@ -871,6 +877,49 @@ int  vfs_wakeup(uint32_t node, int event) {
 	ipc_call(vfsd_pid, VFS_WAKEUP, &in, NULL);
 	PF->clear(&in);
 	return 0;
+}
+
+int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
+	(void)timeout; //TODO
+	if(num <= 0)
+		return -1;
+
+	proto_t in;
+	PF->init(&in)->
+		addi(&in, num);
+	int res = ipc_call(get_vfsd_pid(), VFS_POLL, &in, NULL);
+	PF->clear(&in);
+	if(res != 0)
+		return -1;
+
+	for(int i = 0; i < num; ++i) {
+		fsinfo_t info;
+		if(vfs_get_by_fd(fds[i].fd, &info) != 0 || info.node == 0)
+			continue;
+		fds[i].node = info.node;
+		vfs_block_raw(info.node, fds[i].events);
+	}
+	proc_block();
+
+	proto_t out;
+	PF->init(&out);
+	ipc_call(get_vfsd_pid(), VFS_GET_POLL_INFO, NULL, &out);
+	int event_num = proto_read_int(&out);
+	res = 0;
+	for(int i = 0; i < event_num; ++i) {
+		vfs_poll_event_t event;
+		if(proto_read_to(&out, &event, sizeof(vfs_poll_event_t)) != 0)
+			continue;
+		for(int j = 0; j < num; ++j) {
+			if(event.node == fds[j].node) {
+				fds[j].events = event.event;
+				res++;
+				break;
+			}
+		}
+	}
+	PF->clear(&out);
+	return res;
 }
 
 #ifdef __cplusplus

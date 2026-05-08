@@ -85,6 +85,8 @@ LIB_EWOKSYS_OBJS =  \
 	src/pthread/pthread_detach.o\
 	src/pthread/pthread_cond.o\
 	\
+	src/poll/poll.o \
+	\
 	src/stdlib/exit.o \
 	src/stdlib/setenv.o
 	
