@@ -29,16 +29,7 @@ static int network_fcntl(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
     (void)dev;
     (void)p;
 	net_task_t *task = (net_task_t*)info->data;
-
-	if(cmd == SOCK_RECVFROM){
-		if(task->read_task == NULL){
-			task->read_task = create_task(fd, from_pid, info->node);
-			task->read_task->sock = task->sock;
-			task->read_task->is_read_task = true;
-		}
-		task = task->read_task;
-		task->cmd = cmd;
-	}
+	task->cmd = cmd;
 	int res = task_cntl(task, from_pid, cmd, in, out, p);
 	return res;
 }
