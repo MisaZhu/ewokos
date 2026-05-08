@@ -475,10 +475,10 @@ static void do_node_wakeup(vfs_node_t* node, int event) {
 		return;
 
 	queue_t* qr = NULL, *qw = NULL;
-	if(event == VFS_EVT_RD || event == VFS_EVT_RW ||
+	if((event & VFS_EVT_RD) != 0 ||
 			event == VFS_EVT_CLOSE || event == VFS_EVT_ERR || event == VFS_EVT_NVAL)
 		qr = &node->read_wait_queue;
-	if(event == VFS_EVT_WR || event == VFS_EVT_RW ||
+	if((event & VFS_EVT_WR) != 0 ||
 			event == VFS_EVT_CLOSE || event == VFS_EVT_ERR || event == VFS_EVT_NVAL)
 		qw = &node->write_wait_queue;
 
@@ -1132,9 +1132,9 @@ static void do_vfs_block(int32_t pid, proto_t* in) {
 	*p = pid;
 
 	queue_t* q = NULL;
-	if(event == VFS_EVT_RD)
+	if((event & VFS_EVT_RD) != 0)
 		q = &node->read_wait_queue;
-	else if(event == VFS_EVT_WR)
+	else if((event & VFS_EVT_WR) != 0)
 		q = &node->write_wait_queue;
 
 	if(q == NULL)
