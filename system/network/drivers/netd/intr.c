@@ -8,6 +8,7 @@
 #include "stack/util.h"
 #include "stack/net.h"
 #include "platform.h"
+#include "task.h"
 
 
 struct irq_entry {
@@ -96,6 +97,7 @@ void intr_loop(void) {
         }
         net_timer_handler();
         start_task();
+        task_check_read_events();
         usleep(1000);
     }
     return;

@@ -14,6 +14,7 @@
 #include "net.h"
 #include "ip.h"
 #include "tcp.h"
+#include "../task.h"
 
 #define TCP_FLG_FIN 0x01
 #define TCP_FLG_SYN 0x02
@@ -334,6 +335,7 @@ tcp_retransmit_queue_emit(void *arg, void *data)
         pcb->state = TCP_PCB_STATE_CLOSED;
         pcb->close_reason = 2; /* timeout */
         sched_wakeup(&pcb->ctx);
+        task_wakeup_by_sock(tcp_pcb_id(pcb));
         return;
     }
     timeout = entry->last;
@@ -552,6 +554,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
                 pcb->snd.wl1 = seg->seq;
                 pcb->snd.wl2 = seg->ack;
                 sched_wakeup(&pcb->ctx);
+                task_wakeup_by_sock(tcp_pcb_id(pcb));
                 /* ignore: continue processing at the sixth step below where the URG bit is checked */
                 return;
             } else {
@@ -696,7 +699,9 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
                 if (pcb->parent->ctx.wc > 0) {
                     sched_wakeup(&pcb->parent->ctx);
                 }
+                task_wakeup_by_sock(tcp_pcb_id(pcb->parent));
             }
+            task_wakeup_by_sock(tcp_pcb_id(pcb));
         } else {
             tcp_output_segment(seg->ack, 0, TCP_FLG_RST, 0, NULL, 0, local, foreign);
             return;
@@ -721,6 +726,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
             if (pcb->ctx.wc > 0) {
                 sched_wakeup(&pcb->ctx);
             }
+            task_wakeup_by_sock(tcp_pcb_id(pcb));
         } else if (seg->ack < pcb->snd.una) {
             /* ignore */
         } else if (seg->ack > pcb->snd.nxt) {
@@ -781,6 +787,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
             if (pcb->ctx.wc > 0) {
                 sched_wakeup(&pcb->ctx);
             }
+            task_wakeup_by_sock(tcp_pcb_id(pcb));
         }
         break;
     case TCP_PCB_STATE_CLOSE_WAIT:
@@ -812,6 +819,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
             if (pcb->ctx.wc > 0) {
                 sched_wakeup(&pcb->ctx);
             }
+            task_wakeup_by_sock(tcp_pcb_id(pcb));
             break;
         case TCP_PCB_STATE_FIN_WAIT1:
             if (seg->ack == pcb->snd.nxt) {
@@ -1295,6 +1303,22 @@ tcp_bind(int id, struct ip_endpoint *local)
     debugf("success: local=%s", ip_endpoint_ntop(&pcb->local, ep, sizeof(ep)));
     mutex_unlock(&mutex);
     return 0;
+}
+
+int
+tcp_readable(int id)
+{
+    struct tcp_pcb *pcb;
+    mutex_lock(&mutex);
+    pcb = tcp_pcb_get(id);
+    if (!pcb) {
+        mutex_unlock(&mutex);
+        return 0;
+    }
+    size_t remain = sizeof(pcb->buf) - pcb->rcv.wnd;
+    int readable = (remain > 0) || (pcb->state == TCP_PCB_STATE_CLOSE_WAIT) || (pcb->state == TCP_PCB_STATE_CLOSED);
+    mutex_unlock(&mutex);
+    return readable;
 }
 
 int

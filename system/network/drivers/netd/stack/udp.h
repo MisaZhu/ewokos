@@ -22,5 +22,7 @@ extern ssize_t
 udp_recvfrom(int id, uint8_t *buf, size_t size, struct ip_endpoint *foreign);
 extern int
 udp_close(int id);
+extern int
+udp_readable(int id);
 
 #endif

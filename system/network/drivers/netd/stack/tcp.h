@@ -41,4 +41,6 @@ extern int
 tcp_listen(int id, int backlog);
 extern int
 tcp_accept(int id, struct ip_endpoint *foreign);
+extern int
+tcp_readable(int id);
 #endif

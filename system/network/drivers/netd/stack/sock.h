@@ -117,4 +117,6 @@ sock_get_timeout_abs(struct timeval* timeout, struct timeval* abs_timeout);
 
 extern uint32_t sock_get_timeout_msec(struct timeval*);
 
+extern int sock_readable(int id);
+
 #endif

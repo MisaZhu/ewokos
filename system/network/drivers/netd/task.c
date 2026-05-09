@@ -12,6 +12,8 @@
 #include "task.h"
 #include "netd.h"
 
+extern int sock_readable(int sock);
+
 #define TASK_POLL_INTERVAL_US 1000 /* 1ms */
 
 static void* task_thread(void* arg);
@@ -175,7 +177,6 @@ int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
         PF->addi(&task->in, size);
         task->state = NET_TASK_START;
         pthread_mutex_unlock(&task_list_lock);
-        // Signal task thread to wake up
     } else {
         pthread_mutex_unlock(&task_list_lock);
     }
@@ -338,6 +339,33 @@ int do_network_fcntl(net_task_t *task){
     return 0;
 }
 
+void task_check_read_events(void) {
+    pthread_mutex_lock(&task_list_lock);
+    net_task_t *task = task_list;
+    while(task != NULL) {
+        if(task->read_task != NULL && 
+           task->read_task->is_read_task && 
+           task->read_task->state == NET_TASK_FINISH &&
+           task->read_task->node > 0) {
+            vfs_wakeup(task->read_task->node, VFS_EVT_RD);
+        }
+        if(task->read_task != NULL &&
+           task->read_task->is_read_task &&
+           task->read_task->state == NET_TASK_IDLE &&
+           task->read_task->sock >= 0 &&
+           task->read_task->node > 0 &&
+           sock_readable(task->read_task->sock)) {
+            task->read_task->cmd = SOCK_RECV;
+            PF->init(&task->read_task->in);
+            PF->init(&task->read_task->out);
+            PF->addi(&task->read_task->in, TASK_READ_BUF_SIZE);
+            task->read_task->state = NET_TASK_START;
+        }
+        task = task->next;
+    }
+    pthread_mutex_unlock(&task_list_lock);
+}
+
 static void* task_thread(void* arg){
     net_task_t *task = (net_task_t *)arg;
 
@@ -348,8 +376,6 @@ static void* task_thread(void* arg){
         task->state = NET_TASK_IDLE;
     }
     pthread_mutex_unlock(&task_list_lock);
-
-    vfs_wakeup(task->node, VFS_EVT_RW);
 
     while(1){
         pthread_mutex_lock(&task_list_lock);
@@ -368,10 +394,12 @@ static void* task_thread(void* arg){
             pthread_mutex_lock(&task_list_lock);
             task->state = NET_TASK_FINISH;
             pthread_mutex_unlock(&task_list_lock);
-        } else if(task->state == NET_TASK_FINISH) {
-            pthread_mutex_unlock(&task_list_lock);
-            vfs_wakeup(task->node, VFS_EVT_RW);
-            usleep(1000);
+
+            if(task->is_read_task) {
+                vfs_wakeup(task->node, VFS_EVT_RD);
+            } else {
+                vfs_wakeup(task->node, VFS_EVT_RW);
+            }
         } else {
             pthread_mutex_unlock(&task_list_lock);
             usleep(1000);
@@ -382,4 +410,23 @@ static void* task_thread(void* arg){
     PF->clear(&task->out);
 
     return NULL;
+}
+
+void task_wakeup_by_sock(int sock) {
+    if(sock < 0)
+        return;
+
+    pthread_mutex_lock(&task_list_lock);
+    net_task_t *task = task_list;
+    while(task != NULL) {
+        if(task->sock == sock && task->node > 0) {
+            vfs_wakeup(task->node, VFS_EVT_RD);
+        }
+        if(!task->is_read_task && task->read_task != NULL && 
+           task->read_task->sock == sock && task->read_task->node > 0) {
+            vfs_wakeup(task->read_task->node, VFS_EVT_RD);
+        }
+        task = task->next;
+    }
+    pthread_mutex_unlock(&task_list_lock);
 }

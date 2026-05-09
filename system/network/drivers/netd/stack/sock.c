@@ -614,3 +614,22 @@ inline uint32_t sock_get_timeout_msec(struct timeval* timeout) {
         return timeout->tv_sec * 1000 + timeout->tv_usec / 1000;
     return 0;
 }
+
+int
+sock_readable(int id)
+{
+    struct sock *s;
+    s = sock_get(id);
+    if (!s) {
+        return 0;
+    }
+    switch (s->type) {
+    case SOCK_STREAM:
+        return tcp_readable(s->desc);
+    case SOCK_DGRAM:
+        return udp_readable(s->desc);
+    case SOCK_RAW:
+        return s->recv_queue != NULL;
+    }
+    return 0;
+}

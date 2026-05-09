@@ -13,6 +13,7 @@
 #include "net.h"
 #include "ip.h"
 #include "udp.h"
+#include "../task.h"
 #include "sock.h"
 
 #define UDP_PCB_SIZE 16
@@ -218,6 +219,7 @@ udp_input(const uint8_t *data, size_t len, ip_addr_t src, ip_addr_t dst, struct 
     if (pcb->ctx.wc > 0) {
         sched_wakeup(&pcb->ctx);
     }
+    task_wakeup_by_sock(udp_pcb_id(pcb));
     mutex_unlock(&mutex);
 }
 
@@ -449,4 +451,19 @@ udp_recvfrom(int id, uint8_t *buf, size_t size, struct ip_endpoint *foreign)
     memcpy(buf, entry + 1, len);
     memory_free(entry);
     return len;
+}
+
+int
+udp_readable(int id)
+{
+    struct udp_pcb *pcb;
+    mutex_lock(&mutex);
+    pcb = udp_pcb_get(id);
+    if (!pcb) {
+        mutex_unlock(&mutex);
+        return 0;
+    }
+    int readable = pcb->queue.num > 0;
+    mutex_unlock(&mutex);
+    return readable;
 }
