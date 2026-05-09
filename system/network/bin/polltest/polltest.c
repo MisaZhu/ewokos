@@ -121,7 +121,10 @@ static int handle_stdin_data(void) {
     char buf[BUFFER_SIZE];
     int n;
 
+    klog("handle_stdin_data\n");
     n = read(STDIN_FILENO, buf, BUFFER_SIZE - 1);
+    klog("handle_stdin_data: read %d bytes: %c\n", n, buf[0]);
+
     if (n > 0) {
         for(int i = 0; i < n; i++) {
             if(buf[i] == '\n') {
@@ -132,7 +135,9 @@ static int handle_stdin_data(void) {
             }
         }
 
+        klog("handle_stdin_data: %d\n", n);
         int sz = write(sockfd, buf, n);
+        klog("handle_stdin_data: write %d bytes\n", sz);
         if(sz < 0) {
             printf("\nEOF received. Exiting...\n");
             return -1;
@@ -196,8 +201,8 @@ int main(int argc, char *argv[]) {
     }
     printf("ok\n");
 
-    fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
-    fcntl(sockfd, F_SETFL, O_NONBLOCK);
+    //fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
+    //fcntl(sockfd, F_SETFL, O_NONBLOCK);
 
     fds[0].fd = STDIN_FILENO;
     fds[0].events = POLLIN;
@@ -206,7 +211,7 @@ int main(int argc, char *argv[]) {
 
     while (!_ended) {
         int ret = poll(fds, 2, -1);
-        //klog("poll: ret = %d\n", ret);
+        klog("poll: ret = %d\n", ret);
 
         if (ret < 0) {
             perror("poll");
@@ -215,7 +220,7 @@ int main(int argc, char *argv[]) {
         //klog("1 poll: ret = %d\n", ret);
 
         if (fds[0].revents & POLLIN) {
-            //klog("2 poll: ret = %d\n", ret);
+            klog("2 poll: ret = %d\n", ret);
             if (handle_stdin_data() < 0) {
                 break;
             }
