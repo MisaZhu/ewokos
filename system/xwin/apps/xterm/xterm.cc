@@ -125,6 +125,7 @@ public:
 protected:
 	void input(int32_t c) {
 		charbuf_push(_buffer, c, false);
+		vfs_set_poll_events(_dev->mnt_info.node, VFS_EVT_RD, true);
 		vfs_wakeup(_dev->mnt_info.node, VFS_EVT_RD);
 	}
 
@@ -344,7 +345,8 @@ static int console_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	(void)offset;
 	(void)p;
 	(void)size;
-	(void)info;
+
+	vfs_set_poll_events(info->node, VFS_EVT_RD, false);
 
 	if(_consoleWidget == NULL) {
 		return 0; //closed

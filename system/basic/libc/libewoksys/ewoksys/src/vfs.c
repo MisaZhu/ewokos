@@ -868,10 +868,13 @@ int  vfs_block(uint32_t node, int event) {
 }
 
 int  vfs_wakeup(uint32_t node, int event) {
+
 	proto_t in;
 	PF->init(&in)->
 		addi(&in, node)->
 		addi(&in, event);
+
+	vfs_set_poll_events(node, event, true);
 
 	int vfsd_pid = get_vfsd_pid();
 	ipc_call(vfsd_pid, VFS_WAKEUP, &in, NULL);
@@ -879,59 +882,56 @@ int  vfs_wakeup(uint32_t node, int event) {
 	return 0;
 }
 
+int  vfs_set_poll_events(uint32_t node_id, uint32_t events, bool set) {
+	proto_t in, out;
+	PF->init(&in)->
+		addi(&in, node_id)->
+		addi(&in, events)->
+		addi(&in, set);
+	PF->init(&out);
+	
+	int res = ipc_call(get_vfsd_pid(), VFS_SET_POLL_EVENTS, &in, &out);
+	PF->clear(&in);
+	if(res == 0)
+		res = proto_read_int(&out);
+	PF->clear(&out);
+	return res;
+}
+
+uint32_t  vfs_get_poll_events(int fd) {
+	fsinfo_t info;
+	if(vfs_get_by_fd(fd, &info) != 0 || info.node == 0)
+		return 0;
+	proto_t in, out;
+	PF->init(&in)->
+		addi(&in, info.node);
+	PF->init(&out);
+	ipc_call(get_vfsd_pid(), VFS_GET_POLL_EVENTS, &in, &out);
+	PF->clear(&in);
+	uint32_t res = (uint32_t)proto_read_int(&out);
+	PF->clear(&out);
+	return res;
+}
+
 int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 	(void)timeout; //TODO
 	if(num <= 0)
 		return -1;
 
-	//klog("vfs_poll: %d fds\n", num);
-	proto_t in;
-	PF->init(&in)->
-		addi(&in, num);
-	int res = ipc_call(get_vfsd_pid(), VFS_POLL, &in, NULL);
-	PF->clear(&in);
-	if(res != 0)
-		return -1;
-
-	//klog("vfs_poll: %d fds, res = %d\n", num, res);
-
-	for(int i = 0; i < num; ++i) {
-		fsinfo_t info;
-		if(vfs_get_by_fd(fds[i].fd, &info) != 0 || info.node == 0)
-			continue;
-		//klog("vfs_poll: %d fds, fd = %d, node = %d, event = 0x%x\n", num, fds[i].fd, info.node, fds[i].events);
-		fds[i].node = info.node;
-		fds[i].revents = 0;
-		vfs_block_raw(info.node, fds[i].events);
-	}
-	proc_block();
-
-	//klog("vfs_poll: %d fds, res = %d\n", num, res);
-
-	proto_t out;
-	PF->init(&out);
-	ipc_call(get_vfsd_pid(), VFS_GET_POLL_INFO, NULL, &out);
-	int event_num = proto_read_int(&out);
-	res = 0;
-
-	klog("vfs_poll: %d fds, event_num = %d\n", num, event_num);
-	for(int i = 0; i < event_num; ++i) {
-		vfs_poll_event_t event;
-		if(proto_read_to(&out, &event, sizeof(vfs_poll_event_t)) == 0)
+	int res = 0;
+	while(true) {
+		res = 0;
+		for(int i = 0; i < num; ++i) {
+			fds[i].revents = vfs_get_poll_events(fds[i].fd);
+			if(fds[i].revents != 0)
+				res++;
+		}
+		if(res > 0)
 			break;
 
-		//klog("vfs_poll: %d fds, event = 0x%x\n", num, event.event);
-		for(int j = 0; j < num; ++j) {
-			if(event.node == fds[j].node) {
-				fds[j].revents |= event.event;
-				res++;
-				klog("vfs_poll: fd = %d, event = 0x%x\n", fds[j].fd, fds[j].revents);
-				break;
-			}
-		}
+		usleep(1000);
+		//proc_block();
 	}
-	PF->clear(&out);
-	klog("vfs_poll done!: %d fds, res = %d\n", num, res);
 	return res;
 }
 

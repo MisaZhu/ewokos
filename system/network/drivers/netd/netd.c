@@ -58,6 +58,7 @@ static int network_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	}
 	task = task->read_task;
 	int ret = task_read(task, from_pid, buf, size, p);
+	vfs_set_poll_events(task->node, VFS_EVT_RD, false);
 	//vfs_wakeup(task->node, VFS_EVT_RW);
 	return ret;
 }

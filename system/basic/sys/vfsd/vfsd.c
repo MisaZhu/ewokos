@@ -46,21 +46,10 @@ static vfs_node_t* _vfs_root = NULL;
 static mount_t _vfs_mounts[FS_MOUNT_MAX];
 static map_t  _nodes_hash = NULL;
 
-
-#define MAX_POLL_EVENTS 128
-typedef struct {
-	vfs_poll_event_t *events;
-	uint32_t events_num;
-	uint32_t events_max;
-	bool waiting;
-} poll_info_t;
-
-
 typedef struct {
 	uint32_t uuid;
 	uint32_t state;
 	file_t fds[MAX_OPEN_FILE_PER_PROC];
-	poll_info_t poll_info;
 } proc_fds_t;
 
 static proc_fds_t* _proc_fds_table = NULL;
@@ -457,30 +446,6 @@ static vfs_node_t* vfs_get_by_fd(int32_t pid, int32_t fd) {
 static void wakeup_proc(int32_t pid, vfs_node_t* node, int32_t event) {
 	if(pid < 0 || pid >= _max_proc_table_num)
 		return;
-
-	proc_fds_t* fds = &_proc_fds_table[pid];
-	/*klog("wakeup_proc: %d, %d, %d, wait: %d, events_num: %d/%d, events: 0x%x\n", 
-			pid, vfs_get_node_id(node), event, 
-			fds->poll_info.waiting, fds->poll_info.events_num, fds->poll_info.events_max, fds->poll_info.events);
-			*/
-	if(fds->poll_info.waiting && 
-			fds->poll_info.events != NULL &&
-			(fds->poll_info.events_num) < fds->poll_info.events_max) {
-		klog("1 wakeup_proc: %d, %d, %d, events_num: %d\n", pid, vfs_get_node_id(node), event, fds->poll_info.events_num);
-		int i = 0;
-		for(; i<fds->poll_info.events_num; i++) {
-			if(fds->poll_info.events[i].node == vfs_get_node_id(node)) {
-				break;
-			}
-		}
-		if(i <= fds->poll_info.events_num) {
-			fds->poll_info.events[i].node = vfs_get_node_id(node);
-			fds->poll_info.events[i].event = event;
-			if(i == fds->poll_info.events_num)
-				fds->poll_info.events_num++;
-		}
-		klog("2 wakeup_proc: %d, %d, %d, events_num: %d\n", pid, vfs_get_node_id(node), event, fds->poll_info.events_num);
-	}
 	proc_wakeup(pid);
 }
 
@@ -1059,10 +1024,6 @@ static void clear_zombie(int32_t cpid) {
 		memset(f, 0, sizeof(file_t));
 	}
 
-	if(_proc_fds_table[cpid].poll_info.events != NULL)
-		free(_proc_fds_table[cpid].poll_info.events);
-	memset(&_proc_fds_table[cpid].poll_info, 0, sizeof(poll_info_t));
-
 	_proc_fds_table[cpid].state = UNUSED;
 	_proc_fds_table[cpid].uuid = 0;
 }
@@ -1127,12 +1088,6 @@ static void do_vfs_proc_exit(int32_t pid, proto_t* in) {
 	vfs_proc_exit(cpid);
 }
 
-static bool check_vfs_pollfd(void* data, void* check_data) {
-	if(data == NULL || check_data == NULL)
-		return false;
-	return *(int32_t*)data == *(int32_t*)check_data;
-}
-
 static void do_vfs_block(int32_t pid, proto_t* in) {
 	int node_id = proto_read_int(in);
 	int event = proto_read_int(in);
@@ -1153,9 +1108,6 @@ static void do_vfs_block(int32_t pid, proto_t* in) {
 
 	if(q == NULL)
 		return;
-
-	if(queue_in(q, p, check_vfs_pollfd) != NULL)
-		return;
 	queue_push(q, p);
 }
 
@@ -1169,52 +1121,34 @@ static void do_vfs_wakeup(int32_t pid, proto_t* in) {
 	do_node_wakeup(node, event);
 }
 
-static void do_vfs_poll(int32_t pid, proto_t* in, proto_t* out) {
+static void do_vfs_get_poll_events(int32_t pid, proto_t* in, proto_t* out) {
+	PF->addi(out, 0);
 	if(pid < 0 || pid >= _max_proc_table_num) {
-		PF->addi(out, -1);
 		return;
 	}
-
-	proc_fds_t* fds = &_proc_fds_table[pid];
-	klog("pid: %d, num: %d\n", pid, fds->poll_info.events_num);
-	if(fds->poll_info.events_num > 0) {
-		PF->addi(out, -1);
-	}
-	else 
-		PF->addi(out, 0);
-
-	int num = proto_read_int(in);
-	if(num <= 0)
+	uint32_t node_id = (uint32_t)proto_read_int(in);
+	vfs_node_t* node = vfs_get_node_by_id(node_id);
+	if(node == NULL)
 		return;
-	if(num > MAX_POLL_EVENTS)
-		num = MAX_POLL_EVENTS;
-
-	if(fds->poll_info.events_max < num || fds->poll_info.events == NULL) {
-		if(fds->poll_info.events != NULL)
-			free(fds->poll_info.events);
-		fds->poll_info.events = (vfs_poll_event_t*)malloc(num * sizeof(vfs_poll_event_t));
-		memset(fds->poll_info.events, 0, num * sizeof(vfs_poll_event_t));
-	}
-	fds->poll_info.events_max = num;
-	fds->poll_info.waiting = true;
-	fds->poll_info.events_num = 0;
+	PF->clear(out)->addi(out, node->events);
 }
 
-static void do_vfs_get_poll_info(int32_t pid, proto_t* in, proto_t* out) {
-	if(pid < 0 || pid >= _max_proc_table_num)
+static void do_vfs_set_poll_events(int32_t pid, proto_t* in, proto_t* out) {
+	PF->addi(out, -1);
+	if(pid < 0 || pid >= _max_proc_table_num) {
 		return;
-	proc_fds_t* fds = &_proc_fds_table[pid];
-	klog("pid: %d, num: %d\n", pid, fds->poll_info.events_num);
-	PF->clear(out)->addi(out, fds->poll_info.events_num);
-	for(int i=0; i<fds->poll_info.events_num; i++) {
-		PF->add(out, &fds->poll_info.events[i], sizeof(vfs_poll_event_t));
 	}
-	/*if(fds->poll_info.events != NULL)
-		free(fds->poll_info.events);
-	fds->poll_info.events = NULL;
-	fds->poll_info.waiting = false;
-	*/
-	fds->poll_info.events_num = 0;
+	uint32_t node_id = (uint32_t)proto_read_int(in);
+	uint32_t events = (uint32_t)proto_read_int(in);
+	uint32_t set = (uint32_t)proto_read_int(in);
+	vfs_node_t* node = vfs_get_node_by_id(node_id);
+	if(node == NULL)
+		return;
+	if(set == 1)
+		node->events |= events;
+	else
+		node->events &= ~events;
+	PF->addi(out, 0);
 }
 
 static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
@@ -1286,11 +1220,11 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	case VFS_WAKEUP:
 		do_vfs_wakeup(pid, in);
 		break;
-	case VFS_POLL:
-		do_vfs_poll(pid, in, out);
+	case VFS_GET_POLL_EVENTS:
+		do_vfs_get_poll_events(pid, in, out);
 		break;
-	case VFS_GET_POLL_INFO:
-		do_vfs_get_poll_info(pid, in, out);
+	case VFS_SET_POLL_EVENTS:
+		do_vfs_set_poll_events(pid, in, out);
 		break;
 	default:
 		break;

@@ -80,7 +80,10 @@ static int handle_socket_data(void) {
     uint8_t buffer[BUFFER_SIZE];
     int n;
 
+    klog("handle_socket_data\n");
     n = read(sockfd, buffer, BUFFER_SIZE);
+    klog("handle_socket_data: read %d bytes\n", n);
+
     if (n > 0) {
         for(int i = 0; i < n; i++) {
             if(buffer[i] == '\r') {
@@ -123,7 +126,7 @@ static int handle_stdin_data(void) {
 
     klog("handle_stdin_data\n");
     n = read(STDIN_FILENO, buf, BUFFER_SIZE - 1);
-    klog("handle_stdin_data: read %d bytes: %c\n", n, buf[0]);
+    klog("handle_stdin_data: read %d bytes: %d/'%c'\n", n, buf[0], buf[0]);
 
     if (n > 0) {
         for(int i = 0; i < n; i++) {
@@ -210,6 +213,7 @@ int main(int argc, char *argv[]) {
     fds[1].events = POLLIN;
 
     while (!_ended) {
+        klog("start poll: \n");
         int ret = poll(fds, 2, -1);
         klog("poll: ret = %d\n", ret);
 
@@ -231,16 +235,16 @@ int main(int argc, char *argv[]) {
             break;
         }
 
-        //klog("4 poll: ret = %d\n", ret);
+        klog("4 poll: ret = %d\n", ret);
 
         if (fds[1].revents & POLLIN) {
-            //klog("5 poll: ret = %d\n", ret);
+            klog("5 poll: ret = %d\n", ret);
             if (handle_socket_data() < 0) {
                 break;
             }
         }
 
-        //klog("6 poll: ret = %d\n", ret);
+        klog("6 poll: ret = %d\n", ret);
         if (fds[1].revents & (POLLERR | POLLHUP | POLLNVAL)) {
             printf("\nConnection closed.\n");
             break;

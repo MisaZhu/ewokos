@@ -22,7 +22,6 @@ typedef struct pollfd {
     int      fd;       
     uint16_t events;   
     uint16_t revents;  
-	uint32_t node;
 } vfs_pollfd_t;
 
 
@@ -46,6 +45,10 @@ int       vfs_del_node(uint32_t node);
 int       vfs_get_by_name(const char* fname, fsinfo_t* info);
 int       vfs_get_by_node(uint32_t node, fsinfo_t* info);
 int       vfs_get_by_fd(int fd, fsinfo_t* info);
+
+int       vfs_set_poll_events(uint32_t node_id, uint32_t events, bool set);
+uint32_t  vfs_get_poll_events(int fd);
+
 int       vfs_tell(int fd);
 int       vfs_seek(int fd, int offset);
 
