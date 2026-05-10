@@ -235,7 +235,7 @@ int main(int argc, char *argv[]) {
             break;
         }
 
-        klog("4 poll: ret = %d\n", ret);
+        klog("4 poll: ret = %d, 0x%x\n", ret, fds[1].revents);
 
         if (fds[1].revents & POLLIN) {
             klog("5 poll: ret = %d\n", ret);

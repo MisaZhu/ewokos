@@ -868,14 +868,12 @@ int  vfs_block(uint32_t node, int event) {
 }
 
 int  vfs_wakeup(uint32_t node, int event) {
-
 	proto_t in;
 	PF->init(&in)->
 		addi(&in, node)->
 		addi(&in, event);
 
-	vfs_set_poll_events(node, event, true);
-
+    vfs_set_poll_events(node, event, true);
 	int vfsd_pid = get_vfsd_pid();
 	ipc_call(vfsd_pid, VFS_WAKEUP, &in, NULL);
 	PF->clear(&in);

@@ -423,7 +423,7 @@ void task_wakeup_by_sock(int sock) {
             vfs_wakeup(task->node, VFS_EVT_RD);
         }
         if(!task->is_read_task && task->read_task != NULL && 
-           task->read_task->sock == sock && task->read_task->node > 0) {
+            task->read_task->sock == sock && task->read_task->node > 0) {
             vfs_wakeup(task->read_task->node, VFS_EVT_RD);
         }
         task = task->next;
