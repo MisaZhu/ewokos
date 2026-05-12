@@ -18,6 +18,7 @@ int32_t    charbuf_push(charbuf_t *buffer, char c, bool loop);
 int32_t    charbuf_pop(charbuf_t *buffer, char* c);
 void       charbuf_free(charbuf_t *buffer);
 void       charbuf_clear(charbuf_t* buffer);
+bool       charbuf_is_empty(charbuf_t* buffer);
 
 #ifdef __cplusplus 
 }

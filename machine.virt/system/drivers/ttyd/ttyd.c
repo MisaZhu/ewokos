@@ -66,7 +66,6 @@ static int tty_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	(void)fd;
 	(void)from_pid;
 	(void)offset;
-	(void)info;
 	(void)size;
 	(void)p;
 
@@ -76,6 +75,10 @@ static int tty_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 		if(res != 0)
 			break;
 	}
+
+	if(charbuf_is_empty(_buffer))
+		vfs_set_poll_events(info->node, VFS_EVT_RD, false);
+
 	return (i==0)?VFS_ERR_RETRY:i;
 }
 

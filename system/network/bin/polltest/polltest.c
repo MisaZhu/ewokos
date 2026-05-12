@@ -213,9 +213,7 @@ int main(int argc, char *argv[]) {
     fds[1].events = POLLIN;
 
     while (!_ended) {
-        klog("start poll: \n");
         int ret = poll(fds, 2, -1);
-        klog("poll: ret = %d\n", ret);
 
         if (ret < 0) {
             perror("poll");
@@ -235,7 +233,7 @@ int main(int argc, char *argv[]) {
             break;
         }
 
-        klog("4 poll: ret = %d, 0x%x\n", ret, fds[1].revents);
+        //klog("4 poll: ret = %d, 0x%x\n", ret, fds[1].revents);
 
         if (fds[1].revents & POLLIN) {
             klog("5 poll: ret = %d\n", ret);
@@ -244,7 +242,7 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        klog("6 poll: ret = %d\n", ret);
+        //klog("6 poll: ret = %d\n", ret);
         if (fds[1].revents & (POLLERR | POLLHUP | POLLNVAL)) {
             printf("\nConnection closed.\n");
             break;

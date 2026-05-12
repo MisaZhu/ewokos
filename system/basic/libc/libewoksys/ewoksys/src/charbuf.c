@@ -72,6 +72,12 @@ void charbuf_clear(charbuf_t* buffer) {
 	buffer->start = 0;
 }
 
+bool charbuf_is_empty(charbuf_t* buffer) {
+	if(buffer == NULL)
+		return true;
+	return buffer->size == 0;
+}
+
 void charbuf_free(charbuf_t* buffer) {
 	if(buffer == NULL)
 		return;
