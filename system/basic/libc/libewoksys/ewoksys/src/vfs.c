@@ -10,6 +10,7 @@
 #include <ewoksys/ipc.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/vfsc.h>
+#include <ewoksys/kernel_tic.h>
 #include <ewoksys/devcmd.h>
 #include <ewoksys/proc.h>
 #include <sys/shm.h>
@@ -909,11 +910,14 @@ uint32_t  vfs_get_poll_events(int fd) {
 }
 
 int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
-	(void)timeout; //TODO
 	if(num <= 0)
 		return -1;
 
 	int res = 0;
+	uint64_t start_ms = 0;
+	if(timeout > 0)
+		start_ms = kernel_tic_ms(0);
+
 	while(true) {
 		res = 0;
 		for(int i = 0; i < num; ++i) {
@@ -924,8 +928,16 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 		if(res > 0)
 			break;
 
+		if(timeout == 0)
+			break;
+
+		if(timeout > 0) {
+			uint64_t now_ms = kernel_tic_ms(0);
+			if((now_ms - start_ms) >= (uint64_t)timeout)
+				break;
+		}
+
 		usleep(1000);
-		//proc_block();
 	}
 	return res;
 }
@@ -933,4 +945,3 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 #ifdef __cplusplus
 }
 #endif
-
