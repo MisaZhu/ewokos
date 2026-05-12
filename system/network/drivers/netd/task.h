@@ -39,7 +39,6 @@ void release_task(net_task_t *task);
 int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *out, void *p);
 int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p);
 int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p);
-void task_wakeup_by_sock(int sock);
 void task_check_read_events(void);
 
 extern pthread_mutex_t task_list_lock;
