@@ -353,15 +353,25 @@ static int console_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	char c;
 	int res = charbuf_pop(_buffer, &c);
 
-	if(charbuf_is_empty(_buffer))
-		vfs_set_poll_events(info->node, VFS_EVT_RD, false);
-
 	if(res != 0) {
 		return VFS_ERR_RETRY;
 	}
 
 	((char*)buf)[0] = c;
 	return 1;
+}
+
+static uint32_t console_check_poll_events(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, void* p) {
+	(void)dev;
+	(void)fd;
+	(void)from_pid;
+	(void)info;
+	(void)p;
+		
+	if(!charbuf_is_empty(_buffer)) {
+		return VFS_EVT_RD;
+	}
+	return 0;
 }
 
 static int console_loop(vdevice_t* dev, void* p) {
@@ -394,6 +404,7 @@ int run(const char* mnt_point) {
 	dev.write = console_write;
 	dev.read = console_read;
 	dev.loop_step = console_loop;
+	dev.check_poll_events = console_check_poll_events;
 	_dev = &dev;
 
 	pthread_t tid;

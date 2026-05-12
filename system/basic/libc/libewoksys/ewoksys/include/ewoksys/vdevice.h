@@ -40,6 +40,7 @@ typedef struct st_vdevice {
 	void (*interrupt)(struct st_vdevice* dev, proto_t* in, void* p);
 	void (*handled)(struct st_vdevice* dev, void* p);
 	int (*loop_step)(struct st_vdevice* dev, void* p);
+	uint32_t (*check_poll_events)(struct st_vdevice* dev, int fd, int from_pid, fsinfo_t* info, void* p);
 } vdevice_t;
 
 extern int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int mode);

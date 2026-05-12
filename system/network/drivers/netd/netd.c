@@ -58,12 +58,11 @@ static int network_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	}
 	task = task->read_task;
 	int ret = task_read(task, from_pid, buf, size, p);
-	vfs_set_poll_events(task->node, VFS_EVT_RD, false);
 	//vfs_wakeup(task->node, VFS_EVT_RW);
 	return ret;
 }
 
-static int network_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
+static int network_write(void* dev, int fd, int from_pid, fsinfo_t* info,
 		const void* buf, int size, int offset, void* p) {
 	(void)dev;
 	(void)fd;
@@ -73,6 +72,26 @@ static int network_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	int ret = task_write(task, from_pid, buf, size, p);
 	//vfs_wakeup(task->node, VFS_EVT_RW);
 	return ret;
+}
+
+static uint32_t network_check_poll_events(void* dev, int fd, int from_pid, fsinfo_t* info, void* p) {
+	(void)dev;
+	(void)fd;
+	(void)from_pid;
+	(void)info;
+	(void)p;
+	net_task_t *task = (net_task_t*)info->data;
+
+	uint32_t events = 0;
+	if (task != NULL) {
+		pthread_mutex_lock(&task_list_lock);
+		if (task->read_task != NULL && task->read_task->state == NET_TASK_FINISH) {
+			events |= VFS_EVT_RD;
+		}
+		pthread_mutex_unlock(&task_list_lock);
+	}
+
+	return events;
 }
 
 static int network_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fsinfo_t* fsinfo,void* p) {
@@ -251,6 +270,7 @@ int main(int argc, char** argv) {
 	dev.write = network_write;
 	dev.close = network_close;
 	dev.cmd = network_devcmd;
+	dev.check_poll_events = network_check_poll_events;
     pthread_mutex_init(&task_list_lock, NULL);
 	device_run(&dev, mnt_point, FS_TYPE_ANNOUNIMOUS | FS_TYPE_CHAR, 0666);
     pthread_mutex_destroy(&task_list_lock);

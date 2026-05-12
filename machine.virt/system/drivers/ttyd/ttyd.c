@@ -76,10 +76,19 @@ static int tty_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 			break;
 	}
 
-	if(charbuf_is_empty(_buffer))
-		vfs_set_poll_events(info->node, VFS_EVT_RD, false);
-
 	return (i==0)?VFS_ERR_RETRY:i;
+}
+
+static uint32_t tty_check_poll_events(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, void* p) {
+	(void)dev;
+	(void)fd;
+	(void)from_pid;
+	(void)info;
+	(void)p;
+
+	if(!charbuf_is_empty(_buffer))
+		return VFS_EVT_RD;
+	return 0;
 }
 
 static int tty_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
@@ -131,6 +140,7 @@ int main(int argc, char** argv) {
 	dev.read = tty_read;
 	dev.write = tty_write;
 	dev.loop_step = tty_loop;
+	dev.check_poll_events = tty_check_poll_events;
 
 	interrupt_handler_t handler;
 	handler.data = (uint32_t)&dev;
