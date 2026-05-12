@@ -80,7 +80,9 @@ static int handle_socket_data(void) {
     uint8_t buffer[BUFFER_SIZE];
     int n;
 
+    klog("handle_socket_data\n");
     n = read(sockfd, buffer, BUFFER_SIZE);
+    klog("handle_socket_data read: %d\n", n);
 
     if (n > 0) {
         for(int i = 0; i < n; i++) {

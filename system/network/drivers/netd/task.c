@@ -361,6 +361,10 @@ void task_check_read_events(void) {
             PF->addi(&task->read_task->in, TASK_READ_BUF_SIZE);
             task->read_task->state = NET_TASK_START;
         }
+        if(task->read_task == NULL && task->sock >= 0 &&
+           task->node > 0 && sock_readable(task->sock)) {
+            vfs_wakeup(task->node, VFS_EVT_RD);
+        }
         task = task->next;
     }
     pthread_mutex_unlock(&task_list_lock);

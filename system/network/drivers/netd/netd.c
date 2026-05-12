@@ -24,6 +24,8 @@
 #include "stack/loopback.h"
 #include "stack/ether_tap.h"
 
+extern int sock_readable(int sock);
+
 static int network_fcntl(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	int cmd, proto_t* in, proto_t* out, void* p) {
     (void)dev;
@@ -86,6 +88,9 @@ static uint32_t network_check_poll_events(void* dev, int fd, int from_pid, fsinf
 	if (task != NULL) {
 		pthread_mutex_lock(&task_list_lock);
 		if (task->read_task != NULL && task->read_task->state == NET_TASK_FINISH) {
+			events |= VFS_EVT_RD;
+		}
+		if (task->read_task == NULL && task->sock >= 0 && sock_readable(task->sock)) {
 			events |= VFS_EVT_RD;
 		}
 		pthread_mutex_unlock(&task_list_lock);
