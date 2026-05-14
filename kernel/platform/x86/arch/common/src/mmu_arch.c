@@ -9,6 +9,18 @@ static inline page_table_entry_t* entry_to_table(page_table_entry_t* entry) {
 	return (page_table_entry_t*)P2V((ewokos_addr_t)(entry->Address << 12));
 }
 
+static inline int shared_kernel_pdpt(uint32_t pml4_index, uint32_t pdpt_index) {
+	if (pml4_index != PAGE_PML4_INDEX(KERNEL_BASE)) {
+		return 0;
+	}
+
+	/*
+	 * clone_kernel_vm() reuses the kernel high-half PDPT entries instead of
+	 * copying them, so they must not be released during per-process teardown.
+	 */
+	return pdpt_index >= PAGE_PDPT_INDEX(KERNEL_BASE);
+}
+
 static page_table_entry_t* next_table(page_table_entry_t* table, uint32_t index, int create) {
 	if (!table[index].present) {
 		page_table_entry_t* next;
@@ -119,6 +131,9 @@ void free_page_tables(page_dir_entry_t* vm) {
 		for (uint32_t j = 0; j < PAGE_DIR_NUM; ++j) {
 			page_table_entry_t* pd;
 			if (!pdpt[j].present) {
+				continue;
+			}
+			if (shared_kernel_pdpt(i, j)) {
 				continue;
 			}
 			pd = entry_to_table(&pdpt[j]);

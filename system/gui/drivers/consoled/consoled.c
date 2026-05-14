@@ -173,6 +173,7 @@ static int console_read(vdevice_t* dev,
 static int console_loop(vdevice_t* dev, void* p) {
 	(void)dev;
 	static bool shift = false;
+	static bool ctrl = false;
 
 	fb_console_t* console = (fb_console_t*)p;
 
@@ -196,20 +197,31 @@ static int console_loop(vdevice_t* dev, void* p) {
 				if(ev->key == KEY_LSHIFT || ev->key == KEY_RSHIFT) {
 					shift = true;
 				}
+				else if(ev->key == KEY_CTRL) {
+					ctrl = true;
+				}
 			}
 			else {
 				if(ev->key == KEY_LSHIFT || ev->key == KEY_RSHIFT) {
 					shift = false;
+				}
+				else if(ev->key == KEY_CTRL) {
+					ctrl = false;
 				}
 			}
 
 			uint8_t c;
 			if(shift)
 				c = keyb_shift_value(ev->key);
+			else if(ctrl)
+				c = keyb_ctrl_value(ev->key);
 			else
 				c = ev->key;
 
 			if(ev->state != KEYB_STATE_PRESS || c >= 128)
+				continue;
+
+			if(ev->key == KEY_LSHIFT || ev->key == KEY_RSHIFT || ev->key == KEY_CTRL)
 				continue;
 
 			if(c == KEY_UP) {
