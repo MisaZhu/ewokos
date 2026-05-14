@@ -25,7 +25,7 @@ typedef struct {
 	(x).pc = 0; \
 	(x).lr = 0; \
 	(x).cs = X86_USER_CS; \
-	(x).rflags = 0x202; \
+	(x).rflags = 0x3202; \
 	(x).sp = 0; \
 	(x).ss = X86_USER_DS; \
 } while(0)
