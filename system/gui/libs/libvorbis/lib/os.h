@@ -67,12 +67,16 @@ void *_alloca(size_t size);
 #  include <alloca.h>
 #endif
 
-/* When alloca is not available, use malloc as a fallback.
-   Note: This may cause memory leaks in some code paths that expect
-   stack-allocated memory to be automatically freed. */
+/* Prefer compiler builtins for stack allocation when alloca headers
+   are unavailable. Falling back to malloc changes lifetime semantics
+   and can leak heavily in libvorbis hot paths. */
 #ifndef HAVE_ALLOCA
-#  include <stdlib.h>
-#  define alloca(size) malloc(size)
+#  ifdef __GNUC__
+#    define alloca(size) __builtin_alloca(size)
+#  else
+#    include <stdlib.h>
+#    define alloca(size) malloc(size)
+#  endif
 #endif
 
 #ifdef USE_MEMORY_H

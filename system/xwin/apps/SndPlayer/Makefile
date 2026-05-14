@@ -21,6 +21,8 @@ $(SND_PLAYER): $(SND_PLAYER_OBJS) \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libwidget++.a \
 		$(BUILD_DIR)/lib/libminimp3.a \
+		$(BUILD_DIR)/lib/libvorbis.a \
+		$(BUILD_DIR)/lib/libogg.a \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libcxx.a
 	$(LD) -Ttext=100 $(SND_PLAYER_OBJS) -o $(SND_PLAYER) $(LDFLAGS)  $(EWOK_LIB_X) -lminimp3 -lvorbis -logg -lm $(EWOK_LIB_GRAPH)  $(EWOK_LIBC) -lcxx

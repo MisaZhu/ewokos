@@ -147,6 +147,20 @@ char *strcat(char *dest, const char *src) {
 	return ret;
 }
 
+char *strncat(char *dest, const char *src, size_t n) {
+	char *ret = dest;
+	size_t i = 0;
+
+	while (*dest != 0) {
+		++dest;
+	}
+	while (i < n && src[i] != 0) {
+		*dest++ = src[i++];
+	}
+	*dest = 0;
+	return ret;
+}
+
 char *strncpy(char *dest, const char *src, size_t n) {
 	size_t i = 0;
 
@@ -208,7 +222,7 @@ char *strrchr(const char *s, int c) {
 	return ((char)c == 0) ? (char *)s : (char *)last;
 }
 
-const char *strstr(const char *haystack, const char *needle) {
+char *strstr(const char *haystack, const char *needle) {
 	size_t needle_len = strlen(needle);
 
 	if (needle_len == 0) {
@@ -251,6 +265,40 @@ char *strtok(char *str, const char *delim) {
 		*last++ = 0;
 	} else {
 		last = NULL;
+	}
+	return token;
+}
+
+char *strtok_r(char *str, const char *delim, char **saveptr) {
+	char *last;
+	char *token;
+
+	if (delim == NULL || saveptr == NULL) {
+		return NULL;
+	}
+
+	last = (str != NULL) ? str : *saveptr;
+	if (last == NULL) {
+		return NULL;
+	}
+
+	while (*last != 0 && strchr(delim, *last) != NULL) {
+		++last;
+	}
+	if (*last == 0) {
+		*saveptr = NULL;
+		return NULL;
+	}
+
+	token = last;
+	while (*last != 0 && strchr(delim, *last) == NULL) {
+		++last;
+	}
+	if (*last != 0) {
+		*last++ = 0;
+		*saveptr = last;
+	} else {
+		*saveptr = NULL;
 	}
 	return token;
 }
@@ -390,6 +438,10 @@ long long strtoll(const char *nptr, char **endptr, int base) {
 	return (long long)strtoul(nptr, endptr, base);
 }
 
+unsigned long long strtoull(const char *nptr, char **endptr, int base) {
+	return (unsigned long long)strtoul(nptr, endptr, base);
+}
+
 double strtod(const char *nptr, char **endptr) {
 	const char *s = nptr;
 	double value = 0.0;
@@ -505,12 +557,11 @@ long labs(long j) {
 	return (j < 0) ? -j : j;
 }
 
-double ceil(double x) {
-	long long i = (long long)x;
-	if ((double)i == x || x < 0.0) {
-		return (double)i;
-	}
-	return (double)(i + 1);
+div_t div(int numer, int denom) {
+	div_t ret;
+	ret.quot = numer / denom;
+	ret.rem = numer % denom;
+	return ret;
 }
 
 static void qsort_swap(unsigned char *a, unsigned char *b, size_t size) {
@@ -951,6 +1002,19 @@ static void fill_tm_from_epoch(time_t epoch, struct tm *out) {
 	out->tm_isdst = 0;
 }
 
+static int is_leap_year(int year) {
+	return ((year % 4) == 0 && (year % 100) != 0) || ((year % 400) == 0);
+}
+
+static int month_days_for_year(int year, int month) {
+	static const int month_days[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+
+	if (month == 1 && is_leap_year(year)) {
+		return 29;
+	}
+	return month_days[month];
+}
+
 struct tm *gmtime(const time_t *timer) {
 	static struct tm tm_buf;
 	time_t epoch = (timer != NULL) ? *timer : 0;
@@ -1045,6 +1109,59 @@ struct tm *localtime_r(const time_t *timer, struct tm *result) {
 	}
 	*result = *tmp;
 	return result;
+}
+
+time_t mktime(struct tm *tm) {
+	long long days = 0;
+	long long seconds;
+	long tz_offset;
+	int year;
+	int month;
+
+	if (tm == NULL) {
+		errno = EINVAL;
+		return (time_t)-1;
+	}
+
+	year = tm->tm_year + 1900;
+	month = tm->tm_mon;
+
+	while (month < 0) {
+		month += 12;
+		--year;
+	}
+	while (month >= 12) {
+		month -= 12;
+		++year;
+	}
+
+	if (year >= 1970) {
+		for (int y = 1970; y < year; ++y) {
+			days += is_leap_year(y) ? 366 : 365;
+		}
+	} else {
+		for (int y = 1969; y >= year; --y) {
+			days -= is_leap_year(y) ? 366 : 365;
+		}
+	}
+
+	for (int m = 0; m < month; ++m) {
+		days += month_days_for_year(year, m);
+	}
+
+	days += (long long)tm->tm_mday - 1;
+	seconds = days * 86400LL +
+		(long long)tm->tm_hour * 3600LL +
+		(long long)tm->tm_min * 60LL +
+		(long long)tm->tm_sec;
+
+	tz_offset = parse_tz_offset_seconds(getenv("TZ"));
+	seconds += tz_offset;
+
+	fill_tm_from_epoch((time_t)(seconds - tz_offset), tm);
+	tm->tm_isdst = 0;
+
+	return (time_t)seconds;
 }
 
 static void append_char(char *buf, size_t size, size_t *pos, char c) {
@@ -1552,12 +1669,10 @@ int snprintf(char *str, size_t size, const char *format, ...) {
 	return ret;
 }
 
-int sscanf(const char *str, const char *format, ...) {
-	va_list ap;
+static int vsscanf_impl(const char *str, const char *format, va_list ap, const char **endptr) {
 	int assigned = 0;
 	const char *s = str;
 
-	va_start(ap, format);
 	while (*format != 0) {
 		int width = 0;
 		int long_flag = 0;
@@ -1666,8 +1781,72 @@ int sscanf(const char *str, const char *format, ...) {
 			++format;
 		}
 	}
-	va_end(ap);
+	if (endptr != NULL) {
+		*endptr = s;
+	}
 	return assigned;
+}
+
+int vsscanf(const char *str, const char *format, va_list ap) {
+	va_list ap_copy;
+	int ret;
+
+	va_copy(ap_copy, ap);
+	ret = vsscanf_impl(str, format, ap_copy, NULL);
+	va_end(ap_copy);
+	return ret;
+}
+
+int sscanf(const char *str, const char *format, ...) {
+	va_list ap;
+	int ret;
+
+	va_start(ap, format);
+	ret = vsscanf(str, format, ap);
+	va_end(ap);
+	return ret;
+}
+
+int vfscanf(FILE *stream, const char *format, va_list ap) {
+	char buf[4096];
+	long start;
+	ssize_t nread;
+	const char *endp = buf;
+	va_list ap_copy;
+	int ret;
+
+	if (stream == NULL || format == NULL) {
+		errno = EINVAL;
+		return EOF;
+	}
+
+	start = ftell(stream);
+	if (start < 0) {
+		return EOF;
+	}
+
+	nread = read(stream->fd, buf, sizeof(buf) - 1);
+	if (nread <= 0) {
+		return EOF;
+	}
+	buf[nread] = 0;
+
+	va_copy(ap_copy, ap);
+	ret = vsscanf_impl(buf, format, ap_copy, &endp);
+	va_end(ap_copy);
+
+	fseek(stream, start + (long)(endp - buf), SEEK_SET);
+	return ret;
+}
+
+int fscanf(FILE *stream, const char *format, ...) {
+	va_list ap;
+	int ret;
+
+	va_start(ap, format);
+	ret = vfscanf(stream, format, ap);
+	va_end(ap);
+	return ret;
 }
 
 int vsprintf(char *str, const char *format, va_list ap) {
@@ -1813,7 +1992,12 @@ int fseek(FILE *stream, long offset, int whence) {
 		errno = EINVAL;
 		return -1;
 	}
-	return (lseek(stream->fd, (off_t)offset, whence) < 0) ? -1 : 0;
+	if (lseek(stream->fd, (off_t)offset, whence) < 0) {
+		return -1;
+	}
+	stream->eof = 0;
+	stream->has_unget = 0;
+	return 0;
 }
 
 long ftell(FILE *stream) {
@@ -1835,9 +2019,89 @@ size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream) {
 	total = size * nmemb;
 	ret = read(stream->fd, ptr, total);
 	if (ret <= 0) {
+		if (ret == 0) {
+			stream->eof = 1;
+		}
 		return 0;
 	}
+	stream->eof = 0;
 	return (size == 0) ? 0 : ((size_t)ret / size);
+}
+
+int fgetc(FILE *stream) {
+	unsigned char ch;
+
+	if (stream == NULL) {
+		errno = EINVAL;
+		return EOF;
+	}
+
+	if (stream->has_unget) {
+		stream->has_unget = 0;
+		stream->eof = 0;
+		return (int)stream->unget_ch;
+	}
+
+	if (read(stream->fd, &ch, 1) != 1) {
+		stream->eof = 1;
+		return EOF;
+	}
+
+	stream->eof = 0;
+	return (int)ch;
+}
+
+int ungetc(int c, FILE *stream) {
+	if (stream == NULL || c == EOF) {
+		return EOF;
+	}
+
+	stream->has_unget = 1;
+	stream->unget_ch = (unsigned char)c;
+	stream->eof = 0;
+	return c;
+}
+
+int feof(FILE *stream) {
+	if (stream == NULL) {
+		return 0;
+	}
+	return stream->eof;
+}
+
+void rewind(FILE *stream) {
+	if (stream == NULL) {
+		return;
+	}
+	fseek(stream, 0, SEEK_SET);
+}
+
+char *fgets(char *s, int size, FILE *stream) {
+	int i = 0;
+
+	if (s == NULL || stream == NULL || size <= 0) {
+		return NULL;
+	}
+
+	while (i < size - 1) {
+		char ch;
+		int got = fgetc(stream);
+		if (got == EOF) {
+			break;
+		}
+		ch = (char)got;
+		s[i++] = ch;
+		if (ch == '\n') {
+			break;
+		}
+	}
+
+	if (i == 0) {
+		return NULL;
+	}
+
+	s[i] = 0;
+	return s;
 }
 
 size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {

@@ -13,6 +13,7 @@
 #include <ewoksys/proc.h>
 #include <ewoksys/proto.h>
 #include <ewoksys/devcmd.h>
+#include <ewoksys/klog.h>
 
 // WAV file format definitions
 #define ID_RIFF 0x46464952
@@ -48,19 +49,27 @@ struct wav_chunk_header {
 static size_t ogg_read_func(void *ptr, size_t size, size_t nmemb, void *datasource)
 {
     OggVorbis_DataSource *ds = (OggVorbis_DataSource *)datasource;
-    size_t bytes_to_read = size * nmemb;
-    size_t bytes_available = ds->size - ds->pos;
+    size_t bytes_available;
+    size_t items_to_read;
+    size_t bytes_to_read;
 
-    if (bytes_to_read > bytes_available) {
-        bytes_to_read = bytes_available;
+    if (size == 0 || nmemb == 0) {
+        return 0;
     }
 
-    if (bytes_to_read > 0) {
+    bytes_available = ds->size - ds->pos;
+    items_to_read = bytes_available / size;
+    if (items_to_read > nmemb) {
+        items_to_read = nmemb;
+    }
+    bytes_to_read = items_to_read * size;
+
+    if (items_to_read > 0) {
         memcpy(ptr, ds->data + ds->pos, bytes_to_read);
         ds->pos += bytes_to_read;
     }
 
-    return bytes_to_read;
+    return items_to_read;
 }
 
 static int ogg_seek_func(void *datasource, ogg_int64_t offset, int whence)
@@ -99,6 +108,31 @@ static long ogg_tell_func(void *datasource)
 {
     OggVorbis_DataSource *ds = (OggVorbis_DataSource *)datasource;
     return ds->pos;
+}
+
+static int g_ogg_decode_debug_calls = 0;
+
+static int16_t ogg_float_to_s16(float sample)
+{
+    int value;
+    if (sample > 1.0f) {
+        sample = 1.0f;
+    } else if (sample < -1.0f) {
+        sample = -1.0f;
+    }
+
+    if (sample >= 0.0f) {
+        value = (int)(sample * 32767.0f + 0.5f);
+    } else {
+        value = (int)(sample * 32768.0f - 0.5f);
+    }
+
+    if (value > 32767) {
+        value = 32767;
+    } else if (value < -32768) {
+        value = -32768;
+    }
+    return (int16_t)value;
 }
 
 struct pcm_config {
@@ -427,6 +461,45 @@ static int parseWavHeader(const uint8_t* data, int size, int* sampleRate, int* c
     return 0;
 }
 
+static uint32_t estimateMp3TotalMs(const uint8_t* data, int size) {
+    mp3dec_t dec;
+    mp3dec_frame_info_t frameInfo;
+    int16_t frameBuf[MINIMP3_MAX_SAMPLES_PER_FRAME];
+    const uint8_t* pos = data;
+    int bytesLeft = size;
+    uint64_t totalSamples = 0;
+    int streamRate = 0;
+
+    mp3dec_init(&dec);
+
+    while (bytesLeft > 0) {
+        int decodedSamples = mp3dec_decode_frame(&dec, pos, bytesLeft, frameBuf, &frameInfo);
+        if (frameInfo.frame_bytes <= 0) {
+            break;
+        }
+
+        if (decodedSamples > 0 && frameInfo.hz > 0) {
+            if (streamRate == 0) {
+                streamRate = frameInfo.hz;
+            }
+
+            if (frameInfo.hz == streamRate) {
+                totalSamples += (uint64_t)decodedSamples;
+            } else {
+                totalSamples += ((uint64_t)decodedSamples * (uint64_t)streamRate) / (uint64_t)frameInfo.hz;
+            }
+        }
+
+        pos += frameInfo.frame_bytes;
+        bytesLeft -= frameInfo.frame_bytes;
+    }
+
+    if (streamRate > 0) {
+        return (uint32_t)((totalSamples * 1000ULL) / (uint64_t)streamRate);
+    }
+    return 0;
+}
+
 // AudioPlayer implementation
 AudioPlayer::AudioPlayer() {
     pcmDev = NULL;
@@ -590,6 +663,7 @@ int AudioPlayer::getChannels() { return channels; }
 int AudioPlayer::getSampleRate() { return sampleRate; }
 uint32_t AudioPlayer::getCurrentMs() { return currentMs; }
 uint32_t AudioPlayer::getTotalMs() { return totalMs; }
+bool AudioPlayer::isOgg() { return format == FORMAT_OGG; }
 
 // Private methods implementation
 
@@ -665,9 +739,12 @@ bool AudioPlayer::loadWav(const char* device) {
 }
 
 bool AudioPlayer::loadOgg(const char* device) {
+    int fileAvgBitrate = 0;
+    int ovAvgBitrate = 0;
     oggVf = (OggVorbis_File*)calloc(1, sizeof(OggVorbis_File));
     oggDs = (OggVorbis_DataSource*)calloc(1, sizeof(OggVorbis_DataSource));
     if (oggVf == NULL || oggDs == NULL) {
+        klog("[snd/ogg] loadOgg alloc failed\n");
         return false;
     }
 
@@ -682,15 +759,24 @@ bool AudioPlayer::loadOgg(const char* device) {
     callbacks.tell_func = ogg_tell_func;
 
     if (ov_open_callbacks(oggDs, oggVf, NULL, 0, callbacks) < 0) {
+        klog("[snd/ogg] ov_open_callbacks failed\n");
         return false;
     }
 
     vorbis_info *vi = ov_info(oggVf, -1);
     if (vi == NULL) {
+        klog("[snd/ogg] ov_info failed\n");
         return false;
     }
+    int hs = ov_halfrate_p(oggVf);
+    if (hs < 0) {
+        hs = 0;
+    }
 
-    sampleRate = vi->rate;
+    sampleRate = vi->rate >> hs;
+    if (sampleRate <= 0) {
+        sampleRate = vi->rate;
+    }
     oggChannels = vi->channels;
     channels = oggChannels;
     simples = 1;
@@ -704,10 +790,10 @@ bool AudioPlayer::loadOgg(const char* device) {
     config.bit_depth = 16;
     config.rate = sampleRate;
     config.channels = 2;
-    config.period_size = 1024;
+    config.period_size = 2048;
     config.period_count = 4;
-    config.start_threshold = 1024;
-    config.stop_threshold = 1024 * 4;
+    config.start_threshold = 2048 * 2;
+    config.stop_threshold = 0;
 
     pcmDev = pcm_open(device, &config);
     if (pcmDev == NULL) {
@@ -721,6 +807,20 @@ bool AudioPlayer::loadOgg(const char* device) {
 
     devicePath = device;
     totalMs = estimateTotalMs();
+    if (totalMs > 0) {
+        fileAvgBitrate = (int)(((uint64_t)totalBytes * 8000ULL) / (uint64_t)totalMs);
+    }
+    ovAvgBitrate = (int)ov_bitrate(oggVf, -1);
+    klog("[snd/ogg] stream rate=%d out_rate=%d channels=%d nominal_br=%d file_avg_br=%d ov_avg_br=%d total_ms=%d seekable=%d halfrate=%d\n",
+         (int)vi->rate,
+         sampleRate,
+         (int)vi->channels,
+         (int)vi->bitrate_nominal,
+         fileAvgBitrate,
+         ovAvgBitrate,
+         (int)totalMs,
+         (int)oggVf->seekable,
+         hs);
     return true;
 }
 
@@ -780,7 +880,27 @@ void AudioPlayer::replayWav(const char* device) {
 }
 
 void AudioPlayer::replayOgg(const char* device) {
-    ov_raw_seek(oggVf, 0);
+    if (oggVf == NULL || oggDs == NULL) {
+        eof = true;
+        return;
+    }
+
+    ov_clear(oggVf);
+    memset(oggVf, 0, sizeof(OggVorbis_File));
+    oggDs->pos = 0;
+    ov_callbacks callbacks;
+    callbacks.read_func = ogg_read_func;
+    callbacks.seek_func = ogg_seek_func;
+    callbacks.close_func = ogg_close_func;
+    callbacks.tell_func = ogg_tell_func;
+
+    if (ov_open_callbacks(oggDs, oggVf, NULL, 0, callbacks) < 0) {
+        klog("[snd/ogg] replay ov_open_callbacks failed\n");
+        eof = true;
+        writeFailed = true;
+        return;
+    }
+
     currentMs = 0;
     eof = false;
     writeFailed = false;
@@ -791,10 +911,10 @@ void AudioPlayer::replayOgg(const char* device) {
     config.bit_depth = 16;
     config.rate = sampleRate;
     config.channels = 2;
-    config.period_size = 1024;
+    config.period_size = 2048;
     config.period_count = 4;
-    config.start_threshold = 1024;
-    config.stop_threshold = 1024 * 4;
+    config.start_threshold = 2048 * 2;
+    config.stop_threshold = 0;
 
     pcmDev = pcm_open(device, &config);
     if (pcmDev != NULL) {
@@ -878,47 +998,86 @@ bool AudioPlayer::decodeOggFrame() {
         return false;
     }
 
-    long bytes_read = ov_read(oggVf, oggDecodeBuffer, 8192, 0, 2, 1, &oggBitstream);
+    float **pcm_channels = NULL;
+    long frames_read;
+    int retries = 0;
+    int decodeCall = g_ogg_decode_debug_calls++;
 
-    if (bytes_read == 0) {
+    if (decodeCall < 8) {
+        klog("[snd/ogg] decode[%d] enter pos=%d eof=%d playing=%d\n",
+             decodeCall, oggDs == NULL ? -1 : oggDs->pos, eof, playing);
+    }
+
+    do {
+        frames_read = ov_read_float(oggVf, &pcm_channels, MINIMP3_MAX_SAMPLES_PER_FRAME / 2, &oggBitstream);
+        if (decodeCall < 8) {
+            klog("[snd/ogg] decode[%d] ov_read_float=%d retry=%d pos=%d bitstream=%d\n",
+                 decodeCall, (int)frames_read, retries,
+                 oggDs == NULL ? -1 : oggDs->pos, oggBitstream);
+        }
+        if (frames_read > 0) {
+            zeroReadCount = 0;
+            break;
+        }
+        if (frames_read == 0) {
+            if (++zeroReadCount >= 2) {
+                eof = true;
+                return false;
+            }
+            continue;
+        }
+    } while (++retries < 4);
+
+    if (frames_read == 0) {
         eof = true;
         return false;
     }
 
-    if (bytes_read < 0) {
-        return true;
+    if (frames_read < 0) {
+        eof = true;
+        return false;
     }
 
-    char *output_buf = oggDecodeBuffer;
-    int output_bytes = bytes_read;
-
-    if (oggChannels == 1) {
-        int mono_samples = bytes_read / 2;
-        for (int i = 0; i < mono_samples; i++) {
-            int16_t sample = ((int16_t*)oggDecodeBuffer)[i];
-            ((int16_t*)oggStereoBuffer)[i * 2] = sample;
-            ((int16_t*)oggStereoBuffer)[i * 2 + 1] = sample;
-        }
-        output_buf = oggStereoBuffer;
-        output_bytes = mono_samples * 4;
-    }
-
-    int samples = output_bytes / 4;
+    int samples = (int)frames_read;
     if (samples > MINIMP3_MAX_SAMPLES_PER_FRAME / 2) {
         samples = MINIMP3_MAX_SAMPLES_PER_FRAME / 2;
     }
 
-    memcpy(sampleBuf, output_buf, samples * 4);
+    for (int i = 0; i < samples; i++) {
+        float left = pcm_channels[0][i];
+        float right = (oggChannels > 1) ? pcm_channels[1][i] : left;
+        sampleBuf[i * 2] = ogg_float_to_s16(left);
+        sampleBuf[i * 2 + 1] = ogg_float_to_s16(right);
+    }
+
+    char *output_buf = (char *)sampleBuf;
+    int output_bytes = samples * 4;
+
+    if (oggChannels == 1 && oggStereoBuffer != NULL) {
+        memcpy(oggStereoBuffer, output_buf, output_bytes);
+        output_buf = oggStereoBuffer;
+    }
+
     simples = samples;
+
+    if (decodeCall < 8) {
+        int16_t s0 = samples > 0 ? sampleBuf[0] : 0;
+        int16_t s1 = samples > 0 ? sampleBuf[1] : 0;
+        klog("[snd/ogg] decode[%d] samples=%d out_bytes=%d first=%d,%d\n",
+             decodeCall, samples, output_bytes, s0, s1);
+    }
 
     if (playing) {
         int ret = pcm_write(pcmDev, output_buf, output_bytes);
+        if (decodeCall < 8) {
+            klog("[snd/ogg] decode[%d] pcm_write ret=%d\n", decodeCall, ret);
+        }
         if (ret != 0) {
             eof = true;
             writeFailed = true;
             return false;
         }
-        currentMs += (uint32_t)((output_bytes * 1000) / (sampleRate * 4));
+        currentMs += (uint32_t)((samples * 1000) / sampleRate);
     }
 
     return true;
@@ -926,10 +1085,27 @@ bool AudioPlayer::decodeOggFrame() {
 
 uint32_t AudioPlayer::estimateTotalMs() {
     if (format == FORMAT_OGG) {
+        double totalSec = ov_time_total(oggVf, -1);
+        if (totalSec > 0.0) {
+            return (uint32_t)(totalSec * 1000.0);
+        }
         long totalSamples = ov_pcm_total(oggVf, -1);
-        if (totalSamples > 0) {
+        if (totalSamples > 0 && sampleRate > 0) {
             return (uint32_t)((totalSamples * 1000) / sampleRate);
         }
+    }
+
+    if (format == FORMAT_WAV) {
+        int bytesPerFrame = channels * (wavBitDepth / 8);
+        if (bytesPerFrame > 0 && sampleRate > 0) {
+            return (uint32_t)(((uint64_t)wavDataSize * 1000ULL) /
+                              ((uint64_t)sampleRate * (uint64_t)bytesPerFrame));
+        }
+        return 0;
+    }
+
+    if (format == FORMAT_MP3) {
+        return estimateMp3TotalMs((const uint8_t*)fileData, totalBytes);
     }
 
     int bytesPerSample = 2 * channels;
@@ -939,4 +1115,3 @@ uint32_t AudioPlayer::estimateTotalMs() {
     }
     return 0;
 }
-

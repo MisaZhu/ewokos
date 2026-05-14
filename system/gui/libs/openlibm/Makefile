@@ -99,6 +99,7 @@ LIB_LIBOPENLIBM_OBJS = $(OPENLIBM_ARCH_DIR)/fenv.o \
 	src/s_ccosh.o \
 	src/s_ccoshf.o \
 	src/s_ceilf.o \
+	ldouble/s_ceil.o \
 	src/s_cexp.o \
 	src/s_cexpf.o \
 	src/s_cimag.o \

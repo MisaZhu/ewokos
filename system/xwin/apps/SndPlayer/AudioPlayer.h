@@ -48,6 +48,7 @@ public:
     int getSampleRate();
     uint32_t getCurrentMs();
     uint32_t getTotalMs();
+    bool isOgg();
 
 private:
     bool loadMp3(const char* device);

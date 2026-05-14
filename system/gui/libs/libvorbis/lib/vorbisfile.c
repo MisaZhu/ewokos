@@ -20,6 +20,7 @@
 #include <errno.h>
 #include <string.h>
 #include <math.h>
+#include <ewoksys/klog.h>
 
 #include "vorbis/codec.h"
 
@@ -29,6 +30,8 @@
 
 #include "os.h"
 #include "misc.h"
+
+static int g_vf_read_debug_calls = 0;
 
 /* A 'chained bitstream' is a Vorbis bitstream that contains more than
    one logical bitstream arranged end to end (the only form of Ogg
@@ -1240,6 +1243,22 @@ int ov_raw_seek(OggVorbis_File *vf,ogg_int64_t pos){
 
   if(pos<0 || pos>vf->end)return(OV_EINVAL);
 
+  /* Fast-path rewind to the first audio data page. SndPlayer restarts OGG
+     playback with ov_raw_seek(vf,0); avoid the heavier scan path here. */
+  if(pos==0){
+    _decode_clear(vf);
+    vf->current_link=0;
+    vf->current_serialno=vf->serialnos[0];
+    ret=_seek_helper(vf,vf->dataoffsets[0]);
+    if(ret)return ret;
+    ogg_stream_reset_serialno(&vf->os,vf->current_serialno);
+    vf->ready_state=STREAMSET;
+    vf->pcm_offset=0;
+    vf->bittrack=0.f;
+    vf->samptrack=0.f;
+    return 0;
+  }
+
   /* is the seek position outside our current link [if any]? */
   if(vf->ready_state>=STREAMSET){
     if(pos<vf->offsets[vf->current_link] || pos>=vf->offsets[vf->current_link+1])
@@ -1876,25 +1895,52 @@ long ov_read_filter(OggVorbis_File *vf,char *buffer,int length,
   int i,j;
   int host_endian = host_is_big_endian();
   int hs;
+  int packet_retry_count=0;
+  int no_progress_count=0;
+  int call_id=g_vf_read_debug_calls++;
 
   float **pcm;
   long samples;
 
   if(vf->ready_state<OPENED)return(OV_EINVAL);
 
+  if(call_id<8)
+    klog("[snd/ogg] vf_read[%d] enter ready=%d length=%d seekable=%d\n",
+         call_id,vf->ready_state,length,vf->seekable);
+
   while(1){
     if(vf->ready_state==INITSET){
       samples=vorbis_synthesis_pcmout(&vf->vd,&pcm);
+      if(call_id<8)
+        klog("[snd/ogg] vf_read[%d] pcmout=%d\n",call_id,(int)samples);
       if(samples)break;
     }
 
     /* suck in another packet */
     {
       int ret=_fetch_and_process_packet(vf,NULL,1,1);
+      if(call_id<8)
+        klog("[snd/ogg] vf_read[%d] fetch ret=%d ready=%d link=%d\n",
+             call_id,ret,vf->ready_state,vf->current_link);
       if(ret==OV_EOF)
         return(0);
-      if(ret<=0)
+      if(ret==OV_HOLE){
+        if(++packet_retry_count<8)
+          continue;
+        else
+          return(0);
+      }
+      if(ret<0){
+        if(++packet_retry_count<4)
+          continue;
+        else
+          return(0);
+      }
+      if(ret==0)
         return(ret);
+      packet_retry_count=0;
+      if(++no_progress_count>=64)
+        return(0);
     }
 
   }
@@ -2002,6 +2048,9 @@ long ov_read_filter(OggVorbis_File *vf,char *buffer,int length,
     hs=vorbis_synthesis_halfrate_p(vf->vi);
     vf->pcm_offset+=(samples<<hs);
     if(bitstream)*bitstream=vf->current_link;
+    if(call_id<8)
+      klog("[snd/ogg] vf_read[%d] return bytes=%d samples=%d hs=%d pcm_offset=%d\n",
+           call_id,(int)(samples*bytespersample),(int)samples,hs,(int)vf->pcm_offset);
     return(samples*bytespersample);
   }else{
     return(samples);
@@ -2029,6 +2078,7 @@ long ov_read(OggVorbis_File *vf,char *buffer,int length,
 
 long ov_read_float(OggVorbis_File *vf,float ***pcm_channels,int length,
                    int *bitstream){
+  int no_progress_count=0;
 
   if(vf->ready_state<OPENED)return(OV_EINVAL);
 
@@ -2053,6 +2103,8 @@ long ov_read_float(OggVorbis_File *vf,float ***pcm_channels,int length,
       int ret=_fetch_and_process_packet(vf,NULL,1,1);
       if(ret==OV_EOF)return(0);
       if(ret<=0)return(ret);
+      if(++no_progress_count>=64)
+        return(0);
     }
 
   }
@@ -2097,12 +2149,17 @@ static void _ov_splice(float **pcm,float **lappcm,
 
 /* make sure vf is INITSET */
 static int _ov_initset(OggVorbis_File *vf){
+  int no_progress_count=0;
   while(1){
     if(vf->ready_state==INITSET)break;
     /* suck in another packet */
     {
       int ret=_fetch_and_process_packet(vf,NULL,1,0);
       if(ret<0 && ret!=OV_HOLE)return(ret);
+      if(ret>0){
+        if(++no_progress_count>=64)
+          return OV_EBADPACKET;
+      }
     }
   }
   return 0;
@@ -2113,6 +2170,7 @@ static int _ov_initset(OggVorbis_File *vf){
    sure we're sanity checking against the right stream information */
 static int _ov_initprime(OggVorbis_File *vf){
   vorbis_dsp_state *vd=&vf->vd;
+  int no_progress_count=0;
   while(1){
     if(vf->ready_state==INITSET)
       if(vorbis_synthesis_pcmout(vd,NULL))break;
@@ -2121,6 +2179,10 @@ static int _ov_initprime(OggVorbis_File *vf){
     {
       int ret=_fetch_and_process_packet(vf,NULL,1,0);
       if(ret<0 && ret!=OV_HOLE)return(ret);
+      if(ret>0){
+        if(++no_progress_count>=64)
+          return OV_EBADPACKET;
+      }
     }
   }
   return 0;

@@ -41,10 +41,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <ewoksys/klog.h>
 #include "vorbis/codec.h"
 #include "mdct.h"
 #include "os.h"
 #include "misc.h"
+
+static int g_mdct_debug_calls = 0;
 
 /* build lookups for trig functions; also pre-figure scaling and
    some window function algebra. */
@@ -351,6 +354,7 @@ STIN void mdct_bitreverse(mdct_lookup *init,
   DATA_TYPE *w0      = x;
   DATA_TYPE *w1      = x = w0+(n>>1);
   DATA_TYPE *T       = init->trig+n;
+  int iter=0;
 
   do{
     DATA_TYPE *x0    = x+bit[0];
@@ -390,6 +394,7 @@ STIN void mdct_bitreverse(mdct_lookup *init,
               T     += 4;
               bit   += 4;
               w0    += 4;
+              iter++;
 
   }while(w0<w1);
 }
@@ -398,6 +403,11 @@ void mdct_backward(mdct_lookup *init, DATA_TYPE *in, DATA_TYPE *out){
   int n=init->n;
   int n2=n>>1;
   int n4=n>>2;
+  int call_id=g_mdct_debug_calls++;
+
+  if(call_id<8)
+    klog("[snd/ogg] mdct[%d] enter n=%d log2n=%d\n",
+         call_id,n,init->log2n);
 
   /* rotate */
 
@@ -430,7 +440,11 @@ void mdct_backward(mdct_lookup *init, DATA_TYPE *in, DATA_TYPE *out){
   }while(iX>=in);
 
   mdct_butterflies(init,out+n2,n2);
+  if(call_id<8)
+    klog("[snd/ogg] mdct[%d] after butterflies\n",call_id);
   mdct_bitreverse(init,out);
+  if(call_id<8)
+    klog("[snd/ogg] mdct[%d] after bitreverse\n",call_id);
 
   /* roatate + window */
 
@@ -488,6 +502,9 @@ void mdct_backward(mdct_lookup *init, DATA_TYPE *in, DATA_TYPE *out){
       iX+=4;
     }while(oX1>oX2);
   }
+
+  if(call_id<8)
+    klog("[snd/ogg] mdct[%d] done\n",call_id);
 }
 
 void mdct_forward(mdct_lookup *init, DATA_TYPE *in, DATA_TYPE *out){

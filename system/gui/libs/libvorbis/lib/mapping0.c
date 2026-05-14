@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <ewoksys/klog.h>
 #include <ogg/ogg.h>
 #include "vorbis/codec.h"
 #include "codec_internal.h"
@@ -27,6 +28,9 @@
 #include "registry.h"
 #include "psy.h"
 #include "misc.h"
+
+static int g_mapping0_debug_calls = 0;
+static int g_mapping0_prepare_debug_calls = 0;
 
 /* simplistic, wasteful way of doing this (unique lookup for each
    mode/submapping); there should be a central repository for
@@ -53,6 +57,101 @@ static int ilog(unsigned int v){
     v>>=1;
   }
   return(ret);
+}
+
+static int mapping0_mdct_lookup_usable(mdct_lookup *lookup,int expected_n){
+  int half_n;
+  int bitrev_len;
+  int i;
+  if(lookup==NULL)
+    return 0;
+  if(expected_n<64 || expected_n>8192 || (expected_n&(expected_n-1))!=0)
+    return 0;
+  if(lookup->n!=expected_n)
+    return 0;
+  if(lookup->log2n!=ilog(expected_n))
+    return 0;
+  if(lookup->trig==NULL || lookup->bitrev==NULL)
+    return 0;
+  half_n=expected_n>>1;
+  bitrev_len=expected_n>>2;
+  for(i=0;i<bitrev_len;i++){
+    if(lookup->bitrev[i]<0 || lookup->bitrev[i]>=half_n)
+      return 0;
+  }
+  return 1;
+}
+
+static mdct_lookup *mapping0_reinit_mdct_lookup(mdct_lookup *lookup,int expected_n){
+  if(lookup==NULL)
+    return NULL;
+  if(expected_n<64 || expected_n>8192 || (expected_n&(expected_n-1))!=0)
+    return NULL;
+
+  mdct_clear(lookup);
+  mdct_init(lookup,expected_n);
+  return lookup;
+}
+
+static mdct_lookup *mapping0_prepare_mdct(vorbis_dsp_state *vd,int blockflag){
+  vorbis_info *vi=vd->vi;
+  codec_setup_info *ci=vi->codec_setup;
+  private_state *b=vd->backend_state;
+  mdct_lookup *lookup=(mdct_lookup *)b->transform[blockflag][0];
+  int expected_n=ci->blocksizes[blockflag] >> ci->halfrate_flag;
+  int debug_id=g_mapping0_prepare_debug_calls++;
+
+  if(debug_id<8 && lookup!=NULL){
+    int b0=(lookup->bitrev!=NULL)?lookup->bitrev[0]:-9999;
+    int b1=(lookup->bitrev!=NULL)?lookup->bitrev[1]:-9999;
+    int b2=(lookup->bitrev!=NULL)?lookup->bitrev[2]:-9999;
+    int b3=(lookup->bitrev!=NULL)?lookup->bitrev[3]:-9999;
+    klog("[snd/ogg] prep[%d] before W=%d exp_n=%d n=%d log2n=%d trig=%d bitrev=%d bits=%d,%d,%d,%d\n",
+         debug_id,blockflag,expected_n,lookup->n,lookup->log2n,
+         lookup->trig!=NULL,lookup->bitrev!=NULL,b0,b1,b2,b3);
+  }
+
+  if(mapping0_mdct_lookup_usable(lookup,expected_n))
+    return lookup;
+
+  lookup=mapping0_reinit_mdct_lookup(lookup,expected_n);
+  if(debug_id<8 && lookup!=NULL){
+    int b0=(lookup->bitrev!=NULL)?lookup->bitrev[0]:-9999;
+    int b1=(lookup->bitrev!=NULL)?lookup->bitrev[1]:-9999;
+    int b2=(lookup->bitrev!=NULL)?lookup->bitrev[2]:-9999;
+    int b3=(lookup->bitrev!=NULL)?lookup->bitrev[3]:-9999;
+    klog("[snd/ogg] prep[%d] reinit W=%d exp_n=%d n=%d log2n=%d trig=%d bitrev=%d bits=%d,%d,%d,%d\n",
+         debug_id,blockflag,expected_n,lookup->n,lookup->log2n,
+         lookup->trig!=NULL,lookup->bitrev!=NULL,b0,b1,b2,b3);
+  }
+  if(mapping0_mdct_lookup_usable(lookup,expected_n))
+    return lookup;
+
+  lookup=_ogg_calloc(1,sizeof(*lookup));
+  if(lookup==NULL)
+    return NULL;
+
+  mdct_init(lookup,expected_n);
+  if(debug_id<8){
+    int b0=(lookup->bitrev!=NULL)?lookup->bitrev[0]:-9999;
+    int b1=(lookup->bitrev!=NULL)?lookup->bitrev[1]:-9999;
+    int b2=(lookup->bitrev!=NULL)?lookup->bitrev[2]:-9999;
+    int b3=(lookup->bitrev!=NULL)?lookup->bitrev[3]:-9999;
+    klog("[snd/ogg] prep[%d] new W=%d exp_n=%d n=%d log2n=%d trig=%d bitrev=%d bits=%d,%d,%d,%d\n",
+         debug_id,blockflag,expected_n,lookup->n,lookup->log2n,
+         lookup->trig!=NULL,lookup->bitrev!=NULL,b0,b1,b2,b3);
+  }
+  if(!mapping0_mdct_lookup_usable(lookup,expected_n)){
+    if(debug_id<8)
+      klog("[snd/ogg] prep[%d] unusable after new W=%d exp_n=%d\n",
+           debug_id,blockflag,expected_n);
+    mdct_clear(lookup);
+    _ogg_free(lookup);
+    return NULL;
+  }
+
+  b->transform[blockflag][0]=lookup;
+  return lookup;
 }
 
 static void mapping0_pack(vorbis_info *vi,vorbis_info_mapping *vm,
@@ -712,6 +811,7 @@ static int mapping0_inverse(vorbis_block *vb,vorbis_info_mapping *l){
 
   int                   i,j;
   long                  n=vb->pcmend=ci->blocksizes[vb->W];
+  int                   call_id=g_mapping0_debug_calls++;
 
   float **pcmbundle=alloca(sizeof(*pcmbundle)*vi->channels);
   int    *zerobundle=alloca(sizeof(*zerobundle)*vi->channels);
@@ -720,6 +820,9 @@ static int mapping0_inverse(vorbis_block *vb,vorbis_info_mapping *l){
   void **floormemo=alloca(sizeof(*floormemo)*vi->channels);
 
   /* recover the spectral envelope; store it in the PCM vector for now */
+  if(call_id<8)
+    klog("[snd/ogg] map0[%d] enter W=%d n=%d ch=%d\n",
+         call_id,vb->W,(int)n,vi->channels);
   for(i=0;i<vi->channels;i++){
     int submap=info->chmuxlist[i];
     floormemo[i]=_floor_P[ci->floor_type[info->floorsubmap[submap]]]->
@@ -799,12 +902,25 @@ static int mapping0_inverse(vorbis_block *vb,vorbis_info_mapping *l){
   /* only MDCT right now.... */
   for(i=0;i<vi->channels;i++){
     float *pcm=vb->pcm[i];
-    mdct_backward(b->transform[vb->W][0],pcm,pcm);
+    mdct_lookup *lookup=mapping0_prepare_mdct(vd,vb->W);
+    if(lookup==NULL){
+      if(call_id<8)
+        klog("[snd/ogg] map0[%d] lookup null ch=%d\n",call_id,i);
+      memset(pcm,0,sizeof(*pcm)*(n/2));
+      continue;
+    }
+    if(call_id<8)
+      klog("[snd/ogg] map0[%d] mdct ch=%d n=%d log2n=%d\n",
+           call_id,i,lookup->n,lookup->log2n);
+    mdct_backward(lookup,pcm,pcm);
   }
 
   /* all done! */
+  if(call_id<8)
+    klog("[snd/ogg] map0[%d] done\n",call_id);
   return(0);
 }
+
 
 /* export hooks */
 const vorbis_func_mapping mapping0_exportbundle={

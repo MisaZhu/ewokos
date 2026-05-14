@@ -21,6 +21,7 @@ struct tm {
 };
 
 time_t time(time_t *timer);
+time_t mktime(struct tm *tm);
 struct tm *gmtime(const time_t *timer);
 struct tm *localtime(const time_t *timer);
 struct tm *localtime_r(const time_t *timer, struct tm *result);

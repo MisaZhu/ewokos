@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <math.h>
+#include <stdint.h>
 
 #include <vorbis/codec.h>
 #include <vorbis/vorbisfile.h>
@@ -37,6 +38,7 @@ typedef int (*pcm_hook_t)(void *data);
 #define CTRL_PCM_DEV_HW			(0xF0)
 #define CTRL_PCM_DEV_PRPARE		(0xF2)
 #define CTRL_PCM_BUF_AVAIL		(0xF3)
+#define OGG_MAX_FRAMES          1152
 
 static int pcm_prepare(struct pcm *pcm);
 
@@ -346,6 +348,28 @@ static long ogg_tell_func(void *datasource)
 	return ds->pos;
 }
 
+static int16_t ogg_float_to_s16(float sample) {
+	int value;
+	if (sample > 1.0f) {
+		sample = 1.0f;
+	} else if (sample < -1.0f) {
+		sample = -1.0f;
+	}
+
+	if (sample >= 0.0f) {
+		value = (int)(sample * 32767.0f + 0.5f);
+	} else {
+		value = (int)(sample * 32768.0f - 0.5f);
+	}
+
+	if (value > 32767) {
+		value = 32767;
+	} else if (value < -32768) {
+		value = -32768;
+	}
+	return (int16_t)value;
+}
+
 int ogg_play_file(const char *path, const char *snd_dev) {
 	OggVorbis_File vf;
 	vorbis_info *vi;
@@ -410,51 +434,39 @@ int ogg_play_file(const char *path, const char *snd_dev) {
 		return 1;
 	}
 
-	// Buffer for decoded audio (max ~4096 samples * 2 bytes = 8192)
-	char buffer[8192];
-	// Stereo buffer needs 2x the mono samples
-	char stereo_buffer[16384];
+	int16_t stereo_buffer[OGG_MAX_FRAMES * 2];
 
 	printf("Playing: %s\n", path);
 	printf("Channels: %d, Rate: %d Hz\n", channels, rate);
 
-	int16_t *mono_buf;
-	int16_t *stereo_buf;
-	int samples;
-
 	int bitstream;
 	while (1) {
-		long bytes_read = ov_read(&vf, buffer, sizeof(buffer), 0, 2, 1, &bitstream);
+		float **pcm_channels = NULL;
+		long frames_read = ov_read_float(&vf, &pcm_channels, OGG_MAX_FRAMES, &bitstream);
 
-		if (bytes_read == 0) {
+		if (frames_read == 0) {
 			break;
 		}
 
-		if (bytes_read < 0) {
+		if (frames_read < 0) {
 			printf("Error decoding Ogg Vorbis stream\n");
 			break;
 		}
 
-		// Convert mono to stereo if needed
-		if (channels == 1) {
-			mono_buf = (int16_t *)buffer;
-			stereo_buf = (int16_t *)stereo_buffer;
-			samples = bytes_read / 2;
-			for (int i = samples - 1; i >= 0; i--) {
-				stereo_buf[i * 2] = mono_buf[i];
-				stereo_buf[i * 2 + 1] = mono_buf[i];
-			}
-			int ret = pcm_write(pcm, stereo_buffer, samples * 4);
-			if (ret != 0) {
-				printf("pcm_write failed, ret=%d\n", ret);
-				break;
-			}
-		} else {
-			int ret = pcm_write(pcm, buffer, bytes_read);
-			if (ret != 0) {
-				printf("pcm_write failed, ret=%d\n", ret);
-				break;
-			}
+		int samples = (int)frames_read;
+		if (samples > OGG_MAX_FRAMES) {
+			samples = OGG_MAX_FRAMES;
+		}
+		for (int i = 0; i < samples; i++) {
+			float left = pcm_channels[0][i];
+			float right = (channels > 1) ? pcm_channels[1][i] : left;
+			stereo_buffer[i * 2] = ogg_float_to_s16(left);
+			stereo_buffer[i * 2 + 1] = ogg_float_to_s16(right);
+		}
+		int ret = pcm_write(pcm, stereo_buffer, samples * 4);
+		if (ret != 0) {
+			printf("pcm_write failed, ret=%d\n", ret);
+			break;
 		}
 	}
 

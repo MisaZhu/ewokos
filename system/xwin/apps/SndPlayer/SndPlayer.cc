@@ -48,6 +48,7 @@ protected:
     float magnitudes[BARS];
     float targetMagnitudes[BARS];
     uint32_t barColors[BARS];
+    double decodeBudgetMs;
     AudioPlayer* player;
     StateChangeCallback stateChangeCb;
     void* stateChangeUserData;
@@ -57,6 +58,7 @@ protected:
 public:
     SpectrumView() {
         player = NULL;
+        decodeBudgetMs = 0.0;
         stateChangeCb = NULL;
         stateChangeUserData = NULL;
         timeUpdateCb = NULL;
@@ -115,8 +117,12 @@ public:
     }
 
     void onTimer(uint32_t timerFPS, uint32_t timerStep) {
+        (void)timerFPS;
+        (void)timerStep;
         if (player != NULL && player->isPlaying()) {
+            decodeBudgetMs = 0.0;
             player->decodeFrame();
+
             updateSpectrum(player->getSampleBuf(), player->getSimples(), player->getChannels());
 
             if (player->isEof()) {
@@ -125,6 +131,8 @@ public:
                 }
                 if (stateChangeCb) stateChangeCb(stateChangeUserData);
             }
+        } else {
+            decodeBudgetMs = 0.0;
         }
 
         // Update time label during playback
