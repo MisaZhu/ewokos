@@ -37,8 +37,3 @@ int32_t uart_write(const void* data, uint32_t size) {
 	}
 	return i;
 }
-
-int32_t uart_getc(void) {
-	while (get32(UART0 + UART_FLAGS) & UART_RECEIVE);
-	return (int32_t)(get32(UART0 + UART_DATA) & 0xff);
-}

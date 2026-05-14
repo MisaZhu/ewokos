@@ -136,12 +136,6 @@ static inline const char* svc_name(int32_t code) {
 		return "mmio_rw";
 	case SYS_PROC_PRIORITY:
 		return "proc_priority";
-	case SYS_UART_GETC:
-		return "uart_getc";
-	case SYS_SD_READ_SECTOR:
-		return "sd_read_sector";
-	case SYS_SD_WRITE_SECTOR:
-		return "sd_write_sector";
 	}
 	return "unknown";
 }

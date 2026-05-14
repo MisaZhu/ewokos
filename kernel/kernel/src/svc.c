@@ -15,9 +15,7 @@
 #include <mm/dma.h>
 #include <mm/kmalloc.h>
 #include <sysinfo.h>
-#include <dev/uart.h>
 #include <dev/timer.h>
-#include <dev/sd.h>
 #include <syscalls.h>
 #include <kstring.h>
 #include <kprintf.h>
@@ -653,32 +651,6 @@ static inline void sys_mmio_rw(int32_t arg0, int32_t arg1, int32_t arg2, context
 	}
 }
 
-static inline int32_t sys_uart_getc(void) {
-	return uart_getc();
-}
-
-static inline int32_t sys_sd_read_sector(int32_t sector, void* buf) {
-	proc_t* cproc = get_current_proc();
-	if (cproc == NULL || cproc->info.uid > 0 || buf == NULL) {
-		return -1;
-	}
-	if (sd_dev_read(sector) != 0) {
-		return -1;
-	}
-	return sd_dev_read_done(buf);
-}
-
-static inline int32_t sys_sd_write_sector(int32_t sector, const void* buf) {
-	proc_t* cproc = get_current_proc();
-	if (cproc == NULL || cproc->info.uid > 0 || buf == NULL) {
-		return -1;
-	}
-	if (sd_dev_write(sector, buf) != 0) {
-		return -1;
-	}
-	return sd_dev_write_done();
-}
-
 static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t arg1, ewokos_addr_t arg2, context_t* ctx) {
 	_svc_total++;
 	_svc_counter[code]++;
@@ -872,15 +844,6 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
 		return;
 	case SYS_PROC_PRIORITY:
 		sys_proc_priority(arg0, (uint32_t)arg1);
-		return;
-	case SYS_UART_GETC:
-		ctx->gpr[0] = sys_uart_getc();
-		return;
-	case SYS_SD_READ_SECTOR:
-		ctx->gpr[0] = sys_sd_read_sector(arg0, (void*)arg1);
-		return;
-	case SYS_SD_WRITE_SECTOR:
-		ctx->gpr[0] = sys_sd_write_sector(arg0, (const void*)arg1);
 		return;
 	}
 }
