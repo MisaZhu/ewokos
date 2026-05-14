@@ -443,36 +443,38 @@ static vfs_node_t* vfs_get_by_fd(int32_t pid, int32_t fd) {
 	return file->node;
 }
 
-static void wakeup_proc(int32_t pid, vfs_node_t* node, int32_t event) {
+static void wakeup_proc(int32_t pid, vfs_node_t* node, int32_t events) {
 	if(pid < 0 || pid >= _max_proc_table_num)
 		return;
 	proc_wakeup(pid);
 }
 
-static void do_node_wakeup(vfs_node_t* node, int event) {
+static void do_node_wakeup(vfs_node_t* node, int events) {
 	if(node == NULL)
 		return;
 
+	node->events |= events;
+
 	queue_t* qr = NULL, *qw = NULL;
-	if((event & VFS_EVT_RD) != 0 ||
-			event == VFS_EVT_CLOSE || event == VFS_EVT_ERR || event == VFS_EVT_NVAL)
+	if((events & VFS_EVT_RD) != 0 ||
+			events == VFS_EVT_CLOSE || events == VFS_EVT_ERR || events == VFS_EVT_NVAL)
 		qr = &node->read_wait_queue;
-	if((event & VFS_EVT_WR) != 0 ||
-			event == VFS_EVT_CLOSE || event == VFS_EVT_ERR || event == VFS_EVT_NVAL)
+	if((events & VFS_EVT_WR) != 0 ||
+			events == VFS_EVT_CLOSE || events == VFS_EVT_ERR || events == VFS_EVT_NVAL)
 		qw = &node->write_wait_queue;
 
 	if(qr != NULL) {
 		int32_t* p = (int32_t*)queue_pop(qr);
 		if(p != NULL) {
-			wakeup_proc(*p, node, event);
+			wakeup_proc(*p, node, events);
 			free(p);
 		}
 	}
 
-	if(qw != NULL) {
+		if(qw != NULL) {
 		int32_t* p = (int32_t*)queue_pop(qw);
 		if(p != NULL) {
-			wakeup_proc(*p, node, event);
+			wakeup_proc(*p, node, events);
 			free(p);
 		}
 	}
@@ -1090,7 +1092,7 @@ static void do_vfs_proc_exit(int32_t pid, proto_t* in) {
 
 static void do_vfs_block(int32_t pid, proto_t* in) {
 	int node_id = proto_read_int(in);
-	int event = proto_read_int(in);
+	int events = proto_read_int(in);
 	if(node_id == 0)
 		return;
     vfs_node_t* node = vfs_get_node_by_id(node_id);
@@ -1101,9 +1103,9 @@ static void do_vfs_block(int32_t pid, proto_t* in) {
 	*p = pid;
 
 	queue_t* q = NULL;
-	if((event & VFS_EVT_RD) != 0)
+	if((events & VFS_EVT_RD) != 0)
 		q = &node->read_wait_queue;
-	else if((event & VFS_EVT_WR) != 0)
+	else if((events & VFS_EVT_WR) != 0)
 		q = &node->write_wait_queue;
 
 	if(q == NULL)
@@ -1114,11 +1116,11 @@ static void do_vfs_block(int32_t pid, proto_t* in) {
 static void do_vfs_wakeup(int32_t pid, proto_t* in) {
 	(void)pid;
 	int node_id = proto_read_int(in);
-	int event = proto_read_int(in);
+	int events = proto_read_int(in);
 	if(node_id == 0)
 		return;
     vfs_node_t* node = vfs_get_node_by_id(node_id);
-	do_node_wakeup(node, event);
+	do_node_wakeup(node, events);
 }
 
 static void do_vfs_get_poll_events(int32_t pid, proto_t* in, proto_t* out) {
@@ -1133,21 +1135,17 @@ static void do_vfs_get_poll_events(int32_t pid, proto_t* in, proto_t* out) {
 	PF->clear(out)->addi(out, node->events);
 }
 
-static void do_vfs_set_poll_events(int32_t pid, proto_t* in, proto_t* out) {
+static void do_vfs_clear_poll_events(int32_t pid, proto_t* in, proto_t* out) {
 	PF->addi(out, -1);
 	if(pid < 0 || pid >= _max_proc_table_num) {
 		return;
 	}
 	uint32_t node_id = (uint32_t)proto_read_int(in);
 	uint32_t events = (uint32_t)proto_read_int(in);
-	uint32_t set = (uint32_t)proto_read_int(in);
 	vfs_node_t* node = vfs_get_node_by_id(node_id);
 	if(node == NULL)
 		return;
-	if(set == 1)
-		node->events |= events;
-	else
-		node->events &= ~events;
+	node->events &= ~events;
 	PF->addi(out, 0);
 }
 
@@ -1223,8 +1221,8 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	case VFS_GET_POLL_EVENTS:
 		do_vfs_get_poll_events(pid, in, out);
 		break;
-	case VFS_SET_POLL_EVENTS:
-		do_vfs_set_poll_events(pid, in, out);
+	case VFS_CLEAR_POLL_EVENTS:
+		do_vfs_clear_poll_events(pid, in, out);
 		break;
 	default:
 		break;

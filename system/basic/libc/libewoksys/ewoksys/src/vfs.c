@@ -10,6 +10,7 @@
 #include <ewoksys/ipc.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/vfsc.h>
+#include <ewoksys/kernel_tic.h>
 #include <ewoksys/devcmd.h>
 #include <ewoksys/proc.h>
 #include <sys/shm.h>
@@ -867,28 +868,25 @@ int  vfs_block(uint32_t node, int event) {
 	return 0;
 }
 
-int  vfs_wakeup(uint32_t node, int event) {
+int  vfs_wakeup(uint32_t node, int events) {
 	proto_t in;
 	PF->init(&in)->
 		addi(&in, node)->
-		addi(&in, event);
+		addi(&in, events);
 
-    vfs_set_poll_events(node, event, true);
-	int vfsd_pid = get_vfsd_pid();
-	ipc_call(vfsd_pid, VFS_WAKEUP, &in, NULL);
+	ipc_call(get_vfsd_pid(), VFS_WAKEUP, &in, NULL);
 	PF->clear(&in);
 	return 0;
 }
 
-int  vfs_set_poll_events(uint32_t node_id, uint32_t events, bool set) {
+int  vfs_clear_poll_events(uint32_t node_id, uint32_t events) {
 	proto_t in, out;
 	PF->init(&in)->
 		addi(&in, node_id)->
-		addi(&in, events)->
-		addi(&in, set);
+		addi(&in, events);
 	PF->init(&out);
 	
-	int res = ipc_call(get_vfsd_pid(), VFS_SET_POLL_EVENTS, &in, &out);
+	int res = ipc_call(get_vfsd_pid(), VFS_CLEAR_POLL_EVENTS, &in, &out);
 	PF->clear(&in);
 	if(res == 0)
 		res = proto_read_int(&out);
@@ -912,11 +910,14 @@ uint32_t  vfs_get_poll_events(int fd) {
 }
 
 int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
-	(void)timeout; //TODO
 	if(num <= 0)
 		return -1;
 
 	int res = 0;
+	uint64_t start_ms = 0;
+	if(timeout > 0)
+		start_ms = kernel_tic_ms(0);
+
 	while(true) {
 		res = 0;
 		for(int i = 0; i < num; ++i) {
@@ -927,8 +928,16 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 		if(res > 0)
 			break;
 
+		if(timeout == 0)
+			break;
+
+		if(timeout > 0) {
+			uint64_t now_ms = kernel_tic_ms(0);
+			if((now_ms - start_ms) >= (uint64_t)timeout)
+				break;
+		}
+
 		usleep(1000);
-		//proc_block();
 	}
 	return res;
 }
@@ -936,4 +945,3 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 #ifdef __cplusplus
 }
 #endif
-

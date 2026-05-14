@@ -24,6 +24,8 @@
 #include "stack/loopback.h"
 #include "stack/ether_tap.h"
 
+extern int sock_readable(int sock);
+
 static int network_fcntl(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	int cmd, proto_t* in, proto_t* out, void* p) {
     (void)dev;
@@ -58,7 +60,6 @@ static int network_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	}
 	task = task->read_task;
 	int ret = task_read(task, from_pid, buf, size, p);
-	//vfs_wakeup(task->node, VFS_EVT_RW);
 	return ret;
 }
 
@@ -88,6 +89,9 @@ static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
 		if (task->read_task != NULL && task->read_task->state == NET_TASK_FINISH) {
 			events |= VFS_EVT_RD;
 		}
+		if (task->read_task == NULL && task->sock >= 0 && sock_readable(task->sock)) {
+			events |= VFS_EVT_RD;
+		}
 		pthread_mutex_unlock(&task_list_lock);
 	}
 
@@ -103,7 +107,7 @@ static int network_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fs
 			task->read_task->running = false;
 		fsinfo->data = NULL;
 	}
-    vfs_wakeup(dev->mnt_info.node, VFS_EVT_CLOSE);
+    //vfs_wakeup(dev->mnt_info.node, VFS_EVT_CLOSE);
 	return 0;
 }
 

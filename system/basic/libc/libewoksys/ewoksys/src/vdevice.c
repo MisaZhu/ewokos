@@ -193,10 +193,10 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 		if(dev != NULL && dev->check_poll_events != NULL) {
 			uint32_t events = dev->check_poll_events(dev, fd, from_pid, info, p);
 			if((events & VFS_EVT_RD) == 0)
-				vfs_set_poll_events(info->node, VFS_EVT_RD, false);
+				vfs_clear_poll_events(info->node, VFS_EVT_RD);
 		}
 		else  {
-			vfs_set_poll_events(info->node, VFS_EVT_RD, false);
+			vfs_clear_poll_events(info->node, VFS_EVT_RD);
 		}
 	}
 }
@@ -249,10 +249,10 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 		if(dev != NULL && dev->check_poll_events != NULL) {
 			uint32_t events = dev->check_poll_events(dev, fd, from_pid, info, p);
 			if((events & VFS_EVT_WR) == 0)
-				vfs_set_poll_events(info->node, VFS_EVT_WR, false);
+				vfs_clear_poll_events(info->node, VFS_EVT_WR);
 		}
 		else {
-			vfs_set_poll_events(info->node, VFS_EVT_WR, false);
+			vfs_clear_poll_events(info->node, VFS_EVT_WR);
 		}
 	}
 }

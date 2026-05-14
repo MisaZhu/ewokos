@@ -219,7 +219,6 @@ udp_input(const uint8_t *data, size_t len, ip_addr_t src, ip_addr_t dst, struct 
     if (pcb->ctx.wc > 0) {
         sched_wakeup(&pcb->ctx);
     }
-    task_wakeup_by_sock(udp_pcb_id(pcb));
     mutex_unlock(&mutex);
 }
 
