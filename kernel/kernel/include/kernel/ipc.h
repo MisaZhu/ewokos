@@ -50,7 +50,7 @@ typedef struct {
 	queue_t       wait_queue;
 } ipc_server_t;
 
-extern int32_t     proc_ipc_setup(context_t* ctx, ewokos_addr_t entry, uint32_t extra, uint32_t flags);
+extern int32_t     proc_ipc_setup(context_t* ctx, ewokos_addr_t entry, ewokos_addr_t extra, uint32_t flags);
 extern int32_t     proc_ipc_do_task(context_t* ctx, struct st_proc* proc, uint32_t core);
 extern ipc_task_t* proc_ipc_req(struct st_proc* serv_proc, struct st_proc* client_proc, int32_t call_id, proto_t* arg);
 extern uint32_t    proc_ipc_fetch(struct st_proc* serv_proc);

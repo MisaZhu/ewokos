@@ -100,7 +100,10 @@ $(EWOKSYS): $(LIB_EWOKSYS_OBJS)   $(LIB_EWOKSYS_SYS_OBJS)
 	$(AR) rcs $(EWOKSYS) $(LIB_EWOKSYS_OBJS) 
 
 install_headers:
-	cp -r ewoksys/include/* include/* $(TARGET_DIR)/include 
+	mkdir -p $(TARGET_DIR)/include/ewoksys $(TARGET_DIR)/include/sys
+	cp -r ewoksys/include/ewoksys/* $(TARGET_DIR)/include/ewoksys/
+	cp -r include/sys/* $(TARGET_DIR)/include/sys/
+	cp include/*.h $(TARGET_DIR)/include/
 
 clean:
 	rm -f $(LIB_EWOKSYS_OBJS) $(LIB_EWOKSYS_OBJS)

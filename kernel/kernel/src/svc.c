@@ -96,8 +96,8 @@ static void sys_usleep(context_t* ctx, uint32_t count) {
 	proc_usleep(ctx, count);
 }
 
-static int32_t sys_malloc(int32_t size) {
-	return (int32_t)proc_malloc(get_current_proc(), size);
+static ewokos_addr_t sys_malloc(int32_t size) {
+	return (ewokos_addr_t)proc_malloc(get_current_proc(), size);
 }
 
 static int32_t sys_msize(void) {
@@ -754,7 +754,7 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
 		sys_get_sys_state((sys_state_t*)arg0);
 		return;
 	case SYS_GET_VSYSCALL_INFO:
-		ctx->gpr[0] = (uint32_t)sys_get_vsyscall_info();
+		ctx->gpr[0] = (ewokos_addr_t)sys_get_vsyscall_info();
 		return;
 	case SYS_GET_PROC: 
 		ctx->gpr[0] = (int32_t)get_proc(arg0, (procinfo_t*)arg1);
@@ -769,7 +769,7 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
 		ctx->gpr[0] = (int32_t)sys_shm_get(arg0, arg1, arg2);
 		return;
 	case SYS_PROC_SHM_MAP:
-		ctx->gpr[0] = (int32_t)sys_shm_map(arg0);
+		ctx->gpr[0] = (ewokos_addr_t)sys_shm_map(arg0);
 		return;
 	case SYS_PROC_SHM_UNMAP:
 		ctx->gpr[0] = sys_shm_unmap((void*)arg0);
