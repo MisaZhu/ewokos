@@ -45,6 +45,7 @@ LIB_EWOKSYS_OBJS =  \
 	src/unistd/sleep.o \
 	src/unistd/getcwd.o \
 	src/unistd/getgid.o \
+	src/unistd/getpid.o \
 	src/unistd/gettid.o \
 	src/unistd/setgid.o \
 	src/unistd/setuid.o \
@@ -53,6 +54,7 @@ LIB_EWOKSYS_OBJS =  \
 	src/unistd/dup.o \
 	src/unistd/pipe.o \
 	src/unistd/chown.o \
+	src/unistd/errno.o \
 	\
 	src/sys/shm/shmget.o \
 	src/sys/shm/shmat.o \
@@ -92,11 +94,14 @@ LIB_EWOKSYS_OBJS =  \
 	
 EWOKSYS = $(TARGET_DIR)/lib/libewoksys.a
 
+all: $(EWOKSYS) install_headers
+
 $(EWOKSYS): $(LIB_EWOKSYS_OBJS)   $(LIB_EWOKSYS_SYS_OBJS)
 	$(AR) rcs $(EWOKSYS) $(LIB_EWOKSYS_OBJS) 
+
+install_headers:
 	cp -r ewoksys/include/* include/* $(TARGET_DIR)/include 
 
 clean:
 	rm -f $(LIB_EWOKSYS_OBJS) $(LIB_EWOKSYS_OBJS)
 	rm -f $(EWOKSYS)
-

@@ -25,6 +25,20 @@
 
 kernel_info_t _kernel_info;
 
+static void boot_mark(char c) {
+#ifdef __x86_64__
+	uint8_t ready;
+
+	do {
+		__asm__ volatile("inb %1, %0" : "=a"(ready) : "Nd"((uint16_t)0x3FD));
+	} while ((ready & 0x20) == 0);
+
+	__asm__ volatile("outb %0, %1" : : "a"((uint8_t)c), "Nd"((uint16_t)0x3F8));
+#else
+	(void)c;
+#endif
+}
+
 /*Copy interrupt talbe to phymen address 0x00000000.
 	Virtual address #INTERRUPT_VECTOR_BASE(0xFFFF0000 for ARM) must mapped to phymen 0x00000000.
 ref: set_vm(page_dir_entry_t* vm)
@@ -86,9 +100,49 @@ static void map_allocable_pages(page_dir_entry_t* vm) {
 	flush_tlb();
 }
 
+#ifdef __x86_64__
+static inline page_table_entry_t* entry_to_table_local(page_table_entry_t* entry) {
+	return (page_table_entry_t*)P2V((ewokos_addr_t)(entry->Address << 12));
+}
+
+static void clone_kernel_vm(page_dir_entry_t* vm) {
+	page_table_entry_t* kernel_pdpt;
+	page_table_entry_t* proc_pdpt;
+
+	memset(vm, 0, PAGE_DIR_SIZE);
+	flush_dcache();
+
+	proc_pdpt = kalloc4k();
+	if (proc_pdpt == NULL) {
+		return;
+	}
+	memset(proc_pdpt, 0, PAGE_TABLE_SIZE);
+
+	vm[0].value = 0;
+	vm[0].present = 1;
+	vm[0].rw = 1;
+	vm[0].us = 1;
+	vm[0].Address = (uint64_t)V2P(proc_pdpt) >> 12;
+
+	kernel_pdpt = entry_to_table_local(&_kernel_info.kernel_vm[0]);
+	proc_pdpt[2] = kernel_pdpt[2];
+	proc_pdpt[3] = kernel_pdpt[3];
+
+	// Keep the low DMA identity window available while leaving the rest of
+	// the user half private for per-process mappings.
+	map_pages_size(vm, _sys_info.sys_dma.phy_base, _sys_info.sys_dma.phy_base,
+			_sys_info.sys_dma.size, AP_RW_D, PTE_ATTR_WRBACK);
+	flush_tlb();
+}
+#endif
+
 void set_vm(page_dir_entry_t* vm) {
+#ifdef __x86_64__
+	clone_kernel_vm(vm);
+#else
 	set_kernel_vm(vm);
 	map_allocable_pages(vm);
+#endif
 }
 
 static void init_kernel_vm(void) {
@@ -184,16 +238,24 @@ static void show_config(void) {
 
 int32_t load_init_proc(void);
 void _kernel_entry_c(void) {
-	__irq_disable();
+#ifdef __x86_64__
+	__asm__ volatile("cli");
+#endif
+	boot_mark('N');
 	//clear bss
-	memset(_bss_start, 0, (uint32_t)_bss_end - (uint32_t)_bss_start);
+	memset(_bss_start, 0, (size_t)(_bss_end - _bss_start));
 	sys_info_init();
+	boot_mark('O');
 
 	copy_interrupt_table();
+	boot_mark('P');
 
 	init_kernel_vm();  
+	boot_mark('Q');
 	uart_dev_init(19200);
+	boot_mark('R');
 	kout_str("\n=== ewokos booting ===\n\n");
+	boot_mark('S');
 	kout_str("kernel: init kernel malloc     ... ");
 	kmalloc_init(); //init kmalloc with min size for just early stage kernel load
 	kout_str("[OK]\n");

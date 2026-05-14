@@ -105,6 +105,9 @@ struct elf64_program_header {
 #define ELF_PSIZE(img, n)		(ELF_CLASS(img) == ELFCLASS_32? \
 									(((struct elf_program_header*)(ELF_PHEAD(img, n)))->memsz): \
 									(((struct elf64_program_header*)(ELF_PHEAD(img, n)))->memsz))
+#define ELF_PFILESZ(img, n)		(ELF_CLASS(img) == ELFCLASS_32? \
+									(((struct elf_program_header*)(ELF_PHEAD(img, n)))->filesz): \
+									(((struct elf64_program_header*)(ELF_PHEAD(img, n)))->filesz))
 #define ELF_POFFSET(img, n)		(ELF_CLASS(img) == ELFCLASS_32? \
 									(((struct elf_program_header*)(ELF_PHEAD(img, n)))->off): \
 									(((struct elf64_program_header*)(ELF_PHEAD(img, n)))->off))

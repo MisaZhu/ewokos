@@ -62,19 +62,19 @@ static int network_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	return ret;
 }
 
-static int network_write(void* dev, int fd, int from_pid, fsinfo_t* info,
+static int network_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 		const void* buf, int size, int offset, void* p) {
 	(void)dev;
 	(void)fd;
 	(void)offset;
 
 	net_task_t *task = (net_task_t*)info->data;
-	int ret = task_write(task, from_pid, buf, size, p);
+	int ret = task_write(task, from_pid, (char *)buf, size, p);
 	//vfs_wakeup(task->node, VFS_EVT_RW);
 	return ret;
 }
 
-static uint32_t network_check_poll_events(void* dev, int fd, int from_pid, fsinfo_t* info, void* p) {
+static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, void* p) {
 	(void)dev;
 	(void)fd;
 	(void)from_pid;

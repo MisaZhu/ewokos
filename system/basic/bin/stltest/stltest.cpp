@@ -25,14 +25,14 @@ static int pass_count = 0;
 
 #define TEST(name) void test_##name()
 #define RUN_TEST(name) do { \
-    printf("Running " #name "... "); \
+    ::printf("Running " #name "... "); \
     test_##name(); \
-    printf("PASSED\n"); \
+    ::printf("PASSED\n"); \
     pass_count++; test_count++; \
 } while(0)
 
 #define ASSERT(cond) do { if (!(cond)) { \
-    printf("FAILED at line %d\n", __LINE__); return; \
+    ::printf("FAILED at line %d\n", __LINE__); return; \
 } } while(0)
 
 #define ASSERT_EQ(a, b) ASSERT((a) == (b))
@@ -913,7 +913,7 @@ TEST(fstream_fstream_read_write) {
 }
 
 int main(int argc, char** argv) {
-    printf("=== STL Test Suite ===\n\n");
+    ::printf("=== STL Test Suite ===\n\n");
 
     // String tests
     RUN_TEST(string_basic);
@@ -1024,6 +1024,6 @@ int main(int argc, char** argv) {
     RUN_TEST(fstream_ifstream_basic);
     RUN_TEST(fstream_fstream_read_write);
 
-    printf("\n=== Results: %d/%d tests passed ===\n", pass_count, test_count);
+    ::printf("\n=== Results: %d/%d tests passed ===\n", pass_count, test_count);
     return (pass_count == test_count) ? 0 : 1;
 }

@@ -1,9 +1,14 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <sys/types.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sd/gpt.h>
 #include <sd/partition.h>
+
+#ifndef SIZE_MAX
+#define SIZE_MAX ((size_t)-1)
+#endif
 
 static uint8_t _sector_buf[SECTOR_SIZE];
 

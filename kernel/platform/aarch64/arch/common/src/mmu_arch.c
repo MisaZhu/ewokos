@@ -87,8 +87,14 @@ uint32_t resolve_phy_address(page_dir_entry_t *vm, uint32_t virtual) {
 	uint32_t l2_index = PAGE_L2_INDEX(virtual);
 	uint32_t l3_index = PAGE_L3_INDEX(virtual);
 
+	if(vm[l1_index].EntryType == 0)
+		return 0;
 	l2_table = (page_table_entry_t*)P2V(vm[l1_index].Address << 12); 
+	if(l2_table[l2_index].EntryType == 0)
+		return 0;
 	l3_table = (page_table_entry_t*)P2V(l2_table[l2_index].Address << 12); 
+	if(l3_table[l3_index].EntryType == 0)
+		return 0;
 	uint32_t phy = (l3_table[l3_index].Address << 12) | (virtual & 0xFFF);	
 	return phy;
 }
@@ -104,8 +110,15 @@ page_table_entry_t* get_page_table_entry(page_dir_entry_t *vm, uint32_t virtual)
 	uint32_t l2_index = PAGE_L2_INDEX(virtual);
 	uint32_t l3_index = PAGE_L3_INDEX(virtual);
 
+	if(vm[l1_index].EntryType == 0)
+		return NULL;
 	l2_table = (page_table_entry_t*)P2V(vm[l1_index].Address << 12); 
-	return (page_table_entry_t*)P2V(l2_table[l2_index].Address << 12); 	
+	if(l2_table[l2_index].EntryType == 0)
+		return NULL;
+	l3_table = (page_table_entry_t*)P2V(l2_table[l2_index].Address << 12);
+	if(l3_table[l3_index].EntryType == 0)
+		return NULL;
+	return l3_table; 	
 }
 
 

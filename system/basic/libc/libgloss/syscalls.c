@@ -428,9 +428,6 @@ _sbrk (ptrdiff_t incr)
 
   prev_heap_end = __heap_end;
   __heap_end += incr;
-//   kout_int("sbrk", incr);
-//   kout_int("pid", _getpid());
-//   kout_int("current", __heap_size);
 
   return (void *) prev_heap_end;
 }
@@ -697,14 +694,6 @@ _Float128 __extendsftf2(float a) {
 
 _Float128 __addtf3(_Float128 a, _Float128 b) {
 	return a + b;
-}
-
-
-int access(const char *path, int mode){
-	fsinfo_t info;
-	if(vfs_get_by_name(path, &info) != 0)
-		return -1;
-	return vfs_check_access(getpid(), &info, mode);
 }
 
 #endif

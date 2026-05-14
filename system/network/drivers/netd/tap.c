@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <ewoksys/proto.h>
+#include <pthread.h>
 
 #include "platform.h"
 

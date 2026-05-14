@@ -28,9 +28,7 @@ $(XLAUNCHER): $(XLAUNCHER_OBJS) \
 
 $(XLAUNCHER_DIR):
 	mkdir -p $(XLAUNCHER_DIR)
-	cp -r res $(XLAUNCHER_DIR)
 
 clean:
 	rm -f $(XLAUNCHER_OBJS)
 	rm -fr $(XLAUNCHER_DIR)
-

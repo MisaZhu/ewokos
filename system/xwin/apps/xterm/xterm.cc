@@ -388,7 +388,7 @@ static void do_signal(int sig, void* p) {
 
 #ifdef __cplusplus
 extern "C" { 
-	int setenv(const char*, const char*);
+	int setenv(const char*, const char*, ...);
 	int kill(int, int);
 }
 #endif

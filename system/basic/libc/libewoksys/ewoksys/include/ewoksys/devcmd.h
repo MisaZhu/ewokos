@@ -1,5 +1,5 @@
 #ifndef DEVICE_CMD_H
-#define DEVICE_CMDH
+#define DEVICE_CMD_H
 
 #include <ewoksys/fsinfo.h>
 #include <ewoksys/proto.h>

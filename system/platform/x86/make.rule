@@ -1,0 +1,43 @@
+AR = x86_64-elf-ar
+CC = x86_64-elf-gcc
+CXX = x86_64-elf-c++
+LD = x86_64-elf-ld
+OBJDUMP = x86_64-elf-objdump
+
+CFLAGS = -m64 \
+	-Wno-implicit-function-declaration \
+	-Wno-int-conversion \
+	-Wall -Wextra -fPIC \
+	-Wno-unused-parameter \
+	-fno-strict-aliasing \
+	-ffreestanding \
+	-mno-red-zone \
+	-std=c99
+
+CXXFLAGS = -m64 \
+	-Wno-implicit-function-declaration \
+	-Wno-int-conversion \
+	-Wall -Wextra -fPIC \
+	-Wno-unused-parameter \
+	-pedantic \
+	-fno-rtti \
+	-fno-exceptions \
+	-fno-strict-aliasing \
+	-fno-use-cxa-atexit \
+	-ffreestanding \
+	-mno-red-zone \
+	-std=c++14
+
+EWOK_LIBC = -lewoksys -lc -lgloss
+EWOK_LIB_GRAPH = -lfont -lfreetype -liconbuf -lgraph -lpng -ljpeg -lgif -ltga -lsvg -lz -lopenlibm -ldisplay -lfb -lkeyb -lmouse $(BSP_LFLAGS)
+EWOK_LIB_X = -lwidget++ -llitehtml -lx++ -lx -ltinyjson -lewokstl -ltinyhttpsc -lsocket
+
+ifeq ($(DEBUG),yes)
+CFLAGS += -g
+CXXFLAGS += -g
+else
+CFLAGS += -O2
+CXXFLAGS += -O2
+endif
+
+STL_HEADERS_STAMP = $(BUILD_DIR)/include/.stl_headers_timestamp

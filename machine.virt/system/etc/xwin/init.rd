@@ -1,11 +1,21 @@
+@/bin/ipcserv /drivers/logd  /dev/log
 @export TZ=CST-8
+
+@/bin/ipcserv /drivers/virt/ttyd /dev/tty0
+@/bin/ipcserv /sbin/sessiond
+@/bin/bgrun /bin/session -r -t /dev/tty0
+
+#@echo "+---------------------------------------+\n"
+#@echo "|  < EwokOS MicroKernel >               |\n" 
+#@echo "+---------------------------------------+\n"
+
+@/bin/ipcserv /drivers/displayd         
+@/bin/ipcserv /drivers/virt/fbd  /dev/fb0
+@/bin/ipcserv /drivers/fontd 
+
 
 @/bin/ipcserv /sbin/splashd -w 320 -h 240 -f 12 -d
 @/bin/splash -i /usr/system/images/logos/ewokos.png -m "start..."
-
-@echo "+---------------------------------------+\n"
-@echo "|  < EwokOS MicroKernel >               |\n" 
-@echo "+---------------------------------------+\n"
 
 @/bin/splash -m "start /dev/timer" -p 30
 @/bin/ipcserv /drivers/timerd                 
@@ -48,6 +58,7 @@
 
 @/bin/bgrun /sbin/x/xmouse /dev/mouse0 
 @/bin/bgrun /sbin/x/xim_none /dev/keyb0 
+
 
 @/bin/bgrun /bin/x/xsession misa 
 #@/bin/bgrun /bin/x/xsession

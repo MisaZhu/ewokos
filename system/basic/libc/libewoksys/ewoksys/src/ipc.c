@@ -42,7 +42,7 @@ extern "C"
 		{
 			if (ipc_ping(pid) == 0)
 				break;
-			proc_usleep(100000);
+			proc_usleep(3000);
 		}
 	}
 

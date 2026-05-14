@@ -29,7 +29,9 @@
 #define KMALLOC_BASE                  ALLOCABLE_PAGE_DIR_END
 #define KMALLOC_END                   (KMALLOC_BASE + _sys_info.kmalloc_size)
 
+#ifndef MAX_USABLE_MEM_SIZE
 #define MAX_USABLE_MEM_SIZE           (1*GB + 640*MB) //max usable memory for 32bits OS
+#endif
 
 #define MMIO_MAX_SIZE                 (128*MB)
 #define MMIO_BASE                     (KERNEL_BASE + MAX_USABLE_MEM_SIZE)

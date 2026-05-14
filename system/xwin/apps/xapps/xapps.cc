@@ -18,7 +18,7 @@
 #include <getopt.h>
 
 #ifdef __cplusplus
-extern "C" { extern int setenv(const char*, const char*);}
+extern "C" { extern int setenv(const char*, const char*, ...);}
 #endif
 
 #include <string>

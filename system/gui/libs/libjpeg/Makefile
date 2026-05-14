@@ -8,8 +8,7 @@ DEPDIR := .deps
 PREFIX := /opt/ewokos
 
 LIBJPEG = $(TARGET_DIR)/lib/libjpeg.a
-JPEG_CFLAGS = -march=armv8-a \
-        -Wno-incompatible-pointer-types \
+JPEG_CFLAGS = -Wno-incompatible-pointer-types \
         -Wno-int-conversion \
         -Wno-implicit-function-declaration \
         -Wall -Wextra -fPIC \

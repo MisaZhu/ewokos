@@ -34,7 +34,7 @@ graph_t* get_icon(const char* icon, uint32_t size) {
         }
         w = *buf;
         h = *(buf+4);
-        return graph_new(buf+8, w, h);
+        return graph_new((uint32_t *)(void *)(buf + 8), w, h);
     }
 
     graph_t* img = graph_image_new(icon);
@@ -83,4 +83,3 @@ graph_t* get_icon(const char* icon, uint32_t size) {
 #ifdef __cplusplus
 }
 #endif
-

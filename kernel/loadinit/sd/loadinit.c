@@ -1,6 +1,7 @@
 #include "ext2read.h"
 #include <stddef.h>
 #include <kprintf.h>
+#include <kernel/kernel.h>
 #include <kernel/proc.h>
 #include <kernel/system.h>
 #include <mm/kmalloc.h>

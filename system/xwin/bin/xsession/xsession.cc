@@ -14,7 +14,7 @@
 using namespace Ewok;
 
 #ifdef __cplusplus
-extern "C" { extern int setenv(const char*, const char*);}
+extern "C" { extern int setenv(const char*, const char*, ...);}
 #endif
 
 static void run_xinit(session_info_t* info) {

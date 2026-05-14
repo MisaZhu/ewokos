@@ -5,6 +5,7 @@ BUILD_DIR = $(SYS_DIR)/build/$(HW)
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
 LDFLAGS = -L$(BUILD_DIR)/lib
+CFLAGS += -I $(BUILD_DIR)/include
 
 CLEAR_OBJS = clear.o
 
@@ -16,4 +17,3 @@ $(CLEAR): $(CLEAR_OBJS) \
 
 clean:
 	rm -f $(CLEAR_OBJS)
-

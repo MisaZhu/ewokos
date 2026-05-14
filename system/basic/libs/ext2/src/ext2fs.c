@@ -907,4 +907,3 @@ void* ext2_readfile(ext2_t* ext2, const char* fname, int32_t* size) {
   }
   return ret;
 }
-

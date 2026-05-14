@@ -4,7 +4,7 @@
 
 @/bin/ipcserv /drivers/virt/ttyd         /dev/tty0
 @/bin/ipcserv /sbin/sessiond
-@/bin/bgrun /bin/session -r -t /dev/tty0 
+@/bin/bgrun /bin/session -r -t /dev/tty0 /bin/login
 
 @/bin/ipcserv /drivers/displayd        
 @/bin/ipcserv /drivers/virt/fbd      /dev/fb0

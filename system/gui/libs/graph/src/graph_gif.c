@@ -211,7 +211,7 @@ graph_t* gif_image_new_from_data(const uint8_t* data, uint32_t size) {
     ColorMapObject* cmap = NULL;
     GifImageDesc* img_desc = NULL;
     int error;
-    static int next_row[4096];
+    static GifByteType next_row[4096];
 
     if (data == NULL || size == 0) {
         return NULL;

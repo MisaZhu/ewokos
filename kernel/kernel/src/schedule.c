@@ -6,7 +6,14 @@
 #include <stddef.h>
 
 int32_t schedule(context_t* ctx) {
+	/*
+	 * x86 bring-up temporarily deferred zombie cleanup in the shared scheduler,
+	 * but that leaks exited thread stacks on arm/aarch64. Keep the x86 behavior
+	 * isolated and restore historical cleanup for the existing platforms.
+	 */
+#ifndef __x86_64__
 	proc_zombie_funeral();
+#endif
 
 	uint32_t core = get_core_id();
 	proc_t* idle_proc = NULL;

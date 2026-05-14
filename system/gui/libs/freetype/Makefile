@@ -17,7 +17,7 @@ CFLAGS += -D_REENTRANT -Wall -fvisibility=hidden -DHAVE_STDIO_H=1 -DHAVE_STDLIB_
 
 LIB_FT = $(TARGET_DIR)/lib/libfreetype.a
 
-all: $(LIB_FT)
+all: $(LIB_FT) install_headers
 
 OBJS = \
 	$(FREETYPE_PATH)/src/autofit/autofit.o \
@@ -66,7 +66,11 @@ OBJS = \
 
 $(LIB_FT): $(OBJS) Makefile
 	$(AR) rcs -o $(LIB_FT) $(OBJS)
-	cp -r include/* $(TARGET_DIR)/include
+
+install_headers:
+	rm -rf $(TARGET_DIR)/include/freetype
+	cp -R include/freetype $(TARGET_DIR)/include
+	cp -f include/ft2build.h $(TARGET_DIR)/include
 
 %.o: %.c
 	$(CC) $(CFLAGS) -std=c99 -c -o $@ $<
@@ -76,4 +80,3 @@ $(LIB_FT): $(OBJS) Makefile
 
 clean:
 	rm -f $(OBJS) $(LIB_FT)
-

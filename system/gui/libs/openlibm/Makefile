@@ -8,7 +8,15 @@ LDFLAGS = -L$(TARGET_DIR)/lib
 
 CFLAGS += -Iinclude -Isrc -I $(TARGET_DIR)/include
 
-LIB_LIBOPENLIBM_OBJS = arm/fenv.o \
+OPENLIBM_ARCH_DIR := $(ARCH)
+ifeq ($(ARCH),x86)
+OPENLIBM_ARCH_DIR := amd64
+endif
+ifeq ($(ARCH),riscv)
+OPENLIBM_ARCH_DIR := riscv64
+endif
+
+LIB_LIBOPENLIBM_OBJS = $(OPENLIBM_ARCH_DIR)/fenv.o \
 	src/common.o \
 	src/e_acos.o \
 	src/e_acosf.o \
@@ -189,14 +197,15 @@ LIB_LIBOPENLIBM_OBJS = arm/fenv.o \
 	src/w_cabsl.o
 
 LIBOPENLIBM = $(TARGET_DIR)/lib/libopenlibm.a
+LIBM = $(TARGET_DIR)/lib/libm.a
 
 $(LIBOPENLIBM): $(LIB_LIBOPENLIBM_OBJS)
 	$(AR) rcs $(LIBOPENLIBM) $(LIB_LIBOPENLIBM_OBJS)
+	$(AR) rcs $(LIBM) $(LIB_LIBOPENLIBM_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 	cp -r src/*.h $(TARGET_DIR)/include
 
 
 clean:
 	rm -f $(LIB_LIBOPENLIBM_OBJS)
-	rm -f $(LIBOPENLIBM)
-
+	rm -f $(LIBOPENLIBM) $(LIBM)

@@ -87,6 +87,8 @@ inline void kernel_unlock(void) {
 inline void wfi(void) {
 #ifdef ARM_V6
 	__asm__("MOV r0, #0; MCR p15,0,R0,c7,c0,4");
+#elif defined(__x86_64__)
+	__asm__ volatile("hlt");
 #else
 	__asm__("WFI");
 #endif

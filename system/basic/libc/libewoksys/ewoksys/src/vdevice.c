@@ -732,6 +732,13 @@ static void sig_stop(int sig_no, void* p) {
   dev->terminated = true;
 }
 
+static void device_handled(void* p) {
+	vdevice_t* dev = (vdevice_t*)p;
+	if (dev != NULL && dev->handled != NULL) {
+		dev->handled(dev, dev->extra_data);
+	}
+}
+
 void device_stop(vdevice_t* dev) {
 	if(dev == NULL)
 		return;
@@ -760,7 +767,7 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int mode) {
 
 	//if(dev->loop_step != NULL) 
 	ipc_flags |= IPC_NON_BLOCK;
-	ipc_serv_run(handle, dev->handled, dev, ipc_flags);
+	ipc_serv_run(handle, device_handled, dev, ipc_flags);
 
 	while(!dev->terminated) {
 		if(dev->loop_step != NULL) {
@@ -863,4 +870,3 @@ char* dev_cmd(const char* fname, const char* cmd) {
 #ifdef __cplusplus
 }
 #endif
-

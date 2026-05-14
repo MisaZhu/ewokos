@@ -60,7 +60,7 @@ static int expand_env_buffer(void) {
 }
 
 // 自定义的 setenv 函数实现
-int setenv(const char *name, const char *value) {
+int setenv(const char *name, const char *value, ...) {
     //klog("setenv: %s=%s\n", name, value);
     // 检查环境变量名是否为空
     if (name == NULL || *name == '\0' || strchr(name, '=') != NULL) {

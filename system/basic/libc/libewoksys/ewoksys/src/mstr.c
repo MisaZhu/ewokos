@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <errno.h>
 
 #include <stdarg.h>
 
@@ -14,6 +15,47 @@ extern "C" {
 
 #define STR_BUF 32
 #define STATIC_STR_MAX 64
+
+void *memchr(const void *s, int c, size_t n) {
+	const unsigned char *p = (const unsigned char *)s;
+	unsigned char ch = (unsigned char)c;
+
+	for (size_t i = 0; i < n; ++i) {
+		if (p[i] == ch) {
+			return (void *)(p + i);
+		}
+	}
+	return NULL;
+}
+
+char *strerror(int errnum) {
+	switch (errnum) {
+	case 0:
+		return "success";
+	case EPERM:
+		return "operation not permitted";
+	case ENOENT:
+		return "no such file or directory";
+	case EAGAIN:
+		return "resource temporarily unavailable";
+	case ENOMEM:
+		return "not enough memory";
+	case EBUSY:
+		return "device or resource busy";
+	case EEXIST:
+		return "file exists";
+	case ENOTEMPTY:
+		return "directory not empty";
+	case EINVAL:
+		return "invalid argument";
+	case ERANGE:
+		return "result out of range";
+	case ETIMEDOUT:
+		return "timed out";
+	default:
+		return "unknown error";
+	}
+}
 
 void str_reset(str_t* str) {
 	if(str->cstr == NULL) {
@@ -284,4 +326,3 @@ str_t* str_format_new(const char *format, ...) {
 #ifdef __cplusplus
 }
 #endif
-

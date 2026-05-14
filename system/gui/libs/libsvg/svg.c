@@ -54,7 +54,7 @@ svg_image_t* svg_load_from_memory(const uint8_t* data, uint32_t size) {
     }
 
     // 5. 从 surface 拷贝像素数据到输出缓冲区
-    const uint32_t* src_pixels = plutovg_surface_get_data(surface);
+    const unsigned char* src_pixels = plutovg_surface_get_data(surface);
     memcpy(img->pixels, src_pixels, pixel_bytes);
 
     plutovg_surface_destroy(surface);

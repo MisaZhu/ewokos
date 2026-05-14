@@ -9,7 +9,7 @@ DEPDIR := .deps
 PREFIX := /opt/ewokos
 
 ASFLAGS = --warn
-CFLAGS = -O3 -ffreestanding ${ARCH_CFLAGS} -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN -I. 
+CFLAGS = -O3 -ffreestanding ${ARCH_CFLAGS} -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN -I. -I$(TARGET_DIR)/include
 CPPFLAGS = $(CFLAGS) -fno-exceptions -fno-unwind-tables -fno-rtti
 
 LIBZ = $(TARGET_DIR)/lib/libz.a

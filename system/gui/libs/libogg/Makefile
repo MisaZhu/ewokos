@@ -8,7 +8,7 @@ DEPDIR := .deps
 PREFIX := /opt/ewokos
 
 ASFLAGS = --warn
-CFLAGS += -DHAVE_CONFIG_H -I. -Iinclude -O2 -ffreestanding ${ARCH_CFLAGS}
+CFLAGS += -DHAVE_CONFIG_H -I. -Iinclude -I$(TARGET_DIR)/include -O2 -ffreestanding ${ARCH_CFLAGS}
 CPPFLAGS += $(CFLAGS) -fno-exceptions -fno-unwind-tables -fno-rtti
 
 LIBOGG = $(TARGET_DIR)/lib/libogg.a

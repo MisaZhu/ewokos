@@ -339,7 +339,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 			to->ctx.pc = to->ctx.lr = to->space->interrupt.entry;
 			if(to->space->interrupt.stack == 0)
 				to->space->interrupt.stack = thread_stack_alloc(to);
-			to->ctx.sp = ALIGN_DOWN(to->space->interrupt.stack + THREAD_STACK_PAGES * PAGE_SIZE, 8);
+			to->ctx.sp = ALIGN_DOWN(to->space->interrupt.stack + THREAD_STACK_PAGES * PAGE_SIZE, EWOK_STACK_ALIGN) - EWOK_STACK_INIT_BIAS;
 		}
 		else if (to->space->signal.do_switch) {																			 // have signal request to handle
 			memcpy(&to->space->signal.saved_state.ctx, &to->ctx, sizeof(context_t)); // save "to" context to ipc ctx, will restore after ipc done.
@@ -347,7 +347,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 			to->ctx.pc = to->ctx.lr = to->space->signal.entry;
 			if(to->space->signal.stack == 0)
 				to->space->signal.stack = thread_stack_alloc(to);
-			to->ctx.sp = ALIGN_DOWN(to->space->signal.stack + THREAD_STACK_PAGES * PAGE_SIZE, 8);
+			to->ctx.sp = ALIGN_DOWN(to->space->signal.stack + THREAD_STACK_PAGES * PAGE_SIZE, EWOK_STACK_ALIGN) - EWOK_STACK_INIT_BIAS;
 			to->space->signal.do_switch = false; // clear ipc request mask
 		}
 		else if (to->space->ipc_server.do_switch) { // have ipc request to handle
@@ -358,7 +358,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 			to->ctx.pc = to->ctx.lr = to->space->ipc_server.entry;
 			if(to->space->ipc_server.stack == 0)
 				to->space->ipc_server.stack = thread_stack_alloc(to);
-			to->ctx.sp = ALIGN_DOWN(to->space->ipc_server.stack + THREAD_STACK_PAGES * PAGE_SIZE, 8);
+			to->ctx.sp = ALIGN_DOWN(to->space->ipc_server.stack + THREAD_STACK_PAGES * PAGE_SIZE, EWOK_STACK_ALIGN) - EWOK_STACK_INIT_BIAS;
 			to->space->ipc_server.do_switch = false; // clear ipc request mask
 		}
 	}
@@ -392,19 +392,42 @@ static inline void proc_unmap_shms(proc_t *proc) {
 	}
 }
 
-inline void proc_ready(proc_t* proc) {
+static inline void proc_queue_remove_all(proc_t* proc) {
+	queue_item_t* it = queue_in(&_ready_queue[proc->info.core], proc);
+	while(it != NULL) {
+		queue_remove(&_ready_queue[proc->info.core], it);
+		it = queue_in(&_ready_queue[proc->info.core], proc);
+	}
+}
+
+static inline void proc_ready_with_order(proc_t* proc, bool push_head) {
 	if(proc == NULL)
 		return;
 
 	proc->info.state = READY;
 
+#ifdef __x86_64__
+	if(proc->priority_count == 0)
+		proc->priority_count = proc->info.priority;
+
+	proc_queue_remove_all(proc);
+	if(push_head)
+		queue_push_head(&_ready_queue[proc->info.core], proc);
+	else
+		queue_push(&_ready_queue[proc->info.core], proc);
+#else
+	(void)push_head;
 	if(proc->priority_count > 0)
 		return;
 	proc->priority_count = proc->info.priority;
 
 	if(queue_in(&_ready_queue[proc->info.core], proc) == NULL)
-		//queue_push_head(&_ready_queue[proc->info.core], proc);
 		queue_push(&_ready_queue[proc->info.core], proc);
+#endif
+}
+
+inline void proc_ready(proc_t* proc) {
+	proc_ready_with_order(proc, false);
 }
 
 inline proc_t* proc_get_core_ready(uint32_t core_id) {
@@ -433,9 +456,13 @@ proc_t* proc_get_next_ready(void) {
 }
 
 static inline void proc_unready(proc_t* proc, int32_t state) {
-	queue_item_t* it = queue_in(&_ready_queue[proc->info.core], proc);	
+#ifdef __x86_64__
+	proc_queue_remove_all(proc);
+#else
+	queue_item_t* it = queue_in(&_ready_queue[proc->info.core], proc);
 	if(it != NULL)
 		queue_remove(&_ready_queue[proc->info.core], it);
+#endif
 	proc->info.state = state;
 }
 
@@ -445,7 +472,11 @@ static void proc_wakeup_waiting(int32_t pid) {
 		proc_t *proc = _task_table[i];
 		if (proc != NULL && proc->info.state == WAIT && proc->info.wait_for == pid) {
 			proc->info.wait_for = -1;
+#ifdef __x86_64__
+			proc_ready_with_order(proc, true);
+#else
 			proc_ready(proc);
+#endif
 		}
 	}
 }
@@ -767,6 +798,7 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 		/* make enough room for this section */
 		uint32_t vaddr = ELF_PVADDR(proc_image, i);
 		uint32_t memsz = ELF_PSIZE(proc_image, i);
+		uint32_t filesz = ELF_PFILESZ(proc_image, i);
 		uint32_t offset = ELF_POFFSET(proc_image, i);
 		uint32_t flags = ELF_PFLAGS(proc_image, i);
 
@@ -796,11 +828,16 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 		for (j = 0; j < memsz; j++) {
 			vaddr = hvaddr + j; /*vaddr in elf (proc vaddr)*/
 			uint32_t vkaddr = resolve_kernel_address(proc->space->vm, vaddr); /*trans to phyaddr by proc's page dir*/
-			/*copy from elf to vaddrKernel(=phyaddr=vaddrProc=vaddrElf)*/
-			uint32_t image_off = hoff + j;
-			*(uint8_t*)vkaddr = proc_image[image_off];
-			if(image_off >= size)
-				break;
+			/* Copy initialized bytes from the file image, then zero-fill .bss. */
+			if (j < filesz) {
+				uint32_t image_off = hoff + j;
+				if(image_off >= size)
+					break;
+				*(uint8_t*)vkaddr = proc_image[image_off];
+			}
+			else {
+				*(uint8_t*)vkaddr = 0;
+			}
 		}
 		prog_header_offset += sizeof(struct elf_program_header);
 
@@ -821,7 +858,7 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 	proc->space->malloc_base = proc->space->heap_size;
 	ewokos_addr_t user_stack_base =  proc_get_user_stack_base(proc);
 	uint32_t pages = proc_get_user_stack_pages(proc);
-	proc->ctx.sp = user_stack_base + pages*PAGE_SIZE;
+	proc->ctx.sp = ALIGN_DOWN(user_stack_base + pages*PAGE_SIZE, EWOK_STACK_ALIGN) - EWOK_STACK_INIT_BIAS;
 	proc->ctx.pc = ELF_ENTRY(proc_image);
 	proc->ctx.lr = ELF_ENTRY(proc_image);
 	proc_ready(proc);
@@ -877,9 +914,25 @@ void proc_wakeup(proc_t* proc) {
 	proc_wakeup_all_state(proc);
 }
 
+static inline char* proc_clone_addr_to_ptr(proc_t* proc, uint32_t addr) {
+	if(addr >= KERNEL_BASE) {
+		return (char*)addr;
+	}
+
+	ewokos_addr_t phy = resolve_phy_address(proc->space->vm, addr);
+	if(phy == 0) {
+		return NULL;
+	}
+	return (char*)P2V(phy);
+}
+
 static inline void proc_page_clone(proc_t* to, uint32_t to_addr, proc_t* from, uint32_t from_addr) {
-	char *to_ptr = (char*)resolve_kernel_address(to->space->vm, to_addr);
-	char *from_ptr = (char*)resolve_kernel_address(from->space->vm, from_addr);
+	char *to_ptr = proc_clone_addr_to_ptr(to, to_addr);
+	char *from_ptr = proc_clone_addr_to_ptr(from, from_addr);
+	if(to_ptr == NULL || from_ptr == NULL) {
+		printf("panic: proc_page_clone invalid addr to=0x%x from=0x%x\n", to_addr, from_addr);
+		return;
+	}
 	memcpy(to_ptr, from_ptr, PAGE_SIZE);
 }
 
@@ -888,32 +941,48 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	if((parent->space->heap_size % PAGE_SIZE) != 0)
 		pages++;
 
-	//Copy On Write
+	// Copy On Write
 	uint32_t p;
 	for(p=0; p<pages; ++p) { 
 		uint32_t v_addr = (p * PAGE_SIZE);
 		uint32_t phy_page_addr = resolve_phy_address(parent->space->vm, v_addr);
-		map_page_ref(child->space->vm, 
+
+		/*
+		 * Some virtual pages below heap_size are reserved but not backed yet.
+		 * Skip those holes instead of remapping them to physical 0.
+		 */
+		if(phy_page_addr == 0)
+			continue;
+
+		map_page_ref(child->space->vm,
 				v_addr,
 				phy_page_addr,
-				AP_RW_R, PTE_ATTR_WRBACK); //share page table to child with read only permissions, and ref the page
+				AP_RW_R, PTE_ATTR_WRBACK); // share page table to child with read only permissions, and ref the page
 
-		map_page(parent->space->vm, 
+		map_page(parent->space->vm,
 				v_addr,
 				phy_page_addr,
 				AP_RW_R, PTE_ATTR_WRBACK); // set parent page table with read only permissions
 	}
 	flush_tlb();
 	child->space->heap_size = pages * PAGE_SIZE;
-	child->space->heap_used = pages * PAGE_SIZE;
+	/*
+	 * Preserve the parent's actual heap break. User-space allocators keep
+	 * their current break in process memory and continue from there after
+	 * fork(), so resetting heap_used to heap_size desynchronizes kernel/user
+	 * heap state in the child.
+	 */
+	child->space->heap_used = parent->space->heap_used;
 
-	// copy parent's stack to child's stack
+	// Copy the process user stack via its user virtual addresses. The
+	// user_stack[] array stores kernel backing-page pointers, not process
+	// virtual addresses, so passing it into resolve_kernel_address() will
+	// translate an unmapped address and can collapse to P2V(0).
 	int32_t i;
+	uint32_t user_stack_base = proc_get_user_stack_base(parent);
 	for(i=0; i<STACK_PAGES; i++) {
-		proc_page_clone(child, 
-			child->space->user_stack[i],
-			parent,
-			parent->space->user_stack[i]);
+		uint32_t vaddr = user_stack_base + PAGE_SIZE*i;
+		proc_page_clone(child, vaddr, parent, vaddr);
 	}
 	child->space->malloc_base = parent->space->malloc_base;
 	child->space->rw_heap_base = parent->space->rw_heap_base;
@@ -941,7 +1010,7 @@ proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
 				*/
 	}
 	else {
-		child->ctx.sp = ALIGN_DOWN(child->thread_stack_base + THREAD_STACK_PAGES*PAGE_SIZE, 8);
+		child->ctx.sp = ALIGN_DOWN(child->thread_stack_base + THREAD_STACK_PAGES*PAGE_SIZE, EWOK_STACK_ALIGN) - EWOK_STACK_INIT_BIAS;
 	}
 	return child;
 }
@@ -951,8 +1020,9 @@ proc_t* kfork(context_t* ctx, int32_t type) {
 	proc_t* child = kfork_raw(ctx, type, cproc);
 	core_attach(child);
 
-	if(_core_proc_ready && child->info.type == TASK_TYPE_PROC)
+	if(_core_proc_ready && child->info.type == TASK_TYPE_PROC) {
 		kev_push(KEV_PROC_CREATED, cproc->info.pid, child->info.pid, 0);
+	}
 	else
 		proc_ready(child);
 	return child;
