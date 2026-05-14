@@ -106,7 +106,9 @@ inline void irq_handler(context_t* ctx) {
 
 	proc_t* cproc = get_current_proc();
 	if(cproc != NULL && cproc->is_core_idle_proc) {
+#ifndef __x86_64__
 		wfi();
+#endif
 	}
 }
 
