@@ -1,5 +1,6 @@
 #include "ext2head.h"
 #include "ext2read.h"
+#include <dev/uart.h>
 #include <kstring.h>
 #include <mm/kmalloc.h>
 #include <dev/sd.h>
@@ -11,16 +12,20 @@
 
 static partition_t _partition;
 
-static int32_t sd_read_sector(int32_t sector, void* buf) {
-	if(sd_dev_read(sector) != 0)
-		return -1;
+static void ext2_trace(char c) {
+	(void)uart_write(&c, 1);
+}
 
-	while(1) {
-		if(sd_dev_read_done(buf)  == 0) {
-			break;
+static int32_t sd_read_sector(int32_t sector, void* buf) {
+	for (int32_t retry = 0; retry < 8; ++retry) {
+		if (sd_dev_read(sector) != 0) {
+			continue;
+		}
+		if (sd_dev_read_done(buf) == 0) {
+			return 0;
 		}
 	}
-	return 0;
+	return -1;
 }
 
 static int32_t sd_read(int32_t block, void* buf) {
@@ -271,13 +276,18 @@ static int32_t get_gds(ext2_t* ext2) {
 	int32_t gd_size = sizeof(GD);
 	ext2->group_num = get_gd_num(ext2);
 	ext2->gds = (GD*)kmalloc(gd_size * ext2->group_num);
+	if (ext2->gds == NULL) {
+		return -1;
+	}
 
 	int32_t gd_num = (EXT2_BLOCK_SIZE / gd_size);
 	int32_t i = 2;
 	int32_t index = 0;
 	while(1) {
 		char buf[EXT2_BLOCK_SIZE];
-		ext2->read_block(ext2->super.s_blocks_per_group+i, buf);
+		if (ext2->read_block(ext2->super.s_blocks_per_group+i, buf) != 0) {
+			return -1;
+		}
 		for(int32_t j=0; j<gd_num; j++) {
 			memcpy(&ext2->gds[index], buf+(j*gd_size), gd_size);
 			index++;
@@ -296,10 +306,19 @@ static int32_t ext2_init(ext2_t* ext2, read_block_func_t read_block) {
 	char buf[EXT2_BLOCK_SIZE];
 	ext2->read_block = read_block;
 
-	ext2->read_block(1, buf);
+	if (ext2->read_block(1, buf) != 0) {
+		return -1;
+	}
 	memcpy(&ext2->super, buf, sizeof(SUPER));
+	if (ext2->super.s_magic != 0xEF53) {
+		return -1;
+	}
+	ext2_trace('A');
 
-	get_gds(ext2);
+	if (get_gds(ext2) != 0) {
+		return -1;
+	}
+	ext2_trace('B');
 
 	return 0;
 }
@@ -314,11 +333,13 @@ static void* ext2_readfile(ext2_t* ext2, const char* fname, int32_t* size) {
 		*size = -1;
 
 	uint32_t ino = ext2_ino_by_fname(ext2, fname);
+	ext2_trace('C');
 	if(ino > 0) {
 		INODE inode;
 		if(ext2_node_by_ino(ext2, ino, &inode) != 0) {
 			return ret;
 		}
+		ext2_trace('D');
 
 		char *data = (char*)kmalloc(inode.i_size+1); //one more byte for string end.
 		if(data != NULL) {
@@ -335,6 +356,7 @@ static void* ext2_readfile(ext2_t* ext2, const char* fname, int32_t* size) {
 				((char*)ret)[rd] = 0;
 				*size = rd;
 			}
+			ext2_trace('E');
 		}
 	}
 	return ret;
@@ -342,9 +364,13 @@ static void* ext2_readfile(ext2_t* ext2, const char* fname, int32_t* size) {
 
 void* sd_read_ext2(const char* fname, int32_t* size) {
 	ext2_t ext2;
-	ext2_init(&ext2, sd_read);
+	if (ext2_init(&ext2, sd_read) != 0) {
+		if (size != NULL) {
+			*size = -1;
+		}
+		return NULL;
+	}
 	void* ret = ext2_readfile(&ext2, fname, size);
 	ext2_quit(&ext2);
 	return ret;
 }
-

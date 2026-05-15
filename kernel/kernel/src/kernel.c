@@ -266,53 +266,79 @@ void _kernel_entry_c(void) {
 
 	kout_str("kernel: load kernel config     ... ");
 	load_kernel_config();
+	boot_mark('T');
 	kout_str("[OK]\n");
 
+	boot_mark('U');
 	uart_dev_init(_kernel_config.uart_baud);
+	boot_mark('V');
 
+	boot_mark('W');
 	kout_str("kernel: remapping kernel mem   ... ");
+	boot_mark('X');
 	reset_kernel_vm();
+	boot_mark('Y');
 	kmalloc_init(); //init kmalloc again with config info;
+	boot_mark('Z');
 	kmalloc_vm_init(); //init kmalloc extra;
+	boot_mark('a');
 	kout_str("[OK]\n");
 
 	//printf("kernel: init allocable memory  ... ");
+	boot_mark('b');
 	init_allocable_mem(); //init the rest allocable memory VM
+	boot_mark('c');
 	//printf("[ok] (%d MB)\n", (get_free_mem_size() / (1*MB)));
 
+	boot_mark('d');
 	logo();
+	boot_mark('e');
 	show_config();
 
 	kout_str("kernel: init kernel event      ... ");
+	boot_mark('f');
 	kev_init();
+	boot_mark('g');
 	kout_str("[OK]\n");
 
 	//printf("kernel: init DMA               ... ");
+	boot_mark('h');
 	dma_init();
+	boot_mark('i');
 	//printf("[OK]\n");
 
 	//printf("kernel: init semaphore         ... ");
+	boot_mark('j');
 	semaphore_init();
+	boot_mark('k');
 	//printf("[ok]\n");
 
 	//printf("kernel: init irq               ... ");
+	boot_mark('l');
 	irq_init();
+	boot_mark('m');
 	//printf("[ok]\n");
 
 	//printf("kernel: init share memory      ... ");
+	boot_mark('n');
 	shm_init();
+	boot_mark('o');
 	//printf("[ok]\n");
 
 	//printf("kernel: init processes table   ... ");
+	boot_mark('p');
 	if(procs_init() != 0)
 		halt();
+	boot_mark('q');
 	//printf("[ok] (%d)\n", _kernel_config.max_proc_num);
 
+	boot_mark('r');
 	printf("kernel: loading init ... ");
 	if(load_init_proc() != 0)  {
 		printf("[failed!]\n");
 		halt();
 	}
+	boot_mark('s');
 	printf("[ok]\n");
 
 	kfork_core_halt(0);

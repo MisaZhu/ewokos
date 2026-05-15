@@ -64,7 +64,26 @@ x86_runtime_init:
 
 .global __core_id
 __core_id:
-    xor eax, eax
+    mov eax, 1
+    xor ecx, ecx
+    cpuid
+    mov eax, ebx
+    shr eax, 24
+    and eax, 0xff
+    ret
+
+.global __cpu_cores
+__cpu_cores:
+    mov eax, 1
+    xor ecx, ecx
+    cpuid
+    mov eax, ebx
+    shr eax, 16
+    and eax, 0xff
+    test eax, eax
+    jnz 1f
+    mov eax, 1
+1:
     ret
 
 .global __set_vector_table

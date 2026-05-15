@@ -7,6 +7,7 @@
 
 .section .init.data,"aw"
 .align 4096
+.global boot_pml4
 boot_pml4:
     .quad boot_pdpt + 0x003
     .fill 511, 8, 0

@@ -86,7 +86,7 @@ int32_t  proc_childof(proc_t* proc, proc_t* parent) {
 	return -1;
 }
 
-inline proc_t* proc_get(int32_t pid) {
+proc_t* proc_get(int32_t pid) {
 	if(pid < 0 || pid >= _kernel_config.max_task_num)
 		return NULL;
 
@@ -96,7 +96,7 @@ inline proc_t* proc_get(int32_t pid) {
 	return p;
 }
 
-inline proc_t* proc_get_by_uuid(uint32_t uuid) {
+proc_t* proc_get_by_uuid(uint32_t uuid) {
 	proc_t* proc = NULL;
 	for (uint32_t i = 0; i < _kernel_config.max_task_num; i++) {
 		proc = _task_table[i];
@@ -110,7 +110,7 @@ inline proc_t* proc_get_by_uuid(uint32_t uuid) {
 	return proc;
 }
 
-inline proc_t* get_current_proc(void) {
+proc_t* get_current_proc(void) {
 	uint32_t core_id = get_core_id();
 	proc_t* cproc = proc_get(_current_proc[core_id]);
 	if(cproc == NULL || cproc->info.state == UNUSED || cproc->info.state == ZOMBIE)
@@ -118,14 +118,14 @@ inline proc_t* get_current_proc(void) {
 	return cproc;
 }
 
-inline proc_t* get_current_core_proc(uint32_t core) {
+proc_t* get_current_core_proc(uint32_t core) {
 	proc_t* cproc = proc_get(_current_proc[core]);
 	if(cproc == NULL || cproc->info.state == UNUSED || cproc->info.state == ZOMBIE)
 		return NULL;
 	return cproc;
 }
 
-inline void set_current_proc(proc_t* proc) {
+void set_current_proc(proc_t* proc) {
 	uint32_t core_id = get_core_id();
 	if(proc == NULL) {
 		_current_proc[core_id] = -1;
@@ -289,13 +289,13 @@ static int32_t proc_init_space(proc_t* proc) {
 	return 0;
 }
 
-inline void proc_save_state(proc_t* proc, saved_state_t* saved_state, ipc_res_t* saved_ipc_res) {
+void proc_save_state(proc_t* proc, saved_state_t* saved_state, ipc_res_t* saved_ipc_res) {
 	saved_state->state = proc->info.state;
 	saved_state->sleep_counter = proc->sleep_counter;
 	memcpy(saved_ipc_res, &proc->ipc_res, sizeof(ipc_res_t));
 }
 
-inline void proc_restore_state(context_t* ctx, proc_t* proc, saved_state_t* saved_state, ipc_res_t* saved_ipc_res) {
+void proc_restore_state(context_t* ctx, proc_t* proc, saved_state_t* saved_state, ipc_res_t* saved_ipc_res) {
 	proc->info.state = saved_state->state;
 	proc->sleep_counter = saved_state->sleep_counter;
 	//memcpy(&proc->ipc_res, saved_ipc_res, sizeof(ipc_res_t));
@@ -426,15 +426,15 @@ static inline void proc_ready_with_order(proc_t* proc, bool push_head) {
 #endif
 }
 
-inline void proc_ready(proc_t* proc) {
+void proc_ready(proc_t* proc) {
 	proc_ready_with_order(proc, false);
 }
 
-inline proc_t* proc_get_core_ready(uint32_t core_id) {
+proc_t* proc_get_core_ready(uint32_t core_id) {
 	return (proc_t*)_ready_queue[core_id].head;
 }
 
-inline bool proc_have_ready_task(uint32_t core) {
+bool proc_have_ready_task(uint32_t core) {
 	return !queue_is_empty(&_ready_queue[core]) ||
 			_current_proc[core] >= 0;
 }
@@ -613,7 +613,7 @@ void proc_funeral(proc_t* proc) {
 	kfree(proc);
 }
 
-inline void proc_zombie_funeral(void) {
+void proc_zombie_funeral(void) {
 	int32_t i;
 	for (i = 0; i < _kernel_config.max_task_num; i++) {
 		proc_t *p = _task_table[i];
@@ -630,7 +630,7 @@ void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 	schedule(ctx);
 }
 
-inline void* proc_malloc(proc_t* proc, int32_t size) {
+void* proc_malloc(proc_t* proc, int32_t size) {
 	proc->space->heap_used += size;
 	size = proc->space->heap_used - proc->space->heap_size; 
 
@@ -664,11 +664,11 @@ inline void* proc_malloc(proc_t* proc, int32_t size) {
 	return (void*)proc->space->malloc_base;
 }
 
-inline uint32_t proc_msize(proc_t* proc) {
+uint32_t proc_msize(proc_t* proc) {
 	return proc->space->heap_size - proc->space->malloc_base;
 }
 
-inline void proc_free(proc_t* proc) {
+void proc_free(proc_t* proc) {
 	uint32_t size = proc_msize(proc);
 	uint32_t pages = size / PAGE_SIZE;
 	proc_shrink_mem(proc, pages);
@@ -868,7 +868,7 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 	return 0;
 }
 
-inline void proc_usleep(context_t* ctx, uint32_t count) {
+void proc_usleep(context_t* ctx, uint32_t count) {
 	proc_t* cproc = get_current_proc();
 	if(cproc == NULL)
 		return;
@@ -878,7 +878,7 @@ inline void proc_usleep(context_t* ctx, uint32_t count) {
 	schedule(ctx);
 }
 	
-inline void proc_block(context_t* ctx, proc_t* proc) {
+void proc_block(context_t* ctx, proc_t* proc) {
 	if(proc == NULL)
 		return;
 	proc_unready(proc, BLOCK);
@@ -886,7 +886,7 @@ inline void proc_block(context_t* ctx, proc_t* proc) {
 	schedule(ctx);
 }
 
-inline void proc_waitpid(context_t* ctx, int32_t pid) {
+void proc_waitpid(context_t* ctx, int32_t pid) {
 	proc_t* cproc = get_current_proc();
 	proc_t* p = proc_get(pid);
 	if(cproc == NULL || p == NULL)
@@ -1162,7 +1162,7 @@ static void renew_vsyscall_info(void) {
 	_kernel_info.vsyscall_info->kernel_usec = _kernel_info.uptime_usec;
 }
 
-inline int32_t renew_kernel_tic(uint32_t usec) {
+int32_t renew_kernel_tic(uint32_t usec) {
 	renew_vsyscall_info();
 	renew_priority_counter(usec);
 	renew_interrupt_counter(usec);
@@ -1171,7 +1171,7 @@ inline int32_t renew_kernel_tic(uint32_t usec) {
 }
 
 static uint32_t _k_sec_counter = 0;
-inline void renew_kernel_sec(void) {
+void renew_kernel_sec(void) {
 	uint32_t i;
 	_k_sec_counter++;
 	for(i=0; i<_kernel_config.max_task_num; i++) {

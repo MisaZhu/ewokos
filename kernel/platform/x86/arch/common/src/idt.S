@@ -1,0 +1,532 @@
+.intel_syntax noprefix
+.section .rodata
+
+.extern isr_0
+.extern isr_1
+.extern isr_2
+.extern isr_3
+.extern isr_4
+.extern isr_5
+.extern isr_6
+.extern isr_7
+.extern isr_8
+.extern isr_9
+.extern isr_10
+.extern isr_11
+.extern isr_12
+.extern isr_13
+.extern isr_14
+.extern isr_15
+.extern isr_16
+.extern isr_17
+.extern isr_18
+.extern isr_19
+.extern isr_20
+.extern isr_21
+.extern isr_22
+.extern isr_23
+.extern isr_24
+.extern isr_25
+.extern isr_26
+.extern isr_27
+.extern isr_28
+.extern isr_29
+.extern isr_30
+.extern isr_31
+.extern isr_32
+.extern isr_33
+.extern isr_34
+.extern isr_35
+.extern isr_36
+.extern isr_37
+.extern isr_38
+.extern isr_39
+.extern isr_40
+.extern isr_41
+.extern isr_42
+.extern isr_43
+.extern isr_44
+.extern isr_45
+.extern isr_46
+.extern isr_47
+.extern isr_48
+.extern isr_49
+.extern isr_50
+.extern isr_51
+.extern isr_52
+.extern isr_53
+.extern isr_54
+.extern isr_55
+.extern isr_56
+.extern isr_57
+.extern isr_58
+.extern isr_59
+.extern isr_60
+.extern isr_61
+.extern isr_62
+.extern isr_63
+.extern isr_64
+.extern isr_65
+.extern isr_66
+.extern isr_67
+.extern isr_68
+.extern isr_69
+.extern isr_70
+.extern isr_71
+.extern isr_72
+.extern isr_73
+.extern isr_74
+.extern isr_75
+.extern isr_76
+.extern isr_77
+.extern isr_78
+.extern isr_79
+.extern isr_80
+.extern isr_81
+.extern isr_82
+.extern isr_83
+.extern isr_84
+.extern isr_85
+.extern isr_86
+.extern isr_87
+.extern isr_88
+.extern isr_89
+.extern isr_90
+.extern isr_91
+.extern isr_92
+.extern isr_93
+.extern isr_94
+.extern isr_95
+.extern isr_96
+.extern isr_97
+.extern isr_98
+.extern isr_99
+.extern isr_100
+.extern isr_101
+.extern isr_102
+.extern isr_103
+.extern isr_104
+.extern isr_105
+.extern isr_106
+.extern isr_107
+.extern isr_108
+.extern isr_109
+.extern isr_110
+.extern isr_111
+.extern isr_112
+.extern isr_113
+.extern isr_114
+.extern isr_115
+.extern isr_116
+.extern isr_117
+.extern isr_118
+.extern isr_119
+.extern isr_120
+.extern isr_121
+.extern isr_122
+.extern isr_123
+.extern isr_124
+.extern isr_125
+.extern isr_126
+.extern isr_127
+.extern isr_128
+.extern isr_129
+.extern isr_130
+.extern isr_131
+.extern isr_132
+.extern isr_133
+.extern isr_134
+.extern isr_135
+.extern isr_136
+.extern isr_137
+.extern isr_138
+.extern isr_139
+.extern isr_140
+.extern isr_141
+.extern isr_142
+.extern isr_143
+.extern isr_144
+.extern isr_145
+.extern isr_146
+.extern isr_147
+.extern isr_148
+.extern isr_149
+.extern isr_150
+.extern isr_151
+.extern isr_152
+.extern isr_153
+.extern isr_154
+.extern isr_155
+.extern isr_156
+.extern isr_157
+.extern isr_158
+.extern isr_159
+.extern isr_160
+.extern isr_161
+.extern isr_162
+.extern isr_163
+.extern isr_164
+.extern isr_165
+.extern isr_166
+.extern isr_167
+.extern isr_168
+.extern isr_169
+.extern isr_170
+.extern isr_171
+.extern isr_172
+.extern isr_173
+.extern isr_174
+.extern isr_175
+.extern isr_176
+.extern isr_177
+.extern isr_178
+.extern isr_179
+.extern isr_180
+.extern isr_181
+.extern isr_182
+.extern isr_183
+.extern isr_184
+.extern isr_185
+.extern isr_186
+.extern isr_187
+.extern isr_188
+.extern isr_189
+.extern isr_190
+.extern isr_191
+.extern isr_192
+.extern isr_193
+.extern isr_194
+.extern isr_195
+.extern isr_196
+.extern isr_197
+.extern isr_198
+.extern isr_199
+.extern isr_200
+.extern isr_201
+.extern isr_202
+.extern isr_203
+.extern isr_204
+.extern isr_205
+.extern isr_206
+.extern isr_207
+.extern isr_208
+.extern isr_209
+.extern isr_210
+.extern isr_211
+.extern isr_212
+.extern isr_213
+.extern isr_214
+.extern isr_215
+.extern isr_216
+.extern isr_217
+.extern isr_218
+.extern isr_219
+.extern isr_220
+.extern isr_221
+.extern isr_222
+.extern isr_223
+.extern isr_224
+.extern isr_225
+.extern isr_226
+.extern isr_227
+.extern isr_228
+.extern isr_229
+.extern isr_230
+.extern isr_231
+.extern isr_232
+.extern isr_233
+.extern isr_234
+.extern isr_235
+.extern isr_236
+.extern isr_237
+.extern isr_238
+.extern isr_239
+.extern isr_240
+.extern isr_241
+.extern isr_242
+.extern isr_243
+.extern isr_244
+.extern isr_245
+.extern isr_246
+.extern isr_247
+.extern isr_248
+.extern isr_249
+.extern isr_250
+.extern isr_251
+.extern isr_252
+.extern isr_253
+.extern isr_254
+.extern isr_255
+
+.global interrupt_table_start
+.global interrupt_table_end
+.global x86_isr_table
+.global x86_idt_table
+
+x86_isr_table:
+    .quad isr_0
+    .quad isr_1
+    .quad isr_2
+    .quad isr_3
+    .quad isr_4
+    .quad isr_5
+    .quad isr_6
+    .quad isr_7
+    .quad isr_8
+    .quad isr_9
+    .quad isr_10
+    .quad isr_11
+    .quad isr_12
+    .quad isr_13
+    .quad isr_14
+    .quad isr_15
+    .quad isr_16
+    .quad isr_17
+    .quad isr_18
+    .quad isr_19
+    .quad isr_20
+    .quad isr_21
+    .quad isr_22
+    .quad isr_23
+    .quad isr_24
+    .quad isr_25
+    .quad isr_26
+    .quad isr_27
+    .quad isr_28
+    .quad isr_29
+    .quad isr_30
+    .quad isr_31
+    .quad isr_32
+    .quad isr_33
+    .quad isr_34
+    .quad isr_35
+    .quad isr_36
+    .quad isr_37
+    .quad isr_38
+    .quad isr_39
+    .quad isr_40
+    .quad isr_41
+    .quad isr_42
+    .quad isr_43
+    .quad isr_44
+    .quad isr_45
+    .quad isr_46
+    .quad isr_47
+    .quad isr_48
+    .quad isr_49
+    .quad isr_50
+    .quad isr_51
+    .quad isr_52
+    .quad isr_53
+    .quad isr_54
+    .quad isr_55
+    .quad isr_56
+    .quad isr_57
+    .quad isr_58
+    .quad isr_59
+    .quad isr_60
+    .quad isr_61
+    .quad isr_62
+    .quad isr_63
+    .quad isr_64
+    .quad isr_65
+    .quad isr_66
+    .quad isr_67
+    .quad isr_68
+    .quad isr_69
+    .quad isr_70
+    .quad isr_71
+    .quad isr_72
+    .quad isr_73
+    .quad isr_74
+    .quad isr_75
+    .quad isr_76
+    .quad isr_77
+    .quad isr_78
+    .quad isr_79
+    .quad isr_80
+    .quad isr_81
+    .quad isr_82
+    .quad isr_83
+    .quad isr_84
+    .quad isr_85
+    .quad isr_86
+    .quad isr_87
+    .quad isr_88
+    .quad isr_89
+    .quad isr_90
+    .quad isr_91
+    .quad isr_92
+    .quad isr_93
+    .quad isr_94
+    .quad isr_95
+    .quad isr_96
+    .quad isr_97
+    .quad isr_98
+    .quad isr_99
+    .quad isr_100
+    .quad isr_101
+    .quad isr_102
+    .quad isr_103
+    .quad isr_104
+    .quad isr_105
+    .quad isr_106
+    .quad isr_107
+    .quad isr_108
+    .quad isr_109
+    .quad isr_110
+    .quad isr_111
+    .quad isr_112
+    .quad isr_113
+    .quad isr_114
+    .quad isr_115
+    .quad isr_116
+    .quad isr_117
+    .quad isr_118
+    .quad isr_119
+    .quad isr_120
+    .quad isr_121
+    .quad isr_122
+    .quad isr_123
+    .quad isr_124
+    .quad isr_125
+    .quad isr_126
+    .quad isr_127
+    .quad isr_128
+    .quad isr_129
+    .quad isr_130
+    .quad isr_131
+    .quad isr_132
+    .quad isr_133
+    .quad isr_134
+    .quad isr_135
+    .quad isr_136
+    .quad isr_137
+    .quad isr_138
+    .quad isr_139
+    .quad isr_140
+    .quad isr_141
+    .quad isr_142
+    .quad isr_143
+    .quad isr_144
+    .quad isr_145
+    .quad isr_146
+    .quad isr_147
+    .quad isr_148
+    .quad isr_149
+    .quad isr_150
+    .quad isr_151
+    .quad isr_152
+    .quad isr_153
+    .quad isr_154
+    .quad isr_155
+    .quad isr_156
+    .quad isr_157
+    .quad isr_158
+    .quad isr_159
+    .quad isr_160
+    .quad isr_161
+    .quad isr_162
+    .quad isr_163
+    .quad isr_164
+    .quad isr_165
+    .quad isr_166
+    .quad isr_167
+    .quad isr_168
+    .quad isr_169
+    .quad isr_170
+    .quad isr_171
+    .quad isr_172
+    .quad isr_173
+    .quad isr_174
+    .quad isr_175
+    .quad isr_176
+    .quad isr_177
+    .quad isr_178
+    .quad isr_179
+    .quad isr_180
+    .quad isr_181
+    .quad isr_182
+    .quad isr_183
+    .quad isr_184
+    .quad isr_185
+    .quad isr_186
+    .quad isr_187
+    .quad isr_188
+    .quad isr_189
+    .quad isr_190
+    .quad isr_191
+    .quad isr_192
+    .quad isr_193
+    .quad isr_194
+    .quad isr_195
+    .quad isr_196
+    .quad isr_197
+    .quad isr_198
+    .quad isr_199
+    .quad isr_200
+    .quad isr_201
+    .quad isr_202
+    .quad isr_203
+    .quad isr_204
+    .quad isr_205
+    .quad isr_206
+    .quad isr_207
+    .quad isr_208
+    .quad isr_209
+    .quad isr_210
+    .quad isr_211
+    .quad isr_212
+    .quad isr_213
+    .quad isr_214
+    .quad isr_215
+    .quad isr_216
+    .quad isr_217
+    .quad isr_218
+    .quad isr_219
+    .quad isr_220
+    .quad isr_221
+    .quad isr_222
+    .quad isr_223
+    .quad isr_224
+    .quad isr_225
+    .quad isr_226
+    .quad isr_227
+    .quad isr_228
+    .quad isr_229
+    .quad isr_230
+    .quad isr_231
+    .quad isr_232
+    .quad isr_233
+    .quad isr_234
+    .quad isr_235
+    .quad isr_236
+    .quad isr_237
+    .quad isr_238
+    .quad isr_239
+    .quad isr_240
+    .quad isr_241
+    .quad isr_242
+    .quad isr_243
+    .quad isr_244
+    .quad isr_245
+    .quad isr_246
+    .quad isr_247
+    .quad isr_248
+    .quad isr_249
+    .quad isr_250
+    .quad isr_251
+    .quad isr_252
+    .quad isr_253
+    .quad isr_254
+    .quad isr_255
+
+.section .data
+.align 16
+x86_idt_table:
+    .zero 256 * 16
+
+interrupt_table_start:
+    .word (256 * 16) - 1
+    .quad x86_idt_table
+interrupt_table_end:

@@ -4,6 +4,7 @@
 #include <kernel/proc.h>
 #include <kprintf.h>
 #include <arch_context.h>
+#include <x86_smp.h>
 #include <stddef.h>
 
 volatile uint32_t _x86_irq_raw = 0;
@@ -55,7 +56,7 @@ void handle_trap(uint64_t vector, uint64_t err, context_t* ctx) {
 	ctx->err_code = err;
 	ctx->lr = ctx->pc;
 
-	if (vector >= 0x20 && vector < 0x30) {
+	if ((vector >= 0x20 && vector < 0x30) || vector == X86_VECTOR_IPI) {
 		_x86_irq_raw = (uint32_t)vector;
 		irq_handler(ctx);
 		return;
