@@ -9,6 +9,7 @@ int32_t schedule(context_t* ctx) {
 	proc_zombie_funeral();
 
 	uint32_t core = get_core_id();
+	proc_t* cproc = get_current_proc();
 	proc_t* idle_proc = NULL;
 	if(_cpu_cores[core].idle_proc != NULL) {
 		/*halt proc supposed to be suspended with WAIT status.

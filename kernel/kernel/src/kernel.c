@@ -25,20 +25,6 @@
 
 kernel_info_t _kernel_info;
 
-static void boot_mark(char c) {
-#ifdef __x86_64__
-	uint8_t ready;
-
-	do {
-		__asm__ volatile("inb %1, %0" : "=a"(ready) : "Nd"((uint16_t)0x3FD));
-	} while ((ready & 0x20) == 0);
-
-	__asm__ volatile("outb %0, %1" : : "a"((uint8_t)c), "Nd"((uint16_t)0x3F8));
-#else
-	(void)c;
-#endif
-}
-
 /*Copy interrupt talbe to phymen address 0x00000000.
 	Virtual address #INTERRUPT_VECTOR_BASE(0xFFFF0000 for ARM) must mapped to phymen 0x00000000.
 ref: set_vm(page_dir_entry_t* vm)
@@ -173,10 +159,22 @@ static void init_allocable_mem(void) {
 }
 
 #ifdef KERNEL_SMP
-void __attribute__((optimize("O0"))) _slave_kernel_entry_c(void) {
+void __attribute__((optimize("O0"))) _slave_kernel_entry_c(uint32_t boot_core_id) {
 	set_translation_table_base(V2P((uint32_t)_kernel_info.kernel_vm));
 
 	uint32_t cid = get_core_id();
+#ifdef __x86_64__
+	/*
+	 * The x86 AP trampoline passes the target logical core id explicitly in the
+	 * first argument register. Use it before relying on APIC-id based lookup so
+	 * each AP binds to the correct per-core idle slot during early bring-up.
+	 */
+	if (boot_core_id < _sys_info.cores) {
+		cid = boot_core_id;
+	}
+#else
+	(void)boot_core_id;
+#endif
 	proc_t* idle_proc = _cpu_cores[cid].idle_proc;
 	cpu_core_ready(cid);
 	_cpu_cores[cid].actived = true;
@@ -254,21 +252,15 @@ void _kernel_entry_c(void) {
 #ifdef __x86_64__
 	__asm__ volatile("cli");
 #endif
-	boot_mark('N');
 	//clear bss
 	memset(_bss_start, 0, (size_t)(_bss_end - _bss_start));
 	sys_info_init();
-	boot_mark('O');
 
 	copy_interrupt_table();
-	boot_mark('P');
 
 	init_kernel_vm();  
-	boot_mark('Q');
 	uart_dev_init(19200);
-	boot_mark('R');
 	kout_str("\n=== ewokos booting ===\n\n");
-	boot_mark('S');
 	kout_str("kernel: init kernel malloc     ... ");
 	kmalloc_init(); //init kmalloc with min size for just early stage kernel load
 	kout_str("[OK]\n");
@@ -279,79 +271,53 @@ void _kernel_entry_c(void) {
 
 	kout_str("kernel: load kernel config     ... ");
 	load_kernel_config();
-	boot_mark('T');
 	kout_str("[OK]\n");
 
-	boot_mark('U');
 	uart_dev_init(_kernel_config.uart_baud);
-	boot_mark('V');
 
-	boot_mark('W');
 	kout_str("kernel: remapping kernel mem   ... ");
-	boot_mark('X');
 	reset_kernel_vm();
-	boot_mark('Y');
 	kmalloc_init(); //init kmalloc again with config info;
-	boot_mark('Z');
 	kmalloc_vm_init(); //init kmalloc extra;
-	boot_mark('a');
 	kout_str("[OK]\n");
 
 	//printf("kernel: init allocable memory  ... ");
-	boot_mark('b');
 	init_allocable_mem(); //init the rest allocable memory VM
-	boot_mark('c');
 	//printf("[ok] (%d MB)\n", (get_free_mem_size() / (1*MB)));
 
-	boot_mark('d');
 	logo();
-	boot_mark('e');
 	show_config();
 
 	kout_str("kernel: init kernel event      ... ");
-	boot_mark('f');
 	kev_init();
-	boot_mark('g');
 	kout_str("[OK]\n");
 
 	//printf("kernel: init DMA               ... ");
-	boot_mark('h');
 	dma_init();
-	boot_mark('i');
 	//printf("[OK]\n");
 
 	//printf("kernel: init semaphore         ... ");
-	boot_mark('j');
 	semaphore_init();
-	boot_mark('k');
 	//printf("[ok]\n");
 
 	//printf("kernel: init irq               ... ");
-	boot_mark('l');
 	irq_init();
-	boot_mark('m');
 	//printf("[ok]\n");
 
 	//printf("kernel: init share memory      ... ");
-	boot_mark('n');
 	shm_init();
-	boot_mark('o');
 	//printf("[ok]\n");
 
 	//printf("kernel: init processes table   ... ");
-	boot_mark('p');
 	if(procs_init() != 0)
 		halt();
-	boot_mark('q');
 	//printf("[ok] (%d)\n", _kernel_config.max_proc_num);
 
-	boot_mark('r');
 	printf("kernel: loading init ... ");
 	if(load_init_proc() != 0)  {
 		printf("[failed!]\n");
 		halt();
 	}
-	boot_mark('s');
 	printf("[ok]\n");
 
 	kfork_core_halt(0);

@@ -38,6 +38,11 @@ bool _core_proc_ready = false;
 int32_t _core_proc_pid = -1;
 uint32_t _ipc_uid = 0;
 
+#ifdef __x86_64__
+static uint32_t _x86_ap_switch_trace_count = 0;
+static uint32_t _x86_core_attach_trace_count = 0;
+#endif
+
 /* proc_init initializes the process sub-system. */
 int32_t procs_init(void) {
 	_use_core_id = 0;
@@ -495,7 +500,6 @@ static inline void proc_update_vsyscall(proc_t* proc) {
 static void proc_terminate(context_t* ctx, proc_t* proc) {
 	if(proc->info.state == ZOMBIE || proc->info.state == UNUSED)
 		return;
-
 	proc_unready(proc, ZOMBIE);
 
 	if(proc->info.type == TASK_TYPE_PROC) {

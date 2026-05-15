@@ -26,7 +26,8 @@
 .equ CTX_RFLAGS, 168
 .equ CTX_SP, 176
 .equ CTX_SS, 184
-.equ CTX_SIZE, 192
+.equ CTX_IRET, 192
+.equ CTX_SIZE, 240
 .equ X86_KERNEL_DS, 0x10
 
 .macro ISR_NOERR vec
@@ -102,17 +103,21 @@ interrupt_common:
     mov rcx, [r10 + CTX_RFLAGS]
     mov rdx, [r10 + CTX_SP]
     mov r8,  [r10 + CTX_SS]
-    mov [r11 + 16], rax
-    mov [r11 + 24], rbx
-    mov [r11 + 32], rcx
     test bl, 3
     jnz 3f
-    lea rsp, [r11 + 16]
+    lea rsp, [rdx - 24]
+    mov [rsp + 0], rax
+    mov [rsp + 8], rbx
+    mov [rsp + 16], rcx
     jmp 4f
 3:
-    mov [r11 + 40], rdx
-    mov [r11 + 48], r8
-    lea rsp, [r11 + 16]
+    lea r11, [r10 + CTX_IRET]
+    mov [r11 + 0], rax
+    mov [r11 + 8], rbx
+    mov [r11 + 16], rcx
+    mov [r11 + 24], rdx
+    mov [r11 + 32], r8
+    lea rsp, [r11]
 4:
     mov rdi, [r10 + CTX_GPR0]
     mov rsi, [r10 + CTX_GPR1]

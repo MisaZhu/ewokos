@@ -1,6 +1,5 @@
 #include "ext2head.h"
 #include "ext2read.h"
-#include <dev/uart.h>
 #include <kstring.h>
 #include <mm/kmalloc.h>
 #include <dev/sd.h>
@@ -11,10 +10,6 @@
 #define SECTOR_SIZE     512
 
 static partition_t _partition;
-
-static void ext2_trace(char c) {
-	(void)uart_write(&c, 1);
-}
 
 static int32_t sd_read_sector(int32_t sector, void* buf) {
 	for (int32_t retry = 0; retry < 8; ++retry) {
@@ -313,12 +308,9 @@ static int32_t ext2_init(ext2_t* ext2, read_block_func_t read_block) {
 	if (ext2->super.s_magic != 0xEF53) {
 		return -1;
 	}
-	ext2_trace('A');
-
 	if (get_gds(ext2) != 0) {
 		return -1;
 	}
-	ext2_trace('B');
 
 	return 0;
 }
@@ -333,13 +325,11 @@ static void* ext2_readfile(ext2_t* ext2, const char* fname, int32_t* size) {
 		*size = -1;
 
 	uint32_t ino = ext2_ino_by_fname(ext2, fname);
-	ext2_trace('C');
 	if(ino > 0) {
 		INODE inode;
 		if(ext2_node_by_ino(ext2, ino, &inode) != 0) {
 			return ret;
 		}
-		ext2_trace('D');
 
 		char *data = (char*)kmalloc(inode.i_size+1); //one more byte for string end.
 		if(data != NULL) {
@@ -356,7 +346,6 @@ static void* ext2_readfile(ext2_t* ext2, const char* fname, int32_t* size) {
 				((char*)ret)[rd] = 0;
 				*size = rd;
 			}
-			ext2_trace('E');
 		}
 	}
 	return ret;

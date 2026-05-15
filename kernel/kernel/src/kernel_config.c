@@ -11,7 +11,6 @@ kernel_conf_t _kernel_config;
 
 static void load_kernel_config_file() {
 	sconf_t* sconf = sconf_load("/etc/kernel/kernel.conf");
-	printf("F");
 	if(sconf == NULL)
 		return;
 
@@ -64,7 +63,6 @@ static void load_kernel_config_file() {
 		_kernel_config.uart_baud = atoi(v);
 
 	sconf_free(sconf);
-	printf("G");
 }
 
 void load_kernel_config(void) {
@@ -91,5 +89,4 @@ void load_kernel_config(void) {
 
 	if(_kernel_config.uart_baud == 0)
 		_kernel_config.uart_baud = 115200;
-	printf("H");
 }

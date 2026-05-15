@@ -44,7 +44,7 @@ boot_pt_high0:
 gdt32:
     .quad 0x0000000000000000
     .quad 0x00af9a000000ffff
-    .quad 0x00af92000000ffff
+    .quad 0x00cf92000000ffff
 gdt32_ptr:
     .word (3 * 8) - 1
     .quad gdt32

@@ -17,9 +17,6 @@
 #include <mm/kalloc.h>
 #include <mm/mmu.h>
 #include <stddef.h>
-
-
-
 static uint64_t _irq_tic_last_usec = 0;
 static uint32_t _irq_tic_second = 0;
 
@@ -121,8 +118,9 @@ static inline void _irq_handler(uint32_t cid, context_t* ctx) {
 		uint32_t core = get_core_id();
 		ipi_clear(core);
 		core = get_core_id();
-		if(proc_have_ready_task(core))
+		if(proc_have_ready_task(core)) {
 			schedule(ctx);
+		}
 #endif
 	}
 	irq_eoi_arch(irq_raw);
@@ -206,6 +204,15 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 	*/
 
 	printf("pid: %d(%s), prefetch abort!! (core %d) code:0x%x\n", cproc->info.pid, cproc->info.cmd, core, status);
+#ifdef __x86_64__
+	printf("live: pc=%x sp=%x cs=%x ss=%x trap=%x err=%x\n",
+			(uint32_t)ctx->pc,
+			(uint32_t)ctx->sp,
+			(uint32_t)ctx->cs,
+			(uint32_t)ctx->ss,
+			(uint32_t)ctx->trap_no,
+			(uint32_t)ctx->err_code);
+#endif
 	dump_ctx(&cproc->ctx);
 
 	proc_exit(ctx, proc_get_proc(cproc), -1);
