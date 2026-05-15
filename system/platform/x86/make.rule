@@ -3,6 +3,7 @@ CC = x86_64-elf-gcc
 CXX = x86_64-elf-c++
 LD = x86_64-elf-ld
 OBJDUMP = x86_64-elf-objdump
+LIBGCC = $(shell $(CC) -print-libgcc-file-name)
 
 CFLAGS = -m64 \
 	-Wno-implicit-function-declaration \
@@ -28,7 +29,7 @@ CXXFLAGS = -m64 \
 	-mno-red-zone \
 	-std=c++14
 
-EWOK_LIBC = -lewoksys -lc -lgloss
+EWOK_LIBC = -lewoksys -lc -lgloss $(LIBGCC)
 EWOK_LIB_GRAPH = -lfont -lfreetype -liconbuf -lgraph -lpng -ljpeg -lgif -ltga -lsvg -lz -lopenlibm -ldisplay -lfb -lkeyb -lmouse $(BSP_LFLAGS)
 EWOK_LIB_X = -lwidget++ -llitehtml -lx++ -lx -ltinyjson -lewokstl -ltinyhttpsc -lsocket
 
