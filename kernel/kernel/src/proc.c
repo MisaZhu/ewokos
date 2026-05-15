@@ -700,8 +700,36 @@ static inline uint32_t core_fetch(proc_t* proc) {
 }
 
 static inline void core_attach(proc_t* proc) {
-	//proc->info.core = 0;
+	proc_t* parent;
+
+	if(proc == NULL) {
+		return;
+	}
+
+	parent = proc_get(proc->info.father_pid);
+	if(parent != NULL) {
+		/*
+		 * Keep forked tasks on the parent's core first. This avoids exposing
+		 * half-initialized fork/exec state to another CPU before the new task
+		 * has fully settled into its own runtime.
+		 */
+		proc->info.core = parent->info.core;
+		return;
+	}
+
 	proc->info.core = core_fetch(proc);
+}
+
+bool proc_exec_rebalance(context_t* ctx, proc_t* proc) {
+	(void)ctx;
+	(void)proc;
+	/*
+	 * Rebalancing a task immediately after exec() is not safe yet: the current
+	 * scheduler still assumes the syscall-returning task remains owned by the
+	 * running CPU until it fully exits the trap path. Keep fork/exec stability
+	 * first and only migrate after we have an explicit handoff path.
+	 */
+	return false;
 }
 
 

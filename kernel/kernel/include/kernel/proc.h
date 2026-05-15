@@ -98,6 +98,7 @@ extern void    proc_waitpid(context_t* ctx, int32_t pid);
 extern proc_t* proc_get(int32_t pid);
 extern proc_t* proc_get_by_uuid(uint32_t uuid);
 extern proc_t* proc_get_proc(proc_t* proc);
+extern bool    proc_exec_rebalance(context_t* ctx, proc_t* proc);
 extern int32_t get_proc_pid(int32_t pid);
 extern proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent);
 extern proc_t* kfork(context_t* ctx, int32_t type);

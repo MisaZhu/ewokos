@@ -23,6 +23,30 @@
 static uint64_t _irq_tic_last_usec = 0;
 static uint32_t _irq_tic_second = 0;
 
+#ifdef __x86_64__
+static void dump_user_stack_words(proc_t* proc, context_t* ctx) {
+	ewokos_addr_t words[4];
+	ewokos_addr_t stack_phy;
+
+	if(proc == NULL || proc->space == NULL) {
+		return;
+	}
+
+	stack_phy = resolve_phy_address(proc->space->vm, ctx->sp);
+	if(stack_phy == 0) {
+		printf("user_stack: sp=0x%X not mapped\n", (uint32_t)ctx->sp);
+		return;
+	}
+
+	memcpy(words, (void*)P2V(stack_phy), sizeof(words));
+	printf("user_stack: [sp]=%08x %08x %08x %08x\n",
+			(uint32_t)words[0],
+			(uint32_t)words[1],
+			(uint32_t)words[2],
+			(uint32_t)words[3]);
+}
+#endif
+
 #ifdef KERNEL_SMP
 
 void ipi_enable_all(void) {
@@ -236,6 +260,9 @@ void data_abort_handler(context_t* ctx, ewokos_addr_t addr_fault, uint32_t statu
 		printf("\terror: %s!\n", errmsg);
 
 	dump_ctx(ctx);
+#ifdef __x86_64__
+	dump_user_stack_words(cproc, ctx);
+#endif
 	proc_exit(ctx, proc_get_proc(cproc), -1);
 }
 
