@@ -144,7 +144,6 @@ void interrupt_end(context_t* ctx) {
 
 	proc_restore_state(ctx, cproc, &cproc->space->interrupt.saved_state, &cproc->space->interrupt.saved_ipc_res);
 	if(cproc->info.state == READY || cproc->info.state == RUNNING) {
-	//if(cproc->info.state == READY) {
 		proc_ready(cproc);
 	}
 

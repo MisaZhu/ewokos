@@ -404,6 +404,7 @@ static inline void proc_ready_with_order(proc_t* proc, bool push_head) {
 	if(proc == NULL)
 		return;
 
+	uint32_t prev_state = proc->info.state;
 	proc->info.state = READY;
 
 #ifdef __x86_64__
@@ -435,6 +436,8 @@ proc_t* proc_get_core_ready(uint32_t core_id) {
 }
 
 bool proc_have_ready_task(uint32_t core) {
+	if(core >= CPU_MAX_CORES || core >= _sys_info.cores)
+		return false;
 	return !queue_is_empty(&_ready_queue[core]) ||
 			_current_proc[core] >= 0;
 }
@@ -675,7 +678,6 @@ void proc_free(proc_t* proc) {
 }
 
 static inline uint32_t core_fetch(proc_t* proc) {
-	(void)proc;
 	if(_sys_info.cores == 1 || proc->info.uid < 0)
 		return 0;
 
@@ -990,14 +992,17 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 }
 
 proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
-	(void)ctx;
 	proc_t *child = NULL;
 	child = proc_create(type, parent);
 	if(child == NULL) {
 		printf("panic: kfork create proc failed!!(%d)\n", parent->info.pid);
 		return NULL;
 	}
-	memcpy(&child->ctx, &parent->ctx, sizeof(context_t));
+	if(ctx != NULL)
+		memcpy(&child->ctx, ctx, sizeof(context_t));
+	else
+		memcpy(&child->ctx, &parent->ctx, sizeof(context_t));
+	child->ctx.gpr[0] = 0;
 
 	if(type == TASK_TYPE_PROC) {
 		if(proc_clone(child, parent) != 0) {

@@ -1,4 +1,7 @@
 .intel_syntax noprefix
+.equ X86_MAX_CORES, 8
+.equ X86_RUNTIME_TSS_SIZE, 104
+.equ X86_RUNTIME_IRQ_STACK_SIZE, 0x4000
 .section .data
 .align 16
 runtime_gdt:
@@ -15,17 +18,36 @@ runtime_gdt_ptr:
 
 .align 16
 runtime_tss:
-    .zero 104
+    .zero X86_RUNTIME_TSS_SIZE * X86_MAX_CORES
+
+.section .bss
+.align 16
+runtime_irq_stack:
+    .zero X86_RUNTIME_IRQ_STACK_SIZE * X86_MAX_CORES
 
 .section .text
-.extern _irq_stack
 
 .global x86_runtime_init
 x86_runtime_init:
-    lea rax, [rip + runtime_tss]
-    lea rcx, [rip + _irq_stack]
-    mov qword ptr [rax + 4], rcx
-    mov word ptr [rax + 102], 104
+    push rbx
+    mov eax, 1
+    xor ecx, ecx
+    cpuid
+    mov eax, ebx
+    shr eax, 24
+    and eax, 0xff
+
+    lea rdx, [rip + runtime_tss]
+    mov ecx, eax
+    imul rcx, X86_RUNTIME_TSS_SIZE
+    add rdx, rcx
+
+    lea rcx, [rip + runtime_irq_stack]
+    imul rax, X86_RUNTIME_IRQ_STACK_SIZE
+    add rcx, rax
+    add rcx, X86_RUNTIME_IRQ_STACK_SIZE - 16
+    mov qword ptr [rdx + 4], rcx
+    mov word ptr [rdx + 102], X86_RUNTIME_TSS_SIZE
 
     mov rax, cr0
     and eax, 0xfffffffb
@@ -38,9 +60,8 @@ x86_runtime_init:
     mov cr4, rax
     fninit
 
-    lea rdx, [rip + runtime_tss]
     lea rax, [rip + runtime_gdt + 40]
-    mov word ptr [rax + 0], 103
+    mov word ptr [rax + 0], X86_RUNTIME_TSS_SIZE - 1
     mov word ptr [rax + 2], dx
     shr rdx, 16
     mov byte ptr [rax + 4], dl
@@ -54,26 +75,35 @@ x86_runtime_init:
 
     lea rax, [rip + runtime_gdt_ptr]
     lgdt [rax]
+    lea rax, [rip + 1f]
+    push 0x08
+    push rax
+    lretq
+1:
     mov ax, 0x10
     mov ds, ax
     mov es, ax
     mov ss, ax
     mov ax, 0x28
     ltr ax
+    pop rbx
     ret
 
 .global __core_id
 __core_id:
+    push rbx
     mov eax, 1
     xor ecx, ecx
     cpuid
     mov eax, ebx
     shr eax, 24
     and eax, 0xff
+    pop rbx
     ret
 
 .global __cpu_cores
 __cpu_cores:
+    push rbx
     mov eax, 1
     xor ecx, ecx
     cpuid
@@ -84,6 +114,7 @@ __cpu_cores:
     jnz 1f
     mov eax, 1
 1:
+    pop rbx
     ret
 
 .global __set_vector_table

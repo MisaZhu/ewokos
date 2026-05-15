@@ -96,24 +96,23 @@ interrupt_common:
     call handle_trap
 
     mov r10, rsp
+    lea r11, [r10 + CTX_SIZE]
     mov rax, [r10 + CTX_PC]
     mov rbx, [r10 + CTX_CS]
     mov rcx, [r10 + CTX_RFLAGS]
     mov rdx, [r10 + CTX_SP]
     mov r8,  [r10 + CTX_SS]
-    lea rsp, [r10 + CTX_SIZE]
+    mov [r11 + 16], rax
+    mov [r11 + 24], rbx
+    mov [r11 + 32], rcx
     test bl, 3
     jnz 3f
-    push rcx
-    push rbx
-    push rax
+    lea rsp, [r11 + 16]
     jmp 4f
 3:
-    push r8
-    push rdx
-    push rcx
-    push rbx
-    push rax
+    mov [r11 + 40], rdx
+    mov [r11 + 48], r8
+    lea rsp, [r11 + 16]
 4:
     mov rdi, [r10 + CTX_GPR0]
     mov rsi, [r10 + CTX_GPR1]

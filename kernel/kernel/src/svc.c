@@ -168,7 +168,6 @@ static void sys_load_elf(context_t* ctx, const char* cmd, void* elf, uint32_t el
 	proc_t* cproc = get_current_proc();
 	strcpy(cproc->info.cmd, cmd);
 	if(proc_load_elf(cproc, elf, elf_size) != 0) {
-		printf("[exec failed pid=%d cmd=%s]\n", cproc->info.pid, cmd);
 		ctx->gpr[0] = -1;
 		return;
 	}
@@ -471,9 +470,9 @@ static void sys_ipc_end(context_t* ctx) {
 		return;
 
 	proc_restore_state(ctx, serv_proc, &serv_proc->space->ipc_server.saved_state, &serv_proc->space->ipc_server.saved_ipc_res);
-	if(serv_proc->info.state == READY || serv_proc->info.state == RUNNING)
-	//if(serv_proc->info.state == READY)
+	if(serv_proc->info.state == READY || serv_proc->info.state == RUNNING) {
 		proc_ready(serv_proc);
+	}
 
 	//wake up request proc to get return
 	proc_ipc_close(serv_proc, ipc);

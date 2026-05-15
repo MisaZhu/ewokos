@@ -49,7 +49,6 @@ static inline void irq_do_raw(context_t* ctx, uint32_t irq) {
 }
 
 static inline void irq_do_timer0(context_t* ctx) {
-	(void)ctx;
 	uint64_t usec = timer_read_sys_usec();
 	uint32_t usec_gap = usec - _irq_tic_last_usec;
 
@@ -68,6 +67,7 @@ static inline void irq_do_timer0(context_t* ctx) {
 
 #ifdef KERNEL_SMP
 	ipi_send_all();
+	schedule(ctx);
 #else
 	schedule(ctx);
 #endif
@@ -87,8 +87,10 @@ static inline void _irq_handler(uint32_t cid, context_t* ctx) {
 	}
 	else {
 #ifdef KERNEL_SMP
-		ipi_clear(cid);
-		if(proc_have_ready_task(cid))
+		uint32_t core = get_core_id();
+		ipi_clear(core);
+		core = get_core_id();
+		if(proc_have_ready_task(core))
 			schedule(ctx);
 #endif
 	}
@@ -97,8 +99,6 @@ static inline void _irq_handler(uint32_t cid, context_t* ctx) {
 
 inline void irq_handler(context_t* ctx) {
 	__irq_disable();
-	if(kernel_lock_check() > 0)
-		return;
 	uint32_t cid = get_core_id();
 	kernel_lock();
 	_irq_handler(cid, ctx);
