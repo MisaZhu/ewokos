@@ -21,6 +21,8 @@ int32_t proc_ipc_setup(context_t* ctx, ewokos_addr_t entry, ewokos_addr_t extra_
 }
 
 inline ipc_task_t* proc_ipc_get_task(struct st_proc* serv_proc) {
+	if(serv_proc == NULL || serv_proc->space == NULL)
+		return NULL;
 	if(serv_proc->space->ipc_server.ctask.state == IPC_IDLE)
 		return NULL;
 	return &(serv_proc->space->ipc_server.ctask);

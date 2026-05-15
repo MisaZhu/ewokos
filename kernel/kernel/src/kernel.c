@@ -343,6 +343,7 @@ void _kernel_entry_c(void) {
 
 	kfork_core_halt(0);
 #ifdef KERNEL_SMP
+	_cpu_cores[0].actived = true;
 	kernel_lock_init();
 	printf("kernel: start cores ... 0");
 	for(uint32_t i=1; i<_sys_info.cores; i++) {
