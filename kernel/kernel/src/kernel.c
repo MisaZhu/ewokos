@@ -177,8 +177,21 @@ void __attribute__((optimize("O0"))) _slave_kernel_entry_c(void) {
 	set_translation_table_base(V2P((uint32_t)_kernel_info.kernel_vm));
 
 	uint32_t cid = get_core_id();
+	proc_t* idle_proc = _cpu_cores[cid].idle_proc;
 	cpu_core_ready(cid);
 	_cpu_cores[cid].actived = true;
+
+	/*
+	 * Keep each AP attached to its idle task even before the first real task is
+	 * dispatched. The global run_usec accounting uses the idle task to infer per
+	 * core idle time, and the scheduler also expects an idle current task when
+	 * an AP wakes on IPI.
+	 */
+	if(idle_proc != NULL) {
+		idle_proc->info.state = RUNNING;
+		idle_proc->info.wait_for = 0;
+		set_current_proc(idle_proc);
+	}
 
 	halt();
 }

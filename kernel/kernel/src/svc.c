@@ -176,11 +176,6 @@ static void sys_load_elf(context_t* ctx, const char* cmd, void* elf, uint32_t el
 		return;
 	}
 
-	if(proc_exec_rebalance(ctx, cproc)) {
-		schedule(ctx);
-		return;
-	}
-
 	ctx->gpr[0] = 0;
 	memcpy(ctx, &cproc->ctx, sizeof(context_t));
 }

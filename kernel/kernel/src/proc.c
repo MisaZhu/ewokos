@@ -687,15 +687,38 @@ static inline uint32_t core_fetch(proc_t* proc) {
 	return ret;
 	*/
 
-	//fetch the most idle core.
+	// Fetch the most idle core and rotate tie breaks so equal-idle cores do
+	// not collapse back onto core0.
+	uint32_t start = _use_core_id;
+	if(start >= _sys_info.cores)
+		start = 0;
+
 	uint32_t ret = 0;
-	for(uint32_t i = 0; i < _sys_info.cores; i++) {
-		if(_cpu_cores[i].idle_proc->info.state == CREATED)
+	uint32_t best_idle = 0;
+	bool found = false;
+
+	for(uint32_t off = 0; off < _sys_info.cores; off++) {
+		uint32_t i = (start + off) % _sys_info.cores;
+		if(!_cpu_cores[i].actived || _cpu_cores[i].idle_proc == NULL)
+			continue;
+
+		if(_cpu_cores[i].idle_proc->info.state == CREATED) {
+			_use_core_id = (i + 1) % _sys_info.cores;
 			return i;
-		if(_cpu_cores[i].idle_proc->info.run_usec >
-				_cpu_cores[ret].idle_proc->info.run_usec)
+		}
+
+		uint32_t idle_usec = _cpu_cores[i].idle_proc->info.run_usec;
+		if(!found || idle_usec > best_idle) {
 			ret = i;
+			best_idle = idle_usec;
+			found = true;
+		}
 	}
+
+	if(!found)
+		return 0;
+
+	_use_core_id = (ret + 1) % _sys_info.cores;
 	return ret;
 }
 
@@ -709,29 +732,19 @@ static inline void core_attach(proc_t* proc) {
 	parent = proc_get(proc->info.father_pid);
 	if(parent != NULL) {
 		/*
-		 * Keep forked tasks on the parent's core first. This avoids exposing
-		 * half-initialized fork/exec state to another CPU before the new task
-		 * has fully settled into its own runtime.
+		 * Keep threads with their parent because they share one address space and
+		 * frequently synchronize with the creator. Real processes can be queued
+		 * onto another core safely because they are only woken after fork/clone
+		 * setup is finished.
 		 */
-		proc->info.core = parent->info.core;
-		return;
+		if(proc->info.type != TASK_TYPE_PROC) {
+			proc->info.core = parent->info.core;
+			return;
+		}
 	}
 
 	proc->info.core = core_fetch(proc);
 }
-
-bool proc_exec_rebalance(context_t* ctx, proc_t* proc) {
-	(void)ctx;
-	(void)proc;
-	/*
-	 * Rebalancing a task immediately after exec() is not safe yet: the current
-	 * scheduler still assumes the syscall-returning task remains owned by the
-	 * running CPU until it fully exits the trap path. Keep fork/exec stability
-	 * first and only migrate after we have an explicit handoff path.
-	 */
-	return false;
-}
-
 
 /* proc_creates allocates a new process and returns it. */
 proc_t *proc_create(int32_t type, proc_t* parent) {
