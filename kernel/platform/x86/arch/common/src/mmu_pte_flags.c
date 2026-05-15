@@ -11,6 +11,11 @@ void set_pte_flags(page_table_entry_t* pte, uint32_t pte_attr) {
 	case PTE_ATTR_WRTHR:
 		pte->pwt = 1;
 		break;
+	case PTE_ATTR_WRCOMB:
+		pte->pwt = 1;
+		pte->pat = 1;
+		pte->global = 0;
+		break;
 	case PTE_ATTR_DEV:
 	case PTE_ATTR_STRONG_ORDER:
 	case PTE_ATTR_NOCACHE:

@@ -15,6 +15,12 @@
 
 #define IA32_APIC_BASE_MSR     0x1b
 #define IA32_APIC_BASE_ENABLE  0x800
+#define IA32_PAT_MSR           0x277
+
+#define X86_CPUID_FEAT_PAT     (1u << 16)
+
+#define X86_PAT_TYPE_UC        0x00
+#define X86_PAT_TYPE_WC        0x01
 
 #define LAPIC_ID_REG           0x020
 #define LAPIC_EOI_REG          0x0b0
@@ -101,6 +107,34 @@ static inline void x86_wrmsr(uint32_t msr, uint64_t value) {
 	uint32_t lo = (uint32_t)value;
 	uint32_t hi = (uint32_t)(value >> 32);
 	__asm__ volatile("wrmsr" : : "c"(msr), "a"(lo), "d"(hi));
+}
+
+static inline void x86_wbinvd(void) {
+	__asm__ volatile("wbinvd" : : : "memory");
+}
+
+static void x86_pat_init(void) {
+	uint32_t edx;
+	uint64_t pat;
+	const uint32_t entry = 5;
+
+	x86_cpuid(1, NULL, NULL, NULL, &edx);
+	if ((edx & X86_CPUID_FEAT_PAT) == 0) {
+		return;
+	}
+
+	pat = x86_rdmsr(IA32_PAT_MSR);
+	if (((pat >> (entry * 8)) & 0xffu) == X86_PAT_TYPE_WC) {
+		return;
+	}
+
+	x86_wbinvd();
+	pat &= ~((uint64_t)0xffu << (entry * 8));
+	pat |= (uint64_t)X86_PAT_TYPE_WC << (entry * 8);
+	pat &= ~((uint64_t)0xffu << (7 * 8));
+	pat |= (uint64_t)X86_PAT_TYPE_UC << (7 * 8);
+	x86_wrmsr(IA32_PAT_MSR, pat);
+	x86_wbinvd();
 }
 
 static inline uint32_t x86_lapic_phys_base(void) {
@@ -204,6 +238,7 @@ void irq_init_arch(void) {
 	x86_pic_mask_all();
 	x86_idt_init();
 	set_vector_table((ewokos_addr_t)&interrupt_table_start);
+	x86_pat_init();
 	x86_lapic_init();
 }
 
@@ -272,12 +307,23 @@ void cpu_core_ready(uint32_t core_id) {
 	(void)core_id;
 	x86_idt_init();
 	set_vector_table((ewokos_addr_t)&interrupt_table_start);
+	x86_pat_init();
 	x86_lapic_init();
 	__irq_enable();
+
+void x86_smp_mapping_init(void) {
+}
+
+uint32_t x86_apic_id_to_core_id(uint32_t apic_id) {
+	return apic_id;
+}
+
+uint32_t x86_core_id_to_apic_id(uint32_t core_id) {
+	return core_id;
+}
 }
 
 uint32_t get_cpu_cores(void) {
-	/*
 	 * Do not advertise SMP until the x86 AP trampoline/startup path is
 	 * implemented. Otherwise the BSP waits forever in start_core().
 	 */

@@ -21,6 +21,10 @@
 #include <kprintf.h>
 #include <stddef.h>
 
+#ifndef PTE_ATTR_FRAMEBUFFER
+#define PTE_ATTR_FRAMEBUFFER PTE_ATTR_DEV
+#endif
+
 static uint32_t _svc_counter[SYS_CALL_NUM];
 static uint32_t _svc_total;
 
@@ -301,7 +305,7 @@ static uint32_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint32_t s
 	if(check_mem_map_arch(paddr, size) != 0)
 		return 0;
 
-	map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, PTE_ATTR_DEV);	
+	map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, PTE_ATTR_FRAMEBUFFER);	
 	flush_tlb();
 	return vaddr;
 }

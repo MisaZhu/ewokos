@@ -36,6 +36,9 @@ typedef page_table_entry_t page_dir_entry_t;
 #define PTE_ATTR_WRBACK_ALLOCATE 3
 #define PTE_ATTR_STRONG_ORDER    4
 #define PTE_ATTR_NOCACHE         5
+#define PTE_ATTR_WRCOMB          6
+
+#define PTE_ATTR_FRAMEBUFFER     PTE_ATTR_WRCOMB
 
 void set_pte_flags(page_table_entry_t* pte, uint32_t pte_attr);
 page_table_entry_t* get_page_table_entry(page_dir_entry_t* vm, uint32_t virtual_addr);

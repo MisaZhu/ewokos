@@ -2,6 +2,8 @@
 .equ X86_MAX_CORES, 8
 .equ X86_RUNTIME_TSS_SIZE, 104
 .equ X86_RUNTIME_IRQ_STACK_SIZE, 0x4000
+.extern x86_smp_mapping_init
+.extern x86_apic_id_to_core_id
 .section .data
 .align 16
 runtime_gdt:
@@ -30,12 +32,16 @@ runtime_irq_stack:
 .global x86_runtime_init
 x86_runtime_init:
     push rbx
+    sub rsp, 8
+    call x86_smp_mapping_init
     mov eax, 1
     xor ecx, ecx
     cpuid
     mov eax, ebx
     shr eax, 24
     and eax, 0xff
+    mov edi, eax
+    call x86_apic_id_to_core_id
 
     lea rdx, [rip + runtime_tss]
     mov ecx, eax
@@ -86,6 +92,7 @@ x86_runtime_init:
     mov ss, ax
     mov ax, 0x28
     ltr ax
+    add rsp, 8
     pop rbx
     ret
 
