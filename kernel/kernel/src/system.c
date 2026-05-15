@@ -64,22 +64,26 @@ inline void set_vector_table(ewokos_addr_t vector) {
 #ifdef KERNEL_SMP
 static int32_t _spin = 0;
 static int32_t _klock = 0;
+static int32_t _klock_owner = -1;
 
 inline void kernel_lock_init(void) {
 	_spin = _klock = 0;
+	_klock_owner = -1;
 }
 
 inline int32_t kernel_lock_check(void) {
-	return _klock;
+	return (_klock != 0 && _klock_owner == (int32_t)get_core_id()) ? 1 : 0;
 }
 
 inline void kernel_lock(void) {
 	mcore_lock(&_spin);
+	_klock_owner = (int32_t)get_core_id();
 	_klock = 1;
 }
 
 inline void kernel_unlock(void) {
 	_klock = 0;
+	_klock_owner = -1;
 	mcore_unlock(&_spin);
 }
 #endif

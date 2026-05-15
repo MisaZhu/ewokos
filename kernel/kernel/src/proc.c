@@ -438,8 +438,7 @@ proc_t* proc_get_core_ready(uint32_t core_id) {
 bool proc_have_ready_task(uint32_t core) {
 	if(core >= CPU_MAX_CORES || core >= _sys_info.cores)
 		return false;
-	return !queue_is_empty(&_ready_queue[core]) ||
-			_current_proc[core] >= 0;
+	return !queue_is_empty(&_ready_queue[core]);
 }
 
 proc_t* proc_get_next_ready(void) {
@@ -914,6 +913,12 @@ void proc_wakeup(proc_t* proc) {
 			proc->info.state == ZOMBIE)
 		return;
 	proc_wakeup_all_state(proc);
+#ifdef KERNEL_SMP
+	if(_cpu_cores[proc->info.core].actived &&
+			proc->info.core != get_core_id()) {
+		ipi_send(proc->info.core);
+	}
+#endif
 }
 
 static inline char* proc_clone_addr_to_ptr(proc_t* proc, uint32_t addr) {

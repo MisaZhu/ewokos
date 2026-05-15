@@ -7,8 +7,6 @@
 #include <x86_smp.h>
 #include <stddef.h>
 
-volatile uint32_t _x86_irq_raw = 0;
-
 void dump_ctx(context_t* ctx) {
 	printf("\nctx=%08x\n", (uint32_t)(uintptr_t)ctx);
 	printf("cr2=%08x trap=%08x err=%08x\n", (uint32_t)ctx->cr2, (uint32_t)ctx->trap_no, (uint32_t)ctx->err_code);
@@ -57,7 +55,6 @@ void handle_trap(uint64_t vector, uint64_t err, context_t* ctx) {
 	ctx->lr = ctx->pc;
 
 	if ((vector >= 0x20 && vector < 0x30) || vector == X86_VECTOR_IPI) {
-		_x86_irq_raw = (uint32_t)vector;
 		irq_handler(ctx);
 		return;
 	}

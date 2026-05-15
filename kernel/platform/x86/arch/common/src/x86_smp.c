@@ -37,7 +37,6 @@
 #define PIC_EOI                0x20
 
 extern uint32_t interrupt_table_start;
-extern volatile uint32_t _x86_irq_raw;
 extern uintptr_t x86_isr_table[256];
 extern uint8_t x86_idt_table[256 * 16];
 
@@ -226,7 +225,8 @@ void irq_disable_arch(uint32_t irq) {
 }
 
 uint32_t irq_get_arch(void) {
-	return _x86_irq_raw;
+	/* x86 external IRQs are decoded from the trap frame in irq_handler(). */
+	return 0;
 }
 
 uint32_t irq_get_unified_arch(uint32_t irq_raw) {
@@ -277,18 +277,11 @@ void cpu_core_ready(uint32_t core_id) {
 }
 
 uint32_t get_cpu_cores(void) {
-	uint32_t ebx = 0;
-	uint32_t cores = 1;
-
-	x86_cpuid(1, NULL, &ebx, NULL, NULL);
-	cores = (ebx >> 16) & 0xff;
-	if (cores == 0) {
-		cores = 1;
-	}
-	if (cores > CPU_MAX_CORES) {
-		cores = CPU_MAX_CORES;
-	}
-	return cores;
+	/*
+	 * Do not advertise SMP until the x86 AP trampoline/startup path is
+	 * implemented. Otherwise the BSP waits forever in start_core().
+	 */
+	return 1;
 }
 
 void start_core(uint32_t core_id) {

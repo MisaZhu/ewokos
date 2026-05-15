@@ -36,6 +36,8 @@ static inline void ipi_send_all(void) {
 	uint32_t i;
 	uint32_t cores = _sys_info.cores;
 	for(i=0; i< cores; i++) {
+		if(!_cpu_cores[i].actived)
+			continue;
 		if(proc_have_ready_task(i))
 			ipi_send(i);
 	}
@@ -74,8 +76,13 @@ static inline void irq_do_timer0(context_t* ctx) {
 }
 
 static inline void _irq_handler(uint32_t cid, context_t* ctx) {
-	uint64_t raw_irqs;
-	uint32_t irq_raw = irq_get_arch();
+	uint32_t irq_raw;
+#ifdef __x86_64__
+	/* x86 trap entry already records the raw vector in the trap frame. */
+	irq_raw = (uint32_t)ctx->trap_no;
+#else
+	irq_raw = irq_get_arch();
+#endif
 	uint32_t irq = irq_get_unified_arch(irq_raw);
 
 	//handle irq
