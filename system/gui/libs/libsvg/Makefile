@@ -43,6 +43,10 @@ $(LIBSVG): $(OBJS) Makefile
 %.o: %.c
 	$(CC) $(CFLAGS) -std=c99 -c -o $@ $<
 
+ifeq ($(ARCH),x86)
+$(PLUTOVG_DIR)/plutovg-ft-raster.o: CFLAGS += -O0 -fwrapv -fno-strict-overflow
+endif
+
 clean:
 	rm -f *.o
 	rm -f $(PLUTOVG_DIR)/*.o

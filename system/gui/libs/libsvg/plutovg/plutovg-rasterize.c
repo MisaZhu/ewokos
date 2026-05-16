@@ -172,6 +172,8 @@ static PVG_FT_Outline* ft_outline_create(int points, int contours)
     size_t contours_size = ALIGN_SIZE(contours * sizeof(int));
     size_t contours_flag_size = ALIGN_SIZE(contours * sizeof(char));
     PVG_FT_Outline* outline = malloc(points_size + tags_size + contours_size + contours_flag_size + sizeof(PVG_FT_Outline));
+    if(outline == NULL)
+        return NULL;
 
     PVG_FT_Byte* outline_data = (PVG_FT_Byte*)(outline + 1);
     outline->points = (PVG_FT_Vector*)(outline_data);
@@ -263,6 +265,8 @@ static PVG_FT_Outline* ft_outline_convert(const plutovg_path_t* path, const plut
 
     plutovg_point_t points[3];
     PVG_FT_Outline* outline = ft_outline_create(path->num_points, path->num_contours);
+    if(outline == NULL)
+        return NULL;
     while(plutovg_path_iterator_has_next(&it)) {
         switch(plutovg_path_iterator_next(&it, points)) {
         case PLUTOVG_PATH_COMMAND_MOVE_TO:
@@ -339,6 +343,10 @@ static PVG_FT_Outline* ft_outline_convert_stroke(const plutovg_path_t* path, con
     PVG_FT_Stroker_Set(stroker, ftWidth, ftCap, ftJoin, ftMiterLimit);
 
     PVG_FT_Outline* outline = ft_outline_convert_dash(path, matrix, &stroke_data->dash);
+    if(outline == NULL) {
+        PVG_FT_Stroker_Done(stroker);
+        return NULL;
+    }
     PVG_FT_Stroker_ParseOutline(stroker, outline);
 
     PVG_FT_UInt points;
@@ -346,6 +354,11 @@ static PVG_FT_Outline* ft_outline_convert_stroke(const plutovg_path_t* path, con
     PVG_FT_Stroker_GetCounts(stroker, &points, &contours);
 
     PVG_FT_Outline* stroke_outline = ft_outline_create(points, contours);
+    if(stroke_outline == NULL) {
+        PVG_FT_Stroker_Done(stroker);
+        ft_outline_destroy(outline);
+        return NULL;
+    }
     PVG_FT_Stroker_Export(stroker, stroke_outline);
 
     PVG_FT_Stroker_Done(stroker);
@@ -353,15 +366,138 @@ static PVG_FT_Outline* ft_outline_convert_stroke(const plutovg_path_t* path, con
     return stroke_outline;
 }
 
+typedef struct {
+    plutovg_span_buffer_t* span_buffer;
+    int has_clip;
+    int clip_x1;
+    int clip_y1;
+    int clip_x2;
+    int clip_y2;
+} plutovg_span_callback_data_t;
+
 static void spans_generation_callback(int count, const PVG_FT_Span* spans, void* user)
 {
-    plutovg_span_buffer_t* span_buffer = (plutovg_span_buffer_t*)(user);
-    plutovg_array_append_data(span_buffer->spans, spans, count);
+    if(user == NULL || spans == NULL || count <= 0)
+        return;
+
+    plutovg_span_callback_data_t* callback_data = (plutovg_span_callback_data_t*)(user);
+    plutovg_span_buffer_t* span_buffer = callback_data->span_buffer;
+    int accepted = 0;
+
+    if(span_buffer == NULL)
+        return;
+
+    for(int i = 0; i < count; ++i) {
+        int x = spans[i].x;
+        int y = spans[i].y;
+        int len = spans[i].len;
+
+        if(len <= 0 || spans[i].coverage == 0)
+            continue;
+
+        if(callback_data->has_clip) {
+            long long x1 = x;
+            long long x2 = x1 + len;
+
+            if(y < callback_data->clip_y1 || y >= callback_data->clip_y2)
+                continue;
+            if(x2 <= callback_data->clip_x1 || x1 >= callback_data->clip_x2)
+                continue;
+
+            if(x1 < callback_data->clip_x1)
+                x1 = callback_data->clip_x1;
+            if(x2 > callback_data->clip_x2)
+                x2 = callback_data->clip_x2;
+
+            len = (int)(x2 - x1);
+            if(len <= 0)
+                continue;
+        }
+
+        if(accepted >= INT_MAX - 1)
+            return;
+        accepted++;
+    }
+
+    if(accepted == 0)
+        return;
+    if(accepted > INT_MAX - span_buffer->spans.size)
+        return;
+
+    int needed = span_buffer->spans.size + accepted;
+    if(needed > span_buffer->spans.capacity) {
+        int newcapacity = span_buffer->spans.capacity == 0 ? 8 : span_buffer->spans.capacity;
+        while(newcapacity < needed) {
+            if(newcapacity > INT_MAX / 2) {
+                newcapacity = needed;
+                break;
+            }
+            newcapacity *= 2;
+        }
+
+        if((size_t)newcapacity > SIZE_MAX / sizeof(plutovg_span_t))
+            return;
+
+        plutovg_span_t* newdata = (plutovg_span_t*)realloc(span_buffer->spans.data,
+            (size_t)newcapacity * sizeof(plutovg_span_t));
+        if(newdata == NULL)
+            return;
+
+        span_buffer->spans.data = newdata;
+        span_buffer->spans.capacity = newcapacity;
+    }
+
+    plutovg_span_t* dst = span_buffer->spans.data + span_buffer->spans.size;
+    int written = 0;
+    for(int i = 0; i < count; ++i) {
+        int x = spans[i].x;
+        int y = spans[i].y;
+        int len = spans[i].len;
+
+        if(len <= 0 || spans[i].coverage == 0)
+            continue;
+
+        if(callback_data->has_clip) {
+            long long x1 = x;
+            long long x2 = x1 + len;
+
+            if(y < callback_data->clip_y1 || y >= callback_data->clip_y2)
+                continue;
+            if(x2 <= callback_data->clip_x1 || x1 >= callback_data->clip_x2)
+                continue;
+
+            if(x1 < callback_data->clip_x1)
+                x1 = callback_data->clip_x1;
+            if(x2 > callback_data->clip_x2)
+                x2 = callback_data->clip_x2;
+
+            x = (int)x1;
+            len = (int)(x2 - x1);
+            if(len <= 0)
+                continue;
+        }
+
+        dst[written].x = x;
+        dst[written].len = len;
+        dst[written].y = y;
+        dst[written].coverage = spans[i].coverage;
+        written++;
+    }
+    span_buffer->spans.size += written;
 }
 
 void plutovg_rasterize(plutovg_span_buffer_t* span_buffer, const plutovg_path_t* path, const plutovg_matrix_t* matrix, const plutovg_rect_t* clip_rect, const plutovg_stroke_data_t* stroke_data, plutovg_fill_rule_t winding)
 {
     PVG_FT_Outline* outline = ft_outline_convert(path, matrix, stroke_data);
+    if(outline == NULL) {
+        plutovg_span_buffer_reset(span_buffer);
+        return;
+    }
+    if(PVG_FT_Outline_Check(outline) != 0) {
+        ft_outline_destroy(outline);
+        plutovg_span_buffer_reset(span_buffer);
+        return;
+    }
     if(stroke_data) {
         outline->flags = PVG_FT_OUTLINE_NONE;
     } else {
@@ -376,9 +512,16 @@ void plutovg_rasterize(plutovg_span_buffer_t* span_buffer, const plutovg_path_t*
     }
 
     PVG_FT_Raster_Params params;
+    plutovg_span_callback_data_t callback_data;
+    callback_data.span_buffer = span_buffer;
+    callback_data.has_clip = 0;
+    callback_data.clip_x1 = 0;
+    callback_data.clip_y1 = 0;
+    callback_data.clip_x2 = 0;
+    callback_data.clip_y2 = 0;
     params.flags = PVG_FT_RASTER_FLAG_DIRECT | PVG_FT_RASTER_FLAG_AA;
     params.gray_spans = spans_generation_callback;
-    params.user = span_buffer;
+    params.user = &callback_data;
     params.source = outline;
     if(clip_rect) {
         params.flags |= PVG_FT_RASTER_FLAG_CLIP;
@@ -386,6 +529,11 @@ void plutovg_rasterize(plutovg_span_buffer_t* span_buffer, const plutovg_path_t*
         params.clip_box.yMin = (PVG_FT_Pos)clip_rect->y;
         params.clip_box.xMax = (PVG_FT_Pos)(clip_rect->x + clip_rect->w);
         params.clip_box.yMax = (PVG_FT_Pos)(clip_rect->y + clip_rect->h);
+        callback_data.has_clip = 1;
+        callback_data.clip_x1 = (int)clip_rect->x;
+        callback_data.clip_y1 = (int)clip_rect->y;
+        callback_data.clip_x2 = (int)(clip_rect->x + clip_rect->w);
+        callback_data.clip_y2 = (int)(clip_rect->y + clip_rect->h);
     }
 
     plutovg_span_buffer_reset(span_buffer);

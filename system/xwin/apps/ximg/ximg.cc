@@ -90,14 +90,21 @@ protected:
 	}
 
 	void updateScroller() {
-		if(img == NULL)
-			return;
-		setScrollerInfo(img->w, off_x, area.w, true);
-		setScrollerInfo(img->h, off_y, area.h, false);
+		if(img != NULL) {
+			setScrollerInfo(img->w, off_x, area.w, true);
+			setScrollerInfo(img->h, off_y, area.h, false);
+		}
+		else {
+			setScrollerInfo(1, 0, 1, true);
+			setScrollerInfo(1, 0, 1, false);
+		}
 
 		if(statusLabel != NULL) {
 			char s[128] = { 0 };
-			snprintf(s, 127, "zoom:%.2f, w:%d, h:%d, x:%d, y:%d", zoom, img->w, img->h, off_x, off_y);
+			if(img == NULL)
+				snprintf(s, 127, "load image failed");
+			else
+				snprintf(s, 127, "zoom:%.2f, w:%d, h:%d, x:%d, y:%d", zoom, img->w, img->h, off_x, off_y);
 			statusLabel->setLabel(s);
 		}
 	}
@@ -119,6 +126,9 @@ protected:
 	}
 
 	bool onIM(xevent_t* ev) {
+		if(img == NULL)
+			return true;
+
 		if(ev->state == XIM_STATE_PRESS) {
 			if(ev->value.im.value == KEY_UP) {
 				off_y -= 10;
@@ -180,8 +190,20 @@ public:
 	void loadImage(const char* fname) {
 		if(imgOrig != NULL)
 			graph_free(imgOrig);
+		imgOrig = NULL;
 
 		imgOrig = graph_image_new(fname);
+		if(imgOrig == NULL) {
+			if(img != NULL) {
+				graph_free(img);
+				img = NULL;
+			}
+			off_x = 0;
+			off_y = 0;
+			update();
+			updateScroller();
+			return;
+		}
 		zoomImgTo(1.0);
 	}
 
@@ -197,7 +219,20 @@ public:
 
 		if(img != NULL)
 			graph_free(img);
-		img = graph_scalef(imgOrig, zoom);
+		img = NULL;
+		if(imgOrig != NULL)
+			img = graph_scalef(imgOrig, zoom);
+
+		if(img == NULL) {
+			off_x = 0;
+			off_y = 0;
+			this->zoom = zoom;
+			updateScroller();
+			update();
+			if(statusLabel != NULL)
+				statusLabel->setLabel("load image failed");
+			return;
+		}
 		if(img->w < area.w)
 			off_x = 0;
 		if(img->h < area.h)

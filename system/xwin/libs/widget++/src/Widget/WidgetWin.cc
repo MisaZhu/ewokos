@@ -22,10 +22,12 @@ WidgetWin::~WidgetWin() {
 }
 
 void WidgetWin::onRepaint(graph_t* g) {
-	if(root == NULL)
+	if(root == NULL || g == NULL)
 		return;
 	if(xwin->xinfo != NULL && xwin->xinfo->update_theme)
 		root->dirty = true;
+	if(theme.getFont() == NULL)
+		theme.loadSystem();
 
 	if(root->isAlpha())
 		graph_clear(g, 0);
@@ -110,4 +112,3 @@ void WidgetWin::setTimer(uint32_t fps) {
 }
 
 }
-

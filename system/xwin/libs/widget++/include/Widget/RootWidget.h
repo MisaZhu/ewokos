@@ -24,6 +24,7 @@ public:
 
 	void focus(Widget* wd);
 	void onFocus();
+	void release(Widget* wd);
 	inline Widget* getFocused() { return focusedWidget; }
 	inline Widget* getDraged() { return dragedWidget; }
 	inline void drag(Widget* wd) { dragedWidget = wd; }

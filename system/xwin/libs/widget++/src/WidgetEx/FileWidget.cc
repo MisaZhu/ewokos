@@ -21,8 +21,12 @@ using namespace Ewok;
 class CWDLabel: public Label {
 protected:
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
+		if(g == NULL || theme == NULL)
+			return;
 		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.titleBGColor, true);
 		font_t* font = theme->getFont();
+		if(font == NULL)
+			return;
 		int y = r.y + (r.h-font_get_height(font, theme->basic.fontSize))/2;
 		graph_draw_text_font(g, r.x+4, y, label.c_str(), font, theme->basic.fontSize, theme->basic.titleColor);
 	}
@@ -36,11 +40,12 @@ static void freeIcon(void*p) {
 }
 
 static int free_cache(map_t map, const char* key, any_t data, any_t arg) {
+	(void)map;
+	(void)key;
+	(void)arg;
 	graph_t* g = (graph_t*)data;
 	if(g == NULL)
 		return MAP_OK;
-
-	hashmap_remove(map, key);
 	graph_free(g);
 	return MAP_OK;
 }
@@ -60,13 +65,15 @@ class FileGrid: public Grid {
 	const char* getFullname(const char* dname) {
 		static char fname[FS_FULL_NAME_MAX+1] = {0};
 		if(strcmp(cwd, "/") == 0)
-			snprintf(fname, FS_FULL_NAME_MAX, "/%s", dname);
+			snprintf(fname, FS_FULL_NAME_MAX+1, "/%s", dname);
 		else
-			snprintf(fname, FS_FULL_NAME_MAX, "%s/%s", cwd, dname);
+			snprintf(fname, FS_FULL_NAME_MAX+1, "%s/%s", cwd, dname);
 		return fname;
 	}
  
 	void drawIcon(graph_t* g, int at, XTheme* theme, int x, int y, int w, int h) {
+		if(g == NULL || theme == NULL)
+			return;
 		graph_t* img = NULL;
 		if(files[at].d_type == DT_DIR)
 			img = dirIcon;
@@ -77,6 +84,8 @@ class FileGrid: public Grid {
 			if(img == NULL)
 				img = fileIcon;
 		}
+		if(img == NULL)
+			return;
 
 		int32_t sz = h - theme->basic.fontSize;
 		int dx = (w - img->w)/2;
@@ -86,23 +95,27 @@ class FileGrid: public Grid {
 	}
 
 	void drawTitle(graph_t* g, int at, XTheme* theme, int x, int y, int w, int h) {
+		if(g == NULL || theme == NULL)
+			return;
 		const char* title = files[at].d_name;
-		uint32_t tw, th;
-		font_text_size(title, theme->getFont(), theme->basic.fontSize, &tw, &th);
-		int xto = x + (w - (int32_t)tw)/2;
-		if(xto > x)
-			x = xto;
-		
 		font_t* font = theme->getFont();
 		if(font == NULL)
 			return;
+		uint32_t tw, th;
+		font_text_size(title, font, theme->basic.fontSize, &tw, &th);
+		int xto = x + (w - (int32_t)tw)/2;
+		if(xto > x)
+			x = xto;
 
 		y += h - th;
 		graph_draw_text_font(g, x, y, title, font, theme->basic.fontSize, theme->basic.fgColor);
 	}
 
 	void setCWD(const char* r) {
-		strcpy(cwd, r);
+		if(r == NULL)
+			return;
+		strncpy(cwd, r, FS_FULL_NAME_MAX);
+		cwd[FS_FULL_NAME_MAX] = 0;
 		if(cwdLabel != NULL)
 			cwdLabel->setLabel(cwd);
 	}
@@ -127,7 +140,13 @@ class FileGrid: public Grid {
 	}
 
 	bool check(const char* fname, const char* ext) {
-		int i = strlen(fname) - strlen(ext);
+		if(fname == NULL || ext == NULL)
+			return false;
+		int fnameLen = strlen(fname);
+		int extLen = strlen(ext);
+		if(fnameLen < extLen)
+			return false;
+		int i = fnameLen - extLen;
 		if(strcmp((fname+i), ext) == 0)
 			return true;
 		return false;
@@ -174,10 +193,6 @@ class FileGrid: public Grid {
 				continue;
 			memcpy(&files[num], it, sizeof(struct dirent));
 
-			if(it->d_type != DT_DIR && check(it->d_name, ".png")) {
-				const char* fname = getFullname(it->d_name);
-				getImgIconAndCache(fname);
-			}
 			num++;
 		}
 		closedir(dirp);
@@ -214,12 +229,19 @@ class FileGrid: public Grid {
 	}
 
 	json_var_t* loadFileTypes(const char* confFile) {
-		int sz;
-		char* str = (char*)vfs_readfile(confFile, &sz);
-		if(str == NULL) 
+		int sz = 0;
+		char* raw = (char*)vfs_readfile(confFile, &sz);
+		if(raw == NULL || sz < 0)
 			return NULL;
+		char* str = (char*)malloc(sz + 1);
+		if(str == NULL) {
+			free(raw);
+			return NULL;
+		}
+		memcpy(str, raw, sz);
 		str[sz] = 0;
 		json_var_t* ret = json_parse_str(str);
+		free(raw);
 		free(str);
 		return ret;
 	}
@@ -241,13 +263,6 @@ class FileGrid: public Grid {
 	graph_t*  getIcon(const char* dname) {
 		const char* fname = getFullname(dname);
 		graph_t* img = NULL;
-		if(check(fname, ".png") || check(fname, ".jpg") || 
-				check(fname, ".gif") || check(fname, ".tga") || check(fname, ".svg")) {
-			img = getImgIconAndCache(fname);
-			if(img != NULL)
-				return img;
-		}
-
 		if(fileTypes == NULL)
 			return NULL;
 		int num = json_var_array_size(fileTypes);
@@ -280,11 +295,13 @@ class FileGrid: public Grid {
 
 protected:
 	void drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
+		if(g == NULL || theme == NULL)
+			return;
 		graph_fill_rect(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
 	}
 
 	void drawItem(graph_t* g, XTheme* theme, int32_t index, const grect_t& r) {
-		if(index >= itemNum)
+		if(g == NULL || theme == NULL || index >= itemNum)
 			return;
 
 		if(index == itemSelected)
@@ -323,6 +340,7 @@ public:
 	friend FileWidget;
 	FileGrid(FileWidget* fileWidget) {
 		this->fileWidget = fileWidget;
+		cwd[0] = 0;
 		cwdLabel = NULL;
 		scrollerV = NULL;
 		iconCache = hashmap_new(0);
@@ -351,6 +369,8 @@ public:
 
 void FileWidget::onFocus() {
 	RootWidget* root = getRoot();
+	if(root == NULL || fileGrid == NULL)
+		return;
 	root->focus(fileGrid);		
 }
 
@@ -380,6 +400,7 @@ void FileWidget::build() {
 
 FileWidget::FileWidget() {
 	itemSize = 72;
+	fileGrid = NULL;
 	build();
 }
 
@@ -391,6 +412,8 @@ void FileWidget::load(const string& fname, const string& open_with) {
 
 void FileWidget::loadDir(const string& dname) {
 	FileGrid* fgrid = (FileGrid*)fileGrid;
+	if(fgrid == NULL)
+		return;
 	fgrid->readDir(dname.c_str());
 	update();
 }

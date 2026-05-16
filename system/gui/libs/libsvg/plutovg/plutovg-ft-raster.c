@@ -979,6 +979,7 @@ PVG_FT_END_STMNT
     PVG_FT_Vector*  arc = bez_stack;
     TPos        dx, dy;
     int         draw, split;
+  int         level;
 
 
     arc[0].x = UPSCALE( to->x );
@@ -1012,10 +1013,12 @@ PVG_FT_END_STMNT
     /* each bisection predictably reduces deviation exactly 4-fold. */
     /* Even 32-bit deviation would vanish after 16 bisections.      */
     draw = 1;
-    while ( dx > ONE_PIXEL / 4 )
+  level = 0;
+  while ( dx > ONE_PIXEL / 4 && level < 16 )
     {
       dx >>= 2;
       draw <<= 1;
+    level++;
     }
 
     /* We use decrement counter to count the total number of segments */
@@ -1073,10 +1076,9 @@ PVG_FT_END_STMNT
   {
     PVG_FT_Vector   bez_stack[16 * 3 + 1];  /* enough to accommodate bisections */
     PVG_FT_Vector*  arc = bez_stack;
-    PVG_FT_Vector*  limit = bez_stack + 45;
-    TPos        dx, dy, dx_, dy_;
-    TPos        dx1, dy1, dx2, dy2;
-    TPos        L, s, s_limit;
+  PVG_FT_Vector*  split_limit = bez_stack +
+                                ( (int)( sizeof( bez_stack ) /
+                                         sizeof( bez_stack[0] ) ) - 7 );
 
 
     arc[0].x = UPSCALE( to->x );
@@ -1107,46 +1109,13 @@ PVG_FT_END_STMNT
 
     for (;;)
     {
-      /* Decide whether to split or draw. See `Rapid Termination          */
-      /* Evaluation for Recursive Subdivision of Bezier Curves' by Thomas */
-      /* F. Hain, at                                                      */
-      /* http://www.cis.southalabama.edu/~hain/general/Publications/Bezier/Camera-ready%20CISST02%202.pdf */
-
-
-      /* dx and dy are x and y components of the P0-P3 chord vector. */
-      dx = dx_ = arc[3].x - arc[0].x;
-      dy = dy_ = arc[3].y - arc[0].y;
-
-      L = PVG_FT_HYPOT( dx_, dy_ );
-
-      /* Avoid possible arithmetic overflow below by splitting. */
-      if ( L >= (1 << 23) )
-        goto Split;
-
-      /* Max deviation may be as much as (s/L) * 3/4 (if Hain's v = 1). */
-      s_limit = L * (TPos)( ONE_PIXEL / 6 );
-
-      /* s is L * the perpendicular distance from P1 to the line P0-P3. */
-      dx1 = arc[1].x - arc[0].x;
-      dy1 = arc[1].y - arc[0].y;
-      s = PVG_FT_ABS( dy * dx1 - dx * dy1 );
-
-      if ( s > s_limit )
-        goto Split;
-
-      /* s is L * the perpendicular distance from P2 to the line P0-P3. */
-      dx2 = arc[2].x - arc[0].x;
-      dy2 = arc[2].y - arc[0].y;
-      s = PVG_FT_ABS( dy * dx2 - dx * dy2 );
-
-      if ( s > s_limit )
-        goto Split;
-
-      /* Split super curvy segments where the off points are so far
-         from the chord that the angles P0-P1-P3 or P0-P2-P3 become
-         acute as detected by appropriate dot products. */
-      if ( dx1 * ( dx1 - dx ) + dy1 * ( dy1 - dy ) > 0 ||
-           dx2 * ( dx2 - dx ) + dy2 * ( dy2 - dy ) > 0 )
+      /* Keep cubic flattening close to FreeType's conservative rule.
+         It avoids the larger cross-product intermediates used by the
+         newer Hain termination test that keep faulting on x86. */
+      if ( PVG_FT_ABS( 2 * arc[0].x - 3 * arc[1].x + arc[3].x ) > ONE_PIXEL / 2 ||
+           PVG_FT_ABS( 2 * arc[0].y - 3 * arc[1].y + arc[3].y ) > ONE_PIXEL / 2 ||
+           PVG_FT_ABS( arc[0].x - 3 * arc[2].x + 2 * arc[3].x ) > ONE_PIXEL / 2 ||
+           PVG_FT_ABS( arc[0].y - 3 * arc[2].y + 2 * arc[3].y ) > ONE_PIXEL / 2 )
         goto Split;
 
       gray_line_to( RAS_VAR_ arc[0].x, arc[0].y );
@@ -1158,8 +1127,15 @@ PVG_FT_END_STMNT
       continue;
 
     Split:
-      if( arc == limit )
-        return;
+      if ( arc > split_limit )
+      {
+        gray_line_to( RAS_VAR_ arc[0].x, arc[0].y );
+        if ( arc == bez_stack )
+          return;
+        arc -= 3;
+        continue;
+      }
+
       gray_split_cubic( arc );
       arc += 3;
     }
@@ -1288,9 +1264,32 @@ PVG_FT_END_STMNT
 
 
   static void
+  gray_flush_spans( RAS_ARG_ PVG_FT_Span* spans,
+                             int count )
+  {
+    int skip;
+
+    if ( count <= 0 )
+      return;
+
+    if ( ras.render_span && count > ras.skip_spans )
+    {
+      skip = ras.skip_spans > 0 ? ras.skip_spans : 0;
+      ras.render_span( count - skip,
+                       spans + skip,
+                       ras.render_span_data );
+    }
+
+    ras.skip_spans -= count;
+  }
+
+
+  static void
   gray_sweep( RAS_ARG)
   {
     int  yindex;
+    PVG_FT_Span spans[PVG_FT_MAX_GRAY_SPANS];
+    int n = 0;
 
     if ( ras.num_cells == 0 )
       return;
@@ -1308,22 +1307,112 @@ PVG_FT_END_STMNT
 
 
         if ( cell->x > x && cover != 0 )
-          gray_hline( RAS_VAR_ x, yindex, cover * ( ONE_PIXEL * 2 ),
-                      cell->x - x );
+        {
+          int coverage = (int)( ( cover * ( ONE_PIXEL * 2 ) ) >>
+                                ( PIXEL_BITS * 2 + 1 - 8 ) );
+          if ( coverage < 0 )
+            coverage = -coverage;
+
+          if ( ras.outline.flags & PVG_FT_OUTLINE_EVEN_ODD_FILL )
+          {
+            coverage &= 511;
+            if ( coverage > 256 )
+              coverage = 512 - coverage;
+            else if ( coverage == 256 )
+              coverage = 255;
+          }
+          else if ( coverage >= 256 )
+            coverage = 255;
+
+          if ( coverage != 0 )
+          {
+            spans[n].x = x + ras.min_ex;
+            spans[n].y = yindex + ras.min_ey;
+            spans[n].len = cell->x - x;
+            spans[n].coverage = (unsigned char)coverage;
+
+            if ( ++n == PVG_FT_MAX_GRAY_SPANS )
+            {
+              gray_flush_spans( RAS_VAR_ spans, n );
+              n = 0;
+            }
+          }
+        }
 
         cover += cell->cover;
         area   = cover * ( ONE_PIXEL * 2 ) - cell->area;
 
         if ( area != 0 && cell->x >= 0 )
-          gray_hline( RAS_VAR_ cell->x, yindex, area, 1 );
+        {
+          int coverage = (int)( area >> ( PIXEL_BITS * 2 + 1 - 8 ) );
+          if ( coverage < 0 )
+            coverage = -coverage;
+
+          if ( ras.outline.flags & PVG_FT_OUTLINE_EVEN_ODD_FILL )
+          {
+            coverage &= 511;
+            if ( coverage > 256 )
+              coverage = 512 - coverage;
+            else if ( coverage == 256 )
+              coverage = 255;
+          }
+          else if ( coverage >= 256 )
+            coverage = 255;
+
+          if ( coverage != 0 )
+          {
+            spans[n].x = cell->x + ras.min_ex;
+            spans[n].y = yindex + ras.min_ey;
+            spans[n].len = 1;
+            spans[n].coverage = (unsigned char)coverage;
+
+            if ( ++n == PVG_FT_MAX_GRAY_SPANS )
+            {
+              gray_flush_spans( RAS_VAR_ spans, n );
+              n = 0;
+            }
+          }
+        }
 
         x = cell->x + 1;
       }
 
       if ( ras.count_ex > x && cover != 0 )
-        gray_hline( RAS_VAR_ x, yindex, cover * ( ONE_PIXEL * 2 ),
-                    ras.count_ex - x );
+      {
+        int coverage = (int)( ( cover * ( ONE_PIXEL * 2 ) ) >>
+                              ( PIXEL_BITS * 2 + 1 - 8 ) );
+        if ( coverage < 0 )
+          coverage = -coverage;
+
+        if ( ras.outline.flags & PVG_FT_OUTLINE_EVEN_ODD_FILL )
+        {
+          coverage &= 511;
+          if ( coverage > 256 )
+            coverage = 512 - coverage;
+          else if ( coverage == 256 )
+            coverage = 255;
+        }
+        else if ( coverage >= 256 )
+          coverage = 255;
+
+        if ( coverage != 0 )
+        {
+          spans[n].x = x + ras.min_ex;
+          spans[n].y = yindex + ras.min_ey;
+          spans[n].len = ras.count_ex - x;
+          spans[n].coverage = (unsigned char)coverage;
+          ++n;
+        }
+      }
+
+      if ( n > 0 )
+      {
+        gray_flush_spans( RAS_VAR_ spans, n );
+        n = 0;
+      }
     }
+
+    ras.num_gray_spans = 0;
   }
 
 PVG_FT_Error PVG_FT_Outline_Check(PVG_FT_Outline* outline)
@@ -1333,26 +1422,58 @@ PVG_FT_Error PVG_FT_Outline_Check(PVG_FT_Outline* outline)
         PVG_FT_Int n_contours = outline->n_contours;
         PVG_FT_Int end0, end;
         PVG_FT_Int n;
+        PVG_FT_Int start;
+        PVG_FT_Int i;
 
         /* empty glyph? */
         if (n_points == 0 && n_contours == 0) return 0;
 
         /* check point and contour counts */
         if (n_points <= 0 || n_contours <= 0) goto Bad;
+        if (outline->points == NULL || outline->tags == NULL ||
+            outline->contours == NULL)
+            goto Bad;
 
         end0 = end = -1;
+        start = 0;
         for (n = 0; n < n_contours; n++) {
             end = outline->contours[n];
 
             /* note that we don't accept empty contours */
             if (end <= end0 || end >= n_points) goto Bad;
 
+            if (PVG_FT_CURVE_TAG(outline->tags[start]) == PVG_FT_CURVE_TAG_CUBIC)
+                goto Bad;
+
+            for (i = start; i <= end; ) {
+                int tag = PVG_FT_CURVE_TAG(outline->tags[i]);
+
+                if (tag == PVG_FT_CURVE_TAG_ON || tag == PVG_FT_CURVE_TAG_CONIC) {
+                    i++;
+                    continue;
+                }
+
+                if (tag != PVG_FT_CURVE_TAG_CUBIC)
+                    goto Bad;
+
+                if (i + 1 > end ||
+                    PVG_FT_CURVE_TAG(outline->tags[i + 1]) != PVG_FT_CURVE_TAG_CUBIC)
+                    goto Bad;
+
+                i += 2;
+                if (i <= end) {
+                    if (PVG_FT_CURVE_TAG(outline->tags[i]) != PVG_FT_CURVE_TAG_ON)
+                        goto Bad;
+                    i++;
+                }
+            }
+
             end0 = end;
+            start = end + 1;
         }
 
         if (end != n_points - 1) goto Bad;
 
-        /* XXX: check the tags array */
         return 0;
     }
 
@@ -1448,6 +1569,8 @@ void PVG_FT_Outline_Get_CBox(const PVG_FT_Outline* outline, PVG_FT_BBox* acbox)
 
     if ( !outline )
       return ErrRaster_Invalid_Outline;
+    if ( !outline->points || !outline->tags || !outline->contours )
+      return ErrRaster_Invalid_Outline;
 
     first = 0;
 
@@ -1457,7 +1580,7 @@ void PVG_FT_Outline_Get_CBox(const PVG_FT_Outline* outline, PVG_FT_BBox* acbox)
 
 
       last  = outline->contours[n];
-      if ( last < 0 )
+      if ( last < first || last >= outline->n_points )
         goto Invalid_Outline;
       limit = outline->points + last;
 
@@ -1832,6 +1955,9 @@ void PVG_FT_Outline_Get_CBox(const PVG_FT_Outline* outline, PVG_FT_BBox* acbox)
            outline->contours[outline->n_contours - 1] + 1 )
       return ErrRaster_Invalid_Outline;
 
+    if ( PVG_FT_Outline_Check( (PVG_FT_Outline*)outline ) != 0 )
+      return ErrRaster_Invalid_Outline;
+
     /* this version does not support monochrome rendering */
     if ( !( params->flags & PVG_FT_RASTER_FLAG_AA ) )
       return ErrRaster_Invalid_Mode;
@@ -1879,8 +2005,12 @@ void PVG_FT_Outline_Get_CBox(const PVG_FT_Outline* outline, PVG_FT_BBox* acbox)
           if(worker.skip_spans < 0)
               rendered_spans += -worker.skip_spans;
           worker.skip_spans = rendered_spans;
+          if(length > ((size_t)-1) / 2)
+              return;
           length *= 2;
           void* heap = malloc(length);
+          if(heap == NULL)
+              return;
           error = gray_raster_render(&worker, heap, length, params);
           free(heap);
       }

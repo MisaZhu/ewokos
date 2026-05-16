@@ -1,5 +1,6 @@
 #include <Widget/Container.h>
 #include <Widget/RootWidget.h>
+#include <Widget/WidgetWin.h>
 
 namespace Ewok {
 
@@ -80,6 +81,8 @@ bool  Container::has(Widget* w) {
 	while(wd != NULL) {
 		if(wd == w)
 			return true;
+		if(wd->isContainer() && ((Container*)wd)->has(w))
+			return true;
 		wd = wd->next;
 	}
 	return false;
@@ -153,6 +156,13 @@ void  Container::repaint(graph_t* g, XTheme* theme) {
 		return;
 	if(this->themePrivate != NULL)
 		theme = this->themePrivate;
+	else if(theme == NULL) {
+		WidgetWin* win = getWin();
+		if(win != NULL)
+			theme = win->getTheme();
+	}
+	if(g == NULL || theme == NULL)
+		return;
 
 	if(dirty) {
 		grect_t r = getRootArea();
@@ -232,13 +242,17 @@ void Container::setAttr(const string& attr, json_var_t*value) {
 }
 
 void  Container::clear() {
+	RootWidget* root = getRoot();
 	Widget* wd = children;
 	while(wd != NULL) {
 		Widget* next = wd->next;
+		if(root != NULL)
+			root->release(wd);
 		delete wd;
 		wd = next;
 	}
 	children = NULL;
+	childrenEnd = NULL;
 	num = 0;
 }
 

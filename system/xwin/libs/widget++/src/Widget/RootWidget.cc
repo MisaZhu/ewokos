@@ -22,6 +22,11 @@ RootWidget* RootWidget::getRoot(void) {
 }
 
 void RootWidget::focus(Widget* wd) {
+	if(wd == NULL) {
+		focusedWidget = NULL;
+		return;
+	}
+
 	Widget* oldFocusedWidget = focusedWidget;
 	focusedWidget = wd;
 
@@ -38,6 +43,21 @@ void RootWidget::onFocus() {
 	if(this->focusedWidget == NULL)
 		return;
 	this->focusedWidget->onFocus();
+}
+
+void RootWidget::release(Widget* wd) {
+	if(wd == NULL)
+		return;
+
+	if(focusedWidget == wd ||
+			(wd->isContainer() && ((Container*)wd)->has(focusedWidget))) {
+		focusedWidget = NULL;
+	}
+
+	if(dragedWidget == wd ||
+			(wd->isContainer() && ((Container*)wd)->has(dragedWidget))) {
+		dragedWidget = NULL;
+	}
 }
 
 void RootWidget::repaintWin() { 

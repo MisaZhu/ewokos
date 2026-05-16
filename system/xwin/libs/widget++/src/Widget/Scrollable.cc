@@ -33,11 +33,15 @@ void Scrollable::setScrollerInfo(uint32_t range, uint32_t pos, uint32_t scrollW,
 				return;
 
 			Container* r = getRootContainer();
+			if(r == NULL)
+				return;
 			Scroller* scrl = (Scroller*)r->getChild(scrollerHName);
 			if(scrl == NULL)
 				return;
 			setScrollerH(scrl);
 		}
+		if(scrollerH == NULL)
+			return;
 		scrollerH->setRange(range);
 		scrollerH->setPos(pos);
 		scrollerH->setScrollW(scrollW);
@@ -47,11 +51,15 @@ void Scrollable::setScrollerInfo(uint32_t range, uint32_t pos, uint32_t scrollW,
 			if(scrollerVName.empty())
 				return;
 			Container* r = getRootContainer();
+			if(r == NULL)
+				return;
 			Scroller* scrl = (Scroller*)r->getChild(scrollerVName);
 			if(scrl == NULL)
 				return;
 			setScrollerV(scrl);
 		}
+		if(scrollerV == NULL)
+			return;
 		scrollerV->setRange(range);
 		scrollerV->setPos(pos);
 		scrollerV->setScrollW(scrollW);

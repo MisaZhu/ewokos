@@ -163,6 +163,10 @@ void plutovg_path_arc_to(plutovg_path_t* path, float rx, float ry, float angle, 
     float dx1 = x2 - x1;
     float dy1 = y2 - y1;
     float d = dx1 * dx1 + dy1 * dy1;
+    if(d <= 1e-12f) {
+        plutovg_path_line_to(path, x, y);
+        return;
+    }
     float scale_sq = 1.f / d - 0.25f;
     if(scale_sq < 0.f) scale_sq = 0.f;
     float scale = sqrtf(scale_sq);
