@@ -46,12 +46,21 @@ typedef struct {
     bool extended;
 } radial_gradient_values_t;
 
+static inline uint32_t plutovg_round_u32_clamped(float value, uint32_t max_value)
+{
+    if(value <= 0.f)
+        return 0;
+    if(value >= (float)max_value)
+        return max_value;
+    return (uint32_t)(value + 0.5f);
+}
+
 static inline uint32_t premultiply_color_with_opacity(const plutovg_color_t* color, float opacity)
 {
-    uint32_t alpha = lroundf(color->a * opacity * 255);
-    uint32_t pr = lroundf(color->r * alpha);
-    uint32_t pg = lroundf(color->g * alpha);
-    uint32_t pb = lroundf(color->b * alpha);
+    uint32_t alpha = plutovg_round_u32_clamped(color->a * opacity * 255.f, 255);
+    uint32_t pr = plutovg_round_u32_clamped(color->r * alpha, 255);
+    uint32_t pg = plutovg_round_u32_clamped(color->g * alpha, 255);
+    uint32_t pb = plutovg_round_u32_clamped(color->b * alpha, 255);
     return (alpha << 24) | (pr << 16) | (pg << 8) | (pb);
 }
 
@@ -1101,7 +1110,7 @@ static void plutovg_blend_texture(plutovg_canvas_t* canvas, const plutovg_textur
     data.width = texture->surface->width;
     data.height = texture->surface->height;
     data.stride = texture->surface->stride;
-    data.const_alpha = lroundf(state->opacity * texture->opacity * 256);
+    data.const_alpha = (int)plutovg_round_u32_clamped(state->opacity * texture->opacity * 256.f, 256);
 
     plutovg_matrix_multiply(&data.matrix, &data.matrix, &state->matrix);
     if(!plutovg_matrix_invert(&data.matrix, &data.matrix))

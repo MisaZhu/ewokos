@@ -59,6 +59,7 @@
 #include "plutovg-ft-math.h"
 
 #include <setjmp.h>
+#include <stdio.h>
 
 #define pvg_ft_setjmp   setjmp
 #define pvg_ft_longjmp  longjmp
@@ -1772,7 +1773,8 @@ void PVG_FT_Outline_Get_CBox(const PVG_FT_Outline* outline, PVG_FT_BBox* acbox)
   static int
   gray_convert_glyph( RAS_ARG )
   {
-    TBand            bands[40];
+    TBand            bands[256];
+    const size_t     band_capacity = sizeof( bands ) / sizeof( bands[0] );
     TBand* volatile  band;
     int volatile     n, num_bands;
     TPos volatile    min, max, max_y;
@@ -1825,8 +1827,8 @@ void PVG_FT_Outline_Get_CBox(const PVG_FT_Outline* outline, PVG_FT_BBox* acbox)
     num_bands = (int)( ( ras.max_ey - ras.min_ey ) / ras.band_size );
     if ( num_bands == 0 )
       num_bands = 1;
-    if ( num_bands >= 39 )
-      num_bands = 39;
+    if ( num_bands >= (int)band_capacity - 1 )
+      num_bands = (int)band_capacity - 1;
 
     ras.band_shoot = 0;
 
@@ -1908,7 +1910,13 @@ void PVG_FT_Outline_Get_CBox(const PVG_FT_Outline* outline, PVG_FT_BBox* acbox)
           return ErrRaster_OutOfMemory;
         }
 
-        if ( bottom-top >= ras.band_size )
+        /* Prevent the manual band stack from clobbering adjacent locals. */
+        if ( band + 1 >= bands + band_capacity )
+        {
+          return ErrRaster_OutOfMemory;
+        }
+
+        if ( top - bottom >= ras.band_size )
           ras.band_shoot++;
 
         band[1].min = bottom;
@@ -1991,6 +1999,28 @@ void PVG_FT_Outline_Get_CBox(const PVG_FT_Outline* outline, PVG_FT_BBox* acbox)
     return gray_convert_glyph( RAS_VAR );
   }
 
+  static const char*
+  gray_raster_error_name( int error )
+  {
+    switch ( error )
+    {
+    case 0:
+      return "ok";
+    case ErrRaster_Invalid_Outline:
+      return "invalid_outline";
+    case ErrRaster_Invalid_Mode:
+      return "invalid_mode";
+    case ErrRaster_Invalid_Argument:
+      return "invalid_argument";
+    case ErrRaster_Memory_Overflow:
+      return "memory_overflow";
+    case ErrRaster_OutOfMemory:
+      return "out_of_memory";
+    default:
+      return "unknown";
+    }
+  }
+
   void
   PVG_FT_Raster_Render(const PVG_FT_Raster_Params *params)
   {
@@ -2002,6 +2032,9 @@ void PVG_FT_Outline_Get_CBox(const PVG_FT_Outline* outline, PVG_FT_BBox* acbox)
       int rendered_spans = 0;
       int error = gray_raster_render(&worker, stack, length, params);
       while(error == ErrRaster_OutOfMemory) {
+          fprintf(stderr, "[plutovg-raster] retry after %s pool=%lu skip=%d spans=%d\n",
+                  gray_raster_error_name(error), (unsigned long)length,
+                  worker.skip_spans, rendered_spans);
           if(worker.skip_spans < 0)
               rendered_spans += -worker.skip_spans;
           worker.skip_spans = rendered_spans;
@@ -2014,6 +2047,10 @@ void PVG_FT_Outline_Get_CBox(const PVG_FT_Outline* outline, PVG_FT_BBox* acbox)
           error = gray_raster_render(&worker, heap, length, params);
           free(heap);
       }
+      if ( error != 0 )
+          fprintf(stderr, "[plutovg-raster] render failed error=%s(%d) pool=%lu skip=%d spans=%d\n",
+                  gray_raster_error_name(error), error, (unsigned long)length,
+                  worker.skip_spans, rendered_spans);
   }
 
 /* END */

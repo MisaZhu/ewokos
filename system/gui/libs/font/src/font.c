@@ -1,7 +1,6 @@
 #include <ewoksys/vdevice.h>
 #include <ewoksys/utf8unicode.h>
 #include <ewoksys/mstr.h>
-#include <ewoksys/klog.h>
 #include <font/font.h>
 #include <string.h>
 #include <unistd.h>
@@ -77,9 +76,15 @@ int font_close(font_t* font) {
 }
 
 static inline const char* hash_key(uint32_t c, uint32_t size) {
-	static char key[16] = {0};
-	snprintf(key, 15, "%d:%x", size, c);
+	static char key[32] = {0};
+	snprintf(key, sizeof(key), "%u:%x", size, c);
 	return key;
+}
+
+static uint32_t bitmap_row_bytes(const FT_Bitmap* bmp) {
+	if(bmp == NULL || bmp->pitch == 0)
+		return 0;
+	return (uint32_t)(bmp->pitch < 0 ? -bmp->pitch : bmp->pitch);
 }
 
 static int font_fetch_cache(font_t* font, uint32_t size, uint32_t c, FT_GlyphSlot slot) {
@@ -113,6 +118,25 @@ static void font_cache(font_t* font, uint32_t size, uint32_t c, FT_GlyphSlot slo
 			font_clear_cache(font);
 		}
 		memcpy(p, slot, sizeof(FT_GlyphSlotRec));
+		uint32_t bmp_size = bitmap_row_bytes(&slot->bitmap) * slot->bitmap.rows;
+		if(bmp_size > 0 && slot->bitmap.buffer != NULL) {
+			p->bitmap.buffer = malloc(bmp_size);
+			if(p->bitmap.buffer == NULL) {
+				free(p);
+				return;
+			}
+			memcpy(p->bitmap.buffer, slot->bitmap.buffer, bmp_size);
+		}
+		if(slot->other != NULL) {
+			p->other = malloc(sizeof(face_info_t));
+			if(p->other == NULL) {
+				if(p->bitmap.buffer != NULL)
+					free(p->bitmap.buffer);
+				free(p);
+				return;
+			}
+			memcpy(p->other, slot->other, sizeof(face_info_t));
+		}
 	}
 
 	hashmap_put(font->cache, hash_key(c, size), p);
@@ -260,9 +284,10 @@ void graph_draw_unicode_font(graph_t* g, int32_t x, int32_t y, uint32_t c,
 	}
 
 	if(slot.bitmap.buffer != NULL) {
+		uint32_t row_bytes = bitmap_row_bytes(&slot.bitmap);
 		for (int32_t j = 0; j < slot.bitmap.rows; j++) {
 			for (int32_t i = 0; i < slot.bitmap.width; i++) {
-				uint8_t pv = slot.bitmap.buffer[j*slot.bitmap.width+i];
+				uint8_t pv = slot.bitmap.buffer[j*row_bytes+i];
 				graph_pixel_argb(g, x+i, y+j,
 						(color >> 24) & pv & 0xff,
 						(color >> 16) & 0xff,
@@ -293,9 +318,10 @@ void graph_draw_char_font_fixed(graph_t* g, int32_t x, int32_t y, uint32_t c,
 	y = y - slot.bitmap_top + (faceinfo->ascender/FACE_PIXEL_DENT);
 
 	if(slot.bitmap.buffer != NULL) {
+		uint32_t row_bytes = bitmap_row_bytes(&slot.bitmap);
 		for (int32_t j = 0; j < slot.bitmap.rows; j++) {
 			for (int32_t i = 0; i < slot.bitmap.width; i++) {
-				uint8_t pv = slot.bitmap.buffer[j*slot.bitmap.width+i];
+				uint8_t pv = slot.bitmap.buffer[j*row_bytes+i];
 				graph_pixel_argb(g, 
 						x+i,
 						y+j,

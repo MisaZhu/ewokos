@@ -3,6 +3,14 @@
 
 #include <assert.h>
 
+static inline int plutovg_ceil_abs_to_int(float value)
+{
+    int base = (int)value;
+    if((float)base < value)
+        base++;
+    return base;
+}
+
 void plutovg_path_iterator_init(plutovg_path_iterator_t* it, const plutovg_path_t* path)
 {
     it->elements = path->elements.data;
@@ -187,7 +195,7 @@ void plutovg_path_arc_to(plutovg_path_t* path, float rx, float ry, float angle, 
         th_arc -= PLUTOVG_TWO_PI;
     plutovg_matrix_init_rotate(&matrix, angle);
     plutovg_matrix_scale(&matrix, rx, ry);
-    int segments = (int)(ceilf(fabsf(th_arc / (PLUTOVG_HALF_PI + 0.001f))));
+    int segments = plutovg_ceil_abs_to_int(fabsf(th_arc / (PLUTOVG_HALF_PI + 0.001f)));
     for(int i = 0; i < segments; i++) {
         float th_start = th1 + i * th_arc / segments;
         float th_end = th1 + (i + 1) * th_arc / segments;
@@ -320,7 +328,7 @@ void plutovg_path_add_arc(plutovg_path_t* path, float cx, float cy, float r, flo
         da += PLUTOVG_TWO_PI * (ccw ? -1 : 1);
     }
 
-    int seg_n = (int)(ceilf(fabsf(da) / PLUTOVG_HALF_PI));
+    int seg_n = plutovg_ceil_abs_to_int(fabsf(da) / PLUTOVG_HALF_PI);
     if(seg_n == 0)
         return;
     float a = a0;

@@ -3,6 +3,15 @@
 
 #include <ctype.h>
 
+static inline uint32_t plutovg_round_u8(float value)
+{
+    if(value <= 0.f)
+        return 0;
+    if(value >= 255.f)
+        return 255;
+    return (uint32_t)(value + 0.5f);
+}
+
 void plutovg_color_init_rgb(plutovg_color_t* color, float r, float g, float b)
 {
     plutovg_color_init_rgba(color, r, g, b, 1.f);
@@ -69,19 +78,19 @@ void plutovg_color_init_hsla(plutovg_color_t* color, float h, float s, float l, 
 
 unsigned int plutovg_color_to_rgba32(const plutovg_color_t* color)
 {
-    uint32_t r = lroundf(color->r * 255);
-    uint32_t g = lroundf(color->g * 255);
-    uint32_t b = lroundf(color->b * 255);
-    uint32_t a = lroundf(color->a * 255);
+    uint32_t r = plutovg_round_u8(color->r * 255.f);
+    uint32_t g = plutovg_round_u8(color->g * 255.f);
+    uint32_t b = plutovg_round_u8(color->b * 255.f);
+    uint32_t a = plutovg_round_u8(color->a * 255.f);
     return (r << 24) | (g << 16) | (b << 8) | (a);
 }
 
 unsigned int plutovg_color_to_argb32(const plutovg_color_t* color)
 {
-    uint32_t a = lroundf(color->a * 255);
-    uint32_t r = lroundf(color->r * 255);
-    uint32_t g = lroundf(color->g * 255);
-    uint32_t b = lroundf(color->b * 255);
+    uint32_t a = plutovg_round_u8(color->a * 255.f);
+    uint32_t r = plutovg_round_u8(color->r * 255.f);
+    uint32_t g = plutovg_round_u8(color->g * 255.f);
+    uint32_t b = plutovg_round_u8(color->b * 255.f);
     return (a << 24) | (r << 16) | (g << 8) | (b);
 }
 

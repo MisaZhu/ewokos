@@ -6,6 +6,14 @@
 
 #include <limits.h>
 
+static inline int plutovg_ifloorf(float value)
+{
+    int base = (int)value;
+    if((float)base > value)
+        base--;
+    return base;
+}
+
 void plutovg_span_buffer_init(plutovg_span_buffer_t* span_buffer)
 {
     plutovg_array_init(span_buffer->spans);
@@ -57,8 +65,8 @@ void plutovg_span_buffer_copy(plutovg_span_buffer_t* span_buffer, const plutovg_
 
 bool plutovg_span_buffer_contains(const plutovg_span_buffer_t* span_buffer, float x, float y)
 {
-    const int ix = (int)floorf(x);
-    const int iy = (int)floorf(y);
+    const int ix = plutovg_ifloorf(x);
+    const int iy = plutovg_ifloorf(y);
 
     for(int i = 0; i < span_buffer->spans.size; i++) {
         plutovg_span_t* span = &span_buffer->spans.data[i];

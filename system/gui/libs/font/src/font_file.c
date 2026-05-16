@@ -74,6 +74,23 @@ int font_load(const char* name, const char* fname) {
 	return i;
 }
 
+static int load_glyph_rendered(FT_Face face, FT_UInt glyph_index) {
+	if(FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT | FT_LOAD_TARGET_NORMAL) == 0) {
+		if(FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL) == 0)
+			return 0;
+	}
+	if(FT_Load_Glyph(face, glyph_index,
+			FT_LOAD_DEFAULT | FT_LOAD_NO_HINTING | FT_LOAD_TARGET_NORMAL) != 0)
+		return -1;
+	return FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
+}
+
+static uint32_t bitmap_row_bytes(const FT_Bitmap* bmp) {
+	if(bmp == NULL || bmp->pitch == 0)
+		return 0;
+	return (uint32_t)(bmp->pitch < 0 ? -bmp->pitch : bmp->pitch);
+}
+
 int font_get_face(font_t* font, uint32_t size, face_info_t* faceinfo) {
 	int i = font->id;
 	if(i >= TTF_MAX || size == 0 || _ttfs[i].face == NULL) {
@@ -81,7 +98,7 @@ int font_get_face(font_t* font, uint32_t size, face_info_t* faceinfo) {
 	}
 
 	FT_Face face = _ttfs[i].face; 
-    if(FT_Set_Pixel_Sizes(face, size, 0) != 0) {
+    if(FT_Set_Pixel_Sizes(face, 0, size) != 0) {
 		return -1;
 	}
 
@@ -132,12 +149,12 @@ int font_get_glyph_info(font_t* font, uint32_t size, uint32_t c, FT_GlyphSlot sl
 	}
 	
 	// Use FT_LOAD_TARGET_NORMAL for anti-aliased rendering (gray scale)
-	if(FT_Load_Glyph(face, glyph_index, FT_LOAD_RENDER | FT_LOAD_TARGET_NORMAL) != 0) {
+	if(load_glyph_rendered(face, glyph_index) != 0) {
 		return -1;
 	}
 	memcpy(slot, face->glyph, sizeof(FT_GlyphSlotRec));
 	face_info_t* faceinfo = malloc(sizeof(face_info_t));
-	uint32_t bmp_size = slot->bitmap.width * slot->bitmap.rows;
+	uint32_t bmp_size = bitmap_row_bytes(&face->glyph->bitmap) * slot->bitmap.rows;
 	if(bmp_size > 0) {
 		slot->bitmap.buffer = malloc(bmp_size);
 		memcpy(slot->bitmap.buffer, face->glyph->bitmap.buffer, bmp_size);

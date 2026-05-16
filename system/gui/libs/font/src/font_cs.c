@@ -72,8 +72,10 @@ int font_get_face(font_t* font, uint32_t size, face_info_t* face) {
 	PF->format(&in, "i,i", font->id, size);
 
 	if(dev_cntl_by_pid(_font_dev_pid, FONT_DEV_GET_FACE, &in, &out) == 0) {
-		proto_read_to(&out, face, sizeof(face_info_t));
-		ret = 0;
+		if(proto_read_int(&out) == 0) {
+			proto_read_to(&out, face, sizeof(face_info_t));
+			ret = 0;
+		}
 	}
 	PF->clear(&in);
 	PF->clear(&out);
@@ -91,25 +93,26 @@ int font_get_glyph_info(font_t* font, uint32_t size, uint32_t c, FT_GlyphSlot sl
 	PF->format(&in, "i,i,i", font->id, size, c);
 
 	if(dev_cntl_by_pid(_font_dev_pid, FONT_DEV_GET_GLYPH, &in, &out) == 0) {
-		proto_read_to(&out, slot, sizeof(FT_GlyphSlotRec));
-		face_info_t* faceinfo = malloc(sizeof(face_info_t));
-		proto_read_to(&out, faceinfo, sizeof(face_info_t));
-		slot->other = faceinfo;
+		if(proto_read_int(&out) == 0) {
+			proto_read_to(&out, slot, sizeof(FT_GlyphSlotRec));
+			face_info_t* faceinfo = malloc(sizeof(face_info_t));
+			proto_read_to(&out, faceinfo, sizeof(face_info_t));
+			slot->other = faceinfo;
 
-		
-		int32_t sz;
-		void* p = proto_read(&out, &sz);
-		if(p == NULL || sz <= 0) {
-			slot->bitmap.buffer = NULL;
+			int32_t sz;
+			void* p = proto_read(&out, &sz);
+			if(p == NULL || sz <= 0) {
+				slot->bitmap.buffer = NULL;
+			}
+			else {
+				slot->bitmap.buffer = malloc(sz);
+				memcpy(slot->bitmap.buffer, p, sz);
+			}
+			ret = 0;
 		}
-		else {
-			slot->bitmap.buffer = malloc(sz);
-			memcpy(slot->bitmap.buffer, p, sz);
-		}
-		PF->clear(&in);
-		PF->clear(&out);
-		ret = 0;
 	}
+	PF->clear(&in);
+	PF->clear(&out);
 	return ret;
 }
 

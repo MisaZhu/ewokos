@@ -1961,8 +1961,9 @@ typedef ptrdiff_t  FT_PtrDist;
     TCell    buffer[FT_MAX_GRAY_POOL];
     size_t   height = (size_t)( yMax - yMin );
     size_t   n = FT_MAX_GRAY_POOL / 8;
+    size_t   band_capacity;
     TCoord   y;
-    TCoord   bands[32];  /* enough to accommodate bisections */
+    TCoord   bands[256];  /* large enough for complex CJK outlines */
     TCoord*  band;
 
     int  continued = 0;
@@ -1977,6 +1978,7 @@ typedef ptrdiff_t  FT_PtrDist;
 
     /* set up vertical bands */
     ras.ycells     = (PCell*)buffer;
+    band_capacity  = sizeof ( bands ) / sizeof ( bands[0] );
 
     if ( height > n )
     {
@@ -2039,6 +2041,10 @@ typedef ptrdiff_t  FT_PtrDist;
           FT_TRACE7(( "gray_convert_glyph: rotten glyph\n" ));
           return FT_THROW( Raster_Overflow );
         }
+
+        /* Guard the manual band stack against pathological outlines. */
+        if ( band + 2 >= bands + band_capacity )
+          return FT_THROW( Raster_Overflow );
 
         band++;
         band[1]  = band[0];

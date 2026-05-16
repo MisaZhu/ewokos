@@ -56,10 +56,6 @@ int *__errno(void) {
 	return &errno;
 }
 
-int ewok_setjmp(jmp_buf env) {
-	return __builtin_setjmp(env);
-}
-
 void ewok_longjmp(jmp_buf env, int val) {
 	(void)val;
 	__builtin_longjmp(env, 1);
@@ -2010,22 +2006,37 @@ long ftell(FILE *stream) {
 
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream) {
 	size_t total;
-	ssize_t ret;
+	size_t done;
+	char* p;
 
 	if (stream == NULL || ptr == NULL || size == 0 || nmemb == 0) {
 		return 0;
 	}
 
 	total = size * nmemb;
-	ret = read(stream->fd, ptr, total);
-	if (ret <= 0) {
-		if (ret == 0) {
+	done = 0;
+	p = (char*)ptr;
+
+	while (done < total) {
+		ssize_t ret = read(stream->fd, p + done, total - done);
+		if (ret <= 0) {
+			if (ret == 0) {
+				stream->eof = 1;
+			}
+			break;
+		}
+		done += (size_t)ret;
+	}
+
+	if (done == 0) {
+		if (stream->eof == 0) {
 			stream->eof = 1;
 		}
 		return 0;
 	}
+
 	stream->eof = 0;
-	return (size == 0) ? 0 : ((size_t)ret / size);
+	return done / size;
 }
 
 int fgetc(FILE *stream) {
