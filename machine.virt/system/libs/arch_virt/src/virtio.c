@@ -903,6 +903,10 @@ int virtio_net_read(virtio_dev_t dev, void *buf, uint32_t size)
 	{
 		payload_len = 0;
 	}
+	if ((uint32_t)payload_len > VIRTIO_NET_RX_BUF_SIZE - VIRTIO_NET_HDR_SIZE)
+	{
+		payload_len = (int)(VIRTIO_NET_RX_BUF_SIZE - VIRTIO_NET_HDR_SIZE);
+	}
 
 	int read_len = payload_len;
 	if ((uint32_t)read_len > size)
