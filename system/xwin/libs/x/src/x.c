@@ -310,6 +310,8 @@ int  x_run(x_t* x, void* loop_data) {
 		if(res == 0) {
 			xwin_t* xwin = (xwin_t*)xev.win;
 			if(xwin != NULL) {
+				if(xwin->fd < 0 || xwin->xinfo == NULL)
+					continue;
 				if(xev.type == XEVT_WIN) {
 					xwin_event_handle(xwin, &xev);
 				}	

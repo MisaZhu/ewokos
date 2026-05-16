@@ -189,11 +189,17 @@ void xwin_close(xwin_t* xwin) {
 	xwin->fd = -1;
 	pthread_mutex_destroy(&xwin->painting_lock);
 
-	if(xwin->ws_g_shm != NULL)
+	if(xwin->ws_g_shm != NULL) {
 		shmdt(xwin->ws_g_shm);
+		xwin->ws_g_shm = NULL;
+	}
 
-	if(xwin->xinfo != NULL)
+	if(xwin->xinfo != NULL) {
 		shmdt(xwin->xinfo);
+		xwin->xinfo = NULL;
+	}
+
+	xwin->data = NULL;
 
 	if(xwin->x->main_win == xwin)
 		x_terminate(xwin->x);
@@ -418,4 +424,3 @@ gpos_t xwin_get_screen_pos(xwin_t* xwin, int32_t x, int32_t y) {
 #ifdef __cplusplus
 }
 #endif
-

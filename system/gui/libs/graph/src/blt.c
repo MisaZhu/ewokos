@@ -8,6 +8,41 @@
 extern "C" { 
 #endif
 
+static inline uint32_t graph_blend_argb(uint32_t dst_color,
+		uint8_t a, uint8_t r, uint8_t g, uint8_t b) {
+	uint8_t oa = (dst_color >> 24) & 0xff;
+	uint8_t or = (dst_color >> 16) & 0xff;
+	uint8_t og = (dst_color >> 8) & 0xff;
+	uint8_t ob = dst_color & 0xff;
+	uint32_t inv_a = 255 - a;
+
+	oa = oa + (uint8_t)((255 - oa) * a / 255);
+	or = (uint8_t)((r * a + or * inv_a) / 255);
+	og = (uint8_t)((g * a + og * inv_a) / 255);
+	ob = (uint8_t)((b * a + ob * inv_a) / 255);
+	return ((uint32_t)oa << 24) | ((uint32_t)or << 16) | ((uint32_t)og << 8) | ob;
+}
+
+static inline void graph_copy_rows(const graph_t* src, const grect_t* sr,
+		graph_t* dst, const grect_t* dr) {
+	size_t row_bytes = (size_t)sr->w * sizeof(uint32_t);
+
+	if (src == dst && (dr->y > sr->y || (dr->y == sr->y && dr->x > sr->x))) {
+		for (int32_t row = sr->h - 1; row >= 0; --row) {
+			uint32_t* dst_row = dst->buffer + (dr->y + row) * dst->w + dr->x;
+			const uint32_t* src_row = src->buffer + (sr->y + row) * src->w + sr->x;
+			memmove(dst_row, src_row, row_bytes);
+		}
+		return;
+	}
+
+	for (int32_t row = 0; row < sr->h; ++row) {
+		uint32_t* dst_row = dst->buffer + (dr->y + row) * dst->w + dr->x;
+		const uint32_t* src_row = src->buffer + (sr->y + row) * src->w + sr->x;
+		memmove(dst_row, src_row, row_bytes);
+	}
+}
+
 bool grect_insect(const grect_t* src, grect_t* dst) {
 	//insect src;
 	if(dst->x >= (int32_t)(src->x+src->w))
@@ -189,6 +224,11 @@ void graph_blt_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 	if(dy < 0)
 		sr.y -= dy;
 
+	if(sr.w == dr.w && sr.h == dr.h) {
+		graph_copy_rows(src, &sr, dst, &dr);
+		return;
+	}
+
 	int32_t src_w = src->w;
 	int32_t src_h = src->h;
 	float scale_x = (float)sr.w / (float)dr.w;
@@ -307,6 +347,8 @@ void graph_blt_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32
 		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
 	if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
 		return;
+	if(alpha == 0)
+		return;
 
 	grect_t sr = {sx, sy, sw, sh};
 	grect_t dr = {dx, dy, dw, dh};
@@ -321,6 +363,35 @@ void graph_blt_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32
 		sr.x -= dx;
 	if(dy < 0)
 		sr.y -= dy;
+
+	if(sr.w == dr.w && sr.h == dr.h) {
+		for(int32_t row = 0; row < sr.h; ++row) {
+			const uint32_t* src_row = src->buffer + (sr.y + row) * src->w + sr.x;
+			uint32_t* dst_row = dst->buffer + (dr.y + row) * dst->w + dr.x;
+
+			for(int32_t col = 0; col < sr.w; ++col) {
+				uint32_t color = src_row[col];
+				uint8_t src_a = (color >> 24) & 0xff;
+
+				if(src_a == 0)
+					continue;
+				if(alpha == 0xff && src_a == 0xff) {
+					dst_row[col] = color;
+					continue;
+				}
+
+				uint8_t sa = (uint8_t)((src_a * alpha) >> 8);
+				if(sa == 0)
+					continue;
+
+				dst_row[col] = graph_blend_argb(dst_row[col], sa,
+						(color >> 16) & 0xff,
+						(color >> 8) & 0xff,
+						color & 0xff);
+			}
+		}
+		return;
+	}
 
 	int32_t src_w = src->w;
 	int32_t src_h = src->h;

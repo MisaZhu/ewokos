@@ -325,8 +325,12 @@ gpos_t Widget::getScreenPos(int32_t x, int32_t y) {
 	if(win == NULL)
 		return pos;
 
-	pos.x += win->getCWin()->xinfo->wsr.x;
-	pos.y += win->getCWin()->xinfo->wsr.y;
+	xwin_t* cwin = win->getCWin();
+	if(cwin == NULL || cwin->xinfo == NULL)
+		return pos;
+
+	pos.x += cwin->xinfo->wsr.x;
+	pos.y += cwin->xinfo->wsr.y;
 	return pos;
 }
 
