@@ -148,8 +148,15 @@ static int32_t copy_on_write(proc_t* proc, ewokos_addr_t v_addr) {
 	if(page == NULL) {
 		return -1;
 	}
-	memcpy(page, (char*)P2V(phy_addr), PAGE_SIZE);
-	unmap_page_ref(proc->space->vm, v_addr);
+
+	if(phy_addr != 0) {
+		memcpy(page, (char*)P2V(phy_addr), PAGE_SIZE);
+		unmap_page_ref(proc->space->vm, v_addr);
+	}
+	else {
+		// Lazily reserved heap/stack pages have no backing page yet.
+		memset(page, 0, PAGE_SIZE);
+	}
 	map_page_ref(proc->space->vm,
 			v_addr,
 			V2P(page),
