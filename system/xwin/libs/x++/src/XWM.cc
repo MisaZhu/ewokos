@@ -381,6 +381,7 @@ void XWM::updateTheme(bool loadFromX) {
 		proto_t out;
 		PF->init(&out);
 		if(dev_cntl_by_pid(xserv_pid, X_DCNTL_GET_XWM_THEME, NULL, &out) != 0) {
+			PF->clear(&out);
 			return;
 		}	
 		proto_read_to(&out, &xwm.theme, sizeof(xwm_theme_t));
@@ -415,10 +416,12 @@ void XWM::loadTheme(const char* name) {
 	PF->init(&in)->adds(&in, name);
 	
 	if(dev_cntl_by_pid(xserv_pid, X_DCNTL_LOAD_THEME, &in, NULL) != 0) {
+		PF->clear(&in);
 		return;
 	}
 
 	if(dev_cntl_by_pid(xserv_pid, X_DCNTL_LOAD_XWM_THEME, &in, NULL) != 0) {
+		PF->clear(&in);
 		return;
 	}	
 	PF->clear(&in);

@@ -164,10 +164,12 @@ void mouse_interrupt_handle(struct virtio_device *virt_dev, struct virtio_input_
 
 static int mouse_step(struct st_vdevice* dev, void* p) {
 	(void)p;
+	ipc_disable();
 	if(_wakeup) {
 		vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
 		_wakeup = false;
 	}
+	ipc_enable();
 	usleep(3000);
 	return 0;
 }

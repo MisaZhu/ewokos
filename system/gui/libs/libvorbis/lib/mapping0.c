@@ -106,9 +106,6 @@ static mdct_lookup *mapping0_prepare_mdct(vorbis_dsp_state *vd,int blockflag){
     int b1=(lookup->bitrev!=NULL)?lookup->bitrev[1]:-9999;
     int b2=(lookup->bitrev!=NULL)?lookup->bitrev[2]:-9999;
     int b3=(lookup->bitrev!=NULL)?lookup->bitrev[3]:-9999;
-    klog("[snd/ogg] prep[%d] before W=%d exp_n=%d n=%d log2n=%d trig=%d bitrev=%d bits=%d,%d,%d,%d\n",
-         debug_id,blockflag,expected_n,lookup->n,lookup->log2n,
-         lookup->trig!=NULL,lookup->bitrev!=NULL,b0,b1,b2,b3);
   }
 
   if(mapping0_mdct_lookup_usable(lookup,expected_n))
@@ -120,9 +117,6 @@ static mdct_lookup *mapping0_prepare_mdct(vorbis_dsp_state *vd,int blockflag){
     int b1=(lookup->bitrev!=NULL)?lookup->bitrev[1]:-9999;
     int b2=(lookup->bitrev!=NULL)?lookup->bitrev[2]:-9999;
     int b3=(lookup->bitrev!=NULL)?lookup->bitrev[3]:-9999;
-    klog("[snd/ogg] prep[%d] reinit W=%d exp_n=%d n=%d log2n=%d trig=%d bitrev=%d bits=%d,%d,%d,%d\n",
-         debug_id,blockflag,expected_n,lookup->n,lookup->log2n,
-         lookup->trig!=NULL,lookup->bitrev!=NULL,b0,b1,b2,b3);
   }
   if(mapping0_mdct_lookup_usable(lookup,expected_n))
     return lookup;
@@ -137,14 +131,8 @@ static mdct_lookup *mapping0_prepare_mdct(vorbis_dsp_state *vd,int blockflag){
     int b1=(lookup->bitrev!=NULL)?lookup->bitrev[1]:-9999;
     int b2=(lookup->bitrev!=NULL)?lookup->bitrev[2]:-9999;
     int b3=(lookup->bitrev!=NULL)?lookup->bitrev[3]:-9999;
-    klog("[snd/ogg] prep[%d] new W=%d exp_n=%d n=%d log2n=%d trig=%d bitrev=%d bits=%d,%d,%d,%d\n",
-         debug_id,blockflag,expected_n,lookup->n,lookup->log2n,
-         lookup->trig!=NULL,lookup->bitrev!=NULL,b0,b1,b2,b3);
   }
   if(!mapping0_mdct_lookup_usable(lookup,expected_n)){
-    if(debug_id<8)
-      klog("[snd/ogg] prep[%d] unusable after new W=%d exp_n=%d\n",
-           debug_id,blockflag,expected_n);
     mdct_clear(lookup);
     _ogg_free(lookup);
     return NULL;
@@ -820,9 +808,6 @@ static int mapping0_inverse(vorbis_block *vb,vorbis_info_mapping *l){
   void **floormemo=alloca(sizeof(*floormemo)*vi->channels);
 
   /* recover the spectral envelope; store it in the PCM vector for now */
-  if(call_id<8)
-    klog("[snd/ogg] map0[%d] enter W=%d n=%d ch=%d\n",
-         call_id,vb->W,(int)n,vi->channels);
   for(i=0;i<vi->channels;i++){
     int submap=info->chmuxlist[i];
     floormemo[i]=_floor_P[ci->floor_type[info->floorsubmap[submap]]]->
@@ -904,20 +889,13 @@ static int mapping0_inverse(vorbis_block *vb,vorbis_info_mapping *l){
     float *pcm=vb->pcm[i];
     mdct_lookup *lookup=mapping0_prepare_mdct(vd,vb->W);
     if(lookup==NULL){
-      if(call_id<8)
-        klog("[snd/ogg] map0[%d] lookup null ch=%d\n",call_id,i);
       memset(pcm,0,sizeof(*pcm)*(n/2));
       continue;
     }
-    if(call_id<8)
-      klog("[snd/ogg] map0[%d] mdct ch=%d n=%d log2n=%d\n",
-           call_id,i,lookup->n,lookup->log2n);
     mdct_backward(lookup,pcm,pcm);
   }
 
   /* all done! */
-  if(call_id<8)
-    klog("[snd/ogg] map0[%d] done\n",call_id);
   return(0);
 }
 

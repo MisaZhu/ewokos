@@ -141,6 +141,7 @@ sock_open(int domain, int type, int protocol)
         break;
     }
     if (s->type != SOCK_RAW && s->desc == -1) {
+        sock_free(s);
         return -1;
     }
     return indexof(socks, s);
@@ -403,6 +404,7 @@ sock_accept(int id, struct sockaddr *addr, int *addrlen)
             ret = indexof(socks, new_s);
             return ret;
         }
+        tcp_close(ret);
     }
     return -1;
 }

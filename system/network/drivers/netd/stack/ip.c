@@ -443,15 +443,15 @@ ip_output_core(struct ip_iface *iface, uint8_t protocol, const uint8_t *data, si
     struct ip_hdr *hdr;
     uint16_t hlen, total;
     char addr[IP_ADDR_STR_LEN];
-    uint8_t *buf = memory_alloc(IP_TOTAL_SIZE_MAX*2);
+    hlen = sizeof(*hdr);
+    total = hlen + len;
+    uint8_t *buf = memory_alloc(total);
     if(!buf)
         return -1;
 
     hdr = (struct ip_hdr *)buf;
-    hlen = sizeof(*hdr);
     hdr->vhl = (IP_VERSION_IPV4 << 4) | (hlen >> 2);
     hdr->tos = 0;
-    total = hlen + len;
     hdr->total = hton16(total);
     hdr->id = hton16(id);
     hdr->offset = hton16(offset);

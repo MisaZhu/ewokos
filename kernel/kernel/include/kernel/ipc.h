@@ -43,6 +43,7 @@ typedef struct {
 	ipc_task_t    ctask; //current_task
 
     bool          do_switch;
+	uint8_t       restore_pending;
 	uint32_t      stack; //mapped stack page
 
 	ipc_res_t     saved_ipc_res;

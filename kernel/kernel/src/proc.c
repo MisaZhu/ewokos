@@ -309,6 +309,113 @@ void proc_restore_state(context_t* ctx, proc_t* proc, saved_state_t* saved_state
 	memset(saved_ipc_res, 0, sizeof(ipc_res_t));
 }
 
+static void proc_interrupt_timeout(proc_t* proc) {
+	if(proc == NULL || proc->space == NULL) {
+		return;
+	}
+
+	proc_interrupt_t* intr = &proc->space->interrupt;
+	uint32_t interrupt = intr->interrupt;
+	uint32_t intr_state = intr->state;
+
+	intr->counter = 0;
+	intr->state = INTR_STATE_IDLE;
+
+	if(proc->info.state != UNUSED && proc->info.state != ZOMBIE) {
+		proc->info.state = intr->saved_state.state;
+		proc->sleep_counter = intr->saved_state.sleep_counter;
+		memcpy(&proc->ctx, &intr->saved_state.ctx, sizeof(context_t));
+		intr->restore_pending = (intr_state == INTR_STATE_WORKING) ? 1 : 0;
+		if(proc->info.state == READY || proc->info.state == RUNNING) {
+			proc_ready(proc);
+		}
+	}
+	else {
+		intr->restore_pending = 0;
+	}
+
+	memset(&intr->saved_state, 0, sizeof(saved_state_t));
+	memset(&intr->saved_ipc_res, 0, sizeof(ipc_res_t));
+	intr->entry = 0;
+	intr->data = 0;
+	intr->interrupt = 0;
+
+	if(interrupt != 0 && interrupt != IRQ_SOFT) {
+		irq_enable_arch(interrupt);
+	}
+
+	proc_interrupt_wakeup(proc);
+
+#ifdef KERNEL_SMP
+	if(intr->restore_pending != 0 &&
+			_cpu_cores[proc->info.core].actived &&
+			proc->info.core != get_core_id()) {
+		ipi_send(proc->info.core);
+	}
+#endif
+}
+
+static void proc_ipc_timeout(proc_t* proc) {
+	if(proc == NULL || proc->space == NULL) {
+		return;
+	}
+
+	ipc_server_t* server = &proc->space->ipc_server;
+	ipc_task_t* ipc = &server->ctask;
+	proc_t* client_proc = NULL;
+	uint32_t client_uid = 0;
+
+	if(ipc->state == IPC_IDLE) {
+		server->do_switch = false;
+		server->restore_pending = 0;
+		return;
+	}
+
+	if(ipc->client_pid > 0) {
+		client_proc = proc_get(ipc->client_pid);
+		client_uid = ipc->uid;
+	}
+
+	server->do_switch = false;
+	proc->info.state = server->saved_state.state;
+	proc->sleep_counter = server->saved_state.sleep_counter;
+	memcpy(&proc->ctx, &server->saved_state.ctx, sizeof(context_t));
+	server->restore_pending = 1;
+	if(proc->info.state == READY || proc->info.state == RUNNING) {
+		proc_ready(proc);
+	}
+
+	memset(&server->saved_state, 0, sizeof(saved_state_t));
+	memset(&server->saved_ipc_res, 0, sizeof(ipc_res_t));
+
+	if(client_proc != NULL &&
+			client_proc->info.state != UNUSED &&
+			client_proc->info.state != ZOMBIE &&
+			client_proc->ipc_res.uid == client_uid) {
+		client_proc->ipc_res.uid = 0;
+		client_proc->ipc_res.state = IPC_IDLE;
+		proto_clear(&client_proc->ipc_res.data);
+	}
+
+	proc_ipc_close(proc, ipc);
+
+	if(client_proc != NULL &&
+			client_proc->info.state != UNUSED &&
+			client_proc->info.state != ZOMBIE) {
+		proc_wakeup(client_proc);
+	}
+
+	proc_ipc_wakeup(proc);
+
+#ifdef KERNEL_SMP
+	if(server->restore_pending != 0 &&
+			_cpu_cores[proc->info.core].actived &&
+			proc->info.core != get_core_id()) {
+		ipi_send(proc->info.core);
+	}
+#endif
+}
+
 void proc_switch_multi_core(context_t* ctx, proc_t* to, uint32_t core) {
 	if(to->info.core == core) {
 		to->info.state = RUNNING;
@@ -327,8 +434,19 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 	if(to == NULL)
 		return;
 
-	if(cproc != NULL && cproc->info.state != UNUSED)
-		memcpy(&cproc->ctx, ctx, sizeof(context_t));
+	if(cproc != NULL && cproc->info.state != UNUSED) {
+		if(cproc->info.type == TASK_TYPE_PROC &&
+				cproc->space != NULL &&
+				(cproc->space->interrupt.restore_pending != 0 ||
+				 cproc->space->ipc_server.restore_pending != 0)) {
+			memcpy(ctx, &cproc->ctx, sizeof(context_t));
+			cproc->space->interrupt.restore_pending = 0;
+			cproc->space->ipc_server.restore_pending = 0;
+		}
+		else {
+			memcpy(&cproc->ctx, ctx, sizeof(context_t));
+		}
+	}
 
 	if(cproc != to) {
 		page_dir_entry_t *vm = to->space->vm;
@@ -357,6 +475,10 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 		}
 		else if (to->space->ipc_server.do_switch) { // have ipc request to handle
 			ipc_task_t *ipc = proc_ipc_get_task(to);
+			if(ipc == NULL) {
+				to->space->ipc_server.do_switch = false;
+				goto proc_switch_done;
+			}
 			memcpy(&to->space->ipc_server.saved_state.ctx, &to->ctx, sizeof(context_t)); // save "to" context to ipc ctx, will restore after ipc done.
 			to->ctx.gpr[0] = ipc->uid;
 			to->ctx.gpr[1] = to->space->ipc_server.extra_data;
@@ -367,6 +489,8 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 			to->space->ipc_server.do_switch = false; // clear ipc request mask
 		}
 	}
+
+proc_switch_done:
 
 	if(cproc != to && cproc != NULL &&
 			cproc->info.state != UNUSED &&
@@ -523,6 +647,7 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 		/*free all ipc context*/
 		proc_ipc_clear(proc);
 		proc_ipc_wakeup_all(proc);
+		proc_interrupt_wakeup_all(proc);
 	
 		if(proc->space->interrupt.state != INTR_STATE_IDLE) {
 			if(proc->space->interrupt.interrupt != IRQ_SOFT) {
@@ -567,48 +692,110 @@ static inline void proc_free_user_stack(proc_t* proc) {
 	}
 }
 
+static void proc_funeral_dump_target(const char* stage, proc_t* current, proc_t* target) {
+	if(target == NULL) {
+		printf("proc_funeral[%s]: target=null\n", stage);
+		return;
+	}
+
+	printf("proc_funeral[%s]: current(pid=%d cmd=%s) target(pid=%d type=%d state=%d cmd=%s)\n",
+			stage,
+			current ? current->info.pid : -1,
+			current ? current->info.cmd : "<none>",
+			target->info.pid,
+			target->info.type,
+			target->info.state,
+			target->info.cmd);
+}
+
+static void proc_funeral_dump_space(const char* stage, proc_space_t* space) {
+	if(space == NULL) {
+		printf("proc_funeral[%s]: space=null\n", stage);
+		return;
+	}
+
+	printf("proc_funeral[%s]: pde_index=%d refs=%d heap=%x malloc=%x shm0=%d\n",
+			stage,
+			space->pde_index,
+			space->refs,
+			space->heap_size,
+			space->malloc_base,
+			space->shms[0]);
+}
+
 void proc_funeral(proc_t* proc) {
 	proc_t* cproc = get_current_proc();
+	proc_space_t* space;
 	if(cproc == NULL || cproc == proc || proc->info.state == UNUSED)
 		return;
+	space = proc->space;
+	if(space == NULL) {
+		proc_funeral_dump_target("space-null", cproc, proc);
+		_task_table[proc->info.pid] = NULL;
+		kfree(proc);
+		return;
+	}
 	if(proc->info.type == TASK_TYPE_PROC) {
-		if(proc->space->refs > 0) //keep it still got child thread running.
+		if(space->refs > 0) //keep it still got child thread running.
 			return;
 	}
 	else {
-		if(proc->space->refs > 0)
-			proc->space->refs--;
+		if(space->refs > 0)
+			space->refs--;
 	}
 
-	set_translation_table_base((uint32_t)V2P(proc->space->vm));
+	if(space->vm == NULL) {
+		proc_funeral_dump_target("vm-null", cproc, proc);
+		proc_funeral_dump_space("vm-null", space);
+		_task_table[proc->info.pid] = NULL;
+		kfree(proc);
+		return;
+	}
+
+	if(proc->info.type == TASK_TYPE_PROC &&
+			space->pde_index >= _kernel_config.max_proc_num) {
+		proc_funeral_dump_target("pde-bad", cproc, proc);
+		proc_funeral_dump_space("pde-bad", space);
+		_task_table[proc->info.pid] = NULL;
+		kfree(proc);
+		return;
+	}
+
+	set_translation_table_base((uint32_t)V2P(space->vm));
 	dma_release(proc->info.pid);
 	proc_free_user_stack(proc);
 
 	if(proc->info.type == TASK_TYPE_PROC) {
 		//free small_stack
-		if (proc->space->interrupt.stack != 0) {
-			thread_stack_free(proc, proc->space->interrupt.stack);
+		if (space->interrupt.stack != 0) {
+			thread_stack_free(proc, space->interrupt.stack);
 		}
-		if (proc->space->signal.stack != 0) {
-			thread_stack_free(proc, proc->space->signal.stack);
+		if (space->signal.stack != 0) {
+			thread_stack_free(proc, space->signal.stack);
 		}
-		if (proc->space->ipc_server.stack != 0) {
-			thread_stack_free(proc, proc->space->ipc_server.stack);
+		if (space->ipc_server.stack != 0) {
+			thread_stack_free(proc, space->ipc_server.stack);
 		}
 
 		/*free proc heap*/
-		proc_shrink_mem(proc, proc->space->heap_size / PAGE_SIZE);
+		proc_shrink_mem(proc, space->heap_size / PAGE_SIZE);
 
 		/*unmap share mems*/
 		proc_unmap_shms(proc);
 
 		set_translation_table_base(V2P(cproc->space->vm));
-		free_page_tables(proc->space->vm);
+		free_page_tables(space->vm);
 
-		_proc_vm_mark[proc->space->pde_index] = 0;
-		if(proc->space->thread_stacks != NULL)
-			kfree(proc->space->thread_stacks);
-		kfree(proc->space);
+		if(_proc_vm_mark == NULL) {
+			proc_funeral_dump_target("mark-null", cproc, proc);
+		}
+		else {
+			_proc_vm_mark[space->pde_index] = 0;
+		}
+
+		if(space->thread_stacks != NULL)
+			kfree(space->thread_stacks);
+		kfree(space);
 		proc->space = NULL;
 	}
 	else {
@@ -1156,11 +1343,7 @@ static int32_t renew_interrupt_counter(uint32_t usec) {
 		proc->space->interrupt.counter += usec;
 		if(proc->space->interrupt.counter >= INTERRUPT_TIMEOUT_USEC) {
 			printf("interrupt timeout: %d , %d\n", proc->space->interrupt.interrupt, proc->info.pid);
-			proc->space->interrupt.counter = 0;
-			proc->space->interrupt.state = INTR_STATE_IDLE;
-			if(proc->space->interrupt.interrupt != IRQ_SOFT)
-				irq_enable_arch(proc->space->interrupt.interrupt);
-			memcpy(&proc->ctx, &proc->space->signal.saved_state.ctx, sizeof(context_t));
+			proc_interrupt_timeout(proc);
 		}
 	}
 	return res;
@@ -1182,11 +1365,7 @@ static int32_t renew_ipc_counter(uint32_t usec) {
 		ipc->counter += usec;
 		if(ipc->counter >= IPC_TIMEOUT_USEC) {
 			printf("ipc timeout: clt:%d, srv:%d, call:%d/0x%x\n", ipc->client_pid, proc->info.pid, ipc->call_id, ipc->call_id);
-			memcpy(&proc->ctx, &proc->space->ipc_server.saved_state.ctx, sizeof(context_t));
-			if(proc->info.state == READY || proc->info.state == RUNNING)
-				proc_ready(proc);
-			proc_ipc_close(proc, ipc);
-			proc_ipc_wakeup(proc); 
+			proc_ipc_timeout(proc);
 		}
 	}
 	return res;

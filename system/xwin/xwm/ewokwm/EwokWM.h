@@ -10,6 +10,8 @@ using namespace Ewok;
 class EwokWM : public XWM {
 	void drawTitlePattern(graph_t* g, int x, int y, int w, int h, uint32_t fg);
 	void markFrameRound(graph_t* frame_g, int r);
+	graph_t* roundMask;
+	int roundMaskSize;
 
 protected:
 	void getMax(xinfo_t* info, grect_t* rect);

@@ -405,10 +405,6 @@ void mdct_backward(mdct_lookup *init, DATA_TYPE *in, DATA_TYPE *out){
   int n4=n>>2;
   int call_id=g_mdct_debug_calls++;
 
-  if(call_id<8)
-    klog("[snd/ogg] mdct[%d] enter n=%d log2n=%d\n",
-         call_id,n,init->log2n);
-
   /* rotate */
 
   DATA_TYPE *iX = in+n2-7;
@@ -440,11 +436,7 @@ void mdct_backward(mdct_lookup *init, DATA_TYPE *in, DATA_TYPE *out){
   }while(iX>=in);
 
   mdct_butterflies(init,out+n2,n2);
-  if(call_id<8)
-    klog("[snd/ogg] mdct[%d] after butterflies\n",call_id);
   mdct_bitreverse(init,out);
-  if(call_id<8)
-    klog("[snd/ogg] mdct[%d] after bitreverse\n",call_id);
 
   /* roatate + window */
 
@@ -502,9 +494,6 @@ void mdct_backward(mdct_lookup *init, DATA_TYPE *in, DATA_TYPE *out){
       iX+=4;
     }while(oX1>oX2);
   }
-
-  if(call_id<8)
-    klog("[snd/ogg] mdct[%d] done\n",call_id);
 }
 
 void mdct_forward(mdct_lookup *init, DATA_TYPE *in, DATA_TYPE *out){

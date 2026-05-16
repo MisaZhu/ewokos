@@ -120,12 +120,17 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
 	graph_t desktop_g;
 	graph_t frame_g;
 	graph_t ws_g;
+	memset(&desktop_g, 0, sizeof(graph_t));
+	memset(&frame_g, 0, sizeof(graph_t));
+	memset(&ws_g, 0, sizeof(graph_t));
 	if(!fetch_desktop_graph(xwm, shm_id, xw, xh, &desktop_g))
 		return;
 	if(!fetch_frame_graph(xwm, &info, &frame_g))
 		return;
-	if(!fetch_ws_graph(xwm, &info, &ws_g))
+	if(!fetch_ws_graph(xwm, &info, &ws_g)) {
+		free_win_graph(&frame_g);
 		return;
+	}
 	
 	if((info.style & XWIN_STYLE_NO_FRAME) == 0) {
 		grect_t rtitle, rclose, rmax, rmin, rresize, rframe;
@@ -328,4 +333,3 @@ void xwm_run(xwm_t* xwm) {
 #ifdef __cplusplus
 }
 #endif
-

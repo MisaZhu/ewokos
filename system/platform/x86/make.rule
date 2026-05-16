@@ -32,7 +32,7 @@ CXXFLAGS = -m64 \
 CFLAGS += -DBSP_BOOST
 CXXFLAGS += -DBSP_BOOST
 
-EWOK_LIBC = -lewoksys -lc -lgloss $(LIBGCC)
+EWOK_LIBC = --start-group -lewoksys -lc -lgloss --end-group $(LIBGCC)
 EWOK_LIB_GRAPH = -lfont -lfreetype -liconbuf -lgraph -lpng -ljpeg -lgif -ltga -lsvg -lz -lopenlibm -ldisplay -lfb -lkeyb -lmouse $(BSP_LFLAGS)
 EWOK_LIB_X = -lwidget++ -llitehtml -lx++ -lx -ltinyjson -lewokstl -ltinyhttpsc -lsocket
 

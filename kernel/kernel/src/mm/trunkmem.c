@@ -21,7 +21,7 @@ mem_block_t* get_block(char* p) {
 		return NULL;
 
 	uint32_t block_size = sizeof(mem_block_t);
-	if(((uint32_t)p) < block_size)
+	if(((uintptr_t)p) < (uintptr_t)block_size)
 		return NULL;
 
 	mem_block_t* block = (mem_block_t*)(p - block_size);
@@ -104,7 +104,8 @@ char* trunk_malloc(malloc_t* m, uint32_t size) {
 }
 
 uint32_t trunk_free_size(malloc_t* m) {
-	uint32_t ret = m->get_mem_top(m->arg) - m->get_mem_tail(m->arg);
+	uint32_t ret = (uint32_t)((uintptr_t)m->get_mem_top(m->arg) -
+			(uintptr_t)m->get_mem_tail(m->arg));
 	//mem_block_t* block = m->start == NULL ? m->head : m->start;
 	mem_block_t* block = m->head;
 	while(block != NULL) {
@@ -152,11 +153,11 @@ try to shrink the pages.
 */
 static void try_shrink(malloc_t* m) {
 	uint32_t block_size = sizeof(mem_block_t);
-	uint32_t addr = (uint32_t)m->tail;
+	uintptr_t addr = (uintptr_t)m->tail;
 	//check if page aligned.	
 	if(m->tail == NULL ||
 			m->tail->used == 1 ||
-			(addr % PAGE_SIZE) != 0)
+			(addr % (uintptr_t)PAGE_SIZE) != 0)
 		return;
 
 	uint32_t pages = (m->tail->size+block_size) / PAGE_SIZE;

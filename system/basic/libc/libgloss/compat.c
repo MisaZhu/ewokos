@@ -16,6 +16,7 @@
 #include <getopt.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <ewoksys/trunkmem.h>
 #include <ewoksys/vfs.h>
 
 extern void *_sbrk(ptrdiff_t incr);
@@ -33,6 +34,7 @@ extern int _gettimeofday(struct timeval *tp, void *tzvp);
 extern clock_t _times(struct tms *tp);
 extern int _fork(void);
 extern void _exit(int err);
+extern void *__heap_end;
 
 char *__progname = "";
 static char *_empty_environ[] = { NULL };
@@ -615,34 +617,90 @@ void *bsearch(const void *key, const void *base, size_t nmemb, size_t size,
 	return NULL;
 }
 
-typedef struct {
-	size_t size;
-} alloc_header_t;
+static malloc_t compat_heap;
+static int compat_heap_ready = 0;
+
+static void *compat_heap_tail(void *arg) {
+	(void)arg;
+	return (__heap_end != NULL) ? __heap_end : _sbrk(0);
+}
+
+static int32_t compat_heap_expand(void *arg, int32_t pages) {
+	ptrdiff_t bytes;
+
+	(void)arg;
+	if (pages <= 0) {
+		return 0;
+	}
+
+	bytes = (ptrdiff_t)((size_t)pages * (size_t)compat_heap.seg_size);
+	return (_sbrk(bytes) == (void *)-1) ? -1 : 0;
+}
+
+static void compat_heap_shrink(void *arg, int32_t pages) {
+	ptrdiff_t bytes;
+
+	(void)arg;
+	if (pages <= 0) {
+		return;
+	}
+
+	bytes = (ptrdiff_t)((size_t)pages * (size_t)compat_heap.seg_size);
+	(void)_sbrk(-bytes);
+}
+
+static void compat_heap_init(void) {
+	if (compat_heap_ready) {
+		return;
+	}
+
+	memset(&compat_heap, 0, sizeof(compat_heap));
+	compat_heap.seg_size = 4096;
+	compat_heap.expand = compat_heap_expand;
+	compat_heap.shrink = compat_heap_shrink;
+	compat_heap.get_mem_tail = compat_heap_tail;
+	compat_heap_ready = 1;
+}
 
 void *malloc(size_t size) {
-	alloc_header_t *hdr;
+	void *ptr;
 
 	if (size == 0) {
 		size = 1;
 	}
-
-	hdr = (alloc_header_t *)_sbrk((ptrdiff_t)(sizeof(alloc_header_t) + size));
-	if (hdr == (void *)-1 || hdr == NULL) {
+	if (size > UINT32_MAX) {
 		errno = ENOMEM;
 		return NULL;
 	}
 
-	hdr->size = size;
-	return (void *)(hdr + 1);
+	compat_heap_init();
+	ptr = trunk_malloc(&compat_heap, (uint32_t)size);
+	if (ptr == NULL) {
+		errno = ENOMEM;
+	}
+	return ptr;
 }
 
 void free(void *ptr) {
-	(void)ptr;
+	if (ptr == NULL) {
+		return;
+	}
+
+	compat_heap_init();
+	trunk_free(&compat_heap, (char *)ptr);
 }
 
 void *calloc(size_t nmemb, size_t size) {
-	size_t total = nmemb * size;
-	void *ptr = malloc(total);
+	size_t total;
+	void *ptr;
+
+	if (size != 0 && nmemb > (SIZE_MAX / size)) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	total = nmemb * size;
+	ptr = malloc(total);
 	if (ptr != NULL) {
 		memset(ptr, 0, total);
 	}
@@ -650,7 +708,6 @@ void *calloc(size_t nmemb, size_t size) {
 }
 
 void *realloc(void *ptr, size_t size) {
-	alloc_header_t *hdr;
 	void *new_ptr;
 	size_t old_size;
 
@@ -661,15 +718,20 @@ void *realloc(void *ptr, size_t size) {
 		free(ptr);
 		return NULL;
 	}
+	if (size > UINT32_MAX) {
+		errno = ENOMEM;
+		return NULL;
+	}
 
-	hdr = ((alloc_header_t *)ptr) - 1;
-	old_size = hdr->size;
+	compat_heap_init();
+	old_size = trunk_msize(&compat_heap, (char *)ptr);
 	new_ptr = malloc(size);
 	if (new_ptr == NULL) {
 		return NULL;
 	}
 
 	memcpy(new_ptr, ptr, old_size < size ? old_size : size);
+	free(ptr);
 	return new_ptr;
 }
 

@@ -24,6 +24,22 @@
 #include "xserver.h"
 #include "xtheme.h"
 
+static void release_graph_shm(graph_t** g, void** shm, int32_t* shm_id) {
+	if(g != NULL && *g != NULL) {
+		graph_free(*g);
+		*g = NULL;
+	}
+
+	if(shm != NULL && *shm != NULL) {
+		shmdt(*shm);
+		*shm = NULL;
+	}
+
+	if(shm_id != NULL && *shm_id != -1) {
+		*shm_id = -1;
+	}
+}
+
 static int32_t read_config(x_t* x, const char* fname) {
 	x->config.fps = 60;
 
@@ -464,19 +480,14 @@ static void x_del_win(x_t* x, xwin_t* win) {
 	if(win == x->win_last)
 		x->win_last = NULL;
 
-
-	if(win->ws_g != NULL) {
-		graph_free(win->ws_g);
-		shmdt(win->ws_g_shm);
+	if(win->xinfo != NULL) {
+		release_graph_shm(&win->ws_g, &win->ws_g_shm, &win->xinfo->ws_g_shm_id);
+		release_graph_shm(&win->frame_g, &win->frame_g_shm, &win->xinfo->frame_g_shm_id);
 	}
 	
 	if(win->ws_g_buffer != NULL) {
 		graph_free(win->ws_g_buffer);
-	}
-
-	if(win->frame_g != NULL) {
-		graph_free(win->frame_g);
-		shmdt(win->frame_g_shm);
+		win->ws_g_buffer = NULL;
 	}
 
 	shmdt(win->xinfo);
@@ -595,6 +606,9 @@ static int x_init_display(x_t* x, int32_t display_index) {
 static int x_init(x_t* x, const char* display_man, int32_t display_index) {
 	memset(x, 0, sizeof(x_t));
 	x->xwm_pid = -1;
+	for(uint32_t i = 0; i < DISP_MAX; i++) {
+		x->displays[i].g_shm_id = -1;
+	}
 
 	x->display_man = display_man;
 	if(x_init_display(x, display_index) != 0)
@@ -617,8 +631,8 @@ static void x_close(x_t* x) {
 		x_display_t* display = &x->displays[i];
 		fb_close(&display->fb);
 		if(display->g != NULL) {
-			shmdt(display->g->buffer);
-			graph_free(display->g);
+			void* g_shm = display->g->buffer;
+			release_graph_shm(&display->g, &g_shm, &display->g_shm_id);
 		}
 		if(display->g_fb != NULL) {
 			shmdt(display->g_fb->buffer);
@@ -1114,6 +1128,10 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 		win->xinfo = shmat(xinfo_shm_id, 0, 0);
 	if(win->xinfo == NULL)
 		return -1;
+	if(win->xinfo->ws_g_shm_id == 0 && win->ws_g_shm == NULL)
+		win->xinfo->ws_g_shm_id = -1;
+	if(win->xinfo->frame_g_shm_id == 0 && win->frame_g_shm == NULL)
+		win->xinfo->frame_g_shm_id = -1;
 
 	if((win->xinfo->style & XWIN_STYLE_LAUNCHER) != 0)
 		x->win_launcher = win;
@@ -1165,24 +1183,14 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 			win->frame_g_shm == NULL ||
 			win->ws_g == NULL) {
 
-		if(win->ws_g != NULL && win->ws_g_shm != NULL) {
-			graph_free(win->ws_g);
-			shmdt(win->ws_g_shm);
-			win->ws_g = NULL;
-			win->ws_g_shm = NULL;
-		}
+		release_graph_shm(&win->ws_g, &win->ws_g_shm, &win->xinfo->ws_g_shm_id);
 
 		if(win->ws_g_buffer != NULL) {
 			graph_free(win->ws_g_buffer);
 			win->ws_g_buffer = NULL;
 		}
 
-		if(win->frame_g != NULL && win->frame_g_shm != NULL) {
-			graph_free(win->frame_g);
-			shmdt(win->frame_g_shm);
-			win->frame_g = NULL;
-			win->frame_g_shm = NULL;
-		}
+		release_graph_shm(&win->frame_g, &win->frame_g_shm, &win->xinfo->frame_g_shm_id);
 
 		key_t key = (((int32_t)win) << 16) | proc_get_uuid(from_pid);
 		int32_t ws_g_shm_id = shmget(key,
@@ -1192,8 +1200,9 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 			return -1;
 
 		win->ws_g_shm = shmat(ws_g_shm_id, 0, 0);
-		if(win->ws_g_shm == NULL) 
+		if(win->ws_g_shm == NULL) {
 			return -1;
+		}
 
 		win->xinfo->ws_g_shm_id = ws_g_shm_id;
 		win->ws_g = graph_new(win->ws_g_shm, win->xinfo->wsr.w, win->xinfo->wsr.h);
@@ -1205,12 +1214,24 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 		int32_t frame_g_shm_id = shmget(key,
 				win->xinfo->winr.w * win->xinfo->winr.h * 4,
 				0666|IPC_CREAT|IPC_EXCL);
-		if(frame_g_shm_id == -1)
+		if(frame_g_shm_id == -1) {
+			release_graph_shm(&win->ws_g, &win->ws_g_shm, &win->xinfo->ws_g_shm_id);
+			if(win->ws_g_buffer != NULL) {
+				graph_free(win->ws_g_buffer);
+				win->ws_g_buffer = NULL;
+			}
 			return -1;
+		}
 
 		win->frame_g_shm = shmat(frame_g_shm_id, 0, 0);
-		if(win->frame_g_shm == NULL) 
+		if(win->frame_g_shm == NULL) {
+			release_graph_shm(&win->ws_g, &win->ws_g_shm, &win->xinfo->ws_g_shm_id);
+			if(win->ws_g_buffer != NULL) {
+				graph_free(win->ws_g_buffer);
+				win->ws_g_buffer = NULL;
+			}
 			return -1;
+		}
 
 		win->xinfo->frame_g_shm_id = frame_g_shm_id;
 		win->frame_g = graph_new(win->frame_g_shm, win->xinfo->winr.w, win->xinfo->winr.h);

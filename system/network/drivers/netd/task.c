@@ -135,8 +135,12 @@ int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *o
         task->cmd = cmd;	
         task->p = p;
         task->from_pid = from_pid;
-        PF->init(&task->in);
-        PF->init(&task->out);
+        /*
+         * task->in/out are persistent proto_t objects. PF->init() only resets
+         * the view and does not release heap buffers grown by previous large I/O.
+         */
+        PF->clear(&task->in);
+        PF->clear(&task->out);
         PF->copy(&task->in, in->data, in->size);
         task->state = NET_TASK_START;
         pthread_mutex_unlock(&task_list_lock);
@@ -172,8 +176,8 @@ int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
         task->cmd = SOCK_RECV;	
         task->p = p;
         task->from_pid = from_pid;
-        PF->init(&task->in);
-        PF->init(&task->out);
+        PF->clear(&task->in);
+        PF->clear(&task->out);
         PF->addi(&task->in, size);
         task->state = NET_TASK_START;
         pthread_mutex_unlock(&task_list_lock);
@@ -202,8 +206,8 @@ int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p){
         task->p = p;
         task->from_pid = from_pid;
 
-        PF->init(&task->in);
-        PF->init(&task->out);
+        PF->clear(&task->in);
+        PF->clear(&task->out);
         PF->add(&task->in, buf, size);
         task->state = NET_TASK_START;
         pthread_mutex_unlock(&task_list_lock);
@@ -355,8 +359,8 @@ void task_check_read_events(void) {
            task->read_task->node > 0 &&
            sock_readable(task->read_task->sock)) {
             task->read_task->cmd = SOCK_RECV;
-            PF->init(&task->read_task->in);
-            PF->init(&task->read_task->out);
+            PF->clear(&task->read_task->in);
+            PF->clear(&task->read_task->out);
             PF->addi(&task->read_task->in, TASK_READ_BUF_SIZE);
             task->read_task->state = NET_TASK_START;
         }
@@ -389,8 +393,8 @@ static void* task_thread(void* arg){
 
     pthread_mutex_lock(&task_list_lock);
     if(task->state != NET_TASK_START) {
-        PF->init(&task->in);
-        PF->init(&task->out);
+        PF->clear(&task->in);
+        PF->clear(&task->out);
         task->state = NET_TASK_IDLE;
     }
     pthread_mutex_unlock(&task_list_lock);

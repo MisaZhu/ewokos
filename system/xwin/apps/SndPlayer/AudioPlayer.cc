@@ -744,7 +744,6 @@ bool AudioPlayer::loadOgg(const char* device) {
     oggVf = (OggVorbis_File*)calloc(1, sizeof(OggVorbis_File));
     oggDs = (OggVorbis_DataSource*)calloc(1, sizeof(OggVorbis_DataSource));
     if (oggVf == NULL || oggDs == NULL) {
-        klog("[snd/ogg] loadOgg alloc failed\n");
         return false;
     }
 
@@ -759,13 +758,11 @@ bool AudioPlayer::loadOgg(const char* device) {
     callbacks.tell_func = ogg_tell_func;
 
     if (ov_open_callbacks(oggDs, oggVf, NULL, 0, callbacks) < 0) {
-        klog("[snd/ogg] ov_open_callbacks failed\n");
         return false;
     }
 
     vorbis_info *vi = ov_info(oggVf, -1);
     if (vi == NULL) {
-        klog("[snd/ogg] ov_info failed\n");
         return false;
     }
     int hs = ov_halfrate_p(oggVf);
@@ -811,16 +808,6 @@ bool AudioPlayer::loadOgg(const char* device) {
         fileAvgBitrate = (int)(((uint64_t)totalBytes * 8000ULL) / (uint64_t)totalMs);
     }
     ovAvgBitrate = (int)ov_bitrate(oggVf, -1);
-    klog("[snd/ogg] stream rate=%d out_rate=%d channels=%d nominal_br=%d file_avg_br=%d ov_avg_br=%d total_ms=%d seekable=%d halfrate=%d\n",
-         (int)vi->rate,
-         sampleRate,
-         (int)vi->channels,
-         (int)vi->bitrate_nominal,
-         fileAvgBitrate,
-         ovAvgBitrate,
-         (int)totalMs,
-         (int)oggVf->seekable,
-         hs);
     return true;
 }
 
@@ -895,7 +882,6 @@ void AudioPlayer::replayOgg(const char* device) {
     callbacks.tell_func = ogg_tell_func;
 
     if (ov_open_callbacks(oggDs, oggVf, NULL, 0, callbacks) < 0) {
-        klog("[snd/ogg] replay ov_open_callbacks failed\n");
         eof = true;
         writeFailed = true;
         return;
@@ -1003,18 +989,8 @@ bool AudioPlayer::decodeOggFrame() {
     int retries = 0;
     int decodeCall = g_ogg_decode_debug_calls++;
 
-    if (decodeCall < 8) {
-        klog("[snd/ogg] decode[%d] enter pos=%d eof=%d playing=%d\n",
-             decodeCall, oggDs == NULL ? -1 : oggDs->pos, eof, playing);
-    }
-
     do {
         frames_read = ov_read_float(oggVf, &pcm_channels, MINIMP3_MAX_SAMPLES_PER_FRAME / 2, &oggBitstream);
-        if (decodeCall < 8) {
-            klog("[snd/ogg] decode[%d] ov_read_float=%d retry=%d pos=%d bitstream=%d\n",
-                 decodeCall, (int)frames_read, retries,
-                 oggDs == NULL ? -1 : oggDs->pos, oggBitstream);
-        }
         if (frames_read > 0) {
             zeroReadCount = 0;
             break;
@@ -1063,15 +1039,10 @@ bool AudioPlayer::decodeOggFrame() {
     if (decodeCall < 8) {
         int16_t s0 = samples > 0 ? sampleBuf[0] : 0;
         int16_t s1 = samples > 0 ? sampleBuf[1] : 0;
-        klog("[snd/ogg] decode[%d] samples=%d out_bytes=%d first=%d,%d\n",
-             decodeCall, samples, output_bytes, s0, s1);
     }
 
     if (playing) {
         int ret = pcm_write(pcmDev, output_buf, output_bytes);
-        if (decodeCall < 8) {
-            klog("[snd/ogg] decode[%d] pcm_write ret=%d\n", decodeCall, ret);
-        }
         if (ret != 0) {
             eof = true;
             writeFailed = true;

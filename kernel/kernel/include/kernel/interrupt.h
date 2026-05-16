@@ -22,6 +22,8 @@ typedef struct {
 	uint32_t      state;
 	uint32_t      stack; //mapped stack page
 	uint32_t      counter;
+	uint8_t       restore_pending;
+	queue_t       wait_queue;
 
     ipc_res_t     saved_ipc_res;
 	saved_state_t saved_state;
@@ -34,6 +36,10 @@ int32_t interrupt_setup(struct st_proc* proc, uint32_t interrupt, ewokos_addr_t 
 int32_t interrupt_send(context_t* ctx, uint32_t irq);
 
 int32_t interrupt_soft_send(context_t* ctx, int32_t to_pid, ewokos_addr_t entry, ewokos_addr_t data);
+
+int32_t proc_interrupt_wait(context_t* ctx, struct st_proc* serv_proc, struct st_proc* proc);
+struct st_proc* proc_interrupt_wakeup(struct st_proc* serv_proc);
+void proc_interrupt_wakeup_all(struct st_proc* serv_proc);
 
 void interrupt_end(context_t* ctx);
 

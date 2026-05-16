@@ -30,6 +30,7 @@ static int x_get_event(x_t* x, int xserv_pid, xevent_t* ev, bool block) {
 	proto_t out;
 	PF->init(&out);
 	if(dev_cntl_by_pid(xserv_pid, X_DCNTL_GET_EVT, NULL, &out) != 0) {
+		PF->clear(&out);
 		return -1;
 	}	
 
@@ -114,6 +115,7 @@ int x_get_display_num(void) {
 	int ret = 0;
 	if(dev_cntl("/dev/x", X_DCNTL_GET_DISP_NUM, NULL, &out) == 0)
 		ret = proto_read_int(&out);
+	PF->clear(&out);
 	return ret;
 }
 
@@ -144,6 +146,7 @@ static int x_update_theme(void) {
 	PF->init(&out);
 	if(dev_cntl_by_pid(xserv_pid, X_DCNTL_GET_THEME, NULL, &out) != 0) {
 		klog("update theme error\n");
+		PF->clear(&out);
 		return -1;
 	}	
 

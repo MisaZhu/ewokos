@@ -126,10 +126,12 @@ void keybd_interrupt_handle(virtio_dev_t virt_dev, struct virtio_input_event *ev
 static int keybd_loop(struct st_vdevice* dev, void* p) {
 	(void)p;
 
+	ipc_disable();
 	if(_wakeup) {
 		vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
 		_wakeup = false;
 	}
+	ipc_enable();
 	usleep(3000);
 	return 0;
 }

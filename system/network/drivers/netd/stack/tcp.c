@@ -26,7 +26,7 @@
 #define TCP_FLG_IS(x, y) ((x & 0x3f) == (y))
 #define TCP_FLG_ISSET(x, y) ((x & 0x3f) & (y) ? 1 : 0)
 
-#define TCP_PCB_SIZE 128
+#define TCP_PCB_SIZE 64
 
 #define TCP_PCB_MODE_RFC793 1
 #define TCP_PCB_MODE_SOCKET 2
@@ -102,7 +102,7 @@ struct tcp_pcb {
     uint32_t irs;
     uint16_t mtu;
     uint16_t mss;
-    uint8_t buf[65535]; /* receive buffer */
+    uint8_t buf[1024*32]; /* receive buffer */
     struct sched_ctx ctx;
     struct queue_head queue; /* retransmit queue */
     struct timeval tw_timer;
@@ -363,7 +363,9 @@ tcp_output_segment(uint32_t seq, uint32_t ack, uint8_t flg, uint16_t wnd, uint8_
     uint16_t total;
     char ep1[IP_ENDPOINT_STR_LEN];
     char ep2[IP_ENDPOINT_STR_LEN];
-    uint8_t *buf = memory_alloc(IP_PAYLOAD_SIZE_MAX);
+    uint8_t *buf;
+    total = sizeof(*hdr) + len;
+    buf = memory_alloc(total);
     if(!buf)
         return -1;
 
@@ -382,7 +384,6 @@ tcp_output_segment(uint32_t seq, uint32_t ack, uint8_t flg, uint16_t wnd, uint8_
     pseudo.dst = foreign->addr;
     pseudo.zero = 0;
     pseudo.protocol = IP_PROTOCOL_TCP;
-    total = sizeof(*hdr) + len;
     pseudo.len = hton16(total);
     psum = ~cksum16((uint16_t *)&pseudo, sizeof(pseudo), 0);
     hdr->sum = cksum16((uint16_t *)hdr, total, psum);
@@ -1392,7 +1393,7 @@ tcp_send(int id, uint8_t *data, size_t len)
     struct tcp_pcb *pcb;
     ssize_t sent = 0;
     struct ip_iface *iface;
-    size_t mss, cap, slen;
+    size_t mss, cap, slen, inflight;
     struct timeval send_start, send_end, send_diff;
     gettimeofday(&send_start, NULL);
     mutex_lock(&mutex);
@@ -1441,7 +1442,12 @@ RETRY:
         mss = NET_IFACE(iface)->dev->mtu - (IP_HDR_SIZE_MIN + sizeof(struct tcp_hdr));
         // Send multiple segments without waiting for ACK (pipelining)
         while (sent < (ssize_t)len) {
-            cap = pcb->snd.wnd - (pcb->snd.nxt - pcb->snd.una);
+            inflight = pcb->snd.nxt - pcb->snd.una;
+            if (inflight >= pcb->snd.wnd) {
+                cap = 0;
+            } else {
+                cap = pcb->snd.wnd - inflight;
+            }
             if (!cap) {
                 // No window available, need to wait for ACK
                 // If we have already sent some data, return what we've sent

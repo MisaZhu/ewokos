@@ -22,6 +22,11 @@ typedef struct {
 	uint32_t irq;
 } interrupt_item_t;
 
+typedef struct {
+	int32_t pid;
+	uint32_t uuid;
+} interrupt_queue_item_t;
+
 static interrupt_item_t _interrupts[SYS_INT_MAX];
 
 void interrupt_init(void) {
@@ -104,6 +109,7 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 	proc->space->interrupt.data = intr->data;
 	proc->space->interrupt.state = INTR_STATE_START;
 	proc->space->interrupt.counter = 0;
+	proc->space->interrupt.restore_pending = 0;
 
 	//if(interrupt != IRQ_SOFT)
 		//irq_disable_cpsr(&proc->ctx); //disable interrupt on proc
@@ -130,14 +136,76 @@ int32_t  interrupt_soft_send(context_t* ctx, int32_t to_pid, ewokos_addr_t entry
 	return interrupt_send_raw(ctx, IRQ_SOFT, &intr);
 }
 
+int32_t proc_interrupt_wait(context_t* ctx, struct st_proc* serv_proc, proc_t* proc) {
+	if(serv_proc == NULL || proc == NULL) {
+		return -1;
+	}
+
+	interrupt_queue_item_t* item = (interrupt_queue_item_t*)kmalloc(sizeof(interrupt_queue_item_t));
+	if(item == NULL) {
+		return -1;
+	}
+
+	item->pid = proc->info.pid;
+	item->uuid = proc->info.uuid;
+	queue_push(&serv_proc->space->interrupt.wait_queue, item);
+	proc_block(ctx, proc);
+	return 0;
+}
+
+proc_t* proc_interrupt_wakeup(struct st_proc* serv_proc) {
+	if(serv_proc == NULL) {
+		return NULL;
+	}
+
+	interrupt_queue_item_t* item = (interrupt_queue_item_t*)queue_pop(&serv_proc->space->interrupt.wait_queue);
+	if(item == NULL) {
+		return NULL;
+	}
+
+	proc_t* proc = proc_get(item->pid);
+	if(proc == NULL || proc->info.uuid != item->uuid) {
+		kfree(item);
+		return NULL;
+	}
+
+	kfree(item);
+	proc_wakeup(proc);
+	return proc;
+}
+
+void proc_interrupt_wakeup_all(struct st_proc* serv_proc) {
+	if(serv_proc == NULL) {
+		return;
+	}
+
+	while(true) {
+		interrupt_queue_item_t* item = (interrupt_queue_item_t*)queue_pop(&serv_proc->space->interrupt.wait_queue);
+		if(item == NULL) {
+			break;
+		}
+
+		proc_t* proc = proc_get(item->pid);
+		if(proc == NULL || proc->info.uuid != item->uuid) {
+			kfree(item);
+			continue;
+		}
+
+		kfree(item);
+		proc_wakeup(proc);
+	}
+}
+
 void interrupt_end(context_t* ctx) {
 	proc_t* cproc = get_current_proc();
 	uint32_t interrupt = cproc->space->interrupt.interrupt;
 
 	cproc->space->interrupt.state = INTR_STATE_IDLE;
-	proc_ipc_wakeup(cproc);
+	cproc->space->interrupt.counter = 0;
+	cproc->space->interrupt.restore_pending = 0;
 
 	if(cproc->info.state == UNUSED || cproc->info.state == ZOMBIE) {
+		proc_interrupt_wakeup(cproc);
 		schedule(ctx);
 		return;
 	}
@@ -150,5 +218,9 @@ void interrupt_end(context_t* ctx) {
 	if(interrupt != IRQ_SOFT) {
 		irq_enable_arch(interrupt);
 	}
+	cproc->space->interrupt.entry = 0;
+	cproc->space->interrupt.data = 0;
+	cproc->space->interrupt.interrupt = 0;
+	proc_interrupt_wakeup(cproc);
 	schedule(ctx);
 }

@@ -31,7 +31,17 @@ void EwokWM:: markFrameRound(graph_t* frame_g, int r) {
 	if(r <= 0)
 		r = 10;
 
-	graph_t* mask = graph_new(NULL, r, r);
+	if(roundMask == NULL || roundMaskSize != r) {
+		if(roundMask != NULL)
+			graph_free(roundMask);
+		roundMask = graph_new(NULL, r, r);
+		roundMaskSize = (roundMask != NULL) ? r : 0;
+	}
+
+	graph_t* mask = roundMask;
+	if(mask == NULL)
+		return;
+
 	graph_clear(mask, 0);
 	graph_fill_arc(mask, mask->w-1, mask->h-1, r, 90, 180, 0xffffffff);
 	graph_blt_alpha_mask(mask, 0, 0, mask->w, mask->h, frame_g, 0, 0, mask->w, mask->h);
@@ -47,8 +57,6 @@ void EwokWM:: markFrameRound(graph_t* frame_g, int r) {
 	graph_clear(mask, 0);
 	graph_fill_arc(mask, 0, 0, r, 270, 360, 0xffffffff);
 	graph_blt_alpha_mask(mask, 0, 0, mask->w, mask->h, frame_g, frame_g->w-mask->w, frame_g->h-mask->h, mask->w, mask->h);
-
-	graph_free(mask);
 }
 
 void EwokWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinfo_t* info, grect_t* r, bool top) {
@@ -162,9 +170,13 @@ void EwokWM::drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 }
 
 EwokWM::~EwokWM(void) {
+	if(roundMask != NULL)
+		graph_free(roundMask);
 }
 
 EwokWM::EwokWM(void) {
+	roundMask = NULL;
+	roundMaskSize = 0;
 	xwm.theme.desktopBGColor = 0xff555588;
 	xwm.theme.desktopFGColor = 0xff8888aa;
 	xwm.theme.frameBGColor = 0xffaaaaaa;

@@ -1904,24 +1904,15 @@ long ov_read_filter(OggVorbis_File *vf,char *buffer,int length,
 
   if(vf->ready_state<OPENED)return(OV_EINVAL);
 
-  if(call_id<8)
-    klog("[snd/ogg] vf_read[%d] enter ready=%d length=%d seekable=%d\n",
-         call_id,vf->ready_state,length,vf->seekable);
-
   while(1){
     if(vf->ready_state==INITSET){
       samples=vorbis_synthesis_pcmout(&vf->vd,&pcm);
-      if(call_id<8)
-        klog("[snd/ogg] vf_read[%d] pcmout=%d\n",call_id,(int)samples);
       if(samples)break;
     }
 
     /* suck in another packet */
     {
       int ret=_fetch_and_process_packet(vf,NULL,1,1);
-      if(call_id<8)
-        klog("[snd/ogg] vf_read[%d] fetch ret=%d ready=%d link=%d\n",
-             call_id,ret,vf->ready_state,vf->current_link);
       if(ret==OV_EOF)
         return(0);
       if(ret==OV_HOLE){
@@ -2048,9 +2039,6 @@ long ov_read_filter(OggVorbis_File *vf,char *buffer,int length,
     hs=vorbis_synthesis_halfrate_p(vf->vi);
     vf->pcm_offset+=(samples<<hs);
     if(bitstream)*bitstream=vf->current_link;
-    if(call_id<8)
-      klog("[snd/ogg] vf_read[%d] return bytes=%d samples=%d hs=%d pcm_offset=%d\n",
-           call_id,(int)(samples*bytespersample),(int)samples,hs,(int)vf->pcm_offset);
     return(samples*bytespersample);
   }else{
     return(samples);

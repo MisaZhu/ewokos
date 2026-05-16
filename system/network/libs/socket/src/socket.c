@@ -270,6 +270,10 @@ int accept (int fd, struct sockaddr* addr,uint32_t * addr_len){
     ret = proto_read_int(&out);
     PF->clear(&in);
 	PF->clear(&out);
+    if (ret != 0) {
+        close(accept_fd);
+        return -1;
+    }
 
     return accept_fd;
 }

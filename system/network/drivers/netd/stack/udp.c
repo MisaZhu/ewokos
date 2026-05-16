@@ -230,19 +230,20 @@ udp_output(struct ip_endpoint *src, struct ip_endpoint *dst, const  uint8_t *dat
     uint16_t total, psum = 0;
     char ep1[IP_ENDPOINT_STR_LEN];
     char ep2[IP_ENDPOINT_STR_LEN];
+    uint8_t *buf;
 
     if (len > IP_PAYLOAD_SIZE_MAX - sizeof(*hdr)) {
         errorf("too long");
         return -1;
     }
-    uint8_t *buf = malloc(IP_PAYLOAD_SIZE_MAX);
+    total = sizeof(*hdr) + len;
+    buf = malloc(total);
     if(!buf)
         return -1;
 
     hdr = (struct udp_hdr *)buf;
     hdr->src = src->port;
     hdr->dst = dst->port;
-    total = sizeof(*hdr) + len;
     hdr->len = hton16(total);
     hdr->sum = 0;
     memcpy(hdr + 1, data, len);

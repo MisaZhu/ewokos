@@ -354,7 +354,7 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 	if(serv_proc->space->interrupt.state != INTR_STATE_IDLE) {
 		//if((call_id & IPC_NON_RETURN) == 0) {
 			ctx->gpr[0] = IPC_ERROR_RETRY; // blocked if proc is on interrupt task, should retry
-			proc_ipc_wait(ctx, serv_proc, client_proc);
+			proc_interrupt_wait(ctx, serv_proc, client_proc);
 			return;
 		//}
 		//call_id = call_id | IPC_LAZY; //not do task immediately
@@ -473,6 +473,7 @@ static void sys_ipc_end(context_t* ctx) {
 			ipc == NULL)
 		return;
 
+	serv_proc->space->ipc_server.restore_pending = 0;
 	proc_restore_state(ctx, serv_proc, &serv_proc->space->ipc_server.saved_state, &serv_proc->space->ipc_server.saved_ipc_res);
 	if(serv_proc->info.state == READY || serv_proc->info.state == RUNNING) {
 		proc_ready(serv_proc);
