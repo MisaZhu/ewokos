@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 #include <stdint.h>
+#include <pthread.h>
 
 typedef struct mem_block {
 	struct mem_block* next;
@@ -27,6 +28,8 @@ typedef struct {
 	mem_block_t* head;
 	mem_block_t* tail;
 	mem_block_t* start;
+	pthread_mutex_t lock;
+	uint32_t lock_inited;
 } malloc_t;
 
 char* trunk_malloc(malloc_t* m, uint32_t size);

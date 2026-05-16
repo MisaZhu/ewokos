@@ -1,5 +1,6 @@
 #include <stddef.h>
 #include <string.h>
+#include <pthread.h>
 #include <ewoksys/trunkmem.h>
 
 #ifdef __cplusplus
@@ -8,6 +9,35 @@ extern "C" {
 /*
 malloc for memory trunk management
 */
+
+static pthread_mutex_t trunkmem_init_lock = 0;
+
+static inline void trunk_ensure_lock(malloc_t* m) {
+	if(m == NULL || m->lock_inited != 0)
+		return;
+
+	pthread_mutex_lock(&trunkmem_init_lock);
+	if(m->lock_inited == 0) {
+		pthread_mutex_init(&m->lock, NULL);
+		m->lock_inited = 1;
+	}
+	pthread_mutex_unlock(&trunkmem_init_lock);
+}
+
+static inline void trunk_lock_heap(malloc_t* m) {
+	if(m == NULL)
+		return;
+
+	trunk_ensure_lock(m);
+	pthread_mutex_lock(&m->lock);
+}
+
+static inline void trunk_unlock_heap(malloc_t* m) {
+	if(m == NULL || m->lock_inited == 0)
+		return;
+
+	pthread_mutex_unlock(&m->lock);
+}
 
 static mem_block_t* gen_block(char* p, uint32_t size) {
 	uint32_t block_size = sizeof(mem_block_t);
@@ -55,6 +85,10 @@ static void try_break(malloc_t* m, mem_block_t* block, uint32_t size) {
 }
 
 char* trunk_malloc(malloc_t* m, uint32_t size) {
+	if(m == NULL)
+		return NULL;
+
+	trunk_lock_heap(m);
 	size = ALIGN_UP(size, 8);
 	mem_block_t* block = m->start == NULL ? m->head : m->start;
 	while(block != NULL) {
@@ -69,6 +103,7 @@ char* trunk_malloc(malloc_t* m, uint32_t size) {
 	}
 	if(block != NULL) {
 		m->start = block->next;
+		trunk_unlock_heap(m);
 		return block->mem;
 	}
 
@@ -81,8 +116,10 @@ char* trunk_malloc(malloc_t* m, uint32_t size) {
 		pages++;
 
 	char* p = (char*)m->get_mem_tail(m->arg);
-	if(m->expand(m->arg, pages) != 0)
+	if(m->expand(m->arg, pages) != 0) {
+		trunk_unlock_heap(m);
 		return NULL;
+	}
 
 	block = gen_block(p, pages*m->seg_size);
 	block->used = 1;
@@ -102,6 +139,7 @@ char* trunk_malloc(malloc_t* m, uint32_t size) {
 
 	try_break(m, block, size);
 	m->start = block;
+	trunk_unlock_heap(m);
 	return block->mem;
 }
 
@@ -160,9 +198,15 @@ static void try_shrink(malloc_t* m) {
 }
 
 void trunk_free(malloc_t* m, char* p) {
-	mem_block_t* block = get_block(p);
-	if(block == NULL)
+	if(m == NULL)
 		return;
+
+	trunk_lock_heap(m);
+	mem_block_t* block = get_block(p);
+	if(block == NULL) {
+		trunk_unlock_heap(m);
+		return;
+	}
 
 	block->used = 0; //mark as free.
 	block = try_merge(m, block);
@@ -170,14 +214,23 @@ void trunk_free(malloc_t* m, char* p) {
 		m->start = block->prev;
 	if(m->shrink != NULL)
 		try_shrink(m);
+	trunk_unlock_heap(m);
 }
 
 uint32_t trunk_msize(malloc_t* m, char* p) {
-	(void)m;
-	mem_block_t* block = get_block(p);
-	if(block == NULL)
+	if(m == NULL)
 		return 0;
-	return block->size;
+
+	trunk_lock_heap(m);
+	mem_block_t* block = get_block(p);
+	if(block == NULL) {
+		trunk_unlock_heap(m);
+		return 0;
+	}
+
+	uint32_t size = block->size;
+	trunk_unlock_heap(m);
+	return size;
 }
 
 
