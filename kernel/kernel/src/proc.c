@@ -999,6 +999,38 @@ static inline void proc_free_heap(proc_t* proc) {
 	proc->space->heap_used = 0;
 }
 
+static void proc_load_segment(proc_t* proc,
+		uint32_t vaddr,
+		const uint8_t* src,
+		uint32_t filesz,
+		uint32_t memsz) {
+	uint32_t copied = 0;
+
+	while (copied < filesz) {
+		uint32_t cur_vaddr = vaddr + copied;
+		uint32_t page_off = cur_vaddr & (PAGE_SIZE - 1);
+		uint32_t chunk = PAGE_SIZE - page_off;
+		if (chunk > (filesz - copied))
+			chunk = filesz - copied;
+
+		ewokos_addr_t kaddr = resolve_kernel_address(proc->space->vm, cur_vaddr);
+		memcpy((void*)kaddr, src + copied, chunk);
+		copied += chunk;
+	}
+
+	while (copied < memsz) {
+		uint32_t cur_vaddr = vaddr + copied;
+		uint32_t page_off = cur_vaddr & (PAGE_SIZE - 1);
+		uint32_t chunk = PAGE_SIZE - page_off;
+		if (chunk > (memsz - copied))
+			chunk = memsz - copied;
+
+		ewokos_addr_t kaddr = resolve_kernel_address(proc->space->vm, cur_vaddr);
+		memset((void*)kaddr, 0, chunk);
+		copied += chunk;
+	}
+}
+
 /* proc_load loads the given ELF process image into the given process. */
 int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 	uint32_t prog_header_offset = 0;
@@ -1017,6 +1049,7 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 	}
 	memcpy(proc_image, image, size);
 	proc_free_heap(proc);
+	proc->space->rw_heap_base = 0;
 
 	/*read elf format from saved proc image*/
 	if (ELF_TYPE(proc_image) != ELFTYPE_EXECUTABLE) {
@@ -1027,7 +1060,6 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 	prog_header_count = ELF_PHNUM(proc_image);
 	uint32_t *debug = 0;
 	for (i = 0; i < prog_header_count; i++) {
-		uint32_t j = 0;
 		/* make enough room for this section */
 		uint32_t vaddr = ELF_PVADDR(proc_image, i);
 		uint32_t memsz = ELF_PSIZE(proc_image, i);
@@ -1046,32 +1078,26 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 				proc->space->rw_heap_base = vaddr;
 		}
 
-		uint32_t old_heap_size = ALIGN_UP(proc->space->heap_size, PAGE_SIZE);
-		while (proc->space->heap_size < (vaddr + memsz)) {
-			proc->space->heap_used += PAGE_SIZE;
-			if(proc_expand_mem(proc, 1) != 0){ 
+		uint32_t old_heap_size = proc->space->heap_size;
+		uint32_t need_heap_size = ALIGN_UP(vaddr + memsz, PAGE_SIZE);
+		if (proc->space->heap_size < need_heap_size) {
+			uint32_t expand_pages = (need_heap_size - proc->space->heap_size) / PAGE_SIZE;
+			proc->space->heap_used += expand_pages * PAGE_SIZE;
+			if(proc_expand_mem(proc, expand_pages) != 0){ 
 				shm_proc_unmap(proc, (void*)proc_image);
 				return -1;
 			}
 		}
 
-		/* copy the section from kernel to proc mem space*/
-		uint32_t hvaddr = vaddr;
-		uint32_t hoff = offset;
-		for (j = 0; j < memsz; j++) {
-			vaddr = hvaddr + j; /*vaddr in elf (proc vaddr)*/
-			uint32_t vkaddr = resolve_kernel_address(proc->space->vm, vaddr); /*trans to phyaddr by proc's page dir*/
-			/* Copy initialized bytes from the file image, then zero-fill .bss. */
-			if (j < filesz) {
-				uint32_t image_off = hoff + j;
-				if(image_off >= size)
-					break;
-				*(uint8_t*)vkaddr = proc_image[image_off];
-			}
-			else {
-				*(uint8_t*)vkaddr = 0;
-			}
+		/* Copy initialized bytes in page-sized chunks instead of byte-by-byte. */
+		if (offset < size) {
+			uint32_t copy_filesz = filesz;
+			if (copy_filesz > (size - offset))
+				copy_filesz = size - offset;
+			proc_load_segment(proc, vaddr, proc_image + offset, copy_filesz, memsz);
 		}
+		else
+			proc_load_segment(proc, vaddr, proc_image, 0, memsz);
 		prog_header_offset += sizeof(struct elf_program_header);
 
 		if(rdonly) {
