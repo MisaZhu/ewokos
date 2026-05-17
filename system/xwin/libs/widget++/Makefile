@@ -61,4 +61,3 @@ $(WIDGET): $(LIB_WIDGET_OBJS)
 clean:
 	rm -f $(LIB_WIDGET_OBJS)
 	rm -f $(WIDGET)
-

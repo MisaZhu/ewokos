@@ -81,7 +81,7 @@ protected:
 		}
 	}
 
-	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
+	void onTimer(uint32_t timerFPS, uint32_t timerSteps) {
 		getIPInfo();
 	}
 public: 

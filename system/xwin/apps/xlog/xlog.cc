@@ -63,8 +63,8 @@ protected:
 	void input(int32_t c) {
 	}
 
-	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
-		if(logFD < 0 || (timerStep % (timerFPS/2)) != 0)
+	void onTimer(uint32_t timerFPS, uint32_t timerSteps) {
+		if(logFD < 0 || (timerSteps % (timerFPS/2)) != 0)
 			return;
 
 		char buf[1024];

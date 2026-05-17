@@ -141,12 +141,12 @@ void  Container::add(Widget* child) {
 	layout();
 }
 
-void  Container::doTimer(uint32_t fps) {
-	Widget::doTimer(fps);
+void  Container::doTimer(uint32_t fps, uint32_t timerSteps) {
+	Widget::doTimer(fps, timerSteps);
 
 	Widget* wd = children;
 	while(wd != NULL) {
-		wd->doTimer(fps);
+		wd->doTimer(fps, timerSteps);
 		wd = wd->next;
 	}
 }

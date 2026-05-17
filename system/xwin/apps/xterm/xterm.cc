@@ -175,8 +175,8 @@ protected:
 		unlock();
 	}
 
-	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
-		if((timerStep % (timerFPS/2)) == 0)
+	void onTimer(uint32_t timerFPS, uint32_t timerSteps) {
+		if((timerSteps % (timerFPS/2)) == 0)
 			flash();
 	}
 };

@@ -14,7 +14,7 @@ protected:
 
 	void drawSprite(graph_t* g, const grect_t& r);
     void onRepaint(graph_t* g, XTheme* theme, const grect_t& r);
-    void onTimer(uint32_t timerFPS, uint32_t timerStep);
+    void onTimer(uint32_t timerFPS, uint32_t timerSteps);
 
 public:
 	SpriteAnim();

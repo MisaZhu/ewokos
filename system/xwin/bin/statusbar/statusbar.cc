@@ -64,8 +64,8 @@ protected:
 			drawBat(g, theme, rb, batt);
 	}
 
-	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
-		if((timerStep % 4) == 0) {
+	void onTimer(uint32_t timerFPS, uint32_t timerSteps) {
+		if((timerSteps % 4) == 0) {
 			if(powerFD < 0)
 				powerFD = ::open("/dev/power0", O_RDONLY);
 
@@ -122,7 +122,7 @@ protected:
 		return time_info.tm_hour * 3600 + time_info.tm_min * 60 + time_info.tm_sec;
     }
 
-    void onTimer(uint32_t timerFPS, uint32_t timerStep) {
+    void onTimer(uint32_t timerFPS, uint32_t timerSteps) {
         uint32_t ksec = updateTime();
 		if(ksec == 0)
 			return;

@@ -7,6 +7,7 @@ namespace Ewok {
 WidgetWin::WidgetWin() {
 	root = NULL;
 	timerFPS = 16;
+	timerSteps = 0;
 	lastTimerTick = 0;
 	widgetRegWin(this);
 
@@ -81,8 +82,11 @@ void WidgetWin::doTimer(uint64_t tick) {
 
 	if((tick - lastTimerTick) < (1000 / timerFPS))
 		return;
+
 	lastTimerTick = tick;
-	root->doTimer(timerFPS);
+	onTimer(timerFPS, timerSteps);
+	root->doTimer(timerFPS, timerSteps);
+	timerSteps++;
 }
 
 void WidgetWin::setRoot(RootWidget* root) {

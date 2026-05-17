@@ -22,7 +22,6 @@ class Widget :public UniObject {
 
 	bool beContainer;
 	bool beRoot;
-	uint32_t timerSteps;
 protected:
 	XTheme* themePrivate;
 	uint32_t id;
@@ -47,8 +46,8 @@ protected:
 
 	virtual void repaint(graph_t* g, XTheme* theme);
 	virtual void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) = 0;
-	virtual void doTimer(uint32_t fps);
-	virtual void onTimer(uint32_t timerFPS, uint32_t timerStep) { }
+	virtual void doTimer(uint32_t fps, uint32_t timerSteps);
+	virtual void onTimer(uint32_t timerFPS, uint32_t timerSteps) { }
 	virtual void onFocus() { }
 	virtual void onUnfocus() { }
 	virtual void onAdd() { }

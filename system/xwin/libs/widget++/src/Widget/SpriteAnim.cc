@@ -48,7 +48,7 @@ void SpriteAnim::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
     drawSprite(g, r);
 }
 
-void SpriteAnim::onTimer(uint32_t timerFPS, uint32_t timerStep) {
+void SpriteAnim::onTimer(uint32_t timerFPS, uint32_t timerSteps) {
     step++;
     if(step >= steps)
         step = 0;   

@@ -91,8 +91,8 @@ protected:
 		getWin()->busy(false);
 	}
 
-	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
-		if(timerStep == 0) {
+	void onTimer(uint32_t timerFPS, uint32_t timerSteps) {
+		if(timerSteps == 0) {
 			pthread_t tid;
 			pthread_create(&tid, NULL, loadThread, this);
 		}

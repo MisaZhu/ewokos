@@ -229,7 +229,7 @@ protected:
 		drawMemTitle(g, theme, memRect);
 	}
 
-	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
+	void onTimer(uint32_t timerFPS, uint32_t timerSteps) {
 		updateCores();
 	}
 };

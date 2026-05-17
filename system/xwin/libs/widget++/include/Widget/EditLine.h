@@ -23,7 +23,7 @@ protected:
 	bool onIM(xevent_t* ev);
 
 	virtual void onInput(uint32_t key);
-	void onTimer(uint32_t timerFPS, uint32_t timerStep);
+	void onTimer(uint32_t timerFPS, uint32_t timerSteps);
 	bool onMouse(xevent_t* ev);
 public:
 	void setOnInputFunc(InputFuncT func, void* arg);

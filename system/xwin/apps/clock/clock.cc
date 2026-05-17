@@ -107,7 +107,7 @@ protected:
         return time_info.tm_hour * 3600 + time_info.tm_min * 60 + time_info.tm_sec;
     }
 
-    void onTimer(uint32_t timerFPS, uint32_t timerStep) {
+    void onTimer(uint32_t timerFPS, uint32_t timerSteps) {
         uint32_t ksec = updateTime();
         if(ksec == 0)
             return;

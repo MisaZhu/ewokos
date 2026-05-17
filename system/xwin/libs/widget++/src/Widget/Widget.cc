@@ -20,7 +20,6 @@ Widget::Widget(void)  {
 	disabled = false;
 	themePrivate = NULL;
 	visible = true;
-	timerSteps = 0;
 
 	onEventFunc = NULL;
 	onEventFuncArg = NULL;
@@ -95,8 +94,8 @@ bool Widget::onIM(xevent_t* ev) {
 	return false;
 }
 
-void Widget::doTimer(uint32_t fps) {
-	onTimer(fps, timerSteps++);
+void Widget::doTimer(uint32_t fps, uint32_t timerSteps) {
+	onTimer(fps, timerSteps);
 }
 
 void Widget::setEventFunc(WidgetEventFuncT func, void* arg) {

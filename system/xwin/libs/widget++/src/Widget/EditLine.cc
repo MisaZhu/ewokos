@@ -52,7 +52,7 @@ bool EditLine::onIM(xevent_t* ev) {
 	return true;
 }
 
-void EditLine::onTimer(uint32_t timerFPS, uint32_t timerStep) {
+void EditLine::onTimer(uint32_t timerFPS, uint32_t timerSteps) {
 	if(curTimerCounter*2 >= timerFPS) {
 		curTimerCounter = 0;
 		showCur = !showCur;

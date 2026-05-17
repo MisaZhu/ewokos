@@ -116,9 +116,9 @@ public:
         }
     }
 
-    void onTimer(uint32_t timerFPS, uint32_t timerStep) {
+    void onTimer(uint32_t timerFPS, uint32_t timerSteps) {
         (void)timerFPS;
-        (void)timerStep;
+        (void)timerSteps;
         if (player != NULL && player->isPlaying()) {
             decodeBudgetMs = 0.0;
             player->decodeFrame();

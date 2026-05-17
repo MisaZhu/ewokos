@@ -184,8 +184,8 @@ public:
 		update();
 	}
 
-	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
-		if((timerStep % timerFPS) != 0)
+	void onTimer(uint32_t timerFPS, uint32_t timerSteps) {
+		if((timerSteps % timerFPS) != 0)
 			return;
 
 		if(procs != NULL)
@@ -327,7 +327,7 @@ protected:
 		}
 	}
 
-	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
+	void onTimer(uint32_t timerFPS, uint32_t timerSteps) {
 		updateCores();
 	}
 };
@@ -386,8 +386,8 @@ protected:
 		procs->setCore(index);
 	}
 
-	void onTimer(uint32_t timerFPS, uint32_t timerStep) {
-		if((timerStep % timerFPS) != 0)
+	void onTimer(uint32_t timerFPS, uint32_t timerSteps) {
+		if((timerSteps % timerFPS) != 0)
 			return;
 
 		loadCores();
