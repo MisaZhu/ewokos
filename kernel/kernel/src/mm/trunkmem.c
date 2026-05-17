@@ -7,6 +7,104 @@
 malloc for memory trunk management
 */
 
+static inline uintptr_t trunk_heap_begin(malloc_t* m) {
+	if(m == NULL)
+		return 0;
+	return (uintptr_t)m->head;
+}
+
+static inline uintptr_t trunk_heap_end(malloc_t* m) {
+	if(m == NULL || m->get_mem_tail == NULL)
+		return 0;
+	return (uintptr_t)m->get_mem_tail(m->arg);
+}
+
+static inline uintptr_t trunk_heap_top(malloc_t* m) {
+	if(m == NULL || m->get_mem_top == NULL)
+		return 0;
+	return (uintptr_t)m->get_mem_top(m->arg);
+}
+
+static inline int trunk_ptr_aligned(const void* p) {
+	return ((((uintptr_t)p) & (sizeof(void*) - 1)) == 0);
+}
+
+static inline int trunk_ptr_in_heap(uintptr_t heap_begin, uintptr_t heap_end, const void* p) {
+	uintptr_t addr;
+	if(heap_begin == 0 || heap_end == 0 || p == NULL)
+		return 0;
+	addr = (uintptr_t)p;
+	return addr >= heap_begin && addr < heap_end;
+}
+
+static int trunk_block_sane(uintptr_t heap_begin, uintptr_t heap_end,
+		mem_block_t* prev, mem_block_t* block) {
+	uintptr_t block_addr;
+	uintptr_t mem_addr;
+	uintptr_t block_end;
+
+	if(block == NULL)
+		return 0;
+	if(!trunk_ptr_in_heap(heap_begin, heap_end, block) || !trunk_ptr_aligned(block))
+		return 0;
+
+	block_addr = (uintptr_t)block;
+	mem_addr = (uintptr_t)block->mem;
+	if(mem_addr != (block_addr + sizeof(mem_block_t)))
+		return 0;
+	if(mem_addr > heap_end)
+		return 0;
+
+	block_end = mem_addr + block->size;
+	if(block_end < mem_addr || block_end > heap_end)
+		return 0;
+
+	if(block->prev != prev)
+		return 0;
+	if(prev != NULL && prev->next != block)
+		return 0;
+
+	if(block->next != NULL) {
+		uintptr_t next_addr = (uintptr_t)block->next;
+		if(!trunk_ptr_in_heap(heap_begin, heap_end, block->next) || !trunk_ptr_aligned(block->next))
+			return 0;
+		if(next_addr <= block_addr || next_addr < block_end)
+			return 0;
+		if(block->next->prev != block)
+			return 0;
+	}
+
+	return 1;
+}
+
+static mem_block_t* trunk_find_block(malloc_t* m, mem_block_t* target) {
+	mem_block_t* prev;
+	mem_block_t* block;
+	uintptr_t heap_begin;
+	uintptr_t heap_end;
+
+	if(m == NULL || target == NULL)
+		return NULL;
+
+	heap_begin = trunk_heap_begin(m);
+	heap_end = trunk_heap_end(m);
+	if(heap_begin == 0 || heap_end == 0)
+		return NULL;
+
+	prev = NULL;
+	block = m->head;
+	while(block != NULL) {
+		if(!trunk_block_sane(heap_begin, heap_end, prev, block))
+			return NULL;
+		if(block == target)
+			return block;
+		prev = block;
+		block = block->next;
+	}
+
+	return NULL;
+}
+
 static mem_block_t* gen_block(char* p, uint32_t size) {
 	uint32_t block_size = sizeof(mem_block_t);
 	mem_block_t* block = (mem_block_t*)p;
@@ -53,10 +151,30 @@ static void try_break(malloc_t* m, mem_block_t* block, uint32_t size) {
 }
 
 char* trunk_malloc(malloc_t* m, uint32_t size) {
+	mem_block_t* prev;
+	uintptr_t heap_begin;
+	uintptr_t heap_end;
+	if(m == NULL)
+		return NULL;
+
 	size = ALIGN_UP(size, 8);
-	mem_block_t* block = m->start == NULL ? m->head : m->start;
+	heap_begin = trunk_heap_begin(m);
+	heap_end = trunk_heap_end(m);
+	prev = NULL;
+	mem_block_t* block = m->head;
+	if(m->start != NULL) {
+		block = trunk_find_block(m, m->start);
+		if(block == NULL)
+			block = m->head;
+		else
+			prev = block->prev;
+	}
 	while(block != NULL) {
+		if(heap_begin != 0 && heap_end != 0 &&
+				!trunk_block_sane(heap_begin, heap_end, prev, block))
+			return NULL;
 		if(block->used || block->size < size) {
+			prev = block;
 			block = block->next;
 		}
 		else {
@@ -104,14 +222,34 @@ char* trunk_malloc(malloc_t* m, uint32_t size) {
 }
 
 uint32_t trunk_free_size(malloc_t* m) {
-	uint32_t ret = (uint32_t)((uintptr_t)m->get_mem_top(m->arg) -
-			(uintptr_t)m->get_mem_tail(m->arg));
+	mem_block_t* prev;
+	mem_block_t* block;
+	uintptr_t heap_begin;
+	uintptr_t heap_end;
+	uintptr_t heap_top;
+	uint32_t ret;
+
+	if(m == NULL || m->get_mem_top == NULL || m->get_mem_tail == NULL)
+		return 0;
+
+	heap_begin = trunk_heap_begin(m);
+	heap_end = trunk_heap_end(m);
+	heap_top = trunk_heap_top(m);
+	if(heap_top < heap_end)
+		return 0;
+
+	ret = (uint32_t)(heap_top - heap_end);
 	//mem_block_t* block = m->start == NULL ? m->head : m->start;
-	mem_block_t* block = m->head;
+	prev = NULL;
+	block = m->head;
 	while(block != NULL) {
+		if(heap_begin != 0 && heap_end != 0 &&
+				!trunk_block_sane(heap_begin, heap_end, prev, block))
+			return ret;
 		if(!block->used) {
 			ret += block->size;
 		}
+		prev = block;
 		block = block->next;
 	}
 	return ret;
@@ -170,12 +308,19 @@ static void try_shrink(malloc_t* m) {
 }
 
 void trunk_free(malloc_t* m, char* p) {
-	mem_block_t* block = get_block(p);
+	if(m == NULL)
+		return;
+
+	mem_block_t* block = trunk_find_block(m, get_block(p));
 	if(block == NULL)
+		return;
+	if(block->used == 0)
 		return;
 
 	block->used = 0; //mark as free.
 	block = try_merge(m, block);
+	if(block == NULL || trunk_find_block(m, block) == NULL)
+		return;
 	if(m->start == 0 || m->start >= block)
 		m->start = block->prev;
 	if(m->shrink != NULL)
@@ -183,7 +328,10 @@ void trunk_free(malloc_t* m, char* p) {
 }
 
 uint32_t trunk_msize(malloc_t* m, char* p) {
-	mem_block_t* block = get_block(p);
+	if(m == NULL)
+		return 0;
+
+	mem_block_t* block = trunk_find_block(m, get_block(p));
 	if(block == NULL)
 		return 0;
 	return block->size;

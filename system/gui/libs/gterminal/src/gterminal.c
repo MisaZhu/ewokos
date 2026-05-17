@@ -623,6 +623,7 @@ void gterminal_paint(gterminal_t* terminal, graph_t* g, int x, int y, int w, int
 static bool _in_esc = false;
 static uint16_t _esc_buf[8] = {0};
 static uint16_t _esc_size = 0;
+#define ESC_BUF_CAP ((uint16_t)(sizeof(_esc_buf) / sizeof(_esc_buf[0])))
 
 void gterminal_put(gterminal_t* terminal, const char* buf, int size) {
     uint16_t* unicode = (uint16_t*)malloc((size+1)*2);
@@ -644,6 +645,12 @@ void gterminal_put(gterminal_t* terminal, const char* buf, int size) {
             //klog("put %d, %d, (%c)\n", size, i, c);
 
         if(_in_esc) {
+            /* Drop overlong escape sequences instead of corrupting memory. */
+            if(_esc_size >= ESC_BUF_CAP) {
+                _esc_size = 0;
+                _in_esc = false;
+                continue;
+            }
             _esc_buf[_esc_size] = c;
             _esc_size++;
             if((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
@@ -709,4 +716,3 @@ void gterminal_resize(gterminal_t* terminal, uint32_t gw, uint32_t gh) {
 #ifdef __cplusplus
 }
 #endif
-
