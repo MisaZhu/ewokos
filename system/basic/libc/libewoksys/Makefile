@@ -54,6 +54,8 @@ LIB_EWOKSYS_OBJS =  \
 	src/unistd/dup.o \
 	src/unistd/pipe.o \
 	src/unistd/chown.o \
+	src/unistd/rmdir.o \
+	src/unistd/rename.o \
 	src/unistd/errno.o \
 	\
 	src/sys/shm/shmget.o \
@@ -70,7 +72,14 @@ LIB_EWOKSYS_OBJS =  \
 	src/fcntl/chmod.o \
 	src/fcntl/fcntl.o \
 	\
+	src/string/strcspn.o \
+	src/string/strnlen.o \
+	src/string/strpbrk.o \
+	src/string/strspn.o \
+	\
 	src/stdio/putch.o \
+	src/stdio/fputs.o \
+	src/stdio/setvbuf.o \
 	\
 	src/dirent/readdir.o \
 	src/dirent/closedir.o \
@@ -90,7 +99,11 @@ LIB_EWOKSYS_OBJS =  \
 	src/poll/poll.o \
 	\
 	src/stdlib/exit.o \
-	src/stdlib/setenv.o
+	src/stdlib/llabs.o \
+	src/stdlib/setenv.o \
+	src/stdlib/tempnam.o \
+	\
+	src/time/strftime.o
 	
 EWOKSYS = $(TARGET_DIR)/lib/libewoksys.a
 

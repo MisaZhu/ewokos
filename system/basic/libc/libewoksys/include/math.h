@@ -1,6 +1,8 @@
 #ifndef EWOKOS_LIBC_MATH_H
 #define EWOKOS_LIBC_MATH_H
 
+#ifndef __ASSEMBLER__
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -92,17 +94,33 @@ double ceil(double x);
 float ceilf(float x);
 double floor(double x);
 float floorf(float x);
+double cbrt(double x);
+float cbrtf(float x);
+double copysign(double x, double y);
+float copysignf(float x, float y);
 double rint(double x);
 float rintf(float x);
+long lrint(double x);
+long lrintf(float x);
+long long llrint(double x);
+long long llrintf(float x);
 double trunc(double x);
 float truncf(float x);
 double round(double x);
 float roundf(float x);
+long lround(double x);
+long lroundf(float x);
+long long llround(double x);
+long long llroundf(float x);
 double nearbyint(double x);
 float nearbyintf(float x);
+double scalbn(double x, int exp);
+float scalbnf(float x, int exp);
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif
 
 #endif

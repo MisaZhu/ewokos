@@ -4,6 +4,8 @@
 #include <sys/types.h>
 #include <sys/time.h>
 
+#define CLOCKS_PER_SEC 1000000
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -26,6 +28,7 @@ struct tm *gmtime(const time_t *timer);
 struct tm *localtime(const time_t *timer);
 struct tm *localtime_r(const time_t *timer, struct tm *result);
 clock_t clock(void);
+size_t strftime(char *s, size_t max, const char *format, const struct tm *tm);
 
 #ifdef __cplusplus
 }

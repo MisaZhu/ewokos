@@ -8,6 +8,7 @@
 #define SEEK_SET 0
 #define SEEK_CUR 1
 #define SEEK_END 2
+#define _IONBF 0
 
 #ifdef __cplusplus
 extern "C" {
@@ -36,6 +37,7 @@ int vsprintf(char *str, const char *format, va_list ap);
 int snprintf(char *str, size_t size, const char *format, ...);
 int vsnprintf(char *str, size_t size, const char *format, va_list ap);
 int puts(const char *s);
+int fputs(const char *s, FILE *stream);
 int getchar(void);
 int putchar(int c);
 int putc(int c, FILE *stream);
@@ -55,6 +57,7 @@ size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
 int ferror(FILE *stream);
 int fflush(FILE *stream);
 void setbuf(FILE *stream, char *buf);
+int setvbuf(FILE *stream, char *buf, int mode, size_t size);
 
 #ifdef __cplusplus
 }

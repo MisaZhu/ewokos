@@ -18,4 +18,14 @@ struct timespec {
 	long tv_nsec;
 };
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+int gettimeofday(struct timeval *tp, void *tzvp);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif

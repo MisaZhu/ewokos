@@ -1,6 +1,8 @@
 #ifndef EWOKOS_LIBC_STRING_H
 #define EWOKOS_LIBC_STRING_H
 
+#ifndef __ASSEMBLER__
+
 #include <stddef.h>
 
 #ifdef __cplusplus
@@ -25,12 +27,18 @@ char *strrchr(const char *s, int c);
 char *strtok(char *str, const char *delim);
 char *strtok_r(char *str, const char *delim, char **saveptr);
 char *strstr(const char *haystack, const char *needle);
+size_t strspn(const char *s, const char *accept);
+size_t strcspn(const char *s, const char *reject);
+char *strpbrk(const char *s, const char *accept);
+size_t strnlen(const char *s, size_t maxlen);
 char *strdup(const char *s);
 char *strndup(const char *s, size_t n);
 char *strerror(int errnum);
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif
 
 #endif

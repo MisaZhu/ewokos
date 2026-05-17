@@ -32,10 +32,14 @@ int dup(int oldfd);
 int dup2(int oldfd, int newfd);
 int pipe(int pipefd[2]);
 int fork(void);
+int isatty(int fd);
 
 int chdir(const char *path);
 char *getcwd(char *buf, size_t size);
 int chown(const char *pathname, int uid, int gid);
+int unlink(const char *pathname);
+int rmdir(const char *pathname);
+int rename(const char *oldpath, const char *newpath);
 int access(const char *pathname, int mode);
 int getopt(int argc, char * const argv[], const char *optstring);
 

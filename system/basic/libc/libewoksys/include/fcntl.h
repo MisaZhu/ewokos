@@ -12,6 +12,10 @@
 #define O_TRUNC  0x0200
 #define O_APPEND 0x0400
 
+#define FD_CLOEXEC 0x0001
+
+#define F_GETFD  1
+#define F_SETFD  2
 #define F_GETFL  3
 #define F_SETFL  4
 

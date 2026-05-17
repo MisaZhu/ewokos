@@ -32,6 +32,7 @@ void abort(void);
 void exit(int status);
 int abs(int j);
 long labs(long j);
+long long llabs(long long j);
 int atoi(const char *nptr);
 long atol(const char *nptr);
 div_t div(int numer, int denom);
@@ -52,6 +53,7 @@ void srandom(unsigned int seed);
 const char *getenv(const char *name);
 int setenv(const char *name, const char *value, ...);
 int remove(const char *path);
+char *tempnam(const char *dir, const char *pfx);
 void *bsearch(const void *key, const void *base, size_t nmemb, size_t size,
 		int (*compar)(const void *, const void *));
 void qsort(void *base, size_t nmemb, size_t size,

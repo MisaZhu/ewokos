@@ -36,12 +36,18 @@ int fcntl(int fd, int cmd, ...) {
 	return res;
 	*/
 
-	if(cmd == F_GETFL) {
+	if(cmd == F_GETFD) {
+		return 0;
+	}
+	else if(cmd == F_SETFD) {
+		return 0;
+	}
+	else if(cmd == F_GETFL) {
 		return vfs_get_flags(fd);
 	}
 	else if(cmd == F_SETFL) {
     va_list args;
-    va_start(args, 0);
+    va_start(args, cmd);
     int flags = va_arg(args, int);
     va_end(args);
 		return vfs_set_flags(fd, flags);
@@ -52,7 +58,7 @@ int fcntl(int fd, int cmd, ...) {
 		PF->init(&out);
 
 		va_list args;
-    va_start(args, 0);
+    va_start(args, cmd);
     int num = va_arg(args, int);
 		for(int i=0; i<num; i++) 
 			PF->addi(&in, va_arg(args, int));
@@ -70,4 +76,3 @@ int fcntl(int fd, int cmd, ...) {
 	}
 	return 0;
 }
-
