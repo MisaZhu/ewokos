@@ -392,9 +392,17 @@ int32_t ext2_read_block(ext2_t* ext2, INODE* node, char *buf, int32_t nbytes, in
 	}
 
 	char readbuf[EXT2_BLOCK_SIZE];
-	if(ext2->read_block(blk, readbuf) != 0)
-		return -1;
-	char *cp = readbuf + start_byte;
+	char *cp;
+	if(start_byte == 0 && nbytes >= EXT2_BLOCK_SIZE) {
+		if(ext2->read_block(blk, cq) != 0)
+			return -1;
+		cp = cq;
+	}
+	else {
+		if(ext2->read_block(blk, readbuf) != 0)
+			return -1;
+		cp = readbuf + start_byte;
+	}
 	remain = EXT2_BLOCK_SIZE - start_byte;
 	//(6)
 	while(remain){
@@ -405,7 +413,8 @@ int32_t ext2_read_block(ext2_t* ext2, INODE* node, char *buf, int32_t nbytes, in
 		else{
 			min = nbytes;
 		}
-		memcpy(cq, cp, min);
+		if(cp != cq)
+			memcpy(cq, cp, min);
 		offset += min;
 		count_read += min;
 		avil -= min;

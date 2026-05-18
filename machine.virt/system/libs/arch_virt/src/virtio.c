@@ -968,54 +968,83 @@ int virtio_blk_transfer(virtio_dev_t dev, uint64_t sector, void *buffer, uint32_
 {
 	uintptr_t base = dev->base;
 	struct virtq_t *virtq = dev->virtq;
+	uint32_t payload_bytes_max = sizeof(virtq->buf0) - sizeof(struct virtio_blk_req) - sizeof(uint8_t);
+	uint32_t max_sectors = payload_bytes_max / 512;
+	uint8_t *io_buf = (uint8_t *)buffer;
 
-	struct virtio_blk_req *req = (struct virtio_blk_req *)virtq->buf0;
-	req->type = isWrite ? VIRTIO_BLK_T_OUT : VIRTIO_BLK_T_IN;
-	req->sector = sector;
-
-	uint8_t *buf = (uint8_t *)virtq->buf0 + sizeof(struct virtio_blk_req);
-	uint32_t bytes = count * 512;
-	buf[bytes] = 0xFF;
-
-	if (isWrite)
+	if (count == 0)
 	{
-		memcpy(buf, buffer, bytes);
+		return 0;
+	}
+	if (max_sectors == 0)
+	{
+		return -1;
 	}
 
-	virtq->desc[0].addr = get_phy_addr(dev, req);
-	virtq->desc[0].len = sizeof(struct virtio_blk_req);
-	virtq->desc[0].flags = VIRTQ_DESC_F_NEXT;
-	virtq->desc[0].next = 1;
-
-	virtq->desc[1].addr = get_phy_addr(dev, buf);
-	virtq->desc[1].len = bytes;
-	virtq->desc[1].flags = VIRTQ_DESC_F_NEXT | (isWrite ? 0 : VIRTQ_DESC_F_WRITE);
-	virtq->desc[1].next = 2;
-
-	virtq->desc[2].addr = get_phy_addr(dev, &buf[bytes]);
-	virtq->desc[2].len = sizeof(uint8_t);
-	virtq->desc[2].flags = VIRTQ_DESC_F_WRITE;
-	virtq->desc[2].next = 0;
-
-	virtq->avail.ring[virtq->avail.idx % VIRTIO_QUEUE_SIZE] = 0;
-	virtq->avail.idx++;
-	put32(base + VIRTIO_MMIO_QUEUE_NOTIFY, 0);
-
-	for (uint32_t i = 0; i < VIRTIO_TIMEOUT_LOOPS; i++)
+	while (count > 0)
 	{
-		if (virtio_ack_interrupt(base, 0x1) & 0x1)
+		uint32_t chunk = count > max_sectors ? max_sectors : count;
+		uint32_t bytes = chunk * 512;
+		struct virtio_blk_req *req = (struct virtio_blk_req *)virtq->buf0;
+		uint8_t *buf = (uint8_t *)virtq->buf0 + sizeof(struct virtio_blk_req);
+		uint8_t *status = &buf[bytes];
+
+		req->type = isWrite ? VIRTIO_BLK_T_OUT : VIRTIO_BLK_T_IN;
+		req->reserved = 0;
+		req->sector = sector;
+		*status = 0xFF;
+
+		if (isWrite)
 		{
-			if (!isWrite)
-			{
-				memcpy(buffer, buf, bytes);
-			}
-			break;
+			memcpy(buf, io_buf, bytes);
 		}
-		proc_usleep(0);
+
+		virtq->desc[0].addr = get_phy_addr(dev, req);
+		virtq->desc[0].len = sizeof(struct virtio_blk_req);
+		virtq->desc[0].flags = VIRTQ_DESC_F_NEXT;
+		virtq->desc[0].next = 1;
+
+		virtq->desc[1].addr = get_phy_addr(dev, buf);
+		virtq->desc[1].len = bytes;
+		virtq->desc[1].flags = VIRTQ_DESC_F_NEXT | (isWrite ? 0 : VIRTQ_DESC_F_WRITE);
+		virtq->desc[1].next = 2;
+
+		virtq->desc[2].addr = get_phy_addr(dev, status);
+		virtq->desc[2].len = sizeof(uint8_t);
+		virtq->desc[2].flags = VIRTQ_DESC_F_WRITE;
+		virtq->desc[2].next = 0;
+
+		virtq->avail.ring[virtq->avail.idx % VIRTIO_QUEUE_SIZE] = 0;
+		virtq->avail.idx++;
+		put32(base + VIRTIO_MMIO_QUEUE_NOTIFY, 0);
+
+		uint8_t completed = 0;
+		for (uint32_t i = 0; i < VIRTIO_TIMEOUT_LOOPS; i++)
+		{
+			if (virtio_ack_interrupt(base, 0x1) & 0x1)
+			{
+				if (!isWrite)
+				{
+					memcpy(io_buf, buf, bytes);
+				}
+				completed = 1;
+				break;
+			}
+			proc_usleep(0);
+		}
+
+		memset(&virtq->desc[0], 0, sizeof(struct virtq_desc) * 3);
+		if (!completed || *status != VIRTIO_BLK_OK)
+		{
+			return -1;
+		}
+
+		io_buf += bytes;
+		sector += chunk;
+		count -= chunk;
 	}
 
-	memset(&virtq->desc[0], 0, sizeof(struct virtq_desc) * 3);
-	return buf[bytes] == VIRTIO_BLK_OK ? 0 : -1;
+	return 0;
 }
 
 int virtio_snd_init(virtio_dev_t dev)

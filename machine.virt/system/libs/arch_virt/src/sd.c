@@ -21,9 +21,17 @@ int32_t virt_sd_init(void) {
 }
 
 int32_t virt_sd_read_sector(int32_t sector, void* buf) {
-	return virtio_blk_transfer(dev, sector, buf, 1, 0);
+	return virt_sd_read_blocks(sector, buf, 1);
 }
 
 int32_t virt_sd_write_sector(int32_t sector, const void* buf) {
-	return virtio_blk_transfer(dev, sector, (void*)buf, 1, 1);
+	return virt_sd_write_blocks(sector, buf, 1);
+}
+
+int32_t virt_sd_read_blocks(int32_t sector, void* buf, uint32_t count) {
+	return virtio_blk_transfer(dev, sector, buf, count, 0);
+}
+
+int32_t virt_sd_write_blocks(int32_t sector, const void* buf, uint32_t count) {
+	return virtio_blk_transfer(dev, sector, (void*)buf, count, 1);
 }

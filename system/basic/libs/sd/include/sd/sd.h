@@ -18,6 +18,7 @@ int32_t sd_init(sd_init_func init, sd_read_sector_func rd, sd_write_sector_func 
 int32_t sd_quit(void);
 int32_t sd_set_max_sector_index(uint32_t sector_num);
 void    sd_set_buffer_size(uint32_t size);
+void    sd_enable_sector_buffer(int enabled);
 
 #define SECTOR_SIZE 512
 
