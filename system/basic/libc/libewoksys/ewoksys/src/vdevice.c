@@ -196,7 +196,7 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 				vfs_clear_poll_events(info->node, VFS_EVT_RD);
 		}
 		else  {
-			vfs_clear_poll_events(info->node, VFS_EVT_RD);
+			//vfs_clear_poll_events(info->node, VFS_EVT_RD);
 		}
 	}
 }
@@ -252,7 +252,7 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 				vfs_clear_poll_events(info->node, VFS_EVT_WR);
 		}
 		else {
-			vfs_clear_poll_events(info->node, VFS_EVT_WR);
+			//vfs_clear_poll_events(info->node, VFS_EVT_WR);
 		}
 	}
 }

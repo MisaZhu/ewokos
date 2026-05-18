@@ -59,7 +59,6 @@ static inline void uart_basic_trans(char c) {
 }
 
 static charbuf_t *_buffer;
-static int uart_drain_rx(void);
 
 static int tty_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 		void* buf, int size, int offset, void* p) {
@@ -71,18 +70,12 @@ static int tty_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	(void)p;
 
 	int i;
-	for(i = 0; i < size; ){
+	for(i = 0; i < size; i++){
 		int res = charbuf_pop(_buffer, buf + i);
-		if(res == 0) {
-			i++;
-			continue;
-		}
-		if(i > 0)
+		if(res != 0)
 			break;
-		if(uart_drain_rx() == 0) {
-			proc_usleep(0);
-		}
 	}
+
 	return (i==0)?VFS_ERR_RETRY:i;
 }
 
@@ -110,20 +103,15 @@ static int tty_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 }
 
 static bool _wakeup = false;
-static int uart_drain_rx(void) {
+static void interrupt_handle(uint32_t interrupt, uint32_t p) {
+	vdevice_t* dev = (vdevice_t*)p;
 	int rx = 0;
 	put32(UART0 + UART_ICLR, 0x7FF);
 	while(!(get32(UART0 + UART_FLAGS) & 0x10)){
-		uint32_t c = get32(UART0+UART_DATA);
-		charbuf_push(_buffer, c, true);
+		charbuf_push(_buffer,  get32(UART0+UART_DATA), true);
 		rx++;
 	}
-	return rx;
-}
 
-static void interrupt_handle(uint32_t interrupt, uint32_t p) {
-	vdevice_t* dev = (vdevice_t*)p;
-	int rx = uart_drain_rx();
 	if(rx){
 		_wakeup = true;
 	}	
@@ -132,9 +120,6 @@ static void interrupt_handle(uint32_t interrupt, uint32_t p) {
 
 int tty_loop(vdevice_t* dev, void* p) {
 	(void)p;
-	if(uart_drain_rx() > 0) {
-		_wakeup = true;
-	}
 	if(_wakeup) {
 		vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
 		_wakeup = false;
