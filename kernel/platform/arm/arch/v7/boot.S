@@ -32,11 +32,21 @@ core0:
 	//0 core
 	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
 	ldr sp,  = _svc_start_stack @ initialise SVC mode stack
+#ifndef EWOKOS_MACHINE_VIRT_ARM32
 	mov r0, #0xFF000000 
 	and r0, r0, pc
 	add sp, sp, r0
+#endif
 
+	/*
+	 * QEMU virt ARM32 can trap the set/way cache maintenance sequence before
+	 * the exception vectors are installed, which drops execution into the low
+	 * abort vector and hangs the boot. Cold boot on this platform does not
+	 * require an explicit dcache flush here.
+	 */
+#ifndef EWOKOS_MACHINE_VIRT_ARM32
 	bl flush_dcache_all
+#endif
 	bl cpu_mmu_disable
 	bl cpu_dcache_disable
 	bl cpu_icache_disable
@@ -73,11 +83,15 @@ slave_core:                     @ 1-0xff cores
 
 	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _svc_start_stack        @ initialise SVC mode stack
+#ifndef EWOKOS_MACHINE_VIRT_ARM32
 	sub sp, r0                  @ stack offset for current core
 
 	mov r0, #0xFF000000 
 	and r0, r0, pc
 	add sp, sp, r0
+#else
+	sub sp, r0                  @ stack offset for current core
+#endif
 	
 	bl arm_smp_enable
 

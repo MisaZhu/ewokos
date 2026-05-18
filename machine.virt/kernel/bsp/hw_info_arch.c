@@ -87,8 +87,32 @@ inline void __attribute__((optimize("O0"))) start_core(uint32_t core_id) {
     unsigned long ret = psci_cpu_on(core_id, __entry);
 }
 #else
+static uint32_t psci_cpu_on(uint32_t target_cpu, uint32_t entry_point)
+{
+	uint32_t ret;
+	__asm__ volatile(
+		"mov r0, %1\n"
+		"mov r1, %2\n"
+		"mov r2, %3\n"
+		"mov r3, %4\n"
+		"hvc #0\n"
+		"mov %0, r0\n"
+		: "=r" (ret)
+		: "r" (0x84000003u), "r" (target_cpu), "r" (entry_point), "r" (target_cpu)
+		: "r0", "r1", "r2", "r3", "memory"
+	);
+	return ret;
+}
+
+extern char __entry[];
 inline void __attribute__((optimize("O0"))) start_core(uint32_t core_id) {
-    (void)core_id;
+	/*
+	 * __entry is linked into the low physical image on ARM32 virt, so pass the
+	 * symbol value directly as the PSCI reset vector. QEMU virt exposes MPIDR
+	 * affinity values as linear cpu ids for the first cluster, so core_id can
+	 * be passed through directly here.
+	 */
+	psci_cpu_on(core_id, (uint32_t)__entry);
 }
 #endif
 #endif

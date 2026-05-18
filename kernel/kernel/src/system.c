@@ -21,12 +21,17 @@ inline void _delay_msec(uint32_t count) {
 }
 
 extern void __flush_dcache_all(void);
+extern void __invalidate_dcache_all(void);
 extern void __invalidate_icache_all(void);
 
 #ifdef KERNEL_SMP
 
 inline void flush_dcache(void) {
 	__flush_dcache_all();
+}
+
+inline void invalidate_dcache(void) {
+	__invalidate_dcache_all();
 }
 
 inline void invalidate_icache_all(void) {
@@ -43,6 +48,10 @@ inline void flush_tlb(void) {
 
 inline void flush_dcache(void) { 
 	__flush_dcache_all();
+}
+
+inline void invalidate_dcache(void) {
+	__invalidate_dcache_all();
 }
 
 inline void flush_tlb(void) {

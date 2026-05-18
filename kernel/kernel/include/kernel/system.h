@@ -20,6 +20,7 @@ extern void set_vector_table(ewokos_addr_t);
 extern void set_translation_table_base(ewokos_addr_t);
 extern void flush_tlb(void);
 extern void flush_dcache(void);
+extern void invalidate_dcache(void);
 
 #ifdef KERNEL_SMP
 #include <kernel/smp/ipi.h>

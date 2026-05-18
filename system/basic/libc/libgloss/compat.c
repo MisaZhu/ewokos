@@ -690,6 +690,7 @@ void free(void *ptr) {
 	trunk_free(&compat_heap, (char *)ptr);
 }
 
+__attribute__((noinline, optimize("O0")))
 void *calloc(size_t nmemb, size_t size) {
 	size_t total;
 	void *ptr;
@@ -702,7 +703,10 @@ void *calloc(size_t nmemb, size_t size) {
 	total = nmemb * size;
 	ptr = malloc(total);
 	if (ptr != NULL) {
-		memset(ptr, 0, total);
+		uint8_t *p = (uint8_t *)ptr;
+		for (size_t i = 0; i < total; i++) {
+			p[i] = 0;
+		}
 	}
 	return ptr;
 }

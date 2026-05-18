@@ -10,6 +10,7 @@ CFLAGS = -marm \
         -Wall -Wextra -fPIC -mapcs-frame \
         -Wno-unused-parameter \
 		-Wno-int-conversion \
+        -fno-builtin-calloc \
         -fno-strict-aliasing \
         -std=c99
 
@@ -19,6 +20,7 @@ CXXFLAGS = -marm \
         -Wall -Wextra -fPIC -mapcs-frame \
         -Wno-unused-parameter \
 		-Wno-int-conversion \
+        -fno-builtin-calloc \
         -pedantic \
 	-fno-rtti \
         -fno-exceptions \

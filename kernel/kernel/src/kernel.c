@@ -160,8 +160,6 @@ static void init_allocable_mem(void) {
 
 #ifdef KERNEL_SMP
 void __attribute__((optimize("O0"))) _slave_kernel_entry_c(uint32_t boot_core_id) {
-	set_translation_table_base(V2P((uint32_t)_kernel_info.kernel_vm));
-
 	uint32_t cid = get_core_id();
 #ifdef __x86_64__
 	/*
@@ -175,9 +173,13 @@ void __attribute__((optimize("O0"))) _slave_kernel_entry_c(uint32_t boot_core_id
 #else
 	(void)boot_core_id;
 #endif
-	proc_t* idle_proc = _cpu_cores[cid].idle_proc;
 	cpu_core_ready(cid);
+	__asm__ volatile("dmb" ::: "memory");
 	_cpu_cores[cid].actived = true;
+	__asm__ volatile("dmb" ::: "memory");
+	flush_dcache();
+	set_translation_table_base(V2P((uint32_t)_kernel_info.kernel_vm));
+	proc_t* idle_proc = _cpu_cores[cid].idle_proc;
 
 	/*
 	 * Keep each AP attached to its idle task even before the first real task is
@@ -328,9 +330,8 @@ void _kernel_entry_c(void) {
 	for(uint32_t i=1; i<_sys_info.cores; i++) {
 		_cpu_cores[i].actived = false;
 		kfork_core_halt(i);
+		flush_dcache();
 		start_core(i);
-		while(!_cpu_cores[i].actived)
-			_delay_msec(10);
 		printf(" %d", i);
 	}
 	printf("\n");

@@ -63,9 +63,13 @@ ewokos_addr_t resolve_phy_address(page_dir_entry_t *vm, ewokos_addr_t virtual) {
 	ewokos_addr_t base_address = 0;
 
 	pdir = (page_dir_entry_t*)((ewokos_addr_t) vm | ((virtual >> 20) << 2));
+	if(pdir->type == 0)
+		return 0;
 	base_address = pdir->base << 10;
 	page = (page_table_entry_t*)((ewokos_addr_t) base_address | ((virtual >> 10) & 0x3fc));
 	page = (page_table_entry_t*)P2V(page);
+	if(page->type == 0)
+		return 0;
 	result = (page->base << 12) | (virtual & 0xfff);
 	return result;
 }
@@ -79,9 +83,13 @@ page_table_entry_t* get_page_table_entry(page_dir_entry_t *vm, ewokos_addr_t vir
 	ewokos_addr_t base_address = 0;
 
 	pdir = (void *) ((ewokos_addr_t) vm | ((virtual >> 20) << 2));
+	if(pdir->type == 0)
+		return NULL;
 	base_address = pdir->base << 10;
 	page = (page_table_entry_t*)((ewokos_addr_t) base_address | ((virtual >> 10) & 0x3fc));
 	page = (page_table_entry_t*)P2V(page);
+	if(page->type == 0)
+		return NULL;
 	return page;
 }
 

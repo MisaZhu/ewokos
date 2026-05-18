@@ -91,7 +91,6 @@ ENDPROC(__flush_dcache_all)
  *    mcr     p15, 0, r11, c7, c6, 2
  */
 
-/*
 ENTRY(__v7_invalidate_dcache_all)
     dmb                             @ ensure ordering with previous memory accesses
     mrc    p15, 1, r0, c0, c0, 1    @ read clidr
@@ -148,7 +147,6 @@ ENTRY(__invalidate_dcache_all)
     bx    lr
 ENDPROC(__invalidate_dcache_all)
 
- */
  /*
  * 无效化整个指令缓存 (ARMv7-A 32位实现)
  * 破坏寄存器：r0

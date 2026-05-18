@@ -14,8 +14,9 @@ else
 	OS_IMG = kernel7.img
 	OS_ELF = kernel7.elf
 	QEMU_CMD = qemu-system-arm
-	QEMU_FLAGS = -S -M $(QEMU_MACHINE) -cpu cortex-a15 -m 512 -serial mon:stdio -nographic
-	ARCH_CFLAGS = -march=armv7ve
+	QEMU_FLAGS = -M $(QEMU_MACHINE) -cpu cortex-a15 -m 512 -serial mon:stdio -device ramfb \
+		-display cocoa,zoom-to-fit=on,zoom-interpolation=on
+	ARCH_CFLAGS = -march=armv7ve -DEWOKOS_MACHINE_VIRT_ARM32
 endif
 
 ifeq ($(SMP), yes)
@@ -40,7 +41,11 @@ ARCH_LD_FLAGS = --defsym=start_address=$(LOAD_ADDRESS)
 include make.bsp
 include $(EWOKOS_ROOT_DIR)/kernel/platform/${ARCH}/make.rule
 
+ifeq ($(ARCH),arm)
+QEMU_ARGS += -kernel $(OS_ELF)
+else
 QEMU_ARGS += -kernel $(OS_IMG)
+endif
 QEMU_ARGS += -drive file=$(SYS_DIR)/root_$(ARCH).ext2,format=raw,id=blk0,if=none -device virtio-blk-device,drive=blk0
 QEMU_ARGS += -netdev user,id=net0 -device virtio-net-device,netdev=net0
 QEMU_ARGS += -device virtio-tablet-device 
