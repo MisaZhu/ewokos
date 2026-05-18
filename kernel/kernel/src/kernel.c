@@ -174,9 +174,7 @@ void __attribute__((optimize("O0"))) _slave_kernel_entry_c(uint32_t boot_core_id
 	(void)boot_core_id;
 #endif
 	cpu_core_ready(cid);
-	__asm__ volatile("dmb" ::: "memory");
 	_cpu_cores[cid].actived = true;
-	__asm__ volatile("dmb" ::: "memory");
 	flush_dcache();
 	set_translation_table_base(V2P((uint32_t)_kernel_info.kernel_vm));
 	proc_t* idle_proc = _cpu_cores[cid].idle_proc;
@@ -332,6 +330,10 @@ void _kernel_entry_c(void) {
 		kfork_core_halt(i);
 		flush_dcache();
 		start_core(i);
+		while(!_cpu_cores[i].actived) {
+			//continue;
+			_delay_msec(10);
+		}
 		printf(" %d", i);
 	}
 	printf("\n");

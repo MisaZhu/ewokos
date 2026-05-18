@@ -111,6 +111,12 @@ __flush_dcache_all:
     b    __asm_dcache_all
     ret
 
+.globl __invalidate_dcache_all
+__invalidate_dcache_all:
+    mov    x0, #1
+    b    __asm_dcache_all
+    ret
+
 .global __flush_tlb
 __flush_tlb:
     dsb ishst

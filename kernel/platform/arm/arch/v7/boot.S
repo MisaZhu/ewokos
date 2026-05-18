@@ -112,7 +112,7 @@ slave_core:                     @ 1-0xff cores
 	ldr sp, = _undef_stack      @ initialise UND mode stack
 	sub sp, r0
 
-	msr cpsr, #0x13             @ enter SVC mode with IRQ and FIQ interrupts disabled
+	msr cpsr, #0xD3             @ enter SVC mode with IRQ and FIQ interrupts disabled
 	ldr sp, = _svc_stack        @ initialise SVC mode stack
 	sub sp, r0
 	
