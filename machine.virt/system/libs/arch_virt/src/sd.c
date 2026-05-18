@@ -6,6 +6,7 @@
 #include <ewoksys/klog.h>
 #include <sysinfo.h>
 #include <ewoksys/mmio.h>
+#include <arch/virt/sd.h>
 #include <arch/virt/virtio.h>
 
 virtio_dev_t dev;
