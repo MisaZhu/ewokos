@@ -16,7 +16,7 @@ $(VI): $(VI_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(VI_OBJS) -o $(VI) $(LDFLAGS) $(EWOK_LIBC)
 
-vi.o: vi.c $(BUILD_DIR)/include/setjmp.h
+vi.o: vi.c
 
 clean:
 	rm -f $(VI_OBJS)
