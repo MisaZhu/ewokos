@@ -445,7 +445,7 @@ int main(int argc, char** argv) {
     win.setTimeLabel(timeLabel);
 
     win.open(&x, -1, -1, -1, 300, 140, "SndPlayer", XWIN_STYLE_NORMAL | XWIN_STYLE_NO_BG_EFFECT, true);
-    win.setTimer(120);
+    win.setTimer(240);
 
     if (argc >= 2) {
         win.loadAndPlay(argv[1]);
