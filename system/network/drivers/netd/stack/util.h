@@ -41,8 +41,8 @@
 
 #define lprintf(x, level, file, line, func, ...)   \
 		do{	\
-		    klog("[%c] %s: (%s:%d) :\n", level, func, file, line); \
-		    klog(__VA_ARGS__);klog("\n"); \
+		    slog("[%c] %s: (%s:%d) :\n", level, func, file, line); \
+		    slog(__VA_ARGS__);slog("\n"); \
 		}while(0)
 
 #define errorf(...) lprintf(stderr, 'E', __FILE__, __LINE__, __func__, __VA_ARGS__)
