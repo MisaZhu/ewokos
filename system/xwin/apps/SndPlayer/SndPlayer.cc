@@ -71,7 +71,7 @@ public:
     }
 
     void updateSpectrum(const int16_t* samples, int count, int channels) {
-        if (count <= 0) return;
+        if (samples == NULL || count <= 0 || channels <= 0) return;
 
         const int N = 128;
         float fftBuf[N];
@@ -123,7 +123,7 @@ public:
             decodeBudgetMs = 0.0;
             player->decodeFrame();
 
-            updateSpectrum(player->getSampleBuf(), player->getSimples(), player->getChannels());
+            //updateSpectrum(player->getSampleBuf(), player->getSimples(), player->getChannels());
 
             if (player->isEof()) {
                 if (!player->isWriteFailed()) {
@@ -155,7 +155,7 @@ public:
             uint8_t b = (uint8_t)(100 + magnitudes[i] * 100);
             barColors[i] = 0xFF000000 | (r << 16) | (g << 8) | b;
         }
-        update();
+        //update();
     }
 
 protected:

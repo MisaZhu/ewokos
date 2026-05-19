@@ -39,6 +39,8 @@ typedef int (*pcm_hook_t)(void *data);
 #define CTRL_PCM_DEV_HW			(0xF0)
 #define CTRL_PCM_DEV_PRPARE		(0xF2)
 #define CTRL_PCM_BUF_AVAIL		(0xF3)
+#define PCM_WAIT_SLEEP_MS       1
+#define MP3_PCM_INITIAL_FRAMES  16384
 
 static int pcm_prepare(struct pcm *pcm);
 
@@ -183,14 +185,16 @@ static int pcm_try_write(struct pcm *pcm, const void* data, unsigned int count)
 
 static int wait_avail(struct pcm *pcm, int *avail, int time_out_ms)
 {
-	enum {
-		SLEEP_TIME_MS = 5,
-	};
 	*avail = 0;
 	int ret = 0;
 	int period_bytes = pcm->config.period_size * pcm->framesize;
-	int max_try_count = time_out_ms / SLEEP_TIME_MS;
+	int min_avail = period_bytes / 4;
+	int max_try_count = time_out_ms / PCM_WAIT_SLEEP_MS;
 	int try_count = 0;
+
+	if (min_avail < pcm->framesize) {
+		min_avail = pcm->framesize;
+	}
 
 	for(;;) {
 		ret = pcm_buf_avail(pcm);
@@ -198,7 +202,7 @@ static int wait_avail(struct pcm *pcm, int *avail, int time_out_ms)
 			break;
 		}
 
-		if (ret >= period_bytes) {
+		if (ret >= min_avail) {
 			*avail = ret;
 			break;
 		}
@@ -210,7 +214,8 @@ static int wait_avail(struct pcm *pcm, int *avail, int time_out_ms)
 		if (pcm->hook != NULL) {
 			pcm->hook(pcm->private);
 		} else {
-			proc_usleep(SLEEP_TIME_MS * 1000);
+			//proc_usleep(PCM_WAIT_SLEEP_MS * 1000);
+			proc_yield();
 		}
 	}
 
@@ -280,13 +285,44 @@ static int pcm_prepare(struct pcm *pcm)
 	return ret;
 }
 
+static int ensure_pcm_capacity(int16_t **pcm_data, int *pcm_capacity_frames,
+		int required_frames, int channels)
+{
+	int new_capacity_frames;
+	int16_t *new_pcm_data;
+
+	if (required_frames <= *pcm_capacity_frames) {
+		return 0;
+	}
+
+	new_capacity_frames = (*pcm_capacity_frames == 0) ?
+			MP3_PCM_INITIAL_FRAMES : *pcm_capacity_frames;
+	while (new_capacity_frames < required_frames) {
+		new_capacity_frames *= 2;
+	}
+
+	new_pcm_data = (int16_t *)realloc(*pcm_data,
+			(size_t)new_capacity_frames * (size_t)channels * sizeof(int16_t));
+	if (new_pcm_data == NULL) {
+		return -1;
+	}
+
+	*pcm_data = new_pcm_data;
+	*pcm_capacity_frames = new_capacity_frames;
+	return 0;
+}
+
 int mp3_play_file(const char *path, const char *snd_dev) {
 	mp3dec_t mp3;
 	mp3dec_frame_info_t info;
 	void *file_data;
 	unsigned char *stream_pos;
 	signed short sample_buf[MINIMP3_MAX_SAMPLES_PER_FRAME];
+	int16_t *pcm_data = NULL;
 	int bytes_left;
+	int pcm_frames = 0;
+	int pcm_capacity_frames = 0;
+	int ret = 1;
 
 	file_data = vfs_readfile(path, &bytes_left);
 	if(file_data == NULL) {
@@ -304,10 +340,11 @@ int mp3_play_file(const char *path, const char *snd_dev) {
 		return 1;
 	}
 
-	int channels = info.channels;
-	if (channels != 1 && channels != 2) {
-		channels = 2;
+	int src_channels = info.channels;
+	if (src_channels != 1 && src_channels != 2) {
+		src_channels = 2;
 	}
+	int output_channels = 2;
 
 	int rate = info.hz;
 	if (rate != 8000 && rate != 16000 && rate != 32000 &&
@@ -318,37 +355,70 @@ int mp3_play_file(const char *path, const char *snd_dev) {
 	struct pcm_config config = {
 		.bit_depth = 16,
 		.rate = rate,
-		.channels = channels,
+		.channels = output_channels,
 		.period_size = 2048,
 		.period_count = 4,
-		.start_threshold = 2048 * channels,
+		.start_threshold = 2048 * output_channels,
 		.stop_threshold = 0,
 	};
 
 	struct pcm *pcm = pcm_open(snd_dev, &config);
 	if (pcm == NULL) {
-		printf("pcm_open failed: rate=%d, channels=%d\n", rate, channels);
+		printf("pcm_open failed: rate=%d, channels=%d\n", rate, output_channels);
 		free(file_data);
 		return 1;
 	}
 
-	stream_pos += info.frame_bytes;
-	bytes_left -= info.frame_bytes;
-
-	while ((bytes_left >= 0) && (simples > 0)) {
-		int ret = pcm_write(pcm, sample_buf, simples * 2 * info.channels);
-		if (ret != 0) {
-			printf("pcm_write failed, ret=%d\n", ret);
-			break;
-		}
-		simples = mp3dec_decode_frame(&mp3, stream_pos, bytes_left, sample_buf, &info);
+	if (info.frame_bytes > 0) {
 		stream_pos += info.frame_bytes;
 		bytes_left -= info.frame_bytes;
 	}
 
+	while ((bytes_left >= 0) && (simples > 0)) {
+		if (ensure_pcm_capacity(&pcm_data, &pcm_capacity_frames,
+				pcm_frames + simples, output_channels) != 0) {
+			printf("alloc pcm buffer failed\n");
+			break;
+		}
+		for (int i = 0; i < simples; i++) {
+			int16_t left = sample_buf[i * src_channels];
+			int16_t right = (src_channels > 1) ? sample_buf[i * src_channels + 1] : left;
+
+			pcm_data[(pcm_frames + i) * output_channels] = left;
+			pcm_data[(pcm_frames + i) * output_channels + 1] = right;
+		}
+		pcm_frames += simples;
+
+		if (bytes_left <= 0) {
+			break;
+		}
+		simples = mp3dec_decode_frame(&mp3, stream_pos, bytes_left, sample_buf, &info);
+		if (info.frame_bytes <= 0) {
+			break;
+		}
+		stream_pos += info.frame_bytes;
+		bytes_left -= info.frame_bytes;
+		src_channels = info.channels;
+		if (src_channels != 1 && src_channels != 2) {
+			src_channels = output_channels;
+		}
+	}
+
+	if (pcm_frames > 0) {
+		ret = pcm_write(pcm, pcm_data,
+				(unsigned int)(pcm_frames * output_channels * (int)sizeof(int16_t)));
+		if (ret != 0) {
+			printf("pcm_write failed, ret=%d\n", ret);
+		}
+		else {
+			ret = 0;
+		}
+	}
+
+	free(pcm_data);
 	free(file_data);
 	pcm_close(pcm);
-	return 0;
+	return ret;
 }
 
 #ifdef __cplusplus

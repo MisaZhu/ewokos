@@ -31,8 +31,11 @@ static unsigned char sineTone1KBuf[] = {
 int play_with_file(const char *fileName)
 {
 	int ret;
-	int read_size = 0;
-	int buffer_size = 0;
+	long data_offset;
+	long file_size;
+	long data_size;
+	size_t read_size = 0;
+	size_t buffer_size = 0;
 	char *buf = NULL;
 	int rate, bit_depth, channels;
 
@@ -53,14 +56,37 @@ int play_with_file(const char *fileName)
 	rate = wavFormat.sample_rate;
 	bit_depth = wavFormat.bits_per_sample;
 	channels = wavFormat.num_channels;
+	data_offset = ftell(file);
+	if (data_offset < 0) {
+		LOGE("ftell() error:%d\n", errno);
+		fclose(file);
+		return -1;
+	}
+	if (fseek(file, 0, SEEK_END) != 0) {
+		LOGE("fseek() end error:%d\n", errno);
+		fclose(file);
+		return -1;
+	}
+	file_size = ftell(file);
+	if (file_size < data_offset) {
+		LOGE("invalid wav data offset:%ld size:%ld\n", data_offset, file_size);
+		fclose(file);
+		return -1;
+	}
+	data_size = file_size - data_offset;
+	if (fseek(file, data_offset, SEEK_SET) != 0) {
+		LOGE("fseek() data error:%d\n", errno);
+		fclose(file);
+		return -1;
+	}
 
 	struct pcm_config config = {
 		.bit_depth = bit_depth,
 		.rate = rate,
 		.channels = channels,
 		.period_size = 2048,
-		.period_count = 2,
-		.start_threshold = 2048 * 2,
+		.period_count = 4,
+		.start_threshold = 2048 * channels,
 		.stop_threshold = 0,
 	};
 
@@ -72,7 +98,7 @@ int play_with_file(const char *fileName)
 
 	dump_pcm_config(&config);
 
-	buffer_size = config.period_size * channels * (bit_depth / 8);
+	buffer_size = (size_t)data_size;
 	buf = (char*)malloc(buffer_size);
 	if (buf == NULL) {
 		fclose(file);
@@ -81,26 +107,18 @@ int play_with_file(const char *fileName)
 		return -1;
 	}
 
-	for (;;) {
-		LOGV("pcm_write() size:%d", buffer_size);
-		int r_sz= fread(buf + read_size, 1, 1024, file);
-		if (r_sz <= 0) {
-			LOGW("%s() fread() EOF! read_size:%d\n", __func__, read_size);
-			break;
-		}
-
-		read_size += r_sz;
-		if (read_size < buffer_size) {
-			continue;;
-		}
-
-		ret = pcm_write(pcm, buf, read_size);
+	read_size = fread(buf, 1, buffer_size, file);
+	if (read_size != buffer_size) {
+		LOGW("%s() fread() short read size:%u expect:%u\n",
+				__func__, (unsigned int)read_size, (unsigned int)buffer_size);
+	}
+	ret = 0;
+	if (read_size > 0) {
+		LOGV("pcm_write() size:%u", (unsigned int)read_size);
+		ret = pcm_write(pcm, buf, (unsigned int)read_size);
 		if (ret != 0) {
 			LOGD("pcm_write() ERROR, ret:%d\n", ret);
-			break;
 		}
-
-		read_size = 0;
 	}
 
 	free(buf);
@@ -182,14 +200,7 @@ int main(int argc, char *argv[])
 {
 	UNUSED(argc);
 	UNUSED(sineTone1KBuf);
-	int ret;
 	char wavFileName[128] = {0};
-	int playWav = 0;
-	int rate = 48000; /* Default sample rate */
-	int channels = 2; /* Default channel number */
-	int bit_depth = 16; /* Default bit depth */
-	FILE *file = NULL;
-	int i = 0;
 
 	if(argc < 2) {
 		LOGE("Usage: %s [-f wav_file]\n", argv[0]);

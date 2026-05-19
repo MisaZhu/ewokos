@@ -39,6 +39,7 @@ typedef int (*pcm_hook_t)(void *data);
 #define CTRL_PCM_DEV_PRPARE		(0xF2)
 #define CTRL_PCM_BUF_AVAIL		(0xF3)
 #define OGG_MAX_FRAMES          1152
+#define PCM_WAIT_SLEEP_MS       1
 
 static int pcm_prepare(struct pcm *pcm);
 
@@ -183,14 +184,16 @@ static int pcm_try_write(struct pcm *pcm, const void* data, unsigned int count)
 
 static int wait_avail(struct pcm *pcm, int *avail, int time_out_ms)
 {
-	enum {
-		SLEEP_TIME_MS = 5,
-	};
 	*avail = 0;
 	int ret = 0;
 	int period_bytes = pcm->config.period_size * pcm->config.channels * (pcm->config.bit_depth / 8);
-	int max_try_count = time_out_ms / SLEEP_TIME_MS;
+	int min_avail = period_bytes / 4;
+	int max_try_count = time_out_ms / PCM_WAIT_SLEEP_MS;
 	int try_count = 0;
+
+	if (min_avail < pcm->framesize) {
+		min_avail = pcm->framesize;
+	}
 
 	for(;;) {
 		ret = pcm_buf_avail(pcm);
@@ -198,7 +201,7 @@ static int wait_avail(struct pcm *pcm, int *avail, int time_out_ms)
 			break;
 		}
 
-		if (ret >= period_bytes) {
+		if (ret >= min_avail) {
 			*avail = ret;
 			break;
 		}
@@ -210,7 +213,8 @@ static int wait_avail(struct pcm *pcm, int *avail, int time_out_ms)
 		if (pcm->hook != NULL) {
 			pcm->hook(pcm->private);
 		} else {
-			proc_usleep(SLEEP_TIME_MS * 1000);
+			//proc_usleep(PCM_WAIT_SLEEP_MS * 1000);
+			proc_yield();
 		}
 	}
 
@@ -338,6 +342,8 @@ static int ogg_close_func(void *datasource)
 	if (ds->data != NULL) {
 		free(ds->data);
 		ds->data = NULL;
+		ds->size = 0;
+		ds->pos = 0;
 	}
 	return 0;
 }
@@ -376,6 +382,10 @@ int ogg_play_file(const char *path, const char *snd_dev) {
 	vorbis_comment *vc;
 	OggVorbis_DataSource ds;
 	ov_callbacks callbacks;
+	int16_t *pcm_data = NULL;
+	int pcm_frames = 0;
+	int pcm_capacity_frames = 0;
+	int ret = 1;
 
 	int file_size;
 	uint8_t *file_data = (uint8_t *)vfs_readfile(path, &file_size);
@@ -463,18 +473,50 @@ int ogg_play_file(const char *path, const char *snd_dev) {
 			stereo_buffer[i * 2] = ogg_float_to_s16(left);
 			stereo_buffer[i * 2 + 1] = ogg_float_to_s16(right);
 		}
-		int ret = pcm_write(pcm, stereo_buffer, samples * 4);
+
+		if (pcm_frames + samples > pcm_capacity_frames) {
+			int new_capacity_frames = pcm_capacity_frames == 0 ? 16384 : pcm_capacity_frames;
+			int16_t *new_pcm_data;
+
+			while (new_capacity_frames < pcm_frames + samples) {
+				new_capacity_frames *= 2;
+			}
+			new_pcm_data = (int16_t *)realloc(pcm_data,
+					(size_t)new_capacity_frames * output_channels * sizeof(int16_t));
+			if (new_pcm_data == NULL) {
+				printf("alloc pcm buffer failed\n");
+				goto out;
+			}
+			pcm_data = new_pcm_data;
+			pcm_capacity_frames = new_capacity_frames;
+		}
+		memcpy(pcm_data + pcm_frames * output_channels,
+				stereo_buffer,
+				(size_t)samples * output_channels * sizeof(int16_t));
+		pcm_frames += samples;
+	}
+
+	if (pcm_frames > 0) {
+		ret = pcm_write(pcm, pcm_data,
+				(unsigned int)(pcm_frames * output_channels * (int)sizeof(int16_t)));
 		if (ret != 0) {
 			printf("pcm_write failed, ret=%d\n", ret);
-			break;
+			goto out;
 		}
 	}
 
 	pcm_close(pcm);
-	ov_clear(&vf);
-	free(file_data);
+	pcm = NULL;
+	ret = 0;
 
-	return 0;
+out:
+	if (pcm != NULL) {
+		pcm_close(pcm);
+	}
+	free(pcm_data);
+	ov_clear(&vf);
+
+	return ret;
 }
 
 int main(int argc, char **argv) {

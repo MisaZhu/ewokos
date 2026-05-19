@@ -19,6 +19,7 @@
 #define CTRL_PCM_DEV_HW_FREE			(0xF1)
 #define CTRL_PCM_DEV_PRPARE			(0xF2)
 #define CTRL_PCM_BUF_AVAIL			(0xF3)
+#define PCM_WAIT_SLEEP_MS			(1)
 
 static int pcm_prepare(struct pcm *pcm);
 
@@ -186,14 +187,16 @@ static int pcm_try_write(struct pcm *pcm, const void* data, unsigned int count)
 */
 int wait_avail(struct pcm *pcm, int *avail, int time_out_ms)
 {
-	enum {
-		SLEEP_TIME_MS = 5,
-	};
 	*avail = 0;
 	int ret = 0;
 	int period_bytes = pcm->config.period_size * pcm->framesize;
-	int max_try_count = time_out_ms /SLEEP_TIME_MS;
+	int min_avail = period_bytes / 4;
+	int max_try_count = time_out_ms / PCM_WAIT_SLEEP_MS;
 	int try_count = 0;
+
+	if (min_avail < pcm->framesize) {
+		min_avail = pcm->framesize;
+	}
 
 	for(;;) {
 		ret = pcm_buf_avail(pcm);
@@ -202,7 +205,7 @@ int wait_avail(struct pcm *pcm, int *avail, int time_out_ms)
 			break;
 		}
 
-		if (ret >= period_bytes) {
+		if (ret >= min_avail) {
 			*avail = ret;
 			break;
 		}
@@ -215,7 +218,7 @@ int wait_avail(struct pcm *pcm, int *avail, int time_out_ms)
 		if (pcm->hook != NULL) {
 			pcm->hook(pcm->private);
 		} else {
-			proc_usleep(SLEEP_TIME_MS * 1000); /* Try again until timeout */
+			proc_yield();
 		}
 	}
 

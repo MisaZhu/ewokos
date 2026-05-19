@@ -8,11 +8,9 @@
 #include <vorbis/codec.h>
 #include <vorbis/vorbisfile.h>
 
-// OGG Vorbis data source
+// OGG Vorbis fd-backed data source
 typedef struct {
-    uint8_t *data;
-    int size;
-    int pos;
+    int fd;
 } OggVorbis_DataSource;
 
 // Audio format enum
@@ -53,7 +51,7 @@ public:
 private:
     bool loadMp3(const char* device);
     bool loadWav(const char* device);
-    bool loadOgg(const char* device);
+    bool loadOgg(const char* path, const char* device);
     void replayMp3(const char* device);
     void replayWav(const char* device);
     void replayOgg(const char* device);
