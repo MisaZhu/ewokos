@@ -188,7 +188,7 @@ static int wait_avail(struct pcm *pcm, int *avail, int time_out_ms)
 	};
 	*avail = 0;
 	int ret = 0;
-	int period_bytes = pcm->config.period_size * 4;
+	int period_bytes = pcm->config.period_size * pcm->framesize;
 	int max_try_count = time_out_ms / SLEEP_TIME_MS;
 	int try_count = 0;
 
@@ -226,7 +226,7 @@ static int pcm_write(struct pcm *pcm, const void* data, unsigned int count) {
 	int copy_bytes = 0;
 	int ret = 0;
 
-	period_bytes = pcm->config.period_size * 4;
+	period_bytes = pcm->config.period_size * pcm->framesize;
 	copy_bytes = bytes < period_bytes ? bytes : period_bytes;
 	while (bytes > 0) {
 		ret = wait_avail(pcm, &avail, 2000);

@@ -72,7 +72,7 @@ int play_with_file(const char *fileName)
 
 	dump_pcm_config(&config);
 
-	buffer_size = config.period_size * 4;
+	buffer_size = config.period_size * channels * (bit_depth / 8);
 	buf = (char*)malloc(buffer_size);
 	if (buf == NULL) {
 		fclose(file);
