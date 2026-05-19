@@ -13,7 +13,6 @@
 #include <Widget/Text.h>
 #include <WidgetEx/Menubar.h>
 #include <WidgetEx/Menu.h>
-#include <WidgetWebview/WidgetWebview.h>
 #include <ewoksys/vfs.h>
 
 #include <WidgetEx/LayoutWidget.h>
@@ -71,9 +70,6 @@ Widget* LayoutWidget::createByBasicType(const string& type) {
     } 
     else if(type == "Menubar") {
         return new Menubar();
-    }
-    else if(type == "Webview") {
-        return new WidgetWebview();
     }
     return NULL;
 }

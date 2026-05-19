@@ -46,11 +46,7 @@ LIB_WIDGET_OBJS =  src/Widget/Widget.o \
 		src/WidgetEx/LayoutWidget.o \
 		src/WidgetEx/LayoutWin.o \
 		src/WidgetEx/Menu.o \
-		src/WidgetEx/Menubar.o \
-		\
-		src/WidgetWebview/el_input.o \
-		src/WidgetWebview/XContainer.o \
-		src/WidgetWebview/WidgetWebview.o
+		src/WidgetEx/Menubar.o
 
 WIDGET = $(TARGET_DIR)/lib/libwidget++.a
 
