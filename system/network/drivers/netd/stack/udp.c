@@ -429,9 +429,14 @@ udp_recvfrom(int id, uint8_t *buf, size_t size, struct ip_endpoint *foreign)
     while (!(entry = queue_pop(&pcb->queue))) {
         struct timeval abs_timeout;
         if (sched_sleep(&pcb->ctx, &mutex, sock_get_timeout_abs(rcv_timeout, &abs_timeout)) == -1) {
-            errorf("interrupted");
+            if (errno == ETIMEDOUT) {
+                errorf("recv timeout");
+            }
+            else {
+                errorf("interrupted");
+                errno = EINTR;
+            }
             mutex_unlock(&mutex);
-            errno = EINTR;
             return -1;
         }
 

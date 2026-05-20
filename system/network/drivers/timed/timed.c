@@ -10,6 +10,7 @@
 
 static uint32_t _time_sec_init = 0;
 static time_t _time_init = 0;
+static uint32_t _next_sync_sec = 0;
 
 static int time_dcntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
 	(void)dev;
@@ -31,11 +32,21 @@ static int time_loop(vdevice_t* dev, void* p) {
 	uint32_t current_time_sec;
 	kernel_tic(&current_time_sec, NULL);
 
+	if(_next_sync_sec != 0 && current_time_sec < _next_sync_sec) {
+		usleep(300000);
+		return 0;
+	}
+
 	if(_time_init == 0 || (current_time_sec - _time_sec_init) > 600) {
     	time_t t = ntpc_get_time(DEFAULT_NTP_SERVER, DEFAULT_NTP_PORT);
 		if(t > 0) {
 			_time_init = t;
 			kernel_tic(&_time_sec_init, NULL);
+			_next_sync_sec = _time_sec_init + 600;
+		}
+		else {
+			// Avoid hammering NTP when the network path is unavailable.
+			_next_sync_sec = current_time_sec + 30;
 		}
 		//slog("%d->%d\n", _time_init, _time_sec_init);
 	}
