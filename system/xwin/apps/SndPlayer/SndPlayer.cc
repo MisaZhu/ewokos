@@ -32,37 +32,13 @@ class SpectrumView : public Widget {
 public:
     static const int BARS = 32;
 
-    typedef void (*StateChangeCallback)(void* userData);
-    typedef void (*TimeUpdateCallback)(void* userData);
-    void setPlayer(AudioPlayer* p) { player = p; }
-    void setStateChangeCallback(StateChangeCallback cb, void* ud) {
-        stateChangeCb = cb;
-        stateChangeUserData = ud;
-    }
-    void setTimeUpdateCallback(TimeUpdateCallback cb, void* ud) {
-        timeUpdateCb = cb;
-        timeUpdateUserData = ud;
-    }
-
 protected:
     float magnitudes[BARS];
     float targetMagnitudes[BARS];
     uint32_t barColors[BARS];
-    double decodeBudgetMs;
-    AudioPlayer* player;
-    StateChangeCallback stateChangeCb;
-    void* stateChangeUserData;
-    TimeUpdateCallback timeUpdateCb;
-    void* timeUpdateUserData;
 
 public:
     SpectrumView() {
-        player = NULL;
-        decodeBudgetMs = 0.0;
-        stateChangeCb = NULL;
-        stateChangeUserData = NULL;
-        timeUpdateCb = NULL;
-        timeUpdateUserData = NULL;
         for (int i = 0; i < BARS; i++) {
             magnitudes[i] = 0;
             targetMagnitudes[i] = 0;
@@ -119,27 +95,6 @@ public:
     void onTimer(uint32_t timerFPS, uint32_t timerSteps) {
         (void)timerFPS;
         (void)timerSteps;
-        if (player != NULL && player->isPlaying()) {
-            decodeBudgetMs = 0.0;
-            player->decodeFrame();
-
-            //updateSpectrum(player->getSampleBuf(), player->getSimples(), player->getChannels());
-
-            if (player->isEof()) {
-                if (!player->isWriteFailed()) {
-                    player->pause();
-                }
-                if (stateChangeCb) stateChangeCb(stateChangeUserData);
-            }
-        } else {
-            decodeBudgetMs = 0.0;
-        }
-
-        // Update time label during playback
-        if (player != NULL && player->isLoaded() && timeUpdateCb) {
-            timeUpdateCb(timeUpdateUserData);
-        }
-
         for (int i = 0; i < BARS; i++) {
             float diff = targetMagnitudes[i] - magnitudes[i];
             if (diff > 0.01f)
@@ -155,7 +110,7 @@ public:
             uint8_t b = (uint8_t)(100 + magnitudes[i] * 100);
             barColors[i] = 0xFF000000 | (r << 16) | (g << 8) | b;
         }
-        //update();
+        update();
     }
 
 protected:
@@ -285,12 +240,232 @@ protected:
 };
 
 class SoundPlayerWin : public WidgetWin {
+    static const int SNAPSHOT_SAMPLE_CAP = 2304;
+
+    enum PlaybackCommand {
+        CMD_NONE,
+        CMD_LOAD,
+        CMD_TOGGLE,
+        CMD_STOP
+    };
+
+    struct PlaybackSnapshot {
+        bool loaded;
+        bool playing;
+        bool eof;
+        bool writeFailed;
+        uint32_t currentMs;
+        uint32_t totalMs;
+        int channels;
+        int sampleCount;
+        int16_t samples[SNAPSHOT_SAMPLE_CAP];
+    };
+
     FileDialog fdialog;
     AudioPlayer* player;
     SpectrumView* spectrum;
     LabelButton* playBtn;
     Label* timeLabel;
     ProgressBar* progressBar;
+    pthread_t playbackTid;
+    pthread_mutex_t playbackLock;
+    bool playbackThreadCreated;
+    bool playbackThreadExit;
+    PlaybackCommand pendingCommand;
+    char pendingPath[FS_FULL_NAME_MAX + 1];
+    PlaybackSnapshot snapshot;
+
+    static void* playbackThreadEntry(void* arg) {
+        ((SoundPlayerWin*)arg)->playbackLoop();
+        return NULL;
+    }
+
+    void playbackLoop() {
+        char localPath[FS_FULL_NAME_MAX + 1];
+        localPath[0] = 0;
+
+        while (true) {
+            PlaybackCommand cmd = CMD_NONE;
+
+            pthread_mutex_lock(&playbackLock);
+            if (playbackThreadExit) {
+                pthread_mutex_unlock(&playbackLock);
+                break;
+            }
+            cmd = pendingCommand;
+            if (cmd == CMD_LOAD) {
+                strncpy(localPath, pendingPath, sizeof(localPath) - 1);
+                localPath[sizeof(localPath) - 1] = 0;
+            }
+            pendingCommand = CMD_NONE;
+            pthread_mutex_unlock(&playbackLock);
+
+            if (cmd == CMD_LOAD) {
+                if (player->load(localPath, "/dev/sound0")) {
+                    player->play();
+                }
+                syncSnapshot();
+                continue;
+            } else if (cmd == CMD_TOGGLE) {
+                if (player->isLoaded()) {
+                    if (player->isWriteFailed()) {
+                        player->reopenDevice("/dev/sound0");
+                        player->play();
+                    } else if (player->isEof()) {
+                        player->replay("/dev/sound0");
+                        player->play();
+                    } else if (player->isPlaying()) {
+                        player->pause();
+                    } else {
+                        player->play();
+                    }
+                }
+                syncSnapshot();
+                continue;
+            } else if (cmd == CMD_STOP) {
+                player->stop();
+                syncSnapshot();
+                proc_usleep(5000);
+                continue;
+            }
+
+            if (player->isPlaying()) {
+                player->decodeFrame();
+                syncSnapshot();
+                continue;
+            }
+
+            syncSnapshot();
+            proc_usleep(5000);
+        }
+
+        player->stop();
+        syncSnapshot();
+    }
+
+    void syncSnapshot() {
+        PlaybackSnapshot next;
+        next.loaded = player->isLoaded();
+        next.playing = player->isPlaying();
+        next.eof = player->isEof();
+        next.writeFailed = player->isWriteFailed();
+        next.currentMs = player->getCurrentMs();
+        next.totalMs = player->getTotalMs();
+        next.channels = player->getChannels();
+        next.sampleCount = player->getSimples();
+        if (next.channels <= 0) {
+            next.channels = 2;
+        }
+        if (next.sampleCount < 0) {
+            next.sampleCount = 0;
+        }
+        if (next.sampleCount > (SNAPSHOT_SAMPLE_CAP / next.channels)) {
+            next.sampleCount = SNAPSHOT_SAMPLE_CAP / next.channels;
+        }
+
+        int16_t* src = player->getSampleBuf();
+        int totalSampleValues = next.sampleCount * next.channels;
+        if (src != NULL && totalSampleValues > 0) {
+            memcpy(next.samples, src, totalSampleValues * (int)sizeof(int16_t));
+        } else {
+            memset(next.samples, 0, sizeof(next.samples));
+            next.sampleCount = 0;
+        }
+
+        pthread_mutex_lock(&playbackLock);
+        snapshot = next;
+        pthread_mutex_unlock(&playbackLock);
+    }
+
+    void copySnapshot(PlaybackSnapshot* out) {
+        pthread_mutex_lock(&playbackLock);
+        *out = snapshot;
+        pthread_mutex_unlock(&playbackLock);
+    }
+
+    void queueLoad(const char* path) {
+        pthread_mutex_lock(&playbackLock);
+        strncpy(pendingPath, path, sizeof(pendingPath) - 1);
+        pendingPath[sizeof(pendingPath) - 1] = 0;
+        pendingCommand = CMD_LOAD;
+        pthread_mutex_unlock(&playbackLock);
+    }
+
+    void queueToggle() {
+        pthread_mutex_lock(&playbackLock);
+        pendingCommand = CMD_TOGGLE;
+        pthread_mutex_unlock(&playbackLock);
+    }
+
+    void queueStop() {
+        pthread_mutex_lock(&playbackLock);
+        pendingCommand = CMD_STOP;
+        pthread_mutex_unlock(&playbackLock);
+    }
+
+    void stopPlaybackThread() {
+        if (!playbackThreadCreated) {
+            return;
+        }
+
+        pthread_mutex_lock(&playbackLock);
+        playbackThreadExit = true;
+        pthread_mutex_unlock(&playbackLock);
+
+        pthread_join(playbackTid, NULL);
+        playbackThreadCreated = false;
+    }
+
+    void updatePlayBtn(const PlaybackSnapshot& state) {
+        if (playBtn) {
+            if (state.playing && !state.writeFailed) {
+                playBtn->setLabel("||");
+            } else {
+                playBtn->setLabel(">");
+            }
+        }
+    }
+
+    void updateTimeLabel(const PlaybackSnapshot& state) {
+        if (timeLabel) {
+            uint32_t cur = state.currentMs;
+            uint32_t tot = state.totalMs;
+            char buf[64];
+            snprintf(buf, sizeof(buf)-1, "%02d:%02d / %02d:%02d",
+                cur/60000, (cur/1000)%60,
+                tot/60000, (tot/1000)%60);
+            timeLabel->setLabel(buf);
+        }
+    }
+
+    void updateProgressBar(const PlaybackSnapshot& state) {
+        if (progressBar && state.loaded && state.totalMs > 0) {
+            float progress = (float)state.currentMs / state.totalMs;
+            progressBar->setProgress(progress);
+        }
+    }
+
+protected:
+    void onTimer(uint32_t timerFPS, uint32_t timerSteps) {
+        (void)timerFPS;
+        (void)timerSteps;
+
+        if (!playbackThreadCreated && player->isPlaying()) {
+            player->decodeFrame();
+            syncSnapshot();
+        }
+
+        PlaybackSnapshot state;
+        copySnapshot(&state);
+
+        if (spectrum != NULL && state.sampleCount > 0 && state.channels > 0) {
+            spectrum->updateSpectrum(state.samples, state.sampleCount, state.channels);
+        }
+
+        updatePlayBtn(state);
+        updateTimeLabel(state);
+        updateProgressBar(state);
+    }
 
 protected:
     void onDialoged(XWin* from, int res, void* arg) {
@@ -309,9 +484,20 @@ public:
         playBtn = NULL;
         timeLabel = NULL;
         progressBar = NULL;
+        playbackThreadCreated = false;
+        playbackThreadExit = false;
+        pendingCommand = CMD_NONE;
+        pendingPath[0] = 0;
+        memset(&snapshot, 0, sizeof(snapshot));
+        pthread_mutex_init(&playbackLock, NULL);
+        if (pthread_create(&playbackTid, NULL, playbackThreadEntry, this) == 0) {
+            playbackThreadCreated = true;
+        }
     }
 
     ~SoundPlayerWin() {
+        stopPlaybackThread();
+        pthread_mutex_destroy(&playbackLock);
         delete player;
     }
 
@@ -320,78 +506,53 @@ public:
     void setTimeLabel(Label* l) { timeLabel = l; }
     void setProgressBar(ProgressBar* p) { progressBar = p; }
 
-    void updateProgressBar() {
-        if (progressBar && player->isLoaded() && player->getTotalMs() > 0) {
-            float progress = (float)player->getCurrentMs() / player->getTotalMs();
-            progressBar->setProgress(progress);
-        }
-    }
-
     void loadAndPlay(const char* path) {
-        if (player->load(path, "/dev/sound0")) {
-            player->play();
-            updatePlayBtn();
-            updateTimeLabel();
-        }
-    }
-
-    void updatePlayBtn() {
-        if (playBtn && player->isLoaded()) {
-            if (player->isPlaying() && !player->isWriteFailed()) {
-                playBtn->setLabel("||");
-            } else {
-                playBtn->setLabel(">");
+        if (!playbackThreadCreated) {
+            if (player->load(path, "/dev/sound0")) {
+                player->play();
             }
+            syncSnapshot();
+            return;
         }
-    }
-
-    void updateTimeLabel() {
-        if (timeLabel) {
-            uint32_t cur = player->getCurrentMs();
-            uint32_t tot = player->getTotalMs();
-            char buf[64];
-            snprintf(buf, sizeof(buf)-1, "%02d:%02d / %02d:%02d",
-                cur/60000, (cur/1000)%60,
-                tot/60000, (tot/1000)%60);
-            timeLabel->setLabel(buf);
-        }
+        queueLoad(path);
     }
 
     void togglePlay() {
-        if (!player->isLoaded()) return;
+        if (!playbackThreadCreated) {
+            if (!player->isLoaded()) return;
 
-        if (player->isWriteFailed()) {
-            player->reopenDevice("/dev/sound0");
-            player->play();
-        } else if (player->isEof()) {
-            player->replay("/dev/sound0");
-            player->play();
-        } else if (player->isPlaying()) {
-            player->pause();
-        } else {
-            player->play();
+            if (player->isWriteFailed()) {
+                player->reopenDevice("/dev/sound0");
+                player->play();
+            } else if (player->isEof()) {
+                player->replay("/dev/sound0");
+                player->play();
+            } else if (player->isPlaying()) {
+                player->pause();
+            } else {
+                player->play();
+            }
+            syncSnapshot();
+            return;
         }
-        updatePlayBtn();
+        queueToggle();
     }
 
     AudioPlayer* getPlayer() { return player; }
     FileDialog* getFileDialog() { return &fdialog; }
+    void stopPlayback() {
+        if (!playbackThreadCreated) {
+            player->stop();
+            syncSnapshot();
+            return;
+        }
+        queueStop();
+    }
 };
 
 static void onOpenFunc(MenuItem* it, void* p) {
     SoundPlayerWin* win = (SoundPlayerWin*)p;
     win->getFileDialog()->popup(win, 0, 0, "files", XWIN_STYLE_NORMAL);
-}
-
-static void onPlayStateChange(void* userData) {
-    SoundPlayerWin* win = (SoundPlayerWin*)userData;
-    win->updatePlayBtn();
-}
-
-static void onTimeUpdate(void* userData) {
-    SoundPlayerWin* win = (SoundPlayerWin*)userData;
-    win->updateTimeLabel();
-    win->updateProgressBar();
 }
 
 static void onPlayBtnClick(Widget* wd, xevent_t* evt, void* arg) {
@@ -416,9 +577,6 @@ int main(int argc, char** argv) {
     menubar->add(0, "Open", NULL, NULL, onOpenFunc, &win);
 
     SpectrumView* spectrum = new SpectrumView();
-    spectrum->setPlayer(win.getPlayer());
-    spectrum->setStateChangeCallback(onPlayStateChange, &win);
-    spectrum->setTimeUpdateCallback(onTimeUpdate, &win);
     root->add(spectrum);
     win.setSpectrum(spectrum);
 
@@ -445,15 +603,14 @@ int main(int argc, char** argv) {
     win.setTimeLabel(timeLabel);
 
     win.open(&x, -1, -1, -1, 300, 140, "SndPlayer", XWIN_STYLE_NORMAL | XWIN_STYLE_NO_BG_EFFECT, true);
-    win.setTimer(240);
+    win.setTimer(60);
 
     if (argc >= 2) {
         win.loadAndPlay(argv[1]);
-        win.getPlayer()->play();
     }
 
     widgetXRun(&x, &win);
 
-    win.getPlayer()->stop();
+    win.stopPlayback();
     return 0;
 }
