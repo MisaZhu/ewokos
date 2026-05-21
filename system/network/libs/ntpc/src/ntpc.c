@@ -2,6 +2,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <unistd.h>
 #include <string.h>
 #include <time.h>
 #include <sys/time.h>
@@ -9,6 +10,7 @@
 
 // NTP时间戳从1900年开始，而UNIX时间戳从1970年开始，相差70年的秒数
 #define NTP_UNIX_OFFSET 2208988800UL
+#define NTP_RECV_TIMEOUT_SEC 2
 
 
 #ifdef __cplusplus 
@@ -54,9 +56,9 @@ time_t ntpc_get_time(const char* server_ip, uint16_t port) {
         return 0;
     }
 
-    // 设置2秒超时
+    // NTP is a short request; keep the timeout short to avoid prolonged UDP wait polling.
     struct timeval timeout;
-    timeout.tv_sec = 5;
+    timeout.tv_sec = NTP_RECV_TIMEOUT_SEC;
     timeout.tv_usec = 0;
     if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
         close(sockfd);

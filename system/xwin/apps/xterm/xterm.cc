@@ -104,23 +104,23 @@ public:
 	void textColorChange(uint32_t color) {
 		lock();
 		terminal.fg_color = color;
-		update();
 		unlock();
+		update();
 	}
 
 	void bgColorChange(uint32_t color, uint8_t alpha) {
 		lock();
 		terminal.transparent  = alpha;
 		terminal.bg_color = (color & 0x00ffffff) | (terminal.transparent << 24);
-		update();
 		unlock();
+		update();
 	}
 
 	void pushStr(const char* s, uint32_t sz) {
 		lock();
 		push(s, sz);
-		update();
 		unlock();
+		update();
 	}
 protected:
 	void input(int32_t c) {
@@ -175,9 +175,19 @@ protected:
 		unlock();
 	}
 
+	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
+		lock();
+		ConsoleWidget::onRepaint(g, theme, r);
+		unlock();
+	}
+
 	void onTimer(uint32_t timerFPS, uint32_t timerSteps) {
-		if((timerSteps % (timerFPS/2)) == 0)
-			flash();
+		if((timerSteps % (timerFPS/2)) == 0) {
+			lock();
+			gterminal_flash(&terminal);
+			unlock();
+			update();
+		}
 	}
 };
 
