@@ -76,6 +76,8 @@ LIB_EWOKSYS_OBJS =  \
 	src/string/strnlen.o \
 	src/string/strpbrk.o \
 	src/string/strspn.o \
+	src/string/strsep.o \
+	src/string/strlcpy.o \
 	\
 	src/stdio/putch.o \
 	src/stdio/fputs.o \

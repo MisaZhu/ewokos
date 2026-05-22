@@ -34,6 +34,7 @@ size_t strnlen(const char *s, size_t maxlen);
 char *strdup(const char *s);
 char *strndup(const char *s, size_t n);
 char *strerror(int errnum);
+size_t strlcpy(char *dest, const char *src, size_t size);
 
 #ifdef __cplusplus
 }
