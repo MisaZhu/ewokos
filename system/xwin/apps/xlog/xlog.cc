@@ -47,7 +47,7 @@ class TermWidget : public ConsoleWidget {
 	int logFD;
 public:
 	TermWidget() {
-		logFD = open("/dev/log", O_WRONLY | O_NONBLOCK);
+		logFD = open("/dev/log", O_RDONLY | O_NONBLOCK);
 	}
 
 	~TermWidget() {
@@ -64,14 +64,14 @@ protected:
 	}
 
 	void onTimer(uint32_t timerFPS, uint32_t timerSteps) {
-		if(logFD < 0 || (timerSteps % (timerFPS/2)) != 0)
+		uint32_t period = timerFPS > 1 ? (timerFPS/2) : 1;
+		if(logFD < 0 || (timerSteps % period) != 0)
 			return;
 
 		char buf[1024];
 		int sz = read(logFD, buf, sizeof(buf));
 		if(sz > 0) {
 			pushStr(buf, sz);
-			update();
 		}
 	}
 };

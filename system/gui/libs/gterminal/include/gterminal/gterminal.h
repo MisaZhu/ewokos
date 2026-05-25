@@ -44,6 +44,10 @@ typedef struct {
 	uint32_t char_w;
 	uint32_t char_h;
 
+	bool in_esc;
+	uint16_t esc_buf[8];
+	uint16_t esc_size;
+
 	gterminal_output_callback_t output_callback;
 	void* output_callback_arg;
 } gterminal_t;

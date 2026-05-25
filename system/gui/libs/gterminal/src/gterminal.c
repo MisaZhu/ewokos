@@ -19,11 +19,26 @@ extern "C" {
 #define  ESC_CMD 033
 
 static gpos_t get_pos(gterminal_t* terminal, int x, int y, int w, int h) {
+    (void)x;
+    (void)y;
+    (void)w;
+    (void)h;
+    if(terminal == NULL || terminal->textgrid == NULL ||
+            terminal->textgrid->grid == NULL ||
+            terminal->textgrid->cols == 0 || terminal->textgrid->rows == 0) {
+        gpos_t empty = {0, 0};
+        return empty;
+    }
     int row = terminal->textgrid->curs_y - terminal->textgrid_start_row;
     if(row < 0)
         row = 0;
 
     uint32_t at = terminal->textgrid->curs_x + (terminal->textgrid->curs_y*terminal->textgrid->cols);
+    uint32_t total = terminal->textgrid->total_rows * terminal->textgrid->cols;
+    if(total == 0 || at >= total) {
+        gpos_t empty = {0, 0};
+        return empty;
+    }
     //int col = terminal->textgrid->curs_x + 1;
     int col = terminal->textgrid->curs_x;
     if(terminal->textgrid->grid[at].c == '\n') {
@@ -37,7 +52,10 @@ static gpos_t get_pos(gterminal_t* terminal, int x, int y, int w, int h) {
 
 
 static void draw_curs(gterminal_t* terminal, graph_t* g, int x, int y, int w, int h) {
-    if(!terminal->flash_show || !terminal->show_curs || terminal->scroll_offset != 0)
+    if(terminal == NULL || terminal->textgrid == NULL ||
+            terminal->textgrid->grid == NULL ||
+            terminal->char_h <= 4 ||
+            !terminal->flash_show || !terminal->show_curs || terminal->scroll_offset != 0)
         return;
     gpos_t pos = get_pos(terminal, x, y, w, h);
     graph_fill_rect(g, x+ pos.x, y + pos.y+4, 4, terminal->char_h-4, terminal->fg_color);
@@ -191,17 +209,39 @@ static void do_esc_color(gterminal_t* terminal, uint16_t* values, uint8_t vnum) 
 }
 
 static void run_esc_cmd(gterminal_t* terminal, UNICODE16 cmd, uint16_t* values, uint8_t vnum, bool private_mode) {
+    if(terminal == NULL)
+        return;
+
+    if(cmd == 'm') {
+        do_esc_color(terminal, values, vnum);
+        return;
+    }
+    else if(cmd == 'l') {
+        if(private_mode) {
+            if(vnum > 0 && values[0] == 25)
+                terminal->show_curs = false;
+        }
+        return;
+    }
+    else if(cmd == 'h') {
+        if(private_mode) {
+            if(vnum > 0 && values[0] == 25)
+                terminal->show_curs = true;
+        }
+        return;
+    }
+
     textgrid_t* tg = terminal->textgrid;
+    if(tg == NULL || tg->grid == NULL || tg->cols == 0 || terminal->rows == 0)
+        return;
+
     int32_t top_row = terminal->textgrid_start_row;
     int32_t bottom_row = top_row + (int32_t)terminal->rows - 1;
     uint32_t eff_scroll_top = terminal->scroll_top;
     uint32_t eff_scroll_bottom = (terminal->scroll_bottom < terminal->rows) ?
         terminal->scroll_bottom : (terminal->rows - 1);
 
-    if(cmd == 'm') {
-        do_esc_color(terminal, values, vnum);
-    }
-    else if(cmd == 'J') {
+    if(cmd == 'J') {
         textchar_t tch = {0};
         if(terminal->term_conf.set) {
             tch.bg_color = terminal->term_conf.bg_color;
@@ -306,18 +346,6 @@ static void run_esc_cmd(gterminal_t* terminal, UNICODE16 cmd, uint16_t* values, 
     }
     else if(cmd == 'u') {
         textgrid_move_to(tg, terminal->curs_pos.x, terminal->curs_pos.y);
-    }
-    else if(cmd == 'l') {
-        if(private_mode) {
-            if(vnum > 0 && values[0] == 25)
-                terminal->show_curs = false;
-        }
-    }
-    else if(cmd == 'h') {
-        if(private_mode) {
-            if(vnum > 0 && values[0] == 25)
-                terminal->show_curs = true;
-        }
     }
     else if(cmd == 'L') {
         if(tg->grid == NULL || tg->cols == 0) return;
@@ -432,7 +460,7 @@ static void run_esc_cmd(gterminal_t* terminal, UNICODE16 cmd, uint16_t* values, 
             for(int32_t y = s_bottom; y >= s_top + (int32_t)n; y--)
                 for(uint16_t x = 0; x < tg->cols; x++)
                     tg->grid[y * tg->cols + x] = tg->grid[(y - n) * tg->cols + x];
-            for(uint32_t y = s_top; y < s_top + n; y++)
+            for(int32_t y = s_top; y < s_top + (int32_t)n; y++)
                 for(uint16_t x = 0; x < tg->cols; x++) {
                     textchar_t tch = {0};
                     tg->grid[y * tg->cols + x] = tch;
@@ -441,7 +469,7 @@ static void run_esc_cmd(gterminal_t* terminal, UNICODE16 cmd, uint16_t* values, 
     }
     else if(cmd == 'r') {
         uint32_t top = (vnum >= 1 && values[0] > 0) ? values[0] - 1 : 0;
-        uint32_t bottom = (vnum >= 2 && values[1] > 0) ? values[1] - 1 : terminal->rows - 1;
+        uint32_t bottom = (vnum >= 2 && values[1] > 0) ? (uint32_t)(values[1] - 1) : (terminal->rows - 1);
         if(top < bottom && bottom < terminal->rows) {
             terminal->scroll_top = top;
             terminal->scroll_bottom = bottom;
@@ -531,6 +559,8 @@ static uint32_t do_esc_cmd(gterminal_t* terminal, UNICODE16* uni, uint32_t from,
 }
 
 void gterminal_init(gterminal_t* terminal) {
+    if(terminal == NULL)
+        return;
     memset(terminal, 0, sizeof(gterminal_t));
     terminal->textgrid = textgrid_new();
     terminal->show_curs = true;
@@ -540,6 +570,8 @@ void gterminal_init(gterminal_t* terminal) {
 }
 
 void gterminal_close(gterminal_t* terminal) {
+    if(terminal == NULL)
+        return;
     if(terminal->font != NULL) {
         font_free(terminal->font);
         terminal->font = NULL;
@@ -551,6 +583,8 @@ void gterminal_close(gterminal_t* terminal) {
 }
 
 bool gterminal_scroll(gterminal_t* terminal, int direction) {
+    if(terminal == NULL || terminal->textgrid == NULL)
+        return false;
     int32_t old_offset = terminal->scroll_offset;
     if(direction == 0)
         terminal->scroll_offset = 0;
@@ -610,8 +644,12 @@ static void gterminal_draw_char(graph_t* g,
 }
 
 void gterminal_paint(gterminal_t* terminal, graph_t* g, int x, int y, int w, int h) {
-    if(terminal->textgrid->cols == 0 || terminal->textgrid->rows == 0)
+    if(terminal == NULL || terminal->textgrid == NULL ||
+            terminal->font == NULL ||
+            terminal->textgrid->grid == NULL ||
+            terminal->textgrid->cols == 0 || terminal->textgrid->rows == 0) {
         return;
+    }
 
 	textgrid_paint(g, terminal->textgrid,
             gterminal_draw_char, terminal,
@@ -620,43 +658,42 @@ void gterminal_paint(gterminal_t* terminal, graph_t* g, int x, int y, int w, int
 	draw_curs(terminal, g, x, y, w, h);
 }
 
-static bool _in_esc = false;
-static uint16_t _esc_buf[8] = {0};
-static uint16_t _esc_size = 0;
-#define ESC_BUF_CAP ((uint16_t)(sizeof(_esc_buf) / sizeof(_esc_buf[0])))
+#define ESC_BUF_CAP ((uint16_t)(sizeof(((gterminal_t*)0)->esc_buf) / sizeof(((gterminal_t*)0)->esc_buf[0])))
 
 void gterminal_put(gterminal_t* terminal, const char* buf, int size) {
+    if(terminal == NULL || terminal->textgrid == NULL || buf == NULL || size <= 0)
+        return;
     uint16_t* unicode = (uint16_t*)malloc((size+1)*2);
     if(!unicode)
         return;
     size = utf82unicode((unsigned char*)buf, size, unicode);
 
-    for(uint32_t i=0; i<size; i++) {
+    for(int i = 0; i < size; i++) {
         UNICODE16 c = unicode[i];
         if(c == 0)
             break;
         
         if(c == ESC_CMD) {
-            _in_esc = true;
-            _esc_size = 0;
+            terminal->in_esc = true;
+            terminal->esc_size = 0;
             continue;
         }
         //else
             //klog("put %d, %d, (%c)\n", size, i, c);
 
-        if(_in_esc) {
+        if(terminal->in_esc) {
             /* Drop overlong escape sequences instead of corrupting memory. */
-            if(_esc_size >= ESC_BUF_CAP) {
-                _esc_size = 0;
-                _in_esc = false;
+            if(terminal->esc_size >= ESC_BUF_CAP) {
+                terminal->esc_size = 0;
+                terminal->in_esc = false;
                 continue;
             }
-            _esc_buf[_esc_size] = c;
-            _esc_size++;
+            terminal->esc_buf[terminal->esc_size] = c;
+            terminal->esc_size++;
             if((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
-                do_esc_cmd(terminal, _esc_buf, 0, _esc_size);
-                _esc_size = 0;
-                _in_esc = false;
+                do_esc_cmd(terminal, terminal->esc_buf, 0, terminal->esc_size);
+                terminal->esc_size = 0;
+                terminal->in_esc = false;
             }
             continue;
         }
@@ -671,7 +708,8 @@ void gterminal_put(gterminal_t* terminal, const char* buf, int size) {
         tch.bg_color = terminal->term_conf.bg_color;
         tch.color = terminal->term_conf.fg_color;
         tch.state = terminal->term_conf.state;
-        textgrid_push(terminal->textgrid, &tch);
+        if(textgrid_push(terminal->textgrid, &tch) != 0)
+            break;
     }
 
     free(unicode);
@@ -680,19 +718,25 @@ void gterminal_put(gterminal_t* terminal, const char* buf, int size) {
 }
 
 void gterminal_flash(gterminal_t* terminal) {
+    if(terminal == NULL)
+        return;
     terminal->flash_show = !terminal->flash_show;
 }
 
 void gterminal_set_max_rows(gterminal_t* terminal, uint32_t max_rows) {
+    if(terminal == NULL || terminal->textgrid == NULL)
+        return;
     textgrid_set_max_rows(terminal->textgrid, max_rows);
 }
 
 void gterminal_resize(gterminal_t* terminal, uint32_t gw, uint32_t gh) {
-    if(terminal->font == NULL)
+    if(terminal == NULL || terminal->textgrid == NULL || terminal->font == NULL)
         return;
     int32_t font_w = font_get_width(terminal->font, terminal->font_size);
-    if(font_w <= 0 || font_w >= terminal->font_size) {
-        font_char_size('M', terminal->font, terminal->font_size, &font_w, NULL);
+    if(font_w <= 0 || (uint32_t)font_w >= terminal->font_size) {
+        uint32_t fw = 0;
+        font_char_size('M', terminal->font, terminal->font_size, &fw, NULL);
+        font_w = (int32_t)fw;
     }
     font_w += terminal->char_space;
 

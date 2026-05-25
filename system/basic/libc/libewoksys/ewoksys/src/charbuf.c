@@ -30,7 +30,7 @@ charbuf_t* charbuf_new(uint32_t buf_size) {
 }
 
 int32_t charbuf_push(charbuf_t *buffer, char c, bool loop) { 
-	if(buffer->buffer == NULL)
+	if(buffer == NULL || buffer->buffer == NULL)
 		return -1;
 
 	uint32_t at;
@@ -55,6 +55,8 @@ int32_t charbuf_push(charbuf_t *buffer, char c, bool loop) {
 }
 
 int32_t charbuf_pop(charbuf_t *buffer, char* c) {
+	if(buffer == NULL || c == NULL || buffer->buffer == NULL)
+		return -1;
 	if(buffer->size == 0)
 		return -1;
 
@@ -67,6 +69,8 @@ int32_t charbuf_pop(charbuf_t *buffer, char* c) {
 }
 
 void charbuf_clear(charbuf_t* buffer) {
+	if(buffer == NULL || buffer->buffer == NULL)
+		return;
 	memset(buffer->buffer, 0, buffer->buf_size);
 	buffer->size = 0;
 	buffer->start = 0;
@@ -90,4 +94,3 @@ void charbuf_free(charbuf_t* buffer) {
 #ifdef __cplusplus
 }
 #endif
-

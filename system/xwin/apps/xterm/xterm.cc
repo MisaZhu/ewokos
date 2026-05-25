@@ -182,7 +182,8 @@ protected:
 	}
 
 	void onTimer(uint32_t timerFPS, uint32_t timerSteps) {
-		if((timerSteps % (timerFPS/2)) == 0) {
+		uint32_t period = timerFPS > 1 ? (timerFPS/2) : 1;
+		if((timerSteps % period) == 0) {
 			lock();
 			gterminal_flash(&terminal);
 			unlock();
@@ -242,11 +243,6 @@ static TermWidget* _consoleWidget = NULL;
 static void onFontFunc(MenuItem* it, void* p) {
 	TermWin* win = (TermWin*)p;
 	win->font();
-}
-
-static void onQuitFunc(MenuItem* it, void* p) {
-	WidgetWin* win = (WidgetWin*)p;
-	win->close();
 }
 
 static void onTextColor(MenuItem* it, void* p) {

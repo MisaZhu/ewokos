@@ -96,6 +96,8 @@ int main(int argc, char** argv) {
 		_log_size = LOG_SIZE_DEFAULT;
 
 	charbuf_t* _buffer = charbuf_new(_log_size);
+	if(_buffer == NULL)
+		return -1;
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));

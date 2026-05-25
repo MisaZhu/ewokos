@@ -19,6 +19,8 @@ void ConsoleWidget::drawBG(graph_t* g, const grect_t& r) {
 }
 
 void ConsoleWidget::drawScrollbar(graph_t* g, const grect_t& r) {
+	if(terminal.textgrid == NULL || terminal.textgrid->rows == 0)
+		return;
 	graph_fill_3d(g, r.x + r.w - scrollW, r.y, scrollW, r.h, 0x88000000, true);
 	int sh = r.h * ((float) terminal.rows / terminal.textgrid->rows);
 	int start_row = (int32_t)terminal.textgrid->rows - (int32_t)terminal.rows;
@@ -105,7 +107,7 @@ void ConsoleWidget::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 
 	drawBG(g, r);
 	int gw = r.w-scrollW;
-	if(terminal.textgrid->rows > terminal.rows) {
+	if(terminal.textgrid != NULL && terminal.textgrid->rows > terminal.rows) {
 		drawScrollbar(g, r);
 	}
 	gterminal_paint(&terminal, g, r.x, r.y, gw, r.h);

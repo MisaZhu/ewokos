@@ -73,6 +73,29 @@ int utf82unicode (unsigned char * utf8_str,
 		return 0;
 
 	while (i<str_len) {
+		unsigned char lead = s[i];
+		int expected = 1;
+		if(lead >= 0xfc)
+			expected = 6;
+		else if(lead >= 0xf8)
+			expected = 5;
+		else if(lead >= 0xf0)
+			expected = 4;
+		else if(lead >= 0xe0)
+			expected = 3;
+		else if(lead >= 0xc0)
+			expected = 2;
+
+		/* Avoid reading past the current buffer on truncated UTF-8. */
+		if((str_len - i) < expected) {
+			++count;
+			*e = lead;
+			e++;
+			*e = 0;
+			i++;
+			continue;
+		}
+
 		if ((n = utf82unicode_char (s+i, &unicode)) > 0) {
 			++count;
 			*e = (unsigned short) unicode;
