@@ -116,6 +116,16 @@ public:
 		update();
 	}
 
+	void setFont(const string& fontName) {
+		lock();
+		if(terminal.font != NULL)
+			font_free(terminal.font);
+		terminal.font = font_new(fontName.c_str(), true);
+		gterminal_resize(&terminal, area.w-scrollW, area.h);
+		unlock();
+		update();
+	}
+
 	void pushStr(const char* s, uint32_t sz) {
 		lock();
 		push(s, sz);
@@ -151,7 +161,53 @@ protected:
 			zooming = false;
 		}
 
-		return ConsoleWidget::onMouse(ev);
+		static bool draging = false;
+		bool needUpdate = false;
+		if(ev->state == MOUSE_STATE_UP) {
+			draging = false;
+			return true;
+		}
+
+		if(ev->state == MOUSE_STATE_DOWN) {
+			if(!draging) {
+				mouse_last_y = ev->value.mouse.y;
+				draging = true;
+				return true;
+			}
+		}
+
+		lock();
+		if(ev->state == MOUSE_STATE_DRAG || draging) {
+			if(ev->value.mouse.y > mouse_last_y) {
+				needUpdate = gterminal_scroll(&terminal, -1);
+			}
+			else if(ev->value.mouse.y < mouse_last_y) {
+				needUpdate = gterminal_scroll(&terminal, 1);
+			}
+			mouse_last_y = ev->value.mouse.y;
+			unlock();
+			if(needUpdate)
+				update();
+			return true;
+		}
+		else if(ev->state == MOUSE_STATE_MOVE) {
+			if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP) {
+				needUpdate = gterminal_scroll(&terminal, 1);
+				unlock();
+				if(needUpdate)
+					update();
+				return true;
+			}
+			else if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_DOWN) {
+				needUpdate = gterminal_scroll(&terminal, -1);
+				unlock();
+				if(needUpdate)
+					update();
+				return true;
+			}
+		}
+		unlock();
+		return false;
 	}
 
 	bool onIM(xevent_t* ev) {
@@ -160,7 +216,44 @@ protected:
 			if(getWin()->callXIM(true))
 				return true;
 		}
-		return ConsoleWidget::onIM(ev);
+
+		if(ev->state == XIM_STATE_PRESS) {
+			int c = ev->value.im.value;
+			if(c > 0 && c < 128) {
+				bool needUpdate = true;
+				lock();
+				if(c == KEY_UP) {
+					gterminal_scroll(&terminal, -1);
+				}
+				else if(c == KEY_DOWN) {
+					gterminal_scroll(&terminal, 1);
+				}
+				else if(c == KEY_LEFT) {
+					if(terminal.font_size > 5)
+						terminal.font_size--;
+					gterminal_resize(&terminal, area.w-scrollW, area.h);
+				}
+				else if(c == KEY_RIGHT) {
+					if(terminal.font_size < 99)
+						terminal.font_size++;
+					gterminal_resize(&terminal, area.w-scrollW, area.h);
+				}
+				else {
+					if(c != KEY_LSHIFT && c != KEY_RSHIFT && c != KEY_CTRL) {
+						input(c);
+						gterminal_scroll(&terminal, 0);
+					}
+					else {
+						needUpdate = false;
+					}
+				}
+				unlock();
+				if(needUpdate)
+					update();
+			}
+			return true;	
+		}
+		return false;	
 	}
 
 	/*void onFocus() {

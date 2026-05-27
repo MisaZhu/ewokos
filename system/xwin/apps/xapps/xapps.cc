@@ -240,16 +240,16 @@ int main(int argc, char** argv) {
 
 	if(_launcher) {
 		win.open(&x, -1, 0, 0, 0, 0, "xapps", 
-			XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_NO_BG_EFFECT | XWIN_STYLE_MAX);
+			XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_NO_BG_EFFECT | XWIN_STYLE_MAX, false);
 	}
 	else {
 		win.open(&x, -1, 0, 0, 0, 0, "xapps", 
-			XWIN_STYLE_NO_TITLE | XWIN_STYLE_NO_BG_EFFECT | XWIN_STYLE_MAX);
+			XWIN_STYLE_NO_TITLE | XWIN_STYLE_NO_BG_EFFECT | XWIN_STYLE_MAX, false);
 	}
 
 	win.busy(true);
 	apps->loadApps();
-	win.repaint();
+	win.setVisible(true);
 	win.busy(false);
 
 	widgetXRun(&x, &win);

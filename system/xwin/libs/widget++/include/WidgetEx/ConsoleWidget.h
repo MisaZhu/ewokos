@@ -7,7 +7,9 @@
 namespace Ewok {
 
 class ConsoleWidget : public Widget {
+protected:
 	int32_t mouse_last_y;
+
 public:
 	ConsoleWidget();
 	~ConsoleWidget();
