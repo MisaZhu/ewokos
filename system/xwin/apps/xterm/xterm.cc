@@ -40,11 +40,53 @@ extern "C" {
 
 #include <x++/X.h>
 #include <pthread.h>
+#include <string>
 
 using namespace Ewok;
 
 static charbuf_t *_buffer;
 static vdevice_t* _dev = NULL;
+static pthread_mutex_t _buffer_lock;
+static pthread_mutex_t _output_lock;
+static std::string _output_pending;
+
+static inline void buffer_push_char(char c) {
+	pthread_mutex_lock(&_buffer_lock);
+	charbuf_push(_buffer, c, false);
+	pthread_mutex_unlock(&_buffer_lock);
+}
+
+static inline int buffer_pop_char(char* c) {
+	int ret;
+	pthread_mutex_lock(&_buffer_lock);
+	ret = charbuf_pop(_buffer, c);
+	pthread_mutex_unlock(&_buffer_lock);
+	return ret;
+}
+
+static inline bool buffer_is_empty(void) {
+	bool empty;
+	pthread_mutex_lock(&_buffer_lock);
+	empty = charbuf_is_empty(_buffer);
+	pthread_mutex_unlock(&_buffer_lock);
+	return empty;
+}
+
+static inline void output_queue_push(const char* buf, int size) {
+	if(buf == NULL || size <= 0)
+		return;
+	pthread_mutex_lock(&_output_lock);
+	_output_pending.append(buf, size);
+	pthread_mutex_unlock(&_output_lock);
+}
+
+static inline std::string output_queue_take(void) {
+	std::string out;
+	pthread_mutex_lock(&_output_lock);
+	out.swap(_output_pending);
+	pthread_mutex_unlock(&_output_lock);
+	return out;
+}
 
 class TermWidget : public ConsoleWidget {
 	pthread_mutex_t term_lock;
@@ -56,7 +98,7 @@ public:
 		terminal.output_callback = [](void* p, const char* buf, int size) {
 			(void)p;
 			for(int i = 0; i < size; i++) {
-				charbuf_push(_buffer, buf[i], false);
+				buffer_push_char(buf[i]);
 			}
 			vfs_wakeup(_dev->mnt_info.node, VFS_EVT_RD);
 		};
@@ -132,9 +174,19 @@ public:
 		unlock();
 		update();
 	}
+
+	bool flushOutput(void) {
+		std::string out = output_queue_take();
+		if(out.empty())
+			return false;
+		lock();
+		push(out.c_str(), out.size());
+		unlock();
+		return true;
+	}
 protected:
 	void input(int32_t c) {
-		charbuf_push(_buffer, c, false);
+		buffer_push_char(c);
 		vfs_wakeup(_dev->mnt_info.node, VFS_EVT_RD);
 	}
 
@@ -275,13 +327,16 @@ protected:
 	}
 
 	void onTimer(uint32_t timerFPS, uint32_t timerSteps) {
+		bool needUpdate = flushOutput();
 		uint32_t period = timerFPS > 1 ? (timerFPS/2) : 1;
 		if((timerSteps % period) == 0) {
 			lock();
 			gterminal_flash(&terminal);
 			unlock();
-			update();
+			needUpdate = true;
 		}
+		if(needUpdate)
+			update();
 	}
 };
 
@@ -431,7 +486,7 @@ static int console_write(vdevice_t* dev, int fd,
 	if(size <= 0 || _consoleWidget == NULL)
 		return 0;
 
-	_consoleWidget->pushStr((const char*)buf, size);
+	output_queue_push((const char*)buf, size);
 	return size;
 }
 
@@ -449,15 +504,20 @@ static int console_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 		return 0; //closed
 	}
 
-	char c;
-	int res = charbuf_pop(_buffer, &c);
-
-	if(res != 0) {
+	if(size <= 0) {
 		return VFS_ERR_RETRY;
 	}
 
-	((char*)buf)[0] = c;
-	return 1;
+	int i;
+	for(i = 0; i < size; i++) {
+		char c;
+		int res = buffer_pop_char(&c);
+		if(res != 0)
+			break;
+		((char*)buf)[i] = c;
+	}
+
+	return (i == 0) ? VFS_ERR_RETRY : i;
 }
 
 static uint32_t console_check_poll_events(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, void* p) {
@@ -467,17 +527,16 @@ static uint32_t console_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
 	(void)info;
 	(void)p;
 		
-	if(!charbuf_is_empty(_buffer)) {
+	if(!buffer_is_empty()) {
 		return VFS_EVT_RD;
 	}
 	return 0;
 }
 
 static int console_loop(vdevice_t* dev, void* p) {
+	(void)dev;
+	(void)p;
 	proc_usleep(20000);
-
-	if(_consoleWidget)
-		_consoleWidget->update();
 	return 0;
 }
 
@@ -495,7 +554,9 @@ extern "C" {
 int run(const char* mnt_point) {
 	sys_signal_init();
 	sys_signal(SYS_SIG_STOP, do_signal, NULL);
-	_buffer = charbuf_new(0);
+	_buffer = charbuf_new(4096);
+	pthread_mutex_init(&_buffer_lock, NULL);
+	pthread_mutex_init(&_output_lock, NULL);
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
@@ -514,6 +575,9 @@ int run(const char* mnt_point) {
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0600);
 	charbuf_free(_buffer);
+	_output_pending.clear();
+	pthread_mutex_destroy(&_output_lock);
+	pthread_mutex_destroy(&_buffer_lock);
 	exit(0);
 	return 0;
 }
