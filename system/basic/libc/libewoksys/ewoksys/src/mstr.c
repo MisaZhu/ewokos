@@ -16,6 +16,33 @@ extern "C" {
 #define STR_BUF 32
 #define STATIC_STR_MAX 64
 
+static int str_ensure_capacity(str_t* str, uint32_t needed) {
+	char* new_buf;
+	uint32_t new_size;
+
+	if(str == NULL) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	if(needed == 0)
+		needed = 1;
+
+	if(str->cstr != NULL && str->max > needed)
+		return 0;
+
+	new_size = needed + STR_BUF;
+	new_buf = str->cstr == NULL ? (char*)malloc(new_size) : (char*)realloc(str->cstr, new_size);
+	if(new_buf == NULL) {
+		errno = ENOMEM;
+		return -1;
+	}
+
+	str->cstr = new_buf;
+	str->max = new_size;
+	return 0;
+}
+
 void *memchr(const void *s, int c, size_t n) {
 	const unsigned char *p = (const unsigned char *)s;
 	unsigned char ch = (unsigned char)c;
@@ -58,14 +85,16 @@ char *strerror(int errnum) {
 }
 
 void str_reset(str_t* str) {
-	if(str->cstr == NULL) {
-		str->cstr = (char*)malloc(STR_BUF);
-		if(str->cstr == NULL) {
+	if(str == NULL) {
+		errno = EINVAL;
+		return;
+	}
+	if(str->cstr == NULL || str->max == 0) {
+		if(str_ensure_capacity(str, 1) != 0) {
 			str->max = 0;
 			str->len = 0;	
 			return;
 		}
-		str->max = STR_BUF;
 	}
 	str->cstr[0] = 0;
 	str->len = 0;	
@@ -79,6 +108,10 @@ char* str_detach(str_t* str) {
 }
 
 char* str_ncpy(str_t* str, const char* src, uint32_t l) {
+	if(str == NULL) {
+		errno = EINVAL;
+		return NULL;
+	}
 	if(src == NULL || src[0] == 0 || l == 0) {
 		str_reset(str);
 		return str->cstr;
@@ -89,12 +122,8 @@ char* str_ncpy(str_t* str, const char* src, uint32_t l) {
 		len = l;
 	len++;
 
-	uint32_t new_size = len;
-	if(str->max <= new_size) {
-		new_size = len + STR_BUF; /*STR BUF for buffer*/
-		str->cstr = realloc(str->cstr, new_size);
-		str->max = new_size;
-	}
+	if(str_ensure_capacity(str, len) != 0)
+		return NULL;
 	len--;
 
 	strncpy(str->cstr, src, len);
@@ -104,8 +133,7 @@ char* str_ncpy(str_t* str, const char* src, uint32_t l) {
 }
 
 char* str_cpy(str_t* str, const char* src) {
-	str_ncpy(str, src, 0x0FFFF);
-	return str->cstr;
+	return str_ncpy(str, src, 0x0FFFF);
 }
 
 str_t* str_new(const char* s) {
@@ -115,7 +143,10 @@ str_t* str_new(const char* s) {
 	ret->cstr = NULL;
 	ret->max = 0;
 	ret->len = 0;
-	str_cpy(ret, s);
+	if(str_cpy(ret, s) == NULL && s != NULL && s[0] != 0) {
+		str_free(ret);
+		return NULL;
+	}
 	return ret;
 }
 
@@ -137,17 +168,18 @@ str_t* str_new_by_size(uint32_t sz) {
 }
 
 char* str_add(str_t* str, const char* src) {
+	if(str == NULL) {
+		errno = EINVAL;
+		return NULL;
+	}
 	if(src == NULL || src[0] == 0) {
 		return str->cstr;
 	}
 
 	uint32_t len = (uint32_t)strlen(src);
 	uint32_t new_size = str->len + len + 1;
-	if(str->max <= new_size) {
-		new_size = str->len + len + STR_BUF; /*STR BUF for buffer*/
-		str->cstr = realloc(str->cstr, new_size);
-		str->max = new_size;
-	}
+	if(str_ensure_capacity(str, new_size) != 0)
+		return NULL;
 
 	strcpy(str->cstr + str->len, src);
 	str->len = str->len + len;
@@ -156,17 +188,18 @@ char* str_add(str_t* str, const char* src) {
 }
 
 char* str_addc(str_t* str, char c) {
+	if(str == NULL) {
+		errno = EINVAL;
+		return NULL;
+	}
 	if(c == 0) {
 		str->cstr[str->len] = 0;
 		return str->cstr;
 	}
 
 	uint32_t new_size = str->len + 1;
-	if(str->max <= new_size) {
-		new_size = str->len + STR_BUF; /*STR BUF for buffer*/
-		str->cstr = realloc(str->cstr, new_size);
-		str->max = new_size;
-	}
+	if(str_ensure_capacity(str, new_size + 1) != 0)
+		return NULL;
 
 	str->cstr[str->len] = c;
 	str->len++;

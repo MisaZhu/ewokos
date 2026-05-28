@@ -30,8 +30,12 @@ json_array_t* json_array_new() {
 inline void json_array_add(json_array_t* array, void* item) {
 	uint32_t new_size = array->size + 1; 
 	if(array->max <= new_size) { 
+		void **new_items;
 		new_size = array->size + ARRAY_BUF;
-		array->items = (void**)realloc(array->items, new_size*sizeof(void*)); 
+		new_items = (void**)realloc(array->items, new_size*sizeof(void*));
+		if(new_items == NULL)
+			return;
+		array->items = new_items;
 		array->max = new_size; 
 	} 
 	array->items[array->size] = item; 
@@ -42,8 +46,12 @@ inline void json_array_add(json_array_t* array, void* item) {
 inline void json_array_add_head(json_array_t* array, void* item) {
 	uint32_t new_size = array->size + 1; 
 	if(array->max <= new_size) { 
+		void **new_items;
 		new_size = array->size + ARRAY_BUF;
-		array->items = (void**)realloc(array->items, new_size*sizeof(void*)); 
+		new_items = (void**)realloc(array->items, new_size*sizeof(void*));
+		if(new_items == NULL)
+			return;
+		array->items = new_items;
 		array->max = new_size; 
 	} 
 	int32_t i;
@@ -609,17 +617,30 @@ static json_var_t* json_var_clone(json_var_t* v) {
 
 json_node_t* json_node_new(const char* name, json_var_t* var) {
 	json_node_t* node = (json_node_t*)malloc(sizeof(json_node_t));
+	if(node == NULL)
+		return NULL;
 	memset(node, 0, sizeof(json_node_t));
 
 	node->magic = 1;
+	if(name == NULL)
+		name = "";
 	uint32_t len = (uint32_t)strlen(name);
 	node->name = (char*)malloc(len+1);
+	if(node->name == NULL) {
+		free(node);
+		return NULL;
+	}
 	memcpy(node->name, name, len+1);
 	if(var != NULL)
 		//node->var = json_var_ref(json_var_clone(var));
 		node->var = json_var_ref(var);
 	else
 		node->var = json_var_ref(json_var_new());
+	if(node->var == NULL) {
+		free(node->name);
+		free(node);
+		return NULL;
+	}
 	return node;
 }
 
@@ -678,13 +699,18 @@ static inline json_node_t* json_var_find_raw(json_var_t* var, const char*name) {
 
 json_node_t* json_var_add(json_var_t* var, const char* name, json_var_t* add) {
 	json_node_t* node = NULL;
+	if(var == NULL)
+		return NULL;
+	if(name == NULL)
+		name = "";
 
 	if(name[0] != 0) 
 		node = json_var_find_raw(var, name);
 
 	if(node == NULL) {
 		node = json_node_new(name, add);
-		json_array_add(&var->children, node);
+		if(node != NULL)
+			json_array_add(&var->children, node);
 	}
 	else if(add != NULL)
 		json_node_replace(node, add);
@@ -852,6 +878,8 @@ inline json_var_t* json_var_new(void) {
 	json_var_t* var = NULL;
     uint32_t sz = sizeof(json_var_t);
 	var = (json_var_t*)malloc(sz);
+	if(var == NULL)
+		return NULL;
 
 	memset(var, 0, sizeof(json_var_t));
 	var->type = JSON_V_UNDEF;
@@ -870,6 +898,8 @@ static inline void json_var_free(void* p) {
 }   
   
 inline json_var_t* json_var_ref(json_var_t* var) {
+  if(var == NULL)
+    return NULL;
   ++var->refs;
   return var;
 } 
@@ -890,9 +920,15 @@ inline void json_var_unref(json_var_t* var) {
 
 inline json_var_t* json_var_new_array(void) {
 	json_var_t* var = json_var_new_obj(NULL, NULL);
+	if(var == NULL)
+		return NULL;
 	var->json_is_array = 1;
 	json_var_t* members = json_var_new_obj(NULL, NULL);
-	json_var_add(var, "_ARRAY_", members);
+	if(members == NULL || json_var_add(var, "_ARRAY_", members) == NULL) {
+		json_var_unref(members);
+		json_var_unref(var);
+		return NULL;
+	}
 	return var;
 }
 
@@ -920,6 +956,8 @@ inline json_var_t* json_var_new_bool(bool b) {
 
 inline json_var_t* json_var_new_obj(void*p, free_func_t fr) {
 	json_var_t* var = json_var_new();
+	if(var == NULL)
+		return NULL;
 	var->type = JSON_V_OBJECT;
 	var->value = p;
 	var->free_func = fr;
@@ -936,9 +974,17 @@ inline json_var_t* json_var_new_float(float i) {
 
 inline json_var_t* json_var_new_str(const char* s) {
 	json_var_t* var = json_var_new();
+	if(var == NULL)
+		return NULL;
+	if(s == NULL)
+		s = "";
 	var->type = JSON_V_STRING;
 	var->size = (uint32_t)strlen(s);
 	var->value = malloc(var->size + 1);
+	if(var->value == NULL) {
+		free(var);
+		return NULL;
+	}
 	memcpy(var->value, s, var->size + 1);
 	return var;
 }
@@ -1307,4 +1353,3 @@ json_var_t*  json_find_var(json_var_t* var, const char* path_name) {
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
-

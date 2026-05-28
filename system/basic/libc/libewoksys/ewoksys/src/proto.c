@@ -48,6 +48,7 @@ inline static proto_factor_t* proto_init(proto_t* proto) {
 }
 
 inline static proto_factor_t* proto_copy(proto_t* proto, const void* data, uint32_t size) {
+	void* new_data;
 	if(proto->pre_alloc || proto->total_size < size) {
 		if(!proto->pre_alloc && 
 				proto->data != NULL &&
@@ -56,7 +57,16 @@ inline static proto_factor_t* proto_copy(proto_t* proto, const void* data, uint3
 
 		proto->total_size = PROTO_BUFFER;
 		if(proto->total_size < size) {
-			proto->data = malloc(size);
+			new_data = malloc(size);
+			if(new_data == NULL) {
+				proto->data = proto->buffer;
+				proto->total_size = PROTO_BUFFER;
+				proto->size = 0;
+				proto->offset = 0;
+				proto->pre_alloc = false;
+				return &_proto_factor;
+			}
+			proto->data = new_data;
 			proto->total_size = size;
 		}
 		else
@@ -72,6 +82,7 @@ inline static proto_factor_t* proto_copy(proto_t* proto, const void* data, uint3
 
 inline static proto_factor_t* proto_add(proto_t* proto, const void* item, uint32_t size) {
 	uint32_t osize = size;
+	void* new_data;
 	size = ALIGN_UP(osize, 4);
 	uint32_t new_size = proto->size + size + 4;
 	char* p = (char*)proto->data;
@@ -79,15 +90,20 @@ inline static proto_factor_t* proto_add(proto_t* proto, const void* item, uint32
 		if(proto->pre_alloc)
 			return &_proto_factor;
 		new_size +=  PROTO_BUFFER;
-		proto->total_size = new_size;
 		if(proto->data == proto->buffer) {
-			void* tmp = malloc(new_size);
-			memcpy(tmp, proto->data, proto->size);
-			proto->data = tmp;
+			new_data = malloc(new_size);
+			if(new_data == NULL)
+				return &_proto_factor;
+			memcpy(new_data, proto->data, proto->size);
+			proto->data = new_data;
 		}
 		else {
-			proto->data = realloc(proto->data, new_size);
+			new_data = realloc(proto->data, new_size);
+			if(new_data == NULL)
+				return &_proto_factor;
+			proto->data = new_data;
 		}
+		proto->total_size = new_size;
 		p = (char*)proto->data;
 	} 
 	memcpy(p+proto->size, &osize, 4);
@@ -104,6 +120,8 @@ inline static proto_factor_t* proto_add_int(proto_t* proto, int32_t v) {
 }
 
 inline static proto_factor_t* proto_add_str(proto_t* proto, const char* v) {
+	if(v == NULL)
+		v = "";
 	proto_add(proto, (void*)v, strlen(v)+1);
 	return &_proto_factor;
 }
@@ -247,4 +265,3 @@ const char* get_mem_size_desc(uint32_t size, char ret[]) {
 #ifdef __cplusplus
 }
 #endif
-

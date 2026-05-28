@@ -70,7 +70,7 @@ int main(int argc, char **argv) {
 
 	url = argv[1];
 	if (argc > 2) {
-		timeout_ms = parse_timeout_ms(argv[3]);
+		timeout_ms = parse_timeout_ms(argv[2]);
 	}
 
 	if (strncmp(url, "https://", 8) != 0 && strncmp(url, "http://", 7) != 0) {

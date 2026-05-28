@@ -537,7 +537,12 @@ static char* read_cmd_arg(char* cmd, int* offset) {
 #define ARG_MAX 16
 
 static char* gen_str(const char* s) {
-	char* res = (char*)malloc(strlen(s)+1);
+	char* res;
+	if(s == NULL)
+		return NULL;
+	res = (char*)malloc(strlen(s)+1);
+	if(res == NULL)
+		return NULL;
 	strcpy(res, s);
 	return res;
 }
@@ -566,6 +571,8 @@ static void do_cmd(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 		if(arg == NULL || arg[0] == 0)
 			break;
 		argv[argc] = (char*)malloc(strlen(arg)+1);
+		if(argv[argc] == NULL)
+			break;
 		strcpy(argv[argc], arg);
 		argc++;
 	}
