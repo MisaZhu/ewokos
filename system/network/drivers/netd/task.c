@@ -76,6 +76,9 @@ void start_task(void){
 
 net_task_t *create_task(int fd, int from_pid, int node){
     net_task_t *task = malloc(sizeof(net_task_t));
+    if(task == NULL) {
+        return NULL;
+    }
     memset(task, 0 , sizeof(net_task_t));
     task->fd = fd;
     task->node = node;

@@ -86,6 +86,7 @@ public:
 
 	bool getInfo(xinfo_t& xinfo);
 	void repaint(void);
+	void repaintReq(void);
 	void resizeTo(int w, int h);
 	void resize(int dw, int dh);
 	void max(void);
@@ -104,4 +105,3 @@ public:
 
 }
 #endif
-

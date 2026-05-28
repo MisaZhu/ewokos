@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
+#include <ewokos_config.h>
 
 #include "netd.h"
 #include "platform.h"
@@ -30,7 +31,10 @@ static int network_fcntl(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	int cmd, proto_t* in, proto_t* out, void* p) {
     (void)dev;
     (void)p;
-	net_task_t *task = (net_task_t*)info->data;
+	net_task_t *task = (net_task_t*)(ewokos_addr_t)info->data;
+    if(task == NULL) {
+        return -1;
+    }
 	task->cmd = cmd;
 	int res = task_cntl(task, from_pid, cmd, in, out, p);
 	return res;
@@ -40,7 +44,10 @@ int network_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int oflag
 	(void)dev;
 
 	net_task_t *task = create_task(fd, from_pid, info->node);
-	info->data = task;
+    if(task == NULL) {
+        return -1;
+    }
+	info->data = (ewokos_addr_t)task;
 	vfs_update(info, false);
 	return 0;
 }
@@ -52,9 +59,15 @@ static int network_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	(void)offset;
 	(void)p;
 
-	net_task_t *task = (net_task_t*)info->data;
+	net_task_t *task = (net_task_t*)(ewokos_addr_t)info->data;
+    if(task == NULL) {
+        return -1;
+    }
 	if(task->read_task == NULL){
 		task->read_task = create_task(fd, from_pid, info->node);
+        if(task->read_task == NULL) {
+            return -1;
+        }
 		task->read_task->sock = task->sock;
 		task->read_task->is_read_task = true;
 	}
@@ -69,7 +82,10 @@ static int network_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	(void)fd;
 	(void)offset;
 
-	net_task_t *task = (net_task_t*)info->data;
+	net_task_t *task = (net_task_t*)(ewokos_addr_t)info->data;
+    if(task == NULL) {
+        return -1;
+    }
 	int ret = task_write(task, from_pid, (char *)buf, size, p);
 	//vfs_wakeup(task->node, VFS_EVT_RW);
 	return ret;
@@ -81,7 +97,7 @@ static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
 	(void)from_pid;
 	(void)info;
 	(void)p;
-	net_task_t *task = (net_task_t*)info->data;
+	net_task_t *task = (net_task_t*)(ewokos_addr_t)info->data;
 
 	uint32_t events = 0;
 	if (task != NULL) {
@@ -100,7 +116,7 @@ static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
 
 static int network_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fsinfo_t* fsinfo,void* p) {
 	(void)dev;
-	net_task_t *task = (net_task_t *)fsinfo->data;
+	net_task_t *task = (net_task_t *)(ewokos_addr_t)fsinfo->data;
 	if(task) {
 		task->running = false;
 		if(task->read_task != NULL)
@@ -265,8 +281,12 @@ int main(int argc, char** argv) {
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "networkd");
 
+    pthread_mutex_init(&task_list_lock, NULL);
 	strcpy(ETHER_TAP_NAME, net_dev);
-	setup();
+	if(setup() != 0) {
+        pthread_mutex_destroy(&task_list_lock);
+        return -1;
+    }
 	
 	dev.fcntl = network_fcntl;
 	dev.open = network_open;
@@ -275,7 +295,6 @@ int main(int argc, char** argv) {
 	dev.close = network_close;
 	dev.cmd = network_devcmd;
 	dev.check_poll_events = network_check_poll_events;
-    pthread_mutex_init(&task_list_lock, NULL);
 	device_run(&dev, mnt_point, FS_TYPE_ANNOUNIMOUS | FS_TYPE_CHAR, 0666);
     pthread_mutex_destroy(&task_list_lock);
 	return 0;

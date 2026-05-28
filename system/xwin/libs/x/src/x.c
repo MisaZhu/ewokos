@@ -47,6 +47,44 @@ static int x_get_event(x_t* x, int xserv_pid, xevent_t* ev, bool block) {
 	return res;
 }
 
+static bool x_pop_event(x_t* x, xevent_t* ev) {
+	if(x == NULL || ev == NULL)
+		return false;
+	ipc_disable();
+	x_event_t* node = x->event_head;
+	if(node == NULL) {
+		ipc_enable();
+		return false;
+	}
+	x->event_head = node->next;
+	if(x->event_head == NULL)
+		x->event_tail = NULL;
+	memcpy(ev, &node->event, sizeof(xevent_t));
+	free(node);
+	ipc_enable();
+	return true;
+}
+
+void x_push_event(x_t* x, xevent_t* ev) {
+	if(x == NULL || ev == NULL)
+		return;
+	x_event_t* node = (x_event_t*)malloc(sizeof(x_event_t));
+	if(node == NULL)
+		return;
+	memset(node, 0, sizeof(x_event_t));
+	memcpy(&node->event, ev, sizeof(xevent_t));
+	ipc_disable();
+	if(x->event_tail == NULL) {
+		x->event_head = node;
+		x->event_tail = node;
+	}
+	else {
+		x->event_tail->next = node;
+		x->event_tail = node;
+	}
+	ipc_enable();
+}
+
 uint32_t x_get_display_id(int32_t index_def) {
 	int32_t disp_index = index_def;
 	if(index_def < 0) {
@@ -309,7 +347,13 @@ int  x_run(x_t* x, void* loop_data) {
 	bool block = x->on_loop==NULL ? true:false;
 	xevent_t xev;
 	while(!x->terminated) {
-		int res = x_get_event(x, xserv_pid, &xev, block);
+		int res = -1;
+		if(x_pop_event(x, &xev)) {
+			res = 0;
+		}
+		else {
+			res = x_get_event(x, xserv_pid, &xev, block);
+		}
 		if(res == 0) {
 			xwin_t* xwin = (xwin_t*)xev.win;
 			if(xwin != NULL) {

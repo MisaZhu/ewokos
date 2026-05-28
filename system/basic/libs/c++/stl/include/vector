@@ -2,12 +2,22 @@
 #define EWOK_STL_VECTOR_H
 
 #include "iterator"
+#include <stdlib.h>
 
 // Define placement new operator
 inline void* operator new(size_t, void* p) noexcept { return p; }
 inline void operator delete(void*, void*) noexcept {}
 
 namespace std {
+
+template <typename T>
+static inline T* vector_alloc_buffer(size_t count) {
+    if (count == 0) {
+        return nullptr;
+    }
+    return (T*)malloc(sizeof(T) * count);
+}
+
 /**
  * @class vector
  * This class represents a dynamic contiguous array
@@ -245,14 +255,21 @@ class vector {
 
 template <typename T>
 vector<T>::vector() : data_(nullptr), length_(0), capacity_(0) {
-    data_ = (T*)malloc(sizeof(T) * 4);
-    capacity_ = 4;
+    data_ = vector_alloc_buffer<T>(4);
+    if (data_) {
+        capacity_ = 4;
+    }
 }
 
 template <typename T>
 vector<T>::vector(size_t n, const T& val) : length_(n), capacity_(n * 2) {
     if (capacity_ == 0) capacity_ = 1;
-    data_ = (T*)malloc(sizeof(T) * capacity_);
+    data_ = vector_alloc_buffer<T>(capacity_);
+    if (!data_) {
+        length_ = 0;
+        capacity_ = 0;
+        return;
+    }
     for (size_t i = 0; i < length_; i++) {
         new (&data_[i]) T(val);
     }
@@ -262,7 +279,15 @@ template <typename T>
 vector<T>::vector(iterator first, iterator last) {
     length_ = last - first;
     capacity_ = length_ * 2;
-    data_ = (T*)malloc(sizeof(T) * capacity_);
+    if (capacity_ == 0) {
+        capacity_ = 1;
+    }
+    data_ = vector_alloc_buffer<T>(capacity_);
+    if (!data_) {
+        length_ = 0;
+        capacity_ = 0;
+        return;
+    }
 
     for (size_t i = 0; first != last; ++first, i++) {
         new (&data_[i]) T(*first);
@@ -273,7 +298,12 @@ template <typename T>
 vector<T>::vector(const vector<T>& src) {
     length_ = src.length_;
     capacity_ = src.capacity_;
-    data_ = (T*)malloc(sizeof(T) * capacity_);
+    data_ = vector_alloc_buffer<T>(capacity_);
+    if (!data_) {
+        length_ = 0;
+        capacity_ = 0;
+        return;
+    }
 
     for (size_t i = 0; i < length_; i++) {
         new (&data_[i]) T(src.data_[i]);
@@ -289,16 +319,20 @@ vector<T>::~vector() {
 template <typename T>
 vector<T>& vector<T>::operator=(const vector& rhs) {
     if (this != &rhs) {
+        size_t newLength = rhs.length_;
+        size_t newCapacity = rhs.capacity_;
+        T* newData = vector_alloc_buffer<T>(newCapacity);
+        if (!newData && newCapacity != 0) {
+            return *this;
+        }
+        for (size_t i = 0; i < newLength; i++) {
+            new (&newData[i]) T(rhs.data_[i]);
+        }
         clear();
         free(data_);
-
-        length_ = rhs.length_;
-        capacity_ = rhs.capacity_;
-        data_ = (T*)malloc(sizeof(T) * capacity_);
-
-        for (size_t i = 0; i < length_; i++) {
-            new (&data_[i]) T(rhs.data_[i]);
-        }
+        length_ = newLength;
+        capacity_ = newCapacity;
+        data_ = newData;
     }
 
     return *this;
@@ -373,9 +407,11 @@ void vector<T>::resize(size_t n, T val) {
         length_ = n;
     } else if (n > length_) {
         if (n > capacity_) {
-            capacity_ = n * 2;
-
-            T* newData = (T*)malloc(sizeof(T) * capacity_);
+            size_t newCapacity = n * 2;
+            T* newData = vector_alloc_buffer<T>(newCapacity);
+            if (!newData) {
+                return;
+            }
             for (size_t i = 0; i < length_; i++) {
                 new (&newData[i]) T(static_cast<T&&>(data_[i]));
                 data_[i].~T();
@@ -383,6 +419,7 @@ void vector<T>::resize(size_t n, T val) {
 
             free(data_);
             data_ = newData;
+            capacity_ = newCapacity;
         }
 
         for (size_t i = length_; i < n; i++) {
@@ -395,9 +432,10 @@ void vector<T>::resize(size_t n, T val) {
 template <typename T>
 void vector<T>::reserve(size_t n) {
     if (n > capacity_) {
-        capacity_ = n;
-
-        T* newData = (T*)malloc(sizeof(T) * capacity_);
+        T* newData = vector_alloc_buffer<T>(n);
+        if (!newData) {
+            return;
+        }
         for (size_t i = 0; i < length_; i++) {
             new (&newData[i]) T(static_cast<T&&>(data_[i]));
             data_[i].~T();
@@ -405,6 +443,7 @@ void vector<T>::reserve(size_t n) {
 
         free(data_);
         data_ = newData;
+        capacity_ = n;
     }
 }
 
@@ -455,9 +494,11 @@ void vector<T>::assign(size_t n, const T& val) {
 template <typename T>
 void vector<T>::push_back(const T& val) {
 	if (length_ + 1 >= capacity_) {
-		capacity_ *= 2;
-
-		T* newData = (T*)malloc(sizeof(T) * capacity_);
+		size_t newCapacity = capacity_ ? capacity_ * 2 : 4;
+		T* newData = vector_alloc_buffer<T>(newCapacity);
+		if (!newData) {
+			return;
+		}
 		for (size_t i = 0; i < length_; i++) {
 			new (&newData[i]) T(static_cast<T&&>(data_[i]));
 			data_[i].~T();
@@ -465,6 +506,7 @@ void vector<T>::push_back(const T& val) {
 
 		free(data_);
 		data_ = newData;
+		capacity_ = newCapacity;
 	}
 
 	new (&data_[length_]) T(val);
@@ -474,9 +516,11 @@ void vector<T>::push_back(const T& val) {
 template <typename T>
 void vector<T>::push_back(T&& val) {
 	if (length_ + 1 >= capacity_) {
-		capacity_ *= 2;
-
-		T* newData = (T*)malloc(sizeof(T) * capacity_);
+		size_t newCapacity = capacity_ ? capacity_ * 2 : 4;
+		T* newData = vector_alloc_buffer<T>(newCapacity);
+		if (!newData) {
+			return;
+		}
 		for (size_t i = 0; i < length_; i++) {
 			new (&newData[i]) T(static_cast<T&&>(data_[i]));
 			data_[i].~T();
@@ -484,6 +528,7 @@ void vector<T>::push_back(T&& val) {
 
 		free(data_);
 		data_ = newData;
+		capacity_ = newCapacity;
 	}
 
 	new (&data_[length_]) T(static_cast<T&&>(val));
@@ -494,9 +539,11 @@ template <typename T>
 template <typename... Args>
 void vector<T>::emplace_back(Args&&... args) {
 	if (length_ + 1 >= capacity_) {
-		capacity_ *= 2;
-
-		T* newData = (T*)malloc(sizeof(T) * capacity_);
+		size_t newCapacity = capacity_ ? capacity_ * 2 : 4;
+		T* newData = vector_alloc_buffer<T>(newCapacity);
+		if (!newData) {
+			return;
+		}
 		for (size_t i = 0; i < length_; i++) {
 			new (&newData[i]) T(static_cast<T&&>(data_[i]));
 			data_[i].~T();
@@ -504,6 +551,7 @@ void vector<T>::emplace_back(Args&&... args) {
 
 		free(data_);
 		data_ = newData;
+		capacity_ = newCapacity;
 	}
 
 	new (&data_[length_]) T(static_cast<Args&&>(args)...);
@@ -529,7 +577,10 @@ typename vector<T>::iterator vector<T>::insert(iterator position, const T& val) 
     if (length_ + 1 > capacity_) {
         size_t oldLength = length_;
         size_t newCapacity = (length_ + 1) * 2;
-        T* newData = (T*)malloc(newCapacity * sizeof(T));
+        T* newData = vector_alloc_buffer<T>(newCapacity);
+        if (!newData) {
+            return begin() + pos;
+        }
 
         for (size_t i = 0; i < length_; i++) {
             new (&newData[i]) T(static_cast<T&&>(data_[i]));
@@ -564,7 +615,10 @@ typename vector<T>::iterator vector<T>::insert(iterator position, size_t n, cons
     if (length_ + n > capacity_) {
         size_t oldLength = length_;
         size_t newCapacity = length_ + n;
-        T* newData = (T*)malloc(newCapacity * sizeof(T));
+        T* newData = vector_alloc_buffer<T>(newCapacity);
+        if (!newData) {
+            return begin() + pos;
+        }
 
         for (size_t i = 0; i < length_; i++) {
             new (&newData[i]) T(static_cast<T&&>(data_[i]));
@@ -608,7 +662,10 @@ typename vector<T>::iterator vector<T>::insert(iterator position, iterator first
     if (length_ + size > capacity_) {
         size_t oldLength = length_;
         size_t newCapacity = length_ + size;
-        T* newData = (T*)malloc(newCapacity * sizeof(T));
+        T* newData = vector_alloc_buffer<T>(newCapacity);
+        if (!newData) {
+            return begin() + pos;
+        }
 
         for (size_t i = 0; i < length_; i++) {
             new (&newData[i]) T(static_cast<T&&>(data_[i]));

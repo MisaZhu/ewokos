@@ -258,6 +258,12 @@ void XWin::repaint(void) {
 	xwin_repaint(xwin);
 }
 
+void XWin::repaintReq(void) {
+	if(xwin == NULL)
+		return;
+	xwin_repaint_req(xwin);
+}
+
 void XWin::max(void) {
 	if(xwin == NULL)	
 		return;

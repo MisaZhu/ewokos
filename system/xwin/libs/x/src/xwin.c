@@ -232,19 +232,17 @@ void xwin_repaint(xwin_t* xwin) {
 	pthread_mutex_unlock(&xwin->painting_lock);
 }
 
-/*
 void xwin_repaint_req(xwin_t* xwin) {
+	if(xwin == NULL || xwin->x == NULL)
+		return;
 	x_t* x = xwin->x;
 	xevent_t ev;
 	memset(&ev, 0, sizeof(xevent_t));
 	ev.win = (uint32_t)xwin;
 	ev.value.window.event = XEVT_WIN_REPAINT;
 	ev.type = XEVT_WIN;
-	ipc_disable();
 	x_push_event(x, &ev);
-	ipc_enable();
 }
-*/
 
 int xwin_set_display(xwin_t* xwin, uint32_t display_index) {
 	if((int32_t)display_index >= x_get_display_num())

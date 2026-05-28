@@ -44,7 +44,7 @@ int      xwin_top(xwin_t* xwin);
 void     xwin_set_alpha(xwin_t* xwin, bool alpha);
 void     xwin_repaint(xwin_t* xwin);
 graph_t* xwin_fetch_graph(xwin_t* xwin, graph_t* g);
-//void     xwin_repaint_req(xwin_t* xwin);
+void     xwin_repaint_req(xwin_t* xwin);
 int      xwin_max(xwin_t* xwin);
 int      xwin_fullscreen(xwin_t* xwin);
 int      xwin_resize(xwin_t* xwin, int dw, int dh);
