@@ -465,6 +465,12 @@ static void wakeup_proc(int32_t pid, vfs_node_t* node, int32_t events) {
 	proc_wakeup(pid);
 }
 
+static bool queue_pid_match(void* data, void* check_data) {
+	if(data == NULL || check_data == NULL)
+		return false;
+	return *((int32_t*)data) == *((int32_t*)check_data);
+}
+
 static void do_node_wakeup(vfs_node_t* node, int events) {
 	if(node == NULL)
 		return;
@@ -1128,6 +1134,9 @@ static void do_vfs_block(int32_t pid, proto_t* in) {
 		return;
 
 	if((node->events & (uint32_t)events) != 0)
+		return;
+
+	if(queue_in(q, &pid, queue_pid_match) != NULL)
 		return;
 
 	int32_t* p = (int32_t*)malloc(sizeof(int32_t));

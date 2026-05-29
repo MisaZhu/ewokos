@@ -141,6 +141,7 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 	offset = proto_read_int(in);
 	int32_t shm_id = proto_read_int(in);
 	char buffer[READ_BUF_SIZE];
+	int32_t rd = -1;
 
 	fsinfo_t* info = dev_get_file(fd, from_pid, node);
 	if(info == NULL) {
@@ -169,7 +170,7 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 			PF->addi(out, -1);
 		}
 		else {
-			int32_t rd = dev->read(dev, fd, from_pid, info, buf, size, offset, p);
+			rd = dev->read(dev, fd, from_pid, info, buf, size, offset, p);
 			PF->addi(out, rd);
 			if(rd > 0) {
 				if(rd > size)
@@ -196,7 +197,8 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 				vfs_clear_poll_events(info->node, VFS_EVT_RD);
 		}
 		else  {
-			//vfs_clear_poll_events(info->node, VFS_EVT_RD);
+			if(rd == VFS_ERR_RETRY)
+				vfs_clear_poll_events(info->node, VFS_EVT_RD);
 		}
 	}
 }
@@ -207,6 +209,7 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	uint32_t node = proto_read_int(in);
 	offset = proto_read_int(in);
 	int32_t shm_id = proto_read_int(in);
+	int32_t wr = -1;
 	
 	fsinfo_t* info = dev_get_file(fd, from_pid, node);
 	if(info == NULL) {
@@ -233,6 +236,7 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 		}
 		else {
 			size = dev->write(dev, fd, from_pid, info, data, size, offset, p);
+			wr = size;
 			info->state |= FS_STATE_CHANGED;
 			dev_update_file(fd, from_pid, info);
 			PF->addi(out, size);
@@ -252,7 +256,8 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 				vfs_clear_poll_events(info->node, VFS_EVT_WR);
 		}
 		else {
-			//vfs_clear_poll_events(info->node, VFS_EVT_WR);
+			if(wr == VFS_ERR_RETRY)
+				vfs_clear_poll_events(info->node, VFS_EVT_WR);
 		}
 	}
 }
