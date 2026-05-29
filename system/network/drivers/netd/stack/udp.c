@@ -57,6 +57,20 @@ struct udp_queue_entry {
 static mutex_t mutex = MUTEX_INITIALIZER;
 static struct udp_pcb pcbs[UDP_PCB_SIZE];
 
+static int
+udp_pcb_used_count(void)
+{
+    int used = 0;
+    struct udp_pcb *pcb;
+
+    for (pcb = pcbs; pcb < tailof(pcbs); pcb++) {
+        if (pcb->state != UDP_PCB_STATE_FREE) {
+            used++;
+        }
+    }
+    return used;
+}
+
 static void
 udp_dump(const uint8_t *data, size_t len)
 {
@@ -300,13 +314,15 @@ udp_open(void)
     int id;
 
     mutex_lock(&mutex);
+    infof("udp_open begin: used=%d max=%d", udp_pcb_used_count(), UDP_PCB_SIZE);
     pcb = udp_pcb_alloc();
     if (!pcb) {
-        errorf("udp_pcb_alloc() failure");
+        errorf("udp_pcb_alloc() failure: used=%d max=%d", udp_pcb_used_count(), UDP_PCB_SIZE);
         mutex_unlock(&mutex);
         return -1;
     }
     id = udp_pcb_id(pcb);
+    infof("udp_open ok: id=%d used=%d max=%d", id, udp_pcb_used_count(), UDP_PCB_SIZE);
     mutex_unlock(&mutex);
     return id;
 }

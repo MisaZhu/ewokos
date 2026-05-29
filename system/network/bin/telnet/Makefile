@@ -12,6 +12,7 @@ TASK_OBJS = telnet.o
 TASK = $(TARGET_DIR)/bin/telnet
 
 $(TASK): $(TASK_OBJS) \
+		$(BUILD_DIR)/lib/libsocket.a \
 		$(BUILD_DIR)/lib/libewoksys.a
 		$(LD) -Ttext=100 $(TASK_OBJS) -o $(TASK) $(LDFLAGS) -lsocket $(EWOK_LIBC) 
 

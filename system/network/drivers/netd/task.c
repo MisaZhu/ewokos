@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include <errno.h>
 #include <pthread.h>
 
 #include <ewoksys/vfs.h>
@@ -102,6 +103,9 @@ void release_task(net_task_t *task){
     int sock = task->sock;
     int thread_started = task->thread_started;
 
+    slog("[netd] release_task begin: task=%p fd=%d node=%d sock=%d is_read=%d running=%d thread_started=%d\n",
+        task, task->fd, task->node, sock, is_read_task, task->running, thread_started);
+
     // Also wake up waiting client if task was processing
     if(from_pid > 0) {
         vfs_wakeup(task->node, VFS_EVT_CLOSE);
@@ -114,9 +118,12 @@ void release_task(net_task_t *task){
 
     // Now close the socket if this is not a read task
     if(!is_read_task) {
+        slog("[netd] release_task sock_close: task=%p sock=%d\n", task, sock);
         sock_close(sock);
     }
     // Now safe to destroy condition variable after thread has exited
+    slog("[netd] release_task done: task=%p fd=%d node=%d sock=%d\n",
+        task, task->fd, task->node, sock);
     free(task); // We free main task here
 }
 
@@ -229,6 +236,7 @@ int do_network_fcntl(net_task_t *task){
 	struct sockaddr *paddr;
 	struct sockaddr addr;
 	int ret = -1;
+	int sock_errno = 0;
 	sock = task->sock;
 
     static uint32_t cnt = 0;
@@ -257,35 +265,48 @@ int do_network_fcntl(net_task_t *task){
 			if(data == NULL || paddr == NULL) {
 				ret = -1;
 			} else {
+				errno = 0;
 				ret = sock_sendto(sock, data, size, paddr, addrlen);
+				sock_errno = errno;
 			}
 			PF->addi(&task->out, ret);
+			PF->addi(&task->out, ret < 0 ? sock_errno : 0);
 			break;
 		case SOCK_RECVFROM:
 			size = proto_read_int(&task->in);
             size = size < TASK_READ_BUF_SIZE ? size:TASK_READ_BUF_SIZE;
+            errno = 0;
             ret = sock_recvfrom(sock, task->read_buf, size, &addr, &addrlen);
+            sock_errno = errno;
             PF->addi(&task->out, ret);
             if(ret > 0){
+                PF->addi(&task->out, addrlen);
                 PF->add(&task->out, task->read_buf, ret);
                 PF->add(&task->out, &addr, addrlen);	
             }
+            PF->addi(&task->out, ret < 0 ? sock_errno : 0);
 			break;
 		case SOCK_SEND:
 			data = proto_read(&task->in, &size);
             if(data && size){
+				errno = 0;
 			    ret = sock_send(sock, data, size);
+				sock_errno = errno;
             } 
 			PF->addi(&task->out, ret);
+			PF->addi(&task->out, ret < 0 ? sock_errno : 0);
 			break;
 		case SOCK_RECV:
 			size = proto_read_int(&task->in);
             size = size < TASK_READ_BUF_SIZE ? size:TASK_READ_BUF_SIZE;
+            errno = 0;
             ret = sock_recv(sock, task->read_buf, size);
+            sock_errno = errno;
             PF->addi(&task->out, ret);
             if(ret > 0){
                 PF->add(&task->out, task->read_buf, ret);
             }
+            PF->addi(&task->out, ret < 0 ? sock_errno : 0);
 			break;
 		case SOCK_LISTEN:
 			size = proto_read_int(&task->in);
@@ -300,6 +321,8 @@ int do_network_fcntl(net_task_t *task){
 			}
 			break;	
 		case SOCK_CLOSE:
+            slog("[netd] SOCK_CLOSE: task=%p fd=%d node=%d sock=%d\n",
+                task, task->fd, task->node, sock);
 			ret = sock_close(sock);
 			PF->addi(&task->out, ret);
 			break;
@@ -313,9 +336,12 @@ int do_network_fcntl(net_task_t *task){
 			if(paddr == NULL) {
 				ret = -1;
 			} else {
+				errno = 0;
 				ret = sock_connect(sock, paddr, addrlen);
+				sock_errno = errno;
 			}
 			PF->addi(&task->out, ret);
+			PF->addi(&task->out, ret < 0 ? sock_errno : 0);
 			break;
 		case SOCK_SETOPT:
 		level = proto_read_int(&task->in);

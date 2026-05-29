@@ -118,6 +118,8 @@ static int network_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fs
 	(void)dev;
 	net_task_t *task = (net_task_t *)(ewokos_addr_t)fsinfo->data;
 	if(task) {
+		slog("[netd] network_close: task=%p fd=%d node=%u sock=%d read_task=%p\n",
+			task, fd, node, task->sock, task->read_task);
 		task->running = false;
 		if(task->read_task != NULL)
 			task->read_task->running = false;

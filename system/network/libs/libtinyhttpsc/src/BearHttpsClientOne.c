@@ -94417,7 +94417,7 @@ static int private_BearHttps_connect_host(BearHttpsRequest *self, BearHttpsRespo
 		}
         char connect_error[96] = {0};
         snprintf(connect_error, sizeof(connect_error), "failed to connect errno=%d", errno);
-		BearHttpsResponse_set_error(response, connect_error, BEARSSL_HTTPS_FAILT_TO_CREATE_DNS_REQUEST);
+		BearHttpsResponse_set_error(response, connect_error, BEARSSL_HTTPS_FAILT_TO_CONNECT);
 	}
 	else {
         char dns_error[96] = {0};
@@ -94945,7 +94945,11 @@ BearHttpsResponse * BearHttpsRequest_fetch(BearHttpsRequest *self){
         if(requisition_props->is_https){
              if(br_sslio_flush(&response->ssl_io)){
                 char flush_error[128];
-                snprintf(flush_error, sizeof(flush_error), "error flushing io=%d errno=%d", -1, errno);
+                unsigned ssl_state = br_ssl_engine_current_state(&response->ssl_client.eng);
+                int ssl_err = br_ssl_engine_last_error(&response->ssl_client.eng);
+                snprintf(flush_error, sizeof(flush_error),
+                    "error flushing io=%d errno=%d ssl_state=0x%x ssl_err=%d",
+                    -1, errno, ssl_state, ssl_err);
                 BearHttpsResponse_set_error(response, flush_error, BEARSSL_HTTPS_ERROR_FLUSHING);
                 private_BearHttpsRequisitionProps_free(requisition_props);
                 return response;
@@ -95422,7 +95426,16 @@ void private_BearHttpsResponse_read_til_end_of_headers_or_reach_limit(
 
         if(readded < 0){
             char error_buff[128] ={0};
-            snprintf(error_buff, sizeof(error_buff), "invalid read code: %d errno=%d", readded, errno);
+            if(self->is_https){
+                unsigned ssl_state = br_ssl_engine_current_state(&self->ssl_client.eng);
+                int ssl_err = br_ssl_engine_last_error(&self->ssl_client.eng);
+                snprintf(error_buff, sizeof(error_buff),
+                    "invalid read code: %d errno=%d ssl_state=0x%x ssl_err=%d",
+                    readded, errno, ssl_state, ssl_err);
+            }
+            else{
+                snprintf(error_buff, sizeof(error_buff), "invalid read code: %d errno=%d", readded, errno);
+            }
             BearHttpsResponse_set_error(self,error_buff,BEARSSL_HTTPS_INVALID_READ_CODE);
             return;
         }

@@ -28,6 +28,20 @@
 #define SOCKS_MAX 128
 static struct sock socks[SOCKS_MAX];
 
+static int
+sock_used_count(void)
+{
+    int used = 0;
+    struct sock *entry;
+
+    for (entry = socks; entry < tailof(socks); entry++) {
+        if (entry->used) {
+            used++;
+        }
+    }
+    return used;
+}
+
 int
 sockaddr_pton(const char *p, struct sockaddr *n, size_t size)
 {
@@ -73,7 +87,7 @@ sock_alloc(void)
             return entry;
         }
     }
-    slog("no free socket\n");
+    errorf("sock_alloc exhausted: used=%d max=%d", sock_used_count(), SOCKS_MAX);
     return NULL;
 }
 
@@ -107,10 +121,14 @@ int
 sock_open(int domain, int type, int protocol)
 {
     struct sock *s;
+    slog("[netd] sock_open begin: domain=%d type=%d protocol=%d used=%d\n",
+        domain, type, protocol, sock_used_count());
     if (domain != AF_INET) {
+        errorf("sock_open invalid domain=%d", domain);
         return -17;
     }
     if (type != SOCK_STREAM && type != SOCK_DGRAM && type != SOCK_RAW) {
+        errorf("sock_open invalid type=%d", type);
         return -1;
     }
     if (protocol == 0) {
@@ -118,10 +136,13 @@ sock_open(int domain, int type, int protocol)
     }
     if ((type == SOCK_STREAM && protocol != IPPROTO_TCP) ||
         (type == SOCK_DGRAM && protocol != IPPROTO_UDP)) {
+        errorf("sock_open protocol mismatch: type=%d protocol=%d", type, protocol);
         return -1;
     }
     s = sock_alloc();
     if (!s) {
+        errorf("sock_open no slot: type=%d protocol=%d used=%d",
+            type, protocol, sock_used_count());
         return -1;
     }
     s->family = domain;
@@ -141,9 +162,13 @@ sock_open(int domain, int type, int protocol)
         break;
     }
     if (s->type != SOCK_RAW && s->desc == -1) {
+        errorf("sock_open backend failure: type=%d protocol=%d used=%d",
+            s->type, s->protocol, sock_used_count());
         sock_free(s);
         return -1;
     }
+    slog("[netd] sock_open ok: id=%d desc=%d type=%d protocol=%d used=%d\n",
+        indexof(socks, s), s->desc, s->type, s->protocol, sock_used_count());
     return indexof(socks, s);
 }
 
@@ -154,8 +179,11 @@ sock_close(int id)
     int retry = 100; // Max 10 seconds wait (100 * 100ms)
     s = sock_get(id);
     if (!s) {
+        errorf("sock_close invalid id=%d used=%d", id, sock_used_count());
         return -17;
     }
+    slog("[netd] sock_close begin: id=%d desc=%d type=%d used=%d\n",
+        id, s->desc, s->type, sock_used_count());
     switch (s->type) {
     case SOCK_STREAM:
         // Try to close TCP connection gracefully
@@ -181,7 +209,9 @@ sock_close(int id)
     default:
         return -1;
     }
-    return sock_free(s);
+    sock_free(s);
+    slog("[netd] sock_close done: id=%d used=%d\n", id, sock_used_count());
+    return 0;
 }
 
 ssize_t
@@ -200,8 +230,12 @@ sock_recvfrom(int id, void *buf, size_t n, struct sockaddr *addr, int *addrlen)
         case AF_INET:
             ret = udp_recvfrom(s->desc, (uint8_t *)buf, n, &ep);
             if (ret != -1) {
+                ((struct sockaddr_in *)addr)->sin_family = AF_INET;
                 ((struct sockaddr_in *)addr)->sin_addr = ep.addr;
                 ((struct sockaddr_in *)addr)->sin_port = ep.port;
+                if (addrlen) {
+                    *addrlen = sizeof(struct sockaddr_in);
+                }
             }
             return ret;
         }

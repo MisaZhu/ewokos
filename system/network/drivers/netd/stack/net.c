@@ -11,6 +11,37 @@
 #include "util.h"
 #include "net.h"
 
+#define DHCP_SERVER_PORT 67
+#define DHCP_CLIENT_PORT 68
+
+static int
+net_raw_protocol_interested(uint16_t type, const uint8_t *data, size_t len)
+{
+    size_t ihl;
+    uint16_t src_port;
+    uint16_t dst_port;
+
+    if (type != NET_PROTOCOL_TYPE_IP || !data || len < 20) {
+        return 0;
+    }
+    if ((data[0] >> 4) != 4) {
+        return 0;
+    }
+
+    ihl = (size_t)(data[0] & 0x0f) * 4;
+    if (ihl < 20 || len < ihl + 8) {
+        return 0;
+    }
+    if (data[9] != 17) {
+        return 0;
+    }
+
+    src_port = (uint16_t)((data[ihl] << 8) | data[ihl + 1]);
+    dst_port = (uint16_t)((data[ihl + 2] << 8) | data[ihl + 3]);
+    return src_port == DHCP_SERVER_PORT || src_port == DHCP_CLIENT_PORT ||
+        dst_port == DHCP_SERVER_PORT || dst_port == DHCP_CLIENT_PORT;
+}
+
 struct net_protocol {
     struct net_protocol *next;
     char name[16];
@@ -179,7 +210,9 @@ net_input_handler(uint16_t type, const uint8_t *data, size_t len, struct net_dev
     struct net_protocol_queue_entry *entry;
 
     for (proto = protocols; proto; proto = proto->next) {
-        if (proto->type == type || proto->type == NET_PROTOCOL_TYPE_RAW) {
+        if (proto->type == type ||
+                (proto->type == NET_PROTOCOL_TYPE_RAW &&
+                 net_raw_protocol_interested(type, data, len))) {
             entry = memory_alloc(sizeof(*entry) + len);
             if (!entry) {
                 errorf("memory_alloc() failure");

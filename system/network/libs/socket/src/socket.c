@@ -83,8 +83,15 @@ int connect (int fd, const struct sockaddr* addr, uint32_t len){
 
     PF->init(&in)->add(&in, addr, len);
     PF->init(&out);
-	do_vfs_fcntl(fd, SOCK_CONNECT, &in , &out);
-    ret = proto_read_int(&out);
+	ret = do_vfs_fcntl(fd, SOCK_CONNECT, &in , &out);
+    if(ret == 0) {
+        int sock_errno;
+        ret = proto_read_int(&out);
+        sock_errno = proto_read_int(&out);
+        if (ret < 0 && sock_errno != 0) {
+            errno = sock_errno;
+        }
+    }
     PF->clear(&in);
 	PF->clear(&out);
 
@@ -97,8 +104,6 @@ int getpeername (int fd, struct sockaddr* addr,uint32_t * len){
 }
 
 int32_t send (int fd, const void *buf, uint32_t n, int flags){
-    return write(fd, buf, n);
-    /*
     int ret;
 	proto_t in,out;
     fsinfo_t info;
@@ -107,17 +112,21 @@ int32_t send (int fd, const void *buf, uint32_t n, int flags){
 
     PF->init(&in)->add(&in, buf, n);
     PF->init(&out);
-	do_vfs_fcntl(fd, SOCK_SEND, &in , &out);
-    ret = proto_read_int(&out);
+	ret = do_vfs_fcntl(fd, SOCK_SEND, &in , &out);
+    if(ret == 0) {
+        int sock_errno;
+        ret = proto_read_int(&out);
+        sock_errno = proto_read_int(&out);
+        if (ret < 0 && sock_errno != 0) {
+            errno = sock_errno;
+        }
+    }
     PF->clear(&in);
 	PF->clear(&out);
     return ret;
-    */
 }
 
 int32_t recv (int fd, void *buf, uint32_t n, int flags){
-    return read(fd, buf, n);
-    /*
     int ret;
 	proto_t in,out;
     fsinfo_t info;
@@ -126,16 +135,22 @@ int32_t recv (int fd, void *buf, uint32_t n, int flags){
 
     PF->init(&in)->addi(&in, n);
     PF->init(&out);
-	do_vfs_fcntl(fd, SOCK_RECV, &in , &out);
-    ret = proto_read_int(&out);
-    if(ret > 0){
-       proto_read_to(&out, buf, ret);
+	ret = do_vfs_fcntl(fd, SOCK_RECV, &in , &out);
+    if(ret == 0) {
+        int sock_errno;
+        ret = proto_read_int(&out);
+        if(ret > 0){
+           proto_read_to(&out, buf, ret);
+        }
+        sock_errno = proto_read_int(&out);
+        if (ret < 0 && sock_errno != 0) {
+            errno = sock_errno;
+        }
     }
     PF->clear(&in);
 	PF->clear(&out);
        
     return ret;
-    */
 }
 
 int32_t sendto (int fd, const void *buf, uint32_t n,
@@ -149,8 +164,15 @@ int32_t sendto (int fd, const void *buf, uint32_t n,
     
     PF->init(&in)->add(&in, buf, n)->add(&in, addr, addr_len);
     PF->init(&out);
-	do_vfs_fcntl(fd, SOCK_SENDTO, &in , &out);
-    ret = proto_read_int(&out);
+	ret = do_vfs_fcntl(fd, SOCK_SENDTO, &in , &out);
+    if(ret == 0) {
+        int sock_errno;
+        ret = proto_read_int(&out);
+        sock_errno = proto_read_int(&out);
+        if (ret < 0 && sock_errno != 0) {
+            errno = sock_errno;
+        }
+    }
     PF->clear(&in);
 	PF->clear(&out);
     return ret;
@@ -160,6 +182,7 @@ int32_t recvfrom (int fd, void * buf, uint32_t n,
 			 int flags, struct sockaddr* addr,
 			 uint32_t * addr_len){
     int ret;
+    uint32_t out_addr_len;
 	proto_t in,out;
     fsinfo_t info;
 	if(vfs_get_by_fd(fd, &info) != 0)
@@ -167,11 +190,23 @@ int32_t recvfrom (int fd, void * buf, uint32_t n,
 
     PF->init(&in)->addi(&in, n)->addi(&in, *addr_len);
     PF->init(&out);
-	do_vfs_fcntl(fd, SOCK_RECVFROM, &in , &out);
-    ret = proto_read_int(&out);
-    if(ret > 0){
-        proto_read_to(&out, buf, n);
-        proto_read_to(&out, addr, *addr_len);
+	ret = do_vfs_fcntl(fd, SOCK_RECVFROM, &in , &out);
+    if(ret == 0) {
+        int sock_errno;
+        ret = proto_read_int(&out);
+        if(ret > 0){
+            out_addr_len = (uint32_t)proto_read_int(&out);
+            proto_read_to(&out, buf, ret);
+            if (addr != NULL && addr_len != NULL) {
+                uint32_t copy_len = *addr_len < out_addr_len ? *addr_len : out_addr_len;
+                proto_read_to(&out, addr, copy_len);
+                *addr_len = out_addr_len;
+            }
+        }
+        sock_errno = proto_read_int(&out);
+        if (ret < 0 && sock_errno != 0) {
+            errno = sock_errno;
+        }
     }
     PF->clear(&in);
 	PF->clear(&out);

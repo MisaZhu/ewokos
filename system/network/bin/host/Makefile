@@ -12,9 +12,9 @@ HOST_OBJS = host.o
 HOST = $(TARGET_DIR)/bin/host
 
 $(HOST): $(HOST_OBJS) \
+		$(BUILD_DIR)/lib/libsocket.a \
 		$(BUILD_DIR)/lib/libewoksys.a
 		$(LD) -Ttext=100 $(HOST_OBJS) -o $(HOST) $(LDFLAGS) -lntpc -lsocket $(EWOK_LIBC) 
 
 clean:
 	rm -f $(HOST_OBJS)
-
