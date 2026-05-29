@@ -308,13 +308,19 @@ static void x_get_event(int from_pid, proto_t* out) {
 	PF->addi(out, 0)->add(out, &evt, sizeof(xevent_t));
 }
 
+static void x_get_event_node(int from_pid, proto_t* out) {
+	PF->addi(out, xevent_get_node(from_pid));
+}
+
 static void x_push_event(x_t* x, xwin_t* win, xevent_t* e) {
 	(void)x;
 	if(win == NULL || win->from_pid <= 0 || win->xinfo == NULL)
 		return;
 	e->win = win->xinfo->win;
 	xevent_push(win->from_pid, e);
-	vfs_wakeup(x->dev->mnt_info.node, VFS_EVT_RD);
+	uint32_t evt_node = xevent_get_node(win->from_pid);
+	if(evt_node != 0)
+		vfs_wakeup(evt_node, VFS_EVT_RD);
 }
 
 static void hide_win(x_t* x, xwin_t* win) {
@@ -742,6 +748,16 @@ static xwin_t* x_get_win(x_t* x, int fd, int from_pid) {
 		win = win->next;
 	}
 	return NULL;
+}
+
+static bool has_win_by_main_pid(x_t* x, int main_pid) {
+	xwin_t* win = x->win_head;
+	while(win != NULL) {
+		if(win->from_main_pid == main_pid)
+			return true;
+		win = win->next;
+	}
+	return false;
 }
 
 static xwin_t* x_get_win_by_name(x_t* x, const char* name) {
@@ -1759,6 +1775,9 @@ static int xserver_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, 
 	else if(cmd == X_DCNTL_GET_EVT) {
 		x_get_event(from_pid, ret);
 	}
+	else if(cmd == X_DCNTL_GET_EVT_NODE) {
+		x_get_event_node(from_pid, ret);
+	}
 	else if(cmd == X_DCNTL_GET_DESKTOP_SPACE) {
 		x_get_desktop_space(x, in, ret);
 	}
@@ -1821,7 +1840,10 @@ static int xserver_win_close(vdevice_t* dev, int fd, int from_pid, uint32_t node
 		x_cursor_set_busy(x, false);
 
 	int disp_index = win->xinfo->display_index;
+	int main_pid = win->from_main_pid;
 	x_del_win(x, win);	
+	if(!has_win_by_main_pid(x, main_pid))
+		x_quit(main_pid);
 
 	x_dirty(x, disp_index);
 	return 0;

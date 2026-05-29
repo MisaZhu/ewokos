@@ -5,6 +5,7 @@
 
 void xevent_push(int pid, xevent_t* evt);
 bool xevent_pop(int pid, xevent_t* evt);
+uint32_t xevent_get_node(int pid);
 void xevent_remove(int pid);
 void xevent_pool_init(void);
 

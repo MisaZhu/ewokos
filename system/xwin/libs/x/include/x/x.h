@@ -30,6 +30,7 @@ typedef struct st_x {
 
 	void (*on_loop)(void* p);
 	fsinfo_t dev_fsinfo;
+	uint32_t evt_node;
 } x_t;
 
 int      x_exec(const char* fname);

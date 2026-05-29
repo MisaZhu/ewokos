@@ -41,7 +41,20 @@ static int x_get_event(x_t* x, int xserv_pid, xevent_t* ev, bool block) {
 	PF->clear(&out);
 
 	if(res != 0 && block) {
-		vfs_block(x->dev_fsinfo.node, VFS_EVT_RD);
+		if(x->evt_node == 0) {
+			PF->init(&out);
+			if(dev_cntl_by_pid(xserv_pid, X_DCNTL_GET_EVT_NODE, NULL, &out) == 0)
+				x->evt_node = (uint32_t)proto_read_int(&out);
+			PF->clear(&out);
+		}
+
+		if(x->evt_node != 0) {
+			vfs_clear_poll_events(x->evt_node, VFS_EVT_RD);
+			vfs_block(x->evt_node, VFS_EVT_RD);
+		}
+		else {
+			proc_usleep(1000);
+		}
 	}
 
 	return res;
@@ -209,6 +222,7 @@ void  x_init(x_t* x, void* data) {
 	memset(_x_screens, 0, sizeof(xscreen_info_t)*SCREEN_MAX);
 	memset(x, 0, sizeof(x_t));
 	x->data = data;
+	x->evt_node = 0;
 	vfs_get_by_name("/dev/x", &x->dev_fsinfo);
 	//sys_signal(SYS_SIG_STOP, sig_stop, x);
 }

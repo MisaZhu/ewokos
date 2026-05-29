@@ -1,4 +1,8 @@
 #include "xevtpool.h"
+#include <stdlib.h>
+#include <string.h>
+#include <ewoksys/proc.h>
+#include <ewoksys/vfs.h>
 
 #define XEVT_MAX 128
 
@@ -11,12 +15,25 @@ typedef struct evt_pool {
 	xevt_item_t* head;
 	xevt_item_t* tail;
 	int pid;
+	uint32_t node;
 	uint32_t num;
 	struct evt_pool *next;
 	struct evt_pool *prev;
 } xevt_pool_t;
 
 static xevt_pool_t* _xevt_pool_head = NULL;
+
+static uint32_t create_evt_node(void) {
+	fsinfo_t info;
+	memset(&info, 0, sizeof(fsinfo_t));
+	info.type = FS_TYPE_CHAR | FS_TYPE_ANNOUNIMOUS;
+	info.stat.uid = getuid();
+	info.stat.gid = getgid();
+	info.stat.mode = 0600;
+	if(vfs_new_node(&info, 0, true, false) != 0)
+		return 0;
+	return info.node;
+}
 
 static inline xevt_pool_t* get_pool(int pid) {
 	xevt_pool_t* p = _xevt_pool_head;
@@ -26,6 +43,28 @@ static inline xevt_pool_t* get_pool(int pid) {
 		p = p->next;
 	}
 	return NULL;
+}
+
+static xevt_pool_t* get_or_new_pool(int pid) {
+	xevt_pool_t* pool = get_pool(pid);
+	if(pool != NULL)
+		return pool;
+
+	pool = (xevt_pool_t*)calloc(1, sizeof(xevt_pool_t));
+	if(pool == NULL)
+		return NULL;
+	pool->pid = proc_getpid(pid);
+	pool->node = create_evt_node();
+	if(pool->node == 0) {
+		free(pool);
+		return NULL;
+	}
+	if(_xevt_pool_head != NULL) {
+		_xevt_pool_head->prev = pool;
+		pool->next = _xevt_pool_head;
+	}
+	_xevt_pool_head = pool;
+	return pool;
 }
 
 static void xevent_pool_push(xevt_pool_t* pool, xevent_t* evt) {
@@ -58,16 +97,9 @@ static inline bool xevent_pool_pop(xevt_pool_t* pool, xevent_t* evt) {
 }
 
 void xevent_push(int pid, xevent_t* evt) {
-	xevt_pool_t* pool = get_pool(pid);
-	if(pool == NULL) { //not exist, build pool for this pid
-		pool = (xevt_pool_t*)calloc(1, sizeof(xevt_pool_t));
-		pool->pid = pid;
-		if(_xevt_pool_head != NULL) {
-			_xevt_pool_head->prev = pool;
-			pool->next = _xevt_pool_head;
-		}
-		_xevt_pool_head = pool;
-	}
+	xevt_pool_t* pool = get_or_new_pool(pid);
+	if(pool == NULL)
+		return;
 	if(pool->num >= XEVT_MAX)
 		xevent_pool_pop(pool, NULL);
 	xevent_pool_push(pool, evt);
@@ -78,6 +110,13 @@ bool xevent_pop(int pid, xevent_t* evt) {
 	if(pool == NULL)
 		return false;
 	return xevent_pool_pop(pool, evt);
+}
+
+uint32_t xevent_get_node(int pid) {
+	xevt_pool_t* pool = get_or_new_pool(pid);
+	if(pool == NULL)
+		return 0;
+	return pool->node;
 }
 
 void xevent_remove(int pid) {
@@ -98,10 +137,11 @@ void xevent_remove(int pid) {
 		pool->next->prev = pool->prev;
 	if(pool->prev != NULL)
 		pool->prev->next = pool->next;
+	if(pool->node != 0)
+		vfs_del_node(pool->node);
 	free(pool);
 }
 
 void xevent_pool_init(void) {
 	_xevt_pool_head = NULL;
 }
-
