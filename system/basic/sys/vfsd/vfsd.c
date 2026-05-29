@@ -1118,9 +1118,6 @@ static void do_vfs_block(int32_t pid, proto_t* in) {
 	if(node == NULL)
 		return;
 
-	int32_t* p = (int32_t*)malloc(sizeof(int32_t));
-	*p = pid;
-
 	queue_t* q = NULL;
 	if((events & VFS_EVT_RD) != 0)
 		q = &node->read_wait_queue;
@@ -1129,6 +1126,14 @@ static void do_vfs_block(int32_t pid, proto_t* in) {
 
 	if(q == NULL)
 		return;
+
+	if((node->events & (uint32_t)events) != 0)
+		return;
+
+	int32_t* p = (int32_t*)malloc(sizeof(int32_t));
+	if(p == NULL)
+		return;
+	*p = pid;
 	queue_push(q, p);
 }
 

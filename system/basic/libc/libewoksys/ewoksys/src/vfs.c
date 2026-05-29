@@ -861,9 +861,23 @@ static int vfs_block_raw(uint32_t node, int event) {
 	return res;
 }
 
+static uint32_t vfs_get_poll_events_by_node(uint32_t node_id) {
+	proto_t in, out;
+	PF->init(&in)->
+		addi(&in, node_id);
+	PF->init(&out);
+	ipc_call(get_vfsd_pid(), VFS_GET_POLL_EVENTS, &in, &out);
+	PF->clear(&in);
+	uint32_t res = (uint32_t)proto_read_int(&out);
+	PF->clear(&out);
+	return res;
+}
+
 int  vfs_block(uint32_t node, int event) {
 	if(vfs_block_raw(node, event) != 0)
 		return -1;
+	if((vfs_get_poll_events_by_node(node) & (uint32_t)event) != 0)
+		return 0;
 	proc_block();
 	return 0;
 }
@@ -898,15 +912,7 @@ uint32_t  vfs_get_poll_events(int fd) {
 	fsinfo_t info;
 	if(vfs_get_by_fd(fd, &info) != 0 || info.node == 0)
 		return 0;
-	proto_t in, out;
-	PF->init(&in)->
-		addi(&in, info.node);
-	PF->init(&out);
-	ipc_call(get_vfsd_pid(), VFS_GET_POLL_EVENTS, &in, &out);
-	PF->clear(&in);
-	uint32_t res = (uint32_t)proto_read_int(&out);
-	PF->clear(&out);
-	return res;
+	return vfs_get_poll_events_by_node(info.node);
 }
 
 int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {

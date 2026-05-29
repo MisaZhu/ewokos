@@ -330,7 +330,7 @@ static int dns_resolve(const char* domain, struct in_addr* addr, const char* dns
     struct sockaddr_in server_addr, from_addr;
     socklen_t from_len;
     uint8_t buf[512];
-    int len, i;
+    int len, i, attempt;
     struct dns_header* header;
     uint8_t* ptr;
     uint16_t qtype, qclass;
@@ -394,15 +394,38 @@ static int dns_resolve(const char* domain, struct in_addr* addr, const char* dns
 
     len = ptr - buf;
 
-    // 发送查询
-    if (sendto(sockfd, buf, len, 0, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-        close(sockfd);
-        return -1;
+    for (attempt = 0; attempt < 3; ++attempt) {
+        // 发送查询
+        if (sendto(sockfd, buf, len, 0, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+            if (errno == EINTR || errno == EAGAIN) {
+                continue;
+            }
+            close(sockfd);
+            return -1;
+        }
+
+        // 接收响应
+        from_len = sizeof(from_addr);
+        while (1) {
+            len = recvfrom(sockfd, buf, sizeof(buf), 0, (struct sockaddr*)&from_addr, &from_len);
+            if (len >= 0) {
+                break;
+            }
+            if (errno == EINTR) {
+                continue;
+            }
+            if (errno == EAGAIN || errno == ETIMEDOUT) {
+                break;
+            }
+            close(sockfd);
+            return -1;
+        }
+
+        if (len >= 0) {
+            break;
+        }
     }
 
-    // 接收响应
-    from_len = sizeof(from_addr);
-    len = recvfrom(sockfd, buf, sizeof(buf), 0, (struct sockaddr*)&from_addr, &from_len);
     if (len < 0) {
         close(sockfd);
         return -1;
@@ -513,9 +536,10 @@ in_addr_t inet_addr(const char *cp) {
 }
 
 struct hostent *gethostbyname(const char *name){
+    int last_errno = 0;
     // 检查输入参数
     if (name == NULL) {
-        //errno = EINVAL;
+        errno = EINVAL;
         return NULL;
     }
 
@@ -561,10 +585,11 @@ struct hostent *gethostbyname(const char *name){
             hostent_result.h_addr_list = hostent_addr_list;
             return &hostent_result;
         }
+        last_errno = errno;
     }
 
     // 解析失败
-    errno = ENOENT;
+    errno = last_errno != 0 ? last_errno : ENOENT;
     return NULL;
 }
 

@@ -33,6 +33,7 @@ SOFTWARE.
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+#include <poll.h>
 #include <sys/errno.h>
 #include <sys/select.h>
 #include <sys/socket.h>
@@ -229,22 +230,109 @@ int ewok_https_close_compat(int fd) {
 }
 
 int ewok_https_select_compat(int nfds, void *readfds, void *writefds, void *exceptfds, void *timeout) {
-	(void)nfds;
-	(void)readfds;
-	(void)writefds;
-	(void)exceptfds;
-	(void)timeout;
-	return 1;
+	fd_set *read_set = (fd_set *)readfds;
+	fd_set *write_set = (fd_set *)writefds;
+	fd_set *except_set = (fd_set *)exceptfds;
+	struct timeval *tv = (struct timeval *)timeout;
+	struct pollfd *pfds = NULL;
+	int timeout_ms = -1;
+	int count = 0;
+	int ret = 0;
+
+	if (nfds <= 0) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	if (tv != NULL) {
+		timeout_ms = (int)(tv->tv_sec * 1000 + tv->tv_usec / 1000);
+		if (timeout_ms < 0) {
+			timeout_ms = 0;
+		}
+	}
+
+	pfds = (struct pollfd *)calloc((size_t)nfds, sizeof(struct pollfd));
+	if (pfds == NULL) {
+		errno = ENOMEM;
+		return -1;
+	}
+
+	for (int fd = 0; fd < nfds; ++fd) {
+		short events = 0;
+
+		if (read_set != NULL && FD_ISSET(fd, read_set)) {
+			events |= POLLIN;
+		}
+		if (write_set != NULL && FD_ISSET(fd, write_set)) {
+			events |= POLLOUT;
+		}
+		if (except_set != NULL && FD_ISSET(fd, except_set)) {
+			events |= POLLERR | POLLHUP | POLLNVAL;
+		}
+
+		if (events == 0) {
+			continue;
+		}
+
+		pfds[count].fd = fd;
+		pfds[count].events = events;
+		pfds[count].revents = 0;
+		count++;
+	}
+
+	if (read_set != NULL) {
+		FD_ZERO(read_set);
+	}
+	if (write_set != NULL) {
+		FD_ZERO(write_set);
+	}
+	if (except_set != NULL) {
+		FD_ZERO(except_set);
+	}
+
+	if (count == 0) {
+		free(pfds);
+		return 0;
+	}
+
+	ret = poll(pfds, (uint32_t)count, timeout_ms);
+	if (ret <= 0) {
+		free(pfds);
+		return ret;
+	}
+
+	ret = 0;
+	for (int i = 0; i < count; ++i) {
+		short revents = pfds[i].revents;
+		int fd = pfds[i].fd;
+		int ready = 0;
+
+		if (read_set != NULL && (revents & (POLLIN | POLLHUP | POLLERR))) {
+			FD_SET(fd, read_set);
+			ready = 1;
+		}
+		if (write_set != NULL && (revents & (POLLOUT | POLLHUP | POLLERR))) {
+			FD_SET(fd, write_set);
+			ready = 1;
+		}
+		if (except_set != NULL && (revents & (POLLERR | POLLHUP | POLLNVAL))) {
+			FD_SET(fd, except_set);
+			ready = 1;
+		}
+		if (ready) {
+			ret++;
+		}
+	}
+
+	free(pfds);
+	return ret;
 }
 
 int ewok_https_getsockopt_compat(int fd, int level, int optname, void *optval, void *optlen) {
-	(void)fd;
-	(void)level;
-	(void)optname;
-	if (optval != NULL && optlen != NULL && *(socklen_t *)optlen >= sizeof(int)) {
-		*(int *)optval = 0;
-	}
-	return 0;
+	#undef getsockopt
+	int ret = getsockopt(fd, level, optname, optval, (socklen_t *)optlen);
+	#define getsockopt ewok_https_getsockopt_compat
+	return ret;
 }
 
 int ewok_https_getentropy_compat(void *buf, size_t len) {
@@ -253,6 +341,24 @@ int ewok_https_getentropy_compat(void *buf, size_t len) {
 		return -1;
 	}
 	ewok_https_entropy_fill(buf, len);
+	return 0;
+}
+
+static int ewok_https_set_socket_timeout(int fd, long timeout_ms) {
+	struct timeval timeout;
+
+	if (timeout_ms <= 0) {
+		return 0;
+	}
+
+	timeout.tv_sec = timeout_ms / 1000;
+	timeout.tv_usec = (timeout_ms % 1000) * 1000;
+	if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+		return -1;
+	}
+	if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0) {
+		return -1;
+	}
 	return 0;
 }
 
@@ -94309,10 +94415,14 @@ static int private_BearHttps_connect_host(BearHttpsRequest *self, BearHttpsRespo
 				}
 			}
 		}
-		BearHttpsResponse_set_error(response,"failed to connect",BEARSSL_HTTPS_FAILT_TO_CREATE_DNS_REQUEST);
+        char connect_error[96] = {0};
+        snprintf(connect_error, sizeof(connect_error), "failed to connect errno=%d", errno);
+		BearHttpsResponse_set_error(response, connect_error, BEARSSL_HTTPS_FAILT_TO_CREATE_DNS_REQUEST);
 	}
 	else {
-	    BearHttpsResponse_set_error(response,"failed to dns resolv",BEARSSL_HTTPS_FAILT_TO_CREATE_DNS_REQUEST);
+        char dns_error[96] = {0};
+        snprintf(dns_error, sizeof(dns_error), "failed to dns resolv errno=%d", errno);
+	    BearHttpsResponse_set_error(response, dns_error, BEARSSL_HTTPS_FAILT_TO_CREATE_DNS_REQUEST);
 	}
 	return -1;
 
@@ -94420,6 +94530,12 @@ static int private_BearHttpsRequest_connect_ipv4(BearHttpsResponse *self, const 
         return -1; 
     }
 
+    if (ewok_https_set_socket_timeout(sockfd, connection_timeout) < 0) {
+        BearHttpsResponse_set_error(self,"ERROR: failed to set socket timeout",BEARSSL_HTTPS_FAILT_TO_CREATE_SOCKET);
+        Universal_close(sockfd);
+        return -1;
+    }
+
     // Set socket to non-blocking mode
     if (private_BearHttps_socket_set_nonblocking(sockfd) < 0) {
         BearHttpsResponse_set_error(self,"ERROR: failed to set socket non-blocking",BEARSSL_HTTPS_FAILT_TO_CREATE_SOCKET);
@@ -94482,6 +94598,11 @@ static int private_BearHttpsRequest_connect_ipv4(BearHttpsResponse *self, const 
 static int private_BearHttpsRequest_connect_ipv4_no_error_raise( const char *ipv4_ip, int port,long connection_timeout) {
     int sockfd = Universal_socket(UNI_AF_INET, UNI_SOCK_STREAM, 0);
     if (sockfd < 0) {
+        return -1;
+    }
+
+    if (ewok_https_set_socket_timeout(sockfd, connection_timeout) < 0) {
+        Universal_close(sockfd);
         return -1;
     }
 
@@ -94552,7 +94673,7 @@ static int private_BearHttps_sock_read(void *ctx, unsigned char *buf, size_t len
 
 		read_len = Universal_recv(*(int*)ctx, buf, len,0);
 		if (read_len <= 0) {
-			if (read_len < 0 && errno == EINTR) {
+			if (read_len < 0 && (errno == EINTR || errno == EAGAIN)) {
 				continue;
 			}
 			return -1;
@@ -94568,7 +94689,7 @@ static int private_BearHttps_sock_write(void *ctx, const unsigned char *buf, siz
 		ssize_t write_len;
 		write_len = Universal_send(*(int *)ctx, buf, len,0);
 		if (write_len <= 0) {
-			if (write_len < 0 && errno == EINTR) {
+			if (write_len < 0 && (errno == EINTR || errno == EAGAIN)) {
 				continue;
 			}
 			return -1;
@@ -94823,7 +94944,9 @@ BearHttpsResponse * BearHttpsRequest_fetch(BearHttpsRequest *self){
 
         if(requisition_props->is_https){
              if(br_sslio_flush(&response->ssl_io)){
-                BearHttpsResponse_set_error(response, "error flushing",BEARSSL_HTTPS_ERROR_FLUSHING);
+                char flush_error[128];
+                snprintf(flush_error, sizeof(flush_error), "error flushing io=%d errno=%d", -1, errno);
+                BearHttpsResponse_set_error(response, flush_error, BEARSSL_HTTPS_ERROR_FLUSHING);
                 private_BearHttpsRequisitionProps_free(requisition_props);
                 return response;
              }
@@ -95069,6 +95192,12 @@ const unsigned char *BearHttpsResponse_read_body(BearHttpsResponse *self) {
         break;
     }
 
+    if (self->body_read_mode == PRIVATE_BEARSSL_BY_CONTENT_LENGTH &&
+        self->body_readded_size != self->respnse_content_lenght) {
+        BearHttpsResponse_set_error(self, "truncated response body", BEARSSL_HTTPS_INVALID_READ_CODE);
+        return NULL;
+    }
+
     self->body_size = self->body_readded_size;
     self->body_completed_read = true;
     return self->body;
@@ -95292,8 +95421,8 @@ void private_BearHttpsResponse_read_til_end_of_headers_or_reach_limit(
         }
 
         if(readded < 0){
-            char error_buff[100] ={0};
-            snprintf(error_buff,sizeof(error_buff),"invalid read code: %d",readded);
+            char error_buff[128] ={0};
+            snprintf(error_buff, sizeof(error_buff), "invalid read code: %d errno=%d", readded, errno);
             BearHttpsResponse_set_error(self,error_buff,BEARSSL_HTTPS_INVALID_READ_CODE);
             return;
         }
@@ -96383,6 +96512,12 @@ static int private_BearHttps_connect_host(BearHttpsRequest *self, BearHttpsRespo
         found_socket = Universal_socket(current_addr->ai_family, current_addr->ai_socktype, current_addr->ai_protocol);
         
         if (found_socket < 0) {
+            continue;
+        }
+
+        if (ewok_https_set_socket_timeout(found_socket, self->connection_timeout) < 0) {
+            Universal_close(found_socket);
+            found_socket = -1;
             continue;
         }
 
