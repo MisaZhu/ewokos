@@ -14,6 +14,13 @@ extern "C" {
 
 #define MIN(a, b) (((a) > (b))?(b):(a))
 
+static inline uint16x8_t neon_div255_u16(uint16x8_t v)
+{
+    uint16x8_t t = vaddq_u16(v, vdupq_n_u16(1));
+    t = vaddq_u16(t, vshrq_n_u16(v, 8));
+    return vshrq_n_u16(t, 8);
+}
+
 static inline void neon_8(uint32_t *s, uint32_t *d)
 {
     __asm volatile(
@@ -26,65 +33,21 @@ static inline void neon_8(uint32_t *s, uint32_t *d)
 
 static inline void neon_alpha_8(uint32_t *b, uint32_t *f, uint32_t *d, uint8_t alpha_more)
 {
-    __asm volatile(
-        // 预加载更多数据到缓存
-        "prfm pldl1keep, [%1, #128]\n\t"
-        "prfm pldl1keep, [%0, #128]\n\t"
-        
-        // Load foreground (R,G,B,A)
-        "ld4 {v20.8b-v23.8b}, [%1]\n\t"
-        
-        // Load alpha_more and calculate combined alpha
-        "dup v31.8b, %w3\n\t"             // Duplicate alpha_more
-        "umull v0.8h, v23.8b, v31.8b\n\t"  // alpha * alpha_more
-        "ushr v0.8h, v0.8h, #8\n\t"        // Divide by 256
-        "xtn v23.8b, v0.8h\n\t"            // Narrow to 8-bit
-        
-        "movi v28.8b, #0xff\n\t"
-        "sub v28.8b, v28.8b, v23.8b\n\t"   // 255 - alpha
-        
-        // Load background
-        "ld4 {v24.8b-v27.8b}, [%0]\n\t"
-        "movi v29.8b, #0xff\n\t"
-        "sub v29.8b, v29.8b, v27.8b\n\t"  // 255 - background alpha
-        
-        // 优化指令顺序，提高并行度
-        "umull v1.8h, v20.8b, v23.8b\n\t"  // 前景 R * alpha
-        "umull v2.8h, v24.8b, v28.8b\n\t"  // 背景 R * (255 - alpha)
-        "umull v3.8h, v21.8b, v23.8b\n\t"  // 前景 G * alpha
-        "umull v4.8h, v25.8b, v28.8b\n\t"  // 背景 G * (255 - alpha)
-        "umull v5.8h, v22.8b, v23.8b\n\t"  // 前景 B * alpha
-        "umull v6.8h, v26.8b, v28.8b\n\t"  // 背景 B * (255 - alpha)
-        
-        // Calculate resulting alpha: oa = oa + (255 - oa) * a / 255
-        "umull v7.8h, v29.8b, v23.8b\n\t"
-        "ushr v7.8h, v7.8h, #8\n\t"
-        "movi v29.8b, #1\n\t"
-        "umull v8.8h, v29.8b, v27.8b\n\t"
-        "add v7.8h, v7.8h, v8.8h\n\t"
-        
-        // Combine foreground and background
-        "add v1.8h, v1.8h, v2.8h\n\t"
-        "add v3.8h, v3.8h, v4.8h\n\t"
-        "add v5.8h, v5.8h, v6.8h\n\t"
-        
-        // Shift right by 8
-        "ushr v1.8h, v1.8h, #8\n\t"
-        "ushr v3.8h, v3.8h, #8\n\t"
-        "ushr v5.8h, v5.8h, #8\n\t"
-        
-        // Narrow to 8-bit
-        "xtn v20.8b, v1.8h\n\t"
-        "xtn v21.8b, v3.8h\n\t"
-        "xtn v22.8b, v5.8h\n\t"
-        "xtn v23.8b, v7.8h\n\t"
-        
-        // Store result
-        "st4 {v20.8b-v23.8b}, [%2]\n\t"
-        :
-        : "r"(b), "r"(f), "r"(d), "r"(alpha_more)
-        : "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", 
-          "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29", "v31");
+    uint8x8x4_t fg = vld4_u8((const uint8_t*)f);
+    uint8x8x4_t bg = vld4_u8((const uint8_t*)b);
+    uint8x8x4_t out;
+    uint8x8_t full = vdup_n_u8(0xff);
+    uint8x8_t scaled = vdup_n_u8(alpha_more);
+    uint8x8_t a = vmovn_u16(neon_div255_u16(vmull_u8(fg.val[3], scaled)));
+    uint8x8_t inv_a = vsub_u8(full, a);
+    uint16x8_t oa_add = neon_div255_u16(vmull_u8(vsub_u8(full, bg.val[3]), a));
+
+    out.val[0] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[0], a), vmull_u8(bg.val[0], inv_a))));
+    out.val[1] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[1], a), vmull_u8(bg.val[1], inv_a))));
+    out.val[2] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[2], a), vmull_u8(bg.val[2], inv_a))));
+    out.val[3] = vmovn_u16(vaddq_u16(vmovl_u8(bg.val[3]), oa_add));
+
+    vst4_u8((uint8_t*)d, out);
 }
 
 static inline void neon_fill_load_8(uint32_t *s)

@@ -13,56 +13,30 @@ extern "C" {
 
 #define MIN(a, b) (((a) > (b))?(b):(a))
 
+static inline uint16x8_t neon_div255_u16(uint16x8_t v)
+{
+	uint16x8_t t = vaddq_u16(v, vdupq_n_u16(1));
+	t = vaddq_u16(t, vshrq_n_u16(v, 8));
+	return vshrq_n_u16(t, 8);
+}
+
 static inline void neon_alpha_8(uint32_t *b, uint32_t *f, uint32_t *d, uint8_t alpha_more)
 {
-	__asm volatile(
-		"vld4.8    {d20-d23},[%1]\n\t" // Load foreground (R,G,B,A)
-		
-		// Load alpha_more and calculate combined alpha
-		"mov        r3, %3\n\t"       // Load alpha_more
-		"vdup.u8    d31, r3\n\t"
+	uint8x8x4_t fg = vld4_u8((const uint8_t*)f);
+	uint8x8x4_t bg = vld4_u8((const uint8_t*)b);
+	uint8x8x4_t out;
+	uint8x8_t full = vdup_n_u8(0xff);
+	uint8x8_t scaled = vdup_n_u8(alpha_more);
+	uint8x8_t a = vmovn_u16(neon_div255_u16(vmull_u8(fg.val[3], scaled)));
+	uint8x8_t inv_a = vsub_u8(full, a);
+	uint16x8_t oa_add = neon_div255_u16(vmull_u8(vsub_u8(full, bg.val[3]), a));
 
-		"vmull.u8   q0, d23, d31\n\t"  // alpha * alpha_more
-		"vshr.u16   q0, q0, #8\n\t"    // Divide by 256
-		"vmovn.u16  d23, q0\n\t"       // Narrow to 8-bit
-		
-		"vmov.u8	d28, 0xff\n\t"
-		"vsub.u8	d28, d28, d23\n\t"
-		"vmull.u8  q1,d20,d23\n\t"
-		"vmull.u8  q3,d21,d23\n\t"
-		"vmull.u8  q5,d22,d23\n\t"
+	out.val[0] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[0], a), vmull_u8(bg.val[0], inv_a))));
+	out.val[1] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[1], a), vmull_u8(bg.val[1], inv_a))));
+	out.val[2] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[2], a), vmull_u8(bg.val[2], inv_a))));
+	out.val[3] = vmovn_u16(vaddq_u16(vmovl_u8(bg.val[3]), oa_add));
 
-		"vld4.8    {d24-d27},[%0]\n\t" // Load background
-		"vmov.u8	d29, 0xff\n\t"
-		"vsub.u8	d29, d29, d27\n\t"
-		"vmull.u8  q2,d24,d28\n\t"
-		"vmull.u8  q4,d25,d28\n\t"
-		"vmull.u8  q6,d26,d28\n\t" // Apply alpha
-
-		/*oa = oa + (255 - oa) * a / 255;*/
-		"vmull.u8	q7, d29, d23\n\t"
-		"vshr.u16  	q7,q7,#8\n\t"
-		"vmov.u8	d29, 0x1\n\t"
-		"vmull.u8	q8, d29, d27\n\t"
-		"vadd.u16  	q7,q7,q8\n\t"
-
-		"vadd.u16  q1,q1,q2\n\t"
-		"vadd.u16  q3,q3,q4\n\t"
-		"vadd.u16  q5,q5,q6\n\t"
-
-		"vshr.u16  q1,q1,#8\n\t"
-		"vshr.u16  q3,q3,#8\n\t"
-		"vshr.u16  q5,q5,#8\n\t"
-
-		"vmovn.u16 d20,q1\n\t"
-		"vmovn.u16 d21,q3\n\t"
-		"vmovn.u16 d22,q5\n\t"
-		"vmovn.u16   d23,q7\n\t"
-
-		"vst4.8   {d20-d23},[%2]\n\t"
-		:
-		: "r"(b), "r"(f), "r"(d), "r"(alpha_more)
-		: "memory", "q0", "d20", "d21", "d22", "d23", "d24", "d25", "d26", "d27", "d28", "d29", "d31");
+	vst4_u8((uint8_t*)d, out);
 }
 
 static inline void neon_8(uint32_t *s, uint32_t *d)
