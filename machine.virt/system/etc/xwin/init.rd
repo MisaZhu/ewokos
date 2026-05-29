@@ -57,8 +57,8 @@
 @/bin/ipcserv /drivers/xserverd        /dev/x
 
 @/bin/bgrun /sbin/x/xmouse /dev/mouse0 
-#@/bin/bgrun /sbin/x/xim_none /dev/keyb0 
-@/bin/bgrun /sbin/x/xim_vkey /dev/keyb0 
+@/bin/bgrun /sbin/x/xim_none /dev/keyb0 
+#@/bin/bgrun /sbin/x/xim_vkey /dev/keyb0 
 
 
 @/bin/bgrun /bin/x/xsession misa 
