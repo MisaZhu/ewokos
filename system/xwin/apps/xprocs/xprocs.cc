@@ -433,7 +433,7 @@ protected:
 			color = Cores::getColor(index-1);
 			int32_t proc = to_percent(sysInfo.core_procs[index-1]);
 			int32_t kernel = to_percent(sysInfo.core_kernels[index-1]);
-			snprintf(s, sizeof(s), "c%u %d+%d", index-1, proc, kernel);
+			snprintf(s, sizeof(s), "%02d U:%02d%%,K:%02d%%", index-1, proc, kernel);
 		}
 		graph_draw_text_font(g, r.x+2, r.y+2, s, theme->getFont(), theme->basic.fontSize, color);
 	}
