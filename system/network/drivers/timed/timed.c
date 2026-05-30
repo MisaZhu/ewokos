@@ -13,7 +13,7 @@ static time_t _time_init = 0;
 static uint32_t _next_sync_sec = 0;
 
 #define TIME_SYNC_INTERVAL_SEC 600
-#define TIME_SYNC_RETRY_MIN_SEC 30
+#define TIME_SYNC_RETRY_MIN_SEC 5 
 #define TIME_SYNC_RETRY_MAX_SEC 600
 
 static uint32_t _sync_retry_sec = TIME_SYNC_RETRY_MIN_SEC;
@@ -55,13 +55,11 @@ static int time_loop(vdevice_t* dev, void* p) {
 			// Back off when NTP is unavailable so netd does not keep timing out UDP requests.
 			_next_sync_sec = current_time_sec + _sync_retry_sec;
 			if(_sync_retry_sec < TIME_SYNC_RETRY_MAX_SEC) {
-				_sync_retry_sec <<= 1;
 				if(_sync_retry_sec > TIME_SYNC_RETRY_MAX_SEC) {
 					_sync_retry_sec = TIME_SYNC_RETRY_MAX_SEC;
 				}
 			}
 		}
-		//slog("%d->%d\n", _time_init, _time_sec_init);
 	}
 	usleep(300000);
 	return 0;

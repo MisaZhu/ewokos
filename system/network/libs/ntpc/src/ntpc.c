@@ -10,7 +10,7 @@
 
 // NTP时间戳从1900年开始，而UNIX时间戳从1970年开始，相差70年的秒数
 #define NTP_UNIX_OFFSET 2208988800UL
-#define NTP_RECV_TIMEOUT_SEC 2
+#define NTP_RECV_TIMEOUT_SEC 5
 
 
 #ifdef __cplusplus 
