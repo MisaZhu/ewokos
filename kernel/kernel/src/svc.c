@@ -216,10 +216,7 @@ static void	sys_get_sys_info(sys_info_t* info) {
 	info->max_proc_num = _kernel_config.max_proc_num;
 	info->max_task_num = _kernel_config.max_task_num;
 	info->max_task_per_proc = _kernel_config.max_task_per_proc;
-
-	for(uint32_t i=0; i< _sys_info.cores; i++) {
-		info->core_idles[i] = _cpu_cores[i].idle_proc->info.run_usec;
-	}
+	proc_get_core_runtime_stats(info->core_procs, info->core_idles, info->core_kernels, _sys_info.cores);
 }
 
 static void	sys_get_sys_state(sys_state_t* info) {
@@ -854,7 +851,6 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
 
 inline void svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t arg1, ewokos_addr_t arg2, context_t* ctx) {
 	__irq_disable();
-
 	kernel_lock();
 	_svc_handler(code, arg0, arg1, arg2, ctx);
 	kernel_unlock();

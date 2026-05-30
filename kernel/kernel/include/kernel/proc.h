@@ -57,7 +57,9 @@ typedef struct st_proc {
 	ipc_res_t         ipc_res;
 
 	int64_t           sleep_counter; //sleep usec
-	uint32_t          run_usec_counter; //run time usec
+	uint64_t          run_usec_counter; //runtime usec in current accounting window
+	uint64_t          run_last_start_usec; //last runtime accounting start
+	bool              run_accounting_active;
 
 	proc_space_t*     space; //threads share the space from owner proc
 	uint32_t          thread_stack_base;
@@ -106,6 +108,11 @@ extern proc_t* kfork_core_halt(uint32_t core);
 extern int32_t get_procs_num(void);
 extern int32_t get_procs(int32_t num, procinfo_t* procs);
 extern int32_t get_proc(int32_t pid, procinfo_t *info);
+extern void    proc_refresh_runtime_stats(void);
+extern void    proc_refresh_idle_runtime_stats(void);
+extern void    proc_get_core_runtime_stats(uint32_t* core_procs, uint32_t* core_idles, uint32_t* core_kernels, uint32_t cores);
+extern void    proc_account_pause_current(void);
+extern void    proc_account_resume_current(void);
 
 extern int32_t renew_kernel_tic(uint32_t usec);
 extern void    renew_kernel_sec(void);

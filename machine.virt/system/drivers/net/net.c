@@ -3,7 +3,9 @@
 
 #include <arch/virt/virtio_net.h>
 #include <ewoksys/proto.h>
+#include <ewoksys/proc.h>
 #include <ewoksys/vdevice.h>
+#include <ewoksys/vfsc.h>
 
 static virtio_dev_t _net = NULL;
 
@@ -69,6 +71,39 @@ static int net_dcntl(vdevice_t* dev, int from_pid, int cmd, proto_t *in, proto_t
 	return 0;
 }
 
+static uint32_t net_check_poll_events(vdevice_t* dev, int fd, int from_pid, fsinfo_t *info, void *p)
+{
+	(void)dev;
+	(void)fd;
+	(void)from_pid;
+	(void)info;
+	(void)p;
+
+	uint32_t events = 0;
+
+	if (virtio_net_pending_rx(_net) > 0)
+	{
+		events |= VFS_EVT_RD;
+	}
+	if (_net != NULL)
+	{
+		events |= VFS_EVT_WR;
+	}
+	return events;
+}
+
+static int net_loop_step(vdevice_t* dev, void *p)
+{
+	(void)p;
+
+	if (_net != NULL && virtio_net_pending_rx(_net) > 0)
+	{
+		vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
+	}
+	proc_usleep(1000);
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
 	const char *mnt_point = argc > 1 ? argv[1] : "/dev/eth0";
@@ -90,6 +125,8 @@ int main(int argc, char **argv)
 	dev.read = net_read;
 	dev.write = net_write;
 	dev.dev_cntl = net_dcntl;
+	dev.check_poll_events = net_check_poll_events;
+	dev.loop_step = net_loop_step;
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
 	return 0;

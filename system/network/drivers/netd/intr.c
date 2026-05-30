@@ -7,6 +7,7 @@
 
 #include "stack/util.h"
 #include "stack/net.h"
+#include "stack/tcp.h"
 #include "platform.h"
 #include "task.h"
 
@@ -57,6 +58,10 @@ static uint32_t gSignel[SIGMAX] = {0};
 static pthread_mutex_t gMutex;
 int tid;
 
+#define NETD_BUSY_SLEEP_US 1000U
+#define NETD_IDLE_SLEEP_STEP_US 1000U
+#define NETD_IDLE_SLEEP_MAX_US 10000U
+
 int dflag [16];
 int dcnt = 0;
 
@@ -78,18 +83,29 @@ static void print_trace(void){
 
 void intr_loop(void) {
 	struct irq_entry *entry;
+    uint32_t sleep_us = NETD_BUSY_SLEEP_US;
     while(1){
+        int had_signal = 0;
+        int tap_pending = 0;
+        int need_task_scan = task_has_read_watchers();
+        int task_ready = 0;
+
         while(gSignel[SIGNET]){
+            had_signal = 1;
             net_protocol_handler();
             gSignel[SIGNET]--;
         }
         while(gSignel[SIGINT]){
+            had_signal = 1;
             net_event_handler();
             gSignel[SIGINT]--;
         }
         for (entry = irq_vec; entry; entry = entry->next) {
             if (entry->irq == SIGIRQ) {
                 int cnt = tap_select(entry->dev);
+                if (cnt > 0) {
+                    tap_pending = 1;
+                }
                 for(int i = 0; i < cnt; i++){
                     entry->handler(entry->irq, entry->dev);
                 }
@@ -97,8 +113,19 @@ void intr_loop(void) {
         }
         net_timer_handler();
         start_task();
-        task_check_read_events();
-        usleep(1000);
+        if (need_task_scan) {
+            task_ready = task_check_read_events();
+        }
+
+        if (had_signal || tap_pending || task_ready || tcp_timer_active()) {
+            sleep_us = NETD_BUSY_SLEEP_US;
+        } else if (sleep_us < NETD_IDLE_SLEEP_MAX_US) {
+            sleep_us += NETD_IDLE_SLEEP_STEP_US;
+            if (sleep_us > NETD_IDLE_SLEEP_MAX_US) {
+                sleep_us = NETD_IDLE_SLEEP_MAX_US;
+            }
+        }
+        usleep(sleep_us);
     }
     return;
 }

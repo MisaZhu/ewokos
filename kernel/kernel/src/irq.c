@@ -128,10 +128,12 @@ static inline void _irq_handler(uint32_t cid, context_t* ctx) {
 
 inline void irq_handler(context_t* ctx) {
 	__irq_disable();
+	proc_account_pause_current();
 	uint32_t cid = get_core_id();
 	kernel_lock();
 	_irq_handler(cid, ctx);
 	kernel_unlock();
+	proc_account_resume_current();
 
 	proc_t* cproc = get_current_proc();
 	if(cproc != NULL && cproc->is_core_idle_proc) {

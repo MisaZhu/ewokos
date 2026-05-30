@@ -9,6 +9,7 @@
 #include <sys/errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <poll.h>
 #include <ewoksys/proto.h>
 #include <pthread.h>
 
@@ -122,32 +123,35 @@ ether_tap_read(struct net_device *dev, uint8_t *buf, size_t size)
 
 
 int tap_select(struct net_device *dev){
-	int ret = 0;
-    static int dev_pid = 0;
     struct ether_tap *tap = PRIV(dev);
+    struct pollfd pfd;
 
-	if(dev_pid == 0){
-		dev_pid = dev_get_pid(tap->name);
-	}
-    if (dev_pid <= 0) {
+    if (tap->fd < 0) {
         return 0;
     }
-    proto_t  out;
-    PF->init(&out);
-    int cntl_result = dev_cntl_by_pid(dev_pid, 1, NULL, &out);
-    if(cntl_result == 0){
-       ret = proto_read_int(&out);
-	}
-    PF->clear(&out);
-    return ret > 0 ? ret : 0;
+
+    memset(&pfd, 0, sizeof(pfd));
+    pfd.fd = tap->fd;
+    pfd.events = POLLIN;
+    if (poll(&pfd, 1, 0) <= 0) {
+        return 0;
+    }
+    return (pfd.revents & POLLIN) ? 1 : 0;
 }
 
 static int
 ether_tap_isr(unsigned int irq, void *id)
 {
     struct net_device *dev = (struct net_device *)id;
-    ether_poll_helper(dev, ether_tap_read);
-    return 0;
+    int handled = 0;
+
+    while (handled < 32) {
+        if (ether_poll_helper(dev, ether_tap_read) < 0) {
+            break;
+        }
+        handled++;
+    }
+    return handled > 0 ? 0 : -1;
 }
 
 static struct net_device_ops ether_tap_ops = {

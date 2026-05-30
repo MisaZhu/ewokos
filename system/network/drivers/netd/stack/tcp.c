@@ -1377,6 +1377,23 @@ tcp_readable(int id)
 }
 
 int
+tcp_timer_active(void)
+{
+    int active = 0;
+    struct tcp_pcb *pcb;
+
+    mutex_lock(&mutex);
+    for (pcb = pcbs; pcb < tailof(pcbs); pcb++) {
+        if (pcb->state == TCP_PCB_STATE_TIME_WAIT || pcb->queue.num > 0) {
+            active = 1;
+            break;
+        }
+    }
+    mutex_unlock(&mutex);
+    return active;
+}
+
+int
 tcp_listen(int id, int backlog)
 {
     struct tcp_pcb *pcb;

@@ -81,6 +81,7 @@ net_task_t *create_task(int fd, int from_pid, int node){
         return NULL;
     }
     memset(task, 0 , sizeof(net_task_t));
+    pthread_cond_init(&task->cond, NULL);
     task->fd = fd;
     task->node = node;
     task->state = NET_TASK_IDLE;
@@ -94,10 +95,12 @@ void release_task(net_task_t *task){
     if(task == NULL)
         return;
     
+    pthread_mutex_lock(&task_list_lock);
     task->running = false;
+    pthread_cond_signal(&task->cond);
+    pthread_mutex_unlock(&task_list_lock);
     // Set running = false to signal thread to exit
     // Save values needed outside of lock
-    net_task_t* read_task = task->read_task;
     int from_pid = task->from_pid;
     bool is_read_task = task->is_read_task;
     int sock = task->sock;
@@ -115,6 +118,7 @@ void release_task(net_task_t *task){
     if(thread_started){
         pthread_join(task->tid, NULL);
     }
+    pthread_cond_destroy(&task->cond);
 
     // Now close the socket if this is not a read task
     if(!is_read_task) {
@@ -153,6 +157,7 @@ int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *o
         PF->clear(&task->out);
         PF->copy(&task->in, in->data, in->size);
         task->state = NET_TASK_START;
+        pthread_cond_signal(&task->cond);
         pthread_mutex_unlock(&task_list_lock);
         // Signal task thread to wake up
     } else {
@@ -190,6 +195,7 @@ int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
         PF->clear(&task->out);
         PF->addi(&task->in, size);
         task->state = NET_TASK_START;
+        pthread_cond_signal(&task->cond);
         pthread_mutex_unlock(&task_list_lock);
     } else {
         pthread_mutex_unlock(&task_list_lock);
@@ -220,6 +226,7 @@ int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p){
         PF->clear(&task->out);
         PF->add(&task->in, buf, size);
         task->state = NET_TASK_START;
+        pthread_cond_signal(&task->cond);
         pthread_mutex_unlock(&task_list_lock);
         // Signal task thread to wake up
     } else {
@@ -372,7 +379,9 @@ int do_network_fcntl(net_task_t *task){
     return 0;
 }
 
-void task_check_read_events(void) {
+int task_check_read_events(void) {
+    int ready = 0;
+
     pthread_mutex_lock(&task_list_lock);
     net_task_t *task = task_list;
     while(task != NULL) {
@@ -392,10 +401,32 @@ void task_check_read_events(void) {
             PF->clear(&task->read_task->out);
             PF->addi(&task->read_task->in, TASK_READ_BUF_SIZE);
             task->read_task->state = NET_TASK_START;
+            pthread_cond_signal(&task->read_task->cond);
+            ready = 1;
         }
         task = task->next;
     }
     pthread_mutex_unlock(&task_list_lock);
+    return ready;
+}
+
+int task_has_read_watchers(void) {
+    int has_watchers = 0;
+
+    pthread_mutex_lock(&task_list_lock);
+    net_task_t *task = task_list;
+    while(task != NULL) {
+        if(task->read_task != NULL &&
+           task->read_task->running &&
+           task->read_task->sock >= 0 &&
+           task->read_task->node > 0) {
+            has_watchers = 1;
+            break;
+        }
+        task = task->next;
+    }
+    pthread_mutex_unlock(&task_list_lock);
+    return has_watchers;
 }
 
 static uint32_t task_finish_wakeup_event(const net_task_t *task) {
@@ -419,37 +450,33 @@ static uint32_t task_finish_wakeup_event(const net_task_t *task) {
 
 static void* task_thread(void* arg){
     net_task_t *task = (net_task_t *)arg;
-
     pthread_mutex_lock(&task_list_lock);
     if(task->state != NET_TASK_START) {
         PF->clear(&task->in);
         PF->clear(&task->out);
         task->state = NET_TASK_IDLE;
     }
-    pthread_mutex_unlock(&task_list_lock);
 
     while(1){
-        pthread_mutex_lock(&task_list_lock);
+        while(task->running && task->state != NET_TASK_START) {
+            pthread_cond_wait(&task->cond, &task_list_lock);
+        }
 
         if(!task->running) {
             pthread_mutex_unlock(&task_list_lock);
             break;
         }
 
-        if(task->state == NET_TASK_START) {
-            pthread_mutex_unlock(&task_list_lock);
-            task->state = NET_TASK_PROCESS;
+        task->state = NET_TASK_PROCESS;
+        pthread_mutex_unlock(&task_list_lock);
 
-            do_network_fcntl(task);
+        do_network_fcntl(task);
 
-            pthread_mutex_lock(&task_list_lock);
-            task->state = NET_TASK_FINISH;
-            pthread_mutex_unlock(&task_list_lock);
-            vfs_wakeup(task->node, task_finish_wakeup_event(task));
-        } else {
-            pthread_mutex_unlock(&task_list_lock);
-            usleep(1000);
-        }
+        pthread_mutex_lock(&task_list_lock);
+        task->state = NET_TASK_FINISH;
+        pthread_mutex_unlock(&task_list_lock);
+        vfs_wakeup(task->node, task_finish_wakeup_event(task));
+        pthread_mutex_lock(&task_list_lock);
     }
 
     PF->clear(&task->in);

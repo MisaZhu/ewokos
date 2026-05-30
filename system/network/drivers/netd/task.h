@@ -18,6 +18,7 @@ typedef struct net_task{
 	int node;
     int cmd;
     pthread_t tid;
+    pthread_cond_t cond;
     char read_buf[TASK_READ_BUF_SIZE];
 	proto_t in;
 	proto_t out;
@@ -39,7 +40,8 @@ void release_task(net_task_t *task);
 int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *out, void *p);
 int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p);
 int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p);
-void task_check_read_events(void);
+int task_check_read_events(void);
+int task_has_read_watchers(void);
 
 extern pthread_mutex_t task_list_lock;
 

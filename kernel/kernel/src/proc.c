@@ -16,6 +16,7 @@
 #include <kernel/hw_info.h>
 #include <kernel/core.h>
 #include <kernel/irq.h>
+#include <dev/timer.h>
 #include <stddef.h>
 #include <signals.h>
 
@@ -33,6 +34,7 @@ static int32_t _current_proc[CPU_MAX_CORES];
 static uint32_t _use_core_id = 0;
 static uint32_t _proc_uuid = 0;
 static int32_t _last_create_pid = 0;
+static uint64_t _run_window_start_usec = 0;
 
 bool _core_proc_ready = false;
 int32_t _core_proc_pid = -1;
@@ -43,12 +45,132 @@ static uint32_t _x86_ap_switch_trace_count = 0;
 static uint32_t _x86_core_attach_trace_count = 0;
 #endif
 
+static inline uint64_t proc_account_now_usec(void) {
+	return timer_read_sys_usec();
+}
+
+static inline void proc_account_running_until(proc_t* proc, uint64_t now_usec) {
+	if(proc == NULL || !proc->run_accounting_active)
+		return;
+	if(now_usec > proc->run_last_start_usec)
+		proc->run_usec_counter += now_usec - proc->run_last_start_usec;
+	proc->run_last_start_usec = now_usec;
+}
+
+static inline void proc_account_switch_out(proc_t* proc, uint64_t now_usec) {
+	proc_account_running_until(proc, now_usec);
+	if(proc != NULL)
+		proc->run_accounting_active = false;
+}
+
+static inline void proc_account_switch_in(proc_t* proc, uint64_t now_usec) {
+	if(proc == NULL)
+		return;
+	proc->run_last_start_usec = now_usec;
+	proc->run_accounting_active = true;
+}
+
+static inline uint32_t proc_run_usec_snapshot_at(proc_t* proc, uint64_t now_usec) {
+	uint64_t average;
+	uint64_t window_usec;
+
+	if (proc == NULL)
+		return 0;
+
+	if(now_usec <= _run_window_start_usec)
+		return 0;
+
+	window_usec = now_usec - _run_window_start_usec;
+	average = (proc->run_usec_counter * 1000000ULL) / window_usec;
+	if (average > 0xffffffffULL)
+		average = 0xffffffffULL;
+	return (uint32_t)average;
+}
+
+static void proc_refresh_runtime_stats_internal(bool refresh_idle, bool refresh_non_idle, uint64_t now_usec) {
+	for (uint32_t i = 0; i < _kernel_config.max_task_num; i++) {
+		proc_t* proc = _task_table[i];
+		if (proc == NULL || proc->info.state == UNUSED || proc->info.state == ZOMBIE)
+			continue;
+		if(proc->is_core_idle_proc && !refresh_idle)
+			continue;
+		if(!proc->is_core_idle_proc && !refresh_non_idle)
+			continue;
+		proc_account_running_until(proc, now_usec);
+		proc->info.run_usec = proc_run_usec_snapshot_at(proc, now_usec);
+	}
+}
+
+void proc_refresh_runtime_stats(void) {
+	proc_refresh_runtime_stats_internal(false, true, proc_account_now_usec());
+}
+
+void proc_refresh_idle_runtime_stats(void) {
+	proc_refresh_runtime_stats_internal(true, false, proc_account_now_usec());
+}
+
+void proc_get_core_runtime_stats(uint32_t* core_procs, uint32_t* core_idles, uint32_t* core_kernels, uint32_t cores) {
+	uint64_t now_usec = proc_account_now_usec();
+
+	if(core_procs != NULL)
+		memset(core_procs, 0, sizeof(uint32_t)*cores);
+	if(core_idles != NULL)
+		memset(core_idles, 0, sizeof(uint32_t)*cores);
+	if(core_kernels != NULL)
+		memset(core_kernels, 0, sizeof(uint32_t)*cores);
+
+	proc_refresh_runtime_stats_internal(true, true, now_usec);
+
+	for (uint32_t i = 0; i < _kernel_config.max_task_num; i++) {
+		proc_t* proc = _task_table[i];
+		uint32_t core;
+		uint64_t load;
+
+		if (proc == NULL || proc->info.state == UNUSED || proc->info.state == ZOMBIE)
+			continue;
+		core = proc->info.core;
+		if(core >= cores)
+			continue;
+
+		if(proc->is_core_idle_proc) {
+			if(core_idles != NULL)
+				core_idles[core] = proc->info.run_usec;
+			continue;
+		}
+
+		if(core_procs == NULL)
+			continue;
+		load = (uint64_t)core_procs[core] + proc->info.run_usec;
+		if(load > 1000000ULL)
+			load = 1000000ULL;
+		core_procs[core] = (uint32_t)load;
+	}
+
+	if(core_kernels != NULL) {
+		for(uint32_t core = 0; core < cores; core++) {
+			uint32_t idle = core_idles != NULL ? core_idles[core] : 0;
+			uint32_t proc = core_procs != NULL ? core_procs[core] : 0;
+			uint32_t residual = 0;
+
+			if(idle > 1000000U)
+				idle = 1000000U;
+			if(proc > 1000000U)
+				proc = 1000000U;
+
+			if(idle + proc < 1000000U)
+				residual = 1000000U - idle - proc;
+			core_kernels[core] = residual;
+		}
+	}
+}
+
 /* proc_init initializes the process sub-system. */
 int32_t procs_init(void) {
 	_use_core_id = 0;
 	_ipc_uid = 0;
 	_proc_uuid = 0;
 	_core_proc_ready = false;
+	_run_window_start_usec = proc_account_now_usec();
 	int32_t i;
 
 	uint32_t size = PAGE_DIR_SIZE + (_kernel_config.max_proc_num*sizeof(proc_vm_t));
@@ -132,13 +254,36 @@ proc_t* get_current_core_proc(uint32_t core) {
 
 void set_current_proc(proc_t* proc) {
 	uint32_t core_id = get_core_id();
+	proc_t* cproc = proc_get(_current_proc[core_id]);
+	uint64_t now_usec = proc_account_now_usec();
+
+	if(cproc != NULL && cproc != proc)
+		proc_account_switch_out(cproc, now_usec);
+
 	if(proc == NULL) {
 		_current_proc[core_id] = -1;
 		return;
 	}
 
-	if(proc->info.core == core_id)
+	if(proc->info.core == core_id) {
 		_current_proc[core_id] = proc->info.pid;
+		if(cproc != proc || !proc->run_accounting_active)
+			proc_account_switch_in(proc, now_usec);
+	}
+}
+
+void proc_account_pause_current(void) {
+	proc_t* cproc = get_current_proc();
+	if(cproc == NULL)
+		return;
+	proc_account_switch_out(cproc, proc_account_now_usec());
+}
+
+void proc_account_resume_current(void) {
+	proc_t* cproc = get_current_proc();
+	if(cproc == NULL || cproc->info.state != RUNNING || cproc->run_accounting_active)
+		return;
+	proc_account_switch_in(cproc, proc_account_now_usec());
 }
 
 static inline uint32_t proc_get_user_stack_pages(proc_t* proc) {
@@ -888,6 +1033,8 @@ static inline uint32_t core_fetch(proc_t* proc) {
 	uint32_t best_idle = 0;
 	bool found = false;
 
+	proc_refresh_idle_runtime_stats();
+
 	for(uint32_t off = 0; off < _sys_info.cores; off++) {
 		uint32_t i = (start + off) % _sys_info.cores;
 		if(!_cpu_cores[i].actived || _cpu_cores[i].idle_proc == NULL)
@@ -1312,6 +1459,7 @@ int32_t get_procs(int32_t num, procinfo_t* procs) {
 	if(procs == NULL)
 		return -1;
 
+	proc_refresh_runtime_stats();
 	int32_t j = 0;
 	uint32_t i;
 	for(i=0; i<_kernel_config.max_task_num && j<(num); i++) {
@@ -1330,6 +1478,7 @@ int32_t get_proc(int32_t pid, procinfo_t *info) {
 	if(proc == NULL)
 		return -1;
 
+	proc_refresh_runtime_stats();
 	memcpy(info, &proc->info, sizeof(procinfo_t));
 	info->heap_size = proc->space->heap_size;
 	return 0;
@@ -1398,6 +1547,7 @@ static int32_t renew_ipc_counter(uint32_t usec) {
 }
 
 static int32_t renew_priority_counter(uint32_t usec) {
+	(void)usec;
 	for(uint32_t i=0; i<_kernel_config.max_task_num; i++) {
 		proc_t* proc = _task_table[i];
 		if(proc == NULL || proc->info.state == UNUSED || proc->info.state == ZOMBIE)
@@ -1405,9 +1555,7 @@ static int32_t renew_priority_counter(uint32_t usec) {
 
 		if(proc->priority_count > 0)
 			proc->priority_count--;
-		else if(proc->info.state == RUNNING)
-			proc->run_usec_counter += usec;
-	
+
 		if(proc->info.state == RUNNING || proc->info.state == READY) {
 			proc_ready(proc);
 		}
@@ -1430,25 +1578,24 @@ int32_t renew_kernel_tic(uint32_t usec) {
 	return renew_sleep_counter(usec);	
 }
 
-static uint32_t _k_sec_counter = 0;
 void renew_kernel_sec(void) {
-	uint32_t i;
-	_k_sec_counter++;
-	for(i=0; i<_kernel_config.max_task_num; i++) {
-		proc_t* proc = _task_table[i];
-		if(proc == NULL)
-			continue;
-		if(proc->info.state != UNUSED && 
-				proc->info.state != ZOMBIE) {
-
-			proc->info.run_usec = proc->run_usec_counter/_k_sec_counter;
-			if(_k_sec_counter >= KERNEL_PROC_RUN_RECOUNT_SEC)
+	proc_refresh_runtime_stats();
+	uint64_t now_usec = proc_account_now_usec();
+	if(now_usec - _run_window_start_usec >=
+			((uint64_t)KERNEL_PROC_RUN_RECOUNT_SEC * 1000000ULL)) {
+		for(uint32_t i=0; i<_kernel_config.max_task_num; i++) {
+			proc_t* proc = _task_table[i];
+			if(proc == NULL)
+				continue;
+			if(proc->info.state != UNUSED && proc->info.state != ZOMBIE) {
 				proc->run_usec_counter = 0;
+				proc->info.run_usec = 0;
+				if(proc->run_accounting_active)
+					proc->run_last_start_usec = now_usec;
+			}
 		}
+		_run_window_start_usec = now_usec;
 	}
-
-	if(_k_sec_counter >= KERNEL_PROC_RUN_RECOUNT_SEC)
-		_k_sec_counter = 0;
 }
 
 proc_t* proc_get_proc(proc_t* proc) {

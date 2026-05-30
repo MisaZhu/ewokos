@@ -34,16 +34,26 @@ static const char* _states[] = {
 };
 
 static const char* get_state(procinfo_t* proc) {
-	static char ret[16];
+	static char ret[20];
+	const uint32_t state_num = sizeof(_states) / sizeof(_states[0]);
+	const char* state = "unk";
+
+	if(proc == NULL)
+		return state;
+
+	if(proc->state >= 0 && (uint32_t)proc->state < state_num)
+		state = _states[proc->state];
+
 	if(proc->state == 4) {
 		strcpy(ret, "blk");
 	}
-	else if(proc->state == 3)
-		snprintf(ret, 13, "wat[%d]", proc->wait_for);
+	else if(proc->state == 3) {
+		snprintf(ret, sizeof(ret), "wat[%d]", proc->wait_for);
+	}
 	else  {
-		strcpy(ret, _states[proc->state]);
+		snprintf(ret, sizeof(ret), "%s", state);
 		if((proc->state == 5 || proc->state == 6) && proc->priority > 0)
-			snprintf(ret, 13, "%s(%d)", ret, proc->priority);
+			snprintf(ret, sizeof(ret), "%s(%d)", state, proc->priority);
 	}
 	return ret;
 }
@@ -58,14 +68,15 @@ static const char* get_owner(procinfo_t* proc) {
 	if(session_get_by_uid(proc->uid, &info) == 0)
 		strncpy(name, info.user, SESSION_USER_MAX);
 	else
-		snprintf(name, SESSION_USER_MAX, "%d", proc->uid);
+		snprintf(name, sizeof(name), "%d", proc->uid);
+	name[SESSION_USER_MAX] = 0;
 
 	return name;
 }
 
 static const char* get_core_loading(procinfo_t* proc) {
-	static char ret[8];
-	snprintf(ret, 7, "%d:%d%%", proc->core, proc->run_usec/10000);
+	static char ret[16];
+	snprintf(ret, sizeof(ret), "%d:%d%%", proc->core, proc->run_usec/10000);
 	return ret;
 }
 
@@ -79,6 +90,48 @@ static procinfo_t* ps(int &num) {
 		num = 0;
 		return NULL;
 	}
+}
+
+typedef struct {
+	sys_info_t sysInfo;
+	procinfo_t* procs;
+	int procNum;
+	uint32_t sampleStep;
+	bool valid;
+} xprocs_sample_t;
+
+static xprocs_sample_t _sample = {};
+
+static inline int32_t to_percent(uint32_t usec) {
+	int32_t perc = (int32_t)(usec/10000);
+	if(perc < 0)
+		return 0;
+	if(perc > 100)
+		return 100;
+	return perc;
+}
+
+static inline uint32_t core_total_busy(const sys_info_t& info, uint32_t core) {
+	uint64_t total = (uint64_t)info.core_procs[core] + (uint64_t)info.core_kernels[core];
+	if(total > 1000000ULL)
+		total = 1000000ULL;
+	return (uint32_t)total;
+}
+
+static void refresh_sample(uint32_t timerStep) {
+	if(_sample.valid && _sample.sampleStep == timerStep)
+		return;
+
+	if(_sample.procs != NULL) {
+		free(_sample.procs);
+		_sample.procs = NULL;
+	}
+
+	memset(&_sample.sysInfo, 0, sizeof(sys_info_t));
+	sys_get_sys_info(&_sample.sysInfo);
+	_sample.procs = ps(_sample.procNum);
+	_sample.sampleStep = timerStep;
+	_sample.valid = true;
 }
 
 class Procs: public Columns {
@@ -155,7 +208,7 @@ protected:
 		int num = 0;
 		for(int i=0; i<procNum; i++) {
 			procinfo_t* proc = &procs[i];
-			if(proc->core != coreIndex)
+			if((int32_t)proc->core != coreIndex)
 				continue;
 			memcpy(&procsNew[num], &procs[i], sizeof(procinfo_t));
 			num++;
@@ -188,9 +241,16 @@ public:
 		if((timerSteps % timerFPS) != 0)
 			return;
 
+		refresh_sample(timerSteps);
 		if(procs != NULL)
 			free(procs);
-		procs = ps(procNum);
+		procNum = _sample.procNum;
+		procs = NULL;
+		if(procNum > 0 && _sample.procs != NULL) {
+			procs = (procinfo_t*)malloc(sizeof(procinfo_t)*procNum);
+			if(procs != NULL)
+				memcpy(procs, _sample.procs, sizeof(procinfo_t)*procNum);
+		}
 		rowNum = procNum;
 		filter();
 		update();
@@ -202,7 +262,7 @@ class Cores : public Widget {
 	uint32_t index;
 	bool loop;
 	sys_info_t sysInfo;
-	uint32_t cores[MAX_CORE_NUM][HEART_BIT_NUM];
+	uint32_t coreBusy[MAX_CORE_NUM][HEART_BIT_NUM];
 
 	int x_off;
 	int y_off;
@@ -212,18 +272,19 @@ public:
 		loop = false;
 		x_off = 4;
 		y_off = 4;
-		memset(cores, 0, sizeof(cores));
+		memset(coreBusy, 0, sizeof(coreBusy));
 		memset(&sysInfo, 0, sizeof(sys_info_t));
 	}
 	
 	inline ~Cores() {
 	}
 
-	void updateCores() {
-		sys_get_sys_info(&sysInfo);
+	void updateCores(uint32_t timerSteps) {
+		refresh_sample(timerSteps);
+		sysInfo = _sample.sysInfo;
 
 		for(uint32_t i=0; i<sysInfo.cores; i++) {
-			cores[i][index] = sysInfo.core_idles[i];
+			coreBusy[i][index] = core_total_busy(sysInfo, i);
 		}
 
 		index++;
@@ -252,11 +313,9 @@ protected:
 	void drawTitle(graph_t* g, XTheme* theme, uint32_t i, uint32_t color, const grect_t& r) {
 		int x = r.x + x_off + i*60;
 		graph_fill_rect(g, x, r.y+4, 10, 10, color);
-		char s[16];
+		char s[24] = {0};
 
-		int32_t perc = 100 - (sysInfo.core_idles[i]/10000);
-		if(perc < 0)
-			perc = 0;
+		int32_t perc = to_percent(core_total_busy(sysInfo, i));
 
 		snprintf(s, 15, "%d:%d%%", i, perc);
 		graph_draw_text_font(g, x+12, r.y+4, s, theme->getFont(), theme->basic.fontSize, color);
@@ -273,9 +332,7 @@ protected:
 			if(k >= HEART_BIT_NUM)
 				k -= HEART_BIT_NUM;
 
-			int32_t perc = 100 - (cores[i][k] / 10000);
-			if(perc < 0)
-				perc = 0;
+			int32_t perc = to_percent(coreBusy[i][k]);
 
 			int x = (j+1) * xstep;
 			int y = r.h - y_off - yzoom*(perc); //percentage
@@ -328,7 +385,9 @@ protected:
 	}
 
 	void onTimer(uint32_t timerFPS, uint32_t timerSteps) {
-		updateCores();
+		if((timerSteps % timerFPS) != 0)
+			return;
+		updateCores(timerSteps);
 	}
 };
 
@@ -358,7 +417,7 @@ protected:
 	}
 
 	void drawItem(graph_t* g, XTheme* theme, int32_t index, const grect_t& r) {
-		if(index > coreNum)
+		if(index < 0 || (uint32_t)index > coreNum)
 			return;
 
 		uint32_t color = theme->basic.fgColor;
@@ -367,15 +426,14 @@ protected:
 			//color = theme->basic.selectColor;
 		}
 
-		char s[16] = {0};
+		char s[24] = {0};
 		if(index == 0)
-			snprintf(s, 15, "all");
+			snprintf(s, sizeof(s), "all");
 		else {
 			color = Cores::getColor(index-1);
-			int32_t perc = 100 - (sysInfo.core_idles[index-1]/10000);
-			if(perc < 0)
-				perc = 0;
-			snprintf(s, 15, "core%2d: %d%%", index-1, perc);
+			int32_t proc = to_percent(sysInfo.core_procs[index-1]);
+			int32_t kernel = to_percent(sysInfo.core_kernels[index-1]);
+			snprintf(s, sizeof(s), "c%u %d+%d", index-1, proc, kernel);
 		}
 		graph_draw_text_font(g, r.x+2, r.y+2, s, theme->getFont(), theme->basic.fontSize, color);
 	}
@@ -390,17 +448,18 @@ protected:
 		if((timerSteps % timerFPS) != 0)
 			return;
 
-		loadCores();
+		loadCores(timerSteps);
 		update();
 	}
 public:
 	CoreList() {
 		procs = NULL;
-		loadCores();
+		loadCores(0);
 	}
 
-	void loadCores() {
-		sys_get_sys_info(&sysInfo);
+	void loadCores(uint32_t timerSteps) {
+		refresh_sample(timerSteps);
+		sysInfo = _sample.sysInfo;
 		coreNum = sysInfo.cores;
 		setItemNum(coreNum+1);
 	}
@@ -424,7 +483,7 @@ int main(int argc, char** argv) {
 	root->add(c);
 
 	CoreList* list = new CoreList();
-	list->loadCores();
+	list->loadCores(0);
 	list->setItemSize(20);
 	c->add(list);
 

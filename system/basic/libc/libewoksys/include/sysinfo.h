@@ -28,7 +28,6 @@ typedef struct {
 #define MACHINE_MAX  32
 #define ARCH_MAX     16
 
-/*static attr*/
 typedef struct {
 	char           machine[MACHINE_MAX];
 	char           arch[ARCH_MAX];
@@ -54,7 +53,6 @@ typedef struct {
 	uint32_t       max_task_per_proc;
 } sys_info_t;
 
-/*dynamic attr*/
 typedef struct {
 	mem_info_t mem;
 	uint64_t kernel_usec;
