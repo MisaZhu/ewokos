@@ -53,17 +53,6 @@ void ipi_enable_all(void) {
 	}
 }
 
-static inline void ipi_send_all(void) {
-	uint32_t i;
-	uint32_t cores = _sys_info.cores;
-	for(i=0; i< cores; i++) {
-		if(!_cpu_cores[i].actived)
-			continue;
-		if(proc_have_ready_task(i))
-			ipi_send(i);
-	}
-}
-
 #endif
 
 static inline void irq_do_raw(context_t* ctx, uint32_t irq) {
@@ -88,12 +77,7 @@ static inline void irq_do_timer0(context_t* ctx) {
 	
 	timer_clear_interrupt(0);
 
-#ifdef KERNEL_SMP
-	ipi_send_all();
 	schedule(ctx);
-#else
-	schedule(ctx);
-#endif
 }
 
 static inline void _irq_handler(uint32_t cid, context_t* ctx) {

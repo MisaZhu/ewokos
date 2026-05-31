@@ -960,6 +960,19 @@ void proc_zombie_funeral(void) {
 	}
 }
 
+static inline void proc_kick_ready_core(proc_t* proc) {
+#ifdef KERNEL_SMP
+	if(proc == NULL)
+		return;
+	if(_cpu_cores[proc->info.core].actived &&
+			proc->info.core != get_core_id()) {
+		ipi_send(proc->info.core);
+	}
+#else
+	(void)proc;
+#endif
+}
+
 /* proc_free frees all resources allocated by proc. */
 void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 	(void)res;
@@ -1497,6 +1510,7 @@ static int32_t renew_sleep_counter(uint32_t usec) {
 			if(proc->sleep_counter <= 0) {
 				proc->sleep_counter = 0;
 				proc_ready(proc);
+				proc_kick_ready_core(proc);
 				res = 0;
 			}
 		}
@@ -1579,6 +1593,7 @@ int32_t renew_kernel_tic(uint32_t usec) {
 }
 
 void renew_kernel_sec(void) {
+	proc_zombie_funeral();
 	proc_refresh_runtime_stats();
 	uint64_t now_usec = proc_account_now_usec();
 	if(now_usec - _run_window_start_usec >=
