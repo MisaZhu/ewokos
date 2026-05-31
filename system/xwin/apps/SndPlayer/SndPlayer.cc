@@ -95,7 +95,10 @@ public:
     void onTimer(uint32_t timerFPS, uint32_t timerSteps) {
         (void)timerFPS;
         (void)timerSteps;
+        bool changed = false;
         for (int i = 0; i < BARS; i++) {
+            float oldMagnitude = magnitudes[i];
+            uint32_t oldColor = barColors[i];
             float diff = targetMagnitudes[i] - magnitudes[i];
             if (diff > 0.01f)
                 magnitudes[i] += diff * 0.3f;
@@ -109,8 +112,14 @@ public:
             uint8_t r = (uint8_t)(magnitudes[i] * 255);
             uint8_t b = (uint8_t)(100 + magnitudes[i] * 100);
             barColors[i] = 0xFF000000 | (r << 16) | (g << 8) | b;
+
+            if (fabsf(magnitudes[i] - oldMagnitude) > 0.001f || barColors[i] != oldColor) {
+                changed = true;
+            }
         }
-        update();
+        if (changed) {
+            update();
+        }
     }
 
 protected:
@@ -159,6 +168,9 @@ public:
     void setProgress(float p) {
         if (p < 0.0f) p = 0.0f;
         if (p > 1.0f) p = 1.0f;
+        if (fabsf(progress - p) < 0.001f) {
+            return;
+        }
         progress = p;
         update();
     }
@@ -231,6 +243,9 @@ protected:
         float newProgress = (float)relX / r.w;
         if (newProgress < 0.0f) newProgress = 0.0f;
         if (newProgress > 1.0f) newProgress = 1.0f;
+        if (fabsf(progress - newProgress) < 0.001f) {
+            return;
+        }
         progress = newProgress;
         update();
         if (seekCb) {
@@ -274,6 +289,10 @@ class SoundPlayerWin : public WidgetWin {
     PlaybackCommand pendingCommand;
     char pendingPath[FS_FULL_NAME_MAX + 1];
     PlaybackSnapshot snapshot;
+    bool playBtnShowsPause;
+    bool playBtnLabelValid;
+    char lastTimeText[64];
+    bool timeLabelValid;
 
     static void* playbackThreadEntry(void* arg) {
         ((SoundPlayerWin*)arg)->playbackLoop();
@@ -418,10 +437,11 @@ class SoundPlayerWin : public WidgetWin {
 
     void updatePlayBtn(const PlaybackSnapshot& state) {
         if (playBtn) {
-            if (state.playing && !state.writeFailed) {
-                playBtn->setLabel("||");
-            } else {
-                playBtn->setLabel(">");
+            bool showPause = state.playing && !state.writeFailed;
+            if (!playBtnLabelValid || playBtnShowsPause != showPause) {
+                playBtn->setLabel(showPause ? "||" : ">");
+                playBtnShowsPause = showPause;
+                playBtnLabelValid = true;
             }
         }
     }
@@ -434,7 +454,13 @@ class SoundPlayerWin : public WidgetWin {
             snprintf(buf, sizeof(buf)-1, "%02d:%02d / %02d:%02d",
                 cur/60000, (cur/1000)%60,
                 tot/60000, (tot/1000)%60);
-            timeLabel->setLabel(buf);
+            buf[sizeof(buf)-1] = 0;
+            if (!timeLabelValid || strcmp(lastTimeText, buf) != 0) {
+                timeLabel->setLabel(buf);
+                strncpy(lastTimeText, buf, sizeof(lastTimeText) - 1);
+                lastTimeText[sizeof(lastTimeText) - 1] = 0;
+                timeLabelValid = true;
+            }
         }
     }
 
@@ -489,6 +515,10 @@ public:
         pendingCommand = CMD_NONE;
         pendingPath[0] = 0;
         memset(&snapshot, 0, sizeof(snapshot));
+        playBtnShowsPause = false;
+        playBtnLabelValid = false;
+        lastTimeText[0] = 0;
+        timeLabelValid = false;
         pthread_mutex_init(&playbackLock, NULL);
         if (pthread_create(&playbackTid, NULL, playbackThreadEntry, this) == 0) {
             playbackThreadCreated = true;
@@ -603,7 +633,7 @@ int main(int argc, char** argv) {
     win.setTimeLabel(timeLabel);
 
     win.open(&x, -1, -1, -1, 300, 140, "SndPlayer", XWIN_STYLE_NORMAL | XWIN_STYLE_NO_BG_EFFECT, true);
-    win.setTimer(60);
+    win.setTimer(16);
 
     if (argc >= 2) {
         win.loadAndPlay(argv[1]);
