@@ -1,12 +1,13 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <ewoksys/sys.h>
 #include <ewoksys/syscall.h>
 #include <sysinfo.h>
 
 int main(int argc, char* argv[]) {
 	sys_info_t sysinfo;
-	syscall1(SYS_GET_SYS_INFO, (ewokos_addr_t)&sysinfo);
+	sys_get_sys_info(&sysinfo);
 
 	if(argc == 1)
 		printf("Ewok\n");

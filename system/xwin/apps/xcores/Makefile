@@ -1,6 +1,8 @@
 SYS_DIR=../../..
 include $(SYS_DIR)/platform/$(ARCH)/make.rule
 
+.DEFAULT_GOAL := all
+
 BUILD_DIR = $(SYS_DIR)/build/$(HW)
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
@@ -8,10 +10,14 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I $(BUILD_DIR)/include
 
+ABI_HEADERS = $(BUILD_DIR)/include/sysinfo.h $(BUILD_DIR)/include/procinfo.h
+
 GCORES_OBJS = xcores.o
 
 GCORES_DIR = $(TARGET_DIR)/apps/xcores
 GCORES = $(GCORES_DIR)/xcores
+
+xcores.o: xcores.cc $(ABI_HEADERS)
 
 all: $(GCORES_DIR) $(GCORES)
 
@@ -33,4 +39,3 @@ $(GCORES_DIR):
 clean:
 	rm -f $(GCORES_OBJS)
 	rm -fr $(GCORES_DIR)
-

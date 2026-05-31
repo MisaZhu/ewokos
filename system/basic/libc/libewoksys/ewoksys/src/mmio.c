@@ -1,4 +1,5 @@
 #include <ewoksys/mmio.h>
+#include <ewoksys/sys.h>
 #include <ewoksys/syscall.h>
 #include <sysinfo.h>
 
@@ -10,7 +11,7 @@ uint32_t _mmio_base = 0;
 
 uint32_t mmio_map_offset(uint32_t offset, uint32_t size) {
 	sys_info_t sysinfo;
-	syscall1(SYS_GET_SYS_INFO, (ewokos_addr_t)&sysinfo);
+	sys_get_sys_info(&sysinfo);
 	if(size == 0 || (offset+size) > (sysinfo.mmio.phy_base+sysinfo.mmio.size))
 		return 0;
 
@@ -24,7 +25,7 @@ uint32_t mmio_map_offset(uint32_t offset, uint32_t size) {
 
 uint32_t mmio_map(void) {
 	sys_info_t sysinfo;
-	syscall1(SYS_GET_SYS_INFO, (ewokos_addr_t)&sysinfo);
+	sys_get_sys_info(&sysinfo);
 	_mmio_base = mmio_map_offset(0, sysinfo.mmio.size);
 	return _mmio_base;
 }
@@ -32,4 +33,3 @@ uint32_t mmio_map(void) {
 #ifdef __cplusplus
 }
 #endif
-

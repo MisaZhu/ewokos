@@ -1,6 +1,8 @@
 SYS_DIR=../../..
 include $(SYS_DIR)/platform/$(ARCH)/make.rule
 
+.DEFAULT_GOAL := all
+
 BUILD_DIR = $(SYS_DIR)/build/$(HW)
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
@@ -8,10 +10,14 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I $(BUILD_DIR)/include
 
+ABI_HEADERS = $(BUILD_DIR)/include/sysinfo.h $(BUILD_DIR)/include/procinfo.h
+
 XPROCS_OBJS = xprocs.o
 
 XPROCS_DIR = $(TARGET_DIR)/apps/xprocs
 XPROCS = $(XPROCS_DIR)/xprocs
+
+xprocs.o: xprocs.cc $(ABI_HEADERS)
 
 all: $(XPROCS_DIR) $(XPROCS)
 
@@ -32,4 +38,3 @@ $(XPROCS_DIR):
 clean:
 	rm -f $(XPROCS_OBJS)
 	rm -fr $(XPROCS_DIR)
-

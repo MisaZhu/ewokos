@@ -4,13 +4,14 @@
 #include <string.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/proc.h>
+#include <ewoksys/sys.h>
 #include <sysinfo.h>
 
 int main(int argc, char* argv[]) {
 	sys_info_t sys_info;
 	sys_state_t sys_state;
 
-	syscall1(SYS_GET_SYS_INFO, (ewokos_addr_t)&sys_info);
+	sys_get_sys_info(&sys_info);
 	syscall1(SYS_GET_SYS_STATE, (ewokos_addr_t)&sys_state);
 	char fr_mem[8] = {0};
 	get_mem_size_desc(sys_state.mem.free, fr_mem);
@@ -55,4 +56,3 @@ int main(int argc, char* argv[]) {
 
 	return 0;
 }
-

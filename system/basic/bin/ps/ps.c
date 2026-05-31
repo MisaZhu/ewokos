@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/proc.h>
+#include <ewoksys/sys.h>
 #include <sysinfo.h>
 #include <string.h>
 #include <ewoksys/session.h>
@@ -111,7 +112,7 @@ int main(int argc, char* argv[]) {
 		return -1;
 
 	procinfo_t cprocinfo;
-  if(proc_info(getpid(), &cprocinfo) != 0)
+    if(proc_info(getpid(), &cprocinfo) != 0)
 		return -1;
 	
 	int uid = getuid();
@@ -119,7 +120,7 @@ int main(int argc, char* argv[]) {
 	int num = 0;
 	sys_info_t sys_info;
 	sys_state_t sys_state;
-	syscall1(SYS_GET_SYS_INFO, (ewokos_addr_t)&sys_info);
+	sys_get_sys_info(&sys_info);
 	syscall1(SYS_GET_SYS_STATE, (ewokos_addr_t)&sys_state);
 	uint32_t fr_mem = sys_state.mem.free / (1024*1024);
 	uint32_t shm_mem = sys_state.mem.shared / (1024*1024);
@@ -127,6 +128,7 @@ int main(int argc, char* argv[]) {
 	uint32_t csec = (uint32_t)(sys_state.kernel_usec / 1000000);
 
 	num = syscall0(SYS_GET_PROCS_NUM);
+
 	procinfo_t* procs = (procinfo_t*)malloc(sizeof(procinfo_t)*num);
 	if(num > 0 && procs != NULL && syscall2(SYS_GET_PROCS, (ewokos_addr_t)num, (ewokos_addr_t)procs) == 0) {
 		if(full)

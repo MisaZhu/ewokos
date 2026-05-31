@@ -7,6 +7,7 @@
 #include <ewoksys/ipc.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/syscall.h>
+#include <ewoksys/sys.h>
 #include <ewoksys/core.h>
 #include <ewoksys/vfsc.h>
 #include <ewoksys/proc.h>
@@ -28,7 +29,7 @@ static void core_init(void) {
 	int32_t i;
 
 	sys_info_t sysinfo;
-	syscall1(SYS_GET_SYS_INFO, (ewokos_addr_t)&sysinfo);
+	sys_get_sys_info(&sysinfo);
 	_max_proc_table_num = sysinfo.max_task_num;
 	_proc_info_table = (proc_info_t*)malloc(_max_proc_table_num*sizeof(proc_info_t));
 
@@ -371,4 +372,3 @@ int main(int argc, char** argv) {
 	free(_proc_info_table);
 	return 0;
 }
-

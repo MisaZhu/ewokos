@@ -4,6 +4,7 @@
 #include <string.h>
 #include <strings.h>
 #include <sysinfo.h>
+#include <ewoksys/sys.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/mmio.h>
 
@@ -18,7 +19,7 @@ int main(int argc, char* argv[]) {
 	setbuf(stdout, NULL);
 	_mmio_base = mmio_map();
     sys_info_t sysinfo;
-    syscall1(SYS_GET_SYS_INFO, (ewokos_addr_t)&sysinfo);
+    sys_get_sys_info(&sysinfo);
 
 	uint32_t addr = strtoll(argv[2], NULL, 16);
 	if(addr < sysinfo.mmio.phy_base || addr >= sysinfo.mmio.phy_base + sysinfo.mmio.size){

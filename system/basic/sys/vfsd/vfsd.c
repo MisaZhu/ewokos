@@ -13,6 +13,7 @@
 #include <ewoksys/proto.h>
 #include <ewoksys/fsinfo.h>
 #include <ewoksys/vfsc.h>
+#include <ewoksys/sys.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/hashmap.h>
 #include <ewoksys/queue.h>
@@ -108,7 +109,7 @@ static void vfsd_init(void) {
 	}
 
 	sys_info_t sysinfo;
-	syscall1(SYS_GET_SYS_INFO, (ewokos_addr_t)&sysinfo);
+	sys_get_sys_info(&sysinfo);
 	_max_proc_table_num = sysinfo.max_task_num;
 	_proc_fds_table = (proc_fds_t*)malloc(_max_proc_table_num*sizeof(proc_fds_t));
 

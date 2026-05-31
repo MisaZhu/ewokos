@@ -112,6 +112,8 @@ static inline int32_t to_percent(uint32_t usec) {
 }
 
 static inline uint32_t core_total_busy(const sys_info_t& info, uint32_t core) {
+	if(core >= MAX_CORE_NUM)
+		return 0;
 	uint64_t total = (uint64_t)info.core_procs[core] + (uint64_t)info.core_kernels[core];
 	if(total > 1000000ULL)
 		total = 1000000ULL;
@@ -129,6 +131,8 @@ static void refresh_sample(uint32_t timerStep) {
 
 	memset(&_sample.sysInfo, 0, sizeof(sys_info_t));
 	sys_get_sys_info(&_sample.sysInfo);
+	if(_sample.sysInfo.cores > MAX_CORE_NUM)
+		_sample.sysInfo.cores = MAX_CORE_NUM;
 	_sample.procs = ps(_sample.procNum);
 	_sample.sampleStep = timerStep;
 	_sample.valid = true;
@@ -402,7 +406,7 @@ protected:
 
 		sys_info_t sys_info;
 		sys_state_t sys_state;
-		syscall1(SYS_GET_SYS_INFO, (ewokos_addr_t)(uint64_t)&sys_info);
+		sys_get_sys_info(&sys_info);
 		syscall1(SYS_GET_SYS_STATE, (ewokos_addr_t)(uint64_t)&sys_state);
 		char txt[32] = { 0 };
 

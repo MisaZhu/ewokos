@@ -65,6 +65,8 @@ public:
 	void updateCores() {
 		sys_get_sys_info(&sysInfo);
 		syscall1(SYS_GET_SYS_STATE, (ewokos_addr_t)(uint64_t)&sysState);
+		if(sysInfo.cores > MAX_CORE_NUM)
+			sysInfo.cores = MAX_CORE_NUM;
 
 		for(uint32_t i=0; i<sysInfo.cores; i++) {
 			cores[i][index] = sysInfo.core_idles[i];
