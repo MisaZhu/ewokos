@@ -27,6 +27,50 @@
 
 static uint32_t _svc_counter[SYS_CALL_NUM];
 static uint32_t _svc_total;
+#ifdef KERNEL_SMP
+static int32_t _svc_stat_spin = 0;
+#endif
+
+static inline void svc_stat_lock(void) {
+#ifdef KERNEL_SMP
+	mcore_lock(&_svc_stat_spin);
+#endif
+}
+
+static inline void svc_stat_unlock(void) {
+#ifdef KERNEL_SMP
+	mcore_unlock(&_svc_stat_spin);
+#endif
+}
+
+static inline void svc_account(int32_t code) {
+	if(code < 0 || code >= SYS_CALL_NUM)
+		return;
+	svc_stat_lock();
+	_svc_total++;
+	_svc_counter[code]++;
+	svc_stat_unlock();
+}
+
+static inline bool svc_is_query_fastpath(int32_t code) {
+	switch(code) {
+	case SYS_GET_PID:
+	case SYS_GET_THREAD_ID:
+	case SYS_PROC_GET_UID:
+	case SYS_PROC_GET_GID:
+	case SYS_PROC_GET_CMD:
+	case SYS_IPC_PING:
+	case SYS_CORE_PID:
+	case SYS_GET_SYS_INFO:
+	case SYS_GET_VSYSCALL_INFO:
+	case SYS_GET_PROC:
+	case SYS_GET_PROCS_NUM:
+	case SYS_GET_PROCS:
+		return true;
+	default:
+		return false;
+	}
+}
 
 static void sys_kprint(const char* s, uint32_t len) {
 	kout(s, len);
@@ -59,28 +103,11 @@ static void sys_signal_end(context_t* ctx) {
 }
 
 static int32_t sys_getpid(int32_t pid) {
-	proc_t * cproc = get_current_proc();
-	proc_t * proc = cproc;
-	if(pid >= 0)
-		proc = proc_get(pid);
-
-	if(proc == NULL)
-		return -1;
-
-	if(cproc->info.uid > 0 && cproc->info.uid != proc->info.uid)
-		return -1;
-
-	proc_t* p = proc_get_proc(proc);
-	if(p != NULL)
-		return p->info.pid;
-	return -1;
+	return proc_get_root_pid_visible(pid);
 }
 
 static int32_t sys_get_thread_id(void) {
-	proc_t * cproc = get_current_proc();
-	if(cproc == NULL)
-		return -1;
-	return cproc->info.pid; 
+	return proc_get_current_thread_id_safe();
 }
 
 static void sys_usleep(context_t* ctx, uint32_t count) {
@@ -197,11 +224,7 @@ static int32_t sys_proc_set_gid(int32_t gid) {
 }
 
 static int32_t sys_proc_get_cmd(int32_t pid, char* cmd, int32_t sz) {
-	proc_t* proc = proc_get(pid);
-	if(proc == NULL)
-		return -1;
-	sstrncpy(cmd, proc->info.cmd, sz);
-	return 0;
+	return proc_get_cmd_safe(pid, cmd, sz);
 }
 
 static void sys_proc_set_cmd(const char* cmd) {
@@ -227,8 +250,10 @@ static void	sys_get_sys_state(sys_state_t* info) {
 	info->mem.kfree = kmalloc_free_size();
 	info->mem.shared = shm_alloced_size();
 	info->kernel_usec = _kernel_info.uptime_usec;
+	svc_stat_lock();
 	info->svc_total = _svc_total;
 	memcpy(info->svc_counter, _svc_counter, SYS_CALL_NUM*4);
+	svc_stat_unlock();
 }
 
 static vsyscall_info_t* sys_get_vsyscall_info(void) {
@@ -510,13 +535,7 @@ static void sys_ipc_enable(void) {
 }
 
 static int32_t sys_proc_ping(int32_t pid) {
-	proc_t* proc = proc_get_proc(proc_get(pid));
-	int32_t res = -1;
-	if(proc != NULL && proc->space->ready_ping)
-		res = 0;
-	if(res != 0)
-		return -1;
-	return 0;
+	return proc_get_ready_ping_safe(pid);
 }
 
 static void sys_proc_priority(int32_t pid, uint32_t priority) {
@@ -597,11 +616,11 @@ static void sys_core_proc_ready(void) {
 	if(cproc->info.uid > 0)
 		return;
 	_core_proc_ready = true;
-	_core_proc_pid = cproc->info.pid;
+	proc_set_core_pid_safe(cproc->info.pid);
 }
 
 static int32_t sys_core_proc_pid(void) {
-	return _core_proc_pid;
+	return proc_get_core_pid_safe();
 }
 
 static int32_t sys_get_kernel_tic(uint32_t* sec, uint32_t* hi, uint32_t* low) {
@@ -653,9 +672,6 @@ static inline void sys_mmio_rw(int32_t arg0, int32_t arg1, int32_t arg2, context
 }
 
 static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t arg1, ewokos_addr_t arg2, context_t* ctx) {
-	_svc_total++;
-	_svc_counter[code]++;
-
 	switch(code) {
 	case SYS_EXIT:
 		sys_exit(ctx, arg0);
@@ -706,13 +722,13 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
 		ctx->gpr[0] = sys_proc_set_uid(arg0);
 		return;
 	case SYS_PROC_GET_UID: 
-		ctx->gpr[0] = get_current_proc()->info.uid;
+		ctx->gpr[0] = proc_get_current_uid_safe();
 		return;
 	case SYS_PROC_SET_GID: 
 		ctx->gpr[0] = sys_proc_set_gid(arg0);
 		return;
 	case SYS_PROC_GET_GID: 
-		ctx->gpr[0] = get_current_proc()->info.gid;
+		ctx->gpr[0] = proc_get_current_gid_safe();
 		return;
 	case SYS_PROC_GET_CMD: 
 		ctx->gpr[0] = sys_proc_get_cmd(arg0, (char*)arg1, arg2);
@@ -851,6 +867,11 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
 
 inline void svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t arg1, ewokos_addr_t arg2, context_t* ctx) {
 	__irq_disable();
+	svc_account(code);
+	if(svc_is_query_fastpath(code)) {
+		_svc_handler(code, arg0, arg1, arg2, ctx);
+		return;
+	}
 	kernel_lock();
 	_svc_handler(code, arg0, arg1, arg2, ctx);
 	kernel_unlock();
