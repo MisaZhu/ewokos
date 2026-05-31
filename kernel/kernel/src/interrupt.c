@@ -79,8 +79,11 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 	}
 
 	if(proc->space->interrupt.state != INTR_STATE_IDLE) {
-		if(interrupt != IRQ_SOFT)
-			printf("inter err re-entre: intr:%d, pid:%d core:%d\n", interrupt, proc == NULL ? -1:proc->info.pid, proc->info.core);
+		if(interrupt != IRQ_SOFT) {
+			proc->space->interrupt.pending = 1;
+			ctx->gpr[0] = 0;
+			return 0;
+		}
 		ctx->gpr[0] = -1;
 		return -1;
 	}	
@@ -109,6 +112,7 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 	proc->space->interrupt.data = intr->data;
 	proc->space->interrupt.state = INTR_STATE_START;
 	proc->space->interrupt.counter = 0;
+	proc->space->interrupt.pending = 0;
 	proc->space->interrupt.restore_pending = 0;
 	proc_track_interrupt_timeout(proc);
 
@@ -199,11 +203,16 @@ void proc_interrupt_wakeup_all(struct st_proc* serv_proc) {
 
 void interrupt_end(context_t* ctx) {
 	proc_t* cproc = get_current_proc();
-	uint32_t interrupt = cproc->space->interrupt.interrupt;
+	proc_interrupt_t* intr = &cproc->space->interrupt;
+	uint32_t interrupt = intr->interrupt;
+	ewokos_addr_t entry = intr->entry;
+	ewokos_addr_t data = intr->data;
+	uint8_t pending = intr->pending;
 
-	cproc->space->interrupt.state = INTR_STATE_IDLE;
-	cproc->space->interrupt.counter = 0;
-	cproc->space->interrupt.restore_pending = 0;
+	intr->state = INTR_STATE_IDLE;
+	intr->counter = 0;
+	intr->pending = 0;
+	intr->restore_pending = 0;
 	proc_untrack_interrupt_timeout(cproc);
 
 	if(cproc->info.state == UNUSED || cproc->info.state == ZOMBIE) {
@@ -217,12 +226,27 @@ void interrupt_end(context_t* ctx) {
 		proc_ready(cproc);
 	}
 
+	if(pending != 0 && interrupt != IRQ_SOFT) {
+		memcpy(&cproc->ctx, ctx, sizeof(context_t));
+		proc_save_state(cproc, &intr->saved_state, &intr->saved_ipc_res);
+		intr->interrupt = interrupt;
+		intr->entry = entry;
+		intr->data = data;
+		intr->state = INTR_STATE_START;
+		intr->counter = 0;
+		intr->pending = 0;
+		intr->restore_pending = 0;
+		proc_track_interrupt_timeout(cproc);
+		proc_switch_multi_core(ctx, cproc, cproc->info.core);
+		return;
+	}
+
 	if(interrupt != IRQ_SOFT) {
 		irq_enable_arch(interrupt);
 	}
-	cproc->space->interrupt.entry = 0;
-	cproc->space->interrupt.data = 0;
-	cproc->space->interrupt.interrupt = 0;
+	intr->entry = 0;
+	intr->data = 0;
+	intr->interrupt = 0;
 	proc_interrupt_wakeup(cproc);
 	schedule(ctx);
 }

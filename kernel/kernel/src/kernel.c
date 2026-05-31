@@ -141,7 +141,7 @@ static void init_kernel_vm(void) {
 	//switch to two-levels 4k page_size type paging
 	set_kernel_vm(_kernel_info.kernel_vm);
 	//Use physical address of kernel virtual memory as the new virtual memory page dir table base.
-	set_translation_table_base(V2P((uint32_t)_kernel_info.kernel_vm));
+	set_translation_table_base(V2P((ewokos_addr_t)_kernel_info.kernel_vm));
 }
 
 static void init_allocable_mem(void) {
@@ -170,13 +170,21 @@ void __attribute__((optimize("O0"))) _slave_kernel_entry_c(uint32_t boot_core_id
 	if (boot_core_id < _sys_info.cores) {
 		cid = boot_core_id;
 	}
+	/*
+	 * The AP trampoline runs on bootstrap tables that map only early kernel
+	 * memory. Switch to the full kernel VM before touching LAPIC/MMIO state in
+	 * cpu_core_ready(), otherwise APs fault on high-half MMIO accesses.
+	 */
+	set_translation_table_base(V2P((ewokos_addr_t)_kernel_info.kernel_vm));
 #else
 	(void)boot_core_id;
 #endif
 	cpu_core_ready(cid);
 	_cpu_cores[cid].actived = true;
 	flush_dcache();
-	set_translation_table_base(V2P((uint32_t)_kernel_info.kernel_vm));
+#ifndef __x86_64__
+	set_translation_table_base(V2P((ewokos_addr_t)_kernel_info.kernel_vm));
+#endif
 	proc_t* idle_proc = _cpu_cores[cid].idle_proc;
 
 	/*

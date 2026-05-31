@@ -24,6 +24,7 @@ extern void     cpu_core_ready(uint32_t core_id);
 
 typedef struct {
 	volatile uint32_t actived;
+	volatile uint32_t need_resched;
 	proc_t* idle_proc;
 } core_t;
 

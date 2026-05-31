@@ -79,7 +79,6 @@ static inline void irq_do_timer0(context_t* ctx) {
 
 	schedule(ctx);
 }
-
 static inline void _irq_handler(uint32_t cid, context_t* ctx) {
 	uint32_t irq_raw;
 #ifdef __x86_64__
@@ -102,7 +101,8 @@ static inline void _irq_handler(uint32_t cid, context_t* ctx) {
 		uint32_t core = get_core_id();
 		ipi_clear(core);
 		core = get_core_id();
-		if(proc_have_ready_task(core)) {
+		if(_cpu_cores[core].need_resched != 0) {
+			_cpu_cores[core].need_resched = 0;
 			schedule(ctx);
 		}
 #endif

@@ -139,6 +139,11 @@ __flush_dcache_all:
     wbinvd
     ret
 
+.global __invalidate_dcache_all
+__invalidate_dcache_all:
+    wbinvd
+    ret
+
 .global __flush_tlb
 __flush_tlb:
     mov rax, cr3

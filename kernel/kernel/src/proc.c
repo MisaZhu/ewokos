@@ -605,6 +605,7 @@ static void proc_interrupt_timeout(proc_t* proc) {
 	if(intr->restore_pending != 0 &&
 			_cpu_cores[proc->info.core].actived &&
 			proc->info.core != get_core_id()) {
+		_cpu_cores[proc->info.core].need_resched = 1;
 		ipi_send(proc->info.core);
 	}
 #endif
@@ -666,6 +667,7 @@ static void proc_ipc_timeout(proc_t* proc) {
 	if(server->restore_pending != 0 &&
 			_cpu_cores[proc->info.core].actived &&
 			proc->info.core != get_core_id()) {
+		_cpu_cores[proc->info.core].need_resched = 1;
 		ipi_send(proc->info.core);
 	}
 #endif
@@ -679,6 +681,7 @@ void proc_switch_multi_core(context_t* ctx, proc_t* to, uint32_t core) {
 	else {
 #ifdef KERNEL_SMP
 		proc_ready(to);
+		_cpu_cores[to->info.core].need_resched = 1;
 		ipi_send(to->info.core);
 #endif
 	}
@@ -1102,6 +1105,7 @@ static inline void proc_kick_ready_core(proc_t* proc) {
 		return;
 	if(_cpu_cores[proc->info.core].actived &&
 			proc->info.core != get_core_id()) {
+		_cpu_cores[proc->info.core].need_resched = 1;
 		ipi_send(proc->info.core);
 	}
 #else
@@ -1474,6 +1478,7 @@ void proc_wakeup(proc_t* proc) {
 #ifdef KERNEL_SMP
 	if(_cpu_cores[proc->info.core].actived &&
 			proc->info.core != get_core_id()) {
+		_cpu_cores[proc->info.core].need_resched = 1;
 		ipi_send(proc->info.core);
 	}
 #endif
