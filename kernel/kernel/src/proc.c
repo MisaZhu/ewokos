@@ -30,6 +30,9 @@ static proc_vm_t *_proc_vm = NULL;
 static uint8_t  *_proc_vm_mark = NULL;
 
 static queue_t _ready_queue[CPU_MAX_CORES];
+static queue_t _interrupt_timeout_queue;
+static queue_t _ipc_timeout_queue;
+static queue_t _priority_update_queue;
 static int32_t _current_proc[CPU_MAX_CORES];
 static uint32_t _use_core_id = 0;
 static uint32_t _proc_uuid = 0;
@@ -200,8 +203,62 @@ int32_t procs_init(void) {
 		_current_proc[i] = -1;
 		queue_init(&_ready_queue[i]);
 	}
+	queue_init(&_interrupt_timeout_queue);
+	queue_init(&_ipc_timeout_queue);
+	queue_init(&_priority_update_queue);
 
 	return 0;
+}
+
+static inline void proc_track_timeout_queue(queue_t* q, proc_t* proc) {
+	if(q == NULL || proc == NULL)
+		return;
+	if(queue_in(q, proc) == NULL)
+		queue_push(q, proc);
+}
+
+static inline void proc_untrack_timeout_queue(queue_t* q, proc_t* proc) {
+	if(q == NULL || proc == NULL)
+		return;
+	queue_item_t* it = queue_in(q, proc);
+	if(it != NULL)
+		queue_remove(q, it);
+}
+
+static inline void proc_track_priority_update(proc_t* proc) {
+	if(proc == NULL || proc->is_core_idle_proc)
+		return;
+	if(proc->info.state != READY && proc->info.state != RUNNING)
+		return;
+	proc_track_timeout_queue(&_priority_update_queue, proc);
+}
+
+static inline void proc_untrack_priority_update(proc_t* proc) {
+	proc_untrack_timeout_queue(&_priority_update_queue, proc);
+}
+
+void proc_track_interrupt_timeout(proc_t* proc) {
+	if(proc == NULL || proc->space == NULL ||
+			proc->space->interrupt.state == INTR_STATE_IDLE) {
+		return;
+	}
+	proc_track_timeout_queue(&_interrupt_timeout_queue, proc);
+}
+
+void proc_untrack_interrupt_timeout(proc_t* proc) {
+	proc_untrack_timeout_queue(&_interrupt_timeout_queue, proc);
+}
+
+void proc_track_ipc_timeout(proc_t* proc) {
+	if(proc == NULL || proc->space == NULL ||
+			proc->space->ipc_server.ctask.state == IPC_IDLE) {
+		return;
+	}
+	proc_track_timeout_queue(&_ipc_timeout_queue, proc);
+}
+
+void proc_untrack_ipc_timeout(proc_t* proc) {
+	proc_untrack_timeout_queue(&_ipc_timeout_queue, proc);
 }
 
 int32_t  proc_childof(proc_t* proc, proc_t* parent) {
@@ -465,6 +522,7 @@ static void proc_interrupt_timeout(proc_t* proc) {
 
 	intr->counter = 0;
 	intr->state = INTR_STATE_IDLE;
+	proc_untrack_interrupt_timeout(proc);
 
 	if(proc->info.state != UNUSED && proc->info.state != ZOMBIE) {
 		proc->info.state = intr->saved_state.state;
@@ -651,6 +709,7 @@ proc_switch_done:
 	}
 
 	to->info.state = RUNNING;
+	proc_track_priority_update(to);
 	if(cproc != to)
 		set_current_proc(to);
 	memcpy(ctx, &to->ctx, sizeof(context_t));
@@ -678,8 +737,8 @@ static inline void proc_ready_with_order(proc_t* proc, bool push_head) {
 	if(proc == NULL)
 		return;
 
-	uint32_t prev_state = proc->info.state;
 	proc->info.state = READY;
+	proc_track_priority_update(proc);
 
 #ifdef __x86_64__
 	if(proc->priority_count == 0)
@@ -739,6 +798,7 @@ static inline void proc_unready(proc_t* proc, int32_t state) {
 	if(it != NULL)
 		queue_remove(&_ready_queue[proc->info.core], it);
 #endif
+	proc_untrack_priority_update(proc);
 	proc->info.state = state;
 }
 
@@ -770,6 +830,8 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 	if(proc->info.state == ZOMBIE || proc->info.state == UNUSED)
 		return;
 	proc_unready(proc, ZOMBIE);
+	proc_untrack_interrupt_timeout(proc);
+	proc_untrack_ipc_timeout(proc);
 
 	if(proc->info.type == TASK_TYPE_PROC) {
 		semaphore_clear(proc->info.pid);
@@ -1519,60 +1581,80 @@ static int32_t renew_sleep_counter(uint32_t usec) {
 }
 
 static int32_t renew_interrupt_counter(uint32_t usec) {
-	uint32_t i;
 	int32_t res = -1;
-	for(i=0; i<_kernel_config.max_task_num; i++) {
-		proc_t* proc = _task_table[i];
+	queue_item_t* it = _interrupt_timeout_queue.head;
+	while(it != NULL) {
+		queue_item_t* next = it->next;
+		proc_t* proc = (proc_t*)it->data;
 		if(proc == NULL ||
 				proc->info.state == UNUSED || proc->info.state == ZOMBIE ||
 				proc->space == NULL ||
-				proc->space->interrupt.state == INTR_STATE_IDLE)
+				proc->space->interrupt.state == INTR_STATE_IDLE) {
+			proc_untrack_interrupt_timeout(proc);
+			it = next;
 			continue;
-
+		}
 		proc->space->interrupt.counter += usec;
 		if(proc->space->interrupt.counter >= INTERRUPT_TIMEOUT_USEC) {
 			printf("interrupt timeout: %d , %d\n", proc->space->interrupt.interrupt, proc->info.pid);
 			proc_interrupt_timeout(proc);
+			res = 0;
 		}
+		it = next;
 	}
 	return res;
 }
 
 static int32_t renew_ipc_counter(uint32_t usec) {
-	uint32_t i;
 	int32_t res = -1;
-	for(i=0; i<_kernel_config.max_task_num; i++) {
-		proc_t* proc = _task_table[i];
+	queue_item_t* it = _ipc_timeout_queue.head;
+	while(it != NULL) {
+		queue_item_t* next = it->next;
+		proc_t* proc = (proc_t*)it->data;
 		if(proc == NULL ||
 				proc->info.state == UNUSED || proc->info.state == ZOMBIE ||
-				proc->space == NULL)
+				proc->space == NULL) {
+			proc_untrack_ipc_timeout(proc);
+			it = next;
 			continue;
+		}
 		ipc_task_t* ipc = &proc->space->ipc_server.ctask;
-		if(ipc->state == IPC_IDLE)
+		if(ipc->state == IPC_IDLE) {
+			proc_untrack_ipc_timeout(proc);
+			it = next;
 			continue;
+		}
 
 		ipc->counter += usec;
 		if(ipc->counter >= IPC_TIMEOUT_USEC) {
 			printf("ipc timeout: clt:%d, srv:%d, call:%d/0x%x\n", ipc->client_pid, proc->info.pid, ipc->call_id, ipc->call_id);
 			proc_ipc_timeout(proc);
+			res = 0;
 		}
+		it = next;
 	}
 	return res;
 }
 
 static int32_t renew_priority_counter(uint32_t usec) {
 	(void)usec;
-	for(uint32_t i=0; i<_kernel_config.max_task_num; i++) {
-		proc_t* proc = _task_table[i];
-		if(proc == NULL || proc->info.state == UNUSED || proc->info.state == ZOMBIE)
+	queue_item_t* it = _priority_update_queue.head;
+	while(it != NULL) {
+		queue_item_t* next = it->next;
+		proc_t* proc = (proc_t*)it->data;
+		if(proc == NULL || proc->info.state == UNUSED || proc->info.state == ZOMBIE ||
+				(proc->info.state != RUNNING && proc->info.state != READY)) {
+			proc_untrack_priority_update(proc);
+			it = next;
 			continue;
-
+		}
 		if(proc->priority_count > 0)
 			proc->priority_count--;
 
 		if(proc->info.state == RUNNING || proc->info.state == READY) {
 			proc_ready(proc);
 		}
+		it = next;
 	}
 	return 0;
 }

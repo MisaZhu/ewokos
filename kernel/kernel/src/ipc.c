@@ -63,7 +63,6 @@ static void ipc_free(ipc_task_t* ipc) {
 }
 
 ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id, proto_t* arg) {
-	uint64_t usec = timer_read_sys_usec();
 	ipc_task_t* ipc = &serv_proc->space->ipc_server.ctask;
 	//kprintf("ipc timeout check %d\n", usec);
 	if(ipc->state != IPC_IDLE) {
@@ -104,12 +103,14 @@ ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id
 	if(arg != NULL && arg->data != NULL) {
 		proto_copy(&ipc->arg_ret, arg->data, arg->size);
 	}
+	proc_track_ipc_timeout(serv_proc);
 	return ipc; 
 }
 
 void proc_ipc_close(proc_t* serv_proc, ipc_task_t* ipc) {
 	if(ipc == NULL)
 		return;
+	proc_untrack_ipc_timeout(serv_proc);
 
 	/*if(serv_proc->space->ipc_server.ctask == ipc)
 		serv_proc->space->ipc_server.ctask = NULL;

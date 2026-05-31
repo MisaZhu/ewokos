@@ -110,6 +110,7 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 	proc->space->interrupt.state = INTR_STATE_START;
 	proc->space->interrupt.counter = 0;
 	proc->space->interrupt.restore_pending = 0;
+	proc_track_interrupt_timeout(proc);
 
 	//if(interrupt != IRQ_SOFT)
 		//irq_disable_cpsr(&proc->ctx); //disable interrupt on proc
@@ -203,6 +204,7 @@ void interrupt_end(context_t* ctx) {
 	cproc->space->interrupt.state = INTR_STATE_IDLE;
 	cproc->space->interrupt.counter = 0;
 	cproc->space->interrupt.restore_pending = 0;
+	proc_untrack_interrupt_timeout(cproc);
 
 	if(cproc->info.state == UNUSED || cproc->info.state == ZOMBIE) {
 		proc_interrupt_wakeup(cproc);

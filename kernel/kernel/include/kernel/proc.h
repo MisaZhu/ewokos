@@ -113,6 +113,10 @@ extern void    proc_refresh_idle_runtime_stats(void);
 extern void    proc_get_core_runtime_stats(uint32_t* core_procs, uint32_t* core_idles, uint32_t* core_kernels, uint32_t cores);
 extern void    proc_account_pause_current(void);
 extern void    proc_account_resume_current(void);
+extern void    proc_track_interrupt_timeout(proc_t* proc);
+extern void    proc_untrack_interrupt_timeout(proc_t* proc);
+extern void    proc_track_ipc_timeout(proc_t* proc);
+extern void    proc_untrack_ipc_timeout(proc_t* proc);
 
 extern int32_t renew_kernel_tic(uint32_t usec);
 extern void    renew_kernel_sec(void);
