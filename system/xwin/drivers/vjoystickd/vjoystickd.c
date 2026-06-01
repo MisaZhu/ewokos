@@ -154,8 +154,8 @@ static int vjoystick_read(vdevice_t* dev, int fd,
 	if(mouse) {
 		mouse_evt_t* evt = (mouse_evt_t*)buf;
 		if(joymouse_read_buffer(evt) == 0)
-			//return 0;
-			return VFS_ERR_RETRY;
+			return 0;
+			//return VFS_ERR_RETRY;
 		//slog("vjoystick_read: size=%d, mouse.btn=%d\n", size, evt->button);
 		return sizeof(mouse_evt_t);
 	}
@@ -165,8 +165,8 @@ static int vjoystick_read(vdevice_t* dev, int fd,
 		memcpy(buf, _keys, _rd);
 	else {
 		if(!_release)
-			//return 0;
-			return VFS_ERR_RETRY;
+			return 0;
+			//return VFS_ERR_RETRY;
 		else
 			_release = false;
 	}
@@ -232,16 +232,17 @@ static int vjoy_loop(vdevice_t* dev, void* p){
 		else
 			_j_speed_up = 0;
 
-		if(rd > 0)
-			vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
+		if(_rd > 0 || _release) {
+			//vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
+		}
 		_rd = 0;
 	}
 	else {
 		_rd = rd;
 		if(_rd > 0 || _release) {
-			vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
-		_rd = 0;
+			//vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
 		}
+		_rd = 0;
 	}
 	ipc_enable();
 

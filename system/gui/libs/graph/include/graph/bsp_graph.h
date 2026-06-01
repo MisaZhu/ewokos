@@ -19,7 +19,10 @@ void  graph_scale_tof_bsp(graph_t* g, graph_t* dst, double scale);
 void  graph_scale_tof_fast_bsp(graph_t* g, graph_t* dst, double scale);
 
 void  graph_glass_bsp(graph_t* g, int x, int y, int w, int h, int r);
+
 void  graph_gaussian_bsp(graph_t* g, int x, int y, int w, int h, int r);
+
+void rgb2nv12_bsp(uint8_t  *out,  uint32_t *in , int w, int h);
 
 #ifdef __cplusplus 
 }

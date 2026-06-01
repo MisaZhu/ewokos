@@ -20,6 +20,7 @@ LIB_GRAPH_OBJS = \
 	src/graph_svg.o \
 	src/graph_image.o \
 	src/blt.o \
+	src/uv12.o \
 	src/pixel.o \
 	src/line.o \
 	src/box.o \

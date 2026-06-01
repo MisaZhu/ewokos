@@ -1187,6 +1187,132 @@ void graph_scale_tof_fast_bsp(graph_t* g, graph_t* dst, double scale) {
     #undef FIXED_MASK
 }
 
+static inline uint32x4_t neon_reverse_u32x4(uint32x4_t v) {
+    return vcombine_u32(vrev64_u32(vget_high_u32(v)), vrev64_u32(vget_low_u32(v)));
+}
+
+static inline uint8x8_t neon_rgb_to_y8(uint8x8_t b8, uint8x8_t g8, uint8x8_t r8) {
+    uint16x8_t b16 = vmovl_u8(b8);
+    uint16x8_t g16 = vmovl_u8(g8);
+    uint16x8_t r16 = vmovl_u8(r8);
+
+    uint32x4_t y0 = vmulq_n_u32(vmovl_u16(vget_low_u16(r16)), 306);
+    y0 = vmlaq_n_u32(y0, vmovl_u16(vget_low_u16(g16)), 601);
+    y0 = vmlaq_n_u32(y0, vmovl_u16(vget_low_u16(b16)), 117);
+
+    uint32x4_t y1 = vmulq_n_u32(vmovl_u16(vget_high_u16(r16)), 306);
+    y1 = vmlaq_n_u32(y1, vmovl_u16(vget_high_u16(g16)), 601);
+    y1 = vmlaq_n_u32(y1, vmovl_u16(vget_high_u16(b16)), 117);
+
+    y0 = vshrq_n_u32(y0, 10);
+    y1 = vshrq_n_u32(y1, 10);
+
+    return vmovn_u16(vcombine_u16(vmovn_u32(y0), vmovn_u32(y1)));
+}
+
+static inline uint8_t rgb_to_y_scalar_bsp(uint32_t pixel) {
+    uint32_t b = pixel & 0xff;
+    uint32_t g = (pixel >> 8) & 0xff;
+    uint32_t r = (pixel >> 16) & 0xff;
+    return (uint8_t)((306 * r + 601 * g + 117 * b) >> 10);
+}
+
+static inline void rgb_to_uv_scalar_bsp(uint32_t pixel, uint8_t *uv) {
+    int32_t b = (int32_t)(pixel & 0xff);
+    int32_t g = (int32_t)((pixel >> 8) & 0xff);
+    int32_t r = (int32_t)((pixel >> 16) & 0xff);
+
+    uv[0] = (uint8_t)(((-38 * r - 74 * g + 112 * b + 128) >> 8) + 128);
+    uv[1] = (uint8_t)(((112 * r - 94 * g - 18 * b + 128) >> 8) + 128);
+}
+
+static inline uint32_t rgb2nv12_get_src_pixel(const uint32_t *in, int w, int h, int y, int x) {
+    return in[(h - 1 - y) * w + (w - 1 - x)];
+}
+
+void rgb2nv12_bsp(uint8_t *out, uint32_t *in, int w, int h) {
+    if(out == NULL || in == NULL || w <= 0 || h <= 0)
+        return;
+
+    uint8_t *y_plane = out;
+    uint8_t *uv_plane = out + w * h;
+
+    for(int y = 0; y < h; y += 2) {
+        uint8_t *y_row0 = y_plane + y * w;
+        uint8_t *y_row1 = (y + 1 < h) ? (y_row0 + w) : NULL;
+        uint8_t *uv_row = uv_plane + (y >> 1) * w;
+        int x = 0;
+
+        if(y + 1 < h) {
+            for(; x + 7 < w; x += 8) {
+                const uint32_t *src_row0 = in + (h - 1 - y) * w + (w - 1 - x);
+                const uint32_t *src_row1 = in + (h - 2 - y) * w + (w - 1 - x);
+                uint32_t row0_pixels[8];
+                uint32_t row1_pixels[8];
+                uint8x8_t yv0;
+                uint8x8_t yv1;
+
+                vst1q_u32(row0_pixels, neon_reverse_u32x4(vld1q_u32(src_row0 - 3)));
+                vst1q_u32(row0_pixels + 4, neon_reverse_u32x4(vld1q_u32(src_row0 - 7)));
+                vst1q_u32(row1_pixels, neon_reverse_u32x4(vld1q_u32(src_row1 - 3)));
+                vst1q_u32(row1_pixels + 4, neon_reverse_u32x4(vld1q_u32(src_row1 - 7)));
+
+                uint8x8x4_t bgra0 = vld4_u8((const uint8_t*)row0_pixels);
+                uint8x8x4_t bgra1 = vld4_u8((const uint8_t*)row1_pixels);
+
+                yv0 = neon_rgb_to_y8(bgra0.val[0], bgra0.val[1], bgra0.val[2]);
+                yv1 = neon_rgb_to_y8(bgra1.val[0], bgra1.val[1], bgra1.val[2]);
+
+                vst1_u8(y_row0 + x, yv0);
+                vst1_u8(y_row1 + x, yv1);
+
+                rgb_to_uv_scalar_bsp(row0_pixels[0], uv_row + x);
+                rgb_to_uv_scalar_bsp(row0_pixels[2], uv_row + x + 2);
+                rgb_to_uv_scalar_bsp(row0_pixels[4], uv_row + x + 4);
+                rgb_to_uv_scalar_bsp(row0_pixels[6], uv_row + x + 6);
+            }
+
+            for(; x + 1 < w; x += 2) {
+                uint32_t p00 = rgb2nv12_get_src_pixel(in, w, h, y, x);
+                uint32_t p01 = rgb2nv12_get_src_pixel(in, w, h, y, x + 1);
+                uint32_t p10 = rgb2nv12_get_src_pixel(in, w, h, y + 1, x);
+                uint32_t p11 = rgb2nv12_get_src_pixel(in, w, h, y + 1, x + 1);
+
+                y_row0[x] = rgb_to_y_scalar_bsp(p00);
+                y_row0[x + 1] = rgb_to_y_scalar_bsp(p01);
+                y_row1[x] = rgb_to_y_scalar_bsp(p10);
+                y_row1[x + 1] = rgb_to_y_scalar_bsp(p11);
+                rgb_to_uv_scalar_bsp(p00, uv_row + x);
+            }
+
+            if(x < w) {
+                uint32_t p0 = rgb2nv12_get_src_pixel(in, w, h, y, x);
+                uint32_t p1 = rgb2nv12_get_src_pixel(in, w, h, y + 1, x);
+                y_row0[x] = rgb_to_y_scalar_bsp(p0);
+                y_row1[x] = rgb_to_y_scalar_bsp(p1);
+            }
+        }
+        else {
+            for(; x + 7 < w; x += 8) {
+                const uint32_t *src_row0 = in + (h - 1 - y) * w + (w - 1 - x);
+                uint32_t row0_pixels[8];
+                uint8x8_t yv0;
+
+                vst1q_u32(row0_pixels, neon_reverse_u32x4(vld1q_u32(src_row0 - 3)));
+                vst1q_u32(row0_pixels + 4, neon_reverse_u32x4(vld1q_u32(src_row0 - 7)));
+
+                uint8x8x4_t bgra0 = vld4_u8((const uint8_t*)row0_pixels);
+                yv0 = neon_rgb_to_y8(bgra0.val[0], bgra0.val[1], bgra0.val[2]);
+                vst1_u8(y_row0 + x, yv0);
+            }
+
+            for(; x < w; ++x) {
+                y_row0[x] = rgb_to_y_scalar_bsp(rgb2nv12_get_src_pixel(in, w, h, y, x));
+            }
+        }
+    }
+}
+
 #endif
 
 #ifdef __cplusplus
