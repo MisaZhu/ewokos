@@ -6,6 +6,7 @@ CXX = arm-none-eabi-c++
 LD = arm-none-eabi-ld
 OBJCOPY = arm-none-eabi-objcopy
 OBJDUMP = arm-none-eabi-objdump
+LIBGCC = $(shell $(CC) -print-libgcc-file-name)
 
 export QEMU_AUDIO_DRV=none
 
@@ -142,7 +143,7 @@ OBJS = $(ARCH_OBJS) \
 	$(KERNEL_OBJS) \
 	$(DEV_OBJS) 
 
-LDFLAGS = -L $(ARCH_DIR)/$(ARCH_VER) $(ARCH_LD_FLAGS) 
+LDFLAGS = -L $(ARCH_DIR)/$(ARCH_VER) $(ARCH_LD_FLAGS) $(LIBGCC)
 
 all: $(OS_IMG) 
 

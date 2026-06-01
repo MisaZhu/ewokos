@@ -7,6 +7,14 @@
 #include <errno.h>
 #include <string.h>
 
+static inline int cond_state_lock(pthread_cond_t* cond) {
+	return semaphore_enter(cond->sem_signal);
+}
+
+static inline void cond_state_unlock(pthread_cond_t* cond) {
+	semaphore_quit(cond->sem_signal);
+}
+
 // Get current time in microseconds
 static inline uint64_t get_time_usec(void) {
 	struct timeval tv;
@@ -78,12 +86,17 @@ static int cond_wait_internal(pthread_cond_t* cond, pthread_mutex_t* mutex,
 		return EINVAL;
 	
 	// Increment waiter count
-	__atomic_fetch_add(&cond->waiters, 1, __ATOMIC_SEQ_CST);
+	if(cond_state_lock(cond) != 0)
+		return EINVAL;
+	cond->waiters++;
+	cond_state_unlock(cond);
 	
 	// Release mutex
 	int unlock_res = pthread_mutex_unlock(mutex);
 	if(unlock_res != 0) {
-		__atomic_fetch_sub(&cond->waiters, 1, __ATOMIC_SEQ_CST);
+		cond_state_lock(cond);
+		cond->waiters--;
+		cond_state_unlock(cond);
 		return unlock_res;
 	}
 	
@@ -96,16 +109,17 @@ static int cond_wait_internal(pthread_cond_t* cond, pthread_mutex_t* mutex,
 		
 		while(1) {
 			// Check if signaled
-			int signaled = __atomic_load_n(&cond->signaled, __ATOMIC_SEQ_CST);
+			int signaled;
+			cond_state_lock(cond);
+			signaled = cond->signaled;
 			if(signaled > 0) {
 				// Consume one signal
-				if(__atomic_compare_exchange_n(&cond->signaled, &signaled, signaled - 1,
-				                               false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
-					result = 0;
-					break;
-				}
-				continue;
+				cond->signaled--;
+				cond_state_unlock(cond);
+				result = 0;
+				break;
 			}
+			cond_state_unlock(cond);
 			
 			// Try to acquire waiting semaphore
 			int res = semaphore_tryenter(cond->sem_wait);
@@ -135,16 +149,17 @@ static int cond_wait_internal(pthread_cond_t* cond, pthread_mutex_t* mutex,
 		// Infinite wait
 		while(1) {
 			// Check if signaled
-			int signaled = __atomic_load_n(&cond->signaled, __ATOMIC_SEQ_CST);
+			int signaled;
+			cond_state_lock(cond);
+			signaled = cond->signaled;
 			if(signaled > 0) {
 				// Consume one signal
-				if(__atomic_compare_exchange_n(&cond->signaled, &signaled, signaled - 1,
-				                               false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
-					result = 0;
-					break;
-				}
-				continue;
+				cond->signaled--;
+				cond_state_unlock(cond);
+				result = 0;
+				break;
 			}
+			cond_state_unlock(cond);
 			
 			// Try to acquire waiting semaphore
 			int res = semaphore_tryenter(cond->sem_wait);
@@ -159,7 +174,10 @@ static int cond_wait_internal(pthread_cond_t* cond, pthread_mutex_t* mutex,
 	}
 	
 	// Decrement waiter count
-	__atomic_fetch_sub(&cond->waiters, 1, __ATOMIC_SEQ_CST);
+	cond_state_lock(cond);
+	if(cond->waiters > 0)
+		cond->waiters--;
+	cond_state_unlock(cond);
 	
 	// Re-acquire mutex
 	int lock_res = pthread_mutex_lock(mutex);
@@ -192,10 +210,12 @@ int pthread_cond_signal(pthread_cond_t* cond) {
 		return EINVAL;
 	
 	// Increment signal count
-	__atomic_fetch_add(&cond->signaled, 1, __ATOMIC_SEQ_CST);
+	cond_state_lock(cond);
+	cond->signaled++;
 	
 	// If there are waiters, release waiting semaphore
-	int waiters = __atomic_load_n(&cond->waiters, __ATOMIC_SEQ_CST);
+	int waiters = cond->waiters;
+	cond_state_unlock(cond);
 	if(waiters > 0) {
 		semaphore_quit(cond->sem_wait);
 	}
@@ -212,15 +232,17 @@ int pthread_cond_broadcast(pthread_cond_t* cond) {
 		return EINVAL;
 	
 	// Get current waiter count
-	int waiters = __atomic_load_n(&cond->waiters, __ATOMIC_SEQ_CST);
+	cond_state_lock(cond);
+	int waiters = cond->waiters;
 	if(waiters > 0) {
 		// Set signal count to waiter count
-		__atomic_store_n(&cond->signaled, waiters, __ATOMIC_SEQ_CST);
-		
-		// Release all waiting semaphores
-		for(int i = 0; i < waiters; i++) {
-			semaphore_quit(cond->sem_wait);
-		}
+		cond->signaled = waiters;
+	}
+	cond_state_unlock(cond);
+	
+	// Release all waiting semaphores
+	for(int i = 0; i < waiters; i++) {
+		semaphore_quit(cond->sem_wait);
 	}
 	
 	return 0;

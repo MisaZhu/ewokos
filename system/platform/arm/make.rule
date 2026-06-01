@@ -3,6 +3,7 @@ CC = arm-none-eabi-gcc
 CXX = arm-none-eabi-c++
 LD = arm-none-eabi-ld
 OBJDUMP = arm-none-eabi-objdump
+LIBGCC = $(shell $(CC) -print-libgcc-file-name)
 
 CFLAGS = -marm \
 	-Wno-implicit-function-declaration \
@@ -39,7 +40,7 @@ CFLAGS += -mfpu=neon-vfpv3 -DBSP_BOOST -mfloat-abi=softfp
 CXXFLAGS += -mfpu=neon-vfpv3 -DBSP_BOOST -mfloat-abi=softfp
 endif
        
-EWOK_LIBC = --start-group -lewoksys -lc -lgloss -lsoftfloat --end-group
+EWOK_LIBC = --start-group -lewoksys -lc -lgloss -lsoftfloat --end-group $(LIBGCC)
 EWOK_LIB_GRAPH = -lfont -lfreetype -liconbuf -lgraph -lpng -ljpeg -lgif -ltga -lsvg -lz -lopenlibm -ldisplay -lfb -lkeyb -lmouse  $(BSP_LFLAGS)
 EWOK_LIB_X = -lwidget++ -lx++ -lx -ltinyjson -lewokstl -ltinyhttpsc -lsocket
 

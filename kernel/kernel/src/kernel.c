@@ -178,13 +178,16 @@ void __attribute__((optimize("O0"))) _slave_kernel_entry_c(uint32_t boot_core_id
 	set_translation_table_base(V2P((ewokos_addr_t)_kernel_info.kernel_vm));
 #else
 	(void)boot_core_id;
+	/*
+	 * ARM secondary cores run board bring-up through cpu_core_ready(), which can
+	 * touch GIC/MMIO mappings. Keep the pre-x86 behavior and switch to the full
+	 * kernel VM before that stage.
+	 */
+	set_translation_table_base(V2P((ewokos_addr_t)_kernel_info.kernel_vm));
 #endif
 	cpu_core_ready(cid);
 	_cpu_cores[cid].actived = true;
 	flush_dcache();
-#ifndef __x86_64__
-	set_translation_table_base(V2P((ewokos_addr_t)_kernel_info.kernel_vm));
-#endif
 	proc_t* idle_proc = _cpu_cores[cid].idle_proc;
 
 	/*
@@ -197,6 +200,7 @@ void __attribute__((optimize("O0"))) _slave_kernel_entry_c(uint32_t boot_core_id
 		idle_proc->info.state = RUNNING;
 		idle_proc->info.wait_for = 0;
 		set_current_proc(idle_proc);
+		proc_account_resume_current();
 	}
 
 	halt();
@@ -329,6 +333,12 @@ void _kernel_entry_c(void) {
 	printf("[ok]\n");
 
 	kfork_core_halt(0);
+	if(_cpu_cores[0].idle_proc != NULL) {
+		_cpu_cores[0].idle_proc->info.state = RUNNING;
+		_cpu_cores[0].idle_proc->info.wait_for = 0;
+		set_current_proc(_cpu_cores[0].idle_proc);
+		proc_account_resume_current();
+	}
 #ifdef KERNEL_SMP
 	_cpu_cores[0].actived = true;
 	kernel_lock_init();
