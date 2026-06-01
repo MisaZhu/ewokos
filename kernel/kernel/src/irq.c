@@ -20,6 +20,34 @@
 static uint64_t _irq_tic_last_usec = 0;
 static uint32_t _irq_tic_second = 0;
 
+static inline uint64_t irq_read_uptime_usec_stable(void) {
+	volatile uint32_t* ticks32 = (volatile uint32_t*)&_kernel_info.uptime_usec;
+	uint32_t hi1, lo, hi2;
+
+	do {
+		hi1 = ticks32[1];
+		lo = ticks32[0];
+		hi2 = ticks32[1];
+	} while(hi1 != hi2);
+
+	return ((uint64_t)hi1 << 32) | lo;
+}
+
+uint64_t irq_accounting_now_usec(void) {
+	if(strstr(_sys_info.machine, "miyoo") == NULL)
+		return timer_read_sys_usec();
+
+	uint64_t base = irq_read_uptime_usec_stable();
+	if(get_core_id() != 0)
+		return base;
+
+	uint64_t raw = timer_read_sys_usec();
+	uint64_t last = _irq_tic_last_usec;
+	if(raw > last)
+		return base + (raw - last);
+	return base;
+}
+
 #ifdef __x86_64__
 static void dump_user_stack_words(proc_t* proc, context_t* ctx) {
 	ewokos_addr_t words[4];

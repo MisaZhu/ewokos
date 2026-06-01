@@ -55,7 +55,7 @@ static uint32_t _x86_core_attach_trace_count = 0;
 #endif
 
 static inline uint64_t proc_account_now_usec(void) {
-	return timer_read_sys_usec();
+	return irq_accounting_now_usec();
 }
 
 static inline void proc_lock_enter(void) {

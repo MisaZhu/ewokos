@@ -21,5 +21,6 @@ extern void irq_disable_arch(uint32_t irq);
 extern uint32_t irq_get_arch(void);
 extern uint32_t irq_get_unified_arch(uint32_t irq_raw);
 extern void irq_eoi_arch(uint32_t irq_raw);
+extern uint64_t irq_accounting_now_usec(void);
 
 #endif
