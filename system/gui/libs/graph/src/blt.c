@@ -649,7 +649,6 @@ void graph_blt_fit_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t
 			int32_t src_y_start = (int32_t)src_start_y;
 			int32_t src_y_end = (int32_t)src_end_y;
 			if(src_y_end >= sy + sh) src_y_end = sy + sh - 1;
-
 			int32_t dst_offset_y = y * dst->w;
 
 			for(int32_t x = dr.x; x < ex; x++) {

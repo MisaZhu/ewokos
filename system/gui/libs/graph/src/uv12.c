@@ -38,7 +38,7 @@ void rgb2nv12_cpu(uint8_t  *out,  uint32_t *in , int w, int h)
 			*y = rgb2y((uint8_t*)rgb); 
 			y++;
 
-			rgb2uv(rgb, uv);
+			rgb2uv((uint8_t*)rgb, uv);
 			uv+=2;		
 
 			rgb--;
@@ -56,7 +56,7 @@ void rgb2nv12_cpu(uint8_t  *out,  uint32_t *in , int w, int h)
 		}
 	}	
 
-	return 0;
+	return;
 }
 
 inline void rgb2nv12(uint8_t  *out,  uint32_t *in , int w, int h) {

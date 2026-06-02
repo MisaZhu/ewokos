@@ -103,7 +103,9 @@ static inline void irq_do_timer0(context_t* ctx) {
 	}
 	renew_kernel_tic(usec_gap);
 	
+#ifndef __x86_64__
 	timer_clear_interrupt(0);
+#endif
 
 	schedule(ctx);
 }
@@ -140,6 +142,17 @@ static inline void _irq_handler(uint32_t cid, context_t* ctx) {
 
 inline void irq_handler(context_t* ctx) {
 	__irq_disable();
+#ifdef __x86_64__
+	if(get_core_id() == 0 && irq_get_unified_arch((uint32_t)ctx->trap_no) == IRQ_TIMER0) {
+		/*
+		 * x86 PIT time only advances when timer_clear_interrupt() bumps the
+		 * software tick counter. Account that tick before pausing the current
+		 * task, otherwise core0 loses almost the entire last slice and shows up
+		 * as fake 100% kernel residual.
+		 */
+		timer_clear_interrupt(0);
+	}
+#endif
 	proc_account_pause_current();
 	uint32_t cid = get_core_id();
 	kernel_lock();

@@ -48,7 +48,7 @@ static charbuf_t *_buffer;
 static vdevice_t* _dev = NULL;
 static pthread_mutex_t _buffer_lock;
 static pthread_mutex_t _output_lock;
-static std::string _output_pending;
+static std::string* _output_pending = NULL;
 
 static inline void buffer_push_char(char c) {
 	pthread_mutex_lock(&_buffer_lock);
@@ -76,14 +76,16 @@ static inline void output_queue_push(const char* buf, int size) {
 	if(buf == NULL || size <= 0)
 		return;
 	pthread_mutex_lock(&_output_lock);
-	_output_pending.append(buf, size);
+	if(_output_pending != NULL)
+		_output_pending->append(buf, size);
 	pthread_mutex_unlock(&_output_lock);
 }
 
 static inline std::string output_queue_take(void) {
 	std::string out;
 	pthread_mutex_lock(&_output_lock);
-	out.swap(_output_pending);
+	if(_output_pending != NULL)
+		out.swap(*_output_pending);
 	pthread_mutex_unlock(&_output_lock);
 	return out;
 }
@@ -557,6 +559,7 @@ int run(const char* mnt_point) {
 	_buffer = charbuf_new(4096);
 	pthread_mutex_init(&_buffer_lock, NULL);
 	pthread_mutex_init(&_output_lock, NULL);
+	_output_pending = new std::string();
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
@@ -575,7 +578,11 @@ int run(const char* mnt_point) {
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0600);
 	charbuf_free(_buffer);
-	_output_pending.clear();
+	if(_output_pending != NULL) {
+		_output_pending->clear();
+		delete _output_pending;
+		_output_pending = NULL;
+	}
 	pthread_mutex_destroy(&_output_lock);
 	pthread_mutex_destroy(&_buffer_lock);
 	exit(0);
