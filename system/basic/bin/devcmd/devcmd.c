@@ -64,6 +64,14 @@ static void prompt(const char* dev_name) {
 	printf("devcmd: %s> ", dev_name);
 }
 
+static void print_cmd_fail(const char* dev_name, const char* cmd) {
+	printf("cmd_fail dev=%s", dev_name != NULL ? dev_name : "-");
+	if (cmd != NULL && cmd[0] != 0) {
+		printf(" cmd=%s", cmd);
+	}
+	printf(" reason=no_reply\n");
+}
+
 int devcmd(const char* dev_name) {
 	str_t* cmd = str_new("");
 	while(true) {
@@ -76,7 +84,7 @@ int devcmd(const char* dev_name) {
 
 		char* ret = dev_cmd(dev_name, cmd->cstr);
 		if(ret == NULL) {
-			printf("command excute failed!\n");
+			print_cmd_fail(dev_name, cmd->cstr);
 		}
 		else {
 			printf("%s", ret);
@@ -108,13 +116,13 @@ int main(int argc, char* argv[]) {
 	}
 
 	ret = dev_cmd(argv[1], args->cstr);
-	str_free(args);
-
 	if(ret == NULL) {
-		printf("devcmd failed!\n");
+		print_cmd_fail(argv[1], args->cstr);
+		str_free(args);
 		return -1;
 	}
 
+	str_free(args);
 	printf("%s", ret);
 	free(ret);
 	return 0;
