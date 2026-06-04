@@ -34,6 +34,8 @@ endif
 QEMU_AUDIO_ID ?= audio0
 QEMU_AUDIODEV ?= coreaudio
 QEMU_AUDIO_ARGS = -audiodev $(QEMU_AUDIODEV),id=$(QEMU_AUDIO_ID)
+QEMU_NETDEV ?= user,id=net0,hostfwd=tcp:127.0.0.1:2323-:23
+QEMU_NET_DEVICE ?= virtio-net-device,netdev=net0
 
 
 ARCH_LD_FLAGS = --defsym=start_address=$(LOAD_ADDRESS)
@@ -47,7 +49,7 @@ else
 QEMU_ARGS += -kernel $(OS_IMG)
 endif
 QEMU_ARGS += -drive file=$(SYS_DIR)/root_$(ARCH).ext2,format=raw,id=blk0,if=none -device virtio-blk-device,drive=blk0
-QEMU_ARGS += -netdev user,id=net0 -device virtio-net-device,netdev=net0
+QEMU_ARGS += -netdev $(QEMU_NETDEV) -device $(QEMU_NET_DEVICE)
 QEMU_ARGS += -device virtio-tablet-device 
 QEMU_ARGS += -device virtio-keyboard-device
 QEMU_ARGS += $(QEMU_AUDIO_ARGS) -device virtio-sound-device,audiodev=$(QEMU_AUDIO_ID)

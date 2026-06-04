@@ -503,6 +503,33 @@ static void do_node_wakeup(vfs_node_t* node, int events) {
 	}
 }
 
+static void vfs_driver_close(int32_t pid, int32_t fd, vfs_node_t* node) {
+	proto_t in;
+	PF->format(&in, "i,i,m,i",
+		fd, vfs_get_node_id(node), &node->fsinfo, sizeof(fsinfo_t), pid);
+	int32_t mount_pid = vfs_get_mount_pid(node);
+	if(mount_pid > 0) {
+		ipc_call(mount_pid, FS_CMD_CLOSE, &in, NULL);	
+	}
+	PF->clear(&in);
+}
+
+static void vfs_driver_dup(int32_t from_pid, int32_t from_fd,
+		int32_t dup_pid, int32_t dup_fd, vfs_node_t* node) {
+	if(node == NULL)
+		return;
+
+	proto_t in;
+	PF->format(&in, "i,i,i,m,i,i",
+		from_fd, dup_fd, vfs_get_node_id(node), &node->fsinfo, sizeof(fsinfo_t),
+		from_pid, dup_pid);
+	int32_t mount_pid = vfs_get_mount_pid(node);
+	if(mount_pid > 0) {
+		ipc_call(mount_pid, FS_CMD_DUP, &in, NULL);
+	}
+	PF->clear(&in);
+}
+
 static void proc_file_close(int pid, int fd, file_t* file) {
 	(void)pid;
 	(void)fd;
@@ -788,8 +815,10 @@ static void do_vfs_dup(int32_t pid, proto_t* in, proto_t* out) {
 	int fd = proto_read_int(in);
 	int32_t fdto = -1;
 	vfs_node_t* node = vfs_dup(pid, fd, &fdto);
-	if(node != NULL)
+	if(node != NULL) {
+		vfs_driver_dup(pid, fd, pid, fdto, node);
 		PF->addi(out, fdto)->add(out, gen_fsinfo(node), sizeof(fsinfo_t));
+	}
 	else
 		PF->addi(out, -1);
 }
@@ -799,8 +828,10 @@ static void do_vfs_dup2(int32_t pid, proto_t* in, proto_t* out) {
 	int32_t fdto = proto_read_int(in);
 
 	vfs_node_t* node = vfs_dup2(pid, fd, fdto);
-	if(node != NULL)
+	if(node != NULL) {
+		vfs_driver_dup(pid, fd, pid, fdto, node);
 		PF->addi(out, fdto)->add(out, gen_fsinfo(node), sizeof(fsinfo_t));
+	}
 	else
 		PF->addi(out, -1);
 }
@@ -1022,16 +1053,6 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 	PF->clear(out)->addi(out, 0); //retry
 }
 
-static void vfs_driver_close(int32_t pid, int32_t fd, vfs_node_t* node) {
-	proto_t in;
-	PF->format(&in, "i,i,m,i",
-		fd, vfs_get_node_id(node), &node->fsinfo, sizeof(fsinfo_t), pid);
-	int32_t mount_pid = vfs_get_mount_pid(node);
-	if(mount_pid > 0) {
-		ipc_call(mount_pid, FS_CMD_CLOSE, &in, NULL);	
-	}
-	PF->clear(&in);
-}
 
 static void vfs_proc_exit(int32_t cpid) {
 	if(cpid < 0 || cpid >= _max_proc_table_num)
@@ -1091,6 +1112,7 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 			node->refs++;
 			if((f->flags & O_WRONLY) != 0)
 				node->refs_w++;
+			vfs_driver_dup(fpid, i, cpid, i, node);
 		}
 	}
 }

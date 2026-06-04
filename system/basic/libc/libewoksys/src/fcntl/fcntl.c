@@ -37,10 +37,14 @@ int fcntl(int fd, int cmd, ...) {
 	*/
 
 	if(cmd == F_GETFD) {
-		return 0;
+		return vfs_get_fd_flags(fd);
 	}
 	else if(cmd == F_SETFD) {
-		return 0;
+		va_list args;
+		va_start(args, cmd);
+		int flags = va_arg(args, int);
+		va_end(args);
+		return vfs_set_fd_flags(fd, flags & FD_CLOEXEC);
 	}
 	else if(cmd == F_GETFL) {
 		return vfs_get_flags(fd);

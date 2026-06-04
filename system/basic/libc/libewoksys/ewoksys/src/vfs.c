@@ -113,6 +113,21 @@ int vfs_set_flags(int fd, int flags) {
 	return 0;
 }
 
+int vfs_get_fd_flags(int fd) {
+	fsfile_t* file = vfs_get_file(fd);
+	if(file == NULL)
+		return -1;
+	return file->fd_flags;
+}
+
+int vfs_set_fd_flags(int fd, int flags) {
+	fsfile_t* file = vfs_get_file(fd);
+	if(file == NULL)
+		return -1;
+	file->fd_flags = flags;
+	return 0;
+}
+
 int vfs_check_access(int pid, fsinfo_t* info, int mode) {
 	procinfo_t procinfo;
 	if(info == NULL || proc_info(pid, &procinfo) != 0)
@@ -876,9 +891,17 @@ static uint32_t vfs_get_poll_events_by_node(uint32_t node_id) {
 int  vfs_block(uint32_t node, int event) {
 	if(vfs_block_raw(node, event) != 0)
 		return -1;
-	if((vfs_get_poll_events_by_node(node) & (uint32_t)event) != 0)
-		return 0;
-	proc_block();
+	while(1) {
+		if((vfs_get_poll_events_by_node(node) & (uint32_t)event) != 0) {
+			/*
+			 * Consume the edge we are waiting for before returning to the
+			 * caller. This avoids retry loops reusing the same sticky event.
+			 */
+			vfs_clear_poll_events(node, (uint32_t)event);
+			return 0;
+		}
+		proc_block();
+	}
 	return 0;
 }
 

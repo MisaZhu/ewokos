@@ -24,6 +24,8 @@
 #include <ewoksys/kernel_tic.h>
 #include <ewoksys/core.h>
 
+extern void klog(const char *format, ...);
+
 #define EBADF 9
 #define ENOSYS 88
 #define S_IFCHR 0020000
@@ -263,6 +265,10 @@ _read (int fd, void * buf, size_t size)
 	fsinfo_t info;
 	if(vfs_get_by_fd(fd, &info) != 0)
 		return -1;
+	if(fd >= 0 && fd <= 2) {
+		klog("[libc] _read: pid=%d fd=%d node=%u mnt=%d data=%x size=%zu type=%u\n",
+			getpid(), fd, info.node, info.mount_pid, info.data, size, info.type);
+	}
 
 	errno = 0;
 	int flags = vfs_get_flags(fd);
@@ -323,6 +329,10 @@ _write (int fd, const void * buf, size_t size)
 	fsinfo_t info;
 	if(vfs_get_by_fd(fd, &info) != 0)
 		return -1;
+	if(fd >= 0 && fd <= 2) {
+		klog("[libc] _write: pid=%d fd=%d node=%u mnt=%d data=%x size=%zu type=%u\n",
+			getpid(), fd, info.node, info.mount_pid, info.data, size, info.type);
+	}
 
 	errno = 0;
 	int flags = vfs_get_flags(fd);

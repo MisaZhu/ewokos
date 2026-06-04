@@ -53,20 +53,170 @@ static void clear_buf(str_t* buf) {
 
 void putch(int c);
 
+static int is_telnet_console(void) {
+	const char* cid = getenv("CONSOLE_ID");
+	return cid != NULL && strcmp(cid, "telnet") == 0;
+}
+
+static uint8_t telnet_parse(uint8_t c, const char **event) {
+	enum {
+		TELNET_STATE_DATA = 0,
+		TELNET_STATE_IAC,
+		TELNET_STATE_CMD,
+		TELNET_STATE_SB,
+		TELNET_STATE_SB_DATA,
+		TELNET_STATE_SB_IAC,
+		TELNET_STATE_CR,
+	};
+	static int state = TELNET_STATE_DATA;
+	static uint8_t verb = 0;
+	uint8_t ret = 0;
+
+	if(event != NULL)
+		*event = "data";
+
+	switch(state) {
+	case TELNET_STATE_DATA:
+		if(c == 0xFF) {
+			state = TELNET_STATE_IAC;
+			if(event != NULL)
+				*event = "iac-begin";
+		}
+		else if(c == '\r') {
+			state = TELNET_STATE_CR;
+			ret = '\n';
+			if(event != NULL)
+				*event = "cr->newline";
+		}
+		else {
+			ret = c;
+			if(event != NULL)
+				*event = "data-byte";
+		}
+		break;
+	case TELNET_STATE_IAC:
+		if(c == 0xFF) {
+			ret = 0xFF;
+			state = TELNET_STATE_DATA;
+			if(event != NULL)
+				*event = "iac-escaped-ff";
+		}
+		else if(c == 0xFA) { /* SB */
+			state = TELNET_STATE_SB;
+			if(event != NULL)
+				*event = "iac-subneg-begin";
+		}
+		else if(c == 0xF0) { /* SE */
+			state = TELNET_STATE_DATA;
+			if(event != NULL)
+				*event = "iac-subneg-end";
+		}
+		else {
+			verb = c;
+			state = TELNET_STATE_CMD;
+			if(event != NULL)
+				*event = "iac-verb";
+		}
+		break;
+	case TELNET_STATE_CMD:
+		(void)verb;
+		state = TELNET_STATE_DATA;
+		if(event != NULL)
+			*event = "iac-option";
+		break;
+	case TELNET_STATE_SB:
+		state = TELNET_STATE_SB_DATA;
+		if(event != NULL)
+			*event = "sb-option";
+		break;
+	case TELNET_STATE_SB_DATA:
+		if(c == 0xFF)
+			state = TELNET_STATE_SB_IAC;
+		if(event != NULL)
+			*event = "sb-data";
+		break;
+	case TELNET_STATE_SB_IAC:
+		if(c == 0xF0) /* SE */
+			state = TELNET_STATE_DATA;
+		else if(c != 0xFF)
+			state = TELNET_STATE_SB_DATA;
+		if(event != NULL)
+			*event = (c == 0xF0) ? "sb-end" : "sb-iac";
+		break;
+	case TELNET_STATE_CR:
+		if(c == 0) {
+			if(event != NULL)
+				*event = "cr-nul-tail";
+		}
+		else if(c == '\n') {
+			if(event != NULL)
+				*event = "cr-lf-tail";
+		}
+		else {
+			ret = c;
+			if(event != NULL)
+				*event = "cr-data";
+		}
+		state = TELNET_STATE_DATA;
+		break;
+	default:
+		state = TELNET_STATE_DATA;
+		if(event != NULL)
+			*event = "reset";
+		break;
+	}
+
+	return ret;
+}
+
 int32_t cmd_gets(int fd, str_t* buf) {
 	str_reset(buf);	
 	old_cmd_t* head = NULL;
 	old_cmd_t* tail = NULL;
 	bool first_up = true;
 	bool echo = true;
+	bool telnet = (fd == 0) && is_telnet_console();
 
 	while(1) {
 		char c, old_c;
 		errno = 0;
+		if(fd == 0 && !_script_mode) {
+			klog("shell cmd_gets before read fd=0\n");
+		}
 		int i = read(fd, &c, 1);
-	 	if(i == 0 || (i < 0 && errno != EAGAIN))
+		if(fd == 0 && !_script_mode) {
+			klog("shell cmd_gets after read fd=0 i=%d errno=%d c=%d\n", i, errno, (int)(unsigned char)c);
+		}
+		if(i == 0) {
+			/*
+			 * Telnet/console-like stdin can occasionally surface an empty read
+			 * transiently even though the session is still alive.
+			 */
+			if(fd == 0 && !_script_mode) {
+				proc_usleep(10000);
+				continue;
+			}
 			return -1;
+		}
+	 	if(i < 0) {
+			if(errno == EAGAIN || errno == EINTR || errno == 0) {
+				proc_usleep(10000);
+				continue;
+			}
+			return -1;
+		}
 		
+		if(telnet) {
+			const char *telnet_event = NULL;
+			c = telnet_parse((uint8_t)c, &telnet_event);
+			if(fd == 0 && !_script_mode) {
+				klog("shell cmd_gets parsed fd=0 c=%d event=%s\n",
+						(int)(unsigned char)c,
+						telnet_event == NULL ? "?" : telnet_event);
+			}
+			if(c == 0)
+				continue;
+		}
 		if(c == 0 || i < 0) {
 			proc_usleep(10000);
 			continue;
@@ -136,12 +286,19 @@ int32_t cmd_gets(int fd, str_t* buf) {
 				echo = false;
 			if(echo && !_script_mode) 
 				putch(c);
-			if(c == '\n')
+			if(c == '\n') {
+				if(fd == 0 && !_script_mode) {
+					klog("shell cmd_gets newline: len=%d buf='%s'\n", buf->len, buf->cstr);
+				}
 				break;
+			}
 			if(c > 27)
 				str_addc(buf, c);
 		}
 	}
 	str_addc(buf, 0);
+	if(fd == 0 && !_script_mode) {
+		klog("shell cmd_gets return: len=%d buf='%s'\n", buf->len, buf->cstr);
+	}
 	return 0;
 }

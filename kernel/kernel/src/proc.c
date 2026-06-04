@@ -1440,6 +1440,18 @@ void proc_usleep(context_t* ctx, uint32_t count) {
 void proc_block(context_t* ctx, proc_t* proc) {
 	if(proc == NULL)
 		return;
+	proc_lock_enter();
+	if(proc->info.state == READY) {
+		/*
+		 * A wakeup may arrive between userspace deciding to block and the
+		 * actual SYS_BLOCK trap. Preserve that sticky wake instead of
+		 * overwriting it with BLOCK and sleeping forever.
+		 */
+		proc->info.state = RUNNING;
+		proc_lock_leave();
+		return;
+	}
+	proc_lock_leave();
 	proc_unready(proc, BLOCK);
 	//proc_block_saved_state(pid_by, event, cproc);
 	schedule(ctx);

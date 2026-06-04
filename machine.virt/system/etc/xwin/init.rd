@@ -41,8 +41,8 @@
 @/bin/splash -m "start /dev/timed" -p 70
 @/bin/ipcserv /drivers/timed    /dev/time
 
-#@/bin/splash -m "start telnetd" -p 72
-#@/bin/bgrun /sbin/telnetd
+@/bin/splash -m "start telnetd" -p 72
+@/bin/bgrun /sbin/telnetd
 
 @/bin/splash -m "start /dev/null" -p 73
 @/bin/ipcserv /drivers/nulld           /dev/null

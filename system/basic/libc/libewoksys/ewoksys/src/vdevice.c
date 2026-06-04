@@ -132,6 +132,21 @@ static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	file_del(fd, from_pid, node);
 }
 
+static void do_dup(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
+	(void)out;
+	int from_fd = proto_read_int(in);
+	int dup_fd = proto_read_int(in);
+	uint32_t node = (uint32_t)proto_read_int(in);
+	fsinfo_t* fsinfo = proto_read(in, NULL);
+	int from_owner_pid = proto_read_int(in);
+	int dup_owner_pid = proto_read_int(in);
+
+	if(dev != NULL && dev->dup != NULL) {
+		dev->dup(dev, from_fd, from_owner_pid, dup_fd, dup_owner_pid, node, fsinfo, p);
+	}
+	(void)from_pid;
+}
+
 #define READ_BUF_SIZE 32
 static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	int size, offset;
@@ -178,6 +193,9 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 				if(shm_id == -1) {
 					PF->add(out, buf, rd);
 				}
+			}
+			else if(rd < 0) {
+				PF->addi(out, errno);
 			}
 
 			if(shm_id != -1 && buf != NULL)
@@ -241,6 +259,9 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 			dev_update_file(fd, from_pid, info);
 			PF->addi(out, size);
 			PF->add(out, info, sizeof(fsinfo_t));
+			if(size < 0) {
+				PF->addi(out, errno);
+			}
 		}
 		if(shm_id != -1 && data != NULL)
 			shmdt(data);
@@ -656,6 +677,9 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 		break;
 	case FS_CMD_CLOSE:
 		do_close(dev, from_pid, in, out, p);
+		break;
+	case FS_CMD_DUP:
+		do_dup(dev, from_pid, in, out, p);
 		break;
 	case FS_CMD_READ:
 		do_read(dev, from_pid, in, out, p);

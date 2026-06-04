@@ -289,6 +289,61 @@ tcp_pcb_id(struct tcp_pcb *pcb)
     return indexof(pcbs, pcb);
 }
 
+static const char *
+tcp_close_reason_ntoa(int reason)
+{
+    switch (reason) {
+    case 0:
+        return "normal";
+    case 1:
+        return "rst";
+    case 2:
+        return "timeout";
+    case 3:
+        return "output_failure";
+    case 4:
+        return "interrupted";
+    default:
+        return "unknown";
+    }
+}
+
+static void
+tcp_log_close_event(const char *tag, struct tcp_pcb *pcb)
+{
+    char ep1[IP_ENDPOINT_STR_LEN];
+    char ep2[IP_ENDPOINT_STR_LEN];
+
+    slog("[netd] %s: id=%d state=%d reason=%d(%s) local=%s foreign=%s\n",
+        tag, tcp_pcb_id(pcb), pcb->state,
+        pcb->close_reason, tcp_close_reason_ntoa(pcb->close_reason),
+        ip_endpoint_ntop(&pcb->local, ep1, sizeof(ep1)),
+        ip_endpoint_ntop(&pcb->foreign, ep2, sizeof(ep2)));
+}
+
+static void
+tcp_log_stream_bytes(const char *tag, struct tcp_pcb *pcb, const uint8_t *data, size_t len)
+{
+    if (ntoh16(pcb->local.port) != 23 && ntoh16(pcb->foreign.port) != 23) {
+        return;
+    }
+    if (len == 0 || len > 8) {
+        return;
+    }
+
+    klog("[netd] %s: id=%d len=%zu bytes=%u,%u,%u,%u,%u,%u,%u,%u state=%d rcv_wnd=%u snd_wnd=%u\n",
+        tag, tcp_pcb_id(pcb), len,
+        len > 0 ? data[0] : 0,
+        len > 1 ? data[1] : 0,
+        len > 2 ? data[2] : 0,
+        len > 3 ? data[3] : 0,
+        len > 4 ? data[4] : 0,
+        len > 5 ? data[5] : 0,
+        len > 6 ? data[6] : 0,
+        len > 7 ? data[7] : 0,
+        pcb->state, pcb->rcv.wnd, pcb->snd.wnd);
+}
+
 /*
  * TCP Retransmit
  *
@@ -348,6 +403,7 @@ tcp_retransmit_queue_emit(void *arg, void *data)
     if (diff.tv_sec >= TCP_RETRANSMIT_DEADLINE) {
         pcb->state = TCP_PCB_STATE_CLOSED;
         pcb->close_reason = 2; /* timeout */
+        tcp_log_close_event("tcp_retransmit timeout close", pcb);
         sched_wakeup(&pcb->ctx);
         return;
     }
@@ -564,6 +620,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
                 errorf("connection reset");
                 pcb->state = TCP_PCB_STATE_CLOSED;
                 pcb->close_reason = 1; /* RST */
+                tcp_log_close_event("tcp_syn_sent rst close", pcb);
                 tcp_pcb_release(pcb);
             }
             /* drop segment */
@@ -668,6 +725,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
         if (TCP_FLG_ISSET(flags, TCP_FLG_RST)) {
             pcb->state = TCP_PCB_STATE_CLOSED;
             pcb->close_reason = 1; /* RST */
+            tcp_log_close_event("tcp_segment rst close", pcb);
             tcp_pcb_release(pcb);
             return;
         }
@@ -679,6 +737,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
         if (TCP_FLG_ISSET(flags, TCP_FLG_RST)) {
             pcb->state = TCP_PCB_STATE_CLOSED;
             pcb->close_reason = 1; /* RST */
+            tcp_log_close_event("tcp_segment rst close", pcb);
             tcp_pcb_release(pcb);
             return;
         }
@@ -689,6 +748,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
         if (TCP_FLG_ISSET(flags, TCP_FLG_RST)) {
             pcb->state = TCP_PCB_STATE_CLOSED;
             pcb->close_reason = 1; /* RST */
+            tcp_log_close_event("tcp_segment rst close", pcb);
             tcp_pcb_release(pcb);
             return;
         }
@@ -714,6 +774,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
             errorf("connection reset (unexpected SYN in closing state)");
             pcb->state = TCP_PCB_STATE_CLOSED;
             pcb->close_reason = 1; /* RST */
+            tcp_log_close_event("tcp_segment unexpected syn close", pcb);
             tcp_pcb_release(pcb);
             return;
         }
@@ -729,15 +790,10 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
     case TCP_PCB_STATE_SYN_RECEIVED:
         if (pcb->snd.una <= seg->ack && seg->ack <= pcb->snd.nxt) {
             pcb->state = TCP_PCB_STATE_ESTABLISHED;
-            // Wake up the process waiting for connection (only if there are waiters)
-            if (pcb->ctx.wc > 0) {
-                sched_wakeup(&pcb->ctx);
-            }
+            sched_wakeup(&pcb->ctx);
             if (pcb->parent) {
                 queue_push(&pcb->parent->backlog, pcb);
-                if (pcb->parent->ctx.wc > 0) {
-                    sched_wakeup(&pcb->parent->ctx);
-                }
+                sched_wakeup(&pcb->parent->ctx);
             }
         } else {
             tcp_output_segment(seg->ack, 0, TCP_FLG_RST, 0, NULL, 0, local, foreign);
@@ -749,20 +805,27 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
     case TCP_PCB_STATE_FIN_WAIT2:
     case TCP_PCB_STATE_CLOSE_WAIT:
     case TCP_PCB_STATE_CLOSING:
-        if (pcb->snd.una < seg->ack && seg->ack <= pcb->snd.nxt) {
+        if (pcb->snd.una <= seg->ack && seg->ack <= pcb->snd.nxt) {
+            int ack_advanced = pcb->snd.una < seg->ack;
+
             pcb->snd.una = seg->ack;
-            tcp_retransmit_queue_cleanup(pcb);
+            if (ack_advanced) {
+                tcp_retransmit_queue_cleanup(pcb);
+            }
             /* ignore: Users should receive positive acknowledgments for buffers
                         which have been SENT and fully acknowledged (i.e., SEND buffer should be returned with "ok" response) */
             if (pcb->snd.wl1 < seg->seq || (pcb->snd.wl1 == seg->seq && pcb->snd.wl2 <= seg->ack)) {
+                uint32_t old_wnd = pcb->snd.wnd;
                 pcb->snd.wnd = seg->wnd;
                 pcb->snd.wl1 = seg->seq;
                 pcb->snd.wl2 = seg->ack;
+                if (old_wnd != pcb->snd.wnd || ack_advanced) {
+                    slog("[netd] tcp_ack update: state=%d ack=%u una=%u nxt=%u wnd=%u->%u seq=%u\n",
+                        pcb->state, seg->ack, pcb->snd.una, pcb->snd.nxt,
+                        old_wnd, pcb->snd.wnd, seg->seq);
+                }
             }
-            // Wake up the process waiting for send window (only if there are waiters)
-            if (pcb->ctx.wc > 0) {
-                sched_wakeup(&pcb->ctx);
-            }
+            sched_wakeup(&pcb->ctx);
         } else if (seg->ack < pcb->snd.una) {
             /* ignore */
         } else if (seg->ack > pcb->snd.nxt) {
@@ -815,14 +878,12 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
     case TCP_PCB_STATE_FIN_WAIT1:
     case TCP_PCB_STATE_FIN_WAIT2:
         if (len) {
+            tcp_log_stream_bytes("tcp_input data", pcb, data, len);
             memcpy(pcb->buf + (sizeof(pcb->buf) - pcb->rcv.wnd), data, len);
             pcb->rcv.nxt = seg->seq + seg->len;
             pcb->rcv.wnd -= len;
             tcp_output(pcb, TCP_FLG_ACK, NULL, 0);
-            // Wake up the process waiting for data (only if there are waiters)
-            if (pcb->ctx.wc > 0) {
-                sched_wakeup(&pcb->ctx);
-            }
+            sched_wakeup(&pcb->ctx);
         }
         break;
     case TCP_PCB_STATE_CLOSE_WAIT:
@@ -850,10 +911,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
         case TCP_PCB_STATE_SYN_RECEIVED:
         case TCP_PCB_STATE_ESTABLISHED:
             pcb->state = TCP_PCB_STATE_CLOSE_WAIT;
-            // Wake up the process waiting for close (only if there are waiters)
-            if (pcb->ctx.wc > 0) {
-                sched_wakeup(&pcb->ctx);
-            }
+            sched_wakeup(&pcb->ctx);
             break;
         case TCP_PCB_STATE_FIN_WAIT1:
             if (seg->ack == pcb->snd.nxt) {
@@ -1474,9 +1532,12 @@ tcp_send(int id, uint8_t *data, size_t len)
     size_t mss, cap, slen, inflight;
     struct timeval send_start, send_end, send_diff;
     gettimeofday(&send_start, NULL);
+    slog("[netd] tcp_send enter: id=%d len=%zu\n", id, len);
     mutex_lock(&mutex);
+    slog("[netd] tcp_send lock: id=%d len=%zu\n", id, len);
     pcb = tcp_pcb_get(id);
     if (!pcb) {
+        slog("[netd] tcp_send pcb missing: id=%d len=%zu\n", id, len);
         mutex_unlock(&mutex);
         errno = ECONNRESET;
         return -1;
@@ -1536,8 +1597,14 @@ RETRY:
                 if (sent > 0) {
                     break;
                 }
+                slog("[netd] tcp_send sleep(no-cap): id=%d state=%d len=%zu sent=%zd una=%u nxt=%u wnd=%u inflight=%zu reason=%d\n",
+                    id, pcb->state, len, sent, pcb->snd.una, pcb->snd.nxt,
+                    pcb->snd.wnd, inflight, pcb->close_reason);
                 struct timeval abs_timeout;
                 if (sched_sleep(&pcb->ctx, &mutex, sock_get_timeout_abs(snd_timeout, &abs_timeout)) == -1) {
+                    slog("[netd] tcp_send sleep error: id=%d state=%d len=%zu sent=%zd errno=%d una=%u nxt=%u wnd=%u inflight=%zu reason=%d\n",
+                        id, pcb->state, len, sent, errno, pcb->snd.una, pcb->snd.nxt,
+                        pcb->snd.wnd, inflight, pcb->close_reason);
                     mutex_unlock(&mutex);
                     errno = EINTR;
                     return -1;
@@ -1545,11 +1612,16 @@ RETRY:
                 // After waking up, re-check if pcb is still valid
                 pcb = tcp_pcb_get(id);
                 if (!pcb) {
+                    slog("[netd] tcp_send wake pcb missing: id=%d len=%zu sent=%zd\n",
+                        id, len, sent);
                     // Connection was closed while we were sleeping
                     mutex_unlock(&mutex);
                     errno = ECONNRESET;
                     return -1;
                 }
+                slog("[netd] tcp_send wake: id=%d state=%d len=%zu sent=%zd una=%u nxt=%u wnd=%u inflight=%zu reason=%d\n",
+                    id, pcb->state, len, sent, pcb->snd.una, pcb->snd.nxt,
+                    pcb->snd.wnd, (size_t)(pcb->snd.nxt - pcb->snd.una), pcb->close_reason);
                 // Re-check state after waking up
                 if (pcb->state == TCP_PCB_STATE_CLOSED) {
                     if (pcb->close_reason == 1) {
@@ -1565,7 +1637,6 @@ RETRY:
                     mutex_unlock(&mutex);
                     return -1;
                 }
-                mutex_unlock(&mutex);
                 goto RETRY;
             }
             slen = MIN(MIN(mss, len - sent), cap);
@@ -1574,6 +1645,9 @@ RETRY:
             if (sent + slen >= (ssize_t)len || cap - slen < mss) {
                 flg |= TCP_FLG_PSH;
             }
+            slog("[netd] tcp_send output: id=%d state=%d len=%zu sent=%zd slen=%zu una=%u nxt=%u wnd=%u inflight=%zu flg=0x%x\n",
+                id, pcb->state, len, sent, slen, pcb->snd.una, pcb->snd.nxt,
+                pcb->snd.wnd, inflight, flg);
             if (tcp_output(pcb, flg, data + sent, slen) == -1) {
                 errorf("tcp_output() failure");
                 pcb->state = TCP_PCB_STATE_CLOSED;
@@ -1582,6 +1656,8 @@ RETRY:
                 mutex_unlock(&mutex);
                 return -1;
             }
+            slog("[netd] tcp_send output done: id=%d state=%d len=%zu sent=%zd slen=%zu una=%u nxt=%u wnd=%u\n",
+                id, pcb->state, len, sent, slen, pcb->snd.una, pcb->snd.nxt, pcb->snd.wnd);
             pcb->snd.nxt += slen;
             sent += slen;
             // Continue sending if window allows (don't wait for ACK)
@@ -1611,6 +1687,7 @@ RETRY:
         return -1;
     }
     mutex_unlock(&mutex);
+    slog("[netd] tcp_send return: id=%d len=%zu sent=%zd\n", id, len, sent);
     gettimeofday(&send_end, NULL);
     timersub(&send_end, &send_start, &send_diff);
     return sent;
@@ -1625,17 +1702,21 @@ tcp_receive(int id, uint8_t *data, size_t size)
     size_t prev_wnd;
     int ret;
     int retry_count = 0;
+    char ep1[IP_ENDPOINT_STR_LEN];
+    char ep2[IP_ENDPOINT_STR_LEN];
 
     gettimeofday(&recv_start, NULL);
 RETRY:
     retry_count++;
     if (retry_count > 1000) {
+        slog("[netd] tcp_receive retry overflow: id=%d retry=%d\n", id, retry_count);
         errno = ECONNRESET;
         return -1;
     }
     mutex_lock(&mutex);
     pcb = tcp_pcb_get(id);
     if (!pcb) {
+        slog("[netd] tcp_receive pcb missing: id=%d retry=%d\n", id, retry_count);
         mutex_unlock(&mutex);
         errno = ECONNRESET;
         return -1;
@@ -1644,6 +1725,10 @@ RETRY:
     struct timeval *rcv_timeout = sock_get_timeout(id, SOCK_STREAM, SO_RCVTIMEO);
     switch (pcb->state) {
     case TCP_PCB_STATE_CLOSED:
+        slog("[netd] tcp_receive closed: id=%d reason=%d local=%s foreign=%s\n",
+            id, pcb->close_reason,
+            ip_endpoint_ntop(&pcb->local, ep1, sizeof(ep1)),
+            ip_endpoint_ntop(&pcb->foreign, ep2, sizeof(ep2)));
         errno = ECONNRESET;
         mutex_unlock(&mutex);
         return -1;
@@ -1665,6 +1750,10 @@ RETRY:
             }
             ret = sched_sleep(&pcb->ctx, &mutex, timeout);
             if (ret == -1) {
+                slog("[netd] tcp_receive sleep error: id=%d state=%d reason=%d errno=%d timeout=%d.%06d\n",
+                    id, pcb->state, pcb->close_reason, errno,
+                    timeout ? (int)timeout->tv_sec : -1,
+                    timeout ? (int)timeout->tv_usec : -1);
                 if (errno == ETIMEDOUT) {
                     errorf("tcp receive timeout");
                 } else if (errno == 0) {
@@ -1675,11 +1764,16 @@ RETRY:
             }
             pcb = tcp_pcb_get(id);
             if (!pcb) {
+                slog("[netd] tcp_receive wake pcb missing: id=%d retry=%d\n", id, retry_count);
                 mutex_unlock(&mutex);
                 errno = ECONNRESET;
                 return -1;
             }
             if (pcb->state == TCP_PCB_STATE_CLOSED) {
+                slog("[netd] tcp_receive wake closed: id=%d reason=%d local=%s foreign=%s\n",
+                    id, pcb->close_reason,
+                    ip_endpoint_ntop(&pcb->local, ep1, sizeof(ep1)),
+                    ip_endpoint_ntop(&pcb->foreign, ep2, sizeof(ep2)));
                 mutex_unlock(&mutex);
                 errno = ECONNRESET;
                 return -1;
@@ -1709,8 +1803,12 @@ RETRY:
     len = MIN(size, remain);
     prev_wnd = pcb->rcv.wnd;
     memcpy(data, pcb->buf, len);
+    tcp_log_stream_bytes("tcp_receive data", pcb, data, len);
     memmove(pcb->buf, pcb->buf + len, remain - len);
     pcb->rcv.wnd += len;
+    if (pcb->rcv.wnd != prev_wnd) {
+        tcp_output(pcb, TCP_FLG_ACK, NULL, 0);
+    }
 
     mutex_unlock(&mutex);
 
@@ -1791,10 +1889,7 @@ tcp_close(int id)
     if (pcb->state == TCP_PCB_STATE_CLOSED) {
         tcp_pcb_release(pcb);
     } else {
-        // Wake up the process waiting for close (only if there are waiters)
-        if (pcb->ctx.wc > 0) {
-            sched_wakeup(&pcb->ctx);
-        }
+        sched_wakeup(&pcb->ctx);
     }
     mutex_unlock(&mutex);
     return 0;

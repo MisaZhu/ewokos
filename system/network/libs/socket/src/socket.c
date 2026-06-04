@@ -296,7 +296,7 @@ int accept (int fd, struct sockaddr* addr,uint32_t * addr_len){
     }
 	PF->clear(&out);
     int accept_fd = open("/dev/net0", 0);
-    if(accept_fd <= 0)
+    if(accept_fd < 0)
         return -1; 
 
     PF->init(&in)->addi(&in, ret);

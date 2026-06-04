@@ -86,6 +86,7 @@ net_task_t *create_task(int fd, int from_pid, int node){
     task->node = node;
     task->state = NET_TASK_IDLE;
     task->sock = -1;
+    task->refs = 1;
     task->running = true;
     task_list_add(task);
     return task;
@@ -106,7 +107,7 @@ void release_task(net_task_t *task){
     int sock = task->sock;
     int thread_started = task->thread_started;
 
-    slog("[netd] release_task begin: task=%p fd=%d node=%d sock=%d is_read=%d running=%d thread_started=%d\n",
+    klog("[netd] release_task begin: task=%p fd=%d node=%d sock=%d is_read=%d running=%d thread_started=%d\n",
         task, task->fd, task->node, sock, is_read_task, task->running, thread_started);
 
     // Also wake up waiting client if task was processing
@@ -122,11 +123,11 @@ void release_task(net_task_t *task){
 
     // Now close the socket if this is not a read task
     if(!is_read_task) {
-        slog("[netd] release_task sock_close: task=%p sock=%d\n", task, sock);
+        klog("[netd] release_task sock_close: task=%p sock=%d\n", task, sock);
         sock_close(sock);
     }
     // Now safe to destroy condition variable after thread has exited
-    slog("[netd] release_task done: task=%p fd=%d node=%d sock=%d\n",
+    klog("[netd] release_task done: task=%p fd=%d node=%d sock=%d\n",
         task, task->fd, task->node, sock);
     free(task); // We free main task here
 }
@@ -168,24 +169,37 @@ int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *o
 
 int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
     if(!task->is_read_task){
+        klog("[netd] task_read reject non-read-task: task=%p pid=%d node=%d\n", task, from_pid, task->node);
         return VFS_ERR_RETRY;
     }
 
     pthread_mutex_lock(&task_list_lock);
+	klog("[netd] task_read enter: task=%p pid=%d node=%d state=%d sock=%d size=%d\n",
+		task, from_pid, task->node, task->state, task->sock, size);
     
     if(task->state == NET_TASK_FINISH){
         if(SOCK_RECV != task->cmd) {
             pthread_mutex_unlock(&task_list_lock);
+            klog("[netd] task_read finish but cmd mismatch: task=%p cmd=%d\n", task, task->cmd);
             return VFS_ERR_RETRY;
         }
         int len = proto_read_int(&task->out);
+        int sock_errno = 0;
         if(len > 0){
             proto_read_to(&task->out, buf, len);
+        }
+        if(len <= 0 && task->out.size > task->out.offset) {
+            sock_errno = proto_read_int(&task->out);
         }
         PF->clear(&task->out);
         PF->clear(&task->in);
         task->state = NET_TASK_IDLE;
         pthread_mutex_unlock(&task_list_lock);
+        if(len < 0 && (sock_errno == 0 || sock_errno == EAGAIN || sock_errno == EINTR)) {
+            klog("[netd] task_read finish retry: task=%p len=%d errno=%d\n", task, len, sock_errno);
+            return VFS_ERR_RETRY;
+        }
+        klog("[netd] task_read finish return: task=%p len=%d errno=%d\n", task, len, sock_errno);
         return len;
     }else if(task->state == NET_TASK_IDLE){
         task->cmd = SOCK_RECV;	
@@ -197,8 +211,11 @@ int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
         task->state = NET_TASK_START;
         pthread_cond_signal(&task->cond);
         pthread_mutex_unlock(&task_list_lock);
+        klog("[netd] task_read start recv: task=%p pid=%d node=%d size=%d\n",
+			task, from_pid, task->node, size);
     } else {
         pthread_mutex_unlock(&task_list_lock);
+        klog("[netd] task_read busy retry: task=%p state=%d cmd=%d\n", task, task->state, task->cmd);
     }
     return VFS_ERR_RETRY;
 }
@@ -212,10 +229,19 @@ int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p){
             return VFS_ERR_RETRY;
         }
         int ret = proto_read_int(&task->out);
+        int sock_errno = 0;
+        if(ret < 0 && task->out.size > task->out.offset) {
+            sock_errno = proto_read_int(&task->out);
+        }
         PF->clear(&task->out);
         PF->clear(&task->in);
         task->state = NET_TASK_IDLE;
         pthread_mutex_unlock(&task_list_lock);
+        if(ret < 0 && (sock_errno == 0 || sock_errno == EAGAIN || sock_errno == EINTR)) {
+            klog("[netd] task_write finish retry: task=%p len=%d errno=%d\n", task, ret, sock_errno);
+            return VFS_ERR_RETRY;
+        }
+        klog("[netd] task_write finish return: task=%p len=%d errno=%d\n", task, ret, sock_errno);
         return ret;
     }else if(task->state == NET_TASK_IDLE){
         task->cmd = SOCK_SEND;	
@@ -225,7 +251,15 @@ int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p){
         PF->clear(&task->in);
         PF->clear(&task->out);
         PF->add(&task->in, buf, size);
+        /*
+         * Drop any stale writable edge from a previous completed send before
+         * arming a new async send. Otherwise userspace may consume the old
+         * WR event, retry immediately, and race this new send in PROCESS.
+         */
+        vfs_clear_poll_events(task->node, VFS_EVT_WR);
         task->state = NET_TASK_START;
+        klog("[netd] task_write start send: task=%p pid=%d node=%u size=%d sock=%d\n",
+                task, from_pid, task->node, size, task->sock);
         pthread_cond_signal(&task->cond);
         pthread_mutex_unlock(&task_list_lock);
         // Signal task thread to wake up
@@ -297,8 +331,12 @@ int do_network_fcntl(net_task_t *task){
 			data = proto_read(&task->in, &size);
             if(data && size){
 				errno = 0;
+				klog("[netd] do_network_fcntl SOCK_SEND enter: task=%p fd=%d node=%d sock=%d size=%d\n",
+					task, task->fd, task->node, sock, size);
 			    ret = sock_send(sock, data, size);
 				sock_errno = errno;
+				klog("[netd] do_network_fcntl SOCK_SEND return: task=%p fd=%d node=%d sock=%d ret=%d errno=%d\n",
+					task, task->fd, task->node, sock, ret, sock_errno);
             } 
 			PF->addi(&task->out, ret);
 			PF->addi(&task->out, ret < 0 ? sock_errno : 0);
@@ -328,7 +366,7 @@ int do_network_fcntl(net_task_t *task){
 			}
 			break;	
 		case SOCK_CLOSE:
-            slog("[netd] SOCK_CLOSE: task=%p fd=%d node=%d sock=%d\n",
+            klog("[netd] SOCK_CLOSE: task=%p fd=%d node=%d sock=%d\n",
                 task, task->fd, task->node, sock);
 			ret = sock_close(sock);
 			PF->addi(&task->out, ret);
@@ -381,32 +419,42 @@ int do_network_fcntl(net_task_t *task){
 
 int task_check_read_events(void) {
     int ready = 0;
+    enum { MAX_WAKE_CANDIDATES = 64 };
+    struct {
+        int sock;
+        uint32_t node;
+    } wake_list[MAX_WAKE_CANDIDATES];
+    int wake_count = 0;
 
     pthread_mutex_lock(&task_list_lock);
     net_task_t *task = task_list;
     while(task != NULL) {
-        if(task->read_task != NULL && 
-            task->read_task->is_read_task && 
-            task->read_task->state == NET_TASK_FINISH &&
-            task->read_task->node > 0) {
-        }
         if(task->read_task != NULL &&
            task->read_task->is_read_task &&
            task->read_task->state == NET_TASK_IDLE &&
            task->read_task->sock >= 0 &&
-           task->read_task->node > 0 &&
-           sock_readable(task->read_task->sock)) {
-            task->read_task->cmd = SOCK_RECV;
-            PF->clear(&task->read_task->in);
-            PF->clear(&task->read_task->out);
-            PF->addi(&task->read_task->in, TASK_READ_BUF_SIZE);
-            task->read_task->state = NET_TASK_START;
-            pthread_cond_signal(&task->read_task->cond);
-            ready = 1;
+           task->read_task->node > 0) {
+            if(wake_count < MAX_WAKE_CANDIDATES) {
+                wake_list[wake_count].sock = task->read_task->sock;
+                wake_list[wake_count].node = task->read_task->node;
+                wake_count++;
+            }
         }
         task = task->next;
     }
     pthread_mutex_unlock(&task_list_lock);
+
+    for(int i = 0; i < wake_count; i++) {
+        if(sock_readable(wake_list[i].sock)) {
+            /*
+             * Do not prefetch into read_task->out. Interactive users like shell
+             * often read one byte at a time, and a background SOCK_RECV would
+             * consume the remaining bytes before user space asks for them.
+             */
+            vfs_wakeup(wake_list[i].node, VFS_EVT_RD);
+            ready = 1;
+        }
+    }
     return ready;
 }
 
@@ -437,14 +485,14 @@ static uint32_t task_finish_wakeup_event(const net_task_t *task) {
     switch(task->cmd) {
         case SOCK_RECV:
         case SOCK_RECVFROM:
-            return VFS_EVT_RD;
         case SOCK_ACCEPT:
+            return VFS_EVT_RD;
         case SOCK_SEND:
         case SOCK_SENDTO:
         case SOCK_CONNECT:
-            return VFS_EVT_RW;
+            return VFS_EVT_WR;
         default:
-            return VFS_EVT_RW;
+            return VFS_EVT_WR;
     }
 }
 

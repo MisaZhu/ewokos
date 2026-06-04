@@ -105,6 +105,9 @@ static int doargs(int argc, char* argv[], int8_t* full, int8_t* all, int8_t* thr
 }
 
 int main(int argc, char* argv[]) {
+	setbuf(stdout, NULL);
+	setbuf(stderr, NULL);
+
 	int8_t all;
 	int8_t thread;
 	int8_t full;

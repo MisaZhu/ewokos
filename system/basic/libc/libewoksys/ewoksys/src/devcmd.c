@@ -167,6 +167,9 @@ int dev_read(int dev_pid, int fd, fsinfo_t* info, int32_t offset, void* buf, uin
 			else
 				proto_read_to(&out, buf, rd);
 		}
+		else if(rd < 0 && out.size > out.offset) {
+			errno = proto_read_int(&out);
+		}
 	}
 	PF->clear(&in);
 	PF->clear(&out);
@@ -204,6 +207,9 @@ int dev_write(int dev_pid, int fd, fsinfo_t* info, int32_t offset, const void* b
 		int r = proto_read_int(&out);
 		proto_read_to(&out, info, sizeof(fsinfo_t));
 		res = r;
+		if(r < 0 && out.size > out.offset) {
+			errno = proto_read_int(&out);
+		}
 	}
 	PF->clear(&in);
 	PF->clear(&out);
@@ -344,4 +350,3 @@ int dev_cmd_cntl(const char* fname, int cmd, proto_t* in, proto_t* out) {
 #ifdef __cplusplus
 }
 #endif
-

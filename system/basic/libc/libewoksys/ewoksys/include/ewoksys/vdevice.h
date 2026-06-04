@@ -19,6 +19,7 @@ typedef struct st_vdevice {
 	void* extra_data;
 	int (*dev_cntl)(struct st_vdevice* dev, int from_pid, int cmd, proto_t* in, proto_t* ret, void* p);
 	int (*open)(struct st_vdevice* dev, int fd, int from_pid, fsinfo_t* info, int oflag, void* p);
+	int (*dup)(struct st_vdevice* dev, int from_fd, int from_pid, int dup_fd, int dup_pid, uint32_t node, fsinfo_t* fsinfo, void* p);
 	int (*stat)(struct st_vdevice* dev, int from_pid, fsinfo_t* info, node_stat_t* stat, void* p);
 	int (*create)(struct st_vdevice* dev, int from_pid, fsinfo_t *info_to, fsinfo_t* info, void* p);
 	int (*close)(struct st_vdevice* dev, int fd, int from_pid, uint32_t node, fsinfo_t* fsinfo, void* p);

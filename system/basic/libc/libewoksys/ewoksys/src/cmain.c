@@ -128,6 +128,14 @@ static int set_stderr(void) {
 	return -1;
 }
 
+static void setup_stdio_mode(void) {
+	const char* cid = getenv("CONSOLE_ID");
+	if(cid != NULL && strcmp(cid, "telnet") == 0) {
+		setbuf(stdout, NULL);
+		setbuf(stderr, NULL);
+	}
+}
+
 
 void _libc_init(void);
 void _libc_exit(void);
@@ -174,9 +182,14 @@ void _start(void) {
 
 	loadenv();
 	set_stderr();
+	setup_stdio_mode();
+	klog("[cmain] main enter: pid=%d argv0='%s' argc=%d\n", getpid(), _argv0, argc);
 	
 	int ret = main(argc, argv);
+	klog("[cmain] main return: pid=%d argv0='%s' ret=%d\n", getpid(), _argv0, ret);
+	klog("[cmain] close_stdio begin: pid=%d argv0='%s'\n", getpid(), _argv0);
 	close_stdio();
+	klog("[cmain] close_stdio done: pid=%d argv0='%s'\n", getpid(), _argv0);
 	//__ewok_malloc_close();
 	proc_exit();
 	_libc_exit();
@@ -187,10 +200,10 @@ void _start(void) {
 			free(argv[argc]);
 		argc++;
 	}
+	klog("[cmain] exit syscall: pid=%d argv0='%s' ret=%d\n", getpid(), _argv0, ret);
 	exit(ret);
 }
 
 #ifdef __cplusplus
 }
 #endif
-

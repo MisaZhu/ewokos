@@ -480,6 +480,18 @@ sock_recv(int id, void *buf, size_t n)
     switch (s->family) {
     case AF_INET:
         int ret = tcp_receive(s->desc, (uint8_t *)buf, n);
+        if (ret < 0 && errno == 0) {
+            /*
+             * Some TCP paths still surface "would block / retry" as -1 without
+             * setting errno. Normalize that here so upper VFS layers keep the
+             * read blocked instead of propagating a fake hard error.
+             */
+            errno = EAGAIN;
+        }
+        if (ret < 0) {
+            slog("[netd] sock_recv result: id=%d desc=%d ret=%d errno=%d\n",
+                id, s->desc, ret, errno);
+        }
         return ret;
     }
     return -1;

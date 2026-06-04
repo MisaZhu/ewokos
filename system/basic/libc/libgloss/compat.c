@@ -1952,7 +1952,17 @@ int vfprintf(FILE *stream, const char *format, va_list ap) {
 			va_end(ap_full);
 		}
 	}
-	write(fd, buf, (size_t)len);
+	size_t off = 0;
+	while(off < (size_t)len) {
+		ssize_t wr = write(fd, buf + off, (size_t)len - off);
+		if(wr <= 0) {
+			if(off == 0) {
+				len = (int)wr;
+			}
+			break;
+		}
+		off += (size_t)wr;
+	}
 	if (buf != stack_buf) {
 		free(buf);
 	}

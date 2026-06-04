@@ -27,6 +27,7 @@ typedef struct net_task{
     bool is_read_task;
     int state;
     int sock;
+    int refs;
     struct net_task* read_task;
     int thread_started;
 
