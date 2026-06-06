@@ -25,6 +25,26 @@ old_cmd_t* _history_tail = NULL;
 
 #define ENV_PATH "PATH"
 
+static int write_all_retry(int fd, const void* buf, size_t len) {
+	const char* p = (const char*)buf;
+	size_t off = 0;
+	while(off < len) {
+		ssize_t wr = write(fd, p + off, len - off);
+		if(wr > 0) {
+			off += (size_t)wr;
+			continue;
+		}
+		if(errno == EAGAIN || errno == EINTR) {
+			proc_usleep(1000);
+			continue;
+		}
+		if(wr == 0 && errno == 0)
+			errno = EPIPE;
+		return -1;
+	}
+	return 0;
+}
+
 static int32_t find_exec(char* cmd, char* fname, char* full_cmd) {
 	fname[0] = 0;
 	fsinfo_t info;
@@ -216,7 +236,7 @@ static void prompt(void) {
 	if(len > 0) {
 		if((size_t)len >= sizeof(out))
 			len = (int)sizeof(out) - 1;
-		write(1, out, (size_t)len);
+		write_all_retry(1, out, (size_t)len);
 	}
 }
 
@@ -267,7 +287,8 @@ int main(int argc, char* argv[]) {
 			prompt();
 		}
 
-		if(cmd_gets(fd_in, cmdstr) != 0 && cmdstr->len == 0)
+		int gets_res = cmd_gets(fd_in, cmdstr);
+		if(gets_res != 0 && cmdstr->len == 0)
 			break;
 
 		char* cmd = cmdstr->cstr;

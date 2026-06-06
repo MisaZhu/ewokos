@@ -295,10 +295,8 @@ static void dhcp_input(const uint8_t *data, size_t len, struct net_device *dev)
     char buf[16];
     ip_addr_ntop(dhc->ip, buf, sizeof(buf) );
     slog("DHCP IP: %s\n", buf);
-    klog("[dhcp] IP %s\n", buf);
     ip_addr_ntop(dhc->gateway, buf, sizeof(buf) );
     slog("DHCP GATEWAY: %s\n", buf);
-    klog("[dhcp] GATEWAY %s\n", buf);
 
     /* Parse dhcp option*/
     uint8_t *option  = dhcp->bp_options;

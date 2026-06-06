@@ -5,7 +5,6 @@
 #include <ewoksys/vfs.h>
 #include <ewoksys/core.h>
 #include <ewoksys/ipc.h>
-#include <ewoksys/klog.h>
 #include <ewoksys/proc.h>
 #include <sys/errno.h>
 
@@ -235,10 +234,6 @@ static int telnet_read_raw(int fd, char* c) {
 	_telnet_raw_buf_off = 1;
 	_telnet_raw_buf_len = ret;
 	*c = (char)_telnet_raw_buf[0];
-	klog("[shell] telnet refill ret=%d first=%u last=%u\n",
-		ret,
-		(unsigned)_telnet_raw_buf[0],
-		(unsigned)_telnet_raw_buf[ret-1]);
 	return 1;
 }
 
@@ -247,16 +242,13 @@ int32_t cmd_gets(int fd, str_t* buf) {
 	old_cmd_t* head = NULL;
 	old_cmd_t* tail = NULL;
 	bool first_up = true;
-	bool echo = true;
 	bool telnet = (fd == 0) && is_telnet_console();
+	bool echo = true;
 	while(1) {
 		char c, old_c;
 		errno = 0;
 		int i = telnet ? telnet_read_raw(fd, &c) : read(fd, &c, 1);
 		if(i == 0) {
-			if(telnet) {
-				klog("[shell] gets empty-read\n");
-			}
 			/*
 			 * Keep local console stdin tolerant of transient empty reads, but a
 			 * telnet-backed stdin must treat read(2)==0 as EOF so the remote shell
@@ -269,9 +261,6 @@ int32_t cmd_gets(int fd, str_t* buf) {
 			return -1;
 		}
 	 	if(i < 0) {
-			if(telnet) {
-				klog("[shell] gets retry ret=%d errno=%d\n", i, errno);
-			}
 			if(errno == EAGAIN || errno == EINTR || errno == 0) {
 				proc_usleep(10000);
 				continue;
@@ -355,9 +344,6 @@ int32_t cmd_gets(int fd, str_t* buf) {
 			if(echo && !_script_mode) 
 				putch(c);
 			if(c == '\n') {
-				if(telnet) {
-					klog("[shell] gets newline len=%u cmd='%s'\n", buf->len, buf->cstr);
-				}
 				break;
 			}
 			if(c > 27)

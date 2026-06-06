@@ -56,6 +56,10 @@ static void telnet_send_initial_negotiation(int fd) {
      * like the network path is stuck.
      */
     static const uint8_t init_cmds[] = {
+        /*
+         * Keep echo on the server side so interactive clients do not locally
+         * render carriage return as "^M" when the user presses Enter.
+         */
         TELNET_IAC, TELNET_WILL, TELNET_OPT_ECHO,
         TELNET_IAC, TELNET_WILL, TELNET_OPT_SUPPRESS_GA,
         TELNET_IAC, TELNET_DO,   TELNET_OPT_SUPPRESS_GA,

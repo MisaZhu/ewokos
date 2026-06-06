@@ -1925,6 +1925,27 @@ int sprintf(char *str, const char *format, ...) {
 	return ret;
 }
 
+static ssize_t write_all_retry_compat(int fd, const void *buf, size_t len) {
+	const char *p = (const char *)buf;
+	size_t off = 0;
+
+	while(off < len) {
+		ssize_t wr = write(fd, p + off, len - off);
+		if(wr > 0) {
+			off += (size_t)wr;
+			continue;
+		}
+		if(errno == EAGAIN || errno == EINTR) {
+			usleep(1000);
+			continue;
+		}
+		if(wr == 0 && errno == 0)
+			errno = EPIPE;
+		return off > 0 ? (ssize_t)off : wr;
+	}
+	return (ssize_t)off;
+}
+
 int vfprintf(FILE *stream, const char *format, va_list ap) {
 	char stack_buf[512];
 	char *buf = stack_buf;
@@ -1952,17 +1973,8 @@ int vfprintf(FILE *stream, const char *format, va_list ap) {
 			va_end(ap_full);
 		}
 	}
-	size_t off = 0;
-	while(off < (size_t)len) {
-		ssize_t wr = write(fd, buf + off, (size_t)len - off);
-		if(wr <= 0) {
-			if(off == 0) {
-				len = (int)wr;
-			}
-			break;
-		}
-		off += (size_t)wr;
-	}
+	ssize_t written = write_all_retry_compat(fd, buf, (size_t)len);
+	len = (int)written;
 	if (buf != stack_buf) {
 		free(buf);
 	}
@@ -2214,7 +2226,7 @@ int ferror(FILE *stream) {
 
 int putchar(int c) {
 	char ch = (char)c;
-	return (write(1, &ch, 1) == 1) ? c : EOF;
+	return (write_all_retry_compat(1, &ch, 1) == 1) ? c : EOF;
 }
 
 int getchar(void) {
@@ -2225,15 +2237,16 @@ int getchar(void) {
 int putc(int c, FILE *stream) {
 	char ch = (char)c;
 	int fd = (stream != NULL) ? stream->fd : 1;
-	return (write(fd, &ch, 1) == 1) ? c : EOF;
+	return (write_all_retry_compat(fd, &ch, 1) == 1) ? c : EOF;
 }
 
 int puts(const char *s) {
 	int len = 0;
 	if (s != NULL) {
-		len = (int)write(1, s, strlen(s));
+		len = (int)write_all_retry_compat(1, s, strlen(s));
 	}
-	write(1, "\n", 1);
+	if(write_all_retry_compat(1, "\n", 1) != 1)
+		return EOF;
 	return len + 1;
 }
 

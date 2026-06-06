@@ -7,7 +7,6 @@
 #include <pthread.h>
 
 #include <ewoksys/vfs.h>
-#include <ewoksys/klog.h>
 #include <ewoksys/proc.h>
 
 #include "task.h"
@@ -112,16 +111,23 @@ void release_task(net_task_t *task){
         vfs_wakeup(task->node, VFS_EVT_CLOSE);
     }
 
+    /*
+     * A blocked socket worker must be forced out of send/recv before join.
+     * Joining first can strand the close path forever on a thread still
+     * sleeping inside the stack, leaving the guest side in CLOSE_WAIT and
+     * poisoning later telnet sessions.
+     */
+    if(!is_read_task && sock >= 0) {
+        sock_close(sock);
+        sock = -1;
+    }
+
     // Wait for main task thread to exit before destroying cond and freeing
     if(thread_started){
         pthread_join(task->tid, NULL);
     }
     pthread_cond_destroy(&task->cond);
 
-    // Now close the socket if this is not a read task
-    if(!is_read_task) {
-        sock_close(sock);
-    }
     // Now safe to destroy condition variable after thread has exited
     free(task); // We free main task here
 }
@@ -200,8 +206,6 @@ int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
             PF->clear(&task->in);
             task->state = NET_TASK_IDLE;
             pthread_mutex_unlock(&task_list_lock);
-            klog("[netd] read finish node=%u from=%d len=%d errno=%d\n",
-                task->node, from_pid, len, sock_errno);
             if(len < 0 && (sock_errno == 0 || sock_errno == EAGAIN || sock_errno == EINTR)) {
                 return VFS_ERR_RETRY;
             }
@@ -219,21 +223,12 @@ int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
     }
 
     if(task->state == NET_TASK_IDLE){
-        klog("[netd] read arm node=%u from=%d size=%d sock=%d\n",
-            task->node, from_pid, size, task->sock);
         task->cmd = SOCK_RECV;	
         task->p = p;
         task->from_pid = from_pid;
         PF->clear(&task->in);
         PF->clear(&task->out);
         PF->addi(&task->in, size);
-        /*
-         * Like the write side, drop any stale readable edge before arming a
-         * new async receive. Otherwise callers can loop on an old RD event,
-         * repeatedly re-enter task_read() in PROCESS, and race the real
-         * completion they were supposed to sleep for.
-         */
-        vfs_clear_poll_events(task->node, VFS_EVT_RD);
         task->state = NET_TASK_START;
         pthread_cond_signal(&task->cond);
         pthread_mutex_unlock(&task_list_lock);

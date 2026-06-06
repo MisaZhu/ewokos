@@ -72,10 +72,31 @@ static int cd(const char* dir) {
 	return 0;
 }
 
+static int write_all_retry(int fd, const void* buf, size_t len) {
+	const char* p = (const char*)buf;
+	size_t off = 0;
+	while(off < len) {
+		ssize_t wr = write(fd, p + off, len - off);
+		if(wr > 0) {
+			off += (size_t)wr;
+			continue;
+		}
+		if(errno == EAGAIN || errno == EINTR) {
+			proc_usleep(1000);
+			continue;
+		}
+		if(wr == 0 && errno == 0)
+			errno = EPIPE;
+		return -1;
+	}
+	return 0;
+}
+
 static void export_all(void) {
 	char buf[256] = {0};
 	char ** env;
 	extern char ** environ;
+	str_t* out = str_new("");
 	env = environ;
 	for (env; *env; ++env) {
 		memset(buf, 0, sizeof(buf));
@@ -94,9 +115,23 @@ static void export_all(void) {
 			}
 		}
 		if(key[0] != 0){
-			printf("declare -x %s=%s\n", key, value);
+			if(out != NULL) {
+				str_add(out, "declare -x ");
+				str_add(out, key);
+				str_addc(out, '=');
+				str_add(out, value);
+				str_addc(out, '\n');
+			}
+			else {
+				printf("declare -x %s=%s\n", key, value);
+			}
 		}
   }
+	if(out != NULL) {
+		if(out->len > 0)
+			write_all_retry(1, out->cstr, out->len);
+		str_free(out);
+	}
 }
 
 static void export_get(const char* arg) {

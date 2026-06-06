@@ -1456,13 +1456,26 @@ void proc_block(context_t* ctx, proc_t* proc) {
 
 void proc_waitpid(context_t* ctx, int32_t pid) {
 	proc_t* cproc = get_current_proc();
-	proc_t* p = proc_get(pid);
-	if(cproc == NULL || p == NULL)
+	proc_t* p;
+	if(cproc == NULL || pid < 0 || pid >= _kernel_config.max_task_num)
 		return;
+
+	p = _task_table[pid];
+	if(p == NULL || p->info.state == UNUSED)
+		return;
+	if(p->info.state == ZOMBIE) {
+		proc_funeral(p);
+		return;
+	}
 
 	cproc->info.wait_for = pid;
 	proc_unready(cproc, WAIT);
 	schedule(ctx);
+
+	p = _task_table[pid];
+	if(p != NULL && p->info.state == ZOMBIE) {
+		proc_funeral(p);
+	}
 }
 
 static void proc_wakeup_all_state(proc_t* proc) {

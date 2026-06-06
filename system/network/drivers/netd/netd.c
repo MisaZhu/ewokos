@@ -148,9 +148,13 @@ static int network_dup(vdevice_t* dev, int from_fd, int from_pid, int dup_fd, in
 static int network_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fsinfo_t* fsinfo,void* p) {
 	(void)dev;
 	(void)from_pid;
+	(void)node;
 	(void)p;
 	net_task_t *task = (net_task_t *)(ewokos_addr_t)fsinfo->data;
 	if(task) {
+		net_task_t *read_task = NULL;
+		uint32_t main_node = task->node;
+		uint32_t read_node = 0;
 		pthread_mutex_lock(&task_list_lock);
 		if(task->refs > 1) {
 			task->refs--;
@@ -159,12 +163,17 @@ static int network_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fs
 		}
 		task->refs = 0;
 		task->running = false;
-		if(task->read_task != NULL)
+		read_task = task->read_task;
+		if(read_task != NULL) {
+			read_node = read_task->node;
 			task->read_task->running = false;
+		}
 		pthread_mutex_unlock(&task_list_lock);
 		fsinfo->data = NULL;
+		vfs_wakeup(main_node, VFS_EVT_CLOSE);
+		if(read_node != 0)
+			vfs_wakeup(read_node, VFS_EVT_CLOSE);
 	}
-    //vfs_wakeup(dev->mnt_info.node, VFS_EVT_CLOSE);
 	return 0;
 }
 

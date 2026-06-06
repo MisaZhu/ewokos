@@ -121,8 +121,6 @@ int
 sock_open(int domain, int type, int protocol)
 {
     struct sock *s;
-    slog("[netd] sock_open begin: domain=%d type=%d protocol=%d used=%d\n",
-        domain, type, protocol, sock_used_count());
     if (domain != AF_INET) {
         errorf("sock_open invalid domain=%d", domain);
         return -17;
@@ -167,8 +165,6 @@ sock_open(int domain, int type, int protocol)
         sock_free(s);
         return -1;
     }
-    slog("[netd] sock_open ok: id=%d desc=%d type=%d protocol=%d used=%d\n",
-        indexof(socks, s), s->desc, s->type, s->protocol, sock_used_count());
     return indexof(socks, s);
 }
 
@@ -182,8 +178,6 @@ sock_close(int id)
         errorf("sock_close invalid id=%d used=%d", id, sock_used_count());
         return -17;
     }
-    slog("[netd] sock_close begin: id=%d desc=%d type=%d used=%d\n",
-        id, s->desc, s->type, sock_used_count());
     switch (s->type) {
     case SOCK_STREAM:
         // Try to close TCP connection gracefully
@@ -210,7 +204,6 @@ sock_close(int id)
         return -1;
     }
     sock_free(s);
-    slog("[netd] sock_close done: id=%d used=%d\n", id, sock_used_count());
     return 0;
 }
 
