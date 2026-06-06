@@ -293,6 +293,17 @@ _read (int fd, void * buf, size_t size)
 
 		if(errno != EAGAIN || !block)
 			break;
+		/*
+		 * Char devices and sockets expose sticky RD events via vfsd. Once the
+		 * producer queue has been drained, a stale RD bit can make the next
+		 * vfs_block() return immediately forever, turning a blocking read loop
+		 * into a busy poll. Clear the stale edge, then retry the actual read
+		 * before sleeping so we do not lose data that arrived concurrently.
+		 */
+		vfs_clear_poll_events(info.node, VFS_EVT_RD);
+		res = vfs_read(fd, &info, buf, size);
+		if(res >= 0 || errno != EAGAIN)
+			break;
 		vfs_block(info.node, VFS_EVT_RD);
 	}
 	return res;
@@ -436,6 +447,29 @@ _write (int fd, const void * buf, size_t size)
 			break;
 
 		if(errno != EAGAIN || !block)
+			break;
+		/*
+		 * Mirror the read-side stale-event handling. A previously completed send
+		 * can leave WR visible even though the socket is currently flow-controlled,
+		 * which turns the blocking write retry loop into a busy poll.
+		 */
+		vfs_clear_poll_events(info.node, VFS_EVT_WR);
+		res = vfs_write(fd, &info,
+				((const char *)write_buf) + total_written,
+				write_size - total_written);
+		if(res > 0) {
+			total_written += (size_t)res;
+			if(total_written >= write_size) {
+				res = (int)total_written;
+				break;
+			}
+			if(!block) {
+				res = (int)total_written;
+				break;
+			}
+			continue;
+		}
+		if(res == 0 || errno != EAGAIN)
 			break;
 		vfs_block(info.node, VFS_EVT_WR);
 	}

@@ -28,9 +28,19 @@
 
 
 #define CACHE_SIZE (32)
+#define MOUSE_ACTIVE_SLEEP_US 1000U
+#define MOUSE_IDLE_SLEEP_US 5000U
 static mouse_evt_t mouse_data[CACHE_SIZE];
 static uint32_t mouse_data_read = 0;
 static uint32_t mouse_data_write = 0;
+
+static bool mouse_evt_empty(const mouse_evt_t* evt) {
+	return evt->type == 0 &&
+			evt->state == MOUSE_STATE_NONE &&
+			evt->button == MOUSE_BUTTON_NONE &&
+			evt->x == 0 &&
+			evt->y == 0;
+}
 
 static int _read(vdevice_t* dev, int fd, int from_pid, fsinfo_t *info,
 					  void *buf, int size, int offset, void *p)
@@ -150,27 +160,35 @@ void mouse_interrupt_handle(struct virtio_device *virt_dev, struct virtio_input_
 	}
 	else if (event->type == EV_SYN)
 	{
+		uint32_t slot = mouse_data_write % CACHE_SIZE;
+		if(mouse_evt_empty(&mouse_data[slot])) {
+			return;
+		}
 		if (mouse_data_write - mouse_data_read >= CACHE_SIZE)
 		{
 			//klog("moused: buffer overflow, dropping event\n");
 			mouse_data_read++;
 		}
+		if(!mouse_data[slot].state) {
+			mouse_data[slot].state = MOUSE_STATE_MOVE;
+		}
 		mouse_data_write++;
-		if(!mouse_data[mouse_data_write % CACHE_SIZE].state)
-			 mouse_data[mouse_data_write % CACHE_SIZE].state = MOUSE_STATE_MOVE;
+		memset(&mouse_data[mouse_data_write % CACHE_SIZE], 0, sizeof(mouse_evt_t));
 		_wakeup = true;
 	}
 }
 
 static int mouse_step(struct st_vdevice* dev, void* p) {
 	(void)p;
+	bool had_wakeup;
 	ipc_disable();
-	if(_wakeup) {
+	had_wakeup = _wakeup;
+	if(had_wakeup) {
 		vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
 		_wakeup = false;
 	}
 	ipc_enable();
-	usleep(3000);
+	usleep(had_wakeup ? MOUSE_ACTIVE_SLEEP_US : MOUSE_IDLE_SLEEP_US);
 	return 0;
 }
 
