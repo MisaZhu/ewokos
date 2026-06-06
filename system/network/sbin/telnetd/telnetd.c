@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
                 telnet_send_initial_negotiation(STDOUT_FILENO);
                 close(clnt_sock);
 		        setenv("CONSOLE_ID", "telnet");
-                if(proc_exec("/bin/shell") < 0) {
+                if(proc_exec("/bin/session") < 0) {
                     klog("telnetd child exec /bin/session failed\n");
                     exit(-1);
                 }
