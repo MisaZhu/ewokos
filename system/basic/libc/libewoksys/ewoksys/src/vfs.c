@@ -280,49 +280,50 @@ int vfs_open(fsinfo_t* info, int oflag) {
 }
 
 static int read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block) {
-	proto_t in, out;
-	PF->format(&in, "i,i,i,i", fd, node, size, block?1:0);
-	PF->init(&out);
+	while(1) {
+		proto_t in, out;
+		PF->format(&in, "i,i,i,i", fd, node, size, block?1:0);
+		PF->init(&out);
 
-	int vfsd_pid = get_vfsd_pid();
-	int res = ipc_call(vfsd_pid, VFS_PIPE_READ, &in, &out);
-	PF->clear(&in);
-	if(res == 0) {
-		res = proto_read_int(&out);
-		if(res > 0)
-			res = proto_read_to(&out, buf, size);
-	}
-	PF->clear(&out);
+		int vfsd_pid = get_vfsd_pid();
+		int res = ipc_call(vfsd_pid, VFS_PIPE_READ, &in, &out);
+		PF->clear(&in);
+		if(res == 0) {
+			res = proto_read_int(&out);
+			if(res > 0)
+				res = proto_read_to(&out, buf, size);
+		}
+		PF->clear(&out);
 
-	if(res == 0 && block == 1) {//empty , do retry
-		/*
-		 * Pipe readers/writers can lose a wakeup in the tiny window between
-		 * queueing in VFS_BLOCK and actually sleeping in proc_block(). A short
-		 * sleep here keeps blocking semantics while avoiding a permanent hang.
-		 */
-		proc_usleep(50000);
+		if(res != 0 || !block)
+			return res;
+
+		if(vfs_block(node, VFS_EVT_RD) != 0)
+			return -1;
 	}
-	return res;	
 }
 
 static int write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, bool block) {
-	proto_t in, out;
-	//PF->init(&in)->addi(&in, fd)->addi(&in, node)->add(&in, buf, size)->addi(&in, block?1:0);
-	PF->format(&in, "i,i,m,i", fd, node, buf, size, block?1:0);
-	PF->init(&out);
+	while(1) {
+		proto_t in, out;
+		//PF->init(&in)->addi(&in, fd)->addi(&in, node)->add(&in, buf, size)->addi(&in, block?1:0);
+		PF->format(&in, "i,i,m,i", fd, node, buf, size, block?1:0);
+		PF->init(&out);
 
-	int vfsd_pid = get_vfsd_pid();
-	int res = ipc_call(vfsd_pid, VFS_PIPE_WRITE, &in, &out);
-	PF->clear(&in);
-	if(res == 0) {
-		res = proto_read_int(&out);
-	}
-	PF->clear(&out);
+		int vfsd_pid = get_vfsd_pid();
+		int res = ipc_call(vfsd_pid, VFS_PIPE_WRITE, &in, &out);
+		PF->clear(&in);
+		if(res == 0) {
+			res = proto_read_int(&out);
+		}
+		PF->clear(&out);
 
-	if(res == 0 && block == 1) {//empty , do retry
-		proc_usleep(50000);
+		if(res != 0 || !block)
+			return res;
+
+		if(vfs_block(node, VFS_EVT_WR) != 0)
+			return -1;
 	}
-	return res;	
 }
 
 int vfs_close_info(int fd) {
