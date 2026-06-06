@@ -997,13 +997,13 @@ static void do_vfs_pipe_open(int32_t pid, proto_t* out) {
 	node->data_ptr = buf;
 	node->fsinfo.data = 0;
 
-	int32_t fd0 = vfs_open(pid, node, 1);
+	int32_t fd0 = vfs_open(pid, node, O_RDONLY);
 	if(fd0 < 0) {
 		vfs_del_node(node);
 		return;
 	}
 
-	int32_t fd1 = vfs_open(pid, node, 1);
+	int32_t fd1 = vfs_open(pid, node, O_WRONLY);
 	if(fd1 < 0) {
 		vfs_close(pid, fd0);
 		vfs_del_node(node);

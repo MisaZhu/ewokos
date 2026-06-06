@@ -862,8 +862,7 @@ proc_t* proc_get_next_ready(void) {
 	return next;
 }
 
-static inline void proc_unready(proc_t* proc, int32_t state) {
-	proc_lock_enter();
+static inline void proc_unready_locked(proc_t* proc, int32_t state) {
 #ifdef __x86_64__
 	proc_queue_remove_all(proc);
 #else
@@ -873,6 +872,11 @@ static inline void proc_unready(proc_t* proc, int32_t state) {
 #endif
 	proc_untrack_priority_update(proc);
 	proc->info.state = state;
+}
+
+static inline void proc_unready(proc_t* proc, int32_t state) {
+	proc_lock_enter();
+	proc_unready_locked(proc, state);
 	proc_lock_leave();
 }
 
@@ -1460,16 +1464,26 @@ void proc_waitpid(context_t* ctx, int32_t pid) {
 	if(cproc == NULL || pid < 0 || pid >= _kernel_config.max_task_num)
 		return;
 
+	proc_lock_enter();
 	p = _task_table[pid];
-	if(p == NULL || p->info.state == UNUSED)
+	if(p == NULL || p->info.state == UNUSED) {
+		proc_lock_leave();
 		return;
+	}
 	if(p->info.state == ZOMBIE) {
+		proc_lock_leave();
 		proc_funeral(p);
 		return;
 	}
 
+	/*
+	 * Publish WAIT while holding the proc lock so a fast child exit cannot
+	 * run proc_wakeup_waiting(pid) before the parent becomes visible as a
+	 * waiter, otherwise the wake edge is lost and waitpid() can sleep forever.
+	 */
 	cproc->info.wait_for = pid;
-	proc_unready(cproc, WAIT);
+	proc_unready_locked(cproc, WAIT);
+	proc_lock_leave();
 	schedule(ctx);
 
 	p = _task_table[pid];

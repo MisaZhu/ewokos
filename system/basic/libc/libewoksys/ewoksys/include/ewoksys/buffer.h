@@ -8,7 +8,7 @@ extern "C" {
 #endif
 
 
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 4096
 
 typedef struct {
 	char buffer[BUFFER_SIZE];

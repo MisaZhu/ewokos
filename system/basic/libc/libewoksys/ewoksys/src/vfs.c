@@ -295,7 +295,12 @@ static int read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block
 	PF->clear(&out);
 
 	if(res == 0 && block == 1) {//empty , do retry
-		vfs_block(node, VFS_EVT_RD);
+		/*
+		 * Pipe readers/writers can lose a wakeup in the tiny window between
+		 * queueing in VFS_BLOCK and actually sleeping in proc_block(). A short
+		 * sleep here keeps blocking semantics while avoiding a permanent hang.
+		 */
+		proc_usleep(50000);
 	}
 	return res;	
 }
@@ -315,7 +320,7 @@ static int write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, boo
 	PF->clear(&out);
 
 	if(res == 0 && block == 1) {//empty , do retry
-		vfs_block(node, VFS_EVT_WR); 
+		proc_usleep(50000);
 	}
 	return res;	
 }
@@ -406,8 +411,12 @@ int vfs_open_pipe(int fd[2]) {
 			fd[1] = proto_read_int(&out);
 			fsinfo_t info;
 			proto_read_to(&out, &info, sizeof(fsinfo_t));
-			vfs_set_file(fd[0], &info);
-			vfs_set_file(fd[1], &info);
+			fsfile_t* read_end = vfs_set_file(fd[0], &info);
+			fsfile_t* write_end = vfs_set_file(fd[1], &info);
+			if(read_end != NULL)
+				read_end->flags = O_RDONLY;
+			if(write_end != NULL)
+				write_end->flags = O_WRONLY;
 		}
 		else {
 			res = -1;
@@ -871,7 +880,12 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 	if(res > 0) {
 		offset += res;
 		if(info->type == FS_TYPE_FILE) {
-			vfs_update_file(info);
+			/*
+			 * Drivers such as ramfs can mutate per-file fsinfo.data/stat.size on write.
+			 * Sync the updated fsinfo back to vfsd's node so reopening the same path
+			 * (for shell pipe temp files, redirections, etc.) sees the new backing data.
+			 */
+			vfs_update(info, false);
 			vfs_seek(fd, offset);
 		}
 	}
@@ -905,6 +919,7 @@ static uint32_t vfs_get_poll_events_by_node(uint32_t node_id) {
 }
 
 int  vfs_block(uint32_t node, int event) {
+	uint32_t wait_events = (uint32_t)event | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL;
 	while(1) {
 		/*
 		 * Check the sticky node event before asking vfsd to enqueue us. If the
@@ -913,12 +928,12 @@ int  vfs_block(uint32_t node, int event) {
 		 * the event, and we then go to sleep without ever being on the wait
 		 * queue for the next wakeup.
 		 */
-		if((vfs_get_poll_events_by_node(node) & (uint32_t)event) != 0) {
+		if((vfs_get_poll_events_by_node(node) & wait_events) != 0) {
 			return 0;
 		}
 		if(vfs_block_raw(node, event) != 0)
 			return -1;
-		if((vfs_get_poll_events_by_node(node) & (uint32_t)event) != 0) {
+		if((vfs_get_poll_events_by_node(node) & wait_events) != 0) {
 			return 0;
 		}
 		proc_block();
