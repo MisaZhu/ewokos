@@ -321,29 +321,6 @@ tcp_log_close_event(const char *tag, struct tcp_pcb *pcb)
         ip_endpoint_ntop(&pcb->foreign, ep2, sizeof(ep2)));
 }
 
-static void
-tcp_log_stream_bytes(const char *tag, struct tcp_pcb *pcb, const uint8_t *data, size_t len)
-{
-    if (ntoh16(pcb->local.port) != 23 && ntoh16(pcb->foreign.port) != 23) {
-        return;
-    }
-    if (len == 0 || len > 8) {
-        return;
-    }
-
-    klog("[netd] %s: id=%d len=%zu bytes=%u,%u,%u,%u,%u,%u,%u,%u state=%d rcv_wnd=%u snd_wnd=%u\n",
-        tag, tcp_pcb_id(pcb), len,
-        len > 0 ? data[0] : 0,
-        len > 1 ? data[1] : 0,
-        len > 2 ? data[2] : 0,
-        len > 3 ? data[3] : 0,
-        len > 4 ? data[4] : 0,
-        len > 5 ? data[5] : 0,
-        len > 6 ? data[6] : 0,
-        len > 7 ? data[7] : 0,
-        pcb->state, pcb->rcv.wnd, pcb->snd.wnd);
-}
-
 /*
  * TCP Retransmit
  *
@@ -878,7 +855,6 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
     case TCP_PCB_STATE_FIN_WAIT1:
     case TCP_PCB_STATE_FIN_WAIT2:
         if (len) {
-            tcp_log_stream_bytes("tcp_input data", pcb, data, len);
             memcpy(pcb->buf + (sizeof(pcb->buf) - pcb->rcv.wnd), data, len);
             pcb->rcv.nxt = seg->seq + seg->len;
             pcb->rcv.wnd -= len;
@@ -1803,7 +1779,6 @@ RETRY:
     len = MIN(size, remain);
     prev_wnd = pcb->rcv.wnd;
     memcpy(data, pcb->buf, len);
-    tcp_log_stream_bytes("tcp_receive data", pcb, data, len);
     memmove(pcb->buf, pcb->buf + len, remain - len);
     pcb->rcv.wnd += len;
     if (pcb->rcv.wnd != prev_wnd) {

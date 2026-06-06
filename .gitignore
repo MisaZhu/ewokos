@@ -25,3 +25,6 @@ machine/versatilepb/kernel/config.mk
 # OpenSSL demo/test keys that trigger GitHub push protection
 system/network/libs/openssl/apps/*.pem
 system/network/libs/openssl/demos/**/*.pem
+
+.understandignore
+.understand-anything

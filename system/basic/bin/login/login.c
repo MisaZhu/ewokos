@@ -11,6 +11,15 @@
 #include <ewoksys/vfs.h>
 #include <setenv.h>
 
+#define TELNET_IAC  255
+#define TELNET_DONT 254
+#define TELNET_DO   253
+#define TELNET_WONT 252
+#define TELNET_WILL 251
+
+#define TELNET_OPT_ECHO 1
+#define TELNET_OPT_SUPPRESS_GA 3
+
 void putch(int c);
 
 static session_info_t* check(const char* user, const char* password, int* res) {
@@ -21,13 +30,52 @@ static session_info_t* check(const char* user, const char* password, int* res) {
 	return NULL;
 }
 
+static void telnet_reply_option(uint8_t verb, uint8_t opt) {
+	uint8_t reply[3] = { TELNET_IAC, 0, opt };
+	int len = 3;
+	int supported = (opt == TELNET_OPT_ECHO || opt == TELNET_OPT_SUPPRESS_GA);
+
+	switch(verb) {
+	case TELNET_DO:
+		if(!supported) {
+			reply[1] = TELNET_WONT;
+		}
+		else {
+			len = 0;
+		}
+		break;
+	case TELNET_DONT:
+		len = 0;
+		break;
+	case TELNET_WILL:
+		if(!supported) {
+			reply[1] = TELNET_DONT;
+		}
+		else {
+			len = 0;
+		}
+		break;
+	case TELNET_WONT:
+		len = 0;
+		break;
+	default:
+		len = 0;
+		break;
+	}
+
+	if(len > 0) {
+		(void)write(1, reply, len);
+	}
+}
+
 //remove telnet command add crlr
 static uint8_t telnet_parse(uint8_t c){
 	static int state = 0;
+	static uint8_t verb = 0;
 	uint8_t ret = 0;
 	switch(state){
 		case 0:
-			if(c == 0xFF){
+			if(c == TELNET_IAC){
 				state = 1;
 			}else if(c == '\r'){
 				state = 3;
@@ -37,12 +85,15 @@ static uint8_t telnet_parse(uint8_t c){
 			}
 			break;
 		case 1:
-			if(c >= 0xFB && c <= 0xFE)
+			if(c >= TELNET_WILL && c <= TELNET_DONT) {
+				verb = c;
 				state = 2;
+			}
 			else
 				state = 0;
 			break;
 		case 2:
+			telnet_reply_option(verb, c);
 			state = 0;
 			break;
 		case 3:

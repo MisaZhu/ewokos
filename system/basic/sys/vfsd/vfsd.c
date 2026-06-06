@@ -43,6 +43,7 @@ typedef struct vfs_node {
 typedef struct {
   vfs_node_t *node;
   uint32_t flags;
+  fsinfo_t fsinfo;
 } file_t;
 
 static vfs_node_t* _vfs_root = NULL;
@@ -425,6 +426,9 @@ static int32_t vfs_open(int32_t pid, vfs_node_t* node, int32_t flags) {
 
 	_proc_fds_table[pid].fds[fd].node = node;
 	_proc_fds_table[pid].fds[fd].flags = flags;
+	memcpy(&_proc_fds_table[pid].fds[fd].fsinfo, &node->fsinfo, sizeof(fsinfo_t));
+	_proc_fds_table[pid].fds[fd].fsinfo.node = vfs_get_node_id(node);
+	_proc_fds_table[pid].fds[fd].fsinfo.mount_pid = get_mount_pid(node);
 
 	if((flags & O_TRUNC) != 0)
 		node->fsinfo.stat.size = 0;
@@ -460,10 +464,34 @@ static vfs_node_t* vfs_get_by_fd(int32_t pid, int32_t fd) {
 	return file->node;
 }
 
+static inline fsinfo_t* gen_file_fsinfo(file_t* file) {
+	static fsinfo_t ret;
+	if(file == NULL || file->node == NULL)
+		return NULL;
+	memcpy(&ret, &file->node->fsinfo, sizeof(fsinfo_t));
+	ret.data = file->fsinfo.data;
+	ret.node = vfs_get_node_id(file->node);
+	ret.mount_pid = get_mount_pid(file->node);
+	return &ret;
+}
+
 static void wakeup_proc(int32_t pid, vfs_node_t* node, int32_t events) {
 	if(pid < 0 || pid >= _max_proc_table_num)
 		return;
 	proc_wakeup(pid);
+}
+
+static void wakeup_wait_queue(queue_t* q, vfs_node_t* node, int32_t events) {
+	if(q == NULL)
+		return;
+
+	while(true) {
+		int32_t* p = (int32_t*)queue_pop(q);
+		if(p == NULL)
+			break;
+		wakeup_proc(*p, node, events);
+		free(p);
+	}
 }
 
 static bool queue_pid_match(void* data, void* check_data) {
@@ -486,27 +514,22 @@ static void do_node_wakeup(vfs_node_t* node, int events) {
 			events == VFS_EVT_CLOSE || events == VFS_EVT_ERR || events == VFS_EVT_NVAL)
 		qw = &node->write_wait_queue;
 
-	if(qr != NULL) {
-		int32_t* p = (int32_t*)queue_pop(qr);
-		if(p != NULL) {
-			wakeup_proc(*p, node, events);
-			free(p);
-		}
-	}
-
-		if(qw != NULL) {
-		int32_t* p = (int32_t*)queue_pop(qw);
-		if(p != NULL) {
-			wakeup_proc(*p, node, events);
-			free(p);
-		}
-	}
+	/*
+	 * Duplicated/fork-inherited descriptors can leave multiple processes
+	 * blocked on the same node event. Waking only one waiter lets it consume
+	 * the sticky edge and can strand sibling waiters forever.
+	 */
+	wakeup_wait_queue(qr, node, events);
+	wakeup_wait_queue(qw, node, events);
 }
 
-static void vfs_driver_close(int32_t pid, int32_t fd, vfs_node_t* node) {
+static void vfs_driver_close(int32_t pid, int32_t fd, file_t* file) {
+	if(file == NULL || file->node == NULL)
+		return;
+	vfs_node_t* node = file->node;
 	proto_t in;
 	PF->format(&in, "i,i,m,i",
-		fd, vfs_get_node_id(node), &node->fsinfo, sizeof(fsinfo_t), pid);
+		fd, vfs_get_node_id(node), &file->fsinfo, sizeof(fsinfo_t), pid);
 	int32_t mount_pid = vfs_get_mount_pid(node);
 	if(mount_pid > 0) {
 		ipc_call(mount_pid, FS_CMD_CLOSE, &in, NULL);	
@@ -515,13 +538,14 @@ static void vfs_driver_close(int32_t pid, int32_t fd, vfs_node_t* node) {
 }
 
 static void vfs_driver_dup(int32_t from_pid, int32_t from_fd,
-		int32_t dup_pid, int32_t dup_fd, vfs_node_t* node) {
-	if(node == NULL)
+		int32_t dup_pid, int32_t dup_fd, file_t* file) {
+	if(file == NULL || file->node == NULL)
 		return;
+	vfs_node_t* node = file->node;
 
 	proto_t in;
 	PF->format(&in, "i,i,i,m,i,i",
-		from_fd, dup_fd, vfs_get_node_id(node), &node->fsinfo, sizeof(fsinfo_t),
+		from_fd, dup_fd, vfs_get_node_id(node), &file->fsinfo, sizeof(fsinfo_t),
 		from_pid, dup_pid);
 	int32_t mount_pid = vfs_get_mount_pid(node);
 	if(mount_pid > 0) {
@@ -682,13 +706,13 @@ static void do_vfs_get_by_name(int32_t pid, proto_t* in, proto_t* out) {
 
 static void do_vfs_get_by_fd(int pid, proto_t* in, proto_t* out) {
 	int fd = proto_read_int(in);
-  vfs_node_t* node = vfs_get_by_fd(pid, fd);
-  if(node == NULL) {
+	file_t* file = vfs_check_fd(pid, fd);
+	if(file == NULL || file->node == NULL) {
 		PF->addi(out, 0);
-    return;
+		return;
 	}
 
-	PF->addi(out, vfs_get_node_id(node))->add(out, gen_fsinfo(node), sizeof(fsinfo_t));
+	PF->addi(out, vfs_get_node_id(file->node))->add(out, gen_file_fsinfo(file), sizeof(fsinfo_t));
 }
 
 static void do_vfs_get_by_node(int32_t pid, proto_t* in, proto_t* out) {
@@ -800,6 +824,10 @@ static void do_vfs_open(int32_t pid, proto_t* in, proto_t* out) {
 	}
 
 	memcpy(&info, gen_fsinfo(node), sizeof(fsinfo_t));
+	file_t* file = vfs_check_fd(pid, res);
+	if(file != NULL) {
+		memcpy(&info, gen_file_fsinfo(file), sizeof(fsinfo_t));
+	}
 	PF->clear(out);
 	PF->addi(out, res)->add(out, &info, sizeof(fsinfo_t));
 }
@@ -816,8 +844,9 @@ static void do_vfs_dup(int32_t pid, proto_t* in, proto_t* out) {
 	int32_t fdto = -1;
 	vfs_node_t* node = vfs_dup(pid, fd, &fdto);
 	if(node != NULL) {
-		vfs_driver_dup(pid, fd, pid, fdto, node);
-		PF->addi(out, fdto)->add(out, gen_fsinfo(node), sizeof(fsinfo_t));
+		file_t* file = vfs_check_fd(pid, fdto);
+		vfs_driver_dup(pid, fd, pid, fdto, file);
+		PF->addi(out, fdto)->add(out, gen_file_fsinfo(file), sizeof(fsinfo_t));
 	}
 	else
 		PF->addi(out, -1);
@@ -829,8 +858,9 @@ static void do_vfs_dup2(int32_t pid, proto_t* in, proto_t* out) {
 
 	vfs_node_t* node = vfs_dup2(pid, fd, fdto);
 	if(node != NULL) {
-		vfs_driver_dup(pid, fd, pid, fdto, node);
-		PF->addi(out, fdto)->add(out, gen_fsinfo(node), sizeof(fsinfo_t));
+		file_t* file = vfs_check_fd(pid, fdto);
+		vfs_driver_dup(pid, fd, pid, fdto, file);
+		PF->addi(out, fdto)->add(out, gen_file_fsinfo(file), sizeof(fsinfo_t));
 	}
 	else
 		PF->addi(out, -1);
@@ -853,6 +883,21 @@ static void do_vfs_set_fsinfo(int32_t pid, proto_t* in, proto_t* out) {
 		res = set_node_info(pid, node, &info);
 	}
 	PF->clear(out)->addi(out, res);
+}
+
+static void do_vfs_set_by_fd(int32_t pid, proto_t* in, proto_t* out) {
+	int fd = proto_read_int(in);
+	fsinfo_t info;
+	PF->addi(out, -1);
+	if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
+		return;
+	file_t* file = vfs_check_fd(pid, fd);
+	if(file == NULL || file->node == NULL)
+		return;
+	memcpy(&file->fsinfo, &info, sizeof(fsinfo_t));
+	file->fsinfo.node = vfs_get_node_id(file->node);
+	file->fsinfo.mount_pid = get_mount_pid(file->node);
+	PF->clear(out)->addi(out, 0);
 }
 
 static void do_vfs_get_kids(int pid, proto_t* in, proto_t* out) {
@@ -1067,7 +1112,7 @@ static void clear_zombie(int32_t cpid) {
 	for(i=0; i<MAX_OPEN_FILE_PER_PROC; i++) {
 		file_t *f = &_proc_fds_table[cpid].fds[i];
 		if(f->node != NULL) {
-			vfs_driver_close(cpid, i, f->node);
+			vfs_driver_close(cpid, i, f);
 			proc_file_close(cpid, i, f);
 		}
 		memset(f, 0, sizeof(file_t));
@@ -1112,7 +1157,7 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 			node->refs++;
 			if((f->flags & O_WRONLY) != 0)
 				node->refs_w++;
-			vfs_driver_dup(fpid, i, cpid, i, node);
+			vfs_driver_dup(fpid, i, cpid, i, file);
 		}
 	}
 }
@@ -1279,6 +1324,9 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 		break;
 	case VFS_CLEAR_POLL_EVENTS:
 		do_vfs_clear_poll_events(pid, in, out);
+		break;
+	case VFS_SET_BY_FD:
+		do_vfs_set_by_fd(pid, in, out);
 		break;
 	default:
 		break;

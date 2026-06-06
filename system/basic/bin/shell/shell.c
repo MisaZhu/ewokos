@@ -12,7 +12,6 @@
 #include <ewoksys/syscall.h>
 #include <ewoksys/wait.h>
 #include <ewoksys/keydef.h>
-#include <ewoksys/klog.h>
 #include <sys/errno.h>
 #include <setenv.h>
 #include "shell.h"
@@ -207,10 +206,18 @@ static void prompt(void) {
 	if(cid == NULL || cid[0] == 0)
 		cid = "unknown";
 	char cwd[FS_FULL_NAME_MAX+1];
-	if(uid == 0)
-		printf("\033[4m[%s]:%s#\033[0m ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
-	else
-		printf("\033[4m[%s]:%s$\033[0m ", cid, getcwd(cwd, FS_FULL_NAME_MAX));
+	char out[FS_FULL_NAME_MAX+64];
+	const char* mark = (uid == 0) ? "#" : "$";
+	const char* path = getcwd(cwd, FS_FULL_NAME_MAX);
+	if(path == NULL)
+		path = "/";
+
+	int len = snprintf(out, sizeof(out), "\033[4m[%s]:%s%s\033[0m ", cid, path, mark);
+	if(len > 0) {
+		if((size_t)len >= sizeof(out))
+			len = (int)sizeof(out) - 1;
+		write(1, out, (size_t)len);
+	}
 }
 
 static int doargs(int argc, char* argv[]) {
@@ -256,12 +263,12 @@ int main(int argc, char* argv[]) {
 	chdir(home);
 	str_t* cmdstr = str_new("");
 	while(_terminated == 0) {
-		if(fd_in == 0)
+		if(fd_in == 0) {
 			prompt();
+		}
 
 		if(cmd_gets(fd_in, cmdstr) != 0 && cmdstr->len == 0)
 			break;
-		klog("shell loop cmd: self=%d len=%d cmd='%s'\n", getpid(), cmdstr->len, cmdstr->cstr);
 
 		char* cmd = cmdstr->cstr;
 		if(cmd[0] == 0)
@@ -285,16 +292,11 @@ int main(int argc, char* argv[]) {
 			fg = 0;
 		}	
 
-		klog("shell fork call: self=%d cmd='%s' fg=%d\n", getpid(), cmd, fg);
 		int child_pid = fork();
-		klog("shell fork result: self=%d cmd='%s' child=%d errno=%d\n",
-				getpid(), cmd, child_pid, errno);
 		if (child_pid == 0) {
-			klog("shell child begin: self=%d cmd='%s' fg=%d script=%d\n", getpid(), cmd, fg, _script_mode ? 1 : 0);
 			if(fg == 0 || _script_mode)
 				proc_detach();
 			int res = run_cmd(cmd);
-			klog("shell child return: self=%d cmd='%s' res=%d\n", getpid(), cmd, res);
 			str_free(cmdstr);	
 			return res;
 		}
@@ -302,9 +304,7 @@ int main(int argc, char* argv[]) {
 			printf("fork failed! errno=%d\n", errno);
 		}
 		else if(fg != 0) {
-			klog("shell waitpid begin: self=%d child=%d cmd='%s'\n", getpid(), child_pid, cmd);
 			waitpid(child_pid);
-			klog("shell waitpid done: self=%d child=%d cmd='%s'\n", getpid(), child_pid, cmd);
 		}
 	}
 	if(fd_in > 0) //close initrd file

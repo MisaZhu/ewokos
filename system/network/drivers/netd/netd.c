@@ -50,7 +50,6 @@ int network_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int oflag
         return -1;
     }
 	info->data = (ewokos_addr_t)task;
-	vfs_update(info, false);
 	return 0;
 }
 
@@ -65,8 +64,6 @@ static int network_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
     if(task == NULL) {
         return -1;
     }
-	klog("[netd] network_read: fd=%d pid=%d node=%u size=%d task=%p read_task=%p sock=%d\n",
-		fd, from_pid, info->node, size, task, task->read_task, task->sock);
 	if(task->read_task == NULL){
 		task->read_task = create_task(fd, from_pid, info->node);
         if(task->read_task == NULL) {
@@ -74,14 +71,9 @@ static int network_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
         }
 		task->read_task->sock = task->sock;
 		task->read_task->is_read_task = true;
-		klog("[netd] network_read create read_task: fd=%d pid=%d node=%u read_task=%p sock=%d\n",
-			fd, from_pid, info->node, task->read_task, task->read_task->sock);
 	}
 	task = task->read_task;
-	int ret = task_read(task, from_pid, buf, size, p);
-	klog("[netd] network_read result: fd=%d pid=%d node=%u ret=%d read_task=%p state=%d\n",
-		fd, from_pid, info->node, ret, task, task->state);
-	return ret;
+	return task_read(task, from_pid, buf, size, p);
 }
 
 static int network_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
@@ -93,13 +85,7 @@ static int network_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
     if(task == NULL) {
         return -1;
     }
-	klog("[netd] network_write: fd=%d pid=%d node=%u size=%d task=%p read_task=%p sock=%d\n",
-		fd, from_pid, info->node, size, task, task->read_task, task->sock);
-	int ret = task_write(task, from_pid, (char *)buf, size, p);
-	klog("[netd] network_write result: fd=%d pid=%d node=%u ret=%d task=%p state=%d\n",
-		fd, from_pid, info->node, ret, task, task->state);
-	//vfs_wakeup(task->node, VFS_EVT_RW);
-	return ret;
+	return task_write(task, from_pid, (char *)buf, size, p);
 }
 
 static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, void* p) {
@@ -119,7 +105,7 @@ static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
 		pthread_mutex_lock(&task_list_lock);
 		main_state = task->state;
 		main_sock = task->sock;
-		if (main_state == NET_TASK_IDLE) {
+		if (main_state == NET_TASK_IDLE || main_state == NET_TASK_FINISH) {
 			events |= VFS_EVT_WR;
 		}
 		if (task->read_task != NULL) {
@@ -150,19 +136,11 @@ static int network_dup(vdevice_t* dev, int from_fd, int from_pid, int dup_fd, in
 
 	net_task_t *task = (net_task_t *)(ewokos_addr_t)fsinfo->data;
 	if(task == NULL) {
-		klog("[netd] network_dup null: fpid=%d ffd=%d cpid=%d cfd=%d node=%u\n",
-			from_pid, from_fd, dup_pid, dup_fd, node);
 		return -1;
 	}
 
-	klog("[netd] network_dup enter: fpid=%d ffd=%d cpid=%d cfd=%d node=%u task=%p sock=%d refs=%d\n",
-		from_pid, from_fd, dup_pid, dup_fd, node, task, task->sock, task->refs);
-	klog("[netd] network_dup lock begin: task=%p node=%u\n", task, node);
 	pthread_mutex_lock(&task_list_lock);
-	klog("[netd] network_dup lock done: task=%p node=%u\n", task, node);
 	task->refs++;
-	klog("[netd] network_dup: fpid=%d ffd=%d cpid=%d cfd=%d node=%u task=%p sock=%d refs=%d\n",
-		from_pid, from_fd, dup_pid, dup_fd, node, task, task->sock, task->refs);
 	pthread_mutex_unlock(&task_list_lock);
 	return 0;
 }
@@ -176,14 +154,10 @@ static int network_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fs
 		pthread_mutex_lock(&task_list_lock);
 		if(task->refs > 1) {
 			task->refs--;
-			klog("[netd] network_close: keep task=%p fd=%d node=%u sock=%d refs=%d\n",
-				task, fd, node, task->sock, task->refs);
 			pthread_mutex_unlock(&task_list_lock);
 			return 0;
 		}
 		task->refs = 0;
-		klog("[netd] network_close: final task=%p fd=%d node=%u sock=%d read_task=%p\n",
-			task, fd, node, task->sock, task->read_task);
 		task->running = false;
 		if(task->read_task != NULL)
 			task->read_task->running = false;

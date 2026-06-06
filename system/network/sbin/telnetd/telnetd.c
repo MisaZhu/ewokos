@@ -67,32 +67,39 @@ static void telnet_send_initial_negotiation(int fd) {
     }
 }
 
+static int telnet_open_server_socket(int port) {
+    struct sockaddr_in serv_addr;
+
+    while (true) {
+        int serv_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if(serv_sock < 0) {
+            proc_usleep(200000);
+            continue;
+        }
+
+        memset(&serv_addr, 0, sizeof(serv_addr));
+        serv_addr.sin_family = AF_INET;
+        serv_addr.sin_addr.s_un.s_addr = htonl(INADDR_ANY);
+        serv_addr.sin_port = htons(port);
+
+        if(bind(serv_sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == 0 &&
+                listen(serv_sock, 5) == 0) {
+            return serv_sock;
+        }
+
+        close(serv_sock);
+        proc_usleep(200000);
+    }
+}
+
 int main(int argc, char *argv[])
 {
     int serv_sock, clnt_sock;
-    struct sockaddr_in serv_addr, clnt_addr;
+    struct sockaddr_in clnt_addr;
     socklen_t clnt_addr_size;
 
     int port = (argc > 1) ? atoi(argv[1]):SERVER_PORT;
-    serv_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    // opt_size = sizeof(option);
-    // option = 1;
-    // setsockopt(serv_sock, SOL_SOCKET, SO_REUSEADDR, (const void *) &option, opt_size);
-    slog("Service Port: %d\n", argc);
-    memset(&serv_addr, 0, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_un.s_addr = htonl(INADDR_ANY);
-    serv_addr.sin_port = htons(port);
-
-    if (-1 == bind(serv_sock, (struct sockaddr *) &serv_addr, sizeof(serv_addr))) {
-        slog("bind error.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (-1 == listen(serv_sock, 5)) {
-        slog("listen error.\n");
-        exit(EXIT_FAILURE);
-    }
+    serv_sock = telnet_open_server_socket(port);
 
     slog("Listening on port %d...\n", port);
 
@@ -110,20 +117,20 @@ int main(int argc, char *argv[])
                 continue;
             }
             if(pid == 0) {//child
-                klog("telnetd child begin: sock=%d serv=%d\n", clnt_sock, serv_sock);
                 close(serv_sock);
-                klog("telnetd child before dup2: sock=%d\n", clnt_sock);
                 int r0 = dup2(clnt_sock, 0);
                 int r1 = dup2(clnt_sock, 1);
                 int r2 = dup2(clnt_sock, 2);
                 int rb0 = dup2(clnt_sock, VFS_BACKUP_FD0);
                 int rb1 = dup2(clnt_sock, VFS_BACKUP_FD1);
-                klog("telnetd child after dup2: sock=%d stdin=%d stdout=%d stderr=%d backup0=%d backup1=%d\n",
-                        clnt_sock, r0, r1, r2, rb0, rb1);
+                (void)r0;
+                (void)r1;
+                (void)r2;
+                (void)rb0;
+                (void)rb1;
                 telnet_send_initial_negotiation(STDOUT_FILENO);
                 close(clnt_sock);
 		        setenv("CONSOLE_ID", "telnet");
-                klog("telnetd child exec /bin/shell\n");
                 if(proc_exec("/bin/shell") < 0) {
                     klog("telnetd child exec /bin/session failed\n");
                     exit(-1);

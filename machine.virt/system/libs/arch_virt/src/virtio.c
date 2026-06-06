@@ -876,6 +876,20 @@ int virtio_net_pending_rx(virtio_dev_t dev)
 	return (uint16_t)(net->rxq->used.idx - net->rx_used_idx);
 }
 
+int virtio_net_can_write(virtio_dev_t dev)
+{
+	struct virtio_net_state *net = virtio_net_state(dev);
+	if (net == NULL || net->txq == NULL)
+	{
+		return 0;
+	}
+
+	virtio_ack_interrupt(dev->base, 0x3);
+	virtio_net_reap_tx(net);
+	mem_barrier();
+	return net->tx_inflight ? 0 : 1;
+}
+
 int virtio_net_read(virtio_dev_t dev, void *buf, uint32_t size)
 {
 	struct virtio_net_state *net = virtio_net_state(dev);
@@ -932,9 +946,7 @@ int virtio_net_write(virtio_dev_t dev, const void *buf, uint32_t size)
 		return -1;
 	}
 
-	virtio_ack_interrupt(dev->base, 0x3);
-	virtio_net_reap_tx(net);
-	if (net->tx_inflight)
+	if (!virtio_net_can_write(dev))
 	{
 		return 0;
 	}

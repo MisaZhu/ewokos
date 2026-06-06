@@ -813,11 +813,8 @@ static inline void proc_ready_with_order(proc_t* proc, bool push_head) {
 		queue_push(&_ready_queue[proc->info.core], proc);
 #else
 	(void)push_head;
-	if(proc->priority_count > 0) {
-		proc_lock_leave();
-		return;
-	}
-	proc->priority_count = proc->info.priority;
+	if(proc->priority_count == 0)
+		proc->priority_count = proc->info.priority;
 
 	if(queue_in(&_ready_queue[proc->info.core], proc) == NULL)
 		queue_push(&_ready_queue[proc->info.core], proc);

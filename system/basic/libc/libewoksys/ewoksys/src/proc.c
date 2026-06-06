@@ -192,7 +192,6 @@ int proc_exec(const char *name) {
 	char fpath[64];
 	int sz = 0;
 	const char *p = name;
-	klog("[proc_exec] begin: pid=%d name='%s'\n", getpid(), name);
 	saveenv();
 	memset(fpath, 0, sizeof(fpath));
 	for(int i = 0; i < sizeof(fpath); i++){
@@ -201,15 +200,11 @@ int proc_exec(const char *name) {
 		fpath[i] = name[i];
 	}
 	void* buf = vfs_readfile(fpath, &sz);
-	klog("[proc_exec] readfile: pid=%d path='%s' buf=%p size=%d\n", getpid(), fpath, buf, sz);
 
 	if(buf == NULL) {
 		return -1;
 	}
-	klog("[proc_exec] close_on_exec begin: pid=%d name='%s'\n", getpid(), name);
 	close_on_exec_fds();
-	klog("[proc_exec] close_on_exec done: pid=%d name='%s'\n", getpid(), name);
-	klog("[proc_exec] exec_elf: pid=%d name='%s' size=%d\n", getpid(), name, sz);
 	proc_exec_elf(name, buf, sz);
 	free(buf);
 	return 0;

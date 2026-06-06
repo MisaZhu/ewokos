@@ -37,7 +37,8 @@ enum {
 	VFS_BLOCK,
 	VFS_WAKEUP,
 	VFS_GET_POLL_EVENTS,
-	VFS_CLEAR_POLL_EVENTS
+	VFS_CLEAR_POLL_EVENTS,
+	VFS_SET_BY_FD
 };
 
 int  vfs_check_access(int pid, fsinfo_t* info, int mode);

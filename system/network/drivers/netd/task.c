@@ -107,9 +107,6 @@ void release_task(net_task_t *task){
     int sock = task->sock;
     int thread_started = task->thread_started;
 
-    klog("[netd] release_task begin: task=%p fd=%d node=%d sock=%d is_read=%d running=%d thread_started=%d\n",
-        task, task->fd, task->node, sock, is_read_task, task->running, thread_started);
-
     // Also wake up waiting client if task was processing
     if(from_pid > 0) {
         vfs_wakeup(task->node, VFS_EVT_CLOSE);
@@ -123,12 +120,9 @@ void release_task(net_task_t *task){
 
     // Now close the socket if this is not a read task
     if(!is_read_task) {
-        klog("[netd] release_task sock_close: task=%p sock=%d\n", task, sock);
         sock_close(sock);
     }
     // Now safe to destroy condition variable after thread has exited
-    klog("[netd] release_task done: task=%p fd=%d node=%d sock=%d\n",
-        task, task->fd, task->node, sock);
     free(task); // We free main task here
 }
 
@@ -136,17 +130,31 @@ int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *o
     pthread_mutex_lock(&task_list_lock);
     
     if(task->state == NET_TASK_FINISH){
-        if(cmd != task->cmd || from_pid != task->from_pid){
+        if(cmd != task->cmd){
             pthread_mutex_unlock(&task_list_lock);
             return VFS_ERR_RETRY;
         }
-        PF->copy(out, task->out.data, task->out.size);
+        if(from_pid == task->from_pid) {
+            PF->copy(out, task->out.data, task->out.size);
+            PF->clear(&task->out);
+            PF->clear(&task->in);
+            task->state = NET_TASK_IDLE;
+            pthread_mutex_unlock(&task_list_lock);
+            return 0;
+        }
+        /*
+         * The same socket can be inherited across fork()/dup(). If a new pid
+         * touches the socket after the previous owner completed an async
+         * request, drop the stale completion and arm the new request in this
+         * call. Returning RETRY here can strand the caller in VFS_EVT_WR sleep
+         * with no freshly armed operation to wake it.
+         */
         PF->clear(&task->out);
         PF->clear(&task->in);
         task->state = NET_TASK_IDLE;
-        pthread_mutex_unlock(&task_list_lock);
-        return 0;
-    }else if(task->state == NET_TASK_IDLE){
+    }
+
+    if(task->state == NET_TASK_IDLE){
         task->cmd = cmd;	
         task->p = p;
         task->from_pid = from_pid;
@@ -169,53 +177,68 @@ int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *o
 
 int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
     if(!task->is_read_task){
-        klog("[netd] task_read reject non-read-task: task=%p pid=%d node=%d\n", task, from_pid, task->node);
         return VFS_ERR_RETRY;
     }
 
     pthread_mutex_lock(&task_list_lock);
-	klog("[netd] task_read enter: task=%p pid=%d node=%d state=%d sock=%d size=%d\n",
-		task, from_pid, task->node, task->state, task->sock, size);
     
     if(task->state == NET_TASK_FINISH){
         if(SOCK_RECV != task->cmd) {
             pthread_mutex_unlock(&task_list_lock);
-            klog("[netd] task_read finish but cmd mismatch: task=%p cmd=%d\n", task, task->cmd);
             return VFS_ERR_RETRY;
         }
-        int len = proto_read_int(&task->out);
-        int sock_errno = 0;
-        if(len > 0){
-            proto_read_to(&task->out, buf, len);
+        if(from_pid == task->from_pid) {
+            int len = proto_read_int(&task->out);
+            int sock_errno = 0;
+            if(len > 0){
+                proto_read_to(&task->out, buf, len);
+            }
+            if(len <= 0 && task->out.size > task->out.offset) {
+                sock_errno = proto_read_int(&task->out);
+            }
+            PF->clear(&task->out);
+            PF->clear(&task->in);
+            task->state = NET_TASK_IDLE;
+            pthread_mutex_unlock(&task_list_lock);
+            klog("[netd] read finish node=%u from=%d len=%d errno=%d\n",
+                task->node, from_pid, len, sock_errno);
+            if(len < 0 && (sock_errno == 0 || sock_errno == EAGAIN || sock_errno == EINTR)) {
+                return VFS_ERR_RETRY;
+            }
+            return len;
         }
-        if(len <= 0 && task->out.size > task->out.offset) {
-            sock_errno = proto_read_int(&task->out);
-        }
+        /*
+         * A fork-inherited stdin may be touched by a child process before the
+         * parent shell issues the next read. Clear the stale completion and
+         * arm the parent read immediately so the caller does not sleep on an
+         * already-consumed event.
+         */
         PF->clear(&task->out);
         PF->clear(&task->in);
         task->state = NET_TASK_IDLE;
-        pthread_mutex_unlock(&task_list_lock);
-        if(len < 0 && (sock_errno == 0 || sock_errno == EAGAIN || sock_errno == EINTR)) {
-            klog("[netd] task_read finish retry: task=%p len=%d errno=%d\n", task, len, sock_errno);
-            return VFS_ERR_RETRY;
-        }
-        klog("[netd] task_read finish return: task=%p len=%d errno=%d\n", task, len, sock_errno);
-        return len;
-    }else if(task->state == NET_TASK_IDLE){
+    }
+
+    if(task->state == NET_TASK_IDLE){
+        klog("[netd] read arm node=%u from=%d size=%d sock=%d\n",
+            task->node, from_pid, size, task->sock);
         task->cmd = SOCK_RECV;	
         task->p = p;
         task->from_pid = from_pid;
         PF->clear(&task->in);
         PF->clear(&task->out);
         PF->addi(&task->in, size);
+        /*
+         * Like the write side, drop any stale readable edge before arming a
+         * new async receive. Otherwise callers can loop on an old RD event,
+         * repeatedly re-enter task_read() in PROCESS, and race the real
+         * completion they were supposed to sleep for.
+         */
+        vfs_clear_poll_events(task->node, VFS_EVT_RD);
         task->state = NET_TASK_START;
         pthread_cond_signal(&task->cond);
         pthread_mutex_unlock(&task_list_lock);
-        klog("[netd] task_read start recv: task=%p pid=%d node=%d size=%d\n",
-			task, from_pid, task->node, size);
     } else {
         pthread_mutex_unlock(&task_list_lock);
-        klog("[netd] task_read busy retry: task=%p state=%d cmd=%d\n", task, task->state, task->cmd);
     }
     return VFS_ERR_RETRY;
 }
@@ -224,26 +247,38 @@ int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p){
     pthread_mutex_lock(&task_list_lock);
     
     if(task->state == NET_TASK_FINISH){
-        if(SOCK_SEND != task->cmd || from_pid != task->from_pid){
+        if(SOCK_SEND != task->cmd){
             pthread_mutex_unlock(&task_list_lock);
             return VFS_ERR_RETRY;
         }
-        int ret = proto_read_int(&task->out);
-        int sock_errno = 0;
-        if(ret < 0 && task->out.size > task->out.offset) {
-            sock_errno = proto_read_int(&task->out);
+        if(from_pid == task->from_pid) {
+            int ret = proto_read_int(&task->out);
+            int sock_errno = 0;
+            if(ret < 0 && task->out.size > task->out.offset) {
+                sock_errno = proto_read_int(&task->out);
+            }
+            PF->clear(&task->out);
+            PF->clear(&task->in);
+            task->state = NET_TASK_IDLE;
+            pthread_mutex_unlock(&task_list_lock);
+            if(ret < 0 && (sock_errno == 0 || sock_errno == EAGAIN || sock_errno == EINTR)) {
+                return VFS_ERR_RETRY;
+            }
+            return ret;
         }
+        /*
+         * Writes on duplicated or fork-inherited socket FDs may arrive from a
+         * different pid than the one that completed the previous async send.
+         * Re-arm the new write immediately instead of returning a bare RETRY,
+         * otherwise the caller can block on WR with no in-flight send to
+         * generate the next wakeup edge.
+         */
         PF->clear(&task->out);
         PF->clear(&task->in);
         task->state = NET_TASK_IDLE;
-        pthread_mutex_unlock(&task_list_lock);
-        if(ret < 0 && (sock_errno == 0 || sock_errno == EAGAIN || sock_errno == EINTR)) {
-            klog("[netd] task_write finish retry: task=%p len=%d errno=%d\n", task, ret, sock_errno);
-            return VFS_ERR_RETRY;
-        }
-        klog("[netd] task_write finish return: task=%p len=%d errno=%d\n", task, ret, sock_errno);
-        return ret;
-    }else if(task->state == NET_TASK_IDLE){
+    }
+
+    if(task->state == NET_TASK_IDLE){
         task->cmd = SOCK_SEND;	
         task->p = p;
         task->from_pid = from_pid;
@@ -258,8 +293,6 @@ int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p){
          */
         vfs_clear_poll_events(task->node, VFS_EVT_WR);
         task->state = NET_TASK_START;
-        klog("[netd] task_write start send: task=%p pid=%d node=%u size=%d sock=%d\n",
-                task, from_pid, task->node, size, task->sock);
         pthread_cond_signal(&task->cond);
         pthread_mutex_unlock(&task_list_lock);
         // Signal task thread to wake up
@@ -280,8 +313,6 @@ int do_network_fcntl(net_task_t *task){
 	int sock_errno = 0;
 	sock = task->sock;
 
-    static uint32_t cnt = 0;
-    //klog("%d:sock_network_fcntl sock:%d, node:%p, cmd:%d\n", cnt++, sock, task->node, task->cmd);
 	switch(task->cmd){
 		case SOCK_OPEN:
 			domain = proto_read_int(&task->in);
@@ -309,6 +340,8 @@ int do_network_fcntl(net_task_t *task){
 				errno = 0;
 				ret = sock_sendto(sock, data, size, paddr, addrlen);
 				sock_errno = errno;
+				if(ret < 0 && sock_errno == 0)
+					sock_errno = EAGAIN;
 			}
 			PF->addi(&task->out, ret);
 			PF->addi(&task->out, ret < 0 ? sock_errno : 0);
@@ -319,6 +352,8 @@ int do_network_fcntl(net_task_t *task){
             errno = 0;
             ret = sock_recvfrom(sock, task->read_buf, size, &addr, &addrlen);
             sock_errno = errno;
+            if(ret < 0 && sock_errno == 0)
+                sock_errno = EAGAIN;
             PF->addi(&task->out, ret);
             if(ret > 0){
                 PF->addi(&task->out, addrlen);
@@ -331,12 +366,10 @@ int do_network_fcntl(net_task_t *task){
 			data = proto_read(&task->in, &size);
             if(data && size){
 				errno = 0;
-				klog("[netd] do_network_fcntl SOCK_SEND enter: task=%p fd=%d node=%d sock=%d size=%d\n",
-					task, task->fd, task->node, sock, size);
 			    ret = sock_send(sock, data, size);
 				sock_errno = errno;
-				klog("[netd] do_network_fcntl SOCK_SEND return: task=%p fd=%d node=%d sock=%d ret=%d errno=%d\n",
-					task, task->fd, task->node, sock, ret, sock_errno);
+				if(ret < 0 && sock_errno == 0)
+					sock_errno = EAGAIN;
             } 
 			PF->addi(&task->out, ret);
 			PF->addi(&task->out, ret < 0 ? sock_errno : 0);
@@ -347,6 +380,8 @@ int do_network_fcntl(net_task_t *task){
             errno = 0;
             ret = sock_recv(sock, task->read_buf, size);
             sock_errno = errno;
+            if(ret < 0 && sock_errno == 0)
+                sock_errno = EAGAIN;
             PF->addi(&task->out, ret);
             if(ret > 0){
                 PF->add(&task->out, task->read_buf, ret);
@@ -366,8 +401,6 @@ int do_network_fcntl(net_task_t *task){
 			}
 			break;	
 		case SOCK_CLOSE:
-            klog("[netd] SOCK_CLOSE: task=%p fd=%d node=%d sock=%d\n",
-                task, task->fd, task->node, sock);
 			ret = sock_close(sock);
 			PF->addi(&task->out, ret);
 			break;
@@ -384,6 +417,8 @@ int do_network_fcntl(net_task_t *task){
 				errno = 0;
 				ret = sock_connect(sock, paddr, addrlen);
 				sock_errno = errno;
+				if(ret < 0 && sock_errno == 0)
+					sock_errno = EAGAIN;
 			}
 			PF->addi(&task->out, ret);
 			PF->addi(&task->out, ret < 0 ? sock_errno : 0);

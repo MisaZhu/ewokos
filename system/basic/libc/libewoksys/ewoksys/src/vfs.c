@@ -182,6 +182,22 @@ int vfs_get_by_fd(int fd, fsinfo_t* info) {
 	return -1;
 }
 
+int vfs_set_by_fd(int fd, fsinfo_t* info) {
+	proto_t in, out;
+	PF->format(&in, "i,m", fd, info, sizeof(fsinfo_t));
+	PF->init(&out);
+	int res = ipc_call(get_vfsd_pid(), VFS_SET_BY_FD, &in, &out);
+	PF->clear(&in);
+	if(res == 0) {
+		res = proto_read_int(&out);
+		if(res == 0) {
+			vfs_set_file(fd, info);
+		}
+	}
+	PF->clear(&out);
+	return res;
+}
+
 int vfs_get_by_node(uint32_t node, fsinfo_t* info) {
 	proto_t in, out;
 	PF->init(&in)->addi(&in, node);
@@ -889,15 +905,20 @@ static uint32_t vfs_get_poll_events_by_node(uint32_t node_id) {
 }
 
 int  vfs_block(uint32_t node, int event) {
-	if(vfs_block_raw(node, event) != 0)
-		return -1;
 	while(1) {
+		/*
+		 * Check the sticky node event before asking vfsd to enqueue us. If the
+		 * edge is already visible, returning immediately avoids the race where
+		 * VFS_BLOCK sees the event and skips queueing us, another path consumes
+		 * the event, and we then go to sleep without ever being on the wait
+		 * queue for the next wakeup.
+		 */
 		if((vfs_get_poll_events_by_node(node) & (uint32_t)event) != 0) {
-			/*
-			 * Consume the edge we are waiting for before returning to the
-			 * caller. This avoids retry loops reusing the same sticky event.
-			 */
-			vfs_clear_poll_events(node, (uint32_t)event);
+			return 0;
+		}
+		if(vfs_block_raw(node, event) != 0)
+			return -1;
+		if((vfs_get_poll_events_by_node(node) & (uint32_t)event) != 0) {
 			return 0;
 		}
 		proc_block();

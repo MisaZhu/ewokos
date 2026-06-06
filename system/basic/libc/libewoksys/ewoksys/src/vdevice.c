@@ -144,6 +144,16 @@ static void do_dup(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 	if(dev != NULL && dev->dup != NULL) {
 		dev->dup(dev, from_fd, from_owner_pid, dup_fd, dup_owner_pid, node, fsinfo, p);
 	}
+	/*
+	 * Keep the device-side per-fd cache aligned with VFS dup/dup2/fork
+	 * semantics. Anonymous devices like /dev/net0 carry fd-private data in
+	 * fsinfo.data, so falling back to node-level lookup on the first access of
+	 * the duplicated fd would lose the socket instance binding.
+	 */
+	file_del(dup_fd, dup_owner_pid, node);
+	if(fsinfo != NULL) {
+		file_add(dup_fd, dup_owner_pid, fsinfo);
+	}
 	(void)from_pid;
 }
 
@@ -208,17 +218,15 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 		PF->addi(out, -1);
 	}
 
-	if(info != NULL) {
-		if(dev != NULL && dev->check_poll_events != NULL) {
-			uint32_t events = dev->check_poll_events(dev, fd, from_pid, info, p);
-			if((events & VFS_EVT_RD) == 0)
-				vfs_clear_poll_events(info->node, VFS_EVT_RD);
-		}
-		else  {
-			if(rd == VFS_ERR_RETRY)
-				vfs_clear_poll_events(info->node, VFS_EVT_RD);
-		}
-	}
+	(void)rd;
+	/*
+	 * Readers like netd/task_read() now clear stale RD before arming a fresh
+	 * async receive. Clearing RD again here after a RETRY reintroduces the same
+	 * race we fixed on the write side: a new readable edge can arrive between
+	 * check_poll_events() and this userspace-side clear, so the blocked reader
+	 * goes to sleep after the only wakeup for the newly arrived byte stream was
+	 * just erased.
+	 */
 }
 
 static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
@@ -270,17 +278,14 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 		PF->addi(out, -1);
 	}
 
-	if(info != NULL) {
-		if(dev != NULL && dev->check_poll_events != NULL) {
-			uint32_t events = dev->check_poll_events(dev, fd, from_pid, info, p);
-			if((events & VFS_EVT_WR) == 0)
-				vfs_clear_poll_events(info->node, VFS_EVT_WR);
-		}
-		else {
-			if(wr == VFS_ERR_RETRY)
-				vfs_clear_poll_events(info->node, VFS_EVT_WR);
-		}
-	}
+	(void)wr;
+	/*
+	 * Writers like netd clear stale WR edges when arming a new async send.
+	 * Clearing again here after the device write returns RETRY races against a
+	 * fast completion: the worker can finish and publish a fresh WR wakeup
+	 * between check_poll_events() and this userspace-side clear, losing the
+	 * only edge the blocked writer was waiting for.
+	 */
 }
 
 static void do_read_block(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {

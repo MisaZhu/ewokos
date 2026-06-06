@@ -1,6 +1,8 @@
 #ifndef _PLATFORM_H_
 #define _PLATFORM_H_
 
+#include <sys/errno.h>
+
 #define MUTEX_INITIALIZER  0
 typedef uint32_t mutex_t;
 
@@ -39,7 +41,6 @@ struct sched_ctx {
 
 void raise_softirq(uint32_t sig);
 
-#define EINTR -1
 #ifndef ECONNRESET
 #define ECONNRESET 104  /* Connection reset by peer */
 #endif

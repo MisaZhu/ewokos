@@ -85,7 +85,7 @@ static uint32_t net_check_poll_events(vdevice_t* dev, int fd, int from_pid, fsin
 	{
 		events |= VFS_EVT_RD;
 	}
-	if (_net != NULL)
+	if (virtio_net_can_write(_net) > 0)
 	{
 		events |= VFS_EVT_WR;
 	}
@@ -99,6 +99,10 @@ static int net_loop_step(vdevice_t* dev, void *p)
 	if (_net != NULL && virtio_net_pending_rx(_net) > 0)
 	{
 		vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
+	}
+	if (_net != NULL && virtio_net_can_write(_net) > 0)
+	{
+		vfs_wakeup(dev->mnt_info.node, VFS_EVT_WR);
 	}
 	proc_usleep(1000);
 	return 0;

@@ -183,16 +183,15 @@ void _start(void) {
 	loadenv();
 	set_stderr();
 	setup_stdio_mode();
-	klog("[cmain] main enter: pid=%d argv0='%s' argc=%d\n", getpid(), _argv0, argc);
 	
 	int ret = main(argc, argv);
-	klog("[cmain] main return: pid=%d argv0='%s' ret=%d\n", getpid(), _argv0, ret);
-	klog("[cmain] close_stdio begin: pid=%d argv0='%s'\n", getpid(), _argv0);
-	close_stdio();
-	klog("[cmain] close_stdio done: pid=%d argv0='%s'\n", getpid(), _argv0);
+	/*
+	 * Let the process-exit path reclaim inherited stdio FDs in one place.
+	 * Closing 0/1/2 explicitly here is redundant and can disturb shared
+	 * socket-backed consoles (for example telnet shell children after fork).
+	 */
 	//__ewok_malloc_close();
 	proc_exit();
-	_libc_exit();
 
 	argc = 0;
 	while(argc < ARG_MAX) {
@@ -200,7 +199,6 @@ void _start(void) {
 			free(argv[argc]);
 		argc++;
 	}
-	klog("[cmain] exit syscall: pid=%d argv0='%s' ret=%d\n", getpid(), _argv0, ret);
 	exit(ret);
 }
 

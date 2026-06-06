@@ -15,6 +15,7 @@
 #include <reent.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <stdlib.h>
 #include <sys/wait.h>
 #include <syscalls.h>
 #include <sysinfo.h>
@@ -23,8 +24,6 @@
 #include <ewoksys/vfs.h>
 #include <ewoksys/kernel_tic.h>
 #include <ewoksys/core.h>
-
-extern void klog(const char *format, ...);
 
 #define EBADF 9
 #define ENOSYS 88
@@ -265,10 +264,6 @@ _read (int fd, void * buf, size_t size)
 	fsinfo_t info;
 	if(vfs_get_by_fd(fd, &info) != 0)
 		return -1;
-	if(fd >= 0 && fd <= 2) {
-		klog("[libc] _read: pid=%d fd=%d node=%u mnt=%d data=%x size=%zu type=%u\n",
-			getpid(), fd, info.node, info.mount_pid, info.data, size, info.type);
-	}
 
 	errno = 0;
 	int flags = vfs_get_flags(fd);
@@ -303,6 +298,26 @@ _read (int fd, void * buf, size_t size)
 	return res;
 }
 
+static size_t map_telnet_written_size(const char *src, size_t src_size, int written) {
+	if(written <= 0)
+		return 0;
+
+	size_t expanded = 0;
+	size_t consumed = 0;
+	while(consumed < src_size) {
+		if(src[consumed] == '\n' && (consumed == 0 || src[consumed-1] != '\r')) {
+			if((int)(expanded + 1) > written)
+				break;
+			expanded++;
+		}
+		if((int)(expanded + 1) > written)
+			break;
+		expanded++;
+		consumed++;
+	}
+	return consumed;
+}
+
 off_t
 _lseek (int fd, off_t offset, int whence)
 {
@@ -329,10 +344,6 @@ _write (int fd, const void * buf, size_t size)
 	fsinfo_t info;
 	if(vfs_get_by_fd(fd, &info) != 0)
 		return -1;
-	if(fd >= 0 && fd <= 2) {
-		klog("[libc] _write: pid=%d fd=%d node=%u mnt=%d data=%x size=%zu type=%u\n",
-			getpid(), fd, info.node, info.mount_pid, info.data, size, info.type);
-	}
 
 	errno = 0;
 	int flags = vfs_get_flags(fd);
@@ -342,26 +353,99 @@ _write (int fd, const void * buf, size_t size)
 	if(flags & O_NONBLOCK)
 		block = false;
 
+	const void *write_buf = buf;
+	size_t write_size = size;
+	char *telnet_buf = NULL;
+	if((fd == 1 || fd == 2) && buf != NULL && size > 0) {
+		const char *cid = getenv("CONSOLE_ID");
+		if(cid != NULL && strcmp(cid, "telnet") == 0) {
+			const char *src = (const char *)buf;
+			size_t extra = 0;
+			for(size_t i = 0; i < size; i++) {
+				if(src[i] == '\n' && (i == 0 || src[i-1] != '\r'))
+					extra++;
+			}
+			if(extra > 0) {
+				telnet_buf = (char *)malloc(size + extra);
+				if(telnet_buf != NULL) {
+					size_t j = 0;
+					for(size_t i = 0; i < size; i++) {
+						if(src[i] == '\n' && (i == 0 || src[i-1] != '\r'))
+							telnet_buf[j++] = '\r';
+						telnet_buf[j++] = src[i];
+					}
+					write_buf = telnet_buf;
+					write_size = j;
+				}
+			}
+		}
+	}
+
 	int res = -1;
+	size_t total_written = 0;
 	if(info.type == FS_TYPE_PIPE) {
 		while(1) {
-			res = vfs_write_pipe(fd, info.node, buf, size, block);
-			if(res >= 0 || errno != EAGAIN)
+			res = vfs_write_pipe(fd, info.node,
+					((const char *)write_buf) + total_written,
+					write_size - total_written, block);
+			if(res > 0) {
+				total_written += (size_t)res;
+				if(total_written >= write_size) {
+					res = (int)total_written;
+					break;
+				}
+				if(!block) {
+					res = (int)total_written;
+					break;
+				}
+				continue;
+			}
+			if(res == 0 || errno != EAGAIN)
 				break;
 			if(!block)
 				break;
+		}
+		if(telnet_buf != NULL) {
+			if(res > 0)
+				res = (int)map_telnet_written_size((const char *)buf, size, (int)total_written);
+			free(telnet_buf);
+		}
+		else if(total_written > 0) {
+			res = (int)total_written;
 		}
 		return res;
 	}
 
 	while(1) {
-		res = vfs_write(fd, &info, buf, size);
-		if(res >= 0)
+		res = vfs_write(fd, &info,
+				((const char *)write_buf) + total_written,
+				write_size - total_written);
+		if(res > 0) {
+			total_written += (size_t)res;
+			if(total_written >= write_size) {
+				res = (int)total_written;
+				break;
+			}
+			if(!block) {
+				res = (int)total_written;
+				break;
+			}
+			continue;
+		}
+		if(res == 0)
 			break;
 
 		if(errno != EAGAIN || !block)
 			break;
 		vfs_block(info.node, VFS_EVT_WR);
+	}
+	if(telnet_buf != NULL) {
+		if(res > 0)
+			res = (int)map_telnet_written_size((const char *)buf, size, (int)total_written);
+		free(telnet_buf);
+	}
+	else if(total_written > 0) {
+		res = (int)total_written;
 	}
 	return res;
 }
@@ -399,6 +483,12 @@ _open (const char * fname, int oflag, ...)
 		if(created)
 			vfs_del_node(info.node);
 		kout(" dev_err");
+		fd = -1;
+	}
+	else if(vfs_set_by_fd(fd, &info) != 0) {
+		vfs_close(fd);
+		if(created)
+			vfs_del_node(info.node);
 		fd = -1;
 	}
 	return fd;
