@@ -1461,9 +1461,18 @@ tcp_accept(int id, struct ip_endpoint *foreign)
     }
     while (!(new_pcb = queue_pop(&pcb->backlog))) {
         if (sched_sleep(&pcb->state_ctx, &mutex, NULL) == -1) {
-            debugf("interrupted");
+            if (errno == EINTR) {
+                /*
+                 * net_event_handler() may broadcast interrupts to sleeping TCP
+                 * waiters even when no new connection has reached the listen
+                 * backlog yet. For accept(), treat EINTR as a spurious wakeup
+                 * and keep waiting for backlog entries or a real close.
+                 */
+                debugf("interrupted while waiting backlog, retry");
+                continue;
+            }
+            debugf("sleep failed: errno=%d", errno);
             mutex_unlock(&mutex);
-            errno = EINTR;
             return -1;
         }
         if (pcb->state == TCP_PCB_STATE_CLOSED) {

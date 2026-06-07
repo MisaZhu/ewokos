@@ -41,8 +41,21 @@ static int do_vfs_fcntl(int fd, int cmd, proto_t* arg_in, proto_t* arg_out){
             proc_usleep(3000);
             continue;
         }
+        /*
+         * /dev/net0 descriptors share the same VFS node, so RD/WR edges raised
+         * by an accepted/data socket can leave a stale event latched on the
+         * listener's node. If accept/connect/send retries block on that stale
+         * bit, vfs_block() returns immediately forever and the call appears to
+         * lose blocking mode after the first connection. Clear the stale edge,
+         * retry the actual fcntl once, then sleep only if it is still pending.
+         */
+        vfs_clear_poll_events(info.node, wait_event);
+        ret = vfs_fcntl(fd, cmd, arg_in, arg_out);
+        if(ret != VFS_ERR_RETRY)
+            break;
         if(vfs_block(info.node, wait_event) != 0)
             return -1;
+        proc_usleep(3000);
     };
 
     return ret;
@@ -311,8 +324,16 @@ int accept (int fd, struct sockaddr* addr,uint32_t * addr_len){
 
     PF->init(&out);
 	ret = do_vfs_fcntl(fd, SOCK_ACCEPT, NULL , &out);
+    if(ret != 0) {
+        PF->clear(&out);
+        return -1;
+    }
     ret = proto_read_int(&out);
-    if(ret > 0){
+    if(ret < 0) {
+        PF->clear(&out);
+        return -1;
+    }
+    if(ret >= 0 && addr != NULL && addr_len != NULL) {
         proto_read_to(&out, addr, *addr_len);
     }
 	PF->clear(&out);
@@ -322,7 +343,13 @@ int accept (int fd, struct sockaddr* addr,uint32_t * addr_len){
 
     PF->init(&in)->addi(&in, ret);
     PF->init(&out);
-	do_vfs_fcntl(accept_fd, SOCK_LINK, &in , &out);
+	ret = do_vfs_fcntl(accept_fd, SOCK_LINK, &in , &out);
+    if(ret != 0) {
+        PF->clear(&in);
+        PF->clear(&out);
+        close(accept_fd);
+        return -1;
+    }
     ret = proto_read_int(&out);
     PF->clear(&in);
 	PF->clear(&out);
