@@ -2,45 +2,45 @@ all: basic_libs
 	@echo "all done."
 
 basic_libs:
-	cd openlibm;make
-	cd minimp3;make
-	cd keyb;make
-	cd mouse;make
-	cd libpng; make
-	cd libjpeg; make
-	cd libgif; make
-	cd libtga; make
-	cd libsvg; make
-	cd freetype; make
-	cd graph;make
-	cd font;make
-	cd fb;make
-	cd display;make
-	cd fbd;make
-	cd textgrid;make
-	cd gterminal;make
-	cd libogg;make
-	cd libvorbis;make
-	cd libiconbuf;make
+	cd openlibm;$(MAKE)
+	cd minimp3;$(MAKE)
+	cd keyb;$(MAKE)
+	cd mouse;$(MAKE)
+	cd libpng; $(MAKE)
+	cd libjpeg; $(MAKE)
+	cd libgif; $(MAKE)
+	cd libtga; $(MAKE)
+	cd libsvg; $(MAKE)
+	cd freetype; $(MAKE)
+	cd graph;$(MAKE)
+	cd font;$(MAKE)
+	cd fb;$(MAKE)
+	cd display;$(MAKE)
+	cd fbd;$(MAKE)
+	cd textgrid;$(MAKE)
+	cd gterminal;$(MAKE)
+	cd libogg;$(MAKE)
+	cd libvorbis;$(MAKE)
+	cd libiconbuf;$(MAKE)
 
 clean:
-	cd openlibm;make clean
-	cd gterminal;make clean
-	cd textgrid;make clean
-	cd display;make clean
-	cd libpng; make clean
-	cd libjpeg; make clean
-	cd libgif; make clean
-	cd libtga; make clean
-	cd libsvg; make clean
-	cd freetype; make clean
-	cd font;make clean
-	cd minimp3;make clean
-	cd graph;make clean
-	cd fb;make clean
-	cd keyb;make clean
-	cd mouse;make clean
-	cd fbd;make clean
-	cd libogg;make clean
-	cd libvorbis;make clean
-	cd libiconbuf;make clean
+	cd openlibm;$(MAKE) clean
+	cd gterminal;$(MAKE) clean
+	cd textgrid;$(MAKE) clean
+	cd display;$(MAKE) clean
+	cd libpng; $(MAKE) clean
+	cd libjpeg; $(MAKE) clean
+	cd libgif; $(MAKE) clean
+	cd libtga; $(MAKE) clean
+	cd libsvg; $(MAKE) clean
+	cd freetype; $(MAKE) clean
+	cd font;$(MAKE) clean
+	cd minimp3;$(MAKE) clean
+	cd graph;$(MAKE) clean
+	cd fb;$(MAKE) clean
+	cd keyb;$(MAKE) clean
+	cd mouse;$(MAKE) clean
+	cd fbd;$(MAKE) clean
+	cd libogg;$(MAKE) clean
+	cd libvorbis;$(MAKE) clean
+	cd libiconbuf;$(MAKE) clean

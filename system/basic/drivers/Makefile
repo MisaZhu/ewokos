@@ -2,13 +2,13 @@ all: basic_drivers
 	@echo "all done."
 
 basic_drivers:
-	cd nulld;make
-	cd logd;make
-	cd ramfsd;make
-	cd timerd;make
+	cd nulld;$(MAKE)
+	cd logd;$(MAKE)
+	cd ramfsd;$(MAKE)
+	cd timerd;$(MAKE)
 
 clean:
-	cd nulld;make clean
-	cd logd;make clean
-	cd ramfsd;make clean
-	cd timerd;make clean
+	cd nulld;$(MAKE) clean
+	cd logd;$(MAKE) clean
+	cd ramfsd;$(MAKE) clean
+	cd timerd;$(MAKE) clean

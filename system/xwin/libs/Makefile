@@ -2,11 +2,11 @@ all: x_libs
 	@echo "all done."
 
 x_libs:
-	cd x;make
-	cd x++;make
-	cd widget++;make
+	cd x;$(MAKE)
+	cd x++;$(MAKE)
+	cd widget++;$(MAKE)
 
 clean:
-	cd x;make clean
-	cd x++;make clean
-	cd widget++;make clean
+	cd x;$(MAKE) clean
+	cd x++;$(MAKE) clean
+	cd widget++;$(MAKE) clean
