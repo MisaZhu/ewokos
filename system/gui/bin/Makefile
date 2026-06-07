@@ -2,17 +2,17 @@ all: builtin_apps
 	@echo "all done."
 
 builtin_apps:
-	cd splash;make
-	cd fbtest;make
-	cd wavplayer;make
-	cd mp3player;make
-	cd oggplayer;make
-	cd load_font;make
+	cd splash;$(MAKE)
+	cd fbtest;$(MAKE)
+	cd wavplayer;$(MAKE)
+	cd mp3player;$(MAKE)
+	cd oggplayer;$(MAKE)
+	cd load_font;$(MAKE)
 
 clean:
-	cd splash;make clean
-	cd fbtest;make clean
-	cd wavplayer;make clean
-	cd mp3player;make clean
-	cd oggplayer;make clean
-	cd load_font;make clean
+	cd splash;$(MAKE) clean
+	cd fbtest;$(MAKE) clean
+	cd wavplayer;$(MAKE) clean
+	cd mp3player;$(MAKE) clean
+	cd oggplayer;$(MAKE) clean
+	cd load_font;$(MAKE) clean

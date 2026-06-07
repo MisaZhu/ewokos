@@ -31,53 +31,57 @@ final:
 	mkdir -p $(MACHINE_BUILD_DIR)
 	cp -r $(TARGET_DIR)/* $(MACHINE_BUILD_DIR)
 
-basic: basic_sys final
+basic: basic_sys
+	@$(MAKE) final
 	@echo "all done."
 
-network: network_sys final
+network: network_sys
+	@$(MAKE) final
 	@echo "all done."
 
-gui: gui_sys final
+gui: gui_sys
+	@$(MAKE) final
 	@echo "all done."
 
-basic_sys: kernel_heads 
+x: x_sys
+	@$(MAKE) final
+	@echo "all done."
+
+basic_sys: kernel_heads
 	rm -f $(BUILD_DIR)/lib/libbsp.a
 	mkdir -p $(TARGET_DIR)/drivers/$(HW)
-	cd libs;make
-	cd $(SYS_ROOT_DIR)/basic;make
-	cd drivers;make basic
+	cd libs;$(MAKE)
+	cd $(SYS_ROOT_DIR)/basic;$(MAKE)
+	cd drivers;$(MAKE) basic
 	@cp -r etc/basic/* ${TARGET_DIR}/etc
 
 network_sys: basic_sys
-	cd $(SYS_ROOT_DIR)/network;make
-	cd drivers;make network
+	cd $(SYS_ROOT_DIR)/network;$(MAKE)
+	cd drivers;$(MAKE) network
 	@cp -r etc/network/* ${TARGET_DIR}/etc
 
 gui_sys: network_sys
-	cd $(SYS_ROOT_DIR)/gui;make
-	cd drivers;make gui
+	cd $(SYS_ROOT_DIR)/gui;$(MAKE)
+	cd drivers;$(MAKE) gui
 	@cp -r etc/gui/* ${TARGET_DIR}/etc
 
 x_sys: gui_sys
-	cd $(SYS_ROOT_DIR)/xwin;make
+	cd $(SYS_ROOT_DIR)/xwin;$(MAKE)
 	@cp -r etc/xwin/* ${TARGET_DIR}/etc
 
-x:  x_sys final 
-	@echo "all done."
-
 clean:
-	cd libs;make clean
-	cd drivers;make clean
-	cd $(SYS_ROOT_DIR)/xwin;make clean
-	cd $(SYS_ROOT_DIR)/gui;make clean
-	cd $(SYS_ROOT_DIR)/network;make clean
-	cd $(SYS_ROOT_DIR)/basic;make clean
-	cd $(EWOKOS_ROOT_DIR)/sw.extra/; make HW=$(HW) clean
+	cd libs;$(MAKE) clean
+	cd drivers;$(MAKE) clean
+	cd $(SYS_ROOT_DIR)/xwin;$(MAKE) clean
+	cd $(SYS_ROOT_DIR)/gui;$(MAKE) clean
+	cd $(SYS_ROOT_DIR)/network;$(MAKE) clean
+	cd $(SYS_ROOT_DIR)/basic;$(MAKE) clean
+	cd $(EWOKOS_ROOT_DIR)/sw.extra/; $(MAKE) HW=$(HW) clean
 	rm -fr $(BUILD_DIR)
 	rm -fr $(MACHINE_BUILD_DIR)
 
 SD = root_$(ARCH).ext2
-sd: 
+sd:
 	mkdir -p $(MACHINE_BUILD_DIR)
 	cp -r $(TARGET_DIR)/* $(MACHINE_BUILD_DIR)
 	@echo "\n====building ext2 format sdcard image===="
@@ -86,7 +90,7 @@ sd:
 	dd if=/dev/zero of=${SD} bs=1k count=512k
 #make ext2 fs with: block_size=1024 inode_size=128
 	mke2fs -b 1024 -I 128 ${SD}
- 
+
 	cd $(MACHINE_BUILD_DIR); \
 	find . -type f | e2cp -ap -G0 -O0 -d ../${SD}:/
 

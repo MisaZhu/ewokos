@@ -12,19 +12,19 @@ mkdirs:
 	@cp -r etc ${TARGET_DIR}
 
 extra_libs:
-	cd libs; make
+	cd libs; $(MAKE)
 
-bins:
-	cd bin; make
+bins: extra_libs
+	cd bin; $(MAKE)
 
-sbins:
-	cd sbin; make
+sbins: extra_libs
+	cd sbin; $(MAKE)
 
-extra_driver:
-	cd drivers; make
+extra_driver: extra_libs
+	cd drivers; $(MAKE)
 
 clean:
-	cd libs; make clean
-	cd bin; make clean
-	cd sbin; make clean
-	cd drivers; make clean
+	cd libs; $(MAKE) clean
+	cd bin; $(MAKE) clean
+	cd sbin; $(MAKE) clean
+	cd drivers; $(MAKE) clean

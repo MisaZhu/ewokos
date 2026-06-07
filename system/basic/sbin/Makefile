@@ -1,5 +1,5 @@
 all:
-	cd sessiond;make
+	cd sessiond;$(MAKE)
 
 clean:
-	cd sessiond;make clean
+	cd sessiond;$(MAKE) clean

@@ -3,12 +3,12 @@ all: basic_libs
 
 basic_libs:
 ifneq ($(ARCH),aarch64)
-	cd softfloat;make
+	cd softfloat;$(MAKE)
 endif
-	cd libewoksys;make
-	cd libgloss;make
+	cd libewoksys;$(MAKE)
+	cd libgloss;$(MAKE)
 
 clean:
-	cd softfloat;make clean
-	cd libewoksys;make clean
-	cd libgloss;make clean
+	cd softfloat;$(MAKE) clean
+	cd libewoksys;$(MAKE) clean
+	cd libgloss;$(MAKE) clean

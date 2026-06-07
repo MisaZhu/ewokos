@@ -1,7 +1,7 @@
 all:
-	cd telnetd;make
-	cd httpd;make
+	cd telnetd;$(MAKE)
+	cd httpd;$(MAKE)
 
 clean:
-	cd telnetd;make clean
-	cd httpd;make clean
+	cd telnetd;$(MAKE) clean
+	cd httpd;$(MAKE) clean

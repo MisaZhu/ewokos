@@ -2,7 +2,7 @@ all: builtin_sbins
 	@echo "all done."
 
 builtin_sbins:
-	cd splashd;make
+	cd splashd;$(MAKE)
 
 clean:
-	cd splashd;make clean
+	cd splashd;$(MAKE) clean

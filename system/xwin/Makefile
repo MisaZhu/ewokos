@@ -18,19 +18,19 @@ mkdirs:
 	@cp -r usr/x/themes/opencde/* ${TARGET_DIR}/usr/x/themes/default/
 
 all: mkdirs
-	cd libs; make
-	cd drivers; make
-	cd bin; make
-	cd sbin; make
-	cd xwm/opencde; make
-	cd xwm/ewokwm; make
-	cd apps; make
+	cd libs; $(MAKE)
+	cd drivers; $(MAKE)
+	cd bin; $(MAKE)
+	cd sbin; $(MAKE)
+	cd xwm/opencde; $(MAKE)
+	cd xwm/ewokwm; $(MAKE)
+	cd apps; $(MAKE)
 
 clean:
-	cd libs; make clean
-	cd drivers; make clean
-	cd bin; make clean
-	cd sbin; make clean
-	cd xwm/opencde; make clean
-	cd xwm/ewokwm; make clean
-	cd apps; make clean
+	cd libs; $(MAKE) clean
+	cd drivers; $(MAKE) clean
+	cd bin; $(MAKE) clean
+	cd sbin; $(MAKE) clean
+	cd xwm/opencde; $(MAKE) clean
+	cd xwm/ewokwm; $(MAKE) clean
+	cd apps; $(MAKE) clean

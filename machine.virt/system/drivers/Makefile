@@ -1,23 +1,23 @@
 basic: 
-	cd ttyd; make
-	cd virtfsd; make
-	cd powerd; make
+	cd ttyd; $(MAKE)
+	cd virtfsd; $(MAKE)
+	cd powerd; $(MAKE)
 
 gui:
-	cd fbd; make
-	cd moused; make
-	cd keybd; make
-	cd snd; make
+	cd fbd; $(MAKE)
+	cd moused; $(MAKE)
+	cd keybd; $(MAKE)
+	cd snd; $(MAKE)
 
 network:
-	cd net; make
+	cd net; $(MAKE)
 
 clean:	
-	cd ttyd; make clean
-	cd virtfsd; make clean
-	cd fbd; make clean
-	cd moused; make clean
-	cd keybd; make clean
-	cd snd; make clean
-	cd powerd; make clean
-	cd net; make clean
+	cd ttyd; $(MAKE) clean
+	cd virtfsd; $(MAKE) clean
+	cd fbd; $(MAKE) clean
+	cd moused; $(MAKE) clean
+	cd keybd; $(MAKE) clean
+	cd snd; $(MAKE) clean
+	cd powerd; $(MAKE) clean
+	cd net; $(MAKE) clean
