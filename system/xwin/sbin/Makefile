@@ -1,11 +1,11 @@
 all:
-	cd xim/none; make
-	cd xim/vkey; make
-	cd xmouse; make
-	cd xtouch; make
+	cd xim/none; $(MAKE)
+	cd xim/vkey; $(MAKE)
+	cd xmouse; $(MAKE)
+	cd xtouch; $(MAKE)
 
 clean:
-	cd xim/none; make clean
-	cd xim/vkey; make clean
-	cd xmouse; make clean
-	cd xtouch; make clean
+	cd xim/none; $(MAKE) clean
+	cd xim/vkey; $(MAKE) clean
+	cd xmouse; $(MAKE) clean
+	cd xtouch; $(MAKE) clean

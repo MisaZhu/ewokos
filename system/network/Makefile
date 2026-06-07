@@ -10,19 +10,19 @@ mkdirs:
 	@mkdir -p ${TARGET_DIR}/drivers
 
 network_libs:
-	cd libs; make
+	cd libs; $(MAKE)
 
-bins:
-	cd bin; make
+bins: network_libs
+	cd bin; $(MAKE)
 
-sbins:
-	cd sbin; make
+sbins: network_libs
+	cd sbin; $(MAKE)
 
-network_driver:
-	cd drivers; make
+network_driver: network_libs
+	cd drivers; $(MAKE)
 
 clean:
-	cd libs; make clean
-	cd bin; make clean
-	cd sbin; make clean
-	cd drivers; make clean
+	cd libs; $(MAKE) clean
+	cd bin; $(MAKE) clean
+	cd sbin; $(MAKE) clean
+	cd drivers; $(MAKE) clean

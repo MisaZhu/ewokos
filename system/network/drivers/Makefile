@@ -2,9 +2,9 @@ all: basic_drivers
 	@echo "all done."
 
 basic_drivers:
-	cd netd;make
-	cd timed;make
+	cd netd;$(MAKE)
+	cd timed;$(MAKE)
 
 clean:
-	cd netd;make clean
-	cd timed;make clean
+	cd netd;$(MAKE) clean
+	cd timed;$(MAKE) clean

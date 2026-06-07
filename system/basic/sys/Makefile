@@ -1,11 +1,11 @@
 all:
-	cd core;make
-	cd init;make
-	cd rootfs;make
-	cd vfsd;make
+	cd core;$(MAKE)
+	cd init;$(MAKE)
+	cd rootfs;$(MAKE)
+	cd vfsd;$(MAKE)
 
 clean:
-	cd core;make clean
-	cd init;make clean
-	cd rootfs;make clean
-	cd vfsd;make clean
+	cd core;$(MAKE) clean
+	cd init;$(MAKE) clean
+	cd rootfs;$(MAKE) clean
+	cd vfsd;$(MAKE) clean

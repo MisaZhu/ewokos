@@ -1,34 +1,34 @@
 all:
-	cd xlog; make
-	cd xterm; make
-	cd xread; make
-	cd xcores; make
-	cd xfonts; make
-	cd xapps; make
-	cd xfinder; make
-	cd ximg; make
-	cd xprocs; make
-	cd xDemo; make
-	cd xwm_theme; make
-	cd xtheme; make
-	cd xipconfig; make
-	cd clock; make
-	cd SndPlayer; make
+	cd xlog; $(MAKE)
+	cd xterm; $(MAKE)
+	cd xread; $(MAKE)
+	cd xcores; $(MAKE)
+	cd xfonts; $(MAKE)
+	cd xapps; $(MAKE)
+	cd xfinder; $(MAKE)
+	cd ximg; $(MAKE)
+	cd xprocs; $(MAKE)
+	cd xDemo; $(MAKE)
+	cd xwm_theme; $(MAKE)
+	cd xtheme; $(MAKE)
+	cd xipconfig; $(MAKE)
+	cd clock; $(MAKE)
+	cd SndPlayer; $(MAKE)
 
 clean:
-	cd xlog; make clean
-	cd xterm; make clean
-	cd xread; make clean
-	cd xcores; make clean
-	cd xfonts; make clean
-	cd xapps; make clean
-	cd xfinder; make clean
-	cd ximg; make clean
-	cd xprocs; make clean
-	cd xDemo; make clean
-	cd xwm_theme; make clean
-	cd xtheme; make clean
-	cd xipconfig; make clean
-	cd clock; make clean
-	cd SndPlayer; make clean
+	cd xlog; $(MAKE) clean
+	cd xterm; $(MAKE) clean
+	cd xread; $(MAKE) clean
+	cd xcores; $(MAKE) clean
+	cd xfonts; $(MAKE) clean
+	cd xapps; $(MAKE) clean
+	cd xfinder; $(MAKE) clean
+	cd ximg; $(MAKE) clean
+	cd xprocs; $(MAKE) clean
+	cd xDemo; $(MAKE) clean
+	cd xwm_theme; $(MAKE) clean
+	cd xtheme; $(MAKE) clean
+	cd xipconfig; $(MAKE) clean
+	cd clock; $(MAKE) clean
+	cd SndPlayer; $(MAKE) clean
 
