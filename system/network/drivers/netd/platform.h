@@ -40,6 +40,7 @@ struct sched_ctx {
 #define gettimeofday gettimeofday_plat
 
 void raise_softirq(uint32_t sig);
+int intr_poll_once(void);
 
 #ifndef ECONNRESET
 #define ECONNRESET 104  /* Connection reset by peer */

@@ -9,7 +9,6 @@
 #include <ewoksys/vdevice.h>
 #include <ewoksys/syscall.h>
 #include <tinyjson/tinyjson.h>
-#include <ewoksys/klog.h>
 #include <ewoksys/proto.h>
 #include <stdio.h>
 #include <string.h>
@@ -61,6 +60,9 @@ static int network_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	(void)p;
 
 	net_task_t *task = (net_task_t*)(ewokos_addr_t)info->data;
+	net_task_t *main_task = task;
+	int ret;
+	int still_readable = 0;
     if(task == NULL) {
         return -1;
     }
@@ -73,7 +75,14 @@ static int network_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 		task->read_task->is_read_task = true;
 	}
 	task = task->read_task;
-	return task_read(task, from_pid, buf, size, p);
+	ret = task_read(task, from_pid, buf, size, p);
+	if(main_task->sock >= 0) {
+		still_readable = sock_readable(main_task->sock);
+	}
+	pthread_mutex_lock(&task_list_lock);
+	main_task->pending_main_rd = still_readable ? true : false;
+	pthread_mutex_unlock(&task_list_lock);
+	return ret;
 }
 
 static int network_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
@@ -98,31 +107,40 @@ static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
 
 	uint32_t events = 0;
 	int main_sock = -1;
-	int read_sock = -1;
 	int read_state = NET_TASK_IDLE;
 	int main_state = NET_TASK_IDLE;
+	int has_read_task = 0;
+	int pending_main_rd = 0;
 	if (task != NULL) {
 		pthread_mutex_lock(&task_list_lock);
 		main_state = task->state;
 		main_sock = task->sock;
+		pending_main_rd = task->pending_main_rd;
 		if (main_state == NET_TASK_IDLE || main_state == NET_TASK_FINISH) {
 			events |= VFS_EVT_WR;
 		}
 		if (task->read_task != NULL) {
+			has_read_task = 1;
 			read_state = task->read_task->state;
-			read_sock = task->read_task->sock;
 			if (read_state == NET_TASK_FINISH) {
 				events |= VFS_EVT_RD;
 			}
 		}
 		pthread_mutex_unlock(&task_list_lock);
-		if (!(events & VFS_EVT_RD)) {
-			if (read_sock >= 0 && read_state == NET_TASK_IDLE && sock_readable(read_sock)) {
-				events |= VFS_EVT_RD;
-			}
-			else if (read_sock < 0 && main_sock >= 0 && sock_readable(main_sock)) {
-				events |= VFS_EVT_RD;
-			}
+		if (pending_main_rd) {
+			events |= VFS_EVT_RD;
+		}
+		if (!(events & VFS_EVT_RD) &&
+				!has_read_task &&
+				main_sock >= 0 &&
+				sock_readable(main_sock)) {
+			/*
+			 * Once a per-fd read_task exists, RD must be published by explicit
+			 * vfs_wakeup() edges from task_check_read_events()/task_thread.
+			 * Re-synthesizing RD here from sock_readable() turns the sticky node
+			 * bit back into a level-trigger and can trap readers in retry loops.
+			 */
+			events |= VFS_EVT_RD;
 		}
 	}
 

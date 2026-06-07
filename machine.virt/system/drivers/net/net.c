@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdbool.h>
 #include <string.h>
 
 #include <arch/virt/virtio_net.h>
@@ -8,6 +9,12 @@
 #include <ewoksys/vfsc.h>
 
 static virtio_dev_t _net = NULL;
+static bool _rx_ready = false;
+static bool _wr_ready = true;
+static uint32_t _idle_sleep_us = 1000;
+
+#define VIRTNET_IDLE_SLEEP_STEP_US 1000U
+#define VIRTNET_IDLE_SLEEP_MAX_US 50000U
 
 static int net_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t *info,
 					void *buf, int size, int offset, void *p)
@@ -95,16 +102,54 @@ static uint32_t net_check_poll_events(vdevice_t* dev, int fd, int from_pid, fsin
 static int net_loop_step(vdevice_t* dev, void *p)
 {
 	(void)p;
+	int pending_rx = 0;
+	int can_write = 0;
 
-	if (_net != NULL && virtio_net_pending_rx(_net) > 0)
+	if (_net != NULL)
 	{
-		vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
+		pending_rx = virtio_net_pending_rx(_net);
+		can_write = virtio_net_can_write(_net);
 	}
-	if (_net != NULL && virtio_net_can_write(_net) > 0)
+
+	if (pending_rx > 0)
 	{
-		vfs_wakeup(dev->mnt_info.node, VFS_EVT_WR);
+		if (!_rx_ready)
+		{
+			vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
+		}
+		_rx_ready = true;
 	}
-	proc_usleep(1000);
+	else
+	{
+		_rx_ready = false;
+	}
+
+	if (can_write > 0)
+	{
+		if (!_wr_ready)
+		{
+			vfs_wakeup(dev->mnt_info.node, VFS_EVT_WR);
+		}
+		_wr_ready = true;
+	}
+	else
+	{
+		_wr_ready = false;
+	}
+
+	if (pending_rx > 0 || !_wr_ready)
+	{
+		_idle_sleep_us = 1000;
+	}
+	else if (_idle_sleep_us < VIRTNET_IDLE_SLEEP_MAX_US)
+	{
+		_idle_sleep_us += VIRTNET_IDLE_SLEEP_STEP_US;
+		if (_idle_sleep_us > VIRTNET_IDLE_SLEEP_MAX_US)
+		{
+			_idle_sleep_us = VIRTNET_IDLE_SLEEP_MAX_US;
+		}
+	}
+	proc_usleep(_idle_sleep_us);
 	return 0;
 }
 

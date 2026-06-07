@@ -234,6 +234,23 @@ int dev_create(int dev_pid, fsinfo_t* info_to, fsinfo_t* info) {
 	return res;
 }
 
+int dev_poll(int dev_pid, int fd, fsinfo_t* info, uint32_t* events) {
+	proto_t in, out;
+	PF->init(&out);
+	PF->format(&in, "i,i", fd, info->node);
+
+	int res = -1;
+	if(ipc_call(dev_pid, FS_CMD_POLL, &in, &out) == 0) {
+		res = proto_read_int(&out);
+		if(res == 0 && events != NULL) {
+			*events = (uint32_t)proto_read_int(&out);
+		}
+	}
+	PF->clear(&in);
+	PF->clear(&out);
+	return res;
+}
+
 int dev_fcntl(int dev_pid, int fd, fsinfo_t* info, int cmd, proto_t* arg_in, proto_t* arg_out) {
 	proto_t in;
 	PF->format(&in, "i,i,i", fd, info->node, cmd);

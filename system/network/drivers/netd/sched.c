@@ -5,7 +5,6 @@
 #include <pthread.h>
 
 #include <ewoksys/proc.h>
-
 #include "platform.h"
 #include "stack/util.h"
 
@@ -45,6 +44,31 @@ sched_ctx_destroy(struct sched_ctx *ctx)
     return 0;
 }
 
+static int
+sched_finish_wait(struct sched_ctx *ctx, int ret)
+{
+    ctx->cond = 0;
+    ctx->wakeups = 0;
+    ctx->wc--;
+    ctx->sleeping = 0;
+    ctx->pid = 0;
+    memory_barrier();
+
+    if (ctx->destroyed) {
+        errno = EINTR;
+        return -1;
+    }
+
+    if (ctx->interrupted) {
+        if (!ctx->wc) {
+            ctx->interrupted = 0;
+        }
+        errno = EINTR;
+        return -1;
+    }
+    return ret;
+}
+
 int
 sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timeval *abstime)
 {
@@ -59,10 +83,8 @@ sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timeval *abstime
     ctx->wc++;
     memory_barrier();
 
-    if (ctx->cond || !ctx->available || ctx->destroyed) {
-        ctx->wc--;
-        memory_barrier();
-        return 0;
+    if (ctx->cond || !ctx->available || ctx->destroyed || ctx->interrupted) {
+        return sched_finish_wait(ctx, 0);
     }
 
     ctx->sleeping = 1;
@@ -114,28 +136,7 @@ sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timeval *abstime
     }
 
     mutex_lock(mutex);
-
-    ctx->cond = 0;
-    ctx->wakeups = 0;
-
-    ctx->wc--;
-    ctx->sleeping = 0;
-    ctx->pid = 0;
-    memory_barrier();
-
-    if (ctx->destroyed) {
-        errno = EINTR;
-        return -1;
-    }
-
-    if (ctx->interrupted) {
-        if (!ctx->wc) {
-            ctx->interrupted = 0;
-        }
-        errno = EINTR;
-        return -1;
-    }
-    return ret;
+    return sched_finish_wait(ctx, ret);
 }
 
 int

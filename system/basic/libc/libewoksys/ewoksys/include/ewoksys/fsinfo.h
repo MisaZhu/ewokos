@@ -45,7 +45,8 @@ enum {
 	FS_CMD_SET,
 	FS_CMD_GET,
 	FS_CMD_CMD,
-	FS_CMD_KIDS
+	FS_CMD_KIDS,
+	FS_CMD_POLL
 };
 
 enum {
@@ -91,4 +92,3 @@ typedef struct {
 #endif
 
 #endif
-

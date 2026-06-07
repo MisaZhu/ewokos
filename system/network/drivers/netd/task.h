@@ -3,6 +3,7 @@
 
 #include <ewoksys/ipc.h>
 #include <pthread.h>
+#include "platform.h"
 
 enum{
     NET_TASK_IDLE,
@@ -18,7 +19,7 @@ typedef struct net_task{
 	int node;
     int cmd;
     pthread_t tid;
-    pthread_cond_t cond;
+    struct sched_ctx wait_ctx;
     char read_buf[TASK_READ_BUF_SIZE];
 	proto_t in;
 	proto_t out;
@@ -28,6 +29,7 @@ typedef struct net_task{
     int state;
     int sock;
     int refs;
+    bool pending_main_rd;
     struct net_task* read_task;
     int thread_started;
 
@@ -43,6 +45,7 @@ int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p);
 int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p);
 int task_check_read_events(void);
 int task_has_read_watchers(void);
+int task_wakeup_tcp_readers(int tcp_desc);
 
 extern pthread_mutex_t task_list_lock;
 

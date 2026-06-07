@@ -972,7 +972,20 @@ uint32_t  vfs_get_poll_events(int fd) {
 	fsinfo_t info;
 	if(vfs_get_by_fd(fd, &info) != 0 || info.node == 0)
 		return 0;
-	return vfs_get_poll_events_by_node(info.node);
+
+	uint32_t sticky = vfs_get_poll_events_by_node(info.node);
+	uint32_t live = 0;
+	if(info.mount_pid > 0 && dev_poll(info.mount_pid, fd, &info, &live) == 0) {
+		uint32_t sticky_rw = sticky & VFS_EVT_RW;
+		uint32_t live_rw = live & VFS_EVT_RW;
+		uint32_t stale_rw = sticky_rw & ~live_rw;
+		if(stale_rw != 0) {
+			vfs_clear_poll_events(info.node, stale_rw);
+			sticky &= ~stale_rw;
+		}
+		return (sticky & ~VFS_EVT_RW) | live_rw;
+	}
+	return sticky;
 }
 
 int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
@@ -987,7 +1000,9 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 	while(true) {
 		res = 0;
 		for(int i = 0; i < num; ++i) {
-			fds[i].revents = vfs_get_poll_events(fds[i].fd);
+			uint32_t visible = vfs_get_poll_events(fds[i].fd);
+			uint32_t mask = (uint32_t)fds[i].events | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL;
+			fds[i].revents = (uint16_t)(visible & mask);
 			if(fds[i].revents != 0)
 				res++;
 		}

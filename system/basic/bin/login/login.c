@@ -8,6 +8,7 @@
 #include <ewoksys/mstr.h>
 #include <ewoksys/core.h>
 #include <ewoksys/keydef.h>
+#include <ewoksys/klog.h>
 #include <ewoksys/vfs.h>
 #include <setenv.h>
 
@@ -111,20 +112,22 @@ static uint8_t telnet_parse(uint8_t c){
 
 static void input(str_t* s, bool show) {
 	str_reset(s);
-	char c, old_c;
+	char c;
 	while(true) {
 		int i = read(0, &c, 1);
+		if(i <= 0) {
+			int err = errno;
+			if(err == EAGAIN || err == EINTR) {
+				proc_usleep(30000);
+				continue;
+			}
+			break;
+		}
+
 		c = telnet_parse(c);
-		if(c == 0)
+		if(c == 0) {
 			continue;
-		
-		if(i <= 0 || c == 0) {
-		 	if(errno != EAGAIN)
-			//if(i == 0)
-			 	break;
-			proc_usleep(30000);
-			continue;
-		}	
+		}
 
 		if (c == KEY_BACKSPACE || c == CONSOLE_LEFT) {
 			if (s->len > 0) {

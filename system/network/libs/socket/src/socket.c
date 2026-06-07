@@ -11,17 +11,38 @@
 #include <ewoksys/vfs.h>
 #include <sys/time.h>
 
+static uint32_t fcntl_wait_event(int cmd) {
+    switch (cmd) {
+        case SOCK_RECV:
+        case SOCK_RECVFROM:
+        case SOCK_ACCEPT:
+            return VFS_EVT_RD;
+        case SOCK_CONNECT:
+        case SOCK_SEND:
+        case SOCK_SENDTO:
+            return VFS_EVT_WR;
+        default:
+            return 0;
+    }
+}
+
 
 static int do_vfs_fcntl(int fd, int cmd, proto_t* arg_in, proto_t* arg_out){ 
     int ret;
     fsinfo_t info;
     if(vfs_get_by_fd(fd, &info) != 0)
         return -1;
+    uint32_t wait_event = fcntl_wait_event(cmd);
     while(1){
         ret = vfs_fcntl(fd, cmd,  arg_in , arg_out);
         if(ret != VFS_ERR_RETRY)
             break;
-        proc_usleep(3000);
+        if(wait_event == 0 || info.node == 0) {
+            proc_usleep(3000);
+            continue;
+        }
+        if(vfs_block(info.node, wait_event) != 0)
+            return -1;
     };
 
     return ret;

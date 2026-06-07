@@ -13,6 +13,12 @@
 #include "netd.h"
 
 extern int sock_readable(int sock);
+extern int sock_get_desc(int id);
+extern int sock_get_type(int id);
+extern int sched_ctx_init(struct sched_ctx *ctx);
+extern int sched_ctx_destroy(struct sched_ctx *ctx);
+extern int sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timeval *abstime);
+extern int sched_wakeup(struct sched_ctx *ctx);
 
 #define TASK_POLL_INTERVAL_US 1000 /* 1ms */
 
@@ -80,7 +86,7 @@ net_task_t *create_task(int fd, int from_pid, int node){
         return NULL;
     }
     memset(task, 0 , sizeof(net_task_t));
-    pthread_cond_init(&task->cond, NULL);
+    sched_ctx_init(&task->wait_ctx);
     task->fd = fd;
     task->node = node;
     task->state = NET_TASK_IDLE;
@@ -97,7 +103,7 @@ void release_task(net_task_t *task){
     
     pthread_mutex_lock(&task_list_lock);
     task->running = false;
-    pthread_cond_signal(&task->cond);
+    sched_wakeup(&task->wait_ctx);
     pthread_mutex_unlock(&task_list_lock);
     // Set running = false to signal thread to exit
     // Save values needed outside of lock
@@ -126,10 +132,23 @@ void release_task(net_task_t *task){
     if(thread_started){
         pthread_join(task->tid, NULL);
     }
-    pthread_cond_destroy(&task->cond);
+    sched_ctx_destroy(&task->wait_ctx);
 
     // Now safe to destroy condition variable after thread has exited
     free(task); // We free main task here
+}
+
+static uint32_t task_arm_wait_event(int cmd) {
+    switch (cmd) {
+        case SOCK_CONNECT:
+        case SOCK_SENDTO:
+            return VFS_EVT_WR;
+        case SOCK_ACCEPT:
+        case SOCK_RECVFROM:
+            return VFS_EVT_RD;
+        default:
+            return 0;
+    }
 }
 
 int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *out, void *p){
@@ -171,8 +190,17 @@ int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *o
         PF->clear(&task->in);
         PF->clear(&task->out);
         PF->copy(&task->in, in->data, in->size);
+        uint32_t wait_event = task_arm_wait_event(cmd);
+        if(wait_event != 0 && task->node > 0) {
+            /*
+             * Clear stale sticky readiness before arming a new async request.
+             * Otherwise callers that block on RD/WR can immediately consume an
+             * old edge and spin while the new operation is still in progress.
+             */
+            vfs_clear_poll_events(task->node, wait_event);
+        }
         task->state = NET_TASK_START;
-        pthread_cond_signal(&task->cond);
+        sched_wakeup(&task->wait_ctx);
         pthread_mutex_unlock(&task_list_lock);
         // Signal task thread to wake up
     } else {
@@ -230,7 +258,7 @@ int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
         PF->clear(&task->out);
         PF->addi(&task->in, size);
         task->state = NET_TASK_START;
-        pthread_cond_signal(&task->cond);
+        sched_wakeup(&task->wait_ctx);
         pthread_mutex_unlock(&task_list_lock);
     } else {
         pthread_mutex_unlock(&task_list_lock);
@@ -288,7 +316,7 @@ int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p){
          */
         vfs_clear_poll_events(task->node, VFS_EVT_WR);
         task->state = NET_TASK_START;
-        pthread_cond_signal(&task->cond);
+        sched_wakeup(&task->wait_ctx);
         pthread_mutex_unlock(&task_list_lock);
         // Signal task thread to wake up
     } else {
@@ -496,6 +524,7 @@ int task_has_read_watchers(void) {
     while(task != NULL) {
         if(task->read_task != NULL &&
            task->read_task->running &&
+           task->read_task->state == NET_TASK_IDLE &&
            task->read_task->sock >= 0 &&
            task->read_task->node > 0) {
             has_watchers = 1;
@@ -505,6 +534,49 @@ int task_has_read_watchers(void) {
     }
     pthread_mutex_unlock(&task_list_lock);
     return has_watchers;
+}
+
+int task_wakeup_tcp_readers(int tcp_desc) {
+    enum { MAX_WAKE_CANDIDATES = 64 };
+    uint32_t wake_nodes[MAX_WAKE_CANDIDATES];
+    int wake_count = 0;
+
+    if (tcp_desc < 0) {
+        return 0;
+    }
+
+    pthread_mutex_lock(&task_list_lock);
+    net_task_t *task = task_list;
+    while (task != NULL) {
+        int task_sock = task->sock;
+        uint32_t wake_node = 0;
+
+        if (task_sock >= 0 &&
+            sock_get_type(task_sock) == SOCK_STREAM &&
+            sock_get_desc(task_sock) == tcp_desc) {
+            if (task->node > 0) {
+                /*
+                 * TCP data may arrive while a previous async read is still in
+                 * PROCESS/FINISH, before user space issues the next poll().
+                 * Preserve a sticky RD edge on the socket node itself so the
+                 * next poll()/read pair still observes readable data.
+                 */
+                task->pending_main_rd = true;
+                wake_node = task->node;
+            }
+        }
+
+        if (wake_node > 0 && wake_count < MAX_WAKE_CANDIDATES) {
+            wake_nodes[wake_count++] = wake_node;
+        }
+        task = task->next;
+    }
+    pthread_mutex_unlock(&task_list_lock);
+
+    for (int i = 0; i < wake_count; i++) {
+        vfs_wakeup(wake_nodes[i], VFS_EVT_RD);
+    }
+    return wake_count;
 }
 
 static uint32_t task_finish_wakeup_event(const net_task_t *task) {
@@ -537,7 +609,7 @@ static void* task_thread(void* arg){
 
     while(1){
         while(task->running && task->state != NET_TASK_START) {
-            pthread_cond_wait(&task->cond, &task_list_lock);
+            sched_sleep(&task->wait_ctx, (mutex_t*)&task_list_lock, NULL);
         }
 
         if(!task->running) {

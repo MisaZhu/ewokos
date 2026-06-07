@@ -441,6 +441,7 @@ sock_connect(int id, const struct sockaddr *addr, int addrlen)
 {
     struct sock *s;
     struct ip_endpoint ep;
+    int ret = -1;
 
     s = sock_get(id);
     if (!s) {
@@ -453,9 +454,10 @@ sock_connect(int id, const struct sockaddr *addr, int addrlen)
     case AF_INET:
         ep.addr = ((struct sockaddr_in *)addr)->sin_addr;
         ep.port = ((struct sockaddr_in *)addr)->sin_port;
-        return tcp_connect(s->desc, &ep) < 0 ? -1 : 0;
+        ret = tcp_connect(s->desc, &ep) < 0 ? -1 : 0;
+        break;
     }
-    return -1;
+    return ret;
 }
 
 ssize_t
@@ -673,4 +675,24 @@ sock_readable(int id)
         return s->recv_queue != NULL;
     }
     return 0;
+}
+
+int
+sock_get_desc(int id)
+{
+    struct sock *s = sock_get(id);
+    if (!s) {
+        return -1;
+    }
+    return s->desc;
+}
+
+int
+sock_get_type(int id)
+{
+    struct sock *s = sock_get(id);
+    if (!s) {
+        return -1;
+    }
+    return s->type;
 }

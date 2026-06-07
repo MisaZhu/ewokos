@@ -116,8 +116,14 @@ static void sys_usleep(context_t* ctx, uint32_t count) {
 	if(cproc->info.type == TASK_TYPE_PROC && cproc->space->interrupt.state != INTR_STATE_IDLE)
 		return;
 
-	//no sleep longer than 100000 usec when handling interrupter/ipc task .
-	if(ipc != NULL) {
+	/*
+	 * ipc_server.ctask lives in the shared proc space, so sibling threads of an
+	 * IPC service process can observe it as busy even though they are not the
+	 * thread currently servicing that IPC. Only the main proc context should use
+	 * the "schedule instead of true sleep" fast path; regular worker threads
+	 * like netd's net_thread must still enter real proc_usleep().
+	 */
+	if(cproc->info.type == TASK_TYPE_PROC && ipc != NULL) {
 		schedule(ctx);
 		return;
 	}

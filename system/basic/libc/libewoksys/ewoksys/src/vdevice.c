@@ -660,6 +660,20 @@ static void do_dev_cntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out,
 	PF->clear(&ret);
 }
 
+static void do_poll(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
+	int fd = proto_read_int(in);
+	uint32_t node = (uint32_t)proto_read_int(in);
+
+	PF->addi(out, -1);
+	fsinfo_t* info = dev_get_file(fd, from_pid, node);
+	if(info == NULL || dev == NULL || dev->check_poll_events == NULL) {
+		return;
+	}
+
+	uint32_t events = dev->check_poll_events(dev, fd, from_pid, info, p);
+	PF->clear(out)->addi(out, 0)->addi(out, events);
+}
+
 static void do_interrupt(vdevice_t* dev, proto_t *in, void* p) {
 	if(dev != NULL && dev->interrupt != NULL) {
 		dev->interrupt(dev, in, p);
@@ -724,6 +738,9 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
 		break;
 	case FS_CMD_CMD:
 		do_cmd(dev, from_pid, in, out, p);
+		break;
+	case FS_CMD_POLL:
+		do_poll(dev, from_pid, in, out, p);
 		break;
 	case FS_CMD_CLEAR_BUFFER:
 		do_clear_buffer(dev, from_pid, in, out, p);

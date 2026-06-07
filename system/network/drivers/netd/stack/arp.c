@@ -2,7 +2,6 @@
 #include <stdint.h>
 #include <string.h>
 #include <sys/time.h>
-
 #include "../platform.h"
 
 #include "util.h"
@@ -116,15 +115,21 @@ arp_cache_alloc(void)
 static struct arp_cache *
 arp_cache_select(ip_addr_t pa)
 {
-    struct arp_cache *entry;
+    struct arp_cache *entry, *candidate = NULL;
 
     for (entry = caches; entry < tailof(caches); entry++) {
         if (entry->state != ARP_CACHE_STATE_FREE && entry->pa == pa) {
             gettimeofday(&entry->timestamp, NULL);
-            return entry;
+            if (entry->state == ARP_CACHE_STATE_RESOLVED ||
+                entry->state == ARP_CACHE_STATE_STATIC) {
+                return entry;
+            }
+            if (!candidate) {
+                candidate = entry;
+            }
         }
     }
-    return NULL;
+    return candidate;
 }
 
 static struct arp_cache *
@@ -153,7 +158,10 @@ arp_cache_insert(ip_addr_t pa, const uint8_t *ha)
     char addr1[IP_ADDR_STR_LEN];
     char addr2[ETHER_ADDR_STR_LEN];
 
-    cache = arp_cache_alloc();
+    cache = arp_cache_select(pa);
+    if (!cache) {
+        cache = arp_cache_alloc();
+    }
     if (!cache) {
         errorf("arp_cache_alloc() failure");
         return NULL;

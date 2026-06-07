@@ -1,7 +1,5 @@
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
-#include <pthread.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/semaphore.h>
 
@@ -55,14 +53,12 @@ intr_request_irq(unsigned int irq, int (*handler)(unsigned int irq, void *dev), 
 struct irq_entry *irq_vec;
 #define NET_BLOCK_EVT 66666
 static uint32_t gSignel[SIGMAX] = {0};
-static pthread_mutex_t gMutex;
-int tid;
 
-#define NETD_BUSY_SLEEP_US 1000U
-#define NETD_IDLE_SLEEP_STEP_US 1000U
-#define NETD_IDLE_SLEEP_MAX_US 10000U
+#define NETD_BUSY_SLEEP_US 10000U
+#define NETD_IDLE_SLEEP_STEP_US 5000U
+#define NETD_IDLE_SLEEP_MAX_US 50000U
 
-int dflag [16];
+int dflag[16];
 int dcnt = 0;
 
 void raise_softirq(uint32_t  sig){
@@ -71,14 +67,33 @@ void raise_softirq(uint32_t  sig){
     }
 }
 
-static void print_trace(void){
-    int start = dcnt - 16;
-    slog("%d %d:", dcnt,   gSignel[SIGNET]);
-    for(int i = 0; i < 16; i++){
-        slog("%d ", dflag[start%(sizeof(dflag)/sizeof(int))]);
-        start++;
+int intr_poll_once(void) {
+    struct irq_entry *entry;
+    int handled = 0;
+
+    while (gSignel[SIGNET]) {
+        net_protocol_handler();
+        gSignel[SIGNET]--;
+        handled = 1;
     }
-    slog("\n");
+    while (gSignel[SIGINT]) {
+        net_event_handler();
+        gSignel[SIGINT]--;
+        handled = 1;
+    }
+    for (entry = irq_vec; entry; entry = entry->next) {
+        if (entry->irq == SIGIRQ && entry->handler(entry->irq, entry->dev) == 0) {
+            handled = 1;
+        }
+    }
+    if (gSignel[SIGNET]) {
+        while (gSignel[SIGNET]) {
+            net_protocol_handler();
+            gSignel[SIGNET]--;
+            handled = 1;
+        }
+    }
+    return handled;
 }
 
 void intr_loop(void) {
@@ -102,12 +117,9 @@ void intr_loop(void) {
         }
         for (entry = irq_vec; entry; entry = entry->next) {
             if (entry->irq == SIGIRQ) {
-                int cnt = tap_select(entry->dev);
-                if (cnt > 0) {
+                int ret = entry->handler(entry->irq, entry->dev);
+                if (ret == 0) {
                     tap_pending = 1;
-                }
-                for(int i = 0; i < cnt; i++){
-                    entry->handler(entry->irq, entry->dev);
                 }
             }
         }
@@ -117,9 +129,17 @@ void intr_loop(void) {
             task_ready = task_check_read_events();
         }
 
-        if (had_signal || tap_pending || task_ready || tcp_timer_active()) {
+        kernel_tic(NULL, NULL);
+
+        if (had_signal || tap_pending || task_ready) {
             sleep_us = NETD_BUSY_SLEEP_US;
         } else if (sleep_us < NETD_IDLE_SLEEP_MAX_US) {
+            /*
+             * TCP timers are evaluated against wall-clock time in
+             * net_timer_handler(), so keeping the loop pinned at 1ms whenever a
+             * retransmit/TIME_WAIT entry exists just burns CPU. Only real
+             * packets or read-ready wakeups need the fast path.
+             */
             sleep_us += NETD_IDLE_SLEEP_STEP_US;
             if (sleep_us > NETD_IDLE_SLEEP_MAX_US) {
                 sleep_us = NETD_IDLE_SLEEP_MAX_US;
@@ -130,16 +150,8 @@ void intr_loop(void) {
     return;
 }
 
-void* debug_thread(void* p){
-    while(1){
-        print_trace();
-        int ret = sleep(1);
-    }
-}
-
 int
 intr_init(void)
 {
-    pthread_mutex_init(&gMutex, NULL);
     return 0;
 }

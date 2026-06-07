@@ -46,20 +46,34 @@ basic_sys: kernel_heads
 	cd libs;make
 	cd $(SYS_ROOT_DIR)/basic;make
 	cd drivers;make basic
+	rm -rf $(TARGET_DIR)/etc
+	mkdir -p $(TARGET_DIR)/etc
 	@cp -r etc/basic/* ${TARGET_DIR}/etc
 
 network_sys: basic_sys
 	cd $(SYS_ROOT_DIR)/network;make
 	cd drivers;make network
+	rm -rf $(TARGET_DIR)/etc
+	mkdir -p $(TARGET_DIR)/etc
+	@cp -r etc/basic/* ${TARGET_DIR}/etc
 	@cp -r etc/network/* ${TARGET_DIR}/etc
 
 gui_sys: network_sys
 	cd $(SYS_ROOT_DIR)/gui;make
 	cd drivers;make gui
+	rm -rf $(TARGET_DIR)/etc
+	mkdir -p $(TARGET_DIR)/etc
+	@cp -r etc/basic/* ${TARGET_DIR}/etc
+	@cp -r etc/network/* ${TARGET_DIR}/etc
 	@cp -r etc/gui/* ${TARGET_DIR}/etc
 
 x_sys: gui_sys
 	cd $(SYS_ROOT_DIR)/xwin;make
+	rm -rf $(TARGET_DIR)/etc
+	mkdir -p $(TARGET_DIR)/etc
+	@cp -r etc/basic/* ${TARGET_DIR}/etc
+	@cp -r etc/network/* ${TARGET_DIR}/etc
+	@cp -r etc/gui/* ${TARGET_DIR}/etc
 	@cp -r etc/xwin/* ${TARGET_DIR}/etc
 
 x:  x_sys final 

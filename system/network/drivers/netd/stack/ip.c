@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
 #include "../platform.h"
 
 #include "util.h"
@@ -43,7 +42,7 @@ struct ip_hdr {
 const ip_addr_t IP_ADDR_ANY       = 0x00000000; /* 0.0.0.0 */
 const ip_addr_t IP_ADDR_BROADCAST = 0xffffffff; /* 255.255.255.255 */
 
-#define ARP_RESOLVE_WAIT_RETRY_MAX 50
+#define ARP_RESOLVE_WAIT_RETRY_MAX 300
 #define ARP_RESOLVE_WAIT_US 10000
 
 /* NOTE: if you want to add/delete the entries after net_run(), you need to protect these lists with a mutex. */
@@ -403,6 +402,8 @@ ip_resolve_hwaddr(struct ip_iface *iface, ip_addr_t dst, uint8_t *hwaddr)
         if (ret == ARP_RESOLVE_ERROR) {
             return -1;
         }
+        intr_poll_once();
+        net_protocol_handler();
         usleep(ARP_RESOLVE_WAIT_US);
     }
     return -1;
@@ -417,16 +418,7 @@ ip_output_device(struct ip_iface *iface, const uint8_t *data, size_t len, ip_add
         if (dst == iface->broadcast || dst == IP_ADDR_BROADCAST) {
             memcpy(hwaddr, NET_IFACE(iface)->dev->broadcast, NET_IFACE(iface)->dev->alen);
         } else {
-            int retry = 30;
-            int ret = 0;
-            do{
-                ret = arp_resolve(NET_IFACE(iface), dst, hwaddr);
-                if (ret == ARP_RESOLVE_FOUND) {
-                    break;
-                }
-                usleep(3000);
-            }while(--retry > 0);
-            if(ret != ARP_RESOLVE_FOUND) {
+            if (ip_resolve_hwaddr(iface, dst, hwaddr) != 0) {
                 char addr[IP_ADDR_STR_LEN];
                 errorf("arp resolve error, dst=%s", ip_addr_ntop(dst, addr, sizeof(addr)));
                 return -1;

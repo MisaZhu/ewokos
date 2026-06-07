@@ -856,6 +856,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
             pcb->rcv.wnd -= len;
             tcp_output(pcb, TCP_FLG_ACK, NULL, 0);
             tcp_sched_wakeup_all(pcb);
+            task_wakeup_tcp_readers(indexof(pcbs, pcb));
         }
         break;
     case TCP_PCB_STATE_CLOSE_WAIT:
@@ -1241,6 +1242,7 @@ tcp_connect(int id, struct ip_endpoint *foreign)
     pcb->foreign.port = foreign->port;
     pcb->rcv.wnd = sizeof(pcb->buf);
     pcb->iss = random();
+    gettimeofday(&connect_start, NULL);
     if (tcp_output(pcb, TCP_FLG_SYN, NULL, 0) == -1) {
         errorf("tcp_output() failure");
         pcb->state = TCP_PCB_STATE_CLOSED;

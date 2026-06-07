@@ -66,9 +66,7 @@ static void telnet_send_initial_negotiation(int fd) {
         TELNET_IAC, TELNET_DONT, TELNET_OPT_LINEMODE,
     };
 
-    if(telnet_write_all(fd, init_cmds, sizeof(init_cmds)) < 0) {
-        klog("telnetd initial negotiation failed: sock=%d errno=%d\n", fd, errno);
-    }
+    telnet_write_all(fd, init_cmds, sizeof(init_cmds));
 }
 
 static int telnet_open_server_socket(int port) {
@@ -105,23 +103,26 @@ int main(int argc, char *argv[])
     int port = (argc > 1) ? atoi(argv[1]):SERVER_PORT;
     serv_sock = telnet_open_server_socket(port);
 
-    slog("Listening on port %d...\n", port);
-
-
     clnt_addr_size = sizeof(clnt_addr);
     while (true) {
         clnt_sock = accept(serv_sock, (struct sockaddr *) &clnt_addr, &clnt_addr_size);
         if(clnt_sock > 0){
-            slog("Connection request:%08x :%d %d\n", clnt_addr.sin_addr, ntohs(clnt_addr.sin_port), clnt_sock);
+            int sync_pipe[2] = {-1, -1};
+            if(pipe(sync_pipe) != 0) {
+                close(clnt_sock);
+                continue;
+            }
 
             int pid = fork();
             if(pid < 0) {
-                slog("fork failed for sock=%d\n", clnt_sock);
+                close(sync_pipe[0]);
+                close(sync_pipe[1]);
                 close(clnt_sock);
                 continue;
             }
             if(pid == 0) {//child
-                close(serv_sock);
+                char ok = 0;
+                close(sync_pipe[0]);
                 int r0 = dup2(clnt_sock, 0);
                 int r1 = dup2(clnt_sock, 1);
                 int r2 = dup2(clnt_sock, 2);
@@ -132,20 +133,34 @@ int main(int argc, char *argv[])
                 (void)r2;
                 (void)rb0;
                 (void)rb1;
+                if(r0 < 0 || r1 < 0 || r2 < 0 || rb0 < 0 || rb1 < 0) {
+                    write(sync_pipe[1], &ok, 1);
+                    close(sync_pipe[1]);
+                    close(clnt_sock);
+                    close(serv_sock);
+                    exit(-1);
+                }
+                ok = 1;
+                write(sync_pipe[1], &ok, 1);
+                close(sync_pipe[1]);
+                close(serv_sock);
                 telnet_send_initial_negotiation(STDOUT_FILENO);
                 close(clnt_sock);
 		        setenv("CONSOLE_ID", "telnet");
                 if(proc_exec("/bin/session") < 0) {
-                    klog("telnetd child exec /bin/session failed\n");
                     exit(-1);
                 }
             }
             else {
-                slog("telnetd parent fork ok: child=%d sock=%d\n", pid, clnt_sock);
+                char ok = 0;
+                close(sync_pipe[1]);
+                read(sync_pipe[0], &ok, 1);
+                close(sync_pipe[0]);
                 close(clnt_sock);
             }
         }
     }
+
 
     close(serv_sock);
     return 0;

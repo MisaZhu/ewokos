@@ -11,6 +11,7 @@
 #include <sys/socket.h>
 #include <poll.h>
 #include <ewoksys/proto.h>
+#include <ewoksys/klog.h>
 #include <pthread.h>
 
 #include "platform.h"
@@ -124,19 +125,25 @@ ether_tap_read(struct net_device *dev, uint8_t *buf, size_t size)
 
 int tap_select(struct net_device *dev){
     struct ether_tap *tap = PRIV(dev);
-    struct pollfd pfd;
+    proto_t out;
+    int ret = -1;
+    int pending = 0;
 
     if (tap->fd < 0) {
         return 0;
     }
 
-    memset(&pfd, 0, sizeof(pfd));
-    pfd.fd = tap->fd;
-    pfd.events = POLLIN;
-    if (poll(&pfd, 1, 0) <= 0) {
+    PF->init(&out);
+    ret = dev_cntl(tap->name, 1, NULL, &out);
+    if (ret == 0) {
+        pending = proto_read_int(&out);
+    }
+    PF->clear(&out);
+
+    if (ret != 0 || pending <= 0) {
         return 0;
     }
-    return (pfd.revents & POLLIN) ? 1 : 0;
+    return pending;
 }
 
 static int

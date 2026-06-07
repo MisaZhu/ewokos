@@ -15,6 +15,7 @@ extern int dev_unlink(int dev_pid, uint32_t node, const char* fname);
 extern int dev_open(int dev_pid, int fd, fsinfo_t* info, int oflag);
 extern int dev_read(int dev_pid, int fd, fsinfo_t* info, int32_t offset, void* buf, uint32_t size);
 extern int dev_write(int dev_pid, int fd, fsinfo_t* info, int32_t offset, const void* buf, uint32_t size);
+extern int dev_poll(int dev_pid, int fd, fsinfo_t* info, uint32_t* events);
 extern int dev_flush(int dev_pid, int fd, uint32_t node, int8_t wait);
 extern int dev_dma(int dev_pid, int fd, uint32_t node, int* size);
 extern int dev_read_block(int dev_pid, void* buf, uint32_t size, int32_t index);

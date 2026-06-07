@@ -6,6 +6,7 @@
 #include <ewoksys/wait.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/core.h>
+#include <ewoksys/klog.h>
 #include <setenv.h>
 
 static void welcome(void) {

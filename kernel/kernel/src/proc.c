@@ -86,6 +86,8 @@ static inline void proc_lock_leave(void) {
 static inline void proc_account_running_until(proc_t* proc, uint64_t now_usec) {
 	if(proc == NULL || !proc->run_accounting_active)
 		return;
+	if(get_current_core_proc(proc->info.core) != proc)
+		return;
 	if(now_usec > proc->run_last_start_usec)
 		proc->run_usec_counter += now_usec - proc->run_last_start_usec;
 	proc->run_last_start_usec = now_usec;
@@ -201,6 +203,7 @@ void proc_get_core_runtime_stats(uint32_t* core_procs, uint32_t* core_idles, uin
 			core_kernels[core] = residual;
 		}
 	}
+
 	proc_lock_leave();
 }
 
@@ -581,7 +584,7 @@ static void proc_interrupt_timeout(proc_t* proc) {
 		proc->sleep_counter = intr->saved_state.sleep_counter;
 		memcpy(&proc->ctx, &intr->saved_state.ctx, sizeof(context_t));
 		intr->restore_pending = (intr_state == INTR_STATE_WORKING) ? 1 : 0;
-		if(proc->info.state == READY || proc->info.state == RUNNING) {
+		if(proc->info.state == READY) {
 			proc_ready(proc);
 		}
 	}
@@ -637,7 +640,7 @@ static void proc_ipc_timeout(proc_t* proc) {
 	proc->sleep_counter = server->saved_state.sleep_counter;
 	memcpy(&proc->ctx, &server->saved_state.ctx, sizeof(context_t));
 	server->restore_pending = 1;
-	if(proc->info.state == READY || proc->info.state == RUNNING) {
+	if(proc->info.state == READY) {
 		proc_ready(proc);
 	}
 
@@ -1221,19 +1224,21 @@ static inline void core_attach(proc_t* proc) {
 		return;
 	}
 
-	parent = proc_get(proc->info.father_pid);
+	/*
+	* Keep threads with their parent because they share one address space and
+	* frequently synchronize with the creator. Real processes can be queued
+	* onto another core safely because they are only woken after fork/clone
+	* setup is finished.
+	*/
+	/*parent = proc_get(proc->info.father_pid);
 	if(parent != NULL) {
-		/*
-		 * Keep threads with their parent because they share one address space and
-		 * frequently synchronize with the creator. Real processes can be queued
-		 * onto another core safely because they are only woken after fork/clone
-		 * setup is finished.
-		 */
+		
 		if(proc->info.type != TASK_TYPE_PROC) {
 			proc->info.core = parent->info.core;
 			return;
 		}
 	}
+	*/
 
 	proc->info.core = core_fetch(proc);
 }
@@ -1433,9 +1438,11 @@ void proc_usleep(context_t* ctx, uint32_t count) {
 	if(cproc == NULL)
 		return;
 
+	proc_account_pause_current();
 	cproc->sleep_counter = count;
 	proc_unready(cproc, SLEEPING);
 	schedule(ctx);
+	proc_account_resume_current();
 }
 	
 void proc_block(context_t* ctx, proc_t* proc) {
@@ -1453,9 +1460,13 @@ void proc_block(context_t* ctx, proc_t* proc) {
 		return;
 	}
 	proc_lock_leave();
+	if(proc == get_current_proc())
+		proc_account_pause_current();
 	proc_unready(proc, BLOCK);
 	//proc_block_saved_state(pid_by, event, cproc);
 	schedule(ctx);
+	if(proc == get_current_proc())
+		proc_account_resume_current();
 }
 
 void proc_waitpid(context_t* ctx, int32_t pid) {
@@ -1484,7 +1495,9 @@ void proc_waitpid(context_t* ctx, int32_t pid) {
 	cproc->info.wait_for = pid;
 	proc_unready_locked(cproc, WAIT);
 	proc_lock_leave();
+	proc_account_pause_current();
 	schedule(ctx);
+	proc_account_resume_current();
 
 	p = _task_table[pid];
 	if(p != NULL && p->info.state == ZOMBIE) {
@@ -1879,8 +1892,17 @@ static int32_t renew_priority_counter(uint32_t usec) {
 		if(proc->priority_count > 0)
 			proc->priority_count--;
 
-		if(proc->info.state == RUNNING || proc->info.state == READY) {
+		if(proc->priority_count > 0) {
+			it = next;
+			continue;
+		}
+
+		if(proc->info.state == READY) {
 			proc_ready(proc);
+		}
+		else if(proc->info.state == RUNNING &&
+				get_current_core_proc(proc->info.core) == proc) {
+			proc->priority_count = proc->info.priority;
 		}
 		it = next;
 	}

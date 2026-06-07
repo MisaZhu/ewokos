@@ -10,6 +10,7 @@
 #include <ewoksys/ipc.h>
 #include <ewoksys/sys.h>
 #include <ewoksys/core.h>
+#include <ewoksys/klog.h>
 #include <procinfo.h>
 #include <unistd.h>
 #include <setenv.h>
