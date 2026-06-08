@@ -876,6 +876,9 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
 	case SYS_SEMAPHORE_ENTER:
 		semaphore_enter(ctx, arg0);
 		return;
+	case SYS_SEMAPHORE_TRY_ENTER:
+		semaphore_try_enter(ctx, arg0);
+		return;
 	case SYS_SEMAPHORE_QUIT:
 		ctx->gpr[0] = semaphore_quit(arg0);
 		return;

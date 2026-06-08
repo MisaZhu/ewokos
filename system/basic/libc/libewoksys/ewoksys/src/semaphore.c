@@ -15,8 +15,12 @@ void semaphore_free(int sem_id) {
 
 int  semaphore_enter(int sem_id) {
 	int res = 0;
+
+	//TODO 
+	//res = syscall1(SYS_SEMAPHORE_ENTER, (ewokos_addr_t)sem_id);
+
 	while(true) {
-		res = syscall1(SYS_SEMAPHORE_ENTER, (ewokos_addr_t)sem_id);
+		res = syscall1(SYS_SEMAPHORE_TRY_ENTER, (ewokos_addr_t)sem_id);
 		if(res != -2)
 			break;
 		syscall0(SYS_YIELD);
@@ -25,7 +29,7 @@ int  semaphore_enter(int sem_id) {
 }
 
 int  semaphore_tryenter(int sem_id) {
-	return syscall1(SYS_SEMAPHORE_ENTER, (ewokos_addr_t)sem_id);
+	return syscall1(SYS_SEMAPHORE_TRY_ENTER, (ewokos_addr_t)sem_id);
 }
 
 int  semaphore_quit(int sem_id) {

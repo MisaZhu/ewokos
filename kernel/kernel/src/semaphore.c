@@ -85,6 +85,11 @@ void semaphore_enter(context_t* ctx, uint32_t sem_id) {
 	return;
 }
 
+void semaphore_try_enter(context_t* ctx, uint32_t sem_id) {
+	//TODO
+	semaphore_enter(ctx, sem_id);
+}
+
 int32_t semaphore_quit(uint32_t sem_id) {
 	if(sem_id == 0)
 		return -1;
