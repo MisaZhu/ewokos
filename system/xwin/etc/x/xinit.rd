@@ -11,7 +11,6 @@
 
 @export XTHEME=ewokwm
 @/bin/ipcserv /sbin/x/xwm_ewok
-@echo "finally" > /dev/tty0
 
 @/bin/x/statusbar &
 @/bin/x/xlauncher &
