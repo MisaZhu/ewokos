@@ -503,6 +503,14 @@ static void sys_ipc_end(context_t* ctx) {
 
 	serv_proc->space->ipc_server.restore_pending = 0;
 	proc_restore_state(ctx, serv_proc, &serv_proc->space->ipc_server.saved_state, &serv_proc->space->ipc_server.saved_ipc_res);
+
+	// Fix: If the server was BLOCK/SLEEPING when the IPC arrived,
+	// make it READY so it can be re-scheduled to continue its main loop.
+	// Without this, the server gets stranded in BLOCK with no wakeup source.
+	if(serv_proc->info.state == BLOCK || serv_proc->info.state == SLEEPING) {
+		serv_proc->info.state = READY;
+	}
+
 	if(serv_proc->info.state == READY || serv_proc->info.state == RUNNING) {
 		proc_ready(serv_proc);
 	}

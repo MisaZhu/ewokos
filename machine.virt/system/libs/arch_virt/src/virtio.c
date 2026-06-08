@@ -674,6 +674,7 @@ static void virtio_input_fill_queue(virtio_dev_t dev)
 			virtq->desc[avail_idx % VIRTIO_QUEUE_SIZE].next = 0;
 			virtq->avail.ring[avail_idx % VIRTIO_QUEUE_SIZE] = avail_idx % VIRTIO_QUEUE_SIZE;
 			avail_idx++;
+			mem_barrier();
 			virtq->avail.idx++;
 		}
 
@@ -695,6 +696,7 @@ static void virtio_interrupt_handle(uint32_t interrupt, uint32_t p)
 	}
 	struct virtq_t *virtq = dev->virtq;
 	virtio_ack_interrupt(dev->base, 0x3);
+	mem_barrier();
 
 	static uint16_t next_used_idx[VIRTIO_DEV_MAX] = {0};
 	volatile int dev_used_idx = virtq->used.idx;
@@ -706,6 +708,7 @@ static void virtio_interrupt_handle(uint32_t interrupt, uint32_t p)
 			(struct virtio_input_event *)(virtq->buf0 + (desc_id % VIRTIO_QUEUE_SIZE) * sizeof(struct virtio_input_event));
 		dev->interrupt_handler(dev, event);
 		next_used_idx[p]++;
+		dev_used_idx = virtq->used.idx;
 	}
 	virtio_input_fill_queue(dev);
 }

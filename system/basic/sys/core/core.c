@@ -303,19 +303,14 @@ static void do_proc_created(kevent_t* kev) {
 	if(pid > 0) {
 		proto_t data;
 		PF->init(&data)->addi(&data, fpid)->addi(&data, cpid);
-		int res = ipc_call_wait(pid, VFS_PROC_CLONE, &data);
-		if(res == 0) {
-			PF->clear(&data);
-			do_proc_clone(fpid, cpid);
-			proc_wakeup(cpid);
-			proc_wakeup(fpid);
-		}
+		ipc_enable();
+		ipc_call_wait(pid, VFS_PROC_CLONE, &data);
+		ipc_disable();
+		PF->clear(&data);
 	}
-	else {
-		do_proc_clone(fpid, cpid);
-		proc_wakeup(cpid);
-		proc_wakeup(fpid);
-	}
+	do_proc_clone(fpid, cpid);
+	proc_wakeup(cpid);
+	proc_wakeup(fpid);
 }
 
 static void do_proc_exit(kevent_t* kev) {
@@ -324,7 +319,9 @@ static void do_proc_exit(kevent_t* kev) {
 	PF->init(&data)->addi(&data, pid);
 	int vfs_pid = get_ipc_serv(IPC_SERV_VFS);
 	if(vfs_pid > 0) {
+		ipc_enable();
 		ipc_call_wait(vfs_pid, VFS_PROC_EXIT, &data);
+		ipc_disable();
 	}
 
 	if(pid >= 0 && pid < _max_proc_table_num && _proc_info_table[pid].envs != NULL) {

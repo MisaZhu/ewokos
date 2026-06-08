@@ -9,6 +9,11 @@
 #include <kstring.h>
 #include <dev/timer.h>
 
+#ifdef KERNEL_SMP
+extern void mcore_lock(int32_t* v);
+extern void mcore_unlock(int32_t* v);
+#endif
+
 #define IPC_BUFFER_SIZE 32
 
 int32_t proc_ipc_setup(context_t* ctx, ewokos_addr_t entry, ewokos_addr_t extra_data, uint32_t flags) {
@@ -45,9 +50,11 @@ int32_t proc_ipc_do_task(context_t* ctx, proc_t* serv_proc, uint32_t core) {
 		return -1;
 	}
 
+	proc_lock_enter();
 	proc_save_state(serv_proc, &serv_proc->space->ipc_server.saved_state, &serv_proc->space->ipc_server.saved_ipc_res);
 	serv_proc->space->ipc_server.do_switch = true;
 	serv_proc->space->ipc_server.restore_pending = 0;
+	proc_lock_leave();
 
 	if((ipc->call_id & IPC_LAZY) == 0)
 		proc_switch_multi_core(ctx, serv_proc, core);
@@ -65,7 +72,15 @@ static void ipc_free(ipc_task_t* ipc) {
 ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id, proto_t* arg) {
 	ipc_task_t* ipc = &serv_proc->space->ipc_server.ctask;
 	//kprintf("ipc timeout check %d\n", usec);
+
+#ifdef KERNEL_SMP
+	mcore_lock(&serv_proc->space->ipc_server.lock);
+#endif
+
 	if(ipc->state != IPC_IDLE) {
+#ifdef KERNEL_SMP
+		mcore_unlock(&serv_proc->space->ipc_server.lock);
+#endif
 		return NULL;
 		/*if((usec - ipc->usec) < IPC_TIMEOUT_USEC || (ipc->call_id & IPC_NON_RETURN) == 0)
 			return NULL;
@@ -100,6 +115,11 @@ ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id
 	ipc->client_uuid = client_proc->info.uuid;
 	ipc->call_id = call_id;
 	ipc->counter = 0;
+
+#ifdef KERNEL_SMP
+	mcore_unlock(&serv_proc->space->ipc_server.lock);
+#endif
+
 	if(arg != NULL && arg->data != NULL) {
 		proto_copy(&ipc->arg_ret, arg->data, arg->size);
 	}

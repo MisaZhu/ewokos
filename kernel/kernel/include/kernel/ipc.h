@@ -36,6 +36,7 @@ typedef struct {
 } ipc_queue_item_t;
 
 typedef struct {
+	int32_t       lock;  // per-server spinlock for SMP protection
 	bool          disabled;
 	ewokos_addr_t entry;
 	uint32_t      flags;

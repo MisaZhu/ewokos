@@ -58,7 +58,7 @@ static inline uint64_t proc_account_now_usec(void) {
 	return irq_accounting_now_usec();
 }
 
-static inline void proc_lock_enter(void) {
+void proc_lock_enter(void) {
 #ifdef KERNEL_SMP
 	int32_t core = (int32_t)get_core_id();
 	if(_proc_lock_owner == core) {
@@ -71,7 +71,7 @@ static inline void proc_lock_enter(void) {
 #endif
 }
 
-static inline void proc_lock_leave(void) {
+void proc_lock_leave(void) {
 #ifdef KERNEL_SMP
 	if(_proc_lock_owner != (int32_t)get_core_id() || _proc_lock_depth == 0)
 		return;
@@ -683,9 +683,28 @@ void proc_switch_multi_core(context_t* ctx, proc_t* to, uint32_t core) {
 	}
 	else {
 #ifdef KERNEL_SMP
+		/*
+		 * If the target is BLOCK (or any non-RUNNING state) on another
+		 * core, proc_ready() must transition it to READY and enqueue it
+		 * so the remote scheduler can dispatch it.  When the server is
+		 * BLOCK, proc_ready() alone may race with the server's own
+		 * proc_block() on its home core: the state can flip back to
+		 * BLOCK and the process be removed from the ready-queue after
+		 * we enqueue it, losing the wake.  Force the state to READY
+		 * under the proc lock so the transition is atomic with the
+		 * enqueue and visible to the remote core before we send the
+		 * IPI.
+		 */
+		proc_lock_enter();
+		if(to->info.state != RUNNING) {
+			to->info.state = READY;
+		}
+		proc_lock_leave();
 		proc_ready(to);
-		_cpu_cores[to->info.core].need_resched = 1;
-		ipi_send(to->info.core);
+		if(_cpu_cores[to->info.core].actived) {
+			_cpu_cores[to->info.core].need_resched = 1;
+			ipi_send(to->info.core);
+		}
 #endif
 	}
 }
@@ -1438,9 +1457,18 @@ void proc_usleep(context_t* ctx, uint32_t count) {
 	if(cproc == NULL)
 		return;
 
-	proc_account_pause_current();
+	proc_lock_enter();
+	if(cproc->info.state == READY) {
+		/* A cross-core wakeup (e.g. IPC dispatch) already marked us READY;
+		 * honour it instead of sleeping. */
+		cproc->info.state = RUNNING;
+		proc_lock_leave();
+		return;
+	}
 	cproc->sleep_counter = count;
-	proc_unready(cproc, SLEEPING);
+	proc_unready_locked(cproc, SLEEPING);
+	proc_lock_leave();
+	proc_account_pause_current();
 	schedule(ctx);
 	proc_account_resume_current();
 }
@@ -1459,10 +1487,16 @@ void proc_block(context_t* ctx, proc_t* proc) {
 		proc_lock_leave();
 		return;
 	}
+	/*
+	 * Hold the lock through proc_unready_locked() to close the race window
+	 * where another core's proc_ready() (e.g. from IPC dispatch) could
+	 * enqueue us between the READY check above and the state transition
+	 * to BLOCK. Without this, a cross-core IPC wakeup can be lost.
+	 */
+	proc_unready_locked(proc, BLOCK);
 	proc_lock_leave();
 	if(proc == get_current_proc())
 		proc_account_pause_current();
-	proc_unready(proc, BLOCK);
 	//proc_block_saved_state(pid_by, event, cproc);
 	schedule(ctx);
 	if(proc == get_current_proc())
