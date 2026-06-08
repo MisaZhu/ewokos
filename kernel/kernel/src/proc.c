@@ -39,6 +39,8 @@ static uint32_t _proc_uuid = 0;
 static int32_t _last_create_pid = 0;
 static uint64_t _run_window_start_usec = 0;
 
+static void proc_wakeup_all_state(proc_t* proc);
+
 bool _core_proc_ready = false;
 int32_t _core_proc_pid = -1;
 uint32_t _ipc_uid = 0;
@@ -678,33 +680,26 @@ static void proc_ipc_timeout(proc_t* proc) {
 
 void proc_switch_multi_core(context_t* ctx, proc_t* to, uint32_t core) {
 	if(to->info.core == core) {
+		proc_lock_enter();
+		if(to->info.state != RUNNING) {
+			proc_wakeup_all_state(to);
+		}
+		proc_lock_leave();
 		to->info.state = RUNNING;
 		proc_switch(ctx, to, true);
 	}
 	else {
 #ifdef KERNEL_SMP
 		/*
-		 * If the target is BLOCK (or any non-RUNNING state) on another
-		 * core, proc_ready() must transition it to READY and enqueue it
-		 * so the remote scheduler can dispatch it.  When the server is
-		 * BLOCK, proc_ready() alone may race with the server's own
-		 * proc_block() on its home core: the state can flip back to
-		 * BLOCK and the process be removed from the ready-queue after
-		 * we enqueue it, losing the wake.  Force the state to READY
-		 * under the proc lock so the transition is atomic with the
-		 * enqueue and visible to the remote core before we send the
-		 * IPI.
+		 * IPC dispatch can target a server that is sleeping or blocked on
+		 * another core.  Waking it with proc_ready() alone leaves the
+		 * nested saved_state copies untouched, so a concurrent restore path
+		 * can still drag the server back to SLEEPING/BLOCK and lose the
+		 * wakeup.  Reuse the full proc_wakeup() path so both the visible
+		 * state and the saved nested states become READY before the remote
+		 * core is kicked.
 		 */
-		proc_lock_enter();
-		if(to->info.state != RUNNING) {
-			to->info.state = READY;
-		}
-		proc_lock_leave();
-		proc_ready(to);
-		if(_cpu_cores[to->info.core].actived) {
-			_cpu_cores[to->info.core].need_resched = 1;
-			ipi_send(to->info.core);
-		}
+		proc_wakeup(to);
 #endif
 	}
 }
@@ -1900,7 +1895,15 @@ static int32_t renew_ipc_counter(uint32_t usec) {
 
 		ipc->counter += usec;
 		if(ipc->counter >= IPC_TIMEOUT_USEC) {
-			printf("ipc timeout: clt:%d, srv:%d, call:%d/0x%x\n", ipc->client_pid, proc->info.pid, ipc->call_id, ipc->call_id);
+			proc_t* client = proc_get(ipc->client_pid);
+			printf("ipc timeout: uid:%u clt:%d(%s), srv:%d(%s), call:%d/0x%x\n",
+					ipc->uid,
+					ipc->client_pid,
+					client ? client->info.cmd : "?",
+					proc->info.pid,
+					proc->info.cmd,
+					ipc->call_id,
+					ipc->call_id);
 			proc_ipc_timeout(proc);
 			res = 0;
 		}

@@ -272,7 +272,8 @@ static int32_t sys_shm_get(int32_t id, uint32_t size, int32_t flag) {
 
 static void* sys_shm_map(int32_t id) {
 	proc_t* cproc = proc_get_proc(get_current_proc());
-	return shm_proc_map(cproc, id);
+	void* ret = shm_proc_map(cproc, id);
+	return ret;
 }
 
 static int32_t sys_shm_unmap(void* p) {
@@ -460,6 +461,8 @@ static int32_t sys_ipc_get_info(uint32_t uid, int32_t* ipc_info, proto_t* arg) {
 	ipc_info[0] = ipc->client_pid;
 	ipc_info[1] = ipc->call_id;
 
+	proc_t* client_proc = proc_get(ipc->client_pid);
+
 	if(arg != NULL) {
 		if(arg->total_size >= ipc->arg_ret.size && ipc->arg_ret.data != NULL)
 			proto_copy(arg, ipc->arg_ret.data, ipc->arg_ret.size);
@@ -470,6 +473,7 @@ static int32_t sys_ipc_get_info(uint32_t uid, int32_t* ipc_info, proto_t* arg) {
 }
 
 static void sys_ipc_set_return(context_t* ctx, uint32_t uid, proto_t* data) {
+	(void)ctx;
 	proc_t* serv_proc = proc_get_proc(get_current_proc());
 	ipc_task_t* ipc = proc_ipc_get_task(serv_proc);
 	if(uid == 0 ||
@@ -488,8 +492,6 @@ static void sys_ipc_set_return(context_t* ctx, uint32_t uid, proto_t* data) {
 		if(data != NULL) {
 			proto_copy(&client_proc->ipc_res.data, data->data, data->size);
 		}
-		proc_wakeup(client_proc);
-		proc_switch_multi_core(ctx, client_proc, serv_proc->info.core);
 	}
 }
 
@@ -500,6 +502,9 @@ static void sys_ipc_end(context_t* ctx) {
 			serv_proc->space->ipc_server.entry == 0 ||
 			ipc == NULL)
 		return;
+
+	proc_t* client_proc = proc_get(ipc->client_pid);
+	bool wake_return_client = ((ipc->call_id & IPC_NON_RETURN) == 0);
 
 	serv_proc->space->ipc_server.restore_pending = 0;
 	proc_restore_state(ctx, serv_proc, &serv_proc->space->ipc_server.saved_state, &serv_proc->space->ipc_server.saved_ipc_res);
@@ -514,10 +519,23 @@ static void sys_ipc_end(context_t* ctx) {
 	if(serv_proc->info.state == READY || serv_proc->info.state == RUNNING) {
 		proc_ready(serv_proc);
 	}
-
-	//wake up request proc to get return
 	proc_ipc_close(serv_proc, ipc);
 	proc_ipc_wakeup(serv_proc); 
+	if(wake_return_client &&
+			client_proc != NULL &&
+			client_proc->info.state != UNUSED &&
+			client_proc->info.state != ZOMBIE) {
+		/*
+		 * Do not wake the caller from sys_ipc_set_return() before the server
+		 * fully closes the current ctask. Otherwise the caller can immediately
+		 * issue the next ipc_call(), hit IPC_ERROR_RETRY against the still-busy
+		 * server slot, and spin in short RET->END races that amplify VFS
+		 * metadata-heavy workloads into multi-second boot tails.
+		 */
+		proc_wakeup(client_proc);
+		proc_switch_multi_core(ctx, client_proc, serv_proc->info.core);
+		return;
+	}
 
 	/*if(proc_ipc_fetch(serv_proc) != 0)  {//fetch next buffered ipc
 		proc_save_state(serv_proc, &serv_proc->space->ipc_server.saved_state, &serv_proc->space->ipc_server.saved_ipc_res);

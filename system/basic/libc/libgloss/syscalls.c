@@ -512,7 +512,14 @@ _open (const char * fname, int oflag, ...)
 		return -1;
 	}
 
-	if(dev_open(info.mount_pid, fd, &info, oflag) != 0) {
+	uint32_t type = info.type & FS_TYPE_MASK;
+	bool needs_dev_open = true;
+	if((type == FS_TYPE_FILE || type == FS_TYPE_DIR || type == FS_TYPE_LINK) &&
+			(oflag & O_TRUNC) == 0) {
+		needs_dev_open = false;
+	}
+
+	if(needs_dev_open && dev_open(info.mount_pid, fd, &info, oflag) != 0) {
 		vfs_close_info(fd);
 		if(created)
 			vfs_del_node(info.node);

@@ -54,16 +54,8 @@ static int32_t bsp_sd_read_cache(int32_t sector, void* buf) {
 
 	if(l3_entry[l3] == 0) {
 		uint32_t page = (uint32_t)sector >> 3;
-		uint32_t prefetch_pages = next_prefetch_pages;
 		uint32_t prefetch_l3 = l3;
-
-		if(page == last_prefetch_end_page)
-			prefetch_pages <<= 1;
-		else
-			prefetch_pages = SD_CACHE_MIN_PREFETCH_PAGES;
-
-		if(prefetch_pages > SD_CACHE_PREFETCH_PAGES)
-			prefetch_pages = SD_CACHE_PREFETCH_PAGES;
+		uint32_t prefetch_pages = SD_CACHE_MIN_PREFETCH_PAGES;
 
 		if((prefetch_l3 + prefetch_pages) > 0x200)
 			prefetch_pages = 0x200 - prefetch_l3;

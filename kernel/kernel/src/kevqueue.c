@@ -1,13 +1,16 @@
 #include <kernel/kevqueue.h>
+#include <kernel/core.h>
 #include <queue.h>
 #include <mm/kmalloc.h>
 #include <kernel/proc.h>
 #include <stddef.h>
 
 static queue_t  _kev_queue;
+static int32_t _kev_lock = 0;
 
 void kev_init(void) {
 	queue_init(&_kev_queue);
+	_kev_lock = 0;
 }
 
 kevent_t* kev_push(uint32_t type, uint32_t arg0, uint32_t arg1, uint32_t arg2) {
@@ -16,7 +19,11 @@ kevent_t* kev_push(uint32_t type, uint32_t arg0, uint32_t arg1, uint32_t arg2) {
 	kev->data[0] = arg0;
 	kev->data[1] = arg1;
 	kev->data[2] = arg2;
+
+	mcore_lock(&_kev_lock);
 	queue_push(&_kev_queue, kev);
+	mcore_unlock(&_kev_lock);
+
 	if(_core_proc_pid >= 0) {
 		proc_t* core = proc_get(_core_proc_pid);
 		if(core != NULL)
@@ -30,7 +37,9 @@ int32_t kev_pop(kevent_t* ret) {
 	if(cproc->info.pid != _core_proc_pid)	 //only core proc access allowed.
 		return -1;
 
+	mcore_lock(&_kev_lock);
 	kevent_t* kev = queue_pop(&_kev_queue);
+	mcore_unlock(&_kev_lock);
 	if(kev == NULL) {
 		return -1;
 	}

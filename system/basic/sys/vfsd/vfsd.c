@@ -527,6 +527,18 @@ static void vfs_driver_close(int32_t pid, int32_t fd, file_t* file) {
 	if(file == NULL || file->node == NULL)
 		return;
 	vfs_node_t* node = file->node;
+	uint32_t type = file->fsinfo.type & FS_TYPE_MASK;
+
+	/*
+	 * Regular filesystem objects in rootfs do not keep per-fd runtime state in
+	 * the backing driver. Zombie cleanup already detached the VFS-side slot, so
+	 * round-tripping a no-op FS_CMD_CLOSE for every inherited script/config file
+	 * only lengthens the window where boot-time metadata traffic contends with
+	 * reaping detached helpers.
+	 */
+	if(type == FS_TYPE_FILE || type == FS_TYPE_DIR || type == FS_TYPE_LINK)
+		return;
+
 	proto_t in;
 	PF->format(&in, "i,i,m,i",
 		fd, vfs_get_node_id(node), &file->fsinfo, sizeof(fsinfo_t), pid);
@@ -542,6 +554,18 @@ static void vfs_driver_dup(int32_t from_pid, int32_t from_fd,
 	if(file == NULL || file->node == NULL)
 		return;
 	vfs_node_t* node = file->node;
+	uint32_t type = file->fsinfo.type & FS_TYPE_MASK;
+
+	/*
+	 * Regular filesystem objects do not carry per-fd runtime state in their
+	 * mount driver. Reads and writes always pass the current offset down from
+	 * libc, and the generic vdevice layer can lazily rebuild its cache from the
+	 * VFS node info on first access. Avoid synchronously round-tripping every
+	 * fork/dup of rootfs script files through the backing fs server so a stuck
+	 * FS_CMD_DUP cannot strand the parent and child in fork.
+	 */
+	if(type == FS_TYPE_FILE || type == FS_TYPE_DIR || type == FS_TYPE_LINK)
+		return;
 
 	proto_t in;
 	PF->format(&in, "i,i,i,m,i,i",
@@ -696,11 +720,9 @@ static void do_vfs_get_by_name(int32_t pid, proto_t* in, proto_t* out) {
 	(void)pid;
 	PF->addi(out, 0);
 	const char* name = proto_read_str(in);
-  vfs_node_t* node = vfs_get_by_name(vfs_root(), name);
-  //if(node == NULL || vfs_check_access(pid, &node->fsinfo, R_OK) != 0)
-  if(node == NULL)
-    return;
-
+	vfs_node_t* node = vfs_get_by_name(vfs_root(), name);
+	if(node == NULL)
+		return;
 	PF->clear(out)->addi(out, vfs_get_node_id(node))->add(out, gen_fsinfo(node), sizeof(fsinfo_t));
 }
 
@@ -1112,8 +1134,21 @@ static void clear_zombie(int32_t cpid) {
 	for(i=0; i<MAX_OPEN_FILE_PER_PROC; i++) {
 		file_t *f = &_proc_fds_table[cpid].fds[i];
 		if(f->node != NULL) {
-			vfs_driver_close(cpid, i, f);
-			proc_file_close(cpid, i, f);
+			/*
+			 * Zombie cleanup runs from the main loop with IPC temporarily
+			 * disabled to avoid re-entrant mutation of the fd tables. Do not
+			 * keep vfsd globally unavailable while synchronously notifying
+			 * backing drivers: detach the fd from the zombie table first, then
+			 * re-enable IPC around the potentially blocking driver close so
+			 * metadata lookups like VFS_GET_BY_NODE can still make progress.
+			 */
+			file_t closing = *f;
+			memset(f, 0, sizeof(file_t));
+			ipc_enable();
+			vfs_driver_close(cpid, i, &closing);
+			ipc_disable();
+			proc_file_close(cpid, i, &closing);
+			continue;
 		}
 		memset(f, 0, sizeof(file_t));
 	}
@@ -1126,7 +1161,17 @@ static void clear_zombies(void) {
 	int32_t i;
 	for(i = 0; i<_max_proc_table_num; i++) {
 		if(_proc_fds_table[i].state == ZOMBIE) {
-			clear_zombie(i);
+			/*
+			 * Boot scripts spawn and detach many short-lived helpers. Scanning the
+			 * whole proc table with IPC disabled stalls unrelated metadata requests
+			 * behind zombie cleanup. Only hold the non-reentrant section while
+			 * actually reclaiming one zombie slot.
+			 */
+			ipc_disable();
+			if(_proc_fds_table[i].state == ZOMBIE) {
+				clear_zombie(i);
+			}
+			ipc_enable();
 		}
 	}
 }

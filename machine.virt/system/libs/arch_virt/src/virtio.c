@@ -15,7 +15,13 @@
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define ALIGN_UP(x, a) (((x) + (a)-1) & ~((a)-1))
 
-#define mem_barrier() __asm__ volatile("" ::: "memory")
+/*
+ * Virtqueue rings are shared with the device, so we need a real hardware
+ * memory barrier here rather than a compiler-only fence. Without this, ARM
+ * may reorder descriptor/avail writes around MMIO notify and the device can
+ * occasionally miss a request, which shows up as sporadic 10s rootfs stalls.
+ */
+#define mem_barrier() __sync_synchronize()
 
 #define VIRTIO_MMIO_MAGIC 0x00
 #define VIRTIO_MMIO_VERSION 0x04
@@ -372,11 +378,13 @@ static int virtio_send_request_queue(uintptr_t base, struct virtq_t *virtq, uint
 	virtq->avail.ring[virtq->avail.idx % VIRTIO_QUEUE_SIZE] = 0;
 	mem_barrier();
 	virtq->avail.idx++;
+	mem_barrier();
 	put32(base + VIRTIO_MMIO_QUEUE_NOTIFY, queue_idx);
 
 	for (uint32_t i = 0; i < loops; i++)
 	{
 		virtio_ack_interrupt(base, 0x1);
+		mem_barrier();
 		if (virtq->used.idx != used_before)
 		{
 			if (resp != NULL && resp_len > 0)
@@ -420,6 +428,7 @@ static void virtio_net_submit_rx_desc(virtio_dev_t dev, struct virtio_net_state 
 	net->rxq->avail.ring[net->rxq->avail.idx % VIRTIO_QUEUE_SIZE] = desc_id;
 	mem_barrier();
 	net->rxq->avail.idx++;
+	mem_barrier();
 	(void)dev;
 }
 
@@ -490,6 +499,7 @@ static void virtio_snd_submit_event_desc(virtio_dev_t dev, struct virtio_snd_sta
 		snd->queues[VIRTIO_SND_VQ_EVENT]->avail.idx % VIRTIO_QUEUE_SIZE] = desc_id;
 	mem_barrier();
 	snd->queues[VIRTIO_SND_VQ_EVENT]->avail.idx++;
+	mem_barrier();
 }
 
 static void virtio_snd_fill_event_queue(virtio_dev_t dev, struct virtio_snd_state *snd)
@@ -676,6 +686,7 @@ static void virtio_input_fill_queue(virtio_dev_t dev)
 			avail_idx++;
 			mem_barrier();
 			virtq->avail.idx++;
+			mem_barrier();
 		}
 
 		put32(dev->base + VIRTIO_MMIO_QUEUE_NOTIFY, 0);
@@ -977,6 +988,7 @@ int virtio_net_write(virtio_dev_t dev, const void *buf, uint32_t size)
 	net->txq->avail.ring[net->txq->avail.idx % VIRTIO_QUEUE_SIZE] = VIRTIO_NET_TX_DESC_ID;
 	mem_barrier();
 	net->txq->avail.idx++;
+	mem_barrier();
 	put32(dev->base + VIRTIO_MMIO_QUEUE_NOTIFY, VIRTIO_NET_TX_QUEUE);
 
 	net->tx_inflight = true;
@@ -1007,6 +1019,7 @@ int virtio_blk_transfer(virtio_dev_t dev, uint64_t sector, void *buffer, uint32_
 		struct virtio_blk_req *req = (struct virtio_blk_req *)virtq->buf0;
 		uint8_t *buf = (uint8_t *)virtq->buf0 + sizeof(struct virtio_blk_req);
 		uint8_t *status = &buf[bytes];
+		uint16_t used_before = virtq->used.idx;
 
 		req->type = isWrite ? VIRTIO_BLK_T_OUT : VIRTIO_BLK_T_IN;
 		req->reserved = 0;
@@ -1034,13 +1047,23 @@ int virtio_blk_transfer(virtio_dev_t dev, uint64_t sector, void *buffer, uint32_
 		virtq->desc[2].next = 0;
 
 		virtq->avail.ring[virtq->avail.idx % VIRTIO_QUEUE_SIZE] = 0;
+		mem_barrier();
 		virtq->avail.idx++;
+		mem_barrier();
 		put32(base + VIRTIO_MMIO_QUEUE_NOTIFY, 0);
 
 		uint8_t completed = 0;
 		for (uint32_t i = 0; i < VIRTIO_TIMEOUT_LOOPS; i++)
 		{
-			if (virtio_ack_interrupt(base, 0x1) & 0x1)
+			/*
+			 * Interrupt status is only a wake hint. If the edge is consumed by
+			 * another poll site, the request may already be complete while the
+			 * status bit is clear. Track used.idx like the other virtio request
+			 * queues so blk I/O completion cannot be lost.
+			 */
+			virtio_ack_interrupt(base, 0x1);
+			mem_barrier();
+			if (virtq->used.idx != used_before)
 			{
 				if (!isWrite)
 				{
@@ -1429,6 +1452,7 @@ int virtio_snd_tx_write(virtio_dev_t dev, uint32_t stream_id, const void *data, 
 			snd->queues[VIRTIO_SND_VQ_TX]->avail.idx % VIRTIO_QUEUE_SIZE] = slot->head_desc;
 		mem_barrier();
 		snd->queues[VIRTIO_SND_VQ_TX]->avail.idx++;
+		mem_barrier();
 		slot->inflight = true;
 		put32(dev->base + VIRTIO_MMIO_QUEUE_NOTIFY, VIRTIO_SND_VQ_TX);
 

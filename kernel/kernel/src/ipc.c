@@ -16,6 +16,24 @@ extern void mcore_unlock(int32_t* v);
 
 #define IPC_BUFFER_SIZE 32
 
+static inline void proc_ipc_server_lock(ipc_server_t* server) {
+#ifdef KERNEL_SMP
+	if(server != NULL)
+		mcore_lock(&server->lock);
+#else
+	(void)server;
+#endif
+}
+
+static inline void proc_ipc_server_unlock(ipc_server_t* server) {
+#ifdef KERNEL_SMP
+	if(server != NULL)
+		mcore_unlock(&server->lock);
+#else
+	(void)server;
+#endif
+}
+
 int32_t proc_ipc_setup(context_t* ctx, ewokos_addr_t entry, ewokos_addr_t extra_data, uint32_t flags) {
 	(void)ctx;
 	proc_t* cproc = get_current_proc();
@@ -73,14 +91,10 @@ ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id
 	ipc_task_t* ipc = &serv_proc->space->ipc_server.ctask;
 	//kprintf("ipc timeout check %d\n", usec);
 
-#ifdef KERNEL_SMP
-	mcore_lock(&serv_proc->space->ipc_server.lock);
-#endif
+	proc_ipc_server_lock(&serv_proc->space->ipc_server);
 
 	if(ipc->state != IPC_IDLE) {
-#ifdef KERNEL_SMP
-		mcore_unlock(&serv_proc->space->ipc_server.lock);
-#endif
+		proc_ipc_server_unlock(&serv_proc->space->ipc_server);
 		return NULL;
 		/*if((usec - ipc->usec) < IPC_TIMEOUT_USEC || (ipc->call_id & IPC_NON_RETURN) == 0)
 			return NULL;
@@ -116,9 +130,7 @@ ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id
 	ipc->call_id = call_id;
 	ipc->counter = 0;
 
-#ifdef KERNEL_SMP
-	mcore_unlock(&serv_proc->space->ipc_server.lock);
-#endif
+	proc_ipc_server_unlock(&serv_proc->space->ipc_server);
 
 	if(arg != NULL && arg->data != NULL) {
 		proto_copy(&ipc->arg_ret, arg->data, arg->size);
@@ -150,11 +162,23 @@ int32_t proc_ipc_wait(context_t* ctx, struct st_proc* serv_proc, proc_t* proc) {
 	if(item == NULL)
 		return -1;
 
-	
 	item->pid = proc->info.pid;
 	item->uuid = proc->info.uuid;
-	//printf("ipc ipc_wait %d %d\n", item->pid, item->uuid);
+	proc_ipc_server_lock(&serv_proc->space->ipc_server);
+	/*
+	 * Re-check under the same server lock used by proc_ipc_req()/wakeup().
+	 * Otherwise sys_ipc_call() can observe "busy", then the server finishes
+	 * and drains waiters before we enqueue ourselves, losing that wake edge
+	 * and sleeping until IPC timeout recovery fires.
+	 */
+	if(!serv_proc->space->ipc_server.disabled &&
+			serv_proc->space->ipc_server.ctask.state == IPC_IDLE) {
+		proc_ipc_server_unlock(&serv_proc->space->ipc_server);
+		kfree(item);
+		return 1;
+	}
 	queue_push(&serv_proc->space->ipc_server.wait_queue, item);
+	proc_ipc_server_unlock(&serv_proc->space->ipc_server);
 	proc_block(ctx, proc);
 	return 0;
 }
@@ -163,7 +187,9 @@ proc_t* proc_ipc_wakeup(struct st_proc* serv_proc) {
 	if(serv_proc == NULL)
 		return NULL;
 
+	proc_ipc_server_lock(&serv_proc->space->ipc_server);
 	ipc_queue_item_t* item = (ipc_queue_item_t*)queue_pop(&serv_proc->space->ipc_server.wait_queue);
+	proc_ipc_server_unlock(&serv_proc->space->ipc_server);
 	if(item == NULL)
 		return NULL;
 	//printf("ipc ipc_wakeup %d %d\n", item->pid, item->uuid);
@@ -182,7 +208,9 @@ void proc_ipc_wakeup_all(struct st_proc* serv_proc) {
 		return;
 
 	while(true) {
+		proc_ipc_server_lock(&serv_proc->space->ipc_server);
 		ipc_queue_item_t* item = (ipc_queue_item_t*)queue_pop(&serv_proc->space->ipc_server.wait_queue);
+		proc_ipc_server_unlock(&serv_proc->space->ipc_server);
 		if(item == NULL)
 			break;
 		proc_t* proc = proc_get(item->pid);

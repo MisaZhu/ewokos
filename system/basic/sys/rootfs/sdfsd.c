@@ -145,6 +145,16 @@ static int sdext2_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int
 	(void)fd;
 	(void)from_pid;
 
+	/*
+	 * Path lookup already validated inode existence before VFS asks the
+	 * mounted filesystem to open it. For regular non-truncating opens,
+	 * there is no per-fd state to initialize in ext2, so avoid the extra
+	 * synchronous inode fetch on every exec/script read.
+	 */
+	if((oflag & O_TRUNC) == 0) {
+		return 0;
+	}
+
 	ext2_t* ext2 = (ext2_t*)p;
 	int32_t ino = (int32_t)info->data;
 	if(ino == 0)
@@ -191,7 +201,6 @@ static int sdext2_get(vdevice_t* dev, int from_pid, const char* fname, fsinfo_t*
 	INODE inode;
 	if(ext2_node_by_ino(ext2, ino, &inode) != 0)
 		return -1;
-	klog("name: %s, type: %d\n", dirp.name, dirp.file_type);
 
 	memset(info, 0, sizeof(fsinfo_t));
 	strcpy(info->name, dirp.name);
@@ -274,7 +283,6 @@ static int sdext2_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 		void* buf, int size, int offset, void* p) {
 	(void)dev;
 	(void)fd;
-	(void)from_pid;
 
 	ext2_t* ext2 = (ext2_t*)p;
 	int32_t ino = (int32_t)info->data;
@@ -291,8 +299,9 @@ static int sdext2_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	if(size < 0)
 		size = -1;
 
-	if(size > 0) 
+	if(size > 0) {
 		size = ext2_read(ext2, &inode, buf, size, offset);
+	}
 	return size;	
 }
 
