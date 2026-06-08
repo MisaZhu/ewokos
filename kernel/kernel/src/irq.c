@@ -17,6 +17,7 @@
 #include <mm/kalloc.h>
 #include <mm/mmu.h>
 #include <stddef.h>
+#include <stdint.h>
 static uint64_t _irq_tic_last_usec = 0;
 static uint32_t _irq_tic_second = 0;
 
@@ -48,29 +49,95 @@ uint64_t irq_accounting_now_usec(void) {
 	return base;
 }
 
-#ifdef __x86_64__
-static void dump_user_stack_words(proc_t* proc, context_t* ctx) {
-	ewokos_addr_t words[4];
-	ewokos_addr_t stack_phy;
+static void dump_user_addr_words_internal(proc_t* proc, ewokos_addr_t addr, const char* tag) {
+	ewokos_addr_t page_phy;
+	uint32_t page_off;
+	uint32_t avail;
+	void* page_ptr;
 
 	if(proc == NULL || proc->space == NULL) {
 		return;
 	}
 
-	stack_phy = resolve_phy_address(proc->space->vm, ctx->sp);
-	if(stack_phy == 0) {
-		printf("user_stack: sp=0x%X not mapped\n", (uint32_t)ctx->sp);
+	page_phy = resolve_phy_address(proc->space->vm, addr);
+	if(page_phy == 0) {
+		printf("%s: addr=0x%X not mapped\n", tag, (uint32_t)addr);
 		return;
 	}
+	page_ptr = (void*)(uintptr_t)P2V(page_phy);
+	page_off = ((uint32_t)addr) & (PAGE_SIZE - 1);
+	avail = PAGE_SIZE - page_off;
 
-	memcpy(words, (void*)P2V(stack_phy), sizeof(words));
-	printf("user_stack: [sp]=%08x %08x %08x %08x\n",
+#ifdef __x86_64__
+	ewokos_addr_t words[4];
+	memcpy(words, page_ptr, sizeof(words));
+	printf("%s: %08x %08x %08x %08x\n",
+			tag,
 			(uint32_t)words[0],
 			(uint32_t)words[1],
 			(uint32_t)words[2],
 			(uint32_t)words[3]);
+#else
+	if(avail >= sizeof(uint64_t)) {
+		uint32_t i;
+		uint32_t count = avail / sizeof(uint64_t);
+		if(count > 6) {
+			count = 6;
+		}
+		printf("%s64:", tag);
+		for(i = 0; i < count; ++i) {
+			uint64_t val = ((uint64_t*)page_ptr)[i];
+			printf(" %08x%08x",
+					(uint32_t)(val >> 32),
+					(uint32_t)val);
+		}
+		printf("\n");
+	}
+	if(avail >= sizeof(uint32_t)) {
+		uint32_t i;
+		uint32_t count32 = avail / sizeof(uint32_t);
+		if(count32 > 8) {
+			count32 = 8;
+		}
+		printf("%s32:", tag);
+		for(i = 0; i < count32; ++i) {
+			uint32_t val = ((uint32_t*)page_ptr)[i];
+			printf(" %08x", val);
+		}
+		printf("\n");
+	}
+#endif
+}
+
+#if defined(__x86_64__) || defined(__aarch64__)
+void dump_user_addr_words(proc_t* proc, ewokos_addr_t addr, const char* tag) {
+	if(tag == NULL) {
+		tag = "user";
+	}
+	dump_user_addr_words_internal(proc, addr, tag);
+}
+
+void dump_user_fault_words(proc_t* proc, context_t* ctx) {
+	if(proc == NULL || ctx == NULL) {
+		return;
+	}
+	dump_user_addr_words_internal(proc, ctx->sp, "user_sp");
+	if(ctx->pc != ctx->sp) {
+		dump_user_addr_words_internal(proc, (ewokos_addr_t)ctx->pc, "user_pc");
+	}
+	if(ctx->lr != 0 && ctx->lr != ctx->pc && ctx->lr != ctx->sp) {
+		dump_user_addr_words_internal(proc, (ewokos_addr_t)ctx->lr, "user_lr");
+	}
 }
 #endif
+
+#if defined(__x86_64__) || defined(__aarch64__)
+static void dump_user_stack_words(proc_t* proc, context_t* ctx) {
+	dump_user_fault_words(proc, ctx);
+}
+#endif
+
+
 
 #ifdef KERNEL_SMP
 
@@ -248,6 +315,9 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 			(uint32_t)ctx->err_code);
 #endif
 	dump_ctx(&cproc->ctx);
+#if defined(__x86_64__) || defined(__aarch64__)
+	dump_user_stack_words(cproc, ctx);
+#endif
 
 	proc_exit(ctx, proc_get_proc(cproc), -1);
 }
@@ -301,7 +371,7 @@ void data_abort_handler(context_t* ctx, ewokos_addr_t addr_fault, uint32_t statu
 		printf("\terror: %s!\n", errmsg);
 
 	dump_ctx(ctx);
-#ifdef __x86_64__
+#if defined(__x86_64__) || defined(__aarch64__)
 	dump_user_stack_words(cproc, ctx);
 #endif
 	proc_exit(ctx, proc_get_proc(cproc), -1);

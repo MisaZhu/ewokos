@@ -2,9 +2,12 @@
 #define IRQ_H
 
 #include <kernel/context.h>
+#include <kernel/proc.h>
 #include <interrupt.h>
 
 extern void dump_ctx(context_t *ctx);
+extern void dump_user_addr_words(proc_t* proc, ewokos_addr_t addr, const char* tag);
+extern void dump_user_fault_words(proc_t* proc, context_t* ctx);
 extern void irq_handler(context_t* ctx);
 extern void undef_abort_handler(context_t* ctx, uint32_t status);
 extern void prefetch_abort_handler(context_t* ctx, uint32_t status);
