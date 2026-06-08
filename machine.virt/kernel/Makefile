@@ -24,8 +24,8 @@ ifeq ($(SMP), yes)
 endif
 
 EWOKOS_ROOT_DIR = ../..
-SYS_DIR=../system
-MACHINE=virt
+MACHINE = virt
+SYS_DIR = $(EWOKOS_ROOT_DIR)/system/build/$(MACHINE)
 
 ifeq ($(QEMU_DISPLAY_OPTS),cocoa)
 QEMU_FLAGS += -display cocoa

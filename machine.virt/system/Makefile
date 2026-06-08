@@ -15,7 +15,6 @@ SYS_ROOT_DIR = $(EWOKOS_ROOT_DIR)/system
 INST_DIR = /usr/local/ewokos
 
 BUILD_DIR = $(SYS_ROOT_DIR)/build/$(HW)
-MACHINE_BUILD_DIR = build
 TARGET_DIR = $(BUILD_DIR)/rootfs
 EXTRA_APPS_DIR = $(EWOKOS_ROOT_DIR)/extra.apps
 
@@ -27,25 +26,19 @@ all: x
 include $(SYS_ROOT_DIR)/platform/make.inc
 
 final:
-#   rm -fr $(MACHINE_BUILD_DIR)
-	mkdir -p $(MACHINE_BUILD_DIR)
-	cp -r $(TARGET_DIR)/* $(MACHINE_BUILD_DIR)
+	@echo "all done."
 
 basic: basic_sys
 	@$(MAKE) final
-	@echo "all done."
 
 network: network_sys
 	@$(MAKE) final
-	@echo "all done."
 
 gui: gui_sys
 	@$(MAKE) final
-	@echo "all done."
 
 x: x_sys
 	@$(MAKE) final
-	@echo "all done."
 
 basic_sys: kernel_heads
 	rm -f $(BUILD_DIR)/lib/libbsp.a
@@ -78,20 +71,18 @@ clean:
 	cd $(SYS_ROOT_DIR)/basic;$(MAKE) clean
 	cd $(EWOKOS_ROOT_DIR)/sw.extra/; $(MAKE) HW=$(HW) clean
 	rm -fr $(BUILD_DIR)
-	rm -fr $(MACHINE_BUILD_DIR)
 
 SD = root_$(ARCH).ext2
 sd:
-	mkdir -p $(MACHINE_BUILD_DIR)
-	cp -r $(TARGET_DIR)/* $(MACHINE_BUILD_DIR)
 	@echo "\n====building ext2 format sdcard image===="
-	mkdir -p build
 #256M ext2 sd
+	cd $(BUILD_DIR); \
 	dd if=/dev/zero of=${SD} bs=1k count=512k
 #make ext2 fs with: block_size=1024 inode_size=128
+	cd $(BUILD_DIR); \
 	mke2fs -b 1024 -I 128 ${SD}
 
-	cd $(MACHINE_BUILD_DIR); \
+	cd $(TARGET_DIR); \
 	find . -type f | e2cp -ap -G0 -O0 -d ../${SD}:/
 
 	@echo "==== ext2 format sdcard image created  ====\n"
