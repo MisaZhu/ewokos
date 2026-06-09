@@ -28,8 +28,7 @@
 
 
 #define CACHE_SIZE (32)
-#define MOUSE_ACTIVE_SLEEP_US 1000U
-#define MOUSE_IDLE_SLEEP_US 5000U
+#define MOUSE_SLEEP_US 3000U
 static mouse_evt_t mouse_data[CACHE_SIZE];
 static uint32_t mouse_data_read = 0;
 static uint32_t mouse_data_write = 0;
@@ -180,15 +179,13 @@ void mouse_interrupt_handle(struct virtio_device *virt_dev, struct virtio_input_
 
 static int mouse_step(struct st_vdevice* dev, void* p) {
 	(void)p;
-	bool had_wakeup;
 	ipc_disable();
-	had_wakeup = _wakeup;
-	if(had_wakeup) {
+	if(_wakeup) {
 		vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
 		_wakeup = false;
 	}
 	ipc_enable();
-	usleep(had_wakeup ? MOUSE_ACTIVE_SLEEP_US : MOUSE_IDLE_SLEEP_US);
+	usleep(MOUSE_SLEEP_US);
 	return 0;
 }
 
