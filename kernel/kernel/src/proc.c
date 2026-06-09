@@ -1183,6 +1183,20 @@ void proc_free(proc_t* proc) {
 	proc_shrink_mem(proc, pages);
 }
 
+static inline uint32_t core_task_count_locked(uint32_t core) {
+	uint32_t count = 0;
+
+	for(uint32_t i = 0; i < _kernel_config.max_task_num; i++) {
+		proc_t* task = _task_table[i];
+		if(task == NULL || task->info.state == UNUSED || task->info.state == ZOMBIE)
+			continue;
+		if(task->is_core_idle_proc || task->info.core != core)
+			continue;
+		count++;
+	}
+	return count;
+}
+
 static inline uint32_t core_fetch(proc_t* proc) {
 	if(_sys_info.cores == 1 || proc->info.uid < 0)
 		return 0;
@@ -1194,17 +1208,23 @@ static inline uint32_t core_fetch(proc_t* proc) {
 	return ret;
 	*/
 
-	// Fetch the most idle core and rotate tie breaks so equal-idle cores do
-	// not collapse back onto core0.
+	/*
+	 * Pick the least loaded active core first, then use idle time as a
+	 * tie-breaker.  Relying on idle time alone can collapse a burst of
+	 * thread creations onto the same core because the accounting window has
+	 * not yet reflected the freshly attached tasks.
+	 */
 	uint32_t start = _use_core_id;
 	if(start >= _sys_info.cores)
 		start = 0;
 
 	uint32_t ret = 0;
+	uint32_t best_tasks = 0xffffffffU;
 	uint32_t best_idle = 0;
 	bool found = false;
 
-	proc_refresh_idle_runtime_stats();
+	proc_lock_enter();
+	proc_refresh_runtime_stats_internal(true, false, proc_account_now_usec());
 
 	for(uint32_t off = 0; off < _sys_info.cores; off++) {
 		uint32_t i = (start + off) % _sys_info.cores;
@@ -1213,16 +1233,21 @@ static inline uint32_t core_fetch(proc_t* proc) {
 
 		if(_cpu_cores[i].idle_proc->info.state == CREATED) {
 			_use_core_id = (i + 1) % _sys_info.cores;
+			proc_lock_leave();
 			return i;
 		}
 
+		uint32_t task_count = core_task_count_locked(i);
 		uint32_t idle_usec = _cpu_cores[i].idle_proc->info.run_usec;
-		if(!found || idle_usec > best_idle) {
+		if(!found || task_count < best_tasks ||
+				(task_count == best_tasks && idle_usec > best_idle)) {
 			ret = i;
+			best_tasks = task_count;
 			best_idle = idle_usec;
 			found = true;
 		}
 	}
+	proc_lock_leave();
 
 	if(!found)
 		return 0;
