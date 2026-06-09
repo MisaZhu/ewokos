@@ -175,7 +175,8 @@ public:
         update();
     }
 
-    float getProgress() { return progress; }
+    bool isDragging() const { return dragging; }
+    float getProgress() const { return progress; }
 
     void setSeekCallback(SeekCallback cb, void* ud) {
         seekCb = cb;
@@ -210,11 +211,10 @@ protected:
     bool onMouse(xevent_t* ev) {
         if (ev->type == XEVT_MOUSE) {
             grect_t r = area;
-            int mx = ev->value.mouse.x;
-            int my = ev->value.mouse.y;
+            gpos_t pos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
+            int mx = pos.x;
 
-            // Check if mouse is within widget
-            if (mx < r.x || mx >= r.x + r.w || my < r.y || my >= r.y + r.h) {
+            if (mx < 0 || mx >= r.w) {
                 return false;
             }
 
@@ -239,8 +239,7 @@ protected:
     }
 
     void updateProgressFromMouse(int mx, const grect_t& r) {
-        int relX = mx - r.x;
-        float newProgress = (float)relX / r.w;
+        float newProgress = (float)mx / (float)r.w;
         if (newProgress < 0.0f) newProgress = 0.0f;
         if (newProgress > 1.0f) newProgress = 1.0f;
         if (fabsf(progress - newProgress) < 0.001f) {
@@ -261,7 +260,8 @@ class SoundPlayerWin : public WidgetWin {
         CMD_NONE,
         CMD_LOAD,
         CMD_TOGGLE,
-        CMD_STOP
+        CMD_STOP,
+        CMD_SEEK
     };
 
     struct PlaybackSnapshot {
@@ -288,6 +288,7 @@ class SoundPlayerWin : public WidgetWin {
     bool playbackThreadExit;
     PlaybackCommand pendingCommand;
     char pendingPath[FS_FULL_NAME_MAX + 1];
+    float pendingSeekProgress;
     PlaybackSnapshot snapshot;
     bool playBtnShowsPause;
     bool playBtnLabelValid;
@@ -301,6 +302,7 @@ class SoundPlayerWin : public WidgetWin {
 
     void playbackLoop() {
         char localPath[FS_FULL_NAME_MAX + 1];
+        float localSeekProgress = 0.0f;
         localPath[0] = 0;
 
         while (true) {
@@ -315,6 +317,8 @@ class SoundPlayerWin : public WidgetWin {
             if (cmd == CMD_LOAD) {
                 strncpy(localPath, pendingPath, sizeof(localPath) - 1);
                 localPath[sizeof(localPath) - 1] = 0;
+            } else if (cmd == CMD_SEEK) {
+                localSeekProgress = pendingSeekProgress;
             }
             pendingCommand = CMD_NONE;
             pthread_mutex_unlock(&playbackLock);
@@ -345,6 +349,12 @@ class SoundPlayerWin : public WidgetWin {
                 player->stop();
                 syncSnapshot();
                 proc_usleep(5000);
+                continue;
+            } else if (cmd == CMD_SEEK) {
+                if (player->isLoaded()) {
+                    player->seekToProgress(localSeekProgress);
+                }
+                syncSnapshot();
                 continue;
             }
 
@@ -422,6 +432,13 @@ class SoundPlayerWin : public WidgetWin {
         pthread_mutex_unlock(&playbackLock);
     }
 
+    void queueSeek(float progress) {
+        pthread_mutex_lock(&playbackLock);
+        pendingSeekProgress = progress;
+        pendingCommand = CMD_SEEK;
+        pthread_mutex_unlock(&playbackLock);
+    }
+
     void stopPlaybackThread() {
         if (!playbackThreadCreated) {
             return;
@@ -465,9 +482,15 @@ class SoundPlayerWin : public WidgetWin {
     }
 
     void updateProgressBar(const PlaybackSnapshot& state) {
-        if (progressBar && state.loaded && state.totalMs > 0) {
+        if (progressBar == NULL || progressBar->isDragging()) {
+            return;
+        }
+
+        if (state.loaded && state.totalMs > 0) {
             float progress = (float)state.currentMs / state.totalMs;
             progressBar->setProgress(progress);
+        } else {
+            progressBar->setProgress(0.0f);
         }
     }
 
@@ -514,6 +537,7 @@ public:
         playbackThreadExit = false;
         pendingCommand = CMD_NONE;
         pendingPath[0] = 0;
+        pendingSeekProgress = 0.0f;
         memset(&snapshot, 0, sizeof(snapshot));
         playBtnShowsPause = false;
         playBtnLabelValid = false;
@@ -578,6 +602,16 @@ public:
         }
         queueStop();
     }
+
+    void seekToProgress(float progress) {
+        if (!playbackThreadCreated) {
+            if (player->seekToProgress(progress)) {
+                syncSnapshot();
+            }
+            return;
+        }
+        queueSeek(progress);
+    }
 };
 
 static void onOpenFunc(MenuItem* it, void* p) {
@@ -590,6 +624,10 @@ static void onPlayBtnClick(Widget* wd, xevent_t* evt, void* arg) {
         return;
     SoundPlayerWin* win = (SoundPlayerWin*)arg;
     win->togglePlay();
+}
+
+static void onSeekProgress(void* userData, float progress) {
+    ((SoundPlayerWin*)userData)->seekToProgress(progress);
 }
 
 int main(int argc, char** argv) {
@@ -612,7 +650,8 @@ int main(int argc, char** argv) {
 
     // Progress bar
     ProgressBar* progressBar = new ProgressBar();
-    progressBar->fix(0, 8);
+    progressBar->fix(0, 16);
+    progressBar->setSeekCallback(onSeekProgress, &win);
     root->add(progressBar);
     win.setProgressBar(progressBar);
 

@@ -663,12 +663,13 @@ void AudioPlayer::replay(const char* device) {
 }
 
 void AudioPlayer::reopenDevice(const char* device) {
+    struct pcm_config config;
+
     if (pcmDev != NULL) {
         pcm_close(pcmDev);
         pcmDev = NULL;
     }
 
-    struct pcm_config config;
     config.bit_depth = 16;
     config.rate = sampleRate;
     config.channels = channels;
@@ -677,12 +678,75 @@ void AudioPlayer::reopenDevice(const char* device) {
     config.start_threshold = 1024;
     config.stop_threshold = 1024 * 4;
 
+    if (format == FORMAT_WAV) {
+        config.bit_depth = wavBitDepth;
+    } else if (format == FORMAT_OGG) {
+        config.channels = 2;
+        config.period_size = 2048;
+        config.start_threshold = 2048 * 2;
+        config.stop_threshold = 0;
+    }
+
     pcmDev = pcm_open(device, &config);
     if (pcmDev != NULL) {
         devicePath = device;
         writeFailed = false;
         eof = false;
     }
+}
+
+bool AudioPlayer::seekToProgress(float progress) {
+    bool wasPlaying;
+    uint32_t targetMs;
+    bool ok;
+
+    if (!isLoaded() || totalMs == 0 || devicePath == NULL) {
+        return false;
+    }
+
+    if (progress < 0.0f) {
+        progress = 0.0f;
+    } else if (progress > 1.0f) {
+        progress = 1.0f;
+    }
+
+    wasPlaying = playing;
+    targetMs = (uint32_t)((float)totalMs * progress);
+
+    if (pcmDev != NULL) {
+        pcm_close(pcmDev);
+        pcmDev = NULL;
+    }
+
+    ok = false;
+    if (format == FORMAT_MP3) {
+        ok = seekMp3(targetMs);
+    } else if (format == FORMAT_WAV) {
+        ok = seekWav(targetMs);
+    } else if (format == FORMAT_OGG) {
+        ok = seekOgg(targetMs);
+    }
+
+    if (!ok) {
+        stop();
+        return false;
+    }
+
+    reopenDevice(devicePath);
+    if (pcmDev == NULL) {
+        stop();
+        return false;
+    }
+
+    currentMs = targetMs;
+    if (currentMs > totalMs) {
+        currentMs = totalMs;
+    }
+    paused = !wasPlaying;
+    playing = wasPlaying;
+    eof = false;
+    writeFailed = false;
+    return true;
 }
 
 bool AudioPlayer::decodeFrame() {
@@ -941,6 +1005,104 @@ void AudioPlayer::replayOgg(const char* device) {
     if (pcmDev != NULL) {
         devicePath = device;
     }
+}
+
+bool AudioPlayer::seekMp3(uint32_t targetMs) {
+    mp3dec_t scratchDec;
+    mp3dec_frame_info_t scratchInfo;
+    int16_t scratchBuf[MINIMP3_MAX_SAMPLES_PER_FRAME];
+    uint8_t* pos;
+    int left;
+    uint32_t elapsedMs;
+
+    if (fileData == NULL || totalBytes <= 0 || sampleRate <= 0) {
+        return false;
+    }
+
+    mp3dec_init(&scratchDec);
+    pos = (uint8_t*)fileData;
+    left = totalBytes;
+    elapsedMs = 0;
+
+    while (left > 0 && elapsedMs < targetMs) {
+        int decodedSamples = mp3dec_decode_frame(&scratchDec, pos, left, scratchBuf, &scratchInfo);
+        if (scratchInfo.frame_bytes <= 0) {
+            break;
+        }
+
+        if (decodedSamples > 0 && scratchInfo.hz > 0) {
+            uint32_t frameMs = (uint32_t)((decodedSamples * 1000) / scratchInfo.hz);
+            if ((elapsedMs + frameMs) > targetMs) {
+                break;
+            }
+            elapsedMs += frameMs;
+        }
+
+        pos += scratchInfo.frame_bytes;
+        left -= scratchInfo.frame_bytes;
+    }
+
+    streamPos = pos;
+    bytesLeft = left;
+    simples = 1;
+    eof = (bytesLeft <= 0);
+    writeFailed = false;
+    paused = false;
+    if (mp3dec != NULL) {
+        mp3dec_init(mp3dec);
+    }
+    return true;
+}
+
+bool AudioPlayer::seekWav(uint32_t targetMs) {
+    uint64_t targetFrame;
+    int bytesPerFrame;
+    uint64_t byteOffset;
+
+    if (fileData == NULL || sampleRate <= 0 || channels <= 0 || wavBitDepth <= 0) {
+        return false;
+    }
+
+    bytesPerFrame = channels * (wavBitDepth / 8);
+    if (bytesPerFrame <= 0) {
+        return false;
+    }
+
+    targetFrame = ((uint64_t)targetMs * (uint64_t)sampleRate) / 1000ULL;
+    byteOffset = targetFrame * (uint64_t)bytesPerFrame;
+    if (byteOffset > (uint64_t)wavDataSize) {
+        byteOffset = wavDataSize;
+    }
+
+    streamPos = (uint8_t*)fileData + wavDataOffset + (int)byteOffset;
+    bytesLeft = wavDataSize - (int)byteOffset;
+    sampleBuf = (int16_t*)streamPos;
+    simples = 0;
+    eof = (bytesLeft <= 0);
+    writeFailed = false;
+    paused = false;
+    return true;
+}
+
+bool AudioPlayer::seekOgg(uint32_t targetMs) {
+    double targetSec;
+
+    if (oggVf == NULL) {
+        return false;
+    }
+
+    targetSec = (double)targetMs / 1000.0;
+    if (ov_time_seek(oggVf, targetSec) != 0) {
+        return false;
+    }
+
+    simples = 0;
+    eof = false;
+    writeFailed = false;
+    paused = false;
+    zeroReadCount = 0;
+    oggBitstream = 0;
+    return true;
 }
 
 bool AudioPlayer::decodeMp3Frame() {

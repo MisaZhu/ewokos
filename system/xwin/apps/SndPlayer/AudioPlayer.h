@@ -33,6 +33,7 @@ public:
     void stop();
     void replay(const char* device);
     void reopenDevice(const char* device);
+    bool seekToProgress(float progress);
     bool decodeFrame();
 
     bool isPlaying();
@@ -55,6 +56,9 @@ private:
     void replayMp3(const char* device);
     void replayWav(const char* device);
     void replayOgg(const char* device);
+    bool seekMp3(uint32_t targetMs);
+    bool seekWav(uint32_t targetMs);
+    bool seekOgg(uint32_t targetMs);
     bool decodeMp3Frame();
     bool decodeWavFrame();
     bool decodeOggFrame();
