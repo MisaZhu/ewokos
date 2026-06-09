@@ -10,7 +10,13 @@ extern "C" {
 
 static void thread_entry(thread_func_t func, void* p) {
 	func(p);
-	exit(0);
+	/*
+	 * Ewok pthreads are implemented as thread-like child tasks. They must not
+	 * run process atexit handlers on thread completion, otherwise libraries
+	 * such as SDL will execute global shutdown paths from the worker task.
+	 */
+	proc_exit();
+	syscall1(SYS_EXIT, 0);
 }
 
 int thread_create(thread_func_t func, void* p) {
@@ -25,4 +31,3 @@ int thread_get_id(void) {
 #ifdef __cplusplus
 }
 #endif
-

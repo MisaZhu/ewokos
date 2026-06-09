@@ -179,7 +179,12 @@ static void sig_stop(int sig_no, void* p) {
 */
 
 void x_terminate(x_t* x) {
+	if(x == NULL)
+		return;
 	x->terminated = true;
+	if(x->evt_node != 0) {
+		vfs_wakeup(x->evt_node, VFS_EVT_RD);
+	}
 }
 
 const char* x_get_own_dir(char* ret, uint32_t len) {
