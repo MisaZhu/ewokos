@@ -120,10 +120,11 @@ void keybd_interrupt_handle(virtio_dev_t virt_dev, struct virtio_input_event *ev
 	else if (event->type == EV_SYN)
 	{
 		_wakeup = true;
+		vfs_wakeup(_dev->mnt_info.node, VFS_EVT_RD);
 	}
 }
 
-static int keybd_loop(struct st_vdevice* dev, void* p) {
+/*static int keybd_loop(struct st_vdevice* dev, void* p) {
 	(void)p;
 
 	ipc_disable();
@@ -135,6 +136,7 @@ static int keybd_loop(struct st_vdevice* dev, void* p) {
 	usleep(3000);
 	return 0;
 }
+*/
 
 int main(int argc, char **argv)
 {
@@ -146,7 +148,7 @@ int main(int argc, char **argv)
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "keyboard");
 	dev.read = keybd_read;
-	dev.loop_step = keybd_loop;
+	//dev.loop_step = keybd_loop;
 
 	_mmio_base = mmio_map();
 
