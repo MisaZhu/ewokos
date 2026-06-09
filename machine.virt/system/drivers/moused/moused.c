@@ -174,6 +174,7 @@ void mouse_interrupt_handle(struct virtio_device *virt_dev, struct virtio_input_
 		mouse_data_write++;
 		memset(&mouse_data[mouse_data_write % CACHE_SIZE], 0, sizeof(mouse_evt_t));
 		_wakeup = true;
+		vfs_wakeup(_dev->mnt_info.node, VFS_EVT_RD);
 	}
 }
 
@@ -204,7 +205,7 @@ int main(int argc, char **argv)
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "mouse");
 	dev.read = _read;
-	dev.loop_step = mouse_step;
+	//dev.loop_step = mouse_step;
 
 	virtio_dev_t vio = virtio_input_get("QEMU Virtio Tablet");
 	if(!vio){
