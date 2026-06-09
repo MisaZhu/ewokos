@@ -178,7 +178,7 @@ void mouse_interrupt_handle(struct virtio_device *virt_dev, struct virtio_input_
 	}
 }
 
-static int mouse_step(struct st_vdevice* dev, void* p) {
+/*static int mouse_step(struct st_vdevice* dev, void* p) {
 	(void)p;
 	ipc_disable();
 	if(_wakeup) {
@@ -189,6 +189,7 @@ static int mouse_step(struct st_vdevice* dev, void* p) {
 	usleep(MOUSE_SLEEP_US);
 	return 0;
 }
+	*/
 
 int main(int argc, char **argv)
 {
