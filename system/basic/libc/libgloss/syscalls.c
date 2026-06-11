@@ -84,10 +84,10 @@ static void int2str(int val, char* buf){
 	}
 }
 
-static void kout(const char *str) {
+static void dbg_kout(const char *str) {
 #if IO_DEBUG
 	int len = _strlen(str);
-    syscall2(SYS_KPRINT, (ewokos_addr_t)str, (ewokos_addr_t)len);
+	syscall2(SYS_KPRINT, (ewokos_addr_t)str, (ewokos_addr_t)len);
 	if(str[len-1]!='\n')
 		syscall2(SYS_KPRINT, (ewokos_addr_t)"\n", 1);	
 #endif
@@ -214,14 +214,14 @@ static int supports_ext_stdout_stderr = -1;
 int
 _has_ext_exit_extended (void)
 {
-    kout(__func__);
+    dbg_kout(__func__);
    return -1;
 }
 
 int
 _has_ext_stdout_stderr (void)
 {
-	kout(__func__);
+	dbg_kout(__func__);
 	return -1;
 }
 
@@ -493,13 +493,13 @@ _open (const char * fname, int oflag, ...)
 	if(vfs_get_by_name(fname, &info) != 0) {
 		if((oflag & O_CREAT) != 0) {
 			if(vfs_create(fname, &info, FS_TYPE_FILE, 0644, false, false) != 0){
-				kout(" create error");
+				dbg_kout(" create error");
 				return -1;
 			}
 			created = true;
 		}
 		else  {
-			kout(" fsinfo err");
+			dbg_kout(" fsinfo err");
 			return -1;
 		}
 	}
@@ -508,7 +508,7 @@ _open (const char * fname, int oflag, ...)
 	if(fd < 0) {
 		if(created)
 			vfs_del_node(info.node);
-		kout(" error");
+		dbg_kout(" error");
 		return -1;
 	}
 
@@ -523,7 +523,7 @@ _open (const char * fname, int oflag, ...)
 		vfs_close_info(fd);
 		if(created)
 			vfs_del_node(info.node);
-		kout(" dev_err");
+		dbg_kout(" dev_err");
 		fd = -1;
 	}
 	else if(vfs_set_by_fd(fd, &info) != 0) {
@@ -574,7 +574,7 @@ _sbrk (ptrdiff_t incr)
 }
 
 void _libc_init(void){
-	kout(__func__);	
+	dbg_kout(__func__);	
 	__heap_ptr = proc_malloc_expand(16384);
 	__heap_end = __heap_ptr;
 	__heap_size = 16384;	
@@ -582,7 +582,7 @@ void _libc_init(void){
 }
 
 void _libc_exit(void){
-  //kout(__func__);	
+  //dbg_kout(__func__);	
 }
 
 
@@ -630,7 +630,7 @@ _stat (const char *fname, struct stat *st)
 int __attribute__((weak))
 _link (const char *__path1 __attribute__ ((unused)), const char *__path2 __attribute__ ((unused)))
 {
-  kout(__func__);
+  dbg_kout(__func__);
   errno = ENOSYS;
   return -1;
 }
@@ -638,7 +638,7 @@ _link (const char *__path1 __attribute__ ((unused)), const char *__path2 __attri
 int
 _unlink (const char *path)
 {
-  kout(__func__);
+  dbg_kout(__func__);
   fsinfo_t info;
   if(vfs_get_by_name(path, &info) != 0)
 	return -1;
@@ -657,7 +657,7 @@ uint64_t get_kernel_usec(void) {
 int
 _gettimeofday (struct timeval * tp, void * tzvp)
 {
-	kout(__func__);
+	dbg_kout(__func__);
 	static uint32_t init_sec = 0;
 	static uint32_t init_sec_tic = 0;
 
@@ -699,7 +699,7 @@ _gettimeofday (struct timeval * tp, void * tzvp)
 clock_t 
 _clock (void)
 {
-  kout(__func__);
+  dbg_kout(__func__);
   clock_t timeval;
 
 #ifdef ARM_RDI_MONITOR
@@ -714,7 +714,7 @@ _clock (void)
 clock_t
 _times (struct tms * tp)
 {
-  kout(__func__);
+  dbg_kout(__func__);
   clock_t timeval = _clock();
 
   if (tp)
@@ -732,7 +732,7 @@ _times (struct tms * tp)
 int
 _isatty (int fd)
 {
-  kout(__func__);
+  dbg_kout(__func__);
   errno = get_errno ();
   return 0;
 }
@@ -740,14 +740,14 @@ _isatty (int fd)
 int
 _system (const char *s)
 {
-	  kout(__func__);
+	  dbg_kout(__func__);
 	  return 0;
 }
 
 int
 _rename (const char * oldpath, const char * newpath)
 {
-  kout(__func__);
+  dbg_kout(__func__);
 #ifdef ARM_RDI_MONITOR
   int block[4];
   block[0] = (int)oldpath;
@@ -768,15 +768,15 @@ _rename (const char * oldpath, const char * newpath)
 }
 
 void _exit(int err){
-  kout(__func__);
+  dbg_kout(__func__);
 }
 
 void __malloc_init(void){
-  //kout(__func__);
+  //dbg_kout(__func__);
 }
 
 void __malloc_close(void){
-  //kout(__func__);
+  //dbg_kout(__func__);
 }
 
 void _kill(int pid, int sig){
@@ -784,7 +784,7 @@ void _kill(int pid, int sig){
 }
 
 void _fini(void){
-  kout(__func__);
+  dbg_kout(__func__);
 }
 
 int
@@ -799,13 +799,13 @@ int execl(const char *name, const char* arg0, ...) {
 
 int _fork()
 {
-  	kout(__func__);
+  	dbg_kout(__func__);
 	return proc_fork();
 }
 
 int _wait(int *status)
 {
-  kout(__func__);
+  dbg_kout(__func__);
   errno = EAGAIN;
   return -1;
 }

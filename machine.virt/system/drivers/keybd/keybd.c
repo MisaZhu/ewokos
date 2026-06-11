@@ -91,6 +91,17 @@ static int keybd_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t *info,
 	return num ? num : VFS_ERR_RETRY;
 }
 
+static uint32_t keybd_check_poll_events(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, void* p)
+{
+	(void)dev;
+	(void)fd;
+	(void)from_pid;
+	(void)info;
+	(void)p;
+
+	return key_data.key_count > 0 ? VFS_EVT_RD : 0;
+}
+
 struct virtio_input_event
 {
 	uint16_t type;
@@ -120,23 +131,19 @@ void keybd_interrupt_handle(virtio_dev_t virt_dev, struct virtio_input_event *ev
 	else if (event->type == EV_SYN)
 	{
 		_wakeup = true;
-		vfs_wakeup(_dev->mnt_info.node, VFS_EVT_RD);
 	}
 }
 
-/*static int keybd_loop(struct st_vdevice* dev, void* p) {
+static int keybd_loop(struct st_vdevice* dev, void* p) {
 	(void)p;
 
-	ipc_disable();
-	if(_wakeup) {
+	if(_wakeup || key_data.key_count > 0) {
 		vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
 		_wakeup = false;
 	}
-	ipc_enable();
 	usleep(3000);
 	return 0;
 }
-*/
 
 int main(int argc, char **argv)
 {
@@ -148,7 +155,8 @@ int main(int argc, char **argv)
 	memset(&dev, 0, sizeof(vdevice_t));
 	strcpy(dev.name, "keyboard");
 	dev.read = keybd_read;
-	//dev.loop_step = keybd_loop;
+	dev.check_poll_events = keybd_check_poll_events;
+	dev.loop_step = keybd_loop;
 
 	_mmio_base = mmio_map();
 

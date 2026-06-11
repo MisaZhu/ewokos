@@ -15,6 +15,7 @@ XMOUSED = $(TARGET_DIR)/sbin/x/xmouse
 $(XMOUSED): $(XMOUSED_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a  \
 		$(BUILD_DIR)/lib/libgraph.a \
+		$(BUILD_DIR)/lib/libmouse.a \
 		$(BUILD_DIR)/lib/libx.a
 	$(LD) -Ttext=100 $(XMOUSED_OBJS) -o $(XMOUSED) $(LDFLAGS) -lx -lmouse  -lgraph  $(EWOK_LIBC)
 
