@@ -7,6 +7,48 @@
 
 #define SHORT_NAME_MAX 64
 
+static int32_t ext2_read_blocks_io(ext2_t* ext2, int32_t block, void* buf, uint32_t count) {
+	char* p = (char*)buf;
+
+	if(count == 0)
+		return 0;
+	if(ext2->read_blocks != NULL)
+		return ext2->read_blocks(block, buf, count);
+
+	for(uint32_t i = 0; i < count; i++) {
+		if(ext2->read_block(block + (int32_t)i, p + (i * EXT2_BLOCK_SIZE)) != 0)
+			return -1;
+	}
+	return 0;
+}
+
+static int32_t ext2_get_data_block(ext2_t* ext2, INODE* node, int32_t lbk, int32_t* blk) {
+	if(lbk < 12) {
+		*blk = node->i_block[lbk];
+		return 0;
+	}
+	else if(lbk >= 12 && lbk < 256 + 12) {
+		int32_t indirect_buf[256];
+		if(ext2->read_block(node->i_block[12], (char*)indirect_buf) != 0)
+			return -1;
+		*blk = indirect_buf[lbk - 12];
+		return 0;
+	}
+	else {
+		int32_t count = lbk - 12 - 256;
+		int32_t num = count / 256;
+		int32_t pos_offset = count % 256;
+		int32_t double_buf1[256];
+		if(ext2->read_block(node->i_block[13], (char*)double_buf1) != 0)
+			return -1;
+		int32_t double_buf2[256];
+		if(ext2->read_block(double_buf1[num], (char*)double_buf2) != 0)
+			return -1;
+		*blk = double_buf2[pos_offset];
+		return 0;
+	}
+}
+
 /*test bit is on or off*/
 static inline int32_t tst_bit(char *buf, int32_t bit) {
 	int32_t i, j;
@@ -364,32 +406,8 @@ int32_t ext2_read_block(ext2_t* ext2, INODE* node, char *buf, int32_t nbytes, in
 	if(nbytes > (EXT2_BLOCK_SIZE - start_byte))
 		nbytes = (EXT2_BLOCK_SIZE - start_byte);
 	//(5) READ
-	//(5).1 direct blocks
-	if(lbk < 12) {
-		blk = node->i_block[lbk];
-	}
-	//(5).2 Indirect blocks contains 256 block number 
-	else if(lbk>=12 && lbk < 256 +12){
-		int32_t indirect_buf[256];
-		if(ext2->read_block(node->i_block[12], (char*)indirect_buf) != 0)
-			return -1;
-		blk = indirect_buf[lbk-12];
-	}
-	//(5).3 Double indiirect blocks
-	else{
-		int32_t count = lbk -12 -256;
-		//total blocks = count / 256
-		//offset of certain block = count %256
-		int32_t num = count / 256;
-		int32_t pos_offset = count % 256;
-		int32_t double_buf1[256];
-		if(ext2->read_block(node->i_block[13], (char*)double_buf1) != 0)
-			return -1;
-		int32_t double_buf2[256];
-		if(ext2->read_block(double_buf1[num], (char*)double_buf2) != 0)
-			return -1;
-		blk = double_buf2[pos_offset];
-	}
+	if(ext2_get_data_block(ext2, node, lbk, &blk) != 0)
+		return -1;
 
 	char readbuf[EXT2_BLOCK_SIZE];
 	char *cp;
@@ -430,12 +448,47 @@ int32_t ext2_read_block(ext2_t* ext2, INODE* node, char *buf, int32_t nbytes, in
 int32_t ext2_read(ext2_t* ext2, INODE* node, char *buf, int32_t nbytes, int32_t offset) {
 	char* p = buf;
 	int32_t ret = nbytes;
+	int32_t avil = node->i_size - offset;
 	while(nbytes > 0) {
+		if(offset >= (int32_t)node->i_size)
+			break;
+		if((offset % EXT2_BLOCK_SIZE) == 0 && nbytes >= EXT2_BLOCK_SIZE && avil >= EXT2_BLOCK_SIZE) {
+			int32_t start_lbk = offset / EXT2_BLOCK_SIZE;
+			int32_t first_blk = 0;
+			int32_t full_blocks = avil / EXT2_BLOCK_SIZE;
+			int32_t max_blocks = nbytes / EXT2_BLOCK_SIZE;
+
+			if(max_blocks > full_blocks)
+				max_blocks = full_blocks;
+			if(max_blocks > 0 && ext2_get_data_block(ext2, node, start_lbk, &first_blk) == 0) {
+				int32_t blocks = 1;
+				while(blocks < max_blocks) {
+					int32_t next_blk = 0;
+					if(ext2_get_data_block(ext2, node, start_lbk + blocks, &next_blk) != 0)
+						break;
+					if(next_blk != (first_blk + blocks))
+						break;
+					blocks++;
+				}
+
+				if(ext2_read_blocks_io(ext2, first_blk, p, (uint32_t)blocks) != 0)
+					return 0;
+
+				int32_t rd = blocks * EXT2_BLOCK_SIZE;
+				nbytes -= rd;
+				offset += rd;
+				avil -= rd;
+				p += rd;
+				continue;
+			}
+		}
+
 		int32_t rd = ext2_read_block(ext2, node, p, nbytes, offset);
 		if(rd <= 0)
 			return 0;
 		nbytes -= rd;
 		offset += rd;
+		avil -= rd;
 		p += rd;
 	}
 	return ret;
@@ -869,8 +922,13 @@ static int32_t get_gds(ext2_t* ext2) {
 }
 
 int32_t ext2_init(ext2_t* ext2, read_block_func_t read_block, write_block_func_t write_block, uint32_t buffer_size) {
+	return ext2_init_ex(ext2, read_block, NULL, write_block, buffer_size);
+}
+
+int32_t ext2_init_ex(ext2_t* ext2, read_block_func_t read_block, read_blocks_func_t read_blocks, write_block_func_t write_block, uint32_t buffer_size) {
 	char buf[EXT2_BLOCK_SIZE];
 	ext2->read_block = read_block;
+	ext2->read_blocks = read_blocks;
 	ext2->write_block = write_block;
 
 	//read super block

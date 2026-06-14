@@ -4,6 +4,7 @@
 #include <ext2/ext2head.h>
 
 int32_t ext2_init(ext2_t* ext2, read_block_func_t read_block, write_block_func_t write_block, uint32_t buffer_size);
+int32_t ext2_init_ex(ext2_t* ext2, read_block_func_t read_block, read_blocks_func_t read_blocks, write_block_func_t write_block, uint32_t buffer_size);
 
 void ext2_quit(ext2_t* ext2);
 
