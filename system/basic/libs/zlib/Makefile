@@ -9,7 +9,7 @@ DEPDIR := .deps
 PREFIX := /opt/ewokos
 
 ASFLAGS = --warn
-CFLAGS = -O3 -ffreestanding ${ARCH_CFLAGS} -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN -I. -I$(TARGET_DIR)/include
+CFLAGS = -O3 -ffreestanding ${ARCH_CFLAGS} -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN -I. -isystem $(TARGET_DIR)/include
 CPPFLAGS = $(CFLAGS) -fno-exceptions -fno-unwind-tables -fno-rtti
 
 LIBZ = $(TARGET_DIR)/lib/libz.a
@@ -27,12 +27,12 @@ $(LIBZ): $(OBJS) Makefile
 
 %.o: %.c
 	@mkdir -p $(DEPDIR)/$(@D)
-	$(CC) $(CFLAGS) -std=c99 -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
+	$(CC) $(CFLAGS) -std=c99 -MMD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
 	@mv -f $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
 
 %.o: %.cpp
 	@mkdir -p $(DEPDIR)/$(@D)
-	$(CXX) $(CPPFLAGS) -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
+	$(CXX) $(CPPFLAGS) -MMD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
 	@mv -f $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
 
 %.o: %.s
