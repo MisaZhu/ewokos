@@ -8,7 +8,7 @@ DEPDIR := .deps
 PREFIX := /opt/ewokos
 
 ASFLAGS = --warn 
-CFLAGS += -I $(TARGET_DIR)/include -DHAVE_CONFIG_H -I. -O2 -ffreestanding ${ARCH_CFLAGS} 
+CFLAGS += -isystem $(TARGET_DIR)/include -DHAVE_CONFIG_H -I. -O2 -ffreestanding ${ARCH_CFLAGS} 
 CPPFLAGS += $(CFLAGS) -fno-exceptions -fno-unwind-tables -fno-rtti
 
 LIBPNG = $(TARGET_DIR)/lib/libpng.a
@@ -25,17 +25,17 @@ $(LIBPNG): $(OBJS) Makefile
 
 %.o: %.c
 	@mkdir -p $(DEPDIR)/$(@D)
-	$(CC) $(CFLAGS) -std=c99 -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
+	$(CC) $(CFLAGS) -std=c99 -MMD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
 	@mv -f $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
 
 %.o: %.cpp
 	@mkdir -p $(DEPDIR)/$(@D)
-	$(CXX) $(CPPFLAGS) -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
+	$(CXX) $(CPPFLAGS) -MMD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
 	@mv -f $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
 
 %.o: %.S
 	@mkdir -p $(DEPDIR)/$(@D)
-	$(CC) $(CFLAGS) -std=c99 -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
+	$(CC) $(CFLAGS) -std=c99 -MMD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
 	@mv -f $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
 
 clean:

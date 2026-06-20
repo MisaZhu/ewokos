@@ -7,7 +7,7 @@ TARGET_DIR = $(BUILD_DIR)
 DEPDIR := .deps
 PREFIX := /opt/ewokos
 
-CFLAGS += -I $(TARGET_DIR)/include -DHAVE_CONFIG_H -I. -O2 -ffreestanding ${ARCH_CFLAGS} -include config.h
+CFLAGS += -isystem $(TARGET_DIR)/include -DHAVE_CONFIG_H -I. -O2 -ffreestanding ${ARCH_CFLAGS} -include config.h
 CPPFLAGS += $(CFLAGS) -fno-exceptions -fno-unwind-tables -fno-rtti
 
 LIBGIF = $(TARGET_DIR)/lib/libgif.a
@@ -25,7 +25,7 @@ $(LIBGIF): $(OBJS) Makefile
 
 %.o: %.c
 	@mkdir -p $(DEPDIR)/$(@D)
-	$(CC) $(CFLAGS) -std=c99 -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
+	$(CC) $(CFLAGS) -std=c99 -MMD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
 	@mv -f $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
 
 clean:

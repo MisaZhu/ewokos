@@ -10,18 +10,17 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-ABI_HEADERS = $(BUILD_DIR)/include/sysinfo.h $(BUILD_DIR)/include/procinfo.h
-
 TASK_OBJS = sysinfo.o
+LD_LIB_DEPS = \
+	$(BUILD_DIR)/lib/libewoksys.a \
+	$(BUILD_DIR)/lib/libc.a \
+	$(BUILD_DIR)/lib/libgloss.a
 
 TASK = $(TARGET_DIR)/bin/sysinfo
 
 all: $(TASK)
 
-sysinfo.o: sysinfo.c $(ABI_HEADERS)
-
-$(TASK): $(TASK_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a 
+$(TASK): $(TASK_OBJS) $(LD_LIB_DEPS)
 	$(LD) -Ttext=100 $(TASK_OBJS) -o $(TASK) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:

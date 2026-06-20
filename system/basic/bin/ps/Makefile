@@ -10,18 +10,17 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-ABI_HEADERS = $(BUILD_DIR)/include/sysinfo.h $(BUILD_DIR)/include/procinfo.h
-
 PS_OBJS = ps.o
+LD_LIB_DEPS = \
+	$(BUILD_DIR)/lib/libewoksys.a \
+	$(BUILD_DIR)/lib/libc.a \
+	$(BUILD_DIR)/lib/libgloss.a
 
 PS = $(TARGET_DIR)/bin/ps
 
 all: $(PS)
 
-ps.o: ps.c $(ABI_HEADERS)
-
-$(PS): $(PS_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a 
+$(PS): $(PS_OBJS) $(LD_LIB_DEPS)
 	$(LD) -Ttext=100 $(PS_OBJS) -o $(PS) $(LDFLAGS) $(EWOK_LIBC)
 
 clean:
