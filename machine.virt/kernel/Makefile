@@ -7,15 +7,17 @@ ifeq ($(ARCH), aarch64)
 	OS_ELF = kernel8.elf
 	QEMU_CMD = qemu-system-aarch64
 	ARCH_CFLAGS = -Wa,-march=armv8-a
+	QEMU_DISPLAY = cocoa,zoom-to-fit=on,zoom-interpolation=on
 	QEMU_FLAGS = -M $(QEMU_MACHINE),highmem=off,accel=hvf -cpu host -m 512 \
 		-serial mon:stdio -device ramfb \
-		-display cocoa,zoom-to-fit=on,zoom-interpolation=on
+		-display $(QEMU_DISPLAY)
 else
 	OS_IMG = kernel7.img
 	OS_ELF = kernel7.elf
 	QEMU_CMD = qemu-system-arm
+	QEMU_DISPLAY = cocoa,zoom-to-fit=on,zoom-interpolation=on
 	QEMU_FLAGS = -M $(QEMU_MACHINE) -cpu cortex-a15 -m 512 -serial mon:stdio -device ramfb \
-		-display cocoa,zoom-to-fit=on,zoom-interpolation=on
+		-display $(QEMU_DISPLAY)
 	ARCH_CFLAGS = -march=armv7ve -DEWOKOS_MACHINE_VIRT_ARM32
 endif
 
@@ -28,7 +30,7 @@ MACHINE = virt
 SYS_DIR = $(EWOKOS_ROOT_DIR)/system/build/$(MACHINE)
 
 ifeq ($(QEMU_DISPLAY_OPTS),cocoa)
-QEMU_FLAGS += -display cocoa
+QEMU_DISPLAY = cocoa,zoom-to-fit=on,zoom-interpolation=on
 endif
 
 QEMU_AUDIO_ID ?= audio0
