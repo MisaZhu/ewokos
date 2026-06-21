@@ -415,11 +415,18 @@ static inline  uint32_t proc_get_user_stack_base(proc_t* proc) {
 static void map_stack(proc_t* proc, uint32_t* stacks, uint32_t base, uint32_t pages) {
 	uint32_t i;
 	for(i=0; i<pages; i++) {
+		page_table_entry_t* pte;
 		stacks[i] = (uint32_t)kalloc4k();
 		map_page(proc->space->vm,
 			base + PAGE_SIZE*i,
 			V2P(stacks[i]),
 			AP_RW_RW, PTE_ATTR_WRBACK);
+#ifdef __aarch64__
+		pte = get_page_table_entry(proc->space->vm, base + PAGE_SIZE*i);
+		if(pte != NULL) {
+			pte->UXN = 1;
+		}
+#endif
 	}
 	flush_tlb();
 }

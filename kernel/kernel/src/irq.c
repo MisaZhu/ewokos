@@ -53,7 +53,7 @@ static void dump_user_addr_words_internal(proc_t* proc, ewokos_addr_t addr, cons
 	ewokos_addr_t page_phy;
 	uint32_t page_off;
 	uint32_t avail;
-	void* page_ptr;
+	uint8_t* page_ptr;
 
 	if(proc == NULL || proc->space == NULL) {
 		return;
@@ -64,13 +64,14 @@ static void dump_user_addr_words_internal(proc_t* proc, ewokos_addr_t addr, cons
 		printf("%s: addr=0x%X not mapped\n", tag, (uint32_t)addr);
 		return;
 	}
-	page_ptr = (void*)(uintptr_t)P2V(page_phy);
+	page_ptr = (uint8_t*)(uintptr_t)P2V(page_phy);
 	page_off = ((uint32_t)addr) & (PAGE_SIZE - 1);
 	avail = PAGE_SIZE - page_off;
 
 #ifdef __x86_64__
 	ewokos_addr_t words[4];
-	memcpy(words, page_ptr, sizeof(words));
+	memset(words, 0, sizeof(words));
+	memcpy(words, page_ptr + page_off, avail < sizeof(words) ? avail : sizeof(words));
 	printf("%s: %08x %08x %08x %08x\n",
 			tag,
 			(uint32_t)words[0],
@@ -86,7 +87,7 @@ static void dump_user_addr_words_internal(proc_t* proc, ewokos_addr_t addr, cons
 		}
 		printf("%s64:", tag);
 		for(i = 0; i < count; ++i) {
-			uint64_t val = ((uint64_t*)page_ptr)[i];
+			uint64_t val = ((uint64_t*)(page_ptr + page_off))[i];
 			printf(" %08x%08x",
 					(uint32_t)(val >> 32),
 					(uint32_t)val);
@@ -101,7 +102,7 @@ static void dump_user_addr_words_internal(proc_t* proc, ewokos_addr_t addr, cons
 		}
 		printf("%s32:", tag);
 		for(i = 0; i < count32; ++i) {
-			uint32_t val = ((uint32_t*)page_ptr)[i];
+			uint32_t val = ((uint32_t*)(page_ptr + page_off))[i];
 			printf(" %08x", val);
 		}
 		printf("\n");
