@@ -172,16 +172,16 @@ inline void clear_cache(void *start, void *end) {
     uintptr_t addr = (uintptr_t)start;
     uintptr_t end_addr = (uintptr_t)end;
     
-    // 对齐到缓存行（通常 64 字节）
+    // Align to the cache line size, typically 64 bytes.
     addr &= ~(64 - 1);
 
-    // 使用 DC CIVAC 刷新数据缓存
+    // Flush the data cache with DC CIVAC.
     for (; addr < end_addr; addr += 64) {
         __asm volatile("dc civac, %0" :: "r"(addr));
     }
 
-    // 确保指令缓存同步（IC IALLU）
+    // Keep the instruction cache in sync with IC IALLU.
     __asm volatile("ic iallu");
-    __asm volatile("dsb sy");  // 数据同步屏障
-    __asm volatile("isb");      // 指令同步屏障
+    __asm volatile("dsb sy");  // Data synchronization barrier
+    __asm volatile("isb");      // Instruction synchronization barrier
 }

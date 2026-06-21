@@ -77,7 +77,7 @@ static int textgrid_expand(textgrid_t* grid, uint32_t rows) {
 
 	uint32_t rows_new = grid->rows + rows;
 	if(rows_new <= grid->max_rows || grid->rows == 0) {
-		// 检查整数溢出
+		// Check for integer overflow.
 		if(grid->cols == 0 ||
 				rows_new > (UINT32_MAX / sizeof(textchar_t)) / grid->cols)
 			return -1;

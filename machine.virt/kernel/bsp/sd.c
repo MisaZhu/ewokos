@@ -14,7 +14,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-// Virtio MMIO寄存器定义
+// Virtio MMIO register definitions
 #define VIRTIO_MMIO_MAGIC         0x00
 #define VIRTIO_MMIO_VERSION       0x04
 #define VIRTIO_MMIO_DEVICE_ID     0x08
@@ -39,22 +39,22 @@
 #define VIRTIO_MMIO_QUEUE_USED_LOW  0xA0
 #define VIRTIO_MMIO_QUEUE_USED_HIGH 0xA4
 
-// Virtio 设备状态
+// Virtio device status flags
 #define VIRTIO_STATUS_ACKNOWLEDGE 1
 #define VIRTIO_STATUS_DRIVER      2
 #define VIRTIO_STATUS_FEATURES_OK 8
 #define VIRTIO_STATUS_DRIVER_OK   4
 #define VIRTIO_STATUS_FAILED      128
 
-// Virtio 队列相关定义
+// Virtio queue-related definitions
 #define VIRTIO_QUEUE_SIZE 8
 #define VIRTIO_PAGE_SIZE  4096
 
-// 描述符标志
-#define VIRTQ_DESC_F_NEXT   (1 << 0) // 链接下一个描述符
-#define VIRTQ_DESC_F_WRITE  (1 << 1) // 设备写入的内存
+// Descriptor flags
+#define VIRTQ_DESC_F_NEXT   (1 << 0) // Link to the next descriptor
+#define VIRTQ_DESC_F_WRITE  (1 << 1) // Buffer written by the device
 
-// 块设备请求类型
+// Block device request types
 #define VIRTIO_BLK_T_IN     0
 #define VIRTIO_BLK_T_OUT    1
 #define VIRTIO_BLK_T_FLUSH  4
@@ -62,25 +62,25 @@
 #define VIRTIO_BLK_IOERR    1
 #define VIRTIO_BLK_UNSUPP   2
 
-// 描述符结构
+// Descriptor structure
 struct virtq_desc {
-    uint64_t addr;  // 物理地址
-    uint32_t len;   // 长度
-    uint16_t flags; // 标志
-    uint16_t next;  // 下一个描述符索引
+    uint64_t addr;  // Physical address
+    uint32_t len;   // Length
+    uint16_t flags; // Flags
+    uint16_t next;  // Index of the next descriptor
 } __attribute__((packed));
 
-// 可用环结构
+// Available ring structure
 struct virtq_avail {
     uint16_t flags;
     uint16_t idx;
     uint16_t ring[VIRTIO_QUEUE_SIZE];
 } __attribute__((packed));
 
-// 已用环结构
+// Used ring structure
 struct virtq_used_elem {
-    uint32_t id;    // 描述符链起始索引
-    uint32_t len;   // 写入的总长度
+    uint32_t id;    // First descriptor index in the chain
+    uint32_t len;   // Total written length
 } __attribute__((packed));
 
 struct virtq_used {
@@ -89,7 +89,7 @@ struct virtq_used {
     struct virtq_used_elem ring[VIRTIO_QUEUE_SIZE];
 } __attribute__((packed));
 
-// 块设备请求头
+// Block device request header
 struct virtio_blk_req {
     uint32_t type;
     uint32_t reserved;
@@ -108,7 +108,7 @@ struct virtq_t {
                         sizeof(struct virtio_blk_req) + 512)];
 };
 
-// 设备状态结构
+// Device state
 struct virtio_device {
     uintptr_t base;
 	struct virtq_t* virtq;
@@ -125,14 +125,14 @@ static inline uint32_t mmio_read(uintptr_t addr) {
     return *(volatile uint32_t *)addr;
 }
 
-// 全局设备实例
+// Global device instance
 static struct virtio_device virtio_dev;
 
 uint64_t get_phy_addr(struct virtio_device *dev, void* ptr){
 	return dev->phy + (ptr - (void*)dev->virtq);
 }
 
-// 初始化virtio-blk设备
+// Initialize the virtio-blk device.
 int virtio_blk_init(struct virtio_device *dev) {
     uint32_t base = dev->base;
 	uint32_t paddr = dev->phy;
@@ -240,7 +240,7 @@ static int plat_dma_alloc(void** vaddr, void** paddr, int size){
 }
 
 int32_t sd_init(void){
-    // QEMU默认virtio-blk地址
+    // Default QEMU virtio-blk base address.
     uintptr_t base = MMIO_BASE + 0x02003e00;
 
    	memset(&device, 0, sizeof(device));

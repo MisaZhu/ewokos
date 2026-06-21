@@ -3,10 +3,10 @@
 
 #include <time.h>
 
-// NTP服务器默认使用的端口号
+// Default port used by NTP servers.
 #define DEFAULT_NTP_PORT 123
-// 硬编码一个NTP服务器IP地址（可以根据需要更换）
-#define DEFAULT_NTP_SERVER "202.120.2.101"  // 中国国家授时中心NTP服务器
+// Hardcoded default NTP server address. Replace it if needed.
+#define DEFAULT_NTP_SERVER "203.107.6.88"  // National Time Service Center NTP server
 
 #ifdef __cplusplus 
 extern "C" {

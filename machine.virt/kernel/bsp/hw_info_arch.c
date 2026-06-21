@@ -68,19 +68,19 @@ void arch_vm(page_dir_entry_t* vm) {
 static unsigned long psci_cpu_on(unsigned long target_cpu, unsigned long entry_point)
 {
     unsigned long ret;
-    // 使用HVC调用PSCI_CPU_ON功能，传入目标CPU ID和入口地址
+    // Invoke PSCI_CPU_ON through HVC with the target CPU ID and entry address.
     __asm__ volatile(
         "mov x0, %1\n"          // PSCI_CPU_ON_64
         "mov x1, %2\n"          // target_cpu (MPIDR)
-        "mov x2, %3\n"          // entry_point (物理地址)
-        "mov x3, 0\n"           // context_id (通常为0)
+        "mov x2, %3\n"          // entry_point (physical address)
+        "mov x3, 0\n"           // context_id (usually 0)
         "hvc #0\n"
-        "mov %0, x0"            // 返回值
+        "mov %0, x0"            // Return value
         : "=r" (ret)
         : "r" (0xc4000003), "r" (target_cpu), "r" (entry_point)
         : "x0", "x1", "x2", "x3", "memory"
     );
-    return ret; // 返回0表示成功，非0表示错误
+    return ret; // 0 means success, non-zero indicates an error
 }
 extern char __entry[];
 inline void __attribute__((optimize("O0"))) start_core(uint32_t core_id) {

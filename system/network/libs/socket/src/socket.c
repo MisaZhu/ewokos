@@ -372,7 +372,7 @@ int shutdown (int fd, int how){
     return ret;
 }
 
-// DNS相关结构体
+// DNS-related structures
 struct dns_header {
     uint16_t id;
     uint16_t flags;
@@ -383,23 +383,23 @@ struct dns_header {
 } __attribute__((packed));
 
 struct dns_question {
-    // 域名部分是可变长度的，以0结尾
-    // 后面跟着type和class
+    // The domain name portion has variable length and ends with a zero byte.
+    // It is followed by the type and class fields.
     uint16_t type;
     uint16_t class;
 } __attribute__((packed));
 
 struct dns_rr {
-    // 域名部分是可变长度的，以0结尾
-    // 后面跟着type、class、ttl、rdlength和rdata
+    // The domain name portion has variable length and ends with a zero byte.
+    // It is followed by type, class, ttl, rdlength, and rdata.
     uint16_t type;
     uint16_t class;
     uint32_t ttl;
     uint16_t rdlength;
-    // rdata部分是可变长度的
+    // The rdata payload has variable length.
 } __attribute__((packed));
 
-// 静态存储区，用于存储gethostbyname的返回结果
+// Static storage used for gethostbyname() return data.
 static struct hostent hostent_result;
 static char hostent_name_buf[256];
 static char* hostent_name;
@@ -407,7 +407,7 @@ static char* hostent_aliases[2];
 static struct in_addr hostent_addr;
 static char* hostent_addr_list[2];
 
-// DNS解析函数
+// Resolve a hostname through the specified DNS server.
 static int dns_resolve(const char* domain, struct in_addr* addr, const char* dns_server_ipv4) {
     int sockfd;
     struct sockaddr_in server_addr, from_addr;
@@ -419,36 +419,36 @@ static int dns_resolve(const char* domain, struct in_addr* addr, const char* dns
     uint16_t qtype, qclass;
     uint16_t ancount, type, class, rdlength;
 
-    // 创建UDP套接字
+    // Create a UDP socket.
     sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (sockfd < 0) {
         return -1;
     }
 
     struct timeval timeout;
-    timeout.tv_sec = 3; // 3秒超时
+    timeout.tv_sec = 3; // 3-second timeout
     timeout.tv_usec = 0;
     if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
         close(sockfd);
         return -1;
     }
 
-    // 设置DNS服务器地址（使用Google DNS）
+    // Set the DNS server address.
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(53);
     server_addr.sin_addr.s_un.s_addr = inet_addr(dns_server_ipv4);
 
-    // 构造DNS查询数据包
+    // Build the DNS query packet.
     header = (struct dns_header*)buf;
     header->id = htons(12345);
-    header->flags = htons(0x0100); // 标准查询
+    header->flags = htons(0x0100); // Standard query
     header->qdcount = htons(1);
     header->ancount = 0;
     header->nscount = 0;
     header->arcount = 0;
 
-    // 构造查询域名
+    // Encode the queried domain name.
     ptr = buf + sizeof(struct dns_header);
     const char* domain_ptr = domain;
     while (*domain_ptr) {
@@ -465,11 +465,11 @@ static int dns_resolve(const char* domain, struct in_addr* addr, const char* dns
             break;
         }
     }
-    *ptr++ = 0; // 域名结束符
+    *ptr++ = 0; // Domain name terminator
 
-    // 添加查询类型和类
-    qtype = htons(1); // A记录
-    qclass = htons(1); // IN类
+    // Append the query type and class.
+    qtype = htons(1); // A record
+    qclass = htons(1); // IN class
     memcpy(ptr, &qtype, 2);
     ptr += 2;
     memcpy(ptr, &qclass, 2);
@@ -478,7 +478,7 @@ static int dns_resolve(const char* domain, struct in_addr* addr, const char* dns
     len = ptr - buf;
 
     for (attempt = 0; attempt < 3; ++attempt) {
-        // 发送查询
+        // Send the query.
         if (sendto(sockfd, buf, len, 0, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
             if (errno == EINTR || errno == EAGAIN) {
                 continue;
@@ -487,7 +487,7 @@ static int dns_resolve(const char* domain, struct in_addr* addr, const char* dns
             return -1;
         }
 
-        // 接收响应
+        // Receive the response.
         from_len = sizeof(from_addr);
         while (1) {
             len = recvfrom(sockfd, buf, sizeof(buf), 0, (struct sockaddr*)&from_addr, &from_len);
@@ -514,11 +514,11 @@ static int dns_resolve(const char* domain, struct in_addr* addr, const char* dns
         return -1;
     }
 
-    // 解析响应
+    // Parse the response.
     header = (struct dns_header*)buf;
     ancount = ntohs(header->ancount);
 
-    // 跳过查询部分
+    // Skip the question section.
     ptr = buf + sizeof(struct dns_header);
     while (ptr < buf + len && *ptr) {
         uint8_t label_len = *ptr;
@@ -532,19 +532,19 @@ static int dns_resolve(const char* domain, struct in_addr* addr, const char* dns
         close(sockfd);
         return -1;
     }
-    ptr += 1; // 跳过域名结束符
+    ptr += 1; // Skip the domain name terminator
     if (ptr + 4 > buf + len) {
         close(sockfd);
         return -1;
     }
-    // 检查查询部分的type和class
+    // Validate the question type and class.
     qtype = ntohs(*(uint16_t*)ptr);
     qclass = ntohs(*(uint16_t*)(ptr + 2));
-    ptr += 4; // 跳过type和class
+    ptr += 4; // Skip type and class
 
-    // 解析回答部分
+    // Parse the answer section.
     for (i = 0; i < ancount; i++) {
-        // 跳过域名（可能是压缩格式）
+        // Skip the domain name, which may use compressed encoding.
         while (ptr < buf + len) {
             if (ptr >= buf + len) {
                 close(sockfd);
@@ -555,7 +555,7 @@ static int dns_resolve(const char* domain, struct in_addr* addr, const char* dns
                 break;
             }
             if ((*ptr & 0xc0) == 0xc0) {
-                // 压缩格式，跳过2字节
+                // Compressed name format, skip the 2-byte pointer.
                 if (ptr + 2 > buf + len) {
                     close(sockfd);
                     return -1;
@@ -571,24 +571,24 @@ static int dns_resolve(const char* domain, struct in_addr* addr, const char* dns
             ptr += label_len + 1;
         }
 
-        // 读取type、class、ttl、rdlength
+        // Read type, class, ttl, and rdlength.
         if (ptr + 10 > buf + len) {
             close(sockfd);
             return -1;
         }
-        // 确保指针对齐
+        // Read through properly aligned temporaries.
         uint16_t type_val = *(uint16_t*)ptr;
         type = ntohs(type_val);
         ptr += 2;
         uint16_t class_val = *(uint16_t*)ptr;
         class = ntohs(class_val);
         ptr += 2;
-        ptr += 4; // 跳过ttl
+        ptr += 4; // Skip ttl
         uint16_t rdlength_val = *(uint16_t*)ptr;
         rdlength = ntohs(rdlength_val);
         ptr += 2;
 
-        // 如果是A记录，提取IP地址
+        // Extract the IPv4 address from an A record.
         if (type == 1 && class == 1 && rdlength == 4) {
             if (ptr + 4 > buf + len) {
                 close(sockfd);
@@ -620,15 +620,15 @@ in_addr_t inet_addr(const char *cp) {
 
 struct hostent *gethostbyname(const char *name){
     int last_errno = 0;
-    // 检查输入参数
+    // Validate input arguments.
     if (name == NULL) {
         errno = EINVAL;
         return NULL;
     }
 
-    // 尝试将name解析为IPv4地址
+    // First try to parse the input as an IPv4 literal.
     if (inet_pton(AF_INET, name, &hostent_addr) == 1) {
-        // 成功解析为IP地址
+        // Parsed successfully as an IPv4 address.
         strncpy(hostent_name_buf, name, sizeof(hostent_name_buf));
         hostent_name_buf[sizeof(hostent_name_buf) - 1] = '\0';
         hostent_name = hostent_name_buf;
@@ -671,7 +671,7 @@ struct hostent *gethostbyname(const char *name){
         last_errno = errno;
     }
 
-    // 解析失败
+    // Resolution failed.
     errno = last_errno != 0 ? last_errno : ENOENT;
     return NULL;
 }

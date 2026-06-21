@@ -85,15 +85,15 @@ bool SpriteAnim::setSpriteByScript(const std::string& fname) {
     if(img_file[0] == '\0' || steps == 0)
         return false;
     
-    // 如果 img_file 不是绝对路径，则拼接 fname 所在目录
+    // If img_file is not absolute, resolve it relative to fname.
     char* full_path = NULL;
     bool res = false;
     if(img_file[0] != '/') {
-        // 查找 fname 中最后一个 '/' 的位置
+        // Find the last '/' in fname.
         const char* fname_cstr = fname.c_str();
         const char* last_slash = strrchr(fname_cstr, '/');
         if(last_slash != NULL) {
-            // 计算目录长度（包含 '/'）
+            // Compute the directory length, including the trailing '/'.
             size_t dir_len = last_slash - fname_cstr + 1;
             size_t img_len = strlen(img_file);
             full_path = (char*)malloc(dir_len + img_len + 1);

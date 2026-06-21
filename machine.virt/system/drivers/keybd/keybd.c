@@ -10,10 +10,10 @@
 #include <arch/virt/virtio.h>
 #include "keymap.h"
 
-#define EV_KEY 0x01 // 按键事件
-#define EV_REL 0x02 // 相对坐标事件（如鼠标移动）
-#define EV_ABS 0x03 // 绝对坐标事件（如触摸屏）
-#define EV_SYN 0x00 // 同步事件
+#define EV_KEY 0x01 // Key event
+#define EV_REL 0x02 // Relative coordinate event, such as mouse movement
+#define EV_ABS 0x03 // Absolute coordinate event, such as touchscreen input
+#define EV_SYN 0x00 // Synchronization event
 
 #define MAX_KEY (6)
 
@@ -60,11 +60,11 @@ int get_key_code(char *buf)
 {
 	int num = 0;
 	
-	// 处理所有按下的键
+	// Process all currently pressed keys.
 	for (int i = 0; i < key_data.key_count; i++)
 	{
 		uint8_t key = key_data.key_code[i];
-		// 如果 keymap 中没有映射，则直接使用原始键码
+		// If the key is not mapped in keymap, fall back to the raw key code.
 		if (key < sizeof(keymap) && keymap[key] != 0)
 		{
 			buf[num++] = keymap[key];

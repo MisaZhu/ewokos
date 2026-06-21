@@ -249,24 +249,24 @@ ip_iface_alloc(const char *unicast, const char *netmask)
     return iface;
 }
 
-// 修改函数签名，使其与实现一致
+// Keep the function signature aligned with the implementation.
 int ip_iface_update(struct ip_iface *iface, uint32_t ipaddr, uint32_t netmask, uint32_t gateway){
     if(iface == NULL)
         return -1;
     
-    // 更新接口的IP地址和子网掩码
+    // Update the interface IP address and subnet mask.
     iface->unicast = ipaddr;
     iface->netmask = netmask;
     iface->broadcast = (iface->unicast & iface->netmask) | ~iface->netmask;
     iface->gateway = gateway;
 
-    // 添加网络直连路由
+    // Add the directly connected network route.
     if (!ip_route_add(iface->unicast & iface->netmask, iface->netmask, IP_ADDR_ANY, iface)) {
         errorf("ip_route_add() failure for network route");
         return -1;
     }
     
-    // 如果提供了gateway参数且不为0.0.0.0，则设置默认网关
+    // Configure the default gateway if a non-zero gateway was provided.
     if (gateway != IP_ADDR_ANY) {
         if (!ip_route_add(IP_ADDR_ANY, IP_ADDR_ANY, gateway, iface)) {
             errorf("ip_route_add() failure for default gateway");

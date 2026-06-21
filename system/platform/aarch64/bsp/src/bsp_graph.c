@@ -79,7 +79,7 @@ static inline void graph_pixel_argb_neon(graph_t *graph, int32_t x, int32_t y,
     }
     else
     {
-        // 对于 size < 8 的情况，使用 memcpy 处理边界
+        // For size < 8, use memcpy to handle the edge case safely.
         uint32_t fg[8] = {0};
         uint32_t bg[8] = {0};
         memcpy(fg, src, 4*size);
@@ -373,28 +373,28 @@ inline void graph_blt_alpha_mask_bsp(graph_t* src, int32_t sx, int32_t sy, int32
 
 static void glass_neon(uint32_t* args, int width, int height, 
                 int x, int y, int w, int h, int r) {
-    // 参数检查
+    // Validate parameters.
     if (!args || r <= 0 || w <= 0 || h <= 0 || width <= 0 || height <= 0) 
         return;
     if (x < 0 || y < 0 || x + w > width || y + h > height)
         return;
 
-    // 使用固定随机种子确保每次效果相同
-    srand(0x12345678);  // 每次调用都使用相同的种子值
+    // Use a fixed random seed so the effect stays deterministic.
+    srand(0x12345678);  // Reuse the same seed on every call
 
-    // 预计算常用值
+    // Precompute frequently used values.
     int range = 2*r;
     int x_end = x + w - 1;
     int y_end = y + h - 1;
 
-    // NEON寄存器初始化
+    // Initialize NEON registers.
     int32x4_t vx = vdupq_n_s32(x);
     int32x4_t vy = vdupq_n_s32(y);
     int32x4_t vx_end = vdupq_n_s32(x_end);
     int32x4_t vy_end = vdupq_n_s32(y_end);
     int32x4_t vwidth = vdupq_n_s32(width);
 
-    // 预生成所有需要的随机数
+    // Pre-generate all random offsets.
     int total_pixels = w * h;
     int* rand_offsets = malloc(total_pixels * 2 * sizeof(int));
 
@@ -402,23 +402,23 @@ static void glass_neon(uint32_t* args, int width, int height,
 		rand_offsets[i] = (rand() % range) - r;
 	}
 
-    // 处理图像区域
+    // Process the image region.
     int offset_index = 0;
     for (int j = y; j <= y_end; j++) {
         int32x4_t vj = vdupq_n_s32(j);
         
-        // 预加载数据到缓存
+        // Preload data into the cache.
         __asm volatile("prfm pldl1keep, [%0, #256]\n\t" : : "r"(&args[j * width + x]));
         
         for (int i = x; i <= x_end; i += 8) {
-            // 处理剩余不足8个像素的情况
+            // Handle the remaining pixels when fewer than 8 are left.
             int remaining = x_end - i + 1;
             if (remaining < 8) {
                 for (int k = 0; k < remaining; k++) {
                     int rx = i + k + rand_offsets[offset_index++];
                     int ry = j + rand_offsets[offset_index++];
                     
-                    // 边界检查
+                    // Clamp to the valid bounds.
                     rx = (rx < x) ? x : ((rx > x_end) ? x_end : rx);
                     ry = (ry < y) ? y : ((ry > y_end) ? y_end : ry);
                     
@@ -427,14 +427,14 @@ static void glass_neon(uint32_t* args, int width, int height,
                 break;
             }
             
-            // 为8个像素生成随机偏移
+            // Generate random offsets for 8 pixels.
             int rand_x[8], rand_y[8];
             for (int k = 0; k < 8; k++) {
                 rand_x[k] = rand_offsets[offset_index++];
                 rand_y[k] = rand_offsets[offset_index++];
             }
             
-            // 处理前4个像素
+            // Process the first 4 pixels.
             int32x4_t vrand_x0 = vld1q_s32(rand_x);
             int32x4_t vrand_y0 = vld1q_s32(rand_y);
             int32x4_t vi0 = {i, i+1, i+2, i+3};
@@ -444,7 +444,7 @@ static void glass_neon(uint32_t* args, int width, int height,
             ry0 = vmaxq_s32(vy, vminq_s32(vy_end, ry0));
             int32x4_t rpos0 = vmlaq_s32(rx0, ry0, vwidth);
             
-            // 处理后4个像素
+            // Process the last 4 pixels.
             int32x4_t vrand_x1 = vld1q_s32(&rand_x[4]);
             int32x4_t vrand_y1 = vld1q_s32(&rand_y[4]);
             int32x4_t vi1 = {i+4, i+5, i+6, i+7};
@@ -454,19 +454,19 @@ static void glass_neon(uint32_t* args, int width, int height,
             ry1 = vmaxq_s32(vy, vminq_s32(vy_end, ry1));
             int32x4_t rpos1 = vmlaq_s32(rx1, ry1, vwidth);
             
-            // 提取位置到数组
+            // Extract the positions into scalar arrays.
             int rpos_arr0[4], rpos_arr1[4];
             vst1q_s32(rpos_arr0, rpos0);
             vst1q_s32(rpos_arr1, rpos1);
             
-            // 批量收集像素值
+            // Gather the pixel values in a batch.
             uint32_t pixels[8];
             for (int k = 0; k < 4; k++) {
                 pixels[k] = args[rpos_arr0[k]];
                 pixels[k + 4] = args[rpos_arr1[k]];
             }
             
-            // 批量存储结果
+            // Store the results in a batch.
             uint32x4_t pixels0 = vld1q_u32(pixels);
             uint32x4_t pixels1 = vld1q_u32(&pixels[4]);
             vst1q_u32(&args[j * width + i], pixels0);
@@ -497,14 +497,14 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
                        int x, int y, int w, int h, int radius) {
     if (radius <= 0) return;
     
-    // 边界检查
+    // Clamp to valid bounds.
     if (x < 0) x = 0;
     if (y < 0) y = 0;
     if (x + w > width) w = width - x;
     if (y + h > height) h = height - y;
     if (w <= 0 || h <= 0) return;
     
-    // 创建高斯核
+    // Build the Gaussian kernel.
     int kernel_size = radius * 2 + 1;
     float* kernel = (float*)malloc(kernel_size * sizeof(float));
     float sigma = radius / 2.0f;
@@ -516,22 +516,22 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
         sum += val;
     }
     
-    // 归一化
+    // Normalize the kernel.
     for (int i = 0; i < kernel_size; i++) {
         kernel[i] /= sum;
     }
     
-    // 临时缓冲区
+    // Temporary buffer.
     uint32_t* temp = (uint32_t*)malloc(w * h * sizeof(uint32_t));
     
-    // NEON优化水平模糊，并行处理8个像素
+    // NEON-optimized horizontal blur, processing 8 pixels at a time.
     for (int j = 0; j < h; j++) {
-        // 预加载数据到缓存
+        // Preload data into the cache.
         __asm volatile("prfm pldl1keep, [%0, #256]\n\t" : : "r"(&pixels[(y + j) * width + x]));
         
         for (int i = 0; i < w; i += 8) {
             if (i + 8 > w) {
-                // 处理剩余不足8个像素的情况
+                // Handle the remaining pixels when fewer than 8 are left.
                 for (int k = i; k < w; k++) {
                     float32x4_t accum = vdupq_n_f32(0.0f);
                     
@@ -543,17 +543,17 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
                         uint32_t pixel = pixels[(y + j) * width + px];
                         float weight = kernel[m + radius];
                         
-                        // 提取ARGB通道
+                        // Extract ARGB channels.
                         uint8x8_t vPixel = vreinterpret_u8_u32(vdup_n_u32(pixel));
                         uint16x8_t vPixel16 = vmovl_u8(vPixel);
                         uint32x4_t vPixel32 = vmovl_u16(vget_low_u16(vPixel16));
                         float32x4_t vPixelF = vcvtq_f32_u32(vPixel32);
                         
-                        // 乘以权重并累加
+                        // Multiply by the weight and accumulate.
                         accum = vmlaq_n_f32(accum, vPixelF, weight);
                     }
                     
-                    // 转换为整数并存储
+                    // Convert back to integers and store the result.
                     uint32x4_t result = vcvtq_u32_f32(accum);
                     uint8x8_t res8 = vmovn_u16(vcombine_u16(
                         vmovn_u32(result),
@@ -564,7 +564,7 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
                 break;
             }
             
-            // 并行处理8个像素
+            // Process 8 pixels in parallel.
             float32x4_t accum[8] = {
                 vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f),
                 vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)
@@ -573,11 +573,11 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
             for (int m = -radius; m <= radius; m++) {
                 float weight = kernel[m + radius];
                 
-                // 批量加载8个像素
+                // Load 8 pixels in a batch.
                 uint32x4_t pixels0 = vld1q_u32(&pixels[(y + j) * width + x + i]);
                 uint32x4_t pixels1 = vld1q_u32(&pixels[(y + j) * width + x + i + 4]);
                 
-                // 处理前4个像素
+                // Process the first 4 pixels.
                 for (int k = 0; k < 4; k++) {
                     int px = x + i + k + m;
                     if (px < x) px = x;
@@ -585,17 +585,17 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
                     
                     uint32_t pixel = pixels[(y + j) * width + px];
                     
-                    // 提取ARGB通道
+                    // Extract ARGB channels.
                     uint8x8_t vPixel = vreinterpret_u8_u32(vdup_n_u32(pixel));
                     uint16x8_t vPixel16 = vmovl_u8(vPixel);
                     uint32x4_t vPixel32 = vmovl_u16(vget_low_u16(vPixel16));
                     float32x4_t vPixelF = vcvtq_f32_u32(vPixel32);
                     
-                    // 乘以权重并累加
+                    // Multiply by the weight and accumulate.
                     accum[k] = vmlaq_n_f32(accum[k], vPixelF, weight);
                 }
                 
-                // 处理后4个像素
+                // Process the last 4 pixels.
                 for (int k = 4; k < 8; k++) {
                     int px = x + i + k + m;
                     if (px < x) px = x;
@@ -603,7 +603,7 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
                     
                     uint32_t pixel = pixels[(y + j) * width + px];
                     
-                    // 提取ARGB通道
+                    // Extract ARGB channels.
                     uint8x8_t vPixel = vreinterpret_u8_u32(vdup_n_u32(pixel));
                     uint16x8_t vPixel16 = vmovl_u8(vPixel);
                     uint32x4_t vPixel32 = vmovl_u16(vget_low_u16(vPixel16));

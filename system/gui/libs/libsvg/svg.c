@@ -52,7 +52,7 @@ svg_image_t* svg_load_from_memory(const uint8_t* data, uint32_t size) {
         return NULL;
     }
 
-    // 1. 使用 plutosvg 加载 SVG 文档
+    // 1. Load the SVG document through plutosvg.
     plutosvg_document_t* doc = plutosvg_document_load_from_data((const char*)data, size, -1.0f, -1.0f, NULL, NULL);
     if (doc == NULL) {
         fprintf(stderr, "[libsvg] plutosvg_document_load_from_data failed size=%u\n", size);
@@ -66,7 +66,7 @@ svg_image_t* svg_load_from_memory(const uint8_t* data, uint32_t size) {
         return NULL;
     }
 
-    // 2. 获取 SVG 原始尺寸
+    // 2. Read the original SVG dimensions.
     int width = (int)plutosvg_document_get_width(doc);
     int height = (int)plutosvg_document_get_height(doc);
 
@@ -83,7 +83,7 @@ svg_image_t* svg_load_from_memory(const uint8_t* data, uint32_t size) {
         return NULL;
     }
 
-    // 3. 将 SVG 渲染到 plutovg surface
+    // 3. Render the SVG into a plutovg surface.
     plutovg_surface_t* surface = plutosvg_document_render_to_surface(doc, NULL, width, height, NULL, NULL, NULL);
     plutosvg_document_destroy(doc);
 
@@ -102,7 +102,7 @@ svg_image_t* svg_load_from_memory(const uint8_t* data, uint32_t size) {
     int surf_width = plutovg_surface_get_width(surface);
     int surf_height = plutovg_surface_get_height(surface);
 
-    // 4. 分配输出图像结构体
+    // 4. Allocate the output image structure.
     svg_image_t* img = (svg_image_t*)malloc(sizeof(svg_image_t));
     if (img == NULL) {
         fprintf(stderr, "[libsvg] alloc svg_image_t failed\n");
@@ -136,7 +136,7 @@ svg_image_t* svg_load_from_memory(const uint8_t* data, uint32_t size) {
         return NULL;
     }
 
-    // 5. 从 surface 拷贝像素数据到输出缓冲区
+    // 5. Copy pixel data from the surface into the output buffer.
     const unsigned char* src_pixels = plutovg_surface_get_data(surface);
     memcpy(img->pixels, src_pixels, pixel_bytes);
 

@@ -14,23 +14,23 @@ class CircularClock : public Widget {
     uint32_t min;
     uint32_t hour;
 
-    // 绘制时钟刻度
+    // Draw the clock ticks.
     void drawClockTicks(graph_t* g, XTheme* theme, const grect_t& r) {
         int centerX = r.x + r.w / 2;
         int centerY = r.y + r.h / 2;
         int radius = (r.w < r.h ? r.w : r.h) / 2 - 10;
 
         graph_set(g, r.x, r.y, r.w, r.h, 0x0);
-        // 绘制白色圆底
+        // Draw the white clock face.
         graph_fill_circle(g, centerX, centerY, radius, 0xffffffff);
         graph_circle(g, centerX, centerY, radius, 3, 0xff000000);
         radius -= 6;
 
-        // 绘制数字
+        // Draw the hour numbers.
         font_t* font = theme->getFont();
         int fontSize = 10;
         for (int hour = 1; hour <= 12; ++hour) {
-            double angle = (hour * 30 - 90) * M_PI / 180; // 计算角度，减去 90 度是为了让 12 点在顶部
+            double angle = (hour * 30 - 90) * M_PI / 180; // Offset by 90 degrees so 12 o'clock is at the top
             int textX = centerX + (int)((radius - 12) * cos(angle));
             int textY = centerY + (int)((radius - 12) * sin(angle))- fontSize + 2;
             char text[3];
@@ -47,11 +47,11 @@ class CircularClock : public Widget {
             int dotRadius;
 
             if (i % 5 == 0) {
-                // 整点刻度，圆点半径大一些
+                // Use a slightly larger dot for hour marks.
                 dotRadius = 1;
                 graph_fill_circle(g, dotX, dotY, dotRadius, 0xff000000);
             } else {
-                // 非整点刻度，圆点半径小一些
+                // Minor ticks use a smaller dot radius.
                 //dotRadius = 1;
                 //graph_fill_circle(g, dotX, dotY, dotRadius, 0xff000000);
             }
@@ -59,37 +59,37 @@ class CircularClock : public Widget {
         }
     }
 
-    // 绘制指针
+    // Draw the hands.
     void drawHands(graph_t* g, XTheme* theme, const grect_t& r) {
         int centerX = r.x + r.w / 2;
         int centerY = r.y + r.h / 2;
         int radius = (r.w < r.h ? r.w : r.h) / 2 - 10;
     
-        // 定义时针、分针和秒针的宽度
-        int hourHandWidth = 5; // 时针最粗
-        int minHandWidth = 3;  // 分针比秒针粗
-        int secHandWidth = 2;  // 秒针最细
+        // Define the widths of the hour, minute, and second hands.
+        int hourHandWidth = 5; // The hour hand is the thickest
+        int minHandWidth = 3;  // The minute hand is thicker than the second hand
+        int secHandWidth = 2;  // The second hand is the thinnest
     
-        // 时针
+        // Hour hand
         double hourAngle = (hour % 12 + min / 60.0) * (M_PI / 6);
         int hourX = centerX + (int)(radius * 0.5 * cos(hourAngle - M_PI / 2));
         int hourY = centerY + (int)(radius * 0.5 * sin(hourAngle - M_PI / 2));
         graph_wline(g, centerX, centerY, hourX, hourY, hourHandWidth, 0xff000000);
     
-        // 分针
+        // Minute hand
         double minAngle = (min + sec / 60.0) * (M_PI / 30);
         int minX = centerX + (int)(radius * 0.7 * cos(minAngle - M_PI / 2));
         int minY = centerY + (int)(radius * 0.7 * sin(minAngle - M_PI / 2));
         graph_wline(g, centerX, centerY, minX, minY, minHandWidth, 0xff000000);
     
-        // 秒针
+        // Second hand
         double secAngle = sec * (M_PI / 30);
         int secX = centerX + (int)(radius * 0.8 * cos(secAngle - M_PI / 2));
         int secY = centerY + (int)(radius * 0.8 * sin(secAngle - M_PI / 2));
         graph_wline(g, centerX, centerY, secX, secY, secHandWidth, 0xffff0000);
     
-        // 绘制指针根部的圆形
-        int rootRadius = 5; // 根部圆形的半径，可以根据需要调整
+        // Draw the circle at the center pivot.
+        int rootRadius = 5; // Radius of the center pivot circle
         graph_fill_circle(g, centerX, centerY, rootRadius, 0xffff0000);
     }
 

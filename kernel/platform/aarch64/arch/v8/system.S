@@ -100,9 +100,9 @@ finished:
 
 .global __invalidate_icache_all
 __invalidate_icache_all:
-    ic      iallu                   // 无效化所有指令缓存
-    dsb     sy                     // 非共享域的数据同步屏障
-    isb                             // 同步上下文
+    ic      iallu                   // Invalidate the entire instruction cache
+    dsb     sy                     // Data synchronization barrier
+    isb                             // Synchronize the execution context
     ret
 
 .globl __flush_dcache_all

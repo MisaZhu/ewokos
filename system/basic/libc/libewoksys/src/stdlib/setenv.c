@@ -7,45 +7,45 @@
 
 extern char ** environ;
 
-// 静态指针，用于存储我们自己分配的环境变量数组
+// Static buffer used to store the environment array we allocate ourselves.
 static char **env_buffer = NULL;
 static int env_capacity = 0;
 static int env_count = 0;
 
-// 初始化环境变量缓冲区
+// Initialize the environment buffer.
 static int init_env_buffer(void) {
     if (env_buffer != NULL) {
         return 0;
     }
     
-    // 计算当前环境变量数量
+    // Count the current number of environment entries.
     env_count = 0;
     for (char **ep = environ; *ep != NULL; ++ep) {
         env_count++;
     }
     
-    // 初始容量为当前数量 + 16
+    // Start with the current size plus some spare room.
     env_capacity = env_count + 16;
     
-    // 分配新的缓冲区
+    // Allocate a new buffer.
     env_buffer = (char **)malloc(env_capacity * sizeof(char *));
     if (env_buffer == NULL) {
         return -1;
     }
     
-    // 复制现有的环境变量指针
+    // Copy the existing environment pointers.
     for (int i = 0; i < env_count; i++) {
         env_buffer[i] = environ[i];
     }
     env_buffer[env_count] = NULL;
     
-    // 更新 environ 指向我们的缓冲区
+    // Redirect environ to our managed buffer.
     environ = env_buffer;
     
     return 0;
 }
 
-// 扩展环境变量缓冲区
+// Grow the environment buffer when needed.
 static int expand_env_buffer(void) {
     if (env_count + 1 >= env_capacity) {
         env_capacity += 16;
@@ -59,30 +59,30 @@ static int expand_env_buffer(void) {
     return 0;
 }
 
-// 自定义的 setenv 函数实现
+// Custom setenv implementation.
 int setenv(const char *name, const char *value, ...) {
     //klog("setenv: %s=%s\n", name, value);
-    // 检查环境变量名是否为空
+    // Reject invalid environment variable names.
     if (name == NULL || *name == '\0' || strchr(name, '=') != NULL) {
         return -1;
     }
 
-    // 初始化环境变量缓冲区
+    // Initialize the environment buffer on first use.
     if (init_env_buffer() != 0) {
         return -1;
     }
 
-    // 构建新的环境变量字符串
+    // Build the new NAME=VALUE string.
     size_t name_len = strlen(name);
     size_t value_len = strlen(value);
-    size_t new_env_len = name_len + value_len + 2; // 加上 '=' 和 '\0'
+    size_t new_env_len = name_len + value_len + 2; // Include '=' and '\0'
     char *new_env = (char *)malloc(new_env_len);
     if (new_env == NULL) {
         return -1;
     }
     snprintf(new_env, new_env_len, "%s=%s", name, value);
 
-    // 查找是否已有同名环境变量
+    // Check whether the variable already exists.
     int existing_index = -1;
     for (int i = 0; i < env_count; i++) {
         if (strncmp(env_buffer[i], name, name_len) == 0 && env_buffer[i][name_len] == '=') {
@@ -92,11 +92,11 @@ int setenv(const char *name, const char *value, ...) {
     }
 
     if (existing_index >= 0) {
-        // 替换现有的环境变量
+        // Replace the existing entry.
         free(env_buffer[existing_index]);
         env_buffer[existing_index] = new_env;
     } else {
-        // 添加新的环境变量
+        // Append a new environment entry.
         if (expand_env_buffer() != 0) {
             free(new_env);
             return -1;
