@@ -5,6 +5,7 @@
 #include <x++/X.h>
 #include <graph/graph.h>
 #include <graph/graph_ex.h>
+#include <graph/graph_png.h>
 #include <ewoksys/kernel_tic.h>
 #include <string.h>
 #include <stdlib.h>
@@ -16,8 +17,6 @@ using namespace Ewok;
 // Color definitions inspired by classic Windows Solitaire
 static const uint32_t COLOR_BG          = 0xFF008080; // Classic solitaire table green
 static const uint32_t COLOR_CARD_BG     = 0xFFFFFFFF; // White card face
-static const uint32_t COLOR_CARD_BACK   = 0xFF0000CC; // Blue card back
-static const uint32_t COLOR_CARD_BACK_P = 0xFFFF0000; // Red pattern on card back
 static const uint32_t COLOR_CARD_BORDER = 0xFF000000; // Black card border
 static const uint32_t COLOR_RED         = 0xFFCC0000; // Red suit color
 static const uint32_t COLOR_BLACK       = 0xFF000000; // Black suit color
@@ -163,6 +162,68 @@ private:
         int step;
         int steps;
     } autoMoveAnim;
+
+    // Loaded image resources — normal and 180° rotated
+    graph_t* imgSuitHeart;
+    graph_t* imgSuitDiamond;
+    graph_t* imgSuitClub;
+    graph_t* imgSuitSpade;
+    graph_t* imgSuitHeart180;
+    graph_t* imgSuitDiamond180;
+    graph_t* imgSuitClub180;
+    graph_t* imgSuitSpade180;
+    graph_t* imgCardBack;
+
+    // Load suit icons and card back PNG images
+    // Uses x_get_res_name() to construct the correct app resource path.
+    void loadImages() {
+        char path[128];
+        imgSuitHeart   = png_image_new(x_get_res_name("suit_heart.png", path, sizeof(path)));
+        imgSuitDiamond = png_image_new(x_get_res_name("suit_diamond.png", path, sizeof(path)));
+        imgSuitClub    = png_image_new(x_get_res_name("suit_club.png", path, sizeof(path)));
+        imgSuitSpade   = png_image_new(x_get_res_name("suit_spade.png", path, sizeof(path)));
+        imgCardBack    = png_image_new(x_get_res_name("card_back.png", path, sizeof(path)));
+
+        // Pre-rotate for bottom-right corner (standard playing card convention)
+        imgSuitHeart180   = imgSuitHeart   ? graph_rotate(imgSuitHeart,   G_ROTATE_180) : NULL;
+        imgSuitDiamond180 = imgSuitDiamond ? graph_rotate(imgSuitDiamond, G_ROTATE_180) : NULL;
+        imgSuitClub180    = imgSuitClub    ? graph_rotate(imgSuitClub,    G_ROTATE_180) : NULL;
+        imgSuitSpade180   = imgSuitSpade   ? graph_rotate(imgSuitSpade,   G_ROTATE_180) : NULL;
+    }
+
+    // Free loaded images
+    void freeImages() {
+        if(imgSuitHeart)   { graph_free(imgSuitHeart);   imgSuitHeart   = NULL; }
+        if(imgSuitDiamond) { graph_free(imgSuitDiamond); imgSuitDiamond = NULL; }
+        if(imgSuitClub)    { graph_free(imgSuitClub);    imgSuitClub    = NULL; }
+        if(imgSuitSpade)   { graph_free(imgSuitSpade);   imgSuitSpade   = NULL; }
+        if(imgSuitHeart180)   { graph_free(imgSuitHeart180);   imgSuitHeart180   = NULL; }
+        if(imgSuitDiamond180) { graph_free(imgSuitDiamond180); imgSuitDiamond180 = NULL; }
+        if(imgSuitClub180)    { graph_free(imgSuitClub180);    imgSuitClub180    = NULL; }
+        if(imgSuitSpade180)   { graph_free(imgSuitSpade180);   imgSuitSpade180   = NULL; }
+        if(imgCardBack)    { graph_free(imgCardBack);    imgCardBack    = NULL; }
+    }
+
+    // Get the suit image for a given suit and rotation
+    graph_t* getSuitImage(int suit, bool rotated) {
+        if(rotated) {
+            switch(suit) {
+                case SUIT_HEARTS:   return imgSuitHeart180;
+                case SUIT_DIAMONDS: return imgSuitDiamond180;
+                case SUIT_CLUBS:    return imgSuitClub180;
+                case SUIT_SPADES:   return imgSuitSpade180;
+                default: return NULL;
+            }
+        } else {
+            switch(suit) {
+                case SUIT_HEARTS:   return imgSuitHeart;
+                case SUIT_DIAMONDS: return imgSuitDiamond;
+                case SUIT_CLUBS:    return imgSuitClub;
+                case SUIT_SPADES:   return imgSuitSpade;
+                default: return NULL;
+            }
+        }
+    }
 
     int clampInt(int value, int minValue, int maxValue) const {
         if(value < minValue) return minValue;
@@ -975,10 +1036,9 @@ protected:
             drawPileSlot(g, foundation[i].x, foundation[i].y, foundation[i].count == 0, layout);
             // Show suit hint in empty foundation slots.
             if(foundation[i].count == 0) {
-                uint32_t col = isRed(suit) ? 0xFF884444 : 0xFF444444;
                 drawSuit(g, foundation[i].x + layout.cardW / 2,
                     foundation[i].y + layout.cardH / 2,
-                    layout.foundationHintSize, suit, col);
+                    layout.foundationHintSize, suit);
             }
             drawPile(g, &foundation[i], theme, layout);
         }
@@ -1037,8 +1097,7 @@ protected:
                 int y = r.y + (seed % r.h);
                 int sz = 8 + ((phase + i) % 14);
                 int suit = (phase + i) % 4;
-                uint32_t colors[4] = {0xFFCC0000, 0xFF00AA00, 0xFF0066FF, 0xFFFFAA00};
-                drawSuit(g, x, y, sz, suit, colors[i % 4]);
+                drawSuit(g, x, y, sz, suit);
             }
 
             // Blinking stars
@@ -1122,60 +1181,15 @@ protected:
         }
     }
 
-    // Draw a suit icon centered at (cx, cy) with the given total size
-    void drawSuit(graph_t* g, int cx, int cy, int size, int suit, uint32_t color) {
-        int r = size / 4;       // Circle radius
-        int halfH = size / 2;   // Half height
-        int halfW = size / 2;   // Half width
-        
-        switch(suit) {
-            case SUIT_HEARTS: {  // Heart
-                // Two circles at the top
-                graph_fill_circle(g, cx - r, cy - r, r + 1, color);
-                graph_fill_circle(g, cx + r, cy - r, r + 1, color);
-                // Bottom inverted triangle from wide to narrow
-                int triH = halfH + r;
-                for(int i = 0; i < triH; i++) {
-                    int lineW = (triH - i) * halfW / triH;
-                    if(lineW <= 0) continue;
-                    graph_line(g, cx - lineW, cy + i - r,
-                               cx + lineW, cy + i - r, color);
-                }
-                break;
-            }
-            case SUIT_DIAMONDS: { // Diamond
-                for(int i = -halfH + 1; i < halfH; i++) {
-                    int lineW = halfW - abs(i) * halfW / halfH;
-                    if(lineW <= 0) continue;
-                    graph_line(g, cx - lineW, cy + i, cx + lineW, cy + i, color);
-                }
-                break;
-            }
-            case SUIT_CLUBS: {   // Club
-                graph_fill_circle(g, cx, cy - r, r, color);
-                graph_fill_circle(g, cx - r - 1, cy, r, color);
-                graph_fill_circle(g, cx + r + 1, cy, r, color);
-                // Bottom stem
-                graph_fill_rect(g, cx - r/2, cy + r - 1, r, r + 2, color);
-                break;
-            }
-            case SUIT_SPADES: {  // Spade
-                // Two circles at the bottom
-                graph_fill_circle(g, cx - r, cy + r, r + 1, color);
-                graph_fill_circle(g, cx + r, cy + r, r + 1, color);
-                // Top upright triangle from wide to narrow
-                int triH = halfH + r;
-                for(int i = 0; i < triH; i++) {
-                    int lineW = (triH - i) * halfW / triH;
-                    if(lineW <= 0) continue;
-                    graph_line(g, cx - lineW, cy - i + r,
-                               cx + lineW, cy - i + r, color);
-                }
-                // Small bottom stem
-                graph_fill_rect(g, cx - r/3, cy + r + r - 1, r * 2 / 3, r + 2, color);
-                break;
-            }
-        }
+    // Draw a suit icon centered at (cx, cy) with the given total size.
+    void drawSuit(graph_t* g, int cx, int cy, int size, int suit,
+                  bool rotated = false) {
+        graph_t* img = getSuitImage(suit, rotated);
+        if(img == NULL) return;
+        int hw = size / 2;
+        int hh = size / 2;
+        graph_blt_fit_alpha(img, 0, 0, img->w, img->h,
+                            g, cx - hw, cy - hh, size, size, 0xff);
     }
 
     // Draw a single card
@@ -1199,14 +1213,14 @@ protected:
             int iconGapY = scaleMetric(6, (float)layout.cardH / (float)BASE_CARD_H, 3);
             graph_draw_text_font(g, x + textPadX, y + textPadY, vs, theme->getFont(),
                 layout.cardFontSize, col);
-            // Small suit icon
+            // Small suit icon (top-left)
             drawSuit(g, x + textPadX + iconGapX,
                      y + textPadY + layout.cardFontSize + iconGapY,
-                     layout.smallSuitSize, c.suit, col);
+                     layout.smallSuitSize, c.suit);
 
             // Large center suit icon
             drawSuit(g, x + layout.cardW / 2, y + layout.cardH / 2,
-                     layout.centerSuitSize, c.suit, col);
+                     layout.centerSuitSize, c.suit);
 
             // Bottom-right corner: value + suit icon
             uint32_t vw, vh;
@@ -1214,39 +1228,16 @@ protected:
             graph_draw_text_font(g, x + layout.cardW - vw - textPadX,
                 y + layout.cardH - vh - textPadY,
                 vs, theme->getFont(), layout.cardFontSize, col);
+            // Bottom-right corner: rotated 180° (standard playing card convention)
             drawSuit(g, x + layout.cardW - textPadX - iconGapX,
                      y + layout.cardH - vh - textPadY - iconGapY,
-                     layout.smallSuitSize, c.suit, col);
+                     layout.smallSuitSize, c.suit, true);
         }
         else {
-            // Card back with a classic blue decorative pattern
-            // Outer frame
-            graph_fill_round(g, x, y, layout.cardW, layout.cardH, radius, COLOR_CARD_BACK);
-            // Inner frame
-            graph_round(g, x, y, layout.cardW, layout.cardH, radius, 1, COLOR_CARD_BG);
-            // Inner decoration made from small rectangles
-            int inset = scaleMetric(4, (float)layout.cardW / (float)BASE_CARD_W, 2);
-            graph_fill_round(g, x + inset, y + inset,
-                layout.cardW - inset * 2, layout.cardH - inset * 2,
-                scaleMetric(2, (float)layout.cardH / (float)BASE_CARD_H, 1), COLOR_CARD_BG);
-            graph_round(g, x + inset, y + inset,
-                layout.cardW - inset * 2, layout.cardH - inset * 2,
-                scaleMetric(2, (float)layout.cardH / (float)BASE_CARD_H, 1), 1, COLOR_CARD_BG);
-            // Red accent outline
+            // Card back
+            graph_blt_fit_alpha(imgCardBack, 0, 0, imgCardBack->w, imgCardBack->h,
+                                g, x, y, layout.cardW, layout.cardH, 0xff);
             graph_round(g, x, y, layout.cardW, layout.cardH, radius, 1, COLOR_CARD_BORDER);
-            // Center decoration
-            // Small red center marker
-            int cx = x + layout.cardW / 2;
-            int cy = y + layout.cardH / 2;
-            int mark = scaleMetric(12, (float)layout.cardW / (float)BASE_CARD_W, 4);
-            int markOffset = scaleMetric(6, (float)layout.cardW / (float)BASE_CARD_W, 2);
-            int markTop = scaleMetric(18, (float)layout.cardH / (float)BASE_CARD_H, 6);
-            int markRadius = scaleMetric(2, (float)layout.cardH / (float)BASE_CARD_H, 1);
-            graph_fill_round(g, cx - markOffset, cy - markTop, mark, mark, markRadius, COLOR_CARD_BACK_P);
-            graph_fill_round(g, cx - markTop, cy - markOffset, mark, mark, markRadius, COLOR_CARD_BACK_P);
-            graph_fill_round(g, cx - markOffset, cy + markOffset, mark, mark, markRadius, COLOR_CARD_BACK_P);
-            graph_fill_round(g, cx + markOffset, cy - markOffset, mark, mark, markRadius, COLOR_CARD_BACK_P);
-            graph_fill_circle(g, cx, cy, scaleMetric(4, (float)layout.cardW / (float)BASE_CARD_W, 2), COLOR_CARD_BACK_P);
         }
     }
 
@@ -1502,6 +1493,16 @@ public:
         autoMoveAnim.triggerAutoFinishAfterMove = false;
         autoMoveAnim.step = 0;
         autoMoveAnim.steps = 0;
+        imgSuitHeart    = NULL;
+        imgSuitDiamond  = NULL;
+        imgSuitClub     = NULL;
+        imgSuitSpade    = NULL;
+        imgSuitHeart180 = NULL;
+        imgSuitDiamond180 = NULL;
+        imgSuitClub180  = NULL;
+        imgSuitSpade180 = NULL;
+        imgCardBack     = NULL;
+        loadImages();
         newGame();
     }
 };
