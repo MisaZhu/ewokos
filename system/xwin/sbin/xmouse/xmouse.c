@@ -15,11 +15,25 @@
 
 static void input(int pid, mouse_evt_t* mevt) {
 	xevent_t ev;
+	bool is_scroll = mevt->button == MOUSE_BUTTON_SCROLL_UP ||
+			mevt->button == MOUSE_BUTTON_SCROLL_DOWN ||
+			mevt->button == MOUSE_BUTTON_SCROLL_LEFT ||
+			mevt->button == MOUSE_BUTTON_SCROLL_RIGHT;
 
 	memset(&ev, 0, sizeof(xevent_t));
 	ev.type = XEVT_MOUSE;
 	ev.state = mevt->state;
-	if(mevt->type == MOUSE_TYPE_REL){
+	if(is_scroll) {
+		/*
+		 * Scroll events need the current cursor position so xserver can route
+		 * them to the window under the pointer. Do not encode them as a large
+		 * relative move.
+		 */
+		ev.value.mouse.relative = 0;
+		ev.value.mouse.x = mevt->x;
+		ev.value.mouse.y = mevt->y;
+	}
+	else if(mevt->type == MOUSE_TYPE_REL){
 		ev.value.mouse.relative = 1;
 		ev.value.mouse.rx = mevt->x;
 		ev.value.mouse.ry = mevt->y;
@@ -137,4 +151,3 @@ int main(int argc, char** argv) {
 	close(fd);
 	return 0;
 }
-

@@ -43,6 +43,38 @@ static bool mouse_evt_empty(const mouse_evt_t* evt) {
 			evt->y == 0;
 }
 
+static void mouse_drop_oldest_if_full(void) {
+	if (mouse_data_write - mouse_data_read >= CACHE_SIZE) {
+		mouse_data_read++;
+	}
+}
+
+static void mouse_commit_slot(void) {
+	uint32_t slot = mouse_data_write % CACHE_SIZE;
+
+	if(mouse_evt_empty(&mouse_data[slot])) {
+		return;
+	}
+
+	mouse_drop_oldest_if_full();
+	if(!mouse_data[slot].state) {
+		mouse_data[slot].state = MOUSE_STATE_MOVE;
+	}
+	mouse_data_write++;
+	memset(&mouse_data[mouse_data_write % CACHE_SIZE], 0, sizeof(mouse_evt_t));
+	_wakeup = true;
+}
+
+static void mouse_emit_wheel_button(uint8_t button) {
+	uint32_t slot = mouse_data_write % CACHE_SIZE;
+
+	memset(&mouse_data[slot], 0, sizeof(mouse_evt_t));
+	mouse_data[slot].type = MOUSE_TYPE_REL;
+	mouse_data[slot].button = button;
+	mouse_data[slot].state = MOUSE_STATE_MOVE;
+	mouse_commit_slot();
+}
+
 static int _read(vdevice_t* dev, int fd, int from_pid, fsinfo_t *info,
 					  void *buf, int size, int offset, void *p)
 {
@@ -102,42 +134,26 @@ void mouse_interrupt_handle(struct virtio_device *virt_dev, struct virtio_input_
 		}
 		else if (event->code == REL_WHEEL)
 		{
-			// Vertical wheel: value > 0 scroll up, value < 0 scroll down
-			// Each wheel event is reported independently, without waiting for EV_SYN
-			// Clear current slot before writing to avoid stale data
-			memset(&mouse_data[mouse_data_write % CACHE_SIZE], 0, sizeof(mouse_evt_t));
-			mouse_data[mouse_data_write % CACHE_SIZE].type = 1;
-			// Cast to signed int32_t for proper negative value comparison
 			int32_t wheel_value = (int32_t)event->value;
 			if (wheel_value > 0)
 			{
-				mouse_data[mouse_data_write % CACHE_SIZE].button = MOUSE_BUTTON_SCROLL_DOWN;
-				mouse_data[mouse_data_write % CACHE_SIZE].state = MOUSE_STATE_MOVE;
+				mouse_emit_wheel_button(MOUSE_BUTTON_SCROLL_DOWN);
 			}
 			else if (wheel_value < 0)
 			{
-				mouse_data[mouse_data_write % CACHE_SIZE].button = MOUSE_BUTTON_SCROLL_UP;
-				mouse_data[mouse_data_write % CACHE_SIZE].state = MOUSE_STATE_MOVE;
+				mouse_emit_wheel_button(MOUSE_BUTTON_SCROLL_UP);
 			}
 		}
 		else if (event->code == REL_HWHEEL)
 		{
-			// Horizontal wheel: value > 0 scroll right, value < 0 scroll left
-			// Each wheel event is reported independently, without waiting for EV_SYN
-			// Clear current slot before writing to avoid stale data
-			memset(&mouse_data[mouse_data_write % CACHE_SIZE], 0, sizeof(mouse_evt_t));
-			mouse_data[mouse_data_write % CACHE_SIZE].type = 1;
-			// Cast to signed int32_t for proper negative value comparison
 			int32_t wheel_value = (int32_t)event->value;
 			if (wheel_value > 0)
 			{
-				mouse_data[mouse_data_write % CACHE_SIZE].button = MOUSE_BUTTON_SCROLL_RIGHT;
-				mouse_data[mouse_data_write % CACHE_SIZE].state = MOUSE_STATE_MOVE;
+				mouse_emit_wheel_button(MOUSE_BUTTON_SCROLL_RIGHT);
 			}
 			else if (wheel_value < 0)
 			{
-				mouse_data[mouse_data_write % CACHE_SIZE].button = MOUSE_BUTTON_SCROLL_LEFT;
-				mouse_data[mouse_data_write % CACHE_SIZE].state = MOUSE_STATE_MOVE;
+				mouse_emit_wheel_button(MOUSE_BUTTON_SCROLL_LEFT);
 			}
 		}
 	}else if(event->type == EV_ABS){
@@ -171,21 +187,7 @@ void mouse_interrupt_handle(struct virtio_device *virt_dev, struct virtio_input_
 	}
 	else if (event->type == EV_SYN)
 	{
-		uint32_t slot = mouse_data_write % CACHE_SIZE;
-		if(mouse_evt_empty(&mouse_data[slot])) {
-			return;
-		}
-		if (mouse_data_write - mouse_data_read >= CACHE_SIZE)
-		{
-			//klog("moused: buffer overflow, dropping event\n");
-			mouse_data_read++;
-		}
-		if(!mouse_data[slot].state) {
-			mouse_data[slot].state = MOUSE_STATE_MOVE;
-		}
-		mouse_data_write++;
-		memset(&mouse_data[mouse_data_write % CACHE_SIZE], 0, sizeof(mouse_evt_t));
-		_wakeup = true;
+		mouse_commit_slot();
 	}
 }
 
