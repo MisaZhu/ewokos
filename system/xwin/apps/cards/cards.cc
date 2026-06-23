@@ -168,6 +168,10 @@ private:
         int size;
     };
 
+    struct CardImageCache {
+        graph_t* image;
+    };
+
     // Loaded image resources — normal and 180° rotated
     graph_t* imgSuitHeart;
     graph_t* imgSuitDiamond;
@@ -179,7 +183,13 @@ private:
     graph_t* imgSuitSpade180;
     graph_t* imgCardBack;
     SuitImageCache suitImageCache[8];
-    SuitImageCache cardBackCache;
+    CardImageCache faceCardCache[4][13];
+    graph_t* backCardCache;
+    int cachedCardW;
+    int cachedCardH;
+    int cachedCardFontSize;
+    int cachedCenterSuitSize;
+    int cachedSmallSuitSize;
 
     graph_t* buildScaledSuitImage(graph_t* src, int size) {
         if(src == NULL || size <= 0) {
@@ -229,35 +239,6 @@ private:
         return suitIndex + (rotated ? 4 : 0);
     }
 
-    graph_t* getCardBackImage(int width, int height) {
-        int size;
-
-        if(imgCardBack == NULL) {
-            return NULL;
-        }
-        if(width <= 0 || height <= 0) {
-            return imgCardBack;
-        }
-
-        size = (width > height) ? width : height;
-        if(cardBackCache.image != NULL && cardBackCache.size == size) {
-            return cardBackCache.image;
-        }
-
-        if(cardBackCache.image != NULL) {
-            graph_free(cardBackCache.image);
-            cardBackCache.image = NULL;
-        }
-
-        cardBackCache.image = buildScaledSuitImage(imgCardBack, size);
-        cardBackCache.size = size;
-        if(cardBackCache.image == NULL) {
-            cardBackCache.size = 0;
-            return imgCardBack;
-        }
-        return cardBackCache.image;
-    }
-
     // Load suit icons and card back PNG images
     // Uses x_get_res_name() to construct the correct app resource path.
     void loadImages() {
@@ -275,6 +256,41 @@ private:
         imgSuitSpade180   = imgSuitSpade   ? graph_rotate(imgSuitSpade,   G_ROTATE_180) : NULL;
     }
 
+    void clearSuitImageCaches() {
+        for(int i = 0; i < 8; ++i) {
+            if(suitImageCache[i].image != NULL) {
+                graph_free(suitImageCache[i].image);
+                suitImageCache[i].image = NULL;
+            }
+            suitImageCache[i].size = 0;
+        }
+    }
+
+    void clearCardImageCaches() {
+        for(int suit = 0; suit < 4; ++suit) {
+            for(int value = 0; value < 13; ++value) {
+                if(faceCardCache[suit][value].image != NULL) {
+                    graph_free(faceCardCache[suit][value].image);
+                    faceCardCache[suit][value].image = NULL;
+                }
+            }
+        }
+        if(backCardCache != NULL) {
+            graph_free(backCardCache);
+            backCardCache = NULL;
+        }
+        cachedCardW = 0;
+        cachedCardH = 0;
+        cachedCardFontSize = 0;
+        cachedCenterSuitSize = 0;
+        cachedSmallSuitSize = 0;
+    }
+
+    void invalidateScaledCaches() {
+        clearSuitImageCaches();
+        clearCardImageCaches();
+    }
+
     // Free loaded images
     void freeImages() {
         if(imgSuitHeart)   { graph_free(imgSuitHeart);   imgSuitHeart   = NULL; }
@@ -286,18 +302,7 @@ private:
         if(imgSuitClub180)    { graph_free(imgSuitClub180);    imgSuitClub180    = NULL; }
         if(imgSuitSpade180)   { graph_free(imgSuitSpade180);   imgSuitSpade180   = NULL; }
         if(imgCardBack)    { graph_free(imgCardBack);    imgCardBack    = NULL; }
-        for(int i = 0; i < 8; ++i) {
-            if(suitImageCache[i].image != NULL) {
-                graph_free(suitImageCache[i].image);
-                suitImageCache[i].image = NULL;
-            }
-            suitImageCache[i].size = 0;
-        }
-        if(cardBackCache.image != NULL) {
-            graph_free(cardBackCache.image);
-            cardBackCache.image = NULL;
-        }
-        cardBackCache.size = 0;
+        invalidateScaledCaches();
     }
 
     // Get the suit image for a given suit and rotation
@@ -1289,18 +1294,6 @@ protected:
         return false;
     }
 
-    // Draw all visible cards in a pile
-    void drawPile(graph_t* g, Pile* p, XTheme* theme, const LayoutMetrics& layout) {
-        for(int i = 0; i < p->count; i++) {
-            int cx, cy;
-            if(isCardFullyCovered(p, i)) {
-                continue;
-            }
-            getCardPos(p, i, cx, cy, layout);
-            drawCard(g, cx, cy, p->cards[i], theme, p->cards[i].faceUp, layout);
-        }
-    }
-
     // Draw a suit icon centered at (cx, cy) with the given total size.
     void drawSuit(graph_t* g, int cx, int cy, int size, int suit,
                   bool rotated = false) {
@@ -1312,10 +1305,34 @@ protected:
                             g, cx - hw, cy - hh, size, size, 0xff);
     }
 
-    // Draw a single card
-    void drawCard(graph_t* g, int x, int y, Card c, XTheme* theme,
-                  bool faceUp, const LayoutMetrics& layout) {
-        (void)theme;
+    bool isCardCacheLayoutMatch(const LayoutMetrics& layout) const {
+        return cachedCardW == layout.cardW &&
+            cachedCardH == layout.cardH &&
+            cachedCardFontSize == layout.cardFontSize &&
+            cachedCenterSuitSize == layout.centerSuitSize &&
+            cachedSmallSuitSize == layout.smallSuitSize;
+    }
+
+    void updateCardCacheLayout(const LayoutMetrics& layout) {
+        cachedCardW = layout.cardW;
+        cachedCardH = layout.cardH;
+        cachedCardFontSize = layout.cardFontSize;
+        cachedCenterSuitSize = layout.centerSuitSize;
+        cachedSmallSuitSize = layout.smallSuitSize;
+    }
+
+    int getCardCacheSuitIndex(int suit) const {
+        switch(suit) {
+            case SUIT_HEARTS:   return 0;
+            case SUIT_DIAMONDS: return 1;
+            case SUIT_CLUBS:    return 2;
+            case SUIT_SPADES:   return 3;
+            default: return -1;
+        }
+    }
+
+    void renderCardSurface(graph_t* g, int x, int y, Card c, XTheme* theme,
+            bool faceUp, const LayoutMetrics& layout) {
         int radius = scaleMetric(4, (float)layout.cardH / (float)BASE_CARD_H, 2);
         if(faceUp) {
             // Card face background
@@ -1355,13 +1372,143 @@ protected:
         }
         else {
             // Card back
-            graph_t* cardBackImg = getCardBackImage(layout.cardW, layout.cardH);
-            if(cardBackImg != NULL) {
-                graph_blt_fit_alpha(cardBackImg, 0, 0, cardBackImg->w, cardBackImg->h,
-                                    g, x, y, layout.cardW, layout.cardH, 0xff);
+            if(imgCardBack != NULL) {
+                graph_blt_fit_alpha(imgCardBack, 0, 0, imgCardBack->w, imgCardBack->h,
+                    g, x, y, layout.cardW, layout.cardH, 0xff);
             }
             graph_round(g, x, y, layout.cardW, layout.cardH, radius, 1, COLOR_CARD_BORDER);
         }
+    }
+
+    graph_t* buildCardImage(Card c, XTheme* theme, bool faceUp, const LayoutMetrics& layout) {
+        graph_t* cardImage;
+
+        if(layout.cardW <= 0 || layout.cardH <= 0) {
+            return NULL;
+        }
+
+        cardImage = graph_new(NULL, layout.cardW, layout.cardH);
+        if(cardImage == NULL) {
+            return NULL;
+        }
+
+        // Keep the cached bitmap fully opaque so the final draw path can use graph_blt().
+        graph_clear(cardImage, COLOR_BG);
+        renderCardSurface(cardImage, 0, 0, c, theme, faceUp, layout);
+        return cardImage;
+    }
+
+    graph_t* getCardImage(Card c, XTheme* theme, bool faceUp, const LayoutMetrics& layout) {
+        if(!isCardCacheLayoutMatch(layout)) {
+            invalidateScaledCaches();
+            updateCardCacheLayout(layout);
+        }
+
+        if(!faceUp) {
+            if(backCardCache == NULL) {
+                backCardCache = buildCardImage(c, theme, false, layout);
+            }
+            return backCardCache;
+        }
+
+        int suitIndex = getCardCacheSuitIndex(c.suit);
+        int valueIndex = c.value - 1;
+        if(suitIndex < 0 || valueIndex < 0 || valueIndex >= 13) {
+            return NULL;
+        }
+
+        if(faceCardCache[suitIndex][valueIndex].image == NULL) {
+            faceCardCache[suitIndex][valueIndex].image =
+                buildCardImage(c, theme, true, layout);
+        }
+        return faceCardCache[suitIndex][valueIndex].image;
+    }
+
+    void drawCachedCardRegion(graph_t* g, int x, int y, int srcW, int srcH, Card c,
+            XTheme* theme, bool faceUp, const LayoutMetrics& layout) {
+        graph_t* cardImage = getCardImage(c, theme, faceUp, layout);
+
+        if(srcW <= 0) {
+            srcW = layout.cardW;
+        }
+        if(srcH <= 0) {
+            srcH = layout.cardH;
+        }
+
+        if(cardImage != NULL) {
+            if(srcW > cardImage->w) {
+                srcW = cardImage->w;
+            }
+            if(srcH > cardImage->h) {
+                srcH = cardImage->h;
+            }
+            graph_blt(cardImage, 0, 0, srcW, srcH, g, x, y, srcW, srcH);
+            return;
+        }
+
+        if(srcW < layout.cardW || srcH < layout.cardH) {
+            graph_set_clip(g, x, y, srcW, srcH);
+            renderCardSurface(g, x, y, c, theme, faceUp, layout);
+            grect_t root = getRootArea();
+            graph_set_clip(g, root.x, root.y, root.w, root.h);
+            return;
+        }
+
+        renderCardSurface(g, x, y, c, theme, faceUp, layout);
+    }
+
+    void drawVisiblePileCard(graph_t* g, Pile* p, int idx, int x, int y,
+            XTheme* theme, const LayoutMetrics& layout) {
+        Card c = p->cards[idx];
+        if(idx >= p->count - 1) {
+            drawCachedCardRegion(g, x, y, layout.cardW, layout.cardH,
+                c, theme, c.faceUp, layout);
+            return;
+        }
+
+        if(p->type == PILE_TABLEAU) {
+            int visibleH = c.faceUp ? layout.cardOffsetOpen : layout.cardOffsetClose;
+            if(visibleH < 1) {
+                visibleH = 1;
+            }
+            if(visibleH < layout.cardH) {
+                drawCachedCardRegion(g, x, y, layout.cardW, visibleH,
+                    c, theme, c.faceUp, layout);
+                return;
+            }
+        }
+        else if(p->type == PILE_WASTE) {
+            int visibleW = scaleMetric(14, (float)layout.cardW / (float)BASE_CARD_W, 4);
+            if(visibleW < 1) {
+                visibleW = 1;
+            }
+            if(visibleW < layout.cardW) {
+                drawCachedCardRegion(g, x, y, visibleW, layout.cardH,
+                    c, theme, c.faceUp, layout);
+                return;
+            }
+        }
+
+        drawCachedCardRegion(g, x, y, layout.cardW, layout.cardH,
+            c, theme, c.faceUp, layout);
+    }
+
+    // Draw all visible cards in a pile
+    void drawPile(graph_t* g, Pile* p, XTheme* theme, const LayoutMetrics& layout) {
+        for(int i = 0; i < p->count; i++) {
+            int cx, cy;
+            if(isCardFullyCovered(p, i)) {
+                continue;
+            }
+            getCardPos(p, i, cx, cy, layout);
+            drawVisiblePileCard(g, p, i, cx, cy, theme, layout);
+        }
+    }
+
+    // Draw a single card
+    void drawCard(graph_t* g, int x, int y, Card c, XTheme* theme,
+                  bool faceUp, const LayoutMetrics& layout) {
+        drawCachedCardRegion(g, x, y, layout.cardW, layout.cardH, c, theme, faceUp, layout);
     }
 
     bool onMouse(xevent_t* ev) {
@@ -1581,6 +1728,7 @@ protected:
 
     void onResize() {
         applyLayout();
+        invalidateScaledCaches();
         if(autoMoveAnim.active) {
             finishAutoFinishMove();
         }
@@ -1629,8 +1777,17 @@ public:
             suitImageCache[i].image = NULL;
             suitImageCache[i].size = 0;
         }
-        cardBackCache.image = NULL;
-        cardBackCache.size = 0;
+        for(int suit = 0; suit < 4; ++suit) {
+            for(int value = 0; value < 13; ++value) {
+                faceCardCache[suit][value].image = NULL;
+            }
+        }
+        backCardCache = NULL;
+        cachedCardW = 0;
+        cachedCardH = 0;
+        cachedCardFontSize = 0;
+        cachedCenterSuitSize = 0;
+        cachedSmallSuitSize = 0;
         loadImages();
         newGame();
     }
