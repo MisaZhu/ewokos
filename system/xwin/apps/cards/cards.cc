@@ -1357,8 +1357,8 @@ protected:
             // Card back
             graph_t* cardBackImg = getCardBackImage(layout.cardW, layout.cardH);
             if(cardBackImg != NULL) {
-                graph_blt_fit_alpha(cardBackImg, 0, 0, cardBackImg->w, cardBackImg->h,
-                                    g, x, y, layout.cardW, layout.cardH, 0xff);
+                graph_blt_fit(cardBackImg, 0, 0, cardBackImg->w, cardBackImg->h,
+                                    g, x, y, layout.cardW, layout.cardH);
             }
             graph_round(g, x, y, layout.cardW, layout.cardH, radius, 1, COLOR_CARD_BORDER);
         }
