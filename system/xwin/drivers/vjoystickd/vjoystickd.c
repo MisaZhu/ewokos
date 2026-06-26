@@ -170,7 +170,9 @@ static int vjoystick_read(vdevice_t* dev, int fd,
 		else
 			_release = false;
 	}
-	return _rd;	
+	int ret = _rd;
+	_rd = 0;
+	return ret;	
 }
 
 
@@ -232,17 +234,15 @@ static int vjoy_loop(vdevice_t* dev, void* p){
 		else
 			_j_speed_up = 0;
 
-		if(_rd > 0 || _release) {
-			//vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
+		if(rd > 0 || _release) {
+			vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
 		}
-		_rd = 0;
 	}
 	else {
 		_rd = rd;
 		if(_rd > 0 || _release) {
-			//vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
+			vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
 		}
-		_rd = 0;
 	}
 	ipc_enable();
 

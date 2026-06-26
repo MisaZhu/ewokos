@@ -41,7 +41,6 @@ builtin_apps:
 	cd date;$(MAKE)
 	cd vi;$(MAKE)
 	cd stltest;$(MAKE)
-	cd graphbench;$(MAKE)
 
 clean:
 	cd cp;$(MAKE) clean
@@ -83,4 +82,3 @@ clean:
 	cd date;$(MAKE) clean
 	cd vi;$(MAKE) clean
 	cd stltest;$(MAKE) clean
-	cd graphbench;$(MAKE) clean
