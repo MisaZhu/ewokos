@@ -394,6 +394,90 @@ static inline void x_repaint_req(x_t* x, int32_t display_index) {
 	}
 }
 
+#define X_REPAINT_DIRTY_MAX 16
+
+static inline bool rect_is_valid(const grect_t* r) {
+	return r->w > 0 && r->h > 0;
+}
+
+static bool rect_clip_to_graph(graph_t* g, grect_t* r) {
+	grect_t bounds = {0, 0, g->w, g->h};
+	return grect_insect(&bounds, r);
+}
+
+static inline bool rect_overlap_or_touch(const grect_t* a, const grect_t* b) {
+	if((a->x + a->w) < b->x || (b->x + b->w) < a->x)
+		return false;
+	if((a->y + a->h) < b->y || (b->y + b->h) < a->y)
+		return false;
+	return true;
+}
+
+static void rect_union_to(grect_t* dst, const grect_t* src) {
+	int32_t x0 = dst->x < src->x ? dst->x : src->x;
+	int32_t y0 = dst->y < src->y ? dst->y : src->y;
+	int32_t x1 = (dst->x + dst->w) > (src->x + src->w) ? (dst->x + dst->w) : (src->x + src->w);
+	int32_t y1 = (dst->y + dst->h) > (src->y + src->h) ? (dst->y + dst->h) : (src->y + src->h);
+	dst->x = x0;
+	dst->y = y0;
+	dst->w = x1 - x0;
+	dst->h = y1 - y0;
+}
+
+static void x_repaint_add_dirty(graph_t* g, grect_t* rects, uint32_t* num, const grect_t* r) {
+	grect_t dirty = *r;
+	if(!rect_is_valid(&dirty) || !rect_clip_to_graph(g, &dirty))
+		return;
+
+	for(uint32_t i = 0; i < *num; i++) {
+		if(rect_overlap_or_touch(&rects[i], &dirty)) {
+			rect_union_to(&rects[i], &dirty);
+			uint32_t j = 0;
+			while(j < *num) {
+				if(i == j) {
+					j++;
+					continue;
+				}
+				if(rect_overlap_or_touch(&rects[i], &rects[j])) {
+					rect_union_to(&rects[i], &rects[j]);
+					rects[j] = rects[*num - 1];
+					(*num)--;
+					j = 0;
+					continue;
+				}
+				j++;
+			}
+			return;
+		}
+	}
+
+	if(*num < X_REPAINT_DIRTY_MAX) {
+		rects[*num] = dirty;
+		(*num)++;
+		return;
+	}
+
+	rect_union_to(&rects[0], &dirty);
+}
+
+static void x_repaint_copy_dirty(graph_t* src, graph_t* dst, const grect_t* r) {
+	size_t row_bytes = (size_t)r->w * sizeof(uint32_t);
+	for(int32_t y = 0; y < r->h; y++) {
+		uint32_t* dst_row = dst->buffer + (r->y + y) * dst->w + r->x;
+		const uint32_t* src_row = src->buffer + (r->y + y) * src->w + r->x;
+		memcpy(dst_row, src_row, row_bytes);
+	}
+}
+
+static inline void x_get_cursor_rect(x_t* x, grect_t* r, bool old_pos) {
+	int32_t cx = old_pos ? x->cursor.old_pos.x : x->cursor.cpos.x;
+	int32_t cy = old_pos ? x->cursor.old_pos.y : x->cursor.cpos.y;
+	r->x = cx - x->cursor.offset.x;
+	r->y = cy - x->cursor.offset.y;
+	r->w = x->cursor.size.w;
+	r->h = x->cursor.size.h;
+}
+
 static void push_win(x_t* x, xwin_t* win) {
 	if((win->xinfo->style & XWIN_STYLE_SYSBOTTOM) != 0) { //push head if sysbottom style
 		if(x->win_head != NULL) {
@@ -675,6 +759,13 @@ static bool x_is_hide_cursor_on_win(x_t* x) {
 
 static void x_repaint(x_t* x, uint32_t display_index) {
 	x_display_t* display = &x->displays[display_index];
+	grect_t dirty_rects[X_REPAINT_DIRTY_MAX];
+	uint32_t dirty_num = 0;
+	bool cursor_hidden = false;
+	bool cursor_refreshed = false;
+	grect_t cursor_old_rect;
+	grect_t cursor_new_rect;
+
 	if(display->g == NULL ||
 			!display->need_repaint ||
 			!all_win_ready(x))
@@ -689,12 +780,16 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 	}	
 
 	if((x->show_cursor || x->mouse_state.busy) && x->current_display == display_index) {
-		if(!x_is_hide_cursor_on_win(x))
+		if(!x_is_hide_cursor_on_win(x)) {
+			x_get_cursor_rect(x, &cursor_old_rect, true);
 			hide_cursor(x);
+			cursor_hidden = true;
+		}
 	}
 
 	if(display->dirty) {
 		draw_desktop(x, display_index);
+		x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &display->desktop_rect);
 		do_flush = true;
 	}
 
@@ -707,10 +802,14 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 				win->dirty = true;
 
 			if(win->dirty) {
-				if(draw_win(display->g, x, win) == 0)
+				if(draw_win(display->g, x, win) == 0) {
+					x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &win->xinfo->winr);
 					do_flush = true;
-				if(drag_win(display->g, x, win) == 0)
+				}
+				if(drag_win(display->g, x, win) == 0) {
+					x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &display->desktop_rect);
 					do_flush = true;
+				}
 			}
 		}
 		win = win->next;
@@ -718,16 +817,24 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 
 	if(x->current_display == display_index) {
 		if(x->show_cursor || x->mouse_state.busy) {
-			if(!x_is_hide_cursor_on_win(x))
+			if(!x_is_hide_cursor_on_win(x)) {
+				x_get_cursor_rect(x, &cursor_new_rect, false);
 				refresh_cursor(x);
+				cursor_refreshed = true;
+			}
 		}
 	}
 
+	if(cursor_hidden)
+		x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &cursor_old_rect);
+	if(cursor_refreshed)
+		x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &cursor_new_rect);
+
 	display->dirty = false;
-	if(do_flush) {
-		memcpy(display->g_fb->buffer,
-				display->g->buffer,
-				display->g->w * display->g->h * 4);
+	if(do_flush && dirty_num > 0) {
+		for(uint32_t i = 0; i < dirty_num; i++) {
+			x_repaint_copy_dirty(display->g, display->g_fb, &dirty_rects[i]);
+		}
 		fb_flush(&display->fb, false);
 	}
 }
