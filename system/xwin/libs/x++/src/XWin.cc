@@ -253,7 +253,7 @@ bool XWin::getInfo(xinfo_t& xinfo) {
 }
 
 void XWin::repaint(void) {
-	if(xwin == NULL)	
+	if(xwin == NULL || xwin->fd <= 0 || xwin->xinfo == NULL)	
 		return;
 	xwin_repaint(xwin);
 }
