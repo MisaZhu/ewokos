@@ -144,6 +144,7 @@ bool Grid::onIM(xevent_t* ev) {
 			}
 			updateScroller();
 			select(sel);
+			return true;
 		}
 		else if(ev->value.im.value == KEY_RIGHT ||
 				ev->value.im.value == KEY_DOWN) {
@@ -159,6 +160,7 @@ bool Grid::onIM(xevent_t* ev) {
 			}
 			updateScroller();
 			select(sel);
+			return true;
 		}
 	}
 	else if(ev->state == XIM_STATE_RELEASE) {
@@ -166,10 +168,11 @@ bool Grid::onIM(xevent_t* ev) {
 				ev->value.im.value == JOYSTICK_START ||
 				ev->value.im.value == JOYSTICK_A) {
 			enter(itemSelected);
+			update();
+			return true;
 		}
-		update();
 	}
-	return true;
+	return false;
 }
 
 void Grid::setItemSize(uint32_t iw, uint32_t ih) {

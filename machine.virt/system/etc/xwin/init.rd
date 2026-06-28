@@ -25,6 +25,7 @@
 
 @/bin/splash -m "start /dev/keyb0" -p 50
 @/bin/ipcserv /drivers/virt/keybd   /dev/keyb0
+@/bin/ipcserv /drivers/vkeybd   /dev/vkeyb
 
 @/bin/splash -m "start /dev/mouse0" -p 60
 @/bin/ipcserv /drivers/virt/moused  /dev/mouse0
@@ -57,8 +58,8 @@
 @/bin/ipcserv /drivers/xserverd        /dev/x
 
 @/bin/bgrun /sbin/x/xmouse /dev/mouse0 
-@/bin/bgrun /sbin/x/xim_none /dev/keyb0 
-#@/bin/bgrun /sbin/x/xim_vkey /dev/keyb0 
+@/bin/bgrun /sbin/x/xim_none /dev/vkeyb
+#@/bin/bgrun /sbin/x/xim_vkey /dev/vkeyb 
 
 
 @/bin/bgrun /bin/x/xsession misa 
