@@ -103,11 +103,11 @@ static bool do_keyb_spec(uint8_t* keys, uint8_t num) {
 				return true;
 			}
 		}
-		else if(c == KEY_HOME) {
+		else if(c == JOYSTICK_L1) {
 			x_launcher();
 			return true;
 		}
-		else if(c == KEY_END) {
+		else if(c == KEY_END || c == KEY_HOME) {
 			x_close_focus();
 			return true;
 		}
