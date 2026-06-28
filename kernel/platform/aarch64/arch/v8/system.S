@@ -142,6 +142,17 @@ __irq_disable:
 	msr daifset, #0x2
 	ret
 
+.global __int_off
+__int_off:
+	mrs x0, daif
+	msr daifset, #0x2
+	ret
+
+.global __int_on
+__int_on:
+	msr daif, x0
+	ret
+
 .global __smp_lock
 __smp_lock:
     ldxr    w1, [x0]        

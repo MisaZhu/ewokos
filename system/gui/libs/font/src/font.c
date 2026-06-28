@@ -87,6 +87,27 @@ static uint32_t bitmap_row_bytes(const FT_Bitmap* bmp) {
 	return (uint32_t)(bmp->pitch < 0 ? -bmp->pitch : bmp->pitch);
 }
 
+static void sanitize_slot_for_cache(FT_GlyphSlot slot) {
+	if(slot == NULL)
+		return;
+	slot->library = NULL;
+	slot->face = NULL;
+	slot->next = NULL;
+	slot->generic.data = NULL;
+	slot->generic.finalizer = NULL;
+	slot->outline.n_contours = 0;
+	slot->outline.n_points = 0;
+	slot->outline.points = NULL;
+	slot->outline.tags = NULL;
+	slot->outline.contours = NULL;
+	slot->outline.flags = 0;
+	slot->num_subglyphs = 0;
+	slot->subglyphs = NULL;
+	slot->control_data = NULL;
+	slot->control_len = 0;
+	slot->internal = NULL;
+}
+
 static int font_fetch_cache(font_t* font, uint32_t size, uint32_t c, FT_GlyphSlot slot) {
 	if(font == NULL || font->cache == NULL) {
 		return -1;
@@ -118,6 +139,7 @@ static void font_cache(font_t* font, uint32_t size, uint32_t c, FT_GlyphSlot slo
 			font_clear_cache(font);
 		}
 		memcpy(p, slot, sizeof(FT_GlyphSlotRec));
+		sanitize_slot_for_cache(p);
 		uint32_t bmp_size = bitmap_row_bytes(&slot->bitmap) * slot->bitmap.rows;
 		if(bmp_size > 0 && slot->bitmap.buffer != NULL) {
 			p->bitmap.buffer = malloc(bmp_size);

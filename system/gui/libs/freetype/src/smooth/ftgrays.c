@@ -157,8 +157,20 @@
 
 #define ft_memset   memset
 
+#ifdef __EWOKOS__
+  /* GCC may lower plain setjmp/longjmp to builtins that don't match
+   * EwokOS's custom assembly implementation. Gumbo already routes around
+   * this with custom symbol names; use the same entry points here because
+   * the gray raster relies on longjmp for overflow recovery.
+   */
+extern int  gumbo_setjmp( jmp_buf env );
+extern void gumbo_longjmp( jmp_buf env, int val );
+#define ft_setjmp   gumbo_setjmp
+#define ft_longjmp  gumbo_longjmp
+#else
 #define ft_setjmp   setjmp
 #define ft_longjmp  longjmp
+#endif
 #define ft_jmp_buf  jmp_buf
 
 typedef ptrdiff_t  FT_PtrDist;

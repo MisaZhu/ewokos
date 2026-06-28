@@ -26,7 +26,6 @@ typedef struct {
 static ttf_item_t _ttfs[TTF_MAX];
 
 static FT_Library _library;
-
 #define DO_FONT_CACHE 1
 static map_t _font_cache = NULL;
 
@@ -139,6 +138,28 @@ static uint32_t bitmap_row_bytes(const FT_Bitmap* bmp) {
 	return (uint32_t)(bmp->pitch < 0 ? -bmp->pitch : bmp->pitch);
 }
 
+static void sanitize_slot_for_ipc(FT_GlyphSlot slot) {
+	if(slot == NULL)
+		return;
+	slot->library = NULL;
+	slot->face = NULL;
+	slot->next = NULL;
+	slot->generic.data = NULL;
+	slot->generic.finalizer = NULL;
+	slot->outline.n_contours = 0;
+	slot->outline.n_points = 0;
+	slot->outline.points = NULL;
+	slot->outline.tags = NULL;
+	slot->outline.contours = NULL;
+	slot->outline.flags = 0;
+	slot->num_subglyphs = 0;
+	slot->subglyphs = NULL;
+	slot->control_data = NULL;
+	slot->control_len = 0;
+	slot->other = NULL;
+	slot->internal = NULL;
+}
+
 static int expand_mono_bitmap(FT_GlyphSlot slot) {
 	if(slot == NULL || slot->bitmap.buffer == NULL ||
 			slot->bitmap.rows == 0 || slot->bitmap.width == 0) {
@@ -165,7 +186,6 @@ static int expand_mono_bitmap(FT_GlyphSlot slot) {
 		src += slot->bitmap.pitch;
 	}
 
-	free(slot->bitmap.buffer);
 	slot->bitmap.buffer = expanded;
 	slot->bitmap.pitch = (int)tight_bytes;
 	slot->bitmap.pixel_mode = FT_PIXEL_MODE_GRAY;
@@ -203,42 +223,41 @@ static int normalize_slot_bitmap(FT_GlyphSlot slot) {
 		src += slot->bitmap.pitch;
 	}
 
-	free(slot->bitmap.buffer);
 	slot->bitmap.buffer = normalized;
 	slot->bitmap.pitch = (int)tight_bytes;
 	return 0;
 }
 
 static int load_glyph_rendered(FT_Face face, FT_UInt glyph_index) {
+	/*
+	 * Prefer the normal grayscale path. If rendering still fails for a
+	 * particular glyph, retry without hinting and finally fall back to mono.
+	 */
 	FT_Int flags = FT_LOAD_DEFAULT | _hinting | _load_mode;
-	int ret = FT_Load_Glyph(face, glyph_index, flags);
+	int ret = 0;
+	ret = FT_Load_Glyph(face, glyph_index, flags);
 	if(ret == 0) {
 		ret = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
 		if(ret == 0)
-			return normalize_slot_bitmap(face->glyph);
+			return 0;
 	}
 
-	/* Some TrueType fonts fail only on hinted grayscale render paths. */
 	flags = FT_LOAD_DEFAULT | FT_LOAD_NO_HINTING | FT_LOAD_TARGET_NORMAL;
 	ret = FT_Load_Glyph(face, glyph_index, flags);
-	if(ret != 0)
-		goto mono_fallback;
+	if(ret == 0) {
+		ret = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
+		if(ret == 0)
+			return 0;
+	}
 
-	ret = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
-	if(ret != 0)
-		goto mono_fallback;
-	return normalize_slot_bitmap(face->glyph);
-
-mono_fallback:
 	flags = FT_LOAD_DEFAULT | FT_LOAD_TARGET_MONO;
 	ret = FT_Load_Glyph(face, glyph_index, flags);
 	if(ret != 0)
 		return ret;
-
 	ret = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_MONO);
 	if(ret != 0)
 		return ret;
-	return normalize_slot_bitmap(face->glyph);
+	return 0;
 }
 
 static int font_fetch_cache(int32_t findex, uint32_t size, uint32_t c, FT_GlyphSlot slot) {
@@ -271,6 +290,7 @@ static void font_cache(int32_t findex, uint32_t size, uint32_t c, FT_GlyphSlot s
 		font_clear_cache();
 	}
 	memcpy(p, slot, sizeof(FT_GlyphSlotRec));
+	sanitize_slot_for_ipc(p);
 	uint32_t row_bytes = bitmap_row_bytes(&slot->bitmap);
 	uint32_t sz = row_bytes * slot->bitmap.rows;
 	if(sz > 0 && slot->bitmap.buffer != NULL) {
@@ -291,12 +311,15 @@ static void font_cache(int32_t findex, uint32_t size, uint32_t c, FT_GlyphSlot s
 static int font_dev_get_glyph(proto_t* in, proto_t* ret) {
 	int findex = proto_read_int(in);
 	uint32_t size = (uint32_t)proto_read_int(in);
+	uint32_t c = (uint32_t)proto_read_int(in);
 	if(findex >= TTF_MAX || size == 0 || _ttfs[findex].face == NULL) {
 		PF->init(ret)->addi(ret, -1);
 		return -1;
 	}
 
 	FT_Face face = _ttfs[findex].face; 
+	uint8_t* face_bitmap_buffer = NULL;
+	int release_slot_bitmap = 0;
 	//if(_ttfs[findex].current_size != size) {
 		if(FT_Set_Pixel_Sizes(face, 0, size) != 0) {
 			PF->init(ret)->addi(ret, -1);
@@ -304,17 +327,19 @@ static int font_dev_get_glyph(proto_t* in, proto_t* ret) {
 		}
 		//_ttfs[findex].current_size = size;
 	//}
-
-	uint32_t c = (uint32_t)proto_read_int(in);
 	FT_GlyphSlotRec slot;
 	FT_UInt glyph_index = 0;
-
-	if(font_fetch_cache(findex, size, c, &slot) != 0) {
+	int cache_hit = (font_fetch_cache(findex, size, c, &slot) == 0);
+	if(!cache_hit) {
 		glyph_index = FT_Get_Char_Index(face, c);
-		if(glyph_index == 0 &&
-				(c == ' ' || c == '\t' || c == '\n' || c == '\r')) {
+		if(glyph_index == 0) {
 			memset(&slot, 0, sizeof(slot));
-			slot.metrics.horiAdvance = face->size->metrics.max_advance / 2;
+			if(c == ' ' || c == '\t' || c == '\n' || c == '\r') {
+				slot.metrics.horiAdvance = face->size->metrics.max_advance / 2;
+			}
+			else {
+				slot.metrics.horiAdvance = face->size->metrics.max_advance;
+			}
 			if(slot.metrics.horiAdvance == 0)
 				slot.metrics.horiAdvance = size * 32;
 		}
@@ -324,7 +349,15 @@ static int font_dev_get_glyph(proto_t* in, proto_t* ret) {
 				PF->init(ret)->addi(ret, -1);
 				return -1;
 			}
+			face_bitmap_buffer = face->glyph->bitmap.buffer;
 			memcpy(&slot, face->glyph, sizeof(FT_GlyphSlotRec));
+			glyph_err = normalize_slot_bitmap(&slot);
+			if(glyph_err != 0) {
+				PF->init(ret)->addi(ret, -1);
+				return -1;
+			}
+			release_slot_bitmap = (slot.bitmap.buffer != NULL && slot.bitmap.buffer != face_bitmap_buffer);
+			sanitize_slot_for_ipc(&slot);
 		}
 		font_cache(findex, size, c, &slot);
 	}
@@ -344,6 +377,10 @@ static int font_dev_get_glyph(proto_t* in, proto_t* ret) {
 	else {
 		PF->add(ret, &slot, sizeof(FT_GlyphSlotRec))->
 			add(ret, &faceinfo, sizeof(face_info_t));
+	}
+	if(release_slot_bitmap) {
+		free(slot.bitmap.buffer);
+		slot.bitmap.buffer = NULL;
 	}
 	return 0;
 }

@@ -19,7 +19,7 @@ typedef struct {
 	uint32_t refs;
 } proc_block_event_t;
 
-#define THREAD_STACK_PAGES 16
+#define THREAD_STACK_PAGES 64
 #define STACK_PAGES 32
 
 typedef struct {

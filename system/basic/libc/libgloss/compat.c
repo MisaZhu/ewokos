@@ -10,14 +10,18 @@
 #include <string.h>
 #include <limits.h>
 #include <float.h>
-#include <setjmp.h>
 #include <time.h>
 #include <unistd.h>
 #include <getopt.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <setjmp.h>
 #include <ewoksys/trunkmem.h>
 #include <ewoksys/vfs.h>
+
+void ewok_longjmp(jmp_buf env, int val) {
+	longjmp(env, val);
+}
 
 extern void *_sbrk(ptrdiff_t incr);
 extern int _open(const char *pathname, int flags, ...);
@@ -56,11 +60,6 @@ int __bss_end__ __attribute__((weak));
 
 int *__errno(void) {
 	return &errno;
-}
-
-void ewok_longjmp(jmp_buf env, int val) {
-	(void)val;
-	__builtin_longjmp(env, 1);
 }
 
 void *memcpy(void *dest, const void *src, size_t n) {

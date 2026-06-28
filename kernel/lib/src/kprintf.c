@@ -4,12 +4,24 @@
 #include "kstring.h"
 #include "kernel/system.h"
 #include "kernel/kernel.h"
+#include <kernel/core.h>
 #include <stddef.h>
+
+static int32_t _kout_spin = 0;
 
 void kout(const char* s, uint32_t len) {
 	if(s == NULL || len == 0)
 		return;
+
+	uint32_t irq_state = __int_off();
+#ifdef KERNEL_SMP
+	mcore_lock(&_kout_spin);
+#endif
 	uart_write(s, len);
+#ifdef KERNEL_SMP
+	mcore_unlock(&_kout_spin);
+#endif
+	__int_on(irq_state);
 }
 
 void kout_str(const char* s) {

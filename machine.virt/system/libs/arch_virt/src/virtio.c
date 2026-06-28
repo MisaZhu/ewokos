@@ -726,7 +726,7 @@ static void virtio_interrupt_handle(uint32_t interrupt, uint32_t p)
 
 void virtio_interrupt_enable(virtio_dev_t dev, void (*interrupt_handler)(virtio_dev_t dev, struct virtio_input_event *event))
 {
-	put32(dev->base + VIRTIO_MMIO_INTERRUPT_STATUS, 0x1);
+	virtio_ack_interrupt(dev->base, 0x3);
 	dev->interrupt_handler = interrupt_handler;
 	dev->virtio_handler.data = (uint32_t)(dev->interrupt - VIRTIO_INTERRUPT_BASE);
 	_virtio_irq_devs[dev->virtio_handler.data] = dev;
