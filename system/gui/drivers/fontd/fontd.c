@@ -29,6 +29,8 @@ static FT_Library _library;
 #define DO_FONT_CACHE 1
 static map_t _font_cache = NULL;
 
+static void font_clear_cache(void);
+
 static void font_dev_init(void) {
 	_font_cache = hashmap_new(0);
 
@@ -43,8 +45,7 @@ static void font_dev_quit(void) {
 			FT_Done_Face(_ttfs[i].face);
 	}
 
-	if(_font_cache)
-		hashmap_free(_font_cache);
+	font_clear_cache();
 }
 
 static char* font_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* p) {
@@ -82,6 +83,27 @@ int font_open(const char* name, const char* fname) {
 		return -1;
 	}
 
+	int fd = open(fname, O_RDONLY);
+	if(fd < 0) {
+		return -1;
+	}
+	uint8_t header[4];
+	ssize_t rd = read(fd, header, sizeof(header));
+	close(fd);
+	if(rd != (ssize_t)sizeof(header)) {
+		return -1;
+	}
+	/*
+	 * Restrict fontd to SFNT/TrueType containers. This avoids sending
+	 * arbitrary inputs through FreeType's legacy bitmap loaders.
+	 */
+	if(!((header[0] == 0x00 && header[1] == 0x01 && header[2] == 0x00 && header[3] == 0x00) ||
+			memcmp(header, "OTTO", 4) == 0 ||
+			memcmp(header, "true", 4) == 0 ||
+			memcmp(header, "ttcf", 4) == 0)) {
+		return -1;
+	}
+
 	int err = FT_New_Face(_library, fname, 0, &_ttfs[i].face);
 	if(err != 0) {
 		return -1;
@@ -106,11 +128,13 @@ static int font_dev_load(proto_t* in, proto_t* ret) {
 }
 
 static int free_cache(map_t map, const char* key, any_t data, any_t arg) {
+	(void)map;
+	(void)key;
+	(void)arg;
 	FT_GlyphSlot slot = (FT_GlyphSlot)data;
 	if(slot == NULL)
 		return MAP_OK;
 
-	hashmap_remove(map, key);
 	if(slot->bitmap.buffer != NULL)
 		free(slot->bitmap.buffer);
 	free(slot);
@@ -119,7 +143,10 @@ static int free_cache(map_t map, const char* key, any_t data, any_t arg) {
 
 static void font_clear_cache(void) {
 	if(_font_cache != NULL) {
-		hashmap_iterate(_font_cache, free_cache, NULL);	
+		map_t old_cache = _font_cache;
+		_font_cache = hashmap_new(0);
+		hashmap_iterate(old_cache, free_cache, NULL);
+		hashmap_free(old_cache);
 	}
 }
 
@@ -130,7 +157,7 @@ static inline const char* hash_key(int32_t findex, uint32_t c, uint32_t size) {
 }
 
 static FT_Int _load_mode = FT_LOAD_TARGET_NORMAL;
-static FT_Int _hinting = 0;
+static FT_Int _hinting = FT_LOAD_NO_HINTING | FT_LOAD_NO_AUTOHINT;
 
 static uint32_t bitmap_row_bytes(const FT_Bitmap* bmp) {
 	if(bmp == NULL || bmp->pitch == 0)
@@ -230,11 +257,23 @@ static int normalize_slot_bitmap(FT_GlyphSlot slot) {
 
 static int load_glyph_rendered(FT_Face face, FT_UInt glyph_index) {
 	/*
-	 * Prefer the normal grayscale path. If rendering still fails for a
-	 * particular glyph, retry without hinting and finally fall back to mono.
+	 * Keep the default path fully unhindered. FreeType's hinted/auto-hint
+	 * paths have been observed crashing on target, so only opt into them when
+	 * explicitly requested via `-h`.
 	 */
-	FT_Int flags = FT_LOAD_DEFAULT | _hinting | _load_mode;
 	int ret = 0;
+
+	if(_hinting == FT_LOAD_FORCE_AUTOHINT) {
+		FT_Int flags = FT_LOAD_DEFAULT | FT_LOAD_FORCE_AUTOHINT | _load_mode;
+		ret = FT_Load_Glyph(face, glyph_index, flags);
+		if(ret == 0) {
+			ret = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
+			if(ret == 0)
+				return 0;
+		}
+	}
+
+	FT_Int flags = FT_LOAD_DEFAULT | FT_LOAD_NO_HINTING | FT_LOAD_NO_AUTOHINT;
 	ret = FT_Load_Glyph(face, glyph_index, flags);
 	if(ret == 0) {
 		ret = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
@@ -242,15 +281,7 @@ static int load_glyph_rendered(FT_Face face, FT_UInt glyph_index) {
 			return 0;
 	}
 
-	flags = FT_LOAD_DEFAULT | FT_LOAD_NO_HINTING | FT_LOAD_TARGET_NORMAL;
-	ret = FT_Load_Glyph(face, glyph_index, flags);
-	if(ret == 0) {
-		ret = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
-		if(ret == 0)
-			return 0;
-	}
-
-	flags = FT_LOAD_DEFAULT | FT_LOAD_TARGET_MONO;
+	flags = FT_LOAD_DEFAULT | FT_LOAD_NO_HINTING | FT_LOAD_NO_AUTOHINT | FT_LOAD_TARGET_MONO;
 	ret = FT_Load_Glyph(face, glyph_index, flags);
 	if(ret != 0)
 		return ret;
@@ -312,7 +343,7 @@ static int font_dev_get_glyph(proto_t* in, proto_t* ret) {
 	int findex = proto_read_int(in);
 	uint32_t size = (uint32_t)proto_read_int(in);
 	uint32_t c = (uint32_t)proto_read_int(in);
-	if(findex >= TTF_MAX || size == 0 || _ttfs[findex].face == NULL) {
+	if(findex < 0 || findex >= TTF_MAX || size == 0 || _ttfs[findex].face == NULL) {
 		PF->init(ret)->addi(ret, -1);
 		return -1;
 	}
@@ -389,7 +420,7 @@ static int font_dev_get_glyph(proto_t* in, proto_t* ret) {
 static int font_dev_get_face(proto_t* in, proto_t* ret) {
 	int i = proto_read_int(in);
 	uint32_t size = (uint32_t)proto_read_int(in);
-	if(i >= TTF_MAX || size == 0 || _ttfs[i].face == NULL) {
+	if(i < 0 || i >= TTF_MAX || size == 0 || _ttfs[i].face == NULL) {
 		PF->init(ret)->addi(ret, -1);
 		return -1;
 	}
@@ -456,7 +487,7 @@ static int doargs(int argc, char* argv[]) {
 			_hinting = FT_LOAD_FORCE_AUTOHINT;
 			break;
 		case 'o':
-			_hinting = FT_LOAD_NO_AUTOHINT;
+			_hinting = FT_LOAD_NO_HINTING | FT_LOAD_NO_AUTOHINT;
 			break;
 		default:
 			c = -1;
@@ -468,7 +499,7 @@ static int doargs(int argc, char* argv[]) {
 
 int main(int argc, char** argv) {
 	_load_mode = FT_LOAD_TARGET_NORMAL;
-	_hinting = 0;
+	_hinting = FT_LOAD_NO_HINTING | FT_LOAD_NO_AUTOHINT;
 	doargs(argc, argv);
 
 	const char* mnt_point = "/dev/font";
