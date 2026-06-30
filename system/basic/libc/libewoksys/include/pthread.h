@@ -39,6 +39,8 @@ int pthread_create(pthread_t* thread,
 
 pthread_t pthread_self(void);
 
+int pthread_equal(pthread_t t1, pthread_t t2);
+
 int pthread_join(pthread_t thread, void **retval);
 
 int pthread_detach(pthread_t thread);

@@ -95,6 +95,7 @@ LIB_EWOKSYS_OBJS =  \
 	src/pthread/pthread_mutex_unlock.o \
 	src/pthread/pthread_mutex_timedlock.o\
 	src/pthread/pthread_self.o\
+	src/pthread/pthread_equal.o\
 	src/pthread/pthread_join.o\
 	src/pthread/pthread_detach.o\
 	src/pthread/pthread_cond.o\
