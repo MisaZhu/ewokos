@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <pthread.h>
+#include <poll.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <openssl/ssl.h>
@@ -453,6 +454,37 @@ static void derive_keys(sshd_session_t* s, const uint8_t* shared_secret_mpint,
             exchange_hash, hash_len, 'F', s->session_id, s->session_id_len);
 }
 
+static int wait_fd_ready(int fd, uint16_t events) {
+    struct pollfd pfd;
+
+    if(fd < 0) {
+        errno = EBADF;
+        return -1;
+    }
+
+    memset(&pfd, 0, sizeof(pfd));
+    pfd.fd = fd;
+    pfd.events = (short)(events | POLLHUP | POLLERR | POLLNVAL);
+    while(true) {
+        int rc = poll(&pfd, 1, -1);
+        if(rc > 0) {
+            if((pfd.revents & POLLNVAL) != 0) {
+                errno = EBADF;
+                return -1;
+            }
+            if((pfd.revents & POLLERR) != 0) {
+                errno = EIO;
+                return -1;
+            }
+            return 0;
+        }
+        if(rc == 0)
+            continue;
+        if(errno != EINTR)
+            return -1;
+    }
+}
+
 static int ssh_read_n(sshd_session_t* s, void* buf, size_t len) {
     uint8_t* p = (uint8_t*)buf;
     size_t total = 0;
@@ -460,12 +492,18 @@ static int ssh_read_n(sshd_session_t* s, void* buf, size_t len) {
     while(total < len) {
         ssize_t n = read(s->socket, p + total, len - total);
         if(n < 0) {
-            if(errno == EINTR || errno == EAGAIN || errno == ETIMEDOUT) {
+            if(errno == EINTR) {
+                continue;
+            }
+            if(errno == EAGAIN || errno == ETIMEDOUT) {
                 if(s->closing || s->sent_close) {
                     sshd_set_error("session closing");
                     return -1;
                 }
-                proc_usleep(1000);
+                if(wait_fd_ready(s->socket, POLLIN) != 0) {
+                    sshd_set_error("read wait failed: %s", strerror(errno));
+                    return -1;
+                }
                 continue;
             }
             sshd_set_error("read failed: %s", strerror(errno));
@@ -487,8 +525,14 @@ static int ssh_write_n(sshd_session_t* s, const void* buf, size_t len) {
     while(total < len) {
         ssize_t n = write(s->socket, p + total, len - total);
         if(n < 0) {
-            if(errno == EINTR || errno == EAGAIN) {
-                proc_usleep(1000);
+            if(errno == EINTR) {
+                continue;
+            }
+            if(errno == EAGAIN) {
+                if(wait_fd_ready(s->socket, POLLOUT) != 0) {
+                    sshd_set_error("write wait failed: %s", strerror(errno));
+                    return -1;
+                }
                 continue;
             }
             sshd_set_error("write failed: %s", strerror(errno));
@@ -510,8 +554,12 @@ static int write_fd_all(int fd, const void* buf, size_t len) {
     while(total < len) {
         ssize_t n = write(fd, p + total, len - total);
         if(n < 0) {
-            if(errno == EINTR || errno == EAGAIN) {
-                proc_usleep(1000);
+            if(errno == EINTR) {
+                continue;
+            }
+            if(errno == EAGAIN) {
+                if(wait_fd_ready(fd, POLLOUT) != 0)
+                    return -1;
                 continue;
             }
             return -1;
@@ -530,8 +578,12 @@ static int read_fd_all(int fd, void* buf, size_t len) {
     while(total < len) {
         ssize_t n = read(fd, p + total, len - total);
         if(n < 0) {
-            if(errno == EINTR || errno == EAGAIN) {
-                proc_usleep(1000);
+            if(errno == EINTR) {
+                continue;
+            }
+            if(errno == EAGAIN) {
+                if(wait_fd_ready(fd, POLLIN) != 0)
+                    return -1;
                 continue;
             }
             return -1;
@@ -1880,8 +1932,15 @@ static void* stream_to_channel_thread(void* arg) {
     while(!ctx->session->closing) {
         ssize_t n = read(ctx->fd, buf, sizeof(buf));
         if(n < 0) {
-            if(errno == EINTR || errno == EAGAIN) {
-                proc_usleep(1000);
+            if(errno == EINTR) {
+                continue;
+            }
+            if(errno == EAGAIN) {
+                if(wait_fd_ready(ctx->fd, POLLIN) != 0) {
+                    sshd_dbg("stream_to_channel_thread: fd=%d wait failed errno=%d ext=%u",
+                            ctx->fd, errno, ctx->extended_type);
+                    break;
+                }
                 continue;
             }
             sshd_dbg("stream_to_channel_thread: fd=%d read failed errno=%d ext=%u",

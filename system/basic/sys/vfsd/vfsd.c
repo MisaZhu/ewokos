@@ -530,6 +530,21 @@ static void do_node_wakeup(vfs_node_t* node, int events) {
 	wakeup_wait_queue(qw, node, events);
 }
 
+static void sync_pipe_poll_events(vfs_node_t* node) {
+	if(node == NULL || node->fsinfo.type != FS_TYPE_PIPE)
+		return;
+
+	uint32_t events = node->events & ~(VFS_EVT_RD | VFS_EVT_WR);
+	buffer_t* buffer = (buffer_t*)node->data_ptr;
+	if(buffer != NULL) {
+		if(buffer->size > 0)
+			events |= VFS_EVT_RD;
+		else
+			events |= VFS_EVT_WR;
+	}
+	node->events = events;
+}
+
 static void vfs_driver_close(int32_t pid, int32_t fd, file_t* file) {
 	if(file == NULL || file->node == NULL)
 		return;
@@ -600,6 +615,14 @@ static void proc_file_close(int pid, int fd, file_t* file) {
 		node->refs_w--;
 	bool del_node = false;
 	if(node->fsinfo.type == FS_TYPE_PIPE) {
+		uint32_t read_refs = (node->refs >= node->refs_w) ? (node->refs - node->refs_w) : 0;
+		bool peer_gone = (node->refs_w == 0 || read_refs == 0);
+		if(peer_gone)
+			node->events |= VFS_EVT_CLOSE;
+		else
+			node->events &= ~VFS_EVT_CLOSE;
+		sync_pipe_poll_events(node);
+
 		if(node->refs <= 0) {
 			if(node->fsinfo.name[0] == 0) { //no refs and not fifo pipe
 				buffer_t* buffer = (buffer_t*)node->data_ptr;
@@ -613,7 +636,8 @@ static void proc_file_close(int pid, int fd, file_t* file) {
 				node->fsinfo.state = 0;
 			}
 		}
-		do_node_wakeup(node, VFS_EVT_CLOSE);
+		if(peer_gone)
+			do_node_wakeup(node, VFS_EVT_CLOSE);
 	}
 	else if((node->fsinfo.type & FS_TYPE_ANNOUNIMOUS) != 0) {
 		if(node->refs <= 0) {
@@ -1025,6 +1049,7 @@ static void do_vfs_pipe_open(int32_t pid, proto_t* out) {
 	memset(buf, 0, sizeof(buffer_t));
 	node->data_ptr = buf;
 	node->fsinfo.data = 0;
+	sync_pipe_poll_events(node);
 
 	int32_t fd0 = vfs_open(pid, node, O_RDONLY);
 	if(fd0 < 0) {
@@ -1068,6 +1093,7 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 
 	buffer_t* buffer = (buffer_t*)node->data_ptr;
 	if(buffer == NULL) { //pipe buffer not ready 
+		sync_pipe_poll_events(node);
 		do_node_wakeup(node, VFS_EVT_WR);; //wakeup reader
 		return;
 	}
@@ -1075,11 +1101,13 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 	size = buffer_write(buffer, data, size);
 	if(size > 0) {
 		node->fsinfo.state |= FS_STATE_CHANGED;
+		sync_pipe_poll_events(node);
 		PF->clear(out)->addi(out, size);
 		do_node_wakeup(node, VFS_EVT_RD); //wakeup reader
 		return;
 	}
 
+	sync_pipe_poll_events(node);
 	PF->clear(out)->addi(out, 0); //buffer full(waiting for read), retry
 }
 
@@ -1100,6 +1128,7 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 
 	buffer_t* buffer = (buffer_t*)node->data_ptr;
 	if(buffer == NULL) { //buffer not ready 
+		sync_pipe_poll_events(node);
 		do_node_wakeup(node, VFS_EVT_WR); //wakeup writer.
 		return;
 	}
@@ -1108,6 +1137,7 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 					(buffer->size == 0 &&
 					(node->refs_w == 0 || node->refs < 2) && 
 					(node->fsinfo.state & FS_STATE_CHANGED) != 0 )) { // close by other peer
+		sync_pipe_poll_events(node);
 		do_node_wakeup(node, VFS_EVT_WR); //wakeup writer.
    		return;
 	}
@@ -1116,6 +1146,7 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 		void* data = malloc(size);
 		size = buffer_read(buffer, data, size);
 		if(size > 0) {
+			sync_pipe_poll_events(node);
 			PF->clear(out)->addi(out, size)->add(out, data, size);
 			free(data);
 			do_node_wakeup(node, VFS_EVT_WR); //wakeup writer.
@@ -1124,6 +1155,7 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 		free(data);
 	}
 
+	sync_pipe_poll_events(node);
 	PF->clear(out)->addi(out, 0); //retry
 }
 
