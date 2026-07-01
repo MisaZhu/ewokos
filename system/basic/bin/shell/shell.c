@@ -223,16 +223,21 @@ static int run_cmd(char* cmd) {
 static void prompt(void) {
 	int uid = getuid();
 	const char* cid = getenv("CONSOLE_ID");
+	const char* user = getenv("USER");
 	if(cid == NULL || cid[0] == 0)
 		cid = "unknown";
 	char cwd[FS_FULL_NAME_MAX+1];
 	char out[FS_FULL_NAME_MAX+64];
 	const char* mark = (uid == 0) ? "#" : "$";
 	const char* path = getcwd(cwd, FS_FULL_NAME_MAX);
+	int len;
 	if(path == NULL)
 		path = "/";
 
-	int len = snprintf(out, sizeof(out), "\033[4m[%s]:%s%s\033[0m ", cid, path, mark);
+	if(user != NULL && user[0] != 0)
+		len = snprintf(out, sizeof(out), "\033[4m[%s:%s]:%s%s\033[0m ", cid, user, path, mark);
+	else
+		len = snprintf(out, sizeof(out), "\033[4m[%s]:%s%s\033[0m ", cid, path, mark);
 	if(len > 0) {
 		if((size_t)len >= sizeof(out))
 			len = (int)sizeof(out) - 1;

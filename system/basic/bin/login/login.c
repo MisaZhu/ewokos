@@ -183,12 +183,15 @@ int main(int argc, char* argv[]) {
 				info = check(user->cstr, password->cstr, &res); 
 			}
 		}
-
-		str_free(user);
 		str_free(password);
 
-		if(info == NULL || info->cmd[0] == 0)
+		if(info == NULL || info->cmd[0] == 0) {
+			str_free(user);
 			return -1;
+		}
+
+		setenv("USER", user->cstr);
+		str_free(user);
 
 		int res = setgid(info->gid);
 		if(res != 0) {
