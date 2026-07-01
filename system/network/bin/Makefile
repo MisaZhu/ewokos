@@ -5,6 +5,7 @@ all:
 	cd host; $(MAKE)
 	cd https_test; $(MAKE)
 	cd telnet; $(MAKE)
+	cd ssh; $(MAKE)
 
 clean:
 	cd ipconfig; $(MAKE) clean
@@ -12,3 +13,4 @@ clean:
 	cd host; $(MAKE) clean
 	cd https_test; $(MAKE) clean
 	cd telnet; $(MAKE) clean
+	cd ssh; $(MAKE) clean
