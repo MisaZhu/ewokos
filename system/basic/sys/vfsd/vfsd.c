@@ -131,8 +131,15 @@ static file_t* vfs_get_file(int32_t pid, int32_t fd) {
 
 static file_t* vfs_check_fd(int32_t pid, int32_t fd) {
 	file_t* f = vfs_get_file(pid, fd);
-	if(f->node == NULL)
-		return NULL;
+	if(f->node == NULL) {
+		pid = proc_getpid(pid);
+		if(pid < 0)
+			return NULL;
+
+		f = vfs_get_file(pid, fd);
+		if(f->node == NULL)
+			return NULL;
+	}
 	return f;
 }
 

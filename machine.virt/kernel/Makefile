@@ -36,7 +36,7 @@ endif
 QEMU_AUDIO_ID ?= audio0
 QEMU_AUDIODEV ?= coreaudio
 QEMU_AUDIO_ARGS = -audiodev $(QEMU_AUDIODEV),id=$(QEMU_AUDIO_ID)
-QEMU_NETDEV ?= user,id=net0,hostfwd=tcp:127.0.0.1:2323-:23
+QEMU_NETDEV ?= user,id=net0,hostfwd=tcp:127.0.0.1:2222-:22
 QEMU_NET_DEVICE ?= virtio-net-device,netdev=net0
 
 

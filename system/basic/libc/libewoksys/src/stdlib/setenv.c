@@ -12,16 +12,37 @@ static char **env_buffer = NULL;
 static int env_capacity = 0;
 static int env_count = 0;
 
+static char *dup_env_entry(const char *src) {
+    size_t len;
+    char *dst;
+
+    if (src == NULL) {
+        return NULL;
+    }
+
+    len = strlen(src) + 1;
+    dst = (char *)malloc(len);
+    if (dst == NULL) {
+        return NULL;
+    }
+    memcpy(dst, src, len);
+    return dst;
+}
+
 // Initialize the environment buffer.
 static int init_env_buffer(void) {
+    char **old_environ = environ;
+
     if (env_buffer != NULL) {
         return 0;
     }
     
     // Count the current number of environment entries.
     env_count = 0;
-    for (char **ep = environ; *ep != NULL; ++ep) {
-        env_count++;
+    if (old_environ != NULL) {
+        for (char **ep = old_environ; *ep != NULL; ++ep) {
+            env_count++;
+        }
     }
     
     // Start with the current size plus some spare room.
@@ -35,7 +56,18 @@ static int init_env_buffer(void) {
     
     // Copy the existing environment pointers.
     for (int i = 0; i < env_count; i++) {
-        env_buffer[i] = environ[i];
+        env_buffer[i] = dup_env_entry(old_environ[i]);
+        if (env_buffer[i] == NULL) {
+            while (i > 0) {
+                i--;
+                free(env_buffer[i]);
+            }
+            free(env_buffer);
+            env_buffer = NULL;
+            env_capacity = 0;
+            env_count = 0;
+            return -1;
+        }
     }
     env_buffer[env_count] = NULL;
     
