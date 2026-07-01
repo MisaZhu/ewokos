@@ -30,10 +30,19 @@ static char skip_space(int fd) {
 static int read_value(int fd, char* val, uint32_t len, bool start) {
 	str_t* s = str_new("");
 	char c = 0;
+	uint32_t copy_len;
+
+	if(s == NULL || val == NULL || len == 0) {
+		str_free(s);
+		return -1;
+	}
+
 	if(start) {
 		c = skip_space(fd);
-		if(c == 0)
+		if(c == 0) {
+			str_free(s);
 			return -1;
+		}
 		str_addc(s, c);
 	}
 
@@ -47,7 +56,11 @@ static int read_value(int fd, char* val, uint32_t len, bool start) {
 		str_addc(s, c);
 	}
 	memset(val, 0, len);
-	strncpy(val, s->cstr, len);
+	copy_len = s->len;
+	if(copy_len >= len)
+		copy_len = len - 1;
+	memcpy(val, s->cstr, copy_len);
+	val[copy_len] = 0;
 	str_free(s);
 	return 0;
 }
@@ -215,4 +228,3 @@ int main(int argc, char** argv) {
 	}
 	return 0;
 }
-

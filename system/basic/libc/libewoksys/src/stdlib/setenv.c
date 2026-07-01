@@ -98,6 +98,9 @@ int setenv(const char *name, const char *value, ...) {
     if (name == NULL || *name == '\0' || strchr(name, '=') != NULL) {
         return -1;
     }
+    if (value == NULL) {
+        value = "";
+    }
 
     // Initialize the environment buffer on first use.
     if (init_env_buffer() != 0) {

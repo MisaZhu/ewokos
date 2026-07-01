@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <pthread.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -117,7 +118,14 @@ typedef struct {
     int fd;
     uint32_t extended_type;
     volatile int start_ready;
+    volatile int start_failed;
 } stream_thread_arg_t;
+
+typedef struct {
+    sshd_session_t* session;
+    volatile int start_ready;
+    volatile int start_failed;
+} wait_thread_arg_t;
 
 typedef struct {
     uint32_t magic;
@@ -178,6 +186,7 @@ struct sshd_session {
     int child_stderr[2];
     int child_control[2];
     pid_t child_pid;
+    int wait_thread_started;
 
     pthread_mutex_t send_lock;
 };
@@ -451,7 +460,11 @@ static int ssh_read_n(sshd_session_t* s, void* buf, size_t len) {
     while(total < len) {
         ssize_t n = read(s->socket, p + total, len - total);
         if(n < 0) {
-            if(errno == EINTR || errno == EAGAIN) {
+            if(errno == EINTR || errno == EAGAIN || errno == ETIMEDOUT) {
+                if(s->closing || s->sent_close) {
+                    sshd_set_error("session closing");
+                    return -1;
+                }
                 proc_usleep(1000);
                 continue;
             }
@@ -569,9 +582,9 @@ static void copy_cstr(char* dst, size_t dst_size, const char* src) {
         dst[0] = 0;
         return;
     }
-    len = strlen(src);
-    if(len >= dst_size)
-        len = dst_size - 1;
+    len = 0;
+    while(len + 1 < dst_size && src[len] != 0)
+        len++;
     memcpy(dst, src, len);
     dst[len] = 0;
 }
@@ -1000,7 +1013,9 @@ static int receive_banner(sshd_session_t* s) {
     while(i < sizeof(s->client_version) - 1) {
         ssize_t n = read(s->socket, &c, 1);
         if(n < 0) {
-            if(errno == EINTR || errno == EAGAIN) {
+            if(errno == EINTR || errno == EAGAIN || errno == ETIMEDOUT) {
+                if(s->closing || s->sent_close)
+                    return -1;
                 proc_usleep(1000);
                 continue;
             }
@@ -1850,8 +1865,14 @@ static void* stream_to_channel_thread(void* arg) {
     stream_thread_arg_t* ctx = (stream_thread_arg_t*)arg;
     uint8_t buf[1024];
 
-    while(!ctx->start_ready)
+    while(!ctx->start_ready && !ctx->start_failed)
         proc_usleep(1000);
+
+    if(ctx->start_failed) {
+        sshd_release_vfs_fds_for_pid((int)pthread_self());
+        free(ctx);
+        return NULL;
+    }
 
     sshd_dbg("stream_to_channel_thread: start fd=%d ext=%u",
             ctx->fd, ctx->extended_type);
@@ -1885,7 +1906,18 @@ static void* stream_to_channel_thread(void* arg) {
 }
 
 static void* wait_child_thread(void* arg) {
-    sshd_session_t* s = (sshd_session_t*)arg;
+    wait_thread_arg_t* ctx = (wait_thread_arg_t*)arg;
+    sshd_session_t* s = ctx->session;
+
+    while(!ctx->start_ready && !ctx->start_failed)
+        proc_usleep(1000);
+
+    if(ctx->start_failed) {
+        sshd_release_vfs_fds_for_pid((int)pthread_self());
+        free(ctx);
+        return NULL;
+    }
+
     sshd_dbg("wait_child_thread: start pid=%d", s->child_pid);
     int status = waitpid(s->child_pid);
     uint32_t exit_status = (status < 0) ? 255u : (uint32_t)status;
@@ -1902,7 +1934,10 @@ static void* wait_child_thread(void* arg) {
     send_channel_request_exit_status(s, exit_status);
     send_channel_eof_and_close(s);
     close(s->socket);
+    s->socket = -1;
+    s->child_pid = -1;
     sshd_release_vfs_fds_for_pid((int)pthread_self());
+    free(ctx);
     return NULL;
 }
 
@@ -2080,6 +2115,7 @@ static int spawn_child_session(sshd_session_t* s, const char* command, int is_sh
     pthread_t tid;
     stream_thread_arg_t* stdout_arg = NULL;
     stream_thread_arg_t* stderr_arg = NULL;
+    wait_thread_arg_t* wait_arg = NULL;
     sshd_child_start_msg_t msg;
     int rc;
 
@@ -2115,8 +2151,9 @@ static int spawn_child_session(sshd_session_t* s, const char* command, int is_sh
 
     stdout_arg = (stream_thread_arg_t*)calloc(1, sizeof(stream_thread_arg_t));
     stderr_arg = (stream_thread_arg_t*)calloc(1, sizeof(stream_thread_arg_t));
-    if(stdout_arg == NULL || stderr_arg == NULL)
-        return -1;
+    wait_arg = (wait_thread_arg_t*)calloc(1, sizeof(wait_thread_arg_t));
+    if(stdout_arg == NULL || stderr_arg == NULL || wait_arg == NULL)
+        goto fail;
 
     stdout_arg->session = s;
     stdout_arg->fd = s->child_stdout[CHILD_STDOUT_READ];
@@ -2124,38 +2161,60 @@ static int spawn_child_session(sshd_session_t* s, const char* command, int is_sh
     stderr_arg->session = s;
     stderr_arg->fd = s->child_stderr[CHILD_STDERR_READ];
     stderr_arg->extended_type = SSH_STDERR_DATA;
+    wait_arg->session = s;
 
     rc = pthread_create(&tid, NULL, stream_to_channel_thread, stdout_arg);
     sshd_dbg("spawn_child_session: stdout thread rc=%d tid=%d", rc, tid);
     if(rc != 0)
-        return -1;
+        goto fail;
     if(sshd_clone_vfs_fds_to_pid((int)tid) != 0) {
         sshd_dbg("spawn_child_session: stdout thread clone fds failed tid=%d", tid);
-        return -1;
+        stdout_arg->start_failed = 1;
+        stdout_arg = NULL;
+        goto fail;
     }
     stdout_arg->start_ready = 1;
     pthread_detach(tid);
+    stdout_arg = NULL;
     rc = pthread_create(&tid, NULL, stream_to_channel_thread, stderr_arg);
     sshd_dbg("spawn_child_session: stderr thread rc=%d tid=%d", rc, tid);
     if(rc != 0)
-        return -1;
+        goto fail;
     if(sshd_clone_vfs_fds_to_pid((int)tid) != 0) {
         sshd_dbg("spawn_child_session: stderr thread clone fds failed tid=%d", tid);
-        return -1;
+        stderr_arg->start_failed = 1;
+        stderr_arg = NULL;
+        goto fail;
     }
     stderr_arg->start_ready = 1;
     pthread_detach(tid);
-    rc = pthread_create(&tid, NULL, wait_child_thread, s);
+    stderr_arg = NULL;
+    rc = pthread_create(&tid, NULL, wait_child_thread, wait_arg);
     sshd_dbg("spawn_child_session: wait thread rc=%d tid=%d", rc, tid);
     if(rc != 0)
-        return -1;
+        goto fail;
     if(sshd_clone_vfs_fds_to_pid((int)tid) != 0) {
         sshd_dbg("spawn_child_session: wait thread clone fds failed tid=%d", tid);
-        return -1;
+        wait_arg->start_failed = 1;
+        wait_arg = NULL;
+        goto fail;
     }
+    wait_arg->start_ready = 1;
+    s->wait_thread_started = 1;
     pthread_detach(tid);
+    wait_arg = NULL;
 
     return 0;
+
+fail:
+    s->closing = 1;
+    if(stdout_arg != NULL)
+        free(stdout_arg);
+    if(stderr_arg != NULL)
+        free(stderr_arg);
+    if(wait_arg != NULL)
+        free(wait_arg);
+    return -1;
 }
 
 static int handle_channel_open(sshd_session_t* s, const ssh_packet_t* packet) {
@@ -2345,6 +2404,8 @@ static int handle_session_packets(sshd_session_t* s) {
 }
 
 static void session_init(sshd_session_t* s, int sock) {
+    struct timeval sock_timeout;
+
     memset(s, 0, sizeof(*s));
     s->socket = sock;
     strncpy(s->server_version, SSH_SERVER_VERSION, sizeof(s->server_version) - 1);
@@ -2356,13 +2417,20 @@ static void session_init(sshd_session_t* s, int sock) {
     s->child_stdout[0] = s->child_stdout[1] = -1;
     s->child_stderr[0] = s->child_stderr[1] = -1;
     s->child_control[0] = s->child_control[1] = -1;
+    sock_timeout.tv_sec = 0;
+    sock_timeout.tv_usec = 200000;
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &sock_timeout, sizeof(sock_timeout));
+    setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &sock_timeout, sizeof(sock_timeout));
     pthread_mutex_init(&s->send_lock, NULL);
 }
 
 static void session_destroy(sshd_session_t* s) {
+    s->closing = 1;
     close_child_fds(s);
-    if(s->child_pid > 0 && !s->child_started)
+    if(s->child_pid > 0 && !s->wait_thread_started) {
         waitpid(s->child_pid);
+        s->child_pid = -1;
+    }
     if(s->socket >= 0)
         close(s->socket);
 }
@@ -2633,6 +2701,7 @@ int main(int argc, char* argv[]) {
             /* #region debug-point main-startup */
             sshd_dbg("main: child start, client_fd=%d", client_sock);
             /* #endregion debug-point main-startup */
+            proc_detach();
             close(server_sock);
             serve_client(client_sock, helper_pid, child_stdin, child_stdout,
                     child_stderr, child_control);

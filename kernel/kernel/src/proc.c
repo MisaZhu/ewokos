@@ -934,11 +934,16 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 	proc_unready(proc, ZOMBIE);
 	proc_untrack_interrupt_timeout(proc);
 	proc_untrack_ipc_timeout(proc);
+	/*
+	 * Every task pid may own a cloned VFS fd table. If a thread is terminated
+	 * by the kernel before user-mode cleanup runs, vfsd still needs an exit
+	 * event to release those descriptors; otherwise device refs (for example
+	 * netd socket tasks) can stay pinned forever.
+	 */
+	kev_push(KEV_PROC_EXIT, proc->info.pid, 0, 0);
 
 	if(proc->info.type == TASK_TYPE_PROC) {
 		semaphore_clear(proc->info.pid);
-
-		kev_push(KEV_PROC_EXIT, proc->info.pid, 0, 0);
 		int32_t i;
 		for (i = 0; i < _kernel_config.max_task_num; i++) {
 			proc_t *p = _task_table[i];
