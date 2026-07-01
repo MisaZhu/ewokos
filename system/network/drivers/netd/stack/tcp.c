@@ -945,6 +945,10 @@ tcp_input(const uint8_t *data, size_t len, ip_addr_t src, ip_addr_t dst, struct 
         return;
     }
     hlen = (hdr->off >> 4) << 2;
+    if (hlen < sizeof(*hdr) || hlen > len) {
+        errorf("header length error: hlen=%u, len=%zu", hlen, len);
+        return;
+    }
     local.addr = dst;
     local.port = hdr->dst;
     foreign.addr = src;

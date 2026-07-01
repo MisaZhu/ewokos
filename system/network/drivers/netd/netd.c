@@ -76,12 +76,20 @@ static int network_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	}
 	task = task->read_task;
 	ret = task_read(task, from_pid, buf, size, p);
-	if(main_task->sock >= 0) {
-		still_readable = sock_readable(main_task->sock);
+	if(ret == VFS_ERR_RETRY) {
+		/* Read was re-armed (not yet complete) — clear sticky flag.
+		 * The async worker will call vfs_wakeup when data is actually available. */
+		pthread_mutex_lock(&task_list_lock);
+		main_task->pending_main_rd = false;
+		pthread_mutex_unlock(&task_list_lock);
+	} else {
+		if(main_task->sock >= 0) {
+			still_readable = sock_readable(main_task->sock);
+		}
+		pthread_mutex_lock(&task_list_lock);
+		main_task->pending_main_rd = still_readable ? true : false;
+		pthread_mutex_unlock(&task_list_lock);
 	}
-	pthread_mutex_lock(&task_list_lock);
-	main_task->pending_main_rd = still_readable ? true : false;
-	pthread_mutex_unlock(&task_list_lock);
 	return ret;
 }
 
@@ -128,7 +136,14 @@ static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
 		}
 		pthread_mutex_unlock(&task_list_lock);
 		if (pending_main_rd) {
-			events |= VFS_EVT_RD;
+			if (main_sock >= 0 && sock_readable(main_sock)) {
+				events |= VFS_EVT_RD;
+			} else {
+				/* Flag is stale — clear it */
+				pthread_mutex_lock(&task_list_lock);
+				task->pending_main_rd = false;
+				pthread_mutex_unlock(&task_list_lock);
+			}
 		}
 		if (!(events & VFS_EVT_RD) &&
 				!has_read_task &&

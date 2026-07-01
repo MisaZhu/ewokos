@@ -349,11 +349,15 @@ ip_input(const uint8_t *data, size_t len, struct net_device *dev)
         return;
     }
     hlen = (hdr->vhl & 0x0f) << 2;
-    if (len < hlen) {
+    if (hlen < IP_HDR_SIZE_MIN || len < hlen) {
         errorf("header length error: hlen=%u, len=%zu", hlen, len);
         return;
     }
     total = ntoh16(hdr->total);
+    if (total < hlen) {
+        errorf("total/header length mismatch: total=%u, hlen=%u", total, hlen);
+        return;
+    }
     if (len < total) {
         errorf("total length error: total=%u, len=%zu", total, len);
         return;

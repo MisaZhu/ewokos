@@ -24,6 +24,12 @@
 
 
 #define ETHER_TAP_IRQ (2)
+#define ETHER_TAP_DRAIN_BURST 256
+#define ETHER_TAP_READ_RETRY 4
+#define ETHER_TAP_READ_RETRY_US 500
+/* #region debug-point C:tap-isr */
+static uint32_t dbg_tap_isr_count = 0;
+/* #endregion */
 
 struct ether_tap {
     char name[IFNAMSIZ];
@@ -114,10 +120,44 @@ ether_tap_read(struct net_device *dev, uint8_t *buf, size_t size)
 {
     ssize_t len;
     struct ether_tap *tap = PRIV(dev);
+    int pending = 0;
+    int attempt;
     TRACE();
     mutex_lock(&tap->lock);
-    len = read(PRIV(dev)->fd, buf, size);
+    len = -1;
+    for (attempt = 0; attempt < ETHER_TAP_READ_RETRY; attempt++) {
+        len = read(tap->fd, buf, size);
+        if (len > 0) {
+            break;
+        }
+        pending = tap_select(dev);
+        if (pending <= 0) {
+            break;
+        }
+        if (attempt == 0) {
+            slog("netd: tap read retry pending=%d errno=%d dev=%s\n",
+                    pending, errno, dev->name);
+        }
+        usleep(ETHER_TAP_READ_RETRY_US);
+    }
+    if (len <= 0) {
+        pending = tap_select(dev);
+        if (pending > 0) {
+            close(tap->fd);
+            tap->fd = open(tap->name, O_RDWR | O_NONBLOCK);
+            if (tap->fd >= 0) {
+                len = read(tap->fd, buf, size);
+            }
+        }
+    }
     mutex_unlock(&tap->lock);
+    if (len <= 0) {
+        pending = tap_select(dev);
+        if (pending > 0) {
+            slog("netd: tap read fail len=%d pending=%d errno=%d dev=%s\n",
+                    (int)len, pending, errno, dev->name);
+        }
+    }
     TRACE();
     return len>0?len: -1;
 }
@@ -151,12 +191,31 @@ ether_tap_isr(unsigned int irq, void *id)
 {
     struct net_device *dev = (struct net_device *)id;
     int handled = 0;
+    int pending = tap_select(dev);
+    int budget = pending > 0 ? pending : 32;
+    /* #region debug-point C:tap-isr */
+    dbg_tap_isr_count++;
+    if ((pending > 0 && dbg_tap_isr_count <= 128) ||
+            (pending >= 16) ||
+            ((dbg_tap_isr_count % 32) == 0 && pending > 0)) {
+        slog("netd: tap isr seq=%u pending=%d budget=%d dev=%s\n",
+                dbg_tap_isr_count, pending, budget, dev->name);
+    }
+    /* #endregion */
 
-    while (handled < 32) {
+    if (budget > ETHER_TAP_DRAIN_BURST) {
+        budget = ETHER_TAP_DRAIN_BURST;
+    }
+
+    while (handled < budget) {
         if (ether_poll_helper(dev, ether_tap_read) < 0) {
             break;
         }
         handled++;
+    }
+    if (handled > 0 && (handled == budget || handled >= 64)) {
+        slog("netd: tap drain handled=%d pending=%d budget=%d dev=%s\n",
+                handled, pending, budget, dev->name);
     }
     return handled > 0 ? 0 : -1;
 }

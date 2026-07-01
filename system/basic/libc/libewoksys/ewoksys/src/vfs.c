@@ -998,6 +998,7 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 		start_ms = kernel_tic_ms(0);
 
 	while(true) {
+		/* Phase 1: Check all FDs for current events */
 		res = 0;
 		for(int i = 0; i < num; ++i) {
 			uint32_t visible = vfs_get_poll_events(fds[i].fd);
@@ -1009,16 +1010,54 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 		if(res > 0)
 			break;
 
+		/* Phase 2: Check timeout */
 		if(timeout == 0)
 			break;
-
 		if(timeout > 0) {
 			uint64_t now_ms = kernel_tic_ms(0);
 			if((now_ms - start_ms) >= (uint64_t)timeout)
 				break;
 		}
 
-		usleep(1000);
+		/* Phase 3: Register for wakeup on ALL FDs' nodes */
+		for(int i = 0; i < num; ++i) {
+			fsinfo_t info;
+			if(vfs_get_by_fd(fds[i].fd, &info) == 0 && info.node != 0) {
+				vfs_block_raw(info.node, (int)fds[i].events);
+			}
+		}
+
+		/* Phase 4: Re-check after registration (prevent race) */
+		res = 0;
+		for(int i = 0; i < num; ++i) {
+			fsinfo_t info;
+			if(vfs_get_by_fd(fds[i].fd, &info) == 0 && info.node != 0) {
+				uint32_t sticky = vfs_get_poll_events_by_node(info.node);
+				uint32_t mask = (uint32_t)fds[i].events | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL;
+				if((sticky & mask) != 0) {
+					res++;
+					break;
+				}
+			}
+		}
+		if(res > 0)
+			continue; /* Events appeared during registration, re-do full check */
+
+		/* Phase 5: Block until any event arrives */
+		if(timeout < 0) {
+			proc_block(); /* Infinite wait - woken by any registered node */
+		} else {
+			/* For timed poll, use short sleep as fallback */
+			uint64_t now_ms = kernel_tic_ms(0);
+			uint64_t elapsed = now_ms - start_ms;
+			uint64_t remaining = (uint64_t)timeout - elapsed;
+			if(remaining > 10)
+				usleep(10000); /* 10ms intervals for timed poll */
+			else if(remaining > 0)
+				usleep((uint32_t)(remaining * 1000));
+			else
+				break;
+		}
 	}
 	return res;
 }

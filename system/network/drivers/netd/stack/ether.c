@@ -14,6 +14,10 @@ struct ether_hdr {
     uint16_t type;
 };
 
+/* #region debug-point netd-foreign-frame-counters */
+static uint32_t g_ether_foreign_drop_count = 0;
+/* #endregion */
+
 const uint8_t ETHER_ADDR_ANY[ETHER_ADDR_LEN] = {"\x00\x00\x00\x00\x00\x00"};
 const uint8_t ETHER_ADDR_BROADCAST[ETHER_ADDR_LEN] = {"\xff\xff\xff\xff\xff\xff"};
 
@@ -117,13 +121,26 @@ ether_poll_helper(struct net_device *dev, ssize_t (*callback)(struct net_device 
         return -1;
     }
     hdr = (struct ether_hdr *)frame;
+    type = ntoh16(hdr->type);
     if (memcmp(dev->addr, hdr->dst, ETHER_ADDR_LEN) != 0) {
         if (memcmp(ETHER_ADDR_BROADCAST, hdr->dst, ETHER_ADDR_LEN) != 0) {
-            /* for other host */
-            return -1;
+            /*
+             * Ignore frames for other hosts but keep draining the device queue.
+             * Returning -1 here makes ether_tap_isr() think there is no more
+             * data and leaves the remaining packets stuck in /dev/wl0.
+             */
+            /* #region debug-point netd-foreign-frame-log */
+            g_ether_foreign_drop_count++;
+            if (g_ether_foreign_drop_count == 1 ||
+                    (g_ether_foreign_drop_count % 64) == 0) {
+                slog("netd: foreign frame ignored count=%u type=0x%04x\n",
+                        g_ether_foreign_drop_count,
+                        type);
+            }
+            /* #endregion */
+            return 0;
         }
     }
-    type = ntoh16(hdr->type);
     infof("dev=%s, type=%s(0x%04x), len=%zu\n", dev->name, ether_type_ntoa(hdr->type), type, flen);
     ether_dump(frame, flen);
     return net_input_handler(type, (uint8_t *)(hdr + 1), flen - sizeof(*hdr), dev);

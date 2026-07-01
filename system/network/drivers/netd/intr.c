@@ -53,6 +53,7 @@ intr_request_irq(unsigned int irq, int (*handler)(unsigned int irq, void *dev), 
 struct irq_entry *irq_vec;
 #define NET_BLOCK_EVT 66666
 static uint32_t gSignel[SIGMAX] = {0};
+static mutex_t gSignelLock = MUTEX_INITIALIZER;
 
 #define NETD_BUSY_SLEEP_US 10000U
 #define NETD_IDLE_SLEEP_STEP_US 5000U
@@ -60,10 +61,56 @@ static uint32_t gSignel[SIGMAX] = {0};
 
 int dflag[16];
 int dcnt = 0;
+/* #region debug-point A-E:softirq */
+static uint32_t dbg_signet_raise_count = 0;
+static uint32_t dbg_signet_handle_count = 0;
+/* #endregion */
+
+static uint32_t softirq_pending(uint32_t sig)
+{
+    uint32_t pending = 0;
+
+    if (sig >= SIGMAX)
+        return 0;
+
+    mutex_lock(&gSignelLock);
+    pending = gSignel[sig];
+    mutex_unlock(&gSignelLock);
+    return pending;
+}
+
+static int softirq_take(uint32_t sig)
+{
+    int pending = 0;
+
+    if (sig >= SIGMAX)
+        return 0;
+
+    mutex_lock(&gSignelLock);
+    if (gSignel[sig] != 0) {
+        gSignel[sig] = 0;
+        pending = 1;
+    }
+    mutex_unlock(&gSignelLock);
+    return pending;
+}
 
 void raise_softirq(uint32_t  sig){
     if(sig < SIGMAX){
-        gSignel[sig]++; 
+        mutex_lock(&gSignelLock);
+        gSignel[sig] = 1;
+        mutex_unlock(&gSignelLock);
+        /* #region debug-point A-E:softirq */
+        if (sig == SIGNET) {
+            dbg_signet_raise_count++;
+            if (dbg_signet_raise_count <= 128 ||
+                    (dbg_signet_raise_count % 32) == 0) {
+                slog("netd: signet raise seq=%u pending=%u\n",
+                        dbg_signet_raise_count,
+                        softirq_pending(sig));
+            }
+        }
+        /* #endregion */
     }
 }
 
@@ -71,14 +118,21 @@ int intr_poll_once(void) {
     struct irq_entry *entry;
     int handled = 0;
 
-    while (gSignel[SIGNET]) {
+    while (softirq_take(SIGNET)) {
+        /* #region debug-point A-E:softirq */
+        dbg_signet_handle_count++;
+        if (dbg_signet_handle_count <= 128 ||
+                (dbg_signet_handle_count % 32) == 0) {
+            slog("netd: signet handle seq=%u pending=%u\n",
+                    dbg_signet_handle_count,
+                    softirq_pending(SIGNET));
+        }
+        /* #endregion */
         net_protocol_handler();
-        gSignel[SIGNET]--;
         handled = 1;
     }
-    while (gSignel[SIGINT]) {
+    while (softirq_take(SIGINT)) {
         net_event_handler();
-        gSignel[SIGINT]--;
         handled = 1;
     }
     for (entry = irq_vec; entry; entry = entry->next) {
@@ -86,10 +140,18 @@ int intr_poll_once(void) {
             handled = 1;
         }
     }
-    if (gSignel[SIGNET]) {
-        while (gSignel[SIGNET]) {
+    if (softirq_pending(SIGNET)) {
+        while (softirq_take(SIGNET)) {
+            /* #region debug-point A-E:softirq */
+            dbg_signet_handle_count++;
+            if (dbg_signet_handle_count <= 128 ||
+                    (dbg_signet_handle_count % 32) == 0) {
+                slog("netd: signet handle seq=%u pending=%u\n",
+                        dbg_signet_handle_count,
+                        softirq_pending(SIGNET));
+            }
+            /* #endregion */
             net_protocol_handler();
-            gSignel[SIGNET]--;
             handled = 1;
         }
     }
@@ -105,15 +167,22 @@ void intr_loop(void) {
         int need_task_scan = task_has_read_watchers();
         int task_ready = 0;
 
-        while(gSignel[SIGNET]){
+        while(softirq_take(SIGNET)){
             had_signal = 1;
+            /* #region debug-point A-E:softirq */
+            dbg_signet_handle_count++;
+            if (dbg_signet_handle_count <= 128 ||
+                    (dbg_signet_handle_count % 32) == 0) {
+                slog("netd: signet handle seq=%u pending=%u\n",
+                        dbg_signet_handle_count,
+                        softirq_pending(SIGNET));
+            }
+            /* #endregion */
             net_protocol_handler();
-            gSignel[SIGNET]--;
         }
-        while(gSignel[SIGINT]){
+        while(softirq_take(SIGINT)){
             had_signal = 1;
             net_event_handler();
-            gSignel[SIGINT]--;
         }
         for (entry = irq_vec; entry; entry = entry->next) {
             if (entry->irq == SIGIRQ) {

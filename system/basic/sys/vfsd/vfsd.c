@@ -612,8 +612,8 @@ static void proc_file_close(int pid, int fd, file_t* file) {
 		if(node->refs <= 0) {
 			del_node = true;
 			file->node = 0;
+			do_node_wakeup(node, VFS_EVT_CLOSE);
 		}
-		do_node_wakeup(node, VFS_EVT_CLOSE);
 	}
 
 	if(del_node)

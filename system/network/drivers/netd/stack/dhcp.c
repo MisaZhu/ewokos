@@ -270,24 +270,58 @@ static void dhcp_discovery(struct net_device *dev){
 
 static void dhcp_input(const uint8_t *data, size_t len, struct net_device *dev)
 {
-    struct ip_hdr *ip_packet  = (struct ip_hdr *)(data);
+    struct ip_hdr *ip_packet;
+    struct udp_hdr* udp_packet;
+    dhcp_t* dhcp;
+    uint16_t ip_hlen;
+    uint16_t ip_total;
+    uint16_t udp_len;
+    int size;
+    uint8_t *option;
+    uint32_t cookie;
 
     //hexdump(stderr, data, len);
     dhcp_client_t *dhc =  get_client(dev);
     if(!dhc)
         return;
 
+    if (len < sizeof(struct ip_hdr))
+        return;
+
+    ip_packet = (struct ip_hdr *)(data);
+    if ((ip_packet->vhl >> 4) != 4)
+        return;
+
+    ip_hlen = (uint16_t)((ip_packet->vhl & 0x0f) << 2);
+    if (ip_hlen < sizeof(struct ip_hdr) || len < ip_hlen + sizeof(struct udp_hdr))
+        return;
+
+    ip_total = ntoh16(ip_packet->total);
+    if (ip_total < ip_hlen + sizeof(struct udp_hdr) || len < ip_total)
+        return;
+
     /* Care only about UDP - since DHCP sits over UDP */
     if (ip_packet->protocol != IPPROTO_UDP)
         return;
 
-    struct udp_hdr* udp_packet = (struct udp_hdr *)((char *)ip_packet + sizeof(struct ip_hdr));
+    udp_packet = (struct udp_hdr *)((char *)ip_packet + ip_hlen);
+    udp_len = ntoh16(udp_packet->len);
+    if (udp_len < sizeof(struct udp_hdr) + sizeof(dhcp_t))
+        return;
+    if ((size_t)ip_hlen + udp_len > len)
+        return;
+
     /* Check if there is a response from DHCP server by checking the source Port */
     if (ntoh16(udp_packet->src) != DHCP_SERVER_PORT)
         return;
 
-    dhcp_t* dhcp = ((dhcp_t *)((char *)udp_packet + sizeof(struct udp_hdr)));
-     if (dhcp->opcode != DHCP_OPTION_OFFER)
+    dhcp = ((dhcp_t *)((char *)udp_packet + sizeof(struct udp_hdr)));
+    if (dhcp->opcode != DHCP_BOOTREPLY)
+        return;
+    if (dhcp->hlen != 6)
+        return;
+    cookie = ntoh32(dhcp->magic_cookie);
+    if (cookie != DHCP_MAGIC_COOKIE)
         return;
 
     /* Get the IP address given by the server */
@@ -299,30 +333,46 @@ static void dhcp_input(const uint8_t *data, size_t len, struct net_device *dev)
     slog("DHCP GATEWAY: %s\n", buf);
 
     /* Parse dhcp option*/
-    uint8_t *option  = dhcp->bp_options;
-    int size = udp_packet->len = sizeof(dhcp_t);
+    option  = dhcp->bp_options;
+    size = (int)udp_len - (int)sizeof(struct udp_hdr) - (int)sizeof(dhcp_t);
 
     while(size > 0){
         uint8_t code = option[0];
-        uint8_t len = option[1];
+        uint8_t opt_len;
+
+        if (code == MESSAGE_TYPE_PAD) {
+            option++;
+            size--;
+            continue;
+        }
+        if (code == MESSAGE_TYPE_END)
+            goto done;
+        if (size < 2)
+            return;
+
+        opt_len = option[1];
+        if (size < (int)opt_len + 2)
+            return;
         switch(code){
             case MESSAGE_TYPE_LEASE_TIME:
-                dhc->validity = ntoh32(*(uint32_t*)(&option[2]));
+                if (opt_len >= 4)
+                    dhc->validity = ntoh32(*(uint32_t*)(&option[2]));
                 break; 
             case MESSAGE_TYPE_ROUTER:
-                dhc->gateway = *(uint32_t*)(&option[2]);
+                if (opt_len >= 4)
+                    dhc->gateway = *(uint32_t*)(&option[2]);
                 break;
             case MESSAGE_TYPE_REQ_SUBNET_MASK:
-                dhc->netmask = *(uint32_t*)(&option[2]); 
+                if (opt_len >= 4)
+                    dhc->netmask = *(uint32_t*)(&option[2]); 
                 break;
             case MESSAGE_TYPE_DNS:
-                dhc->dns1 = *(uint32_t*)(&option[2]); 
+                if (opt_len >= 4)
+                    dhc->dns1 = *(uint32_t*)(&option[2]); 
                 break;
-            case MESSAGE_TYPE_END:
-                goto done; 
         }
-        option += len + 2;
-        size -= len + 2;
+        option += opt_len + 2;
+        size -= opt_len + 2;
     }
 done:
     gettimeofday(&dhc->update, NULL);
