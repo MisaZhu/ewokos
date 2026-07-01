@@ -61,10 +61,6 @@ static mutex_t gSignelLock = MUTEX_INITIALIZER;
 
 int dflag[16];
 int dcnt = 0;
-/* #region debug-point A-E:softirq */
-static uint32_t dbg_signet_raise_count = 0;
-static uint32_t dbg_signet_handle_count = 0;
-/* #endregion */
 
 static uint32_t softirq_pending(uint32_t sig)
 {
@@ -100,17 +96,6 @@ void raise_softirq(uint32_t  sig){
         mutex_lock(&gSignelLock);
         gSignel[sig] = 1;
         mutex_unlock(&gSignelLock);
-        /* #region debug-point A-E:softirq */
-        if (sig == SIGNET) {
-            dbg_signet_raise_count++;
-            if (dbg_signet_raise_count <= 128 ||
-                    (dbg_signet_raise_count % 32) == 0) {
-                slog("netd: signet raise seq=%u pending=%u\n",
-                        dbg_signet_raise_count,
-                        softirq_pending(sig));
-            }
-        }
-        /* #endregion */
     }
 }
 
@@ -119,15 +104,6 @@ int intr_poll_once(void) {
     int handled = 0;
 
     while (softirq_take(SIGNET)) {
-        /* #region debug-point A-E:softirq */
-        dbg_signet_handle_count++;
-        if (dbg_signet_handle_count <= 128 ||
-                (dbg_signet_handle_count % 32) == 0) {
-            slog("netd: signet handle seq=%u pending=%u\n",
-                    dbg_signet_handle_count,
-                    softirq_pending(SIGNET));
-        }
-        /* #endregion */
         net_protocol_handler();
         handled = 1;
     }
@@ -142,15 +118,6 @@ int intr_poll_once(void) {
     }
     if (softirq_pending(SIGNET)) {
         while (softirq_take(SIGNET)) {
-            /* #region debug-point A-E:softirq */
-            dbg_signet_handle_count++;
-            if (dbg_signet_handle_count <= 128 ||
-                    (dbg_signet_handle_count % 32) == 0) {
-                slog("netd: signet handle seq=%u pending=%u\n",
-                        dbg_signet_handle_count,
-                        softirq_pending(SIGNET));
-            }
-            /* #endregion */
             net_protocol_handler();
             handled = 1;
         }
@@ -169,15 +136,6 @@ void intr_loop(void) {
 
         while(softirq_take(SIGNET)){
             had_signal = 1;
-            /* #region debug-point A-E:softirq */
-            dbg_signet_handle_count++;
-            if (dbg_signet_handle_count <= 128 ||
-                    (dbg_signet_handle_count % 32) == 0) {
-                slog("netd: signet handle seq=%u pending=%u\n",
-                        dbg_signet_handle_count,
-                        softirq_pending(SIGNET));
-            }
-            /* #endregion */
             net_protocol_handler();
         }
         while(softirq_take(SIGINT)){

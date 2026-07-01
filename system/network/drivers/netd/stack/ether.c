@@ -14,10 +14,6 @@ struct ether_hdr {
     uint16_t type;
 };
 
-/* #region debug-point netd-foreign-frame-counters */
-static uint32_t g_ether_foreign_drop_count = 0;
-/* #endregion */
-
 const uint8_t ETHER_ADDR_ANY[ETHER_ADDR_LEN] = {"\x00\x00\x00\x00\x00\x00"};
 const uint8_t ETHER_ADDR_BROADCAST[ETHER_ADDR_LEN] = {"\xff\xff\xff\xff\xff\xff"};
 
@@ -45,20 +41,6 @@ ether_addr_pton(const char *p, uint8_t *n)
     return  0;
 }
 
-static const char *
-ether_type_ntoa(uint16_t type)
-{
-    switch (ntoh16(type)) {
-    case ETHER_TYPE_IP:
-        return "IP";
-    case ETHER_TYPE_ARP:
-        return "ARP";
-    case ETHER_TYPE_IPV6:
-        return "IPv6";
-    }
-    return "UNKNOWN";
-}
-
 char *
 ether_addr_ntop(const uint8_t *n, char *p, size_t size)
 {
@@ -73,6 +55,19 @@ static void
 ether_dump(const uint8_t *frame, size_t flen)
 {
 #ifdef NET_DEBUG
+    static const char *
+    ether_type_ntoa(uint16_t type)
+    {
+        switch (ntoh16(type)) {
+        case ETHER_TYPE_IP:
+            return "IP";
+        case ETHER_TYPE_ARP:
+            return "ARP";
+        case ETHER_TYPE_IPV6:
+            return "IPv6";
+        }
+        return "UNKNOWN";
+    }
     struct ether_hdr *hdr;
     char addr[ETHER_ADDR_STR_LEN];
 
@@ -129,15 +124,6 @@ ether_poll_helper(struct net_device *dev, ssize_t (*callback)(struct net_device 
              * Returning -1 here makes ether_tap_isr() think there is no more
              * data and leaves the remaining packets stuck in /dev/wl0.
              */
-            /* #region debug-point netd-foreign-frame-log */
-            g_ether_foreign_drop_count++;
-            if (g_ether_foreign_drop_count == 1 ||
-                    (g_ether_foreign_drop_count % 64) == 0) {
-                slog("netd: foreign frame ignored count=%u type=0x%04x\n",
-                        g_ether_foreign_drop_count,
-                        type);
-            }
-            /* #endregion */
             return 0;
         }
     }

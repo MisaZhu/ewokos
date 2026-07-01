@@ -43,11 +43,6 @@ net_raw_protocol_interested(uint16_t type, const uint8_t *data, size_t len)
 }
 
 static mutex_t protocol_queue_mutex = MUTEX_INITIALIZER;
-/* #region debug-point A-B-E:protocol-dispatch */
-static uint32_t dbg_proto_enqueue_seq = 0;
-static uint32_t dbg_proto_enter_seq = 0;
-static uint32_t dbg_proto_exit_seq = 0;
-/* #endregion */
 
 struct net_protocol {
     struct net_protocol *next;
@@ -215,7 +210,6 @@ net_input_handler(uint16_t type, const uint8_t *data, size_t len, struct net_dev
 {
     struct net_protocol *proto;
     struct net_protocol_queue_entry *entry;
-    unsigned int num;
 
     for (proto = protocols; proto; proto = proto->next) {
         if (proto->type == type ||
@@ -236,23 +230,8 @@ net_input_handler(uint16_t type, const uint8_t *data, size_t len, struct net_dev
                 memory_free(entry);
                 return -1;
             }
-            num = proto->queue.num;
             mutex_unlock(&protocol_queue_mutex);
-            (void)num;
-            /* #region debug-point C-E:enqueue */
-            dbg_proto_enqueue_seq++;
-            if (dbg_proto_enqueue_seq <= 128 ||
-                    (dbg_proto_enqueue_seq % 32) == 0 ||
-                    num >= 16) {
-                slog("netd: enqueue seq=%u proto=%s q=%u len=%d dev=%s\n",
-                        dbg_proto_enqueue_seq,
-                        proto->name,
-                        num,
-                        (int)len,
-                        dev->name);
-            }
-            /* #endregion */
-            infof("queue pushed (num:%u), dev=%s, type=%s(0x%04x), len=%zd\n", num, dev->name, proto->name, type, len);
+            infof("queue pushed, dev=%s, type=%s(0x%04x), len=%zd\n", dev->name, proto->name, type, len);
             debugdump(data, len);
             raise_softirq(SIGNET);
         }
@@ -305,44 +284,18 @@ net_protocol_handler(void)
 {
     struct net_protocol *proto;
     struct net_protocol_queue_entry *entry;
-    unsigned int num;
 
     for (proto = protocols; proto; proto = proto->next) {
         while (1) {
             mutex_lock(&protocol_queue_mutex);
             entry = queue_pop(&proto->queue);
-            num = proto->queue.num;
             mutex_unlock(&protocol_queue_mutex);
             if (!entry) {
                 break;
             }
-            (void)num;
-            /* #region debug-point A-B:handler-enter-exit */
-            dbg_proto_enter_seq++;
-            if (dbg_proto_enter_seq <= 128 ||
-                    (dbg_proto_enter_seq % 32) == 0 ||
-                    num >= 16) {
-                slog("netd: proto enter seq=%u proto=%s q=%u len=%d dev=%s\n",
-                        dbg_proto_enter_seq,
-                        proto->name,
-                        num,
-                        (int)entry->len,
-                        entry->dev->name);
-            }
-            /* #endregion */
-            debugf("queue popped (num:%u), dev=%s, type=0x%04x, len=%zd", num, entry->dev->name, proto->type, entry->len);
+            debugf("queue popped, dev=%s, type=0x%04x, len=%zd", entry->dev->name, proto->type, entry->len);
             //debugdump((uint8_t *)(entry+1), entry->len);
             proto->handler((uint8_t *)(entry+1), entry->len, entry->dev);
-            /* #region debug-point A-B:handler-enter-exit */
-            dbg_proto_exit_seq = dbg_proto_enter_seq;
-            if (dbg_proto_exit_seq <= 128 ||
-                    (dbg_proto_exit_seq % 32) == 0 ||
-                    num >= 16) {
-                slog("netd: proto exit seq=%u proto=%s\n",
-                        dbg_proto_exit_seq,
-                        proto->name);
-            }
-            /* #endregion */
             free(entry);
         }
     }
