@@ -18,6 +18,8 @@ static int
 net_raw_protocol_interested(uint16_t type, const uint8_t *data, size_t len)
 {
     size_t ihl;
+    uint16_t total;
+    uint16_t frag;
     uint16_t src_port;
     uint16_t dst_port;
 
@@ -32,14 +34,21 @@ net_raw_protocol_interested(uint16_t type, const uint8_t *data, size_t len)
     if (ihl < 20 || len < ihl + 8) {
         return 0;
     }
+    total = (uint16_t)((data[2] << 8) | data[3]);
+    if (total < ihl + 8 || len < total) {
+        return 0;
+    }
+    frag = (uint16_t)((data[6] << 8) | data[7]);
+    if ((frag & 0x3fff) != 0) {
+        return 0;
+    }
     if (data[9] != 17) {
         return 0;
     }
 
     src_port = (uint16_t)((data[ihl] << 8) | data[ihl + 1]);
     dst_port = (uint16_t)((data[ihl + 2] << 8) | data[ihl + 3]);
-    return src_port == DHCP_SERVER_PORT || src_port == DHCP_CLIENT_PORT ||
-        dst_port == DHCP_SERVER_PORT || dst_port == DHCP_CLIENT_PORT;
+    return src_port == DHCP_SERVER_PORT && dst_port == DHCP_CLIENT_PORT;
 }
 
 static mutex_t protocol_queue_mutex = MUTEX_INITIALIZER;
@@ -71,6 +80,33 @@ struct net_event {
     void (*handler)(void *arg);
     void *arg;
 };
+
+static int
+net_protocol_enqueue(struct net_protocol *proto, const uint8_t *data, size_t len, struct net_device *dev, uint16_t type)
+{
+    struct net_protocol_queue_entry *entry;
+
+    entry = memory_alloc(sizeof(*entry) + len);
+    if (!entry) {
+        errorf("memory_alloc() failure");
+        return -1;
+    }
+    entry->dev = dev;
+    entry->len = len;
+    memcpy(entry + 1, data, len);
+    mutex_lock(&protocol_queue_mutex);
+    if (!queue_push(&proto->queue, entry)) {
+        mutex_unlock(&protocol_queue_mutex);
+        errorf("queue_push() failure");
+        memory_free(entry);
+        return -1;
+    }
+    mutex_unlock(&protocol_queue_mutex);
+    infof("queue pushed, dev=%s, type=%s(0x%04x), len=%zd\n", dev->name, proto->name, type, len);
+    debugdump(data, len);
+    raise_softirq(SIGNET);
+    return 0;
+}
 
 /* NOTE: if you want to add/delete the entries after net_run(), you need to protect these lists with a mutex. */
 static struct net_device *devices = NULL;
@@ -209,31 +245,20 @@ int
 net_input_handler(uint16_t type, const uint8_t *data, size_t len, struct net_device *dev)
 {
     struct net_protocol *proto;
-    struct net_protocol_queue_entry *entry;
+    int raw_dhcp = net_raw_protocol_interested(type, data, len);
 
     for (proto = protocols; proto; proto = proto->next) {
-        if (proto->type == type ||
-                (proto->type == NET_PROTOCOL_TYPE_RAW &&
-                 net_raw_protocol_interested(type, data, len))) {
-            entry = memory_alloc(sizeof(*entry) + len);
-            if (!entry) {
-                errorf("memory_alloc() failure");
-                return -1;
+        if (raw_dhcp) {
+            if (proto->type == NET_PROTOCOL_TYPE_IP) {
+                continue;
             }
-            entry->dev = dev;
-            entry->len = len;
-            memcpy(entry+1, data, len);
-            mutex_lock(&protocol_queue_mutex);
-            if (!queue_push(&proto->queue, entry)) {
-                mutex_unlock(&protocol_queue_mutex);
-                errorf("queue_push() failure");
-                memory_free(entry);
-                return -1;
+            if (proto->type == NET_PROTOCOL_TYPE_RAW) {
+                return net_protocol_enqueue(proto, data, len, dev, type);
             }
-            mutex_unlock(&protocol_queue_mutex);
-            infof("queue pushed, dev=%s, type=%s(0x%04x), len=%zd\n", dev->name, proto->name, type, len);
-            debugdump(data, len);
-            raise_softirq(SIGNET);
+            continue;
+        }
+        if (proto->type == type) {
+            return net_protocol_enqueue(proto, data, len, dev, type);
         }
     }
     /* unsupported protocol */

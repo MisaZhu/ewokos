@@ -127,6 +127,14 @@ ether_poll_helper(struct net_device *dev, ssize_t (*callback)(struct net_device 
             return 0;
         }
     }
+    if (type != ETHER_TYPE_IP && type != ETHER_TYPE_ARP) {
+        /*
+         * netd only implements IPv4/ARP on this path. Ignore other EtherTypes
+         * after draining them from /dev/wl0 so unsupported traffic cannot
+         * amplify load in upper layers.
+         */
+        return 0;
+    }
     infof("dev=%s, type=%s(0x%04x), len=%zu\n", dev->name, ether_type_ntoa(hdr->type), type, flen);
     ether_dump(frame, flen);
     return net_input_handler(type, (uint8_t *)(hdr + 1), flen - sizeof(*hdr), dev);
