@@ -52,15 +52,20 @@ static map_t  _nodes_hash = NULL;
 static uint32_t _next_node_id = 1;
 
 typedef struct {
-	uint32_t uuid;
-	uint32_t state;
-	file_t fds[MAX_OPEN_FILE_PER_PROC];
-} proc_fds_t;
-
-typedef struct {
 	int32_t pid;
 	uint32_t uuid;
+	queue_item_t item;
+	queue_t* queue;
+	uint32_t node_id;
 } wait_entry_t;
+
+typedef struct {
+	uint32_t uuid;
+	uint32_t state;
+	wait_entry_t read_waiter;
+	wait_entry_t write_waiter;
+	file_t fds[MAX_OPEN_FILE_PER_PROC];
+} proc_fds_t;
 
 typedef struct {
 	int32_t pid;
@@ -69,6 +74,7 @@ typedef struct {
 
 typedef struct {
 	int32_t pid;
+	uint32_t uuid;
 	int32_t fd;
 	file_t file;
 } driver_close_task_t;
@@ -77,6 +83,11 @@ static proc_fds_t* _proc_fds_table = NULL;
 static uint32_t    _max_proc_table_num = 0;
 static queue_t     _zombie_tasks;
 static queue_t     _driver_close_tasks;
+
+static inline void dbg_log_pipe_detail(const char* tag, int32_t pid,
+		int32_t a, int32_t b, int32_t c) {
+	klog("[vfsd-cmd] %s pid=%d a=%d b=%d c=%d\n", tag, pid, a, b, c);
+}
 
 static uint32_t vfs_alloc_node_id(void) {
 	uint32_t node_id = _next_node_id++;
@@ -513,25 +524,102 @@ static void wakeup_proc(wait_entry_t* waiter, vfs_node_t* node, int32_t events) 
 	proc_wakeup_by(waiter->pid, vfs_get_node_id(node));
 }
 
+static inline wait_entry_t* get_wait_entry(int32_t pid, bool wr) {
+	if(pid < 0 || pid >= _max_proc_table_num)
+		return NULL;
+	if(wr)
+		return &_proc_fds_table[pid].write_waiter;
+	return &_proc_fds_table[pid].read_waiter;
+}
+
+static void wait_queue_detach(queue_t* q, wait_entry_t* waiter) {
+	queue_item_t* it;
+
+	if(q == NULL || waiter == NULL)
+		return;
+
+	it = &waiter->item;
+	if(it->next != NULL)
+		it->next->prev = it->prev;
+	if(it->prev != NULL)
+		it->prev->next = it->next;
+
+	if(q->head == it)
+		q->head = it->next;
+	if(q->tail == it)
+		q->tail = it->prev;
+	if(q->num > 0)
+		q->num--;
+
+	memset(it, 0, sizeof(queue_item_t));
+	waiter->queue = NULL;
+	waiter->node_id = 0;
+}
+
+static void wait_queue_remove_entry(wait_entry_t* waiter) {
+	if(waiter == NULL || waiter->queue == NULL)
+		return;
+	wait_queue_detach(waiter->queue, waiter);
+}
+
+static wait_entry_t* wait_queue_pop(queue_t* q) {
+	if(q == NULL || q->head == NULL)
+		return NULL;
+
+	wait_entry_t* waiter = (wait_entry_t*)q->head->data;
+	if(waiter == NULL)
+		return NULL;
+	wait_queue_detach(q, waiter);
+	return waiter;
+}
+
+static void wait_queue_push(queue_t* q, wait_entry_t* waiter, uint32_t node_id) {
+	queue_item_t* it;
+
+	if(q == NULL || waiter == NULL)
+		return;
+
+	if(waiter->queue == q && waiter->node_id == node_id)
+		return;
+	if(waiter->queue != NULL)
+		wait_queue_remove_entry(waiter);
+
+	it = &waiter->item;
+	memset(it, 0, sizeof(queue_item_t));
+	it->data = waiter;
+
+	if(q->tail == NULL) {
+		q->head = q->tail = it;
+	}
+	else {
+		q->tail->next = it;
+		it->prev = q->tail;
+		q->tail = it;
+	}
+	q->num++;
+	waiter->queue = q;
+	waiter->node_id = node_id;
+}
+
 static void wakeup_wait_queue(queue_t* q, vfs_node_t* node, int32_t events) {
 	if(q == NULL)
 		return;
 
-	while(true) {
-		wait_entry_t* waiter = (wait_entry_t*)queue_pop(q);
+	uint32_t limit = queue_num(q);
+	uint32_t steps = 0;
+	while(steps <= limit) {
+		wait_entry_t* waiter = wait_queue_pop(q);
 		if(waiter == NULL)
 			break;
 		wakeup_proc(waiter, node, events);
-		free(waiter);
+		steps++;
 	}
-}
-
-static bool queue_waiter_match(void* data, void* check_data) {
-	if(data == NULL || check_data == NULL)
-		return false;
-	wait_entry_t* waiter = (wait_entry_t*)data;
-	wait_entry_t* check = (wait_entry_t*)check_data;
-	return waiter->pid == check->pid && waiter->uuid == check->uuid;
+	if(!queue_is_empty(q)) {
+		klog("[vfsd-waitq] corrupt wake q=%p num=%u node=%u\n",
+			q, q->num, vfs_get_node_id(node));
+		q->head = q->tail = NULL;
+		q->num = 0;
+	}
 }
 
 static bool queue_zombie_task_match(void* data, void* check_data) {
@@ -542,42 +630,35 @@ static bool queue_zombie_task_match(void* data, void* check_data) {
 	return task->pid == check->pid && task->uuid == check->uuid;
 }
 
-static void remove_waiter_from_queue(queue_t* q, const wait_entry_t* waiter) {
-	if(q == NULL || waiter == NULL)
+static void remove_zombie_task(int32_t pid, uint32_t uuid) {
+	if(uuid == 0)
 		return;
 
-	queue_item_t* it = q->head;
+	zombie_task_t check;
+	check.pid = pid;
+	check.uuid = uuid;
+
+	queue_item_t* it = _zombie_tasks.head;
 	while(it != NULL) {
 		queue_item_t* next = it->next;
-		if(queue_waiter_match(it->data, (void*)waiter)) {
+		if(queue_zombie_task_match(it->data, &check)) {
 			free(it->data);
-			queue_remove(q, it);
+			queue_remove(&_zombie_tasks, it);
 		}
 		it = next;
 	}
-}
-
-static int remove_waiter_from_node(map_t in, const char* key, any_t value, any_t arg) {
-	(void)in;
-	(void)key;
-	vfs_node_t* node = (vfs_node_t*)value;
-	wait_entry_t* waiter = (wait_entry_t*)arg;
-	if(node == NULL || waiter == NULL)
-		return MAP_OK;
-
-	remove_waiter_from_queue(&node->read_wait_queue, waiter);
-	remove_waiter_from_queue(&node->write_wait_queue, waiter);
-	return MAP_OK;
 }
 
 static void vfs_remove_proc_waiters(int32_t pid, uint32_t uuid) {
 	if(pid < 0 || pid >= _max_proc_table_num || uuid == 0)
 		return;
 
-	wait_entry_t waiter;
-	waiter.pid = pid;
-	waiter.uuid = uuid;
-	hashmap_iterate(_nodes_hash, remove_waiter_from_node, &waiter);
+	wait_entry_t* read_waiter = get_wait_entry(pid, false);
+	wait_entry_t* write_waiter = get_wait_entry(pid, true);
+	if(read_waiter != NULL && read_waiter->uuid == uuid)
+		wait_queue_remove_entry(read_waiter);
+	if(write_waiter != NULL && write_waiter->uuid == uuid)
+		wait_queue_remove_entry(write_waiter);
 }
 
 static void do_node_wakeup(vfs_node_t* node, int events) {
@@ -618,7 +699,7 @@ static void sync_pipe_poll_events(vfs_node_t* node) {
 	node->events = events;
 }
 
-static void vfs_driver_close(int32_t pid, int32_t fd, file_t* file) {
+static void vfs_driver_close(int32_t pid, uint32_t uuid, int32_t fd, file_t* file) {
 	if(file == NULL)
 		return;
 	uint32_t type = file->fsinfo.type & FS_TYPE_MASK;
@@ -638,8 +719,8 @@ static void vfs_driver_close(int32_t pid, int32_t fd, file_t* file) {
 		return;
 
 	proto_t in;
-	PF->format(&in, "i,i,m,i",
-		fd, file->fsinfo.node, &file->fsinfo, sizeof(fsinfo_t), pid);
+	PF->format(&in, "i,i,m,i,i",
+		fd, file->fsinfo.node, &file->fsinfo, sizeof(fsinfo_t), pid, uuid);
 		ipc_call(mount_pid, FS_CMD_CLOSE, &in, NULL);	
 	PF->clear(&in);
 }
@@ -1157,10 +1238,12 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 	int32_t size = 0;
 	void *data = proto_read(in, &size);
 	vfs_node_t* node = vfs_get_node_by_id(node_id);
+	dbg_log_pipe_detail("pipe_write_enter", pid, fd, (int32_t)node_id, size);
 
 	//if(size < 0 || data == NULL || node == NULL || node->refs < 2) { //closed by other peer
 	if(size < 0 || data == NULL || node == NULL) { //closed by other peer
 		do_node_wakeup(node, VFS_EVT_RD); //wakeup reader
+		dbg_log_pipe_detail("pipe_write_exit", pid, fd, (int32_t)node_id, -1);
 		return;
 	}
 
@@ -1168,6 +1251,7 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 	if(buffer == NULL) { //pipe buffer not ready 
 		sync_pipe_poll_events(node);
 		do_node_wakeup(node, VFS_EVT_WR);; //wakeup reader
+		dbg_log_pipe_detail("pipe_write_exit", pid, fd, (int32_t)node_id, -2);
 		return;
 	}
 
@@ -1177,11 +1261,13 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 		sync_pipe_poll_events(node);
 		PF->clear(out)->addi(out, size);
 		do_node_wakeup(node, VFS_EVT_RD); //wakeup reader
+		dbg_log_pipe_detail("pipe_write_exit", pid, fd, (int32_t)node_id, size);
 		return;
 	}
 
 	sync_pipe_poll_events(node);
 	PF->clear(out)->addi(out, 0); //buffer full(waiting for read), retry
+	dbg_log_pipe_detail("pipe_write_exit", pid, fd, (int32_t)node_id, 0);
 }
 
 static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
@@ -1252,8 +1338,9 @@ static void vfs_proc_exit(int32_t cpid) {
 static void clear_zombie(int32_t cpid) {
 	if(cpid < 0)
 		return;
-	uint32_t uuid = _proc_fds_table[cpid].uuid;
-	vfs_remove_proc_waiters(cpid, uuid);
+	vfs_remove_proc_waiters(cpid, _proc_fds_table[cpid].uuid);
+	int32_t owner_pid = proc_getpid(cpid);
+	uint32_t owner_uuid = owner_pid >= 0 ? proc_get_uuid(owner_pid) : 0;
 
 	int32_t i;
 	for(i=0; i<MAX_OPEN_FILE_PER_PROC; i++) {
@@ -1270,7 +1357,10 @@ static void clear_zombie(int32_t cpid) {
 				driver_close_task_t* task =
 					(driver_close_task_t*)malloc(sizeof(driver_close_task_t));
 				task->pid = cpid;
+				task->uuid = owner_uuid;
 				task->fd = i;
+				if(owner_pid >= 0)
+					task->pid = owner_pid;
 				task->file = closing;
 				queue_push(&_driver_close_tasks, task);
 			}
@@ -1313,7 +1403,7 @@ static bool flush_driver_close_task(void) {
 			ipc_enable();
 	if(task == NULL)
 		return false;
-	vfs_driver_close(task->pid, task->fd, &task->file);
+	vfs_driver_close(task->pid, task->uuid, task->fd, &task->file);
 	free(task);
 	return true;
 }
@@ -1326,10 +1416,20 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 			cpid < 0 || cpid >= _max_proc_table_num)
 		return;
 
-	if(_proc_fds_table[cpid].state == RUNNING)
-		vfs_proc_exit(cpid);
-	else if(_proc_fds_table[cpid].state == ZOMBIE)
+	if(_proc_fds_table[cpid].state == RUNNING ||
+			_proc_fds_table[cpid].state == ZOMBIE) {
+		uint32_t old_uuid = _proc_fds_table[cpid].uuid;
+		/*
+		 * The child slot is about to be reused immediately. We cannot leave the
+		 * previous occupant queued for later async reaping, otherwise its stale
+		 * fds/refs survive into the reused slot and the delayed zombie task may
+		 * race with the new child. Reap the old slot synchronously here and drop
+		 * any queued zombie task for the same generation.
+		 */
+		_proc_fds_table[cpid].state = ZOMBIE;
+		remove_zombie_task(cpid, old_uuid);
 		clear_zombie(cpid);
+	}
 
 	_proc_fds_table[cpid].state = RUNNING;
 	_proc_fds_table[cpid].uuid = proc_get_uuid(cpid);
@@ -1370,21 +1470,19 @@ static void do_vfs_proc_exit(int32_t pid, proto_t* in) {
 	vfs_proc_exit(cpid);
 }
 
-static void enqueue_waiter(queue_t* q, int32_t pid, uint32_t uuid) {
-	if(q == NULL)
+static void enqueue_waiter(queue_t* q, int32_t pid, uint32_t uuid, bool wr, uint32_t node_id) {
+	wait_entry_t* waiter = get_wait_entry(pid, wr);
+	if(q == NULL || waiter == NULL)
 		return;
 
-	wait_entry_t waiter;
-	waiter.pid = pid;
-	waiter.uuid = uuid;
-	if(queue_in(q, &waiter, queue_waiter_match) != NULL)
-		return;
-
-	wait_entry_t* p = (wait_entry_t*)malloc(sizeof(wait_entry_t));
-	if(p == NULL)
-		return;
-	*p = waiter;
-	queue_push(q, p);
+	/*
+	 * VFS_BLOCK is on the shell hot path. Reuse the per-proc waiter instead of
+	 * malloc()ing a fresh wait record plus queue node for every block/unblock
+	 * round-trip; allocator churn here shows up as a visible IPC timeout.
+	 */
+	waiter->pid = pid;
+	waiter->uuid = uuid;
+	wait_queue_push(q, waiter, node_id);
 }
 
 static void do_vfs_block(int32_t pid, proto_t* in) {
@@ -1396,8 +1494,9 @@ static void do_vfs_block(int32_t pid, proto_t* in) {
 	if(node == NULL)
 		return;
 
-	if((node->events & (uint32_t)events) != 0)
+	if((node->events & (uint32_t)events) != 0) {
 		return;
+	}
 
 	uint32_t uuid = proc_get_uuid(pid);
 	if(uuid == 0)
@@ -1415,9 +1514,9 @@ static void do_vfs_block(int32_t pid, proto_t* in) {
 	 * RD/WR) is parked on the read queue since those events wake both.
 	 */
 	if(rd || (!rd && !wr))
-		enqueue_waiter(&node->read_wait_queue, pid, uuid);
+		enqueue_waiter(&node->read_wait_queue, pid, uuid, false, (uint32_t)node_id);
 	if(wr)
-		enqueue_waiter(&node->write_wait_queue, pid, uuid);
+		enqueue_waiter(&node->write_wait_queue, pid, uuid, true, (uint32_t)node_id);
 }
 
 static void do_vfs_wakeup(int32_t pid, proto_t* in) {
@@ -1445,13 +1544,19 @@ static void do_vfs_unblock(int32_t pid, proto_t* in) {
 	if(node == NULL)
 		return;
 
-	wait_entry_t waiter;
-	waiter.pid = pid;
-	waiter.uuid = proc_get_uuid(pid);
-	if(waiter.uuid == 0)
+	uint32_t uuid = proc_get_uuid(pid);
+	wait_entry_t* read_waiter;
+	wait_entry_t* write_waiter;
+	if(uuid == 0)
 		return;
-	remove_waiter_from_queue(&node->read_wait_queue, &waiter);
-	remove_waiter_from_queue(&node->write_wait_queue, &waiter);
+	read_waiter = get_wait_entry(pid, false);
+	write_waiter = get_wait_entry(pid, true);
+	if(read_waiter != NULL && read_waiter->uuid == uuid &&
+			read_waiter->queue == &node->read_wait_queue)
+		wait_queue_remove_entry(read_waiter);
+	if(write_waiter != NULL && write_waiter->uuid == uuid &&
+			write_waiter->queue == &node->write_wait_queue)
+		wait_queue_remove_entry(write_waiter);
 }
 
 static void do_vfs_get_poll_events(int32_t pid, proto_t* in, proto_t* out) {
