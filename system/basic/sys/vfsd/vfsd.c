@@ -62,8 +62,21 @@ typedef struct {
 	uint32_t uuid;
 } wait_entry_t;
 
+typedef struct {
+	int32_t pid;
+	uint32_t uuid;
+} zombie_task_t;
+
+typedef struct {
+	int32_t pid;
+	int32_t fd;
+	file_t file;
+} driver_close_task_t;
+
 static proc_fds_t* _proc_fds_table = NULL;
 static uint32_t    _max_proc_table_num = 0;
+static queue_t     _zombie_tasks;
+static queue_t     _driver_close_tasks;
 
 static uint32_t vfs_alloc_node_id(void) {
 	uint32_t node_id = _next_node_id++;
@@ -123,6 +136,8 @@ static void vfsd_init(void) {
 		memset(&_proc_fds_table[i], 0, sizeof(proc_fds_t));
 	}
 
+	queue_init(&_zombie_tasks);
+	queue_init(&_driver_close_tasks);
 	_nodes_hash = hashmap_new(0);
 	_vfs_root = vfs_new_node();
 	strcpy(_vfs_root->fsinfo.name, "/");
@@ -488,7 +503,6 @@ static inline fsinfo_t* gen_file_fsinfo(file_t* file) {
 }
 
 static void wakeup_proc(wait_entry_t* waiter, vfs_node_t* node, int32_t events) {
-	(void)node;
 	(void)events;
 	if(waiter == NULL)
 		return;
@@ -496,7 +510,7 @@ static void wakeup_proc(wait_entry_t* waiter, vfs_node_t* node, int32_t events) 
 		return;
 	if(proc_check_uuid(waiter->pid, waiter->uuid) == 0)
 		return;
-	proc_wakeup(waiter->pid);
+	proc_wakeup_by(waiter->pid, vfs_get_node_id(node));
 }
 
 static void wakeup_wait_queue(queue_t* q, vfs_node_t* node, int32_t events) {
@@ -518,6 +532,14 @@ static bool queue_waiter_match(void* data, void* check_data) {
 	wait_entry_t* waiter = (wait_entry_t*)data;
 	wait_entry_t* check = (wait_entry_t*)check_data;
 	return waiter->pid == check->pid && waiter->uuid == check->uuid;
+}
+
+static bool queue_zombie_task_match(void* data, void* check_data) {
+	if(data == NULL || check_data == NULL)
+		return false;
+	zombie_task_t* task = (zombie_task_t*)data;
+	zombie_task_t* check = (zombie_task_t*)check_data;
+	return task->pid == check->pid && task->uuid == check->uuid;
 }
 
 static void remove_waiter_from_queue(queue_t* q, const wait_entry_t* waiter) {
@@ -597,9 +619,8 @@ static void sync_pipe_poll_events(vfs_node_t* node) {
 }
 
 static void vfs_driver_close(int32_t pid, int32_t fd, file_t* file) {
-	if(file == NULL || file->node == NULL)
+	if(file == NULL)
 		return;
-	vfs_node_t* node = file->node;
 	uint32_t type = file->fsinfo.type & FS_TYPE_MASK;
 
 	/*
@@ -612,13 +633,14 @@ static void vfs_driver_close(int32_t pid, int32_t fd, file_t* file) {
 	if(type == FS_TYPE_FILE || type == FS_TYPE_DIR || type == FS_TYPE_LINK)
 		return;
 
+	int32_t mount_pid = file->fsinfo.mount_pid;
+	if(mount_pid <= 0 || file->fsinfo.node == 0)
+		return;
+
 	proto_t in;
 	PF->format(&in, "i,i,m,i",
-		fd, vfs_get_node_id(node), &file->fsinfo, sizeof(fsinfo_t), pid);
-	int32_t mount_pid = vfs_get_mount_pid(node);
-	if(mount_pid > 0) {
+		fd, file->fsinfo.node, &file->fsinfo, sizeof(fsinfo_t), pid);
 		ipc_call(mount_pid, FS_CMD_CLOSE, &in, NULL);	
-	}
 	PF->clear(&in);
 }
 
@@ -1215,6 +1237,16 @@ static void vfs_proc_exit(int32_t cpid) {
 	if(cpid < 0 || cpid >= _max_proc_table_num)
 		return;
 	_proc_fds_table[cpid].state = ZOMBIE;
+	if(_proc_fds_table[cpid].uuid != 0) {
+		zombie_task_t check;
+		check.pid = cpid;
+		check.uuid = _proc_fds_table[cpid].uuid;
+		if(queue_in(&_zombie_tasks, &check, queue_zombie_task_match) == NULL) {
+			zombie_task_t* task = (zombie_task_t*)malloc(sizeof(zombie_task_t));
+			*task = check;
+			queue_push(&_zombie_tasks, task);
+		}
+	}
 }
 
 static void clear_zombie(int32_t cpid) {
@@ -1227,19 +1259,21 @@ static void clear_zombie(int32_t cpid) {
 	for(i=0; i<MAX_OPEN_FILE_PER_PROC; i++) {
 		file_t *f = &_proc_fds_table[cpid].fds[i];
 		if(f->node != NULL) {
-			/*
-			 * Zombie cleanup runs from the main loop with IPC temporarily
-			 * disabled to avoid re-entrant mutation of the fd tables. Do not
-			 * keep vfsd globally unavailable while synchronously notifying
-			 * backing drivers: detach the fd from the zombie table first, then
-			 * re-enable IPC around the potentially blocking driver close so
-			 * metadata lookups like VFS_GET_BY_NODE can still make progress.
-			 */
 			file_t closing = *f;
 			memset(f, 0, sizeof(file_t));
-			ipc_enable();
-			vfs_driver_close(cpid, i, &closing);
-			ipc_disable();
+			uint32_t type = closing.fsinfo.type & FS_TYPE_MASK;
+			if(type != FS_TYPE_FILE &&
+					type != FS_TYPE_DIR &&
+					type != FS_TYPE_LINK &&
+					closing.fsinfo.mount_pid > 0 &&
+					closing.fsinfo.node != 0) {
+				driver_close_task_t* task =
+					(driver_close_task_t*)malloc(sizeof(driver_close_task_t));
+				task->pid = cpid;
+				task->fd = i;
+				task->file = closing;
+				queue_push(&_driver_close_tasks, task);
+			}
 			proc_file_close(cpid, i, &closing);
 			continue;
 		}
@@ -1250,23 +1284,38 @@ static void clear_zombie(int32_t cpid) {
 	_proc_fds_table[cpid].uuid = 0;
 }
 
-static void clear_zombies(void) {
-	int32_t i;
-	for(i = 0; i<_max_proc_table_num; i++) {
-		if(_proc_fds_table[i].state == ZOMBIE) {
-			/*
-			 * Boot scripts spawn and detach many short-lived helpers. Scanning the
-			 * whole proc table with IPC disabled stalls unrelated metadata requests
-			 * behind zombie cleanup. Only hold the non-reentrant section while
-			 * actually reclaiming one zombie slot.
+static void clear_pending_zombies(void* p) {
+	(void)p;
+	while(true) {
+		zombie_task_t* task = (zombie_task_t*)queue_pop(&_zombie_tasks);
+		if(task == NULL)
+			return;
+		if(task->pid >= 0 &&
+				task->pid < _max_proc_table_num &&
+				_proc_fds_table[task->pid].state == ZOMBIE &&
+				_proc_fds_table[task->pid].uuid == task->uuid) {
+			clear_zombie(task->pid);
+			free(task);
+			return;
+		}
+		free(task);
+	}
+}
+
+static bool flush_driver_close_task(void) {
+	driver_close_task_t* task = NULL;
+	/*
+	 * The close-task queue is shared with the IPC handler, but unlike proc/node
+	 * state it only needs a tiny critical section to pop one immutable snapshot.
 			 */
 			ipc_disable();
-			if(_proc_fds_table[i].state == ZOMBIE) {
-				clear_zombie(i);
-			}
+	task = (driver_close_task_t*)queue_pop(&_driver_close_tasks);
 			ipc_enable();
-		}
-	}
+	if(task == NULL)
+		return false;
+	vfs_driver_close(task->pid, task->fd, &task->file);
+	free(task);
+	return true;
 }
 
 static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
@@ -1321,33 +1370,13 @@ static void do_vfs_proc_exit(int32_t pid, proto_t* in) {
 	vfs_proc_exit(cpid);
 }
 
-static void do_vfs_block(int32_t pid, proto_t* in) {
-	int node_id = proto_read_int(in);
-	int events = proto_read_int(in);
-	if(node_id == 0)
-		return;
-    vfs_node_t* node = vfs_get_node_by_id(node_id);
-	if(node == NULL)
-		return;
-
-	queue_t* q = NULL;
-	if((events & VFS_EVT_RD) != 0)
-		q = &node->read_wait_queue;
-	else if((events & VFS_EVT_WR) != 0)
-		q = &node->write_wait_queue;
-
+static void enqueue_waiter(queue_t* q, int32_t pid, uint32_t uuid) {
 	if(q == NULL)
-		return;
-
-	if((node->events & (uint32_t)events) != 0)
 		return;
 
 	wait_entry_t waiter;
 	waiter.pid = pid;
-	waiter.uuid = proc_get_uuid(pid);
-	if(waiter.uuid == 0)
-		return;
-
+	waiter.uuid = uuid;
 	if(queue_in(q, &waiter, queue_waiter_match) != NULL)
 		return;
 
@@ -1358,6 +1387,39 @@ static void do_vfs_block(int32_t pid, proto_t* in) {
 	queue_push(q, p);
 }
 
+static void do_vfs_block(int32_t pid, proto_t* in) {
+	int node_id = proto_read_int(in);
+	int events = proto_read_int(in);
+	if(node_id == 0)
+		return;
+    vfs_node_t* node = vfs_get_node_by_id(node_id);
+	if(node == NULL)
+		return;
+
+	if((node->events & (uint32_t)events) != 0)
+		return;
+
+	uint32_t uuid = proc_get_uuid(pid);
+	if(uuid == 0)
+		return;
+
+	bool rd = (events & VFS_EVT_RD) != 0;
+	bool wr = (events & VFS_EVT_WR) != 0;
+
+	/*
+	 * A poll()/select() waiter can watch a single fd for both read and
+	 * write readiness. Read edges only wake the read queue and write edges
+	 * only wake the write queue, so a dual-interest waiter must live on
+	 * BOTH queues; registering on one alone strands the other edge and the
+	 * poll blocks forever. A waiter interested only in close/err/nval (no
+	 * RD/WR) is parked on the read queue since those events wake both.
+	 */
+	if(rd || (!rd && !wr))
+		enqueue_waiter(&node->read_wait_queue, pid, uuid);
+	if(wr)
+		enqueue_waiter(&node->write_wait_queue, pid, uuid);
+}
+
 static void do_vfs_wakeup(int32_t pid, proto_t* in) {
 	(void)pid;
 	int node_id = proto_read_int(in);
@@ -1366,6 +1428,30 @@ static void do_vfs_wakeup(int32_t pid, proto_t* in) {
 		return;
     vfs_node_t* node = vfs_get_node_by_id(node_id);
 	do_node_wakeup(node, events);
+}
+
+/*
+ * Remove the caller's waiter from a single node's queues. A process must be
+ * registered on a node ONLY while it is actually blocked waiting on it;
+ * otherwise a stale entry lets an unrelated node event (e.g. tty keyboard RD)
+ * spuriously wake a process now blocked elsewhere (e.g. a shell write), because
+ * the kernel proc_wakeup() is unconditional and not tied to any node.
+ */
+static void do_vfs_unblock(int32_t pid, proto_t* in) {
+	int node_id = proto_read_int(in);
+	if(node_id == 0)
+		return;
+	vfs_node_t* node = vfs_get_node_by_id(node_id);
+	if(node == NULL)
+		return;
+
+	wait_entry_t waiter;
+	waiter.pid = pid;
+	waiter.uuid = proc_get_uuid(pid);
+	if(waiter.uuid == 0)
+		return;
+	remove_waiter_from_queue(&node->read_wait_queue, &waiter);
+	remove_waiter_from_queue(&node->write_wait_queue, &waiter);
 }
 
 static void do_vfs_get_poll_events(int32_t pid, proto_t* in, proto_t* out) {
@@ -1463,6 +1549,9 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	case VFS_WAKEUP:
 		do_vfs_wakeup(pid, in);
 		break;
+	case VFS_UNBLOCK:
+		do_vfs_unblock(pid, in);
+		break;
 	case VFS_GET_POLL_EVENTS:
 		do_vfs_get_poll_events(pid, in, out);
 		break;
@@ -1487,11 +1576,11 @@ int main(int argc, char** argv) {
 	}
 
 	vfsd_init();
-	ipc_serv_run(handle, NULL, NULL, IPC_DEFAULT);
+	ipc_serv_run(handle, clear_pending_zombies, NULL, IPC_DEFAULT);
 
 	while(true) {
+		if(!flush_driver_close_task())
 		usleep(10000);
-		clear_zombies();
 	}
 
 	free(_proc_fds_table);

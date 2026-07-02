@@ -83,6 +83,7 @@ int       vfs_fcntl(int fd, int cmd, proto_t* in, proto_t* out);
 int       vfs_fcntl_wait(int fd, int cmd, proto_t* in);
 
 int       vfs_block(uint32_t node, int event);
+int       vfs_unblock(uint32_t node);
 int       vfs_wakeup(uint32_t node, int event);
 int       vfs_poll(vfs_pollfd_t* fds, int num, int timeout);
 

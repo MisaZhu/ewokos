@@ -557,6 +557,7 @@ static int32_t proc_init_space(proc_t* proc) {
 	proc->space->vm = vm;
 	proc->space->heap_size = 0;
 	proc->space->heap_used = 0;
+	proto_init(&proc->space->interrupt.ipc_res.data);
 	return 0;
 }
 
@@ -640,7 +641,7 @@ static void proc_ipc_timeout(proc_t* proc) {
 	}
 
 	if(ipc->client_pid > 0) {
-		client_proc = proc_get(ipc->client_pid);
+		client_proc = proc_ipc_get_client(ipc);
 		client_uid = ipc->uid;
 	}
 
@@ -658,11 +659,13 @@ static void proc_ipc_timeout(proc_t* proc) {
 
 	if(client_proc != NULL &&
 			client_proc->info.state != UNUSED &&
-			client_proc->info.state != ZOMBIE &&
-			client_proc->ipc_res.uid == client_uid) {
-		client_proc->ipc_res.uid = 0;
-		client_proc->ipc_res.state = IPC_IDLE;
-		proto_clear(&client_proc->ipc_res.data);
+			client_proc->info.state != ZOMBIE) {
+		ipc_res_t* cres = proc_ipc_client_res(client_proc, ipc);
+		if(cres != NULL && cres->uid == client_uid) {
+			cres->uid = 0;
+			cres->state = IPC_IDLE;
+			proto_clear(&cres->data);
+		}
 	}
 
 	proc_ipc_close(proc, ipc);
@@ -1109,6 +1112,7 @@ void proc_funeral(proc_t* proc) {
 
 		if(space->thread_stacks != NULL)
 			kfree(space->thread_stacks);
+		proto_clear(&space->interrupt.ipc_res.data);
 		kfree(space);
 		proc->space = NULL;
 	}
@@ -1505,19 +1509,29 @@ void proc_usleep(context_t* ctx, uint32_t count) {
 	proc_account_resume_current();
 }
 	
-void proc_block(context_t* ctx, proc_t* proc) {
+void proc_block_by(context_t* ctx, proc_t* proc, uint32_t token) {
 	if(proc == NULL)
 		return;
 	proc_lock_enter();
 	if(proc->info.state == READY) {
 		/*
 		 * A wakeup may arrive between userspace deciding to block and the
-		 * actual SYS_BLOCK trap. Preserve that sticky wake instead of
-		 * overwriting it with BLOCK and sleeping forever.
+		 * actual SYS_BLOCK trap. Consume that sticky wake only if it was a
+		 * generic wake (token 0), an untagged wake, or a wake for this same
+		 * token. Otherwise the pending wake belongs to a different node and
+		 * must NOT satisfy this block, so we fall through and sleep for our
+		 * own token instead. This is what stops a tty keyboard RD edge from
+		 * being consumed by an unrelated pipe write block.
 		 */
-		proc->info.state = RUNNING;
-		proc_lock_leave();
-		return;
+		if(token == 0 || proc->wake_by == 0 || proc->wake_by == token) {
+			proc->info.state = RUNNING;
+			proc->wake_by = 0;
+			proc->block_by = 0;
+			proc_lock_leave();
+			return;
+		}
+		/* stale wake was for another node; abandon it and block for ours */
+		proc->wake_by = 0;
 	}
 	/*
 	 * Hold the lock through proc_unready_locked() to close the race window
@@ -1525,6 +1539,7 @@ void proc_block(context_t* ctx, proc_t* proc) {
 	 * enqueue us between the READY check above and the state transition
 	 * to BLOCK. Without this, a cross-core IPC wakeup can be lost.
 	 */
+	proc->block_by = token;
 	proc_unready_locked(proc, BLOCK);
 	proc_lock_leave();
 	if(proc == get_current_proc())
@@ -1533,6 +1548,10 @@ void proc_block(context_t* ctx, proc_t* proc) {
 	schedule(ctx);
 	if(proc == get_current_proc())
 		proc_account_resume_current();
+}
+
+void proc_block(context_t* ctx, proc_t* proc) {
+	proc_block_by(ctx, proc, 0);
 }
 
 void proc_waitpid(context_t* ctx, int32_t pid) {
@@ -1581,14 +1600,40 @@ static void proc_wakeup_all_state(proc_t* proc) {
 	proc->space->interrupt.saved_state.state = READY;
 }
 
-void proc_wakeup(proc_t* proc) {
+void proc_wakeup_by(proc_t* proc, uint32_t token) {
 	proc_lock_enter();
 	if(proc == NULL || proc->info.state == UNUSED ||
 			proc->info.state == ZOMBIE) {
 		proc_lock_leave();
 		return;
 	}
-	proc_wakeup_all_state(proc);
+
+	/*
+	 * Node-scoped wakeup. token 0 is a generic/unconditional wake (IPC,
+	 * signals, waitpid, interrupts) and always applies. A non-zero token is a
+	 * VFS node id: if the proc is blocked on a DIFFERENT specific node, this
+	 * edge is not for it and must be ignored. Without this the kernel wakeup
+	 * is unconditional and an event on one node (e.g. tty keyboard RD) wrongly
+	 * releases a proc blocked on an unrelated node (e.g. a shell pipe write).
+	 */
+	if(proc->info.state == BLOCK) {
+		if(token != 0 && proc->block_by != 0 && proc->block_by != token) {
+			proc_lock_leave();
+			return;
+		}
+		proc->block_by = 0;
+		proc->wake_by = 0;
+		proc_wakeup_all_state(proc);
+	}
+	else {
+		/*
+		 * Not blocked yet. Keep the sticky READY so a wake landing in the gap
+		 * between VFS registration and proc_block() is not lost, and tag it
+		 * with the token so only a matching (or generic) block consumes it.
+		 */
+		proc_wakeup_all_state(proc);
+		proc->wake_by = token;
+	}
 	proc_lock_leave();
 #ifdef KERNEL_SMP
 	if(_cpu_cores[proc->info.core].actived) {
@@ -1598,6 +1643,10 @@ void proc_wakeup(proc_t* proc) {
 		}
 	}
 #endif
+}
+
+void proc_wakeup(proc_t* proc) {
+	proc_wakeup_by(proc, 0);
 }
 
 static inline char* proc_clone_addr_to_ptr(proc_t* proc, uint32_t addr) {
@@ -1898,6 +1947,22 @@ static int32_t renew_interrupt_counter(uint32_t usec) {
 			it = next;
 			continue;
 		}
+		/*
+		 * Only age the handler while it is actually runnable. When it is
+		 * BLOCK/SLEEPING/WAIT it is legitimately parked on a nested IPC reply,
+		 * a sleep, or a wait - not a runaway. Force-aborting it here would
+		 * orphan the in-flight nested IPC and break recovery of the IPC that
+		 * the interrupt issued, so freeze (reset) the watchdog while parked.
+		 * A genuinely stuck nested call is reclaimed by that call's own IPC
+		 * timeout, which keeps running because the nested server is not parked.
+		 */
+		if(proc->info.state == BLOCK ||
+				proc->info.state == SLEEPING ||
+				proc->info.state == WAIT) {
+			proc->space->interrupt.counter = 0;
+			it = next;
+			continue;
+		}
 		proc->space->interrupt.counter += usec;
 		if(proc->space->interrupt.counter >= INTERRUPT_TIMEOUT_USEC) {
 			printf("interrupt timeout: %d , %d\n", proc->space->interrupt.interrupt, proc->info.pid);
@@ -1927,6 +1992,23 @@ static int32_t renew_ipc_counter(uint32_t usec) {
 		ipc_task_t* ipc = &proc->space->ipc_server.ctask;
 		if(ipc->state == IPC_IDLE) {
 			proc_untrack_ipc_timeout(proc);
+			it = next;
+			continue;
+		}
+
+		/*
+		 * Do not age the in-flight service task while the server is preempted
+		 * by an interrupt (INTR_STATE_WORKING) or is itself parked on a nested
+		 * IPC/sleep/wait. Those are legitimate, recoverable stalls: aborting
+		 * the ctask here would drop the client's reply just because an
+		 * interrupt ran during the service. Freeze (reset) the counter so the
+		 * timeout only measures a continuous runnable service stall.
+		 */
+		if(proc->space->interrupt.state == INTR_STATE_WORKING ||
+				proc->info.state == BLOCK ||
+				proc->info.state == SLEEPING ||
+				proc->info.state == WAIT) {
+			ipc->counter = 0;
 			it = next;
 			continue;
 		}
@@ -2035,6 +2117,54 @@ int32_t get_proc_pid(int32_t pid) {
 	if(p == NULL)
 		return pid;
 	return p->info.pid;
+}
+
+/*
+ * Resolve the task that issued an IPC, gated by the uuid captured when the
+ * task was recorded as the client. pid slots are reused after a task exits,
+ * so proc_get(ipc->client_pid) alone can return a completely unrelated
+ * process that now owns that reused slot. Waking/mutating that stale target
+ * (e.g. the generic proc_wakeup() in sys_ipc_end) spuriously releases an
+ * unrelated blocked process - this is how a tty input IPC could wake an
+ * sshd socket write block. The uuid check ensures the slot is still the
+ * SAME task that made the call.
+ */
+proc_t* proc_ipc_get_client(ipc_task_t* ipc) {
+	if(ipc == NULL || ipc->client_pid < 0)
+		return NULL;
+	proc_t* client = proc_get(ipc->client_pid);
+	if(client == NULL)
+		return NULL;
+	if(ipc->client_uuid != 0 && client->info.uuid != ipc->client_uuid)
+		return NULL;
+	return client;
+}
+
+/*
+ * Select the reply slot for the client's CURRENTLY executing context. An
+ * interrupt handler runs with its own dedicated ipc_res, so an IPC it issues
+ * never collides with the main context's outstanding IPC-as-client request
+ * that is parked while the handler runs. Used by sys_ipc_call/sys_ipc_get_return.
+ */
+ipc_res_t* proc_cur_ipc_res(proc_t* proc) {
+	if(proc == NULL)
+		return NULL;
+	if(proc->space != NULL && proc->space->interrupt.state == INTR_STATE_WORKING)
+		return &proc->space->interrupt.ipc_res;
+	return &proc->ipc_res;
+}
+
+/*
+ * Select the reply slot a given ipc task must deliver into, based on whether
+ * the client issued the call from interrupt context. Used by the server side
+ * (sys_ipc_set_return) and by proc_ipc_timeout when clearing the client.
+ */
+ipc_res_t* proc_ipc_client_res(proc_t* client, ipc_task_t* ipc) {
+	if(client == NULL || ipc == NULL)
+		return NULL;
+	if(ipc->client_intr && client->space != NULL)
+		return &client->space->interrupt.ipc_res;
+	return &client->ipc_res;
 }
 
 proc_t* kfork_core_halt(uint32_t core) {

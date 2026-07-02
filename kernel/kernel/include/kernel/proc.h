@@ -64,6 +64,16 @@ typedef struct st_proc {
 	proc_space_t*     space; //threads share the space from owner proc
 	uint32_t          thread_stack_base;
 
+	/*
+	 * Node-scoped block/wake token. block_by is the VFS node id this proc is
+	 * currently blocked on (0 = generic/tokenless block). wake_by records the
+	 * token of a sticky wake that arrived before the proc actually blocked, so
+	 * only a matching (or generic) block consumes it. This prevents a wakeup
+	 * for one node from releasing a proc blocked on an unrelated node.
+	 */
+	uint32_t          block_by;
+	uint32_t          wake_by;
+
 	context_t         ctx;
 } proc_t;
 
@@ -95,12 +105,17 @@ extern uint32_t  proc_msize(proc_t* proc);
 extern void    proc_free(proc_t* proc);
 
 extern void    proc_block(context_t* text, proc_t* proc);
+extern void    proc_block_by(context_t* ctx, proc_t* proc, uint32_t token);
 extern void    proc_wakeup(proc_t* proc);
+extern void    proc_wakeup_by(proc_t* proc, uint32_t token);
 extern void    proc_waitpid(context_t* ctx, int32_t pid);
 extern proc_t* proc_get(int32_t pid);
 extern proc_t* proc_get_by_uuid(uint32_t uuid);
 extern proc_t* proc_get_proc(proc_t* proc);
 extern int32_t get_proc_pid(int32_t pid);
+extern proc_t* proc_ipc_get_client(ipc_task_t* ipc);
+extern ipc_res_t* proc_cur_ipc_res(proc_t* proc);
+extern ipc_res_t* proc_ipc_client_res(proc_t* client, ipc_task_t* ipc);
 extern proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent);
 extern proc_t* kfork(context_t* ctx, int32_t type);
 extern proc_t* kfork_core_halt(uint32_t core);

@@ -1,6 +1,15 @@
 include config.mk
 
+# Use bash so process substitution works for stderr filtering
+SHELL := /bin/bash
+
 LDS = mkos.lds.S
+
+# Filter out harmless macOS Input Method Kit (IMK) console spam from QEMU's
+# Cocoa display backend, e.g. "error messaging the mach port for
+# IMKCFRunLoopWakeUpReliable". The serial console uses stdout, so filtering
+# stderr keeps real QEMU errors visible while dropping this noise.
+QEMU_STDERR_FILTER = 2> >(grep -v 'IMKCFRunLoopWakeUpReliable' >&2)
 
 ifeq ($(ARCH), aarch64)
 	OS_IMG = kernel8.img
@@ -62,16 +71,16 @@ asm:
 	$(OBJDUMP) -D $(BUILD_DIR)/$(OS_ELF) > $(BUILD_DIR)/kernel.asm
 
 run: 
-	$(QEMU_CMD) $(QEMU_FLAGS) $(QEMU_ARGS)
+	$(QEMU_CMD) $(QEMU_FLAGS) $(QEMU_ARGS) $(QEMU_STDERR_FILTER)
 
 runasm: 
-	$(QEMU_CMD) $(QEMU_FLAGS) $(QEMU_ARGS) -d in_asm
+	$(QEMU_CMD) $(QEMU_FLAGS) $(QEMU_ARGS) -d in_asm $(QEMU_STDERR_FILTER)
 
 debug:
-	$(QEMU_CMD) $(QEMU_FLAGS) -gdb tcp::26000 -S $(QEMU_ARGS)
+	$(QEMU_CMD) $(QEMU_FLAGS) -gdb tcp::26000 -S $(QEMU_ARGS) $(QEMU_STDERR_FILTER)
 
 debugasm:
-	$(QEMU_CMD) $(QEMU_FLAGS) -d in_asm -gdb tcp::26000 -S $(QEMU_ARGS)
+	$(QEMU_CMD) $(QEMU_FLAGS) -d in_asm -gdb tcp::26000 -S $(QEMU_ARGS) $(QEMU_STDERR_FILTER)
 
 gdb: 
 	echo "target remote :26000" > /tmp/gdbinit

@@ -579,6 +579,42 @@ int task_wakeup_tcp_readers(int tcp_desc) {
     return wake_count;
 }
 
+int task_wakeup_tcp_writers(int tcp_desc) {
+    enum { MAX_WAKE_CANDIDATES = 64 };
+    uint32_t wake_nodes[MAX_WAKE_CANDIDATES];
+    int wake_count = 0;
+
+    if (tcp_desc < 0) {
+        return 0;
+    }
+
+    pthread_mutex_lock(&task_list_lock);
+    net_task_t *task = task_list;
+    while (task != NULL) {
+        /*
+         * The main task (not the read_task) issues SOCK_SEND, so wake the
+         * socket's own VFS node. A client blocked in vfs_block(VFS_EVT_WR)
+         * after a flow-controlled send (tcp_send returned EAGAIN on a closed
+         * window) resumes and re-arms its send once this edge fires.
+         */
+        if (task->sock >= 0 &&
+            sock_get_type(task->sock) == SOCK_STREAM &&
+            sock_get_desc(task->sock) == tcp_desc &&
+            task->node > 0) {
+            if (wake_count < MAX_WAKE_CANDIDATES) {
+                wake_nodes[wake_count++] = task->node;
+            }
+        }
+        task = task->next;
+    }
+    pthread_mutex_unlock(&task_list_lock);
+
+    for (int i = 0; i < wake_count; i++) {
+        vfs_wakeup(wake_nodes[i], VFS_EVT_WR);
+    }
+    return wake_count;
+}
+
 static uint32_t task_finish_wakeup_event(const net_task_t *task) {
     if(task->is_read_task) {
         return VFS_EVT_RD;

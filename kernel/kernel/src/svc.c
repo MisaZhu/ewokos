@@ -18,6 +18,7 @@
 #include <dev/timer.h>
 #include <syscalls.h>
 #include <kstring.h>
+#include <signals.h>
 #include <kprintf.h>
 #include <stddef.h>
 
@@ -93,6 +94,15 @@ static void sys_signal(context_t* ctx, int32_t pid, int32_t sig) {
 	if((cproc->info.uid > 0 &&
 			cproc->info.uid != proc->info.uid) ||
 			proc->info.uid < 0) {
+		return;
+	}
+
+	ctx->gpr[0] = 0;
+	if((sig == SYS_SIG_KILL || sig == SYS_SIG_STOP) &&
+			proc != cproc &&
+			proc->info.state != RUNNING &&
+			proc->info.state != READY) {
+		proc_exit(ctx, proc, 0);
 		return;
 	}
 	proc_signal_send(ctx, proc, sig, true);
@@ -398,7 +408,7 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 		return;
 	}
 
-	client_proc->ipc_res.state = IPC_BUSY;
+	proc_cur_ipc_res(client_proc)->state = IPC_BUSY;
 	ctx->gpr[0] = ipc->uid;
 	proc_ipc_do_task(ctx, serv_proc, client_proc->info.core);
 }
@@ -412,7 +422,8 @@ static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_
 	}
 	pid = get_proc_pid(pid);
 
-	if(client_proc->ipc_res.state != IPC_RETURN) { //block retry for serv return
+	ipc_res_t* res = proc_cur_ipc_res(client_proc);
+	if(res->state != IPC_RETURN) { //block retry for serv return
 		proc_t* serv_proc = proc_get(pid);
 		ipc_task_t* ipc = proc_ipc_get_task(serv_proc);
 		if(ipc == NULL) {
@@ -428,23 +439,23 @@ static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_
 		return;
 	}
 
-	if(client_proc->ipc_res.uid != uid) {
+	if(res->uid != uid) {
 		ctx->gpr[0] = -2;
 		return;
 	}
 
 	if(data != NULL && data->data != NULL) {
-		if(data->total_size >= client_proc->ipc_res.data.size)
-			proto_copy(data, client_proc->ipc_res.data.data, client_proc->ipc_res.data.size);
+		if(data->total_size >= res->data.size)
+			proto_copy(data, res->data.data, res->data.size);
 		else {
-			ctx->gpr[0] = client_proc->ipc_res.data.size; //return ret_arg size if input pkg not big enought
+			ctx->gpr[0] = res->data.size; //return ret_arg size if input pkg not big enought
 			return;
 		}
 	}
 
-	client_proc->ipc_res.uid = 0;
-	client_proc->ipc_res.state = IPC_IDLE;
-	proto_clear(&client_proc->ipc_res.data);
+	res->uid = 0;
+	res->state = IPC_IDLE;
+	proto_clear(&res->data);
 }
 
 static int32_t sys_ipc_get_info(uint32_t uid, int32_t* ipc_info, proto_t* arg) {
@@ -486,12 +497,13 @@ static void sys_ipc_set_return(context_t* ctx, uint32_t uid, proto_t* data) {
 		return;
 	}
 
-	proc_t* client_proc = proc_get(ipc->client_pid);
+	proc_t* client_proc = proc_ipc_get_client(ipc);
 	if(client_proc != NULL) {
-		client_proc->ipc_res.state = IPC_RETURN;
-		client_proc->ipc_res.uid = uid;
+		ipc_res_t* res = proc_ipc_client_res(client_proc, ipc);
+		res->state = IPC_RETURN;
+		res->uid = uid;
 		if(data != NULL) {
-			proto_copy(&client_proc->ipc_res.data, data->data, data->size);
+			proto_copy(&res->data, data->data, data->size);
 		}
 	}
 }
@@ -504,7 +516,7 @@ static void sys_ipc_end(context_t* ctx) {
 			ipc == NULL)
 		return;
 
-	proc_t* client_proc = proc_get(ipc->client_pid);
+	proc_t* client_proc = proc_ipc_get_client(ipc);
 	bool wake_return_client = ((ipc->call_id & IPC_NON_RETURN) == 0);
 
 	serv_proc->space->ipc_server.restore_pending = 0;
@@ -622,7 +634,7 @@ static void set_block_evt(proc_t* proc, uint32_t event) {
 	}
 }
 
-static void sys_proc_block(context_t* ctx) {
+static void sys_proc_block(context_t* ctx, uint32_t token) {
 	proc_t* cproc = get_current_proc();
 	if(cproc == NULL)
 		return;
@@ -632,16 +644,16 @@ static void sys_proc_block(context_t* ctx) {
 		return;
 	}
 
-	proc_block(ctx, cproc);
+	proc_block_by(ctx, cproc, token);
 }
 
-static void sys_proc_wakeup(context_t* ctx, int32_t pid) {
+static void sys_proc_wakeup(context_t* ctx, int32_t pid, uint32_t token) {
 	(void)ctx;
 	proc_t* cproc = proc_get_proc(get_current_proc());
 	if(cproc->info.uid > 0)
 		return;
 	proc_t* proc = proc_get(pid);
-	proc_wakeup(proc);
+	proc_wakeup_by(proc, token);
 }
 
 static void sys_core_proc_ready(void) {
@@ -845,10 +857,10 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
 		sys_get_kevent(ctx, (kevent_t*)arg0);
 		return;
 	case SYS_WAKEUP:
-		sys_proc_wakeup(ctx, arg0);
+		sys_proc_wakeup(ctx, arg0, (uint32_t)arg1);
 		return;
 	case SYS_BLOCK:
-		sys_proc_block(ctx);
+		sys_proc_block(ctx, (uint32_t)arg0);
 		return;
 	case SYS_CORE_READY:
 		sys_core_proc_ready();

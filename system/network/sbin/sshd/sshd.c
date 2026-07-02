@@ -735,9 +735,9 @@ static int save_host_key_to_file(const char* path, const uint8_t* der, int der_l
 }
 
 static int ssh_packet_send_locked(sshd_session_t* s, const ssh_packet_t* packet) {
-    uint8_t buf[SSH_MAX_PACKET_SIZE + 96];
     uint8_t mac[32];
-    uint8_t mac_input[4 + SSH_MAX_PACKET_SIZE + 64];
+    uint8_t* buf = NULL;
+    uint8_t* mac_input = NULL;
     uint32_t block_size = s->encryption_enabled ? 16 : 8;
     uint32_t base_len = 1 + 1 + packet->payload_len;
     uint32_t padding_len = block_size - ((4 + base_len) % block_size);
@@ -746,15 +746,31 @@ static int ssh_packet_send_locked(sshd_session_t* s, const ssh_packet_t* packet)
     size_t total_len;
     size_t wire_len;
     uint8_t* p;
+    int ret = -1;
+
+    /*
+     * buf and mac_input are ~32KB each. Keeping them on the stack pushed this
+     * frame to ~64KB; combined with the caller's ssh_packet_t (~32KB) the send
+     * path overran the pthread stack. Since thread stacks are packed with no
+     * guard page, that silently smashed an adjacent thread's saved registers
+     * and later caused a data abort on a corrupted pointer. Allocate on the
+     * heap instead (send path is already serialized by send_lock).
+     */
+    buf = (uint8_t*)malloc(SSH_MAX_PACKET_SIZE + 96);
+    mac_input = (uint8_t*)malloc(4 + SSH_MAX_PACKET_SIZE + 64);
+    if(buf == NULL || mac_input == NULL) {
+        sshd_set_error("packet send out of memory");
+        goto out;
+    }
 
     if(padding_len < 4)
         padding_len += block_size;
     packet_len = base_len + padding_len;
     total_len = 4 + packet_len;
 
-    if(total_len > sizeof(buf)) {
+    if(total_len > (size_t)(SSH_MAX_PACKET_SIZE + 96)) {
         sshd_set_error("packet too large");
-        return -1;
+        goto out;
     }
 
     p = buf;
@@ -775,16 +791,20 @@ static int ssh_packet_send_locked(sshd_session_t* s, const ssh_packet_t* packet)
         hmac_sha256(s->mac_key_s2c, sizeof(s->mac_key_s2c), mac_input, 4 + total_len, mac);
         if(ssh_aes256_ctr_crypt(buf, total_len, s->enc_key_s2c, s->iv_s2c) < 0) {
             sshd_set_error("encrypt failed");
-            return -1;
+            goto out;
         }
         memcpy(buf + total_len, mac, sizeof(mac));
         wire_len += sizeof(mac);
     }
 
     if(ssh_write_n(s, buf, wire_len) < 0)
-        return -1;
+        goto out;
     s->seq_s2c++;
-    return 0;
+    ret = 0;
+out:
+    free(buf);
+    free(mac_input);
+    return ret;
 }
 
 static int ssh_packet_send(sshd_session_t* s, const ssh_packet_t* packet) {

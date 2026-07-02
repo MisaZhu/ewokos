@@ -46,6 +46,7 @@ int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p);
 int task_check_read_events(void);
 int task_has_read_watchers(void);
 int task_wakeup_tcp_readers(int tcp_desc);
+int task_wakeup_tcp_writers(int tcp_desc);
 
 extern pthread_mutex_t task_list_lock;
 

@@ -3,7 +3,10 @@
 #include <signal.h>
 
 int main(int argc, char* argv[]) {
-	int pid, res, sig=SIGSTOP;
+	int pid, res;
+	//int sig=SYS_SIG_STOP;
+	int sig=SYS_SIG_KILL;
+
 	if(argc < 2) {
 		printf("Usage: kill <pid> {sig}.\n");
 		return -1;

@@ -27,6 +27,7 @@ typedef struct {
 	queue_t       wait_queue;
 
     ipc_res_t     saved_ipc_res;
+	ipc_res_t     ipc_res; //dedicated client reply slot for IPC issued from an interrupt handler
 	saved_state_t saved_state;
 } proc_interrupt_t;
 

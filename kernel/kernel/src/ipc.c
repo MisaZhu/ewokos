@@ -127,6 +127,8 @@ ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id
 	ipc->state = IPC_BUSY;
 	ipc->client_pid = client_proc->info.pid;
 	ipc->client_uuid = client_proc->info.uuid;
+	ipc->client_intr = (client_proc->space != NULL &&
+			client_proc->space->interrupt.state == INTR_STATE_WORKING) ? 1 : 0;
 	ipc->call_id = call_id;
 	ipc->counter = 0;
 

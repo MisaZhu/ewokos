@@ -799,6 +799,19 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
                 (void)old_wnd;
             }
             tcp_sched_wakeup_all(pcb);
+            /*
+             * The send window may have just opened (this ACK freed inflight
+             * bytes or the peer advertised a larger window). Since tcp_send()
+             * no longer blocks the netd worker, raise VFS_EVT_WR so a client
+             * that returned EAGAIN and blocked on write can retry its send.
+             * Mirrors task_wakeup_tcp_readers() on the RECV path.
+             */
+            {
+                uint32_t inflight_now = pcb->snd.nxt - pcb->snd.una;
+                if (inflight_now < pcb->snd.wnd) {
+                    task_wakeup_tcp_writers(indexof(pcbs, pcb));
+                }
+            }
         } else if (seg->ack < pcb->snd.una) {
             /* ignore */
         } else if (seg->ack > pcb->snd.nxt) {
@@ -1505,7 +1518,6 @@ tcp_send(int id, uint8_t *data, size_t len)
     ssize_t sent = 0;
     struct ip_iface *iface;
     size_t mss, cap, slen, inflight;
-    struct timeval *snd_timeout = sock_get_timeout(id, SOCK_STREAM, SO_SNDTIMEO);
     mutex_lock(&mutex);
     pcb = tcp_pcb_get(id);
     if (!pcb) {
@@ -1560,42 +1572,22 @@ RETRY:
                 cap = pcb->snd.wnd - inflight;
             }
             if (!cap) {
-                // No window available, need to wait for ACK
-                // If we have already sent some data, return what we've sent
-                // instead of blocking, to improve throughput
+                /*
+                 * Send window is closed. Do NOT sched_sleep() here: this runs
+                 * on the single per-socket netd worker thread, and blocking it
+                 * stalls the whole socket and races with the ACK-driven wakeup,
+                 * which is why long transfers hang while reads stay stable.
+                 * Mirror the RECV path: return what was already sent, or EAGAIN
+                 * when nothing was sent, and let the client block on VFS_EVT_WR.
+                 * The window-open ACK path calls task_wakeup_tcp_writers() to
+                 * raise VFS_EVT_WR and resume the client.
+                 */
                 if (sent > 0) {
                     break;
                 }
-                struct timeval abs_timeout;
-                if (sched_sleep(&pcb->send_ctx, &mutex, sock_get_timeout_abs(snd_timeout, &abs_timeout)) == -1) {
-                    mutex_unlock(&mutex);
-                    errno = EINTR;
-                    return -1;
-                }
-                // After waking up, re-check if pcb is still valid
-                pcb = tcp_pcb_get(id);
-                if (!pcb) {
-                    // Connection was closed while we were sleeping
-                    mutex_unlock(&mutex);
-                    errno = ECONNRESET;
-                    return -1;
-                }
-                // Re-check state after waking up
-                if (pcb->state == TCP_PCB_STATE_CLOSED) {
-                    if (pcb->close_reason == 1) {
-                        errorf("connection reset by peer");
-                        errno = ECONNRESET;
-                    } else if (pcb->close_reason == 2) {
-                        errorf("connection timeout");
-                        errno = ETIMEDOUT;
-                    } else {
-                        errorf("connection closed");
-                        errno = ECONNRESET;
-                    }
-                    mutex_unlock(&mutex);
-                    return -1;
-                }
-                goto RETRY;
+                mutex_unlock(&mutex);
+                errno = EAGAIN;
+                return -1;
             }
             slen = MIN(MIN(mss, len - sent), cap);
             // Only set PSH flag on the last segment

@@ -930,15 +930,32 @@ int  vfs_block(uint32_t node, int event) {
 		 * queue for the next wakeup.
 		 */
 		if((vfs_get_poll_events_by_node(node) & wait_events) != 0) {
+			vfs_unblock(node);
 			return 0;
 		}
 		if(vfs_block_raw(node, event) != 0)
 			return -1;
 		if((vfs_get_poll_events_by_node(node) & wait_events) != 0) {
+			vfs_unblock(node);
 			return 0;
 		}
-		proc_block();
+		/*
+		 * Block scoped to this node id so only a wakeup for THIS node (or a
+		 * generic tokenless wake) can release us. A tokenless proc_block()
+		 * here would let an unrelated node's edge (e.g. tty keyboard RD)
+		 * spuriously wake this block via the kernel's sticky wake latch.
+		 */
+		proc_block_by(node);
 	}
+	return 0;
+}
+
+int  vfs_unblock(uint32_t node) {
+	proto_t in;
+	PF->init(&in)->
+		addi(&in, node);
+	ipc_call(get_vfsd_pid(), VFS_UNBLOCK, &in, NULL);
+	PF->clear(&in);
 	return 0;
 }
 
@@ -993,6 +1010,7 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 		return -1;
 
 	int res = 0;
+	bool registered = false;
 	uint64_t start_ms = 0;
 	if(timeout > 0)
 		start_ms = kernel_tic_ms(0);
@@ -1020,6 +1038,7 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 		}
 
 		/* Phase 3: Register for wakeup on ALL FDs' nodes */
+		registered = true;
 		for(int i = 0; i < num; ++i) {
 			fsinfo_t info;
 			if(vfs_get_by_fd(fds[i].fd, &info) == 0 && info.node != 0) {
@@ -1057,6 +1076,20 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 				usleep((uint32_t)(remaining * 1000));
 			else
 				break;
+		}
+	}
+
+	/*
+	 * Drop our registrations from every polled node before returning. Leaving
+	 * stale waiters behind lets a later event on any of these nodes wake this
+	 * process while it is blocked on something unrelated, because the kernel
+	 * proc_wakeup() is not scoped to a node.
+	 */
+	if(registered) {
+		for(int i = 0; i < num; ++i) {
+			fsinfo_t info;
+			if(vfs_get_by_fd(fds[i].fd, &info) == 0 && info.node != 0)
+				vfs_unblock(info.node);
 		}
 	}
 	return res;

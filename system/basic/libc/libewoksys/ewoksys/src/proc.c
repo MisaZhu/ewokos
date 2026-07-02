@@ -134,7 +134,18 @@ inline void proc_detach(void) {
 }
 
 inline void proc_block(void) {
-	syscall0(SYS_BLOCK);
+	syscall1(SYS_BLOCK, 0);
+}
+
+/**
+ * @brief block the current proc waiting on a specific VFS node token.
+ *
+ * A non-zero token scopes the block so only a wakeup for the same node (or a
+ * generic tokenless wakeup) can release it. This prevents an event on an
+ * unrelated node from spuriously waking this proc.
+ */
+inline void proc_block_by(uint32_t token) {
+	syscall1(SYS_BLOCK, (ewokos_addr_t)token);
 }
 
 /**
@@ -143,7 +154,17 @@ inline void proc_block(void) {
  * @param pid wakeup blocked process pid
  */
 inline void proc_wakeup(int32_t pid) {
-	syscall1(SYS_WAKEUP, (ewokos_addr_t)pid);
+	syscall2(SYS_WAKEUP, (ewokos_addr_t)pid, 0);
+}
+
+/**
+ * @brief wakeup process by pid, scoped to a VFS node token.
+ *
+ * Only releases the target proc if it is blocked on this token or blocked
+ * generically; a proc blocked on a different node is left untouched.
+ */
+inline void proc_wakeup_by(int32_t pid, uint32_t token) {
+	syscall2(SYS_WAKEUP, (ewokos_addr_t)pid, (ewokos_addr_t)token);
 }
 
 
