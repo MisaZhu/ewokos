@@ -163,61 +163,144 @@ static int do_cmd(char* cmd) {
 	return 0;
 }
 
-static int run_cmd(char* cmd);
-static int do_pipe_cmd(char* p1, char* p2) {
-	int fds[2];
-	if(pipe(fds) != 0) {
-		printf("pipe create failed!\n");
-		return -1;
+static void close_exec_fds(void) {
+	for(int fd = 3; fd < MAX_OPEN_FILE_PER_PROC; fd++) {
+		if(fd == VFS_BACKUP_FD0)
+			continue;
+		close(fd);
 	}
-
-	int pid = syscall0(SYS_FORK);
-	if(pid != 0) { //father proc for p2 reader.
-		close(fds[1]);
-		dup2(fds[0], 0);
-		close(fds[0]);
-		run_cmd(p2);
-		exit(0);
-	}
-	//child proc for p1 writer
-	close(fds[0]);
-	dup2(fds[1], 1);
-	close(fds[1]);
-	return do_cmd(p1);
 }
 
-static int run_cmd(char* cmd) {
+static char* find_unquoted_pipe(char* cmd) {
+	bool inQ = false;
+	while(*cmd != 0) {
+		if(*cmd == '"')
+			inQ = !inQ;
+		else if(!inQ && *cmd == '|')
+			return cmd;
+		cmd++;
+	}
+	return NULL;
+}
+
+static int do_stage_cmd(char* cmd) {
 	char* proc = NULL;
 	bool inQ = false;
 	while(*cmd != 0) {
 		char c = *cmd++;
-		if(c == '"') 
+		if(c == '"')
 			inQ = !inQ;
-		
+
 		if(!inQ && proc == NULL && c == ' ')
 			continue;
 
-		if(!inQ && c == '>') { //redirection
-			*(cmd-1) = 0;	
-			redir(cmd, 0); //redir OUT.
+		if(!inQ && c == '>') {
+			*(cmd-1) = 0;
+			redir(cmd, 0);
 			return do_cmd(proc);
 		}
-		else if(!inQ && c == '<') { //redirection
-			*(cmd-1) = 0;	
-			redir(cmd, 1); //redir in.
+		else if(!inQ && c == '<') {
+			*(cmd-1) = 0;
+			redir(cmd, 1);
 			return do_cmd(proc);
 		}
-		else if(!inQ && c == '|') { //pipe
-			*(cmd-1) = 0;	
-			return do_pipe_cmd(proc, cmd);
-		}
-		else if(proc == NULL)
+		else if(proc == NULL) {
 			proc = cmd-1;
+		}
 	}
 
 	if(proc != NULL)
-		do_cmd(proc);
+		return do_cmd(proc);
 	return 0;
+}
+
+static int run_cmd(char* cmd);
+static int do_pipe_cmd(char* cmd) {
+	char* stages[32];
+	int pids[32];
+	int stage_num = 0;
+	int prev_read = -1;
+	char* stage = cmd;
+
+	while(stage != NULL && stage_num < 32) {
+		char* sep = find_unquoted_pipe(stage);
+		if(sep != NULL) {
+			*sep = 0;
+			stages[stage_num++] = stage;
+			stage = sep + 1;
+			continue;
+		}
+		stages[stage_num++] = stage;
+		break;
+	}
+
+	if(stage_num <= 1)
+		return do_stage_cmd(cmd);
+
+	for(int i = 0; i < stage_num; i++) {
+		int fds[2] = {-1, -1};
+		bool last = (i == stage_num - 1);
+		if(!last && pipe(fds) != 0) {
+			if(prev_read >= 0)
+				close(prev_read);
+			printf("pipe create failed!\n");
+			return -1;
+		}
+
+		int pid = fork();
+		if(pid < 0) {
+			if(prev_read >= 0)
+				close(prev_read);
+			if(fds[0] >= 0)
+				close(fds[0]);
+			if(fds[1] >= 0)
+				close(fds[1]);
+			printf("fork failed! errno=%d\n", errno);
+			return -1;
+		}
+
+		if(pid == 0) {
+			if(prev_read >= 0) {
+				dup2(prev_read, 0);
+			}
+			if(!last) {
+				dup2(fds[1], 1);
+			}
+			if(prev_read >= 0)
+				close(prev_read);
+			if(fds[0] >= 0)
+				close(fds[0]);
+			if(fds[1] >= 0)
+				close(fds[1]);
+			close_exec_fds();
+			exit(do_stage_cmd(stages[i]));
+		}
+
+		pids[i] = pid;
+		if(prev_read >= 0)
+			close(prev_read);
+		if(!last) {
+			close(fds[1]);
+			prev_read = fds[0];
+		}
+		else {
+			prev_read = -1;
+		}
+	}
+
+	if(prev_read >= 0)
+		close(prev_read);
+
+	for(int i = 0; i < stage_num; i++) {
+		waitpid(pids[i]);
+	}
+	return 0;
+}
+
+static int run_cmd(char* cmd) {
+	if(find_unquoted_pipe(cmd) != NULL)
+		return do_pipe_cmd(cmd);
+	return do_stage_cmd(cmd);
 }
 
 static void prompt(void) {
@@ -322,6 +405,7 @@ int main(int argc, char* argv[]) {
 		if (child_pid == 0) {
 			if(fg == 0 || _script_mode)
 				proc_detach();
+			close_exec_fds();
 			int res = run_cmd(cmd);
 			str_free(cmdstr);	
 			return res;

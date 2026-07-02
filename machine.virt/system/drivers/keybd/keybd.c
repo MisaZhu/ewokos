@@ -110,7 +110,6 @@ struct virtio_input_event
 } __attribute__((packed));
 
 static vdevice_t* _dev = NULL;
-static bool _wakeup = false;
 void keybd_interrupt_handle(virtio_dev_t virt_dev, struct virtio_input_event *event)
 {
 	(void)virt_dev;
@@ -130,19 +129,8 @@ void keybd_interrupt_handle(virtio_dev_t virt_dev, struct virtio_input_event *ev
 	}
 	else if (event->type == EV_SYN)
 	{
-		_wakeup = true;
+		vfs_wakeup(_dev->mnt_info.node, VFS_EVT_RD);
 	}
-}
-
-static int keybd_loop(struct st_vdevice* dev, void* p) {
-	(void)p;
-
-	if(_wakeup || key_data.key_count > 0) {
-		vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
-		_wakeup = false;
-	}
-	usleep(3000);
-	return 0;
 }
 
 int main(int argc, char **argv)
@@ -156,7 +144,6 @@ int main(int argc, char **argv)
 	strcpy(dev.name, "keyboard");
 	dev.read = keybd_read;
 	dev.check_poll_events = keybd_check_poll_events;
-	dev.loop_step = keybd_loop;
 
 	_mmio_base = mmio_map();
 

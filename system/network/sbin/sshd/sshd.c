@@ -231,6 +231,33 @@ static void sshd_release_vfs_fds_for_pid(int pid) {
     PF->clear(&in);
 }
 
+static void close_thread_bundle_fd_if_unused(int fd, int keep_a, int keep_b) {
+    if(fd < 0 || fd == keep_a || fd == keep_b)
+        return;
+    close(fd);
+}
+
+/*
+ * pthreads here run as distinct kernel tasks with their own VFS fd tables.
+ * sshd currently clones the parent fd table into each helper thread so they can
+ * access their one stream pipe plus the session socket. If we leave the whole
+ * child bundle cloned into every thread, unrelated helpers keep extra pipe
+ * readers/writers alive for the lifetime of the session and upstream pipeline
+ * stages never see refs_w drop as expected.
+ */
+static void sshd_trim_thread_child_bundle(sshd_session_t* s, int keep_a, int keep_b) {
+    if(s == NULL)
+        return;
+    close_thread_bundle_fd_if_unused(s->child_stdin[CHILD_STDIN_READ], keep_a, keep_b);
+    close_thread_bundle_fd_if_unused(s->child_stdin[CHILD_STDIN_WRITE], keep_a, keep_b);
+    close_thread_bundle_fd_if_unused(s->child_stdout[CHILD_STDOUT_READ], keep_a, keep_b);
+    close_thread_bundle_fd_if_unused(s->child_stdout[CHILD_STDOUT_WRITE], keep_a, keep_b);
+    close_thread_bundle_fd_if_unused(s->child_stderr[CHILD_STDERR_READ], keep_a, keep_b);
+    close_thread_bundle_fd_if_unused(s->child_stderr[CHILD_STDERR_WRITE], keep_a, keep_b);
+    close_thread_bundle_fd_if_unused(s->child_control[CHILD_CTRL_READ], keep_a, keep_b);
+    close_thread_bundle_fd_if_unused(s->child_control[CHILD_CTRL_WRITE], keep_a, keep_b);
+}
+
 static int write_ssh_string(uint8_t* buf, size_t cap, size_t* off,
         const uint8_t* data, uint32_t len);
 
@@ -1879,29 +1906,67 @@ static size_t ssh_console_copy_crlf(uint8_t* dst, size_t dst_cap,
 
 static int send_channel_data_packet(sshd_session_t* s, uint32_t extended_type,
         const uint8_t* data, size_t len) {
-    ssh_packet_t packet;
     uint8_t text_buf[2048];
     const uint8_t* payload = data;
     size_t payload_len = len;
-    size_t off = 0;
+    size_t sent = 0;
 
-    memset(&packet, 0, sizeof(packet));
-    packet.type = (extended_type == 0) ? SSH_MSG_CHANNEL_DATA : SSH_MSG_CHANNEL_EXTENDED_DATA;
-    ssh_write_uint32(packet.payload + off, s->remote_channel);
-    off += 4;
-    if(extended_type != 0) {
-        ssh_write_uint32(packet.payload + off, extended_type);
-        off += 4;
-    }
     if(s->pty_enabled) {
         payload_len = ssh_console_copy_crlf(text_buf, sizeof(text_buf), data, len);
         payload = text_buf;
     }
-    if(write_ssh_string(packet.payload, sizeof(packet.payload), &off,
-                payload, (uint32_t)payload_len) < 0)
-        return -1;
-    packet.payload_len = off;
-    return ssh_packet_send(s, &packet);
+
+    while(sent < payload_len && !s->closing) {
+        ssh_packet_t packet;
+        size_t off = 0;
+        size_t chunk = payload_len - sent;
+        uint32_t win;
+        uint32_t packet_max;
+
+        pthread_mutex_lock(&s->send_lock);
+        win = s->remote_window;
+        packet_max = s->remote_packet_max;
+        if(packet_max == 0 || packet_max > SSH_MAX_PACKET_SIZE)
+            packet_max = SSH_MAX_PACKET_SIZE;
+
+        if(win == 0) {
+            pthread_mutex_unlock(&s->send_lock);
+            proc_usleep(1000);
+            continue;
+        }
+
+        if(chunk > win)
+            chunk = win;
+        if(chunk > packet_max)
+            chunk = packet_max;
+
+        memset(&packet, 0, sizeof(packet));
+        packet.type = (extended_type == 0) ? SSH_MSG_CHANNEL_DATA : SSH_MSG_CHANNEL_EXTENDED_DATA;
+        ssh_write_uint32(packet.payload + off, s->remote_channel);
+        off += 4;
+        if(extended_type != 0) {
+            ssh_write_uint32(packet.payload + off, extended_type);
+            off += 4;
+        }
+        if(write_ssh_string(packet.payload, sizeof(packet.payload), &off,
+                    payload + sent, (uint32_t)chunk) < 0) {
+            pthread_mutex_unlock(&s->send_lock);
+            return -1;
+        }
+        packet.payload_len = off;
+        if(ssh_packet_send_locked(s, &packet) < 0) {
+            pthread_mutex_unlock(&s->send_lock);
+            return -1;
+        }
+        s->remote_window -= (uint32_t)chunk;
+        pthread_mutex_unlock(&s->send_lock);
+        sent += chunk;
+    }
+
+    if(sent == payload_len)
+        return 0;
+    sshd_set_error("session closing");
+    return -1;
 }
 
 static int send_channel_request_exit_status(sshd_session_t* s, uint32_t status) {
@@ -1945,6 +2010,8 @@ static void* stream_to_channel_thread(void* arg) {
         free(ctx);
         return NULL;
     }
+
+    sshd_trim_thread_child_bundle(ctx->session, ctx->fd, ctx->session->socket);
 
     sshd_dbg("stream_to_channel_thread: start fd=%d ext=%u",
             ctx->fd, ctx->extended_type);
@@ -1996,6 +2063,8 @@ static void* wait_child_thread(void* arg) {
         free(ctx);
         return NULL;
     }
+
+    sshd_trim_thread_child_bundle(s, s->socket, -1);
 
     sshd_dbg("wait_child_thread: start pid=%d", s->child_pid);
     int status = waitpid(s->child_pid);
@@ -2086,10 +2155,10 @@ static void run_session_helper(int sock, int server_sock, int child_stdin[2],
     if(dup2(child_stdin[CHILD_STDIN_READ], 0) < 0 ||
             dup2(child_stdout[CHILD_STDOUT_WRITE], 1) < 0 ||
             dup2(child_stderr[CHILD_STDERR_WRITE], 2) < 0 ||
-            dup2(child_stdin[CHILD_STDIN_READ], VFS_BACKUP_FD0) < 0 ||
-            dup2(child_stdout[CHILD_STDOUT_WRITE], VFS_BACKUP_FD1) < 0) {
+            dup2(child_stdin[CHILD_STDIN_READ], VFS_BACKUP_FD0) < 0) {
         exit(2);
     }
+    close(VFS_BACKUP_FD1);
     SSHD_CHILD_MARK("dup-ok");
 
     close(child_control[CHILD_CTRL_READ]);
@@ -2463,8 +2532,11 @@ static int handle_session_packets(sshd_session_t* s) {
                 return -1;
             break;
         case SSH_MSG_CHANNEL_WINDOW_ADJUST:
-            if(packet.payload_len >= 8)
+            if(packet.payload_len >= 8) {
+                pthread_mutex_lock(&s->send_lock);
                 s->remote_window += ssh_read_uint32(packet.payload + 4);
+                pthread_mutex_unlock(&s->send_lock);
+            }
             break;
         case SSH_MSG_CHANNEL_EOF:
             if(s->child_stdin[CHILD_STDIN_WRITE] >= 0) {

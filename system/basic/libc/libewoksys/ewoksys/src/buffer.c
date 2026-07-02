@@ -29,17 +29,31 @@ int32_t buffer_read(buffer_t* buffer, void* buf, int32_t size) {
 }
 
 int32_t buffer_write(buffer_t* buffer, const void* buf, int32_t size) {
-	if(buffer->size == 0) {//ready for write.
-		size = size < BUFFER_SIZE ? size : BUFFER_SIZE;
-		memcpy(buffer->buffer, buf, size);
-		buffer->size = size;
+	int32_t rest = buffer->size - buffer->offset;
+	if(rest < 0 || rest > BUFFER_SIZE)
+		return 0;
+
+	if(rest == 0) {
+		buffer->size = 0;
 		buffer->offset = 0;
-		return size;
 	}
+	else if(buffer->offset > 0) {
+		memmove(buffer->buffer, buffer->buffer + buffer->offset, rest);
+		buffer->size = rest;
+		buffer->offset = 0;
+	}
+
+	int32_t free_sz = BUFFER_SIZE - buffer->size;
+	if(free_sz <= 0)
+		return 0;
+
+	size = size < free_sz ? size : free_sz;
+	memcpy(buffer->buffer + buffer->size, buf, size);
+	buffer->size += size;
+	return size;
 	return 0;
 }
 
 #ifdef __cplusplus
 }
 #endif
-

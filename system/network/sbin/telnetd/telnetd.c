@@ -206,8 +206,8 @@ static void run_session_child(
     int r1 = dup2(child_stdout[PIPE_WRITE], 1);
     int r2 = dup2(child_stdout[PIPE_WRITE], 2);
     int rb0 = dup2(child_stdin[PIPE_READ], VFS_BACKUP_FD0);
-    int rb1 = dup2(child_stdout[PIPE_WRITE], VFS_BACKUP_FD1);
-    if(r0 < 0 || r1 < 0 || r2 < 0 || rb0 < 0 || rb1 < 0) {
+    close(VFS_BACKUP_FD1);
+    if(r0 < 0 || r1 < 0 || r2 < 0 || rb0 < 0) {
         exit(-1);
     }
 

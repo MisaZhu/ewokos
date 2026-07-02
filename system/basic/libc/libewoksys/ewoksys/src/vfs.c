@@ -21,6 +21,7 @@ extern "C" {
 
 
 static fsfile_t _fsfiles[MAX_OPEN_FILE_PER_PROC];
+static uint32_t vfs_get_poll_events_by_node(uint32_t node_id);
 
 static int vfs_get_by_fd_raw(int fd, fsinfo_t* info) {
 	proto_t in, out;
@@ -281,6 +282,14 @@ int vfs_open(fsinfo_t* info, int oflag) {
 
 static int read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block) {
 	while(1) {
+		if(block) {
+			uint32_t events = vfs_get_poll_events_by_node(node);
+			if((events & (VFS_EVT_RD | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL)) == 0) {
+				proc_usleep(1000);
+				continue;
+			}
+		}
+
 		proto_t in, out;
 		PF->format(&in, "i,i,i,i", fd, node, size, block?1:0);
 		PF->init(&out);
@@ -298,13 +307,20 @@ static int read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block
 		if(res != 0 || !block)
 			return res;
 
-		if(vfs_block(node, VFS_EVT_RD) != 0)
-			return -1;
+		proc_usleep(1000);
 	}
 }
 
 static int write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, bool block) {
 	while(1) {
+		if(block) {
+			uint32_t events = vfs_get_poll_events_by_node(node);
+			if((events & (VFS_EVT_WR | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL)) == 0) {
+				proc_usleep(1000);
+				continue;
+			}
+		}
+
 		proto_t in, out;
 		//PF->init(&in)->addi(&in, fd)->addi(&in, node)->add(&in, buf, size)->addi(&in, block?1:0);
 		PF->format(&in, "i,i,m,i", fd, node, buf, size, block?1:0);
@@ -321,8 +337,7 @@ static int write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, boo
 		if(res != 0 || !block)
 			return res;
 
-		if(vfs_block(node, VFS_EVT_WR) != 0)
-			return -1;
+		proc_usleep(1000);
 	}
 }
 
@@ -414,10 +429,22 @@ int vfs_open_pipe(int fd[2]) {
 			proto_read_to(&out, &info, sizeof(fsinfo_t));
 			fsfile_t* read_end = vfs_set_file(fd[0], &info);
 			fsfile_t* write_end = vfs_set_file(fd[1], &info);
-			if(read_end != NULL)
+			if(read_end != NULL) {
 				read_end->flags = O_RDONLY;
-			if(write_end != NULL)
+				/*
+				 * Pipe creators are expected to dup2() the endpoint they want to
+				 * survive exec onto stdin/stdout/stderr. Keeping the original pipe
+				 * fds inheritable by default leaks extra refs across exec and keeps
+				 * refs_w/readers artificially high, which turns pipeline teardown
+				 * into long-lived backpressure. Make the raw endpoints close-on-exec
+				 * by default; callers that truly need inheritance can clear it.
+				 */
+				read_end->fd_flags = FD_CLOEXEC;
+			}
+			if(write_end != NULL) {
 				write_end->flags = O_WRONLY;
+				write_end->fd_flags = FD_CLOEXEC;
+			}
 		}
 		else {
 			res = -1;
@@ -1011,9 +1038,19 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 
 	int res = 0;
 	bool registered = false;
+	bool multi_wait = (num > 1);
+	bool has_pipe_watch = false;
 	uint64_t start_ms = 0;
 	if(timeout > 0)
 		start_ms = kernel_tic_ms(0);
+
+	for(int i = 0; i < num; ++i) {
+		fsinfo_t info;
+		if(vfs_get_by_fd(fds[i].fd, &info) == 0 && info.type == FS_TYPE_PIPE) {
+			has_pipe_watch = true;
+			break;
+		}
+	}
 
 	while(true) {
 		/* Phase 1: Check all FDs for current events */
@@ -1037,41 +1074,64 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 				break;
 		}
 
-		/* Phase 3: Register for wakeup on ALL FDs' nodes */
-		registered = true;
-		for(int i = 0; i < num; ++i) {
-			fsinfo_t info;
-			if(vfs_get_by_fd(fds[i].fd, &info) == 0 && info.node != 0) {
-				vfs_block_raw(info.node, (int)fds[i].events);
-			}
-		}
-
-		/* Phase 4: Re-check after registration (prevent race) */
-		res = 0;
-		for(int i = 0; i < num; ++i) {
-			fsinfo_t info;
-			if(vfs_get_by_fd(fds[i].fd, &info) == 0 && info.node != 0) {
-				uint32_t sticky = vfs_get_poll_events_by_node(info.node);
-				uint32_t mask = (uint32_t)fds[i].events | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL;
-				if((sticky & mask) != 0) {
-					res++;
-					break;
+		if(!multi_wait && !has_pipe_watch) {
+			/* Phase 3: Register for wakeup on the single node */
+			registered = true;
+			for(int i = 0; i < num; ++i) {
+				fsinfo_t info;
+				if(vfs_get_by_fd(fds[i].fd, &info) == 0 && info.node != 0) {
+					vfs_block_raw(info.node, (int)fds[i].events);
 				}
 			}
-		}
-		if(res > 0)
-			continue; /* Events appeared during registration, re-do full check */
 
-		/* Phase 5: Block until any event arrives */
+			/* Phase 4: Re-check after registration (prevent race) */
+			res = 0;
+			for(int i = 0; i < num; ++i) {
+				fsinfo_t info;
+				if(vfs_get_by_fd(fds[i].fd, &info) == 0 && info.node != 0) {
+					uint32_t sticky = vfs_get_poll_events_by_node(info.node);
+					uint32_t mask = (uint32_t)fds[i].events | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL;
+					if((sticky & mask) != 0) {
+						res++;
+						break;
+					}
+				}
+			}
+			if(res > 0)
+				continue; /* Events appeared during registration, re-do full check */
+
+			/* Phase 5: Block until the single watched node wakes us */
+			if(timeout < 0) {
+				proc_block();
+			} else {
+				uint64_t now_ms = kernel_tic_ms(0);
+				uint64_t elapsed = now_ms - start_ms;
+				uint64_t remaining = (uint64_t)timeout - elapsed;
+				if(remaining > 10)
+					usleep(10000);
+				else if(remaining > 0)
+					usleep((uint32_t)(remaining * 1000));
+				else
+					break;
+			}
+			continue;
+		}
+
+		/*
+		 * vfsd currently keeps only one read waiter and one write waiter per pid.
+		 * Registering multiple poll fds at once makes later nodes overwrite
+		 * earlier ones, which is exactly what breaks telnetd's socket+pipe poll.
+		 * For multi-fd poll, fall back to a short sleep loop instead of corrupting
+		 * the wait registration.
+		 */
 		if(timeout < 0) {
-			proc_block(); /* Infinite wait - woken by any registered node */
+			usleep(1000);
 		} else {
-			/* For timed poll, use short sleep as fallback */
 			uint64_t now_ms = kernel_tic_ms(0);
 			uint64_t elapsed = now_ms - start_ms;
 			uint64_t remaining = (uint64_t)timeout - elapsed;
 			if(remaining > 10)
-				usleep(10000); /* 10ms intervals for timed poll */
+				usleep(10000);
 			else if(remaining > 0)
 				usleep((uint32_t)(remaining * 1000));
 			else
