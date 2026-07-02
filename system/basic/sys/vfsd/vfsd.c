@@ -57,6 +57,11 @@ typedef struct {
 	file_t fds[MAX_OPEN_FILE_PER_PROC];
 } proc_fds_t;
 
+typedef struct {
+	int32_t pid;
+	uint32_t uuid;
+} wait_entry_t;
+
 static proc_fds_t* _proc_fds_table = NULL;
 static uint32_t    _max_proc_table_num = 0;
 
@@ -482,10 +487,16 @@ static inline fsinfo_t* gen_file_fsinfo(file_t* file) {
 	return &ret;
 }
 
-static void wakeup_proc(int32_t pid, vfs_node_t* node, int32_t events) {
-	if(pid < 0 || pid >= _max_proc_table_num)
+static void wakeup_proc(wait_entry_t* waiter, vfs_node_t* node, int32_t events) {
+	(void)node;
+	(void)events;
+	if(waiter == NULL)
 		return;
-	proc_wakeup(pid);
+	if(waiter->pid < 0 || waiter->pid >= _max_proc_table_num)
+		return;
+	if(proc_check_uuid(waiter->pid, waiter->uuid) == 0)
+		return;
+	proc_wakeup(waiter->pid);
 }
 
 static void wakeup_wait_queue(queue_t* q, vfs_node_t* node, int32_t events) {
@@ -493,18 +504,58 @@ static void wakeup_wait_queue(queue_t* q, vfs_node_t* node, int32_t events) {
 		return;
 
 	while(true) {
-		int32_t* p = (int32_t*)queue_pop(q);
-		if(p == NULL)
+		wait_entry_t* waiter = (wait_entry_t*)queue_pop(q);
+		if(waiter == NULL)
 			break;
-		wakeup_proc(*p, node, events);
-		free(p);
+		wakeup_proc(waiter, node, events);
+		free(waiter);
 	}
 }
 
-static bool queue_pid_match(void* data, void* check_data) {
+static bool queue_waiter_match(void* data, void* check_data) {
 	if(data == NULL || check_data == NULL)
 		return false;
-	return *((int32_t*)data) == *((int32_t*)check_data);
+	wait_entry_t* waiter = (wait_entry_t*)data;
+	wait_entry_t* check = (wait_entry_t*)check_data;
+	return waiter->pid == check->pid && waiter->uuid == check->uuid;
+}
+
+static void remove_waiter_from_queue(queue_t* q, const wait_entry_t* waiter) {
+	if(q == NULL || waiter == NULL)
+		return;
+
+	queue_item_t* it = q->head;
+	while(it != NULL) {
+		queue_item_t* next = it->next;
+		if(queue_waiter_match(it->data, (void*)waiter)) {
+			free(it->data);
+			queue_remove(q, it);
+		}
+		it = next;
+	}
+}
+
+static int remove_waiter_from_node(map_t in, const char* key, any_t value, any_t arg) {
+	(void)in;
+	(void)key;
+	vfs_node_t* node = (vfs_node_t*)value;
+	wait_entry_t* waiter = (wait_entry_t*)arg;
+	if(node == NULL || waiter == NULL)
+		return MAP_OK;
+
+	remove_waiter_from_queue(&node->read_wait_queue, waiter);
+	remove_waiter_from_queue(&node->write_wait_queue, waiter);
+	return MAP_OK;
+}
+
+static void vfs_remove_proc_waiters(int32_t pid, uint32_t uuid) {
+	if(pid < 0 || pid >= _max_proc_table_num || uuid == 0)
+		return;
+
+	wait_entry_t waiter;
+	waiter.pid = pid;
+	waiter.uuid = uuid;
+	hashmap_iterate(_nodes_hash, remove_waiter_from_node, &waiter);
 }
 
 static void do_node_wakeup(vfs_node_t* node, int events) {
@@ -1169,6 +1220,9 @@ static void vfs_proc_exit(int32_t cpid) {
 static void clear_zombie(int32_t cpid) {
 	if(cpid < 0)
 		return;
+	uint32_t uuid = _proc_fds_table[cpid].uuid;
+	vfs_remove_proc_waiters(cpid, uuid);
+
 	int32_t i;
 	for(i=0; i<MAX_OPEN_FILE_PER_PROC; i++) {
 		file_t *f = &_proc_fds_table[cpid].fds[i];
@@ -1288,13 +1342,19 @@ static void do_vfs_block(int32_t pid, proto_t* in) {
 	if((node->events & (uint32_t)events) != 0)
 		return;
 
-	if(queue_in(q, &pid, queue_pid_match) != NULL)
+	wait_entry_t waiter;
+	waiter.pid = pid;
+	waiter.uuid = proc_get_uuid(pid);
+	if(waiter.uuid == 0)
 		return;
 
-	int32_t* p = (int32_t*)malloc(sizeof(int32_t));
+	if(queue_in(q, &waiter, queue_waiter_match) != NULL)
+		return;
+
+	wait_entry_t* p = (wait_entry_t*)malloc(sizeof(wait_entry_t));
 	if(p == NULL)
 		return;
-	*p = pid;
+	*p = waiter;
 	queue_push(q, p);
 }
 
