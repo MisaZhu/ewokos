@@ -3,6 +3,7 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <arpa/inet.h>
 #include <poll.h>
@@ -35,6 +36,50 @@
 #define TELNET_OPT_SUPPRESS_GA 3
 #define TELNET_OPT_LINEMODE 34
 
+static int telnet_wait_fd_ready(int fd, short events) {
+    struct pollfd pfd;
+
+    if(fd < 0) {
+        errno = EBADF;
+        return -1;
+    }
+
+    memset(&pfd, 0, sizeof(pfd));
+    pfd.fd = fd;
+    pfd.events = (short)(events | POLLERR | POLLHUP | POLLNVAL);
+    while(true) {
+        int rc = poll(&pfd, 1, -1);
+        if(rc > 0) {
+            if((pfd.revents & POLLNVAL) != 0) {
+                errno = EBADF;
+                return -1;
+            }
+            if((pfd.revents & POLLERR) != 0) {
+                errno = EIO;
+                return -1;
+            }
+            return 0;
+        }
+        if(rc == 0)
+            continue;
+        if(errno != EINTR)
+            return -1;
+    }
+}
+
+static int telnet_set_fd_nonblock(int fd) {
+    int flags;
+
+    if(fd < 0)
+        return -1;
+    flags = fcntl(fd, F_GETFL);
+    if(flags < 0)
+        return -1;
+    if((flags & O_NONBLOCK) != 0)
+        return 0;
+    return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+}
+
 static int telnet_write_all(int fd, const uint8_t *buf, size_t len) {
     size_t sent = 0;
 
@@ -45,6 +90,11 @@ static int telnet_write_all(int fd, const uint8_t *buf, size_t len) {
             continue;
         }
         if(ret < 0 && errno == EINTR) {
+            continue;
+        }
+        if(ret < 0 && errno == EAGAIN) {
+            if(telnet_wait_fd_ready(fd, POLLOUT) != 0)
+                return -1;
             continue;
         }
         return -1;
@@ -262,7 +312,7 @@ static int relay_telnet_session(int clnt_sock, int child_stdin_w, int child_stdo
         if((fds[0].revents & POLLIN) != 0) {
             ssize_t rd = read(clnt_sock, input_buf, sizeof(input_buf));
             if(rd < 0) {
-                if(errno != EINTR) {
+                if(errno != EINTR && errno != EAGAIN) {
                     return -1;
                 }
             } else if(rd == 0) {
@@ -329,6 +379,8 @@ static void run_telnet_worker(int serv_sock, int clnt_sock) {
     close_fd_if_valid(&child_stdin[PIPE_READ]);
     close_fd_if_valid(&child_stdout[PIPE_WRITE]);
 
+    (void)telnet_set_fd_nonblock(clnt_sock);
+    (void)telnet_set_fd_nonblock(child_stdin[PIPE_WRITE]);
     telnet_send_initial_negotiation(clnt_sock);
     (void)relay_telnet_session(clnt_sock, child_stdin[PIPE_WRITE], child_stdout[PIPE_READ]);
 

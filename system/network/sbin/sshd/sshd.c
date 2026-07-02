@@ -512,6 +512,19 @@ static int wait_fd_ready(int fd, uint16_t events) {
     }
 }
 
+static int set_fd_nonblock(int fd) {
+    int flags;
+
+    if(fd < 0)
+        return -1;
+    flags = fcntl(fd, F_GETFL);
+    if(flags < 0)
+        return -1;
+    if((flags & O_NONBLOCK) != 0)
+        return 0;
+    return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+}
+
 static int ssh_read_n(sshd_session_t* s, void* buf, size_t len) {
     uint8_t* p = (uint8_t*)buf;
     size_t total = 0;
@@ -2257,6 +2270,16 @@ static void session_attach_child_bundle(sshd_session_t* s, pid_t child_pid,
         close(s->child_control[CHILD_CTRL_READ]);
         s->child_control[CHILD_CTRL_READ] = -1;
     }
+
+    /*
+     * The relay helpers are written around EAGAIN + poll() retry loops.
+     * Keep the parent-side pipe endpoints nonblocking so a stalled shell or
+     * backpressured channel does not pin a worker thread inside read/write.
+     */
+    (void)set_fd_nonblock(s->child_stdin[CHILD_STDIN_WRITE]);
+    (void)set_fd_nonblock(s->child_stdout[CHILD_STDOUT_READ]);
+    (void)set_fd_nonblock(s->child_stderr[CHILD_STDERR_READ]);
+    (void)set_fd_nonblock(s->child_control[CHILD_CTRL_WRITE]);
 }
 
 static int spawn_child_session(sshd_session_t* s, const char* command, int is_shell) {
@@ -2568,6 +2591,7 @@ static void session_init(sshd_session_t* s, int sock) {
     s->child_stdout[0] = s->child_stdout[1] = -1;
     s->child_stderr[0] = s->child_stderr[1] = -1;
     s->child_control[0] = s->child_control[1] = -1;
+    (void)set_fd_nonblock(sock);
     sock_timeout.tv_sec = 0;
     sock_timeout.tv_usec = 200000;
     setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &sock_timeout, sizeof(sock_timeout));

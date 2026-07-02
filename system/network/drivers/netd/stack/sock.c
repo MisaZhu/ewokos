@@ -678,6 +678,22 @@ sock_readable(int id)
 }
 
 int
+sock_writable(int id)
+{
+    struct sock *s;
+    s = sock_get(id);
+    if (!s) {
+        return 1;
+    }
+    switch (s->type) {
+    case SOCK_STREAM:
+        return tcp_writable(s->desc);
+    }
+    /* UDP/RAW have no send window; always accept the write. */
+    return 1;
+}
+
+int
 sock_get_desc(int id)
 {
     struct sock *s = sock_get(id);

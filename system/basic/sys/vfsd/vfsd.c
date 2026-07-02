@@ -469,7 +469,7 @@ static int32_t vfs_open(int32_t pid, vfs_node_t* node, int32_t flags) {
 		node->fsinfo.stat.size = 0;
 
 	node->refs++;
-	if((flags & O_WRONLY) != 0)
+	if((flags & (O_WRONLY | O_RDWR)) != 0)
 		node->refs_w++;
 	return fd;
 }
@@ -853,7 +853,7 @@ static vfs_node_t* vfs_dup(int32_t pid, int32_t from, int32_t *ret) {
 
 	memcpy(f_to, f, sizeof(file_t));
 	f->node->refs++;
-	if((f->flags & O_WRONLY) != 0)
+	if((f->flags & (O_WRONLY | O_RDWR)) != 0)
 		f->node->refs_w++;
 	*ret = to;
 	return f_to->node;
@@ -878,7 +878,7 @@ static vfs_node_t* vfs_dup2(int32_t pid, int32_t from, int32_t to) {
 
 	memcpy(f_to, f, sizeof(file_t));
 	f->node->refs++;
-	if((f->flags & O_WRONLY) != 0)
+	if((f->flags & (O_WRONLY | O_RDWR)) != 0)
 		f->node->refs_w++;
 	return f->node;
 }
@@ -1007,6 +1007,13 @@ static void do_vfs_new_node(int pid, proto_t* in, proto_t* out) {
 		memset(buf, 0, sizeof(buffer_t));
 		node->data_ptr = buf;
 		node->fsinfo.data = 0;
+		/*
+		 * A freshly created FIFO must advertise its true poll state
+		 * immediately (empty buffer => VFS_EVT_WR). Without this a blocking
+		 * writer/reader on the named pipe spins forever waiting for an edge
+		 * that is only ever asserted from a later pipe read/write/close.
+		 */
+		sync_pipe_poll_events(node);
 	}
 
 	if(node_to != NULL && !vfs_write_over)
@@ -1470,7 +1477,7 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 			file_t* file = &_proc_fds_table[cpid].fds[i];
 			memcpy(file, f, sizeof(file_t));
 			node->refs++;
-			if((f->flags & O_WRONLY) != 0)
+			if((f->flags & (O_WRONLY | O_RDWR)) != 0)
 				node->refs_w++;
 			vfs_driver_dup(fpid, i, cpid, i, file);
 		}

@@ -25,6 +25,7 @@
 #include "stack/ether_tap.h"
 
 extern int sock_readable(int sock);
+extern int sock_writable(int sock);
 
 static int network_fcntl(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	int cmd, proto_t* in, proto_t* out, void* p) {
@@ -119,13 +120,14 @@ static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
 	int main_state = NET_TASK_IDLE;
 	int has_read_task = 0;
 	int pending_main_rd = 0;
+	int can_write = 0;
 	if (task != NULL) {
 		pthread_mutex_lock(&task_list_lock);
 		main_state = task->state;
 		main_sock = task->sock;
 		pending_main_rd = task->pending_main_rd;
 		if (main_state == NET_TASK_IDLE || main_state == NET_TASK_FINISH) {
-			events |= VFS_EVT_WR;
+			can_write = 1;
 		}
 		if (task->read_task != NULL) {
 			has_read_task = 1;
@@ -135,6 +137,19 @@ static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
 			}
 		}
 		pthread_mutex_unlock(&task_list_lock);
+		/*
+		 * WR is only real when the socket can actually accept data. Publishing
+		 * it purely from the IDLE/FINISH task state turns the sticky node bit
+		 * back into a level-trigger: when the TCP send window is closed,
+		 * tcp_send() returns EAGAIN, the worker returns to IDLE, and a client
+		 * like sshd would busy-spin write()/poll() forever (appearing hung)
+		 * instead of blocking until task_wakeup_tcp_writers() raises WR on the
+		 * window-open ACK. Gate on sock_writable(); keep pre-socket states
+		 * (main_sock < 0) writable so open/connect can still be armed.
+		 */
+		if (can_write && (main_sock < 0 || sock_writable(main_sock))) {
+			events |= VFS_EVT_WR;
+		}
 		if (pending_main_rd) {
 			if (main_sock >= 0 && sock_readable(main_sock)) {
 				events |= VFS_EVT_RD;
@@ -146,16 +161,21 @@ static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
 			}
 		}
 		if (!(events & VFS_EVT_RD) &&
-				!has_read_task &&
 				main_sock >= 0 &&
 				sock_readable(main_sock)) {
 			/*
-			 * Once a per-fd read_task exists, RD must be published by explicit
-			 * vfs_wakeup() edges from task_check_read_events()/task_thread.
-			 * Re-synthesizing RD here from sock_readable() turns the sticky node
-			 * bit back into a level-trigger and can trap readers in retry loops.
+			 * poll() is level-triggered: if the socket is readable right now, a
+			 * waiter must observe RD even when a per-fd read_task already exists.
+			 *
+			 * The explicit vfs_wakeup() edge is still required while the read_task
+			 * is START/PROCESS/FINISH, because user space is waiting on that async
+			 * operation to complete. But once the read_task falls back to IDLE,
+			 * suppressing live readability can strand callers like sshd in
+			 * poll(POLLIN) forever if the edge was missed or consumed earlier.
 			 */
-			events |= VFS_EVT_RD;
+			if(!has_read_task || read_state == NET_TASK_IDLE) {
+				events |= VFS_EVT_RD;
+			}
 		}
 	}
 

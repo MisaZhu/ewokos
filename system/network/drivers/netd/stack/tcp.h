@@ -44,5 +44,7 @@ tcp_accept(int id, struct ip_endpoint *foreign);
 extern int
 tcp_readable(int id);
 extern int
+tcp_writable(int id);
+extern int
 tcp_timer_active(void);
 #endif

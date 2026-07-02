@@ -233,6 +233,17 @@ tcp_pcb_release(struct tcp_pcb *pcb)
     char ep1[IP_ENDPOINT_STR_LEN];
     char ep2[IP_ENDPOINT_STR_LEN];
 
+    /*
+     * Release only destroys the internal sched_ctx below, which reaches a
+     * worker sleeping inside tcp_receive(). A client blocked in poll(POLLIN)
+     * or poll(POLLOUT) with an idle net task is on the VFS wait queue and only
+     * a vfs_wakeup() edge can release it; without this a peer RST/timeout would
+     * strand it forever. Raise both edges so pending reads return EOF/error and
+     * pending writes return the connection error on their next retry.
+     */
+    task_wakeup_tcp_readers(indexof(pcbs, pcb));
+    task_wakeup_tcp_writers(indexof(pcbs, pcb));
+
     // First, clean up all resources regardless of sched_ctx_destroy result
     // Clean up retransmit queue
     while ((entry = queue_pop(&pcb->queue)) != NULL) {
@@ -925,6 +936,13 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
             tcp_set_timewait_timer(pcb); /* restart time-wait timer */
             break;
         }
+        /*
+         * A pure FIN carries no segment text, so the len>0 branch above did
+         * not wake VFS readers. A client blocked in poll(POLLIN) with an idle
+         * read task needs an explicit RD edge to observe EOF; tcp_receive()
+         * then returns 0 once the receive buffer drains.
+         */
+        task_wakeup_tcp_readers(indexof(pcbs, pcb));
     }
     return;
 }
@@ -1411,6 +1429,37 @@ tcp_readable(int id)
     int readable = (remain > 0) || (pcb->state == TCP_PCB_STATE_CLOSE_WAIT) || (pcb->state == TCP_PCB_STATE_CLOSED);
     mutex_unlock(&mutex);
     return readable;
+}
+
+int
+tcp_writable(int id)
+{
+    struct tcp_pcb *pcb;
+    int writable = 1;
+    mutex_lock(&mutex);
+    pcb = tcp_pcb_get(id);
+    if (!pcb) {
+        /* No pcb: let a write proceed so it returns an immediate error. */
+        mutex_unlock(&mutex);
+        return 1;
+    }
+    /*
+     * Only report writable when the send window actually has capacity. When
+     * the window is closed tcp_send() returns EAGAIN and the netd worker task
+     * falls back to IDLE; if poll() still advertised WR purely from the IDLE
+     * task state, a client like sshd would busy-spin write()/poll() forever
+     * (appearing hung) instead of blocking until the window reopens. The ACK
+     * path calls task_wakeup_tcp_writers() to raise VFS_EVT_WR once capacity
+     * returns. Non-transfer states stay writable so closed/erroring writes
+     * return immediately rather than block.
+     */
+    if (pcb->state == TCP_PCB_STATE_ESTABLISHED ||
+        pcb->state == TCP_PCB_STATE_CLOSE_WAIT) {
+        uint32_t inflight = pcb->snd.nxt - pcb->snd.una;
+        writable = (inflight < pcb->snd.wnd) ? 1 : 0;
+    }
+    mutex_unlock(&mutex);
+    return writable;
 }
 
 int

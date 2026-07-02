@@ -1084,14 +1084,22 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 				}
 			}
 
-			/* Phase 4: Re-check after registration (prevent race) */
+			/*
+			 * Phase 4: Re-check after registration (prevent race).
+			 *
+			 * This must use the full visible readiness, not only the sticky node
+			 * bits. Socket/device drivers can publish a live RD/WR state from
+			 * dev_poll() before a new vfs_wakeup() edge is latched. Looking only
+			 * at sticky events here misses that window and the subsequent
+			 * proc_block() can sleep forever even though the fd is already ready.
+			 */
 			res = 0;
 			for(int i = 0; i < num; ++i) {
 				fsinfo_t info;
 				if(vfs_get_by_fd(fds[i].fd, &info) == 0 && info.node != 0) {
-					uint32_t sticky = vfs_get_poll_events_by_node(info.node);
+					uint32_t visible = vfs_get_poll_events(fds[i].fd);
 					uint32_t mask = (uint32_t)fds[i].events | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL;
-					if((sticky & mask) != 0) {
+					if((visible & mask) != 0) {
 						res++;
 						break;
 					}

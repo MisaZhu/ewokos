@@ -561,19 +561,58 @@ static int32_t proc_init_space(proc_t* proc) {
 	return 0;
 }
 
+static inline void proc_ipc_res_snapshot_clear(ipc_res_t* ipc_res) {
+	if(ipc_res == NULL)
+		return;
+	proto_clear(&ipc_res->data);
+	memset(ipc_res, 0, sizeof(ipc_res_t));
+}
+
+static inline void proc_ipc_res_snapshot_copy(ipc_res_t* dst, const ipc_res_t* src) {
+	if(dst == NULL || src == NULL)
+		return;
+
+	proc_ipc_res_snapshot_clear(dst);
+	dst->uid = src->uid;
+	dst->state = src->state;
+	if(src->data.data != NULL && src->data.size != 0) {
+		proto_copy(&dst->data, src->data.data, src->data.size);
+	}
+}
+
+static inline void proc_resume_after_timeout(proc_t* proc) {
+	if(proc == NULL)
+		return;
+	if(proc->info.state == READY || proc->info.state == RUNNING) {
+		proc_ready(proc);
+		return;
+	}
+
+	/*
+	 * A timed-out interrupt/IPC service must not restore the server back into
+	 * a parked BLOCK/SLEEPING/WAIT state forever, otherwise it never returns
+	 * to its main loop to accept the next request.
+	 */
+	if(proc->info.state == BLOCK ||
+			proc->info.state == SLEEPING ||
+			proc->info.state == WAIT) {
+		proc_wakeup(proc);
+	}
+}
+
 void proc_save_state(proc_t* proc, saved_state_t* saved_state, ipc_res_t* saved_ipc_res) {
 	saved_state->state = proc->info.state;
 	saved_state->sleep_counter = proc->sleep_counter;
-	memcpy(saved_ipc_res, &proc->ipc_res, sizeof(ipc_res_t));
+	proc_ipc_res_snapshot_copy(saved_ipc_res, &proc->ipc_res);
 }
 
 void proc_restore_state(context_t* ctx, proc_t* proc, saved_state_t* saved_state, ipc_res_t* saved_ipc_res) {
 	proc->info.state = saved_state->state;
 	proc->sleep_counter = saved_state->sleep_counter;
-	//memcpy(&proc->ipc_res, saved_ipc_res, sizeof(ipc_res_t));
+	proc_ipc_res_snapshot_copy(&proc->ipc_res, saved_ipc_res);
 	memcpy(ctx, &saved_state->ctx, sizeof(context_t));
 	memset(saved_state, 0, sizeof(saved_state_t));
-	memset(saved_ipc_res, 0, sizeof(ipc_res_t));
+	proc_ipc_res_snapshot_clear(saved_ipc_res);
 }
 
 static void proc_interrupt_timeout(proc_t* proc) {
@@ -590,20 +629,14 @@ static void proc_interrupt_timeout(proc_t* proc) {
 	proc_untrack_interrupt_timeout(proc);
 
 	if(proc->info.state != UNUSED && proc->info.state != ZOMBIE) {
-		proc->info.state = intr->saved_state.state;
-		proc->sleep_counter = intr->saved_state.sleep_counter;
-		memcpy(&proc->ctx, &intr->saved_state.ctx, sizeof(context_t));
+		proc_restore_state(&proc->ctx, proc, &intr->saved_state, &intr->saved_ipc_res);
 		intr->restore_pending = (intr_state == INTR_STATE_WORKING) ? 1 : 0;
-		if(proc->info.state == READY) {
-			proc_ready(proc);
-		}
+		proc_resume_after_timeout(proc);
 	}
 	else {
 		intr->restore_pending = 0;
 	}
 
-	memset(&intr->saved_state, 0, sizeof(saved_state_t));
-	memset(&intr->saved_ipc_res, 0, sizeof(ipc_res_t));
 	intr->entry = 0;
 	intr->data = 0;
 	intr->interrupt = 0;
@@ -646,16 +679,9 @@ static void proc_ipc_timeout(proc_t* proc) {
 	}
 
 	server->do_switch = false;
-	proc->info.state = server->saved_state.state;
-	proc->sleep_counter = server->saved_state.sleep_counter;
-	memcpy(&proc->ctx, &server->saved_state.ctx, sizeof(context_t));
+	proc_restore_state(&proc->ctx, proc, &server->saved_state, &server->saved_ipc_res);
 	server->restore_pending = 1;
-	if(proc->info.state == READY) {
-		proc_ready(proc);
-	}
-
-	memset(&server->saved_state, 0, sizeof(saved_state_t));
-	memset(&server->saved_ipc_res, 0, sizeof(ipc_res_t));
+	proc_resume_after_timeout(proc);
 
 	if(client_proc != NULL &&
 			client_proc->info.state != UNUSED &&
@@ -1112,6 +1138,10 @@ void proc_funeral(proc_t* proc) {
 
 		if(space->thread_stacks != NULL)
 			kfree(space->thread_stacks);
+		proto_clear(&proc->ipc_res.data);
+		proc_ipc_res_snapshot_clear(&space->signal.saved_ipc_res);
+		proc_ipc_res_snapshot_clear(&space->ipc_server.saved_ipc_res);
+		proc_ipc_res_snapshot_clear(&space->interrupt.saved_ipc_res);
 		proto_clear(&space->interrupt.ipc_res.data);
 		kfree(space);
 		proc->space = NULL;
