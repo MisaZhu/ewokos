@@ -1591,10 +1591,11 @@ void proc_wakeup(proc_t* proc) {
 	proc_wakeup_all_state(proc);
 	proc_lock_leave();
 #ifdef KERNEL_SMP
-	if(_cpu_cores[proc->info.core].actived &&
-			proc->info.core != get_core_id()) {
+	if(_cpu_cores[proc->info.core].actived) {
 		_cpu_cores[proc->info.core].need_resched = 1;
+		if(proc->info.core != get_core_id()) {
 		ipi_send(proc->info.core);
+		}
 	}
 #endif
 }
