@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sys/errno.h>
 #include <sys/time.h>
+#include <ewoksys/klog.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/kernel_tic.h>
 
@@ -1436,6 +1437,7 @@ tcp_writable(int id)
 {
     struct tcp_pcb *pcb;
     int writable = 1;
+    uint32_t inflight = 0;
     mutex_lock(&mutex);
     pcb = tcp_pcb_get(id);
     if (!pcb) {
@@ -1455,7 +1457,7 @@ tcp_writable(int id)
      */
     if (pcb->state == TCP_PCB_STATE_ESTABLISHED ||
         pcb->state == TCP_PCB_STATE_CLOSE_WAIT) {
-        uint32_t inflight = pcb->snd.nxt - pcb->snd.una;
+        inflight = pcb->snd.nxt - pcb->snd.una;
         writable = (inflight < pcb->snd.wnd) ? 1 : 0;
     }
     mutex_unlock(&mutex);

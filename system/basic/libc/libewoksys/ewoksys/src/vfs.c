@@ -1075,11 +1075,13 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 		}
 
 		if(!multi_wait && !has_pipe_watch) {
+			uint32_t wait_node = 0;
 			/* Phase 3: Register for wakeup on the single node */
 			registered = true;
 			for(int i = 0; i < num; ++i) {
 				fsinfo_t info;
 				if(vfs_get_by_fd(fds[i].fd, &info) == 0 && info.node != 0) {
+					wait_node = info.node;
 					vfs_block_raw(info.node, (int)fds[i].events);
 				}
 			}
@@ -1108,9 +1110,18 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 			if(res > 0)
 				continue; /* Events appeared during registration, re-do full check */
 
-			/* Phase 5: Block until the single watched node wakes us */
+			/*
+			 * Phase 5: Block until the single watched node wakes us.
+			 *
+			 * vfsd wakes registered poll waiters with proc_wakeup_by(pid, node).
+			 * Sleeping with a generic proc_block() here drops that node token, so
+			 * poll(POLLOUT) can sleep forever after netd raises a write wakeup.
+			 */
 			if(timeout < 0) {
-				proc_block();
+				if(wait_node != 0)
+					proc_block_by(wait_node);
+				else
+					proc_block();
 			} else {
 				uint64_t now_ms = kernel_tic_ms(0);
 				uint64_t elapsed = now_ms - start_ms;

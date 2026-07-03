@@ -188,6 +188,7 @@ struct sshd_session {
     int child_control[2];
     pid_t child_pid;
     int wait_thread_started;
+    int stream_threads_active;
 
     pthread_mutex_t send_lock;
 };
@@ -197,72 +198,9 @@ static uint8_t g_hostkey_blob[512];
 static size_t g_hostkey_blob_len = 0;
 static char g_error[256];
 
-static int sshd_clone_vfs_fds_to_pid(int pid) {
-    proto_t in;
-    int vfsd_pid;
-    int res;
-
-    if(pid <= 0)
-        return -1;
-
-    vfsd_pid = ipc_serv_get(IPC_SERV_VFS);
-    if(vfsd_pid < 0)
-        return -1;
-
-    PF->init(&in)->addi(&in, proc_getpid(-1))->addi(&in, pid);
-    res = ipc_call_wait(vfsd_pid, VFS_PROC_CLONE, &in);
-    PF->clear(&in);
-    return res;
-}
-
-static void sshd_release_vfs_fds_for_pid(int pid) {
-    proto_t in;
-    int vfsd_pid;
-
-    if(pid <= 0)
-        return;
-
-    vfsd_pid = ipc_serv_get(IPC_SERV_VFS);
-    if(vfsd_pid < 0)
-        return;
-
-    PF->init(&in)->addi(&in, pid);
-    ipc_call_wait(vfsd_pid, VFS_PROC_EXIT, &in);
-    PF->clear(&in);
-}
-
-static void close_thread_bundle_fd_if_unused(int fd, int keep_a, int keep_b) {
-    if(fd < 0 || fd == keep_a || fd == keep_b)
-        return;
-    close(fd);
-}
-
-/*
- * pthreads here run as distinct kernel tasks with their own VFS fd tables.
- * sshd currently clones the parent fd table into each helper thread so they can
- * access their one stream pipe plus the session socket. If we leave the whole
- * child bundle cloned into every thread, unrelated helpers keep extra pipe
- * readers/writers alive for the lifetime of the session and upstream pipeline
- * stages never see refs_w drop as expected.
- */
-static void sshd_trim_thread_child_bundle(sshd_session_t* s, int keep_a, int keep_b) {
-    if(s == NULL)
-        return;
-    close_thread_bundle_fd_if_unused(s->child_stdin[CHILD_STDIN_READ], keep_a, keep_b);
-    close_thread_bundle_fd_if_unused(s->child_stdin[CHILD_STDIN_WRITE], keep_a, keep_b);
-    close_thread_bundle_fd_if_unused(s->child_stdout[CHILD_STDOUT_READ], keep_a, keep_b);
-    close_thread_bundle_fd_if_unused(s->child_stdout[CHILD_STDOUT_WRITE], keep_a, keep_b);
-    close_thread_bundle_fd_if_unused(s->child_stderr[CHILD_STDERR_READ], keep_a, keep_b);
-    close_thread_bundle_fd_if_unused(s->child_stderr[CHILD_STDERR_WRITE], keep_a, keep_b);
-    close_thread_bundle_fd_if_unused(s->child_control[CHILD_CTRL_READ], keep_a, keep_b);
-    close_thread_bundle_fd_if_unused(s->child_control[CHILD_CTRL_WRITE], keep_a, keep_b);
-}
-
 static int write_ssh_string(uint8_t* buf, size_t cap, size_t* off,
         const uint8_t* data, uint32_t len);
 
-#define sshd_dbg(...) ((void)0)
-#define SSHD_CHILD_MARK(msg) ((void)0)
 
 static void sshd_set_error(const char* fmt, ...) {
     va_list ap;
@@ -272,20 +210,17 @@ static void sshd_set_error(const char* fmt, ...) {
     va_end(ap);
 }
 
-/* #region debug-point openssl-error */
-static void sshd_dbg_last_ssl_error(const char* stage) {
-    unsigned long err;
-    char err_buf[160];
-
-    err = ERR_get_error();
-    if(err == 0) {
-        sshd_dbg("%s: no openssl error", stage);
-        return;
-    }
-    ERR_error_string_n(err, err_buf, sizeof(err_buf));
-    sshd_dbg("%s: openssl err=0x%lx %s", stage, err, err_buf);
+static uint32_t sshd_remote_window_load(const sshd_session_t* s) {
+    return (uint32_t)__sync_add_and_fetch((uint32_t*)&s->remote_window, 0);
 }
-/* #endregion debug-point openssl-error */
+
+static uint32_t sshd_remote_window_add(sshd_session_t* s, uint32_t delta) {
+    return (uint32_t)__sync_add_and_fetch(&s->remote_window, delta);
+}
+
+static uint32_t sshd_remote_window_sub(sshd_session_t* s, uint32_t delta) {
+    return (uint32_t)__sync_sub_and_fetch(&s->remote_window, delta);
+}
 
 static uint32_t ssh_read_uint32(const uint8_t* buf) {
     return ((uint32_t)buf[0] << 24) |
@@ -503,7 +438,13 @@ static int wait_fd_ready(int fd, uint16_t events) {
                 errno = EIO;
                 return -1;
             }
-            return 0;
+            if((pfd.revents & events) != 0)
+                return 0;
+            if((pfd.revents & POLLHUP) != 0) {
+                errno = EPIPE;
+                return -1;
+            }
+            continue;
         }
         if(rc == 0)
             continue;
@@ -530,12 +471,17 @@ static int ssh_read_n(sshd_session_t* s, void* buf, size_t len) {
     size_t total = 0;
 
     while(total < len) {
+        int saved_errno;
+        errno = 0;
         ssize_t n = read(s->socket, p + total, len - total);
+        saved_errno = errno;
         if(n < 0) {
-            if(errno == EINTR) {
+            if(saved_errno == 0)
+                saved_errno = EAGAIN;
+            if(saved_errno == EINTR) {
                 continue;
             }
-            if(errno == EAGAIN || errno == ETIMEDOUT) {
+            if(saved_errno == EAGAIN || saved_errno == ETIMEDOUT) {
                 if(s->closing || s->sent_close) {
                     sshd_set_error("session closing");
                     return -1;
@@ -546,7 +492,7 @@ static int ssh_read_n(sshd_session_t* s, void* buf, size_t len) {
                 }
                 continue;
             }
-            sshd_set_error("read failed: %s", strerror(errno));
+            sshd_set_error("read failed: %s", strerror(saved_errno));
             return -1;
         }
         if(n == 0) {
@@ -561,27 +507,42 @@ static int ssh_read_n(sshd_session_t* s, void* buf, size_t len) {
 static int ssh_write_n(sshd_session_t* s, const void* buf, size_t len) {
     const uint8_t* p = (const uint8_t*)buf;
     size_t total = 0;
+    int eagain_spin = 0;
+
+    g_error[0] = 0;
 
     while(total < len) {
+        int saved_errno;
+        errno = 0;
         ssize_t n = write(s->socket, p + total, len - total);
+        saved_errno = errno;
         if(n < 0) {
-            if(errno == EINTR) {
+            if(saved_errno == 0)
+                saved_errno = EAGAIN;
+            if(saved_errno == EINTR) {
                 continue;
             }
-            if(errno == EAGAIN) {
+            if(saved_errno == EAGAIN) {
+                if(eagain_spin < 16) {
+                    eagain_spin++;
+                    proc_usleep(1000);
+                    continue;
+                }
                 if(wait_fd_ready(s->socket, POLLOUT) != 0) {
                     sshd_set_error("write wait failed: %s", strerror(errno));
                     return -1;
                 }
+                eagain_spin = 0;
                 continue;
             }
-            sshd_set_error("write failed: %s", strerror(errno));
+            sshd_set_error("write failed: %s", strerror(saved_errno));
             return -1;
         }
         if(n == 0) {
             sshd_set_error("short write");
             return -1;
         }
+        eagain_spin = 0;
         total += (size_t)n;
     }
     return 0;
@@ -592,12 +553,17 @@ static int write_fd_all(int fd, const void* buf, size_t len) {
     size_t total = 0;
 
     while(total < len) {
+        int saved_errno;
+        errno = 0;
         ssize_t n = write(fd, p + total, len - total);
+        saved_errno = errno;
         if(n < 0) {
-            if(errno == EINTR) {
+            if(saved_errno == 0)
+                saved_errno = EAGAIN;
+            if(saved_errno == EINTR) {
                 continue;
             }
-            if(errno == EAGAIN) {
+            if(saved_errno == EAGAIN) {
                 if(wait_fd_ready(fd, POLLOUT) != 0)
                     return -1;
                 continue;
@@ -616,12 +582,17 @@ static int read_fd_all(int fd, void* buf, size_t len) {
     size_t total = 0;
 
     while(total < len) {
+        int saved_errno;
+        errno = 0;
         ssize_t n = read(fd, p + total, len - total);
+        saved_errno = errno;
         if(n < 0) {
-            if(errno == EINTR) {
+            if(saved_errno == 0)
+                saved_errno = EAGAIN;
+            if(saved_errno == EINTR) {
                 continue;
             }
-            if(errno == EAGAIN) {
+            if(saved_errno == EAGAIN) {
                 if(wait_fd_ready(fd, POLLIN) != 0)
                     return -1;
                 continue;
@@ -650,17 +621,12 @@ static int exec_program_direct(const char* name) {
         fpath[i] = name[i];
     }
 
-    SSHD_CHILD_MARK("exec-read-begin");
     buf = vfs_readfile(fpath, &sz);
     if(buf == NULL) {
-        SSHD_CHILD_MARK("exec-read-fail");
         return -1;
     }
-    SSHD_CHILD_MARK("exec-read-ok");
 
-    SSHD_CHILD_MARK("exec-sys-begin");
     proc_exec_elf(name, (const char*)buf, sz);
-    SSHD_CHILD_MARK("exec-sys-return");
     free(buf);
     return 0;
 }
@@ -702,9 +668,6 @@ static int build_hostkey_blob_from_rsa(RSA* rsa) {
 
     e_len = BN_bn2bin(rsa_e, e_bin);
     n_len = BN_bn2bin(rsa_n, n_bin);
-    /* #region debug-point init-host-key */
-    sshd_dbg("init_host_key: exponent_len=%d modulus_len=%d", e_len, n_len);
-    /* #endregion debug-point init-host-key */
     if(e_len <= 0 || n_len <= 0)
         return -1;
 
@@ -1088,10 +1051,6 @@ static int parse_client_kexinit(sshd_session_t* s,
         sshd_set_error("unsupported client compression algorithms");
         return -1;
     }
-    /* #region debug-point kex-negotiation */
-    sshd_dbg("parse_client_kexinit: kex_alg=%s hostkey_alg=%s",
-            s->negotiated_kex_alg, s->negotiated_hostkey_alg);
-    /* #endregion debug-point kex-negotiation */
     return 0;
 }
 
@@ -1150,15 +1109,9 @@ static int send_kexinit(sshd_session_t* s) {
     size_t off = 0;
     uint8_t cookie[16];
 
-    /* #region debug-point kex-flow */
-    sshd_dbg("send_kexinit: begin");
-    /* #endregion debug-point kex-flow */
     memset(&packet, 0, sizeof(packet));
     packet.type = SSH_MSG_KEXINIT;
     if(RAND_bytes(cookie, sizeof(cookie)) != 1) {
-        /* #region debug-point kex-flow */
-        sshd_dbg("send_kexinit: RAND_bytes failed");
-        /* #endregion debug-point kex-flow */
         return -1;
     }
     memcpy(packet.payload + off, cookie, sizeof(cookie));
@@ -1199,14 +1152,8 @@ static int send_kexinit(sshd_session_t* s) {
     memcpy(s->server_kexinit + 1, packet.payload, packet.payload_len);
     s->server_kexinit_len = packet.payload_len + 1;
     if(ssh_packet_send(s, &packet) < 0) {
-        /* #region debug-point kex-flow */
-        sshd_dbg("send_kexinit: ssh_packet_send failed");
-        /* #endregion debug-point kex-flow */
         return -1;
     }
-    /* #region debug-point kex-flow */
-    sshd_dbg("send_kexinit: done, payload_len=%u", (unsigned int)packet.payload_len);
-    /* #endregion debug-point kex-flow */
     return 0;
 }
 
@@ -1280,18 +1227,9 @@ static int do_key_exchange_group14_sha256(sshd_session_t* s) {
     const uint8_t* e_ptr;
     uint32_t e_len;
 
-    /* #region debug-point kex-flow */
-    sshd_dbg("do_key_exchange: waiting KEXDH_INIT");
-    /* #endregion debug-point kex-flow */
     if(ssh_packet_receive(s, &packet) < 0) {
-        /* #region debug-point kex-flow */
-        sshd_dbg("do_key_exchange: ssh_packet_receive failed");
-        /* #endregion debug-point kex-flow */
         return -1;
     }
-    /* #region debug-point kex-flow */
-    sshd_dbg("do_key_exchange: received packet type=%u", packet.type);
-    /* #endregion debug-point kex-flow */
     if(packet.type != SSH_MSG_KEXDH_INIT) {
         sshd_set_error("expected KEXDH_INIT, got %u", packet.type);
         return -1;
@@ -1299,9 +1237,6 @@ static int do_key_exchange_group14_sha256(sshd_session_t* s) {
 
     if(read_ssh_string(packet.payload, packet.payload_len, &off, &e_ptr, &e_len) < 0)
         return -1;
-    /* #region debug-point kex-flow */
-    sshd_dbg("do_key_exchange: client dh pubkey len=%u", e_len);
-    /* #endregion debug-point kex-flow */
     if(e_len == 0 || (e_len > 1 && e_ptr[0] == 0 && e_ptr[1] == 0)) {
         sshd_set_error("invalid client dh pubkey mpint");
         goto fail;
@@ -1309,9 +1244,6 @@ static int do_key_exchange_group14_sha256(sshd_session_t* s) {
     if(e_len > 1 && e_ptr[0] == 0) {
         e_ptr++;
         e_len--;
-        /* #region debug-point kex-flow */
-        sshd_dbg("do_key_exchange: normalized client dh pubkey len=%u", e_len);
-        /* #endregion debug-point kex-flow */
     }
 
     dh = DH_new();
@@ -1329,9 +1261,6 @@ static int do_key_exchange_group14_sha256(sshd_session_t* s) {
     g_bn = NULL;
     if(!DH_generate_key(dh))
         goto fail;
-    /* #region debug-point kex-flow */
-    sshd_dbg("do_key_exchange: DH_generate_key ok");
-    /* #endregion debug-point kex-flow */
 
     e_bn = BN_bin2bn(e_ptr, e_len, NULL);
     if(e_bn == NULL)
@@ -1343,33 +1272,18 @@ static int do_key_exchange_group14_sha256(sshd_session_t* s) {
     f_raw_len = BN_bn2bin(f_pub, f_raw);
     if(f_raw_len <= 0)
         goto fail;
-    /* #region debug-point kex-flow */
-    sshd_dbg("do_key_exchange: server dh pubkey raw_len=%d", f_raw_len);
-    /* #endregion debug-point kex-flow */
     if(ssh_encode_mpint(f_raw, (size_t)f_raw_len, f_mpint, sizeof(f_mpint), &f_mpint_len) < 0)
         goto fail;
-    /* #region debug-point kex-flow */
-    sshd_dbg("do_key_exchange: server dh pubkey mpint_len=%u", (unsigned int)f_mpint_len);
-    /* #endregion debug-point kex-flow */
 
     k_raw_len = DH_compute_key(k_raw, e_bn, dh);
     if(k_raw_len <= 0)
         goto fail;
-    /* #region debug-point kex-flow */
-    sshd_dbg("do_key_exchange: DH_compute_key ok, secret_len=%d", k_raw_len);
-    /* #endregion debug-point kex-flow */
     if(ssh_encode_mpint(k_raw, (size_t)k_raw_len, k_mpint, sizeof(k_mpint), &k_mpint_len) < 0)
         goto fail;
-    /* #region debug-point kex-flow */
-    sshd_dbg("do_key_exchange: shared secret mpint_len=%u", (unsigned int)k_mpint_len);
-    /* #endregion debug-point kex-flow */
 
     {
         SHA256_CTX ctx;
         SHA256_Init(&ctx);
-        /* #region debug-point kex-flow */
-        sshd_dbg("do_key_exchange: exchange hash begin");
-        /* #endregion debug-point kex-flow */
 
         ssh_write_uint32(exchange_hash, (uint32_t)strlen(s->client_version));
         SHA256_Update(&ctx, exchange_hash, 4);
@@ -1395,39 +1309,18 @@ static int do_key_exchange_group14_sha256(sshd_session_t* s) {
         SHA256_Update(&ctx, f_mpint, f_mpint_len);
         SHA256_Update(&ctx, k_mpint, k_mpint_len);
         SHA256_Final(exchange_hash, &ctx);
-        /* #region debug-point kex-flow */
-        sshd_dbg("do_key_exchange: exchange hash done");
-        /* #endregion debug-point kex-flow */
     }
 
     if(s->session_id_len == 0) {
         memcpy(s->session_id, exchange_hash, sizeof(exchange_hash));
         s->session_id_len = sizeof(exchange_hash);
-        /* #region debug-point kex-flow */
-        sshd_dbg("do_key_exchange: session id initialized, len=%u", (unsigned int)s->session_id_len);
-        /* #endregion debug-point kex-flow */
     }
-    /* #region debug-point kex-flow */
-    sshd_dbg("do_key_exchange: derive_keys begin");
-    /* #endregion debug-point kex-flow */
     derive_keys(s, k_mpint, k_mpint_len, exchange_hash, sizeof(exchange_hash));
-    /* #region debug-point kex-flow */
-    sshd_dbg("do_key_exchange: derive_keys done");
-    /* #endregion debug-point kex-flow */
 
-    /* #region debug-point kex-flow */
-    sshd_dbg("do_key_exchange: build_signature_blob begin, alg=%s", s->negotiated_hostkey_alg[0] ? s->negotiated_hostkey_alg : "<none>");
-    /* #endregion debug-point kex-flow */
     if(build_signature_blob(exchange_hash, sizeof(exchange_hash), s->negotiated_hostkey_alg,
                 signature_blob, sizeof(signature_blob), &signature_blob_len) < 0) {
-        /* #region debug-point kex-flow */
-        sshd_dbg("do_key_exchange: build_signature_blob failed");
-        /* #endregion debug-point kex-flow */
         goto fail;
     }
-    /* #region debug-point kex-flow */
-    sshd_dbg("do_key_exchange: signature blob len=%u", (unsigned int)signature_blob_len);
-    /* #endregion debug-point kex-flow */
 
     memset(&packet, 0, sizeof(packet));
     packet.type = SSH_MSG_KEXDH_REPLY;
@@ -1442,55 +1335,28 @@ static int do_key_exchange_group14_sha256(sshd_session_t* s) {
     }
     packet.payload_len = off;
     if(ssh_packet_send(s, &packet) < 0) {
-        /* #region debug-point kex-flow */
-        sshd_dbg("do_key_exchange: send KEXDH_REPLY failed");
-        /* #endregion debug-point kex-flow */
         goto fail;
     }
-    /* #region debug-point kex-flow */
-    sshd_dbg("do_key_exchange: sent KEXDH_REPLY");
-    /* #endregion debug-point kex-flow */
 
     memset(&packet, 0, sizeof(packet));
     packet.type = SSH_MSG_NEWKEYS;
     if(ssh_packet_send(s, &packet) < 0) {
-        /* #region debug-point kex-flow */
-        sshd_dbg("do_key_exchange: send NEWKEYS failed");
-        /* #endregion debug-point kex-flow */
         goto fail;
     }
-    /* #region debug-point kex-flow */
-    sshd_dbg("do_key_exchange: sent NEWKEYS");
-    /* #endregion debug-point kex-flow */
-    /* #region debug-point kex-flow */
-    sshd_dbg("do_key_exchange: waiting client NEWKEYS");
-    /* #endregion debug-point kex-flow */
     if(ssh_packet_receive(s, &packet) < 0) {
-        /* #region debug-point kex-flow */
-        sshd_dbg("do_key_exchange: receive client NEWKEYS failed");
-        /* #endregion debug-point kex-flow */
         goto fail;
     }
-    /* #region debug-point kex-flow */
-    sshd_dbg("do_key_exchange: received post-kex packet type=%u", packet.type);
-    /* #endregion debug-point kex-flow */
     if(packet.type != SSH_MSG_NEWKEYS) {
         sshd_set_error("expected NEWKEYS, got %u", packet.type);
         goto fail;
     }
 
     s->encryption_enabled = 1;
-    /* #region debug-point kex-flow */
-    sshd_dbg("do_key_exchange: complete");
-    /* #endregion debug-point kex-flow */
     BN_free(e_bn);
     DH_free(dh);
     return 0;
 
 fail:
-    /* #region debug-point kex-flow */
-    sshd_dbg("do_key_exchange: fail, error=%s", g_error[0] ? g_error : "<none>");
-    /* #endregion debug-point kex-flow */
     BN_free(e_bn);
     BN_free(p_bn);
     BN_free(g_bn);
@@ -1724,14 +1590,8 @@ static int handle_service_and_auth(sshd_session_t* s) {
     uint32_t user_len, service_len, method_len, password_len;
     size_t off;
 
-    /* #region debug-point auth-flow */
-    sshd_dbg("handle_service_and_auth: waiting service request");
-    /* #endregion debug-point auth-flow */
     if(ssh_packet_receive(s, &packet) < 0)
         return -1;
-    /* #region debug-point auth-flow */
-    sshd_dbg("handle_service_and_auth: received packet type=%u", packet.type);
-    /* #endregion debug-point auth-flow */
     if(packet.type != SSH_MSG_SERVICE_REQUEST)
         return -1;
 
@@ -1741,14 +1601,8 @@ static int handle_service_and_auth(sshd_session_t* s) {
     if(service_len != strlen("ssh-userauth") ||
             memcmp(service, "ssh-userauth", service_len) != 0)
         return -1;
-    /* #region debug-point auth-flow */
-    sshd_dbg("handle_service_and_auth: service=%.*s", (int)service_len, service);
-    /* #endregion debug-point auth-flow */
     if(send_service_accept(s, "ssh-userauth") < 0)
         return -1;
-    /* #region debug-point auth-flow */
-    sshd_dbg("handle_service_and_auth: sent service accept");
-    /* #endregion debug-point auth-flow */
 
     while(!s->authenticated) {
         int auth_res = -1;
@@ -1757,9 +1611,6 @@ static int handle_service_and_auth(sshd_session_t* s) {
 
         if(ssh_packet_receive(s, &packet) < 0)
             return -1;
-        /* #region debug-point auth-flow */
-        sshd_dbg("handle_service_and_auth: auth packet type=%u", packet.type);
-        /* #endregion debug-point auth-flow */
         if(packet.type != SSH_MSG_USERAUTH_REQUEST)
             return -1;
 
@@ -1784,10 +1635,6 @@ static int handle_service_and_auth(sshd_session_t* s) {
         }
         memcpy(username, user, user_len);
         username[user_len] = 0;
-        /* #region debug-point auth-flow */
-        sshd_dbg("handle_service_and_auth: user=%s service=%.*s method=%.*s",
-                username, (int)service_len, service, (int)method_len, method);
-        /* #endregion debug-point auth-flow */
 
         if(method_len == strlen("none") && memcmp(method, "none", method_len) == 0) {
             if(send_userauth_failure(s, "password") < 0)
@@ -1812,11 +1659,6 @@ static int handle_service_and_auth(sshd_session_t* s) {
         passwd[password_len] = 0;
 
         auth_res = session_check(username, passwd, &s->user_info);
-        /* #region debug-point auth-flow */
-        sshd_dbg("handle_service_and_auth: session_check ret=%d user=%s uid=%d gid=%d home=%s cmd=%s",
-                auth_res, username, s->user_info.uid, s->user_info.gid,
-                s->user_info.home, s->user_info.cmd);
-        /* #endregion debug-point auth-flow */
         if(auth_res == 0 && s->user_info.cmd[0] != 0) {
             memset(&packet, 0, sizeof(packet));
             packet.type = SSH_MSG_USERAUTH_SUCCESS;
@@ -1824,15 +1666,9 @@ static int handle_service_and_auth(sshd_session_t* s) {
             if(ssh_packet_send(s, &packet) < 0)
                 return -1;
             s->authenticated = 1;
-            /* #region debug-point auth-flow */
-            sshd_dbg("handle_service_and_auth: auth success");
-            /* #endregion debug-point auth-flow */
             return 0;
         }
 
-        /* #region debug-point auth-flow */
-        sshd_dbg("handle_service_and_auth: auth failure");
-        /* #endregion debug-point auth-flow */
         if(send_userauth_failure(s, "password") < 0)
             return -1;
     }
@@ -1886,7 +1722,10 @@ static int send_channel_status(sshd_session_t* s, uint8_t type) {
     ssh_write_uint32(packet.payload + off, s->remote_channel);
     off += 4;
     packet.payload_len = off;
-    return ssh_packet_send(s, &packet);
+    if(ssh_packet_send(s, &packet) < 0) {
+        return -1;
+    }
+    return 0;
 }
 
 static int send_request_failure(sshd_session_t* s) {
@@ -1923,6 +1762,7 @@ static int send_channel_data_packet(sshd_session_t* s, uint32_t extended_type,
     const uint8_t* payload = data;
     size_t payload_len = len;
     size_t sent = 0;
+    unsigned int chunk_index = 0;
 
     if(s->pty_enabled) {
         payload_len = ssh_console_copy_crlf(text_buf, sizeof(text_buf), data, len);
@@ -1936,12 +1776,28 @@ static int send_channel_data_packet(sshd_session_t* s, uint32_t extended_type,
         uint32_t win;
         uint32_t packet_max;
 
-        pthread_mutex_lock(&s->send_lock);
-        win = s->remote_window;
+        win = sshd_remote_window_load(s);
         packet_max = s->remote_packet_max;
         if(packet_max == 0 || packet_max > SSH_MAX_PACKET_SIZE)
             packet_max = SSH_MAX_PACKET_SIZE;
 
+        if(win == 0) {
+            proc_usleep(1000);
+            continue;
+        }
+
+        if(chunk > win)
+            chunk = win;
+        if(chunk > packet_max)
+            chunk = packet_max;
+
+        /*
+         * Writers still serialize packet encryption/sequence under send_lock,
+         * but remote_window itself is updated atomically so a WINDOW_ADJUST
+         * packet can advance it even while this sender is blocked in write().
+         */
+        pthread_mutex_lock(&s->send_lock);
+        win = sshd_remote_window_load(s);
         if(win == 0) {
             pthread_mutex_unlock(&s->send_lock);
             proc_usleep(1000);
@@ -1971,9 +1827,10 @@ static int send_channel_data_packet(sshd_session_t* s, uint32_t extended_type,
             pthread_mutex_unlock(&s->send_lock);
             return -1;
         }
-        s->remote_window -= (uint32_t)chunk;
+        sshd_remote_window_sub(s, (uint32_t)chunk);
         pthread_mutex_unlock(&s->send_lock);
         sent += chunk;
+        chunk_index++;
     }
 
     if(sent == payload_len)
@@ -1982,7 +1839,7 @@ static int send_channel_data_packet(sshd_session_t* s, uint32_t extended_type,
     return -1;
 }
 
-static int send_channel_request_exit_status(sshd_session_t* s, uint32_t status) {
+static __attribute__((unused)) int send_channel_request_exit_status(sshd_session_t* s, uint32_t status) {
     ssh_packet_t packet;
     size_t off = 0;
 
@@ -2003,10 +1860,12 @@ static int send_channel_request_exit_status(sshd_session_t* s, uint32_t status) 
 static int send_channel_eof_and_close(sshd_session_t* s) {
     if(s->sent_close)
         return 0;
-    if(send_channel_status(s, SSH_MSG_CHANNEL_EOF) < 0)
+    if(send_channel_status(s, SSH_MSG_CHANNEL_EOF) < 0) {
         return -1;
-    if(send_channel_status(s, SSH_MSG_CHANNEL_CLOSE) < 0)
+    }
+    if(send_channel_status(s, SSH_MSG_CHANNEL_CLOSE) < 0) {
         return -1;
+    }
     s->sent_close = 1;
     return 0;
 }
@@ -2014,20 +1873,15 @@ static int send_channel_eof_and_close(sshd_session_t* s) {
 static void* stream_to_channel_thread(void* arg) {
     stream_thread_arg_t* ctx = (stream_thread_arg_t*)arg;
     uint8_t buf[1024];
+    unsigned int loop_count = 0;
 
     while(!ctx->start_ready && !ctx->start_failed)
         proc_usleep(1000);
 
     if(ctx->start_failed) {
-        sshd_release_vfs_fds_for_pid((int)pthread_self());
         free(ctx);
         return NULL;
     }
-
-    sshd_trim_thread_child_bundle(ctx->session, ctx->fd, ctx->session->socket);
-
-    sshd_dbg("stream_to_channel_thread: start fd=%d ext=%u",
-            ctx->fd, ctx->extended_type);
 
     while(!ctx->session->closing) {
         ssize_t n = read(ctx->fd, buf, sizeof(buf));
@@ -2037,29 +1891,28 @@ static void* stream_to_channel_thread(void* arg) {
             }
             if(errno == EAGAIN) {
                 if(wait_fd_ready(ctx->fd, POLLIN) != 0) {
-                    sshd_dbg("stream_to_channel_thread: fd=%d wait failed errno=%d ext=%u",
-                            ctx->fd, errno, ctx->extended_type);
                     break;
                 }
                 continue;
             }
-            sshd_dbg("stream_to_channel_thread: fd=%d read failed errno=%d ext=%u",
-                    ctx->fd, errno, ctx->extended_type);
             break;
         }
         if(n == 0)
             break;
-        sshd_dbg("stream_to_channel_thread: fd=%d read=%d ext=%u",
-                ctx->fd, (int)n, ctx->extended_type);
         if(send_channel_data_packet(ctx->session, ctx->extended_type, buf, (size_t)n) < 0) {
-            sshd_dbg("stream_to_channel_thread: send failed ext=%u len=%d",
-                    ctx->extended_type, (int)n);
             break;
         }
+        loop_count++;
     }
 
-    close(ctx->fd);
-    sshd_release_vfs_fds_for_pid((int)pthread_self());
+    __sync_sub_and_fetch(&ctx->session->stream_threads_active, 1);
+    {
+        int release_wait = 0;
+        while(!ctx->session->sent_close && !ctx->session->closing && release_wait < 1000) {
+            proc_usleep(1000);
+            release_wait++;
+        }
+    }
     free(ctx);
     return NULL;
 }
@@ -2072,32 +1925,28 @@ static void* wait_child_thread(void* arg) {
         proc_usleep(1000);
 
     if(ctx->start_failed) {
-        sshd_release_vfs_fds_for_pid((int)pthread_self());
         free(ctx);
         return NULL;
     }
 
-    sshd_trim_thread_child_bundle(s, s->socket, -1);
-
-    sshd_dbg("wait_child_thread: start pid=%d", s->child_pid);
     int status = waitpid(s->child_pid);
-    uint32_t exit_status = (status < 0) ? 255u : (uint32_t)status;
+    int drain_wait = 0;
+    (void)status;
 
-    /* #region debug-point session-flow */
-    sshd_dbg("wait_child_thread: pid=%d status=%d exit_status=%u", s->child_pid, status, exit_status);
-    /* #endregion debug-point session-flow */
-    s->closing = 1;
     if(s->child_stdin[CHILD_STDIN_WRITE] >= 0) {
         close(s->child_stdin[CHILD_STDIN_WRITE]);
         s->child_stdin[CHILD_STDIN_WRITE] = -1;
     }
 
-    send_channel_request_exit_status(s, exit_status);
-    send_channel_eof_and_close(s);
-    close(s->socket);
-    s->socket = -1;
+    while(__sync_add_and_fetch(&s->stream_threads_active, 0) > 0 && drain_wait < 500) {
+        proc_usleep(1000);
+        drain_wait++;
+    }
+
+    if(send_channel_eof_and_close(s) < 0) {
+    }
+    s->closing = 1;
     s->child_pid = -1;
-    sshd_release_vfs_fds_for_pid((int)pthread_self());
     free(ctx);
     return NULL;
 }
@@ -2143,7 +1992,6 @@ static void run_session_helper(int sock, int server_sock, int child_stdin[2],
     sshd_child_start_msg_t msg;
     const char* cmd;
 
-    SSHD_CHILD_MARK("helper-start");
     if(sock >= 0)
         close(sock);
     if(server_sock >= 0)
@@ -2158,12 +2006,10 @@ static void run_session_helper(int sock, int server_sock, int child_stdin[2],
     close(child_stderr[CHILD_STDERR_READ]);
     child_stderr[CHILD_STDERR_READ] = -1;
 
-    SSHD_CHILD_MARK("wait-msg");
     if(read_fd_all(child_control[CHILD_CTRL_READ], &msg, sizeof(msg)) < 0)
         exit(1);
     if(msg.magic != SSHD_CHILD_START_MAGIC)
         exit(1);
-    SSHD_CHILD_MARK("msg-ok");
 
     if(dup2(child_stdin[CHILD_STDIN_READ], 0) < 0 ||
             dup2(child_stdout[CHILD_STDOUT_WRITE], 1) < 0 ||
@@ -2172,7 +2018,6 @@ static void run_session_helper(int sock, int server_sock, int child_stdin[2],
         exit(2);
     }
     close(VFS_BACKUP_FD1);
-    SSHD_CHILD_MARK("dup-ok");
 
     close(child_control[CHILD_CTRL_READ]);
     child_control[CHILD_CTRL_READ] = -1;
@@ -2188,23 +2033,17 @@ static void run_session_helper(int sock, int server_sock, int child_stdin[2],
             setenv("USER", msg.user) != 0) {
         exit(3);
     }
-    SSHD_CHILD_MARK("env-ok");
     if(core_set_env("CONSOLE_ID", "ssh") != 0 ||
             core_set_env("HOME", msg.home) != 0 ||
             core_set_env("USER", msg.user) != 0) {
         exit(5);
     }
-    SSHD_CHILD_MARK("core-env-ok");
     if(setgid(msg.gid) != 0 || setuid(msg.uid) != 0)
         exit(4);
-    SSHD_CHILD_MARK("ids-ok");
 
     cmd = (msg.is_shell != 0) ? msg.shell_cmd : msg.exec_cmd;
-    if(cmd[0] != 0) {
-        SSHD_CHILD_MARK("exec-begin");
-        if(exec_program_direct(cmd) < 0)
-            SSHD_CHILD_MARK("exec-fail");
-    }
+    if(cmd[0] != 0)
+        (void)exec_program_direct(cmd);
     exit(-1);
 }
 
@@ -2290,12 +2129,6 @@ static int spawn_child_session(sshd_session_t* s, const char* command, int is_sh
     sshd_child_start_msg_t msg;
     int rc;
 
-    /* #region debug-point session-flow */
-    sshd_dbg("spawn_child_session: activate helper is_shell=%d command=%s user_cmd=%s uid=%d gid=%d",
-            is_shell, command ? command : "<null>", s->user_info.cmd,
-            s->user_info.uid, s->user_info.gid);
-    /* #endregion debug-point session-flow */
-
     if(s->child_pid <= 0 || s->child_control[CHILD_CTRL_WRITE] < 0)
         return -1;
 
@@ -2316,9 +2149,6 @@ static int spawn_child_session(sshd_session_t* s, const char* command, int is_sh
     s->child_control[CHILD_CTRL_WRITE] = -1;
 
     s->child_started = 1;
-    sshd_dbg("spawn_child_session: fds stdin_w=%d stdout_r=%d stderr_r=%d child_pid=%d",
-            s->child_stdin[CHILD_STDIN_WRITE], s->child_stdout[CHILD_STDOUT_READ],
-            s->child_stderr[CHILD_STDERR_READ], s->child_pid);
 
     stdout_arg = (stream_thread_arg_t*)calloc(1, sizeof(stream_thread_arg_t));
     stderr_arg = (stream_thread_arg_t*)calloc(1, sizeof(stream_thread_arg_t));
@@ -2335,41 +2165,22 @@ static int spawn_child_session(sshd_session_t* s, const char* command, int is_sh
     wait_arg->session = s;
 
     rc = pthread_create(&tid, NULL, stream_to_channel_thread, stdout_arg);
-    sshd_dbg("spawn_child_session: stdout thread rc=%d tid=%d", rc, tid);
     if(rc != 0)
         goto fail;
-    if(sshd_clone_vfs_fds_to_pid((int)tid) != 0) {
-        sshd_dbg("spawn_child_session: stdout thread clone fds failed tid=%d", tid);
-        stdout_arg->start_failed = 1;
-        stdout_arg = NULL;
-        goto fail;
-    }
+    __sync_add_and_fetch(&s->stream_threads_active, 1);
     stdout_arg->start_ready = 1;
     pthread_detach(tid);
     stdout_arg = NULL;
     rc = pthread_create(&tid, NULL, stream_to_channel_thread, stderr_arg);
-    sshd_dbg("spawn_child_session: stderr thread rc=%d tid=%d", rc, tid);
     if(rc != 0)
         goto fail;
-    if(sshd_clone_vfs_fds_to_pid((int)tid) != 0) {
-        sshd_dbg("spawn_child_session: stderr thread clone fds failed tid=%d", tid);
-        stderr_arg->start_failed = 1;
-        stderr_arg = NULL;
-        goto fail;
-    }
+    __sync_add_and_fetch(&s->stream_threads_active, 1);
     stderr_arg->start_ready = 1;
     pthread_detach(tid);
     stderr_arg = NULL;
     rc = pthread_create(&tid, NULL, wait_child_thread, wait_arg);
-    sshd_dbg("spawn_child_session: wait thread rc=%d tid=%d", rc, tid);
     if(rc != 0)
         goto fail;
-    if(sshd_clone_vfs_fds_to_pid((int)tid) != 0) {
-        sshd_dbg("spawn_child_session: wait thread clone fds failed tid=%d", tid);
-        wait_arg->start_failed = 1;
-        wait_arg = NULL;
-        goto fail;
-    }
     wait_arg->start_ready = 1;
     s->wait_thread_started = 1;
     pthread_detach(tid);
@@ -2395,9 +2206,6 @@ static int handle_channel_open(sshd_session_t* s, const ssh_packet_t* packet) {
 
     if(read_ssh_string(packet->payload, packet->payload_len, &off, &channel_type, &type_len) < 0)
         return -1;
-    /* #region debug-point session-flow */
-    sshd_dbg("handle_channel_open: type=%.*s", (int)type_len, channel_type);
-    /* #endregion debug-point session-flow */
     if(type_len != strlen("session") || memcmp(channel_type, "session", type_len) != 0) {
         s->remote_channel = ssh_read_uint32(packet->payload + off);
         return send_channel_open_failure(s, SSH_CHANNEL_OPEN_ADMINISTRATIVELY_PROHIBITED,
@@ -2408,10 +2216,6 @@ static int handle_channel_open(sshd_session_t* s, const ssh_packet_t* packet) {
     s->remote_window = ssh_read_uint32(packet->payload + off);
     off += 4;
     s->remote_packet_max = ssh_read_uint32(packet->payload + off);
-    /* #region debug-point session-flow */
-    sshd_dbg("handle_channel_open: remote_channel=%u remote_window=%u remote_packet_max=%u",
-            s->remote_channel, s->remote_window, s->remote_packet_max);
-    /* #endregion debug-point session-flow */
 
     s->local_channel = 0;
     s->local_window = SSH_MAX_PACKET_SIZE;
@@ -2438,10 +2242,6 @@ static int handle_channel_request(sshd_session_t* s, const ssh_packet_t* packet)
     if(off >= packet->payload_len)
         return -1;
     want_reply = packet->payload[off++];
-    /* #region debug-point session-flow */
-    sshd_dbg("handle_channel_request: channel_id=%u req=%.*s want_reply=%d",
-            channel_id, (int)req_len, req_type, want_reply);
-    /* #endregion debug-point session-flow */
 
     if(req_len == strlen("pty-req") && memcmp(req_type, "pty-req", req_len) == 0) {
         const uint8_t* term;
@@ -2519,9 +2319,7 @@ static int handle_channel_data(sshd_session_t* s, const ssh_packet_t* packet) {
         return -1;
     if(data_len == 0)
         return 0;
-    sshd_dbg("handle_channel_data: len=%u", (unsigned int)data_len);
     if(write_fd_all(s->child_stdin[CHILD_STDIN_WRITE], data, data_len) < 0) {
-        sshd_dbg("handle_channel_data: write child stdin failed errno=%d", errno);
         return -1;
     }
     return 0;
@@ -2533,9 +2331,6 @@ static int handle_session_packets(sshd_session_t* s) {
     while(!s->sent_close) {
         if(ssh_packet_receive(s, &packet) < 0)
             return -1;
-        /* #region debug-point session-flow */
-        sshd_dbg("handle_session_packets: packet type=%u", packet.type);
-        /* #endregion debug-point session-flow */
 
         switch(packet.type) {
         case SSH_MSG_GLOBAL_REQUEST:
@@ -2556,9 +2351,8 @@ static int handle_session_packets(sshd_session_t* s) {
             break;
         case SSH_MSG_CHANNEL_WINDOW_ADJUST:
             if(packet.payload_len >= 8) {
-                pthread_mutex_lock(&s->send_lock);
-                s->remote_window += ssh_read_uint32(packet.payload + 4);
-                pthread_mutex_unlock(&s->send_lock);
+                uint32_t delta = ssh_read_uint32(packet.payload + 4);
+                sshd_remote_window_add(s, delta);
             }
             break;
         case SSH_MSG_CHANNEL_EOF:
@@ -2568,6 +2362,10 @@ static int handle_session_packets(sshd_session_t* s) {
             }
             break;
         case SSH_MSG_CHANNEL_CLOSE:
+            if(s->child_stdin[CHILD_STDIN_WRITE] >= 0) {
+                close(s->child_stdin[CHILD_STDIN_WRITE]);
+                s->child_stdin[CHILD_STDIN_WRITE] = -1;
+            }
             send_channel_eof_and_close(s);
             return 0;
         default:
@@ -2578,8 +2376,6 @@ static int handle_session_packets(sshd_session_t* s) {
 }
 
 static void session_init(sshd_session_t* s, int sock) {
-    struct timeval sock_timeout;
-
     memset(s, 0, sizeof(*s));
     s->socket = sock;
     strncpy(s->server_version, SSH_SERVER_VERSION, sizeof(s->server_version) - 1);
@@ -2592,10 +2388,6 @@ static void session_init(sshd_session_t* s, int sock) {
     s->child_stderr[0] = s->child_stderr[1] = -1;
     s->child_control[0] = s->child_control[1] = -1;
     (void)set_fd_nonblock(sock);
-    sock_timeout.tv_sec = 0;
-    sock_timeout.tv_usec = 200000;
-    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &sock_timeout, sizeof(sock_timeout));
-    setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &sock_timeout, sizeof(sock_timeout));
     pthread_mutex_init(&s->send_lock, NULL);
 }
 
@@ -2606,22 +2398,17 @@ static void session_destroy(sshd_session_t* s) {
         waitpid(s->child_pid);
         s->child_pid = -1;
     }
-    if(s->socket >= 0)
+    if(s->socket >= 0) {
         close(s->socket);
+    }
 }
 
 static int open_server_socket(int port) {
     struct sockaddr_in addr;
 
-    /* #region debug-point open-server-socket */
-    sshd_dbg("open_server_socket: begin, port=%d", port);
-    /* #endregion debug-point open-server-socket */
     while(true) {
         int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         if(sock < 0) {
-            /* #region debug-point open-server-socket */
-            sshd_dbg("open_server_socket: socket failed, errno=%d", errno);
-            /* #endregion debug-point open-server-socket */
             proc_usleep(200000);
             continue;
         }
@@ -2629,18 +2416,9 @@ static int open_server_socket(int port) {
         addr.sin_family = AF_INET;
         addr.sin_addr.s_un.s_addr = htonl(INADDR_ANY);
         addr.sin_port = htons(port);
-        /* #region debug-point open-server-socket */
-        sshd_dbg("open_server_socket: socket ok, fd=%d", sock);
-        /* #endregion debug-point open-server-socket */
         if(bind(sock, (struct sockaddr*)&addr, sizeof(addr)) == 0 && listen(sock, 5) == 0) {
-            /* #region debug-point open-server-socket */
-            sshd_dbg("open_server_socket: listen ok, fd=%d", sock);
-            /* #endregion debug-point open-server-socket */
             return sock;
         }
-        /* #region debug-point open-server-socket */
-        sshd_dbg("open_server_socket: bind/listen failed, errno=%d", errno);
-        /* #endregion debug-point open-server-socket */
         close(sock);
         proc_usleep(200000);
     }
@@ -2652,95 +2430,50 @@ static int init_host_key(void) {
     uint8_t der[2048];
     int ret;
 
-    /* #region debug-point init-host-key */
-    sshd_dbg("init_host_key: begin");
-    /* #endregion debug-point init-host-key */
-    /* #region debug-point openssl-error */
     ERR_clear_error();
-    /* #endregion debug-point openssl-error */
     if(load_host_key_from_file(SSH_HOST_KEY_PATH) == 0) {
-        /* #region debug-point init-host-key */
-        sshd_dbg("init_host_key: loaded persisted key from %s", SSH_HOST_KEY_PATH);
-        sshd_dbg("init_host_key: success, hostkey_blob_len=%u", (unsigned int)g_hostkey_blob_len);
-        /* #endregion debug-point init-host-key */
         return 0;
     }
 
     g_host_rsa = RSA_new();
     if(g_host_rsa == NULL) {
-        /* #region debug-point init-host-key */
-        sshd_dbg("init_host_key: RSA_new failed");
-        /* #endregion debug-point init-host-key */
-        /* #region debug-point openssl-error */
-        sshd_dbg_last_ssl_error("init_host_key: alloc");
-        /* #endregion debug-point openssl-error */
         return -1;
     }
     memset(&rng, 0, sizeof(rng));
     memset(&wc_rsa, 0, sizeof(wc_rsa));
     ret = wc_InitRng(&rng);
-    /* #region debug-point init-host-key */
-    sshd_dbg("init_host_key: wc_InitRng ret=%d", ret);
-    /* #endregion debug-point init-host-key */
     if(ret != 0)
         return -1;
     ret = wc_InitRsaKey(&wc_rsa, NULL);
-    /* #region debug-point init-host-key */
-    sshd_dbg("init_host_key: wc_InitRsaKey ret=%d", ret);
-    /* #endregion debug-point init-host-key */
     if(ret != 0) {
         wc_FreeRng(&rng);
         return -1;
     }
-    /* #region debug-point init-host-key */
-    sshd_dbg("init_host_key: generating RSA key");
-    /* #endregion debug-point init-host-key */
     ret = wc_MakeRsaKey(&wc_rsa, 2048, RSA_F4, &rng);
     if(ret != 0) {
-        /* #region debug-point init-host-key */
-        sshd_dbg("init_host_key: wc_MakeRsaKey failed, ret=%d", ret);
-        /* #endregion debug-point init-host-key */
         wc_FreeRsaKey(&wc_rsa);
         wc_FreeRng(&rng);
         return -1;
     }
     ret = wc_RsaKeyToDer(&wc_rsa, der, sizeof(der));
-    /* #region debug-point init-host-key */
-    sshd_dbg("init_host_key: wc_RsaKeyToDer ret=%d", ret);
-    /* #endregion debug-point init-host-key */
     if(ret <= 0) {
         wc_FreeRsaKey(&wc_rsa);
         wc_FreeRng(&rng);
         return -1;
     }
     if(wolfSSL_RSA_LoadDer(g_host_rsa, der, ret) != 1) {
-        /* #region debug-point init-host-key */
-        sshd_dbg("init_host_key: wolfSSL_RSA_LoadDer failed");
-        /* #endregion debug-point init-host-key */
-        /* #region debug-point openssl-error */
-        sshd_dbg_last_ssl_error("init_host_key: wolfSSL_RSA_LoadDer");
-        /* #endregion debug-point openssl-error */
         wc_FreeRsaKey(&wc_rsa);
         wc_FreeRng(&rng);
         return -1;
     }
     if(save_host_key_to_file(SSH_HOST_KEY_PATH, der, ret) == 0) {
-        /* #region debug-point init-host-key */
-        sshd_dbg("init_host_key: persisted key to %s", SSH_HOST_KEY_PATH);
-        /* #endregion debug-point init-host-key */
     }
     else {
-        /* #region debug-point init-host-key */
-        sshd_dbg("init_host_key: persist key failed, path=%s errno=%d", SSH_HOST_KEY_PATH, errno);
-        /* #endregion debug-point init-host-key */
     }
     wc_FreeRsaKey(&wc_rsa);
     wc_FreeRng(&rng);
     if(build_hostkey_blob_from_rsa(g_host_rsa) < 0)
         return -1;
-    /* #region debug-point init-host-key */
-    sshd_dbg("init_host_key: success, hostkey_blob_len=%u", (unsigned int)g_hostkey_blob_len);
-    /* #endregion debug-point init-host-key */
     return 0;
 }
 
@@ -2758,33 +2491,15 @@ static int serve_client(int sock, pid_t helper_pid, const int child_stdin[2],
     session_init(session, sock);
     session_attach_child_bundle(session, helper_pid, child_stdin, child_stdout,
             child_stderr, child_control);
-    /* #region debug-point session-flow */
-    sshd_dbg("serve_client: attached helper pid=%d", helper_pid);
-    /* #endregion debug-point session-flow */
 
-    /* #region debug-point kex-flow */
-    sshd_dbg("serve_client: start handshake");
-    /* #endregion debug-point kex-flow */
     if(send_banner(session) < 0 || receive_banner(session) < 0)
         goto out;
-    /* #region debug-point kex-flow */
-    sshd_dbg("serve_client: banner exchange ok");
-    /* #endregion debug-point kex-flow */
     if(receive_kexinit(session) < 0)
         goto out;
-    /* #region debug-point kex-flow */
-    sshd_dbg("serve_client: receive_kexinit ok");
-    /* #endregion debug-point kex-flow */
     if(send_kexinit(session) < 0)
         goto out;
-    /* #region debug-point kex-flow */
-    sshd_dbg("serve_client: send_kexinit ok");
-    /* #endregion debug-point kex-flow */
     if(do_key_exchange(session) < 0)
         goto out;
-    /* #region debug-point kex-flow */
-    sshd_dbg("serve_client: key exchange ok");
-    /* #endregion debug-point kex-flow */
     if(handle_service_and_auth(session) < 0)
         goto out;
     if(handle_session_packets(session) < 0)
@@ -2793,9 +2508,6 @@ static int serve_client(int sock, pid_t helper_pid, const int child_stdin[2],
     ret = 0;
 
 out:
-    /* #region debug-point kex-flow */
-    sshd_dbg("serve_client: out, ret=%d, error=%s", ret, g_error[0] ? g_error : "<none>");
-    /* #endregion debug-point kex-flow */
     if(ret < 0 && session->socket >= 0)
         send_disconnect(session, SSH_DISCONNECT_BY_APPLICATION, g_error[0] ? g_error : "sshd error");
     session_destroy(session);
@@ -2806,32 +2518,17 @@ int main(int argc, char* argv[]) {
     int port = (argc > 1) ? atoi(argv[1]) : SSH_DEFAULT_PORT;
     int server_sock;
 
-    /* #region debug-point main-startup */
-    sshd_dbg("main: start, argc=%d, port=%d", argc, port);
-    /* #endregion debug-point main-startup */
     OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CRYPTO_STRINGS |
             OPENSSL_INIT_ADD_ALL_CIPHERS |
             OPENSSL_INIT_ADD_ALL_DIGESTS, NULL);
     OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS, NULL);
     srand(42);
-    /* #region debug-point main-startup */
-    sshd_dbg("main: openssl init done");
-    /* #endregion debug-point main-startup */
 
     if(init_host_key() < 0) {
-        /* #region debug-point main-startup */
-        sshd_dbg("main: init_host_key failed");
-        /* #endregion debug-point main-startup */
         return -1;
     }
-    /* #region debug-point main-startup */
-    sshd_dbg("main: init_host_key ok");
-    /* #endregion debug-point main-startup */
 
     server_sock = open_server_socket(port);
-    /* #region debug-point main-startup */
-    sshd_dbg("main: server socket ready, fd=%d", server_sock);
-    /* #endregion debug-point main-startup */
     while(true) {
         struct sockaddr_in client_addr;
         socklen_t client_len = sizeof(client_addr);
@@ -2842,49 +2539,30 @@ int main(int argc, char* argv[]) {
         int child_control[2] = {-1, -1};
         pid_t helper_pid = -1;
         if(client_sock < 0) {
-            /* #region debug-point main-startup */
-            sshd_dbg("main: accept failed, errno=%d", errno);
-            /* #endregion debug-point main-startup */
             proc_usleep(10000);
             continue;
         }
-        /* #region debug-point main-startup */
-        sshd_dbg("main: accept ok, client_fd=%d", client_sock);
-        /* #endregion debug-point main-startup */
 
         if(create_child_session_bundle(server_sock, client_sock, child_stdin,
                 child_stdout, child_stderr, child_control, &helper_pid) < 0) {
-            sshd_dbg("main: create_child_session_bundle failed");
             close(client_sock);
             continue;
         }
-        /* #region debug-point main-startup */
-        sshd_dbg("main: helper fork ok, pid=%d", helper_pid);
-        /* #endregion debug-point main-startup */
 
         int pid = fork();
         if(pid < 0) {
-            /* #region debug-point main-startup */
-            sshd_dbg("main: fork failed");
-            /* #endregion debug-point main-startup */
             close_child_bundle(child_stdin, child_stdout, child_stderr, child_control);
             close(client_sock);
             waitpid(helper_pid);
             continue;
         }
         if(pid == 0) {
-            /* #region debug-point main-startup */
-            sshd_dbg("main: child start, client_fd=%d", client_sock);
-            /* #endregion debug-point main-startup */
             proc_detach();
             close(server_sock);
             serve_client(client_sock, helper_pid, child_stdin, child_stdout,
                     child_stderr, child_control);
             exit(0);
         }
-        /* #region debug-point main-startup */
-        sshd_dbg("main: fork ok, pid=%d", pid);
-        /* #endregion debug-point main-startup */
         close_child_bundle(child_stdin, child_stdout, child_stderr, child_control);
         close(client_sock);
     }

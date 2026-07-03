@@ -8,6 +8,7 @@
 
 #include <ewoksys/vfs.h>
 #include <ewoksys/proc.h>
+#include <ewoksys/klog.h>
 
 #include "task.h"
 #include "netd.h"
@@ -26,6 +27,14 @@ static void* task_thread(void* arg);
  
 pthread_mutex_t task_list_lock;
 net_task_t *task_list = NULL;
+
+static int task_owner_pid(int from_pid) {
+    int owner_pid = proc_getpid(from_pid);
+
+    if(owner_pid > 0)
+        return owner_pid;
+    return from_pid;
+}
 
 static void task_list_add(net_task_t * task){
     pthread_mutex_lock(&task_list_lock);
@@ -89,6 +98,7 @@ net_task_t *create_task(int fd, int from_pid, int node){
     sched_ctx_init(&task->wait_ctx);
     task->fd = fd;
     task->node = node;
+    task->from_pid = task_owner_pid(from_pid);
     task->state = NET_TASK_IDLE;
     task->sock = -1;
     task->refs = 1;
@@ -152,6 +162,7 @@ static uint32_t task_arm_wait_event(int cmd) {
 }
 
 int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *out, void *p){
+    from_pid = task_owner_pid(from_pid);
     pthread_mutex_lock(&task_list_lock);
     
     if(task->state == NET_TASK_FINISH){
@@ -210,6 +221,7 @@ int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *o
 }
 
 int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
+    from_pid = task_owner_pid(from_pid);
     if(!task->is_read_task){
         return VFS_ERR_RETRY;
     }
@@ -267,6 +279,7 @@ int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
 }
 
 int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p){
+    from_pid = task_owner_pid(from_pid);
     pthread_mutex_lock(&task_list_lock);
     
     if(task->state == NET_TASK_FINISH){
@@ -615,9 +628,29 @@ int task_wakeup_tcp_writers(int tcp_desc) {
     return wake_count;
 }
 
-static uint32_t task_finish_wakeup_event(const net_task_t *task) {
+static uint32_t task_finish_wakeup_event(net_task_t *task) {
     if(task->is_read_task) {
         return VFS_EVT_RD;
+    }
+
+    if(task->cmd == SOCK_SEND) {
+        uint32_t saved_offset = task->out.offset;
+        int ret = proto_read_int(&task->out);
+        int sock_errno = 0;
+        if(ret < 0 && task->out.size > task->out.offset) {
+            sock_errno = proto_read_int(&task->out);
+        }
+        task->out.offset = saved_offset;
+        /*
+         * A completed async send that still reports EAGAIN/EINTR is NOT a real
+         * writable edge. Waking WR here makes userspace poll(POLLOUT) return
+         * immediately, retry write(), get EAGAIN again, and spin forever. Real
+         * write readiness comes from task_wakeup_tcp_writers() when ACK/window
+         * updates reopen the TCP send path.
+         */
+        if(ret < 0 && (sock_errno == 0 || sock_errno == EAGAIN || sock_errno == EINTR)) {
+            return 0;
+        }
     }
 
     switch(task->cmd) {
@@ -661,7 +694,10 @@ static void* task_thread(void* arg){
         pthread_mutex_lock(&task_list_lock);
         task->state = NET_TASK_FINISH;
         pthread_mutex_unlock(&task_list_lock);
-        vfs_wakeup(task->node, task_finish_wakeup_event(task));
+        uint32_t wake_event = task_finish_wakeup_event(task);
+        if(wake_event != 0) {
+            vfs_wakeup(task->node, wake_event);
+        }
         pthread_mutex_lock(&task_list_lock);
     }
 

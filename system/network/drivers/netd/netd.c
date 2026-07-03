@@ -5,6 +5,7 @@
 #include <string.h>
 #include <sys/errno.h>
 #include <ewoksys/ipc.h>
+#include <ewoksys/klog.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/vdevice.h>
 #include <ewoksys/syscall.h>
@@ -26,6 +27,8 @@
 
 extern int sock_readable(int sock);
 extern int sock_writable(int sock);
+extern int sock_get_type(int id);
+extern ssize_t sock_send(int id, const void *buf, size_t n);
 
 static int network_fcntl(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	int cmd, proto_t* in, proto_t* out, void* p) {
@@ -103,6 +106,23 @@ static int network_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
     if(task == NULL) {
         return -1;
     }
+	int sock_type = -1;
+	if(task->sock >= 0)
+		sock_type = sock_get_type(task->sock);
+	/*
+	 * Plain write(2) on a TCP socket should reflect the real tcp_send() result.
+	 * tcp_send() is already non-blocking: it either sends immediately or returns
+	 * EAGAIN when the stream currently cannot accept more data. Routing write()
+	 * through the async net_task layer turns every send into "arm + RETRY",
+	 * which exposes an internal async state machine as spurious userspace
+	 * EAGAIN and makes telnetd/sshd spin in write()/poll(POLLOUT).
+	 */
+	if(task->sock >= 0 && sock_type == SOCK_STREAM) {
+		int ret = (int)sock_send(task->sock, buf, (size_t)size);
+		if(ret < 0 && errno == 0)
+			errno = EAGAIN;
+		return ret;
+	}
 	return task_write(task, from_pid, (char *)buf, size, p);
 }
 

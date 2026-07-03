@@ -157,17 +157,21 @@ static file_t* vfs_get_file(int32_t pid, int32_t fd) {
 	return &_proc_fds_table[pid].fds[fd];
 }
 
-static file_t* vfs_check_fd(int32_t pid, int32_t fd) {
-	file_t* f = vfs_get_file(pid, fd);
-	if(f->node == NULL) {
-		pid = proc_getpid(pid);
-		if(pid < 0)
-			return NULL;
+#define VFSD_BACKUP_FD0 (MAX_OPEN_FILE_PER_PROC-3)
+#define VFSD_BACKUP_FD1 (MAX_OPEN_FILE_PER_PROC-2)
 
-		f = vfs_get_file(pid, fd);
-		if(f->node == NULL)
-			return NULL;
-	}
+static int32_t vfs_fd_owner_pid(int32_t pid) {
+	int32_t owner = proc_getpid(pid);
+	if(owner < 0)
+		owner = pid;
+	return owner;
+}
+
+static file_t* vfs_check_fd(int32_t pid, int32_t fd) {
+	int32_t owner = vfs_fd_owner_pid(pid);
+	file_t* f = vfs_get_file(owner, fd);
+	if(f == NULL || f->node == NULL)
+		return NULL;
 	return f;
 }
 
@@ -443,6 +447,9 @@ vfs_node_t* vfs_root(void) {
 }
 
 static int32_t get_free_fd(int32_t pid) {
+	pid = vfs_fd_owner_pid(pid);
+	if(pid < 0 || pid >= _max_proc_table_num)
+		return -1;
 	int32_t i;
 	for(i=3; i<MAX_OPEN_FILE_PER_PROC; i++) { //0, 1, 2 reserved for stdio in/out/err
 		if(_proc_fds_table[pid].fds[i].node == 0)
@@ -452,18 +459,21 @@ static int32_t get_free_fd(int32_t pid) {
 }
 
 static int32_t vfs_open(int32_t pid, vfs_node_t* node, int32_t flags) {
+	int32_t owner = vfs_fd_owner_pid(pid);
 	if(node == NULL)
 		return -1;
+	if(owner < 0 || owner >= _max_proc_table_num)
+		return -1;
 
-	int32_t fd = get_free_fd(pid);
+	int32_t fd = get_free_fd(owner);
 	if(fd < 0)
 		return -1;
 
-	_proc_fds_table[pid].fds[fd].node = node;
-	_proc_fds_table[pid].fds[fd].flags = flags;
-	memcpy(&_proc_fds_table[pid].fds[fd].fsinfo, &node->fsinfo, sizeof(fsinfo_t));
-	_proc_fds_table[pid].fds[fd].fsinfo.node = vfs_get_node_id(node);
-	_proc_fds_table[pid].fds[fd].fsinfo.mount_pid = get_mount_pid(node);
+	_proc_fds_table[owner].fds[fd].node = node;
+	_proc_fds_table[owner].fds[fd].flags = flags;
+	memcpy(&_proc_fds_table[owner].fds[fd].fsinfo, &node->fsinfo, sizeof(fsinfo_t));
+	_proc_fds_table[owner].fds[fd].fsinfo.node = vfs_get_node_id(node);
+	_proc_fds_table[owner].fds[fd].fsinfo.mount_pid = get_mount_pid(node);
 
 	if((flags & O_TRUNC) != 0)
 		node->fsinfo.stat.size = 0;
@@ -826,28 +836,34 @@ static void proc_file_close(int pid, int fd, file_t* file) {
 }
 
 static void vfs_close(int32_t pid, int32_t fd) {
+	int32_t owner = vfs_fd_owner_pid(pid);
 	if(pid < 0 || fd < 0 || fd >= MAX_OPEN_FILE_PER_PROC)
 		return;
+	if(owner < 0 || owner >= _max_proc_table_num)
+		return;
 
-	file_t* f = vfs_check_fd(pid, fd);
-	if(f != NULL) {
-		proc_file_close(pid, fd, f);
+	file_t* f = vfs_get_file(owner, fd);
+	if(f != NULL && f->node != NULL) {
+		proc_file_close(owner, fd, f);
 		memset(f, 0, sizeof(file_t));
 	}
 }
 
 static vfs_node_t* vfs_dup(int32_t pid, int32_t from, int32_t *ret) {
+	int32_t owner = vfs_fd_owner_pid(pid);
 	if(from < 0 || from > MAX_OPEN_FILE_PER_PROC)
 		return NULL;
-	int32_t to = get_free_fd(pid);
+	if(owner < 0 || owner >= _max_proc_table_num)
+		return NULL;
+	int32_t to = get_free_fd(owner);
 	if(to < 0)
 		return NULL;
 
-	file_t* f = vfs_check_fd(pid, from);
+	file_t* f = vfs_check_fd(owner, from);
 	if(f == NULL) 
 		return NULL;
 
-	file_t* f_to = vfs_get_file(pid, to);
+	file_t* f_to = vfs_get_file(owner, to);
 	if(f_to == NULL)
 		return NULL;
 
@@ -860,7 +876,8 @@ static vfs_node_t* vfs_dup(int32_t pid, int32_t from, int32_t *ret) {
 }
 
 static vfs_node_t* vfs_dup2(int32_t pid, int32_t from, int32_t to) {
-	file_t* f = vfs_check_fd(pid, from);
+	int32_t owner = vfs_fd_owner_pid(pid);
+	file_t* f = vfs_check_fd(owner, from);
 	if(f == NULL) 
 		return NULL;
 
@@ -870,9 +887,11 @@ static vfs_node_t* vfs_dup2(int32_t pid, int32_t from, int32_t to) {
 	if(from < 0 || from > MAX_OPEN_FILE_PER_PROC ||
 			to < 0 || to > MAX_OPEN_FILE_PER_PROC)
 		return NULL;
+	if(owner < 0 || owner >= _max_proc_table_num)
+		return NULL;
 
-	vfs_close(pid, to);
-	file_t* f_to = vfs_get_file(pid, to);
+	vfs_close(owner, to);
+	file_t* f_to = vfs_get_file(owner, to);
 	if(f_to == NULL)
 		return NULL;
 
@@ -925,8 +944,9 @@ static void do_vfs_get_by_name(int32_t pid, proto_t* in, proto_t* out) {
 	PF->addi(out, 0);
 	const char* name = proto_read_str(in);
 	vfs_node_t* node = vfs_get_by_name(vfs_root(), name);
-	if(node == NULL)
+	if(node == NULL) {
 		return;
+	}
 	PF->clear(out)->addi(out, vfs_get_node_id(node))->add(out, gen_fsinfo(node), sizeof(fsinfo_t));
 }
 
@@ -1077,8 +1097,9 @@ static void do_vfs_dup(int32_t pid, proto_t* in, proto_t* out) {
 	int32_t fdto = -1;
 	vfs_node_t* node = vfs_dup(pid, fd, &fdto);
 	if(node != NULL) {
+		int32_t owner = vfs_fd_owner_pid(pid);
 		file_t* file = vfs_check_fd(pid, fdto);
-		vfs_driver_dup(pid, fd, pid, fdto, file);
+		vfs_driver_dup(owner, fd, owner, fdto, file);
 		PF->addi(out, fdto)->add(out, gen_file_fsinfo(file), sizeof(fsinfo_t));
 	}
 	else
@@ -1091,8 +1112,9 @@ static void do_vfs_dup2(int32_t pid, proto_t* in, proto_t* out) {
 
 	vfs_node_t* node = vfs_dup2(pid, fd, fdto);
 	if(node != NULL) {
+		int32_t owner = vfs_fd_owner_pid(pid);
 		file_t* file = vfs_check_fd(pid, fdto);
-		vfs_driver_dup(pid, fd, pid, fdto, file);
+		vfs_driver_dup(owner, fd, owner, fdto, file);
 		PF->addi(out, fdto)->add(out, gen_file_fsinfo(file), sizeof(fsinfo_t));
 	}
 	else
@@ -1357,6 +1379,14 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 static void vfs_proc_exit(int32_t cpid) {
 	if(cpid < 0 || cpid >= _max_proc_table_num)
 		return;
+	if(_proc_fds_table[cpid].uuid == 0) {
+		wait_queue_remove_entry(&_proc_fds_table[cpid].read_waiter);
+		wait_queue_remove_entry(&_proc_fds_table[cpid].write_waiter);
+		memset(&_proc_fds_table[cpid].read_waiter, 0, sizeof(wait_entry_t));
+		memset(&_proc_fds_table[cpid].write_waiter, 0, sizeof(wait_entry_t));
+		_proc_fds_table[cpid].state = UNUSED;
+		return;
+	}
 	_proc_fds_table[cpid].state = ZOMBIE;
 	if(_proc_fds_table[cpid].uuid != 0) {
 		zombie_task_t check;
@@ -1425,6 +1455,51 @@ static void clear_pending_zombies(void* p) {
 		}
 		free(task);
 	}
+}
+
+static void vfs_reset_task_waiters(int32_t pid) {
+	if(pid < 0 || pid >= _max_proc_table_num)
+		return;
+	wait_queue_remove_entry(&_proc_fds_table[pid].read_waiter);
+	wait_queue_remove_entry(&_proc_fds_table[pid].write_waiter);
+	memset(&_proc_fds_table[pid].read_waiter, 0, sizeof(wait_entry_t));
+	memset(&_proc_fds_table[pid].write_waiter, 0, sizeof(wait_entry_t));
+}
+
+static void vfs_track_task_slot(int32_t pid) {
+	uint32_t uuid;
+
+	if(pid < 0 || pid >= _max_proc_table_num)
+		return;
+	uuid = proc_get_uuid(pid);
+	if(uuid == 0)
+		return;
+
+	if((_proc_fds_table[pid].state == RUNNING ||
+			_proc_fds_table[pid].state == ZOMBIE) &&
+			_proc_fds_table[pid].uuid != 0 &&
+			_proc_fds_table[pid].uuid != uuid) {
+		uint32_t old_uuid = _proc_fds_table[pid].uuid;
+		remove_zombie_task(pid, old_uuid);
+		/*
+		 * exec() reloads a process image in-place and the kernel assigns a fresh
+		 * uuid to the same process pid. The process-owned fd table must survive
+		 * that transition; only old poll/block waiters tied to the previous image
+		 * should be dropped. Reusing a different pid slot (threads or real pid
+		 * reuse after exit) still goes through the full zombie cleanup path.
+		 */
+		if(_proc_fds_table[pid].state == RUNNING && vfs_fd_owner_pid(pid) == pid) {
+			vfs_remove_proc_waiters(pid, old_uuid);
+			vfs_reset_task_waiters(pid);
+			_proc_fds_table[pid].uuid = uuid;
+			return;
+		}
+		_proc_fds_table[pid].state = ZOMBIE;
+		clear_zombie(pid);
+	}
+
+	_proc_fds_table[pid].state = RUNNING;
+	_proc_fds_table[pid].uuid = uuid;
 }
 
 static bool flush_driver_close_task(void) {
@@ -1535,6 +1610,7 @@ static void do_vfs_block(int32_t pid, proto_t* in) {
 		return;
 	}
 
+	vfs_track_task_slot(pid);
 	uint32_t uuid = proc_get_uuid(pid);
 	if(uuid == 0)
 		return;
