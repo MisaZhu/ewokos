@@ -110,11 +110,27 @@ typedef struct {
     int prev_cr;
 } telnet_output_state_t;
 
+typedef struct {
+    int pid;
+    int notify_fd;
+} telnet_wait_arg_t;
+
 static void close_fd_if_valid(int *fd) {
     if(fd != NULL && *fd >= 0) {
         close(*fd);
         *fd = -1;
     }
+}
+
+static void* telnet_wait_child_thread(void* arg) {
+    telnet_wait_arg_t* ctx = (telnet_wait_arg_t*)arg;
+
+    if(ctx == NULL)
+        return NULL;
+    waitpid(ctx->pid);
+    close_fd_if_valid(&ctx->notify_fd);
+    free(ctx);
+    return NULL;
 }
 
 static ssize_t normalize_telnet_input(
@@ -270,8 +286,35 @@ static void run_session_child(
     exit(0);
 }
 
-static int relay_telnet_session(int clnt_sock, int child_stdin_w, int child_stdout_r) {
-    struct pollfd fds[2];
+static int drain_telnet_output(int clnt_sock, int child_stdout_r,
+        telnet_output_state_t* output_state, uint8_t* output_buf, uint8_t* wire_buf) {
+    while(true) {
+        ssize_t rd = read(child_stdout_r, output_buf, BUF_SIZE);
+        if(rd > 0) {
+            ssize_t wr = expand_telnet_output(output_state, output_buf, rd, wire_buf);
+            if(wr > 0 && telnet_write_all(clnt_sock, wire_buf, (size_t)wr) < 0)
+                return -1;
+            continue;
+        }
+        if(rd == 0)
+            break;
+        if(errno == EINTR)
+            continue;
+        if(errno == EAGAIN)
+            break;
+        return -1;
+    }
+
+    {
+        ssize_t flush_len = flush_telnet_output_tail(output_state, wire_buf);
+        if(flush_len > 0 && telnet_write_all(clnt_sock, wire_buf, (size_t)flush_len) < 0)
+            return -1;
+    }
+    return 0;
+}
+
+static int relay_telnet_session(int clnt_sock, int child_stdin_w, int child_stdout_r, int child_exit_r) {
+    struct pollfd fds[3];
     telnet_input_state_t input_state = {0};
     telnet_output_state_t output_state = {0};
     uint8_t input_buf[BUF_SIZE];
@@ -284,8 +327,10 @@ static int relay_telnet_session(int clnt_sock, int child_stdin_w, int child_stdo
         fds[0].events = POLLIN;
         fds[1].fd = child_stdout_r;
         fds[1].events = POLLIN;
+        fds[2].fd = child_exit_r;
+        fds[2].events = POLLIN;
 
-        int pret = poll(fds, 2, -1);
+        int pret = poll(fds, 3, -1);
         if(pret < 0) {
             if(errno == EINTR) {
                 continue;
@@ -299,6 +344,10 @@ static int relay_telnet_session(int clnt_sock, int child_stdin_w, int child_stdo
                 return -1;
             }
             return 0;
+        }
+
+        if((fds[2].revents & (POLLIN | POLLERR | POLLHUP | POLLNVAL)) != 0) {
+            return drain_telnet_output(clnt_sock, child_stdout_r, &output_state, output_buf, wire_buf);
         }
 
         if((fds[1].revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
@@ -332,7 +381,7 @@ static int relay_telnet_session(int clnt_sock, int child_stdin_w, int child_stdo
         if((fds[1].revents & POLLIN) != 0) {
             ssize_t rd = read(child_stdout_r, output_buf, sizeof(output_buf));
             if(rd < 0) {
-                if(errno != EINTR) {
+                if(errno != EINTR && errno != EAGAIN) {
                     return -1;
                 }
             } else if(rd == 0) {
@@ -354,10 +403,14 @@ static int relay_telnet_session(int clnt_sock, int child_stdin_w, int child_stdo
 static void run_telnet_worker(int serv_sock, int clnt_sock) {
     int child_stdin[2] = {-1, -1};
     int child_stdout[2] = {-1, -1};
+    int child_exit[2] = {-1, -1};
+    pthread_t wait_tid;
+    int wait_thread_started = 0;
+    telnet_wait_arg_t* wait_arg = NULL;
 
     close_fd_if_valid(&serv_sock);
 
-    if(pipe(child_stdin) != 0 || pipe(child_stdout) != 0) {
+    if(pipe(child_stdin) != 0 || pipe(child_stdout) != 0 || pipe(child_exit) != 0) {
         close_fd_if_valid(&clnt_sock);
         exit(-1);
     }
@@ -373,21 +426,42 @@ static void run_telnet_worker(int serv_sock, int clnt_sock) {
     }
 
     if(pid == 0) {
+        close_fd_if_valid(&child_exit[PIPE_READ]);
+        close_fd_if_valid(&child_exit[PIPE_WRITE]);
         run_session_child(serv_sock, clnt_sock, child_stdin, child_stdout);
     }
 
     close_fd_if_valid(&child_stdin[PIPE_READ]);
     close_fd_if_valid(&child_stdout[PIPE_WRITE]);
+    wait_arg = (telnet_wait_arg_t*)calloc(1, sizeof(*wait_arg));
+    if(wait_arg != NULL) {
+        wait_arg->pid = pid;
+        wait_arg->notify_fd = child_exit[PIPE_WRITE];
+        if(pthread_create(&wait_tid, NULL, telnet_wait_child_thread, wait_arg) == 0) {
+            wait_thread_started = 1;
+            wait_arg = NULL;
+        }
+    }
+    if(wait_arg != NULL) {
+        close_fd_if_valid(&child_exit[PIPE_WRITE]);
+        free(wait_arg);
+    }
 
     (void)telnet_set_fd_nonblock(clnt_sock);
     (void)telnet_set_fd_nonblock(child_stdin[PIPE_WRITE]);
+    (void)telnet_set_fd_nonblock(child_stdout[PIPE_READ]);
     telnet_send_initial_negotiation(clnt_sock);
-    (void)relay_telnet_session(clnt_sock, child_stdin[PIPE_WRITE], child_stdout[PIPE_READ]);
+    (void)relay_telnet_session(clnt_sock, child_stdin[PIPE_WRITE], child_stdout[PIPE_READ], child_exit[PIPE_READ]);
 
     close_fd_if_valid(&child_stdin[PIPE_WRITE]);
     close_fd_if_valid(&child_stdout[PIPE_READ]);
+    close_fd_if_valid(&child_exit[PIPE_READ]);
     close_fd_if_valid(&clnt_sock);
-    waitpid(pid);
+    if(wait_thread_started) {
+        pthread_join(wait_tid, NULL);
+    } else {
+        waitpid(pid);
+    }
     exit(0);
 }
 

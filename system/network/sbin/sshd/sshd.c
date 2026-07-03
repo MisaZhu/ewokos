@@ -186,6 +186,7 @@ struct sshd_session {
     int child_stdout[2];
     int child_stderr[2];
     int child_control[2];
+    int close_notify[2];
     pid_t child_pid;
     int wait_thread_started;
     int stream_threads_active;
@@ -453,6 +454,67 @@ static int wait_fd_ready(int fd, uint16_t events) {
     }
 }
 
+static void close_fd_if_valid(int* fd) {
+    if(fd != NULL && *fd >= 0) {
+        close(*fd);
+        *fd = -1;
+    }
+}
+
+static void session_signal_close(sshd_session_t* s) {
+    if(s == NULL)
+        return;
+    close_fd_if_valid(&s->close_notify[1]);
+}
+
+static int wait_session_fd_ready(sshd_session_t* s, int fd, uint16_t events) {
+    struct pollfd fds[2];
+    int nfds = 1;
+
+    if(fd < 0) {
+        errno = EBADF;
+        return -1;
+    }
+
+    memset(fds, 0, sizeof(fds));
+    fds[0].fd = fd;
+    fds[0].events = (short)(events | POLLHUP | POLLERR | POLLNVAL);
+    if(s != NULL && s->close_notify[0] >= 0 && s->close_notify[0] != fd) {
+        fds[1].fd = s->close_notify[0];
+        fds[1].events = POLLIN | POLLHUP | POLLERR | POLLNVAL;
+        nfds = 2;
+    }
+
+    while(true) {
+        int rc = poll(fds, nfds, -1);
+        if(rc > 0) {
+            if(nfds == 2 && (fds[1].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) != 0) {
+                errno = EINTR;
+                return -1;
+            }
+            if((fds[0].revents & POLLNVAL) != 0) {
+                errno = EBADF;
+                return -1;
+            }
+            if((fds[0].revents & POLLERR) != 0) {
+                errno = EIO;
+                return -1;
+            }
+            if((fds[0].revents & events) != 0)
+                return 0;
+            if((fds[0].revents & POLLHUP) != 0) {
+                errno = EPIPE;
+                return -1;
+            }
+            continue;
+        }
+        if(rc == 0)
+            continue;
+        if(errno != EINTR)
+            return -1;
+    }
+}
+
 static int set_fd_nonblock(int fd) {
     int flags;
 
@@ -486,8 +548,11 @@ static int ssh_read_n(sshd_session_t* s, void* buf, size_t len) {
                     sshd_set_error("session closing");
                     return -1;
                 }
-                if(wait_fd_ready(s->socket, POLLIN) != 0) {
-                    sshd_set_error("read wait failed: %s", strerror(errno));
+                if(wait_session_fd_ready(s, s->socket, POLLIN) != 0) {
+                    if(s->closing || s->sent_close)
+                        sshd_set_error("session closing");
+                    else
+                        sshd_set_error("read wait failed: %s", strerror(errno));
                     return -1;
                 }
                 continue;
@@ -528,8 +593,11 @@ static int ssh_write_n(sshd_session_t* s, const void* buf, size_t len) {
                     proc_usleep(1000);
                     continue;
                 }
-                if(wait_fd_ready(s->socket, POLLOUT) != 0) {
-                    sshd_set_error("write wait failed: %s", strerror(errno));
+                if(wait_session_fd_ready(s, s->socket, POLLOUT) != 0) {
+                    if(s->closing || s->sent_close)
+                        sshd_set_error("session closing");
+                    else
+                        sshd_set_error("write wait failed: %s", strerror(errno));
                     return -1;
                 }
                 eagain_spin = 0;
@@ -1946,6 +2014,7 @@ static void* wait_child_thread(void* arg) {
     if(send_channel_eof_and_close(s) < 0) {
     }
     s->closing = 1;
+    session_signal_close(s);
     s->child_pid = -1;
     free(ctx);
     return NULL;
@@ -2375,7 +2444,7 @@ static int handle_session_packets(sshd_session_t* s) {
     return 0;
 }
 
-static void session_init(sshd_session_t* s, int sock) {
+static int session_init(sshd_session_t* s, int sock) {
     memset(s, 0, sizeof(*s));
     s->socket = sock;
     strncpy(s->server_version, SSH_SERVER_VERSION, sizeof(s->server_version) - 1);
@@ -2387,17 +2456,23 @@ static void session_init(sshd_session_t* s, int sock) {
     s->child_stdout[0] = s->child_stdout[1] = -1;
     s->child_stderr[0] = s->child_stderr[1] = -1;
     s->child_control[0] = s->child_control[1] = -1;
+    s->close_notify[0] = s->close_notify[1] = -1;
+    if(pipe(s->close_notify) != 0)
+        return -1;
     (void)set_fd_nonblock(sock);
     pthread_mutex_init(&s->send_lock, NULL);
+    return 0;
 }
 
 static void session_destroy(sshd_session_t* s) {
     s->closing = 1;
+    session_signal_close(s);
     close_child_fds(s);
     if(s->child_pid > 0 && !s->wait_thread_started) {
         waitpid(s->child_pid);
         s->child_pid = -1;
     }
+    close_fd_if_valid(&s->close_notify[0]);
     if(s->socket >= 0) {
         close(s->socket);
     }
@@ -2488,7 +2563,11 @@ static int serve_client(int sock, pid_t helper_pid, const int child_stdin[2],
         return -1;
     }
 
-    session_init(session, sock);
+    if(session_init(session, sock) < 0) {
+        close(sock);
+        free(session);
+        return -1;
+    }
     session_attach_child_bundle(session, helper_pid, child_stdin, child_stdout,
             child_stderr, child_control);
 
