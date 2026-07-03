@@ -696,8 +696,6 @@ static void do_node_wakeup(vfs_node_t* node, int events) {
 		return;
 
 	node->events |= events;
-	if(node->fsinfo.type == FS_TYPE_PIPE)
-		return;
 
 	queue_t* qr = NULL, *qw = NULL;
 	if((events & VFS_EVT_RD) != 0 ||
@@ -1320,6 +1318,7 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 	if(size > 0) {
 		node->fsinfo.state |= FS_STATE_CHANGED;
 		sync_pipe_poll_events(node);
+		do_node_wakeup(node, VFS_EVT_RD);
 		PF->clear(out)->addi(out, size);
 		return;
 	}
@@ -1379,6 +1378,8 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 			sync_pipe_poll_events(node);
 			if(unread_after == 0 && node->refs_w == 0)
 				do_node_wakeup(node, VFS_EVT_CLOSE);
+			else
+				do_node_wakeup(node, VFS_EVT_WR);
 			return;
 		}
 	}
@@ -1616,8 +1617,6 @@ static void do_vfs_block(int32_t pid, proto_t* in) {
     vfs_node_t* node = vfs_get_node_by_id(node_id);
 	if(node == NULL)
 		return;
-	if(node->fsinfo.type == FS_TYPE_PIPE)
-		return;
 
 	if((node->events & (uint32_t)events) != 0) {
 		return;
@@ -1668,8 +1667,6 @@ static void do_vfs_unblock(int32_t pid, proto_t* in) {
 		return;
 	vfs_node_t* node = vfs_get_node_by_id(node_id);
 	if(node == NULL)
-		return;
-	if(node->fsinfo.type == FS_TYPE_PIPE)
 		return;
 
 	uint32_t uuid = proc_get_uuid(pid);
