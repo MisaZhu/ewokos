@@ -20,11 +20,6 @@ extern "C" {
 
 static map_t  _files_hash = NULL;
 
-typedef struct {
-	fsinfo_t info;
-	uint32_t owner_uuid;
-} file_cache_t;
-
 static void device_init(vdevice_t* dev) {
 	_files_hash = hashmap_new(0);
 }
@@ -39,67 +34,40 @@ static inline int file_owner_pid(int pid) {
 	return proc_getpid_or_raw(pid);
 }
 
-static inline uint32_t file_owner_uuid(int pid) {
-	pid = file_owner_pid(pid);
-	return proc_get_uuid(pid);
+static fsinfo_t* file_get_cache(int fd, int pid, uint32_t node) {
+	fsinfo_t* info = NULL;
+	hashmap_get(_files_hash, file_hash_key(fd, pid, node), (void**)&info);
+	return info;
 }
 
-static file_cache_t* file_get_cache_entry(int fd, int pid, uint32_t node) {
+static fsinfo_t* file_add(int fd, int pid, fsinfo_t* info) {
 	pid = file_owner_pid(pid);
-	file_cache_t* entry = NULL;
-	hashmap_get(_files_hash, file_hash_key(fd, pid, node), (void**)&entry);
-	return entry;
+	fsinfo_t* ret = (fsinfo_t*)malloc(sizeof(fsinfo_t));
+	hashmap_put(_files_hash, file_hash_key(fd, pid, info->node), ret);
+	memcpy(ret, info, sizeof(fsinfo_t));
+	return ret;
 }
 
-static fsinfo_t* file_add(int fd, int pid, uint32_t owner_uuid, fsinfo_t* info) {
+static void file_del(int fd, int pid, uint32_t node) {
 	pid = file_owner_pid(pid);
-	if(owner_uuid == 0)
-		owner_uuid = file_owner_uuid(pid);
-
-	file_cache_t* entry = file_get_cache_entry(fd, pid, info->node);
-	if(entry == NULL) {
-		entry = (file_cache_t*)malloc(sizeof(file_cache_t));
-		if(entry == NULL)
-			return NULL;
-		if(hashmap_put(_files_hash, file_hash_key(fd, pid, info->node), entry) != MAP_OK) {
-			free(entry);
-			return NULL;
-		}
-	}
-	entry->owner_uuid = owner_uuid;
-	memcpy(&entry->info, info, sizeof(fsinfo_t));
-	return &entry->info;
-}
-
-static void file_del(int fd, int pid, uint32_t node, uint32_t owner_uuid) {
-	pid = file_owner_pid(pid);
-	file_cache_t* entry = file_get_cache_entry(fd, pid, node);
-	if(entry == NULL)
-		return;
-	if(owner_uuid != 0 && entry->owner_uuid != 0 && entry->owner_uuid != owner_uuid)
+	fsinfo_t* info = NULL;
+	const char* key = file_hash_key(fd, pid, node);
+	hashmap_get(_files_hash, key, (void**)&info);
+	if(info == NULL)
 		return;
 
-	hashmap_remove(_files_hash, file_hash_key(fd, pid, node));
-	free(entry);
+	hashmap_remove(_files_hash, key);
+	free(info);
 }
 
 fsinfo_t* dev_get_file(int fd, int pid, uint32_t node) {
 	pid = file_owner_pid(pid);
-	uint32_t owner_uuid = file_owner_uuid(pid);
-	file_cache_t* entry = file_get_cache_entry(fd, pid, node);
-	if(entry != NULL) {
-		if(owner_uuid != 0 && entry->owner_uuid != owner_uuid) {
-			entry->owner_uuid = owner_uuid;
-		}
-		return &entry->info;
-	}
-
-	fsinfo_t* info = NULL;
-	if(entry == NULL) {
+	fsinfo_t* info = file_get_cache(fd, pid, node);
+	if(info == NULL) {
 		fsinfo_t i;
 		if(vfs_get_by_node(node, &i) != 0)
 			return NULL;
-		info = file_add(fd, pid, owner_uuid, &i);
+		info = file_add(fd, pid, &i);
 	}
 	return info;
 }
@@ -141,7 +109,7 @@ static void do_open(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 	}
 	PF->addi(out, res);
 	if(res == 0) {
-		file_add(fd, from_pid, file_owner_uuid(from_pid), &info);
+		file_add(fd, from_pid, &info);
 		PF->add(out, &info, sizeof(fsinfo_t));
 	}
 	else
@@ -156,7 +124,6 @@ static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	fsinfo_t* fsinfo = proto_read(in, NULL);
 	int close_pid = proto_read_int(in);
 	int owner_pid = proto_read_int(in);
-	uint32_t owner_uuid = (uint32_t)proto_read_int(in);
 	if(close_pid > 0) {
 		int vfsd_pid = get_vfsd_pid(); //from vfsd for proc exit closing.
 		if(vfsd_pid == from_pid) {
@@ -166,22 +133,11 @@ static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	if(owner_pid <= 0)
 		owner_pid = from_pid;
 	owner_pid = file_owner_pid(owner_pid);
-	uint32_t current_uuid = file_owner_uuid(owner_pid);
-	file_cache_t* entry = file_get_cache_entry(fd, owner_pid, node);
-	if(owner_uuid != 0) {
-		if(entry != NULL) {
-			if(entry->owner_uuid != 0 && entry->owner_uuid != owner_uuid)
-				return;
-		}
-		else if(current_uuid != 0 && current_uuid != owner_uuid) {
-			return;
-		}
-	}
 
 	if(dev != NULL && dev->close != NULL) {
 		dev->close(dev, fd, owner_pid, node, fsinfo, p);
 	}
-	file_del(fd, owner_pid, node, owner_uuid);
+	file_del(fd, owner_pid, node);
 }
 
 static void do_dup(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
@@ -202,9 +158,9 @@ static void do_dup(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 	 * fsinfo.data, so falling back to node-level lookup on the first access of
 	 * the duplicated fd would lose the socket instance binding.
 	 */
-	file_del(dup_fd, dup_owner_pid, node, 0);
+	file_del(dup_fd, dup_owner_pid, node);
 	if(fsinfo != NULL) {
-		file_add(dup_fd, dup_owner_pid, file_owner_uuid(dup_owner_pid), fsinfo);
+		file_add(dup_fd, dup_owner_pid, fsinfo);
 	}
 	(void)from_pid;
 }

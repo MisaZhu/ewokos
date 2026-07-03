@@ -76,7 +76,6 @@ typedef struct {
 typedef struct {
 	int32_t pid;
 	int32_t owner_pid;
-	uint32_t owner_uuid;
 	int32_t fd;
 	file_t file;
 } driver_close_task_t;
@@ -85,8 +84,6 @@ static proc_fds_t* _proc_fds_table = NULL;
 static uint32_t    _max_proc_table_num = 0;
 static queue_t     _zombie_tasks;
 static queue_t     _driver_close_tasks;
-
-static void clear_zombie(int32_t cpid);
 
 static uint32_t vfs_get_node_id(vfs_node_t* node);
 
@@ -553,20 +550,6 @@ static inline int32_t get_tracked_owner_pid(int32_t pid) {
 	return owner;
 }
 
-static inline uint32_t get_tracked_owner_uuid(int32_t pid, int32_t owner_pid) {
-	if(owner_pid >= 0 && owner_pid < _max_proc_table_num &&
-			_proc_fds_table[owner_pid].uuid != 0) {
-		return _proc_fds_table[owner_pid].uuid;
-	}
-	if(pid >= 0 && pid < _max_proc_table_num) {
-		int32_t tracked_owner = get_tracked_owner_pid(pid);
-		if(tracked_owner == owner_pid && _proc_fds_table[pid].uuid != 0) {
-			return _proc_fds_table[pid].uuid;
-		}
-	}
-	return proc_get_uuid(owner_pid);
-}
-
 static void wait_queue_detach(queue_t* q, wait_entry_t* waiter) {
 	queue_item_t* it;
 	bool linked;
@@ -713,6 +696,8 @@ static void do_node_wakeup(vfs_node_t* node, int events) {
 		return;
 
 	node->events |= events;
+	if(node->fsinfo.type == FS_TYPE_PIPE)
+		return;
 
 	queue_t* qr = NULL, *qw = NULL;
 	if((events & VFS_EVT_RD) != 0 ||
@@ -747,8 +732,7 @@ static void sync_pipe_poll_events(vfs_node_t* node) {
 	node->events = events;
 }
 
-static void vfs_driver_close(int32_t pid, int32_t owner_pid, uint32_t owner_uuid,
-		int32_t fd, file_t* file) {
+static void vfs_driver_close(int32_t pid, int32_t owner_pid, int32_t fd, file_t* file) {
 	if(file == NULL)
 		return;
 	uint32_t type = file->fsinfo.type & FS_TYPE_MASK;
@@ -768,10 +752,9 @@ static void vfs_driver_close(int32_t pid, int32_t owner_pid, uint32_t owner_uuid
 		return;
 
 	proto_t in;
-	PF->format(&in, "i,i,m,i,i,i",
-		fd, file->fsinfo.node, &file->fsinfo, sizeof(fsinfo_t),
-		pid, owner_pid, owner_uuid);
-	ipc_call(mount_pid, FS_CMD_CLOSE, &in, NULL);
+	PF->format(&in, "i,i,m,i,i",
+		fd, file->fsinfo.node, &file->fsinfo, sizeof(fsinfo_t), pid, owner_pid);
+		ipc_call(mount_pid, FS_CMD_CLOSE, &in, NULL);	
 	PF->clear(&in);
 }
 
@@ -1337,7 +1320,6 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 	if(size > 0) {
 		node->fsinfo.state |= FS_STATE_CHANGED;
 		sync_pipe_poll_events(node);
-		do_node_wakeup(node, VFS_EVT_RD);
 		PF->clear(out)->addi(out, size);
 		return;
 	}
@@ -1397,8 +1379,6 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 			sync_pipe_poll_events(node);
 			if(unread_after == 0 && node->refs_w == 0)
 				do_node_wakeup(node, VFS_EVT_CLOSE);
-			else
-				do_node_wakeup(node, VFS_EVT_WR);
 			return;
 		}
 	}
@@ -1427,10 +1407,6 @@ static void vfs_proc_exit(int32_t cpid) {
 		check.uuid = _proc_fds_table[cpid].uuid;
 		if(queue_in(&_zombie_tasks, &check, queue_zombie_task_match) == NULL) {
 			zombie_task_t* task = (zombie_task_t*)malloc(sizeof(zombie_task_t));
-			if(task == NULL) {
-				clear_zombie(cpid);
-				return;
-			}
 			*task = check;
 			queue_push(&_zombie_tasks, task);
 		}
@@ -1442,7 +1418,6 @@ static void clear_zombie(int32_t cpid) {
 		return;
 	vfs_remove_proc_waiters(cpid, _proc_fds_table[cpid].uuid);
 	int32_t owner_pid = get_tracked_owner_pid(cpid);
-	uint32_t owner_uuid = get_tracked_owner_uuid(cpid, owner_pid);
 
 	int32_t i;
 	for(i=0; i<MAX_OPEN_FILE_PER_PROC; i++) {
@@ -1458,17 +1433,11 @@ static void clear_zombie(int32_t cpid) {
 					closing.fsinfo.node != 0) {
 				driver_close_task_t* task =
 					(driver_close_task_t*)malloc(sizeof(driver_close_task_t));
-				if(task == NULL) {
-					vfs_driver_close(cpid, owner_pid, owner_uuid, i, &closing);
-				}
-				else {
-					task->pid = cpid;
-					task->owner_pid = owner_pid;
-					task->owner_uuid = owner_uuid;
-					task->fd = i;
-					task->file = closing;
-					queue_push(&_driver_close_tasks, task);
-				}
+				task->pid = cpid;
+				task->owner_pid = owner_pid;
+				task->fd = i;
+				task->file = closing;
+				queue_push(&_driver_close_tasks, task);
 			}
 			proc_file_close(cpid, i, &closing);
 			continue;
@@ -1556,8 +1525,7 @@ static bool flush_driver_close_task(void) {
 			ipc_enable();
 	if(task == NULL)
 		return false;
-	vfs_driver_close(task->pid, task->owner_pid, task->owner_uuid,
-		task->fd, &task->file);
+	vfs_driver_close(task->pid, task->owner_pid, task->fd, &task->file);
 	free(task);
 	return true;
 }
@@ -1648,6 +1616,8 @@ static void do_vfs_block(int32_t pid, proto_t* in) {
     vfs_node_t* node = vfs_get_node_by_id(node_id);
 	if(node == NULL)
 		return;
+	if(node->fsinfo.type == FS_TYPE_PIPE)
+		return;
 
 	if((node->events & (uint32_t)events) != 0) {
 		return;
@@ -1698,6 +1668,8 @@ static void do_vfs_unblock(int32_t pid, proto_t* in) {
 		return;
 	vfs_node_t* node = vfs_get_node_by_id(node_id);
 	if(node == NULL)
+		return;
+	if(node->fsinfo.type == FS_TYPE_PIPE)
 		return;
 
 	uint32_t uuid = proc_get_uuid(pid);

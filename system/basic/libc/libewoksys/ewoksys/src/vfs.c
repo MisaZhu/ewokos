@@ -285,8 +285,7 @@ static int read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block
 		if(block) {
 			uint32_t events = vfs_get_poll_events_by_node(node);
 			if((events & (VFS_EVT_RD | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL)) == 0) {
-				if(vfs_block(node, VFS_EVT_RD) != 0)
-					return -1;
+				proc_usleep(1000);
 				continue;
 			}
 		}
@@ -307,6 +306,8 @@ static int read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block
 
 		if(res != 0 || !block)
 			return res;
+
+		proc_usleep(1000);
 	}
 }
 
@@ -315,8 +316,7 @@ static int write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, boo
 		if(block) {
 			uint32_t events = vfs_get_poll_events_by_node(node);
 			if((events & (VFS_EVT_WR | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL)) == 0) {
-				if(vfs_block(node, VFS_EVT_WR) != 0)
-					return -1;
+				proc_usleep(1000);
 				continue;
 			}
 		}
@@ -336,6 +336,8 @@ static int write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, boo
 
 		if(res != 0 || !block)
 			return res;
+
+		proc_usleep(1000);
 	}
 }
 
@@ -358,11 +360,9 @@ int vfs_close(int fd) {
 
 	int close_pid = getpid();
 	int owner_pid = proc_getpid_or_raw(close_pid);
-	uint32_t owner_uuid = proc_get_uuid(owner_pid);
 	proto_t in;
-	PF->format(&in, "i,i,m,i,i,i",
-		fd, file->info.node, &file->info, sizeof(fsinfo_t),
-		close_pid, owner_pid, owner_uuid);
+	PF->format(&in, "i,i,m,i,i",
+		fd, file->info.node, &file->info, sizeof(fsinfo_t), close_pid, owner_pid);
 	int res = ipc_call(file->info.mount_pid, FS_CMD_CLOSE, &in, NULL);	
 	PF->clear(&in);
 
@@ -1041,9 +1041,18 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 	int res = 0;
 	bool registered = false;
 	bool multi_wait = (num > 1);
+	bool has_pipe_watch = false;
 	uint64_t start_ms = 0;
 	if(timeout > 0)
 		start_ms = kernel_tic_ms(0);
+
+	for(int i = 0; i < num; ++i) {
+		fsinfo_t info;
+		if(vfs_get_by_fd(fds[i].fd, &info) == 0 && info.type == FS_TYPE_PIPE) {
+			has_pipe_watch = true;
+			break;
+		}
+	}
 
 	while(true) {
 		/* Phase 1: Check all FDs for current events */
@@ -1067,7 +1076,7 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 				break;
 		}
 
-		if(!multi_wait) {
+		if(!multi_wait && !has_pipe_watch) {
 			uint32_t wait_node = 0;
 			/* Phase 3: Register for wakeup on the single node */
 			registered = true;
@@ -1132,8 +1141,9 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 		/*
 		 * vfsd currently keeps only one read waiter and one write waiter per pid.
 		 * Registering multiple poll fds at once makes later nodes overwrite
-		 * earlier ones. For multi-fd poll, fall back to a short sleep loop
-		 * instead of corrupting the wait registration.
+		 * earlier ones, which is exactly what breaks telnetd's socket+pipe poll.
+		 * For multi-fd poll, fall back to a short sleep loop instead of corrupting
+		 * the wait registration.
 		 */
 		if(timeout < 0) {
 			usleep(1000);
