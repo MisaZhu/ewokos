@@ -62,6 +62,7 @@ typedef struct {
 typedef struct {
 	uint32_t uuid;
 	uint32_t state;
+	int32_t owner_pid;
 	wait_entry_t read_waiter;
 	wait_entry_t write_waiter;
 	file_t fds[MAX_OPEN_FILE_PER_PROC];
@@ -74,7 +75,7 @@ typedef struct {
 
 typedef struct {
 	int32_t pid;
-	uint32_t uuid;
+	int32_t owner_pid;
 	int32_t fd;
 	file_t file;
 } driver_close_task_t;
@@ -464,6 +465,7 @@ static int32_t vfs_open(int32_t pid, vfs_node_t* node, int32_t flags) {
 		return -1;
 	if(owner < 0 || owner >= _max_proc_table_num)
 		return -1;
+	_proc_fds_table[owner].owner_pid = owner;
 
 	int32_t fd = get_free_fd(owner);
 	if(fd < 0)
@@ -537,6 +539,15 @@ static inline wait_entry_t* get_wait_entry(int32_t pid, bool wr) {
 	if(wr)
 		return &_proc_fds_table[pid].write_waiter;
 	return &_proc_fds_table[pid].read_waiter;
+}
+
+static inline int32_t get_tracked_owner_pid(int32_t pid) {
+	if(pid < 0 || pid >= _max_proc_table_num)
+		return pid;
+	int32_t owner = _proc_fds_table[pid].owner_pid;
+	if(owner <= 0)
+		owner = vfs_fd_owner_pid(pid);
+	return owner;
 }
 
 static void wait_queue_detach(queue_t* q, wait_entry_t* waiter) {
@@ -721,7 +732,7 @@ static void sync_pipe_poll_events(vfs_node_t* node) {
 	node->events = events;
 }
 
-static void vfs_driver_close(int32_t pid, uint32_t uuid, int32_t fd, file_t* file) {
+static void vfs_driver_close(int32_t pid, int32_t owner_pid, int32_t fd, file_t* file) {
 	if(file == NULL)
 		return;
 	uint32_t type = file->fsinfo.type & FS_TYPE_MASK;
@@ -742,7 +753,7 @@ static void vfs_driver_close(int32_t pid, uint32_t uuid, int32_t fd, file_t* fil
 
 	proto_t in;
 	PF->format(&in, "i,i,m,i,i",
-		fd, file->fsinfo.node, &file->fsinfo, sizeof(fsinfo_t), pid, uuid);
+		fd, file->fsinfo.node, &file->fsinfo, sizeof(fsinfo_t), pid, owner_pid);
 		ipc_call(mount_pid, FS_CMD_CLOSE, &in, NULL);	
 	PF->clear(&in);
 }
@@ -841,6 +852,7 @@ static void vfs_close(int32_t pid, int32_t fd) {
 		return;
 	if(owner < 0 || owner >= _max_proc_table_num)
 		return;
+	_proc_fds_table[owner].owner_pid = owner;
 
 	file_t* f = vfs_get_file(owner, fd);
 	if(f != NULL && f->node != NULL) {
@@ -1385,6 +1397,7 @@ static void vfs_proc_exit(int32_t cpid) {
 		memset(&_proc_fds_table[cpid].read_waiter, 0, sizeof(wait_entry_t));
 		memset(&_proc_fds_table[cpid].write_waiter, 0, sizeof(wait_entry_t));
 		_proc_fds_table[cpid].state = UNUSED;
+		_proc_fds_table[cpid].owner_pid = 0;
 		return;
 	}
 	_proc_fds_table[cpid].state = ZOMBIE;
@@ -1404,8 +1417,7 @@ static void clear_zombie(int32_t cpid) {
 	if(cpid < 0)
 		return;
 	vfs_remove_proc_waiters(cpid, _proc_fds_table[cpid].uuid);
-	int32_t owner_pid = proc_getpid(cpid);
-	uint32_t owner_uuid = owner_pid >= 0 ? proc_get_uuid(owner_pid) : 0;
+	int32_t owner_pid = get_tracked_owner_pid(cpid);
 
 	int32_t i;
 	for(i=0; i<MAX_OPEN_FILE_PER_PROC; i++) {
@@ -1422,10 +1434,8 @@ static void clear_zombie(int32_t cpid) {
 				driver_close_task_t* task =
 					(driver_close_task_t*)malloc(sizeof(driver_close_task_t));
 				task->pid = cpid;
-				task->uuid = owner_uuid;
+				task->owner_pid = owner_pid;
 				task->fd = i;
-				if(owner_pid >= 0)
-					task->pid = owner_pid;
 				task->file = closing;
 				queue_push(&_driver_close_tasks, task);
 			}
@@ -1437,6 +1447,7 @@ static void clear_zombie(int32_t cpid) {
 
 	_proc_fds_table[cpid].state = UNUSED;
 	_proc_fds_table[cpid].uuid = 0;
+	_proc_fds_table[cpid].owner_pid = 0;
 }
 
 static void clear_pending_zombies(void* p) {
@@ -1499,6 +1510,7 @@ static void vfs_track_task_slot(int32_t pid) {
 	}
 
 	_proc_fds_table[pid].state = RUNNING;
+	_proc_fds_table[pid].owner_pid = vfs_fd_owner_pid(pid);
 	_proc_fds_table[pid].uuid = uuid;
 }
 
@@ -1513,7 +1525,7 @@ static bool flush_driver_close_task(void) {
 			ipc_enable();
 	if(task == NULL)
 		return false;
-	vfs_driver_close(task->pid, task->uuid, task->fd, &task->file);
+	vfs_driver_close(task->pid, task->owner_pid, task->fd, &task->file);
 	free(task);
 	return true;
 }
@@ -1542,6 +1554,7 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 	}
 
 	_proc_fds_table[cpid].state = RUNNING;
+	_proc_fds_table[cpid].owner_pid = vfs_fd_owner_pid(cpid);
 	_proc_fds_table[cpid].uuid = proc_get_uuid(cpid);
 	
 	int32_t i;

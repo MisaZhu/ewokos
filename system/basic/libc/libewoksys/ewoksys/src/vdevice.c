@@ -30,6 +30,10 @@ static inline const char* file_hash_key(int fd, int pid, uint32_t node) {
 	return key;
 }
 
+static inline int file_owner_pid(int pid) {
+	return proc_getpid_or_raw(pid);
+}
+
 static fsinfo_t* file_get_cache(int fd, int pid, uint32_t node) {
 	fsinfo_t* info = NULL;
 	hashmap_get(_files_hash, file_hash_key(fd, pid, node), (void**)&info);
@@ -37,7 +41,7 @@ static fsinfo_t* file_get_cache(int fd, int pid, uint32_t node) {
 }
 
 static fsinfo_t* file_add(int fd, int pid, fsinfo_t* info) {
-	pid = proc_getpid(pid);
+	pid = file_owner_pid(pid);
 	fsinfo_t* ret = (fsinfo_t*)malloc(sizeof(fsinfo_t));
 	hashmap_put(_files_hash, file_hash_key(fd, pid, info->node), ret);
 	memcpy(ret, info, sizeof(fsinfo_t));
@@ -45,7 +49,7 @@ static fsinfo_t* file_add(int fd, int pid, fsinfo_t* info) {
 }
 
 static void file_del(int fd, int pid, uint32_t node) {
-	pid = proc_getpid(pid);
+	pid = file_owner_pid(pid);
 	fsinfo_t* info = NULL;
 	const char* key = file_hash_key(fd, pid, node);
 	hashmap_get(_files_hash, key, (void**)&info);
@@ -57,7 +61,7 @@ static void file_del(int fd, int pid, uint32_t node) {
 }
 
 fsinfo_t* dev_get_file(int fd, int pid, uint32_t node) {
-	pid = proc_getpid(pid);
+	pid = file_owner_pid(pid);
 	fsinfo_t* info = file_get_cache(fd, pid, node);
 	if(info == NULL) {
 		fsinfo_t i;
@@ -118,18 +122,22 @@ static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	int fd = proto_read_int(in);
 	uint32_t node = (uint32_t)proto_read_int(in);
 	fsinfo_t* fsinfo = proto_read(in, NULL);
-	int core_from_pid = proto_read_int(in);
-	if(core_from_pid > 0) {
+	int close_pid = proto_read_int(in);
+	int owner_pid = proto_read_int(in);
+	if(close_pid > 0) {
 		int vfsd_pid = get_vfsd_pid(); //from vfsd for proc exit closing.
 		if(vfsd_pid == from_pid) {
-			from_pid = core_from_pid;
+			from_pid = close_pid;
 		}
 	}
+	if(owner_pid <= 0)
+		owner_pid = from_pid;
+	owner_pid = file_owner_pid(owner_pid);
 
 	if(dev != NULL && dev->close != NULL) {
-		dev->close(dev, fd, from_pid, node, fsinfo, p);
+		dev->close(dev, fd, owner_pid, node, fsinfo, p);
 	}
-	file_del(fd, from_pid, node);
+	file_del(fd, owner_pid, node);
 }
 
 static void do_dup(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {

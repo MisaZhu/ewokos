@@ -358,9 +358,11 @@ int vfs_close(int fd) {
 			return -1;
 	}
 
+	int close_pid = getpid();
+	int owner_pid = proc_getpid_or_raw(close_pid);
 	proto_t in;
-	PF->format(&in, "i,i,m",
-		fd, file->info.node, &file->info, sizeof(fsinfo_t));
+	PF->format(&in, "i,i,m,i,i",
+		fd, file->info.node, &file->info, sizeof(fsinfo_t), close_pid, owner_pid);
 	int res = ipc_call(file->info.mount_pid, FS_CMD_CLOSE, &in, NULL);	
 	PF->clear(&in);
 

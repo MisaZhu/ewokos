@@ -116,6 +116,13 @@ inline int proc_getpid(int pid) {
 	return -1;
 }
 
+int proc_getpid_or_raw(int pid) {
+	int owner = proc_getpid(pid);
+	if(owner < 0)
+		owner = pid;
+	return owner;
+}
+
 inline int proc_fork(void) {
 	int ret = syscall0(SYS_FORK);
 	if(ret == 0) {
