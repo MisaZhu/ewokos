@@ -1433,6 +1433,37 @@ tcp_readable(int id)
 }
 
 int
+tcp_data_readable(int id)
+{
+    struct tcp_pcb *pcb;
+    int readable = 0;
+
+    mutex_lock(&mutex);
+    pcb = tcp_pcb_get(id);
+    if (pcb) {
+        size_t remain = sizeof(pcb->buf) - pcb->rcv.wnd;
+        readable = (remain > 0) ? 1 : 0;
+    }
+    mutex_unlock(&mutex);
+    return readable;
+}
+
+int
+tcp_recv_remain(int id)
+{
+    struct tcp_pcb *pcb;
+    int remain = -1;
+
+    mutex_lock(&mutex);
+    pcb = tcp_pcb_get(id);
+    if (pcb) {
+        remain = (int)(sizeof(pcb->buf) - pcb->rcv.wnd);
+    }
+    mutex_unlock(&mutex);
+    return remain;
+}
+
+int
 tcp_writable(int id)
 {
     struct tcp_pcb *pcb;
@@ -1702,14 +1733,12 @@ tcp_receive(int id, uint8_t *data, size_t size)
 RETRY:
     retry_count++;
     if (retry_count > 1000) {
-        slog("[netd] tcp_receive retry overflow: id=%d retry=%d\n", id, retry_count);
         errno = ECONNRESET;
         return -1;
     }
     mutex_lock(&mutex);
     pcb = tcp_pcb_get(id);
     if (!pcb) {
-        slog("[netd] tcp_receive pcb missing: id=%d retry=%d\n", id, retry_count);
         mutex_unlock(&mutex);
         errno = ECONNRESET;
         return -1;
@@ -1718,10 +1747,6 @@ RETRY:
     struct timeval *rcv_timeout = sock_get_timeout(id, SOCK_STREAM, SO_RCVTIMEO);
     switch (pcb->state) {
     case TCP_PCB_STATE_CLOSED:
-        slog("[netd] tcp_receive closed: id=%d reason=%d local=%s foreign=%s\n",
-            id, pcb->close_reason,
-            ip_endpoint_ntop(&pcb->local, ep1, sizeof(ep1)),
-            ip_endpoint_ntop(&pcb->foreign, ep2, sizeof(ep2)));
         errno = ECONNRESET;
         mutex_unlock(&mutex);
         return -1;

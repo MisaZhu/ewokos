@@ -14,6 +14,8 @@
 #include "netd.h"
 
 extern int sock_readable(int sock);
+extern int sock_data_readable(int sock);
+extern int sock_tcp_scan_info(int id, int *desc, int *state, int *remain);
 extern int sock_get_desc(int id);
 extern int sock_get_type(int id);
 extern int sched_ctx_init(struct sched_ctx *ctx);
@@ -158,6 +160,25 @@ static uint32_t task_arm_wait_event(int cmd) {
             return VFS_EVT_RD;
         default:
             return 0;
+    }
+}
+
+static const char *task_cmd_name(int cmd) {
+    switch (cmd) {
+        case SOCK_OPEN: return "OPEN";
+        case SOCK_BIND: return "BIND";
+        case SOCK_CONNECT: return "CONNECT";
+        case SOCK_LISTEN: return "LISTEN";
+        case SOCK_ACCEPT: return "ACCEPT";
+        case SOCK_SEND: return "SEND";
+        case SOCK_RECV: return "RECV";
+        case SOCK_SENDTO: return "SENDTO";
+        case SOCK_RECVFROM: return "RECVFROM";
+        case SOCK_CLOSE: return "CLOSE";
+        case SOCK_LINK: return "LINK";
+        case SOCK_SETOPT: return "SETOPT";
+        case SOCK_GETOPT: return "GETOPT";
+        default: return "UNKNOWN";
     }
 }
 
@@ -516,11 +537,15 @@ int task_check_read_events(void) {
     pthread_mutex_unlock(&task_list_lock);
 
     for(int i = 0; i < wake_count; i++) {
-        if(sock_readable(wake_list[i].sock)) {
+        if(sock_data_readable(wake_list[i].sock)) {
             /*
              * Do not prefetch into read_task->out. Interactive users like shell
              * often read one byte at a time, and a background SOCK_RECV would
              * consume the remaining bytes before user space asks for them.
+             *
+             * EOF/close transitions are woken from the TCP state-change paths.
+             * Re-treating those states as freshly readable here causes the same
+             * idle watcher to fire every netd loop and keeps CPU usage high.
              */
             vfs_wakeup(wake_list[i].node, VFS_EVT_RD);
             ready = 1;

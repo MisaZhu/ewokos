@@ -468,41 +468,37 @@ static void session_signal_close(sshd_session_t* s) {
 }
 
 static int wait_session_fd_ready(sshd_session_t* s, int fd, uint16_t events) {
-    struct pollfd fds[2];
-    int nfds = 1;
+    struct pollfd pfd;
+    (void)s;
 
     if(fd < 0) {
         errno = EBADF;
         return -1;
     }
 
-    memset(fds, 0, sizeof(fds));
-    fds[0].fd = fd;
-    fds[0].events = (short)(events | POLLHUP | POLLERR | POLLNVAL);
-    if(s != NULL && s->close_notify[0] >= 0 && s->close_notify[0] != fd) {
-        fds[1].fd = s->close_notify[0];
-        fds[1].events = POLLIN | POLLHUP | POLLERR | POLLNVAL;
-        nfds = 2;
-    }
+    memset(&pfd, 0, sizeof(pfd));
+    pfd.fd = fd;
+    pfd.events = (short)(events | POLLHUP | POLLERR | POLLNVAL);
 
     while(true) {
-        int rc = poll(fds, nfds, -1);
+        int rc;
+        if(s != NULL && s->closing) {
+            errno = EINTR;
+            return -1;
+        }
+        rc = poll(&pfd, 1, -1);
         if(rc > 0) {
-            if(nfds == 2 && (fds[1].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) != 0) {
-                errno = EINTR;
-                return -1;
-            }
-            if((fds[0].revents & POLLNVAL) != 0) {
+            if((pfd.revents & POLLNVAL) != 0) {
                 errno = EBADF;
                 return -1;
             }
-            if((fds[0].revents & POLLERR) != 0) {
+            if((pfd.revents & POLLERR) != 0) {
                 errno = EIO;
                 return -1;
             }
-            if((fds[0].revents & events) != 0)
+            if((pfd.revents & events) != 0)
                 return 0;
-            if((fds[0].revents & POLLHUP) != 0) {
+            if((pfd.revents & POLLHUP) != 0) {
                 errno = EPIPE;
                 return -1;
             }
@@ -2180,14 +2176,11 @@ static void session_attach_child_bundle(sshd_session_t* s, pid_t child_pid,
     }
 
     /*
-     * The relay helpers are written around EAGAIN + poll() retry loops.
-     * Keep the parent-side pipe endpoints nonblocking so a stalled shell or
-     * backpressured channel does not pin a worker thread inside read/write.
+     * The stdin write end may backpressure the packet thread, so keep only
+     * that endpoint nonblocking. Dedicated stdout/stderr reader threads can
+     * block directly on the pipe and avoid poll(pipe) traffic into vfsd.
      */
     (void)set_fd_nonblock(s->child_stdin[CHILD_STDIN_WRITE]);
-    (void)set_fd_nonblock(s->child_stdout[CHILD_STDOUT_READ]);
-    (void)set_fd_nonblock(s->child_stderr[CHILD_STDERR_READ]);
-    (void)set_fd_nonblock(s->child_control[CHILD_CTRL_WRITE]);
 }
 
 static int spawn_child_session(sshd_session_t* s, const char* command, int is_shell) {

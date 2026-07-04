@@ -118,6 +118,8 @@ sock_get_timeout_abs(struct timeval* timeout, struct timeval* abs_timeout);
 extern uint32_t sock_get_timeout_msec(struct timeval*);
 
 extern int sock_readable(int id);
+extern int sock_data_readable(int id);
+extern int sock_tcp_scan_info(int id, int *desc, int *state, int *remain);
 extern int sock_writable(int id);
 extern int sock_get_desc(int id);
 extern int sock_get_type(int id);

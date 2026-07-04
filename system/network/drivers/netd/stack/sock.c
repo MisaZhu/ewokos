@@ -483,10 +483,6 @@ sock_recv(int id, void *buf, size_t n)
              */
             errno = EAGAIN;
         }
-        if (ret < 0) {
-            slog("[netd] sock_recv result: id=%d desc=%d ret=%d errno=%d\n",
-                id, s->desc, ret, errno);
-        }
         return ret;
     }
     return -1;
@@ -673,6 +669,54 @@ sock_readable(int id)
         return udp_readable(s->desc);
     case SOCK_RAW:
         return s->recv_queue != NULL;
+    }
+    return 0;
+}
+
+int
+sock_data_readable(int id)
+{
+    struct sock *s;
+
+    s = sock_get(id);
+    if (!s) {
+        return 0;
+    }
+    switch (s->type) {
+    case SOCK_STREAM:
+        /*
+         * Background read-task scanning should only chase real queued payload.
+         * EOF/closed transitions already wake poll waiters through the TCP
+         * state-change paths, and treating them as perpetually readable here
+         * keeps netd pinned in its fast poll loop.
+         */
+        return tcp_data_readable(s->desc);
+    case SOCK_DGRAM:
+        return udp_readable(s->desc);
+    case SOCK_RAW:
+        return s->recv_queue != NULL;
+    }
+    return 0;
+}
+
+int
+sock_tcp_scan_info(int id, int *desc, int *state, int *remain)
+{
+    struct sock *s;
+
+    s = sock_get(id);
+    if (!s || s->type != SOCK_STREAM) {
+        return -1;
+    }
+
+    if (desc) {
+        *desc = s->desc;
+    }
+    if (state) {
+        *state = tcp_state(s->desc);
+    }
+    if (remain) {
+        *remain = tcp_recv_remain(s->desc);
     }
     return 0;
 }
