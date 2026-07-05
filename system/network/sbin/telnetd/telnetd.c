@@ -111,9 +111,12 @@ typedef struct {
 } telnet_output_state_t;
 
 typedef struct {
-    int pid;
-    int notify_fd;
-} telnet_wait_arg_t;
+    int clnt_sock;
+    int child_stdin_w;
+    int child_stdout_r;
+    int child_pid;
+    volatile int closing;
+} telnet_session_t;
 
 static void close_fd_if_valid(int *fd) {
     if(fd != NULL && *fd >= 0) {
@@ -122,14 +125,33 @@ static void close_fd_if_valid(int *fd) {
     }
 }
 
-static void* telnet_wait_child_thread(void* arg) {
-    telnet_wait_arg_t* ctx = (telnet_wait_arg_t*)arg;
+/*
+ * Wake the main relay loop (blocked in a single-fd poll on the client socket)
+ * without disturbing that fd's lifecycle from the main thread. shutdown()
+ * issues SOCK_CLOSE to netd, which releases the TCP pcb and raises a
+ * VFS read/close wakeup on the socket node, so the blocked poll() returns
+ * promptly. The relay loop re-checks the closing flag after waking and exits
+ * without issuing another read on the socket.
+ *
+ * Note: EwokOS shutdown() ignores its "how" argument (netd always performs a
+ * full close), and <sys/socket.h> exposes SHUT_* only as self-referential
+ * macros, so a plain integer is passed here.
+ */
+static void telnet_session_close(telnet_session_t* s) {
+    if(s == NULL)
+        return;
+    s->closing = 1;
+    if(s->clnt_sock >= 0)
+        shutdown(s->clnt_sock, 2 /* SHUT_RDWR, ignored by netd */);
+}
 
-    if(ctx == NULL)
+static void* telnet_wait_child_thread(void* arg) {
+    telnet_session_t* s = (telnet_session_t*)arg;
+
+    if(s == NULL)
         return NULL;
-    waitpid(ctx->pid);
-    close_fd_if_valid(&ctx->notify_fd);
-    free(ctx);
+    waitpid(s->child_pid);
+    telnet_session_close(s);
     return NULL;
 }
 
@@ -286,131 +308,127 @@ static void run_session_child(
     exit(0);
 }
 
-static int drain_telnet_output(int clnt_sock, int child_stdout_r,
-        telnet_output_state_t* output_state, uint8_t* output_buf, uint8_t* wire_buf) {
-    while(true) {
-        ssize_t rd = read(child_stdout_r, output_buf, BUF_SIZE);
+static void* telnet_output_thread(void* arg) {
+    telnet_session_t* s = (telnet_session_t*)arg;
+    telnet_output_state_t output_state = {0};
+    uint8_t output_buf[BUF_SIZE];
+    uint8_t wire_buf[BUF_SIZE * 2 + 2];
+
+    if(s == NULL)
+        return NULL;
+
+    /*
+     * Dedicated child-stdout reader (child -> client direction). It only ever
+     * waits on a single fd (child_stdout_r) via blocking read() plus a
+     * single-fd poll on EAGAIN, so vfsd stays on its efficient kernel-blocking
+     * path (proc_block_by) instead of the multi-fd usleep(1000) busy-poll
+     * fallback. child stdout EOF means the shell/session exited.
+     */
+    while(!s->closing) {
+        ssize_t rd = read(s->child_stdout_r, output_buf, BUF_SIZE);
         if(rd > 0) {
-            ssize_t wr = expand_telnet_output(output_state, output_buf, rd, wire_buf);
-            if(wr > 0 && telnet_write_all(clnt_sock, wire_buf, (size_t)wr) < 0)
-                return -1;
+            ssize_t wr = expand_telnet_output(&output_state, output_buf, rd, wire_buf);
+            if(wr > 0 && telnet_write_all(s->clnt_sock, wire_buf, (size_t)wr) < 0)
+                break;
             continue;
         }
         if(rd == 0)
             break;
         if(errno == EINTR)
             continue;
-        if(errno == EAGAIN)
-            break;
-        return -1;
+        if(errno == EAGAIN) {
+            if(telnet_wait_fd_ready(s->child_stdout_r, POLLIN) != 0)
+                break;
+            continue;
+        }
+        break;
     }
 
     {
-        ssize_t flush_len = flush_telnet_output_tail(output_state, wire_buf);
-        if(flush_len > 0 && telnet_write_all(clnt_sock, wire_buf, (size_t)flush_len) < 0)
-            return -1;
+        ssize_t flush_len = flush_telnet_output_tail(&output_state, wire_buf);
+        if(flush_len > 0)
+            (void)telnet_write_all(s->clnt_sock, wire_buf, (size_t)flush_len);
     }
-    return 0;
+
+    telnet_session_close(s);
+    return NULL;
 }
 
-static int relay_telnet_session(int clnt_sock, int child_stdin_w, int child_stdout_r, int child_exit_r) {
-    struct pollfd fds[3];
+static int relay_telnet_session(telnet_session_t* s) {
+    struct pollfd pfd;
     telnet_input_state_t input_state = {0};
-    telnet_output_state_t output_state = {0};
     uint8_t input_buf[BUF_SIZE];
-    uint8_t output_buf[BUF_SIZE];
-    uint8_t wire_buf[BUF_SIZE * 2 + 2];
 
-    while(true) {
-        memset(fds, 0, sizeof(fds));
-        fds[0].fd = clnt_sock;
-        fds[0].events = POLLIN;
-        fds[1].fd = child_stdout_r;
-        fds[1].events = POLLIN;
-        fds[2].fd = child_exit_r;
-        fds[2].events = POLLIN;
+    /*
+     * Main relay loop, client -> child direction only. It polls exactly one
+     * fd (the client socket) with an infinite timeout, so vfsd takes the
+     * single-waiter kernel-blocking path (proc_block_by) rather than the
+     * multi-fd usleep(1000) busy-poll fallback. The child -> client direction
+     * runs in telnet_output_thread, and child exit is observed by
+     * telnet_wait_child_thread; both wake this loop through
+     * telnet_session_close() (a socket shutdown that raises a VFS wakeup).
+     */
+    while(!s->closing) {
+        memset(&pfd, 0, sizeof(pfd));
+        pfd.fd = s->clnt_sock;
+        pfd.events = POLLIN | POLLERR | POLLHUP | POLLNVAL;
 
-        int pret = poll(fds, 3, -1);
+        int pret = poll(&pfd, 1, -1);
         if(pret < 0) {
-            if(errno == EINTR) {
+            if(errno == EINTR)
                 continue;
-            }
-            return -1;
+            break;
         }
+        if(pret == 0)
+            continue;
 
-        if((fds[0].revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
+        /*
+         * Woken by a helper thread tearing the session down (child exit).
+         * Do not touch the socket further; just leave the loop.
+         */
+        if(s->closing)
+            break;
+
+        if((pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
             ssize_t flush_len = flush_telnet_input_tail(&input_state, input_buf);
-            if(flush_len > 0 && telnet_write_all(child_stdin_w, input_buf, (size_t)flush_len) < 0) {
-                return -1;
-            }
-            return 0;
+            if(flush_len > 0)
+                (void)telnet_write_all(s->child_stdin_w, input_buf, (size_t)flush_len);
+            break;
         }
 
-        if((fds[2].revents & (POLLIN | POLLERR | POLLHUP | POLLNVAL)) != 0) {
-            return drain_telnet_output(clnt_sock, child_stdout_r, &output_state, output_buf, wire_buf);
-        }
-
-        if((fds[1].revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
-            ssize_t flush_len = flush_telnet_output_tail(&output_state, wire_buf);
-            if(flush_len > 0 && telnet_write_all(clnt_sock, wire_buf, (size_t)flush_len) < 0) {
-                return -1;
-            }
-            return 0;
-        }
-
-        if((fds[0].revents & POLLIN) != 0) {
-            ssize_t rd = read(clnt_sock, input_buf, sizeof(input_buf));
+        if((pfd.revents & POLLIN) != 0) {
+            ssize_t rd = read(s->clnt_sock, input_buf, sizeof(input_buf));
             if(rd < 0) {
-                if(errno != EINTR && errno != EAGAIN) {
-                    return -1;
-                }
+                if(errno == EINTR || errno == EAGAIN)
+                    continue;
+                break;
             } else if(rd == 0) {
                 ssize_t flush_len = flush_telnet_input_tail(&input_state, input_buf);
-                if(flush_len > 0 && telnet_write_all(child_stdin_w, input_buf, (size_t)flush_len) < 0) {
-                    return -1;
-                }
-                return 0;
+                if(flush_len > 0)
+                    (void)telnet_write_all(s->child_stdin_w, input_buf, (size_t)flush_len);
+                break;
             } else {
                 rd = normalize_telnet_input(&input_state, input_buf, rd);
-                if(rd > 0 && telnet_write_all(child_stdin_w, input_buf, (size_t)rd) < 0) {
-                    return -1;
-                }
-            }
-        }
-
-        if((fds[1].revents & POLLIN) != 0) {
-            ssize_t rd = read(child_stdout_r, output_buf, sizeof(output_buf));
-            if(rd < 0) {
-                if(errno != EINTR && errno != EAGAIN) {
-                    return -1;
-                }
-            } else if(rd == 0) {
-                ssize_t flush_len = flush_telnet_output_tail(&output_state, wire_buf);
-                if(flush_len > 0 && telnet_write_all(clnt_sock, wire_buf, (size_t)flush_len) < 0) {
-                    return -1;
-                }
-                return 0;
-            } else {
-                ssize_t wr = expand_telnet_output(&output_state, output_buf, rd, wire_buf);
-                if(wr > 0 && telnet_write_all(clnt_sock, wire_buf, (size_t)wr) < 0) {
-                    return -1;
-                }
+                if(rd > 0 && telnet_write_all(s->child_stdin_w, input_buf, (size_t)rd) < 0)
+                    break;
             }
         }
     }
+
+    s->closing = 1;
+    return 0;
 }
 
 static void run_telnet_worker(int serv_sock, int clnt_sock) {
     int child_stdin[2] = {-1, -1};
     int child_stdout[2] = {-1, -1};
-    int child_exit[2] = {-1, -1};
+    telnet_session_t* session = NULL;
+    pthread_t output_tid;
     pthread_t wait_tid;
-    int wait_thread_started = 0;
-    telnet_wait_arg_t* wait_arg = NULL;
 
     close_fd_if_valid(&serv_sock);
 
-    if(pipe(child_stdin) != 0 || pipe(child_stdout) != 0 || pipe(child_exit) != 0) {
+    if(pipe(child_stdin) != 0 || pipe(child_stdout) != 0) {
         close_fd_if_valid(&clnt_sock);
         exit(-1);
     }
@@ -426,42 +444,58 @@ static void run_telnet_worker(int serv_sock, int clnt_sock) {
     }
 
     if(pid == 0) {
-        close_fd_if_valid(&child_exit[PIPE_READ]);
-        close_fd_if_valid(&child_exit[PIPE_WRITE]);
         run_session_child(serv_sock, clnt_sock, child_stdin, child_stdout);
     }
 
     close_fd_if_valid(&child_stdin[PIPE_READ]);
     close_fd_if_valid(&child_stdout[PIPE_WRITE]);
-    wait_arg = (telnet_wait_arg_t*)calloc(1, sizeof(*wait_arg));
-    if(wait_arg != NULL) {
-        wait_arg->pid = pid;
-        wait_arg->notify_fd = child_exit[PIPE_WRITE];
-        if(pthread_create(&wait_tid, NULL, telnet_wait_child_thread, wait_arg) == 0) {
-            wait_thread_started = 1;
-            wait_arg = NULL;
-        }
+
+    session = (telnet_session_t*)calloc(1, sizeof(*session));
+    if(session == NULL) {
+        close_fd_if_valid(&child_stdin[PIPE_WRITE]);
+        close_fd_if_valid(&child_stdout[PIPE_READ]);
+        close_fd_if_valid(&clnt_sock);
+        waitpid(pid);
+        exit(-1);
     }
-    if(wait_arg != NULL) {
-        close_fd_if_valid(&child_exit[PIPE_WRITE]);
-        free(wait_arg);
-    }
+    session->clnt_sock = clnt_sock;
+    session->child_stdin_w = child_stdin[PIPE_WRITE];
+    session->child_stdout_r = child_stdout[PIPE_READ];
+    session->child_pid = pid;
+    session->closing = 0;
 
     (void)telnet_set_fd_nonblock(clnt_sock);
     (void)telnet_set_fd_nonblock(child_stdin[PIPE_WRITE]);
     (void)telnet_set_fd_nonblock(child_stdout[PIPE_READ]);
     telnet_send_initial_negotiation(clnt_sock);
-    (void)relay_telnet_session(clnt_sock, child_stdin[PIPE_WRITE], child_stdout[PIPE_READ], child_exit[PIPE_READ]);
 
+    /*
+     * Dedicated per-fd helper threads (detached, like sshd): each blocks on a
+     * single fd so vfsd never falls into its multi-fd usleep(1000) poll path.
+     * The output thread relays child stdout, the wait thread reaps the child.
+     */
+    if(pthread_create(&output_tid, NULL, telnet_output_thread, session) == 0)
+        pthread_detach(output_tid);
+    if(pthread_create(&wait_tid, NULL, telnet_wait_child_thread, session) == 0)
+        pthread_detach(wait_tid);
+
+    (void)relay_telnet_session(session);
+
+    /*
+     * Session over. Mark closing and drop stdin so the child sees EOF and
+     * exits (client-disconnect case); that EOFs child stdout and releases the
+     * output thread. Helper threads are detached, so exit() below tears down
+     * any that are still blocked, mirroring sshd's teardown. The session
+     * struct is intentionally left allocated: detached threads may still
+     * reference it, and the process exits immediately.
+     */
+    session->closing = 1;
+    session->clnt_sock = -1;
     close_fd_if_valid(&child_stdin[PIPE_WRITE]);
+    session->child_stdin_w = -1;
     close_fd_if_valid(&child_stdout[PIPE_READ]);
-    close_fd_if_valid(&child_exit[PIPE_READ]);
+    session->child_stdout_r = -1;
     close_fd_if_valid(&clnt_sock);
-    if(wait_thread_started) {
-        pthread_join(wait_tid, NULL);
-    } else {
-        waitpid(pid);
-    }
     exit(0);
 }
 

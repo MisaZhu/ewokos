@@ -635,20 +635,24 @@ static void wakeup_wait_queue(queue_t* q, vfs_node_t* node, int32_t events) {
 	if(q == NULL)
 		return;
 
-	uint32_t limit = queue_num(q);
-	uint32_t steps = 0;
-	while(steps <= limit) {
-		wait_entry_t* waiter = wait_queue_pop(q);
-		if(waiter == NULL)
-			break;
-		wakeup_proc(waiter, node, events);
-		steps++;
-	}
-	if(!queue_is_empty(q)) {
-		klog("[vfsd-waitq] corrupt wake q=%p num=%u node=%u\n",
-			q, q->num, vfs_get_node_id(node));
-		q->head = q->tail = NULL;
-		q->num = 0;
+	/*
+	 * Iterate the queue and wake each registered process WITHOUT removing
+	 * it. Popping entries here creates a race on SMP: the wakeup can be
+	 * consumed by an unrelated block (e.g. IPC-return wait with token=0)
+	 * before the process reaches its intended proc_block_by(node). If the
+	 * entry was already popped, the process ends up blocked with no waiter
+	 * on any queue and no pending sticky wake – hung forever.
+	 *
+	 * Leaving entries in place is safe: the process always calls
+	 * vfs_unblock() to remove itself once it observes the event, and
+	 * wait_queue_push() short-circuits if the entry is already present.
+	 */
+	queue_item_t* it = q->head;
+	while(it != NULL) {
+		wait_entry_t* waiter = (wait_entry_t*)it->data;
+		it = it->next;
+		if(waiter != NULL)
+			wakeup_proc(waiter, node, events);
 	}
 }
 
@@ -696,8 +700,6 @@ static void do_node_wakeup(vfs_node_t* node, int events) {
 		return;
 
 	node->events |= events;
-	if(node->fsinfo.type == FS_TYPE_PIPE)
-		return;
 
 	queue_t* qr = NULL, *qw = NULL;
 	if((events & VFS_EVT_RD) != 0 ||
@@ -810,7 +812,7 @@ static void proc_file_close(int pid, int fd, file_t* file) {
 			if(unread < 0)
 				unread = 0;
 		}
-		bool expose_close = (read_refs == 0) || (node->refs_w == 0 && unread == 0);
+		bool expose_close = (read_refs == 0) || (node->refs_w == 0);
 		if(expose_close)
 			node->events |= VFS_EVT_CLOSE;
 		else
@@ -1320,6 +1322,7 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 	if(size > 0) {
 		node->fsinfo.state |= FS_STATE_CHANGED;
 		sync_pipe_poll_events(node);
+		do_node_wakeup(node, VFS_EVT_RD);
 		PF->clear(out)->addi(out, size);
 		return;
 	}
@@ -1377,6 +1380,7 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 			if(unread_after == 0 && node->refs_w == 0)
 				node->events |= VFS_EVT_CLOSE;
 			sync_pipe_poll_events(node);
+			do_node_wakeup(node, VFS_EVT_WR);
 			if(unread_after == 0 && node->refs_w == 0)
 				do_node_wakeup(node, VFS_EVT_CLOSE);
 			return;
@@ -1534,6 +1538,7 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 	(void)pid;
 	int fpid = proto_read_int(in);
 	int cpid = proto_read_int(in);
+
 	if(fpid < 0 || fpid >= _max_proc_table_num ||
 			cpid < 0 || cpid >= _max_proc_table_num)
 		return;
@@ -1588,6 +1593,7 @@ static void check_procs(void) {
 static void do_vfs_proc_exit(int32_t pid, proto_t* in) {
 	(void)pid;
 	int cpid = proto_read_int(in);
+
 	if(cpid < 0 || cpid >= _max_proc_table_num)
 		return;
 	vfs_proc_exit(cpid);
@@ -1611,12 +1617,11 @@ static void enqueue_waiter(queue_t* q, int32_t pid, uint32_t uuid, bool wr, uint
 static void do_vfs_block(int32_t pid, proto_t* in) {
 	int node_id = proto_read_int(in);
 	int events = proto_read_int(in);
+
 	if(node_id == 0)
 		return;
     vfs_node_t* node = vfs_get_node_by_id(node_id);
 	if(node == NULL)
-		return;
-	if(node->fsinfo.type == FS_TYPE_PIPE)
 		return;
 
 	if((node->events & (uint32_t)events) != 0) {
@@ -1668,8 +1673,6 @@ static void do_vfs_unblock(int32_t pid, proto_t* in) {
 		return;
 	vfs_node_t* node = vfs_get_node_by_id(node_id);
 	if(node == NULL)
-		return;
-	if(node->fsinfo.type == FS_TYPE_PIPE)
 		return;
 
 	uint32_t uuid = proc_get_uuid(pid);

@@ -1,6 +1,7 @@
 #include <ewoksys/vfs.h>
 #include <string.h>
 #include <ewoksys/syscall.h>
+#include <ewoksys/klog.h>
 #include <sys/errno.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -282,14 +283,6 @@ int vfs_open(fsinfo_t* info, int oflag) {
 
 static int read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block) {
 	while(1) {
-		if(block) {
-			uint32_t events = vfs_get_poll_events_by_node(node);
-			if((events & (VFS_EVT_RD | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL)) == 0) {
-				proc_usleep(1000);
-				continue;
-			}
-		}
-
 		proto_t in, out;
 		PF->format(&in, "i,i,i,i", fd, node, size, block?1:0);
 		PF->init(&out);
@@ -307,20 +300,13 @@ static int read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block
 		if(res != 0 || !block)
 			return res;
 
-		proc_usleep(1000);
+		if(vfs_block(node, VFS_EVT_RD) != 0)
+			return 0;
 	}
 }
 
 static int write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, bool block) {
 	while(1) {
-		if(block) {
-			uint32_t events = vfs_get_poll_events_by_node(node);
-			if((events & (VFS_EVT_WR | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL)) == 0) {
-				proc_usleep(1000);
-				continue;
-			}
-		}
-
 		proto_t in, out;
 		//PF->init(&in)->addi(&in, fd)->addi(&in, node)->add(&in, buf, size)->addi(&in, block?1:0);
 		PF->format(&in, "i,i,m,i", fd, node, buf, size, block?1:0);
@@ -337,7 +323,14 @@ static int write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, boo
 		if(res != 0 || !block)
 			return res;
 
-		proc_usleep(1000);
+		/*
+		 * Write returned 0 (buffer full). Block in the kernel until the pipe
+		 * has space (VFS_EVT_WR) or is closed/errored. vfs_block() does a safe
+		 * check-register-recheck so no wakeup can be lost. If it fails (vfsd
+		 * not responding), give up.
+		 */
+		if(vfs_block(node, VFS_EVT_WR) != 0)
+			return 0;
 	}
 }
 
@@ -1041,18 +1034,9 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 	int res = 0;
 	bool registered = false;
 	bool multi_wait = (num > 1);
-	bool has_pipe_watch = false;
 	uint64_t start_ms = 0;
 	if(timeout > 0)
 		start_ms = kernel_tic_ms(0);
-
-	for(int i = 0; i < num; ++i) {
-		fsinfo_t info;
-		if(vfs_get_by_fd(fds[i].fd, &info) == 0 && info.type == FS_TYPE_PIPE) {
-			has_pipe_watch = true;
-			break;
-		}
-	}
 
 	while(true) {
 		/* Phase 1: Check all FDs for current events */
@@ -1076,7 +1060,7 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 				break;
 		}
 
-		if(!multi_wait && !has_pipe_watch) {
+		if(!multi_wait) {
 			uint32_t wait_node = 0;
 			/* Phase 3: Register for wakeup on the single node */
 			registered = true;
