@@ -21,6 +21,7 @@
 #include "task.h"
 #include "stack/util.h"
 #include "stack/net.h"
+#include "stack/ether.h"
 #include "stack/ip.h"
 #include "stack/loopback.h"
 #include "stack/ether_tap.h"
@@ -355,6 +356,9 @@ void mac2str(uint8_t *mac,  char* str){
 
 char* network_devcmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* p) {
 	(void)dev;
+	(void)from_pid;
+	(void)argc;
+	(void)p;
 	json_var_t* json_var = json_var_new_array();
 	if(strcmp(argv[0], "ip") == 0) {
 		struct ip_iface *iface =  NULL;
@@ -366,16 +370,19 @@ char* network_devcmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* 
 			char netmask[16];	
 			char broadcast[16];
 			char gateway[16];
+			char mac[ETHER_ADDR_STR_LEN];
 			ip_addr_ntop(iface->unicast, unicast, sizeof(unicast));
 			ip_addr_ntop(iface->netmask, netmask, sizeof(netmask));
 			ip_addr_ntop(iface->broadcast, broadcast, sizeof(broadcast));
 			ip_addr_ntop(iface->gateway, gateway, sizeof(gateway));
+			ether_addr_ntop(iface->iface.dev->addr, mac, sizeof(mac));
 
 			json_var_t* var_ip = json_var_new_obj(NULL, NULL);
 			json_var_add(var_ip, "ip", json_var_new_str(unicast));
 			json_var_add(var_ip, "netmask", json_var_new_str(netmask));
 			json_var_add(var_ip, "broadcast", json_var_new_str(broadcast));
 			json_var_add(var_ip, "gateway", json_var_new_str(gateway));
+			json_var_add(var_ip, "mac", json_var_new_str(mac));
 			json_var_array_add(json_var, var_ip);
 		}
 	}
