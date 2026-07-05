@@ -191,6 +191,7 @@ struct sshd_session {
     int wait_thread_started;
     int stream_threads_active;
 
+    pthread_mutex_t state_lock;
     pthread_mutex_t send_lock;
 };
 
@@ -211,16 +212,47 @@ static void sshd_set_error(const char* fmt, ...) {
     va_end(ap);
 }
 
-static uint32_t sshd_remote_window_load(const sshd_session_t* s) {
-    return (uint32_t)__sync_add_and_fetch((uint32_t*)&s->remote_window, 0);
+static uint32_t sshd_remote_window_load(sshd_session_t* s) {
+    uint32_t value;
+    pthread_mutex_lock(&s->state_lock);
+    value = s->remote_window;
+    pthread_mutex_unlock(&s->state_lock);
+    return value;
 }
 
 static uint32_t sshd_remote_window_add(sshd_session_t* s, uint32_t delta) {
-    return (uint32_t)__sync_add_and_fetch(&s->remote_window, delta);
+    uint32_t value;
+    pthread_mutex_lock(&s->state_lock);
+    s->remote_window += delta;
+    value = s->remote_window;
+    pthread_mutex_unlock(&s->state_lock);
+    return value;
 }
 
 static uint32_t sshd_remote_window_sub(sshd_session_t* s, uint32_t delta) {
-    return (uint32_t)__sync_sub_and_fetch(&s->remote_window, delta);
+    uint32_t value;
+    pthread_mutex_lock(&s->state_lock);
+    s->remote_window -= delta;
+    value = s->remote_window;
+    pthread_mutex_unlock(&s->state_lock);
+    return value;
+}
+
+static int sshd_stream_threads_load(sshd_session_t* s) {
+    int value;
+    pthread_mutex_lock(&s->state_lock);
+    value = s->stream_threads_active;
+    pthread_mutex_unlock(&s->state_lock);
+    return value;
+}
+
+static int sshd_stream_threads_add(sshd_session_t* s, int delta) {
+    int value;
+    pthread_mutex_lock(&s->state_lock);
+    s->stream_threads_active += delta;
+    value = s->stream_threads_active;
+    pthread_mutex_unlock(&s->state_lock);
+    return value;
 }
 
 static uint32_t ssh_read_uint32(const uint8_t* buf) {
@@ -1969,7 +2001,7 @@ static void* stream_to_channel_thread(void* arg) {
         loop_count++;
     }
 
-    __sync_sub_and_fetch(&ctx->session->stream_threads_active, 1);
+    sshd_stream_threads_add(ctx->session, -1);
     {
         int release_wait = 0;
         while(!ctx->session->sent_close && !ctx->session->closing && release_wait < 1000) {
@@ -2002,7 +2034,7 @@ static void* wait_child_thread(void* arg) {
         s->child_stdin[CHILD_STDIN_WRITE] = -1;
     }
 
-    while(__sync_add_and_fetch(&s->stream_threads_active, 0) > 0 && drain_wait < 500) {
+    while(sshd_stream_threads_load(s) > 0 && drain_wait < 500) {
         proc_usleep(1000);
         drain_wait++;
     }
@@ -2229,14 +2261,14 @@ static int spawn_child_session(sshd_session_t* s, const char* command, int is_sh
     rc = pthread_create(&tid, NULL, stream_to_channel_thread, stdout_arg);
     if(rc != 0)
         goto fail;
-    __sync_add_and_fetch(&s->stream_threads_active, 1);
+    sshd_stream_threads_add(s, 1);
     stdout_arg->start_ready = 1;
     pthread_detach(tid);
     stdout_arg = NULL;
     rc = pthread_create(&tid, NULL, stream_to_channel_thread, stderr_arg);
     if(rc != 0)
         goto fail;
-    __sync_add_and_fetch(&s->stream_threads_active, 1);
+    sshd_stream_threads_add(s, 1);
     stderr_arg->start_ready = 1;
     pthread_detach(tid);
     stderr_arg = NULL;
@@ -2453,6 +2485,7 @@ static int session_init(sshd_session_t* s, int sock) {
     if(pipe(s->close_notify) != 0)
         return -1;
     (void)set_fd_nonblock(sock);
+    pthread_mutex_init(&s->state_lock, NULL);
     pthread_mutex_init(&s->send_lock, NULL);
     return 0;
 }
@@ -2469,6 +2502,8 @@ static void session_destroy(sshd_session_t* s) {
     if(s->socket >= 0) {
         close(s->socket);
     }
+    pthread_mutex_destroy(&s->send_lock);
+    pthread_mutex_destroy(&s->state_lock);
 }
 
 static int open_server_socket(int port) {
