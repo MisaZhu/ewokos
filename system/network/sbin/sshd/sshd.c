@@ -116,17 +116,7 @@ typedef struct sshd_session sshd_session_t;
 
 typedef struct {
     sshd_session_t* session;
-    int fd;
-    uint32_t extended_type;
-    volatile int start_ready;
-    volatile int start_failed;
-} stream_thread_arg_t;
-
-typedef struct {
-    sshd_session_t* session;
-    volatile int start_ready;
-    volatile int start_failed;
-} wait_thread_arg_t;
+} session_io_thread_arg_t;
 
 typedef struct {
     uint32_t magic;
@@ -188,8 +178,7 @@ struct sshd_session {
     int child_control[2];
     int close_notify[2];
     pid_t child_pid;
-    int wait_thread_started;
-    int stream_threads_active;
+    int child_io_thread_started;
 
     pthread_mutex_t state_lock;
     pthread_mutex_t send_lock;
@@ -234,23 +223,6 @@ static uint32_t sshd_remote_window_sub(sshd_session_t* s, uint32_t delta) {
     pthread_mutex_lock(&s->state_lock);
     s->remote_window -= delta;
     value = s->remote_window;
-    pthread_mutex_unlock(&s->state_lock);
-    return value;
-}
-
-static int sshd_stream_threads_load(sshd_session_t* s) {
-    int value;
-    pthread_mutex_lock(&s->state_lock);
-    value = s->stream_threads_active;
-    pthread_mutex_unlock(&s->state_lock);
-    return value;
-}
-
-static int sshd_stream_threads_add(sshd_session_t* s, int delta) {
-    int value;
-    pthread_mutex_lock(&s->state_lock);
-    s->stream_threads_active += delta;
-    value = s->stream_threads_active;
     pthread_mutex_unlock(&s->state_lock);
     return value;
 }
@@ -1966,84 +1938,107 @@ static int send_channel_eof_and_close(sshd_session_t* s) {
     return 0;
 }
 
-static void* stream_to_channel_thread(void* arg) {
-    stream_thread_arg_t* ctx = (stream_thread_arg_t*)arg;
+static int forward_child_pipe(sshd_session_t* s, int* fd, uint32_t extended_type) {
     uint8_t buf[1024];
-    unsigned int loop_count = 0;
+    ssize_t n;
 
-    while(!ctx->start_ready && !ctx->start_failed)
-        proc_usleep(1000);
+    if(fd == NULL || *fd < 0)
+        return 0;
 
-    if(ctx->start_failed) {
-        free(ctx);
-        return NULL;
+    n = read(*fd, buf, sizeof(buf));
+    if(n < 0) {
+        if(errno == EINTR || errno == EAGAIN)
+            return 0;
+        close_fd_if_valid(fd);
+        return 0;
     }
-
-    while(!ctx->session->closing) {
-        ssize_t n = read(ctx->fd, buf, sizeof(buf));
-        if(n < 0) {
-            if(errno == EINTR) {
-                continue;
-            }
-            if(errno == EAGAIN) {
-                if(wait_fd_ready(ctx->fd, POLLIN) != 0) {
-                    break;
-                }
-                continue;
-            }
-            break;
-        }
-        if(n == 0)
-            break;
-        if(send_channel_data_packet(ctx->session, ctx->extended_type, buf, (size_t)n) < 0) {
-            break;
-        }
-        loop_count++;
+    if(n == 0) {
+        close_fd_if_valid(fd);
+        return 0;
     }
-
-    sshd_stream_threads_add(ctx->session, -1);
-    {
-        int release_wait = 0;
-        while(!ctx->session->sent_close && !ctx->session->closing && release_wait < 1000) {
-            proc_usleep(1000);
-            release_wait++;
-        }
-    }
-    free(ctx);
-    return NULL;
+    return send_channel_data_packet(s, extended_type, buf, (size_t)n);
 }
 
-static void* wait_child_thread(void* arg) {
-    wait_thread_arg_t* ctx = (wait_thread_arg_t*)arg;
+static void* session_io_thread(void* arg) {
+    session_io_thread_arg_t* ctx = (session_io_thread_arg_t*)arg;
     sshd_session_t* s = ctx->session;
 
-    while(!ctx->start_ready && !ctx->start_failed)
-        proc_usleep(1000);
+    while(!s->closing) {
+        struct pollfd pfds[3];
+        int kinds[3];
+        int nfds = 0;
+        int rc;
 
-    if(ctx->start_failed) {
-        free(ctx);
-        return NULL;
+        if(s->child_stdout[CHILD_STDOUT_READ] >= 0) {
+            pfds[nfds].fd = s->child_stdout[CHILD_STDOUT_READ];
+            pfds[nfds].events = POLLIN | POLLHUP | POLLERR | POLLNVAL;
+            pfds[nfds].revents = 0;
+            kinds[nfds++] = 0;
+        }
+        if(s->child_stderr[CHILD_STDERR_READ] >= 0) {
+            pfds[nfds].fd = s->child_stderr[CHILD_STDERR_READ];
+            pfds[nfds].events = POLLIN | POLLHUP | POLLERR | POLLNVAL;
+            pfds[nfds].revents = 0;
+            kinds[nfds++] = 1;
+        }
+        if(s->close_notify[0] >= 0) {
+            pfds[nfds].fd = s->close_notify[0];
+            pfds[nfds].events = POLLIN | POLLHUP | POLLERR | POLLNVAL;
+            pfds[nfds].revents = 0;
+            kinds[nfds++] = 2;
+        }
+
+        if(nfds == 0)
+            break;
+
+        rc = poll(pfds, (uint32_t)nfds, -1);
+        if(rc < 0) {
+            if(errno == EINTR)
+                continue;
+            break;
+        }
+        if(rc == 0)
+            continue;
+
+        for(int i = 0; i < nfds; i++) {
+            if((pfds[i].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) == 0)
+                continue;
+
+            if(kinds[i] == 2) {
+                s->closing = 1;
+                break;
+            }
+
+            if(kinds[i] == 0) {
+                if(forward_child_pipe(s, &s->child_stdout[CHILD_STDOUT_READ], 0) < 0) {
+                    s->closing = 1;
+                    break;
+                }
+            }
+            else {
+                if(forward_child_pipe(s, &s->child_stderr[CHILD_STDERR_READ], SSH_STDERR_DATA) < 0) {
+                    s->closing = 1;
+                    break;
+                }
+            }
+        }
+
+        if(s->child_stdout[CHILD_STDOUT_READ] < 0 &&
+                s->child_stderr[CHILD_STDERR_READ] < 0) {
+            break;
+        }
     }
 
-    int status = waitpid(s->child_pid);
-    int drain_wait = 0;
-    (void)status;
-
-    if(s->child_stdin[CHILD_STDIN_WRITE] >= 0) {
-        close(s->child_stdin[CHILD_STDIN_WRITE]);
-        s->child_stdin[CHILD_STDIN_WRITE] = -1;
+    close_fd_if_valid(&s->child_stdin[CHILD_STDIN_WRITE]);
+    if(s->child_pid > 0) {
+        waitpid(s->child_pid);
+        s->child_pid = -1;
     }
-
-    while(sshd_stream_threads_load(s) > 0 && drain_wait < 500) {
-        proc_usleep(1000);
-        drain_wait++;
-    }
-
-    if(send_channel_eof_and_close(s) < 0) {
+    if(!s->sent_close) {
+        (void)send_channel_eof_and_close(s);
     }
     s->closing = 1;
     session_signal_close(s);
-    s->child_pid = -1;
     free(ctx);
     return NULL;
 }
@@ -2181,15 +2176,7 @@ static int create_child_session_bundle(int server_sock, int client_sock,
     return 0;
 }
 
-static void session_attach_child_bundle(sshd_session_t* s, pid_t child_pid,
-        const int child_stdin[2], const int child_stdout[2],
-        const int child_stderr[2], const int child_control[2]) {
-    memcpy(s->child_stdin, child_stdin, sizeof(s->child_stdin));
-    memcpy(s->child_stdout, child_stdout, sizeof(s->child_stdout));
-    memcpy(s->child_stderr, child_stderr, sizeof(s->child_stderr));
-    memcpy(s->child_control, child_control, sizeof(s->child_control));
-    s->child_pid = child_pid;
-
+static void session_prepare_child_bundle(sshd_session_t* s) {
     if(s->child_stdin[CHILD_STDIN_READ] >= 0) {
         close(s->child_stdin[CHILD_STDIN_READ]);
         s->child_stdin[CHILD_STDIN_READ] = -1;
@@ -2217,13 +2204,18 @@ static void session_attach_child_bundle(sshd_session_t* s, pid_t child_pid,
 
 static int spawn_child_session(sshd_session_t* s, const char* command, int is_shell) {
     pthread_t tid;
-    stream_thread_arg_t* stdout_arg = NULL;
-    stream_thread_arg_t* stderr_arg = NULL;
-    wait_thread_arg_t* wait_arg = NULL;
+    session_io_thread_arg_t* io_arg = NULL;
     sshd_child_start_msg_t msg;
     int rc;
 
-    if(s->child_pid <= 0 || s->child_control[CHILD_CTRL_WRITE] < 0)
+    if(s->child_pid <= 0) {
+        if(create_child_session_bundle(-1, s->socket, s->child_stdin, s->child_stdout,
+                    s->child_stderr, s->child_control, &s->child_pid) < 0) {
+            return -1;
+        }
+        session_prepare_child_bundle(s);
+    }
+    if(s->child_control[CHILD_CTRL_WRITE] < 0)
         return -1;
 
     memset(&msg, 0, sizeof(msg));
@@ -2244,52 +2236,23 @@ static int spawn_child_session(sshd_session_t* s, const char* command, int is_sh
 
     s->child_started = 1;
 
-    stdout_arg = (stream_thread_arg_t*)calloc(1, sizeof(stream_thread_arg_t));
-    stderr_arg = (stream_thread_arg_t*)calloc(1, sizeof(stream_thread_arg_t));
-    wait_arg = (wait_thread_arg_t*)calloc(1, sizeof(wait_thread_arg_t));
-    if(stdout_arg == NULL || stderr_arg == NULL || wait_arg == NULL)
+    io_arg = (session_io_thread_arg_t*)calloc(1, sizeof(session_io_thread_arg_t));
+    if(io_arg == NULL)
         goto fail;
-
-    stdout_arg->session = s;
-    stdout_arg->fd = s->child_stdout[CHILD_STDOUT_READ];
-    stdout_arg->extended_type = 0;
-    stderr_arg->session = s;
-    stderr_arg->fd = s->child_stderr[CHILD_STDERR_READ];
-    stderr_arg->extended_type = SSH_STDERR_DATA;
-    wait_arg->session = s;
-
-    rc = pthread_create(&tid, NULL, stream_to_channel_thread, stdout_arg);
+    io_arg->session = s;
+    rc = pthread_create(&tid, NULL, session_io_thread, io_arg);
     if(rc != 0)
         goto fail;
-    sshd_stream_threads_add(s, 1);
-    stdout_arg->start_ready = 1;
+    s->child_io_thread_started = 1;
     pthread_detach(tid);
-    stdout_arg = NULL;
-    rc = pthread_create(&tid, NULL, stream_to_channel_thread, stderr_arg);
-    if(rc != 0)
-        goto fail;
-    sshd_stream_threads_add(s, 1);
-    stderr_arg->start_ready = 1;
-    pthread_detach(tid);
-    stderr_arg = NULL;
-    rc = pthread_create(&tid, NULL, wait_child_thread, wait_arg);
-    if(rc != 0)
-        goto fail;
-    wait_arg->start_ready = 1;
-    s->wait_thread_started = 1;
-    pthread_detach(tid);
-    wait_arg = NULL;
+    io_arg = NULL;
 
     return 0;
 
 fail:
     s->closing = 1;
-    if(stdout_arg != NULL)
-        free(stdout_arg);
-    if(stderr_arg != NULL)
-        free(stderr_arg);
-    if(wait_arg != NULL)
-        free(wait_arg);
+    if(io_arg != NULL)
+        free(io_arg);
     return -1;
 }
 
@@ -2494,7 +2457,7 @@ static void session_destroy(sshd_session_t* s) {
     s->closing = 1;
     session_signal_close(s);
     close_child_fds(s);
-    if(s->child_pid > 0 && !s->wait_thread_started) {
+    if(s->child_pid > 0 && !s->child_io_thread_started) {
         waitpid(s->child_pid);
         s->child_pid = -1;
     }
@@ -2580,8 +2543,7 @@ static int init_host_key(void) {
     return 0;
 }
 
-static int serve_client(int sock, pid_t helper_pid, const int child_stdin[2],
-        const int child_stdout[2], const int child_stderr[2], const int child_control[2]) {
+static int serve_client(int sock) {
     sshd_session_t* session;
     int ret = -1;
 
@@ -2596,8 +2558,6 @@ static int serve_client(int sock, pid_t helper_pid, const int child_stdin[2],
         free(session);
         return -1;
     }
-    session_attach_child_bundle(session, helper_pid, child_stdin, child_stdout,
-            child_stderr, child_control);
 
     if(send_banner(session) < 0 || receive_banner(session) < 0)
         goto out;
@@ -2640,37 +2600,22 @@ int main(int argc, char* argv[]) {
         struct sockaddr_in client_addr;
         socklen_t client_len = sizeof(client_addr);
         int client_sock = accept(server_sock, (struct sockaddr*)&client_addr, &client_len);
-        int child_stdin[2] = {-1, -1};
-        int child_stdout[2] = {-1, -1};
-        int child_stderr[2] = {-1, -1};
-        int child_control[2] = {-1, -1};
-        pid_t helper_pid = -1;
         if(client_sock < 0) {
             proc_usleep(10000);
             continue;
         }
 
-        if(create_child_session_bundle(server_sock, client_sock, child_stdin,
-                child_stdout, child_stderr, child_control, &helper_pid) < 0) {
-            close(client_sock);
-            continue;
-        }
-
         int pid = fork();
         if(pid < 0) {
-            close_child_bundle(child_stdin, child_stdout, child_stderr, child_control);
             close(client_sock);
-            waitpid(helper_pid);
             continue;
         }
         if(pid == 0) {
             proc_detach();
             close(server_sock);
-            serve_client(client_sock, helper_pid, child_stdin, child_stdout,
-                    child_stderr, child_control);
+            serve_client(client_sock);
             exit(0);
         }
-        close_child_bundle(child_stdin, child_stdout, child_stderr, child_control);
         close(client_sock);
     }
 
