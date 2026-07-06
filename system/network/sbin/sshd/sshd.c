@@ -645,7 +645,7 @@ static int write_fd_all(int fd, const void* buf, size_t len) {
     return 0;
 }
 
-static int read_fd_all(int fd, void* buf, size_t len) {
+static __attribute__((unused)) int read_fd_all(int fd, void* buf, size_t len) {
     uint8_t* p = (uint8_t*)buf;
     size_t total = 0;
 
@@ -699,7 +699,7 @@ static int exec_program_direct(const char* name) {
     return 0;
 }
 
-static void copy_cstr(char* dst, size_t dst_size, const char* src) {
+static __attribute__((unused)) void copy_cstr(char* dst, size_t dst_size, const char* src) {
     size_t len;
 
     if(dst == NULL || dst_size == 0)
@@ -1959,90 +1959,6 @@ static int forward_child_pipe(sshd_session_t* s, int* fd, uint32_t extended_type
     return send_channel_data_packet(s, extended_type, buf, (size_t)n);
 }
 
-static void* session_io_thread(void* arg) {
-    session_io_thread_arg_t* ctx = (session_io_thread_arg_t*)arg;
-    sshd_session_t* s = ctx->session;
-
-    while(!s->closing) {
-        struct pollfd pfds[3];
-        int kinds[3];
-        int nfds = 0;
-        int rc;
-
-        if(s->child_stdout[CHILD_STDOUT_READ] >= 0) {
-            pfds[nfds].fd = s->child_stdout[CHILD_STDOUT_READ];
-            pfds[nfds].events = POLLIN | POLLHUP | POLLERR | POLLNVAL;
-            pfds[nfds].revents = 0;
-            kinds[nfds++] = 0;
-        }
-        if(s->child_stderr[CHILD_STDERR_READ] >= 0) {
-            pfds[nfds].fd = s->child_stderr[CHILD_STDERR_READ];
-            pfds[nfds].events = POLLIN | POLLHUP | POLLERR | POLLNVAL;
-            pfds[nfds].revents = 0;
-            kinds[nfds++] = 1;
-        }
-        if(s->close_notify[0] >= 0) {
-            pfds[nfds].fd = s->close_notify[0];
-            pfds[nfds].events = POLLIN | POLLHUP | POLLERR | POLLNVAL;
-            pfds[nfds].revents = 0;
-            kinds[nfds++] = 2;
-        }
-
-        if(nfds == 0)
-            break;
-
-        rc = poll(pfds, (uint32_t)nfds, -1);
-        if(rc < 0) {
-            if(errno == EINTR)
-                continue;
-            break;
-        }
-        if(rc == 0)
-            continue;
-
-        for(int i = 0; i < nfds; i++) {
-            if((pfds[i].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) == 0)
-                continue;
-
-            if(kinds[i] == 2) {
-                s->closing = 1;
-                break;
-            }
-
-            if(kinds[i] == 0) {
-                if(forward_child_pipe(s, &s->child_stdout[CHILD_STDOUT_READ], 0) < 0) {
-                    s->closing = 1;
-                    break;
-                }
-            }
-            else {
-                if(forward_child_pipe(s, &s->child_stderr[CHILD_STDERR_READ], SSH_STDERR_DATA) < 0) {
-                    s->closing = 1;
-                    break;
-                }
-            }
-        }
-
-        if(s->child_stdout[CHILD_STDOUT_READ] < 0 &&
-                s->child_stderr[CHILD_STDERR_READ] < 0) {
-            break;
-        }
-    }
-
-    close_fd_if_valid(&s->child_stdin[CHILD_STDIN_WRITE]);
-    if(s->child_pid > 0) {
-        waitpid(s->child_pid);
-        s->child_pid = -1;
-    }
-    if(!s->sent_close) {
-        (void)send_channel_eof_and_close(s);
-    }
-    s->closing = 1;
-    session_signal_close(s);
-    free(ctx);
-    return NULL;
-}
-
 static void close_child_bundle(int child_stdin[2], int child_stdout[2],
         int child_stderr[2], int child_control[2]) {
     if(child_stdin[CHILD_STDIN_READ] >= 0) {
@@ -2079,62 +1995,49 @@ static void close_child_bundle(int child_stdin[2], int child_stdout[2],
     }
 }
 
-static void run_session_helper(int sock, int server_sock, int child_stdin[2],
-        int child_stdout[2], int child_stderr[2], int child_control[2]) {
-    sshd_child_start_msg_t msg;
-    const char* cmd;
+static void become_login_process(sshd_session_t* s, const char* cmd) {
+    /*
+     * Runs in the connection-handler process (e.g. pid 101). It replaces this
+     * process image with the login shell/command so that the shell keeps the
+     * same pid as the connection handler, instead of forking an extra process.
+     * The SSH crypto relay is carried by the forked relay child instead.
+     */
+    close_fd_if_valid(&s->child_stdin[CHILD_STDIN_WRITE]);
+    close_fd_if_valid(&s->child_stdout[CHILD_STDOUT_READ]);
+    close_fd_if_valid(&s->child_stderr[CHILD_STDERR_READ]);
+    close_fd_if_valid(&s->close_notify[0]);
+    close_fd_if_valid(&s->close_notify[1]);
+    if(s->socket >= 0) {
+        close(s->socket);
+        s->socket = -1;
+    }
 
-    if(sock >= 0)
-        close(sock);
-    if(server_sock >= 0)
-        close(server_sock);
-
-    close(child_control[CHILD_CTRL_WRITE]);
-    child_control[CHILD_CTRL_WRITE] = -1;
-    close(child_stdin[CHILD_STDIN_WRITE]);
-    child_stdin[CHILD_STDIN_WRITE] = -1;
-    close(child_stdout[CHILD_STDOUT_READ]);
-    child_stdout[CHILD_STDOUT_READ] = -1;
-    close(child_stderr[CHILD_STDERR_READ]);
-    child_stderr[CHILD_STDERR_READ] = -1;
-
-    if(read_fd_all(child_control[CHILD_CTRL_READ], &msg, sizeof(msg)) < 0)
-        exit(1);
-    if(msg.magic != SSHD_CHILD_START_MAGIC)
-        exit(1);
-
-    if(dup2(child_stdin[CHILD_STDIN_READ], 0) < 0 ||
-            dup2(child_stdout[CHILD_STDOUT_WRITE], 1) < 0 ||
-            dup2(child_stderr[CHILD_STDERR_WRITE], 2) < 0 ||
-            dup2(child_stdin[CHILD_STDIN_READ], VFS_BACKUP_FD0) < 0) {
+    if(dup2(s->child_stdin[CHILD_STDIN_READ], 0) < 0 ||
+            dup2(s->child_stdout[CHILD_STDOUT_WRITE], 1) < 0 ||
+            dup2(s->child_stderr[CHILD_STDERR_WRITE], 2) < 0 ||
+            dup2(s->child_stdin[CHILD_STDIN_READ], VFS_BACKUP_FD0) < 0) {
         exit(2);
     }
     close(VFS_BACKUP_FD1);
 
-    close(child_control[CHILD_CTRL_READ]);
-    child_control[CHILD_CTRL_READ] = -1;
-    close(child_stdin[CHILD_STDIN_READ]);
-    child_stdin[CHILD_STDIN_READ] = -1;
-    close(child_stdout[CHILD_STDOUT_WRITE]);
-    child_stdout[CHILD_STDOUT_WRITE] = -1;
-    close(child_stderr[CHILD_STDERR_WRITE]);
-    child_stderr[CHILD_STDERR_WRITE] = -1;
+    close_fd_if_valid(&s->child_stdin[CHILD_STDIN_READ]);
+    close_fd_if_valid(&s->child_stdout[CHILD_STDOUT_WRITE]);
+    close_fd_if_valid(&s->child_stderr[CHILD_STDERR_WRITE]);
 
     if(setenv("CONSOLE_ID", "ssh") != 0 ||
-            setenv("HOME", msg.home) != 0 ||
-            setenv("USER", msg.user) != 0) {
+            setenv("HOME", s->user_info.home) != 0 ||
+            setenv("USER", s->user_info.user) != 0) {
         exit(3);
     }
     if(core_set_env("CONSOLE_ID", "ssh") != 0 ||
-            core_set_env("HOME", msg.home) != 0 ||
-            core_set_env("USER", msg.user) != 0) {
+            core_set_env("HOME", s->user_info.home) != 0 ||
+            core_set_env("USER", s->user_info.user) != 0) {
         exit(5);
     }
-    if(setgid(msg.gid) != 0 || setuid(msg.uid) != 0)
+    if(setgid(s->user_info.gid) != 0 || setuid(s->user_info.uid) != 0)
         exit(4);
 
-    cmd = (msg.is_shell != 0) ? msg.shell_cmd : msg.exec_cmd;
-    if(cmd[0] != 0)
+    if(cmd != NULL && cmd[0] != 0)
         (void)exec_program_direct(cmd);
     exit(-1);
 }
@@ -2143,117 +2046,56 @@ static void close_child_fds(sshd_session_t* s) {
     close_child_bundle(s->child_stdin, s->child_stdout, s->child_stderr, s->child_control);
 }
 
-static int create_child_session_bundle(int server_sock, int client_sock,
-        int child_stdin[2], int child_stdout[2], int child_stderr[2],
-        int child_control[2], pid_t* child_pid) {
+static int spawn_child_session(sshd_session_t* s, const char* command, int is_shell) {
     pid_t pid;
 
-    child_stdin[0] = child_stdin[1] = -1;
-    child_stdout[0] = child_stdout[1] = -1;
-    child_stderr[0] = child_stderr[1] = -1;
-    child_control[0] = child_control[1] = -1;
-    *child_pid = -1;
+    s->child_stdin[0] = s->child_stdin[1] = -1;
+    s->child_stdout[0] = s->child_stdout[1] = -1;
+    s->child_stderr[0] = s->child_stderr[1] = -1;
 
-    if(pipe(child_stdin) != 0 || pipe(child_stdout) != 0 ||
-            pipe(child_stderr) != 0 || pipe(child_control) != 0) {
-        close_child_bundle(child_stdin, child_stdout, child_stderr, child_control);
+    if(pipe(s->child_stdin) != 0 || pipe(s->child_stdout) != 0 ||
+            pipe(s->child_stderr) != 0) {
+        close_child_bundle(s->child_stdin, s->child_stdout, s->child_stderr,
+                s->child_control);
         return -1;
-    }
-
-    pid = fork();
-    if(pid < 0) {
-        close_child_bundle(child_stdin, child_stdout, child_stderr, child_control);
-        return -1;
-    }
-
-    if(pid == 0) {
-        run_session_helper(client_sock, server_sock, child_stdin, child_stdout,
-                child_stderr, child_control);
-        exit(1);
-    }
-
-    *child_pid = pid;
-    return 0;
-}
-
-static void session_prepare_child_bundle(sshd_session_t* s) {
-    if(s->child_stdin[CHILD_STDIN_READ] >= 0) {
-        close(s->child_stdin[CHILD_STDIN_READ]);
-        s->child_stdin[CHILD_STDIN_READ] = -1;
-    }
-    if(s->child_stdout[CHILD_STDOUT_WRITE] >= 0) {
-        close(s->child_stdout[CHILD_STDOUT_WRITE]);
-        s->child_stdout[CHILD_STDOUT_WRITE] = -1;
-    }
-    if(s->child_stderr[CHILD_STDERR_WRITE] >= 0) {
-        close(s->child_stderr[CHILD_STDERR_WRITE]);
-        s->child_stderr[CHILD_STDERR_WRITE] = -1;
-    }
-    if(s->child_control[CHILD_CTRL_READ] >= 0) {
-        close(s->child_control[CHILD_CTRL_READ]);
-        s->child_control[CHILD_CTRL_READ] = -1;
     }
 
     /*
-     * The stdin write end may backpressure the packet thread, so keep only
-     * that endpoint nonblocking. Dedicated stdout/stderr reader threads can
-     * block directly on the pipe and avoid poll(pipe) traffic into vfsd.
+     * fork() runs on the connection handler's main thread, so it is safe. The
+     * parent keeps its pid and turns into the login shell (become_login_process
+     * never returns); the forked child inherits the socket + crypto state via
+     * COW and relays the SSH channel for the remainder of the session.
      */
-    (void)set_fd_nonblock(s->child_stdin[CHILD_STDIN_WRITE]);
-}
-
-static int spawn_child_session(sshd_session_t* s, const char* command, int is_shell) {
-    pthread_t tid;
-    session_io_thread_arg_t* io_arg = NULL;
-    sshd_child_start_msg_t msg;
-    int rc;
-
-    if(s->child_pid <= 0) {
-        if(create_child_session_bundle(-1, s->socket, s->child_stdin, s->child_stdout,
-                    s->child_stderr, s->child_control, &s->child_pid) < 0) {
-            return -1;
-        }
-        session_prepare_child_bundle(s);
+    pid = fork();
+    if(pid < 0) {
+        close_child_bundle(s->child_stdin, s->child_stdout, s->child_stderr,
+                s->child_control);
+        return -1;
     }
-    if(s->child_control[CHILD_CTRL_WRITE] < 0)
-        return -1;
 
-    memset(&msg, 0, sizeof(msg));
-    msg.magic = SSHD_CHILD_START_MAGIC;
-    msg.is_shell = is_shell ? 1u : 0u;
-    msg.uid = s->user_info.uid;
-    msg.gid = s->user_info.gid;
-    copy_cstr(msg.user, sizeof(msg.user), s->user_info.user);
-    copy_cstr(msg.home, sizeof(msg.home), s->user_info.home);
-    copy_cstr(msg.shell_cmd, sizeof(msg.shell_cmd), s->user_info.cmd);
-    if(command != NULL)
-        copy_cstr(msg.exec_cmd, sizeof(msg.exec_cmd), command);
+    if(pid > 0) {
+        become_login_process(s, is_shell ? s->user_info.cmd : command);
+        exit(-1); /* not reached */
+    }
 
-    if(write_fd_all(s->child_control[CHILD_CTRL_WRITE], &msg, sizeof(msg)) < 0)
-        return -1;
-    close(s->child_control[CHILD_CTRL_WRITE]);
-    s->child_control[CHILD_CTRL_WRITE] = -1;
+    /* Relay child: keep the socket end, drop the shell-side pipe ends. */
+    close_fd_if_valid(&s->child_stdin[CHILD_STDIN_READ]);
+    close_fd_if_valid(&s->child_stdout[CHILD_STDOUT_WRITE]);
+    close_fd_if_valid(&s->child_stderr[CHILD_STDERR_WRITE]);
+    (void)set_fd_nonblock(s->child_stdin[CHILD_STDIN_WRITE]);
+    (void)set_fd_nonblock(s->child_stdout[CHILD_STDOUT_READ]);
+    (void)set_fd_nonblock(s->child_stderr[CHILD_STDERR_READ]);
 
+    /*
+     * The login shell is now this relay's parent, so we cannot waitpid() for
+     * it; pipe EOF on the shell's stdout/stderr drives session teardown. Both
+     * directions are relayed by the single packet loop (handle_session_packets)
+     * that poll()s the socket together with the shell pipes, so no dedicated
+     * I/O thread is needed.
+     */
+    s->child_pid = -1;
     s->child_started = 1;
-
-    io_arg = (session_io_thread_arg_t*)calloc(1, sizeof(session_io_thread_arg_t));
-    if(io_arg == NULL)
-        goto fail;
-    io_arg->session = s;
-    rc = pthread_create(&tid, NULL, session_io_thread, io_arg);
-    if(rc != 0)
-        goto fail;
-    s->child_io_thread_started = 1;
-    pthread_detach(tid);
-    io_arg = NULL;
-
     return 0;
-
-fail:
-    s->closing = 1;
-    if(io_arg != NULL)
-        free(io_arg);
-    return -1;
 }
 
 static int handle_channel_open(sshd_session_t* s, const ssh_packet_t* packet) {
@@ -2382,51 +2224,117 @@ static int handle_channel_data(sshd_session_t* s, const ssh_packet_t* packet) {
     return 0;
 }
 
+static int dispatch_session_packet(sshd_session_t* s, const ssh_packet_t* packet) {
+    switch(packet->type) {
+    case SSH_MSG_GLOBAL_REQUEST:
+        return send_request_failure(s);
+    case SSH_MSG_CHANNEL_OPEN:
+        return handle_channel_open(s, packet);
+    case SSH_MSG_CHANNEL_REQUEST:
+        return handle_channel_request(s, packet);
+    case SSH_MSG_CHANNEL_DATA:
+        return handle_channel_data(s, packet);
+    case SSH_MSG_CHANNEL_WINDOW_ADJUST:
+        if(packet->payload_len >= 8) {
+            uint32_t delta = ssh_read_uint32(packet->payload + 4);
+            sshd_remote_window_add(s, delta);
+        }
+        return 0;
+    case SSH_MSG_CHANNEL_EOF:
+        if(s->child_stdin[CHILD_STDIN_WRITE] >= 0) {
+            close(s->child_stdin[CHILD_STDIN_WRITE]);
+            s->child_stdin[CHILD_STDIN_WRITE] = -1;
+        }
+        return 0;
+    case SSH_MSG_CHANNEL_CLOSE:
+        if(s->child_stdin[CHILD_STDIN_WRITE] >= 0) {
+            close(s->child_stdin[CHILD_STDIN_WRITE]);
+            s->child_stdin[CHILD_STDIN_WRITE] = -1;
+        }
+        return send_channel_eof_and_close(s);
+    default:
+        break;
+    }
+    return 0;
+}
+
+/*
+ * Single-threaded relay loop. Once the login shell has been spawned this poll()
+ * watches the client socket together with the shell's stdout/stderr pipes, so
+ * both directions of the channel are relayed by one task (no dedicated I/O
+ * thread). Before the shell starts only the socket is polled, which naturally
+ * covers the channel-open / pty-req / shell-request handshake.
+ */
 static int handle_session_packets(sshd_session_t* s) {
     ssh_packet_t packet;
 
     while(!s->sent_close) {
-        if(ssh_packet_receive(s, &packet) < 0)
-            return -1;
+        struct pollfd pfds[3];
+        int kinds[3];
+        int nfds = 0;
+        int rc;
 
-        switch(packet.type) {
-        case SSH_MSG_GLOBAL_REQUEST:
-            if(send_request_failure(s) < 0)
-                return -1;
-            break;
-        case SSH_MSG_CHANNEL_OPEN:
-            if(handle_channel_open(s, &packet) < 0)
-                return -1;
-            break;
-        case SSH_MSG_CHANNEL_REQUEST:
-            if(handle_channel_request(s, &packet) < 0)
-                return -1;
-            break;
-        case SSH_MSG_CHANNEL_DATA:
-            if(handle_channel_data(s, &packet) < 0)
-                return -1;
-            break;
-        case SSH_MSG_CHANNEL_WINDOW_ADJUST:
-            if(packet.payload_len >= 8) {
-                uint32_t delta = ssh_read_uint32(packet.payload + 4);
-                sshd_remote_window_add(s, delta);
+        pfds[nfds].fd = s->socket;
+        pfds[nfds].events = POLLIN | POLLHUP | POLLERR | POLLNVAL;
+        pfds[nfds].revents = 0;
+        kinds[nfds++] = 0;
+
+        if(s->child_stdout[CHILD_STDOUT_READ] >= 0) {
+            pfds[nfds].fd = s->child_stdout[CHILD_STDOUT_READ];
+            pfds[nfds].events = POLLIN | POLLHUP | POLLERR | POLLNVAL;
+            pfds[nfds].revents = 0;
+            kinds[nfds++] = 1;
+        }
+        if(s->child_stderr[CHILD_STDERR_READ] >= 0) {
+            pfds[nfds].fd = s->child_stderr[CHILD_STDERR_READ];
+            pfds[nfds].events = POLLIN | POLLHUP | POLLERR | POLLNVAL;
+            pfds[nfds].revents = 0;
+            kinds[nfds++] = 2;
+        }
+
+        rc = poll(pfds, (uint32_t)nfds, -1);
+        if(rc < 0) {
+            if(errno == EINTR)
+                continue;
+            return -1;
+        }
+        if(rc == 0)
+            continue;
+
+        /* Drain the shell's stdout/stderr first so output is flushed promptly. */
+        for(int i = 0; i < nfds; i++) {
+            if((pfds[i].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) == 0)
+                continue;
+            if(kinds[i] == 1) {
+                if(forward_child_pipe(s, &s->child_stdout[CHILD_STDOUT_READ], 0) < 0)
+                    return -1;
             }
-            break;
-        case SSH_MSG_CHANNEL_EOF:
-            if(s->child_stdin[CHILD_STDIN_WRITE] >= 0) {
-                close(s->child_stdin[CHILD_STDIN_WRITE]);
-                s->child_stdin[CHILD_STDIN_WRITE] = -1;
+            else if(kinds[i] == 2) {
+                if(forward_child_pipe(s, &s->child_stderr[CHILD_STDERR_READ], SSH_STDERR_DATA) < 0)
+                    return -1;
             }
-            break;
-        case SSH_MSG_CHANNEL_CLOSE:
-            if(s->child_stdin[CHILD_STDIN_WRITE] >= 0) {
-                close(s->child_stdin[CHILD_STDIN_WRITE]);
-                s->child_stdin[CHILD_STDIN_WRITE] = -1;
-            }
-            send_channel_eof_and_close(s);
+        }
+
+        /* Shell exited: both output pipes reached EOF, so close the channel. */
+        if(s->child_started &&
+                s->child_stdout[CHILD_STDOUT_READ] < 0 &&
+                s->child_stderr[CHILD_STDERR_READ] < 0) {
+            close_fd_if_valid(&s->child_stdin[CHILD_STDIN_WRITE]);
+            (void)send_channel_eof_and_close(s);
             return 0;
-        default:
-            break;
+        }
+
+        /* Then service one inbound SSH packet from the client. */
+        if((pfds[0].revents & POLLIN) != 0) {
+            if(ssh_packet_receive(s, &packet) < 0)
+                return -1;
+            if(dispatch_session_packet(s, &packet) < 0)
+                return -1;
+            if(s->sent_close)
+                return 0;
+        }
+        else if((pfds[0].revents & (POLLHUP | POLLERR | POLLNVAL)) != 0) {
+            return -1;
         }
     }
     return 0;

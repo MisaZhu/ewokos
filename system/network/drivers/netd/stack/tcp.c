@@ -783,6 +783,14 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
             if (pcb->parent) {
                 queue_push(&pcb->parent->backlog, pcb);
                 tcp_sched_wakeup_all(pcb->parent);
+                /*
+                 * tcp_sched_wakeup_all() only wakes a worker blocked inside a
+                 * synchronous accept(). A client polling the listening socket
+                 * via poll(POLLIN) is parked on the listen node's VFS wait
+                 * queue instead, so raise a VFS RD edge on the parent socket
+                 * to release single-process acceptors like telnetd.
+                 */
+                task_wakeup_tcp_readers(indexof(pcbs, pcb->parent));
             }
         } else {
             tcp_output_segment(seg->ack, 0, TCP_FLG_RST, 0, NULL, 0, local, foreign);
@@ -1425,6 +1433,17 @@ tcp_readable(int id)
     if (!pcb) {
         mutex_unlock(&mutex);
         return 0;
+    }
+    /*
+     * A LISTEN socket is "readable" for poll()/accept() purposes when it has a
+     * completed connection queued in its backlog. Without this, poll(POLLIN)
+     * on the listening socket never reports readiness and a single-process
+     * acceptor (e.g. telnetd) sleeps forever waiting for the first client.
+     */
+    if (pcb->state == TCP_PCB_STATE_LISTEN) {
+        int has_pending = (pcb->backlog.num > 0);
+        mutex_unlock(&mutex);
+        return has_pending;
     }
     size_t remain = sizeof(pcb->buf) - pcb->rcv.wnd;
     int readable = (remain > 0) || (pcb->state == TCP_PCB_STATE_CLOSE_WAIT) || (pcb->state == TCP_PCB_STATE_CLOSED);

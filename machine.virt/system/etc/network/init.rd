@@ -12,8 +12,9 @@
 @/bin/ipcserv /drivers/netd /dev/net0 /dev/eth0
 @/bin/ipcserv /drivers/timed    /dev/time
 
+@/bin/ipcserv /sbin/sessiond
+
 @/bin/bgrun /sbin/telnetd
 @/bin/bgrun /sbin/sshd
 
-@/bin/ipcserv /sbin/sessiond
 @/bin/bgrun /bin/session -r -t /dev/tty0
