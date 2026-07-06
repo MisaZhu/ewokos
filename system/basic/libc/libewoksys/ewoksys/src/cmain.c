@@ -129,15 +129,6 @@ static int set_stderr(void) {
 	return -1;
 }
 
-static void setup_stdio_mode(void) {
-	const char* cid = getenv("CONSOLE_ID");
-	if(cid != NULL && strcmp(cid, "telnet") == 0) {
-		setbuf(stdout, NULL);
-		setbuf(stderr, NULL);
-	}
-}
-
-
 void _libc_init(void);
 void _libc_exit(void);
 
@@ -183,7 +174,6 @@ void _start(void) {
 
 	loadenv();
 	set_stderr();
-	setup_stdio_mode();
 	
 	int ret = main(argc, argv);
 	/*
