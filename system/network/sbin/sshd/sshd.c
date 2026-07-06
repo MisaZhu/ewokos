@@ -675,7 +675,10 @@ static __attribute__((unused)) int read_fd_all(int fd, void* buf, size_t len) {
 }
 
 static int exec_program_direct(const char* name) {
+    static const char* search_dirs[] = {"/bin/", "/sbin/"};
     char fpath[64];
+    char exec_cmd[128];
+    const char* suffix = NULL;
     int sz = 0;
     uint8_t* buf;
 
@@ -684,17 +687,34 @@ static int exec_program_direct(const char* name) {
 
     memset(fpath, 0, sizeof(fpath));
     for(size_t i = 0; i < sizeof(fpath) - 1; i++) {
-        if(name[i] == '\0' || name[i] == ' ' || name[i] == '\t' || name[i] == '\n')
+        if(name[i] == '\0' || name[i] == ' ' || name[i] == '\t' || name[i] == '\n') {
+            suffix = name + i;
             break;
+        }
         fpath[i] = name[i];
     }
+    if(suffix == NULL)
+        suffix = name + strlen(name);
 
     buf = vfs_readfile(fpath, &sz);
-    if(buf == NULL) {
-        return -1;
-    }
+    if(buf == NULL && fpath[0] != '/') {
+        for(size_t i = 0; i < sizeof(search_dirs) / sizeof(search_dirs[0]); i++) {
+            char resolved[sizeof(fpath)];
 
-    proc_exec_elf(name, (const char*)buf, sz);
+            snprintf(resolved, sizeof(resolved), "%s%s", search_dirs[i], fpath);
+            buf = vfs_readfile(resolved, &sz);
+            if(buf != NULL) {
+                strncpy(fpath, resolved, sizeof(fpath) - 1);
+                fpath[sizeof(fpath) - 1] = 0;
+                break;
+            }
+        }
+    }
+    if(buf == NULL)
+        return -1;
+
+    snprintf(exec_cmd, sizeof(exec_cmd), "%s%s", fpath, suffix);
+    proc_exec_elf(exec_cmd, (const char*)buf, sz);
     free(buf);
     return 0;
 }
@@ -2037,8 +2057,9 @@ static void become_login_process(sshd_session_t* s, const char* cmd) {
     if(setgid(s->user_info.gid) != 0 || setuid(s->user_info.uid) != 0)
         exit(4);
 
-    if(cmd != NULL && cmd[0] != 0)
+    if(cmd != NULL && cmd[0] != 0) {
         (void)exec_program_direct(cmd);
+    }
     exit(-1);
 }
 

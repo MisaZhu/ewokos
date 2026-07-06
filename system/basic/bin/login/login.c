@@ -8,7 +8,6 @@
 #include <ewoksys/mstr.h>
 #include <ewoksys/core.h>
 #include <ewoksys/keydef.h>
-#include <ewoksys/klog.h>
 #include <ewoksys/vfs.h>
 #include <setenv.h>
 

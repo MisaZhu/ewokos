@@ -19,6 +19,7 @@ extern "C" {
 #endif
 
 static map_t  _files_hash = NULL;
+static fsinfo_t* file_add(int fd, int pid, fsinfo_t* info);
 
 static void device_init(vdevice_t* dev) {
 	_files_hash = hashmap_new(0);
@@ -38,6 +39,42 @@ static fsinfo_t* file_get_cache(int fd, int pid, uint32_t node) {
 	fsinfo_t* info = NULL;
 	hashmap_get(_files_hash, file_hash_key(fd, pid, node), (void**)&info);
 	return info;
+}
+
+typedef struct {
+	int pid;
+	uint32_t node;
+	fsinfo_t* info;
+} file_clone_lookup_t;
+
+static int file_find_same_owner_node(map_t in, const char* key, any_t value, any_t arg) {
+	(void)in;
+	fsinfo_t* info = (fsinfo_t*)value;
+	file_clone_lookup_t* lookup = (file_clone_lookup_t*)arg;
+	unsigned int fd_key = 0;
+	unsigned int pid_key = 0;
+	unsigned int node_key = 0;
+
+	if(info == NULL || lookup == NULL)
+		return MAP_OK;
+	if(sscanf(key, "%x:%x:%x", &fd_key, &pid_key, &node_key) != 3)
+		return MAP_OK;
+	if((int)pid_key != lookup->pid || node_key != lookup->node)
+		return MAP_OK;
+
+	lookup->info = info;
+	return 1;
+}
+
+static fsinfo_t* file_clone_same_owner_node(int fd, int pid, uint32_t node) {
+	file_clone_lookup_t lookup;
+	lookup.pid = pid;
+	lookup.node = node;
+	lookup.info = NULL;
+	hashmap_iterate(_files_hash, file_find_same_owner_node, &lookup);
+	if(lookup.info == NULL)
+		return NULL;
+	return file_add(fd, pid, lookup.info);
 }
 
 static fsinfo_t* file_add(int fd, int pid, fsinfo_t* info) {
@@ -64,6 +101,10 @@ fsinfo_t* dev_get_file(int fd, int pid, uint32_t node) {
 	pid = file_owner_pid(pid);
 	fsinfo_t* info = file_get_cache(fd, pid, node);
 	if(info == NULL) {
+		info = file_clone_same_owner_node(fd, pid, node);
+		if(info != NULL)
+			return info;
+
 		fsinfo_t i;
 		if(vfs_get_by_node(node, &i) != 0)
 			return NULL;

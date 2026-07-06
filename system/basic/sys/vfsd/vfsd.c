@@ -778,13 +778,32 @@ static void vfs_driver_dup(int32_t from_pid, int32_t from_fd,
 	if(type == FS_TYPE_FILE || type == FS_TYPE_DIR || type == FS_TYPE_LINK)
 		return;
 
+	/*
+	 * Same-process dup2() only needs the new fd to resolve to the same device
+	 * state as an existing live fd in that process. Let the device-side cache
+	 * lazily clone from the surviving source fd on first access instead of
+	 * synchronously round-tripping through FS_CMD_DUP while we are still inside
+	 * the VFS_DUP2 IPC handler.
+	 */
+	if(from_pid == dup_pid)
+		return;
+
 	proto_t in;
 	PF->format(&in, "i,i,i,m,i,i",
 		from_fd, dup_fd, vfs_get_node_id(node), &file->fsinfo, sizeof(fsinfo_t),
 		from_pid, dup_pid);
 	int32_t mount_pid = vfs_get_mount_pid(node);
 	if(mount_pid > 0) {
-		ipc_call(mount_pid, FS_CMD_DUP, &in, NULL);
+		/*
+		 * FS_CMD_DUP must keep device-side per-fd state in sync, but the
+		 * fire-and-forget IPC path can wedge here during dup2(sock -> stdio).
+		 * Force the driver dup through the regular reply path so vfsd does not
+		 * stall before the device server even receives the request.
+		 */
+		proto_t out;
+		PF->init(&out);
+		ipc_call(mount_pid, FS_CMD_DUP, &in, &out);
+		PF->clear(&out);
 	}
 	PF->clear(&in);
 }
@@ -1131,8 +1150,9 @@ static void do_vfs_dup2(int32_t pid, proto_t* in, proto_t* out) {
 		vfs_driver_dup(owner, fd, owner, fdto, file);
 		PF->addi(out, fdto)->add(out, gen_file_fsinfo(file), sizeof(fsinfo_t));
 	}
-	else
+	else {
 		PF->addi(out, -1);
+	}
 }
 
 static void do_vfs_set_fsinfo(int32_t pid, proto_t* in, proto_t* out) {

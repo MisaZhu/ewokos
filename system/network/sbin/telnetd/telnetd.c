@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 #include <poll.h>
 #include <sys/socket.h>
+#include <ewoksys/klog.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/vfs.h>
 #include <setenv.h>
@@ -124,14 +125,19 @@ static void become_login_process(
     close_fd_if_valid(&serv_sock);
     telnet_send_initial_negotiation(clnt_sock);
 
-    if(dup2(clnt_sock, 0) < 0 ||
-            dup2(clnt_sock, 1) < 0 ||
-            dup2(clnt_sock, 2) < 0 ||
-            dup2(clnt_sock, VFS_BACKUP_FD0) < 0) {
+    int d0 = dup2(clnt_sock, 0);
+    int d1 = dup2(clnt_sock, 1);
+    int d2 = dup2(clnt_sock, 2);
+    int db = dup2(clnt_sock, VFS_BACKUP_FD0);
+    if(d0 < 0 || d1 < 0 || d2 < 0 || db < 0) {
         exit(-1);
     }
     close(VFS_BACKUP_FD1);
-    close_fd_if_valid(&clnt_sock);
+    /*
+     * Keep the original socket fd alive across exec(). Same-process dup2()
+     * now lets the device cache lazily clone stdin/stdout/stderr from an
+     * existing fd of the same socket, so clnt_sock remains the source entry.
+     */
 
     setenv("CONSOLE_ID", "telnet");
     if(proc_exec("/bin/login") < 0)

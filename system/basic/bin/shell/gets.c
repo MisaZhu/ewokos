@@ -5,6 +5,7 @@
 #include <ewoksys/vfs.h>
 #include <ewoksys/core.h>
 #include <ewoksys/ipc.h>
+#include <ewoksys/klog.h>
 #include <ewoksys/proc.h>
 #include <sys/errno.h>
 
