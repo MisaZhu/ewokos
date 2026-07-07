@@ -28,8 +28,6 @@
 
 extern int sock_readable(int sock);
 extern int sock_writable(int sock);
-extern int sock_get_type(int id);
-extern ssize_t sock_send(int id, const void *buf, size_t n);
 
 static int network_fcntl(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	int cmd, proto_t* in, proto_t* out, void* p) {
@@ -65,34 +63,24 @@ static int network_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	(void)p;
 
 	net_task_t *task = (net_task_t*)(ewokos_addr_t)info->data;
-	net_task_t *main_task = task;
 	int ret;
 	int still_readable = 0;
     if(task == NULL) {
         return -1;
     }
-	if(task->read_task == NULL){
-		task->read_task = create_task(fd, from_pid, info->node);
-        if(task->read_task == NULL) {
-            return -1;
-        }
-		task->read_task->sock = task->sock;
-		task->read_task->is_read_task = true;
-	}
-	task = task->read_task;
 	ret = task_read(task, from_pid, buf, size, p);
 	if(ret == VFS_ERR_RETRY) {
 		/* Read was re-armed (not yet complete) — clear sticky flag.
 		 * The async worker will call vfs_wakeup when data is actually available. */
 		pthread_mutex_lock(&task_list_lock);
-		main_task->pending_main_rd = false;
+		task->pending_main_rd = false;
 		pthread_mutex_unlock(&task_list_lock);
 	} else {
-		if(main_task->sock >= 0) {
-			still_readable = sock_readable(main_task->sock);
+		if(task->sock >= 0) {
+			still_readable = sock_readable(task->sock);
 		}
 		pthread_mutex_lock(&task_list_lock);
-		main_task->pending_main_rd = still_readable ? true : false;
+		task->pending_main_rd = still_readable ? true : false;
 		pthread_mutex_unlock(&task_list_lock);
 	}
 	return ret;
@@ -107,23 +95,6 @@ static int network_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
     if(task == NULL) {
         return -1;
     }
-	int sock_type = -1;
-	if(task->sock >= 0)
-		sock_type = sock_get_type(task->sock);
-	/*
-	 * Plain write(2) on a TCP socket should reflect the real tcp_send() result.
-	 * tcp_send() is already non-blocking: it either sends immediately or returns
-	 * EAGAIN when the stream currently cannot accept more data. Routing write()
-	 * through the async net_task layer turns every send into "arm + RETRY",
-	 * which exposes an internal async state machine as spurious userspace
-	 * EAGAIN and makes telnetd/sshd spin in write()/poll(POLLOUT).
-	 */
-	if(task->sock >= 0 && sock_type == SOCK_STREAM) {
-		int ret = (int)sock_send(task->sock, buf, (size_t)size);
-		if(ret < 0 && errno == 0)
-			errno = EAGAIN;
-		return ret;
-	}
 	return task_write(task, from_pid, (char *)buf, size, p);
 }
 
@@ -139,23 +110,19 @@ static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
 	int main_sock = -1;
 	int read_state = NET_TASK_IDLE;
 	int main_state = NET_TASK_IDLE;
-	int has_read_task = 0;
 	int pending_main_rd = 0;
 	int can_write = 0;
 	if (task != NULL) {
 		pthread_mutex_lock(&task_list_lock);
 		main_state = task->state;
+		read_state = task->read_state;
 		main_sock = task->sock;
 		pending_main_rd = task->pending_main_rd;
 		if (main_state == NET_TASK_IDLE || main_state == NET_TASK_FINISH) {
 			can_write = 1;
 		}
-		if (task->read_task != NULL) {
-			has_read_task = 1;
-			read_state = task->read_task->state;
-			if (read_state == NET_TASK_FINISH) {
-				events |= VFS_EVT_RD;
-			}
+		if (read_state == NET_TASK_FINISH) {
+			events |= VFS_EVT_RD;
 		}
 		pthread_mutex_unlock(&task_list_lock);
 		/*
@@ -186,15 +153,15 @@ static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
 				sock_readable(main_sock)) {
 			/*
 			 * poll() is level-triggered: if the socket is readable right now, a
-			 * waiter must observe RD even when a per-fd read_task already exists.
+			 * waiter must observe RD even when an async read path exists.
 			 *
-			 * The explicit vfs_wakeup() edge is still required while the read_task
+			 * The explicit vfs_wakeup() edge is still required while the read
 			 * is START/PROCESS/FINISH, because user space is waiting on that async
-			 * operation to complete. But once the read_task falls back to IDLE,
+			 * operation to complete. But once the read state falls back to IDLE,
 			 * suppressing live readability can strand callers like sshd in
 			 * poll(POLLIN) forever if the edge was missed or consumed earlier.
 			 */
-			if(!has_read_task || read_state == NET_TASK_IDLE) {
+			if(read_state == NET_TASK_IDLE) {
 				events |= VFS_EVT_RD;
 			}
 		}
@@ -226,9 +193,6 @@ static int network_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fs
 	(void)p;
 	net_task_t *task = (net_task_t *)(ewokos_addr_t)fsinfo->data;
 	if(task) {
-		net_task_t *read_task = NULL;
-		uint32_t main_node = task->node;
-		uint32_t read_node = 0;
 		pthread_mutex_lock(&task_list_lock);
 		if(task->refs > 1) {
 			task->refs--;
@@ -236,17 +200,9 @@ static int network_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fs
 			return 0;
 		}
 		task->refs = 0;
-		task->running = false;
-		read_task = task->read_task;
-		if(read_task != NULL) {
-			read_node = read_task->node;
-			task->read_task->running = false;
-		}
 		pthread_mutex_unlock(&task_list_lock);
 		fsinfo->data = NULL;
-		vfs_wakeup(main_node, VFS_EVT_CLOSE);
-		if(read_node != 0)
-			vfs_wakeup(read_node, VFS_EVT_CLOSE);
+		release_task(task);
 	}
 	return 0;
 }
@@ -412,6 +368,7 @@ int main(int argc, char** argv) {
 	strcpy(dev.name, "networkd");
 
     pthread_mutex_init(&task_list_lock, NULL);
+    start_task();
 	strcpy(ETHER_TAP_NAME, net_dev);
 	if(setup() != 0) {
         pthread_mutex_destroy(&task_list_lock);

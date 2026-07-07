@@ -125,19 +125,41 @@ int intr_poll_once(void) {
     return handled;
 }
 
+void intr_protocol_loop(void) {
+    uint32_t sleep_us = NETD_BUSY_SLEEP_US;
+
+    while (1) {
+        int had_signal = 0;
+
+        while (softirq_take(SIGNET)) {
+            had_signal = 1;
+            net_protocol_handler();
+        }
+
+        if (softirq_pending(SIGNET)) {
+            had_signal = 1;
+        }
+
+        if (had_signal) {
+            sleep_us = NETD_BUSY_SLEEP_US;
+        } else if (sleep_us < NETD_IDLE_SLEEP_MAX_US) {
+            sleep_us += NETD_IDLE_SLEEP_STEP_US;
+            if (sleep_us > NETD_IDLE_SLEEP_MAX_US) {
+                sleep_us = NETD_IDLE_SLEEP_MAX_US;
+            }
+        }
+        usleep(sleep_us);
+    }
+}
+
 void intr_loop(void) {
 	struct irq_entry *entry;
     uint32_t sleep_us = NETD_BUSY_SLEEP_US;
     while(1){
         int had_signal = 0;
         int tap_pending = 0;
-        int need_task_scan = task_has_read_watchers();
         int task_ready = 0;
 
-        while(softirq_take(SIGNET)){
-            had_signal = 1;
-            net_protocol_handler();
-        }
         while(softirq_take(SIGINT)){
             had_signal = 1;
             net_event_handler();
@@ -151,10 +173,6 @@ void intr_loop(void) {
             }
         }
         net_timer_handler();
-        start_task();
-        if (need_task_scan) {
-            task_ready = task_check_read_events();
-        }
 
         kernel_tic(NULL, NULL);
 

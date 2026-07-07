@@ -9,6 +9,7 @@
 #include "ip.h"
 #include "udp.h"
 #include "tcp.h"
+#include "../task.h"
 
 #include "sock.h"
 
@@ -27,6 +28,39 @@
 
 #define SOCKS_MAX 128
 static struct sock socks[SOCKS_MAX];
+
+#ifndef TCP_PCB_SIZE
+#define TCP_PCB_SIZE 64
+#endif
+#ifndef UDP_PCB_SIZE
+#define UDP_PCB_SIZE 16
+#endif
+static int tcp_desc_to_sock[TCP_PCB_SIZE];
+static int udp_desc_to_sock[UDP_PCB_SIZE];
+
+void sock_init_maps(void) {
+    memset(tcp_desc_to_sock, -1, sizeof(tcp_desc_to_sock));
+    memset(udp_desc_to_sock, -1, sizeof(udp_desc_to_sock));
+}
+
+static void sock_map_register(struct sock *s) {
+    int id = indexof(socks, s);
+    if (s->type == SOCK_STREAM && s->desc >= 0 && s->desc < TCP_PCB_SIZE)
+        tcp_desc_to_sock[s->desc] = id;
+    else if (s->type == SOCK_DGRAM && s->desc >= 0 && s->desc < UDP_PCB_SIZE)
+        udp_desc_to_sock[s->desc] = id;
+}
+
+static void sock_map_unregister(struct sock *s) {
+    int id = indexof(socks, s);
+    if (s->type == SOCK_STREAM && s->desc >= 0 && s->desc < TCP_PCB_SIZE) {
+        if (tcp_desc_to_sock[s->desc] == id)
+            tcp_desc_to_sock[s->desc] = -1;
+    } else if (s->type == SOCK_DGRAM && s->desc >= 0 && s->desc < UDP_PCB_SIZE) {
+        if (udp_desc_to_sock[s->desc] == id)
+            udp_desc_to_sock[s->desc] = -1;
+    }
+}
 
 static int
 sock_used_count(void)
@@ -94,6 +128,7 @@ sock_alloc(void)
 static int
 sock_free(struct sock *s)
 {
+    sock_map_unregister(s);
     // Free ICMP packet queue for RAW sockets
     if (s->type == SOCK_RAW) {
         struct icmp_packet *packet = s->recv_queue;
@@ -165,6 +200,7 @@ sock_open(int domain, int type, int protocol)
         sock_free(s);
         return -1;
     }
+    sock_map_register(s);
     return indexof(socks, s);
 }
 
@@ -428,6 +464,7 @@ sock_accept(int id, struct sockaddr *addr, int *addrlen)
             new_s->family = s->family;
             new_s->type = s->type;
             new_s->desc = ret;
+            sock_map_register(new_s);
             ret = indexof(socks, new_s);
             return ret;
         }
@@ -531,6 +568,7 @@ sock_add_icmp_packet(const uint8_t *data, size_t len, ip_addr_t src, ip_addr_t d
                     s->recv_queue = packet;
                 }
                 s->recv_queue_tail = packet;
+                task_wakeup_raw_readers(indexof(socks, s));
             }
         }
     }
@@ -755,4 +793,20 @@ sock_get_type(int id)
         return -1;
     }
     return s->type;
+}
+
+int
+sock_id_from_tcp_desc(int tcp_desc)
+{
+    if (tcp_desc < 0 || tcp_desc >= TCP_PCB_SIZE)
+        return -1;
+    return tcp_desc_to_sock[tcp_desc];
+}
+
+int
+sock_id_from_udp_desc(int udp_desc)
+{
+    if (udp_desc < 0 || udp_desc >= UDP_PCB_SIZE)
+        return -1;
+    return udp_desc_to_sock[udp_desc];
 }

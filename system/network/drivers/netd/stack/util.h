@@ -82,6 +82,8 @@ queue_init(struct queue_head *queue);
 extern void *
 queue_push(struct queue_head *queue, void *data);
 extern void *
+queue_push_front(struct queue_head *queue, void *data);
+extern void *
 queue_pop(struct queue_head *queue);
 extern void *
 queue_peek(struct queue_head *queue);

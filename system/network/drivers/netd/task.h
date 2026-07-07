@@ -18,19 +18,22 @@ typedef struct net_task{
 	int from_pid;
 	int node;
     int cmd;
+    int read_from_pid;
     pthread_t tid;
     struct sched_ctx wait_ctx;
     char read_buf[TASK_READ_BUF_SIZE];
 	proto_t in;
 	proto_t out;
+	proto_t read_in;
+	proto_t read_out;
 	void *p;
+	void *read_p;
     bool running;
-    bool is_read_task;
     int state;
+    int read_state;
     int sock;
     int refs;
     bool pending_main_rd;
-    struct net_task* read_task;
     int thread_started;
 
     struct net_task* next;
@@ -47,6 +50,8 @@ int task_check_read_events(void);
 int task_has_read_watchers(void);
 int task_wakeup_tcp_readers(int tcp_desc);
 int task_wakeup_tcp_writers(int tcp_desc);
+int task_wakeup_udp_readers(int udp_desc);
+int task_wakeup_raw_readers(int sock_id);
 
 extern pthread_mutex_t task_list_lock;
 
