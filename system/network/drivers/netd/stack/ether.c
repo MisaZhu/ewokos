@@ -102,6 +102,15 @@ ether_transmit_helper(struct net_device *dev, uint16_t type, const uint8_t *data
     return callback(dev, frame, flen) == (ssize_t)flen ? 0 : -1;
 }
 
+/*
+ * Return value:
+ *   -1 : no frame available (device queue drained)
+ *    0 : frame drained and either dropped (not for us / unsupported type) OR
+ *        a broadcast processed by the stack; caller keeps draining but must NOT
+ *        treat this as "session activity" (i.e. must not force the busy cadence)
+ *    1 : a unicast frame addressed to our MAC was delivered (real session
+ *        activity that warrants the fast polling cadence)
+ */
 int
 ether_poll_helper(struct net_device *dev, ssize_t (*callback)(struct net_device *dev, uint8_t *buf, size_t size))
 {
@@ -109,6 +118,7 @@ ether_poll_helper(struct net_device *dev, ssize_t (*callback)(struct net_device 
     ssize_t flen;
     struct ether_hdr *hdr;
     uint16_t type;
+    int unicast_to_us;
 
     flen = callback(dev, frame, sizeof(frame));
     if (flen < (ssize_t)sizeof(*hdr)) {
@@ -117,12 +127,14 @@ ether_poll_helper(struct net_device *dev, ssize_t (*callback)(struct net_device 
     }
     hdr = (struct ether_hdr *)frame;
     type = ntoh16(hdr->type);
-    if (memcmp(dev->addr, hdr->dst, ETHER_ADDR_LEN) != 0) {
+    unicast_to_us = (memcmp(dev->addr, hdr->dst, ETHER_ADDR_LEN) == 0);
+    if (!unicast_to_us) {
         if (memcmp(ETHER_ADDR_BROADCAST, hdr->dst, ETHER_ADDR_LEN) != 0) {
             /*
-             * Ignore frames for other hosts but keep draining the device queue.
-             * Returning -1 here makes ether_tap_isr() think there is no more
-             * data and leaves the remaining packets stuck in /dev/wl0.
+             * Frames for other hosts (foreign unicast) and multicast are
+             * drained from the device queue but dropped. Returning -1 here
+             * would make ether_tap_isr() think the queue is empty and leave
+             * the remaining packets stuck in /dev/wl0.
              */
             return 0;
         }
@@ -137,7 +149,14 @@ ether_poll_helper(struct net_device *dev, ssize_t (*callback)(struct net_device 
     }
     infof("dev=%s, type=%s(0x%04x), len=%zu\n", dev->name, ether_type_ntoa(hdr->type), type, flen);
     ether_dump(frame, flen);
-    return net_input_handler(type, (uint8_t *)(hdr + 1), flen - sizeof(*hdr), dev);
+    net_input_handler(type, (uint8_t *)(hdr + 1), flen - sizeof(*hdr), dev);
+    /*
+     * Broadcast frames (ARP who-has, DHCP, limited broadcast) are still
+     * processed above, but ambient broadcast traffic must not pin netd to the
+     * fast busy cadence or the idle CPU load fluctuates with wire noise. Only
+     * unicast frames addressed to us represent an active session.
+     */
+    return unicast_to_us ? 1 : 0;
 }
 
 void

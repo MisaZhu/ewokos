@@ -178,7 +178,8 @@ static int
 ether_tap_isr(unsigned int irq, void *id)
 {
     struct net_device *dev = (struct net_device *)id;
-    int handled = 0;
+    int drained = 0;
+    int delivered = 0;
     int pending = tap_select(dev);
     int budget = pending > 0 ? pending : 32;
 
@@ -186,13 +187,25 @@ ether_tap_isr(unsigned int irq, void *id)
         budget = ETHER_TAP_DRAIN_BURST;
     }
 
-    while (handled < budget) {
-        if (ether_poll_helper(dev, ether_tap_read) < 0) {
+    while (drained < budget) {
+        int ret = ether_poll_helper(dev, ether_tap_read);
+        if (ret < 0) {
             break;
         }
-        handled++;
+        drained++;
+        if (ret > 0) {
+            delivered++;
+        }
     }
-    return handled > 0 ? 0 : -1;
+    /*
+     * Only report activity (which resets the intr_loop to the fast busy
+     * polling cadence) when at least one frame was actually delivered to the
+     * stack. Frames dropped at the L2/ethertype filter (foreign-unicast or
+     * unsupported types, e.g. background broadcast/multicast chatter) are still
+     * drained from the device queue but must NOT keep netd spinning at the
+     * busy cadence, otherwise idle CPU fluctuates with ambient wire traffic.
+     */
+    return delivered > 0 ? 0 : -1;
 }
 
 static struct net_device_ops ether_tap_ops = {

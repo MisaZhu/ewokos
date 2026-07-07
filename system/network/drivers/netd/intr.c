@@ -126,18 +126,24 @@ void intr_protocol_loop(void) {
     uint32_t sleep_us = NETD_BUSY_SLEEP_US;
 
     while (1) {
-        int had_signal = 0;
+        int more_pending = 0;
 
         while (softirq_take(SIGNET)) {
-            had_signal = 1;
             net_protocol_handler();
         }
 
+        /*
+         * Only keep the fast cadence when new packets were queued *while* we
+         * were draining (i.e. sustained load). Processing a single enqueued
+         * frame (e.g. a lone broadcast/ARP) and then finding the queue empty
+         * must let the loop back off, otherwise ambient broadcast traffic keeps
+         * this thread cycling at the busy cadence and idle CPU load fluctuates.
+         */
         if (softirq_pending(SIGNET)) {
-            had_signal = 1;
+            more_pending = 1;
         }
 
-        if (had_signal) {
+        if (more_pending) {
             sleep_us = NETD_BUSY_SLEEP_US;
         } else {
             if (sleep_us < NETD_IDLE_SLEEP_MAX_US) {
