@@ -22,6 +22,51 @@
 
 void putch(int c);
 
+static int write_all_retry(int fd, const void* buf, size_t len) {
+	const char* p = (const char*)buf;
+	size_t off = 0;
+	while(off < len) {
+		ssize_t wr = write(fd, p + off, len - off);
+		if(wr > 0) {
+			off += (size_t)wr;
+			continue;
+		}
+		if(errno == EAGAIN || errno == EINTR) {
+			proc_usleep(1000);
+			continue;
+		}
+		if(wr == 0 && errno == 0)
+			errno = EPIPE;
+		return -1;
+	}
+	return 0;
+}
+
+static int is_telnet_console(void) {
+	const char* cid = getenv("CONSOLE_ID");
+	return cid != NULL && strcmp(cid, "telnet") == 0;
+}
+
+static int _telnet_raw_buf_off = 0;
+static int _telnet_raw_buf_len = 0;
+static uint8_t _telnet_raw_buf[256];
+
+static int telnet_read_raw(int fd, char* c) {
+	if(_telnet_raw_buf_off < _telnet_raw_buf_len) {
+		*c = (char)_telnet_raw_buf[_telnet_raw_buf_off++];
+		return 1;
+	}
+
+	int ret = read(fd, _telnet_raw_buf, sizeof(_telnet_raw_buf));
+	if(ret <= 0)
+		return ret;
+
+	_telnet_raw_buf_off = 1;
+	_telnet_raw_buf_len = ret;
+	*c = (char)_telnet_raw_buf[0];
+	return 1;
+}
+
 static session_info_t* check(const char* user, const char* password, int* res) {
 	static session_info_t info;
 	*res = session_check(user, password, &info);
@@ -110,10 +155,12 @@ static uint8_t telnet_parse(uint8_t c){
 }
 
 static void input(str_t* s, bool show) {
+	bool telnet = is_telnet_console();
+
 	str_reset(s);
 	char c;
 	while(true) {
-		int i = read(0, &c, 1);
+		int i = telnet ? telnet_read_raw(0, &c) : read(0, &c, 1);
 		if(i <= 0) {
 			int err = errno;
 			if(err == EAGAIN || err == EINTR) {
@@ -123,33 +170,33 @@ static void input(str_t* s, bool show) {
 			break;
 		}
 
-		c = telnet_parse(c);
+		c = telnet ? telnet_parse((uint8_t)c) : (uint8_t)c;
 		if(c == 0) {
 			continue;
 		}
+
+		if(!telnet && c == '\r')
+			c = '\n';
 
 		if (c == KEY_BACKSPACE || c == CONSOLE_LEFT) {
 			if (s->len > 0) {
 				//delete last char
 				if(show) {
-					putch(CONSOLE_LEFT);
-					putch(' ');
-					putch(CONSOLE_LEFT);
+					static const char erase_seq[3] = { CONSOLE_LEFT, ' ', CONSOLE_LEFT };
+					(void)write_all_retry(1, erase_seq, sizeof(erase_seq));
 				}
 				s->len--;
 			}
 		}
 		else {
-			if(show || c == '\n')
-				write(1, &c, 1);
-	
+			char out = c;
+			if(!show && c != '\n')
+				out = '*';
+
+			(void)write_all_retry(1, &out, 1);
+
 			if(c == '\n')
 				break;		
-
-			if(!show) {
-				char x = '*';
-				write(1, &x, 1);
-			}
 
 			if(c > 27)
 				str_addc(s, c);

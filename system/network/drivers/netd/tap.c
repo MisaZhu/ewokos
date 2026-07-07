@@ -10,9 +10,9 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <poll.h>
+#include <pthread.h>
 #include <ewoksys/proto.h>
 #include <ewoksys/klog.h>
-#include <pthread.h>
 
 #include "platform.h"
 
@@ -145,9 +145,8 @@ ether_tap_read(struct net_device *dev, uint8_t *buf, size_t size)
     }
     mutex_unlock(&tap->lock);
     TRACE();
-    return len>0?len: -1;
+    return len > 0 ? len : -1;
 }
-
 
 int tap_select(struct net_device *dev){
     struct ether_tap *tap = PRIV(dev);

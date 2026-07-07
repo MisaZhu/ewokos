@@ -479,8 +479,9 @@ int do_network_fcntl(net_task_t *task){
             sock_errno = errno;
             if(ret < 0 && sock_errno == 0)
                 sock_errno = EAGAIN;
-            if(ret < 0 && (sock_errno == EAGAIN || sock_errno == EINTR))
+            if(ret < 0 && (sock_errno == EAGAIN || sock_errno == EINTR)) {
                 return 0;
+            }
 			PF->addi(&task->out, ret);
 			if(ret > 0){
 				PF->add(&task->out, &addr, addrlen);	

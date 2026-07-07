@@ -65,6 +65,26 @@ static void clear_buf(str_t* buf) {
 
 void putch(int c);
 
+static int write_all_retry(int fd, const void* buf, size_t len) {
+	const char* p = (const char*)buf;
+	size_t off = 0;
+	while(off < len) {
+		ssize_t wr = write(fd, p + off, len - off);
+		if(wr > 0) {
+			off += (size_t)wr;
+			continue;
+		}
+		if(errno == EAGAIN || errno == EINTR) {
+			proc_usleep(1000);
+			continue;
+		}
+		if(wr == 0 && errno == 0)
+			errno = EPIPE;
+		return -1;
+	}
+	return 0;
+}
+
 static int is_telnet_console(void) {
 	const char* cid = getenv("CONSOLE_ID");
 	return cid != NULL && strcmp(cid, "telnet") == 0;
@@ -220,7 +240,7 @@ static uint8_t telnet_parse(uint8_t c, const char **event) {
 
 static int _telnet_raw_buf_off = 0;
 static int _telnet_raw_buf_len = 0;
-static uint8_t _telnet_raw_buf[64];
+static uint8_t _telnet_raw_buf[256];
 
 static int telnet_read_raw(int fd, char* c) {
 	if(_telnet_raw_buf_off < _telnet_raw_buf_len) {
@@ -245,6 +265,7 @@ int32_t cmd_gets(int fd, str_t* buf) {
 	bool first_up = true;
 	bool telnet = (fd == 0) && is_telnet_console();
 	bool echo = true;
+
 	while(1) {
 		char c, old_c;
 		errno = 0;
@@ -272,8 +293,9 @@ int32_t cmd_gets(int fd, str_t* buf) {
 		if(telnet) {
 			const char *telnet_event = NULL;
 			c = telnet_parse((uint8_t)c, &telnet_event);
-			if(c == 0)
+			if(c == 0) {
 				continue;
+			}
 		}
 		if(c == 0 || i < 0) {
 			proc_usleep(10000);
@@ -283,16 +305,15 @@ int32_t cmd_gets(int fd, str_t* buf) {
 		if (c == KEY_BACKSPACE) {
 			if (buf->len > 0) {
 				//delete last char
-				putch(CONSOLE_LEFT); 
-				putch(' ');
-				putch(CONSOLE_LEFT); 
+				static const char erase_seq[3] = { CONSOLE_LEFT, ' ', CONSOLE_LEFT };
+				(void)write_all_retry(1, erase_seq, sizeof(erase_seq));
 				buf->len--;
 			}
 		}
 		else if (c == CONSOLE_LEFT) {
 			if (buf->len > 0) {
 				//delete last char
-				putch(c); 
+				(void)write_all_retry(1, &c, 1);
 				buf->len--;
 			}
 		}
@@ -342,7 +363,7 @@ int32_t cmd_gets(int fd, str_t* buf) {
 
 			if(buf->len == 0 && (c == '@' || c == '#'))
 				echo = false;
-			if(echo && !_script_mode) 
+			if(echo && !_script_mode)
 				putch(c);
 			if(c == '\n') {
 				break;

@@ -5,10 +5,10 @@
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/types.h>
 #include <arpa/inet.h>
 #include <poll.h>
 #include <sys/socket.h>
-#include <ewoksys/klog.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/vfs.h>
 #include <setenv.h>
@@ -24,6 +24,23 @@
 #define TELNET_OPT_ECHO 1
 #define TELNET_OPT_SUPPRESS_GA 3
 #define TELNET_OPT_LINEMODE 34
+#define TELNET_INPUT_CHUNK 64
+
+static int telnet_wait_fd_ready(int fd, short events);
+static int telnet_write_all(int fd, const uint8_t *buf, size_t len);
+
+static int set_fd_nonblock(int fd) {
+    int flags;
+
+    if(fd < 0)
+        return -1;
+    flags = fcntl(fd, F_GETFL);
+    if(flags < 0)
+        return -1;
+    if((flags & O_NONBLOCK) != 0)
+        return 0;
+    return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+}
 
 static void close_fd_if_valid(int *fd) {
     if(fd != NULL && *fd >= 0) {
@@ -121,23 +138,39 @@ static int telnet_open_server_socket(int port) {
 
 static void become_login_process(
         int serv_sock,
-        int clnt_sock) {
+        int clnt_sock,
+        int input_pipe[2],
+        int output_pipe[2]) {
     close_fd_if_valid(&serv_sock);
-    telnet_send_initial_negotiation(clnt_sock);
+    int input_fd = clnt_sock;
+    int output_fd = clnt_sock;
 
-    int d0 = dup2(clnt_sock, 0);
-    int d1 = dup2(clnt_sock, 1);
-    int d2 = dup2(clnt_sock, 2);
-    int db = dup2(clnt_sock, VFS_BACKUP_FD0);
+    if(input_pipe != NULL) {
+        close_fd_if_valid(&input_pipe[1]);
+        input_fd = input_pipe[0];
+    }
+    if(output_pipe != NULL) {
+        close_fd_if_valid(&output_pipe[0]);
+        output_fd = output_pipe[1];
+    }
+
+    int d0 = dup2(input_fd, 0);
+    int d1 = dup2(output_fd, 1);
+    int d2 = dup2(output_fd, 2);
+    int db = dup2(input_fd, VFS_BACKUP_FD0);
     if(d0 < 0 || d1 < 0 || d2 < 0 || db < 0) {
         exit(-1);
     }
     close(VFS_BACKUP_FD1);
-    /*
-     * Keep the original socket fd alive across exec(). Same-process dup2()
-     * now lets the device cache lazily clone stdin/stdout/stderr from an
-     * existing fd of the same socket, so clnt_sock remains the source entry.
-     */
+    if(input_pipe != NULL) {
+        close_fd_if_valid(&input_pipe[0]);
+    }
+    if(output_pipe != NULL) {
+        close_fd_if_valid(&output_pipe[1]);
+    }
+    if(input_pipe != NULL || output_pipe != NULL) {
+        close_fd_if_valid(&clnt_sock);
+    }
 
     setenv("CONSOLE_ID", "telnet");
     if(proc_exec("/bin/login") < 0)
@@ -145,8 +178,120 @@ static void become_login_process(
     exit(0);
 }
 
+static int telnet_session_relay(int clnt_sock, int input_write_fd, int output_read_fd) {
+    while(1) {
+        struct pollfd pfds[2];
+        int kinds[2];
+        int nfds = 0;
+        int rc;
+
+        if(clnt_sock >= 0) {
+            pfds[nfds].fd = clnt_sock;
+            pfds[nfds].events = POLLIN | POLLHUP | POLLERR | POLLNVAL;
+            pfds[nfds].revents = 0;
+            kinds[nfds++] = 0;
+        }
+        if(output_read_fd >= 0) {
+            pfds[nfds].fd = output_read_fd;
+            pfds[nfds].events = POLLIN | POLLHUP | POLLERR | POLLNVAL;
+            pfds[nfds].revents = 0;
+            kinds[nfds++] = 1;
+        }
+        if(nfds == 0)
+            return 0;
+
+        rc = poll(pfds, nfds, -1);
+        if(rc < 0) {
+            if(errno == EINTR)
+                continue;
+            return -1;
+        }
+
+        /* Drain child output first so interactive echo does not get stuck behind input. */
+        for(int i = 0; i < nfds; i++) {
+            if(kinds[i] != 1)
+                continue;
+            if((pfds[i].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) == 0)
+                continue;
+
+            uint8_t buf[BUF_SIZE];
+            ssize_t ret = read(output_read_fd, buf, sizeof(buf));
+            if(ret > 0) {
+                if(clnt_sock >= 0 && telnet_write_all(clnt_sock, buf, (size_t)ret) != 0)
+                    return -1;
+            }
+            else {
+                close_fd_if_valid(&output_read_fd);
+                if(input_write_fd >= 0)
+                    close_fd_if_valid(&input_write_fd);
+                if(clnt_sock >= 0)
+                    close_fd_if_valid(&clnt_sock);
+                return 0;
+            }
+        }
+
+        for(int i = 0; i < nfds; i++) {
+            if(kinds[i] != 0)
+                continue;
+            if((pfds[i].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) == 0)
+                continue;
+
+            uint8_t buf[TELNET_INPUT_CHUNK];
+            ssize_t ret = read(clnt_sock, buf, sizeof(buf));
+            if(ret > 0) {
+                if(input_write_fd >= 0 &&
+                        telnet_write_all(input_write_fd, buf, (size_t)ret) != 0) {
+                    return -1;
+                }
+            }
+            else {
+                close_fd_if_valid(&clnt_sock);
+                close_fd_if_valid(&input_write_fd);
+            }
+        }
+    }
+}
+
 static void run_telnet_worker(int serv_sock, int clnt_sock) {
-    become_login_process(serv_sock, clnt_sock);
+    int input_pipe[2] = {-1, -1};
+    int output_pipe[2] = {-1, -1};
+    pid_t pid;
+
+    telnet_send_initial_negotiation(clnt_sock);
+    if(pipe(input_pipe) != 0 || pipe(output_pipe) != 0) {
+        close_fd_if_valid(&input_pipe[0]);
+        close_fd_if_valid(&input_pipe[1]);
+        close_fd_if_valid(&output_pipe[0]);
+        close_fd_if_valid(&output_pipe[1]);
+        become_login_process(serv_sock, clnt_sock, NULL, NULL);
+        return;
+    }
+
+    pid = fork();
+    if(pid < 0) {
+        close_fd_if_valid(&input_pipe[0]);
+        close_fd_if_valid(&input_pipe[1]);
+        close_fd_if_valid(&output_pipe[0]);
+        close_fd_if_valid(&output_pipe[1]);
+        become_login_process(serv_sock, clnt_sock, NULL, NULL);
+        return;
+    }
+
+    if(pid > 0) {
+        become_login_process(serv_sock, clnt_sock, input_pipe, output_pipe);
+        return;
+    }
+
+    close_fd_if_valid(&serv_sock);
+    close_fd_if_valid(&input_pipe[0]);
+    close_fd_if_valid(&output_pipe[1]);
+    (void)set_fd_nonblock(input_pipe[1]);
+    (void)set_fd_nonblock(output_pipe[0]);
+    (void)telnet_session_relay(clnt_sock, input_pipe[1], output_pipe[0]);
+    close_fd_if_valid(&input_pipe[1]);
+    close_fd_if_valid(&output_pipe[0]);
+    close_fd_if_valid(&clnt_sock);
+    exit(0);
 }
 
 int main(int argc, char *argv[]) {

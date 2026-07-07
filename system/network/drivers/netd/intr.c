@@ -9,7 +9,6 @@
 #include "platform.h"
 #include "task.h"
 
-
 struct irq_entry {
     struct irq_entry *next;
     unsigned int irq;
@@ -58,9 +57,7 @@ static mutex_t gSignelLock = MUTEX_INITIALIZER;
 #define NETD_BUSY_SLEEP_US 10000U
 #define NETD_IDLE_SLEEP_STEP_US 5000U
 #define NETD_IDLE_SLEEP_MAX_US 50000U
-
-int dflag[16];
-int dcnt = 0;
+#define NETD_DEEP_IDLE_SLEEP_MAX_US 200000U
 
 static uint32_t softirq_pending(uint32_t sig)
 {
@@ -142,10 +139,11 @@ void intr_protocol_loop(void) {
 
         if (had_signal) {
             sleep_us = NETD_BUSY_SLEEP_US;
-        } else if (sleep_us < NETD_IDLE_SLEEP_MAX_US) {
-            sleep_us += NETD_IDLE_SLEEP_STEP_US;
-            if (sleep_us > NETD_IDLE_SLEEP_MAX_US) {
-                sleep_us = NETD_IDLE_SLEEP_MAX_US;
+        } else {
+            if (sleep_us < NETD_IDLE_SLEEP_MAX_US) {
+                sleep_us += NETD_IDLE_SLEEP_STEP_US;
+                if (sleep_us > NETD_IDLE_SLEEP_MAX_US)
+                    sleep_us = NETD_IDLE_SLEEP_MAX_US;
             }
         }
         usleep(sleep_us);
@@ -159,6 +157,7 @@ void intr_loop(void) {
         int had_signal = 0;
         int tap_pending = 0;
         int task_ready = 0;
+        int tcp_timer_busy = 0;
 
         while(softirq_take(SIGINT)){
             had_signal = 1;
@@ -176,9 +175,22 @@ void intr_loop(void) {
 
         kernel_tic(NULL, NULL);
 
+        tcp_timer_busy = tcp_timer_active();
+
         if (had_signal || tap_pending || task_ready) {
             sleep_us = NETD_BUSY_SLEEP_US;
-        } else if (sleep_us < NETD_IDLE_SLEEP_MAX_US) {
+        } else if (tcp_timer_busy) {
+            if (sleep_us < NETD_IDLE_SLEEP_MAX_US) {
+                /*
+                 * Active TCP timers (retransmit/TIME_WAIT) still need a
+                 * relatively tight polling cadence, but idle acceptors do not.
+                 */
+                sleep_us += NETD_IDLE_SLEEP_STEP_US;
+                if (sleep_us > NETD_IDLE_SLEEP_MAX_US) {
+                    sleep_us = NETD_IDLE_SLEEP_MAX_US;
+                }
+            }
+        } else if (sleep_us < NETD_DEEP_IDLE_SLEEP_MAX_US) {
             /*
              * TCP timers are evaluated against wall-clock time in
              * net_timer_handler(), so keeping the loop pinned at 1ms whenever a
@@ -186,8 +198,8 @@ void intr_loop(void) {
              * packets or read-ready wakeups need the fast path.
              */
             sleep_us += NETD_IDLE_SLEEP_STEP_US;
-            if (sleep_us > NETD_IDLE_SLEEP_MAX_US) {
-                sleep_us = NETD_IDLE_SLEEP_MAX_US;
+            if (sleep_us > NETD_DEEP_IDLE_SLEEP_MAX_US) {
+                sleep_us = NETD_DEEP_IDLE_SLEEP_MAX_US;
             }
         }
         usleep(sleep_us);

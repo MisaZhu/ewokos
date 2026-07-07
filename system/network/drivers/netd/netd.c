@@ -26,6 +26,9 @@
 #include "stack/loopback.h"
 #include "stack/ether_tap.h"
 
+int dflag[16];
+int dcnt;
+
 extern int sock_readable(int sock);
 extern int sock_writable(int sock);
 

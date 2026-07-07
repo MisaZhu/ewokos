@@ -367,8 +367,9 @@ _write (int fd, const void * buf, size_t size)
 	const void *write_buf = buf;
 	size_t write_size = size;
 	char *telnet_buf = NULL;
+	const char *cid = NULL;
 	if((fd == 1 || fd == 2) && buf != NULL && size > 0) {
-		const char *cid = getenv("CONSOLE_ID");
+		cid = getenv("CONSOLE_ID");
 		if(cid != NULL && strcmp(cid, "telnet") == 0) {
 			const char *src = (const char *)buf;
 			size_t extra = 0;
