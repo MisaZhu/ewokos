@@ -13,6 +13,7 @@
 #include <pthread.h>
 #include <ewoksys/proto.h>
 #include <ewoksys/klog.h>
+#include <ewoksys/vdevice.h>
 
 #include "platform.h"
 
@@ -44,16 +45,18 @@ ether_tap_addr(struct net_device *dev) {
     tap = PRIV(dev);
     proto_t  out;
 
-	while(ret){
+	while (ret) {
 		PF->init(&out);
 		ret = dev_cntl (tap->name, 0, NULL, &out);
 		if(ret == 0){
 			proto_read_to(&out, dev->addr, 6);
+            PF->clear(&out);
+            return 0;
 		}
 		PF->clear(&out);
 		usleep(1000);
 	}
-    return 0;
+    return -1;
 }
 
 static int
