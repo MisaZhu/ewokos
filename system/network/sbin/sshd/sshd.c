@@ -119,6 +119,12 @@ typedef struct {
 } session_io_thread_arg_t;
 
 typedef struct {
+    sshd_session_t* s;
+    int* fd;
+    uint32_t ext_type;
+} output_relay_arg_t;
+
+typedef struct {
     uint32_t magic;
     uint32_t is_shell;
     int32_t uid;
@@ -179,6 +185,14 @@ struct sshd_session {
     int close_notify[2];
     pid_t child_pid;
     int child_io_thread_started;
+
+    pthread_t out_tid;
+    pthread_t err_tid;
+    int out_started;
+    int err_started;
+    int output_active;
+    output_relay_arg_t out_arg;
+    output_relay_arg_t err_arg;
 
     pthread_mutex_t state_lock;
     pthread_mutex_t send_lock;
@@ -1958,25 +1972,56 @@ static int send_channel_eof_and_close(sshd_session_t* s) {
     return 0;
 }
 
-static int forward_child_pipe(sshd_session_t* s, int* fd, uint32_t extended_type) {
+static void session_close_socket(sshd_session_t* s) {
+    int fd = -1;
+
+    pthread_mutex_lock(&s->state_lock);
+    if(s->socket >= 0) {
+        fd = s->socket;
+        s->socket = -1;
+    }
+    pthread_mutex_unlock(&s->state_lock);
+    if(fd >= 0)
+        close(fd);
+}
+
+/*
+ * Per-direction output relay. Each thread parks in a blocking read() on one of
+ * the shell's output pipes (stdout or stderr) and forwards data into the SSH
+ * channel. Blocking reads let the thread sleep in the kernel instead of the old
+ * multi-fd poll() busy-loop. On EOF/error the thread closes its pipe end and,
+ * when it is the last live output thread, drives session teardown: it flags the
+ * session closing, sends CHANNEL_EOF/CHANNEL_CLOSE, then closes the socket to
+ * wake the inbound thread blocked in the socket read.
+ */
+static void* output_relay_thread(void* arg) {
+    output_relay_arg_t* a = (output_relay_arg_t*)arg;
+    sshd_session_t* s = a->s;
     uint8_t buf[1024];
-    ssize_t n;
+    int remaining;
 
-    if(fd == NULL || *fd < 0)
-        return 0;
+    while(!s->closing) {
+        ssize_t n = read(*a->fd, buf, sizeof(buf));
+        if(n > 0) {
+            if(send_channel_data_packet(s, a->ext_type, buf, (size_t)n) < 0)
+                break;
+            continue;
+        }
+        if(n < 0 && errno == EINTR)
+            continue;
+        break;
+    }
 
-    n = read(*fd, buf, sizeof(buf));
-    if(n < 0) {
-        if(errno == EINTR || errno == EAGAIN)
-            return 0;
-        close_fd_if_valid(fd);
-        return 0;
+    close_fd_if_valid(a->fd);
+    pthread_mutex_lock(&s->state_lock);
+    remaining = --s->output_active;
+    pthread_mutex_unlock(&s->state_lock);
+    if(remaining == 0) {
+        s->closing = 1;
+        (void)send_channel_eof_and_close(s);
+        session_close_socket(s);
     }
-    if(n == 0) {
-        close_fd_if_valid(fd);
-        return 0;
-    }
-    return send_channel_data_packet(s, extended_type, buf, (size_t)n);
+    return NULL;
 }
 
 static void close_child_bundle(int child_stdin[2], int child_stdout[2],
@@ -2104,18 +2149,38 @@ static int spawn_child_session(sshd_session_t* s, const char* command, int is_sh
     close_fd_if_valid(&s->child_stdout[CHILD_STDOUT_WRITE]);
     close_fd_if_valid(&s->child_stderr[CHILD_STDERR_WRITE]);
     (void)set_fd_nonblock(s->child_stdin[CHILD_STDIN_WRITE]);
-    (void)set_fd_nonblock(s->child_stdout[CHILD_STDOUT_READ]);
-    (void)set_fd_nonblock(s->child_stderr[CHILD_STDERR_READ]);
 
     /*
      * The login shell is now this relay's parent, so we cannot waitpid() for
-     * it; pipe EOF on the shell's stdout/stderr drives session teardown. Both
-     * directions are relayed by the single packet loop (handle_session_packets)
-     * that poll()s the socket together with the shell pipes, so no dedicated
-     * I/O thread is needed.
+     * it; pipe EOF on the shell's stdout/stderr drives session teardown. Two
+     * dedicated output threads park in blocking read() on the stdout/stderr
+     * pipes and forward into the SSH channel, while the main thread runs the
+     * inbound packet loop. This replaces the old single multi-fd poll() relay
+     * so idle sessions no longer busy-loop.
      */
     s->child_pid = -1;
     s->child_started = 1;
+
+    s->out_arg.s = s;
+    s->out_arg.fd = &s->child_stdout[CHILD_STDOUT_READ];
+    s->out_arg.ext_type = 0;
+    s->err_arg.s = s;
+    s->err_arg.fd = &s->child_stderr[CHILD_STDERR_READ];
+    s->err_arg.ext_type = SSH_STDERR_DATA;
+    s->output_active = 2;
+
+    s->out_started = (pthread_create(&s->out_tid, NULL, output_relay_thread, &s->out_arg) == 0);
+    if(!s->out_started) {
+        pthread_mutex_lock(&s->state_lock);
+        s->output_active--;
+        pthread_mutex_unlock(&s->state_lock);
+    }
+    s->err_started = (pthread_create(&s->err_tid, NULL, output_relay_thread, &s->err_arg) == 0);
+    if(!s->err_started) {
+        pthread_mutex_lock(&s->state_lock);
+        s->output_active--;
+        pthread_mutex_unlock(&s->state_lock);
+    }
     return 0;
 }
 
@@ -2280,85 +2345,43 @@ static int dispatch_session_packet(sshd_session_t* s, const ssh_packet_t* packet
 }
 
 /*
- * Single-threaded relay loop. Once the login shell has been spawned this poll()
- * watches the client socket together with the shell's stdout/stderr pipes, so
- * both directions of the channel are relayed by one task (no dedicated I/O
- * thread). Before the shell starts only the socket is polled, which naturally
- * covers the channel-open / pty-req / shell-request handshake.
+ * Inbound packet loop. The main thread blocks efficiently on the client socket
+ * (single-fd wait inside ssh_read_n) and dispatches SSH packets. The shell's
+ * stdout/stderr are relayed by dedicated output threads (output_relay_thread),
+ * so there is no multi-fd poll() and no idle busy-loop.
+ *
+ * Teardown is hang-free in every direction:
+ *  - Shell exits first: both output threads hit pipe EOF; the last one flags
+ *    s->closing, sends CHANNEL_EOF/CLOSE and closes the socket, which wakes
+ *    this blocked socket read so the loop ends.
+ *  - Client closes / CHANNEL_CLOSE: the loop ends; we flag s->closing and close
+ *    child stdin so the shell gets EOF and exits, closing its stdout/stderr
+ *    write ends; the resulting pipe VFS_EVT_CLOSE wakes the output threads.
+ * pthread_join on both started threads runs before session_destroy (which
+ * destroys the mutexes), so there is no use-after-destroy.
  */
 static int handle_session_packets(sshd_session_t* s) {
     ssh_packet_t packet;
+    int rc = 0;
 
-    while(!s->sent_close) {
-        struct pollfd pfds[3];
-        int kinds[3];
-        int nfds = 0;
-        int rc;
-
-        pfds[nfds].fd = s->socket;
-        pfds[nfds].events = POLLIN | POLLHUP | POLLERR | POLLNVAL;
-        pfds[nfds].revents = 0;
-        kinds[nfds++] = 0;
-
-        if(s->child_stdout[CHILD_STDOUT_READ] >= 0) {
-            pfds[nfds].fd = s->child_stdout[CHILD_STDOUT_READ];
-            pfds[nfds].events = POLLIN | POLLHUP | POLLERR | POLLNVAL;
-            pfds[nfds].revents = 0;
-            kinds[nfds++] = 1;
+    while(!s->sent_close && !s->closing) {
+        if(ssh_packet_receive(s, &packet) < 0) {
+            rc = -1;
+            break;
         }
-        if(s->child_stderr[CHILD_STDERR_READ] >= 0) {
-            pfds[nfds].fd = s->child_stderr[CHILD_STDERR_READ];
-            pfds[nfds].events = POLLIN | POLLHUP | POLLERR | POLLNVAL;
-            pfds[nfds].revents = 0;
-            kinds[nfds++] = 2;
-        }
-
-        rc = poll(pfds, (uint32_t)nfds, -1);
-        if(rc < 0) {
-            if(errno == EINTR)
-                continue;
-            return -1;
-        }
-        if(rc == 0)
-            continue;
-
-        /* Drain the shell's stdout/stderr first so output is flushed promptly. */
-        for(int i = 0; i < nfds; i++) {
-            if((pfds[i].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) == 0)
-                continue;
-            if(kinds[i] == 1) {
-                if(forward_child_pipe(s, &s->child_stdout[CHILD_STDOUT_READ], 0) < 0)
-                    return -1;
-            }
-            else if(kinds[i] == 2) {
-                if(forward_child_pipe(s, &s->child_stderr[CHILD_STDERR_READ], SSH_STDERR_DATA) < 0)
-                    return -1;
-            }
-        }
-
-        /* Shell exited: both output pipes reached EOF, so close the channel. */
-        if(s->child_started &&
-                s->child_stdout[CHILD_STDOUT_READ] < 0 &&
-                s->child_stderr[CHILD_STDERR_READ] < 0) {
-            close_fd_if_valid(&s->child_stdin[CHILD_STDIN_WRITE]);
-            (void)send_channel_eof_and_close(s);
-            return 0;
-        }
-
-        /* Then service one inbound SSH packet from the client. */
-        if((pfds[0].revents & POLLIN) != 0) {
-            if(ssh_packet_receive(s, &packet) < 0)
-                return -1;
-            if(dispatch_session_packet(s, &packet) < 0)
-                return -1;
-            if(s->sent_close)
-                return 0;
-        }
-        else if((pfds[0].revents & (POLLHUP | POLLERR | POLLNVAL)) != 0) {
-            return -1;
+        if(dispatch_session_packet(s, &packet) < 0) {
+            rc = -1;
+            break;
         }
     }
-    return 0;
+
+    s->closing = 1;
+    close_fd_if_valid(&s->child_stdin[CHILD_STDIN_WRITE]);
+    if(s->out_started)
+        pthread_join(s->out_tid, NULL);
+    if(s->err_started)
+        pthread_join(s->err_tid, NULL);
+    return rc;
 }
 
 static int session_init(sshd_session_t* s, int sock) {

@@ -7,7 +7,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <arpa/inet.h>
-#include <poll.h>
+#include <pthread.h>
 #include <sys/socket.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/vfs.h>
@@ -26,32 +26,25 @@
 #define TELNET_OPT_LINEMODE 34
 #define TELNET_INPUT_CHUNK 64
 
+#define TELNET_RELAY_MAX_CLOSE 2
+
 /*
- * Bounded re-poll interval for telnet_wait_fd_ready(). Using an infinite
- * poll(-1) here can wedge the relay forever if netd's POLLOUT wakeup edge is
- * lost: network_check_poll_events() suppresses live WR while task->state ==
- * NET_TASK_PROCESS, so a task_wakeup_tcp_writers() edge that races that window
- * (or is cleared by vfs_get_poll_events' stale-RW reconciliation) never
- * re-arrives. A finite timeout lets vfs_poll re-check live socket writability
- * (~10ms cadence) and self-heal without busy-spinning.
+ * Relay one direction of the telnet session using a dedicated thread doing a
+ * blocking read() on a SINGLE fd. This deliberately avoids poll()ing the
+ * client socket and the shell pipe together: EwokOS's vfs_poll() falls back to
+ * a 1ms usleep busy-loop for multi-fd waits (vfsd keeps only one read/one
+ * write waiter per pid), which is what burned CPU on an idle telnet session.
+ * A single-fd blocking read parks the thread in the kernel via the node-scoped
+ * vfs_block path and consumes no CPU while idle.
  */
-#define TELNET_WAIT_POLL_MS 1000
+typedef struct {
+    int src;
+    int dst;
+    int close_fds[TELNET_RELAY_MAX_CLOSE];
+    int close_n;
+} relay_arg_t;
 
-static int telnet_wait_fd_ready(int fd, short events);
-static int telnet_write_all(int fd, const uint8_t *buf, size_t len);
-
-static int set_fd_nonblock(int fd) {
-    int flags;
-
-    if(fd < 0)
-        return -1;
-    flags = fcntl(fd, F_GETFL);
-    if(flags < 0)
-        return -1;
-    if((flags & O_NONBLOCK) != 0)
-        return 0;
-    return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-}
+static int write_all(int fd, const uint8_t *buf, size_t len);
 
 static void close_fd_if_valid(int *fd) {
     if(fd != NULL && *fd >= 0) {
@@ -60,38 +53,7 @@ static void close_fd_if_valid(int *fd) {
     }
 }
 
-static int telnet_wait_fd_ready(int fd, short events) {
-    struct pollfd pfd;
-
-    if(fd < 0) {
-        errno = EBADF;
-        return -1;
-    }
-
-    memset(&pfd, 0, sizeof(pfd));
-    pfd.fd = fd;
-    pfd.events = (short)(events | POLLERR | POLLHUP | POLLNVAL);
-
-    while(1) {
-        int rc = poll(&pfd, 1, TELNET_WAIT_POLL_MS);
-        if(rc > 0) {
-            if((pfd.revents & POLLNVAL) != 0) {
-                errno = EBADF;
-                return -1;
-            }
-            if((pfd.revents & (POLLERR | POLLHUP)) != 0) {
-                errno = EIO;
-                return -1;
-            }
-            return 0;
-        }
-        if(rc < 0 && errno != EINTR)
-            return -1;
-        /* rc == 0: timeout elapsed; re-poll so a lost POLLOUT edge self-heals. */
-    }
-}
-
-static int telnet_write_all(int fd, const uint8_t *buf, size_t len) {
+static int write_all(int fd, const uint8_t *buf, size_t len) {
     size_t sent = 0;
 
     while(sent < len) {
@@ -102,14 +64,30 @@ static int telnet_write_all(int fd, const uint8_t *buf, size_t len) {
         }
         if(ret < 0 && errno == EINTR)
             continue;
-        if(ret < 0 && errno == EAGAIN) {
-            if(telnet_wait_fd_ready(fd, POLLOUT) != 0)
-                return -1;
-            continue;
-        }
         return -1;
     }
     return 0;
+}
+
+static void* relay_thread(void* p) {
+    relay_arg_t* a = (relay_arg_t*)p;
+    uint8_t buf[BUF_SIZE];
+
+    while(1) {
+        ssize_t ret = read(a->src, buf, sizeof(buf));
+        if(ret > 0) {
+            if(write_all(a->dst, buf, (size_t)ret) != 0)
+                break;
+            continue;
+        }
+        if(ret < 0 && errno == EINTR)
+            continue;
+        break; /* EOF (peer closed) or unrecoverable error */
+    }
+
+    for(int i = 0; i < a->close_n; i++)
+        close_fd_if_valid(&a->close_fds[i]);
+    return NULL;
 }
 
 static void telnet_send_initial_negotiation(int fd) {
@@ -120,7 +98,7 @@ static void telnet_send_initial_negotiation(int fd) {
         TELNET_IAC, TELNET_DONT, TELNET_OPT_LINEMODE,
     };
 
-    (void)telnet_write_all(fd, init_cmds, sizeof(init_cmds));
+    (void)write_all(fd, init_cmds, sizeof(init_cmds));
 }
 
 static int telnet_open_server_socket(int port) {
@@ -191,77 +169,57 @@ static void become_login_process(
 }
 
 static int telnet_session_relay(int clnt_sock, int input_write_fd, int output_read_fd) {
-    while(1) {
-        struct pollfd pfds[2];
-        int kinds[2];
-        int nfds = 0;
-        int rc;
+    /*
+     * in_arg is static on purpose: the input worker keeps referencing it after
+     * this function returns (we do NOT join it), so it must outlive the stack
+     * frame. Only one session is relayed per process, so a single static is
+     * safe.
+     */
+    static relay_arg_t in_arg;
+    pthread_t in_tid;
+    relay_arg_t out_arg;
+    int in_started;
 
-        if(clnt_sock >= 0) {
-            pfds[nfds].fd = clnt_sock;
-            pfds[nfds].events = POLLIN | POLLHUP | POLLERR | POLLNVAL;
-            pfds[nfds].revents = 0;
-            kinds[nfds++] = 0;
-        }
-        if(output_read_fd >= 0) {
-            pfds[nfds].fd = output_read_fd;
-            pfds[nfds].events = POLLIN | POLLHUP | POLLERR | POLLNVAL;
-            pfds[nfds].revents = 0;
-            kinds[nfds++] = 1;
-        }
-        if(nfds == 0)
-            return 0;
+    /*
+     * Client socket -> shell stdin, on a worker thread. Owns the shell-stdin
+     * write end.
+     *
+     * This thread does a blocking read() on the SOCKET, and a local close()
+     * cannot reliably wake a blocked socket read (vfsd only issues a local
+     * VFS_EVT_CLOSE wakeup for pipe/anonymous nodes, not sockets). So we must
+     * NEVER pthread_join() it: joining could block teardown forever when the
+     * shell exits first. Instead the main thread runs the output direction
+     * (a PIPE read that always sees EOF once the shell exits), returns, and
+     * run_telnet_worker's exit() force-reaps this worker via the kernel
+     * (proc_terminate), guaranteeing hang-free teardown in both directions.
+     */
+    in_arg.src = clnt_sock;
+    in_arg.dst = input_write_fd;
+    in_arg.close_fds[0] = input_write_fd;
+    in_arg.close_n = 1;
 
-        rc = poll(pfds, nfds, -1);
-        if(rc < 0) {
-            if(errno == EINTR)
-                continue;
-            return -1;
-        }
+    /* Shell stdout -> client socket, on the main thread. Owns the client socket
+     * + stdout read end. */
+    out_arg.src = output_read_fd;
+    out_arg.dst = clnt_sock;
+    out_arg.close_fds[0] = clnt_sock;
+    out_arg.close_fds[1] = output_read_fd;
+    out_arg.close_n = 2;
 
-        /* Drain child output first so interactive echo does not get stuck behind input. */
-        for(int i = 0; i < nfds; i++) {
-            if(kinds[i] != 1)
-                continue;
-            if((pfds[i].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) == 0)
-                continue;
+    in_started = (pthread_create(&in_tid, NULL, relay_thread, &in_arg) == 0);
+    if(in_started)
+        pthread_detach(in_tid);
+    else
+        close_fd_if_valid(&input_write_fd); /* shell gets stdin EOF and exits */
 
-            uint8_t buf[BUF_SIZE];
-            ssize_t ret = read(output_read_fd, buf, sizeof(buf));
-            if(ret > 0) {
-                if(clnt_sock >= 0 && telnet_write_all(clnt_sock, buf, (size_t)ret) != 0)
-                    return -1;
-            }
-            else {
-                close_fd_if_valid(&output_read_fd);
-                if(input_write_fd >= 0)
-                    close_fd_if_valid(&input_write_fd);
-                if(clnt_sock >= 0)
-                    close_fd_if_valid(&clnt_sock);
-                return 0;
-            }
-        }
-
-        for(int i = 0; i < nfds; i++) {
-            if(kinds[i] != 0)
-                continue;
-            if((pfds[i].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) == 0)
-                continue;
-
-            uint8_t buf[TELNET_INPUT_CHUNK];
-            ssize_t ret = read(clnt_sock, buf, sizeof(buf));
-            if(ret > 0) {
-                if(input_write_fd >= 0 &&
-                        telnet_write_all(input_write_fd, buf, (size_t)ret) != 0) {
-                    return -1;
-                }
-            }
-            else {
-                close_fd_if_valid(&clnt_sock);
-                close_fd_if_valid(&input_write_fd);
-            }
-        }
-    }
+    /*
+     * Run the output direction here. It returns on shell-stdout pipe EOF (shell
+     * exited) or on a socket write error (client gone). Closing clnt_sock sends
+     * a FIN so the client notices the session ended and also gives the input
+     * worker a best-effort wakeup; either way we return and exit() reaps it.
+     */
+    (void)relay_thread(&out_arg);
+    return 0;
 }
 
 static void run_telnet_worker(int serv_sock, int clnt_sock) {
@@ -297,12 +255,11 @@ static void run_telnet_worker(int serv_sock, int clnt_sock) {
     close_fd_if_valid(&serv_sock);
     close_fd_if_valid(&input_pipe[0]);
     close_fd_if_valid(&output_pipe[1]);
-    (void)set_fd_nonblock(input_pipe[1]);
-    (void)set_fd_nonblock(output_pipe[0]);
+    /*
+     * telnet_session_relay owns clnt_sock, input_pipe[1] and output_pipe[0]
+     * and closes them from its relay threads, so do not close them again here.
+     */
     (void)telnet_session_relay(clnt_sock, input_pipe[1], output_pipe[0]);
-    close_fd_if_valid(&input_pipe[1]);
-    close_fd_if_valid(&output_pipe[0]);
-    close_fd_if_valid(&clnt_sock);
     exit(0);
 }
 
