@@ -15,6 +15,7 @@
 #include "stack/util.h"
 
 extern int sock_readable(int sock);
+extern int sock_writable(int sock);
 extern int sock_data_readable(int sock);
 extern int sock_tcp_scan_info(int id, int *desc, int *state, int *remain);
 extern int sock_get_desc(int id);
@@ -148,17 +149,20 @@ void release_task(net_task_t *task){
      */
     pthread_mutex_lock(&task_list_lock);
     task->running = false;
-    int from_pid = task->from_pid;
-    uint32_t node = task->node;
+    task->pending_close_wakeup = (task->from_pid > 0) ? 1 : 0;
     sched_wakeup(&task->wait_ctx);
     pthread_mutex_unlock(&task_list_lock);
 
-    /* Wake any client still blocked on this node so its close() returns. */
-    if(from_pid > 0) {
-        vfs_wakeup(node, VFS_EVT_CLOSE);
-    }
+    /*
+     * The close-wakeup (vfs_wakeup, a reverse IPC to vfsd) is issued by the
+     * worker's self-reap path, NOT here. release_task() runs on the netd IPC
+     * dispatch thread while vfsd is synchronously waiting on the current
+     * FS_CMD_CLOSE; calling back into vfsd from here would deadlock
+     * netd<->vfsd and pin task_list_lock forever under concurrent load.
+     */
 }
 
+static uint32_t task_arm_wait_event(int cmd) __attribute__((unused));
 static uint32_t task_arm_wait_event(int cmd) {
     switch (cmd) {
         case SOCK_CONNECT:
@@ -212,15 +216,6 @@ int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *o
         PF->clear(&task->in);
         PF->clear(&task->out);
         PF->copy(&task->in, in->data, in->size);
-        uint32_t wait_event = task_arm_wait_event(cmd);
-        if(wait_event != 0 && task->node > 0) {
-            /*
-             * Clear stale sticky readiness before arming a new async request.
-             * Otherwise callers that block on RD/WR can immediately consume an
-             * old edge and spin while the new operation is still in progress.
-             */
-            vfs_clear_poll_events(task->node, wait_event);
-        }
         task->state = NET_TASK_START;
         sched_wakeup(&task->wait_ctx);
         pthread_mutex_unlock(&task_list_lock);
@@ -270,12 +265,6 @@ int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
         task->read_from_pid = from_pid;
         PF->clear(&task->read_in);
         PF->clear(&task->read_out);
-        /*
-         * Drop any stale readable edge before arming a new async read. The
-         * socket remains level-trigger readable through network_check_poll_events(),
-         * while the in-flight read completes via an explicit wakeup on FINISH.
-         */
-        vfs_clear_poll_events(task->node, VFS_EVT_RD);
         PF->addi(&task->read_in, size);
         task->read_state = NET_TASK_START;
         sched_wakeup(&task->wait_ctx);
@@ -341,12 +330,6 @@ int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p){
         PF->clear(&task->in);
         PF->clear(&task->out);
         PF->add(&task->in, buf, size);
-        /*
-         * Drop any stale writable edge from a previous completed send before
-         * arming a new async send. Otherwise userspace may consume the old
-         * WR event, retry immediately, and race this new send in PROCESS.
-         */
-        vfs_clear_poll_events(task->node, VFS_EVT_WR);
         task->state = NET_TASK_START;
         sched_wakeup(&task->wait_ctx);
         pthread_mutex_unlock(&task_list_lock);
@@ -806,6 +789,16 @@ static void* task_thread(void* arg){
         }
         pthread_mutex_unlock(&task_list_lock);
 
+        /*
+         * No pre-op sticky-edge clear is performed. It is unnecessary and
+         * racy for sockets: network_check_poll_events() gates WR/RD on the
+         * LIVE sock_writable()/sock_readable() state, and vfs_get_poll_events()
+         * replaces the sticky RW bits with that live state (auto-dropping stale
+         * ones). Clearing here asynchronously from the worker could instead wipe
+         * a genuine WR/RD edge that an ACK-driven task_wakeup_tcp_writers() (or
+         * a completion wakeup) just posted for a blocked poll() waiter, stranding
+         * the client forever (mid-stream cat|dump hang under concurrency).
+         */
         if(run_main) {
             main_completed = do_network_fcntl(task) ? true : false;
         }
@@ -829,7 +822,33 @@ static void* task_thread(void* arg){
             pthread_mutex_lock(&task_list_lock);
             task->state = NET_TASK_FINISH;
             uint32_t wake_event = task_finish_wakeup_event(task, false);
+            /*
+             * Lost-wakeup guard for the SEND path.
+             *
+             * task_finish_wakeup_event() returns 0 for a SEND that completed
+             * with EAGAIN (send window was closed) to avoid a poll(POLLOUT)
+             * busy spin. But the window may have re-opened WHILE this send was
+             * in PROCESS: the ACK-driven task_wakeup_tcp_writers() then raised
+             * VFS_EVT_WR, the blocked client consumed that edge, retried, saw
+             * state==PROCESS, returned to sleep and cleared the sticky WR bit.
+             * If that same ACK also drained the last inflight byte, no further
+             * ACK will ever arrive, so the client would sleep on WR forever
+             * (telnetd relay stalls -> pipe backs up -> cat|dump hangs).
+             *
+             * Re-check real writability here and re-fire the WR edge when the
+             * window is genuinely open. sock_writable() takes the tcp mutex, so
+             * it MUST run after releasing task_list_lock: the ACK path locks in
+             * the opposite order (tcp mutex -> task_list_lock) and holding both
+             * here in reverse would deadlock on SMP. Gating on sock_writable()
+             * means the client's retry actually sends bytes, so it cannot spin.
+             */
+            int send_recheck_sock = (wake_event == 0 &&
+                                     task->cmd == SOCK_SEND &&
+                                     task->sock >= 0) ? task->sock : -1;
             pthread_mutex_unlock(&task_list_lock);
+            if(send_recheck_sock >= 0 && sock_writable(send_recheck_sock)) {
+                wake_event = VFS_EVT_WR;
+            }
             if(wake_event != 0) {
                 vfs_wakeup(task->node, wake_event);
             }
@@ -857,6 +876,9 @@ static void* task_thread(void* arg){
      */
     int fin_sock = task->sock;
     task->sock = -1;
+    uint32_t close_node = task->node;
+    uint32_t do_close_wakeup = task->pending_close_wakeup;
+    task->pending_close_wakeup = 0;
     pthread_mutex_lock(&task_list_lock);
     if(fin_sock >= 0 && fin_sock < SOCKS_MAX && sock_to_task[fin_sock] == task)
         sock_to_task[fin_sock] = NULL;
@@ -864,6 +886,16 @@ static void* task_thread(void* arg){
     task_list_remove(task);
     if(fin_sock >= 0) {
         sock_close(fin_sock);
+    }
+
+    /*
+     * Deferred VFS_EVT_CLOSE wakeup (reverse IPC to vfsd). Safe here: this is
+     * the worker thread and the dispatch thread already replied to vfsd for the
+     * FS_CMD_CLOSE, so vfsd is free to serve this call. Doing it from
+     * release_task() (dispatch thread) would deadlock netd<->vfsd.
+     */
+    if(do_close_wakeup && close_node > 0) {
+        vfs_wakeup(close_node, VFS_EVT_CLOSE);
     }
 
     PF->clear(&task->in);

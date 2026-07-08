@@ -26,6 +26,17 @@
 #define TELNET_OPT_LINEMODE 34
 #define TELNET_INPUT_CHUNK 64
 
+/*
+ * Bounded re-poll interval for telnet_wait_fd_ready(). Using an infinite
+ * poll(-1) here can wedge the relay forever if netd's POLLOUT wakeup edge is
+ * lost: network_check_poll_events() suppresses live WR while task->state ==
+ * NET_TASK_PROCESS, so a task_wakeup_tcp_writers() edge that races that window
+ * (or is cleared by vfs_get_poll_events' stale-RW reconciliation) never
+ * re-arrives. A finite timeout lets vfs_poll re-check live socket writability
+ * (~10ms cadence) and self-heal without busy-spinning.
+ */
+#define TELNET_WAIT_POLL_MS 1000
+
 static int telnet_wait_fd_ready(int fd, short events);
 static int telnet_write_all(int fd, const uint8_t *buf, size_t len);
 
@@ -62,7 +73,7 @@ static int telnet_wait_fd_ready(int fd, short events) {
     pfd.events = (short)(events | POLLERR | POLLHUP | POLLNVAL);
 
     while(1) {
-        int rc = poll(&pfd, 1, -1);
+        int rc = poll(&pfd, 1, TELNET_WAIT_POLL_MS);
         if(rc > 0) {
             if((pfd.revents & POLLNVAL) != 0) {
                 errno = EBADF;
@@ -76,6 +87,7 @@ static int telnet_wait_fd_ready(int fd, short events) {
         }
         if(rc < 0 && errno != EINTR)
             return -1;
+        /* rc == 0: timeout elapsed; re-poll so a lost POLLOUT edge self-heals. */
     }
 }
 

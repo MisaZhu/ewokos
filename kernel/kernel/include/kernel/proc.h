@@ -83,13 +83,6 @@ typedef struct st_proc {
 	 */
 	uint8_t           wake_pending;
 
-	/* TEMP DEBUG */
-	uint32_t          dbg_bsite;
-	uint32_t          dbg_barg;
-	uint32_t          dbg_bseq;
-	uint32_t          dbg_wseq;
-	uint32_t          dbg_wtok;
-
 	context_t         ctx;
 } proc_t;
 

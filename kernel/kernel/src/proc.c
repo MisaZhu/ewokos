@@ -1539,8 +1539,6 @@ void proc_usleep(context_t* ctx, uint32_t count) {
 	proc_account_resume_current();
 }
 	
-uint32_t g_dbg_seq = 0; /* TEMP DEBUG */
-
 void proc_block_by(context_t* ctx, proc_t* proc, uint32_t token) {
 	if(proc == NULL)
 		return;
@@ -1607,7 +1605,6 @@ void proc_block_by(context_t* ctx, proc_t* proc, uint32_t token) {
 	 * to BLOCK. Without this, a cross-core IPC wakeup can be lost.
 	 */
 	proc->block_by = token;
-	proc->dbg_bseq = ++g_dbg_seq; /* TEMP DEBUG */
 	proc_unready_locked(proc, BLOCK);
 	proc_lock_leave();
 	if(proc == get_current_proc())
@@ -1675,9 +1672,6 @@ void proc_wakeup_by(proc_t* proc, uint32_t token) {
 		proc_lock_leave();
 		return;
 	}
-
-	proc->dbg_wseq = ++g_dbg_seq; /* TEMP DEBUG */
-	proc->dbg_wtok = token;       /* TEMP DEBUG */
 
 	/*
 	 * Node-scoped wakeup. token 0 is a generic/unconditional wake (IPC,
@@ -2175,43 +2169,6 @@ void renew_kernel_sec(void) {
 			}
 		}
 		_run_window_start_usec = now_usec;
-	}
-
-	/* TEMP PS DUMP: once/sec, blocked-ish procs only */
-	for(uint32_t i=0; i<_kernel_config.max_task_num; i++) {
-		proc_t* p = _task_table[i];
-		if(p == NULL)
-			continue;
-		int st = p->info.state;
-		if(st==UNUSED || st==ZOMBIE || st==READY || st==RUNNING)
-			continue;
-		int sq = -1, scts = -1, sdis = -1;
-		if(p->space != NULL) {
-			sq = (int)p->space->ipc_server.wait_queue.num;
-			scts = (int)p->space->ipc_server.ctask.state;
-			sdis = (int)p->space->ipc_server.disabled;
-		}
-		printf("PS pid=%d st=%d wf=%d bby=%d wby=%d wp=%d site=%d barg=%d bseq=%d wseq=%d wtok=%d sq=%d cts=%d dis=%d ty=%d cmd=%s\n",
-			p->info.pid, st, p->info.wait_for, p->block_by, p->wake_by,
-			p->wake_pending, p->dbg_bsite, p->dbg_barg, p->dbg_bseq,
-			p->dbg_wseq, p->dbg_wtok, sq, scts, sdis,
-			p->info.type, p->info.cmd);
-	}
-	/* TEMP SRV DUMP: any IPC server with a non-idle ctask (reveals a stuck
-	 * or spinning server even when it is READY/RUNNING and hidden above). */
-	for(uint32_t i=0; i<_kernel_config.max_task_num; i++) {
-		proc_t* p = _task_table[i];
-		if(p == NULL || p->space == NULL)
-			continue;
-		if(p->space->ipc_server.entry == 0)
-			continue;
-		ipc_task_t* ct = &p->space->ipc_server.ctask;
-		if(ct->state == IPC_IDLE)
-			continue;
-		printf("SRV pid=%d st=%d sq=%d cts=%d cpid=%d cuid=%d call=%d dis=%d cmd=%s\n",
-			p->info.pid, p->info.state, (int)p->space->ipc_server.wait_queue.num,
-			(int)ct->state, (int)ct->client_pid, (int)ct->uid, (int)ct->call_id,
-			(int)p->space->ipc_server.disabled, p->info.cmd);
 	}
 }
 

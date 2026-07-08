@@ -43,6 +43,7 @@ extern int _vfsd_pid;
 extern int _cored_pid;
 extern int _current_pid;
 extern bool _proc_global_need_lock;
+void proc_malloc_lock_prepare(void);
 
 #ifdef __cplusplus
 }

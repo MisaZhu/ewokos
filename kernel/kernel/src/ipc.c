@@ -207,7 +207,6 @@ int32_t proc_ipc_wait(context_t* ctx, struct st_proc* serv_proc, proc_t* proc) {
 	proc_ipc_server_unlock(&serv_proc->space->ipc_server);
 	if(already_queued)
 		kfree(item);
-	proc->dbg_bsite = 1; proc->dbg_barg = serv_proc->info.pid; /* TEMP DEBUG */
 	proc_block(ctx, proc);
 	return 0;
 }

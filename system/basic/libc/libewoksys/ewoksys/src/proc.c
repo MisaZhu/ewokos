@@ -41,6 +41,20 @@ void proc_priority(uint32_t pid, uint32_t priority) {
 	syscall2(SYS_PROC_PRIORITY, pid, priority);
 }
 
+void proc_malloc_lock_prepare(void) {
+	/*
+	 * Allocate the malloc-guard mutex eagerly while the process is still
+	 * single-threaded (called from thread_create() right before the first
+	 * child thread is spawned). Lazy-initializing it from proc_global_lock()
+	 * races when the first two threads malloc at the same time: both observe
+	 * _proc_global_lock == 0, each semaphore_alloc()s a different id, and the
+	 * losing writer's semaphore is leaked while the two threads briefly guard
+	 * the heap with different locks -> free-list corruption at startup.
+	 */
+	if(_proc_global_lock == 0)
+		pthread_mutex_init(&_proc_global_lock, NULL);
+}
+
 static inline void proc_global_lock(void) {
 	int tid = pthread_self();
 	if(tid == _lock_thread) {
@@ -63,9 +77,23 @@ static inline void proc_global_unlock(void) {
 			return;
 		}
 	}
-		
-	pthread_mutex_unlock(&_proc_global_lock);
+
+	/*
+	 * Clear ownership BEFORE releasing the mutex.
+	 *
+	 * If _lock_thread were cleared AFTER pthread_mutex_unlock(), a thread
+	 * blocked in proc_global_lock() could acquire the mutex in that gap and
+	 * set _lock_thread to itself, and our trailing "_lock_thread = -1" would
+	 * then wipe the new owner. That new owner's next nested malloc/free would
+	 * read _lock_thread == -1, fail the "already mine" check, and call
+	 * semaphore_enter() again on a semaphore it already holds -> self-deadlock
+	 * (the netd worker hangs, IPC FS_CMD_POLL times out) while the malloc heap
+	 * is left half-updated. Under concurrent load (multiple worker threads all
+	 * growing proto_t buffers) this corrupts the free list and faults with a
+	 * jump to an unmapped address. Clearing under the lock closes the window.
+	 */
 	_lock_thread = -1;
+	pthread_mutex_unlock(&_proc_global_lock);
 }
 
 void __malloc_lock (struct _reent *reent) {

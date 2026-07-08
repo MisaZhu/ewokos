@@ -1,6 +1,7 @@
 #ifndef __NET_TASK_H__
 #define __NET_TASK_H__
 
+#include <stdint.h>
 #include <ewoksys/ipc.h>
 #include <pthread.h>
 #include "platform.h"
@@ -35,6 +36,12 @@ typedef struct net_task{
     int refs;
     bool pending_main_rd;
     int thread_started;
+    /*
+     * FS_CMD_CLOSE arrives on the dispatch thread; the VFS_EVT_CLOSE wakeup
+     * (a reverse IPC to vfsd) must NOT be issued there (vfsd is synchronously
+     * waiting on netd for that very close). Defer it to the worker self-reap.
+     */
+    uint32_t pending_close_wakeup;
 
     struct net_task* next;
     struct net_task* prev;
