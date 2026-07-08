@@ -442,7 +442,14 @@ int do_network_fcntl(net_task_t *task){
 				sock_errno = errno;
 				if(ret < 0 && sock_errno == 0)
 					sock_errno = EAGAIN;
-            } 
+            } else {
+				/* Nothing to send: report 0 bytes written, not a phantom -1
+				 * error.  A spurious -1/errno=0 here would get treated as
+				 * EAGAIN by task_write() and re-armed forever, blocking the
+				 * client on VFS_EVT_WR with no wakeup source. */
+				ret = 0;
+				sock_errno = 0;
+			}
 			PF->addi(&task->out, ret);
 			PF->addi(&task->out, ret < 0 ? sock_errno : 0);
 			break;
@@ -485,6 +492,24 @@ int do_network_fcntl(net_task_t *task){
 			PF->addi(&task->out, ret);
 			if(ret > 0){
 				PF->add(&task->out, &addr, addrlen);	
+				/*
+				 * Register the accepted socket -> current task mapping now, so
+				 * task_wakeup_tcp_writers()/readers() have a valid target the
+				 * moment the peer's ACK/data arrives. Without this the accepted
+				 * socket's sock_to_task[] slot is NULL until a later SOCK_LINK,
+				 * and any write-readiness wakeup in that window is silently
+				 * dropped -- stalling the send path on reconnect and compounding
+				 * into mid-stream resets under load.
+				 *
+				 * Do NOT overwrite task->sock: the listening task must keep
+				 * listening. Only register the sock_to_task map entry.
+				 */
+				int new_sock_id = ret;
+				if (new_sock_id >= 0 && new_sock_id < SOCKS_MAX) {
+					pthread_mutex_lock(&task_list_lock);
+					sock_to_task[new_sock_id] = task;
+					pthread_mutex_unlock(&task_list_lock);
+				}
 			}
 			break;	
 		case SOCK_CLOSE:
@@ -789,10 +814,22 @@ static void* task_thread(void* arg){
         }
 
         if(run_main && main_completed) {
+            /*
+             * Compute the wake event WHILE STILL HOLDING task_list_lock.
+             * task_finish_wakeup_event() for SOCK_SEND peeks task->out via
+             * proto_read_int(), which transiently advances task->out.offset
+             * (then restores it). task_write()'s FINISH collect reads the same
+             * task->out under task_list_lock. On SMP, running the peek AFTER
+             * unlocking races that collect: the client can read task->out while
+             * offset is mid-peek and pick up the errno field (0) instead of the
+             * byte count, yielding a phantom write()==0. telnetd treats a 0-byte
+             * write as fatal and tears the relay down -> first-connection stall/
+             * mid-stream close. Serialize the peek under the lock to fix it.
+             */
             pthread_mutex_lock(&task_list_lock);
             task->state = NET_TASK_FINISH;
-            pthread_mutex_unlock(&task_list_lock);
             uint32_t wake_event = task_finish_wakeup_event(task, false);
+            pthread_mutex_unlock(&task_list_lock);
             if(wake_event != 0) {
                 vfs_wakeup(task->node, wake_event);
             }
@@ -800,8 +837,8 @@ static void* task_thread(void* arg){
         if(run_read && read_completed) {
             pthread_mutex_lock(&task_list_lock);
             task->read_state = NET_TASK_FINISH;
-            pthread_mutex_unlock(&task_list_lock);
             uint32_t wake_event = task_finish_wakeup_event(task, true);
+            pthread_mutex_unlock(&task_list_lock);
             if(wake_event != 0) {
                 vfs_wakeup(task->node, wake_event);
             }
@@ -821,7 +858,7 @@ static void* task_thread(void* arg){
     int fin_sock = task->sock;
     task->sock = -1;
     pthread_mutex_lock(&task_list_lock);
-    if(fin_sock >= 0 && fin_sock < SOCKS_MAX)
+    if(fin_sock >= 0 && fin_sock < SOCKS_MAX && sock_to_task[fin_sock] == task)
         sock_to_task[fin_sock] = NULL;
     pthread_mutex_unlock(&task_list_lock);
     task_list_remove(task);

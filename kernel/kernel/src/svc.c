@@ -433,6 +433,7 @@ static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_
 
 		if((ipc->call_id & IPC_NON_RETURN) == 0 || ipc->uid != uid) {
 			ctx->gpr[0] = -1;
+			client_proc->dbg_bsite = 2; client_proc->dbg_barg = uid; /* TEMP DEBUG */
 			proc_block(ctx, client_proc);
 			return;
 		}
@@ -644,6 +645,7 @@ static void sys_proc_block(context_t* ctx, uint32_t token) {
 		return;
 	}
 
+	cproc->dbg_bsite = 4; cproc->dbg_barg = token; /* TEMP DEBUG */
 	proc_block_by(ctx, cproc, token);
 }
 
