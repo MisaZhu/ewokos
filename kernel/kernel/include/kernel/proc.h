@@ -73,6 +73,22 @@ typedef struct st_proc {
 	 */
 	uint32_t          block_by;
 	uint32_t          wake_by;
+	/*
+	 * Sticky-wake presence flag. A wake that arrives while the proc is not yet
+	 * BLOCK is latched in wake_by, but wake_by==0 is a VALID token (a generic
+	 * IPC/signal wake) and is indistinguishable from "no wake pending". This
+	 * flag records that SOME wake is pending regardless of its token, so the
+	 * subsequent self-block can consume even a generic (token 0) wake instead
+	 * of losing it.
+	 */
+	uint8_t           wake_pending;
+
+	/* TEMP DEBUG */
+	uint32_t          dbg_bsite;
+	uint32_t          dbg_barg;
+	uint32_t          dbg_bseq;
+	uint32_t          dbg_wseq;
+	uint32_t          dbg_wtok;
 
 	context_t         ctx;
 } proc_t;

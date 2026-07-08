@@ -1539,37 +1539,75 @@ void proc_usleep(context_t* ctx, uint32_t count) {
 	proc_account_resume_current();
 }
 	
+uint32_t g_dbg_seq = 0; /* TEMP DEBUG */
+
 void proc_block_by(context_t* ctx, proc_t* proc, uint32_t token) {
 	if(proc == NULL)
 		return;
 	proc_lock_enter();
-	if(proc->info.state == READY) {
+	/*
+	 * A wakeup may arrive between userspace finishing its readiness re-check
+	 * and the actual SYS_BLOCK trap. In that gap the proc is still RUNNING
+	 * (the common self-block case) or was only pushed READY by the waker, so
+	 * proc_wakeup_by() merely LATCHED the wake (wake_pending) instead of
+	 * clearing a BLOCK. Consume a compatible pending wake here regardless of
+	 * READY vs RUNNING and do NOT block; otherwise that edge is lost until
+	 * some unrelated later event (e.g. the peer closing) - the bug that made a
+	 * pipe reader (node token) OR an IPC caller (generic token 0) sleep with
+	 * its result already produced and only recover after close.
+	 *
+	 * wake_pending is checked instead of "wake_by != 0" because a generic
+	 * IPC/signal wake carries token 0, which is a VALID wake yet identical to
+	 * the "no wake" sentinel - that ambiguity was the residual lost wakeup.
+	 *
+	 * A generic block (token 0) accepts any pending wake; a node-scoped block
+	 * accepts a generic (wake_by 0) or same-node wake, so an unrelated node's
+	 * edge cannot spuriously satisfy us.
+	 */
+	bool run_now = false;
+	if(proc->wake_pending) {
 		/*
-		 * A wakeup may arrive between userspace deciding to block and the
-		 * actual SYS_BLOCK trap. Consume that sticky wake only if it was a
-		 * generic wake (token 0), an untagged wake, or a wake for this same
-		 * token. Otherwise the pending wake belongs to a different node and
-		 * must NOT satisfy this block, so we fall through and sleep for our
-		 * own token instead. This is what stops a tty keyboard RD edge from
-		 * being consumed by an unrelated pipe write block.
+		 * A generic block (token 0: IPC-return wait, waitpid, signal) accepts
+		 * any pending wake. A node-scoped block (token != 0: vfs_block) must be
+		 * released ONLY by a wake carrying the SAME node token. A leftover
+		 * GENERIC (wake_by == 0) wake - e.g. the token-0 IPC-return wake that
+		 * every ipc_call() inside vfs_block() produces - must NOT satisfy a
+		 * node block, otherwise proc_block_by(node) returns without blocking
+		 * and vfs_block()'s check-register-block loop busy-spins
+		 * (re-register/re-block) forever, starving the guest until an unrelated
+		 * event finally changes the poll state. Node wakes always carry a
+		 * non-zero node token (see wakeup_proc -> proc_wakeup_by(pid, node_id)),
+		 * so requiring wake_by == token here loses nothing real.
 		 */
-		if(token == 0 || proc->wake_by == 0 || proc->wake_by == token) {
-			proc->info.state = RUNNING;
-			proc->wake_by = 0;
-			proc->block_by = 0;
-			proc_lock_leave();
-			return;
-		}
-		/* stale wake was for another node; abandon it and block for ours */
+		bool compatible = (token == 0) ? true : (proc->wake_by == token);
+		proc->wake_pending = 0;
 		proc->wake_by = 0;
+		if(compatible)
+			run_now = true;
+		/* else: the latched wake was unrelated (generic IPC/other node) -
+		 * drop it and block for our own token. */
+	}
+	else if(proc->info.state == READY) {
+		/* made runnable generically (IPC dispatch/signal/etc) with no scoped
+		 * wake to honor: run instead of blocking. */
+		run_now = true;
+	}
+
+	if(run_now) {
+		if(proc->info.state == READY)
+			proc->info.state = RUNNING;
+		proc->block_by = 0;
+		proc_lock_leave();
+		return;
 	}
 	/*
 	 * Hold the lock through proc_unready_locked() to close the race window
 	 * where another core's proc_ready() (e.g. from IPC dispatch) could
-	 * enqueue us between the READY check above and the state transition
+	 * enqueue us between the check above and the state transition
 	 * to BLOCK. Without this, a cross-core IPC wakeup can be lost.
 	 */
 	proc->block_by = token;
+	proc->dbg_bseq = ++g_dbg_seq; /* TEMP DEBUG */
 	proc_unready_locked(proc, BLOCK);
 	proc_lock_leave();
 	if(proc == get_current_proc())
@@ -1638,6 +1676,9 @@ void proc_wakeup_by(proc_t* proc, uint32_t token) {
 		return;
 	}
 
+	proc->dbg_wseq = ++g_dbg_seq; /* TEMP DEBUG */
+	proc->dbg_wtok = token;       /* TEMP DEBUG */
+
 	/*
 	 * Node-scoped wakeup. token 0 is a generic/unconditional wake (IPC,
 	 * signals, waitpid, interrupts) and always applies. A non-zero token is a
@@ -1653,16 +1694,20 @@ void proc_wakeup_by(proc_t* proc, uint32_t token) {
 		}
 		proc->block_by = 0;
 		proc->wake_by = 0;
+		proc->wake_pending = 0;
 		proc_wakeup_all_state(proc);
 	}
 	else {
 		/*
-		 * Not blocked yet. Keep the sticky READY so a wake landing in the gap
+		 * Not blocked yet. Latch the wake so an edge landing in the gap
 		 * between VFS registration and proc_block() is not lost, and tag it
 		 * with the token so only a matching (or generic) block consumes it.
+		 * wake_pending marks presence explicitly because token 0 (a valid
+		 * generic wake) is otherwise indistinguishable from "no wake".
 		 */
 		proc_wakeup_all_state(proc);
 		proc->wake_by = token;
+		proc->wake_pending = 1;
 	}
 	proc_lock_leave();
 #ifdef KERNEL_SMP
@@ -2130,6 +2175,43 @@ void renew_kernel_sec(void) {
 			}
 		}
 		_run_window_start_usec = now_usec;
+	}
+
+	/* TEMP PS DUMP: once/sec, blocked-ish procs only */
+	for(uint32_t i=0; i<_kernel_config.max_task_num; i++) {
+		proc_t* p = _task_table[i];
+		if(p == NULL)
+			continue;
+		int st = p->info.state;
+		if(st==UNUSED || st==ZOMBIE || st==READY || st==RUNNING)
+			continue;
+		int sq = -1, scts = -1, sdis = -1;
+		if(p->space != NULL) {
+			sq = (int)p->space->ipc_server.wait_queue.num;
+			scts = (int)p->space->ipc_server.ctask.state;
+			sdis = (int)p->space->ipc_server.disabled;
+		}
+		printf("PS pid=%d st=%d wf=%d bby=%d wby=%d wp=%d site=%d barg=%d bseq=%d wseq=%d wtok=%d sq=%d cts=%d dis=%d ty=%d cmd=%s\n",
+			p->info.pid, st, p->info.wait_for, p->block_by, p->wake_by,
+			p->wake_pending, p->dbg_bsite, p->dbg_barg, p->dbg_bseq,
+			p->dbg_wseq, p->dbg_wtok, sq, scts, sdis,
+			p->info.type, p->info.cmd);
+	}
+	/* TEMP SRV DUMP: any IPC server with a non-idle ctask (reveals a stuck
+	 * or spinning server even when it is READY/RUNNING and hidden above). */
+	for(uint32_t i=0; i<_kernel_config.max_task_num; i++) {
+		proc_t* p = _task_table[i];
+		if(p == NULL || p->space == NULL)
+			continue;
+		if(p->space->ipc_server.entry == 0)
+			continue;
+		ipc_task_t* ct = &p->space->ipc_server.ctask;
+		if(ct->state == IPC_IDLE)
+			continue;
+		printf("SRV pid=%d st=%d sq=%d cts=%d cpid=%d cuid=%d call=%d dis=%d cmd=%s\n",
+			p->info.pid, p->info.state, (int)p->space->ipc_server.wait_queue.num,
+			(int)ct->state, (int)ct->client_pid, (int)ct->uid, (int)ct->call_id,
+			(int)p->space->ipc_server.disabled, p->info.cmd);
 	}
 }
 

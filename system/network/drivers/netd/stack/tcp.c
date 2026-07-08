@@ -209,6 +209,15 @@ tcp_pcb_alloc(void)
 
     for (pcb = pcbs; pcb < tailof(pcbs); pcb++) {
         if (pcb->state == TCP_PCB_STATE_FREE) {
+            /*
+             * Fully reset the reused slot. tcp_pcb_release() already drained
+             * pcb->queue and pcb->backlog and destroyed the sched_ctx (waiters
+             * gone), so zeroing here is safe and avoids the release-time race
+             * the release path warns about. Without this, stale snd.wnd/wl1/wl2
+             * from the previous connection freeze the send window on reuse and
+             * hang the next connection's writes.
+             */
+            memset(pcb, 0, sizeof(*pcb));
             pcb->state = TCP_PCB_STATE_CLOSED;
             pcb->close_reason = 0;
             sched_ctx_init(&pcb->state_ctx);
