@@ -48,6 +48,7 @@
 #define TCP_DEFAULT_RTO 200000 /* micro seconds */
 #define TCP_RETRANSMIT_DEADLINE 60 /* seconds - increased for better reliability */
 #define TCP_TIMEWAIT_SEC 30 /* substitute for 2MSL */
+#define TCP_RETRANSMIT_QUEUE_MAX 32 /* max queued segments per connection */
 
 #define TCP_SOURCE_PORT_MIN 49152
 #define TCP_SOURCE_PORT_MAX 65535
@@ -371,6 +372,11 @@ static int
 tcp_retransmit_queue_add(struct tcp_pcb *pcb, uint32_t seq, uint8_t flg, uint8_t *data, size_t len)
 {
     struct tcp_queue_entry *entry;
+    if (pcb->queue.num >= TCP_RETRANSMIT_QUEUE_MAX) {
+        errorf("retransmit queue full (%u), dropping segment seq=%u",
+               pcb->queue.num, seq);
+        return -1;
+    }
     entry = memory_alloc(sizeof(*entry) + len);
     if (!entry) {
         errorf("memory_alloc() failure");

@@ -562,9 +562,16 @@ void * __attribute__((weak))
 _sbrk (ptrdiff_t incr)
 {
   char *prev_heap_end;
+  void *result;
+
+  result = proc_malloc_expand(incr);
+  if(incr > 0 && result == NULL) {
+    errno = ENOMEM;
+    return (void *)-1;
+  }
 
   __heap_size += incr;
-  __heap_ptr = proc_malloc_expand(incr);
+  __heap_ptr = result;
   if(incr > 0)
   	memset(__heap_end, 0, incr);
 
