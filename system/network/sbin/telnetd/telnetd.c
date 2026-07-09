@@ -9,6 +9,7 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <poll.h>
+#include <pthread.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/vfs.h>
 #include <setenv.h>
@@ -48,6 +49,55 @@ static int write_all(int fd, const uint8_t *buf, size_t len) {
         return -1;
     }
     return 0;
+}
+
+typedef struct {
+    int clnt_sock;
+    int input_write_fd;
+    int output_read_fd;
+    int socket_open;
+    int shell_input_open;
+    pthread_mutex_t lock;
+} telnet_relay_t;
+
+static void telnet_close_socket(telnet_relay_t *relay) {
+    pthread_mutex_lock(&relay->lock);
+    if(relay->socket_open) {
+        relay->socket_open = 0;
+        close_fd_if_valid(&relay->clnt_sock);
+    }
+    pthread_mutex_unlock(&relay->lock);
+}
+
+static void telnet_close_shell_input(telnet_relay_t *relay) {
+    pthread_mutex_lock(&relay->lock);
+    if(relay->shell_input_open) {
+        relay->shell_input_open = 0;
+        close_fd_if_valid(&relay->input_write_fd);
+    }
+    pthread_mutex_unlock(&relay->lock);
+}
+
+static void *telnet_output_thread(void *arg) {
+    telnet_relay_t *relay = (telnet_relay_t *)arg;
+    uint8_t buf[BUF_SIZE];
+
+    while(1) {
+        ssize_t ret = read(relay->output_read_fd, buf, sizeof(buf));
+        if(ret > 0) {
+            if(write_all(relay->clnt_sock, buf, (size_t)ret) != 0) {
+                telnet_close_shell_input(relay);
+                telnet_close_socket(relay);
+                break;
+            }
+            continue;
+        }
+        if(ret < 0 && errno == EINTR)
+            continue;
+        telnet_close_socket(relay);
+        break;
+    }
+    return NULL;
 }
 
 static void telnet_send_initial_negotiation(int fd) {
@@ -129,82 +179,46 @@ static void become_login_process(
 }
 
 static void telnet_session_relay(int clnt_sock, int input_write_fd, int output_read_fd) {
+    telnet_relay_t relay;
+    pthread_t out_tid;
     uint8_t buf[BUF_SIZE];
-    int socket_open = 1;
-    int shell_input_open = (input_write_fd >= 0) ? 1 : 0;
+    memset(&relay, 0, sizeof(relay));
+    relay.clnt_sock = clnt_sock;
+    relay.input_write_fd = input_write_fd;
+    relay.output_read_fd = output_read_fd;
+    relay.socket_open = (clnt_sock >= 0) ? 1 : 0;
+    relay.shell_input_open = (input_write_fd >= 0) ? 1 : 0;
+    pthread_mutex_init(&relay.lock, NULL);
 
-    while(1) {
-        struct pollfd pfds[2];
-        int nfds = 0;
-
-        if(socket_open) {
-            pfds[nfds].fd = clnt_sock;
-            pfds[nfds].events = POLLIN | POLLHUP | POLLERR;
-            pfds[nfds].revents = 0;
-            nfds++;
-        }
-        if(output_read_fd >= 0) {
-            pfds[nfds].fd = output_read_fd;
-            pfds[nfds].events = POLLIN | POLLHUP | POLLERR;
-            pfds[nfds].revents = 0;
-            nfds++;
-        }
-        if(nfds == 0) {
-            break;
-        }
-
-        int pret = poll(pfds, nfds, -1);
-        if(pret < 0) {
-            if(errno == EINTR) {
-                continue;
-            }
-            break;
-        }
-
-        int idx = 0;
-        if(socket_open) {
-            short revents = pfds[idx++].revents;
-            if((revents & (POLLIN | POLLHUP | POLLERR)) != 0) {
-                ssize_t ret = read(clnt_sock, buf, sizeof(buf));
-                if(ret > 0) {
-                    if(shell_input_open && write_all(input_write_fd, buf, (size_t)ret) != 0) {
-                        close_fd_if_valid(&input_write_fd);
-                        shell_input_open = 0;
-                    }
-                } else {
-                    /* Peer closed or socket failed: deliver EOF to the shell. */
-                    socket_open = 0;
-                    if(shell_input_open) {
-                        close_fd_if_valid(&input_write_fd);
-                        shell_input_open = 0;
-                    }
-                }
-            }
-        }
-
-        if(output_read_fd >= 0) {
-            short revents = pfds[idx].revents;
-            if((revents & (POLLIN | POLLHUP | POLLERR)) != 0) {
-                ssize_t ret = read(output_read_fd, buf, sizeof(buf));
-                if(ret > 0) {
-                    if(!socket_open || write_all(clnt_sock, buf, (size_t)ret) != 0) {
-                        socket_open = 0;
-                        if(shell_input_open) {
-                            close_fd_if_valid(&input_write_fd);
-                            shell_input_open = 0;
-                        }
-                    }
-                } else {
-                    /* Shell exited: tear the network side down now. */
-                    break;
-                }
-            }
-        }
+    if(pthread_create(&out_tid, NULL, telnet_output_thread, &relay) != 0) {
+        telnet_close_shell_input(&relay);
+        telnet_close_socket(&relay);
+        close_fd_if_valid(&relay.output_read_fd);
+        pthread_mutex_destroy(&relay.lock);
+        return;
     }
 
-    close_fd_if_valid(&input_write_fd);
-    close_fd_if_valid(&output_read_fd);
-    close_fd_if_valid(&clnt_sock);
+    while(1) {
+        ssize_t ret = read(relay.clnt_sock, buf, sizeof(buf));
+        if(ret > 0) {
+            if(write_all(relay.input_write_fd, buf, (size_t)ret) != 0) {
+                telnet_close_shell_input(&relay);
+                break;
+            }
+            continue;
+        }
+        if(ret < 0 && errno == EINTR)
+            continue;
+        telnet_close_shell_input(&relay);
+        telnet_close_socket(&relay);
+        break;
+    }
+
+    pthread_join(out_tid, NULL);
+    close_fd_if_valid(&relay.input_write_fd);
+    close_fd_if_valid(&relay.output_read_fd);
+    close_fd_if_valid(&relay.clnt_sock);
+    pthread_mutex_destroy(&relay.lock);
 }
 
 static void run_telnet_worker(int serv_sock, int clnt_sock) {

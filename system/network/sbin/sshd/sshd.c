@@ -493,28 +493,16 @@ static void session_signal_close(sshd_session_t* s) {
 }
 
 static int wait_session_fd_ready(sshd_session_t* s, int fd, uint16_t events) {
-    struct pollfd pfds[2];
-    int nfds = 1;
+    struct pollfd pfd;
 
     if(fd < 0) {
         errno = EBADF;
         return -1;
     }
 
-    memset(pfds, 0, sizeof(pfds));
-    pfds[0].fd = fd;
-    pfds[0].events = (short)(events | POLLHUP | POLLERR | POLLNVAL);
-
-    /*
-     * The relay threads can block in wait_session_fd_ready() while another
-     * thread decides to tear the session down. Poll the close-notify pipe too
-     * so session_signal_close() can break those waits before pthread_join().
-     */
-    if(s != NULL && s->close_notify[0] >= 0) {
-        pfds[1].fd = s->close_notify[0];
-        pfds[1].events = POLLIN | POLLHUP | POLLERR | POLLNVAL;
-        nfds = 2;
-    }
+    memset(&pfd, 0, sizeof(pfd));
+    pfd.fd = fd;
+    pfd.events = (short)(events | POLLHUP | POLLERR | POLLNVAL);
 
     while(true) {
         int rc;
@@ -522,23 +510,25 @@ static int wait_session_fd_ready(sshd_session_t* s, int fd, uint16_t events) {
             errno = EINTR;
             return -1;
         }
-        rc = poll(pfds, (unsigned int)nfds, -1);
+        /*
+         * Keep this as a single-fd poll. libc poll() falls back to a short
+         * sleep scan for multi-fd waits because vfsd only tracks one waiter per
+         * pid/event, which turns an otherwise idle session into a CPU spinner.
+         * The bounded timeout still lets s->closing break the wait promptly.
+         */
+        rc = poll(&pfd, 1, 1000);
         if(rc > 0) {
-            if(nfds > 1 && (pfds[1].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) != 0) {
-                errno = EINTR;
-                return -1;
-            }
-            if((pfds[0].revents & POLLNVAL) != 0) {
+            if((pfd.revents & POLLNVAL) != 0) {
                 errno = EBADF;
                 return -1;
             }
-            if((pfds[0].revents & POLLERR) != 0) {
+            if((pfd.revents & POLLERR) != 0) {
                 errno = EIO;
                 return -1;
             }
-            if((pfds[0].revents & events) != 0)
+            if((pfd.revents & events) != 0)
                 return 0;
-            if((pfds[0].revents & POLLHUP) != 0) {
+            if((pfd.revents & POLLHUP) != 0) {
                 errno = EPIPE;
                 return -1;
             }
