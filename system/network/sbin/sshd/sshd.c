@@ -194,6 +194,7 @@ struct sshd_session {
 
     pthread_mutex_t state_lock;
     pthread_mutex_t send_lock;
+    pthread_cond_t remote_window_cv;
 
     /* Non-blocking stdin buffering (inbound thread must never block on child stdin) */
     uint8_t* pending_in;
@@ -235,6 +236,7 @@ static uint32_t sshd_remote_window_add(sshd_session_t* s, uint32_t delta) {
     pthread_mutex_lock(&s->state_lock);
     s->remote_window += delta;
     value = s->remote_window;
+    pthread_cond_broadcast(&s->remote_window_cv);
     pthread_mutex_unlock(&s->state_lock);
     return value;
 }
@@ -246,6 +248,19 @@ static uint32_t sshd_remote_window_sub(sshd_session_t* s, uint32_t delta) {
     value = s->remote_window;
     pthread_mutex_unlock(&s->state_lock);
     return value;
+}
+
+static int sshd_wait_remote_window(sshd_session_t* s) {
+    pthread_mutex_lock(&s->state_lock);
+    while(s->remote_window == 0 && !s->closing) {
+        pthread_cond_wait(&s->remote_window_cv, &s->state_lock);
+    }
+    pthread_mutex_unlock(&s->state_lock);
+    if(s->closing) {
+        errno = EINTR;
+        return -1;
+    }
+    return 0;
 }
 
 static uint32_t ssh_read_uint32(const uint8_t* buf) {
@@ -511,10 +526,10 @@ static int wait_session_fd_ready(sshd_session_t* s, int fd, uint16_t events) {
             return -1;
         }
         /*
-         * Keep this as a single-fd poll. libc poll() falls back to a short
-         * sleep scan for multi-fd waits because vfsd only tracks one waiter per
-         * pid/event, which turns an otherwise idle session into a CPU spinner.
-         * The bounded timeout still lets s->closing break the wait promptly.
+         * Use a bounded wait instead of an infinite block. The net stack can
+         * still occasionally miss a RW wake edge under backpressure; timing
+         * out here lets sshd re-sample readiness without falling back to the
+         * old usleep spin loops.
          */
         rc = poll(&pfd, 1, 1000);
         if(rc > 0) {
@@ -598,7 +613,6 @@ static int ssh_read_n(sshd_session_t* s, void* buf, size_t len) {
 static int ssh_write_n(sshd_session_t* s, const void* buf, size_t len) {
     const uint8_t* p = (const uint8_t*)buf;
     size_t total = 0;
-    int eagain_spin = 0;
 
     g_error[0] = 0;
 
@@ -614,11 +628,6 @@ static int ssh_write_n(sshd_session_t* s, const void* buf, size_t len) {
                 continue;
             }
             if(saved_errno == EAGAIN) {
-                if(eagain_spin < 16) {
-                    eagain_spin++;
-                    proc_usleep(1000);
-                    continue;
-                }
                 if(wait_session_fd_ready(s, s->socket, POLLOUT) != 0) {
                     if(s->closing || s->sent_close)
                         sshd_set_error("session closing");
@@ -626,7 +635,6 @@ static int ssh_write_n(sshd_session_t* s, const void* buf, size_t len) {
                         sshd_set_error("write wait failed: %s", strerror(errno));
                     return -1;
                 }
-                eagain_spin = 0;
                 continue;
             }
             sshd_set_error("write failed: %s", strerror(saved_errno));
@@ -636,7 +644,6 @@ static int ssh_write_n(sshd_session_t* s, const void* buf, size_t len) {
             sshd_set_error("short write");
             return -1;
         }
-        eagain_spin = 0;
         total += (size_t)n;
     }
     return 0;
@@ -1201,7 +1208,8 @@ static int receive_banner(sshd_session_t* s) {
             if(errno == EINTR || errno == EAGAIN || errno == ETIMEDOUT) {
                 if(s->closing || s->sent_close)
                     return -1;
-                proc_usleep(1000);
+                if(wait_session_fd_ready(s, s->socket, POLLIN) != 0)
+                    return -1;
                 continue;
             }
             return -1;
@@ -1896,7 +1904,8 @@ static int send_channel_data_packet(sshd_session_t* s, uint32_t extended_type,
             packet_max = SSH_MAX_PACKET_SIZE;
 
         if(win == 0) {
-            proc_usleep(1000);
+            if(sshd_wait_remote_window(s) != 0)
+                break;
             continue;
         }
 
@@ -1914,7 +1923,8 @@ static int send_channel_data_packet(sshd_session_t* s, uint32_t extended_type,
         win = sshd_remote_window_load(s);
         if(win == 0) {
             pthread_mutex_unlock(&s->send_lock);
-            proc_usleep(1000);
+            if(sshd_wait_remote_window(s) != 0)
+                break;
             continue;
         }
 
@@ -2029,7 +2039,10 @@ static void* output_relay_thread(void* arg) {
     remaining = --s->output_active;
     pthread_mutex_unlock(&s->state_lock);
     if(remaining == 0) {
+        pthread_mutex_lock(&s->state_lock);
         s->closing = 1;
+        pthread_cond_broadcast(&s->remote_window_cv);
+        pthread_mutex_unlock(&s->state_lock);
         (void)send_channel_eof_and_close(s);
         session_close_socket(s);
     }
@@ -2532,8 +2545,12 @@ static int handle_session_packets(sshd_session_t* s) {
         }
     }
 
+    pthread_mutex_lock(&s->state_lock);
     s->closing = 1;
+    pthread_cond_broadcast(&s->remote_window_cv);
+    pthread_mutex_unlock(&s->state_lock);
     session_signal_close(s);
+    session_close_socket(s);
     close_fd_if_valid(&s->child_stdin[CHILD_STDIN_WRITE]);
     if(s->out_started)
         pthread_join(s->out_tid, NULL);
@@ -2557,12 +2574,17 @@ static int session_init(sshd_session_t* s, int sock) {
     (void)set_fd_nonblock(sock);
     pthread_mutex_init(&s->state_lock, NULL);
     pthread_mutex_init(&s->send_lock, NULL);
+    pthread_cond_init(&s->remote_window_cv, NULL);
     return 0;
 }
 
 static void session_destroy(sshd_session_t* s) {
+    pthread_mutex_lock(&s->state_lock);
     s->closing = 1;
+    pthread_cond_broadcast(&s->remote_window_cv);
+    pthread_mutex_unlock(&s->state_lock);
     session_signal_close(s);
+    session_close_socket(s);
     close_child_fds(s);
     if(s->child_pid > 0 && !s->child_io_thread_started) {
         waitpid(s->child_pid);
@@ -2576,6 +2598,7 @@ static void session_destroy(sshd_session_t* s) {
         free(s->pending_in);
         s->pending_in = NULL;
     }
+    pthread_cond_destroy(&s->remote_window_cv);
     pthread_mutex_destroy(&s->send_lock);
     pthread_mutex_destroy(&s->state_lock);
 }
