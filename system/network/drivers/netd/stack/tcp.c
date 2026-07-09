@@ -49,6 +49,7 @@
 #define TCP_RETRANSMIT_DEADLINE 60 /* seconds - increased for better reliability */
 #define TCP_TIMEWAIT_SEC 30 /* substitute for 2MSL */
 #define TCP_RETRANSMIT_QUEUE_MAX 32 /* max queued segments per connection */
+#define TCP_PERSIST_RTO_MAX 60000000 /* max persist backoff: 60 seconds */
 
 #define TCP_SOURCE_PORT_MIN 49152
 #define TCP_SOURCE_PORT_MAX 65535
@@ -110,6 +111,9 @@ struct tcp_pcb {
     struct sched_ctx recv_ctx;
     struct queue_head queue; /* retransmit queue */
     struct timeval tw_timer;
+    struct timeval persist_timer; /* zero-window probe timer */
+    unsigned int persist_rto;    /* current persist backoff (usec) */
+    uint8_t persist_probing;     /* persist timer armed */
     struct tcp_pcb *parent;
     struct queue_head backlog;
 };
@@ -156,6 +160,9 @@ tcp_pcb_used_count(void)
 
 static ssize_t
 tcp_output_segment(uint32_t seq, uint32_t ack, uint8_t flg, uint16_t wnd, uint8_t *data, size_t len, struct ip_endpoint *local, struct ip_endpoint *foreign);
+
+static void tcp_persist_arm(struct tcp_pcb *pcb);
+static void tcp_persist_disarm(struct tcp_pcb *pcb);
 
 static char *
 tcp_flg_ntoa(uint8_t flg)
@@ -254,6 +261,8 @@ tcp_pcb_release(struct tcp_pcb *pcb)
      */
     task_wakeup_tcp_readers(indexof(pcbs, pcb));
     task_wakeup_tcp_writers(indexof(pcbs, pcb));
+
+    tcp_persist_disarm(pcb);
 
     // First, clean up all resources regardless of sched_ctx_destroy result
     // Clean up retransmit queue
@@ -438,6 +447,30 @@ tcp_retransmit_queue_emit(void *arg, void *data)
         entry->last = now;
         entry->rto *= 2;
     }
+}
+
+/*
+ * TCP Persist Timer (Zero-Window Probe)
+ *
+ * When the send window closes (snd.wnd == 0) and all data is ACKed, the sender
+ * must periodically probe the receiver to detect window reopening. Without this,
+ * a lost window-update from the receiver causes the sender to wait forever.
+ */
+static void
+tcp_persist_arm(struct tcp_pcb *pcb)
+{
+    if (pcb->persist_probing)
+        return;
+    pcb->persist_probing = 1;
+    pcb->persist_rto = TCP_DEFAULT_RTO;
+    gettimeofday(&pcb->persist_timer, NULL);
+    timeval_add_usec(&pcb->persist_timer, pcb->persist_rto);
+}
+
+static void
+tcp_persist_disarm(struct tcp_pcb *pcb)
+{
+    pcb->persist_probing = 0;
 }
 
 static void
@@ -846,6 +879,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
             {
                 uint32_t inflight_now = pcb->snd.nxt - pcb->snd.una;
                 if (inflight_now < pcb->snd.wnd) {
+                    tcp_persist_disarm(pcb);
                     task_wakeup_tcp_writers(indexof(pcbs, pcb));
                 }
             }
@@ -1049,6 +1083,34 @@ tcp_timer(void)
         if (pcb->queue.num > 0) {
             debugf("tcp_timer: processing queue for pcb state=%d, queue.num=%u", pcb->state, pcb->queue.num);
             queue_foreach(&pcb->queue, tcp_retransmit_queue_emit, pcb);
+        }
+        /*
+         * Persist timer (zero-window probe). When the send window is closed and
+         * there is nothing in the retransmit queue, periodically send a probe to
+         * elicit a window update from the receiver. Without this, a lost window
+         * update causes the sender to hang forever (sshd long-output hang).
+         */
+        if (pcb->persist_probing &&
+            (pcb->state == TCP_PCB_STATE_ESTABLISHED ||
+             pcb->state == TCP_PCB_STATE_CLOSE_WAIT)) {
+            if (timercmp(&now, &pcb->persist_timer, >) != 0) {
+                /* Send a zero-window probe: a keep-alive style segment with
+                 * seq = snd.una - 1. The receiver sees this as out-of-window
+                 * and responds with an ACK containing its current window. */
+                tcp_output_segment(pcb->snd.una - 1, pcb->rcv.nxt,
+                    TCP_FLG_ACK, pcb->rcv.wnd, NULL, 0,
+                    &pcb->local, &pcb->foreign);
+                /* Exponential backoff */
+                pcb->persist_rto *= 2;
+                if (pcb->persist_rto > TCP_PERSIST_RTO_MAX)
+                    pcb->persist_rto = TCP_PERSIST_RTO_MAX;
+                pcb->persist_timer = now;
+                timeval_add_usec(&pcb->persist_timer, pcb->persist_rto);
+                /* Also fire a write wakeup: the window may have already
+                 * reopened (missed edge) and the probe response will confirm.
+                 * This recovers connections stuck before the probe round-trip. */
+                task_wakeup_tcp_writers(indexof(pcbs, pcb));
+            }
         }
     }
     debugf("tcp_timer: finished");
@@ -1462,7 +1524,8 @@ tcp_timer_active(void)
 
     mutex_lock(&mutex);
     for (pcb = pcbs; pcb < tailof(pcbs); pcb++) {
-        if (pcb->state == TCP_PCB_STATE_TIME_WAIT || pcb->queue.num > 0) {
+        if (pcb->state == TCP_PCB_STATE_TIME_WAIT || pcb->queue.num > 0 ||
+            pcb->persist_probing) {
             active = 1;
             break;
         }
@@ -1606,6 +1669,7 @@ RETRY:
                  * The window-open ACK path calls task_wakeup_tcp_writers() to
                  * raise VFS_EVT_WR and resume the client.
                  */
+                tcp_persist_arm(pcb);
                 if (sent > 0) {
                     break;
                 }
@@ -1614,6 +1678,9 @@ RETRY:
                 return -1;
             }
             slen = MIN(MIN(mss, len - sent), cap);
+            /* Window is open — disarm persist timer if it was armed */
+            if (pcb->persist_probing)
+                tcp_persist_disarm(pcb);
             // Only set PSH flag on the last segment
             uint8_t flg = TCP_FLG_ACK;
             if (sent + slen >= (ssize_t)len || cap - slen < mss) {

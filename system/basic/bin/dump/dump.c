@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
 			strlen("      | ----------------------------------------------- |\n"));
 	while(1) {
 		char buf[BUF_SIZE];
-		char str[17], c;
+		char str[17];
 		int res;
 		int saved_errno;
 		errno = 0;
@@ -55,13 +55,13 @@ int main(int argc, char* argv[]) {
 		if(res > 0) {
 			int j;
 			for(j=0; j<res; ++j) {
+				unsigned char uc = (unsigned char)buf[j];
 				if(i == 0) {
 					snprintf(p, 16, "%6d| ", ln);
 					p += 8;
 				}
-				c = (char)buf[j];
-				str[i] = rpl(c);
-				snprintf(p, 4, "%02X ", (int)c);
+				str[i] = rpl((char)uc);
+				snprintf(p, 4, "%02X ", (unsigned int)uc);
 				p += 3;
 				i++;
 				if(i == 16) {

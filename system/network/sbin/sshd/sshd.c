@@ -41,6 +41,8 @@
 
 #define SSH_DEFAULT_PORT        22
 #define SSH_MAX_PACKET_SIZE     32768
+#define SSH_LOCAL_WINDOW_SIZE   (1024*1024)
+#define SSH_LOCAL_WINDOW_LOW    (256*1024)
 #define SSH_SERVER_VERSION      "SSH-2.0-EwokOS_sshd"
 #define SSH_HOST_KEY_PATH       "/etc/ssh_host_rsa_key.der"
 
@@ -180,22 +182,27 @@ struct sshd_session {
 
     int child_stdin[2];
     int child_stdout[2];
-    int child_stderr[2];
     int child_control[2];
     int close_notify[2];
     pid_t child_pid;
     int child_io_thread_started;
 
     pthread_t out_tid;
-    pthread_t err_tid;
     int out_started;
-    int err_started;
     int output_active;
     output_relay_arg_t out_arg;
-    output_relay_arg_t err_arg;
 
     pthread_mutex_t state_lock;
     pthread_mutex_t send_lock;
+
+    /* Non-blocking stdin buffering (inbound thread must never block on child stdin) */
+    uint8_t* pending_in;
+    size_t pending_in_len;
+    size_t pending_in_off;
+    size_t pending_in_cap;
+
+    /* Deferred WINDOW_ADJUST (inbound thread must never block on socket write) */
+    uint32_t win_adjust_owe;
 };
 
 static RSA* g_host_rsa = NULL;
@@ -486,17 +493,28 @@ static void session_signal_close(sshd_session_t* s) {
 }
 
 static int wait_session_fd_ready(sshd_session_t* s, int fd, uint16_t events) {
-    struct pollfd pfd;
-    (void)s;
+    struct pollfd pfds[2];
+    int nfds = 1;
 
     if(fd < 0) {
         errno = EBADF;
         return -1;
     }
 
-    memset(&pfd, 0, sizeof(pfd));
-    pfd.fd = fd;
-    pfd.events = (short)(events | POLLHUP | POLLERR | POLLNVAL);
+    memset(pfds, 0, sizeof(pfds));
+    pfds[0].fd = fd;
+    pfds[0].events = (short)(events | POLLHUP | POLLERR | POLLNVAL);
+
+    /*
+     * The relay threads can block in wait_session_fd_ready() while another
+     * thread decides to tear the session down. Poll the close-notify pipe too
+     * so session_signal_close() can break those waits before pthread_join().
+     */
+    if(s != NULL && s->close_notify[0] >= 0) {
+        pfds[1].fd = s->close_notify[0];
+        pfds[1].events = POLLIN | POLLHUP | POLLERR | POLLNVAL;
+        nfds = 2;
+    }
 
     while(true) {
         int rc;
@@ -504,19 +522,23 @@ static int wait_session_fd_ready(sshd_session_t* s, int fd, uint16_t events) {
             errno = EINTR;
             return -1;
         }
-        rc = poll(&pfd, 1, -1);
+        rc = poll(pfds, (unsigned int)nfds, -1);
         if(rc > 0) {
-            if((pfd.revents & POLLNVAL) != 0) {
+            if(nfds > 1 && (pfds[1].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) != 0) {
+                errno = EINTR;
+                return -1;
+            }
+            if((pfds[0].revents & POLLNVAL) != 0) {
                 errno = EBADF;
                 return -1;
             }
-            if((pfd.revents & POLLERR) != 0) {
+            if((pfds[0].revents & POLLERR) != 0) {
                 errno = EIO;
                 return -1;
             }
-            if((pfd.revents & events) != 0)
+            if((pfds[0].revents & events) != 0)
                 return 0;
-            if((pfd.revents & POLLHUP) != 0) {
+            if((pfds[0].revents & POLLHUP) != 0) {
                 errno = EPIPE;
                 return -1;
             }
@@ -2025,7 +2047,7 @@ static void* output_relay_thread(void* arg) {
 }
 
 static void close_child_bundle(int child_stdin[2], int child_stdout[2],
-        int child_stderr[2], int child_control[2]) {
+        int child_control[2]) {
     if(child_stdin[CHILD_STDIN_READ] >= 0) {
         close(child_stdin[CHILD_STDIN_READ]);
         child_stdin[CHILD_STDIN_READ] = -1;
@@ -2041,14 +2063,6 @@ static void close_child_bundle(int child_stdin[2], int child_stdout[2],
     if(child_stdout[CHILD_STDOUT_WRITE] >= 0) {
         close(child_stdout[CHILD_STDOUT_WRITE]);
         child_stdout[CHILD_STDOUT_WRITE] = -1;
-    }
-    if(child_stderr[CHILD_STDERR_READ] >= 0) {
-        close(child_stderr[CHILD_STDERR_READ]);
-        child_stderr[CHILD_STDERR_READ] = -1;
-    }
-    if(child_stderr[CHILD_STDERR_WRITE] >= 0) {
-        close(child_stderr[CHILD_STDERR_WRITE]);
-        child_stderr[CHILD_STDERR_WRITE] = -1;
     }
     if(child_control[CHILD_CTRL_READ] >= 0) {
         close(child_control[CHILD_CTRL_READ]);
@@ -2069,7 +2083,6 @@ static void become_login_process(sshd_session_t* s, const char* cmd) {
      */
     close_fd_if_valid(&s->child_stdin[CHILD_STDIN_WRITE]);
     close_fd_if_valid(&s->child_stdout[CHILD_STDOUT_READ]);
-    close_fd_if_valid(&s->child_stderr[CHILD_STDERR_READ]);
     close_fd_if_valid(&s->close_notify[0]);
     close_fd_if_valid(&s->close_notify[1]);
     if(s->socket >= 0) {
@@ -2079,7 +2092,7 @@ static void become_login_process(sshd_session_t* s, const char* cmd) {
 
     if(dup2(s->child_stdin[CHILD_STDIN_READ], 0) < 0 ||
             dup2(s->child_stdout[CHILD_STDOUT_WRITE], 1) < 0 ||
-            dup2(s->child_stderr[CHILD_STDERR_WRITE], 2) < 0 ||
+            dup2(s->child_stdout[CHILD_STDOUT_WRITE], 2) < 0 ||
             dup2(s->child_stdin[CHILD_STDIN_READ], VFS_BACKUP_FD0) < 0) {
         exit(2);
     }
@@ -2087,7 +2100,6 @@ static void become_login_process(sshd_session_t* s, const char* cmd) {
 
     close_fd_if_valid(&s->child_stdin[CHILD_STDIN_READ]);
     close_fd_if_valid(&s->child_stdout[CHILD_STDOUT_WRITE]);
-    close_fd_if_valid(&s->child_stderr[CHILD_STDERR_WRITE]);
 
     if(setenv("CONSOLE_ID", "ssh") != 0 ||
             setenv("HOME", s->user_info.home) != 0 ||
@@ -2109,7 +2121,7 @@ static void become_login_process(sshd_session_t* s, const char* cmd) {
 }
 
 static void close_child_fds(sshd_session_t* s) {
-    close_child_bundle(s->child_stdin, s->child_stdout, s->child_stderr, s->child_control);
+    close_child_bundle(s->child_stdin, s->child_stdout, s->child_control);
 }
 
 static int spawn_child_session(sshd_session_t* s, const char* command, int is_shell) {
@@ -2117,12 +2129,9 @@ static int spawn_child_session(sshd_session_t* s, const char* command, int is_sh
 
     s->child_stdin[0] = s->child_stdin[1] = -1;
     s->child_stdout[0] = s->child_stdout[1] = -1;
-    s->child_stderr[0] = s->child_stderr[1] = -1;
 
-    if(pipe(s->child_stdin) != 0 || pipe(s->child_stdout) != 0 ||
-            pipe(s->child_stderr) != 0) {
-        close_child_bundle(s->child_stdin, s->child_stdout, s->child_stderr,
-                s->child_control);
+    if(pipe(s->child_stdin) != 0 || pipe(s->child_stdout) != 0) {
+        close_child_bundle(s->child_stdin, s->child_stdout, s->child_control);
         return -1;
     }
 
@@ -2134,8 +2143,7 @@ static int spawn_child_session(sshd_session_t* s, const char* command, int is_sh
      */
     pid = fork();
     if(pid < 0) {
-        close_child_bundle(s->child_stdin, s->child_stdout, s->child_stderr,
-                s->child_control);
+        close_child_bundle(s->child_stdin, s->child_stdout, s->child_control);
         return -1;
     }
 
@@ -2147,16 +2155,15 @@ static int spawn_child_session(sshd_session_t* s, const char* command, int is_sh
     /* Relay child: keep the socket end, drop the shell-side pipe ends. */
     close_fd_if_valid(&s->child_stdin[CHILD_STDIN_READ]);
     close_fd_if_valid(&s->child_stdout[CHILD_STDOUT_WRITE]);
-    close_fd_if_valid(&s->child_stderr[CHILD_STDERR_WRITE]);
     (void)set_fd_nonblock(s->child_stdin[CHILD_STDIN_WRITE]);
 
     /*
      * The login shell is now this relay's parent, so we cannot waitpid() for
-     * it; pipe EOF on the shell's stdout/stderr drives session teardown. Two
-     * dedicated output threads park in blocking read() on the stdout/stderr
-     * pipes and forward into the SSH channel, while the main thread runs the
-     * inbound packet loop. This replaces the old single multi-fd poll() relay
-     * so idle sessions no longer busy-loop.
+     * it; pipe EOF on the shell's stdout drives session teardown. The shell's
+     * stderr is dup'd onto the same stdout pipe (see become_login_process), so
+     * a single output_relay_thread parks in blocking read() on that pipe and
+     * forwards into the SSH channel, while the main thread runs the inbound
+     * packet loop. Total per-session tasks: main inbound + one output thread.
      */
     s->child_pid = -1;
     s->child_started = 1;
@@ -2164,19 +2171,10 @@ static int spawn_child_session(sshd_session_t* s, const char* command, int is_sh
     s->out_arg.s = s;
     s->out_arg.fd = &s->child_stdout[CHILD_STDOUT_READ];
     s->out_arg.ext_type = 0;
-    s->err_arg.s = s;
-    s->err_arg.fd = &s->child_stderr[CHILD_STDERR_READ];
-    s->err_arg.ext_type = SSH_STDERR_DATA;
-    s->output_active = 2;
+    s->output_active = 1;
 
     s->out_started = (pthread_create(&s->out_tid, NULL, output_relay_thread, &s->out_arg) == 0);
     if(!s->out_started) {
-        pthread_mutex_lock(&s->state_lock);
-        s->output_active--;
-        pthread_mutex_unlock(&s->state_lock);
-    }
-    s->err_started = (pthread_create(&s->err_tid, NULL, output_relay_thread, &s->err_arg) == 0);
-    if(!s->err_started) {
         pthread_mutex_lock(&s->state_lock);
         s->output_active--;
         pthread_mutex_unlock(&s->state_lock);
@@ -2203,7 +2201,7 @@ static int handle_channel_open(sshd_session_t* s, const ssh_packet_t* packet) {
     s->remote_packet_max = ssh_read_uint32(packet->payload + off);
 
     s->local_channel = 0;
-    s->local_window = SSH_MAX_PACKET_SIZE;
+    s->local_window = SSH_LOCAL_WINDOW_SIZE;
     s->local_packet_max = 16384;
     s->channel_open = 1;
     return send_channel_confirm(s);
@@ -2288,6 +2286,116 @@ static int handle_channel_request(sshd_session_t* s, const ssh_packet_t* packet)
     return 0;
 }
 
+/*
+ * flush_pending_input: non-blocking drain of the pending stdin buffer into
+ * child_stdin. Returns 0 if fully flushed, 1 if data remains.
+ */
+static int flush_pending_input(sshd_session_t* s) {
+    while(s->pending_in_off < s->pending_in_len) {
+        ssize_t n = write(s->child_stdin[CHILD_STDIN_WRITE],
+                s->pending_in + s->pending_in_off,
+                s->pending_in_len - s->pending_in_off);
+        if(n > 0) {
+            s->pending_in_off += (size_t)n;
+            continue;
+        }
+        if(n < 0 && errno == EINTR)
+            continue;
+        /* EAGAIN or error — stop for now */
+        break;
+    }
+    if(s->pending_in_off >= s->pending_in_len) {
+        s->pending_in_off = 0;
+        s->pending_in_len = 0;
+        return 0;
+    }
+    return 1;
+}
+
+/*
+ * queue_input: append data to the pending stdin buffer. Grows as needed.
+ */
+static int queue_input(sshd_session_t* s, const uint8_t* data, size_t len) {
+    size_t avail;
+
+    /* First try direct non-blocking write if buffer is empty */
+    if(s->pending_in_len == 0 && s->child_stdin[CHILD_STDIN_WRITE] >= 0) {
+        ssize_t n = write(s->child_stdin[CHILD_STDIN_WRITE], data, len);
+        if(n > 0) {
+            data += n;
+            len -= (size_t)n;
+        }
+        if(len == 0)
+            return 0;
+    }
+
+    /* Compact buffer if needed */
+    if(s->pending_in_off > 0 && s->pending_in_len > 0) {
+        size_t remain = s->pending_in_len - s->pending_in_off;
+        memmove(s->pending_in, s->pending_in + s->pending_in_off, remain);
+        s->pending_in_len = remain;
+        s->pending_in_off = 0;
+    }
+
+    avail = s->pending_in_cap - s->pending_in_len;
+    if(avail < len) {
+        size_t new_cap = s->pending_in_cap + len + 4096;
+        uint8_t* new_buf = (uint8_t*)realloc(s->pending_in, new_cap);
+        if(new_buf == NULL)
+            return -1;
+        s->pending_in = new_buf;
+        s->pending_in_cap = new_cap;
+    }
+    memcpy(s->pending_in + s->pending_in_len, data, len);
+    s->pending_in_len += len;
+    return 0;
+}
+
+/*
+ * try_send_window_adjust: best-effort non-blocking WINDOW_ADJUST send.
+ * Uses trylock on send_lock and poll(POLLOUT,0) to avoid ever blocking
+ * the inbound thread. Returns 0 on success, -1 if deferred.
+ */
+static int try_send_window_adjust(sshd_session_t* s) {
+    ssh_packet_t packet;
+    struct pollfd pfd;
+    size_t off = 0;
+    uint32_t delta;
+
+    if(s->win_adjust_owe == 0)
+        return 0;
+
+    if(pthread_mutex_trylock(&s->send_lock) != 0)
+        return -1; /* contention — defer */
+
+    /* Check socket writable without blocking */
+    memset(&pfd, 0, sizeof(pfd));
+    pfd.fd = s->socket;
+    pfd.events = POLLOUT;
+    if(poll(&pfd, 1, 0) <= 0 || !(pfd.revents & POLLOUT)) {
+        pthread_mutex_unlock(&s->send_lock);
+        return -1; /* not writable — defer */
+    }
+
+    delta = s->win_adjust_owe;
+    memset(&packet, 0, sizeof(packet));
+    packet.type = SSH_MSG_CHANNEL_WINDOW_ADJUST;
+    ssh_write_uint32(packet.payload + off, s->remote_channel);
+    off += 4;
+    ssh_write_uint32(packet.payload + off, delta);
+    off += 4;
+    packet.payload_len = off;
+
+    if(ssh_packet_send_locked(s, &packet) < 0) {
+        pthread_mutex_unlock(&s->send_lock);
+        return -1;
+    }
+    s->local_window += delta;
+    s->win_adjust_owe -= delta;
+    pthread_mutex_unlock(&s->send_lock);
+    return 0;
+}
+
 static int handle_channel_data(sshd_session_t* s, const ssh_packet_t* packet) {
     const uint8_t* data;
     uint32_t data_len;
@@ -2304,8 +2412,20 @@ static int handle_channel_data(sshd_session_t* s, const ssh_packet_t* packet) {
         return -1;
     if(data_len == 0)
         return 0;
-    if(write_fd_all(s->child_stdin[CHILD_STDIN_WRITE], data, data_len) < 0) {
+
+    /* Non-blocking write to child stdin via pending buffer */
+    if(queue_input(s, data, data_len) < 0)
         return -1;
+
+    /* Account consumed local window; accrue WINDOW_ADJUST debt when low */
+    if(s->local_window >= data_len)
+        s->local_window -= data_len;
+    else
+        s->local_window = 0;
+
+    if(s->local_window < SSH_LOCAL_WINDOW_LOW) {
+        s->win_adjust_owe += (SSH_LOCAL_WINDOW_SIZE - s->local_window);
+        /* local_window will be restored when try_send_window_adjust succeeds */
     }
     return 0;
 }
@@ -2350,6 +2470,11 @@ static int dispatch_session_packet(sshd_session_t* s, const ssh_packet_t* packet
  * stdout/stderr are relayed by dedicated output threads (output_relay_thread),
  * so there is no multi-fd poll() and no idle busy-loop.
  *
+ * When there is pending stdin data or deferred WINDOW_ADJUST credit, the loop
+ * transiently polls both the socket and child_stdin with a short timeout so
+ * that backpressure-induced pending work is drained without blocking the
+ * critical socket-reading path.
+ *
  * Teardown is hang-free in every direction:
  *  - Shell exits first: both output threads hit pipe EOF; the last one flags
  *    s->closing, sends CHANNEL_EOF/CLOSE and closes the socket, which wakes
@@ -2365,22 +2490,63 @@ static int handle_session_packets(sshd_session_t* s) {
     int rc = 0;
 
     while(!s->sent_close && !s->closing) {
-        if(ssh_packet_receive(s, &packet) < 0) {
-            rc = -1;
-            break;
-        }
-        if(dispatch_session_packet(s, &packet) < 0) {
-            rc = -1;
-            break;
+        int has_pending;
+
+        /* Drain pending stdin buffer (non-blocking) */
+        if(s->pending_in_len > s->pending_in_off)
+            flush_pending_input(s);
+
+        /* Try to flush deferred WINDOW_ADJUST */
+        try_send_window_adjust(s);
+
+        has_pending = (s->pending_in_len > s->pending_in_off) || (s->win_adjust_owe != 0);
+
+        if(has_pending) {
+            /* Poll socket+child_stdin with short timeout so we can retry pending work */
+            struct pollfd pfds[2];
+            int nfds = 1;
+
+            memset(pfds, 0, sizeof(pfds));
+            pfds[0].fd = s->socket;
+            pfds[0].events = POLLIN;
+
+            if(s->pending_in_len > s->pending_in_off &&
+                    s->child_stdin[CHILD_STDIN_WRITE] >= 0) {
+                pfds[1].fd = s->child_stdin[CHILD_STDIN_WRITE];
+                pfds[1].events = POLLOUT;
+                nfds = 2;
+            }
+
+            (void)poll(pfds, (unsigned int)nfds, 20);
+
+            if(pfds[0].revents & (POLLIN | POLLHUP | POLLERR)) {
+                if(ssh_packet_receive(s, &packet) < 0) {
+                    rc = -1;
+                    break;
+                }
+                if(dispatch_session_packet(s, &packet) < 0) {
+                    rc = -1;
+                    break;
+                }
+            }
+        } else {
+            /* Steady state: efficient single-fd blocking read */
+            if(ssh_packet_receive(s, &packet) < 0) {
+                rc = -1;
+                break;
+            }
+            if(dispatch_session_packet(s, &packet) < 0) {
+                rc = -1;
+                break;
+            }
         }
     }
 
     s->closing = 1;
+    session_signal_close(s);
     close_fd_if_valid(&s->child_stdin[CHILD_STDIN_WRITE]);
     if(s->out_started)
         pthread_join(s->out_tid, NULL);
-    if(s->err_started)
-        pthread_join(s->err_tid, NULL);
     return rc;
 }
 
@@ -2394,7 +2560,6 @@ static int session_init(sshd_session_t* s, int sock) {
     s->local_packet_max = 16384;
     s->child_stdin[0] = s->child_stdin[1] = -1;
     s->child_stdout[0] = s->child_stdout[1] = -1;
-    s->child_stderr[0] = s->child_stderr[1] = -1;
     s->child_control[0] = s->child_control[1] = -1;
     s->close_notify[0] = s->close_notify[1] = -1;
     if(pipe(s->close_notify) != 0)
@@ -2416,6 +2581,10 @@ static void session_destroy(sshd_session_t* s) {
     close_fd_if_valid(&s->close_notify[0]);
     if(s->socket >= 0) {
         close(s->socket);
+    }
+    if(s->pending_in != NULL) {
+        free(s->pending_in);
+        s->pending_in = NULL;
     }
     pthread_mutex_destroy(&s->send_lock);
     pthread_mutex_destroy(&s->state_lock);

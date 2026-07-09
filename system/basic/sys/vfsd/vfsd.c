@@ -877,6 +877,15 @@ static void vfs_close(int32_t pid, int32_t fd) {
 
 	file_t* f = vfs_get_file(owner, fd);
 	if(f != NULL && f->node != NULL) {
+		/*
+		 * Do NOT send FS_CMD_CLOSE here — the user-space vfs_close() already
+		 * sends FS_CMD_CLOSE directly to the device driver before calling
+		 * VFS_CLOSE on vfsd. Adding another would double-decrement the
+		 * driver's per-socket reference count, causing premature release.
+		 *
+		 * Device-close notification for process exit is handled exclusively
+		 * in clear_zombie(), where there is no user-space path.
+		 */
 		proc_file_close(owner, fd, f);
 		memset(f, 0, sizeof(file_t));
 	}
@@ -1455,13 +1464,34 @@ static void clear_zombie(int32_t cpid) {
 					type != FS_TYPE_LINK &&
 					closing.fsinfo.mount_pid > 0 &&
 					closing.fsinfo.node != 0) {
-				driver_close_task_t* task =
-					(driver_close_task_t*)malloc(sizeof(driver_close_task_t));
-				task->pid = cpid;
-				task->owner_pid = owner_pid;
-				task->fd = i;
-				task->file = closing;
-				queue_push(&_driver_close_tasks, task);
+				/*
+				 * Deduplicate: send exactly ONE FS_CMD_CLOSE per unique device
+				 * node. Same-process dup2 creates multiple fds referencing the
+				 * same node but FS_CMD_DUP is not sent (driver sees one ref per
+				 * fork). Only queue the close task for the LAST fd referencing
+				 * this node — if a later fd still points to it, skip now and
+				 * let that later iteration handle the close.
+				 */
+				bool last_for_node = true;
+				int32_t j;
+				for(j = i + 1; j < MAX_OPEN_FILE_PER_PROC; j++) {
+					file_t *later = &_proc_fds_table[cpid].fds[j];
+					if(later->node == closing.node) {
+						last_for_node = false;
+						break;
+					}
+				}
+				if(last_for_node) {
+					driver_close_task_t* task =
+						(driver_close_task_t*)malloc(sizeof(driver_close_task_t));
+					if(task != NULL) {
+						task->pid = cpid;
+						task->owner_pid = owner_pid;
+						task->fd = i;
+						task->file = closing;
+						queue_push(&_driver_close_tasks, task);
+					}
+				}
 			}
 			proc_file_close(cpid, i, &closing);
 			continue;
