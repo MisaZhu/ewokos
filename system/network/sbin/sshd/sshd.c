@@ -2587,7 +2587,7 @@ static void session_destroy(sshd_session_t* s) {
     session_close_socket(s);
     close_child_fds(s);
     if(s->child_pid > 0 && !s->child_io_thread_started) {
-        waitpid(s->child_pid);
+        ewok_waitpid(s->child_pid);
         s->child_pid = -1;
     }
     close_fd_if_valid(&s->close_notify[0]);

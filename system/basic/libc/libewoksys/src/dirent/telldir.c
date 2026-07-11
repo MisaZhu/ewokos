@@ -1,10 +1,12 @@
 #include <dirent.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <errno.h>
 
-int telldir(DIR* dirp) {
-	if(dirp == NULL)
+long telldir(DIR* dirp) {
+	if(dirp == NULL) {
+		errno = EBADF;
 		return -1;
-	return (int)dirp->offset;
+	}
+	return (long)dirp->offset;
 }
-

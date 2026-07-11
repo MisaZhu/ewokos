@@ -41,7 +41,7 @@ lldiv_t lldiv(long long numer, long long denom);
 long strtol(const char *nptr, char **endptr, int base);
 long long strtoll(const char *nptr, char **endptr, int base);
 unsigned long long strtoull(const char *nptr, char **endptr, int base);
-float atof(const char *nptr);
+double atof(const char *nptr);
 double strtod(const char *nptr, char **endptr);
 unsigned long strtoul(const char *nptr, char **endptr, int base);
 #define RAND_MAX 2147483647
@@ -50,14 +50,22 @@ void srand(unsigned int seed);
 long random(void);
 void srandom(unsigned int seed);
 
-const char *getenv(const char *name);
-int setenv(const char *name, const char *value, ...);
+char *getenv(const char *name);
+int __ewok_setenv_impl(const char *name, const char *value, int overwrite);
 int remove(const char *path);
+int mkstemp(char *template);
 char *tempnam(const char *dir, const char *pfx);
 void *bsearch(const void *key, const void *base, size_t nmemb, size_t size,
 		int (*compar)(const void *, const void *));
 void qsort(void *base, size_t nmemb, size_t size,
 		int (*compar)(const void *, const void *));
+
+static inline int __ewok_setenv_default(const char *name, const char *value) {
+	return __ewok_setenv_impl(name, value, 1);
+}
+
+#define __EWOK_SETENV_SELECT(_1, _2, _3, NAME, ...) NAME
+#define setenv(...) __EWOK_SETENV_SELECT(__VA_ARGS__, __ewok_setenv_impl, __ewok_setenv_default)(__VA_ARGS__)
 
 #ifdef __cplusplus
 }

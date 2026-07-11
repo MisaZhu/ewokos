@@ -30,7 +30,7 @@ uint32_t proc_check_uuid(int32_t pid, uint32_t uuid);
 uint32_t proc_get_uuid(int32_t pid);
 
 void*    proc_malloc_expand(int32_t size);
-void*    proc_malloc_free(void);
+void     proc_malloc_free(void);
 uint32_t proc_malloc_size(void);
 int      proc_usleep(uint32_t usec);
 void     proc_yield(void);

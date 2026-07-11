@@ -19,10 +19,9 @@ uint32_t dma_phy_addr(int32_t dma_block_id, ewokos_addr_t vaddr) {
 }
 
 int32_t dma_set(ewokos_addr_t phy_base, uint32_t size, bool shared) {
-	syscall3(SYS_DMA_SET, phy_base, size, shared);
+	return syscall3(SYS_DMA_SET, phy_base, size, shared);
 }
 
 #ifdef __cplusplus
 }
 #endif
-

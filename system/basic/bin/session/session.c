@@ -76,7 +76,7 @@ int main(int argc, char* argv[]) {
 				}
 			}
 			else {
-				waitpid(pid);
+				ewok_waitpid(pid);
 			}
 		}
 		
@@ -89,7 +89,7 @@ int main(int argc, char* argv[]) {
 			}
 		}
 		else {
-			waitpid(pid);
+			ewok_waitpid(pid);
 		}
 	}while(_auto_restart);
 	return 0;

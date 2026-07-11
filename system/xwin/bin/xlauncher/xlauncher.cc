@@ -18,10 +18,6 @@
 
 #include <stdlib.h>
 
-#ifdef __cplusplus
-extern "C" { extern int setenv(const char*, const char*, ...);}
-#endif
-
 #include <string>
 using namespace std;
 using namespace Ewok;

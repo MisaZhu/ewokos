@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <errno.h>
 
 #undef setenv
 
@@ -91,34 +92,28 @@ static int expand_env_buffer(void) {
     return 0;
 }
 
-// Custom setenv implementation.
-int setenv(const char *name, const char *value, ...) {
-    //klog("setenv: %s=%s\n", name, value);
-    // Reject invalid environment variable names.
+int __ewok_setenv_impl(const char *name, const char *value, int overwrite) {
+    size_t name_len;
+    size_t value_len;
+    size_t new_env_len;
+    char *new_env;
+    int existing_index;
+
     if (name == NULL || *name == '\0' || strchr(name, '=') != NULL) {
+        errno = EINVAL;
         return -1;
     }
     if (value == NULL) {
         value = "";
     }
 
-    // Initialize the environment buffer on first use.
     if (init_env_buffer() != 0) {
+        errno = ENOMEM;
         return -1;
     }
 
-    // Build the new NAME=VALUE string.
-    size_t name_len = strlen(name);
-    size_t value_len = strlen(value);
-    size_t new_env_len = name_len + value_len + 2; // Include '=' and '\0'
-    char *new_env = (char *)malloc(new_env_len);
-    if (new_env == NULL) {
-        return -1;
-    }
-    snprintf(new_env, new_env_len, "%s=%s", name, value);
-
-    // Check whether the variable already exists.
-    int existing_index = -1;
+    name_len = strlen(name);
+    existing_index = -1;
     for (int i = 0; i < env_count; i++) {
         if (strncmp(env_buffer[i], name, name_len) == 0 && env_buffer[i][name_len] == '=') {
             existing_index = i;
@@ -126,20 +121,36 @@ int setenv(const char *name, const char *value, ...) {
         }
     }
 
-    if (existing_index >= 0) {
-        // Replace the existing entry.
-        free(env_buffer[existing_index]);
-        env_buffer[existing_index] = new_env;
-    } else {
-        // Append a new environment entry.
-        if (expand_env_buffer() != 0) {
-            free(new_env);
-            return -1;
-        }
-        env_buffer[env_count] = new_env;
-        env_count++;
-        env_buffer[env_count] = NULL;
+    if (existing_index >= 0 && overwrite == 0) {
+        return 0;
     }
 
+    value_len = strlen(value);
+    new_env_len = name_len + value_len + 2;
+    new_env = (char *)malloc(new_env_len);
+    if (new_env == NULL) {
+        errno = ENOMEM;
+        return -1;
+    }
+    snprintf(new_env, new_env_len, "%s=%s", name, value);
+
+    if (existing_index >= 0) {
+        free(env_buffer[existing_index]);
+        env_buffer[existing_index] = new_env;
+        return 0;
+    }
+
+    if (expand_env_buffer() != 0) {
+        free(new_env);
+        errno = ENOMEM;
+        return -1;
+    }
+    env_buffer[env_count] = new_env;
+    env_count++;
+    env_buffer[env_count] = NULL;
     return 0;
+}
+
+int setenv(const char *name, const char *value, ...) {
+    return __ewok_setenv_impl(name, value, 1);
 }

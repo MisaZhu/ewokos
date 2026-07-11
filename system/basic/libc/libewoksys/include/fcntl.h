@@ -2,6 +2,7 @@
 #define EWOKOS_LIBC_FCNTL_H
 
 #include <stdarg.h>
+#include <sys/types.h>
 
 #define O_RDONLY 0x0000
 #define O_WRONLY 0x0001
@@ -25,8 +26,8 @@ extern "C" {
 
 int open(const char *pathname, int flags, ...);
 int fcntl(int fd, int cmd, ...);
-int chmod(const char *pathname, int mode);
-int fchmod(int fd, int mode);
+int chmod(const char *pathname, mode_t mode);
+int fchmod(int fd, mode_t mode);
 
 #ifdef __cplusplus
 }

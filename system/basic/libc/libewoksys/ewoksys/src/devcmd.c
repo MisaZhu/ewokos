@@ -4,6 +4,7 @@
 #include <sys/shm.h>
 #include <sys/errno.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <string.h>
 
 #ifdef __cplusplus

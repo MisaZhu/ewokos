@@ -292,7 +292,7 @@ static int do_pipe_cmd(char* cmd) {
 		close(prev_read);
 
 	for(int i = 0; i < stage_num; i++) {
-		waitpid(pids[i]);
+		ewok_waitpid(pids[i]);
 	}
 	return 0;
 }
@@ -414,7 +414,7 @@ int main(int argc, char* argv[]) {
 			printf("fork failed! errno=%d\n", errno);
 		}
 		else if(fg != 0) {
-			waitpid(child_pid);
+			ewok_waitpid(child_pid);
 		}
 	}
 	if(fd_in > 0) //close initrd file

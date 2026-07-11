@@ -13,10 +13,6 @@
 
 using namespace Ewok;
 
-#ifdef __cplusplus
-extern "C" { extern int setenv(const char*, const char*, ...);}
-#endif
-
 static void run_xinit(session_info_t* info) {
 	if(info != NULL) {
 		setgid(info->gid);
@@ -209,4 +205,3 @@ int main(int argc, char* argv[]) {
 	x.run(NULL);
 	return 0;
 }
-

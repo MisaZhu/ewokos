@@ -6,6 +6,11 @@
 
 #define CLOCKS_PER_SEC 1000000
 
+typedef int clockid_t;
+
+#define CLOCK_REALTIME  0
+#define CLOCK_MONOTONIC 1
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -29,6 +34,8 @@ struct tm *localtime(const time_t *timer);
 struct tm *localtime_r(const time_t *timer, struct tm *result);
 clock_t clock(void);
 size_t strftime(char *s, size_t max, const char *format, const struct tm *tm);
+int clock_gettime(clockid_t clock_id, struct timespec *tp);
+int nanosleep(const struct timespec *req, struct timespec *rem);
 
 #ifdef __cplusplus
 }

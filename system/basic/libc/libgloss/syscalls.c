@@ -740,8 +740,17 @@ _times (struct tms * tp)
 int
 _isatty (int fd)
 {
+  fsinfo_t info;
+
   dbg_kout(__func__);
-  errno = get_errno ();
+  if (vfs_get_by_fd(fd, &info) != 0) {
+    errno = EBADF;
+    return 0;
+  }
+  if ((info.type & FS_TYPE_MASK) == FS_TYPE_CHAR) {
+    return 1;
+  }
+  errno = ENOTTY;
   return 0;
 }
 
@@ -772,6 +781,8 @@ _rename (const char * oldpath, const char * newpath)
  //      : "=r" (r0)
  //      : "0" (r0), "r" (r1), "i" (SWI_Rename));
  // return checkerror (r0);
+  errno = ENOSYS;
+  return -1;
 #endif
 }
 

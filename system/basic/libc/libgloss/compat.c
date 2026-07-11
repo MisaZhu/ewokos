@@ -58,10 +58,6 @@ static unsigned long prng_state = 1;
 int __bss_start__ __attribute__((weak));
 int __bss_end__ __attribute__((weak));
 
-int *__errno(void) {
-	return &errno;
-}
-
 void *memcpy(void *dest, const void *src, size_t n) {
 	unsigned char *d = (unsigned char *)dest;
 	const unsigned char *s = (const unsigned char *)src;
@@ -516,9 +512,9 @@ int rand(void) {
 	return (int)random();
 }
 
-float atof(const char *nptr) {
-	float value = 0.0f;
-	float frac = 0.1f;
+double atof(const char *nptr) {
+	double value = 0.0;
+	double frac = 0.1;
 	int neg = 0;
 
 	while (is_space(*nptr)) {
@@ -530,15 +526,15 @@ float atof(const char *nptr) {
 	}
 
 	while (*nptr >= '0' && *nptr <= '9') {
-		value = value * 10.0f + (float)(*nptr - '0');
+		value = value * 10.0 + (double)(*nptr - '0');
 		++nptr;
 	}
 
 	if (*nptr == '.') {
 		++nptr;
 		while (*nptr >= '0' && *nptr <= '9') {
-			value += (float)(*nptr - '0') * frac;
-			frac *= 0.1f;
+			value += (double)(*nptr - '0') * frac;
+			frac *= 0.1;
 			++nptr;
 		}
 	}
@@ -738,7 +734,7 @@ void *realloc(void *ptr, size_t size) {
 	return new_ptr;
 }
 
-const char *getenv(const char *name) {
+char *getenv(const char *name) {
 	size_t name_len;
 
 	if (name == NULL || environ == NULL) {
@@ -810,7 +806,26 @@ int access(const char *path, int mode) {
 	if (vfs_get_by_name(path, &info) != 0) {
 		return -1;
 	}
-	return vfs_check_access(getpid(), &info, mode);
+
+	if (mode == F_OK) {
+		return 0;
+	}
+
+	if ((mode & ~(R_OK | W_OK | X_OK)) != 0) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	if ((mode & R_OK) != 0 && vfs_check_access(getpid(), &info, R_OK) != 0) {
+		return -1;
+	}
+	if ((mode & W_OK) != 0 && vfs_check_access(getpid(), &info, W_OK) != 0) {
+		return -1;
+	}
+	if ((mode & X_OK) != 0 && vfs_check_access(getpid(), &info, X_OK) != 0) {
+		return -1;
+	}
+	return 0;
 }
 
 int strcasecmp(const char *s1, const char *s2) {

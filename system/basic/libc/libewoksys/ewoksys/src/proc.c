@@ -286,7 +286,7 @@ inline void* proc_malloc_expand(int32_t size) {
 	return (void*)syscall1(SYS_MALLOC_EXPAND, (ewokos_addr_t)size);
 }
 
-inline void* proc_malloc_free(void) {
+inline void proc_malloc_free(void) {
 	//klog("proc_free, pid: %d\n", getpid());
 	syscall0(SYS_FREE);
 }

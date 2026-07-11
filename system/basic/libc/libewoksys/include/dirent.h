@@ -2,17 +2,12 @@
 #define DIRENT_H
 
 #include <ewoksys/fsinfo.h>
+#include <sys/types.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-
-typedef struct {
-	uint32_t  num;    //kids num
-	fsinfo_t* kids;	  //kids info
-	uint32_t  offset; //read offset
-} DIR;
 
 #define	DT_DIR     FS_TYPE_DIR
 #define DT_BLK     FS_TYPE_BLOCK
@@ -24,19 +19,26 @@ typedef struct {
 #define DT_UNKNOWN FS_TYPE_UNKNOWN
 
 struct dirent {
-	uint32_t  d_ino;       /* Inode number */
-	uint32_t  d_off;       /* Not an offset; see below */
-	uint32_t  d_reclen;    /* Length of this record */
+	ino_t     d_ino;       /* Inode number */
+	off_t     d_off;       /* Not an offset; see below */
+	uint16_t  d_reclen;    /* Length of this record */
 	uint8_t   d_type;      /* Type of file; not supported by all filesystem types */
 	char      d_name[FS_NODE_NAME_MAX]; /* Null-terminated filename */
 };
 
+typedef struct {
+	uint32_t      num;    //kids num
+	fsinfo_t*     kids;   //kids info
+	uint32_t      offset; //read offset
+	struct dirent entry;  //per-directory cached entry for readdir
+} DIR;
+
 DIR*           opendir(const char* name);
 int            closedir(DIR* dirp);
-int            telldir(DIR* dirp);
+long           telldir(DIR* dirp);
 struct dirent* readdir(DIR *dirp);
 void           rewinddir(DIR* dirp);
-void           seekdir(DIR* dirp, uint32_t loc);
+void           seekdir(DIR* dirp, long loc);
 
 #ifdef __cplusplus
 }

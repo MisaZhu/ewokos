@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-void dma_user_init(void);
+int dma_user_init(size_t total);
 void* dma_user_alloc(size_t size);
 void* dma_user_phy(void* vaddr);
 void dma_user_free(void* vaddr);
