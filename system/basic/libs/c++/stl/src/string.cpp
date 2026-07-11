@@ -56,7 +56,6 @@ string::string(const string& str, size_t pos, size_t len) : data_(nullptr), leng
         capacity_ = 0;
         return;
     }
-    size_t idx = pos;
     for (size_t i = 0; i < length_; i++) {
         data_[i] = str[pos++];
     }

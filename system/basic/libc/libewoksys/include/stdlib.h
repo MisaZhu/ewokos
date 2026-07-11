@@ -53,7 +53,7 @@ void srandom(unsigned int seed);
 char *getenv(const char *name);
 int __ewok_setenv_impl(const char *name, const char *value, int overwrite);
 int remove(const char *path);
-int mkstemp(char *template);
+int mkstemp(char *path_template);
 char *tempnam(const char *dir, const char *pfx);
 void *bsearch(const void *key, const void *base, size_t nmemb, size_t size,
 		int (*compar)(const void *, const void *));
