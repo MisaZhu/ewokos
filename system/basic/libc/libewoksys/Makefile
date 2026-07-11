@@ -110,6 +110,7 @@ LIB_EWOKSYS_OBJS =  \
 	\
 	src/poll/poll.o \
 	\
+	src/stdlib/assert.o \
 	src/stdlib/exit.o \
 	src/stdlib/llabs.o \
 	src/stdlib/mkstemp.o \
