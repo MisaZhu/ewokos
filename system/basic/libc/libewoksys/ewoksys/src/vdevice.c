@@ -138,7 +138,11 @@ static void do_open(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 		return;
 	}
 
-	if(vfs_check_access(from_pid, &info, R_OK) != 0) {
+	/*
+	 * Mirror VFS open permission semantics: pure write-only opens must not be
+	 * rejected just because the caller lacks read permission.
+	 */
+	if((oflag & O_WRONLY) == 0 && vfs_check_access(from_pid, &info, R_OK) != 0) {
 		PF->addi(out, -1)->addi(out, EPERM);
 		return;
 	}

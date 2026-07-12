@@ -14,6 +14,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
+#include <ewoksys/klog.h>
+#include <ewoksys/vfs.h>
 
 /* SFTP Protocol Version */
 #define SFTP_VERSION 3
@@ -420,9 +422,63 @@ static int handle_open(const uint8_t *buf, size_t len) {
     memcpy(pathbuf, path, slen);
     pathbuf[slen] = '\0';
 
-    int fd = open(pathbuf, flags);
-    if (fd < 0)
-        return send_status(id, errno_to_status(), strerror(errno));
+    /*
+     * Some EwokOS VFS backends allow open() on a directory path even when the
+     * caller asks for a writable regular-file handle. OpenSSH scp expects this
+     * open to fail for directories so it can fall back to treating the target
+     * as a directory destination and append the local basename.
+     */
+    struct stat st;
+    errno = 0;
+    int st_rc = stat(pathbuf, &st);
+    int st_errno = errno;
+    if (st_rc == 0 && S_ISDIR(st.st_mode))
+        return send_status(id, SSH_FX_FAILURE, "is a directory");
+    if (st_rc == 0 && (pflags & SSH_FXF_CREAT) && (pflags & SSH_FXF_EXCL))
+        return send_status(id, SSH_FX_FAILURE, "file exists");
+
+    /*
+     * EwokOS _open(O_CREAT) mixes lookup/create/open and can fail without
+     * preserving errno. Create the node explicitly first when SFTP requests
+     * creation, then reopen it normally so the client gets deterministic
+     * behavior for uploads.
+     */
+    /*
+     * Some EwokOS stat() call paths report "not found" as rc < 0 but leave
+     * errno unchanged at 0. For SFTP OPEN+CREAT we must still attempt create
+     * in that case, otherwise uploads from unprivileged users get stuck on a
+     * lookup of a file that should have been created first.
+     */
+    if (st_rc < 0 &&
+            (pflags & SSH_FXF_CREAT) &&
+            (st_errno == 0 || st_errno == ENOENT)) {
+        int create_mode = (int)(mode & 0777);
+        if (create_mode == 0)
+            create_mode = 0644;
+        if (vfs_create(pathbuf, NULL, FS_TYPE_FILE, create_mode, false, false) != 0) {
+            int err = errno ? errno : EIO;
+            errno = err;
+            return send_status(id, errno_to_status(), strerror(err));
+        }
+        errno = 0;
+        st_rc = stat(pathbuf, &st);
+        st_errno = errno;
+    }
+
+    int open_flags = flags & ~O_CREAT;
+    fsinfo_t finfo;
+    if (vfs_get_by_name(pathbuf, &finfo) != 0) {
+        int err = errno ? errno : ENOENT;
+        errno = err;
+        return send_status(id, errno_to_status(), strerror(err));
+    }
+
+    int fd = vfs_open(&finfo, open_flags);
+    if (fd < 0) {
+        int err = errno ? errno : EIO;
+        errno = err;
+        return send_status(id, errno_to_status(), strerror(err));
+    }
 
     if (pflags & SSH_FXF_CREAT)
         fchmod(fd, mode & 0777);
@@ -511,9 +567,13 @@ static int handle_write(const uint8_t *buf, size_t len) {
     size_t total = 0;
     while (total < dlen) {
         ssize_t w = write(handles[h].fd, data + total, dlen - total);
-        if (w < 0) {
-            if (errno == EINTR || errno == EAGAIN) continue;
-            return send_status(id, SSH_FX_FAILURE, strerror(errno));
+        if (w <= 0) {
+            int err = errno;
+            if (w < 0 && (err == EINTR || err == EAGAIN)) continue;
+            if (err == 0)
+                err = EIO;
+            errno = err;
+            return send_status(id, SSH_FX_FAILURE, strerror(err));
         }
         total += (size_t)w;
     }

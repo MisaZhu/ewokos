@@ -19,6 +19,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
+#include <ewoksys/klog.h>
 
 #define BUF_SIZE 4096
 

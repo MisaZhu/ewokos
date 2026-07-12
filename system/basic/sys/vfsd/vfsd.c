@@ -1148,7 +1148,17 @@ static void do_vfs_open(int32_t pid, proto_t* in, proto_t* out) {
 		return;
 	}
 
-	if(vfs_check_access(pid, &node->fsinfo, R_OK) != 0) {
+	/*
+	 * Permission checks must match the requested access mode:
+	 * - O_RDONLY: require read
+	 * - O_WRONLY: require write only
+	 * - O_RDWR:   require both
+	 *
+	 * The previous logic always required R_OK as well, which made pure
+	 * write opens fail for non-root users on write-only targets.
+	 */
+	if((flags & O_WRONLY) == 0 &&
+			vfs_check_access(pid, &node->fsinfo, R_OK) != 0) {
 		PF->addi(out, EPERM);
 		return;
 	}

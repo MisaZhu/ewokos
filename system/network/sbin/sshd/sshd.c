@@ -46,6 +46,7 @@
 #define SSH_LOCAL_WINDOW_LOW    (256*1024)
 #define SSH_RELAY_READ_SIZE     16384
 #define SSH_SOCKET_WRITE_STEP   1024
+#define SSH_PENDING_INPUT_WAIT_US 1000
 #define SSH_SERVER_VERSION      "SSH-2.0-EwokOS_sshd"
 #define SSH_HOST_KEY_PATH       "/etc/ssh_host_rsa_key.der"
 
@@ -2527,12 +2528,22 @@ static int handle_session_packets(sshd_session_t* s) {
     int rc = 0;
 
     while(!s->sent_close && !s->closing) {
-        /* Drain pending stdin buffer (non-blocking) */
-        if(s->pending_in_len > s->pending_in_off)
-            flush_pending_input(s);
-
         /* Send deferred WINDOW_ADJUST if owed */
         try_send_window_adjust(s);
+
+        /*
+         * If part of a client packet is still buffered for the child process,
+         * keep pumping it into stdin before blocking for more SSH traffic.
+         * Otherwise uploads can deadlock when the client pauses waiting for an
+         * SFTP reply while the tail of the WRITE request is still stranded in
+         * pending_in.
+         */
+        if(s->pending_in_len > s->pending_in_off) {
+            if(flush_pending_input(s) != 0) {
+                usleep(SSH_PENDING_INPUT_WAIT_US);
+                continue;
+            }
+        }
 
         /* Receive next packet (blocking with internal timeout/retry) */
         if(ssh_packet_receive(s, &packet) < 0) {
