@@ -1,0 +1,19 @@
+SYS_DIR=../../..
+include $(SYS_DIR)/platform/$(ARCH)/make.rule
+
+BUILD_DIR = $(SYS_DIR)/build/$(HW)
+TARGET_DIR = $(BUILD_DIR)/rootfs
+
+LDFLAGS = -L$(BUILD_DIR)/lib
+CFLAGS += -I $(BUILD_DIR)/include
+
+SFTP_OBJS = sftp-server.o
+
+SFTP = $(TARGET_DIR)/bin/sftp-server
+
+$(SFTP): $(SFTP_OBJS) \
+		$(BUILD_DIR)/lib/libewoksys.a
+	$(LD) -Ttext=100 $(SFTP_OBJS) -o $(SFTP) $(LDFLAGS) $(EWOK_LIBC)
+
+clean:
+	rm -f $(SFTP_OBJS)

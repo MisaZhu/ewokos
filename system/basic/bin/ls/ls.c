@@ -19,22 +19,24 @@ static inline const char* get_show_name(const char* name, int32_t type) {
 	return ret;
 }
 
-static inline char get_show_type(int32_t type) {
-	if(type == DT_BLK)
+static inline char get_show_type(uint32_t mode, int32_t type) {
+	if(S_ISBLK(mode) || type == DT_BLK)
 		return 'b';
-	else if(type == DT_FIFO)
+	else if(S_ISFIFO(mode) || type == DT_FIFO)
 		return 'p';
-	else if(type == DT_CHR)
+	else if(S_ISCHR(mode) || type == DT_CHR)
 		return 'c';
-	else if(type == DT_DIR)
+	else if(S_ISDIR(mode) || type == DT_DIR)
 		return 'd';
+	else if(S_ISLNK(mode))
+		return 'l';
 	return '-';
 }
 
 static inline const char* get_show_mode(uint32_t mode, int32_t type) {
 	static char ret[16];
 	snprintf(ret, 15, "%c%c%c%c%c%c%c%c%c%c",
-		get_show_type(type),
+		get_show_type(mode, type),
 		(mode & 0400) == 0 ? '-':'r',
 		(mode & 0200) == 0 ? '-':'w',
 		(mode & 0100) == 0 ? '-':'x',
@@ -116,25 +118,26 @@ int main(int argc, char* argv[]) {
 			snprintf(fname, FS_FULL_NAME_MAX, "%s/%s", r, it->d_name);
 
 		struct stat st;
-		stat(fname, &st);
+		if(stat(fname, &st) != 0)
+			continue;
 
 		const char* show_name = get_show_name(it->d_name, it->d_type);
 		const char* show_mode = get_show_mode(st.st_mode, it->d_type);
 
-		session_info_t info, infog;
+		session_info_t info;
+		char gid[16];
 		if(session_get_by_uid(st.st_uid, &info) != 0)
-			sprintf(info.user, "%d", st.st_uid);
-		if(session_get_by_uid(st.st_gid, &infog) != 0)
-			sprintf(infog.user, "%d", st.st_gid);
+			snprintf(info.user, sizeof(info.user), "%d", st.st_uid);
+		snprintf(gid, sizeof(gid), "%d", st.st_gid);
 
 		if(_list_mode == 0)
-			printf("%6dk %s\n", get_ksize(it->d_reclen), show_name);
+			printf("%6dk %s\n", get_ksize(st.st_size), show_name);
 		else
 			printf("%-10s %-6s %-6s %6dk %s\n",
 					show_mode,
 					info.user,
-					infog.user,
-					get_ksize(it->d_reclen),
+					gid,
+					get_ksize(st.st_size),
 					show_name);
 	}
 	closedir(dirp);

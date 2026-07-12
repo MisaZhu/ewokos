@@ -38,11 +38,14 @@
 #include <ewoksys/vfsc.h>
 #include <ewoksys/wait.h>
 #include <setenv.h>
+#include <signal.h>
 
 #define SSH_DEFAULT_PORT        22
 #define SSH_MAX_PACKET_SIZE     32768
 #define SSH_LOCAL_WINDOW_SIZE   (1024*1024)
 #define SSH_LOCAL_WINDOW_LOW    (256*1024)
+#define SSH_RELAY_READ_SIZE     16384
+#define SSH_SOCKET_WRITE_STEP   1024
 #define SSH_SERVER_VERSION      "SSH-2.0-EwokOS_sshd"
 #define SSH_HOST_KEY_PATH       "/etc/ssh_host_rsa_key.der"
 
@@ -618,8 +621,18 @@ static int ssh_write_n(sshd_session_t* s, const void* buf, size_t len) {
 
     while(total < len) {
         int saved_errno;
+        size_t step = len - total;
+        if(step > SSH_SOCKET_WRITE_STEP)
+            step = SSH_SOCKET_WRITE_STEP;
         errno = 0;
-        ssize_t n = write(s->socket, p + total, len - total);
+        /*
+         * EwokOS socket writes become unreliable when we hand large SSH packet
+         * buffers to a single write() call; runtime logs consistently showed
+         * progress only when the stack accepted ~1 KiB chunks. Keep each write
+         * small even on blocking sockets so large SFTP replies are streamed out
+         * incrementally instead of stalling mid-packet.
+         */
+        ssize_t n = write(s->socket, p + total, step);
         saved_errno = errno;
         if(n < 0) {
             if(saved_errno == 0)
@@ -2019,7 +2032,13 @@ static void session_close_socket(sshd_session_t* s) {
 static void* output_relay_thread(void* arg) {
     output_relay_arg_t* a = (output_relay_arg_t*)arg;
     sshd_session_t* s = a->s;
-    uint8_t buf[1024];
+    /*
+     * Read larger chunks from the child stdout pipe so high-throughput binary
+     * protocols like SFTP are not fragmented into a long train of tiny ~1 KiB
+     * SSH channel packets. Runtime logs showed this over-fragmentation closely
+     * tracks the later stall under sustained SCP/SFTP downloads.
+     */
+    uint8_t buf[SSH_RELAY_READ_SIZE];
     int remaining;
 
     while(!s->closing) {
@@ -2033,7 +2052,6 @@ static void* output_relay_thread(void* arg) {
             continue;
         break;
     }
-
     close_fd_if_valid(a->fd);
     pthread_mutex_lock(&s->state_lock);
     remaining = --s->output_active;
@@ -2168,7 +2186,7 @@ static int spawn_child_session(sshd_session_t* s, const char* command, int is_sh
      * forwards into the SSH channel, while the main thread runs the inbound
      * packet loop. Total per-session tasks: main inbound + one output thread.
      */
-    s->child_pid = -1;
+    s->child_pid = (pid_t)getppid(); /* login process (sftp-server / shell) */
     s->child_started = 1;
 
     s->out_arg.s = s;
@@ -2273,6 +2291,35 @@ static int handle_channel_request(sshd_session_t* s, const ssh_packet_t* packet)
         return 0;
     }
 
+    if(req_len == strlen("subsystem") && memcmp(req_type, "subsystem", req_len) == 0) {
+        const uint8_t* sub;
+        uint32_t sub_len;
+        char command[256];
+
+        if(read_ssh_string(packet->payload, packet->payload_len, &off, &sub, &sub_len) < 0)
+            return -1;
+        if(sub_len == 0 || sub_len >= 64)
+            goto subsystem_fail;
+
+        /* Map subsystem name to executable */
+        if(sub_len == 4 && memcmp(sub, "sftp", 4) == 0) {
+            snprintf(command, sizeof(command), "sftp-server");
+        } else {
+            goto subsystem_fail;
+        }
+
+        if(!s->child_started && spawn_child_session(s, command, 0) < 0)
+            goto subsystem_fail;
+        if(want_reply)
+            return send_channel_status(s, SSH_MSG_CHANNEL_SUCCESS);
+        return 0;
+
+subsystem_fail:
+        if(want_reply)
+            return send_channel_status(s, SSH_MSG_CHANNEL_FAILURE);
+        return 0;
+    }
+
     if(req_len == strlen("window-change") && memcmp(req_type, "window-change", req_len) == 0) {
         if(off + 16 <= packet->payload_len) {
             s->terminal_width = (int)ssh_read_uint32(packet->payload + off);
@@ -2355,13 +2402,12 @@ static int queue_input(sshd_session_t* s, const uint8_t* data, size_t len) {
 }
 
 /*
- * try_send_window_adjust: best-effort non-blocking WINDOW_ADJUST send.
- * Uses trylock on send_lock and poll(POLLOUT,0) to avoid ever blocking
- * the inbound thread. Returns 0 on success, -1 if deferred.
+ * try_send_window_adjust: send WINDOW_ADJUST to the client.
+ * Uses trylock on send_lock to avoid blocking when the output thread is
+ * actively sending data. Returns 0 on success, -1 if deferred.
  */
 static int try_send_window_adjust(sshd_session_t* s) {
     ssh_packet_t packet;
-    struct pollfd pfd;
     size_t off = 0;
     uint32_t delta;
 
@@ -2370,15 +2416,6 @@ static int try_send_window_adjust(sshd_session_t* s) {
 
     if(pthread_mutex_trylock(&s->send_lock) != 0)
         return -1; /* contention — defer */
-
-    /* Check socket writable without blocking */
-    memset(&pfd, 0, sizeof(pfd));
-    pfd.fd = s->socket;
-    pfd.events = POLLOUT;
-    if(poll(&pfd, 1, 0) <= 0 || !(pfd.revents & POLLOUT)) {
-        pthread_mutex_unlock(&s->send_lock);
-        return -1; /* not writable — defer */
-    }
 
     delta = s->win_adjust_owe;
     memset(&packet, 0, sizeof(packet));
@@ -2470,78 +2507,41 @@ static int dispatch_session_packet(sshd_session_t* s, const ssh_packet_t* packet
 /*
  * Inbound packet loop. The main thread blocks efficiently on the client socket
  * (single-fd wait inside ssh_read_n) and dispatches SSH packets. The shell's
- * stdout/stderr are relayed by dedicated output threads (output_relay_thread),
+ * stdout/stderr are relayed by a dedicated output thread (output_relay_thread),
  * so there is no multi-fd poll() and no idle busy-loop.
  *
- * When there is pending stdin data or deferred WINDOW_ADJUST credit, the loop
- * transiently polls both the socket and child_stdin with a short timeout so
- * that backpressure-induced pending work is drained without blocking the
- * critical socket-reading path.
+ * Before each receive, pending stdin data is flushed (non-blocking) and any
+ * deferred WINDOW_ADJUST credit is sent. This avoids relying on poll() for
+ * pipe/socket readiness detection which is unreliable on EwokOS.
  *
  * Teardown is hang-free in every direction:
- *  - Shell exits first: both output threads hit pipe EOF; the last one flags
+ *  - Shell/sftp-server exits first: output thread hits pipe EOF; it flags
  *    s->closing, sends CHANNEL_EOF/CLOSE and closes the socket, which wakes
  *    this blocked socket read so the loop ends.
- *  - Client closes / CHANNEL_CLOSE: the loop ends; we flag s->closing and close
- *    child stdin so the shell gets EOF and exits, closing its stdout/stderr
- *    write ends; the resulting pipe VFS_EVT_CLOSE wakes the output threads.
- * pthread_join on both started threads runs before session_destroy (which
- * destroys the mutexes), so there is no use-after-destroy.
+ *  - Client closes / CHANNEL_CLOSE: the loop ends; we flag s->closing, close
+ *    child stdin and stdout pipes, join the output thread, then kill the login
+ *    process to ensure it doesn't linger.
  */
 static int handle_session_packets(sshd_session_t* s) {
     ssh_packet_t packet;
     int rc = 0;
 
     while(!s->sent_close && !s->closing) {
-        int has_pending;
-
         /* Drain pending stdin buffer (non-blocking) */
         if(s->pending_in_len > s->pending_in_off)
             flush_pending_input(s);
 
-        /* Try to flush deferred WINDOW_ADJUST */
+        /* Send deferred WINDOW_ADJUST if owed */
         try_send_window_adjust(s);
 
-        has_pending = (s->pending_in_len > s->pending_in_off) || (s->win_adjust_owe != 0);
-
-        if(has_pending) {
-            /* Poll socket+child_stdin with short timeout so we can retry pending work */
-            struct pollfd pfds[2];
-            int nfds = 1;
-
-            memset(pfds, 0, sizeof(pfds));
-            pfds[0].fd = s->socket;
-            pfds[0].events = POLLIN;
-
-            if(s->pending_in_len > s->pending_in_off &&
-                    s->child_stdin[CHILD_STDIN_WRITE] >= 0) {
-                pfds[1].fd = s->child_stdin[CHILD_STDIN_WRITE];
-                pfds[1].events = POLLOUT;
-                nfds = 2;
-            }
-
-            (void)poll(pfds, (unsigned int)nfds, 20);
-
-            if(pfds[0].revents & (POLLIN | POLLHUP | POLLERR)) {
-                if(ssh_packet_receive(s, &packet) < 0) {
-                    rc = -1;
-                    break;
-                }
-                if(dispatch_session_packet(s, &packet) < 0) {
-                    rc = -1;
-                    break;
-                }
-            }
-        } else {
-            /* Steady state: efficient single-fd blocking read */
-            if(ssh_packet_receive(s, &packet) < 0) {
-                rc = -1;
-                break;
-            }
-            if(dispatch_session_packet(s, &packet) < 0) {
-                rc = -1;
-                break;
-            }
+        /* Receive next packet (blocking with internal timeout/retry) */
+        if(ssh_packet_receive(s, &packet) < 0) {
+            rc = -1;
+            break;
+        }
+        if(dispatch_session_packet(s, &packet) < 0) {
+            rc = -1;
+            break;
         }
     }
 
@@ -2552,8 +2552,24 @@ static int handle_session_packets(sshd_session_t* s) {
     session_signal_close(s);
     session_close_socket(s);
     close_fd_if_valid(&s->child_stdin[CHILD_STDIN_WRITE]);
+    /*
+     * Force-close the stdout read pipe to unblock the output thread which
+     * may be parked in a blocking read(). In EwokOS pipes do not reliably
+     * deliver EOF to a blocked reader when the write end closes, so we
+     * must pull the fd out from under the read() here.
+     */
+    close_fd_if_valid(&s->child_stdout[CHILD_STDOUT_READ]);
     if(s->out_started)
         pthread_join(s->out_tid, NULL);
+    /*
+     * Kill the login process (sftp-server / shell) which is our parent.
+     * In EwokOS closing the stdin pipe write-end does not reliably unblock
+     * a reader, so the child process may still be stuck in read(). Sending
+     * SIGKILL ensures it terminates and does not linger.
+     */
+    if(s->child_pid > 1)
+        kill(s->child_pid, SIGKILL);
+    s->child_pid = -1;
     return rc;
 }
 
@@ -2571,7 +2587,15 @@ static int session_init(sshd_session_t* s, int sock) {
     s->close_notify[0] = s->close_notify[1] = -1;
     if(pipe(s->close_notify) != 0)
         return -1;
-    (void)set_fd_nonblock(sock);
+    /*
+     * Keep the accepted session socket in blocking mode. Runtime evidence from
+     * SCP/SFTP transfers shows EwokOS can report POLLOUT only in tiny bursts
+     * under backpressure, making ssh_write_n() advance ~1 KiB per wake and
+     * eventually stalling the child stdout -> SSH socket relay pipeline.
+     * Concurrent blocking read/write on the same socket is fine here because
+     * inbound packet handling and outbound relay already run on separate
+     * threads, and teardown closes the socket to unblock either side.
+     */
     pthread_mutex_init(&s->state_lock, NULL);
     pthread_mutex_init(&s->send_lock, NULL);
     pthread_cond_init(&s->remote_window_cv, NULL);
