@@ -14,6 +14,8 @@
 #include <ewoksys/kernel_tic.h>
 #include <ewoksys/devcmd.h>
 #include <ewoksys/proc.h>
+#include <ewoksys/shm_pipe.h>
+#include <ewoksys/thread.h>
 #include <sys/shm.h>
 // #include <sys/unistd.h>
 #ifdef __cplusplus
@@ -22,6 +24,7 @@ extern "C" {
 
 
 static fsfile_t _fsfiles[MAX_OPEN_FILE_PER_PROC];
+static shm_pipe_t* _pipe_shm[MAX_OPEN_FILE_PER_PROC];
 static uint32_t vfs_get_poll_events_by_node(uint32_t node_id);
 
 static int vfs_get_by_fd_raw(int fd, fsinfo_t* info) {
@@ -62,7 +65,16 @@ static int vfs_set_info(fsinfo_t* info) {
 void  vfs_init(void) {
 	for(uint32_t i=0; i<MAX_OPEN_FILE_PER_PROC; i++) {
 		memset(&_fsfiles[i], 0, sizeof(fsfile_t));
+		_pipe_shm[i] = NULL;
 	}
+}
+
+void  vfs_on_fork(void) {
+	/* After fork the child inherits _pipe_shm[] pointers via COW but the
+	 * shared memory pages are not mapped in the child's page table.
+	 * Clear all entries so get_pipe_shm() will re-map via shmat() lazily. */
+	for(uint32_t i=0; i<MAX_OPEN_FILE_PER_PROC; i++)
+		_pipe_shm[i] = NULL;
 }
 
 static inline fsfile_t* vfs_set_file(int fd, fsinfo_t* info) {
@@ -84,6 +96,7 @@ static inline void vfs_clear_file(int fd) {
 	if(fd < 0 || fd >= MAX_OPEN_FILE_PER_PROC)
 		return;
 	memset(&_fsfiles[fd], 0, sizeof(fsfile_t));
+	_pipe_shm[fd] = NULL; /* don't shmdt — other fds may share the same ring */
 }
 
 static fsfile_t* vfs_get_file(int fd) {
@@ -281,7 +294,55 @@ int vfs_open(fsinfo_t* info, int oflag) {
 	return res;	
 }
 
+/*
+ * Get the shared-memory pipe ring buffer for a file descriptor.
+ * Lazily maps the shared memory on first access (handles fork() correctly:
+ * the child inherits the fd with shm_id in fsinfo.data but needs to map it).
+ */
+static inline shm_pipe_t* get_pipe_shm(int fd, fsfile_t* file) {
+	if(fd < 0 || fd >= MAX_OPEN_FILE_PER_PROC)
+		return NULL;
+	if(_pipe_shm[fd] != NULL)
+		return _pipe_shm[fd];
+	/* Try to map from fsinfo.data (stores shm_id) */
+	int32_t shm_id = (int32_t)file->info.data;
+	if(shm_id <= 0)
+		return NULL;
+	shm_pipe_t* ring = (shm_pipe_t*)shmat(shm_id, NULL, 0);
+	if(ring != NULL)
+		_pipe_shm[fd] = ring;
+	return ring;
+}
+
 static int read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block) {
+	fsfile_t* file = &_fsfiles[fd];
+	shm_pipe_t* ring = get_pipe_shm(fd, file);
+
+	if(ring != NULL) {
+		/* Fast path: shared-memory pipe — zero IPC */
+		int32_t my_pid = thread_get_id();
+		__atomic_store_n(&ring->reader_pid, my_pid, __ATOMIC_RELAXED);
+
+		while(1) {
+			int32_t n = shm_pipe_read(ring, buf, (int32_t)size);
+			if(n > 0) {
+				/* Wake writer if it might be sleeping on full buffer */
+				int32_t wpid = __atomic_load_n(&ring->writer_pid, __ATOMIC_RELAXED);
+				if(wpid > 0)
+					proc_wakeup_by(wpid, node);
+				return n;
+			}
+			/* Ring empty — check if writer closed */
+			if(__atomic_load_n(&ring->writer_closed, __ATOMIC_ACQUIRE))
+				return -1;
+			if(!block)
+				return 0;
+			/* Sleep until writer wakes us */
+			proc_block_by(node);
+		}
+	}
+
+	/* Fallback: old IPC path (no shm available) */
 	while(1) {
 		proto_t in, out;
 		PF->format(&in, "i,i,i,i", fd, node, size, block?1:0);
@@ -300,18 +361,48 @@ static int read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block
 		if(res != 0 || !block)
 			return res;
 
-		/*
-		 * vfsd returned 0 (pipe empty) and has already registered us on
-		 * the read wait queue atomically. Just sleep until woken.
-		 */
 		proc_block_by(node);
 	}
 }
 
 static int write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, bool block) {
+	fsfile_t* file = &_fsfiles[fd];
+	shm_pipe_t* ring = get_pipe_shm(fd, file);
+
+	if(ring != NULL) {
+		/* Fast path: shared-memory pipe — zero IPC */
+		int32_t my_pid = thread_get_id();
+		__atomic_store_n(&ring->writer_pid, my_pid, __ATOMIC_RELAXED);
+
+		const char* p = (const char*)buf;
+		int32_t total = 0;
+
+		while(total < (int32_t)size) {
+			/* Check if reader closed */
+			if(__atomic_load_n(&ring->reader_closed, __ATOMIC_ACQUIRE))
+				return total > 0 ? total : -1;
+
+			int32_t n = shm_pipe_write(ring, p + total, (int32_t)size - total);
+			if(n > 0) {
+				total += n;
+				/* Wake reader if it might be sleeping on empty buffer */
+				int32_t rpid = __atomic_load_n(&ring->reader_pid, __ATOMIC_RELAXED);
+				if(rpid > 0)
+					proc_wakeup_by(rpid, node);
+			} else {
+				/* Ring full */
+				if(!block)
+					return total > 0 ? total : 0;
+				/* Sleep until reader makes space */
+				proc_block_by(node);
+			}
+		}
+		return total;
+	}
+
+	/* Fallback: old IPC path */
 	while(1) {
 		proto_t in, out;
-		//PF->init(&in)->addi(&in, fd)->addi(&in, node)->add(&in, buf, size)->addi(&in, block?1:0);
 		PF->format(&in, "i,i,m,i", fd, node, buf, size, block?1:0);
 		PF->init(&out);
 
@@ -326,10 +417,6 @@ static int write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, boo
 		if(res != 0 || !block)
 			return res;
 
-		/*
-		 * vfsd returned 0 (buffer full) and has already registered us on
-		 * the write wait queue atomically. Just sleep until woken.
-		 */
 		proc_block_by(node);
 	}
 }
@@ -381,6 +468,10 @@ int vfs_dup(int fd) {
 			proto_read_to(&out, &info, sizeof(fsinfo_t));
 			fsfile_t* file_to = vfs_set_file(res, &info);
 			file_to->flags = file->flags;
+			/* Propagate shm pipe mapping on dup */
+			if(fd >= 0 && fd < MAX_OPEN_FILE_PER_PROC &&
+			   res >= 0 && res < MAX_OPEN_FILE_PER_PROC)
+				_pipe_shm[res] = _pipe_shm[fd];
 		}
 	}
 	PF->clear(&out);
@@ -406,6 +497,10 @@ int vfs_dup2(int fd, int to) {
 			proto_read_to(&out, &info, sizeof(fsinfo_t));
 			fsfile_t* file_to = vfs_set_file(res, &info);
 			file_to->flags = file->flags;
+			/* Propagate shm pipe mapping on dup */
+			if(fd >= 0 && fd < MAX_OPEN_FILE_PER_PROC &&
+			   res >= 0 && res < MAX_OPEN_FILE_PER_PROC)
+				_pipe_shm[res] = _pipe_shm[fd];
 		}
 	}
 	PF->clear(&out);
@@ -420,25 +515,29 @@ int vfs_open_pipe(int fd[2]) {
 		if(proto_read_int(&out) == 0) {
 			fd[0] = proto_read_int(&out);
 			fd[1] = proto_read_int(&out);
+			int32_t shm_id = proto_read_int(&out);
 			fsinfo_t info;
 			proto_read_to(&out, &info, sizeof(fsinfo_t));
 			fsfile_t* read_end = vfs_set_file(fd[0], &info);
 			fsfile_t* write_end = vfs_set_file(fd[1], &info);
 			if(read_end != NULL) {
 				read_end->flags = O_RDONLY;
-				/*
-				 * Pipe creators are expected to dup2() the endpoint they want to
-				 * survive exec onto stdin/stdout/stderr. Keeping the original pipe
-				 * fds inheritable by default leaks extra refs across exec and keeps
-				 * refs_w/readers artificially high, which turns pipeline teardown
-				 * into long-lived backpressure. Make the raw endpoints close-on-exec
-				 * by default; callers that truly need inheritance can clear it.
-				 */
 				read_end->fd_flags = FD_CLOEXEC;
 			}
 			if(write_end != NULL) {
 				write_end->flags = O_WRONLY;
 				write_end->fd_flags = FD_CLOEXEC;
+			}
+
+			/* Map shared-memory pipe ring buffer if available */
+			if(shm_id > 0) {
+				shm_pipe_t* ring = (shm_pipe_t*)shmat(shm_id, NULL, 0);
+				if(ring != NULL) {
+					if(fd[0] >= 0 && fd[0] < MAX_OPEN_FILE_PER_PROC)
+						_pipe_shm[fd[0]] = ring;
+					if(fd[1] >= 0 && fd[1] < MAX_OPEN_FILE_PER_PROC)
+						_pipe_shm[fd[1]] = ring;
+				}
 			}
 		}
 		else {

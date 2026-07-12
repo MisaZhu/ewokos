@@ -78,14 +78,45 @@ static void telnet_close_shell_input(telnet_relay_t *relay) {
     pthread_mutex_unlock(&relay->lock);
 }
 
+static int write_all_nb(int fd, const uint8_t *buf, size_t len) {
+    size_t sent = 0;
+
+    while(sent < len) {
+        ssize_t ret = write(fd, buf + sent, len - sent);
+        if(ret > 0) {
+            sent += (size_t)ret;
+            continue;
+        }
+        if(ret < 0 && errno == EINTR)
+            continue;
+        if(ret < 0 && errno == EAGAIN) {
+            struct pollfd pfd;
+            pfd.fd = fd;
+            pfd.events = POLLOUT;
+            pfd.revents = 0;
+            poll(&pfd, 1, 100);
+            continue;
+        }
+        return -1;
+    }
+    return 0;
+}
+
 static void *telnet_output_thread(void *arg) {
     telnet_relay_t *relay = (telnet_relay_t *)arg;
     uint8_t buf[BUF_SIZE];
 
+    /* Make socket non-blocking for the output thread so it never stays
+     * stuck in vfs_block(socket_node) — which would cause pipe wakeups
+     * (with a different node token) to be rejected by the kernel. */
+    int flags = fcntl(relay->clnt_sock, F_GETFL, 0);
+    if(flags >= 0)
+        fcntl(relay->clnt_sock, F_SETFL, flags | O_NONBLOCK);
+
     while(1) {
         ssize_t ret = read(relay->output_read_fd, buf, sizeof(buf));
         if(ret > 0) {
-            if(write_all(relay->clnt_sock, buf, (size_t)ret) != 0) {
+            if(write_all_nb(relay->clnt_sock, buf, (size_t)ret) != 0) {
                 telnet_close_shell_input(relay);
                 telnet_close_socket(relay);
                 break;
@@ -207,8 +238,14 @@ static void telnet_session_relay(int clnt_sock, int input_write_fd, int output_r
             }
             continue;
         }
-        if(ret < 0 && errno == EINTR)
+        if(ret < 0 && (errno == EINTR || errno == EAGAIN)) {
+            struct pollfd pfd;
+            pfd.fd = relay.clnt_sock;
+            pfd.events = POLLIN;
+            pfd.revents = 0;
+            poll(&pfd, 1, 200);
             continue;
+        }
         telnet_close_shell_input(&relay);
         telnet_close_socket(&relay);
         break;

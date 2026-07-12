@@ -17,6 +17,8 @@
 #include <ewoksys/syscall.h>
 #include <ewoksys/hashmap.h>
 #include <ewoksys/queue.h>
+#include <ewoksys/shm_pipe.h>
+#include <sys/shm.h>
 #include <procinfo.h>
 #include <sysinfo.h>
 
@@ -27,6 +29,7 @@ typedef struct vfs_node {
   struct vfs_node* next; /*next brother*/
   struct vfs_node* prev; /*prev brother*/
   void* data_ptr;
+  shm_pipe_t* shm_ring;     /* shared-memory pipe ring (NULL if not allocated) */
   uint32_t node_id;
   uint32_t kids_num;
 
@@ -725,13 +728,22 @@ static void sync_pipe_poll_events(vfs_node_t* node) {
 		return;
 
 	uint32_t events = node->events & ~(VFS_EVT_RD | VFS_EVT_WR);
-	buffer_t* buffer = (buffer_t*)node->data_ptr;
-	if(buffer != NULL) {
-		int32_t rest = buffer->size - buffer->offset;
-		if(rest > 0)
+
+	if(node->shm_ring != NULL) {
+		/* shared-memory pipe: check ring buffer directly */
+		if(shm_pipe_readable(node->shm_ring) > 0)
 			events |= VFS_EVT_RD;
-		if(rest < BUFFER_SIZE)
+		if(shm_pipe_writable(node->shm_ring) > 0)
 			events |= VFS_EVT_WR;
+	} else {
+		buffer_t* buffer = (buffer_t*)node->data_ptr;
+		if(buffer != NULL) {
+			int32_t rest = buffer->size - buffer->offset;
+			if(rest > 0)
+				events |= VFS_EVT_RD;
+			if(rest < BUFFER_SIZE)
+				events |= VFS_EVT_WR;
+		}
 	}
 	node->events = events;
 }
@@ -827,21 +839,50 @@ static void proc_file_close(int pid, int fd, file_t* file) {
 	if(node->fsinfo.type == FS_TYPE_PIPE) {
 		uint32_t read_refs = (node->refs >= node->refs_w) ? (node->refs - node->refs_w) : 0;
 		int32_t unread = 0;
-		buffer_t* buffer = (buffer_t*)node->data_ptr;
-		if(buffer != NULL) {
-			unread = buffer->size - buffer->offset;
-			if(unread < 0)
-				unread = 0;
+
+		if(node->shm_ring != NULL) {
+			unread = shm_pipe_readable(node->shm_ring);
+		} else {
+			buffer_t* buffer = (buffer_t*)node->data_ptr;
+			if(buffer != NULL) {
+				unread = buffer->size - buffer->offset;
+				if(unread < 0)
+					unread = 0;
+			}
 		}
+
 		bool expose_close = (read_refs == 0) || (node->refs_w == 0);
-		if(expose_close)
+		if(expose_close) {
 			node->events |= VFS_EVT_CLOSE;
+			/* Set close flags in shared ring so userspace readers/writers
+			 * can detect close without IPC to vfsd. */
+			if(node->shm_ring != NULL) {
+				if(node->refs_w == 0) {
+					__atomic_store_n(&node->shm_ring->writer_closed, 1, __ATOMIC_RELEASE);
+					/* Wake shm-path reader directly */
+					int32_t rpid = __atomic_load_n(&node->shm_ring->reader_pid, __ATOMIC_RELAXED);
+					if(rpid > 0)
+						proc_wakeup_by(rpid, node->node_id);
+				}
+				if(read_refs == 0) {
+					__atomic_store_n(&node->shm_ring->reader_closed, 1, __ATOMIC_RELEASE);
+					/* Wake shm-path writer directly */
+					int32_t wpid = __atomic_load_n(&node->shm_ring->writer_pid, __ATOMIC_RELAXED);
+					if(wpid > 0)
+						proc_wakeup_by(wpid, node->node_id);
+				}
+			}
+		}
 		else
 			node->events &= ~VFS_EVT_CLOSE;
 		sync_pipe_poll_events(node);
 
 		if(node->refs <= 0) {
 			if(node->fsinfo.name[0] == 0) { //no refs and not fifo pipe
+				if(node->shm_ring != NULL) {
+					shmdt(node->shm_ring);
+					node->shm_ring = NULL;
+				}
 				buffer_t* buffer = (buffer_t*)node->data_ptr;
 				if(buffer != NULL)
 					free(buffer);
@@ -1070,6 +1111,7 @@ static void do_vfs_new_node(int pid, proto_t* in, proto_t* out) {
 		buffer_t* buf = (buffer_t*)malloc(sizeof(buffer_t));
 		memset(buf, 0, sizeof(buffer_t));
 		node->data_ptr = buf;
+		node->shm_ring = NULL;
 		node->fsinfo.data = 0;
 		/*
 		 * A freshly created FIFO must advertise its true poll state
@@ -1292,10 +1334,36 @@ static void do_vfs_pipe_open(int32_t pid, proto_t* out) {
 	node->fsinfo.stat.uid = procinfo.uid;
 	node->fsinfo.stat.gid = procinfo.gid;
 
-	buffer_t* buf = (buffer_t*)malloc(sizeof(buffer_t));
-	memset(buf, 0, sizeof(buffer_t));
-	node->data_ptr = buf;
-	node->fsinfo.data = 0;
+	/*
+	 * Allocate a shared-memory ring buffer so reader/writer can transfer
+	 * data directly without IPC to vfsd. Falls back to the old buffer_t
+	 * path if shm allocation fails.
+	 */
+	int32_t shm_id = shmget(IPC_PRIVATE, SHM_PIPE_PAGE_SIZE, IPC_CREAT | 0666);
+	if(shm_id > 0) {
+		shm_pipe_t* ring = (shm_pipe_t*)shmat(shm_id, NULL, 0);
+		if(ring != NULL) {
+			uint32_t nid = vfs_get_node_id(node);
+			shm_pipe_init(ring, nid, shm_id);
+			node->shm_ring = ring;
+			node->data_ptr = NULL;
+			node->fsinfo.data = (uint32_t)shm_id;
+		} else {
+			/* shm map failed, fall back to buffer */
+			buffer_t* buf = (buffer_t*)malloc(sizeof(buffer_t));
+			memset(buf, 0, sizeof(buffer_t));
+			node->data_ptr = buf;
+			node->shm_ring = NULL;
+			node->fsinfo.data = 0;
+		}
+	} else {
+		/* shm alloc failed, fall back to buffer */
+		buffer_t* buf = (buffer_t*)malloc(sizeof(buffer_t));
+		memset(buf, 0, sizeof(buffer_t));
+		node->data_ptr = buf;
+		node->shm_ring = NULL;
+		node->fsinfo.data = 0;
+	}
 	sync_pipe_poll_events(node);
 
 	int32_t fd0 = vfs_open(pid, node, O_RDONLY);
@@ -1313,6 +1381,7 @@ static void do_vfs_pipe_open(int32_t pid, proto_t* out) {
 	PF->clear(out)->addi(out, 0)->
 			addi(out, fd0)->
 			addi(out, fd1)->
+			addi(out, shm_id > 0 ? shm_id : 0)->
 			add(out, gen_fsinfo(node), sizeof(fsinfo_t));
 }
 
@@ -1344,28 +1413,43 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 		return;
 	}
 
-	buffer_t* buffer = (buffer_t*)node->data_ptr;
-	if(buffer == NULL) { //pipe buffer not ready 
-		sync_pipe_poll_events(node);
-		return;
-	}
-
-	size = buffer_write(buffer, data, size);
-	if(size > 0) {
-		node->fsinfo.state |= FS_STATE_CHANGED;
-		sync_pipe_poll_events(node);
-		do_node_wakeup(node, VFS_EVT_RD);
-		PF->clear(out)->addi(out, size);
-		return;
+	if(node->shm_ring != NULL) {
+		/* Write to shared ring buffer (same store used by direct shm path) */
+		int32_t n = shm_pipe_write(node->shm_ring, data, size);
+		if(n > 0) {
+			sync_pipe_poll_events(node);
+			do_node_wakeup(node, VFS_EVT_RD);
+			/* Also wake the shm-path reader directly (it bypasses wait queue) */
+			int32_t rpid = __atomic_load_n(&node->shm_ring->reader_pid, __ATOMIC_RELAXED);
+			if(rpid > 0)
+				proc_wakeup_by(rpid, node_id);
+			PF->clear(out)->addi(out, n);
+			return;
+		}
+	} else {
+		buffer_t* buffer = (buffer_t*)node->data_ptr;
+		if(buffer == NULL) {
+			sync_pipe_poll_events(node);
+			return;
+		}
+		size = buffer_write(buffer, data, size);
+		if(size > 0) {
+			node->fsinfo.state |= FS_STATE_CHANGED;
+			sync_pipe_poll_events(node);
+			do_node_wakeup(node, VFS_EVT_RD);
+			PF->clear(out)->addi(out, size);
+			return;
+		}
 	}
 
 	/*
 	 * Buffer is full. If the caller requested blocking, register the
-	 * process on the write wait queue atomically — same optimization as
-	 * the read path: eliminates the separate VFS_GET_POLL_EVENTS +
-	 * VFS_BLOCK + VFS_GET_POLL_EVENTS round-trips.
+	 * process on the write wait queue atomically.
+	 * Also store the pid in shm ring so the shm-path reader can wake us.
 	 */
 	if(block) {
+		if(node->shm_ring != NULL)
+			__atomic_store_n(&node->shm_ring->writer_pid, pid, __ATOMIC_RELAXED);
 		vfs_track_task_slot(pid);
 		uint32_t uuid = proc_get_uuid(pid);
 		if(uuid != 0)
@@ -1394,53 +1478,84 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 	if(node == NULL || size < 0)
 		return;
 
-	buffer_t* buffer = (buffer_t*)node->data_ptr;
-	if(buffer == NULL) { //buffer not ready 
-		sync_pipe_poll_events(node);
-		return;
-	}
+	if(node->shm_ring != NULL) {
+		/* Read from shared ring buffer (same store used by direct shm path) */
+		int32_t avail = shm_pipe_readable(node->shm_ring);
 
-	int32_t unread = buffer->size - buffer->offset;
-	if(unread < 0)
-		unread = 0;
-
-	if(unread == 0 && node->refs_w == 0) { // writer side closed and no buffered data left
-		node->events |= VFS_EVT_CLOSE;
-		sync_pipe_poll_events(node);
-		do_node_wakeup(node, VFS_EVT_CLOSE);
-   		return;
-	}
-
-	if(unread > 0 && size > 0) {
-		size = size < unread ? size : unread;
-		if(size > 0) {
-			PF->clear(out)->addi(out, size)->add(out, buffer->buffer + buffer->offset, size);
-			buffer->offset += size;
-			if(buffer->offset == buffer->size) {
-				buffer->offset = 0;
-				buffer->size = 0;
-			}
-			int32_t unread_after = buffer->size - buffer->offset;
-			if(unread_after < 0)
-				unread_after = 0;
-			if(unread_after == 0 && node->refs_w == 0)
-				node->events |= VFS_EVT_CLOSE;
+		if(avail == 0 && node->refs_w == 0) {
+			node->events |= VFS_EVT_CLOSE;
 			sync_pipe_poll_events(node);
-			do_node_wakeup(node, VFS_EVT_WR);
-			if(unread_after == 0 && node->refs_w == 0)
-				do_node_wakeup(node, VFS_EVT_CLOSE);
+			do_node_wakeup(node, VFS_EVT_CLOSE);
 			return;
+		}
+
+		if(avail > 0 && size > 0) {
+			char tmp[SHM_PIPE_DATA_SIZE];
+			int32_t n = shm_pipe_read(node->shm_ring, tmp, size < avail ? size : avail);
+			if(n > 0) {
+				PF->clear(out)->addi(out, n)->add(out, tmp, n);
+				sync_pipe_poll_events(node);
+				do_node_wakeup(node, VFS_EVT_WR);
+				/* Also wake the shm-path writer directly (it bypasses wait queue) */
+				int32_t wpid = __atomic_load_n(&node->shm_ring->writer_pid, __ATOMIC_RELAXED);
+				if(wpid > 0)
+					proc_wakeup_by(wpid, node_id);
+				if(shm_pipe_readable(node->shm_ring) == 0 && node->refs_w == 0) {
+					node->events |= VFS_EVT_CLOSE;
+					do_node_wakeup(node, VFS_EVT_CLOSE);
+				}
+				return;
+			}
+		}
+	} else {
+		buffer_t* buffer = (buffer_t*)node->data_ptr;
+		if(buffer == NULL) {
+			sync_pipe_poll_events(node);
+			return;
+		}
+
+		int32_t unread = buffer->size - buffer->offset;
+		if(unread < 0)
+			unread = 0;
+
+		if(unread == 0 && node->refs_w == 0) {
+			node->events |= VFS_EVT_CLOSE;
+			sync_pipe_poll_events(node);
+			do_node_wakeup(node, VFS_EVT_CLOSE);
+			return;
+		}
+
+		if(unread > 0 && size > 0) {
+			size = size < unread ? size : unread;
+			if(size > 0) {
+				PF->clear(out)->addi(out, size)->add(out, buffer->buffer + buffer->offset, size);
+				buffer->offset += size;
+				if(buffer->offset == buffer->size) {
+					buffer->offset = 0;
+					buffer->size = 0;
+				}
+				int32_t unread_after = buffer->size - buffer->offset;
+				if(unread_after < 0)
+					unread_after = 0;
+				if(unread_after == 0 && node->refs_w == 0)
+					node->events |= VFS_EVT_CLOSE;
+				sync_pipe_poll_events(node);
+				do_node_wakeup(node, VFS_EVT_WR);
+				if(unread_after == 0 && node->refs_w == 0)
+					do_node_wakeup(node, VFS_EVT_CLOSE);
+				return;
+			}
 		}
 	}
 
 	/*
 	 * Pipe is empty but writer is still alive. If the caller requested
-	 * blocking, register the process on the read wait queue atomically —
-	 * this eliminates the separate VFS_GET_POLL_EVENTS + VFS_BLOCK +
-	 * VFS_GET_POLL_EVENTS round-trips the client would otherwise need.
-	 * The client can safely proc_block_by(node) after receiving 0.
+	 * blocking, register the process on the read wait queue atomically.
+	 * Also store the pid in shm ring so the shm-path writer can wake us.
 	 */
 	if(block) {
+		if(node->shm_ring != NULL)
+			__atomic_store_n(&node->shm_ring->reader_pid, pid, __ATOMIC_RELAXED);
 		vfs_track_task_slot(pid);
 		uint32_t uuid = proc_get_uuid(pid);
 		if(uuid != 0)

@@ -156,6 +156,7 @@ inline int proc_fork(void) {
 	if(ret == 0) {
 		_current_pid = -1;
 		proc_getpid(-1);
+		vfs_on_fork();
 	}
 	return ret;
 }
