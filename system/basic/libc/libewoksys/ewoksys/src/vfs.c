@@ -319,15 +319,33 @@ static int read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block
 	shm_pipe_t* ring = get_pipe_shm(fd, file);
 
 	if(ring != NULL) {
-		/* Fast path: shared-memory pipe — zero IPC */
+		/*
+		 * Fast path: shared-memory pipe — zero IPC.
+		 *
+		 * reader_pid/writer_pid are NOT a persistent "who last touched this
+		 * pipe" marker — they are a one-shot block registration. A peer is
+		 * stamped ONLY right before it enters proc_block_by, and the counter-
+		 * party CLEARS the stamp (atomic exchange) after it fires the wake.
+		 *
+		 * Why this matters: proc_wakeup_by() in the kernel destroys any non-
+		 * BLOCK state (WAIT/SLEEP/READY) unconditionally on the else branch.
+		 * If we kept a stale writer_pid stamped after every write, a later
+		 * unrelated read would wake a writer that is no longer blocked — e.g.
+		 * a shell that just fork()+waitpid()'d after echoing its prompt would
+		 * still be stamped as writer_pid; the telnet relay's next read of
+		 * pending echo bytes would then yank the shell out of WAIT before its
+		 * child actually exited, producing a premature prompt.
+		 */
 		int32_t my_pid = thread_get_id();
-		__atomic_store_n(&ring->reader_pid, my_pid, __ATOMIC_RELAXED);
 
 		while(1) {
 			int32_t n = shm_pipe_read(ring, buf, (int32_t)size);
 			if(n > 0) {
-				/* Wake writer if it might be sleeping on full buffer */
-				int32_t wpid = __atomic_load_n(&ring->writer_pid, __ATOMIC_RELAXED);
+				/* Consume the writer's block registration (if any) and wake
+				 * it exactly once. Exchange guarantees the stamp cannot
+				 * survive to fire a second, stale wake. */
+				int32_t wpid = __atomic_exchange_n(&ring->writer_pid, 0,
+						__ATOMIC_ACQUIRE);
 				if(wpid > 0)
 					proc_wakeup_by(wpid, node);
 				return n;
@@ -337,8 +355,18 @@ static int read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block
 				return -1;
 			if(!block)
 				return 0;
-			/* Sleep until writer wakes us */
+			/* Register-then-recheck: publish our pid so a writer producing
+			 * data between the last shm_pipe_read and proc_block_by can
+			 * still wake us; the kernel latches wake_pending in that gap. */
+			__atomic_store_n(&ring->reader_pid, my_pid, __ATOMIC_RELEASE);
+			if(shm_pipe_readable(ring) > 0 ||
+					__atomic_load_n(&ring->writer_closed, __ATOMIC_ACQUIRE)) {
+				/* Producer beat us — retire the registration and retry. */
+				__atomic_store_n(&ring->reader_pid, 0, __ATOMIC_RELAXED);
+				continue;
+			}
 			proc_block_by(node);
+			__atomic_store_n(&ring->reader_pid, 0, __ATOMIC_RELAXED);
 		}
 	}
 
@@ -370,10 +398,11 @@ static int write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, boo
 	shm_pipe_t* ring = get_pipe_shm(fd, file);
 
 	if(ring != NULL) {
-		/* Fast path: shared-memory pipe — zero IPC */
+		/* Fast path: shared-memory pipe — zero IPC.
+		 * See read_pipe() for the rationale behind stamping reader_pid/
+		 * writer_pid only at block time and clearing the peer's stamp with
+		 * an atomic exchange after firing the wake. */
 		int32_t my_pid = thread_get_id();
-		__atomic_store_n(&ring->writer_pid, my_pid, __ATOMIC_RELAXED);
-
 		const char* p = (const char*)buf;
 		int32_t total = 0;
 
@@ -385,16 +414,25 @@ static int write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, boo
 			int32_t n = shm_pipe_write(ring, p + total, (int32_t)size - total);
 			if(n > 0) {
 				total += n;
-				/* Wake reader if it might be sleeping on empty buffer */
-				int32_t rpid = __atomic_load_n(&ring->reader_pid, __ATOMIC_RELAXED);
+				/* Consume the reader's block registration (if any) — see
+				 * read_pipe() for why this must be exchange, not load. */
+				int32_t rpid = __atomic_exchange_n(&ring->reader_pid, 0,
+						__ATOMIC_ACQUIRE);
 				if(rpid > 0)
 					proc_wakeup_by(rpid, node);
 			} else {
 				/* Ring full */
 				if(!block)
 					return total > 0 ? total : 0;
-				/* Sleep until reader makes space */
+				/* Register-then-recheck (mirror of read_pipe). */
+				__atomic_store_n(&ring->writer_pid, my_pid, __ATOMIC_RELEASE);
+				if(shm_pipe_writable(ring) > 0 ||
+						__atomic_load_n(&ring->reader_closed, __ATOMIC_ACQUIRE)) {
+					__atomic_store_n(&ring->writer_pid, 0, __ATOMIC_RELAXED);
+					continue;
+				}
 				proc_block_by(node);
+				__atomic_store_n(&ring->writer_pid, 0, __ATOMIC_RELAXED);
 			}
 		}
 		return total;
