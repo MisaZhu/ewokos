@@ -21,12 +21,15 @@
 #define TELNET_DO   253
 #define TELNET_WONT 252
 #define TELNET_WILL 251
+#define TELNET_SB   250
+#define TELNET_SE   240
 
 #define TELNET_OPT_ECHO 1
 #define TELNET_OPT_SUPPRESS_GA 3
 #define TELNET_OPT_LINEMODE 34
 
 static int write_all(int fd, const uint8_t *buf, size_t len);
+static int write_all_nb(int fd, const uint8_t *buf, size_t len);
 
 static void close_fd_if_valid(int *fd) {
     if(fd != NULL && *fd >= 0) {
@@ -57,8 +60,123 @@ typedef struct {
     int output_read_fd;
     int socket_open;
     int shell_input_open;
+    int input_iac_state;
+    int input_prev_cr;
+    int output_prev_cr;
     pthread_mutex_t lock;
 } telnet_relay_t;
+
+static size_t telnet_filter_input(telnet_relay_t *relay, uint8_t *dst,
+        const uint8_t *src, size_t len) {
+    size_t out = 0;
+
+    for(size_t i = 0; i < len; i++) {
+        uint8_t c = src[i];
+
+        if(relay->input_prev_cr && relay->input_iac_state == 0) {
+            relay->input_prev_cr = 0;
+            if(c == '\n' || c == '\0') {
+                dst[out++] = '\n';
+                continue;
+            }
+            dst[out++] = '\n';
+        }
+
+        switch(relay->input_iac_state) {
+        case 0:
+            if(c == TELNET_IAC) {
+                relay->input_iac_state = 1;
+            } else if(c == '\r') {
+                relay->input_prev_cr = 1;
+            } else {
+                dst[out++] = c;
+            }
+            break;
+        case 1:
+            if(c == TELNET_IAC) {
+                dst[out++] = TELNET_IAC;
+                relay->input_iac_state = 0;
+            } else if(c == TELNET_DO || c == TELNET_DONT ||
+                    c == TELNET_WILL || c == TELNET_WONT) {
+                relay->input_iac_state = 2;
+            } else {
+                relay->input_iac_state = (c == TELNET_SB) ? 3 : 0;
+            }
+            break;
+        case 2:
+            relay->input_iac_state = 0;
+            break;
+        case 3:
+            if(c == TELNET_IAC)
+                relay->input_iac_state = 4;
+            break;
+        case 4:
+            relay->input_iac_state = (c == TELNET_SE) ? 0 : 3;
+            break;
+        default:
+            relay->input_iac_state = 0;
+            break;
+        }
+    }
+    return out;
+}
+
+static int telnet_flush_input_tail(telnet_relay_t *relay) {
+    uint8_t lf = '\n';
+
+    if(!relay->input_prev_cr)
+        return 0;
+
+    relay->input_prev_cr = 0;
+    return write_all(relay->input_write_fd, &lf, 1);
+}
+
+static size_t telnet_encode_output(telnet_relay_t *relay, uint8_t *dst,
+        const uint8_t *src, size_t len) {
+    size_t out = 0;
+
+    for(size_t i = 0; i < len; i++) {
+        uint8_t c = src[i];
+
+        if(relay->output_prev_cr) {
+            relay->output_prev_cr = 0;
+            if(c == '\n') {
+                dst[out++] = '\r';
+                dst[out++] = '\n';
+                continue;
+            }
+            dst[out++] = '\r';
+            dst[out++] = '\0';
+        }
+
+        if(c == '\r') {
+            relay->output_prev_cr = 1;
+            continue;
+        }
+        if(c == '\n') {
+            dst[out++] = '\r';
+            dst[out++] = '\n';
+            continue;
+        }
+        if(c == TELNET_IAC) {
+            dst[out++] = TELNET_IAC;
+            dst[out++] = TELNET_IAC;
+            continue;
+        }
+        dst[out++] = c;
+    }
+    return out;
+}
+
+static int telnet_flush_output_tail(telnet_relay_t *relay) {
+    static const uint8_t cr_nul[2] = {'\r', '\0'};
+
+    if(!relay->output_prev_cr)
+        return 0;
+
+    relay->output_prev_cr = 0;
+    return write_all_nb(relay->clnt_sock, cr_nul, sizeof(cr_nul));
+}
 
 static void telnet_close_socket(telnet_relay_t *relay) {
     pthread_mutex_lock(&relay->lock);
@@ -105,6 +223,7 @@ static int write_all_nb(int fd, const uint8_t *buf, size_t len) {
 static void *telnet_output_thread(void *arg) {
     telnet_relay_t *relay = (telnet_relay_t *)arg;
     uint8_t buf[BUF_SIZE];
+    uint8_t outbuf[BUF_SIZE * 2];
 
     /* Make socket non-blocking for the output thread so it never stays
      * stuck in vfs_block(socket_node) — which would cause pipe wakeups
@@ -116,7 +235,8 @@ static void *telnet_output_thread(void *arg) {
     while(1) {
         ssize_t ret = read(relay->output_read_fd, buf, sizeof(buf));
         if(ret > 0) {
-            if(write_all_nb(relay->clnt_sock, buf, (size_t)ret) != 0) {
+            size_t out_len = telnet_encode_output(relay, outbuf, buf, (size_t)ret);
+            if(out_len > 0 && write_all_nb(relay->clnt_sock, outbuf, out_len) != 0) {
                 telnet_close_shell_input(relay);
                 telnet_close_socket(relay);
                 break;
@@ -125,7 +245,12 @@ static void *telnet_output_thread(void *arg) {
         }
         if(ret < 0 && errno == EINTR)
             continue;
-        telnet_close_socket(relay);
+        if(telnet_flush_output_tail(relay) != 0) {
+            telnet_close_shell_input(relay);
+            telnet_close_socket(relay);
+        } else {
+            telnet_close_socket(relay);
+        }
         break;
     }
     return NULL;
@@ -213,6 +338,7 @@ static void telnet_session_relay(int clnt_sock, int input_write_fd, int output_r
     telnet_relay_t relay;
     pthread_t out_tid;
     uint8_t buf[BUF_SIZE];
+    uint8_t clean[BUF_SIZE + 1];
     memset(&relay, 0, sizeof(relay));
     relay.clnt_sock = clnt_sock;
     relay.input_write_fd = input_write_fd;
@@ -232,7 +358,8 @@ static void telnet_session_relay(int clnt_sock, int input_write_fd, int output_r
     while(1) {
         ssize_t ret = read(relay.clnt_sock, buf, sizeof(buf));
         if(ret > 0) {
-            if(write_all(relay.input_write_fd, buf, (size_t)ret) != 0) {
+            size_t clean_len = telnet_filter_input(&relay, clean, buf, (size_t)ret);
+            if(clean_len > 0 && write_all(relay.input_write_fd, clean, clean_len) != 0) {
                 telnet_close_shell_input(&relay);
                 break;
             }
@@ -246,6 +373,8 @@ static void telnet_session_relay(int clnt_sock, int input_write_fd, int output_r
             poll(&pfd, 1, 200);
             continue;
         }
+        if(telnet_flush_input_tail(&relay) != 0)
+            telnet_close_shell_input(&relay);
         telnet_close_shell_input(&relay);
         telnet_close_socket(&relay);
         break;
