@@ -179,6 +179,8 @@ struct sshd_session {
     int child_started;
     int sent_close;
     int closing;
+    int peer_eof;
+    int peer_close;
 
     int terminal_width;
     int terminal_height;
@@ -2363,6 +2365,15 @@ static int flush_pending_input(sshd_session_t* s) {
     return 1;
 }
 
+static void maybe_close_child_stdin(sshd_session_t* s) {
+    if((s->peer_eof || s->peer_close) &&
+            s->pending_in_len == s->pending_in_off &&
+            s->child_stdin[CHILD_STDIN_WRITE] >= 0) {
+        close(s->child_stdin[CHILD_STDIN_WRITE]);
+        s->child_stdin[CHILD_STDIN_WRITE] = -1;
+    }
+}
+
 /*
  * queue_input: append data to the pending stdin buffer. Grows as needed.
  */
@@ -2488,17 +2499,13 @@ static int dispatch_session_packet(sshd_session_t* s, const ssh_packet_t* packet
         }
         return 0;
     case SSH_MSG_CHANNEL_EOF:
-        if(s->child_stdin[CHILD_STDIN_WRITE] >= 0) {
-            close(s->child_stdin[CHILD_STDIN_WRITE]);
-            s->child_stdin[CHILD_STDIN_WRITE] = -1;
-        }
+        s->peer_eof = 1;
+        maybe_close_child_stdin(s);
         return 0;
     case SSH_MSG_CHANNEL_CLOSE:
-        if(s->child_stdin[CHILD_STDIN_WRITE] >= 0) {
-            close(s->child_stdin[CHILD_STDIN_WRITE]);
-            s->child_stdin[CHILD_STDIN_WRITE] = -1;
-        }
-        return send_channel_eof_and_close(s);
+        s->peer_close = 1;
+        maybe_close_child_stdin(s);
+        return 0;
     default:
         break;
     }
@@ -2544,6 +2551,7 @@ static int handle_session_packets(sshd_session_t* s) {
                 continue;
             }
         }
+        maybe_close_child_stdin(s);
 
         /* Receive next packet (blocking with internal timeout/retry) */
         if(ssh_packet_receive(s, &packet) < 0) {
