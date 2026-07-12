@@ -300,8 +300,11 @@ static int read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block
 		if(res != 0 || !block)
 			return res;
 
-		if(vfs_block(node, VFS_EVT_RD) != 0)
-			return 0;
+		/*
+		 * vfsd returned 0 (pipe empty) and has already registered us on
+		 * the read wait queue atomically. Just sleep until woken.
+		 */
+		proc_block_by(node);
 	}
 }
 
@@ -324,13 +327,10 @@ static int write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, boo
 			return res;
 
 		/*
-		 * Write returned 0 (buffer full). Block in the kernel until the pipe
-		 * has space (VFS_EVT_WR) or is closed/errored. vfs_block() does a safe
-		 * check-register-recheck so no wakeup can be lost. If it fails (vfsd
-		 * not responding), give up.
+		 * vfsd returned 0 (buffer full) and has already registered us on
+		 * the write wait queue atomically. Just sleep until woken.
 		 */
-		if(vfs_block(node, VFS_EVT_WR) != 0)
-			return 0;
+		proc_block_by(node);
 	}
 }
 

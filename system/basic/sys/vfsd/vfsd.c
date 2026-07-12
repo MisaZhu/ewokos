@@ -86,6 +86,8 @@ static queue_t     _zombie_tasks;
 static queue_t     _driver_close_tasks;
 
 static uint32_t vfs_get_node_id(vfs_node_t* node);
+static void vfs_track_task_slot(int32_t pid);
+static void enqueue_waiter(queue_t* q, int32_t pid, uint32_t uuid, bool wr, uint32_t node_id);
 
 static uint32_t vfs_alloc_node_id(void) {
 	uint32_t node_id = _next_node_id++;
@@ -1328,6 +1330,7 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 
 	int32_t size = 0;
 	void *data = proto_read(in, &size);
+	int32_t block = proto_read_int(in);
 	vfs_node_t* node = vfs_get_node_by_id(node_id);
 	if(size < 0 || data == NULL || node == NULL) {
 		return;
@@ -1356,6 +1359,19 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 		return;
 	}
 
+	/*
+	 * Buffer is full. If the caller requested blocking, register the
+	 * process on the write wait queue atomically — same optimization as
+	 * the read path: eliminates the separate VFS_GET_POLL_EVENTS +
+	 * VFS_BLOCK + VFS_GET_POLL_EVENTS round-trips.
+	 */
+	if(block) {
+		vfs_track_task_slot(pid);
+		uint32_t uuid = proc_get_uuid(pid);
+		if(uuid != 0)
+			enqueue_waiter(&node->write_wait_queue, pid, uuid, true, node_id);
+	}
+
 	sync_pipe_poll_events(node);
 	PF->clear(out)->addi(out, 0); //buffer full(waiting for read), retry
 }
@@ -1374,6 +1390,7 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 
 	vfs_node_t* node = vfs_get_node_by_id(node_id);
 	int32_t size = proto_read_int(in);
+	int32_t block = proto_read_int(in);
 	if(node == NULL || size < 0)
 		return;
 
@@ -1414,6 +1431,20 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 				do_node_wakeup(node, VFS_EVT_CLOSE);
 			return;
 		}
+	}
+
+	/*
+	 * Pipe is empty but writer is still alive. If the caller requested
+	 * blocking, register the process on the read wait queue atomically —
+	 * this eliminates the separate VFS_GET_POLL_EVENTS + VFS_BLOCK +
+	 * VFS_GET_POLL_EVENTS round-trips the client would otherwise need.
+	 * The client can safely proc_block_by(node) after receiving 0.
+	 */
+	if(block) {
+		vfs_track_task_slot(pid);
+		uint32_t uuid = proc_get_uuid(pid);
+		if(uuid != 0)
+			enqueue_waiter(&node->read_wait_queue, pid, uuid, false, node_id);
 	}
 
 	sync_pipe_poll_events(node);
