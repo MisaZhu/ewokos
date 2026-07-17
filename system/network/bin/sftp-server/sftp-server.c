@@ -97,6 +97,16 @@ static handle_t handles[MAX_HANDLES];
 static uint8_t pkt_buf[MAX_PKT_SIZE];
 static uint8_t out_buf[MAX_PKT_SIZE];
 
+static int count_active_handles(void) {
+    int active = 0;
+
+    for (int i = 0; i < MAX_HANDLES; i++) {
+        if (handles[i].type != 0)
+            active++;
+    }
+    return active;
+}
+
 /* ---- Low-level I/O ---- */
 
 static int read_exact(void *buf, size_t n) {
@@ -577,7 +587,6 @@ static int handle_write(const uint8_t *buf, size_t len) {
         }
         total += (size_t)w;
     }
-
     return send_status(id, SSH_FX_OK, "");
 }
 
