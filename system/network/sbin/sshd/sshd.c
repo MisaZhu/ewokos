@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/wait.h>
 #include <pthread.h>
 #include <poll.h>
 #include <arpa/inet.h>
@@ -44,11 +45,13 @@
 #define SSH_MAX_PACKET_SIZE     32768
 #define SSH_LOCAL_WINDOW_SIZE   (1024*1024)
 #define SSH_LOCAL_WINDOW_LOW    (256*1024)
+#define SSH_CHILD_STDIN_STEP    256
 #define SSH_RELAY_READ_SIZE     16384
 #define SSH_SOCKET_WRITE_STEP   1024
 #define SSH_PENDING_INPUT_WAIT_US 1000
 #define SSH_SERVER_VERSION      "SSH-2.0-EwokOS_sshd"
 #define SSH_HOST_KEY_PATH       "/etc/ssh_host_rsa_key.der"
+#define SSHD_MAX_TRACKED_WORKERS 128
 
 #define SSH_MSG_DISCONNECT                      1
 #define SSH_MSG_SERVICE_REQUEST                 5
@@ -216,6 +219,7 @@ static RSA* g_host_rsa = NULL;
 static uint8_t g_hostkey_blob[512];
 static size_t g_hostkey_blob_len = 0;
 static char g_error[256];
+static pid_t g_tracked_workers[SSHD_MAX_TRACKED_WORKERS];
 
 static int write_ssh_string(uint8_t* buf, size_t cap, size_t* off,
         const uint8_t* data, uint32_t len);
@@ -1875,6 +1879,8 @@ static int send_request_failure(sshd_session_t* s) {
     return ssh_packet_send(s, &packet);
 }
 
+static int try_send_window_adjust(sshd_session_t* s);
+
 static size_t ssh_console_copy_crlf(uint8_t* dst, size_t dst_cap,
         const uint8_t* src, size_t src_len) {
     size_t i;
@@ -1969,6 +1975,8 @@ static int send_channel_data_packet(sshd_session_t* s, uint32_t extended_type,
         }
         sshd_remote_window_sub(s, (uint32_t)chunk);
         pthread_mutex_unlock(&s->send_lock);
+        /* Replenish upload credit immediately after sending if owed */
+        try_send_window_adjust(s);
         sent += chunk;
         chunk_index++;
     }
@@ -2043,6 +2051,7 @@ static void* output_relay_thread(void* arg) {
      */
     uint8_t buf[SSH_RELAY_READ_SIZE];
     int remaining;
+    int child_eof = 0;
 
     while(!s->closing) {
         ssize_t n = read(*a->fd, buf, sizeof(buf));
@@ -2053,6 +2062,8 @@ static void* output_relay_thread(void* arg) {
         }
         if(n < 0 && errno == EINTR)
             continue;
+        if(n == 0)
+            child_eof = 1;
         break;
     }
     close_fd_if_valid(a->fd);
@@ -2060,6 +2071,9 @@ static void* output_relay_thread(void* arg) {
     remaining = --s->output_active;
     pthread_mutex_unlock(&s->state_lock);
     if(remaining == 0) {
+        if(child_eof) {
+            (void)send_channel_request_exit_status(s, 0);
+        }
         pthread_mutex_lock(&s->state_lock);
         s->closing = 1;
         pthread_cond_broadcast(&s->remote_window_cv);
@@ -2176,10 +2190,11 @@ static int spawn_child_session(sshd_session_t* s, const char* command, int is_sh
         exit(-1); /* not reached */
     }
 
+    s->child_pid = (pid_t)getppid();
+
     /* Relay child: keep the socket end, drop the shell-side pipe ends. */
     close_fd_if_valid(&s->child_stdin[CHILD_STDIN_READ]);
     close_fd_if_valid(&s->child_stdout[CHILD_STDOUT_WRITE]);
-    (void)set_fd_nonblock(s->child_stdin[CHILD_STDIN_WRITE]);
 
     /*
      * The login shell is now this relay's parent, so we cannot waitpid() for
@@ -2189,7 +2204,6 @@ static int spawn_child_session(sshd_session_t* s, const char* command, int is_sh
      * forwards into the SSH channel, while the main thread runs the inbound
      * packet loop. Total per-session tasks: main inbound + one output thread.
      */
-    s->child_pid = (pid_t)getppid(); /* login process (sftp-server / shell) */
     s->child_started = 1;
 
     s->out_arg.s = s;
@@ -2345,9 +2359,12 @@ subsystem_fail:
  */
 static int flush_pending_input(sshd_session_t* s) {
     while(s->pending_in_off < s->pending_in_len) {
+        size_t chunk = s->pending_in_len - s->pending_in_off;
+        if(chunk > SSH_CHILD_STDIN_STEP)
+            chunk = SSH_CHILD_STDIN_STEP;
         ssize_t n = write(s->child_stdin[CHILD_STDIN_WRITE],
                 s->pending_in + s->pending_in_off,
-                s->pending_in_len - s->pending_in_off);
+                chunk);
         if(n > 0) {
             s->pending_in_off += (size_t)n;
             continue;
@@ -2363,6 +2380,64 @@ static int flush_pending_input(sshd_session_t* s) {
         return 0;
     }
     return 1;
+}
+
+static int wait_child_stdin_writable(sshd_session_t* s) {
+    struct pollfd pfds[3];
+    nfds_t nfds = 0;
+
+    if(s->child_stdin[CHILD_STDIN_WRITE] < 0) {
+        errno = EPIPE;
+        return -1;
+    }
+
+    while(!s->closing) {
+        /* Send WINDOW_ADJUST if owed, prevent peer window stall during backpressure */
+        try_send_window_adjust(s);
+
+        nfds = 0;
+        memset(pfds, 0, sizeof(pfds));
+        pfds[nfds].fd = s->child_stdin[CHILD_STDIN_WRITE];
+        pfds[nfds].events = POLLOUT | POLLHUP | POLLERR | POLLNVAL;
+        nfds++;
+        pfds[nfds].fd = s->close_notify[CHILD_CTRL_READ];
+        pfds[nfds].events = POLLIN | POLLHUP | POLLERR | POLLNVAL;
+        nfds++;
+        if(s->socket >= 0) {
+            pfds[nfds].fd = s->socket;
+            pfds[nfds].events = POLLIN | POLLHUP | POLLERR | POLLNVAL;
+            nfds++;
+        }
+
+        if(poll(pfds, nfds, 50) < 0) {
+            if(errno == EINTR)
+                continue;
+            return -1;
+        }
+        if((pfds[1].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) != 0) {
+            errno = EINTR;
+            return -1;
+        }
+        if((pfds[0].revents & POLLNVAL) != 0) {
+            errno = EBADF;
+            return -1;
+        }
+        if((pfds[0].revents & POLLERR) != 0) {
+            errno = EIO;
+            return -1;
+        }
+        if((pfds[0].revents & POLLHUP) != 0) {
+            errno = EPIPE;
+            return -1;
+        }
+        if((pfds[0].revents & POLLOUT) != 0)
+            return 0;
+        if(nfds > 2 && (pfds[2].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) != 0)
+            return 1;
+    }
+
+    errno = EINTR;
+    return -1;
 }
 
 static void maybe_close_child_stdin(sshd_session_t* s) {
@@ -2382,7 +2457,10 @@ static int queue_input(sshd_session_t* s, const uint8_t* data, size_t len) {
 
     /* First try direct non-blocking write if buffer is empty */
     if(s->pending_in_len == 0 && s->child_stdin[CHILD_STDIN_WRITE] >= 0) {
-        ssize_t n = write(s->child_stdin[CHILD_STDIN_WRITE], data, len);
+        size_t chunk = len;
+        if(chunk > SSH_CHILD_STDIN_STEP)
+            chunk = SSH_CHILD_STDIN_STEP;
+        ssize_t n = write(s->child_stdin[CHILD_STDIN_WRITE], data, chunk);
         if(n > 0) {
             data += n;
             len -= (size_t)n;
@@ -2426,8 +2504,7 @@ static int try_send_window_adjust(sshd_session_t* s) {
     if(s->win_adjust_owe == 0)
         return 0;
 
-    if(pthread_mutex_trylock(&s->send_lock) != 0)
-        return -1; /* contention — defer */
+    pthread_mutex_lock(&s->send_lock);
 
     delta = s->win_adjust_owe;
     memset(&packet, 0, sizeof(packet));
@@ -2477,7 +2554,14 @@ static int handle_channel_data(sshd_session_t* s, const ssh_packet_t* packet) {
 
     if(s->local_window < SSH_LOCAL_WINDOW_LOW) {
         s->win_adjust_owe += (SSH_LOCAL_WINDOW_SIZE - s->local_window);
-        /* local_window will be restored when try_send_window_adjust succeeds */
+        /*
+         * Replenish upload credit immediately instead of waiting for the next
+         * main-loop iteration. Otherwise large buffered writes can spend a long
+         * time draining into child stdin while the peer is already stalled on
+         * an exhausted local window.
+         */
+        if(try_send_window_adjust(s) < 0)
+            return -1;
     }
     return 0;
 }
@@ -2546,9 +2630,21 @@ static int handle_session_packets(sshd_session_t* s) {
          * pending_in.
          */
         if(s->pending_in_len > s->pending_in_off) {
-            if(flush_pending_input(s) != 0) {
-                usleep(SSH_PENDING_INPUT_WAIT_US);
-                continue;
+            int flush_rc = flush_pending_input(s);
+            int wait_rc;
+            if(flush_rc != 0) {
+                wait_rc = wait_child_stdin_writable(s);
+                if(wait_rc < 0) {
+                    rc = -1;
+                    break;
+                }
+                if(wait_rc == 0) {
+                    /* Child stdin is writable again, loop back to flush it */
+                    continue;
+                }
+                /* wait_rc == 1: Socket has data but child stdin is still blocked.
+                 * We MUST fall through to ssh_packet_receive() to read the socket,
+                 * otherwise we'll livelock and miss WINDOW_ADJUST packets! */
             }
         }
         maybe_close_child_stdin(s);
@@ -2629,7 +2725,7 @@ static void session_destroy(sshd_session_t* s) {
     session_signal_close(s);
     session_close_socket(s);
     close_child_fds(s);
-    if(s->child_pid > 0 && !s->child_io_thread_started) {
+    if(s->child_pid > 0) {
         ewok_waitpid(s->child_pid);
         s->child_pid = -1;
     }
@@ -2664,6 +2760,35 @@ static int open_server_socket(int port) {
         }
         close(sock);
         proc_usleep(200000);
+    }
+}
+
+static void track_worker_pid(pid_t pid) {
+    for(size_t i = 0; i < SSHD_MAX_TRACKED_WORKERS; ++i) {
+        if(g_tracked_workers[i] == 0) {
+            g_tracked_workers[i] = pid;
+            return;
+        }
+    }
+}
+
+static void reap_finished_workers(void) {
+    int status;
+
+    for(size_t i = 0; i < SSHD_MAX_TRACKED_WORKERS; ++i) {
+        pid_t pid = g_tracked_workers[i];
+        pid_t rc;
+
+        if(pid <= 0)
+            continue;
+        rc = waitpid(pid, &status, WNOHANG);
+        if(rc == pid) {
+            g_tracked_workers[i] = 0;
+            continue;
+        }
+        if(rc < 0 && errno == ECHILD) {
+            g_tracked_workers[i] = 0;
+        }
     }
 }
 
@@ -2776,6 +2901,8 @@ int main(int argc, char* argv[]) {
     while(true) {
         struct sockaddr_in client_addr;
         socklen_t client_len = sizeof(client_addr);
+
+        reap_finished_workers();
         int client_sock = accept(server_sock, (struct sockaddr*)&client_addr, &client_len);
         if(client_sock < 0) {
             proc_usleep(10000);
@@ -2788,11 +2915,11 @@ int main(int argc, char* argv[]) {
             continue;
         }
         if(pid == 0) {
-            proc_detach();
             close(server_sock);
             serve_client(client_sock);
             exit(0);
         }
+        track_worker_pid(pid);
         close(client_sock);
     }
 
