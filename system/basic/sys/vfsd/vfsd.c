@@ -988,6 +988,37 @@ static vfs_node_t* vfs_dup2(int32_t pid, int32_t from, int32_t to) {
 	if(owner < 0 || owner >= _max_proc_table_num)
 		return NULL;
 
+	/*
+	 * dup2 atomically replaces the target fd; user space never gets a
+	 * chance to close() the overwritten file, so unlike the explicit
+	 * vfs_close() path (where libc notifies the driver first), no
+	 * FS_CMD_CLOSE reaches the driver for the old target. If it owned
+	 * a driver-side reference (driver_ref=1), return it through the
+	 * deferred close queue now — otherwise the driver's per-fd ref
+	 * leaks. A telnet shell's pipeline child dup2()ing a pipe over its
+	 * inherited socket fd 0 (driver_ref=1 from fork) leaked the netd
+	 * connection ref, keeping the connection task alive after exit.
+	 */
+	file_t* f_old = vfs_get_file(owner, to);
+	if(f_old != NULL && f_old->node != NULL) {
+		uint32_t type = f_old->fsinfo.type & FS_TYPE_MASK;
+		if(type != FS_TYPE_FILE &&
+				type != FS_TYPE_DIR &&
+				type != FS_TYPE_LINK &&
+				f_old->driver_ref &&
+				f_old->fsinfo.mount_pid > 0 &&
+				f_old->fsinfo.node != 0) {
+			driver_close_task_t* task =
+				(driver_close_task_t*)malloc(sizeof(driver_close_task_t));
+			if(task != NULL) {
+				task->pid = owner;
+				task->owner_pid = owner;
+				task->fd = to;
+				task->file = *f_old;
+				queue_push(&_driver_close_tasks, task);
+			}
+		}
+	}
 	vfs_close(owner, to);
 	file_t* f_to = vfs_get_file(owner, to);
 	if(f_to == NULL)
