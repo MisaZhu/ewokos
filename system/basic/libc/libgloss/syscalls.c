@@ -17,6 +17,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <sys/wait.h>
+#include <stdint.h>
 #include <syscalls.h>
 #include <sysinfo.h>
 #include <ewoksys/syscall.h>
@@ -808,3 +809,37 @@ void __sync_synchronize(void) {
     __asm__ __volatile__("" ::: "memory");
 #endif
 }
+
+#if defined(__arm__)
+/*
+ * Bare-metal ARM toolchains in this tree do not ship libatomic, but the shm
+ * pipe fast path needs a 32-bit exchange for one-shot wake registrations.
+ * Provide the helper symbol GCC lowers __atomic_exchange_n(..., 4 bytes) to.
+ */
+uint32_t __atomic_exchange_4(volatile void* ptr, uint32_t val, int memmodel) {
+	volatile uint32_t* p = (volatile uint32_t*)ptr;
+	uint32_t old;
+
+	(void)memmodel;
+#if (__ARM_ARCH >= 6)
+	uint32_t tmp;
+	__asm__ __volatile__(
+			"dmb ish\n"
+			"1: ldrex %0, [%2]\n"
+			"strex %1, %3, [%2]\n"
+			"cmp %1, #0\n"
+			"bne 1b\n"
+			"dmb ish\n"
+			: "=&r"(old), "=&r"(tmp)
+			: "r"(p), "r"(val)
+			: "cc", "memory");
+#else
+	__asm__ __volatile__(
+			"swp %0, %2, [%1]\n"
+			: "=&r"(old)
+			: "r"(p), "r"(val)
+			: "memory");
+#endif
+	return old;
+}
+#endif
