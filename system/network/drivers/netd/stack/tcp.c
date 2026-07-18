@@ -105,7 +105,20 @@ struct tcp_pcb {
     uint32_t irs;
     uint16_t mtu;
     uint16_t mss;
-    uint8_t buf[1024*32]; /* receive buffer */
+    /* Receive buffer / advertised window.
+     * Must stay comfortably below the WLAN dongle's TX credit pool
+     * (~25 frames): netd ACKs every inbound segment, so a full-window
+     * burst generates ~wnd/MSS ACKs at once.  Those ACKs can only be
+     * transmitted with credits, and credits are refreshed exclusively
+     * by RX frame headers - which stop the moment the peer's send
+     * window closes.  With a 32KB window (~22 ACKs) the ACK burst
+     * exhausted the credit pool, the peer sat in zero-window silence,
+     * and recovery had to wait out the driver's 500ms starvation
+     * escape per frame (multi-second scp upload stalls).  16KB
+     * (~11 ACKs) keeps the ACK burst self-clocked within the pool.
+     * Throughput ceiling wnd/RTT (~16KB/10ms LAN) is far above the
+     * observed link rate, so this costs nothing in practice. */
+    uint8_t buf[1024*16]; /* receive buffer */
     struct sched_ctx state_ctx;
     struct sched_ctx send_ctx;
     struct sched_ctx recv_ctx;

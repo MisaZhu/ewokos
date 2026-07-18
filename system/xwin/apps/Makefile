@@ -11,6 +11,7 @@ all:
 	cd ximg; $(MAKE)
 	cd xprocs; $(MAKE)
 	cd xDemo; $(MAKE)
+	cd wDemo; $(MAKE)
 	cd xwm_theme; $(MAKE)
 	cd xtheme; $(MAKE)
 	cd xipconfig; $(MAKE)
@@ -30,6 +31,7 @@ clean:
 	cd ximg; $(MAKE) clean
 	cd xprocs; $(MAKE) clean
 	cd xDemo; $(MAKE) clean
+	cd wDemo; $(MAKE) clean
 	cd xwm_theme; $(MAKE) clean
 	cd xtheme; $(MAKE) clean
 	cd xipconfig; $(MAKE) clean
