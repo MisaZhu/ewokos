@@ -13,7 +13,7 @@ enum{
     NET_TASK_FINISH
 };
 
-#define TASK_READ_BUF_SIZE 1024
+#define TASK_READ_BUF_SIZE 1024*16
 typedef struct net_task{
     int fd;
 	int from_pid;

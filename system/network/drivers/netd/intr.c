@@ -54,10 +54,10 @@ struct irq_entry *irq_vec;
 static uint32_t gSignel[SIGMAX] = {0};
 static mutex_t gSignelLock = MUTEX_INITIALIZER;
 
-#define NETD_BUSY_SLEEP_US 10000U
-#define NETD_IDLE_SLEEP_STEP_US 5000U
-#define NETD_IDLE_SLEEP_MAX_US 50000U
-#define NETD_DEEP_IDLE_SLEEP_MAX_US 200000U
+#define NETD_BUSY_SLEEP_US 1000U
+#define NETD_IDLE_SLEEP_STEP_US 1000U
+#define NETD_IDLE_SLEEP_MAX_US 10000U
+#define NETD_DEEP_IDLE_SLEEP_MAX_US 50000U
 
 static uint32_t softirq_pending(uint32_t sig)
 {
