@@ -23,6 +23,68 @@
 
 static char ssh_error_buffer[256];
 
+#define SSH_CHANNEL_LOCAL_WINDOW_SIZE (8 * 1024 * 1024)
+
+static int ssh_channel_send_window_adjust(ssh_session_t *session, uint32_t delta) {
+    ssh_packet_t packet;
+    uint8_t *p;
+
+    if (!session || delta == 0) {
+        return 0;
+    }
+
+    memset(&packet, 0, sizeof(packet));
+    packet.type = SSH_MSG_CHANNEL_WINDOW_ADJUST;
+    p = packet.payload;
+
+    ssh_write_uint32(p, session->channel_remote);
+    p += 4;
+    ssh_write_uint32(p, delta);
+    p += 4;
+
+    packet.payload_len = p - packet.payload;
+    return ssh_packet_send(session, &packet);
+}
+
+static int ssh_channel_store_pending(ssh_session_t *session, const uint8_t *data, size_t len) {
+    if (!session || (!data && len > 0)) {
+        return -1;
+    }
+    if (len > sizeof(session->channel_pending)) {
+        ssh_set_error(session, "Channel payload too large: %zu", len);
+        return -1;
+    }
+    if (len > 0) {
+        memcpy(session->channel_pending, data, len);
+    }
+    session->channel_pending_off = 0;
+    session->channel_pending_len = len;
+    return 0;
+}
+
+static size_t ssh_channel_drain_pending(ssh_session_t *session, void *data, size_t len) {
+    size_t remain;
+    size_t chunk;
+
+    if (!session || !data || len == 0 || session->channel_pending_len == 0) {
+        return 0;
+    }
+
+    remain = session->channel_pending_len - session->channel_pending_off;
+    chunk = remain;
+    if (chunk > len) {
+        chunk = len;
+    }
+
+    memcpy(data, session->channel_pending + session->channel_pending_off, chunk);
+    session->channel_pending_off += chunk;
+    if (session->channel_pending_off == session->channel_pending_len) {
+        session->channel_pending_off = 0;
+        session->channel_pending_len = 0;
+    }
+    return chunk;
+}
+
 /* Helper: Choose algorithm */
 static int ssh_choose_algorithm(const char *client_list, const char *server_list,
                                  char *out, size_t out_len) {
@@ -161,7 +223,7 @@ ssh_session_t *ssh_session_new(void) {
         session->socket = -1;
         session->state = SSH_STATE_INIT;
         session->channel_local = 0;
-        session->window_local = 32768;
+        session->window_local = SSH_CHANNEL_LOCAL_WINDOW_SIZE;
         session->terminal_width = 80;
         session->terminal_height = 24;
         strncpy(session->client_version, SSH_VERSION_STRING, sizeof(session->client_version) - 1);
@@ -1668,6 +1730,11 @@ int ssh_channel_receive_data(ssh_session_t *session, void *data, size_t len) {
     ssh_packet_t packet;
 
     if (!session || !session->authenticated || !data) return -1;
+    if (len == 0) return 0;
+
+    if (session->channel_pending_len > session->channel_pending_off) {
+        return (int)ssh_channel_drain_pending(session, data, len);
+    }
 
     for (;;) {
         if (ssh_packet_receive(session, &packet) < 0) {
@@ -1692,12 +1759,13 @@ int ssh_channel_receive_data(ssh_session_t *session, void *data, size_t len) {
                 return -1;
             }
 
-            if (data_len > len) {
-                data_len = len;
+            if (ssh_channel_store_pending(session, p, data_len) < 0) {
+                return -1;
             }
-
-            memcpy(data, p, data_len);
-            return data_len;
+            if (ssh_channel_send_window_adjust(session, data_len) < 0) {
+                return -1;
+            }
+            return (int)ssh_channel_drain_pending(session, data, len);
         }
 
         if (packet.type == SSH_MSG_CHANNEL_EXTENDED_DATA) {
@@ -1722,11 +1790,13 @@ int ssh_channel_receive_data(ssh_session_t *session, void *data, size_t len) {
             }
 
             if (data_type == 1) {
-                if (data_len > len) {
-                    data_len = len;
+                if (ssh_channel_store_pending(session, p, data_len) < 0) {
+                    return -1;
                 }
-                memcpy(data, p, data_len);
-                return data_len;
+                if (ssh_channel_send_window_adjust(session, data_len) < 0) {
+                    return -1;
+                }
+                return (int)ssh_channel_drain_pending(session, data, len);
             }
             continue;
         }

@@ -68,7 +68,7 @@
 #define HANDLE_DIR  2
 #define WRITEBACK_BUFFER_SIZE (64 * 1024)
 #define MAX_PKT_SIZE (64 * 1024)
-#define MAX_READ_REPLY_DATA (16 * 1024)
+#define MAX_READ_REPLY_DATA (MAX_PKT_SIZE - 1024)
 #define SFTP_EXT_LIMITS "limits@openssh.com"
 #define SFTP_EXT_LIMITS_VER "1"
 #define SFTP_LIMITS_MAX_PACKET ((uint64_t)MAX_PKT_SIZE)

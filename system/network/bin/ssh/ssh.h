@@ -128,6 +128,9 @@ typedef struct ssh_session {
     uint32_t channel_remote;
     uint32_t window_local;
     uint32_t window_remote;
+    uint8_t channel_pending[SSH_MAX_PACKET_SIZE];
+    size_t channel_pending_off;
+    size_t channel_pending_len;
     uint32_t packet_seq_client;
     uint32_t packet_seq_server;
     
