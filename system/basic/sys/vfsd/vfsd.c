@@ -46,6 +46,15 @@ typedef struct vfs_node {
 typedef struct {
   vfs_node_t *node;
   uint32_t flags;
+  /*
+   * Tracks whether this fd owns a driver-side reference that must be
+   * returned with FS_CMD_CLOSE when the fd dies without an explicit
+   * user-space close. Set by vfs_open() (open/accept create driver
+   * state) and by do_vfs_proc_clone() (fork sends FS_CMD_DUP per
+   * inherited fd); cleared by vfs_dup()/vfs_dup2() because same-process
+   * duplication never notifies the driver.
+   */
+  uint32_t driver_ref;
   fsinfo_t fsinfo;
 } file_t;
 
@@ -478,6 +487,7 @@ static int32_t vfs_open(int32_t pid, vfs_node_t* node, int32_t flags) {
 
 	_proc_fds_table[owner].fds[fd].node = node;
 	_proc_fds_table[owner].fds[fd].flags = flags;
+	_proc_fds_table[owner].fds[fd].driver_ref = 1;
 	memcpy(&_proc_fds_table[owner].fds[fd].fsinfo, &node->fsinfo, sizeof(fsinfo_t));
 	_proc_fds_table[owner].fds[fd].fsinfo.node = vfs_get_node_id(node);
 	_proc_fds_table[owner].fds[fd].fsinfo.mount_pid = get_mount_pid(node);
@@ -953,6 +963,9 @@ static vfs_node_t* vfs_dup(int32_t pid, int32_t from, int32_t *ret) {
 		return NULL;
 
 	memcpy(f_to, f, sizeof(file_t));
+	/* Same-process dup() never sends FS_CMD_DUP, so the new fd owns no
+	 * driver-side reference; the surviving source fd keeps it. */
+	f_to->driver_ref = 0;
 	f->node->refs++;
 	if((f->flags & (O_WRONLY | O_RDWR)) != 0)
 		f->node->refs_w++;
@@ -981,6 +994,9 @@ static vfs_node_t* vfs_dup2(int32_t pid, int32_t from, int32_t to) {
 		return NULL;
 
 	memcpy(f_to, f, sizeof(file_t));
+	/* Same-process dup2() never sends FS_CMD_DUP, so the new fd owns no
+	 * driver-side reference; the surviving source fd keeps it. */
+	f_to->driver_ref = 0;
 	f->node->refs++;
 	if((f->flags & (O_WRONLY | O_RDWR)) != 0)
 		f->node->refs_w++;
@@ -1615,38 +1631,29 @@ static void clear_zombie(int32_t cpid) {
 			file_t closing = *f;
 			memset(f, 0, sizeof(file_t));
 			uint32_t type = closing.fsinfo.type & FS_TYPE_MASK;
+			/*
+			 * Queue exactly one FS_CMD_CLOSE per fd that owns a driver-side
+			 * reference (see file_t.driver_ref). Fork sends FS_CMD_DUP per
+			 * inherited fd, so a process can hold several ref-owning fds of
+			 * the same node (e.g. socket stdin + original fd + backup fd in
+			 * a telnet shell's command children); deduplicating per node
+			 * under-closes and leaks the driver task. dup2-created fds own
+			 * no ref and must not be closed here.
+			 */
 			if(type != FS_TYPE_FILE &&
 					type != FS_TYPE_DIR &&
 					type != FS_TYPE_LINK &&
+					closing.driver_ref &&
 					closing.fsinfo.mount_pid > 0 &&
 					closing.fsinfo.node != 0) {
-				/*
-				 * Deduplicate: send exactly ONE FS_CMD_CLOSE per unique device
-				 * node. Same-process dup2 creates multiple fds referencing the
-				 * same node but FS_CMD_DUP is not sent (driver sees one ref per
-				 * fork). Only queue the close task for the LAST fd referencing
-				 * this node — if a later fd still points to it, skip now and
-				 * let that later iteration handle the close.
-				 */
-				bool last_for_node = true;
-				int32_t j;
-				for(j = i + 1; j < MAX_OPEN_FILE_PER_PROC; j++) {
-					file_t *later = &_proc_fds_table[cpid].fds[j];
-					if(later->node == closing.node) {
-						last_for_node = false;
-						break;
-					}
-				}
-				if(last_for_node) {
-					driver_close_task_t* task =
-						(driver_close_task_t*)malloc(sizeof(driver_close_task_t));
-					if(task != NULL) {
-						task->pid = cpid;
-						task->owner_pid = owner_pid;
-						task->fd = i;
-						task->file = closing;
-						queue_push(&_driver_close_tasks, task);
-					}
+				driver_close_task_t* task =
+					(driver_close_task_t*)malloc(sizeof(driver_close_task_t));
+				if(task != NULL) {
+					task->pid = cpid;
+					task->owner_pid = owner_pid;
+					task->fd = i;
+					task->file = closing;
+					queue_push(&_driver_close_tasks, task);
 				}
 			}
 			proc_file_close(cpid, i, &closing);
@@ -1778,6 +1785,13 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 			node->refs++;
 			if((f->flags & (O_WRONLY | O_RDWR)) != 0)
 				node->refs_w++;
+			/*
+			 * Fork notifies the driver for EVERY inherited device fd
+			 * (FS_CMD_DUP below), including fds that were dup2-created
+			 * and carried no driver ref in the parent. The child copy
+			 * therefore always owns a fresh driver-side reference.
+			 */
+			file->driver_ref = 1;
 			vfs_driver_dup(fpid, i, cpid, i, file);
 		}
 	}
