@@ -43,8 +43,8 @@
 
 #define SSH_DEFAULT_PORT        22
 #define SSH_MAX_PACKET_SIZE     32768
-#define SSH_LOCAL_WINDOW_SIZE   (1024*1024)
-#define SSH_LOCAL_WINDOW_LOW    (256*1024)
+#define SSH_LOCAL_WINDOW_SIZE   (64*1024)
+#define SSH_LOCAL_WINDOW_LOW    (48*1024)
 #define SSH_CHILD_STDIN_STEP    256
 #define SSH_RELAY_READ_SIZE     16384
 #define SSH_SOCKET_WRITE_STEP   1024
@@ -52,6 +52,12 @@
 #define SSH_SERVER_VERSION      "SSH-2.0-EwokOS_sshd"
 #define SSH_HOST_KEY_PATH       "/etc/ssh_host_rsa_key.der"
 #define SSHD_MAX_TRACKED_WORKERS 128
+
+#ifdef SSHD_DEBUG
+#define SSHD_DBG(fmt, ...) klog("sshd: " fmt, ##__VA_ARGS__)
+#else
+#define SSHD_DBG(fmt, ...) do { if(0) klog("sshd: " fmt, ##__VA_ARGS__); } while(0)
+#endif
 
 #define SSH_MSG_DISCONNECT                      1
 #define SSH_MSG_SERVICE_REQUEST                 5
@@ -1881,6 +1887,30 @@ static int send_request_failure(sshd_session_t* s) {
 
 static int try_send_window_adjust(sshd_session_t* s);
 
+static void clear_fd_write_poll_event(int fd) {
+    fsinfo_t info;
+
+    if(fd < 0)
+        return;
+    if(vfs_get_by_fd(fd, &info) != 0 || info.node == 0)
+        return;
+    vfs_clear_poll_events(info.node, VFS_EVT_WR);
+}
+
+static void log_fd_write_failure(sshd_session_t* s, int fd, int saved_errno) {
+    fsinfo_t info;
+    int info_rc;
+    int flags;
+
+    info_rc = vfs_get_by_fd(fd, &info);
+    flags = vfs_get_flags(fd);
+    SSHD_DBG("child_stdin fail pid=%d fd=%d err=%d info_rc=%d node=%u type=%u flags=%x\n",
+            (int)s->child_pid, fd, saved_errno, info_rc,
+            info_rc == 0 ? info.node : 0,
+            info_rc == 0 ? info.type : 0,
+            flags);
+}
+
 static size_t ssh_console_copy_crlf(uint8_t* dst, size_t dst_cap,
         const uint8_t* src, size_t src_len) {
     size_t i;
@@ -1926,6 +1956,10 @@ static int send_channel_data_packet(sshd_session_t* s, uint32_t extended_type,
             packet_max = SSH_MAX_PACKET_SIZE;
 
         if(win == 0) {
+            SSHD_DBG("channel_out wait_remote pid=%d ext=%u sent=%u remain=%u\n",
+                    (int)s->child_pid, extended_type,
+                    (unsigned int)sent,
+                    (unsigned int)(payload_len - sent));
             if(sshd_wait_remote_window(s) != 0)
                 break;
             continue;
@@ -1974,6 +2008,9 @@ static int send_channel_data_packet(sshd_session_t* s, uint32_t extended_type,
             return -1;
         }
         sshd_remote_window_sub(s, (uint32_t)chunk);
+        SSHD_DBG("channel_out sent pid=%d ext=%u chunk=%u win_left=%u\n",
+                (int)s->child_pid, extended_type, (unsigned int)chunk,
+                (unsigned int)sshd_remote_window_load(s));
         pthread_mutex_unlock(&s->send_lock);
         /* Replenish upload credit immediately after sending if owed */
         try_send_window_adjust(s);
@@ -2056,6 +2093,8 @@ static void* output_relay_thread(void* arg) {
     while(!s->closing) {
         ssize_t n = read(*a->fd, buf, sizeof(buf));
         if(n > 0) {
+            SSHD_DBG("child_out read pid=%d ext=%u n=%d\n",
+                    (int)s->child_pid, a->ext_type, (int)n);
             if(send_channel_data_packet(s, a->ext_type, buf, (size_t)n) < 0)
                 break;
             continue;
@@ -2174,10 +2213,10 @@ static int spawn_child_session(sshd_session_t* s, const char* command, int is_sh
     }
 
     /*
-     * fork() runs on the connection handler's main thread, so it is safe. The
-     * parent keeps its pid and turns into the login shell (become_login_process
-     * never returns); the forked child inherits the socket + crypto state via
-     * COW and relays the SSH channel for the remainder of the session.
+     * fork() runs on the connection handler's main thread, so it is safe. Keep
+     * the parent as the SSH relay so the listener can continue to track and
+     * reap the per-connection worker normally; run the login shell / sftp-server
+     * in the child process connected through the pipe pair below.
      */
     pid = fork();
     if(pid < 0) {
@@ -2185,24 +2224,27 @@ static int spawn_child_session(sshd_session_t* s, const char* command, int is_sh
         return -1;
     }
 
-    if(pid > 0) {
+    if(pid == 0) {
         become_login_process(s, is_shell ? s->user_info.cmd : command);
         exit(-1); /* not reached */
     }
 
-    s->child_pid = (pid_t)getppid();
-
+    s->child_pid = pid;
     /* Relay child: keep the socket end, drop the shell-side pipe ends. */
     close_fd_if_valid(&s->child_stdin[CHILD_STDIN_READ]);
     close_fd_if_valid(&s->child_stdout[CHILD_STDOUT_WRITE]);
+    if(set_fd_nonblock(s->child_stdin[CHILD_STDIN_WRITE]) < 0) {
+        close_child_fds(s);
+        return -1;
+    }
 
     /*
-     * The login shell is now this relay's parent, so we cannot waitpid() for
-     * it; pipe EOF on the shell's stdout drives session teardown. The shell's
-     * stderr is dup'd onto the same stdout pipe (see become_login_process), so
-     * a single output_relay_thread parks in blocking read() on that pipe and
-     * forwards into the SSH channel, while the main thread runs the inbound
-     * packet loop. Total per-session tasks: main inbound + one output thread.
+     * The login shell / sftp-server is our child process. Pipe EOF on the
+     * child's stdout drives session teardown. The child's stderr is dup'd onto
+     * the same stdout pipe (see become_login_process), so a single
+     * output_relay_thread parks in blocking read() on that pipe and forwards
+     * into the SSH channel, while the main thread runs the inbound packet loop.
+     * Total per-session tasks: main inbound + one output thread.
      */
     s->child_started = 1;
 
@@ -2358,21 +2400,46 @@ subsystem_fail:
  * child_stdin. Returns 0 if fully flushed, 1 if data remains.
  */
 static int flush_pending_input(sshd_session_t* s) {
+    int drained = 0;
+
     while(s->pending_in_off < s->pending_in_len) {
         size_t chunk = s->pending_in_len - s->pending_in_off;
+        int saved_errno;
         if(chunk > SSH_CHILD_STDIN_STEP)
             chunk = SSH_CHILD_STDIN_STEP;
+        errno = 0;
         ssize_t n = write(s->child_stdin[CHILD_STDIN_WRITE],
                 s->pending_in + s->pending_in_off,
                 chunk);
+        saved_errno = errno;
         if(n > 0) {
             s->pending_in_off += (size_t)n;
+            drained += (int)n;
             continue;
         }
-        if(n < 0 && errno == EINTR)
+        if(n < 0 && saved_errno == 0)
+            saved_errno = EAGAIN;
+        if(n < 0 && saved_errno == EINTR)
             continue;
+        if(n < 0 && saved_errno == EAGAIN)
+            clear_fd_write_poll_event(s->child_stdin[CHILD_STDIN_WRITE]);
+        else if(n < 0)
+            log_fd_write_failure(s, s->child_stdin[CHILD_STDIN_WRITE], saved_errno);
         /* EAGAIN or error — stop for now */
+        SSHD_DBG("flush_pending stop pid=%d n=%d err=%d off=%u len=%u chunk=%u\n",
+                (int)s->child_pid, (int)n, saved_errno,
+                (unsigned int)s->pending_in_off,
+                (unsigned int)s->pending_in_len,
+                (unsigned int)chunk);
+        errno = saved_errno;
         break;
+    }
+    if(drained > 0) {
+        pthread_mutex_lock(&s->state_lock);
+        s->win_adjust_owe += (uint32_t)drained;
+        pthread_mutex_unlock(&s->state_lock);
+        if(try_send_window_adjust(s) < 0)
+            return -1;
     }
     if(s->pending_in_off >= s->pending_in_len) {
         s->pending_in_off = 0;
@@ -2430,10 +2497,20 @@ static int wait_child_stdin_writable(sshd_session_t* s) {
             errno = EPIPE;
             return -1;
         }
-        if((pfds[0].revents & POLLOUT) != 0)
+        if((pfds[0].revents & POLLOUT) != 0) {
+            SSHD_DBG("wait_child_stdin writable pid=%d pending=%u/%u\n",
+                    (int)s->child_pid,
+                    (unsigned int)s->pending_in_off,
+                    (unsigned int)s->pending_in_len);
             return 0;
-        if(nfds > 2 && (pfds[2].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) != 0)
+        }
+        if(nfds > 2 && (pfds[2].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) != 0) {
+            SSHD_DBG("wait_child_stdin socket_event pid=%d revents=%x pending=%u/%u\n",
+                    (int)s->child_pid, pfds[2].revents,
+                    (unsigned int)s->pending_in_off,
+                    (unsigned int)s->pending_in_len);
             return 1;
+        }
     }
 
     errno = EINTR;
@@ -2455,20 +2532,6 @@ static void maybe_close_child_stdin(sshd_session_t* s) {
 static int queue_input(sshd_session_t* s, const uint8_t* data, size_t len) {
     size_t avail;
 
-    /* First try direct non-blocking write if buffer is empty */
-    if(s->pending_in_len == 0 && s->child_stdin[CHILD_STDIN_WRITE] >= 0) {
-        size_t chunk = len;
-        if(chunk > SSH_CHILD_STDIN_STEP)
-            chunk = SSH_CHILD_STDIN_STEP;
-        ssize_t n = write(s->child_stdin[CHILD_STDIN_WRITE], data, chunk);
-        if(n > 0) {
-            data += n;
-            len -= (size_t)n;
-        }
-        if(len == 0)
-            return 0;
-    }
-
     /* Compact buffer if needed */
     if(s->pending_in_off > 0 && s->pending_in_len > 0) {
         size_t remain = s->pending_in_len - s->pending_in_off;
@@ -2488,25 +2551,68 @@ static int queue_input(sshd_session_t* s, const uint8_t* data, size_t len) {
     }
     memcpy(s->pending_in + s->pending_in_len, data, len);
     s->pending_in_len += len;
+    /*
+     * Centralize child-stdin writes and WINDOW_ADJUST bookkeeping in
+     * flush_pending_input() so bytes consumed directly from queue_input()
+     * cannot escape the upload credit ledger.
+     */
+    if(flush_pending_input(s) < 0)
+        return -1;
     return 0;
 }
 
 /*
- * try_send_window_adjust: send WINDOW_ADJUST to the client.
- * Uses trylock on send_lock to avoid blocking when the output thread is
- * actively sending data. Returns 0 on success, -1 if deferred.
+ * try_send_window_adjust: send deferred WINDOW_ADJUST to the client.
+ *
+ * The inbound path must never block behind the output thread while it is
+ * streaming channel data, otherwise we can stop reading new client packets
+ * right when more upload credit needs to be granted. If send_lock is busy we
+ * simply leave win_adjust_owe queued for a later attempt.
  */
 static int try_send_window_adjust(sshd_session_t* s) {
     ssh_packet_t packet;
     size_t off = 0;
     uint32_t delta;
+    uint32_t local_window;
 
-    if(s->win_adjust_owe == 0)
+    pthread_mutex_lock(&s->state_lock);
+    delta = s->win_adjust_owe;
+    local_window = s->local_window;
+    pthread_mutex_unlock(&s->state_lock);
+    if(delta == 0)
         return 0;
 
-    pthread_mutex_lock(&s->send_lock);
+    /*
+     * Coalesce upload credit instead of sending tiny WINDOW_ADJUST packets for
+     * every pipe drain fragment (for example 4032 + 128 around the shm-pipe
+     * boundary). Under heavy SFTP upload this control traffic competes with the
+     * output relay thread for send_lock and can starve 21-byte SSH_FXP_STATUS
+     * replies long enough for the client to time out. Keep enough advertised
+     * credit in flight, but only send once the receiver window drops to the low
+     * watermark or we have accumulated at least the low-watermark gap worth of
+     * credit.
+     */
+    if(local_window > SSH_LOCAL_WINDOW_LOW &&
+            delta < (SSH_LOCAL_WINDOW_SIZE - SSH_LOCAL_WINDOW_LOW)) {
+        return 0;
+    }
 
+    if(pthread_mutex_trylock(&s->send_lock) != 0)
+        return 0;
+
+    pthread_mutex_lock(&s->state_lock);
     delta = s->win_adjust_owe;
+    local_window = s->local_window;
+    pthread_mutex_unlock(&s->state_lock);
+    if(delta == 0) {
+        pthread_mutex_unlock(&s->send_lock);
+        return 0;
+    }
+    if(local_window > SSH_LOCAL_WINDOW_LOW &&
+            delta < (SSH_LOCAL_WINDOW_SIZE - SSH_LOCAL_WINDOW_LOW)) {
+        pthread_mutex_unlock(&s->send_lock);
+        return 0;
+    }
     memset(&packet, 0, sizeof(packet));
     packet.type = SSH_MSG_CHANNEL_WINDOW_ADJUST;
     ssh_write_uint32(packet.payload + off, s->remote_channel);
@@ -2519,8 +2625,14 @@ static int try_send_window_adjust(sshd_session_t* s) {
         pthread_mutex_unlock(&s->send_lock);
         return -1;
     }
+    pthread_mutex_lock(&s->state_lock);
     s->local_window += delta;
     s->win_adjust_owe -= delta;
+    SSHD_DBG("window_adjust sent pid=%d delta=%u local=%u owe=%u\n",
+            (int)s->child_pid, delta,
+            (unsigned int)s->local_window,
+            (unsigned int)s->win_adjust_owe);
+    pthread_mutex_unlock(&s->state_lock);
     pthread_mutex_unlock(&s->send_lock);
     return 0;
 }
@@ -2546,22 +2658,24 @@ static int handle_channel_data(sshd_session_t* s, const ssh_packet_t* packet) {
     if(queue_input(s, data, data_len) < 0)
         return -1;
 
-    /* Account consumed local window; accrue WINDOW_ADJUST debt when low */
+    /*
+     * local_window now tracks bytes accepted from the SSH socket but not yet
+     * returned to the peer. Upload credit is replenished only after
+     * flush_pending_input() actually drains data into child stdin, so sshd does
+     * not over-advertise capacity while the child process is backpressured.
+     */
+    pthread_mutex_lock(&s->state_lock);
     if(s->local_window >= data_len)
         s->local_window -= data_len;
     else
         s->local_window = 0;
+    pthread_mutex_unlock(&s->state_lock);
 
-    if(s->local_window < SSH_LOCAL_WINDOW_LOW) {
-        s->win_adjust_owe += (SSH_LOCAL_WINDOW_SIZE - s->local_window);
-        /*
-         * Replenish upload credit immediately instead of waiting for the next
-         * main-loop iteration. Otherwise large buffered writes can spend a long
-         * time draining into child stdin while the peer is already stalled on
-         * an exhausted local window.
-         */
-        if(try_send_window_adjust(s) < 0)
-            return -1;
+    if(s->pending_in_len > s->pending_in_off || data_len >= SSH_LOCAL_WINDOW_LOW) {
+        SSHD_DBG("channel_data pid=%d data=%u pending=%u/%u\n",
+                (int)s->child_pid, data_len,
+                (unsigned int)s->pending_in_off,
+                (unsigned int)s->pending_in_len);
     }
     return 0;
 }
@@ -2682,8 +2796,10 @@ static int handle_session_packets(sshd_session_t* s) {
      * a reader, so the child process may still be stuck in read(). Sending
      * SIGKILL ensures it terminates and does not linger.
      */
-    if(s->child_pid > 1)
+    if(s->child_pid > 1) {
         kill(s->child_pid, SIGKILL);
+        ewok_waitpid(s->child_pid);
+    }
     s->child_pid = -1;
     return rc;
 }
@@ -2703,14 +2819,13 @@ static int session_init(sshd_session_t* s, int sock) {
     if(pipe(s->close_notify) != 0)
         return -1;
     /*
-     * Keep the accepted session socket in blocking mode. Runtime evidence from
-     * SCP/SFTP transfers shows EwokOS can report POLLOUT only in tiny bursts
-     * under backpressure, making ssh_write_n() advance ~1 KiB per wake and
-     * eventually stalling the child stdout -> SSH socket relay pipeline.
-     * Concurrent blocking read/write on the same socket is fine here because
-     * inbound packet handling and outbound relay already run on separate
-     * threads, and teardown closes the socket to unblock either side.
+     * Keep the session socket non-blocking so the output relay never sleeps
+     * forever inside a blocking write() while holding send_lock. The send path
+     * already retries EAGAIN via wait_session_fd_ready(), which is safer than
+     * trusting the kernel/socket stack to always wake a blocking writer.
      */
+    if(set_fd_nonblock(s->socket) != 0)
+        return -1;
     pthread_mutex_init(&s->state_lock, NULL);
     pthread_mutex_init(&s->send_lock, NULL);
     pthread_cond_init(&s->remote_window_cv, NULL);
@@ -2725,7 +2840,8 @@ static void session_destroy(sshd_session_t* s) {
     session_signal_close(s);
     session_close_socket(s);
     close_child_fds(s);
-    if(s->child_pid > 0) {
+    if(s->child_pid > 1) {
+        kill(s->child_pid, SIGKILL);
         ewok_waitpid(s->child_pid);
         s->child_pid = -1;
     }
@@ -2782,6 +2898,7 @@ static void reap_finished_workers(void) {
         if(pid <= 0)
             continue;
         rc = waitpid(pid, &status, WNOHANG);
+        SSHD_DBG("reap worker pid=%d rc=%d err=%d\n", (int)pid, (int)rc, errno);
         if(rc == pid) {
             g_tracked_workers[i] = 0;
             continue;
@@ -2849,6 +2966,7 @@ static int serve_client(int sock) {
     sshd_session_t* session;
     int ret = -1;
 
+    SSHD_DBG("serve_client start sock=%d\n", sock);
     session = (sshd_session_t*)calloc(1, sizeof(*session));
     if(session == NULL) {
         close(sock);
@@ -2861,8 +2979,18 @@ static int serve_client(int sock) {
         return -1;
     }
 
-    if(send_banner(session) < 0 || receive_banner(session) < 0)
+    if(send_banner(session) < 0) {
+        SSHD_DBG("serve_client send_banner fail sock=%d err=%s\n", sock,
+                g_error[0] ? g_error : "unknown");
         goto out;
+    }
+    SSHD_DBG("serve_client banner_sent sock=%d\n", sock);
+    if(receive_banner(session) < 0) {
+        SSHD_DBG("serve_client recv_banner fail sock=%d err=%s\n", sock,
+                g_error[0] ? g_error : "unknown");
+        goto out;
+    }
+    SSHD_DBG("serve_client banner_recv sock=%d client=%s\n", sock, session->client_version);
     if(receive_kexinit(session) < 0)
         goto out;
     if(send_kexinit(session) < 0)
@@ -2879,6 +3007,8 @@ static int serve_client(int sock) {
 out:
     if(ret < 0 && session->socket >= 0)
         send_disconnect(session, SSH_DISCONNECT_BY_APPLICATION, g_error[0] ? g_error : "sshd error");
+    SSHD_DBG("serve_client done sock=%d ret=%d err=%s\n", sock, ret,
+            g_error[0] ? g_error : "none");
     session_destroy(session);
     return ret;
 }
@@ -2903,11 +3033,13 @@ int main(int argc, char* argv[]) {
         socklen_t client_len = sizeof(client_addr);
 
         reap_finished_workers();
+        SSHD_DBG("listener before accept\n");
         int client_sock = accept(server_sock, (struct sockaddr*)&client_addr, &client_len);
         if(client_sock < 0) {
             proc_usleep(10000);
             continue;
         }
+        SSHD_DBG("listener accepted sock=%d\n", client_sock);
 
         int pid = fork();
         if(pid < 0) {
@@ -2919,6 +3051,7 @@ int main(int argc, char* argv[]) {
             serve_client(client_sock);
             exit(0);
         }
+        SSHD_DBG("listener forked pid=%d sock=%d\n", pid, client_sock);
         track_worker_pid(pid);
         close(client_sock);
     }

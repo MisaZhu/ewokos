@@ -935,9 +935,41 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
     case TCP_PCB_STATE_FIN_WAIT1:
     case TCP_PCB_STATE_FIN_WAIT2:
         if (len) {
-            memcpy(pcb->buf + (sizeof(pcb->buf) - pcb->rcv.wnd), data, len);
-            pcb->rcv.nxt = seg->seq + seg->len;
-            pcb->rcv.wnd -= len;
+            size_t copy_off = 0;
+            size_t copy_len = len;
+
+            /*
+             * The checks above only proved the segment overlaps the receive
+             * window somewhere. They do NOT guarantee that payload begins at
+             * RCV.NXT or that the whole payload fits in the remaining window.
+             *
+             * Blindly memcpy()ing the full payload corrupts the receive buffer
+             * and window bookkeeping on retransmits/overlaps, which later
+             * poisons queued send metadata and can crash tcp_output_segment()
+             * with a huge bogus len. Only consume the in-order, in-window tail
+             * that actually advances RCV.NXT.
+             */
+            if (seg->seq < pcb->rcv.nxt) {
+                uint32_t already_recv = pcb->rcv.nxt - seg->seq;
+                if ((size_t)already_recv >= copy_len) {
+                    copy_len = 0;
+                } else {
+                    copy_off = (size_t)already_recv;
+                    copy_len -= copy_off;
+                }
+            } else if (seg->seq > pcb->rcv.nxt) {
+                copy_len = 0;
+            }
+
+            if (copy_len > pcb->rcv.wnd) {
+                copy_len = pcb->rcv.wnd;
+            }
+
+            if (copy_len > 0) {
+                memcpy(pcb->buf + (sizeof(pcb->buf) - pcb->rcv.wnd), data + copy_off, copy_len);
+                pcb->rcv.nxt += copy_len;
+                pcb->rcv.wnd -= copy_len;
+            }
             tcp_output(pcb, TCP_FLG_ACK, NULL, 0);
             tcp_sched_wakeup_all(pcb);
             task_wakeup_tcp_readers(indexof(pcbs, pcb));

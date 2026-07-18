@@ -52,6 +52,10 @@ int network_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int oflag
 
 	net_task_t *task = create_task(fd, from_pid, info->node);
     if(task == NULL) {
+        if(errno == 0)
+            errno = EAGAIN;
+        klog("netd: network_open failed fd=%d from_pid=%d node=%u err=%d\n",
+                fd, from_pid, info->node, errno);
         return -1;
     }
 	info->data = (ewokos_addr_t)task;
@@ -123,6 +127,21 @@ static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
 		pending_main_rd = task->pending_main_rd;
 		if (main_state == NET_TASK_IDLE || main_state == NET_TASK_FINISH) {
 			can_write = 1;
+		}
+		/*
+		 * recv()/recvfrom()/accept() run on the main async-fcntl state machine,
+		 * not read_state. Once the worker has produced a FINISH result, user
+		 * space must continue to observe RD until it consumes task->out;
+		 * otherwise vfs_get_poll_events() can mistake the completion wake for a
+		 * stale readability edge (the listening/data socket may already be
+		 * non-readable again) and clear the only notification that a blocked
+		 * accept()/recv() was waiting for.
+		 */
+		if (main_state == NET_TASK_FINISH &&
+				(task->cmd == SOCK_ACCEPT ||
+				 task->cmd == SOCK_RECV ||
+				 task->cmd == SOCK_RECVFROM)) {
+			events |= VFS_EVT_RD;
 		}
 		if (read_state == NET_TASK_FINISH) {
 			events |= VFS_EVT_RD;

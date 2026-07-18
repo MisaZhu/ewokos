@@ -39,6 +39,9 @@ net_task_t *task_list = NULL;
 #define SOCKS_MAX 128
 #endif
 static net_task_t* sock_to_task[SOCKS_MAX];
+static uint32_t task_total_created = 0;
+static uint32_t task_total_freed = 0;
+static uint32_t task_active_count = 0;
 
 static int task_owner_pid(int from_pid) {
     int owner_pid = proc_getpid(from_pid);
@@ -97,6 +100,10 @@ void start_task(void){
 net_task_t *create_task(int fd, int from_pid, int node){
     net_task_t *task = malloc(sizeof(net_task_t));
     if(task == NULL) {
+        errno = ENOMEM;
+        klog("netd: create_task malloc failed fd=%d from_pid=%d node=%d active=%u created=%u freed=%u\n",
+                fd, from_pid, node, task_active_count, task_total_created,
+                task_total_freed);
         return NULL;
     }
     memset(task, 0 , sizeof(net_task_t));
@@ -112,12 +119,28 @@ net_task_t *create_task(int fd, int from_pid, int node){
     task->running = true;
     task->thread_started = 1;
     task_list_add(task);
+    pthread_mutex_lock(&task_list_lock);
+    task_total_created++;
+    task_active_count++;
+    pthread_mutex_unlock(&task_list_lock);
     if(pthread_create(&task->tid, NULL, task_thread, task) != 0) {
+        int saved_errno = errno;
+        pthread_mutex_lock(&task_list_lock);
+        if(task_active_count > 0)
+            task_active_count--;
+        if(task_total_created > 0)
+            task_total_created--;
+        pthread_mutex_unlock(&task_list_lock);
         task_list_remove(task);
         task->thread_started = 0;
         task->running = false;
         sched_ctx_destroy(&task->wait_ctx);
         free(task);
+        if(saved_errno == 0)
+            saved_errno = EAGAIN;
+        errno = saved_errno;
+        klog("netd: create_task pthread_create failed fd=%d from_pid=%d node=%d err=%d\n",
+                fd, from_pid, node, saved_errno);
         return NULL;
     }
     /*
@@ -904,6 +927,11 @@ static void* task_thread(void* arg){
     PF->clear(&task->read_out);
 
     sched_ctx_destroy(&task->wait_ctx);
+    pthread_mutex_lock(&task_list_lock);
+    if(task_active_count > 0)
+        task_active_count--;
+    task_total_freed++;
+    pthread_mutex_unlock(&task_list_lock);
     free(task);
 
     return NULL;

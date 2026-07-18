@@ -1698,10 +1698,42 @@ void proc_wakeup_by(proc_t* proc, uint32_t token) {
 		 * with the token so only a matching (or generic) block consumes it.
 		 * wake_pending marks presence explicitly because token 0 (a valid
 		 * generic wake) is otherwise indistinguishable from "no wake".
+		 *
+		 * Preserve a previously latched non-zero node token against a later
+		 * generic wake (token 0). vfs_block() issues multiple ipc_call()
+		 * round-trips before the final proc_block_by(node); their generic
+		 * return wakes must not overwrite the real node-scoped wake that just
+		 * arrived from vfsd/netd, otherwise proc_block_by(node) drops the
+		 * downgraded generic wake as incompatible and sleeps forever.
 		 */
 		proc_wakeup_all_state(proc);
-		proc->wake_by = token;
-		proc->wake_pending = 1;
+		if(!proc->wake_pending) {
+			proc->wake_by = token;
+			proc->wake_pending = 1;
+		}
+		else if(proc->wake_by == 0 && token != 0) {
+			/* Upgrade a generic pending wake to a specific node wake. */
+			proc->wake_by = token;
+		}
+		else if(proc->wake_by != 0 && token == 0) {
+			/* Keep the stronger node-scoped wake. */
+		}
+		else if(proc->wake_by != 0 && token != 0 && proc->wake_by != token) {
+			/*
+			 * Preserve the earliest node-scoped wake. A self-blocking thread
+			 * (e.g. accept()/poll()) can receive multiple IPC round-trip wakes
+			 * from unrelated nodes before it finally traps into proc_block_by()
+			 * for the node it just registered with vfsd. If a later different
+			 * node overwrites the original token here, proc_block_by(target)
+			 * drops the mismatched wake as incompatible and sleeps forever even
+			 * though the real target node already fired. VFS still keeps level
+			 * state per node, so losing the later edge is less harmful than
+			 * clobbering the first one that is about to be consumed.
+			 */
+		}
+		else {
+			proc->wake_by = token;
+		}
 	}
 	proc_lock_leave();
 #ifdef KERNEL_SMP

@@ -314,6 +314,21 @@ static inline shm_pipe_t* get_pipe_shm(int fd, fsfile_t* file) {
 	return ring;
 }
 
+static inline uint32_t pipe_live_poll_events(shm_pipe_t* ring) {
+	uint32_t events = 0;
+
+	if(ring == NULL)
+		return 0;
+	if(shm_pipe_readable(ring) > 0)
+		events |= VFS_EVT_RD;
+	if(shm_pipe_writable(ring) > 0)
+		events |= VFS_EVT_WR;
+	if(__atomic_load_n(&ring->writer_closed, __ATOMIC_ACQUIRE) ||
+			__atomic_load_n(&ring->reader_closed, __ATOMIC_ACQUIRE))
+		events |= VFS_EVT_CLOSE;
+	return events;
+}
+
 static int read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block) {
 	fsfile_t* file = &_fsfiles[fd];
 	shm_pipe_t* ring = get_pipe_shm(fd, file);
@@ -339,8 +354,17 @@ static int read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block
 		int32_t my_pid = thread_get_id();
 
 		while(1) {
+			int32_t was_writable = shm_pipe_writable(ring);
 			int32_t n = shm_pipe_read(ring, buf, (int32_t)size);
 			if(n > 0) {
+				/*
+				 * Shared-memory reads bypass vfsd, so its sticky poll state and
+				 * wait queues do not see the ring transition automatically.
+				 * Publish the full->not-full edge so POLLOUT/block waiters on the
+				 * pipe wake once the reader frees space again.
+				 */
+				if(was_writable <= 0 && shm_pipe_writable(ring) > 0)
+					vfs_wakeup(node, VFS_EVT_WR);
 				/* Consume the writer's block registration (if any) and wake
 				 * it exactly once. Exchange guarantees the stamp cannot
 				 * survive to fire a second, stale wake. */
@@ -411,9 +435,17 @@ static int write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, boo
 			if(__atomic_load_n(&ring->reader_closed, __ATOMIC_ACQUIRE))
 				return total > 0 ? total : -1;
 
+			int32_t was_readable = shm_pipe_readable(ring);
 			int32_t n = shm_pipe_write(ring, p + total, (int32_t)size - total);
 			if(n > 0) {
 				total += n;
+				/*
+				 * Mirror read_pipe(): a direct shm write must surface the
+				 * empty->non-empty edge back to vfsd so poll(POLLIN) and
+				 * VFS_BLOCK readers waiting on this node are released.
+				 */
+				if(was_readable <= 0 && shm_pipe_readable(ring) > 0)
+					vfs_wakeup(node, VFS_EVT_RD);
 				/* Consume the reader's block registration (if any) — see
 				 * read_pipe() for why this must be exchange, not load. */
 				int32_t rpid = __atomic_exchange_n(&ring->reader_pid, 0,
@@ -1150,6 +1182,23 @@ uint32_t  vfs_get_poll_events(int fd) {
 		return 0;
 
 	uint32_t sticky = vfs_get_poll_events_by_node(info.node);
+	if(info.type == FS_TYPE_PIPE) {
+		fsfile_t* file = vfs_get_file(fd);
+		shm_pipe_t* ring = NULL;
+		if(file != NULL)
+			ring = get_pipe_shm(fd, file);
+		if(ring != NULL) {
+			uint32_t live = pipe_live_poll_events(ring);
+			uint32_t sticky_rw = sticky & VFS_EVT_RW;
+			uint32_t live_rw = live & VFS_EVT_RW;
+			uint32_t stale_rw = sticky_rw & ~live_rw;
+			if(stale_rw != 0) {
+				vfs_clear_poll_events(info.node, stale_rw);
+				sticky &= ~stale_rw;
+			}
+			return ((sticky | (live & VFS_EVT_CLOSE)) & ~VFS_EVT_RW) | live_rw;
+		}
+	}
 	uint32_t live = 0;
 	if(info.mount_pid > 0 && dev_poll(info.mount_pid, fd, &info, &live) == 0) {
 		uint32_t sticky_rw = sticky & VFS_EVT_RW;

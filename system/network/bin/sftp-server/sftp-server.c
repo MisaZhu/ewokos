@@ -317,6 +317,37 @@ static uint32_t parse_attrs_mode(const uint8_t *buf, size_t buf_len, size_t *off
     return mode;
 }
 
+static mode_t infer_type_bits(mode_t current_mode, mode_t fallback_type) {
+    mode_t type = current_mode & S_IFMT;
+
+    if (type == 0 && (current_mode & 0040000) != 0)
+        type = S_IFDIR;
+    if (type == 0)
+        type = fallback_type;
+    return type;
+}
+
+static mode_t merge_permissions_preserve_type(mode_t current_mode, uint32_t mode,
+        mode_t fallback_type) {
+    return infer_type_bits(current_mode, fallback_type) | (mode & 0777);
+}
+
+static int chmod_preserve_type(const char *path, uint32_t mode, mode_t fallback_type) {
+    struct stat st;
+
+    if (stat(path, &st) < 0)
+        return -1;
+    return chmod(path, merge_permissions_preserve_type(st.st_mode, mode, fallback_type));
+}
+
+static int fchmod_preserve_type(int fd, uint32_t mode, mode_t fallback_type) {
+    struct stat st;
+
+    if (fstat(fd, &st) < 0)
+        return -1;
+    return fchmod(fd, merge_permissions_preserve_type(st.st_mode, mode, fallback_type));
+}
+
 /* ---- Handle management ---- */
 
 static int alloc_handle_file(int fd, const char *path) {
@@ -490,8 +521,12 @@ static int handle_open(const uint8_t *buf, size_t len) {
         return send_status(id, errno_to_status(), strerror(err));
     }
 
-    if (pflags & SSH_FXF_CREAT)
-        fchmod(fd, mode & 0777);
+    if ((pflags & SSH_FXF_CREAT) && fchmod_preserve_type(fd, mode, S_IFREG) < 0) {
+        int err = errno ? errno : EIO;
+        close(fd);
+        errno = err;
+        return send_status(id, errno_to_status(), strerror(err));
+    }
 
     int h = alloc_handle_file(fd, pathbuf);
     if (h < 0) {
@@ -583,6 +618,9 @@ static int handle_write(const uint8_t *buf, size_t len) {
             if (err == 0)
                 err = EIO;
             errno = err;
+            klog("sftp: write fail id=%u fd=%d off=%u total=%u/%u err=%d\n",
+                    id, handles[h].fd, (unsigned int)woff,
+                    (unsigned int)total, dlen, err);
             return send_status(id, SSH_FX_FAILURE, strerror(err));
         }
         total += (size_t)w;
@@ -657,7 +695,8 @@ static int handle_setstat(const uint8_t *buf, size_t len) {
     pathbuf[slen] = '\0';
 
     uint32_t mode = parse_attrs_mode(buf, len, &off);
-    chmod(pathbuf, mode & 0777);
+    if (chmod_preserve_type(pathbuf, mode, S_IFREG) < 0)
+        return send_status(id, errno_to_status(), strerror(errno));
     return send_status(id, SSH_FX_OK, "");
 }
 
@@ -670,8 +709,10 @@ static int handle_fsetstat(const uint8_t *buf, size_t len) {
     if (h < 0) return send_status(id, SSH_FX_FAILURE, "invalid handle");
 
     uint32_t mode = parse_attrs_mode(buf, len, &off);
-    if (handles[h].type == HANDLE_FILE && handles[h].fd >= 0)
-        fchmod(handles[h].fd, mode & 0777);
+    if (handles[h].type == HANDLE_FILE &&
+            handles[h].fd >= 0 &&
+            fchmod_preserve_type(handles[h].fd, mode, S_IFREG) < 0)
+        return send_status(id, errno_to_status(), strerror(errno));
     return send_status(id, SSH_FX_OK, "");
 }
 
