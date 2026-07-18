@@ -40,15 +40,20 @@
 #include <ewoksys/wait.h>
 #include <setenv.h>
 #include <signal.h>
+#include "sftp-core.h"
 
 #define SSH_DEFAULT_PORT        22
 #define SSH_MAX_PACKET_SIZE     32768
-#define SSH_LOCAL_WINDOW_SIZE   (64*1024)
-#define SSH_LOCAL_WINDOW_LOW    (48*1024)
-#define SSH_CHILD_STDIN_STEP    256
+#define SSH_LOCAL_WINDOW_SIZE   (8*1024*1024)
+#define SSH_LOCAL_WINDOW_LOW    (6*1024*1024)
+#define SSH_WINDOW_ADJUST_MIN   (128*1024)
+#define SSH_CHILD_STDIN_STEP    4096
 #define SSH_RELAY_READ_SIZE     16384
 #define SSH_SOCKET_WRITE_STEP   1024
 #define SSH_PENDING_INPUT_WAIT_US 1000
+#define SSH_CHILD_STDIN_POLL_MS 5
+#define SSH_CHILD_READY_TIMEOUT_MS 2000
+#define SSH_SFTP_PENDING_HIGH_WATER (8*1024*1024)
 #define SSH_SERVER_VERSION      "SSH-2.0-EwokOS_sshd"
 #define SSH_HOST_KEY_PATH       "/etc/ssh_host_rsa_key.der"
 #define SSHD_MAX_TRACKED_WORKERS 128
@@ -58,6 +63,7 @@
 #else
 #define SSHD_DBG(fmt, ...) do { if(0) klog("sshd: " fmt, ##__VA_ARGS__); } while(0)
 #endif
+#define SSHD_STALL_LOG(fmt, ...) do { } while(0)
 
 #define SSH_MSG_DISCONNECT                      1
 #define SSH_MSG_SERVICE_REQUEST                 5
@@ -129,6 +135,8 @@ typedef struct {
 
 typedef struct sshd_session sshd_session_t;
 
+static void session_close_socket(sshd_session_t* s);
+
 typedef struct {
     sshd_session_t* session;
 } session_io_thread_arg_t;
@@ -138,6 +146,10 @@ typedef struct {
     int* fd;
     uint32_t ext_type;
 } output_relay_arg_t;
+
+typedef struct {
+    sshd_session_t* s;
+} internal_sftp_arg_t;
 
 typedef struct {
     uint32_t magic;
@@ -201,15 +213,23 @@ struct sshd_session {
     int close_notify[2];
     pid_t child_pid;
     int child_io_thread_started;
+    int child_is_sftp;
+    int internal_sftp_active;
+    int internal_sftp_done;
 
     pthread_t out_tid;
     int out_started;
     int output_active;
     output_relay_arg_t out_arg;
+    pthread_t internal_sftp_tid;
+    int internal_sftp_started;
+    internal_sftp_arg_t internal_sftp_arg;
 
     pthread_mutex_t state_lock;
     pthread_mutex_t send_lock;
     pthread_cond_t remote_window_cv;
+    pthread_mutex_t sftp_lock;
+    pthread_cond_t sftp_cv;
 
     /* Non-blocking stdin buffering (inbound thread must never block on child stdin) */
     uint8_t* pending_in;
@@ -219,6 +239,13 @@ struct sshd_session {
 
     /* Deferred WINDOW_ADJUST (inbound thread must never block on socket write) */
     uint32_t win_adjust_owe;
+
+    /* In-process SFTP input queue */
+    uint8_t* sftp_in;
+    size_t sftp_in_len;
+    size_t sftp_in_off;
+    size_t sftp_in_cap;
+    int sftp_in_eof;
 };
 
 static RSA* g_host_rsa = NULL;
@@ -229,6 +256,86 @@ static pid_t g_tracked_workers[SSHD_MAX_TRACKED_WORKERS];
 
 static int write_ssh_string(uint8_t* buf, size_t cap, size_t* off,
         const uint8_t* data, uint32_t len);
+
+static int child_needs_ready_handshake(const char* command, int is_shell) {
+    return (!is_shell && command != NULL && strcmp(command, "sftp-server") == 0);
+}
+
+static int wait_child_ready(int fd) {
+    struct pollfd pfd;
+    uint8_t marker = 0;
+    int rc;
+    ssize_t n;
+
+    if(fd < 0)
+        return 0;
+    memset(&pfd, 0, sizeof(pfd));
+    pfd.fd = fd;
+    pfd.events = POLLIN | POLLHUP | POLLERR | POLLNVAL;
+    rc = poll(&pfd, 1, SSH_CHILD_READY_TIMEOUT_MS);
+    if(rc <= 0) {
+        errno = (rc == 0) ? ETIMEDOUT : errno;
+        return -1;
+    }
+    if((pfd.revents & POLLNVAL) != 0) {
+        errno = EBADF;
+        return -1;
+    }
+    if((pfd.revents & POLLERR) != 0) {
+        errno = EIO;
+        return -1;
+    }
+    if((pfd.revents & POLLIN) == 0) {
+        errno = EPIPE;
+        return -1;
+    }
+    do {
+        errno = 0;
+        n = read(fd, &marker, 1);
+    } while(n < 0 && errno == EINTR);
+    if(n != 1) {
+        if(n == 0)
+            errno = EPIPE;
+        else if(errno == 0)
+            errno = EIO;
+        return -1;
+    }
+    if(marker != 'R') {
+        errno = EIO;
+        return -1;
+    }
+    return 0;
+}
+
+static size_t pending_input_bytes(const sshd_session_t* s) {
+    if(s == NULL || s->pending_in_len <= s->pending_in_off)
+        return 0;
+    return s->pending_in_len - s->pending_in_off;
+}
+
+static size_t sftp_pending_excess(size_t pending_bytes) {
+    if(pending_bytes <= SSH_SFTP_PENDING_HIGH_WATER)
+        return 0;
+    return pending_bytes - SSH_SFTP_PENDING_HIGH_WATER;
+}
+
+static uint32_t sftp_credit_on_enqueue(size_t pending_before, size_t incoming) {
+    size_t excess_before = sftp_pending_excess(pending_before);
+    size_t excess_after = sftp_pending_excess(pending_before + incoming);
+    size_t consume = excess_after - excess_before;
+
+    if(consume > incoming)
+        consume = incoming;
+    return (uint32_t)(incoming - consume);
+}
+
+static uint32_t sftp_credit_on_drain(size_t pending_before, size_t drained) {
+    size_t excess_before = sftp_pending_excess(pending_before);
+    size_t pending_after = (pending_before > drained) ? (pending_before - drained) : 0;
+    size_t excess_after = sftp_pending_excess(pending_after);
+
+    return (uint32_t)(excess_before - excess_after);
+}
 
 
 static void sshd_set_error(const char* fmt, ...) {
@@ -1943,6 +2050,15 @@ static int send_channel_data_packet(sshd_session_t* s, uint32_t extended_type,
         payload = text_buf;
     }
 
+    // #region debug-point D:sshd-child-stdout
+    if(s->child_is_sftp && extended_type == 0 && payload_len > 0 && payload_len <= 128) {
+        klog("sftp-klog:sshd-child-stdout pid=%d len=%u first=%u\n",
+                (int)s->child_pid,
+                (unsigned int)payload_len,
+                (unsigned int)payload[0]);
+    }
+    // #endregion
+
     while(sent < payload_len && !s->closing) {
         ssh_packet_t packet;
         size_t off = 0;
@@ -2055,6 +2171,147 @@ static int send_channel_eof_and_close(sshd_session_t* s) {
     return 0;
 }
 
+static size_t internal_sftp_queue_bytes_locked(const sshd_session_t* s) {
+    if(s == NULL || s->sftp_in_len <= s->sftp_in_off)
+        return 0;
+    return s->sftp_in_len - s->sftp_in_off;
+}
+
+static int internal_sftp_queue_append(sshd_session_t* s, const uint8_t* data,
+        size_t len, size_t* pending_before) {
+    size_t before;
+    size_t remain;
+    uint8_t* new_buf;
+    size_t new_cap;
+
+    if(s == NULL || (data == NULL && len > 0))
+        return -1;
+    pthread_mutex_lock(&s->sftp_lock);
+    before = internal_sftp_queue_bytes_locked(s);
+    if(pending_before != NULL)
+        *pending_before = before;
+    if(s->sftp_in_off > 0 && s->sftp_in_len > s->sftp_in_off) {
+        remain = s->sftp_in_len - s->sftp_in_off;
+        memmove(s->sftp_in, s->sftp_in + s->sftp_in_off, remain);
+        s->sftp_in_len = remain;
+        s->sftp_in_off = 0;
+    } else if(s->sftp_in_off >= s->sftp_in_len) {
+        s->sftp_in_off = 0;
+        s->sftp_in_len = 0;
+    }
+    if(s->sftp_in_len + len > s->sftp_in_cap) {
+        new_cap = s->sftp_in_cap ? s->sftp_in_cap : 4096;
+        while(new_cap < s->sftp_in_len + len)
+            new_cap *= 2;
+        new_buf = (uint8_t*)realloc(s->sftp_in, new_cap);
+        if(new_buf == NULL) {
+            pthread_mutex_unlock(&s->sftp_lock);
+            return -1;
+        }
+        s->sftp_in = new_buf;
+        s->sftp_in_cap = new_cap;
+    }
+    if(len > 0) {
+        memcpy(s->sftp_in + s->sftp_in_len, data, len);
+        s->sftp_in_len += len;
+    }
+    pthread_cond_signal(&s->sftp_cv);
+    pthread_mutex_unlock(&s->sftp_lock);
+    return 0;
+}
+
+static int internal_sftp_emit(void* user, const uint8_t* data, size_t len) {
+    sshd_session_t* s = (sshd_session_t*)user;
+    return send_channel_data_packet(s, 0, data, len);
+}
+
+static void* internal_sftp_thread(void* arg) {
+    internal_sftp_arg_t* a = (internal_sftp_arg_t*)arg;
+    sshd_session_t* s = a->s;
+    sftp_server_io_t io;
+    sftp_server_t* srv;
+    uint8_t buf[16384];
+    int rc = 0;
+
+    memset(&io, 0, sizeof(io));
+    io.emit = internal_sftp_emit;
+    io.user = s;
+    srv = sftp_server_create(&io);
+    if(srv == NULL)
+        rc = -1;
+
+    while(rc == 0 && !s->closing) {
+        size_t pending_before;
+        size_t chunk;
+        uint32_t grant = 0;
+
+        pthread_mutex_lock(&s->sftp_lock);
+        while(!s->closing && internal_sftp_queue_bytes_locked(s) == 0 &&
+                !s->sftp_in_eof) {
+            pthread_cond_wait(&s->sftp_cv, &s->sftp_lock);
+        }
+        pending_before = internal_sftp_queue_bytes_locked(s);
+        if(s->closing || (pending_before == 0 && s->sftp_in_eof)) {
+            pthread_mutex_unlock(&s->sftp_lock);
+            break;
+        }
+        chunk = pending_before;
+        if(chunk > sizeof(buf))
+            chunk = sizeof(buf);
+        memcpy(buf, s->sftp_in + s->sftp_in_off, chunk);
+        s->sftp_in_off += chunk;
+        if(s->sftp_in_off >= s->sftp_in_len) {
+            s->sftp_in_off = 0;
+            s->sftp_in_len = 0;
+        }
+        pthread_mutex_unlock(&s->sftp_lock);
+
+        grant = sftp_credit_on_drain(pending_before, chunk);
+        if(grant > 0) {
+            pthread_mutex_lock(&s->state_lock);
+            s->win_adjust_owe += grant;
+            pthread_mutex_unlock(&s->state_lock);
+            if(try_send_window_adjust(s) < 0) {
+                rc = -1;
+                break;
+            }
+        }
+        if(sftp_server_feed(srv, buf, chunk) < 0) {
+            rc = -1;
+            break;
+        }
+    }
+
+    sftp_server_destroy(srv);
+    pthread_mutex_lock(&s->state_lock);
+    s->internal_sftp_done = 1;
+    if(!s->closing) {
+        s->closing = 1;
+        pthread_cond_broadcast(&s->remote_window_cv);
+    }
+    pthread_mutex_unlock(&s->state_lock);
+    if(!s->sent_close) {
+        (void)send_channel_request_exit_status(s, rc == 0 ? 0 : 1);
+        (void)send_channel_eof_and_close(s);
+    }
+    session_close_socket(s);
+    return NULL;
+}
+
+static int start_internal_sftp(sshd_session_t* s) {
+    if(s->internal_sftp_active)
+        return 0;
+    s->internal_sftp_arg.s = s;
+    s->internal_sftp_done = 0;
+    s->sftp_in_eof = 0;
+    s->internal_sftp_started = (pthread_create(&s->internal_sftp_tid, NULL,
+                internal_sftp_thread, &s->internal_sftp_arg) == 0);
+    if(!s->internal_sftp_started)
+        return -1;
+    s->internal_sftp_active = 1;
+    return 0;
+}
+
 static void session_close_socket(sshd_session_t* s) {
     int fd = -1;
 
@@ -2152,6 +2409,7 @@ static void close_child_bundle(int child_stdin[2], int child_stdout[2],
 }
 
 static void become_login_process(sshd_session_t* s, const char* cmd) {
+    int use_ready = child_needs_ready_handshake(cmd, 0);
     /*
      * Runs in the connection-handler process (e.g. pid 101). It replaces this
      * process image with the login shell/command so that the shell keeps the
@@ -2173,10 +2431,17 @@ static void become_login_process(sshd_session_t* s, const char* cmd) {
             dup2(s->child_stdin[CHILD_STDIN_READ], VFS_BACKUP_FD0) < 0) {
         exit(2);
     }
-    close(VFS_BACKUP_FD1);
+    if(use_ready) {
+        if(dup2(s->child_control[CHILD_CTRL_WRITE], VFS_BACKUP_FD1) < 0)
+            exit(2);
+    } else {
+        close(VFS_BACKUP_FD1);
+    }
 
     close_fd_if_valid(&s->child_stdin[CHILD_STDIN_READ]);
     close_fd_if_valid(&s->child_stdout[CHILD_STDOUT_WRITE]);
+    close_fd_if_valid(&s->child_control[CHILD_CTRL_READ]);
+    close_fd_if_valid(&s->child_control[CHILD_CTRL_WRITE]);
 
     if(setenv("CONSOLE_ID", "ssh") != 0 ||
             setenv("HOME", s->user_info.home) != 0 ||
@@ -2203,11 +2468,14 @@ static void close_child_fds(sshd_session_t* s) {
 
 static int spawn_child_session(sshd_session_t* s, const char* command, int is_shell) {
     pid_t pid;
+    int use_ready = child_needs_ready_handshake(command, is_shell);
 
     s->child_stdin[0] = s->child_stdin[1] = -1;
     s->child_stdout[0] = s->child_stdout[1] = -1;
+    s->child_control[0] = s->child_control[1] = -1;
 
-    if(pipe(s->child_stdin) != 0 || pipe(s->child_stdout) != 0) {
+    if(pipe(s->child_stdin) != 0 || pipe(s->child_stdout) != 0 ||
+            (use_ready && pipe(s->child_control) != 0)) {
         close_child_bundle(s->child_stdin, s->child_stdout, s->child_control);
         return -1;
     }
@@ -2230,12 +2498,25 @@ static int spawn_child_session(sshd_session_t* s, const char* command, int is_sh
     }
 
     s->child_pid = pid;
+    s->child_is_sftp = use_ready;
     /* Relay child: keep the socket end, drop the shell-side pipe ends. */
     close_fd_if_valid(&s->child_stdin[CHILD_STDIN_READ]);
     close_fd_if_valid(&s->child_stdout[CHILD_STDOUT_WRITE]);
+    close_fd_if_valid(&s->child_control[CHILD_CTRL_WRITE]);
     if(set_fd_nonblock(s->child_stdin[CHILD_STDIN_WRITE]) < 0) {
         close_child_fds(s);
         return -1;
+    }
+    if(use_ready) {
+        if(wait_child_ready(s->child_control[CHILD_CTRL_READ]) < 0) {
+            close_child_fds(s);
+            if(pid > 1) {
+                kill(pid, SIGKILL);
+                ewok_waitpid(pid);
+            }
+            return -1;
+        }
+        close_fd_if_valid(&s->child_control[CHILD_CTRL_READ]);
     }
 
     /*
@@ -2282,7 +2563,7 @@ static int handle_channel_open(sshd_session_t* s, const ssh_packet_t* packet) {
 
     s->local_channel = 0;
     s->local_window = SSH_LOCAL_WINDOW_SIZE;
-    s->local_packet_max = 16384;
+    s->local_packet_max = SSH_MAX_PACKET_SIZE;
     s->channel_open = 1;
     return send_channel_confirm(s);
 }
@@ -2353,22 +2634,18 @@ static int handle_channel_request(sshd_session_t* s, const ssh_packet_t* packet)
     if(req_len == strlen("subsystem") && memcmp(req_type, "subsystem", req_len) == 0) {
         const uint8_t* sub;
         uint32_t sub_len;
-        char command[256];
 
         if(read_ssh_string(packet->payload, packet->payload_len, &off, &sub, &sub_len) < 0)
             return -1;
         if(sub_len == 0 || sub_len >= 64)
             goto subsystem_fail;
 
-        /* Map subsystem name to executable */
         if(sub_len == 4 && memcmp(sub, "sftp", 4) == 0) {
-            snprintf(command, sizeof(command), "sftp-server");
+            if(!s->internal_sftp_active && start_internal_sftp(s) < 0)
+                goto subsystem_fail;
         } else {
             goto subsystem_fail;
         }
-
-        if(!s->child_started && spawn_child_session(s, command, 0) < 0)
-            goto subsystem_fail;
         if(want_reply)
             return send_channel_status(s, SSH_MSG_CHANNEL_SUCCESS);
         return 0;
@@ -2401,6 +2678,7 @@ subsystem_fail:
  */
 static int flush_pending_input(sshd_session_t* s) {
     int drained = 0;
+    size_t pending_before = pending_input_bytes(s);
 
     while(s->pending_in_off < s->pending_in_len) {
         size_t chunk = s->pending_in_len - s->pending_in_off;
@@ -2425,6 +2703,26 @@ static int flush_pending_input(sshd_session_t* s) {
             clear_fd_write_poll_event(s->child_stdin[CHILD_STDIN_WRITE]);
         else if(n < 0)
             log_fd_write_failure(s, s->child_stdin[CHILD_STDIN_WRITE], saved_errno);
+        if(n < 0) {
+            pthread_mutex_lock(&s->state_lock);
+            SSHD_STALL_LOG("flush-stop err=%d chunk=%u pending=%u owe=%u",
+                    saved_errno,
+                    (unsigned int)chunk,
+                    (unsigned int)(s->pending_in_len - s->pending_in_off),
+                    (unsigned int)s->win_adjust_owe);
+            pthread_mutex_unlock(&s->state_lock);
+            // #region debug-point A:sshd-flush-stop
+            if(s->child_is_sftp) {
+                klog("sftp-klog:sshd-flush-stop pid=%d err=%d chunk=%u pending_before=%u pending_after=%u owe=%u\n",
+                        (int)s->child_pid,
+                        saved_errno,
+                        (unsigned int)chunk,
+                        (unsigned int)pending_before,
+                        (unsigned int)pending_input_bytes(s),
+                        (unsigned int)s->win_adjust_owe);
+            }
+            // #endregion
+        }
         /* EAGAIN or error — stop for now */
         SSHD_DBG("flush_pending stop pid=%d n=%d err=%d off=%u len=%u chunk=%u\n",
                 (int)s->child_pid, (int)n, saved_errno,
@@ -2435,8 +2733,28 @@ static int flush_pending_input(sshd_session_t* s) {
         break;
     }
     if(drained > 0) {
+        uint32_t grant = s->child_is_sftp ?
+                sftp_credit_on_drain(pending_before, (size_t)drained) :
+                (uint32_t)drained;
+        // #region debug-point B:sshd-flush-drained
+        if(s->child_is_sftp && (pending_before >= 32768 || drained >= 32768 || grant >= 32768)) {
+            klog("sftp-klog:sshd-flush-drained pid=%d drained=%u grant=%u pending_before=%u pending_after=%u\n",
+                    (int)s->child_pid,
+                    (unsigned int)drained,
+                    (unsigned int)grant,
+                    (unsigned int)pending_before,
+                    (unsigned int)pending_input_bytes(s));
+        }
+        // #endregion
         pthread_mutex_lock(&s->state_lock);
-        s->win_adjust_owe += (uint32_t)drained;
+        s->win_adjust_owe += grant;
+        if(drained >= 4096 || grant >= 4096 || s->win_adjust_owe >= SSH_WINDOW_ADJUST_MIN) {
+            SSHD_STALL_LOG("flush-drained drained=%u off=%u len=%u owe=%u",
+                    (unsigned int)drained,
+                    (unsigned int)s->pending_in_off,
+                    (unsigned int)s->pending_in_len,
+                    (unsigned int)s->win_adjust_owe);
+        }
         pthread_mutex_unlock(&s->state_lock);
         if(try_send_window_adjust(s) < 0)
             return -1;
@@ -2476,7 +2794,7 @@ static int wait_child_stdin_writable(sshd_session_t* s) {
             nfds++;
         }
 
-        if(poll(pfds, nfds, 50) < 0) {
+        if(poll(pfds, nfds, SSH_CHILD_STDIN_POLL_MS) < 0) {
             if(errno == EINTR)
                 continue;
             return -1;
@@ -2518,6 +2836,15 @@ static int wait_child_stdin_writable(sshd_session_t* s) {
 }
 
 static void maybe_close_child_stdin(sshd_session_t* s) {
+    if(s->internal_sftp_active) {
+        pthread_mutex_lock(&s->sftp_lock);
+        if((s->peer_eof || s->peer_close) && internal_sftp_queue_bytes_locked(s) == 0) {
+            s->sftp_in_eof = 1;
+            pthread_cond_signal(&s->sftp_cv);
+        }
+        pthread_mutex_unlock(&s->sftp_lock);
+        return;
+    }
     if((s->peer_eof || s->peer_close) &&
             s->pending_in_len == s->pending_in_off &&
             s->child_stdin[CHILD_STDIN_WRITE] >= 0) {
@@ -2551,13 +2878,6 @@ static int queue_input(sshd_session_t* s, const uint8_t* data, size_t len) {
     }
     memcpy(s->pending_in + s->pending_in_len, data, len);
     s->pending_in_len += len;
-    /*
-     * Centralize child-stdin writes and WINDOW_ADJUST bookkeeping in
-     * flush_pending_input() so bytes consumed directly from queue_input()
-     * cannot escape the upload credit ledger.
-     */
-    if(flush_pending_input(s) < 0)
-        return -1;
     return 0;
 }
 
@@ -2587,18 +2907,35 @@ static int try_send_window_adjust(sshd_session_t* s) {
      * every pipe drain fragment (for example 4032 + 128 around the shm-pipe
      * boundary). Under heavy SFTP upload this control traffic competes with the
      * output relay thread for send_lock and can starve 21-byte SSH_FXP_STATUS
-     * replies long enough for the client to time out. Keep enough advertised
-     * credit in flight, but only send once the receiver window drops to the low
-     * watermark or we have accumulated at least the low-watermark gap worth of
-     * credit.
+     * replies long enough for the client to time out.
+     *
+     * Keep the advertised receive window large enough that the client can keep
+     * streaming past 32KB/64KB boundaries without visibly pausing, but still
+     * batch replenishment into reasonably sized WINDOW_ADJUST packets while the
+     * window remains healthy.
      */
     if(local_window > SSH_LOCAL_WINDOW_LOW &&
-            delta < (SSH_LOCAL_WINDOW_SIZE - SSH_LOCAL_WINDOW_LOW)) {
+            delta < SSH_WINDOW_ADJUST_MIN) {
+        if(delta >= 16384) {
+            SSHD_STALL_LOG("adjust-held delta=%u local=%u low=%u min=%u",
+                    (unsigned int)delta,
+                    (unsigned int)local_window,
+                    (unsigned int)SSH_LOCAL_WINDOW_LOW,
+                    (unsigned int)SSH_WINDOW_ADJUST_MIN);
+        }
         return 0;
     }
 
     if(pthread_mutex_trylock(&s->send_lock) != 0)
+    {
+        if(delta >= 16384) {
+            SSHD_STALL_LOG("adjust-sendlock-busy delta=%u local=%u remote=%u",
+                    (unsigned int)delta,
+                    (unsigned int)local_window,
+                    (unsigned int)sshd_remote_window_load(s));
+        }
         return 0;
+    }
 
     pthread_mutex_lock(&s->state_lock);
     delta = s->win_adjust_owe;
@@ -2609,8 +2946,15 @@ static int try_send_window_adjust(sshd_session_t* s) {
         return 0;
     }
     if(local_window > SSH_LOCAL_WINDOW_LOW &&
-            delta < (SSH_LOCAL_WINDOW_SIZE - SSH_LOCAL_WINDOW_LOW)) {
+            delta < SSH_WINDOW_ADJUST_MIN) {
         pthread_mutex_unlock(&s->send_lock);
+        if(delta >= 16384) {
+            SSHD_STALL_LOG("adjust-held-locked delta=%u local=%u low=%u min=%u",
+                    (unsigned int)delta,
+                    (unsigned int)local_window,
+                    (unsigned int)SSH_LOCAL_WINDOW_LOW,
+                    (unsigned int)SSH_WINDOW_ADJUST_MIN);
+        }
         return 0;
     }
     memset(&packet, 0, sizeof(packet));
@@ -2625,9 +2969,23 @@ static int try_send_window_adjust(sshd_session_t* s) {
         pthread_mutex_unlock(&s->send_lock);
         return -1;
     }
+    // #region debug-point C:sshd-window-adjust
+    if(s->child_is_sftp && delta >= 32768) {
+        klog("sftp-klog:sshd-adjust-send pid=%d delta=%u local_before=%u remote=%u\n",
+                (int)s->child_pid,
+                (unsigned int)delta,
+                (unsigned int)local_window,
+                (unsigned int)sshd_remote_window_load(s));
+    }
+    // #endregion
     pthread_mutex_lock(&s->state_lock);
     s->local_window += delta;
     s->win_adjust_owe -= delta;
+    SSHD_STALL_LOG("adjust-sent delta=%u local=%u owe=%u remote=%u",
+            (unsigned int)delta,
+            (unsigned int)s->local_window,
+            (unsigned int)s->win_adjust_owe,
+            (unsigned int)s->remote_window);
     SSHD_DBG("window_adjust sent pid=%d delta=%u local=%u owe=%u\n",
             (int)s->child_pid, delta,
             (unsigned int)s->local_window,
@@ -2642,8 +3000,10 @@ static int handle_channel_data(sshd_session_t* s, const ssh_packet_t* packet) {
     uint32_t data_len;
     uint32_t channel_id;
     size_t off = 0;
+    size_t pending_before;
+    uint32_t enqueue_credit = 0;
 
-    if(!s->child_started)
+    if(!s->child_started && !s->internal_sftp_active)
         return -1;
     channel_id = ssh_read_uint32(packet->payload + off);
     off += 4;
@@ -2654,9 +3014,20 @@ static int handle_channel_data(sshd_session_t* s, const ssh_packet_t* packet) {
     if(data_len == 0)
         return 0;
 
-    /* Non-blocking write to child stdin via pending buffer */
-    if(queue_input(s, data, data_len) < 0)
-        return -1;
+    if(s->internal_sftp_active) {
+        pending_before = 0;
+        if(internal_sftp_queue_append(s, data, data_len, &pending_before) < 0)
+            return -1;
+        enqueue_credit = sftp_credit_on_enqueue(pending_before, data_len);
+    } else {
+        pending_before = pending_input_bytes(s);
+        if(queue_input(s, data, data_len) < 0)
+            return -1;
+        if(s->child_is_sftp)
+            enqueue_credit = sftp_credit_on_enqueue(pending_before, data_len);
+        if(flush_pending_input(s) < 0)
+            return -1;
+    }
 
     /*
      * local_window now tracks bytes accepted from the SSH socket but not yet
@@ -2669,7 +3040,18 @@ static int handle_channel_data(sshd_session_t* s, const ssh_packet_t* packet) {
         s->local_window -= data_len;
     else
         s->local_window = 0;
+    s->win_adjust_owe += enqueue_credit;
+    if(data_len >= 16384 || s->local_window <= 65536 ||
+            s->pending_in_len > s->pending_in_off) {
+        SSHD_STALL_LOG("channel-data len=%u local=%u pending=%u owe=%u",
+                (unsigned int)data_len,
+                (unsigned int)s->local_window,
+                (unsigned int)(s->pending_in_len - s->pending_in_off),
+                (unsigned int)s->win_adjust_owe);
+    }
     pthread_mutex_unlock(&s->state_lock);
+    if(enqueue_credit > 0 && try_send_window_adjust(s) < 0)
+        return -1;
 
     if(s->pending_in_len > s->pending_in_off || data_len >= SSH_LOCAL_WINDOW_LOW) {
         SSHD_DBG("channel_data pid=%d data=%u pending=%u/%u\n",
@@ -2743,7 +3125,7 @@ static int handle_session_packets(sshd_session_t* s) {
          * SFTP reply while the tail of the WRITE request is still stranded in
          * pending_in.
          */
-        if(s->pending_in_len > s->pending_in_off) {
+        if(!s->internal_sftp_active && s->pending_in_len > s->pending_in_off) {
             int flush_rc = flush_pending_input(s);
             int wait_rc;
             if(flush_rc != 0) {
@@ -2778,6 +3160,10 @@ static int handle_session_packets(sshd_session_t* s) {
     s->closing = 1;
     pthread_cond_broadcast(&s->remote_window_cv);
     pthread_mutex_unlock(&s->state_lock);
+    pthread_mutex_lock(&s->sftp_lock);
+    s->sftp_in_eof = 1;
+    pthread_cond_broadcast(&s->sftp_cv);
+    pthread_mutex_unlock(&s->sftp_lock);
     session_signal_close(s);
     session_close_socket(s);
     close_fd_if_valid(&s->child_stdin[CHILD_STDIN_WRITE]);
@@ -2790,6 +3176,8 @@ static int handle_session_packets(sshd_session_t* s) {
     close_fd_if_valid(&s->child_stdout[CHILD_STDOUT_READ]);
     if(s->out_started)
         pthread_join(s->out_tid, NULL);
+    if(s->internal_sftp_started)
+        pthread_join(s->internal_sftp_tid, NULL);
     /*
      * Kill the login process (sftp-server / shell) which is our parent.
      * In EwokOS closing the stdin pipe write-end does not reliably unblock
@@ -2811,11 +3199,12 @@ static int session_init(sshd_session_t* s, int sock) {
     s->terminal_width = 80;
     s->terminal_height = 24;
     s->remote_packet_max = 16384;
-    s->local_packet_max = 16384;
+    s->local_packet_max = SSH_MAX_PACKET_SIZE;
     s->child_stdin[0] = s->child_stdin[1] = -1;
     s->child_stdout[0] = s->child_stdout[1] = -1;
     s->child_control[0] = s->child_control[1] = -1;
     s->close_notify[0] = s->close_notify[1] = -1;
+    s->child_is_sftp = 0;
     if(pipe(s->close_notify) != 0)
         return -1;
     /*
@@ -2828,7 +3217,9 @@ static int session_init(sshd_session_t* s, int sock) {
         return -1;
     pthread_mutex_init(&s->state_lock, NULL);
     pthread_mutex_init(&s->send_lock, NULL);
+    pthread_mutex_init(&s->sftp_lock, NULL);
     pthread_cond_init(&s->remote_window_cv, NULL);
+    pthread_cond_init(&s->sftp_cv, NULL);
     return 0;
 }
 
@@ -2837,9 +3228,15 @@ static void session_destroy(sshd_session_t* s) {
     s->closing = 1;
     pthread_cond_broadcast(&s->remote_window_cv);
     pthread_mutex_unlock(&s->state_lock);
+    pthread_mutex_lock(&s->sftp_lock);
+    s->sftp_in_eof = 1;
+    pthread_cond_broadcast(&s->sftp_cv);
+    pthread_mutex_unlock(&s->sftp_lock);
     session_signal_close(s);
     session_close_socket(s);
     close_child_fds(s);
+    if(s->internal_sftp_started)
+        pthread_join(s->internal_sftp_tid, NULL);
     if(s->child_pid > 1) {
         kill(s->child_pid, SIGKILL);
         ewok_waitpid(s->child_pid);
@@ -2853,7 +3250,13 @@ static void session_destroy(sshd_session_t* s) {
         free(s->pending_in);
         s->pending_in = NULL;
     }
+    if(s->sftp_in != NULL) {
+        free(s->sftp_in);
+        s->sftp_in = NULL;
+    }
+    pthread_cond_destroy(&s->sftp_cv);
     pthread_cond_destroy(&s->remote_window_cv);
+    pthread_mutex_destroy(&s->sftp_lock);
     pthread_mutex_destroy(&s->send_lock);
     pthread_mutex_destroy(&s->state_lock);
 }
