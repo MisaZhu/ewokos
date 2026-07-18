@@ -43,7 +43,13 @@
 #include "sftp-core.h"
 
 #define SSH_DEFAULT_PORT        22
-#define SSH_MAX_PACKET_SIZE     32768
+#define SSH_CHANNEL_DATA_MAX    32768
+#define SSH_CHANNEL_MSG_OVERHEAD 12
+#define SSH_PACKET_PAYLOAD_SIZE (SSH_CHANNEL_DATA_MAX + SSH_CHANNEL_MSG_OVERHEAD)
+#define SSH_PACKET_PADDING_MAX  32
+#define SSH_PACKET_LENGTH_MAX   (2 + SSH_PACKET_PAYLOAD_SIZE + SSH_PACKET_PADDING_MAX)
+#define SSH_PACKET_WIRE_MAX     (4 + SSH_PACKET_LENGTH_MAX)
+#define SSH_PACKET_MAC_INPUT_MAX (4 + SSH_PACKET_WIRE_MAX)
 #define SSH_LOCAL_WINDOW_SIZE   (8*1024*1024)
 #define SSH_LOCAL_WINDOW_LOW    (6*1024*1024)
 #define SSH_WINDOW_ADJUST_MIN   (128*1024)
@@ -129,7 +135,7 @@ static const char dh_group14_p_hex[] =
 
 typedef struct {
     uint8_t type;
-    uint8_t payload[SSH_MAX_PACKET_SIZE];
+    uint8_t payload[SSH_PACKET_PAYLOAD_SIZE];
     size_t payload_len;
 } ssh_packet_t;
 
@@ -167,9 +173,9 @@ struct sshd_session {
     char client_version[256];
     char server_version[256];
 
-    uint8_t client_kexinit[SSH_MAX_PACKET_SIZE];
+    uint8_t client_kexinit[SSH_PACKET_PAYLOAD_SIZE];
     size_t client_kexinit_len;
-    uint8_t server_kexinit[SSH_MAX_PACKET_SIZE];
+    uint8_t server_kexinit[SSH_PACKET_PAYLOAD_SIZE];
     size_t server_kexinit_len;
 
     uint8_t session_id[32];
@@ -1013,8 +1019,8 @@ static int ssh_packet_send_locked(sshd_session_t* s, const ssh_packet_t* packet)
      * and later caused a data abort on a corrupted pointer. Allocate on the
      * heap instead (send path is already serialized by send_lock).
      */
-    buf = (uint8_t*)malloc(SSH_MAX_PACKET_SIZE + 96);
-    mac_input = (uint8_t*)malloc(4 + SSH_MAX_PACKET_SIZE + 64);
+    buf = (uint8_t*)malloc(SSH_PACKET_WIRE_MAX + sizeof(mac));
+    mac_input = (uint8_t*)malloc(SSH_PACKET_MAC_INPUT_MAX);
     if(buf == NULL || mac_input == NULL) {
         sshd_set_error("packet send out of memory");
         goto out;
@@ -1025,7 +1031,7 @@ static int ssh_packet_send_locked(sshd_session_t* s, const ssh_packet_t* packet)
     packet_len = base_len + padding_len;
     total_len = 4 + packet_len;
 
-    if(total_len > (size_t)(SSH_MAX_PACKET_SIZE + 96)) {
+    if(total_len > (size_t)SSH_PACKET_WIRE_MAX) {
         sshd_set_error("packet too large");
         goto out;
     }
@@ -1077,7 +1083,7 @@ static int ssh_packet_receive(sshd_session_t* s, ssh_packet_t* packet) {
     uint8_t first_block[16];
     uint8_t mac[32];
     uint8_t calc_mac[32];
-    uint8_t mac_input[4 + SSH_MAX_PACKET_SIZE + 64];
+    uint8_t* mac_input = NULL;
     uint8_t* packet_buf;
     uint32_t block_size = s->encryption_enabled ? 16 : 8;
     uint32_t packet_len;
@@ -1090,7 +1096,7 @@ static int ssh_packet_receive(sshd_session_t* s, ssh_packet_t* packet) {
         if(ssh_read_n(s, len_buf, 4) < 0)
             return -1;
         packet_len = ssh_read_uint32(len_buf);
-        if(packet_len > SSH_MAX_PACKET_SIZE || packet_len < 5) {
+        if(packet_len > SSH_PACKET_LENGTH_MAX || packet_len < 5) {
             sshd_set_error("invalid packet length: %u", packet_len);
             return -1;
         }
@@ -1115,7 +1121,7 @@ static int ssh_packet_receive(sshd_session_t* s, ssh_packet_t* packet) {
             return -1;
         }
         packet_len = ssh_read_uint32(first_block);
-        if(packet_len > SSH_MAX_PACKET_SIZE || packet_len < 5) {
+        if(packet_len > SSH_PACKET_LENGTH_MAX || packet_len < 5) {
             sshd_set_error("invalid encrypted packet length: %u", packet_len);
             return -1;
         }
@@ -1138,17 +1144,30 @@ static int ssh_packet_receive(sshd_session_t* s, ssh_packet_t* packet) {
             return -1;
         }
         memcpy(s->iv_c2s, iv, sizeof(iv));
+        mac_input = (uint8_t*)malloc(SSH_PACKET_MAC_INPUT_MAX);
+        if(mac_input == NULL) {
+            free(packet_buf);
+            sshd_set_error("packet receive out of memory");
+            return -1;
+        }
         ssh_write_uint32(mac_input, seq);
         memcpy(mac_input + 4, packet_buf, total_len);
         hmac_sha256(s->mac_key_c2s, sizeof(s->mac_key_c2s), mac_input, 4 + total_len, calc_mac);
         if(memcmp(mac, calc_mac, sizeof(mac)) != 0) {
+            free(mac_input);
             free(packet_buf);
             sshd_set_error("packet mac mismatch");
             return -1;
         }
+        free(mac_input);
     }
 
     padding_len = packet_buf[4];
+    if(packet_len < (uint32_t)(padding_len + 2)) {
+        free(packet_buf);
+        sshd_set_error("invalid padding length");
+        return -1;
+    }
     packet->type = packet_buf[5];
     packet->payload_len = packet_len - padding_len - 2;
     if(packet->payload_len > sizeof(packet->payload)) {
@@ -2068,8 +2087,8 @@ static int send_channel_data_packet(sshd_session_t* s, uint32_t extended_type,
 
         win = sshd_remote_window_load(s);
         packet_max = s->remote_packet_max;
-        if(packet_max == 0 || packet_max > SSH_MAX_PACKET_SIZE)
-            packet_max = SSH_MAX_PACKET_SIZE;
+        if(packet_max == 0 || packet_max > SSH_CHANNEL_DATA_MAX)
+            packet_max = SSH_CHANNEL_DATA_MAX;
 
         if(win == 0) {
             SSHD_DBG("channel_out wait_remote pid=%d ext=%u sent=%u remain=%u\n",
@@ -2085,6 +2104,8 @@ static int send_channel_data_packet(sshd_session_t* s, uint32_t extended_type,
             chunk = win;
         if(chunk > packet_max)
             chunk = packet_max;
+        if(chunk > sizeof(packet.payload) - (extended_type != 0 ? 12u : 8u))
+            chunk = sizeof(packet.payload) - (extended_type != 0 ? 12u : 8u);
 
         /*
          * Writers still serialize packet encryption/sequence under send_lock,
@@ -2104,6 +2125,8 @@ static int send_channel_data_packet(sshd_session_t* s, uint32_t extended_type,
             chunk = win;
         if(chunk > packet_max)
             chunk = packet_max;
+        if(chunk > sizeof(packet.payload) - (extended_type != 0 ? 12u : 8u))
+            chunk = sizeof(packet.payload) - (extended_type != 0 ? 12u : 8u);
 
         memset(&packet, 0, sizeof(packet));
         packet.type = (extended_type == 0) ? SSH_MSG_CHANNEL_DATA : SSH_MSG_CHANNEL_EXTENDED_DATA;
@@ -2563,7 +2586,7 @@ static int handle_channel_open(sshd_session_t* s, const ssh_packet_t* packet) {
 
     s->local_channel = 0;
     s->local_window = SSH_LOCAL_WINDOW_SIZE;
-    s->local_packet_max = SSH_MAX_PACKET_SIZE;
+    s->local_packet_max = SSH_CHANNEL_DATA_MAX;
     s->channel_open = 1;
     return send_channel_confirm(s);
 }
@@ -3199,7 +3222,7 @@ static int session_init(sshd_session_t* s, int sock) {
     s->terminal_width = 80;
     s->terminal_height = 24;
     s->remote_packet_max = 16384;
-    s->local_packet_max = SSH_MAX_PACKET_SIZE;
+    s->local_packet_max = SSH_CHANNEL_DATA_MAX;
     s->child_stdin[0] = s->child_stdin[1] = -1;
     s->child_stdout[0] = s->child_stdout[1] = -1;
     s->child_control[0] = s->child_control[1] = -1;

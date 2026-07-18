@@ -67,7 +67,7 @@
 #define HANDLE_FILE 1
 #define HANDLE_DIR  2
 #define WRITEBACK_BUFFER_SIZE (64 * 1024)
-#define MAX_PKT_SIZE (256 * 1024)
+#define MAX_PKT_SIZE (64 * 1024)
 #define MAX_READ_REPLY_DATA (16 * 1024)
 #define SFTP_EXT_LIMITS "limits@openssh.com"
 #define SFTP_EXT_LIMITS_VER "1"
@@ -226,12 +226,15 @@ static void encode_attrs_empty(sftp_server_t *srv) {
     out_u32(srv, 0);
 }
 
-static uint32_t parse_attrs_mode(const uint8_t *buf, size_t buf_len, size_t *off) {
+static uint32_t parse_attrs_mode(const uint8_t *buf, size_t buf_len, size_t *off,
+        int *has_mode) {
     uint32_t flags;
-    uint32_t mode = 0755;
+    uint32_t mode = 0;
 
+    if (has_mode)
+        *has_mode = 0;
     if (get_uint32(buf, buf_len, off, &flags) < 0)
-        return mode;
+        return 0;
     if (flags & SSH_FILEXFER_ATTR_SIZE) {
         uint64_t dummy64;
         get_uint64(buf, buf_len, off, &dummy64);
@@ -241,8 +244,11 @@ static uint32_t parse_attrs_mode(const uint8_t *buf, size_t buf_len, size_t *off
         get_uint32(buf, buf_len, off, &dummy32);
         get_uint32(buf, buf_len, off, &dummy32);
     }
-    if (flags & SSH_FILEXFER_ATTR_PERMISSIONS)
+    if (flags & SSH_FILEXFER_ATTR_PERMISSIONS) {
         get_uint32(buf, buf_len, off, &mode);
+        if (has_mode)
+            *has_mode = 1;
+    }
     return mode;
 }
 
@@ -468,6 +474,7 @@ static int handle_open(sftp_server_t *srv, const uint8_t *buf, size_t len) {
     size_t off = 0;
     uint32_t id, pflags, slen;
     uint32_t mode;
+    int has_mode;
     int flags = 0;
     char pathbuf[512];
     struct stat st;
@@ -486,7 +493,7 @@ static int handle_open(sftp_server_t *srv, const uint8_t *buf, size_t len) {
             return send_status(srv, id, SSH_FX_BAD_MESSAGE, "bad open");
         if (get_uint32(buf, len, &off, &pflags) < 0)
             return send_status(srv, id, SSH_FX_BAD_MESSAGE, "bad open flags");
-        mode = parse_attrs_mode(buf, len, &off);
+        mode = parse_attrs_mode(buf, len, &off, &has_mode);
         if ((pflags & SSH_FXF_READ) && (pflags & SSH_FXF_WRITE))
             flags = O_RDWR;
         else if (pflags & SSH_FXF_WRITE)
@@ -515,7 +522,7 @@ static int handle_open(sftp_server_t *srv, const uint8_t *buf, size_t len) {
 
     if (st_rc < 0 && (pflags & SSH_FXF_CREAT) &&
             (st_errno == 0 || st_errno == ENOENT)) {
-        int create_mode = (int)(mode & 0777);
+        int create_mode = has_mode ? (int)(mode & 0777) : 0644;
         if (create_mode == 0)
             create_mode = 0644;
         if (vfs_create(pathbuf, NULL, FS_TYPE_FILE, create_mode,
@@ -535,13 +542,6 @@ static int handle_open(sftp_server_t *srv, const uint8_t *buf, size_t len) {
     fd = vfs_open(&finfo, open_flags);
     if (fd < 0) {
         int err = errno ? errno : EIO;
-        errno = err;
-        return send_status(srv, id, errno_to_status(), strerror(err));
-    }
-    if ((pflags & SSH_FXF_CREAT) &&
-            fchmod_preserve_type(fd, mode, S_IFREG) < 0) {
-        int err = errno ? errno : EIO;
-        close(fd);
         errno = err;
         return send_status(srv, id, errno_to_status(), strerror(err));
     }
@@ -747,6 +747,7 @@ static int handle_setstat(sftp_server_t *srv, const uint8_t *buf, size_t len) {
     const char *path;
     char pathbuf[512];
     uint32_t mode;
+    int has_mode;
 
     if (get_uint32(buf, len, &off, &id) < 0)
         return -1;
@@ -757,7 +758,9 @@ static int handle_setstat(sftp_server_t *srv, const uint8_t *buf, size_t len) {
         return send_status(srv, id, SSH_FX_FAILURE, "path too long");
     memcpy(pathbuf, path, slen);
     pathbuf[slen] = '\0';
-    mode = parse_attrs_mode(buf, len, &off);
+    mode = parse_attrs_mode(buf, len, &off, &has_mode);
+    if (!has_mode)
+        return send_status(srv, id, SSH_FX_OK, "");
     if (chmod_preserve_type(pathbuf, mode, S_IFREG) < 0)
         return send_status(srv, id, errno_to_status(), strerror(errno));
     return send_status(srv, id, SSH_FX_OK, "");
@@ -768,15 +771,18 @@ static int handle_fsetstat(sftp_server_t *srv, const uint8_t *buf, size_t len) {
     uint32_t id;
     int h;
     uint32_t mode;
+    int has_mode;
 
     if (get_uint32(buf, len, &off, &id) < 0)
         return -1;
     h = get_handle_from_pkt(srv, buf, len, &off);
     if (h < 0)
         return send_status(srv, id, SSH_FX_FAILURE, "invalid handle");
+    mode = parse_attrs_mode(buf, len, &off, &has_mode);
+    if (!has_mode)
+        return send_status(srv, id, SSH_FX_OK, "");
     if (srv->handles[h].type == HANDLE_FILE && flush_handle_idx(srv, h) < 0)
         return send_status(srv, id, errno_to_status(), strerror(errno));
-    mode = parse_attrs_mode(buf, len, &off);
     if (srv->handles[h].type == HANDLE_FILE &&
             srv->handles[h].fd >= 0 &&
             fchmod_preserve_type(srv->handles[h].fd, mode, S_IFREG) < 0)
@@ -927,6 +933,7 @@ static int handle_mkdir(sftp_server_t *srv, const uint8_t *buf, size_t len) {
     const char *path;
     char pathbuf[512];
     uint32_t mode;
+    int has_mode;
 
     if (get_uint32(buf, len, &off, &id) < 0)
         return -1;
@@ -937,7 +944,9 @@ static int handle_mkdir(sftp_server_t *srv, const uint8_t *buf, size_t len) {
         return send_status(srv, id, SSH_FX_FAILURE, "path too long");
     memcpy(pathbuf, path, slen);
     pathbuf[slen] = '\0';
-    mode = parse_attrs_mode(buf, len, &off);
+    mode = parse_attrs_mode(buf, len, &off, &has_mode);
+    if (!has_mode)
+        mode = 0755;
     if (mkdir(pathbuf, mode & 0777) < 0)
         return send_status(srv, id, errno_to_status(), strerror(errno));
     return send_status(srv, id, SSH_FX_OK, "");
