@@ -2255,6 +2255,7 @@ static void* internal_sftp_thread(void* arg) {
     sftp_server_t* srv;
     uint8_t buf[16384];
     int rc = 0;
+    int need_close = 0;
 
     memset(&io, 0, sizeof(io));
     io.emit = internal_sftp_emit;
@@ -2308,15 +2309,18 @@ static void* internal_sftp_thread(void* arg) {
     sftp_server_destroy(srv);
     pthread_mutex_lock(&s->state_lock);
     s->internal_sftp_done = 1;
+    need_close = !s->sent_close;
+    pthread_mutex_unlock(&s->state_lock);
+    if(need_close) {
+        (void)send_channel_request_exit_status(s, rc == 0 ? 0 : 1);
+        (void)send_channel_eof_and_close(s);
+    }
+    pthread_mutex_lock(&s->state_lock);
     if(!s->closing) {
         s->closing = 1;
         pthread_cond_broadcast(&s->remote_window_cv);
     }
     pthread_mutex_unlock(&s->state_lock);
-    if(!s->sent_close) {
-        (void)send_channel_request_exit_status(s, rc == 0 ? 0 : 1);
-        (void)send_channel_eof_and_close(s);
-    }
     session_close_socket(s);
     return NULL;
 }
@@ -2393,11 +2397,11 @@ static void* output_relay_thread(void* arg) {
         if(child_eof) {
             (void)send_channel_request_exit_status(s, 0);
         }
+        (void)send_channel_eof_and_close(s);
         pthread_mutex_lock(&s->state_lock);
         s->closing = 1;
         pthread_cond_broadcast(&s->remote_window_cv);
         pthread_mutex_unlock(&s->state_lock);
-        (void)send_channel_eof_and_close(s);
         session_close_socket(s);
     }
     return NULL;
