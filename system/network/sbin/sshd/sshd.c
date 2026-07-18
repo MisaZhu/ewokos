@@ -149,12 +149,6 @@ typedef struct {
 
 typedef struct {
     sshd_session_t* s;
-    int* fd;
-    uint32_t ext_type;
-} output_relay_arg_t;
-
-typedef struct {
-    sshd_session_t* s;
 } internal_sftp_arg_t;
 
 typedef struct {
@@ -222,11 +216,8 @@ struct sshd_session {
     int child_is_sftp;
     int internal_sftp_active;
     int internal_sftp_done;
+    int child_eof_seen;
 
-    pthread_t out_tid;
-    int out_started;
-    int output_active;
-    output_relay_arg_t out_arg;
     pthread_t internal_sftp_tid;
     int internal_sftp_started;
     internal_sftp_arg_t internal_sftp_arg;
@@ -2353,59 +2344,105 @@ static void session_close_socket(sshd_session_t* s) {
 }
 
 /*
- * Per-direction output relay. Each thread parks in a blocking read() on one of
- * the shell's output pipes (stdout or stderr) and forwards data into the SSH
- * channel. Blocking reads let the thread sleep in the kernel instead of the old
- * multi-fd poll() busy-loop. On EOF/error the thread closes its pipe end and,
- * when it is the last live output thread, drives session teardown: it flags the
- * session closing, sends CHANNEL_EOF/CHANNEL_CLOSE, then closes the socket to
- * wake the inbound thread blocked in the socket read.
+ * Drain child stdout into the SSH channel. Non-blocking reads, capped by
+ * remote window to avoid blocking on cond_wait in the single-threaded relay.
+ * On EOF: send exit-status + channel eof/close, flag closing, close socket.
  */
-static void* output_relay_thread(void* arg) {
-    output_relay_arg_t* a = (output_relay_arg_t*)arg;
-    sshd_session_t* s = a->s;
-    /*
-     * Read larger chunks from the child stdout pipe so high-throughput binary
-     * protocols like SFTP are not fragmented into a long train of tiny ~1 KiB
-     * SSH channel packets. Runtime logs showed this over-fragmentation closely
-     * tracks the later stall under sustained SCP/SFTP downloads.
-     */
-    uint8_t buf[SSH_RELAY_READ_SIZE];
-    int remaining;
-    int child_eof = 0;
+static void drain_child_output(sshd_session_t* s) {
+    if(s->internal_sftp_active || s->child_eof_seen)
+        return;
+    int fd = s->child_stdout[CHILD_STDOUT_READ];
+    if(fd < 0)
+        return;
 
+    uint8_t buf[SSH_RELAY_READ_SIZE];
     while(!s->closing) {
-        ssize_t n = read(*a->fd, buf, sizeof(buf));
+        uint32_t win = sshd_remote_window_load(s);
+        if(win == 0)
+            break;
+        /* Cap read size by window to avoid mid-send stall on window exhaustion */
+        size_t max_read = s->pty_enabled ? (win / 2) : win;
+        if(max_read == 0)
+            break;
+        if(max_read > sizeof(buf))
+            max_read = sizeof(buf);
+        /* PTY CRLF expansion can double payload; cap at 1024 to avoid truncation */
+        if(s->pty_enabled && max_read > 1024)
+            max_read = 1024;
+
+        ssize_t n = read(fd, buf, max_read);
         if(n > 0) {
-            SSHD_DBG("child_out read pid=%d ext=%u n=%d\n",
-                    (int)s->child_pid, a->ext_type, (int)n);
-            if(send_channel_data_packet(s, a->ext_type, buf, (size_t)n) < 0)
+            if(send_channel_data_packet(s, 0, buf, (size_t)n) < 0)
                 break;
             continue;
         }
-        if(n < 0 && errno == EINTR)
-            continue;
-        if(n == 0)
-            child_eof = 1;
-        break;
-    }
-    close_fd_if_valid(a->fd);
-    pthread_mutex_lock(&s->state_lock);
-    remaining = --s->output_active;
-    pthread_mutex_unlock(&s->state_lock);
-    if(remaining == 0) {
-        if(child_eof) {
+        if(n == 0) {
+            /* EOF: shell exited */
+            s->child_eof_seen = 1;
+            close_fd_if_valid(&s->child_stdout[CHILD_STDOUT_READ]);
             (void)send_channel_request_exit_status(s, 0);
+            (void)send_channel_eof_and_close(s);
+            pthread_mutex_lock(&s->state_lock);
+            s->closing = 1;
+            pthread_cond_broadcast(&s->remote_window_cv);
+            pthread_mutex_unlock(&s->state_lock);
+            session_close_socket(s);
+            break;
         }
-        (void)send_channel_eof_and_close(s);
-        pthread_mutex_lock(&s->state_lock);
-        s->closing = 1;
-        pthread_cond_broadcast(&s->remote_window_cv);
-        pthread_mutex_unlock(&s->state_lock);
-        session_close_socket(s);
+        if(errno == EINTR)
+            continue;
+        if(errno == EAGAIN)
+            break;  /* drained */
+        break;  /* error */
     }
-    return NULL;
 }
+
+/*
+ * Wait for socket and/or pipe readiness. Returns bitmask:
+ *   bit 0: socket ready (POLLIN)
+ *   bit 1: pipe ready (POLLIN)
+ *   0: timeout
+ *   <0: error
+ * Excludes pipe from poll set when window exhausted or pipe invalid/EOF.
+ */
+#define SESSION_EVT_SOCKET  0x01
+#define SESSION_EVT_PIPE    0x02
+static int wait_session_events(sshd_session_t* s, int timeout_ms) {
+    struct pollfd pfds[2];
+    nfds_t n = 0;
+    int sock = s->socket;
+    int pfd = s->child_stdout[CHILD_STDOUT_READ];
+
+    if(sock < 0) {
+        errno = EBADF;
+        return -1;
+    }
+    pfds[n].fd = sock;
+    pfds[n].events = POLLIN | POLLHUP | POLLERR;
+    n++;
+
+    bool watch_pipe = !s->internal_sftp_active && !s->child_eof_seen &&
+                      pfd >= 0 && sshd_remote_window_load(s) > 0;
+    if(watch_pipe) {
+        pfds[n].fd = pfd;
+        pfds[n].events = POLLIN | POLLHUP | POLLERR;
+        n++;
+    }
+
+    int rc = poll(pfds, n, timeout_ms);
+    if(rc < 0)
+        return (errno == EINTR) ? 0 : -1;
+    if(rc == 0)
+        return 0;  /* timeout */
+
+    int result = 0;
+    if(pfds[0].revents & (POLLIN | POLLHUP | POLLERR))
+        result |= SESSION_EVT_SOCKET;
+    if(n > 1 && (pfds[1].revents & (POLLIN | POLLHUP | POLLERR)))
+        result |= SESSION_EVT_PIPE;
+    return result;
+}
+
 
 static void close_child_bundle(int child_stdin[2], int child_stdout[2],
         int child_control[2]) {
@@ -2534,6 +2571,10 @@ static int spawn_child_session(sshd_session_t* s, const char* command, int is_sh
         close_child_fds(s);
         return -1;
     }
+    if(set_fd_nonblock(s->child_stdout[CHILD_STDOUT_READ]) < 0) {
+        close_child_fds(s);
+        return -1;
+    }
     if(use_ready) {
         if(wait_child_ready(s->child_control[CHILD_CTRL_READ]) < 0) {
             close_child_fds(s);
@@ -2547,26 +2588,14 @@ static int spawn_child_session(sshd_session_t* s, const char* command, int is_sh
     }
 
     /*
-     * The login shell / sftp-server is our child process. Pipe EOF on the
-     * child's stdout drives session teardown. The child's stderr is dup'd onto
-     * the same stdout pipe (see become_login_process), so a single
-     * output_relay_thread parks in blocking read() on that pipe and forwards
-     * into the SSH channel, while the main thread runs the inbound packet loop.
-     * Total per-session tasks: main inbound + one output thread.
+     * The login shell / sftp-server is our child process. The main thread runs
+     * the single-task relay loop: drain child stdout (non-blocking, window-
+     * capped) and dispatch inbound packets, parking on {socket, pipe} via
+     * multi-fd poll. This eliminates the output_relay_thread, reducing ps from
+     * 3 lines (shell + sshd + THRD) to 2 (shell + sshd).
      */
     s->child_started = 1;
-
-    s->out_arg.s = s;
-    s->out_arg.fd = &s->child_stdout[CHILD_STDOUT_READ];
-    s->out_arg.ext_type = 0;
-    s->output_active = 1;
-
-    s->out_started = (pthread_create(&s->out_tid, NULL, output_relay_thread, &s->out_arg) == 0);
-    if(!s->out_started) {
-        pthread_mutex_lock(&s->state_lock);
-        s->output_active--;
-        pthread_mutex_unlock(&s->state_lock);
-    }
+    s->child_eof_seen = 0;
     return 0;
 }
 
@@ -3120,22 +3149,16 @@ static int dispatch_session_packet(sshd_session_t* s, const ssh_packet_t* packet
 }
 
 /*
- * Inbound packet loop. The main thread blocks efficiently on the client socket
- * (single-fd wait inside ssh_read_n) and dispatches SSH packets. The shell's
- * stdout/stderr are relayed by a dedicated output thread (output_relay_thread),
- * so there is no multi-fd poll() and no idle busy-loop.
+ * Single-task relay loop. The main thread parks on {socket, pipe} via multi-fd
+ * poll (or {socket} only when window exhausted or pipe invalid/EOF), drains
+ * child stdout into the SSH channel, and dispatches inbound packets. This
+ * eliminates the output_relay_thread, reducing ps from 3 lines (shell + sshd +
+ * THRD) to 2 (shell + sshd), matching the telnetd merge.
  *
- * Before each receive, pending stdin data is flushed (non-blocking) and any
- * deferred WINDOW_ADJUST credit is sent. This avoids relying on poll() for
- * pipe/socket readiness detection which is unreliable on EwokOS.
- *
- * Teardown is hang-free in every direction:
- *  - Shell/sftp-server exits first: output thread hits pipe EOF; it flags
- *    s->closing, sends CHANNEL_EOF/CLOSE and closes the socket, which wakes
- *    this blocked socket read so the loop ends.
- *  - Client closes / CHANNEL_CLOSE: the loop ends; we flag s->closing, close
- *    child stdin and stdout pipes, join the output thread, then kill the login
- *    process to ensure it doesn't linger.
+ * Teardown is hang-free:
+ *  - Shell exits: drain_child_output sees EOF, sends exit-status + channel
+ *    eof/close, flags closing, closes socket → loop exits.
+ *  - Client closes: loop exits; we flag closing, close pipes, kill child.
  */
 static int handle_session_packets(sshd_session_t* s) {
     ssh_packet_t packet;
@@ -3172,14 +3195,32 @@ static int handle_session_packets(sshd_session_t* s) {
         }
         maybe_close_child_stdin(s);
 
-        /* Receive next packet (blocking with internal timeout/retry) */
-        if(ssh_packet_receive(s, &packet) < 0) {
+        /* Drain shell output (non-blocking, window-capped) */
+        drain_child_output(s);
+        if(s->closing)
+            break;
+
+        /* Wait for socket and/or pipe readiness */
+        int ev = wait_session_events(s, 1000);
+        if(ev < 0) {
             rc = -1;
             break;
         }
-        if(dispatch_session_packet(s, &packet) < 0) {
-            rc = -1;
-            break;
+        if(ev == 0)
+            continue;  /* timeout, re-loop */
+
+        if(ev & SESSION_EVT_PIPE)
+            continue;  /* pipe ready, loop back to drain */
+
+        if(ev & SESSION_EVT_SOCKET) {
+            if(ssh_packet_receive(s, &packet) < 0) {
+                rc = -1;
+                break;
+            }
+            if(dispatch_session_packet(s, &packet) < 0) {
+                rc = -1;
+                break;
+            }
         }
     }
 
@@ -3194,15 +3235,7 @@ static int handle_session_packets(sshd_session_t* s) {
     session_signal_close(s);
     session_close_socket(s);
     close_fd_if_valid(&s->child_stdin[CHILD_STDIN_WRITE]);
-    /*
-     * Force-close the stdout read pipe to unblock the output thread which
-     * may be parked in a blocking read(). In EwokOS pipes do not reliably
-     * deliver EOF to a blocked reader when the write end closes, so we
-     * must pull the fd out from under the read() here.
-     */
     close_fd_if_valid(&s->child_stdout[CHILD_STDOUT_READ]);
-    if(s->out_started)
-        pthread_join(s->out_tid, NULL);
     if(s->internal_sftp_started)
         pthread_join(s->internal_sftp_tid, NULL);
     /*
