@@ -218,6 +218,7 @@ struct sshd_session {
     int internal_sftp_active;
     int internal_sftp_done;
     int child_eof_seen;
+    int pipe_hup;  /* POLLHUP seen on child_stdout pipe (write-end closed) */
 
     pthread_t internal_sftp_tid;
     int internal_sftp_started;
@@ -2382,14 +2383,24 @@ static void drain_child_output(sshd_session_t* s) {
          * (write-end fully closed) returns -1, while a non-blocking empty
          * read returns 0 (and may even be flipped to -1 by the libc wrapper
          * when a stale errno is set). Neither the return value nor errno can
-         * reliably distinguish EOF from "no data yet". Use child liveness as
-         * the source of truth: a live child means "drained, wait for the next
-         * event"; a dead child means EOF. This doubles as the watchdog that
-         * guarantees teardown even if a writer_close was ever lost on the
-         * pipe (same guarantee as the telnetd relay).
+         * reliably distinguish EOF from "no data yet".
+         *
+         * Primary EOF signal: pipe_hup (POLLHUP seen in wait_session_events)
+         * means the write-end is closed — authoritative EOF regardless of
+         * child liveness.
+         *
+         * Fallback: waitpid(WNOHANG) detects a zombie child (exited but not
+         * yet reaped).  proc_get_uuid() is NOT reliable here because the
+         * kernel only clears uuid in proc_funeral after the parent reaps.
          */
-        if(s->child_pid > 1 && proc_get_uuid(s->child_pid) != 0)
-            break;  /* child alive: temporarily no data */
+        if(!s->pipe_hup) {
+            if(s->child_pid > 1) {
+                pid_t wrc = waitpid(s->child_pid, NULL, WNOHANG);
+                if(wrc == 0)
+                    break;  /* child still running: temporarily no data */
+                s->child_pid = -1;
+            }
+        }
         /* EOF: shell exited */
         s->child_eof_seen = 1;
         close_fd_if_valid(&s->child_stdout[CHILD_STDOUT_READ]);
@@ -2445,8 +2456,18 @@ static int wait_session_events(sshd_session_t* s, int timeout_ms) {
     int result = 0;
     if(pfds[0].revents & (POLLIN | POLLHUP | POLLERR))
         result |= SESSION_EVT_SOCKET;
-    if(n > 1 && (pfds[1].revents & (POLLIN | POLLHUP | POLLERR)))
-        result |= SESSION_EVT_PIPE;
+    if(n > 1) {
+        if(pfds[1].revents & POLLHUP)
+            s->pipe_hup = 1;
+        /* Only signal pipe-ready when there is actual data (POLLIN).
+         * Bare POLLHUP (write-end closed, buffer empty) must NOT
+         * generate SESSION_EVT_PIPE, otherwise the relay loop spins
+         * on the empty pipe and starves the socket of WINDOW_ADJUST
+         * reads, deadlocking the channel.  pipe_hup is consumed by
+         * drain_child_output for EOF detection. */
+        if(pfds[1].revents & (POLLIN | POLLERR))
+            result |= SESSION_EVT_PIPE;
+    }
     return result;
 }
 
@@ -3216,9 +3237,13 @@ static int handle_session_packets(sshd_session_t* s) {
         if(ev == 0)
             continue;  /* timeout, re-loop */
 
-        if(ev & SESSION_EVT_PIPE)
-            continue;  /* pipe ready, loop back to drain */
-
+        /*
+         * Process socket even when the pipe also had data.  The old
+         * "if(PIPE) continue" skipped the socket entirely, starving
+         * WINDOW_ADJUST reads whenever the pipe kept producing events
+         * (e.g. POLLHUP after pipeline exit), deadlocking the channel.
+         * Pipe data is drained at the top of the next iteration.
+         */
         if(ev & SESSION_EVT_SOCKET) {
             if(ssh_packet_receive(s, &packet) < 0) {
                 rc = -1;
