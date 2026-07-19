@@ -6,7 +6,7 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 
 LDFLAGS = -L$(BUILD_DIR)/lib
 
-CFLAGS += -I $(BUILD_DIR)/include
+CFLAGS += -I $(BUILD_DIR)/include -I$(SYS_DIR)/network/libs/utils/include
 
 LOGIN_OBJS = login.o
 
@@ -18,4 +18,3 @@ $(LOGIN): $(LOGIN_OBJS) \
 
 clean:
 	rm -f $(LOGIN_OBJS)
-
