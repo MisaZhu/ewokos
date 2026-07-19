@@ -182,6 +182,115 @@ static void telnet_send_initial_negotiation(int fd) {
     (void)write_all(fd, init_cmds, sizeof(init_cmds));
 }
 
+static void telnet_reply_option_raw(int fd, uint8_t verb, uint8_t opt) {
+    uint8_t reply[3] = { TELNET_IAC, 0, opt };
+    int len = 3;
+    int supported = (opt == TELNET_OPT_ECHO || opt == TELNET_OPT_SUPPRESS_GA);
+
+    switch(verb) {
+    case TELNET_DO:
+        if(!supported)
+            reply[1] = TELNET_WONT;
+        else
+            len = 0;
+        break;
+    case TELNET_WILL:
+        if(!supported)
+            reply[1] = TELNET_DONT;
+        else
+            len = 0;
+        break;
+    case TELNET_DONT:
+    case TELNET_WONT:
+    default:
+        len = 0;
+        break;
+    }
+
+    if(len > 0)
+        (void)write_all(fd, reply, (size_t)len);
+}
+
+static void telnet_drain_initial_negotiation(int fd) {
+    enum {
+        NEG_STATE_DATA = 0,
+        NEG_STATE_IAC,
+        NEG_STATE_CMD,
+        NEG_STATE_SB,
+        NEG_STATE_SB_DATA,
+        NEG_STATE_SB_IAC,
+    };
+    uint8_t buf[128];
+    int state = NEG_STATE_DATA;
+    uint8_t verb = 0;
+    int idle_rounds = 0;
+
+    while(idle_rounds < 4) {
+        struct pollfd pfd;
+        pfd.fd = fd;
+        pfd.events = POLLIN;
+        pfd.revents = 0;
+
+        int pret = poll(&pfd, 1, 50);
+        if(pret <= 0 || !(pfd.revents & POLLIN)) {
+            idle_rounds++;
+            continue;
+        }
+        idle_rounds = 0;
+
+        ssize_t ret = read(fd, buf, sizeof(buf));
+        if(ret <= 0)
+            break;
+
+        for(ssize_t i = 0; i < ret; i++) {
+            uint8_t c = buf[i];
+
+            switch(state) {
+            case NEG_STATE_DATA:
+                if(c == TELNET_IAC)
+                    state = NEG_STATE_IAC;
+                break;
+            case NEG_STATE_IAC:
+                if(c == TELNET_IAC) {
+                    state = NEG_STATE_DATA;
+                }
+                else if(c == TELNET_SB) {
+                    state = NEG_STATE_SB;
+                }
+                else if(c == TELNET_WILL || c == TELNET_WONT ||
+                        c == TELNET_DO || c == TELNET_DONT) {
+                    verb = c;
+                    state = NEG_STATE_CMD;
+                }
+                else {
+                    state = NEG_STATE_DATA;
+                }
+                break;
+            case NEG_STATE_CMD:
+                telnet_reply_option_raw(fd, verb, c);
+                state = NEG_STATE_DATA;
+                break;
+            case NEG_STATE_SB:
+                state = NEG_STATE_SB_DATA;
+                break;
+            case NEG_STATE_SB_DATA:
+                if(c == TELNET_IAC)
+                    state = NEG_STATE_SB_IAC;
+                break;
+            case NEG_STATE_SB_IAC:
+                if(c == TELNET_SE)
+                    state = NEG_STATE_DATA;
+                else if(c != TELNET_IAC)
+                    state = NEG_STATE_SB_DATA;
+                break;
+            default:
+                state = NEG_STATE_DATA;
+                break;
+            }
+        }
+    }
+}
+
 static int telnet_open_server_socket(int port) {
     struct sockaddr_in serv_addr;
 
@@ -228,11 +337,11 @@ static void become_login_process(
     int d0 = dup2(input_fd, 0);
     int d1 = dup2(output_fd, 1);
     int d2 = dup2(output_fd, 2);
-    int db = dup2(input_fd, VFS_BACKUP_FD0);
-    if(d0 < 0 || d1 < 0 || d2 < 0 || db < 0) {
+    int db0 = dup2(input_fd, VFS_BACKUP_FD0);
+    int db1 = dup2(clnt_sock, VFS_BACKUP_FD1);
+    if(d0 < 0 || d1 < 0 || d2 < 0 || db0 < 0 || db1 < 0) {
         exit(-1);
     }
-    close(VFS_BACKUP_FD1);
     if(input_pipe != NULL) {
         close_fd_if_valid(&input_pipe[0]);
     }
@@ -256,6 +365,7 @@ static void run_telnet_worker(int serv_sock, int clnt_sock) {
     pid_t pid;
 
     telnet_send_initial_negotiation(clnt_sock);
+    telnet_drain_initial_negotiation(clnt_sock);
     if(pipe(output_pipe) != 0) {
         close_fd_if_valid(&output_pipe[0]);
         close_fd_if_valid(&output_pipe[1]);

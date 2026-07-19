@@ -53,8 +53,10 @@ static inline void telnet_console_reply_option(uint8_t verb, uint8_t opt) {
 	uint8_t reply[3] = { TELNET_IAC, 0, opt };
 	int len = 3;
 	int supported = (opt == TELNET_OPT_ECHO || opt == TELNET_OPT_SUPPRESS_GA);
-	int out_fd = VFS_BACKUP_FD0;
+	int out_fd = VFS_BACKUP_FD1;
 
+	if(out_fd < 0)
+		out_fd = VFS_BACKUP_FD0;
 	if(out_fd < 0)
 		out_fd = 1;
 
@@ -85,7 +87,7 @@ static inline void telnet_console_reply_option(uint8_t verb, uint8_t opt) {
 	if(len > 0) {
 		/*
 		 * Telnet option replies are protocol bytes, not user-facing output.
-		 * They must bypass stdout/stderr relays and go straight to the socket.
+		 * They must bypass stdout/stderr relays and go straight to the raw socket.
 		 */
 		(void)write(out_fd, reply, len);
 	}
@@ -121,12 +123,15 @@ static inline uint8_t telnet_console_parse(telnet_console_t* tc, uint8_t c) {
 		}
 		else if(c == TELNET_SB)
 			tc->state = TELNET_STATE_SB;
-		else if(c == TELNET_SE)
-			tc->state = TELNET_STATE_DATA;
-		else {
+		else if(c == TELNET_WILL || c == TELNET_WONT ||
+				c == TELNET_DO || c == TELNET_DONT) {
 			tc->verb = c;
 			tc->state = TELNET_STATE_CMD;
 		}
+		else if(c == TELNET_SE)
+			tc->state = TELNET_STATE_DATA;
+		else
+			tc->state = TELNET_STATE_DATA;
 		break;
 	case TELNET_STATE_CMD:
 		telnet_console_reply_option(tc->verb, c);
