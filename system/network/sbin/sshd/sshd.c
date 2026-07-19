@@ -13,6 +13,7 @@
 #include <sys/wait.h>
 #include <pthread.h>
 #include <poll.h>
+#include <ewoksys/proc.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <openssl/ssl.h>
@@ -2376,24 +2377,30 @@ static void drain_child_output(sshd_session_t* s) {
                 break;
             continue;
         }
-        if(n == 0) {
-            /* EOF: shell exited */
-            s->child_eof_seen = 1;
-            close_fd_if_valid(&s->child_stdout[CHILD_STDOUT_READ]);
-            (void)send_channel_request_exit_status(s, 0);
-            (void)send_channel_eof_and_close(s);
-            pthread_mutex_lock(&s->state_lock);
-            s->closing = 1;
-            pthread_cond_broadcast(&s->remote_window_cv);
-            pthread_mutex_unlock(&s->state_lock);
-            session_close_socket(s);
-            break;
-        }
-        if(errno == EINTR)
-            continue;
-        if(errno == EAGAIN)
-            break;  /* drained */
-        break;  /* error */
+        /*
+         * n <= 0: EwokOS pipe semantics are inverted vs POSIX — a real EOF
+         * (write-end fully closed) returns -1, while a non-blocking empty
+         * read returns 0 (and may even be flipped to -1 by the libc wrapper
+         * when a stale errno is set). Neither the return value nor errno can
+         * reliably distinguish EOF from "no data yet". Use child liveness as
+         * the source of truth: a live child means "drained, wait for the next
+         * event"; a dead child means EOF. This doubles as the watchdog that
+         * guarantees teardown even if a writer_close was ever lost on the
+         * pipe (same guarantee as the telnetd relay).
+         */
+        if(s->child_pid > 1 && proc_get_uuid(s->child_pid) != 0)
+            break;  /* child alive: temporarily no data */
+        /* EOF: shell exited */
+        s->child_eof_seen = 1;
+        close_fd_if_valid(&s->child_stdout[CHILD_STDOUT_READ]);
+        (void)send_channel_request_exit_status(s, 0);
+        (void)send_channel_eof_and_close(s);
+        pthread_mutex_lock(&s->state_lock);
+        s->closing = 1;
+        pthread_cond_broadcast(&s->remote_window_cv);
+        pthread_mutex_unlock(&s->state_lock);
+        session_close_socket(s);
+        break;
     }
 }
 

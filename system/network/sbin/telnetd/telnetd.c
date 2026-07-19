@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -135,10 +136,17 @@ static int write_all_nb(int fd, const uint8_t *buf, size_t len) {
  * The input direction needs no relay at all: the client socket is used
  * directly as the shell's stdin and both /bin/login and /bin/shell strip
  * telnet protocol (IAC negotiation + CR translation) themselves when
- * CONSOLE_ID=telnet. This keeps the session at one blocking read on the
- * output pipe (zero idle CPU) and one telnetd task per connection.
+ * CONSOLE_ID=telnet.
+ *
+ * The relay must never outlive the login session. Its normal exit path is
+ * pipe EOF (vfsd reaps the shell's write ends), but that chain crosses
+ * core's polled kevent queue and vfsd's deferred zombie cleanup; a lost
+ * step there would park this task on the pipe forever and leak the netd
+ * connection task. So instead of a bare blocking read, poll with a timeout
+ * (one cheap wakeup per second, no idle busy loop) and watchdog the shell
+ * pid: once the shell is gone, drain whatever output remains and exit.
  */
-static void telnet_output_relay(int clnt_sock, int output_read_fd) {
+static void telnet_output_relay(int clnt_sock, int output_read_fd, int shell_pid) {
     telnet_relay_t relay;
     uint8_t buf[BUF_SIZE];
     uint8_t outbuf[BUF_SIZE * 2];
@@ -152,19 +160,39 @@ static void telnet_output_relay(int clnt_sock, int output_read_fd) {
     if(flags >= 0)
         fcntl(clnt_sock, F_SETFL, flags | O_NONBLOCK);
 
+    bool shell_dead = false;
     while(1) {
-        ssize_t ret = read(output_read_fd, buf, sizeof(buf));
-        if(ret > 0) {
-            size_t out_len = telnet_encode_output(&relay, outbuf, buf, (size_t)ret);
-            if(out_len > 0 && write_all_nb(clnt_sock, outbuf, out_len) != 0)
-                break;
-            continue;
+        if(!shell_dead && shell_pid > 0 && proc_get_uuid(shell_pid) == 0)
+            shell_dead = true;
+
+        struct pollfd pfd;
+        pfd.fd = output_read_fd;
+        pfd.events = POLLIN;
+        pfd.revents = 0;
+        int pr = poll(&pfd, 1, shell_dead ? 200 : 1000);
+        if(pr > 0 && (pfd.revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) != 0) {
+            errno = 0;
+            ssize_t ret = read(output_read_fd, buf, sizeof(buf));
+            if(ret > 0) {
+                size_t out_len = telnet_encode_output(&relay, outbuf, buf, (size_t)ret);
+                if(out_len > 0 && write_all_nb(clnt_sock, outbuf, out_len) != 0)
+                    break;
+                continue;
+            }
+            if(ret < 0 && errno == EINTR)
+                continue;
+            /* Shell exited (pipe EOF) or pipe error: flush a trailing CR and finish. */
+            (void)telnet_flush_output_tail(&relay);
+            break;
         }
-        if(ret < 0 && errno == EINTR)
-            continue;
-        /* Shell exited (pipe EOF) or pipe error: flush a trailing CR and finish. */
-        (void)telnet_flush_output_tail(&relay);
-        break;
+        if(pr < 0)
+            break;
+        /* Poll timeout: with the shell gone and nothing left to forward,
+         * leave so the socket ref returns and netd can release the task. */
+        if(shell_dead) {
+            (void)telnet_flush_output_tail(&relay);
+            break;
+        }
     }
 
     close_fd_if_valid(&output_read_fd);
@@ -373,6 +401,9 @@ static void run_telnet_worker(int serv_sock, int clnt_sock) {
         return;
     }
 
+    /* The parent of this fork becomes the login shell; remember its pid so
+     * the relay child can watchdog the session's lifetime. */
+    int shell_pid = getpid();
     pid = fork();
     if(pid < 0) {
         close_fd_if_valid(&output_pipe[0]);
@@ -389,10 +420,12 @@ static void run_telnet_worker(int serv_sock, int clnt_sock) {
         return;
     }
 
-    /* Relay child: the one and only telnetd task, shell stdout -> socket. */
+    /* Relay child: the one and only telnetd task, shell stdout -> socket.
+     * Its lifetime is bound to the parent it just forked from — that parent
+     * exec()s into /bin/login and then the shell (same pid throughout). */
     close_fd_if_valid(&serv_sock);
     close_fd_if_valid(&output_pipe[1]);
-    telnet_output_relay(clnt_sock, output_pipe[0]);
+    telnet_output_relay(clnt_sock, output_pipe[0], shell_pid);
     exit(0);
 }
 

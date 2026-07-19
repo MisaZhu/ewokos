@@ -1623,6 +1623,7 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 	PF->clear(out)->addi(out, 0); //retry
 }
 
+static void clear_zombie(int32_t cpid);
 
 static void vfs_proc_exit(int32_t cpid) {
 	if(cpid < 0 || cpid >= _max_proc_table_num)
@@ -1632,8 +1633,20 @@ static void vfs_proc_exit(int32_t cpid) {
 		wait_queue_remove_entry(&_proc_fds_table[cpid].write_waiter);
 		memset(&_proc_fds_table[cpid].read_waiter, 0, sizeof(wait_entry_t));
 		memset(&_proc_fds_table[cpid].write_waiter, 0, sizeof(wait_entry_t));
-		_proc_fds_table[cpid].state = UNUSED;
-		_proc_fds_table[cpid].owner_pid = 0;
+		/*
+		 * A zero uuid does NOT mean "nothing to clean": core forwards
+		 * KEV_PROC_CREATED/EXIT through a polled kevent queue (~50ms), so a
+		 * short-lived process (e.g. `ps` in a shell pipeline on fast
+		 * hardware) can already be dead when VFS_PROC_CLONE finally runs.
+		 * do_vfs_proc_clone() then still copies the parent's fds and bumps
+		 * node refs/refs_w (and dups driver-side refs via FS_CMD_DUP), but
+		 * records uuid=0. Skipping fd cleanup here leaks those references
+		 * forever: a pipe write end never drops (its reader never sees EOF)
+		 * and a driver's per-fd ref never returns (netd connection task
+		 * never released). Reap the slot's fds like any other zombie;
+		 * clear_zombie() also resets the slot to UNUSED.
+		 */
+		clear_zombie(cpid);
 		return;
 	}
 	_proc_fds_table[cpid].state = ZOMBIE;

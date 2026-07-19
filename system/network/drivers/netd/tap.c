@@ -97,7 +97,17 @@ ether_tap_write(struct net_device *dev, const uint8_t *frame, size_t flen)
     TRACE();
     mutex_lock(&tap->lock);
     int ret = write(tap->fd, frame, flen);
-    if (ret < 0) {
+    if (ret < 0 && errno != EAGAIN && errno != EINTR) {
+        /*
+         * Reopen only on hard fd failures (e.g. EBADF). EAGAIN/EINTR mean
+         * the underlying driver's TX queue is temporarily full (the wlan
+         * driver returns VFS_ERR_RETRY when its tx ring is congested); the
+         * frame is dropped and TCP will retransmit it later. Reopening
+         * /dev/wl0 on congestion costs two extra IPCs per frame and does not
+         * make room in the queue, and the resulting retransmit storm keeps
+         * tcp_timer_active() permanently true, pinning intr_loop to the fast
+         * cadence (observed as netd CPU spin on raspix).
+         */
         close(tap->fd);
         tap->fd = open(tap->name, O_RDWR | O_NONBLOCK);
         if (tap->fd >= 0) {
@@ -181,7 +191,21 @@ ether_tap_isr(unsigned int irq, void *id)
     int drained = 0;
     int delivered = 0;
     int pending = tap_select(dev);
-    int budget = pending > 0 ? pending : 32;
+
+    /*
+     * Nothing queued: skip the drain attempt entirely. Previously this ran a
+     * speculative 32-frame budget even when the driver reported an empty
+     * queue, which cost one read plus up to two extra tap_select() IPCs per
+     * poll iteration for zero work — significant on raspix where every op is
+     * a synchronous round-trip to the wlan driver. Queued frames are never
+     * lost by waiting: they stay in the driver queue and are drained on the
+     * next poll once tap_select() reports them.
+     */
+    if (pending <= 0) {
+        return -1;
+    }
+
+    int budget = pending;
 
     if (budget > ETHER_TAP_DRAIN_BURST) {
         budget = ETHER_TAP_DRAIN_BURST;
