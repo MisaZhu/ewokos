@@ -172,15 +172,60 @@ inline void graph_blt_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int3
     dy = dr.y;
     ex = sr.x + sr.w;
     ey = sr.y + sr.h;
+    int32_t w = ex - sr.x;
 
     for(; sy < ey; sy++, dy++) {
-        register int32_t sx = sr.x;
-        register int32_t dx = dr.x;
-        register int32_t offset = sy * src->w;
-        for(; sx < ex; sx+=8, dx+=8) {
-            graph_pixel_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex-sx, 8));    
+        const uint32_t *sp = &src->buffer[sy * src->w + sr.x];
+        uint32_t *dp = &dst->buffer[dy * dst->w + dr.x];
+
+        /* Wide rows: libc memcpy uses cache-managed assembly */
+        if(w >= 64) {
+            memcpy(dp, sp, w * 4);
+            continue;
         }
+
+        int32_t x = 0;
+        /* 16 pixels (64 bytes) per iteration */
+        for(; x <= w - 16; x += 16) {
+            uint32x4_t v0 = vld1q_u32(sp + x);
+            uint32x4_t v1 = vld1q_u32(sp + x + 4);
+            uint32x4_t v2 = vld1q_u32(sp + x + 8);
+            uint32x4_t v3 = vld1q_u32(sp + x + 12);
+            vst1q_u32(dp + x, v0);
+            vst1q_u32(dp + x + 4, v1);
+            vst1q_u32(dp + x + 8, v2);
+            vst1q_u32(dp + x + 12, v3);
+        }
+        /* 8 pixels */
+        if(x <= w - 8) {
+            uint32x4_t v0 = vld1q_u32(sp + x);
+            uint32x4_t v1 = vld1q_u32(sp + x + 4);
+            vst1q_u32(dp + x, v0);
+            vst1q_u32(dp + x + 4, v1);
+            x += 8;
+        }
+        /* Tail */
+        if(x < w)
+            memcpy(dp + x, sp + x, (w - x) * 4);
     }
+}
+
+/* Inline alpha blend of 8 pixels: dst = fg over bg, with global alpha scaling.
+   alpha_vec must be vdup_n_u8(alpha) — created once outside the loop. */
+static inline void blt_alpha_8_inline(uint32_t *dp, const uint32_t *sp, uint8x8_t alpha_vec)
+{
+    uint8x8x4_t fg = vld4_u8((const uint8_t*)sp);
+    uint8x8x4_t bg = vld4_u8((const uint8_t*)dp);
+    uint8x8_t full = vdup_n_u8(0xff);
+    uint8x8_t a = vmovn_u16(neon_div255_u16(vmull_u8(fg.val[3], alpha_vec)));
+    uint8x8_t inv_a = vsub_u8(full, a);
+    uint16x8_t oa_add = neon_div255_u16(vmull_u8(vsub_u8(full, bg.val[3]), a));
+    uint8x8x4_t out;
+    out.val[0] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[0], a), vmull_u8(bg.val[0], inv_a))));
+    out.val[1] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[1], a), vmull_u8(bg.val[1], inv_a))));
+    out.val[2] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[2], a), vmull_u8(bg.val[2], inv_a))));
+    out.val[3] = vmovn_u16(vaddq_u16(vmovl_u8(bg.val[3]), oa_add));
+    vst4_u8((uint8_t*)dp, out);
 }
 
 inline void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
@@ -207,41 +252,53 @@ inline void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw
     dy = dr.y;
     ex = sr.x + sr.w;
     ey = sr.y + sr.h;
+    int32_t w = ex - sr.x;
 
-    // Loop unrolling, process 2 rows at a time for better instruction-level parallelism
+    /* Create alpha vector once — constant across the entire blit */
+    uint8x8_t alpha_vec = vdup_n_u8(alpha);
+
+    /* Process 2 rows at a time for instruction-level parallelism */
     for(; sy < ey - 1; sy += 2, dy += 2) {
-        register int32_t sx = sr.x;
-        register int32_t dx = dr.x;
-        register int32_t offset1 = sy * src->w;
-        register int32_t offset2 = (sy + 1) * src->w;
-        
-        // Preload next row data to cache
-        __asm volatile("prfm pldl1keep, [%0, #256]\n\t" : : "r"(&src->buffer[offset1]));
-        __asm volatile("prfm pldl1keep, [%0, #256]\n\t" : : "r"(&dst->buffer[dy * dst->w + dx]));
-        __asm volatile("prfm pldl1keep, [%0, #256]\n\t" : : "r"(&dst->buffer[(dy + 1) * dst->w + dx]));
-        
-        for(; sx < ex - 7; sx += 8, dx += 8) {
-            // Process two rows in parallel
-            graph_pixel_argb_neon(dst, dx, dy, &src->buffer[offset1 + sx], 8, alpha);
-            graph_pixel_argb_neon(dst, dx, dy + 1, &src->buffer[offset2 + sx], 8, alpha);
+        const uint32_t *sp1 = &src->buffer[sy * src->w + sr.x];
+        const uint32_t *sp2 = sp1 + src->w;
+        uint32_t *dp1 = &dst->buffer[dy * dst->w + dr.x];
+        uint32_t *dp2 = dp1 + dst->w;
+        int32_t x = 0;
+
+        for(; x <= w - 8; x += 8) {
+            blt_alpha_8_inline(dp1 + x, sp1 + x, alpha_vec);
+            blt_alpha_8_inline(dp2 + x, sp2 + x, alpha_vec);
         }
-        
-        // Process remaining pixels
-        if(sx < ex) {
-            int remain = ex - sx;
-            graph_pixel_argb_neon(dst, dx, dy, &src->buffer[offset1 + sx], remain, alpha);
-            graph_pixel_argb_neon(dst, dx, dy + 1, &src->buffer[offset2 + sx], remain, alpha);
+        /* Tail */
+        if(x < w) {
+            int remain = w - x;
+            uint32_t fg[8] = {0}, bg[8] = {0};
+            memcpy(fg, sp1 + x, 4 * remain);
+            memcpy(bg, dp1 + x, 4 * remain);
+            blt_alpha_8_inline(bg, fg, alpha_vec);
+            memcpy(dp1 + x, bg, 4 * remain);
+            memcpy(fg, sp2 + x, 4 * remain);
+            memcpy(bg, dp2 + x, 4 * remain);
+            blt_alpha_8_inline(bg, fg, alpha_vec);
+            memcpy(dp2 + x, bg, 4 * remain);
         }
     }
-    
-    // Process last row (if total rows is odd)
+
+    /* Last row if odd height */
     if(sy < ey) {
-        register int32_t sx = sr.x;
-        register int32_t dx = dr.x;
-        register int32_t offset = sy * src->w;
-        
-        for(; sx < ex; sx += 8, dx += 8) {
-            graph_pixel_argb_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex - sx, 8), alpha);
+        const uint32_t *sp = &src->buffer[sy * src->w + sr.x];
+        uint32_t *dp = &dst->buffer[dy * dst->w + dr.x];
+        int32_t x = 0;
+
+        for(; x <= w - 8; x += 8)
+            blt_alpha_8_inline(dp + x, sp + x, alpha_vec);
+        if(x < w) {
+            int remain = w - x;
+            uint32_t fg[8] = {0}, bg[8] = {0};
+            memcpy(fg, sp + x, 4 * remain);
+            memcpy(bg, dp + x, 4 * remain);
+            blt_alpha_8_inline(bg, fg, alpha_vec);
+            memcpy(dp + x, bg, 4 * remain);
         }
     }
 }
