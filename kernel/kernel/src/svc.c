@@ -344,7 +344,15 @@ static uint32_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint32_t s
 	if(check_mem_map_arch(paddr, size) != 0)
 		return 0;
 
-	map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, PTE_ATTR_FRAMEBUFFER);	
+	/*
+	 * RAM (framebuffer) -> Normal Non-Cacheable: writes bypass cache
+	 * so the HVS DMA sees them in DRAM; unlike Device-nGnRE the CPU
+	 * may combine consecutive stores into burst transactions.
+	 * MMIO -> Device-nGnRE: strict ordering for register accesses.
+	 */
+	uint32_t attr = (paddr < _sys_info.mmio.phy_base) ?
+				PTE_ATTR_NOCACHE : PTE_ATTR_DEV;
+	map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, attr);
 	flush_tlb();
 	return vaddr;
 }
