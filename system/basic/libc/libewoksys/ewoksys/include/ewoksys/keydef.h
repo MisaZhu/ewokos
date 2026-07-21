@@ -26,20 +26,20 @@ extern "C" {
 #define KEY_LSHIFT          0xA2
 #define KEY_RSHIFT          0xA3
 
-#define JOYSTICK_A        97
-#define JOYSTICK_B        98
-#define JOYSTICK_L1       102
-#define JOYSTICK_L2       104
-#define JOYSTICK_MODE     110
-#define JOYSTICK_R1       103
-#define JOYSTICK_R2       105
-#define JOYSTICK_SELECT   109
-#define JOYSTICK_START    108
-#define JOYSTICK_THUMBL   106
-#define JOYSTICK_THUMBR   107
+#define JOYSTICK_A        0xE2
+#define JOYSTICK_B        0xE3
+#define JOYSTICK_L1       0xE4
+#define JOYSTICK_L2       0xE5
+#define JOYSTICK_MODE     0xE6
+#define JOYSTICK_R1       0xE7
+#define JOYSTICK_R2       0xE8
+#define JOYSTICK_SELECT   0xE9
+#define JOYSTICK_START    0xEA 
+#define JOYSTICK_THUMBL   0xEB
+#define JOYSTICK_THUMBR   0xEC
 
-#define JOYSTICK_X        120
-#define JOYSTICK_Y        121
+#define JOYSTICK_X        0xED
+#define JOYSTICK_Y        0xEE
 
 #define JOYSTICK_UP        KEY_UP 
 #define JOYSTICK_DOWN      KEY_DOWN
