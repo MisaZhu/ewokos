@@ -15,11 +15,14 @@ int      get_cored_pid(void);
 
 void     proc_exec_elf(const char* cmd_line, const char* elf, int32_t size);
 int      proc_getpid(int pid);
+int      proc_getpid_or_raw(int pid);
 int      proc_info(int pid, procinfo_t* info);
 void     proc_detach(void);
 
 void     proc_block(void);
+void     proc_block_by(uint32_t token);
 void     proc_wakeup(int32_t pid);
+void     proc_wakeup_by(int32_t pid, uint32_t token);
 void     proc_init(void);
 int      proc_fork(void);
 void     proc_exit(void);
@@ -27,7 +30,7 @@ uint32_t proc_check_uuid(int32_t pid, uint32_t uuid);
 uint32_t proc_get_uuid(int32_t pid);
 
 void*    proc_malloc_expand(int32_t size);
-void*    proc_malloc_free(void);
+void     proc_malloc_free(void);
 uint32_t proc_malloc_size(void);
 int      proc_usleep(uint32_t usec);
 void     proc_yield(void);
@@ -40,6 +43,7 @@ extern int _vfsd_pid;
 extern int _cored_pid;
 extern int _current_pid;
 extern bool _proc_global_need_lock;
+void proc_malloc_lock_prepare(void);
 
 #ifdef __cplusplus
 }

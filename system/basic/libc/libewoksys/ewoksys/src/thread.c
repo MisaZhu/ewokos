@@ -20,6 +20,12 @@ static void thread_entry(thread_func_t func, void* p) {
 }
 
 int thread_create(thread_func_t func, void* p) {
+	/*
+	 * Allocate the malloc-guard mutex before we flip on locking, while this
+	 * process is still single-threaded. Doing it here (not lazily in
+	 * proc_global_lock) avoids a startup race between the first two threads.
+	 */
+	proc_malloc_lock_prepare();
 	_proc_global_need_lock = true;
 	return syscall3(SYS_THREAD, (ewokos_addr_t)thread_entry, (ewokos_addr_t)func, (ewokos_addr_t)p);
 }

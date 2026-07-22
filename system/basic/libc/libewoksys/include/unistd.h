@@ -2,12 +2,7 @@
 #define EWOKOS_LIBC_UNISTD_H
 
 #include <stddef.h>
-#include <stdint.h>
-
-typedef int uid_t;
-typedef int gid_t;
-typedef long ssize_t;
-typedef long off_t;
+#include <sys/types.h>
 
 #define F_OK 0
 #define X_OK 1
@@ -33,6 +28,9 @@ int dup2(int oldfd, int newfd);
 int pipe(int pipefd[2]);
 int fork(void);
 int isatty(int fd);
+int execve(const char *pathname, char *const argv[], char *const envp[]);
+int execv(const char *pathname, char *const argv[]);
+int execl(const char *pathname, const char *arg, ...);
 
 int chdir(const char *path);
 char *getcwd(char *buf, size_t size);
@@ -49,12 +47,13 @@ extern int opterr;
 extern int optopt;
 
 unsigned int sleep(unsigned int seconds);
-int usleep(uint32_t usec);
+int usleep(useconds_t usec);
 
 uid_t getuid(void);
 gid_t getgid(void);
-int getpid(void);
-int gettid(void);
+pid_t getpid(void);
+pid_t getppid(void);
+pid_t gettid(void);
 int setuid(uid_t uid);
 int setgid(gid_t gid);
 

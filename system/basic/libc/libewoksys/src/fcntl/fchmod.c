@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <string.h>
 
-int fchmod(int fd, int mode) {
+int fchmod(int fd, mode_t mode) {
 	fsinfo_t info;
 	if(vfs_get_by_fd(fd, &info) != 0)
 		return -1;

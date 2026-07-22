@@ -2,6 +2,7 @@
 #include <ewoksys/syscall.h>
 #include <ewoksys/core.h>
 #include <ewoksys/proc.h>
+#include <ewoksys/vfsc.h>
 #include <unistd.h>
 #include <sys/shm.h>
 
@@ -92,8 +93,9 @@ extern "C"
 			break;
 		}
 
-		if (opkg == NULL)
+	if (opkg == NULL) {
 			return 0;
+	}
 
 		int res = -1;
 		PF->clear(opkg);

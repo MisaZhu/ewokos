@@ -5,19 +5,73 @@
 #include <unistd.h>
 #include <signal.h>
 #include <sys/time.h>
+#include <pthread.h>
 
 #include "../platform.h"
 
 #include "util.h"
 #include "net.h"
+#include "ip.h"
 
 #define DHCP_SERVER_PORT 67
 #define DHCP_CLIENT_PORT 68
+
+struct ip_hdr_fast {
+    uint8_t vhl;
+    uint8_t tos;
+    uint16_t total;
+    uint16_t id;
+    uint16_t offset;
+    uint8_t ttl;
+    uint8_t protocol;
+    uint16_t sum;
+    uint32_t src;
+    uint32_t dst;
+};
+
+struct tcp_hdr_fast {
+    uint16_t src;
+    uint16_t dst;
+    uint32_t seq;
+    uint32_t ack;
+    uint8_t off;
+    uint8_t flg;
+    uint16_t wnd;
+};
+
+static int
+net_packet_is_priority(uint16_t type, const uint8_t *data, size_t len)
+{
+    const struct ip_hdr_fast *iph;
+    const struct tcp_hdr_fast *tcph;
+    uint8_t ip_hlen;
+
+    if (type != NET_PROTOCOL_TYPE_IP || len < sizeof(struct ip_hdr_fast)) {
+        return 0;
+    }
+
+    iph = (const struct ip_hdr_fast *)data;
+    ip_hlen = (iph->vhl & 0x0f) << 2;
+    if ((iph->vhl >> 4) != IP_VERSION_IPV4 ||
+        ip_hlen < IP_HDR_SIZE_MIN ||
+        len < ip_hlen + sizeof(struct tcp_hdr_fast) ||
+        iph->protocol != IP_PROTOCOL_TCP) {
+        return 0;
+    }
+
+    tcph = (const struct tcp_hdr_fast *)(data + ip_hlen);
+    if (tcph->flg & (0x02 | 0x04 | 0x01)) {
+        return 1;
+    }
+    return 0;
+}
 
 static int
 net_raw_protocol_interested(uint16_t type, const uint8_t *data, size_t len)
 {
     size_t ihl;
+    uint16_t total;
+    uint16_t frag;
     uint16_t src_port;
     uint16_t dst_port;
 
@@ -32,15 +86,24 @@ net_raw_protocol_interested(uint16_t type, const uint8_t *data, size_t len)
     if (ihl < 20 || len < ihl + 8) {
         return 0;
     }
+    total = (uint16_t)((data[2] << 8) | data[3]);
+    if (total < ihl + 8 || len < total) {
+        return 0;
+    }
+    frag = (uint16_t)((data[6] << 8) | data[7]);
+    if ((frag & 0x3fff) != 0) {
+        return 0;
+    }
     if (data[9] != 17) {
         return 0;
     }
 
     src_port = (uint16_t)((data[ihl] << 8) | data[ihl + 1]);
     dst_port = (uint16_t)((data[ihl + 2] << 8) | data[ihl + 3]);
-    return src_port == DHCP_SERVER_PORT || src_port == DHCP_CLIENT_PORT ||
-        dst_port == DHCP_SERVER_PORT || dst_port == DHCP_CLIENT_PORT;
+    return src_port == DHCP_SERVER_PORT && dst_port == DHCP_CLIENT_PORT;
 }
+
+static mutex_t protocol_queue_mutex = MUTEX_INITIALIZER;
 
 struct net_protocol {
     struct net_protocol *next;
@@ -69,6 +132,36 @@ struct net_event {
     void (*handler)(void *arg);
     void *arg;
 };
+
+static int
+net_protocol_enqueue(struct net_protocol *proto, const uint8_t *data, size_t len, struct net_device *dev, uint16_t type)
+{
+    struct net_protocol_queue_entry *entry;
+    int priority;
+
+    entry = memory_alloc(sizeof(*entry) + len);
+    if (!entry) {
+        errorf("memory_alloc() failure");
+        return -1;
+    }
+    entry->dev = dev;
+    entry->len = len;
+    memcpy(entry + 1, data, len);
+    priority = net_packet_is_priority(type, data, len);
+    mutex_lock(&protocol_queue_mutex);
+    if (!(priority ? queue_push_front(&proto->queue, entry) :
+                     queue_push(&proto->queue, entry))) {
+        mutex_unlock(&protocol_queue_mutex);
+        errorf("queue_push%s() failure", priority ? "_front" : "");
+        memory_free(entry);
+        return -1;
+    }
+    mutex_unlock(&protocol_queue_mutex);
+    infof("queue pushed, dev=%s, type=%s(0x%04x), len=%zd\n", dev->name, proto->name, type, len);
+    debugdump(data, len);
+    raise_softirq(SIGNET);
+    return 0;
+}
 
 /* NOTE: if you want to add/delete the entries after net_run(), you need to protect these lists with a mutex. */
 static struct net_device *devices = NULL;
@@ -207,28 +300,20 @@ int
 net_input_handler(uint16_t type, const uint8_t *data, size_t len, struct net_device *dev)
 {
     struct net_protocol *proto;
-    struct net_protocol_queue_entry *entry;
+    int raw_dhcp = net_raw_protocol_interested(type, data, len);
 
     for (proto = protocols; proto; proto = proto->next) {
-        if (proto->type == type ||
-                (proto->type == NET_PROTOCOL_TYPE_RAW &&
-                 net_raw_protocol_interested(type, data, len))) {
-            entry = memory_alloc(sizeof(*entry) + len);
-            if (!entry) {
-                errorf("memory_alloc() failure");
-                return -1;
+        if (raw_dhcp) {
+            if (proto->type == NET_PROTOCOL_TYPE_IP) {
+                continue;
             }
-            entry->dev = dev;
-            entry->len = len;
-            memcpy(entry+1, data, len);
-            if (!queue_push(&proto->queue, entry)) {
-                errorf("queue_push() failure");
-                memory_free(entry);
-                return -1;
+            if (proto->type == NET_PROTOCOL_TYPE_RAW) {
+                return net_protocol_enqueue(proto, data, len, dev, type);
             }
-            infof("queue pushed (num:%u), dev=%s, type=%s(0x%04x), len=%zd\n", proto->queue.num, dev->name, proto->name, type, len);
-            debugdump(data, len);
-            raise_softirq(SIGNET);
+            continue;
+        }
+        if (proto->type == type) {
+            return net_protocol_enqueue(proto, data, len, dev, type);
         }
     }
     /* unsupported protocol */
@@ -279,16 +364,16 @@ net_protocol_handler(void)
 {
     struct net_protocol *proto;
     struct net_protocol_queue_entry *entry;
-    unsigned int num;
 
     for (proto = protocols; proto; proto = proto->next) {
         while (1) {
+            mutex_lock(&protocol_queue_mutex);
             entry = queue_pop(&proto->queue);
+            mutex_unlock(&protocol_queue_mutex);
             if (!entry) {
                 break;
             }
-            num = proto->queue.num;
-            debugf("queue popped (num:%u), dev=%s, type=0x%04x, len=%zd", num, entry->dev->name, proto->type, entry->len);
+            debugf("queue popped, dev=%s, type=0x%04x, len=%zd", entry->dev->name, proto->type, entry->len);
             //debugdump((uint8_t *)(entry+1), entry->len);
             proto->handler((uint8_t *)(entry+1), entry->len, entry->dev);
             free(entry);
@@ -341,6 +426,7 @@ net_interrupt(void)
 	infof("interrupt\n");
 	raise_softirq(SIGINT);	
     /* getpid(2) and kill(2) are signal safety functions. see signal-safety(7). */
+    return 0;
 }
 
 /* NOTE: must not be call after net_run() */
@@ -375,6 +461,8 @@ net_event_handler(void)
 void *net_thread(void* p)
 {
     struct net_device *dev;
+    pthread_t protocol_tid;
+    (void)p;
 
 
     debugf("open all devices...");
@@ -382,7 +470,10 @@ void *net_thread(void* p)
         net_device_open(dev);
     }
 
+    pthread_create(&protocol_tid, NULL, (void *(*)(void *))intr_protocol_loop, NULL);
+
     intr_loop();
+    return NULL;
 }
 
 void

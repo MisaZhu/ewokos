@@ -47,7 +47,10 @@ LIB_EWOKSYS_OBJS =  \
 	src/unistd/getcwd.o \
 	src/unistd/getgid.o \
 	src/unistd/getpid.o \
+	src/unistd/getppid.o \
 	src/unistd/gettid.o \
+	src/unistd/ioctl.o \
+	src/unistd/exec.o \
 	src/unistd/setgid.o \
 	src/unistd/setuid.o \
 	src/unistd/chdir.o \
@@ -65,9 +68,14 @@ LIB_EWOKSYS_OBJS =  \
 	\
 	src/signal/kill.o \
 	src/signal/signal.o \
+	src/signal/sigaction.o \
 	\
 	src/sys/stat/mkdir.o \
+	src/sys/stat/lstat.o \
 	src/sys/stat/mkfifo.o \
+	src/sys/select/select.o \
+	src/sys/utsname/uname.o \
+	src/sys/wait/wait.o \
 	\
 	src/fcntl/fchmod.o \
 	src/fcntl/chmod.o \
@@ -95,18 +103,23 @@ LIB_EWOKSYS_OBJS =  \
 	src/pthread/pthread_mutex_unlock.o \
 	src/pthread/pthread_mutex_timedlock.o\
 	src/pthread/pthread_self.o\
+	src/pthread/pthread_equal.o\
 	src/pthread/pthread_join.o\
 	src/pthread/pthread_detach.o\
 	src/pthread/pthread_cond.o\
 	\
 	src/poll/poll.o \
 	\
+	src/stdlib/assert.o \
 	src/stdlib/exit.o \
 	src/stdlib/llabs.o \
+	src/stdlib/mkstemp.o \
 	src/stdlib/setenv.o \
 	src/stdlib/tempnam.o \
 	\
-	src/time/strftime.o
+	src/time/strftime.o \
+	src/time/nanosleep.o \
+	src/time/clock_gettime.o
 	
 EWOKSYS = $(TARGET_DIR)/lib/libewoksys.a
 

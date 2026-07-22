@@ -41,20 +41,6 @@ ether_addr_pton(const char *p, uint8_t *n)
     return  0;
 }
 
-static const char *
-ether_type_ntoa(uint16_t type)
-{
-    switch (ntoh16(type)) {
-    case ETHER_TYPE_IP:
-        return "IP";
-    case ETHER_TYPE_ARP:
-        return "ARP";
-    case ETHER_TYPE_IPV6:
-        return "IPv6";
-    }
-    return "UNKNOWN";
-}
-
 char *
 ether_addr_ntop(const uint8_t *n, char *p, size_t size)
 {
@@ -69,6 +55,19 @@ static void
 ether_dump(const uint8_t *frame, size_t flen)
 {
 #ifdef NET_DEBUG
+    static const char *
+    ether_type_ntoa(uint16_t type)
+    {
+        switch (ntoh16(type)) {
+        case ETHER_TYPE_IP:
+            return "IP";
+        case ETHER_TYPE_ARP:
+            return "ARP";
+        case ETHER_TYPE_IPV6:
+            return "IPv6";
+        }
+        return "UNKNOWN";
+    }
     struct ether_hdr *hdr;
     char addr[ETHER_ADDR_STR_LEN];
 
@@ -103,6 +102,15 @@ ether_transmit_helper(struct net_device *dev, uint16_t type, const uint8_t *data
     return callback(dev, frame, flen) == (ssize_t)flen ? 0 : -1;
 }
 
+/*
+ * Return value:
+ *   -1 : no frame available (device queue drained)
+ *    0 : frame drained and either dropped (not for us / unsupported type) OR
+ *        a broadcast processed by the stack; caller keeps draining but must NOT
+ *        treat this as "session activity" (i.e. must not force the busy cadence)
+ *    1 : a unicast frame addressed to our MAC was delivered (real session
+ *        activity that warrants the fast polling cadence)
+ */
 int
 ether_poll_helper(struct net_device *dev, ssize_t (*callback)(struct net_device *dev, uint8_t *buf, size_t size))
 {
@@ -110,6 +118,7 @@ ether_poll_helper(struct net_device *dev, ssize_t (*callback)(struct net_device 
     ssize_t flen;
     struct ether_hdr *hdr;
     uint16_t type;
+    int unicast_to_us;
 
     flen = callback(dev, frame, sizeof(frame));
     if (flen < (ssize_t)sizeof(*hdr)) {
@@ -117,16 +126,37 @@ ether_poll_helper(struct net_device *dev, ssize_t (*callback)(struct net_device 
         return -1;
     }
     hdr = (struct ether_hdr *)frame;
-    if (memcmp(dev->addr, hdr->dst, ETHER_ADDR_LEN) != 0) {
+    type = ntoh16(hdr->type);
+    unicast_to_us = (memcmp(dev->addr, hdr->dst, ETHER_ADDR_LEN) == 0);
+    if (!unicast_to_us) {
         if (memcmp(ETHER_ADDR_BROADCAST, hdr->dst, ETHER_ADDR_LEN) != 0) {
-            /* for other host */
-            return -1;
+            /*
+             * Frames for other hosts (foreign unicast) and multicast are
+             * drained from the device queue but dropped. Returning -1 here
+             * would make ether_tap_isr() think the queue is empty and leave
+             * the remaining packets stuck in /dev/wl0.
+             */
+            return 0;
         }
     }
-    type = ntoh16(hdr->type);
+    if (type != ETHER_TYPE_IP && type != ETHER_TYPE_ARP) {
+        /*
+         * netd only implements IPv4/ARP on this path. Ignore other EtherTypes
+         * after draining them from /dev/wl0 so unsupported traffic cannot
+         * amplify load in upper layers.
+         */
+        return 0;
+    }
     infof("dev=%s, type=%s(0x%04x), len=%zu\n", dev->name, ether_type_ntoa(hdr->type), type, flen);
     ether_dump(frame, flen);
-    return net_input_handler(type, (uint8_t *)(hdr + 1), flen - sizeof(*hdr), dev);
+    net_input_handler(type, (uint8_t *)(hdr + 1), flen - sizeof(*hdr), dev);
+    /*
+     * Broadcast frames (ARP who-has, DHCP, limited broadcast) are still
+     * processed above, but ambient broadcast traffic must not pin netd to the
+     * fast busy cadence or the idle CPU load fluctuates with wire noise. Only
+     * unicast frames addressed to us represent an active session.
+     */
+    return unicast_to_us ? 1 : 0;
 }
 
 void

@@ -1,11 +1,11 @@
-#ifndef WAIT_H
-#define WAIT_H
+#ifndef EWOKSYS_WAIT_H
+#define EWOKSYS_WAIT_H
 
 #ifdef __cplusplus 
 extern "C" { 
 #endif
 
-int waitpid(int pid);
+int ewok_waitpid(int pid);
 
 #ifdef __cplusplus
 }

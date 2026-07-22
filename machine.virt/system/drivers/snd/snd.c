@@ -51,6 +51,11 @@ typedef struct
 
 static snd_dev_t _snd = {.stream_id = -1};
 
+static inline int snd_owner_pid(int pid)
+{
+	return proc_getpid_or_raw(pid);
+}
+
 static int snd_rate_to_virtio(int rate)
 {
 	switch (rate)
@@ -263,7 +268,7 @@ static int snd_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t *info, int of
 	*/
 	snd_stop_and_release(true);
 	_snd.open_count = 1;
-	_snd.occupied_pid = proc_getpid(from_pid);
+	_snd.occupied_pid = snd_owner_pid(from_pid);
 	return 0;
 }
 
@@ -276,7 +281,7 @@ static int snd_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fsinfo
 	(void)info;
 	(void)p;
 
-	if (_snd.occupied_pid != proc_getpid(from_pid)) {
+	if (_snd.occupied_pid != snd_owner_pid(from_pid)) {
 		return -1;
 	}
 
@@ -294,7 +299,7 @@ static int snd_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t *info,
 	(void)info;
 	(void)p;
 
-	if (!_snd.configured || size <= 0 || _snd.occupied_pid != proc_getpid(from_pid))
+	if (!_snd.configured || size <= 0 || _snd.occupied_pid != snd_owner_pid(from_pid))
 	{
 		return -1;
 	}
@@ -324,7 +329,7 @@ static int snd_dcntl(vdevice_t* dev, int from_pid, int cmd, proto_t *in, proto_t
 	int result = 0;
 	struct pcm_config cfg;
 
-	if (_snd.occupied_pid != proc_getpid(from_pid)) {
+	if (_snd.occupied_pid != snd_owner_pid(from_pid)) {
 		return -1;
 	}
 

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 #include <ewoksys/mmio.h>
 #include <ewoksys/proc.h>
 #include <arch/virt/dma.h>
@@ -87,11 +88,12 @@ int fw_init(){
 	count = BE32(fw_cfg_vaddr->dirs.count);
 	uint64_t size = sizeof(struct fw_dir) + (sizeof(struct fw_file) * count);
     fw_cfg_dma_read(&fw_cfg_paddr->dirs, 0x19, size);
+    return 0;
 }
 
 int fw_set_cfg(const char* path, void* cfg, int len){
 	struct fw_file* f = fw_file_get("etc/ramfb");
-	if(f && len < sizeof(fw_cfg_vaddr->buffer)){
+	if(f != NULL && len >= 0 && (size_t)len < sizeof(fw_cfg_vaddr->buffer)){
 		memcpy(fw_cfg_vaddr->buffer, cfg, len);
 		fw_cfg_dma_write(&fw_cfg_paddr->buffer, BE16(f->select), len);
 		return 0;

@@ -41,6 +41,20 @@ void proc_priority(uint32_t pid, uint32_t priority) {
 	syscall2(SYS_PROC_PRIORITY, pid, priority);
 }
 
+void proc_malloc_lock_prepare(void) {
+	/*
+	 * Allocate the malloc-guard mutex eagerly while the process is still
+	 * single-threaded (called from thread_create() right before the first
+	 * child thread is spawned). Lazy-initializing it from proc_global_lock()
+	 * races when the first two threads malloc at the same time: both observe
+	 * _proc_global_lock == 0, each semaphore_alloc()s a different id, and the
+	 * losing writer's semaphore is leaked while the two threads briefly guard
+	 * the heap with different locks -> free-list corruption at startup.
+	 */
+	if(_proc_global_lock == 0)
+		pthread_mutex_init(&_proc_global_lock, NULL);
+}
+
 static inline void proc_global_lock(void) {
 	int tid = pthread_self();
 	if(tid == _lock_thread) {
@@ -63,9 +77,23 @@ static inline void proc_global_unlock(void) {
 			return;
 		}
 	}
-		
-	pthread_mutex_unlock(&_proc_global_lock);
+
+	/*
+	 * Clear ownership BEFORE releasing the mutex.
+	 *
+	 * If _lock_thread were cleared AFTER pthread_mutex_unlock(), a thread
+	 * blocked in proc_global_lock() could acquire the mutex in that gap and
+	 * set _lock_thread to itself, and our trailing "_lock_thread = -1" would
+	 * then wipe the new owner. That new owner's next nested malloc/free would
+	 * read _lock_thread == -1, fail the "already mine" check, and call
+	 * semaphore_enter() again on a semaphore it already holds -> self-deadlock
+	 * (the netd worker hangs, IPC FS_CMD_POLL times out) while the malloc heap
+	 * is left half-updated. Under concurrent load (multiple worker threads all
+	 * growing proto_t buffers) this corrupts the free list and faults with a
+	 * jump to an unmapped address. Clearing under the lock closes the window.
+	 */
 	_lock_thread = -1;
+	pthread_mutex_unlock(&_proc_global_lock);
 }
 
 void __malloc_lock (struct _reent *reent) {
@@ -116,11 +144,19 @@ inline int proc_getpid(int pid) {
 	return -1;
 }
 
+int proc_getpid_or_raw(int pid) {
+	int owner = proc_getpid(pid);
+	if(owner < 0)
+		owner = pid;
+	return owner;
+}
+
 inline int proc_fork(void) {
 	int ret = syscall0(SYS_FORK);
 	if(ret == 0) {
 		_current_pid = -1;
 		proc_getpid(-1);
+		vfs_on_fork();
 	}
 	return ret;
 }
@@ -134,7 +170,18 @@ inline void proc_detach(void) {
 }
 
 inline void proc_block(void) {
-	syscall0(SYS_BLOCK);
+	syscall1(SYS_BLOCK, 0);
+}
+
+/**
+ * @brief block the current proc waiting on a specific VFS node token.
+ *
+ * A non-zero token scopes the block so only a wakeup for the same node (or a
+ * generic tokenless wakeup) can release it. This prevents an event on an
+ * unrelated node from spuriously waking this proc.
+ */
+inline void proc_block_by(uint32_t token) {
+	syscall1(SYS_BLOCK, (ewokos_addr_t)token);
 }
 
 /**
@@ -143,7 +190,17 @@ inline void proc_block(void) {
  * @param pid wakeup blocked process pid
  */
 inline void proc_wakeup(int32_t pid) {
-	syscall1(SYS_WAKEUP, (ewokos_addr_t)pid);
+	syscall2(SYS_WAKEUP, (ewokos_addr_t)pid, 0);
+}
+
+/**
+ * @brief wakeup process by pid, scoped to a VFS node token.
+ *
+ * Only releases the target proc if it is blocked on this token or blocked
+ * generically; a proc blocked on a different node is left untouched.
+ */
+inline void proc_wakeup_by(int32_t pid, uint32_t token) {
+	syscall2(SYS_WAKEUP, (ewokos_addr_t)pid, (ewokos_addr_t)token);
 }
 
 
@@ -230,7 +287,7 @@ inline void* proc_malloc_expand(int32_t size) {
 	return (void*)syscall1(SYS_MALLOC_EXPAND, (ewokos_addr_t)size);
 }
 
-inline void* proc_malloc_free(void) {
+inline void proc_malloc_free(void) {
 	//klog("proc_free, pid: %d\n", getpid());
 	syscall0(SYS_FREE);
 }

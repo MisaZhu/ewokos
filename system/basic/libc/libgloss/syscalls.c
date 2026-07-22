@@ -17,6 +17,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <sys/wait.h>
+#include <stdint.h>
 #include <syscalls.h>
 #include <sysinfo.h>
 #include <ewoksys/syscall.h>
@@ -309,26 +310,6 @@ _read (int fd, void * buf, size_t size)
 	return res;
 }
 
-static size_t map_telnet_written_size(const char *src, size_t src_size, int written) {
-	if(written <= 0)
-		return 0;
-
-	size_t expanded = 0;
-	size_t consumed = 0;
-	while(consumed < src_size) {
-		if(src[consumed] == '\n' && (consumed == 0 || src[consumed-1] != '\r')) {
-			if((int)(expanded + 1) > written)
-				break;
-			expanded++;
-		}
-		if((int)(expanded + 1) > written)
-			break;
-		expanded++;
-		consumed++;
-	}
-	return consumed;
-}
-
 off_t
 _lseek (int fd, off_t offset, int whence)
 {
@@ -364,44 +345,16 @@ _write (int fd, const void * buf, size_t size)
 	if(flags & O_NONBLOCK)
 		block = false;
 
-	const void *write_buf = buf;
-	size_t write_size = size;
-	char *telnet_buf = NULL;
-	if((fd == 1 || fd == 2) && buf != NULL && size > 0) {
-		const char *cid = getenv("CONSOLE_ID");
-		if(cid != NULL && strcmp(cid, "telnet") == 0) {
-			const char *src = (const char *)buf;
-			size_t extra = 0;
-			for(size_t i = 0; i < size; i++) {
-				if(src[i] == '\n' && (i == 0 || src[i-1] != '\r'))
-					extra++;
-			}
-			if(extra > 0) {
-				telnet_buf = (char *)malloc(size + extra);
-				if(telnet_buf != NULL) {
-					size_t j = 0;
-					for(size_t i = 0; i < size; i++) {
-						if(src[i] == '\n' && (i == 0 || src[i-1] != '\r'))
-							telnet_buf[j++] = '\r';
-						telnet_buf[j++] = src[i];
-					}
-					write_buf = telnet_buf;
-					write_size = j;
-				}
-			}
-		}
-	}
-
 	int res = -1;
 	size_t total_written = 0;
 	if(info.type == FS_TYPE_PIPE) {
 		while(1) {
 			res = vfs_write_pipe(fd, info.node,
-					((const char *)write_buf) + total_written,
-					write_size - total_written, block);
+					((const char *)buf) + total_written,
+					size - total_written, block);
 			if(res > 0) {
 				total_written += (size_t)res;
-				if(total_written >= write_size) {
+				if(total_written >= size) {
 					res = (int)total_written;
 					break;
 				}
@@ -416,12 +369,7 @@ _write (int fd, const void * buf, size_t size)
 			if(!block)
 				break;
 		}
-		if(telnet_buf != NULL) {
-			if(res > 0)
-				res = (int)map_telnet_written_size((const char *)buf, size, (int)total_written);
-			free(telnet_buf);
-		}
-		else if(total_written > 0) {
+		if(total_written > 0) {
 			res = (int)total_written;
 		}
 		return res;
@@ -429,11 +377,11 @@ _write (int fd, const void * buf, size_t size)
 
 	while(1) {
 		res = vfs_write(fd, &info,
-				((const char *)write_buf) + total_written,
-				write_size - total_written);
+				((const char *)buf) + total_written,
+				size - total_written);
 		if(res > 0) {
 			total_written += (size_t)res;
-			if(total_written >= write_size) {
+			if(total_written >= size) {
 				res = (int)total_written;
 				break;
 			}
@@ -455,11 +403,11 @@ _write (int fd, const void * buf, size_t size)
 		 */
 		vfs_clear_poll_events(info.node, VFS_EVT_WR);
 		res = vfs_write(fd, &info,
-				((const char *)write_buf) + total_written,
-				write_size - total_written);
+				((const char *)buf) + total_written,
+				size - total_written);
 		if(res > 0) {
 			total_written += (size_t)res;
-			if(total_written >= write_size) {
+			if(total_written >= size) {
 				res = (int)total_written;
 				break;
 			}
@@ -473,12 +421,7 @@ _write (int fd, const void * buf, size_t size)
 			break;
 		vfs_block(info.node, VFS_EVT_WR);
 	}
-	if(telnet_buf != NULL) {
-		if(res > 0)
-			res = (int)map_telnet_written_size((const char *)buf, size, (int)total_written);
-		free(telnet_buf);
-	}
-	else if(total_written > 0) {
+	if(total_written > 0) {
 		res = (int)total_written;
 	}
 	return res;
@@ -561,9 +504,16 @@ void * __attribute__((weak))
 _sbrk (ptrdiff_t incr)
 {
   char *prev_heap_end;
+  void *result;
+
+  result = proc_malloc_expand(incr);
+  if(incr > 0 && result == NULL) {
+    errno = ENOMEM;
+    return (void *)-1;
+  }
 
   __heap_size += incr;
-  __heap_ptr = proc_malloc_expand(incr);
+  __heap_ptr = result;
   if(incr > 0)
   	memset(__heap_end, 0, incr);
 
@@ -732,8 +682,17 @@ _times (struct tms * tp)
 int
 _isatty (int fd)
 {
+  fsinfo_t info;
+
   dbg_kout(__func__);
-  errno = get_errno ();
+  if (vfs_get_by_fd(fd, &info) != 0) {
+    errno = EBADF;
+    return 0;
+  }
+  if ((info.type & FS_TYPE_MASK) == FS_TYPE_CHAR) {
+    return 1;
+  }
+  errno = ENOTTY;
   return 0;
 }
 
@@ -764,6 +723,8 @@ _rename (const char * oldpath, const char * newpath)
  //      : "=r" (r0)
  //      : "0" (r0), "r" (r1), "i" (SWI_Rename));
  // return checkerror (r0);
+  errno = ENOSYS;
+  return -1;
 #endif
 }
 
@@ -848,3 +809,37 @@ void __sync_synchronize(void) {
     __asm__ __volatile__("" ::: "memory");
 #endif
 }
+
+#if defined(__arm__)
+/*
+ * Bare-metal ARM toolchains in this tree do not ship libatomic, but the shm
+ * pipe fast path needs a 32-bit exchange for one-shot wake registrations.
+ * Provide the helper symbol GCC lowers __atomic_exchange_n(..., 4 bytes) to.
+ */
+uint32_t __atomic_exchange_4(volatile void* ptr, uint32_t val, int memmodel) {
+	volatile uint32_t* p = (volatile uint32_t*)ptr;
+	uint32_t old;
+
+	(void)memmodel;
+#if (__ARM_ARCH >= 6)
+	uint32_t tmp;
+	__asm__ __volatile__(
+			"dmb ish\n"
+			"1: ldrex %0, [%2]\n"
+			"strex %1, %3, [%2]\n"
+			"cmp %1, #0\n"
+			"bne 1b\n"
+			"dmb ish\n"
+			: "=&r"(old), "=&r"(tmp)
+			: "r"(p), "r"(val)
+			: "cc", "memory");
+#else
+	__asm__ __volatile__(
+			"swp %0, %2, [%1]\n"
+			: "=&r"(old)
+			: "r"(p), "r"(val)
+			: "memory");
+#endif
+	return old;
+}
+#endif

@@ -1,6 +1,7 @@
 #include <ewoksys/vfs.h>
 #include <string.h>
 #include <ewoksys/syscall.h>
+#include <ewoksys/klog.h>
 #include <sys/errno.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -13,6 +14,8 @@
 #include <ewoksys/kernel_tic.h>
 #include <ewoksys/devcmd.h>
 #include <ewoksys/proc.h>
+#include <ewoksys/shm_pipe.h>
+#include <ewoksys/thread.h>
 #include <sys/shm.h>
 // #include <sys/unistd.h>
 #ifdef __cplusplus
@@ -21,6 +24,8 @@ extern "C" {
 
 
 static fsfile_t _fsfiles[MAX_OPEN_FILE_PER_PROC];
+static shm_pipe_t* _pipe_shm[MAX_OPEN_FILE_PER_PROC];
+static uint32_t vfs_get_poll_events_by_node(uint32_t node_id);
 
 static int vfs_get_by_fd_raw(int fd, fsinfo_t* info) {
 	proto_t in, out;
@@ -60,7 +65,16 @@ static int vfs_set_info(fsinfo_t* info) {
 void  vfs_init(void) {
 	for(uint32_t i=0; i<MAX_OPEN_FILE_PER_PROC; i++) {
 		memset(&_fsfiles[i], 0, sizeof(fsfile_t));
+		_pipe_shm[i] = NULL;
 	}
+}
+
+void  vfs_on_fork(void) {
+	/* After fork the child inherits _pipe_shm[] pointers via COW but the
+	 * shared memory pages are not mapped in the child's page table.
+	 * Clear all entries so get_pipe_shm() will re-map via shmat() lazily. */
+	for(uint32_t i=0; i<MAX_OPEN_FILE_PER_PROC; i++)
+		_pipe_shm[i] = NULL;
 }
 
 static inline fsfile_t* vfs_set_file(int fd, fsinfo_t* info) {
@@ -82,6 +96,7 @@ static inline void vfs_clear_file(int fd) {
 	if(fd < 0 || fd >= MAX_OPEN_FILE_PER_PROC)
 		return;
 	memset(&_fsfiles[fd], 0, sizeof(fsfile_t));
+	_pipe_shm[fd] = NULL; /* don't shmdt — other fds may share the same ring */
 }
 
 static fsfile_t* vfs_get_file(int fd) {
@@ -279,7 +294,107 @@ int vfs_open(fsinfo_t* info, int oflag) {
 	return res;	
 }
 
+/*
+ * Get the shared-memory pipe ring buffer for a file descriptor.
+ * Lazily maps the shared memory on first access (handles fork() correctly:
+ * the child inherits the fd with shm_id in fsinfo.data but needs to map it).
+ */
+static inline shm_pipe_t* get_pipe_shm(int fd, fsfile_t* file) {
+	if(fd < 0 || fd >= MAX_OPEN_FILE_PER_PROC)
+		return NULL;
+	if(_pipe_shm[fd] != NULL)
+		return _pipe_shm[fd];
+	/* Try to map from fsinfo.data (stores shm_id) */
+	int32_t shm_id = (int32_t)file->info.data;
+	if(shm_id <= 0)
+		return NULL;
+	shm_pipe_t* ring = (shm_pipe_t*)shmat(shm_id, NULL, 0);
+	if(ring != NULL)
+		_pipe_shm[fd] = ring;
+	return ring;
+}
+
+static inline uint32_t pipe_live_poll_events(shm_pipe_t* ring) {
+	uint32_t events = 0;
+
+	if(ring == NULL)
+		return 0;
+	if(shm_pipe_readable(ring) > 0)
+		events |= VFS_EVT_RD;
+	if(shm_pipe_writable(ring) > 0)
+		events |= VFS_EVT_WR;
+	if(__atomic_load_n(&ring->writer_closed, __ATOMIC_ACQUIRE) ||
+			__atomic_load_n(&ring->reader_closed, __ATOMIC_ACQUIRE))
+		events |= VFS_EVT_CLOSE;
+	return events;
+}
+
 static int read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block) {
+	fsfile_t* file = &_fsfiles[fd];
+	shm_pipe_t* ring = get_pipe_shm(fd, file);
+
+	if(ring != NULL) {
+		/*
+		 * Fast path: shared-memory pipe — zero IPC.
+		 *
+		 * reader_pid/writer_pid are NOT a persistent "who last touched this
+		 * pipe" marker — they are a one-shot block registration. A peer is
+		 * stamped ONLY right before it enters proc_block_by, and the counter-
+		 * party CLEARS the stamp (atomic exchange) after it fires the wake.
+		 *
+		 * Why this matters: proc_wakeup_by() in the kernel destroys any non-
+		 * BLOCK state (WAIT/SLEEP/READY) unconditionally on the else branch.
+		 * If we kept a stale writer_pid stamped after every write, a later
+		 * unrelated read would wake a writer that is no longer blocked — e.g.
+		 * a shell that just fork()+waitpid()'d after echoing its prompt would
+		 * still be stamped as writer_pid; the telnet relay's next read of
+		 * pending echo bytes would then yank the shell out of WAIT before its
+		 * child actually exited, producing a premature prompt.
+		 */
+		int32_t my_pid = thread_get_id();
+
+		while(1) {
+			int32_t was_writable = shm_pipe_writable(ring);
+			int32_t n = shm_pipe_read(ring, buf, (int32_t)size);
+			if(n > 0) {
+				/*
+				 * Shared-memory reads bypass vfsd, so its sticky poll state and
+				 * wait queues do not see the ring transition automatically.
+				 * Publish the full->not-full edge so POLLOUT/block waiters on the
+				 * pipe wake once the reader frees space again.
+				 */
+				if(was_writable <= 0 && shm_pipe_writable(ring) > 0)
+					vfs_wakeup(node, VFS_EVT_WR);
+				/* Consume the writer's block registration (if any) and wake
+				 * it exactly once. Exchange guarantees the stamp cannot
+				 * survive to fire a second, stale wake. */
+				int32_t wpid = __atomic_exchange_n(&ring->writer_pid, 0,
+						__ATOMIC_ACQUIRE);
+				if(wpid > 0)
+					proc_wakeup_by(wpid, node);
+				return n;
+			}
+			/* Ring empty — check if writer closed */
+			if(__atomic_load_n(&ring->writer_closed, __ATOMIC_ACQUIRE))
+				return -1;
+			if(!block)
+				return 0;
+			/* Register-then-recheck: publish our pid so a writer producing
+			 * data between the last shm_pipe_read and proc_block_by can
+			 * still wake us; the kernel latches wake_pending in that gap. */
+			__atomic_store_n(&ring->reader_pid, my_pid, __ATOMIC_RELEASE);
+			if(shm_pipe_readable(ring) > 0 ||
+					__atomic_load_n(&ring->writer_closed, __ATOMIC_ACQUIRE)) {
+				/* Producer beat us — retire the registration and retry. */
+				__atomic_store_n(&ring->reader_pid, 0, __ATOMIC_RELAXED);
+				continue;
+			}
+			proc_block_by(node);
+			__atomic_store_n(&ring->reader_pid, 0, __ATOMIC_RELAXED);
+		}
+	}
+
+	/* Fallback: old IPC path (no shm available) */
 	while(1) {
 		proto_t in, out;
 		PF->format(&in, "i,i,i,i", fd, node, size, block?1:0);
@@ -298,15 +413,66 @@ static int read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block
 		if(res != 0 || !block)
 			return res;
 
-		if(vfs_block(node, VFS_EVT_RD) != 0)
-			return -1;
+		proc_block_by(node);
 	}
 }
 
 static int write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, bool block) {
+	fsfile_t* file = &_fsfiles[fd];
+	shm_pipe_t* ring = get_pipe_shm(fd, file);
+
+	if(ring != NULL) {
+		/* Fast path: shared-memory pipe — zero IPC.
+		 * See read_pipe() for the rationale behind stamping reader_pid/
+		 * writer_pid only at block time and clearing the peer's stamp with
+		 * an atomic exchange after firing the wake. */
+		int32_t my_pid = thread_get_id();
+		const char* p = (const char*)buf;
+		int32_t total = 0;
+
+		while(total < (int32_t)size) {
+			/* Check if reader closed */
+			if(__atomic_load_n(&ring->reader_closed, __ATOMIC_ACQUIRE))
+				return total > 0 ? total : -1;
+
+			int32_t was_readable = shm_pipe_readable(ring);
+			int32_t n = shm_pipe_write(ring, p + total, (int32_t)size - total);
+			if(n > 0) {
+				total += n;
+				/*
+				 * Mirror read_pipe(): a direct shm write must surface the
+				 * empty->non-empty edge back to vfsd so poll(POLLIN) and
+				 * VFS_BLOCK readers waiting on this node are released.
+				 */
+				if(was_readable <= 0 && shm_pipe_readable(ring) > 0)
+					vfs_wakeup(node, VFS_EVT_RD);
+				/* Consume the reader's block registration (if any) — see
+				 * read_pipe() for why this must be exchange, not load. */
+				int32_t rpid = __atomic_exchange_n(&ring->reader_pid, 0,
+						__ATOMIC_ACQUIRE);
+				if(rpid > 0)
+					proc_wakeup_by(rpid, node);
+			} else {
+				/* Ring full */
+				if(!block)
+					return total > 0 ? total : 0;
+				/* Register-then-recheck (mirror of read_pipe). */
+				__atomic_store_n(&ring->writer_pid, my_pid, __ATOMIC_RELEASE);
+				if(shm_pipe_writable(ring) > 0 ||
+						__atomic_load_n(&ring->reader_closed, __ATOMIC_ACQUIRE)) {
+					__atomic_store_n(&ring->writer_pid, 0, __ATOMIC_RELAXED);
+					continue;
+				}
+				proc_block_by(node);
+				__atomic_store_n(&ring->writer_pid, 0, __ATOMIC_RELAXED);
+			}
+		}
+		return total;
+	}
+
+	/* Fallback: old IPC path */
 	while(1) {
 		proto_t in, out;
-		//PF->init(&in)->addi(&in, fd)->addi(&in, node)->add(&in, buf, size)->addi(&in, block?1:0);
 		PF->format(&in, "i,i,m,i", fd, node, buf, size, block?1:0);
 		PF->init(&out);
 
@@ -321,8 +487,7 @@ static int write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, boo
 		if(res != 0 || !block)
 			return res;
 
-		if(vfs_block(node, VFS_EVT_WR) != 0)
-			return -1;
+		proc_block_by(node);
 	}
 }
 
@@ -343,9 +508,11 @@ int vfs_close(int fd) {
 			return -1;
 	}
 
+	int close_pid = getpid();
+	int owner_pid = proc_getpid_or_raw(close_pid);
 	proto_t in;
-	PF->format(&in, "i,i,m",
-		fd, file->info.node, &file->info, sizeof(fsinfo_t));
+	PF->format(&in, "i,i,m,i,i",
+		fd, file->info.node, &file->info, sizeof(fsinfo_t), close_pid, owner_pid);
 	int res = ipc_call(file->info.mount_pid, FS_CMD_CLOSE, &in, NULL);	
 	PF->clear(&in);
 
@@ -371,6 +538,10 @@ int vfs_dup(int fd) {
 			proto_read_to(&out, &info, sizeof(fsinfo_t));
 			fsfile_t* file_to = vfs_set_file(res, &info);
 			file_to->flags = file->flags;
+			/* Propagate shm pipe mapping on dup */
+			if(fd >= 0 && fd < MAX_OPEN_FILE_PER_PROC &&
+			   res >= 0 && res < MAX_OPEN_FILE_PER_PROC)
+				_pipe_shm[res] = _pipe_shm[fd];
 		}
 	}
 	PF->clear(&out);
@@ -396,6 +567,10 @@ int vfs_dup2(int fd, int to) {
 			proto_read_to(&out, &info, sizeof(fsinfo_t));
 			fsfile_t* file_to = vfs_set_file(res, &info);
 			file_to->flags = file->flags;
+			/* Propagate shm pipe mapping on dup */
+			if(fd >= 0 && fd < MAX_OPEN_FILE_PER_PROC &&
+			   res >= 0 && res < MAX_OPEN_FILE_PER_PROC)
+				_pipe_shm[res] = _pipe_shm[fd];
 		}
 	}
 	PF->clear(&out);
@@ -410,14 +585,30 @@ int vfs_open_pipe(int fd[2]) {
 		if(proto_read_int(&out) == 0) {
 			fd[0] = proto_read_int(&out);
 			fd[1] = proto_read_int(&out);
+			int32_t shm_id = proto_read_int(&out);
 			fsinfo_t info;
 			proto_read_to(&out, &info, sizeof(fsinfo_t));
 			fsfile_t* read_end = vfs_set_file(fd[0], &info);
 			fsfile_t* write_end = vfs_set_file(fd[1], &info);
-			if(read_end != NULL)
+			if(read_end != NULL) {
 				read_end->flags = O_RDONLY;
-			if(write_end != NULL)
+				read_end->fd_flags = FD_CLOEXEC;
+			}
+			if(write_end != NULL) {
 				write_end->flags = O_WRONLY;
+				write_end->fd_flags = FD_CLOEXEC;
+			}
+
+			/* Map shared-memory pipe ring buffer if available */
+			if(shm_id > 0) {
+				shm_pipe_t* ring = (shm_pipe_t*)shmat(shm_id, NULL, 0);
+				if(ring != NULL) {
+					if(fd[0] >= 0 && fd[0] < MAX_OPEN_FILE_PER_PROC)
+						_pipe_shm[fd[0]] = ring;
+					if(fd[1] >= 0 && fd[1] < MAX_OPEN_FILE_PER_PROC)
+						_pipe_shm[fd[1]] = ring;
+				}
+			}
 		}
 		else {
 			res = -1;
@@ -930,15 +1121,32 @@ int  vfs_block(uint32_t node, int event) {
 		 * queue for the next wakeup.
 		 */
 		if((vfs_get_poll_events_by_node(node) & wait_events) != 0) {
+			vfs_unblock(node);
 			return 0;
 		}
 		if(vfs_block_raw(node, event) != 0)
 			return -1;
 		if((vfs_get_poll_events_by_node(node) & wait_events) != 0) {
+			vfs_unblock(node);
 			return 0;
 		}
-		proc_block();
+		/*
+		 * Block scoped to this node id so only a wakeup for THIS node (or a
+		 * generic tokenless wake) can release us. A tokenless proc_block()
+		 * here would let an unrelated node's edge (e.g. tty keyboard RD)
+		 * spuriously wake this block via the kernel's sticky wake latch.
+		 */
+		proc_block_by(node);
 	}
+	return 0;
+}
+
+int  vfs_unblock(uint32_t node) {
+	proto_t in;
+	PF->init(&in)->
+		addi(&in, node);
+	ipc_call(get_vfsd_pid(), VFS_UNBLOCK, &in, NULL);
+	PF->clear(&in);
 	return 0;
 }
 
@@ -974,6 +1182,23 @@ uint32_t  vfs_get_poll_events(int fd) {
 		return 0;
 
 	uint32_t sticky = vfs_get_poll_events_by_node(info.node);
+	if(info.type == FS_TYPE_PIPE) {
+		fsfile_t* file = vfs_get_file(fd);
+		shm_pipe_t* ring = NULL;
+		if(file != NULL)
+			ring = get_pipe_shm(fd, file);
+		if(ring != NULL) {
+			uint32_t live = pipe_live_poll_events(ring);
+			uint32_t sticky_rw = sticky & VFS_EVT_RW;
+			uint32_t live_rw = live & VFS_EVT_RW;
+			uint32_t stale_rw = sticky_rw & ~live_rw;
+			if(stale_rw != 0) {
+				vfs_clear_poll_events(info.node, stale_rw);
+				sticky &= ~stale_rw;
+			}
+			return ((sticky | (live & VFS_EVT_CLOSE)) & ~VFS_EVT_RW) | live_rw;
+		}
+	}
 	uint32_t live = 0;
 	if(info.mount_pid > 0 && dev_poll(info.mount_pid, fd, &info, &live) == 0) {
 		uint32_t sticky_rw = sticky & VFS_EVT_RW;
@@ -993,11 +1218,14 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 		return -1;
 
 	int res = 0;
+	bool registered = false;
+	bool multi_wait = (num > 1);
 	uint64_t start_ms = 0;
 	if(timeout > 0)
 		start_ms = kernel_tic_ms(0);
 
 	while(true) {
+		/* Phase 1: Check all FDs for current events */
 		res = 0;
 		for(int i = 0; i < num; ++i) {
 			uint32_t visible = vfs_get_poll_events(fds[i].fd);
@@ -1009,16 +1237,111 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 		if(res > 0)
 			break;
 
+		/* Phase 2: Check timeout */
 		if(timeout == 0)
 			break;
-
 		if(timeout > 0) {
 			uint64_t now_ms = kernel_tic_ms(0);
 			if((now_ms - start_ms) >= (uint64_t)timeout)
 				break;
 		}
 
-		usleep(1000);
+		if(!multi_wait) {
+			uint32_t wait_node = 0;
+			/* Phase 3: Register for wakeup on the single node */
+			registered = true;
+			for(int i = 0; i < num; ++i) {
+				fsinfo_t info;
+				if(vfs_get_by_fd(fds[i].fd, &info) == 0 && info.node != 0) {
+					wait_node = info.node;
+					vfs_block_raw(info.node, (int)fds[i].events);
+				}
+			}
+
+			/*
+			 * Phase 4: Re-check after registration (prevent race).
+			 *
+			 * This must use the full visible readiness, not only the sticky node
+			 * bits. Socket/device drivers can publish a live RD/WR state from
+			 * dev_poll() before a new vfs_wakeup() edge is latched. Looking only
+			 * at sticky events here misses that window and the subsequent
+			 * proc_block() can sleep forever even though the fd is already ready.
+			 */
+			res = 0;
+			for(int i = 0; i < num; ++i) {
+				fsinfo_t info;
+				if(vfs_get_by_fd(fds[i].fd, &info) == 0 && info.node != 0) {
+					uint32_t visible = vfs_get_poll_events(fds[i].fd);
+					uint32_t mask = (uint32_t)fds[i].events | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL;
+					if((visible & mask) != 0) {
+						res++;
+						break;
+					}
+				}
+			}
+			if(res > 0)
+				continue; /* Events appeared during registration, re-do full check */
+
+			/*
+			 * Phase 5: Block until the single watched node wakes us.
+			 *
+			 * vfsd wakes registered poll waiters with proc_wakeup_by(pid, node).
+			 * Sleeping with a generic proc_block() here drops that node token, so
+			 * poll(POLLOUT) can sleep forever after netd raises a write wakeup.
+			 */
+			if(timeout < 0) {
+				if(wait_node != 0)
+					proc_block_by(wait_node);
+				else
+					proc_block();
+			} else {
+				uint64_t now_ms = kernel_tic_ms(0);
+				uint64_t elapsed = now_ms - start_ms;
+				uint64_t remaining = (uint64_t)timeout - elapsed;
+				if(remaining > 10)
+					usleep(10000);
+				else if(remaining > 0)
+					usleep((uint32_t)(remaining * 1000));
+				else
+					break;
+			}
+			continue;
+		}
+
+		/*
+		 * vfsd currently keeps only one read waiter and one write waiter per pid.
+		 * Registering multiple poll fds at once makes later nodes overwrite
+		 * earlier ones, which is exactly what breaks telnetd's socket+pipe poll.
+		 * For multi-fd poll, fall back to a short sleep loop instead of corrupting
+		 * the wait registration.
+		 */
+		if(timeout < 0) {
+			usleep(1000);
+		} else {
+			uint64_t now_ms = kernel_tic_ms(0);
+			uint64_t elapsed = now_ms - start_ms;
+			uint64_t remaining = (uint64_t)timeout - elapsed;
+			if(remaining > 10)
+				usleep(10000);
+			else if(remaining > 0)
+				usleep((uint32_t)(remaining * 1000));
+			else
+				break;
+		}
+	}
+
+	/*
+	 * Drop our registrations from every polled node before returning. Leaving
+	 * stale waiters behind lets a later event on any of these nodes wake this
+	 * process while it is blocked on something unrelated, because the kernel
+	 * proc_wakeup() is not scoped to a node.
+	 */
+	if(registered) {
+		for(int i = 0; i < num; ++i) {
+			fsinfo_t info;
+			if(vfs_get_by_fd(fds[i].fd, &info) == 0 && info.node != 0)
+				vfs_unblock(info.node);
+		}
 	}
 	return res;
 }

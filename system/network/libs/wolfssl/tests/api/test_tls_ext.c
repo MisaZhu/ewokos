@@ -1,0 +1,611 @@
+/* test_tls_ext.c
+ *
+ * Copyright (C) 2006-2026 wolfSSL Inc.
+ *
+ * This file is part of wolfSSL.
+ *
+ * wolfSSL is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * wolfSSL is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1335, USA
+ */
+
+#include <tests/unit.h>
+
+#ifdef NO_INLINE
+    #include <wolfssl/wolfcrypt/misc.h>
+#else
+    #define WOLFSSL_MISC_INCLUDED
+    #include <wolfcrypt/src/misc.c>
+#endif
+
+#include <wolfssl/internal.h>
+#include <tests/utils.h>
+#include <tests/api/test_tls_ext.h>
+
+int test_tls_ems_downgrade(void)
+{
+    EXPECT_DECLS;
+#if defined(WOLFSSL_TLS13) && !defined(WOLFSSL_NO_TLS12) && \
+        defined(HAVE_MANUAL_MEMIO_TESTS_DEPENDENCIES) && \
+        defined(HAVE_SESSION_TICKET) && !defined(WOLFSSL_NO_DEF_TICKET_ENC_CB)
+    struct test_memio_ctx test_ctx;
+    WOLFSSL_CTX *ctx_c = NULL;
+    WOLFSSL_CTX *ctx_s = NULL;
+    WOLFSSL *ssl_c = NULL;
+    WOLFSSL *ssl_s = NULL;
+    WOLFSSL_SESSION* session = NULL;
+    /* TLS EMS extension in binary form */
+    const char ems_ext[] = { 0x00, 0x17, 0x00, 0x00 };
+    char data = 0;
+
+    XMEMSET(&test_ctx, 0, sizeof(test_ctx));
+
+    ExpectIntEQ(test_memio_setup(&test_ctx, &ctx_c, &ctx_s, &ssl_c, &ssl_s,
+            wolfTLS_client_method, wolfTLS_server_method), 0);
+
+    ExpectIntEQ(wolfSSL_connect(ssl_c), -1);
+    ExpectIntEQ(wolfSSL_get_error(ssl_c, -1), WOLFSSL_ERROR_WANT_READ);
+
+    /* Verify that the EMS extension is present in Client's message */
+    ExpectNotNull(mymemmem(test_ctx.s_buff, test_ctx.s_len,
+            ems_ext, sizeof(ems_ext)));
+
+    ExpectIntEQ(test_memio_do_handshake(ssl_c, ssl_s, 10, NULL), 0);
+    ExpectIntEQ(wolfSSL_version(ssl_c), TLS1_3_VERSION);
+
+    /* Do a round of reads to exchange the ticket message */
+    ExpectIntEQ(wolfSSL_read(ssl_s, &data, sizeof(data)), -1);
+    ExpectIntEQ(wolfSSL_get_error(ssl_s, -1), WOLFSSL_ERROR_WANT_READ);
+    ExpectIntEQ(wolfSSL_read(ssl_c, &data, sizeof(data)), -1);
+    ExpectIntEQ(wolfSSL_get_error(ssl_c, -1), WOLFSSL_ERROR_WANT_READ);
+
+    ExpectNotNull(session = wolfSSL_get1_session(ssl_c));
+    ExpectTrue(session->haveEMS);
+
+    wolfSSL_free(ssl_c);
+    ssl_c = NULL;
+    wolfSSL_free(ssl_s);
+    ssl_s = NULL;
+
+    ExpectIntEQ(test_memio_setup(&test_ctx, &ctx_c, &ctx_s, &ssl_c, &ssl_s,
+            wolfTLS_client_method, wolfTLS_server_method), 0);
+
+    /* Resuming the connection */
+    ExpectIntEQ(wolfSSL_set_session(ssl_c, session), WOLFSSL_SUCCESS);
+    ExpectIntEQ(wolfSSL_connect(ssl_c), -1);
+    ExpectIntEQ(wolfSSL_get_error(ssl_c, -1), WOLFSSL_ERROR_WANT_READ);
+
+    /* Verify that the EMS extension is still present in the resumption CH
+     * even though we used TLS 1.3 */
+    ExpectNotNull(mymemmem(test_ctx.s_buff, test_ctx.s_len,
+            ems_ext, sizeof(ems_ext)));
+
+    ExpectIntEQ(test_memio_do_handshake(ssl_c, ssl_s, 10, NULL), 0);
+    ExpectIntEQ(wolfSSL_version(ssl_c), TLS1_3_VERSION);
+
+    wolfSSL_SESSION_free(session);
+    wolfSSL_free(ssl_c);
+    wolfSSL_free(ssl_s);
+    wolfSSL_CTX_free(ctx_c);
+    wolfSSL_CTX_free(ctx_s);
+#endif
+    return EXPECT_RESULT();
+}
+
+
+int test_wolfSSL_DisableExtendedMasterSecret(void)
+{
+    EXPECT_DECLS;
+#if defined(HAVE_EXTENDED_MASTER) && !defined(NO_WOLFSSL_CLIENT) && \
+    !defined(NO_TLS)
+    WOLFSSL_CTX *ctx = wolfSSL_CTX_new(wolfSSLv23_client_method());
+    WOLFSSL     *ssl = wolfSSL_new(ctx);
+
+    ExpectNotNull(ctx);
+    ExpectNotNull(ssl);
+
+    /* error cases */
+    ExpectIntNE(WOLFSSL_SUCCESS, wolfSSL_CTX_DisableExtendedMasterSecret(NULL));
+    ExpectIntNE(WOLFSSL_SUCCESS, wolfSSL_DisableExtendedMasterSecret(NULL));
+
+    /* success cases */
+    ExpectIntEQ(WOLFSSL_SUCCESS, wolfSSL_CTX_DisableExtendedMasterSecret(ctx));
+    ExpectIntEQ(WOLFSSL_SUCCESS, wolfSSL_DisableExtendedMasterSecret(ssl));
+
+    wolfSSL_free(ssl);
+    wolfSSL_CTX_free(ctx);
+#endif
+    return EXPECT_RESULT();
+}
+
+
+#if !defined(NO_WOLFSSL_CLIENT) && !defined(NO_WOLFSSL_SERVER) && \
+    !defined(WOLFSSL_NO_CA_NAMES) && !defined(NO_BIO) && \
+    !defined(NO_CERTS) && !defined(NO_TLS) && (defined(OPENSSL_EXTRA) || \
+    defined(OPENSSL_EXTRA_X509_SMALL)) && (defined(OPENSSL_ALL) || \
+    defined(WOLFSSL_NGINX) || defined(HAVE_LIGHTY)) && \
+    (defined(WOLFSSL_TLS13) || !defined(WOLFSSL_NO_TLS12)) && \
+    defined(HAVE_MANUAL_MEMIO_TESTS_DEPENDENCIES)
+struct client_cb_arg {
+    WOLF_STACK_OF(X509_NAME) *names1;
+    WOLF_STACK_OF(X509_NAME) *names2;
+};
+
+static int certificate_authorities_client_cb(WOLFSSL *ssl, void *_arg) {
+    struct client_cb_arg *arg = (struct client_cb_arg *)_arg;
+    arg->names1 = wolfSSL_get_client_CA_list(ssl);
+    arg->names2 = wolfSSL_get0_peer_CA_list(ssl);
+
+    if (!wolfSSL_use_certificate_file(ssl, cliCertFile, SSL_FILETYPE_PEM))
+        return 0;
+    if (!wolfSSL_use_PrivateKey_file(ssl, cliKeyFile, SSL_FILETYPE_PEM))
+        return 0;
+    return 1;
+}
+#endif
+
+int test_certificate_authorities_certificate_request(void) {
+    EXPECT_DECLS;
+#if !defined(NO_WOLFSSL_CLIENT) && !defined(NO_WOLFSSL_SERVER) && \
+    !defined(WOLFSSL_NO_CA_NAMES) && !defined(NO_BIO) && \
+    !defined(NO_CERTS) && !defined(NO_TLS) && (defined(OPENSSL_EXTRA) || \
+    defined(OPENSSL_EXTRA_X509_SMALL)) && (defined(OPENSSL_ALL) || \
+    defined(WOLFSSL_NGINX) || defined(HAVE_LIGHTY)) && \
+    (defined(WOLFSSL_TLS13) || !defined(WOLFSSL_NO_TLS12)) && \
+    defined(HAVE_MANUAL_MEMIO_TESTS_DEPENDENCIES)
+    struct test_params {
+        method_provider client_meth;
+        method_provider server_meth;
+        int             doUdp;
+    } params[] = {
+#ifdef WOLFSSL_TLS13
+        /* TLS 1.3 uses certificate_authorities extension */
+        {wolfTLSv1_3_client_method, wolfTLSv1_3_server_method, 0},
+#endif
+#if !defined(WOLFSSL_NO_TLS12) && (defined(OPENSSL_ALL) || \
+            defined(WOLFSSL_NGINX) || defined(HAVE_LIGHTY))
+        /* TLS 1.2 directly embeds CA names in CertificateRequest */
+        {wolfTLSv1_2_client_method, wolfTLSv1_2_server_method, 0},
+#endif
+#ifdef WOLFSSL_DTLS13
+        {wolfDTLSv1_3_client_method, wolfDTLSv1_3_server_method, 1},
+#endif
+#if defined(WOLFSSL_DTLS) && (defined(OPENSSL_ALL) || \
+            defined(WOLFSSL_NGINX) || defined(HAVE_LIGHTY))
+        {wolfDTLSv1_2_client_method, wolfDTLSv1_2_server_method, 1},
+#endif
+    };
+    size_t i;
+
+    for (i = 0; i < sizeof(params) / sizeof(*params); i++) {
+        struct test_memio_ctx test_ctx;
+        WOLFSSL_CTX *ctx_srv = NULL;
+        WOLFSSL *ssl_srv = NULL;
+        WOLFSSL_CTX *ctx_cli = NULL;
+        WOLFSSL *ssl_cli = NULL;
+        WOLF_STACK_OF(X509_NAME) *names1 = NULL, *names2 = NULL;
+        X509_NAME *name = NULL;
+        struct client_cb_arg cb_arg = { NULL, NULL };
+        const char *expected_names[] = {
+            "/C=US/ST=Montana/L=Bozeman/O=wolfSSL_2048/OU=Programming-2048"
+                "/CN=www.wolfssl.com/emailAddress=info@wolfssl.com",
+            "/C=US/ST=Montana/L=Bozeman/O=Sawtooth/OU=Consulting"
+                "/CN=www.wolfssl.com/emailAddress=info@wolfssl.com"
+        };
+
+        if (EXPECT_FAIL())
+            break;
+
+        XMEMSET(&test_ctx, 0, sizeof(test_ctx));
+
+        ExpectIntEQ(0, test_memio_setup(&test_ctx, &ctx_cli, &ctx_srv,
+                    &ssl_cli, NULL, params[i].client_meth,
+                    params[i].server_meth));
+
+        wolfSSL_CTX_set_verify(ctx_srv,
+                SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
+        ExpectIntEQ(WOLFSSL_SUCCESS,
+                wolfSSL_CTX_load_verify_locations(ctx_srv, cliCertFile, NULL));
+
+        ExpectNotNull(ssl_srv = wolfSSL_new(ctx_srv));
+        wolfSSL_SetIOReadCtx(ssl_srv, &test_ctx);
+        wolfSSL_SetIOWriteCtx(ssl_srv, &test_ctx);
+
+        names1 = wolfSSL_load_client_CA_file(cliCertFile);
+        ExpectNotNull(names1);
+        names2 = wolfSSL_load_client_CA_file(caCertFile);
+        ExpectNotNull(names2);
+        ExpectNotNull(name = wolfSSL_sk_X509_NAME_value(names2, 0));
+        ExpectIntEQ(2, wolfSSL_sk_X509_NAME_push(names1, name));
+        if (EXPECT_FAIL()) {
+            wolfSSL_X509_NAME_free(name);
+            name = NULL;
+        }
+        wolfSSL_sk_X509_NAME_free(names2);
+        names2 = wolfSSL_load_client_CA_file(caCertFile);
+        ExpectNotNull(names2);
+
+        /* Check that client_CA_list and CA_list are separate internally */
+        wolfSSL_CTX_set_client_CA_list(ctx_srv, names1);
+        wolfSSL_CTX_set0_CA_list(ctx_srv, names2);
+        ExpectNotNull(names1 = wolfSSL_CTX_get_client_CA_list(ctx_srv));
+        ExpectNotNull(names2 = wolfSSL_CTX_get0_CA_list(ctx_srv));
+        ExpectIntEQ(2, wolfSSL_sk_X509_NAME_num(names1));
+        ExpectIntEQ(1, wolfSSL_sk_X509_NAME_num(names2));
+
+        /* Check that get_client_CA_list and get0_CA_list on ssl return same as
+         * ctx when not set */
+        ExpectNotNull(names1 = wolfSSL_get_client_CA_list(ssl_srv));
+        ExpectNotNull(names2 = wolfSSL_get0_CA_list(ssl_srv));
+        ExpectIntEQ(2, wolfSSL_sk_X509_NAME_num(names1));
+        ExpectIntEQ(1, wolfSSL_sk_X509_NAME_num(names2));
+
+        /* Same checks as before, but on ssl rather than ctx */
+        names1 = wolfSSL_load_client_CA_file(cliCertFile);
+        ExpectNotNull(names1);
+        names2 = wolfSSL_load_client_CA_file(caCertFile);
+        ExpectNotNull(names2);
+        ExpectNotNull(name = wolfSSL_sk_X509_NAME_value(names2, 0));
+        ExpectIntEQ(2, wolfSSL_sk_X509_NAME_push(names1, name));
+        if (EXPECT_FAIL()) {
+            wolfSSL_X509_NAME_free(name);
+            name = NULL;
+        }
+        wolfSSL_sk_X509_NAME_free(names2);
+        names2 = wolfSSL_load_client_CA_file(caCertFile);
+        ExpectNotNull(names2);
+
+        wolfSSL_set_client_CA_list(ssl_srv, names1);
+        wolfSSL_set0_CA_list(ssl_srv, names2);
+        ExpectNotNull(names1 = wolfSSL_get_client_CA_list(ssl_srv));
+        ExpectNotNull(names2 = wolfSSL_get0_CA_list(ssl_srv));
+        ExpectIntEQ(2, wolfSSL_sk_X509_NAME_num(names1));
+        ExpectIntEQ(1, wolfSSL_sk_X509_NAME_num(names2));
+
+#if !defined(NO_DH)
+        SetDH(ssl_srv);
+#endif
+
+        /* Certs will be loaded in callback */
+        wolfSSL_CTX_set_cert_cb(ctx_cli,
+                certificate_authorities_client_cb, &cb_arg);
+
+        ExpectIntEQ(0, test_memio_do_handshake(ssl_cli, ssl_srv, 10, NULL));
+
+        ExpectNotNull(cb_arg.names1);
+        ExpectNotNull(cb_arg.names2);
+        ExpectIntEQ(2, wolfSSL_sk_X509_NAME_num(cb_arg.names1));
+        ExpectIntEQ(2, wolfSSL_sk_X509_NAME_num(cb_arg.names2));
+
+        if (EXPECT_SUCCESS()) {
+            ExpectStrEQ(wolfSSL_sk_X509_NAME_value(cb_arg.names1, 0)->name,
+                    expected_names[0]);
+            ExpectStrEQ(wolfSSL_sk_X509_NAME_value(cb_arg.names1, 1)->name,
+                    expected_names[1]);
+        }
+
+        wolfSSL_shutdown(ssl_cli);
+        wolfSSL_free(ssl_cli);
+        wolfSSL_CTX_free(ctx_cli);
+        wolfSSL_free(ssl_srv);
+        wolfSSL_CTX_free(ctx_srv);
+    }
+#endif
+    return EXPECT_RESULT();
+}
+
+
+#if !defined(NO_WOLFSSL_CLIENT) && !defined(NO_WOLFSSL_SERVER) && \
+    !defined(WOLFSSL_NO_CA_NAMES) && !defined(NO_BIO) && \
+    !defined(NO_CERTS) && (defined(OPENSSL_EXTRA) || \
+    defined(OPENSSL_EXTRA_X509_SMALL)) && (defined(OPENSSL_ALL) || \
+    defined(WOLFSSL_NGINX) || defined(HAVE_LIGHTY)) && \
+    defined(WOLFSSL_TLS13) && defined(HAVE_MANUAL_MEMIO_TESTS_DEPENDENCIES)
+static int certificate_authorities_server_cb(WOLFSSL *ssl, void *_arg) {
+    WOLF_STACK_OF(X509_NAME) **names_out = (WOLF_STACK_OF(X509_NAME) **)_arg;
+    WOLF_STACK_OF(X509_NAME) *names = wolfSSL_get0_peer_CA_list(ssl);
+    *names_out = names;
+    if (!wolfSSL_use_certificate_file(ssl, svrCertFile, SSL_FILETYPE_PEM))
+        return 0;
+    if (!wolfSSL_use_PrivateKey_file(ssl, svrKeyFile, SSL_FILETYPE_PEM))
+        return 0;
+    return 1;
+}
+#endif
+
+#if defined(HAVE_TRUSTED_CA) && !defined(NO_SHA) && \
+    defined(HAVE_MANUAL_MEMIO_TESTS_DEPENDENCIES) && \
+    !defined(NO_WOLFSSL_SERVER) && !defined(NO_WOLFSSL_CLIENT)
+/* Walk the TLSX list to find an extension by type. Avoids calling the
+ * WOLFSSL_LOCAL TLSX_Find which is not available in shared library builds. */
+static TLSX* test_TLSX_find_ext(TLSX* list, TLSX_Type type)
+{
+    while (list) {
+        if (list->type == type)
+            return list;
+        list = list->next;
+    }
+    return NULL;
+}
+#endif
+
+int test_TLSX_TCA_Find(void)
+{
+    EXPECT_DECLS;
+#if defined(HAVE_TRUSTED_CA) && !defined(NO_SHA) && \
+    defined(HAVE_MANUAL_MEMIO_TESTS_DEPENDENCIES) && \
+    !defined(NO_WOLFSSL_SERVER) && !defined(NO_WOLFSSL_CLIENT)
+    /* Two different 20-byte SHA1 ids */
+    byte id_A[WC_SHA_DIGEST_SIZE];
+    byte id_B[WC_SHA_DIGEST_SIZE];
+    TLSX* ext;
+
+    XMEMSET(id_A, 0xAA, sizeof(id_A));
+    XMEMSET(id_B, 0xBB, sizeof(id_B));
+
+    /* Test 1: Exact match - same type and same id should match */
+    {
+        struct test_memio_ctx test_ctx;
+        WOLFSSL_CTX *ctx_c = NULL, *ctx_s = NULL;
+        WOLFSSL *ssl_c = NULL, *ssl_s = NULL;
+
+        XMEMSET(&test_ctx, 0, sizeof(test_ctx));
+        ExpectIntEQ(test_memio_setup(&test_ctx, &ctx_c, &ctx_s, &ssl_c,
+            &ssl_s, wolfTLSv1_2_client_method, wolfTLSv1_2_server_method), 0);
+
+        /* Server has KEY_SHA1 with id_A */
+        ExpectIntEQ(wolfSSL_UseTrustedCA(ssl_s, WOLFSSL_TRUSTED_CA_KEY_SHA1,
+            id_A, sizeof(id_A)), WOLFSSL_SUCCESS);
+        /* Client sends KEY_SHA1 with id_A (same) */
+        ExpectIntEQ(wolfSSL_UseTrustedCA(ssl_c, WOLFSSL_TRUSTED_CA_KEY_SHA1,
+            id_A, sizeof(id_A)), WOLFSSL_SUCCESS);
+
+        ExpectIntEQ(test_memio_do_handshake(ssl_c, ssl_s, 10, NULL), 0);
+
+        /* Server should have found a match and responded */
+        ext = test_TLSX_find_ext(ssl_c ? ssl_c->extensions : NULL,
+            TLSX_TRUSTED_CA_KEYS);
+        ExpectNotNull(ext);
+        if (EXPECT_SUCCESS())
+            ExpectIntEQ(ext->resp, 1);
+
+        wolfSSL_free(ssl_c);
+        wolfSSL_free(ssl_s);
+        wolfSSL_CTX_free(ctx_c);
+        wolfSSL_CTX_free(ctx_s);
+    }
+
+    /* Test 2: Same type, different id - should NOT match.
+     * This is the key test that exposes the logic bug in TLSX_TCA_Find
+     * where matching on type alone (without checking id content) causes
+     * a false positive. */
+    {
+        struct test_memio_ctx test_ctx;
+        WOLFSSL_CTX *ctx_c = NULL, *ctx_s = NULL;
+        WOLFSSL *ssl_c = NULL, *ssl_s = NULL;
+
+        XMEMSET(&test_ctx, 0, sizeof(test_ctx));
+        ExpectIntEQ(test_memio_setup(&test_ctx, &ctx_c, &ctx_s, &ssl_c,
+            &ssl_s, wolfTLSv1_2_client_method, wolfTLSv1_2_server_method), 0);
+
+        /* Server has KEY_SHA1 with id_A */
+        ExpectIntEQ(wolfSSL_UseTrustedCA(ssl_s, WOLFSSL_TRUSTED_CA_KEY_SHA1,
+            id_A, sizeof(id_A)), WOLFSSL_SUCCESS);
+        /* Client sends KEY_SHA1 with id_B (different!) */
+        ExpectIntEQ(wolfSSL_UseTrustedCA(ssl_c, WOLFSSL_TRUSTED_CA_KEY_SHA1,
+            id_B, sizeof(id_B)), WOLFSSL_SUCCESS);
+
+        ExpectIntEQ(test_memio_do_handshake(ssl_c, ssl_s, 10, NULL), 0);
+
+        /* Server should NOT have found a match - ids differ */
+        ext = test_TLSX_find_ext(ssl_c ? ssl_c->extensions : NULL,
+            TLSX_TRUSTED_CA_KEYS);
+        ExpectNotNull(ext);
+        if (EXPECT_SUCCESS())
+            ExpectIntEQ(ext->resp, 0);
+
+        wolfSSL_free(ssl_c);
+        wolfSSL_free(ssl_s);
+        wolfSSL_CTX_free(ctx_c);
+        wolfSSL_CTX_free(ctx_s);
+    }
+
+    /* Test 3: PRE_AGREED should match any server entry */
+    {
+        struct test_memio_ctx test_ctx;
+        WOLFSSL_CTX *ctx_c = NULL, *ctx_s = NULL;
+        WOLFSSL *ssl_c = NULL, *ssl_s = NULL;
+
+        XMEMSET(&test_ctx, 0, sizeof(test_ctx));
+        ExpectIntEQ(test_memio_setup(&test_ctx, &ctx_c, &ctx_s, &ssl_c,
+            &ssl_s, wolfTLSv1_2_client_method, wolfTLSv1_2_server_method), 0);
+
+        /* Server has KEY_SHA1 with id_A */
+        ExpectIntEQ(wolfSSL_UseTrustedCA(ssl_s, WOLFSSL_TRUSTED_CA_KEY_SHA1,
+            id_A, sizeof(id_A)), WOLFSSL_SUCCESS);
+        /* Client sends PRE_AGREED (no id needed) */
+        ExpectIntEQ(wolfSSL_UseTrustedCA(ssl_c, WOLFSSL_TRUSTED_CA_PRE_AGREED,
+            NULL, 0), WOLFSSL_SUCCESS);
+
+        ExpectIntEQ(test_memio_do_handshake(ssl_c, ssl_s, 10, NULL), 0);
+
+        /* Server should have matched (PRE_AGREED matches anything) */
+        ext = test_TLSX_find_ext(ssl_c ? ssl_c->extensions : NULL,
+            TLSX_TRUSTED_CA_KEYS);
+        ExpectNotNull(ext);
+        if (EXPECT_SUCCESS())
+            ExpectIntEQ(ext->resp, 1);
+
+        wolfSSL_free(ssl_c);
+        wolfSSL_free(ssl_s);
+        wolfSSL_CTX_free(ctx_c);
+        wolfSSL_CTX_free(ctx_s);
+    }
+#endif
+    return EXPECT_RESULT();
+}
+
+int test_certificate_authorities_client_hello(void) {
+    EXPECT_DECLS;
+#if !defined(NO_WOLFSSL_CLIENT) && !defined(NO_WOLFSSL_SERVER) && \
+    !defined(WOLFSSL_NO_CA_NAMES) && !defined(NO_BIO) && \
+    !defined(NO_CERTS) && (defined(OPENSSL_EXTRA) || \
+    defined(OPENSSL_EXTRA_X509_SMALL)) && (defined(OPENSSL_ALL) || \
+    defined(WOLFSSL_NGINX) || defined(HAVE_LIGHTY)) && \
+    defined(WOLFSSL_TLS13) && defined(HAVE_MANUAL_MEMIO_TESTS_DEPENDENCIES)
+
+    struct test_params {
+        method_provider client_meth;
+        method_provider server_meth;
+        int             doUdp;
+    } params[] = {
+    /* TLS >= 1.3 only */
+#ifdef WOLFSSL_TLS13
+        {wolfTLSv1_3_client_method, wolfTLSv1_3_server_method, 0},
+#endif
+#ifdef WOLFSSL_DTLS13
+        {wolfDTLSv1_3_client_method, wolfDTLSv1_3_server_method, 1},
+#endif
+    };
+    size_t i;
+
+    for (i = 0; i < sizeof(params) / sizeof(*params); i++) {
+        struct test_memio_ctx test_ctx;
+        WOLFSSL_CTX *ctx_srv = NULL;
+        WOLFSSL *ssl_srv = NULL;
+        WOLFSSL_CTX *ctx_cli = NULL;
+        WOLFSSL *ssl_cli = NULL;
+        WOLF_STACK_OF(X509_NAME) *cb_arg = NULL;
+        WOLF_STACK_OF(X509_NAME) *names1 = NULL, *names2 = NULL;
+        X509_NAME *name = NULL;
+        const char *expected_names[] = {
+            "/C=US/ST=Montana/L=Bozeman/O=Sawtooth/OU=Consulting"
+                "/CN=www.wolfssl.com/emailAddress=info@wolfssl.com",
+            "/C=US/ST=Montana/L=Bozeman/O=wolfSSL_2048/OU=Programming-2048"
+                "/CN=www.wolfssl.com/emailAddress=info@wolfssl.com"
+        };
+
+        if (EXPECT_FAIL())
+            break;
+
+        XMEMSET(&test_ctx, 0, sizeof(test_ctx));
+
+        ExpectIntEQ(0, test_memio_setup(&test_ctx, &ctx_cli, &ctx_srv,
+                    &ssl_cli, &ssl_srv, params[i].client_meth,
+                    params[i].server_meth));
+
+        wolfSSL_CTX_set_cert_cb(ctx_srv, certificate_authorities_server_cb,
+                &cb_arg);
+
+        names1 = wolfSSL_load_client_CA_file(caCertFile);
+        ExpectNotNull(names1);
+        names2 = wolfSSL_load_client_CA_file(cliCertFile);
+        ExpectNotNull(names2);
+        ExpectNotNull(name = wolfSSL_sk_X509_NAME_value(names2, 0));
+        ExpectIntEQ(2, wolfSSL_sk_X509_NAME_push(names1, name));
+        if (EXPECT_FAIL()) {
+            wolfSSL_X509_NAME_free(name);
+            name = NULL;
+        }
+        wolfSSL_sk_X509_NAME_free(names2);
+        names2 = wolfSSL_load_client_CA_file(cliCertFile);
+        ExpectNotNull(names2);
+
+        /* verify that set0_CA_list takes precedence */
+        wolfSSL_set0_CA_list(ssl_cli, names1);
+        wolfSSL_CTX_set0_CA_list(ctx_cli, names2);
+
+        ExpectIntEQ(0, test_memio_do_handshake(ssl_cli, ssl_srv, 10, NULL));
+
+        ExpectIntEQ(wolfSSL_sk_X509_NAME_num(cb_arg), 2);
+
+        if (EXPECT_SUCCESS()) {
+            ExpectStrEQ(wolfSSL_sk_X509_NAME_value(cb_arg, 0)->name,
+                    expected_names[0]);
+            ExpectStrEQ(wolfSSL_sk_X509_NAME_value(cb_arg, 1)->name,
+                    expected_names[1]);
+        }
+
+        wolfSSL_shutdown(ssl_cli);
+        wolfSSL_free(ssl_cli);
+        wolfSSL_CTX_free(ctx_cli);
+        wolfSSL_free(ssl_srv);
+        wolfSSL_CTX_free(ctx_srv);
+    }
+#endif
+    return EXPECT_RESULT();
+}
+
+/* Test that the SNI size calculation returns 0 on overflow instead of
+ * wrapping around to a small value (integer overflow vulnerability). */
+int test_TLSX_SNI_GetSize_overflow(void)
+{
+    EXPECT_DECLS;
+#if defined(HAVE_SNI) && !defined(NO_WOLFSSL_CLIENT) && !defined(NO_TLS)
+    WOLFSSL_CTX* ctx = NULL;
+    WOLFSSL* ssl = NULL;
+    TLSX* sni_ext = NULL;
+    SNI* head = NULL;
+    SNI* sni = NULL;
+    int i;
+    /* Each SNI adds ENUM_LEN(1) + OPAQUE16_LEN(2) + hostname_len to the size.
+     * With a 1-byte hostname, each entry adds 4 bytes. Starting from
+     * OPAQUE16_LEN(2) base, we need enough entries to exceed UINT16_MAX. */
+    const int num_sni = (0xFFFF / 4) + 2;
+
+    ExpectNotNull(ctx = wolfSSL_CTX_new(wolfSSLv23_client_method()));
+    ExpectNotNull(ssl = wolfSSL_new(ctx));
+
+    /* Add initial SNI via public API */
+    ExpectIntEQ(WOLFSSL_SUCCESS,
+                wolfSSL_UseSNI(ssl, WOLFSSL_SNI_HOST_NAME, "a", 1));
+
+    /* Find the SNI extension and manually build a long chain */
+    if (EXPECT_SUCCESS()) {
+        sni_ext = TLSX_Find(ssl->extensions, TLSX_SERVER_NAME);
+        ExpectNotNull(sni_ext);
+    }
+
+    if (EXPECT_SUCCESS()) {
+        head = (SNI*)sni_ext->data;
+        ExpectNotNull(head);
+    }
+
+    /* Append many SNI nodes to force overflow in the size calculation */
+    for (i = 1; EXPECT_SUCCESS() && i < num_sni; i++) {
+        sni = (SNI*)XMALLOC(sizeof(SNI), NULL, DYNAMIC_TYPE_TLSX);
+        ExpectNotNull(sni);
+        if (sni != NULL) {
+            XMEMSET(sni, 0, sizeof(SNI));
+            sni->type = WOLFSSL_SNI_HOST_NAME;
+            sni->data.host_name = (char*)XMALLOC(2, NULL, DYNAMIC_TYPE_TLSX);
+            ExpectNotNull(sni->data.host_name);
+            if (sni->data.host_name != NULL) {
+                sni->data.host_name[0] = 'a';
+                sni->data.host_name[1] = '\0';
+            }
+            sni->next = head->next;
+            head->next = sni;
+        }
+    }
+
+    if (EXPECT_SUCCESS()) {
+        /* The fixed calculation should return 0 (overflow detected) */
+        ExpectIntEQ(TLSX_SNI_GetSize((SNI*)sni_ext->data), 0);
+    }
+
+    wolfSSL_free(ssl);
+    wolfSSL_CTX_free(ctx);
+#endif
+    return EXPECT_RESULT();
+}

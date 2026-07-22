@@ -107,6 +107,28 @@ queue_push(struct queue_head *queue, void *data)
 }
 
 void *
+queue_push_front(struct queue_head *queue, void *data)
+{
+    struct queue_entry *entry;
+
+    if (!queue) {
+        return NULL;
+    }
+    entry = memory_alloc(sizeof(*entry));
+    if (!entry) {
+        return NULL;
+    }
+    entry->data = data;
+    entry->next = queue->head;
+    queue->head = entry;
+    if (!queue->tail) {
+        queue->tail = entry;
+    }
+    queue->num++;
+    return data;
+}
+
+void *
 queue_pop(struct queue_head *queue)
 {
     struct queue_entry *entry;

@@ -38,6 +38,7 @@ int       vfs_set_flags(int fd, int flags);
 int       vfs_get_fd_flags(int fd);
 int       vfs_set_fd_flags(int fd, int flags);
 void      vfs_init(void);
+void      vfs_on_fork(void); /* reset shm pipe mappings after fork in child */
 int       vfs_read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block);
 int       vfs_write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, bool block);
 int       vfs_open(fsinfo_t* info, int wr);
@@ -83,6 +84,7 @@ int       vfs_fcntl(int fd, int cmd, proto_t* in, proto_t* out);
 int       vfs_fcntl_wait(int fd, int cmd, proto_t* in);
 
 int       vfs_block(uint32_t node, int event);
+int       vfs_unblock(uint32_t node);
 int       vfs_wakeup(uint32_t node, int event);
 int       vfs_poll(vfs_pollfd_t* fds, int num, int timeout);
 

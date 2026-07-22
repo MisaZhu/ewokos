@@ -15,7 +15,6 @@ extern "C" {
 
 #define BUF_SIZE 512
 static int32_t _slog_fd = -1;
-static int32_t _klog_fd = -1;
 static pthread_mutex_t _log_lock = 0;
 
 static inline void log_lock(void) {

@@ -153,7 +153,21 @@ int32_t proc_interrupt_wait(context_t* ctx, struct st_proc* serv_proc, proc_t* p
 
 	item->pid = proc->info.pid;
 	item->uuid = proc->info.uuid;
+	/*
+	 * Queue first, then re-check before the actual block. If the interrupt
+	 * handler finished after sys_ipc_call() observed "busy" but before we
+	 * entered SYS_BLOCK, we must consume that completed edge here instead of
+	 * sleeping until a later unrelated interrupt happens to wake us again.
+	 */
 	queue_push(&serv_proc->space->interrupt.wait_queue, item);
+	if(serv_proc->space->interrupt.state == INTR_STATE_IDLE) {
+		queue_item_t* it = queue_in(&serv_proc->space->interrupt.wait_queue, item);
+		if(it != NULL) {
+			queue_remove(&serv_proc->space->interrupt.wait_queue, it);
+			kfree(item);
+		}
+		return 1;
+	}
 	proc_block(ctx, proc);
 	return 0;
 }

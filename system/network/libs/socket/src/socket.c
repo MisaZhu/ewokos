@@ -53,6 +53,18 @@ static int do_vfs_fcntl(int fd, int cmd, proto_t* arg_in, proto_t* arg_out){
         ret = vfs_fcntl(fd, cmd, arg_in, arg_out);
         if(ret != VFS_ERR_RETRY)
             break;
+		/*
+		 * Mirror vfs_poll()'s live readiness re-check before sleeping.
+		 * Socket/device backends can publish a completed ACCEPT/RECV/SEND
+		 * through dev_poll() even if the sticky node bit was just cleared or
+		 * the wake edge landed in the retry window. Blocking here based only on
+		 * the sticky node state reintroduces the classic "accept done but user
+		 * thread never wakes" hang under reconnect/load.
+		 */
+		if((vfs_get_poll_events(fd) & (wait_event | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL)) != 0) {
+			proc_usleep(3000);
+			continue;
+		}
         if(vfs_block(info.node, wait_event) != 0)
             return -1;
         proc_usleep(3000);
@@ -325,11 +337,15 @@ int accept (int fd, struct sockaddr* addr,uint32_t * addr_len){
     PF->init(&out);
 	ret = do_vfs_fcntl(fd, SOCK_ACCEPT, NULL , &out);
     if(ret != 0) {
+        klog("socket: accept fcntl failed fd=%d ret=%d node=%u\n",
+                fd, ret, info.node);
         PF->clear(&out);
         return -1;
     }
     ret = proto_read_int(&out);
     if(ret < 0) {
+        klog("socket: accept result failed fd=%d ret=%d out_size=%u node=%u\n",
+                fd, ret, (unsigned int)out.size, info.node);
         PF->clear(&out);
         return -1;
     }
@@ -338,13 +354,18 @@ int accept (int fd, struct sockaddr* addr,uint32_t * addr_len){
     }
 	PF->clear(&out);
     int accept_fd = open("/dev/net0", 0);
-    if(accept_fd < 0)
+    if(accept_fd < 0) {
+        klog("socket: accept open link fd failed listen_fd=%d sock=%d node=%u err=%d\n",
+                fd, ret, info.node, errno);
         return -1; 
+    }
 
     PF->init(&in)->addi(&in, ret);
     PF->init(&out);
 	ret = do_vfs_fcntl(accept_fd, SOCK_LINK, &in , &out);
     if(ret != 0) {
+        klog("socket: accept link failed listen_fd=%d accept_fd=%d sock=%d ret=%d node=%u\n",
+                fd, accept_fd, proto_read_int(&in), ret, info.node);
         PF->clear(&in);
         PF->clear(&out);
         close(accept_fd);

@@ -71,40 +71,169 @@ static void default_splash(graph_t* g, const char* logo_fname) {
 	}
 }
 
+/*
+ * Rotation straight into the scan-out buffer.
+ *
+ * Scan-out mappings are typically Normal Non-Cacheable: stores only
+ * merge into DRAM bursts when they hit the write-combine buffers
+ * sequentially, so every rotate below walks the DESTINATION row-major.
+ * The source lives in cacheable shm, so its strided reads are absorbed
+ * by L1/L2 (each 64-byte line covers 16 src pixels reused across 16
+ * dst rows).
+ *
+ * 4x4 micro-tiles: the inner block keeps at most 4 open WC streams and
+ * compiles to NEON/SSE 4x4 transposes at -O2; scalar tail loops cover
+ * non-multiple-of-4 geometries.
+ */
+static uint32_t rot90_to_fb(const fbinfo_t* fbi, const graph_t* g) {
+	/* dst[y][x] = src[sh-1-x][y]; dst is sh wide, sw tall */
+	uint32_t sw = (uint32_t)g->w, sh = (uint32_t)g->h;
+	uint32_t wf = sw & ~3U, hf = sh & ~3U;
+	uint8_t* dst_base = (uint8_t*)(uintptr_t)fbi->pointer +
+			fbi->yoffset * fbi->pitch + fbi->xoffset * 4;
+	const uint32_t* src = g->buffer;
+	uint32_t x, y;
+
+	for (y = 0; y < wf; y += 4) {
+		uint32_t* d0 = (uint32_t*)(dst_base + (y + 0) * fbi->pitch);
+		uint32_t* d1 = (uint32_t*)(dst_base + (y + 1) * fbi->pitch);
+		uint32_t* d2 = (uint32_t*)(dst_base + (y + 2) * fbi->pitch);
+		uint32_t* d3 = (uint32_t*)(dst_base + (y + 3) * fbi->pitch);
+		for (x = 0; x < hf; x += 4) {
+			const uint32_t* s0 = src + (sh - 1 - x) * sw + y;
+			const uint32_t* s1 = s0 - sw;
+			const uint32_t* s2 = s1 - sw;
+			const uint32_t* s3 = s2 - sw;
+			d0[x] = s0[0]; d0[x+1] = s1[0]; d0[x+2] = s2[0]; d0[x+3] = s3[0];
+			d1[x] = s0[1]; d1[x+1] = s1[1]; d1[x+2] = s2[1]; d1[x+3] = s3[1];
+			d2[x] = s0[2]; d2[x+1] = s1[2]; d2[x+2] = s2[2]; d2[x+3] = s3[2];
+			d3[x] = s0[3]; d3[x+1] = s1[3]; d3[x+2] = s2[3]; d3[x+3] = s3[3];
+		}
+		for (; x < sh; ++x) {
+			const uint32_t* s = src + (sh - 1 - x) * sw + y;
+			d0[x] = s[0]; d1[x] = s[1]; d2[x] = s[2]; d3[x] = s[3];
+		}
+	}
+	for (; y < sw; ++y) {
+		uint32_t* d = (uint32_t*)(dst_base + y * fbi->pitch);
+		for (x = 0; x < sh; ++x)
+			d[x] = src[(sh - 1 - x) * sw + y];
+	}
+	return sw * sh * 4U;
+}
+
+static uint32_t rot270_to_fb(const fbinfo_t* fbi, const graph_t* g) {
+	/* dst[y][x] = src[x][sw-1-y]; dst is sh wide, sw tall */
+	uint32_t sw = (uint32_t)g->w, sh = (uint32_t)g->h;
+	uint32_t wf = sw & ~3U, hf = sh & ~3U;
+	uint8_t* dst_base = (uint8_t*)(uintptr_t)fbi->pointer +
+			fbi->yoffset * fbi->pitch + fbi->xoffset * 4;
+	const uint32_t* src = g->buffer;
+	uint32_t x, y;
+
+	for (y = 0; y < wf; y += 4) {
+		uint32_t* d0 = (uint32_t*)(dst_base + (y + 0) * fbi->pitch);
+		uint32_t* d1 = (uint32_t*)(dst_base + (y + 1) * fbi->pitch);
+		uint32_t* d2 = (uint32_t*)(dst_base + (y + 2) * fbi->pitch);
+		uint32_t* d3 = (uint32_t*)(dst_base + (y + 3) * fbi->pitch);
+		for (x = 0; x < hf; x += 4) {
+			/* sk[3-i] == src[x+k][sw-1-(y+i)] */
+			const uint32_t* s0 = src + (x + 0) * sw + (sw - 4 - y);
+			const uint32_t* s1 = s0 + sw;
+			const uint32_t* s2 = s1 + sw;
+			const uint32_t* s3 = s2 + sw;
+			d0[x] = s0[3]; d0[x+1] = s1[3]; d0[x+2] = s2[3]; d0[x+3] = s3[3];
+			d1[x] = s0[2]; d1[x+1] = s1[2]; d1[x+2] = s2[2]; d1[x+3] = s3[2];
+			d2[x] = s0[1]; d2[x+1] = s1[1]; d2[x+2] = s2[1]; d2[x+3] = s3[1];
+			d3[x] = s0[0]; d3[x+1] = s1[0]; d3[x+2] = s2[0]; d3[x+3] = s3[0];
+		}
+		for (; x < sh; ++x) {
+			const uint32_t* s = src + x * sw + (sw - 1 - y);
+			d0[x] = s[0]; d1[x] = s[-1]; d2[x] = s[-2]; d3[x] = s[-3];
+		}
+	}
+	for (; y < sw; ++y) {
+		uint32_t* d = (uint32_t*)(dst_base + y * fbi->pitch);
+		for (x = 0; x < sh; ++x)
+			d[x] = src[x * sw + (sw - 1 - y)];
+	}
+	return sw * sh * 4U;
+}
+
+static uint32_t rot180_to_fb(const fbinfo_t* fbi, const graph_t* g) {
+	/* dst[y][x] = src[sh-1-y][sw-1-x]; same geometry as the panel */
+	uint32_t sw = (uint32_t)g->w, sh = (uint32_t)g->h;
+	uint8_t* dst_base = (uint8_t*)(uintptr_t)fbi->pointer +
+			fbi->yoffset * fbi->pitch + fbi->xoffset * 4;
+	const uint32_t* src = g->buffer;
+
+	for (uint32_t y = 0; y < sh; ++y) {
+		uint32_t* d = (uint32_t*)(dst_base + y * fbi->pitch);
+		const uint32_t* s = src + (sh - y) * sw - 1;
+		for (uint32_t x = 0; x < sw; ++x)
+			d[x] = s[-(int32_t)x];
+	}
+	return sw * sh * 4U;
+}
+
+uint32_t fbd_rotate_to(const fbinfo_t* fbinfo, const graph_t* g, int rotate) {
+	if (fbinfo == NULL || g == NULL || g->buffer == NULL)
+		return 0;
+	if (fbinfo->pointer == 0 || fbinfo->depth != 32)
+		return 0;
+
+	if (rotate == G_ROTATE_90 &&
+			(uint32_t)g->h == fbinfo->width && (uint32_t)g->w == fbinfo->height)
+		return rot90_to_fb(fbinfo, g);
+	if (rotate == G_ROTATE_270 &&
+			(uint32_t)g->h == fbinfo->width && (uint32_t)g->w == fbinfo->height)
+		return rot270_to_fb(fbinfo, g);
+	if (rotate == G_ROTATE_180 &&
+			(uint32_t)g->w == fbinfo->width && (uint32_t)g->h == fbinfo->height)
+		return rot180_to_fb(fbinfo, g);
+	return 0;
+}
+
+static graph_t* _rotate_g = NULL; /* cached rotate buffer, allocated once */
+
 static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, int rotate) {
 	if(fbinfo->depth != 32 && fbinfo->depth != 16)
 		return 0;
 
+	int zoomed = (_zoom > 0.0 && _zoom != 8.0 && _zoom != 1.0);
 	graph_t g;
-
-	graph_t* gr = NULL;
-	if(rotate == G_ROTATE_270 || rotate == G_ROTATE_90) {
+	if(rotate == G_ROTATE_270 || rotate == G_ROTATE_90)
 		graph_init(&g, buf, _zheight, _zwidth);
-		gr = graph_new(NULL, _zwidth, _zheight);
-	}
-	else {
+	else
 		graph_init(&g, buf, _zwidth, _zheight);
-		if(rotate == G_ROTATE_180) {
-			gr = graph_new(NULL, _zwidth, _zheight);
-		}
+
+	/* fast path: driver rotates by itself, straight into the scan-out
+	 * buffer. Skips the intermediate rotate buffer AND the extra
+	 * full-frame copy the generic path below needs. */
+	if(rotate != G_ROTATE_0 && !zoomed && _fbd->flush_rotate != NULL) {
+		uint32_t res = _fbd->flush_rotate(fbinfo, &g, rotate);
+		if(res > 0)
+			return res;
 	}
 
 	graph_t* tmp_g = &g;
-	if(gr != NULL) {
-		graph_rotate_to(&g, gr, rotate);
-		tmp_g = gr;
+	if(rotate == G_ROTATE_90 || rotate == G_ROTATE_270 || rotate == G_ROTATE_180) {
+		if(_rotate_g == NULL)
+			_rotate_g = graph_new(NULL, _zwidth, _zheight);
+		if(_rotate_g != NULL) {
+			graph_rotate_to(&g, _rotate_g, rotate);
+			tmp_g = _rotate_g;
+		}
 	}
 
-	if(_zoom > 0.0 && _zoom != 8.0 && _zoom != 1.0) {
+	if(zoomed) {
 		graph_t* gzoom = graph_new(NULL, fbinfo->width, fbinfo->height);
 		graph_scale_tof(tmp_g, gzoom, _zoom);
 		tmp_g = gzoom;
 	}
 
 	uint32_t res = _fbd->flush(fbinfo, tmp_g);
-	if(gr != NULL)
-		graph_free(gr);
-	if(tmp_g != &g && tmp_g != gr)
+	if(tmp_g != &g && tmp_g != _rotate_g)
 		graph_free(tmp_g);
 	return res;
 }

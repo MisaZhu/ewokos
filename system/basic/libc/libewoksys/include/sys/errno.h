@@ -1,7 +1,11 @@
 #ifndef ERROR_NO_H
 #define ERROR_NO_H
 
-extern int errno;
+int *__errno(void);
+
+#ifndef errno
+#define errno (*__errno())
+#endif
 
 #undef	ENONE
 #undef	EAGAIN

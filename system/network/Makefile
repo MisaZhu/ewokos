@@ -8,6 +8,7 @@ all: mkdirs network_libs bins sbins network_driver
 
 mkdirs:
 	@mkdir -p ${TARGET_DIR}/drivers
+	@cp -r etc ${TARGET_DIR}
 
 network_libs:
 	cd libs; $(MAKE)

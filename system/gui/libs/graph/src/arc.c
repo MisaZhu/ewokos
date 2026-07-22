@@ -64,6 +64,29 @@ static inline int angle_in_range(float angle, float start_angle, float end_angle
     return 0;
 }
 
+static inline float fill_arc_coverage(float px, float py, float radius,
+                                      float start_rad, float end_rad, int swap) {
+    static const float sample_offsets[4] = {0.125f, 0.375f, 0.625f, 0.875f};
+    float radius_sq = radius * radius;
+    int covered = 0;
+
+    for (int sy = 0; sy < 4; sy++) {
+        float y = py + sample_offsets[sy];
+        for (int sx = 0; sx < 4; sx++) {
+            float x = px + sample_offsets[sx];
+            float dist_sq = x * x + y * y;
+            if (dist_sq > radius_sq)
+                continue;
+
+            float angle = atan2f(-y, x);
+            if (angle_in_range(angle, start_rad, end_rad, swap))
+                covered++;
+        }
+    }
+
+    return (float)covered / 16.0f;
+}
+
 // Draw arc (non-floating point distance calculation version)
 void graph_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, int32_t rw, float start_angle, float end_angle, uint32_t color) {
     if(radius <= 0 || rw <= 0 || g == NULL)
@@ -184,17 +207,11 @@ void graph_fill_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, float star
     float start_rad = DEG_TO_RAD(start_angle);
     float end_rad = DEG_TO_RAD(end_angle);
 
-    // Integer radius and anti-aliasing boundary (expanded to 1 pixel width for smoother effect)
-    int32_t r_sq = radius * radius;
-    int32_t r_aa_sq = r_sq + 2 * radius;  // (r + 1)^2
-    int32_t r_inner_sq = (radius > 1) ? (radius - 1) * (radius - 1) : 0;  // (r - 1)^2
-    if (r_inner_sq < 0) r_inner_sq = 0;
-    
-    // Calculate bounding box (including anti-aliasing area)
-    int32_t min_y = y - radius - 1;
-    int32_t max_y = y + radius + 1;
-    int32_t min_x = x - radius - 1;
-    int32_t max_x = x + radius + 1;
+    // Calculate bounding box around the full circle.
+    int32_t min_y = y - radius;
+    int32_t max_y = y + radius;
+    int32_t min_x = x - radius;
+    int32_t max_x = x + radius;
     
     // Clip to canvas bounds
     if (min_y < 0) min_y = 0;
@@ -217,57 +234,15 @@ void graph_fill_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, float star
 
     // Scan pixel by pixel
     for(int32_t py = min_y; py <= max_y; py++) {
-        int32_t dy = py - y;
-        int32_t dy_sq = dy * dy;
-        
         for(int32_t px = min_x; px <= max_x; px++) {
-            int32_t dx = px - x;
-            int32_t dist_sq = dx * dx + dy_sq;
-            
-            // Completely outside anti-aliasing area, skip
-            if (dist_sq > r_aa_sq) continue;
-            
-            // For filled arc, the center point (dist_sq == 0) should always be drawn
-            // because it's the intersection of all angles
-            if (dist_sq == 0) {
-                if (fg_alpha >= 255) {
-                    graph_set_pixel(g, px, py, color);
-                } else if (fg_alpha > 0) {
-                    uint8_t r = (color >> 16) & 0xFF;
-                    uint8_t gc = (color >> 8) & 0xFF;
-                    uint8_t b = color & 0xFF;
-                    graph_pixel_argb_raw(g, px, py, fg_alpha, r, gc, b);
-                }
+            float coverage = fill_arc_coverage((float)(px - x), (float)(py - y),
+                                               (float)radius, start_rad, end_rad, swap);
+            if (coverage <= 0.0f)
                 continue;
-            }
-            
-            // Check angle range
-            float angle = atan2f(-dy, dx);
-            if (!angle_in_range(angle, start_rad, end_rad, swap)) continue;
 
-            // Completely inside inner area, draw directly
-            if (dist_sq <= r_inner_sq) {
-                if (fg_alpha >= 255) {
-                    graph_set_pixel(g, px, py, color);
-                } else if (fg_alpha > 0) {
-                    uint8_t r = (color >> 16) & 0xFF;
-                    uint8_t gc = (color >> 8) & 0xFF;
-                    uint8_t b = color & 0xFF;
-                    graph_pixel_argb_raw(g, px, py, fg_alpha, r, gc, b);
-                }
-            }
-            // In edge anti-aliasing area
-            else {
-                int32_t range = r_aa_sq - r_inner_sq;
-                int32_t dist_from_outer = r_aa_sq - dist_sq;
-                // Use square function for smoother transition
-                int32_t t = (dist_from_outer * 256) / range;
-                int32_t smoothed = (t * t) / 256;
-                uint8_t alpha = (uint8_t)((fg_alpha * smoothed) / 256);
-                if (alpha > 0) {
-                    draw_aa_pixel_arc_int(g, px, py, color, alpha);
-                }
-            }
+            uint8_t alpha = (uint8_t)(fg_alpha * coverage);
+            if (alpha > 0)
+                draw_aa_pixel_arc_int(g, px, py, color, alpha);
         }
     }
 }

@@ -127,6 +127,8 @@ ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id
 	ipc->state = IPC_BUSY;
 	ipc->client_pid = client_proc->info.pid;
 	ipc->client_uuid = client_proc->info.uuid;
+	ipc->client_intr = (client_proc->space != NULL &&
+			client_proc->space->interrupt.state == INTR_STATE_WORKING) ? 1 : 0;
 	ipc->call_id = call_id;
 	ipc->counter = 0;
 
@@ -177,8 +179,34 @@ int32_t proc_ipc_wait(context_t* ctx, struct st_proc* serv_proc, proc_t* proc) {
 		kfree(item);
 		return 1;
 	}
-	queue_push(&serv_proc->space->ipc_server.wait_queue, item);
+	/*
+	 * Dedup: a proc may re-enter proc_ipc_wait() after being released by a
+	 * spurious/generic wake (signal, token-0 IPC-return edge, etc) while its
+	 * previous wait item is STILL queued (that item was never popped). Pushing
+	 * a second item lets proc_ipc_wakeup() waste a pop on the stale duplicate
+	 * (the proc is already READY), stranding genuine waiters behind it - the
+	 * server goes idle with a non-empty wait_queue and the reader blocks until
+	 * the peer closes. Reuse the existing item instead: at most one item per
+	 * pid, so every pop wakes a genuinely-waiting proc.
+	 */
+	bool already_queued = false;
+	{
+		queue_item_t* qit = serv_proc->space->ipc_server.wait_queue.head;
+		while(qit != NULL) {
+			ipc_queue_item_t* qi = (ipc_queue_item_t*)qit->data;
+			if(qi != NULL && qi->pid == proc->info.pid &&
+					qi->uuid == proc->info.uuid) {
+				already_queued = true;
+				break;
+			}
+			qit = qit->next;
+		}
+	}
+	if(!already_queued)
+		queue_push(&serv_proc->space->ipc_server.wait_queue, item);
 	proc_ipc_server_unlock(&serv_proc->space->ipc_server);
+	if(already_queued)
+		kfree(item);
 	proc_block(ctx, proc);
 	return 0;
 }

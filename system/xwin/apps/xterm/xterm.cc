@@ -548,7 +548,6 @@ static void do_signal(int sig, void* p) {
 
 #ifdef __cplusplus
 extern "C" { 
-	int setenv(const char*, const char*, ...);
 	int kill(int, int);
 }
 #endif
@@ -619,6 +618,6 @@ int main(int argc, char* argv[]) {
 	if(set_stdio(dev) != 0)
 		exit(-1);
 	proc_exec("/bin/shell");
-	waitpid(pid);
+	ewok_waitpid(pid);
 	return 0;
 }

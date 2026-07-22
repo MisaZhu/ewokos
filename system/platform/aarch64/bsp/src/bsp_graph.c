@@ -172,15 +172,60 @@ inline void graph_blt_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int3
     dy = dr.y;
     ex = sr.x + sr.w;
     ey = sr.y + sr.h;
+    int32_t w = ex - sr.x;
 
     for(; sy < ey; sy++, dy++) {
-        register int32_t sx = sr.x;
-        register int32_t dx = dr.x;
-        register int32_t offset = sy * src->w;
-        for(; sx < ex; sx+=8, dx+=8) {
-            graph_pixel_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex-sx, 8));    
+        const uint32_t *sp = &src->buffer[sy * src->w + sr.x];
+        uint32_t *dp = &dst->buffer[dy * dst->w + dr.x];
+
+        /* Wide rows: libc memcpy uses cache-managed assembly */
+        if(w >= 64) {
+            memcpy(dp, sp, w * 4);
+            continue;
         }
+
+        int32_t x = 0;
+        /* 16 pixels (64 bytes) per iteration */
+        for(; x <= w - 16; x += 16) {
+            uint32x4_t v0 = vld1q_u32(sp + x);
+            uint32x4_t v1 = vld1q_u32(sp + x + 4);
+            uint32x4_t v2 = vld1q_u32(sp + x + 8);
+            uint32x4_t v3 = vld1q_u32(sp + x + 12);
+            vst1q_u32(dp + x, v0);
+            vst1q_u32(dp + x + 4, v1);
+            vst1q_u32(dp + x + 8, v2);
+            vst1q_u32(dp + x + 12, v3);
+        }
+        /* 8 pixels */
+        if(x <= w - 8) {
+            uint32x4_t v0 = vld1q_u32(sp + x);
+            uint32x4_t v1 = vld1q_u32(sp + x + 4);
+            vst1q_u32(dp + x, v0);
+            vst1q_u32(dp + x + 4, v1);
+            x += 8;
+        }
+        /* Tail */
+        if(x < w)
+            memcpy(dp + x, sp + x, (w - x) * 4);
     }
+}
+
+/* Inline alpha blend of 8 pixels: dst = fg over bg, with global alpha scaling.
+   alpha_vec must be vdup_n_u8(alpha) — created once outside the loop. */
+static inline void blt_alpha_8_inline(uint32_t *dp, const uint32_t *sp, uint8x8_t alpha_vec)
+{
+    uint8x8x4_t fg = vld4_u8((const uint8_t*)sp);
+    uint8x8x4_t bg = vld4_u8((const uint8_t*)dp);
+    uint8x8_t full = vdup_n_u8(0xff);
+    uint8x8_t a = vmovn_u16(neon_div255_u16(vmull_u8(fg.val[3], alpha_vec)));
+    uint8x8_t inv_a = vsub_u8(full, a);
+    uint16x8_t oa_add = neon_div255_u16(vmull_u8(vsub_u8(full, bg.val[3]), a));
+    uint8x8x4_t out;
+    out.val[0] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[0], a), vmull_u8(bg.val[0], inv_a))));
+    out.val[1] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[1], a), vmull_u8(bg.val[1], inv_a))));
+    out.val[2] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[2], a), vmull_u8(bg.val[2], inv_a))));
+    out.val[3] = vmovn_u16(vaddq_u16(vmovl_u8(bg.val[3]), oa_add));
+    vst4_u8((uint8_t*)dp, out);
 }
 
 inline void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
@@ -207,41 +252,53 @@ inline void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw
     dy = dr.y;
     ex = sr.x + sr.w;
     ey = sr.y + sr.h;
+    int32_t w = ex - sr.x;
 
-    // Loop unrolling, process 2 rows at a time for better instruction-level parallelism
+    /* Create alpha vector once — constant across the entire blit */
+    uint8x8_t alpha_vec = vdup_n_u8(alpha);
+
+    /* Process 2 rows at a time for instruction-level parallelism */
     for(; sy < ey - 1; sy += 2, dy += 2) {
-        register int32_t sx = sr.x;
-        register int32_t dx = dr.x;
-        register int32_t offset1 = sy * src->w;
-        register int32_t offset2 = (sy + 1) * src->w;
-        
-        // Preload next row data to cache
-        __asm volatile("prfm pldl1keep, [%0, #256]\n\t" : : "r"(&src->buffer[offset1]));
-        __asm volatile("prfm pldl1keep, [%0, #256]\n\t" : : "r"(&dst->buffer[dy * dst->w + dx]));
-        __asm volatile("prfm pldl1keep, [%0, #256]\n\t" : : "r"(&dst->buffer[(dy + 1) * dst->w + dx]));
-        
-        for(; sx < ex - 7; sx += 8, dx += 8) {
-            // Process two rows in parallel
-            graph_pixel_argb_neon(dst, dx, dy, &src->buffer[offset1 + sx], 8, alpha);
-            graph_pixel_argb_neon(dst, dx, dy + 1, &src->buffer[offset2 + sx], 8, alpha);
+        const uint32_t *sp1 = &src->buffer[sy * src->w + sr.x];
+        const uint32_t *sp2 = sp1 + src->w;
+        uint32_t *dp1 = &dst->buffer[dy * dst->w + dr.x];
+        uint32_t *dp2 = dp1 + dst->w;
+        int32_t x = 0;
+
+        for(; x <= w - 8; x += 8) {
+            blt_alpha_8_inline(dp1 + x, sp1 + x, alpha_vec);
+            blt_alpha_8_inline(dp2 + x, sp2 + x, alpha_vec);
         }
-        
-        // Process remaining pixels
-        if(sx < ex) {
-            int remain = ex - sx;
-            graph_pixel_argb_neon(dst, dx, dy, &src->buffer[offset1 + sx], remain, alpha);
-            graph_pixel_argb_neon(dst, dx, dy + 1, &src->buffer[offset2 + sx], remain, alpha);
+        /* Tail */
+        if(x < w) {
+            int remain = w - x;
+            uint32_t fg[8] = {0}, bg[8] = {0};
+            memcpy(fg, sp1 + x, 4 * remain);
+            memcpy(bg, dp1 + x, 4 * remain);
+            blt_alpha_8_inline(bg, fg, alpha_vec);
+            memcpy(dp1 + x, bg, 4 * remain);
+            memcpy(fg, sp2 + x, 4 * remain);
+            memcpy(bg, dp2 + x, 4 * remain);
+            blt_alpha_8_inline(bg, fg, alpha_vec);
+            memcpy(dp2 + x, bg, 4 * remain);
         }
     }
-    
-    // Process last row (if total rows is odd)
+
+    /* Last row if odd height */
     if(sy < ey) {
-        register int32_t sx = sr.x;
-        register int32_t dx = dr.x;
-        register int32_t offset = sy * src->w;
-        
-        for(; sx < ex; sx += 8, dx += 8) {
-            graph_pixel_argb_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex - sx, 8), alpha);
+        const uint32_t *sp = &src->buffer[sy * src->w + sr.x];
+        uint32_t *dp = &dst->buffer[dy * dst->w + dr.x];
+        int32_t x = 0;
+
+        for(; x <= w - 8; x += 8)
+            blt_alpha_8_inline(dp + x, sp + x, alpha_vec);
+        if(x < w) {
+            int remain = w - x;
+            uint32_t fg[8] = {0}, bg[8] = {0};
+            memcpy(fg, sp + x, 4 * remain);
+            memcpy(bg, dp + x, 4 * remain);
+            blt_alpha_8_inline(bg, fg, alpha_vec);
+            memcpy(dp + x, bg, 4 * remain);
         }
     }
 }
@@ -1005,124 +1062,354 @@ void graph_scale_tof_bsp(graph_t* g, graph_t* dst, double scale) {
     }
 }
 
+enum {
+    GRAPH_SCALE_FIXED_SHIFT = 16,
+    GRAPH_SCALE_FIXED_SCALE = 1 << GRAPH_SCALE_FIXED_SHIFT,
+    GRAPH_SCALE_FIXED_MASK = GRAPH_SCALE_FIXED_SCALE - 1
+};
+
+static inline uint32_t graph_scale_bilinear_interp_bsp(uint32_t p00, uint32_t p01, uint32_t p10, uint32_t p11,
+        uint32_t fx, uint32_t fy) {
+    uint32_t one_minus_fx = GRAPH_SCALE_FIXED_SCALE - fx;
+    uint32_t one_minus_fy = GRAPH_SCALE_FIXED_SCALE - fy;
+
+    uint32_t r00 = (p00 >> 16) & 0xFF;
+    uint32_t g00 = (p00 >> 8) & 0xFF;
+    uint32_t b00 = p00 & 0xFF;
+    uint32_t a00 = (p00 >> 24) & 0xFF;
+
+    uint32_t r01 = (p01 >> 16) & 0xFF;
+    uint32_t g01 = (p01 >> 8) & 0xFF;
+    uint32_t b01 = p01 & 0xFF;
+    uint32_t a01 = (p01 >> 24) & 0xFF;
+
+    uint32_t r10 = (p10 >> 16) & 0xFF;
+    uint32_t g10 = (p10 >> 8) & 0xFF;
+    uint32_t b10 = p10 & 0xFF;
+    uint32_t a10 = (p10 >> 24) & 0xFF;
+
+    uint32_t r11 = (p11 >> 16) & 0xFF;
+    uint32_t g11 = (p11 >> 8) & 0xFF;
+    uint32_t b11 = p11 & 0xFF;
+    uint32_t a11 = (p11 >> 24) & 0xFF;
+
+    uint64_t tmp_r = (uint64_t)one_minus_fx * one_minus_fy * r00 +
+                     (uint64_t)fx * one_minus_fy * r01 +
+                     (uint64_t)one_minus_fx * fy * r10 +
+                     (uint64_t)fx * fy * r11;
+    uint64_t tmp_g = (uint64_t)one_minus_fx * one_minus_fy * g00 +
+                     (uint64_t)fx * one_minus_fy * g01 +
+                     (uint64_t)one_minus_fx * fy * g10 +
+                     (uint64_t)fx * fy * g11;
+    uint64_t tmp_b = (uint64_t)one_minus_fx * one_minus_fy * b00 +
+                     (uint64_t)fx * one_minus_fy * b01 +
+                     (uint64_t)one_minus_fx * fy * b10 +
+                     (uint64_t)fx * fy * b11;
+    uint64_t tmp_a = (uint64_t)one_minus_fx * one_minus_fy * a00 +
+                     (uint64_t)fx * one_minus_fy * a01 +
+                     (uint64_t)one_minus_fx * fy * a10 +
+                     (uint64_t)fx * fy * a11;
+
+    uint32_t r = (uint32_t)(tmp_r >> (2 * GRAPH_SCALE_FIXED_SHIFT));
+    uint32_t g = (uint32_t)(tmp_g >> (2 * GRAPH_SCALE_FIXED_SHIFT));
+    uint32_t b = (uint32_t)(tmp_b >> (2 * GRAPH_SCALE_FIXED_SHIFT));
+    uint32_t a = (uint32_t)(tmp_a >> (2 * GRAPH_SCALE_FIXED_SHIFT));
+
+    return (a << 24) | (r << 16) | (g << 8) | b;
+}
+
+static void graph_scale_prepare_axis_bsp(int dst_len, int src_max, uint32_t inv_scale,
+        int *idx0, int *idx1, uint32_t *frac) {
+    uint32_t pos = 0;
+
+    for(int i = 0; i < dst_len; i++) {
+        int base = (int)(pos >> GRAPH_SCALE_FIXED_SHIFT);
+        uint32_t f = pos & GRAPH_SCALE_FIXED_MASK;
+        int next = base + 1;
+
+        if(base >= src_max) {
+            base = src_max;
+            next = src_max;
+            f = 0;
+        }
+        else if(next > src_max) {
+            next = src_max;
+        }
+
+        idx0[i] = base;
+        idx1[i] = next;
+        frac[i] = f;
+        pos += inv_scale;
+    }
+}
+
+static int graph_scale_integer_downsample_bsp(graph_t* g, graph_t* dst, uint32_t inv_scale) {
+    if((inv_scale & GRAPH_SCALE_FIXED_MASK) != 0)
+        return 0;
+
+    uint32_t step = inv_scale >> GRAPH_SCALE_FIXED_SHIFT;
+    if(step < 2)
+        return 0;
+
+    int src_w = g->w;
+    int dst_w = dst->w;
+    int dst_h = dst->h;
+    int is_pow2 = (step & (step - 1)) == 0;
+
+    if(is_pow2) {
+        unsigned step_shift = 0;
+        while((1U << step_shift) < step)
+            step_shift++;
+
+        for(int y = 0; y < dst_h; y++) {
+            uint32_t *src_row = &g->buffer[(y << step_shift) * src_w];
+            uint32_t *dst_row = &dst->buffer[y * dst_w];
+            int x = 0;
+
+            for(; x <= dst_w - 4; x += 4) {
+                dst_row[x] = src_row[x << step_shift];
+                dst_row[x + 1] = src_row[(x + 1) << step_shift];
+                dst_row[x + 2] = src_row[(x + 2) << step_shift];
+                dst_row[x + 3] = src_row[(x + 3) << step_shift];
+            }
+
+            for(; x < dst_w; x++) {
+                dst_row[x] = src_row[x << step_shift];
+            }
+        }
+
+        return 1;
+    }
+
+    uint32_t src_y = 0;
+    for(int y = 0; y < dst_h; y++) {
+        uint32_t *src_row = &g->buffer[src_y * src_w];
+        uint32_t *dst_row = &dst->buffer[y * dst_w];
+        uint32_t src_x = 0;
+        int x = 0;
+
+        for(; x <= dst_w - 4; x += 4) {
+            dst_row[x] = src_row[src_x];
+            src_x += step;
+            dst_row[x + 1] = src_row[src_x];
+            src_x += step;
+            dst_row[x + 2] = src_row[src_x];
+            src_x += step;
+            dst_row[x + 3] = src_row[src_x];
+            src_x += step;
+        }
+
+        for(; x < dst_w; x++) {
+            dst_row[x] = src_row[src_x];
+            src_x += step;
+        }
+
+        src_y += step;
+    }
+
+    return 1;
+}
+
 void graph_scale_tof_fast_bsp(graph_t* g, graph_t* dst, double scale) {
     if(scale <= 0.0 ||
             dst->w < (int)(g->w*scale) ||
             dst->h < (int)(g->h*scale))
         return;
 
-    #define FIXED_SHIFT 16
-    #define FIXED_SCALE (1 << FIXED_SHIFT)
-    #define FIXED_MASK (FIXED_SCALE - 1)
-
+    int src_w = g->w;
+    int dst_w = dst->w;
+    int dst_h = dst->h;
     int hmax = g->h - 1;
-    int wmax = g->w - 1;
-    uint32_t inv_scale = (uint32_t)((1.0f / scale) * FIXED_SCALE);
+    int wmax = src_w - 1;
+    uint32_t inv_scale = (uint32_t)((1.0f / scale) * GRAPH_SCALE_FIXED_SCALE);
 
-    for(int i = 0; i < dst->h; i++) {
-        uint32_t gi = (i * inv_scale) >> FIXED_SHIFT;
-        int gi0 = (int)gi;
-        uint32_t gi_frac = (i * inv_scale) & FIXED_MASK;
-        int gi1 = gi0 + 1;
+    if(inv_scale == GRAPH_SCALE_FIXED_SCALE && dst_w == src_w && dst_h == g->h) {
+        memcpy(dst->buffer, g->buffer, (size_t)src_w * (size_t)g->h * sizeof(uint32_t));
+        return;
+    }
 
-        if(gi0 < 0) { gi0 = 0; gi1 = 0; gi_frac = 0; }
-        else if(gi0 >= hmax) { gi0 = hmax; gi1 = hmax; gi_frac = 0; }
-        if(gi1 > hmax) gi1 = hmax;
+    if(scale < 1.0 && graph_scale_integer_downsample_bsp(g, dst, inv_scale))
+        return;
 
-        int gi0w = gi0 * g->w;
-        int gi1w = gi1 * g->w;
+    int *x0 = (int*)malloc((size_t)dst_w * sizeof(int));
+    int *x1 = (int*)malloc((size_t)dst_w * sizeof(int));
+    uint32_t *x_frac = (uint32_t*)malloc((size_t)dst_w * sizeof(uint32_t));
+    uint16_t *wh0 = (uint16_t*)malloc((size_t)dst_w * 4 * sizeof(uint16_t));
+    uint16_t *wh1 = (uint16_t*)malloc((size_t)dst_w * 4 * sizeof(uint16_t));
 
-        int j = 0;
-        for(; j <= dst->w - 4; j += 4) {
-            uint32_t gj[4];
-            int gj0[4];
-            int gj1[4];
-            uint32_t gj_frac[4];
+    if(x0 != NULL && x1 != NULL && x_frac != NULL && wh0 != NULL && wh1 != NULL) {
+        graph_scale_prepare_axis_bsp(dst_w, wmax, inv_scale, x0, x1, x_frac);
 
-            for(int k = 0; k < 4; k++) {
-                gj[k] = (j + k) * inv_scale;
-                gj0[k] = (int)(gj[k] >> FIXED_SHIFT);
-                gj_frac[k] = gj[k] & FIXED_MASK;
-                gj1[k] = gj0[k] + 1;
-                if(gj0[k] < 0) { gj0[k] = 0; gj1[k] = 0; gj_frac[k] = 0; }
-                else if(gj0[k] > wmax) { gj0[k] = wmax; gj1[k] = wmax; gj_frac[k] = 0; }
-                if(gj1[k] > wmax) gj1[k] = wmax;
+        /* per-column 8-bit-fraction horizontal weights, replicated per channel */
+        for(int j = 0; j < dst_w; j++) {
+            uint32_t f = (x_frac[j] + 128) >> 8; /* 0..256 */
+            uint16_t w1 = (uint16_t)f;
+            uint16_t w0 = (uint16_t)(256 - f);
+            int o = j * 4;
+            wh0[o] = w0;
+            wh0[o + 1] = w0;
+            wh0[o + 2] = w0;
+            wh0[o + 3] = w0;
+            wh1[o] = w1;
+            wh1[o + 1] = w1;
+            wh1[o + 2] = w1;
+            wh1[o + 3] = w1;
+        }
+
+        /* pair-load of (x0[j], x0[j]+1) stays in bounds while x0[j] < wmax;
+           x0 is non-decreasing, so the NEON-safe prefix is contiguous */
+        int j_safe = 0;
+        while(j_safe < dst_w && x0[j_safe] < wmax)
+            j_safe++;
+        int neon_w = j_safe & ~3;
+
+        uint32_t src_y = 0;
+        for(int i = 0; i < dst_h; i++) {
+            int gi0 = (int)(src_y >> GRAPH_SCALE_FIXED_SHIFT);
+            uint32_t gi_frac = src_y & GRAPH_SCALE_FIXED_MASK;
+            int gi1 = gi0 + 1;
+
+            if(gi0 >= hmax) {
+                gi0 = hmax;
+                gi1 = hmax;
+                gi_frac = 0;
+            }
+            else if(gi1 > hmax) {
+                gi1 = hmax;
             }
 
-            uint32_t result[4];
-            for(int k = 0; k < 4; k++) {
-                uint32_t p00 = g->buffer[gi0w + gj0[k]];
-                uint32_t p01 = g->buffer[gi0w + gj1[k]];
-                uint32_t p10 = g->buffer[gi1w + gj0[k]];
-                uint32_t p11 = g->buffer[gi1w + gj1[k]];
+            const uint32_t *row0 = g->buffer + gi0 * src_w;
+            const uint32_t *row1 = g->buffer + gi1 * src_w;
+            uint32_t *drow = dst->buffer + i * dst_w;
 
-                if(p00 == p01 && p00 == p10 && p00 == p11) {
-                    result[k] = p00;
+            uint16_t fy = (uint16_t)((gi_frac + 128) >> 8);
+            uint16x8_t wv0 = vdupq_n_u16((uint16_t)(256 - fy));
+            uint16x8_t wv1 = vdupq_n_u16(fy);
+            uint16x8_t rnd = vdupq_n_u16(128);
+
+            int j = 0;
+            for(; j < neon_w; j += 4) {
+                /* gather (p00,p01) pairs for 4 output columns from both rows;
+                   x1[j] == x0[j]+1 in the NEON-safe prefix */
+                uint32x4_t ab0 = vcombine_u32(vld1_u32(row0 + x0[j]), vld1_u32(row0 + x0[j + 1]));
+                uint32x4_t cd0 = vcombine_u32(vld1_u32(row0 + x0[j + 2]), vld1_u32(row0 + x0[j + 3]));
+                uint32x4x2_t u0 = vuzpq_u32(ab0, cd0);
+
+                uint32x4_t ab1 = vcombine_u32(vld1_u32(row1 + x0[j]), vld1_u32(row1 + x0[j + 1]));
+                uint32x4_t cd1 = vcombine_u32(vld1_u32(row1 + x0[j + 2]), vld1_u32(row1 + x0[j + 3]));
+                uint32x4x2_t u1 = vuzpq_u32(ab1, cd1);
+
+                uint32x4_t p00 = u0.val[0];
+                uint32x4_t p01 = u0.val[1];
+                uint32x4_t p10 = u1.val[0];
+                uint32x4_t p11 = u1.val[1];
+
+                uint32x4_t eq = vandq_u32(
+                        vandq_u32(vceqq_u32(p00, p01), vceqq_u32(p00, p10)),
+                        vceqq_u32(p00, p11));
+                uint32x2_t eq2 = vand_u32(vget_low_u32(eq), vget_high_u32(eq));
+                if((vget_lane_u32(eq2, 0) & vget_lane_u32(eq2, 1)) == 0xFFFFFFFFu) {
+                    vst1q_u32(drow + j, p00);
                     continue;
                 }
 
-                uint32_t one_minus_fx = FIXED_SCALE - gj_frac[k];
-                uint32_t one_minus_fy = FIXED_SCALE - gi_frac;
+                uint8x16_t b00 = vreinterpretq_u8_u32(p00);
+                uint8x16_t b01 = vreinterpretq_u8_u32(p01);
+                uint8x16_t b10 = vreinterpretq_u8_u32(p10);
+                uint8x16_t b11 = vreinterpretq_u8_u32(p11);
 
-                uint32_t r00 = (p00 >> 16) & 0xFF;
-                uint32_t g00 = (p00 >> 8) & 0xFF;
-                uint32_t b00 = p00 & 0xFF;
-                uint32_t a00 = (p00 >> 24) & 0xFF;
+                uint16x8_t p00l = vmovl_u8(vget_low_u8(b00));
+                uint16x8_t p00h = vmovl_u8(vget_high_u8(b00));
+                uint16x8_t p01l = vmovl_u8(vget_low_u8(b01));
+                uint16x8_t p01h = vmovl_u8(vget_high_u8(b01));
+                uint16x8_t p10l = vmovl_u8(vget_low_u8(b10));
+                uint16x8_t p10h = vmovl_u8(vget_high_u8(b10));
+                uint16x8_t p11l = vmovl_u8(vget_low_u8(b11));
+                uint16x8_t p11h = vmovl_u8(vget_high_u8(b11));
 
-                uint32_t r01 = (p01 >> 16) & 0xFF;
-                uint32_t g01 = (p01 >> 8) & 0xFF;
-                uint32_t b01 = p01 & 0xFF;
-                uint32_t a01 = (p01 >> 24) & 0xFF;
+                uint16x8_t w0l = vld1q_u16(wh0 + j * 4);
+                uint16x8_t w0h = vld1q_u16(wh0 + j * 4 + 8);
+                uint16x8_t w1l = vld1q_u16(wh1 + j * 4);
+                uint16x8_t w1h = vld1q_u16(wh1 + j * 4 + 8);
 
-                uint32_t r10 = (p10 >> 16) & 0xFF;
-                uint32_t g10 = (p10 >> 8) & 0xFF;
-                uint32_t b10 = p10 & 0xFF;
-                uint32_t a10 = (p10 >> 24) & 0xFF;
+                /* horizontal lerp: (p00*w0 + p01*w1 + 128) >> 8, w0+w1 = 256 so no u16 overflow */
+                uint16x8_t tl = vshrq_n_u16(vmlaq_u16(vmlaq_u16(rnd, p00l, w0l), p01l, w1l), 8);
+                uint16x8_t th = vshrq_n_u16(vmlaq_u16(vmlaq_u16(rnd, p00h, w0h), p01h, w1h), 8);
+                uint16x8_t bl = vshrq_n_u16(vmlaq_u16(vmlaq_u16(rnd, p10l, w0l), p11l, w1l), 8);
+                uint16x8_t bh = vshrq_n_u16(vmlaq_u16(vmlaq_u16(rnd, p10h, w0h), p11h, w1h), 8);
 
-                uint32_t r11 = (p11 >> 16) & 0xFF;
-                uint32_t g11 = (p11 >> 8) & 0xFF;
-                uint32_t b11 = p11 & 0xFF;
-                uint32_t a11 = (p11 >> 24) & 0xFF;
+                /* vertical lerp */
+                uint16x8_t ol = vshrq_n_u16(vmlaq_u16(vmlaq_u16(rnd, tl, wv0), bl, wv1), 8);
+                uint16x8_t oh = vshrq_n_u16(vmlaq_u16(vmlaq_u16(rnd, th, wv0), bh, wv1), 8);
 
-                uint64_t tmp_r = (uint64_t)one_minus_fx * one_minus_fy * r00 +
-                                 (uint64_t)gj_frac[k] * one_minus_fy * r01 +
-                                 (uint64_t)one_minus_fx * gi_frac * r10 +
-                                 (uint64_t)gj_frac[k] * gi_frac * r11;
-                uint64_t tmp_g = (uint64_t)one_minus_fx * one_minus_fy * g00 +
-                                 (uint64_t)gj_frac[k] * one_minus_fy * g01 +
-                                 (uint64_t)one_minus_fx * gi_frac * g10 +
-                                 (uint64_t)gj_frac[k] * gi_frac * g11;
-                uint64_t tmp_b = (uint64_t)one_minus_fx * one_minus_fy * b00 +
-                                 (uint64_t)gj_frac[k] * one_minus_fy * b01 +
-                                 (uint64_t)one_minus_fx * gi_frac * b10 +
-                                 (uint64_t)gj_frac[k] * gi_frac * b11;
-                uint64_t tmp_a = (uint64_t)one_minus_fx * one_minus_fy * a00 +
-                                 (uint64_t)gj_frac[k] * one_minus_fy * a01 +
-                                 (uint64_t)one_minus_fx * gi_frac * a10 +
-                                 (uint64_t)gj_frac[k] * gi_frac * a11;
-
-                uint32_t r = tmp_r >> (2 * FIXED_SHIFT);
-                uint32_t g_val = tmp_g >> (2 * FIXED_SHIFT);
-                uint32_t b = tmp_b >> (2 * FIXED_SHIFT);
-                uint32_t a = tmp_a >> (2 * FIXED_SHIFT);
-
-                result[k] = (a << 24) | (r << 16) | (g_val << 8) | b;
+                vst1q_u32(drow + j,
+                        vreinterpretq_u32_u8(vcombine_u8(vmovn_u16(ol), vmovn_u16(oh))));
             }
-            dst->buffer[i * dst->w + j] = result[0];
-            dst->buffer[i * dst->w + j + 1] = result[1];
-            dst->buffer[i * dst->w + j + 2] = result[2];
-            dst->buffer[i * dst->w + j + 3] = result[3];
+
+            for(; j < dst_w; j++) {
+                uint32_t p00 = row0[x0[j]];
+                uint32_t p01 = row0[x1[j]];
+                uint32_t p10 = row1[x0[j]];
+                uint32_t p11 = row1[x1[j]];
+
+                if(p00 == p01 && p00 == p10 && p00 == p11) {
+                    drow[j] = p00;
+                }
+                else {
+                    drow[j] = graph_scale_bilinear_interp_bsp(p00, p01, p10, p11, x_frac[j], gi_frac);
+                }
+            }
+
+            src_y += inv_scale;
         }
 
-        for(; j < dst->w; j++) {
-            uint32_t gj = j * inv_scale;
-            int gj0 = (int)(gj >> FIXED_SHIFT);
-            uint32_t gj_frac = gj & FIXED_MASK;
+        free(x0);
+        free(x1);
+        free(x_frac);
+        free(wh0);
+        free(wh1);
+        return;
+    }
+
+    free(x0);
+    free(x1);
+    free(x_frac);
+    free(wh0);
+    free(wh1);
+
+    uint32_t src_y = 0;
+    for(int i = 0; i < dst_h; i++) {
+        int gi0 = (int)(src_y >> GRAPH_SCALE_FIXED_SHIFT);
+        uint32_t gi_frac = src_y & GRAPH_SCALE_FIXED_MASK;
+        int gi1 = gi0 + 1;
+
+        if(gi0 >= hmax) {
+            gi0 = hmax;
+            gi1 = hmax;
+            gi_frac = 0;
+        }
+        else if(gi1 > hmax) {
+            gi1 = hmax;
+        }
+
+        int gi0w = gi0 * src_w;
+        int gi1w = gi1 * src_w;
+        int dst_row = i * dst_w;
+        uint32_t src_x = 0;
+
+        for(int j = 0; j < dst_w; j++) {
+            int gj0 = (int)(src_x >> GRAPH_SCALE_FIXED_SHIFT);
+            uint32_t gj_frac = src_x & GRAPH_SCALE_FIXED_MASK;
             int gj1 = gj0 + 1;
 
-            if(gj0 < 0) { gj0 = 0; gj1 = 0; gj_frac = 0; }
-            else if(gj0 >= wmax) { gj0 = wmax; gj1 = wmax; gj_frac = 0; }
-            if(gj1 > wmax) gj1 = wmax;
+            if(gj0 >= wmax) {
+                gj0 = wmax;
+                gj1 = wmax;
+                gj_frac = 0;
+            }
+            else if(gj1 > wmax) {
+                gj1 = wmax;
+            }
 
             uint32_t p00 = g->buffer[gi0w + gj0];
             uint32_t p01 = g->buffer[gi0w + gj1];
@@ -1130,61 +1417,17 @@ void graph_scale_tof_fast_bsp(graph_t* g, graph_t* dst, double scale) {
             uint32_t p11 = g->buffer[gi1w + gj1];
 
             if(p00 == p01 && p00 == p10 && p00 == p11) {
-                dst->buffer[i * dst->w + j] = p00;
-                continue;
+                dst->buffer[dst_row + j] = p00;
+            }
+            else {
+                dst->buffer[dst_row + j] = graph_scale_bilinear_interp_bsp(p00, p01, p10, p11, gj_frac, gi_frac);
             }
 
-            uint32_t one_minus_fx = FIXED_SCALE - gj_frac;
-            uint32_t one_minus_fy = FIXED_SCALE - gi_frac;
-
-            uint32_t r00 = (p00 >> 16) & 0xFF;
-            uint32_t g00 = (p00 >> 8) & 0xFF;
-            uint32_t b00 = p00 & 0xFF;
-            uint32_t a00 = (p00 >> 24) & 0xFF;
-
-            uint32_t r01 = (p01 >> 16) & 0xFF;
-            uint32_t g01 = (p01 >> 8) & 0xFF;
-            uint32_t b01 = p01 & 0xFF;
-            uint32_t a01 = (p01 >> 24) & 0xFF;
-
-            uint32_t r10 = (p10 >> 16) & 0xFF;
-            uint32_t g10 = (p10 >> 8) & 0xFF;
-            uint32_t b10 = p10 & 0xFF;
-            uint32_t a10 = (p10 >> 24) & 0xFF;
-
-            uint32_t r11 = (p11 >> 16) & 0xFF;
-            uint32_t g11 = (p11 >> 8) & 0xFF;
-            uint32_t b11 = p11 & 0xFF;
-            uint32_t a11 = (p11 >> 24) & 0xFF;
-
-            uint64_t tmp_r = (uint64_t)one_minus_fx * one_minus_fy * r00 +
-                             (uint64_t)gj_frac * one_minus_fy * r01 +
-                             (uint64_t)one_minus_fx * gi_frac * r10 +
-                             (uint64_t)gj_frac * gi_frac * r11;
-            uint64_t tmp_g = (uint64_t)one_minus_fx * one_minus_fy * g00 +
-                             (uint64_t)gj_frac * one_minus_fy * g01 +
-                             (uint64_t)one_minus_fx * gi_frac * g10 +
-                             (uint64_t)gj_frac * gi_frac * g11;
-            uint64_t tmp_b = (uint64_t)one_minus_fx * one_minus_fy * b00 +
-                             (uint64_t)gj_frac * one_minus_fy * b01 +
-                             (uint64_t)one_minus_fx * gi_frac * b10 +
-                             (uint64_t)gj_frac * gi_frac * b11;
-            uint64_t tmp_a = (uint64_t)one_minus_fx * one_minus_fy * a00 +
-                             (uint64_t)gj_frac * one_minus_fy * a01 +
-                             (uint64_t)one_minus_fx * gi_frac * a10 +
-                             (uint64_t)gj_frac * gi_frac * a11;
-
-            uint32_t r = tmp_r >> (2 * FIXED_SHIFT);
-            uint32_t g_val = tmp_g >> (2 * FIXED_SHIFT);
-            uint32_t b = tmp_b >> (2 * FIXED_SHIFT);
-            uint32_t a = tmp_a >> (2 * FIXED_SHIFT);
-
-            dst->buffer[i * dst->w + j] = (a << 24) | (r << 16) | (g_val << 8) | b;
+            src_x += inv_scale;
         }
+
+        src_y += inv_scale;
     }
-    #undef FIXED_SHIFT
-    #undef FIXED_SCALE
-    #undef FIXED_MASK
 }
 
 static inline uint32x4_t neon_reverse_u32x4(uint32x4_t v) {

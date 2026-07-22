@@ -19,6 +19,7 @@ extern "C" {
 #endif
 
 static map_t  _files_hash = NULL;
+static fsinfo_t* file_add(int fd, int pid, fsinfo_t* info);
 
 static void device_init(vdevice_t* dev) {
 	_files_hash = hashmap_new(0);
@@ -30,14 +31,54 @@ static inline const char* file_hash_key(int fd, int pid, uint32_t node) {
 	return key;
 }
 
+static inline int file_owner_pid(int pid) {
+	return proc_getpid_or_raw(pid);
+}
+
 static fsinfo_t* file_get_cache(int fd, int pid, uint32_t node) {
 	fsinfo_t* info = NULL;
 	hashmap_get(_files_hash, file_hash_key(fd, pid, node), (void**)&info);
 	return info;
 }
 
+typedef struct {
+	int pid;
+	uint32_t node;
+	fsinfo_t* info;
+} file_clone_lookup_t;
+
+static int file_find_same_owner_node(map_t in, const char* key, any_t value, any_t arg) {
+	(void)in;
+	fsinfo_t* info = (fsinfo_t*)value;
+	file_clone_lookup_t* lookup = (file_clone_lookup_t*)arg;
+	unsigned int fd_key = 0;
+	unsigned int pid_key = 0;
+	unsigned int node_key = 0;
+
+	if(info == NULL || lookup == NULL)
+		return MAP_OK;
+	if(sscanf(key, "%x:%x:%x", &fd_key, &pid_key, &node_key) != 3)
+		return MAP_OK;
+	if((int)pid_key != lookup->pid || node_key != lookup->node)
+		return MAP_OK;
+
+	lookup->info = info;
+	return 1;
+}
+
+static fsinfo_t* file_clone_same_owner_node(int fd, int pid, uint32_t node) {
+	file_clone_lookup_t lookup;
+	lookup.pid = pid;
+	lookup.node = node;
+	lookup.info = NULL;
+	hashmap_iterate(_files_hash, file_find_same_owner_node, &lookup);
+	if(lookup.info == NULL)
+		return NULL;
+	return file_add(fd, pid, lookup.info);
+}
+
 static fsinfo_t* file_add(int fd, int pid, fsinfo_t* info) {
-	pid = proc_getpid(pid);
+	pid = file_owner_pid(pid);
 	fsinfo_t* ret = (fsinfo_t*)malloc(sizeof(fsinfo_t));
 	hashmap_put(_files_hash, file_hash_key(fd, pid, info->node), ret);
 	memcpy(ret, info, sizeof(fsinfo_t));
@@ -45,7 +86,7 @@ static fsinfo_t* file_add(int fd, int pid, fsinfo_t* info) {
 }
 
 static void file_del(int fd, int pid, uint32_t node) {
-	pid = proc_getpid(pid);
+	pid = file_owner_pid(pid);
 	fsinfo_t* info = NULL;
 	const char* key = file_hash_key(fd, pid, node);
 	hashmap_get(_files_hash, key, (void**)&info);
@@ -57,9 +98,13 @@ static void file_del(int fd, int pid, uint32_t node) {
 }
 
 fsinfo_t* dev_get_file(int fd, int pid, uint32_t node) {
-	pid = proc_getpid(pid);
+	pid = file_owner_pid(pid);
 	fsinfo_t* info = file_get_cache(fd, pid, node);
 	if(info == NULL) {
+		info = file_clone_same_owner_node(fd, pid, node);
+		if(info != NULL)
+			return info;
+
 		fsinfo_t i;
 		if(vfs_get_by_node(node, &i) != 0)
 			return NULL;
@@ -93,7 +138,11 @@ static void do_open(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 		return;
 	}
 
-	if(vfs_check_access(from_pid, &info, R_OK) != 0) {
+	/*
+	 * Mirror VFS open permission semantics: pure write-only opens must not be
+	 * rejected just because the caller lacks read permission.
+	 */
+	if((oflag & O_WRONLY) == 0 && vfs_check_access(from_pid, &info, R_OK) != 0) {
 		PF->addi(out, -1)->addi(out, EPERM);
 		return;
 	}
@@ -118,18 +167,22 @@ static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	int fd = proto_read_int(in);
 	uint32_t node = (uint32_t)proto_read_int(in);
 	fsinfo_t* fsinfo = proto_read(in, NULL);
-	int core_from_pid = proto_read_int(in);
-	if(core_from_pid > 0) {
+	int close_pid = proto_read_int(in);
+	int owner_pid = proto_read_int(in);
+	if(close_pid > 0) {
 		int vfsd_pid = get_vfsd_pid(); //from vfsd for proc exit closing.
 		if(vfsd_pid == from_pid) {
-			from_pid = core_from_pid;
+			from_pid = close_pid;
 		}
 	}
+	if(owner_pid <= 0)
+		owner_pid = from_pid;
+	owner_pid = file_owner_pid(owner_pid);
 
 	if(dev != NULL && dev->close != NULL) {
-		dev->close(dev, fd, from_pid, node, fsinfo, p);
+		dev->close(dev, fd, owner_pid, node, fsinfo, p);
 	}
-	file_del(fd, from_pid, node);
+	file_del(fd, owner_pid, node);
 }
 
 static void do_dup(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {

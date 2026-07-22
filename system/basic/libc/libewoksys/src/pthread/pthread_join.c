@@ -4,5 +4,5 @@
 
 int pthread_join(pthread_t thread, void **retval) {
 	(void)retval;
-	return waitpid(thread);
+	return ewok_waitpid(thread);
 }

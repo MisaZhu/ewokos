@@ -26,4 +26,5 @@ void exit(int status) {
 		}
 	}
 	syscall1(SYS_EXIT, (ewokos_addr_t)status);
+	__builtin_unreachable();
 }

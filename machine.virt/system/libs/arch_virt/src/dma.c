@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <ewoksys/dma.h>
@@ -18,6 +19,7 @@ int dma_user_init(size_t total){
     _dma_size = ALIGN_UP(total, 4096);
     _dma_base = dma_alloc(0, _dma_size)&0xFFFFFFFF;
     _dma_phy = dma_phy_addr(0, _dma_base)&0xFFFFFFFF;
+    return (_dma_base != NULL && _dma_phy != NULL) ? 0 : -1;
 }
 
 void* dma_user_phy(void* vaddr){
@@ -29,8 +31,8 @@ void* dma_user_alloc(size_t size){
         dma_user_init(MAX(DEFAULT_DMA_SIZE, size + DEFAULT_DMA_SIZE));
 
     if(size > _dma_size){
-        printf("dma_user_alloc: size %d > _dma_size %d\n", size, _dma_size);
-        return -1;    
+        printf("dma_user_alloc: size %zu > _dma_size %zu\n", size, _dma_size);
+        return NULL;
     }
     void* ret = _dma_base + _dma_alloced;
     _dma_alloced += ALIGN_UP(size, 16);

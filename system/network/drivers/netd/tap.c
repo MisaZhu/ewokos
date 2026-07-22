@@ -10,9 +10,10 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <poll.h>
+#include <pthread.h>
 #include <ewoksys/proto.h>
 #include <ewoksys/klog.h>
-#include <pthread.h>
+#include <ewoksys/vdevice.h>
 
 #include "platform.h"
 
@@ -24,6 +25,9 @@
 
 
 #define ETHER_TAP_IRQ (2)
+#define ETHER_TAP_DRAIN_BURST 256
+#define ETHER_TAP_READ_RETRY 4
+#define ETHER_TAP_READ_RETRY_US 500
 
 struct ether_tap {
     char name[IFNAMSIZ];
@@ -41,16 +45,18 @@ ether_tap_addr(struct net_device *dev) {
     tap = PRIV(dev);
     proto_t  out;
 
-	while(ret){
+	while (ret) {
 		PF->init(&out);
 		ret = dev_cntl (tap->name, 0, NULL, &out);
 		if(ret == 0){
 			proto_read_to(&out, dev->addr, 6);
+            PF->clear(&out);
+            return 0;
 		}
 		PF->clear(&out);
 		usleep(1000);
 	}
-    return 0;
+    return -1;
 }
 
 static int
@@ -91,7 +97,17 @@ ether_tap_write(struct net_device *dev, const uint8_t *frame, size_t flen)
     TRACE();
     mutex_lock(&tap->lock);
     int ret = write(tap->fd, frame, flen);
-    if (ret < 0) {
+    if (ret < 0 && errno != EAGAIN && errno != EINTR) {
+        /*
+         * Reopen only on hard fd failures (e.g. EBADF). EAGAIN/EINTR mean
+         * the underlying driver's TX queue is temporarily full (the wlan
+         * driver returns VFS_ERR_RETRY when its tx ring is congested); the
+         * frame is dropped and TCP will retransmit it later. Reopening
+         * /dev/wl0 on congestion costs two extra IPCs per frame and does not
+         * make room in the queue, and the resulting retransmit storm keeps
+         * tcp_timer_active() permanently true, pinning intr_loop to the fast
+         * cadence (observed as netd CPU spin on raspix).
+         */
         close(tap->fd);
         tap->fd = open(tap->name, O_RDWR | O_NONBLOCK);
         if (tap->fd >= 0) {
@@ -114,14 +130,36 @@ ether_tap_read(struct net_device *dev, uint8_t *buf, size_t size)
 {
     ssize_t len;
     struct ether_tap *tap = PRIV(dev);
+    int pending = 0;
+    int attempt;
     TRACE();
     mutex_lock(&tap->lock);
-    len = read(PRIV(dev)->fd, buf, size);
+    len = -1;
+    for (attempt = 0; attempt < ETHER_TAP_READ_RETRY; attempt++) {
+        len = read(tap->fd, buf, size);
+        if (len > 0) {
+            break;
+        }
+        pending = tap_select(dev);
+        if (pending <= 0) {
+            break;
+        }
+        usleep(ETHER_TAP_READ_RETRY_US);
+    }
+    if (len <= 0) {
+        pending = tap_select(dev);
+        if (pending > 0) {
+            close(tap->fd);
+            tap->fd = open(tap->name, O_RDWR | O_NONBLOCK);
+            if (tap->fd >= 0) {
+                len = read(tap->fd, buf, size);
+            }
+        }
+    }
     mutex_unlock(&tap->lock);
     TRACE();
-    return len>0?len: -1;
+    return len > 0 ? len : -1;
 }
-
 
 int tap_select(struct net_device *dev){
     struct ether_tap *tap = PRIV(dev);
@@ -150,15 +188,48 @@ static int
 ether_tap_isr(unsigned int irq, void *id)
 {
     struct net_device *dev = (struct net_device *)id;
-    int handled = 0;
+    int drained = 0;
+    int delivered = 0;
+    int pending = tap_select(dev);
 
-    while (handled < 32) {
-        if (ether_poll_helper(dev, ether_tap_read) < 0) {
+    /*
+     * Nothing queued: skip the drain attempt entirely. Previously this ran a
+     * speculative 32-frame budget even when the driver reported an empty
+     * queue, which cost one read plus up to two extra tap_select() IPCs per
+     * poll iteration for zero work — significant on raspix where every op is
+     * a synchronous round-trip to the wlan driver. Queued frames are never
+     * lost by waiting: they stay in the driver queue and are drained on the
+     * next poll once tap_select() reports them.
+     */
+    if (pending <= 0) {
+        return -1;
+    }
+
+    int budget = pending;
+
+    if (budget > ETHER_TAP_DRAIN_BURST) {
+        budget = ETHER_TAP_DRAIN_BURST;
+    }
+
+    while (drained < budget) {
+        int ret = ether_poll_helper(dev, ether_tap_read);
+        if (ret < 0) {
             break;
         }
-        handled++;
+        drained++;
+        if (ret > 0) {
+            delivered++;
+        }
     }
-    return handled > 0 ? 0 : -1;
+    /*
+     * Only report activity (which resets the intr_loop to the fast busy
+     * polling cadence) when at least one frame was actually delivered to the
+     * stack. Frames dropped at the L2/ethertype filter (foreign-unicast or
+     * unsupported types, e.g. background broadcast/multicast chatter) are still
+     * drained from the device queue but must NOT keep netd spinning at the
+     * busy cadence, otherwise idle CPU fluctuates with ambient wire traffic.
+     */
+    return delivered > 0 ? 0 : -1;
 }
 
 static struct net_device_ops ether_tap_ops = {

@@ -4,6 +4,13 @@
 #include <stdint.h>
 #include <ewoksys/vfs.h>
 
+typedef unsigned long nfds_t;
+typedef vfs_pollfd_t pollfd_t;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #undef POLLRW
 #define POLLRW          VFS_EVT_RW
 
@@ -21,5 +28,11 @@
 
 #undef POLLNVAL
 #define POLLNVAL        VFS_EVT_NVAL
+
+int poll(struct pollfd* fds, nfds_t nfds, int timeout);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

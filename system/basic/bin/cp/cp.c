@@ -7,8 +7,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-int fchmod(int fd, int mode);
-
 void out(void* data, int32_t size) {
 	char* buf = (char*)data;
 	int32_t wr = 0;

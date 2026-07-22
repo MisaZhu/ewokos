@@ -6,6 +6,12 @@
 typedef int64_t intmax_t;
 typedef uint64_t uintmax_t;
 
+#if __SIZEOF_LONG__ == 8
+#define __EWOK_PRI64_PREFIX "l"
+#else
+#define __EWOK_PRI64_PREFIX "ll"
+#endif
+
 #define PRId8 "d"
 #define PRIi8 "i"
 #define PRIo8 "o"
@@ -27,12 +33,12 @@ typedef uint64_t uintmax_t;
 #define PRIx32 "x"
 #define PRIX32 "X"
 
-#define PRId64 "lld"
-#define PRIi64 "lli"
-#define PRIo64 "llo"
-#define PRIu64 "llu"
-#define PRIx64 "llx"
-#define PRIX64 "llX"
+#define PRId64 __EWOK_PRI64_PREFIX "d"
+#define PRIi64 __EWOK_PRI64_PREFIX "i"
+#define PRIo64 __EWOK_PRI64_PREFIX "o"
+#define PRIu64 __EWOK_PRI64_PREFIX "u"
+#define PRIx64 __EWOK_PRI64_PREFIX "x"
+#define PRIX64 __EWOK_PRI64_PREFIX "X"
 
 #define PRIdMAX PRId64
 #define PRIiMAX PRIi64

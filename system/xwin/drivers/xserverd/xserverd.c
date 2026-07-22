@@ -479,6 +479,18 @@ static inline void x_get_cursor_rect(x_t* x, grect_t* r, bool old_pos) {
 }
 
 static void push_win(x_t* x, xwin_t* win) {
+	if(win->xinfo == NULL) { //xinfo not ready, just add to head
+		if(x->win_head != NULL) {
+			x->win_head->prev = win;
+			win->next = x->win_head;
+			x->win_head = win;
+		}
+		else {
+			x->win_tail = x->win_head = win;
+		}
+		return;
+	}
+
 	if((win->xinfo->style & XWIN_STYLE_SYSBOTTOM) != 0) { //push head if sysbottom style
 		if(x->win_head != NULL) {
 			x->win_head->prev = win;
@@ -541,7 +553,7 @@ static void push_win(x_t* x, xwin_t* win) {
 static xwin_t* get_top_focus_win(x_t* x, bool skip_launcher) {
 	xwin_t* ret = x->win_tail; 
 	while(ret != NULL) {
-		if(ret->xinfo->visible &&
+		if(ret->xinfo != NULL && ret->xinfo->visible &&
 				(ret->xinfo->style & XWIN_STYLE_NO_FOCUS) == 0 &&
 				(!skip_launcher || ret != x->win_launcher))
 			return ret;
@@ -553,7 +565,7 @@ static xwin_t* get_top_focus_win(x_t* x, bool skip_launcher) {
 static xwin_t* get_next_focus_win(x_t* x, bool skip_launcher) {
 	xwin_t* ret = x->win_head;
 	while(ret != NULL) {
-		if(ret->xinfo->visible &&
+		if(ret->xinfo != NULL && ret->xinfo->visible &&
 				(ret->xinfo->style & XWIN_STYLE_NO_FOCUS) == 0 &&
 				(!skip_launcher || ret != x->win_launcher))
 			return ret;
@@ -734,7 +746,7 @@ static void x_close(x_t* x) {
 static bool all_win_ready(x_t* x) {
 	xwin_t* win = x->win_head;
 	while(win != NULL) {
-		if(win->xinfo->visible && !win->ready)
+		if(win->xinfo != NULL && win->xinfo->visible && !win->ready)
 			return false;
 		win = win->next;
 	}
@@ -870,7 +882,7 @@ static bool has_win_by_main_pid(x_t* x, int main_pid) {
 static xwin_t* x_get_win_by_name(x_t* x, const char* name) {
 	xwin_t* win = x->win_head;
 	while(win != NULL) {
-		if(win->xinfo->is_main &&
+		if(win->xinfo != NULL && win->xinfo->is_main &&
 				strcmp(win->xinfo->name, name) == 0) {
 			return win;
 		}
@@ -908,7 +920,7 @@ static void mark_dirty_confirm(x_t* x, xwin_t* win) {
 			v->dirty = true;
 			v->dirty_mark = false;
 			
-			if(v != win) {
+			if(v != win && v->xinfo != NULL) {
 				if(v->xinfo->alpha || 
 						((v->xinfo->style & XWIN_STYLE_NO_FRAME) == 0 &&
 						x->config.xwm_theme.alpha)) {
@@ -931,7 +943,7 @@ static void mark_dirty(x_t* x, xwin_t* win) {
 	xwin_t* top = win->next;
 	while(top != NULL) {
 		grect_t r;
-		if(top->xinfo->visible) {
+		if(top->xinfo != NULL && top->xinfo->visible) {
 			memcpy(&r, &top->xinfo->winr, sizeof(grect_t));
 
 			grect_t *check_r;
@@ -1161,7 +1173,8 @@ static xwin_t* get_mouse_owner(x_t* x, int* win_frame_pos) {
 		*win_frame_pos = -1;
 
 	while(win != NULL) {
-		if(!win->xinfo->visible ||
+		if(win->xinfo == NULL ||
+				!win->xinfo->visible ||
 				(win->xinfo->style & XWIN_STYLE_LAZY) != 0 ||
 				win->xinfo->display_index != x->current_display) {
 			win = win->prev;
@@ -1946,7 +1959,7 @@ static int xserver_win_close(vdevice_t* dev, int fd, int from_pid, uint32_t node
 	if(win->busy && get_mouse_owner(x, NULL) == win)
 		x_cursor_set_busy(x, false);
 
-	int disp_index = win->xinfo->display_index;
+	int disp_index = win->xinfo != NULL ? win->xinfo->display_index : -1;
 	int main_pid = win->from_main_pid;
 	x_del_win(x, win);	
 	if(!has_win_by_main_pid(x, main_pid))

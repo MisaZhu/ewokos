@@ -36,6 +36,7 @@
 
 static volatile int _ended = 0;
 static int sockfd = -1;
+static int _is_telnet_console = 0;
 static uint8_t telnet_pending_buf[512];
 static int telnet_pending_len = 0;
 static int telnet_caps_offered = 0;
@@ -43,6 +44,100 @@ static uint8_t stdout_pending_buf[BUFFER_SIZE * 64];
 static int stdout_pending_len = 0;
 
 static int stdout_flush_pending(void);
+
+static void detect_telnet_console(void) {
+	const char *cid = getenv("CONSOLE_ID");
+	_is_telnet_console = (cid != NULL && strcmp(cid, "telnet") == 0);
+}
+
+/* State machine for filtering IAC from stdin (telnet console input) */
+static int _stdin_iac_state = 0;  /* 0=data, 1=IAC, 2=option, 3=SB, 4=SB_IAC */
+static int _stdin_prev_cr = 0;    /* previous byte was CR */
+
+/* Filter telnet IAC sequences from stdin buffer in-place.
+   Also normalizes CRLF to LF and bare CR to LF.
+   Returns number of clean data bytes remaining. */
+static ssize_t filter_stdin_iac(uint8_t *buf, ssize_t len) {
+	ssize_t out = 0;
+
+	for(ssize_t i = 0; i < len; i++) {
+		uint8_t c = buf[i];
+
+		switch(_stdin_iac_state) {
+		case 0: /* DATA */
+			if(_stdin_prev_cr) {
+				_stdin_prev_cr = 0;
+				if(c == '\n') {
+					/* CRLF -> LF */
+					buf[out++] = '\n';
+					continue;
+				} else if(c == '\0') {
+					/* CR NUL -> LF */
+					buf[out++] = '\n';
+					continue;
+				} else {
+					/* bare CR followed by other char -> LF + that char */
+					buf[out++] = '\n';
+				}
+			}
+			if(c == TELNET_IAC) {
+				_stdin_iac_state = 1;
+			} else if(c == '\r') {
+				_stdin_prev_cr = 1;
+			} else {
+				buf[out++] = c;
+			}
+			break;
+
+		case 1: /* IAC */
+			if(c == TELNET_IAC) {
+				/* escaped IAC -> literal 0xFF */
+				buf[out++] = 0xFF;
+				_stdin_iac_state = 0;
+			} else if(c == TELNET_SB) {
+				_stdin_iac_state = 3;
+			} else if(c == TELNET_WILL || c == TELNET_WONT ||
+			          c == TELNET_DO || c == TELNET_DONT) {
+				_stdin_iac_state = 2;
+			} else {
+				/* single-byte command (e.g. SE, NOP, etc.) */
+				_stdin_iac_state = 0;
+			}
+			break;
+
+		case 2: /* OPTION (after WILL/WONT/DO/DONT) */
+			/* consume the option byte, back to data */
+			_stdin_iac_state = 0;
+			break;
+
+		case 3: /* SB data */
+			if(c == TELNET_IAC) {
+				_stdin_iac_state = 4;
+			}
+			/* else consume sub-negotiation byte */
+			break;
+
+		case 4: /* SB_IAC */
+			if(c == TELNET_SE) {
+				_stdin_iac_state = 0;
+			} else {
+				_stdin_iac_state = 3;
+			}
+			break;
+
+		default:
+			_stdin_iac_state = 0;
+			break;
+		}
+	}
+
+	/* Handle trailing CR at end of buffer */
+	if(_stdin_prev_cr && _stdin_iac_state == 0) {
+		/* Keep prev_cr set so next call can resolve it */
+	}
+
+	return out;
+}
 
 static int set_nonblock(int fd) {
     int flags = fcntl(fd, F_GETFL, 0);
@@ -528,6 +623,12 @@ static int handle_stdin_data(void) {
     n = read(STDIN_FILENO, buf, BUFFER_SIZE - 1);
 
     if (n > 0) {
+        if(_is_telnet_console) {
+            n = (int)filter_stdin_iac((uint8_t *)buf, (ssize_t)n);
+            if(n <= 0) {
+                return 0;
+            }
+        }
         struct pollfd pfd;
 
         pfd.fd = STDIN_FILENO;
@@ -594,6 +695,7 @@ int main(int argc, char *argv[]) {
     }
 
     setbuf(stdout, NULL);
+    detect_telnet_console();
 
     port = (argc > 2) ? atoi(argv[2]) : 23;
 

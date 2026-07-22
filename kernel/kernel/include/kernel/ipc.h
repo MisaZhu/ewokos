@@ -27,6 +27,7 @@ typedef	struct {
 	proto_t   arg_ret;
 	int32_t   client_pid;
 	uint32_t  client_uuid;
+	uint8_t   client_intr; //client issued this call from an interrupt handler
 	int32_t   call_id;
 } ipc_task_t;
 

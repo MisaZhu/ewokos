@@ -196,15 +196,18 @@ static inline void _irq_handler(uint32_t cid, context_t* ctx) {
 	}
 	else {
 #ifdef KERNEL_SMP
-		uint32_t core = get_core_id();
-		ipi_clear(core);
-		core = get_core_id();
-		if(_cpu_cores[core].need_resched != 0) {
-			_cpu_cores[core].need_resched = 0;
-			schedule(ctx);
-		}
+		ipi_clear(get_core_id());
 #endif
 	}
+#ifdef KERNEL_SMP
+	uint32_t core = get_core_id();
+	if(_cpu_cores[core].need_resched != 0) {
+		_cpu_cores[core].need_resched = 0;
+		if(!(cid == 0 && irq == IRQ_TIMER0)) {
+			schedule(ctx);
+		}
+	}
+#endif
 	irq_eoi_arch(irq_raw);
 }
 

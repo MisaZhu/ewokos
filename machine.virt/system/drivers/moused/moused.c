@@ -33,7 +33,6 @@ static mouse_evt_t mouse_data[CACHE_SIZE];
 static uint32_t mouse_data_read = 0;
 static uint32_t mouse_data_write = 0;
 static vdevice_t* _dev = NULL;
-static bool _wakeup = false;
 
 static bool mouse_evt_empty(const mouse_evt_t* evt) {
 	return evt->type == 0 &&
@@ -62,7 +61,7 @@ static void mouse_commit_slot(void) {
 	}
 	mouse_data_write++;
 	memset(&mouse_data[mouse_data_write % CACHE_SIZE], 0, sizeof(mouse_evt_t));
-	_wakeup = true;
+	vfs_wakeup(_dev->mnt_info.node, VFS_EVT_RD);
 }
 
 static void mouse_emit_wheel_button(uint8_t button) {
@@ -191,22 +190,6 @@ void mouse_interrupt_handle(struct virtio_device *virt_dev, struct virtio_input_
 	}
 }
 
-static int mouse_step(struct st_vdevice* dev, void* p) {
-	(void)p;
-
-	/*
-	 * vfs_wakeup() itself is an IPC to vfsd, so it must not be invoked while
-	 * IPC is disabled. Keep RD asserted while the queue is non-empty so a
-	 * blocked reader can recover even if it missed an earlier edge.
-	 */
-	if(_wakeup || (mouse_data_write - mouse_data_read) > 0) {
-		vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
-		_wakeup = false;
-	}
-	usleep(MOUSE_SLEEP_US);
-	return 0;
-}
-
 int main(int argc, char **argv)
 {
 	const char *mnt_point = argc > 1 ? argv[1] : "/dev/mouse0";
@@ -223,7 +206,6 @@ int main(int argc, char **argv)
 	strcpy(dev.name, "mouse");
 	dev.read = _read;
 	dev.check_poll_events = mouse_check_poll_events;
-	dev.loop_step = mouse_step;
 
 	virtio_dev_t vio = virtio_input_get("QEMU Virtio Tablet");
 	if(!vio){

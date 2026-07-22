@@ -6,7 +6,7 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 
 LDFLAGS = -L$(BUILD_DIR)/lib
 
-CFLAGS += -I $(BUILD_DIR)/include -I./
+CFLAGS += -I $(BUILD_DIR)/include -I./ -I$(SYS_DIR)/network/libs/utils/include
 
 SHELL_OBJS = shell.o gets.o cmd.o
 
