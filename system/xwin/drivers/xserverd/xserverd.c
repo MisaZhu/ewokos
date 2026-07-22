@@ -469,6 +469,35 @@ static void x_repaint_copy_dirty(graph_t* src, graph_t* dst, const grect_t* r) {
 	}
 }
 
+static inline bool rect_contains(const grect_t* out, const grect_t* in) {
+	return in->x >= out->x && in->y >= out->y &&
+			(in->x + in->w) <= (out->x + out->w) &&
+			(in->y + in->h) <= (out->y + out->h);
+}
+
+/* whether rect r is fully covered by the opaque workspace of one window
+   above 'from' (from==NULL means checking against all windows).
+   opaque means: no per-win alpha, no alpha theme, and no translucent
+   bg-effect (same rule as mark_dirty) */
+static bool covered_by_opaque_win(x_t* x, xwin_t* from, uint32_t display_index, const grect_t* r) {
+	if(x->config.xwm_theme.alpha)
+		return false;
+
+	xwin_t* top = (from == NULL) ? x->win_head : from->next;
+	while(top != NULL) {
+		if(top->ready && top->xinfo != NULL && top->xinfo->visible &&
+				top->xinfo->display_index == display_index &&
+				!top->xinfo->alpha &&
+				(top->xinfo->focused ||
+				(top->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) != 0)) {
+			if(rect_contains(&top->xinfo->wsr, r))
+				return true;
+		}
+		top = top->next;
+	}
+	return false;
+}
+
 static inline void x_get_cursor_rect(x_t* x, grect_t* r, bool old_pos) {
 	int32_t cx = old_pos ? x->cursor.old_pos.x : x->cursor.cpos.x;
 	int32_t cy = old_pos ? x->cursor.old_pos.y : x->cursor.cpos.y;
@@ -800,9 +829,13 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 	}
 
 	if(display->dirty) {
-		draw_desktop(x, display_index);
-		x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &display->desktop_rect);
-		do_flush = true;
+		/* skip desktop drawing if fully covered by an opaque window
+		   (e.g. fullscreen window on top) */
+		if(!covered_by_opaque_win(x, NULL, display_index, &display->desktop_rect)) {
+			draw_desktop(x, display_index);
+			x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &display->desktop_rect);
+			do_flush = true;
+		}
 	}
 
 	xwin_t* win = x->win_head;
@@ -814,13 +847,23 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 				win->dirty = true;
 
 			if(win->dirty) {
-				if(draw_win(display->g, x, win) == 0) {
-					x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &win->xinfo->winr);
-					do_flush = true;
+				/* fully covered by an opaque window above: the covering
+				   window paints over it later in this bottom-to-top pass,
+				   so drawing it would be pure waste */
+				if(win != x->current.win_drag &&
+						covered_by_opaque_win(x, win, display_index, &win->xinfo->winr)) {
+					win->dirty = false;
+					win->frame_dirty = false;
 				}
-				if(drag_win(display->g, x, win) == 0) {
-					x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &display->desktop_rect);
-					do_flush = true;
+				else {
+					if(draw_win(display->g, x, win) == 0) {
+						x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &win->xinfo->winr);
+						do_flush = true;
+					}
+					if(drag_win(display->g, x, win) == 0) {
+						x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &display->desktop_rect);
+						do_flush = true;
+					}
 				}
 			}
 		}

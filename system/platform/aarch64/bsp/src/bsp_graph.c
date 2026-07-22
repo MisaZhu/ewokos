@@ -174,6 +174,14 @@ inline void graph_blt_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int3
     ey = sr.y + sr.h;
     int32_t w = ex - sr.x;
 
+    /* Full-width rows on both sides: whole region is contiguous in memory,
+       collapse the row loop into one big memcpy (common full-screen path) */
+    if(w == src->w && w == dst->w) {
+        memcpy(&dst->buffer[dy * w], &src->buffer[sy * w],
+                (size_t)(ey - sy) * (size_t)w * 4);
+        return;
+    }
+
     for(; sy < ey; sy++, dy++) {
         const uint32_t *sp = &src->buffer[sy * src->w + sr.x];
         uint32_t *dp = &dst->buffer[dy * dst->w + dr.x];
@@ -228,9 +236,58 @@ static inline void blt_alpha_8_inline(uint32_t *dp, const uint32_t *sp, uint8x8_
     vst4_u8((uint8_t*)dp, out);
 }
 
+/* Alpha blend of 16 pixels using full-width q registers, with block-level
+   fast paths: fully-transparent blocks are skipped without touching dst,
+   fully-opaque blocks (at full global alpha) become a plain store. */
+static inline void blt_alpha_16_inline(uint32_t *dp, const uint32_t *sp,
+                                       uint8x16_t alpha_vec, uint8_t alpha)
+{
+    uint8x16x4_t fg = vld4q_u8((const uint8_t*)sp);
+
+    /* All 16 source alphas == 0: dst untouched, no read/write at all */
+    if(vmaxvq_u8(fg.val[3]) == 0)
+        return;
+
+    /* All 16 source alphas == 0xff at full global alpha: plain copy */
+    if(alpha == 0xff && vminvq_u8(fg.val[3]) == 0xff) {
+        vst4q_u8((uint8_t*)dp, fg);
+        return;
+    }
+
+    uint8x16x4_t bg = vld4q_u8((const uint8_t*)dp);
+    uint8x16_t full = vdupq_n_u8(0xff);
+
+    uint8x8_t a_lo = vmovn_u16(neon_div255_u16(vmull_u8(vget_low_u8(fg.val[3]), vget_low_u8(alpha_vec))));
+    uint8x8_t a_hi = vmovn_u16(neon_div255_u16(vmull_u8(vget_high_u8(fg.val[3]), vget_high_u8(alpha_vec))));
+    uint8x16_t a = vcombine_u8(a_lo, a_hi);
+    uint8x16_t inv_a = vsubq_u8(full, a);
+
+    uint8x16x4_t out;
+    /* out = div255(fg*a + bg*(255-a)) per channel, low/high halves widened */
+    for(int c = 0; c < 3; c++) {
+        uint16x8_t lo = vaddq_u16(vmull_u8(vget_low_u8(fg.val[c]), a_lo),
+                                  vmull_u8(vget_low_u8(bg.val[c]), vget_low_u8(inv_a)));
+        uint16x8_t hi = vaddq_u16(vmull_u8(vget_high_u8(fg.val[c]), a_hi),
+                                  vmull_u8(vget_high_u8(bg.val[c]), vget_high_u8(inv_a)));
+        out.val[c] = vcombine_u8(vmovn_u16(neon_div255_u16(lo)), vmovn_u16(neon_div255_u16(hi)));
+    }
+    /* out_a = bg_a + div255((255-bg_a)*a) */
+    uint16x8_t oa_lo = neon_div255_u16(vmull_u8(vsub_u8(vget_low_u8(full), vget_low_u8(bg.val[3])), a_lo));
+    uint16x8_t oa_hi = neon_div255_u16(vmull_u8(vsub_u8(vget_high_u8(full), vget_high_u8(bg.val[3])), a_hi));
+    out.val[3] = vcombine_u8(
+        vmovn_u16(vaddq_u16(vmovl_u8(vget_low_u8(bg.val[3])), oa_lo)),
+        vmovn_u16(vaddq_u16(vmovl_u8(vget_high_u8(bg.val[3])), oa_hi)));
+
+    vst4q_u8((uint8_t*)dp, out);
+}
+
 inline void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
         graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
     if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
+        return;
+
+    /* Global alpha 0: nothing visible, skip entirely */
+    if(alpha == 0)
         return;
 
     grect_t sr = {sx, sy, sw, sh};
@@ -254,44 +311,26 @@ inline void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw
     ey = sr.y + sr.h;
     int32_t w = ex - sr.x;
 
-    /* Create alpha vector once — constant across the entire blit */
+    /* Create alpha vectors once — constant across the entire blit */
+    uint8x16_t alpha_vec16 = vdupq_n_u8(alpha);
     uint8x8_t alpha_vec = vdup_n_u8(alpha);
 
-    /* Process 2 rows at a time for instruction-level parallelism */
-    for(; sy < ey - 1; sy += 2, dy += 2) {
-        const uint32_t *sp1 = &src->buffer[sy * src->w + sr.x];
-        const uint32_t *sp2 = sp1 + src->w;
-        uint32_t *dp1 = &dst->buffer[dy * dst->w + dr.x];
-        uint32_t *dp2 = dp1 + dst->w;
-        int32_t x = 0;
-
-        for(; x <= w - 8; x += 8) {
-            blt_alpha_8_inline(dp1 + x, sp1 + x, alpha_vec);
-            blt_alpha_8_inline(dp2 + x, sp2 + x, alpha_vec);
-        }
-        /* Tail */
-        if(x < w) {
-            int remain = w - x;
-            uint32_t fg[8] = {0}, bg[8] = {0};
-            memcpy(fg, sp1 + x, 4 * remain);
-            memcpy(bg, dp1 + x, 4 * remain);
-            blt_alpha_8_inline(bg, fg, alpha_vec);
-            memcpy(dp1 + x, bg, 4 * remain);
-            memcpy(fg, sp2 + x, 4 * remain);
-            memcpy(bg, dp2 + x, 4 * remain);
-            blt_alpha_8_inline(bg, fg, alpha_vec);
-            memcpy(dp2 + x, bg, 4 * remain);
-        }
-    }
-
-    /* Last row if odd height */
-    if(sy < ey) {
+    for(; sy < ey; sy++, dy++) {
         const uint32_t *sp = &src->buffer[sy * src->w + sr.x];
         uint32_t *dp = &dst->buffer[dy * dst->w + dr.x];
         int32_t x = 0;
 
-        for(; x <= w - 8; x += 8)
+        /* 16 pixels per iteration with transparent/opaque block fast paths */
+        for(; x <= w - 16; x += 16) {
+            __asm volatile("prfm pldl1keep, [%0, #256]" : : "r"(sp + x));
+            blt_alpha_16_inline(dp + x, sp + x, alpha_vec16, alpha);
+        }
+        /* 8 pixels */
+        if(x <= w - 8) {
             blt_alpha_8_inline(dp + x, sp + x, alpha_vec);
+            x += 8;
+        }
+        /* Tail */
         if(x < w) {
             int remain = w - x;
             uint32_t fg[8] = {0}, bg[8] = {0};
