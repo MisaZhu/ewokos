@@ -148,7 +148,7 @@ xwin_t* xwin_open(x_t* xp, int32_t disp_index, int x, int y, int w, int h, const
 }
 
 int xwin_fullscreen(xwin_t* xwin) {
-	xwin->xinfo->style |= XWIN_STYLE_NO_RESIZE | XWIN_STYLE_NO_TITLE;
+	xwin->xinfo->style |= XWIN_STYLE_NO_RESIZE | XWIN_STYLE_NO_TITLE | XWIN_STYLE_NO_FRAME;
 	return xwin_max(xwin);
 }
 
