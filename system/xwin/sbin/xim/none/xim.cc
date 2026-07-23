@@ -14,7 +14,6 @@
 #include <ewoksys/vfs.h>
 #include <keyb/keyb.h>
 
-
 class XIM {
 	int x_pid;
 	int keybFD;
@@ -59,7 +58,8 @@ class XIM {
 
 		proto_t in;
 		PF->init(&in)->add(&in, &ev, sizeof(xevent_t));
-		dev_cntl_by_pid(x_pid, X_DCNTL_INPUT, &in, NULL);
+		if(dev_cntl_by_pid(x_pid, X_DCNTL_INPUT, &in, NULL) != 0)
+			x_pid = -1;
 		PF->clear(&in);
 	}
 
@@ -70,7 +70,7 @@ public:
 		while(true) {
 			keybFD = open(keyb_dev, O_RDONLY | O_NONBLOCK);
 			//keybFD = open(keyb_dev, O_RDONLY);
-			if(keybFD > 0)
+			if(keybFD >= 0)
 				break;
 			proc_usleep(300000);
 		}
@@ -83,7 +83,7 @@ public:
 	}
 
 	int read(void) {
-		if(x_pid < 0)
+		if(x_pid <= 0)
 			x_pid = dev_get_pid("/dev/x");
 		if(x_pid <= 0 || keybFD < 0)
 			return 0;
