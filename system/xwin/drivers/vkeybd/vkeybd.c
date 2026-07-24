@@ -79,7 +79,7 @@ static int x_close_focus(void) {
 
 static int ctrl_down(uint8_t* keys, uint8_t num) {
 	for(int i=0; i<num; i++) {
-		if(_keys[i] == KEY_CTRL)
+		if(keys[i] == KEY_CTRL)
 			return i;
 	}
 	return -1;
@@ -117,10 +117,20 @@ static bool do_keyb_spec(uint8_t* keys, uint8_t num) {
 
 static int sel_down(uint8_t* keys, uint8_t num) {
 	for(int i=0; i<num; i++) {
-		if(_keys[i] == JOYSTICK_SELECT)
+		if(keys[i] == JOYSTICK_SELECT)
 			return i;
 	}
 	return -1;
+}
+
+static uint32_t vkeyb_check_poll_events(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, void* p) {
+	(void)dev;
+	(void)fd;
+	(void)from_pid;
+	(void)info;
+	(void)p;
+
+	return (_rd > 0 || _release) ? VFS_EVT_RD : 0;
 }
 
 static bool do_joys_spec(uint8_t* keys, uint8_t num, uint8_t* ret_key) {
@@ -280,6 +290,7 @@ int main(int argc, char** argv) {
 	strcpy(dev.name, "vkeybtick");
 	dev.read = vkeyb_read;
 	dev.loop_step = vkeyb_loop;
+	dev.check_poll_events = vkeyb_check_poll_events;
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
 
