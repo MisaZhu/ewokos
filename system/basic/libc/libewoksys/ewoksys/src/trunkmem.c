@@ -170,6 +170,28 @@ static void try_break(malloc_t* m, mem_block_t* block, uint32_t size) {
 		m->tail = newBlock;
 }
 
+/* O(1) validation of a block candidate without scanning from head.
+Returns the block's prev via prev_out when the block (and its backward
+link) look sane, so callers can resume a walk from it directly. */
+static mem_block_t* trunk_check_block(malloc_t* m, mem_block_t* b,
+		uintptr_t heap_end, mem_block_t** prev_out) {
+	if(b == NULL || m->head == NULL)
+		return NULL;
+	if(!trunk_ptr_in_heap(m->head, heap_end, b) || !trunk_ptr_aligned(b))
+		return NULL;
+
+	mem_block_t* prev = b->prev;
+	if(prev != NULL &&
+			(!trunk_ptr_in_heap(m->head, heap_end, prev) ||
+			 !trunk_ptr_aligned(prev) || prev->next != b))
+		return NULL; /* corrupt backward link */
+	if(!trunk_block_sane(m->head, heap_end, prev, b))
+		return NULL;
+	if(prev_out != NULL)
+		*prev_out = prev;
+	return b;
+}
+
 char* trunk_malloc(malloc_t* m, uint32_t size) {
 	mem_block_t* head;
 	mem_block_t* prev;
@@ -182,11 +204,13 @@ char* trunk_malloc(malloc_t* m, uint32_t size) {
 	prev = NULL;
 	mem_block_t* block = head;
 	if(m->start != NULL) {
-		block = trunk_find_block_locked(m, m->start);
-		if(block == NULL)
-			block = head;
-		else
-			prev = block->prev;
+		/* validate the rotate hint in O(1) instead of scanning from head;
+		on any inconsistency fall back to head (walk re-validates anyway) */
+		mem_block_t* sprev = NULL;
+		if(trunk_check_block(m, m->start, trunk_heap_end(m), &sprev) != NULL) {
+			block = m->start;
+			prev = sprev;
+		}
 	}
 	while(block != NULL) {
 		if(!trunk_block_sane(head, trunk_heap_end(m), prev, block)) {
@@ -252,13 +276,22 @@ static mem_block_t* try_merge(malloc_t* m, mem_block_t* block) {
 	mem_block_t* b;
 	mem_block_t* ret = block;
 	uint32_t block_size = sizeof(mem_block_t);
+	uintptr_t heap_end = trunk_heap_end(m);
 	//try next block	
 	b = block->next;
 	if(b != NULL && b->used == 0) {
+		mem_block_t* bn = b->next;
+		/* bn is one hop past the validated range; check it before linking
+		(so a corrupt forward link can no longer be dereferenced) */
+		if(bn != NULL &&
+				(m->head == NULL ||
+				 !trunk_ptr_in_heap(m->head, heap_end, bn) ||
+				 !trunk_ptr_aligned(bn)))
+			return ret; /* leave list untouched */
 		block->size += (b->size + block_size);
-		block->next = b->next;
-		if(block->next != NULL) 
-			block->next->prev = block;
+		block->next = bn;
+		if(bn != NULL)
+			bn->prev = block;
 		else
 			m->tail = block;
 	}
@@ -304,7 +337,10 @@ void trunk_free(malloc_t* m, char* p) {
 		return;
 
 	trunk_lock_heap(m);
-	mem_block_t* block = trunk_find_block_locked(m, get_block(p));
+	/* locate and validate the block in O(1) (no scan from head): with many
+	small heap blocks the old from-head validation scan made every free
+	O(block_count), turning alloc-heavy workloads quadratic. */
+	mem_block_t* block = trunk_check_block(m, get_block(p), trunk_heap_end(m), NULL);
 	if(block == NULL) {
 		trunk_unlock_heap(m);
 		return;
@@ -316,7 +352,7 @@ void trunk_free(malloc_t* m, char* p) {
 
 	block->used = 0; //mark as free.
 	block = try_merge(m, block);
-	if(block == NULL || trunk_find_block_locked(m, block) == NULL) {
+	if(block == NULL) {
 		trunk_unlock_heap(m);
 		return;
 	}
