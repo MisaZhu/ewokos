@@ -21,7 +21,7 @@ void sys_info_init_arch(void) {
 
 	_sys_info.phy_offset = 0x40000000;
 	_sys_info.vector_base = 0x40000000;
-	_sys_info.total_phy_mem_size = 512*MB;
+	_sys_info.total_phy_mem_size = 1024*MB;
 	_sys_info.total_usable_mem_size = _sys_info.total_phy_mem_size;
 	//_core_base_offset =  0x01000000;
 	_sys_info.mmio.phy_base = 0x8000000;
