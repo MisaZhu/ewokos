@@ -1556,6 +1556,12 @@ tcp_writable(int id)
         pcb->state == TCP_PCB_STATE_CLOSE_WAIT) {
         inflight = pcb->snd.nxt - pcb->snd.una;
         writable = (inflight < pcb->snd.wnd) ? 1 : 0;
+        if (writable && pcb->queue.num >= TCP_RETRANSMIT_QUEUE_MAX) {
+            /* tcp_send() also stops when the retransmit queue is full;
+             * report not-writable as well or poll()-driven clients
+             * busy-spin on EAGAIN instead of blocking for the wakeup. */
+            writable = 0;
+        }
     }
     mutex_unlock(&mutex);
     return writable;
@@ -1702,6 +1708,19 @@ RETRY:
                 cap = 0;
             } else {
                 cap = pcb->snd.wnd - inflight;
+            }
+            if (cap && pcb->queue.num >= TCP_RETRANSMIT_QUEUE_MAX) {
+                /*
+                 * Retransmit queue full. Sending more would emit segments
+                 * with no retransmission backing; a single loss of such a
+                 * segment permanently stalls snd.una (cumulative ACKs can't
+                 * pass the hole, and the segment is never resent) - the
+                 * raspix scp stall. Stop pipelining exactly like a closed
+                 * window: the ACK path frees slots and wakes writers, and
+                 * RTO retransmits of backed entries are the backstop when
+                 * ACKs pause.
+                 */
+                cap = 0;
             }
             if (!cap) {
                 /*
