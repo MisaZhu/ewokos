@@ -425,7 +425,14 @@ tcp_retransmit_queue_cleanup(struct tcp_pcb *pcb)
     struct tcp_queue_entry *entry;
 
     while ((entry = queue_peek(&pcb->queue))) {
-        if (entry->seq >= pcb->snd.una) {
+        /*
+         * Serial (mod 2^32) comparison. iss = random(), so snd.una can wrap
+         * within a session; a raw `entry->seq >= pcb->snd.una` then keeps
+         * fully-ACKed entries queued forever, the queue sticks at
+         * TCP_RETRANSMIT_QUEUE_MAX, every send returns EAGAIN and the
+         * connection stalls permanently while probe/wake churn spins netd.
+         */
+        if ((int32_t)(entry->seq - pcb->snd.una) >= 0) {
             break;
         }
         entry = queue_pop(&pcb->queue);
@@ -867,6 +874,14 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
     case TCP_PCB_STATE_CLOSING:
         if (pcb->snd.una <= seg->ack && seg->ack <= pcb->snd.nxt) {
             int ack_advanced = pcb->snd.una < seg->ack;
+            /*
+             * Snapshot writability (same formula as tcp_writable(): window
+             * capacity AND retransmit-queue room) before this ACK mutates
+             * snd.una/snd.wnd/queue, so the wakeup below can fire on the
+             * blocked->writable EDGE only.
+             */
+            int was_writable = ((pcb->snd.nxt - pcb->snd.una) < pcb->snd.wnd) &&
+                               (pcb->queue.num < TCP_RETRANSMIT_QUEUE_MAX);
 
             pcb->snd.una = seg->ack;
             if (ack_advanced) {
@@ -888,12 +903,27 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
              * no longer blocks the netd worker, raise VFS_EVT_WR so a client
              * that returned EAGAIN and blocked on write can retry its send.
              * Mirrors task_wakeup_tcp_readers() on the RECV path.
+             *
+             * Writability must include the retransmit-queue-room condition
+             * (tcp_send()/tcp_writable() gate on it too): waking while the
+             * queue is still full just makes the client retry into another
+             * EAGAIN, and the disarm+rearm below would keep resetting the
+             * persist backoff to its minimum -- a perpetual probe/wake/retry
+             * churn. Fire the VFS wakeup only on the blocked->writable edge;
+             * an ACK stream with the window already open must not emit one
+             * reverse IPC per segment (wakeup storm on the shared /dev/net0
+             * node). Level-triggered rechecks (check_poll_events and the
+             * worker's post-EAGAIN sock_writable() recheck) cover the races.
              */
             {
                 uint32_t inflight_now = pcb->snd.nxt - pcb->snd.una;
-                if (inflight_now < pcb->snd.wnd) {
+                int now_writable = (inflight_now < pcb->snd.wnd) &&
+                                   (pcb->queue.num < TCP_RETRANSMIT_QUEUE_MAX);
+                if (now_writable) {
                     tcp_persist_disarm(pcb);
-                    task_wakeup_tcp_writers(indexof(pcbs, pcb));
+                    if (!was_writable) {
+                        task_wakeup_tcp_writers(indexof(pcbs, pcb));
+                    }
                 }
             }
         } else if (seg->ack < pcb->snd.una) {
@@ -1732,8 +1762,17 @@ RETRY:
                  * when nothing was sent, and let the client block on VFS_EVT_WR.
                  * The window-open ACK path calls task_wakeup_tcp_writers() to
                  * raise VFS_EVT_WR and resume the client.
+                 *
+                 * Arm the persist probe ONLY for a genuinely closed window: the
+                 * probe exists to elicit a window update the peer may have
+                 * lost. A queue-full stall with an open window is not a window
+                 * stall -- the RTO retransmit path plus ACK-driven cleanup are
+                 * its backstop, and probing there only triggers dup-ACKs that
+                 * churn wakeups and keep resetting the persist backoff.
                  */
-                tcp_persist_arm(pcb);
+                if (inflight >= pcb->snd.wnd) {
+                    tcp_persist_arm(pcb);
+                }
                 if (sent > 0) {
                     break;
                 }

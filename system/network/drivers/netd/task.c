@@ -43,6 +43,85 @@ static uint32_t task_total_created = 0;
 static uint32_t task_total_freed = 0;
 static uint32_t task_active_count = 0;
 
+/*
+ * Deferred VFS wakeup delivery.
+ *
+ * vfs_wakeup() is a blocking reverse IPC into vfsd. The stack-side wakeup
+ * paths (tcp_segment_arrives()/tcp_timer()/tcp_pcb_release() and the UDP
+ * input path) run WHILE HOLDING the global stack mutex. If that IPC has to
+ * wait (vfsd busy, or vfsd itself blocked in an ipc_call into netd, e.g. a
+ * clear_zombie FS_CMD_CLOSE), the stack mutex stays held for the whole wait.
+ * pthread_mutex_lock() is a try+yield spin (semaphore_enter), so every other
+ * netd thread that touches the stack then burns CPU in "rdy": the dispatch
+ * thread wedges inside check_poll_events()->sock_writable(), netd stops
+ * answering IPC, and vfsd's call into netd never completes either -- a
+ * netd<->vfsd livelock with several threads spinning (the sshd-connection
+ * spin). Queue the wakeup here instead and let a dedicated flusher thread
+ * issue the IPC with no netd lock held. Entries coalesce per VFS node, which
+ * also rate-limits per-segment wakeup storms into single edges.
+ */
+#define WAKEUP_QUEUE_MAX 64
+typedef struct {
+    uint32_t node;
+    uint32_t events;
+} pending_wakeup_t;
+static pending_wakeup_t wakeup_queue[WAKEUP_QUEUE_MAX];
+static uint32_t wakeup_queue_num = 0;
+static pthread_mutex_t wakeup_queue_lock;
+static struct sched_ctx wakeup_queue_ctx;
+static int wakeup_thread_ok = 0;
+
+static void task_queue_vfs_wakeup(uint32_t node, uint32_t events) {
+    if (node == 0 || events == 0)
+        return;
+    if (!wakeup_thread_ok) {
+        /* Degraded mode: flusher thread failed to start. */
+        vfs_wakeup(node, (int)events);
+        return;
+    }
+    pthread_mutex_lock(&wakeup_queue_lock);
+    uint32_t i;
+    for (i = 0; i < wakeup_queue_num; i++) {
+        if (wakeup_queue[i].node == node) {
+            wakeup_queue[i].events |= events;
+            break;
+        }
+    }
+    if (i == wakeup_queue_num) {
+        if (wakeup_queue_num < WAKEUP_QUEUE_MAX) {
+            wakeup_queue[i].node = node;
+            wakeup_queue[i].events = events;
+            wakeup_queue_num++;
+        } else {
+            /* Unreachable in practice: entries coalesce per node and netd
+             * serves a single device node. Merge rather than drop. */
+            wakeup_queue[0].events |= events;
+        }
+    }
+    sched_wakeup(&wakeup_queue_ctx);
+    pthread_mutex_unlock(&wakeup_queue_lock);
+}
+
+static void* task_wakeup_thread(void* arg) {
+    (void)arg;
+    pending_wakeup_t batch[WAKEUP_QUEUE_MAX];
+    while (1) {
+        uint32_t num;
+        pthread_mutex_lock(&wakeup_queue_lock);
+        while (wakeup_queue_num == 0) {
+            sched_sleep(&wakeup_queue_ctx, (mutex_t*)&wakeup_queue_lock, NULL);
+        }
+        num = wakeup_queue_num;
+        memcpy(batch, wakeup_queue, num * sizeof(pending_wakeup_t));
+        wakeup_queue_num = 0;
+        pthread_mutex_unlock(&wakeup_queue_lock);
+        for (uint32_t i = 0; i < num; i++) {
+            vfs_wakeup(batch[i].node, (int)batch[i].events);
+        }
+    }
+    return NULL;
+}
+
 static int task_owner_pid(int from_pid) {
     int owner_pid = proc_getpid(from_pid);
 
@@ -95,6 +174,22 @@ void start_task(void){
      */
     memset(sock_to_task, 0, sizeof(sock_to_task));
     sock_init_maps();
+
+    memset(wakeup_queue, 0, sizeof(wakeup_queue));
+    wakeup_queue_num = 0;
+    /*
+     * Explicit init before the flusher starts: the lazy semaphore_alloc in
+     * pthread_mutex_lock() races when two threads hit the first lock at once.
+     */
+    pthread_mutex_init(&wakeup_queue_lock, NULL);
+    sched_ctx_init(&wakeup_queue_ctx);
+    pthread_t wakeup_tid;
+    if (pthread_create(&wakeup_tid, NULL, task_wakeup_thread, NULL) == 0) {
+        pthread_detach(wakeup_tid);
+        wakeup_thread_ok = 1;
+    } else {
+        klog("netd: wakeup flusher thread create failed, using direct wakeups\n");
+    }
 }
 
 net_task_t *create_task(int fd, int from_pid, int node){
@@ -498,24 +593,6 @@ int do_network_fcntl(net_task_t *task){
 			PF->addi(&task->out, ret);
 			if(ret > 0){
 				PF->add(&task->out, &addr, addrlen);	
-				/*
-				 * Register the accepted socket -> current task mapping now, so
-				 * task_wakeup_tcp_writers()/readers() have a valid target the
-				 * moment the peer's ACK/data arrives. Without this the accepted
-				 * socket's sock_to_task[] slot is NULL until a later SOCK_LINK,
-				 * and any write-readiness wakeup in that window is silently
-				 * dropped -- stalling the send path on reconnect and compounding
-				 * into mid-stream resets under load.
-				 *
-				 * Do NOT overwrite task->sock: the listening task must keep
-				 * listening. Only register the sock_to_task map entry.
-				 */
-				int new_sock_id = ret;
-				if (new_sock_id >= 0 && new_sock_id < SOCKS_MAX) {
-					pthread_mutex_lock(&task_list_lock);
-					sock_to_task[new_sock_id] = task;
-					pthread_mutex_unlock(&task_list_lock);
-				}
 			}
 			break;	
 		case SOCK_CLOSE:
@@ -524,12 +601,16 @@ int do_network_fcntl(net_task_t *task){
 			break;
 		case SOCK_LINK:
 			sock = proto_read_int(&task->in);	
+			pthread_mutex_lock(&task_list_lock);
+			if(task->sock >= 0 && task->sock < SOCKS_MAX &&
+			   sock_to_task[task->sock] == task) {
+				sock_to_task[task->sock] = NULL;
+			}
 			task->sock = sock;
 			if(sock >= 0 && sock < SOCKS_MAX) {
-				pthread_mutex_lock(&task_list_lock);
 				sock_to_task[sock] = task;
-				pthread_mutex_unlock(&task_list_lock);
 			}
+			pthread_mutex_unlock(&task_list_lock);
 			PF->addi(&task->out, 0);
 			break;
 		case SOCK_CONNECT:
@@ -673,7 +754,9 @@ static int task_wakeup_socket_readers(int sock_type, int sock_desc, int match_so
     pthread_mutex_unlock(&task_list_lock);
 
     if (wake_node > 0) {
-        vfs_wakeup(wake_node, VFS_EVT_RD);
+        /* Deferred: callers hold the stack mutex; a direct vfs_wakeup here
+         * can livelock netd<->vfsd (see task_queue_vfs_wakeup). */
+        task_queue_vfs_wakeup(wake_node, VFS_EVT_RD);
     }
     return wake_node ? 1 : worker_ready;
 }
@@ -727,7 +810,9 @@ int task_wakeup_tcp_writers(int tcp_desc) {
     pthread_mutex_unlock(&task_list_lock);
 
     if (wake_node > 0) {
-        vfs_wakeup(wake_node, VFS_EVT_WR);
+        /* Deferred: callers hold the stack mutex; a direct vfs_wakeup here
+         * can livelock netd<->vfsd (see task_queue_vfs_wakeup). */
+        task_queue_vfs_wakeup(wake_node, VFS_EVT_WR);
     }
     return wake_node ? 1 : worker_ready;
 }
