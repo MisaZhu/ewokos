@@ -299,6 +299,10 @@ inline uint32_t proc_malloc_size(void) {
 int proc_usleep(uint32_t usecs) {
 	if(usecs == 0)
 		syscall0(SYS_YIELD);
+	else if(usecs < 100) {
+		usecs *= 100;
+		while(usecs--);
+	}
 	else
 		syscall1(SYS_USLEEP, (ewokos_addr_t)usecs);
 	return 0;
