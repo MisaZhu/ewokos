@@ -8,6 +8,9 @@ LDFLAGS = -L$(TARGET_DIR)/lib
 
 CFLAGS += -Iinclude -I$(TARGET_DIR)/include \
 	-I$(SYS_DIR)/network/libs/socket/include \
+	-I$(SYS_DIR)/network/libs/wolfssl/include \
+	-I$(SYS_DIR)/network/libs/wolfssl \
+	-DWOLFSSL_USER_SETTINGS \
 	-Wno-unused-parameter -Wno-sign-compare
 
 LIB_LWS_OBJS = \
@@ -18,7 +21,8 @@ LIB_LWS_OBJS = \
 	src/handshake.o \
 	src/websocket.o \
 	src/client.o \
-	src/misc.o
+	src/misc.o \
+	src/tls.o
 
 LWS = $(TARGET_DIR)/lib/libwebsockets.a
 

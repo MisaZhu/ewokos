@@ -109,6 +109,15 @@ struct lws *lws_client_connect_via_info(
 	wsi->vhost = ctx->vhost_list;
 	wsi->opaque_user_data = ccinfo->userdata;
 
+	/* TLS handshake if requested */
+	if (ccinfo->ssl_connection) {
+		if (lws_tls_client_connect(wsi) != 0) {
+			lwsl_err("client: TLS handshake failed\n");
+			lws_wsi_destroy(wsi);
+			return NULL;
+		}
+	}
+
 	/* send handshake immediately (blocking connect already done) */
 	if (lws_client_handshake_send(wsi) == 0) {
 		wsi->state = LWS_CONN_STATE_HANDSHAKE_SENT;

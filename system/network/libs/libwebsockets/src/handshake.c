@@ -180,7 +180,7 @@ int lws_server_handshake(struct lws *wsi)
 	rlen += snprintf(response + rlen, sizeof(response) - (size_t)rlen,
 		"\r\n");
 
-	send(wsi->fd, response, (uint32_t)rlen, 0);
+	lws_ssl_write(wsi, (const unsigned char *)response, rlen);
 
 	/* transition to established */
 	wsi->state = LWS_CONN_STATE_ESTABLISHED;
@@ -235,7 +235,7 @@ int lws_client_handshake_send(struct lws *wsi)
 	rlen += snprintf(request + rlen, sizeof(request) - (size_t)rlen,
 		"\r\n");
 
-	if (send(wsi->fd, request, (uint32_t)rlen, 0) < 0)
+	if (lws_ssl_write(wsi, (const unsigned char *)request, rlen) < 0)
 		return -1;
 
 	lwsl_info("client handshake sent\n");
@@ -249,7 +249,7 @@ int lws_client_handshake_recv(struct lws *wsi)
 	unsigned char buf[LWS_DEFAULT_RX_BUF];
 	int n;
 
-	n = (int)recv(wsi->fd, buf, sizeof(buf), 0);
+	n = lws_ssl_read(wsi, buf, sizeof(buf));
 	if (n <= 0) {
 		if (wsi->protocol && wsi->protocol->callback) {
 			wsi->protocol->callback(wsi,
@@ -371,7 +371,7 @@ int lws_return_http_status(struct lws *wsi, unsigned int code,
 		code, status_text, body_len,
 		html_body ? html_body : "");
 
-	send(wsi->fd, buf, (uint32_t)n, 0);
+	lws_ssl_write(wsi, (const unsigned char *)buf, n);
 	wsi->state = LWS_CONN_STATE_DEAD;
 	return 0;
 }

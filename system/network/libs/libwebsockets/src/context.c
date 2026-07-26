@@ -85,8 +85,10 @@ void lws_wsi_destroy(struct lws *wsi)
 		}
 	}
 
-	if (wsi->fd >= 0)
+	if (wsi->fd >= 0) {
+		lws_tls_close(wsi);
 		close(wsi->fd);
+	}
 
 	lws_hdr_free_all(wsi);
 

@@ -158,7 +158,7 @@ frame_complete:
 					close_buf[2] = 0; close_buf[3] = 0;
 					/* simplified: zero mask */
 				}
-				send(wsi->fd, close_buf, 2, 0);
+				lws_ssl_write(wsi, close_buf, 2);
 				wsi->close_sent = 1;
 			}
 			if (wsi->protocol && wsi->protocol->callback) {
@@ -176,11 +176,11 @@ frame_complete:
 			pong[1] = (unsigned char)(wsi->rx_payload_len & 0x7F);
 			if (!wsi->is_server_side)
 				pong[1] |= 0x80; /* client frames must be masked */
-			send(wsi->fd, pong, 2, 0);
+			lws_ssl_write(wsi, pong, 2);
 			/* also send payload if any */
 			if (wsi->rx_payload_len > 0)
-				send(wsi->fd, wsi->rx_payload_buf,
-					(uint32_t)wsi->rx_payload_len, 0);
+				lws_ssl_write(wsi, wsi->rx_payload_buf,
+					(int)wsi->rx_payload_len);
 			break;
 		}
 
@@ -261,7 +261,7 @@ int lws_ws_frame_write(struct lws *wsi, unsigned char *buf, size_t len,
 	case LWS_WRITE_HTTP_HEADERS:
 	case LWS_WRITE_RAW:
 		/* raw write without framing */
-		return (int)send(wsi->fd, buf, (uint32_t)len, 0);
+		return lws_ssl_write(wsi, buf, (int)len);
 	default:
 		opcode = WS_OP_TEXT;
 		break;
@@ -304,7 +304,7 @@ int lws_ws_frame_write(struct lws *wsi, unsigned char *buf, size_t len,
 	}
 
 	/* send header */
-	send(wsi->fd, hdr, (uint32_t)hdr_len, 0);
+	lws_ssl_write(wsi, hdr, hdr_len);
 
 	/* send payload (masked if client) */
 	if (len > 0) {
@@ -321,12 +321,12 @@ int lws_ws_frame_write(struct lws *wsi, unsigned char *buf, size_t len,
 				for (j = 0; j < take; j++)
 					chunk[j] = buf[offset + j] ^
 						mask_key[(offset + j) & 3];
-				send(wsi->fd, chunk, (uint32_t)take, 0);
+				lws_ssl_write(wsi, chunk, (int)take);
 				offset += take;
 				remaining -= take;
 			}
 		} else {
-			send(wsi->fd, buf, (uint32_t)len, 0);
+			lws_ssl_write(wsi, buf, (int)len);
 		}
 	}
 
@@ -354,7 +354,7 @@ int lws_read(struct lws *wsi, unsigned char *buf, size_t len)
 	if (!wsi || wsi->fd < 0)
 		return -1;
 
-	int n = (int)recv(wsi->fd, buf, (uint32_t)len, 0);
+	int n = lws_ssl_read(wsi, buf, (int)len);
 	if (n > 0 && wsi->state == LWS_CONN_STATE_ESTABLISHED)
 		lws_ws_frame_parse(wsi, buf, n);
 

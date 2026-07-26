@@ -83,9 +83,9 @@ int lws_service_one(struct lws_context *ctx, int timeout_ms)
 		if (fds[i].revents & POLLOUT) {
 			/* flush pending tx data */
 			if (wsi->tx_len > wsi->tx_offset) {
-				int sent = (int)send(wsi->fd,
+				int sent = lws_ssl_write(wsi,
 						wsi->tx_buf + wsi->tx_offset,
-						wsi->tx_len - wsi->tx_offset, 0);
+						(int)(wsi->tx_len - wsi->tx_offset));
 				if (sent > 0)
 					wsi->tx_offset += (uint32_t)sent;
 				if (wsi->tx_offset >= wsi->tx_len) {
@@ -151,7 +151,7 @@ static void lws_service_wsi(struct lws *wsi)
 	case LWS_CONN_STATE_ESTABLISHED:
 	{
 		unsigned char buf[LWS_DEFAULT_RX_BUF];
-		int n = (int)recv(wsi->fd, buf, sizeof(buf), 0);
+		int n = lws_ssl_read(wsi, buf, sizeof(buf));
 
 		if (n <= 0) {
 			/* connection closed */

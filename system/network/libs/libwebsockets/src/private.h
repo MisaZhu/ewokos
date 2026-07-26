@@ -14,6 +14,9 @@
 #include <unistd.h>
 #include <errno.h>
 
+#include <wolfssl/wolfcrypt/settings.h>
+#include <wolfssl/ssl.h>
+
 /* ---------- connection states ---------- */
 
 enum lws_conn_state {
@@ -77,6 +80,10 @@ struct lws {
 	unsigned int close_received:1;
 	unsigned int http_mode:1;          /* pure HTTP (no upgrade) */
 
+	/* TLS */
+	WOLFSSL *ssl;
+	WOLFSSL_CTX *ssl_ctx;
+
 	/* client connect info (saved) */
 	char *client_address;
 	int client_port;
@@ -137,6 +144,12 @@ struct lws *lws_wsi_create(struct lws_context *ctx);
 /* misc.c */
 void lws_generate_key(struct lws *wsi, char *buf, int len);
 int lws_compute_accept(const char *key, char *out, int out_len);
+
+/* tls.c */
+int lws_tls_client_connect(struct lws *wsi);
+void lws_tls_close(struct lws *wsi);
+int lws_ssl_read(struct lws *wsi, unsigned char *buf, int len);
+int lws_ssl_write(struct lws *wsi, const unsigned char *buf, int len);
 
 /* WebSocket GUID for Sec-WebSocket-Accept */
 #define WS_GUID "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
