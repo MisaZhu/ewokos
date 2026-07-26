@@ -467,7 +467,7 @@ static void* thread_loop(void* p) {
 
 	widgetXRun(&x, &win);
 	_consoleWidget = NULL;
-	vfs_wakeup(_dev->mnt_info.node, VFS_EVT_RD);
+	vfs_wakeup(_dev->mnt_info.node, VFS_EVT_RD | VFS_EVT_CLOSE);
 	device_stop(_dev);
 	return NULL;
 }
@@ -528,7 +528,10 @@ static uint32_t console_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
 	(void)from_pid;
 	(void)info;
 	(void)p;
-		
+
+	if(_consoleWidget == NULL) {
+		return VFS_EVT_CLOSE;
+	}
 	if(!buffer_is_empty()) {
 		return VFS_EVT_RD;
 	}

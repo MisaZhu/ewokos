@@ -95,8 +95,14 @@ int32_t cmd_gets(int fd, str_t* buf) {
 			 * Keep local console stdin tolerant of transient empty reads, but a
 			 * telnet-backed stdin must treat read(2)==0 as EOF so the remote shell
 			 * exits cleanly when the client disconnects.
+			 * For local consoles, check poll events: if the device reports
+			 * CLOSE/NVAL/ERR (or is gone), treat as EOF so the shell exits
+			 * when e.g. the xterm window is closed.
 			 */
 			if(fd == 0 && !_script_mode && !telnet) {
+				uint32_t ev = vfs_get_poll_events(fd);
+				if(ev == 0 || (ev & (VFS_EVT_CLOSE | VFS_EVT_NVAL | VFS_EVT_ERR)) != 0)
+					return -1;
 				proc_usleep(10000);
 				continue;
 			}
