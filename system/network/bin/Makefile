@@ -7,6 +7,7 @@ all:
 	cd telnet; $(MAKE)
 	cd ssh; $(MAKE)
 	cd scp; $(MAKE)
+	cd ws_test; $(MAKE)
 
 clean:
 	cd ipconfig; $(MAKE) clean
@@ -16,3 +17,4 @@ clean:
 	cd telnet; $(MAKE) clean
 	cd ssh; $(MAKE) clean
 	cd scp; $(MAKE) clean
+	cd ws_test; $(MAKE) clean

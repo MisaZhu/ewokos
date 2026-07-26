@@ -6,9 +6,11 @@ basic_libs:
 	cd ntpc;$(MAKE)
 	cd wolfssl;$(MAKE)
 	cd libtinyhttpsc;$(MAKE)
+	cd libwebsockets;$(MAKE)
 
 clean:
 	cd socket;$(MAKE) clean
 	cd ntpc;$(MAKE) clean
 	cd wolfssl;$(MAKE) clean
 	cd libtinyhttpsc;$(MAKE) clean
+	cd libwebsockets;$(MAKE) clean
