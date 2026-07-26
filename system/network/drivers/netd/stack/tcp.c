@@ -50,6 +50,8 @@
 #define TCP_TIMEWAIT_SEC 30 /* substitute for 2MSL */
 #define TCP_RETRANSMIT_QUEUE_MAX 32 /* max queued segments per connection */
 #define TCP_PERSIST_RTO_MAX 60000000 /* max persist backoff: 60 seconds */
+#define TCP_DELACK_TIMEOUT_USEC 40000 /* RFC 1122 delayed-ACK ceiling */
+#define TCP_DELACK_SEGS 2 /* ACK every 2nd in-order data segment */
 
 #define TCP_SOURCE_PORT_MIN 49152
 #define TCP_SOURCE_PORT_MAX 65535
@@ -127,6 +129,9 @@ struct tcp_pcb {
     struct timeval persist_timer; /* zero-window probe timer */
     unsigned int persist_rto;    /* current persist backoff (usec) */
     uint8_t persist_probing;     /* persist timer armed */
+    uint8_t delack_pending;      /* delayed ACK armed (RFC 1122) */
+    uint8_t delack_count;        /* in-order segs awaiting ACK */
+    struct timeval delack_timer; /* first unacked seg arrival time */
     struct tcp_pcb *parent;
     struct queue_head backlog;
 };
@@ -1012,8 +1017,32 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
                 memcpy(pcb->buf + (sizeof(pcb->buf) - pcb->rcv.wnd), data + copy_off, copy_len);
                 pcb->rcv.nxt += copy_len;
                 pcb->rcv.wnd -= copy_len;
+                /*
+                 * RFC 1122 delayed ACK: acknowledge every TCP_DELACK_SEGS-th
+                 * in-order segment, or after TCP_DELACK_TIMEOUT_USEC. On the
+                 * raspix WLAN link every pure ACK costs a full SDIO TX frame
+                 * (~0.5ms of bus time plus one TX credit), so immediate ACKs
+                 * burn ~1/3 of the bus during downloads.
+                 */
+                pcb->delack_count++;
+                if (pcb->delack_count >= TCP_DELACK_SEGS) {
+                    pcb->delack_pending = 0;
+                    pcb->delack_count = 0;
+                    tcp_output(pcb, TCP_FLG_ACK, NULL, 0);
+                } else if (!pcb->delack_pending) {
+                    pcb->delack_pending = 1;
+                    gettimeofday(&pcb->delack_timer, NULL);
+                }
+            } else {
+                /*
+                 * Dup/out-of-window segment: RFC 1122 requires an immediate
+                 * ACK so the sender can fast-retransmit; also the correct
+                 * zero-window probe response.
+                 */
+                pcb->delack_pending = 0;
+                pcb->delack_count = 0;
+                tcp_output(pcb, TCP_FLG_ACK, NULL, 0);
             }
-            tcp_output(pcb, TCP_FLG_ACK, NULL, 0);
             tcp_sched_wakeup_all(pcb);
             task_wakeup_tcp_readers(indexof(pcbs, pcb));
         }
@@ -1038,6 +1067,9 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
             return;
         }
         pcb->rcv.nxt = seg->seq + 1;
+        /* FIN gets an immediate ACK; drop any pending delayed ACK. */
+        pcb->delack_pending = 0;
+        pcb->delack_count = 0;
         tcp_output(pcb, TCP_FLG_ACK, NULL, 0);
         switch (pcb->state) {
         case TCP_PCB_STATE_SYN_RECEIVED:
@@ -1185,6 +1217,18 @@ tcp_timer(void)
                  * reopened (missed edge) and the probe response will confirm.
                  * This recovers connections stuck before the probe round-trip. */
                 task_wakeup_tcp_writers(indexof(pcbs, pcb));
+            }
+        }
+        /* Delayed-ACK timer: flush a pending ACK after the 40ms ceiling. */
+        if (pcb->delack_pending &&
+            (pcb->state == TCP_PCB_STATE_ESTABLISHED ||
+             pcb->state == TCP_PCB_STATE_CLOSE_WAIT)) {
+            struct timeval deadline = pcb->delack_timer;
+            timeval_add_usec(&deadline, TCP_DELACK_TIMEOUT_USEC);
+            if (timercmp(&now, &deadline, >) != 0) {
+                pcb->delack_pending = 0;
+                pcb->delack_count = 0;
+                tcp_output(pcb, TCP_FLG_ACK, NULL, 0);
             }
         }
     }
@@ -1606,7 +1650,7 @@ tcp_timer_active(void)
     mutex_lock(&mutex);
     for (pcb = pcbs; pcb < tailof(pcbs); pcb++) {
         if (pcb->state == TCP_PCB_STATE_TIME_WAIT || pcb->queue.num > 0 ||
-            pcb->persist_probing) {
+            pcb->persist_probing || pcb->delack_pending) {
             active = 1;
             break;
         }
