@@ -55,6 +55,7 @@ static int time_loop(vdevice_t* dev, void* p) {
 			// Back off when NTP is unavailable so netd does not keep timing out UDP requests.
 			_next_sync_sec = current_time_sec + _sync_retry_sec;
 			if(_sync_retry_sec < TIME_SYNC_RETRY_MAX_SEC) {
+				_sync_retry_sec *= 2;
 				if(_sync_retry_sec > TIME_SYNC_RETRY_MAX_SEC) {
 					_sync_retry_sec = TIME_SYNC_RETRY_MAX_SEC;
 				}
