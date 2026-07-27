@@ -106,7 +106,7 @@ fsinfo_t* dev_get_file(int fd, int pid, uint32_t node) {
 			return info;
 
 		fsinfo_t i;
-		if(vfs_get_by_node(node, &i) != 0)
+                if(vfs_get_by_node(node, &i) != 0)
 			return NULL;
 		info = file_add(fd, pid, &i);
 	}
