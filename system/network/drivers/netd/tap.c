@@ -12,7 +12,6 @@
 #include <poll.h>
 #include <pthread.h>
 #include <ewoksys/proto.h>
-#include <ewoksys/klog.h>
 #include <ewoksys/vdevice.h>
 
 #include "platform.h"
@@ -25,9 +24,7 @@
 
 
 #define ETHER_TAP_IRQ (2)
-#define ETHER_TAP_DRAIN_BURST 256
-#define ETHER_TAP_READ_RETRY 4
-#define ETHER_TAP_READ_RETRY_US 500
+#define ETHER_TAP_DRAIN_BURST 64
 
 struct ether_tap {
     char name[IFNAMSIZ];
@@ -37,6 +34,16 @@ struct ether_tap {
 };
 
 #define PRIV(x) ((struct ether_tap *)x->priv)
+
+static int
+ether_tap_reopen_locked(struct ether_tap *tap)
+{
+    if (tap->fd >= 0) {
+        close(tap->fd);
+    }
+    tap->fd = open(tap->name, O_RDWR | O_NONBLOCK);
+    return tap->fd >= 0 ? 0 : -1;
+}
 
 static int
 ether_tap_addr(struct net_device *dev) {
@@ -94,9 +101,10 @@ static ssize_t
 ether_tap_write(struct net_device *dev, const uint8_t *frame, size_t flen)
 {
     struct ether_tap *tap = PRIV(dev);
+    int ret;
     TRACE();
     mutex_lock(&tap->lock);
-    int ret = write(tap->fd, frame, flen);
+    ret = write(tap->fd, frame, flen);
     if (ret < 0 && errno != EAGAIN && errno != EINTR) {
         /*
          * Reopen only on hard fd failures (e.g. EBADF). EAGAIN/EINTR mean
@@ -108,9 +116,7 @@ ether_tap_write(struct net_device *dev, const uint8_t *frame, size_t flen)
          * tcp_timer_active() permanently true, pinning intr_loop to the fast
          * cadence (observed as netd CPU spin on raspix).
          */
-        close(tap->fd);
-        tap->fd = open(tap->name, O_RDWR | O_NONBLOCK);
-        if (tap->fd >= 0) {
+        if (ether_tap_reopen_locked(tap) == 0) {
             ret = write(tap->fd, frame, flen);
         }
     }
@@ -128,32 +134,19 @@ ether_tap_transmit(struct net_device *dev, uint16_t type, const uint8_t *buf, si
 static ssize_t
 ether_tap_read(struct net_device *dev, uint8_t *buf, size_t size)
 {
-    ssize_t len;
     struct ether_tap *tap = PRIV(dev);
-    int pending = 0;
-    int attempt;
+    ssize_t len;
     TRACE();
     mutex_lock(&tap->lock);
-    len = -1;
-    for (attempt = 0; attempt < ETHER_TAP_READ_RETRY; attempt++) {
-        len = read(tap->fd, buf, size);
-        if (len > 0) {
-            break;
-        }
-        pending = tap_select(dev);
-        if (pending <= 0) {
-            break;
-        }
-        usleep(ETHER_TAP_READ_RETRY_US);
-    }
-    if (len <= 0) {
-        pending = tap_select(dev);
-        if (pending > 0) {
-            close(tap->fd);
-            tap->fd = open(tap->name, O_RDWR | O_NONBLOCK);
-            if (tap->fd >= 0) {
-                len = read(tap->fd, buf, size);
-            }
+    len = read(tap->fd, buf, size);
+    if (len < 0 && errno != EAGAIN && errno != EINTR) {
+        /*
+         * tap_select() is only a hint from the device. Re-checking it here and
+         * looping with usleep()/reopen amplified false-positive "pending"
+         * reports into a hot fake-ready path. Retry only after hard fd errors.
+         */
+        if (ether_tap_reopen_locked(tap) == 0) {
+            len = read(tap->fd, buf, size);
         }
     }
     mutex_unlock(&tap->lock);
@@ -191,6 +184,7 @@ ether_tap_isr(unsigned int irq, void *id)
     int drained = 0;
     int delivered = 0;
     int pending = tap_select(dev);
+    int more_work = 0;
 
     /*
      * Nothing queued: skip the drain attempt entirely. Previously this ran a
@@ -210,6 +204,7 @@ ether_tap_isr(unsigned int irq, void *id)
     if (budget > ETHER_TAP_DRAIN_BURST) {
         budget = ETHER_TAP_DRAIN_BURST;
     }
+    more_work = (pending > budget);
 
     while (drained < budget) {
         int ret = ether_poll_helper(dev, ether_tap_read);
@@ -222,14 +217,14 @@ ether_tap_isr(unsigned int irq, void *id)
         }
     }
     /*
-     * Only report activity (which resets the intr_loop to the fast busy
-     * polling cadence) when at least one frame was actually delivered to the
-     * stack. Frames dropped at the L2/ethertype filter (foreign-unicast or
-     * unsupported types, e.g. background broadcast/multicast chatter) are still
-     * drained from the device queue but must NOT keep netd spinning at the
-     * busy cadence, otherwise idle CPU fluctuates with ambient wire traffic.
+     * Keep the fast cadence only while the device reports backlog beyond the
+     * work we drained in this ISR. Returning busy for every successfully
+     * delivered frame pins intr_loop at 1ms even after short bursts are fully
+     * drained, which is exactly the "two netd threads stay in run" pattern
+     * seen under telnetd/sshd stalls. Throughput-sensitive bursts are preserved
+     * because pending > budget means the device queue still has more frames.
      */
-    return delivered > 0 ? 0 : -1;
+    return (delivered > 0 && more_work) ? 0 : -1;
 }
 
 static struct net_device_ops ether_tap_ops = {

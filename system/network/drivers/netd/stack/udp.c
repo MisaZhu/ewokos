@@ -281,18 +281,23 @@ udp_output(struct ip_endpoint *src, struct ip_endpoint *dst, const  uint8_t *dat
     return len;
 }
 
-static void
+static int
 event_handler(void *arg)
 {
     struct udp_pcb *pcb;
+    int handled = 0;
+
+    (void)arg;
 
     mutex_lock(&mutex);
     for (pcb = pcbs; pcb < tailof(pcbs); pcb++) {
-        if (pcb->state == UDP_PCB_STATE_OPEN) {
+        if (pcb->state == UDP_PCB_STATE_OPEN && pcb->ctx.sleeping) {
             sched_interrupt(&pcb->ctx);
+            handled++;
         }
     }
     mutex_unlock(&mutex);
+    return handled;
 }
 
 int

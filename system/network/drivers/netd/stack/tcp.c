@@ -6,7 +6,6 @@
 #include <sys/time.h>
 #include <ewoksys/klog.h>
 #include <ewoksys/vfs.h>
-#include <ewoksys/kernel_tic.h>
 
 #include "../platform.h"
 
@@ -160,6 +159,32 @@ static inline void tcp_sched_interrupt_all(struct tcp_pcb *pcb)
     sched_interrupt(&pcb->state_ctx);
     sched_interrupt(&pcb->send_ctx);
     sched_interrupt(&pcb->recv_ctx);
+}
+
+static int
+tcp_due_from_deadline(const struct timeval *now, const struct timeval *deadline)
+{
+    struct timeval diff;
+
+    if (timercmp(deadline, now, <=) != 0) {
+        return 0;
+    }
+    timersub(deadline, now, &diff);
+    if (diff.tv_sec > INT32_MAX / 1000000) {
+        return INT32_MAX;
+    }
+    return (int)(diff.tv_sec * 1000000 + diff.tv_usec);
+}
+
+static void
+tcp_due_track_min(int *min_due_us, int due_us)
+{
+    if (due_us < 0) {
+        return;
+    }
+    if (*min_due_us < 0 || due_us < *min_due_us) {
+        *min_due_us = due_us;
+    }
 }
 
 static int
@@ -1236,25 +1261,38 @@ tcp_timer(void)
     mutex_unlock(&mutex);
 }
 
-static void
+static int
 event_handler(void *arg)
 {
     struct tcp_pcb *pcb;
+    int handled = 0;
+
+    (void)arg;
 
     mutex_lock(&mutex);
     for (pcb = pcbs; pcb < tailof(pcbs); pcb++) {
         if (pcb->state != TCP_PCB_STATE_FREE &&
                 (pcb->state_ctx.sleeping || pcb->send_ctx.sleeping || pcb->recv_ctx.sleeping)) {
             tcp_sched_interrupt_all(pcb);
+            handled++;
         }
     }
     mutex_unlock(&mutex);
+    return handled;
 }
 
 int
 tcp_init(void)
 {
-    struct timeval interval = {0,1000};
+    /*
+     * A 1ms global TCP timer forces netd to rescan every PCB at kHz rate even
+     * when the nearest real deadline is tens of milliseconds away (delayed ACK
+     * 40ms, default RTO 200ms, persist/time-wait much larger). Under
+     * telnetd/sshd load this keeps both netd worker threads in RUN and starves
+     * IPC responsiveness. 10ms is still comfortably below the smallest real TCP
+     * deadline we use and removes the synthetic spin.
+     */
+    struct timeval interval = {0,10000};
 
     if (ip_protocol_register("TCP", IP_PROTOCOL_TCP, tcp_input) == -1) {
         errorf("ip_protocol_register() failure");
@@ -1657,6 +1695,52 @@ tcp_timer_active(void)
     }
     mutex_unlock(&mutex);
     return active;
+}
+
+int
+tcp_timer_due_us(void)
+{
+    int min_due_us = -1;
+    struct tcp_pcb *pcb;
+    struct timeval now;
+
+    gettimeofday(&now, NULL);
+    mutex_lock(&mutex);
+    for (pcb = pcbs; pcb < tailof(pcbs); pcb++) {
+        struct tcp_queue_entry *entry;
+
+        if (pcb->state == TCP_PCB_STATE_FREE) {
+            continue;
+        }
+
+        if (pcb->state == TCP_PCB_STATE_TIME_WAIT) {
+            tcp_due_track_min(&min_due_us, tcp_due_from_deadline(&now, &pcb->tw_timer));
+        }
+
+        entry = queue_peek(&pcb->queue);
+        if (entry) {
+            struct timeval timeout = entry->last;
+
+            timeval_add_usec(&timeout, entry->rto);
+            tcp_due_track_min(&min_due_us, tcp_due_from_deadline(&now, &timeout));
+        }
+
+        if (pcb->persist_probing &&
+            (pcb->state == TCP_PCB_STATE_ESTABLISHED ||
+             pcb->state == TCP_PCB_STATE_CLOSE_WAIT)) {
+            tcp_due_track_min(&min_due_us, tcp_due_from_deadline(&now, &pcb->persist_timer));
+        }
+
+        if (pcb->delack_pending &&
+            (pcb->state == TCP_PCB_STATE_ESTABLISHED ||
+             pcb->state == TCP_PCB_STATE_CLOSE_WAIT)) {
+            struct timeval deadline = pcb->delack_timer;
+            timeval_add_usec(&deadline, TCP_DELACK_TIMEOUT_USEC);
+            tcp_due_track_min(&min_due_us, tcp_due_from_deadline(&now, &deadline));
+        }
+    }
+    mutex_unlock(&mutex);
+    return min_due_us;
 }
 
 int

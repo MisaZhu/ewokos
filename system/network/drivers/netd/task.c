@@ -441,17 +441,49 @@ int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p){
     }
 
     if(task->state == NET_TASK_IDLE){
-        task->cmd = SOCK_SEND;	
+        int sock = task->sock;
+        int ret = -1;
+        int sock_errno = 0;
+
+        /*
+         * SOCK_SEND is fully non-blocking in the stack now: tcp_send() either
+         * sends immediately or returns EAGAIN without sleeping in the worker.
+         * Keeping the old async worker hop here turns every first write into a
+         * synthetic VFS_ERR_RETRY/EAGAIN even when the socket is currently
+         * writable (fresh telnet/ssh session banner stalls).  Execute the send
+         * inline and reserve task->state only as a short serialization guard so
+         * dup()/fork()-shared descriptors still avoid concurrent writes.
+         */
+        task->cmd = SOCK_SEND;
         task->p = p;
         task->from_pid = from_pid;
+        task->state = NET_TASK_PROCESS;
+        pthread_mutex_unlock(&task_list_lock);
 
+        if(buf != NULL && size > 0) {
+            errno = 0;
+            ret = sock_send(sock, buf, size);
+            sock_errno = errno;
+            if(ret < 0 && sock_errno == 0) {
+                sock_errno = (ret == -17) ? EBADF : EIO;
+            }
+        } else if(size == 0) {
+            ret = 0;
+        } else {
+            ret = -1;
+            sock_errno = EINVAL;
+        }
+
+        pthread_mutex_lock(&task_list_lock);
         PF->clear(&task->in);
         PF->clear(&task->out);
-        PF->add(&task->in, buf, size);
-        task->state = NET_TASK_START;
-        sched_wakeup(&task->wait_ctx);
+        task->state = NET_TASK_IDLE;
         pthread_mutex_unlock(&task_list_lock);
-        // Signal task thread to wake up
+
+        if(ret < 0 && sock_errno != 0) {
+            errno = sock_errno;
+        }
+        return ret;
     } else {
         pthread_mutex_unlock(&task_list_lock);
     }
@@ -502,7 +534,7 @@ int do_network_fcntl(net_task_t *task){
 				ret = sock_sendto(sock, data, size, paddr, addrlen);
 				sock_errno = errno;
 				if(ret < 0 && sock_errno == 0)
-					sock_errno = EAGAIN;
+					sock_errno = (ret == -17) ? EBADF : EIO;
 			}
 			PF->addi(&task->out, ret);
 			PF->addi(&task->out, ret < 0 ? sock_errno : 0);
@@ -958,7 +990,7 @@ static void* task_thread(void* arg){
                 wake_event = VFS_EVT_WR;
             }
             if(wake_event != 0) {
-                vfs_wakeup(task->node, wake_event);
+                task_queue_vfs_wakeup(task->node, wake_event);
             }
         }
         if(run_read && read_completed) {
@@ -967,7 +999,7 @@ static void* task_thread(void* arg){
             uint32_t wake_event = task_finish_wakeup_event(task, true);
             pthread_mutex_unlock(&task_list_lock);
             if(wake_event != 0) {
-                vfs_wakeup(task->node, wake_event);
+                task_queue_vfs_wakeup(task->node, wake_event);
             }
         }
 
@@ -997,13 +1029,13 @@ static void* task_thread(void* arg){
     }
 
     /*
-     * Deferred VFS_EVT_CLOSE wakeup (reverse IPC to vfsd). Safe here: this is
-     * the worker thread and the dispatch thread already replied to vfsd for the
-     * FS_CMD_CLOSE, so vfsd is free to serve this call. Doing it from
-     * release_task() (dispatch thread) would deadlock netd<->vfsd.
+     * Deliver CLOSE through the same deferred reverse-IPC path as RD/WR.
+     * Even outside the stack mutex, a synchronous vfs_wakeup() here can still
+     * stall behind vfsd->netd traffic and extend the window where clients sit
+     * in FS_CMD_POLL timeouts with the socket half-torn-down.
      */
     if(do_close_wakeup && close_node > 0) {
-        vfs_wakeup(close_node, VFS_EVT_CLOSE);
+        task_queue_vfs_wakeup(close_node, VFS_EVT_CLOSE);
     }
 
     PF->clear(&task->in);

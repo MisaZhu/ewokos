@@ -871,13 +871,18 @@ static void* driver_dup_worker_entry(void* arg) {
                 driver_dup_job_t* job = NULL;
 
                 pthread_mutex_lock(&worker->lock);
-                while(queue_is_empty(&worker->jobs)) {
-                        pthread_cond_wait(&worker->cv, &worker->lock);
-                }
                 job = (driver_dup_job_t*)queue_pop(&worker->jobs);
+                if(job == NULL) {
+                        /*
+                         * Dup jobs are bursty during fork/clone. Tear the
+                         * helper down as soon as the queue drains so vfsd does
+                         * not keep one detached thread per mount_pid forever.
+                         */
+                        worker->started = 0;
+                        pthread_mutex_unlock(&worker->lock);
+                        break;
+                }
                 pthread_mutex_unlock(&worker->lock);
-                if(job == NULL)
-                        continue;
 
                 if(vfs_driver_dup_now(job->mount_pid, job->from_pid, job->from_fd,
                                 job->dup_pid, job->dup_fd, &job->file) != 0) {
@@ -897,9 +902,23 @@ static void* driver_dup_worker_entry(void* arg) {
         return NULL;
 }
 
+static int start_driver_dup_worker_locked(driver_dup_worker_t* worker) {
+        pthread_t tid;
+
+        if(worker == NULL)
+                return -1;
+        if(worker->started != 0)
+                return 0;
+        if(pthread_create(&tid, NULL, driver_dup_worker_entry, worker) != 0)
+                return -1;
+        pthread_detach(tid);
+        worker->thread = tid;
+        worker->started = 1;
+        return 0;
+}
+
 static driver_dup_worker_t* get_driver_dup_worker(int32_t mount_pid) {
         driver_dup_worker_t* worker = NULL;
-        pthread_t tid;
 
         if(mount_pid <= 0 || mount_pid >= (int32_t)_max_proc_table_num)
                 return NULL;
@@ -913,17 +932,7 @@ static driver_dup_worker_t* get_driver_dup_worker(int32_t mount_pid) {
                         pthread_mutex_init(&worker->lock, NULL);
                         pthread_cond_init(&worker->cv, NULL);
                         queue_init(&worker->jobs);
-                        if(pthread_create(&tid, NULL, driver_dup_worker_entry, worker) == 0) {
-                                pthread_detach(tid);
-                                worker->thread = tid;
-                                worker->started = 1;
-                                _driver_dup_workers[mount_pid] = worker;
-                        } else {
-                                pthread_cond_destroy(&worker->cv);
-                                pthread_mutex_destroy(&worker->lock);
-                                free(worker);
-                                worker = NULL;
-                        }
+                        _driver_dup_workers[mount_pid] = worker;
                 }
         }
         pthread_mutex_unlock(&_driver_dup_workers_lock);
@@ -985,7 +994,17 @@ static bool queue_driver_dup_job(clone_dup_ctx_t* ctx, int32_t mount_pid,
         pthread_mutex_unlock(&ctx->lock);
         pthread_mutex_lock(&worker->lock);
         queue_push(&worker->jobs, job);
-        pthread_cond_signal(&worker->cv);
+        if(start_driver_dup_worker_locked(worker) != 0) {
+                (void)queue_pop(&worker->jobs);
+                pthread_mutex_unlock(&worker->lock);
+                pthread_mutex_lock(&ctx->lock);
+                ctx->pending--;
+                if(ctx->pending <= 0)
+                        pthread_cond_broadcast(&ctx->cv);
+                pthread_mutex_unlock(&ctx->lock);
+                free(job);
+                return false;
+        }
         pthread_mutex_unlock(&worker->lock);
         return true;
 }
@@ -1981,6 +2000,7 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 	int fpid = proto_read_int(in);
 	int cpid = proto_read_int(in);
         clone_dup_ctx_t dup_ctx;
+        bool child_dead = false;
 
 	if(fpid < 0 || fpid >= _max_proc_table_num ||
 			cpid < 0 || cpid >= _max_proc_table_num)
@@ -2004,6 +2024,7 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 	_proc_fds_table[cpid].state = RUNNING;
 	_proc_fds_table[cpid].owner_pid = vfs_fd_owner_pid(cpid);
 	_proc_fds_table[cpid].uuid = proc_get_uuid(cpid);
+        child_dead = (_proc_fds_table[cpid].uuid == 0);
 	
         clone_dup_ctx_init(&dup_ctx);
 	int32_t i;
@@ -2032,6 +2053,19 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 	}
         clone_dup_ctx_wait(&dup_ctx);
         clone_dup_ctx_destroy(&dup_ctx);
+        /*
+         * fork() notifies vfsd synchronously via VFS_PROC_CLONE, but process
+         * create/exit lifecycle still reaches us through the polled core event
+         * queue. A short-lived child can therefore already be gone when clone
+         * runs, so the fd table above is materialized with uuid==0. If the
+         * earlier EXIT event has already been observed, no later callback will
+         * revisit this slot, leaving pipe refs/refs_w and driver refs leaked.
+         * Reap the just-cloned dead child immediately.
+         */
+        if(child_dead) {
+                _proc_fds_table[cpid].state = ZOMBIE;
+                clear_zombie(cpid);
+        }
 }
 
 /*

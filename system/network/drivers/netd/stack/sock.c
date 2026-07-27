@@ -531,15 +531,18 @@ sock_send(int id, const void *buf, size_t n)
     struct sock *s;
     s = sock_get(id);
     if (!s) {
+        errno = EBADF;
         return -17;
     }
     if (s->type != SOCK_STREAM) {
+        errno = EINVAL;
         return -1;
     }
     switch (s->family) {
     case AF_INET:
         return tcp_send(s->desc, (uint8_t *)buf, n);
     }
+    errno = EINVAL;
     return -1;
 }
 
@@ -765,7 +768,7 @@ sock_writable(int id)
     struct sock *s;
     s = sock_get(id);
     if (!s) {
-        return 1;
+        return 0;
     }
     switch (s->type) {
     case SOCK_STREAM:

@@ -119,6 +119,9 @@ static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
 	int main_state = NET_TASK_IDLE;
 	int pending_main_rd = 0;
 	int can_write = 0;
+	int wr_ready = 0;
+	int rd_ready_pending = 0;
+	int rd_ready_live = 0;
 	if (task != NULL) {
 		pthread_mutex_lock(&task_list_lock);
 		main_state = task->state;
@@ -157,11 +160,17 @@ static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
 		 * window-open ACK. Gate on sock_writable(); keep pre-socket states
 		 * (main_sock < 0) writable so open/connect can still be armed.
 		 */
-		if (can_write && (main_sock < 0 || sock_writable(main_sock))) {
+		if (can_write && main_sock >= 0) {
+			wr_ready = sock_writable(main_sock);
+		}
+		if (can_write && (main_sock < 0 || wr_ready)) {
 			events |= VFS_EVT_WR;
 		}
 		if (pending_main_rd) {
-			if (main_sock >= 0 && sock_readable(main_sock)) {
+			if (main_sock >= 0) {
+				rd_ready_pending = sock_readable(main_sock);
+			}
+			if (main_sock >= 0 && rd_ready_pending) {
 				events |= VFS_EVT_RD;
 			} else {
 				/* Flag is stale — clear it */
@@ -171,8 +180,12 @@ static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
 			}
 		}
 		if (!(events & VFS_EVT_RD) &&
+				main_sock >= 0) {
+			rd_ready_live = sock_readable(main_sock);
+		}
+		if (!(events & VFS_EVT_RD) &&
 				main_sock >= 0 &&
-				sock_readable(main_sock)) {
+				rd_ready_live) {
 			/*
 			 * poll() is level-triggered: if the socket is readable right now, a
 			 * waiter must observe RD even when an async read path exists.
