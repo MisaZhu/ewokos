@@ -199,12 +199,14 @@ ether_tap_isr(unsigned int irq, void *id)
         return -1;
     }
 
-    int budget = pending;
-
-    if (budget > ETHER_TAP_DRAIN_BURST) {
-        budget = ETHER_TAP_DRAIN_BURST;
-    }
-    more_work = (pending > budget);
+    /*
+     * tap_select() is a hint, not a reliable queue depth. If it under-reports
+     * (common on bursty traffic), draining only "pending" frames limits us to
+     * one or two packets per poll round and throughput collapses even though no
+     * spin is present. Once the device reports any work, opportunistically
+     * drain up to the full burst budget and stop on the first empty read.
+     */
+    int budget = ETHER_TAP_DRAIN_BURST;
 
     while (drained < budget) {
         int ret = ether_poll_helper(dev, ether_tap_read);
@@ -216,13 +218,12 @@ ether_tap_isr(unsigned int irq, void *id)
             delivered++;
         }
     }
+    more_work = (drained == budget && delivered > 0);
     /*
-     * Keep the fast cadence only while the device reports backlog beyond the
-     * work we drained in this ISR. Returning busy for every successfully
-     * delivered frame pins intr_loop at 1ms even after short bursts are fully
-     * drained, which is exactly the "two netd threads stay in run" pattern
-     * seen under telnetd/sshd stalls. Throughput-sensitive bursts are preserved
-     * because pending > budget means the device queue still has more frames.
+     * Keep the fast cadence only when we exhausted the whole burst budget while
+     * still delivering useful frames, which is a strong signal that more work
+     * likely remains. Short bursts that drain early still fall back normally,
+     * so this does not reintroduce the previous idle spin.
      */
     return (delivered > 0 && more_work) ? 0 : -1;
 }
