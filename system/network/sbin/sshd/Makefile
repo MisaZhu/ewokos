@@ -12,6 +12,7 @@ TASK_OBJS = sshd.o sftp-core.o
 TASK = $(TARGET_DIR)/sbin/sshd
 
 $(TASK): $(TASK_OBJS) $(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libsocket.a \
 		$(BUILD_DIR)/lib/libwolfssl.a
 	$(LD) -Ttext=100 $(TASK_OBJS) -o $(TASK) $(LDFLAGS) -lsocket -lm $(EWOK_LIBC)
 

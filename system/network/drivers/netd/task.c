@@ -115,10 +115,13 @@ static void task_free_unstarted(net_task_t *task) {
     if (task == NULL)
         return;
 
-    pthread_mutex_lock(&task_list_lock);
+    pthread_mutex_lock(&task->lock);
     task->running = false;
     fin_sock = task->sock;
     task->sock = -1;
+    pthread_mutex_unlock(&task->lock);
+
+    pthread_mutex_lock(&task_list_lock);
     if (fin_sock >= 0 && fin_sock < SOCKS_MAX && sock_to_task[fin_sock] == task)
         sock_to_task[fin_sock] = NULL;
     pthread_mutex_unlock(&task_list_lock);
@@ -131,6 +134,8 @@ static void task_free_unstarted(net_task_t *task) {
     PF->clear(&task->out);
     PF->clear(&task->read_in);
     PF->clear(&task->read_out);
+    PF->clear(&task->write_in);
+    PF->clear(&task->write_out);
     sched_ctx_destroy(&task->wait_ctx);
 
     pthread_mutex_lock(&task_list_lock);
@@ -138,6 +143,7 @@ static void task_free_unstarted(net_task_t *task) {
         task_active_count--;
     task_total_freed++;
     pthread_mutex_unlock(&task_list_lock);
+    pthread_mutex_destroy(&task->lock);
     free(task);
 }
 
@@ -202,6 +208,7 @@ static int task_owner_pid(int from_pid) {
 
 static void task_list_add(net_task_t * task){
     pthread_mutex_lock(&task_list_lock);
+    task->prev = NULL;
     if(task_list == NULL){
         task_list = task;
         task->next = NULL;
@@ -230,6 +237,8 @@ static void task_list_remove(net_task_t * task){
         task->prev->next = task->next;
     if(task->next)
         task->next->prev = task->prev;
+    task->next = NULL;
+    task->prev = NULL;
     pthread_mutex_unlock(&task_list_lock);
 }
 
@@ -272,6 +281,7 @@ net_task_t *create_task(int fd, int from_pid, int node){
         return NULL;
     }
     memset(task, 0 , sizeof(net_task_t));
+    pthread_mutex_init(&task->lock, NULL);
     sched_ctx_init(&task->wait_ctx);
     task->fd = fd;
     task->node = node;
@@ -279,9 +289,12 @@ net_task_t *create_task(int fd, int from_pid, int node){
     task->state = NET_TASK_IDLE;
     task->read_from_pid = task->from_pid;
     task->read_state = NET_TASK_IDLE;
+    task->write_from_pid = task->from_pid;
+    task->write_state = NET_TASK_IDLE;
     task->sock = -1;
     task->refs = 1;
     task->running = true;
+    task->write_ready = true;
     task->thread_started = 0;
     task_list_add(task);
     pthread_mutex_lock(&task_list_lock);
@@ -313,11 +326,11 @@ void release_task(net_task_t *task){
      * and frees itself (it is detached), so dispatch stays fair and accept()
      * keeps responding immediately.
      */
-    pthread_mutex_lock(&task_list_lock);
+    pthread_mutex_lock(&task->lock);
     task->running = false;
     task->pending_close_wakeup = (task->from_pid > 0) ? 1 : 0;
     sched_wakeup(&task->wait_ctx);
-    pthread_mutex_unlock(&task_list_lock);
+    pthread_mutex_unlock(&task->lock);
 
     /*
      * The close-wakeup (vfs_wakeup, a reverse IPC to vfsd) is issued by the
@@ -344,11 +357,11 @@ static uint32_t task_arm_wait_event(int cmd) {
 
 int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *out, void *p){
     from_pid = task_owner_pid(from_pid);
-    pthread_mutex_lock(&task_list_lock);
+    pthread_mutex_lock(&task->lock);
     
     if(task->state == NET_TASK_FINISH){
         if(cmd != task->cmd){
-            pthread_mutex_unlock(&task_list_lock);
+            pthread_mutex_unlock(&task->lock);
             return VFS_ERR_RETRY;
         }
         if(from_pid == task->from_pid) {
@@ -356,7 +369,7 @@ int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *o
             PF->clear(&task->out);
             PF->clear(&task->in);
             task->state = NET_TASK_IDLE;
-            pthread_mutex_unlock(&task_list_lock);
+            pthread_mutex_unlock(&task->lock);
             return 0;
         }
         /*
@@ -380,27 +393,27 @@ int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *o
             PF->clear(&task->out);
             PF->copy(&task->in, in->data, in->size);
             task->state = NET_TASK_PROCESS;
-            pthread_mutex_unlock(&task_list_lock);
+            pthread_mutex_unlock(&task->lock);
 
             if(do_network_fcntl(task) <= 0) {
-                pthread_mutex_lock(&task_list_lock);
+                pthread_mutex_lock(&task->lock);
                 PF->clear(&task->in);
                 PF->clear(&task->out);
                 task->state = NET_TASK_IDLE;
-                pthread_mutex_unlock(&task_list_lock);
+                pthread_mutex_unlock(&task->lock);
                 return VFS_ERR_RETRY;
             }
 
-            pthread_mutex_lock(&task_list_lock);
+            pthread_mutex_lock(&task->lock);
             PF->copy(out, task->out.data, task->out.size);
             PF->clear(&task->out);
             PF->clear(&task->in);
             task->state = NET_TASK_IDLE;
-            pthread_mutex_unlock(&task_list_lock);
+            pthread_mutex_unlock(&task->lock);
             return 0;
         }
         if(!task->thread_started && task_start_worker_locked(task) != 0) {
-            pthread_mutex_unlock(&task_list_lock);
+            pthread_mutex_unlock(&task->lock);
             return -1;
         }
         task->cmd = cmd;	
@@ -415,17 +428,39 @@ int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *o
         PF->copy(&task->in, in->data, in->size);
         task->state = NET_TASK_START;
         sched_wakeup(&task->wait_ctx);
-        pthread_mutex_unlock(&task_list_lock);
+        pthread_mutex_unlock(&task->lock);
         // Signal task thread to wake up
     } else {
-        pthread_mutex_unlock(&task_list_lock);
+        pthread_mutex_unlock(&task->lock);
     }
     return VFS_ERR_RETRY;
 }
 
 int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
     from_pid = task_owner_pid(from_pid);
-    pthread_mutex_lock(&task_list_lock);
+    pthread_mutex_lock(&task->lock);
+
+    if(task->read_cache_ready) {
+        int remain = task->read_cache_len - task->read_cache_off;
+        int cache_errno = task->read_cache_errno;
+        int len = size < remain ? size : remain;
+        if(len > 0) {
+            memcpy(buf, task->read_buf + task->read_cache_off, len);
+            task->read_cache_off += len;
+        }
+        if(task->read_cache_off >= task->read_cache_len) {
+            task->read_cache_ready = false;
+            task->read_cache_len = 0;
+            task->read_cache_off = 0;
+            task->read_cache_errno = 0;
+        }
+        pthread_mutex_unlock(&task->lock);
+        if(len == 0 && cache_errno != 0) {
+            errno = cache_errno;
+            return -1;
+        }
+        return len;
+    }
     
     if(task->read_state == NET_TASK_FINISH){
         if(from_pid == task->read_from_pid) {
@@ -440,7 +475,7 @@ int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
             PF->clear(&task->read_out);
             PF->clear(&task->read_in);
             task->read_state = NET_TASK_IDLE;
-            pthread_mutex_unlock(&task_list_lock);
+            pthread_mutex_unlock(&task->lock);
             if(len < 0 && (sock_errno == 0 || sock_errno == EAGAIN || sock_errno == EINTR)) {
                 return VFS_ERR_RETRY;
             }
@@ -459,7 +494,7 @@ int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
 
     if(task->read_state == NET_TASK_IDLE){
         if(!task->thread_started && task_start_worker_locked(task) != 0) {
-            pthread_mutex_unlock(&task_list_lock);
+            pthread_mutex_unlock(&task->lock);
             return -1;
         }
         task->read_p = p;
@@ -469,106 +504,66 @@ int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
         PF->addi(&task->read_in, size);
         task->read_state = NET_TASK_START;
         sched_wakeup(&task->wait_ctx);
-        pthread_mutex_unlock(&task_list_lock);
+        pthread_mutex_unlock(&task->lock);
     } else {
-        pthread_mutex_unlock(&task_list_lock);
+        pthread_mutex_unlock(&task->lock);
     }
     return VFS_ERR_RETRY;
 }
 
 int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p){
     from_pid = task_owner_pid(from_pid);
-    pthread_mutex_lock(&task_list_lock);
-    
-    if(task->state == NET_TASK_FINISH){
-        if(SOCK_SEND != task->cmd){
-            pthread_mutex_unlock(&task_list_lock);
-            return VFS_ERR_RETRY;
-        }
-        if(from_pid == task->from_pid) {
-            int ret = proto_read_int(&task->out);
+    pthread_mutex_lock(&task->lock);
+
+    if(task->write_state == NET_TASK_FINISH){
+        if(from_pid == task->write_from_pid) {
+            int len = proto_read_int(&task->write_out);
             int sock_errno = 0;
-            if(ret < 0 && task->out.size > task->out.offset) {
-                sock_errno = proto_read_int(&task->out);
+            if(len <= 0 && task->write_out.size > task->write_out.offset) {
+                sock_errno = proto_read_int(&task->write_out);
             }
-            PF->clear(&task->out);
-            PF->clear(&task->in);
-            task->state = NET_TASK_IDLE;
-            if(ret < 0 && (sock_errno == 0 || sock_errno == EAGAIN || sock_errno == EINTR)) {
-                /*
-                 * Fall through to re-arm with the caller's new buf/size.
-                 * If we returned VFS_ERR_RETRY here without re-arming, the
-                 * task sits IDLE with no pending operation.  On fast links
-                 * (especially loopback) the ACK that opened the send window
-                 * may have already fired task_wakeup_tcp_writers() → VFS_EVT_WR
-                 * BEFORE the client enters its clear/retry/block sequence.
-                 * The client clears the stale event, retries (arms here), then
-                 * blocks — but with an early return the arm never happens and
-                 * the client blocks forever with no wake source.
-                 */
-            } else {
-                pthread_mutex_unlock(&task_list_lock);
-                return ret;
+            PF->clear(&task->write_out);
+            PF->clear(&task->write_in);
+            task->write_state = NET_TASK_IDLE;
+            pthread_mutex_unlock(&task->lock);
+            if(len < 0 && (sock_errno == 0 || sock_errno == EAGAIN || sock_errno == EINTR)) {
+                return VFS_ERR_RETRY;
             }
+            if(len < 0 && sock_errno != 0) {
+                errno = sock_errno;
+            }
+            return len;
         }
-        /*
-         * Writes on duplicated or fork-inherited socket FDs may arrive from a
-         * different pid than the one that completed the previous async send.
-         * Re-arm the new write immediately instead of returning a bare RETRY,
-         * otherwise the caller can block on WR with no in-flight send to
-         * generate the next wakeup edge.
-         */
-        PF->clear(&task->out);
-        PF->clear(&task->in);
-        task->state = NET_TASK_IDLE;
+        PF->clear(&task->write_out);
+        PF->clear(&task->write_in);
+        task->write_state = NET_TASK_IDLE;
     }
 
-    if(task->state == NET_TASK_IDLE){
-        int sock = task->sock;
-        int ret = -1;
-        int sock_errno = 0;
-
-        /*
-         * SOCK_SEND is fully non-blocking in the stack now: tcp_send() either
-         * sends immediately or returns EAGAIN without sleeping in the worker.
-         * Keeping the old async worker hop here turns every first write into a
-         * synthetic VFS_ERR_RETRY/EAGAIN even when the socket is currently
-         * writable (fresh telnet/ssh session banner stalls).  Execute the send
-         * inline and reserve task->state only as a short serialization guard so
-         * dup()/fork()-shared descriptors still avoid concurrent writes.
-         */
-        task->cmd = SOCK_SEND;
-        task->p = p;
-        task->from_pid = from_pid;
-        task->state = NET_TASK_PROCESS;
-        pthread_mutex_unlock(&task_list_lock);
-
-        if(buf != NULL && size > 0) {
-            errno = 0;
-            ret = sock_send(sock, buf, size);
-            sock_errno = errno;
-            if(ret < 0 && sock_errno == 0) {
-                sock_errno = (ret == -17) ? EBADF : EIO;
-            }
-        } else if(size == 0) {
-            ret = 0;
-        } else {
-            ret = -1;
-            sock_errno = EINVAL;
+    if(task->write_state == NET_TASK_IDLE){
+        if(size == 0) {
+            pthread_mutex_unlock(&task->lock);
+            return 0;
         }
-
-        pthread_mutex_lock(&task_list_lock);
-        PF->clear(&task->in);
-        PF->clear(&task->out);
-        task->state = NET_TASK_IDLE;
-        pthread_mutex_unlock(&task_list_lock);
-
-        if(ret < 0 && sock_errno != 0) {
-            errno = sock_errno;
+        if(buf == NULL || size < 0) {
+            pthread_mutex_unlock(&task->lock);
+            errno = EINVAL;
+            return -1;
         }
-        return ret;
+        if(!task->thread_started && task_start_worker_locked(task) != 0) {
+            pthread_mutex_unlock(&task->lock);
+            return -1;
+        }
+        task->write_p = p;
+        task->write_from_pid = from_pid;
+            task->write_ready = false;
+        PF->clear(&task->write_in);
+        PF->clear(&task->write_out);
+        PF->add(&task->write_in, buf, size);
+        task->write_state = NET_TASK_START;
+        sched_wakeup(&task->wait_ctx);
+        pthread_mutex_unlock(&task->lock);
     } else {
-        pthread_mutex_unlock(&task_list_lock);
+        pthread_mutex_unlock(&task->lock);
     }
     return VFS_ERR_RETRY;
 }
@@ -591,12 +586,15 @@ int do_network_fcntl(net_task_t *task){
 			protocol = proto_read_int(&task->in);
 			sock = sock_open(domain, type, protocol);
 			PF->addi(&task->out, sock);
+			pthread_mutex_lock(&task_list_lock);
+			pthread_mutex_lock(&task->lock);
 			task->sock = sock;
+            task->write_ready = true;
 			if(sock >= 0 && sock < SOCKS_MAX) {
-				pthread_mutex_lock(&task_list_lock);
 				sock_to_task[sock] = task;
-				pthread_mutex_unlock(&task_list_lock);
 			}
+			pthread_mutex_unlock(&task->lock);
+			pthread_mutex_unlock(&task_list_lock);
 			break;
 		case SOCK_BIND:
 			paddr = proto_read(&task->in, &addrlen);
@@ -717,14 +715,17 @@ int do_network_fcntl(net_task_t *task){
 		case SOCK_LINK:
 			sock = proto_read_int(&task->in);	
 			pthread_mutex_lock(&task_list_lock);
+			pthread_mutex_lock(&task->lock);
 			if(task->sock >= 0 && task->sock < SOCKS_MAX &&
 			   sock_to_task[task->sock] == task) {
 				sock_to_task[task->sock] = NULL;
 			}
 			task->sock = sock;
+            task->write_ready = true;
 			if(sock >= 0 && sock < SOCKS_MAX) {
 				sock_to_task[sock] = task;
 			}
+			pthread_mutex_unlock(&task->lock);
 			pthread_mutex_unlock(&task_list_lock);
 			PF->addi(&task->out, 0);
 			break;
@@ -800,6 +801,21 @@ static int do_network_read(net_task_t *task){
         return 0;
     }
 
+    if(task->read_prefetch) {
+        errno = 0;
+        ret = sock_recv(task->sock, task->read_buf, TASK_READ_BUF_SIZE);
+        sock_errno = errno;
+        if(ret < 0 && sock_errno == 0)
+            sock_errno = EAGAIN;
+        if(ret < 0 && (sock_errno == EAGAIN || sock_errno == EINTR)) {
+            return 0;
+        }
+        task->read_cache_len = ret > 0 ? ret : 0;
+        task->read_cache_off = 0;
+        task->read_cache_errno = ret < 0 ? sock_errno : 0;
+        return 1;
+    }
+
     saved_offset = task->read_in.offset;
 	size = proto_read_int(&task->read_in);
     size = size < TASK_READ_BUF_SIZE ? size:TASK_READ_BUF_SIZE;
@@ -817,6 +833,54 @@ static int do_network_read(net_task_t *task){
         PF->add(&task->read_out, task->read_buf, ret);
     }
     PF->addi(&task->read_out, ret < 0 ? sock_errno : 0);
+    return 1;
+}
+
+static int do_network_write(net_task_t *task){
+    int32_t size;
+    int ret;
+    int sock_errno = 0;
+    uint32_t saved_offset;
+    char *data;
+
+    if(task->sock < 0) {
+        PF->addi(&task->write_out, -1);
+        PF->addi(&task->write_out, EBADF);
+        return 1;
+    }
+
+    if(!sock_writable(task->sock)) {
+        pthread_mutex_lock(&task->lock);
+        task->write_ready = false;
+        pthread_mutex_unlock(&task->lock);
+        return 0;
+    }
+
+    saved_offset = task->write_in.offset;
+    data = proto_read(&task->write_in, &size);
+    if(data == NULL || size < 0) {
+        PF->addi(&task->write_out, -1);
+        PF->addi(&task->write_out, EINVAL);
+        return 1;
+    }
+
+    errno = 0;
+    ret = sock_send(task->sock, data, size);
+    sock_errno = errno;
+    if(ret < 0 && sock_errno == 0)
+        sock_errno = EAGAIN;
+    if(ret < 0 && (sock_errno == EAGAIN || sock_errno == EINTR)) {
+        task->write_in.offset = saved_offset;
+        pthread_mutex_lock(&task->lock);
+        task->write_ready = false;
+        pthread_mutex_unlock(&task->lock);
+        return 0;
+    }
+    pthread_mutex_lock(&task->lock);
+    task->write_ready = (ret >= 0);
+    pthread_mutex_unlock(&task->lock);
+    PF->addi(&task->write_out, ret);
+    PF->addi(&task->write_out, ret < 0 ? sock_errno : 0);
     return 1;
 }
 
@@ -847,8 +911,14 @@ static int task_wakeup_socket_readers(int sock_type, int sock_desc, int match_so
 
     pthread_mutex_lock(&task_list_lock);
     net_task_t *task = sock_to_task[sock_id];
-    if (task == NULL || !task->running || task->sock != sock_id || task->node <= 0) {
+    if (task == NULL) {
         pthread_mutex_unlock(&task_list_lock);
+        return 0;
+    }
+    pthread_mutex_lock(&task->lock);
+    pthread_mutex_unlock(&task_list_lock);
+    if (!task->running || task->sock != sock_id || task->node <= 0) {
+        pthread_mutex_unlock(&task->lock);
         return 0;
     }
 
@@ -864,9 +934,16 @@ static int task_wakeup_socket_readers(int sock_type, int sock_desc, int match_so
         sched_wakeup(&task->wait_ctx);
         worker_ready = 1;
     } else if (task->read_state == NET_TASK_IDLE) {
-        wake_node = task->node;
+        if (task->thread_started && !task->read_cache_ready) {
+            task->read_prefetch = true;
+            task->read_state = NET_TASK_START;
+            sched_wakeup(&task->wait_ctx);
+            worker_ready = 1;
+        } else {
+            wake_node = task->node;
+        }
     }
-    pthread_mutex_unlock(&task_list_lock);
+    pthread_mutex_unlock(&task->lock);
 
     if (wake_node > 0) {
         /* Deferred: callers hold the stack mutex; a direct vfs_wakeup here
@@ -910,19 +987,32 @@ int task_wakeup_tcp_writers(int tcp_desc) {
 
     pthread_mutex_lock(&task_list_lock);
     net_task_t *task = sock_to_task[sock_id];
-    if (task == NULL || !task->running || task->sock != sock_id || task->node <= 0) {
+    if (task == NULL) {
         pthread_mutex_unlock(&task_list_lock);
         return 0;
     }
+    pthread_mutex_lock(&task->lock);
+    pthread_mutex_unlock(&task_list_lock);
+    if (!task->running || task->sock != sock_id || task->node <= 0) {
+        pthread_mutex_unlock(&task->lock);
+        return 0;
+    }
 
-    if (task->state == NET_TASK_PROCESS && task->cmd == SOCK_CONNECT) {
+    if (task->write_state == NET_TASK_PROCESS) {
+        task->write_ready = true;
+        task->write_state = NET_TASK_START;
+        sched_wakeup(&task->wait_ctx);
+        worker_ready = 1;
+    } else if (task->state == NET_TASK_PROCESS && task->cmd == SOCK_CONNECT) {
+        task->write_ready = true;
         task->state = NET_TASK_START;
         sched_wakeup(&task->wait_ctx);
         worker_ready = 1;
     } else {
+        task->write_ready = true;
         wake_node = task->node;
     }
-    pthread_mutex_unlock(&task_list_lock);
+    pthread_mutex_unlock(&task->lock);
 
     if (wake_node > 0) {
         /* Deferred: callers hold the stack mutex; a direct vfs_wakeup here
@@ -971,9 +1061,23 @@ static uint32_t task_finish_wakeup_event(net_task_t *task, bool is_read_op) {
     }
 }
 
+static uint32_t task_finish_write_wakeup_event(net_task_t *task) {
+    uint32_t saved_offset = task->write_out.offset;
+    int ret = proto_read_int(&task->write_out);
+    int sock_errno = 0;
+    if(ret < 0 && task->write_out.size > task->write_out.offset) {
+        sock_errno = proto_read_int(&task->write_out);
+    }
+    task->write_out.offset = saved_offset;
+    if(ret < 0 && (sock_errno == 0 || sock_errno == EAGAIN || sock_errno == EINTR)) {
+        return 0;
+    }
+    return VFS_EVT_WR;
+}
+
 static void* task_thread(void* arg){
     net_task_t *task = (net_task_t *)arg;
-    pthread_mutex_lock(&task_list_lock);
+    pthread_mutex_lock(&task->lock);
     if(task->state != NET_TASK_START) {
         PF->clear(&task->in);
         PF->clear(&task->out);
@@ -984,21 +1088,29 @@ static void* task_thread(void* arg){
         PF->clear(&task->read_out);
         task->read_state = NET_TASK_IDLE;
     }
+    if(task->write_state != NET_TASK_START) {
+        PF->clear(&task->write_in);
+        PF->clear(&task->write_out);
+        task->write_state = NET_TASK_IDLE;
+    }
 
     while(1){
         bool run_main = false;
         bool run_read = false;
+        bool run_write = false;
         bool main_completed = false;
         bool read_completed = false;
+        bool write_completed = false;
 
         while(task->running &&
               task->state != NET_TASK_START &&
-              task->read_state != NET_TASK_START) {
-            sched_sleep(&task->wait_ctx, (mutex_t*)&task_list_lock, NULL);
+              task->read_state != NET_TASK_START &&
+              task->write_state != NET_TASK_START) {
+            sched_sleep(&task->wait_ctx, (mutex_t*)&task->lock, NULL);
         }
 
         if(!task->running) {
-            pthread_mutex_unlock(&task_list_lock);
+            pthread_mutex_unlock(&task->lock);
             break;
         }
 
@@ -1010,7 +1122,11 @@ static void* task_thread(void* arg){
             task->read_state = NET_TASK_PROCESS;
             run_read = true;
         }
-        pthread_mutex_unlock(&task_list_lock);
+        if(task->write_state == NET_TASK_START) {
+            task->write_state = NET_TASK_PROCESS;
+            run_write = true;
+        }
+        pthread_mutex_unlock(&task->lock);
 
         /*
          * No pre-op sticky-edge clear is performed. It is unnecessary and
@@ -1028,21 +1144,24 @@ static void* task_thread(void* arg){
         if(run_read) {
             read_completed = do_network_read(task) ? true : false;
         }
+        if(run_write) {
+            write_completed = do_network_write(task) ? true : false;
+        }
 
         if(run_main && main_completed) {
             /*
-             * Compute the wake event WHILE STILL HOLDING task_list_lock.
+             * Compute the wake event while still holding task->lock.
              * task_finish_wakeup_event() for SOCK_SEND peeks task->out via
              * proto_read_int(), which transiently advances task->out.offset
              * (then restores it). task_write()'s FINISH collect reads the same
-             * task->out under task_list_lock. On SMP, running the peek AFTER
+             * task->out under task->lock. On SMP, running the peek AFTER
              * unlocking races that collect: the client can read task->out while
              * offset is mid-peek and pick up the errno field (0) instead of the
              * byte count, yielding a phantom write()==0. telnetd treats a 0-byte
              * write as fatal and tears the relay down -> first-connection stall/
              * mid-stream close. Serialize the peek under the lock to fix it.
              */
-            pthread_mutex_lock(&task_list_lock);
+            pthread_mutex_lock(&task->lock);
             task->state = NET_TASK_FINISH;
             uint32_t wake_event = task_finish_wakeup_event(task, false);
             /*
@@ -1060,15 +1179,15 @@ static void* task_thread(void* arg){
              *
              * Re-check real writability here and re-fire the WR edge when the
              * window is genuinely open. sock_writable() takes the tcp mutex, so
-             * it MUST run after releasing task_list_lock: the ACK path locks in
-             * the opposite order (tcp mutex -> task_list_lock) and holding both
+             * it MUST run after releasing task->lock: the ACK path locks in
+             * the opposite order (tcp mutex -> task->lock/task_list_lock) and holding both
              * here in reverse would deadlock on SMP. Gating on sock_writable()
              * means the client's retry actually sends bytes, so it cannot spin.
              */
             int send_recheck_sock = (wake_event == 0 &&
                                      task->cmd == SOCK_SEND &&
                                      task->sock >= 0) ? task->sock : -1;
-            pthread_mutex_unlock(&task_list_lock);
+            pthread_mutex_unlock(&task->lock);
             if(send_recheck_sock >= 0 && sock_writable(send_recheck_sock)) {
                 wake_event = VFS_EVT_WR;
             }
@@ -1077,16 +1196,37 @@ static void* task_thread(void* arg){
             }
         }
         if(run_read && read_completed) {
-            pthread_mutex_lock(&task_list_lock);
-            task->read_state = NET_TASK_FINISH;
-            uint32_t wake_event = task_finish_wakeup_event(task, true);
-            pthread_mutex_unlock(&task_list_lock);
+            pthread_mutex_lock(&task->lock);
+            uint32_t wake_event;
+            if(task->read_prefetch) {
+                task->read_prefetch = false;
+                task->read_state = NET_TASK_IDLE;
+                task->read_cache_ready = true;
+                wake_event = VFS_EVT_RD;
+            } else {
+                task->read_state = NET_TASK_FINISH;
+                wake_event = task_finish_wakeup_event(task, true);
+            }
+            pthread_mutex_unlock(&task->lock);
+            if(wake_event != 0) {
+                task_queue_vfs_wakeup(task->node, wake_event);
+            }
+        }
+        if(run_write && write_completed) {
+            pthread_mutex_lock(&task->lock);
+            task->write_state = NET_TASK_FINISH;
+            uint32_t wake_event = task_finish_write_wakeup_event(task);
+            int send_recheck_sock = (wake_event == 0 && task->sock >= 0) ? task->sock : -1;
+            pthread_mutex_unlock(&task->lock);
+            if(send_recheck_sock >= 0 && sock_writable(send_recheck_sock)) {
+                wake_event = VFS_EVT_WR;
+            }
             if(wake_event != 0) {
                 task_queue_vfs_wakeup(task->node, wake_event);
             }
         }
 
-        pthread_mutex_lock(&task_list_lock);
+        pthread_mutex_lock(&task->lock);
     }
 
     /*
@@ -1125,6 +1265,8 @@ static void* task_thread(void* arg){
     PF->clear(&task->out);
     PF->clear(&task->read_in);
     PF->clear(&task->read_out);
+    PF->clear(&task->write_in);
+    PF->clear(&task->write_out);
 
     sched_ctx_destroy(&task->wait_ctx);
     pthread_mutex_lock(&task_list_lock);
@@ -1132,6 +1274,7 @@ static void* task_thread(void* arg){
         task_active_count--;
     task_total_freed++;
     pthread_mutex_unlock(&task_list_lock);
+    pthread_mutex_destroy(&task->lock);
     free(task);
 
     return NULL;
