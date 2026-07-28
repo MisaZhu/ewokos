@@ -494,7 +494,6 @@ net_event_handler(void)
 void *net_thread(void* p)
 {
     struct net_device *dev;
-    pthread_t protocol_tid;
     (void)p;
 
 
@@ -502,8 +501,6 @@ void *net_thread(void* p)
     for (dev = devices; dev; dev = dev->next) {
         net_device_open(dev);
     }
-
-    pthread_create(&protocol_tid, NULL, (void *(*)(void *))intr_protocol_loop, NULL);
 
     intr_loop();
     return NULL;

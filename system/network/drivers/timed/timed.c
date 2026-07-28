@@ -14,9 +14,6 @@ static uint32_t _next_sync_sec = 0;
 
 #define TIME_SYNC_INTERVAL_SEC 600
 #define TIME_SYNC_RETRY_MIN_SEC 5 
-#define TIME_SYNC_RETRY_MAX_SEC 600
-
-static uint32_t _sync_retry_sec = TIME_SYNC_RETRY_MIN_SEC;
 
 static int time_dcntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
 	(void)dev;
@@ -49,16 +46,15 @@ static int time_loop(vdevice_t* dev, void* p) {
 			_time_init = t;
 			kernel_tic(&_time_sec_init, NULL);
 			_next_sync_sec = _time_sec_init + TIME_SYNC_INTERVAL_SEC;
-			_sync_retry_sec = TIME_SYNC_RETRY_MIN_SEC;
 		}
 		else {
-			// Back off when NTP is unavailable so netd does not keep timing out UDP requests.
-			_next_sync_sec = current_time_sec + _sync_retry_sec;
-			if(_sync_retry_sec < TIME_SYNC_RETRY_MAX_SEC) {
-				_sync_retry_sec *= 2;
-				if(_sync_retry_sec > TIME_SYNC_RETRY_MAX_SEC) {
-					_sync_retry_sec = TIME_SYNC_RETRY_MAX_SEC;
-				}
+			// Before the first successful sync, retry every 5 seconds.
+			// After we have a valid time, fall back to the normal sync interval.
+			if(_time_init == 0) {
+				_next_sync_sec = current_time_sec + TIME_SYNC_RETRY_MIN_SEC;
+			}
+			else {
+				_next_sync_sec = current_time_sec + TIME_SYNC_INTERVAL_SEC;
 			}
 		}
 	}
