@@ -101,9 +101,11 @@ extern int
 net_timer_register(const char *name, struct timeval interval, void (*handler)(void));
 extern int
 net_timer_handler(void);
+extern int
+tcp_timer_due_us(void);
 
 extern int
-net_event_subscribe(void (*handler)(void *arg), void *arg);
+net_event_subscribe(int (*handler)(void *arg), void *arg);
 extern int
 net_event_handler(void);
 

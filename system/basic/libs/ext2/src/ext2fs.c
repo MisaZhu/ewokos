@@ -23,18 +23,20 @@ static int32_t ext2_read_blocks_io(ext2_t* ext2, int32_t block, void* buf, uint3
 }
 
 static int32_t ext2_get_data_block(ext2_t* ext2, INODE* node, int32_t lbk, int32_t* blk) {
+	if(lbk < 0)
+		return -1;
 	if(lbk < 12) {
 		*blk = node->i_block[lbk];
 		return 0;
 	}
-	else if(lbk >= 12 && lbk < 256 + 12) {
+	else if(lbk < 256 + 12) {
 		int32_t indirect_buf[256];
 		if(ext2->read_block(node->i_block[12], (char*)indirect_buf) != 0)
 			return -1;
 		*blk = indirect_buf[lbk - 12];
 		return 0;
 	}
-	else {
+	else if(lbk < 256*256 + 256 + 12) {
 		int32_t count = lbk - 12 - 256;
 		int32_t num = count / 256;
 		int32_t pos_offset = count % 256;
@@ -47,6 +49,25 @@ static int32_t ext2_get_data_block(ext2_t* ext2, INODE* node, int32_t lbk, int32
 		*blk = double_buf2[pos_offset];
 		return 0;
 	}
+	else if(lbk < 256*256*256 + 256*256 + 256 + 12) {
+		int32_t count = lbk - 12 - 256 - 256*256;
+		int32_t num1 = count / (256*256);
+		int32_t rem = count % (256*256);
+		int32_t num2 = rem / 256;
+		int32_t pos_offset = rem % 256;
+		int32_t triple_buf1[256];
+		if(ext2->read_block(node->i_block[14], (char*)triple_buf1) != 0)
+			return -1;
+		int32_t triple_buf2[256];
+		if(ext2->read_block(triple_buf1[num1], (char*)triple_buf2) != 0)
+			return -1;
+		int32_t triple_buf3[256];
+		if(ext2->read_block(triple_buf2[num2], (char*)triple_buf3) != 0)
+			return -1;
+		*blk = triple_buf3[pos_offset];
+		return 0;
+	}
+	return -1;
 }
 
 /*test bit is on or off*/
@@ -684,6 +705,75 @@ int32_t ext2_write(ext2_t* ext2, INODE* node, const char *data, int32_t nbytes, 
 					return nbytes_copy;
 			}
 			
+			blk = indirect_buf[pos_offset];
+		}
+		//5.4 triple indirect
+		else if(lbk >= 256*256+256+12 && lbk < 256*256*256+256*256+256+12){
+			int32_t* triple_buf1 = (int32_t*)buf;
+			int32_t count = lbk - 12 - 256 - 256*256;
+			int32_t num1 = count / (256*256);
+			int32_t rem = count % (256*256);
+			int32_t num2 = rem / 256;
+			int32_t pos_offset = rem % 256;
+
+			// allocate triple indirect block if needed
+			if(node->i_block[14] == 0){
+				node->i_block[14] = ext2_balloc(ext2);
+				if(node->i_block[14] == 0)
+					return nbytes_copy;
+				memset(triple_buf1, 0, EXT2_BLOCK_SIZE);
+				if(ext2->write_block(node->i_block[14], (char*)triple_buf1) != 0)
+					return nbytes_copy;
+			}
+
+			if(ext2->read_block(node->i_block[14], (char*)triple_buf1) != 0)
+				return nbytes_copy;
+
+			// allocate double indirect block if needed
+			if(triple_buf1[num1] == 0){
+				triple_buf1[num1] = ext2_balloc(ext2);
+				if(triple_buf1[num1] == 0)
+					return nbytes_copy;
+				char double_buf[EXT2_BLOCK_SIZE];
+				memset(double_buf, 0, EXT2_BLOCK_SIZE);
+				if(ext2->write_block(triple_buf1[num1], double_buf) != 0)
+					return nbytes_copy;
+				if(ext2->write_block(node->i_block[14], (char*)triple_buf1) != 0)
+					return nbytes_copy;
+			}
+
+			// read double indirect block
+			int32_t double_buf1[256];
+			if(ext2->read_block(triple_buf1[num1], (char*)double_buf1) != 0)
+				return nbytes_copy;
+
+			// allocate indirect block if needed
+			if(double_buf1[num2] == 0){
+				double_buf1[num2] = ext2_balloc(ext2);
+				if(double_buf1[num2] == 0)
+					return nbytes_copy;
+				char indirect_buf[EXT2_BLOCK_SIZE];
+				memset(indirect_buf, 0, EXT2_BLOCK_SIZE);
+				if(ext2->write_block(double_buf1[num2], indirect_buf) != 0)
+					return nbytes_copy;
+				if(ext2->write_block(triple_buf1[num1], (char*)double_buf1) != 0)
+					return nbytes_copy;
+			}
+
+			// read indirect block
+			int32_t indirect_buf[256];
+			if(ext2->read_block(double_buf1[num2], (char*)indirect_buf) != 0)
+				return nbytes_copy;
+
+			// allocate data block if needed
+			if(indirect_buf[pos_offset] == 0){
+				indirect_buf[pos_offset] = ext2_balloc(ext2);
+				if(indirect_buf[pos_offset] == 0)
+					return nbytes_copy;
+				if(ext2->write_block(double_buf1[num2], (char*)indirect_buf) != 0)
+					return nbytes_copy;
+			}
+
 			blk = indirect_buf[pos_offset];
 		}
 		else{

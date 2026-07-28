@@ -247,6 +247,12 @@ class vector {
          */
         void clear();
 
+        /**
+         * Swap the contents with another vector in O(1) (pointer exchange).
+         * Enables cheap move construction/assignment for element types.
+         */
+        void swap(vector& other);
+
     private:
         T*          data_;      /**< The contiguous dynamic array */
         size_t      length_;    /**< The length of the array */
@@ -758,6 +764,19 @@ void vector<T>::clear() {
         data_[i].~T();
     }
     length_ = 0;
+}
+
+template <typename T>
+void vector<T>::swap(vector& other) {
+    T* tmpData = data_;
+    size_t tmpLength = length_;
+    size_t tmpCapacity = capacity_;
+    data_ = other.data_;
+    length_ = other.length_;
+    capacity_ = other.capacity_;
+    other.data_ = tmpData;
+    other.length_ = tmpLength;
+    other.capacity_ = tmpCapacity;
 }
 
 }

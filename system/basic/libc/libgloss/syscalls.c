@@ -610,6 +610,7 @@ _gettimeofday (struct timeval * tp, void * tzvp)
 	dbg_kout(__func__);
 	static uint32_t init_sec = 0;
 	static uint32_t init_sec_tic = 0;
+	static uint32_t last_try_tic = 0;
 
 	struct timezone *tzp = tzvp;
 	if (tp)
@@ -617,7 +618,18 @@ _gettimeofday (struct timeval * tp, void * tzvp)
 		uint64_t now_usec = get_kernel_usec();
 		uint32_t now_sec = now_usec / 1000000;
 
-		if(init_sec == 0 || (now_sec - init_sec_tic) > 600) {
+		int need_query = 0;
+		if(init_sec == 0) {
+			// Not yet synced: retry at most once every 5 seconds to avoid flooding timed.
+			if(last_try_tic == 0 || (now_sec - last_try_tic) >= 5)
+				need_query = 1;
+		}
+		else if((now_sec - init_sec_tic) > 600) {
+			need_query = 1;
+		}
+
+		if(need_query) {
+			last_try_tic = now_sec;
 			proto_t out;
 			PF->init(&out);
 			int res = -1;

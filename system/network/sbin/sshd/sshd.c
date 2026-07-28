@@ -61,6 +61,8 @@
 #define SSH_CHILD_STDIN_POLL_MS 5
 #define SSH_CHILD_READY_TIMEOUT_MS 2000
 #define SSH_SFTP_PENDING_HIGH_WATER (8*1024*1024)
+#define SSH_CLOSE_GRACE_POLL_MS 200
+#define SSH_CLOSE_GRACE_ROUNDS 5
 #define SSH_SERVER_VERSION      "SSH-2.0-EwokOS_sshd"
 #define SSH_HOST_KEY_PATH       "/etc/ssh_host_rsa_key.der"
 #define SSHD_MAX_TRACKED_WORKERS 128
@@ -707,12 +709,18 @@ static int ssh_read_n(sshd_session_t* s, void* buf, size_t len) {
                 continue;
             }
             if(saved_errno == EAGAIN || saved_errno == ETIMEDOUT) {
-                if(s->closing || s->sent_close) {
+                /*
+                 * We still need to read the peer's CHANNEL_CLOSE after we send
+                 * our own close. Treat only a hard session teardown as fatal
+                 * here; otherwise close-grace cannot consume fragmented final
+                 * packets and the connection falls back to an abrupt drop.
+                 */
+                if(s->closing) {
                     sshd_set_error("session closing");
                     return -1;
                 }
                 if(wait_session_fd_ready(s, s->socket, POLLIN) != 0) {
-                    if(s->closing || s->sent_close)
+                    if(s->closing)
                         sshd_set_error("session closing");
                     else
                         sshd_set_error("read wait failed: %s", strerror(errno));
@@ -1351,7 +1359,7 @@ static int receive_banner(sshd_session_t* s) {
         ssize_t n = read(s->socket, &c, 1);
         if(n < 0) {
             if(errno == EINTR || errno == EAGAIN || errno == ETIMEDOUT) {
-                if(s->closing || s->sent_close)
+                if(s->closing)
                     return -1;
                 if(wait_session_fd_ready(s, s->socket, POLLIN) != 0)
                     return -1;
@@ -1359,8 +1367,9 @@ static int receive_banner(sshd_session_t* s) {
             }
             return -1;
         }
-        if(n == 0)
+        if(n == 0) {
             return -1;
+        }
         if(c == '\r')
             continue;
         if(c == '\n')
@@ -1857,8 +1866,9 @@ static int handle_service_and_auth(sshd_session_t* s) {
     uint32_t user_len, service_len, method_len, password_len;
     size_t off;
 
-    if(ssh_packet_receive(s, &packet) < 0)
+    if(ssh_packet_receive(s, &packet) < 0) {
         return -1;
+    }
     if(packet.type != SSH_MSG_SERVICE_REQUEST)
         return -1;
 
@@ -1876,8 +1886,9 @@ static int handle_service_and_auth(sshd_session_t* s) {
         char username[SESSION_USER_MAX];
         char passwd[SESSION_PSWD_MAX];
 
-        if(ssh_packet_receive(s, &packet) < 0)
+        if(ssh_packet_receive(s, &packet) < 0) {
             return -1;
+        }
         if(packet.type != SSH_MSG_USERAUTH_REQUEST)
             return -1;
 
@@ -1887,7 +1898,6 @@ static int handle_service_and_auth(sshd_session_t* s) {
                 read_ssh_string(packet.payload, packet.payload_len, &off, &method, &method_len) < 0) {
             return -1;
         }
-
         if(service_len != strlen("ssh-connection") ||
                 memcmp(service, "ssh-connection", service_len) != 0) {
             if(send_userauth_failure(s, "password") < 0)
@@ -2061,15 +2071,6 @@ static int send_channel_data_packet(sshd_session_t* s, uint32_t extended_type,
         payload_len = ssh_console_copy_crlf(text_buf, sizeof(text_buf), data, len);
         payload = text_buf;
     }
-
-    // #region debug-point D:sshd-child-stdout
-    if(s->child_is_sftp && extended_type == 0 && payload_len > 0 && payload_len <= 128) {
-        klog("sftp-klog:sshd-child-stdout pid=%d len=%u first=%u\n",
-                (int)s->child_pid,
-                (unsigned int)payload_len,
-                (unsigned int)payload[0]);
-    }
-    // #endregion
 
     while(sent < payload_len && !s->closing) {
         ssh_packet_t packet;
@@ -2305,16 +2306,14 @@ static void* internal_sftp_thread(void* arg) {
     need_close = !s->sent_close;
     pthread_mutex_unlock(&s->state_lock);
     if(need_close) {
-        (void)send_channel_request_exit_status(s, rc == 0 ? 0 : 1);
-        (void)send_channel_eof_and_close(s);
+        if(send_channel_request_exit_status(s, rc == 0 ? 0 : 1) < 0 ||
+                send_channel_eof_and_close(s) < 0) {
+            pthread_mutex_lock(&s->state_lock);
+            s->closing = 1;
+            pthread_cond_broadcast(&s->remote_window_cv);
+            pthread_mutex_unlock(&s->state_lock);
+        }
     }
-    pthread_mutex_lock(&s->state_lock);
-    if(!s->closing) {
-        s->closing = 1;
-        pthread_cond_broadcast(&s->remote_window_cv);
-    }
-    pthread_mutex_unlock(&s->state_lock);
-    session_close_socket(s);
     return NULL;
 }
 
@@ -2341,8 +2340,9 @@ static void session_close_socket(sshd_session_t* s) {
         s->socket = -1;
     }
     pthread_mutex_unlock(&s->state_lock);
-    if(fd >= 0)
+    if(fd >= 0) {
         close(fd);
+    }
 }
 
 /*
@@ -2404,13 +2404,13 @@ static void drain_child_output(sshd_session_t* s) {
         /* EOF: shell exited */
         s->child_eof_seen = 1;
         close_fd_if_valid(&s->child_stdout[CHILD_STDOUT_READ]);
-        (void)send_channel_request_exit_status(s, 0);
-        (void)send_channel_eof_and_close(s);
-        pthread_mutex_lock(&s->state_lock);
-        s->closing = 1;
-        pthread_cond_broadcast(&s->remote_window_cv);
-        pthread_mutex_unlock(&s->state_lock);
-        session_close_socket(s);
+        if(send_channel_request_exit_status(s, 0) < 0 ||
+                send_channel_eof_and_close(s) < 0) {
+            pthread_mutex_lock(&s->state_lock);
+            s->closing = 1;
+            pthread_cond_broadcast(&s->remote_window_cv);
+            pthread_mutex_unlock(&s->state_lock);
+        }
         break;
     }
 }
@@ -2795,17 +2795,6 @@ static int flush_pending_input(sshd_session_t* s) {
                     (unsigned int)(s->pending_in_len - s->pending_in_off),
                     (unsigned int)s->win_adjust_owe);
             pthread_mutex_unlock(&s->state_lock);
-            // #region debug-point A:sshd-flush-stop
-            if(s->child_is_sftp) {
-                klog("sftp-klog:sshd-flush-stop pid=%d err=%d chunk=%u pending_before=%u pending_after=%u owe=%u\n",
-                        (int)s->child_pid,
-                        saved_errno,
-                        (unsigned int)chunk,
-                        (unsigned int)pending_before,
-                        (unsigned int)pending_input_bytes(s),
-                        (unsigned int)s->win_adjust_owe);
-            }
-            // #endregion
         }
         /* EAGAIN or error — stop for now */
         SSHD_DBG("flush_pending stop pid=%d n=%d err=%d off=%u len=%u chunk=%u\n",
@@ -2820,16 +2809,6 @@ static int flush_pending_input(sshd_session_t* s) {
         uint32_t grant = s->child_is_sftp ?
                 sftp_credit_on_drain(pending_before, (size_t)drained) :
                 (uint32_t)drained;
-        // #region debug-point B:sshd-flush-drained
-        if(s->child_is_sftp && (pending_before >= 32768 || drained >= 32768 || grant >= 32768)) {
-            klog("sftp-klog:sshd-flush-drained pid=%d drained=%u grant=%u pending_before=%u pending_after=%u\n",
-                    (int)s->child_pid,
-                    (unsigned int)drained,
-                    (unsigned int)grant,
-                    (unsigned int)pending_before,
-                    (unsigned int)pending_input_bytes(s));
-        }
-        // #endregion
         pthread_mutex_lock(&s->state_lock);
         s->win_adjust_owe += grant;
         if(drained >= 4096 || grant >= 4096 || s->win_adjust_owe >= SSH_WINDOW_ADJUST_MIN) {
@@ -3053,15 +3032,6 @@ static int try_send_window_adjust(sshd_session_t* s) {
         pthread_mutex_unlock(&s->send_lock);
         return -1;
     }
-    // #region debug-point C:sshd-window-adjust
-    if(s->child_is_sftp && delta >= 32768) {
-        klog("sftp-klog:sshd-adjust-send pid=%d delta=%u local_before=%u remote=%u\n",
-                (int)s->child_pid,
-                (unsigned int)delta,
-                (unsigned int)local_window,
-                (unsigned int)sshd_remote_window_load(s));
-    }
-    // #endregion
     pthread_mutex_lock(&s->state_lock);
     s->local_window += delta;
     s->win_adjust_owe -= delta;
@@ -3191,8 +3161,34 @@ static int dispatch_session_packet(sshd_session_t* s, const ssh_packet_t* packet
 static int handle_session_packets(sshd_session_t* s) {
     ssh_packet_t packet;
     int rc = 0;
+    int close_grace_rounds = 0;
 
-    while(!s->sent_close && !s->closing) {
+    while(!s->closing) {
+        if(s->sent_close) {
+            int ev = wait_session_events(s, SSH_CLOSE_GRACE_POLL_MS);
+
+            if(ev < 0)
+                break;
+            if(ev == 0) {
+                close_grace_rounds++;
+                if(close_grace_rounds >= SSH_CLOSE_GRACE_ROUNDS)
+                    break;
+                continue;
+            }
+            close_grace_rounds = 0;
+            if(ev & SESSION_EVT_SOCKET) {
+                if(ssh_packet_receive(s, &packet) < 0)
+                    break;
+                if(dispatch_session_packet(s, &packet) < 0) {
+                    rc = -1;
+                    break;
+                }
+                if(s->peer_close)
+                    break;
+            }
+            continue;
+        }
+
         /* Send deferred WINDOW_ADJUST if owed */
         try_send_window_adjust(s);
 
@@ -3486,22 +3482,28 @@ static int serve_client(int sock) {
         goto out;
     }
     SSHD_DBG("serve_client banner_recv sock=%d client=%s\n", sock, session->client_version);
-    if(receive_kexinit(session) < 0)
+    if(receive_kexinit(session) < 0) {
         goto out;
-    if(send_kexinit(session) < 0)
+    }
+    if(send_kexinit(session) < 0) {
         goto out;
-    if(do_key_exchange(session) < 0)
+    }
+    if(do_key_exchange(session) < 0) {
         goto out;
-    if(handle_service_and_auth(session) < 0)
+    }
+    if(handle_service_and_auth(session) < 0) {
         goto out;
-    if(handle_session_packets(session) < 0)
+    }
+    if(handle_session_packets(session) < 0) {
         goto out;
+    }
 
     ret = 0;
 
 out:
-    if(ret < 0 && session->socket >= 0)
+    if(ret < 0 && session->socket >= 0) {
         send_disconnect(session, SSH_DISCONNECT_BY_APPLICATION, g_error[0] ? g_error : "sshd error");
+    }
     SSHD_DBG("serve_client done sock=%d ret=%d err=%s\n", sock, ret,
             g_error[0] ? g_error : "none");
     session_destroy(session);

@@ -194,7 +194,7 @@ int vfs_get_by_fd(int fd, fsinfo_t* info) {
 		memcpy(info, &buffer->info, sizeof(fsinfo_t));
 		return 0;
 	}
-	return -1;
+        return -1;
 }
 
 int vfs_set_by_fd(int fd, fsinfo_t* info) {

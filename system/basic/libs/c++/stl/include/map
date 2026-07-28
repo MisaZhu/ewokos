@@ -180,6 +180,20 @@ class map {
             size_ = 0;
         }
 
+        /* O(1) swap: the sentinel travels with the tree (nodes point at
+           their own nil_), so all three members exchange together. */
+        void swap(map& other) {
+            map_node<value_type>* tmpRoot = root_;
+            map_node<value_type>* tmpNil = nil_;
+            size_type tmpSize = size_;
+            root_ = other.root_;
+            nil_ = other.nil_;
+            size_ = other.size_;
+            other.root_ = tmpRoot;
+            other.nil_ = tmpNil;
+            other.size_ = tmpSize;
+        }
+
         iterator find(const Key& key) {
             map_node<value_type>* current = root_;
             while (current != nil_) {
@@ -320,16 +334,6 @@ class map {
             insert(val);
             iterator it = find(key);
             return it->second;
-        }
-
-        void swap(map& other) {
-            map_node<value_type>* temp_root = root_;
-            root_ = other.root_;
-            other.root_ = temp_root;
-
-            size_t temp_size = size_;
-            size_ = other.size_;
-            other.size_ = temp_size;
         }
 
     private:

@@ -6,7 +6,6 @@
 #include <sys/time.h>
 #include <ewoksys/klog.h>
 #include <ewoksys/vfs.h>
-#include <ewoksys/kernel_tic.h>
 
 #include "../platform.h"
 
@@ -50,6 +49,8 @@
 #define TCP_TIMEWAIT_SEC 30 /* substitute for 2MSL */
 #define TCP_RETRANSMIT_QUEUE_MAX 32 /* max queued segments per connection */
 #define TCP_PERSIST_RTO_MAX 60000000 /* max persist backoff: 60 seconds */
+#define TCP_DELACK_TIMEOUT_USEC 40000 /* RFC 1122 delayed-ACK ceiling */
+#define TCP_DELACK_SEGS 2 /* ACK every 2nd in-order data segment */
 
 #define TCP_SOURCE_PORT_MIN 49152
 #define TCP_SOURCE_PORT_MAX 65535
@@ -127,6 +128,9 @@ struct tcp_pcb {
     struct timeval persist_timer; /* zero-window probe timer */
     unsigned int persist_rto;    /* current persist backoff (usec) */
     uint8_t persist_probing;     /* persist timer armed */
+    uint8_t delack_pending;      /* delayed ACK armed (RFC 1122) */
+    uint8_t delack_count;        /* in-order segs awaiting ACK */
+    struct timeval delack_timer; /* first unacked seg arrival time */
     struct tcp_pcb *parent;
     struct queue_head backlog;
 };
@@ -155,6 +159,32 @@ static inline void tcp_sched_interrupt_all(struct tcp_pcb *pcb)
     sched_interrupt(&pcb->state_ctx);
     sched_interrupt(&pcb->send_ctx);
     sched_interrupt(&pcb->recv_ctx);
+}
+
+static int
+tcp_due_from_deadline(const struct timeval *now, const struct timeval *deadline)
+{
+    struct timeval diff;
+
+    if (timercmp(deadline, now, <=) != 0) {
+        return 0;
+    }
+    timersub(deadline, now, &diff);
+    if (diff.tv_sec > INT32_MAX / 1000000) {
+        return INT32_MAX;
+    }
+    return (int)(diff.tv_sec * 1000000 + diff.tv_usec);
+}
+
+static void
+tcp_due_track_min(int *min_due_us, int due_us)
+{
+    if (due_us < 0) {
+        return;
+    }
+    if (*min_due_us < 0 || due_us < *min_due_us) {
+        *min_due_us = due_us;
+    }
 }
 
 static int
@@ -425,7 +455,14 @@ tcp_retransmit_queue_cleanup(struct tcp_pcb *pcb)
     struct tcp_queue_entry *entry;
 
     while ((entry = queue_peek(&pcb->queue))) {
-        if (entry->seq >= pcb->snd.una) {
+        /*
+         * Serial (mod 2^32) comparison. iss = random(), so snd.una can wrap
+         * within a session; a raw `entry->seq >= pcb->snd.una` then keeps
+         * fully-ACKed entries queued forever, the queue sticks at
+         * TCP_RETRANSMIT_QUEUE_MAX, every send returns EAGAIN and the
+         * connection stalls permanently while probe/wake churn spins netd.
+         */
+        if ((int32_t)(entry->seq - pcb->snd.una) >= 0) {
             break;
         }
         entry = queue_pop(&pcb->queue);
@@ -867,6 +904,14 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
     case TCP_PCB_STATE_CLOSING:
         if (pcb->snd.una <= seg->ack && seg->ack <= pcb->snd.nxt) {
             int ack_advanced = pcb->snd.una < seg->ack;
+            /*
+             * Snapshot writability (same formula as tcp_writable(): window
+             * capacity AND retransmit-queue room) before this ACK mutates
+             * snd.una/snd.wnd/queue, so the wakeup below can fire on the
+             * blocked->writable EDGE only.
+             */
+            int was_writable = ((pcb->snd.nxt - pcb->snd.una) < pcb->snd.wnd) &&
+                               (pcb->queue.num < TCP_RETRANSMIT_QUEUE_MAX);
 
             pcb->snd.una = seg->ack;
             if (ack_advanced) {
@@ -888,12 +933,27 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
              * no longer blocks the netd worker, raise VFS_EVT_WR so a client
              * that returned EAGAIN and blocked on write can retry its send.
              * Mirrors task_wakeup_tcp_readers() on the RECV path.
+             *
+             * Writability must include the retransmit-queue-room condition
+             * (tcp_send()/tcp_writable() gate on it too): waking while the
+             * queue is still full just makes the client retry into another
+             * EAGAIN, and the disarm+rearm below would keep resetting the
+             * persist backoff to its minimum -- a perpetual probe/wake/retry
+             * churn. Fire the VFS wakeup only on the blocked->writable edge;
+             * an ACK stream with the window already open must not emit one
+             * reverse IPC per segment (wakeup storm on the shared /dev/net0
+             * node). Level-triggered rechecks (check_poll_events and the
+             * worker's post-EAGAIN sock_writable() recheck) cover the races.
              */
             {
                 uint32_t inflight_now = pcb->snd.nxt - pcb->snd.una;
-                if (inflight_now < pcb->snd.wnd) {
+                int now_writable = (inflight_now < pcb->snd.wnd) &&
+                                   (pcb->queue.num < TCP_RETRANSMIT_QUEUE_MAX);
+                if (now_writable) {
                     tcp_persist_disarm(pcb);
-                    task_wakeup_tcp_writers(indexof(pcbs, pcb));
+                    if (!was_writable) {
+                        task_wakeup_tcp_writers(indexof(pcbs, pcb));
+                    }
                 }
             }
         } else if (seg->ack < pcb->snd.una) {
@@ -982,8 +1042,32 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
                 memcpy(pcb->buf + (sizeof(pcb->buf) - pcb->rcv.wnd), data + copy_off, copy_len);
                 pcb->rcv.nxt += copy_len;
                 pcb->rcv.wnd -= copy_len;
+                /*
+                 * RFC 1122 delayed ACK: acknowledge every TCP_DELACK_SEGS-th
+                 * in-order segment, or after TCP_DELACK_TIMEOUT_USEC. On the
+                 * raspix WLAN link every pure ACK costs a full SDIO TX frame
+                 * (~0.5ms of bus time plus one TX credit), so immediate ACKs
+                 * burn ~1/3 of the bus during downloads.
+                 */
+                pcb->delack_count++;
+                if (pcb->delack_count >= TCP_DELACK_SEGS) {
+                    pcb->delack_pending = 0;
+                    pcb->delack_count = 0;
+                    tcp_output(pcb, TCP_FLG_ACK, NULL, 0);
+                } else if (!pcb->delack_pending) {
+                    pcb->delack_pending = 1;
+                    gettimeofday(&pcb->delack_timer, NULL);
+                }
+            } else {
+                /*
+                 * Dup/out-of-window segment: RFC 1122 requires an immediate
+                 * ACK so the sender can fast-retransmit; also the correct
+                 * zero-window probe response.
+                 */
+                pcb->delack_pending = 0;
+                pcb->delack_count = 0;
+                tcp_output(pcb, TCP_FLG_ACK, NULL, 0);
             }
-            tcp_output(pcb, TCP_FLG_ACK, NULL, 0);
             tcp_sched_wakeup_all(pcb);
             task_wakeup_tcp_readers(indexof(pcbs, pcb));
         }
@@ -1008,6 +1092,9 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
             return;
         }
         pcb->rcv.nxt = seg->seq + 1;
+        /* FIN gets an immediate ACK; drop any pending delayed ACK. */
+        pcb->delack_pending = 0;
+        pcb->delack_count = 0;
         tcp_output(pcb, TCP_FLG_ACK, NULL, 0);
         switch (pcb->state) {
         case TCP_PCB_STATE_SYN_RECEIVED:
@@ -1157,30 +1244,55 @@ tcp_timer(void)
                 task_wakeup_tcp_writers(indexof(pcbs, pcb));
             }
         }
+        /* Delayed-ACK timer: flush a pending ACK after the 40ms ceiling. */
+        if (pcb->delack_pending &&
+            (pcb->state == TCP_PCB_STATE_ESTABLISHED ||
+             pcb->state == TCP_PCB_STATE_CLOSE_WAIT)) {
+            struct timeval deadline = pcb->delack_timer;
+            timeval_add_usec(&deadline, TCP_DELACK_TIMEOUT_USEC);
+            if (timercmp(&now, &deadline, >) != 0) {
+                pcb->delack_pending = 0;
+                pcb->delack_count = 0;
+                tcp_output(pcb, TCP_FLG_ACK, NULL, 0);
+            }
+        }
     }
     debugf("tcp_timer: finished");
     mutex_unlock(&mutex);
 }
 
-static void
+static int
 event_handler(void *arg)
 {
     struct tcp_pcb *pcb;
+    int handled = 0;
+
+    (void)arg;
 
     mutex_lock(&mutex);
     for (pcb = pcbs; pcb < tailof(pcbs); pcb++) {
         if (pcb->state != TCP_PCB_STATE_FREE &&
                 (pcb->state_ctx.sleeping || pcb->send_ctx.sleeping || pcb->recv_ctx.sleeping)) {
             tcp_sched_interrupt_all(pcb);
+            handled++;
         }
     }
     mutex_unlock(&mutex);
+    return handled;
 }
 
 int
 tcp_init(void)
 {
-    struct timeval interval = {0,1000};
+    /*
+     * A 1ms global TCP timer forces netd to rescan every PCB at kHz rate even
+     * when the nearest real deadline is tens of milliseconds away (delayed ACK
+     * 40ms, default RTO 200ms, persist/time-wait much larger). Under
+     * telnetd/sshd load this keeps both netd worker threads in RUN and starves
+     * IPC responsiveness. 10ms is still comfortably below the smallest real TCP
+     * deadline we use and removes the synthetic spin.
+     */
+    struct timeval interval = {0,10000};
 
     if (ip_protocol_register("TCP", IP_PROTOCOL_TCP, tcp_input) == -1) {
         errorf("ip_protocol_register() failure");
@@ -1556,6 +1668,12 @@ tcp_writable(int id)
         pcb->state == TCP_PCB_STATE_CLOSE_WAIT) {
         inflight = pcb->snd.nxt - pcb->snd.una;
         writable = (inflight < pcb->snd.wnd) ? 1 : 0;
+        if (writable && pcb->queue.num >= TCP_RETRANSMIT_QUEUE_MAX) {
+            /* tcp_send() also stops when the retransmit queue is full;
+             * report not-writable as well or poll()-driven clients
+             * busy-spin on EAGAIN instead of blocking for the wakeup. */
+            writable = 0;
+        }
     }
     mutex_unlock(&mutex);
     return writable;
@@ -1570,13 +1688,59 @@ tcp_timer_active(void)
     mutex_lock(&mutex);
     for (pcb = pcbs; pcb < tailof(pcbs); pcb++) {
         if (pcb->state == TCP_PCB_STATE_TIME_WAIT || pcb->queue.num > 0 ||
-            pcb->persist_probing) {
+            pcb->persist_probing || pcb->delack_pending) {
             active = 1;
             break;
         }
     }
     mutex_unlock(&mutex);
     return active;
+}
+
+int
+tcp_timer_due_us(void)
+{
+    int min_due_us = -1;
+    struct tcp_pcb *pcb;
+    struct timeval now;
+
+    gettimeofday(&now, NULL);
+    mutex_lock(&mutex);
+    for (pcb = pcbs; pcb < tailof(pcbs); pcb++) {
+        struct tcp_queue_entry *entry;
+
+        if (pcb->state == TCP_PCB_STATE_FREE) {
+            continue;
+        }
+
+        if (pcb->state == TCP_PCB_STATE_TIME_WAIT) {
+            tcp_due_track_min(&min_due_us, tcp_due_from_deadline(&now, &pcb->tw_timer));
+        }
+
+        entry = queue_peek(&pcb->queue);
+        if (entry) {
+            struct timeval timeout = entry->last;
+
+            timeval_add_usec(&timeout, entry->rto);
+            tcp_due_track_min(&min_due_us, tcp_due_from_deadline(&now, &timeout));
+        }
+
+        if (pcb->persist_probing &&
+            (pcb->state == TCP_PCB_STATE_ESTABLISHED ||
+             pcb->state == TCP_PCB_STATE_CLOSE_WAIT)) {
+            tcp_due_track_min(&min_due_us, tcp_due_from_deadline(&now, &pcb->persist_timer));
+        }
+
+        if (pcb->delack_pending &&
+            (pcb->state == TCP_PCB_STATE_ESTABLISHED ||
+             pcb->state == TCP_PCB_STATE_CLOSE_WAIT)) {
+            struct timeval deadline = pcb->delack_timer;
+            timeval_add_usec(&deadline, TCP_DELACK_TIMEOUT_USEC);
+            tcp_due_track_min(&min_due_us, tcp_due_from_deadline(&now, &deadline));
+        }
+    }
+    mutex_unlock(&mutex);
+    return min_due_us;
 }
 
 int
@@ -1703,6 +1867,19 @@ RETRY:
             } else {
                 cap = pcb->snd.wnd - inflight;
             }
+            if (cap && pcb->queue.num >= TCP_RETRANSMIT_QUEUE_MAX) {
+                /*
+                 * Retransmit queue full. Sending more would emit segments
+                 * with no retransmission backing; a single loss of such a
+                 * segment permanently stalls snd.una (cumulative ACKs can't
+                 * pass the hole, and the segment is never resent) - the
+                 * raspix scp stall. Stop pipelining exactly like a closed
+                 * window: the ACK path frees slots and wakes writers, and
+                 * RTO retransmits of backed entries are the backstop when
+                 * ACKs pause.
+                 */
+                cap = 0;
+            }
             if (!cap) {
                 /*
                  * Send window is closed. Do NOT sched_sleep() here: this runs
@@ -1713,8 +1890,17 @@ RETRY:
                  * when nothing was sent, and let the client block on VFS_EVT_WR.
                  * The window-open ACK path calls task_wakeup_tcp_writers() to
                  * raise VFS_EVT_WR and resume the client.
+                 *
+                 * Arm the persist probe ONLY for a genuinely closed window: the
+                 * probe exists to elicit a window update the peer may have
+                 * lost. A queue-full stall with an open window is not a window
+                 * stall -- the RTO retransmit path plus ACK-driven cleanup are
+                 * its backstop, and probing there only triggers dup-ACKs that
+                 * churn wakeups and keep resetting the persist backoff.
                  */
-                tcp_persist_arm(pcb);
+                if (inflight >= pcb->snd.wnd) {
+                    tcp_persist_arm(pcb);
+                }
                 if (sent > 0) {
                     break;
                 }

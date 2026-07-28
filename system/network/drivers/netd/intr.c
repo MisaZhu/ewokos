@@ -105,8 +105,9 @@ int intr_poll_once(void) {
         handled = 1;
     }
     while (softirq_take(SIGINT)) {
-        net_event_handler();
-        handled = 1;
+        if (net_event_handler() > 0) {
+            handled = 1;
+        }
     }
     for (entry = irq_vec; entry; entry = entry->next) {
         if (entry->irq == SIGIRQ && entry->handler(entry->irq, entry->dev) == 0) {
@@ -124,7 +125,6 @@ int intr_poll_once(void) {
 
 void intr_protocol_loop(void) {
     uint32_t sleep_us = NETD_BUSY_SLEEP_US;
-
     while (1) {
         int more_pending = 0;
 
@@ -159,15 +159,17 @@ void intr_protocol_loop(void) {
 void intr_loop(void) {
 	struct irq_entry *entry;
     uint32_t sleep_us = NETD_BUSY_SLEEP_US;
+    uint32_t tap_rounds = 0;
     while(1){
-        int had_signal = 0;
+        int event_ready = 0;
         int tap_pending = 0;
         int task_ready = 0;
-        int tcp_timer_busy = 0;
+        int tcp_timer_due = -1;
 
         while(softirq_take(SIGINT)){
-            had_signal = 1;
-            net_event_handler();
+            if (net_event_handler() > 0) {
+                event_ready = 1;
+            }
         }
         for (entry = irq_vec; entry; entry = entry->next) {
             if (entry->irq == SIGIRQ) {
@@ -181,22 +183,39 @@ void intr_loop(void) {
 
         kernel_tic(NULL, NULL);
 
-        tcp_timer_busy = tcp_timer_active();
+        tcp_timer_due = tcp_timer_due_us();
 
-        if (had_signal || tap_pending || task_ready) {
+        if (event_ready || task_ready) {
             sleep_us = NETD_BUSY_SLEEP_US;
-        } else if (tcp_timer_busy) {
-            if (sleep_us < NETD_IDLE_SLEEP_MAX_US) {
+        } else if (tap_pending) {
+            /*
+             * Keep the fast cadence for normal RX throughput, and only apply a
+             * very small backoff after many consecutive tap-only rounds. The
+             * previous hard 4ms pacing fixed spin but cut throughput too much.
+             */
+            if (tap_rounds >= 64 && sleep_us < 2000U) {
+                sleep_us = 2000U;
+            } else {
+                sleep_us = NETD_BUSY_SLEEP_US;
+            }
+            tap_rounds++;
+        } else if (tcp_timer_due >= 0) {
+            if (tcp_timer_due == 0) {
+                sleep_us = NETD_BUSY_SLEEP_US;
+            } else {
                 /*
-                 * Active TCP timers (retransmit/TIME_WAIT) still need a
-                 * relatively tight polling cadence, but idle acceptors do not.
+                 * Sleep until the nearest TCP timer deadline instead of
+                 * spinning at a synthetic fixed cadence whenever any timer
+                 * exists (TIME_WAIT, delayed ACK, persist, retransmit).
                  */
-                sleep_us += NETD_IDLE_SLEEP_STEP_US;
-                if (sleep_us > NETD_IDLE_SLEEP_MAX_US) {
-                    sleep_us = NETD_IDLE_SLEEP_MAX_US;
-                }
+                sleep_us = (uint32_t)tcp_timer_due;
+                if (sleep_us < NETD_BUSY_SLEEP_US)
+                    sleep_us = NETD_BUSY_SLEEP_US;
+                if (sleep_us > NETD_DEEP_IDLE_SLEEP_MAX_US)
+                    sleep_us = NETD_DEEP_IDLE_SLEEP_MAX_US;
             }
         } else if (sleep_us < NETD_DEEP_IDLE_SLEEP_MAX_US) {
+            tap_rounds = 0;
             /*
              * TCP timers are evaluated against wall-clock time in
              * net_timer_handler(), so keeping the loop pinned at 1ms whenever a

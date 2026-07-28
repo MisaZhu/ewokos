@@ -104,6 +104,7 @@ net_raw_protocol_interested(uint16_t type, const uint8_t *data, size_t len)
 }
 
 static mutex_t protocol_queue_mutex = MUTEX_INITIALIZER;
+#define NET_PROTOCOL_BATCH 64U
 
 struct net_protocol {
     struct net_protocol *next;
@@ -129,7 +130,7 @@ struct net_timer {
 
 struct net_event {
     struct net_event *next;
-    void (*handler)(void *arg);
+    int (*handler)(void *arg);
     void *arg;
 };
 
@@ -364,22 +365,53 @@ net_protocol_handler(void)
 {
     struct net_protocol *proto;
     struct net_protocol_queue_entry *entry;
+    unsigned int handled = 0;
+    int more_pending = 0;
 
+    /*
+     * Drain protocol work in bounded batches. Under telnetd/sshd load the tap
+     * ISR can keep enqueueing frames fast enough that a full-queue drain never
+     * yields, pinning the protocol thread in RUN and starving netd's IPC
+     * dispatch responsiveness. Process a limited batch, then re-arm SIGNET if
+     * any queue still has work so the next loop can continue fairly.
+     */
     for (proto = protocols; proto; proto = proto->next) {
-        while (1) {
+        while (handled < NET_PROTOCOL_BATCH) {
             mutex_lock(&protocol_queue_mutex);
             entry = queue_pop(&proto->queue);
-            mutex_unlock(&protocol_queue_mutex);
-            if (!entry) {
+            if (entry == NULL) {
+                mutex_unlock(&protocol_queue_mutex);
                 break;
             }
+            more_pending |= (proto->queue.num != 0);
+            mutex_unlock(&protocol_queue_mutex);
+
             debugf("queue popped, dev=%s, type=0x%04x, len=%zd", entry->dev->name, proto->type, entry->len);
             //debugdump((uint8_t *)(entry+1), entry->len);
             proto->handler((uint8_t *)(entry+1), entry->len, entry->dev);
             free(entry);
+            handled++;
+        }
+        if (handled >= NET_PROTOCOL_BATCH) {
+            break;
         }
     }
-    return 0;
+
+    if (!more_pending) {
+        mutex_lock(&protocol_queue_mutex);
+        for (proto = protocols; proto; proto = proto->next) {
+            if (proto->queue.num != 0) {
+                more_pending = 1;
+                break;
+            }
+        }
+        mutex_unlock(&protocol_queue_mutex);
+    }
+
+    if (more_pending) {
+        raise_softirq(SIGNET);
+    }
+    return (int)handled;
 }
 
 /* NOTE: must not be call after net_run() */
@@ -431,7 +463,7 @@ net_interrupt(void)
 
 /* NOTE: must not be call after net_run() */
 int
-net_event_subscribe(void (*handler)(void *arg), void *arg)
+net_event_subscribe(int (*handler)(void *arg), void *arg)
 {
     struct net_event *event;
 
@@ -451,11 +483,12 @@ int
 net_event_handler(void)
 {
     struct net_event *event;
+    int handled = 0;
 
     for (event = events; event; event = event->next) {
-        event->handler(event->arg);
+        handled += event->handler(event->arg);
     }
-    return 0;
+    return handled;
 }
 
 void *net_thread(void* p)

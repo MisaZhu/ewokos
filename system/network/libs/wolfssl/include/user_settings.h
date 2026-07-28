@@ -17,6 +17,11 @@
 #define FP_MAX_BITS 4096
 #define TFM_TIMING_RESISTANT
 
+/* AES-GCM (required for TLS 1.3 TLS_AES_128_GCM_SHA256 / TLS_AES_256_GCM_SHA384) */
+#define HAVE_AESGCM
+#define WOLFSSL_SHA384
+#define WOLFSSL_SHA512
+
 /* Disable single precision math (sp_int) - has issues with 64-bit */
 /* #define WOLFSSL_SP_MATH_ALL */
 /* #define WOLFSSL_SP_SMALL */
@@ -31,6 +36,10 @@
 #define OPENSSL_ALL
 #define HAVE_OPENSSL
 
+/* TLS 1.3 (required for modern servers) */
+#define WOLFSSL_TLS13
+#define WOLFSSL_TLS13_MIDDLEBOX_COMPAT
+
 /* Enable all OpenSSL compatibility functions */
 #define HAVE_ECC
 #define HAVE_CURVE25519
@@ -39,6 +48,8 @@
 /* #define HAVE_ED25519 */ /* Requires WOLFSSL_SHA512 */
 #define HAVE_RSA
 #define HAVE_DH
+#define HAVE_FFDHE_2048
+#define HAVE_PUBLIC_FFDHE
 
 /* ECC settings - required for EC_KEY_* functions */
 #define ECC_SHAMIR
@@ -110,6 +121,8 @@ int ewokos_generate_seed(unsigned char* output, unsigned int sz);
 /* SNI (Server Name Indication) */
 #define HAVE_TLS_EXTENSIONS
 #define HAVE_SNI
+#define HAVE_SUPPORTED_CURVES
+#define HAVE_EXTENDED_MASTER
 
 /* ALPN */
 #define HAVE_ALPN

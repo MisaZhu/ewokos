@@ -130,72 +130,165 @@ static int write_all_nb(int fd, const uint8_t *buf, size_t len) {
     return 0;
 }
 
+static int set_fd_nonblock(int fd) {
+    int flags;
+
+    if(fd < 0)
+        return -1;
+    flags = fcntl(fd, F_GETFL, 0);
+    if(flags < 0)
+        return -1;
+    if((flags & O_NONBLOCK) != 0)
+        return 0;
+    return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+}
+
+static int telnet_flush_input_pending(int input_write_fd,
+        uint8_t *pending, size_t *pending_off, size_t *pending_len) {
+    while(*pending_off < *pending_len) {
+        ssize_t ret = write(input_write_fd, pending + *pending_off,
+                *pending_len - *pending_off);
+        if(ret > 0) {
+            *pending_off += (size_t)ret;
+            continue;
+        }
+        if(ret < 0 && errno == EINTR)
+            continue;
+        if(ret < 0 && errno == EAGAIN)
+            return 0;
+        return -1;
+    }
+    *pending_off = 0;
+    *pending_len = 0;
+    return 1;
+}
+
 /*
- * Single-task relay: pump shell stdout -> socket.
+ * Single-task relay: keep the network socket inside telnetd and expose only
+ * pipe-backed stdio to /bin/login and its descendants.
  *
- * The input direction needs no relay at all: the client socket is used
- * directly as the shell's stdin and both /bin/login and /bin/shell strip
- * telnet protocol (IAC negotiation + CR translation) themselves when
- * CONSOLE_ID=telnet.
+ * This mirrors sshd's isolation model: shell command children inherit pipes
+ * instead of the raw socket, so fork()/exec() no longer duplicates netd fds
+ * through VFS_PROC_CLONE/FS_CMD_DUP and cannot stall unrelated sessions.
  *
- * The relay must never outlive the login session. Its normal exit path is
- * pipe EOF (vfsd reaps the shell's write ends), but that chain crosses
- * core's polled kevent queue and vfsd's deferred zombie cleanup; a lost
- * step there would park this task on the pipe forever and leak the netd
- * connection task. So instead of a bare blocking read, poll with a timeout
- * (one cheap wakeup per second, no idle busy loop) and watchdog the shell
- * pid: once the shell is gone, drain whatever output remains and exit.
+ * The shell/login side still parses telnet protocol itself (raw bytes are
+ * forwarded into input_write_fd), while protocol replies emitted through
+ * VFS_BACKUP_FD1 are delivered over control_read_fd and written to the socket
+ * verbatim.
  */
-static void telnet_output_relay(int clnt_sock, int output_read_fd, int shell_pid) {
+static void telnet_session_relay(int clnt_sock, int input_write_fd,
+        int output_read_fd, int control_read_fd, int shell_pid) {
     telnet_relay_t relay;
+    uint8_t pending_in[BUF_SIZE * 4];
     uint8_t buf[BUF_SIZE];
     uint8_t outbuf[BUF_SIZE * 2];
+    size_t pending_in_off = 0;
+    size_t pending_in_len = 0;
     memset(&relay, 0, sizeof(relay));
     relay.clnt_sock = clnt_sock;
 
-    /* The relay task must only ever park on the pipe node, never on the
-     * socket node (kernel wakeups are per-node), so keep the socket
-     * non-blocking; write_all_nb() waits on POLLOUT when the window is full. */
-    int flags = fcntl(clnt_sock, F_GETFL, 0);
-    if(flags >= 0)
-        fcntl(clnt_sock, F_SETFL, flags | O_NONBLOCK);
+    /* The relay must never park indefinitely on either side. */
+    (void)set_fd_nonblock(clnt_sock);
+    (void)set_fd_nonblock(input_write_fd);
 
     bool shell_dead = false;
     while(1) {
         if(!shell_dead && shell_pid > 0 && proc_get_uuid(shell_pid) == 0)
             shell_dead = true;
 
-        struct pollfd pfd;
-        pfd.fd = output_read_fd;
-        pfd.events = POLLIN;
-        pfd.revents = 0;
-        int pr = poll(&pfd, 1, shell_dead ? 200 : 1000);
-        if(pr > 0 && (pfd.revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) != 0) {
+        struct pollfd pfds[4];
+        nfds_t nfds = 0;
+
+        pfds[nfds].fd = clnt_sock;
+        pfds[nfds].events = POLLIN;
+        pfds[nfds].revents = 0;
+        nfds++;
+
+        pfds[nfds].fd = output_read_fd;
+        pfds[nfds].events = POLLIN;
+        pfds[nfds].revents = 0;
+        nfds++;
+
+        pfds[nfds].fd = control_read_fd;
+        pfds[nfds].events = POLLIN;
+        pfds[nfds].revents = 0;
+        nfds++;
+
+        if(pending_in_off < pending_in_len) {
+            pfds[nfds].fd = input_write_fd;
+            pfds[nfds].events = POLLOUT;
+            pfds[nfds].revents = 0;
+            nfds++;
+        }
+
+        int pr = poll(pfds, nfds, shell_dead ? 200 : 1000);
+        if(pr < 0)
+            break;
+
+        if(pr > 0 && (pfds[1].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) != 0) {
             errno = 0;
             ssize_t ret = read(output_read_fd, buf, sizeof(buf));
             if(ret > 0) {
                 size_t out_len = telnet_encode_output(&relay, outbuf, buf, (size_t)ret);
                 if(out_len > 0 && write_all_nb(clnt_sock, outbuf, out_len) != 0)
                     break;
-                continue;
+            } else if(ret < 0 && errno == EINTR) {
+            } else {
+                /* Shell exited (pipe EOF) or pipe error: flush a trailing CR and finish. */
+                shell_dead = true;
             }
-            if(ret < 0 && errno == EINTR)
-                continue;
-            /* Shell exited (pipe EOF) or pipe error: flush a trailing CR and finish. */
-            (void)telnet_flush_output_tail(&relay);
-            break;
         }
-        if(pr < 0)
-            break;
+
+        if(pr > 0 && (pfds[2].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) != 0) {
+            errno = 0;
+            ssize_t ret = read(control_read_fd, buf, sizeof(buf));
+            if(ret > 0) {
+                if(write_all_nb(clnt_sock, buf, (size_t)ret) != 0)
+                    break;
+            } else if(ret < 0 && errno == EINTR) {
+            } else {
+                shell_dead = true;
+            }
+        }
+
+        if(pr > 0 && pending_in_off < pending_in_len) {
+            struct pollfd* in_pfd = &pfds[nfds - 1];
+            if((in_pfd->revents & (POLLOUT | POLLHUP | POLLERR | POLLNVAL)) != 0) {
+                int flush_rc = telnet_flush_input_pending(input_write_fd,
+                        pending_in, &pending_in_off, &pending_in_len);
+                if(flush_rc < 0)
+                    break;
+            }
+        }
+
+        if(pr > 0 && (pfds[0].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) != 0) {
+            if(pending_in_len < sizeof(pending_in)) {
+                errno = 0;
+                ssize_t ret = read(clnt_sock, pending_in + pending_in_len,
+                        sizeof(pending_in) - pending_in_len);
+                if(ret > 0) {
+                    pending_in_len += (size_t)ret;
+                    if(telnet_flush_input_pending(input_write_fd,
+                                    pending_in, &pending_in_off, &pending_in_len) < 0)
+                        break;
+                } else if(ret < 0 && (errno == EINTR || errno == EAGAIN)) {
+                } else {
+                    break;
+                }
+            }
+        }
+
         /* Poll timeout: with the shell gone and nothing left to forward,
          * leave so the socket ref returns and netd can release the task. */
-        if(shell_dead) {
+        if(shell_dead && pending_in_off >= pending_in_len) {
             (void)telnet_flush_output_tail(&relay);
             break;
         }
     }
 
+    close_fd_if_valid(&input_write_fd);
     close_fd_if_valid(&output_read_fd);
+    close_fd_if_valid(&control_read_fd);
     close_fd_if_valid(&clnt_sock);
 }
 
@@ -348,10 +441,12 @@ static void become_login_process(
         int serv_sock,
         int clnt_sock,
         int input_pipe[2],
-        int output_pipe[2]) {
+        int output_pipe[2],
+        int control_pipe[2]) {
     close_fd_if_valid(&serv_sock);
     int input_fd = clnt_sock;
     int output_fd = clnt_sock;
+    int control_fd = clnt_sock;
 
     if(input_pipe != NULL) {
         close_fd_if_valid(&input_pipe[1]);
@@ -361,12 +456,16 @@ static void become_login_process(
         close_fd_if_valid(&output_pipe[0]);
         output_fd = output_pipe[1];
     }
+    if(control_pipe != NULL) {
+        close_fd_if_valid(&control_pipe[0]);
+        control_fd = control_pipe[1];
+    }
 
     int d0 = dup2(input_fd, 0);
     int d1 = dup2(output_fd, 1);
     int d2 = dup2(output_fd, 2);
     int db0 = dup2(input_fd, VFS_BACKUP_FD0);
-    int db1 = dup2(clnt_sock, VFS_BACKUP_FD1);
+    int db1 = dup2(control_fd, VFS_BACKUP_FD1);
     if(d0 < 0 || d1 < 0 || d2 < 0 || db0 < 0 || db1 < 0) {
         exit(-1);
     }
@@ -376,9 +475,15 @@ static void become_login_process(
     if(output_pipe != NULL) {
         close_fd_if_valid(&output_pipe[1]);
     }
-    /* Socket-as-stdin (input_pipe == NULL): keep clnt_sock open so netd's
-     * per-fd task cache stays valid for post-exec reads on fd 0. */
-    if(input_pipe != NULL) {
+    if(control_pipe != NULL) {
+        close_fd_if_valid(&control_pipe[1]);
+    }
+    /*
+     * Once stdio/control have been re-bound onto pipes, the login side must
+     * not retain the raw socket; otherwise every shell command fork would drag
+     * the netd fd through VFS_PROC_CLONE and can stall unrelated sessions.
+     */
+    if(input_pipe != NULL || control_pipe != NULL) {
         close_fd_if_valid(&clnt_sock);
     }
 
@@ -389,15 +494,21 @@ static void become_login_process(
 }
 
 static void run_telnet_worker(int serv_sock, int clnt_sock) {
+    int input_pipe[2] = {-1, -1};
     int output_pipe[2] = {-1, -1};
+    int control_pipe[2] = {-1, -1};
     pid_t pid;
 
     telnet_send_initial_negotiation(clnt_sock);
     telnet_drain_initial_negotiation(clnt_sock);
-    if(pipe(output_pipe) != 0) {
+    if(pipe(input_pipe) != 0 || pipe(output_pipe) != 0 || pipe(control_pipe) != 0) {
+        close_fd_if_valid(&input_pipe[0]);
+        close_fd_if_valid(&input_pipe[1]);
         close_fd_if_valid(&output_pipe[0]);
         close_fd_if_valid(&output_pipe[1]);
-        become_login_process(serv_sock, clnt_sock, NULL, NULL);
+        close_fd_if_valid(&control_pipe[0]);
+        close_fd_if_valid(&control_pipe[1]);
+        become_login_process(serv_sock, clnt_sock, NULL, NULL, NULL);
         return;
     }
 
@@ -406,26 +517,30 @@ static void run_telnet_worker(int serv_sock, int clnt_sock) {
     int shell_pid = getpid();
     pid = fork();
     if(pid < 0) {
+        close_fd_if_valid(&input_pipe[0]);
+        close_fd_if_valid(&input_pipe[1]);
         close_fd_if_valid(&output_pipe[0]);
         close_fd_if_valid(&output_pipe[1]);
-        become_login_process(serv_sock, clnt_sock, NULL, NULL);
+        close_fd_if_valid(&control_pipe[0]);
+        close_fd_if_valid(&control_pipe[1]);
+        become_login_process(serv_sock, clnt_sock, NULL, NULL, NULL);
         return;
     }
 
     if(pid > 0) {
-        /* Parent becomes the login shell: stdin is the client socket
-         * itself (login/shell strip telnet protocol via CONSOLE_ID=telnet),
-         * stdout/stderr go through the output pipe to the relay task. */
-        become_login_process(serv_sock, clnt_sock, NULL, output_pipe);
+        /* Parent becomes the login shell with pipe-backed stdio/control. */
+        become_login_process(serv_sock, clnt_sock, input_pipe, output_pipe, control_pipe);
         return;
     }
 
-    /* Relay child: the one and only telnetd task, shell stdout -> socket.
+    /* Relay child: the one and only telnetd task, socket <-> pipes.
      * Its lifetime is bound to the parent it just forked from — that parent
      * exec()s into /bin/login and then the shell (same pid throughout). */
     close_fd_if_valid(&serv_sock);
+    close_fd_if_valid(&input_pipe[0]);
     close_fd_if_valid(&output_pipe[1]);
-    telnet_output_relay(clnt_sock, output_pipe[0], shell_pid);
+    close_fd_if_valid(&control_pipe[1]);
+    telnet_session_relay(clnt_sock, input_pipe[1], output_pipe[0], control_pipe[0], shell_pid);
     exit(0);
 }
 
