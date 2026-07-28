@@ -31,6 +31,7 @@ extern int sched_wakeup(struct sched_ctx *ctx);
 #define TASK_POLL_INTERVAL_US 1000 /* 1ms */
 
 static void* task_thread(void* arg);
+static void task_list_remove(net_task_t * task);
  
 pthread_mutex_t task_list_lock;
 net_task_t *task_list = NULL;
@@ -70,6 +71,75 @@ static uint32_t wakeup_queue_num = 0;
 static pthread_mutex_t wakeup_queue_lock;
 static struct sched_ctx wakeup_queue_ctx;
 static int wakeup_thread_ok = 0;
+
+static int task_cmd_runs_inline(int cmd) {
+    switch (cmd) {
+        case SOCK_OPEN:
+        case SOCK_BIND:
+        case SOCK_LISTEN:
+        case SOCK_ACCEPT:
+        case SOCK_LINK:
+        case SOCK_SETOPT:
+        case SOCK_GETOPT:
+            return 1;
+        default:
+            return 0;
+    }
+}
+
+static int task_start_worker_locked(net_task_t *task) {
+    int saved_errno;
+
+    if (task == NULL)
+        return -1;
+    if (task->thread_started)
+        return 0;
+
+    if (pthread_create(&task->tid, NULL, task_thread, task) != 0) {
+        saved_errno = errno;
+        if (saved_errno == 0)
+            saved_errno = EAGAIN;
+        errno = saved_errno;
+        klog("netd: task worker pthread_create failed fd=%d from_pid=%d node=%d err=%d\n",
+                task->fd, task->from_pid, task->node, saved_errno);
+        return -1;
+    }
+    pthread_detach(task->tid);
+    task->thread_started = 1;
+    return 0;
+}
+
+static void task_free_unstarted(net_task_t *task) {
+    int fin_sock;
+
+    if (task == NULL)
+        return;
+
+    pthread_mutex_lock(&task_list_lock);
+    task->running = false;
+    fin_sock = task->sock;
+    task->sock = -1;
+    if (fin_sock >= 0 && fin_sock < SOCKS_MAX && sock_to_task[fin_sock] == task)
+        sock_to_task[fin_sock] = NULL;
+    pthread_mutex_unlock(&task_list_lock);
+
+    task_list_remove(task);
+    if (fin_sock >= 0)
+        sock_close(fin_sock);
+
+    PF->clear(&task->in);
+    PF->clear(&task->out);
+    PF->clear(&task->read_in);
+    PF->clear(&task->read_out);
+    sched_ctx_destroy(&task->wait_ctx);
+
+    pthread_mutex_lock(&task_list_lock);
+    if (task_active_count > 0)
+        task_active_count--;
+    task_total_freed++;
+    pthread_mutex_unlock(&task_list_lock);
+    free(task);
+}
 
 static void task_queue_vfs_wakeup(uint32_t node, uint32_t events) {
     if (node == 0 || events == 0)
@@ -212,45 +282,23 @@ net_task_t *create_task(int fd, int from_pid, int node){
     task->sock = -1;
     task->refs = 1;
     task->running = true;
-    task->thread_started = 1;
+    task->thread_started = 0;
     task_list_add(task);
     pthread_mutex_lock(&task_list_lock);
     task_total_created++;
     task_active_count++;
     pthread_mutex_unlock(&task_list_lock);
-    if(pthread_create(&task->tid, NULL, task_thread, task) != 0) {
-        int saved_errno = errno;
-        pthread_mutex_lock(&task_list_lock);
-        if(task_active_count > 0)
-            task_active_count--;
-        if(task_total_created > 0)
-            task_total_created--;
-        pthread_mutex_unlock(&task_list_lock);
-        task_list_remove(task);
-        task->thread_started = 0;
-        task->running = false;
-        sched_ctx_destroy(&task->wait_ctx);
-        free(task);
-        if(saved_errno == 0)
-            saved_errno = EAGAIN;
-        errno = saved_errno;
-        klog("netd: create_task pthread_create failed fd=%d from_pid=%d node=%d err=%d\n",
-                fd, from_pid, node, saved_errno);
-        return NULL;
-    }
-    /*
-     * The worker self-reaps: teardown (sock_close + free) happens inside the
-     * connection's own thread, never in the shared IPC dispatch context. Detach
-     * so no one has to join it (join in the gate would freeze every other
-     * connection and accept() behind the single per-server IPC slot).
-     */
-    pthread_detach(task->tid);
     return task;
 }
 
 void release_task(net_task_t *task){
     if(task == NULL)
         return;
+
+    if(!task->thread_started) {
+        task_free_unstarted(task);
+        return;
+    }
 
     /*
      * Teardown MUST NOT block the shared IPC dispatch context. The old path ran
@@ -324,6 +372,37 @@ int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *o
     }
 
     if(task->state == NET_TASK_IDLE){
+        if(task_cmd_runs_inline(cmd)) {
+            task->cmd = cmd;
+            task->p = p;
+            task->from_pid = from_pid;
+            PF->clear(&task->in);
+            PF->clear(&task->out);
+            PF->copy(&task->in, in->data, in->size);
+            task->state = NET_TASK_PROCESS;
+            pthread_mutex_unlock(&task_list_lock);
+
+            if(do_network_fcntl(task) <= 0) {
+                pthread_mutex_lock(&task_list_lock);
+                PF->clear(&task->in);
+                PF->clear(&task->out);
+                task->state = NET_TASK_IDLE;
+                pthread_mutex_unlock(&task_list_lock);
+                return VFS_ERR_RETRY;
+            }
+
+            pthread_mutex_lock(&task_list_lock);
+            PF->copy(out, task->out.data, task->out.size);
+            PF->clear(&task->out);
+            PF->clear(&task->in);
+            task->state = NET_TASK_IDLE;
+            pthread_mutex_unlock(&task_list_lock);
+            return 0;
+        }
+        if(!task->thread_started && task_start_worker_locked(task) != 0) {
+            pthread_mutex_unlock(&task_list_lock);
+            return -1;
+        }
         task->cmd = cmd;	
         task->p = p;
         task->from_pid = from_pid;
@@ -379,6 +458,10 @@ int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p){
     }
 
     if(task->read_state == NET_TASK_IDLE){
+        if(!task->thread_started && task_start_worker_locked(task) != 0) {
+            pthread_mutex_unlock(&task_list_lock);
+            return -1;
+        }
         task->read_p = p;
         task->read_from_pid = from_pid;
         PF->clear(&task->read_in);
