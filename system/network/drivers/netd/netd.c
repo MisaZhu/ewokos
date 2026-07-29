@@ -183,10 +183,10 @@ static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
 				write_state == NET_TASK_IDLE &&
 				write_ready &&
 				main_sock >= 0) {
-			wr_ready_live = sock_writable(main_sock);
-			if (wr_ready_live) {
+                        wr_ready_live = sock_poll_writable(main_sock);
+                        if (wr_ready_live > 0) {
 				events |= VFS_EVT_WR;
-			} else {
+                        } else if (wr_ready_live == 0) {
 				pthread_mutex_lock(&task->lock);
 				task->write_ready = false;
 				pthread_mutex_unlock(&task->lock);
@@ -194,11 +194,11 @@ static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
 		}
 		if (pending_main_rd) {
 			if (main_sock >= 0) {
-				rd_ready_live = sock_readable(main_sock);
+                                rd_ready_live = sock_poll_readable(main_sock);
 			}
-			if (main_sock >= 0 && rd_ready_live) {
+                        if (main_sock >= 0 && rd_ready_live > 0) {
 				events |= VFS_EVT_RD;
-			} else {
+                        } else if (rd_ready_live == 0) {
 				pthread_mutex_lock(&task->lock);
 				task->pending_main_rd = false;
 				pthread_mutex_unlock(&task->lock);
@@ -212,32 +212,30 @@ static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
 static int network_dup(vdevice_t* dev, int from_fd, int from_pid, int dup_fd, int dup_pid,
 		uint32_t node, fsinfo_t* fsinfo, void* p) {
 	(void)dev;
+        (void)from_fd;
+        (void)from_pid;
+        (void)dup_fd;
+        (void)dup_pid;
+        (void)node;
+        (void)fsinfo;
 	(void)p;
-
-	net_task_t *task = (net_task_t *)(ewokos_addr_t)fsinfo->data;
-	if(task == NULL) {
-		return -1;
-	}
-
-	pthread_mutex_lock(&task->lock);
-	task->refs++;
-	pthread_mutex_unlock(&task->lock);
+        /* vdevice.c clones the per-fd cache after FS_CMD_DUP; nothing else is
+         * needed here as long as vfsd has already delivered the cross-process
+         * dup before the parent closes the source fd. */
 	return 0;
 }
 
 static int network_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fsinfo_t* fsinfo,void* p) {
 	(void)dev;
+        (void)fd;
 	(void)from_pid;
-	(void)node;
 	(void)p;
 	net_task_t *task = (net_task_t *)(ewokos_addr_t)fsinfo->data;
 	if(task) {
-		pthread_mutex_lock(&task->lock);
-		if(task->refs > 1) {
-			task->refs--;
-			pthread_mutex_unlock(&task->lock);
+                if(vdevice_count_node_refs(node) > 1) {
 			return 0;
 		}
+                pthread_mutex_lock(&task->lock);
 		task->refs = 0;
 		pthread_mutex_unlock(&task->lock);
 		fsinfo->data = NULL;

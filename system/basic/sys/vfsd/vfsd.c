@@ -93,6 +93,13 @@ typedef struct {
 	file_t file;
 } driver_close_task_t;
 
+typedef struct {
+        pthread_t thread;
+        pthread_mutex_t lock;
+        pthread_cond_t cv;
+        uint8_t started;
+} driver_close_worker_t;
+
 typedef struct clone_dup_ctx {
         pthread_mutex_t lock;
         pthread_cond_t cv;
@@ -105,7 +112,12 @@ typedef struct {
         int32_t from_fd;
         int32_t dup_pid;
         int32_t dup_fd;
+        uint32_t dup_uuid;
         file_t file;
+        /*
+         * NULL => fire-and-forget job used by VFS_PROC_CLONE so vfsd never
+         * waits for a third-party driver while serving IPC.
+         */
         clone_dup_ctx_t* ctx;
 } driver_dup_job_t;
 
@@ -122,12 +134,14 @@ static proc_fds_t* _proc_fds_table = NULL;
 static uint32_t    _max_proc_table_num = 0;
 static queue_t     _zombie_tasks;
 static queue_t     _driver_close_tasks;
+static driver_close_worker_t _driver_close_worker = {0};
 static driver_dup_worker_t** _driver_dup_workers = NULL;
 static pthread_mutex_t _driver_dup_workers_lock = 0;
 
 static uint32_t vfs_get_node_id(vfs_node_t* node);
 static void vfs_track_task_slot(int32_t pid);
 static void enqueue_waiter(queue_t* q, int32_t pid, uint32_t uuid, bool wr, uint32_t node_id);
+static void enqueue_driver_close_task(driver_close_task_t* task);
 
 static uint32_t vfs_alloc_node_id(void) {
 	uint32_t node_id = _next_node_id++;
@@ -189,6 +203,8 @@ static void vfsd_init(void) {
 
 	queue_init(&_zombie_tasks);
 	queue_init(&_driver_close_tasks);
+        pthread_mutex_init(&_driver_close_worker.lock, NULL);
+        pthread_cond_init(&_driver_close_worker.cv, NULL);
         pthread_mutex_init(&_driver_dup_workers_lock, NULL);
         _driver_dup_workers = (driver_dup_worker_t**)calloc(_max_proc_table_num,
                         sizeof(driver_dup_worker_t*));
@@ -793,7 +809,6 @@ static void vfs_driver_close(int32_t pid, int32_t owner_pid, int32_t fd, file_t*
 	if(file == NULL)
 		return;
 	uint32_t type = file->fsinfo.type & FS_TYPE_MASK;
-
 	/*
 	 * Regular filesystem objects in rootfs do not keep per-fd runtime state in
 	 * the backing driver. Zombie cleanup already detached the VFS-side slot, so
@@ -811,8 +826,55 @@ static void vfs_driver_close(int32_t pid, int32_t owner_pid, int32_t fd, file_t*
 	proto_t in;
 	PF->format(&in, "i,i,m,i,i",
 		fd, file->fsinfo.node, &file->fsinfo, sizeof(fsinfo_t), pid, owner_pid);
-		ipc_call(mount_pid, FS_CMD_CLOSE, &in, NULL);	
+        ipc_call(mount_pid, FS_CMD_CLOSE, &in, NULL);
 	PF->clear(&in);
+}
+
+static void* driver_close_worker_entry(void* arg) {
+        driver_close_worker_t* worker = (driver_close_worker_t*)arg;
+
+        while(true) {
+                driver_close_task_t* task = NULL;
+
+                pthread_mutex_lock(&worker->lock);
+                while(true) {
+                        task = (driver_close_task_t*)queue_pop(&_driver_close_tasks);
+                        if(task != NULL)
+                                break;
+                        pthread_cond_wait(&worker->cv, &worker->lock);
+                }
+                pthread_mutex_unlock(&worker->lock);
+
+                vfs_driver_close(task->pid, task->owner_pid, task->fd, &task->file);
+                free(task);
+        }
+
+        return NULL;
+}
+
+static void enqueue_driver_close_task(driver_close_task_t* task) {
+        if(task == NULL)
+                return;
+
+        pthread_mutex_lock(&_driver_close_worker.lock);
+        queue_push(&_driver_close_tasks, task);
+        pthread_cond_signal(&_driver_close_worker.cv);
+        pthread_mutex_unlock(&_driver_close_worker.lock);
+}
+
+static void start_driver_close_worker(void) {
+        pthread_t tid;
+
+        pthread_mutex_lock(&_driver_close_worker.lock);
+        if(_driver_close_worker.started == 0) {
+                if(pthread_create(&tid, NULL, driver_close_worker_entry,
+                                &_driver_close_worker) == 0) {
+                        pthread_detach(tid);
+                        _driver_close_worker.thread = tid;
+                        _driver_close_worker.started = 1;
+                }
+        }
+        pthread_mutex_unlock(&_driver_close_worker.lock);
 }
 
 static int vfs_driver_dup_now(int32_t mount_pid, int32_t from_pid, int32_t from_fd,
@@ -820,7 +882,6 @@ static int vfs_driver_dup_now(int32_t mount_pid, int32_t from_pid, int32_t from_
 	if(file == NULL || file->node == NULL)
                 return 0;
 	uint32_t type = file->fsinfo.type & FS_TYPE_MASK;
-
 	/*
 	 * Regular filesystem objects do not carry per-fd runtime state in their
 	 * mount driver. Reads and writes always pass the current offset down from
@@ -832,7 +893,7 @@ static int vfs_driver_dup_now(int32_t mount_pid, int32_t from_pid, int32_t from_
 	if(type == FS_TYPE_FILE || type == FS_TYPE_DIR || type == FS_TYPE_LINK)
                 return 0;
 
-	/*
+        /*
 	 * Same-process dup2() only needs the new fd to resolve to the same device
 	 * state as an existing live fd in that process. Let the device-side cache
 	 * lazily clone from the surviving source fd on first access instead of
@@ -842,26 +903,61 @@ static int vfs_driver_dup_now(int32_t mount_pid, int32_t from_pid, int32_t from_
 	if(from_pid == dup_pid)
                 return 0;
 
+        /*
+         * Cross-process fork/clone is different from same-process dup2(): the
+         * parent is free to close the source fd before the child performs its
+         * first device I/O. Anonymous device nodes (for example accepted netd
+         * sockets) keep their live per-fd runtime object behind fsinfo.data, so
+         * a lazy first-access clone lets the parent's early close reap that
+         * runtime object before the child-side cache exists. Send FS_CMD_DUP
+         * eagerly here so the driver has established the child reference before
+         * fork returns to user space.
+         */
+
 	proto_t in;
 	PF->format(&in, "i,i,i,m,i,i",
                 from_fd, dup_fd, file->fsinfo.node, &file->fsinfo, sizeof(fsinfo_t),
 		from_pid, dup_pid);
 	if(mount_pid > 0) {
 		/*
-		 * FS_CMD_DUP must keep device-side per-fd state in sync, but the
-		 * fire-and-forget IPC path can wedge here during dup2(sock -> stdio).
-		 * Force the driver dup through the regular reply path so vfsd does not
-		 * stall before the device server even receives the request.
+                 * Do not wait for the driver reply here. Cross-process dup is on the
+                 * fork/clone hot path; if netd/WLAN or any other mount server stalls,
+                 * vfsd must stay responsive and let the dup worker absorb that delay.
 		 */
-		proto_t out;
-		PF->init(&out);
-                int rc = ipc_call(mount_pid, FS_CMD_DUP, &in, &out);
-		PF->clear(&out);
+                int rc = ipc_call(mount_pid, FS_CMD_DUP, &in, NULL);
                 PF->clear(&in);
                 return rc;
 	}
 	PF->clear(&in);
         return 0;
+}
+
+static bool driver_dup_job_still_valid(const driver_dup_job_t* job) {
+        file_t* current;
+
+        if(job == NULL)
+                return false;
+        if(job->dup_pid < 0 || job->dup_pid >= (int32_t)_max_proc_table_num)
+                return false;
+        if(job->dup_fd < 0 || job->dup_fd >= MAX_OPEN_FILE_PER_PROC)
+                return false;
+        if(_proc_fds_table[job->dup_pid].state != RUNNING)
+                return false;
+        if(_proc_fds_table[job->dup_pid].uuid != job->dup_uuid)
+                return false;
+
+        current = &_proc_fds_table[job->dup_pid].fds[job->dup_fd];
+        if(current->node == NULL)
+                return false;
+        if(current->node != job->file.node)
+                return false;
+        if(current->fsinfo.node != job->file.fsinfo.node)
+                return false;
+        if(current->fsinfo.mount_pid != job->file.fsinfo.mount_pid)
+                return false;
+        if(current->fsinfo.data != job->file.fsinfo.data)
+                return false;
+        return true;
 }
 
 static void* driver_dup_worker_entry(void* arg) {
@@ -884,6 +980,18 @@ static void* driver_dup_worker_entry(void* arg) {
                 }
                 pthread_mutex_unlock(&worker->lock);
 
+                if(!driver_dup_job_still_valid(job)) {
+                        if(job->ctx != NULL) {
+                                pthread_mutex_lock(&job->ctx->lock);
+                                job->ctx->pending--;
+                                if(job->ctx->pending <= 0)
+                                        pthread_cond_broadcast(&job->ctx->cv);
+                                pthread_mutex_unlock(&job->ctx->lock);
+                        }
+                        free(job);
+                        continue;
+                }
+
                 if(vfs_driver_dup_now(job->mount_pid, job->from_pid, job->from_fd,
                                 job->dup_pid, job->dup_fd, &job->file) != 0) {
                         klog("vfsd: driver dup failed mount=%d from=%d:%d dup=%d:%d node=%u\n",
@@ -891,11 +999,13 @@ static void* driver_dup_worker_entry(void* arg) {
                                 job->dup_pid, job->dup_fd, job->file.fsinfo.node);
                 }
 
-                pthread_mutex_lock(&job->ctx->lock);
-                job->ctx->pending--;
-                if(job->ctx->pending <= 0)
-                        pthread_cond_broadcast(&job->ctx->cv);
-                pthread_mutex_unlock(&job->ctx->lock);
+                if(job->ctx != NULL) {
+                        pthread_mutex_lock(&job->ctx->lock);
+                        job->ctx->pending--;
+                        if(job->ctx->pending <= 0)
+                                pthread_cond_broadcast(&job->ctx->cv);
+                        pthread_mutex_unlock(&job->ctx->lock);
+                }
                 free(job);
         }
 
@@ -965,7 +1075,7 @@ static bool queue_driver_dup_job(clone_dup_ctx_t* ctx, int32_t mount_pid,
         driver_dup_worker_t* worker;
         driver_dup_job_t* job;
 
-        if(file == NULL || file->node == NULL || ctx == NULL)
+        if(file == NULL || file->node == NULL)
                 return false;
         type = file->fsinfo.type & FS_TYPE_MASK;
         if(type == FS_TYPE_FILE || type == FS_TYPE_DIR || type == FS_TYPE_LINK)
@@ -986,22 +1096,27 @@ static bool queue_driver_dup_job(clone_dup_ctx_t* ctx, int32_t mount_pid,
         job->from_fd = from_fd;
         job->dup_pid = dup_pid;
         job->dup_fd = dup_fd;
+        job->dup_uuid = _proc_fds_table[dup_pid].uuid;
         job->file = *file;
         job->ctx = ctx;
 
-        pthread_mutex_lock(&ctx->lock);
-        ctx->pending++;
-        pthread_mutex_unlock(&ctx->lock);
+        if(ctx != NULL) {
+                pthread_mutex_lock(&ctx->lock);
+                ctx->pending++;
+                pthread_mutex_unlock(&ctx->lock);
+        }
         pthread_mutex_lock(&worker->lock);
         queue_push(&worker->jobs, job);
         if(start_driver_dup_worker_locked(worker) != 0) {
                 (void)queue_pop(&worker->jobs);
                 pthread_mutex_unlock(&worker->lock);
-                pthread_mutex_lock(&ctx->lock);
-                ctx->pending--;
-                if(ctx->pending <= 0)
-                        pthread_cond_broadcast(&ctx->cv);
-                pthread_mutex_unlock(&ctx->lock);
+                if(ctx != NULL) {
+                        pthread_mutex_lock(&ctx->lock);
+                        ctx->pending--;
+                        if(ctx->pending <= 0)
+                                pthread_cond_broadcast(&ctx->cv);
+                        pthread_mutex_unlock(&ctx->lock);
+                }
                 free(job);
                 return false;
         }
@@ -1012,6 +1127,7 @@ static bool queue_driver_dup_job(clone_dup_ctx_t* ctx, int32_t mount_pid,
 static void vfs_driver_dup(int32_t from_pid, int32_t from_fd,
                 int32_t dup_pid, int32_t dup_fd, file_t* file) {
         uint32_t type;
+        bool anonymous;
         int32_t mount_pid;
         clone_dup_ctx_t ctx;
 
@@ -1019,7 +1135,10 @@ static void vfs_driver_dup(int32_t from_pid, int32_t from_fd,
                 return;
 
         type = file->fsinfo.type & FS_TYPE_MASK;
+        anonymous = (file->fsinfo.type & FS_TYPE_ANNOUNIMOUS) != 0;
         if(type == FS_TYPE_FILE || type == FS_TYPE_DIR || type == FS_TYPE_LINK)
+                return;
+        if(anonymous)
                 return;
 
         if(from_pid == dup_pid)
@@ -1215,11 +1334,11 @@ static vfs_node_t* vfs_dup2(int32_t pid, int32_t from, int32_t to) {
 			driver_close_task_t* task =
 				(driver_close_task_t*)malloc(sizeof(driver_close_task_t));
 			if(task != NULL) {
-				task->pid = owner;
-				task->owner_pid = owner;
-				task->fd = to;
-				task->file = *f_old;
-				queue_push(&_driver_close_tasks, task);
+                                task->pid = owner;
+                                task->owner_pid = owner;
+                                task->fd = to;
+                                task->file = *f_old;
+                                enqueue_driver_close_task(task);
 			}
 		}
 	}
@@ -1897,11 +2016,11 @@ static void clear_zombie(int32_t cpid) {
 				driver_close_task_t* task =
 					(driver_close_task_t*)malloc(sizeof(driver_close_task_t));
 				if(task != NULL) {
-					task->pid = cpid;
-					task->owner_pid = owner_pid;
-					task->fd = i;
-					task->file = closing;
-					queue_push(&_driver_close_tasks, task);
+                                        task->pid = cpid;
+                                        task->owner_pid = owner_pid;
+                                        task->fd = i;
+                                        task->file = closing;
+                                        enqueue_driver_close_task(task);
 				}
 			}
 			proc_file_close(cpid, i, &closing);
@@ -1979,27 +2098,10 @@ static void vfs_track_task_slot(int32_t pid) {
 	_proc_fds_table[pid].uuid = uuid;
 }
 
-static bool flush_driver_close_task(void) {
-	driver_close_task_t* task = NULL;
-	/*
-	 * The close-task queue is shared with the IPC handler, but unlike proc/node
-	 * state it only needs a tiny critical section to pop one immutable snapshot.
-			 */
-			ipc_disable();
-	task = (driver_close_task_t*)queue_pop(&_driver_close_tasks);
-			ipc_enable();
-	if(task == NULL)
-		return false;
-	vfs_driver_close(task->pid, task->owner_pid, task->fd, &task->file);
-	free(task);
-	return true;
-}
-
 static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 	(void)pid;
 	int fpid = proto_read_int(in);
 	int cpid = proto_read_int(in);
-        clone_dup_ctx_t dup_ctx;
         bool child_dead = false;
 
 	if(fpid < 0 || fpid >= _max_proc_table_num ||
@@ -2026,33 +2128,35 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 	_proc_fds_table[cpid].uuid = proc_get_uuid(cpid);
         child_dead = (_proc_fds_table[cpid].uuid == 0);
 	
-        clone_dup_ctx_init(&dup_ctx);
 	int32_t i;
 	for(i=0; i<MAX_OPEN_FILE_PER_PROC; i++) {
 		file_t *f = &_proc_fds_table[fpid].fds[i];
 		vfs_node_t* node = f->node;
 		if(node != NULL) {
 			file_t* file = &_proc_fds_table[cpid].fds[i];
+                        uint32_t type = f->fsinfo.type & FS_TYPE_MASK;
+                        bool needs_driver_dup = (type != FS_TYPE_FILE &&
+                                        type != FS_TYPE_DIR &&
+                                        type != FS_TYPE_LINK &&
+                                        f->fsinfo.mount_pid > 0);
 			memcpy(file, f, sizeof(file_t));
 			node->refs++;
 			if((f->flags & (O_WRONLY | O_RDWR)) != 0)
 				node->refs_w++;
 			/*
-                         * Fork notifies the driver for EVERY inherited device fd
-                         * (FS_CMD_DUP below), including fds that were dup2-created
-                         * and carried no driver ref in the parent. The child copy
-                         * therefore always owns a fresh driver-side reference.
+                         * Fork only needs a driver-side ref when the inherited fd is
+                         * backed by a real mount driver. Local VFS-only nodes such as
+                         * pipes keep all runtime state inside vfsd itself, so they must
+                         * not be reported as failed "driver dup" work.
 			 */
-                        file->driver_ref = 1;
-                        if(!queue_driver_dup_job(&dup_ctx, file->fsinfo.mount_pid,
+                        file->driver_ref = needs_driver_dup ? 1 : 0;
+                        if(needs_driver_dup && !queue_driver_dup_job(NULL, file->fsinfo.mount_pid,
                                         fpid, i, cpid, i, file)) {
-                                vfs_driver_dup_now(file->fsinfo.mount_pid,
-                                                fpid, i, cpid, i, file);
+                                klog("vfsd: async driver dup queue failed mount=%d from=%d:%d dup=%d:%d node=%u\n",
+                                                file->fsinfo.mount_pid, fpid, i, cpid, i, file->fsinfo.node);
                         }
 		}
 	}
-        clone_dup_ctx_wait(&dup_ctx);
-        clone_dup_ctx_destroy(&dup_ctx);
         /*
          * fork() notifies vfsd synchronously via VFS_PROC_CLONE, but process
          * create/exit lifecycle still reaches us through the polled core event
@@ -2304,12 +2408,19 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 
-	vfsd_init();
+        vfsd_init();
+        start_driver_close_worker();
 	ipc_serv_run(handle, clear_pending_zombies, NULL, IPC_DEFAULT);
 
 	while(true) {
-               if(!flush_driver_close_task())
-                        usleep(10000);
+                /*
+                 * ipc service main processes do not truly sleep in SYS_USLEEP;
+                 * the kernel only schedules away once and may run them again
+                 * immediately. Keep vfsd parked with a real block instead of a
+                 * yield loop so it cannot burn CPU while its service threads do
+                 * the actual work.
+                 */
+                proc_block();
 	}
 
 	free(_proc_fds_table);

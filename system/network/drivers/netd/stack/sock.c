@@ -715,6 +715,26 @@ sock_readable(int id)
 }
 
 int
+sock_poll_readable(int id)
+{
+    struct sock *s;
+
+    s = sock_get(id);
+    if (!s) {
+        return 0;
+    }
+    switch (s->type) {
+    case SOCK_STREAM:
+        return tcp_poll_readable(s->desc);
+    case SOCK_DGRAM:
+        return udp_poll_readable(s->desc);
+    case SOCK_RAW:
+        return s->recv_queue != NULL;
+    }
+    return 0;
+}
+
+int
 sock_data_readable(int id)
 {
     struct sock *s;
@@ -773,6 +793,23 @@ sock_writable(int id)
     switch (s->type) {
     case SOCK_STREAM:
         return tcp_writable(s->desc);
+    }
+    /* UDP/RAW have no send window; always accept the write. */
+    return 1;
+}
+
+int
+sock_poll_writable(int id)
+{
+    struct sock *s;
+
+    s = sock_get(id);
+    if (!s) {
+        return 0;
+    }
+    switch (s->type) {
+    case SOCK_STREAM:
+        return tcp_poll_writable(s->desc);
     }
     /* UDP/RAW have no send window; always accept the write. */
     return 1;

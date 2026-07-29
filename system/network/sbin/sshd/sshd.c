@@ -117,6 +117,40 @@
 
 #define SSHD_CHILD_START_MAGIC 0x53534844u
 
+static void warm_inherited_socket(int sync_fd, int client_sock) {
+    struct pollfd pfd;
+    uint8_t ready = 1;
+
+    if(client_sock >= 0) {
+        pfd.fd = client_sock;
+        pfd.events = 0;
+        pfd.revents = 0;
+        (void)poll(&pfd, 1, 0);
+    }
+
+    if(sync_fd >= 0) {
+        while(write(sync_fd, &ready, sizeof(ready)) < 0) {
+            if(errno == EINTR)
+                continue;
+            break;
+        }
+        close(sync_fd);
+    }
+}
+
+static void wait_inherited_socket_ready(int sync_fd) {
+    uint8_t ready;
+
+    if(sync_fd < 0)
+        return;
+    while(read(sync_fd, &ready, sizeof(ready)) < 0) {
+        if(errno == EINTR)
+            continue;
+        break;
+    }
+    close(sync_fd);
+}
+
 #define SSH_KEX_ALG_MLKEM768_X25519_SHA256 "mlkem768x25519-sha256"
 #define SSH_KEX_ALG_DH_GROUP14_SHA256      "diffie-hellman-group14-sha256"
 
@@ -3528,6 +3562,7 @@ int main(int argc, char* argv[]) {
     while(true) {
         struct sockaddr_in client_addr;
         socklen_t client_len = sizeof(client_addr);
+        int sync_pipe[2] = {-1, -1};
 
         reap_finished_workers();
         SSHD_DBG("listener before accept\n");
@@ -3537,19 +3572,33 @@ int main(int argc, char* argv[]) {
             continue;
         }
         SSHD_DBG("listener accepted sock=%d\n", client_sock);
+        if(pipe(sync_pipe) != 0) {
+            sync_pipe[0] = -1;
+            sync_pipe[1] = -1;
+        }
 
         int pid = fork();
         if(pid < 0) {
+            if(sync_pipe[0] >= 0)
+                close(sync_pipe[0]);
+            if(sync_pipe[1] >= 0)
+                close(sync_pipe[1]);
             close(client_sock);
             continue;
         }
         if(pid == 0) {
+            if(sync_pipe[0] >= 0)
+                close(sync_pipe[0]);
+            warm_inherited_socket(sync_pipe[1], client_sock);
             close(server_sock);
             serve_client(client_sock);
             exit(0);
         }
         SSHD_DBG("listener forked pid=%d sock=%d\n", pid, client_sock);
         track_worker_pid(pid);
+        if(sync_pipe[1] >= 0)
+            close(sync_pipe[1]);
+        wait_inherited_socket_ready(sync_pipe[0]);
         close(client_sock);
     }
 

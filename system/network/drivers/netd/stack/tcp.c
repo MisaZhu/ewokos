@@ -1611,6 +1611,32 @@ tcp_readable(int id)
 }
 
 int
+tcp_poll_readable(int id)
+{
+    struct tcp_pcb *pcb;
+    int readable;
+
+    if (pthread_mutex_trylock(&mutex) != 0) {
+        return -1;
+    }
+    pcb = tcp_pcb_get(id);
+    if (!pcb) {
+        pthread_mutex_unlock(&mutex);
+        return 0;
+    }
+    if (pcb->state == TCP_PCB_STATE_LISTEN) {
+        readable = (pcb->backlog.num > 0) ? 1 : 0;
+        pthread_mutex_unlock(&mutex);
+        return readable;
+    }
+    readable = (((size_t)sizeof(pcb->buf) - pcb->rcv.wnd) > 0 ||
+                pcb->state == TCP_PCB_STATE_CLOSE_WAIT ||
+                pcb->state == TCP_PCB_STATE_CLOSED) ? 1 : 0;
+    pthread_mutex_unlock(&mutex);
+    return readable;
+}
+
+int
 tcp_data_readable(int id)
 {
     struct tcp_pcb *pcb;
@@ -1676,6 +1702,33 @@ tcp_writable(int id)
         }
     }
     mutex_unlock(&mutex);
+    return writable;
+}
+
+int
+tcp_poll_writable(int id)
+{
+    struct tcp_pcb *pcb;
+    int writable = 1;
+    uint32_t inflight = 0;
+
+    if (pthread_mutex_trylock(&mutex) != 0) {
+        return -1;
+    }
+    pcb = tcp_pcb_get(id);
+    if (!pcb) {
+        pthread_mutex_unlock(&mutex);
+        return 1;
+    }
+    if (pcb->state == TCP_PCB_STATE_ESTABLISHED ||
+        pcb->state == TCP_PCB_STATE_CLOSE_WAIT) {
+        inflight = pcb->snd.nxt - pcb->snd.una;
+        writable = (inflight < pcb->snd.wnd) ? 1 : 0;
+        if (writable && pcb->queue.num >= TCP_RETRANSMIT_QUEUE_MAX) {
+            writable = 0;
+        }
+    }
+    pthread_mutex_unlock(&mutex);
     return writable;
 }
 

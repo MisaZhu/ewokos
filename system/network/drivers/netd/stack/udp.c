@@ -496,3 +496,22 @@ udp_readable(int id)
     mutex_unlock(&mutex);
     return readable;
 }
+
+int
+udp_poll_readable(int id)
+{
+    struct udp_pcb *pcb;
+    int readable;
+
+    if (pthread_mutex_trylock(&mutex) != 0) {
+        return -1;
+    }
+    pcb = udp_pcb_get(id);
+    if (!pcb) {
+        pthread_mutex_unlock(&mutex);
+        return 0;
+    }
+    readable = pcb->queue.num > 0 ? 1 : 0;
+    pthread_mutex_unlock(&mutex);
+    return readable;
+}

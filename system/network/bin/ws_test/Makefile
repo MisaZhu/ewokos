@@ -14,7 +14,6 @@ TASK = $(TARGET_DIR)/bin/ws_test
 $(TASK): $(TASK_OBJS) \
 		$(BUILD_DIR)/lib/libwebsockets.a \
 		$(BUILD_DIR)/lib/libwolfssl.a \
-		$(BUILD_DIR)/lib/libm.a \
 		$(BUILD_DIR)/lib/libsocket.a \
 		$(BUILD_DIR)/lib/libewoksys.a
 		$(LD) -Ttext=100 $(TASK_OBJS) -o $(TASK) $(LDFLAGS) -lwebsockets -lwolfssl -lm -lsocket $(EWOK_LIBC)

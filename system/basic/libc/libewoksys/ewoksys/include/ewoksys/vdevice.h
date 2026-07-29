@@ -14,6 +14,7 @@ extern "C" {
 
 typedef struct st_vdevice {
 	bool terminated;
+        bool loop_step_threaded;
 	char name[FS_NODE_NAME_MAX];
 	fsinfo_t mnt_info;
 	void* extra_data;
@@ -57,6 +58,7 @@ extern int dev_cntl_by_pid(int pid, int cmd, proto_t* in, proto_t* out);
 
 extern fsinfo_t*  dev_get_file(int fd, int pid, uint32_t node);
 extern int dev_update_file(int fd, int from_pid, fsinfo_t* finfo);
+extern int vdevice_count_node_refs(uint32_t node);
 
 #ifdef __cplusplus
 }

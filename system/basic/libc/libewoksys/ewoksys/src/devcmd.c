@@ -156,7 +156,8 @@ int dev_read(int dev_pid, int fd, fsinfo_t* info, int32_t offset, void* buf, uin
 
 	proto_t in, out;
 	PF->init(&out);
-	PF->format(&in, "i,i,i,i,i", fd, info->node, size, offset, shm_id);
+        PF->format(&in, "i,i,i,i,i,m", fd, info->node, size, offset, shm_id,
+                        info, sizeof(fsinfo_t));
 
 	int res = -1;
 	if(ipc_call(dev_pid, FS_CMD_READ, &in, &out) == 0) {
@@ -197,7 +198,8 @@ int dev_write(int dev_pid, int fd, fsinfo_t* info, int32_t offset, const void* b
 
 	proto_t in, out;
 	PF->init(&out);
-	PF->format(&in, "i,i,i,i", fd, info->node, offset, shm_id);
+        PF->format(&in, "i,i,i,i,m", fd, info->node, offset, shm_id,
+                        info, sizeof(fsinfo_t));
 	if(shm_id == -1)
 		PF->add(&in, buf, size);
 	else
@@ -238,7 +240,7 @@ int dev_create(int dev_pid, fsinfo_t* info_to, fsinfo_t* info) {
 int dev_poll(int dev_pid, int fd, fsinfo_t* info, uint32_t* events) {
 	proto_t in, out;
 	PF->init(&out);
-	PF->format(&in, "i,i", fd, info->node);
+        PF->format(&in, "i,i,m", fd, info->node, info, sizeof(fsinfo_t));
 
 	int res = -1;
 	if(ipc_call(dev_pid, FS_CMD_POLL, &in, &out) == 0) {
@@ -254,7 +256,7 @@ int dev_poll(int dev_pid, int fd, fsinfo_t* info, uint32_t* events) {
 
 int dev_fcntl(int dev_pid, int fd, fsinfo_t* info, int cmd, proto_t* arg_in, proto_t* arg_out) {
 	proto_t in;
-	PF->format(&in, "i,i,i", fd, info->node, cmd);
+        PF->format(&in, "i,i,i,m", fd, info->node, cmd, info, sizeof(fsinfo_t));
 	if(arg_in == NULL)
 		PF->add(&in, NULL, 0);
 	else
@@ -284,7 +286,7 @@ int dev_fcntl(int dev_pid, int fd, fsinfo_t* info, int cmd, proto_t* arg_in, pro
 
 int dev_flush(int dev_pid, int fd, uint32_t node, int8_t wait) {
 	proto_t in;
-	PF->format(&in, "i,i", fd, node);
+        PF->format(&in, "i,i", fd, node);
 
 	int res = -1;
 	if(wait)
@@ -298,7 +300,7 @@ int dev_flush(int dev_pid, int fd, uint32_t node, int8_t wait) {
 int dev_dma(int dev_pid, int fd, uint32_t node, int* size) {
 	proto_t in, out;
 	PF->init(&out);
-	PF->format(&in, "i,i", fd, node);
+        PF->format(&in, "i,i", fd, node);
 
 	int32_t shm_id = -1;
 	if(ipc_call(dev_pid, FS_CMD_DMA, &in, &out) == 0) {

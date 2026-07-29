@@ -24,5 +24,7 @@ extern int
 udp_close(int id);
 extern int
 udp_readable(int id);
+extern int
+udp_poll_readable(int id);
 
 #endif
