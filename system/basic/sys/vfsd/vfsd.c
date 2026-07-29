@@ -96,14 +96,13 @@ typedef struct {
 typedef struct {
         pthread_t thread;
         pthread_mutex_t lock;
-        pthread_cond_t cv;
         uint8_t started;
 } driver_close_worker_t;
 
 typedef struct clone_dup_ctx {
         pthread_mutex_t lock;
-        pthread_cond_t cv;
         int pending;
+        pthread_t waiter;
 } clone_dup_ctx_t;
 
 typedef struct {
@@ -125,10 +124,12 @@ typedef struct {
         int32_t mount_pid;
         pthread_t thread;
         pthread_mutex_t lock;
-        pthread_cond_t cv;
         queue_t jobs;
         uint8_t started;
 } driver_dup_worker_t;
+
+#define VFSD_WAKE_TOKEN_DRIVER_CLOSE 0x5646434cU
+#define VFSD_WAKE_TOKEN_CLONE_DUP    0x56464450U
 
 static proc_fds_t* _proc_fds_table = NULL;
 static uint32_t    _max_proc_table_num = 0;
@@ -142,6 +143,7 @@ static uint32_t vfs_get_node_id(vfs_node_t* node);
 static void vfs_track_task_slot(int32_t pid);
 static void enqueue_waiter(queue_t* q, int32_t pid, uint32_t uuid, bool wr, uint32_t node_id);
 static void enqueue_driver_close_task(driver_close_task_t* task);
+static void clone_dup_ctx_complete(clone_dup_ctx_t* ctx);
 
 static uint32_t vfs_alloc_node_id(void) {
 	uint32_t node_id = _next_node_id++;
@@ -204,7 +206,6 @@ static void vfsd_init(void) {
 	queue_init(&_zombie_tasks);
 	queue_init(&_driver_close_tasks);
         pthread_mutex_init(&_driver_close_worker.lock, NULL);
-        pthread_cond_init(&_driver_close_worker.cv, NULL);
         pthread_mutex_init(&_driver_dup_workers_lock, NULL);
         _driver_dup_workers = (driver_dup_worker_t**)calloc(_max_proc_table_num,
                         sizeof(driver_dup_worker_t*));
@@ -832,18 +833,18 @@ static void vfs_driver_close(int32_t pid, int32_t owner_pid, int32_t fd, file_t*
 
 static void* driver_close_worker_entry(void* arg) {
         driver_close_worker_t* worker = (driver_close_worker_t*)arg;
+        worker->thread = pthread_self();
 
         while(true) {
                 driver_close_task_t* task = NULL;
 
                 pthread_mutex_lock(&worker->lock);
-                while(true) {
-                        task = (driver_close_task_t*)queue_pop(&_driver_close_tasks);
-                        if(task != NULL)
-                                break;
-                        pthread_cond_wait(&worker->cv, &worker->lock);
-                }
+                task = (driver_close_task_t*)queue_pop(&_driver_close_tasks);
                 pthread_mutex_unlock(&worker->lock);
+                if(task == NULL) {
+                        proc_block_by(VFSD_WAKE_TOKEN_DRIVER_CLOSE);
+                        continue;
+                }
 
                 vfs_driver_close(task->pid, task->owner_pid, task->fd, &task->file);
                 free(task);
@@ -853,13 +854,17 @@ static void* driver_close_worker_entry(void* arg) {
 }
 
 static void enqueue_driver_close_task(driver_close_task_t* task) {
+        pthread_t tid;
+
         if(task == NULL)
                 return;
 
         pthread_mutex_lock(&_driver_close_worker.lock);
         queue_push(&_driver_close_tasks, task);
-        pthread_cond_signal(&_driver_close_worker.cv);
+        tid = _driver_close_worker.thread;
         pthread_mutex_unlock(&_driver_close_worker.lock);
+        if(tid != 0)
+                proc_wakeup_by((int32_t)tid, VFSD_WAKE_TOKEN_DRIVER_CLOSE);
 }
 
 static void start_driver_close_worker(void) {
@@ -981,13 +986,8 @@ static void* driver_dup_worker_entry(void* arg) {
                 pthread_mutex_unlock(&worker->lock);
 
                 if(!driver_dup_job_still_valid(job)) {
-                        if(job->ctx != NULL) {
-                                pthread_mutex_lock(&job->ctx->lock);
-                                job->ctx->pending--;
-                                if(job->ctx->pending <= 0)
-                                        pthread_cond_broadcast(&job->ctx->cv);
-                                pthread_mutex_unlock(&job->ctx->lock);
-                        }
+                        if(job->ctx != NULL)
+                                clone_dup_ctx_complete(job->ctx);
                         free(job);
                         continue;
                 }
@@ -999,13 +999,8 @@ static void* driver_dup_worker_entry(void* arg) {
                                 job->dup_pid, job->dup_fd, job->file.fsinfo.node);
                 }
 
-                if(job->ctx != NULL) {
-                        pthread_mutex_lock(&job->ctx->lock);
-                        job->ctx->pending--;
-                        if(job->ctx->pending <= 0)
-                                pthread_cond_broadcast(&job->ctx->cv);
-                        pthread_mutex_unlock(&job->ctx->lock);
-                }
+                if(job->ctx != NULL)
+                        clone_dup_ctx_complete(job->ctx);
                 free(job);
         }
 
@@ -1040,7 +1035,6 @@ static driver_dup_worker_t* get_driver_dup_worker(int32_t mount_pid) {
                 if(worker != NULL) {
                         worker->mount_pid = mount_pid;
                         pthread_mutex_init(&worker->lock, NULL);
-                        pthread_cond_init(&worker->cv, NULL);
                         queue_init(&worker->jobs);
                         _driver_dup_workers[mount_pid] = worker;
                 }
@@ -1052,19 +1046,42 @@ static driver_dup_worker_t* get_driver_dup_worker(int32_t mount_pid) {
 static void clone_dup_ctx_init(clone_dup_ctx_t* ctx) {
         memset(ctx, 0, sizeof(*ctx));
         pthread_mutex_init(&ctx->lock, NULL);
-        pthread_cond_init(&ctx->cv, NULL);
+}
+
+static void clone_dup_ctx_complete(clone_dup_ctx_t* ctx) {
+        pthread_t waiter = 0;
+
+        if(ctx == NULL)
+                return;
+
+        pthread_mutex_lock(&ctx->lock);
+        ctx->pending--;
+        if(ctx->pending <= 0) {
+                ctx->pending = 0;
+                waiter = ctx->waiter;
+                ctx->waiter = 0;
+        }
+        pthread_mutex_unlock(&ctx->lock);
+
+        if(waiter != 0)
+                proc_wakeup_by((int32_t)waiter, VFSD_WAKE_TOKEN_CLONE_DUP);
 }
 
 static void clone_dup_ctx_wait(clone_dup_ctx_t* ctx) {
-        pthread_mutex_lock(&ctx->lock);
-        while(ctx->pending > 0) {
-                pthread_cond_wait(&ctx->cv, &ctx->lock);
+        while(true) {
+                pthread_mutex_lock(&ctx->lock);
+                if(ctx->pending <= 0) {
+                        ctx->waiter = 0;
+                        pthread_mutex_unlock(&ctx->lock);
+                        return;
+                }
+                ctx->waiter = pthread_self();
+                pthread_mutex_unlock(&ctx->lock);
+                proc_block_by(VFSD_WAKE_TOKEN_CLONE_DUP);
         }
-        pthread_mutex_unlock(&ctx->lock);
 }
 
 static void clone_dup_ctx_destroy(clone_dup_ctx_t* ctx) {
-        pthread_cond_destroy(&ctx->cv);
         pthread_mutex_destroy(&ctx->lock);
 }
 
@@ -1110,13 +1127,8 @@ static bool queue_driver_dup_job(clone_dup_ctx_t* ctx, int32_t mount_pid,
         if(start_driver_dup_worker_locked(worker) != 0) {
                 (void)queue_pop(&worker->jobs);
                 pthread_mutex_unlock(&worker->lock);
-                if(ctx != NULL) {
-                        pthread_mutex_lock(&ctx->lock);
-                        ctx->pending--;
-                        if(ctx->pending <= 0)
-                                pthread_cond_broadcast(&ctx->cv);
-                        pthread_mutex_unlock(&ctx->lock);
-                }
+                if(ctx != NULL)
+                        clone_dup_ctx_complete(ctx);
                 free(job);
                 return false;
         }
