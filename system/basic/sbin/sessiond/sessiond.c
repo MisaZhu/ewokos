@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <ewoksys/md5.h>
 #include <ewoksys/mstr.h>
 #include <ewoksys/ipc.h>
@@ -150,7 +151,35 @@ static session_info_t* get_by_uid(int32_t uid) {
 	return NULL;
 }
 
+static void ensure_home_dir(const session_info_t* sinfo) {
+	if(sinfo->home[0] == 0)
+		return;
+
+	/* create parent directories if needed (e.g. /tmp/home for /tmp/home/guest) */
+	char path[SESSION_HOME_MAX];
+	strncpy(path, sinfo->home, SESSION_HOME_MAX - 1);
+	path[SESSION_HOME_MAX - 1] = 0;
+	for(char* p = path + 1; *p != 0; p++) {
+		if(*p == '/') {
+			*p = 0;
+			if(access(path, F_OK) != 0)
+				mkdir(path, 0755);
+			*p = '/';
+		}
+	}
+
+	if(access(sinfo->home, F_OK) != 0) {
+		if(mkdir(sinfo->home, 0750) != 0)
+			return;
+		/* set directory permission and ownership */
+		chmod(sinfo->home, 0750);
+		chown(sinfo->home, sinfo->uid, sinfo->gid);
+	}
+}
+
 static session_info_t* secure_session(const session_info_t* sinfo) {
+	ensure_home_dir(sinfo);
+
 	static session_info_t to;
 	memcpy(&to, sinfo, sizeof(session_info_t));
 	memset(to.password, 0, SESSION_PSWD_MAX);

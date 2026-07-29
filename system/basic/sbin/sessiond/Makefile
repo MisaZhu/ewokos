@@ -1,3 +1,5 @@
+ARCH ?= aarch64
+HW ?= virt
 SYS_DIR=../../..
 include $(SYS_DIR)/platform/$(ARCH)/make.rule
 

@@ -24,10 +24,10 @@ int32_t ext2_node_by_ino(ext2_t* ext2, uint32_t ino, INODE* node);
 
 int32_t put_node(ext2_t* ext2, uint32_t ino, INODE *node);
 
-int32_t ext2_create_dir(ext2_t* ext2, INODE* father_inp, const char *base,
+int32_t ext2_create_dir(ext2_t* ext2, uint32_t father_ino, INODE* father_inp, const char *base,
 		uint16_t uid, uint16_t gid, uint16_t mode);
 
-int32_t ext2_create_file(ext2_t* ext2, INODE* father_inp, const char *base,
+int32_t ext2_create_file(ext2_t* ext2, uint32_t father_ino, INODE* father_inp, const char *base,
 		uint16_t uid, uint16_t gid, uint16_t mode);
 
 void*   ext2_readfile(ext2_t* ext2, const char* fname, int32_t* size);
