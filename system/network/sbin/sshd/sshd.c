@@ -54,9 +54,10 @@
 #define SSH_LOCAL_WINDOW_SIZE   (8*1024*1024)
 #define SSH_LOCAL_WINDOW_LOW    (6*1024*1024)
 #define SSH_WINDOW_ADJUST_MIN   (128*1024)
-#define SSH_CHILD_STDIN_STEP    4096
+#define SSH_CHILD_STDIN_STEP    (64 * 1024)
 #define SSH_RELAY_READ_SIZE     16384
-#define SSH_SOCKET_WRITE_STEP   1024
+#define SSH_SOCKET_WRITE_STEP   4096
+#define SSH_INTERNAL_SFTP_FEED_CHUNK (64 * 1024)
 #define SSH_PENDING_INPUT_WAIT_US 1000
 #define SSH_CHILD_STDIN_POLL_MS 5
 #define SSH_CHILD_READY_TIMEOUT_MS 2000
@@ -66,11 +67,10 @@
 #define SSH_SERVER_VERSION      "SSH-2.0-EwokOS_sshd"
 #define SSH_HOST_KEY_PATH       "/etc/ssh_host_rsa_key.der"
 #define SSHD_MAX_TRACKED_WORKERS 128
-
 #ifdef SSHD_DEBUG
-#define SSHD_DBG(fmt, ...) klog("sshd: " fmt, ##__VA_ARGS__)
+#define SSHD_DBG(fmt, ...) slog("sshd: " fmt, ##__VA_ARGS__)
 #else
-#define SSHD_DBG(fmt, ...) do { if(0) klog("sshd: " fmt, ##__VA_ARGS__); } while(0)
+#define SSHD_DBG(fmt, ...) do { if(0) slog("sshd: " fmt, ##__VA_ARGS__); } while(0)
 #endif
 #define SSHD_STALL_LOG(fmt, ...) do { } while(0)
 
@@ -189,6 +189,12 @@ typedef struct {
 } internal_sftp_arg_t;
 
 typedef struct {
+    sshd_session_t* s;
+    uint8_t out[16384];
+    size_t out_len;
+} internal_sftp_io_t;
+
+typedef struct {
     uint32_t magic;
     uint32_t is_shell;
     int32_t uid;
@@ -213,6 +219,8 @@ struct sshd_session {
     size_t session_id_len;
     char negotiated_kex_alg[64];
     char negotiated_hostkey_alg[32];
+    char negotiated_enc_alg_c2s[32];
+    char negotiated_enc_alg_s2c[32];
 
     uint8_t iv_c2s[16];
     uint8_t iv_s2c[16];
@@ -220,6 +228,9 @@ struct sshd_session {
     uint8_t enc_key_s2c[32];
     uint8_t mac_key_c2s[32];
     uint8_t mac_key_s2c[32];
+    uint8_t* rx_packet_buf;
+    int enc_key_bits_c2s;
+    int enc_key_bits_s2c;
     uint32_t seq_c2s;
     uint32_t seq_s2c;
     int encryption_enabled;
@@ -281,6 +292,7 @@ struct sshd_session {
     size_t sftp_in_off;
     size_t sftp_in_cap;
     int sftp_in_eof;
+
 };
 
 static RSA* g_host_rsa = NULL;
@@ -291,6 +303,7 @@ static pid_t g_tracked_workers[SSHD_MAX_TRACKED_WORKERS];
 
 static int write_ssh_string(uint8_t* buf, size_t cap, size_t* off,
         const uint8_t* data, uint32_t len);
+static size_t pending_input_bytes(const sshd_session_t* s);
 
 static int child_needs_ready_handshake(const char* command, int is_shell) {
     return (!is_shell && command != NULL && strcmp(command, "sftp-server") == 0);
@@ -459,14 +472,15 @@ static void ssh_ctr_increment(uint8_t* counter, size_t blocks) {
     }
 }
 
-static int ssh_aes256_ctr_crypt(uint8_t* data, size_t len,
-        const uint8_t* key, uint8_t* iv) {
+static int ssh_aes_ctr_crypt(uint8_t* data, size_t len,
+        const uint8_t* key, int key_bits, uint8_t* iv) {
     WOLFSSL_AES_KEY aes_key;
     uint8_t counter[16];
     uint8_t stream[16];
     size_t off = 0;
 
-    if(wolfSSL_AES_set_encrypt_key(key, 256, &aes_key) != 0)
+    if((key_bits != 128 && key_bits != 256) ||
+            wolfSSL_AES_set_encrypt_key(key, key_bits, &aes_key) != 0)
         return -1;
 
     memcpy(counter, iv, sizeof(counter));
@@ -483,6 +497,16 @@ static int ssh_aes256_ctr_crypt(uint8_t* data, size_t len,
     }
     memcpy(iv, counter, sizeof(counter));
     return 0;
+}
+
+static int ssh_cipher_key_bits(const char* alg) {
+    if(alg == NULL)
+        return -1;
+    if(strcmp(alg, "aes128-ctr") == 0)
+        return 128;
+    if(strcmp(alg, "aes256-ctr") == 0)
+        return 256;
+    return -1;
 }
 
 static int ssh_encode_mpint(const uint8_t* value, size_t value_len,
@@ -787,11 +811,12 @@ static int ssh_write_n(sshd_session_t* s, const void* buf, size_t len) {
             step = SSH_SOCKET_WRITE_STEP;
         errno = 0;
         /*
-         * EwokOS socket writes become unreliable when we hand large SSH packet
-         * buffers to a single write() call; runtime logs consistently showed
-         * progress only when the stack accepted ~1 KiB chunks. Keep each write
-         * small even on blocking sockets so large SFTP replies are streamed out
-         * incrementally instead of stalling mid-packet.
+         * Keep each write bounded so the relay can recover cleanly from short
+         * writes/EAGAIN, but do not hard-cap it at 1 KiB: TX telemetry on
+         * raspix shows that limit directly translating into ~1 KiB network
+         * packets and capping WLAN throughput around 140-150 KB/s. A 4 KiB
+         * step still avoids handing the whole SSH frame to a single write(),
+         * while allowing the socket/VFS layer to coalesce noticeably better.
          */
         ssize_t n = write(s->socket, p + total, step);
         saved_errno = errno;
@@ -1087,7 +1112,7 @@ static int ssh_packet_send_locked(sshd_session_t* s, const ssh_packet_t* packet)
         ssh_write_uint32(mac_input, seq);
         memcpy(mac_input + 4, buf, total_len);
         hmac_sha256(s->mac_key_s2c, sizeof(s->mac_key_s2c), mac_input, 4 + total_len, mac);
-        if(ssh_aes256_ctr_crypt(buf, total_len, s->enc_key_s2c, s->iv_s2c) < 0) {
+        if(ssh_aes_ctr_crypt(buf, total_len, s->enc_key_s2c, s->enc_key_bits_s2c, s->iv_s2c) < 0) {
             sshd_set_error("encrypt failed");
             goto out;
         }
@@ -1118,13 +1143,17 @@ static int ssh_packet_receive(sshd_session_t* s, ssh_packet_t* packet) {
     uint8_t first_block[16];
     uint8_t mac[32];
     uint8_t calc_mac[32];
-    uint8_t* mac_input = NULL;
     uint8_t* packet_buf;
     uint32_t block_size = s->encryption_enabled ? 16 : 8;
     uint32_t packet_len;
     uint32_t total_len;
     uint32_t seq = s->seq_c2s;
     uint8_t padding_len;
+    if(s->rx_packet_buf == NULL) {
+        sshd_set_error("packet receive buffer unavailable");
+        return -1;
+    }
+    packet_buf = s->rx_packet_buf + 4;
 
     if(!s->encryption_enabled) {
         uint8_t len_buf[4];
@@ -1136,12 +1165,8 @@ static int ssh_packet_receive(sshd_session_t* s, ssh_packet_t* packet) {
             return -1;
         }
         total_len = packet_len + 4;
-        packet_buf = (uint8_t*)malloc(total_len);
-        if(packet_buf == NULL)
-            return -1;
         memcpy(packet_buf, len_buf, 4);
         if(ssh_read_n(s, packet_buf + 4, packet_len) < 0) {
-            free(packet_buf);
             return -1;
         }
     }
@@ -1151,7 +1176,7 @@ static int ssh_packet_receive(sshd_session_t* s, ssh_packet_t* packet) {
         if(ssh_read_n(s, first_block, block_size) < 0)
             return -1;
         memcpy(iv, s->iv_c2s, sizeof(iv));
-        if(ssh_aes256_ctr_crypt(first_block, block_size, s->enc_key_c2s, iv) < 0) {
+        if(ssh_aes_ctr_crypt(first_block, block_size, s->enc_key_c2s, s->enc_key_bits_c2s, iv) < 0) {
             sshd_set_error("decrypt header failed");
             return -1;
         }
@@ -1161,57 +1186,38 @@ static int ssh_packet_receive(sshd_session_t* s, ssh_packet_t* packet) {
             return -1;
         }
         total_len = packet_len + 4;
-        packet_buf = (uint8_t*)malloc(total_len);
-        if(packet_buf == NULL)
-            return -1;
         memcpy(packet_buf, first_block, block_size);
         if(ssh_read_n(s, packet_buf + block_size, total_len - block_size) < 0) {
-            free(packet_buf);
             return -1;
         }
         if(ssh_read_n(s, mac, sizeof(mac)) < 0) {
-            free(packet_buf);
             return -1;
         }
-        if(ssh_aes256_ctr_crypt(packet_buf + block_size, total_len - block_size, s->enc_key_c2s, iv) < 0) {
-            free(packet_buf);
+        if(ssh_aes_ctr_crypt(packet_buf + block_size, total_len - block_size, s->enc_key_c2s, s->enc_key_bits_c2s, iv) < 0) {
             sshd_set_error("decrypt body failed");
             return -1;
         }
         memcpy(s->iv_c2s, iv, sizeof(iv));
-        mac_input = (uint8_t*)malloc(SSH_PACKET_MAC_INPUT_MAX);
-        if(mac_input == NULL) {
-            free(packet_buf);
-            sshd_set_error("packet receive out of memory");
-            return -1;
-        }
-        ssh_write_uint32(mac_input, seq);
-        memcpy(mac_input + 4, packet_buf, total_len);
-        hmac_sha256(s->mac_key_c2s, sizeof(s->mac_key_c2s), mac_input, 4 + total_len, calc_mac);
+        ssh_write_uint32(s->rx_packet_buf, seq);
+        hmac_sha256(s->mac_key_c2s, sizeof(s->mac_key_c2s), s->rx_packet_buf, 4 + total_len, calc_mac);
         if(memcmp(mac, calc_mac, sizeof(mac)) != 0) {
-            free(mac_input);
-            free(packet_buf);
             sshd_set_error("packet mac mismatch");
             return -1;
         }
-        free(mac_input);
     }
 
     padding_len = packet_buf[4];
     if(packet_len < (uint32_t)(padding_len + 2)) {
-        free(packet_buf);
         sshd_set_error("invalid padding length");
         return -1;
     }
     packet->type = packet_buf[5];
     packet->payload_len = packet_len - padding_len - 2;
     if(packet->payload_len > sizeof(packet->payload)) {
-        free(packet_buf);
         sshd_set_error("invalid payload length");
         return -1;
     }
     memcpy(packet->payload, packet_buf + 6, packet->payload_len);
-    free(packet_buf);
     s->seq_c2s++;
     return 0;
 }
@@ -1344,10 +1350,23 @@ static int parse_client_kexinit(sshd_session_t* s,
         sshd_set_error("unsupported client hostkey algorithms");
         return -1;
     }
-    if(choose_client_algo(enc_c2s, enc_c2s_len, "aes256-ctr") < 0 ||
-            choose_client_algo(enc_s2c, enc_s2c_len, "aes256-ctr") < 0) {
-        sshd_set_error("unsupported client cipher algorithms");
-        return -1;
+    {
+        static const char* enc_pref[] = {"aes128-ctr", "aes256-ctr"};
+        if(choose_first_supported_algo(enc_c2s, enc_c2s_len,
+                    enc_pref, sizeof(enc_pref) / sizeof(enc_pref[0]),
+                    s->negotiated_enc_alg_c2s, sizeof(s->negotiated_enc_alg_c2s)) < 0 ||
+                choose_first_supported_algo(enc_s2c, enc_s2c_len,
+                    enc_pref, sizeof(enc_pref) / sizeof(enc_pref[0]),
+                    s->negotiated_enc_alg_s2c, sizeof(s->negotiated_enc_alg_s2c)) < 0) {
+            sshd_set_error("unsupported client cipher algorithms");
+            return -1;
+        }
+        s->enc_key_bits_c2s = ssh_cipher_key_bits(s->negotiated_enc_alg_c2s);
+        s->enc_key_bits_s2c = ssh_cipher_key_bits(s->negotiated_enc_alg_s2c);
+        if(s->enc_key_bits_c2s < 0 || s->enc_key_bits_s2c < 0) {
+            sshd_set_error("unsupported negotiated cipher algorithms");
+            return -1;
+        }
     }
     if(choose_client_algo(mac_c2s, mac_c2s_len, "hmac-sha2-256") < 0 ||
             choose_client_algo(mac_s2c, mac_s2c_len, "hmac-sha2-256") < 0) {
@@ -1435,9 +1454,9 @@ static int send_kexinit(sshd_session_t* s) {
             write_ssh_string(packet.payload, sizeof(packet.payload), &off,
                 (const uint8_t*)"rsa-sha2-256,ssh-rsa", 20) < 0 ||
             write_ssh_string(packet.payload, sizeof(packet.payload), &off,
-                (const uint8_t*)"aes256-ctr", 10) < 0 ||
+                (const uint8_t*)"aes128-ctr,aes256-ctr", 21) < 0 ||
             write_ssh_string(packet.payload, sizeof(packet.payload), &off,
-                (const uint8_t*)"aes256-ctr", 10) < 0 ||
+                (const uint8_t*)"aes128-ctr,aes256-ctr", 21) < 0 ||
             write_ssh_string(packet.payload, sizeof(packet.payload), &off,
                 (const uint8_t*)"hmac-sha2-256", 14) < 0 ||
             write_ssh_string(packet.payload, sizeof(packet.payload), &off,
@@ -2271,23 +2290,51 @@ static int internal_sftp_queue_append(sshd_session_t* s, const uint8_t* data,
     return 0;
 }
 
+static int internal_sftp_flush(internal_sftp_io_t* io) {
+    if(io == NULL || io->out_len == 0)
+        return 0;
+    if(send_channel_data_packet(io->s, 0, io->out, io->out_len) < 0)
+        return -1;
+    io->out_len = 0;
+    return 0;
+}
+
 static int internal_sftp_emit(void* user, const uint8_t* data, size_t len) {
-    sshd_session_t* s = (sshd_session_t*)user;
-    return send_channel_data_packet(s, 0, data, len);
+    internal_sftp_io_t* io = (internal_sftp_io_t*)user;
+
+    if(io == NULL || (data == NULL && len > 0))
+        return -1;
+    if(len == 0)
+        return 0;
+    if(len > sizeof(io->out)) {
+        if(internal_sftp_flush(io) < 0)
+            return -1;
+        return send_channel_data_packet(io->s, 0, data, len);
+    }
+    if(io->out_len + len > sizeof(io->out)) {
+        if(internal_sftp_flush(io) < 0)
+            return -1;
+    }
+    memcpy(io->out + io->out_len, data, len);
+    io->out_len += len;
+    return 0;
 }
 
 static void* internal_sftp_thread(void* arg) {
     internal_sftp_arg_t* a = (internal_sftp_arg_t*)arg;
     sshd_session_t* s = a->s;
     sftp_server_io_t io;
+    internal_sftp_io_t emit_io;
     sftp_server_t* srv;
-    uint8_t buf[16384];
+    uint8_t buf[SSH_INTERNAL_SFTP_FEED_CHUNK];
     int rc = 0;
     int need_close = 0;
 
     memset(&io, 0, sizeof(io));
+    memset(&emit_io, 0, sizeof(emit_io));
+    emit_io.s = s;
     io.emit = internal_sftp_emit;
-    io.user = s;
+    io.user = &emit_io;
     srv = sftp_server_create(&io);
     if(srv == NULL)
         rc = -1;
@@ -2332,8 +2379,14 @@ static void* internal_sftp_thread(void* arg) {
             rc = -1;
             break;
         }
+        if(internal_sftp_flush(&emit_io) < 0) {
+            rc = -1;
+            break;
+        }
     }
 
+    if(rc == 0 && internal_sftp_flush(&emit_io) < 0)
+        rc = -1;
     sftp_server_destroy(srv);
     pthread_mutex_lock(&s->state_lock);
     s->internal_sftp_done = 1;
@@ -3327,6 +3380,8 @@ static int session_init(sshd_session_t* s, int sock) {
     s->child_control[0] = s->child_control[1] = -1;
     s->close_notify[0] = s->close_notify[1] = -1;
     s->child_is_sftp = 0;
+    s->enc_key_bits_c2s = 256;
+    s->enc_key_bits_s2c = 256;
     if(pipe(s->close_notify) != 0)
         return -1;
     /*
@@ -3336,6 +3391,9 @@ static int session_init(sshd_session_t* s, int sock) {
      * trusting the kernel/socket stack to always wake a blocking writer.
      */
     if(set_fd_nonblock(s->socket) != 0)
+        return -1;
+    s->rx_packet_buf = (uint8_t*)malloc(4 + SSH_PACKET_WIRE_MAX);
+    if(s->rx_packet_buf == NULL)
         return -1;
     pthread_mutex_init(&s->state_lock, NULL);
     pthread_mutex_init(&s->send_lock, NULL);
@@ -3371,6 +3429,10 @@ static void session_destroy(sshd_session_t* s) {
     if(s->pending_in != NULL) {
         free(s->pending_in);
         s->pending_in = NULL;
+    }
+    if(s->rx_packet_buf != NULL) {
+        free(s->rx_packet_buf);
+        s->rx_packet_buf = NULL;
     }
     if(s->sftp_in != NULL) {
         free(s->sftp_in);
