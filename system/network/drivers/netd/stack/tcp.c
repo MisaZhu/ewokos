@@ -132,6 +132,9 @@ struct tcp_pcb {
     uint8_t delack_pending;      /* delayed ACK armed (RFC 1122) */
     uint8_t delack_count;        /* in-order segs awaiting ACK */
     struct timeval delack_timer; /* first unacked seg arrival time */
+    uint8_t dupacks;             /* consecutive dup ACKs (fast retransmit) */
+    uint32_t ooo_seq;            /* out-of-order stash: first seq (valid if ooo_len) */
+    uint32_t ooo_len;            /* out-of-order stash: byte count, 0 = empty */
     struct tcp_pcb *parent;
     struct queue_head backlog;
 };
@@ -958,6 +961,33 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
             pcb->snd.una = seg->ack;
             if (ack_advanced) {
                 tcp_retransmit_queue_cleanup(pcb);
+                pcb->dupacks = 0;
+            } else if (len == 0 && pcb->queue.num > 0 &&
+                       seg->wnd == pcb->snd.wnd &&
+                       !TCP_FLG_ISSET(flags, TCP_FLG_SYN | TCP_FLG_FIN)) {
+                /*
+                 * RFC 5681 fast retransmit. Without it, every frame lost on a
+                 * lossy link (raspix WLAN) stalls the whole in-flight window
+                 * for a full RTO (200ms+, doubling), capping throughput at
+                 * roughly window/RTO regardless of link speed. Three pure dup
+                 * ACKs (no payload, no window change, unACKed data queued)
+                 * mean the receiver got later segments, so resend the oldest
+                 * unACKed segment immediately -- once per loss episode; the
+                 * RTO timer still backstops multi-loss windows. Refresh
+                 * entry->last without doubling rto so the timer path doesn't
+                 * fire a duplicate retransmit right behind this one.
+                 */
+                if (pcb->dupacks < 0xff) {
+                    pcb->dupacks++;
+                }
+                if (pcb->dupacks == 3) {
+                    struct tcp_queue_entry *re = queue_peek(&pcb->queue);
+                    if (re) {
+                        tcp_output_segment(re->seq, pcb->rcv.nxt, re->flg, pcb->rcv.wnd,
+                                           (uint8_t *)(re + 1), re->len, &pcb->local, &pcb->foreign);
+                        gettimeofday(&re->last, NULL);
+                    }
+                }
             }
             /* ignore: Users should receive positive acknowledgments for buffers
                         which have been SENT and fully acknowledged (i.e., SEND buffer should be returned with "ok" response) */
@@ -1073,7 +1103,54 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
                     copy_len -= copy_off;
                 }
             } else if (seg->seq > pcb->rcv.nxt) {
+                /*
+                 * Out-of-order segment. Dropping it turns every lost WLAN
+                 * frame into go-back-N: the whole in-flight window behind the
+                 * hole is discarded and (without SACK) the peer re-sends one
+                 * MSS per RTT under NewReno -- uploads run at half the
+                 * download rate. Instead stash the payload directly at its
+                 * natural position in pcb->buf (the seq->offset mapping is
+                 * stable: rcv.nxt and rcv.wnd always move together) and track
+                 * ONE contiguous range -- a single lost frame, the dominant
+                 * loss pattern, leaves exactly one hole. When the retransmit
+                 * fills the hole, rcv.nxt jumps over the stash in one step.
+                 * A rarer second hole just falls back to the old drop path.
+                 */
                 copy_len = 0;
+                uint32_t ooo_off = seg->seq - pcb->rcv.nxt;
+                if (len > 0 && ooo_off < pcb->rcv.wnd) {
+                    size_t keep = len;
+                    if (ooo_off + keep > pcb->rcv.wnd) {
+                        keep = pcb->rcv.wnd - ooo_off;
+                    }
+                    uint32_t s = seg->seq;
+                    uint32_t e = seg->seq + (uint32_t)keep;
+                    int stash = 0;
+                    if (!pcb->ooo_len) {
+                        pcb->ooo_seq = s;
+                        pcb->ooo_len = e - s;
+                        stash = 1;
+                    } else {
+                        uint32_t os = pcb->ooo_seq;
+                        uint32_t oe = pcb->ooo_seq + pcb->ooo_len;
+                        /* overlapping or adjacent (serial arithmetic) */
+                        if ((int32_t)(s - oe) <= 0 && (int32_t)(e - os) >= 0) {
+                            if ((int32_t)(s - os) < 0) {
+                                os = s;
+                            }
+                            if ((int32_t)(e - oe) > 0) {
+                                oe = e;
+                            }
+                            pcb->ooo_seq = os;
+                            pcb->ooo_len = oe - os;
+                            stash = 1;
+                        }
+                    }
+                    if (stash) {
+                        memcpy(pcb->buf + (sizeof(pcb->buf) - pcb->rcv.wnd) + ooo_off,
+                               data, keep);
+                    }
+                }
             }
 
             if (copy_len > pcb->rcv.wnd) {
@@ -1085,14 +1162,35 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
                 pcb->rcv.nxt += copy_len;
                 pcb->rcv.wnd -= copy_len;
                 /*
+                 * If this segment filled the hole in front of the stashed
+                 * out-of-order range, the stash is already sitting at the
+                 * right buffer offset -- consuming it is pure bookkeeping.
+                 */
+                int ooo_merged = 0;
+                if (pcb->ooo_len) {
+                    uint32_t ooo_end = pcb->ooo_seq + pcb->ooo_len;
+                    if ((int32_t)(ooo_end - pcb->rcv.nxt) <= 0) {
+                        pcb->ooo_len = 0; /* fully covered by in-order data */
+                    } else if ((int32_t)(pcb->ooo_seq - pcb->rcv.nxt) <= 0) {
+                        uint32_t delta = ooo_end - pcb->rcv.nxt;
+                        pcb->rcv.nxt += delta;
+                        pcb->rcv.wnd -= delta;
+                        pcb->ooo_len = 0;
+                        ooo_merged = 1;
+                    }
+                }
+                /*
                  * RFC 1122 delayed ACK: acknowledge every TCP_DELACK_SEGS-th
                  * in-order segment, or after TCP_DELACK_TIMEOUT_USEC. On the
                  * raspix WLAN link every pure ACK costs a full SDIO TX frame
                  * (~0.5ms of bus time plus one TX credit), so immediate ACKs
                  * burn ~1/3 of the bus during downloads.
+                 *
+                 * A hole-filling merge ends a loss-recovery episode: ACK the
+                 * big rcv.nxt jump immediately so the peer exits recovery.
                  */
                 pcb->delack_count++;
-                if (pcb->delack_count >= TCP_DELACK_SEGS) {
+                if (ooo_merged || pcb->delack_count >= TCP_DELACK_SEGS) {
                     pcb->delack_pending = 0;
                     pcb->delack_count = 0;
                     tcp_output(pcb, TCP_FLG_ACK, NULL, 0);
@@ -1134,6 +1232,11 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
             return;
         }
         pcb->rcv.nxt = seg->seq + 1;
+        /*
+         * Any out-of-order stash is dead now (no more data follows the FIN)
+         * and would poison the tcp_receive() memmove-span math.
+         */
+        pcb->ooo_len = 0;
         /* FIN gets an immediate ACK; drop any pending delayed ACK. */
         pcb->delack_pending = 0;
         pcb->delack_count = 0;
@@ -2170,7 +2273,20 @@ tcp_receive(int id, uint8_t *data, size_t size)
     len = MIN(size, remain);
     prev_wnd = pcb->rcv.wnd;
     memcpy(data, pcb->buf, len);
-    memmove(pcb->buf, pcb->buf + len, remain - len);
+    /*
+     * The seq->offset mapping is anchored at buf[0] == rcv.nxt - remain, so
+     * consuming `len` bytes shifts every live byte down by `len` -- including
+     * an out-of-order stash parked beyond the in-order region (its offset is
+     * remain + (ooo_seq - rcv.nxt)). Move the stash along or the mapping the
+     * hole-merge relies on silently breaks after the first read.
+     */
+    {
+        size_t tail = remain - len;
+        if (pcb->ooo_len) {
+            tail = remain + (size_t)(pcb->ooo_seq - pcb->rcv.nxt) + pcb->ooo_len - len;
+        }
+        memmove(pcb->buf, pcb->buf + len, tail);
+    }
     pcb->rcv.wnd += len;
     if (pcb->rcv.wnd != prev_wnd) {
         tcp_output(pcb, TCP_FLG_ACK, NULL, 0);
