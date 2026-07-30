@@ -2338,6 +2338,8 @@ static void* internal_sftp_thread(void* arg) {
     srv = sftp_server_create(&io);
     if(srv == NULL)
         rc = -1;
+    else /* uploads must be owned by the logged-in user, not root */
+        sftp_server_set_owner(srv, s->user_info.uid, s->user_info.gid);
 
     while(rc == 0 && !s->closing) {
         size_t pending_before;

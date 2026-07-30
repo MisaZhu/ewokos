@@ -862,7 +862,7 @@ uint8_t* vfs_readfile(const char* fname, int* rsz) {
 	return buf;
 }
 
-int vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_node_only, bool autodir) {
+int vfs_create_uid(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_node_only, bool autodir, int uid, int gid) {
 	char dir[FS_FULL_NAME_MAX];
 	char name[FS_FULL_NAME_MAX];
 	vfs_dir_name(fname, dir, FS_FULL_NAME_MAX);
@@ -872,7 +872,7 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_no
 	if(vfs_get_by_name(dir, &info_to) != 0) {
 		int res_dir = -1;
 		if(autodir)
-			res_dir = vfs_create(dir, &info_to, FS_TYPE_DIR, 0755, vfs_node_only, autodir);
+			res_dir = vfs_create_uid(dir, &info_to, FS_TYPE_DIR, 0755, vfs_node_only, autodir, uid, gid);
 		if(res_dir != 0)
 			return -1;
 	}
@@ -887,8 +887,8 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_no
 	if(type == FS_TYPE_DIR)
 		fi.stat.size = 1024;
 
-	fi.stat.uid = getuid();
-	fi.stat.gid = getgid();
+	fi.stat.uid = uid < 0 ? getuid() : uid;
+	fi.stat.gid = gid < 0 ? getgid() : gid;
 	fi.stat.mode = mode;
 
 	if(vfs_new_node(&fi, info_to.node, vfs_node_only, false) != 0)
@@ -913,6 +913,10 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_no
 	if(ret != NULL)
 		memcpy(ret, &fi, sizeof(fsinfo_t));
 	return res;
+}
+
+int vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_node_only, bool autodir) {
+	return vfs_create_uid(fname, ret, type, mode, vfs_node_only, autodir, -1, -1);
 }
 
 const char* vfs_dir_name(const char* fname, char* ret, uint32_t len) {

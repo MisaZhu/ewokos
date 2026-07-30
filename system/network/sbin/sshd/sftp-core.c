@@ -95,7 +95,52 @@ struct sftp_server {
     uint8_t out_buf[MAX_PKT_SIZE];
     size_t out_off;
     sftp_server_io_t io;
+    int owner_uid;
+    int owner_gid;
 };
+
+/* sshd runs as root, so file access must be checked against the logged-in
+ * session user (mirrors vfs_check_access() semantics) */
+static int session_access(sftp_server_t *srv, const fsinfo_t *info, int mode) {
+    int ucheck = 0400, gcheck = 040, acheck = 04;
+
+    if (srv->owner_uid <= 0) /* no session owner set, or root */
+        return 0;
+    if (mode == W_OK) {
+        ucheck = 0200;
+        gcheck = 020;
+        acheck = 02;
+    } else if (mode == X_OK) {
+        ucheck = 0100;
+        gcheck = 010;
+        acheck = 01;
+    }
+    if ((int)info->stat.uid == srv->owner_uid)
+        return (info->stat.mode & ucheck) != 0 ? 0 : -1;
+    if ((int)info->stat.gid == srv->owner_gid)
+        return (info->stat.mode & gcheck) != 0 ? 0 : -1;
+    return (info->stat.mode & acheck) != 0 ? 0 : -1;
+}
+
+static int session_path_access(sftp_server_t *srv, const char *path, int mode) {
+    fsinfo_t info;
+
+    if (srv->owner_uid <= 0)
+        return 0;
+    if (vfs_get_by_name(path, &info) != 0)
+        return -1;
+    return session_access(srv, &info, mode);
+}
+
+/* creating an entry requires write permission on its parent directory */
+static int session_parent_writable(sftp_server_t *srv, const char *path) {
+    char dir[512];
+
+    if (srv->owner_uid <= 0)
+        return 0;
+    vfs_dir_name(path, dir, sizeof(dir));
+    return session_path_access(srv, dir, W_OK);
+}
 
 static void put_u32(uint8_t *buf, uint32_t val) {
     buf[0] = (val >> 24) & 0xff;
@@ -525,8 +570,12 @@ static int handle_open(sftp_server_t *srv, const uint8_t *buf, size_t len) {
         int create_mode = has_mode ? (int)(mode & 0777) : 0644;
         if (create_mode == 0)
             create_mode = 0644;
-        if (vfs_create(pathbuf, NULL, FS_TYPE_FILE, create_mode,
-                    false, false) != 0) {
+        if (session_parent_writable(srv, pathbuf) != 0)
+            return send_status(srv, id, SSH_FX_PERMISSION_DENIED,
+                    "permission denied");
+        /* create with the session user as owner right away */
+        if (vfs_create_uid(pathbuf, NULL, FS_TYPE_FILE, create_mode,
+                    false, false, srv->owner_uid, srv->owner_gid) != 0) {
             int err = errno ? errno : EIO;
             errno = err;
             return send_status(srv, id, errno_to_status(), strerror(err));
@@ -538,6 +587,16 @@ static int handle_open(sftp_server_t *srv, const uint8_t *buf, size_t len) {
         int err = errno ? errno : ENOENT;
         errno = err;
         return send_status(srv, id, errno_to_status(), strerror(err));
+    }
+    if (st_rc == 0) { /* pre-existing file: enforce session permissions */
+        if ((flags & (O_WRONLY | O_RDWR)) != 0 &&
+                session_access(srv, &finfo, W_OK) != 0)
+            return send_status(srv, id, SSH_FX_PERMISSION_DENIED,
+                    "permission denied");
+        if ((flags & O_WRONLY) == 0 &&
+                session_access(srv, &finfo, R_OK) != 0)
+            return send_status(srv, id, SSH_FX_PERMISSION_DENIED,
+                    "permission denied");
     }
     fd = vfs_open(&finfo, open_flags);
     if (fd < 0) {
@@ -947,7 +1006,12 @@ static int handle_mkdir(sftp_server_t *srv, const uint8_t *buf, size_t len) {
     mode = parse_attrs_mode(buf, len, &off, &has_mode);
     if (!has_mode)
         mode = 0755;
-    if (mkdir(pathbuf, mode & 0777) < 0)
+    if (session_parent_writable(srv, pathbuf) != 0)
+        return send_status(srv, id, SSH_FX_PERMISSION_DENIED,
+                "permission denied");
+    /* create with the session user as owner right away */
+    if (vfs_create_uid(pathbuf, NULL, FS_TYPE_DIR, mode & 0777,
+                false, true, srv->owner_uid, srv->owner_gid) != 0)
         return send_status(srv, id, errno_to_status(), strerror(errno));
     return send_status(srv, id, SSH_FX_OK, "");
 }
@@ -1149,7 +1213,16 @@ sftp_server_t *sftp_server_create(const sftp_server_io_t *io) {
         return NULL;
     if (io)
         srv->io = *io;
+    srv->owner_uid = -1;
+    srv->owner_gid = -1;
     return srv;
+}
+
+void sftp_server_set_owner(sftp_server_t *srv, int uid, int gid) {
+    if (!srv)
+        return;
+    srv->owner_uid = uid;
+    srv->owner_gid = gid;
 }
 
 void sftp_server_destroy(sftp_server_t *srv) {
