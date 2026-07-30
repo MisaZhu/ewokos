@@ -107,19 +107,20 @@ struct tcp_pcb {
     uint16_t mtu;
     uint16_t mss;
     /* Receive buffer / advertised window.
-     * Must stay comfortably below the WLAN dongle's TX credit pool
-     * (~25 frames): netd ACKs every inbound segment, so a full-window
-     * burst generates ~wnd/MSS ACKs at once.  Those ACKs can only be
-     * transmitted with credits, and credits are refreshed exclusively
-     * by RX frame headers - which stop the moment the peer's send
-     * window closes.  With a 32KB window (~22 ACKs) the ACK burst
-     * exhausted the credit pool, the peer sat in zero-window silence,
-     * and recovery had to wait out the driver's 500ms starvation
-     * escape per frame (multi-second scp upload stalls).  16KB
-     * (~11 ACKs) keeps the ACK burst self-clocked within the pool.
-     * Throughput ceiling wnd/RTT (~16KB/10ms LAN) is far above the
-     * observed link rate, so this costs nothing in practice. */
-    uint8_t buf[1024*16]; /* receive buffer */
+     * The ACK burst for a full-window inbound blast must stay below the
+     * WLAN dongle's TX credit pool (~25 frames): credits are refreshed
+     * exclusively by RX frame headers, which stop the moment the peer's
+     * send window closes.  Pre-delack, netd ACKed every segment, so a
+     * 32KB window (~22 ACKs) exhausted the pool and the peer sat in
+     * zero-window silence until the driver's 500ms starvation escape
+     * (multi-second scp upload stalls); the buffer was shrunk to 16KB
+     * (~11 ACKs) to stay self-clocked.  Delayed ACK (TCP_DELACK_SEGS=2)
+     * has since halved the burst: 32KB now generates the same ~11 ACKs
+     * the 16KB sizing was validated against, so the window can be
+     * restored.  This directly lifts the upload ceiling wnd/RTT - the
+     * 16KB window stop-and-go (drain fully, then refill over the air
+     * with no overlap) capped scp uploads well below the link rate. */
+    uint8_t buf[1024*32]; /* receive buffer */
     struct sched_ctx state_ctx;
     struct sched_ctx send_ctx;
     struct sched_ctx recv_ctx;
@@ -541,7 +542,33 @@ tcp_output_segment(uint32_t seq, uint32_t ack, uint8_t flg, uint16_t wnd, uint8_
     char ep1[IP_ENDPOINT_STR_LEN];
     char ep2[IP_ENDPOINT_STR_LEN];
     uint8_t *buf;
-    total = sizeof(*hdr) + len;
+    uint8_t opts[4];
+    size_t optlen = 0;
+
+    /*
+     * RFC 1122 4.2.2.6: a peer that receives no MSS option in our SYN /
+     * SYN-ACK must assume the 536-byte default for the data it sends us.
+     * This header used to carry no options at all, so every inbound
+     * (upload) stream ran at 536-byte segments - about 1/3 of the payload
+     * per frame of the outbound direction - while the per-frame
+     * SDIO/IPC pipeline cost is identical. Advertise our real MSS so the
+     * peer can fill full-size segments.
+     */
+    if (TCP_FLG_ISSET(flg, TCP_FLG_SYN)) {
+        struct ip_iface *iface = ip_route_get_iface(local->addr);
+        uint16_t mss = 536;
+
+        if (iface) {
+            mss = NET_IFACE(iface)->dev->mtu - (IP_HDR_SIZE_MIN + sizeof(struct tcp_hdr));
+        }
+        opts[0] = 2; /* kind: MSS */
+        opts[1] = 4; /* length */
+        opts[2] = (uint8_t)(mss >> 8);
+        opts[3] = (uint8_t)(mss & 0xff);
+        optlen = sizeof(opts);
+    }
+
+    total = sizeof(*hdr) + optlen + len;
     buf = memory_alloc(total);
     if(!buf)
         return -1;
@@ -551,12 +578,15 @@ tcp_output_segment(uint32_t seq, uint32_t ack, uint8_t flg, uint16_t wnd, uint8_
     hdr->dst = foreign->port;
     hdr->seq = hton32(seq);
     hdr->ack = hton32(ack);
-    hdr->off = (sizeof(*hdr) >> 2) << 4;
+    hdr->off = (uint8_t)(((sizeof(*hdr) + optlen) >> 2) << 4);
     hdr->flg = flg;
     hdr->wnd = hton16(wnd);
     hdr->sum = 0;
     hdr->up = 0;
-    memcpy(hdr + 1, data, len);
+    if (optlen) {
+        memcpy(hdr + 1, opts, optlen);
+    }
+    memcpy((uint8_t *)(hdr + 1) + optlen, data, len);
     pseudo.src = local->addr;
     pseudo.dst = foreign->addr;
     pseudo.zero = 0;

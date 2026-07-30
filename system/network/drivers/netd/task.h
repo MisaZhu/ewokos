@@ -13,7 +13,10 @@ enum{
     NET_TASK_FINISH
 };
 
-#define TASK_READ_BUF_SIZE 1024*16
+/* Match the TCP receive buffer (32KB) so one SOCK_RECV worker run can
+ * drain a full receive window, and sshd's ~32KB SSH packet body reads
+ * complete in a single IPC round trip instead of two. */
+#define TASK_READ_BUF_SIZE 1024*32
 #define TASK_WRITE_BUF_SIZE 1024*32
 typedef struct net_task{
     int fd;
