@@ -56,7 +56,7 @@
 #define SSH_WINDOW_ADJUST_MIN   (128*1024)
 #define SSH_CHILD_STDIN_STEP    (64 * 1024)
 #define SSH_RELAY_READ_SIZE     16384
-#define SSH_SOCKET_WRITE_STEP   4096
+#define SSH_SOCKET_WRITE_STEP   32768
 #define SSH_INTERNAL_SFTP_FEED_CHUNK (64 * 1024)
 #define SSH_PENDING_INPUT_WAIT_US 1000
 #define SSH_CHILD_STDIN_POLL_MS 5
@@ -811,12 +811,12 @@ static int ssh_write_n(sshd_session_t* s, const void* buf, size_t len) {
             step = SSH_SOCKET_WRITE_STEP;
         errno = 0;
         /*
-         * Keep each write bounded so the relay can recover cleanly from short
-         * writes/EAGAIN, but do not hard-cap it at 1 KiB: TX telemetry on
-         * raspix shows that limit directly translating into ~1 KiB network
-         * packets and capping WLAN throughput around 140-150 KB/s. A 4 KiB
-         * step still avoids handing the whole SSH frame to a single write(),
-         * while allowing the socket/VFS layer to coalesce noticeably better.
+         * One full SSH channel packet (32KB) per write(): netd's synchronous
+         * send fast-path completes the whole chunk in a single IPC when the
+         * TCP window is open, and returns a short count when it closes
+         * mid-burst - the loop below resumes from the short write, so a
+         * larger step no longer risks the old EAGAIN recovery problems that
+         * motivated the 1KB/4KB caps.
          */
         ssize_t n = write(s->socket, p + total, step);
         saved_errno = errno;

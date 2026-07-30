@@ -542,6 +542,7 @@ tcp_output_segment(uint32_t seq, uint32_t ack, uint8_t flg, uint16_t wnd, uint8_
     char ep1[IP_ENDPOINT_STR_LEN];
     char ep2[IP_ENDPOINT_STR_LEN];
     uint8_t *buf;
+    uint8_t sbuf[2048];
     uint8_t opts[4];
     size_t optlen = 0;
 
@@ -569,9 +570,19 @@ tcp_output_segment(uint32_t seq, uint32_t ack, uint8_t flg, uint16_t wnd, uint8_
     }
 
     total = sizeof(*hdr) + optlen + len;
-    buf = memory_alloc(total);
-    if(!buf)
-        return -1;
+    /*
+     * Fast path: any MTU-sized ethernet segment (and every bare ACK) fits on
+     * the stack, so skip the heap alloc/free pair that used to run once per
+     * outgoing segment. Only oversized loopback segments (mtu=64KB) still
+     * fall back to the heap.
+     */
+    if (total <= sizeof(sbuf)) {
+        buf = sbuf;
+    } else {
+        buf = memory_alloc(total);
+        if(!buf)
+            return -1;
+    }
 
     hdr = (struct tcp_hdr *)buf;
     hdr->src = local->port;
@@ -596,7 +607,8 @@ tcp_output_segment(uint32_t seq, uint32_t ack, uint8_t flg, uint16_t wnd, uint8_
     hdr->sum = cksum16((uint16_t *)hdr, total, psum);
 
     int ret = ip_output(IP_PROTOCOL_TCP, (uint8_t *)hdr, total, local->addr, foreign->addr);
-    free(buf);
+    if (buf != sbuf)
+        free(buf);
     if(ret < 0){
         errorf("tcp_output_segment failed: flg=0x%x seq=%u ack=%u local=%s foreign=%s",
             flg, seq, ack,
@@ -1769,6 +1781,11 @@ tcp_timer_active(void)
     struct tcp_pcb *pcb;
 
     mutex_lock(&mutex);
+    if (pcb_alloc_count == pcb_release_count) {
+        /* no live PCBs: skip the full table scan */
+        mutex_unlock(&mutex);
+        return 0;
+    }
     for (pcb = pcbs; pcb < tailof(pcbs); pcb++) {
         if (pcb->state == TCP_PCB_STATE_TIME_WAIT || pcb->queue.num > 0 ||
             pcb->persist_probing || pcb->delack_pending) {
@@ -1787,8 +1804,13 @@ tcp_timer_due_us(void)
     struct tcp_pcb *pcb;
     struct timeval now;
 
-    gettimeofday(&now, NULL);
     mutex_lock(&mutex);
+    if (pcb_alloc_count == pcb_release_count) {
+        /* no live PCBs: no timers can be pending, skip scan + gettimeofday */
+        mutex_unlock(&mutex);
+        return -1;
+    }
+    gettimeofday(&now, NULL);
     for (pcb = pcbs; pcb < tailof(pcbs); pcb++) {
         struct tcp_queue_entry *entry;
 
@@ -1824,6 +1846,49 @@ tcp_timer_due_us(void)
     }
     mutex_unlock(&mutex);
     return min_due_us;
+}
+
+/*
+ * True while any live connection has unacknowledged segments in flight AND
+ * the most recent (re)transmission is fresh (within ~50ms), i.e. the peer's
+ * ACK is plausibly imminent. intr_loop uses this to keep the poll cadence
+ * fast between a TX burst and the ACKs: the retransmit-queue RTO reported by
+ * tcp_timer_due_us() is hundreds of ms away, but ACKs land within ~1 RTT and
+ * re-open the send path, so sleeping toward the RTO deadline stalls every
+ * bulk window. The freshness bound keeps a retransmit storm to a dead peer
+ * from pinning the fast cadence forever (raspix netd-spin lesson).
+ */
+int
+tcp_inflight_pending(void)
+{
+    struct tcp_pcb *pcb;
+    struct timeval now, diff;
+    int pending = 0;
+
+    mutex_lock(&mutex);
+    if (pcb_alloc_count == pcb_release_count) {
+        mutex_unlock(&mutex);
+        return 0;
+    }
+    gettimeofday(&now, NULL);
+    for (pcb = pcbs; pcb < tailof(pcbs); pcb++) {
+        struct tcp_queue_entry *entry;
+
+        if (pcb->state == TCP_PCB_STATE_FREE) {
+            continue;
+        }
+        entry = queue_peek(&pcb->queue);
+        if (!entry) {
+            continue;
+        }
+        timersub(&now, &entry->last, &diff);
+        if (diff.tv_sec == 0 && diff.tv_usec < 50000) {
+            pending = 1;
+            break;
+        }
+    }
+    mutex_unlock(&mutex);
+    return pending;
 }
 
 int
@@ -2010,15 +2075,15 @@ RETRY:
             }
             pcb->snd.nxt += slen;
             sent += slen;
-            // Continue sending if window allows (don't wait for ACK)
-            if (cap - slen >= mss && sent < (ssize_t)len) {
-                continue;
-            }
-            // If we have sent a reasonable amount of data and the window is getting low,
-            // break to let the application continue and wait for ACKs
-            if (sent >= (ssize_t)(mss * 4)) {
-                break;
-            }
+            /*
+             * Keep pipelining until the caller's buffer is drained or the
+             * window/retransmit-queue caps close (cap==0 above). The old
+             * "stop after mss*4" break forced a short write every ~5.8KB,
+             * which with the per-write IPC round-trip capped bulk TX far
+             * below the link rate. The retransmit queue limit
+             * (TCP_RETRANSMIT_QUEUE_MAX segments) still bounds one call's
+             * burst, so the stack mutex is not held unboundedly.
+             */
         }
         break;
     case TCP_PCB_STATE_FIN_WAIT1:
@@ -2045,10 +2110,8 @@ tcp_receive(int id, uint8_t *data, size_t size)
 {
     struct tcp_pcb *pcb;
     size_t remain, len;
-    struct timeval recv_start, recv_end, recv_diff;
     size_t prev_wnd;
 
-    gettimeofday(&recv_start, NULL);
     mutex_lock(&mutex);
     pcb = tcp_pcb_get(id);
     if (!pcb) {
@@ -2114,9 +2177,6 @@ tcp_receive(int id, uint8_t *data, size_t size)
     }
 
     mutex_unlock(&mutex);
-
-    gettimeofday(&recv_end, NULL);
-    timersub(&recv_end, &recv_start, &recv_diff);
     return len;
 }
 

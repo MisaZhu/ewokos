@@ -55,4 +55,6 @@ extern int
 tcp_poll_writable(int id);
 extern int
 tcp_timer_active(void);
+extern int
+tcp_inflight_pending(void);
 #endif

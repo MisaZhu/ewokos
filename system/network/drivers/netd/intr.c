@@ -182,6 +182,18 @@ void intr_loop(void) {
                 sleep_us = NETD_BUSY_SLEEP_US;
             }
             tap_rounds++;
+        } else if (tcp_inflight_pending()) {
+            /*
+             * Freshly-sent unacked segments: the peer's ACKs are due within
+             * ~1 RTT, far sooner than any timer deadline below. Without this,
+             * one empty tap round mid-transfer jumped straight into the
+             * tcp_timer_due branch (RTO is 100s of ms away -> clamped 50ms
+             * deep sleep) and every 32KB send window stalled ~50ms waiting
+             * for its ACKs to be polled, capping scp at ~500-600KB/s. The
+             * 50ms freshness bound inside tcp_inflight_pending() prevents a
+             * dead-peer retransmit storm from pinning this fast path.
+             */
+            sleep_us = NETD_BUSY_SLEEP_US;
         } else if (tcp_timer_due >= 0) {
             if (tcp_timer_due == 0) {
                 sleep_us = NETD_BUSY_SLEEP_US;

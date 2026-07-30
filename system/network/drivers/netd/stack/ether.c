@@ -84,7 +84,7 @@ ether_dump(const uint8_t *frame, size_t flen)
 int
 ether_transmit_helper(struct net_device *dev, uint16_t type, const uint8_t *data, size_t len, const void *dst, ssize_t (*callback)(struct net_device *dev, const uint8_t *data, size_t len))
 {
-    uint8_t frame[ETHER_FRAME_SIZE_MAX] = {};
+    uint8_t frame[ETHER_FRAME_SIZE_MAX];
     struct ether_hdr *hdr;
     size_t flen, pad = 0;
 
@@ -94,7 +94,10 @@ ether_transmit_helper(struct net_device *dev, uint16_t type, const uint8_t *data
     hdr->type = hton16(type);
     memcpy(hdr + 1, data, len);
     if (len < ETHER_PAYLOAD_SIZE_MIN) {
+        /* zero only the pad region instead of pre-zeroing the whole 1514-byte
+         * frame on every transmit */
         pad = ETHER_PAYLOAD_SIZE_MIN - len;
+        memset((uint8_t *)(hdr + 1) + len, 0, pad);
     }
     flen = sizeof(*hdr) + len + pad;
     debugf("dev=%s, type=%s(0x%04x), len=%zu", dev->name, ether_type_ntoa(hdr->type), type, flen);

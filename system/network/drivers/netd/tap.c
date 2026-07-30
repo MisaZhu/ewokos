@@ -220,12 +220,16 @@ ether_tap_isr(unsigned int irq, void *id)
     }
     more_work = (drained == budget && delivered > 0);
     /*
-     * Keep the fast cadence only when we exhausted the whole burst budget while
-     * still delivering useful frames, which is a strong signal that more work
-     * likely remains. Short bursts that drain early still fall back normally,
-     * so this does not reintroduce the previous idle spin.
+     * Any delivered frame keeps the fast cadence. A steady scp/ssh stream
+     * delivers ~23 frames per 32KB TCP window -- well under the 64-frame
+     * burst budget -- so gating the fast path on a FULL burst (the previous
+     * more_work-only condition) classified every bulk-transfer round as idle
+     * and let intr_loop back off to the 50ms deep sleep between windows,
+     * capping throughput near 32KB/50ms (~600KB/s). Idle rounds still return
+     * -1 (delivered == 0), so the anti-spin backoff is preserved.
      */
-    return (delivered > 0 && more_work) ? 0 : -1;
+    (void)more_work;
+    return (delivered > 0) ? 0 : -1;
 }
 
 static struct net_device_ops ether_tap_ops = {

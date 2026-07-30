@@ -54,6 +54,14 @@ typedef struct net_task{
     int read_cache_errno;
     int write_from_pid;
     /*
+     * Async-accepted write bookkeeping: write_off tracks how much of the
+     * armed write_in payload the worker has already pushed into the TCP
+     * stack; write_err latches a hard send error (the client already got the
+     * accepted byte count back) to be reported on the next write().
+     */
+    uint32_t write_off;
+    int write_err;
+    /*
      * FS_CMD_CLOSE arrives on the dispatch thread; the VFS_EVT_CLOSE wakeup
      * (a reverse IPC to vfsd) must NOT be issued there (vfsd is synchronously
      * waiting on netd for that very close). Defer it to the worker self-reap.

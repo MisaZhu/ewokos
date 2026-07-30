@@ -16,6 +16,7 @@
 
 extern int sock_readable(int sock);
 extern int sock_writable(int sock);
+extern ssize_t sock_send(int id, const void *buf, size_t n);
 extern int sock_data_readable(int sock);
 extern int sock_tcp_scan_info(int id, int *desc, int *state, int *remain);
 extern int sock_get_desc(int id);
@@ -515,31 +516,41 @@ int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p){
     from_pid = task_owner_pid(from_pid);
     pthread_mutex_lock(&task->lock);
 
+    /* Legacy FINISH state no longer produced by the worker; discard it so a
+     * stale slot can never wedge the write path. */
     if(task->write_state == NET_TASK_FINISH){
-        if(from_pid == task->write_from_pid) {
-            int len = proto_read_int(&task->write_out);
-            int sock_errno = 0;
-            if(len <= 0 && task->write_out.size > task->write_out.offset) {
-                sock_errno = proto_read_int(&task->write_out);
-            }
-            PF->clear(&task->write_out);
-            PF->clear(&task->write_in);
-            task->write_state = NET_TASK_IDLE;
-            pthread_mutex_unlock(&task->lock);
-            if(len < 0 && (sock_errno == 0 || sock_errno == EAGAIN || sock_errno == EINTR)) {
-                return VFS_ERR_RETRY;
-            }
-            if(len < 0 && sock_errno != 0) {
-                errno = sock_errno;
-            }
-            return len;
-        }
         PF->clear(&task->write_out);
         PF->clear(&task->write_in);
         task->write_state = NET_TASK_IDLE;
     }
 
     if(task->write_state == NET_TASK_IDLE){
+        /*
+         * Async-accepted write: copy the payload into write_in and return the
+         * byte count NOW, on the dispatch thread. The worker drains it into
+         * the TCP stack in the background (rearmed by the ACK-driven
+         * task_wakeup_tcp_writers() whenever the send window closes).
+         *
+         * This collapses the old per-write round trip (RETRY -> client
+         * vfs_block -> worker sock_send -> deferred vfs_wakeup -> client
+         * retries the write IPC, ~ms each, capping bulk TX near 500KB/s) to a
+         * single IPC in the common case. The dispatch thread MUST NOT enter
+         * the stack itself: sock_send() issues blocking eth-driver ipc_calls,
+         * which are forbidden in the IPC handler context.
+         *
+         * Backpressure: while a previous write is still draining the slot is
+         * busy and the client gets VFS_ERR_RETRY below, blocking on
+         * VFS_EVT_WR until the completion wakeup frees the slot.
+         */
+        if(task->write_err != 0) {
+            /* A previous async-accepted write failed hard after its byte
+             * count was already returned; surface the error here. */
+            int werr = task->write_err;
+            task->write_err = 0;
+            pthread_mutex_unlock(&task->lock);
+            errno = werr;
+            return -1;
+        }
         if(size == 0) {
             pthread_mutex_unlock(&task->lock);
             return 0;
@@ -555,16 +566,18 @@ int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p){
         }
         task->write_p = p;
         task->write_from_pid = from_pid;
-            task->write_ready = false;
+        task->write_ready = false;
+        task->write_off = 0;
         PF->clear(&task->write_in);
         PF->clear(&task->write_out);
         PF->add(&task->write_in, buf, size);
         task->write_state = NET_TASK_START;
         sched_wakeup(&task->wait_ctx);
         pthread_mutex_unlock(&task->lock);
-    } else {
-        pthread_mutex_unlock(&task->lock);
+        return size;
     }
+
+    pthread_mutex_unlock(&task->lock);
     return VFS_ERR_RETRY;
 }
 
@@ -843,9 +856,19 @@ static int do_network_write(net_task_t *task){
     uint32_t saved_offset;
     char *data;
 
+    /*
+     * The client was already handed the full byte count when this write was
+     * accepted (task_write async model), so this worker MUST drain write_in
+     * completely. Partial sends (window closed mid-burst) keep the slot armed
+     * (return 0, state stays PROCESS) with write_off recording progress; the
+     * ACK-driven task_wakeup_tcp_writers() rearms us. Hard errors are latched
+     * into write_err for the client's next write() to report.
+     */
     if(task->sock < 0) {
-        PF->addi(&task->write_out, -1);
-        PF->addi(&task->write_out, EBADF);
+        pthread_mutex_lock(&task->lock);
+        if(task->write_err == 0)
+            task->write_err = EBADF;
+        pthread_mutex_unlock(&task->lock);
         return 1;
     }
 
@@ -858,14 +881,16 @@ static int do_network_write(net_task_t *task){
 
     saved_offset = task->write_in.offset;
     data = proto_read(&task->write_in, &size);
-    if(data == NULL || size < 0) {
-        PF->addi(&task->write_out, -1);
-        PF->addi(&task->write_out, EINVAL);
+    if(data == NULL || size < 0 || task->write_off > (uint32_t)size) {
+        pthread_mutex_lock(&task->lock);
+        if(task->write_err == 0)
+            task->write_err = EINVAL;
+        pthread_mutex_unlock(&task->lock);
         return 1;
     }
 
     errno = 0;
-    ret = sock_send(task->sock, data, size);
+    ret = sock_send(task->sock, data + task->write_off, size - task->write_off);
     sock_errno = errno;
     if(ret < 0 && sock_errno == 0)
         sock_errno = EAGAIN;
@@ -876,11 +901,28 @@ static int do_network_write(net_task_t *task){
         pthread_mutex_unlock(&task->lock);
         return 0;
     }
+    if(ret < 0) {
+        pthread_mutex_lock(&task->lock);
+        if(task->write_err == 0)
+            task->write_err = sock_errno;
+        task->write_ready = false;
+        pthread_mutex_unlock(&task->lock);
+        return 1;
+    }
+
+    task->write_off += (uint32_t)ret;
+    if(task->write_off < (uint32_t)size) {
+        /* Window closed with a short send: stay armed for the ACK rearm. */
+        task->write_in.offset = saved_offset;
+        pthread_mutex_lock(&task->lock);
+        task->write_ready = false;
+        pthread_mutex_unlock(&task->lock);
+        return 0;
+    }
+
     pthread_mutex_lock(&task->lock);
-    task->write_ready = (ret >= 0);
+    task->write_ready = true;
     pthread_mutex_unlock(&task->lock);
-    PF->addi(&task->write_out, ret);
-    PF->addi(&task->write_out, ret < 0 ? sock_errno : 0);
     return 1;
 }
 
@@ -1061,20 +1103,6 @@ static uint32_t task_finish_wakeup_event(net_task_t *task, bool is_read_op) {
     }
 }
 
-static uint32_t task_finish_write_wakeup_event(net_task_t *task) {
-    uint32_t saved_offset = task->write_out.offset;
-    int ret = proto_read_int(&task->write_out);
-    int sock_errno = 0;
-    if(ret < 0 && task->write_out.size > task->write_out.offset) {
-        sock_errno = proto_read_int(&task->write_out);
-    }
-    task->write_out.offset = saved_offset;
-    if(ret < 0 && (sock_errno == 0 || sock_errno == EAGAIN || sock_errno == EINTR)) {
-        return 0;
-    }
-    return VFS_EVT_WR;
-}
-
 static void* task_thread(void* arg){
     net_task_t *task = (net_task_t *)arg;
     pthread_mutex_lock(&task->lock);
@@ -1213,17 +1241,20 @@ static void* task_thread(void* arg){
             }
         }
         if(run_write && write_completed) {
+            /*
+             * Async-accepted write fully drained (or hard-errored into
+             * write_err): free the slot and fire WR so a client parked in
+             * VFS_ERR_RETRY re-issues its write immediately. The retry is
+             * accepted regardless of the TCP window (it only copies into
+             * write_in), so this wakeup cannot cause a poll spin.
+             */
             pthread_mutex_lock(&task->lock);
-            task->write_state = NET_TASK_FINISH;
-            uint32_t wake_event = task_finish_write_wakeup_event(task);
-            int send_recheck_sock = (wake_event == 0 && task->sock >= 0) ? task->sock : -1;
+            PF->clear(&task->write_in);
+            PF->clear(&task->write_out);
+            task->write_off = 0;
+            task->write_state = NET_TASK_IDLE;
             pthread_mutex_unlock(&task->lock);
-            if(send_recheck_sock >= 0 && sock_writable(send_recheck_sock)) {
-                wake_event = VFS_EVT_WR;
-            }
-            if(wake_event != 0) {
-                task_queue_vfs_wakeup(task->node, wake_event);
-            }
+            task_queue_vfs_wakeup(task->node, VFS_EVT_WR);
         }
 
         pthread_mutex_lock(&task->lock);
@@ -1237,6 +1268,24 @@ static void* task_thread(void* arg){
      * TCP graceful-close handshake, but that cost is paid here — never in the
      * shared IPC dispatch context that serves accept()/read()/write().
      */
+    /*
+     * Flush any async-accepted write still pending before closing: the
+     * client's write() already returned success for those bytes (e.g. the
+     * final SSH CLOSE/EXIT-STATUS packets right before sshd closes the fd);
+     * dropping them makes scp report "End of file". Bounded so a dead peer
+     * with a closed window cannot stall teardown for more than ~200ms —
+     * comparable to the graceful-close spin below.
+     */
+    if(task->write_state != NET_TASK_IDLE && task->sock >= 0) {
+        int flush_tries = 0;
+        while(flush_tries < 40) {
+            if(do_network_write(task) != 0)
+                break; /* fully drained or hard error */
+            flush_tries++;
+            proc_usleep(5000);
+        }
+    }
+
     int fin_sock = task->sock;
     task->sock = -1;
     uint32_t close_node = task->node;
