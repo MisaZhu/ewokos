@@ -14,3 +14,6 @@
 [submodule "machines"]
 	path = machines
 	url = https://github.com/MisaZhu/ewokos.machines
+[submodule "apps"]
+	path = apps
+	url = https://github.com/MisaZhu/ewokos.apps
