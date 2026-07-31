@@ -919,8 +919,10 @@ int vfs_create_uid(const char* fname, fsinfo_t* ret, int type, int mode, bool vf
 	memset(&fi, 0, sizeof(fsinfo_t));
 	strcpy(fi.name, name);
 	fi.type = type;
-	if(type == FS_TYPE_DIR)
+	if(type == FS_TYPE_DIR) {
 		fi.stat.size = 1024;
+		fi.state |= FS_STATE_KIDS_LOADED;
+	}
 
 	fi.stat.uid = uid < 0 ? getuid() : uid;
 	fi.stat.gid = gid < 0 ? getgid() : gid;

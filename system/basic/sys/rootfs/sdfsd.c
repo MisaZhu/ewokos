@@ -53,11 +53,9 @@ static int32_t add_nodes(ext2_t* ext2, INODE *ip, fsinfo_t* dinfo) {
 	char buf[EXT2_BLOCK_SIZE+1];
 
 	fsinfo_t* kids = NULL;
-	INODE* kid_inodes = NULL; //pass-1 inode copies, reused by pass 3
 	uint32_t kid_num = 0;
 	uint32_t kid_cap = 0;
 
-	//pass 1: collect all entries of this directory
 	for (i=0; i<12; i++){
 		if (ip->i_block[i] != 0){
 			ext2->read_block(ip->i_block[i], buf);
@@ -87,7 +85,6 @@ static int32_t add_nodes(ext2_t* ext2, INODE *ip, fsinfo_t* dinfo) {
 						if(kid_num >= kid_cap) { //grow geometrically, one realloc per entry is O(n^2)
 							kid_cap = (kid_cap == 0) ? 16 : (kid_cap * 2);
 							kids = realloc(kids, sizeof(fsinfo_t) * kid_cap);
-							kid_inodes = realloc(kid_inodes, sizeof(INODE) * kid_cap);
 						}
 						fsinfo_t* f = &kids[kid_num];
 						memset(f, 0, sizeof(fsinfo_t));
@@ -95,7 +92,6 @@ static int32_t add_nodes(ext2_t* ext2, INODE *ip, fsinfo_t* dinfo) {
 						f->type = (dp->file_type == 2) ? FS_TYPE_DIR : FS_TYPE_FILE;
 						f->data = (uint32_t)ino;
 						set_fsinfo_stat(&f->stat, &ip_node);
-						memcpy(&kid_inodes[kid_num], &ip_node, sizeof(INODE));
 						kid_num++;
 					}
 				}
@@ -110,7 +106,8 @@ static int32_t add_nodes(ext2_t* ext2, INODE *ip, fsinfo_t* dinfo) {
 	if(kid_num == 0)
 		return 0;
 
-	//pass 2: register all kids in vfsd, batched to cut IPC round trips
+	//only preload the first level under the mount root; deeper directories
+	//are expanded lazily by vfsd through FS_CMD_KIDS.
 	for(uint32_t off = 0; off < kid_num; off += NEW_NODES_BATCH) {
 		uint32_t n = kid_num - off;
 		if(n > NEW_NODES_BATCH)
@@ -121,68 +118,17 @@ static int32_t add_nodes(ext2_t* ext2, INODE *ip, fsinfo_t* dinfo) {
 				vfs_new_node(&kids[off+j], dinfo->node, false, false);
 		}
 	}
-
-	//pass 3: recurse into sub directories, reusing the pass-1 inode copies
-	for(uint32_t j = 0; j < kid_num; j++) {
-		if(kids[j].type == FS_TYPE_DIR)
-			add_nodes(ext2, &kid_inodes[j], &kids[j]);
-	}
 	free(kids);
-	free(kid_inodes);
 	return 0;
-}
-
-/*
- * Warm the SD sector cache with a few large multi-block reads before the
- * tree walk: add_nodes fetches one inode-table block per directory entry,
- * and issuing those as scattered single-block SD commands dominates mount
- * time. Only the used prefix of each group's inode table is prefetched
- * (mkfs allocates inodes densely from the front).
- */
-#define PREFETCH_CHUNK 128
-static void prefetch_inode_tables(ext2_t* ext2) {
-	char* scratch = (char*)malloc(PREFETCH_CHUNK * EXT2_BLOCK_SIZE);
-	if(scratch == NULL)
-		return;
-
-	char bitmap[EXT2_BLOCK_SIZE];
-	for(int32_t g = 0; g < ext2->group_num; g++) {
-		GD* gd = &ext2->gds[g];
-		uint32_t total = ext2->super.s_inodes_per_group;
-		if(gd->bg_free_inodes_count >= total) //group has no used inode
-			continue;
-		if(ext2->read_block(gd->bg_inode_bitmap, bitmap) != 0)
-			continue;
-
-		int32_t last = -1;
-		for(int32_t bit = (int32_t)total - 1; bit >= 0; bit--) {
-			if(bitmap[bit/8] & (1 << (bit%8))) {
-				last = bit;
-				break;
-			}
-		}
-		if(last < 0)
-			continue;
-
-		uint32_t blocks = (uint32_t)(last / 8) + 1; //8 inodes(128B) per 1KB block
-		uint32_t blk = gd->bg_inode_table;
-		while(blocks > 0) {
-			uint32_t n = (blocks > PREFETCH_CHUNK) ? PREFETCH_CHUNK : blocks;
-			if(ext2_sd_read_blocks((int32_t)blk, scratch, n) != 0)
-				break;
-			blk += n;
-			blocks -= n;
-		}
-	}
-	free(scratch);
 }
 
 static int sdext2_mount(vdevice_t* dev, fsinfo_t* info, void* p) {
 	(void)dev;
 	ext2_t* ext2 = (ext2_t*)p;
 	INODE root_node;
-	ext2_node_by_fname(ext2, "/", &root_node);
-	prefetch_inode_tables(ext2);
+	info->state |= FS_STATE_KIDS_LOADED;
+	if(ext2_node_by_fname(ext2, "/", &root_node) != 0)
+		return -1;
 	add_nodes(ext2, &root_node, info);
 	return 0;
 }
@@ -210,6 +156,8 @@ static int sdext2_create(vdevice_t* dev, int pid, fsinfo_t* info_to, fsinfo_t* i
 	if(ino == -1)
 		return -1;
 	info->data = ino;
+	if(info->type == FS_TYPE_DIR)
+		info->state |= FS_STATE_KIDS_LOADED;
 	return 0;
 }
 

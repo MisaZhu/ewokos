@@ -140,6 +140,8 @@ static driver_dup_worker_t** _driver_dup_workers = NULL;
 static pthread_mutex_t _driver_dup_workers_lock = 0;
 
 static uint32_t vfs_get_node_id(vfs_node_t* node);
+static inline fsinfo_t* gen_fsinfo(vfs_node_t* node);
+static int32_t vfs_add_node(int32_t pid, vfs_node_t* father, vfs_node_t* node);
 static void vfs_track_task_slot(int32_t pid);
 static void enqueue_waiter(queue_t* q, int32_t pid, uint32_t uuid, bool wr, uint32_t node_id);
 static void enqueue_driver_close_task(driver_close_task_t* task);
@@ -273,6 +275,91 @@ static inline int32_t get_mount_pid(vfs_node_t* node) {
 	return -1;
 }
 
+static inline bool vfs_node_kids_loaded(vfs_node_t* node) {
+	if(node == NULL || (node->fsinfo.type & FS_TYPE_MASK) != FS_TYPE_DIR)
+		return true;
+	return (node->fsinfo.state & FS_STATE_KIDS_LOADED) != 0;
+}
+
+static inline void vfs_set_kids_loaded(vfs_node_t* node) {
+	if(node != NULL && (node->fsinfo.type & FS_TYPE_MASK) == FS_TYPE_DIR)
+		node->fsinfo.state |= FS_STATE_KIDS_LOADED;
+}
+
+static vfs_node_t* vfs_find_kid_raw(vfs_node_t* father, const char* name) {
+	if(father == NULL || name == NULL || strchr(name, '/') != NULL)
+		return NULL;
+
+	vfs_node_t* node = father->first_kid;
+	while(node != NULL) {
+		if(strcmp(node->fsinfo.name, name) == 0)
+			return node;
+		node = node->next;
+	}
+	return NULL;
+}
+
+static int32_t vfs_load_kids_from_driver(vfs_node_t* father) {
+	if(father == NULL || (father->fsinfo.type & FS_TYPE_MASK) != FS_TYPE_DIR)
+		return -1;
+	if(vfs_node_kids_loaded(father))
+		return 0;
+
+	int32_t mount_pid = get_mount_pid(father);
+	if(mount_pid <= 0) {
+		vfs_set_kids_loaded(father);
+		return 0;
+	}
+
+	fsinfo_t info;
+	memcpy(&info, gen_fsinfo(father), sizeof(fsinfo_t));
+
+	proto_t in, out;
+	PF->format(&in, "i,m", info.node, &info, sizeof(fsinfo_t));
+	PF->init(&out);
+	int32_t res = ipc_call(mount_pid, FS_CMD_KIDS, &in, &out);
+	PF->clear(&in);
+	if(res != 0) {
+		PF->clear(&out);
+		return -1;
+	}
+
+	uint32_t num = (uint32_t)proto_read_int(&out);
+	int32_t sz = 0;
+	fsinfo_t* infos = NULL;
+	if(num > 0) {
+		infos = (fsinfo_t*)proto_read(&out, &sz);
+		if(infos == NULL || sz < (int32_t)(sizeof(fsinfo_t) * num)) {
+			PF->clear(&out);
+			return -1;
+		}
+	}
+
+	for(uint32_t i = 0; i < num; i++) {
+		if(vfs_find_kid_raw(father, infos[i].name) != NULL)
+			continue;
+
+		vfs_node_t* node = vfs_new_node();
+		if(node == NULL)
+			continue;
+
+		infos[i].node = vfs_get_node_id(node);
+		infos[i].mount_pid = -1;
+		memcpy(&node->fsinfo, &infos[i], sizeof(fsinfo_t));
+		vfs_add_node(0, father, node);
+	}
+
+	PF->clear(&out);
+	vfs_set_kids_loaded(father);
+	return 0;
+}
+
+static inline void vfs_ensure_kids_loaded(vfs_node_t* father) {
+	if(father == NULL || vfs_node_kids_loaded(father))
+		return;
+	vfs_load_kids_from_driver(father);
+}
+
 static inline int32_t check_mount(int32_t pid, vfs_node_t* node) {
 	int32_t mnt_pid = get_mount_pid(node);
 	if(mnt_pid != pid) //current proc not the mounting one.
@@ -284,14 +371,8 @@ static vfs_node_t* vfs_simple_get(vfs_node_t* father, const char* name) {
 	if(father == NULL || strchr(name, '/') != NULL)
 		return NULL;
 
-	vfs_node_t* node = father->first_kid;
-	while(node != NULL) {
-		if(strcmp(node->fsinfo.name, name) == 0) {
-			return node;
-		}
-		node = node->next;
-	}
-	return NULL;
+	vfs_ensure_kids_loaded(father);
+	return vfs_find_kid_raw(father, name);
 }
 
 static vfs_node_t* vfs_get_by_name(vfs_node_t* father, const char* name) {
@@ -1382,7 +1463,10 @@ static inline fsinfo_t* gen_fsinfo(vfs_node_t* node) {
 
 static fsinfo_t* vfs_get_kids(vfs_node_t* father, uint32_t* num) {
 	*num = 0;
-	if(father == NULL || father->kids_num == 0)
+	if(father == NULL)
+		return NULL;
+	vfs_ensure_kids_loaded(father);
+	if(father->kids_num == 0)
 		return NULL;
 	
 	uint32_t n = father->kids_num;
