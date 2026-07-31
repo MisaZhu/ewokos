@@ -23,20 +23,36 @@ static int32_t sd_read_sector(int32_t sector, void* buf) {
 	return -1;
 }
 
+static int32_t sd_read_sectors(int32_t sector, void* buf, uint32_t count) {
+        if(count == 0)
+                return 0;
+
+        for (int32_t retry = 0; retry < 4; ++retry) {
+                if (sd_dev_read_blocks(sector, buf, count) == 0) {
+                        return 0;
+                }
+        }
+
+        return -1;
+}
+
 static int32_t sd_read(int32_t block, void* buf) {
 	int32_t n = EXT2_BLOCK_SIZE/512;
 	int32_t sector = block * n + _partition.start_sector;
-	char* p = (char*)buf;
 
-	while(n > 0) {
-		if(sd_read_sector(sector, p) != 0) {
-			return -1;
-		}
-		sector++;
-		p += 512;
-		n--;
-	}
-	return 0;
+        if(sd_read_sectors(sector, buf, (uint32_t)n) == 0)
+                return 0;
+
+        char* p = (char*)buf;
+        while(n > 0) {
+                if(sd_read_sector(sector, p) != 0) {
+                        return -1;
+                }
+                sector++;
+                p += 512;
+                n--;
+        }
+        return 0;
 }
 
 #define PARTITION_MAX 4
