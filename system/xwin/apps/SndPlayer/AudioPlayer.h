@@ -66,11 +66,15 @@ private:
     bool refillMp3Stream();
     int decodeNextMp3Frame(mp3dec_t* dec, mp3dec_frame_info_t* frameInfo, int16_t* outSamples);
     bool resetMp3Stream();
+    bool flushMp3Chunk(bool force);
     uint32_t estimateMp3StreamTotalMs();
 
     // MP3
     mp3dec_t* mp3dec;
     mp3dec_frame_info_t* info;
+    int16_t* mp3FrameBuf;
+    int16_t* mp3ChunkBuf;
+    int mp3ChunkFrames;
 
     // PCM device
     struct pcm_t* pcmDev;

@@ -32,11 +32,15 @@ using namespace Ewok;
 class SpectrumView : public Widget {
 public:
     static const int BARS = 32;
+    static const int N = 64;
 
 protected:
     float magnitudes[BARS];
     float targetMagnitudes[BARS];
     uint32_t barColors[BARS];
+    float windowTable[N];
+    float cosTable[BARS][N];
+    float sinTable[BARS][N];
 
 public:
     SpectrumView() {
@@ -45,51 +49,43 @@ public:
             targetMagnitudes[i] = 0;
             barColors[i] = 0xFF00FF00;
         }
+
+        for (int i = 0; i < N; i++) {
+            windowTable[i] = 0.5f * (1.0f - cosf(2.0f * M_PI * i / (N - 1)));
+        }
+
+        for (int k = 0; k < BARS; k++) {
+            for (int n = 0; n < N; n++) {
+                float angle = -2.0f * M_PI * k * n / N;
+                cosTable[k][n] = cosf(angle);
+                sinTable[k][n] = sinf(angle);
+            }
+        }
     }
 
     void updateSpectrum(const int16_t* samples, int count, int channels) {
         if (samples == NULL || count <= 0 || channels <= 0) return;
-
-        const int N = 128;
         float fftBuf[N];
-        float magnitudesTemp[N/2];
 
         for (int i = 0; i < N; i++) {
             int idx = (i * count) / N;
             if (idx >= count) idx = count - 1;
             float sample = (float)samples[idx * channels] / 32768.0f;
-            float window = 0.5f * (1.0f - cosf(2.0f * M_PI * i / (N - 1)));
-            fftBuf[i] = sample * window;
+            fftBuf[i] = sample * windowTable[i];
         }
 
-        for (int k = 0; k < N/2; k++) {
-            float real = 0, imag = 0;
+        for (int k = 0; k < BARS; k++) {
+            float real = 0.0f;
+            float imag = 0.0f;
+
             for (int n = 0; n < N; n++) {
-                float angle = -2.0f * M_PI * k * n / N;
-                real += fftBuf[n] * cosf(angle);
-                imag += fftBuf[n] * sinf(angle);
+                real += fftBuf[n] * cosTable[k][n];
+                imag += fftBuf[n] * sinTable[k][n];
             }
-            magnitudesTemp[k] = sqrtf(real * real + imag * imag) / N;
-        }
 
-        int barsPerGroup = (N/2) / BARS;
-        if (barsPerGroup < 1) barsPerGroup = 1;
-
-        for (int i = 0; i < BARS; i++) {
-            float sum = 0;
-            int cnt = 0;
-            for (int j = 0; j < barsPerGroup; j++) {
-                int idx = i * barsPerGroup + j;
-                if (idx < N/2) {
-                    sum += magnitudesTemp[idx];
-                    cnt++;
-                }
-            }
-            if (cnt > 0) {
-                targetMagnitudes[i] = (sum / cnt) * 15.0f;
-            }
-            if (targetMagnitudes[i] > 1.0f) targetMagnitudes[i] = 1.0f;
-            if (targetMagnitudes[i] < 0) targetMagnitudes[i] = 0;
+            targetMagnitudes[k] = (sqrtf(real * real + imag * imag) / N) * 15.0f;
+            if (targetMagnitudes[k] > 1.0f) targetMagnitudes[k] = 1.0f;
+            if (targetMagnitudes[k] < 0) targetMagnitudes[k] = 0;
         }
     }
 
@@ -256,6 +252,9 @@ protected:
 
 class SoundPlayerWin : public WidgetWin {
     static const int SNAPSHOT_SAMPLE_CAP = 2304;
+    static const uint32_t SNAPSHOT_INTERVAL_MS = 50;
+    static const uint32_t PLAYBACK_ACTIVE_SLEEP_US = 2000;
+    static const uint32_t PLAYBACK_IDLE_SLEEP_US = 5000;
 
     enum PlaybackCommand {
         CMD_NONE,
@@ -295,6 +294,7 @@ class SoundPlayerWin : public WidgetWin {
     bool playBtnLabelValid;
     char lastTimeText[64];
     bool timeLabelValid;
+    uint64_t lastSnapshotSyncMs;
 
     static void* playbackThreadEntry(void* arg) {
         ((SoundPlayerWin*)arg)->playbackLoop();
@@ -328,7 +328,7 @@ class SoundPlayerWin : public WidgetWin {
                 if (player->load(localPath, "/dev/sound0")) {
                     player->play();
                 }
-                syncSnapshot();
+                syncSnapshot(true);
                 continue;
             } else if (cmd == CMD_TOGGLE) {
                 if (player->isLoaded()) {
@@ -344,37 +344,45 @@ class SoundPlayerWin : public WidgetWin {
                         player->play();
                     }
                 }
-                syncSnapshot();
+                syncSnapshot(true);
                 continue;
             } else if (cmd == CMD_STOP) {
                 player->stop();
-                syncSnapshot();
-                proc_usleep(5000);
+                syncSnapshot(true);
+                proc_usleep(PLAYBACK_IDLE_SLEEP_US);
                 continue;
             } else if (cmd == CMD_SEEK) {
                 if (player->isLoaded()) {
                     player->seekToProgress(localSeekProgress);
                 }
-                syncSnapshot();
+                syncSnapshot(true);
                 continue;
             }
 
             if (player->isPlaying()) {
-                player->decodeFrame();
-                syncSnapshot();
+                bool decoded = player->decodeFrame();
+                syncSnapshot(false);
+                proc_usleep(decoded ? PLAYBACK_ACTIVE_SLEEP_US : PLAYBACK_IDLE_SLEEP_US);
                 continue;
             }
 
-            syncSnapshot();
-            proc_usleep(5000);
+            syncSnapshot(false);
+            proc_usleep(PLAYBACK_IDLE_SLEEP_US);
         }
 
         player->stop();
-        syncSnapshot();
+        syncSnapshot(true);
     }
 
-    void syncSnapshot() {
+    void syncSnapshot(bool force) {
+        uint64_t nowMs = kernel_tic_ms(0);
         PlaybackSnapshot next;
+
+        if (!force && lastSnapshotSyncMs != 0 &&
+                (nowMs - lastSnapshotSyncMs) < SNAPSHOT_INTERVAL_MS) {
+            return;
+        }
+
         next.loaded = player->isLoaded();
         next.playing = player->isPlaying();
         next.eof = player->isEof();
@@ -404,6 +412,7 @@ class SoundPlayerWin : public WidgetWin {
 
         pthread_mutex_lock(&playbackLock);
         snapshot = next;
+        lastSnapshotSyncMs = nowMs;
         pthread_mutex_unlock(&playbackLock);
     }
 
@@ -502,7 +511,7 @@ protected:
 
         if (!playbackThreadCreated && player->isPlaying()) {
             player->decodeFrame();
-            syncSnapshot();
+            syncSnapshot(true);
         }
 
         PlaybackSnapshot state;
@@ -544,6 +553,7 @@ public:
         playBtnLabelValid = false;
         lastTimeText[0] = 0;
         timeLabelValid = false;
+        lastSnapshotSyncMs = 0;
         pthread_mutex_init(&playbackLock, NULL);
         if (pthread_create(&playbackTid, NULL, playbackThreadEntry, this) == 0) {
             playbackThreadCreated = true;
@@ -566,7 +576,7 @@ public:
             if (player->load(path, "/dev/sound0")) {
                 player->play();
             }
-            syncSnapshot();
+            syncSnapshot(true);
             return;
         }
         queueLoad(path);
@@ -587,7 +597,7 @@ public:
             } else {
                 player->play();
             }
-            syncSnapshot();
+            syncSnapshot(true);
             return;
         }
         queueToggle();
@@ -598,7 +608,7 @@ public:
     void stopPlayback() {
         if (!playbackThreadCreated) {
             player->stop();
-            syncSnapshot();
+            syncSnapshot(true);
             return;
         }
         queueStop();
@@ -607,7 +617,7 @@ public:
     void seekToProgress(float progress) {
         if (!playbackThreadCreated) {
             if (player->seekToProgress(progress)) {
-                syncSnapshot();
+                syncSnapshot(true);
             }
             return;
         }
