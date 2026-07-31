@@ -247,6 +247,7 @@ udp_output(struct ip_endpoint *src, struct ip_endpoint *dst, const  uint8_t *dat
     uint16_t total, psum = 0;
     char ep1[IP_ENDPOINT_STR_LEN];
     char ep2[IP_ENDPOINT_STR_LEN];
+    uint8_t sbuf[2048];
     uint8_t *buf;
 
     if (len > IP_PAYLOAD_SIZE_MAX - sizeof(*hdr)) {
@@ -254,9 +255,14 @@ udp_output(struct ip_endpoint *src, struct ip_endpoint *dst, const  uint8_t *dat
         return -1;
     }
     total = sizeof(*hdr) + len;
-    buf = malloc(total);
-    if(!buf)
-        return -1;
+    /* Fast path: MTU-sized datagrams avoid the per-packet heap alloc/free. */
+    if (total <= sizeof(sbuf)) {
+        buf = sbuf;
+    } else {
+        buf = malloc(total);
+        if(!buf)
+            return -1;
+    }
 
     hdr = (struct udp_hdr *)buf;
     hdr->src = src->port;
@@ -274,7 +280,8 @@ udp_output(struct ip_endpoint *src, struct ip_endpoint *dst, const  uint8_t *dat
     udp_dump((uint8_t *)hdr, total);
     int ret = ip_output(IP_PROTOCOL_UDP, (uint8_t *)hdr, total, src->addr, dst->addr);
     TRACE();
-    free(buf);
+    if (buf != sbuf)
+        free(buf);
     if(ret < 0){
         errorf("ip_output() failure");
     }
@@ -494,5 +501,24 @@ udp_readable(int id)
     }
     int readable = pcb->queue.num > 0;
     mutex_unlock(&mutex);
+    return readable;
+}
+
+int
+udp_poll_readable(int id)
+{
+    struct udp_pcb *pcb;
+    int readable;
+
+    if (pthread_mutex_trylock(&mutex) != 0) {
+        return -1;
+    }
+    pcb = udp_pcb_get(id);
+    if (!pcb) {
+        pthread_mutex_unlock(&mutex);
+        return 0;
+    }
+    readable = pcb->queue.num > 0 ? 1 : 0;
+    pthread_mutex_unlock(&mutex);
     return readable;
 }

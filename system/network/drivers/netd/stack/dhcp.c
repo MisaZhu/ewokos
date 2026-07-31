@@ -56,6 +56,7 @@ enum {
     DHCP_STATE_SELECTING,
     DHCP_STATE_REQUESTING,
     DHCP_STATE_BOUND,
+    DHCP_STATE_RENEWING,
 };
 
 struct ether_hdr {
@@ -111,10 +112,12 @@ typedef struct dhcp_client{
     struct  dhcp_client* next;
     struct net_device* dev;
     struct timeval  update;   
+    struct timeval  lease_start;
     uint32_t   xid;
     uint32_t   requested_ip;
     uint32_t   server_id;
     uint32_t   ip;
+    uint32_t   last_ip;
     uint32_t   netmask;
     uint32_t   gateway;
     uint32_t   dns1;
@@ -188,13 +191,40 @@ fill_dhcp_option(u_int8_t *packet, u_int8_t code, u_int8_t *data, u_int8_t len)
  * Fill DHCP options
  */
 static int
-fill_dhcp_discovery_options(dhcp_t *dhcp)
+fill_dhcp_discovery_options(dhcp_t *dhcp, uint32_t requested_ip)
 {
     int len = 0;
     u_int8_t parameter_req_list[] = {MESSAGE_TYPE_REQ_SUBNET_MASK, MESSAGE_TYPE_ROUTER, MESSAGE_TYPE_DNS, MESSAGE_TYPE_DOMAIN_NAME};
     u_int8_t option;
 
     option = DHCP_OPTION_DISCOVER;
+    len += fill_dhcp_option(&dhcp->bp_options[len], MESSAGE_TYPE_DHCP, &option, sizeof(option));
+    if (requested_ip != 0) {
+        /*
+         * Ask the server to re-offer our previous address so external hosts
+         * that cached the old IP keep working across a lease refresh cycle.
+         */
+        len += fill_dhcp_option(&dhcp->bp_options[len], MESSAGE_TYPE_REQ_IP, (u_int8_t *)&requested_ip, sizeof(requested_ip));
+    }
+    len += fill_dhcp_option(&dhcp->bp_options[len], MESSAGE_TYPE_PARAMETER_REQ_LIST, (u_int8_t *)&parameter_req_list, sizeof(parameter_req_list));
+    option = 0;
+    len += fill_dhcp_option(&dhcp->bp_options[len], MESSAGE_TYPE_END, &option, sizeof(option));
+
+    return len;
+}
+
+/*
+ * RENEWING request: RFC 2131 requires ciaddr to carry the leased address and
+ * forbids the requested-IP(50)/server-id(54) options in this state.
+ */
+static int
+fill_dhcp_renew_options(dhcp_t *dhcp)
+{
+    int len = 0;
+    u_int8_t parameter_req_list[] = {MESSAGE_TYPE_REQ_SUBNET_MASK, MESSAGE_TYPE_ROUTER, MESSAGE_TYPE_DNS, MESSAGE_TYPE_DOMAIN_NAME};
+    u_int8_t option;
+
+    option = DHCP_OPTION_REQUEST;
     len += fill_dhcp_option(&dhcp->bp_options[len], MESSAGE_TYPE_DHCP, &option, sizeof(option));
     len += fill_dhcp_option(&dhcp->bp_options[len], MESSAGE_TYPE_PARAMETER_REQ_LIST, (u_int8_t *)&parameter_req_list, sizeof(parameter_req_list));
     option = 0;
@@ -251,7 +281,7 @@ dhcp_generate_xid(struct net_device *dev)
  * DHCP output - Just fills DHCP_BOOTREQUEST
  */
 static void
-dhcp_fill(struct net_device *dev, dhcp_t *dhcp, int *len, uint32_t xid)
+dhcp_fill(struct net_device *dev, dhcp_t *dhcp, int *len, uint32_t xid, uint32_t ciaddr, uint16_t flags)
 {
     *len += sizeof(dhcp_t);
     memset(dhcp, 0, sizeof(dhcp_t));
@@ -260,7 +290,8 @@ dhcp_fill(struct net_device *dev, dhcp_t *dhcp, int *len, uint32_t xid)
     dhcp->htype = DHCP_HARDWARE_TYPE_10_EHTHERNET;
     dhcp->hlen = 6;
     dhcp->xid = hton32(xid);
-    dhcp->flags = hton16(DHCP_FLAGS_BROADCAST);
+    dhcp->flags = hton16(flags);
+    dhcp->ciaddr = ciaddr;
     memcpy(dhcp->chaddr, dev->addr, 6);
     dhcp->magic_cookie = hton32(DHCP_MAGIC_COOKIE);
 }
@@ -285,7 +316,7 @@ udp_fill(struct udp_hdr *udp_header, int *len)
  * IP Output handler - Fills appropriate bytes in IP header
  */
 static void
-ip_fill(struct ip_hdr *ip_header, int *len)
+ip_fill(struct ip_hdr *ip_header, int *len, ip_addr_t src)
 {
     *len += sizeof(struct ip_hdr);
 
@@ -297,7 +328,7 @@ ip_fill(struct ip_hdr *ip_header, int *len)
     ip_header->ttl = 16;
     ip_header->protocol = IPPROTO_UDP;
     ip_header->sum = 0;
-    ip_header->src = 0;
+    ip_header->src = src;
     ip_header->dst = 0xFFFFFFFF;
 
     ip_header->sum = in_cksum((unsigned short *) ip_header, sizeof(struct ip_hdr));
@@ -318,22 +349,36 @@ dhcp_send(struct net_device *dev, dhcp_client_t *dhc, int message_type)
         return -1;
     }
 
+    int renewing = (message_type == DHCP_OPTION_REQUEST && dhc->state == DHCP_STATE_RENEWING);
+
     ip_header = (struct ip_hdr *)packet;
     udp_header = (struct udp_hdr *)(((char *)ip_header) + sizeof(struct ip_hdr));
     dhcp = (dhcp_t *)(((char *)udp_header) + sizeof(struct udp_hdr));
 
     if (message_type == DHCP_OPTION_DISCOVER) {
-        len = fill_dhcp_discovery_options(dhcp);
+        len = fill_dhcp_discovery_options(dhcp, dhc->last_ip);
     } else if (message_type == DHCP_OPTION_REQUEST) {
-        len = fill_dhcp_request_options(dhcp, dhc->requested_ip, dhc->server_id);
+        if (renewing) {
+            len = fill_dhcp_renew_options(dhcp);
+        } else {
+            len = fill_dhcp_request_options(dhcp, dhc->requested_ip, dhc->server_id);
+        }
     } else {
         free(packet);
         return -1;
     }
 
-    dhcp_fill(dev, dhcp, &len, dhc->xid);
+    /*
+     * Renewal keeps the configured address: carry it in ciaddr, clear the
+     * broadcast flag so the server unicasts the ACK back to us (works even
+     * when broadcast delivery is degraded), and source the IP header from
+     * the leased address.
+     */
+    dhcp_fill(dev, dhcp, &len, dhc->xid,
+              renewing ? dhc->ip : 0,
+              renewing ? 0 : DHCP_FLAGS_BROADCAST);
     udp_fill(udp_header, &len);
-    ip_fill(ip_header, &len);
+    ip_fill(ip_header, &len, renewing ? dhc->ip : 0);
 
     ret = net_device_output(dev, ETHER_TYPE_IP, packet, len, broadcast);
     free(packet);
@@ -369,10 +414,26 @@ dhcp_request(struct net_device *dev, dhcp_client_t *dhc)
 }
 
 static void
+dhcp_renew(struct net_device *dev, dhcp_client_t *dhc)
+{
+    if (dhc == NULL || dhc->ip == 0) {
+        return;
+    }
+    dhc->xid = dhcp_generate_xid(dev);
+    dhc->state = DHCP_STATE_RENEWING;
+    gettimeofday(&dhc->update, NULL);
+    dhcp_send(dev, dhc, DHCP_OPTION_REQUEST);
+}
+
+static void
 dhcp_reset(struct net_device *dev, dhcp_client_t *dhc)
 {
     if (dhc == NULL) {
         return;
+    }
+    if (dhc->ip != 0) {
+        /* remember the last good lease so re-discovery can request it back */
+        dhc->last_ip = dhc->ip;
     }
     dhc->requested_ip = 0;
     dhc->server_id = 0;
@@ -409,12 +470,18 @@ static void dhcp_input(const uint8_t *data, size_t len, struct net_device *dev)
     uint8_t dhcp_type = 0;
     uint32_t server_id = 0;
     uint32_t requested_ip = 0;
+    uint32_t old_ip;
+    uint32_t old_netmask;
+    uint32_t old_gateway;
     int lease_time = 0;
 
     //hexdump(stderr, data, len);
     dhcp_client_t *dhc =  get_client(dev);
     if(!dhc)
         return;
+    old_ip = dhc->ip;
+    old_netmask = dhc->netmask;
+    old_gateway = dhc->gateway;
 
     if (len < sizeof(struct ip_hdr))
         return;
@@ -534,33 +601,71 @@ done:
 
     if (dhcp_type != DHCP_OPTION_ACK)
         return;
-    if (dhc->state != DHCP_STATE_REQUESTING && dhc->state != DHCP_STATE_SELECTING)
+    if (dhc->state != DHCP_STATE_REQUESTING && dhc->state != DHCP_STATE_SELECTING &&
+        dhc->state != DHCP_STATE_RENEWING)
         return;
     if (server_id != 0 && dhc->server_id != 0 && server_id != dhc->server_id)
         return;
 
-    dhc->ip = dhcp->yiaddr != 0 ? dhcp->yiaddr : dhc->requested_ip;
+    if (dhc->state == DHCP_STATE_RENEWING &&
+        dhcp->yiaddr != 0 && dhcp->yiaddr != dhc->ip) {
+        /*
+         * RFC 2131 renewal should extend the current lease. Do not hot-swap
+         * the live interface address out from under established TCP PCBs.
+         */
+        return;
+    }
+
+    if (dhcp->yiaddr != 0) {
+        dhc->ip = dhcp->yiaddr;
+    } else if (dhc->state == DHCP_STATE_RENEWING) {
+        /* renewal ACKs from some servers omit yiaddr: keep the leased address */
+    } else {
+        dhc->ip = dhc->requested_ip;
+    }
     if (dhc->ip == 0)
         return;
+    if (server_id != 0)
+        dhc->server_id = server_id;
+    dhc->last_ip = dhc->ip;
     dhc->validity = lease_time > 0 ? lease_time : DHCP_DEFAULT_LEASE;
     dhc->state = DHCP_STATE_BOUND;
     gettimeofday(&dhc->update, NULL);
+    dhc->lease_start = dhc->update;
     dhcp_log_addr("DHCP IP", dhc->ip);
     dhcp_log_addr("DHCP GATEWAY", dhc->gateway);
-    ip_iface_update(net_device_get_iface(dev, NET_IFACE_FAMILY_IP), dhc->ip, dhc->netmask, dhc->gateway);
+    if (dhc->ip != old_ip || dhc->netmask != old_netmask || dhc->gateway != old_gateway) {
+        ip_iface_update(net_device_get_iface(dev, NET_IFACE_FAMILY_IP), dhc->ip, dhc->netmask, dhc->gateway);
+    }
 }
 
 static void
 dhcp_timer(void)
 {
-    struct timeval now, diff;
+    struct timeval now, diff, lease_diff;
     gettimeofday(&now, NULL);
     dhcp_client_t *dhc = dhcp_client_list;
     while(dhc){
         timersub(&now, &dhc->update, &diff);
-        if (dhc->state == DHCP_STATE_BOUND) {
-            if (diff.tv_sec >= dhc->validity) {
+        if (dhc->state == DHCP_STATE_BOUND || dhc->state == DHCP_STATE_RENEWING) {
+            timersub(&now, &dhc->lease_start, &lease_diff);
+            if (lease_diff.tv_sec >= dhc->validity) {
+                /* lease fully expired: fall back to re-discovery */
                 dhcp_reset(dhc->dev, dhc);
+            } else if (dhc->state == DHCP_STATE_BOUND) {
+                /*
+                 * T1: renew at half of the lease with a unicast-ACK REQUEST
+                 * instead of waiting for expiry and re-discovering, which
+                 * risks being handed a different address and silently
+                 * breaking inbound reachability.
+                 */
+                if (lease_diff.tv_sec >= dhc->validity / 2) {
+                    dhcp_renew(dhc->dev, dhc);
+                }
+            } else if (diff.tv_sec >= DHCP_RETRY_INTERVAL) {
+                /* renewal unanswered: keep retrying until the lease expires */
+                gettimeofday(&dhc->update, NULL);
+                dhcp_send(dhc->dev, dhc, DHCP_OPTION_REQUEST);
             }
         } else if (diff.tv_sec >= DHCP_RETRY_INTERVAL) {
             dhcp_discovery(dhc->dev);
@@ -583,6 +688,7 @@ dhcp_run(struct net_device* dev){
     dhc->next = dhcp_client_list;
     dhcp_client_list = dhc;
     gettimeofday(&dhc->update, NULL);
+    dhc->lease_start = dhc->update;
     return 0;
 }
 

@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
 
 #define MINIMP3_IMPLEMENTATION
 #include "minimp3/minimp3.h"
@@ -40,7 +41,7 @@ typedef int (*pcm_hook_t)(void *data);
 #define CTRL_PCM_DEV_PRPARE		(0xF2)
 #define CTRL_PCM_BUF_AVAIL		(0xF3)
 #define PCM_WAIT_SLEEP_MS       1
-#define MP3_PCM_INITIAL_FRAMES  16384
+#define MP3_WRITE_CHUNK_FRAMES  4608
 
 static int pcm_prepare(struct pcm *pcm);
 
@@ -163,24 +164,26 @@ static int pcm_try_write(struct pcm *pcm, const void* data, unsigned int count)
 		return 0;
 	}
 
-	for (;;) {
-		if (pcm->running == 0) {
-			int err = pcm_prepare(pcm);
-			if (err != 0) {
-				return err;
-			}
-
-			int written = write(pcm->fd, data, count);
-			if (written != (int)count) {
-				return -1;
-			}
-			pcm->running = 1;
-			return 0;
+	/*
+	 * Returns bytes actually written (>= 0) or a negative errno. The
+	 * server uses partial-write semantics: an XRUN mid-write returns
+	 * the bytes consumed so far, so the caller must advance by the
+	 * returned count instead of treating a short write as an error.
+	 */
+	if (pcm->running == 0) {
+		int err = pcm_prepare(pcm);
+		if (err != 0) {
+			return err;
 		}
 
-		int ret = write(pcm->fd, data, count);
-		return (ret == (int)count ? 0 : -1);
+		int written = write(pcm->fd, data, count);
+		if (written > 0) {
+			pcm->running = 1;
+		}
+		return written;
 	}
+
+	return write(pcm->fd, data, count);
 }
 
 static int wait_avail(struct pcm *pcm, int *avail, int time_out_ms)
@@ -230,11 +233,30 @@ static int pcm_write(struct pcm *pcm, const void* data, unsigned int count) {
 	int offset = 0;
 	int copy_bytes = 0;
 	int ret = 0;
+	int xrun_retry = 0;
 
 	period_bytes = pcm->config.period_size * pcm->framesize;
 	copy_bytes = bytes < period_bytes ? bytes : period_bytes;
 	while (bytes > 0) {
 		ret = wait_avail(pcm, &avail, 2000);
+		if (ret == -EPIPE) {
+			/*
+			 * XRUN: the server keeps returning -EPIPE until we
+			 * re-prepare, so recover instead of dropping the rest
+			 * of the stream. Bound retries to avoid spinning if
+			 * prepare keeps failing.
+			 */
+			if (xrun_retry++ >= 5) {
+				break;
+			}
+			pcm->prepared = 0;
+			pcm->running = 0;
+			if (pcm_prepare(pcm) != 0) {
+				proc_usleep(10000);
+			}
+			continue;
+		}
+
 		if (ret < 0 || (avail == 0)) {
 			break;
 		}
@@ -242,12 +264,33 @@ static int pcm_write(struct pcm *pcm, const void* data, unsigned int count) {
 		copy_bytes = bytes < avail ? bytes : avail;
 
 		ret = pcm_try_write(pcm, data + offset, copy_bytes);
-		if (ret == 0) {
-			offset += copy_bytes;
-			written += copy_bytes;
-			bytes -= copy_bytes;
-			copy_bytes = bytes < period_bytes ? bytes : period_bytes;
+		if (ret == -EPIPE) {
+			/* XRUN hit inside write(): recover the same way */
+			if (xrun_retry++ >= 5) {
+				break;
+			}
+			pcm->prepared = 0;
+			pcm->running = 0;
+			if (pcm_prepare(pcm) != 0) {
+				proc_usleep(10000);
+			}
+			continue;
 		}
+		if (ret < 0) {
+			break;
+		}
+		/*
+		 * Only real write progress proves the XRUN recovery worked;
+		 * wait_avail succeeds right after re-prepare even when the
+		 * engine is wedged, so resetting there defeats the retry cap.
+		 */
+		if (ret > 0) {
+			xrun_retry = 0;
+		}
+		offset += ret;
+		written += ret;
+		bytes -= ret;
+		copy_bytes = bytes < period_bytes ? bytes : period_bytes;
 	}
 
 	return (written == (int)count ? 0 : -1);
@@ -285,44 +328,16 @@ static int pcm_prepare(struct pcm *pcm)
 	return ret;
 }
 
-static int ensure_pcm_capacity(int16_t **pcm_data, int *pcm_capacity_frames,
-		int required_frames, int channels)
-{
-	int new_capacity_frames;
-	int16_t *new_pcm_data;
-
-	if (required_frames <= *pcm_capacity_frames) {
-		return 0;
-	}
-
-	new_capacity_frames = (*pcm_capacity_frames == 0) ?
-			MP3_PCM_INITIAL_FRAMES : *pcm_capacity_frames;
-	while (new_capacity_frames < required_frames) {
-		new_capacity_frames *= 2;
-	}
-
-	new_pcm_data = (int16_t *)realloc(*pcm_data,
-			(size_t)new_capacity_frames * (size_t)channels * sizeof(int16_t));
-	if (new_pcm_data == NULL) {
-		return -1;
-	}
-
-	*pcm_data = new_pcm_data;
-	*pcm_capacity_frames = new_capacity_frames;
-	return 0;
-}
-
 int mp3_play_file(const char *path, const char *snd_dev) {
 	mp3dec_t mp3;
 	mp3dec_frame_info_t info;
 	void *file_data;
 	unsigned char *stream_pos;
 	signed short sample_buf[MINIMP3_MAX_SAMPLES_PER_FRAME];
-	int16_t *pcm_data = NULL;
+	int16_t *chunk = NULL;
 	int bytes_left;
-	int pcm_frames = 0;
-	int pcm_capacity_frames = 0;
-	int ret = 1;
+	int chunk_frames = 0;
+	int ret = 0;
 
 	file_data = vfs_readfile(path, &bytes_left);
 	if(file_data == NULL) {
@@ -369,25 +384,45 @@ int mp3_play_file(const char *path, const char *snd_dev) {
 		return 1;
 	}
 
+	/*
+	 * Stream decode->write with a small fixed chunk instead of decoding
+	 * the whole file up front. A 3-minute 44.1kHz stereo track expands
+	 * to ~30MB of PCM, which exhausts memory on miyoo mid-song and made
+	 * long tracks abort halfway; a fixed chunk keeps the footprint
+	 * constant regardless of track length.
+	 */
+	chunk = (int16_t *)malloc((size_t)MP3_WRITE_CHUNK_FRAMES *
+			(size_t)output_channels * sizeof(int16_t));
+	if (chunk == NULL) {
+		printf("alloc pcm buffer failed\n");
+		free(file_data);
+		pcm_close(pcm);
+		return 1;
+	}
+
 	if (info.frame_bytes > 0) {
 		stream_pos += info.frame_bytes;
 		bytes_left -= info.frame_bytes;
 	}
 
 	while ((bytes_left >= 0) && (simples > 0)) {
-		if (ensure_pcm_capacity(&pcm_data, &pcm_capacity_frames,
-				pcm_frames + simples, output_channels) != 0) {
-			printf("alloc pcm buffer failed\n");
-			break;
+		if (chunk_frames + simples > MP3_WRITE_CHUNK_FRAMES) {
+			if (pcm_write(pcm, chunk, (unsigned int)(chunk_frames *
+					output_channels * (int)sizeof(int16_t))) != 0) {
+				printf("pcm_write failed\n");
+				ret = 1;
+				break;
+			}
+			chunk_frames = 0;
 		}
 		for (int i = 0; i < simples; i++) {
 			int16_t left = sample_buf[i * src_channels];
 			int16_t right = (src_channels > 1) ? sample_buf[i * src_channels + 1] : left;
 
-			pcm_data[(pcm_frames + i) * output_channels] = left;
-			pcm_data[(pcm_frames + i) * output_channels + 1] = right;
+			chunk[(chunk_frames + i) * output_channels] = left;
+			chunk[(chunk_frames + i) * output_channels + 1] = right;
 		}
-		pcm_frames += simples;
+		chunk_frames += simples;
 
 		if (bytes_left <= 0) {
 			break;
@@ -404,18 +439,15 @@ int mp3_play_file(const char *path, const char *snd_dev) {
 		}
 	}
 
-	if (pcm_frames > 0) {
-		ret = pcm_write(pcm, pcm_data,
-				(unsigned int)(pcm_frames * output_channels * (int)sizeof(int16_t)));
+	if (ret == 0 && chunk_frames > 0) {
+		ret = pcm_write(pcm, chunk, (unsigned int)(chunk_frames *
+				output_channels * (int)sizeof(int16_t)));
 		if (ret != 0) {
 			printf("pcm_write failed, ret=%d\n", ret);
 		}
-		else {
-			ret = 0;
-		}
 	}
 
-	free(pcm_data);
+	free(chunk);
 	free(file_data);
 	pcm_close(pcm);
 	return ret;

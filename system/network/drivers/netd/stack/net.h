@@ -111,8 +111,6 @@ net_event_handler(void);
 
 extern void
 intr_loop(void);
-extern void
-intr_protocol_loop(void);
 
 extern int
 net_interrupt(void);

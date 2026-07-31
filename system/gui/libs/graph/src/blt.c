@@ -1,5 +1,5 @@
 #include <graph/graph.h>
-#include <graph/bsp_graph.h>
+#include <graph/graph_arch.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -191,8 +191,8 @@ void graph_set(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t 
 }
 
 inline void graph_fill_rect(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
-#ifdef BSP_BOOST
-		graph_fill_bsp(g, x, y, w, h, color);
+#ifdef ARCH_BOOST
+		graph_fill_arch(g, x, y, w, h, color);
 #else
 		graph_fill_cpu(g, x, y, w, h, color);
 #endif
@@ -336,8 +336,8 @@ void graph_blt_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 
 inline void graph_blt(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
-#ifdef BSP_BOOST
-		graph_blt_bsp(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
+#ifdef ARCH_BOOST
+		graph_blt_arch(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
 #else
 		graph_blt_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
 #endif
@@ -502,8 +502,8 @@ void graph_blt_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32
 
 inline void graph_blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
-#ifdef BSP_BOOST
-	graph_blt_alpha_bsp(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
+#ifdef ARCH_BOOST
+	graph_blt_alpha_arch(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
 #else
 	graph_blt_alpha_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
 #endif
@@ -557,8 +557,8 @@ void graph_blt_mask_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_
 
 inline void graph_blt_alpha_mask(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
-#ifdef BSP_BOOST
-	graph_blt_alpha_mask_bsp(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
+#ifdef ARCH_BOOST
+	graph_blt_alpha_mask_arch(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
 #else
 	graph_blt_mask_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
 #endif
@@ -689,7 +689,7 @@ void graph_blt_fit_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t
 
 inline void graph_blt_fit(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
-#ifdef BSP_BOOST
+#ifdef ARCH_BOOST
 		//graph_blt_fit_bsp(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
 		graph_blt_fit_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
 #else
@@ -830,7 +830,7 @@ void graph_blt_fit_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, i
 
 inline void graph_blt_fit_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
-#ifdef BSP_BOOST
+#ifdef ARCH_BOOST
 		//graph_blt_fit_alpha_bsp(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
 		graph_blt_fit_alpha_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
 #else

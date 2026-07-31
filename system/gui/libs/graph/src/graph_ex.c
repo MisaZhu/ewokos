@@ -1,5 +1,5 @@
 #include <graph/graph_ex.h>
-#include <graph/bsp_graph.h>
+#include <graph/graph_arch.h>
 #include <stdlib.h>
 #include <math.h>
 
@@ -266,8 +266,8 @@ void graph_gaussian(graph_t* g, int x, int y, int w, int h, int r) {
         r = w;
     if(r > h)
         r = h;
-#ifdef BSP_BOOST 
-    graph_gaussian_bsp(g, x, y, w, h, r);
+#ifdef ARCH_BOOST 
+    graph_gaussian_arch(g, x, y, w, h, r);
 #else
     graph_gaussian_cpu(g, x, y, w, h, r);
 #endif
@@ -347,8 +347,8 @@ void graph_glass(graph_t* g, int x, int y, int w, int h, int r) {
         r = w;
     if(r > h)
         r = h;
-#ifdef BSP_BOOST 
-    graph_glass_bsp(g, x, y, w, h, r);
+#ifdef ARCH_BOOST 
+    graph_glass_arch(g, x, y, w, h, r);
 #else
     graph_glass_cpu(g, x, y, w, h, r);
 #endif

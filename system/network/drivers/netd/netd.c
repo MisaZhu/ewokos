@@ -40,7 +40,6 @@ static int network_fcntl(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
     if(task == NULL) {
         return -1;
     }
-	task->cmd = cmd;
 	int res = task_cntl(task, from_pid, cmd, in, out, p);
 	return res;
 }
@@ -71,6 +70,7 @@ static int network_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 
 	net_task_t *task = (net_task_t*)(ewokos_addr_t)info->data;
 	int ret;
+	int sock = -1;
 	int still_readable = 0;
     if(task == NULL) {
         return -1;
@@ -79,16 +79,19 @@ static int network_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	if(ret == VFS_ERR_RETRY) {
 		/* Read was re-armed (not yet complete) — clear sticky flag.
 		 * The async worker will call vfs_wakeup when data is actually available. */
-		pthread_mutex_lock(&task_list_lock);
+		pthread_mutex_lock(&task->lock);
 		task->pending_main_rd = false;
-		pthread_mutex_unlock(&task_list_lock);
+		pthread_mutex_unlock(&task->lock);
 	} else {
-		if(task->sock >= 0) {
-			still_readable = sock_readable(task->sock);
+		pthread_mutex_lock(&task->lock);
+		sock = task->sock;
+		pthread_mutex_unlock(&task->lock);
+		if(sock >= 0) {
+			still_readable = sock_readable(sock);
 		}
-		pthread_mutex_lock(&task_list_lock);
+		pthread_mutex_lock(&task->lock);
 		task->pending_main_rd = still_readable ? true : false;
-		pthread_mutex_unlock(&task_list_lock);
+		pthread_mutex_unlock(&task->lock);
 	}
 	return ret;
 }
@@ -116,18 +119,25 @@ static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
 	uint32_t events = 0;
 	int main_sock = -1;
 	int read_state = NET_TASK_IDLE;
+	int write_state = NET_TASK_IDLE;
 	int main_state = NET_TASK_IDLE;
+	int main_cmd = 0;
 	int pending_main_rd = 0;
+	int write_ready = 0;
+	int cached_rd = 0;
 	int can_write = 0;
-	int wr_ready = 0;
-	int rd_ready_pending = 0;
+	int wr_ready_live = 0;
 	int rd_ready_live = 0;
 	if (task != NULL) {
-		pthread_mutex_lock(&task_list_lock);
+		pthread_mutex_lock(&task->lock);
 		main_state = task->state;
+		main_cmd = task->cmd;
 		read_state = task->read_state;
+		write_state = task->write_state;
 		main_sock = task->sock;
 		pending_main_rd = task->pending_main_rd;
+		write_ready = task->write_ready ? 1 : 0;
+		cached_rd = task->read_cache_ready ? 1 : 0;
 		if (main_state == NET_TASK_IDLE || main_state == NET_TASK_FINISH) {
 			can_write = 1;
 		}
@@ -149,55 +159,49 @@ static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
 		if (read_state == NET_TASK_FINISH) {
 			events |= VFS_EVT_RD;
 		}
-		pthread_mutex_unlock(&task_list_lock);
-		/*
-		 * WR is only real when the socket can actually accept data. Publishing
-		 * it purely from the IDLE/FINISH task state turns the sticky node bit
-		 * back into a level-trigger: when the TCP send window is closed,
-		 * tcp_send() returns EAGAIN, the worker returns to IDLE, and a client
-		 * like sshd would busy-spin write()/poll() forever (appearing hung)
-		 * instead of blocking until task_wakeup_tcp_writers() raises WR on the
-		 * window-open ACK. Gate on sock_writable(); keep pre-socket states
-		 * (main_sock < 0) writable so open/connect can still be armed.
-		 */
-		if (can_write && main_sock >= 0) {
-			wr_ready = sock_writable(main_sock);
-		}
-		if (can_write && (main_sock < 0 || wr_ready)) {
+		if (write_state == NET_TASK_FINISH) {
 			events |= VFS_EVT_WR;
+		}
+		if (cached_rd) {
+			events |= VFS_EVT_RD;
+		}
+		pthread_mutex_unlock(&task->lock);
+		/*
+		 * Keep poll() off the stack hot path in the common case. The hint bits
+		 * still need a live recheck before they are published as readiness;
+		 * otherwise a stale write_ready/pending_main_rd can make poll() return
+		 * immediately forever and spin both sshd and the netd dispatch thread.
+		 */
+		if (!(events & VFS_EVT_WR) &&
+				can_write &&
+				!(main_state == NET_TASK_PROCESS && main_cmd == SOCK_CONNECT) &&
+				main_sock < 0) {
+			events |= VFS_EVT_WR;
+		}
+		if (!(events & VFS_EVT_WR) &&
+				can_write &&
+				write_state == NET_TASK_IDLE &&
+				write_ready &&
+				main_sock >= 0) {
+                        wr_ready_live = sock_poll_writable(main_sock);
+                        if (wr_ready_live > 0) {
+				events |= VFS_EVT_WR;
+                        } else if (wr_ready_live == 0) {
+				pthread_mutex_lock(&task->lock);
+				task->write_ready = false;
+				pthread_mutex_unlock(&task->lock);
+			}
 		}
 		if (pending_main_rd) {
 			if (main_sock >= 0) {
-				rd_ready_pending = sock_readable(main_sock);
+                                rd_ready_live = sock_poll_readable(main_sock);
 			}
-			if (main_sock >= 0 && rd_ready_pending) {
+                        if (main_sock >= 0 && rd_ready_live > 0) {
 				events |= VFS_EVT_RD;
-			} else {
-				/* Flag is stale — clear it */
-				pthread_mutex_lock(&task_list_lock);
+                        } else if (rd_ready_live == 0) {
+				pthread_mutex_lock(&task->lock);
 				task->pending_main_rd = false;
-				pthread_mutex_unlock(&task_list_lock);
-			}
-		}
-		if (!(events & VFS_EVT_RD) &&
-				main_sock >= 0) {
-			rd_ready_live = sock_readable(main_sock);
-		}
-		if (!(events & VFS_EVT_RD) &&
-				main_sock >= 0 &&
-				rd_ready_live) {
-			/*
-			 * poll() is level-triggered: if the socket is readable right now, a
-			 * waiter must observe RD even when an async read path exists.
-			 *
-			 * The explicit vfs_wakeup() edge is still required while the read
-			 * is START/PROCESS/FINISH, because user space is waiting on that async
-			 * operation to complete. But once the read state falls back to IDLE,
-			 * suppressing live readability can strand callers like sshd in
-			 * poll(POLLIN) forever if the edge was missed or consumed earlier.
-			 */
-			if(read_state == NET_TASK_IDLE) {
-				events |= VFS_EVT_RD;
+				pthread_mutex_unlock(&task->lock);
 			}
 		}
 	}
@@ -208,34 +212,32 @@ static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
 static int network_dup(vdevice_t* dev, int from_fd, int from_pid, int dup_fd, int dup_pid,
 		uint32_t node, fsinfo_t* fsinfo, void* p) {
 	(void)dev;
+        (void)from_fd;
+        (void)from_pid;
+        (void)dup_fd;
+        (void)dup_pid;
+        (void)node;
+        (void)fsinfo;
 	(void)p;
-
-	net_task_t *task = (net_task_t *)(ewokos_addr_t)fsinfo->data;
-	if(task == NULL) {
-		return -1;
-	}
-
-	pthread_mutex_lock(&task_list_lock);
-	task->refs++;
-	pthread_mutex_unlock(&task_list_lock);
+        /* vdevice.c clones the per-fd cache after FS_CMD_DUP; nothing else is
+         * needed here as long as vfsd has already delivered the cross-process
+         * dup before the parent closes the source fd. */
 	return 0;
 }
 
 static int network_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fsinfo_t* fsinfo,void* p) {
 	(void)dev;
+        (void)fd;
 	(void)from_pid;
-	(void)node;
 	(void)p;
 	net_task_t *task = (net_task_t *)(ewokos_addr_t)fsinfo->data;
 	if(task) {
-		pthread_mutex_lock(&task_list_lock);
-		if(task->refs > 1) {
-			task->refs--;
-			pthread_mutex_unlock(&task_list_lock);
+                if(vdevice_count_node_refs(node) > 1) {
 			return 0;
 		}
+                pthread_mutex_lock(&task->lock);
 		task->refs = 0;
-		pthread_mutex_unlock(&task_list_lock);
+		pthread_mutex_unlock(&task->lock);
 		fsinfo->data = NULL;
 		release_task(task);
 	}

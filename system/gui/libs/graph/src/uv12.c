@@ -1,5 +1,5 @@
 #include "graph/uv12.h"
-#include "graph/bsp_graph.h"
+#include "graph/graph_arch.h"
 /*
 *	Following are the conversion formulas from RGB to YUV 
 *	and from YUV to RGB. See YUV and color space conversion.
@@ -60,8 +60,8 @@ void rgb2nv12_cpu(uint8_t  *out,  uint32_t *in , int w, int h)
 }
 
 inline void rgb2nv12(uint8_t  *out,  uint32_t *in , int w, int h) {
-#ifdef BSP_BOOST
-    rgb2nv12_bsp(out,  in , w, h);
+#ifdef ARCH_BOOST
+    rgb2nv12_arch(out,  in , w, h);
 #else
     rgb2nv12_cpu(out,  in , w, h);
 #endif

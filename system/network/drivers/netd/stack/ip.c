@@ -439,11 +439,22 @@ ip_output_core(struct ip_iface *iface, uint8_t protocol, const uint8_t *data, si
     struct ip_hdr *hdr;
     uint16_t hlen, total;
     char addr[IP_ADDR_STR_LEN];
+    uint8_t sbuf[2048];
+    uint8_t *buf;
     hlen = sizeof(*hdr);
     total = hlen + len;
-    uint8_t *buf = memory_alloc(total);
-    if(!buf)
-        return -1;
+    /*
+     * Fast path: MTU-sized ethernet datagrams fit on the stack, avoiding one
+     * heap alloc/free per outgoing packet. Oversized loopback datagrams
+     * (mtu=64KB) still fall back to the heap.
+     */
+    if (total <= sizeof(sbuf)) {
+        buf = sbuf;
+    } else {
+        buf = memory_alloc(total);
+        if(!buf)
+            return -1;
+    }
 
     hdr = (struct ip_hdr *)buf;
     hdr->vhl = (IP_VERSION_IPV4 << 4) | (hlen >> 2);
@@ -464,7 +475,8 @@ ip_output_core(struct ip_iface *iface, uint8_t protocol, const uint8_t *data, si
     ip_dump(buf, total);
 
     int ret = ip_output_device(iface, buf, total, nexthop);
-    memory_free(buf);
+    if (buf != sbuf)
+        memory_free(buf);
     TRACE();
     return ret;
 }
@@ -505,7 +517,12 @@ ip_output(uint8_t protocol, const uint8_t *data, size_t len, ip_addr_t src, ip_a
      * If so, route to loopback interface to avoid ARP resolution failure.
      * Keep the original source address from the route interface.
      */
-    ip_addr_t src_addr = iface->unicast;
+    /*
+     * Honor an explicit source address from upper layers (TCP/UDP PCBs keep
+     * their own local address). Falling back to the route interface address is
+     * only correct for wildcard/raw sends.
+     */
+    ip_addr_t src_addr = (src != IP_ADDR_ANY) ? src : iface->unicast;
     struct ip_iface *local_iface = ip_iface_select(dst);
     
     char addr3[IP_ADDR_STR_LEN];

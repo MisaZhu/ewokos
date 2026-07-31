@@ -38,7 +38,9 @@ static void set_inode_stat(node_stat_t* stat, INODE* inode) {
 	inode->i_gid = stat->gid;
 	inode->i_uid = stat->uid;
 	inode->i_links_count = stat->links_count;
-	inode->i_mode = stat->mode;
+	//keep the on-disk file-type bits (S_IFDIR/S_IFREG): the VFS stat
+	//mode only carries permissions, a plain chmod must not wipe them.
+	inode->i_mode = (inode->i_mode & 0xF000) | (stat->mode & 0x0FFF);
 	inode->i_size = stat->size;
 }
 
@@ -80,6 +82,11 @@ static int32_t add_nodes(ext2_t* ext2, INODE *ip, fsinfo_t* dinfo) {
 
 			while (cp < (buf + EXT2_BLOCK_SIZE)){
 				if(dp->name_len == 0)
+					break;
+				//guard against garbage/torn entries: a rec_len
+				//below the minimal entry size would loop forever
+				//or walk out of the block.
+				if(dp->rec_len < 12)
 					break;
 
 				c = dp->name[dp->name_len];  // save last byte
@@ -131,11 +138,11 @@ static int sdext2_create(vdevice_t* dev, int pid, fsinfo_t* info_to, fsinfo_t* i
 	int ino = -1;
 	if(info->type == FS_TYPE_DIR)  {
 		info->stat.size = EXT2_BLOCK_SIZE;
-		ino = ext2_create_dir(ext2, &inode_to, info->name, info->stat.uid, info->stat.gid, info->stat.mode);
+		ino = ext2_create_dir(ext2, ino_to, &inode_to, info->name, info->stat.uid, info->stat.gid, info->stat.mode);
 	}
 	else {
 		info->stat.size = 0;
-		ino = ext2_create_file(ext2, &inode_to, info->name, info->stat.uid, info->stat.gid, info->stat.mode);
+		ino = ext2_create_file(ext2, ino_to, &inode_to, info->name, info->stat.uid, info->stat.gid, info->stat.mode);
 	}
 
 	if(ino == -1)
@@ -248,6 +255,11 @@ static fsinfo_t* sdext2_kids(vdevice_t* dev, fsinfo_t* info_dir, uint32_t* num, 
 
 			while (cp < (buf + EXT2_BLOCK_SIZE)){
 				if(dp->name_len == 0)
+					break;
+				//guard against garbage/torn entries: a rec_len
+				//below the minimal entry size would loop forever
+				//or walk out of the block.
+				if(dp->rec_len < 12)
 					break;
 
 				c = dp->name[dp->name_len];  // save last byte

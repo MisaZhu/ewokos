@@ -10,7 +10,7 @@ CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
 
 LIB_GRAPH_OBJS = \
-	$(SYS_DIR)/platform/$(ARCH)/bsp/src/bsp_graph.o \
+	$(SYS_DIR)/platform/$(ARCH)/src/graph_arch.o \
 	src/graph.o \
 	src/graph_ex.o \
 	src/graph_png.o \

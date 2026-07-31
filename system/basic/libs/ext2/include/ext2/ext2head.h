@@ -6,6 +6,11 @@
 #define EXT2_FT_FILE 1 
 #define EXT2_FT_DIR  2
 
+/* i_mode file-type bits (what external ext2 tools/OSes look at;
+ * the in-tree rebuild only reads the dirent file_type byte). */
+#define EXT2_S_IFREG 0x8000
+#define EXT2_S_IFDIR 0x4000
+
 typedef struct ext2_super_block {
 	uint32_t	s_inodes_count;		/* Inodes count */
 	uint32_t	s_blocks_count;		/* Blocks count */

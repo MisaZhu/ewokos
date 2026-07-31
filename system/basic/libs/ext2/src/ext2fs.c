@@ -329,10 +329,18 @@ static int32_t write_child(ext2_t* ext2, INODE* pip, uint32_t ino, const char *n
 		}
 
 		//(4) get last entry in block
+		//NOTE: a torn/partial sector write (e.g. power loss or a failed
+		//sd write) can leave rec_len==0 in the middle of the block, which
+		//would spin this walk forever. Stop at the corrupted entry and
+		//self-heal by extending it to cover the rest of the block.
 		while ((cp + dp->rec_len) < (buf + EXT2_BLOCK_SIZE)){
+			if(dp->rec_len == 0)
+				break;
 			cp += dp->rec_len;
 			dp = (DIR_T *)cp;
 		}
+		if(dp->rec_len == 0 || (cp + dp->rec_len) > (buf + EXT2_BLOCK_SIZE))
+			dp->rec_len = (buf + EXT2_BLOCK_SIZE) - cp;
 		ideal_len = need_len(dp->name_len);
 		remain = dp->rec_len-ideal_len;
 		if(remain >= nlen){
@@ -369,6 +377,8 @@ static int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name) {
 		precp = NULL;
 		while(cp < (buf + EXT2_BLOCK_SIZE)) {
 			dp = (DIR_T *)cp;
+			if(dp->rec_len == 0) //corrupted (torn write), stop scanning this block
+				break;
 			if(found == 0 && dp->inode != 0 && strcmp(dp->name, name) == 0){
 				//(2).1. if (first and only entry in a data block){
 				if(dp->rec_len == EXT2_BLOCK_SIZE){
@@ -402,6 +412,8 @@ static int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name) {
 			// Update the last entry's rec_len
 			cp = cpbuf;
 			while((cp + ((DIR_T *)cp)->rec_len) < (cpbuf + EXT2_BLOCK_SIZE)) {
+				if(((DIR_T *)cp)->rec_len == 0) //corrupted entry, heal below
+					break;
 				cp += ((DIR_T *)cp)->rec_len;
 			}
 			((DIR_T *)cp)->rec_len = EXT2_BLOCK_SIZE - (cp - cpbuf);
@@ -542,7 +554,7 @@ int32_t put_node(ext2_t* ext2, uint32_t ino, INODE *node) {
 	return ext2->write_block(blk, buf);	
 }
 
-int32_t ext2_create_dir(ext2_t* ext2, INODE* father_inp, const char *name,
+int32_t ext2_create_dir(ext2_t* ext2, uint32_t father_ino, INODE* father_inp, const char *name,
 		uint16_t uid, uint16_t gid, uint16_t mode ) {
 	uint32_t ino, i, blk;
 	char buf[EXT2_BLOCK_SIZE];
@@ -554,11 +566,14 @@ int32_t ext2_create_dir(ext2_t* ext2, INODE* father_inp, const char *name,
 	if(inp == NULL)
 		return -1;
 	//set inode info
-	inp->i_mode = mode;
+	/* Force the on-disk file-type bits: the VFS only hands us the
+	 * permission bits, and without S_IFDIR every other ext2
+	 * implementation (Linux/macOS/fsck) treats the inode as garbage. */
+	inp->i_mode = EXT2_S_IFDIR | (mode & 0x0FFF);
 	inp->i_uid  = uid;
 	inp->i_gid  = gid;
 	inp->i_size = EXT2_BLOCK_SIZE;	        // Size in bytes (one block for dir)
-	inp->i_links_count = 0;	  //
+	inp->i_links_count = 2;	  // "." plus the entry in the parent dir
 	inp->i_atime = 0;         // TODO Set last access to current time
 	inp->i_ctime = 0;         // TODO  Set creation to current time
 	inp->i_mtime = 0;         // TODO Set last modified to current time
@@ -567,19 +582,48 @@ int32_t ext2_create_dir(ext2_t* ext2, INODE* father_inp, const char *name,
 	for(i=1; i<15; i++){
 		inp->i_block[i] = 0;
 	}
-	//mip->dirty = 1;
 
 	if(put_node(ext2, ino, inp) != 0)
 		return -1; //write inode back to block
 
+	/* Initialize the new directory's data block ON DISK with "." and
+	 * "..". The old code left the freshly allocated block holding
+	 * whatever bytes it previously had: the live directory tree is
+	 * served from vfsd's RAM nodes so everything looked fine, but
+	 * after a reboot the tree rebuild walked this garbage block and
+	 * every child created inside the directory was lost/hidden. */
+	memset(buf, 0, EXT2_BLOCK_SIZE);
+	DIR_T* dp = (DIR_T*)buf;
+	dp->inode = ino;
+	dp->rec_len = 12;
+	dp->name_len = 1;
+	dp->file_type = EXT2_FT_DIR;
+	dp->name[0] = '.';
+	dp = (DIR_T*)(buf + 12);
+	dp->inode = father_ino;
+	dp->rec_len = EXT2_BLOCK_SIZE - 12;
+	dp->name_len = 2;
+	dp->file_type = EXT2_FT_DIR;
+	dp->name[0] = '.';
+	dp->name[1] = '.';
+	if(ext2->write_block(blk, buf) != 0)
+		return -1;
+
 	if(write_child(ext2, father_inp, ino, name, EXT2_FT_DIR) < 0) //write dir info (name, type)
+		return -1;
+
+	/* write_child may have grown the parent (new i_block/i_size) and
+	 * ".." adds a link to it: persist the parent inode, otherwise the
+	 * changes only live in the caller's in-memory copy. */
+	father_inp->i_links_count++;
+	if(put_node(ext2, father_ino, father_inp) != 0)
 		return -1;
 	return ino;
 }
 
-int32_t ext2_create_file(ext2_t* ext2, INODE* father_inp, const char *name,
+int32_t ext2_create_file(ext2_t* ext2, uint32_t father_ino, INODE* father_inp, const char *name,
 		uint16_t uid, uint16_t gid, uint16_t mode ) {
-	uint32_t ino, i, blk;
+	uint32_t ino, i;
 	char buf[EXT2_BLOCK_SIZE];
 
 	ino = ext2_ialloc(ext2);
@@ -589,11 +633,11 @@ int32_t ext2_create_file(ext2_t* ext2, INODE* father_inp, const char *name,
 	INODE* inp = get_node_by_ino(ext2, ino, buf);
 	if(inp == NULL)
 		return -1;
-	inp->i_mode = mode;
+	inp->i_mode = EXT2_S_IFREG | (mode & 0x0FFF);
 	inp->i_uid  = uid;
 	inp->i_gid  = gid;
 	inp->i_size = 0;	        // Size in bytes 
-	inp->i_links_count = 0;	  // . and ..
+	inp->i_links_count = 1;	  // the entry in the parent dir
 	inp->i_atime = 0;         // TODO Set last access to current time
 	inp->i_ctime = 0;         // TODO  Set creation to current time
 	inp->i_mtime = 0;         // TODO Set last modified to current time
@@ -601,11 +645,14 @@ int32_t ext2_create_file(ext2_t* ext2, INODE* father_inp, const char *name,
 	for(i=0; i<15; i++){
 		inp->i_block[i] = 0;
 	}
-	//mip->dirty = 1;
 	if(put_node(ext2, ino, inp) != 0)
 		return -1;
 
 	if(write_child(ext2, father_inp, ino, name, EXT2_FT_FILE) < 0)
+		return -1;
+
+	/* Persist parent inode changes made by write_child (see above). */
+	if(put_node(ext2, father_ino, father_inp) != 0)
 		return -1;
 	return ino;
 }

@@ -123,49 +123,32 @@ int intr_poll_once(void) {
     return handled;
 }
 
-void intr_protocol_loop(void) {
-    uint32_t sleep_us = NETD_BUSY_SLEEP_US;
-    while (1) {
-        int more_pending = 0;
-
-        while (softirq_take(SIGNET)) {
-            net_protocol_handler();
-        }
-
-        /*
-         * Only keep the fast cadence when new packets were queued *while* we
-         * were draining (i.e. sustained load). Processing a single enqueued
-         * frame (e.g. a lone broadcast/ARP) and then finding the queue empty
-         * must let the loop back off, otherwise ambient broadcast traffic keeps
-         * this thread cycling at the busy cadence and idle CPU load fluctuates.
-         */
-        if (softirq_pending(SIGNET)) {
-            more_pending = 1;
-        }
-
-        if (more_pending) {
-            sleep_us = NETD_BUSY_SLEEP_US;
-        } else {
-            if (sleep_us < NETD_IDLE_SLEEP_MAX_US) {
-                sleep_us += NETD_IDLE_SLEEP_STEP_US;
-                if (sleep_us > NETD_IDLE_SLEEP_MAX_US)
-                    sleep_us = NETD_IDLE_SLEEP_MAX_US;
-            }
-        }
-        usleep(sleep_us);
-    }
-}
-
 void intr_loop(void) {
 	struct irq_entry *entry;
     uint32_t sleep_us = NETD_BUSY_SLEEP_US;
     uint32_t tap_rounds = 0;
     while(1){
+        int protocol_more_pending = 0;
         int event_ready = 0;
         int tap_pending = 0;
         int task_ready = 0;
         int tcp_timer_due = -1;
 
+        while (softirq_take(SIGNET)) {
+            net_protocol_handler();
+        }
+        /*
+         * Preserve the old dedicated protocol-thread cadence: only force the
+         * fast path when packets continue arriving while we are draining the
+         * current batch. A single queued frame should still allow the unified
+         * loop to back off once the queue becomes empty.
+         */
+        if (softirq_pending(SIGNET)) {
+            protocol_more_pending = 1;
+            while (softirq_take(SIGNET)) {
+                net_protocol_handler();
+            }
+        }
         while(softirq_take(SIGINT)){
             if (net_event_handler() > 0) {
                 event_ready = 1;
@@ -185,7 +168,7 @@ void intr_loop(void) {
 
         tcp_timer_due = tcp_timer_due_us();
 
-        if (event_ready || task_ready) {
+        if (protocol_more_pending || event_ready || task_ready) {
             sleep_us = NETD_BUSY_SLEEP_US;
         } else if (tap_pending) {
             /*
@@ -199,6 +182,18 @@ void intr_loop(void) {
                 sleep_us = NETD_BUSY_SLEEP_US;
             }
             tap_rounds++;
+        } else if (tcp_inflight_pending()) {
+            /*
+             * Freshly-sent unacked segments: the peer's ACKs are due within
+             * ~1 RTT, far sooner than any timer deadline below. Without this,
+             * one empty tap round mid-transfer jumped straight into the
+             * tcp_timer_due branch (RTO is 100s of ms away -> clamped 50ms
+             * deep sleep) and every 32KB send window stalled ~50ms waiting
+             * for its ACKs to be polled, capping scp at ~500-600KB/s. The
+             * 50ms freshness bound inside tcp_inflight_pending() prevents a
+             * dead-peer retransmit storm from pinning this fast path.
+             */
+            sleep_us = NETD_BUSY_SLEEP_US;
         } else if (tcp_timer_due >= 0) {
             if (tcp_timer_due == 0) {
                 sleep_us = NETD_BUSY_SLEEP_US;

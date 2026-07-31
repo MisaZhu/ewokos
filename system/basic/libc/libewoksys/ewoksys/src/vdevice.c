@@ -13,6 +13,7 @@
 #include <ewoksys/syscall.h>
 #include <ewoksys/signal.h>
 #include <ewoksys/hashmap.h>
+#include <pthread.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -85,6 +86,35 @@ static fsinfo_t* file_add(int fd, int pid, fsinfo_t* info) {
 	return ret;
 }
 
+typedef struct {
+        uint32_t node;
+        int count;
+} file_count_lookup_t;
+
+static int file_count_same_node(map_t in, const char* key, any_t value, any_t arg) {
+        (void)in;
+        (void)key;
+        fsinfo_t* info = (fsinfo_t*)value;
+        file_count_lookup_t* lookup = (file_count_lookup_t*)arg;
+
+        if(info == NULL || lookup == NULL)
+                return MAP_OK;
+        if(info->node == lookup->node)
+                lookup->count++;
+        return MAP_OK;
+}
+
+int vdevice_count_node_refs(uint32_t node) {
+        file_count_lookup_t lookup;
+
+        if(node == 0 || _files_hash == NULL)
+                return 0;
+        lookup.node = node;
+        lookup.count = 0;
+        hashmap_iterate(_files_hash, file_count_same_node, &lookup);
+        return lookup.count;
+}
+
 static void file_del(int fd, int pid, uint32_t node) {
 	pid = file_owner_pid(pid);
 	fsinfo_t* info = NULL;
@@ -97,20 +127,30 @@ static void file_del(int fd, int pid, uint32_t node) {
 	free(info);
 }
 
-fsinfo_t* dev_get_file(int fd, int pid, uint32_t node) {
-	pid = file_owner_pid(pid);
-	fsinfo_t* info = file_get_cache(fd, pid, node);
-	if(info == NULL) {
-		info = file_clone_same_owner_node(fd, pid, node);
-		if(info != NULL)
-			return info;
+static fsinfo_t* dev_get_file_seeded(int fd, int pid, uint32_t node, const fsinfo_t* seed) {
+        pid = file_owner_pid(pid);
+        fsinfo_t* info = file_get_cache(fd, pid, node);
+        if(info != NULL) {
+                if(seed != NULL)
+                        memcpy(info, seed, sizeof(fsinfo_t));
+                return info;
+        }
 
-		fsinfo_t i;
-                if(vfs_get_by_node(node, &i) != 0)
-			return NULL;
-		info = file_add(fd, pid, &i);
-	}
-	return info;
+        if(seed != NULL)
+                return file_add(fd, pid, (fsinfo_t*)seed);
+
+        info = file_clone_same_owner_node(fd, pid, node);
+        if(info != NULL)
+                return info;
+
+        fsinfo_t i;
+        if(vfs_get_by_node(node, &i) != 0)
+                return NULL;
+        return file_add(fd, pid, &i);
+}
+
+fsinfo_t* dev_get_file(int fd, int pid, uint32_t node) {
+        return dev_get_file_seeded(fd, pid, node, NULL);
 }
 
 int dev_update_file(int fd, int from_pid, fsinfo_t* finfo) {
@@ -179,6 +219,9 @@ static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 		owner_pid = from_pid;
 	owner_pid = file_owner_pid(owner_pid);
 
+        if(fsinfo != NULL)
+                (void)dev_get_file_seeded(fd, owner_pid, node, fsinfo);
+
 	if(dev != NULL && dev->close != NULL) {
 		dev->close(dev, fd, owner_pid, node, fsinfo, p);
 	}
@@ -218,10 +261,12 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 	size = proto_read_int(in);
 	offset = proto_read_int(in);
 	int32_t shm_id = proto_read_int(in);
+        fsinfo_t seed_info;
 	char buffer[READ_BUF_SIZE];
 	int32_t rd = -1;
 
-	fsinfo_t* info = dev_get_file(fd, from_pid, node);
+        proto_read_to(in, &seed_info, sizeof(fsinfo_t));
+        fsinfo_t* info = dev_get_file_seeded(fd, from_pid, node, &seed_info);
 	if(info == NULL) {
 		PF->addi(out, -1);
 		return;
@@ -288,9 +333,11 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	uint32_t node = proto_read_int(in);
 	offset = proto_read_int(in);
 	int32_t shm_id = proto_read_int(in);
+        fsinfo_t seed_info;
 	int32_t wr = -1;
 	
-	fsinfo_t* info = dev_get_file(fd, from_pid, node);
+        proto_read_to(in, &seed_info, sizeof(fsinfo_t));
+        fsinfo_t* info = dev_get_file_seeded(fd, from_pid, node, &seed_info);
 	if(info == NULL) {
 		PF->addi(out, -1);
 		return;
@@ -397,7 +444,7 @@ static void do_dma(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 	int shm_id = -1;	
 	int size = 0;
 	if(dev != NULL && dev->dma != NULL) {
-		fsinfo_t* info = dev_get_file(fd, from_pid, node);
+                fsinfo_t* info = dev_get_file(fd, from_pid, node);
 		if(info != NULL)
 			shm_id = dev->dma(dev, fd, from_pid, info, &size, p);
 	}
@@ -408,8 +455,10 @@ static void do_fcntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	int fd = proto_read_int(in);
 	uint32_t node = proto_read_int(in);
 	int32_t cmd = proto_read_int(in);
+        fsinfo_t seed_info;
 
-	fsinfo_t* info = dev_get_file(fd, from_pid, node);
+        proto_read_to(in, &seed_info, sizeof(fsinfo_t));
+        fsinfo_t* info = dev_get_file_seeded(fd, from_pid, node, &seed_info);
 	if(info == NULL) {
 		PF->addi(out, -1);
 		return;
@@ -440,7 +489,7 @@ static void do_flush(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	(void)from_pid;
 	int fd = proto_read_int(in);
 	uint32_t node = (uint32_t)proto_read_int(in);
-	fsinfo_t* info = dev_get_file(fd, from_pid, node);
+        fsinfo_t* info = dev_get_file(fd, from_pid, node);
 
 	if(info == NULL) {
 		PF->addi(out, -1)->addi(out, ENOENT);
@@ -716,9 +765,11 @@ static void do_dev_cntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out,
 static void do_poll(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	int fd = proto_read_int(in);
 	uint32_t node = (uint32_t)proto_read_int(in);
+        fsinfo_t seed_info;
 
 	PF->addi(out, -1);
-	fsinfo_t* info = dev_get_file(fd, from_pid, node);
+        proto_read_to(in, &seed_info, sizeof(fsinfo_t));
+        fsinfo_t* info = dev_get_file_seeded(fd, from_pid, node, &seed_info);
 	if(info == NULL || dev == NULL || dev->check_poll_events == NULL) {
 		return;
 	}
@@ -850,6 +901,21 @@ static void device_handled(void* p) {
 	}
 }
 
+static void* device_loop_thread_entry(void* arg) {
+        vdevice_t* dev = (vdevice_t*)arg;
+
+        if(dev == NULL)
+                return NULL;
+
+        while(!dev->terminated) {
+                if(dev->loop_step != NULL)
+                        dev->loop_step(dev, dev->extra_data);
+                else
+                        usleep(100000);
+        }
+        return NULL;
+}
+
 void device_stop(vdevice_t* dev) {
 	if(dev == NULL)
 		return;
@@ -875,13 +941,25 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int mode) {
 	}
 
 	int ipc_flags = 0;
+        pthread_t loop_tid;
+        bool loop_thread_started = false;
 
 	//if(dev->loop_step != NULL) 
 	ipc_flags |= IPC_NON_BLOCK;
 	ipc_serv_run(handle, device_handled, dev, ipc_flags);
 
+        if(dev->loop_step != NULL && dev->loop_step_threaded) {
+                if(pthread_create(&loop_tid, NULL, device_loop_thread_entry, dev) == 0) {
+                        pthread_detach(loop_tid);
+                        loop_thread_started = true;
+                }
+        }
+
 	while(!dev->terminated) {
-		if(dev->loop_step != NULL) {
+                if(loop_thread_started) {
+                        usleep(100000);
+                }
+                else if(dev->loop_step != NULL) {
 			dev->loop_step(dev, dev->extra_data);
 		}
 		else {

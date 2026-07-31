@@ -14,6 +14,7 @@ typedef struct {
 typedef struct sftp_server sftp_server_t;
 
 sftp_server_t *sftp_server_create(const sftp_server_io_t *io);
+void sftp_server_set_owner(sftp_server_t *srv, int uid, int gid);
 void sftp_server_destroy(sftp_server_t *srv);
 int sftp_server_feed(sftp_server_t *srv, const uint8_t *data, size_t len);
 

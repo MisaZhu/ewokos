@@ -107,19 +107,20 @@ struct tcp_pcb {
     uint16_t mtu;
     uint16_t mss;
     /* Receive buffer / advertised window.
-     * Must stay comfortably below the WLAN dongle's TX credit pool
-     * (~25 frames): netd ACKs every inbound segment, so a full-window
-     * burst generates ~wnd/MSS ACKs at once.  Those ACKs can only be
-     * transmitted with credits, and credits are refreshed exclusively
-     * by RX frame headers - which stop the moment the peer's send
-     * window closes.  With a 32KB window (~22 ACKs) the ACK burst
-     * exhausted the credit pool, the peer sat in zero-window silence,
-     * and recovery had to wait out the driver's 500ms starvation
-     * escape per frame (multi-second scp upload stalls).  16KB
-     * (~11 ACKs) keeps the ACK burst self-clocked within the pool.
-     * Throughput ceiling wnd/RTT (~16KB/10ms LAN) is far above the
-     * observed link rate, so this costs nothing in practice. */
-    uint8_t buf[1024*16]; /* receive buffer */
+     * The ACK burst for a full-window inbound blast must stay below the
+     * WLAN dongle's TX credit pool (~25 frames): credits are refreshed
+     * exclusively by RX frame headers, which stop the moment the peer's
+     * send window closes.  Pre-delack, netd ACKed every segment, so a
+     * 32KB window (~22 ACKs) exhausted the pool and the peer sat in
+     * zero-window silence until the driver's 500ms starvation escape
+     * (multi-second scp upload stalls); the buffer was shrunk to 16KB
+     * (~11 ACKs) to stay self-clocked.  Delayed ACK (TCP_DELACK_SEGS=2)
+     * has since halved the burst: 32KB now generates the same ~11 ACKs
+     * the 16KB sizing was validated against, so the window can be
+     * restored.  This directly lifts the upload ceiling wnd/RTT - the
+     * 16KB window stop-and-go (drain fully, then refill over the air
+     * with no overlap) capped scp uploads well below the link rate. */
+    uint8_t buf[1024*32]; /* receive buffer */
     struct sched_ctx state_ctx;
     struct sched_ctx send_ctx;
     struct sched_ctx recv_ctx;
@@ -131,6 +132,9 @@ struct tcp_pcb {
     uint8_t delack_pending;      /* delayed ACK armed (RFC 1122) */
     uint8_t delack_count;        /* in-order segs awaiting ACK */
     struct timeval delack_timer; /* first unacked seg arrival time */
+    uint8_t dupacks;             /* consecutive dup ACKs (fast retransmit) */
+    uint32_t ooo_seq;            /* out-of-order stash: first seq (valid if ooo_len) */
+    uint32_t ooo_len;            /* out-of-order stash: byte count, 0 = empty */
     struct tcp_pcb *parent;
     struct queue_head backlog;
 };
@@ -541,22 +545,62 @@ tcp_output_segment(uint32_t seq, uint32_t ack, uint8_t flg, uint16_t wnd, uint8_
     char ep1[IP_ENDPOINT_STR_LEN];
     char ep2[IP_ENDPOINT_STR_LEN];
     uint8_t *buf;
-    total = sizeof(*hdr) + len;
-    buf = memory_alloc(total);
-    if(!buf)
-        return -1;
+    uint8_t sbuf[2048];
+    uint8_t opts[4];
+    size_t optlen = 0;
+
+    /*
+     * RFC 1122 4.2.2.6: a peer that receives no MSS option in our SYN /
+     * SYN-ACK must assume the 536-byte default for the data it sends us.
+     * This header used to carry no options at all, so every inbound
+     * (upload) stream ran at 536-byte segments - about 1/3 of the payload
+     * per frame of the outbound direction - while the per-frame
+     * SDIO/IPC pipeline cost is identical. Advertise our real MSS so the
+     * peer can fill full-size segments.
+     */
+    if (TCP_FLG_ISSET(flg, TCP_FLG_SYN)) {
+        struct ip_iface *iface = ip_route_get_iface(local->addr);
+        uint16_t mss = 536;
+
+        if (iface) {
+            mss = NET_IFACE(iface)->dev->mtu - (IP_HDR_SIZE_MIN + sizeof(struct tcp_hdr));
+        }
+        opts[0] = 2; /* kind: MSS */
+        opts[1] = 4; /* length */
+        opts[2] = (uint8_t)(mss >> 8);
+        opts[3] = (uint8_t)(mss & 0xff);
+        optlen = sizeof(opts);
+    }
+
+    total = sizeof(*hdr) + optlen + len;
+    /*
+     * Fast path: any MTU-sized ethernet segment (and every bare ACK) fits on
+     * the stack, so skip the heap alloc/free pair that used to run once per
+     * outgoing segment. Only oversized loopback segments (mtu=64KB) still
+     * fall back to the heap.
+     */
+    if (total <= sizeof(sbuf)) {
+        buf = sbuf;
+    } else {
+        buf = memory_alloc(total);
+        if(!buf)
+            return -1;
+    }
 
     hdr = (struct tcp_hdr *)buf;
     hdr->src = local->port;
     hdr->dst = foreign->port;
     hdr->seq = hton32(seq);
     hdr->ack = hton32(ack);
-    hdr->off = (sizeof(*hdr) >> 2) << 4;
+    hdr->off = (uint8_t)(((sizeof(*hdr) + optlen) >> 2) << 4);
     hdr->flg = flg;
     hdr->wnd = hton16(wnd);
     hdr->sum = 0;
     hdr->up = 0;
-    memcpy(hdr + 1, data, len);
+    if (optlen) {
+        memcpy(hdr + 1, opts, optlen);
+    }
+    memcpy((uint8_t *)(hdr + 1) + optlen, data, len);
     pseudo.src = local->addr;
     pseudo.dst = foreign->addr;
     pseudo.zero = 0;
@@ -566,7 +610,8 @@ tcp_output_segment(uint32_t seq, uint32_t ack, uint8_t flg, uint16_t wnd, uint8_
     hdr->sum = cksum16((uint16_t *)hdr, total, psum);
 
     int ret = ip_output(IP_PROTOCOL_TCP, (uint8_t *)hdr, total, local->addr, foreign->addr);
-    free(buf);
+    if (buf != sbuf)
+        free(buf);
     if(ret < 0){
         errorf("tcp_output_segment failed: flg=0x%x seq=%u ack=%u local=%s foreign=%s",
             flg, seq, ack,
@@ -916,6 +961,33 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
             pcb->snd.una = seg->ack;
             if (ack_advanced) {
                 tcp_retransmit_queue_cleanup(pcb);
+                pcb->dupacks = 0;
+            } else if (len == 0 && pcb->queue.num > 0 &&
+                       seg->wnd == pcb->snd.wnd &&
+                       !TCP_FLG_ISSET(flags, TCP_FLG_SYN | TCP_FLG_FIN)) {
+                /*
+                 * RFC 5681 fast retransmit. Without it, every frame lost on a
+                 * lossy link (raspix WLAN) stalls the whole in-flight window
+                 * for a full RTO (200ms+, doubling), capping throughput at
+                 * roughly window/RTO regardless of link speed. Three pure dup
+                 * ACKs (no payload, no window change, unACKed data queued)
+                 * mean the receiver got later segments, so resend the oldest
+                 * unACKed segment immediately -- once per loss episode; the
+                 * RTO timer still backstops multi-loss windows. Refresh
+                 * entry->last without doubling rto so the timer path doesn't
+                 * fire a duplicate retransmit right behind this one.
+                 */
+                if (pcb->dupacks < 0xff) {
+                    pcb->dupacks++;
+                }
+                if (pcb->dupacks == 3) {
+                    struct tcp_queue_entry *re = queue_peek(&pcb->queue);
+                    if (re) {
+                        tcp_output_segment(re->seq, pcb->rcv.nxt, re->flg, pcb->rcv.wnd,
+                                           (uint8_t *)(re + 1), re->len, &pcb->local, &pcb->foreign);
+                        gettimeofday(&re->last, NULL);
+                    }
+                }
             }
             /* ignore: Users should receive positive acknowledgments for buffers
                         which have been SENT and fully acknowledged (i.e., SEND buffer should be returned with "ok" response) */
@@ -1031,7 +1103,54 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
                     copy_len -= copy_off;
                 }
             } else if (seg->seq > pcb->rcv.nxt) {
+                /*
+                 * Out-of-order segment. Dropping it turns every lost WLAN
+                 * frame into go-back-N: the whole in-flight window behind the
+                 * hole is discarded and (without SACK) the peer re-sends one
+                 * MSS per RTT under NewReno -- uploads run at half the
+                 * download rate. Instead stash the payload directly at its
+                 * natural position in pcb->buf (the seq->offset mapping is
+                 * stable: rcv.nxt and rcv.wnd always move together) and track
+                 * ONE contiguous range -- a single lost frame, the dominant
+                 * loss pattern, leaves exactly one hole. When the retransmit
+                 * fills the hole, rcv.nxt jumps over the stash in one step.
+                 * A rarer second hole just falls back to the old drop path.
+                 */
                 copy_len = 0;
+                uint32_t ooo_off = seg->seq - pcb->rcv.nxt;
+                if (len > 0 && ooo_off < pcb->rcv.wnd) {
+                    size_t keep = len;
+                    if (ooo_off + keep > pcb->rcv.wnd) {
+                        keep = pcb->rcv.wnd - ooo_off;
+                    }
+                    uint32_t s = seg->seq;
+                    uint32_t e = seg->seq + (uint32_t)keep;
+                    int stash = 0;
+                    if (!pcb->ooo_len) {
+                        pcb->ooo_seq = s;
+                        pcb->ooo_len = e - s;
+                        stash = 1;
+                    } else {
+                        uint32_t os = pcb->ooo_seq;
+                        uint32_t oe = pcb->ooo_seq + pcb->ooo_len;
+                        /* overlapping or adjacent (serial arithmetic) */
+                        if ((int32_t)(s - oe) <= 0 && (int32_t)(e - os) >= 0) {
+                            if ((int32_t)(s - os) < 0) {
+                                os = s;
+                            }
+                            if ((int32_t)(e - oe) > 0) {
+                                oe = e;
+                            }
+                            pcb->ooo_seq = os;
+                            pcb->ooo_len = oe - os;
+                            stash = 1;
+                        }
+                    }
+                    if (stash) {
+                        memcpy(pcb->buf + (sizeof(pcb->buf) - pcb->rcv.wnd) + ooo_off,
+                               data, keep);
+                    }
+                }
             }
 
             if (copy_len > pcb->rcv.wnd) {
@@ -1043,14 +1162,35 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
                 pcb->rcv.nxt += copy_len;
                 pcb->rcv.wnd -= copy_len;
                 /*
+                 * If this segment filled the hole in front of the stashed
+                 * out-of-order range, the stash is already sitting at the
+                 * right buffer offset -- consuming it is pure bookkeeping.
+                 */
+                int ooo_merged = 0;
+                if (pcb->ooo_len) {
+                    uint32_t ooo_end = pcb->ooo_seq + pcb->ooo_len;
+                    if ((int32_t)(ooo_end - pcb->rcv.nxt) <= 0) {
+                        pcb->ooo_len = 0; /* fully covered by in-order data */
+                    } else if ((int32_t)(pcb->ooo_seq - pcb->rcv.nxt) <= 0) {
+                        uint32_t delta = ooo_end - pcb->rcv.nxt;
+                        pcb->rcv.nxt += delta;
+                        pcb->rcv.wnd -= delta;
+                        pcb->ooo_len = 0;
+                        ooo_merged = 1;
+                    }
+                }
+                /*
                  * RFC 1122 delayed ACK: acknowledge every TCP_DELACK_SEGS-th
                  * in-order segment, or after TCP_DELACK_TIMEOUT_USEC. On the
                  * raspix WLAN link every pure ACK costs a full SDIO TX frame
                  * (~0.5ms of bus time plus one TX credit), so immediate ACKs
                  * burn ~1/3 of the bus during downloads.
+                 *
+                 * A hole-filling merge ends a loss-recovery episode: ACK the
+                 * big rcv.nxt jump immediately so the peer exits recovery.
                  */
                 pcb->delack_count++;
-                if (pcb->delack_count >= TCP_DELACK_SEGS) {
+                if (ooo_merged || pcb->delack_count >= TCP_DELACK_SEGS) {
                     pcb->delack_pending = 0;
                     pcb->delack_count = 0;
                     tcp_output(pcb, TCP_FLG_ACK, NULL, 0);
@@ -1092,6 +1232,11 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
             return;
         }
         pcb->rcv.nxt = seg->seq + 1;
+        /*
+         * Any out-of-order stash is dead now (no more data follows the FIN)
+         * and would poison the tcp_receive() memmove-span math.
+         */
+        pcb->ooo_len = 0;
         /* FIN gets an immediate ACK; drop any pending delayed ACK. */
         pcb->delack_pending = 0;
         pcb->delack_count = 0;
@@ -1611,6 +1756,32 @@ tcp_readable(int id)
 }
 
 int
+tcp_poll_readable(int id)
+{
+    struct tcp_pcb *pcb;
+    int readable;
+
+    if (pthread_mutex_trylock(&mutex) != 0) {
+        return -1;
+    }
+    pcb = tcp_pcb_get(id);
+    if (!pcb) {
+        pthread_mutex_unlock(&mutex);
+        return 0;
+    }
+    if (pcb->state == TCP_PCB_STATE_LISTEN) {
+        readable = (pcb->backlog.num > 0) ? 1 : 0;
+        pthread_mutex_unlock(&mutex);
+        return readable;
+    }
+    readable = (((size_t)sizeof(pcb->buf) - pcb->rcv.wnd) > 0 ||
+                pcb->state == TCP_PCB_STATE_CLOSE_WAIT ||
+                pcb->state == TCP_PCB_STATE_CLOSED) ? 1 : 0;
+    pthread_mutex_unlock(&mutex);
+    return readable;
+}
+
+int
 tcp_data_readable(int id)
 {
     struct tcp_pcb *pcb;
@@ -1680,12 +1851,44 @@ tcp_writable(int id)
 }
 
 int
+tcp_poll_writable(int id)
+{
+    struct tcp_pcb *pcb;
+    int writable = 1;
+    uint32_t inflight = 0;
+
+    if (pthread_mutex_trylock(&mutex) != 0) {
+        return -1;
+    }
+    pcb = tcp_pcb_get(id);
+    if (!pcb) {
+        pthread_mutex_unlock(&mutex);
+        return 1;
+    }
+    if (pcb->state == TCP_PCB_STATE_ESTABLISHED ||
+        pcb->state == TCP_PCB_STATE_CLOSE_WAIT) {
+        inflight = pcb->snd.nxt - pcb->snd.una;
+        writable = (inflight < pcb->snd.wnd) ? 1 : 0;
+        if (writable && pcb->queue.num >= TCP_RETRANSMIT_QUEUE_MAX) {
+            writable = 0;
+        }
+    }
+    pthread_mutex_unlock(&mutex);
+    return writable;
+}
+
+int
 tcp_timer_active(void)
 {
     int active = 0;
     struct tcp_pcb *pcb;
 
     mutex_lock(&mutex);
+    if (pcb_alloc_count == pcb_release_count) {
+        /* no live PCBs: skip the full table scan */
+        mutex_unlock(&mutex);
+        return 0;
+    }
     for (pcb = pcbs; pcb < tailof(pcbs); pcb++) {
         if (pcb->state == TCP_PCB_STATE_TIME_WAIT || pcb->queue.num > 0 ||
             pcb->persist_probing || pcb->delack_pending) {
@@ -1704,8 +1907,13 @@ tcp_timer_due_us(void)
     struct tcp_pcb *pcb;
     struct timeval now;
 
-    gettimeofday(&now, NULL);
     mutex_lock(&mutex);
+    if (pcb_alloc_count == pcb_release_count) {
+        /* no live PCBs: no timers can be pending, skip scan + gettimeofday */
+        mutex_unlock(&mutex);
+        return -1;
+    }
+    gettimeofday(&now, NULL);
     for (pcb = pcbs; pcb < tailof(pcbs); pcb++) {
         struct tcp_queue_entry *entry;
 
@@ -1741,6 +1949,49 @@ tcp_timer_due_us(void)
     }
     mutex_unlock(&mutex);
     return min_due_us;
+}
+
+/*
+ * True while any live connection has unacknowledged segments in flight AND
+ * the most recent (re)transmission is fresh (within ~50ms), i.e. the peer's
+ * ACK is plausibly imminent. intr_loop uses this to keep the poll cadence
+ * fast between a TX burst and the ACKs: the retransmit-queue RTO reported by
+ * tcp_timer_due_us() is hundreds of ms away, but ACKs land within ~1 RTT and
+ * re-open the send path, so sleeping toward the RTO deadline stalls every
+ * bulk window. The freshness bound keeps a retransmit storm to a dead peer
+ * from pinning the fast cadence forever (raspix netd-spin lesson).
+ */
+int
+tcp_inflight_pending(void)
+{
+    struct tcp_pcb *pcb;
+    struct timeval now, diff;
+    int pending = 0;
+
+    mutex_lock(&mutex);
+    if (pcb_alloc_count == pcb_release_count) {
+        mutex_unlock(&mutex);
+        return 0;
+    }
+    gettimeofday(&now, NULL);
+    for (pcb = pcbs; pcb < tailof(pcbs); pcb++) {
+        struct tcp_queue_entry *entry;
+
+        if (pcb->state == TCP_PCB_STATE_FREE) {
+            continue;
+        }
+        entry = queue_peek(&pcb->queue);
+        if (!entry) {
+            continue;
+        }
+        timersub(&now, &entry->last, &diff);
+        if (diff.tv_sec == 0 && diff.tv_usec < 50000) {
+            pending = 1;
+            break;
+        }
+    }
+    mutex_unlock(&mutex);
+    return pending;
 }
 
 int
@@ -1927,15 +2178,15 @@ RETRY:
             }
             pcb->snd.nxt += slen;
             sent += slen;
-            // Continue sending if window allows (don't wait for ACK)
-            if (cap - slen >= mss && sent < (ssize_t)len) {
-                continue;
-            }
-            // If we have sent a reasonable amount of data and the window is getting low,
-            // break to let the application continue and wait for ACKs
-            if (sent >= (ssize_t)(mss * 4)) {
-                break;
-            }
+            /*
+             * Keep pipelining until the caller's buffer is drained or the
+             * window/retransmit-queue caps close (cap==0 above). The old
+             * "stop after mss*4" break forced a short write every ~5.8KB,
+             * which with the per-write IPC round-trip capped bulk TX far
+             * below the link rate. The retransmit queue limit
+             * (TCP_RETRANSMIT_QUEUE_MAX segments) still bounds one call's
+             * burst, so the stack mutex is not held unboundedly.
+             */
         }
         break;
     case TCP_PCB_STATE_FIN_WAIT1:
@@ -1962,10 +2213,8 @@ tcp_receive(int id, uint8_t *data, size_t size)
 {
     struct tcp_pcb *pcb;
     size_t remain, len;
-    struct timeval recv_start, recv_end, recv_diff;
     size_t prev_wnd;
 
-    gettimeofday(&recv_start, NULL);
     mutex_lock(&mutex);
     pcb = tcp_pcb_get(id);
     if (!pcb) {
@@ -2024,16 +2273,26 @@ tcp_receive(int id, uint8_t *data, size_t size)
     len = MIN(size, remain);
     prev_wnd = pcb->rcv.wnd;
     memcpy(data, pcb->buf, len);
-    memmove(pcb->buf, pcb->buf + len, remain - len);
+    /*
+     * The seq->offset mapping is anchored at buf[0] == rcv.nxt - remain, so
+     * consuming `len` bytes shifts every live byte down by `len` -- including
+     * an out-of-order stash parked beyond the in-order region (its offset is
+     * remain + (ooo_seq - rcv.nxt)). Move the stash along or the mapping the
+     * hole-merge relies on silently breaks after the first read.
+     */
+    {
+        size_t tail = remain - len;
+        if (pcb->ooo_len) {
+            tail = remain + (size_t)(pcb->ooo_seq - pcb->rcv.nxt) + pcb->ooo_len - len;
+        }
+        memmove(pcb->buf, pcb->buf + len, tail);
+    }
     pcb->rcv.wnd += len;
     if (pcb->rcv.wnd != prev_wnd) {
         tcp_output(pcb, TCP_FLG_ACK, NULL, 0);
     }
 
     mutex_unlock(&mutex);
-
-    gettimeofday(&recv_end, NULL);
-    timersub(&recv_end, &recv_start, &recv_diff);
     return len;
 }
 

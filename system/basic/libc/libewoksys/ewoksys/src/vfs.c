@@ -27,6 +27,13 @@ static fsfile_t _fsfiles[MAX_OPEN_FILE_PER_PROC];
 static shm_pipe_t* _pipe_shm[MAX_OPEN_FILE_PER_PROC];
 static uint32_t vfs_get_poll_events_by_node(uint32_t node_id);
 
+typedef struct {
+        fsinfo_t info;
+        bool valid;
+} poll_fd_cache_t;
+
+#define VFS_MULTI_POLL_BACKOFF_US 20000
+
 static int vfs_get_by_fd_raw(int fd, fsinfo_t* info) {
 	proto_t in, out;
 	PF->init(&in)->addi(&in, fd);
@@ -855,7 +862,7 @@ uint8_t* vfs_readfile(const char* fname, int* rsz) {
 	return buf;
 }
 
-int vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_node_only, bool autodir) {
+int vfs_create_uid(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_node_only, bool autodir, int uid, int gid) {
 	char dir[FS_FULL_NAME_MAX];
 	char name[FS_FULL_NAME_MAX];
 	vfs_dir_name(fname, dir, FS_FULL_NAME_MAX);
@@ -865,7 +872,7 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_no
 	if(vfs_get_by_name(dir, &info_to) != 0) {
 		int res_dir = -1;
 		if(autodir)
-			res_dir = vfs_create(dir, &info_to, FS_TYPE_DIR, 0755, vfs_node_only, autodir);
+			res_dir = vfs_create_uid(dir, &info_to, FS_TYPE_DIR, 0755, vfs_node_only, autodir, uid, gid);
 		if(res_dir != 0)
 			return -1;
 	}
@@ -880,8 +887,8 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_no
 	if(type == FS_TYPE_DIR)
 		fi.stat.size = 1024;
 
-	fi.stat.uid = getuid();
-	fi.stat.gid = getgid();
+	fi.stat.uid = uid < 0 ? getuid() : uid;
+	fi.stat.gid = gid < 0 ? getgid() : gid;
 	fi.stat.mode = mode;
 
 	if(vfs_new_node(&fi, info_to.node, vfs_node_only, false) != 0)
@@ -906,6 +913,10 @@ int vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_no
 	if(ret != NULL)
 		memcpy(ret, &fi, sizeof(fsinfo_t));
 	return res;
+}
+
+int vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_node_only, bool autodir) {
+	return vfs_create_uid(fname, ret, type, mode, vfs_node_only, autodir, -1, -1);
 }
 
 const char* vfs_dir_name(const char* fname, char* ret, uint32_t len) {
@@ -1177,12 +1188,48 @@ int  vfs_clear_poll_events(uint32_t node_id, uint32_t events) {
 }
 
 uint32_t  vfs_get_poll_events(int fd) {
-	fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0 || info.node == 0)
+        fsinfo_t info;
+        if(vfs_get_by_fd(fd, &info) != 0 || info.node == 0)
 		return 0;
 
-	uint32_t sticky = vfs_get_poll_events_by_node(info.node);
-	if(info.type == FS_TYPE_PIPE) {
+        uint32_t sticky = vfs_get_poll_events_by_node(info.node);
+        if(info.type == FS_TYPE_PIPE) {
+                fsfile_t* file = vfs_get_file(fd);
+                shm_pipe_t* ring = NULL;
+                if(file != NULL)
+                        ring = get_pipe_shm(fd, file);
+                if(ring != NULL) {
+                        uint32_t live = pipe_live_poll_events(ring);
+                        uint32_t sticky_rw = sticky & VFS_EVT_RW;
+                        uint32_t live_rw = live & VFS_EVT_RW;
+                        uint32_t stale_rw = sticky_rw & ~live_rw;
+                        if(stale_rw != 0) {
+                                vfs_clear_poll_events(info.node, stale_rw);
+                                sticky &= ~stale_rw;
+                        }
+                        return ((sticky | (live & VFS_EVT_CLOSE)) & ~VFS_EVT_RW) | live_rw;
+                }
+        }
+        uint32_t live = 0;
+        if(info.mount_pid > 0 && dev_poll(info.mount_pid, fd, &info, &live) == 0) {
+                uint32_t sticky_rw = sticky & VFS_EVT_RW;
+                uint32_t live_rw = live & VFS_EVT_RW;
+                uint32_t stale_rw = sticky_rw & ~live_rw;
+                if(stale_rw != 0) {
+                        vfs_clear_poll_events(info.node, stale_rw);
+                        sticky &= ~stale_rw;
+                }
+                return (sticky & ~VFS_EVT_RW) | live_rw;
+        }
+        return sticky;
+}
+
+static uint32_t vfs_get_poll_events_cached(int fd, const fsinfo_t* info) {
+        if(info == NULL || info->node == 0)
+                return 0;
+
+        uint32_t sticky = vfs_get_poll_events_by_node(info->node);
+        if(info->type == FS_TYPE_PIPE) {
 		fsfile_t* file = vfs_get_file(fd);
 		shm_pipe_t* ring = NULL;
 		if(file != NULL)
@@ -1193,19 +1240,20 @@ uint32_t  vfs_get_poll_events(int fd) {
 			uint32_t live_rw = live & VFS_EVT_RW;
 			uint32_t stale_rw = sticky_rw & ~live_rw;
 			if(stale_rw != 0) {
-				vfs_clear_poll_events(info.node, stale_rw);
+                                vfs_clear_poll_events(info->node, stale_rw);
 				sticky &= ~stale_rw;
 			}
 			return ((sticky | (live & VFS_EVT_CLOSE)) & ~VFS_EVT_RW) | live_rw;
 		}
 	}
 	uint32_t live = 0;
-	if(info.mount_pid > 0 && dev_poll(info.mount_pid, fd, &info, &live) == 0) {
+        fsinfo_t live_info = *info;
+        if(live_info.mount_pid > 0 && dev_poll(live_info.mount_pid, fd, &live_info, &live) == 0) {
 		uint32_t sticky_rw = sticky & VFS_EVT_RW;
 		uint32_t live_rw = live & VFS_EVT_RW;
 		uint32_t stale_rw = sticky_rw & ~live_rw;
 		if(stale_rw != 0) {
-			vfs_clear_poll_events(info.node, stale_rw);
+                                vfs_clear_poll_events(info->node, stale_rw);
 			sticky &= ~stale_rw;
 		}
 		return (sticky & ~VFS_EVT_RW) | live_rw;
@@ -1218,18 +1266,37 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 		return -1;
 
 	int res = 0;
+        poll_fd_cache_t* cache = NULL;
 	bool registered = false;
 	bool multi_wait = (num > 1);
 	uint64_t start_ms = 0;
 	if(timeout > 0)
 		start_ms = kernel_tic_ms(0);
 
+        cache = (poll_fd_cache_t*)calloc((size_t)num, sizeof(poll_fd_cache_t));
+        if(cache == NULL)
+                return -1;
+
 	while(true) {
+                for(int i = 0; i < num; ++i) {
+                        cache[i].valid = false;
+                        memset(&cache[i].info, 0, sizeof(fsinfo_t));
+                        if(vfs_get_by_fd(fds[i].fd, &cache[i].info) == 0 &&
+                                        cache[i].info.node != 0) {
+                                cache[i].valid = true;
+                        }
+                }
+
 		/* Phase 1: Check all FDs for current events */
 		res = 0;
 		for(int i = 0; i < num; ++i) {
-			uint32_t visible = vfs_get_poll_events(fds[i].fd);
+                        uint32_t visible;
 			uint32_t mask = (uint32_t)fds[i].events | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL;
+
+                        if(cache[i].valid)
+                                visible = vfs_get_poll_events_cached(fds[i].fd, &cache[i].info);
+                        else
+                                visible = 0;
 			fds[i].revents = (uint16_t)(visible & mask);
 			if(fds[i].revents != 0)
 				res++;
@@ -1251,10 +1318,9 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 			/* Phase 3: Register for wakeup on the single node */
 			registered = true;
 			for(int i = 0; i < num; ++i) {
-				fsinfo_t info;
-				if(vfs_get_by_fd(fds[i].fd, &info) == 0 && info.node != 0) {
-					wait_node = info.node;
-					vfs_block_raw(info.node, (int)fds[i].events);
+                                if(cache[i].valid) {
+                                        wait_node = cache[i].info.node;
+                                        vfs_block_raw(cache[i].info.node, (int)fds[i].events);
 				}
 			}
 
@@ -1269,9 +1335,9 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 			 */
 			res = 0;
 			for(int i = 0; i < num; ++i) {
-				fsinfo_t info;
-				if(vfs_get_by_fd(fds[i].fd, &info) == 0 && info.node != 0) {
-					uint32_t visible = vfs_get_poll_events(fds[i].fd);
+                                if(cache[i].valid) {
+                                        uint32_t visible = vfs_get_poll_events_cached(fds[i].fd,
+                                                        &cache[i].info);
 					uint32_t mask = (uint32_t)fds[i].events | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL;
 					if((visible & mask) != 0) {
 						res++;
@@ -1313,16 +1379,19 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 		 * Registering multiple poll fds at once makes later nodes overwrite
 		 * earlier ones, which is exactly what breaks telnetd's socket+pipe poll.
 		 * For multi-fd poll, fall back to a short sleep loop instead of corrupting
-		 * the wait registration.
+                 * the wait registration. Keep the fallback backoff noticeably above
+                 * 1ms, otherwise poll-heavy daemons can flood vfsd with
+                 * VFS_GET_BY_FD/VFS_GET_POLL_EVENTS IPCs and pin one CPU in pure
+                 * readiness probing.
 		 */
 		if(timeout < 0) {
-			usleep(1000);
+                        usleep(VFS_MULTI_POLL_BACKOFF_US);
 		} else {
 			uint64_t now_ms = kernel_tic_ms(0);
 			uint64_t elapsed = now_ms - start_ms;
 			uint64_t remaining = (uint64_t)timeout - elapsed;
-			if(remaining > 10)
-				usleep(10000);
+                        if(remaining > (VFS_MULTI_POLL_BACKOFF_US / 1000))
+                                usleep(VFS_MULTI_POLL_BACKOFF_US);
 			else if(remaining > 0)
 				usleep((uint32_t)(remaining * 1000));
 			else
@@ -1338,11 +1407,11 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 	 */
 	if(registered) {
 		for(int i = 0; i < num; ++i) {
-			fsinfo_t info;
-			if(vfs_get_by_fd(fds[i].fd, &info) == 0 && info.node != 0)
-				vfs_unblock(info.node);
+                        if(cache != NULL && cache[i].valid)
+                                vfs_unblock(cache[i].info.node);
 		}
 	}
+        free(cache);
 	return res;
 }
 

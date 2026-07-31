@@ -31,6 +31,40 @@
 static int write_all(int fd, const uint8_t *buf, size_t len);
 static int write_all_nb(int fd, const uint8_t *buf, size_t len);
 
+static void warm_inherited_socket(int sync_fd, int clnt_sock) {
+    struct pollfd pfd;
+    uint8_t ready = 1;
+
+    if(clnt_sock >= 0) {
+        pfd.fd = clnt_sock;
+        pfd.events = 0;
+        pfd.revents = 0;
+        (void)poll(&pfd, 1, 0);
+    }
+
+    if(sync_fd >= 0) {
+        while(write(sync_fd, &ready, sizeof(ready)) < 0) {
+            if(errno == EINTR)
+                continue;
+            break;
+        }
+        close(sync_fd);
+    }
+}
+
+static void wait_inherited_socket_ready(int sync_fd) {
+    uint8_t ready;
+
+    if(sync_fd < 0)
+        return;
+    while(read(sync_fd, &ready, sizeof(ready)) < 0) {
+        if(errno == EINTR)
+            continue;
+        break;
+    }
+    close(sync_fd);
+}
+
 static void close_fd_if_valid(int *fd) {
     if(fd != NULL && *fd >= 0) {
         close(*fd);
@@ -198,34 +232,52 @@ static void telnet_session_relay(int clnt_sock, int input_write_fd,
 
         struct pollfd pfds[4];
         nfds_t nfds = 0;
+        int sock_idx = -1;
+        int out_idx = -1;
+        int ctrl_idx = -1;
+        int in_idx = -1;
 
-        pfds[nfds].fd = clnt_sock;
-        pfds[nfds].events = POLLIN;
-        pfds[nfds].revents = 0;
-        nfds++;
+        if(clnt_sock >= 0) {
+            sock_idx = (int)nfds;
+            pfds[nfds].fd = clnt_sock;
+            pfds[nfds].events = POLLIN;
+            pfds[nfds].revents = 0;
+            nfds++;
+        }
 
-        pfds[nfds].fd = output_read_fd;
-        pfds[nfds].events = POLLIN;
-        pfds[nfds].revents = 0;
-        nfds++;
+        if(output_read_fd >= 0) {
+            out_idx = (int)nfds;
+            pfds[nfds].fd = output_read_fd;
+            pfds[nfds].events = POLLIN;
+            pfds[nfds].revents = 0;
+            nfds++;
+        }
 
-        pfds[nfds].fd = control_read_fd;
-        pfds[nfds].events = POLLIN;
-        pfds[nfds].revents = 0;
-        nfds++;
+        if(control_read_fd >= 0) {
+            ctrl_idx = (int)nfds;
+            pfds[nfds].fd = control_read_fd;
+            pfds[nfds].events = POLLIN;
+            pfds[nfds].revents = 0;
+            nfds++;
+        }
 
-        if(pending_in_off < pending_in_len) {
+        if(input_write_fd >= 0 && pending_in_off < pending_in_len) {
+            in_idx = (int)nfds;
             pfds[nfds].fd = input_write_fd;
             pfds[nfds].events = POLLOUT;
             pfds[nfds].revents = 0;
             nfds++;
         }
 
+        if(nfds == 0)
+            break;
+
         int pr = poll(pfds, nfds, shell_dead ? 200 : 1000);
         if(pr < 0)
             break;
 
-        if(pr > 0 && (pfds[1].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) != 0) {
+        if(out_idx >= 0 && pr > 0 &&
+                (pfds[out_idx].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) != 0) {
             errno = 0;
             ssize_t ret = read(output_read_fd, buf, sizeof(buf));
             if(ret > 0) {
@@ -234,12 +286,14 @@ static void telnet_session_relay(int clnt_sock, int input_write_fd,
                     break;
             } else if(ret < 0 && errno == EINTR) {
             } else {
-                /* Shell exited (pipe EOF) or pipe error: flush a trailing CR and finish. */
+                /* Stdout pipe EOF means the login/shell side is finished. */
+                close_fd_if_valid(&output_read_fd);
                 shell_dead = true;
             }
         }
 
-        if(pr > 0 && (pfds[2].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) != 0) {
+        if(ctrl_idx >= 0 && pr > 0 &&
+                (pfds[ctrl_idx].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) != 0) {
             errno = 0;
             ssize_t ret = read(control_read_fd, buf, sizeof(buf));
             if(ret > 0) {
@@ -247,12 +301,17 @@ static void telnet_session_relay(int clnt_sock, int input_write_fd,
                     break;
             } else if(ret < 0 && errno == EINTR) {
             } else {
-                shell_dead = true;
+                /*
+                 * VFS_BACKUP_FD1 is only a side-channel for raw telnet protocol
+                 * replies. Some programs close it early; that must not tear down
+                 * an otherwise healthy login session.
+                 */
+                close_fd_if_valid(&control_read_fd);
             }
         }
 
-        if(pr > 0 && pending_in_off < pending_in_len) {
-            struct pollfd* in_pfd = &pfds[nfds - 1];
+        if(in_idx >= 0 && pr > 0 && pending_in_off < pending_in_len) {
+            struct pollfd* in_pfd = &pfds[in_idx];
             if((in_pfd->revents & (POLLOUT | POLLHUP | POLLERR | POLLNVAL)) != 0) {
                 int flush_rc = telnet_flush_input_pending(input_write_fd,
                         pending_in, &pending_in_off, &pending_in_len);
@@ -261,7 +320,8 @@ static void telnet_session_relay(int clnt_sock, int input_write_fd,
             }
         }
 
-        if(pr > 0 && (pfds[0].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) != 0) {
+        if(sock_idx >= 0 && pr > 0 &&
+                (pfds[sock_idx].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) != 0) {
             if(pending_in_len < sizeof(pending_in)) {
                 errno = 0;
                 ssize_t ret = read(clnt_sock, pending_in + pending_in_len,
@@ -280,7 +340,7 @@ static void telnet_session_relay(int clnt_sock, int input_write_fd,
 
         /* Poll timeout: with the shell gone and nothing left to forward,
          * leave so the socket ref returns and netd can release the task. */
-        if(shell_dead && pending_in_off >= pending_in_len) {
+        if(shell_dead && output_read_fd < 0 && pending_in_off >= pending_in_len) {
             (void)telnet_flush_output_tail(&relay);
             break;
         }
@@ -556,15 +616,26 @@ int main(int argc, char *argv[]) {
     while(1) {
         clnt_sock = accept(serv_sock, (struct sockaddr *) &clnt_addr, &clnt_addr_size);
         if(clnt_sock > 0) {
+            int sync_pipe[2] = {-1, -1};
+            if(pipe(sync_pipe) != 0) {
+                sync_pipe[0] = -1;
+                sync_pipe[1] = -1;
+            }
             int pid = fork();
             if(pid < 0) {
+                close_fd_if_valid(&sync_pipe[0]);
+                close_fd_if_valid(&sync_pipe[1]);
                 close(clnt_sock);
                 continue;
             }
             if(pid == 0) {
+                close_fd_if_valid(&sync_pipe[0]);
+                warm_inherited_socket(sync_pipe[1], clnt_sock);
                 proc_detach();
                 run_telnet_worker(serv_sock, clnt_sock);
             }
+            close_fd_if_valid(&sync_pipe[1]);
+            wait_inherited_socket_ready(sync_pipe[0]);
             close(clnt_sock);
         }
     }

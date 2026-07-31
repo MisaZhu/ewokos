@@ -29,8 +29,8 @@ CXXFLAGS = -march=armv8-a \
         -fno-use-cxa-atexit \
         -std=c++14
 
-CFLAGS += -DBSP_BOOST
-CXXFLAGS += -DBSP_BOOST
+CFLAGS += -DARCH_BOOST
+CXXFLAGS += -DARCH_BOOST
 
 EWOK_LIBC = --start-group -lewoksys -lc -lgloss --end-group
 EWOK_LIB_GRAPH = -lfont -lfreetype -liconbuf -lgraph -lpng -ljpeg -lgif -ltga -lsvg -lz -lopenlibm -ldisplay -lfb -lkeyb -lmouse  $(BSP_LFLAGS)

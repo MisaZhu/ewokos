@@ -163,16 +163,16 @@ void graph_scale_tof_cpu(graph_t* g, graph_t* dst, float scale) {
 }
 
 inline void graph_scale_tof(graph_t* g, graph_t* dst, float scale) {
-#if BSP_BOOST
-    graph_scale_tof_bsp(g, dst, scale);
+#if ARCH_BOOST
+    graph_scale_tof_arch(g, dst, scale);
 #else
     graph_scale_tof_cpu(g, dst, scale);
 #endif
 }
 
 inline void graph_scale_tof_fast(graph_t* g, graph_t* dst, float scale) {
-#if BSP_BOOST
-    graph_scale_tof_fast_bsp(g, dst, scale);
+#if ARCH_BOOST
+    graph_scale_tof_fast_arch(g, dst, scale);
 #else
     graph_scale_tof_cpu(g, dst, scale);
 #endif
@@ -305,7 +305,7 @@ void graph_scale_fit_tof_cpu(graph_t* src, graph_t* dst) {
 }
 
 void graph_scale_fit_tof(graph_t* src, graph_t* dst) {
-#if BSP_BOOST
+#if ARCH_BOOST
     graph_scale_fit_tof_cpu(src, dst);
 #else
     graph_scale_fit_tof_cpu(src, dst);

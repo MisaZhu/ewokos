@@ -26,6 +26,20 @@ static uint32_t fcntl_wait_event(int cmd) {
     }
 }
 
+static int fcntl_retry_backoff_us(uint32_t wait_event) {
+    /*
+     * WR waits are the backpressure gate for blocking send()/connect().
+     * Sleeping after every VFS_EVT_WR wake throttles throughput directly:
+     * each send() on /dev/net0 first returns RETRY, blocks for WR, then pays
+     * a fixed 3ms delay before retrying the actual fcntl. On raspix that caps
+     * sustained WLAN uploads around the low hundreds of KB/s even when netd
+     * and wland are otherwise idle. Keep the conservative backoff for the
+     * non-WR paths that were tuned around stale RD edges, but retry WR
+     * immediately once the wakeup says capacity is available.
+     */
+    return (wait_event == VFS_EVT_WR) ? 0 : 3000;
+}
+
 
 static int do_vfs_fcntl(int fd, int cmd, proto_t* arg_in, proto_t* arg_out){ 
     int ret;
@@ -38,7 +52,7 @@ static int do_vfs_fcntl(int fd, int cmd, proto_t* arg_in, proto_t* arg_out){
         if(ret != VFS_ERR_RETRY)
             break;
         if(wait_event == 0 || info.node == 0) {
-            proc_usleep(3000);
+            proc_usleep(fcntl_retry_backoff_us(wait_event));
             continue;
         }
         /*
@@ -62,12 +76,12 @@ static int do_vfs_fcntl(int fd, int cmd, proto_t* arg_in, proto_t* arg_out){
 		 * thread never wakes" hang under reconnect/load.
 		 */
 		if((vfs_get_poll_events(fd) & (wait_event | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL)) != 0) {
-			proc_usleep(3000);
+                        proc_usleep(fcntl_retry_backoff_us(wait_event));
 			continue;
 		}
         if(vfs_block(info.node, wait_event) != 0)
             return -1;
-        proc_usleep(3000);
+        proc_usleep(fcntl_retry_backoff_us(wait_event));
     };
 
     return ret;

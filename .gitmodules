@@ -11,3 +11,9 @@
 	path = mariox
 	url = https://github.com/misazhu/ewokos.mariox
 
+[submodule "machines"]
+	path = machines
+	url = https://github.com/MisaZhu/ewokos.machines
+[submodule "apps"]
+	path = apps
+	url = https://github.com/MisaZhu/ewokos.apps

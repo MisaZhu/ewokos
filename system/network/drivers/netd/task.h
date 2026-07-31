@@ -13,7 +13,11 @@ enum{
     NET_TASK_FINISH
 };
 
-#define TASK_READ_BUF_SIZE 1024*16
+/* Match the TCP receive buffer (32KB) so one SOCK_RECV worker run can
+ * drain a full receive window, and sshd's ~32KB SSH packet body reads
+ * complete in a single IPC round trip instead of two. */
+#define TASK_READ_BUF_SIZE 1024*32
+#define TASK_WRITE_BUF_SIZE 1024*32
 typedef struct net_task{
     int fd;
 	int from_pid;
@@ -21,21 +25,42 @@ typedef struct net_task{
     int cmd;
     int read_from_pid;
     pthread_t tid;
+	pthread_mutex_t lock;
     struct sched_ctx wait_ctx;
     char read_buf[TASK_READ_BUF_SIZE];
+    char tx_buf[TASK_WRITE_BUF_SIZE];
 	proto_t in;
 	proto_t out;
 	proto_t read_in;
 	proto_t read_out;
+	proto_t write_in;
+	proto_t write_out;
 	void *p;
 	void *read_p;
+	void *write_p;
     bool running;
     int state;
     int read_state;
+    int write_state;
     int sock;
     int refs;
     bool pending_main_rd;
+    bool write_ready;
     int thread_started;
+    bool read_prefetch;
+    bool read_cache_ready;
+    int read_cache_len;
+    int read_cache_off;
+    int read_cache_errno;
+    int write_from_pid;
+    /*
+     * Async-accepted write bookkeeping: write_off tracks how much of the
+     * armed write_in payload the worker has already pushed into the TCP
+     * stack; write_err latches a hard send error (the client already got the
+     * accepted byte count back) to be reported on the next write().
+     */
+    uint32_t write_off;
+    int write_err;
     /*
      * FS_CMD_CLOSE arrives on the dispatch thread; the VFS_EVT_CLOSE wakeup
      * (a reverse IPC to vfsd) must NOT be issued there (vfsd is synchronously

@@ -1,4 +1,4 @@
-#include <graph/bsp_graph.h>
+#include <graph/graph_arch.h>
 #include <ewoksys/core.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,7 +9,7 @@
 extern "C" { 
 #endif
 
-#ifdef BSP_BOOST
+#ifdef ARCH_BOOST
 #include <arm_neon.h>
 
 #define MIN(a, b) (((a) > (b))?(b):(a))
@@ -104,7 +104,7 @@ static inline void graph_pixel_neon(graph_t *graph, int32_t x, int32_t y,
     }
 }
 
-void graph_fill_bsp(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
+void graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
     uint32_t buf[8] = {0};
 
     if(g == NULL || w <= 0 || h <= 0)
@@ -147,7 +147,7 @@ void graph_fill_bsp(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint
     }
 }
 
-inline void graph_blt_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+inline void graph_blt_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
         graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
     
     if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
@@ -281,7 +281,7 @@ static inline void blt_alpha_16_inline(uint32_t *dp, const uint32_t *sp,
     vst4q_u8((uint8_t*)dp, out);
 }
 
-inline void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+inline void graph_blt_alpha_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
         graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
     if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
         return;
@@ -403,7 +403,7 @@ static inline void graph_pixel_alpha_mask_neon(graph_t *graph, int32_t x, int32_
     }
 }
 
-inline void graph_blt_alpha_mask_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+inline void graph_blt_alpha_mask_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
         graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
     if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
         return;
@@ -824,11 +824,11 @@ static void graph_gaussian_neon(graph_t* g, int x, int y, int w, int h, int r) {
 	gaussian_blur_neon(g->buffer, g->w, g->h, x, y, w, h, r);
 }
 
-inline void graph_glass_bsp(graph_t* g, int x, int y, int w, int h, int r) {
+inline void graph_glass_arch(graph_t* g, int x, int y, int w, int h, int r) {
     graph_glass_neon(g, x, y, w, h, r);
 }
 
-inline void graph_gaussian_bsp(graph_t* g, int x, int y, int w, int h, int r) {
+inline void graph_gaussian_arch(graph_t* g, int x, int y, int w, int h, int r) {
     graph_gaussian_neon(g, x, y, w, h, r);
 }
 
@@ -889,7 +889,7 @@ static inline float get_weight_fast(float x) {
     return weight_table[index];
 }
 
-void graph_scale_tof_bsp(graph_t* g, graph_t* dst, double scale) {
+void graph_scale_tof_arch(graph_t* g, graph_t* dst, double scale) {
     init_weight_table();
     
     if(scale <= 0.0 ||
@@ -1249,7 +1249,7 @@ static int graph_scale_integer_downsample_bsp(graph_t* g, graph_t* dst, uint32_t
     return 1;
 }
 
-void graph_scale_tof_fast_bsp(graph_t* g, graph_t* dst, double scale) {
+void graph_scale_tof_fast_arch(graph_t* g, graph_t* dst, double scale) {
     if(scale <= 0.0 ||
             dst->w < (int)(g->w*scale) ||
             dst->h < (int)(g->h*scale))
@@ -1512,7 +1512,7 @@ static inline uint32_t rgb2nv12_get_src_pixel(const uint32_t *in, int w, int h, 
     return in[(h - 1 - y) * w + (w - 1 - x)];
 }
 
-void rgb2nv12_bsp(uint8_t *out, uint32_t *in, int w, int h) {
+void rgb2nv12_arch(uint8_t *out, uint32_t *in, int w, int h) {
     if(out == NULL || in == NULL || w <= 0 || h <= 0)
         return;
 

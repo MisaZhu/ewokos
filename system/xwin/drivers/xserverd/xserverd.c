@@ -608,6 +608,20 @@ static void x_del_win(x_t* x, xwin_t* win) {
 		hide_win(x, x->im_state.win_xim);
 
 	remove_win(x, win);
+	if(win == x->current.win_drag) {
+		x->current.win_drag = NULL;
+		x->current.drag_state = 0;
+		x->current.pos_delta.x = 0;
+		x->current.pos_delta.y = 0;
+	}
+	if(win == x->im_state.win_xim) {
+		x->im_state.win_xim = NULL;
+		x->im_state.win_xim_actived = false;
+	}
+	if(x->im_state.down_win_fd == win->fd)
+		x->im_state.down_win_fd = -1;
+	if(win == x->win_launcher)
+		x->win_launcher = NULL;
 	if(win == x->win_last)
 		x->win_last = NULL;
 
