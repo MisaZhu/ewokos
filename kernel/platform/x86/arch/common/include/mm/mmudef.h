@@ -16,7 +16,7 @@
 #define KERNEL_BASE           0x80000000
 #define INTERRUPT_VECTOR_BASE 0xffff0000
 
-#define MAX_USABLE_MEM_SIZE (1 * GB + 640 * MB)
+#define MAX_USABLE_MEM_SIZE (512 * MB)
 
 #define AP_RW_D  0x1
 #define AP_RW_R  0x2

@@ -30,38 +30,11 @@ boot_pd:
 .align 4096
 boot_pd_high:
     .quad boot_pt_high0 + 0x003
-    .quad boot_pt_high1 + 0x003
-    .quad boot_pt_high2 + 0x003
-    .quad boot_pt_high3 + 0x003
-    .fill 508, 8, 0
+    .fill 511, 8, 0
 
 .align 4096
 boot_pt_high0:
     .set page, 0x00100000
-    .rept 512
-        .quad page + 0x003
-        .set page, page + 0x1000
-    .endr
-
-.align 4096
-boot_pt_high1:
-    .set page, 0x00300000
-    .rept 512
-        .quad page + 0x003
-        .set page, page + 0x1000
-    .endr
-
-.align 4096
-boot_pt_high2:
-    .set page, 0x00500000
-    .rept 512
-        .quad page + 0x003
-        .set page, page + 0x1000
-    .endr
-
-.align 4096
-boot_pt_high3:
-    .set page, 0x00700000
     .rept 512
         .quad page + 0x003
         .set page, page + 0x1000
@@ -75,11 +48,6 @@ gdt32:
 gdt32_ptr:
     .word (3 * 8) - 1
     .quad gdt32
-
-.align 8
-.global x86_boot_info_ptr
-x86_boot_info_ptr:
-    .quad 0
 
 .section .init
 .code32
@@ -97,58 +65,65 @@ __entry:
     cld
     mov esp, offset _svc_start_stack
     lgdt [gdt32_ptr]
+1:
+    mov dx, 0x3fd
+    in al, dx
+    test al, 0x20
+    jz 1b
+    mov dx, 0x3f8
+    mov al, 'D'
+    out dx, al
 
     mov eax, cr4
     or eax, 1 << 5
     mov cr4, eax
+2:
+    mov dx, 0x3fd
+    in al, dx
+    test al, 0x20
+    jz 2b
+    mov dx, 0x3f8
+    mov al, 'E'
+    out dx, al
 
     mov ecx, 0xC0000080
     rdmsr
     or eax, 1 << 8
     wrmsr
+3:
+    mov dx, 0x3fd
+    in al, dx
+    test al, 0x20
+    jz 3b
+    mov dx, 0x3f8
+    mov al, 'F'
+    out dx, al
 
     mov eax, offset boot_pml4
     mov cr3, eax
+4:
+    mov dx, 0x3fd
+    in al, dx
+    test al, 0x20
+    jz 4b
+    mov dx, 0x3f8
+    mov al, 'G'
+    out dx, al
 
     mov eax, cr0
     or eax, 0x80000001
     mov cr0, eax
+5:
+    mov dx, 0x3fd
+    in al, dx
+    test al, 0x20
+    jz 5b
+    mov dx, 0x3f8
+    mov al, 'H'
+    out dx, al
     jmp 0x08:long_mode_entry
 
 .code64
-.global __efi_entry
-.global __ap_wait_entry
-__efi_entry:
-    cli
-    cld
-    mov [rip + x86_boot_info_ptr], rcx
-    lea rax, [rip + boot_pml4]
-    mov cr3, rax
-    lea rsp, [rip + _svc_start_stack]
-    lgdt [rip + gdt32_ptr]
-    lea rax, [rip + long_mode_entry]
-    push 0x08
-    push rax
-    retfq
-
-__ap_wait_entry:
-    mov rbx, rsi
-    mov dword ptr [rbx + 12], 0x21
-1:
-    mov eax, dword ptr [rbx + 0]
-    cmp eax, 2
-    je 2f
-    pause
-    jmp 1b
-2:
-    mov dword ptr [rbx + 12], 0x22
-    mov edi, dword ptr [rbx + 4]
-    mov rax, qword ptr [rbx + 16]
-    mov cr3, rax
-    mov rsp, qword ptr [rbx + 32]
-    mov rax, qword ptr [rbx + 24]
-    jmp rax
-
 long_mode_entry:
     mov ax, 0x10
     mov ds, ax
@@ -159,6 +134,14 @@ long_mode_entry:
     mov gs, ax
     lea rsp, [rip + _svc_start_stack]
     xor ebp, ebp
+9:
+    mov dx, 0x3fd
+    in al, dx
+    test al, 0x20
+    jz 9b
+    mov dx, 0x3f8
+    mov al, 'I'
+    out dx, al
 
     lea rdi, [rip + _bss_start]
     lea rcx, [rip + _bss_end]
@@ -166,10 +149,42 @@ long_mode_entry:
     xor eax, eax
     shr rcx, 3
     rep stosq
+10:
+    mov dx, 0x3fd
+    in al, dx
+    test al, 0x20
+    jz 10b
+    mov dx, 0x3f8
+    mov al, 'J'
+    out dx, al
 
     call x86_runtime_init
+11:
+    mov dx, 0x3fd
+    in al, dx
+    test al, 0x20
+    jz 11b
+    mov dx, 0x3f8
+    mov al, 'K'
+    out dx, al
     call _boot_start
+12:
+    mov dx, 0x3fd
+    in al, dx
+    test al, 0x20
+    jz 12b
+    mov dx, 0x3f8
+    mov al, 'L'
+    out dx, al
     lea rsp, [rip + _svc_stack]
+13:
+    mov dx, 0x3fd
+    in al, dx
+    test al, 0x20
+    jz 13b
+    mov dx, 0x3f8
+    mov al, 'M'
+    out dx, al
     call _kernel_entry_c
 
 halt_forever:
