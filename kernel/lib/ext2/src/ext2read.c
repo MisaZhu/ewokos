@@ -11,6 +11,14 @@
 
 static partition_t _partition;
 
+/*
+ * Some kernel BSPs only provide the legacy single-sector SD interface.
+ * Treat multi-block read as an optional optimization and fall back cleanly
+ * when the platform does not implement it.
+ */
+extern int32_t sd_dev_read_blocks(int32_t sector, void* buf, uint32_t count)
+        __attribute__((weak));
+
 static int32_t sd_read_sector(int32_t sector, void* buf) {
 	for (int32_t retry = 0; retry < 8; ++retry) {
 		if (sd_dev_read(sector) != 0) {
@@ -27,9 +35,11 @@ static int32_t sd_read_sectors(int32_t sector, void* buf, uint32_t count) {
         if(count == 0)
                 return 0;
 
-        for (int32_t retry = 0; retry < 4; ++retry) {
-                if (sd_dev_read_blocks(sector, buf, count) == 0) {
-                        return 0;
+        if(sd_dev_read_blocks != NULL) {
+                for (int32_t retry = 0; retry < 4; ++retry) {
+                        if (sd_dev_read_blocks(sector, buf, count) == 0) {
+                                return 0;
+                        }
                 }
         }
 

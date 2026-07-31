@@ -16,13 +16,15 @@
 #include <ext2/ext2fs.h>
 #include <bsp/bsp_sd.h>
 
+#define SD_BUFFER_SIZE (1024*1024*8)
+
 static int32_t ext2_sd_read_blocks(int32_t block, void* buf, uint32_t count) {
 	return sd_read_blocks(block, buf, count);
 }
 
 static void* sd_read_ext2(const char* fname, int32_t* size) {
 	ext2_t ext2;
-	ext2_init_ex(&ext2, sd_read, ext2_sd_read_blocks, NULL, 1024*1024);
+	ext2_init_ex(&ext2, sd_read, ext2_sd_read_blocks, NULL, SD_BUFFER_SIZE);
 	void* ret = ext2_readfile(&ext2, fname, size);
 	ext2_quit(&ext2);
 	return ret;
