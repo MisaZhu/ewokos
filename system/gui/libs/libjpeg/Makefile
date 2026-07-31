@@ -40,15 +40,16 @@ JPEG_SRCS = jcapimin.c jcapistd.c jdapimin.c jdapistd.c \
             jfdctfst.c jfdctflt.c \
             jsimd_none.c
 
-OBJS = $(JPEG_SRCS:.c=.o)
+OBJS = $(patsubst %.c,$(ARCH)/%.o,$(JPEG_SRCS))
 
 $(LIBJPEG): $(OBJS) Makefile
 	$(AR) rcs $@ $(OBJS)
 	cp -r *.h $(TARGET_DIR)/include
 
-%.o: %.c
+$(ARCH)/%.o: %.c
+	@mkdir -p $(dir $@)
 	$(CC) $(JPEG_CFLAGS) -c $< -o $@
 
 clean:
-	rm -f *.o libjpeg.a
+	rm -rf $(ARCH) libjpeg.a
 	rm -rf $(DEPDIR)

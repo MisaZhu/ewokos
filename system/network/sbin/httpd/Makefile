@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-HTTPD_OBJS = httpd.o
+HTTPD_OBJS = $(ARCH)/httpd.o
 
 HTTPD = $(TARGET_DIR)/sbin/httpd
 

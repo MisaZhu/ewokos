@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-cp_OBJS = cp.o
+cp_OBJS = $(ARCH)/cp.o
 
 cp = $(TARGET_DIR)/bin/cp
 

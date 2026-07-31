@@ -12,15 +12,16 @@ LIBTGA = $(TARGET_DIR)/lib/libtga.a
 
 all: $(LIBTGA)
 
-OBJS = tga.o
+OBJS = $(ARCH)/tga.o
 
 $(LIBTGA): $(OBJS) Makefile
 	$(AR) rcs $@ $(OBJS)
 	cp tga.h $(TARGET_DIR)/include
 
-%.o: %.c
+$(ARCH)/%.o: %.c
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -std=c99 -c -o $@ $<
 
 clean:
-	rm -f *.o
+	rm -rf $(ARCH)
 	rm -f $(LIBTGA)

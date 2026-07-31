@@ -10,7 +10,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I $(BUILD_DIR)/include
 
-GCORES_OBJS = xcores.o
+GCORES_OBJS = $(ARCH)/xcores.o
 LD_LIB_DEPS = \
 	$(BUILD_DIR)/lib/libwidget++.a \
 	$(BUILD_DIR)/lib/libx++.a \

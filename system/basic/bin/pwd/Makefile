@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-PWD_OBJS = pwd.o
+PWD_OBJS = $(ARCH)/pwd.o
 
 PWD = $(TARGET_DIR)/bin/pwd
 

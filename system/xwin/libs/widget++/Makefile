@@ -8,45 +8,45 @@ LDFLAGS = -L$(TARGET_DIR)/lib
 
 CXXFLAGS += -Iinclude -I $(TARGET_DIR)/include -I $(TARGET_DIR)/include/litehtml
 
-LIB_WIDGET_OBJS =  src/Widget/Widget.o \
-		src/Widget/Blank.o \
-		src/Widget/Splitter.o \
-		src/Widget/Split.o \
-		src/Widget/SpriteWin.o \
-		src/Widget/Container.o \
-		src/Widget/Image.o \
-		src/Widget/Label.o \
-		src/Widget/ListBase.o \
-		src/Widget/List.o \
-		src/Widget/Grid.o \
-		src/Widget/Scrollable.o \
-		src/Widget/Scroller.o \
-		src/Widget/Slider.o \
-		src/Widget/Button.o \
-		src/Widget/LabelButton.o \
-		src/Widget/RootWidget.o \
-		src/Widget/EditLine.o \
-		src/Widget/Text.o \
-		src/Widget/Stage.o \
-		src/Widget/Columns.o \
-		src/Widget/WidgetWin.o \
-		src/Widget/WidgetX.o \
-		src/Widget/RoundButton.o \
-		src/Widget/RoundLabelButton.o \
-		src/Widget/SpriteAnim.o \
+LIB_WIDGET_OBJS =  $(ARCH)/src/Widget/Widget.o \
+		$(ARCH)/src/Widget/Blank.o \
+		$(ARCH)/src/Widget/Splitter.o \
+		$(ARCH)/src/Widget/Split.o \
+		$(ARCH)/src/Widget/SpriteWin.o \
+		$(ARCH)/src/Widget/Container.o \
+		$(ARCH)/src/Widget/Image.o \
+		$(ARCH)/src/Widget/Label.o \
+		$(ARCH)/src/Widget/ListBase.o \
+		$(ARCH)/src/Widget/List.o \
+		$(ARCH)/src/Widget/Grid.o \
+		$(ARCH)/src/Widget/Scrollable.o \
+		$(ARCH)/src/Widget/Scroller.o \
+		$(ARCH)/src/Widget/Slider.o \
+		$(ARCH)/src/Widget/Button.o \
+		$(ARCH)/src/Widget/LabelButton.o \
+		$(ARCH)/src/Widget/RootWidget.o \
+		$(ARCH)/src/Widget/EditLine.o \
+		$(ARCH)/src/Widget/Text.o \
+		$(ARCH)/src/Widget/Stage.o \
+		$(ARCH)/src/Widget/Columns.o \
+		$(ARCH)/src/Widget/WidgetWin.o \
+		$(ARCH)/src/Widget/WidgetX.o \
+		$(ARCH)/src/Widget/RoundButton.o \
+		$(ARCH)/src/Widget/RoundLabelButton.o \
+		$(ARCH)/src/Widget/SpriteAnim.o \
 		\
-		src/WidgetEx/FileWidget.o \
-		src/WidgetEx/Dialog.o \
-		src/WidgetEx/ConfirmDialog.o \
-		src/WidgetEx/FileDialog.o \
-		src/WidgetEx/ConsoleWidget.o \
-		src/WidgetEx/FontDialog.o \
-		src/WidgetEx/ColorDialog.o \
-		src/WidgetEx/Popup.o \
-		src/WidgetEx/LayoutWidget.o \
-		src/WidgetEx/LayoutWin.o \
-		src/WidgetEx/Menu.o \
-		src/WidgetEx/Menubar.o
+		$(ARCH)/src/WidgetEx/FileWidget.o \
+		$(ARCH)/src/WidgetEx/Dialog.o \
+		$(ARCH)/src/WidgetEx/ConfirmDialog.o \
+		$(ARCH)/src/WidgetEx/FileDialog.o \
+		$(ARCH)/src/WidgetEx/ConsoleWidget.o \
+		$(ARCH)/src/WidgetEx/FontDialog.o \
+		$(ARCH)/src/WidgetEx/ColorDialog.o \
+		$(ARCH)/src/WidgetEx/Popup.o \
+		$(ARCH)/src/WidgetEx/LayoutWidget.o \
+		$(ARCH)/src/WidgetEx/LayoutWin.o \
+		$(ARCH)/src/WidgetEx/Menu.o \
+		$(ARCH)/src/WidgetEx/Menubar.o
 
 WIDGET = $(TARGET_DIR)/lib/libwidget++.a
 

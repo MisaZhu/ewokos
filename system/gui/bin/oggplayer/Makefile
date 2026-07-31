@@ -4,7 +4,7 @@ include $(SYS_DIR)/platform/$(ARCH)/make.rule
 BUILD_DIR = $(SYS_DIR)/build/$(HW)/rootfs/bin
 
 TASK = oggplayer
-TASK_OBJS = oggplayer.o
+TASK_OBJS = $(ARCH)/oggplayer.o
 
 CFLAGS += -I $(SYS_DIR)/build/$(HW)/include
 CFLAGS += -I $(SYS_DIR)/gui/libs/libogg/include

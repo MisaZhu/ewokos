@@ -7,7 +7,7 @@ TARGET_DIR = $(BUILD_DIR)/rootfs/bin/x
 LDFLAGS = -L$(BUILD_DIR)/lib
 CXXFLAGS += -I $(BUILD_DIR)/include
 
-TASK_OBJS = wlayout.o
+TASK_OBJS = $(ARCH)/wlayout.o
 TASK = wlayout
 
 all: $(TASK)

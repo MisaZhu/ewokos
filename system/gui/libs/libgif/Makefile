@@ -14,8 +14,8 @@ LIBGIF = $(TARGET_DIR)/lib/libgif.a
 all: $(LIBGIF)
 
 # libgif source files (giflib)
-OBJS = dgif_lib.o egif_lib.o gifalloc.o gif_err.o gif_hash.o gif_font.o \
-       gif_hash.o openbsd-reallocarray.o
+OBJS = $(ARCH)/dgif_lib.o $(ARCH)/egif_lib.o $(ARCH)/gifalloc.o $(ARCH)/gif_err.o $(ARCH)/gif_hash.o $(ARCH)/gif_font.o \
+       $(ARCH)/gif_hash.o $(ARCH)/openbsd-reallocarray.o
 
 -include $(DEPDIR)/*.Po
 
@@ -23,11 +23,12 @@ $(LIBGIF): $(OBJS) Makefile
 	$(AR) rcs $@ $(OBJS)
 	cp -r *.h $(TARGET_DIR)/include
 
-%.o: %.c
-	@mkdir -p $(DEPDIR)/$(@D)
+$(ARCH)/%.o: %.c
+	@mkdir -p $(dir $@)
+	@mkdir -p $(dir $(DEPDIR)/$*.Tpo)
 	$(CC) $(CFLAGS) -std=c99 -MMD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
 	@mv -f $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
 
 clean:
-	rm -f *.o libgif.a
+	rm -rf $(ARCH) libgif.a
 	rm -rf $(DEPDIR)

@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-MOUSED_OBJS = moused.o
+MOUSED_OBJS = $(ARCH)/moused.o
 
 MOUSED = $(TARGET_DIR)/drivers/virt/moused
 

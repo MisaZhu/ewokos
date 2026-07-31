@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-NULLD_OBJS = nulld.o
+NULLD_OBJS = $(ARCH)/nulld.o
 
 NULLD = $(TARGET_DIR)/drivers/nulld
 

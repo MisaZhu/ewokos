@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-TTYD_OBJS = ttyd.o
+TTYD_OBJS = $(ARCH)/ttyd.o
 
 TTYD = $(TARGET_DIR)/drivers/virt/ttyd
 

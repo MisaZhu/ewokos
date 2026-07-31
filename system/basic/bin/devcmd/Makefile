@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-DEVCMD_OBJS = devcmd.o
+DEVCMD_OBJS = $(ARCH)/devcmd.o
 
 DEVCMD = $(TARGET_DIR)/bin/devcmd
 

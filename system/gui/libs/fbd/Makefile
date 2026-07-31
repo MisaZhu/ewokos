@@ -8,7 +8,7 @@ LDFLAGS = -L$(TARGET_DIR)/lib
 
 CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_FBD_OBJS = src/fbd.o
+LIB_FBD_OBJS = $(ARCH)/src/fbd.o
 
 FBD = $(TARGET_DIR)/lib/libfbd.a
 

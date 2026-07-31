@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-SESSION_OBJS = session.o
+SESSION_OBJS = $(ARCH)/session.o
 
 SESSION = $(TARGET_DIR)/bin/session
 

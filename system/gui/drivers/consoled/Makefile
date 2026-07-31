@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-CONSOLED_OBJS = consoled.o
+CONSOLED_OBJS = $(ARCH)/consoled.o
 
 CONSOLED = $(TARGET_DIR)/drivers/consoled
 

@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include -I$(SYS_DIR)/network/libs/utils/include
 
-LOGIN_OBJS = login.o
+LOGIN_OBJS = $(ARCH)/login.o
 
 LOGIN = $(TARGET_DIR)/bin/login
 

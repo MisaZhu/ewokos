@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I $(BUILD_DIR)/include
 
-XFINDER_OBJS = xfinder.o
+XFINDER_OBJS = $(ARCH)/xfinder.o
 
 XFINDER_DIR = $(TARGET_DIR)/apps/xfinder
 XFINDER = $(XFINDER_DIR)/xfinder

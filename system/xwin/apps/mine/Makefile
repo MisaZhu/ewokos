@@ -1,5 +1,5 @@
 TASK = mine
-TASK_OBJS = mine.o
+TASK_OBJS = $(ARCH)/mine.o
 
 SYS_DIR=../../..
 include $(SYS_DIR)/platform/$(ARCH)/make.rule

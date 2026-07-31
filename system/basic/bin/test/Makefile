@@ -7,7 +7,7 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 LDFLAGS = -L$(BUILD_DIR)/lib
 CFLAGS += -I $(BUILD_DIR)/include
 
-TEST_OBJS = test.o
+TEST_OBJS = $(ARCH)/test.o
 
 TEST = $(TARGET_DIR)/bin/test
 

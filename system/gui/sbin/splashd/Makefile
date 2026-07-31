@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -Iinclude -I $(BUILD_DIR)/include
 
-SPLASHD_OBJS = splashd.o
+SPLASHD_OBJS = $(ARCH)/splashd.o
 
 SPLASHD = $(TARGET_DIR)/sbin/splashd
 

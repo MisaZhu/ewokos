@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-TASK_OBJS = xDemo.o
+TASK_OBJS = $(ARCH)/xDemo.o
 
 TASK_DIR = $(TARGET_DIR)/apps/xDemo
 TASK = $(TASK_DIR)/xDemo

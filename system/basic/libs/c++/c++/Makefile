@@ -8,7 +8,7 @@ LDFLAGS = -L$(TARGET_DIR)/lib
 
 CXXFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_CXX_OBJS= src/cxx.o
+LIB_CXX_OBJS= $(ARCH)/src/cxx.o
 
 LIB_CXX = $(TARGET_DIR)/lib/libcxx.a
 

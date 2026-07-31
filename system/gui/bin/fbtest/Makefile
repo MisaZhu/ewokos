@@ -9,7 +9,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-TASK_OBJS = fbtest.o
+TASK_OBJS = $(ARCH)/fbtest.o
 
 TASK = $(TARGET_DIR)/bin/fbtest
 

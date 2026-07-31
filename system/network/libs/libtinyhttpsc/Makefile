@@ -9,7 +9,7 @@ LDFLAGS = -L$(TARGET_DIR)/lib
 CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
 TASK = $(TARGET_DIR)/lib/libtinyhttpsc.a
-TASK_OBJS = src/tinyhttpsc.o src/BearHttpsClientOne.o
+TASK_OBJS = $(ARCH)/src/tinyhttpsc.o $(ARCH)/src/BearHttpsClientOne.o
 
 CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 

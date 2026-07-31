@@ -8,7 +8,7 @@ LDFLAGS = -L$(TARGET_DIR)/lib
 
 CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_ELF_OBJS = src/elf.o
+LIB_ELF_OBJS = $(ARCH)/src/elf.o
 
 ELF = $(TARGET_DIR)/lib/libelf.a
 

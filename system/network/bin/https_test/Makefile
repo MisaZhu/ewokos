@@ -7,7 +7,7 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 LDFLAGS = -L$(BUILD_DIR)/lib
 CFLAGS += -I $(BUILD_DIR)/include
 
-TASK_OBJS = https_test.o
+TASK_OBJS = $(ARCH)/https_test.o
 
 TASK = $(TARGET_DIR)/bin/https_test
 

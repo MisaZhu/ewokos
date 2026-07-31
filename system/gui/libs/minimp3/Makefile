@@ -8,7 +8,7 @@ LDFLAGS = -L$(TARGET_DIR)/lib
 
 CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-MP3PLAY_OBJS = src/mp3player.o
+MP3PLAY_OBJS = $(ARCH)/src/mp3player.o
 
 MP3PLAY = $(TARGET_DIR)/lib/libminimp3.a
 

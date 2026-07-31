@@ -14,15 +14,15 @@ CFLAGS += -Iinclude -I$(TARGET_DIR)/include \
 	-Wno-unused-parameter -Wno-sign-compare
 
 LIB_LWS_OBJS = \
-	src/sha-1.o \
-	src/base64.o \
-	src/context.o \
-	src/service.o \
-	src/handshake.o \
-	src/websocket.o \
-	src/client.o \
-	src/misc.o \
-	src/tls.o
+	$(ARCH)/src/sha-1.o \
+	$(ARCH)/src/base64.o \
+	$(ARCH)/src/context.o \
+	$(ARCH)/src/service.o \
+	$(ARCH)/src/handshake.o \
+	$(ARCH)/src/websocket.o \
+	$(ARCH)/src/client.o \
+	$(ARCH)/src/misc.o \
+	$(ARCH)/src/tls.o
 
 LWS = $(TARGET_DIR)/lib/libwebsockets.a
 

@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I $(BUILD_DIR)/include
 
-STL_TEST_OBJS = stltest.o
+STL_TEST_OBJS = $(ARCH)/stltest.o
 
 STL_TEST = $(TARGET_DIR)/bin/stltest
 

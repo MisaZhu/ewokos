@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I $(BUILD_DIR)/include
 
-XREAD_OBJS = xread.o
+XREAD_OBJS = $(ARCH)/xread.o
 
 XREAD_DIR = $(TARGET_DIR)/apps/xread
 XREAD = $(XREAD_DIR)/xread

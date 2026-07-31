@@ -10,7 +10,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-PS_OBJS = ps.o
+PS_OBJS = $(ARCH)/ps.o
 LD_LIB_DEPS = \
 	$(BUILD_DIR)/lib/libewoksys.a \
 	$(BUILD_DIR)/lib/libc.a \

@@ -25,10 +25,10 @@ PLUTOVG_SRCS = \
 	$(PLUTOVG_DIR)/plutovg-ft-raster.c \
 	$(PLUTOVG_DIR)/plutovg-ft-stroker.c
 
-PLUTOVG_OBJS = $(PLUTOVG_SRCS:.c=.o)
+PLUTOVG_OBJS = $(patsubst %.c,$(ARCH)/%.o,$(PLUTOVG_SRCS))
 
 # libsvg source files
-LIBSVG_OBJS = svg.o plutosvg.o
+LIBSVG_OBJS = $(ARCH)/svg.o $(ARCH)/plutosvg.o
 
 all: $(LIBSVG)
 
@@ -40,14 +40,14 @@ $(LIBSVG): $(OBJS) Makefile
 	cp plutosvg.h $(TARGET_DIR)/include
 	cp plutovg/plutovg.h $(TARGET_DIR)/include
 
-%.o: %.c
+$(ARCH)/%.o: %.c
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -std=c99 -c -o $@ $<
 
 ifeq ($(ARCH),x86)
-$(PLUTOVG_DIR)/plutovg-ft-raster.o: CFLAGS += -O0 -fwrapv -fno-strict-overflow
+$(ARCH)/$(PLUTOVG_DIR)/plutovg-ft-raster.o: CFLAGS += -O0 -fwrapv -fno-strict-overflow
 endif
 
 clean:
-	rm -f *.o
-	rm -f $(PLUTOVG_DIR)/*.o
+	rm -rf $(ARCH)
 	rm -f $(LIBSVG)

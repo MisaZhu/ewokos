@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-SLEEP_OBJS = sleep.o
+SLEEP_OBJS = $(ARCH)/sleep.o
 
 SLEEP = $(TARGET_DIR)/bin/sleep
 

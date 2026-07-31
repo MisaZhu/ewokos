@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-JSON_OBJS = json.o
+JSON_OBJS = $(ARCH)/json.o
 
 JSON = $(TARGET_DIR)/bin/json
 

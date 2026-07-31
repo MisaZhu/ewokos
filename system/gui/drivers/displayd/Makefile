@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -Iinclude -I $(BUILD_DIR)/include
 
-DISPLAYD_OBJS = displayd.o
+DISPLAYD_OBJS = $(ARCH)/displayd.o
 
 DISPLAYD = $(TARGET_DIR)/drivers/displayd
 

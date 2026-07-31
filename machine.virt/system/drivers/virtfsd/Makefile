@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-VIRTFSD_OBJS = virtfsd.o 
+VIRTFSD_OBJS = $(ARCH)/virtfsd.o 
 	
 VIRTFSD = $(TARGET_DIR)/drivers/virt/virtfsd
 

@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I $(BUILD_DIR)/include
 
-XSESSION_OBJS = xsession.o
+XSESSION_OBJS = $(ARCH)/xsession.o
 
 XSESSION = $(TARGET_DIR)/bin/x/xsession
 

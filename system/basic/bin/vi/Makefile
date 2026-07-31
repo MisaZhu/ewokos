@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-VI_OBJS = vi.o
+VI_OBJS = $(ARCH)/vi.o
 
 VI = $(TARGET_DIR)/bin/vi
 
@@ -16,7 +16,7 @@ $(VI): $(VI_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a 
 	$(LD) -Ttext=100 $(VI_OBJS) -o $(VI) $(LDFLAGS) $(EWOK_LIBC)
 
-vi.o: vi.c
+$(ARCH)/vi.o: vi.c
 
 clean:
 	rm -f $(VI_OBJS)

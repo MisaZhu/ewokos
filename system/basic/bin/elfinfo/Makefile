@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-ELFINFO_OBJS = elfinfo.o
+ELFINFO_OBJS = $(ARCH)/elfinfo.o
 
 ELFINFO = $(TARGET_DIR)/bin/elfinfo
 

@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I $(BUILD_DIR)/include
 
-XIM_OBJS = xim.o
+XIM_OBJS = $(ARCH)/xim.o
 
 XIM = $(TARGET_DIR)/sbin/x/xim_vkey
 

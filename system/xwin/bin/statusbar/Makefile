@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I $(BUILD_DIR)/include
 
-TASK_OBJS = statusbar.o
+TASK_OBJS = $(ARCH)/statusbar.o
 
 TASK = $(TARGET_DIR)/bin/x/statusbar
 

@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I $(BUILD_DIR)/include
 
-XIPCONFIG_OBJS = xipconfig.o
+XIPCONFIG_OBJS = $(ARCH)/xipconfig.o
 
 XIPCONFIG_DIR = $(TARGET_DIR)/apps/xipconfig
 XIPCONFIG = $(XIPCONFIG_DIR)/xipconfig

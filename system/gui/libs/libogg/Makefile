@@ -14,7 +14,7 @@ CPPFLAGS += $(CFLAGS) -fno-exceptions -fno-unwind-tables -fno-rtti
 LIBOGG = $(TARGET_DIR)/lib/libogg.a
 all: $(LIBOGG)
 
-OBJS = bitwise.o framing.o
+OBJS = $(ARCH)/bitwise.o $(ARCH)/framing.o
 
 -include $(DEPDIR)/*.Po
 
@@ -22,21 +22,24 @@ $(LIBOGG): $(OBJS) Makefile
 	$(AR) rcs $@ $(OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
-%.o: %.c
-	@mkdir -p $(DEPDIR)/$(@D)
+$(ARCH)/%.o: %.c
+	@mkdir -p $(dir $@)
+	@mkdir -p $(dir $(DEPDIR)/$*.Tpo)
 	$(CC) $(CFLAGS) -std=c99 -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
 	@mv -f $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
 
-%.o: %.cpp
-	@mkdir -p $(DEPDIR)/$(@D)
+$(ARCH)/%.o: %.cpp
+	@mkdir -p $(dir $@)
+	@mkdir -p $(dir $(DEPDIR)/$*.Tpo)
 	$(CXX) $(CPPFLAGS) -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
 	@mv -f $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
 
-%.o: %.S
-	@mkdir -p $(DEPDIR)/$(@D)
+$(ARCH)/%.o: %.S
+	@mkdir -p $(dir $@)
+	@mkdir -p $(dir $(DEPDIR)/$*.Tpo)
 	$(CC) $(CFLAGS) -std=c99 -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
 	@mv -f $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
 
 clean:
-	rm -f *.o libogg.a
+	rm -rf $(ARCH) libogg.a
 	rm -rf $(DEPDIR)

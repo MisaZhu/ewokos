@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-RAMFSD_OBJS = ramfsd.o
+RAMFSD_OBJS = $(ARCH)/ramfsd.o
 
 RAMFSD = $(TARGET_DIR)/drivers/ramfsd
 

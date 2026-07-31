@@ -8,7 +8,7 @@ LDFLAGS = -L$(TARGET_DIR)/lib
 
 CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_displayLAY_OBJS = src/display.o
+LIB_displayLAY_OBJS = $(ARCH)/src/display.o
 
 LIB_displayLAY = $(TARGET_DIR)/lib/libdisplay.a
 

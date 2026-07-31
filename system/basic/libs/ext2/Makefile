@@ -8,7 +8,7 @@ LDFLAGS = -L$(TARGET_DIR)/lib
 
 CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_EXT2_OBJS = src/ext2fs.o
+LIB_EXT2_OBJS = $(ARCH)/src/ext2fs.o
 
 EXT2 = $(TARGET_DIR)/lib/libext2.a
 

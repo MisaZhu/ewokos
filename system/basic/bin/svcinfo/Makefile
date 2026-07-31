@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-SVCINFO_OBJS = svcinfo.o
+SVCINFO_OBJS = $(ARCH)/svcinfo.o
 
 SVCINFO = $(TARGET_DIR)/bin/svcinfo
 

@@ -8,7 +8,7 @@ LDFLAGS = -L$(TARGET_DIR)/lib
 
 CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_GPIO_OBJS = src/gpio.o
+LIB_GPIO_OBJS = $(ARCH)/src/gpio.o
 
 GPIO = $(TARGET_DIR)/lib/libgpio.a
 

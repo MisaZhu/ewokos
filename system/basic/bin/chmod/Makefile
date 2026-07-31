@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-CHMOD_OBJS = chmod.o
+CHMOD_OBJS = $(ARCH)/chmod.o
 
 CHMOD = $(TARGET_DIR)/bin/chmod
 

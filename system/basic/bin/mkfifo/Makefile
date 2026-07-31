@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-MKDIR_OBJS = mkfifo.o
+MKDIR_OBJS = $(ARCH)/mkfifo.o
 
 MKDIR = $(TARGET_DIR)/bin/mkfifo
 

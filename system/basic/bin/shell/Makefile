@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include -I./ -I$(SYS_DIR)/network/libs/utils/include
 
-SHELL_OBJS = shell.o gets.o cmd.o
+SHELL_OBJS = $(ARCH)/shell.o $(ARCH)/gets.o $(ARCH)/cmd.o
 
 SHELL_PROC = $(TARGET_DIR)/bin/shell
 

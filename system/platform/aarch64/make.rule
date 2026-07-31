@@ -1,4 +1,5 @@
 AR = aarch64-none-elf-ar
+AS = aarch64-none-elf-as
 CC = aarch64-none-elf-gcc
 CXX = aarch64-none-elf-c++
 LD =  aarch64-none-elf-ld
@@ -45,3 +46,23 @@ CXXFLAGS +=  -O2
 endif
 
 STL_HEADERS_STAMP = $(BUILD_DIR)/include/.stl_headers_timestamp
+
+$(ARCH)/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(ARCH)/%.o: %.cc
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(ARCH)/%.o: %.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(ARCH)/%.o: %.S
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(ARCH)/%.o: %.s
+	@mkdir -p $(dir $@)
+	$(AS) $(ARCH_CFLAGS) -o $@ $<

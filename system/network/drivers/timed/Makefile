@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-TASK_OBJS = timed.o
+TASK_OBJS = $(ARCH)/timed.o
 
 TASK = $(TARGET_DIR)/drivers/timed
 

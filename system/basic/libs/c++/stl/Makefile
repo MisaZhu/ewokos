@@ -6,7 +6,7 @@ TARGET_DIR = $(BUILD_DIR)
 
 CXXFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_EWOKSTL_OBJS = src/string.o src/list.o src/set.o src/unordered_set.o src/new_delete.o src/iostream.o
+LIB_EWOKSTL_OBJS = $(ARCH)/src/string.o $(ARCH)/src/list.o $(ARCH)/src/set.o $(ARCH)/src/unordered_set.o $(ARCH)/src/new_delete.o $(ARCH)/src/iostream.o
 
 EWOKSTL = $(TARGET_DIR)/lib/libewokstl.a
 

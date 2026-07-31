@@ -78,5 +78,5 @@ $(WOLFSSL_BUILD)/client-tls13.o: client-tls13.c
 	$(CC) $(CFLAGS) $(CINCS) $(CLIBS) -c -o $@ $^ $(CDEPS)
 
 clean:
-	rm -f *.o *.bin
+	rm -rf $(ARCH) *.bin
 	rm -rf build

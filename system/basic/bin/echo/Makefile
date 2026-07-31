@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-ECHO_OBJS = echo.o
+ECHO_OBJS = $(ARCH)/echo.o
 
 ECHO = $(TARGET_DIR)/bin/echo
 

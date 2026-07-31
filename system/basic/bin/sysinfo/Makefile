@@ -10,7 +10,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-TASK_OBJS = sysinfo.o
+TASK_OBJS = $(ARCH)/sysinfo.o
 LD_LIB_DEPS = \
 	$(BUILD_DIR)/lib/libewoksys.a \
 	$(BUILD_DIR)/lib/libc.a \

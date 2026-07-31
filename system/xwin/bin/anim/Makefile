@@ -7,7 +7,7 @@ TARGET_DIR = $(BUILD_DIR)/rootfs/bin/x
 LDFLAGS = -L$(BUILD_DIR)/lib
 CXXFLAGS += -I $(BUILD_DIR)/include
 
-TASK_OBJS = anim.o
+TASK_OBJS = $(ARCH)/anim.o
 TASK = anim
 
 all: $(TASK)

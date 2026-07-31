@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-DUMP_OBJS = dump.o
+DUMP_OBJS = $(ARCH)/dump.o
 
 DUMP = $(TARGET_DIR)/bin/dump
 

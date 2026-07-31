@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-head_OBJS = head.o
+head_OBJS = $(ARCH)/head.o
 
 head = $(TARGET_DIR)/bin/head
 

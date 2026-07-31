@@ -8,7 +8,7 @@ LDFLAGS = -L$(TARGET_DIR)/lib
 
 CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_TASK_OBJS = src/iconbuf.o
+LIB_TASK_OBJS = $(ARCH)/src/iconbuf.o
 
 TASK = $(TARGET_DIR)/lib/libiconbuf.a
 
