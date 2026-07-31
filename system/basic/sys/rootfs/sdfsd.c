@@ -53,7 +53,9 @@ static int32_t add_nodes(ext2_t* ext2, INODE *ip, fsinfo_t* dinfo) {
 	char buf[EXT2_BLOCK_SIZE+1];
 
 	fsinfo_t* kids = NULL;
+	INODE* kid_inodes = NULL; //pass-1 inode copies, reused by pass 3
 	uint32_t kid_num = 0;
+	uint32_t kid_cap = 0;
 
 	//pass 1: collect all entries of this directory
 	for (i=0; i<12; i++){
@@ -82,13 +84,18 @@ static int32_t add_nodes(ext2_t* ext2, INODE *ip, fsinfo_t* dinfo) {
 					int32_t ino = dp->inode;
 					INODE ip_node;
 					if(ext2_node_by_ino(ext2, ino, &ip_node) == 0) {
-						kids = realloc(kids, sizeof(fsinfo_t) * (kid_num + 1));
+						if(kid_num >= kid_cap) { //grow geometrically, one realloc per entry is O(n^2)
+							kid_cap = (kid_cap == 0) ? 16 : (kid_cap * 2);
+							kids = realloc(kids, sizeof(fsinfo_t) * kid_cap);
+							kid_inodes = realloc(kid_inodes, sizeof(INODE) * kid_cap);
+						}
 						fsinfo_t* f = &kids[kid_num];
 						memset(f, 0, sizeof(fsinfo_t));
 						strcpy(f->name, dp->name);
 						f->type = (dp->file_type == 2) ? FS_TYPE_DIR : FS_TYPE_FILE;
 						f->data = (uint32_t)ino;
 						set_fsinfo_stat(&f->stat, &ip_node);
+						memcpy(&kid_inodes[kid_num], &ip_node, sizeof(INODE));
 						kid_num++;
 					}
 				}
@@ -115,15 +122,13 @@ static int32_t add_nodes(ext2_t* ext2, INODE *ip, fsinfo_t* dinfo) {
 		}
 	}
 
-	//pass 3: recurse into sub directories
+	//pass 3: recurse into sub directories, reusing the pass-1 inode copies
 	for(uint32_t j = 0; j < kid_num; j++) {
-		if(kids[j].type == FS_TYPE_DIR) {
-			INODE ip_node;
-			if(ext2_node_by_ino(ext2, (int32_t)kids[j].data, &ip_node) == 0)
-				add_nodes(ext2, &ip_node, &kids[j]);
-		}
+		if(kids[j].type == FS_TYPE_DIR)
+			add_nodes(ext2, &kid_inodes[j], &kids[j]);
 	}
 	free(kids);
+	free(kid_inodes);
 	return 0;
 }
 
