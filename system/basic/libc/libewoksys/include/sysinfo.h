@@ -27,15 +27,7 @@ typedef struct {
 #define MAX_PROC_NUM 512
 #define MACHINE_MAX  32
 #define ARCH_MAX     16
-#define PLATFORM_DATA_MAX  256
 
-/* Platform extension data - size + data only, parsed by platform code */
-typedef struct {
-	uint32_t size;                    /* valid data length */
-	uint8_t  data[PLATFORM_DATA_MAX]; /* platform-specific, parsed by machine type */
-} platform_data_t;
-
-/*static attr*/
 typedef struct {
 	char           machine[MACHINE_MAX];
 	char           arch[ARCH_MAX];
@@ -51,7 +43,6 @@ typedef struct {
 
 	mmio_info_t    mmio;
 	dma_info_t     sys_dma;
-
 	uint32_t       cores;
 	uint32_t       core_idles[MAX_CORE_NUM];
 	uint32_t       core_procs[MAX_CORE_NUM];
@@ -60,12 +51,8 @@ typedef struct {
 	uint32_t       max_proc_num;
 	uint32_t       max_task_num;
 	uint32_t       max_task_per_proc;
-
-	/* Platform extension - at end for backward compatibility */
-	platform_data_t platform;
 } sys_info_t;
 
-/*dynamic attr*/
 typedef struct {
 	mem_info_t mem;
 	uint64_t kernel_usec;

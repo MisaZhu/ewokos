@@ -101,13 +101,7 @@ inline void wfi(void) {
 #ifdef ARM_V6
 	__asm__("MOV r0, #0; MCR p15,0,R0,c7,c0,4");
 #elif defined(__x86_64__)
-	/*
-	 * Enable interrupts before halting so maskable interrupts (including
-	 * IPIs) can wake the core. Without STI, AP cores never respond to
-	 * reschedule IPIs and any process placed on them stays stranded.
-	 * CLI after wakeup keeps the idle loop invariant of running with IF=0.
-	 */
-	__asm__ volatile("sti; hlt; cli");
+	__asm__ volatile("hlt");
 #else
 	__asm__("WFI");
 #endif

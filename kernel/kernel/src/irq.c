@@ -264,6 +264,8 @@ static int32_t copy_on_write(proc_t* proc, ewokos_addr_t v_addr) {
 }
 
 void undef_abort_handler(context_t* ctx, uint32_t status) {
+	(void)ctx;
+	(void)status;
 	__irq_disable();
 	uint32_t core = get_core_id();
 	proc_t* cproc = get_current_proc();
@@ -273,11 +275,7 @@ void undef_abort_handler(context_t* ctx, uint32_t status) {
 		halt();
 	}
 
-	printf("pid: %d(%s), undef instrunction abort!! (core %d) status=0x%x\n",
-			cproc->info.pid, cproc->info.cmd, core, status);
-	printf("[CURRENT trap frame]:\n");
-	dump_ctx(ctx);
-	printf("[SAVED proc context]:\n");
+	printf("pid: %d(%s), undef instrunction abort!! (core %d)\n", cproc->info.pid, cproc->info.cmd, core);
 	dump_ctx(&cproc->ctx);
 
 	proc_exit(ctx, proc_get_proc(cproc), -1);
