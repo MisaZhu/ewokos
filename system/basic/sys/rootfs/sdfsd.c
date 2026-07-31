@@ -44,26 +44,7 @@ static void set_inode_stat(node_stat_t* stat, INODE* inode) {
 	inode->i_size = stat->size;
 }
 
-static void add_file(fsinfo_t* node_to, const char* name, INODE* inode, int32_t ino) {
-	fsinfo_t f;
-	memset(&f, 0, sizeof(fsinfo_t));
-	strcpy(f.name, name);
-	f.type = FS_TYPE_FILE;
-	f.data = (uint32_t)ino;
-	set_fsinfo_stat(&f.stat, inode);
-	vfs_new_node(&f, node_to->node, false, false);
-}
-
-static int add_dir(fsinfo_t* info_to, fsinfo_t* ret, const char* dn, INODE* inode, int ino) {
-	memset(ret, 0, sizeof(fsinfo_t));
-	strcpy(ret->name, dn);
-	ret->type = FS_TYPE_DIR;
-	ret->data = (uint32_t)ino;
-	set_fsinfo_stat(&ret->stat, inode);
-	if(vfs_new_node(ret, info_to->node, false, false) != 0)
-		return -1;
-	return 0;
-}
+#define NEW_NODES_BATCH 64
 
 static int32_t add_nodes(ext2_t* ext2, INODE *ip, fsinfo_t* dinfo) {
 	int32_t i; 
@@ -71,6 +52,10 @@ static int32_t add_nodes(ext2_t* ext2, INODE *ip, fsinfo_t* dinfo) {
 	DIR_T  *dp;
 	char buf[EXT2_BLOCK_SIZE+1];
 
+	fsinfo_t* kids = NULL;
+	uint32_t kid_num = 0;
+
+	//pass 1: collect all entries of this directory
 	for (i=0; i<12; i++){
 		if (ip->i_block[i] != 0){
 			ext2->read_block(ip->i_block[i], buf);
@@ -92,18 +77,19 @@ static int32_t add_nodes(ext2_t* ext2, INODE *ip, fsinfo_t* dinfo) {
 				c = dp->name[dp->name_len];  // save last byte
 				dp->name[dp->name_len] = 0;   
 
-				if(strcmp(dp->name, ".") != 0 && strcmp(dp->name, "..") != 0 && dp->inode != 0) {
+				if(strcmp(dp->name, ".") != 0 && strcmp(dp->name, "..") != 0 && dp->inode != 0 &&
+						(dp->file_type == 1 || dp->file_type == 2)) {
 					int32_t ino = dp->inode;
 					INODE ip_node;
 					if(ext2_node_by_ino(ext2, ino, &ip_node) == 0) {
-						if(dp->file_type == 2) {//director
-							fsinfo_t ret;
-							add_dir(dinfo, &ret, dp->name, &ip_node, ino);
-							add_nodes(ext2, &ip_node, &ret);
-						}
-						else if(dp->file_type == 1) {//file
-							add_file(dinfo, dp->name, &ip_node, ino);
-						}
+						kids = realloc(kids, sizeof(fsinfo_t) * (kid_num + 1));
+						fsinfo_t* f = &kids[kid_num];
+						memset(f, 0, sizeof(fsinfo_t));
+						strcpy(f->name, dp->name);
+						f->type = (dp->file_type == 2) ? FS_TYPE_DIR : FS_TYPE_FILE;
+						f->data = (uint32_t)ino;
+						set_fsinfo_stat(&f->stat, &ip_node);
+						kid_num++;
 					}
 				}
 				//add node
@@ -113,7 +99,77 @@ static int32_t add_nodes(ext2_t* ext2, INODE *ip, fsinfo_t* dinfo) {
 			}
 		}
 	}
+
+	if(kid_num == 0)
+		return 0;
+
+	//pass 2: register all kids in vfsd, batched to cut IPC round trips
+	for(uint32_t off = 0; off < kid_num; off += NEW_NODES_BATCH) {
+		uint32_t n = kid_num - off;
+		if(n > NEW_NODES_BATCH)
+			n = NEW_NODES_BATCH;
+		if(vfs_new_nodes(&kids[off], n, dinfo->node) != 0) {
+			//fall back to the one-by-one path (old vfsd)
+			for(uint32_t j = 0; j < n; j++)
+				vfs_new_node(&kids[off+j], dinfo->node, false, false);
+		}
+	}
+
+	//pass 3: recurse into sub directories
+	for(uint32_t j = 0; j < kid_num; j++) {
+		if(kids[j].type == FS_TYPE_DIR) {
+			INODE ip_node;
+			if(ext2_node_by_ino(ext2, (int32_t)kids[j].data, &ip_node) == 0)
+				add_nodes(ext2, &ip_node, &kids[j]);
+		}
+	}
+	free(kids);
 	return 0;
+}
+
+/*
+ * Warm the SD sector cache with a few large multi-block reads before the
+ * tree walk: add_nodes fetches one inode-table block per directory entry,
+ * and issuing those as scattered single-block SD commands dominates mount
+ * time. Only the used prefix of each group's inode table is prefetched
+ * (mkfs allocates inodes densely from the front).
+ */
+#define PREFETCH_CHUNK 128
+static void prefetch_inode_tables(ext2_t* ext2) {
+	char* scratch = (char*)malloc(PREFETCH_CHUNK * EXT2_BLOCK_SIZE);
+	if(scratch == NULL)
+		return;
+
+	char bitmap[EXT2_BLOCK_SIZE];
+	for(int32_t g = 0; g < ext2->group_num; g++) {
+		GD* gd = &ext2->gds[g];
+		uint32_t total = ext2->super.s_inodes_per_group;
+		if(gd->bg_free_inodes_count >= total) //group has no used inode
+			continue;
+		if(ext2->read_block(gd->bg_inode_bitmap, bitmap) != 0)
+			continue;
+
+		int32_t last = -1;
+		for(int32_t bit = (int32_t)total - 1; bit >= 0; bit--) {
+			if(bitmap[bit/8] & (1 << (bit%8))) {
+				last = bit;
+				break;
+			}
+		}
+		if(last < 0)
+			continue;
+
+		uint32_t blocks = (uint32_t)(last / 8) + 1; //8 inodes(128B) per 1KB block
+		uint32_t blk = gd->bg_inode_table;
+		while(blocks > 0) {
+			uint32_t n = (blocks > PREFETCH_CHUNK) ? PREFETCH_CHUNK : blocks;
+			if(ext2_sd_read_blocks((int32_t)blk, scratch, n) != 0)
+				break;
+			blk += n;
+			blocks -= n;
+		}
+	}
+	free(scratch);
 }
 
 static int sdext2_mount(vdevice_t* dev, fsinfo_t* info, void* p) {
@@ -121,6 +177,7 @@ static int sdext2_mount(vdevice_t* dev, fsinfo_t* info, void* p) {
 	ext2_t* ext2 = (ext2_t*)p;
 	INODE root_node;
 	ext2_node_by_fname(ext2, "/", &root_node);
+	prefetch_inode_tables(ext2);
 	add_nodes(ext2, &root_node, info);
 	return 0;
 }

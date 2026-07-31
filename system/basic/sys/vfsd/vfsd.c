@@ -1510,6 +1510,62 @@ static void do_vfs_new_node(int pid, proto_t* in, proto_t* out) {
 	PF->clear(out)->addi(out, 0)->add(out, &info, sizeof(fsinfo_t));
 }
 
+/*
+ * Bulk node creation used by mounting filesystems while mirroring the
+ * on-disk tree into vfsd: one ipc_call per file made large rootfs mounts
+ * painfully slow. Creates a batch of fresh kids under a single father in
+ * one round trip and returns the assigned node ids in request order.
+ * No overwrite/duplicate handling: the source is an on-disk directory
+ * which cannot contain duplicate names, and skipping the per-name scan
+ * also avoids an O(n^2) walk of the kid list.
+ */
+static void do_vfs_new_nodes(int pid, proto_t* in, proto_t* out) {
+	PF->addi(out, -1);
+	uint32_t node_to_id = (uint32_t)proto_read_int(in);
+	int32_t num = proto_read_int(in);
+	int32_t sz = 0;
+	fsinfo_t* infos = (fsinfo_t*)proto_read(in, &sz);
+	if(infos == NULL || num <= 0 || sz < (int32_t)(sizeof(fsinfo_t)*num))
+		return;
+
+	vfs_node_t* node_to = vfs_get_node_by_id(node_to_id);
+	if(node_to == NULL) {
+		PF->addi(out, ENOENT);
+		return;
+	}
+
+	if(vfs_check_access(pid, &node_to->fsinfo, W_OK) != 0 ||
+			vfs_check_access(pid, &node_to->fsinfo, X_OK) != 0) {
+		PF->addi(out, EPERM);
+		return;
+	}
+
+	//pipes need per-node buffer setup, only plain files/dirs are batchable
+	for(int32_t i=0; i<num; i++) {
+		if((infos[i].type & FS_TYPE_MASK) == FS_TYPE_PIPE)
+			return;
+	}
+
+	uint32_t* ids = (uint32_t*)malloc(sizeof(uint32_t)*num);
+	if(ids == NULL)
+		return;
+
+	for(int32_t i=0; i<num; i++) {
+		vfs_node_t* node = vfs_new_node();
+		if(node == NULL) {
+			free(ids);
+			return;
+		}
+		infos[i].node = vfs_get_node_id(node);
+		infos[i].mount_pid = -1;
+		memcpy(&node->fsinfo, &infos[i], sizeof(fsinfo_t));
+		vfs_add_node(pid, node_to, node);
+		ids[i] = infos[i].node;
+	}
+	PF->clear(out)->addi(out, 0)->add(out, ids, sizeof(uint32_t)*num);
+	free(ids);
+}
+
 static void do_vfs_open(int32_t pid, proto_t* in, proto_t* out) {
 	PF->addi(out, -1);
 	fsinfo_t info;
@@ -2333,6 +2389,9 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	switch(cmd) {
 	case VFS_NEW_NODE:
 		do_vfs_new_node(pid, in, out);
+		break;
+	case VFS_NEW_NODES:
+		do_vfs_new_nodes(pid, in, out);
 		break;
 	case VFS_OPEN:
 		do_vfs_open(pid, in, out);

@@ -258,6 +258,41 @@ int vfs_new_node(fsinfo_t* info, uint32_t node_to, bool vfs_node_only, bool vfs_
 	return res;	
 }
 
+/*
+ * Bulk version of vfs_new_node for mounting filesystems: registering the
+ * whole on-disk tree one synchronous ipc_call per file dominates mount
+ * time, so a batch of fresh kids under one father is sent in a single
+ * round trip. On success the assigned node ids are written back into
+ * each infos[i].node.
+ */
+int vfs_new_nodes(fsinfo_t* infos, uint32_t num, uint32_t node_to) {
+	if(infos == NULL || num == 0)
+		return -1;
+
+	proto_t in, out;
+	PF->format(&in, "i,i,m", (int32_t)node_to, (int32_t)num, infos, (int32_t)(sizeof(fsinfo_t)*num));
+	PF->init(&out);
+	int res = ipc_call(get_vfsd_pid(), VFS_NEW_NODES, &in, &out);
+	PF->clear(&in);
+	if(res == 0) {
+		res = proto_read_int(&out);
+		if(res == 0) {
+			int32_t sz = 0;
+			uint32_t* ids = (uint32_t*)proto_read(&out, &sz);
+			if(ids != NULL && sz >= (int32_t)(sizeof(uint32_t)*num)) {
+				for(uint32_t i=0; i<num; i++)
+					infos[i].node = ids[i];
+			}
+			else
+				res = -1;
+		}
+		else
+			res = -1;
+	}
+	PF->clear(&out);
+	return res;
+}
+
 void vfs_fullname(const char* fname, char* ret, uint32_t len) {
 	if(fname[0] == '/') {
 		strncpy(ret, fname, len);
