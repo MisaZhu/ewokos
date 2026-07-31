@@ -22,6 +22,7 @@
 #include <strings.h>
 #include <math.h>
 #include <fcntl.h>
+#include <stdio.h>
 
 // Include AudioPlayer class
 #include "AudioPlayer.h"
@@ -615,6 +616,7 @@ public:
 };
 
 static void onOpenFunc(MenuItem* it, void* p) {
+    (void)it;
     SoundPlayerWin* win = (SoundPlayerWin*)p;
     win->getFileDialog()->popup(win, 0, 0, "files", XWIN_STYLE_NORMAL);
 }

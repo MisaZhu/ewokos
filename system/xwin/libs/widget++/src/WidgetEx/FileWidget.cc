@@ -47,7 +47,8 @@ static int free_cache(map_t map, const char* key, any_t data, any_t arg) {
 
 class FileGrid: public Grid {
 	FileWidget* fileWidget;
-	struct dirent files[MAX_FILES];
+	struct dirent* files;
+	uint32_t fileCap;
 	char cwd[FS_FULL_NAME_MAX+1];
 	json_var_t* fileTypes;
 	graph_t* dirIcon;
@@ -56,6 +57,31 @@ class FileGrid: public Grid {
 	map_t iconCache;
 
 	CWDLabel *cwdLabel;
+
+	bool ensureFileCapacity(uint32_t need) {
+		uint32_t newCap;
+		struct dirent* newFiles;
+
+		if(need <= fileCap)
+			return true;
+
+		newCap = fileCap == 0 ? 32 : fileCap;
+		while(newCap < need && newCap < MAX_FILES)
+			newCap *= 2;
+		if(newCap < need)
+			newCap = need;
+		if(newCap > MAX_FILES)
+			newCap = MAX_FILES;
+		if(newCap < need)
+			return false;
+
+		newFiles = (struct dirent*)realloc(files, sizeof(struct dirent) * newCap);
+		if(newFiles == NULL)
+			return false;
+		files = newFiles;
+		fileCap = newCap;
+		return true;
+	}
 
 	const char* getFullname(const char* dname) {
 		static char fname[FS_FULL_NAME_MAX+1] = {0};
@@ -156,6 +182,10 @@ class FileGrid: public Grid {
 		DIR* dirp = opendir(r);
 		if(dirp == NULL)
 			return;
+		if(!ensureFileCapacity(1)) {
+			closedir(dirp);
+			return;
+		}
 		if(r != cwd) {
 			setCWD(r);
 		}
@@ -172,6 +202,8 @@ class FileGrid: public Grid {
 				break;
 			if(it->d_name[0] == '.')
 				continue;
+			if(!ensureFileCapacity(num + 1))
+				break;
 			memcpy(&files[num], it, sizeof(struct dirent));
 
 			if(it->d_type != DT_DIR && check(it->d_name, ".png")) {
@@ -323,6 +355,9 @@ public:
 	friend FileWidget;
 	FileGrid(FileWidget* fileWidget) {
 		this->fileWidget = fileWidget;
+		files = NULL;
+		fileCap = 0;
+		cwd[0] = 0;
 		cwdLabel = NULL;
 		scrollerV = NULL;
 		iconCache = hashmap_new(0);
@@ -333,6 +368,8 @@ public:
 	}
 
 	~FileGrid() {
+		if(files != NULL)
+			free(files);
 		if(iconCache != NULL) {
 			hashmap_iterate(iconCache, free_cache, NULL);	
 			hashmap_free(iconCache);

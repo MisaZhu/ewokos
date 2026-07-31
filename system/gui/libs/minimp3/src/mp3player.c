@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <errno.h>
 
 #define MINIMP3_IMPLEMENTATION
 #include "minimp3/minimp3.h"
@@ -42,8 +41,101 @@ typedef int (*pcm_hook_t)(void *data);
 #define CTRL_PCM_BUF_AVAIL		(0xF3)
 #define PCM_WAIT_SLEEP_MS       1
 #define MP3_WRITE_CHUNK_FRAMES  4608
+#define MP3_STREAM_BUFFER_SIZE  (32 * 1024)
+#define MP3_STREAM_REFILL_LOW   4096
+
+#ifndef EPIPE
+#define EPIPE 32
+#endif
 
 static int pcm_prepare(struct pcm *pcm);
+
+static int mp3_stream_refill(int fd, uint8_t *buf, int buf_size,
+		uint8_t **stream_pos, int *bytes_left, int *eof)
+{
+	int carry = *bytes_left;
+	int total = 0;
+
+	if (carry < 0) {
+		carry = 0;
+	}
+
+	if (carry > 0 && *stream_pos != buf) {
+		memmove(buf, *stream_pos, (size_t)carry);
+	}
+	*stream_pos = buf;
+	total = carry;
+
+	while (total < buf_size) {
+		int rd;
+
+		rd = read(fd, buf + total, buf_size - total);
+		if (rd < 0) {
+			return -1;
+		}
+		if (rd == 0) {
+			*eof = 1;
+			break;
+		}
+		total += rd;
+		if (total >= MP3_STREAM_REFILL_LOW) {
+			break;
+		}
+	}
+
+	*bytes_left = total;
+	return 0;
+}
+
+static int mp3_stream_decode_frame(mp3dec_t *mp3, int fd,
+		uint8_t *stream_buf, int stream_buf_size, uint8_t **stream_pos,
+		int *bytes_left, int *eof, mp3d_sample_t *sample_buf,
+		mp3dec_frame_info_t *info)
+{
+	for (;;) {
+		int decoded_samples;
+
+		if (*bytes_left < MP3_STREAM_REFILL_LOW && !*eof) {
+			if (mp3_stream_refill(fd, stream_buf, stream_buf_size,
+					stream_pos, bytes_left, eof) != 0) {
+				return -1;
+			}
+		}
+
+		if (*bytes_left <= 0) {
+			return 0;
+		}
+
+		decoded_samples = mp3dec_decode_frame(mp3, *stream_pos, *bytes_left,
+				sample_buf, info);
+		if (info->frame_bytes > 0) {
+			*stream_pos += info->frame_bytes;
+			*bytes_left -= info->frame_bytes;
+			if (decoded_samples > 0) {
+				return decoded_samples;
+			}
+			continue;
+		}
+
+		if (*eof) {
+			return 0;
+		}
+
+		/*
+		 * Keep making forward progress even if the decoder cannot
+		 * resync on the current window.
+		 */
+		if (*bytes_left >= stream_buf_size) {
+			(*stream_pos)++;
+			(*bytes_left)--;
+		}
+
+		if (mp3_stream_refill(fd, stream_buf, stream_buf_size,
+				stream_pos, bytes_left, eof) != 0) {
+			return -1;
+		}
+	}
+}
 
 static int pcm_param_set(struct pcm *pcm, struct pcm_config *config)
 {
@@ -331,27 +423,41 @@ static int pcm_prepare(struct pcm *pcm)
 int mp3_play_file(const char *path, const char *snd_dev) {
 	mp3dec_t mp3;
 	mp3dec_frame_info_t info;
-	void *file_data;
-	unsigned char *stream_pos;
+	uint8_t *stream_buf = NULL;
+	uint8_t *stream_pos = NULL;
 	signed short sample_buf[MINIMP3_MAX_SAMPLES_PER_FRAME];
 	int16_t *chunk = NULL;
+	int fd = -1;
 	int bytes_left;
+	int eof = 0;
+	int samples = 0;
 	int chunk_frames = 0;
 	int ret = 0;
 
-	file_data = vfs_readfile(path, &bytes_left);
-	if(file_data == NULL) {
-		printf("read %s failed\n", path);
+	fd = open(path, O_RDONLY);
+	if(fd < 0) {
+		printf("open %s failed\n", path);
 		return 1;
 	}
-	stream_pos = (unsigned char *) file_data;
+
+	stream_buf = (uint8_t *)malloc(MP3_STREAM_BUFFER_SIZE);
+	if (stream_buf == NULL) {
+		printf("alloc stream buffer failed\n");
+		close(fd);
+		return 1;
+	}
+	stream_pos = stream_buf;
+	bytes_left = 0;
 
 	mp3dec_init(&mp3);
-	int simples = mp3dec_decode_frame(&mp3, stream_pos, bytes_left, sample_buf, &info);
+	samples = mp3_stream_decode_frame(&mp3, fd, stream_buf,
+			MP3_STREAM_BUFFER_SIZE, &stream_pos, &bytes_left, &eof,
+			sample_buf, &info);
 
-	if (simples == 0) {
+	if (samples <= 0) {
 		printf("decode %s failed\n", path);
-		free(file_data);
+		free(stream_buf);
+		close(fd);
 		return 1;
 	}
 
@@ -380,7 +486,8 @@ int mp3_play_file(const char *path, const char *snd_dev) {
 	struct pcm *pcm = pcm_open(snd_dev, &config);
 	if (pcm == NULL) {
 		printf("pcm_open failed: rate=%d, channels=%d\n", rate, output_channels);
-		free(file_data);
+		free(stream_buf);
+		close(fd);
 		return 1;
 	}
 
@@ -395,18 +502,14 @@ int mp3_play_file(const char *path, const char *snd_dev) {
 			(size_t)output_channels * sizeof(int16_t));
 	if (chunk == NULL) {
 		printf("alloc pcm buffer failed\n");
-		free(file_data);
+		free(stream_buf);
+		close(fd);
 		pcm_close(pcm);
 		return 1;
 	}
 
-	if (info.frame_bytes > 0) {
-		stream_pos += info.frame_bytes;
-		bytes_left -= info.frame_bytes;
-	}
-
-	while ((bytes_left >= 0) && (simples > 0)) {
-		if (chunk_frames + simples > MP3_WRITE_CHUNK_FRAMES) {
+	while (samples > 0) {
+		if (chunk_frames + samples > MP3_WRITE_CHUNK_FRAMES) {
 			if (pcm_write(pcm, chunk, (unsigned int)(chunk_frames *
 					output_channels * (int)sizeof(int16_t))) != 0) {
 				printf("pcm_write failed\n");
@@ -415,24 +518,23 @@ int mp3_play_file(const char *path, const char *snd_dev) {
 			}
 			chunk_frames = 0;
 		}
-		for (int i = 0; i < simples; i++) {
+		for (int i = 0; i < samples; i++) {
 			int16_t left = sample_buf[i * src_channels];
 			int16_t right = (src_channels > 1) ? sample_buf[i * src_channels + 1] : left;
 
 			chunk[(chunk_frames + i) * output_channels] = left;
 			chunk[(chunk_frames + i) * output_channels + 1] = right;
 		}
-		chunk_frames += simples;
+		chunk_frames += samples;
 
-		if (bytes_left <= 0) {
+		samples = mp3_stream_decode_frame(&mp3, fd, stream_buf,
+				MP3_STREAM_BUFFER_SIZE, &stream_pos, &bytes_left, &eof,
+				sample_buf, &info);
+		if (samples < 0) {
+			printf("decode %s failed during playback\n", path);
+			ret = 1;
 			break;
 		}
-		simples = mp3dec_decode_frame(&mp3, stream_pos, bytes_left, sample_buf, &info);
-		if (info.frame_bytes <= 0) {
-			break;
-		}
-		stream_pos += info.frame_bytes;
-		bytes_left -= info.frame_bytes;
 		src_channels = info.channels;
 		if (src_channels != 1 && src_channels != 2) {
 			src_channels = output_channels;
@@ -448,7 +550,8 @@ int mp3_play_file(const char *path, const char *snd_dev) {
 	}
 
 	free(chunk);
-	free(file_data);
+	free(stream_buf);
+	close(fd);
 	pcm_close(pcm);
 	return ret;
 }

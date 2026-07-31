@@ -8,7 +8,6 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <errno.h>
 
 #include <ewoksys/vfs.h>
 #include <ewoksys/proc.h>
@@ -48,6 +47,13 @@ struct wav_chunk_header {
 #define PCM_WAIT_SLEEP_MS       1
 #define OGG_DECODE_FRAMES       1152
 #define OGG_WRITE_CHUNK_FRAMES  2048
+#define WAV_WRITE_CHUNK_FRAMES  1024
+#define MP3_STREAM_BUFFER_SIZE  (32 * 1024)
+#define MP3_STREAM_REFILL_LOW   4096
+
+#ifndef EPIPE
+#define EPIPE 32
+#endif
 
 // OGG Vorbis file callbacks
 static size_t ogg_read_func(void *ptr, size_t size, size_t nmemb, void *datasource)
@@ -458,46 +464,138 @@ static AudioFormat getAudioFormat(const char* path) {
     return FORMAT_UNKNOWN;
 }
 
-// Parse WAV file header, return data offset or -1 on error
-static int parseWavHeader(const uint8_t* data, int size, int* sampleRate, int* channels, int* bitDepth, int* dataOffset, int* dataSize) {
-    if (size < 44) return -1;
-    
-    const wav_riff_header* riff = (const wav_riff_header*)data;
-    if (riff->riff_id != ID_RIFF || riff->wave_id != ID_WAVE) {
-        return -1;
+// Parse WAV file header directly from fd and leave the fd positioned at data.
+static int readFully(int fd, void* buf, int size) {
+    int total = 0;
+
+    while (total < size) {
+        int rd = read(fd, (uint8_t*)buf + total, size - total);
+        if (rd <= 0) {
+            return -1;
+        }
+        total += rd;
     }
-    
-    int pos = sizeof(wav_riff_header);
+    return total;
+}
+
+static int skipFully(int fd, int size) {
+    if (size <= 0) {
+        return 0;
+    }
+    return (lseek(fd, size, SEEK_CUR) < 0) ? -1 : 0;
+}
+
+static int parseWavHeaderFd(int fd, int* sampleRate, int* channels, int* bitDepth, int* dataOffset, int* dataSize) {
+    wav_riff_header riff;
     wav_chunk_fmt fmt;
     int foundFmt = 0;
     int foundData = 0;
-    
-    while (pos + sizeof(wav_chunk_header) <= size) {
-        const wav_chunk_header* chunk = (const wav_chunk_header*)(data + pos);
-        pos += sizeof(wav_chunk_header);
-        
-        if (chunk->id == ID_FMT) {
-            if (pos + sizeof(wav_chunk_fmt) > size) return -1;
-            memcpy(&fmt, data + pos, sizeof(wav_chunk_fmt));
+    int pos = 0;
+
+    if (lseek(fd, 0, SEEK_SET) < 0) {
+        return -1;
+    }
+
+    if (readFully(fd, &riff, (int)sizeof(riff)) != (int)sizeof(riff)) {
+        return -1;
+    }
+    pos = (int)sizeof(riff);
+
+    if (riff.riff_id != ID_RIFF || riff.wave_id != ID_WAVE) {
+        return -1;
+    }
+
+    while (!foundData) {
+        wav_chunk_header chunk;
+        int paddedSize;
+
+        if (readFully(fd, &chunk, (int)sizeof(chunk)) != (int)sizeof(chunk)) {
+            return -1;
+        }
+        pos += (int)sizeof(chunk);
+        paddedSize = (int)chunk.sz + ((chunk.sz & 1U) ? 1 : 0);
+
+        if (chunk.id == ID_FMT) {
+            int remain;
+
+            if ((int)chunk.sz < (int)sizeof(fmt)) {
+                return -1;
+            }
+            if (readFully(fd, &fmt, (int)sizeof(fmt)) != (int)sizeof(fmt)) {
+                return -1;
+            }
+            remain = paddedSize - (int)sizeof(fmt);
+            if (skipFully(fd, remain) != 0) {
+                return -1;
+            }
+            pos += paddedSize;
             foundFmt = 1;
-            pos += chunk->sz;
-        } else if (chunk->id == ID_DATA) {
+        } else if (chunk.id == ID_DATA) {
             *dataOffset = pos;
-            *dataSize = chunk->sz;
+            *dataSize = (int)chunk.sz;
             foundData = 1;
             break;
         } else {
-            pos += chunk->sz;
+            if (skipFully(fd, paddedSize) != 0) {
+                return -1;
+            }
+            pos += paddedSize;
         }
     }
-    
-    if (!foundFmt || !foundData) return -1;
-    
+
+    if (!foundFmt || !foundData) {
+        return -1;
+    }
+
     *sampleRate = fmt.sample_rate;
     *channels = fmt.num_channels;
     *bitDepth = fmt.bits_per_sample;
-    
     return 0;
+}
+
+static int32_t wavReadS24(const uint8_t* src) {
+    int32_t value = (int32_t)((uint32_t)src[0] |
+                              ((uint32_t)src[1] << 8) |
+                              ((uint32_t)src[2] << 16));
+    if ((value & 0x00800000) != 0) {
+        value |= ~0x00FFFFFF;
+    }
+    return value;
+}
+
+static int32_t wavReadS32(const uint8_t* src) {
+    return (int32_t)((uint32_t)src[0] |
+                     ((uint32_t)src[1] << 8) |
+                     ((uint32_t)src[2] << 16) |
+                     ((uint32_t)src[3] << 24));
+}
+
+static void wavFillPreviewSamples(const uint8_t* src, int frames, int channels, int bitDepth, int16_t* dst) {
+    int totalSamples = frames * channels;
+
+    for (int i = 0; i < totalSamples; i++) {
+        const uint8_t* in = src + (i * (bitDepth / 8));
+        int32_t value = 0;
+
+        switch (bitDepth) {
+        case 8:
+            value = ((int32_t)in[0] - 128) << 8;
+            break;
+        case 16:
+            value = (int16_t)((uint16_t)in[0] | ((uint16_t)in[1] << 8));
+            break;
+        case 24:
+            value = wavReadS24(in) >> 8;
+            break;
+        case 32:
+            value = wavReadS32(in) >> 16;
+            break;
+        default:
+            value = 0;
+            break;
+        }
+        dst[i] = (int16_t)value;
+    }
 }
 
 static uint32_t estimateMp3TotalMs(const uint8_t* data, int size) {
@@ -539,6 +637,197 @@ static uint32_t estimateMp3TotalMs(const uint8_t* data, int size) {
     return 0;
 }
 
+bool AudioPlayer::refillMp3Stream() {
+    int carry;
+    int total;
+
+    if (sourceFd < 0 || mp3StreamBuf == NULL || mp3StreamBufSize <= 0) {
+        return false;
+    }
+
+    carry = bytesLeft;
+    if (carry < 0) {
+        carry = 0;
+    }
+
+    if (carry > 0 && streamPos != mp3StreamBuf) {
+        memmove(mp3StreamBuf, streamPos, (size_t)carry);
+    }
+    streamPos = mp3StreamBuf;
+    total = carry;
+
+    while (total < mp3StreamBufSize) {
+        int rd = read(sourceFd, mp3StreamBuf + total, mp3StreamBufSize - total);
+        if (rd < 0) {
+            return false;
+        }
+        if (rd == 0) {
+            mp3StreamEof = true;
+            break;
+        }
+        total += rd;
+        if (total >= MP3_STREAM_REFILL_LOW) {
+            break;
+        }
+    }
+
+    bytesLeft = total;
+    return true;
+}
+
+int AudioPlayer::decodeNextMp3Frame(mp3dec_t* dec, mp3dec_frame_info_t* frameInfo, int16_t* outSamples) {
+    for (;;) {
+        int decodedSamples;
+
+        if (bytesLeft < MP3_STREAM_REFILL_LOW && !mp3StreamEof) {
+            if (!refillMp3Stream()) {
+                return -1;
+            }
+        }
+
+        if (bytesLeft <= 0) {
+            return 0;
+        }
+
+        decodedSamples = mp3dec_decode_frame(dec, streamPos, bytesLeft, outSamples, frameInfo);
+        if (frameInfo->frame_bytes > 0) {
+            streamPos += frameInfo->frame_bytes;
+            bytesLeft -= frameInfo->frame_bytes;
+            if (decodedSamples > 0) {
+                return decodedSamples;
+            }
+            continue;
+        }
+
+        if (mp3StreamEof) {
+            return 0;
+        }
+
+        if (bytesLeft >= mp3StreamBufSize) {
+            streamPos++;
+            bytesLeft--;
+        }
+
+        if (!refillMp3Stream()) {
+            return -1;
+        }
+    }
+}
+
+bool AudioPlayer::resetMp3Stream() {
+    if (sourceFd < 0 || mp3StreamBuf == NULL) {
+        return false;
+    }
+
+    if (lseek(sourceFd, 0, SEEK_SET) < 0) {
+        return false;
+    }
+
+    streamPos = mp3StreamBuf;
+    bytesLeft = 0;
+    mp3StreamEof = false;
+    return refillMp3Stream();
+}
+
+uint32_t AudioPlayer::estimateMp3StreamTotalMs() {
+    mp3dec_t dec;
+    mp3dec_frame_info_t frameInfo;
+    int16_t frameBuf[MINIMP3_MAX_SAMPLES_PER_FRAME];
+    uint8_t *buf = NULL;
+    uint8_t *pos = NULL;
+    int fd = -1;
+    int left = 0;
+    int eof = 0;
+    int streamRate = 0;
+    uint64_t totalSamples = 0;
+    uint32_t totalMs = 0;
+
+    if (sourcePath == NULL) {
+        return 0;
+    }
+
+    fd = open(sourcePath, O_RDONLY);
+    if (fd < 0) {
+        return 0;
+    }
+
+    buf = (uint8_t*)malloc(MP3_STREAM_BUFFER_SIZE);
+    if (buf == NULL) {
+        close(fd);
+        return 0;
+    }
+
+    mp3dec_init(&dec);
+    pos = buf;
+
+    for (;;) {
+        int carry = left;
+        int total = 0;
+        int decodedSamples;
+
+        if (carry > 0 && pos != buf) {
+            memmove(buf, pos, (size_t)carry);
+        }
+        pos = buf;
+        total = carry;
+
+        while (total < MP3_STREAM_BUFFER_SIZE) {
+            int rd = read(fd, buf + total, MP3_STREAM_BUFFER_SIZE - total);
+            if (rd < 0) {
+                eof = 1;
+                break;
+            }
+            if (rd == 0) {
+                eof = 1;
+                break;
+            }
+            total += rd;
+            if (total >= MP3_STREAM_REFILL_LOW) {
+                break;
+            }
+        }
+
+        left = total;
+        if (left <= 0) {
+            break;
+        }
+
+        decodedSamples = mp3dec_decode_frame(&dec, pos, left, frameBuf, &frameInfo);
+        if (frameInfo.frame_bytes > 0) {
+            pos += frameInfo.frame_bytes;
+            left -= frameInfo.frame_bytes;
+            if (decodedSamples > 0 && frameInfo.hz > 0) {
+                if (streamRate == 0) {
+                    streamRate = frameInfo.hz;
+                }
+                if (frameInfo.hz == streamRate) {
+                    totalSamples += (uint64_t)decodedSamples;
+                } else {
+                    totalSamples += ((uint64_t)decodedSamples * (uint64_t)streamRate) / (uint64_t)frameInfo.hz;
+                }
+            }
+            continue;
+        }
+
+        if (eof) {
+            break;
+        }
+
+        if (left >= MP3_STREAM_BUFFER_SIZE) {
+            pos++;
+            left--;
+        }
+    }
+
+    if (streamRate > 0) {
+        totalMs = (uint32_t)((totalSamples * 1000ULL) / (uint64_t)streamRate);
+    }
+
+    free(buf);
+    close(fd);
+    return totalMs;
+}
+
 // AudioPlayer implementation
 AudioPlayer::AudioPlayer() {
     pcmDev = NULL;
@@ -546,6 +835,11 @@ AudioPlayer::AudioPlayer() {
     streamPos = NULL;
     bytesLeft = 0;
     totalBytes = 0;
+    sourceFd = -1;
+    sourcePath = NULL;
+    mp3StreamBuf = NULL;
+    mp3StreamBufSize = 0;
+    mp3StreamEof = false;
     simples = 0;
     playing = false;
     paused = false;
@@ -557,6 +851,9 @@ AudioPlayer::AudioPlayer() {
     wavDataOffset = 0;
     wavDataSize = 0;
     wavBitDepth = 16;
+    wavBytesPerFrame = 0;
+    wavStreamBuf = NULL;
+    wavStreamBufSize = 0;
     oggChannels = 2;
     oggBitstream = 0;
     zeroReadCount = 0;
@@ -575,8 +872,8 @@ AudioPlayer::~AudioPlayer() {
 
 bool AudioPlayer::load(const char* path, const char* device) {
     stop();
-
     format = getAudioFormat(path);
+
     if (format == FORMAT_UNKNOWN) {
         return false;
     }
@@ -589,25 +886,23 @@ bool AudioPlayer::load(const char* path, const char* device) {
         return ok;
     }
 
-    fileData = vfs_readfile(path, &bytesLeft);
-    if (fileData == NULL) {
-        return false;
-    }
-
-    totalBytes = bytesLeft;
-    streamPos = (uint8_t*)fileData;
-
-    bool ok = false;
     if (format == FORMAT_MP3) {
-        ok = loadMp3(device);
-    } else if (format == FORMAT_WAV) {
-        ok = loadWav(device);
+        bool ok = loadMp3(path, device);
+        if (!ok) {
+            stop();
+        }
+        return ok;
     }
 
-    if (!ok) {
-        stop();
+    if (format == FORMAT_WAV) {
+        bool ok = loadWav(path, device);
+        if (!ok) {
+            stop();
+        }
+        return ok;
     }
-    return ok;
+
+    return false;
 }
 
 void AudioPlayer::play() {
@@ -643,10 +938,8 @@ void AudioPlayer::stop() {
         oggDs = NULL;
     }
 
-    if (sampleBuf != NULL && format != FORMAT_WAV) {
+    if (sampleBuf != NULL) {
         free(sampleBuf);
-        sampleBuf = NULL;
-    } else if (format == FORMAT_WAV) {
         sampleBuf = NULL;
     }
 
@@ -670,6 +963,26 @@ void AudioPlayer::stop() {
         oggStereoBuffer = NULL;
     }
 
+    if (sourceFd >= 0) {
+        close(sourceFd);
+        sourceFd = -1;
+    }
+
+    if (sourcePath != NULL) {
+        free(sourcePath);
+        sourcePath = NULL;
+    }
+
+    if (mp3StreamBuf != NULL) {
+        free(mp3StreamBuf);
+        mp3StreamBuf = NULL;
+    }
+
+    if (wavStreamBuf != NULL) {
+        free(wavStreamBuf);
+        wavStreamBuf = NULL;
+    }
+
     if (fileData != NULL) {
         free(fileData);
         fileData = NULL;
@@ -678,12 +991,16 @@ void AudioPlayer::stop() {
     streamPos = NULL;
     bytesLeft = 0;
     totalBytes = 0;
+    mp3StreamBufSize = 0;
+    mp3StreamEof = false;
     simples = 0;
     currentMs = 0;
     totalMs = 0;
     wavDataOffset = 0;
     wavDataSize = 0;
     wavBitDepth = 16;
+    wavBytesPerFrame = 0;
+    wavStreamBufSize = 0;
     oggChannels = 2;
     oggBitstream = 0;
     zeroReadCount = 0;
@@ -691,7 +1008,9 @@ void AudioPlayer::stop() {
 }
 
 void AudioPlayer::replay(const char* device) {
-    if (format != FORMAT_OGG && fileData == NULL) return;
+    if (format == FORMAT_MP3 && sourceFd < 0) return;
+    if (format == FORMAT_WAV && (sourceFd < 0 || wavStreamBuf == NULL || sampleBuf == NULL)) return;
+    if (format == FORMAT_OGG && oggVf == NULL) return;
 
     if (pcmDev != NULL) {
         pcm_close(pcmDev);
@@ -795,22 +1114,36 @@ bool AudioPlayer::seekToProgress(float progress) {
 }
 
 bool AudioPlayer::decodeFrame() {
-    if (format == FORMAT_MP3 || format == FORMAT_WAV) {
-        if (streamPos == NULL || bytesLeft <= 0) {
+    bool ok;
+
+    if (format == FORMAT_WAV) {
+        if (bytesLeft <= 0) {
             eof = true;
+            playing = false;
+            paused = false;
             return false;
         }
     }
 
     if (format == FORMAT_MP3) {
-        return decodeMp3Frame();
+        ok = decodeMp3Frame();
     } else if (format == FORMAT_WAV) {
-        return decodeWavFrame();
+        ok = decodeWavFrame();
     } else if (format == FORMAT_OGG) {
-        return decodeOggFrame();
+        ok = decodeOggFrame();
+    } else {
+        ok = false;
     }
 
-    return false;
+    if (!ok && (eof || writeFailed)) {
+        playing = false;
+        paused = false;
+        if (eof && totalMs > 0 && currentMs < totalMs) {
+            currentMs = totalMs;
+        }
+    }
+
+    return ok;
 }
 
 bool AudioPlayer::isPlaying() { return playing; }
@@ -820,6 +1153,7 @@ bool AudioPlayer::isEof() { return eof; }
 bool AudioPlayer::isWriteFailed() { return writeFailed; }
 int16_t* AudioPlayer::getSampleBuf() { return sampleBuf; }
 int AudioPlayer::getSimples() { return simples; }
+
 int AudioPlayer::getChannels() { return channels; }
 int AudioPlayer::getSampleRate() { return sampleRate; }
 uint32_t AudioPlayer::getCurrentMs() { return currentMs; }
@@ -828,7 +1162,31 @@ bool AudioPlayer::isOgg() { return format == FORMAT_OGG; }
 
 // Private methods implementation
 
-bool AudioPlayer::loadMp3(const char* device) {
+bool AudioPlayer::loadMp3(const char* path, const char* device) {
+    int decodedSamples;
+
+    sourceFd = open(path, O_RDONLY);
+    if (sourceFd < 0) {
+        return false;
+    }
+
+    sourcePath = strdup(path);
+    if (sourcePath == NULL) {
+        return false;
+    }
+
+    mp3StreamBuf = (uint8_t*)malloc(MP3_STREAM_BUFFER_SIZE);
+    if (mp3StreamBuf == NULL) {
+        return false;
+    }
+    mp3StreamBufSize = MP3_STREAM_BUFFER_SIZE;
+    streamPos = mp3StreamBuf;
+    bytesLeft = 0;
+    mp3StreamEof = false;
+    if (!refillMp3Stream()) {
+        return false;
+    }
+
     mp3dec = (mp3dec_t*)calloc(1, sizeof(mp3dec_t));
     info = (mp3dec_frame_info_t*)calloc(1, sizeof(mp3dec_frame_info_t));
     sampleBuf = (int16_t*)calloc(MINIMP3_MAX_SAMPLES_PER_FRAME, sizeof(int16_t));
@@ -837,14 +1195,14 @@ bool AudioPlayer::loadMp3(const char* device) {
     }
     mp3dec_init(mp3dec);
 
-    int decodedSamples = mp3dec_decode_frame(mp3dec, streamPos, bytesLeft, sampleBuf, info);
-    if (decodedSamples == 0 || info->frame_bytes == 0) {
+    decodedSamples = decodeNextMp3Frame(mp3dec, info, sampleBuf);
+    if (decodedSamples <= 0) {
         return false;
     }
 
     channels = info->channels;
     sampleRate = info->hz;
-    simples = decodedSamples;
+    simples = 1;
 
     struct pcm_config config;
     config.bit_depth = 16;
@@ -861,23 +1219,58 @@ bool AudioPlayer::loadMp3(const char* device) {
     }
 
     devicePath = device;
+    if (!resetMp3Stream()) {
+        return false;
+    }
+    mp3dec_init(mp3dec);
     totalMs = estimateTotalMs();
     return true;
 }
 
-bool AudioPlayer::loadWav(const char* device) {
+bool AudioPlayer::loadWav(const char* path, const char* device) {
     int wavSampleRate, wavChannels, wavBits;
-    if (parseWavHeader((const uint8_t*)fileData, totalBytes, &wavSampleRate, &wavChannels, &wavBits, &wavDataOffset, &wavDataSize) != 0) {
+    int previewSamples;
+
+    sourceFd = open(path, O_RDONLY);
+    if (sourceFd < 0) {
+        return false;
+    }
+
+    if (parseWavHeaderFd(sourceFd, &wavSampleRate, &wavChannels, &wavBits, &wavDataOffset, &wavDataSize) != 0) {
+        return false;
+    }
+
+    sourcePath = strdup(path);
+    if (sourcePath == NULL) {
         return false;
     }
 
     sampleRate = wavSampleRate;
     channels = wavChannels;
     wavBitDepth = wavBits;
+    wavBytesPerFrame = channels * (wavBitDepth / 8);
+    if (wavBytesPerFrame <= 0) {
+        return false;
+    }
 
-    streamPos = (uint8_t*)fileData + wavDataOffset;
+    wavStreamBufSize = wavBytesPerFrame * WAV_WRITE_CHUNK_FRAMES;
+    wavStreamBuf = (uint8_t*)malloc(wavStreamBufSize);
+    if (wavStreamBuf == NULL) {
+        return false;
+    }
+
+    previewSamples = WAV_WRITE_CHUNK_FRAMES * channels;
+    sampleBuf = (int16_t*)calloc(previewSamples, sizeof(int16_t));
+    if (sampleBuf == NULL) {
+        return false;
+    }
+
+    if (lseek(sourceFd, wavDataOffset, SEEK_SET) < 0) {
+        return false;
+    }
+
+    streamPos = wavStreamBuf;
     bytesLeft = wavDataSize;
-    sampleBuf = (int16_t*)streamPos;
     simples = 0;
 
     struct pcm_config config;
@@ -966,20 +1359,17 @@ bool AudioPlayer::loadOgg(const char* path, const char* device) {
 }
 
 void AudioPlayer::replayMp3(const char* device) {
-    streamPos = (uint8_t*)fileData;
-    bytesLeft = totalBytes;
+    if (!resetMp3Stream()) {
+        eof = true;
+        return;
+    }
     currentMs = 0;
     eof = false;
     writeFailed = false;
+    paused = false;
+    simples = 1;
 
     mp3dec_init(mp3dec);
-
-    int decodedSamples = mp3dec_decode_frame(mp3dec, streamPos, bytesLeft, sampleBuf, info);
-    if (decodedSamples > 0 && info->frame_bytes > 0) {
-        simples = decodedSamples;
-        streamPos += info->frame_bytes;
-        bytesLeft -= info->frame_bytes;
-    }
 
     struct pcm_config config;
     config.bit_depth = 16;
@@ -997,12 +1387,20 @@ void AudioPlayer::replayMp3(const char* device) {
 }
 
 void AudioPlayer::replayWav(const char* device) {
-    streamPos = (uint8_t*)fileData + wavDataOffset;
+    if (sourceFd < 0 || wavStreamBuf == NULL || sampleBuf == NULL) {
+        eof = true;
+        return;
+    }
+    if (lseek(sourceFd, wavDataOffset, SEEK_SET) < 0) {
+        eof = true;
+        return;
+    }
+
+    streamPos = wavStreamBuf;
     bytesLeft = wavDataSize;
     currentMs = 0;
     eof = false;
     writeFailed = false;
-    sampleBuf = (int16_t*)streamPos;
     simples = 0;
 
     struct pcm_config config;
@@ -1056,41 +1454,33 @@ bool AudioPlayer::seekMp3(uint32_t targetMs) {
     mp3dec_t scratchDec;
     mp3dec_frame_info_t scratchInfo;
     int16_t scratchBuf[MINIMP3_MAX_SAMPLES_PER_FRAME];
-    uint8_t* pos;
-    int left;
     uint32_t elapsedMs;
+    int decodedSamples;
 
-    if (fileData == NULL || totalBytes <= 0 || sampleRate <= 0) {
+    if (sourceFd < 0 || sampleRate <= 0 || !resetMp3Stream()) {
         return false;
     }
 
     mp3dec_init(&scratchDec);
-    pos = (uint8_t*)fileData;
-    left = totalBytes;
     elapsedMs = 0;
 
-    while (left > 0 && elapsedMs < targetMs) {
-        int decodedSamples = mp3dec_decode_frame(&scratchDec, pos, left, scratchBuf, &scratchInfo);
-        if (scratchInfo.frame_bytes <= 0) {
+    while (elapsedMs < targetMs) {
+        decodedSamples = decodeNextMp3Frame(&scratchDec, &scratchInfo, scratchBuf);
+        if (decodedSamples <= 0) {
             break;
         }
 
-        if (decodedSamples > 0 && scratchInfo.hz > 0) {
+        if (scratchInfo.hz > 0) {
             uint32_t frameMs = (uint32_t)((decodedSamples * 1000) / scratchInfo.hz);
             if ((elapsedMs + frameMs) > targetMs) {
                 break;
             }
             elapsedMs += frameMs;
         }
-
-        pos += scratchInfo.frame_bytes;
-        left -= scratchInfo.frame_bytes;
     }
 
-    streamPos = pos;
-    bytesLeft = left;
     simples = 1;
-    eof = (bytesLeft <= 0);
+    eof = false;
     writeFailed = false;
     paused = false;
     if (mp3dec != NULL) {
@@ -1101,27 +1491,24 @@ bool AudioPlayer::seekMp3(uint32_t targetMs) {
 
 bool AudioPlayer::seekWav(uint32_t targetMs) {
     uint64_t targetFrame;
-    int bytesPerFrame;
     uint64_t byteOffset;
 
-    if (fileData == NULL || sampleRate <= 0 || channels <= 0 || wavBitDepth <= 0) {
-        return false;
-    }
-
-    bytesPerFrame = channels * (wavBitDepth / 8);
-    if (bytesPerFrame <= 0) {
+    if (sourceFd < 0 || sampleRate <= 0 || channels <= 0 || wavBitDepth <= 0 || wavBytesPerFrame <= 0) {
         return false;
     }
 
     targetFrame = ((uint64_t)targetMs * (uint64_t)sampleRate) / 1000ULL;
-    byteOffset = targetFrame * (uint64_t)bytesPerFrame;
+    byteOffset = targetFrame * (uint64_t)wavBytesPerFrame;
     if (byteOffset > (uint64_t)wavDataSize) {
         byteOffset = wavDataSize;
     }
 
-    streamPos = (uint8_t*)fileData + wavDataOffset + (int)byteOffset;
+    if (lseek(sourceFd, wavDataOffset + (int)byteOffset, SEEK_SET) < 0) {
+        return false;
+    }
+
+    streamPos = wavStreamBuf;
     bytesLeft = wavDataSize - (int)byteOffset;
-    sampleBuf = (int16_t*)streamPos;
     simples = 0;
     eof = (bytesLeft <= 0);
     writeFailed = false;
@@ -1151,20 +1538,21 @@ bool AudioPlayer::seekOgg(uint32_t targetMs) {
 }
 
 bool AudioPlayer::decodeMp3Frame() {
+    int decodedSamples;
+
     if (eof) {
         return false;
     }
-
-    if (simples == 0) {
+    decodedSamples = decodeNextMp3Frame(mp3dec, info, sampleBuf);
+    if (decodedSamples < 0) {
+        return false;
+    }
+    if (decodedSamples == 0) {
         eof = true;
         return false;
     }
 
-    int decodedSamples = mp3dec_decode_frame(mp3dec, streamPos, bytesLeft, sampleBuf, info);
-
-    if (decodedSamples == 0) {
-        return false;
-    }
+    simples = decodedSamples;
 
     if (playing) {
         int ret = pcm_write(pcmDev, sampleBuf, decodedSamples * 2 * channels);
@@ -1174,49 +1562,74 @@ bool AudioPlayer::decodeMp3Frame() {
             return false;
         }
         currentMs += (decodedSamples * 1000) / sampleRate;
-        streamPos += info->frame_bytes;
-        bytesLeft -= info->frame_bytes;
-    } else {
-        streamPos += info->frame_bytes;
-        bytesLeft -= info->frame_bytes;
     }
 
     return true;
 }
 
 bool AudioPlayer::decodeWavFrame() {
+    int toWrite;
+    int totalRead;
+    int frames;
+
     if (eof) {
         return false;
     }
 
-    int bytesPerSample = (wavBitDepth / 8) * channels;
-    int toWrite = bytesPerSample * 1024;
+    if (sourceFd < 0 || wavStreamBuf == NULL || sampleBuf == NULL || wavBytesPerFrame <= 0) {
+        eof = true;
+        return false;
+    }
+
+    toWrite = wavBytesPerFrame * WAV_WRITE_CHUNK_FRAMES;
     if (toWrite > bytesLeft) {
         toWrite = bytesLeft;
     }
+    toWrite -= (toWrite % wavBytesPerFrame);
     if (toWrite <= 0) {
         eof = true;
         return false;
     }
 
-    sampleBuf = (int16_t*)streamPos;
-    simples = toWrite / bytesPerSample;
+    totalRead = 0;
+    while (totalRead < toWrite) {
+        int rd = read(sourceFd, wavStreamBuf + totalRead, toWrite - totalRead);
+        if (rd < 0) {
+            eof = true;
+            writeFailed = true;
+            return false;
+        }
+        if (rd == 0) {
+            break;
+        }
+        totalRead += rd;
+    }
+
+    totalRead -= (totalRead % wavBytesPerFrame);
+    if (totalRead <= 0) {
+        eof = true;
+        return false;
+    }
+
+    frames = totalRead / wavBytesPerFrame;
+    wavFillPreviewSamples(wavStreamBuf, frames, channels, wavBitDepth, sampleBuf);
+    simples = frames;
 
     if (playing) {
-        int ret = pcm_write(pcmDev, streamPos, toWrite);
+        int ret = pcm_write(pcmDev, wavStreamBuf, totalRead);
         if (ret != 0) {
             eof = true;
             writeFailed = true;
             return false;
         }
-        int samples = toWrite / bytesPerSample;
-        currentMs += (samples * 1000) / sampleRate;
-        streamPos += toWrite;
-        bytesLeft -= toWrite;
-    } else {
-        streamPos += toWrite;
-        bytesLeft -= toWrite;
+        currentMs += (frames * 1000) / sampleRate;
     }
+
+    bytesLeft -= totalRead;
+    if (bytesLeft < 0 || totalRead < toWrite) {
+        bytesLeft = 0;
+    }
+    streamPos = wavStreamBuf;
 
     return true;
 }
@@ -1294,7 +1707,7 @@ uint32_t AudioPlayer::estimateTotalMs() {
     }
 
     if (format == FORMAT_MP3) {
-        return estimateMp3TotalMs((const uint8_t*)fileData, totalBytes);
+        return estimateMp3StreamTotalMs();
     }
 
     int bytesPerSample = 2 * channels;

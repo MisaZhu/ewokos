@@ -40,6 +40,7 @@ typedef int (*pcm_hook_t)(void *data);
 #define CTRL_PCM_DEV_PRPARE		(0xF2)
 #define CTRL_PCM_BUF_AVAIL		(0xF3)
 #define OGG_MAX_FRAMES          1152
+#define OGG_WRITE_CHUNK_FRAMES  4608
 #define PCM_WAIT_SLEEP_MS       1
 
 static int pcm_prepare(struct pcm *pcm);
@@ -327,74 +328,65 @@ static int pcm_prepare(struct pcm *pcm)
 	return ret;
 }
 
-// OGG Vorbis file callbacks for vfs_readfile
+// OGG Vorbis file callbacks for fd-backed streaming
 typedef struct {
-	uint8_t *data;
-	int size;
-	int pos;
+	int fd;
 } OggVorbis_DataSource;
 
 static size_t ogg_read_func(void *ptr, size_t size, size_t nmemb, void *datasource)
 {
 	OggVorbis_DataSource *ds = (OggVorbis_DataSource *)datasource;
-	size_t bytes_to_read = size * nmemb;
-	size_t bytes_available = ds->size - ds->pos;
+	ssize_t bytes_read;
 
-	if (bytes_to_read > bytes_available) {
-		bytes_to_read = bytes_available;
+	if (size == 0 || nmemb == 0) {
+		return 0;
 	}
 
-	if (bytes_to_read > 0) {
-		memcpy(ptr, ds->data + ds->pos, bytes_to_read);
-		ds->pos += bytes_to_read;
+	if (ds == NULL || ds->fd < 0) {
+		return 0;
 	}
 
-	return bytes_to_read;
+	bytes_read = read(ds->fd, ptr, size * nmemb);
+	if (bytes_read <= 0) {
+		return 0;
+	}
+
+	return (size_t)bytes_read / size;
 }
 
 static int ogg_seek_func(void *datasource, ogg_int64_t offset, int whence)
 {
 	OggVorbis_DataSource *ds = (OggVorbis_DataSource *)datasource;
-	int new_pos = 0;
-
-	switch (whence) {
-		case SEEK_SET:
-			new_pos = (int)offset;
-			break;
-		case SEEK_CUR:
-			new_pos = ds->pos + (int)offset;
-			break;
-		case SEEK_END:
-			new_pos = ds->size + (int)offset;
-			break;
-		default:
-			return -1;
-	}
-
-	if (new_pos < 0 || new_pos > ds->size) {
+	if (ds == NULL || ds->fd < 0) {
 		return -1;
 	}
 
-	ds->pos = new_pos;
-	return 0;
+	return (lseek(ds->fd, (off_t)offset, whence) < 0) ? -1 : 0;
 }
 
 static int ogg_close_func(void *datasource)
 {
 	OggVorbis_DataSource *ds = (OggVorbis_DataSource *)datasource;
-	if (ds->data != NULL) {
-		free(ds->data);
-		ds->data = NULL;
-		ds->size = 0;
-		ds->pos = 0;
+	if (ds == NULL || ds->fd < 0) {
+		return 0;
 	}
+
+	close(ds->fd);
+	ds->fd = -1;
 	return 0;
 }
 
 static long ogg_tell_func(void *datasource)
 {
 	OggVorbis_DataSource *ds = (OggVorbis_DataSource *)datasource;
-	return ds->pos;
+	off_t pos;
+
+	if (ds == NULL || ds->fd < 0) {
+		return -1;
+	}
+
+	pos = lseek(ds->fd, 0, SEEK_CUR);
+	return (long)pos;
 }
 
 static int16_t ogg_float_to_s16(float sample) {
@@ -422,24 +414,20 @@ static int16_t ogg_float_to_s16(float sample) {
 int ogg_play_file(const char *path, const char *snd_dev) {
 	OggVorbis_File vf;
 	vorbis_info *vi;
-	vorbis_comment *vc;
 	OggVorbis_DataSource ds;
 	ov_callbacks callbacks;
-	int16_t *pcm_data = NULL;
-	int pcm_frames = 0;
-	int pcm_capacity_frames = 0;
+	int16_t chunk_buffer[OGG_WRITE_CHUNK_FRAMES * 2];
+	int chunk_frames = 0;
 	int ret = 1;
+	int fd;
 
-	int file_size;
-	uint8_t *file_data = (uint8_t *)vfs_readfile(path, &file_size);
-	if (file_data == NULL) {
-		printf("read %s failed\n", path);
+	fd = open(path, O_RDONLY);
+	if (fd < 0) {
+		printf("open %s failed\n", path);
 		return 1;
 	}
 
-	ds.data = file_data;
-	ds.size = file_size;
-	ds.pos = 0;
+	ds.fd = fd;
 
 	callbacks.read_func = ogg_read_func;
 	callbacks.seek_func = ogg_seek_func;
@@ -448,12 +436,11 @@ int ogg_play_file(const char *path, const char *snd_dev) {
 
 	if (ov_open_callbacks(&ds, &vf, NULL, 0, callbacks) < 0) {
 		printf("Not an Ogg Vorbis audio stream\n");
-		free(file_data);
+		close(fd);
 		return 1;
 	}
 
 	vi = ov_info(&vf, -1);
-	vc = ov_comment(&vf, -1);
 
 	int channels = vi->channels;
 	if (channels != 1 && channels != 2) {
@@ -483,7 +470,6 @@ int ogg_play_file(const char *path, const char *snd_dev) {
 	if (pcm == NULL) {
 		printf("pcm_open failed: rate=%d, channels=%d\n", rate, output_channels);
 		ov_clear(&vf);
-		free(file_data);
 		return 1;
 	}
 
@@ -517,31 +503,24 @@ int ogg_play_file(const char *path, const char *snd_dev) {
 			stereo_buffer[i * 2 + 1] = ogg_float_to_s16(right);
 		}
 
-		if (pcm_frames + samples > pcm_capacity_frames) {
-			int new_capacity_frames = pcm_capacity_frames == 0 ? 16384 : pcm_capacity_frames;
-			int16_t *new_pcm_data;
-
-			while (new_capacity_frames < pcm_frames + samples) {
-				new_capacity_frames *= 2;
-			}
-			new_pcm_data = (int16_t *)realloc(pcm_data,
-					(size_t)new_capacity_frames * output_channels * sizeof(int16_t));
-			if (new_pcm_data == NULL) {
-				printf("alloc pcm buffer failed\n");
+		if (chunk_frames + samples > OGG_WRITE_CHUNK_FRAMES) {
+			if (pcm_write(pcm, chunk_buffer, (unsigned int)(chunk_frames *
+					output_channels * (int)sizeof(int16_t))) != 0) {
+				printf("pcm_write failed\n");
 				goto out;
 			}
-			pcm_data = new_pcm_data;
-			pcm_capacity_frames = new_capacity_frames;
+			chunk_frames = 0;
 		}
-		memcpy(pcm_data + pcm_frames * output_channels,
+
+		memcpy(chunk_buffer + chunk_frames * output_channels,
 				stereo_buffer,
 				(size_t)samples * output_channels * sizeof(int16_t));
-		pcm_frames += samples;
+		chunk_frames += samples;
 	}
 
-	if (pcm_frames > 0) {
-		ret = pcm_write(pcm, pcm_data,
-				(unsigned int)(pcm_frames * output_channels * (int)sizeof(int16_t)));
+	if (chunk_frames > 0) {
+		ret = pcm_write(pcm, chunk_buffer,
+				(unsigned int)(chunk_frames * output_channels * (int)sizeof(int16_t)));
 		if (ret != 0) {
 			printf("pcm_write failed, ret=%d\n", ret);
 			goto out;
@@ -556,7 +535,6 @@ out:
 	if (pcm != NULL) {
 		pcm_close(pcm);
 	}
-	free(pcm_data);
 	ov_clear(&vf);
 
 	return ret;
