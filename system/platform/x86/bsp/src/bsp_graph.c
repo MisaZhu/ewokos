@@ -1,7 +1,7 @@
-#include <graph/bsp_graph.h>
+#include <graph/graph_arch.h>
 #include <string.h>
 
-#ifdef BSP_BOOST
+#ifdef ARCH_BOOST
 #include <emmintrin.h>
 #endif
 
@@ -20,7 +20,7 @@ void graph_scale_tof_cpu(graph_t* g, graph_t* dst, float scale);
 void graph_gaussian_cpu(graph_t* g, int x, int y, int w, int h, int r);
 void graph_glass_cpu(graph_t* g, int x, int y, int w, int h, int r);
 
-#ifdef BSP_BOOST
+#ifdef ARCH_BOOST
 static inline void x86_stream_copy_row(uint32_t* dst, const uint32_t* src, int32_t pixels) {
 	int32_t i = 0;
 
@@ -82,13 +82,13 @@ static inline int x86_can_stream_blt(graph_t* src, const grect_t* sr,
 }
 #endif
 
-void graph_fill_bsp(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
+void graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
 	graph_fill_cpu(g, x, y, w, h, color);
 }
 
-void graph_blt_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+void graph_blt_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
-#ifdef BSP_BOOST
+#ifdef ARCH_BOOST
 	if(sw > 0 && sh > 0 && dw > 0 && dh > 0) {
 		grect_t sr = {sx, sy, sw, sh};
 		grect_t dr = {dx, dy, dw, dh};
@@ -117,29 +117,29 @@ void graph_blt_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 	graph_blt_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
 }
 
-void graph_blt_alpha_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+void graph_blt_alpha_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
 	graph_blt_alpha_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
 }
 
-void graph_blt_alpha_mask_bsp(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+void graph_blt_alpha_mask_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
 	graph_blt_mask_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
 }
 
-void graph_scale_tof_bsp(graph_t* g, graph_t* dst, double scale) {
+void graph_scale_tof_arch(graph_t* g, graph_t* dst, double scale) {
 	graph_scale_tof_cpu(g, dst, (float)scale);
 }
 
-void graph_scale_tof_fast_bsp(graph_t* g, graph_t* dst, double scale) {
+void graph_scale_tof_fast_arch(graph_t* g, graph_t* dst, double scale) {
 	graph_scale_tof_cpu(g, dst, (float)scale);
 }
 
-void graph_glass_bsp(graph_t* g, int x, int y, int w, int h, int r) {
+void graph_glass_arch(graph_t* g, int x, int y, int w, int h, int r) {
 	graph_glass_cpu(g, x, y, w, h, r);
 }
 
-void graph_gaussian_bsp(graph_t* g, int x, int y, int w, int h, int r) {
+void graph_gaussian_arch(graph_t* g, int x, int y, int w, int h, int r) {
 	graph_gaussian_cpu(g, x, y, w, h, r);
 }
 

@@ -36,8 +36,8 @@ CXXFLAGS = -marm \
         -std=c++14
 
 ifeq ($(ARCH_VER),v7)
-CFLAGS += -mfpu=neon-vfpv3 -DBSP_BOOST -mfloat-abi=softfp
-CXXFLAGS += -mfpu=neon-vfpv3 -DBSP_BOOST -mfloat-abi=softfp
+CFLAGS += -mfpu=neon-vfpv3 -DARCH_BOOST -mfloat-abi=softfp
+CXXFLAGS += -mfpu=neon-vfpv3 -DARCH_BOOST -mfloat-abi=softfp
 endif
        
 EWOK_LIBC = --start-group -lewoksys -lc -lgloss -lsoftfloat --end-group $(LIBGCC)
