@@ -10,6 +10,7 @@
 #include <string.h>
 #include <math.h>
 #include <stdint.h>
+#include <errno.h>
 
 #include <vorbis/codec.h>
 #include <vorbis/vorbisfile.h>
@@ -162,24 +163,26 @@ static int pcm_try_write(struct pcm *pcm, const void* data, unsigned int count)
 		return 0;
 	}
 
-	for (;;) {
-		if (pcm->running == 0) {
-			int err = pcm_prepare(pcm);
-			if (err != 0) {
-				return err;
-			}
-
-			int written = write(pcm->fd, data, count);
-			if (written != (int)count) {
-				return -1;
-			}
-			pcm->running = 1;
-			return 0;
+	/*
+	 * Returns bytes actually written (>= 0) or a negative errno. The
+	 * server uses partial-write semantics: an XRUN mid-write returns
+	 * the bytes consumed so far, so the caller must advance by the
+	 * returned count instead of treating a short write as an error.
+	 */
+	if (pcm->running == 0) {
+		int err = pcm_prepare(pcm);
+		if (err != 0) {
+			return err;
 		}
 
-		int ret = write(pcm->fd, data, count);
-		return (ret == (int)count ? 0 : -1);
+		int written = write(pcm->fd, data, count);
+		if (written > 0) {
+			pcm->running = 1;
+		}
+		return written;
 	}
+
+	return write(pcm->fd, data, count);
 }
 
 static int wait_avail(struct pcm *pcm, int *avail, int time_out_ms)
@@ -229,11 +232,30 @@ static int pcm_write(struct pcm *pcm, const void* data, unsigned int count) {
 	int offset = 0;
 	int copy_bytes = 0;
 	int ret = 0;
+	int xrun_retry = 0;
 
 	period_bytes = pcm->config.period_size * pcm->config.channels * (pcm->config.bit_depth / 8);
 	copy_bytes = bytes < period_bytes ? bytes : period_bytes;
 	while (bytes > 0) {
 		ret = wait_avail(pcm, &avail, 2000);
+		if (ret == -EPIPE) {
+			/*
+			 * XRUN: the server keeps returning -EPIPE until we
+			 * re-prepare, so recover instead of dropping the rest
+			 * of the stream. Bound retries to avoid spinning if
+			 * prepare keeps failing.
+			 */
+			if (xrun_retry++ >= 5) {
+				break;
+			}
+			pcm->prepared = 0;
+			pcm->running = 0;
+			if (pcm_prepare(pcm) != 0) {
+				proc_usleep(10000);
+			}
+			continue;
+		}
+
 		if (ret < 0 || (avail == 0)) {
 			break;
 		}
@@ -241,12 +263,33 @@ static int pcm_write(struct pcm *pcm, const void* data, unsigned int count) {
 		copy_bytes = bytes < avail ? bytes : avail;
 
 		ret = pcm_try_write(pcm, data + offset, copy_bytes);
-		if (ret == 0) {
-			offset += copy_bytes;
-			written += copy_bytes;
-			bytes -= copy_bytes;
-			copy_bytes = bytes < period_bytes ? bytes : period_bytes;
+		if (ret == -EPIPE) {
+			/* XRUN hit inside write(): recover the same way */
+			if (xrun_retry++ >= 5) {
+				break;
+			}
+			pcm->prepared = 0;
+			pcm->running = 0;
+			if (pcm_prepare(pcm) != 0) {
+				proc_usleep(10000);
+			}
+			continue;
 		}
+		if (ret < 0) {
+			break;
+		}
+		/*
+		 * Only real write progress proves the XRUN recovery worked;
+		 * wait_avail succeeds right after re-prepare even when the
+		 * engine is wedged, so resetting there defeats the retry cap.
+		 */
+		if (ret > 0) {
+			xrun_retry = 0;
+		}
+		offset += ret;
+		written += ret;
+		bytes -= ret;
+		copy_bytes = bytes < period_bytes ? bytes : period_bytes;
 	}
 
 	return (written == (int)count ? 0 : -1);

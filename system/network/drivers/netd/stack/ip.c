@@ -517,7 +517,12 @@ ip_output(uint8_t protocol, const uint8_t *data, size_t len, ip_addr_t src, ip_a
      * If so, route to loopback interface to avoid ARP resolution failure.
      * Keep the original source address from the route interface.
      */
-    ip_addr_t src_addr = iface->unicast;
+    /*
+     * Honor an explicit source address from upper layers (TCP/UDP PCBs keep
+     * their own local address). Falling back to the route interface address is
+     * only correct for wildcard/raw sends.
+     */
+    ip_addr_t src_addr = (src != IP_ADDR_ANY) ? src : iface->unicast;
     struct ip_iface *local_iface = ip_iface_select(dst);
     
     char addr3[IP_ADDR_STR_LEN];
