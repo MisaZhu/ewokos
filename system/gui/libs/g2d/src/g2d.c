@@ -16,13 +16,23 @@ static int g2d_send_noarg(g2d_t* g2d, int cmd) {
 
 static int g2d_send_struct(g2d_t* g2d, int cmd, const void* data, uint32_t size) {
 	proto_t in;
+	proto_t out;
 	int ret;
 
 	if(!g2d_valid(g2d) || data == NULL || size == 0)
 		return -1;
 
 	PF->init(&in)->add(&in, data, size);
-	ret = dev_cntl(g2d->dev, cmd, &in, NULL);
+	/*
+	 * A reply proto has to be supplied even though these commands return no
+	 * data: dev_cntl() only propagates the driver's handler status when an
+	 * output proto is present. With a NULL reply it just returns the IPC
+	 * transport result, so a driver that rejected the request still looks
+	 * like success to the caller.
+	 */
+	PF->init(&out);
+	ret = dev_cntl(g2d->dev, cmd, &in, &out);
+	PF->clear(&out);
 	PF->clear(&in);
 	return ret;
 }

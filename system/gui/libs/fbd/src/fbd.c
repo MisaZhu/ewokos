@@ -256,6 +256,64 @@ uint32_t fbd_flush_rect_to(const fbinfo_t* fbinfo, const graph_t* g, const grect
 	return (uint32_t)r->w * (uint32_t)r->h * 2;
 }
 
+/*rotate a single client-space rect straight into the scan-out. Mirrors the
+  exact mapping and destination-row-major memory model of fbd_rotate_to, but
+  only for the damaged region. g is the client (pre-rotation) frame; r is in
+  client coordinates. Returns 0 (=> full-frame fallback) on any surprise.*/
+static uint32_t fbd_rotate_rect_to(const fbinfo_t* fbi, const graph_t* g,
+		const grect_t* r, int rotate) {
+	if(fbi == NULL || g == NULL || g->buffer == NULL || r == NULL)
+		return 0;
+	if(fbi->pointer == 0 || fbi->depth != 32)
+		return 0;
+
+	int32_t sw = g->w, sh = g->h;
+	int32_t rx0 = r->x < 0 ? 0 : r->x;
+	int32_t ry0 = r->y < 0 ? 0 : r->y;
+	int32_t rx1 = r->x + r->w; if(rx1 > sw) rx1 = sw;
+	int32_t ry1 = r->y + r->h; if(ry1 > sh) ry1 = sh;
+	if(rx0 >= rx1 || ry0 >= ry1)
+		return 0;
+
+	uint32_t pitch = fbi->pitch;
+	if(pitch < fbi->width * 4)
+		pitch = fbi->width * 4;
+	uint8_t* base = (uint8_t*)(uintptr_t)fbi->pointer +
+			fbi->yoffset * pitch + fbi->xoffset * 4;
+	const uint32_t* src = g->buffer;
+
+	if(rotate == G_ROTATE_90) {
+		/* dst[y][x] = src[sh-1-x][y]; dst is sh wide, sw tall */
+		for(int32_t y = rx0; y < rx1; y++) {
+			uint32_t* d = (uint32_t*)(base + (uint32_t)y * pitch);
+			for(int32_t x = sh - ry1; x <= sh - 1 - ry0; x++)
+				d[x] = src[(sh - 1 - x) * sw + y];
+		}
+	}
+	else if(rotate == G_ROTATE_270) {
+		/* dst[y][x] = src[x][sw-1-y] */
+		for(int32_t y = sw - rx1; y <= sw - 1 - rx0; y++) {
+			uint32_t* d = (uint32_t*)(base + (uint32_t)y * pitch);
+			int32_t sc = sw - 1 - y;
+			for(int32_t x = ry0; x < ry1; x++)
+				d[x] = src[x * sw + sc];
+		}
+	}
+	else if(rotate == G_ROTATE_180) {
+		/* dst[y][x] = src[sh-1-y][sw-1-x]; same geometry as the panel */
+		for(int32_t y = sh - ry1; y <= sh - 1 - ry0; y++) {
+			uint32_t* d = (uint32_t*)(base + (uint32_t)y * pitch);
+			int32_t sr = sh - 1 - y;
+			for(int32_t x = sw - rx1; x <= sw - 1 - rx0; x++)
+				d[x] = src[sr * sw + (sw - 1 - x)];
+		}
+	}
+	else {
+		return 0;
+	}
+	return (uint32_t)(rx1 - rx0) * (uint32_t)(ry1 - ry0) * 4;
+}
+
 static inline int is_zoomed(void) {
 	return (_zoom > 0.0 && _zoom != 8.0 && _zoom != 1.0);
 }
@@ -366,17 +424,29 @@ static int fb_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto
 /*push only the rects the client declared dirty. Returns the bytes written,
   or -1 when the damage cannot be honoured and the whole frame is needed.*/
 static int32_t flush_dirty(fb_dma_t* dma, const grect_t* rects, uint32_t num) {
-	grect_t bounds = {0, 0, _zwidth, _zheight};
+	/*client (pre-rotation) geometry: for 90/270 the frame is transposed,
+	  matching flush()/GET_INFO. For rotate 0 this is _zwidth x _zheight,
+	  identical to the non-rotated path.*/
+	uint32_t gw, gh;
+	if(_rotate == G_ROTATE_90 || _rotate == G_ROTATE_270) {
+		gw = _zheight; gh = _zwidth;
+	}
+	else {
+		gw = _zwidth; gh = _zheight;
+	}
+	grect_t bounds = {0, 0, gw, gh};
 	graph_t g;
 	memset(&g, 0, sizeof(graph_t));
-	graph_init(&g, (const uint32_t*)dma->shm, _zwidth, _zheight);
+	graph_init(&g, (const uint32_t*)dma->shm, gw, gh);
 
 	int32_t res = 0;
 	for(uint32_t i = 0; i < num; i++) {
 		grect_t r = rects[i];
 		if(!grect_insect(&bounds, &r))
 			continue;
-		uint32_t n = _flush_rect(&_fbinfo, &g, &r);
+		uint32_t n = (_rotate == G_ROTATE_0)
+				? _flush_rect(&_fbinfo, &g, &r)
+				: fbd_rotate_rect_to(&_fbinfo, &g, &r, _rotate);
 		if(n == 0) //hook refused this geometry
 			return -1;
 		res += (int32_t)n;
@@ -401,7 +471,18 @@ static int32_t do_flush(fb_dma_t* dma) {
 
 	ctrl->busy = 1;
 	int32_t res = -1;
-	if(num > 0 && _flush_rect != NULL && _rotate == G_ROTATE_0 && !is_zoomed())
+	/*dirty-rect flushing: rotate 0 needs the driver's rect hook; a rotated
+	  panel is handled in-library, but only when it uses the generic
+	  fbd_rotate_to (so the rect rotate matches its full-frame model).*/
+	int dirty_ok = (num > 0) && !is_zoomed();
+	if(dirty_ok) {
+		if(_rotate == G_ROTATE_0)
+			dirty_ok = (_flush_rect != NULL);
+		else
+			dirty_ok = (_fbd->flush_rotate == fbd_rotate_to) &&
+					(_fbinfo.depth == 32);
+	}
+	if(dirty_ok)
 		res = flush_dirty(dma, rects, num);
 	if(res < 0)
 		res = flush(&_fbinfo, buf, size, _rotate);
