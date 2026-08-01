@@ -87,28 +87,76 @@ static bool top_proc(x_t* x, xwin_t* win) {
 	return false;
 }
 
-static void prepare_win_content(x_t* x, xwin_t* win) {
+static bool need_repaint_frame(x_t* x, xwin_t* win);
+
+static void win_mark_frame_dirty(x_t* x, xwin_t* win) {
+	x_display_t *display = &x->displays[win->xinfo->display_index];
+
+	if(win->dirty && !win->xinfo->focused &&
+			(win->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) == 0) {
+		win->frame_dirty = true;
+		return;
+	}
+
+	/*a desktop repaint only invalidates the frames that blend with what is
+	  below them; a frame drawn opaquely still holds a valid picture*/
+	if(display->dirty && need_repaint_frame(x, win))
+		win->frame_dirty = true;
+}
+
+/*the workspace area gets fully overwritten by the blt in
+  prepare_win_content, so only the decoration ring around it has to be
+  reset for the alpha drawing of xwm*/
+static void clear_frame_ring(xwin_t* win) {
+	graph_t* g = win->frame_g;
+	if(g == NULL)
+		return;
+
+	grect_t bounds = {0, 0, g->w, g->h};
+	grect_t ws = {win->xinfo->wsr.x - win->xinfo->winr.x,
+			win->xinfo->wsr.y - win->xinfo->winr.y,
+			win->xinfo->wsr.w, win->xinfo->wsr.h};
+
+	if(!grect_insect(&bounds, &ws) ||
+			(ws.x == 0 && ws.y == 0 && ws.w == g->w && ws.h == g->h)) {
+		graph_clear(g, 0);
+		return;
+	}
+
+	graph_set(g, 0, 0, g->w, ws.y, 0); //top
+	graph_set(g, 0, ws.y + ws.h, g->w, g->h - ws.y - ws.h, 0); //bottom
+	graph_set(g, 0, ws.y, ws.x, ws.h, 0); //left
+	graph_set(g, ws.x + ws.w, ws.y, g->w - ws.x - ws.w, ws.h, 0); //right
+}
+
+/*ws_dmg: damaged area of the workspace, NULL means all of it*/
+static void prepare_win_content(x_t* x, xwin_t* win, const grect_t* ws_dmg) {
 	x_display_t *display = &x->displays[win->xinfo->display_index];
 	if(display->g == NULL)
 		return;
 
-	if((win->dirty && !win->xinfo->focused &&
-			(win->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) == 0) ||
-			display->dirty)
-		win->frame_dirty = true;
-	
-	if(win->frame_dirty)
-		graph_clear(win->frame_g, 0);
-	
+	if(win->frame_dirty) {
+		clear_frame_ring(win);
+		ws_dmg = NULL; //the whole frame is being rebuilt
+	}
+
 	if(win->dirty || win->frame_dirty) {
 		graph_t* g = win->ws_g_buffer;
+		int32_t ox = win->xinfo->wsr.x - win->xinfo->winr.x;
+		int32_t oy = win->xinfo->wsr.y - win->xinfo->winr.y;
 		//klog("win title: %s win->dirty: %d win->frame_dirty: %d\n", win->xinfo->title, win->dirty, win->frame_dirty);
-		graph_blt(g, 0, 0, g->w, g->h,
-				win->frame_g,
-				win->xinfo->wsr.x - win->xinfo->winr.x,
-				win->xinfo->wsr.y - win->xinfo->winr.y,
-				win->xinfo->wsr.w,
-				win->xinfo->wsr.h);
+		if(ws_dmg != NULL) {
+			graph_blt(g, ws_dmg->x, ws_dmg->y, ws_dmg->w, ws_dmg->h,
+					win->frame_g,
+					ox + ws_dmg->x, oy + ws_dmg->y,
+					ws_dmg->w, ws_dmg->h);
+		}
+		else {
+			graph_blt(g, 0, 0, g->w, g->h,
+					win->frame_g, ox, oy,
+					win->xinfo->wsr.w,
+					win->xinfo->wsr.h);
+		}
 	}
 
 	if(!win->frame_dirty)
@@ -209,42 +257,62 @@ static void draw_drag_frame(x_t* xp, uint32_t display_index) {
 	PF->clear(&in);
 }
 
-static int draw_win(graph_t* disp_g, x_t* x, xwin_t* win) {
-	prepare_win_content(x, win);
+/*out_dmg gets the area of disp_g the window actually touched*/
+static int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
+	win_mark_frame_dirty(x, win);
+
+	grect_t ws_dmg = win->damage;
+	bool has_dmg = win->has_damage && !win->frame_dirty;
+
+	prepare_win_content(x, win, has_dmg ? &ws_dmg : NULL);
+
+	grect_t dmg; //damaged area in frame_g coordinates
+	if(has_dmg) {
+		dmg.x = ws_dmg.x + win->xinfo->wsr.x - win->xinfo->winr.x;
+		dmg.y = ws_dmg.y + win->xinfo->wsr.y - win->xinfo->winr.y;
+		dmg.w = ws_dmg.w;
+		dmg.h = ws_dmg.h;
+	}
+	else {
+		dmg.x = 0;
+		dmg.y = 0;
+		dmg.w = win->xinfo->winr.w;
+		dmg.h = win->xinfo->winr.h;
+	}
 
 	graph_t* g = win->frame_g;
 	if(g != NULL) {
-		bool do_alpha = false;
-		if(win->xinfo->alpha ||
-					x->config.xwm_theme.alpha || 
-					x->config.xwm_theme.shadow > 0) {
-			do_alpha = true;
+		grect_t bounds = {0, 0, g->w, g->h};
+		if(!grect_insect(&bounds, &dmg)) {
+			dmg.w = 0;
+			dmg.h = 0;
 		}
-
-		if(do_alpha) {
-			graph_blt_alpha(g, 0, 0, 
-					win->xinfo->winr.w,
-					win->xinfo->winr.h,
+		else if(win->xinfo->alpha ||
+				x->config.xwm_theme.alpha ||
+				x->config.xwm_theme.shadow > 0) {
+			graph_blt_alpha(g, dmg.x, dmg.y, dmg.w, dmg.h,
 					disp_g,
-					win->xinfo->winr.x,
-					win->xinfo->winr.y,
-					win->xinfo->winr.w,
-					win->xinfo->winr.h, 0xff);
+					win->xinfo->winr.x + dmg.x,
+					win->xinfo->winr.y + dmg.y,
+					dmg.w, dmg.h, 0xff);
 		}
 		else {
-			graph_blt(g, 0, 0, 
-					win->xinfo->winr.w,
-					win->xinfo->winr.h,
+			graph_blt(g, dmg.x, dmg.y, dmg.w, dmg.h,
 					disp_g,
-					win->xinfo->winr.x,
-					win->xinfo->winr.y,
-					win->xinfo->winr.w,
-					win->xinfo->winr.h);
+					win->xinfo->winr.x + dmg.x,
+					win->xinfo->winr.y + dmg.y,
+					dmg.w, dmg.h);
 		}
 	}
 
+	out_dmg->x = win->xinfo->winr.x + dmg.x;
+	out_dmg->y = win->xinfo->winr.y + dmg.y;
+	out_dmg->w = dmg.w;
+	out_dmg->h = dmg.h;
+
 	win->dirty = false;
 	win->frame_dirty = false;
+	win->has_damage = false;
 	return 0;
 }
 
@@ -460,13 +528,32 @@ static void x_repaint_add_dirty(graph_t* g, grect_t* rects, uint32_t* num, const
 	rect_union_to(&rects[0], &dirty);
 }
 
-static void x_repaint_copy_dirty(graph_t* src, graph_t* dst, const grect_t* r) {
-	size_t row_bytes = (size_t)r->w * sizeof(uint32_t);
-	for(int32_t y = 0; y < r->h; y++) {
-		uint32_t* dst_row = dst->buffer + (r->y + y) * dst->w + r->x;
-		const uint32_t* src_row = src->buffer + (r->y + y) * src->w + r->x;
-		memcpy(dst_row, src_row, row_bytes);
+/*the fb control block only carries FB_DIRTY_MAX rects, so merge the
+  cheapest pairs together until they fit; without this the daemon has to
+  push the whole framebuffer to the panel*/
+static uint32_t pack_dirty_rects(const grect_t* rects, uint32_t num,
+		grect_t* out, uint32_t max) {
+	if(num <= max) {
+		memcpy(out, rects, num * sizeof(grect_t));
+		return num;
 	}
+
+	memcpy(out, rects, max * sizeof(grect_t));
+	for(uint32_t i = max; i < num; i++) {
+		uint32_t best = 0;
+		int64_t best_cost = -1;
+		for(uint32_t j = 0; j < max; j++) {
+			grect_t u = out[j];
+			rect_union_to(&u, &rects[i]);
+			int64_t cost = (int64_t)u.w * u.h - (int64_t)out[j].w * out[j].h;
+			if(best_cost < 0 || cost < best_cost) {
+				best_cost = cost;
+				best = j;
+			}
+		}
+		rect_union_to(&out[best], &rects[i]);
+	}
+	return max;
 }
 
 static inline bool rect_contains(const grect_t* out, const grect_t* in) {
@@ -704,16 +791,13 @@ static int x_init_display(x_t* x, int32_t display_index) {
 		if(display_fb_open(x->display_man, display_index, &x->displays[display_index].fb) != 0)
 			return -1;
 		graph_t *g_fb = fb_fetch_graph(&x->displays[display_index].fb);
+		if(g_fb == NULL)
+			return -1;
+		/*composite straight into the scan-out dma: no shadow buffer, no
+		  per-frame copy. xwm draws desktop/frames into the same shm.*/
 		x->displays[display_index].g_fb = g_fb;
-		key_t key = (((int32_t)g_fb) << 16) | proc_get_uuid(getpid());
-		int32_t shm_id = shmget(key, g_fb->w * g_fb->h * 4, 0666 | IPC_CREAT | IPC_EXCL);
-		if(shm_id == -1)
-			return -1;
-		void* p = shmat(shm_id, 0, 0);
-		if(p == NULL)
-			return -1;
-		x->displays[display_index].g_shm_id = shm_id;
-		x->displays[display_index].g = graph_new(p, g_fb->w, g_fb->h);
+		x->displays[display_index].g = g_fb;
+		x->displays[display_index].g_shm_id = x->displays[display_index].fb.dma_id;
 		x->displays[display_index].desktop_rect.x = 0;
 		x->displays[display_index].desktop_rect.y = 0;
 		x->displays[display_index].desktop_rect.w = g_fb->w;
@@ -728,16 +812,11 @@ static int x_init_display(x_t* x, int32_t display_index) {
 		if(display_fb_open(x->display_man, i, &x->displays[i].fb) != 0)
 			return -1;
 		graph_t *g_fb = fb_fetch_graph(&x->displays[i].fb);
+		if(g_fb == NULL)
+			return -1;
 		x->displays[i].g_fb = g_fb;
-		key_t key = (((int32_t)g_fb) << 16) | proc_get_uuid(getpid());
-		int32_t shm_id = shmget(key, g_fb->w * g_fb->h * 4, 0666 | IPC_CREAT | IPC_EXCL);
-		if(shm_id == -1)
-			return -1;
-		void* p = shmat(shm_id, 0, 0);
-		if(p == NULL)
-			return -1;
-		x->displays[i].g_shm_id = shm_id;
-		x->displays[i].g = graph_new(p, g_fb->w, g_fb->h);
+		x->displays[i].g = g_fb;
+		x->displays[i].g_shm_id = x->displays[i].fb.dma_id;
 		x->displays[i].desktop_rect.x = 0;
 		x->displays[i].desktop_rect.y = 0;
 		x->displays[i].desktop_rect.w = g_fb->w;
@@ -774,15 +853,11 @@ static int x_init(x_t* x, const char* display_man, int32_t display_index) {
 static void x_close(x_t* x) {
 	for(uint32_t i=0; i<x->display_num; i++) {
 		x_display_t* display = &x->displays[i];
+		/*g and g_fb both alias the fb dma graph now, fb_close frees it once*/
 		fb_close(&display->fb);
-		if(display->g != NULL) {
-			void* g_shm = display->g->buffer;
-			release_graph_shm(&display->g, &g_shm, &display->g_shm_id);
-		}
-		if(display->g_fb != NULL) {
-			shmdt(display->g_fb->buffer);
-			graph_free(display->g_fb);
-		}
+		display->g = NULL;
+		display->g_fb = NULL;
+		display->g_shm_id = -1;
 	}
 }
 
@@ -812,6 +887,8 @@ static bool x_is_hide_cursor_on_win(x_t* x) {
 	return true;
 }
 
+#define X_WAIT_READY_MAX 4
+
 static void x_repaint(x_t* x, uint32_t display_index) {
 	x_display_t* display = &x->displays[display_index];
 	grect_t dirty_rects[X_REPAINT_DIRTY_MAX];
@@ -821,10 +898,25 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 	grect_t cursor_old_rect;
 	grect_t cursor_new_rect;
 
-	if(display->g == NULL ||
-			!display->need_repaint ||
-			!all_win_ready(x))
+	if(display->g == NULL || !display->need_repaint)
 		return;
+
+	/*compositing writes straight into the scan-out dma now, so hold off
+	  while the fb daemon is still pushing the previous frame to the panel;
+	  otherwise it copies a half-drawn frame (tearing). need_repaint stays
+	  set so the frame is retried on the next step.*/
+	if(fb_busy(&display->fb))
+		return;
+
+	if(!all_win_ready(x)) {
+		/*wait a few frames only: a client stuck before its first update
+		  must not freeze the whole display*/
+		if(display->wait_ready < X_WAIT_READY_MAX) {
+			display->wait_ready++;
+			return;
+		}
+	}
+	display->wait_ready = 0;
 
 	display->need_repaint = false;
 	bool do_flush = false;
@@ -857,8 +949,10 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 		if(win->ready && 
 				win->xinfo->visible &&
 				win->xinfo->display_index == display_index) {
-			if(display->dirty)
+			if(display->dirty) {
 				win->dirty = true;
+				win->has_damage = false; //everything below it got repainted
+			}
 
 			if(win->dirty) {
 				/* fully covered by an opaque window above: the covering
@@ -868,10 +962,12 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 						covered_by_opaque_win(x, win, display_index, &win->xinfo->winr)) {
 					win->dirty = false;
 					win->frame_dirty = false;
+					win->has_damage = false;
 				}
 				else {
-					if(draw_win(display->g, x, win) == 0) {
-						x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &win->xinfo->winr);
+					grect_t win_dirty;
+					if(draw_win(display->g, x, win, &win_dirty) == 0) {
+						x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &win_dirty);
 						do_flush = true;
 					}
 					if(drag_win(display->g, x, win) == 0) {
@@ -901,10 +997,14 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 
 	display->dirty = false;
 	if(do_flush && dirty_num > 0) {
-		for(uint32_t i = 0; i < dirty_num; i++) {
-			x_repaint_copy_dirty(display->g, display->g_fb, &dirty_rects[i]);
-		}
-		fb_flush(&display->fb, false);
+		/*tell the fb daemon what changed so it only pushes those areas to
+		  the scan-out buffer instead of the whole frame*/
+		grect_t fb_dirty[FB_DIRTY_MAX];
+		uint32_t fb_num = pack_dirty_rects(dirty_rects, dirty_num, fb_dirty, FB_DIRTY_MAX);
+		fb_set_dirty(&display->fb, fb_dirty, fb_num);
+		/*defer the flush IPC until after ipc_enable() to keep the
+		  ipc_disable() critical section as tight as possible*/
+		display->pending_flush = true;
 	}
 }
 
@@ -976,6 +1076,7 @@ static void mark_dirty_confirm(x_t* x, xwin_t* win) {
 		if(v->dirty_mark) {
 			v->dirty = true;
 			v->dirty_mark = false;
+			v->has_damage = false; //the area below it was repainted
 			
 			if(v != win && v->xinfo != NULL) {
 				if(v->xinfo->alpha || 
@@ -1103,6 +1204,78 @@ static void win_dirty(x_t* x, xwin_t* win) {
 	x_repaint_req(x, win->xinfo->display_index);
 }
 
+#define X_DAMAGE_BAND     8
+#define X_DAMAGE_SKIP_MAX 8
+
+/*compare the workspace against the copy we keep and return the bounding box
+  of what the client actually changed. The rows are checked in bands so a
+  single memcmp covers several of them; the columns are then only probed
+  where they could still widen the box. Returns false when nothing changed.*/
+static bool detect_ws_damage(xwin_t* win, grect_t* dmg) {
+	const uint32_t* src = win->ws_g->buffer;
+	const uint32_t* dst = win->ws_g_buffer->buffer;
+	int32_t w = win->ws_g->w;
+	int32_t h = win->ws_g->h;
+	size_t row_bytes = (size_t)w * sizeof(uint32_t);
+
+	int32_t y0 = -1, y1 = 0;
+	int32_t x0 = w, x1 = 0;
+
+	for(int32_t y = 0; y < h; y += X_DAMAGE_BAND) {
+		int32_t bh = (y + X_DAMAGE_BAND) > h ? (h - y) : X_DAMAGE_BAND;
+		const uint32_t* s = src + (size_t)y * w;
+		const uint32_t* d = dst + (size_t)y * w;
+		if(memcmp(s, d, row_bytes * bh) == 0)
+			continue;
+
+		if(y0 < 0)
+			y0 = y;
+		y1 = y + bh;
+
+		if(x0 == 0 && x1 == w) //already full width, only the rows still matter
+			continue;
+
+		for(int32_t i = 0; i < bh; i++) {
+			const uint32_t* sr = s + (size_t)i * w;
+			const uint32_t* dr = d + (size_t)i * w;
+			int32_t l = 0;
+			while(l < x0 && sr[l] == dr[l])
+				l++;
+			if(l < x0)
+				x0 = l;
+
+			int32_t r = w - 1;
+			while(r >= x1 && sr[r] == dr[r])
+				r--;
+			if(r >= x1)
+				x1 = r + 1;
+
+			if(x0 == 0 && x1 == w)
+				break;
+		}
+	}
+
+	if(y0 < 0 || x1 <= x0)
+		return false;
+
+	dmg->x = x0;
+	dmg->y = y0;
+	dmg->w = x1 - x0;
+	dmg->h = y1 - y0;
+	return true;
+}
+
+static void copy_ws_rect(xwin_t* win, const grect_t* r) {
+	graph_t* src = win->ws_g;
+	graph_t* dst = win->ws_g_buffer;
+	size_t row_bytes = (size_t)r->w * sizeof(uint32_t);
+	for(int32_t y = 0; y < r->h; y++) {
+		memcpy(dst->buffer + (size_t)(r->y + y) * dst->w + r->x,
+				src->buffer + (size_t)(r->y + y) * src->w + r->x,
+				row_bytes);
+	}
+}
+
 static int x_update(int fd, int from_pid, x_t* x) {
 	if(fd < 0)
 		return -1;
@@ -1115,8 +1288,48 @@ static int x_update(int fd, int from_pid, x_t* x) {
 	if(!win->xinfo->visible)
 		return 0;
 
-	memcpy(win->ws_g_buffer->buffer, win->ws_g->buffer,
-			win->ws_g->w * win->ws_g->h * sizeof(uint32_t));
+	grect_t full = {0, 0, win->ws_g->w, win->ws_g->h};
+	grect_t dmg = full;
+	bool has_dmg = false;
+
+	if(win->ready && win->damage_skip == 0) {
+		has_dmg = detect_ws_damage(win, &dmg);
+		if(!has_dmg) {
+			if(!win->dirty && !win->frame_dirty)
+				return 0; //the client redrew the very same picture
+			/*nothing new in the workspace, but a repaint is still pending:
+			  keep the damage already recorded and just ask for it again*/
+			win_dirty(x, win);
+			return 0;
+		}
+
+		/*detection costs a full compare pass: back off for a while when the
+		  client keeps repainting almost everything anyway*/
+		if((int64_t)dmg.w * dmg.h * 4 >= (int64_t)full.w * full.h * 3)
+			win->damage_skip = X_DAMAGE_SKIP_MAX;
+	}
+	else if(win->damage_skip > 0) {
+		win->damage_skip--;
+	}
+
+	/*several updates may pile up between two repaints, so never narrow a
+	  damage that has not been composited yet*/
+	if(win->dirty && !win->has_damage)
+		has_dmg = false;
+	else if(has_dmg && win->has_damage)
+		rect_union_to(&dmg, &win->damage);
+
+	if(has_dmg) {
+		copy_ws_rect(win, &dmg);
+	}
+	else {
+		dmg = full;
+		memcpy(win->ws_g_buffer->buffer, win->ws_g->buffer,
+				(size_t)win->ws_g->w * win->ws_g->h * sizeof(uint32_t));
+	}
+
+	win->damage = dmg;
+	win->has_damage = has_dmg;
 	win->ready = true;
 	win_dirty(x, win);	
 	return 0;
@@ -1430,6 +1643,8 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 		win->frame_g = graph_new(win->frame_g_shm, win->xinfo->winr.w, win->xinfo->winr.h);
 		win->frame_dirty = true;
 		win->ready = false;
+		win->has_damage = false;
+		win->damage_skip = 0;
 	}
 	x_update_frame_areas(x, win);
 
@@ -2040,6 +2255,19 @@ int xserver_step(vdevice_t* dev, void* p) {
 		x_repaint(x, i);
 	}
 	ipc_enable();
+
+	/*the flush is a plain outbound IPC to the fb daemon and touches no
+	  window state, so it runs with inbound IPC re-enabled. It waits for the
+	  daemon to finish copying: compositing now writes straight into the
+	  scan-out dma, so the next frame must not overwrite it while the daemon
+	  is still pushing it to the panel (tearing/flicker, seen on real panels
+	  like raspix whose framebuffer is scanned out continuously).*/
+	for(uint32_t i=0; i<x->display_num; i++) {
+		if(x->displays[i].pending_flush) {
+			fb_flush(&x->displays[i].fb, true);
+			x->displays[i].pending_flush = false;
+		}
+	}
 
 	uint32_t gap = (uint32_t)(kernel_tic_ms(0) - tik);
 	if(gap < tm) {

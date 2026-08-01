@@ -5,6 +5,7 @@ basic:
 
 gui:
 	cd fbd; $(MAKE)
+	cd g2dd; $(MAKE)
 	cd moused; $(MAKE)
 	cd keybd; $(MAKE)
 	cd snd; $(MAKE)
@@ -16,6 +17,7 @@ clean:
 	cd ttyd; $(MAKE) clean
 	cd virtfsd; $(MAKE) clean
 	cd fbd; $(MAKE) clean
+	cd g2dd; $(MAKE) clean
 	cd moused; $(MAKE) clean
 	cd keybd; $(MAKE) clean
 	cd snd; $(MAKE) clean

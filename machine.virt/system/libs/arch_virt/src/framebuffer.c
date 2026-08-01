@@ -32,6 +32,7 @@ int32_t virt_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
   	_fb_info.vwidth = w;
   	_fb_info.vheight = h;
   	_fb_info.depth = 32;
+  	_fb_info.pitch = _fb_info.width * (_fb_info.depth/8); //matches the ramfb stride below
   	_fb_info.size = _fb_info.width * _fb_info.height * (_fb_info.depth/8);
   	_fb_info.size_max = ALIGN_UP(_fb_info.size, 4096);
 

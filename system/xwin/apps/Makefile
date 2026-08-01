@@ -16,6 +16,7 @@ all:
 	cd xtheme; $(MAKE)
 	cd xipconfig; $(MAKE)
 	cd clock; $(MAKE)
+	cd xg2dtest; $(MAKE)
 	cd SndPlayer; $(MAKE)
 
 clean:
@@ -36,4 +37,5 @@ clean:
 	cd xtheme; $(MAKE) clean
 	cd xipconfig; $(MAKE) clean
 	cd clock; $(MAKE) clean
+	cd xg2dtest; $(MAKE) clean
 	cd SndPlayer; $(MAKE) clean

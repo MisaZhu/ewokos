@@ -26,10 +26,12 @@ int main(int argc, char** argv) {
 	fbd_t fbd;
 	const char* mnt_point = argc > 1 ? argv[1]: "/dev/fb0";
 
+	memset(&fbd, 0, sizeof(fbd));
 	fbd.splash = NULL;
 	fbd.flush = flush;
 	fbd.init = init;
 	fbd.get_info = get_info;
+	fbd_set_flush_rect(fbd_flush_rect_to);
 
 	int res = fbd_run(&fbd, mnt_point, 640, 480, "");
 	return res;
