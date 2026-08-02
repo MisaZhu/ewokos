@@ -926,9 +926,15 @@ inline void svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t arg1, ew
 	svc_account(code);
 	if(svc_is_query_fastpath(code)) {
 		_svc_handler(code, arg0, arg1, arg2, ctx);
+		if(proc_reap_requested()) {
+			kernel_lock();
+			proc_reap_deferred();
+			kernel_unlock();
+		}
 		return;
 	}
 	kernel_lock();
 	_svc_handler(code, arg0, arg1, arg2, ctx);
+	proc_reap_deferred();
 	kernel_unlock();
 }

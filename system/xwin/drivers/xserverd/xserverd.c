@@ -631,6 +631,10 @@ static void push_win(x_t* x, xwin_t* win) {
 		xwin_t* win_top = x->win_tail;
 		xwin_t* win_systop = NULL;
 		while(win_top != NULL) {
+			if(win_top->xinfo == NULL) {
+				win_top = win_top->prev;
+				continue;
+			}
 			if((win_top->xinfo->style & XWIN_STYLE_SYSTOP) == 0)
 				break;
 			win_systop = win_top;
@@ -1510,7 +1514,8 @@ static void mark_all_frame_dirty(x_t* x, int32_t disp_index) {
 	xwin_t* w = x->win_tail; 
 	while(w != NULL) {
 		xwin_t* p = w->prev;
-		if(w->xinfo->display_index == (uint32_t)disp_index || disp_index < 0)
+		if(w->xinfo != NULL &&
+				(w->xinfo->display_index == (uint32_t)disp_index || disp_index < 0))
 			w->frame_dirty = true; //mark dirty temporary
 		w = p;
 	}
@@ -1532,8 +1537,10 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 
 	if(win->xinfo == NULL)
 		win->xinfo = shmat(xinfo_shm_id, 0, 0);
-	if(win->xinfo == NULL)
+	if(win->xinfo == NULL || win->xinfo == (void*)-1) {
+		win->xinfo = NULL;
 		return -1;
+	}
 	if(win->xinfo->ws_g_shm_id == 0 && win->ws_g_shm == NULL)
 		win->xinfo->ws_g_shm_id = -1;
 	if(win->xinfo->frame_g_shm_id == 0 && win->frame_g_shm == NULL)
@@ -1615,7 +1622,8 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 			return -1;
 
 		win->ws_g_shm = shmat(ws_g_shm_id, 0, 0);
-		if(win->ws_g_shm == NULL) {
+		if(win->ws_g_shm == NULL || win->ws_g_shm == (void*)-1) {
+			win->ws_g_shm = NULL;
 			return -1;
 		}
 
@@ -1639,7 +1647,8 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 		}
 
 		win->frame_g_shm = shmat(frame_g_shm_id, 0, 0);
-		if(win->frame_g_shm == NULL) {
+		if(win->frame_g_shm == NULL || win->frame_g_shm == (void*)-1) {
+			win->frame_g_shm = NULL;
 			release_graph_shm(&win->ws_g, &win->ws_g_shm, &win->xinfo->ws_g_shm_id);
 			if(win->ws_g_buffer != NULL) {
 				graph_free(win->ws_g_buffer);
@@ -1792,7 +1801,7 @@ static int x_set_desktop_space(x_t* x, proto_t* in, proto_t* out) {
 
 	xwin_t* win = x->win_head;
 	while(win != NULL) {
-		if(win->xinfo->display_index == disp_index) {
+		if(win->xinfo != NULL && win->xinfo->display_index == disp_index) {
 			x_push_event(x, win, &ev);
 		}
 		win = win->next;

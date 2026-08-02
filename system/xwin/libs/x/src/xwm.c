@@ -35,13 +35,15 @@ static bool fetch_desktop_graph(xwm_t* xwm, int32_t shm_id, int w, int h, graph_
 			_xwm_graph.g = NULL;
 		}
 		g_buf = shmat(shm_id, 0, 0);
+		if(g_buf == (void*)-1)
+			return false;
 		_xwm_graph.g = g_buf;
 		_xwm_graph.w = w;
 		_xwm_graph.h = h;
 		_xwm_graph.shm_id = shm_id;
 	}
 
-	if(g_buf == NULL)
+	if(g_buf == NULL || g_buf == (void*)-1)
 		return false;
 	graph_init(g, (const uint32_t*)g_buf, w, h);
 	return true;
@@ -53,7 +55,7 @@ static bool fetch_frame_graph(xwm_t* xwm, xinfo_t* info, graph_t* g) {
 	memset(g, 0, sizeof(graph_t));
 
 	uint32_t* frame_g_shm = (uint32_t*)shmat(info->frame_g_shm_id, 0, 0);
-	if(frame_g_shm == NULL)
+	if(frame_g_shm == NULL || frame_g_shm == (void*)-1)
 		return false;
 	g->buffer = frame_g_shm;
 	g->w = info->winr.w;
@@ -68,7 +70,7 @@ static bool fetch_ws_graph(xwm_t* xwm, xinfo_t* info, graph_t* g) {
 	memset(g, 0, sizeof(graph_t));
 
 	uint32_t* ws_g_shm = (uint32_t*)shmat(info->ws_g_shm_id, 0, 0);
-	if(ws_g_shm == NULL)
+	if(ws_g_shm == NULL || ws_g_shm == (void*)-1)
 		return false;
 	g->buffer = ws_g_shm;
 	g->w = info->wsr.w;

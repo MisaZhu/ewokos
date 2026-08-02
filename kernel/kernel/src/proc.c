@@ -38,6 +38,7 @@ static uint32_t _use_core_id = 0;
 static uint32_t _proc_uuid = 0;
 static int32_t _last_create_pid = 0;
 static uint64_t _run_window_start_usec = 0;
+static volatile uint8_t _proc_reap_request = 0;
 
 static void proc_wakeup_all_state(proc_t* proc);
 
@@ -58,6 +59,14 @@ static uint32_t _x86_core_attach_trace_count = 0;
 
 static inline uint64_t proc_account_now_usec(void) {
 	return irq_accounting_now_usec();
+}
+
+void proc_reap_request(void) {
+	_proc_reap_request = 1;
+}
+
+bool proc_reap_requested(void) {
+	return _proc_reap_request != 0;
 }
 
 void proc_lock_enter(void) {
@@ -961,6 +970,7 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 	if(proc->info.state == ZOMBIE || proc->info.state == UNUSED)
 		return;
 	proc_unready(proc, ZOMBIE);
+	proc_reap_request();
 	proc_untrack_interrupt_timeout(proc);
 	proc_untrack_ipc_timeout(proc);
 	/*
@@ -1154,13 +1164,65 @@ void proc_funeral(proc_t* proc) {
 	kfree(proc);
 }
 
-void proc_zombie_funeral(void) {
-	int32_t i;
-	for (i = 0; i < _kernel_config.max_task_num; i++) {
-		proc_t *p = _task_table[i];
-		if(p != NULL && p->info.state == ZOMBIE)
-			proc_funeral(p);
+static inline bool proc_can_reap_locked(proc_t* proc) {
+	if(proc == NULL || proc->info.state != ZOMBIE)
+		return false;
+	if(proc->info.type == TASK_TYPE_PROC &&
+			proc->space != NULL &&
+			proc->space->refs > 0) {
+		return false;
 	}
+	return true;
+}
+
+static proc_t* proc_take_zombie_by_pid(int32_t pid) {
+	proc_t* proc = NULL;
+
+	if(pid < 0 || pid >= _kernel_config.max_task_num)
+		return NULL;
+
+	proc_lock_enter();
+	proc = _task_table[pid];
+	if(proc_can_reap_locked(proc)) {
+		_task_table[pid] = NULL;
+	}
+	else {
+		proc = NULL;
+	}
+	proc_lock_leave();
+	return proc;
+}
+
+static proc_t* proc_take_next_zombie(void) {
+	proc_t* proc = NULL;
+
+	proc_lock_enter();
+	for(int32_t i = 0; i < _kernel_config.max_task_num; i++) {
+		proc = _task_table[i];
+		if(!proc_can_reap_locked(proc))
+			continue;
+		_task_table[i] = NULL;
+		break;
+	}
+	proc_lock_leave();
+	return proc;
+}
+
+void proc_zombie_funeral(void) {
+	proc_t* proc = NULL;
+	while((proc = proc_take_next_zombie()) != NULL) {
+		proc_funeral(proc);
+	}
+}
+
+void proc_reap_deferred(void) {
+	if(_proc_reap_request == 0)
+		return;
+
+	do {
+		_proc_reap_request = 0;
+		proc_zombie_funeral();
+	} while(_proc_reap_request != 0);
 }
 
 static inline void proc_kick_ready_core(proc_t* proc) {
@@ -1633,7 +1695,9 @@ void proc_waitpid(context_t* ctx, int32_t pid) {
 	}
 	if(p->info.state == ZOMBIE) {
 		proc_lock_leave();
-		proc_funeral(p);
+		p = proc_take_zombie_by_pid(pid);
+		if(p != NULL)
+			proc_funeral(p);
 		return;
 	}
 
@@ -1649,8 +1713,8 @@ void proc_waitpid(context_t* ctx, int32_t pid) {
 	schedule(ctx);
 	proc_account_resume_current();
 
-	p = _task_table[pid];
-	if(p != NULL && p->info.state == ZOMBIE) {
+	p = proc_take_zombie_by_pid(pid);
+	if(p != NULL) {
 		proc_funeral(p);
 	}
 }
@@ -1872,7 +1936,9 @@ int32_t get_procs_num(void) {
 	uint32_t i;
 	proc_lock_enter();
 	for(i=0; i<_kernel_config.max_task_num; i++) {
-		if(_task_table[i] != NULL && _task_table[i]->info.state != UNUSED)  {
+		if(_task_table[i] != NULL &&
+				_task_table[i]->info.state != UNUSED &&
+				_task_table[i]->info.state != ZOMBIE)  {
 			if(!_task_table[i]->is_core_idle_proc)
 				res++;
 		}
@@ -1891,14 +1957,17 @@ int32_t get_procs(int32_t num, procinfo_t* procs) {
 	uint32_t i;
 	for(i=0; i<_kernel_config.max_task_num && j<(num); i++) {
 		proc_t* p = _task_table[i];
-		if(p != NULL && p->info.state != UNUSED && !p->is_core_idle_proc) {
+		if(p != NULL &&
+				p->info.state != UNUSED &&
+				p->info.state != ZOMBIE &&
+				!p->is_core_idle_proc) {
 			memcpy(&procs[j], &p->info, sizeof(procinfo_t));
-			procs[j].heap_size = p->space->heap_size;
+			procs[j].heap_size = (p->space != NULL) ? p->space->heap_size : 0;
 			j++;
 		}
 	}
 	proc_lock_leave();
-	return 0;
+	return j;
 }
 
 int32_t get_proc(int32_t pid, procinfo_t *info) {
@@ -2184,7 +2253,7 @@ int32_t renew_kernel_tic(uint32_t usec) {
 }
 
 void renew_kernel_sec(void) {
-	proc_zombie_funeral();
+	proc_reap_request();
 	proc_refresh_runtime_stats();
 	uint64_t now_usec = proc_account_now_usec();
 	if(now_usec - _run_window_start_usec >=

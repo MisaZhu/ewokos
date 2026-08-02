@@ -133,7 +133,11 @@ int main(int argc, char* argv[]) {
 	num = syscall0(SYS_GET_PROCS_NUM);
 
 	procinfo_t* procs = (procinfo_t*)malloc(sizeof(procinfo_t)*num);
-	if(num > 0 && procs != NULL && syscall2(SYS_GET_PROCS, (ewokos_addr_t)num, (ewokos_addr_t)procs) == 0) {
+	int got = -1;
+	if(num > 0 && procs != NULL)
+		got = syscall2(SYS_GET_PROCS, (ewokos_addr_t)num, (ewokos_addr_t)procs);
+	if(got >= 0) {
+		num = got;
 		if(full)
 			printf("OWNER    PID  FATH  CORE  STATE     TIME     HEAP    SHM    PROC\n"); 
 		else
