@@ -16,7 +16,9 @@ using namespace Ewok;
 /*-------get area functions.----------*/
 void XWM::getWinSpace(int style, grect_t* xr, grect_t* winr) {
 	winr->x = xr->x;
+	winr->y = xr->y;
 	winr->w = xr->w;
+	winr->h = xr->h;
 
 	if((style & XWIN_STYLE_NO_TITLE) == 0 &&
 			(style & XWIN_STYLE_NO_FRAME) == 0) {

@@ -1546,6 +1546,8 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 
 	int wsr_w = win->xinfo->wsr.w;
 	int wsr_h = win->xinfo->wsr.h;
+	int winr_w = win->xinfo->winr.w;
+	int winr_h = win->xinfo->winr.h;
 	
 	if((win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0 &&
       (win->xinfo->style & XWIN_STYLE_NO_TITLE) == 0) {
@@ -1583,6 +1585,13 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 			&win->xinfo->wsr,
 			&win->xinfo->winr) != 0)	
 		return -1;
+
+	/* frame_g is sized from winr, not wsr. Theme/style/title changes can
+	 * change the outer frame size even when the workspace size stays the
+	 * same, so force a rebuild whenever winr geometry changes. */
+	if(winr_w != win->xinfo->winr.w || winr_h != win->xinfo->winr.h) {
+		type = type | X_UPDATE_REBUILD | X_UPDATE_REFRESH;
+	}
 	
 	if((type & X_UPDATE_REBUILD) != 0 ||
 			win->ws_g_shm == NULL ||
