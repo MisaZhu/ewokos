@@ -42,9 +42,6 @@ struct ip_hdr {
 const ip_addr_t IP_ADDR_ANY       = 0x00000000; /* 0.0.0.0 */
 const ip_addr_t IP_ADDR_BROADCAST = 0xffffffff; /* 255.255.255.255 */
 
-#define ARP_RESOLVE_WAIT_RETRY_MAX 300
-#define ARP_RESOLVE_WAIT_US 10000
-
 /* NOTE: if you want to add/delete the entries after net_run(), you need to protect these lists with a mutex. */
 static struct ip_iface *ifaces;
 static struct ip_protocol *protocols;
@@ -395,25 +392,6 @@ ip_input(const uint8_t *data, size_t len, struct net_device *dev)
 }
 
 static int
-ip_resolve_hwaddr(struct ip_iface *iface, ip_addr_t dst, uint8_t *hwaddr)
-{
-    char addr[IP_ADDR_STR_LEN];
-    for (int retry = 0; retry < ARP_RESOLVE_WAIT_RETRY_MAX; retry++) {
-        int ret = arp_resolve(NET_IFACE(iface), dst, hwaddr);
-        if (ret == ARP_RESOLVE_FOUND) {
-            return 0;
-        }
-        if (ret == ARP_RESOLVE_ERROR) {
-            return -1;
-        }
-        intr_poll_once();
-        net_protocol_handler();
-        usleep(ARP_RESOLVE_WAIT_US);
-    }
-    return -1;
-}
-
-static int
 ip_output_device(struct ip_iface *iface, const uint8_t *data, size_t len, ip_addr_t dst)
 {
     uint8_t hwaddr[NET_DEVICE_ADDR_LEN] = {};
@@ -422,10 +400,38 @@ ip_output_device(struct ip_iface *iface, const uint8_t *data, size_t len, ip_add
         if (dst == iface->broadcast || dst == IP_ADDR_BROADCAST) {
             memcpy(hwaddr, NET_IFACE(iface)->dev->broadcast, NET_IFACE(iface)->dev->alen);
         } else {
-            if (ip_resolve_hwaddr(iface, dst, hwaddr) != 0) {
+            /*
+             * NEVER wait here for the ARP reply.
+             *
+             * This used to spin up to 3s (300 x 10ms) while calling
+             * intr_poll_once() + net_protocol_handler() from the caller's
+             * thread. Every caller reaches this point with the TCP or UDP
+             * stack mutex held, so the re-entrant protocol dispatch could
+             * take that same non-recursive mutex again and deadlock the
+             * thread for good; and even without the deadlock it froze the IPC
+             * dispatch thread (accept()/recv()) and the protocol/timer thread
+             * (which is what re-sends DHCP DISCOVER) for seconds at a time.
+             *
+             * Hand the datagram over to the ARP layer instead: it is sent as
+             * soon as the reply arrives, which is what a normal neighbour
+             * queue does.
+             */
+            int ret = arp_resolve(NET_IFACE(iface), dst, hwaddr);
+            if (ret == ARP_RESOLVE_ERROR) {
                 char addr[IP_ADDR_STR_LEN];
                 errorf("arp resolve error, dst=%s", ip_addr_ntop(dst, addr, sizeof(addr)));
                 return -1;
+            }
+            if (ret != ARP_RESOLVE_FOUND) {
+                if (arp_pending_push(NET_IFACE(iface), dst, data, len) == 0) {
+                    return 0;
+                }
+                /* raced with the reply: one more lookup, then give up */
+                if (arp_resolve(NET_IFACE(iface), dst, hwaddr) != ARP_RESOLVE_FOUND) {
+                    char addr[IP_ADDR_STR_LEN];
+                    errorf("arp unresolved, dst=%s", ip_addr_ntop(dst, addr, sizeof(addr)));
+                    return -1;
+                }
             }
         }
     }

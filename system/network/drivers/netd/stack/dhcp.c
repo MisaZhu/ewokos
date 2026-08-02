@@ -49,6 +49,8 @@
 #define DHCP_MAGIC_COOKIE   0x63825363
 #define DHCP_FLAGS_BROADCAST 0x8000
 #define DHCP_RETRY_INTERVAL  3
+/* REQUESTs retried with the same xid before falling back to re-discovery. */
+#define DHCP_REQUEST_RETRY_MAX 3
 #define DHCP_DEFAULT_LEASE   3600
 
 enum {
@@ -124,6 +126,7 @@ typedef struct dhcp_client{
     uint32_t   dns2;
     int   validity; 
     int   state;
+    int   retries;   /* REQUEST retries within the current xid */
 
 }dhcp_client_t;
 
@@ -397,6 +400,7 @@ dhcp_discovery(struct net_device *dev)
     dhc->xid = dhcp_generate_xid(dev);
     dhc->requested_ip = 0;
     dhc->server_id = 0;
+    dhc->retries = 0;
     dhc->state = DHCP_STATE_SELECTING;
     gettimeofday(&dhc->update, NULL);
     dhcp_send(dev, dhc, DHCP_OPTION_DISCOVER);
@@ -409,6 +413,7 @@ dhcp_request(struct net_device *dev, dhcp_client_t *dhc)
         return;
     }
     dhc->state = DHCP_STATE_REQUESTING;
+    dhc->retries = 0;
     gettimeofday(&dhc->update, NULL);
     dhcp_send(dev, dhc, DHCP_OPTION_REQUEST);
 }
@@ -668,7 +673,21 @@ dhcp_timer(void)
                 dhcp_send(dhc->dev, dhc, DHCP_OPTION_REQUEST);
             }
         } else if (diff.tv_sec >= DHCP_RETRY_INTERVAL) {
-            dhcp_discovery(dhc->dev);
+            /*
+             * A REQUEST that went unanswered must be retried with the SAME
+             * xid: restarting discovery here regenerated the xid, so a merely
+             * delayed OFFER/ACK was then dropped by the xid check in
+             * dhcp_input() and the client could loop without ever binding.
+             */
+            if (dhc->state == DHCP_STATE_REQUESTING &&
+                    dhc->requested_ip != 0 && dhc->server_id != 0 &&
+                    dhc->retries < DHCP_REQUEST_RETRY_MAX) {
+                dhc->retries++;
+                gettimeofday(&dhc->update, NULL);
+                dhcp_send(dhc->dev, dhc, DHCP_OPTION_REQUEST);
+            } else {
+                dhcp_discovery(dhc->dev);
+            }
         }
         dhc = dhc->next;
     }

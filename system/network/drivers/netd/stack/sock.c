@@ -695,6 +695,33 @@ inline uint32_t sock_get_timeout_msec(struct timeval* timeout) {
     return 0;
 }
 
+/*
+ * SO_RCVTIMEO of a socket id, for the netd task layer.
+ *
+ * netd never lets a worker block inside tcp_receive()/udp_recvfrom(), so the
+ * timeout those functions implement internally is unreachable; the task state
+ * machine has to enforce the deadline itself.
+ * Returns 0 and fills *timeout when a non-zero receive timeout is set.
+ */
+int
+sock_get_rcvtimeo(int id, struct timeval *timeout)
+{
+    struct sock *s;
+
+    if (!timeout) {
+        return -1;
+    }
+    s = sock_get(id);
+    if (!s) {
+        return -1;
+    }
+    if (s->rcv_timeout.tv_sec == 0 && s->rcv_timeout.tv_usec == 0) {
+        return -1;
+    }
+    *timeout = s->rcv_timeout;
+    return 0;
+}
+
 int
 sock_readable(int id)
 {

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
 #include "../platform.h"
@@ -20,6 +21,16 @@
 
 #define ARP_CACHE_SIZE 32
 #define ARP_CACHE_TIMEOUT 600 /* seconds */
+/*
+ * An entry that never gets a reply must not live for ARP_CACHE_TIMEOUT: it
+ * would keep every later ip_output() to that address in the INCOMPLETE path
+ * and pin one of the 32 slots.
+ */
+#define ARP_INCOMPLETE_TIMEOUT 5 /* seconds */
+/* Do not re-broadcast a request for the same target more often than this. */
+#define ARP_REQUEST_INTERVAL_US 500000
+/* One MTU-sized datagram may wait per unresolved neighbour. */
+#define ARP_PENDING_MAX 2048
 
 #define ARP_CACHE_STATE_FREE       0
 #define ARP_CACHE_STATE_INCOMPLETE 1
@@ -47,6 +58,11 @@ struct arp_cache {
     ip_addr_t pa;
     uint8_t ha[ETHER_ADDR_LEN];
     struct timeval timestamp;
+    /* pending datagram queued while the entry is INCOMPLETE */
+    struct net_iface *iface;
+    struct timeval request;
+    uint8_t *pending;
+    size_t pending_len;
 };
 
 static mutex_t mutex = MUTEX_INITIALIZER;
@@ -96,6 +112,18 @@ arp_dump(const uint8_t *data, size_t len)
  * NOTE: ARP Cache functions must be called after mutex locked
  */
 
+static void
+arp_pending_drop(struct arp_cache *cache)
+{
+    if (cache->pending) {
+        memory_free(cache->pending);
+        cache->pending = NULL;
+    }
+    cache->pending_len = 0;
+    cache->iface = NULL;
+    timerclear(&cache->request);
+}
+
 static struct arp_cache *
 arp_cache_alloc(void)
 {
@@ -109,6 +137,10 @@ arp_cache_alloc(void)
             oldest = entry;
         }
     }
+    if (oldest) {
+        /* the evicted entry may still own a queued datagram */
+        arp_pending_drop(oldest);
+    }
     return oldest;
 }
 
@@ -119,9 +151,14 @@ arp_cache_select(ip_addr_t pa)
 
     for (entry = caches; entry < tailof(caches); entry++) {
         if (entry->state != ARP_CACHE_STATE_FREE && entry->pa == pa) {
-            gettimeofday(&entry->timestamp, NULL);
             if (entry->state == ARP_CACHE_STATE_RESOLVED ||
                 entry->state == ARP_CACHE_STATE_STATIC) {
+                /*
+                 * Only a usable entry gets its lifetime refreshed. Touching
+                 * the timestamp of an INCOMPLETE entry made it immortal, so
+                 * arp_timer() could never reap an address that never replies.
+                 */
+                gettimeofday(&entry->timestamp, NULL);
                 return entry;
             }
             if (!candidate) {
@@ -181,10 +218,27 @@ arp_cache_delete(struct arp_cache *cache)
     char addr2[ETHER_ADDR_STR_LEN];
 
     debugf("DELETE: pa=%s, ha=%s", ip_addr_ntop(cache->pa, addr1, sizeof(addr1)), ether_addr_ntop(cache->ha, addr2, sizeof(addr2)));
+    arp_pending_drop(cache);
     cache->state = ARP_CACHE_STATE_FREE;
     cache->pa = 0;
     memset(cache->ha, 0, ETHER_ADDR_LEN);
     timerclear(&cache->timestamp);
+}
+
+static int
+arp_request_due(struct arp_cache *cache)
+{
+    struct timeval now, diff;
+
+    if (!cache->request.tv_sec && !cache->request.tv_usec) {
+        return 1;
+    }
+    gettimeofday(&now, NULL);
+    timersub(&now, &cache->request, &diff);
+    if (diff.tv_sec > 0 || diff.tv_usec >= ARP_REQUEST_INTERVAL_US) {
+        return 1;
+    }
+    return 0;
 }
 
 static int
@@ -232,6 +286,11 @@ arp_input(const uint8_t *data, size_t len, struct net_device *dev)
     ip_addr_t spa, tpa;
     int merge = 0;
     struct net_iface *iface;
+    struct arp_cache *cache;
+    struct net_iface *pending_iface = NULL;
+    uint8_t *pending = NULL;
+    size_t pending_len = 0;
+    uint8_t pending_ha[ETHER_ADDR_LEN] = {};
 
     if (len < sizeof(*msg)) {
         errorf("too short");
@@ -251,11 +310,29 @@ arp_input(const uint8_t *data, size_t len, struct net_device *dev)
     memcpy(&spa, msg->spa, sizeof(spa));
     memcpy(&tpa, msg->tpa, sizeof(tpa));
     mutex_lock(&mutex);
-    if (arp_cache_update(spa, msg->sha)) {
+    cache = arp_cache_update(spa, msg->sha);
+    if (cache) {
         /* updated */
         merge = 1;
+        /* take ownership of the datagram that was waiting for this reply */
+        pending = cache->pending;
+        pending_len = cache->pending_len;
+        pending_iface = cache->iface;
+        cache->pending = NULL;
+        cache->pending_len = 0;
+        cache->iface = NULL;
+        timerclear(&cache->request);
+        memcpy(pending_ha, cache->ha, ETHER_ADDR_LEN);
     }
     mutex_unlock(&mutex);
+    /* the flush must happen with the ARP mutex released */
+    if (pending) {
+        if (pending_iface) {
+            net_device_output(pending_iface->dev, NET_PROTOCOL_TYPE_IP,
+                    pending, pending_len, pending_ha);
+        }
+        memory_free(pending);
+    }
     iface = net_device_get_iface(dev, NET_IFACE_FAMILY_IP);
     if (iface && ((struct ip_iface *)iface)->unicast == tpa) {
         if (!merge) {
@@ -267,6 +344,50 @@ arp_input(const uint8_t *data, size_t len, struct net_device *dev)
             arp_reply(iface, msg->sha, spa, msg->sha);
         }
     }
+}
+
+/*
+ * Queue one datagram behind an unresolved neighbour entry.
+ *
+ * ip_output() must never wait for the ARP reply: it runs with the TCP/UDP
+ * stack mutex held, on the shared IPC dispatch thread and on the single
+ * protocol/timer thread. Blocking there stalled every socket in netd and the
+ * DHCP timer as well. Instead the frame is parked here and transmitted from
+ * arp_input() as soon as the reply lands.
+ */
+int
+arp_pending_push(struct net_iface *iface, ip_addr_t pa, const uint8_t *data, size_t len)
+{
+    struct arp_cache *cache;
+    uint8_t *buf;
+
+    if (len == 0 || len > ARP_PENDING_MAX) {
+        return -1;
+    }
+    buf = memory_alloc(len);
+    if (!buf) {
+        errorf("memory_alloc() failure");
+        return -1;
+    }
+    memcpy(buf, data, len);
+
+    mutex_lock(&mutex);
+    cache = arp_cache_select(pa);
+    if (!cache || cache->state != ARP_CACHE_STATE_INCOMPLETE) {
+        /* raced with the reply, or the entry got evicted */
+        mutex_unlock(&mutex);
+        memory_free(buf);
+        return -1;
+    }
+    /* keep only the newest datagram, like a one-deep neighbour queue */
+    if (cache->pending) {
+        memory_free(cache->pending);
+    }
+    cache->pending = buf;
+    cache->pending_len = len;
+    cache->iface = iface;
+    mutex_unlock(&mutex);
+    return 0;
 }
 
 int
@@ -295,14 +416,25 @@ arp_resolve(struct net_iface *iface, ip_addr_t pa, uint8_t *ha)
         }
         cache->state = ARP_CACHE_STATE_INCOMPLETE;
         cache->pa = pa;
+        cache->iface = iface;
         gettimeofday(&cache->timestamp, NULL);
+        cache->request = cache->timestamp;
         arp_request(iface, pa);
         mutex_unlock(&mutex);
         debugf("cache not found, pa=%s", ip_addr_ntop(pa, addr1, sizeof(addr1)));
         return ARP_RESOLVE_INCOMPLETE;
     }
     if (cache->state == ARP_CACHE_STATE_INCOMPLETE) {
-        arp_request(iface, pa); /* just in case packet loss */
+        cache->iface = iface;
+        /*
+         * Rate limited: this used to broadcast a request on every single call,
+         * and ip_output() called it 300 times in a row, flooding the link with
+         * ARP requests for one unreachable address.
+         */
+        if (arp_request_due(cache)) {
+            gettimeofday(&cache->request, NULL);
+            arp_request(iface, pa); /* just in case packet loss */
+        }
         mutex_unlock(&mutex);
         return ARP_RESOLVE_INCOMPLETE;
     }
@@ -318,13 +450,16 @@ arp_timer(void)
 {
     struct arp_cache *entry;
     struct timeval now, diff;
+    time_t timeout;
 
     mutex_lock(&mutex);
     gettimeofday(&now, NULL);
     for (entry = caches; entry < tailof(caches); entry++) {
         if (entry->state != ARP_CACHE_STATE_FREE && entry->state != ARP_CACHE_STATE_STATIC) {
+            timeout = (entry->state == ARP_CACHE_STATE_INCOMPLETE) ?
+                    ARP_INCOMPLETE_TIMEOUT : ARP_CACHE_TIMEOUT;
             timersub(&now, &entry->timestamp, &diff);
-            if (diff.tv_sec > ARP_CACHE_TIMEOUT) {
+            if (diff.tv_sec > timeout) {
                 arp_cache_delete(entry);
             }
         }
