@@ -17,6 +17,7 @@
 #include <x/xevent.h>
 #include <x/xwm.h>
 #include <ewoksys/proc.h>
+#include <ewoksys/klog.h>
 #include <graph/graph_png.h>
 #include <ewoksys/keydef.h>
 #include <tinyjson/tinyjson.h>
@@ -186,6 +187,19 @@ static void prepare_win_content(x_t* x, xwin_t* win, const grect_t* ws_dmg) {
 	if(!check_xwm(x))
 		return;
 
+	/*xwm builds its graphs from the geometry inside xinfo, so a rect that does
+	  not match the buffers we allocated would make it draw with a stride the
+	  memory does not have and shear the whole window*/
+	if(win->frame_g == NULL ||
+			win->frame_g->w != win->xinfo->winr.w ||
+			win->frame_g->h != win->xinfo->winr.h)
+		return;
+
+	if(win->ws_g == NULL ||
+			win->ws_g->w != win->xinfo->wsr.w ||
+			win->ws_g->h != win->xinfo->wsr.h)
+		return;
+
 	//klog("win title: %s win->frame_dirty: %d\n", win->xinfo->title, win->frame_dirty);
 	proto_t in;
 	PF->format(&in, "i,i,i,m",
@@ -330,6 +344,9 @@ static int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
 	out_dmg->y = win->xinfo->winr.y + dmg.y;
 	out_dmg->w = dmg.w;
 	out_dmg->h = dmg.h;
+
+	if(g != NULL && dmg.w > 0 && dmg.h > 0)
+		win->composited = true;
 
 	win->dirty = false;
 	win->frame_dirty = false;
@@ -746,9 +763,11 @@ static void x_del_win(x_t* x, xwin_t* win) {
 		x->win_last = NULL;
 
 	if(win->xinfo != NULL) {
-		release_graph_shm(&win->ws_g, &win->ws_g_shm, &win->xinfo->ws_g_shm_id);
-		release_graph_shm(&win->frame_g, &win->frame_g_shm, &win->xinfo->frame_g_shm_id);
+		win->xinfo->ws_g_shm_id = -1;
+		win->xinfo->frame_g_shm_id = -1;
 	}
+	release_graph_shm(&win->ws_g, &win->ws_g_shm, &win->ws_g_shm_id);
+	release_graph_shm(&win->frame_g, &win->frame_g_shm, &win->frame_g_shm_id);
 	
 	if(win->ws_g_buffer != NULL) {
 		graph_free(win->ws_g_buffer);
@@ -990,12 +1009,11 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 			if(win->dirty || win->frame_dirty) {
 				/* fully covered by an opaque window above: the covering
 				   window paints over it later in this bottom-to-top pass,
-				   so drawing it would be pure waste */
+				   so drawing it now would be pure waste. Keep the pending
+				   dirty state so the window can still be redrawn once it is
+				   exposed again. */
 				if(win != x->current.win_drag &&
 								covered_by_opaque_win(x, win, display_index, &win->xinfo->winr)) {
-					win->dirty = false;
-					win->frame_dirty = false;
-					win->has_damage = false;
 				}
 				else {
 					grect_t win_dirty;
@@ -1156,10 +1174,12 @@ static void mark_dirty(x_t* x, xwin_t* win) {
 				if(!top->xinfo->alpha && 
 					(top->xinfo->focused ||
 					(top->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) != 0)) { 
-					//covered by upon window. don't have to repaint.
-						win->dirty = false;
-						unmark_dirty(x, win);//unmark temporary dirty top win
-						return;
+					/* fully occluded by an opaque window above: stop
+					   propagating this dirty upward for now, but keep the
+					   dirty state on the covered window itself so the content
+					   can still be composited later when it becomes visible */
+					unmark_dirty(x, win);//unmark temporary dirty top win
+					return;
 				}
 			}
 		}
@@ -1171,12 +1191,38 @@ static void mark_dirty(x_t* x, xwin_t* win) {
 		mark_dirty(x, win_next);
 }
 
+#define X_READY_RETRY_TICKS 60 //about one second at 60fps
+
+/*a visible window that never delivered a first frame is invisible for good:
+  the client only draws when it thinks something changed, so if its repaint
+  request got lost nobody will ever ask again. Keep asking until it answers.*/
+static void check_win_ready(x_t* x, xwin_t* win) {
+	if(win->xinfo == NULL || !win->xinfo->visible || win->ready) {
+		win->not_ready_ticks = 0;
+		return;
+	}
+
+	win->not_ready_ticks++;
+	if(win->not_ready_ticks < X_READY_RETRY_TICKS)
+		return;
+	win->not_ready_ticks = 0;
+
+	xevent_t ev;
+	memset(&ev, 0, sizeof(xevent_t));
+	ev.type = XEVT_WIN;
+	ev.value.window.event = XEVT_WIN_REPAINT;
+	x_push_event(x, win, &ev);
+}
+
 static void check_wins(x_t* x) {
 	xwin_t* w = x->win_tail; 
 	while(w != NULL) {
 		xwin_t* p = w->prev;
 		if(w->from_main_pid < 0 || proc_check_uuid(w->from_main_pid, w->from_main_pid_uuid) != w->from_main_pid_uuid) {
 			x_del_win(x, w);
+		}
+		else {
+			check_win_ready(x, w);
 		}
 		w = p;
 	}
@@ -1330,8 +1376,13 @@ static int x_update(int fd, int from_pid, x_t* x) {
 	if(win->ready && win->damage_skip == 0) {
 		has_dmg = detect_ws_damage(win, &dmg);
 		if(!has_dmg) {
-			if(!win->dirty && !win->frame_dirty)
+			if(win->composited && !win->dirty && !win->frame_dirty)
 				return 0; //the client redrew the very same picture
+			/*the snapshot we hold never reached the display (a repaint got
+			  dropped, or the buffers were rebuilt): the client has no reason
+			  to draw anything else, so composite all of it again*/
+			if(!win->composited)
+				win->has_damage = false;
 			/*nothing new in the workspace, but a repaint is still pending:
 			  keep the damage already recorded and just ask for it again*/
 			win_dirty(x, win);
@@ -1428,22 +1479,30 @@ static void x_get_min_size(x_t* x, xwin_t* win, int *w, int* h) {
 	PF->clear(&out);
 }
 
+/*rout only gets written when the whole query worked out: a half updated
+  geometry would make xwm draw the frame with a stride the buffer does not
+  have, which shears the whole window content*/
 static int get_xwm_win_space(x_t* x, int style, grect_t* rin, grect_t* rout) {
-	memcpy(rout, rin, sizeof(grect_t));
-	if(!check_xwm(x))
-		return 0;
+	grect_t r;
+	memcpy(&r, rin, sizeof(grect_t));
 
-	proto_t in, out;
-	PF->init(&out);
-	PF->format(&in, "i,m", style, rin, sizeof(grect_t));
+	if(check_xwm(x)) {
+		proto_t in, out;
+		PF->init(&out);
+		PF->format(&in, "i,m", style, rin, sizeof(grect_t));
 
-	int res = ipc_call(x->xwm_pid, XWM_CNTL_GET_WIN_SPACE, &in, &out);
-	PF->clear(&in);
-	if(res == 0)
-		proto_read_to(&out, rout, sizeof(grect_t));
-	PF->clear(&out);
+		int res = ipc_call(x->xwm_pid, XWM_CNTL_GET_WIN_SPACE, &in, &out);
+		PF->clear(&in);
+		if(res == 0)
+			proto_read_to(&out, &r, sizeof(grect_t));
+		PF->clear(&out);
 
-	return res;
+		if(res != 0)
+			return res;
+	}
+
+	memcpy(rout, &r, sizeof(grect_t));
+	return 0;
 }
 
 enum {
@@ -1572,11 +1631,6 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 		win->xinfo = NULL;
 		return -1;
 	}
-	if(win->xinfo->ws_g_shm_id == 0 && win->ws_g_shm == NULL)
-		win->xinfo->ws_g_shm_id = -1;
-	if(win->xinfo->frame_g_shm_id == 0 && win->frame_g_shm == NULL)
-		win->xinfo->frame_g_shm_id = -1;
-
 	if((win->xinfo->style & XWIN_STYLE_LAUNCHER) != 0)
 		x->win_launcher = win;
 	if((win->xinfo->style & XWIN_STYLE_XIM) != 0)
@@ -1616,7 +1670,7 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 	}
 
 	if(wsr_w != win->xinfo->wsr.w || wsr_h != win->xinfo->wsr.h) {
-		type = type | X_UPDATE_REBUILD | X_UPDATE_REFRESH;
+		type = type | X_UPDATE_REFRESH;
 	}
 
 	if(get_xwm_win_space(x, (int)win->xinfo->style,
@@ -1624,26 +1678,65 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 			&win->xinfo->winr) != 0)	
 		return -1;
 
+	/*the client sizes its workspace, the decoration (title, border and shadow)
+	  is put around it, so the whole window is always bigger than what was
+	  asked for. Unless the client wanted something oversized on purpose, that
+	  overhead has to come off the workspace, otherwise the window does not fit
+	  the display and its lower/right part is simply cut away.*/
+	x_display_t* display = &x->displays[win->xinfo->display_index];
+	int32_t over_w = win->xinfo->winr.w - display->g->w;
+	int32_t over_h = win->xinfo->winr.h - display->g->h;
+	if((over_w > 0 && win->xinfo->wsr.w <= display->g->w) ||
+			(over_h > 0 && win->xinfo->wsr.h <= display->g->h)) {
+		if(over_w > 0)
+			win->xinfo->wsr.w = win->xinfo->wsr.w > over_w ?
+					(win->xinfo->wsr.w - over_w) : 1;
+		if(over_h > 0)
+			win->xinfo->wsr.h = win->xinfo->wsr.h > over_h ?
+					(win->xinfo->wsr.h - over_h) : 1;
+
+		if(get_xwm_win_space(x, (int)win->xinfo->style,
+				&win->xinfo->wsr,
+				&win->xinfo->winr) != 0)
+			return -1;
+
+		if(wsr_w != win->xinfo->wsr.w || wsr_h != win->xinfo->wsr.h)
+			type = type | X_UPDATE_REFRESH;
+	}
+
 	/* frame_g is sized from winr, not wsr. Theme/style/title changes can
 	 * change the outer frame size even when the workspace size stays the
-	 * same, so force a rebuild whenever winr geometry changes. */
+	 * same, so the frame has to be rebuilt on any winr geometry change. */
 	if(winr_w != win->xinfo->winr.w || winr_h != win->xinfo->winr.h) {
-		type = type | X_UPDATE_REBUILD | X_UPDATE_REFRESH;
+		type = type | X_UPDATE_REFRESH;
 	}
-	
-	if((type & X_UPDATE_REBUILD) != 0 ||
-			win->ws_g_shm == NULL ||
-			win->frame_g_shm == NULL ||
-			win->ws_g == NULL) {
 
-		release_graph_shm(&win->ws_g, &win->ws_g_shm, &win->xinfo->ws_g_shm_id);
+	/*ws_g is the shm the client keeps mapped and draws into. Dropping it
+	  while the client still holds the old mapping makes the client paint
+	  into a segment nobody reads any more: the window then stays blank
+	  forever even though it still gets events. So only rebuild it when its
+	  size really changed (or when it is missing), never just because the
+	  frame geometry moved.*/
+	bool ws_rebuild = (win->ws_g == NULL || win->ws_g_shm == NULL ||
+			win->ws_g_buffer == NULL ||
+			win->ws_g->w != win->xinfo->wsr.w ||
+			win->ws_g->h != win->xinfo->wsr.h);
+
+	bool frame_rebuild = (win->frame_g == NULL || win->frame_g_shm == NULL ||
+			win->frame_g->w != win->xinfo->winr.w ||
+			win->frame_g->h != win->xinfo->winr.h);
+
+	if(ws_rebuild) {
+		release_graph_shm(&win->ws_g, &win->ws_g_shm, &win->ws_g_shm_id);
+		/*published right away: every failure path below leaves the window
+		  without a workspace, and an id pointing at freed memory is worse
+		  than no id at all*/
+		win->xinfo->ws_g_shm_id = -1;
 
 		if(win->ws_g_buffer != NULL) {
 			graph_free(win->ws_g_buffer);
 			win->ws_g_buffer = NULL;
 		}
-
-		release_graph_shm(&win->frame_g, &win->frame_g_shm, &win->xinfo->frame_g_shm_id);
 
 		uint32_t uuid = proc_get_uuid(from_pid);
 		key_t key = 0;
@@ -1659,43 +1752,74 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 			return -1;
 		}
 
-		win->xinfo->ws_g_shm_id = ws_g_shm_id;
+		win->ws_g_shm_id = ws_g_shm_id;
 		win->ws_g = graph_new(win->ws_g_shm, win->xinfo->wsr.w, win->xinfo->wsr.h);
-		graph_clear(win->ws_g, 0x0);
 		win->ws_g_buffer = graph_new(NULL, win->xinfo->wsr.w, win->xinfo->wsr.h);
+		if(win->ws_g == NULL || win->ws_g_buffer == NULL) {
+			release_graph_shm(&win->ws_g, &win->ws_g_shm, &win->ws_g_shm_id);
+			if(win->ws_g_buffer != NULL) {
+				graph_free(win->ws_g_buffer);
+				win->ws_g_buffer = NULL;
+			}
+			return -1;
+		}
+		graph_clear(win->ws_g, 0x0);
 		graph_clear(win->ws_g_buffer, 0x0);
 
-		int32_t frame_g_shm_id = xserver_alloc_shm(uuid ^ 0x46520000u,
-						win->xinfo->winr.w * win->xinfo->winr.h * 4,
-						0666|IPC_CREAT|IPC_EXCL, &key);
-		if(frame_g_shm_id == -1) {
-			release_graph_shm(&win->ws_g, &win->ws_g_shm, &win->xinfo->ws_g_shm_id);
-			if(win->ws_g_buffer != NULL) {
-				graph_free(win->ws_g_buffer);
-				win->ws_g_buffer = NULL;
-			}
-			return -1;
-		}
-
-		win->frame_g_shm = shmat(frame_g_shm_id, 0, 0);
-		if(win->frame_g_shm == (void*)-1) {
-			win->frame_g_shm = NULL;
-			release_graph_shm(&win->ws_g, &win->ws_g_shm, &win->xinfo->ws_g_shm_id);
-			if(win->ws_g_buffer != NULL) {
-				graph_free(win->ws_g_buffer);
-				win->ws_g_buffer = NULL;
-			}
-			return -1;
-		}
-
-		win->xinfo->frame_g_shm_id = frame_g_shm_id;
-		win->frame_g = graph_new(win->frame_g_shm, win->xinfo->winr.w, win->xinfo->winr.h);
 		win->frame_dirty = true;
 		win->ready = false;
 		win->has_damage = false;
 		win->damage_skip = 0;
+		win->composited = false;
 	}
+
+	if(frame_rebuild) {
+		release_graph_shm(&win->frame_g, &win->frame_g_shm, &win->frame_g_shm_id);
+		win->xinfo->frame_g_shm_id = -1;
+
+		uint32_t uuid = proc_get_uuid(from_pid);
+		key_t key = 0;
+		int32_t frame_g_shm_id = xserver_alloc_shm(uuid ^ 0x46520000u,
+						win->xinfo->winr.w * win->xinfo->winr.h * 4,
+						0666|IPC_CREAT|IPC_EXCL, &key);
+		if(frame_g_shm_id == -1)
+			return -1;
+
+		win->frame_g_shm = shmat(frame_g_shm_id, 0, 0);
+		if(win->frame_g_shm == (void*)-1) {
+			win->frame_g_shm = NULL;
+			return -1;
+		}
+
+		win->frame_g_shm_id = frame_g_shm_id;
+		win->frame_g = graph_new(win->frame_g_shm, win->xinfo->winr.w, win->xinfo->winr.h);
+		if(win->frame_g == NULL) {
+			release_graph_shm(&win->frame_g, &win->frame_g_shm, &win->frame_g_shm_id);
+			return -1;
+		}
+		graph_clear(win->frame_g, 0x0);
+		win->frame_dirty = true;
+	}
+
+	/*the client only re-reads the geometry and redraws when it knows about
+	  the change: a rebuild it did not ask for needs an explicit repaint,
+	  otherwise the fresh (empty) workspace would stay empty*/
+	if(ws_rebuild && (type & X_UPDATE_REBUILD) == 0) {
+		xevent_t ev;
+		memset(&ev, 0, sizeof(xevent_t));
+		ev.type = XEVT_WIN;
+		ev.value.window.event = XEVT_WIN_REPAINT;
+		x_push_event(x, win, &ev);
+	}
+
 	x_update_frame_areas(x, win);
+
+	/*xinfo sits in memory the client owns and can be restored wholesale from an
+	  older copy of itself (the un-maximize path does exactly that), so the ids
+	  of the buffers the server really holds are published again on every
+	  update instead of being trusted as they come in*/
+	win->xinfo->ws_g_shm_id = win->ws_g_shm_id;
+	win->xinfo->frame_g_shm_id = win->frame_g_shm_id;
 
 	if((type & X_UPDATE_REFRESH) != 0 || win->xinfo->alpha) {
 		mark_all_frame_dirty(x, win->xinfo->display_index);
@@ -1889,16 +2013,23 @@ static int xserver_win_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info
 	(void)dev;
 	(void)oflag;
 	(void)info;
-	if(fd < 0)
+	if(fd < 0) {
+		klog("[DEBUG][XSERV-A] xserver_win_open invalid fd=%d from_pid=%d\n", fd, from_pid);
 		return -1;
+	}
 
 	x_t* x = (x_t*)p;
 	xwin_t* win = (xwin_t*)malloc(sizeof(xwin_t));
-	if(win == NULL)
+	if(win == NULL) {
+		klog("[DEBUG][XSERV-B] xserver_win_open malloc failed fd=%d from_pid=%d main_pid=%d\n",
+				fd, from_pid, proc_getpid(from_pid));
 		return -1;
+	}
 
 	memset(win, 0, sizeof(xwin_t));
 	win->fd = fd;
+	win->ws_g_shm_id = -1;
+	win->frame_g_shm_id = -1;
 	win->from_pid = from_pid;
 	win->from_main_pid = proc_getpid(from_pid);
 	win->from_main_pid_uuid = proc_get_uuid(win->from_main_pid);

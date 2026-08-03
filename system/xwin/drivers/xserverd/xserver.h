@@ -41,12 +41,25 @@ typedef struct st_xwin {
 	bool frame_dirty;
 	bool dirty_mark;
 	bool busy;
+	/*the current ws_g_buffer snapshot made it to the display at least
+	  once. Without it a snapshot that was never composited would look
+	  'unchanged' to the damage detection and the window would stay
+	  blank forever.*/
+	bool composited;
 
 	/*damaged area of ws_g, in workspace coordinates. When has_damage is
 	  false the whole workspace has to be treated as damaged.*/
 	grect_t damage;
 	bool has_damage;
 	uint32_t damage_skip; //consecutive full-width damages, backs off detection
+	uint32_t not_ready_ticks; //steps spent waiting for the first frame
+
+	/*xinfo lives in memory the client owns and can be replayed from an old
+	  copy of itself (the un-maximize path restores a whole snapshot), so the
+	  ids of the buffers the server really holds are kept here and published
+	  into xinfo on every update.*/
+	int32_t ws_g_shm_id;
+	int32_t frame_g_shm_id;
 
 	grect_t r_title;
 	grect_t r_close;
