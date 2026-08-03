@@ -1222,29 +1222,29 @@ static void mark_dirty(x_t* x, xwin_t* win) {
 		if(top->xinfo != NULL && top->xinfo->visible) {
 			memcpy(&r, &top->xinfo->winr, sizeof(grect_t));
 
-			grect_t *check_r;
+			grect_t check_r;
 			if(x->config.xwm_theme.alpha)
-				check_r = &win->xinfo->winr;
+				memcpy(&check_r, &win->xinfo->winr, sizeof(grect_t));
 			else
-				check_r = &win->xinfo->wsr;
+				memcpy(&check_r, &win->xinfo->wsr, sizeof(grect_t));
 
-			grect_insect(check_r, &r);
+			grect_insect(&check_r, &r);
 			if(r.w > 0 && r.h > 0)
 				top->dirty_mark = true; //mark top win dirty temporary
 			
-			if(r.x == check_r->x &&
-					r.y == check_r->y &&
-					r.w == check_r->w &&
-					r.h == check_r->h) {
+			if(r.x == check_r.x &&
+					r.y == check_r.y &&
+					r.w == check_r.w &&
+					r.h == check_r.h) {
 				if(!top->xinfo->alpha && 
 					(top->xinfo->focused ||
 					(top->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) != 0)) { 
 					/* fully occluded by an opaque window above: stop
-					   propagating this dirty upward for now, but keep the
-					   dirty state on the covered window itself so the content
-					   can still be composited later when it becomes visible */
-					unmark_dirty(x, win);//unmark temporary dirty top win
-					return;
+					   extending the search here, but still confirm the dirty
+					   marks collected so far. The covering window itself must
+					   be allowed to repaint, otherwise a full-cover case may
+					   keep stale pixels from the hidden window on screen. */
+					break;
 				}
 			}
 		}
@@ -1307,7 +1307,11 @@ static int do_xwin_top(int fd, int from_pid, x_t* x) {
 	xwin_t* win = x_get_win(x, fd, from_pid);
 	if(win == NULL || win->xinfo == NULL)
 		return -1;
-	if(!win->xinfo->visible)
+	bool visible = win->xinfo->visible;
+	/*allow one hidden prepaint after open/rebuild so a client can prepare its
+	  first frame before becoming visible; once the hidden buffer is ready,
+	  keep later hidden updates ignored as before*/
+	if(!visible && win->ready)
 		return 0;
 	xwin_top(x, win);
 	return 0;
@@ -1500,7 +1504,8 @@ static int x_update(int fd, int from_pid, x_t* x) {
 	win->damage = dmg;
 	win->has_damage = has_dmg;
 	win->ready = true;
-	win_dirty(x, win);	
+	if(win->xinfo->visible)
+		win_dirty(x, win);	
 	return 0;
 }
 
@@ -2159,6 +2164,7 @@ static void xwin_launcher(x_t* x, xwin_t* win) {
 }
 
 static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
+	bool finish_drag = false;
 	if(ev->state ==  MOUSE_STATE_DOWN) {
 		if(win != x->win_tail) {
 			xwin_top(x, win);
@@ -2210,6 +2216,7 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 		if(x->current.win_drag == win &&
 				x->current.drag_state != 0 &&
 				win->xinfo->state != XWIN_STATE_MAX) {
+			finish_drag = true;
 			ev->type = XEVT_WIN;
 			ev->value.window.v0 =  x->current.pos_delta.x;
 			ev->value.window.v1 =  x->current.pos_delta.y;
@@ -2255,6 +2262,8 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 		}
 		x->current.win_drag = NULL;
 		x->current.drag_state = 0;
+		if(finish_drag)
+			x_dirty(x, win->xinfo->display_index);
 	}
 
 	if(x->current.win_drag == win && x->current.drag_state != 0) {
