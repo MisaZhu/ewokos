@@ -1900,7 +1900,7 @@ static void do_vfs_pipe_open(int32_t pid, proto_t* out) {
 	int32_t shm_id = shmget(IPC_PRIVATE, SHM_PIPE_PAGE_SIZE, IPC_CREAT | 0666);
 	if(shm_id > 0) {
 		shm_pipe_t* ring = (shm_pipe_t*)shmat(shm_id, NULL, 0);
-		if(ring != NULL) {
+		if(ring != (void*)-1) {
 			uint32_t nid = vfs_get_node_id(node);
 			shm_pipe_init(ring, nid, shm_id);
 			node->shm_ring = ring;

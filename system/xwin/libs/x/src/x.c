@@ -157,7 +157,7 @@ int x_fetch_screen_graph(uint32_t index, graph_t* g) {
 	uint32_t* buffer = xscr->g.buffer;
 	if(buffer == NULL) {
 		buffer = (uint32_t*)shmat(scrinfo.g_shm_id, 0, 0);
-		if(buffer == NULL)
+		if(buffer == (void*)-1)
 			return -1;
 
 		xscr->g.buffer = buffer;

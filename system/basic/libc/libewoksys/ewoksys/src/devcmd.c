@@ -149,7 +149,7 @@ int dev_read(int dev_pid, int fd, fsinfo_t* info, int32_t offset, void* buf, uin
 		shm_id = shmget(key, size, 0666|IPC_CREAT|IPC_EXCL);
 		if(shm_id != -1)  {
 			shm = shmat(shm_id, 0, 0);
-			if(shm == NULL)
+			if(shm == (void*)-1)
 				return -1;
 		}
 	}
@@ -190,7 +190,7 @@ int dev_write(int dev_pid, int fd, fsinfo_t* info, int32_t offset, const void* b
 		shm_id = shmget(key, size, 0666|IPC_CREAT|IPC_EXCL);
 		if(shm_id != -1)  {
 			shm = shmat(shm_id, 0, 0);
-			if(shm == NULL)
+			if(shm == (void*)-1)
 				return -1;
 			memcpy(shm, buf, size);
 		}
@@ -338,7 +338,7 @@ int dev_read_block(int pid, void* buf, uint32_t size, int32_t index) {
 	if(shm_id == -1) 
 		return -1;
 	void* shm = shmat(shm_id, 0, 0);
-	if(shm == NULL)
+	if(shm == (void*)-1)
 		return 0;
 
 	proto_t in, out;

@@ -152,7 +152,7 @@ graph_t* fb_fetch_graph(fb_t* fb) {
 		return NULL;
 	
 	dma = shmat(dma_id, 0, 0);
-	if(dma == NULL) 
+	if(dma == (void*)-1) 
 		return NULL;
 	
 	g = graph_new((uint32_t*)dma, w, h);

@@ -513,12 +513,20 @@ static void rect_union_to(grect_t* dst, const grect_t* src) {
 	dst->h = y1 - y0;
 }
 
+static inline bool rect_contains_rect(const grect_t* out, const grect_t* in) {
+	return in->x >= out->x && in->y >= out->y &&
+			(in->x + in->w) <= (out->x + out->w) &&
+			(in->y + in->h) <= (out->y + out->h);
+}
+
 static void x_repaint_add_dirty(graph_t* g, grect_t* rects, uint32_t* num, const grect_t* r) {
 	grect_t dirty = *r;
 	if(!rect_is_valid(&dirty) || !rect_clip_to_graph(g, &dirty))
 		return;
 
 	for(uint32_t i = 0; i < *num; i++) {
+		if(rect_contains_rect(&rects[i], &dirty))
+			return;
 		if(rect_overlap_or_touch(&rects[i], &dirty)) {
 			rect_union_to(&rects[i], &dirty);
 			uint32_t j = 0;
@@ -983,13 +991,7 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 				/* fully covered by an opaque window above: the covering
 				   window paints over it later in this bottom-to-top pass,
 				   so drawing it would be pure waste */
-				uint32_t style = win->xinfo->style;
-				bool allow_skip_if_covered =
-								(style & (XWIN_STYLE_LAUNCHER |
-													XWIN_STYLE_SYSBOTTOM |
-													XWIN_STYLE_SYSTOP)) == 0;
 				if(win != x->current.win_drag &&
-								allow_skip_if_covered &&
 								covered_by_opaque_win(x, win, display_index, &win->xinfo->winr)) {
 					win->dirty = false;
 					win->frame_dirty = false;
@@ -1021,10 +1023,12 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 		}
 	}
 
-	if(cursor_hidden)
+	if(cursor_hidden) {
 		x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &cursor_old_rect);
-	if(cursor_refreshed)
+	}
+	if(cursor_refreshed) {
 		x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &cursor_new_rect);
+	}
 
 	display->dirty = false;
 	if(do_flush && dirty_num > 0) {
@@ -1135,13 +1139,11 @@ static void mark_dirty(x_t* x, xwin_t* win) {
 		if(top->xinfo != NULL && top->xinfo->visible) {
 			memcpy(&r, &top->xinfo->winr, sizeof(grect_t));
 
-			grect_t *check_r = &win->xinfo->wsr;
-			/* only expand dirty propagation to the outer frame when
-			   this repaint really updates the frame itself; using
-			   winr for every themed/shadowed repaint grows damage
-			   too much and slows the whole compositor down. */
-			if(x->config.xwm_theme.alpha || win->frame_dirty)
+			grect_t *check_r;
+			if(x->config.xwm_theme.alpha)
 				check_r = &win->xinfo->winr;
+			else
+				check_r = &win->xinfo->wsr;
 
 			grect_insect(check_r, &r);
 			if(r.w > 0 && r.h > 0)
@@ -1566,7 +1568,7 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 
 	if(win->xinfo == NULL)
 		win->xinfo = shmat(xinfo_shm_id, 0, 0);
-	if(win->xinfo == NULL || win->xinfo == (void*)-1) {
+	if(win->xinfo == (void*)-1) {
 		win->xinfo = NULL;
 		return -1;
 	}
@@ -1652,7 +1654,7 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 			return -1;
 
 		win->ws_g_shm = shmat(ws_g_shm_id, 0, 0);
-		if(win->ws_g_shm == NULL || win->ws_g_shm == (void*)-1) {
+		if(win->ws_g_shm == (void*)-1) {
 			win->ws_g_shm = NULL;
 			return -1;
 		}
@@ -1676,7 +1678,7 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 		}
 
 		win->frame_g_shm = shmat(frame_g_shm_id, 0, 0);
-		if(win->frame_g_shm == NULL || win->frame_g_shm == (void*)-1) {
+		if(win->frame_g_shm == (void*)-1) {
 			win->frame_g_shm = NULL;
 			release_graph_shm(&win->ws_g, &win->ws_g_shm, &win->xinfo->ws_g_shm_id);
 			if(win->ws_g_buffer != NULL) {

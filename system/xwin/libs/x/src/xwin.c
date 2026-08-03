@@ -150,7 +150,7 @@ xwin_t* xwin_open(x_t* xp, int32_t disp_index, int x, int y, int w, int h, const
 	}
 
 	xinfo_t* xinfo = (xinfo_t*)shmat(xinfo_shm_id, 0, 0);
-	if(xinfo == NULL || xinfo == (void*)-1) {
+	if(xinfo == (void*)-1) {
 		/* #region debug-point C:shmat-xinfo */
 		klog("[DEBUG][C] xwin_open shmat failed pid=%d uuid=%u key=%x shm_id=%d title=%s ptr=%lx\n",
 						getpid(), uuid, (uint32_t)key, xinfo_shm_id,
@@ -207,7 +207,7 @@ static graph_t* x_get_graph(xwin_t* xwin, graph_t* g) {
 
 	if(xwin->ws_g_shm == NULL) {
 		xwin->ws_g_shm = shmat(xwin->xinfo->ws_g_shm_id, 0, 0);
-		if(xwin->ws_g_shm == NULL)
+		if(xwin->ws_g_shm == (void*)-1)
 			return NULL;
 		if(xwin->on_resize != NULL) {
 			xwin->on_resize(xwin);

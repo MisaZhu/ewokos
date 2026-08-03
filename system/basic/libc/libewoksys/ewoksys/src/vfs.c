@@ -351,7 +351,7 @@ static inline shm_pipe_t* get_pipe_shm(int fd, fsfile_t* file) {
 	if(shm_id <= 0)
 		return NULL;
 	shm_pipe_t* ring = (shm_pipe_t*)shmat(shm_id, NULL, 0);
-	if(ring != NULL)
+	if(ring != (void*)-1)
 		_pipe_shm[fd] = ring;
 	return ring;
 }
@@ -644,7 +644,7 @@ int vfs_open_pipe(int fd[2]) {
 			/* Map shared-memory pipe ring buffer if available */
 			if(shm_id > 0) {
 				shm_pipe_t* ring = (shm_pipe_t*)shmat(shm_id, NULL, 0);
-				if(ring != NULL) {
+				if(ring != (void*)-1) {
 					if(fd[0] >= 0 && fd[0] < MAX_OPEN_FILE_PER_PROC)
 						_pipe_shm[fd[0]] = ring;
 					if(fd[1] >= 0 && fd[1] < MAX_OPEN_FILE_PER_PROC)

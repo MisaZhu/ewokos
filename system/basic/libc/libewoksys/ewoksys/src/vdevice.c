@@ -289,7 +289,7 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 			buf = shmat(shm_id, 0, 0);
 		}
 
-		if(buf == NULL) {
+		if(buf == (void*)-1 || buf == NULL) {
 			PF->addi(out, -1);
 		}
 		else {
@@ -357,7 +357,7 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 			data = shmat(shm_id, 0, 0);
 		}
 
-		if(data == NULL) {
+		if(data == (void*)-1 || data == NULL) {
 			PF->addi(out, -1);
 		}
 		else {
@@ -400,7 +400,7 @@ static void do_read_block(vdevice_t* dev, int from_pid, proto_t *in, proto_t* ou
 			buf = malloc(size);
 		else
 			buf = shmat(shm_id, 0, 0);
-		if(buf == NULL) {
+		if(buf == (void*)-1 || buf == NULL) {
 			PF->addi(out, -1);
 		}
 		else {

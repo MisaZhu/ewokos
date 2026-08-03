@@ -382,7 +382,7 @@ static int fb_dma_init(fb_dma_t* dma) {
 	if(dma->shm_id == -1)
 		return -1;
 	dma->shm = shmat(dma->shm_id, 0, 0);
-	if(dma->shm == NULL)
+	if(dma->shm == (void*)-1)
 		return -1;
 	//dma->size = _fbinfo.size_max;
 	memset(dma->shm, 0, sz + sizeof(fb_ctrl_t));
