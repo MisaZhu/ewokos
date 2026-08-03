@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I $(BUILD_DIR)/include
 
-XFONTS_OBJS = xfonts.o
+XFONTS_OBJS = $(ARCH)/xfonts.o
 
 XFONTS_DIR = $(TARGET_DIR)/apps/xfonts
 XFONTS = $(XFONTS_DIR)/xfonts

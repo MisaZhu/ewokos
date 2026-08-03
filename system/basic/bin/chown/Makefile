@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-CHOWN_OBJS = chown.o
+CHOWN_OBJS = $(ARCH)/chown.o
 
 CHOWN = $(TARGET_DIR)/bin/chown
 

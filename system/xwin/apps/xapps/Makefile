@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I $(BUILD_DIR)/include
 
-XAPPS_OBJS = xapps.o
+XAPPS_OBJS = $(ARCH)/xapps.o
 
 XAPPS_DIR = $(TARGET_DIR)/apps/xapps
 XAPPS = $(XAPPS_DIR)/xapps

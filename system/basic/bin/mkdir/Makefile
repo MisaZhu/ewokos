@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-MKDIR_OBJS = mkdir.o
+MKDIR_OBJS = $(ARCH)/mkdir.o
 
 MKDIR = $(TARGET_DIR)/bin/mkdir
 

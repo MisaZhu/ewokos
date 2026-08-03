@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-more_OBJS = more.o
+more_OBJS = $(ARCH)/more.o
 
 more = $(TARGET_DIR)/bin/more
 

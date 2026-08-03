@@ -14,8 +14,12 @@ CPPFLAGS += $(CFLAGS) -fno-exceptions -fno-unwind-tables -fno-rtti
 LIBPNG = $(TARGET_DIR)/lib/libpng.a
 all: $(LIBPNG)
 
-OBJS = png.o pngerror.o pngget.o pngmem.o pngpread.o pngread.o pngrio.o pngrtran.o pngrutil.o pngset.o pngtrans.o pngwio.o \
-       pngwrite.o pngwtran.o pngwutil.o arm/arm_init.o arm/filter_neon.o arm/filter_neon_intrinsics.o 
+PNG_ARM_SRCS := $(wildcard arm/arm_init.c arm/filter_neon.c arm/filter_neon_intrinsics.c arm/filter_neon.S)
+PNG_ARM_OBJS := $(patsubst %.c,$(ARCH)/%.o,$(filter %.c,$(PNG_ARM_SRCS))) \
+	$(patsubst %.S,$(ARCH)/%.o,$(filter %.S,$(PNG_ARM_SRCS)))
+
+OBJS = $(ARCH)/png.o $(ARCH)/pngerror.o $(ARCH)/pngget.o $(ARCH)/pngmem.o $(ARCH)/pngpread.o $(ARCH)/pngread.o $(ARCH)/pngrio.o $(ARCH)/pngrtran.o $(ARCH)/pngrutil.o $(ARCH)/pngset.o $(ARCH)/pngtrans.o $(ARCH)/pngwio.o \
+       $(ARCH)/pngwrite.o $(ARCH)/pngwtran.o $(ARCH)/pngwutil.o $(PNG_ARM_OBJS)
 
 -include $(DEPDIR)/*.Po
 
@@ -23,21 +27,24 @@ $(LIBPNG): $(OBJS) Makefile
 	$(AR) rcs $@ $(OBJS)
 	cp -r png*.h $(TARGET_DIR)/include
 
-%.o: %.c
-	@mkdir -p $(DEPDIR)/$(@D)
+$(ARCH)/%.o: %.c
+	@mkdir -p $(dir $@)
+	@mkdir -p $(dir $(DEPDIR)/$*.Tpo)
 	$(CC) $(CFLAGS) -std=c99 -MMD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
 	@mv -f $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
 
-%.o: %.cpp
-	@mkdir -p $(DEPDIR)/$(@D)
+$(ARCH)/%.o: %.cpp
+	@mkdir -p $(dir $@)
+	@mkdir -p $(dir $(DEPDIR)/$*.Tpo)
 	$(CXX) $(CPPFLAGS) -MMD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
 	@mv -f $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
 
-%.o: %.S
-	@mkdir -p $(DEPDIR)/$(@D)
+$(ARCH)/%.o: %.S
+	@mkdir -p $(dir $@)
+	@mkdir -p $(dir $(DEPDIR)/$*.Tpo)
 	$(CC) $(CFLAGS) -std=c99 -MMD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
 	@mv -f $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
 
 clean:
-	rm -f *.o libpng.a
+	rm -rf $(ARCH) libpng.a
 	rm -rf $(DEPDIR)

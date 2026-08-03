@@ -8,7 +8,7 @@ LDFLAGS = -L$(TARGET_DIR)/lib
 
 CXXFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_X_OBJS = src/X.o src/XWin.o src/XWM.o src/XTheme.o
+LIB_X_OBJS = $(ARCH)/src/X.o $(ARCH)/src/XWin.o $(ARCH)/src/XWM.o $(ARCH)/src/XTheme.o
 
 LIB_X = $(TARGET_DIR)/lib/libx++.a
 

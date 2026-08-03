@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I $(BUILD_DIR)/include
 
-XIMG_OBJS = ximg.o
+XIMG_OBJS = $(ARCH)/ximg.o
 
 XIMG_DIR = $(TARGET_DIR)/apps/ximg
 XIMG = $(XIMG_DIR)/ximg

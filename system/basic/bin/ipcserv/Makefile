@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-RUNDEV_OBJS = ipcserv.o
+RUNDEV_OBJS = $(ARCH)/ipcserv.o
 
 RUNDEV = $(TARGET_DIR)/bin/ipcserv
 

@@ -132,7 +132,7 @@ SSL_SRCS = \
 
 SRCS = $(WOLFCRYPT_SRCS) $(SSL_SRCS)
 
-OBJS = $(SRCS:.c=.o)
+OBJS = $(patsubst %.c,$(ARCH)/%.o,$(SRCS))
 
 $(LIBWOLFSSL): $(OBJS) Makefile
 	$(AR) rcs $@ $(OBJS)
@@ -144,15 +144,18 @@ $(LIBWOLFSSL): $(OBJS) Makefile
 	cp -r wolfssl/openssl/*.h $(TARGET_DIR)/include/wolfssl/openssl/
 	cp include/user_settings.h $(TARGET_DIR)/include/
 
-%.o: %.c
+$(ARCH)/%.o: %.c
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -std=c99 -c -o $@ $<
 
-%.o: %.cpp
+$(ARCH)/%.o: %.cpp
+	@mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) -c -o $@ $<
 
-%.o: %.s
+$(ARCH)/%.o: %.s
+	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) -o $@ $<
 
 clean:
-	rm -f $(OBJS) $(LIBWOLFSSL)
-	find . -name "*.o" -delete
+	rm -rf $(ARCH)
+	rm -f $(LIBWOLFSSL)

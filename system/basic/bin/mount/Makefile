@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-MOUNT_OBJS = mount.o
+MOUNT_OBJS = $(ARCH)/mount.o
 
 MOUNT = $(TARGET_DIR)/bin/mount
 

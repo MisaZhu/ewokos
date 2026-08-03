@@ -8,7 +8,7 @@ LDFLAGS = -L$(TARGET_DIR)/lib
 
 CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_TINYJSON_OBJS = src/tinyjson.o
+LIB_TINYJSON_OBJS = $(ARCH)/src/tinyjson.o
 
 TINYJSON = $(TARGET_DIR)/lib/libtinyjson.a
 

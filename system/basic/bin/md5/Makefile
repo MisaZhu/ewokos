@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-MD5_OBJS = md5.o
+MD5_OBJS = $(ARCH)/md5.o
 
 MD5 = $(TARGET_DIR)/bin/md5
 

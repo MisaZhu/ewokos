@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-MMIO_OBJS = mmio.o
+MMIO_OBJS = $(ARCH)/mmio.o
 
 MMIO = $(TARGET_DIR)/bin/mmio
 

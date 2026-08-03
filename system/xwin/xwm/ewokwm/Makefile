@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I. -I $(BUILD_DIR)/include
 
-XWM_OBJS = xwm.o EwokWM.o
+XWM_OBJS = $(ARCH)/xwm.o $(ARCH)/EwokWM.o
 
 XWM = $(TARGET_DIR)/sbin/x/xwm_ewok
 

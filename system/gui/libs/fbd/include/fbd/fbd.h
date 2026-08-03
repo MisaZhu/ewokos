@@ -37,6 +37,20 @@ extern int fbd_run(fbd_t* fbd, const char* mnt_name,
  * bytes written, or 0 (caller falls back to the generic path). */
 extern uint32_t fbd_rotate_to(const fbinfo_t* fbinfo, const graph_t* g, int rotate);
 
+/* Opt-in partial flush. Once registered, libfbd pushes only the rects the
+ * client declared through fb_set_dirty() instead of the whole frame. It is
+ * a separate registration (not a fbd_t field) because several drivers leave
+ * the tail of their fbd_t uninitialised. Only used when no rotation and no
+ * zoom is active; returning 0 makes libfbd fall back to a full flush. */
+extern void fbd_set_flush_rect(uint32_t (*flush_rect)(const fbinfo_t* fbinfo,
+		const graph_t* g, const grect_t* r));
+
+/* Generic flush_rect implementation for drivers whose flush is a plain
+ * memory blit into fbinfo->pointer (32bpp and 16bpp, pitch aware). NOT for
+ * SPI/command push panels. Returns bytes written, or 0 when the geometry
+ * does not allow it. */
+extern uint32_t fbd_flush_rect_to(const fbinfo_t* fbinfo, const graph_t* g, const grect_t* r);
+
 #ifdef __cplusplus
 }
 #endif

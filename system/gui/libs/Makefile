@@ -15,6 +15,7 @@ basic_libs:
 	cd graph;$(MAKE)
 	cd font;$(MAKE)
 	cd fb;$(MAKE)
+	cd g2d;$(MAKE)
 	cd display;$(MAKE)
 	cd fbd;$(MAKE)
 	cd textgrid;$(MAKE)
@@ -38,6 +39,7 @@ clean:
 	cd minimp3;$(MAKE) clean
 	cd graph;$(MAKE) clean
 	cd fb;$(MAKE) clean
+	cd g2d;$(MAKE) clean
 	cd keyb;$(MAKE) clean
 	cd mouse;$(MAKE) clean
 	cd fbd;$(MAKE) clean

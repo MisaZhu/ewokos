@@ -9,13 +9,17 @@
 #include <ewoksys/vfs.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/klog.h>
+#include <ewoksys/kernel_tic.h>
 
 #include "task.h"
 #include "netd.h"
+#include "stack/net.h"
 #include "stack/util.h"
 
 extern int sock_readable(int sock);
+extern int sock_poll_readable(int sock);
 extern int sock_writable(int sock);
+extern int sock_get_rcvtimeo(int sock, struct timeval *timeout);
 extern ssize_t sock_send(int id, const void *buf, size_t n);
 extern int sock_data_readable(int sock);
 extern int sock_tcp_scan_info(int id, int *desc, int *state, int *remain);
@@ -30,9 +34,54 @@ extern int sched_sleep(struct sched_ctx *ctx, mutex_t *mutex, const struct timev
 extern int sched_wakeup(struct sched_ctx *ctx);
 
 #define TASK_POLL_INTERVAL_US 1000 /* 1ms */
+/* How often armed recv()/recvfrom() deadlines are swept. */
+#define TASK_TIMEOUT_TICK_US 200000
+
+/*
+ * Wall clock used for the SO_RCVTIMEO deadlines. The stack uses the same
+ * source (kernel_tic) so the two never disagree.
+ */
+static void task_now(struct timeval *tv) {
+    uint64_t usec = 0;
+    kernel_tic(NULL, &usec);
+    tv->tv_sec = usec / 1000000;
+    tv->tv_usec = usec % 1000000;
+}
+
+static int task_deadline_expired(const struct timeval *deadline) {
+    struct timeval now;
+
+    task_now(&now);
+    if (now.tv_sec != deadline->tv_sec)
+        return now.tv_sec > deadline->tv_sec;
+    return now.tv_usec >= deadline->tv_usec;
+}
+
+/* Arm/disarm task->main_deadline for the command being started. Caller holds
+ * task->lock. */
+static void task_arm_main_deadline_locked(net_task_t *task, int cmd) {
+    struct timeval timeout;
+
+    task->main_deadline_set = false;
+    if (cmd != SOCK_RECV && cmd != SOCK_RECVFROM)
+        return;
+    if (task->sock < 0)
+        return;
+    if (sock_get_rcvtimeo(task->sock, &timeout) != 0)
+        return;
+    task_now(&task->main_deadline);
+    task->main_deadline.tv_sec += timeout.tv_sec;
+    task->main_deadline.tv_usec += timeout.tv_usec;
+    if (task->main_deadline.tv_usec >= 1000000) {
+        task->main_deadline.tv_sec += task->main_deadline.tv_usec / 1000000;
+        task->main_deadline.tv_usec %= 1000000;
+    }
+    task->main_deadline_set = true;
+}
 
 static void* task_thread(void* arg);
 static void task_list_remove(net_task_t * task);
+static bool task_main_timed_out(net_task_t *task);
  
 pthread_mutex_t task_list_lock;
 net_task_t *task_list = NULL;
@@ -270,6 +319,15 @@ void start_task(void){
     } else {
         klog("netd: wakeup flusher thread create failed, using direct wakeups\n");
     }
+
+    /*
+     * SO_RCVTIMEO sweeper. Must be registered before net_run(); start_task()
+     * runs before setup() in main(), so this is the right place.
+     */
+    struct timeval timeout_interval = {0, TASK_TIMEOUT_TICK_US};
+    if (net_timer_register("TASK Timeout", timeout_interval, task_timeout_check) == -1) {
+        klog("netd: task timeout timer register failed\n");
+    }
 }
 
 net_task_t *create_task(int fd, int from_pid, int node){
@@ -390,6 +448,7 @@ int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *o
             task->cmd = cmd;
             task->p = p;
             task->from_pid = from_pid;
+            task->main_deadline_set = false;
             PF->clear(&task->in);
             PF->clear(&task->out);
             PF->copy(&task->in, in->data, in->size);
@@ -420,6 +479,7 @@ int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *o
         task->cmd = cmd;	
         task->p = p;
         task->from_pid = from_pid;
+        task_arm_main_deadline_locked(task, cmd);
         /*
          * task->in/out are persistent proto_t objects. PF->init() only resets
          * the view and does not release heap buffers grown by previous large I/O.
@@ -644,6 +704,11 @@ int do_network_fcntl(net_task_t *task){
 			 * which is only releasable via internal stack wakeups.
 			 */
 			if(sock >= 0 && !sock_readable(sock)) {
+				if(task_main_timed_out(task)) {
+					PF->addi(&task->out, -1);
+					PF->addi(&task->out, ETIMEDOUT);
+					break;
+				}
 				return 0;
 			}
 			size = proto_read_int(&task->in);
@@ -684,6 +749,11 @@ int do_network_fcntl(net_task_t *task){
 			/* Non-blocking mirror of do_network_read(): re-arm instead of
 			 * sched_sleep()-ing the worker inside tcp_receive(). */
 			if(sock >= 0 && !sock_readable(sock)) {
+				if(task_main_timed_out(task)) {
+					PF->addi(&task->out, -1);
+					PF->addi(&task->out, ETIMEDOUT);
+					break;
+				}
 				return 0;
 			}
 			size = proto_read_int(&task->in);
@@ -705,7 +775,15 @@ int do_network_fcntl(net_task_t *task){
 			PF->addi(&task->out, ret);
 			break;	
 		case SOCK_ACCEPT:
-            if(sock >= 0 && !sock_readable(sock)) {
+            /*
+             * accept() runs INLINE on the shared IPC dispatch thread, so the
+             * readiness probe must use the trylock variant: sock_readable()
+             * takes the stack mutex and pthread_mutex_lock() here is a
+             * try+yield spin, which froze all netd IPC whenever the stack was
+             * busy. A contended probe (-1) is treated as "not ready" -- the
+             * listen backlog wakeup re-arms this request.
+             */
+            if(sock >= 0 && sock_poll_readable(sock) <= 0) {
                 return 0;
             }
             errno = 0;
@@ -928,6 +1006,55 @@ static int do_network_write(net_task_t *task){
 
 int task_check_read_events(void) {
     return 0;
+}
+
+/*
+ * Has the armed recv()/recvfrom() request passed its SO_RCVTIMEO deadline?
+ * Called from do_network_fcntl() with task->lock NOT held. The flag is cleared
+ * so the timeout is reported exactly once.
+ */
+static bool task_main_timed_out(net_task_t *task) {
+    bool expired = false;
+
+    pthread_mutex_lock(&task->lock);
+    if(task->main_deadline_set && task_deadline_expired(&task->main_deadline)) {
+        task->main_deadline_set = false;
+        expired = true;
+    }
+    pthread_mutex_unlock(&task->lock);
+    return expired;
+}
+
+/*
+ * Periodic sweep of armed recv()/recvfrom() deadlines.
+ *
+ * The worker parks in an untimed sched_sleep() and only the stack's data/EOF
+ * wakeups restart it, so a recv() with SO_RCVTIMEO on a silent socket used to
+ * stay armed forever and its client stayed in vfs_block() forever (this is how
+ * a single lost NTP reply wedged timed's sync thread and leaked its socket).
+ * Flip the expired ones back to START; the worker then completes them with
+ * ETIMEDOUT through the normal path, which also delivers the VFS wakeup.
+ *
+ * Runs on the net timer (protocol/timer thread), so it must not enter the
+ * TCP/UDP stack.
+ */
+void task_timeout_check(void) {
+    net_task_t *task;
+
+    pthread_mutex_lock(&task_list_lock);
+    for(task = task_list; task != NULL; task = task->next) {
+        pthread_mutex_lock(&task->lock);
+        if(task->running &&
+                task->main_deadline_set &&
+                task->state == NET_TASK_PROCESS &&
+                (task->cmd == SOCK_RECV || task->cmd == SOCK_RECVFROM) &&
+                task_deadline_expired(&task->main_deadline)) {
+            task->state = NET_TASK_START;
+            sched_wakeup(&task->wait_ctx);
+        }
+        pthread_mutex_unlock(&task->lock);
+    }
+    pthread_mutex_unlock(&task_list_lock);
 }
 
 int task_has_read_watchers(void) {

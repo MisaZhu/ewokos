@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-TELNETD_OBJS = telnetd.o
+TELNETD_OBJS = $(ARCH)/telnetd.o
 
 TELNETD = $(TARGET_DIR)/sbin/telnetd
 

@@ -7,7 +7,7 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 LDFLAGS = -L$(BUILD_DIR)/lib
 CFLAGS += -I $(BUILD_DIR)/include
 
-HOST_OBJS = host.o
+HOST_OBJS = $(ARCH)/host.o
 
 HOST = $(TARGET_DIR)/bin/host
 

@@ -8,7 +8,7 @@ LDFLAGS = -L$(TARGET_DIR)/lib
 
 CFLAGS += -Iinclude -I $(TARGET_DIR)/include
  
-LIBGLOSS_OBJS = syscalls.o compat.o
+LIBGLOSS_OBJS = $(ARCH)/syscalls.o $(ARCH)/compat.o
 
 LIBGLOSS = $(TARGET_DIR)/lib/libgloss.a
 LIBC = $(TARGET_DIR)/lib/libc.a

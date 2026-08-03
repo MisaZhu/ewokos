@@ -1,0 +1,218 @@
+#ifndef G2D_G2D_H
+#define G2D_G2D_H
+
+#include <stdint.h>
+#include <string.h>
+#include <ewoksys/fsinfo.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef struct {
+	char dev[FS_FULL_NAME_MAX];
+} g2d_t;
+
+enum {
+	G2D_DEV_CNTL_GET_INFO = 0,
+	G2D_DEV_CNTL_CLEAR,
+	G2D_DEV_CNTL_FILL_RECT,
+	G2D_DEV_CNTL_BLIT,
+	G2D_DEV_CNTL_BLIT_ALPHA,
+	G2D_DEV_CNTL_PRESENT,
+	G2D_DEV_CNTL_GET_PIXEL,
+	G2D_DEV_CNTL_GET_STATS
+};
+
+enum {
+	G2D_FMT_ARGB8888 = 0
+};
+
+enum {
+	G2D_ROTATE_0 = 0,
+	G2D_ROTATE_90 = 1,
+	G2D_ROTATE_180 = 2,
+	G2D_ROTATE_270 = 3
+};
+
+enum {
+	G2D_BACKEND_SOFT_NV12 = 0,
+	G2D_BACKEND_MI_GFX = 1,
+	G2D_BACKEND_VC_MAILBOX = 2,
+	G2D_BACKEND_VC4_KMS_V3D = 3,
+	G2D_BACKEND_SSD20XD_GE = 2
+};
+
+typedef struct {
+	int32_t x;
+	int32_t y;
+	int32_t w;
+	int32_t h;
+} g2d_rect_t;
+
+typedef struct {
+	uint32_t width;
+	uint32_t height;
+	uint32_t depth;
+	uint32_t format;
+	uint32_t backend;
+} g2d_info_t;
+
+typedef struct {
+	g2d_rect_t rect;
+	uint32_t color;
+} g2d_fill_req_t;
+
+typedef struct {
+	int32_t x;
+	int32_t y;
+} g2d_pixel_req_t;
+
+typedef struct {
+	uint32_t src_w;
+	uint32_t src_h;
+	uint32_t src_stride;
+	uint32_t src_format;
+	int32_t src_shm_id;
+	uint32_t src_size;
+	int32_t sx;
+	int32_t sy;
+	int32_t sw;
+	int32_t sh;
+	int32_t dx;
+	int32_t dy;
+	int32_t dw;
+	int32_t dh;
+	uint8_t alpha;
+	uint8_t rotate;
+	uint8_t reserved[6];
+} g2d_blit_req_t;
+
+typedef struct {
+	uint32_t backend;
+	uint32_t vc_ready;
+	uint32_t vc_clear_ops;
+	uint32_t vc_fill_ops;
+	uint32_t vc_blit_ops;
+	uint32_t vc_alpha_blit_ops;
+	uint32_t vc_present_ops;
+	uint32_t soft_clear_ops;
+	uint32_t soft_fill_ops;
+	uint32_t soft_blit_ops;
+	uint32_t soft_alpha_blit_ops;
+	uint32_t soft_present_ops;
+	uint32_t soft_fallback_ops;
+} g2d_stats_t;
+
+static inline g2d_rect_t g2d_rect(int32_t x, int32_t y, int32_t w, int32_t h) {
+	g2d_rect_t rect;
+	rect.x = x;
+	rect.y = y;
+	rect.w = w;
+	rect.h = h;
+	return rect;
+}
+
+static inline void g2d_fill_req_init(g2d_fill_req_t* req, g2d_rect_t rect, uint32_t color) {
+	if(req == NULL)
+		return;
+	req->rect = rect;
+	req->color = color;
+}
+
+static inline void g2d_blit_req_init_ex(g2d_blit_req_t* req,
+		int32_t src_shm_id,
+		uint32_t src_size,
+		uint32_t src_w,
+		uint32_t src_h,
+		uint32_t src_stride,
+		g2d_rect_t src_rect,
+		g2d_rect_t dst_rect,
+		uint8_t alpha,
+		uint8_t rotate) {
+	if(req == NULL)
+		return;
+	memset(req, 0, sizeof(*req));
+	req->src_w = src_w;
+	req->src_h = src_h;
+	req->src_stride = src_stride;
+	req->src_format = G2D_FMT_ARGB8888;
+	req->src_shm_id = src_shm_id;
+	req->src_size = src_size;
+	req->sx = src_rect.x;
+	req->sy = src_rect.y;
+	req->sw = src_rect.w;
+	req->sh = src_rect.h;
+	req->dx = dst_rect.x;
+	req->dy = dst_rect.y;
+	req->dw = dst_rect.w;
+	req->dh = dst_rect.h;
+	req->alpha = alpha;
+	req->rotate = rotate;
+}
+
+static inline void g2d_blit_req_init(g2d_blit_req_t* req,
+		int32_t src_shm_id,
+		uint32_t src_size,
+		uint32_t src_w,
+		uint32_t src_h,
+		uint32_t src_stride,
+		g2d_rect_t src_rect,
+		g2d_rect_t dst_rect,
+		uint8_t alpha) {
+	g2d_blit_req_init_ex(req,
+			src_shm_id,
+			src_size,
+			src_w,
+			src_h,
+			src_stride,
+			src_rect,
+			dst_rect,
+			alpha,
+			G2D_ROTATE_0);
+}
+
+static inline void g2d_blit_req_set_rotate(g2d_blit_req_t* req, uint8_t rotate) {
+	if(req == NULL)
+		return;
+	req->rotate = rotate;
+}
+
+static inline int g2d_backend_is_vc(uint32_t backend) {
+	return backend == G2D_BACKEND_VC_MAILBOX ||
+			backend == G2D_BACKEND_VC4_KMS_V3D;
+}
+
+static inline const char* g2d_backend_name(uint32_t backend) {
+	switch (backend) {
+	case G2D_BACKEND_SOFT_NV12:
+		return "soft";
+	case G2D_BACKEND_MI_GFX:
+		return "mi_gfx";
+	case G2D_BACKEND_VC_MAILBOX:
+		return "vc_mailbox_legacy";
+	case G2D_BACKEND_VC4_KMS_V3D:
+		return "vc4_kms_v3d";
+	default:
+		return "unknown";
+	}
+}
+
+int g2d_open(const char* dev, g2d_t* g2d);
+int g2d_close(g2d_t* g2d);
+int g2d_info(g2d_t* g2d, g2d_info_t* info);
+int g2d_clear(g2d_t* g2d, uint32_t color);
+int g2d_fill_rect(g2d_t* g2d, const g2d_fill_req_t* req);
+int g2d_blit_shm(g2d_t* g2d, const g2d_blit_req_t* req);
+int g2d_blit_alpha_shm(g2d_t* g2d, const g2d_blit_req_t* req);
+/* Legacy display hook. Offscreen-only backends may return -1. */
+int g2d_present(g2d_t* g2d);
+/* Reads back the current offscreen destination surface. */
+int g2d_get_pixel(g2d_t* g2d, int32_t x, int32_t y, uint32_t* pixel);
+int g2d_get_stats(g2d_t* g2d, g2d_stats_t* stats);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

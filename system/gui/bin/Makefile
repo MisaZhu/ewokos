@@ -4,6 +4,7 @@ all: builtin_apps
 builtin_apps:
 	cd splash;$(MAKE)
 	cd fbtest;$(MAKE)
+	cd g2dtest;$(MAKE)
 	cd wavplayer;$(MAKE)
 	cd mp3player;$(MAKE)
 	cd oggplayer;$(MAKE)
@@ -12,6 +13,7 @@ builtin_apps:
 clean:
 	cd splash;$(MAKE) clean
 	cd fbtest;$(MAKE) clean
+	cd g2dtest;$(MAKE) clean
 	cd wavplayer;$(MAKE) clean
 	cd mp3player;$(MAKE) clean
 	cd oggplayer;$(MAKE) clean

@@ -1,4 +1,5 @@
 AR = arm-none-eabi-ar
+AS = arm-none-eabi-as
 CC = arm-none-eabi-gcc
 CXX = arm-none-eabi-c++
 LD = arm-none-eabi-ld
@@ -52,3 +53,23 @@ CXXFLAGS +=  -O2
 ARCH_CFLAGS = -marm  -mfloat-abi=softfp
 
 STL_HEADERS_STAMP = $(BUILD_DIR)/include/.stl_headers_timestamp
+
+$(ARCH)/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(ARCH)/%.o: %.cc
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(ARCH)/%.o: %.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(ARCH)/%.o: %.S
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(ARCH)/%.o: %.s
+	@mkdir -p $(dir $@)
+	$(AS) $(ARCH_CFLAGS) -o $@ $<

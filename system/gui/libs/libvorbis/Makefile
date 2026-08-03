@@ -13,9 +13,9 @@ CPPFLAGS += $(CFLAGS) -fno-exceptions -fno-unwind-tables -fno-rtti
 LIBVORBIS = $(TARGET_DIR)/lib/libvorbis.a
 all: $(LIBVORBIS)
 
-OBJS = lib/mdct.o lib/smallft.o lib/block.o lib/envelope.o lib/window.o lib/lsp.o lib/lpc.o lib/analysis.o lib/synthesis.o \
-       lib/psy.o lib/info.o lib/floor1.o lib/floor0.o lib/res0.o lib/mapping0.o lib/registry.o lib/codebook.o lib/sharedbook.o \
-       lib/lookup.o lib/bitrate.o lib/vorbisfile.o
+OBJS = $(ARCH)/lib/mdct.o $(ARCH)/lib/smallft.o $(ARCH)/lib/block.o $(ARCH)/lib/envelope.o $(ARCH)/lib/window.o $(ARCH)/lib/lsp.o $(ARCH)/lib/lpc.o $(ARCH)/lib/analysis.o $(ARCH)/lib/synthesis.o \
+       $(ARCH)/lib/psy.o $(ARCH)/lib/info.o $(ARCH)/lib/floor1.o $(ARCH)/lib/floor0.o $(ARCH)/lib/res0.o $(ARCH)/lib/mapping0.o $(ARCH)/lib/registry.o $(ARCH)/lib/codebook.o $(ARCH)/lib/sharedbook.o \
+       $(ARCH)/lib/lookup.o $(ARCH)/lib/bitrate.o $(ARCH)/lib/vorbisfile.o
 
 -include $(DEPDIR)/*.Po
 
@@ -23,18 +23,21 @@ $(LIBVORBIS): $(OBJS) Makefile
 	$(AR) rcs $@ $(OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
-%.o: %.c
-	@mkdir -p $(DEPDIR)/$(@D)
+$(ARCH)/%.o: %.c
+	@mkdir -p $(dir $@)
+	@mkdir -p $(dir $(DEPDIR)/$*.Tpo)
 	$(CC) $(CFLAGS) -std=c99 -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
 	@mv -f $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
 
-%.o: %.cpp
-	@mkdir -p $(DEPDIR)/$(@D)
+$(ARCH)/%.o: %.cpp
+	@mkdir -p $(dir $@)
+	@mkdir -p $(dir $(DEPDIR)/$*.Tpo)
 	$(CXX) $(CPPFLAGS) -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
 	@mv -f $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
 
-%.o: %.S
-	@mkdir -p $(DEPDIR)/$(@D)
+$(ARCH)/%.o: %.S
+	@mkdir -p $(dir $@)
+	@mkdir -p $(dir $(DEPDIR)/$*.Tpo)
 	$(CC) $(CFLAGS) -std=c99 -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
 	@mv -f $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
 

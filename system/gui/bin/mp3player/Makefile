@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-TASK_OBJS = mp3player.o
+TASK_OBJS = $(ARCH)/mp3player.o
 
 TASK = $(TARGET_DIR)/bin/mp3player
 

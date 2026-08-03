@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-NET_OBJS = net.o
+NET_OBJS = $(ARCH)/net.o
 
 NET = $(TARGET_DIR)/drivers/virt/net
 

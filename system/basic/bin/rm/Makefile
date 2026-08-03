@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-RM_OBJS = rm.o
+RM_OBJS = $(ARCH)/rm.o
 
 RM = $(TARGET_DIR)/bin/rm
 

@@ -7,7 +7,7 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 LDFLAGS = -L$(BUILD_DIR)/lib
 CFLAGS += -I $(BUILD_DIR)/include
 
-SCP_OBJS = scp.o
+SCP_OBJS = $(ARCH)/scp.o
 
 SCP = $(TARGET_DIR)/bin/scp
 

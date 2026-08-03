@@ -8,7 +8,7 @@ LDFLAGS = -L$(TARGET_DIR)/lib
 
 CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_TASK_OBJS = src/keyb.o
+LIB_TASK_OBJS = $(ARCH)/src/keyb.o
 
 TASK = $(TARGET_DIR)/lib/libkeyb.a
 

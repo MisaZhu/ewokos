@@ -8,7 +8,7 @@ LDFLAGS = -L$(TARGET_DIR)/lib
 
 CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_NTPC_OBJS = src/ntpc.o
+LIB_NTPC_OBJS = $(ARCH)/src/ntpc.o
 
 NTPC = $(TARGET_DIR)/lib/libntpc.a
 

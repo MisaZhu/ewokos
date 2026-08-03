@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib -Llib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-PMU_OBJS = powerd.o
+PMU_OBJS = $(ARCH)/powerd.o
 
 PMU = $(TARGET_DIR)/drivers/virt/powerd
 

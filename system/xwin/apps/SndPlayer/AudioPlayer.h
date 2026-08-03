@@ -50,8 +50,8 @@ public:
     bool isOgg();
 
 private:
-    bool loadMp3(const char* device);
-    bool loadWav(const char* device);
+    bool loadMp3(const char* path, const char* device);
+    bool loadWav(const char* path, const char* device);
     bool loadOgg(const char* path, const char* device);
     void replayMp3(const char* device);
     void replayWav(const char* device);
@@ -63,10 +63,18 @@ private:
     bool decodeWavFrame();
     bool decodeOggFrame();
     uint32_t estimateTotalMs();
+    bool refillMp3Stream();
+    int decodeNextMp3Frame(mp3dec_t* dec, mp3dec_frame_info_t* frameInfo, int16_t* outSamples);
+    bool resetMp3Stream();
+    bool flushMp3Chunk(bool force);
+    uint32_t estimateMp3StreamTotalMs();
 
     // MP3
     mp3dec_t* mp3dec;
     mp3dec_frame_info_t* info;
+    int16_t* mp3FrameBuf;
+    int16_t* mp3ChunkBuf;
+    int mp3ChunkFrames;
 
     // PCM device
     struct pcm_t* pcmDev;
@@ -76,6 +84,11 @@ private:
     uint8_t* streamPos;
     int bytesLeft;
     int totalBytes;
+    int sourceFd;
+    char* sourcePath;
+    uint8_t* mp3StreamBuf;
+    int mp3StreamBufSize;
+    bool mp3StreamEof;
 
     // Playback state
     int simples;
@@ -95,6 +108,9 @@ private:
     int wavDataOffset;
     int wavDataSize;
     int wavBitDepth;
+    int wavBytesPerFrame;
+    uint8_t* wavStreamBuf;
+    int wavStreamBufSize;
 
     // OGG
     OggVorbis_File* oggVf;

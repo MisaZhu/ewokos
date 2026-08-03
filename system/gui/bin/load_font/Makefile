@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-LOAD_FONT_OBJS = load_font.o
+LOAD_FONT_OBJS = $(ARCH)/load_font.o
 
 LOAD_FONT = $(TARGET_DIR)/bin/load_font
 

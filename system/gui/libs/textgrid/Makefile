@@ -8,7 +8,7 @@ LDFLAGS = -L$(TARGET_DIR)/lib
 
 CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_textgrid_OBJS = src/textgrid.o
+LIB_textgrid_OBJS = $(ARCH)/src/textgrid.o
 
 textgrid = $(TARGET_DIR)/lib/libtextgrid.a
 

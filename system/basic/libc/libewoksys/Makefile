@@ -9,121 +9,125 @@ LDFLAGS = -L$(TARGET_DIR)/lib
 CFLAGS += -Iewoksys/include -Iinclude -I $(TARGET_DIR)/include
 
 LIB_EWOKSYS_OBJS =  \
-	ewoksys/src/syscall_${ARCH}.o \
-	ewoksys/src/setjmp_${ARCH}.o \
-	ewoksys/src/mstr.o \
-	ewoksys/src/utf8unicode.o \
-	ewoksys/src/klog.o \
-	ewoksys/src/core.o \
-	ewoksys/src/cmain.o \
-	ewoksys/src/charbuf.o \
-	ewoksys/src/vfs.o \
-	ewoksys/src/ipc.o \
-	ewoksys/src/signal.o \
-	ewoksys/src/interrupt.o \
-	ewoksys/src/vdevice.o \
-	ewoksys/src/devcmd.o \
-	ewoksys/src/proto.o \
-	ewoksys/src/semaphore.o \
-	ewoksys/src/thread.o \
-	ewoksys/src/basic_math.o \
-	ewoksys/src/kernel_tic.o \
-	ewoksys/src/trunkmem.o \
-	ewoksys/src/proc.o \
-	ewoksys/src/wait.o \
-	ewoksys/src/md5.o \
-	ewoksys/src/buffer.o \
-	ewoksys/src/mmio.o  \
-	ewoksys/src/dma.o  \
-	ewoksys/src/session.o  \
-	ewoksys/src/hashmap.o  \
-	ewoksys/src/queue.o  \
-	ewoksys/src/timer.o \
-	ewoksys/src/sys.o \
+	$(ARCH)/ewoksys/src/syscall_$(ARCH).o \
+	$(ARCH)/ewoksys/src/setjmp_$(ARCH).o \
+	$(ARCH)/ewoksys/src/mstr.o \
+	$(ARCH)/ewoksys/src/utf8unicode.o \
+	$(ARCH)/ewoksys/src/klog.o \
+	$(ARCH)/ewoksys/src/core.o \
+	$(ARCH)/ewoksys/src/cmain.o \
+	$(ARCH)/ewoksys/src/charbuf.o \
+	$(ARCH)/ewoksys/src/vfs.o \
+	$(ARCH)/ewoksys/src/ipc.o \
+	$(ARCH)/ewoksys/src/signal.o \
+	$(ARCH)/ewoksys/src/interrupt.o \
+	$(ARCH)/ewoksys/src/vdevice.o \
+	$(ARCH)/ewoksys/src/devcmd.o \
+	$(ARCH)/ewoksys/src/proto.o \
+	$(ARCH)/ewoksys/src/semaphore.o \
+	$(ARCH)/ewoksys/src/thread.o \
+	$(ARCH)/ewoksys/src/basic_math.o \
+	$(ARCH)/ewoksys/src/kernel_tic.o \
+	$(ARCH)/ewoksys/src/trunkmem.o \
+	$(ARCH)/ewoksys/src/proc.o \
+	$(ARCH)/ewoksys/src/wait.o \
+	$(ARCH)/ewoksys/src/md5.o \
+	$(ARCH)/ewoksys/src/buffer.o \
+	$(ARCH)/ewoksys/src/mmio.o  \
+	$(ARCH)/ewoksys/src/dma.o  \
+	$(ARCH)/ewoksys/src/session.o  \
+	$(ARCH)/ewoksys/src/hashmap.o  \
+	$(ARCH)/ewoksys/src/queue.o  \
+	$(ARCH)/ewoksys/src/timer.o \
+	$(ARCH)/ewoksys/src/sys.o \
 	\
-	src/unistd/getuid.o \
-	src/unistd/usleep.o \
-	src/unistd/sleep.o \
-	src/unistd/getcwd.o \
-	src/unistd/getgid.o \
-	src/unistd/getpid.o \
-	src/unistd/getppid.o \
-	src/unistd/gettid.o \
-	src/unistd/ioctl.o \
-	src/unistd/exec.o \
-	src/unistd/setgid.o \
-	src/unistd/setuid.o \
-	src/unistd/chdir.o \
-	src/unistd/dup2.o \
-	src/unistd/dup.o \
-	src/unistd/pipe.o \
-	src/unistd/chown.o \
-	src/unistd/rmdir.o \
-	src/unistd/rename.o \
-	src/unistd/errno.o \
+	$(ARCH)/src/unistd/getuid.o \
+	$(ARCH)/src/unistd/usleep.o \
+	$(ARCH)/src/unistd/sleep.o \
+	$(ARCH)/src/unistd/getcwd.o \
+	$(ARCH)/src/unistd/getgid.o \
+	$(ARCH)/src/unistd/getpid.o \
+	$(ARCH)/src/unistd/getppid.o \
+	$(ARCH)/src/unistd/gettid.o \
+	$(ARCH)/src/unistd/ioctl.o \
+	$(ARCH)/src/unistd/exec.o \
+	$(ARCH)/src/unistd/setgid.o \
+	$(ARCH)/src/unistd/setuid.o \
+	$(ARCH)/src/unistd/chdir.o \
+	$(ARCH)/src/unistd/dup2.o \
+	$(ARCH)/src/unistd/dup.o \
+	$(ARCH)/src/unistd/pipe.o \
+	$(ARCH)/src/unistd/chown.o \
+	$(ARCH)/src/unistd/rmdir.o \
+	$(ARCH)/src/unistd/rename.o \
+	$(ARCH)/src/unistd/errno.o \
 	\
-	src/sys/shm/shmget.o \
-	src/sys/shm/shmat.o \
-	src/sys/shm/shmdt.o \
+	$(ARCH)/src/sys/shm/shmget.o \
+	$(ARCH)/src/sys/shm/shmat.o \
+	$(ARCH)/src/sys/shm/shmdt.o \
 	\
-	src/signal/kill.o \
-	src/signal/signal.o \
-	src/signal/sigaction.o \
+	$(ARCH)/src/signal/kill.o \
+	$(ARCH)/src/signal/signal.o \
+	$(ARCH)/src/signal/sigaction.o \
 	\
-	src/sys/stat/mkdir.o \
-	src/sys/stat/lstat.o \
-	src/sys/stat/mkfifo.o \
-	src/sys/select/select.o \
-	src/sys/utsname/uname.o \
-	src/sys/wait/wait.o \
+	$(ARCH)/src/sys/stat/mkdir.o \
+	$(ARCH)/src/sys/stat/lstat.o \
+	$(ARCH)/src/sys/stat/mkfifo.o \
+	$(ARCH)/src/sys/select/select.o \
+	$(ARCH)/src/sys/utsname/uname.o \
+	$(ARCH)/src/sys/wait/wait.o \
 	\
-	src/fcntl/fchmod.o \
-	src/fcntl/chmod.o \
-	src/fcntl/fcntl.o \
+	$(ARCH)/src/fcntl/fchmod.o \
+	$(ARCH)/src/fcntl/chmod.o \
+	$(ARCH)/src/fcntl/fcntl.o \
 	\
-	src/string/strcspn.o \
-	src/string/strnlen.o \
-	src/string/strpbrk.o \
-	src/string/strspn.o \
-	src/string/strsep.o \
-	src/string/strlcpy.o \
+	$(ARCH)/src/string/strcspn.o \
+	$(ARCH)/src/string/strnlen.o \
+	$(ARCH)/src/string/strpbrk.o \
+	$(ARCH)/src/string/strspn.o \
+	$(ARCH)/src/string/strsep.o \
+	$(ARCH)/src/string/strlcpy.o \
 	\
-	src/stdio/putch.o \
-	src/stdio/fputs.o \
-	src/stdio/setvbuf.o \
+	$(ARCH)/src/stdio/putch.o \
+	$(ARCH)/src/stdio/fputs.o \
+	$(ARCH)/src/stdio/setvbuf.o \
 	\
-	src/dirent/readdir.o \
-	src/dirent/closedir.o \
-	src/dirent/opendir.o \
+	$(ARCH)/src/dirent/readdir.o \
+	$(ARCH)/src/dirent/closedir.o \
+	$(ARCH)/src/dirent/opendir.o \
 	\
-	src/pthread/pthread_create.o \
-	src/pthread/pthread_mutex_destroy.o \
-	src/pthread/pthread_mutex_init.o \
-	src/pthread/pthread_mutex_lock.o \
-	src/pthread/pthread_mutex_unlock.o \
-	src/pthread/pthread_mutex_timedlock.o\
-	src/pthread/pthread_self.o\
-	src/pthread/pthread_equal.o\
-	src/pthread/pthread_join.o\
-	src/pthread/pthread_detach.o\
-	src/pthread/pthread_cond.o\
+	$(ARCH)/src/pthread/pthread_create.o \
+	$(ARCH)/src/pthread/pthread_mutex_destroy.o \
+	$(ARCH)/src/pthread/pthread_mutex_init.o \
+	$(ARCH)/src/pthread/pthread_mutex_lock.o \
+	$(ARCH)/src/pthread/pthread_mutex_unlock.o \
+	$(ARCH)/src/pthread/pthread_mutex_timedlock.o\
+	$(ARCH)/src/pthread/pthread_self.o\
+	$(ARCH)/src/pthread/pthread_equal.o\
+	$(ARCH)/src/pthread/pthread_join.o\
+	$(ARCH)/src/pthread/pthread_detach.o\
+	$(ARCH)/src/pthread/pthread_cond.o\
 	\
-	src/poll/poll.o \
+	$(ARCH)/src/poll/poll.o \
 	\
-	src/stdlib/assert.o \
-	src/stdlib/exit.o \
-	src/stdlib/llabs.o \
-	src/stdlib/mkstemp.o \
-	src/stdlib/setenv.o \
-	src/stdlib/tempnam.o \
+	$(ARCH)/src/stdlib/assert.o \
+	$(ARCH)/src/stdlib/exit.o \
+	$(ARCH)/src/stdlib/llabs.o \
+	$(ARCH)/src/stdlib/mkstemp.o \
+	$(ARCH)/src/stdlib/setenv.o \
+	$(ARCH)/src/stdlib/tempnam.o \
 	\
-	src/time/strftime.o \
-	src/time/nanosleep.o \
-	src/time/clock_gettime.o
+	$(ARCH)/src/time/strftime.o \
+	$(ARCH)/src/time/nanosleep.o \
+	$(ARCH)/src/time/clock_gettime.o
 	
 EWOKSYS = $(TARGET_DIR)/lib/libewoksys.a
+OBJ_DIRS = $(sort $(dir $(LIB_EWOKSYS_OBJS)))
 
-all: $(EWOKSYS) install_headers
+all: prep_obj_dirs $(EWOKSYS) install_headers
+
+prep_obj_dirs:
+	@mkdir -p $(OBJ_DIRS)
 
 $(EWOKSYS): $(LIB_EWOKSYS_OBJS)   $(LIB_EWOKSYS_SYS_OBJS)
 	$(AR) rcs $(EWOKSYS) $(LIB_EWOKSYS_OBJS) 
@@ -135,5 +139,5 @@ install_headers:
 	cp include/*.h $(TARGET_DIR)/include/
 
 clean:
-	rm -f $(LIB_EWOKSYS_OBJS) $(LIB_EWOKSYS_OBJS)
+	rm -rf $(ARCH)
 	rm -f $(EWOKSYS)

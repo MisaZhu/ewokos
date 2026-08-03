@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I $(BUILD_DIR)/include
 
-XTERM_OBJS = xterm.o
+XTERM_OBJS = $(ARCH)/xterm.o
 
 XTERM_DIR = $(TARGET_DIR)/apps/xterm
 XTERM = $(XTERM_DIR)/xterm

@@ -2,6 +2,7 @@
 #define __NET_TASK_H__
 
 #include <stdint.h>
+#include <sys/time.h>
 #include <ewoksys/ipc.h>
 #include <pthread.h>
 #include "platform.h"
@@ -67,6 +68,15 @@ typedef struct net_task{
      * waiting on netd for that very close). Defer it to the worker self-reap.
      */
     uint32_t pending_close_wakeup;
+    /*
+     * SO_RCVTIMEO deadline for the armed recv()/recvfrom() request. The worker
+     * is never allowed to block inside the stack, so the timeout the stack
+     * implements internally can never fire; task_timeout_check() uses this to
+     * complete the request with ETIMEDOUT instead of leaving the client parked
+     * in vfs_block() forever.
+     */
+    struct timeval main_deadline;
+    bool main_deadline_set;
 
     struct net_task* next;
     struct net_task* prev;
@@ -79,6 +89,7 @@ int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *o
 int  task_read(net_task_t* task, int from_pid, char* buf,  int size, void *p);
 int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p);
 int task_check_read_events(void);
+void task_timeout_check(void);
 int task_has_read_watchers(void);
 int task_wakeup_tcp_readers(int tcp_desc);
 int task_wakeup_tcp_writers(int tcp_desc);

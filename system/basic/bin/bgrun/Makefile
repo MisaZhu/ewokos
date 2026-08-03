@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-TASK_OBJS = bgrun.o
+TASK_OBJS = $(ARCH)/bgrun.o
 
 TASK = $(TARGET_DIR)/bin/bgrun
 

@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-SND_OBJS = snd.o
+SND_OBJS = $(ARCH)/snd.o
 
 SND = $(TARGET_DIR)/drivers/virt/snd
 

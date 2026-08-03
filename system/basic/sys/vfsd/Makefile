@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-VFSD_OBJS = vfsd.o 
+VFSD_OBJS = $(ARCH)/vfsd.o 
 	
 VFSD = $(TARGET_DIR)/sbin/vfsd
 

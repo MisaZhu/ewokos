@@ -42,6 +42,12 @@ typedef struct st_xwin {
 	bool dirty_mark;
 	bool busy;
 
+	/*damaged area of ws_g, in workspace coordinates. When has_damage is
+	  false the whole workspace has to be treated as damaged.*/
+	grect_t damage;
+	bool has_damage;
+	uint32_t damage_skip; //consecutive full-width damages, backs off detection
+
 	grect_t r_title;
 	grect_t r_close;
 	grect_t r_min;
@@ -78,6 +84,8 @@ typedef struct {
 	bool dirty;
 	bool cursor_task;
 	bool need_repaint;
+	bool pending_flush; //flush is issued outside the ipc_disable() section
+	uint32_t wait_ready; //frames spent waiting for the windows to get ready
 } x_display_t;
 
 typedef struct {

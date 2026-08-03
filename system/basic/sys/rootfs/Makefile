@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-SDFSD_OBJS = sdfsd.o 
+SDFSD_OBJS = $(ARCH)/sdfsd.o 
 	
 SDFSD = $(TARGET_DIR)/sbin/sdfsd
 

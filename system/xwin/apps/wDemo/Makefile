@@ -1,5 +1,5 @@
 TASK = wDemo
-TASK_OBJS = wDemo.o
+TASK_OBJS = $(ARCH)/wDemo.o
 
 SYS_DIR=../../..
 include $(SYS_DIR)/platform/$(ARCH)/make.rule

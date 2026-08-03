@@ -755,8 +755,17 @@ static void do_dev_cntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out,
 	if(data != NULL && sz > 0) 
 		PF->copy(&in_arg, data, sz);
 
-	if(dev->dev_cntl(dev, from_pid, cmd, &in_arg, &ret, p) == 0) {
+	int32_t res = dev->dev_cntl(dev, from_pid, cmd, &in_arg, &ret, p);
+	if(res == 0) {
 		PF->clear(out)->addi(out, 0)->add(out, ret.data, ret.size);
+	}
+	else if(res < 0) {
+		/*
+		 * Report the handler's own failure code rather than a flat -1, so a
+		 * driver can tell the caller which stage of the operation failed.
+		 * No reply payload is attached: the caller only reads one on success.
+		 */
+		PF->clear(out)->addi(out, res);
 	}
 	PF->clear(&in_arg);
 	PF->clear(&ret);
@@ -994,10 +1003,15 @@ int dev_cntl_by_pid(int pid, int cmd, proto_t* in, proto_t* out) {
 		}
 
 		res = proto_read_int(&ret);
-		if(res != 0) {
+		/*
+		 * Negative handler status is passed through unchanged: drivers use
+		 * distinct negative codes to report which stage of an operation
+		 * failed, and callers test against zero rather than against -1.
+		 * Anything positive is not a valid status, so it is normalised.
+		 */
+		if(res > 0)
 			res = -1;
-		}
-		else {
+		if(res == 0) {
 			int32_t sz;
 			void *data = proto_read(&ret, &sz);
 			PF->copy(out, data, sz);

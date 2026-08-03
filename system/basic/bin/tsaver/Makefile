@@ -7,7 +7,7 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 LDFLAGS = -L$(BUILD_DIR)/lib
 CFLAGS += -I $(BUILD_DIR)/include
 
-TSAVER_OBJS = tsaver.o
+TSAVER_OBJS = $(ARCH)/tsaver.o
 
 TSAVER = $(TARGET_DIR)/bin/tsaver
 

@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I $(BUILD_DIR)/include
 
-XLAUNCHER_OBJS = xlauncher.o
+XLAUNCHER_OBJS = $(ARCH)/xlauncher.o
 
 XLAUNCHER_DIR = $(TARGET_DIR)/bin/x
 XLAUNCHER = $(XLAUNCHER_DIR)/xlauncher

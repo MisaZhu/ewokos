@@ -10,7 +10,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I $(BUILD_DIR)/include
 
-XPROCS_OBJS = xprocs.o
+XPROCS_OBJS = $(ARCH)/xprocs.o
 LD_LIB_DEPS = \
 	$(BUILD_DIR)/lib/libwidget++.a \
 	$(BUILD_DIR)/lib/libx++.a \

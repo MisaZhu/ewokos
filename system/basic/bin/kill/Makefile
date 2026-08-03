@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-KILL_OBJS = kill.o
+KILL_OBJS = $(ARCH)/kill.o
 
 KILL = $(TARGET_DIR)/bin/kill
 

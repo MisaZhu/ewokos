@@ -1,5 +1,5 @@
 TASK = clock
-TASK_OBJS = clock.o
+TASK_OBJS = $(ARCH)/clock.o
 
 SYS_DIR=../../..
 include $(SYS_DIR)/platform/$(ARCH)/make.rule

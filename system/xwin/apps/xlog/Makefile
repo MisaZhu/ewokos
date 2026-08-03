@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CXXFLAGS += -I $(BUILD_DIR)/include
 
-XLOG_OBJS = xlog.o
+XLOG_OBJS = $(ARCH)/xlog.o
 
 XLOG_DIR = $(TARGET_DIR)/apps/xlog
 XLOG = $(XLOG_DIR)/xlog

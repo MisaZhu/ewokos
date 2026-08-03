@@ -9,7 +9,7 @@ LDFLAGS += -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-VJOYSTICKD_OBJS = vjoystickd.o
+VJOYSTICKD_OBJS = $(ARCH)/vjoystickd.o
 
 VJOYSTICKD = $(TARGET_DIR)/drivers/vjoystickd
 

@@ -15,9 +15,9 @@ CPPFLAGS = $(CFLAGS) -fno-exceptions -fno-unwind-tables -fno-rtti
 LIBZ = $(TARGET_DIR)/lib/libz.a
 all: $(LIBZ)
 
-OBJS = adler32.o crc32.o  deflate.o infback.o inffast.o inflate.o inftrees.o trees.o zutil.o \
-       compress.o uncompr.o \
-       gzclose.o gzlib.o gzread.o gzwrite.o
+OBJS = $(ARCH)/adler32.o $(ARCH)/crc32.o  $(ARCH)/deflate.o $(ARCH)/infback.o $(ARCH)/inffast.o $(ARCH)/inflate.o $(ARCH)/inftrees.o $(ARCH)/trees.o $(ARCH)/zutil.o \
+       $(ARCH)/compress.o $(ARCH)/uncompr.o \
+       $(ARCH)/gzclose.o $(ARCH)/gzlib.o $(ARCH)/gzread.o $(ARCH)/gzwrite.o
 
 -include $(DEPDIR)/*.Po
 
@@ -25,19 +25,22 @@ $(LIBZ): $(OBJS) Makefile
 	$(AR) rcs $@ $(OBJS)
 	cp -r *.h $(TARGET_DIR)/include
 
-%.o: %.c
-	@mkdir -p $(DEPDIR)/$(@D)
+$(ARCH)/%.o: %.c
+	@mkdir -p $(dir $@)
+	@mkdir -p $(dir $(DEPDIR)/$*.Tpo)
 	$(CC) $(CFLAGS) -std=c99 -MMD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
 	@mv -f $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
 
-%.o: %.cpp
-	@mkdir -p $(DEPDIR)/$(@D)
+$(ARCH)/%.o: %.cpp
+	@mkdir -p $(dir $@)
+	@mkdir -p $(dir $(DEPDIR)/$*.Tpo)
 	$(CXX) $(CPPFLAGS) -MMD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
 	@mv -f $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
 
-%.o: %.s
+$(ARCH)/%.o: %.s
+	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) -o $@ $<
 
 clean:
-	rm -f *.o libz.a
+	rm -rf $(ARCH) libz.a
 	rm -rf $(DEPDIR)

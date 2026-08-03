@@ -1,5 +1,5 @@
 TASK = cards
-TASK_OBJS = cards.o
+TASK_OBJS = $(ARCH)/cards.o
 
 SYS_DIR=../../..
 include $(SYS_DIR)/platform/$(ARCH)/make.rule

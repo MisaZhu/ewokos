@@ -44,32 +44,17 @@ static void set_inode_stat(node_stat_t* stat, INODE* inode) {
 	inode->i_size = stat->size;
 }
 
-static void add_file(fsinfo_t* node_to, const char* name, INODE* inode, int32_t ino) {
-	fsinfo_t f;
-	memset(&f, 0, sizeof(fsinfo_t));
-	strcpy(f.name, name);
-	f.type = FS_TYPE_FILE;
-	f.data = (uint32_t)ino;
-	set_fsinfo_stat(&f.stat, inode);
-	vfs_new_node(&f, node_to->node, false, false);
-}
-
-static int add_dir(fsinfo_t* info_to, fsinfo_t* ret, const char* dn, INODE* inode, int ino) {
-	memset(ret, 0, sizeof(fsinfo_t));
-	strcpy(ret->name, dn);
-	ret->type = FS_TYPE_DIR;
-	ret->data = (uint32_t)ino;
-	set_fsinfo_stat(&ret->stat, inode);
-	if(vfs_new_node(ret, info_to->node, false, false) != 0)
-		return -1;
-	return 0;
-}
+#define NEW_NODES_BATCH 64
 
 static int32_t add_nodes(ext2_t* ext2, INODE *ip, fsinfo_t* dinfo) {
 	int32_t i; 
 	char c, *cp;
 	DIR_T  *dp;
 	char buf[EXT2_BLOCK_SIZE+1];
+
+	fsinfo_t* kids = NULL;
+	uint32_t kid_num = 0;
+	uint32_t kid_cap = 0;
 
 	for (i=0; i<12; i++){
 		if (ip->i_block[i] != 0){
@@ -92,18 +77,22 @@ static int32_t add_nodes(ext2_t* ext2, INODE *ip, fsinfo_t* dinfo) {
 				c = dp->name[dp->name_len];  // save last byte
 				dp->name[dp->name_len] = 0;   
 
-				if(strcmp(dp->name, ".") != 0 && strcmp(dp->name, "..") != 0 && dp->inode != 0) {
+				if(strcmp(dp->name, ".") != 0 && strcmp(dp->name, "..") != 0 && dp->inode != 0 &&
+						(dp->file_type == 1 || dp->file_type == 2)) {
 					int32_t ino = dp->inode;
 					INODE ip_node;
 					if(ext2_node_by_ino(ext2, ino, &ip_node) == 0) {
-						if(dp->file_type == 2) {//director
-							fsinfo_t ret;
-							add_dir(dinfo, &ret, dp->name, &ip_node, ino);
-							add_nodes(ext2, &ip_node, &ret);
+						if(kid_num >= kid_cap) { //grow geometrically, one realloc per entry is O(n^2)
+							kid_cap = (kid_cap == 0) ? 16 : (kid_cap * 2);
+							kids = realloc(kids, sizeof(fsinfo_t) * kid_cap);
 						}
-						else if(dp->file_type == 1) {//file
-							add_file(dinfo, dp->name, &ip_node, ino);
-						}
+						fsinfo_t* f = &kids[kid_num];
+						memset(f, 0, sizeof(fsinfo_t));
+						strcpy(f->name, dp->name);
+						f->type = (dp->file_type == 2) ? FS_TYPE_DIR : FS_TYPE_FILE;
+						f->data = (uint32_t)ino;
+						set_fsinfo_stat(&f->stat, &ip_node);
+						kid_num++;
 					}
 				}
 				//add node
@@ -113,6 +102,23 @@ static int32_t add_nodes(ext2_t* ext2, INODE *ip, fsinfo_t* dinfo) {
 			}
 		}
 	}
+
+	if(kid_num == 0)
+		return 0;
+
+	//only preload the first level under the mount root; deeper directories
+	//are expanded lazily by vfsd through FS_CMD_KIDS.
+	for(uint32_t off = 0; off < kid_num; off += NEW_NODES_BATCH) {
+		uint32_t n = kid_num - off;
+		if(n > NEW_NODES_BATCH)
+			n = NEW_NODES_BATCH;
+		if(vfs_new_nodes(&kids[off], n, dinfo->node) != 0) {
+			//fall back to the one-by-one path (old vfsd)
+			for(uint32_t j = 0; j < n; j++)
+				vfs_new_node(&kids[off+j], dinfo->node, false, false);
+		}
+	}
+	free(kids);
 	return 0;
 }
 
@@ -120,7 +126,9 @@ static int sdext2_mount(vdevice_t* dev, fsinfo_t* info, void* p) {
 	(void)dev;
 	ext2_t* ext2 = (ext2_t*)p;
 	INODE root_node;
-	ext2_node_by_fname(ext2, "/", &root_node);
+	info->state |= FS_STATE_KIDS_LOADED;
+	if(ext2_node_by_fname(ext2, "/", &root_node) != 0)
+		return -1;
 	add_nodes(ext2, &root_node, info);
 	return 0;
 }
@@ -148,6 +156,8 @@ static int sdext2_create(vdevice_t* dev, int pid, fsinfo_t* info_to, fsinfo_t* i
 	if(ino == -1)
 		return -1;
 	info->data = ino;
+	if(info->type == FS_TYPE_DIR)
+		info->state |= FS_STATE_KIDS_LOADED;
 	return 0;
 }
 

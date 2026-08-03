@@ -7,7 +7,7 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 LDFLAGS = -L$(BUILD_DIR)/lib
 CFLAGS += -I $(BUILD_DIR)/include
 
-TASK_OBJS = ping.o
+TASK_OBJS = $(ARCH)/ping.o
 
 TASK = $(TARGET_DIR)/bin/ping
 

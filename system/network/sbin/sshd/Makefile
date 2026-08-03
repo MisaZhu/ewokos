@@ -7,16 +7,17 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 LDFLAGS = -L$(BUILD_DIR)/lib -lwolfssl
 CFLAGS += -I $(BUILD_DIR)/include -I $(BUILD_DIR)/include/wolfssl -DWOLFSSL_USER_SETTINGS
 
-TASK_OBJS = sshd.o sftp-core.o
+TASK_OBJS = $(ARCH)/sshd.o $(ARCH)/sftp-core.o
 
 TASK = $(TARGET_DIR)/sbin/sshd
 
 $(TASK): $(TASK_OBJS) $(BUILD_DIR)/lib/libewoksys.a \
 		$(BUILD_DIR)/lib/libsocket.a \
 		$(BUILD_DIR)/lib/libwolfssl.a
-	$(LD) -Ttext=100 $(TASK_OBJS) -o $(TASK) $(LDFLAGS) -lsocket -lm $(EWOK_LIBC)
+	$(LD) -Ttext=100 $(TASK_OBJS) -o $(TASK) $(LDFLAGS) -lsocket -lopenlibm $(EWOK_LIBC)
 
-sftp-core.o: sftp-core.c sftp-core.h
+$(ARCH)/sftp-core.o: sftp-core.c sftp-core.h
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c -o $@ sftp-core.c
 
 clean:

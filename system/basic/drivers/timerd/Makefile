@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-TIMERD_OBJS = timerd.o
+TIMERD_OBJS = $(ARCH)/timerd.o
 
 TIMERD = $(TARGET_DIR)/drivers/timerd
 

@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-LS_OBJS = xmodem.o crc16.o
+LS_OBJS = $(ARCH)/xmodem.o $(ARCH)/crc16.o
 
 RX = $(TARGET_DIR)/bin/rx
 

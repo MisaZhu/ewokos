@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-WHOAMI_OBJS = whoami.o
+WHOAMI_OBJS = $(ARCH)/whoami.o
 
 WHOAMI = $(TARGET_DIR)/bin/whoami
 

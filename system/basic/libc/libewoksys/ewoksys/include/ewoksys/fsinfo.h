@@ -74,6 +74,7 @@ typedef struct {
 #define FS_STATE_BUSY_R  0x02
 #define FS_STATE_BUSY_W  0x04
 #define FS_STATE_BUSY_X  0x08
+#define FS_STATE_KIDS_LOADED 0x10
 
 typedef struct {
 	uint32_t type;

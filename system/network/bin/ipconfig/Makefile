@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-IPCONFIG_OBJS = ipconfig.o
+IPCONFIG_OBJS = $(ARCH)/ipconfig.o
 
 IPCONFIG = $(TARGET_DIR)/bin/ipconfig
 

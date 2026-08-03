@@ -195,12 +195,134 @@ uint32_t fbd_rotate_to(const fbinfo_t* fbinfo, const graph_t* g, int rotate) {
 }
 
 static graph_t* _rotate_g = NULL; /* cached rotate buffer, allocated once */
+static uint32_t (*_flush_rect)(const fbinfo_t*, const graph_t*, const grect_t*) = NULL;
+
+void fbd_set_flush_rect(uint32_t (*flush_rect)(const fbinfo_t* fbinfo,
+		const graph_t* g, const grect_t* r)) {
+	_flush_rect = flush_rect;
+}
+
+uint32_t fbd_flush_rect_to(const fbinfo_t* fbinfo, const graph_t* g, const grect_t* r) {
+	if(fbinfo == NULL || g == NULL || g->buffer == NULL || r == NULL)
+		return 0;
+	if(fbinfo->pointer == 0)
+		return 0;
+	if(fbinfo->depth != 32 && fbinfo->depth != 16)
+		return 0;
+	/* the rect addressing below only holds when the client frame and the
+	 * panel share the same geometry (no rotation, no scaling) */
+	if((uint32_t)g->w != fbinfo->width || (uint32_t)g->h != fbinfo->height)
+		return 0;
+	if(r->w <= 0 || r->h <= 0)
+		return 0;
+
+	uint32_t bytes_per_pixel = fbinfo->depth / 8;
+	if(fbinfo->depth == 32 && (uintptr_t)fbinfo->pointer == (uintptr_t)g->buffer)
+		return (uint32_t)r->w * (uint32_t)r->h * 4; //scan-out is the dma itself
+
+	/* several platforms leave pitch at 0 because their full-frame flush is a
+	 * plain memcpy that never needs it; a packed scan-out is the only sane
+	 * meaning of that, so assume it here too */
+	uint32_t pitch = fbinfo->pitch;
+	if(pitch < fbinfo->width * bytes_per_pixel)
+		pitch = fbinfo->width * bytes_per_pixel;
+
+	uint8_t* dst = (uint8_t*)(uintptr_t)fbinfo->pointer +
+			(fbinfo->yoffset + r->y) * pitch +
+			(fbinfo->xoffset + r->x) * bytes_per_pixel;
+	const uint32_t* src = g->buffer + r->y * g->w + r->x;
+
+	if(fbinfo->depth == 32) {
+		uint32_t row_bytes = (uint32_t)r->w * 4;
+		for(int32_t y = 0; y < r->h; y++) {
+			memcpy(dst, src, row_bytes);
+			dst += pitch;
+			src += g->w;
+		}
+		return row_bytes * (uint32_t)r->h;
+	}
+
+	for(int32_t y = 0; y < r->h; y++) {
+		uint16_t* d = (uint16_t*)dst;
+		for(int32_t x = 0; x < r->w; x++) {
+			uint32_t s = src[x];
+			d[x] = (uint16_t)((((s >> 16) & 0xff) >> 3) << 11 |
+					(((s >> 8) & 0xff) >> 2) << 5 |
+					((s & 0xff) >> 3));
+		}
+		dst += pitch;
+		src += g->w;
+	}
+	return (uint32_t)r->w * (uint32_t)r->h * 2;
+}
+
+/*rotate a single client-space rect straight into the scan-out. Mirrors the
+  exact mapping and destination-row-major memory model of fbd_rotate_to, but
+  only for the damaged region. g is the client (pre-rotation) frame; r is in
+  client coordinates. Returns 0 (=> full-frame fallback) on any surprise.*/
+static uint32_t fbd_rotate_rect_to(const fbinfo_t* fbi, const graph_t* g,
+		const grect_t* r, int rotate) {
+	if(fbi == NULL || g == NULL || g->buffer == NULL || r == NULL)
+		return 0;
+	if(fbi->pointer == 0 || fbi->depth != 32)
+		return 0;
+
+	int32_t sw = g->w, sh = g->h;
+	int32_t rx0 = r->x < 0 ? 0 : r->x;
+	int32_t ry0 = r->y < 0 ? 0 : r->y;
+	int32_t rx1 = r->x + r->w; if(rx1 > sw) rx1 = sw;
+	int32_t ry1 = r->y + r->h; if(ry1 > sh) ry1 = sh;
+	if(rx0 >= rx1 || ry0 >= ry1)
+		return 0;
+
+	uint32_t pitch = fbi->pitch;
+	if(pitch < fbi->width * 4)
+		pitch = fbi->width * 4;
+	uint8_t* base = (uint8_t*)(uintptr_t)fbi->pointer +
+			fbi->yoffset * pitch + fbi->xoffset * 4;
+	const uint32_t* src = g->buffer;
+
+	if(rotate == G_ROTATE_90) {
+		/* dst[y][x] = src[sh-1-x][y]; dst is sh wide, sw tall */
+		for(int32_t y = rx0; y < rx1; y++) {
+			uint32_t* d = (uint32_t*)(base + (uint32_t)y * pitch);
+			for(int32_t x = sh - ry1; x <= sh - 1 - ry0; x++)
+				d[x] = src[(sh - 1 - x) * sw + y];
+		}
+	}
+	else if(rotate == G_ROTATE_270) {
+		/* dst[y][x] = src[x][sw-1-y] */
+		for(int32_t y = sw - rx1; y <= sw - 1 - rx0; y++) {
+			uint32_t* d = (uint32_t*)(base + (uint32_t)y * pitch);
+			int32_t sc = sw - 1 - y;
+			for(int32_t x = ry0; x < ry1; x++)
+				d[x] = src[x * sw + sc];
+		}
+	}
+	else if(rotate == G_ROTATE_180) {
+		/* dst[y][x] = src[sh-1-y][sw-1-x]; same geometry as the panel */
+		for(int32_t y = sh - ry1; y <= sh - 1 - ry0; y++) {
+			uint32_t* d = (uint32_t*)(base + (uint32_t)y * pitch);
+			int32_t sr = sh - 1 - y;
+			for(int32_t x = sw - rx1; x <= sw - 1 - rx0; x++)
+				d[x] = src[sr * sw + (sw - 1 - x)];
+		}
+	}
+	else {
+		return 0;
+	}
+	return (uint32_t)(rx1 - rx0) * (uint32_t)(ry1 - ry0) * 4;
+}
+
+static inline int is_zoomed(void) {
+	return (_zoom > 0.0 && _zoom != 8.0 && _zoom != 1.0);
+}
 
 static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, int rotate) {
 	if(fbinfo->depth != 32 && fbinfo->depth != 16)
 		return 0;
 
-	int zoomed = (_zoom > 0.0 && _zoom != 8.0 && _zoom != 1.0);
+	int zoomed = is_zoomed();
 	graph_t g;
 	if(rotate == G_ROTATE_270 || rotate == G_ROTATE_90)
 		graph_init(&g, buf, _zheight, _zwidth);
@@ -256,14 +378,14 @@ static int fb_dma_init(fb_dma_t* dma) {
 	memset(dma, 0, sizeof(fb_dma_t));
 	uint32_t sz = _zwidth * _zheight * 4;
 	key_t key = (((int32_t)dma) << 16) | getpid(); 
-	dma->shm_id = shmget(key, sz + 1, 0666 | IPC_CREAT | IPC_EXCL); //one more byte (head) for busy flag 
+	dma->shm_id = shmget(key, sz + sizeof(fb_ctrl_t), 0666 | IPC_CREAT | IPC_EXCL); //control block follows the pixels
 	if(dma->shm_id == -1)
 		return -1;
-	dma->shm = shmat(dma->shm_id, 0, 0); //one more byte (head) for busy flag 
+	dma->shm = shmat(dma->shm_id, 0, 0);
 	if(dma->shm == NULL)
 		return -1;
 	//dma->size = _fbinfo.size_max;
-	memset(dma->shm, 0, sz+1);
+	memset(dma->shm, 0, sz + sizeof(fb_ctrl_t));
 	dma->size = sz;
 	init_graph(dma);
 	return 0;
@@ -299,15 +421,72 @@ static int fb_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto
 	return 0;
 }
 
+/*push only the rects the client declared dirty. Returns the bytes written,
+  or -1 when the damage cannot be honoured and the whole frame is needed.*/
+static int32_t flush_dirty(fb_dma_t* dma, const grect_t* rects, uint32_t num) {
+	/*client (pre-rotation) geometry: for 90/270 the frame is transposed,
+	  matching flush()/GET_INFO. For rotate 0 this is _zwidth x _zheight,
+	  identical to the non-rotated path.*/
+	uint32_t gw, gh;
+	if(_rotate == G_ROTATE_90 || _rotate == G_ROTATE_270) {
+		gw = _zheight; gh = _zwidth;
+	}
+	else {
+		gw = _zwidth; gh = _zheight;
+	}
+	grect_t bounds = {0, 0, gw, gh};
+	graph_t g;
+	memset(&g, 0, sizeof(graph_t));
+	graph_init(&g, (const uint32_t*)dma->shm, gw, gh);
+
+	int32_t res = 0;
+	for(uint32_t i = 0; i < num; i++) {
+		grect_t r = rects[i];
+		if(!grect_insect(&bounds, &r))
+			continue;
+		uint32_t n = (_rotate == G_ROTATE_0)
+				? _flush_rect(&_fbinfo, &g, &r)
+				: fbd_rotate_rect_to(&_fbinfo, &g, &r, _rotate);
+		if(n == 0) //hook refused this geometry
+			return -1;
+		res += (int32_t)n;
+	}
+	return res;
+}
+
 static int32_t do_flush(fb_dma_t* dma) {
 	uint8_t* buf = (uint8_t*)dma->shm;
 	if(buf == NULL)
 		return -1;
 
 	uint32_t size = dma->size;
-	buf[size] = 1; //busy
-	int32_t res = flush(&_fbinfo, buf, size, _rotate);
-	buf[size] = 0; //done
+	fb_ctrl_t* ctrl = (fb_ctrl_t*)(buf + size);
+	uint32_t num = ctrl->dirty_num;
+	grect_t rects[FB_DIRTY_MAX];
+	if(num > FB_DIRTY_MAX)
+		num = 0;
+	if(num > 0)
+		memcpy(rects, ctrl->dirty, num * sizeof(grect_t));
+	ctrl->dirty_num = 0; //consumed, next flush is full unless declared again
+
+	ctrl->busy = 1;
+	int32_t res = -1;
+	/*dirty-rect flushing: rotate 0 needs the driver's rect hook; a rotated
+	  panel is handled in-library, but only when it uses the generic
+	  fbd_rotate_to (so the rect rotate matches its full-frame model).*/
+	int dirty_ok = (num > 0) && !is_zoomed();
+	if(dirty_ok) {
+		if(_rotate == G_ROTATE_0)
+			dirty_ok = (_flush_rect != NULL);
+		else
+			dirty_ok = (_fbd->flush_rotate == fbd_rotate_to) &&
+					(_fbinfo.depth == 32);
+	}
+	if(dirty_ok)
+		res = flush_dirty(dma, rects, num);
+	if(res < 0)
+		res = flush(&_fbinfo, buf, size, _rotate);
+	ctrl->busy = 0;
 	return res;
 }
 

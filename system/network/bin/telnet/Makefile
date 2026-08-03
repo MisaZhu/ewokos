@@ -7,7 +7,7 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 LDFLAGS = -L$(BUILD_DIR)/lib
 CFLAGS += -I $(BUILD_DIR)/include
 
-TASK_OBJS = telnet.o
+TASK_OBJS = $(ARCH)/telnet.o
 
 TASK = $(TARGET_DIR)/bin/telnet
 

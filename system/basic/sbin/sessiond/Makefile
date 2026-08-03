@@ -10,7 +10,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-SESSIOND_OBJS = sessiond.o 
+SESSIOND_OBJS = $(ARCH)/sessiond.o 
 	
 SESSIOND = $(TARGET_DIR)/$(ROOT_DIR)/sbin/sessiond
 

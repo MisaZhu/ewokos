@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-UNAME_OBJS = uname.o
+UNAME_OBJS = $(ARCH)/uname.o
 
 UNAME = $(TARGET_DIR)/bin/uname
 

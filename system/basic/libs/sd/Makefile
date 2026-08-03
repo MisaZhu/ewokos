@@ -8,7 +8,7 @@ LDFLAGS = -L$(TARGET_DIR)/lib
 
 CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_SD_OBJS = src/partition.o src/sd.o
+LIB_SD_OBJS = $(ARCH)/src/partition.o $(ARCH)/src/sd.o
 
 SD = $(TARGET_DIR)/lib/libsd.a
 

@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-GREP_OBJS = grep.o
+GREP_OBJS = $(ARCH)/grep.o
 
 GREP = $(TARGET_DIR)/bin/grep
 

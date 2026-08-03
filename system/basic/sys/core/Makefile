@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-CORE_OBJS = core.o 
+CORE_OBJS = $(ARCH)/core.o 
 	
 CORE = $(TARGET_DIR)/sbin/core
 

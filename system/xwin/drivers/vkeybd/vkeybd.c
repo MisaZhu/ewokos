@@ -38,9 +38,17 @@ static int vkeyb_read(vdevice_t* dev, int fd,
 	if(_keyb_fd < 0)
 		return -1;
 
-	//key mode
-	if(_rd > 0)
-		memcpy(buf, _keys, _rd);
+	/* Keep returning the current held-key snapshot until loop_step()
+	   observes a change. keyb.c relies on stable held-state reads to
+	   derive HOLD/REPEAT without synthesizing spurious releases when the
+	   reader polls between two vkeybd refreshes. */
+	if(_rd > 0) {
+		int ret = _rd;
+		if(ret > size)
+			ret = size;
+		memcpy(buf, _keys, ret);
+		return ret;
+	}
 	else {
 		if(!_release)
 			//return 0;
@@ -48,9 +56,7 @@ static int vkeyb_read(vdevice_t* dev, int fd,
 		else
 			_release = false;
 	}
-	int ret = _rd;	
-	_rd = 0;
-	return ret;
+	return 0;
 }
 
 static int x_show_cursor(bool show) {

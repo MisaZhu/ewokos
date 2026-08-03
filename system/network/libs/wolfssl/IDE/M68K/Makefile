@@ -78,7 +78,7 @@ link:
 	m68k-elf-ar -cr $(OUTPUT)/$(NAME).a $(LIBOBJS)
 
 rmo:
-	rm -f *.o
+	rm -rf $(ARCH)
 
 clean: rmo
 	rm -f $(OUTPUT)/$(NAME).a

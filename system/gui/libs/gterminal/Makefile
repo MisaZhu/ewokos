@@ -8,7 +8,7 @@ LDFLAGS = -L$(TARGET_DIR)/lib
 
 CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_gterminal_OBJS = src/gterminal.o
+LIB_gterminal_OBJS = $(ARCH)/src/gterminal.o
 
 libgterminal = $(TARGET_DIR)/lib/libgterminal.a
 

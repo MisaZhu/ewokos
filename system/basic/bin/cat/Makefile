@@ -8,7 +8,7 @@ LDFLAGS = -L$(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-CAT_OBJS = cat.o
+CAT_OBJS = $(ARCH)/cat.o
 
 CAT = $(TARGET_DIR)/bin/cat
 
