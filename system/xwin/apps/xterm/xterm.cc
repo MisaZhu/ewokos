@@ -432,6 +432,7 @@ static bool readConfig(const char* fname) {
 }
 
 static bool _win_opened = false;
+static bool _win_failed = false;
 
 static void terminate_shell_session(void) {
 	if(_shell_pid <= 0)
@@ -476,7 +477,11 @@ static void* thread_loop(void* p) {
 	readConfig(X::getResFullName("config.json").c_str());
 
 	x.getDesktopSpace(desk, 0);
-	win.open(&x, -1, -1, -1, 0, 0, "xconsole", 0);
+	if(!win.open(&x, -1, -1, -1, 0, 0, "xconsole", 0)) {
+		_win_failed = true;
+		_win_opened = true;
+		return NULL;
+	}
 	_win_opened = true;
 
 	win.setAlpha(true);
@@ -596,6 +601,11 @@ int run(const char* mnt_point) {
 	while(!_win_opened)
 		proc_usleep(100000);
 
+	/* Without a window there is nothing to attach a shell to; bail out instead
+	 * of publishing a console device that can never show anything. */
+	if(_win_failed)
+		return -1;
+
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0600);
 	syscall1(SYS_EXIT, (ewokos_addr_t)0);
 	__builtin_unreachable();
@@ -626,11 +636,15 @@ int main(int argc, char* argv[]) {
 			exit(-1);
 		}
 	}
-	else 
-		ipc_wait_ready(pid);
 
-	if(set_stdio(dev) != 0)
-		exit(-1);
+	/* Wait for the child to publish the console device, but give up as soon as
+	 * the child is gone, otherwise a failed window open hangs us forever. */
+	uint32_t child_uuid = proc_get_uuid(pid);
+	while(set_stdio(dev) != 0) {
+		if(child_uuid == 0 || proc_get_uuid(pid) != child_uuid)
+			exit(-1);
+		proc_usleep(10000);
+	}
 	proc_exec("/bin/shell");
 	ewok_waitpid(pid);
 	return 0;

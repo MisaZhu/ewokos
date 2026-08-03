@@ -27,7 +27,7 @@ protected:
 	virtual graph_t* genDesktopPattern(void);
 
 	virtual void getColor(uint32_t *fg, uint32_t* bg, bool top);
-	virtual void getWinSpace(int style, grect_t* xr, grect_t* wsr);
+	virtual void getWinSpace(int style, int state, grect_t* xr, grect_t* wsr);
 	virtual void getClose(xinfo_t* info, grect_t* r);
 	virtual void getMin(xinfo_t* info, grect_t* r);
 	virtual void getMinSize(xinfo_t* info, int* w, int* h);
@@ -50,7 +50,7 @@ protected:
 
 	void updateTheme(bool loadFromX);
 public:
-	inline void __getWinSpace(int style, grect_t* xr, grect_t* wsr) {getWinSpace(style, xr, wsr);}
+	inline void __getWinSpace(int style, int state, grect_t* xr, grect_t* wsr) {getWinSpace(style, state, xr, wsr);}
 	inline void __getClose(xinfo_t* info, grect_t* r) { getClose(info, r); }
 	inline void __getMin(xinfo_t* info, grect_t* r) { getMin(info, r); }
 	inline void __getMinSize(xinfo_t* info, int* w, int* h) { getMinSize(info, w, h); }

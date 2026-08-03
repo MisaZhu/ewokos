@@ -110,11 +110,25 @@ static bool top_proc(x_t* x, xwin_t* win) {
 }
 
 static bool need_repaint_frame(x_t* x, xwin_t* win);
+static bool need_repaint_desktop(x_t* x, xwin_t* win);
+
+/*the theme draws the frame with translucent pixels that reach into the
+  workspace (the rounded corners cut its lower part away), so the frame has
+  to be put back on top of a fresh content copy or the window loses them*/
+static inline bool frame_cuts_ws(x_t* x, xwin_t* win) {
+	if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0)
+		return false;
+	return x->config.xwm_theme.alpha;
+}
 
 static void win_mark_frame_dirty(x_t* x, xwin_t* win) {
 	x_display_t *display = &x->displays[win->xinfo->display_index];
 
+	/*the background effect mixes the desktop into the frame, so an unfocused
+	  window has to have it built again whenever its content changed. Without
+	  such an effect the frame keeps its picture.*/
 	if(win->dirty && !win->xinfo->focused &&
+			x->config.xwm_theme.bgEffect != 0 &&
 			(win->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) == 0) {
 		win->frame_dirty = true;
 		return;
@@ -816,6 +830,7 @@ static void hide_cursor(x_t* x) {
 				x->cursor.size.w,
 				x->cursor.size.h);
 	}
+	x->cursor.drawn = false;
 }
 
 static inline void refresh_cursor(x_t* x) {
@@ -835,6 +850,9 @@ static inline void refresh_cursor(x_t* x) {
 	x->cursor.old_pos.x = x->cursor.cpos.x;
 	x->cursor.old_pos.y = x->cursor.cpos.y;
 	x->cursor.drop = false;
+	x->cursor.drawn = true;
+	x->cursor.drawn_down = x->cursor.down;
+	x->cursor.drawn_busy = x->mouse_state.busy;
 }
 
 static int x_init_display(x_t* x, int32_t display_index) {
@@ -941,6 +959,47 @@ static bool x_is_hide_cursor_on_win(x_t* x) {
 
 #define X_WAIT_READY_MAX 4
 
+/*the cursor is composited last and keeps the pixels it covers in
+  cursor.saved, so it only has to be lifted and put down again when it moved,
+  changed its look, or something is about to be drawn underneath it. A still
+  mouse over a still area costs nothing then, instead of two blits and two
+  dirty rects on every single frame.*/
+static bool cursor_needs_redraw(x_t* x, uint32_t display_index) {
+	x_display_t* display = &x->displays[display_index];
+
+	if(!x->cursor.drawn ||
+			x->cursor.saved == NULL ||
+			x->cursor.drop ||
+			x->cursor.cpos.x != x->cursor.old_pos.x ||
+			x->cursor.cpos.y != x->cursor.old_pos.y ||
+			x->cursor.drawn_down != x->cursor.down ||
+			x->cursor.drawn_busy != x->mouse_state.busy)
+		return true;
+
+	/*the desktop and the drag frame can be drawn anywhere*/
+	if(display->dirty || x->current.win_drag != NULL)
+		return true;
+
+	grect_t cursor_r;
+	x_get_cursor_rect(x, &cursor_r, true);
+
+	xwin_t* win = x->win_head;
+	while(win != NULL) {
+		if(win->ready &&
+				win->xinfo != NULL &&
+				win->xinfo->visible &&
+				win->xinfo->display_index == display_index &&
+				(win->dirty || win->frame_dirty)) {
+			grect_t r;
+			memcpy(&r, &win->xinfo->winr, sizeof(grect_t));
+			if(grect_insect(&cursor_r, &r))
+				return true;
+		}
+		win = win->next;
+	}
+	return false;
+}
+
 static void x_repaint(x_t* x, uint32_t display_index) {
 	x_display_t* display = &x->displays[display_index];
 	grect_t dirty_rects[X_REPAINT_DIRTY_MAX];
@@ -978,12 +1037,21 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 		do_flush = true;
 	}	
 
-	if((x->show_cursor || x->mouse_state.busy) && x->current_display == display_index) {
-		if(!x_is_hide_cursor_on_win(x)) {
-			x_get_cursor_rect(x, &cursor_old_rect, true);
-			hide_cursor(x);
-			cursor_hidden = true;
-		}
+	/*hide_cursor/refresh_cursor always work on the current display, so a
+	  cursor left on another one is not this pass' business*/
+	bool cursor_here = (x->current_display == display_index);
+	bool cursor_on = cursor_here &&
+			(x->show_cursor || x->mouse_state.busy) &&
+			!x_is_hide_cursor_on_win(x);
+	bool cursor_redraw = cursor_on && cursor_needs_redraw(x, display_index);
+
+	if(cursor_here && x->cursor.drawn && (cursor_redraw || !cursor_on)) {
+		x_get_cursor_rect(x, &cursor_old_rect, true);
+		hide_cursor(x);
+		cursor_hidden = true;
+	}
+	else if(cursor_redraw && x->cursor.saved == NULL) {
+		hide_cursor(x); //nothing to put back yet, just get the backing store
 	}
 
 	if(display->dirty) {
@@ -1031,21 +1099,19 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 		win = win->next;
 	}
 
-	if(x->current_display == display_index) {
-		if(x->show_cursor || x->mouse_state.busy) {
-			if(!x_is_hide_cursor_on_win(x)) {
-				x_get_cursor_rect(x, &cursor_new_rect, false);
-				refresh_cursor(x);
-				cursor_refreshed = true;
-			}
-		}
+	if(cursor_redraw) {
+		x_get_cursor_rect(x, &cursor_new_rect, false);
+		refresh_cursor(x);
+		cursor_refreshed = x->cursor.drawn;
 	}
 
 	if(cursor_hidden) {
 		x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &cursor_old_rect);
+		do_flush = true;
 	}
 	if(cursor_refreshed) {
 		x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &cursor_new_rect);
+		do_flush = true;
 	}
 
 	display->dirty = false;
@@ -1132,11 +1198,10 @@ static void mark_dirty_confirm(x_t* x, xwin_t* win) {
 			v->has_damage = false; //the area below it was repainted
 			
 			if(v != win && v->xinfo != NULL) {
-				if(v->xinfo->alpha || 
-						((v->xinfo->style & XWIN_STYLE_NO_FRAME) == 0 &&
-						x->config.xwm_theme.alpha)) {
+				if(need_repaint_desktop(x, v))
 					x_dirty(x, v->xinfo->display_index);
-				}
+				else if(frame_cuts_ws(x, v))
+					v->frame_dirty = true;
 			}
 		}
 		v = v->next;
@@ -1274,13 +1339,31 @@ static bool need_repaint_frame(x_t* x, xwin_t* win) {
 	return false;
 }
 
+/*the desktop only has to be drawn again before a window can be composited
+  when the window mixes its own pixels with what is already on the display:
+  translucent content, a shadow or the unfocused background effect all read
+  the destination back, so blitting them twice accumulates. A frame that is
+  merely cut (transparent corners) does not: the alpha blit skips those
+  pixels and leaves the desktop underneath as it was.*/
+static bool need_repaint_desktop(x_t* x, xwin_t* win) {
+	if(win->xinfo->alpha)
+		return true;
+	if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0)
+		return false;
+	if(x->config.xwm_theme.shadow > 0 ||
+			(x->config.xwm_theme.bgEffect && !win->xinfo->focused))
+		return true;
+	return false;
+}
+
 static void win_dirty(x_t* x, xwin_t* win) {
 	win->dirty = true;
 	mark_dirty(x, win);
 	if(win->dirty) {
-		if(win->xinfo->alpha || need_repaint_frame(x, win)) {
+		if(need_repaint_desktop(x, win))
 			x_dirty(x, win->xinfo->display_index);
-		}
+		else if(frame_cuts_ws(x, win))
+			win->frame_dirty = true;
 	}
 	x_repaint_req(x, win->xinfo->display_index);
 }
@@ -1482,14 +1565,14 @@ static void x_get_min_size(x_t* x, xwin_t* win, int *w, int* h) {
 /*rout only gets written when the whole query worked out: a half updated
   geometry would make xwm draw the frame with a stride the buffer does not
   have, which shears the whole window content*/
-static int get_xwm_win_space(x_t* x, int style, grect_t* rin, grect_t* rout) {
+static int get_xwm_win_space(x_t* x, int style, int state, grect_t* rin, grect_t* rout) {
 	grect_t r;
 	memcpy(&r, rin, sizeof(grect_t));
 
 	if(check_xwm(x)) {
 		proto_t in, out;
 		PF->init(&out);
-		PF->format(&in, "i,m", style, rin, sizeof(grect_t));
+		PF->format(&in, "i,i,m", style, state, rin, sizeof(grect_t));
 
 		int res = ipc_call(x->xwm_pid, XWM_CNTL_GET_WIN_SPACE, &in, &out);
 		PF->clear(&in);
@@ -1673,7 +1756,7 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 		type = type | X_UPDATE_REFRESH;
 	}
 
-	if(get_xwm_win_space(x, (int)win->xinfo->style,
+	if(get_xwm_win_space(x, (int)win->xinfo->style, (int)win->xinfo->state,
 			&win->xinfo->wsr,
 			&win->xinfo->winr) != 0)	
 		return -1;
@@ -1695,7 +1778,7 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 			win->xinfo->wsr.h = win->xinfo->wsr.h > over_h ?
 					(win->xinfo->wsr.h - over_h) : 1;
 
-		if(get_xwm_win_space(x, (int)win->xinfo->style,
+		if(get_xwm_win_space(x, (int)win->xinfo->style, (int)win->xinfo->state,
 				&win->xinfo->wsr,
 				&win->xinfo->winr) != 0)
 			return -1;
@@ -1831,7 +1914,7 @@ static int x_win_space(x_t* x, proto_t* in, proto_t* out) {
 	grect_t r;
 	int style = proto_read_int(in);
 	proto_read_to(in, &r, sizeof(grect_t));
-	get_xwm_win_space(x, style, &r, &r); 
+	get_xwm_win_space(x, style, XWIN_STATE_NORMAL, &r, &r); 
 	PF->add(out, &r, sizeof(grect_t));
 	return 0;
 }

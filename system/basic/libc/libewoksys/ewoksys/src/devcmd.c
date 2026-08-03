@@ -118,7 +118,10 @@ int dev_unlink(int dev_pid, uint32_t node, const char* fname) {
 int dev_open(int dev_pid, int fd, fsinfo_t* info, int oflag) {
 	proto_t in, out;
 	PF->init(&out);
-	PF->format(&in, "i,i,i", fd, info->node, oflag);
+	/* Ship the whole fsinfo the vfsd just handed us: the driver then needs no
+	 * extra VFS_GET_BY_NODE round trip, which also closes the window where an
+	 * announimous node created by VFS_OPEN is not visible yet/anymore. */
+	PF->format(&in, "i,i,m,i", fd, info->node, info, sizeof(fsinfo_t), oflag);
 
 	int res = ipc_call(dev_pid, FS_CMD_OPEN, &in, &out);
 	PF->clear(&in);

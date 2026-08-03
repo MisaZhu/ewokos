@@ -205,10 +205,19 @@ static graph_t* x_get_graph(xwin_t* xwin, graph_t* g) {
 	if(xwin == NULL || xwin->xinfo == NULL || xwin->xinfo->ws_g_shm_id == -1)
 		return NULL;
 
-	if(xwin->ws_g_shm == NULL) {
-		xwin->ws_g_shm = shmat(xwin->xinfo->ws_g_shm_id, 0, 0);
-		if(xwin->ws_g_shm == (void*)-1)
-			return NULL;
+	/*the server can rebuild the workspace shm on its own and publishes the
+	  new id into xinfo->ws_g_shm_id. shmat of the published id returns the
+	  cached address when it is still the mapped one, and a different one
+	  after a rebuild (every segment owns a unique global address), so use
+	  it to notice a rebuild instead of trusting the cached pointer: drawing
+	  with the fresh wsr size into a stale (smaller) segment faults.*/
+	void* p = shmat(xwin->xinfo->ws_g_shm_id, 0, 0);
+	if(p == (void*)-1)
+		return NULL;
+	if(xwin->ws_g_shm != p) {
+		if(xwin->ws_g_shm != NULL)
+			shmdt(xwin->ws_g_shm);
+		xwin->ws_g_shm = p;
 		if(xwin->on_resize != NULL) {
 			xwin->on_resize(xwin);
 		}

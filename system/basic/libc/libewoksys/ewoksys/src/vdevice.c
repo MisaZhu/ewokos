@@ -80,8 +80,21 @@ static fsinfo_t* file_clone_same_owner_node(int fd, int pid, uint32_t node) {
 
 static fsinfo_t* file_add(int fd, int pid, fsinfo_t* info) {
 	pid = file_owner_pid(pid);
-	fsinfo_t* ret = (fsinfo_t*)malloc(sizeof(fsinfo_t));
-	hashmap_put(_files_hash, file_hash_key(fd, pid, info->node), ret);
+	const char* key = file_hash_key(fd, pid, info->node);
+
+	/* Reuse the entry when the same fd is registered again, otherwise the
+	 * previous fsinfo is dropped on the floor on every re-open. */
+	fsinfo_t* ret = NULL;
+	hashmap_get(_files_hash, key, (void**)&ret);
+	if(ret == NULL) {
+		ret = (fsinfo_t*)malloc(sizeof(fsinfo_t));
+		if(ret == NULL)
+			return NULL;
+		if(hashmap_put(_files_hash, key, ret) != MAP_OK) {
+			free(ret);
+			return NULL;
+		}
+	}
 	memcpy(ret, info, sizeof(fsinfo_t));
 	return ret;
 }
@@ -165,12 +178,23 @@ static void do_open(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 	int oflag;
 	int fd = proto_read_int(in);
 	uint32_t node = proto_read_int(in);
+	int32_t caller_info_size = 0;
+	fsinfo_t* caller_info = (fsinfo_t*)proto_read(in, &caller_info_size);
 	oflag = proto_read_int(in);
+
+	if(caller_info != NULL &&
+			(caller_info_size != (int32_t)sizeof(fsinfo_t) || caller_info->node != node))
+		caller_info = NULL;
 
 	fsinfo_t info;
 	if(vfs_get_by_node(node, &info) != 0) {
-		PF->addi(out, -1)->addi(out, ENOENT);
-		return;
+		/* The caller already owns the fsinfo returned by VFS_OPEN, so trust it
+		 * rather than failing the open when the vfsd lookup does not answer. */
+		if(caller_info == NULL) {
+			PF->addi(out, -1)->addi(out, ENOENT);
+			return;
+		}
+		memcpy(&info, caller_info, sizeof(fsinfo_t));
 	}
 
 	if((oflag & O_WRONLY) != 0 && vfs_check_access(from_pid, &info, W_OK) != 0) {

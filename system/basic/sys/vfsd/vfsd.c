@@ -181,9 +181,16 @@ static inline const char* node_hash_key(uint32_t node_id) {
 
 static vfs_node_t* vfs_new_node(void) {
 	vfs_node_t* ret = (vfs_node_t*)malloc(sizeof(vfs_node_t));
+	if(ret == NULL)
+		return NULL;
 	vfs_node_init(ret);
 
-	hashmap_put(_nodes_hash, node_hash_key(ret->node_id), ret);
+	/* A node that is not in the hash can never be resolved again by its id,
+	 * which surfaces much later as a bogus ENOENT on open. */
+	if(hashmap_put(_nodes_hash, node_hash_key(ret->node_id), ret) != MAP_OK) {
+		free(ret);
+		return NULL;
+	}
 	return ret;
 }
 
@@ -663,6 +670,8 @@ static vfs_node_t* vfs_open_announimous(int32_t pid, vfs_node_t* node) {
 		return NULL;
 
 	vfs_node_t* ret = vfs_new_node();
+	if(ret == NULL)
+		return NULL;
 	ret->fsinfo.type = node->fsinfo.type;
 	ret->fsinfo.stat.mode = 0700;
 	ret->fsinfo.stat.uid = procinfo.uid;
@@ -1718,6 +1727,12 @@ static void do_vfs_open(int32_t pid, proto_t* in, proto_t* out) {
 		node = vfs_open_announimous(pid, node);
 		if(node != NULL)
 			res = vfs_open(pid, node, flags);
+	}
+
+	if(res < 0) { //keep the [res][errno] error reply shape.
+		PF->clear(out);
+		PF->addi(out, -1)->addi(out, ENFILE);
+		return;
 	}
 
 	memcpy(&info, gen_fsinfo(node), sizeof(fsinfo_t));

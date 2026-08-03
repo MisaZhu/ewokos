@@ -261,11 +261,12 @@ static void draw_desktop(xwm_t* xwm, proto_t* in) {
 static void get_win_space(xwm_t* xwm, proto_t* in, proto_t* out) {
 	grect_t r, winr;
 	int style = proto_read_int(in);
+	int state = proto_read_int(in);
 	proto_read_to(in, &r, sizeof(grect_t));
 	memcpy(&winr, &r, sizeof(grect_t));
 	
 	if(xwm->get_win_space != NULL)
-		xwm->get_win_space(style, &r, &winr, xwm->data);
+		xwm->get_win_space(style, state, &r, &winr, xwm->data);
 
 	PF->add(out, &winr, sizeof(grect_t));
 }
