@@ -22,7 +22,7 @@ extern "C" {
 #include <ewoksys/ipc.h>
 #include <ewoksys/charbuf.h>
 #include <ewoksys/proc.h>
-#include <ewoksys/klog.h>
+#include <ewoksys/syscall.h>
 #include <ewoksys/basic_math.h>
 #include <ewoksys/timer.h>
 #include <ewoksys/wait.h>
@@ -49,6 +49,7 @@ static vdevice_t* _dev = NULL;
 static pthread_mutex_t _buffer_lock;
 static pthread_mutex_t _output_lock;
 static std::string* _output_pending = NULL;
+static int _shell_pid = -1;
 
 static inline void buffer_push_char(char c) {
 	pthread_mutex_lock(&_buffer_lock);
@@ -431,6 +432,22 @@ static bool readConfig(const char* fname) {
 }
 
 static bool _win_opened = false;
+
+static void terminate_shell_session(void) {
+	if(_shell_pid <= 0)
+		return;
+
+	uint32_t live_uuid = proc_get_uuid(_shell_pid);
+	if(live_uuid == 0)
+		return;
+	kill(_shell_pid, SIGKILL);
+	for(int i = 0; i < 100; i++) {
+		if(proc_get_uuid(_shell_pid) == 0)
+			break;
+		proc_usleep(10000);
+	}
+}
+
 static void* thread_loop(void* p) {
 	X x;
 	grect_t desk;
@@ -468,6 +485,7 @@ static void* thread_loop(void* p) {
 	widgetXRun(&x, &win);
 	_consoleWidget = NULL;
 	vfs_wakeup(_dev->mnt_info.node, VFS_EVT_RD | VFS_EVT_CLOSE);
+	terminate_shell_session();
 	device_stop(_dev);
 	return NULL;
 }
@@ -579,16 +597,8 @@ int run(const char* mnt_point) {
 		proc_usleep(100000);
 
 	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0600);
-	charbuf_free(_buffer);
-	if(_output_pending != NULL) {
-		_output_pending->clear();
-		delete _output_pending;
-		_output_pending = NULL;
-	}
-	pthread_mutex_destroy(&_output_lock);
-	pthread_mutex_destroy(&_buffer_lock);
-	exit(0);
-	return 0;
+	syscall1(SYS_EXIT, (ewokos_addr_t)0);
+	__builtin_unreachable();
 }
 
 static int set_stdio(const char* dev) {
@@ -611,6 +621,7 @@ int main(int argc, char* argv[]) {
 
 	int pid = fork();
 	if(pid == 0) {
+		_shell_pid = getppid();
 		if(run(dev) != 0) {
 			exit(-1);
 		}

@@ -78,6 +78,17 @@ static bool x_pop_event(x_t* x, xevent_t* ev) {
 	return true;
 }
 
+static xwin_t* x_find_win_by_handle(x_t* x, uint32_t handle) {
+	if(x == NULL || handle == 0)
+		return NULL;
+
+	if(x->main_win != NULL && x->main_win->xinfo_shm_id == (int32_t)handle)
+		return x->main_win;
+	if(x->prompt_win != NULL && x->prompt_win->xinfo_shm_id == (int32_t)handle)
+		return x->prompt_win;
+	return NULL;
+}
+
 void x_push_event(x_t* x, xevent_t* ev) {
 	if(x == NULL || ev == NULL)
 		return;
@@ -374,7 +385,7 @@ int  x_run(x_t* x, void* loop_data) {
 			res = x_get_event(x, xserv_pid, &xev, block);
 		}
 		if(res == 0) {
-			xwin_t* xwin = (xwin_t*)xev.win;
+			xwin_t* xwin = x_find_win_by_handle(x, xev.win);
 			if(xwin != NULL) {
 				if(xwin != x->main_win && xwin != x->prompt_win)
 					continue;

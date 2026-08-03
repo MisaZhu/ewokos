@@ -40,6 +40,27 @@ static void release_graph_shm(graph_t** g, void** shm, int32_t* shm_id) {
 	}
 }
 
+static uint32_t _xserver_shm_seq = 1;
+
+static int32_t xserver_alloc_shm(uint32_t salt, int32_t size, int32_t flag, key_t* out_key) {
+	for(uint32_t i = 0; i < 16; i++) {
+		uint32_t seq = _xserver_shm_seq++;
+		key_t key = (key_t)((salt * 2654435761u) ^ (seq * 2246822519u));
+		if(key == 0)
+			key = (key_t)(seq | 1u);
+
+		int32_t shm_id = shmget(key, size, flag);
+		if(shm_id != -1) {
+			if(out_key != NULL)
+				*out_key = key;
+			return shm_id;
+		}
+	}
+	if(out_key != NULL)
+		*out_key = 0;
+	return -1;
+}
+
 static int32_t read_config(x_t* x, const char* fname) {
 	x->config.fps = 60;
 
@@ -958,12 +979,18 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 				win->has_damage = false; //everything below it got repainted
 			}
 
-			if(win->dirty) {
+			if(win->dirty || win->frame_dirty) {
 				/* fully covered by an opaque window above: the covering
 				   window paints over it later in this bottom-to-top pass,
 				   so drawing it would be pure waste */
+				uint32_t style = win->xinfo->style;
+				bool allow_skip_if_covered =
+								(style & (XWIN_STYLE_LAUNCHER |
+													XWIN_STYLE_SYSBOTTOM |
+													XWIN_STYLE_SYSTOP)) == 0;
 				if(win != x->current.win_drag &&
-						covered_by_opaque_win(x, win, display_index, &win->xinfo->winr)) {
+								allow_skip_if_covered &&
+								covered_by_opaque_win(x, win, display_index, &win->xinfo->winr)) {
 					win->dirty = false;
 					win->frame_dirty = false;
 					win->has_damage = false;
@@ -1108,11 +1135,13 @@ static void mark_dirty(x_t* x, xwin_t* win) {
 		if(top->xinfo != NULL && top->xinfo->visible) {
 			memcpy(&r, &top->xinfo->winr, sizeof(grect_t));
 
-			grect_t *check_r;
-			if(x->config.xwm_theme.alpha)
+			grect_t *check_r = &win->xinfo->wsr;
+			/* only expand dirty propagation to the outer frame when
+			   this repaint really updates the frame itself; using
+			   winr for every themed/shadowed repaint grows damage
+			   too much and slows the whole compositor down. */
+			if(x->config.xwm_theme.alpha || win->frame_dirty)
 				check_r = &win->xinfo->winr;
-			else
-				check_r = &win->xinfo->wsr;
 
 			grect_insect(check_r, &r);
 			if(r.w > 0 && r.h > 0)
@@ -1614,10 +1643,11 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 
 		release_graph_shm(&win->frame_g, &win->frame_g_shm, &win->xinfo->frame_g_shm_id);
 
-		key_t key = (((int32_t)win) << 16) | proc_get_uuid(from_pid);
-		int32_t ws_g_shm_id = shmget(key,
-				win->xinfo->wsr.w * win->xinfo->wsr.h * 4,
-				0666|IPC_CREAT|IPC_EXCL);
+		uint32_t uuid = proc_get_uuid(from_pid);
+		key_t key = 0;
+		int32_t ws_g_shm_id = xserver_alloc_shm(uuid ^ 0x57530000u,
+						win->xinfo->wsr.w * win->xinfo->wsr.h * 4,
+						0666|IPC_CREAT|IPC_EXCL, &key);
 		if(ws_g_shm_id == -1)
 			return -1;
 
@@ -1633,10 +1663,9 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 		win->ws_g_buffer = graph_new(NULL, win->xinfo->wsr.w, win->xinfo->wsr.h);
 		graph_clear(win->ws_g_buffer, 0x0);
 
-		key = ((((int32_t)win) +1) << 16) | proc_get_uuid(from_pid);
-		int32_t frame_g_shm_id = shmget(key,
-				win->xinfo->winr.w * win->xinfo->winr.h * 4,
-				0666|IPC_CREAT|IPC_EXCL);
+		int32_t frame_g_shm_id = xserver_alloc_shm(uuid ^ 0x46520000u,
+						win->xinfo->winr.w * win->xinfo->winr.h * 4,
+						0666|IPC_CREAT|IPC_EXCL, &key);
 		if(frame_g_shm_id == -1) {
 			release_graph_shm(&win->ws_g, &win->ws_g_shm, &win->xinfo->ws_g_shm_id);
 			if(win->ws_g_buffer != NULL) {

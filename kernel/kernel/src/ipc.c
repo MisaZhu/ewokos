@@ -215,20 +215,34 @@ proc_t* proc_ipc_wakeup(struct st_proc* serv_proc) {
 	if(serv_proc == NULL)
 		return NULL;
 
-	proc_ipc_server_lock(&serv_proc->space->ipc_server);
-	ipc_queue_item_t* item = (ipc_queue_item_t*)queue_pop(&serv_proc->space->ipc_server.wait_queue);
-	proc_ipc_server_unlock(&serv_proc->space->ipc_server);
-	if(item == NULL)
-		return NULL;
-	//printf("ipc ipc_wakeup %d %d\n", item->pid, item->uuid);
-	proc_t* proc = proc_get(item->pid);
-	if(proc == NULL || proc->info.uuid != item->uuid) {
+	while(true) {
+		proc_ipc_server_lock(&serv_proc->space->ipc_server);
+		ipc_queue_item_t* item = (ipc_queue_item_t*)queue_pop(&serv_proc->space->ipc_server.wait_queue);
+		proc_ipc_server_unlock(&serv_proc->space->ipc_server);
+		if(item == NULL)
+			return NULL;
+
+		proc_t* proc = proc_get(item->pid);
+		uint32_t waiter_uuid = item->uuid;
 		kfree(item);
-		return NULL;
+
+		if(proc == NULL || proc->info.uuid != waiter_uuid)
+			continue;
+
+		/*
+		 * Skip stale waiters that were already released by another wake
+		 * edge. Stopping after popping one such item leaves real blocked
+		 * waiters stranded behind it even though the server is idle.
+		 */
+		if(proc->info.state != BLOCK &&
+						proc->info.state != WAIT &&
+						proc->info.state != SLEEPING) {
+			continue;
+		}
+
+		proc_wakeup(proc);
+		return proc;
 	}
-	kfree(item);
-	proc_wakeup(proc);
-	return proc;
 }
 
 void proc_ipc_wakeup_all(struct st_proc* serv_proc) {

@@ -227,6 +227,8 @@ struct virtio_device
 	int device_id;
 	interrupt_handler_t virtio_handler;
 	void (*interrupt_handler)(virtio_dev_t dev, struct virtio_input_event *event);
+	uint16_t input_used_idx;
+	volatile uint8_t input_irq_pending;
 	struct virtio_net_state *net;
 	struct virtio_snd_state *snd;
 };
@@ -695,6 +697,7 @@ static void virtio_input_fill_queue(virtio_dev_t dev)
 
 static void virtio_interrupt_handle(uint32_t interrupt, uint32_t p)
 {
+	(void)interrupt;
 	if (p >= VIRTIO_DEV_MAX)
 	{
 		return;
@@ -708,31 +711,68 @@ static void virtio_interrupt_handle(uint32_t interrupt, uint32_t p)
 	struct virtq_t *virtq = dev->virtq;
 	virtio_ack_interrupt(dev->base, 0x3);
 	mem_barrier();
-
-	static uint16_t next_used_idx[VIRTIO_DEV_MAX] = {0};
-	volatile int dev_used_idx = virtq->used.idx;
-	while (next_used_idx[p] != dev_used_idx)
-	{
-		uint16_t ring_idx = next_used_idx[p] % VIRTIO_QUEUE_SIZE;
-		uint16_t desc_id = virtq->used.ring[ring_idx].id;
-		struct virtio_input_event *event =
-			(struct virtio_input_event *)(virtq->buf0 + (desc_id % VIRTIO_QUEUE_SIZE) * sizeof(struct virtio_input_event));
-		dev->interrupt_handler(dev, event);
-		next_used_idx[p]++;
-		dev_used_idx = virtq->used.idx;
-	}
-	virtio_input_fill_queue(dev);
+	(void)virtq;
+	dev->input_irq_pending = 1;
 }
 
 void virtio_interrupt_enable(virtio_dev_t dev, void (*interrupt_handler)(virtio_dev_t dev, struct virtio_input_event *event))
 {
 	virtio_ack_interrupt(dev->base, 0x3);
 	dev->interrupt_handler = interrupt_handler;
+	dev->input_used_idx = dev->virtq->used.idx;
+	dev->input_irq_pending = 0;
 	dev->virtio_handler.data = (uint32_t)(dev->interrupt - VIRTIO_INTERRUPT_BASE);
 	_virtio_irq_devs[dev->virtio_handler.data] = dev;
 	dev->virtio_handler.handler = virtio_interrupt_handle;
 	sys_interrupt_setup(dev->interrupt, &dev->virtio_handler);
 	virtio_input_fill_queue(dev);
+}
+
+int virtio_input_drain(virtio_dev_t dev, uint32_t budget)
+{
+	if (dev == NULL || dev->virtq == NULL || dev->interrupt_handler == NULL)
+	{
+		return -1;
+	}
+
+	struct virtq_t *virtq = dev->virtq;
+	uint16_t dev_used_idx = virtq->used.idx;
+	uint16_t pending = (uint16_t)(dev_used_idx - dev->input_used_idx);
+	uint16_t limit = pending;
+	int handled = 0;
+
+	if (budget != 0 && limit > budget)
+	{
+		limit = (uint16_t)budget;
+	}
+
+	while (limit > 0)
+	{
+		uint16_t ring_idx = dev->input_used_idx % VIRTIO_QUEUE_SIZE;
+		uint16_t desc_id = virtq->used.ring[ring_idx].id;
+		struct virtio_input_event *event =
+				(struct virtio_input_event *)(virtq->buf0 + (desc_id % VIRTIO_QUEUE_SIZE) * sizeof(struct virtio_input_event));
+		dev->interrupt_handler(dev, event);
+		dev->input_used_idx++;
+		limit--;
+		handled++;
+	}
+
+	if (handled > 0)
+	{
+		virtio_input_fill_queue(dev);
+	}
+
+	mem_barrier();
+	if (dev->input_used_idx == virtq->used.idx)
+	{
+		dev->input_irq_pending = 0;
+	}
+	else
+	{
+		dev->input_irq_pending = 1;
+	}
+	return handled;
 }
 
 int virtio_input_read(virtio_dev_t dev, void *buffer, uint32_t size)

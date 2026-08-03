@@ -976,11 +976,23 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int mode) {
 		}
 	}
 
+	/*
+	 * Stop accepting new IPC requests before tearing down the mount/cache.
+	 * Otherwise late FS_CMD_CLOSE / POLL traffic can race with userspace
+	 * cleanup and strand the service in teardown even though the caller app
+	 * has already decided to exit.
+	 */
+	ipc_disable();
 	if(mnt_point != NULL && dev->umount != NULL) {
 		dev->umount(dev, dev->mnt_info.node, dev->extra_data);
 	}
 	vfs_umount(dev->mnt_info.node);
-	hashmap_free(_files_hash);
+	/*
+	 * _files_hash is process-global state for this device server. Freeing it
+	 * here races with delayed close notifications that can still arrive while
+	 * the process is unwinding. Let process exit reclaim the heap instead.
+	 */
+	_files_hash = NULL;
 	return 0;
 }
 

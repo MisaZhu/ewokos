@@ -60,5 +60,6 @@ int virtio_send_request(virtio_dev_t dev, const void *req, uint32_t req_len, voi
 int virtio_blk_transfer(virtio_dev_t dev, uint64_t sector, void *buffer, uint32_t count, int isWrite);
 int virtio_input_read(virtio_dev_t dev, void *buffer, uint32_t size);
 void virtio_interrupt_enable(virtio_dev_t dev, void (*interrupt_handler)(virtio_dev_t dev, struct virtio_input_event *event));
+int virtio_input_drain(virtio_dev_t dev, uint32_t budget);
 
 #endif
