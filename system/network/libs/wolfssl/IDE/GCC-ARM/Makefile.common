@@ -20,7 +20,7 @@ SIZE ?= $(TOOLCHAIN)size
 
 # Includes
 USER_SETTINGS_DIR ?= ./Header
-INC = -I$(USER_SETTINGS_DIR) \
+INC = -I $(USER_SETTINGS_DIR) \
       -I../..
 
 # Defines

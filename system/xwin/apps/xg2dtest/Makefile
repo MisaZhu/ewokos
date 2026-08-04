@@ -4,7 +4,7 @@ include $(SYS_DIR)/platform/$(ARCH)/make.rule
 BUILD_DIR = $(SYS_DIR)/build/$(HW)
 TARGET_ROOT_DIR = $(BUILD_DIR)/rootfs
 
-LDFLAGS = -L$(BUILD_DIR)/lib
+LDFLAGS = -L $(BUILD_DIR)/lib
 CXXFLAGS += -I $(SYS_DIR)/gui/libs/g2d/include -I $(BUILD_DIR)/include
 
 TASK_OBJS = $(ARCH)/xg2dtest.o

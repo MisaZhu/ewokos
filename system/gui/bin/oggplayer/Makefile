@@ -10,7 +10,7 @@ CFLAGS += -I $(SYS_DIR)/build/$(HW)/include
 CFLAGS += -I $(SYS_DIR)/gui/libs/libogg/include
 CFLAGS += -I $(SYS_DIR)/gui/libs/libvorbis/include
 
-LDFLAGS += -L$(SYS_DIR)/build/$(HW)/lib
+LDFLAGS += -L $(SYS_DIR)/build/$(HW)/lib
 
 all: $(TASK)
 

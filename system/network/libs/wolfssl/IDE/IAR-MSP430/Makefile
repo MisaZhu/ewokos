@@ -2,7 +2,7 @@ PROGRAM = wolfcrypt
 WOLFSSL_SRC_DIR = ../..
 TI_COMPILER_PATH = /opt/ti/msp430-gcc/bin
 
-WOLFSSL_CFLAGS += -I$(WOLFSSL_SRC_DIR) -I. -DWOLFSSL_USER_SETTINGS
+WOLFSSL_CFLAGS += -I $(WOLFSSL_SRC_DIR) -I. -DWOLFSSL_USER_SETTINGS
 
 SRC_FILES  = $(wildcard $(WOLFSSL_SRC_DIR)/src/*.c)
 SRC_FILES += $(wildcard $(WOLFSSL_SRC_DIR)/wolfcrypt/src/*.c)

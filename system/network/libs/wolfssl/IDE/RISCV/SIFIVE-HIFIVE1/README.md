@@ -35,7 +35,7 @@ The `IDE/RISCV/SIFIVE-HIFIVE1/main.c` example application provides a function to
 3. Edit your `~/freedom-e-sdk/scripts/standalone.mk` and add the following line after the last RISCV_CFLAGS entry:
 
 ```
-  RISCV_CFLAGS += -I$(WOLFSSL_SRC_DIR) -I$(WOLFSSL_SRC_DIR)/IDE/RISCV/SIFIVE-HIFIVE1 -DWOLFSSL_USER_SETTINGS
+  RISCV_CFLAGS += -I $(WOLFSSL_SRC_DIR) -I $(WOLFSSL_SRC_DIR)/IDE/RISCV/SIFIVE-HIFIVE1 -DWOLFSSL_USER_SETTINGS
 ```
 
 4. WOLFSSL_SRC_DIR variable must be set in the environment when GNU make is started.

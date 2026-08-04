@@ -11,9 +11,9 @@ ASFLAGS = --warn
 CFLAGS += -O2 -ffreestanding -DWOLFSSL_USER_SETTINGS \
 	-I. \
 	-I./include \
-	-I$(BUILD_DIR)/include \
-	-I$(SYS_DIR)/basic/libs/include \
-	-I$(SYS_DIR)/network/libs/socket/include
+	-I $(BUILD_DIR)/include \
+	-I $(SYS_DIR)/basic/libs/include \
+	-I $(SYS_DIR)/network/libs/socket/include
 CPPFLAGS += $(CFLAGS) -fno-exceptions -fno-unwind-tables -fno-rtti
 
 LIBWOLFSSL = $(TARGET_DIR)/lib/libwolfssl.a

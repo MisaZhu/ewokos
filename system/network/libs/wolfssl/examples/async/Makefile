@@ -10,9 +10,9 @@ ASYNC_MODE ?= sw
 
 CFLAGS ?= -O0 -g
 CFLAGS += -I.
-CFLAGS += -I$(WOLFSSL_TOP)
-CFLAGS += -I$(WOLFSSL_TOP)/wolfssl
-CFLAGS += -I$(WOLFSSL_TOP)/wolfssl/wolfcrypt
+CFLAGS += -I $(WOLFSSL_TOP)
+CFLAGS += -I $(WOLFSSL_TOP)/wolfssl
+CFLAGS += -I $(WOLFSSL_TOP)/wolfssl/wolfcrypt
 CFLAGS += -Wall -Wextra -Wpedantic -Werror
 CFLAGS += -DWOLFSSL_USER_SETTINGS
 CFLAGS += -DHAVE_SYS_TIME_H

@@ -4,9 +4,9 @@ include $(SYS_DIR)/platform/$(ARCH)/make.rule
 BUILD_DIR = $(SYS_DIR)/build/$(HW)
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
-LDFLAGS = -L$(BUILD_DIR)/lib
+LDFLAGS = -L $(BUILD_DIR)/lib
 
-CFLAGS += -I $(BUILD_DIR)/include -I./ -I$(SYS_DIR)/network/libs/utils/include
+CFLAGS += -I $(BUILD_DIR)/include -I./ -I $(SYS_DIR)/network/libs/utils/include
 
 SHELL_OBJS = $(ARCH)/shell.o $(ARCH)/gets.o $(ARCH)/cmd.o
 

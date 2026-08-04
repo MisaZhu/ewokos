@@ -125,18 +125,18 @@ ifeq ($(HAVE_WOLFSSL_SP), 1)
 endif
 endif
 
-Wolfssl_Include_Paths := -I$(WOLFSSL_ROOT)/ \
-						 -I$(WOLFSSL_ROOT)/wolfcrypt/ \
-						 -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport
+Wolfssl_Include_Paths := -I $(WOLFSSL_ROOT)/ \
+						 -I $(WOLFSSL_ROOT)/wolfcrypt/ \
+						 -I $(SGX_SDK)/include -I $(SGX_SDK)/include/tlibc -I $(SGX_SDK)/include/stlport
 
 ifeq ($(HAVE_WOLFSSL_TEST), 1)
-	Wolfssl_Include_Paths += -I$(WOLFSSL_ROOT)/wolfcrypt/test
+	Wolfssl_Include_Paths += -I $(WOLFSSL_ROOT)/wolfcrypt/test
 	Wolfssl_C_Files += $(WOLFSSL_ROOT)/wolfcrypt/test/test.c
 endif
 
 ifeq ($(HAVE_WOLFSSL_BENCHMARK), 1)
 	Wolfssl_C_Files += $(WOLFSSL_ROOT)/wolfcrypt/benchmark/benchmark.c
-	Wolfssl_Include_Paths += -I$(WOLFSSL_ROOT)/wolfcrypt/benchmark/
+	Wolfssl_Include_Paths += -I $(WOLFSSL_ROOT)/wolfcrypt/benchmark/
 endif
 
 ifeq ($(HAVE_WOLFSSL_SP), 1)
@@ -151,7 +151,7 @@ Flags_Just_For_C := -Wno-implicit-function-declaration -std=c99
 Common_C_Cpp_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Wolfssl_Include_Paths) -fno-builtin-printf -I.
 Wolfssl_C_Flags := $(Flags_Just_For_C) $(Common_C_Cpp_Flags) $(Wolfssl_C_Extra_Flags)
 
-Wolfssl_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfiles -L$(SGX_LIBRARY_PATH) \
+Wolfssl_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfiles -L $(SGX_LIBRARY_PATH) \
 	-Wl,--whole-archive -l$(Trts_Library_Name) -Wl,--no-whole-archive \
 	-Wl,--start-group -lsgx_tstdc -lsgx_tstdcxx -l$(Crypto_Library_Name) -l$(Service_Library_Name) -Wl,--end-group \
 	-Wl,-Bstatic -Wl,-Bsymbolic -Wl,--no-undefined \
