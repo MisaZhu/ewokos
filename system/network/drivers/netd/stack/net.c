@@ -282,8 +282,15 @@ int
 net_device_output(struct net_device *dev, uint16_t type, const uint8_t *data, size_t len, const void *dst)
 {
     if (!NET_DEVICE_IS_UP(dev)) {
-        errorf("not opened, dev=%s", dev->name);
-        return -1;
+        /*
+         * Some devices (notably raspix /dev/wl0) can appear slightly after
+         * netd starts its worker thread. Try to open on first real traffic so
+         * late device readiness does not leave the interface permanently down.
+         */
+        if (net_device_open(dev) == -1) {
+            errorf("not opened, dev=%s", dev->name);
+            return -1;
+        }
     }
     if (len > dev->mtu) {
         errorf("too long, dev=%s, mtu=%u, len=%zu", dev->name, dev->mtu, len);
