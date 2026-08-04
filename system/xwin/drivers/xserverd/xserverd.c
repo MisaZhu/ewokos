@@ -1727,10 +1727,6 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 		win->damage_skip = 0;
 	}
 	x_update_frame_areas(x, win);
-
-	if((type & X_UPDATE_REFRESH) != 0 || win->xinfo->alpha) {
-		mark_all_frame_dirty(x, win->xinfo->display_index);
-	}
 	return 0;
 }
 
