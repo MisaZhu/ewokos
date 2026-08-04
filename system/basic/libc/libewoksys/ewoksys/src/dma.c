@@ -14,7 +14,7 @@ void dma_free(int32_t dma_block_id, ewokos_addr_t vaddr) {
 	syscall2(SYS_DMA_FREE, dma_block_id, vaddr);
 }
 
-uint32_t dma_phy_addr(int32_t dma_block_id, ewokos_addr_t vaddr) {
+ewokos_addr_t dma_phy_addr(int32_t dma_block_id, ewokos_addr_t vaddr) {
 	return syscall2(SYS_DMA_PHY_ADDR, dma_block_id, vaddr);
 }
 

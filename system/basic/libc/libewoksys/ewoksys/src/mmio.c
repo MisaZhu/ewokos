@@ -7,9 +7,9 @@
 extern "C" {
 #endif
 
-uint32_t _mmio_base = 0;
+ewokos_addr_t _mmio_base = 0;
 
-uint32_t mmio_map_offset(uint32_t offset, uint32_t size) {
+ewokos_addr_t mmio_map_offset(uint32_t offset, uint32_t size) {
 	sys_info_t sysinfo;
 	sys_get_sys_info(&sysinfo);
 	if(size == 0 || (offset+size) > (sysinfo.mmio.phy_base+sysinfo.mmio.size))
@@ -23,7 +23,7 @@ uint32_t mmio_map_offset(uint32_t offset, uint32_t size) {
 	return sysinfo.mmio.v_base+offset;
 }
 
-uint32_t mmio_map(void) {
+ewokos_addr_t mmio_map(void) {
 	sys_info_t sysinfo;
 	sys_get_sys_info(&sysinfo);
 	_mmio_base = mmio_map_offset(0, sysinfo.mmio.size);

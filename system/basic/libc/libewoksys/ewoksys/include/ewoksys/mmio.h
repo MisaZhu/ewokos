@@ -12,9 +12,9 @@ extern "C" {
 #define get8(addr) (*((volatile uint8_t *)(addr)))
 #define put8(addr, val) (*((volatile uint8_t *)(addr)) = (val))
 
-extern uint32_t _mmio_base;
-uint32_t mmio_map(void);
-uint32_t mmio_map_offset(uint32_t offset, uint32_t size);
+extern ewokos_addr_t _mmio_base;
+ewokos_addr_t mmio_map(void);
+ewokos_addr_t mmio_map_offset(uint32_t offset, uint32_t size);
 
 #ifdef __cplusplus
 }

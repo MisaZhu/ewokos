@@ -102,8 +102,8 @@ static int tty_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	return uart_write(buf, size);
 }
 
-static void interrupt_handle(uint32_t interrupt, uint32_t p) {
-	vdevice_t* dev = (vdevice_t*)p;
+static void interrupt_handle(uint32_t interrupt, ewokos_addr_t p) {
+        vdevice_t* dev = (vdevice_t*)p;
 	int rx = 0;
 	put32(UART0 + UART_ICLR, 0x7FF);
 	while(!(get32(UART0 + UART_FLAGS) & 0x10)){
@@ -131,7 +131,7 @@ int main(int argc, char** argv) {
 	dev.check_poll_events = tty_check_poll_events;
 
 	interrupt_handler_t handler;
-	handler.data = (uint32_t)&dev;
+        handler.data = (ewokos_addr_t)&dev;
 	handler.handler = interrupt_handle;
 	sys_interrupt_setup(33, &handler);
 

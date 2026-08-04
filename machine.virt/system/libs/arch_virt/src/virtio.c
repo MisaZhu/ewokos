@@ -695,7 +695,7 @@ static void virtio_input_fill_queue(virtio_dev_t dev)
 	}
 }
 
-static void virtio_interrupt_handle(uint32_t interrupt, uint32_t p)
+static void virtio_interrupt_handle(uint32_t interrupt, ewokos_addr_t p)
 {
 	(void)interrupt;
 	if (p >= VIRTIO_DEV_MAX)
@@ -721,7 +721,7 @@ void virtio_interrupt_enable(virtio_dev_t dev, void (*interrupt_handler)(virtio_
 	dev->interrupt_handler = interrupt_handler;
 	dev->input_used_idx = dev->virtq->used.idx;
 	dev->input_irq_pending = 0;
-	dev->virtio_handler.data = (uint32_t)(dev->interrupt - VIRTIO_INTERRUPT_BASE);
+        dev->virtio_handler.data = (ewokos_addr_t)(dev->interrupt - VIRTIO_INTERRUPT_BASE);
 	_virtio_irq_devs[dev->virtio_handler.data] = dev;
 	dev->virtio_handler.handler = virtio_interrupt_handle;
 	sys_interrupt_setup(dev->interrupt, &dev->virtio_handler);
