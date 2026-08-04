@@ -17,49 +17,49 @@ WORNING  = \
  -Wno-pointer-to-int-cast
 
 USER_SETTINGS_H = -I./ -DWOLFSSL_USER_SETTINGS
-CFLAGS   = $(OPTIMIZE) -I$(WOLF_ROOT)/. $(USER_SETTINGS_H) $(MQX_INCLUDE) $(WORNING)
+CFLAGS   = $(OPTIMIZE) -I $(WOLF_ROOT)/. $(USER_SETTINGS_H) $(MQX_INCLUDE) $(WORNING)
 
-MQX_INCLUDE = -I$(MQX_ROOT)/mqx/source/include\
--I$(MQX_ROOT)/mqx/source/psp/cortex_m\
--I$(MQX_ROOT)/mqx/source/psp/cortex_a/compiler/gcc_arm\
--I$(MQX_ROOT)/mqx/source/psp/cortex_m/cpu\
--I$(MQX_ROOT)/mfs/source/include\
--I$(MQX_ROOT)/mqx/source/bsp/twrk70f120m\
--I$(MQX_ROOT)/mqx/source/io/cm\
--I$(MQX_ROOT)/mqx/source/io/lpm\
--I$(MQX_ROOT)/mqx/source/io/serial\
--I$(MQX_ROOT)/mqx/source/io/dma\
--I$(MQX_ROOT)/mqx/source/io/spi\
--I$(MQX_ROOT)/mqx/source/io/i2c\
--I$(MQX_ROOT)/mqx/source/io/io_mem\
--I$(MQX_ROOT)/mqx/source/io/io_null\
--I$(MQX_ROOT)/mqx/source/io/enet\
--I$(MQX_ROOT)/mqx/source/io/enet/macnet\
--I$(MQX_ROOT)/mqx/source/io/lwgpio\
--I$(MQX_ROOT)/mqx/source/io/gpio\
--I$(MQX_ROOT)/mqx/source/io/gpio/kgpio\
--I$(MQX_ROOT)/mqx/source/io/esdhc\
--I$(MQX_ROOT)/mqx/source/io/sdcard\
--I$(MQX_ROOT)/mqx/source/io/sdcard/sdcard_spi\
--I$(MQX_ROOT)/mqx/source/io/sdcard/sdcard_esdhc\
--I$(MQX_ROOT)/mqx/source/io/pccard\
--I$(MQX_ROOT)/mqx/source/io/pcflash\
--I$(MQX_ROOT)/mqx/source/io/adc/kadc\
--I$(MQX_ROOT)/mqx/source/io/adc\
--I$(MQX_ROOT)/mqx/source/io/lwadc\
--I$(MQX_ROOT)/mqx/source/io/flashx\
--I$(MQX_ROOT)/mqx/source/io/flashx/freescale\
--I$(MQX_ROOT)/mqx/source/io/hwtimer\
--I$(MQX_ROOT)/mqx/source/io/rtc\
--I$(MQX_ROOT)/mqx/source/io/debug\
--I$(MQX_ROOT)/mqx/source/io/tchres\
--I$(MQX_ROOT)/mqx/source/io/nandflash\
--I$(MQX_ROOT)/mqx/source/io/timer\
--I$(MQX_ROOT)/mqx/source/io/usb\
--I$(MQX_ROOT)/mqx/source/io/hmi\
--I$(MQX_ROOT)/mqx/source/io/sai\
--I$(MQX_ROOT)/mqx/source/io/rtcs\
--I$(MQX_ROOT)/rtcs/source/include
+MQX_INCLUDE = -I $(MQX_ROOT)/mqx/source/include\
+-I $(MQX_ROOT)/mqx/source/psp/cortex_m\
+-I $(MQX_ROOT)/mqx/source/psp/cortex_a/compiler/gcc_arm\
+-I $(MQX_ROOT)/mqx/source/psp/cortex_m/cpu\
+-I $(MQX_ROOT)/mfs/source/include\
+-I $(MQX_ROOT)/mqx/source/bsp/twrk70f120m\
+-I $(MQX_ROOT)/mqx/source/io/cm\
+-I $(MQX_ROOT)/mqx/source/io/lpm\
+-I $(MQX_ROOT)/mqx/source/io/serial\
+-I $(MQX_ROOT)/mqx/source/io/dma\
+-I $(MQX_ROOT)/mqx/source/io/spi\
+-I $(MQX_ROOT)/mqx/source/io/i2c\
+-I $(MQX_ROOT)/mqx/source/io/io_mem\
+-I $(MQX_ROOT)/mqx/source/io/io_null\
+-I $(MQX_ROOT)/mqx/source/io/enet\
+-I $(MQX_ROOT)/mqx/source/io/enet/macnet\
+-I $(MQX_ROOT)/mqx/source/io/lwgpio\
+-I $(MQX_ROOT)/mqx/source/io/gpio\
+-I $(MQX_ROOT)/mqx/source/io/gpio/kgpio\
+-I $(MQX_ROOT)/mqx/source/io/esdhc\
+-I $(MQX_ROOT)/mqx/source/io/sdcard\
+-I $(MQX_ROOT)/mqx/source/io/sdcard/sdcard_spi\
+-I $(MQX_ROOT)/mqx/source/io/sdcard/sdcard_esdhc\
+-I $(MQX_ROOT)/mqx/source/io/pccard\
+-I $(MQX_ROOT)/mqx/source/io/pcflash\
+-I $(MQX_ROOT)/mqx/source/io/adc/kadc\
+-I $(MQX_ROOT)/mqx/source/io/adc\
+-I $(MQX_ROOT)/mqx/source/io/lwadc\
+-I $(MQX_ROOT)/mqx/source/io/flashx\
+-I $(MQX_ROOT)/mqx/source/io/flashx/freescale\
+-I $(MQX_ROOT)/mqx/source/io/hwtimer\
+-I $(MQX_ROOT)/mqx/source/io/rtc\
+-I $(MQX_ROOT)/mqx/source/io/debug\
+-I $(MQX_ROOT)/mqx/source/io/tchres\
+-I $(MQX_ROOT)/mqx/source/io/nandflash\
+-I $(MQX_ROOT)/mqx/source/io/timer\
+-I $(MQX_ROOT)/mqx/source/io/usb\
+-I $(MQX_ROOT)/mqx/source/io/hmi\
+-I $(MQX_ROOT)/mqx/source/io/sai\
+-I $(MQX_ROOT)/mqx/source/io/rtcs\
+-I $(MQX_ROOT)/rtcs/source/include
 
 OBJ =\
 $(WOLF_ROOT)/src/crl.o\

@@ -37,6 +37,7 @@ typedef struct vfs_node {
   fsinfo_t fsinfo;
 
   int32_t mount_id;
+  uint8_t pending_umount;
   uint32_t refs;
   uint32_t refs_w;
   uint32_t events; //events for poll or select
@@ -146,6 +147,7 @@ static void vfs_track_task_slot(int32_t pid);
 static void enqueue_waiter(queue_t* q, int32_t pid, uint32_t uuid, bool wr, uint32_t node_id);
 static void enqueue_driver_close_task(driver_close_task_t* task);
 static void clone_dup_ctx_complete(clone_dup_ctx_t* ctx);
+static void vfs_try_finish_umount(vfs_node_t* node);
 
 static uint32_t vfs_alloc_node_id(void) {
 	uint32_t node_id = _next_node_id++;
@@ -160,6 +162,7 @@ static void vfs_node_init(vfs_node_t* node) {
 	node->node_id = vfs_alloc_node_id();
 	node->fsinfo.node = node->node_id;
 	node->mount_id = -1;
+	node->pending_umount = 0;
 	queue_init(&node->read_wait_queue);
 	queue_init(&node->write_wait_queue);
 }
@@ -178,9 +181,16 @@ static inline const char* node_hash_key(uint32_t node_id) {
 
 static vfs_node_t* vfs_new_node(void) {
 	vfs_node_t* ret = (vfs_node_t*)malloc(sizeof(vfs_node_t));
+	if(ret == NULL)
+		return NULL;
 	vfs_node_init(ret);
 
-	hashmap_put(_nodes_hash, node_hash_key(ret->node_id), ret);
+	/* A node that is not in the hash can never be resolved again by its id,
+	 * which surfaces much later as a bogus ENOENT on open. */
+	if(hashmap_put(_nodes_hash, node_hash_key(ret->node_id), ret) != MAP_OK) {
+		free(ret);
+		return NULL;
+	}
 	return ret;
 }
 
@@ -521,8 +531,8 @@ static int32_t vfs_mount(int32_t pid, vfs_node_t* org, vfs_node_t* node) {
 	return 0;
 }
 
-static void vfs_umount(int32_t pid, vfs_node_t* node) {
-	if(node == NULL || node->mount_id < 0 || check_mount(pid, node) != 0)
+static void vfs_umount_now(vfs_node_t* node) {
+	if(node == NULL || node->mount_id < 0)
 		return;
 
 	vfs_node_t* org = vfs_get_node_by_id(_vfs_mounts[node->mount_id].org_node);
@@ -535,13 +545,34 @@ static void vfs_umount(int32_t pid, vfs_node_t* node) {
 		_vfs_root = org;
 	}
 	else {
-		vfs_remove(pid, node);
+		vfs_remove(0, node);
 		if(org->mount_id < 0)
 			free(org);
 		else
-			vfs_add_node(pid, father, org);
+			vfs_add_node(0, father, org);
 	}
 	memset(&_vfs_mounts[node->mount_id], 0, sizeof(mount_t));
+	node->pending_umount = 0;
+}
+
+static void vfs_try_finish_umount(vfs_node_t* node) {
+	if(node == NULL || node->mount_id < 0 || !node->pending_umount)
+		return;
+	if(node->refs > 0 || node->refs_w > 0)
+		return;
+	vfs_umount_now(node);
+}
+
+static void vfs_umount(int32_t pid, vfs_node_t* node) {
+	if(node == NULL || node->mount_id < 0 || check_mount(pid, node) != 0)
+		return;
+
+	if(node->refs > 0 || node->refs_w > 0) {
+		node->pending_umount = 1;
+		return;
+	}
+
+	vfs_umount_now(node);
 }
 
 static int32_t vfs_del_node(vfs_node_t* node) {
@@ -639,6 +670,8 @@ static vfs_node_t* vfs_open_announimous(int32_t pid, vfs_node_t* node) {
 		return NULL;
 
 	vfs_node_t* ret = vfs_new_node();
+	if(ret == NULL)
+		return NULL;
 	ret->fsinfo.type = node->fsinfo.type;
 	ret->fsinfo.stat.mode = 0700;
 	ret->fsinfo.stat.uid = procinfo.uid;
@@ -1333,6 +1366,8 @@ static void proc_file_close(int pid, int fd, file_t* file) {
 
 	if(del_node)
 		vfs_del_node(node);
+	else
+		vfs_try_finish_umount(node);
 	file->node = NULL;
 }
 
@@ -1694,6 +1729,12 @@ static void do_vfs_open(int32_t pid, proto_t* in, proto_t* out) {
 			res = vfs_open(pid, node, flags);
 	}
 
+	if(res < 0) { //keep the [res][errno] error reply shape.
+		PF->clear(out);
+		PF->addi(out, -1)->addi(out, ENFILE);
+		return;
+	}
+
 	memcpy(&info, gen_fsinfo(node), sizeof(fsinfo_t));
 	file_t* file = vfs_check_fd(pid, res);
 	if(file != NULL) {
@@ -1834,9 +1875,9 @@ static void do_vfs_umount(int32_t pid, proto_t* in) {
 	if(node_id == 0)
 		return;
 
-  vfs_node_t* node = vfs_get_node_by_id(node_id);
+	vfs_node_t* node = vfs_get_node_by_id(node_id);
 	if(node == NULL)
-    return;
+		return;
 
 	vfs_umount(pid, node);
 }
@@ -1874,7 +1915,7 @@ static void do_vfs_pipe_open(int32_t pid, proto_t* out) {
 	int32_t shm_id = shmget(IPC_PRIVATE, SHM_PIPE_PAGE_SIZE, IPC_CREAT | 0666);
 	if(shm_id > 0) {
 		shm_pipe_t* ring = (shm_pipe_t*)shmat(shm_id, NULL, 0);
-		if(ring != NULL) {
+		if(ring != (void*)-1) {
 			uint32_t nid = vfs_get_node_id(node);
 			shm_pipe_init(ring, nid, shm_id);
 			node->shm_ring = ring;
@@ -2125,16 +2166,19 @@ static void vfs_proc_exit(int32_t cpid) {
 		return;
 	}
 	_proc_fds_table[cpid].state = ZOMBIE;
-	if(_proc_fds_table[cpid].uuid != 0) {
-		zombie_task_t check;
-		check.pid = cpid;
-		check.uuid = _proc_fds_table[cpid].uuid;
-		if(queue_in(&_zombie_tasks, &check, queue_zombie_task_match) == NULL) {
-			zombie_task_t* task = (zombie_task_t*)malloc(sizeof(zombie_task_t));
-			*task = check;
-			queue_push(&_zombie_tasks, task);
-		}
-	}
+	/*
+	 * Process exit cleanup must be deterministic. The deferred zombie queue
+	 * only exists to postpone clear_zombie(), but clear_zombie() no longer
+	 * performs synchronous FS_CMD_CLOSE; driver-side closes are already
+	 * handed off to the worker thread. Reap the slot immediately here so a
+	 * stale/corrupted _zombie_tasks traversal cannot strand refs and leave
+	 * xconsole umount permanently deferred.
+	 *
+	 * Duplicate EXIT notifications are harmless: after clear_zombie() the
+	 * slot uuid becomes 0, and the next pass takes the zero-uuid branch and
+	 * returns without touching live refs.
+	 */
+	clear_zombie(cpid);
 }
 
 static void clear_zombie(int32_t cpid) {

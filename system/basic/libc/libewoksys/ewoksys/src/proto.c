@@ -115,8 +115,8 @@ inline static proto_factor_t* proto_add(proto_t* proto, const void* item, uint32
 	return &_proto_factor;
 }
 
-inline static proto_factor_t* proto_add_int(proto_t* proto, int32_t v) {
-	proto_add(proto, (void*)&v, 4);
+inline static proto_factor_t* proto_add_int(proto_t* proto, ewokos_addr_t v) {
+	proto_add(proto, (void*)&v, sizeof(v));
 	return &_proto_factor;
 }
 
@@ -233,11 +233,13 @@ inline int32_t proto_read_proto(proto_t* proto, proto_t* to) {
 	return 0;
 }
 
-inline int32_t proto_read_int(proto_t* proto) {
+inline ewokos_addr_t proto_read_int(proto_t* proto) {
 	void *p = proto_read(proto, NULL);
+	ewokos_addr_t v = 0;
 	if(p == NULL)
 		return 0;
-	return *(int*)p;
+	memcpy(&v, p, sizeof(v));
+	return v;
 }
 
 inline const char* proto_read_str(proto_t* proto) {

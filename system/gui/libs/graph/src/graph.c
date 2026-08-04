@@ -146,7 +146,7 @@ void graph_free(graph_t* g) {
 void graph_clear(graph_t* g, uint32_t color) {
 	if(g == NULL)
 		return;
-	if(g->w == 0 || g->w == 0)
+	if(g->w == 0 || g->h == 0)
 		return;
 	int32_t i = 0;
 	int32_t sz = g->w * 4;

@@ -2,7 +2,6 @@ all: basic_libs
 	@echo "all done."
 
 basic_libs:
-	cd openlibm;$(MAKE)
 	cd minimp3;$(MAKE)
 	cd keyb;$(MAKE)
 	cd mouse;$(MAKE)
@@ -25,7 +24,6 @@ basic_libs:
 	cd libiconbuf;$(MAKE)
 
 clean:
-	cd openlibm;$(MAKE) clean
 	cd gterminal;$(MAKE) clean
 	cd textgrid;$(MAKE) clean
 	cd display;$(MAKE) clean

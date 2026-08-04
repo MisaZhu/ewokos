@@ -76,6 +76,7 @@ class AppGrid: public Grid {
 			item->iconImg = img;
 				*/
 			item->iconImg = i;
+			img = i;
 		}
 
 		int dx = (w - img->w)/2;

@@ -4,7 +4,7 @@ include $(SYS_DIR)/platform/$(ARCH)/make.rule
 BUILD_DIR = $(SYS_DIR)/build/$(HW)
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
-LDFLAGS = -L$(BUILD_DIR)/lib -lwolfssl
+LDFLAGS = -L $(BUILD_DIR)/lib -lwolfssl
 CFLAGS += -I $(BUILD_DIR)/include -I $(BUILD_DIR)/include/wolfssl -DWOLFSSL_USER_SETTINGS
 
 TASK_OBJS = $(ARCH)/sshd.o $(ARCH)/sftp-core.o

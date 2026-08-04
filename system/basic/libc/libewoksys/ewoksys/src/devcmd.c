@@ -118,7 +118,10 @@ int dev_unlink(int dev_pid, uint32_t node, const char* fname) {
 int dev_open(int dev_pid, int fd, fsinfo_t* info, int oflag) {
 	proto_t in, out;
 	PF->init(&out);
-	PF->format(&in, "i,i,i", fd, info->node, oflag);
+	/* Ship the whole fsinfo the vfsd just handed us: the driver then needs no
+	 * extra VFS_GET_BY_NODE round trip, which also closes the window where an
+	 * announimous node created by VFS_OPEN is not visible yet/anymore. */
+	PF->format(&in, "i,i,m,i", fd, info->node, info, sizeof(fsinfo_t), oflag);
 
 	int res = ipc_call(dev_pid, FS_CMD_OPEN, &in, &out);
 	PF->clear(&in);
@@ -149,7 +152,7 @@ int dev_read(int dev_pid, int fd, fsinfo_t* info, int32_t offset, void* buf, uin
 		shm_id = shmget(key, size, 0666|IPC_CREAT|IPC_EXCL);
 		if(shm_id != -1)  {
 			shm = shmat(shm_id, 0, 0);
-			if(shm == NULL)
+			if(shm == (void*)-1)
 				return -1;
 		}
 	}
@@ -190,7 +193,7 @@ int dev_write(int dev_pid, int fd, fsinfo_t* info, int32_t offset, const void* b
 		shm_id = shmget(key, size, 0666|IPC_CREAT|IPC_EXCL);
 		if(shm_id != -1)  {
 			shm = shmat(shm_id, 0, 0);
-			if(shm == NULL)
+			if(shm == (void*)-1)
 				return -1;
 			memcpy(shm, buf, size);
 		}
@@ -338,7 +341,7 @@ int dev_read_block(int pid, void* buf, uint32_t size, int32_t index) {
 	if(shm_id == -1) 
 		return -1;
 	void* shm = shmat(shm_id, 0, 0);
-	if(shm == NULL)
+	if(shm == (void*)-1)
 		return 0;
 
 	proto_t in, out;

@@ -38,9 +38,8 @@ static uint32_t _use_core_id = 0;
 static uint32_t _proc_uuid = 0;
 static int32_t _last_create_pid = 0;
 static uint64_t _run_window_start_usec = 0;
-static volatile uint8_t _proc_reap_request = 0;
-
 static void proc_wakeup_all_state(proc_t* proc);
+static inline void proc_ready_with_order(proc_t* proc, bool push_head);
 
 bool _core_proc_ready = false;
 int32_t _core_proc_pid = -1;
@@ -59,14 +58,6 @@ static uint32_t _x86_core_attach_trace_count = 0;
 
 static inline uint64_t proc_account_now_usec(void) {
 	return irq_accounting_now_usec();
-}
-
-void proc_reap_request(void) {
-	_proc_reap_request = 1;
-}
-
-bool proc_reap_requested(void) {
-	return _proc_reap_request != 0;
 }
 
 void proc_lock_enter(void) {
@@ -632,7 +623,6 @@ static void proc_interrupt_timeout(proc_t* proc) {
 	proc_interrupt_t* intr = &proc->space->interrupt;
 	uint32_t interrupt = intr->interrupt;
 	uint32_t intr_state = intr->state;
-
 	intr->counter = 0;
 	intr->state = INTR_STATE_IDLE;
 	proc_untrack_interrupt_timeout(proc);
@@ -655,7 +645,6 @@ static void proc_interrupt_timeout(proc_t* proc) {
 	}
 
 	proc_interrupt_wakeup(proc);
-
 #ifdef KERNEL_SMP
 	if(intr->restore_pending != 0 &&
 			_cpu_cores[proc->info.core].actived &&
@@ -686,7 +675,6 @@ static void proc_ipc_timeout(proc_t* proc) {
 		client_proc = proc_ipc_get_client(ipc);
 		client_uid = ipc->uid;
 	}
-
 	server->do_switch = false;
 	proc_restore_state(&proc->ctx, proc, &server->saved_state, &server->saved_ipc_res);
 	server->restore_pending = 1;
@@ -712,7 +700,6 @@ static void proc_ipc_timeout(proc_t* proc) {
 	}
 
 	proc_ipc_wakeup(proc);
-
 #ifdef KERNEL_SMP
 	if(server->restore_pending != 0 &&
 			_cpu_cores[proc->info.core].actived &&
@@ -874,11 +861,24 @@ static inline void proc_ready_with_order(proc_t* proc, bool push_head) {
 	else
 		queue_push(&_ready_queue[proc->info.core], proc);
 #else
-	(void)push_head;
 	if(proc->priority_count == 0)
 		proc->priority_count = proc->info.priority;
 
-	if(queue_in(&_ready_queue[proc->info.core], proc) == NULL)
+	queue_item_t* ready_hit = queue_in(&_ready_queue[proc->info.core], proc);
+	if(ready_hit != NULL) {
+		if(push_head && ready_hit != _ready_queue[proc->info.core].head) {
+			queue_remove(&_ready_queue[proc->info.core], ready_hit);
+			ready_hit = NULL;
+		}
+		else {
+			proc_lock_leave();
+			return;
+		}
+	}
+
+	if(push_head)
+		queue_push_head(&_ready_queue[proc->info.core], proc);
+	else
 		queue_push(&_ready_queue[proc->info.core], proc);
 #endif
 	proc_lock_leave();
@@ -912,7 +912,6 @@ proc_t* proc_get_next_ready(void) {
 	proc_t* next = queue_pop(&_ready_queue[core_id]);
 	while(next != NULL && next->info.state != READY && next->info.state != RUNNING)
 		next = queue_pop(&_ready_queue[core_id]);
-
 	if(next == NULL) {
 		proc_t*	cproc = get_current_proc();
 		if(cproc != NULL && cproc->info.state == RUNNING &&
@@ -970,7 +969,6 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 	if(proc->info.state == ZOMBIE || proc->info.state == UNUSED)
 		return;
 	proc_unready(proc, ZOMBIE);
-	proc_reap_request();
 	proc_untrack_interrupt_timeout(proc);
 	proc_untrack_ipc_timeout(proc);
 	/*
@@ -1213,16 +1211,6 @@ void proc_zombie_funeral(void) {
 	while((proc = proc_take_next_zombie()) != NULL) {
 		proc_funeral(proc);
 	}
-}
-
-void proc_reap_deferred(void) {
-	if(_proc_reap_request == 0)
-		return;
-
-	do {
-		_proc_reap_request = 0;
-		proc_zombie_funeral();
-	} while(_proc_reap_request != 0);
 }
 
 static inline void proc_kick_ready_core(proc_t* proc) {
@@ -1723,7 +1711,15 @@ static void proc_wakeup_all_state(proc_t* proc) {
 	if(proc->space == NULL)
 		return;
 
-	proc_ready(proc);
+	/*
+	 * Interrupt work that has already been posted to a process
+	 * (INTR_STATE_START) must preempt ordinary READY tasks on that target
+	 * core, otherwise the handler can sit behind unrelated runnable work
+	 * until the watchdog fires even though the IRQ has already been
+	 * delivered cross-core.
+	 */
+	bool push_head = (proc->space->interrupt.state == INTR_STATE_START);
+	proc_ready_with_order(proc, push_head);
 	proc->space->ipc_server.saved_state.state = READY;
 	proc->space->signal.saved_state.state = READY;
 	proc->space->interrupt.saved_state.state = READY;
@@ -2253,7 +2249,7 @@ int32_t renew_kernel_tic(uint32_t usec) {
 }
 
 void renew_kernel_sec(void) {
-	proc_reap_request();
+	proc_zombie_funeral();
 	proc_refresh_runtime_stats();
 	uint64_t now_usec = proc_account_now_usec();
 	if(now_usec - _run_window_start_usec >=

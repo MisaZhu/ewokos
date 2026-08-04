@@ -83,7 +83,7 @@ static void sys_exit(context_t* ctx, int32_t res) {
 	proc_exit(ctx, cproc, res);
 }
 
-static int32_t sys_signal_setup(uint32_t entry) {
+static int32_t sys_signal_setup(ewokos_addr_t entry) {
 	return proc_signal_setup(entry);
 }
 
@@ -149,7 +149,7 @@ static int32_t sys_msize(void) {
 	return (int32_t)proc_msize(get_current_proc());
 }
 
-static void sys_free(int32_t p) {
+static void sys_free(ewokos_addr_t p) {
 	if(p == 0)
 		return;
 	proc_free(get_current_proc());
@@ -334,7 +334,7 @@ static ewokos_addr_t sys_dma_phy(int32_t dma_block_id, ewokos_addr_t vaddr) {
 	return dma_phy_addr(dma_block_id, vaddr);
 }
 
-static uint32_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint32_t size) {
+static ewokos_addr_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint32_t size) {
 	proc_t* cproc = proc_get_proc(get_current_proc());
 	if(cproc->info.uid > 0)
 		return 0;
@@ -686,7 +686,7 @@ static int32_t sys_get_kernel_tic(uint32_t* sec, uint32_t* hi, uint32_t* low) {
 	return 0;
 }
 
-static int32_t sys_interrupt_setup(uint32_t interrupt, uint32_t entry, uint32_t data) {
+static int32_t sys_interrupt_setup(uint32_t interrupt, ewokos_addr_t entry, ewokos_addr_t data) {
 	proc_t * cproc = get_current_proc();
 	if(cproc->info.uid > 0)
 		return -1;
@@ -697,7 +697,7 @@ static void sys_interrupt_end(context_t* ctx) {
 	interrupt_end(ctx);
 }
 
-static inline void sys_soft_int(context_t* ctx, int32_t to_pid, uint32_t entry, uint32_t data) {
+static inline void sys_soft_int(context_t* ctx, int32_t to_pid, ewokos_addr_t entry, ewokos_addr_t data) {
 	ctx->gpr[0] = 0;
 	proc_t* proc = proc_get_proc(get_current_proc());
 	if(proc->info.uid > 0)
@@ -712,12 +712,12 @@ static inline int32_t sys_proc_uuid(int32_t pid) {
 	return proc->info.uuid;
 }
 
-static inline void sys_mmio_rw(int32_t arg0, int32_t arg1, int32_t arg2, context_t* ctx){
-	uint32_t *reg = (uint32_t *)arg0;
-	uint32_t val = arg1;
-	uint32_t mask = arg2;
+static inline void sys_mmio_rw(ewokos_addr_t arg0, uint32_t arg1, uint32_t arg2, context_t* ctx){
+        volatile uint32_t *reg = (volatile uint32_t *)arg0;
+        uint32_t val = arg1;
+        uint32_t mask = arg2;
 
-	if(reg >= MMIO_BASE && reg < MMIO_BASE + _sys_info.mmio.size){
+        if(arg0 >= MMIO_BASE && arg0 < (MMIO_BASE + _sys_info.mmio.size)) {
 		*reg &= ~(mask);
 		*reg |= (val & mask);
 		ctx->gpr[0] = *reg;
@@ -829,7 +829,7 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
 		ctx->gpr[0] = sys_dma_alloc(arg0, (uint32_t)arg1);
 		return;
 	case SYS_DMA_FREE:
-		sys_dma_free(arg0, (uint32_t)arg1);
+                sys_dma_free(arg0, arg1);
 		return;
 	case SYS_DMA_SET:
 		ctx->gpr[0] = sys_dma_set((ewokos_addr_t)arg0, (uint32_t)arg1, arg2);
@@ -883,7 +883,7 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
 		sys_ipc_enable();
 		return;
 	case SYS_INTR_SETUP:
-		ctx->gpr[0] = sys_interrupt_setup((uint32_t)arg0, (uint32_t)arg1, (uint32_t)arg2);
+                ctx->gpr[0] = sys_interrupt_setup((uint32_t)arg0, arg1, arg2);
 		return;
 	case SYS_INTR_END:
 		sys_interrupt_end(ctx);
@@ -913,7 +913,7 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
 		ctx->gpr[0] = P2V(arg0);
 		return;
 	case SYS_MMIO_RW:
-		sys_mmio_rw(arg0, arg1, arg2, ctx);
+                sys_mmio_rw(arg0, (uint32_t)arg1, (uint32_t)arg2, ctx);
 		return;
 	case SYS_PROC_PRIORITY:
 		sys_proc_priority(arg0, (uint32_t)arg1);
@@ -926,15 +926,9 @@ inline void svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t arg1, ew
 	svc_account(code);
 	if(svc_is_query_fastpath(code)) {
 		_svc_handler(code, arg0, arg1, arg2, ctx);
-		if(proc_reap_requested()) {
-			kernel_lock();
-			proc_reap_deferred();
-			kernel_unlock();
-		}
 		return;
 	}
 	kernel_lock();
 	_svc_handler(code, arg0, arg1, arg2, ctx);
-	proc_reap_deferred();
 	kernel_unlock();
 }

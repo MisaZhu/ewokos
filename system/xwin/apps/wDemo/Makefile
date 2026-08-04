@@ -7,7 +7,7 @@ include $(SYS_DIR)/platform/$(ARCH)/make.rule
 BUILD_DIR = $(SYS_DIR)/build/$(HW)
 TARGET_ROOT_DIR = $(BUILD_DIR)/rootfs
 
-LDFLAGS = -L$(BUILD_DIR)/lib
+LDFLAGS = -L $(BUILD_DIR)/lib
 CXXFLAGS += -I $(BUILD_DIR)/include
 
 APP_DIR = $(TARGET_ROOT_DIR)/apps/$(TASK)

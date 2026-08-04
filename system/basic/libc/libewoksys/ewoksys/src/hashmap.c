@@ -245,7 +245,8 @@ int hashmap_rehash(map_t in){
 	m->table_size = 2 * m->table_size;
 	m->size = 0;
 
-	/* Rehash the elements */
+	/* Rehash the elements. On failure the old table has to be put back,
+	 * otherwise every element not migrated yet is lost for good. */
 	for(i = 0; i < old_size; i++){
         int status;
 
@@ -253,10 +254,30 @@ int hashmap_rehash(map_t in){
             continue;
             
 		status = hashmap_put(m, curr[i].key, curr[i].data);
-		if (status != MAP_OK)
+		if (status != MAP_OK) {
+			hashmap_element* failed = m->data;
+			int j;
+			for(j = 0; j < m->table_size; j++) {
+				if(failed[j].in_use != 0 && failed[j].key != NULL)
+					free(failed[j].key);
+			}
+			free(failed);
+			m->data = curr;
+			m->table_size = old_size;
+			m->size = 0;
+			for(j = 0; j < old_size; j++) {
+				if(curr[j].in_use != 0)
+					m->size++;
+			}
 			return status;
+		}
 	}
 
+	/* hashmap_put duplicated every key, so the old copies are ours to free. */
+	for(i = 0; i < old_size; i++){
+		if(curr[i].key != NULL)
+			free(curr[i].key);
+	}
 	free(curr);
 
 	return MAP_OK;
@@ -281,12 +302,19 @@ int hashmap_put(map_t in, const char* key, any_t value){
 		index = hashmap_hash(in, key);
 	}
 
-	/* Set the data */
+	/* Set the data. Replacing an existing key must neither grow the recorded
+	 * size (a bogus size trips the MAP_FULL test and forces endless rehashing)
+	 * nor drop the key copy already stored in the slot. */
 	m->data[index].data = value;
-	m->data[index].key = (char*)malloc(strlen(key)+1);
-	strcpy(m->data[index].key, key);
-	m->data[index].in_use = 1;
-	m->size++; 
+	if(m->data[index].in_use == 0) {
+		char* dup = (char*)malloc(strlen(key)+1);
+		if(dup == NULL)
+			return MAP_OMEM;
+		strcpy(dup, key);
+		m->data[index].key = dup;
+		m->data[index].in_use = 1;
+		m->size++;
+	}
 
 	return MAP_OK;
 }

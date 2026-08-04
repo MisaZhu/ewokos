@@ -1345,7 +1345,7 @@ Version 1.2.5rc1 and 1.0.15rc1 [August 24, 2002]
   Revised makefiles to not remove previous minor versions of shared libraries.
 
 Version 1.2.5rc2 and 1.0.15rc2 [September 16, 2002]
-  Revised 13 makefiles to remove "-lz" and "-L$(ZLIBLIB)", etc., from shared
+  Revised 13 makefiles to remove "-lz" and "-L $(ZLIBLIB)", etc., from shared
     library loader directive.
   Added missing "$OBJSDLL" line to makefile.gcmmx.
   Added missing "; fi" to makefile.32sunu.

@@ -12,10 +12,38 @@
 #include <fcntl.h>
 #include <string.h>
 #include <signal.h>
+#include <ewoksys/klog.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+static uint32_t _xwin_shm_seq = 1;
+
+static int32_t xwin_alloc_shm(uint32_t salt, int32_t size, int32_t flag, key_t* out_key) {
+	for(uint32_t i = 0; i < 16; i++) {
+		uint32_t seq = _xwin_shm_seq++;
+		key_t key = (key_t)((salt * 2654435761u) ^ (seq * 2246822519u));
+		if(key == 0)
+			key = (key_t)(seq | 1u);
+
+		int32_t shm_id = shmget(key, size, flag);
+		if(shm_id != -1) {
+			if(out_key != NULL)
+				*out_key = key;
+			return shm_id;
+		}
+	}
+	if(out_key != NULL)
+		*out_key = 0;
+	return -1;
+}
+
+static uint32_t xwin_handle(const xwin_t* xwin) {
+	if(xwin == NULL)
+		return 0;
+	return (uint32_t)xwin->xinfo_shm_id;
+}
 
 static int xwin_update_info(xwin_t* xwin, uint8_t type) {
 	if(xwin->xinfo == NULL)
@@ -77,8 +105,13 @@ xwin_t* xwin_open(x_t* xp, int32_t disp_index, int x, int y, int w, int h, const
 	disp_index = x_get_display_id(disp_index);
 
 	int fd = open("/dev/x", O_RDWR);
-	if(fd < 0)
+	/* #region debug-point A:open-dev-x */
+	if(fd < 0) {
+		klog("[DEBUG][A] xwin_open open /dev/x failed pid=%d title=%s disp=%d w=%d h=%d style=%x\n",
+						getpid(), title == NULL ? "<null>" : title, disp_index, w, h, style);
 		return NULL;
+	}
+	/* #endregion */
 
 	grect_t xr;
 	x_get_desktop_space(disp_index, &xr);
@@ -94,19 +127,36 @@ xwin_t* xwin_open(x_t* xp, int32_t disp_index, int x, int y, int w, int h, const
 	r.h = h;
 
 	xwin_t* ret = (xwin_t*)malloc(sizeof(xwin_t));
+	if(ret == NULL) {
+		close(fd);
+		return NULL;
+	}
 	memset(ret, 0, sizeof(xwin_t));
 	ret->fd = fd;
 	ret->x = xp;
 
-	key_t key = (((int32_t)ret) << 16) | proc_get_uuid(getpid());
-	int32_t xinfo_shm_id = shmget(key, sizeof(xinfo_t), 0600 |IPC_CREAT|IPC_EXCL);
+	key_t key = 0;
+	uint32_t uuid = proc_get_uuid(getpid());
+	int32_t xinfo_shm_id = xwin_alloc_shm(uuid, sizeof(xinfo_t), 0600 |IPC_CREAT|IPC_EXCL, &key);
 	if(xinfo_shm_id == -1) {
+		/* #region debug-point B:shmget-xinfo */
+		klog("[DEBUG][B] xwin_open shmget failed pid=%d uuid=%u key=%x title=%s ptr=%lx size=%d\n",
+						getpid(), uuid, (uint32_t)key,
+						title == NULL ? "<null>" : title, (unsigned long)(uintptr_t)ret, (int)sizeof(xinfo_t));
+		/* #endregion */
+		close(fd);
 		free(ret);
 		return NULL;
 	}
 
 	xinfo_t* xinfo = (xinfo_t*)shmat(xinfo_shm_id, 0, 0);
-	if(xinfo == NULL) {
+	if(xinfo == (void*)-1) {
+		/* #region debug-point C:shmat-xinfo */
+		klog("[DEBUG][C] xwin_open shmat failed pid=%d uuid=%u key=%x shm_id=%d title=%s ptr=%lx\n",
+						getpid(), uuid, (uint32_t)key, xinfo_shm_id,
+						title == NULL ? "<null>" : title, (unsigned long)(uintptr_t)ret);
+		/* #endregion */
+		close(fd);
 		free(ret);
 		return NULL;
 	}
@@ -114,12 +164,11 @@ xwin_t* xwin_open(x_t* xp, int32_t disp_index, int x, int y, int w, int h, const
 	if((style & XWIN_STYLE_PROMPT) != 0)
 		xp->prompt_win = ret;
 
-
 	ret->xinfo_shm_id = xinfo_shm_id;
 	ret->xinfo = xinfo;
 	memset(ret->xinfo, 0, sizeof(xinfo_t));
 	ret->xinfo->ws_g_shm_id = -1;
-	ret->xinfo->win = (uint32_t)ret;
+	ret->xinfo->win = xwin_handle(ret);
 	ret->xinfo->style = style;
 	ret->xinfo->display_index = disp_index;
 	if(xp->main_win == NULL) {
@@ -156,10 +205,19 @@ static graph_t* x_get_graph(xwin_t* xwin, graph_t* g) {
 	if(xwin == NULL || xwin->xinfo == NULL || xwin->xinfo->ws_g_shm_id == -1)
 		return NULL;
 
-	if(xwin->ws_g_shm == NULL) {
-		xwin->ws_g_shm = shmat(xwin->xinfo->ws_g_shm_id, 0, 0);
-		if(xwin->ws_g_shm == NULL)
-			return NULL;
+	/*the server can rebuild the workspace shm on its own and publishes the
+	  new id into xinfo->ws_g_shm_id. shmat of the published id returns the
+	  cached address when it is still the mapped one, and a different one
+	  after a rebuild (every segment owns a unique global address), so use
+	  it to notice a rebuild instead of trusting the cached pointer: drawing
+	  with the fresh wsr size into a stale (smaller) segment faults.*/
+	void* p = shmat(xwin->xinfo->ws_g_shm_id, 0, 0);
+	if(p == (void*)-1)
+		return NULL;
+	if(xwin->ws_g_shm != p) {
+		if(xwin->ws_g_shm != NULL)
+			shmdt(xwin->ws_g_shm);
+		xwin->ws_g_shm = p;
 		if(xwin->on_resize != NULL) {
 			xwin->on_resize(xwin);
 		}
@@ -245,7 +303,7 @@ void xwin_repaint_req(xwin_t* xwin) {
 	x_t* x = xwin->x;
 	xevent_t ev;
 	memset(&ev, 0, sizeof(xevent_t));
-	ev.win = (uint32_t)xwin;
+	ev.win = xwin_handle(xwin);
 	ev.value.window.event = XEVT_WIN_REPAINT;
 	ev.type = XEVT_WIN;
 	x_push_event(x, &ev);

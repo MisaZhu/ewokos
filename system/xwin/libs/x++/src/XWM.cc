@@ -13,8 +13,20 @@
 
 using namespace Ewok;
 
+static inline bool edgeToEdgeState(int state) {
+	return state == XWIN_STATE_MAX || state == XWIN_STATE_FULL_SCREEN;
+}
+
+static inline int effectiveFrameW(const xwm_theme_t& theme, int state) {
+	return edgeToEdgeState(state) ? 0 : theme.frameW;
+}
+
+static inline int effectiveShadow(const xwm_theme_t& theme, int state) {
+	return edgeToEdgeState(state) ? 0 : theme.shadow;
+}
+
 /*-------get area functions.----------*/
-void XWM::getWinSpace(int style, grect_t* xr, grect_t* winr) {
+void XWM::getWinSpace(int style, int state, grect_t* xr, grect_t* winr) {
 	winr->x = xr->x;
 	winr->y = xr->y;
 	winr->w = xr->w;
@@ -26,22 +38,31 @@ void XWM::getWinSpace(int style, grect_t* xr, grect_t* winr) {
 		winr->h = xr->h + xwm.theme.titleH;
 	}
 
+	/*maximized and fullscreen windows fill the display edge to edge, so the
+	  frame and shadow have no room there and must not be counted into the
+	  outer size: otherwise the window overshoots the display and its
+	  right/bottom part gets cut away*/
+	int frameW = effectiveFrameW(xwm.theme, state);
+	int shadow = effectiveShadow(xwm.theme, state);
+
 	if((style & XWIN_STYLE_NO_FRAME) == 0) {
-		winr->x -= xwm.theme.frameW;
-		winr->w += 2*xwm.theme.frameW + xwm.theme.shadow;
-		winr->y -= xwm.theme.frameW;
-		winr->h += 2*xwm.theme.frameW + xwm.theme.shadow;
+		winr->x -= frameW;
+		winr->w += 2*frameW + shadow;
+		winr->y -= frameW;
+		winr->h += 2*frameW + shadow;
 	}
 }
 
-static void get_win_space(int style, grect_t* xr, grect_t* winr, void* p) {
-	((XWM*)p)->__getWinSpace(style, xr, winr);
+static void get_win_space(int style, int state, grect_t* xr, grect_t* winr, void* p) {
+	((XWM*)p)->__getWinSpace(style, state, xr, winr);
 }
 
 void XWM::getTitle(xinfo_t* info, grect_t* rect) {
-	rect->x = xwm.theme.frameW;
-	rect->y = xwm.theme.frameW;
-	rect->w = info->winr.w - xwm.theme.frameW*2 - xwm.theme.shadow;
+	int frameW = effectiveFrameW(xwm.theme, info->state);
+	int shadow = effectiveShadow(xwm.theme, info->state);
+	rect->x = frameW;
+	rect->y = frameW;
+	rect->w = info->winr.w - frameW*2 - shadow;
 	rect->h = xwm.theme.titleH;
 }
 
@@ -50,8 +71,10 @@ static void get_title(xinfo_t* info, grect_t* rect, void* p) {
 }
 
 void XWM::getMin(xinfo_t* info, grect_t* rect) {
-	rect->x = info->winr.w - xwm.theme.titleH*2 - xwm.theme.frameW - xwm.theme.shadow;
-	rect->y = xwm.theme.frameW;
+	int frameW = effectiveFrameW(xwm.theme, info->state);
+	int shadow = effectiveShadow(xwm.theme, info->state);
+	rect->x = info->winr.w - xwm.theme.titleH*2 - frameW - shadow;
+	rect->y = frameW;
 	rect->w = xwm.theme.titleH;
 	rect->h = xwm.theme.titleH;
 }
@@ -61,8 +84,10 @@ static void get_min(xinfo_t* info, grect_t* rect, void* p) {
 }
 
 void XWM::getMax(xinfo_t* info, grect_t* rect) {
-	rect->x = info->winr.w- xwm.theme.titleH - xwm.theme.frameW - xwm.theme.shadow;
-	rect->y = xwm.theme.frameW;
+	int frameW = effectiveFrameW(xwm.theme, info->state);
+	int shadow = effectiveShadow(xwm.theme, info->state);
+	rect->x = info->winr.w - xwm.theme.titleH - frameW - shadow;
+	rect->y = frameW;
 	rect->w = xwm.theme.titleH;
 	rect->h = xwm.theme.titleH;
 }
@@ -72,17 +97,19 @@ static void get_max(xinfo_t* info, grect_t* rect, void* p) {
 }
 
 void XWM::getClose(xinfo_t* info, grect_t* rect) {
-	rect->x = xwm.theme.frameW;
-	rect->y = xwm.theme.frameW;// - titleH;
+	int frameW = effectiveFrameW(xwm.theme, info->state);
+	rect->x = frameW;
+	rect->y = frameW;// - titleH;
 	rect->w = xwm.theme.titleH;
 	rect->h = xwm.theme.titleH;
 }
 
 void XWM::getFrame(xinfo_t* info, grect_t* rect) {
+	int shadow = effectiveShadow(xwm.theme, info->state);
 	rect->x = 0;
 	rect->y = 0;// - titleH;
-	rect->w = info->winr.w - xwm.theme.shadow;
-	rect->h = info->winr.h - xwm.theme.shadow;
+	rect->w = info->winr.w - shadow;
+	rect->h = info->winr.h - shadow;
 }
 
 static void get_close(xinfo_t* info, grect_t* rect, void* p) {
@@ -94,10 +121,12 @@ static void get_frame(xinfo_t* info, grect_t* rect, void* p) {
 }
 
 void XWM::getResize(xinfo_t* info, grect_t* rect) {
-	rect->x = info-> winr.w - 20 - xwm.theme.frameW - xwm.theme.shadow;
-	rect->y = info-> winr.h - 20 - xwm.theme.frameW - xwm.theme.shadow;
-	rect->w = 20 + xwm.theme.frameW;
-	rect->h = 20 + xwm.theme.frameW;
+	int frameW = effectiveFrameW(xwm.theme, info->state);
+	int shadow = effectiveShadow(xwm.theme, info->state);
+	rect->x = info->winr.w - 20 - frameW - shadow;
+	rect->y = info->winr.h - 20 - frameW - shadow;
+	rect->w = 20 + frameW;
+	rect->h = 20 + frameW;
 }
 
 static void get_resize(xinfo_t* info, grect_t* rect, void* p) {

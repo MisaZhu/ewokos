@@ -19,7 +19,6 @@ kevent_t* kev_push(uint32_t type, uint32_t arg0, uint32_t arg1, uint32_t arg2) {
 	kev->data[0] = arg0;
 	kev->data[1] = arg1;
 	kev->data[2] = arg2;
-
 	mcore_lock(&_kev_lock);
 	queue_push(&_kev_queue, kev);
 	mcore_unlock(&_kev_lock);

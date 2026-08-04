@@ -100,9 +100,9 @@ endif
 # WOLFSSL_ROOT := ../../../../workspace/wolfssl-master
 
 # Optional CFLAGS (make works without these; for reference only)
-# CFLAGS += -I$(WOLFSSL_ROOT)/wolfssl
-# CFLAGS += -I$(WOLFSSL_ROOT)/wolfssl/wolfcrypt
-# CFLAGS += -I$(WOLFSSL_ROOT)/wolfssl/wolfcrypt/port/Espressif
+# CFLAGS += -I $(WOLFSSL_ROOT)/wolfssl
+# CFLAGS += -I $(WOLFSSL_ROOT)/wolfssl/wolfcrypt
+# CFLAGS += -I $(WOLFSSL_ROOT)/wolfssl/wolfcrypt/port/Espressif
 
 abs_WOLFSSL_ROOT     := $(shell realpath $(WOLFSSL_ROOT))
 

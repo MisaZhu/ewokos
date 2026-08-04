@@ -25,6 +25,13 @@ typedef struct {
 	uint32_t type;
 	bool down;
 	bool drop;
+
+	/*state of the cursor currently sitting on the display: as long as none
+	  of it changed and nothing gets drawn underneath, it does not have to be
+	  lifted and put down again*/
+	bool drawn;
+	bool drawn_down;
+	bool drawn_busy;
 } cursor_t;
 
 void cursor_init(const char* theme, cursor_t* cursor);

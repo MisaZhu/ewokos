@@ -4,12 +4,12 @@ include $(SYS_DIR)/platform/$(ARCH)/make.rule
 BUILD_DIR = $(SYS_DIR)/build/$(HW)
 TARGET_DIR = $(BUILD_DIR)
 
-LDFLAGS = -L$(TARGET_DIR)/lib
+LDFLAGS = -L $(TARGET_DIR)/lib
 
-CFLAGS += -Iinclude -I$(TARGET_DIR)/include \
-	-I$(SYS_DIR)/network/libs/socket/include \
-	-I$(SYS_DIR)/network/libs/wolfssl/include \
-	-I$(SYS_DIR)/network/libs/wolfssl \
+CFLAGS += -Iinclude -I $(TARGET_DIR)/include \
+	-I $(SYS_DIR)/network/libs/socket/include \
+	-I $(SYS_DIR)/network/libs/wolfssl/include \
+	-I $(SYS_DIR)/network/libs/wolfssl \
 	-DWOLFSSL_USER_SETTINGS \
 	-Wno-unused-parameter -Wno-sign-compare
 

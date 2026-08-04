@@ -81,7 +81,7 @@ static void update_timer_intr(void) {
 	}
 }
 
-static void interrupt_handle(uint32_t interrupt, uint32_t data) {
+static void interrupt_handle(uint32_t interrupt, ewokos_addr_t data) {
 	(void)interrupt;
 	(void)data;
 	uint64_t usec;

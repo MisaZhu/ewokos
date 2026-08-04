@@ -25,7 +25,7 @@ typedef struct {
 	void* data;
 	xwm_theme_t theme;
 
-	void (*get_win_space)(int style, grect_t* xr, grect_t* wsr, void* p);
+	void (*get_win_space)(int style, int state, grect_t* xr, grect_t* wsr, void* p);
 	void (*get_close)(xinfo_t* info, grect_t* r, void* p);
 	void (*get_min)(xinfo_t* info, grect_t* r, void* p);
 	void (*get_min_size)(xinfo_t* info, int* w, int* h, void* p);

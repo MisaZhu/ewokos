@@ -106,9 +106,6 @@ extern void    proc_unmap_page(page_dir_entry_t *vm, uint32_t vaddr);
 
 extern void    proc_funeral(proc_t* proc);
 extern void    proc_zombie_funeral(void);
-extern void    proc_reap_request(void);
-extern bool    proc_reap_requested(void);
-extern void    proc_reap_deferred(void);
 extern void    proc_exit(context_t* ctx, proc_t *proc, int32_t res);
 extern proc_t *proc_create(int32_t type, proc_t* parent);
 
