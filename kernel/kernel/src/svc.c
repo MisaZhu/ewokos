@@ -145,8 +145,8 @@ static ewokos_addr_t sys_malloc(int32_t size) {
 	return (ewokos_addr_t)proc_malloc(get_current_proc(), size);
 }
 
-static int32_t sys_msize(void) {
-	return (int32_t)proc_msize(get_current_proc());
+static ewokos_addr_t sys_msize(void) {
+	return proc_msize(get_current_proc());
 }
 
 static void sys_free(ewokos_addr_t p) {
@@ -642,7 +642,7 @@ static void set_block_evt(proc_t* proc, uint32_t event) {
 	}
 }
 
-static void sys_proc_block(context_t* ctx, uint32_t token) {
+static void sys_proc_block(context_t* ctx, ewokos_addr_t token) {
 	proc_t* cproc = get_current_proc();
 	if(cproc == NULL)
 		return;
@@ -655,7 +655,7 @@ static void sys_proc_block(context_t* ctx, uint32_t token) {
 	proc_block_by(ctx, cproc, token);
 }
 
-static void sys_proc_wakeup(context_t* ctx, int32_t pid, uint32_t token) {
+static void sys_proc_wakeup(context_t* ctx, int32_t pid, ewokos_addr_t token) {
 	(void)ctx;
 	proc_t* cproc = proc_get_proc(get_current_proc());
 	if(cproc->info.uid > 0)

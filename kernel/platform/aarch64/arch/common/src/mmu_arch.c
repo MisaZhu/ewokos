@@ -11,8 +11,8 @@
  * to a physical page.
  * Notice: virtual and physical address inputed must be all aliend by PAGE_SIZE !
  */
-int32_t map_page(page_dir_entry_t *vm, uint32_t virtual_addr,
-		     uint32_t physical, uint32_t permissions, uint32_t pte_attr) {
+int32_t map_page(page_dir_entry_t *vm, ewokos_addr_t virtual_addr,
+		     ewokos_addr_t physical, uint32_t permissions, uint32_t pte_attr) {
 	page_table_entry_t *l2_table = 0;
 	page_table_entry_t *l3_table = 0;
 
@@ -58,7 +58,7 @@ int32_t map_page(page_dir_entry_t *vm, uint32_t virtual_addr,
 }
 
 /* unmap_page clears the mapping for the given virtual address */
-void unmap_page(page_dir_entry_t *vm, uint32_t virtual_addr) {
+void unmap_page(page_dir_entry_t *vm, ewokos_addr_t virtual_addr) {
 	page_table_entry_t *l2_table = 0;
 	page_table_entry_t *l3_table = 0;
 
@@ -80,7 +80,7 @@ void unmap_page(page_dir_entry_t *vm, uint32_t virtual_addr) {
  * given virtual address to physical address. This function can be used for
  * debugging if given virtual memory is constructed correctly.
  */
-uint32_t resolve_phy_address(page_dir_entry_t *vm, uint32_t virtual) {
+ewokos_addr_t resolve_phy_address(page_dir_entry_t *vm, ewokos_addr_t virtual) {
 	page_table_entry_t *l2_table = 0;
 	page_table_entry_t *l3_table = 0;
 	uint32_t l1_index = PAGE_L1_INDEX(virtual);
@@ -95,14 +95,14 @@ uint32_t resolve_phy_address(page_dir_entry_t *vm, uint32_t virtual) {
 	l3_table = (page_table_entry_t*)P2V(l2_table[l2_index].Address << 12); 
 	if(l3_table[l3_index].EntryType == 0)
 		return 0;
-	uint32_t phy = (l3_table[l3_index].Address << 12) | (virtual & 0xFFF);	
+	ewokos_addr_t phy = ((ewokos_addr_t)l3_table[l3_index].Address << 12) | (virtual & 0xFFF);
 	return phy;
 }
 
 /*
 get page entry(virtual addr) by virtual address
 */
-page_table_entry_t* get_page_table_entry(page_dir_entry_t *vm, uint32_t virtual) {
+page_table_entry_t* get_page_table_entry(page_dir_entry_t *vm, ewokos_addr_t virtual) {
 	page_table_entry_t *l2_table = 0;
 	page_table_entry_t *l3_table = 0;
 

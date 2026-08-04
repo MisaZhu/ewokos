@@ -16,6 +16,7 @@
 /*                                                                    */
 /**********************************************************************/
 #include <stdint.h>
+#include <ewoksys/ewokdef.h>
 
 typedef int32_t irq_no;			/* IRQ no */
 
@@ -136,7 +137,7 @@ this register determines only Group 0 interrupt preemption. */
 #define GIC_PRI_SHIFT				(4)
 #define GIC_PRI_MASK				(0x0f)
 
-static uint32_t GIC_BASE;
+static ewokos_addr_t GIC_BASE;
 
 /* Initialize GIC Controller */
 static void init_gicc(void)
@@ -311,7 +312,7 @@ void gic_v3_eoi(irq_no irq) {
  *    I supppose the current access is security, because GICD_CTLR.DS is 0b0 and
  *    we can access.
  */ 
-void gic_v3_init(uint32_t base)
+void gic_v3_init(ewokos_addr_t base)
 {
 	GIC_BASE = base;
 	init_gicd();
@@ -340,4 +341,3 @@ int gic_v3_get_irq(void){
     gic_v3_eoi(irq);
     return irq;
 }
-

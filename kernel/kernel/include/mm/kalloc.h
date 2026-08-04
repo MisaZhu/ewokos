@@ -27,6 +27,6 @@ void *kalloc4k(void);
 void kfree4k(void *page);
 void *kalloc1k(void);
 void kfree1k(void *page);
-uint32_t get_free_mem_size(void);
+ewokos_addr_t get_free_mem_size(void);
 
 #endif

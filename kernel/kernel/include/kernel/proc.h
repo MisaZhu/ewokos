@@ -23,18 +23,18 @@ typedef struct {
 #define STACK_PAGES 32
 
 typedef struct {
-	uint32_t base;
-	void**   stacks;
+	ewokos_addr_t base;
+	ewokos_addr_t* stacks;
 } thread_stack_t;
 
 typedef struct {
 	uint32_t           pde_index;
 	page_dir_entry_t*  vm;
 
-	uint32_t           malloc_base;
-	uint32_t           rw_heap_base;
-	uint32_t           heap_size;
-	uint32_t           heap_used;
+	ewokos_addr_t      malloc_base;
+	ewokos_addr_t      rw_heap_base;
+	ewokos_addr_t      heap_size;
+	ewokos_addr_t      heap_used;
 	int32_t            refs;
 	bool               ready_ping;
 	
@@ -46,7 +46,7 @@ typedef struct {
 	proc_interrupt_t   interrupt;
 
 	thread_stack_t     *thread_stacks;
-	uint32_t           user_stack[STACK_PAGES];
+	ewokos_addr_t     user_stack[STACK_PAGES];
 } proc_space_t;
 
 typedef struct st_proc {
@@ -62,7 +62,7 @@ typedef struct st_proc {
 	bool              run_accounting_active;
 
 	proc_space_t*     space; //threads share the space from owner proc
-	uint32_t          thread_stack_base;
+	ewokos_addr_t     thread_stack_base;
 
 	/*
 	 * Node-scoped block/wake token. block_by is the VFS node id this proc is
@@ -71,8 +71,8 @@ typedef struct st_proc {
 	 * only a matching (or generic) block consumes it. This prevents a wakeup
 	 * for one node from releasing a proc blocked on an unrelated node.
 	 */
-	uint32_t          block_by;
-	uint32_t          wake_by;
+	ewokos_addr_t     block_by;
+	ewokos_addr_t     wake_by;
 	/*
 	 * Sticky-wake presence flag. A wake that arrives while the proc is not yet
 	 * BLOCK is latched in wake_by, but wake_by==0 is a VALID token (a generic
@@ -101,8 +101,8 @@ extern void    proc_switch_multi_core(context_t* ctx, proc_t* to, uint32_t core)
 extern void    proc_switch(context_t* ctx, proc_t* to, bool quick);
 extern void    set_current_proc(proc_t* proc);
 
-extern void    proc_map_page(page_dir_entry_t *vm, uint32_t vaddr, uint32_t paddr, uint32_t permissions);
-extern void    proc_unmap_page(page_dir_entry_t *vm, uint32_t vaddr);
+extern void    proc_map_page(page_dir_entry_t *vm, ewokos_addr_t vaddr, ewokos_addr_t paddr, uint32_t permissions);
+extern void    proc_unmap_page(page_dir_entry_t *vm, ewokos_addr_t vaddr);
 
 extern void    proc_funeral(proc_t* proc);
 extern void    proc_zombie_funeral(void);
@@ -110,13 +110,13 @@ extern void    proc_exit(context_t* ctx, proc_t *proc, int32_t res);
 extern proc_t *proc_create(int32_t type, proc_t* parent);
 
 extern void*   proc_malloc(proc_t* proc, int32_t size);
-extern uint32_t  proc_msize(proc_t* proc);
+extern ewokos_addr_t proc_msize(proc_t* proc);
 extern void    proc_free(proc_t* proc);
 
 extern void    proc_block(context_t* text, proc_t* proc);
-extern void    proc_block_by(context_t* ctx, proc_t* proc, uint32_t token);
+extern void    proc_block_by(context_t* ctx, proc_t* proc, ewokos_addr_t token);
 extern void    proc_wakeup(proc_t* proc);
-extern void    proc_wakeup_by(proc_t* proc, uint32_t token);
+extern void    proc_wakeup_by(proc_t* proc, ewokos_addr_t token);
 extern void    proc_waitpid(context_t* ctx, int32_t pid);
 extern proc_t* proc_get(int32_t pid);
 extern proc_t* proc_get_by_uuid(uint32_t uuid);

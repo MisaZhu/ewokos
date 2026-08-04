@@ -156,7 +156,7 @@ protected:
 		if(proc == NULL)
 			return;
 
-		char s[16] = { 0 };
+		char s[32] = { 0 };
 		string str = "";
 
 		if(col == 0) {
@@ -414,9 +414,9 @@ protected:
 		syscall1(SYS_GET_SYS_STATE, (ewokos_addr_t)(uint64_t)&sys_state);
 		char txt[32] = { 0 };
 
-		char used_mem_str[8] = {0};
+		char used_mem_str[32] = {0};
 		get_mem_size_desc((sys_info.total_usable_mem_size-sys_state.mem.free), used_mem_str);
-		char t_mem_str[8] = {0};
+		char t_mem_str[32] = {0};
 		get_mem_size_desc(sys_info.total_usable_mem_size, t_mem_str);
 		snprintf(txt, 31, "%s/%s", used_mem_str, t_mem_str);
 

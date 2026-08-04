@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <ewokos_config.h>
 
 #define PROC_INFO_MAX_CMD_LEN 256
 
@@ -49,7 +50,7 @@ typedef struct {
 	int32_t  wait_for;
 	uint32_t start_sec;
 	uint32_t run_usec;
-	uint32_t heap_size;
+	ewokos_addr_t heap_size;
 	uint32_t shm_size;
 	uint32_t priority;
 	char     cmd[PROC_INFO_MAX_CMD_LEN];

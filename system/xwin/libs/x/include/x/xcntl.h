@@ -74,7 +74,7 @@ enum {
 #define XWIN_TITLE_MAX 32
 #define X_APP_NAME_MAX 128
 typedef struct {
-	uint32_t win;
+	ewokos_addr_t win;
 	int32_t  ws_g_shm_id;
 	int32_t  frame_g_shm_id;
 	uint32_t display_index;

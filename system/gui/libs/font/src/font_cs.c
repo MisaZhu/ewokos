@@ -69,7 +69,7 @@ int font_get_face(font_t* font, uint32_t size, face_info_t* face) {
 	int ret = -1;
 	proto_t in, out;
 	PF->init(&out);
-	PF->format(&in, "i,i", font->id, size);
+	PF->format(&in, "i,i", (ewokos_addr_t)font->id, (ewokos_addr_t)size);
 
 	if(dev_cntl_by_pid(_font_dev_pid, FONT_DEV_GET_FACE, &in, &out) == 0) {
 		if(proto_read_int(&out) == 0) {
@@ -90,7 +90,8 @@ int font_get_glyph_info(font_t* font, uint32_t size, uint32_t c, FT_GlyphSlot sl
 	int ret = -1;
 	proto_t in, out;
 	PF->init(&out);
-	PF->format(&in, "i,i,i", font->id, size, c);
+	PF->format(&in, "i,i,i", (ewokos_addr_t)font->id, (ewokos_addr_t)size,
+			(ewokos_addr_t)c);
 
 	if(dev_cntl_by_pid(_font_dev_pid, FONT_DEV_GET_GLYPH, &in, &out) == 0) {
 		if(proto_read_int(&out) == 0) {

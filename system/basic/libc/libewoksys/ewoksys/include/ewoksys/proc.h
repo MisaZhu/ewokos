@@ -20,9 +20,9 @@ int      proc_info(int pid, procinfo_t* info);
 void     proc_detach(void);
 
 void     proc_block(void);
-void     proc_block_by(uint32_t token);
+void     proc_block_by(ewokos_addr_t token);
 void     proc_wakeup(int32_t pid);
-void     proc_wakeup_by(int32_t pid, uint32_t token);
+void     proc_wakeup_by(int32_t pid, ewokos_addr_t token);
 void     proc_init(void);
 int      proc_fork(void);
 void     proc_exit(void);
@@ -37,7 +37,7 @@ void     proc_yield(void);
 
 int      proc_exec(const char* cmd_line);
 void     proc_priority(uint32_t pid, uint32_t priority);
-const char* get_mem_size_desc(uint32_t size, char ret[]);
+const char* get_mem_size_desc(ewokos_addr_t size, char ret[]);
 
 extern int _vfsd_pid;
 extern int _cored_pid;

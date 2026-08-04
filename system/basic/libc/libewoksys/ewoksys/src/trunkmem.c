@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <pthread.h>
+#include <ewoksys/ewokdef.h>
 #include <ewoksys/trunkmem.h>
 
 #ifdef __cplusplus
@@ -39,37 +40,37 @@ static inline void trunk_unlock_heap(malloc_t* m) {
 	pthread_mutex_unlock(&m->lock);
 }
 
-static inline uintptr_t trunk_heap_end(malloc_t* m) {
+static inline ewokos_addr_t trunk_heap_end(malloc_t* m) {
 	if(m == NULL || m->get_mem_tail == NULL)
 		return 0;
-	return (uintptr_t)m->get_mem_tail(m->arg);
+	return (ewokos_addr_t)m->get_mem_tail(m->arg);
 }
 
 static inline int trunk_ptr_aligned(const void* p) {
-	return ((((uintptr_t)p) & (sizeof(void*) - 1)) == 0);
+	return ((((ewokos_addr_t)p) & (sizeof(void*) - 1)) == 0);
 }
 
-static inline int trunk_ptr_in_heap(mem_block_t* head, uintptr_t heap_end, const void* p) {
-	uintptr_t addr;
+static inline int trunk_ptr_in_heap(mem_block_t* head, ewokos_addr_t heap_end, const void* p) {
+	ewokos_addr_t addr;
 	if(head == NULL || p == NULL || heap_end == 0)
 		return 0;
-	addr = (uintptr_t)p;
-	return addr >= (uintptr_t)head && addr < heap_end;
+	addr = (ewokos_addr_t)p;
+	return addr >= (ewokos_addr_t)head && addr < heap_end;
 }
 
-static int trunk_block_sane(mem_block_t* head, uintptr_t heap_end,
+static int trunk_block_sane(mem_block_t* head, ewokos_addr_t heap_end,
 		mem_block_t* prev, mem_block_t* block) {
-	uintptr_t block_addr;
-	uintptr_t mem_addr;
-	uintptr_t block_end;
+	ewokos_addr_t block_addr;
+	ewokos_addr_t mem_addr;
+	ewokos_addr_t block_end;
 
 	if(block == NULL)
 		return 0;
 	if(!trunk_ptr_in_heap(head, heap_end, block) || !trunk_ptr_aligned(block))
 		return 0;
 
-	block_addr = (uintptr_t)block;
-	mem_addr = (uintptr_t)block->mem;
+	block_addr = (ewokos_addr_t)block;
+	mem_addr = (ewokos_addr_t)block->mem;
 	if(mem_addr != (block_addr + sizeof(mem_block_t)))
 		return 0;
 	if(mem_addr > heap_end)
@@ -85,7 +86,7 @@ static int trunk_block_sane(mem_block_t* head, uintptr_t heap_end,
 		return 0;
 
 	if(block->next != NULL) {
-		uintptr_t next_addr = (uintptr_t)block->next;
+		ewokos_addr_t next_addr = (ewokos_addr_t)block->next;
 		if(!trunk_ptr_in_heap(head, heap_end, block->next) || !trunk_ptr_aligned(block->next))
 			return 0;
 		if(next_addr <= block_addr || next_addr < block_end)
@@ -101,7 +102,7 @@ static mem_block_t* trunk_find_block_locked(malloc_t* m, mem_block_t* target) {
 	mem_block_t* head;
 	mem_block_t* prev;
 	mem_block_t* block;
-	uintptr_t heap_end;
+	ewokos_addr_t heap_end;
 
 	if(m == NULL || target == NULL)
 		return NULL;
@@ -139,7 +140,7 @@ mem_block_t* get_block(char* p) {
 		return NULL;
 
 	uint32_t block_size = sizeof(mem_block_t);
-	if(((uintptr_t)p) < (uintptr_t)block_size)
+	if(((ewokos_addr_t)p) < (ewokos_addr_t)block_size)
 		return NULL;
 
 	mem_block_t* block = (mem_block_t*)(p - block_size);
@@ -174,7 +175,7 @@ static void try_break(malloc_t* m, mem_block_t* block, uint32_t size) {
 Returns the block's prev via prev_out when the block (and its backward
 link) look sane, so callers can resume a walk from it directly. */
 static mem_block_t* trunk_check_block(malloc_t* m, mem_block_t* b,
-		uintptr_t heap_end, mem_block_t** prev_out) {
+		ewokos_addr_t heap_end, mem_block_t** prev_out) {
 	if(b == NULL || m->head == NULL)
 		return NULL;
 	if(!trunk_ptr_in_heap(m->head, heap_end, b) || !trunk_ptr_aligned(b))
@@ -276,7 +277,7 @@ static mem_block_t* try_merge(malloc_t* m, mem_block_t* block) {
 	mem_block_t* b;
 	mem_block_t* ret = block;
 	uint32_t block_size = sizeof(mem_block_t);
-	uintptr_t heap_end = trunk_heap_end(m);
+	ewokos_addr_t heap_end = trunk_heap_end(m);
 	//try next block	
 	b = block->next;
 	if(b != NULL && b->used == 0) {
@@ -316,11 +317,11 @@ try to shrink the pages.
 */
 static void try_shrink(malloc_t* m) {
 	uint32_t block_size = sizeof(mem_block_t);
-	uintptr_t addr = (uintptr_t)m->tail;
+	ewokos_addr_t addr = (ewokos_addr_t)m->tail;
 	//check if page aligned.	
 	if(m->tail == NULL ||
 			m->tail->used == 1 ||
-			(addr % (uintptr_t)m->seg_size) != 0)
+			(addr % (ewokos_addr_t)m->seg_size) != 0)
 		return;
 
 	uint32_t pages = (m->tail->size+block_size) / m->seg_size;

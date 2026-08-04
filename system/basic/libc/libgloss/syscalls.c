@@ -720,11 +720,11 @@ _rename (const char * oldpath, const char * newpath)
 {
   dbg_kout(__func__);
 #ifdef ARM_RDI_MONITOR
-  int block[4];
-  block[0] = (int)oldpath;
-  block[1] = strlen(oldpath);
-  block[2] = (int)newpath;
-  block[3] = strlen(newpath);
+  ewokos_addr_t block[4];
+  block[0] = (ewokos_addr_t)oldpath;
+  block[1] = (ewokos_addr_t)strlen(oldpath);
+  block[2] = (ewokos_addr_t)newpath;
+  block[3] = (ewokos_addr_t)strlen(newpath);
   return checkerror (do_AngelSWI (AngelSWI_Reason_Rename, block)) ? -1 : 0;
 #else
  // register int r0 asm("r0");

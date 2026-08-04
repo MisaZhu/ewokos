@@ -80,8 +80,9 @@ static int run_init(const char* init_file) {
 			exit(-1);
 		}
 	}
-	else 
+	else {
 		ewok_waitpid(pid);
+	}
 	return 0;
 }
 

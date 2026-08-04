@@ -19,9 +19,15 @@ kevent_t* kev_push(uint32_t type, uint32_t arg0, uint32_t arg1, uint32_t arg2) {
 	kev->data[0] = arg0;
 	kev->data[1] = arg1;
 	kev->data[2] = arg2;
+#ifdef KERNEL_SMP
 	mcore_lock(&_kev_lock);
+#endif
+
 	queue_push(&_kev_queue, kev);
+
+#ifdef KERNEL_SMP
 	mcore_unlock(&_kev_lock);
+#endif
 
 	if(_core_proc_pid >= 0) {
 		proc_t* core = proc_get(_core_proc_pid);
@@ -36,9 +42,15 @@ int32_t kev_pop(kevent_t* ret) {
 	if(cproc->info.pid != _core_proc_pid)	 //only core proc access allowed.
 		return -1;
 
+#ifdef KERNEL_SMP
 	mcore_lock(&_kev_lock);
+#endif
+
 	kevent_t* kev = queue_pop(&_kev_queue);
+
+#ifdef KERNEL_SMP
 	mcore_unlock(&_kev_lock);
+#endif
 	if(kev == NULL) {
 		return -1;
 	}

@@ -89,7 +89,7 @@ static uint32_t rot90_to_fb(const fbinfo_t* fbi, const graph_t* g) {
 	/* dst[y][x] = src[sh-1-x][y]; dst is sh wide, sw tall */
 	uint32_t sw = (uint32_t)g->w, sh = (uint32_t)g->h;
 	uint32_t wf = sw & ~3U, hf = sh & ~3U;
-	uint8_t* dst_base = (uint8_t*)(uintptr_t)fbi->pointer +
+	uint8_t* dst_base = (uint8_t*)(ewokos_addr_t)fbi->pointer +
 			fbi->yoffset * fbi->pitch + fbi->xoffset * 4;
 	const uint32_t* src = g->buffer;
 	uint32_t x, y;
@@ -126,7 +126,7 @@ static uint32_t rot270_to_fb(const fbinfo_t* fbi, const graph_t* g) {
 	/* dst[y][x] = src[x][sw-1-y]; dst is sh wide, sw tall */
 	uint32_t sw = (uint32_t)g->w, sh = (uint32_t)g->h;
 	uint32_t wf = sw & ~3U, hf = sh & ~3U;
-	uint8_t* dst_base = (uint8_t*)(uintptr_t)fbi->pointer +
+	uint8_t* dst_base = (uint8_t*)(ewokos_addr_t)fbi->pointer +
 			fbi->yoffset * fbi->pitch + fbi->xoffset * 4;
 	const uint32_t* src = g->buffer;
 	uint32_t x, y;
@@ -163,7 +163,7 @@ static uint32_t rot270_to_fb(const fbinfo_t* fbi, const graph_t* g) {
 static uint32_t rot180_to_fb(const fbinfo_t* fbi, const graph_t* g) {
 	/* dst[y][x] = src[sh-1-y][sw-1-x]; same geometry as the panel */
 	uint32_t sw = (uint32_t)g->w, sh = (uint32_t)g->h;
-	uint8_t* dst_base = (uint8_t*)(uintptr_t)fbi->pointer +
+	uint8_t* dst_base = (uint8_t*)(ewokos_addr_t)fbi->pointer +
 			fbi->yoffset * fbi->pitch + fbi->xoffset * 4;
 	const uint32_t* src = g->buffer;
 
@@ -217,7 +217,8 @@ uint32_t fbd_flush_rect_to(const fbinfo_t* fbinfo, const graph_t* g, const grect
 		return 0;
 
 	uint32_t bytes_per_pixel = fbinfo->depth / 8;
-	if(fbinfo->depth == 32 && (uintptr_t)fbinfo->pointer == (uintptr_t)g->buffer)
+	if(fbinfo->depth == 32 &&
+			(ewokos_addr_t)fbinfo->pointer == (ewokos_addr_t)g->buffer)
 		return (uint32_t)r->w * (uint32_t)r->h * 4; //scan-out is the dma itself
 
 	/* several platforms leave pitch at 0 because their full-frame flush is a
@@ -227,7 +228,7 @@ uint32_t fbd_flush_rect_to(const fbinfo_t* fbinfo, const graph_t* g, const grect
 	if(pitch < fbinfo->width * bytes_per_pixel)
 		pitch = fbinfo->width * bytes_per_pixel;
 
-	uint8_t* dst = (uint8_t*)(uintptr_t)fbinfo->pointer +
+	uint8_t* dst = (uint8_t*)(ewokos_addr_t)fbinfo->pointer +
 			(fbinfo->yoffset + r->y) * pitch +
 			(fbinfo->xoffset + r->x) * bytes_per_pixel;
 	const uint32_t* src = g->buffer + r->y * g->w + r->x;
@@ -278,7 +279,7 @@ static uint32_t fbd_rotate_rect_to(const fbinfo_t* fbi, const graph_t* g,
 	uint32_t pitch = fbi->pitch;
 	if(pitch < fbi->width * 4)
 		pitch = fbi->width * 4;
-	uint8_t* base = (uint8_t*)(uintptr_t)fbi->pointer +
+	uint8_t* base = (uint8_t*)(ewokos_addr_t)fbi->pointer +
 			fbi->yoffset * pitch + fbi->xoffset * 4;
 	const uint32_t* src = g->buffer;
 
@@ -377,8 +378,7 @@ static void init_graph(fb_dma_t* dma) {
 static int fb_dma_init(fb_dma_t* dma) {
 	memset(dma, 0, sizeof(fb_dma_t));
 	uint32_t sz = _zwidth * _zheight * 4;
-	key_t key = (((int32_t)dma) << 16) | getpid(); 
-	dma->shm_id = shmget(key, sz + sizeof(fb_ctrl_t), 0666 | IPC_CREAT | IPC_EXCL); //control block follows the pixels
+	dma->shm_id = shmget(IPC_PRIVATE, sz + sizeof(fb_ctrl_t), 0666 | IPC_CREAT | IPC_EXCL); //control block follows the pixels
 	if(dma->shm_id == -1)
 		return -1;
 	dma->shm = shmat(dma->shm_id, 0, 0);

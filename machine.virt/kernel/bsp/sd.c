@@ -134,8 +134,8 @@ uint64_t get_phy_addr(struct virtio_device *dev, void* ptr){
 
 // Initialize the virtio-blk device.
 int virtio_blk_init(struct virtio_device *dev) {
-    uint32_t base = dev->base;
-	uint32_t paddr = dev->phy;
+    uintptr_t base = dev->base;
+	uintptr_t paddr = dev->phy;
 
     //printf("MAGIC:   %08x\n", mmio_read(base + VIRTIO_MMIO_MAGIC));
     //printf("VERSION: %08x\n", mmio_read(base + VIRTIO_MMIO_VERSION));

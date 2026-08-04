@@ -26,9 +26,10 @@ static void device_init(vdevice_t* dev) {
 	_files_hash = hashmap_new(0);
 }
 
-static inline const char* file_hash_key(int fd, int pid, uint32_t node) {
-	static char key[32];
-	snprintf(key, 31, "%x:%x:%x", fd, pid, node);
+static inline const char* file_hash_key(int fd, int pid, ewokos_addr_t node) {
+	static char key[64];
+	snprintf(key, sizeof(key), "%x:%x:%llx", fd, pid,
+			(unsigned long long)node);
 	return key;
 }
 
@@ -36,7 +37,7 @@ static inline int file_owner_pid(int pid) {
 	return proc_getpid_or_raw(pid);
 }
 
-static fsinfo_t* file_get_cache(int fd, int pid, uint32_t node) {
+static fsinfo_t* file_get_cache(int fd, int pid, ewokos_addr_t node) {
 	fsinfo_t* info = NULL;
 	hashmap_get(_files_hash, file_hash_key(fd, pid, node), (void**)&info);
 	return info;
@@ -44,7 +45,7 @@ static fsinfo_t* file_get_cache(int fd, int pid, uint32_t node) {
 
 typedef struct {
 	int pid;
-	uint32_t node;
+	ewokos_addr_t node;
 	fsinfo_t* info;
 } file_clone_lookup_t;
 
@@ -54,20 +55,20 @@ static int file_find_same_owner_node(map_t in, const char* key, any_t value, any
 	file_clone_lookup_t* lookup = (file_clone_lookup_t*)arg;
 	unsigned int fd_key = 0;
 	unsigned int pid_key = 0;
-	unsigned int node_key = 0;
+	unsigned long long node_key = 0;
 
 	if(info == NULL || lookup == NULL)
 		return MAP_OK;
-	if(sscanf(key, "%x:%x:%x", &fd_key, &pid_key, &node_key) != 3)
+	if(sscanf(key, "%x:%x:%llx", &fd_key, &pid_key, &node_key) != 3)
 		return MAP_OK;
-	if((int)pid_key != lookup->pid || node_key != lookup->node)
+	if((int)pid_key != lookup->pid || (ewokos_addr_t)node_key != lookup->node)
 		return MAP_OK;
 
 	lookup->info = info;
 	return 1;
 }
 
-static fsinfo_t* file_clone_same_owner_node(int fd, int pid, uint32_t node) {
+static fsinfo_t* file_clone_same_owner_node(int fd, int pid, ewokos_addr_t node) {
 	file_clone_lookup_t lookup;
 	lookup.pid = pid;
 	lookup.node = node;
@@ -100,7 +101,7 @@ static fsinfo_t* file_add(int fd, int pid, fsinfo_t* info) {
 }
 
 typedef struct {
-        uint32_t node;
+        ewokos_addr_t node;
         int count;
 } file_count_lookup_t;
 
@@ -117,7 +118,7 @@ static int file_count_same_node(map_t in, const char* key, any_t value, any_t ar
         return MAP_OK;
 }
 
-int vdevice_count_node_refs(uint32_t node) {
+int vdevice_count_node_refs(ewokos_addr_t node) {
         file_count_lookup_t lookup;
 
         if(node == 0 || _files_hash == NULL)
@@ -128,7 +129,7 @@ int vdevice_count_node_refs(uint32_t node) {
         return lookup.count;
 }
 
-static void file_del(int fd, int pid, uint32_t node) {
+static void file_del(int fd, int pid, ewokos_addr_t node) {
 	pid = file_owner_pid(pid);
 	fsinfo_t* info = NULL;
 	const char* key = file_hash_key(fd, pid, node);
@@ -140,7 +141,7 @@ static void file_del(int fd, int pid, uint32_t node) {
 	free(info);
 }
 
-static fsinfo_t* dev_get_file_seeded(int fd, int pid, uint32_t node, const fsinfo_t* seed) {
+static fsinfo_t* dev_get_file_seeded(int fd, int pid, ewokos_addr_t node, const fsinfo_t* seed) {
         pid = file_owner_pid(pid);
         fsinfo_t* info = file_get_cache(fd, pid, node);
         if(info != NULL) {
@@ -162,7 +163,7 @@ static fsinfo_t* dev_get_file_seeded(int fd, int pid, uint32_t node, const fsinf
         return file_add(fd, pid, &i);
 }
 
-fsinfo_t* dev_get_file(int fd, int pid, uint32_t node) {
+fsinfo_t* dev_get_file(int fd, int pid, ewokos_addr_t node) {
         return dev_get_file_seeded(fd, pid, node, NULL);
 }
 
@@ -177,7 +178,7 @@ int dev_update_file(int fd, int from_pid, fsinfo_t* finfo) {
 static void do_open(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	int oflag;
 	int fd = proto_read_int(in);
-	uint32_t node = proto_read_int(in);
+	ewokos_addr_t node = proto_read_int(in);
 	int32_t caller_info_size = 0;
 	fsinfo_t* caller_info = (fsinfo_t*)proto_read(in, &caller_info_size);
 	oflag = proto_read_int(in);
@@ -229,7 +230,7 @@ static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 	//all close ipc are from vfsd proc, so read owner pid for real owner.
 	(void)out;
 	int fd = proto_read_int(in);
-	uint32_t node = (uint32_t)proto_read_int(in);
+	ewokos_addr_t node = proto_read_int(in);
 	fsinfo_t* fsinfo = proto_read(in, NULL);
 	int close_pid = proto_read_int(in);
 	int owner_pid = proto_read_int(in);
@@ -256,7 +257,7 @@ static void do_dup(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 	(void)out;
 	int from_fd = proto_read_int(in);
 	int dup_fd = proto_read_int(in);
-	uint32_t node = (uint32_t)proto_read_int(in);
+	ewokos_addr_t node = proto_read_int(in);
 	fsinfo_t* fsinfo = proto_read(in, NULL);
 	int from_owner_pid = proto_read_int(in);
 	int dup_owner_pid = proto_read_int(in);
@@ -281,7 +282,7 @@ static void do_dup(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	int size, offset;
 	int fd = proto_read_int(in);
-	uint32_t node = proto_read_int(in);
+	ewokos_addr_t node = proto_read_int(in);
 	size = proto_read_int(in);
 	offset = proto_read_int(in);
 	int32_t shm_id = proto_read_int(in);
@@ -354,7 +355,7 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	int32_t size, offset;
 	int fd = proto_read_int(in);
-	uint32_t node = proto_read_int(in);
+	ewokos_addr_t node = proto_read_int(in);
 	offset = proto_read_int(in);
 	int32_t shm_id = proto_read_int(in);
         fsinfo_t seed_info;
@@ -463,7 +464,7 @@ static void do_write_block(vdevice_t* dev, int from_pid, proto_t *in, proto_t* o
 
 static void do_dma(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	int fd = proto_read_int(in);
-	uint32_t node = (uint32_t)proto_read_int(in);
+	ewokos_addr_t node = proto_read_int(in);
 
 	int shm_id = -1;	
 	int size = 0;
@@ -477,7 +478,7 @@ static void do_dma(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 
 static void do_fcntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	int fd = proto_read_int(in);
-	uint32_t node = proto_read_int(in);
+	ewokos_addr_t node = proto_read_int(in);
 	int32_t cmd = proto_read_int(in);
         fsinfo_t seed_info;
 
@@ -512,7 +513,7 @@ static void do_fcntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 static void do_flush(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	(void)from_pid;
 	int fd = proto_read_int(in);
-	uint32_t node = (uint32_t)proto_read_int(in);
+	ewokos_addr_t node = proto_read_int(in);
         fsinfo_t* info = dev_get_file(fd, from_pid, node);
 
 	if(info == NULL) {
@@ -534,8 +535,8 @@ static void do_flush(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 
 static void do_create(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	(void)from_pid;
-	uint32_t node_to = proto_read_int(in);
-	uint32_t node = proto_read_int(in);
+	ewokos_addr_t node_to = proto_read_int(in);
+	ewokos_addr_t node = proto_read_int(in);
 	fsinfo_t info_to, info;
 
 	if(vfs_get_by_node(node_to, &info_to) != 0) {
@@ -566,7 +567,7 @@ static void do_create(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, v
 
 static void do_unlink(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	(void)from_pid;
-	uint32_t node = proto_read_int(in);
+	ewokos_addr_t node = proto_read_int(in);
 	const char* fname = proto_read_str(in);
 
 	fsinfo_t info;
@@ -626,7 +627,7 @@ static void do_get(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 
 static void do_kids(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	(void)from_pid;
-	uint32_t node = proto_read_int(in);
+	ewokos_addr_t node = proto_read_int(in);
 	fsinfo_t info;
 	proto_read_to(in, &info, sizeof(fsinfo_t));
 
@@ -756,7 +757,7 @@ static void do_cmd(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 
 static void do_clear_buffer(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	(void)from_pid;
-	uint32_t node = proto_read_int(in);
+	ewokos_addr_t node = proto_read_int(in);
 
 	int res = -1;
 	if(dev != NULL && dev->clear_buffer != NULL)
@@ -797,7 +798,7 @@ static void do_dev_cntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out,
 
 static void do_poll(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	int fd = proto_read_int(in);
-	uint32_t node = (uint32_t)proto_read_int(in);
+	ewokos_addr_t node = proto_read_int(in);
         fsinfo_t seed_info;
 
 	PF->addi(out, -1);

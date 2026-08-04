@@ -2,6 +2,7 @@
 #define FRAMEBUFFER_INFO_H
 
 #include <stdint.h>
+#include <ewoksys/ewokdef.h>
 
 typedef struct  {
 	uint32_t width, height;
@@ -9,10 +10,11 @@ typedef struct  {
 	uint32_t pitch; /* byte count in a row */
 	uint32_t depth; /* bits per pixel */
 	uint32_t xoffset, yoffset;
-	uint32_t pointer, size, size_max;
+	ewokos_addr_t pointer;
+	uint32_t size, size_max;
 	int32_t  dma_id;
-	uint32_t phy_base;
-	uint32_t bus_base;
+	ewokos_addr_t phy_base;
+	ewokos_addr_t bus_base;
 } fbinfo_t;
 
 #endif

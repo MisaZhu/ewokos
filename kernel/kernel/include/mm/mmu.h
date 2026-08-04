@@ -6,8 +6,8 @@
 #include <ewokos_config.h>
 
 
-#define ALIGN_DOWN(x, alignment) ((x) & ~(alignment - 1))
-#define ALIGN_UP(x, alignment) (((x) + alignment - 1) & ~(alignment - 1))
+#define ALIGN_DOWN(x, alignment) ((ewokos_addr_t)(x) & ~((ewokos_addr_t)(alignment) - 1))
+#define ALIGN_UP(x, alignment) (((ewokos_addr_t)(x) + (ewokos_addr_t)(alignment) - 1) & ~((ewokos_addr_t)(alignment) - 1))
 
 #define V2P(V) ((ewokos_addr_t)(V) - KERNEL_BASE + _sys_info.phy_offset)
 #define P2V(P) ((ewokos_addr_t)(P) - _sys_info.phy_offset + KERNEL_BASE)
@@ -19,7 +19,11 @@
 #define KERNEL_VSYSCALL_INFO_END      (KERNEL_VSYSCALL_INFO_BASE+KERNEL_VSYSCALL_INFO_SIZE)
 
 #define KERNEL_PAGE_DIR_BASE          ALIGN_UP(KERNEL_VSYSCALL_INFO_END, PAGE_DIR_SIZE)
+#if __aarch64__
+#define KERNEL_PAGE_DIR_SIZE          (1*MB)
+#else
 #define KERNEL_PAGE_DIR_SIZE          (256*KB)
+#endif
 #define KERNEL_PAGE_DIR_END           (KERNEL_PAGE_DIR_BASE + KERNEL_PAGE_DIR_SIZE)
 
 #define ALLOCABLE_PAGE_DIR_BASE       ALIGN_UP(KERNEL_PAGE_DIR_END, PAGE_DIR_SIZE)
@@ -30,7 +34,11 @@
 #define KMALLOC_END                   (KMALLOC_BASE + _sys_info.kmalloc_size)
 
 #ifndef MAX_USABLE_MEM_SIZE
+#ifdef __aarch64__
+#define MAX_USABLE_MEM_SIZE           (32ull*GB) //max usable memory for 64bits OS
+#else
 #define MAX_USABLE_MEM_SIZE           (1*GB + 640*MB) //max usable memory for 32bits OS
+#endif
 #endif
 
 #define MMIO_MAX_SIZE                 (128*MB)

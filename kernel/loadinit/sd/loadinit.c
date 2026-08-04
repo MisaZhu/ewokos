@@ -18,7 +18,7 @@ int32_t load_init_proc(void) {
 		strcpy(proc->info.cmd, prog);
 		proc->info.uid = -1;
 		page_dir_entry_t *vm = proc->space->vm;
-		set_translation_table_base((uint32_t)V2P(vm));
+		set_translation_table_base(V2P(vm));
 		int32_t res = proc_load_elf(proc, elf, sz);
 		kfree(elf);
 		return res;

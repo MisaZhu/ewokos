@@ -25,9 +25,10 @@
 
 kernel_info_t _kernel_info;
 
-/*Copy interrupt talbe to phymen address 0x00000000.
-	Virtual address #INTERRUPT_VECTOR_BASE(0xFFFF0000 for ARM) must mapped to phymen 0x00000000.
-ref: set_vm(page_dir_entry_t* vm)
+/*
+ * ARM32 keeps a fixed high-vector alias at INTERRUPT_VECTOR_BASE. AArch64 uses
+ * VBAR_EL1 directly and points it at _sys_info.vector_base inside the mapped
+ * kernel image, so no extra low alias is needed there.
  */
 static void __attribute__((optimize("O0"))) copy_interrupt_table(void) {
 	uint32_t *vsrc = &interrupt_table_start;
@@ -44,8 +45,10 @@ static void set_kernel_vm(page_dir_entry_t* vm) {
 	memset(vm, 0, PAGE_DIR_SIZE);
 	flush_dcache();
 
+#ifndef __aarch64__
 	//map interrupt vector to high(virtual) mem
 	map_pages_size(vm, INTERRUPT_VECTOR_BASE, _sys_info.vector_base, PAGE_SIZE, AP_RW_D, PTE_ATTR_WRBACK);
+#endif
 	//map kernel image
 	map_pages(vm, KERNEL_BASE, _sys_info.phy_offset, V2P(KERNEL_IMAGE_END), AP_RW_D, PTE_ATTR_WRBACK_ALLOCATE);
 	//map kernel page dir
@@ -219,6 +222,48 @@ static void logo(void) {
 }
 
 static void show_config(void) {
+#ifdef __aarch64__
+#define SPLIT_ADDR(x) ((uint32_t)(((uint64_t)(x)) >> 32)), ((uint32_t)(x))
+	printf("\n"
+		  "  machine              %s\n" 
+		  "  arch                 %s\n"
+		  "  cores                %d\n"
+		  "  kernel_timer_freq    %d\n"
+		  "  mem_offset           0x%08x%08x\n"
+		  "  phy mem size         %d MB\n"
+		  "  usable mem size      %d MB\n"
+		  "  mmio_base            Phy:0x%08x%08x V:0x%08x%08x (%d MB)\n"
+		  "  kernel image         Phy:0x%08x%08x ~ 0x%08x%08x (%d KB)\n"
+		  "  vsyscall info        Phy:0x%08x%08x ~ 0x%08x%08x (%d KB)\n"
+		  "  kernel page dir      Phy:0x%08x%08x ~ 0x%08x%08x (%d KB)\n"
+		  "  allocable page dir   Phy:0x%08x%08x ~ 0x%08x%08x (%d MB)\n"
+		  "  kmalloc              Phy:0x%08x%08x ~ 0x%08x%08x (%d MB)\n"
+		  "  sys_dma_base         Phy:0x%08x%08x ~ 0x%08x%08x (%d MB)\n"
+		  "  allocable mem info   Phy:0x%08x%08x ~ 0x%08x%08x (%d MB)\n"
+		  "  max proc num         %d\n"
+		  "  max task total       %d\n"
+		  "  max task per proc    %d\n"
+		  "-----------------------------------------------------\n",
+			_sys_info.machine,
+			_sys_info.arch,
+			_kernel_config.cores,
+			_kernel_config.timer_freq,
+			SPLIT_ADDR(_sys_info.phy_offset),
+			_sys_info.total_phy_mem_size/(1*MB),
+			_sys_info.total_usable_mem_size / (1*MB),
+			SPLIT_ADDR(_sys_info.mmio.phy_base), SPLIT_ADDR(_sys_info.mmio.v_base), _sys_info.mmio.size/(1*MB),
+			SPLIT_ADDR(V2P(_kernel_start)), SPLIT_ADDR(V2P(_kernel_end)), (_kernel_end - _kernel_start) / (1*KB),
+			SPLIT_ADDR(V2P(KERNEL_VSYSCALL_INFO_BASE)), SPLIT_ADDR(V2P(KERNEL_VSYSCALL_INFO_END)), KERNEL_VSYSCALL_INFO_SIZE / (1*KB),
+			SPLIT_ADDR(V2P(KERNEL_PAGE_DIR_BASE)), SPLIT_ADDR(V2P(KERNEL_PAGE_DIR_END)), KERNEL_PAGE_DIR_SIZE / (1*KB),
+			SPLIT_ADDR(V2P(ALLOCABLE_PAGE_DIR_BASE)), SPLIT_ADDR(V2P(ALLOCABLE_PAGE_DIR_END)), ALLOCABLE_PAGE_DIR_SIZE / (1*MB),
+			SPLIT_ADDR(V2P(KMALLOC_BASE)), SPLIT_ADDR(V2P(KMALLOC_END)), _sys_info.kmalloc_size / (1*MB),
+			SPLIT_ADDR(_sys_info.sys_dma.phy_base), SPLIT_ADDR(_sys_info.sys_dma.phy_base+_sys_info.sys_dma.size), _sys_info.sys_dma.size/(1*MB),
+			SPLIT_ADDR(_sys_info.allocable_phy_mem_base), SPLIT_ADDR(_sys_info.allocable_phy_mem_top), (uint32_t)(get_free_mem_size() / (1*MB)),
+			_kernel_config.max_proc_num,
+			_kernel_config.max_task_num,
+			_kernel_config.max_task_per_proc);
+#undef SPLIT_ADDR
+#else
 	printf("\n"
 		  "  machine              %s\n" 
 		  "  arch                 %s\n"
@@ -253,10 +298,11 @@ static void show_config(void) {
 			V2P(ALLOCABLE_PAGE_DIR_BASE), V2P(ALLOCABLE_PAGE_DIR_END), ALLOCABLE_PAGE_DIR_SIZE / (1*MB),
 			V2P(KMALLOC_BASE), V2P(KMALLOC_END), _sys_info.kmalloc_size / (1*MB),
 			_sys_info.sys_dma.phy_base, _sys_info.sys_dma.phy_base+_sys_info.sys_dma.size, _sys_info.sys_dma.size/(1*MB),
-			_sys_info.allocable_phy_mem_base, _sys_info.allocable_phy_mem_top, get_free_mem_size() / (1*MB),
+			_sys_info.allocable_phy_mem_base, _sys_info.allocable_phy_mem_top, (uint32_t)(get_free_mem_size() / (1*MB)),
 			_kernel_config.max_proc_num,
 			_kernel_config.max_task_num,
 			_kernel_config.max_task_per_proc);
+#endif
 }
 
 int32_t load_init_proc(void);

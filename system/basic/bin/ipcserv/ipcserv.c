@@ -17,8 +17,9 @@ static int run(const char* cmd) {
 			exit(-1);
 		}
 	}
-	else 
+	else {
 		ipc_wait_ready(pid);
+	}
 	return 0;
 }
 
@@ -50,4 +51,3 @@ int main(int argc, char* argv[]) {
 		printf("[\033[31m%s\033[0m]\n", "ERR!"); //red for failed
 	return ret;
 }
-

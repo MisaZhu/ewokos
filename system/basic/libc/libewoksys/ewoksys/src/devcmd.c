@@ -80,8 +80,9 @@ fsinfo_t* dev_kids(int dev_pid, fsinfo_t* info, uint32_t *num) {
 
 	proto_t in, out;
 	PF->init(&out);
-	PF->format(&in, "i,m",
-		info->node, info, sizeof(fsinfo_t));
+	PF->init(&in)->
+		addi(&in, info->node)->
+		add(&in, info, sizeof(fsinfo_t));
 	int res = ipc_call(info->mount_pid, FS_CMD_KIDS, &in, &out);	
 	if(res == 0) {
 		uint32_t n = proto_read_int(&out);
@@ -96,10 +97,10 @@ fsinfo_t* dev_kids(int dev_pid, fsinfo_t* info, uint32_t *num) {
 	return ret;
 }
 
-int dev_unlink(int dev_pid, uint32_t node, const char* fname) {
+int dev_unlink(int dev_pid, ewokos_addr_t node, const char* fname) {
 	proto_t in, out;
 	PF->init(&out);
-	PF->format(&in, "i,s", node, fname);
+	PF->init(&in)->addi(&in, node)->adds(&in, fname);
 
 	int res = ipc_call(dev_pid, FS_CMD_UNLINK, &in, &out);
 	PF->clear(&in);
@@ -121,7 +122,11 @@ int dev_open(int dev_pid, int fd, fsinfo_t* info, int oflag) {
 	/* Ship the whole fsinfo the vfsd just handed us: the driver then needs no
 	 * extra VFS_GET_BY_NODE round trip, which also closes the window where an
 	 * announimous node created by VFS_OPEN is not visible yet/anymore. */
-	PF->format(&in, "i,i,m,i", fd, info->node, info, sizeof(fsinfo_t), oflag);
+	PF->init(&in)->
+		addi(&in, fd)->
+		addi(&in, info->node)->
+		add(&in, info, sizeof(fsinfo_t))->
+		addi(&in, oflag);
 
 	int res = ipc_call(dev_pid, FS_CMD_OPEN, &in, &out);
 	PF->clear(&in);
@@ -159,8 +164,13 @@ int dev_read(int dev_pid, int fd, fsinfo_t* info, int32_t offset, void* buf, uin
 
 	proto_t in, out;
 	PF->init(&out);
-        PF->format(&in, "i,i,i,i,i,m", fd, info->node, size, offset, shm_id,
-                        info, sizeof(fsinfo_t));
+	PF->init(&in)->
+		addi(&in, fd)->
+		addi(&in, info->node)->
+		addi(&in, size)->
+		addi(&in, offset)->
+		addi(&in, shm_id)->
+		add(&in, info, sizeof(fsinfo_t));
 
 	int res = -1;
 	if(ipc_call(dev_pid, FS_CMD_READ, &in, &out) == 0) {
@@ -201,8 +211,12 @@ int dev_write(int dev_pid, int fd, fsinfo_t* info, int32_t offset, const void* b
 
 	proto_t in, out;
 	PF->init(&out);
-        PF->format(&in, "i,i,i,i,m", fd, info->node, offset, shm_id,
-                        info, sizeof(fsinfo_t));
+	PF->init(&in)->
+		addi(&in, fd)->
+		addi(&in, info->node)->
+		addi(&in, offset)->
+		addi(&in, shm_id)->
+		add(&in, info, sizeof(fsinfo_t));
 	if(shm_id == -1)
 		PF->add(&in, buf, size);
 	else
@@ -227,7 +241,7 @@ int dev_write(int dev_pid, int fd, fsinfo_t* info, int32_t offset, const void* b
 int dev_create(int dev_pid, fsinfo_t* info_to, fsinfo_t* info) {
 	proto_t in, out;
 	PF->init(&out);
-	PF->format(&in, "i,i", info_to->node, info->node);
+	PF->init(&in)->addi(&in, info_to->node)->addi(&in, info->node);
 
 	int res = -1;
 	if(ipc_call(dev_pid, FS_CMD_CREATE, &in, &out) == 0) {
@@ -243,7 +257,10 @@ int dev_create(int dev_pid, fsinfo_t* info_to, fsinfo_t* info) {
 int dev_poll(int dev_pid, int fd, fsinfo_t* info, uint32_t* events) {
 	proto_t in, out;
 	PF->init(&out);
-        PF->format(&in, "i,i,m", fd, info->node, info, sizeof(fsinfo_t));
+	PF->init(&in)->
+		addi(&in, fd)->
+		addi(&in, info->node)->
+		add(&in, info, sizeof(fsinfo_t));
 
 	int res = -1;
 	if(ipc_call(dev_pid, FS_CMD_POLL, &in, &out) == 0) {
@@ -259,7 +276,11 @@ int dev_poll(int dev_pid, int fd, fsinfo_t* info, uint32_t* events) {
 
 int dev_fcntl(int dev_pid, int fd, fsinfo_t* info, int cmd, proto_t* arg_in, proto_t* arg_out) {
 	proto_t in;
-        PF->format(&in, "i,i,i,m", fd, info->node, cmd, info, sizeof(fsinfo_t));
+	PF->init(&in)->
+		addi(&in, fd)->
+		addi(&in, info->node)->
+		addi(&in, cmd)->
+		add(&in, info, sizeof(fsinfo_t));
 	if(arg_in == NULL)
 		PF->add(&in, NULL, 0);
 	else
@@ -287,9 +308,9 @@ int dev_fcntl(int dev_pid, int fd, fsinfo_t* info, int cmd, proto_t* arg_in, pro
 	return res;
 }
 
-int dev_flush(int dev_pid, int fd, uint32_t node, int8_t wait) {
+int dev_flush(int dev_pid, int fd, ewokos_addr_t node, int8_t wait) {
 	proto_t in;
-        PF->format(&in, "i,i", fd, node);
+	PF->init(&in)->addi(&in, fd)->addi(&in, node);
 
 	int res = -1;
 	if(wait)
@@ -300,10 +321,10 @@ int dev_flush(int dev_pid, int fd, uint32_t node, int8_t wait) {
 	return res;
 }
 
-int dev_dma(int dev_pid, int fd, uint32_t node, int* size) {
+int dev_dma(int dev_pid, int fd, ewokos_addr_t node, int* size) {
 	proto_t in, out;
 	PF->init(&out);
-        PF->format(&in, "i,i", fd, node);
+	PF->init(&in)->addi(&in, fd)->addi(&in, node);
 
 	int32_t shm_id = -1;
 	if(ipc_call(dev_pid, FS_CMD_DMA, &in, &out) == 0) {
@@ -319,7 +340,7 @@ int dev_dma(int dev_pid, int fd, uint32_t node, int* size) {
 int dev_write_block(int pid, const void* buf, uint32_t size, int32_t index) {
 	proto_t in, out;
 	PF->init(&out);
-	PF->format(&in, "m,i", buf, size, index);
+	PF->format(&in, "m,i", buf, size, (ewokos_addr_t)index);
 
 	int res = -1;
 	if(ipc_call(pid, FS_CMD_WRITE_BLOCK, &in, &out) == 0) {
@@ -336,8 +357,7 @@ int dev_write_block(int pid, const void* buf, uint32_t size, int32_t index) {
 }
 
 int dev_read_block(int pid, void* buf, uint32_t size, int32_t index) {
-	key_t key = (((uint32_t)buf) << 16) | pid; 
-	int32_t shm_id = shmget(key, size, 0666|IPC_CREAT);
+	int32_t shm_id = shmget(IPC_PRIVATE, size, 0666|IPC_CREAT);
 	if(shm_id == -1) 
 		return -1;
 	void* shm = shmat(shm_id, 0, 0);
@@ -346,7 +366,8 @@ int dev_read_block(int pid, void* buf, uint32_t size, int32_t index) {
 
 	proto_t in, out;
 	PF->init(&out);
-	PF->format(&in, "i,i,i", size, index, shm_id);
+	PF->format(&in, "i,i,i", (ewokos_addr_t)size, (ewokos_addr_t)index,
+			(ewokos_addr_t)shm_id);
 
 	int res = -1;
 	if(ipc_call(pid, FS_CMD_READ_BLOCK, &in, &out) == 0) {

@@ -940,7 +940,8 @@ static void vfs_driver_close(int32_t pid, int32_t owner_pid, int32_t fd, file_t*
 
 	proto_t in;
 	PF->format(&in, "i,i,m,i,i",
-		fd, file->fsinfo.node, &file->fsinfo, sizeof(fsinfo_t), pid, owner_pid);
+		(ewokos_addr_t)fd, file->fsinfo.node, &file->fsinfo, sizeof(fsinfo_t),
+		(ewokos_addr_t)pid, (ewokos_addr_t)owner_pid);
         ipc_call(mount_pid, FS_CMD_CLOSE, &in, NULL);
 	PF->clear(&in);
 }
@@ -1035,8 +1036,9 @@ static int vfs_driver_dup_now(int32_t mount_pid, int32_t from_pid, int32_t from_
 
 	proto_t in;
 	PF->format(&in, "i,i,i,m,i,i",
-                from_fd, dup_fd, file->fsinfo.node, &file->fsinfo, sizeof(fsinfo_t),
-		from_pid, dup_pid);
+                (ewokos_addr_t)from_fd, (ewokos_addr_t)dup_fd, file->fsinfo.node,
+		&file->fsinfo, sizeof(fsinfo_t), (ewokos_addr_t)from_pid,
+		(ewokos_addr_t)dup_pid);
 	if(mount_pid > 0) {
 		/*
                  * Do not wait for the driver reply here. Cross-process dup is on the
@@ -2299,7 +2301,6 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 	int fpid = proto_read_int(in);
 	int cpid = proto_read_int(in);
         bool child_dead = false;
-
 	if(fpid < 0 || fpid >= _max_proc_table_num ||
 			cpid < 0 || cpid >= _max_proc_table_num)
 		return;
@@ -2323,7 +2324,6 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 	_proc_fds_table[cpid].owner_pid = vfs_fd_owner_pid(cpid);
 	_proc_fds_table[cpid].uuid = proc_get_uuid(cpid);
         child_dead = (_proc_fds_table[cpid].uuid == 0);
-	
 	int32_t i;
 	for(i=0; i<MAX_OPEN_FILE_PER_PROC; i++) {
 		file_t *f = &_proc_fds_table[fpid].fds[i];

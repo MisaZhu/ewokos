@@ -16,7 +16,7 @@ static int splash(uint32_t persantage, const char* msg, const char* img_fname) {
 		return -1;
 
 	proto_t in;
-	PF->format(&in, "i,s,s", persantage, msg, img_fname);
+	PF->format(&in, "i,s,s", (ewokos_addr_t)persantage, msg, img_fname);
 
 	int res = ipc_call_wait(pid, 0, &in);
 	PF->clear(&in);

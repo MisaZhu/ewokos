@@ -20,7 +20,7 @@ typedef struct {
 	ewokos_addr_t data;
 
 	uint32_t      state;
-	uint32_t      stack; //mapped stack page
+	ewokos_addr_t stack; //mapped stack page
 	uint32_t      counter;
 	uint8_t       pending;
 	uint8_t       restore_pending;

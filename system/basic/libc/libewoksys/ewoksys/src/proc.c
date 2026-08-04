@@ -180,7 +180,7 @@ inline void proc_block(void) {
  * generic tokenless wakeup) can release it. This prevents an event on an
  * unrelated node from spuriously waking this proc.
  */
-inline void proc_block_by(uint32_t token) {
+inline void proc_block_by(ewokos_addr_t token) {
 	syscall1(SYS_BLOCK, (ewokos_addr_t)token);
 }
 
@@ -199,7 +199,7 @@ inline void proc_wakeup(int32_t pid) {
  * Only releases the target proc if it is blocked on this token or blocked
  * generically; a proc blocked on a different node is left untouched.
  */
-inline void proc_wakeup_by(int32_t pid, uint32_t token) {
+inline void proc_wakeup_by(int32_t pid, ewokos_addr_t token) {
 	syscall2(SYS_WAKEUP, (ewokos_addr_t)pid, (ewokos_addr_t)token);
 }
 

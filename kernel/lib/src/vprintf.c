@@ -1,44 +1,28 @@
 #include <vprintf.h>
 #include <kstring.h>
 #include <stdarg.h>
+#include <stddef.h>
 
 /* digits */
 #define DIGITS_CAP "0123456789ABCDEF"
 #define DIGITS     "0123456789abcdef"
 
+typedef enum {
+	LEN_DEF = 0,
+	LEN_L,
+	LEN_LL,
+	LEN_Z,
+	LEN_T,
+	LEN_J,
+} fmt_len_t;
+
 /* forward declarations for local functions */
 static void print_string(outc_func_t outc, void* p, const char *str, int32_t width);
-static void print_int(outc_func_t outc, void* p, int32_t numberm, int32_t width, uint8_t zero);
-static void print_uint_in_base(outc_func_t outc, void* p, uint32_t number, uint32_t base, int32_t width, uint8_t zero, uint8_t cap);
-
-/*
- * unsigned_divmod divides numerator and denmoriator, then returns the quotient
- * as result. If remainder_pointer is not NULL, then the function returns the
- * division remainder in remainder_pointer.
- *
- * Algorithm: http://en.wikipedia.org/wiki/Division_algorithm
- */
-static uint32_t unsigned_divmod(uint32_t numerator, uint32_t denominator,
-			 uint32_t* remainder_pointer) {
-	int32_t i = 0;
-	uint32_t quotient = 0;
-	uint32_t remainder = 0;
-
-	for (i = 31; i >= 0; i--) {
-		uint32_t numerator_bit = ((numerator & (1u << i)) ? 1 : 0);
-		
-		remainder = (remainder << 1) | numerator_bit;
-		if (remainder >= denominator) {
-			remainder -= denominator;
-			quotient |= (1u << i);
-		}
-	}
-
-	if (remainder_pointer != 0)
-		(*remainder_pointer) = remainder;
-
-	return quotient;
-}
+static void print_int(outc_func_t outc, void* p, int64_t number, int32_t width, uint8_t zero);
+static void print_uint_in_base(outc_func_t outc, void* p, uint64_t number, uint32_t base, int32_t width, uint8_t zero, uint8_t cap);
+static fmt_len_t v_length(const char* format, int32_t* format_index);
+static int64_t v_arg_signed(va_list* ap, fmt_len_t len);
+static uint64_t v_arg_unsigned(va_list* ap, fmt_len_t len);
 
 static int32_t is_digit(char c) {
 	return (c >= '0') && (c <= '9');
@@ -82,6 +66,62 @@ static int32_t v_width(const char* format, int32_t format_index, int32_t* w) {
 	return format_index+i;
 }
 
+static fmt_len_t v_length(const char* format, int32_t* format_index) {
+	if(format[*format_index] == 'l') {
+		(*format_index)++;
+		if(format[*format_index] == 'l') {
+			(*format_index)++;
+			return LEN_LL;
+		}
+		return LEN_L;
+	}
+	if(format[*format_index] == 'z') {
+		(*format_index)++;
+		return LEN_Z;
+	}
+	if(format[*format_index] == 't') {
+		(*format_index)++;
+		return LEN_T;
+	}
+	if(format[*format_index] == 'j') {
+		(*format_index)++;
+		return LEN_J;
+	}
+	return LEN_DEF;
+}
+
+static int64_t v_arg_signed(va_list* ap, fmt_len_t len) {
+	switch(len) {
+	case LEN_L:
+		return (int64_t)va_arg(*ap, long);
+	case LEN_LL:
+	case LEN_J:
+		return (int64_t)va_arg(*ap, long long);
+	case LEN_Z:
+		return (int64_t)va_arg(*ap, long);
+	case LEN_T:
+		return (int64_t)va_arg(*ap, ptrdiff_t);
+	default:
+		return (int64_t)va_arg(*ap, int);
+	}
+}
+
+static uint64_t v_arg_unsigned(va_list* ap, fmt_len_t len) {
+	switch(len) {
+	case LEN_L:
+		return (uint64_t)va_arg(*ap, unsigned long);
+	case LEN_LL:
+	case LEN_J:
+		return (uint64_t)va_arg(*ap, unsigned long long);
+	case LEN_Z:
+		return (uint64_t)va_arg(*ap, size_t);
+	case LEN_T:
+		return (uint64_t)va_arg(*ap, ptrdiff_t);
+	default:
+		return (uint64_t)va_arg(*ap, unsigned int);
+	}
+}
+
 /*
  *   - %s: strings,
  *   - %c: characters,
@@ -91,7 +131,6 @@ static int32_t v_width(const char* format, int32_t format_index, int32_t* w) {
  */
 void v_printf(outc_func_t outc, void* p, const char *format, va_list ap) {
 	int32_t format_index = 0;
-	int32_t width = 0;
 
 	while (format[format_index] != 0) {
 		char format_flag = 0;
@@ -106,12 +145,14 @@ void v_printf(outc_func_t outc, void* p, const char *format, va_list ap) {
 			break;
 
 		format_index++;
+		int32_t width = 0;
 		uint8_t zero = 0;
 		if(format[format_index] == '0') {
 			format_index++;
 			zero = 1;
 		}
 		format_index = v_width(format, format_index, &width);
+		fmt_len_t len = v_length(format, &format_index);
 		format_flag = format[format_index];
 		switch (format_flag) {
 		/* string */
@@ -125,29 +166,62 @@ void v_printf(outc_func_t outc, void* p, const char *format, va_list ap) {
 			outc((char) va_arg(ap, int), p);
 			break;
 		}
-		/* int32_t */
+		/* signed integer */
 		case 'd': {
-			int32_t int_arg = va_arg(ap, int);
+			int64_t int_arg = v_arg_signed(&ap, len);
 			print_int(outc, p, int_arg, width, zero);
 			break;
 		}
-		/* unsigned int32_t */
+		case 'i': {
+			int64_t int_arg = v_arg_signed(&ap, len);
+			print_int(outc, p, int_arg, width, zero);
+			break;
+		}
+		/* unsigned integer */
 		case 'u': {
-			uint32_t uint_arg = va_arg(ap, uint32_t);
+			uint64_t uint_arg = v_arg_unsigned(&ap, len);
 			print_uint_in_base(outc, p, uint_arg, 10, width, zero, 0);
 			break;
 		}
 		/* hexadecimal */
 		case 'x': {
-			int32_t uint_arg = va_arg(ap, uint32_t);
+			uint64_t uint_arg = v_arg_unsigned(&ap, len);
 			print_uint_in_base(outc, p, uint_arg, 16, width, zero, 0);
 			break;
 		}
 		case 'X': {
-			int32_t uint_arg = va_arg(ap, uint32_t);
+			uint64_t uint_arg = v_arg_unsigned(&ap, len);
 			print_uint_in_base(outc, p, uint_arg, 16, width, zero, 1);
 			break;
 		}
+		case 'p': {
+			uint64_t ptr_arg = (uint64_t)(uintptr_t)va_arg(ap, void*);
+			print_uint_in_base(outc, p, ptr_arg, 16, width > 0 ? width : (int32_t)(sizeof(uintptr_t) * 2), 1, 0);
+			break;
+		}
+		case '%':
+			outc('%', p);
+			break;
+		default:
+			outc('%', p);
+			if(len == LEN_L) {
+				outc('l', p);
+			}
+			else if(len == LEN_LL) {
+				outc('l', p);
+				outc('l', p);
+			}
+			else if(len == LEN_Z) {
+				outc('z', p);
+			}
+			else if(len == LEN_T) {
+				outc('t', p);
+			}
+			else if(len == LEN_J) {
+				outc('j', p);
+			}
+			outc(format_flag, p);
+			break;
 		}
 		/* skip % and format_flag */
 		format_index += 1;
@@ -178,36 +252,28 @@ static void print_string(outc_func_t outc, void* p, const char *str, int32_t wid
 	}
 }
 
-static void print_uint_in_base_raw(char* s, uint32_t number, uint32_t base, uint8_t cap) {
-	uint32_t last_digit = 0;
-	uint32_t rest = 0;
-
-	rest = unsigned_divmod(number, base, &last_digit);
-	if (rest != 0)
-		print_uint_in_base_raw(s+1, rest, base, cap);
-	if(cap)
-		*s = DIGITS_CAP[last_digit];
-	else
-		*s = DIGITS[last_digit];
-}
-
-static void print_int(outc_func_t outc, void* p, int32_t number, int32_t width, uint8_t zero) {
+static void print_int(outc_func_t outc, void* p, int64_t number, int32_t width, uint8_t zero) {
 	if (number < 0) {
 		outc('-', p);
 		width--;
-		print_uint_in_base(outc, p, -number, 10, width, zero, 0);
+		print_uint_in_base(outc, p, 0ull - (uint64_t)number, 10, width, zero, 0);
 	}
 	else {
-		print_uint_in_base(outc, p, number, 10, width, zero, 0);
+		print_uint_in_base(outc, p, (uint64_t)number, 10, width, zero, 0);
 	}
 }
 
-static void print_uint_in_base(outc_func_t outc, void* p, uint32_t number, uint32_t base, int32_t width, uint8_t zero, uint8_t cap) {
-	char s[32];
-	memset(s, 0, 32);
-	print_uint_in_base_raw(s, number, base, cap);
+static void print_uint_in_base(outc_func_t outc, void* p, uint64_t number, uint32_t base, int32_t width, uint8_t zero, uint8_t cap) {
+	char s[65];
+	int32_t pos = 0;
+	memset(s, 0, sizeof(s));
+	do {
+		uint32_t digit = (uint32_t)(number % (uint64_t)base);
+		s[pos++] = cap ? DIGITS_CAP[digit] : DIGITS[digit];
+		number /= (uint64_t)base;
+	} while(number != 0 && pos < (int32_t)(sizeof(s) - 1));
 
-	int32_t len = width- (int32_t)strlen(s);
+	int32_t len = width - pos;
 	int32_t i = 0;
 
 	if(zero) {
@@ -216,8 +282,8 @@ static void print_uint_in_base(outc_func_t outc, void* p, uint32_t number, uint3
 		}
 	}
 
-	int32_t j = strlen(s)-1;
-	while(j >= 0 && s[j] != 0) {
+	int32_t j = pos - 1;
+	while(j >= 0) {
 		if(width > 0 && i >= width)
 			break;
 		outc(s[j--], p);
@@ -258,9 +324,13 @@ int32_t snprintf(char *target, int32_t size, const char *format, ...) {
 
 	va_start(ap, format);
 	v_printf(outc_sn, &arg, format, ap);
-	arg.p[arg.index] = 0;
+	if(arg.size > 0) {
+		uint32_t end = arg.index;
+		if(end >= arg.size)
+			end = arg.size - 1;
+		arg.p[end] = 0;
+	}
 	va_end(ap);
 
 	return arg.index;
 }
-

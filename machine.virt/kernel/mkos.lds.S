@@ -1,6 +1,6 @@
 ENTRY(__entry)
 
-base_address = 0x80000000;
+base_address = 0x4000000000;
 
 PHDRS
 {
@@ -22,7 +22,7 @@ SECTIONS
 	_svc_start_stack = .;
 	_init_end = ALIGN(4096);
 
-	/*kernel will be compiled with virtual address base at 2GB*/
+	/*kernel will be compiled with virtual address base at 256GB*/
 	PROVIDE(_kernel_start = base_address + _init_end - start_address);
 
 	.text base_address + _init_end - 0x40000000: AT(_init_end) ALIGN(4096)

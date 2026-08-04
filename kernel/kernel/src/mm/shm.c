@@ -54,7 +54,7 @@ static inline void shm_unlock(void) {
 
 void shm_init() {
 	//share memory base address at virtual address 1GB
-	shmem_tail = (uint32_t)ALIGN_UP(SHM_BASE, PAGE_SIZE);
+	shmem_tail = ALIGN_UP(SHM_BASE, PAGE_SIZE);
 	_shm_head = NULL;
 	_shm_tail = NULL;
 	id_counter = 1;
@@ -70,13 +70,13 @@ static share_mem_t* shm_new(void) {
 	return ret;
 }
 
-static void shm_unmap_pages(uint32_t addr, uint32_t pages) {
+static void shm_unmap_pages(ewokos_addr_t addr, uint32_t pages) {
 	uint32_t i;
 	for (i = 0; i < pages; i++) {
-		uint32_t physical_addr = resolve_phy_address(_kernel_info.kernel_vm, addr);
+		ewokos_addr_t physical_addr = resolve_phy_address(_kernel_info.kernel_vm, addr);
 
 		//get the kernel address for kalloc/kfree
-		uint32_t kernel_addr = P2V(physical_addr);
+		ewokos_addr_t kernel_addr = P2V(physical_addr);
 		kfree4k((void *) kernel_addr);
 		unmap_page(_kernel_info.kernel_vm, addr);
 		addr += PAGE_SIZE;
@@ -84,8 +84,8 @@ static void shm_unmap_pages(uint32_t addr, uint32_t pages) {
 	flush_tlb();
 }
 
-static int32_t shm_map_pages(uint32_t addr, uint32_t pages) {
-	uint32_t old_addr = addr;
+static int32_t shm_map_pages(ewokos_addr_t addr, uint32_t pages) {
+	ewokos_addr_t old_addr = addr;
 	uint32_t i;
 	for (i = 0; i < pages; i++) {
 		char *page = kalloc4k();
@@ -108,7 +108,7 @@ static int32_t shm_map_pages(uint32_t addr, uint32_t pages) {
 
 static int32_t shm_alloc(int32_t key, uint32_t size, int32_t flag) {
 	size = ALIGN_UP(size, 32);
-	uint32_t addr = shmem_tail;
+	ewokos_addr_t addr = shmem_tail;
 	uint32_t pages = (size / PAGE_SIZE);
 	if((size % PAGE_SIZE) != 0)
 		pages++;
@@ -359,9 +359,9 @@ void* shm_proc_map(proc_t* proc, int32_t id) {
 	else
 		access = AP_RW_R;
 
-	uint32_t addr = it->addr;
+	ewokos_addr_t addr = it->addr;
 	for (i = 0; i < it->pages; i++) {
-		uint32_t physical_addr = resolve_phy_address(_kernel_info.kernel_vm, addr);
+		ewokos_addr_t physical_addr = resolve_phy_address(_kernel_info.kernel_vm, addr);
 		map_page(proc->space->vm,
 				addr,
 				physical_addr,
@@ -387,7 +387,7 @@ static int32_t shm_proc_unmap_it(proc_t* proc, share_mem_t* it, bool free_it) {
 	if(i >= SHM_MAX)
 		return -1;
 
-	uint32_t addr = it->addr;
+	ewokos_addr_t addr = it->addr;
 	for (i = 0; i < it->pages; i++) {
 		unmap_page(proc->space->vm, addr);
 		addr += PAGE_SIZE;

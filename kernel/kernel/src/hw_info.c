@@ -2,8 +2,15 @@
 #include <kernel/hw_info.h>
 sys_info_t _sys_info;
 
+#ifndef __aarch64__
+#define KMALLOC_SIZE_DEF      (16*MB)
+#define DMA_SIZE_DEF          (32*MB)
+#else
 #define KMALLOC_SIZE_DEF      (8*MB)
 #define DMA_SIZE_DEF          (16*MB)
+#endif
+
+
 
 void sys_info_init(void) {
     sys_info_init_arch();

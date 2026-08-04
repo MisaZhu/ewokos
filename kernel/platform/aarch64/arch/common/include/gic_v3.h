@@ -18,6 +18,8 @@
 #if !defined(_GIC_V3_H)
 #define _GIC_V3_H 
 
+#include <ewoksys/ewokdef.h>
+
 typedef int32_t irq_no;			/* IRQ no */
 
 #define GIC_GICD_BASE		(GIC_BASE)  /* GICD MMIO base address */
@@ -128,7 +130,7 @@ void gicd_disable_int(irq_no irq);
 void gicd_enable_int(irq_no irq);
 void gicd_clear_pending(irq_no irq);
 
-void gic_v3_init(uint64_t address);
+void gic_v3_init(ewokos_addr_t address);
 void gic_v3_irq_enable(int core, int irq);
 void  gic_v3_irq_disable(int irq);
 uint32_t gic_v3_get_irq(void);
