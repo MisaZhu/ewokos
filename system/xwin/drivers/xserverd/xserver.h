@@ -127,6 +127,7 @@ typedef struct {
 
 	int xwm_pid;
 	uint32_t xwm_uuid;
+	bool xwm_changed; //a new xwm registered: window geometry must be revalidated
 
 	bool show_cursor;
 	cursor_t cursor;

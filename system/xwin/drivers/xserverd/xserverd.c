@@ -109,6 +109,7 @@ static bool top_proc(x_t* x, xwin_t* win) {
 }
 
 static bool need_repaint_frame(x_t* x, xwin_t* win);
+static void xwin_revalidate_geometry(x_t* x, xwin_t* win);
 
 static void win_mark_frame_dirty(x_t* x, xwin_t* win) {
 	x_display_t *display = &x->displays[win->xinfo->display_index];
@@ -158,6 +159,13 @@ static void clear_frame_ring(xwin_t* win) {
 static void prepare_win_content(x_t* x, xwin_t* win, const grect_t* ws_dmg) {
 	x_display_t *display = &x->displays[win->xinfo->display_index];
 	if(display->g == NULL)
+		return;
+
+	/*a stale winr would make xwm draw with a geometry the buffers do not
+	  have and shear the whole window, so it gets fixed before anything is
+	  drawn (this is cheap: it only acts on the winr == wsr tell)*/
+	xwin_revalidate_geometry(x, win);
+	if(win->frame_g == NULL)
 		return;
 
 	if(win->frame_dirty) {
@@ -1608,9 +1616,83 @@ static int get_xwm_win_space(x_t* x, int style, int state, grect_t* rin, grect_t
 	PF->clear(&in);
 	if(res == 0)
 		proto_read_to(&out, rout, sizeof(grect_t));
+	else {
+		/*xwm died or refused in flight: fall back to the undecorated
+		  geometry exactly like the no-xwm case instead of failing the
+		  whole update. A framed window cannot legitimately have
+		  winr == wsr, and xwin_revalidate_geometry uses exactly that
+		  tell to repair the window once xwm answers again. Failing
+		  here would be worse: xwin_open does not retry, so a window
+		  created in this moment would never get buffers at all*/
+		check_xwm(x); //refresh the liveness state
+	}
 	PF->clear(&out);
 
-	return res;
+	return 0;
+}
+
+/*winr comes from xwm and can go stale: the window may have been sized
+  while xwm was down (the fallback then makes winr equal wsr), the theme
+  may have changed since, or xwm may have been replaced. A framed window
+  the theme decorates can never have winr == wsr, so that equality is the
+  tell: fetch the geometry again and rebuild the frame buffer at the
+  corrected size. The workspace buffer is untouched, the client does not
+  notice any of this.*/
+static void xwin_revalidate_geometry(x_t* x, xwin_t* win) {
+	if(win->xinfo == NULL || !win->ready)
+		return;
+	if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0)
+		return;
+	if(!check_xwm(x))
+		return;
+
+	/*mirrors what xwm's getWinSpace adds around the workspace*/
+	bool edge = win->xinfo->state == XWIN_STATE_MAX ||
+			win->xinfo->state == XWIN_STATE_FULL_SCREEN;
+	bool deco = ((win->xinfo->style & XWIN_STYLE_NO_TITLE) == 0 &&
+			win->xinfo->state != XWIN_STATE_FULL_SCREEN &&
+			x->config.xwm_theme.titleH > 0) ||
+			(!edge && (x->config.xwm_theme.frameW > 0 ||
+			x->config.xwm_theme.shadow > 0));
+	if(!deco)
+		return;
+	if(memcmp(&win->xinfo->winr, &win->xinfo->wsr, sizeof(grect_t)) != 0)
+		return;
+
+	grect_t winr;
+	if(get_xwm_win_space(x, (int)win->xinfo->style, (int)win->xinfo->state,
+			&win->xinfo->wsr, &winr) != 0)
+		return;
+	if(memcmp(&winr, &win->xinfo->winr, sizeof(grect_t)) == 0)
+		return;
+
+	memcpy(&win->xinfo->winr, &winr, sizeof(grect_t));
+
+	release_graph_shm(&win->frame_g, &win->frame_g_shm, &win->frame_g_shm_id);
+	/*published right away: a failure below leaves the window without a
+	  frame, and an id pointing at freed memory is worse than no id*/
+	win->xinfo->frame_g_shm_id = -1;
+
+	key_t key = 0;
+	int32_t frame_g_shm_id = xserver_alloc_shm(0x46520000u,
+			win->xinfo->winr.w * win->xinfo->winr.h * 4,
+			0666|IPC_CREAT|IPC_EXCL, &key);
+	if(frame_g_shm_id == -1)
+		return;
+
+	void* shm = shmat(frame_g_shm_id, 0, 0);
+	if(shm == (void*)-1)
+		return;
+
+	win->frame_g_shm = shm;
+	win->frame_g_shm_id = frame_g_shm_id;
+	win->xinfo->frame_g_shm_id = frame_g_shm_id;
+	win->frame_g = graph_new(win->frame_g_shm, win->xinfo->winr.w, win->xinfo->winr.h);
+	win->frame_dirty = true;
+	win->has_damage = false;
+	win->composited = false;
+	win->shadow_valid = false;
+	x_update_frame_areas(x, win);
 }
 
 enum {
@@ -1764,6 +1846,9 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 			win->xinfo->wsr.h = minh;
 
 		int32_t maxh = x->displays[win->xinfo->display_index].g->h - x->config.xwm_theme.titleH;
+		/*a fullscreen window has no title, so the display height is its limit*/
+		if(win->xinfo->state == XWIN_STATE_FULL_SCREEN)
+			maxh = x->displays[win->xinfo->display_index].g->h;
 		if(win->xinfo->wsr.h > maxh)
 			win->xinfo->wsr.h = maxh;
 	}
@@ -1934,6 +2019,17 @@ static int xwm_theme_update(x_t* x) {
 	PF->init(&in)->add(&in, &x->config.xwm_theme, sizeof(xwm_theme_t));
 	int res = ipc_call(x->xwm_pid, XWM_CNTL_SET_THEME, &in, NULL);
 	PF->clear(&in);
+
+	/*the outer size of every window depends on the theme, so all of them
+	  are checked against it and resized where needed*/
+	if(res == 0) {
+		xwin_t* win = x->win_head;
+		while(win != NULL) {
+			xwin_revalidate_geometry(x, win);
+			win = win->next;
+		}
+	}
+
 	x_dirty(x, -1);
 	return res;
 }
@@ -2377,10 +2473,12 @@ static int xserver_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, 
 	else if(cmd == X_DCNTL_SET_XWM) {
 		x->xwm_pid = from_pid;
 		x->xwm_uuid = proc_get_uuid(from_pid);
+		x->xwm_changed = true;
 		x_dirty(x, -1);
 	}
 	else if(cmd == X_DCNTL_UNSET_XWM) {
 		x->xwm_pid = -1;
+		x->xwm_changed = false;
 		x_dirty(x, -1);
 	}
 	else if(cmd == X_DCNTL_INPUT) {
@@ -2472,6 +2570,22 @@ int xserver_step(vdevice_t* dev, void* p) {
 
 	uint64_t tik = kernel_tic_ms(0);
 	uint32_t tm = 1000/x->config.fps;
+
+	/*a new xwm took over: windows sized while the previous one was down
+	  hold a winr equal to their wsr (the fallback of get_xwm_win_space),
+	  which no decorated window can have. Re-fetch their geometry before
+	  anything gets drawn with it*/
+	if(x->xwm_changed) {
+		if(check_xwm(x)) {
+			xwin_t* win = x->win_head;
+			while(win != NULL) {
+				xwin_revalidate_geometry(x, win);
+				win = win->next;
+			}
+			x->xwm_changed = false;
+			x_dirty(x, -1);
+		}
+	}
 
 	ipc_disable();
 	check_wins(x);
