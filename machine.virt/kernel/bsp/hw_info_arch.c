@@ -9,9 +9,7 @@
 #include <kernel/core.h>
 #endif
 
-
-
-uint32_t _core_base_offset = 0;
+ewokos_addr_t _core_base_offset = 0;
 uint32_t _pi4 = 0;
 	
 #define FB_SIZE (0*MB)
