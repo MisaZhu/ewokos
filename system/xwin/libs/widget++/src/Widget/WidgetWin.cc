@@ -30,8 +30,14 @@ void WidgetWin::onRepaint(graph_t* g) {
 	if(theme.getFont() == NULL)
 		theme.loadSystem();
 
-	if(root->isAlpha())
+	if(root->isAlpha()) {
+		/* alpha windows clear the whole workspace before repainting.
+		   A queued second repaint after the first full draw would otherwise
+		   wipe the buffer and skip child painting because their dirty flags
+		   were already consumed by the previous pass. */
+		root->dirty = true;
 		graph_clear(g, 0);
+	}
 	root->repaint(g, &theme);
 }
 
