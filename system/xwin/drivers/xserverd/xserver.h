@@ -39,6 +39,11 @@ typedef struct st_xwin {
 	bool dirty;
 	bool ready;
 	bool frame_dirty;
+	/*the shadow bands of this window already sit blended on the display:
+	  blending them again would darken them further, so they only get
+	  blended again after what is below them was repainted*/
+	bool shadow_valid;
+	grect_t shadow_rect; //winr the shadow bands were blended for
 	bool dirty_mark;
 	bool busy;
 	/*the current ws_g_buffer snapshot made it to the display at least
@@ -91,7 +96,6 @@ typedef struct {
 typedef struct {
 	fb_t fb;
 	graph_t* g;
-	void*    g_shm;
 	int32_t  g_shm_id;
 	graph_t* g_fb;
 	grect_t desktop_rect;

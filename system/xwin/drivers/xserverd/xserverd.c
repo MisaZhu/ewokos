@@ -113,7 +113,11 @@ static bool need_repaint_frame(x_t* x, xwin_t* win);
 static void win_mark_frame_dirty(x_t* x, xwin_t* win) {
 	x_display_t *display = &x->displays[win->xinfo->display_index];
 
+	/*the background effect mixes the desktop into the frame of an unfocused
+	  window, so its frame has to be built again whenever the content
+	  changed. Without such an effect the frame keeps its picture.*/
 	if(win->dirty && !win->xinfo->focused &&
+			x->config.xwm_theme.bgEffect != 0 &&
 			(win->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) == 0) {
 		win->frame_dirty = true;
 		return;
@@ -278,6 +282,22 @@ static void draw_drag_frame(x_t* xp, uint32_t display_index) {
 	PF->clear(&in);
 }
 
+/*blit the part of area that falls inside dmg: dmg and area are in frame
+  coordinates, the result lands at win_x/win_y on the display*/
+static inline void blit_win_area(graph_t* g, graph_t* disp_g, int32_t win_x, int32_t win_y,
+		const grect_t* dmg, const grect_t* area, bool alpha) {
+	grect_t d = *dmg;
+	if(!grect_insect(area, &d) || d.w <= 0 || d.h <= 0)
+		return;
+
+	if(alpha)
+		graph_blt_alpha(g, d.x, d.y, d.w, d.h,
+				disp_g, win_x + d.x, win_y + d.y, d.w, d.h, 0xff);
+	else
+		graph_blt(g, d.x, d.y, d.w, d.h,
+				disp_g, win_x + d.x, win_y + d.y, d.w, d.h);
+}
+
 /*out_dmg gets the area of disp_g the window actually touched*/
 static int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
 	win_mark_frame_dirty(x, win);
@@ -308,14 +328,99 @@ static int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
 			dmg.w = 0;
 			dmg.h = 0;
 		}
-		else if(win->xinfo->alpha ||
-				x->config.xwm_theme.alpha ||
-				x->config.xwm_theme.shadow > 0) {
+		else if(win->xinfo->alpha) {
+			/*the window content itself is translucent, blend the whole window*/
 			graph_blt_alpha(g, dmg.x, dmg.y, dmg.w, dmg.h,
 					disp_g,
 					win->xinfo->winr.x + dmg.x,
 					win->xinfo->winr.y + dmg.y,
 					dmg.w, dmg.h, 0xff);
+		}
+		else if(x->config.xwm_theme.shadow > 0 &&
+				!x->config.xwm_theme.alpha) {
+			/*everything is opaque except the shadow, and the shadow only
+			  lives in the strips right of and below the workspace: copy the
+			  rest with a plain blit and blend just those strips*/
+			int32_t s_right = win->xinfo->winr.w -
+					((win->xinfo->wsr.x - win->xinfo->winr.x) + win->xinfo->wsr.w);
+			int32_t s_bottom = win->xinfo->winr.h -
+					((win->xinfo->wsr.y - win->xinfo->winr.y) + win->xinfo->wsr.h);
+			if(s_right < 0)
+				s_right = 0;
+			if(s_bottom < 0)
+				s_bottom = 0;
+
+			grect_t inner = {0, 0, g->w - s_right, g->h - s_bottom};
+			grect_t right = {g->w - s_right, 0, s_right, g->h};
+			grect_t bottom = {0, g->h - s_bottom, g->w - s_right, s_bottom};
+
+			blit_win_area(g, disp_g, win->xinfo->winr.x, win->xinfo->winr.y,
+					&dmg, &inner, false);
+
+			/*the bands already sit blended on the display: blending them
+			  again would put shadow on shadow and darken them further, so
+			  they are only touched again once what is below them was
+			  repainted (which invalidates the flag) or the window moved*/
+			bool bands_ok = win->shadow_valid &&
+					memcmp(&win->shadow_rect, &win->xinfo->winr, sizeof(grect_t)) == 0;
+			if(!bands_ok) {
+				/*the bands are missing on the display, so they get blended
+				  whole no matter what the damaged area of this draw is*/
+				grect_t whole = {0, 0, g->w, g->h};
+				blit_win_area(g, disp_g, win->xinfo->winr.x, win->xinfo->winr.y,
+						&whole, &right, true);
+				blit_win_area(g, disp_g, win->xinfo->winr.x, win->xinfo->winr.y,
+						&whole, &bottom, true);
+				win->shadow_valid = true;
+				memcpy(&win->shadow_rect, &win->xinfo->winr, sizeof(grect_t));
+			}
+		}
+		else if(x->config.xwm_theme.alpha) {
+			/*the frame's translucent pixels are confined to the four corner
+			  squares the rounded corners are cut out of: blend just those
+			  and copy everything else with a plain blit. c is the square
+			  size, the radius plus the outermost ring the arc is drawn on*/
+			int32_t c = 0;
+			if(x->config.xwm_theme.round > 0)
+				c = (int32_t)x->config.xwm_theme.round + 1;
+			if(c > 0) {
+				if(2*c > g->w)
+					c = g->w/2;
+				if(2*c > g->h)
+					c = g->h/2;
+			}
+
+			if(c > 0) {
+				int32_t wx = win->xinfo->winr.x;
+				int32_t wy = win->xinfo->winr.y;
+
+				grect_t c_tl = {0, 0, c, c};
+				grect_t c_tr = {g->w - c, 0, c, c};
+				grect_t c_bl = {0, g->h - c, c, c};
+				grect_t c_br = {g->w - c, g->h - c, c, c};
+				blit_win_area(g, disp_g, wx, wy, &dmg, &c_tl, true);
+				blit_win_area(g, disp_g, wx, wy, &dmg, &c_tr, true);
+				blit_win_area(g, disp_g, wx, wy, &dmg, &c_bl, true);
+				blit_win_area(g, disp_g, wx, wy, &dmg, &c_br, true);
+
+				/*the rest of the frame is opaque: the strips between the
+				  corner squares and the big middle part*/
+				grect_t top = {c, 0, g->w - 2*c, c};
+				grect_t mid = {0, c, g->w, g->h - 2*c};
+				grect_t bot = {c, g->h - c, g->w - 2*c, c};
+				blit_win_area(g, disp_g, wx, wy, &dmg, &top, false);
+				blit_win_area(g, disp_g, wx, wy, &dmg, &mid, false);
+				blit_win_area(g, disp_g, wx, wy, &dmg, &bot, false);
+			}
+			else {
+				/*alpha but no rounded corners: the translucent pixels could
+				  be anywhere, blend the whole window*/
+				graph_blt_alpha(g, dmg.x, dmg.y, dmg.w, dmg.h,
+						disp_g,
+						win->xinfo->winr.x + dmg.x,
+						win->xinfo->winr.y + dmg.y,
+						dmg.w, dmg.h, 0xff);
+			}
 		}
 		else {
 			graph_blt(g, dmg.x, dmg.y, dmg.w, dmg.h,
@@ -359,15 +464,6 @@ static inline void x_dirty(x_t* x, int32_t display_index) {
 		x_display_t *display = &x->displays[i];
 		display->dirty = true;
 		display->need_repaint = true;
-	}
-}
-
-static void x_dirty_all_frames(x_t* x) {
-	xwin_t* win = x->win_head;
-	while(win != NULL) {
-		if(win->xinfo != NULL && (win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0)
-			win->frame_dirty = true;
-		win = win->next;
 	}
 }
 
@@ -528,6 +624,60 @@ static inline bool rect_contains_rect(const grect_t* out, const grect_t* in) {
 			(in->y + in->h) <= (out->y + out->h);
 }
 
+/*a region was just repainted fresh; where it reaches into the shadow bands
+  of the windows above, their shadow has been wiped away or sits blended on
+  top of stale pixels. Repair exactly those parts while the background is
+  still pristine: re-blending a whole band later would double the shadow on
+  the parts that were left alone. Not needed while the whole display is
+  being rebuilt: that pass repaints every window bottom to top, so each one
+  blends its bands onto a fresh background itself.*/
+static void refresh_shadows_above(x_t* x, xwin_t* below, const grect_t* region) {
+	x_display_t* display = &x->displays[below->xinfo->display_index];
+	xwin_t* w = below->next;
+	while(w != NULL) {
+		if(w->ready && w->xinfo != NULL && w->xinfo->visible &&
+				w->xinfo->display_index == below->xinfo->display_index &&
+				w->frame_g != NULL) {
+			int32_t s_right = w->xinfo->winr.w -
+					((w->xinfo->wsr.x - w->xinfo->winr.x) + w->xinfo->wsr.w);
+			int32_t s_bottom = w->xinfo->winr.h -
+					((w->xinfo->wsr.y - w->xinfo->winr.y) + w->xinfo->wsr.h);
+			if(s_right < 0)
+				s_right = 0;
+			if(s_bottom < 0)
+				s_bottom = 0;
+
+			if(s_right > 0 || s_bottom > 0) {
+				bool bands_ok = w->shadow_valid &&
+						memcmp(&w->shadow_rect, &w->xinfo->winr, sizeof(grect_t)) == 0;
+				if(bands_ok) {
+					/*the untouched parts of the bands are still fine: fix
+					  only what the fresh region wiped*/
+					grect_t d = *region;
+					d.x -= w->xinfo->winr.x;
+					d.y -= w->xinfo->winr.y;
+					grect_t right = {w->frame_g->w - s_right, 0, s_right, w->frame_g->h};
+					grect_t bottom = {0, w->frame_g->h - s_bottom,
+							w->frame_g->w - s_right, s_bottom};
+					blit_win_area(w->frame_g, display->g,
+							w->xinfo->winr.x, w->xinfo->winr.y,
+							&d, &right, true);
+					blit_win_area(w->frame_g, display->g,
+							w->xinfo->winr.x, w->xinfo->winr.y,
+							&d, &bottom, true);
+				}
+				else {
+					/*the bands were never blended for this placement: the
+					  window has to paint them whole on its own draw*/
+					w->dirty = true;
+					w->has_damage = false;
+				}
+			}
+		}
+		w = w->next;
+	}
+}
+
 static void x_repaint_add_dirty(graph_t* g, grect_t* rects, uint32_t* num, const grect_t* r) {
 	grect_t dirty = *r;
 	if(!rect_is_valid(&dirty) || !rect_clip_to_graph(g, &dirty))
@@ -605,16 +755,18 @@ static inline bool rect_contains(const grect_t* out, const grect_t* in) {
    opaque means: no per-win alpha, no alpha theme, and no translucent
    bg-effect (same rule as mark_dirty) */
 static bool covered_by_opaque_win(x_t* x, xwin_t* from, uint32_t display_index, const grect_t* r) {
-	if(x->config.xwm_theme.alpha)
-		return false;
-
 	xwin_t* top = (from == NULL) ? x->win_head : from->next;
 	while(top != NULL) {
 		if(top->ready && top->xinfo != NULL && top->xinfo->visible &&
 				top->xinfo->display_index == display_index &&
 				!top->xinfo->alpha &&
+				/*the theme cuts translucent corners into the workspace, so
+				  such a window does not fully paint even its wsr*/
+				!x->config.xwm_theme.alpha &&
 				(top->xinfo->focused ||
 				(top->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) != 0)) {
+			/*a shadow hangs outside the wsr and stays translucent, but the
+			  wsr itself is what is tested here*/
 			if(rect_contains(&top->xinfo->wsr, r))
 				return true;
 		}
@@ -827,48 +979,24 @@ static inline void refresh_cursor(x_t* x) {
 	x->cursor.drop = false;
 }
 
-static int init_display_graph(x_display_t* display, uint32_t salt) {
-	graph_t* g_fb = fb_fetch_graph(&display->fb);
-	if(g_fb == NULL)
-		return -1;
-
-	key_t key = 0;
-	int32_t g_shm_id = xserver_alloc_shm(salt,
-			g_fb->w * g_fb->h * 4,
-			0666 | IPC_CREAT | IPC_EXCL, &key);
-	if(g_shm_id == -1)
-		return -1;
-
-	void* g_shm = shmat(g_shm_id, 0, 0);
-	if(g_shm == (void*)-1)
-		return -1;
-
-	graph_t* g = graph_new(g_shm, g_fb->w, g_fb->h);
-	if(g == NULL) {
-		shmdt(g_shm);
-		return -1;
-	}
-
-	graph_clear(g, 0xff000000);
-	display->g_fb = g_fb;
-	display->g = g;
-	display->g_shm = g_shm;
-	display->g_shm_id = g_shm_id;
-	display->desktop_rect.x = 0;
-	display->desktop_rect.y = 0;
-	display->desktop_rect.w = g_fb->w;
-	display->desktop_rect.h = g_fb->h;
-	return 0;
-}
-
 static int x_init_display(x_t* x, int32_t display_index) {
 	uint32_t display_num = get_display_num(x->display_man);
 	if(display_index >= 0 && display_index < (int32_t)display_num) {
 		if(display_fb_open(x->display_man, display_index, &x->displays[display_index].fb) != 0)
 			return -1;
-		if(init_display_graph(&x->displays[display_index], 0x44495350u ^ (uint32_t)display_index) != 0)
+		graph_t *g_fb = fb_fetch_graph(&x->displays[display_index].fb);
+		if(g_fb == NULL)
 			return -1;
-		
+		/* Composite straight into the scan-out dma: no shadow buffer and
+		   no per-frame copy back into fb. */
+		x->displays[display_index].g_fb = g_fb;
+		x->displays[display_index].g = g_fb;
+		x->displays[display_index].g_shm_id = x->displays[display_index].fb.dma_id;
+		x->displays[display_index].desktop_rect.x = 0;
+		x->displays[display_index].desktop_rect.y = 0;
+		x->displays[display_index].desktop_rect.w = g_fb->w;
+		x->displays[display_index].desktop_rect.h = g_fb->h;
+
 		//x_dirty(x, 0);
 		x->display_num = 1;
 		return 0;
@@ -877,8 +1005,16 @@ static int x_init_display(x_t* x, int32_t display_index) {
 	for(uint32_t i=0; i<display_num; i++) {
 		if(display_fb_open(x->display_man, i, &x->displays[i].fb) != 0)
 			return -1;
-		if(init_display_graph(&x->displays[i], 0x44495350u ^ i) != 0)
+		graph_t *g_fb = fb_fetch_graph(&x->displays[i].fb);
+		if(g_fb == NULL)
 			return -1;
+		x->displays[i].g_fb = g_fb;
+		x->displays[i].g = g_fb;
+		x->displays[i].g_shm_id = x->displays[i].fb.dma_id;
+		x->displays[i].desktop_rect.x = 0;
+		x->displays[i].desktop_rect.y = 0;
+		x->displays[i].desktop_rect.w = g_fb->w;
+		x->displays[i].desktop_rect.h = g_fb->h;
 		//x_dirty(x, i);
 	}
 	x->display_num = display_num;
@@ -911,9 +1047,11 @@ static int x_init(x_t* x, const char* display_man, int32_t display_index) {
 static void x_close(x_t* x) {
 	for(uint32_t i=0; i<x->display_num; i++) {
 		x_display_t* display = &x->displays[i];
-		release_graph_shm(&display->g, &display->g_shm, &display->g_shm_id);
+		/* g and g_fb both alias the fb dma graph here; fb_close frees it. */
 		fb_close(&display->fb);
+		display->g = NULL;
 		display->g_fb = NULL;
+		display->g_shm_id = -1;
 	}
 }
 
@@ -1008,6 +1146,7 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 			if(display->dirty) {
 				win->dirty = true;
 				win->has_damage = false; //everything below it got repainted
+				win->shadow_valid = false; //the bands must be blended fresh
 			}
 
 			if(win->dirty || win->frame_dirty) {
@@ -1019,10 +1158,15 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 					win->dirty = false;
 					win->frame_dirty = false;
 					win->has_damage = false;
+					/*its area gets overwritten by the covering window, so
+					  whatever shadow sat there is gone*/
+					win->shadow_valid = false;
 				}
 				else {
 					grect_t win_dirty;
 					if(draw_win(display->g, x, win, &win_dirty) == 0) {
+						if(!display->dirty)
+							refresh_shadows_above(x, win, &win_dirty);
 						x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &win_dirty);
 						do_flush = true;
 					}
@@ -1059,14 +1203,6 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 		  the scan-out buffer instead of the whole frame*/
 		grect_t fb_dirty[FB_DIRTY_MAX];
 		uint32_t fb_num = pack_dirty_rects(dirty_rects, dirty_num, fb_dirty, FB_DIRTY_MAX);
-		for(uint32_t i = 0; i < fb_num; i++) {
-			graph_blt(display->g,
-					fb_dirty[i].x, fb_dirty[i].y,
-					fb_dirty[i].w, fb_dirty[i].h,
-					display->g_fb,
-					fb_dirty[i].x, fb_dirty[i].y,
-					fb_dirty[i].w, fb_dirty[i].h);
-		}
 		fb_set_dirty(&display->fb, fb_dirty, fb_num);
 		/*defer the flush IPC until after ipc_enable() to keep the
 		  ipc_disable() critical section as tight as possible*/
@@ -1143,14 +1279,10 @@ static void mark_dirty_confirm(x_t* x, xwin_t* win) {
 			v->dirty = true;
 			v->dirty_mark = false;
 			v->has_damage = false; //the area below it was repainted
-			
-			if(v != win && v->xinfo != NULL) {
-				if(v->xinfo->alpha || 
-						((v->xinfo->style & XWIN_STYLE_NO_FRAME) == 0 &&
-						x->config.xwm_theme.alpha)) {
-					x_dirty(x, v->xinfo->display_index);
-				}
-			}
+			/*no need for a whole display repaint: every window above
+			  the dirty one that intersects it got marked here and is
+			  redrawn bottom to top in the same pass, so each blends
+			  onto content that was just made fresh*/
 		}
 		v = v->next;
 	}
@@ -1171,7 +1303,7 @@ static void mark_dirty(x_t* x, xwin_t* win) {
 			memcpy(&r, &top->xinfo->winr, sizeof(grect_t));
 
 			grect_t *check_r;
-			if(x->config.xwm_theme.alpha)
+			if(x->config.xwm_theme.alpha || x->config.xwm_theme.shadow > 0)
 				check_r = &win->xinfo->winr;
 			else
 				check_r = &win->xinfo->wsr;
@@ -1263,7 +1395,11 @@ static void win_dirty(x_t* x, xwin_t* win) {
 	win->dirty = true;
 	mark_dirty(x, win);
 	if(win->dirty) {
-		if(win->xinfo->alpha || need_repaint_frame(x, win)) {
+		/*only content that reads the desktop back has to repaint the whole
+		  display; a shadow is blended from the frame at blit time, so it is
+		  fine with the window simply being redrawn*/
+		if(win->xinfo->alpha ||
+				(x->config.xwm_theme.alpha && need_repaint_frame(x, win))) {
 			x_dirty(x, win->xinfo->display_index);
 		}
 	}
@@ -1727,14 +1863,26 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 		win->damage_skip = 0;
 	}
 	x_update_frame_areas(x, win);
+	if((type & X_UPDATE_REFRESH) != 0 || win->xinfo->alpha) {
+		mark_all_frame_dirty(x, win->xinfo->display_index);
+	}
+	/*a hidden window's shadow gets painted over by whatever moves in below
+	  it, so it has to be blended fresh when the window shows again*/
+	if(!win->xinfo->visible)
+		win->shadow_valid = false;
 	return 0;
 }
 
 static int x_win_space(x_t* x, proto_t* in, proto_t* out) {
 	grect_t r;
 	int style = proto_read_int(in);
+	int state = proto_read_int(in);
+	/*a query out of range is treated as a normal window, the same way an
+	  unknown state would be*/
+	if(state < XWIN_STATE_NORMAL || state > XWIN_STATE_FULL_SCREEN)
+		state = XWIN_STATE_NORMAL;
 	proto_read_to(in, &r, sizeof(grect_t));
-	get_xwm_win_space(x, style, XWIN_STATE_NORMAL, &r, &r); 
+	get_xwm_win_space(x, style, state, &r, &r); 
 	PF->add(out, &r, sizeof(grect_t));
 	return 0;
 }
@@ -2229,7 +2377,6 @@ static int xserver_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, 
 	else if(cmd == X_DCNTL_SET_XWM) {
 		x->xwm_pid = from_pid;
 		x->xwm_uuid = proc_get_uuid(from_pid);
-		x_dirty_all_frames(x);
 		x_dirty(x, -1);
 	}
 	else if(cmd == X_DCNTL_UNSET_XWM) {

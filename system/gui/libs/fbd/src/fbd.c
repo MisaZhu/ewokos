@@ -375,10 +375,26 @@ static void init_graph(fb_dma_t* dma) {
 	flush(&_fbinfo, dma->shm, dma->size, _rotate);
 }
 
+static uint32_t _fb_dma_shm_seq = 1;
+
 static int fb_dma_init(fb_dma_t* dma) {
 	memset(dma, 0, sizeof(fb_dma_t));
 	uint32_t sz = _zwidth * _zheight * 4;
-	dma->shm_id = shmget(IPC_PRIVATE, sz + sizeof(fb_ctrl_t), 0666 | IPC_CREAT | IPC_EXCL); //control block follows the pixels
+	/*xwm draws the desktop and the window frames straight into this buffer,
+	  but it runs in the user session, not as a child of fbd: an IPC_PRIVATE
+	  segment is family-only in the kernel, so xwm could not attach it and
+	  nothing got drawn. A public key lets everyone who knows the id map it,
+	  like the other shared graphs.*/
+	dma->shm_id = -1;
+	for(uint32_t i = 0; i < 16; i++) {
+		uint32_t seq = _fb_dma_shm_seq++;
+		key_t key = (key_t)(0x4642444du ^ (key_t)(seq * 2654435761u));
+		if(key == 0 || key == IPC_PRIVATE)
+			key = (key_t)(seq | 1u);
+		dma->shm_id = shmget(key, sz + sizeof(fb_ctrl_t), 0666 | IPC_CREAT | IPC_EXCL); //control block follows the pixels
+		if(dma->shm_id != -1)
+			break;
+	}
 	if(dma->shm_id == -1)
 		return -1;
 	dma->shm = shmat(dma->shm_id, 0, 0);

@@ -67,8 +67,11 @@ void EwokWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinf
 		//graph_rect(frame_g, r->x, r->y, r->w, xwm.theme.titleH+xwm.theme.frameW, fg);
 	}
 
-	int round = 13;
-	markFrameRound(frame_g, round);
+	/*the radius is part of the theme: xserverd needs it too, to know which
+	  pixels of the frame are translucent and blend only those*/
+	int round = (int)xwm.theme.round;
+	if(round > 0)
+		markFrameRound(frame_g, round);
 	if(xwm.theme.frameW > 0)
 		graph_round(frame_g, 0, 0, frame_g->w, frame_g->h, round, xwm.theme.frameW, bg);
 }
