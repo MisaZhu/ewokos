@@ -33,6 +33,7 @@
 #include <wolfssl/wolfcrypt/settings.h>
 #include <wolfssl/wolfcrypt/port/Espressif/esp_crt_bundle.h>
 #include <wolfssl/wolfcrypt/port/Espressif/esp-sdk-lib.h>
+#include <ewokos_config.h>
 
 #ifndef SHOW_WOLFSSL_BUNDLE_ERROR
     #define SHOW_WOLFSSL_BUNDLE_ERROR(X) ESP_LOGV(TAG, \
@@ -1503,7 +1504,7 @@ esp_err_t esp_crt_bundle_attach(void *conf)
                        (intptr_t)s_crt_bundle.crts);
     }
 
-    if (((uintptr_t)x509_crt_imported_bundle_wolfssl_bin_start % 4) == 0) {
+    if (((ewokos_addr_t)x509_crt_imported_bundle_wolfssl_bin_start % 4) == 0) {
         ESP_LOGCBI(TAG, "Confirmed alignment x509_crt_imported_bundle_wolfssl");
     }
     else {

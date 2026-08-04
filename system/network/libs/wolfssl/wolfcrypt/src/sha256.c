@@ -38,6 +38,8 @@ on the specific device platform.
 
 */
 
+#include <ewokos_config.h>
+
 #include <wolfssl/wolfcrypt/libwolfssl_sources.h>
 
 /*
@@ -1920,8 +1922,8 @@ static WC_INLINE int Transform_Sha256_Len(wc_Sha256* sha256, const byte* data,
             #if WOLFSSL_GENERAL_ALIGNMENT < 4
                 ALIGN16 word32 buf[WC_SHA256_DIGEST_SIZE / sizeof(word32)];
 
-                if (((size_t)digest & 0x3) != 0) {
-                    if (((size_t)hash32 & 0x3) != 0) {
+                if (((ewokos_addr_t)digest & 0x3) != 0) {
+                    if (((ewokos_addr_t)hash32 & 0x3) != 0) {
                         XMEMCPY(buf, digest, WC_SHA256_DIGEST_SIZE);
                         hash32 = buf;
                         digest = buf;
@@ -1931,7 +1933,7 @@ static WC_INLINE int Transform_Sha256_Len(wc_Sha256* sha256, const byte* data,
                         digest = hash32;
                     }
                 }
-                else if (((size_t)hash32 & 0x3) != 0) {
+                else if (((ewokos_addr_t)hash32 & 0x3) != 0) {
                     hash32 = digest;
                 }
             #endif

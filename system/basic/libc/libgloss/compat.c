@@ -1470,7 +1470,7 @@ static void append_formatted_integer(char *buf, size_t size, size_t *pos,
 		prefix = "0x";
 		prefix_len = 2;
 		if (precision < 0) {
-			precision = (int)(sizeof(uintptr_t) * 2);
+			precision = (int)(sizeof(ewokos_addr_t) * 2);
 		}
 	}
 	else if (spec->alt && value != 0) {
@@ -1711,7 +1711,7 @@ int vsnprintf(char *str, size_t size, const char *format, va_list ap) {
 			break;
 		case 'p':
 			spec.zero = 0;
-			append_formatted_integer(str, size, &pos, (uintptr_t)va_arg(ap, void *), 0, 16, 0, &spec);
+			append_formatted_integer(str, size, &pos, (ewokos_addr_t)va_arg(ap, void *), 0, 16, 0, &spec);
 			break;
 		case 'f':
 		case 'F':

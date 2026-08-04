@@ -17,7 +17,7 @@ To enable support define the following:
 
 ## Simplicity Studio Example
 
-For the Silicon Labs Simplicity Studio example see [/IDE/SimplicityStudio/README.md](/IDE/SimplicityStudio/README.md).
+For a Silicon Labs Simplicity Studio example, refer to the upstream wolfSSL examples or your local platform integration.
 
 ## Caveats
 

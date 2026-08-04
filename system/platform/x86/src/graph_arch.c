@@ -1,5 +1,6 @@
 #include <graph/graph_arch.h>
 #include <string.h>
+#include <ewokos_config.h>
 
 #ifdef ARCH_BOOST
 #include <emmintrin.h>
@@ -29,7 +30,7 @@ static inline void x86_stream_copy_row(uint32_t* dst, const uint32_t* src, int32
 	}
 
 	/* Streaming stores require aligned destinations; handle the prefix first. */
-	while (i < pixels && (((uintptr_t)(dst + i)) & 0x0F) != 0) {
+	while (i < pixels && (((ewokos_addr_t)(dst + i)) & 0x0F) != 0) {
 		dst[i] = src[i];
 		++i;
 	}

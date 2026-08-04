@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <ewokos_config.h>
 
 //#define NET_DEBUG  
 
@@ -16,7 +17,7 @@
 
 #define countof(x) ((sizeof(x) / sizeof(*x)))
 #define tailof(x) (x + countof(x))
-#define indexof(x, y) (((uintptr_t)y - (uintptr_t)x) / sizeof(*y))
+#define indexof(x, y) (((ewokos_addr_t)y - (ewokos_addr_t)x) / sizeof(*y))
 
 #define timeval_add_usec(x, y)         \
     do {                               \

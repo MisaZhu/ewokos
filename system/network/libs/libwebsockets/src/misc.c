@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <sys/time.h>
+#include <ewokos_config.h>
 
 /* ---------- time ---------- */
 
@@ -34,7 +35,7 @@ void lws_generate_key(struct lws *wsi, char *buf, int len)
 	(void)wsi;
 
 	/* simple pseudo-random from time + address */
-	uint32_t seed = (uint32_t)lws_now_usecs() ^ (uint32_t)(uintptr_t)buf;
+	uint32_t seed = (uint32_t)lws_now_usecs() ^ (uint32_t)(ewokos_addr_t)buf;
 	for (i = 0; i < 16; i++) {
 		seed = seed * 1103515245 + 12345;
 		raw[i] = (unsigned char)((seed >> 16) & 0xFF);

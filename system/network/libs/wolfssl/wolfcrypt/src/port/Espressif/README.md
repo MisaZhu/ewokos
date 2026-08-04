@@ -24,11 +24,9 @@ More details about ESP32 HW Acceleration can be found in:
 
 ### Building
 
-Simply run `ESP-IDF.py` in any of the [Espressif/ESP-IDF/Examples](https://github.com/wolfSSL/wolfssl/tree/master/IDE/Espressif/ESP-IDF/examples).
-See the respective project README files. Examples are also available using wolfssl as a [Managed Component](https://www.wolfssl.com/wolfssl-now-available-in-espressif-component-registry/).
+Build wolfSSL from your ESP-IDF project and refer to the upstream wolfSSL Espressif examples if you need a project layout reference. Examples are also available using wolfssl as a [Managed Component](https://www.wolfssl.com/wolfssl-now-available-in-espressif-component-registry/).
 
-Hardware acceleration is enabled by default. All settings should be adjusted in the respective project component
-`user_settings.h` file. See the example in [template example](https://github.com/wolfSSL/wolfssl/blob/master/IDE/Espressif/ESP-IDF/examples/template/components/wolfssl/include/user_settings.h).
+Hardware acceleration is enabled by default. All settings should be adjusted in the respective project component `user_settings.h` file.
 In particular, comment out the `NO_[feature_name]` macros to enable hardware encryption:
 
     /* #define NO_ESP32_CRYPT                 */
@@ -58,9 +56,7 @@ for more details on fine tuning and debugging options.
 ### Coding
 
 In your application you must include `<wolfssl/wolfcrypt/settings.h>` before any other wolfSSL headers.
-If building the sources directly we recommend defining `WOLFSSL_USER_SETTINGS` (typically defined in the `CMakeLists.txt`)
-and adding your own `user_settings.h` file. You can find a good reference in the [Espressif examples](https://github.com/wolfSSL/wolfssl/tree/master/IDE/Espressif/ESP-IDF/examples)
-as well as other examples such as [IDE/GCC-ARM/Header/user_settings.h](https://github.com/wolfSSL/wolfssl/blob/master/IDE/GCC-ARM/Header/user_settings.h).
+If building the sources directly we recommend defining `WOLFSSL_USER_SETTINGS` (typically defined in the `CMakeLists.txt`) and adding your own `user_settings.h` file.
 
 To view disassembly, add `__attribute__((section(".iram1")))` decorator. Foe example:
 

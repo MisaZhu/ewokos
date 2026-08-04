@@ -362,6 +362,15 @@ static inline void x_dirty(x_t* x, int32_t display_index) {
 	}
 }
 
+static void x_dirty_all_frames(x_t* x) {
+	xwin_t* win = x->win_head;
+	while(win != NULL) {
+		if(win->xinfo != NULL && (win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0)
+			win->frame_dirty = true;
+		win = win->next;
+	}
+}
+
 static void remove_win(x_t* x, xwin_t* win) {
 	xwin_t* prev = win->prev;
 	while(prev != NULL) {
@@ -818,23 +827,47 @@ static inline void refresh_cursor(x_t* x) {
 	x->cursor.drop = false;
 }
 
+static int init_display_graph(x_display_t* display, uint32_t salt) {
+	graph_t* g_fb = fb_fetch_graph(&display->fb);
+	if(g_fb == NULL)
+		return -1;
+
+	key_t key = 0;
+	int32_t g_shm_id = xserver_alloc_shm(salt,
+			g_fb->w * g_fb->h * 4,
+			0666 | IPC_CREAT | IPC_EXCL, &key);
+	if(g_shm_id == -1)
+		return -1;
+
+	void* g_shm = shmat(g_shm_id, 0, 0);
+	if(g_shm == (void*)-1)
+		return -1;
+
+	graph_t* g = graph_new(g_shm, g_fb->w, g_fb->h);
+	if(g == NULL) {
+		shmdt(g_shm);
+		return -1;
+	}
+
+	graph_clear(g, 0xff000000);
+	display->g_fb = g_fb;
+	display->g = g;
+	display->g_shm = g_shm;
+	display->g_shm_id = g_shm_id;
+	display->desktop_rect.x = 0;
+	display->desktop_rect.y = 0;
+	display->desktop_rect.w = g_fb->w;
+	display->desktop_rect.h = g_fb->h;
+	return 0;
+}
+
 static int x_init_display(x_t* x, int32_t display_index) {
 	uint32_t display_num = get_display_num(x->display_man);
 	if(display_index >= 0 && display_index < (int32_t)display_num) {
 		if(display_fb_open(x->display_man, display_index, &x->displays[display_index].fb) != 0)
 			return -1;
-		graph_t *g_fb = fb_fetch_graph(&x->displays[display_index].fb);
-		if(g_fb == NULL)
+		if(init_display_graph(&x->displays[display_index], 0x44495350u ^ (uint32_t)display_index) != 0)
 			return -1;
-		/*composite straight into the scan-out dma: no shadow buffer, no
-		  per-frame copy. xwm draws desktop/frames into the same shm.*/
-		x->displays[display_index].g_fb = g_fb;
-		x->displays[display_index].g = g_fb;
-		x->displays[display_index].g_shm_id = x->displays[display_index].fb.dma_id;
-		x->displays[display_index].desktop_rect.x = 0;
-		x->displays[display_index].desktop_rect.y = 0;
-		x->displays[display_index].desktop_rect.w = g_fb->w;
-		x->displays[display_index].desktop_rect.h = g_fb->h;
 		
 		//x_dirty(x, 0);
 		x->display_num = 1;
@@ -844,16 +877,8 @@ static int x_init_display(x_t* x, int32_t display_index) {
 	for(uint32_t i=0; i<display_num; i++) {
 		if(display_fb_open(x->display_man, i, &x->displays[i].fb) != 0)
 			return -1;
-		graph_t *g_fb = fb_fetch_graph(&x->displays[i].fb);
-		if(g_fb == NULL)
+		if(init_display_graph(&x->displays[i], 0x44495350u ^ i) != 0)
 			return -1;
-		x->displays[i].g_fb = g_fb;
-		x->displays[i].g = g_fb;
-		x->displays[i].g_shm_id = x->displays[i].fb.dma_id;
-		x->displays[i].desktop_rect.x = 0;
-		x->displays[i].desktop_rect.y = 0;
-		x->displays[i].desktop_rect.w = g_fb->w;
-		x->displays[i].desktop_rect.h = g_fb->h;
 		//x_dirty(x, i);
 	}
 	x->display_num = display_num;
@@ -886,11 +911,9 @@ static int x_init(x_t* x, const char* display_man, int32_t display_index) {
 static void x_close(x_t* x) {
 	for(uint32_t i=0; i<x->display_num; i++) {
 		x_display_t* display = &x->displays[i];
-		/*g and g_fb both alias the fb dma graph now, fb_close frees it once*/
+		release_graph_shm(&display->g, &display->g_shm, &display->g_shm_id);
 		fb_close(&display->fb);
-		display->g = NULL;
 		display->g_fb = NULL;
-		display->g_shm_id = -1;
 	}
 }
 
@@ -1036,6 +1059,14 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 		  the scan-out buffer instead of the whole frame*/
 		grect_t fb_dirty[FB_DIRTY_MAX];
 		uint32_t fb_num = pack_dirty_rects(dirty_rects, dirty_num, fb_dirty, FB_DIRTY_MAX);
+		for(uint32_t i = 0; i < fb_num; i++) {
+			graph_blt(display->g,
+					fb_dirty[i].x, fb_dirty[i].y,
+					fb_dirty[i].w, fb_dirty[i].h,
+					display->g_fb,
+					fb_dirty[i].x, fb_dirty[i].y,
+					fb_dirty[i].w, fb_dirty[i].h);
+		}
 		fb_set_dirty(&display->fb, fb_dirty, fb_num);
 		/*defer the flush IPC until after ipc_enable() to keep the
 		  ipc_disable() critical section as tight as possible*/
@@ -1428,14 +1459,14 @@ static void x_get_min_size(x_t* x, xwin_t* win, int *w, int* h) {
 	PF->clear(&out);
 }
 
-static int get_xwm_win_space(x_t* x, int style, grect_t* rin, grect_t* rout) {
+static int get_xwm_win_space(x_t* x, int style, int state, grect_t* rin, grect_t* rout) {
 	memcpy(rout, rin, sizeof(grect_t));
 	if(!check_xwm(x))
 		return 0;
 
 	proto_t in, out;
 	PF->init(&out);
-	PF->format(&in, "i,m", (ewokos_addr_t)style, rin, sizeof(grect_t));
+	PF->format(&in, "i,i,m", (ewokos_addr_t)style, (ewokos_addr_t)state, rin, sizeof(grect_t));
 
 	int res = ipc_call(x->xwm_pid, XWM_CNTL_GET_WIN_SPACE, &in, &out);
 	PF->clear(&in);
@@ -1619,7 +1650,7 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
 		type = type | X_UPDATE_REBUILD | X_UPDATE_REFRESH;
 	}
 
-	if(get_xwm_win_space(x, (int)win->xinfo->style,
+	if(get_xwm_win_space(x, (int)win->xinfo->style, (int)win->xinfo->state,
 			&win->xinfo->wsr,
 			&win->xinfo->winr) != 0)	
 		return -1;
@@ -1707,7 +1738,7 @@ static int x_win_space(x_t* x, proto_t* in, proto_t* out) {
 	grect_t r;
 	int style = proto_read_int(in);
 	proto_read_to(in, &r, sizeof(grect_t));
-	get_xwm_win_space(x, style, &r, &r); 
+	get_xwm_win_space(x, style, XWIN_STATE_NORMAL, &r, &r); 
 	PF->add(out, &r, sizeof(grect_t));
 	return 0;
 }
@@ -2202,6 +2233,7 @@ static int xserver_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, 
 	else if(cmd == X_DCNTL_SET_XWM) {
 		x->xwm_pid = from_pid;
 		x->xwm_uuid = proc_get_uuid(from_pid);
+		x_dirty_all_frames(x);
 		x_dirty(x, -1);
 	}
 	else if(cmd == X_DCNTL_UNSET_XWM) {
