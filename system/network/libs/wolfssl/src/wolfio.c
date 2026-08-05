@@ -38,6 +38,7 @@
 #endif
 
 #include <wolfssl/internal.h>
+#include <ewokos_config.h>
 #include <wolfssl/error-ssl.h>
 #include <wolfssl/wolfio.h>
 #include <wolfssl/wolfcrypt/logging.h>
@@ -2004,7 +2005,7 @@ int wolfIO_HttpProcessResponseGenericIO(WolfSSLGenericIORecvCb ioCb,
 static int httpResponseIoCb(char* buf, int sz, void* ctx)
 {
     /* Double cast to silence the compiler int/pointer width msg */
-    return wolfIO_Recv((SOCKET_T)(uintptr_t)ctx, buf, sz, 0);
+    return wolfIO_Recv((SOCKET_T)(ewokos_addr_t)ctx, buf, sz, 0);
 }
 
 int wolfIO_HttpProcessResponse(int sfd, const char** appStrList,
@@ -2012,7 +2013,7 @@ int wolfIO_HttpProcessResponse(int sfd, const char** appStrList,
 {
     return wolfIO_HttpProcessResponseGenericIO(httpResponseIoCb,
             /* Double cast to silence the compiler int/pointer width msg */
-            (void*)(uintptr_t)sfd, appStrList, respBuf, httpBuf, httpBufSz,
+            (void*)(ewokos_addr_t)sfd, appStrList, respBuf, httpBuf, httpBufSz,
             dynType, heap);
 }
 

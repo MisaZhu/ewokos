@@ -5234,47 +5234,6 @@ int wc_GenerateSeed(OS_Seed* os, byte* output, word32 sz)
         return 0;
     }
 
-#elif defined(WOLFSSL_EWOKOS)
-    /* EwokOS random seed implementation using system timer */
-    #include <stdint.h>
-
-    /* Use vsyscall_info which is mapped to user space */
-    typedef struct {
-        uint32_t uuid;
-        int32_t  father_pid;
-        int32_t  type;
-    } proc_base_info_t;
-
-    #define MAX_PROC_NUM 512
-    typedef struct {
-        uint64_t kernel_usec;
-        proc_base_info_t proc_info[MAX_PROC_NUM];
-    } vsyscall_info_t;
-
-    extern vsyscall_info_t* _vsyscall_info;
-
-    int wc_GenerateSeed(OS_Seed* os, byte* output, word32 sz)
-    {
-        word32 i;
-
-        (void)os;
-
-        /* Use kernel_usec from vsyscall_info for entropy */
-        for (i = 0; i < sz; i++) {
-            uint64_t tick = 0;
-            if (_vsyscall_info != (void*)0) {
-                tick = _vsyscall_info->kernel_usec;
-            }
-            output[i] = (byte)(tick ^ (tick >> 8) ^ (tick >> 16) ^ (tick >> 24) ^ i);
-
-            /* Add some variation */
-            volatile int j;
-            for (j = 0; j < 10; j++);
-        }
-
-        return 0;
-    }
-
 #elif defined(WOLFSSL_SAFERTOS) || defined(WOLFSSL_LEANPSK) || \
       defined(WOLFSSL_IAR_ARM)  || defined(WOLFSSL_MDK_ARM) || \
       defined(WOLFSSL_uITRON4)  || defined(WOLFSSL_uTKERNEL2) || \

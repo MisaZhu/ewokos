@@ -152,8 +152,8 @@ int main(int argc, char* argv[]) {
 
 			if(full) {
 				uint32_t sec = csec - proc->start_sec;
-				char heap_size[8] = {0};
-				char shm_size[8] = {0};
+				char heap_size[32] = {0};
+				char shm_size[32] = {0};
 				printf("%-8s %-4d %-4d  %-5s %-9s %02d:%02d:%02d %-6s  %-5s  %s",
 					get_owner(proc),
 					proc->pid,

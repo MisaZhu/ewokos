@@ -16,8 +16,8 @@ typedef struct interrupt_st {
 	uint32_t id;
 	uint32_t proc_uuid;
 	int32_t  pid;
-	uint32_t entry;
-	uint32_t data;
+	ewokos_addr_t entry;
+	ewokos_addr_t data;
 	uint32_t timer_usec;
 	uint64_t timer_last;
 	struct   interrupt_st* next;
@@ -49,7 +49,7 @@ static int32_t interrupt_remove(int32_t pid, uint32_t id) {
 	return 0;
 }
 
-static int32_t interrupt_setup(int32_t pid, uint32_t timer_usec, uint32_t entry, uint32_t data) {
+static int32_t interrupt_setup(int32_t pid, uint32_t timer_usec, ewokos_addr_t entry, ewokos_addr_t data) {
 	interrupt_t* intr = (interrupt_t*)malloc(sizeof(interrupt_t));
 	intr->pid = pid;
 	intr->proc_uuid = proc_get_uuid(pid);
@@ -135,8 +135,8 @@ static int timer_dcntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto
 			//sys_interrupt_setup(IRQ_TIMER0, &handler);
 		}
 		uint32_t usec = (uint32_t)proto_read_int(in);
-		uint32_t entry = (uint32_t)proto_read_int(in);
-		uint32_t data = (uint32_t)proto_read_int(in);
+		ewokos_addr_t entry = proto_read_int(in);
+		ewokos_addr_t data = proto_read_int(in);
 		uint32_t id = interrupt_setup(from_pid, usec, entry, data);
 		PF->addi(ret, id);
 		update_timer_intr();

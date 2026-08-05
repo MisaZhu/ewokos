@@ -39,20 +39,20 @@ int       vfs_get_fd_flags(int fd);
 int       vfs_set_fd_flags(int fd, int flags);
 void      vfs_init(void);
 void      vfs_on_fork(void); /* reset shm pipe mappings after fork in child */
-int       vfs_read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block);
-int       vfs_write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, bool block);
+int       vfs_read_pipe(int fd, ewokos_addr_t node, void* buf, uint32_t size, bool block);
+int       vfs_write_pipe(int fd, ewokos_addr_t node, const void* buf, uint32_t size, bool block);
 int       vfs_open(fsinfo_t* info, int wr);
 int       vfs_close_info(int fd); //close but not set device
 int       vfs_close(int fd);
-int       vfs_new_node(fsinfo_t* info, uint32_t node_to, bool vfs_node_only, bool vfs_write_over);
-int       vfs_new_nodes(fsinfo_t* infos, uint32_t num, uint32_t node_to);
-int       vfs_del_node(uint32_t node);
+int       vfs_new_node(fsinfo_t* info, ewokos_addr_t node_to, bool vfs_node_only, bool vfs_write_over);
+int       vfs_new_nodes(fsinfo_t* infos, uint32_t num, ewokos_addr_t node_to);
+int       vfs_del_node(ewokos_addr_t node);
 int       vfs_get_by_name(const char* fname, fsinfo_t* info);
-int       vfs_get_by_node(uint32_t node, fsinfo_t* info);
+int       vfs_get_by_node(ewokos_addr_t node, fsinfo_t* info);
 int       vfs_get_by_fd(int fd, fsinfo_t* info);
 int       vfs_set_by_fd(int fd, fsinfo_t* info);
 
-int       vfs_clear_poll_events(uint32_t node_id, uint32_t events);
+int       vfs_clear_poll_events(ewokos_addr_t node_id, uint32_t events);
 uint32_t  vfs_get_poll_events(int fd);
 
 int       vfs_tell(int fd);
@@ -64,8 +64,8 @@ int       vfs_get_mount_by_fname(const char* fname, mount_t* mount, char* dev_fn
 
 fsinfo_t* vfs_kids(fsinfo_t* info, uint32_t* num);
 
-int       vfs_mount(uint32_t mount_node_to, uint32_t node);
-int       vfs_umount(uint32_t node);
+int       vfs_mount(ewokos_addr_t mount_node_to, ewokos_addr_t node);
+int       vfs_umount(ewokos_addr_t node);
 
 int       vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_node_only, bool autodir);
 int       vfs_create_uid(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_node_only, bool autodir, int uid, int gid);
@@ -85,9 +85,9 @@ int       vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size);
 int       vfs_fcntl(int fd, int cmd, proto_t* in, proto_t* out);
 int       vfs_fcntl_wait(int fd, int cmd, proto_t* in);
 
-int       vfs_block(uint32_t node, int event);
-int       vfs_unblock(uint32_t node);
-int       vfs_wakeup(uint32_t node, int event);
+int       vfs_block(ewokos_addr_t node, int event);
+int       vfs_unblock(ewokos_addr_t node);
+int       vfs_wakeup(ewokos_addr_t node, int event);
 int       vfs_poll(vfs_pollfd_t* fds, int num, int timeout);
 
 #ifdef __cplusplus

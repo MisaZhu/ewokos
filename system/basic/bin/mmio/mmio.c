@@ -10,6 +10,7 @@
 
 int main(int argc, char* argv[]) {
 	uint32_t *reg;
+	ewokos_addr_t addr;
 
 	if(argc < 3){
 		printf("mmio [read/write] [address] [value]\n");
@@ -21,10 +22,12 @@ int main(int argc, char* argv[]) {
     sys_info_t sysinfo;
     sys_get_sys_info(&sysinfo);
 
-	uint32_t addr = strtoll(argv[2], NULL, 16);
+	addr = (ewokos_addr_t)strtoull(argv[2], NULL, 16);
 	if(addr < sysinfo.mmio.phy_base || addr >= sysinfo.mmio.phy_base + sysinfo.mmio.size){
-		printf("Addr: %08x Out of range [0x%08lX - 0x%08lX]\n", addr, 
-				sysinfo.mmio.phy_base, sysinfo.mmio.phy_base + sysinfo.mmio.size);
+		printf("Addr: 0x%016llX Out of range [0x%016llX - 0x%016llX]\n",
+				(unsigned long long)addr,
+				(unsigned long long)sysinfo.mmio.phy_base,
+				(unsigned long long)(sysinfo.mmio.phy_base + sysinfo.mmio.size));
 		return -1;
 	}
 	reg = (uint32_t*)(addr - sysinfo.mmio.phy_base + _mmio_base);
@@ -38,7 +41,9 @@ int main(int argc, char* argv[]) {
 		for(int i = 0; i < size; i++){
 			if(addr + i*4 >= sysinfo.mmio.phy_base + sysinfo.mmio.size)
 				return -1;
-			printf("0x%08lX: 0x%08lX\n", addr + i * 4, reg[i]);
+			printf("0x%016llX: 0x%08X\n",
+					(unsigned long long)(addr + (ewokos_addr_t)(i * 4)),
+					reg[i]);
 		}
 	}else if(argc >= 4 && strcasecmp(argv[1], "write") == 0){
 			uint32_t val = strtoll(argv[3], NULL, 16);

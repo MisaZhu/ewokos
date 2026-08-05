@@ -122,7 +122,7 @@ static int32_t bsp_sd_write_cache(int32_t sector, const void* buf) {
 
 int bsp_sd_init(void) {
   sys_info_t sysinfo;
-  syscall1(SYS_GET_SYS_INFO, (int32_t)&sysinfo);
+  syscall1(SYS_GET_SYS_INFO, (ewokos_addr_t)&sysinfo);
   int res = sd_init_ex(virt_sd_init, bsp_sd_read_cache, bsp_sd_read_cache_sectors, bsp_sd_write_cache);
   if(res == 0)
     sd_enable_sector_buffer(0);

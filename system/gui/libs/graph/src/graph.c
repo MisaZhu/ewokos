@@ -63,7 +63,7 @@ static void* aligned_malloc(uint32_t size, uint32_t alignment) {
     void* raw_ptr = malloc(size + extra);
     if (!raw_ptr) return NULL;
     // Calculate aligned address
-    uintptr_t aligned_addr = (uintptr_t)raw_ptr + sizeof(void*);
+    ewokos_addr_t aligned_addr = (ewokos_addr_t)raw_ptr + sizeof(void*);
     aligned_addr = (aligned_addr + alignment - 1) & ~(alignment - 1);
     // Save original pointer for free
     *((void**)aligned_addr - 1) = raw_ptr;

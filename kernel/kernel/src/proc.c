@@ -219,7 +219,7 @@ int32_t procs_init(void) {
 	int32_t i;
 
 	uint32_t size = PAGE_DIR_SIZE + (_kernel_config.max_proc_num*sizeof(proc_vm_t));
-	uint32_t pde = (uint32_t)kmalloc(size);
+	ewokos_addr_t pde = (ewokos_addr_t)kmalloc(size);
 	if(pde == 0) {
 		printf("Panic: VMM process page dir entry table alloc failed (%d MB)!\n", size/1024/1024);
 		return -1;
@@ -406,17 +406,17 @@ static inline uint32_t proc_get_user_stack_pages(proc_t* proc) {
 	return THREAD_STACK_PAGES;
 }
 
-static inline  uint32_t proc_get_user_stack_base(proc_t* proc) {
+static inline ewokos_addr_t proc_get_user_stack_base(proc_t* proc) {
 	if(proc->info.type == TASK_TYPE_PROC)
 		return USER_STACK_TOP - STACK_PAGES*PAGE_SIZE;
 	return proc->thread_stack_base;
 }
 
-static void map_stack(proc_t* proc, uint32_t* stacks, uint32_t base, uint32_t pages) {
+static void map_stack(proc_t* proc, ewokos_addr_t* stacks, ewokos_addr_t base, uint32_t pages) {
 	uint32_t i;
 	for(i=0; i<pages; i++) {
 		page_table_entry_t* pte;
-		stacks[i] = (uint32_t)kalloc4k();
+		stacks[i] = (ewokos_addr_t)kalloc4k();
 		map_page(proc->space->vm,
 			base + PAGE_SIZE*i,
 			V2P(stacks[i]),
@@ -431,7 +431,7 @@ static void map_stack(proc_t* proc, uint32_t* stacks, uint32_t base, uint32_t pa
 	flush_tlb();
 }
 
-static void unmap_stack(proc_t* proc, uint32_t* stacks, uint32_t base, uint32_t pages) {
+static void unmap_stack(proc_t* proc, ewokos_addr_t* stacks, ewokos_addr_t base, uint32_t pages) {
 	uint32_t i;
 	for(i=0; i<pages; i++) {
 		unmap_page(proc->space->vm, base + PAGE_SIZE*i);
@@ -440,7 +440,7 @@ static void unmap_stack(proc_t* proc, uint32_t* stacks, uint32_t base, uint32_t 
 	flush_tlb();
 }
 
-uint32_t thread_stack_alloc(proc_t* proc) {
+ewokos_addr_t thread_stack_alloc(proc_t* proc) {
 	uint32_t i;
 	if(proc->space->thread_stacks == NULL) {
 		proc->space->thread_stacks = (thread_stack_t*)kmalloc(_kernel_config.max_task_per_proc*sizeof(thread_stack_t));
@@ -457,17 +457,17 @@ uint32_t thread_stack_alloc(proc_t* proc) {
 		return 0;
 	}
 
-	uint32_t base = USER_STACK_TOP - STACK_PAGES*PAGE_SIZE - THREAD_STACK_PAGES*PAGE_SIZE*(i+1);
+	ewokos_addr_t base = USER_STACK_TOP - STACK_PAGES*PAGE_SIZE - THREAD_STACK_PAGES*PAGE_SIZE*(i+1);
 	uint32_t pages = THREAD_STACK_PAGES;
 	proc->space->thread_stacks[i].base = base;
 	if(proc->space->thread_stacks[i].stacks == NULL) 
 		proc->space->thread_stacks[i].stacks = kmalloc(THREAD_STACK_PAGES*sizeof(void*));
 	memset(proc->space->thread_stacks[i].stacks, 0, THREAD_STACK_PAGES*sizeof(void*));
-	map_stack(proc, (uint32_t*)proc->space->thread_stacks[i].stacks, base, pages);
+	map_stack(proc, proc->space->thread_stacks[i].stacks, base, pages);
 	return base;
 }
 
-void thread_stack_free(proc_t* proc, uint32_t base) {
+void thread_stack_free(proc_t* proc, ewokos_addr_t base) {
 	uint32_t i;
 	for(i=0; i<_kernel_config.max_task_per_proc; i++) {
 		if(proc->space->thread_stacks[i].base == base)
@@ -475,7 +475,7 @@ void thread_stack_free(proc_t* proc, uint32_t base) {
 	}
 	if(i >= _kernel_config.max_task_per_proc) 
 		return;
-	unmap_stack(proc, (uint32_t*)proc->space->thread_stacks[i].stacks, base, THREAD_STACK_PAGES);
+	unmap_stack(proc, proc->space->thread_stacks[i].stacks, base, THREAD_STACK_PAGES);
 	proc->space->thread_stacks[i].base = 0;
 	if(proc->space->thread_stacks[i].stacks != NULL)  {
 		kfree(proc->space->thread_stacks[i].stacks);
@@ -495,7 +495,7 @@ static void proc_shrink_mem(proc_t* proc, int32_t page_num) {
 
 	int32_t i;
 	for (i = 0; i < page_num; i++) {
-		uint32_t virtual_addr = proc->space->heap_size - PAGE_SIZE;
+		ewokos_addr_t virtual_addr = proc->space->heap_size - PAGE_SIZE;
 		unmap_page_ref(proc->space->vm, virtual_addr);
 		proc->space->heap_size -= PAGE_SIZE;
 		if (proc->space->heap_size == 0)
@@ -512,8 +512,8 @@ static int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
 	for (i = 0; i < page_num; i++) {
 		void *page = kalloc4k();
 		if(page == NULL) {
-			printf("proc expand failed!! free mem size: (%x), pid:%d(%s), pages ask:%d\n",
-					get_free_mem_size(),
+			printf("proc expand failed!! free mem size: (0x%llx), pid:%d(%s), pages ask:%d\n",
+					(unsigned long long)get_free_mem_size(),
 					proc->info.pid,
 					proc->info.cmd,
 					page_num);
@@ -760,7 +760,7 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
 
 	if(cproc != to) {
 		page_dir_entry_t *vm = to->space->vm;
-		set_translation_table_base((uint32_t)V2P(vm));
+		set_translation_table_base(V2P(vm));
 	}
 
 	if(to->info.type == TASK_TYPE_PROC) {
@@ -1022,8 +1022,7 @@ static inline void proc_init_user_stack(proc_t* proc) {
 		proc->thread_stack_base = thread_stack_alloc(proc);
 	}
 	else {
-		uint32_t i;
-		uint32_t base =  proc_get_user_stack_base(proc);
+		ewokos_addr_t base =  proc_get_user_stack_base(proc);
 		uint32_t pages = proc_get_user_stack_pages(proc);
 		map_stack(proc, proc->space->user_stack, base, pages);
 	}
@@ -1037,7 +1036,7 @@ static inline void proc_free_user_stack(proc_t* proc) {
 		}
 	}
 	else {
-		uint32_t base = proc_get_user_stack_base(proc);
+		ewokos_addr_t base = proc_get_user_stack_base(proc);
 		uint32_t pages = proc_get_user_stack_pages(proc);
 		unmap_stack(proc, proc->space->user_stack, base, pages);
 	}
@@ -1112,7 +1111,7 @@ void proc_funeral(proc_t* proc) {
 		return;
 	}
 
-	set_translation_table_base((uint32_t)V2P(space->vm));
+	set_translation_table_base(V2P(space->vm));
 	dma_release(proc->info.pid);
 	proc_free_user_stack(proc);
 
@@ -1236,24 +1235,27 @@ void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
 }
 
 void* proc_malloc(proc_t* proc, int32_t size) {
-	proc->space->heap_used += size;
-	size = proc->space->heap_used - proc->space->heap_size; 
+	int64_t delta;
+	ewokos_addr_t size_abs;
+	uint32_t pages;
 
-	if(size == 0)
+	proc->space->heap_used += size;
+	delta = (int64_t)proc->space->heap_used - (int64_t)proc->space->heap_size;
+
+	if(delta == 0)
 		return (void*)proc->space->malloc_base;
 
 	uint8_t shrink = 0;
-	uint32_t pages;
-	if(size < 0) {
+	if(delta < 0) {
 		shrink = 1;
-		size = -size;
-		size = ALIGN_DOWN(size, PAGE_SIZE);
+		size_abs = (ewokos_addr_t)(-delta);
+		size_abs = ALIGN_DOWN(size_abs, PAGE_SIZE);
 	}
 	else {
-		size = ALIGN_UP(size, PAGE_SIZE);
+		size_abs = ALIGN_UP((ewokos_addr_t)delta, PAGE_SIZE);
 	}
 
-	pages = (size / PAGE_SIZE);
+	pages = (uint32_t)(size_abs / PAGE_SIZE);
 	if(pages == 0)
 		return (void*)proc->space->malloc_base;
 
@@ -1269,13 +1271,13 @@ void* proc_malloc(proc_t* proc, int32_t size) {
 	return (void*)proc->space->malloc_base;
 }
 
-uint32_t proc_msize(proc_t* proc) {
+ewokos_addr_t proc_msize(proc_t* proc) {
 	return proc->space->heap_size - proc->space->malloc_base;
 }
 
 void proc_free(proc_t* proc) {
-	uint32_t size = proc_msize(proc);
-	uint32_t pages = size / PAGE_SIZE;
+	ewokos_addr_t size = proc_msize(proc);
+	uint32_t pages = (uint32_t)(size / PAGE_SIZE);
 	proc_shrink_mem(proc, pages);
 }
 
@@ -1519,10 +1521,10 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
 				proc->space->rw_heap_base = vaddr;
 		}
 
-		uint32_t old_heap_size = proc->space->heap_size;
-		uint32_t need_heap_size = ALIGN_UP(vaddr + memsz, PAGE_SIZE);
+		ewokos_addr_t old_heap_size = proc->space->heap_size;
+		ewokos_addr_t need_heap_size = ALIGN_UP((ewokos_addr_t)vaddr + memsz, PAGE_SIZE);
 		if (proc->space->heap_size < need_heap_size) {
-			uint32_t expand_pages = (need_heap_size - proc->space->heap_size) / PAGE_SIZE;
+			uint32_t expand_pages = (uint32_t)((need_heap_size - proc->space->heap_size) / PAGE_SIZE);
 			proc->space->heap_used += expand_pages * PAGE_SIZE;
 			if(proc_expand_mem(proc, expand_pages) != 0){ 
 				shm_proc_unmap(proc, (void*)proc_image);
@@ -1589,7 +1591,7 @@ void proc_usleep(context_t* ctx, uint32_t count) {
 	proc_account_resume_current();
 }
 	
-void proc_block_by(context_t* ctx, proc_t* proc, uint32_t token) {
+void proc_block_by(context_t* ctx, proc_t* proc, ewokos_addr_t token) {
 	if(proc == NULL)
 		return;
 	proc_lock_enter();
@@ -1725,7 +1727,7 @@ static void proc_wakeup_all_state(proc_t* proc) {
 	proc->space->interrupt.saved_state.state = READY;
 }
 
-void proc_wakeup_by(proc_t* proc, uint32_t token) {
+void proc_wakeup_by(proc_t* proc, ewokos_addr_t token) {
 	proc_lock_enter();
 	if(proc == NULL || proc->info.state == UNUSED ||
 			proc->info.state == ZOMBIE) {
@@ -1810,11 +1812,7 @@ void proc_wakeup(proc_t* proc) {
 	proc_wakeup_by(proc, 0);
 }
 
-static inline char* proc_clone_addr_to_ptr(proc_t* proc, uint32_t addr) {
-	if(addr >= KERNEL_BASE) {
-		return (char*)addr;
-	}
-
+static inline char* proc_clone_addr_to_ptr(proc_t* proc, ewokos_addr_t addr) {
 	ewokos_addr_t phy = resolve_phy_address(proc->space->vm, addr);
 	if(phy == 0) {
 		return NULL;
@@ -1822,11 +1820,13 @@ static inline char* proc_clone_addr_to_ptr(proc_t* proc, uint32_t addr) {
 	return (char*)P2V(phy);
 }
 
-static inline void proc_page_clone(proc_t* to, uint32_t to_addr, proc_t* from, uint32_t from_addr) {
+static inline void proc_page_clone(proc_t* to, ewokos_addr_t to_addr, proc_t* from, ewokos_addr_t from_addr) {
 	char *to_ptr = proc_clone_addr_to_ptr(to, to_addr);
 	char *from_ptr = proc_clone_addr_to_ptr(from, from_addr);
 	if(to_ptr == NULL || from_ptr == NULL) {
-		printf("panic: proc_page_clone invalid addr to=0x%x from=0x%x\n", to_addr, from_addr);
+		printf("panic: proc_page_clone invalid addr to=0x%llx from=0x%llx\n",
+				(unsigned long long)to_addr,
+				(unsigned long long)from_addr);
 		return;
 	}
 	memcpy(to_ptr, from_ptr, PAGE_SIZE);
@@ -1840,8 +1840,8 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	// Copy On Write
 	uint32_t p;
 	for(p=0; p<pages; ++p) { 
-		uint32_t v_addr = (p * PAGE_SIZE);
-		uint32_t phy_page_addr = resolve_phy_address(parent->space->vm, v_addr);
+		ewokos_addr_t v_addr = (ewokos_addr_t)p * PAGE_SIZE;
+		ewokos_addr_t phy_page_addr = resolve_phy_address(parent->space->vm, v_addr);
 
 		/*
 		 * Some virtual pages below heap_size are reserved but not backed yet.
@@ -1875,9 +1875,9 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
 	// virtual addresses, so passing it into resolve_kernel_address() will
 	// translate an unmapped address and can collapse to P2V(0).
 	int32_t i;
-	uint32_t user_stack_base = proc_get_user_stack_base(parent);
+	ewokos_addr_t user_stack_base = proc_get_user_stack_base(parent);
 	for(i=0; i<STACK_PAGES; i++) {
-		uint32_t vaddr = user_stack_base + PAGE_SIZE*i;
+		ewokos_addr_t vaddr = user_stack_base + PAGE_SIZE*i;
 		proc_page_clone(child, vaddr, parent, vaddr);
 	}
 	child->space->malloc_base = parent->space->malloc_base;

@@ -38,6 +38,7 @@ SOFTWARE.
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <ewokos_config.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -103,7 +104,7 @@ uint64_t ewok_https_entropy_word(void) {
 	mix = usec;
 	mix ^= ((uint64_t)(uint32_t)time(NULL) << 32);
 	mix ^= (uint64_t)(uint32_t)getpid();
-	mix ^= (uint64_t)(uintptr_t)&mix;
+	mix ^= (uint64_t)(ewokos_addr_t)&mix;
 	mix ^= ewok_https_entropy_state + 0x9e3779b97f4a7c15ULL;
 	mix ^= mix << 13;
 	mix ^= mix >> 7;
@@ -63415,7 +63416,7 @@ br_rsa_i15_private(unsigned char *x, const br_rsa_private_key *sk)
 	 * Ensure 32-bit alignment for value words.
 	 */
 	mq = tmp;
-	if (((uintptr_t)mq & 2) == 0) {
+	if (((ewokos_addr_t)mq & 2) == 0) {
 		mq ++;
 	}
 
@@ -64040,7 +64041,7 @@ br_rsa_i15_public(unsigned char *x, size_t xlen,
 	 * on a 32-bit boundary.
 	 */
 	m = tmp;
-	if (((uintptr_t)m & 2) == 0) {
+	if (((ewokos_addr_t)m & 2) == 0) {
 		m ++;
 	}
 	a = m + fwlen;

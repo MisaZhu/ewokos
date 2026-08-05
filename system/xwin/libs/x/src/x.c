@@ -78,13 +78,13 @@ static bool x_pop_event(x_t* x, xevent_t* ev) {
 	return true;
 }
 
-static xwin_t* x_find_win_by_handle(x_t* x, uint32_t handle) {
+static xwin_t* x_find_win_by_handle(x_t* x, ewokos_addr_t handle) {
 	if(x == NULL || handle == 0)
 		return NULL;
 
-	if(x->main_win != NULL && x->main_win->xinfo_shm_id == (int32_t)handle)
+	if(x->main_win != NULL && (ewokos_addr_t)x->main_win->xinfo_shm_id == handle)
 		return x->main_win;
-	if(x->prompt_win != NULL && x->prompt_win->xinfo_shm_id == (int32_t)handle)
+	if(x->prompt_win != NULL && (ewokos_addr_t)x->prompt_win->xinfo_shm_id == handle)
 		return x->prompt_win;
 	return NULL;
 }
@@ -264,7 +264,7 @@ int x_get_desktop_space(int disp_index, grect_t* r) {
 int x_set_desktop_space(int disp_index, const grect_t* r) {
 	int res = -1;
 	proto_t out, in;
-	PF->format(&in, "i,m", disp_index, r, sizeof(grect_t));
+	PF->format(&in, "i,m", (ewokos_addr_t)disp_index, r, sizeof(grect_t));
 	PF->init(&out);
 
 	if(dev_cntl("/dev/x", X_DCNTL_SET_DESKTOP_SPACE, &in, &out) == 0) {

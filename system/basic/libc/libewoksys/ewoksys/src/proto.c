@@ -155,7 +155,7 @@ inline static proto_factor_t* proto_format(proto_t* proto, const char* fmt, ... 
 			PF->adds(proto, v);
 		}
 		else if(c == 'i') {
-			int v = va_arg(args, int);
+			ewokos_addr_t v = va_arg(args, ewokos_addr_t);
 			PF->addi(proto, v);
 		}
 		else if(c == 'm') {
@@ -251,17 +251,17 @@ void proto_free(proto_t* proto) {
 	free(proto);
 }
 
-const char* get_mem_size_desc(uint32_t size, char ret[]) {
-	if(size > (1024*1024)) {
-		uint32_t m = size/(1024*1024);
-		if(size % (1024*1024) != 0)
+const char* get_mem_size_desc(ewokos_addr_t size, char ret[]) {
+	if(size >= (ewokos_addr_t)(1024*1024)) {
+		uint32_t m = (uint32_t)(size/(1024*1024));
+		if((size % (ewokos_addr_t)(1024*1024)) != 0)
 			m++;
-		snprintf(ret, 7, "%dM", m);
+		snprintf(ret, 31, "%uM", m);
 	}
 	else if(size == 0)
-		snprintf(ret, 7, "0");
+		snprintf(ret, 31, "0");
 	else
-		snprintf(ret, 7, "%dK", size/1024);
+		snprintf(ret, 31, "%uK", (uint32_t)(size/1024));
 	return ret;
 }
 

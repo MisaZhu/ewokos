@@ -46,7 +46,7 @@ typedef struct {
 
     bool          do_switch;
 	uint8_t       restore_pending;
-	uint32_t      stack; //mapped stack page
+	ewokos_addr_t stack; //mapped stack page
 
 	ipc_res_t     saved_ipc_res;
 	saved_state_t saved_state;

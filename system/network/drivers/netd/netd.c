@@ -238,7 +238,7 @@ static int network_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fs
                 pthread_mutex_lock(&task->lock);
 		task->refs = 0;
 		pthread_mutex_unlock(&task->lock);
-		fsinfo->data = NULL;
+		fsinfo->data = 0;
 		release_task(task);
 	}
 	return 0;

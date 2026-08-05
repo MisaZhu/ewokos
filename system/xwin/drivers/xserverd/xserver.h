@@ -39,6 +39,11 @@ typedef struct st_xwin {
 	bool dirty;
 	bool ready;
 	bool frame_dirty;
+	/*the shadow bands of this window already sit blended on the display:
+	  blending them again would darken them further, so they only get
+	  blended again after what is below them was repainted*/
+	bool shadow_valid;
+	grect_t shadow_rect; //winr the shadow bands were blended for
 	bool dirty_mark;
 	bool busy;
 	/*the current ws_g_buffer snapshot made it to the display at least
@@ -122,6 +127,7 @@ typedef struct {
 
 	int xwm_pid;
 	uint32_t xwm_uuid;
+	bool xwm_changed; //a new xwm registered: window geometry must be revalidated
 
 	bool show_cursor;
 	cursor_t cursor;

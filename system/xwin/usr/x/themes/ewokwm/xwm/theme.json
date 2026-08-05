@@ -10,6 +10,9 @@
     "frame_width": 1,
     "shadow": 0,
 
+    "#round": "radius of the rounded frame corners, 0 = square",
+    "round": 13,
+
     "#bg_effect": "0: none; 1: transparent; 2: dots; 3: glass; 4: gaussian",
     "bg_effect": 0,
     "alpha": 1,

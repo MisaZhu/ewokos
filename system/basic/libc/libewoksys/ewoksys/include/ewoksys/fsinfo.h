@@ -2,6 +2,7 @@
 #define FS_INFO_H
 
 #include <stdint.h>
+#include <ewoksys/ewokdef.h>
 #ifdef __cplusplus 
 extern "C" { 
 #endif
@@ -55,7 +56,7 @@ enum {
 
 typedef struct {
 	int32_t pid;
-	uint32_t org_node;
+	ewokos_addr_t org_node;
 	char org_name[FS_FULL_NAME_MAX];
 } mount_t;
 
@@ -78,12 +79,12 @@ typedef struct {
 
 typedef struct {
 	uint32_t type;
-	uint32_t node;
+	ewokos_addr_t node;
 	int32_t  mount_pid;
 	char     name[FS_NODE_NAME_MAX];
 
 	node_stat_t stat;
-	uint32_t data;
+	ewokos_addr_t data;
 	uint32_t state;
 } fsinfo_t;
 

@@ -1,16 +1,16 @@
 #ifndef MMU_ARCH_H
 #define MMU_ARCH_H
 
-#include "mmudef.h"
 #include <ewokos_config.h>
+#include "mmudef.h"
 
 #define PAGE_L1_INDEX(x) (((uint64_t)x >> 30) & 0x1FF) 
 #define PAGE_L2_INDEX(x) (((uint64_t)x >> 21) & 0x1FF)
 #define PAGE_L3_INDEX(x) (((uint64_t)x >> 12) & 0x1FF)
 
-#define PAGE_TABLE_TO_BASE(x) ((uint32_t)x >> 10)
-#define BASE_TO_PAGE_TABLE(x) ((void *) ((uint32_t)x << 10))
-#define PAGE_TO_BASE(x) ((uint32_t)x >> 12)
+#define PAGE_TABLE_TO_BASE(x) ((uint64_t)(x) >> 10)
+#define BASE_TO_PAGE_TABLE(x) ((void *)((uint64_t)(x) << 10))
+#define PAGE_TO_BASE(x) ((uint64_t)(x) >> 12)
 
 typedef struct {
     uint64_t EntryType : 2;             // @0-1     1 for a block table, 3 for a page table
@@ -57,11 +57,11 @@ void set_pte_flags(page_table_entry_t* pte, uint64_t pte_attr);
 #define PTE_ATTR_STRONG_ORDER    4
 #define PTE_ATTR_NOCACHE         5
 
-int32_t  map_page(page_dir_entry_t *vm, uint32_t virtual_addr, ewokos_addr_t physical,
+int32_t  map_page(page_dir_entry_t *vm, ewokos_addr_t virtual_addr, ewokos_addr_t physical,
 	                uint32_t access_permissions, uint32_t pte_attr);
-void  unmap_page(page_dir_entry_t *vm, uint32_t virtual_addr);
-uint32_t resolve_phy_address(page_dir_entry_t *vm, uint32_t virtual);
-page_table_entry_t* get_page_table_entry(page_dir_entry_t *vm, uint32_t virtual);
+void  unmap_page(page_dir_entry_t *vm, ewokos_addr_t virtual_addr);
+ewokos_addr_t resolve_phy_address(page_dir_entry_t *vm, ewokos_addr_t virtual);
+page_table_entry_t* get_page_table_entry(page_dir_entry_t *vm, ewokos_addr_t virtual);
 void free_page_tables(page_dir_entry_t *vm);
 
 void __set_translation_table_base(uint64_t);

@@ -13,8 +13,7 @@
 #define PAGE_DIR_NUM 512
 #define PAGE_DIR_SIZE (PAGE_DIR_NUM*8)
 
-#define KERNEL_BASE                    0x80000000 //=2G virtual address start base.
-#define INTERRUPT_VECTOR_BASE          0xffff0000
+#define KERNEL_BASE                    0x4000000000ull //=256G virtual address start base.
 
 /* descriptor types */
 #define TYPE_INVALID	0

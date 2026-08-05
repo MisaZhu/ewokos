@@ -23,7 +23,7 @@ static int ramfs_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	if(size < 0)
 		return 0;
 
-	char* data = (char*)info->data;
+	char* data = (char*)(ewokos_addr_t)info->data;
 	memcpy(buf, data+offset, size);
 	return size;	
 }
@@ -40,10 +40,10 @@ static int ramfs_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	if(size <= 0)
 		return size;
 
-	char* data = (char*)info->data;
+	char* data = (char*)(ewokos_addr_t)info->data;
 	data = (char*)realloc(data, size + offset);
 	memcpy(data+offset, buf, size);
-	info->data = (uint32_t)data;
+	info->data = (ewokos_addr_t)data;
 	info->stat.size = size+offset;
 	return size;
 }
@@ -53,7 +53,7 @@ static int ramfs_unlink(vdevice_t* dev, fsinfo_t* info, const char* fname, void*
 	(void)fname;
 	(void)p;
 
-	char* data = (char*)info->data;
+	char* data = (char*)(ewokos_addr_t)info->data;
 	if(data != NULL)
 		free(data);
 	return vfs_del_node(info->node);

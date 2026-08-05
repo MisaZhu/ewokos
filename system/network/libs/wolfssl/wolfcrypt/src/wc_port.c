@@ -28,6 +28,8 @@
     #include <sys/param.h>
 #endif
 
+#include <ewokos_config.h>
+
 /*
 wolfCrypt Porting Build Options:
 
@@ -1486,8 +1488,9 @@ int wolfSSL_Atomic_Uint_CompareExchange(
 int wolfSSL_Atomic_Ptr_CompareExchange(
     void * volatile *c, void **expected_ptr, void *new_ptr)
 {
-    uintptr_t exp = (uintptr_t)*expected_ptr;
-    int ret = atomic_fcmpset_ptr((uintptr_t *)c, &exp, (uintptr_t)new_ptr);
+    ewokos_addr_t exp = (ewokos_addr_t)*expected_ptr;
+    int ret = atomic_fcmpset_ptr((uintptr_t *)c, (uintptr_t *)&exp,
+        (ewokos_addr_t)new_ptr);
     *expected_ptr = (void *)exp;
     return ret;
 }

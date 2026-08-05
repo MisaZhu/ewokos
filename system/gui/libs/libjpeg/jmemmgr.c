@@ -35,6 +35,7 @@
 #if !defined(_MSC_VER) || _MSC_VER > 1600
 #include <stdint.h>
 #endif
+#include <ewokos_config.h>
 #include <limits.h>
 
 
@@ -333,8 +334,8 @@ alloc_small(j_common_ptr cinfo, int pool_id, size_t sizeofobject)
   /* OK, allocate the object from the current pool */
   data_ptr = (char *)hdr_ptr; /* point to first data byte in pool... */
   data_ptr += sizeof(small_pool_hdr); /* ...by skipping the header... */
-  if ((size_t)data_ptr % ALIGN_SIZE) /* ...and adjust for alignment */
-    data_ptr += ALIGN_SIZE - (size_t)data_ptr % ALIGN_SIZE;
+  if ((ewokos_addr_t)data_ptr % ALIGN_SIZE) /* ...and adjust for alignment */
+    data_ptr += ALIGN_SIZE - (ewokos_addr_t)data_ptr % ALIGN_SIZE;
   data_ptr += hdr_ptr->bytes_used; /* point to place for object */
   hdr_ptr->bytes_used += sizeofobject;
   hdr_ptr->bytes_left -= sizeofobject;
@@ -404,8 +405,8 @@ alloc_large(j_common_ptr cinfo, int pool_id, size_t sizeofobject)
 
   data_ptr = (char *)hdr_ptr; /* point to first data byte in pool... */
   data_ptr += sizeof(small_pool_hdr); /* ...by skipping the header... */
-  if ((size_t)data_ptr % ALIGN_SIZE) /* ...and adjust for alignment */
-    data_ptr += ALIGN_SIZE - (size_t)data_ptr % ALIGN_SIZE;
+  if ((ewokos_addr_t)data_ptr % ALIGN_SIZE) /* ...and adjust for alignment */
+    data_ptr += ALIGN_SIZE - (ewokos_addr_t)data_ptr % ALIGN_SIZE;
 
   return (void *)data_ptr;
 }

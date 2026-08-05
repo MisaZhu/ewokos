@@ -26,6 +26,8 @@ masking and clearing memory logic.
 
 */
 
+#include <ewokos_config.h>
+
 #ifdef WOLFSSL_VIS_FOR_TESTS
     #ifdef HAVE_CONFIG_H
         #include <config.h>
@@ -184,8 +186,8 @@ WC_MISC_STATIC WC_INLINE void ByteReverseWords(word32* out, const word32* in,
     word32 i;
 
 #ifdef WOLFSSL_USE_ALIGN
-    if ((((size_t)in & 0x3) == 0) &&
-        (((size_t)out & 0x3) == 0))
+    if ((((ewokos_addr_t)in & 0x3) == 0) &&
+        (((ewokos_addr_t)out & 0x3) == 0))
 #endif
     {
         word32 count = byteCount/(word32)sizeof(word32);
@@ -193,7 +195,7 @@ WC_MISC_STATIC WC_INLINE void ByteReverseWords(word32* out, const word32* in,
             out[i] = ByteReverseWord32(in[i]);
     }
 #ifdef WOLFSSL_USE_ALIGN
-    else if (((size_t)in & 0x3) == 0) {
+    else if (((ewokos_addr_t)in & 0x3) == 0) {
         byte *out_bytes = (byte *)out;
         word32 scratch;
 
@@ -204,7 +206,7 @@ WC_MISC_STATIC WC_INLINE void ByteReverseWords(word32* out, const word32* in,
             XMEMCPY(out_bytes + i, &scratch, sizeof(scratch));
         }
     }
-    else if (((size_t)out & 0x3) == 0) {
+    else if (((ewokos_addr_t)out & 0x3) == 0) {
         const byte *in_bytes = (const byte *)in;
         word32 scratch;
 
@@ -362,15 +364,15 @@ WC_MISC_STATIC WC_INLINE void ByteReverseWords64(word64* out, const word64* in,
     word32 count = byteCount/(word32)sizeof(word64), i;
 
 #ifdef WOLFSSL_USE_ALIGN
-    if ((((size_t)in & 0x7) == 0) &&
-        (((size_t)out & 0x7) == 0))
+    if ((((ewokos_addr_t)in & 0x7) == 0) &&
+        (((ewokos_addr_t)out & 0x7) == 0))
 #endif
     {
         for (i = 0; i < count; i++)
             out[i] = ByteReverseWord64(in[i]);
     }
 #ifdef WOLFSSL_USE_ALIGN
-    else if (((size_t)in & 0x7) == 0) {
+    else if (((ewokos_addr_t)in & 0x7) == 0) {
         byte *out_bytes = (byte *)out;
         word64 scratch;
 
@@ -381,7 +383,7 @@ WC_MISC_STATIC WC_INLINE void ByteReverseWords64(word64* out, const word64* in,
             XMEMCPY(out_bytes + i, &scratch, sizeof(scratch));
         }
     }
-    else if (((size_t)out & 0x7) == 0) {
+    else if (((ewokos_addr_t)out & 0x7) == 0) {
         const byte *in_bytes = (const byte *)in;
         word64 scratch;
 

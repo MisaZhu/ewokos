@@ -18,6 +18,7 @@ inline uint32_t page_ref_index(ewokos_addr_t paddr) {
  */
 static __attribute__((__aligned__(PAGE_DIR_SIZE))) page_list_t *_free_list4k = 0;
 static __attribute__((__aligned__(1024))) page_list_t *_free_list1k = 0;
+static ewokos_addr_t _free_mem_size4k = 0;
 
 /*
  * page_list_prepend adds the given page to the beginning of the page list
@@ -32,6 +33,7 @@ static page_list_t *page_list_prepend(page_list_t *page_list, char *page_address
 void kalloc_reset(void) {
 	_free_list4k = 0;
 	_free_list1k = 0;
+	_free_mem_size4k = 0;
 }
 
 /* kalloc_append adds the given address range to the free list. */
@@ -47,6 +49,7 @@ uint32_t kalloc_append(ewokos_addr_t start, ewokos_addr_t end) {
 		_free_list4k = page_list_prepend(_free_list4k, current_page);
 		num++;
 	}
+	_free_mem_size4k += (ewokos_addr_t)num * PAGE_SIZE;
 	return num;
 }
 
@@ -56,6 +59,7 @@ inline void* kalloc4k() {
 	if (_free_list4k != 0) {
 		result = _free_list4k;
 		_free_list4k = _free_list4k->next;
+		_free_mem_size4k -= PAGE_SIZE;
 	}
 	return result;
 }
@@ -63,6 +67,7 @@ inline void* kalloc4k() {
 /* kfree adds the given page to the 4k free list. */
 inline void kfree4k(void *page) {
 	_free_list4k = page_list_prepend(_free_list4k, page);
+	_free_mem_size4k += PAGE_SIZE;
 }
 
 /* kalloc1k allocates 1k sized and aligned chuncks of memory. */
@@ -94,28 +99,11 @@ inline void kfree1k(void *mem) {
 	_free_list1k = page_list_prepend(_free_list1k, mem);
 }
 
-/*
- * get_free_memory_size returns total amount of free memory that can be allocated
- * by kalloc and kalloc1k.
- */
-uint32_t get_free_mem_size(void) {
-	uint32_t result = 0;
-	page_list_t *current_page = 0;
-
-	// iterate over free 1k pages
-	/*current_page = _free_list1k;
-	while (current_page != 0) {
-		result += 1024;
-		current_page = current_page->next;
-	}
-	*/
-
-	// iterate over free 4k pages
-	current_page = _free_list4k;
-	while (current_page != 0) {
-		result += 4096;
-		current_page = current_page->next;
-	}
-	return result;
+ewokos_addr_t get_free_mem_size(void) {
+	/*
+	 * Keep the historical semantics: this reports the free capacity currently
+	 * available from the 4K page list. 1K chunks split out for kalloc1k() are
+	 * intentionally not counted here, matching the previous implementation.
+	 */
+	return _free_mem_size4k;
 }
-

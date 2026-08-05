@@ -61,7 +61,7 @@ static void dump_user_addr_words_internal(proc_t* proc, ewokos_addr_t addr, cons
 
 	page_phy = resolve_phy_address(proc->space->vm, addr);
 	if(page_phy == 0) {
-		printf("%s: addr=0x%X not mapped\n", tag, (uint32_t)addr);
+		printf("%s: addr=0x%llX not mapped\n", tag, (unsigned long long)addr);
 		return;
 	}
 	page_ptr = (uint8_t*)(uintptr_t)P2V(page_phy);
@@ -263,6 +263,34 @@ static int32_t copy_on_write(proc_t* proc, ewokos_addr_t v_addr) {
 	return 0;
 }
 
+static inline uint8_t is_user_heap_or_stack_fault(proc_t* proc, ewokos_addr_t addr_fault) {
+	if(proc == NULL || proc->space == NULL)
+		return 0;
+
+	ewokos_addr_t legel_addr_base = proc->space->rw_heap_base;
+	uint8_t in_heap = (addr_fault >= legel_addr_base && addr_fault < proc->space->heap_size);
+	uint8_t in_user_stack = (addr_fault >= USER_STACK_BOTTOM && addr_fault < USER_STACK_TOP);
+	return (uint8_t)(in_heap || in_user_stack);
+}
+
+static inline uint8_t is_recoverable_user_data_fault(uint32_t status) {
+#if __aarch64__
+	/*
+	 * AArch64 ESR_EL1.ISS[5:0] uses FSC/DFSC values:
+	 *   0x4..0x7  translation fault
+	 *   0x8..0xB  access flag fault
+	 *   0xC..0xF  permission fault
+	 *
+	 * Heap COW and lazily reserved heap/stack pages can legally fault in any of
+	 * these groups, so treat them all as recoverable user page faults.
+	 */
+	uint32_t fsc = status & 0x3f;
+	return (uint8_t)(fsc >= 0x4 && fsc <= 0xF);
+#else
+	return (uint8_t)(((status & 0x5) == 0x5) || ((status & 0xD) == 0xD));
+#endif
+}
+
 void undef_abort_handler(context_t* ctx, uint32_t status) {
 	(void)ctx;
 	(void)status;
@@ -331,8 +359,8 @@ void data_abort_handler(context_t* ctx, ewokos_addr_t addr_fault, uint32_t statu
 	__irq_disable();
 	proc_t* cproc = get_current_proc();
 	if(cproc == NULL) {
-		printf("_kernel, data abort!! core: %d, at: 0x%X status: 0x%X\n", 
-			get_core_id(), addr_fault, status);
+		printf("_kernel, data abort!! core: %d, at: 0x%llX status: 0x%X\n", 
+			get_core_id(), (unsigned long long)addr_fault, status);
 		dump_ctx(ctx);
 		halt();
 	}
@@ -340,12 +368,16 @@ void data_abort_handler(context_t* ctx, ewokos_addr_t addr_fault, uint32_t statu
 
 	uint32_t err = 0;
 	const char* errmsg = "";
-	uint32_t legel_addr_base = cproc->space->rw_heap_base;
+	ewokos_addr_t legel_addr_base = cproc->space->rw_heap_base;
+	uint8_t recoverable = is_recoverable_user_data_fault(status);
+	uint8_t in_user_heap_or_stack = is_user_heap_or_stack_fault(cproc, addr_fault);
+	ewokos_addr_t fault_page_phy = 0;
+	if(cproc->space != NULL && cproc->space->vm != NULL) {
+		fault_page_phy = resolve_phy_address(cproc->space->vm, ALIGN_DOWN(addr_fault, PAGE_SIZE));
+	}
 
-	if((status & 0x5) == 0x5 || (status & 0xD) == 0xD) { //permissions fault only
-		uint8_t in_heap = (addr_fault >= legel_addr_base && addr_fault < cproc->space->heap_size);
-		uint8_t in_user_stack = (addr_fault >= USER_STACK_BOTTOM && addr_fault < USER_STACK_TOP);
-		if(in_heap || in_user_stack) { 
+	if(recoverable) {
+		if(in_user_heap_or_stack) {
 			if (kernel_lock_check() > 0)
 				return;
 
@@ -367,10 +399,19 @@ void data_abort_handler(context_t* ctx, ewokos_addr_t addr_fault, uint32_t statu
 		errmsg = "access denied";
 	}
 
-	printf("\npid: %d(%s), core: %d, data abort at: 0x%X, status: 0x%X\n", 
-			cproc->info.pid, cproc->info.cmd, cproc->info.core, addr_fault, status);
+	printf("\npid: %d(%s), core: %d, data abort at: 0x%llX, status: 0x%X\n", 
+			cproc->info.pid, cproc->info.cmd, cproc->info.core, (unsigned long long)addr_fault, status);
+	printf("\tdebug: recov=%d in_heap_or_stack=%d heap(0x%llX->0x%llX) page_phy=0x%llX\n",
+			recoverable,
+			in_user_heap_or_stack,
+			(unsigned long long)legel_addr_base,
+			(unsigned long long)cproc->space->heap_size,
+			(unsigned long long)fault_page_phy);
 	if(err == 2) //illegel address
-		printf("\terror: %s! heap(0x%X->0x%X)\n", errmsg, legel_addr_base, cproc->space->heap_size);
+		printf("\terror: %s! heap(0x%llX->0x%llX)\n",
+				errmsg,
+				(unsigned long long)legel_addr_base,
+				(unsigned long long)cproc->space->heap_size);
 	else
 		printf("\terror: %s!\n", errmsg);
 

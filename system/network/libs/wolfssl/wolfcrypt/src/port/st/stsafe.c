@@ -26,6 +26,7 @@
 #include <wolfssl/wolfcrypt/types.h>
 #include <wolfssl/wolfcrypt/port/st/stsafe.h>
 #include <wolfssl/wolfcrypt/logging.h>
+#include <ewokos_config.h>
 #ifndef NO_ASN
     #include <wolfssl/wolfcrypt/asn.h>
 #endif
@@ -109,8 +110,8 @@ static stsafe_curve_id_t g_stsafe_curve_mode = STSAFE_DEFAULT_CURVE;
  *          dynamic memory allocation. Slot values are small (0, 1, 0xFF)
  *          so safe to cast to/from void*.
  */
-#define STSAFE_SLOT_TO_DEVCXT(slot) ((void*)(uintptr_t)(slot))
-#define STSAFE_DEVCXT_TO_SLOT(devCtx) ((stsafe_slot_t)(uintptr_t)(devCtx))
+#define STSAFE_SLOT_TO_DEVCXT(slot) ((void*)(ewokos_addr_t)(slot))
+#define STSAFE_DEVCXT_TO_SLOT(devCtx) ((stsafe_slot_t)(ewokos_addr_t)(devCtx))
 
 
 /**

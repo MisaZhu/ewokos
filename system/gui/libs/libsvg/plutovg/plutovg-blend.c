@@ -3,6 +3,7 @@
 
 #include <assert.h>
 #include <limits.h>
+#include <ewokos_config.h>
 
 #define COLOR_TABLE_SIZE 1024
 typedef struct {
@@ -109,7 +110,7 @@ static inline uint32_t BYTE_MUL(uint32_t x, uint32_t a)
 void plutovg_memfill32(unsigned int* dest, int length, unsigned int value)
 {
     __m128i vector_data = _mm_set_epi32(value, value, value, value);
-    while(length && ((uintptr_t)dest & 0xf)) {
+    while(length && ((ewokos_addr_t)dest & 0xf)) {
         *dest++ = value;
         length--;
     }

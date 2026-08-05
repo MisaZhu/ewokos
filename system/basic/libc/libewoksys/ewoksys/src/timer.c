@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-static void _timer_handle(uint32_t intr, uint32_t data) {
+static void _timer_handle(uint32_t intr, ewokos_addr_t data) {
 	(void)intr;
 	timer_handle_t handle = (timer_handle_t)data;
 	if(handle != NULL)
@@ -19,8 +19,11 @@ static void _timer_handle(uint32_t intr, uint32_t data) {
 uint32_t timer_set(uint32_t usec, timer_handle_t handle) {
 	uint32_t id = 0;
 	proto_t in, out;
+	PF->init(&in);
 	PF->init(&out);
-	PF->format(&in, "i,i,i", usec, (uint32_t)_timer_handle, (uint32_t)handle);
+	PF->addi(&in, usec);
+	PF->addi(&in, (ewokos_addr_t)_timer_handle);
+	PF->addi(&in, (ewokos_addr_t)handle);
 	if(dev_cntl("/dev/timer", TIMER_SET, &in, &out) == 0)
 		id = (uint32_t)proto_read_int(&out);
 	PF->clear(&in);

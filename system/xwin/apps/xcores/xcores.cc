@@ -151,14 +151,14 @@ protected:
 
 	void drawMemTitle(graph_t* g, XTheme* theme, const grect_t& r) {
 		char s[64];
-		uint32_t totalMem = sysInfo.total_usable_mem_size / (1024*1024);
-		uint32_t freeMem = sysState.mem.free / (1024*1024);
-		uint32_t usedMem = totalMem - freeMem;
-		uint32_t usedPercent = (totalMem > 0) ? (usedMem * 100 / totalMem) : 0;
+		ewokos_addr_t totalMem = sysInfo.total_usable_mem_size / (1024*1024);
+		ewokos_addr_t freeMem = sysState.mem.free / (1024*1024);
+		ewokos_addr_t usedMem = totalMem - freeMem;
+		ewokos_addr_t usedPercent = (totalMem > 0) ? (usedMem * 100 / totalMem) : 0;
 
-		char usedMemStr[8] = {0};
+		char usedMemStr[32] = {0};
 		get_mem_size_desc(usedMem*1024*1024, usedMemStr);
-		char totalMemStr[8] = {0};
+		char totalMemStr[32] = {0};
 		get_mem_size_desc(totalMem*1024*1024, totalMemStr);
 
 		snprintf(s, 63, "Mem: %s/%s (%d%%)", usedMemStr, totalMemStr, usedPercent);

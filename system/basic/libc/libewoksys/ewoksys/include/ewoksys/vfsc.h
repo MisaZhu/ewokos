@@ -46,7 +46,7 @@ enum {
 int  vfs_check_access(int pid, fsinfo_t* info, int mode);
 
 typedef struct {
-	uint32_t node;
+	ewokos_addr_t node;
 	uint32_t event;
 } vfs_poll_event_t;
 

@@ -39,10 +39,10 @@ static int32_t xwin_alloc_shm(uint32_t salt, int32_t size, int32_t flag, key_t* 
 	return -1;
 }
 
-static uint32_t xwin_handle(const xwin_t* xwin) {
+static ewokos_addr_t xwin_handle(const xwin_t* xwin) {
 	if(xwin == NULL)
 		return 0;
-	return (uint32_t)xwin->xinfo_shm_id;
+	return (ewokos_addr_t)xwin->xinfo_shm_id;
 }
 
 static int xwin_update_info(xwin_t* xwin, uint8_t type) {
@@ -55,7 +55,8 @@ static int xwin_update_info(xwin_t* xwin, uint8_t type) {
 	}
 
 	proto_t in;
-	PF->format(&in, "i,i", xwin->xinfo_shm_id, type);
+	PF->format(&in, "i,i", (ewokos_addr_t)xwin->xinfo_shm_id,
+			(ewokos_addr_t)type);
 	int ret = vfs_fcntl_wait(xwin->fd, XWIN_CNTL_UPDATE_INFO, &in);
 	PF->clear(&in);
 	return ret;
@@ -70,7 +71,7 @@ void xwin_busy(xwin_t* xwin, bool busy) {
 
 int xwin_call_xim(xwin_t* xwin, bool show) {
 	proto_t in, out;
-	PF->format(&in, "i", show);
+	PF->format(&in, "i", (ewokos_addr_t)show);
 	PF->init(&out);
 	int ret = vfs_fcntl(xwin->fd, XWIN_CNTL_CALL_XIM, &in, &out);
 	if(ret == 0)
@@ -86,10 +87,10 @@ int xwin_top(xwin_t* xwin) {
 }
 
 /*
-static int  x_get_win_rect(int xfd, int style, grect_t* wsr, grect_t* win_space) {
+static int  x_get_win_rect(int xfd, int style, int state, grect_t* wsr, grect_t* win_space) {
 	proto_t in, out;
 	PF->init(&out);
-	PF->format(&in, "i,m", style, wsr, sizeof(grect_t));
+	PF->format(&in, "i,i,m", (ewokos_addr_t)style, (ewokos_addr_t)state, wsr, sizeof(grect_t));
 	int ret = vfs_fcntl(xfd, XWIN_CNTL_WORK_SPACE, &in, &out);
 	PF->clear(&in);
 	if(ret == 0) 
@@ -140,9 +141,9 @@ xwin_t* xwin_open(x_t* xp, int32_t disp_index, int x, int y, int w, int h, const
 	int32_t xinfo_shm_id = xwin_alloc_shm(uuid, sizeof(xinfo_t), 0600 |IPC_CREAT|IPC_EXCL, &key);
 	if(xinfo_shm_id == -1) {
 		/* #region debug-point B:shmget-xinfo */
-		klog("[DEBUG][B] xwin_open shmget failed pid=%d uuid=%u key=%x title=%s ptr=%lx size=%d\n",
+		klog("[DEBUG][B] xwin_open shmget failed pid=%d uuid=%u key=%x title=%s ptr=%llx size=%d\n",
 						getpid(), uuid, (uint32_t)key,
-						title == NULL ? "<null>" : title, (unsigned long)(uintptr_t)ret, (int)sizeof(xinfo_t));
+						title == NULL ? "<null>" : title, (unsigned long long)(ewokos_addr_t)ret, (int)sizeof(xinfo_t));
 		/* #endregion */
 		close(fd);
 		free(ret);
@@ -152,9 +153,9 @@ xwin_t* xwin_open(x_t* xp, int32_t disp_index, int x, int y, int w, int h, const
 	xinfo_t* xinfo = (xinfo_t*)shmat(xinfo_shm_id, 0, 0);
 	if(xinfo == (void*)-1) {
 		/* #region debug-point C:shmat-xinfo */
-		klog("[DEBUG][C] xwin_open shmat failed pid=%d uuid=%u key=%x shm_id=%d title=%s ptr=%lx\n",
+		klog("[DEBUG][C] xwin_open shmat failed pid=%d uuid=%u key=%x shm_id=%d title=%s ptr=%llx\n",
 						getpid(), uuid, (uint32_t)key, xinfo_shm_id,
-						title == NULL ? "<null>" : title, (unsigned long)(uintptr_t)ret);
+						title == NULL ? "<null>" : title, (unsigned long long)(ewokos_addr_t)ret);
 		/* #endregion */
 		close(fd);
 		free(ret);

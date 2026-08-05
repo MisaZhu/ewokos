@@ -32,8 +32,11 @@ void XWM::getWinSpace(int style, int state, grect_t* xr, grect_t* winr) {
 	winr->w = xr->w;
 	winr->h = xr->h;
 
+	/*fullscreen windows fill the display edge to edge, so they get no title
+	  either; maximized ones keep theirs*/
 	if((style & XWIN_STYLE_NO_TITLE) == 0 &&
-			(style & XWIN_STYLE_NO_FRAME) == 0) {
+			(style & XWIN_STYLE_NO_FRAME) == 0 &&
+			state != XWIN_STATE_FULL_SCREEN) {
 		winr->y = xr->y - xwm.theme.titleH;
 		winr->h = xr->h + xwm.theme.titleH;
 	}

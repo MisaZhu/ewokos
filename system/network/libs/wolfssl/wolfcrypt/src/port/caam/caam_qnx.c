@@ -41,6 +41,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <ewokos_config.h>
 #include <sys/iofunc.h>
 #include <sys/dispatch.h>
 #include <sys/neutrino.h>
@@ -49,7 +50,7 @@
 #include <semaphore.h>
 
 /* virtual address for accessing CAAM addresses */
-uintptr_t virtual_base = 0;
+ewokos_addr_t virtual_base = 0;
 
 static void* localMemory = NULL;
 static unsigned int localPhy = 0;
@@ -131,7 +132,7 @@ int CAAM_SET_JOBRING_ADDR(CAAM_ADDRESS* base, CAAM_ADDRESS* ringInPhy,
     /* try to map to job rings 1 address */
     *base = mmap_device_io(0x0000FFFF, CAAM_BASE + 0x00001000);
 #endif
-    if (*base == (uintptr_t)MAP_FAILED) {
+    if (*base == (ewokos_addr_t)MAP_FAILED) {
         WOLFSSL_MSG("Unable to map virtual memory");
         return -1;
     }

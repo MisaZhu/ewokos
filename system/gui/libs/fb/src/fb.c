@@ -33,7 +33,8 @@ int fb_set(const char *dev, int w, int h, int bpp) {
 	}
 
 	proto_t in;
-	PF->format(&in, "i,i,i", w, h, bpp);
+	PF->format(&in, "i,i,i", (ewokos_addr_t)w, (ewokos_addr_t)h,
+			(ewokos_addr_t)bpp);
 
 	int res = dev_cntl(dev, FB_DEV_CNTL_SET_INFO, &in, NULL);
 	PF->clear(&in);

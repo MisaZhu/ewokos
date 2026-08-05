@@ -98,12 +98,12 @@ static void set_boot_pgt(uint64_t virt, uint64_t phy, uint32_t len, int is_dev) 
 }
 #endif
 
-extern void load_boot_pgt(uint32_t page_table);
+extern void load_boot_pgt(uint64_t page_table);
 
 void _boot_start(void) {
 	boot_pgt_init();
 	set_boot_pgt(0x40000000,  0x40000000, 64*MB, 0);
 	set_boot_pgt(KERNEL_BASE, 0x40000000, 64*MB, 0);
 	set_boot_pgt(MMIO_BASE,   0x8000000,  256*MB, 1);
-	load_boot_pgt(startup_page_dir);
+	load_boot_pgt((uint64_t)startup_page_dir);
 }

@@ -41,8 +41,8 @@ static page_table_entry_t* next_table(page_table_entry_t* table, uint32_t index,
 	return entry_to_table(&table[index]);
 }
 
-int32_t map_page(page_dir_entry_t* vm, uint32_t virtual_addr,
-		uint32_t physical, uint32_t permissions, uint32_t pte_attr) {
+int32_t map_page(page_dir_entry_t* vm, ewokos_addr_t virtual_addr,
+		ewokos_addr_t physical, uint32_t permissions, uint32_t pte_attr) {
 	page_table_entry_t* pdpt;
 	page_table_entry_t* pd;
 	page_table_entry_t* pt;
@@ -75,7 +75,7 @@ int32_t map_page(page_dir_entry_t* vm, uint32_t virtual_addr,
 	return 0;
 }
 
-void unmap_page(page_dir_entry_t* vm, uint32_t virtual_addr) {
+void unmap_page(page_dir_entry_t* vm, ewokos_addr_t virtual_addr) {
 	page_table_entry_t* pdpt = next_table(vm, PAGE_PML4_INDEX(virtual_addr), 0);
 	page_table_entry_t* pd;
 	page_table_entry_t* pt;
@@ -94,15 +94,15 @@ void unmap_page(page_dir_entry_t* vm, uint32_t virtual_addr) {
 	pt[PAGE_PT_INDEX(virtual_addr)].value = 0;
 }
 
-uint32_t resolve_phy_address(page_dir_entry_t* vm, uint32_t virtual_addr) {
+ewokos_addr_t resolve_phy_address(page_dir_entry_t* vm, ewokos_addr_t virtual_addr) {
 	page_table_entry_t* pte = get_page_table_entry(vm, virtual_addr);
 	if (pte == NULL || !pte->present) {
 		return 0;
 	}
-	return ((uint32_t)(pte->Address << 12)) | (virtual_addr & (PAGE_SIZE - 1));
+	return ((ewokos_addr_t)(pte->Address << 12)) | (virtual_addr & (PAGE_SIZE - 1));
 }
 
-page_table_entry_t* get_page_table_entry(page_dir_entry_t* vm, uint32_t virtual_addr) {
+page_table_entry_t* get_page_table_entry(page_dir_entry_t* vm, ewokos_addr_t virtual_addr) {
 	page_table_entry_t* pdpt = next_table(vm, PAGE_PML4_INDEX(virtual_addr), 0);
 	page_table_entry_t* pd;
 	page_table_entry_t* pt;

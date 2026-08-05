@@ -41,7 +41,7 @@ typedef page_table_entry_t page_dir_entry_t;
 #define PTE_ATTR_FRAMEBUFFER     PTE_ATTR_WRCOMB
 
 void set_pte_flags(page_table_entry_t* pte, uint32_t pte_attr);
-page_table_entry_t* get_page_table_entry(page_dir_entry_t* vm, uint32_t virtual_addr);
+page_table_entry_t* get_page_table_entry(page_dir_entry_t* vm, ewokos_addr_t virtual_addr);
 void __set_translation_table_base(uint64_t base);
 void __flush_tlb(void);
 

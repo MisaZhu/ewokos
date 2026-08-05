@@ -19,14 +19,19 @@ void sys_info_init_arch(void) {
 
 	_sys_info.phy_offset = 0x40000000;
 	_sys_info.vector_base = 0x40000000;
+#if __aarch64__
+	_sys_info.total_phy_mem_size = 8ull*GB;
+#else
 	_sys_info.total_phy_mem_size = 1024*MB;
+#endif
 	_sys_info.total_usable_mem_size = _sys_info.total_phy_mem_size;
 	//_core_base_offset =  0x01000000;
 	_sys_info.mmio.phy_base = 0x8000000;
 	strcpy(_sys_info.machine, "virt");
 
 	_sys_info.total_usable_mem_size = _sys_info.total_phy_mem_size;
-	if(_sys_info.total_usable_mem_size > (uint32_t)MAX_USABLE_MEM_SIZE)
+
+	if(_sys_info.total_usable_mem_size > MAX_USABLE_MEM_SIZE)
 		_sys_info.total_usable_mem_size = MAX_USABLE_MEM_SIZE;
 
 #if __aarch64__
@@ -85,7 +90,7 @@ inline void __attribute__((optimize("O0"))) start_core(uint32_t core_id) {
     unsigned long ret = psci_cpu_on(core_id, __entry);
 }
 #else
-static uint32_t psci_cpu_on(uint32_t target_cpu, uint32_t entry_point)
+static uint32_t psci_cpu_on(uint32_t target_cpu, ewokos_addr_t entry_point)
 {
 	uint32_t ret;
 	__asm__ volatile(
@@ -110,7 +115,7 @@ inline void __attribute__((optimize("O0"))) start_core(uint32_t core_id) {
 	 * affinity values as linear cpu ids for the first cluster, so core_id can
 	 * be passed through directly here.
 	 */
-	psci_cpu_on(core_id, (uint32_t)__entry);
+	psci_cpu_on(core_id, (ewokos_addr_t)__entry);
 }
 #endif
 #endif

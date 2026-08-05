@@ -25,7 +25,7 @@ extern "C" {
 
 static fsfile_t _fsfiles[MAX_OPEN_FILE_PER_PROC];
 static shm_pipe_t* _pipe_shm[MAX_OPEN_FILE_PER_PROC];
-static uint32_t vfs_get_poll_events_by_node(uint32_t node_id);
+static uint32_t vfs_get_poll_events_by_node(ewokos_addr_t node_id);
 
 typedef struct {
         fsinfo_t info;
@@ -206,7 +206,7 @@ int vfs_get_by_fd(int fd, fsinfo_t* info) {
 
 int vfs_set_by_fd(int fd, fsinfo_t* info) {
 	proto_t in, out;
-	PF->format(&in, "i,m", fd, info, sizeof(fsinfo_t));
+	PF->format(&in, "i,m", (ewokos_addr_t)fd, info, sizeof(fsinfo_t));
 	PF->init(&out);
 	int res = ipc_call(get_vfsd_pid(), VFS_SET_BY_FD, &in, &out);
 	PF->clear(&in);
@@ -220,7 +220,7 @@ int vfs_set_by_fd(int fd, fsinfo_t* info) {
 	return res;
 }
 
-int vfs_get_by_node(uint32_t node, fsinfo_t* info) {
+int vfs_get_by_node(ewokos_addr_t node, fsinfo_t* info) {
 	proto_t in, out;
 	PF->init(&in)->addi(&in, node);
 	PF->init(&out);
@@ -241,9 +241,10 @@ int vfs_get_by_node(uint32_t node, fsinfo_t* info) {
 	return res;
 }
 
-int vfs_new_node(fsinfo_t* info, uint32_t node_to, bool vfs_node_only, bool vfs_write_over) {
+int vfs_new_node(fsinfo_t* info, ewokos_addr_t node_to, bool vfs_node_only, bool vfs_write_over) {
 	proto_t in, out;
-	PF->format(&in, "m,i,i,i,i", info, sizeof(fsinfo_t), node_to, vfs_node_only, vfs_write_over);
+	PF->format(&in, "m,i,i,i,i", info, sizeof(fsinfo_t), node_to,
+			(ewokos_addr_t)vfs_node_only, (ewokos_addr_t)vfs_write_over);
 	PF->init(&out);
 	int res = ipc_call(get_vfsd_pid(), VFS_NEW_NODE, &in, &out);
 	PF->clear(&in);
@@ -265,12 +266,13 @@ int vfs_new_node(fsinfo_t* info, uint32_t node_to, bool vfs_node_only, bool vfs_
  * round trip. On success the assigned node ids are written back into
  * each infos[i].node.
  */
-int vfs_new_nodes(fsinfo_t* infos, uint32_t num, uint32_t node_to) {
+int vfs_new_nodes(fsinfo_t* infos, uint32_t num, ewokos_addr_t node_to) {
 	if(infos == NULL || num == 0)
 		return -1;
 
 	proto_t in, out;
-	PF->format(&in, "i,i,m", (int32_t)node_to, (int32_t)num, infos, (int32_t)(sizeof(fsinfo_t)*num));
+	PF->format(&in, "i,i,m", node_to, (ewokos_addr_t)num, infos,
+			(int32_t)(sizeof(fsinfo_t)*num));
 	PF->init(&out);
 	int res = ipc_call(get_vfsd_pid(), VFS_NEW_NODES, &in, &out);
 	PF->clear(&in);
@@ -278,8 +280,8 @@ int vfs_new_nodes(fsinfo_t* infos, uint32_t num, uint32_t node_to) {
 		res = proto_read_int(&out);
 		if(res == 0) {
 			int32_t sz = 0;
-			uint32_t* ids = (uint32_t*)proto_read(&out, &sz);
-			if(ids != NULL && sz >= (int32_t)(sizeof(uint32_t)*num)) {
+			ewokos_addr_t* ids = (ewokos_addr_t*)proto_read(&out, &sz);
+			if(ids != NULL && sz >= (int32_t)(sizeof(ewokos_addr_t)*num)) {
 				for(uint32_t i=0; i<num; i++)
 					infos[i].node = ids[i];
 			}
@@ -313,7 +315,7 @@ void vfs_fullname(const char* fname, char* ret, uint32_t len) {
 
 int vfs_open(fsinfo_t* info, int oflag) {
 	proto_t in, out;
-	PF->format(&in, "m,i", info, sizeof(fsinfo_t), oflag);
+	PF->format(&in, "m,i", info, sizeof(fsinfo_t), (ewokos_addr_t)oflag);
 	//PF->init(&in)->add(&in, info, sizeof(fsinfo_t))->addi(&in, oflag);
 	PF->init(&out);
 
@@ -371,7 +373,7 @@ static inline uint32_t pipe_live_poll_events(shm_pipe_t* ring) {
 	return events;
 }
 
-static int read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block) {
+static int read_pipe(int fd, ewokos_addr_t node, void* buf, uint32_t size, bool block) {
 	fsfile_t* file = &_fsfiles[fd];
 	shm_pipe_t* ring = get_pipe_shm(fd, file);
 
@@ -439,7 +441,8 @@ static int read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block
 	/* Fallback: old IPC path (no shm available) */
 	while(1) {
 		proto_t in, out;
-		PF->format(&in, "i,i,i,i", fd, node, size, block?1:0);
+		PF->format(&in, "i,i,i,i", (ewokos_addr_t)fd, node,
+				(ewokos_addr_t)size, (ewokos_addr_t)(block ? 1 : 0));
 		PF->init(&out);
 
 		int vfsd_pid = get_vfsd_pid();
@@ -459,7 +462,7 @@ static int read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block
 	}
 }
 
-static int write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, bool block) {
+static int write_pipe(int fd, ewokos_addr_t node, const void* buf, uint32_t size, bool block) {
 	fsfile_t* file = &_fsfiles[fd];
 	shm_pipe_t* ring = get_pipe_shm(fd, file);
 
@@ -515,7 +518,8 @@ static int write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, boo
 	/* Fallback: old IPC path */
 	while(1) {
 		proto_t in, out;
-		PF->format(&in, "i,i,m,i", fd, node, buf, size, block?1:0);
+		PF->format(&in, "i,i,m,i", (ewokos_addr_t)fd, node, buf, size,
+				(ewokos_addr_t)(block ? 1 : 0));
 		PF->init(&out);
 
 		int vfsd_pid = get_vfsd_pid();
@@ -554,7 +558,8 @@ int vfs_close(int fd) {
 	int owner_pid = proc_getpid_or_raw(close_pid);
 	proto_t in;
 	PF->format(&in, "i,i,m,i,i",
-		fd, file->info.node, &file->info, sizeof(fsinfo_t), close_pid, owner_pid);
+		(ewokos_addr_t)fd, file->info.node, &file->info, sizeof(fsinfo_t),
+		(ewokos_addr_t)close_pid, (ewokos_addr_t)owner_pid);
 	int res = ipc_call(file->info.mount_pid, FS_CMD_CLOSE, &in, NULL);	
 	PF->clear(&in);
 
@@ -597,7 +602,7 @@ int vfs_dup2(int fd, int to) {
 	vfs_clear_file(to);	
 
 	proto_t in, out;
-	PF->format(&in, "i,i", fd, to);
+	PF->format(&in, "i,i", (ewokos_addr_t)fd, (ewokos_addr_t)to);
 	PF->init(&out);
 
 	int res = ipc_call(get_vfsd_pid(), VFS_DUP2, &in, &out);
@@ -783,7 +788,7 @@ int vfs_update(fsinfo_t* info, bool do_dev) {
 	return 0;
 }
 
-int vfs_del_node(uint32_t node) {
+int vfs_del_node(ewokos_addr_t node) {
 	proto_t in, out;
 	PF->init(&in)->addi(&in, node);
 	PF->init(&out);
@@ -814,7 +819,7 @@ int vfs_get_mount(fsinfo_t* info, mount_t* mount) {
 */
 
 
-int vfs_mount(uint32_t mount_node_to, uint32_t node) {
+int vfs_mount(ewokos_addr_t mount_node_to, ewokos_addr_t node) {
 	proto_t in, out;
 	PF->init(&in)->
 		addi(&in, mount_node_to)->
@@ -830,7 +835,7 @@ int vfs_mount(uint32_t mount_node_to, uint32_t node) {
 	return res;
 }
 
-int vfs_umount(uint32_t node) {
+int vfs_umount(ewokos_addr_t node) {
 	proto_t in, out;
 	PF->init(&in)->addi(&in, node);
 	PF->init(&out);
@@ -1060,7 +1065,7 @@ int vfs_flush(int fd, bool wait) {
 	return dev_flush(info.mount_pid, fd, info.node, wait);
 }
 
-int vfs_read_pipe(int fd, uint32_t node, void* buf, uint32_t size, bool block) {
+int vfs_read_pipe(int fd, ewokos_addr_t node, void* buf, uint32_t size, bool block) {
 	int res = read_pipe(fd, node, buf, size, block);
 	if(res == 0) { // pipe empty, do retry
 		errno = EAGAIN;
@@ -1094,7 +1099,7 @@ int vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 	return res;
 }
 
-int vfs_write_pipe(int fd, uint32_t node, const void* buf, uint32_t size, bool block) {
+int vfs_write_pipe(int fd, ewokos_addr_t node, const void* buf, uint32_t size, bool block) {
 	int res = write_pipe(fd, node, buf, size, block);
 	if(res == 0) { // pipe not empty, do retry
 		errno = EAGAIN;
@@ -1136,7 +1141,7 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 	return res;
 }
 
-static int vfs_block_raw(uint32_t node, int event) {
+static int vfs_block_raw(ewokos_addr_t node, int event) {
 	proto_t in;
 	PF->init(&in)->
 		addi(&in, node)->
@@ -1146,7 +1151,7 @@ static int vfs_block_raw(uint32_t node, int event) {
 	return res;
 }
 
-static uint32_t vfs_get_poll_events_by_node(uint32_t node_id) {
+static uint32_t vfs_get_poll_events_by_node(ewokos_addr_t node_id) {
 	proto_t in, out;
 	PF->init(&in)->
 		addi(&in, node_id);
@@ -1158,7 +1163,7 @@ static uint32_t vfs_get_poll_events_by_node(uint32_t node_id) {
 	return res;
 }
 
-int  vfs_block(uint32_t node, int event) {
+int  vfs_block(ewokos_addr_t node, int event) {
 	uint32_t wait_events = (uint32_t)event | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL;
 	while(1) {
 		/*
@@ -1189,7 +1194,7 @@ int  vfs_block(uint32_t node, int event) {
 	return 0;
 }
 
-int  vfs_unblock(uint32_t node) {
+int  vfs_unblock(ewokos_addr_t node) {
 	proto_t in;
 	PF->init(&in)->
 		addi(&in, node);
@@ -1198,7 +1203,7 @@ int  vfs_unblock(uint32_t node) {
 	return 0;
 }
 
-int  vfs_wakeup(uint32_t node, int events) {
+int  vfs_wakeup(ewokos_addr_t node, int events) {
 	proto_t in;
 	PF->init(&in)->
 		addi(&in, node)->
@@ -1209,7 +1214,7 @@ int  vfs_wakeup(uint32_t node, int events) {
 	return 0;
 }
 
-int  vfs_clear_poll_events(uint32_t node_id, uint32_t events) {
+int  vfs_clear_poll_events(ewokos_addr_t node_id, uint32_t events) {
 	proto_t in, out;
 	PF->init(&in)->
 		addi(&in, node_id)->

@@ -17,8 +17,8 @@ int dma_user_init(size_t total){
         return 0;
     _dma_alloced = 0;
     _dma_size = ALIGN_UP(total, 4096);
-    _dma_base = dma_alloc(0, _dma_size)&0xFFFFFFFF;
-    _dma_phy = dma_phy_addr(0, _dma_base)&0xFFFFFFFF;
+    _dma_base = (uint8_t*)dma_alloc(0, _dma_size);
+    _dma_phy = (uint8_t*)dma_phy_addr(0, (ewokos_addr_t)_dma_base);
     return (_dma_base != NULL && _dma_phy != NULL) ? 0 : -1;
 }
 
