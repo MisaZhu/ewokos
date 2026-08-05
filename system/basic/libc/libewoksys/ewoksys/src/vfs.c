@@ -353,8 +353,9 @@ static inline shm_pipe_t* get_pipe_shm(int fd, fsfile_t* file) {
 	if(shm_id <= 0)
 		return NULL;
 	shm_pipe_t* ring = (shm_pipe_t*)shmat(shm_id, NULL, 0);
-	if(ring != (void*)-1)
-		_pipe_shm[fd] = ring;
+	if(ring == (void*)-1)
+		return NULL;
+	_pipe_shm[fd] = ring;
 	return ring;
 }
 
