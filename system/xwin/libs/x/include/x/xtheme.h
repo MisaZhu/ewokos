@@ -58,7 +58,7 @@ typedef struct {
 	uint32_t desktopBGColor;
 	uint32_t desktopPatternMode;
 	uint32_t bgEffect;
-	bool     alpha;
+	bool     frameAlpha;
 } xwm_theme_t;
 
 #ifdef __cplusplus

@@ -52,6 +52,7 @@ static int xwin_update_info(xwin_t* xwin, uint8_t type) {
 	if(xwin->ws_g_shm != NULL && (type & X_UPDATE_REBUILD) != 0) {
 		shmdt(xwin->ws_g_shm);
 		xwin->ws_g_shm = NULL;
+		xwin->ws_g_shm_id = -1;
 	}
 
 	proto_t in;
@@ -135,6 +136,7 @@ xwin_t* xwin_open(x_t* xp, int32_t disp_index, int x, int y, int w, int h, const
 	memset(ret, 0, sizeof(xwin_t));
 	ret->fd = fd;
 	ret->x = xp;
+	ret->ws_g_shm_id = -1;
 
 	key_t key = 0;
 	uint32_t uuid = proc_get_uuid(getpid());
@@ -206,19 +208,17 @@ static graph_t* x_get_graph(xwin_t* xwin, graph_t* g) {
 	if(xwin == NULL || xwin->xinfo == NULL || xwin->xinfo->ws_g_shm_id == -1)
 		return NULL;
 
-	/*the server can rebuild the workspace shm on its own and publishes the
-	  new id into xinfo->ws_g_shm_id. shmat of the published id returns the
-	  cached address when it is still the mapped one, and a different one
-	  after a rebuild (every segment owns a unique global address), so use
-	  it to notice a rebuild instead of trusting the cached pointer: drawing
-	  with the fresh wsr size into a stale (smaller) segment faults.*/
-	void* p = shmat(xwin->xinfo->ws_g_shm_id, 0, 0);
-	if(p == (void*)-1)
-		return NULL;
-	if(xwin->ws_g_shm != p) {
+	/*the server may rebuild the workspace shm and publish a new id into xinfo;
+	  remap only when that id changed, instead of paying a shmat syscall on
+	  every repaint.*/
+	if(xwin->ws_g_shm == NULL || xwin->ws_g_shm_id != xwin->xinfo->ws_g_shm_id) {
+		void* p = shmat(xwin->xinfo->ws_g_shm_id, 0, 0);
+		if(p == (void*)-1)
+			return NULL;
 		if(xwin->ws_g_shm != NULL)
 			shmdt(xwin->ws_g_shm);
 		xwin->ws_g_shm = p;
+		xwin->ws_g_shm_id = xwin->xinfo->ws_g_shm_id;
 		if(xwin->on_resize != NULL) {
 			xwin->on_resize(xwin);
 		}
@@ -252,6 +252,7 @@ void xwin_close(xwin_t* xwin) {
 		shmdt(xwin->ws_g_shm);
 		xwin->ws_g_shm = NULL;
 	}
+	xwin->ws_g_shm_id = -1;
 
 	if(xwin->xinfo != NULL) {
 		shmdt(xwin->xinfo);

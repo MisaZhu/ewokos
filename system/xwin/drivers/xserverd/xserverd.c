@@ -109,6 +109,16 @@ static bool top_proc(x_t* x, xwin_t* win) {
 }
 
 static bool need_repaint_frame(x_t* x, xwin_t* win);
+static bool need_repaint_desktop(x_t* x, xwin_t* win);
+
+/*theme alpha here only means the frame has translucent edge/corner pixels;
+  the workspace interior still gets copied opaquely and should not force the
+  whole window into the expensive translucent-window path.*/
+static inline bool frame_cuts_ws(x_t* x, xwin_t* win) {
+	if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0)
+		return false;
+	return x->config.xwm_theme.frameAlpha;
+}
 static void xwin_revalidate_geometry(x_t* x, xwin_t* win);
 
 static void win_mark_frame_dirty(x_t* x, xwin_t* win) {
@@ -161,10 +171,6 @@ static void prepare_win_content(x_t* x, xwin_t* win, const grect_t* ws_dmg) {
 	if(display->g == NULL)
 		return;
 
-	/*a stale winr would make xwm draw with a geometry the buffers do not
-	  have and shear the whole window, so it gets fixed before anything is
-	  drawn (this is cheap: it only acts on the winr == wsr tell)*/
-	xwin_revalidate_geometry(x, win);
 	if(win->frame_g == NULL)
 		return;
 
@@ -345,7 +351,7 @@ static int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
 					dmg.w, dmg.h, 0xff);
 		}
 		else if(x->config.xwm_theme.shadow > 0 &&
-				!x->config.xwm_theme.alpha) {
+				!x->config.xwm_theme.frameAlpha) {
 			/*everything is opaque except the shadow, and the shadow only
 			  lives in the strips right of and below the workspace: copy the
 			  rest with a plain blit and blend just those strips*/
@@ -383,51 +389,40 @@ static int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
 				memcpy(&win->shadow_rect, &win->xinfo->winr, sizeof(grect_t));
 			}
 		}
-		else if(x->config.xwm_theme.alpha) {
-			/*the frame's translucent pixels are confined to the four corner
-			  squares the rounded corners are cut out of: blend just those
-			  and copy everything else with a plain blit. c is the square
-			  size, the radius plus the outermost ring the arc is drawn on*/
-			int32_t c = 0;
-			if(x->config.xwm_theme.round > 0)
-				c = (int32_t)x->config.xwm_theme.round + 1;
-			if(c > 0) {
-				if(2*c > g->w)
-					c = g->w/2;
-				if(2*c > g->h)
-					c = g->h/2;
-			}
+		else if(x->config.xwm_theme.frameAlpha) {
+			/*for themed alpha frames only the border ring needs blending;
+			  copy the middle opaquely and blend the four edges. The edge
+			  width follows the larger of frame width and round radius.*/
+			int32_t edge = (int32_t)x->config.xwm_theme.frameW;
+			if((int32_t)x->config.xwm_theme.round > edge)
+				edge = (int32_t)x->config.xwm_theme.round;
+			if(edge > g->w/2)
+				edge = g->w/2;
+			if(edge > g->h/2)
+				edge = g->h/2;
 
-			if(c > 0) {
+			if(edge > 0) {
 				int32_t wx = win->xinfo->winr.x;
 				int32_t wy = win->xinfo->winr.y;
 
-				grect_t c_tl = {0, 0, c, c};
-				grect_t c_tr = {g->w - c, 0, c, c};
-				grect_t c_bl = {0, g->h - c, c, c};
-				grect_t c_br = {g->w - c, g->h - c, c, c};
-				blit_win_area(g, disp_g, wx, wy, &dmg, &c_tl, true);
-				blit_win_area(g, disp_g, wx, wy, &dmg, &c_tr, true);
-				blit_win_area(g, disp_g, wx, wy, &dmg, &c_bl, true);
-				blit_win_area(g, disp_g, wx, wy, &dmg, &c_br, true);
+				grect_t top = {0, 0, g->w, edge};
+				grect_t bottom = {0, g->h - edge, g->w, edge};
+				grect_t left = {0, edge, edge, g->h - 2*edge};
+				grect_t right = {g->w - edge, edge, edge, g->h - 2*edge};
+				grect_t mid = {edge, edge, g->w - 2*edge, g->h - 2*edge};
 
-				/*the rest of the frame is opaque: the strips between the
-				  corner squares and the big middle part*/
-				grect_t top = {c, 0, g->w - 2*c, c};
-				grect_t mid = {0, c, g->w, g->h - 2*c};
-				grect_t bot = {c, g->h - c, g->w - 2*c, c};
-				blit_win_area(g, disp_g, wx, wy, &dmg, &top, false);
+				blit_win_area(g, disp_g, wx, wy, &dmg, &top, true);
+				blit_win_area(g, disp_g, wx, wy, &dmg, &bottom, true);
+				blit_win_area(g, disp_g, wx, wy, &dmg, &left, true);
+				blit_win_area(g, disp_g, wx, wy, &dmg, &right, true);
 				blit_win_area(g, disp_g, wx, wy, &dmg, &mid, false);
-				blit_win_area(g, disp_g, wx, wy, &dmg, &bot, false);
 			}
 			else {
-				/*alpha but no rounded corners: the translucent pixels could
-				  be anywhere, blend the whole window*/
-				graph_blt_alpha(g, dmg.x, dmg.y, dmg.w, dmg.h,
+				graph_blt(g, dmg.x, dmg.y, dmg.w, dmg.h,
 						disp_g,
 						win->xinfo->winr.x + dmg.x,
 						win->xinfo->winr.y + dmg.y,
-						dmg.w, dmg.h, 0xff);
+						dmg.w, dmg.h);
 			}
 		}
 		else {
@@ -640,6 +635,8 @@ static inline bool rect_contains_rect(const grect_t* out, const grect_t* in) {
   being rebuilt: that pass repaints every window bottom to top, so each one
   blends its bands onto a fresh background itself.*/
 static void refresh_shadows_above(x_t* x, xwin_t* below, const grect_t* region) {
+	if(x->config.xwm_theme.shadow <= 0)
+		return;
 	x_display_t* display = &x->displays[below->xinfo->display_index];
 	xwin_t* w = below->next;
 	while(w != NULL) {
@@ -759,22 +756,16 @@ static inline bool rect_contains(const grect_t* out, const grect_t* in) {
 }
 
 /* whether rect r is fully covered by the opaque workspace of one window
-   above 'from' (from==NULL means checking against all windows).
-   opaque means: no per-win alpha, no alpha theme, and no translucent
-   bg-effect (same rule as mark_dirty) */
+   above 'from' (from==NULL means checking against all windows). */
 static bool covered_by_opaque_win(x_t* x, xwin_t* from, uint32_t display_index, const grect_t* r) {
 	xwin_t* top = (from == NULL) ? x->win_head : from->next;
 	while(top != NULL) {
 		if(top->ready && top->xinfo != NULL && top->xinfo->visible &&
 				top->xinfo->display_index == display_index &&
 				!top->xinfo->alpha &&
-				/*the theme cuts translucent corners into the workspace, so
-				  such a window does not fully paint even its wsr*/
-				!x->config.xwm_theme.alpha &&
+				!need_repaint_desktop(x, top) &&
 				(top->xinfo->focused ||
 				(top->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) != 0)) {
-			/*a shadow hangs outside the wsr and stays translucent, but the
-			  wsr itself is what is tested here*/
 			if(rect_contains(&top->xinfo->wsr, r))
 				return true;
 		}
@@ -1173,7 +1164,7 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 				else {
 					grect_t win_dirty;
 					if(draw_win(display->g, x, win, &win_dirty) == 0) {
-						if(!display->dirty)
+						if(!display->dirty && x->config.xwm_theme.shadow > 0)
 							refresh_shadows_above(x, win, &win_dirty);
 						x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &win_dirty);
 						do_flush = true;
@@ -1280,17 +1271,19 @@ static void unmark_dirty(x_t* x, xwin_t* win) {
 }
 
 static void mark_dirty_confirm(x_t* x, xwin_t* win) {
-	(void)x;
 	xwin_t* v = win->next;
 	while(v != NULL) {
 		if(v->dirty_mark) {
 			v->dirty = true;
 			v->dirty_mark = false;
 			v->has_damage = false; //the area below it was repainted
-			/*no need for a whole display repaint: every window above
-			  the dirty one that intersects it got marked here and is
-			  redrawn bottom to top in the same pass, so each blends
-			  onto content that was just made fresh*/
+
+			if(v != win && v->xinfo != NULL) {
+				if(need_repaint_desktop(x, v))
+					x_dirty(x, v->xinfo->display_index);
+				else if(frame_cuts_ws(x, v))
+					v->frame_dirty = true;
+			}
 		}
 		v = v->next;
 	}
@@ -1311,7 +1304,7 @@ static void mark_dirty(x_t* x, xwin_t* win) {
 			memcpy(&r, &top->xinfo->winr, sizeof(grect_t));
 
 			grect_t *check_r;
-			if(x->config.xwm_theme.alpha || x->config.xwm_theme.shadow > 0)
+			if(x->config.xwm_theme.frameAlpha || x->config.xwm_theme.shadow > 0)
 				check_r = &win->xinfo->winr;
 			else
 				check_r = &win->xinfo->wsr;
@@ -1324,13 +1317,14 @@ static void mark_dirty(x_t* x, xwin_t* win) {
 					r.y == check_r->y &&
 					r.w == check_r->w &&
 					r.h == check_r->h) {
-				if(!top->xinfo->alpha && 
+				if(!top->xinfo->alpha &&
+					!need_repaint_desktop(x, top) &&
 					(top->xinfo->focused ||
-					(top->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) != 0)) { 
-					//covered by upon window. don't have to repaint.
-						win->dirty = false;
-						unmark_dirty(x, win);//unmark temporary dirty top win
-						return;
+					(top->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) != 0)) {
+					/*fully hidden by an opaque workspace above: stop extending
+					  upward here, but keep the dirty marks collected so far so
+					  the covering window can repaint its frame ring if needed.*/
+					break;
 				}
 			}
 		}
@@ -1392,10 +1386,24 @@ static bool need_repaint_frame(x_t* x, xwin_t* win) {
 	if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0 && !win->xinfo->alpha)
 		return false;
 
-	if(x->config.xwm_theme.shadow > 0 ||
-		(x->config.xwm_theme.bgEffect && !win->xinfo->focused) ||
-		x->config.xwm_theme.alpha)
+	if((x->config.xwm_theme.bgEffect && !win->xinfo->focused) ||
+				x->config.xwm_theme.frameAlpha)
 			return true;
+	return false;
+}
+
+/*only paths that read the current display content back need a desktop redraw.
+  themed alpha corners do not: the workspace stays opaque and the frame ring
+  can be repainted on top by itself. shadow bands are handled separately by
+  the compositor too, so shadow alone should not escalate into a whole-display
+  repaint.*/
+static bool need_repaint_desktop(x_t* x, xwin_t* win) {
+	if(win->xinfo->alpha)
+		return true;
+	if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0)
+		return false;
+	if(x->config.xwm_theme.bgEffect && !win->xinfo->focused)
+		return true;
 	return false;
 }
 
@@ -1403,13 +1411,11 @@ static void win_dirty(x_t* x, xwin_t* win) {
 	win->dirty = true;
 	mark_dirty(x, win);
 	if(win->dirty) {
-		/*only content that reads the desktop back has to repaint the whole
-		  display; a shadow is blended from the frame at blit time, so it is
-		  fine with the window simply being redrawn*/
-		if(win->xinfo->alpha ||
-				(x->config.xwm_theme.alpha && need_repaint_frame(x, win))) {
+		if(need_repaint_desktop(x, win)) {
 			x_dirty(x, win->xinfo->display_index);
 		}
+		else if(frame_cuts_ws(x, win))
+			win->frame_dirty = true;
 	}
 	x_repaint_req(x, win->xinfo->display_index);
 }
@@ -1643,8 +1649,6 @@ static void xwin_revalidate_geometry(x_t* x, xwin_t* win) {
 		return;
 	if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0)
 		return;
-	if(!check_xwm(x))
-		return;
 
 	/*mirrors what xwm's getWinSpace adds around the workspace*/
 	bool edge = win->xinfo->state == XWIN_STATE_MAX ||
@@ -1657,6 +1661,8 @@ static void xwin_revalidate_geometry(x_t* x, xwin_t* win) {
 	if(!deco)
 		return;
 	if(memcmp(&win->xinfo->winr, &win->xinfo->wsr, sizeof(grect_t)) != 0)
+		return;
+	if(!check_xwm(x))
 		return;
 
 	grect_t winr;

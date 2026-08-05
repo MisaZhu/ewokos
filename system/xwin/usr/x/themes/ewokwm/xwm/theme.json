@@ -15,7 +15,7 @@
 
     "#bg_effect": "0: none; 1: transparent; 2: dots; 3: glass; 4: gaussian",
     "bg_effect": 0,
-    "alpha": 1,
+    "frame_alpha": 1,
 
     "pattern": "/usr/system/images/wallpapers/wallpaper1.png",
     "#pattern_mode": "0 auto, 1 tile, 2 center, 3 fit",
