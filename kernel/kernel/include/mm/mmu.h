@@ -27,7 +27,16 @@
 #define KERNEL_PAGE_DIR_END           (KERNEL_PAGE_DIR_BASE + KERNEL_PAGE_DIR_SIZE)
 
 #define ALLOCABLE_PAGE_DIR_BASE       ALIGN_UP(KERNEL_PAGE_DIR_END, PAGE_DIR_SIZE)
+#if __aarch64__
+#define ALLOCABLE_L3_PAGE_TABLE_SIZE  \
+	((ALIGN_UP(_sys_info.total_usable_mem_size, 2*MB) / (2*MB)) * PAGE_TABLE_SIZE)
+#define ALLOCABLE_L2_PAGE_TABLE_SIZE  \
+	((ALIGN_UP(_sys_info.total_usable_mem_size, 1*GB) / (1*GB)) * PAGE_TABLE_SIZE)
+#define ALLOCABLE_PAGE_DIR_SIZE       \
+	(ALLOCABLE_L3_PAGE_TABLE_SIZE + ALLOCABLE_L2_PAGE_TABLE_SIZE)
+#else
 #define ALLOCABLE_PAGE_DIR_SIZE       (2 * (_sys_info.total_phy_mem_size / KB))
+#endif
 #define ALLOCABLE_PAGE_DIR_END        (ALLOCABLE_PAGE_DIR_BASE + ALLOCABLE_PAGE_DIR_SIZE)
 
 #define KMALLOC_BASE                  ALLOCABLE_PAGE_DIR_END
