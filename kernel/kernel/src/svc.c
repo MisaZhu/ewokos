@@ -350,8 +350,9 @@ static ewokos_addr_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint3
 	 * may combine consecutive stores into burst transactions.
 	 * MMIO -> Device-nGnRE: strict ordering for register accesses.
 	 */
-	uint32_t attr = (paddr < _sys_info.mmio.phy_base) ?
-				PTE_ATTR_NOCACHE : PTE_ATTR_DEV;
+	uint32_t attr = PTE_ATTR_DEV;
+    if(paddr + size <= (ewokos_addr_t)_sys_info.total_usable_mem_size)
+            attr = PTE_ATTR_NOCACHE; /* RAM/framebuffer only */
 	map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, attr);
 	flush_tlb();
 	return vaddr;

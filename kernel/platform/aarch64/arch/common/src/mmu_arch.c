@@ -12,7 +12,7 @@
  * Notice: virtual and physical address inputed must be all aliend by PAGE_SIZE !
  */
 int32_t map_page(page_dir_entry_t *vm, uint32_t virtual_addr,
-		     uint32_t physical, uint32_t permissions, uint32_t pte_attr) {
+		     ewokos_addr_t physical, uint32_t permissions, uint32_t pte_attr) {
 	page_table_entry_t *l2_table = 0;
 	page_table_entry_t *l3_table = 0;
 

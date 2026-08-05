@@ -2,6 +2,7 @@
 #define MMU_ARCH_H
 
 #include "mmudef.h"
+#include <ewokos_config.h>
 
 #define PAGE_L1_INDEX(x) (((uint64_t)x >> 30) & 0x1FF) 
 #define PAGE_L2_INDEX(x) (((uint64_t)x >> 21) & 0x1FF)
@@ -56,7 +57,7 @@ void set_pte_flags(page_table_entry_t* pte, uint64_t pte_attr);
 #define PTE_ATTR_STRONG_ORDER    4
 #define PTE_ATTR_NOCACHE         5
 
-int32_t  map_page(page_dir_entry_t *vm, uint32_t virtual_addr, uint32_t physical,
+int32_t  map_page(page_dir_entry_t *vm, uint32_t virtual_addr, ewokos_addr_t physical,
 	                uint32_t access_permissions, uint32_t pte_attr);
 void  unmap_page(page_dir_entry_t *vm, uint32_t virtual_addr);
 uint32_t resolve_phy_address(page_dir_entry_t *vm, uint32_t virtual);
