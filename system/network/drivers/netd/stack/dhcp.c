@@ -372,10 +372,10 @@ dhcp_send(struct net_device *dev, dhcp_client_t *dhc, int message_type)
     }
 
     /*
-     * Renewal keeps the configured address: carry it in ciaddr, clear the
-     * broadcast flag so the server unicasts the ACK back to us (works even
-     * when broadcast delivery is degraded), and source the IP header from
-     * the leased address.
+     * Renewal keeps the configured address in ciaddr and sources the IP
+     * header from the leased address. The raw DHCP path still emits the
+     * frame via L2 broadcast, so this behaves closer to a rebind-style
+     * REQUEST than a pure unicast renew.
      */
     dhcp_fill(dev, dhcp, &len, dhc->xid,
               renewing ? dhc->ip : 0,
@@ -587,6 +587,21 @@ static void dhcp_input(const uint8_t *data, size_t len, struct net_device *dev)
     }
 done:
     if (dhcp_type == DHCP_OPTION_NAK) {
+        /*
+         * DISCOVER/SELECTING does not have a chosen server yet, so a NAK here
+         * is not actionable. For REQUESTING/RENEWING, only let the selected
+         * lessor revoke the lease: the renew path below still emits a raw
+         * broadcast REQUEST, and unrelated DHCP servers on the segment must
+         * not be able to kick us off a still-valid address.
+         */
+        if (dhc->state == DHCP_STATE_SELECTING) {
+            return;
+        }
+        if (dhc->server_id != 0 &&
+            server_id != dhc->server_id &&
+            ip_packet->src != dhc->server_id) {
+            return;
+        }
         gettimeofday(&dhc->update, NULL);
         dhcp_reset(dev, dhc);
         return;
@@ -609,7 +624,15 @@ done:
     if (dhc->state != DHCP_STATE_REQUESTING && dhc->state != DHCP_STATE_SELECTING &&
         dhc->state != DHCP_STATE_RENEWING)
         return;
-    if (server_id != 0 && dhc->server_id != 0 && server_id != dhc->server_id)
+    /*
+     * Renewals are sent on the raw broadcast path above, so a valid ACK may
+     * come back without matching the original server-id exactly (effectively
+     * rebind semantics once the REQUEST leaves as broadcast). Keep strict
+     * server-id pinning for SELECTING/REQUESTING, but accept any ACK while
+     * RENEWING as long as xid/chaddr/yiaddr checks already match.
+     */
+    if (dhc->state != DHCP_STATE_RENEWING &&
+        server_id != 0 && dhc->server_id != 0 && server_id != dhc->server_id)
         return;
 
     if (dhc->state == DHCP_STATE_RENEWING &&
