@@ -24,6 +24,7 @@ static int32_t _zwidth;
 static int32_t _zheight;
 static fbd_t* _fbd = NULL;
 static char _logo[256] = {0};
+static fb_dma_t* _cur_dma = NULL; /* live shm, for fbd_refresh() */
 
 static int fb_fcntl(vdevice_t* dev, int fd,
 		int from_pid,
@@ -196,10 +197,15 @@ uint32_t fbd_rotate_to(const fbinfo_t* fbinfo, const graph_t* g, int rotate) {
 
 static graph_t* _rotate_g = NULL; /* cached rotate buffer, allocated once */
 static uint32_t (*_flush_rect)(const fbinfo_t*, const graph_t*, const grect_t*) = NULL;
+static char* (*_dev_cmd)(int from_pid, int argc, char** argv) = NULL;
 
 void fbd_set_flush_rect(uint32_t (*flush_rect)(const fbinfo_t* fbinfo,
 		const graph_t* g, const grect_t* r)) {
 	_flush_rect = flush_rect;
+}
+
+void fbd_set_dev_cmd(char* (*dev_cmd)(int from_pid, int argc, char** argv)) {
+	_dev_cmd = dev_cmd;
 }
 
 uint32_t fbd_flush_rect_to(const fbinfo_t* fbinfo, const graph_t* g, const grect_t* r) {
@@ -520,6 +526,24 @@ static int do_fb_flush(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, voi
 	return do_flush(dma);
 }
 
+/*re-push the frame the client last drew. A driver that changes how pixels
+  are pushed (e.g. a contrast LUT) needs this: without it the new setting
+  only shows up whenever the client happens to redraw, which on a static
+  screen may be never. Always a FULL frame: honouring the pending dirty
+  rects would repaint a few patches with the new pixel pipeline and leave
+  the rest of the screen as the old one drew it.*/
+int fbd_refresh(void) {
+	if(_cur_dma == NULL || _cur_dma->shm == NULL)
+		return -1;
+
+	fb_ctrl_t* ctrl = (fb_ctrl_t*)(_cur_dma->shm + _cur_dma->size);
+	ctrl->dirty_num = 0;
+	ctrl->busy = 1;
+	uint32_t res = flush(&_fbinfo, _cur_dma->shm, _cur_dma->size, _rotate);
+	ctrl->busy = 0;
+	return res > 0 ? 0 : -1;
+}
+
 static int32_t fb_dma(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
 	(void)dev;
 	(void)fd;
@@ -569,6 +593,15 @@ static int fb_dev_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	return _fbd->read(buf, size);
 }
 
+static char* fb_dev_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* p) {
+	(void)dev;
+	(void)p;
+
+	if(_dev_cmd == NULL)
+		return NULL;
+	return _dev_cmd(from_pid, argc, argv);
+}
+
 int fbd_run(fbd_t* fbd, const char* mnt_name,
 		uint32_t def_w, uint32_t def_h, const char* conf_file) {
 	_fbd = fbd;
@@ -596,8 +629,10 @@ int fbd_run(fbd_t* fbd, const char* mnt_name,
 	dev.fcntl = fb_fcntl;
 	dev.dev_cntl = fb_dev_cntl;
 	dev.read = fb_dev_read;
+	dev.cmd = fb_dev_cmd;
 
 	dev.extra_data = &dma;
+	_cur_dma = &dma;
 
 	add_display_fb_dev("/dev/display", mnt_name);
 	device_run(&dev, mnt_name, FS_TYPE_CHAR, 0666);

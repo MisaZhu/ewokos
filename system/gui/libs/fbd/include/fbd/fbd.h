@@ -51,6 +51,20 @@ extern void fbd_set_flush_rect(uint32_t (*flush_rect)(const fbinfo_t* fbinfo,
  * does not allow it. */
 extern uint32_t fbd_flush_rect_to(const fbinfo_t* fbinfo, const graph_t* g, const grect_t* r);
 
+/* Opt-in dev.cmd handler (see the `devcmd` tool), for panel side knobs like
+ * the backlight that have no place in the fbinfo/fcntl API. Like
+ * fbd_set_flush_rect() this is a separate registration (not a fbd_t field)
+ * because several drivers leave the tail of their fbd_t uninitialised. The
+ * returned string is malloc'ed and freed by the caller; NULL means the
+ * command is not supported. */
+extern void fbd_set_dev_cmd(char* (*dev_cmd)(int from_pid, int argc, char** argv));
+
+/* Re-push the frame the client last drew, without waiting for it to redraw.
+ * Needed by drivers whose dev.cmd changes how pixels reach the panel (a
+ * contrast LUT, say), since on a static screen the next client flush may
+ * never come. Returns 0 on success, -1 when there is no frame yet. */
+extern int fbd_refresh(void);
+
 #ifdef __cplusplus
 }
 #endif
