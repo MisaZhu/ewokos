@@ -528,8 +528,6 @@ int32_t ext2_read(ext2_t* ext2, INODE* node, char *buf, int32_t nbytes, int32_t 
 }
 
 static INODE* get_node_by_ino(ext2_t* ext2, uint32_t ino, char* buf) {
-	if(ino == 0 || ino > ext2->super.s_inodes_count)
-		return NULL;
 	uint32_t bgid = get_gd_index_by_ino(ext2, ino);
 	ino = get_ino_in_group(ext2, ino, bgid);
 	uint32_t offset = (ino-1)%8;
@@ -562,8 +560,6 @@ int32_t ext2_create_dir(ext2_t* ext2, uint32_t father_ino, INODE* father_inp, co
 	char buf[EXT2_BLOCK_SIZE];
 
 	ino = ext2_ialloc(ext2); //alloc a node id from table
-	if(ino == 0)
-		return -1;
 	blk = ext2_balloc(ext2); //alloc a block
 
 	INODE* inp = get_node_by_ino(ext2, ino, buf); //read inode from block
