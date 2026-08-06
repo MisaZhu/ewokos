@@ -31,8 +31,6 @@
 #define VIRTIO_SND_PCM_FMT_S16 5
 #define VIRTIO_SND_PCM_FMT_S24_3 11
 #define VIRTIO_SND_PCM_FMT_S32 17
-#define VIRTIO_SND_PCM_FMT_S8 1
-#define VIRTIO_SND_PCM_FMT_U8 2
 
 #define VIRTIO_SND_PCM_RATE_8000 1
 #define VIRTIO_SND_PCM_RATE_16000 3
@@ -122,8 +120,8 @@ int virtio_snd_read_config(virtio_dev_t dev, struct virtio_snd_config *cfg);
 int virtio_snd_ctl(virtio_dev_t dev, const void *req, uint32_t req_len, void *resp, uint32_t resp_len);
 int virtio_snd_query_pcm_info(virtio_dev_t dev, uint32_t stream_id, struct virtio_snd_pcm_info *info);
 int virtio_snd_pcm_set_params(virtio_dev_t dev, uint32_t stream_id, uint32_t buffer_bytes,
-			      uint32_t period_bytes, uint32_t features, uint8_t channels,
-			      uint8_t format, uint8_t rate);
+							  uint32_t period_bytes, uint32_t features, uint8_t channels,
+							  uint8_t format, uint8_t rate);
 int virtio_snd_pcm_ctl(virtio_dev_t dev, uint32_t code, uint32_t stream_id);
 int virtio_snd_poll(virtio_dev_t dev);
 int virtio_snd_last_error(virtio_dev_t dev);
@@ -132,21 +130,6 @@ int virtio_snd_tx_init(virtio_dev_t dev, uint32_t slot_count, uint32_t period_by
 void virtio_snd_tx_reset(virtio_dev_t dev);
 int virtio_snd_tx_avail_bytes(virtio_dev_t dev);
 int virtio_snd_tx_write(virtio_dev_t dev, uint32_t stream_id, const void *data, uint32_t size,
-			uint32_t timeout_ms);
-
-/* Interrupt-driven operation */
-int virtio_snd_enable_interrupts(virtio_dev_t dev);
-int virtio_snd_process_events(virtio_dev_t dev);
-int virtio_snd_tx_ready_bytes(virtio_dev_t dev);
-
-/* PCM capture / RX */
-#define VIRTIO_SND_RX_SLOT_MAX 8
-
-int virtio_snd_rx_init(virtio_dev_t dev, uint32_t slot_count, uint32_t period_bytes);
-void virtio_snd_rx_reset(virtio_dev_t dev);
-int virtio_snd_rx_read(virtio_dev_t dev, void *buf, uint32_t size);
-int virtio_snd_rx_avail_bytes(virtio_dev_t dev);
-int virtio_snd_rx_start(virtio_dev_t dev, uint32_t stream_id);
-void virtio_snd_rx_stop(virtio_dev_t dev);
+						uint32_t timeout_ms);
 
 #endif
