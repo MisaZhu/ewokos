@@ -486,7 +486,7 @@ int ssh_send_kexinit(ssh_session_t *session) {
     memcpy(p, cookie, 16);
     p += 16;
 
-    const char *kex_algs = "kex-strict-c-v00@openssh.com,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,diffie-hellman-group14-sha256,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,ext-info-c";
+    const char *kex_algs = "kex-strict-c-v00@openssh.com,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,diffie-hellman-group14-sha256,ext-info-c";
     ssh_write_uint32(p, strlen(kex_algs));
     p += 4;
     memcpy(p, kex_algs, strlen(kex_algs));
@@ -597,7 +597,7 @@ int ssh_receive_kexinit(ssh_session_t *session) {
 
     /* Parse client and server KEXINIT packets */
     /* Parse client list (from known constant) */
-    strncpy(client_kex, "kex-strict-c-v00@openssh.com,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,diffie-hellman-group14-sha256,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,ext-info-c", sizeof(client_kex)-1);
+    strncpy(client_kex, "kex-strict-c-v00@openssh.com,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,diffie-hellman-group14-sha256,ext-info-c", sizeof(client_kex)-1);
     strncpy(client_hostkey, "ssh-rsa,ssh-dss,ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,ssh-ed25519", sizeof(client_hostkey)-1);
     strncpy(client_enc, "aes256-ctr,aes192-ctr,aes128-ctr", sizeof(client_enc)-1);
     strncpy(client_mac, "hmac-sha2-256", sizeof(client_mac)-1);
@@ -819,10 +819,10 @@ static int ssh_get_ec_curve_nid(const char *kex) {
 int ssh_handle_kex(ssh_session_t *session) {
     ssh_packet_t packet;
     uint8_t *p;
-    uint8_t shared_secret[128];
+    uint8_t shared_secret[256];
     size_t secret_len = 0;
-    uint8_t client_public[256];
-    uint8_t server_public[256];
+    uint8_t client_public[264];
+    uint8_t server_public[264];
     uint32_t client_public_len = 0;
     uint32_t server_public_len = 0;
     uint32_t hostkey_len = 0;
@@ -1244,20 +1244,58 @@ int ssh_handle_kex(ssh_session_t *session) {
         }
         
         p = packet.payload;
-        
+        size_t remaining = packet.payload_len;
+
+        if (remaining < 4) {
+            ssh_set_error(session, "DH reply too short for host key length");
+            DH_free(dh);
+            return -1;
+        }
         hostkey_len = ssh_read_uint32(p);
         p += 4;
+        remaining -= 4;
+        if (hostkey_len > remaining) {
+            ssh_set_error(session, "Invalid host key length: %u > %zu", hostkey_len, remaining);
+            DH_free(dh);
+            return -1;
+        }
         hostkey = p;
         p += hostkey_len;
-        
+        remaining -= hostkey_len;
+
+        if (remaining < 4) {
+            ssh_set_error(session, "DH reply too short for server public key length");
+            DH_free(dh);
+            return -1;
+        }
         server_public_len = ssh_read_uint32(p);
         p += 4;
+        remaining -= 4;
+        if (server_public_len > sizeof(server_public) || server_public_len > remaining) {
+            ssh_set_error(session, "Invalid server DH public key length: %u", server_public_len);
+            DH_free(dh);
+            return -1;
+        }
         memcpy(server_public, p, server_public_len);
         BIGNUM *f_bn = BN_bin2bn(p, server_public_len, NULL);
         p += server_public_len;
-        
-        /* Skip signature */
-        p += 4 + ssh_read_uint32(p);
+        remaining -= server_public_len;
+
+        if (remaining < 4) {
+            ssh_set_error(session, "DH reply too short for signature length");
+            BN_free(f_bn);
+            DH_free(dh);
+            return -1;
+        }
+        uint32_t sig_len = ssh_read_uint32(p);
+        p += 4;
+        remaining -= 4;
+        if (sig_len > remaining) {
+            ssh_set_error(session, "Invalid DH signature length: %u > %zu", sig_len, remaining);
+            BN_free(f_bn);
+            DH_free(dh);
+            return -1;
+        }
         
         secret_len = DH_compute_key(shared_secret, f_bn, dh);
         BN_free(f_bn);
@@ -1271,7 +1309,7 @@ int ssh_handle_kex(ssh_session_t *session) {
         DH_free(dh);
     }
     
-    uint8_t shared_secret_mpint[140];
+    uint8_t shared_secret_mpint[sizeof(shared_secret) + 5];
     size_t shared_secret_mpint_len = 0;
     if (ssh_encode_mpint(shared_secret, secret_len,
                          shared_secret_mpint, sizeof(shared_secret_mpint),

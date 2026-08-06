@@ -160,8 +160,8 @@ typedef struct ssh_session {
     int ecdh_ready;
     
     /* DH state - pre-generated for kex-strict mode */
-    uint8_t dh_private[256];  /* Large enough for group14 */
-    uint8_t dh_public[256];
+    uint8_t dh_private[256];  /* Large enough for group14 private value */
+    uint8_t dh_public[264];   /* Large enough for group14 mpint/public value */
     uint32_t dh_private_len;
     uint32_t dh_public_len;
     int dh_ready;
