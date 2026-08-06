@@ -77,7 +77,7 @@
 #define VIRTIO_BASE (_mmio_base + 0x02000000)
 #define VIRTIO_TIMEOUT_LOOPS 100000
 
-#define VIRTIO_SND_DMA_ARENA_SIZE (128 * 1024)
+#define VIRTIO_SND_DMA_ARENA_SIZE (256 * 1024)
 #define VIRTIO_SND_CTL_TIMEOUT_MS 2000
 
 struct virtq_desc
@@ -186,6 +186,18 @@ struct virtio_snd_tx_slot
 	uintptr_t status_phy;
 };
 
+struct virtio_snd_rx_slot
+{
+	uint16_t head_desc;
+	bool filled;
+	uint8_t *data;
+	uintptr_t data_phy;
+	struct virtio_snd_pcm_xfer *xfer;
+	uintptr_t xfer_phy;
+	struct virtio_snd_pcm_status *status;
+	uintptr_t status_phy;
+};
+
 struct virtio_net_state
 {
 	struct virtq_t *rxq;
@@ -207,14 +219,19 @@ struct virtio_snd_state
 	uint16_t ctrl_used_idx;
 	uint16_t event_used_idx;
 	uint16_t tx_used_idx;
+	uint16_t rx_used_idx;
 	uint8_t *dma_base;
 	uintptr_t dma_phy;
 	size_t dma_used;
 	uint32_t tx_slot_bytes;
 	uint32_t tx_slot_count;
+	uint32_t rx_slot_bytes;
+	uint32_t rx_slot_count;
 	int last_error;
+	uint32_t last_error_stream;
 	struct virtio_snd_config config;
 	struct virtio_snd_tx_slot tx_slots[VIRTIO_SND_TX_SLOT_MAX];
+	struct virtio_snd_rx_slot rx_slots[VIRTIO_SND_RX_SLOT_MAX];
 };
 
 struct virtio_device
@@ -613,12 +630,13 @@ virtio_dev_t virtio_net_get(void)
 
 virtio_dev_t virtio_snd_get(void)
 {
-	uintptr_t base = virtio_find_device(VIRTIO_ID_SOUND, NULL, NULL);
+	int interrupt = 0;
+	uintptr_t base = virtio_find_device(VIRTIO_ID_SOUND, NULL, &interrupt);
 	if (base == 0)
 	{
 		return NULL;
 	}
-	return virtio_alloc_device(base, VIRTIO_ID_SOUND, false, 0);
+	return virtio_alloc_device(base, VIRTIO_ID_SOUND, false, interrupt);
 }
 
 void virtio_free(virtio_dev_t dev)
@@ -726,6 +744,74 @@ void virtio_interrupt_enable(virtio_dev_t dev, void (*interrupt_handler)(virtio_
 	dev->virtio_handler.handler = virtio_interrupt_handle;
 	sys_interrupt_setup(dev->interrupt, &dev->virtio_handler);
 	virtio_input_fill_queue(dev);
+}
+
+/*
+ * Sound device interrupt handler.
+ * Reaps completed TX descriptors, processes PCM events (period elapsed, XRUN),
+ * and resubmits event queue descriptors so the device can keep sending events.
+ */
+static void virtio_snd_interrupt_handle(uint32_t interrupt, uint32_t p)
+{
+	(void)interrupt;
+	if (p >= VIRTIO_DEV_MAX)
+	{
+		return;
+	}
+
+	virtio_dev_t dev = _virtio_irq_devs[p];
+	if (dev == NULL || dev->snd == NULL)
+	{
+		return;
+	}
+
+	virtio_snd_poll(dev);
+	virtio_snd_fill_event_queue(dev, dev->snd);
+}
+
+int virtio_snd_enable_interrupts(virtio_dev_t dev)
+{
+	if (dev == NULL || dev->device_id != VIRTIO_ID_SOUND)
+	{
+		return -1;
+	}
+
+	virtio_ack_interrupt(dev->base, 0x3);
+	dev->virtio_handler.data = (uint32_t)(dev->interrupt - VIRTIO_INTERRUPT_BASE);
+	_virtio_irq_devs[dev->virtio_handler.data] = dev;
+	dev->virtio_handler.handler = virtio_snd_interrupt_handle;
+	sys_interrupt_setup(dev->interrupt, &dev->virtio_handler);
+	return 0;
+}
+
+int virtio_snd_process_events(virtio_dev_t dev)
+{
+	return virtio_snd_poll(dev);
+}
+
+int virtio_snd_tx_ready_bytes(virtio_dev_t dev)
+{
+	struct virtio_snd_state *snd = virtio_snd_state(dev);
+	if (snd == NULL || snd->tx_slot_bytes == 0)
+	{
+		return -1;
+	}
+
+	virtio_snd_poll(dev);
+	if (snd->last_error < 0)
+	{
+		return snd->last_error;
+	}
+
+	int free_slots = 0;
+	for (uint32_t i = 0; i < snd->tx_slot_count; i++)
+	{
+		if (!snd->tx_slots[i].inflight)
+		{
+			free_slots++;
+		}
+	}
+	return free_slots * (int)snd->tx_slot_bytes;
 }
 
 int virtio_input_drain(virtio_dev_t dev, uint32_t budget)
@@ -1129,6 +1215,232 @@ int virtio_blk_transfer(virtio_dev_t dev, uint64_t sector, void *buffer, uint32_
 	return 0;
 }
 
+/*
+ * RX (capture) path implementation.
+ */
+
+static void virtio_snd_reap_rx(struct virtio_snd_state *snd)
+{
+	if (snd->rx_slot_bytes == 0 || snd->rx_slot_count == 0)
+	{
+		return;
+	}
+
+	while (snd->rx_used_idx != snd->queues[VIRTIO_SND_VQ_RX]->used.idx)
+	{
+		struct virtq_used_elem *used =
+			&snd->queues[VIRTIO_SND_VQ_RX]->used.ring[snd->rx_used_idx % VIRTIO_QUEUE_SIZE];
+		uint16_t head_desc = used->id % VIRTIO_QUEUE_SIZE;
+		uint32_t slot_id = head_desc / 3;
+
+		if (slot_id < VIRTIO_SND_RX_SLOT_MAX &&
+			snd->rx_slots[slot_id].head_desc == head_desc)
+		{
+			struct virtio_snd_rx_slot *slot = &snd->rx_slots[slot_id];
+			if (slot->status != NULL && slot->status->status != VIRTIO_SND_S_OK)
+			{
+				snd->last_error = -32;
+				snd->last_error_stream = slot->xfer->stream_id;
+			}
+			slot->filled = true;
+		}
+
+		snd->rx_used_idx++;
+	}
+}
+
+int virtio_snd_rx_init(virtio_dev_t dev, uint32_t slot_count, uint32_t period_bytes)
+{
+	struct virtio_snd_state *snd = virtio_snd_state(dev);
+	if (snd == NULL || slot_count == 0 || slot_count > VIRTIO_SND_RX_SLOT_MAX || period_bytes == 0)
+	{
+		return -1;
+	}
+
+	if (snd->rx_slots[0].data == NULL || snd->rx_slot_bytes < period_bytes)
+	{
+		struct virtio_snd_pcm_xfer *xfers =
+			virtio_snd_dma_alloc(snd, sizeof(struct virtio_snd_pcm_xfer) * VIRTIO_SND_RX_SLOT_MAX, 16);
+		struct virtio_snd_pcm_status *statuses =
+			virtio_snd_dma_alloc(snd, sizeof(struct virtio_snd_pcm_status) * VIRTIO_SND_RX_SLOT_MAX, 16);
+		uint8_t *buffers =
+			virtio_snd_dma_alloc(snd, (size_t)period_bytes * VIRTIO_SND_RX_SLOT_MAX, 16);
+
+		if (xfers == NULL || statuses == NULL || buffers == NULL)
+		{
+			return -1;
+		}
+
+		for (uint32_t i = 0; i < VIRTIO_SND_RX_SLOT_MAX; i++)
+		{
+			snd->rx_slots[i].head_desc = i * 3;
+			snd->rx_slots[i].xfer = &xfers[i];
+			snd->rx_slots[i].xfer_phy = virtio_snd_dma_phy_addr(snd, snd->rx_slots[i].xfer);
+			snd->rx_slots[i].status = &statuses[i];
+			snd->rx_slots[i].status_phy = virtio_snd_dma_phy_addr(snd, snd->rx_slots[i].status);
+			snd->rx_slots[i].data = buffers + (size_t)i * period_bytes;
+			snd->rx_slots[i].data_phy = virtio_snd_dma_phy_addr(snd, snd->rx_slots[i].data);
+			snd->rx_slots[i].filled = false;
+		}
+
+		snd->rx_slot_bytes = period_bytes;
+	}
+
+	snd->rx_slot_count = slot_count;
+	virtio_snd_rx_reset(dev);
+	snd->rx_used_idx = snd->queues[VIRTIO_SND_VQ_RX]->used.idx;
+	return 0;
+}
+
+void virtio_snd_rx_reset(virtio_dev_t dev)
+{
+	struct virtio_snd_state *snd = virtio_snd_state(dev);
+	if (snd == NULL)
+	{
+		return;
+	}
+
+	for (uint32_t i = 0; i < VIRTIO_SND_RX_SLOT_MAX; i++)
+	{
+		snd->rx_slots[i].filled = false;
+		if (snd->rx_slots[i].status != NULL)
+		{
+			memset(snd->rx_slots[i].status, 0, sizeof(struct virtio_snd_pcm_status));
+		}
+		if (snd->rx_slots[i].data != NULL && snd->rx_slot_bytes > 0)
+		{
+			memset(snd->rx_slots[i].data, 0, snd->rx_slot_bytes);
+		}
+	}
+	snd->rx_used_idx = snd->queues[VIRTIO_SND_VQ_RX]->used.idx;
+}
+
+int virtio_snd_rx_start(virtio_dev_t dev, uint32_t stream_id)
+{
+	struct virtio_snd_state *snd = virtio_snd_state(dev);
+	if (snd == NULL || snd->rx_slot_bytes == 0 || snd->rx_slot_count == 0)
+	{
+		return -1;
+	}
+
+	/* Submit all RX slots to the device */
+	for (uint32_t i = 0; i < snd->rx_slot_count; i++)
+	{
+		struct virtio_snd_rx_slot *slot = &snd->rx_slots[i];
+
+		memset(slot->status, 0, sizeof(*slot->status));
+		slot->xfer->stream_id = stream_id;
+		slot->filled = false;
+
+		snd->queues[VIRTIO_SND_VQ_RX]->desc[slot->head_desc].addr = slot->xfer_phy;
+		snd->queues[VIRTIO_SND_VQ_RX]->desc[slot->head_desc].len = sizeof(struct virtio_snd_pcm_xfer);
+		snd->queues[VIRTIO_SND_VQ_RX]->desc[slot->head_desc].flags = VIRTQ_DESC_F_NEXT;
+		snd->queues[VIRTIO_SND_VQ_RX]->desc[slot->head_desc].next = slot->head_desc + 1;
+
+		snd->queues[VIRTIO_SND_VQ_RX]->desc[slot->head_desc + 1].addr = slot->data_phy;
+		snd->queues[VIRTIO_SND_VQ_RX]->desc[slot->head_desc + 1].len = snd->rx_slot_bytes;
+		snd->queues[VIRTIO_SND_VQ_RX]->desc[slot->head_desc + 1].flags = VIRTQ_DESC_F_WRITE | VIRTQ_DESC_F_NEXT;
+		snd->queues[VIRTIO_SND_VQ_RX]->desc[slot->head_desc + 1].next = slot->head_desc + 2;
+
+		snd->queues[VIRTIO_SND_VQ_RX]->desc[slot->head_desc + 2].addr = slot->status_phy;
+		snd->queues[VIRTIO_SND_VQ_RX]->desc[slot->head_desc + 2].len = sizeof(struct virtio_snd_pcm_status);
+		snd->queues[VIRTIO_SND_VQ_RX]->desc[slot->head_desc + 2].flags = VIRTQ_DESC_F_WRITE;
+		snd->queues[VIRTIO_SND_VQ_RX]->desc[slot->head_desc + 2].next = 0;
+
+		snd->queues[VIRTIO_SND_VQ_RX]->avail.ring[
+			snd->queues[VIRTIO_SND_VQ_RX]->avail.idx % VIRTIO_QUEUE_SIZE] = slot->head_desc;
+		mem_barrier();
+		snd->queues[VIRTIO_SND_VQ_RX]->avail.idx++;
+		mem_barrier();
+	}
+	put32(dev->base + VIRTIO_MMIO_QUEUE_NOTIFY, VIRTIO_SND_VQ_RX);
+	return 0;
+}
+
+void virtio_snd_rx_stop(virtio_dev_t dev)
+{
+	virtio_snd_rx_reset(dev);
+}
+
+int virtio_snd_rx_avail_bytes(virtio_dev_t dev)
+{
+	struct virtio_snd_state *snd = virtio_snd_state(dev);
+	if (snd == NULL || snd->rx_slot_bytes == 0)
+	{
+		return -1;
+	}
+
+	virtio_snd_poll(dev);
+	if (snd->last_error < 0)
+	{
+		return snd->last_error;
+	}
+
+	int filled_slots = 0;
+	for (uint32_t i = 0; i < snd->rx_slot_count; i++)
+	{
+		if (snd->rx_slots[i].filled)
+		{
+			filled_slots++;
+		}
+	}
+	return filled_slots * (int)snd->rx_slot_bytes;
+}
+
+int virtio_snd_rx_read(virtio_dev_t dev, void *buf, uint32_t size)
+{
+	struct virtio_snd_state *snd = virtio_snd_state(dev);
+	if (snd == NULL || snd->rx_slot_bytes == 0 || snd->rx_slot_count == 0 || buf == NULL)
+	{
+		return -1;
+	}
+
+	virtio_snd_poll(dev);
+	if (snd->last_error < 0)
+	{
+		return snd->last_error;
+	}
+
+	/* Find first filled slot */
+	struct virtio_snd_rx_slot *slot = NULL;
+	for (uint32_t i = 0; i < snd->rx_slot_count; i++)
+	{
+		if (snd->rx_slots[i].filled)
+		{
+			slot = &snd->rx_slots[i];
+			break;
+		}
+	}
+
+	if (slot == NULL)
+	{
+		return 0;
+	}
+
+	uint32_t used_len = snd->queues[VIRTIO_SND_VQ_RX]->used.ring[
+		snd->rx_used_idx % VIRTIO_QUEUE_SIZE].len;
+	uint32_t data_len = used_len > sizeof(struct virtio_snd_pcm_xfer) + sizeof(struct virtio_snd_pcm_status)
+		? used_len - sizeof(struct virtio_snd_pcm_xfer) - sizeof(struct virtio_snd_pcm_status)
+		: snd->rx_slot_bytes;
+	uint32_t copy_len = MIN(size, data_len);
+	memcpy(buf, slot->data, copy_len);
+	slot->filled = false;
+
+	/* Resubmit slot to device */
+	memset(slot->status, 0, sizeof(*slot->status));
+	slot->xfer->stream_id = snd->rx_slots[0].xfer->stream_id;
+	memset(slot->data, 0, snd->rx_slot_bytes);
+
+	snd->queues[VIRTIO_SND_VQ_RX]->avail.ring[
+		snd->queues[VIRTIO_SND_VQ_RX]->avail.idx % VIRTIO_QUEUE_SIZE] = slot->head_desc;
+	mem_barrier();
+	snd->queues[VIRTIO_SND_VQ_RX]->avail.idx++;
+	mem_barrier();
+	put32(dev->base + VIRTIO_MMIO_QUEUE_NOTIFY, VIRTIO_SND_VQ_RX);
+
+	return (int)copy_len;
+}
+
 int virtio_snd_init(virtio_dev_t dev)
 {
 	if (dev == NULL || dev->device_id != VIRTIO_ID_SOUND)
@@ -1318,6 +1630,7 @@ int virtio_snd_poll(virtio_dev_t dev)
 
 	virtio_ack_interrupt(dev->base, 0x3);
 	virtio_snd_reap_tx(snd);
+	virtio_snd_reap_rx(snd);
 	virtio_snd_reap_events(dev, snd);
 	return snd->last_error;
 }
