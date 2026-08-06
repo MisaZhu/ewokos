@@ -1,7 +1,11 @@
 .global __core_id
 __core_id:
+    /* core id: Aff0 on A53/A72 (virt/pi4), Aff1 on DynamIQ A76 (pi5);
+       the unused level reads as 0, so merging both yields the core number */
     mrs x0, mpidr_el1
-    and x0, x0, #0xFF	
+    ubfx x1, x0, #8, #8
+    and x0, x0, #0xFF
+    orr x0, x0, x1
 	ret
 
 .global __set_vector_table
