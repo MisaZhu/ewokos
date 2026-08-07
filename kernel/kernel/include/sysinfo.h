@@ -52,6 +52,7 @@ typedef struct {
 	uint32_t       max_proc_num;
 	uint32_t       max_task_num;
 	uint32_t       max_task_per_proc;
+	uint32_t       page_size;
 } sys_info_t;
 
 /*dynamic attr*/

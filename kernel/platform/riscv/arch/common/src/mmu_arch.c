@@ -19,7 +19,7 @@ int32_t map_page(page_dir_entry_t *vm, uint32_t virtual_addr,
 	uint32_t ppn0 = PAGE_DIR_PPN0(virtual_addr);
 	/* if this page_dirEntry is not mapped before, map it to a new page table */
 	if (vm[ppn2].valid == 0) {
-		level1 = kalloc4k();
+		level1 = kalloc_page();
 		if(level1 == NULL)
 			return -1;
 
@@ -33,7 +33,7 @@ int32_t map_page(page_dir_entry_t *vm, uint32_t virtual_addr,
 
 	/* if this page_dirEntry is not mapped before, map it to a new page table */
 	if (level1[ppn1].valid == 0) {
-		level0 = kalloc4k();
+		level0 = kalloc_page();
 		if(level0 == NULL)
 			return -1;
 
@@ -130,10 +130,10 @@ void free_page_tables(page_dir_entry_t *vm) {
 			for(int ppn1 = 0; ppn1 < PAGE_DIR_NUM; ppn1++){
 				if(level1[ppn1].valid){
 					page_table_entry_t *level0 = P2V(BASE_TO_PAGE_TABLE(level1[ppn1].ppn));
-					kfree4k(level0);
+					kfree_page(level0);
 				}
 			}
-			kfree4k(level1);
+			kfree_page(level1);
 		}
 	}
 }

@@ -16,9 +16,9 @@ inline uint32_t page_ref_index(ewokos_addr_t paddr) {
  * list nodes are stored in the beginning of the actual page, because
  * the page is free and we can use it for our purposes.
  */
-static __attribute__((__aligned__(PAGE_DIR_SIZE))) page_list_t *_free_list4k = 0;
+static __attribute__((__aligned__(PAGE_DIR_SIZE))) page_list_t *_free_list_page = 0;
 static __attribute__((__aligned__(1024))) page_list_t *_free_list1k = 0;
-static ewokos_addr_t _free_mem_size4k = 0;
+static ewokos_addr_t _free_mem_size_page = 0;
 
 /*
  * page_list_prepend adds the given page to the beginning of the page list
@@ -31,9 +31,9 @@ static page_list_t *page_list_prepend(page_list_t *page_list, char *page_address
 }
 
 void kalloc_reset(void) {
-	_free_list4k = 0;
+	_free_list_page = 0;
 	_free_list1k = 0;
-	_free_mem_size4k = 0;
+	_free_mem_size_page = 0;
 }
 
 /* kalloc_append adds the given address range to the free list. */
@@ -46,39 +46,39 @@ uint32_t kalloc_append(ewokos_addr_t start, ewokos_addr_t end) {
 	/* add each of the pages to the free list */
 	for (current_page = start_address; current_page != end_address;
 			current_page += PAGE_SIZE) {
-		_free_list4k = page_list_prepend(_free_list4k, current_page);
+		_free_list_page = page_list_prepend(_free_list_page, current_page);
 		num++;
 	}
-	_free_mem_size4k += (ewokos_addr_t)num * PAGE_SIZE;
+	_free_mem_size_page += (ewokos_addr_t)num * PAGE_SIZE;
 	return num;
 }
 
 /* kalloc allocates and returns a single available page. and removed from free list*/
-inline void* kalloc4k() {
+inline void* kalloc_page() {
 	void *result = 0;
-	if (_free_list4k != 0) {
-		result = _free_list4k;
-		_free_list4k = _free_list4k->next;
-		_free_mem_size4k -= PAGE_SIZE;
+	if (_free_list_page != 0) {
+		result = _free_list_page;
+		_free_list_page = _free_list_page->next;
+		_free_mem_size_page -= PAGE_SIZE;
 	}
 	return result;
 }
 
-/* kfree adds the given page to the 4k free list. */
-inline void kfree4k(void *page) {
-	_free_list4k = page_list_prepend(_free_list4k, page);
-	_free_mem_size4k += PAGE_SIZE;
+/* kfree adds the given page to the _page free list. */
+inline void kfree_page(void *page) {
+	_free_list_page = page_list_prepend(_free_list_page, page);
+	_free_mem_size_page += PAGE_SIZE;
 }
 
 /* kalloc1k allocates 1k sized and aligned chuncks of memory. */
 inline void* kalloc1k() {
 	void *result = 0;
 	/*
-	 * if we don't have any free 1k chunks, convert a 4k page into four
+	 * if we don't have any free 1k chunks, convert a _page page into four
 	 * 1k chunks.
 	 */
 	if (_free_list1k == 0) {
-		char *page = kalloc4k();
+		char *page = kalloc_page();
 		if (page != 0) {
 			kfree1k(page);
 			kfree1k(page + 1*KB);
@@ -102,8 +102,8 @@ inline void kfree1k(void *mem) {
 ewokos_addr_t get_free_mem_size(void) {
 	/*
 	 * Keep the historical semantics: this reports the free capacity currently
-	 * available from the 4K page list. 1K chunks split out for kalloc1k() are
+	 * available from the _page page list. 1K chunks split out for kalloc1k() are
 	 * intentionally not counted here, matching the previous implementation.
 	 */
-	return _free_mem_size4k;
+	return _free_mem_size_page;
 }

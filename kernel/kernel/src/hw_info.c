@@ -45,4 +45,6 @@ void sys_info_init(void) {
     if(_sys_info.sys_dma.size == 0)
     	_sys_info.sys_dma.size = get_dma_size();
 	_sys_info.allocable_phy_mem_base += _sys_info.sys_dma.size;
+
+    _sys_info.page_size = PAGE_SIZE;
 }

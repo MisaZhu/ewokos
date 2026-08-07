@@ -60,7 +60,7 @@ inline void unmap_page_ref(page_dir_entry_t *vm, ewokos_addr_t virtual_addr) {
 		if(_pages_ref.refs[i] > 0)
 			_pages_ref.refs[i]--;
 		if(_pages_ref.refs[i] == 0)
-			kfree4k((void*)P2V(paddr));
+			kfree_page((void*)P2V(paddr));
 	}
 	unmap_page(vm, virtual_addr);
 }

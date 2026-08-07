@@ -77,7 +77,7 @@ static void shm_unmap_pages(ewokos_addr_t addr, uint32_t pages) {
 
 		//get the kernel address for kalloc/kfree
 		ewokos_addr_t kernel_addr = P2V(physical_addr);
-		kfree4k((void *) kernel_addr);
+		kfree_page((void *) kernel_addr);
 		unmap_page(_kernel_info.kernel_vm, addr);
 		addr += PAGE_SIZE;
 	}
@@ -88,7 +88,7 @@ static int32_t shm_map_pages(ewokos_addr_t addr, uint32_t pages) {
 	ewokos_addr_t old_addr = addr;
 	uint32_t i;
 	for (i = 0; i < pages; i++) {
-		char *page = kalloc4k();
+		char *page = kalloc_page();
 		if(page == NULL) {
 			printf("shm_map: kalloc failed!\n", (uint32_t)page);
 			shm_unmap_pages(old_addr, i);

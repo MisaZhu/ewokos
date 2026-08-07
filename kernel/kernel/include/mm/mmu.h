@@ -29,9 +29,9 @@
 #define ALLOCABLE_PAGE_DIR_BASE       ALIGN_UP(KERNEL_PAGE_DIR_END, PAGE_DIR_SIZE)
 #if __aarch64__
 #define ALLOCABLE_L3_PAGE_TABLE_SIZE  \
-	((ALIGN_UP(_sys_info.total_usable_mem_size, 2*MB) / (2*MB)) * PAGE_TABLE_SIZE)
+	((ALIGN_UP(_sys_info.total_usable_mem_size, PAGE_TABLE_SPAN_L3) / PAGE_TABLE_SPAN_L3) * PAGE_TABLE_SIZE)
 #define ALLOCABLE_L2_PAGE_TABLE_SIZE  \
-	((ALIGN_UP(_sys_info.total_usable_mem_size, 1*GB) / (1*GB)) * PAGE_TABLE_SIZE)
+	((ALIGN_UP(_sys_info.total_usable_mem_size, PAGE_TABLE_SPAN_L2) / PAGE_TABLE_SPAN_L2) * PAGE_TABLE_SIZE)
 #define ALLOCABLE_PAGE_DIR_SIZE       \
 	(ALLOCABLE_L3_PAGE_TABLE_SIZE + ALLOCABLE_L2_PAGE_TABLE_SIZE)
 #else

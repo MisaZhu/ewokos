@@ -27,6 +27,11 @@ ifeq ($(SMP),yes)
 	ASFLAGS += -DKERNEL_SMP
 endif
 
+ifeq ($(PAGE_SIZE),16k)
+	CFLAGS += -DPAGE_SIZE_16K
+	ASFLAGS += -DPAGE_SIZE_16K
+endif
+
 ifeq ($(DEBUG),yes)
 	OPTM = -g 
 else

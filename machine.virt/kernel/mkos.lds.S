@@ -10,7 +10,7 @@ PHDRS
 
 SECTIONS
 {
-	.init start_address : AT(start_address) ALIGN(4096)
+	.init start_address : AT(start_address) ALIGN(page_align_size)
 	{
     KEEP(*(.init .init.*))
 		*/start*.o(.text .text.*)
@@ -20,29 +20,29 @@ SECTIONS
 	} : init
 	. = . + 0x4000;
 	_svc_start_stack = .;
-	_init_end = ALIGN(4096);
+	_init_end = ALIGN(page_align_size);
 
 	/*kernel will be compiled with virtual address base at 256GB*/
 	PROVIDE(_kernel_start = base_address + _init_end - start_address);
 
-	.text base_address + _init_end - 0x40000000: AT(_init_end) ALIGN(4096)
+	.text base_address + _init_end - 0x40000000: AT(_init_end) ALIGN(page_align_size)
 	{
 		KEEP(*(.text))
 		*(.text)
 	} : text
-	. = ALIGN(4096);
+	. = ALIGN(page_align_size);
 
 	.data : { /** data segment */
 		*(.data*)
 	}
-	. = ALIGN(4096);
+	. = ALIGN(page_align_size);
 
 	_bss_start = .;
 	.bss : 
 	{ 
 		*(.bss*)
 	}
-	. = ALIGN(4096);
+	. = ALIGN(page_align_size);
 	_bss_end = .;
 
 	. = . + 0x4000;
@@ -58,6 +58,6 @@ SECTIONS
 	_svc_stack = .;
 	PROVIDE(_kernel_sp = .);
 
-	. = ALIGN(4096);
+	. = ALIGN(page_align_size);
 	PROVIDE(_kernel_end = .);
 }

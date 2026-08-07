@@ -19,7 +19,7 @@ int sys_get_sys_info(sys_info_t* info) {
     info->arch[ARCH_MAX-1] = 0;
     if(info->cores > MAX_CORE_NUM)
         info->cores = MAX_CORE_NUM;
-    return ret;
+    return 0;
 }
 
 #ifdef __cplusplus

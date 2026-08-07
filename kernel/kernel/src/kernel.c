@@ -101,7 +101,7 @@ static void clone_kernel_vm(page_dir_entry_t* vm) {
 	memset(vm, 0, PAGE_DIR_SIZE);
 	flush_dcache();
 
-	proc_pdpt = kalloc4k();
+	proc_pdpt = kalloc_page();
 	if (proc_pdpt == NULL) {
 		return;
 	}
@@ -226,7 +226,7 @@ static void show_config(void) {
 #define SPLIT_ADDR(x) ((uint32_t)(((uint64_t)(x)) >> 32)), ((uint32_t)(x))
 	printf("\n"
 		  "  machine              %s\n" 
-		  "  arch                 %s\n"
+		  "  arch                 %s-%dk\n"
 		  "  cores                %d\n"
 		  "  kernel_timer_freq    %d\n"
 		  "  mem_offset           0x%08x%08x\n"
@@ -245,7 +245,7 @@ static void show_config(void) {
 		  "  max task per proc    %d\n"
 		  "-----------------------------------------------------\n",
 			_sys_info.machine,
-			_sys_info.arch,
+			_sys_info.arch, PAGE_SIZE/1024,
 			_kernel_config.cores,
 			_kernel_config.timer_freq,
 			SPLIT_ADDR(_sys_info.phy_offset),
@@ -266,7 +266,7 @@ static void show_config(void) {
 #else
 	printf("\n"
 		  "  machine              %s\n" 
-		  "  arch                 %s\n"
+		  "  arch                 %s-%dk\n"
 		  "  cores                %d\n"
 		  "  kernel_timer_freq    %d\n"
 		  "  mem_offset           0x%08x\n"
@@ -285,7 +285,7 @@ static void show_config(void) {
 		  "  max task per proc    %d\n"
 		  "-----------------------------------------------------\n",
 			_sys_info.machine,
-			_sys_info.arch,
+			_sys_info.arch, PAGE_SIZE/1024,
 			_kernel_config.cores,
 			_kernel_config.timer_freq,
 			_sys_info.phy_offset,
@@ -311,12 +311,18 @@ void _kernel_entry_c(void) {
 	__asm__ volatile("cli");
 #endif
 	//clear bss
+#ifdef PAGE_SIZE_16K
+	for(volatile uint8_t* p = _bss_start; p < _bss_end; p++)
+		*p = 0;
+#else
 	memset(_bss_start, 0, (size_t)(_bss_end - _bss_start));
+#endif
 	sys_info_init();
 
 	copy_interrupt_table();
 
 	init_kernel_vm();  
+
 	uart_dev_init(19200);
 	kout_str("\n=== ewokos booting ===\n\n");
 	kout_str("kernel: init kernel malloc     ... ");
@@ -412,5 +418,5 @@ void _kernel_entry_c(void) {
 	__irq_enable();
 	halt();
 
-	kfree4k(_kernel_info.vsyscall_info);
+	kfree_page(_kernel_info.vsyscall_info);
 }

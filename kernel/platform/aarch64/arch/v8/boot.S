@@ -118,20 +118,32 @@ slave_core:
                    (0x44ul << (2 * 8)) |\
                    (0xfful << (3 * 8)) )
 
+#ifdef PAGE_SIZE_16K
+ #define TCR_TG1_VAL  (0x1ul << 30) /* TG1=16KB */
+ #define TCR_TG0_VAL  (0x2ul << 14) /* TG0=16KB */
+ #define TCR_T1SZ_VAL (17ul  << 16) /* 47-bit VA space */
+ #define TCR_T0SZ_VAL (17ul  << 0)  /* 47-bit VA space */
+#else
+ #define TCR_TG1_VAL  (0x2ul << 30) /* TG1=4KB */
+ #define TCR_TG0_VAL  (0x0ul << 14) /* TG0=4KB */
+ #define TCR_T1SZ_VAL (0x2ul << 16) /* 2^62 size */
+ #define TCR_T0SZ_VAL (25ul  << 0)  /* 512G */
+#endif
+
  #define TCREL1VAL  ((0x0ul << 37) | /* TBI=0, no tagging */\
                      (0x2ul << 32) | /* IPS= 32 bit ... 000 = 32bit, 001 = 36bit, 010 = 40bit */\
-                     (0x2ul << 30) | /* TG1=4k ... options are 10=4KB, 01=16KB, 11=64KB ... take care differs from TG0 */\
+                     TCR_TG1_VAL   | /* options are 10=4KB, 01=16KB, 11=64KB ... take care differs from TG0 */\
                      (0x3ul << 28) | /* SH1=3 inner ... options 00 = Non-shareable, 01 = INVALID, 10 = Outer Shareable, 11 = Inner Shareable */\
                      (0x1ul << 26) | /* ORGN1=1 write back .. options 00 = Non-cacheable, 01 = Write back cacheable, 10 = Write thru cacheable, 11 = Write Back Non-cacheable */\
                      (0x1ul << 24) | /* IRGN1=1 write back .. options 00 = Non-cacheable, 01 = Write back cacheable, 10 = Write thru cacheable, 11 = Write Back Non-cacheable */\
                      (0x0ul << 23) |  /* EPD1 ... Translation table walk disable for translations using TTBR1_EL1  0 = walk, 1 = generate fault */\
-                     (0x2UL << 16) | /* T1SZ=2 (2^46 size) ... The region size is 2 POWER (64-T1SZ) bytes */\
-                     (0x0ul << 14) | /* TG0=4k  ... options are 00=4KB, 01=64KB, 10=16KB,  ... take care differs from TG1 */\
+                     TCR_T1SZ_VAL  | /* The region size is 2 POWER (64-T1SZ) bytes */\
+                     TCR_TG0_VAL   | /* options are 00=4KB, 01=64KB, 10=16KB ... take care differs from TG1 */\
                      (0x3ul << 12) | /* SH0=3 inner ... .. options 00 = Non-shareable, 01 = INVALID, 10 = Outer Shareable, 11 = Inner Shareable */\
                      (0x1ul << 10) | /* ORGN0=1 write back .. options 00 = Non-cacheable, 01 = Write back cacheable, 10 = Write thru cacheable, 11 = Write Back Non-cacheable */\
                      (0x1ul << 8)  | /* IRGN0=1 write back .. options 00 = Non-cacheable, 01 = Write back cacheable, 10 = Write thru cacheable, 11 = Write Back Non-cacheable */\
                      (0x0ul << 7) | /* EPD0  ... Translation table walk disable for translations using TTBR0_EL1  0 = walk, 1 = generate fault */\
-                     (25ul  << 0) ) /* T0SZ=25 (512G)  ... The region size is 2 POWER (64-T0SZ) bytes */
+                     TCR_T0SZ_VAL ) /* The region size is 2 POWER (64-T0SZ) bytes */
 
  #define SCTLREL1VAL ((0xC00800)| /* set mandatory reserved bits */\
                       (1 << 12) | /* I, Instruction cache enable. This is an enable bit for instruction caches at EL0 and EL1 */\

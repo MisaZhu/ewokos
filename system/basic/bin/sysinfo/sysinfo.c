@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
 
 	printf(
 		"machine            %s\n" 
-		"arch               %s\n"
+		"arch               %s-%dk\n"
 		"cores              %u\n"
 		"phy mem size       %s\n"
 		"usable mem size    %s\n"
@@ -52,7 +52,7 @@ int main(int argc, char* argv[]) {
 		"allocable mem      phy:0x%08x%08x ~ 0x%08x%08x (%s/%s)\n"
 		"mmio               phy:0x%08x%08x,V:0x%08x%08x (%s)\n",
 		sys_info.machine,
-		sys_info.arch,
+		sys_info.arch, sys_info.page_size/1024,
 		sys_info.cores,
 		phy_mem,
 		t_mem,

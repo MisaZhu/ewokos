@@ -128,6 +128,12 @@ static inline uint32_t mmio_read(uintptr_t addr) {
 // Global device instance
 static struct virtio_device virtio_dev;
 
+#define VIRTIO_MMIO_MAGIC_VALUE   0x74726976u
+#define VIRTIO_MMIO_SLOT_BASE     0x02000000u
+#define VIRTIO_MMIO_SLOT_STRIDE   0x200u
+#define VIRTIO_MMIO_SLOT_COUNT    32u
+#define VIRTIO_BLK_DEVICE_ID      2u
+
 uint64_t get_phy_addr(struct virtio_device *dev, void* ptr){
 	return dev->phy + (ptr - (void*)dev->virtq);
 }
@@ -232,17 +238,33 @@ static int plat_dma_alloc(void** vaddr, void** paddr, int size){
 	static __attribute__((__aligned__(PAGE_DIR_SIZE))) struct virtq_t virtq;
 	memset(&virtq, 0, sizeof(virtq));
 	ewokos_addr_t phy = (ewokos_addr_t)V2P(&virtq);
-    map_pages_size(_kernel_info.kernel_vm, &virtq, phy, sizeof(virtq), AP_RW_D, PTE_ATTR_DEV);
-    flush_tlb();
+	/*
+	 * The static virtqueue buffer already lives in mapped kernel RAM. The block
+	 * device only needs the physical address; remapping this RAM as device
+	 * memory and globally flushing the TLB here trips HVF on macOS.
+	 */
 	*vaddr = &virtq;
 	*paddr = phy;
     //printf("DMA alloc p:%08x v:%08x size:%d\n", *paddr, *vaddr, size);
 }
 
-int32_t sd_init(void){
-    // Default QEMU virtio-blk base address.
-    uintptr_t base = MMIO_BASE + 0x02003e00;
+static uintptr_t virtio_blk_find_base(void) {
+	for(uint32_t i = 0; i < VIRTIO_MMIO_SLOT_COUNT; i++) {
+		uintptr_t base = MMIO_BASE + VIRTIO_MMIO_SLOT_BASE + (i * VIRTIO_MMIO_SLOT_STRIDE);
+		if(mmio_read(base + VIRTIO_MMIO_MAGIC) != VIRTIO_MMIO_MAGIC_VALUE)
+			continue;
+		if(mmio_read(base + VIRTIO_MMIO_DEVICE_ID) == VIRTIO_BLK_DEVICE_ID)
+			return base;
+	}
+	return 0;
+}
 
+int32_t sd_init(void){
+    uintptr_t base = virtio_blk_find_base();
+
+	if(base == 0) {
+		return -1;
+	}
    	memset(&device, 0, sizeof(device));
 	device.base = base;
 	plat_dma_alloc(&device.virtq, &device.phy, 8192);

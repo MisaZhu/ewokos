@@ -27,7 +27,7 @@ static page_table_entry_t* next_table(page_table_entry_t* table, uint32_t index,
 		if (!create) {
 			return NULL;
 		}
-		next = kalloc4k();
+		next = kalloc_page();
 		if (next == NULL) {
 			return NULL;
 		}
@@ -143,10 +143,10 @@ void free_page_tables(page_dir_entry_t* vm) {
 					continue;
 				}
 				pt = entry_to_table(&pd[k]);
-				kfree4k(pt);
+				kfree_page(pt);
 			}
-			kfree4k(pd);
+			kfree_page(pd);
 		}
-		kfree4k(pdpt);
+		kfree_page(pdpt);
 	}
 }

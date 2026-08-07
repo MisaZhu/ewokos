@@ -20,7 +20,7 @@ void sys_info_init_arch(void) {
 	_sys_info.phy_offset = 0x40000000;
 	_sys_info.vector_base = 0x40000000;
 #if __aarch64__
-	_sys_info.total_phy_mem_size = 8ull*GB;
+	_sys_info.total_phy_mem_size = 4ull*GB;
 #else
 	_sys_info.total_phy_mem_size = 1024*MB;
 #endif

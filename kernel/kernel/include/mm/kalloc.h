@@ -23,8 +23,8 @@ uint32_t page_ref_index(ewokos_addr_t paddr);
 void kalloc_reset(void);
 /* exported function declarations */
 uint32_t kalloc_append(ewokos_addr_t start, ewokos_addr_t end);
-void *kalloc4k(void);
-void kfree4k(void *page);
+void *kalloc_page(void);
+void kfree_page(void *page);
 void *kalloc1k(void);
 void kfree1k(void *page);
 ewokos_addr_t get_free_mem_size(void);

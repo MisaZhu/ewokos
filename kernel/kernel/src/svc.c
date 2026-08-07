@@ -248,19 +248,20 @@ static void sys_proc_set_cmd(const char* cmd) {
 	sstrncpy(cproc->info.cmd, cmd, PROC_INFO_MAX_CMD_LEN-1);
 }
 
-static void	sys_get_sys_info(sys_info_t* info) {
+static int32_t	sys_get_sys_info(sys_info_t* info) {
 	if(info == NULL)
-		return;
+		return -1;
 	memcpy(info, &_sys_info, sizeof(sys_info_t));
 	info->max_proc_num = _kernel_config.max_proc_num;
 	info->max_task_num = _kernel_config.max_task_num;
 	info->max_task_per_proc = _kernel_config.max_task_per_proc;
 	proc_get_core_runtime_stats(info->core_procs, info->core_idles, info->core_kernels, _sys_info.cores);
+	return 0;
 }
 
-static void	sys_get_sys_state(sys_state_t* info) {
+static int32_t	sys_get_sys_state(sys_state_t* info) {
 	if(info == NULL)
-		return;
+		return -1;
 
 	info->mem.free = get_free_mem_size();
 	info->mem.kfree = kmalloc_free_size();
@@ -270,6 +271,7 @@ static void	sys_get_sys_state(sys_state_t* info) {
 	info->svc_total = _svc_total;
 	memcpy(info->svc_counter, _svc_counter, SYS_CALL_NUM*4);
 	svc_stat_unlock();
+	return 0;
 }
 
 static vsyscall_info_t* sys_get_vsyscall_info(void) {
@@ -343,6 +345,7 @@ static ewokos_addr_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint3
 	userspace can map upper address such as MMIO/FRAMEBUFFER... */
 	if(check_mem_map_arch(paddr, size) != 0)
 		return 0;
+	size = ALIGN_UP(size, PAGE_SIZE);
 
 	/*
 	 * RAM (framebuffer) -> Normal Non-Cacheable: writes bypass cache
@@ -791,10 +794,10 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
 		sys_proc_set_cmd((const char*)arg0);
 		return;
 	case SYS_GET_SYS_INFO:
-		sys_get_sys_info((sys_info_t*)arg0);
+		ctx->gpr[0] = sys_get_sys_info((sys_info_t*)arg0);
 		return;
 	case SYS_GET_SYS_STATE:
-		sys_get_sys_state((sys_state_t*)arg0);
+		ctx->gpr[0] = sys_get_sys_state((sys_state_t*)arg0);
 		return;
 	case SYS_GET_VSYSCALL_INFO:
 		ctx->gpr[0] = (ewokos_addr_t)sys_get_vsyscall_info();

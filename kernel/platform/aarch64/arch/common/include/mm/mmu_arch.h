@@ -4,13 +4,15 @@
 #include <ewokos_config.h>
 #include "mmudef.h"
 
-#define PAGE_L1_INDEX(x) (((uint64_t)x >> 30) & 0x1FF) 
-#define PAGE_L2_INDEX(x) (((uint64_t)x >> 21) & 0x1FF)
-#define PAGE_L3_INDEX(x) (((uint64_t)x >> 12) & 0x1FF)
+#define PAGE_INDEX_MASK ((uint64_t)(PAGE_DIR_NUM - 1))
+
+#define PAGE_L1_INDEX(x) (((uint64_t)(x) >> PAGE_L1_SHIFT) & PAGE_INDEX_MASK)
+#define PAGE_L2_INDEX(x) (((uint64_t)(x) >> PAGE_L2_SHIFT) & PAGE_INDEX_MASK)
+#define PAGE_L3_INDEX(x) (((uint64_t)(x) >> PAGE_L3_SHIFT) & PAGE_INDEX_MASK)
 
 #define PAGE_TABLE_TO_BASE(x) ((uint64_t)(x) >> 10)
 #define BASE_TO_PAGE_TABLE(x) ((void *)((uint64_t)(x) << 10))
-#define PAGE_TO_BASE(x) ((uint64_t)(x) >> 12)
+#define PAGE_TO_BASE(x) ((uint64_t)(x) >> PAGE_SHIFT)
 
 typedef struct {
     uint64_t EntryType : 2;             // @0-1     1 for a block table, 3 for a page table
@@ -25,7 +27,12 @@ typedef struct {
     } SH : 2;                           // @8-9
     uint64_t AF : 1;                    // @10      Accessable flag
     uint64_t PTE_NG : 1;                // @11      no global 
+#ifdef PAGE_SIZE_16K
+    uint64_t _reserved12_13 : 2;        // @12-13   Set to 0 for 16K granule descriptors
+    uint64_t Address : 34;              // @14-47   34 Bits of address
+#else
     uint64_t Address : 36;              // @12-47   36 Bits of address
+#endif
     uint64_t _reserved48_51 : 4;        // @48-51   Set to 0
     uint64_t Contiguous : 1;            // @52      Contiguous
     uint64_t PXN : 1;                   // @53     kernel No execute if bit set

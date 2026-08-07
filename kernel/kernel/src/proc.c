@@ -416,7 +416,7 @@ static void map_stack(proc_t* proc, ewokos_addr_t* stacks, ewokos_addr_t base, u
 	uint32_t i;
 	for(i=0; i<pages; i++) {
 		page_table_entry_t* pte;
-		stacks[i] = (ewokos_addr_t)kalloc4k();
+		stacks[i] = (ewokos_addr_t)kalloc_page();
 		map_page(proc->space->vm,
 			base + PAGE_SIZE*i,
 			V2P(stacks[i]),
@@ -435,7 +435,7 @@ static void unmap_stack(proc_t* proc, ewokos_addr_t* stacks, ewokos_addr_t base,
 	uint32_t i;
 	for(i=0; i<pages; i++) {
 		unmap_page(proc->space->vm, base + PAGE_SIZE*i);
-		kfree4k((void*)stacks[i]);
+		kfree_page((void*)stacks[i]);
 	}
 	flush_tlb();
 }
@@ -510,7 +510,7 @@ static int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
 	int32_t res = 0;
 
 	for (i = 0; i < page_num; i++) {
-		void *page = kalloc4k();
+		void *page = kalloc_page();
 		if(page == NULL) {
 			printf("proc expand failed!! free mem size: (0x%llx), pid:%d(%s), pages ask:%d\n",
 					(unsigned long long)get_free_mem_size(),
