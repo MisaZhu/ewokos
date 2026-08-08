@@ -69,27 +69,12 @@ static void set_kernel_vm(page_dir_entry_t* vm) {
 
 static void reset_kernel_vm(void) {
 	page_dir_entry_t* vm = (page_dir_entry_t*)KERNEL_PAGE_DIR_BASE;
-	// #region debug-point boot-remap-reset-enter
-	kout_str("[dbg:reset-enter]\n");
-	// #endregion
 	//map kernel malloc memory
 	map_pages(vm, KMALLOC_BASE, V2P(KMALLOC_BASE), V2P(KMALLOC_END), AP_RW_D, PTE_ATTR_WRBACK);
-	// #region debug-point boot-remap-map-kmalloc-done
-	kout_str("[dbg:reset-map-kmalloc-done]\n");
-	// #endregion
 	//map allocatable memory page dir
 	map_pages(vm, ALLOCABLE_PAGE_DIR_BASE, V2P(ALLOCABLE_PAGE_DIR_BASE), V2P(ALLOCABLE_PAGE_DIR_END), AP_RW_D, PTE_ATTR_WRBACK);
-	// #region debug-point boot-remap-map-allocdir-done
-	kout_str("[dbg:reset-map-allocdir-done]\n");
-	// #endregion
 	//map MMIO to high(virtual) mem.
-	// #region debug-point boot-remap-flush-enter
-	kout_str("[dbg:reset-flush-enter]\n");
-	// #endregion
 	flush_tlb();
-	// #region debug-point boot-remap-flush-done
-	kout_str("[dbg:reset-flush-done]\n");
-	// #endregion
 }
 
 
@@ -355,21 +340,9 @@ void _kernel_entry_c(void) {
 	uart_dev_init(_kernel_config.uart_baud);
 
 	kout_str("kernel: remapping kernel mem   ... ");
-	// #region debug-point boot-remap-before-reset
-	kout_str("[dbg:remap-before-reset]\n");
-	// #endregion
 	reset_kernel_vm();
-	// #region debug-point boot-remap-after-reset
-	kout_str("[dbg:remap-after-reset]\n");
-	// #endregion
 	kmalloc_init(); //init kmalloc again with config info;
-	// #region debug-point boot-remap-after-kmalloc
-	kout_str("[dbg:remap-after-kmalloc]\n");
-	// #endregion
 	kmalloc_vm_init(); //init kmalloc extra;
-	// #region debug-point boot-remap-after-kmalloc-vm
-	kout_str("[dbg:remap-after-kmalloc-vm]\n");
-	// #endregion
 	kout_str("[OK]\n");
 
 	//printf("kernel: init allocable memory  ... ");
