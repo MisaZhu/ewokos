@@ -17,7 +17,7 @@ ifeq ($(ARCH), aarch64)
 	QEMU_CMD = qemu-system-aarch64
 	ARCH_CFLAGS = -Wa,-march=armv8-a -DMAX_USABLE_MEM_SIZE='(8ull*GB)'
 	QEMU_DISPLAY = cocoa,zoom-to-fit=on,zoom-interpolation=on
-	QEMU_FLAGS = -M $(QEMU_MACHINE),highmem=on,accel=hvf -cpu host -m 4096 \
+	QEMU_FLAGS = -M $(QEMU_MACHINE),highmem=on,accel=hvf -cpu host -m 8192 \
 		-serial mon:stdio -device ramfb \
 		-display $(QEMU_DISPLAY)
 else

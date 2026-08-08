@@ -20,7 +20,7 @@ void sys_info_init_arch(void) {
 	_sys_info.phy_offset = 0x40000000;
 	_sys_info.vector_base = 0x40000000;
 #if __aarch64__
-	_sys_info.total_phy_mem_size = 4ull*GB;
+	_sys_info.total_phy_mem_size = 8ull*GB;
 #else
 	_sys_info.total_phy_mem_size = 1024*MB;
 #endif
@@ -39,8 +39,7 @@ void sys_info_init_arch(void) {
 #elif __arm__
 	strcpy(_sys_info.arch, "armv7");
 #endif
-	_sys_info.mmio.size = 128*MB;
-	_sys_info.sys_dma.size = 32*MB;
+	_sys_info.mmio.size = 64*MB;
 
 	if(_sys_info.total_usable_mem_size <= 1*GB) {
 		_sys_info.allocable_phy_mem_top = _sys_info.phy_offset +
