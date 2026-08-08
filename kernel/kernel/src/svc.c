@@ -352,10 +352,15 @@ static ewokos_addr_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint3
 	 * so the HVS DMA sees them in DRAM; unlike Device-nGnRE the CPU
 	 * may combine consecutive stores into burst transactions.
 	 * MMIO -> Device-nGnRE: strict ordering for register accesses.
+	 *
+	 * Use allocable_phy_mem_top as the RAM cut-off. Platforms such as raspix
+	 * keep a reserved carveout at the top of RAM for firmware/framebuffer use;
+	 * those addresses are intentionally mappable through check_mem_map_arch(),
+	 * but they are not part of normal allocatable RAM and must stay device-like.
 	 */
 	uint32_t attr = PTE_ATTR_DEV;
-    if(paddr + size <= (ewokos_addr_t)_sys_info.total_usable_mem_size)
-            attr = PTE_ATTR_NOCACHE; /* RAM/framebuffer only */
+	if(paddr + size <= _sys_info.allocable_phy_mem_top)
+		attr = PTE_ATTR_NOCACHE; /* allocatable RAM only */
 	map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, attr);
 	flush_tlb();
 	return vaddr;
