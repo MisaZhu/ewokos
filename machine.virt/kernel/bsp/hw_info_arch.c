@@ -129,3 +129,15 @@ int32_t  check_mem_map_arch(ewokos_addr_t phy_base, uint32_t size) {
 		return 0;
 	return -1;
 }
+
+int32_t mem_map_is_normal_ram_arch(ewokos_addr_t phy_base, uint32_t size) {
+	ewokos_addr_t map_end = phy_base + size;
+
+	if(map_end < phy_base)
+		return 0;
+	if(phy_base < _sys_info.allocable_phy_mem_base)
+		return 0;
+	if(map_end > _sys_info.allocable_phy_mem_top)
+		return 0;
+	return 1;
+}
