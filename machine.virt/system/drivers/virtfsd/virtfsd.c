@@ -318,7 +318,7 @@ int main(int argc, char **argv)
 		FS_DBG("virtfs_init failed!\n");
 		return -1;
 	}
-	virtfs_set_version(fs, "9P2000.L");
+	virtfs_set_version(fs, "9P2000.L", VIRTFS_DEFAULT_MSIZE);
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));

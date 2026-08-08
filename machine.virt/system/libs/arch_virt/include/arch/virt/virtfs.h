@@ -17,6 +17,8 @@ typedef struct virtfs_stat{
 
 #define VIRTFS_TYPE_DIR 0x04
 #define VIRTFS_TYPE_FILE 0x08
+#define VIRTFS_MIN_MSIZE 4096
+#define VIRTFS_DEFAULT_MSIZE 65536
 
 struct virtfs_dir_entry
 {
@@ -30,7 +32,7 @@ struct virtfs_dir_entry
 } __attribute__((packed));
 
 virtfs_t virtfs_init(void);
-int virtfs_set_version(virtfs_t fs, const char *version);
+int virtfs_set_version(virtfs_t fs, const char *version, uint32_t msize);
 int virtfs_attach(virtfs_t fs, uint16_t tag, uint32_t fid, uint32_t afid, const char *uname, const char *aname);
 int virtfs_readdir(virtfs_t fs, uint16_t tag, uint32_t fid, void *buf, uint64_t offset, uint32_t max);
 int virtfs_walk(virtfs_t fs, uint16_t tag, uint32_t fid, uint32_t newfid, const char *wname);

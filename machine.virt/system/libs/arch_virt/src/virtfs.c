@@ -26,6 +26,10 @@
 #define VIRTFS_TSTAT 124
 #define VIRTFS_TWSTAT 126
 
+#ifndef VIRTFS_MIN_MSIZE
+#define VIRTFS_MIN_MSIZE 4096
+#endif
+
 
 #define HAL_DEBUG 0
 #if HAL_DEBUG
@@ -62,9 +66,9 @@ struct virtfs_header
     uint16_t tag;
 } __attribute__((packed));
 
-static uint32_t virtrfs_parse_respon(int req, void* data, int size)
+static int virtrfs_parse_respon(int req, void* data, int size)
 {
-    if(size < sizeof(struct virtfs_header))
+    if(size < (int)sizeof(struct virtfs_header))
         return -1;
     struct virtfs_header *hdr = (struct virtfs_header *)data;
     if(hdr->type != req + 1){
@@ -163,6 +167,10 @@ virtfs_t virtfs_init(void)
 
 int virtfs_set_version(virtfs_t fs, const char *version, uint32_t msize)
 {
+    if (msize < VIRTFS_MIN_MSIZE)
+    {
+        msize = VIRTFS_MIN_MSIZE;
+    }
 
     uint32_t len = strlen(version) + 14;
     uint8_t buf[len];
