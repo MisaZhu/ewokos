@@ -8,10 +8,13 @@
 extern "C" {
 #endif
 
-#define EXT2_BLOCK_SIZE 1024
+#define EXT2_MIN_BLOCK_SIZE 1024
+#define EXT2_MAX_BLOCK_SIZE 4096
+#define EXT2_DEFAULT_BLOCK_SIZE EXT2_MIN_BLOCK_SIZE
 #define BUF_BLOCK_SIZE 1024
 
 static partition_t _partition;
+static uint32_t _ext2_block_size = EXT2_DEFAULT_BLOCK_SIZE;
 
 typedef struct {
 	ewokos_addr_t* data;
@@ -232,7 +235,7 @@ int32_t sd_write_sector(int32_t sector, const void* buf) {
 }
 
 int32_t sd_read(int32_t block, void* buf) {
-	int32_t n = EXT2_BLOCK_SIZE/512;
+	int32_t n = (int32_t)(_ext2_block_size / SECTOR_SIZE);
 	int32_t sector = block * n + _partition.start_sector;
 	if(sd_read_sectors(sector, buf, (uint32_t)n) != (n * SECTOR_SIZE))
 		return -1;
@@ -240,18 +243,18 @@ int32_t sd_read(int32_t block, void* buf) {
 }
 
 int32_t sd_read_blocks(int32_t block, void* buf, uint32_t count) {
-	int32_t n = EXT2_BLOCK_SIZE / 512;
+	int32_t n = (int32_t)(_ext2_block_size / SECTOR_SIZE);
 	int32_t sector = block * n + _partition.start_sector;
 	uint32_t sectors = count * (uint32_t)n;
 	if(count == 0)
 		return 0;
-	if(sd_read_sectors(sector, buf, sectors) != (int32_t)(count * EXT2_BLOCK_SIZE))
+	if(sd_read_sectors(sector, buf, sectors) != (int32_t)(count * _ext2_block_size))
 		return -1;
 	return 0;
 }
 
 int32_t sd_write(int32_t block, const void* buf) {
-	int32_t n = EXT2_BLOCK_SIZE/512;
+	int32_t n = (int32_t)(_ext2_block_size / SECTOR_SIZE);
 	int32_t sector = block * n + _partition.start_sector;
 	const char* p = (char*)buf;
 
@@ -263,6 +266,17 @@ int32_t sd_write(int32_t block, const void* buf) {
 		p += 512;
 	}
 	return 0;
+}
+
+int32_t sd_set_block_size(uint32_t block_size) {
+	if(block_size != 1024 && block_size != 2048 && block_size != 4096)
+		return -1;
+	_ext2_block_size = block_size;
+	return 0;
+}
+
+uint32_t sd_get_block_size(void) {
+	return _ext2_block_size;
 }
 
 #define PARTITION_MAX 4

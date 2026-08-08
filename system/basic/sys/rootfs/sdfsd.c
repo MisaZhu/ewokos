@@ -50,7 +50,8 @@ static int32_t add_nodes(ext2_t* ext2, INODE *ip, fsinfo_t* dinfo) {
 	int32_t i; 
 	char c, *cp;
 	DIR_T  *dp;
-	char buf[EXT2_BLOCK_SIZE+1];
+	uint32_t block_size = ext2_block_size(ext2);
+	char buf[EXT2_MAX_BLOCK_SIZE + 1];
 
 	fsinfo_t* kids = NULL;
 	uint32_t kid_num = 0;
@@ -65,7 +66,7 @@ static int32_t add_nodes(ext2_t* ext2, INODE *ip, fsinfo_t* dinfo) {
 			if(dp->inode == 0)
 				continue;
 
-			while (cp < (buf + EXT2_BLOCK_SIZE)){
+			while (cp < (buf + block_size)){
 				if(dp->name_len == 0)
 					break;
 				//guard against garbage/torn entries: a rec_len
@@ -145,7 +146,7 @@ static int sdext2_create(vdevice_t* dev, int pid, fsinfo_t* info_to, fsinfo_t* i
 
 	int ino = -1;
 	if(info->type == FS_TYPE_DIR)  {
-		info->stat.size = EXT2_BLOCK_SIZE;
+		info->stat.size = ext2_block_size(ext2);
 		ino = ext2_create_dir(ext2, ino_to, &inode_to, info->name, info->stat.uid, info->stat.gid, info->stat.mode);
 	}
 	else {
@@ -252,7 +253,8 @@ static fsinfo_t* sdext2_kids(vdevice_t* dev, fsinfo_t* info_dir, uint32_t* num, 
 	int32_t i; 
 	char c, *cp;
 	DIR_T  *dp;
-	char buf[EXT2_BLOCK_SIZE+1];
+	uint32_t block_size = ext2_block_size(ext2);
+	char buf[EXT2_MAX_BLOCK_SIZE + 1];
 
 	for (i=0; i<12; i++){
 		if (inode_dir.i_block[i] != 0){
@@ -263,7 +265,7 @@ static fsinfo_t* sdext2_kids(vdevice_t* dev, fsinfo_t* info_dir, uint32_t* num, 
 			if(dp->inode == 0)
 				continue;
 
-			while (cp < (buf + EXT2_BLOCK_SIZE)){
+			while (cp < (buf + block_size)){
 				if(dp->name_len == 0)
 					break;
 				//guard against garbage/torn entries: a rec_len

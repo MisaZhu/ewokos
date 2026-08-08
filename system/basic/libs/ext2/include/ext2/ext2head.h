@@ -100,7 +100,9 @@ typedef struct ext2_dir_entry_2 {
 	char		name[255];      	/* File name */
 } DIR_T;
 
-#define EXT2_BLOCK_SIZE 1024
+#define EXT2_MIN_BLOCK_SIZE 1024
+#define EXT2_MAX_BLOCK_SIZE 4096
+#define EXT2_DEFAULT_BLOCK_SIZE EXT2_MIN_BLOCK_SIZE
 
 typedef int32_t (*read_block_func_t)(int32_t block, void* buf);
 typedef int32_t (*read_blocks_func_t)(int32_t block, void* buf, uint32_t count);
@@ -115,5 +117,25 @@ typedef struct {
 	read_blocks_func_t read_blocks;
 	write_block_func_t write_block;
 } ext2_t;
+
+static inline uint32_t ext2_block_size(const ext2_t* ext2) {
+	return EXT2_MIN_BLOCK_SIZE << ext2->super.s_log_block_size;
+}
+
+static inline uint32_t ext2_inode_size(const ext2_t* ext2) {
+	return (ext2->super.s_inode_size == 0) ? 128U : (uint32_t)ext2->super.s_inode_size;
+}
+
+static inline uint32_t ext2_indirect_entries(const ext2_t* ext2) {
+	return ext2_block_size(ext2) / sizeof(uint32_t);
+}
+
+static inline uint32_t ext2_group_start_block(const ext2_t* ext2, uint32_t group_index) {
+	return ext2->super.s_first_data_block + (group_index * ext2->super.s_blocks_per_group);
+}
+
+static inline uint32_t ext2_gdt_start_block(const ext2_t* ext2) {
+	return ext2->super.s_first_data_block + 1;
+}
 
 #endif

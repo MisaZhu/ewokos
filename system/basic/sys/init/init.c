@@ -24,7 +24,9 @@ static int32_t ext2_sd_read_blocks(int32_t block, void* buf, uint32_t count) {
 
 static void* sd_read_ext2(const char* fname, int32_t* size) {
 	ext2_t ext2;
-	ext2_init_ex(&ext2, sd_read, ext2_sd_read_blocks, NULL, SD_BUFFER_SIZE);
+	if(ext2_init_ex(&ext2, sd_read, ext2_sd_read_blocks, NULL, SD_BUFFER_SIZE) != 0) {
+		return NULL;
+	}
 	void* ret = ext2_readfile(&ext2, fname, size);
 	ext2_quit(&ext2);
 	return ret;
