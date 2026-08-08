@@ -18,7 +18,7 @@ static uint32_t get_dma_size(void) {
     uint32_t ret = 16*MB;
 
     if(_sys_info.total_phy_mem_size >= 8ull*GB)
-        ret = 128*MB;
+        ret = 64*MB;
     else if(_sys_info.total_phy_mem_size >= 4ull*GB)
         ret = 64*MB;
     else if(_sys_info.total_phy_mem_size >= 2ull*GB)
