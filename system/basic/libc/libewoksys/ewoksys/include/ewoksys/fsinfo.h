@@ -12,17 +12,21 @@ extern "C" {
 #define FS_FULL_NAME_MAX 512
 
 enum {
-	FS_TYPE_DIR = 0,
+	FS_TYPE_UNKNOWN = 0,
+	FS_TYPE_DIR,
 	FS_TYPE_FILE,
 	FS_TYPE_LINK,
 	FS_TYPE_PIPE,
 	FS_TYPE_CHAR,
-	FS_TYPE_BLOCK,
-	FS_TYPE_UNKNOWN
+	FS_TYPE_BLOCK
 };
 
 #define FS_TYPE_ANNOUNIMOUS 0x80000000
 #define FS_TYPE_MASK        0x7fffffff
+
+#define FS_BASE_TYPE(type)   ((uint32_t)(type) & FS_TYPE_MASK)
+#define FS_IS_TYPE(type, expected) (FS_BASE_TYPE(type) == (uint32_t)(expected))
+#define FS_IS_ANONYMOUS(type) (((uint32_t)(type) & FS_TYPE_ANNOUNIMOUS) != 0)
 
 enum {
 	FS_CMD_NONE = 0,

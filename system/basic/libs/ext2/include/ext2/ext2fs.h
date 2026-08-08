@@ -14,7 +14,11 @@ int32_t ext2_unlink(ext2_t* ext2, const char* fname);
 
 int32_t ext2_read(ext2_t* ext2, INODE* node, char *buf, int32_t nbytes, int32_t offset);
 
+int32_t ext2_read_block(ext2_t* ext2, INODE* node, char *buf, int32_t nbytes, int32_t offset);
+
 int32_t ext2_write(ext2_t* ext2, INODE* node, const char *data, int32_t nbytes, int32_t offset);
+
+int32_t ext2_truncate(ext2_t* ext2, uint32_t ino, INODE* node);
 
 uint32_t ext2_ino_by_fname(ext2_t* ext2, const char* fname, DIR_T* dirp);
 

@@ -27,6 +27,7 @@ builtin_apps:
 	cd rm;$(MAKE)
 	cd chmod;$(MAKE)
 	cd chown;$(MAKE)
+	cd chgrp;$(MAKE)
 	cd whoami;$(MAKE)
 	cd mkdir;$(MAKE)
 	cd mkfifo;$(MAKE)
@@ -68,6 +69,7 @@ clean:
 	cd rm;$(MAKE) clean
 	cd chmod;$(MAKE) clean
 	cd chown;$(MAKE) clean
+	cd chgrp;$(MAKE) clean
 	cd mkdir;$(MAKE) clean
 	cd mkfifo;$(MAKE) clean
 	cd grep;$(MAKE) clean

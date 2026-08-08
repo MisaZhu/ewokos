@@ -12,10 +12,18 @@ static partition_t _partition;
 static uint32_t _ext2_block_size = EXT2_DEFAULT_BLOCK_SIZE;
 
 static int32_t ext2_validate_super(ext2_t* ext2) {
+	uint32_t unsupported_incompat = ext2->super.s_feature_incompat & ~EXT2_FEATURE_INCOMPAT_FILETYPE;
+	uint32_t unsupported_ro = ext2->super.s_feature_ro_compat &
+		~(EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER | EXT2_FEATURE_RO_COMPAT_LARGE_FILE);
+
+	if(ext2->super.s_magic != EXT2_SUPER_MAGIC)
+		return -1;
 	uint32_t block_size = ext2_block_size(ext2);
 	if(block_size != 1024 && block_size != 2048 && block_size != 4096)
 		return -1;
 	if(ext2_inode_size(ext2) < sizeof(INODE))
+		return -1;
+	if(unsupported_incompat != 0 || unsupported_ro != 0)
 		return -1;
 	return 0;
 }
@@ -349,9 +357,6 @@ static int32_t ext2_init(ext2_t* ext2, read_block_func_t read_block) {
 		return -1;
 	}
 	_ext2_block_size = ext2_block_size(ext2);
-	if (ext2->super.s_magic != 0xEF53) {
-		return -1;
-	}
 	if (get_gds(ext2) != 0) {
 		return -1;
 	}

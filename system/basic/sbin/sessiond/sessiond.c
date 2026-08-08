@@ -13,15 +13,32 @@
 #include <ewoksys/klog.h>
 
 #define USER_NUM_MAX 64
+#define GROUP_NUM_MAX 64
 
 static session_info_t _users[USER_NUM_MAX];
 static int _user_num = 0;
+static session_group_t _groups[GROUP_NUM_MAX];
+static int _group_num = 0;
+
+static int load_session_db(void);
+
+static void skip_line(int fd) {
+	char c;
+	while(read(fd, &c, 1) == 1) {
+		if(c == '\n')
+			return;
+	}
+}
 
 static char skip_space(int fd) {
 	char c;
 	while(true) {
 		if(read(fd, &c , 1) != 1)
 			break;
+		if(c == '#') {
+			skip_line(fd);
+			continue;
+		}
 		if(c != ' ' && c != '\t' && c != '\r' &&  c != '\n')
 			return c;
 	}
@@ -67,6 +84,7 @@ static int read_value(int fd, char* val, uint32_t len, bool start) {
 }
 
 static int read_user_item(int fd, session_info_t* info) {
+	memset(info, 0, sizeof(session_info_t));
 	if(read_value(fd, info->user, SESSION_USER_MAX, true) != 0)
 		return -1;
 
@@ -90,6 +108,26 @@ static int read_user_item(int fd, session_info_t* info) {
 	return 0;
 }
 
+static int read_group_item(int fd, session_group_t* info) {
+	char val[32];
+	char ignore[64];
+
+	memset(info, 0, sizeof(session_group_t));
+	if(read_value(fd, info->group, SESSION_GROUP_MAX, true) != 0)
+		return -1;
+
+	if(read_value(fd, ignore, sizeof(ignore), false) != 0)
+		return -1;
+
+	if(read_value(fd, val, sizeof(val), false) != 0)
+		return -1;
+	info->gid = atoi(val);
+
+	/* Ignore the member list for now. */
+	read_value(fd, ignore, sizeof(ignore), false);
+	return 0;
+}
+
 static int read_user_info(void) {
 	int fd = open("/etc/passwd", O_RDONLY);
 	if(fd < 0) {
@@ -97,6 +135,7 @@ static int read_user_info(void) {
 		return -1;
 	}
 	_user_num = 0;
+	memset(_users, 0, sizeof(_users));
 
 	while(_user_num < USER_NUM_MAX) {
 		session_info_t* info = &_users[_user_num];
@@ -106,6 +145,33 @@ static int read_user_info(void) {
 	}
 	close(fd);
 	return 0;
+}
+
+static int read_group_info(void) {
+	int fd = open("/etc/group", O_RDONLY);
+	if(fd < 0) {
+		fprintf(stderr, "Warning, open group file failed!\n");
+		_group_num = 0;
+		memset(_groups, 0, sizeof(_groups));
+		return 0;
+	}
+	_group_num = 0;
+	memset(_groups, 0, sizeof(_groups));
+
+	while(_group_num < GROUP_NUM_MAX) {
+		session_group_t* info = &_groups[_group_num];
+		if(read_group_item(fd, info) != 0)
+			break;
+		_group_num++;
+	}
+	close(fd);
+	return 0;
+}
+
+static int load_session_db(void) {
+	if(read_user_info() != 0)
+		return -1;
+	return read_group_info();
 }
 
 static session_info_t* check(const char* user, const char* password, int* res) {
@@ -145,6 +211,28 @@ static session_info_t* get_by_uid(int32_t uid) {
 	for(i=0; i<_user_num; i++) {
 		session_info_t* info = &_users[i];
 		if(info->uid == uid) {
+			return info;
+		}
+	}
+	return NULL;
+}
+
+static session_group_t* get_group_by_name(const char* group) {
+	int i;
+	for(i=0; i<_group_num; i++) {
+		session_group_t* info = &_groups[i];
+		if(strcmp(info->group, group) == 0) {
+			return info;
+		}
+	}
+	return NULL;
+}
+
+static session_group_t* get_group_by_gid(int32_t gid) {
+	int i;
+	for(i=0; i<_group_num; i++) {
+		session_group_t* info = &_groups[i];
+		if(info->gid == gid) {
 			return info;
 		}
 	}
@@ -221,6 +309,35 @@ static void do_session_check(int pid, proto_t* in, proto_t* out) {
 	PF->clear(out)->addi(out, 0)->add(out, sinfo, sizeof(session_info_t));
 }
 
+static void do_session_get_group_by_gid(int pid, proto_t* in, proto_t* out) {
+	(void)pid;
+	int32_t gid = proto_read_int(in);
+	session_group_t* ginfo = get_group_by_gid(gid);
+
+	PF->clear(out)->addi(out, -1);
+	if(ginfo == NULL)
+		return;
+	PF->clear(out)->addi(out, 0)->add(out, ginfo, sizeof(session_group_t));
+}
+
+static void do_session_get_group_by_name(int pid, proto_t* in, proto_t* out) {
+	(void)pid;
+	const char* name = proto_read_str(in);
+	session_group_t* ginfo = get_group_by_name(name);
+
+	PF->clear(out)->addi(out, -1);
+	if(ginfo == NULL)
+		return;
+	PF->clear(out)->addi(out, 0)->add(out, ginfo, sizeof(session_group_t));
+}
+
+static void do_session_reload(int pid, proto_t* in, proto_t* out) {
+	(void)pid;
+	(void)in;
+	int res = load_session_db();
+	PF->clear(out)->addi(out, res);
+}
+
 static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)p;
 	pid = proc_getpid(pid);
@@ -235,6 +352,15 @@ static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	case SESSION_GET_BY_NAME: 
 		do_session_get_by_name(pid, in, out);
 		return;
+	case SESSION_GET_GROUP_BY_GID:
+		do_session_get_group_by_gid(pid, in, out);
+		return;
+	case SESSION_GET_GROUP_BY_NAME:
+		do_session_get_group_by_name(pid, in, out);
+		return;
+	case SESSION_SET:
+		do_session_reload(pid, in, out);
+		return;
 	}
 }
 
@@ -242,7 +368,7 @@ int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
 
-	if(read_user_info() != 0)
+	if(load_session_db() != 0)
 		return -1;
 
 	if(ipc_serv_reg(IPC_SERV_SESSIOND) != 0) {

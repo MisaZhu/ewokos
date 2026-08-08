@@ -276,7 +276,7 @@ _read (int fd, void * buf, size_t size)
 		block = false;
 
 	int res = -1;
-	if(info.type == FS_TYPE_PIPE) {
+	if(FS_IS_TYPE(info.type, FS_TYPE_PIPE)) {
 		while(1) {
 			res = vfs_read_pipe(fd, info.node, buf, size, block);
 			if(res >= 0 || errno != EAGAIN)
@@ -347,7 +347,7 @@ _write (int fd, const void * buf, size_t size)
 
 	int res = -1;
 	size_t total_written = 0;
-	if(info.type == FS_TYPE_PIPE) {
+	if(FS_IS_TYPE(info.type, FS_TYPE_PIPE)) {
 		while(1) {
 			res = vfs_write_pipe(fd, info.node,
 					((const char *)buf) + total_written,
@@ -455,7 +455,7 @@ _open (const char * fname, int oflag, ...)
 		return -1;
 	}
 
-	uint32_t type = info.type & FS_TYPE_MASK;
+	uint32_t type = FS_BASE_TYPE(info.type);
 	bool needs_dev_open = true;
 	if((type == FS_TYPE_FILE || type == FS_TYPE_DIR || type == FS_TYPE_LINK) &&
 			(oflag & O_TRUNC) == 0) {
@@ -701,7 +701,7 @@ _isatty (int fd)
     errno = EBADF;
     return 0;
   }
-  if ((info.type & FS_TYPE_MASK) == FS_TYPE_CHAR) {
+  if (FS_IS_TYPE(info.type, FS_TYPE_CHAR)) {
     return 1;
   }
   errno = ENOTTY;

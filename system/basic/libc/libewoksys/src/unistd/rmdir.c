@@ -17,7 +17,7 @@ int rmdir(const char *pathname) {
 	if (vfs_get_by_name(pathname, &info) != 0) {
 		return -1;
 	}
-	if ((info.type & FS_TYPE_MASK) != FS_TYPE_DIR) {
+	if (!FS_IS_TYPE(info.type, FS_TYPE_DIR)) {
 		errno = ENOTDIR;
 		return -1;
 	}

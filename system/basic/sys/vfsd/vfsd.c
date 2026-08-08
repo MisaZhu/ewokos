@@ -286,13 +286,13 @@ static inline int32_t get_mount_pid(vfs_node_t* node) {
 }
 
 static inline bool vfs_node_kids_loaded(vfs_node_t* node) {
-	if(node == NULL || (node->fsinfo.type & FS_TYPE_MASK) != FS_TYPE_DIR)
+	if(node == NULL || !FS_IS_TYPE(node->fsinfo.type, FS_TYPE_DIR))
 		return true;
 	return (node->fsinfo.state & FS_STATE_KIDS_LOADED) != 0;
 }
 
 static inline void vfs_set_kids_loaded(vfs_node_t* node) {
-	if(node != NULL && (node->fsinfo.type & FS_TYPE_MASK) == FS_TYPE_DIR)
+	if(node != NULL && FS_IS_TYPE(node->fsinfo.type, FS_TYPE_DIR))
 		node->fsinfo.state |= FS_STATE_KIDS_LOADED;
 }
 
@@ -310,7 +310,7 @@ static vfs_node_t* vfs_find_kid_raw(vfs_node_t* father, const char* name) {
 }
 
 static int32_t vfs_load_kids_from_driver(vfs_node_t* father) {
-	if(father == NULL || (father->fsinfo.type & FS_TYPE_MASK) != FS_TYPE_DIR)
+	if(father == NULL || !FS_IS_TYPE(father->fsinfo.type, FS_TYPE_DIR))
 		return -1;
 	if(vfs_node_kids_loaded(father))
 		return 0;
@@ -896,7 +896,7 @@ static void do_node_wakeup(vfs_node_t* node, int events) {
 }
 
 static void sync_pipe_poll_events(vfs_node_t* node) {
-	if(node == NULL || node->fsinfo.type != FS_TYPE_PIPE)
+	if(node == NULL || !FS_IS_TYPE(node->fsinfo.type, FS_TYPE_PIPE))
 		return;
 
 	uint32_t events = node->events & ~(VFS_EVT_RD | VFS_EVT_WR);
@@ -923,7 +923,7 @@ static void sync_pipe_poll_events(vfs_node_t* node) {
 static void vfs_driver_close(int32_t pid, int32_t owner_pid, int32_t fd, file_t* file) {
 	if(file == NULL)
 		return;
-	uint32_t type = file->fsinfo.type & FS_TYPE_MASK;
+	uint32_t type = FS_BASE_TYPE(file->fsinfo.type);
 	/*
 	 * Regular filesystem objects in rootfs do not keep per-fd runtime state in
 	 * the backing driver. Zombie cleanup already detached the VFS-side slot, so
@@ -1001,7 +1001,7 @@ static int vfs_driver_dup_now(int32_t mount_pid, int32_t from_pid, int32_t from_
                 int32_t dup_pid, int32_t dup_fd, const file_t* file) {
 	if(file == NULL || file->node == NULL)
                 return 0;
-	uint32_t type = file->fsinfo.type & FS_TYPE_MASK;
+	uint32_t type = FS_BASE_TYPE(file->fsinfo.type);
 	/*
 	 * Regular filesystem objects do not carry per-fd runtime state in their
 	 * mount driver. Reads and writes always pass the current offset down from
@@ -1210,7 +1210,7 @@ static bool queue_driver_dup_job(clone_dup_ctx_t* ctx, int32_t mount_pid,
 
         if(file == NULL || file->node == NULL)
                 return false;
-        type = file->fsinfo.type & FS_TYPE_MASK;
+        type = FS_BASE_TYPE(file->fsinfo.type);
         if(type == FS_TYPE_FILE || type == FS_TYPE_DIR || type == FS_TYPE_LINK)
                 return false;
         if(from_pid == dup_pid)
@@ -1262,8 +1262,8 @@ static void vfs_driver_dup(int32_t from_pid, int32_t from_fd,
         if(file == NULL || file->node == NULL)
                 return;
 
-        type = file->fsinfo.type & FS_TYPE_MASK;
-        anonymous = (file->fsinfo.type & FS_TYPE_ANNOUNIMOUS) != 0;
+        type = FS_BASE_TYPE(file->fsinfo.type);
+        anonymous = FS_IS_ANONYMOUS(file->fsinfo.type);
         if(type == FS_TYPE_FILE || type == FS_TYPE_DIR || type == FS_TYPE_LINK)
                 return;
         if(anonymous)
@@ -1297,7 +1297,7 @@ static void proc_file_close(int pid, int fd, file_t* file) {
 	if((file->flags & (O_WRONLY|O_RDWR)) != 0 && node->refs_w > 0)
 		node->refs_w--;
 	bool del_node = false;
-	if(node->fsinfo.type == FS_TYPE_PIPE) {
+	if(FS_IS_TYPE(node->fsinfo.type, FS_TYPE_PIPE)) {
 		uint32_t read_refs = (node->refs >= node->refs_w) ? (node->refs - node->refs_w) : 0;
 		int32_t unread = 0;
 
@@ -1358,7 +1358,7 @@ static void proc_file_close(int pid, int fd, file_t* file) {
 		if(expose_close)
 			do_node_wakeup(node, VFS_EVT_CLOSE);
 	}
-	else if((node->fsinfo.type & FS_TYPE_ANNOUNIMOUS) != 0) {
+	else if(FS_IS_ANONYMOUS(node->fsinfo.type)) {
 		if(node->refs <= 0) {
 			del_node = true;
 			file->node = 0;
@@ -1454,7 +1454,7 @@ static vfs_node_t* vfs_dup2(int32_t pid, int32_t from, int32_t to) {
 	 */
 	file_t* f_old = vfs_get_file(owner, to);
 	if(f_old != NULL && f_old->node != NULL) {
-		uint32_t type = f_old->fsinfo.type & FS_TYPE_MASK;
+		uint32_t type = FS_BASE_TYPE(f_old->fsinfo.type);
 		if(type != FS_TYPE_FILE &&
 				type != FS_TYPE_DIR &&
 				type != FS_TYPE_LINK &&
@@ -1610,7 +1610,7 @@ static void do_vfs_new_node(int pid, proto_t* in, proto_t* out) {
 	info.node = vfs_get_node_id(node);
 	info.mount_pid = -1;
 	memcpy(&node->fsinfo, &info, sizeof(fsinfo_t));
-	if(info.type == FS_TYPE_PIPE)  {
+	if(FS_IS_TYPE(info.type, FS_TYPE_PIPE))  {
 		buffer_t* buf = (buffer_t*)malloc(sizeof(buffer_t));
 		memset(buf, 0, sizeof(buffer_t));
 		node->data_ptr = buf;
@@ -1663,7 +1663,7 @@ static void do_vfs_new_nodes(int pid, proto_t* in, proto_t* out) {
 
 	//pipes need per-node buffer setup, only plain files/dirs are batchable
 	for(int32_t i=0; i<num; i++) {
-		if((infos[i].type & FS_TYPE_MASK) == FS_TYPE_PIPE)
+		if(FS_IS_TYPE(infos[i].type, FS_TYPE_PIPE))
 			return;
 	}
 
@@ -1723,7 +1723,7 @@ static void do_vfs_open(int32_t pid, proto_t* in, proto_t* out) {
 	}
 
 	int res = -1;
-	if((node->fsinfo.type & FS_TYPE_ANNOUNIMOUS) == 0)
+	if(!FS_IS_ANONYMOUS(node->fsinfo.type))
 		res = vfs_open(pid, node, flags);
 	else {
 		node = vfs_open_announimous(pid, node);
@@ -2195,7 +2195,7 @@ static void clear_zombie(int32_t cpid) {
 		if(f->node != NULL) {
 			file_t closing = *f;
 			memset(f, 0, sizeof(file_t));
-			uint32_t type = closing.fsinfo.type & FS_TYPE_MASK;
+			uint32_t type = FS_BASE_TYPE(closing.fsinfo.type);
 			/*
 			 * Queue exactly one FS_CMD_CLOSE per fd that owns a driver-side
 			 * reference (see file_t.driver_ref). Fork sends FS_CMD_DUP per
@@ -2330,7 +2330,7 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 		vfs_node_t* node = f->node;
 		if(node != NULL) {
 			file_t* file = &_proc_fds_table[cpid].fds[i];
-                        uint32_t type = f->fsinfo.type & FS_TYPE_MASK;
+                        uint32_t type = FS_BASE_TYPE(f->fsinfo.type);
                         bool needs_driver_dup = (type != FS_TYPE_FILE &&
                                         type != FS_TYPE_DIR &&
                                         type != FS_TYPE_LINK &&

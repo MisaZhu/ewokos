@@ -125,10 +125,15 @@ int main(int argc, char* argv[]) {
 		const char* show_mode = get_show_mode(st.st_mode, it->d_type);
 
 		session_info_t info;
-		char gid[16];
+		session_group_t ginfo;
+		char gid[SESSION_GROUP_MAX];
 		if(session_get_by_uid(st.st_uid, &info) != 0)
 			snprintf(info.user, sizeof(info.user), "%d", st.st_uid);
-		snprintf(gid, sizeof(gid), "%d", st.st_gid);
+		if(session_get_group_by_gid(st.st_gid, &ginfo) == 0)
+			strncpy(gid, ginfo.group, sizeof(gid) - 1);
+		else
+			snprintf(gid, sizeof(gid), "%d", st.st_gid);
+		gid[sizeof(gid) - 1] = 0;
 
 		if(_list_mode == 0)
 			printf("%6dk %s\n", get_ksize(st.st_size), show_name);

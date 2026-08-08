@@ -751,7 +751,7 @@ void virtio_interrupt_enable(virtio_dev_t dev, void (*interrupt_handler)(virtio_
  * Reaps completed TX descriptors, processes PCM events (period elapsed, XRUN),
  * and resubmits event queue descriptors so the device can keep sending events.
  */
-static void virtio_snd_interrupt_handle(uint32_t interrupt, uint32_t p)
+static void virtio_snd_interrupt_handle(uint32_t interrupt, ewokos_addr_t p)
 {
 	(void)interrupt;
 	if (p >= VIRTIO_DEV_MAX)
@@ -777,7 +777,7 @@ int virtio_snd_enable_interrupts(virtio_dev_t dev)
 	}
 
 	virtio_ack_interrupt(dev->base, 0x3);
-	dev->virtio_handler.data = (uint32_t)(dev->interrupt - VIRTIO_INTERRUPT_BASE);
+	dev->virtio_handler.data = (ewokos_addr_t)(dev->interrupt - VIRTIO_INTERRUPT_BASE);
 	_virtio_irq_devs[dev->virtio_handler.data] = dev;
 	dev->virtio_handler.handler = virtio_snd_interrupt_handle;
 	sys_interrupt_setup(dev->interrupt, &dev->virtio_handler);

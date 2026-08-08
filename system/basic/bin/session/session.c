@@ -7,6 +7,7 @@
 #include <ewoksys/vfs.h>
 #include <ewoksys/core.h>
 #include <ewoksys/klog.h>
+#include <ewoksys/session.h>
 #include <setenv.h>
 
 static void welcome(void) {
@@ -47,6 +48,15 @@ static int doargs(int argc, char* argv[]) {
 }
 
 int main(int argc, char* argv[]) {
+	if(argc > 1 && strcmp(argv[1], "reload") == 0) {
+		if(session_reload() != 0) {
+			fprintf(stderr, "reload session database failed!\n");
+			return -1;
+		}
+		printf("session database reloaded.\n");
+		return 0;
+	}
+
 	int argind = doargs(argc, argv);
 	if(argind < 0)
 		return -1;

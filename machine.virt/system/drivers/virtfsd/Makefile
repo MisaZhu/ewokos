@@ -16,7 +16,7 @@ $(VIRTFSD): $(VIRTFSD_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a  \
 		$(BUILD_DIR)/lib/libsd.a \
 		$(BUILD_DIR)/lib/libarch_virt.a 
-	$(LD) -Ttext=100 $(VIRTFSD_OBJS) -o $(VIRTFSD) $(LDFLAGS)  $(BSP_LFLAGS) $(EWOK_LIBC) 
+	$(LD) -Ttext=100 $(VIRTFSD_OBJS) -o $(VIRTFSD) $(LDFLAGS) -larch_virt $(BSP_LFLAGS) $(EWOK_LIBC) 
 
 clean:
 	rm -fr $(VIRTFSD) $(VIRTFSD_OBJS)

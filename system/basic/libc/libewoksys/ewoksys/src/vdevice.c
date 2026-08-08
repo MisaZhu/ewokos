@@ -584,7 +584,8 @@ static void do_unlink(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, v
 	int res = 0;
 	if(dev != NULL && dev->unlink != NULL)
 		res = dev->unlink(dev, &info, fname, p);
-	else if(info.type != FS_TYPE_FILE && info.type != FS_TYPE_DIR) {
+	else if(!FS_IS_TYPE(info.type, FS_TYPE_FILE) &&
+			!FS_IS_TYPE(info.type, FS_TYPE_DIR)) {
 		PF->addi(out, -1)->addi(out, EPERM);
 		return;
 	}
@@ -899,7 +900,7 @@ static int do_mount(vdevice_t* dev, int type, int mode) {
 	//create a non-father node 
 	strcpy(info.name, dev->mnt_info.name);
 	info.type = type;
-	if(type == FS_TYPE_DIR)
+	if(FS_IS_TYPE(type, FS_TYPE_DIR))
 		info.stat.size = 1024;
 	info.stat.uid = getuid();
 	info.stat.gid = getgid();
@@ -966,7 +967,7 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int mode) {
 	
 	if(mnt_point != NULL) {
 		if(vfs_get_by_name(mnt_point, &dev->mnt_info) != 0) {
-			if(vfs_create(mnt_point, &dev->mnt_info, mnt_type & FS_TYPE_MASK, mode, true, true) != 0)
+			if(vfs_create(mnt_point, &dev->mnt_info, FS_BASE_TYPE(mnt_type), mode, true, true) != 0)
 				return -1;
 		}
 

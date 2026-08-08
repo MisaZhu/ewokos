@@ -55,6 +55,9 @@
 @/bin/splash -m "mount /tmp" -p 74
 @/bin/ipcserv /drivers/ramfsd          /tmp
 
+@/bin/splash -m "mount /mnt/share" -p 78
+@/bin/ipcserv /drivers/virt/virtfsd
+
 @/bin/splash -m "load fonts" -p 80
 @/bin/load_font
 
@@ -69,4 +72,3 @@
 @/bin/bgrun /bin/x/xsession misa 
 #@/bin/bgrun /bin/x/xsession
 
-#@/bin/bgrun /drivers/virt/virtfsd

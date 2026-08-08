@@ -20,6 +20,26 @@ static int32_t ext2_sd_read_blocks(int32_t block, void* buf, uint32_t count) {
 	return sd_read_blocks(block, buf, count);
 }
 
+static uint32_t dir_block_count(ext2_t* ext2, const INODE* inode) {
+	uint32_t block_size = ext2_block_size(ext2);
+	if(inode->i_size == 0)
+		return 0;
+	return (inode->i_size + block_size - 1) / block_size;
+}
+
+static int32_t dirent_name_equals(const DIR_T* dp, const char* name) {
+	size_t len = strlen(name);
+	return dp->name_len == len && memcmp(dp->name, name, len) == 0;
+}
+
+static int32_t dirent_type_to_fs(const DIR_T* dp, const INODE* inode) {
+	if(dp->file_type == EXT2_FT_DIR || (inode->i_mode & 0xF000) == EXT2_S_IFDIR)
+		return FS_TYPE_DIR;
+	if(dp->file_type == EXT2_FT_FILE || (inode->i_mode & 0xF000) == EXT2_S_IFREG)
+		return FS_TYPE_FILE;
+	return FS_TYPE_UNKNOWN;
+}
+
 static void set_fsinfo_stat(node_stat_t* stat, INODE* inode) {
 	stat->atime = inode->i_atime;
 	stat->ctime = inode->i_ctime;
@@ -47,60 +67,56 @@ static void set_inode_stat(node_stat_t* stat, INODE* inode) {
 #define NEW_NODES_BATCH 64
 
 static int32_t add_nodes(ext2_t* ext2, INODE *ip, fsinfo_t* dinfo) {
-	int32_t i; 
-	char c, *cp;
+	char *cp;
 	DIR_T  *dp;
 	uint32_t block_size = ext2_block_size(ext2);
+	uint32_t blocks = dir_block_count(ext2, ip);
 	char buf[EXT2_MAX_BLOCK_SIZE + 1];
 
 	fsinfo_t* kids = NULL;
 	uint32_t kid_num = 0;
 	uint32_t kid_cap = 0;
 
-	for (i=0; i<12; i++){
-		if (ip->i_block[i] != 0){
-			ext2->read_block(ip->i_block[i], buf);
-			dp = (DIR_T *)buf;
-			cp = buf;
+	for(uint32_t lbk = 0; lbk < blocks; lbk++) {
+		memset(buf, 0, sizeof(buf));
+		int32_t rd = ext2_read_block(ext2, ip, buf, (int32_t)block_size, (int32_t)(lbk * block_size));
+		if(rd <= 0)
+			continue;
+		dp = (DIR_T *)buf;
+		cp = buf;
 
-			if(dp->inode == 0)
-				continue;
+		if(dp->inode == 0)
+			continue;
 
-			while (cp < (buf + block_size)){
-				if(dp->name_len == 0)
-					break;
-				//guard against garbage/torn entries: a rec_len
-				//below the minimal entry size would loop forever
-				//or walk out of the block.
-				if(dp->rec_len < 12)
-					break;
+		while (cp < (buf + block_size)){
+			if(dp->name_len == 0 || dp->rec_len < 12 ||
+					dp->rec_len < (uint16_t)(4 * ((8 + dp->name_len + 3) / 4)) ||
+					(cp + dp->rec_len) > (buf + block_size))
+				break;
 
-				c = dp->name[dp->name_len];  // save last byte
-				dp->name[dp->name_len] = 0;   
-
-				if(strcmp(dp->name, ".") != 0 && strcmp(dp->name, "..") != 0 && dp->inode != 0 &&
-						(dp->file_type == 1 || dp->file_type == 2)) {
-					int32_t ino = dp->inode;
-					INODE ip_node;
-					if(ext2_node_by_ino(ext2, ino, &ip_node) == 0) {
+			if(dp->inode != 0 && !dirent_name_equals(dp, ".") && !dirent_name_equals(dp, "..")) {
+				int32_t ino = dp->inode;
+				INODE ip_node;
+				if(ext2_node_by_ino(ext2, ino, &ip_node) == 0) {
+					int32_t type = dirent_type_to_fs(dp, &ip_node);
+					if(type == FS_TYPE_DIR || type == FS_TYPE_FILE) {
 						if(kid_num >= kid_cap) { //grow geometrically, one realloc per entry is O(n^2)
 							kid_cap = (kid_cap == 0) ? 16 : (kid_cap * 2);
 							kids = realloc(kids, sizeof(fsinfo_t) * kid_cap);
 						}
 						fsinfo_t* f = &kids[kid_num];
 						memset(f, 0, sizeof(fsinfo_t));
-						strcpy(f->name, dp->name);
-						f->type = (dp->file_type == 2) ? FS_TYPE_DIR : FS_TYPE_FILE;
+						memcpy(f->name, dp->name, dp->name_len);
+						f->name[dp->name_len] = 0;
+						f->type = type;
 						f->data = (uint32_t)ino;
 						set_fsinfo_stat(&f->stat, &ip_node);
 						kid_num++;
 					}
 				}
-				//add node
-				dp->name[dp->name_len] = c; // restore that last byte
-				cp += dp->rec_len;
-				dp = (DIR_T *)cp;
 			}
+			cp += dp->rec_len;
+			dp = (DIR_T *)cp;
 		}
 	}
 
@@ -145,7 +161,7 @@ static int sdext2_create(vdevice_t* dev, int pid, fsinfo_t* info_to, fsinfo_t* i
 		return -1;
 
 	int ino = -1;
-	if(info->type == FS_TYPE_DIR)  {
+	if(FS_IS_TYPE(info->type, FS_TYPE_DIR))  {
 		info->stat.size = ext2_block_size(ext2);
 		ino = ext2_create_dir(ext2, ino_to, &inode_to, info->name, info->stat.uid, info->stat.gid, info->stat.mode);
 	}
@@ -157,7 +173,7 @@ static int sdext2_create(vdevice_t* dev, int pid, fsinfo_t* info_to, fsinfo_t* i
 	if(ino == -1)
 		return -1;
 	info->data = ino;
-	if(info->type == FS_TYPE_DIR)
+	if(FS_IS_TYPE(info->type, FS_TYPE_DIR))
 		info->state |= FS_STATE_KIDS_LOADED;
 	return 0;
 }
@@ -188,9 +204,9 @@ static int sdext2_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int
 	}
 
 	if((oflag & O_TRUNC) != 0) {
-		inode.i_size = 0;
-		info->stat.size = 0;
-		put_node(ext2, ino, &inode);
+		if(ext2_truncate(ext2, (uint32_t)ino, &inode) != 0)
+			return -1;
+		set_fsinfo_stat(&info->stat, &inode);
 	}
 	return 0;	
 }
@@ -226,10 +242,7 @@ static int sdext2_get(vdevice_t* dev, int from_pid, const char* fname, fsinfo_t*
 
 	memset(info, 0, sizeof(fsinfo_t));
 	strcpy(info->name, dirp.name);
-	if(dirp.file_type == 2)
-		info->type = FS_TYPE_DIR;
-	else if(dirp.file_type == 1)
-		info->type = FS_TYPE_FILE;
+	info->type = dirent_type_to_fs(&dirp, &inode);
 	info->data = (uint32_t)ino;
 	set_fsinfo_stat(&info->stat, &inode);
 	return 0;
@@ -239,7 +252,7 @@ static fsinfo_t* sdext2_kids(vdevice_t* dev, fsinfo_t* info_dir, uint32_t* num, 
 	(void)dev;
 	fsinfo_t* ret = NULL;
 	*num = 0;
-	if(info_dir->type != FS_TYPE_DIR)
+	if(!FS_IS_TYPE(info_dir->type, FS_TYPE_DIR))
 		return NULL;
 
 	ext2_t* ext2 = (ext2_t*)p;
@@ -250,58 +263,50 @@ static fsinfo_t* sdext2_kids(vdevice_t* dev, fsinfo_t* info_dir, uint32_t* num, 
 	if(ext2_node_by_ino(ext2, ino_dir, &inode_dir) != 0)
 		return NULL;
 
-	int32_t i; 
-	char c, *cp;
+	char *cp;
 	DIR_T  *dp;
 	uint32_t block_size = ext2_block_size(ext2);
+	uint32_t blocks = dir_block_count(ext2, &inode_dir);
 	char buf[EXT2_MAX_BLOCK_SIZE + 1];
 
-	for (i=0; i<12; i++){
-		if (inode_dir.i_block[i] != 0){
-			ext2->read_block(inode_dir.i_block[i], buf);
-			dp = (DIR_T *)buf;
-			cp = buf;
+	for(uint32_t lbk = 0; lbk < blocks; lbk++) {
+		memset(buf, 0, sizeof(buf));
+		if(ext2_read_block(ext2, &inode_dir, buf, (int32_t)block_size, (int32_t)(lbk * block_size)) <= 0)
+			continue;
+		dp = (DIR_T *)buf;
+		cp = buf;
 
-			if(dp->inode == 0)
-				continue;
+		if(dp->inode == 0)
+			continue;
 
-			while (cp < (buf + block_size)){
-				if(dp->name_len == 0)
-					break;
-				//guard against garbage/torn entries: a rec_len
-				//below the minimal entry size would loop forever
-				//or walk out of the block.
-				if(dp->rec_len < 12)
-					break;
+		while (cp < (buf + block_size)){
+			if(dp->name_len == 0 || dp->rec_len < 12 ||
+					dp->rec_len < (uint16_t)(4 * ((8 + dp->name_len + 3) / 4)) ||
+					(cp + dp->rec_len) > (buf + block_size))
+				break;
 
-				c = dp->name[dp->name_len];  // save last byte
-				dp->name[dp->name_len] = 0;   
-
-				if(strcmp(dp->name, ".") != 0 && strcmp(dp->name, "..") != 0 && dp->inode != 0) {
-					int32_t ino = dp->inode;
-					INODE ip_node;
-					if(ext2_node_by_ino(ext2, ino, &ip_node) == 0) {
+			if(dp->inode != 0 && !dirent_name_equals(dp, ".") && !dirent_name_equals(dp, "..")) {
+				int32_t ino = dp->inode;
+				INODE ip_node;
+				if(ext2_node_by_ino(ext2, ino, &ip_node) == 0) {
+					int32_t type = dirent_type_to_fs(dp, &ip_node);
+					if(type == FS_TYPE_DIR || type == FS_TYPE_FILE) {
 						fsinfo_t f;
 						memset(&f, 0, sizeof(fsinfo_t));
-						strcpy(f.name, dp->name);
+						memcpy(f.name, dp->name, dp->name_len);
+						f.name[dp->name_len] = 0;
 						f.data = (uint32_t)ino;
-						if(dp->file_type == 2) //director
-							f.type = FS_TYPE_DIR;
-						else if(dp->file_type == 1) //file
-							f.type = FS_TYPE_FILE;
+						f.type = type;
 						set_fsinfo_stat(&f.stat, &ip_node);
 
 						ret = realloc(ret, sizeof(fsinfo_t) * (*num + 1));
 						memcpy(&ret[*num], &f, sizeof(fsinfo_t));
 						(*num)++;
-						//klog("add file %s\n", dp->name);
 					}
 				}
-				//add node
-				dp->name[dp->name_len] = c; // restore that last byte
-				cp += dp->rec_len;
-				dp = (DIR_T *)cp;
 			}
+			cp += dp->rec_len;
+			dp = (DIR_T *)cp;
 		}
 	}
 	return ret;
@@ -350,8 +355,7 @@ static int sdext2_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 	}
 	size = ext2_write(ext2, &inode, buf, size, offset);
 	if(size >= 0) {
-		info->stat.size += size;
-		inode.i_size = info->stat.size;
+		set_fsinfo_stat(&info->stat, &inode);
 		put_node(ext2, ino, &inode);
 	}
 	return size;	
@@ -360,7 +364,8 @@ static int sdext2_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 static int sdext2_unlink(vdevice_t* dev, fsinfo_t* info, const char* fname, void* p) {
 	(void)dev;
 	ext2_t* ext2 = (ext2_t*)p;
-	if(ext2_unlink(ext2, fname) != 0)
+	int ret = FS_IS_TYPE(info->type, FS_TYPE_DIR) ? ext2_rmdir(ext2, fname) : ext2_unlink(ext2, fname);
+	if(ret != 0)
 		return -1;
 	return vfs_del_node(info->node);
 }

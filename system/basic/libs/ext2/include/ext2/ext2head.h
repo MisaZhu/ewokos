@@ -11,6 +11,13 @@
 #define EXT2_S_IFREG 0x8000
 #define EXT2_S_IFDIR 0x4000
 
+#define EXT2_SUPER_MAGIC 0xEF53
+
+#define EXT2_FEATURE_INCOMPAT_FILETYPE 0x0002
+
+#define EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER 0x0001
+#define EXT2_FEATURE_RO_COMPAT_LARGE_FILE  0x0002
+
 typedef struct ext2_super_block {
 	uint32_t	s_inodes_count;		/* Inodes count */
 	uint32_t	s_blocks_count;		/* Blocks count */

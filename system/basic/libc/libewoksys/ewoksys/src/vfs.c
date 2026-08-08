@@ -925,7 +925,7 @@ int vfs_create_uid(const char* fname, fsinfo_t* ret, int type, int mode, bool vf
 	memset(&fi, 0, sizeof(fsinfo_t));
 	strcpy(fi.name, name);
 	fi.type = type;
-	if(type == FS_TYPE_DIR) {
+	if(FS_IS_TYPE(type, FS_TYPE_DIR)) {
 		fi.stat.size = 1024;
 		fi.state |= FS_STATE_KIDS_LOADED;
 	}
@@ -1081,7 +1081,7 @@ int vfs_read_pipe(int fd, ewokos_addr_t node, void* buf, uint32_t size, bool blo
 int vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 	errno = 0;
 	int offset = 0;
-	if(info->type == FS_TYPE_FILE) {
+	if(FS_IS_TYPE(info->type, FS_TYPE_FILE)) {
 		offset = vfs_tell(fd);
 		if(offset < 0)
 			offset = 0;
@@ -1090,7 +1090,7 @@ int vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 	int res = dev_read(info->mount_pid, fd, info, offset, buf, size);
 	if(res > 0) {
 		offset += res;
-		if(info->type == FS_TYPE_FILE)
+		if(FS_IS_TYPE(info->type, FS_TYPE_FILE))
 			vfs_seek(fd, offset);
 	}
 	else if(res == VFS_ERR_RETRY) {
@@ -1112,11 +1112,11 @@ int vfs_write_pipe(int fd, ewokos_addr_t node, const void* buf, uint32_t size, b
 }
 
 int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
-	if(info->type == FS_TYPE_DIR) 
+	if(FS_IS_TYPE(info->type, FS_TYPE_DIR)) 
 		return -1;
 
 	int offset = 0;
-	if(info->type == FS_TYPE_FILE) {
+	if(FS_IS_TYPE(info->type, FS_TYPE_FILE)) {
 		offset = vfs_tell(fd);
 		if(offset < 0)
 			offset = 0;
@@ -1125,7 +1125,7 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 	int res = dev_write(info->mount_pid, fd, info, offset, buf, size);
 	if(res > 0) {
 		offset += res;
-		if(info->type == FS_TYPE_FILE) {
+		if(FS_IS_TYPE(info->type, FS_TYPE_FILE)) {
 			/*
 			 * Drivers such as ramfs can mutate per-file fsinfo.data/stat.size on write.
 			 * Sync the updated fsinfo back to vfsd's node so reopening the same path
@@ -1236,7 +1236,7 @@ uint32_t  vfs_get_poll_events(int fd) {
 		return 0;
 
         uint32_t sticky = vfs_get_poll_events_by_node(info.node);
-        if(info.type == FS_TYPE_PIPE) {
+        if(FS_IS_TYPE(info.type, FS_TYPE_PIPE)) {
                 fsfile_t* file = vfs_get_file(fd);
                 shm_pipe_t* ring = NULL;
                 if(file != NULL)
@@ -1272,7 +1272,7 @@ static uint32_t vfs_get_poll_events_cached(int fd, const fsinfo_t* info) {
                 return 0;
 
         uint32_t sticky = vfs_get_poll_events_by_node(info->node);
-        if(info->type == FS_TYPE_PIPE) {
+        if(FS_IS_TYPE(info->type, FS_TYPE_PIPE)) {
 		fsfile_t* file = vfs_get_file(fd);
 		shm_pipe_t* ring = NULL;
 		if(file != NULL)
