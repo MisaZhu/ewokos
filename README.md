@@ -14,6 +14,13 @@ Misa.Z <misa.zhu@gmail.com>
 
 EwokOS is a microkernel-based operating system that demonstrates core OS concepts including memory management, process scheduling, inter-process communication, and device drivers. It is designed to be simple, modular, and easy to understand for learning operating system internals.
 
+## Recent Platform Work
+
+- **16 KB page table support** for platforms that require larger translation table alignment and page management constraints.
+- **Memory support above 4 GB** on 64-bit Raspberry Pi class hardware, including fixes required for high physical address handling.
+- **ext2 block size adaptation** in build and runtime paths so root filesystem images with different ext2 block sizes can be created and mounted more reliably.
+- **Raspberry Pi 5 porting work**, including the BCM2712 bring-up path, framebuffer updates, and native HDMI display support for non-standard modes.
+
 ## Supported Platforms
 
 EwokOS currently supports the following architectures and platforms:
@@ -27,7 +34,7 @@ EwokOS currently supports the following architectures and platforms:
 | Platform | Architecture | Status | Description |
 |----------|-------------|--------|-------------|
 | `machine.virt` | ARM64/ARM | ✅ Supported | QEMU virt machine (recommended for beginners) |
-| `machine.raspix` | ARM | ✅ Supported | Raspberry Pi 1/2/3/4, 5 (planned) |
+| `machine.raspix` | ARM | ✅ Supported | Raspberry Pi 1/2/3/4, with Raspberry Pi 5 bring-up and platform migration in progress |
 
 ### Third-Party Hardware (machine.3rd)
 | Platform | Architecture | Status | Description |
