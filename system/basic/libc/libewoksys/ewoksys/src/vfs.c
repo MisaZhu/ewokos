@@ -1081,7 +1081,8 @@ int vfs_read_pipe(int fd, ewokos_addr_t node, void* buf, uint32_t size, bool blo
 int vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 	errno = 0;
 	int offset = 0;
-	if(FS_IS_TYPE(info->type, FS_TYPE_FILE)) {
+	if(FS_IS_TYPE(info->type, FS_TYPE_FILE) ||
+			FS_IS_TYPE(info->type, FS_TYPE_CHAR)) {
 		offset = vfs_tell(fd);
 		if(offset < 0)
 			offset = 0;
@@ -1090,7 +1091,8 @@ int vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 	int res = dev_read(info->mount_pid, fd, info, offset, buf, size);
 	if(res > 0) {
 		offset += res;
-		if(FS_IS_TYPE(info->type, FS_TYPE_FILE))
+		if(FS_IS_TYPE(info->type, FS_TYPE_FILE) ||
+				FS_IS_TYPE(info->type, FS_TYPE_CHAR))
 			vfs_seek(fd, offset);
 	}
 	else if(res == VFS_ERR_RETRY) {

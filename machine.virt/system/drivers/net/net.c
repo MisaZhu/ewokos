@@ -23,9 +23,10 @@ static int net_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t *info,
 	(void)fd;
 	(void)from_pid;
 	(void)info;
+	(void)offset;
 	(void)p;
 
-	int ret = virtio_net_read(_net, (uint8_t *)buf + offset, (uint32_t)size);
+	int ret = virtio_net_read(_net, buf, (uint32_t)size);
 	if (ret == 0 && size > 0)
 	{
 		return VFS_ERR_RETRY;
@@ -40,9 +41,10 @@ static int net_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t *info,
 	(void)fd;
 	(void)from_pid;
 	(void)info;
+	(void)offset;
 	(void)p;
 
-	int ret = virtio_net_write(_net, (const uint8_t *)buf + offset, (uint32_t)size);
+	int ret = virtio_net_write(_net, buf, (uint32_t)size);
 	if (ret == 0 && size > 0)
 	{
 		return VFS_ERR_RETRY;

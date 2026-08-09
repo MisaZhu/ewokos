@@ -526,6 +526,7 @@ static int snd_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t *info,
 	(void)fd;
 	(void)from_pid;
 	(void)info;
+	(void)offset;
 	(void)p;
 
 	if (!_snd.configured || size <= 0 || _snd.occupied_pid != snd_owner_pid(from_pid))
@@ -539,7 +540,7 @@ static int snd_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t *info,
 	}
 
 	/* Apply software volume gain if needed */
-	const uint8_t *tx_buf = (const uint8_t *)buf + offset;
+	const uint8_t *tx_buf = (const uint8_t *)buf;
 	uint32_t tx_size = (uint32_t)size;
 	int ret;
 
