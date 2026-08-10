@@ -15,6 +15,7 @@ all:
 	cd xwm_theme; $(MAKE)
 	cd xtheme; $(MAKE)
 	cd xipconfig; $(MAKE)
+	cd xwifi; $(MAKE)
 	cd clock; $(MAKE)
 	cd xg2dtest; $(MAKE)
 	cd SndPlayer; $(MAKE)
@@ -36,6 +37,7 @@ clean:
 	cd xwm_theme; $(MAKE) clean
 	cd xtheme; $(MAKE) clean
 	cd xipconfig; $(MAKE) clean
+	cd xwifi; $(MAKE) clean
 	cd clock; $(MAKE) clean
 	cd xg2dtest; $(MAKE) clean
 	cd SndPlayer; $(MAKE) clean
