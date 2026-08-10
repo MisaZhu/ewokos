@@ -11,6 +11,7 @@ extern ewokos_addr_t   _core_base_offset;
 extern void       sys_info_init_arch(void);
 extern void       sys_info_init(void);
 extern void       arch_vm(page_dir_entry_t* vm);
+extern int32_t    arch_clone_proc_vm(page_dir_entry_t* vm, page_dir_entry_t* kernel_vm);
 extern void       kalloc_arch(void);
 extern int32_t    check_mem_map_arch(ewokos_addr_t phy_base, uint32_t size);
 extern int32_t    mem_map_is_normal_ram_arch(ewokos_addr_t phy_base, uint32_t size);

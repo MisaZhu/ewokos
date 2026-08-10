@@ -1,6 +1,6 @@
 ENTRY(__entry)
 
-base_address = 0x4000000000;
+base_address = DEFINED(kernel_base) ? kernel_base : 0x4000000000;
 
 PHDRS
 {

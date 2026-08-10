@@ -127,8 +127,13 @@ page_table_entry_t* get_page_table_entry(page_dir_entry_t *vm, ewokos_addr_t vir
 void free_page_tables(page_dir_entry_t *vm) {
 	page_table_entry_t *l2_table = 0;
 	page_table_entry_t *l3_table = 0;
+	uint32_t kernel_l1_base = PAGE_L1_INDEX(KERNEL_BASE);
 
-	for(uint32_t i = 0; i < PAGE_DIR_NUM; i++){
+	/*
+	 * User address spaces share the kernel high-half root entries, so only free
+	 * the private user-half tables plus the small low DMA identity window.
+	 */
+	for(uint32_t i = 0; i < kernel_l1_base; i++){
 		if(vm[i].EntryType != 0){
 			l2_table = (page_table_entry_t*)P2V(vm[i].Address << PAGE_SHIFT);
 			for(uint32_t j = 0; j < PAGE_DIR_NUM; j++){

@@ -50,6 +50,11 @@ QEMU_NET_DEVICE ?= virtio-net-device,netdev=net0
 
 
 ARCH_LD_FLAGS = --defsym=start_address=$(LOAD_ADDRESS)
+ifeq ($(ARCH),arm)
+ARCH_LD_FLAGS += --defsym=kernel_base=0x80000000
+else
+ARCH_LD_FLAGS += --defsym=kernel_base=0x4000000000
+endif
 ifeq ($(PAGE_SIZE),16k)
 ARCH_LD_FLAGS += --defsym=page_align_size=0x4000
 else

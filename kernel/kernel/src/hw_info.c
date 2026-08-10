@@ -2,6 +2,13 @@
 #include <kernel/hw_info.h>
 sys_info_t _sys_info;
 
+__attribute__((weak))
+int32_t arch_clone_proc_vm(page_dir_entry_t* vm, page_dir_entry_t* kernel_vm) {
+	(void)vm;
+	(void)kernel_vm;
+	return 0;
+}
+
 static uint32_t get_kmalloc_size(void) {
     uint32_t ret = 8*MB;
 

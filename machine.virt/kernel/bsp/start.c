@@ -1,5 +1,7 @@
 #include <mm/mmu.h>
+#ifdef __aarch64__
 #include <mm/boot_pgt.h>
+#endif
 
 #ifdef __arm__
 #define PDE_SHIFT     20   // shift how many bits to get PDE index
@@ -32,33 +34,6 @@ static void set_boot_pgt(uint32_t virt, uint32_t phy, uint32_t len, uint8_t is_d
 #elif __aarch64__
 #define NUM_PAGE_DIRS PAGE_DIR_NUM
 // support 0 - 4GB @ aarch64 mode
-
-// #region debug-point boot16k-start-uart
-#define BOOT_UART0_PHYS  0x09000000ull
-#define BOOT_UART_DATA   0x00
-#define BOOT_UART_FLAGS  0x18
-#define BOOT_UART_TXFF   0x20
-
-static void boot_dbg_puts_phys(const char* s) {
-	while (*s != '\0') {
-		while (get32(BOOT_UART0_PHYS + BOOT_UART_FLAGS) & BOOT_UART_TXFF);
-		put32(BOOT_UART0_PHYS + BOOT_UART_DATA, (uint32_t)*s++);
-	}
-}
-
-static void boot_dbg_put_hex64(uint64_t value) {
-	static const char hex[] = "0123456789abcdef";
-	char out[17];
-
-	for(int i = 0; i < 16; i++) {
-		out[15 - i] = hex[value & 0xf];
-		value >>= 4;
-	}
-	out[16] = '\0';
-	boot_dbg_puts_phys(out);
-}
-
-// #endregion debug-point boot16k-start-uart
 
 static __attribute__((__aligned__(PAGE_DIR_SIZE)))
 page_dir_entry_t startup_page_dir[NUM_PAGE_DIRS] = { 0 };

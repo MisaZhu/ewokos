@@ -95,8 +95,8 @@ page_table_entry_t* get_page_table_entry(page_dir_entry_t *vm, ewokos_addr_t vir
 
 
 void free_page_tables(page_dir_entry_t *vm) {
-	int i;
-	for (i = 0; i < PAGE_DIR_NUM; i++) {
+	uint32_t kernel_dir_base = PAGE_DIR_INDEX(KERNEL_BASE);
+	for (uint32_t i = 0; i < kernel_dir_base; i++) {
 		if (vm[i].type != 0) {
 			void *page_table = (void *) P2V(BASE_TO_PAGE_TABLE(vm[i].base));
 			if(page_table != NULL)
