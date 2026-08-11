@@ -20,6 +20,7 @@ builtin_apps:
 	cd md5;$(MAKE)
 	cd session;$(MAKE)
 	cd mount;$(MAKE)
+	cd df;$(MAKE)
 	cd uname;$(MAKE)
 	cd pwd;$(MAKE)
 	cd dump;$(MAKE)
@@ -62,6 +63,7 @@ clean:
 	cd md5;$(MAKE) clean
 	cd session;$(MAKE) clean
 	cd mount;$(MAKE) clean
+	cd df;$(MAKE) clean
 	cd uname;$(MAKE) clean
 	cd pwd;$(MAKE) clean
 	cd dump;$(MAKE) clean
