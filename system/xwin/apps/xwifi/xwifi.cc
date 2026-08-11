@@ -111,11 +111,43 @@ public:
 	}
 };
 
+/*map rssi(dBm) to 0..4 bars of the classic signal icon*/
+static int32_t rssiLevel(int32_t rssi) {
+	if(rssi == 0)
+		return 0;
+	if(rssi >= -50)
+		return 4;
+	if(rssi >= -60)
+		return 3;
+	if(rssi >= -70)
+		return 2;
+	return 1;
+}
+
 class WifiList: public List {
 	WifiWin* app;
 	WifiItem items[MAX_WIFI_ITEMS];
 	uint32_t count;
 	std::string emptyText;
+
+	/*classic stepped signal bars, always pinned to the row's right edge
+	  so every row's icon lines up regardless of ssid length*/
+	void drawSignalIcon(graph_t* g, XTheme* theme, const grect_t& r, int32_t level, uint32_t fg) {
+		const int32_t bars = 4;
+		const int32_t barW = 3;
+		const int32_t gap = 2;
+		const int32_t step = 3;
+		int32_t totalW = bars * barW + (bars - 1) * gap;
+		int32_t baseY = r.y + r.h - 5;
+		int32_t left = r.x + r.w - 6 - totalW;
+
+		for(int32_t i = 0; i < bars; i++) {
+			int32_t bh = (i + 1) * step + 1;
+			int32_t x = left + i * (barW + gap);
+			graph_fill_rect(g, x, baseY - bh, barW, bh,
+					(i < level) ? fg : theme->basic.fgDisableColor);
+		}
+	}
 
 protected:
 	void drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
@@ -139,11 +171,11 @@ protected:
 		}
 
 		char line[160];
-		snprintf(line, sizeof(line), "%c %s (%ddBm)",
+		snprintf(line, sizeof(line), "%c %s",
 				item.connected ? '*' : ' ',
-				item.ssid.c_str(),
-				item.rssi);
+				item.ssid.c_str());
 		graph_draw_text_font(g, r.x+4, r.y+4, line, theme->getFont(), theme->basic.fontSize, fg);
+		drawSignalIcon(g, theme, r, rssiLevel(item.rssi), fg);
 	}
 
 	void onSelect(int32_t index);
