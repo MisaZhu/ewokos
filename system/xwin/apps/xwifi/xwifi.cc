@@ -21,6 +21,10 @@ using namespace Ewok;
 static const char* WLAN_DEV = "/dev/wl0";
 static const uint32_t MAX_WIFI_ITEMS = 64;
 static const uint32_t SCAN_WAIT_TICKS = 12;
+/*periodic rescans keep the wlan firmware busy (escan toggles its mpc low
+  power mode), so scan only when there are no cached results to show, and
+  at most every 30 seconds. The refresh button always rescans on demand.*/
+static const uint32_t SCAN_PERIOD_TICKS = 120;
 
 struct WifiItem {
 	std::string ssid;
@@ -225,8 +229,11 @@ public:
 			refreshState();
 		}
 
-		if((timerSteps % (timerFPS * 5)) == 0) {
-			triggerScan();
+		if((timerSteps % SCAN_PERIOD_TICKS) == 0) {
+			/*rescan only when the list stayed empty, so a window left
+			  open does not fire firmware scans every few seconds*/
+			if(wifiList != NULL && wifiList->getCount() == 0)
+				triggerScan();
 		}
 	}
 
@@ -332,8 +339,13 @@ public:
 				if(wifi.connected && selectedSsid.empty())
 					selectedSsid = wifi.ssid;
 
-				if((wifi.rssi > old.rssi) || (wifi.connected && !old.connected))
+				/*same ssid: keep the strongest AP only; the connected
+				  mark belongs to the ssid, so never lose it when a
+				  stronger sibling wins*/
+				bool connected = old.connected || wifi.connected;
+				if(wifi.rssi > old.rssi)
 					old = wifi;
+				old.connected = connected;
 			}
 			else if(loadedNum < MAX_WIFI_ITEMS) {
 				loaded[loadedNum] = wifi;
