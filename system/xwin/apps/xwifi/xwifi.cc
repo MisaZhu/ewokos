@@ -14,17 +14,25 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <string>
 
 using namespace Ewok;
 
 static const char* WLAN_DEV = "/dev/wl0";
+static const char* NET_DEV = "/dev/net0";
+
+static bool macEquals(const std::string& a, const std::string& b) {
+	if(a.empty() || b.empty() || a.size() != b.size())
+		return false;
+	for(size_t i=0; i<a.size(); i++) {
+		if(tolower((unsigned char)a[i]) != tolower((unsigned char)b[i]))
+			return false;
+	}
+	return true;
+}
 static const uint32_t MAX_WIFI_ITEMS = 64;
 static const uint32_t SCAN_WAIT_TICKS = 12;
-/*periodic rescans keep the wlan firmware busy (escan toggles its mpc low
-  power mode), so scan only when there are no cached results to show, and
-  at most every 30 seconds. The refresh button always rescans on demand.*/
-static const uint32_t SCAN_PERIOD_TICKS = 120;
 
 struct WifiItem {
 	std::string ssid;
@@ -165,8 +173,15 @@ class WifiWin: public WidgetWin {
 	WifiList* wifiList;
 	EditLine* password;
 	InfoPanel* infoPanel;
-	std::string statusText;
-	std::string stateText;
+	std::string wlanState;
+	std::string wlanSsid;
+	std::string wlanMac;
+	std::string wlanIp;
+	std::string wlanBssid;
+	std::string wlanAuth;
+	std::string wlanCipher;
+	int32_t wlanChannel;
+	int32_t wlanRssi;
 	bool scanReady;
 	uint32_t scanWaitTicks;
 
@@ -175,6 +190,8 @@ public:
 		wifiList = NULL;
 		password = NULL;
 		infoPanel = NULL;
+		wlanChannel = 0;
+		wlanRssi = 0;
 		scanReady = false;
 		scanWaitTicks = 0;
 	}
@@ -218,22 +235,21 @@ public:
 		}
 
 		if(timerSteps == 1) {
+			/*one kick at startup; the driver auto-rescans every 5s while
+			  disconnected, and the refresh button rescans on demand.
+			  Periodic "scan" commands from here kept the firmware's mpc
+			  toggling off/on and pinned wland's worker at 100% CPU.*/
 			triggerScan();
 			refreshList();
 			refreshState();
 			return;
 		}
 
-		if((timerSteps % timerFPS) == 0) {
+		/*list/state refresh every 2 seconds is plenty: each call is a
+		  blocking IPC round trip into wland*/
+		if((timerSteps % (timerFPS * 2)) == 0) {
 			refreshList();
 			refreshState();
-		}
-
-		if((timerSteps % SCAN_PERIOD_TICKS) == 0) {
-			/*rescan only when the list stayed empty, so a window left
-			  open does not fire firmware scans every few seconds*/
-			if(wifiList != NULL && wifiList->getCount() == 0)
-				triggerScan();
 		}
 	}
 
@@ -254,24 +270,16 @@ public:
 			return;
 
 		const WifiItem* item = wifiList->getItem(wifiList->getSelected());
-		if(item == NULL) {
-			statusText = "No Wi-Fi selected.";
-			updateInfo();
+		if(item == NULL)
 			return;
-		}
 
 		char cmd[192];
 		snprintf(cmd, sizeof(cmd), "connect %s %s",
 				item->ssid.c_str(),
 				password->getContent().c_str());
 		char* ret = dev_cmd(WLAN_DEV, cmd);
-		if(ret != NULL) {
-			statusText = ret;
+		if(ret != NULL)
 			free(ret);
-		}
-		else {
-			statusText = "connect failed: dev.cmd returned nothing";
-		}
 
 		refreshState();
 		refreshList();
@@ -282,13 +290,8 @@ public:
 		scanReady = false;
 		scanWaitTicks = SCAN_WAIT_TICKS;
 		updateEmptyHint();
-		if(ret != NULL) {
-			statusText = ret;
+		if(ret != NULL)
 			free(ret);
-		}
-		else {
-			statusText = "scan command sent";
-		}
 		updateInfo();
 	}
 
@@ -360,6 +363,36 @@ public:
 		json_var_unref(arr);
 	}
 
+	/*the wlan driver never knows its own ip (netd/dhcp owns it), so ask
+	  netd and pick the interface whose mac matches the wlan mac*/
+	std::string queryWlanIp() {
+		if(wlanMac.empty())
+			return "";
+
+		char* ret = dev_cmd(NET_DEV, "ip");
+		if(ret == NULL)
+			return "";
+
+		json_var_t* arr = json_parse_str(ret);
+		free(ret);
+		if(arr == NULL)
+			return "";
+
+		std::string ip;
+		uint32_t num = json_var_array_size(arr);
+		for(uint32_t i=0; i<num; i++) {
+			json_var_t* it = json_var_array_get_var(arr, i);
+			if(it == NULL)
+				continue;
+			if(macEquals(json_get_str_def(it, "mac", ""), wlanMac)) {
+				ip = json_get_str_def(it, "ip", "");
+				break;
+			}
+		}
+		json_var_unref(arr);
+		return ip;
+	}
+
 	void refreshState() {
 		char* ret = dev_cmd(WLAN_DEV, "state");
 		if(ret == NULL)
@@ -370,101 +403,98 @@ public:
 		if(obj == NULL)
 			return;
 
-		char line[192];
-		std::string info;
+		wlanState = json_get_str_def(obj, "state", "unknown");
+		wlanSsid = json_get_str_def(obj, "ssid", "");
+		wlanMac = json_get_str_def(obj, "mac", "");
+		wlanBssid = json_get_str_def(obj, "bssid", "");
+		wlanAuth = json_get_str_def(obj, "auth", "");
+		wlanCipher = json_get_str_def(obj, "cipher", "");
+		wlanChannel = json_get_int_def(obj, "channel", 0);
+		wlanRssi = json_get_int_def(obj, "rssi", 0);
 
-		snprintf(line, sizeof(line), "state: %s", json_get_str_def(obj, "state", "unknown"));
-		info += line;
-		info += '\n';
-
-		snprintf(line, sizeof(line), "ssid: %s", json_get_str_def(obj, "ssid", ""));
-		info += line;
-		info += '\n';
-
-		snprintf(line, sizeof(line), "ip: %s", json_get_str_def(obj, "ip", ""));
-		info += line;
-		info += '\n';
-
-		snprintf(line, sizeof(line), "mac: %s", json_get_str_def(obj, "mac", ""));
-		info += line;
-		info += '\n';
-
-		snprintf(line, sizeof(line), "bssid: %s", json_get_str_def(obj, "bssid", ""));
-		info += line;
-		info += '\n';
-
-		snprintf(line, sizeof(line), "channel: %d", json_get_int_def(obj, "channel", 0));
-		info += line;
-		info += '\n';
-
-		snprintf(line, sizeof(line), "rssi: %d", json_get_int_def(obj, "rssi", 0));
-		info += line;
-		info += '\n';
-
-		snprintf(line, sizeof(line), "auth: %s", json_get_str_def(obj, "auth", ""));
-		info += line;
-		info += '\n';
-
-		snprintf(line, sizeof(line), "cipher: %s", json_get_str_def(obj, "cipher", ""));
-		info += line;
-		info += '\n';
-
-		snprintf(line, sizeof(line), "reason: %s", json_get_str_def(obj, "reason", ""));
-		info += line;
+		wlanIp = json_get_str_def(obj, "ip", "");
+		if(wlanIp.empty())
+			wlanIp = queryWlanIp();
 
 		scanReady = json_get_bool_def(obj, "scan_ready", false);
 		if(scanReady)
 			scanWaitTicks = 0;
 		updateEmptyHint();
 
-		stateText = info;
 		json_var_unref(obj);
 		updateInfo();
 	}
 
 	void updateInfo() {
+		char line[192];
 		std::string info = "WLAN Info\n";
 		info += "----------------\n";
-		info += stateText;
 
-		const WifiItem* item = wifiList->getItem(wifiList->getSelected());
-		if(item != NULL) {
-			char line[192];
-			info += "\n\nSelected AP\n";
-			info += "----------------\n";
+		snprintf(line, sizeof(line), "state: %s", wlanState.c_str());
+		info += line;
+		info += '\n';
 
-			snprintf(line, sizeof(line), "ssid: %s", item->ssid.c_str());
+		if(!wlanIp.empty()) {
+			snprintf(line, sizeof(line), "ip: %s", wlanIp.c_str());
 			info += line;
 			info += '\n';
-
-			snprintf(line, sizeof(line), "bssid: %s", item->bssid.c_str());
-			info += line;
-			info += '\n';
-
-			snprintf(line, sizeof(line), "auth: %s", item->auth.c_str());
-			info += line;
-			info += '\n';
-
-			snprintf(line, sizeof(line), "cipher: %s", item->cipher.c_str());
-			info += line;
-			info += '\n';
-
-			snprintf(line, sizeof(line), "type: %s", item->type.c_str());
-			info += line;
-			info += '\n';
-
-			snprintf(line, sizeof(line), "channel: %d", item->channel);
-			info += line;
-			info += '\n';
-
-			snprintf(line, sizeof(line), "rssi: %d", item->rssi);
-			info += line;
 		}
 
-		if(!statusText.empty()) {
-			info += "\n\nCommand\n";
-			info += "----------------\n";
-			info += statusText;
+		/*show exactly one entry: the AP we are connecting to or already
+		  connected to; every other scan result is ignored*/
+		bool active = (wlanState == "connecting" || wlanState == "connected") &&
+			!wlanSsid.empty();
+		if(!active) {
+			infoPanel->setText(info);
+			return;
+		}
+
+		std::string bssid = wlanBssid;
+		std::string auth = wlanAuth;
+		std::string cipher = wlanCipher;
+		int32_t channel = wlanChannel;
+		int32_t rssi = wlanRssi;
+		for(uint32_t i=0; i<wifiList->getCount(); i++) {
+			const WifiItem* it = wifiList->getItem(i);
+			if(it != NULL && it->ssid == wlanSsid) {
+				bssid = it->bssid;
+				auth = it->auth;
+				cipher = it->cipher;
+				channel = it->channel;
+				rssi = it->rssi;
+				break;
+			}
+		}
+
+		info += '\n';
+		snprintf(line, sizeof(line), "ssid: %s", wlanSsid.c_str());
+		info += line;
+		info += '\n';
+
+		if(!bssid.empty()) {
+			snprintf(line, sizeof(line), "bssid: %s", bssid.c_str());
+			info += line;
+			info += '\n';
+		}
+
+		snprintf(line, sizeof(line), "channel: %d", channel);
+		info += line;
+		info += '\n';
+
+		snprintf(line, sizeof(line), "rssi: %d", rssi);
+		info += line;
+		info += '\n';
+
+		if(!auth.empty()) {
+			snprintf(line, sizeof(line), "auth: %s", auth.c_str());
+			info += line;
+			info += '\n';
+		}
+
+		if(!cipher.empty()) {
+			snprintf(line, sizeof(line), "cipher: %s", cipher.c_str());
+			info += line;
+			info += '\n';
 		}
 
 		infoPanel->setText(info);
