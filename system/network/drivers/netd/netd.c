@@ -259,6 +259,53 @@ static bool ETHER_TAP_USE_DHCP = true;
 
 void *net_thread(void* p);
 
+extern void dhcp_restart(struct net_device *dev);
+
+static struct net_device* ETHER_TAP_DEV = NULL;
+
+/*
+ * Poll the tap device's link state once a second (the wlan driver answers
+ * "state" with a cheap struct read; devices without such a command fail the
+ * call and the monitor stays idle). On a new association -- link coming up
+ * after a drop, or the BSSID changing -- the DHCP lease from the old link
+ * is stale, so kick an immediate re-discovery instead of waiting for the
+ * T1 renew or full lease expiry.
+ */
+static void link_monitor(void)
+{
+    static char last_bssid[32] = "";
+    static int last_connected = 0;
+    char bssid[32];
+    char* ret;
+    json_var_t* obj;
+    int connected;
+
+    if (ETHER_TAP_DEV == NULL || !ETHER_TAP_USE_DHCP)
+        return;
+
+    ret = dev_cmd(ETHER_TAP_NAME, "state");
+    if (ret == NULL)
+        return;
+
+    obj = json_parse_str(ret);
+    free(ret);
+    if (obj == NULL)
+        return;
+
+    connected = (strcmp(json_get_str_def(obj, "state", ""), "connected") == 0);
+    snprintf(bssid, sizeof(bssid), "%s", json_get_str_def(obj, "bssid", ""));
+    json_var_unref(obj);
+
+    if (connected &&
+            (!last_connected ||
+             (bssid[0] != '\0' && strcmp(bssid, last_bssid) != 0)))
+        dhcp_restart(ETHER_TAP_DEV);
+
+    last_connected = connected;
+    if (bssid[0] != '\0')
+        snprintf(last_bssid, sizeof(last_bssid), "%s", bssid);
+}
+
 static int setup(void)
 {
     struct net_device *dev;
@@ -290,6 +337,7 @@ static int setup(void)
         slog("ether_tap_init() failure");
         return -1;
     }
+    ETHER_TAP_DEV = dev;
 
     iface = ip_iface_alloc(ETHER_TAP_IP_ADDR, ETHER_TAP_NETMASK);
     if (!iface) {
@@ -303,6 +351,8 @@ static int setup(void)
     }
 
     if (ETHER_TAP_USE_DHCP) {
+        struct timeval lm_interval = {1, 0};
+        net_timer_register("Link Monitor", lm_interval, link_monitor);
 	    if(dhcp_run(dev) == -1){
             slog("dhcp_run() failure");
             return -1;

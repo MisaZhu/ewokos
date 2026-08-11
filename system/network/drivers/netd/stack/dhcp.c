@@ -734,6 +734,24 @@ dhcp_run(struct net_device* dev){
     return 0;
 }
 
+/*
+ * Link-change hook: drop the current lease and re-discover immediately.
+ * Called by netd's link monitor when the underlying device reports a new
+ * association (link up after a drop, or a different BSSID); the old
+ * address/subnet can no longer be trusted, and waiting for the T1 renew
+ * or lease expiry would leave the interface unreachable for a long time.
+ */
+void
+dhcp_restart(struct net_device *dev)
+{
+    dhcp_client_t *dhc = dhcp_client_list;
+    while (dhc) {
+        if (dhc->dev == dev)
+            dhcp_reset(dev, dhc);
+        dhc = dhc->next;
+    }
+}
+
 int
 dhcp_init(void)
 {

@@ -184,6 +184,8 @@ class WifiWin: public WidgetWin {
 	int32_t wlanRssi;
 	bool scanReady;
 	uint32_t scanWaitTicks;
+	WifiItem wifiCache[MAX_WIFI_ITEMS];
+	uint32_t wifiCacheNum;
 
 public:
 	WifiWin() {
@@ -194,6 +196,7 @@ public:
 		wlanRssi = 0;
 		scanReady = false;
 		scanWaitTicks = 0;
+		wifiCacheNum = 0;
 	}
 
 	static void connectClick(Widget* wd, xevent_t* evt, void* arg) {
@@ -245,12 +248,13 @@ public:
 			return;
 		}
 
-		/*list/state refresh every 2 seconds is plenty: each call is a
-		  blocking IPC round trip into wland*/
-		if((timerSteps % (timerFPS * 2)) == 0) {
-			refreshList();
+		/*state every 500ms so connecting->connected shows up promptly
+		  (it is a cheap struct read in wland, no firmware access); the
+		  list stays on the 2s cadence*/
+		if((timerSteps % 2) == 0)
 			refreshState();
-		}
+		if((timerSteps % (timerFPS * 2)) == 0)
+			refreshList();
 	}
 
 	void onSelected(int32_t index) {
@@ -305,14 +309,15 @@ public:
 		if(arr == NULL)
 			return;
 
-		WifiItem loaded[MAX_WIFI_ITEMS];
-		uint32_t num = json_var_array_size(arr);
-		uint32_t loadedNum = 0;
-
 		std::string selectedSsid;
 		const WifiItem* curr = wifiList->getItem(wifiList->getSelected());
 		if(curr != NULL)
 			selectedSsid = curr->ssid;
+
+		/*parse this poll's results, dedup by ssid keeping the strongest AP*/
+		WifiItem incoming[MAX_WIFI_ITEMS];
+		uint32_t incomingNum = 0;
+		uint32_t num = json_var_array_size(arr);
 
 		for(uint32_t i=0; i<num; i++) {
 			json_var_t* item = json_var_array_get_var(arr, i);
@@ -329,19 +334,19 @@ public:
 			wifi.channel = json_get_int_def(item, "channel", 0);
 			wifi.connected = json_get_bool_def(item, "selected", false);
 
+			if(wifi.ssid.empty())
+				continue;
+
 			int32_t existed = -1;
-			for(uint32_t j=0; j<loadedNum; j++) {
-				if(loaded[j].ssid == wifi.ssid) {
+			for(uint32_t j=0; j<incomingNum; j++) {
+				if(incoming[j].ssid == wifi.ssid) {
 					existed = (int32_t)j;
 					break;
 				}
 			}
 
 			if(existed >= 0) {
-				WifiItem& old = loaded[existed];
-				if(wifi.connected && selectedSsid.empty())
-					selectedSsid = wifi.ssid;
-
+				WifiItem& old = incoming[existed];
 				/*same ssid: keep the strongest AP only; the connected
 				  mark belongs to the ssid, so never lose it when a
 				  stronger sibling wins*/
@@ -350,15 +355,39 @@ public:
 					old = wifi;
 				old.connected = connected;
 			}
-			else if(loadedNum < MAX_WIFI_ITEMS) {
-				loaded[loadedNum] = wifi;
-				if(selectedSsid.empty() && loaded[loadedNum].connected)
-					selectedSsid = loaded[loadedNum].ssid;
-				loadedNum++;
+			else if(incomingNum < MAX_WIFI_ITEMS) {
+				incoming[incomingNum++] = wifi;
 			}
 		}
 
-		wifiList->setItems(loaded, loadedNum, selectedSsid);
+		/*merge into the in-memory cache: known ssids are updated, new ones
+		  appended, and entries missing from this response are kept as-is.
+		  The driver's scan cache is empty while a connect runs, so without
+		  this the list would blank out exactly when the user is watching
+		  it.*/
+		for(uint32_t i=0; i<incomingNum; i++) {
+			int32_t slot = -1;
+			for(uint32_t j=0; j<wifiCacheNum; j++) {
+				if(wifiCache[j].ssid == incoming[i].ssid) {
+					slot = (int32_t)j;
+					break;
+				}
+			}
+			if(slot >= 0)
+				wifiCache[slot] = incoming[i];
+			else if(wifiCacheNum < MAX_WIFI_ITEMS)
+				wifiCache[wifiCacheNum++] = incoming[i];
+		}
+
+		/*the connected mark follows the polled wlan state, not the driver
+		  list (which may not contain the active AP at all)*/
+		for(uint32_t j=0; j<wifiCacheNum; j++) {
+			wifiCache[j].connected = (!wlanSsid.empty() &&
+					wifiCache[j].ssid == wlanSsid &&
+					(wlanState == "connected" || wlanState == "connecting"));
+		}
+
+		wifiList->setItems(wifiCache, wifiCacheNum, selectedSsid);
 		updateEmptyHint();
 		json_var_unref(arr);
 	}
@@ -430,9 +459,28 @@ public:
 		std::string info = "WLAN Info\n";
 		info += "----------------\n";
 
-		snprintf(line, sizeof(line), "state: %s", wlanState.c_str());
+		/*the panel only ever shows four states: scanning, connecting,
+		  getting ip, connected. idle/disconnected means the driver is
+		  auto-scanning; connected without an ip yet means DHCP is
+		  still running.*/
+		const char* shownState = "scanning";
+		if(wlanState == "connecting")
+			shownState = "connecting";
+		else if(wlanState == "connected" && wlanIp.empty())
+			shownState = "getting ip";
+		else if(wlanState == "connected")
+			shownState = "connected";
+
+		snprintf(line, sizeof(line), "state: %s", shownState);
 		info += line;
 		info += '\n';
+
+		/*only a fully connected link shows details; every other state
+		  shows just the state line*/
+		if(strcmp(shownState, "connected") != 0) {
+			infoPanel->setText(info);
+			return;
+		}
 
 		if(!wlanIp.empty()) {
 			snprintf(line, sizeof(line), "ip: %s", wlanIp.c_str());
@@ -440,11 +488,9 @@ public:
 			info += '\n';
 		}
 
-		/*show exactly one entry: the AP we are connecting to or already
-		  connected to; every other scan result is ignored*/
-		bool active = (wlanState == "connecting" || wlanState == "connected") &&
-			!wlanSsid.empty();
-		if(!active) {
+		/*show exactly one entry: the AP we are connected to; every other
+		  scan result is ignored*/
+		if(wlanSsid.empty()) {
 			infoPanel->setText(info);
 			return;
 		}
