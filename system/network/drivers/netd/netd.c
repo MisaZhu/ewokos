@@ -402,6 +402,11 @@ char* network_devcmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* 
 	(void)from_pid;
 	(void)argc;
 	(void)p;
+	if(strcmp(argv[0], "help") == 0) {
+		return strdup("commands:\n"
+			"  ip   - list interfaces(ip/netmask/broadcast/gateway/mac)\n"
+			"  help - show this help\n");
+	}
 	json_var_t* json_var = json_var_new_array();
 	if(strcmp(argv[0], "ip") == 0) {
 		struct ip_iface *iface =  NULL;
