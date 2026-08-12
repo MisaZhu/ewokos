@@ -92,7 +92,10 @@ void dma_release(int32_t pid) {
             if(d->pid == pid)
                 d->pid = 0;
 
-            if(d->prev != NULL && d->prev->pid == 0) { //merge
+            /* only merge FREE nodes; merging a live allocation into a free
+             * prev would mark it reusable and hand the same physical range
+             * to the next dma_alloc caller (scan-out/XHCI corruption). */
+            if(d->pid == 0 && d->prev != NULL && d->prev->pid == 0) { //merge
                 d->prev->next = next; 
                 if(next != NULL)
                 next->prev = d->prev;
