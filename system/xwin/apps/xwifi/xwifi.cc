@@ -520,6 +520,12 @@ public:
 			info += '\n';
 		}
 
+                if(!wlanMac.empty()) {
+                        snprintf(line, sizeof(line), "mac: %s", wlanMac.c_str());
+                        info += line;
+                        info += '\n';
+                }
+
 		/*show exactly one entry: the AP we are connected to; every other
 		  scan result is ignored*/
 		if(wlanSsid.empty()) {

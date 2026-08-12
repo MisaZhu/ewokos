@@ -34,6 +34,7 @@
 #define MESSAGE_TYPE_DHCP                   53
 #define MESSAGE_TYPE_SERVER_IP              54
 #define MESSAGE_TYPE_PARAMETER_REQ_LIST     55
+#define MESSAGE_TYPE_CLIENT_ID              61
 #define MESSAGE_TYPE_END                    255
 
 #define DHCP_OPTION_DISCOVER                1
@@ -194,7 +195,17 @@ fill_dhcp_option(u_int8_t *packet, u_int8_t code, u_int8_t *data, u_int8_t len)
  * Fill DHCP options
  */
 static int
-fill_dhcp_discovery_options(dhcp_t *dhcp, uint32_t requested_ip)
+fill_dhcp_client_id_option(uint8_t *packet, const uint8_t *mac)
+{
+    uint8_t client_id[1 + ETHER_ADDR_LEN];
+
+    client_id[0] = DHCP_HARDWARE_TYPE_10_EHTHERNET;
+    memcpy(&client_id[1], mac, ETHER_ADDR_LEN);
+    return fill_dhcp_option(packet, MESSAGE_TYPE_CLIENT_ID, client_id, sizeof(client_id));
+}
+
+static int
+fill_dhcp_discovery_options(dhcp_t *dhcp, struct net_device *dev)
 {
     int len = 0;
     u_int8_t parameter_req_list[] = {MESSAGE_TYPE_REQ_SUBNET_MASK, MESSAGE_TYPE_ROUTER, MESSAGE_TYPE_DNS, MESSAGE_TYPE_DOMAIN_NAME};
@@ -202,13 +213,13 @@ fill_dhcp_discovery_options(dhcp_t *dhcp, uint32_t requested_ip)
 
     option = DHCP_OPTION_DISCOVER;
     len += fill_dhcp_option(&dhcp->bp_options[len], MESSAGE_TYPE_DHCP, &option, sizeof(option));
-    if (requested_ip != 0) {
-        /*
-         * Ask the server to re-offer our previous address so external hosts
-         * that cached the old IP keep working across a lease refresh cycle.
-         */
-        len += fill_dhcp_option(&dhcp->bp_options[len], MESSAGE_TYPE_REQ_IP, (u_int8_t *)&requested_ip, sizeof(requested_ip));
-    }
+    /*
+     * Do not carry the previous lease into DISCOVER via requested-IP(50).
+     * Some DHCP servers honor that hint too aggressively and can reissue an
+     * address that is already in use by a different MAC after link churn or
+     * image cloning. Let the server choose a fresh lease for this identity.
+     */
+    len += fill_dhcp_client_id_option(&dhcp->bp_options[len], dev->addr);
     len += fill_dhcp_option(&dhcp->bp_options[len], MESSAGE_TYPE_PARAMETER_REQ_LIST, (u_int8_t *)&parameter_req_list, sizeof(parameter_req_list));
     option = 0;
     len += fill_dhcp_option(&dhcp->bp_options[len], MESSAGE_TYPE_END, &option, sizeof(option));
@@ -221,7 +232,7 @@ fill_dhcp_discovery_options(dhcp_t *dhcp, uint32_t requested_ip)
  * forbids the requested-IP(50)/server-id(54) options in this state.
  */
 static int
-fill_dhcp_renew_options(dhcp_t *dhcp)
+fill_dhcp_renew_options(dhcp_t *dhcp, struct net_device *dev)
 {
     int len = 0;
     u_int8_t parameter_req_list[] = {MESSAGE_TYPE_REQ_SUBNET_MASK, MESSAGE_TYPE_ROUTER, MESSAGE_TYPE_DNS, MESSAGE_TYPE_DOMAIN_NAME};
@@ -229,6 +240,7 @@ fill_dhcp_renew_options(dhcp_t *dhcp)
 
     option = DHCP_OPTION_REQUEST;
     len += fill_dhcp_option(&dhcp->bp_options[len], MESSAGE_TYPE_DHCP, &option, sizeof(option));
+    len += fill_dhcp_client_id_option(&dhcp->bp_options[len], dev->addr);
     len += fill_dhcp_option(&dhcp->bp_options[len], MESSAGE_TYPE_PARAMETER_REQ_LIST, (u_int8_t *)&parameter_req_list, sizeof(parameter_req_list));
     option = 0;
     len += fill_dhcp_option(&dhcp->bp_options[len], MESSAGE_TYPE_END, &option, sizeof(option));
@@ -237,7 +249,7 @@ fill_dhcp_renew_options(dhcp_t *dhcp)
 }
 
 static int
-fill_dhcp_request_options(dhcp_t *dhcp, uint32_t requested_ip, uint32_t server_id)
+fill_dhcp_request_options(dhcp_t *dhcp, struct net_device *dev, uint32_t requested_ip, uint32_t server_id)
 {
     int len = 0;
     u_int8_t parameter_req_list[] = {MESSAGE_TYPE_REQ_SUBNET_MASK, MESSAGE_TYPE_ROUTER, MESSAGE_TYPE_DNS, MESSAGE_TYPE_DOMAIN_NAME};
@@ -247,6 +259,7 @@ fill_dhcp_request_options(dhcp_t *dhcp, uint32_t requested_ip, uint32_t server_i
 
     option = DHCP_OPTION_REQUEST;
     len += fill_dhcp_option(&dhcp->bp_options[len], MESSAGE_TYPE_DHCP, &option, sizeof(option));
+    len += fill_dhcp_client_id_option(&dhcp->bp_options[len], dev->addr);
 
     req_ip = requested_ip;
     len += fill_dhcp_option(&dhcp->bp_options[len], MESSAGE_TYPE_REQ_IP, (u_int8_t *)&req_ip, sizeof(req_ip));
@@ -359,12 +372,12 @@ dhcp_send(struct net_device *dev, dhcp_client_t *dhc, int message_type)
     dhcp = (dhcp_t *)(((char *)udp_header) + sizeof(struct udp_hdr));
 
     if (message_type == DHCP_OPTION_DISCOVER) {
-        len = fill_dhcp_discovery_options(dhcp, dhc->last_ip);
+        len = fill_dhcp_discovery_options(dhcp, dev);
     } else if (message_type == DHCP_OPTION_REQUEST) {
         if (renewing) {
-            len = fill_dhcp_renew_options(dhcp);
+            len = fill_dhcp_renew_options(dhcp, dev);
         } else {
-            len = fill_dhcp_request_options(dhcp, dhc->requested_ip, dhc->server_id);
+            len = fill_dhcp_request_options(dhcp, dev, dhc->requested_ip, dhc->server_id);
         }
     } else {
         free(packet);
@@ -437,7 +450,10 @@ dhcp_reset(struct net_device *dev, dhcp_client_t *dhc)
         return;
     }
     if (dhc->ip != 0) {
-        /* remember the last good lease so re-discovery can request it back */
+        /*
+         * Keep the last good lease recorded for diagnostics/future policy,
+         * but re-discovery must not proactively request it back.
+         */
         dhc->last_ip = dhc->ip;
     }
     dhc->requested_ip = 0;
