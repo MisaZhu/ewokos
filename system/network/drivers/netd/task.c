@@ -780,11 +780,23 @@ int do_network_fcntl(net_task_t *task){
              * readiness probe must use the trylock variant: sock_readable()
              * takes the stack mutex and pthread_mutex_lock() here is a
              * try+yield spin, which froze all netd IPC whenever the stack was
-             * busy. A contended probe (-1) is treated as "not ready" -- the
-             * listen backlog wakeup re-arms this request.
+             * busy.
+             *
+             * The tri-state matters here. -1 means the probe lost the trylock
+             * race, NOT that the backlog is empty. This retry has already
+             * consumed the RD edge fired by the backlog push, and a queued
+             * connection generates no further edges -- treating -1 as "not
+             * ready" and parking stranded accept() until the NEXT handshake
+             * completed (frequent under stack-lock contention). Re-fire the
+             * RD edge through the deferred queue so the client retries
+             * shortly; only a genuinely empty backlog (0) parks.
              */
-            if(sock >= 0 && sock_poll_readable(sock) <= 0) {
-                return 0;
+            if(sock >= 0) {
+                ret = sock_poll_readable(sock);
+                if(ret < 0)
+                    task_queue_vfs_wakeup(task->node, VFS_EVT_RD);
+                if(ret <= 0)
+                    return 0;
             }
             errno = 0;
 			ret = sock_accept(sock, &addr, &addrlen);

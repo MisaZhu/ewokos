@@ -29,6 +29,16 @@
 #define ARP_INCOMPLETE_TIMEOUT 5 /* seconds */
 /* Do not re-broadcast a request for the same target more often than this. */
 #define ARP_REQUEST_INTERVAL_US 500000
+/*
+ * Global cap on ARP replies: arp_input() used to answer every who-has
+ * targeting our IP unconditionally, so an ARP flood on the LAN turned
+ * this host into a 1:1 amplifier (each inbound broadcast produced an
+ * outbound reply) and jammed the wlan TX path. Normal peers re-resolve
+ * at most every few minutes, so a 20 replies/s ceiling never affects
+ * legitimate traffic but bounds the amplification hard.
+ */
+#define ARP_REPLY_WINDOW_US 100000
+#define ARP_REPLY_MAX_PER_WINDOW 2
 /* One MTU-sized datagram may wait per unresolved neighbour. */
 #define ARP_PENDING_MAX 2048
 
@@ -279,6 +289,38 @@ arp_reply(struct net_iface *iface, const uint8_t *tha, ip_addr_t tpa, const uint
     return net_device_output(iface->dev, ETHER_TYPE_ARP, (uint8_t *)&reply, sizeof(reply), dst);
 }
 
+static struct timeval arp_reply_window; /* window start for the reply limiter */
+static int arp_reply_window_count;      /* replies admitted in current window */
+
+static int
+arp_reply_allowed(void)
+{
+    struct timeval now, diff;
+    int allowed;
+
+    mutex_lock(&mutex);
+    gettimeofday(&now, NULL);
+    timersub(&now, &arp_reply_window, &diff);
+    if (diff.tv_sec > 0 || diff.tv_usec >= ARP_REPLY_WINDOW_US) {
+        arp_reply_window = now;
+        arp_reply_window_count = 0;
+    }
+    allowed = (arp_reply_window_count < ARP_REPLY_MAX_PER_WINDOW);
+    if (allowed) {
+        arp_reply_window_count++;
+    } else {
+        /*
+         * Over the cap: this can only happen under an ARP flood, since
+         * legitimate resolution stays far below the ceiling. Drop the
+         * reply quietly; the requester retransmits and the next window
+         * will serve it.
+         */
+        debugf("arp reply rate-limited");
+    }
+    mutex_unlock(&mutex);
+    return allowed;
+}
+
 static void
 arp_input(const uint8_t *data, size_t len, struct net_device *dev)
 {
@@ -341,7 +383,9 @@ arp_input(const uint8_t *data, size_t len, struct net_device *dev)
             mutex_unlock(&mutex);
         }
         if (ntoh16(msg->hdr.op) == ARP_OP_REQUEST) {
-            arp_reply(iface, msg->sha, spa, msg->sha);
+            if (arp_reply_allowed()) {
+                arp_reply(iface, msg->sha, spa, msg->sha);
+            }
         }
     }
 }

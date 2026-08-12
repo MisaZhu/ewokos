@@ -113,9 +113,15 @@ icmp_input(const uint8_t *data, size_t len, ip_addr_t src, ip_addr_t dst, struct
     switch (hdr->type) {
     case ICMP_TYPE_ECHO:
         if (dst != iface->unicast) {
-            /* message addressed to broadcast address.              */
-            /* responds with the address of the received interface. */
-            dst = iface->unicast;
+            /*
+             * Echo addressed to the broadcast/subnet-broadcast address:
+             * never reply. Answering broadcast pings turns this host into
+             * a smurf reflector (every broadcast echo costs one outbound
+             * unicast reply), and the wlan TX path is the first thing to
+             * jam when some device on the LAN ping-floods the broadcast
+             * address. RFC 1122 makes the broadcast-echo reply optional.
+             */
+            break;
         }
         icmp_output(ICMP_TYPE_ECHOREPLY, hdr->code, hdr->values, (uint8_t *)(hdr + 1), len - sizeof(*hdr), dst, src);
         break;
