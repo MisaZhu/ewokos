@@ -124,9 +124,18 @@ ether_poll_helper(struct net_device *dev, ssize_t (*callback)(struct net_device 
     int unicast_to_us;
 
     flen = callback(dev, frame, sizeof(frame));
-    if (flen < (ssize_t)sizeof(*hdr)) {
-        //errorf("input data is too short");
+    if (flen <= 0) {
+        /* no frame available (device queue drained) */
         return -1;
+    }
+    if (flen < (ssize_t)sizeof(*hdr)) {
+        /*
+         * Runt frame: it DID occupy a device queue slot, so report it as
+         * drained-and-dropped (0) instead of "queue empty" (-1). Returning
+         * -1 here made ether_tap_isr() stop the drain burst early and left
+         * valid frames stuck behind the runt until the next poll tick.
+         */
+        return 0;
     }
     hdr = (struct ether_hdr *)frame;
     type = ntoh16(hdr->type);
