@@ -12,6 +12,7 @@
 #include <poll.h>
 #include <pthread.h>
 #include <ewoksys/proto.h>
+#include <ewoksys/kernel_tic.h>
 #include <ewoksys/vdevice.h>
 
 #include "platform.h"
@@ -24,9 +25,8 @@
 
 
 #define ETHER_TAP_IRQ (2)
-#define ETHER_TAP_DRAIN_BURST 64
+#define ETHER_TAP_DRAIN_BURST 256
 #define ETHER_TAP_TX_WAIT_MS 50
-
 struct ether_tap {
     char name[IFNAMSIZ];
     int fd;
@@ -222,7 +222,7 @@ ether_tap_isr(unsigned int irq, void *id)
      * wl0 reports its current software RX queue depth here, so when backlog
      * has already accumulated we should drain that backlog in the same wakeup
      * instead of stopping after a small fixed burst and letting the driver
-     * queue stay near saturation. Keep the 64-frame floor for devices that
+     * queue stay near saturation. Keep the 256-frame floor for devices that
      * under-report or only return a boolean "ready" hint.
      */
     int budget = pending;
@@ -243,7 +243,7 @@ ether_tap_isr(unsigned int irq, void *id)
     more_work = (drained == budget && delivered > 0);
     /*
      * Any delivered frame keeps the fast cadence. A steady scp/ssh stream
-     * delivers ~23 frames per 32KB TCP window -- well under the 64-frame
+     * delivers ~23 frames per 32KB TCP window -- well under the 256-frame
      * burst budget -- so gating the fast path on a FULL burst (the previous
      * more_work-only condition) classified every bulk-transfer round as idle
      * and let intr_loop back off to the 50ms deep sleep between windows,

@@ -23,6 +23,14 @@
 #define TCP_FLG_ACK 0x10
 #define TCP_FLG_URG 0x20
 
+#define TCP_OPT_EOL 0
+#define TCP_OPT_NOP 1
+#define TCP_OPT_MSS 2
+#define TCP_OPT_WS 3
+#define TCP_OPT_MSS_LEN 4
+#define TCP_OPT_WS_LEN 3
+#define TCP_MAX_WSCALE 14
+
 #define TCP_FLG_IS(x, y) ((x & 0x3f) == (y))
 #define TCP_FLG_ISSET(x, y) ((x & 0x3f) & (y) ? 1 : 0)
 
@@ -47,11 +55,19 @@
 #define TCP_DEFAULT_RTO 200000 /* micro seconds */
 #define TCP_RETRANSMIT_DEADLINE 60 /* seconds - increased for better reliability */
 #define TCP_TIMEWAIT_SEC 30 /* substitute for 2MSL */
-#define TCP_RETRANSMIT_QUEUE_MAX 32 /* max queued segments per connection */
+/*
+ * With WSOPT enabled the peer can legitimately advertise far more than the
+ * legacy 64KB window, so the retransmit queue must no longer be sized for a
+ * 16-bit window only. The timer path now drives retransmission from the queue
+ * head instead of walking the whole list every tick, which removes the old
+ * CPU/lock reason for keeping this cap artificially tiny. 512 entries provide
+ * ~700KB of Ethernet-MTU payload in flight, enough to test beyond the current
+ * ~550KB/s plateau while still keeping worst-case per-connection memory sane.
+ */
+#define TCP_RETRANSMIT_QUEUE_MAX 512 /* max queued segments per connection */
 #define TCP_PERSIST_RTO_MAX 60000000 /* max persist backoff: 60 seconds */
 #define TCP_DELACK_TIMEOUT_USEC 40000 /* RFC 1122 delayed-ACK ceiling */
 #define TCP_DELACK_SEGS 2 /* ACK every 2nd in-order data segment */
-
 #define TCP_SOURCE_PORT_MIN 49152
 #define TCP_SOURCE_PORT_MAX 65535
 
@@ -81,6 +97,8 @@ struct tcp_segment_info {
     uint16_t len;
     uint16_t wnd;
     uint16_t up;
+    uint8_t wscale;
+    uint8_t has_wscale;
 };
 
 struct tcp_pcb {
@@ -92,7 +110,7 @@ struct tcp_pcb {
     struct {
         uint32_t nxt;
         uint32_t una;
-        uint16_t wnd;
+        uint32_t wnd;
         uint16_t up;
         uint32_t wl1;
         uint32_t wl2;
@@ -133,6 +151,8 @@ struct tcp_pcb {
     uint8_t delack_count;        /* in-order segs awaiting ACK */
     struct timeval delack_timer; /* first unacked seg arrival time */
     uint8_t dupacks;             /* consecutive dup ACKs (fast retransmit) */
+    uint8_t peer_wscale;         /* peer's receive-window shift (RFC 7323) */
+    uint8_t wsopt_ok;            /* true once both SYNs carried WSOPT */
     uint32_t ooo_seq;            /* out-of-order stash: first seq (valid if ooo_len) */
     uint32_t ooo_len;            /* out-of-order stash: byte count, 0 = empty */
     struct tcp_pcb *parent;
@@ -150,7 +170,6 @@ struct tcp_queue_entry {
 
 static mutex_t mutex = MUTEX_INITIALIZER;
 static struct tcp_pcb pcbs[TCP_PCB_SIZE];
-
 static inline void tcp_sched_wakeup_all(struct tcp_pcb *pcb)
 {
     sched_wakeup(&pcb->state_ctx);
@@ -210,6 +229,53 @@ tcp_output_segment(uint32_t seq, uint32_t ack, uint8_t flg, uint16_t wnd, uint8_
 
 static void tcp_persist_arm(struct tcp_pcb *pcb);
 static void tcp_persist_disarm(struct tcp_pcb *pcb);
+
+static uint32_t
+tcp_peer_window(const struct tcp_pcb *pcb, uint16_t wnd)
+{
+    if (pcb && pcb->wsopt_ok) {
+        return ((uint32_t)wnd) << pcb->peer_wscale;
+    }
+    return wnd;
+}
+
+static void
+tcp_parse_syn_options(const struct tcp_hdr *hdr, uint16_t hlen,
+                      uint8_t *wscale, uint8_t *has_wscale)
+{
+    const uint8_t *opt;
+    uint16_t remain;
+
+    *wscale = 0;
+    *has_wscale = 0;
+    if (hlen <= sizeof(*hdr)) {
+        return;
+    }
+
+    opt = (const uint8_t *)(hdr + 1);
+    remain = hlen - (uint16_t)sizeof(*hdr);
+    while (remain > 0) {
+        uint8_t kind = opt[0];
+
+        if (kind == TCP_OPT_EOL) {
+            break;
+        }
+        if (kind == TCP_OPT_NOP) {
+            opt++;
+            remain--;
+            continue;
+        }
+        if (remain < 2 || opt[1] < 2 || opt[1] > remain) {
+            break;
+        }
+        if (kind == TCP_OPT_WS && opt[1] == TCP_OPT_WS_LEN) {
+            *wscale = opt[2] > TCP_MAX_WSCALE ? TCP_MAX_WSCALE : opt[2];
+            *has_wscale = 1;
+        }
+        remain -= opt[1];
+        opt += opt[1];
+    }
+}
 
 static char *
 tcp_flg_ntoa(uint8_t flg)
@@ -546,7 +612,7 @@ tcp_output_segment(uint32_t seq, uint32_t ack, uint8_t flg, uint16_t wnd, uint8_
     char ep2[IP_ENDPOINT_STR_LEN];
     uint8_t *buf;
     uint8_t sbuf[2048];
-    uint8_t opts[4];
+    uint8_t opts[8];
     size_t optlen = 0;
 
     /*
@@ -565,10 +631,20 @@ tcp_output_segment(uint32_t seq, uint32_t ack, uint8_t flg, uint16_t wnd, uint8_
         if (iface) {
             mss = NET_IFACE(iface)->dev->mtu - (IP_HDR_SIZE_MIN + sizeof(struct tcp_hdr));
         }
-        opts[0] = 2; /* kind: MSS */
-        opts[1] = 4; /* length */
+        opts[0] = TCP_OPT_MSS;
+        opts[1] = TCP_OPT_MSS_LEN;
         opts[2] = (uint8_t)(mss >> 8);
         opts[3] = (uint8_t)(mss & 0xff);
+        /*
+         * Always advertise WSOPT with shift 0. This keeps our receive window
+         * unchanged (32KB fits in 16 bits) but enables the peer to use its own
+         * advertised window scale toward us, which is what the download path
+         * needs once ACK cadence is slower than a LAN RTT.
+         */
+        opts[4] = TCP_OPT_NOP;
+        opts[5] = TCP_OPT_WS;
+        opts[6] = TCP_OPT_WS_LEN;
+        opts[7] = 0;
         optlen = sizeof(opts);
     }
 
@@ -722,6 +798,8 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
             pcb->rcv.nxt = seg->seq + 1;
             pcb->irs = seg->seq;
             pcb->iss = random();
+            pcb->peer_wscale = seg->has_wscale ? seg->wscale : 0;
+            pcb->wsopt_ok = seg->has_wscale ? 1 : 0;
             tcp_output(pcb, TCP_FLG_SYN | TCP_FLG_ACK, NULL, 0);
             pcb->snd.nxt = pcb->iss + 1;
             pcb->snd.una = pcb->iss;
@@ -779,7 +857,9 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
                 pcb->state = TCP_PCB_STATE_ESTABLISHED;
                 tcp_output(pcb, TCP_FLG_ACK, NULL, 0);
                 /* NOTE: not specified in the RFC793, but send window initialization required */
-                pcb->snd.wnd = seg->wnd;
+                pcb->peer_wscale = seg->has_wscale ? seg->wscale : 0;
+                pcb->wsopt_ok = seg->has_wscale ? 1 : 0;
+                pcb->snd.wnd = tcp_peer_window(pcb, seg->wnd);
                 pcb->snd.wl1 = seg->seq;
                 pcb->snd.wl2 = seg->ack;
                 tcp_sched_wakeup_all(pcb);
@@ -949,6 +1029,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
     case TCP_PCB_STATE_CLOSING:
         if (pcb->snd.una <= seg->ack && seg->ack <= pcb->snd.nxt) {
             int ack_advanced = pcb->snd.una < seg->ack;
+            uint32_t acked_bytes = seg->ack - pcb->snd.una;
             /*
              * Snapshot writability (same formula as tcp_writable(): window
              * capacity AND retransmit-queue room) before this ACK mutates
@@ -993,7 +1074,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
                         which have been SENT and fully acknowledged (i.e., SEND buffer should be returned with "ok" response) */
             if (pcb->snd.wl1 < seg->seq || (pcb->snd.wl1 == seg->seq && pcb->snd.wl2 <= seg->ack)) {
                 uint32_t old_wnd = pcb->snd.wnd;
-                pcb->snd.wnd = seg->wnd;
+                pcb->snd.wnd = tcp_peer_window(pcb, seg->wnd);
                 pcb->snd.wl1 = seg->seq;
                 pcb->snd.wl2 = seg->ack;
                 (void)old_wnd;
@@ -1332,6 +1413,11 @@ tcp_input(const uint8_t *data, size_t len, ip_addr_t src, ip_addr_t dst, struct 
     }
     seg.wnd = ntoh16(hdr->wnd);
     seg.up = ntoh16(hdr->up);
+    seg.wscale = 0;
+    seg.has_wscale = 0;
+    if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_SYN)) {
+        tcp_parse_syn_options(hdr, hlen, &seg.wscale, &seg.has_wscale);
+    }
     mutex_lock(&mutex);
     tcp_segment_arrives(&seg, hdr->flg, (uint8_t *)hdr + hlen, len - hlen, &local, &foreign);
     mutex_unlock(&mutex);
@@ -1356,10 +1442,21 @@ tcp_timer(void)
                 continue;
             }
         }
-        // Only process retransmit queue if there are entries
+        /*
+         * Only the oldest unacknowledged segment gates forward progress:
+         * cumulative ACK cannot pass a hole before that head segment is
+         * recovered, and retransmitting younger queued data first does not
+         * reopen the send path. Walking the full retransmit queue every timer
+         * tick under the global mutex adds avoidable CPU/lock hold time during
+         * bulk WiFi transfers, so drive the timer from the queue head only.
+         */
         if (pcb->queue.num > 0) {
+            struct tcp_queue_entry *entry = queue_peek(&pcb->queue);
+
             debugf("tcp_timer: processing queue for pcb state=%d, queue.num=%u", pcb->state, pcb->queue.num);
-            queue_foreach(&pcb->queue, tcp_retransmit_queue_emit, pcb);
+            if (entry) {
+                tcp_retransmit_queue_emit(pcb, entry);
+            }
         }
         /*
          * Persist timer (zero-window probe). When the send window is closed and

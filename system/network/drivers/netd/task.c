@@ -999,7 +999,6 @@ static int do_network_write(net_task_t *task){
         pthread_mutex_unlock(&task->lock);
         return 1;
     }
-
     task->write_off += (uint32_t)ret;
     if(task->write_off < (uint32_t)size) {
         /* Window closed with a short send: stay armed for the ACK rearm. */

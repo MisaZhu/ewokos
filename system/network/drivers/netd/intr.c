@@ -172,15 +172,17 @@ void intr_loop(void) {
             sleep_us = NETD_BUSY_SLEEP_US;
         } else if (tap_pending) {
             /*
-             * Keep the fast cadence for normal RX throughput, and only apply a
-             * very small backoff after many consecutive tap-only rounds. The
-             * previous hard 4ms pacing fixed spin but cut throughput too much.
+             * Keep the fast cadence for every tap-delivered round. On raspix
+             * bulk upload, wl0-drain is predominantly carrying inbound TCP ACKs:
+             * even a "small" 2ms backoff here lets ACK bursts accumulate in the
+             * wland RX queue, which then overflows and collapses the sender's
+             * effective window back to the ~500KB/s plateau. The older 4ms path
+             * was much worse; the later 2ms fallback is still too slow for this
+             * ACK-return workload. Stay at the 1ms busy cadence whenever tap
+             * work was observed and rely on the no-packet branches below for
+             * idle CPU reduction instead of penalizing ACK service.
              */
-            if (tap_rounds >= 64 && sleep_us < 2000U) {
-                sleep_us = 2000U;
-            } else {
-                sleep_us = NETD_BUSY_SLEEP_US;
-            }
+            sleep_us = NETD_BUSY_SLEEP_US;
             tap_rounds++;
         } else if (tcp_inflight_pending()) {
             /*
