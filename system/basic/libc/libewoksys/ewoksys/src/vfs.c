@@ -345,8 +345,12 @@ int vfs_open(fsinfo_t* info, int oflag) {
 		if(res >= 0) {
 			proto_read_to(&out, info, sizeof(fsinfo_t));
 			fsfile_t* file = vfs_set_file(res, info);	
-			if(file != NULL)
+			if(file != NULL) {
 				file->flags = oflag;
+				if((oflag & O_APPEND) != 0 &&
+						FS_IS_TYPE(info->type, FS_TYPE_FILE))
+					file->offset = info->stat.size;
+			}
 		}
 		else {
 			errno = proto_read_int(&out);
@@ -1136,8 +1140,22 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
 		return -1;
 
 	int offset = 0;
+	fsfile_t* file = vfs_get_file(fd);
 	if(FS_IS_TYPE(info->type, FS_TYPE_FILE)) {
-		offset = vfs_tell(fd);
+		if(file != NULL && (file->flags & O_APPEND) != 0) {
+			fsinfo_t latest;
+			if(vfs_get_by_node(info->node, &latest) == 0) {
+				memcpy(info, &latest, sizeof(fsinfo_t));
+				memcpy(&file->info, &latest, sizeof(fsinfo_t));
+				offset = latest.stat.size;
+			}
+			else {
+				offset = info->stat.size;
+			}
+		}
+		else {
+			offset = vfs_tell(fd);
+		}
 		if(offset < 0)
 			offset = 0;
 	}

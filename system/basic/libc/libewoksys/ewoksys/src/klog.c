@@ -94,6 +94,36 @@ void slog(const char *format, ...) {
 	sout(buf, strlen(buf));
 }
 
+void flog(const char* fname, const char *format, ...) {
+	char buf[BUF_SIZE+1];
+
+	if(fname == NULL || format == NULL) {
+		return;
+	}
+
+	va_list ap;
+	va_start(ap, format);
+	memset(buf, 0, sizeof(buf));
+	int len = vsnprintf(buf, BUF_SIZE, format, ap);
+	va_end(ap);
+
+	if(len < 0) {
+		return;
+	}
+	if(len > BUF_SIZE) {
+		len = BUF_SIZE;
+	}
+
+	log_lock();
+	int fd = open(fname, O_WRONLY | O_CREAT | O_APPEND, 0644);
+	if(fd >= 0) {
+		lseek(fd, 0, SEEK_END);
+		write(fd, buf, len);
+		close(fd);
+	}
+	log_unlock();
+}
+
 #ifdef __cplusplus 
 }
 #endif
