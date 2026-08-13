@@ -2819,7 +2819,7 @@ static int handle_channel_request(sshd_session_t* s, const ssh_packet_t* packet)
             goto subsystem_fail;
 
         if(sub_len == 4 && memcmp(sub, "sftp", 4) == 0) {
-            if(!s->internal_sftp_active && start_internal_sftp(s) < 0)
+            if(!s->child_started && spawn_child_session(s, "sftp-server", 0) < 0)
                 goto subsystem_fail;
         } else {
             goto subsystem_fail;
@@ -3376,6 +3376,7 @@ static int handle_session_packets(sshd_session_t* s) {
 
 static int session_init(sshd_session_t* s, int sock) {
     memset(s, 0, sizeof(*s));
+    g_error[0] = 0;
     s->socket = sock;
     strncpy(s->server_version, SSH_SERVER_VERSION, sizeof(s->server_version) - 1);
     s->terminal_width = 80;
