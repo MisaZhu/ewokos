@@ -807,9 +807,10 @@ int do_network_fcntl(net_task_t *task){
                 return 0;
             }
 			PF->addi(&task->out, ret);
-			if(ret > 0){
+                        if(ret >= 0){
 				PF->add(&task->out, &addr, addrlen);	
 			}
+            PF->addi(&task->out, ret < 0 ? sock_errno : 0);
 			break;	
 		case SOCK_CLOSE:
 			ret = sock_close(sock);

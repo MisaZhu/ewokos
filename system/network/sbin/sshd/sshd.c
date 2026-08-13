@@ -2657,6 +2657,7 @@ static int spawn_child_session(sshd_session_t* s, const char* command, int is_sh
 
     if(pipe(s->child_stdin) != 0 || pipe(s->child_stdout) != 0 ||
             (use_ready && pipe(s->child_control) != 0)) {
+        sshd_set_error("spawn child pipe failed: %s", strerror(errno));
         close_child_bundle(s->child_stdin, s->child_stdout, s->child_control);
         return -1;
     }
@@ -2669,6 +2670,7 @@ static int spawn_child_session(sshd_session_t* s, const char* command, int is_sh
      */
     pid = fork();
     if(pid < 0) {
+        sshd_set_error("spawn child fork failed: %s", strerror(errno));
         close_child_bundle(s->child_stdin, s->child_stdout, s->child_control);
         return -1;
     }
@@ -2685,15 +2687,18 @@ static int spawn_child_session(sshd_session_t* s, const char* command, int is_sh
     close_fd_if_valid(&s->child_stdout[CHILD_STDOUT_WRITE]);
     close_fd_if_valid(&s->child_control[CHILD_CTRL_WRITE]);
     if(set_fd_nonblock(s->child_stdin[CHILD_STDIN_WRITE]) < 0) {
+        sshd_set_error("spawn child stdin nonblock failed: %s", strerror(errno));
         close_child_fds(s);
         return -1;
     }
     if(set_fd_nonblock(s->child_stdout[CHILD_STDOUT_READ]) < 0) {
+        sshd_set_error("spawn child stdout nonblock failed: %s", strerror(errno));
         close_child_fds(s);
         return -1;
     }
     if(use_ready) {
         if(wait_child_ready(s->child_control[CHILD_CTRL_READ]) < 0) {
+            sshd_set_error("spawn child ready wait failed: %s", strerror(errno));
             close_child_fds(s);
             if(pid > 1) {
                 kill(pid, SIGKILL);

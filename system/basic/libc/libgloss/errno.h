@@ -138,7 +138,7 @@ extern __IMPORT char *program_invocation_short_name;
 #define EPFNOSUPPORT 96 /* Protocol family not supported */
 #define ECONNRESET 104  /* Connection reset by peer */
 #define ENOBUFS 105	/* No buffer space available */
-#define EAFNOSUPPORT 106 /* Address family not supported by protocol family */
+#define EAFNOSUPPORT 97 /* Address family not supported by protocol family */
 #define EPROTOTYPE 107	/* Protocol wrong type for socket */
 #define ENOTSOCK 108	/* Socket operation on non-socket */
 #define ENOPROTOOPT 109	/* Protocol not available */

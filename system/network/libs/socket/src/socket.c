@@ -358,6 +358,9 @@ int accept (int fd, struct sockaddr* addr,uint32_t * addr_len){
     }
     ret = proto_read_int(&out);
     if(ret < 0) {
+        int sock_errno = proto_read_int(&out);
+        if(sock_errno != 0)
+            errno = sock_errno;
         klog("socket: accept result failed fd=%d ret=%d out_size=%u node=%u\n",
                 fd, ret, (unsigned int)out.size, info.node);
         PF->clear(&out);

@@ -18,6 +18,7 @@ int *__errno(void);
 #undef	EINVAL
 #undef	ENOMEM
 #undef	EBUSY
+#undef  EAFNOSUPPORT
 
 enum {
 	ENONE = 0,
@@ -62,5 +63,9 @@ enum {
 	EXDEV,
 	EDOM
 };
+
+#ifndef EAFNOSUPPORT
+#define EAFNOSUPPORT 97
+#endif
 
 #endif

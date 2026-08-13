@@ -444,9 +444,11 @@ sock_accept(int id, struct sockaddr *addr, int *addrlen)
 
     s = sock_get(id);
     if (!s) {
+        errno = EBADF;
         return -17;
     }
     if (s->type != SOCK_STREAM) {
+        errno = EINVAL;
         return -1;
     }
     switch (s->family) {
@@ -468,8 +470,11 @@ sock_accept(int id, struct sockaddr *addr, int *addrlen)
             ret = indexof(socks, new_s);
             return ret;
         }
+        errno = EMFILE;
         tcp_close(ret);
+        return -1;
     }
+    errno = EAFNOSUPPORT;
     return -1;
 }
 

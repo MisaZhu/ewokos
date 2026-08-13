@@ -2167,16 +2167,19 @@ tcp_accept(int id, struct ip_endpoint *foreign)
     pcb = tcp_pcb_get(id);
     if (!pcb) {
         errorf("pcb not found %d\n", id);
+        errno = EBADF;
         mutex_unlock(&mutex);
         return -17;
     }
     if (pcb->mode != TCP_PCB_MODE_SOCKET) {
         errorf("not opened in socket mode");
+        errno = EINVAL;
         mutex_unlock(&mutex);
         return -1;
     }
     if (pcb->state != TCP_PCB_STATE_LISTEN) {
         errorf("not in LISTEN state");
+        errno = EINVAL;
         mutex_unlock(&mutex);
         return -1;
     }
