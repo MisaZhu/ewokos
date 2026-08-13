@@ -148,6 +148,15 @@ ether_tap_write(struct net_device *dev, const uint8_t *frame, size_t flen)
                 (pfd.revents & (POLLOUT | POLLERR | POLLHUP | POLLNVAL)) == POLLOUT) {
                 continue;
             }
+            /*
+             * POLLOUT never arrived within the window. A POLLERR/HUP/NVAL means
+             * the fd/link went bad -> hard failure (-1). A plain timeout is
+             * transient TX-credit backpressure or a not-yet-associated link
+             * (typical for early ARP/DHCP/broadcast frames): report TX_AGAIN so
+             * net_device_output() logs it silently and the upper layer retries.
+             */
+            ret = (pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) ?
+                  -1 : NET_DEVICE_TX_AGAIN;
             break;
         }
         /*

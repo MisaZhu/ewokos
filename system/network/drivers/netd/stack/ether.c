@@ -102,7 +102,15 @@ ether_transmit_helper(struct net_device *dev, uint16_t type, const uint8_t *data
     flen = sizeof(*hdr) + len + pad;
     debugf("dev=%s, type=%s(0x%04x), len=%zu", dev->name, ether_type_ntoa(hdr->type), type, flen);
     ether_dump(frame, flen);
-    return callback(dev, frame, flen) == (ssize_t)flen ? 0 : -1;
+    {
+        ssize_t r = callback(dev, frame, flen);
+        if (r == (ssize_t)flen)
+            return 0;
+        /* Forward a transient-busy signal so the caller can stay quiet. */
+        if (r == NET_DEVICE_TX_AGAIN)
+            return NET_DEVICE_TX_AGAIN;
+        return -1;
+    }
 }
 
 /*

@@ -724,7 +724,15 @@ tcp_output_segment(uint32_t seq, uint32_t ack, uint8_t flg, uint16_t wnd, uint8_
     if (buf != sbuf)
         free(buf);
     if(ret < 0){
-        errorf("tcp_output_segment failed: flg=0x%x seq=%u ack=%u local=%s foreign=%s",
+        /*
+         * A negative return here during bulk transfer is almost always
+         * transient wl0 TX-credit backpressure. The genuine hard failures
+         * already log their own [E] at the origin (net_device_output for a
+         * dead link, arp_* for unresolved neighbours), and this segment is
+         * retransmitted regardless, so keep the per-segment noise off the
+         * error channel to avoid an [E] storm during upload.
+         */
+        debugf("tcp_output_segment send deferred: flg=0x%x seq=%u ack=%u local=%s foreign=%s",
             flg, seq, ack,
             ip_endpoint_ntop(local, ep1, sizeof(ep1)),
             ip_endpoint_ntop(foreign, ep2, sizeof(ep2)));
@@ -2321,7 +2329,7 @@ RETRY:
                  * duplicate entry for every attempt. Stop pipelining: the
                  * link has no room right now.
                  */
-                errorf("device output failure, retransmit pending seq=%u len=%zu",
+                debugf("tx deferred (link backpressure), retransmit pending seq=%u len=%zu",
                        pcb->snd.nxt, slen);
                 pcb->snd.nxt += slen;
                 sent += slen;

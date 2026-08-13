@@ -298,9 +298,23 @@ net_device_output(struct net_device *dev, uint16_t type, const uint8_t *data, si
     }
     debugf("dev=%s, type=%s(0x%04x), len=%zu", dev->name, net_protocol_name(type), type, len);
     debugdump(data, len);
-    if (dev->ops->transmit(dev, type, data, len, dst) == -1) {
-        errorf("device transmit failure, dev=%s, len=%zu", dev->name, len);
-        return -1;
+    {
+        int tr = dev->ops->transmit(dev, type, data, len, dst);
+        if (tr == NET_DEVICE_TX_AGAIN) {
+            /*
+             * Transient: link not associated yet or WiFi TX credits momentarily
+             * exhausted. The frame was not sent, but ARP/IP/TCP will retransmit,
+             * so keep this off the error channel (avoids the benign early
+             * "device transmit failure" storm during bring-up).
+             */
+            debugf("device busy (tx backpressure / link not ready), dev=%s, len=%zu",
+                    dev->name, len);
+            return -1;
+        }
+        if (tr == -1) {
+            errorf("device transmit failure, dev=%s, len=%zu", dev->name, len);
+            return -1;
+        }
     }
     return 0;
 }

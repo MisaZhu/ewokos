@@ -22,6 +22,17 @@
 
 #define NET_DEVICE_ADDR_LEN 16
 
+/*
+ * transmit() return value for a *transient* failure that is not a hard link
+ * error: the underlying device is momentarily unwritable (WiFi TX-credit
+ * backpressure) or the link is not associated yet (early ARP/DHCP/broadcast
+ * frames during bring-up). The frame was not sent, but the upper layers
+ * (ARP/IP/TCP) will retransmit on their own, so net_device_output() logs it at
+ * debug level instead of screaming a hard "device transmit failure" [E].
+ * Plain hard failures keep returning -1.
+ */
+#define NET_DEVICE_TX_AGAIN (-2)
+
 #define NET_DEVICE_IS_UP(x) ((x)->flags & NET_DEVICE_FLAG_UP)
 #define NET_DEVICE_STATE(x) (NET_DEVICE_IS_UP(x) ? "up" : "down")
 
