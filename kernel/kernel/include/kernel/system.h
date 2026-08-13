@@ -19,6 +19,7 @@ extern void _delay_msec(uint32_t count);
 extern void set_vector_table(ewokos_addr_t); 
 extern void set_translation_table_base(ewokos_addr_t);
 extern void flush_tlb(void);
+extern void flush_tlb_addr(ewokos_addr_t);
 extern void flush_dcache(void);
 extern void invalidate_dcache(void);
 

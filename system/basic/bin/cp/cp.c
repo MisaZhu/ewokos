@@ -52,8 +52,8 @@ int main(int argc, char** argv) {
 	}
 
 	while(1) {
-		char buf[1024];
-		int sz = read(fd_from, buf, 1024);
+		char buf[1024*4];
+		int sz = read(fd_from, buf, 1024*4);
 		if(sz > 0)
 			sz = write(fd_to, buf, sz);
 		if(sz <= 0)

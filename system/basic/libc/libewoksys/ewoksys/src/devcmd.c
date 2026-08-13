@@ -147,19 +147,90 @@ int dev_open(int dev_pid, int fd, fsinfo_t* info, int oflag) {
 
 #define SHM_ON  256
 #define SHM_MAX (1024*64)
+
+/*
+ * Per-fd persistent transfer buffer cache.
+ *
+ * Previously dev_read/dev_write created (shmget IPC_EXCL), mapped (shmat) and
+ * destroyed (shmdt) a shared-memory segment on *every* large IO. Each map/unmap
+ * triggers a global TLB flush plus page alloc/free in the kernel, so a single
+ * 64KB transfer paid a full segment create/map/unmap/destroy lifecycle and
+ * 4-6 TLB flushes. Cache one segment per fd and reuse it across calls; the
+ * segment is freed on close (dev_io_on_close) and its stale pointer dropped
+ * after fork (dev_io_on_fork), mirroring vfs.c's _pipe_shm[] handling.
+ */
+typedef struct {
+	int32_t  shm_id;
+	void*    addr;
+	uint32_t size;
+} io_shm_t;
+
+static io_shm_t _io_shm[MAX_OPEN_FILE_PER_PROC];
+
+static void* get_io_shm(int fd, uint32_t size) {
+	if(fd < 0 || fd >= MAX_OPEN_FILE_PER_PROC)
+		return NULL;
+	(void)size;
+
+	io_shm_t* c = &_io_shm[fd];
+	if(c->addr != NULL)
+		return c->addr;
+
+	/*
+	 * Always allocate the segment at the maximum transfer size. A keyed
+	 * segment can outlive this fd's close() while a server still holds a
+	 * mapping, and shmget() returns the existing segment WITHOUT resizing;
+	 * fixing the size at SHM_MAX makes every (re)use large enough and removes
+	 * any grow/overflow path.
+	 *
+	 * Keyed (non-private) 0666 segment: the fs/device server is an unrelated
+	 * process and cannot map an IPC_PRIVATE (family-only) segment. Key is
+	 * unique per (fd, pid) and stable across calls so the server-side mapping
+	 * cache stays warm. Drop IPC_EXCL so a re-get returns the existing id.
+	 */
+	key_t key = ((key_t)(fd + 1) << 16) | (getpid() & 0xffff);
+	int32_t shm_id = shmget(key, SHM_MAX, 0666|IPC_CREAT);
+	if(shm_id == -1)
+		return NULL;
+	void* shm = shmat(shm_id, 0, 0);
+	if(shm == (void*)-1)
+		return NULL;
+
+	c->shm_id = shm_id;
+	c->addr = shm;
+	c->size = SHM_MAX;
+	return shm;
+}
+
+void dev_io_on_close(int fd) {
+	if(fd < 0 || fd >= MAX_OPEN_FILE_PER_PROC)
+		return;
+	io_shm_t* c = &_io_shm[fd];
+	if(c->addr != NULL)
+		shmdt(c->addr);
+	c->addr = NULL;
+	c->shm_id = -1;
+	c->size = 0;
+}
+
+void dev_io_on_fork(void) {
+	/* child never mapped these pages; just drop the stale pointers */
+	for(uint32_t i=0; i<MAX_OPEN_FILE_PER_PROC; i++) {
+		_io_shm[i].addr = NULL;
+		_io_shm[i].shm_id = -1;
+		_io_shm[i].size = 0;
+	}
+}
+
 int dev_read(int dev_pid, int fd, fsinfo_t* info, int32_t offset, void* buf, uint32_t size) {
 	int32_t shm_id = -1;
 	void* shm = NULL;
 	if(size > SHM_ON) {
 		if(size > SHM_MAX)
 			size = SHM_MAX;
-		key_t key = (info->node << 16) | getpid(); 
-		shm_id = shmget(key, size, 0666|IPC_CREAT|IPC_EXCL);
-		if(shm_id != -1)  {
-			shm = shmat(shm_id, 0, 0);
-			if(shm == (void*)-1)
-				return -1;
-		}
+		shm = get_io_shm(fd, size);
+		if(shm != NULL)
+			shm_id = _io_shm[fd].shm_id;
 	}
 
 	proto_t in, out;
@@ -188,8 +259,6 @@ int dev_read(int dev_pid, int fd, fsinfo_t* info, int32_t offset, void* buf, uin
 	}
 	PF->clear(&in);
 	PF->clear(&out);
-	if(shm != NULL)
-		shmdt(shm);
 	return res;
 }
 
@@ -199,12 +268,9 @@ int dev_write(int dev_pid, int fd, fsinfo_t* info, int32_t offset, const void* b
 	if(size >= SHM_ON) {
 		if(size > SHM_MAX)
 			size = SHM_MAX;
-		key_t key = (info->node << 16) | getpid(); 
-		shm_id = shmget(key, size, 0666|IPC_CREAT|IPC_EXCL);
-		if(shm_id != -1)  {
-			shm = shmat(shm_id, 0, 0);
-			if(shm == (void*)-1)
-				return -1;
+		shm = get_io_shm(fd, size);
+		if(shm != NULL) {
+			shm_id = _io_shm[fd].shm_id;
 			memcpy(shm, buf, size);
 		}
 	}
@@ -233,8 +299,6 @@ int dev_write(int dev_pid, int fd, fsinfo_t* info, int32_t offset, const void* b
 	}
 	PF->clear(&in);
 	PF->clear(&out);
-	if(shm != NULL)
-		shmdt(shm);
 	return res;
 }
 

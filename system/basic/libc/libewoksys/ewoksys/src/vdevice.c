@@ -279,6 +279,62 @@ static void do_dup(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 }
 
 #define READ_BUF_SIZE 32
+
+/*
+ * Server-side shm mapping cache.
+ *
+ * The client (devcmd.c dev_read/dev_write) now reuses a stable shm_id per fd,
+ * so instead of shmat()+shmdt() on every read/write - each a page map/unmap
+ * with a global TLB flush in the kernel - we map a segment once and keep it.
+ * A small LRU bounds the number of live mappings; evicting shmdt()s the
+ * segment, which also releases it in the kernel once the client has detached.
+ * We hold a mapping ref while cached, so a cached addr always stays valid.
+ *
+ * Only do_read/do_write use this: do_read_block's client still allocates an
+ * ephemeral IPC_PRIVATE segment per call (new id each time), so caching there
+ * would never hit and would just pin dead segments.
+ */
+#define SHM_CACHE_NUM 16
+typedef struct {
+	int32_t  shm_id;
+	void*    addr;
+	uint32_t lru;   /* higher = more recently used */
+} shm_cache_t;
+static shm_cache_t _shm_cache[SHM_CACHE_NUM];
+static uint32_t _shm_cache_tick = 0;
+
+static void* shm_cache_get(int32_t shm_id) {
+	if(shm_id <= 0)
+		return NULL;
+
+	int free_i = -1, lru_i = 0;
+	uint32_t lru_min = 0xffffffff;
+	for(int i=0; i<SHM_CACHE_NUM; i++) {
+		if(_shm_cache[i].addr != NULL && _shm_cache[i].shm_id == shm_id) {
+			_shm_cache[i].lru = ++_shm_cache_tick;
+			return _shm_cache[i].addr;
+		}
+		if(_shm_cache[i].addr == NULL && free_i < 0)
+			free_i = i;
+		if(_shm_cache[i].lru < lru_min) {
+			lru_min = _shm_cache[i].lru;
+			lru_i = i;
+		}
+	}
+
+	void* addr = shmat(shm_id, 0, 0);
+	if(addr == (void*)-1 || addr == NULL)
+		return NULL;
+
+	int slot = (free_i >= 0) ? free_i : lru_i;
+	if(free_i < 0 && _shm_cache[slot].addr != NULL)
+		shmdt(_shm_cache[slot].addr); /* evict LRU */
+	_shm_cache[slot].shm_id = shm_id;
+	_shm_cache[slot].addr = addr;
+	_shm_cache[slot].lru = ++_shm_cache_tick;
+	return addr;
+}
+
 static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
 	int size, offset;
 	int fd = proto_read_int(in);
@@ -311,7 +367,7 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 				buf = buffer;
 		}
 		else {
-			buf = shmat(shm_id, 0, 0);
+			buf = shm_cache_get(shm_id);
 		}
 
 		if(buf == (void*)-1 || buf == NULL) {
@@ -331,9 +387,8 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 				PF->addi(out, errno);
 			}
 
-			if(shm_id != -1 && buf != NULL)
-				shmdt(buf);
-			else if(buf != buffer)
+			/* cached shm stays mapped; only free the malloc fallback */
+			if(shm_id == -1 && buf != buffer)
 				free(buf);
 		}
 	}
@@ -379,7 +434,7 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 			data = proto_read(in, &size);
 		else {
 			size = proto_read_int(in);
-			data = shmat(shm_id, 0, 0);
+			data = shm_cache_get(shm_id);
 		}
 
 		if(data == (void*)-1 || data == NULL) {
@@ -396,8 +451,7 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 				PF->addi(out, errno);
 			}
 		}
-		if(shm_id != -1 && data != NULL)
-			shmdt(data);
+		/* cached shm stays mapped; proto_read path owns no buffer to free */
 	}
 	else {
 		PF->addi(out, -1);

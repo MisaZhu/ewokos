@@ -79,9 +79,9 @@ static void shm_unmap_pages(ewokos_addr_t addr, uint32_t pages) {
 		ewokos_addr_t kernel_addr = P2V(physical_addr);
 		kfree_page((void *) kernel_addr);
 		unmap_page(_kernel_info.kernel_vm, addr);
+		flush_tlb_addr(addr); /* scope invalidation to just this page */
 		addr += PAGE_SIZE;
 	}
-	flush_tlb();
 }
 
 static int32_t shm_map_pages(ewokos_addr_t addr, uint32_t pages) {
@@ -100,9 +100,9 @@ static int32_t shm_map_pages(ewokos_addr_t addr, uint32_t pages) {
 				addr,
 				V2P(page),
 				AP_RW_D, PTE_ATTR_NOCACHE);
+		flush_tlb_addr(addr); /* scope invalidation to just this page */
 		addr += PAGE_SIZE;
 	}
-	flush_tlb();
 	return 1;
 }
 
@@ -366,9 +366,9 @@ void* shm_proc_map(proc_t* proc, int32_t id) {
 				addr,
 				physical_addr,
 				access, PTE_ATTR_WRBACK);
+		flush_tlb_addr(addr); /* scope invalidation to just this page */
 		addr += PAGE_SIZE;
 	}
-	flush_tlb();
 	proc->info.shm_size += it->pages * PAGE_SIZE;
 	it->refs++;
 	shm_unlock();
@@ -390,9 +390,9 @@ static int32_t shm_proc_unmap_it(proc_t* proc, share_mem_t* it, bool free_it) {
 	ewokos_addr_t addr = it->addr;
 	for (i = 0; i < it->pages; i++) {
 		unmap_page(proc->space->vm, addr);
+		flush_tlb_addr(addr); /* scope invalidation to just this page */
 		addr += PAGE_SIZE;
 	}
-	flush_tlb();
 	if(proc->info.shm_size > (it->pages*PAGE_SIZE))
 		proc->info.shm_size -= it->pages * PAGE_SIZE;
 	else

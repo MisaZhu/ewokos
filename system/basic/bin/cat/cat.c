@@ -62,8 +62,8 @@ int main(int argc, char** argv) {
 	}
 
 	while(1) {
-		char buf[1024];
-		int sz = read(fd, buf, 1024);
+		char buf[1024*4];
+		int sz = read(fd, buf, 1024*4);
 		if(sz > 0) {
 			out(buf, sz);
 		}

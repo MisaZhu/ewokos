@@ -68,6 +68,21 @@
 #define TCP_PERSIST_RTO_MAX 60000000 /* max persist backoff: 60 seconds */
 #define TCP_DELACK_TIMEOUT_USEC 40000 /* RFC 1122 delayed-ACK ceiling */
 #define TCP_DELACK_SEGS 2 /* ACK every 2nd in-order data segment */
+/*
+ * Download flow control (direction-aware, see the pcb->buf comment).
+ * The advertised receive window gates inbound throughput:
+ * throughput = window / effective_RTT, and the wland<->netd<->sshd IPC
+ * chain makes that RTT ~100ms, so the legacy 32KB window pinned scp/ssh
+ * downloads near 300KB/s regardless of SDIO clock or SDMA. Advertise RFC
+ * 7323 window scaling with a real shift and size the buffer well past the
+ * bandwidth-delay product so the sender keeps the pipe full while sshd
+ * drains it. 256KB >> 3 = 32KB still fits the 16-bit window field. This is
+ * safe for the WLAN TX-credit pool: during a download credits refill from
+ * the very RX frames being ACKed, and delayed ACK emits at most one ACK per
+ * two inbound segments, so ACKs can never outrun credit refresh. Upload is
+ * unaffected - it is gated by the PEER's advertised window, not ours. */
+#define TCP_RCV_BUF_SIZE (1024*256)
+#define TCP_RCV_WSCALE   3
 #define TCP_SOURCE_PORT_MIN 49152
 #define TCP_SOURCE_PORT_MAX 65535
 
@@ -118,27 +133,26 @@ struct tcp_pcb {
     uint32_t iss;
     struct {
         uint32_t nxt;
-        uint16_t wnd;
+        uint32_t wnd; /* advertised receive window; scaled onto the wire by TCP_RCV_WSCALE */
         uint16_t up;
     } rcv;
     uint32_t irs;
     uint16_t mtu;
     uint16_t mss;
     /* Receive buffer / advertised window.
-     * The ACK burst for a full-window inbound blast must stay below the
-     * WLAN dongle's TX credit pool (~25 frames): credits are refreshed
-     * exclusively by RX frame headers, which stop the moment the peer's
-     * send window closes.  Pre-delack, netd ACKed every segment, so a
-     * 32KB window (~22 ACKs) exhausted the pool and the peer sat in
-     * zero-window silence until the driver's 500ms starvation escape
-     * (multi-second scp upload stalls); the buffer was shrunk to 16KB
-     * (~11 ACKs) to stay self-clocked.  Delayed ACK (TCP_DELACK_SEGS=2)
-     * has since halved the burst: 32KB now generates the same ~11 ACKs
-     * the 16KB sizing was validated against, so the window can be
-     * restored.  This directly lifts the upload ceiling wnd/RTT - the
-     * 16KB window stop-and-go (drain fully, then refill over the air
-     * with no overlap) capped scp uploads well below the link rate. */
-    uint8_t buf[1024*32]; /* receive buffer */
+     * Downloads are RTT-bound: throughput = advertised window / effective
+     * RTT, and the wland<->netd<->sshd IPC chain makes that RTT ~100ms, so a
+     * 32KB window capped scp/ssh downloads near 300KB/s no matter the SDIO
+     * clock. Size the buffer (and, via TCP_RCV_WSCALE, the advertised window)
+     * well past the bandwidth-delay product so the sender streams
+     * continuously while sshd drains the buffer; tcp_receive() emits a
+     * window-update ACK on every drain, keeping the window advancing.
+     * Direction note: this large window helps download only. Upload is gated
+     * by the PEER's advertised window, and the old WLAN TX-credit-exhaustion
+     * hazard does not apply here - during a download credits refill from the
+     * inbound frames themselves and delayed ACK (TCP_DELACK_SEGS=2) emits at
+     * most one ACK per two inbound segments, so ACKs never outrun refresh. */
+    uint8_t buf[TCP_RCV_BUF_SIZE]; /* receive buffer */
     struct sched_ctx state_ctx;
     struct sched_ctx send_ctx;
     struct sched_ctx recv_ctx;
@@ -237,6 +251,25 @@ tcp_peer_window(const struct tcp_pcb *pcb, uint16_t wnd)
         return ((uint32_t)wnd) << pcb->peer_wscale;
     }
     return wnd;
+}
+
+/*
+ * Value for the 16-bit TCP window field of an outgoing segment. RFC 7323:
+ * the window scale is negotiated on the SYN and applies only to segments
+ * AFTER the SYN, so the SYN itself must carry the raw (unscaled) window;
+ * every later segment is right-shifted by our advertised scale, and only
+ * when the peer also sent WSOPT (wsopt_ok). Clamp to 0xffff so an
+ * over-large receive buffer can never overflow the field.
+ */
+static uint16_t
+tcp_wire_window(const struct tcp_pcb *pcb, uint8_t flg)
+{
+    uint32_t w = pcb->rcv.wnd;
+
+    if (!TCP_FLG_ISSET(flg, TCP_FLG_SYN) && pcb->wsopt_ok) {
+        w >>= TCP_RCV_WSCALE;
+    }
+    return w > 0xffff ? (uint16_t)0xffff : (uint16_t)w;
 }
 
 static void
@@ -563,7 +596,7 @@ tcp_retransmit_queue_emit(void *arg, void *data)
     timeout = entry->last;
     timeval_add_usec(&timeout, entry->rto);
     if (timercmp(&now, &timeout, >)) {
-        tcp_output_segment(entry->seq, pcb->rcv.nxt, entry->flg, pcb->rcv.wnd, (uint8_t *)(entry+1), entry->len, &pcb->local, &pcb->foreign);
+        tcp_output_segment(entry->seq, pcb->rcv.nxt, entry->flg, tcp_wire_window(pcb, entry->flg), (uint8_t *)(entry+1), entry->len, &pcb->local, &pcb->foreign);
         entry->last = now;
         entry->rto *= 2;
     }
@@ -636,15 +669,17 @@ tcp_output_segment(uint32_t seq, uint32_t ack, uint8_t flg, uint16_t wnd, uint8_
         opts[2] = (uint8_t)(mss >> 8);
         opts[3] = (uint8_t)(mss & 0xff);
         /*
-         * Always advertise WSOPT with shift 0. This keeps our receive window
-         * unchanged (32KB fits in 16 bits) but enables the peer to use its own
-         * advertised window scale toward us, which is what the download path
-         * needs once ACK cadence is slower than a LAN RTT.
+         * Advertise WSOPT with our real receive-window scale. This lets the
+         * peer left-shift the window we advertise on later segments, so our
+         * receive window can exceed the 16-bit field and cover the ~100ms
+         * IPC RTT that otherwise pins downloads near 300KB/s. The peer only
+         * applies the scale if it too sent WSOPT; tcp_wire_window() mirrors
+         * that by shifting only when wsopt_ok and never on the SYN itself.
          */
         opts[4] = TCP_OPT_NOP;
         opts[5] = TCP_OPT_WS;
         opts[6] = TCP_OPT_WS_LEN;
-        opts[7] = 0;
+        opts[7] = TCP_RCV_WSCALE;
         optlen = sizeof(opts);
     }
 
@@ -709,7 +744,7 @@ tcp_output(struct tcp_pcb *pcb, uint8_t flg, uint8_t *data, size_t len)
     if (TCP_FLG_ISSET(flg, TCP_FLG_SYN | TCP_FLG_FIN) || len) {
         tcp_retransmit_queue_add(pcb, seq, flg, data, len);
     }
-    return tcp_output_segment(seq, pcb->rcv.nxt, flg, pcb->rcv.wnd, data, len, &pcb->local, &pcb->foreign);
+    return tcp_output_segment(seq, pcb->rcv.nxt, flg, tcp_wire_window(pcb, flg), data, len, &pcb->local, &pcb->foreign);
 }
 
 static void
@@ -726,7 +761,7 @@ tcp_send_ack_only(struct tcp_pcb *pcb)
     hdr.ack = hton32(pcb->rcv.nxt);
     hdr.off = (sizeof(hdr) >> 2) << 4;
     hdr.flg = TCP_FLG_ACK;
-    hdr.wnd = hton16(pcb->rcv.wnd);
+    hdr.wnd = hton16(tcp_wire_window(pcb, TCP_FLG_ACK));
     hdr.sum = 0;
     hdr.up = 0;
     pseudo.src = pcb->local.addr;
@@ -1064,7 +1099,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
                 if (pcb->dupacks == 3) {
                     struct tcp_queue_entry *re = queue_peek(&pcb->queue);
                     if (re) {
-                        tcp_output_segment(re->seq, pcb->rcv.nxt, re->flg, pcb->rcv.wnd,
+                        tcp_output_segment(re->seq, pcb->rcv.nxt, re->flg, tcp_wire_window(pcb, re->flg),
                                            (uint8_t *)(re + 1), re->len, &pcb->local, &pcb->foreign);
                         gettimeofday(&re->last, NULL);
                     }
@@ -1472,7 +1507,7 @@ tcp_timer(void)
                  * seq = snd.una - 1. The receiver sees this as out-of-window
                  * and responds with an ACK containing its current window. */
                 tcp_output_segment(pcb->snd.una - 1, pcb->rcv.nxt,
-                    TCP_FLG_ACK, pcb->rcv.wnd, NULL, 0,
+                    TCP_FLG_ACK, tcp_wire_window(pcb, TCP_FLG_ACK), NULL, 0,
                     &pcb->local, &pcb->foreign);
                 /* Exponential backoff */
                 pcb->persist_rto *= 2;
@@ -2266,12 +2301,31 @@ RETRY:
                 flg |= TCP_FLG_PSH;
             }
             if (tcp_output(pcb, flg, data + sent, slen) == -1) {
-                errorf("tcp_output() failure");
-                pcb->state = TCP_PCB_STATE_CLOSED;
-                tcp_pcb_release(pcb);
-                errno = EIO;
-                mutex_unlock(&mutex);
-                return -1;
+                /*
+                 * A failed wire send is packet loss, not a dead connection.
+                 * tcp_output() already put this segment on the retransmit
+                 * queue (cap==0 above guarantees a free slot), and the RTO
+                 * timer resends it - tcp_retransmit_queue_emit() likewise
+                 * ignores tcp_output_segment() failures.
+                 *
+                 * The device reports -1 for transient link congestion: wl0
+                 * answers VFS_ERR_RETRY while the driver TX queue is full and
+                 * ether_tap_write() gives up after ETHER_TAP_TX_WAIT_MS.
+                 * Closing the PCB here turned every such hiccup into a
+                 * mid-transfer reset, so a bulk transfer was torn down and
+                 * restarted by the peer instead of recovering by
+                 * retransmission - the dominant throughput limit on wifi.
+                 *
+                 * Account the segment as sent so snd.nxt stays in step with
+                 * the queued entry; retrying with the same seq would push a
+                 * duplicate entry for every attempt. Stop pipelining: the
+                 * link has no room right now.
+                 */
+                errorf("device output failure, retransmit pending seq=%u len=%zu",
+                       pcb->snd.nxt, slen);
+                pcb->snd.nxt += slen;
+                sent += slen;
+                break;
             }
             pcb->snd.nxt += slen;
             sent += slen;

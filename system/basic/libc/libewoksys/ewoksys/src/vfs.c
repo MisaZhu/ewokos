@@ -33,6 +33,21 @@ typedef struct {
 } poll_fd_cache_t;
 
 #define VFS_MULTI_POLL_BACKOFF_US 20000
+/*
+ * Starting backoff for the poll() paths that cannot park on a node token.
+ *
+ * A finite timeout forces a sleep loop: there is no timed kernel block, so
+ * proc_block_by() could overshoot the deadline. Sleeping a flat 10ms/20ms
+ * there throws away the wakeup that was already registered and turns every
+ * "producer refills a moment later" round into a full backoff period. With a
+ * 4032-byte shm_pipe ring that alone caps a relay (sshd/telnetd shell output)
+ * near 4KB per backoff, i.e. a couple hundred KB/s regardless of link speed.
+ *
+ * Ramp instead: catch the common sub-millisecond refill on the first retry and
+ * still reach the old ceiling within ~25ms so a genuinely idle waiter does not
+ * flood vfsd with readiness IPCs.
+ */
+#define VFS_POLL_BACKOFF_START_US 200U
 
 static int vfs_get_by_fd_raw(int fd, fsinfo_t* info) {
 	proto_t in, out;
@@ -82,6 +97,8 @@ void  vfs_on_fork(void) {
 	 * Clear all entries so get_pipe_shm() will re-map via shmat() lazily. */
 	for(uint32_t i=0; i<MAX_OPEN_FILE_PER_PROC; i++)
 		_pipe_shm[i] = NULL;
+	/* Same story for the per-fd IO transfer-buffer cache in devcmd.c. */
+	dev_io_on_fork();
 }
 
 static inline fsfile_t* vfs_set_file(int fd, fsinfo_t* info) {
@@ -104,6 +121,7 @@ static inline void vfs_clear_file(int fd) {
 		return;
 	memset(&_fsfiles[fd], 0, sizeof(fsfile_t));
 	_pipe_shm[fd] = NULL; /* don't shmdt — other fds may share the same ring */
+	dev_io_on_close(fd); /* free this fd's private IO transfer buffer */
 }
 
 static fsfile_t* vfs_get_file(int fd) {
@@ -1314,6 +1332,9 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
         poll_fd_cache_t* cache = NULL;
 	bool registered = false;
 	bool multi_wait = (num > 1);
+	uint32_t backoff_us = VFS_POLL_BACKOFF_START_US;
+	uint32_t backoff_max_us = multi_wait ? VFS_MULTI_POLL_BACKOFF_US :
+			10000U;
 	uint64_t start_ms = 0;
 	if(timeout > 0)
 		start_ms = kernel_tic_ms(0);
@@ -1409,10 +1430,17 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 				uint64_t now_ms = kernel_tic_ms(0);
 				uint64_t elapsed = now_ms - start_ms;
 				uint64_t remaining = (uint64_t)timeout - elapsed;
-				if(remaining > 10)
-					usleep(10000);
+				uint64_t remaining_us = remaining * 1000;
+				if(remaining_us > backoff_us) {
+					usleep(backoff_us);
+					if(backoff_us < backoff_max_us) {
+						backoff_us *= 2;
+						if(backoff_us > backoff_max_us)
+							backoff_us = backoff_max_us;
+					}
+				}
 				else if(remaining > 0)
-					usleep((uint32_t)(remaining * 1000));
+					usleep((uint32_t)remaining_us);
 				else
 					break;
 			}
@@ -1430,15 +1458,27 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
                  * readiness probing.
 		 */
 		if(timeout < 0) {
-                        usleep(VFS_MULTI_POLL_BACKOFF_US);
+                        usleep(backoff_us);
+			if(backoff_us < backoff_max_us) {
+				backoff_us *= 2;
+				if(backoff_us > backoff_max_us)
+					backoff_us = backoff_max_us;
+			}
 		} else {
 			uint64_t now_ms = kernel_tic_ms(0);
 			uint64_t elapsed = now_ms - start_ms;
 			uint64_t remaining = (uint64_t)timeout - elapsed;
-                        if(remaining > (VFS_MULTI_POLL_BACKOFF_US / 1000))
-                                usleep(VFS_MULTI_POLL_BACKOFF_US);
+			uint64_t remaining_us = remaining * 1000;
+                        if(remaining_us > backoff_us) {
+                                usleep(backoff_us);
+				if(backoff_us < backoff_max_us) {
+					backoff_us *= 2;
+					if(backoff_us > backoff_max_us)
+						backoff_us = backoff_max_us;
+				}
+			}
 			else if(remaining > 0)
-				usleep((uint32_t)(remaining * 1000));
+				usleep((uint32_t)remaining_us);
 			else
 				break;
 		}

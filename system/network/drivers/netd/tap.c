@@ -26,7 +26,28 @@
 
 #define ETHER_TAP_IRQ (2)
 #define ETHER_TAP_DRAIN_BURST 256
-#define ETHER_TAP_TX_WAIT_MS 50
+/*
+ * How long to wait for POLLOUT before giving up on a write() and letting TCP
+ * retransmit. This must exceed the underlying device's transient TX-backpressure
+ * window, not just its typical latency.
+ *
+ * On raspix/raspi5 the wl0 SDIO driver returns VFS_ERR_RETRY (EAGAIN) while its
+ * firmware TX credit window is momentarily exhausted (see brcm.c txctl_ok /
+ * "wtx: ... cstall/brk"). Those stalls are backpressure, not loss: the frame is
+ * NOT enqueued, so nothing is dropped, and the driver raises VFS_EVT_WR the
+ * instant it drains a frame — so this poll returns early whenever real progress
+ * happens. The full timeout is only consumed during a genuine no-grant stall.
+ *
+ * The driver bounds worst-case starvation to 500ms (its credit "breakthrough"),
+ * and on-device wtx logs show these stalls almost always resolve well under that
+ * (brk=0). A 50ms ceiling was shorter than the stall, so every transient credit
+ * stall during an upload turned into a "device transmit failure" + retransmit,
+ * and the retransmit re-competed for the same scarce credits — amplifying the
+ * stall. 200ms rides the observed stalls while still bounding head-of-line
+ * delay for other flows sharing tap->lock, and POLLERR/POLLHUP below still
+ * fast-fails a truly dead link.
+ */
+#define ETHER_TAP_TX_WAIT_MS 200
 struct ether_tap {
     char name[IFNAMSIZ];
     int fd;

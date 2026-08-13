@@ -161,7 +161,7 @@ static inline void irq_do_timer0(context_t* ctx) {
 	uint32_t usec_gap = usec - _irq_tic_last_usec;
 
 	_irq_tic_last_usec = usec;
-	_kernel_info.uptime_usec += usec_gap;
+	_kernel_info.uptime_usec = usec;
 	_irq_tic_second += usec_gap;
 
 	if(_irq_tic_second >= 1000000) { //SEC_TIC sec

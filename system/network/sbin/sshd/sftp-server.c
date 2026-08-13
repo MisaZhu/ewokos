@@ -34,7 +34,7 @@ static int emit_stdout(void *user, const uint8_t *data, size_t len) {
 int main(int argc, char *argv[]) {
     sftp_server_t *srv;
     sftp_server_io_t io;
-    uint8_t buf[16384];
+    uint8_t buf[32*1024];
     int out_fd = STDOUT_FILENO;
 
     (void)argc;
