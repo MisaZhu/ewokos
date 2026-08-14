@@ -557,11 +557,12 @@ static int32_t fb_dma(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int*
 static void read_config(const char* conf_file, uint32_t index, uint32_t* w, uint32_t* h, uint8_t* dep, int32_t* rotate, float* zoom) {
 	char cfile[128] = {0};
 	if(conf_file == NULL || conf_file[0] == 0) {
+		sprintf(cfile, "/etc/framebuffer.json");
 		if(index > 1)
 			sprintf(cfile, "/etc/framebuffer.%d.json", index-1);
-		else
-			sprintf(cfile, "/etc/framebuffer.json");
 	}
+	else
+		sprintf(cfile, "%s", conf_file);
 	slog("read_config: %s\n", cfile);
 
 	json_var_t *conf_var = json_parse_file(cfile);	
