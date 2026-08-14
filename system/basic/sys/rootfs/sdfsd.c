@@ -85,9 +85,6 @@ static int32_t add_nodes(ext2_t* ext2, INODE *ip, fsinfo_t* dinfo) {
 		dp = (DIR_T *)buf;
 		cp = buf;
 
-		if(dp->inode == 0)
-			continue;
-
 		while (cp < (buf + block_size)){
 			if(dp->name_len == 0 || dp->rec_len < 12 ||
 					dp->rec_len < (uint16_t)(4 * ((8 + dp->name_len + 3) / 4)) ||
@@ -275,9 +272,6 @@ static fsinfo_t* sdext2_kids(vdevice_t* dev, fsinfo_t* info_dir, uint32_t* num, 
 			continue;
 		dp = (DIR_T *)buf;
 		cp = buf;
-
-		if(dp->inode == 0)
-			continue;
 
 		while (cp < (buf + block_size)){
 			if(dp->name_len == 0 || dp->rec_len < 12 ||
