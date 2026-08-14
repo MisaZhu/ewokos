@@ -982,36 +982,33 @@ static int x_init_display(x_t* x) {
 	return 0;
 }
 
-static uint32_t active_display(x_t* x, const char* s) {
-	for(uint32_t i = 0; i < DISP_MAX; i++)
+static uint32_t active_displays(x_t* x, json_var_t* display_arr_var) {
+	for(uint32_t i = 0; i < DISP_MAX; i++) {
 		x->displays[i].active = false;
+	}
 
 	uint32_t num = 0;
-	if(s != NULL) {
-		const char* p = s;
-		while(*p != 0) {
-			char* end = NULL;
-			long index;
-
-			while(*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n' || *p == ',')
-				p++;
-			if(*p == 0)
-				break;
-
-			index = strtol(p, &end, 10);
-			if(end == p) {
-				while(*p != 0 && *p != ',')
-					p++;
+	if(display_arr_var != NULL && display_arr_var->json_is_array != 0) {
+		uint32_t size = json_var_array_size(display_arr_var);
+		for(uint32_t i = 0; i < size && num < DISP_MAX; i++) {
+			json_var_t* item = json_var_array_get_var(display_arr_var, i);
+			if(item == NULL || item->type != JSON_V_INT)
 				continue;
-			}
 
-			if(index >= 0 && index < DISP_MAX) {
-				x->displays[num].active = true;
-				x->displays[num].display_index = index;
-				num++;
-			}
-			p = end;
+			int32_t index = json_var_get_int(item);
+			if(index < 0 || index >= DISP_MAX)
+				continue;
+
+			x->displays[num].active = true;
+			x->displays[num].display_index = index;
+			num++;
 		}
+	}
+
+	if(num == 0) {
+		x->displays[0].active = true;
+		x->displays[0].display_index = 0;
+		num = 1;
 	}
 
 	return num;
@@ -1033,16 +1030,13 @@ static int32_t read_config(x_t* x, const char* fname) {
 
 	json_var_t *conf_var = json_parse_file(fname);	
 
-	const char* v = json_get_str_def(conf_var, "displays", "0");
-	x->display_num = active_display(x, v);
+	json_var_t* display_arr_var = json_get_obj(conf_var, "displays");
+	x->display_num = active_displays(x, display_arr_var);
 
 	x->config.fps = json_get_int_def(conf_var, "fps", 30);
 	x->config.bg_proc_priority = json_get_int_def(conf_var, "bg_proc_priority", 2);
 
-	v = json_get_str_def(conf_var, "logo", "/usr/system/icons/xlogo.png");
-	x->config.logo = png_image_new(v);
-
-	v = json_get_str_def(conf_var, "cursor", "");
+	const char* v = json_get_str_def(conf_var, "cursor", "");
 	if(strcmp(v, "touch") == 0)
 		x->cursor.type = CURSOR_TOUCH;
 	else if(strcmp(v, "mouse") == 0)
@@ -1051,6 +1045,9 @@ static int32_t read_config(x_t* x, const char* fname) {
 		if(strcmp(v, "none") == 0)
 			x->show_cursor = false;
 	}
+
+	v = json_get_str_def(conf_var, "logo", "/usr/system/icons/xlogo.png");
+	x->config.logo = png_image_new(v);
 
 	if(conf_var != NULL)
 		json_var_unref(conf_var);

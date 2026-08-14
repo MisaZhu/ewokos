@@ -15,7 +15,7 @@
 
 #@/bin/ipcserv /drivers/virt/g2dd     /dev/g2d
 
-@/bin/ipcserv /sbin/splashd -w 320 -h 240 -f 12 
+@/bin/ipcserv /sbin/splashd -w 320 -h 240 -f 12 -d
 @/bin/splash -i /usr/system/images/logos/ewokos.png -m "start..."
 
 @/bin/splash -m "start /dev/timer" -p 30

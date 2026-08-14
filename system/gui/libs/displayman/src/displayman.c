@@ -12,7 +12,7 @@ const char* displayman_get_dev(const char* display_man_dev, uint32_t display_ind
 
 	if(dev_cntl(display_man_dev, DISP_GET_DISP_DEV, &in, &out) == 0)
 		strncpy(ret, proto_read_str(&out), 127);
-	else
+	else if(display_index == 0)
 		strncpy(ret, "/dev/disp0", 127);
 
 	PF->clear(&in);
@@ -22,6 +22,9 @@ const char* displayman_get_dev(const char* display_man_dev, uint32_t display_ind
 
 int displayman_open(const char* display_man_dev, uint32_t display_index, display_t* display) {
 	const char* dev = displayman_get_dev(display_man_dev, display_index); 
+	if(dev == NULL || dev[0] == 0)
+		return -1;
+
 	if(display_open(dev, display_index, display) != 0)
 		return -1;
 	return 0;

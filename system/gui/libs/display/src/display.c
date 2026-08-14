@@ -15,7 +15,7 @@ extern "C" {
 #endif
 
 int display_open(const char *dev, int32_t disp_index, display_t* display) {
-	if(display == NULL || dev == NULL)
+	if(display == NULL || dev == NULL || dev[0] == 0)
 		return -1;
 
 	memset(display, 0, sizeof(display_t));

@@ -1,4 +1,5 @@
 {
+    "displays": [0],
     "fps": 60,
     "cursor": "mouse",
     "#cursor": "none",
