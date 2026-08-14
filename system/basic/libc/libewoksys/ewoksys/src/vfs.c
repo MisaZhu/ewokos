@@ -910,6 +910,9 @@ uint8_t* vfs_readfile(const char* fname, int* rsz) {
 				fsize -= sz;
 				p += sz;
 			}
+			else {
+				proc_usleep(1000);
+			}
 		}
 		close(fd);
 	}

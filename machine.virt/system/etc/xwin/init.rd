@@ -61,14 +61,17 @@
 @/bin/splash -m "load fonts" -p 80
 @/bin/load_font
 
-@/bin/splash -m "startx" -p 100
-@/bin/ipcserv /drivers/xserverd        /dev/x
-
+@/bin/splash -m "start xmouse" -p 90
 @/bin/bgrun /sbin/x/xmouse /dev/mouse0 
+
+@/bin/splash -m "start xim" -p 95
 @/bin/bgrun /sbin/x/xim_none /dev/vkeyb
 #@/bin/bgrun /sbin/x/xim_vkey /dev/vkeyb 
 
+@/bin/splash -m "startx" -p 100
+@/bin/ipcserv /drivers/xserverd        /dev/x
 
-@/bin/bgrun /bin/x/xsession misa 
+
+#@/bin/bgrun /bin/x/xsession misa 
 #@/bin/bgrun /bin/x/xsession
 
