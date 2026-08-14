@@ -611,14 +611,16 @@ static char* fb_dev_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, voi
 }
 
 int fbd_run(fbd_t* fbd, const char* mnt_name,
-		uint32_t def_w, uint32_t def_h, const char* conf_file) {
+		uint32_t def_w, uint32_t def_h, const char* conf_file, uint32_t display_index) {
 	_fbd = fbd;
 	uint32_t w = def_w, h = def_h;
 	_zoom = 1.0;
 	uint8_t dep = 32;
 	_rotate = G_ROTATE_0;
 
-	uint32_t index = add_display_fb_dev("/dev/display", mnt_name);
+	int32_t index = add_display_fb_dev("/dev/display", mnt_name, display_index);
+	if(index < 0)
+		return -1;
 	read_config(conf_file, index, &w, &h, &dep, &_rotate, &_zoom);
 
 	fb_dma_t dma;

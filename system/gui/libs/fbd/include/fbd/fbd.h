@@ -27,7 +27,8 @@ typedef struct {
 extern int fbd_run(fbd_t* fbd, const char* mnt_name,
     uint32_t def_w,
     uint32_t def_h,
-    const char* conf_file);
+    const char* conf_file,
+    uint32_t display_index);
 
 /* Generic flush_rotate implementation: rotates the un-rotated client
  * frame (32bpp) straight into fbinfo->pointer, walking the destination
