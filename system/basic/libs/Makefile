@@ -4,6 +4,7 @@ all: basic_libs
 basic_libs:
 	cd sd;$(MAKE)
 	cd ext2;$(MAKE)
+	cd fat32;$(MAKE)
 	cd elf;$(MAKE)
 	cd tinyjson;$(MAKE)
 	cd openlibm;$(MAKE)
@@ -15,6 +16,7 @@ basic_libs:
 
 clean:
 	cd ext2;$(MAKE) clean
+	cd fat32;$(MAKE) clean
 	cd elf;$(MAKE) clean
 	cd sd;$(MAKE) clean
 	cd tinyjson;$(MAKE) clean

@@ -30,6 +30,11 @@ endif
 ifeq ($(PAGE_SIZE),16k)
 	CFLAGS += -DPAGE_SIZE_16K
 	ASFLAGS += -DPAGE_SIZE_16K
+else 
+ifeq ($(PAGE_SIZE),64k)
+	CFLAGS += -DPAGE_SIZE_64K
+	ASFLAGS += -DPAGE_SIZE_64K
+endif
 endif
 
 ifeq ($(DEBUG),yes)

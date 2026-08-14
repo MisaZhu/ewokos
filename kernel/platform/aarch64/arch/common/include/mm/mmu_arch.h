@@ -6,6 +6,7 @@
 
 #define PAGE_INDEX_MASK ((uint64_t)(PAGE_DIR_NUM - 1))
 
+#define PAGE_ROOT_INDEX(x) (((uint64_t)(x) >> PAGE_ROOT_SHIFT) & PAGE_INDEX_MASK)
 #define PAGE_L1_INDEX(x) (((uint64_t)(x) >> PAGE_L1_SHIFT) & PAGE_INDEX_MASK)
 #define PAGE_L2_INDEX(x) (((uint64_t)(x) >> PAGE_L2_SHIFT) & PAGE_INDEX_MASK)
 #define PAGE_L3_INDEX(x) (((uint64_t)(x) >> PAGE_L3_SHIFT) & PAGE_INDEX_MASK)
@@ -13,6 +14,9 @@
 #define PAGE_TABLE_TO_BASE(x) ((uint64_t)(x) >> 10)
 #define BASE_TO_PAGE_TABLE(x) ((void *)((uint64_t)(x) << 10))
 #define PAGE_TO_BASE(x) ((uint64_t)(x) >> PAGE_SHIFT)
+
+#define PTE_ADDR_VALUE_MASK ((1ull << (48 - PAGE_SHIFT)) - 1)
+#define PTE_ADDR_MASK       (PTE_ADDR_VALUE_MASK << PAGE_SHIFT)
 
 typedef struct {
     uint64_t EntryType : 2;             // @0-1     1 for a block table, 3 for a page table
@@ -27,7 +31,10 @@ typedef struct {
     } SH : 2;                           // @8-9
     uint64_t AF : 1;                    // @10      Accessable flag
     uint64_t PTE_NG : 1;                // @11      no global 
-#ifdef PAGE_SIZE_16K
+#ifdef PAGE_SIZE_64K
+    uint64_t _reserved12_15 : 4;        // @12-15   Set to 0 for 64K granule descriptors
+    uint64_t Address : 32;              // @16-47   32 Bits of address
+#elif defined(PAGE_SIZE_16K)
     uint64_t _reserved12_13 : 2;        // @12-13   Set to 0 for 16K granule descriptors
     uint64_t Address : 34;              // @14-47   34 Bits of address
 #else
@@ -56,6 +63,25 @@ typedef struct {
 #define  MT_NORMAL         3
 
 void set_pte_flags(page_table_entry_t* pte, uint64_t pte_attr);
+
+/*
+ * Access descriptor addresses through a may-alias 64-bit view so the compiler
+ * emits aligned whole-descriptor loads/stores instead of bitfield writes.
+ */
+typedef uint64_t pte_raw_t __attribute__((__may_alias__));
+
+static inline uint64_t pte_get_address(const page_table_entry_t* pte) {
+	const volatile pte_raw_t* raw = (const volatile pte_raw_t*)(const void*)pte;
+	return ((*raw) >> PAGE_SHIFT) & PTE_ADDR_VALUE_MASK;
+}
+
+static inline void pte_set_address(page_table_entry_t* pte, uint64_t address) {
+	volatile pte_raw_t* raw = (volatile pte_raw_t*)(void*)pte;
+	uint64_t value = *raw;
+	value &= ~PTE_ADDR_MASK;
+	value |= (address & PTE_ADDR_VALUE_MASK) << PAGE_SHIFT;
+	*raw = value;
+}
 
 #define PTE_ATTR_WRBACK          0
 #define PTE_ATTR_DEV             1

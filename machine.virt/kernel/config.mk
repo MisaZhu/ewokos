@@ -19,5 +19,6 @@ LOAD_ADDRESS  = 0x40080000
 #----multi core(SMP)------
 SMP=yes
 
-PAGE_SIZE=16k
+#PAGE_SIZE=16k
+PAGE_SIZE=64k
 #PAGE_SIZE=4k

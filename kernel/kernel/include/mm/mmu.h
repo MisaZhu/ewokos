@@ -30,10 +30,14 @@
 #if __aarch64__
 #define ALLOCABLE_L3_PAGE_TABLE_SIZE  \
 	((ALIGN_UP(_sys_info.total_usable_mem_size, PAGE_TABLE_SPAN_L3) / PAGE_TABLE_SPAN_L3) * PAGE_TABLE_SIZE)
+#ifdef PAGE_SIZE_64K
+#define ALLOCABLE_PAGE_DIR_SIZE       (ALLOCABLE_L3_PAGE_TABLE_SIZE)
+#else
 #define ALLOCABLE_L2_PAGE_TABLE_SIZE  \
 	((ALIGN_UP(_sys_info.total_usable_mem_size, PAGE_TABLE_SPAN_L2) / PAGE_TABLE_SPAN_L2) * PAGE_TABLE_SIZE)
 #define ALLOCABLE_PAGE_DIR_SIZE       \
 	(ALLOCABLE_L3_PAGE_TABLE_SIZE + ALLOCABLE_L2_PAGE_TABLE_SIZE)
+#endif
 #else
 #define ALLOCABLE_PAGE_DIR_SIZE       (2 * (_sys_info.total_phy_mem_size / KB))
 #endif

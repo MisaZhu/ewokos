@@ -338,13 +338,16 @@ static ewokos_addr_t sys_dma_phy(int32_t dma_block_id, ewokos_addr_t vaddr) {
 
 static ewokos_addr_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint32_t size) {
 	proc_t* cproc = proc_get_proc(get_current_proc());
+	uint32_t attr;
+	int32_t is_normal_ram;
 	if(cproc->info.uid > 0)
 		return 0;
 
 	/*allocatable memory can only mapped by kernel,
 	userspace can map upper address such as MMIO/FRAMEBUFFER... */
-	if(check_mem_map_arch(paddr, size) != 0)
+	if(check_mem_map_arch(paddr, size) != 0) {
 		return 0;
+	}
 	size = ALIGN_UP(size, PAGE_SIZE);
 
 	/*
@@ -354,8 +357,9 @@ static ewokos_addr_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint3
 	 * MMIO / reserved carveouts -> Device-nGnRE: strict ordering for
 	 * register or firmware-owned regions.
 	 */
-	uint32_t attr = PTE_ATTR_DEV;
-	if(mem_map_is_normal_ram_arch(paddr, size))
+	attr = PTE_ATTR_DEV;
+	is_normal_ram = mem_map_is_normal_ram_arch(paddr, size);
+	if(is_normal_ram)
 		attr = PTE_ATTR_NOCACHE;
 	map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, attr);
 	flush_tlb();

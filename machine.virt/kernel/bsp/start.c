@@ -38,8 +38,17 @@ static void set_boot_pgt(uint32_t virt, uint32_t phy, uint32_t len, uint8_t is_d
 static __attribute__((__aligned__(PAGE_DIR_SIZE)))
 page_dir_entry_t startup_page_dir[NUM_PAGE_DIRS] = { 0 };
 
-#ifdef PAGE_SIZE_16K
+#if defined(PAGE_SIZE_16K)
 #define BOOT_PAGE_TABLE_COUNT 16
+static __attribute__((__aligned__(PAGE_DIR_SIZE)))
+page_table_entry_t startup_page_tables[BOOT_PAGE_TABLE_COUNT][PAGE_DIR_NUM] = { 0 };
+static boot_pgt_ctx_t boot_pgt = {
+	.page_dir = startup_page_dir,
+	.page_table_count = BOOT_PAGE_TABLE_COUNT,
+	.page_tables = startup_page_tables,
+};
+#elif defined(PAGE_SIZE_64K)
+#define BOOT_PAGE_TABLE_COUNT 4
 static __attribute__((__aligned__(PAGE_DIR_SIZE)))
 page_table_entry_t startup_page_tables[BOOT_PAGE_TABLE_COUNT][PAGE_DIR_NUM] = { 0 };
 static boot_pgt_ctx_t boot_pgt = {

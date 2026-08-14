@@ -118,7 +118,12 @@ slave_core:
                    (0x44ul << (2 * 8)) |\
                    (0xfful << (3 * 8)) )
 
-#ifdef PAGE_SIZE_16K
+#ifdef PAGE_SIZE_64K
+ #define TCR_TG1_VAL  (0x3ul << 30) /* TG1=64KB */
+ #define TCR_TG0_VAL  (0x1ul << 14) /* TG0=64KB */
+ #define TCR_T1SZ_VAL (22ul  << 16) /* 42-bit VA space */
+ #define TCR_T0SZ_VAL (22ul  << 0)  /* 42-bit VA space */
+#elif defined(PAGE_SIZE_16K)
  #define TCR_TG1_VAL  (0x1ul << 30) /* TG1=16KB */
  #define TCR_TG0_VAL  (0x2ul << 14) /* TG0=16KB */
  #define TCR_T1SZ_VAL (17ul  << 16) /* 47-bit VA space */

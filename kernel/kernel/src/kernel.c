@@ -125,7 +125,7 @@ static void clone_kernel_vm(page_dir_entry_t* vm) {
 }
 #elif defined(__aarch64__)
 static void clone_kernel_vm(page_dir_entry_t* vm) {
-	uint32_t kernel_l1_base = PAGE_L1_INDEX(KERNEL_BASE);
+	uint32_t kernel_l1_base = PAGE_ROOT_INDEX(KERNEL_BASE);
 
 	memset(vm, 0, PAGE_DIR_SIZE);
 
@@ -366,8 +366,8 @@ void _kernel_entry_c(void) {
 	__asm__ volatile("cli");
 #endif
 	//clear bss
-#ifdef PAGE_SIZE_16K
-	for(volatile uint8_t* p = _bss_start; p < _bss_end; p++)
+#if defined(PAGE_SIZE_16K) || defined(PAGE_SIZE_64K)
+	for(volatile char* p = _bss_start; p < (volatile char*)_bss_end; p++)
 		*p = 0;
 #else
 	memset(_bss_start, 0, (size_t)(_bss_end - _bss_start));

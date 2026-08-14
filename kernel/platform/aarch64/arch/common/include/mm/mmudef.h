@@ -7,7 +7,11 @@
 #define MB (1024*KB)
 #define GB (1024*MB)
 
-#ifdef PAGE_SIZE_16K
+#ifdef PAGE_SIZE_64K
+#define PAGE_SHIFT 16
+#define PAGE_SIZE (64*KB)
+#define PAGE_TABLE_SIZE (64*KB)
+#elif defined(PAGE_SIZE_16K)
 #define PAGE_SHIFT 14
 #define PAGE_SIZE (16*KB)
 #define PAGE_TABLE_SIZE (16*KB)
@@ -20,10 +24,22 @@
 #define PAGE_DIR_NUM (PAGE_TABLE_SIZE / sizeof(uint64_t))
 #define PAGE_DIR_SIZE (PAGE_DIR_NUM*8)
 
-#define PAGE_LEVEL_BITS ((PAGE_SHIFT == 14) ? 11 : 9)
+#if PAGE_SHIFT == 16
+#define PAGE_LEVEL_BITS 13
+#elif PAGE_SHIFT == 14
+#define PAGE_LEVEL_BITS 11
+#else
+#define PAGE_LEVEL_BITS 9
+#endif
 #define PAGE_L3_SHIFT PAGE_SHIFT
 #define PAGE_L2_SHIFT (PAGE_L3_SHIFT + PAGE_LEVEL_BITS)
 #define PAGE_L1_SHIFT (PAGE_L2_SHIFT + PAGE_LEVEL_BITS)
+
+#ifdef PAGE_SIZE_64K
+#define PAGE_ROOT_SHIFT PAGE_L2_SHIFT
+#else
+#define PAGE_ROOT_SHIFT PAGE_L1_SHIFT
+#endif
 
 #define PAGE_TABLE_SPAN_L3 ((uint64_t)PAGE_SIZE * PAGE_DIR_NUM)
 #define PAGE_TABLE_SPAN_L2 (PAGE_TABLE_SPAN_L3 * PAGE_DIR_NUM)

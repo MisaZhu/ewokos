@@ -18,6 +18,16 @@ static uint32_t get_kmalloc_size(void) {
         ret = 32*MB;
     else if(_sys_info.total_phy_mem_size >= 2ull*GB)
         ret = 16*MB;
+
+#if defined(__aarch64__) && defined(PAGE_SIZE_64K)
+    /*
+     * With 64KB granules each per-process top-level page directory grows to
+     * 64KB. The default 128 proc_vm_t entries alone consume about 8MB, so the
+     * historic 8MB kmalloc pool on 1GB boards is no longer sufficient.
+     */
+    if(ret < 16*MB)
+        ret = 16*MB;
+#endif
     return ret;
 }
 
