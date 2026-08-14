@@ -304,7 +304,7 @@ void proc_untrack_interrupt_timeout(proc_t* proc) {
 void proc_track_ipc_timeout(proc_t* proc) {
 	proc_lock_enter();
 	if(proc == NULL || proc->space == NULL ||
-			proc->space->ipc_server.ctask.state == IPC_IDLE) {
+			proc_ipc_get_task(proc) == NULL) {
 		proc_lock_leave();
 		return;
 	}
@@ -557,6 +557,11 @@ static int32_t proc_init_space(proc_t* proc) {
 	proc->space->vm = vm;
 	proc->space->heap_size = 0;
 	proc->space->heap_used = 0;
+	proto_init(&proc->space->signal.saved_ipc_res.data);
+	proto_init(&proc->space->ipc_server.saved_ipc_res.data);
+	proto_init(&proc->space->interrupt.saved_ipc_res.data);
+	for(int i = 0; i < IPC_CTX_MAX; i++)
+		proto_init(&proc->space->ipc_server.tasks[i].arg_ret);
 	proto_init(&proc->space->interrupt.ipc_res.data);
 	return 0;
 }
@@ -565,7 +570,16 @@ static inline void proc_ipc_res_snapshot_clear(ipc_res_t* ipc_res) {
 	if(ipc_res == NULL)
 		return;
 	proto_clear(&ipc_res->data);
-	memset(ipc_res, 0, sizeof(ipc_res_t));
+	ipc_res->uid = 0;
+	ipc_res->state = IPC_IDLE;
+}
+
+static inline void proc_ipc_res_snapshot_release(ipc_res_t* ipc_res) {
+	if(ipc_res == NULL)
+		return;
+	proto_release(&ipc_res->data);
+	ipc_res->uid = 0;
+	ipc_res->state = IPC_IDLE;
 }
 
 static inline void proc_ipc_res_snapshot_copy(ipc_res_t* dst, const ipc_res_t* src) {
@@ -661,11 +675,11 @@ static void proc_ipc_timeout(proc_t* proc) {
 	}
 
 	ipc_server_t* server = &proc->space->ipc_server;
-	ipc_task_t* ipc = &server->ctask;
+	ipc_task_t* ipc = proc_ipc_get_task(proc);
 	proc_t* client_proc = NULL;
 	uint32_t client_uid = 0;
 
-	if(ipc->state == IPC_IDLE) {
+	if(ipc == NULL || ipc->state == IPC_IDLE) {
 		server->do_switch = false;
 		server->restore_pending = 0;
 		return;
@@ -700,6 +714,11 @@ static void proc_ipc_timeout(proc_t* proc) {
 	}
 
 	proc_ipc_wakeup(proc);
+	if(proc_ipc_get_task(proc) != NULL) {
+		proc_save_state(proc, &server->saved_state, &server->saved_ipc_res);
+		server->do_switch = true;
+		proc_resume_after_timeout(proc);
+	}
 #ifdef KERNEL_SMP
 	if(server->restore_pending != 0 &&
 			_cpu_cores[proc->info.core].actived &&
@@ -996,6 +1015,7 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 		}
 
 		/*free all ipc context*/
+		proc_ipc_cancel_wait(proc);
 		proc_ipc_clear(proc);
 		proc_ipc_wakeup_all(proc);
 		proc_interrupt_wakeup_all(proc);
@@ -1145,11 +1165,13 @@ void proc_funeral(proc_t* proc) {
 
 		if(space->thread_stacks != NULL)
 			kfree(space->thread_stacks);
-		proto_clear(&proc->ipc_res.data);
-		proc_ipc_res_snapshot_clear(&space->signal.saved_ipc_res);
-		proc_ipc_res_snapshot_clear(&space->ipc_server.saved_ipc_res);
-		proc_ipc_res_snapshot_clear(&space->interrupt.saved_ipc_res);
-		proto_clear(&space->interrupt.ipc_res.data);
+		proto_release(&proc->ipc_res.data);
+		for(int i = 0; i < IPC_CTX_MAX; i++)
+			proto_release(&space->ipc_server.tasks[i].arg_ret);
+		proc_ipc_res_snapshot_release(&space->signal.saved_ipc_res);
+		proc_ipc_res_snapshot_release(&space->ipc_server.saved_ipc_res);
+		proc_ipc_res_snapshot_release(&space->interrupt.saved_ipc_res);
+		proto_release(&space->interrupt.ipc_res.data);
 		kfree(space);
 		proc->space = NULL;
 	}
@@ -1409,6 +1431,7 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
 	proc->info.father_pid = -1;
 	proc->info.state = CREATED;
 	proto_init(&proc->ipc_res.data);
+	proc->ipc_wait_item.owner = proc;
 
 	if(type == TASK_TYPE_PROC) {
 		proc_init_space(proc);
@@ -1734,6 +1757,7 @@ void proc_wakeup_by(proc_t* proc, ewokos_addr_t token) {
 		proc_lock_leave();
 		return;
 	}
+	proc_ipc_cancel_wait(proc);
 
 	/*
 	 * Node-scoped wakeup. token 0 is a generic/unconditional wake (IPC,
@@ -2155,8 +2179,8 @@ static int32_t renew_ipc_counter(uint32_t usec) {
 			it = next;
 			continue;
 		}
-		ipc_task_t* ipc = &proc->space->ipc_server.ctask;
-		if(ipc->state == IPC_IDLE) {
+		ipc_task_t* ipc = proc_ipc_get_task(proc);
+		if(ipc == NULL || ipc->state == IPC_IDLE) {
 			proc_untrack_ipc_timeout(proc);
 			it = next;
 			continue;

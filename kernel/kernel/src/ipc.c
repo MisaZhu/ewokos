@@ -15,6 +15,7 @@ extern void mcore_unlock(int32_t* v);
 #endif
 
 #define IPC_BUFFER_SIZE 32
+#define IPC_WAKE_BATCH_LIMIT 2
 
 static inline void proc_ipc_server_lock(ipc_server_t* server) {
 #ifdef KERNEL_SMP
@@ -34,6 +35,129 @@ static inline void proc_ipc_server_unlock(ipc_server_t* server) {
 #endif
 }
 
+static inline void ipc_waitq_link_tail(ipc_server_t* server, ipc_queue_item_t* item) {
+	if(server == NULL || item == NULL)
+		return;
+	item->next = NULL;
+	item->prev = server->wait_tail;
+	if(server->wait_tail != NULL)
+		server->wait_tail->next = item;
+	else
+		server->wait_head = item;
+	server->wait_tail = item;
+	item->queued = 1;
+}
+
+static inline void ipc_waitq_unlink(ipc_server_t* server, ipc_queue_item_t* item) {
+	if(server == NULL || item == NULL || !item->queued)
+		return;
+	if(item->prev != NULL)
+		item->prev->next = item->next;
+	else
+		server->wait_head = item->next;
+	if(item->next != NULL)
+		item->next->prev = item->prev;
+	else
+		server->wait_tail = item->prev;
+	item->next = NULL;
+	item->prev = NULL;
+	item->queued = 0;
+}
+
+static inline ipc_queue_item_t* ipc_waitq_pop(ipc_server_t* server) {
+	ipc_queue_item_t* item = NULL;
+	if(server == NULL)
+		return NULL;
+	item = server->wait_head;
+	if(item == NULL)
+		return NULL;
+	if(item->next != NULL)
+		item->next->prev = NULL;
+	else
+		server->wait_tail = NULL;
+	server->wait_head = item->next;
+	item->next = NULL;
+	item->prev = NULL;
+	item->queued = 0;
+	return item;
+}
+
+static inline void ipc_wait_item_set_server(ipc_queue_item_t* item, proc_t* serv_proc) {
+	if(item == NULL || item->owner == NULL)
+		return;
+	if(item->owner->info.uuid == item->uuid &&
+			item->owner->ipc_wait_item.uuid == item->uuid) {
+		item->owner->ipc_waiting_on = serv_proc;
+	}
+}
+
+static inline void ipc_wait_item_clear_server(ipc_queue_item_t* item, proc_t* serv_proc) {
+	if(item == NULL || item->owner == NULL)
+		return;
+	if(item->owner->info.uuid == item->uuid &&
+			item->owner->ipc_wait_item.uuid == item->uuid &&
+			item->owner->ipc_waiting_on == serv_proc) {
+		item->owner->ipc_waiting_on = NULL;
+	}
+}
+
+static inline bool ipc_taskq_is_empty(const ipc_server_t* server) {
+	return (server == NULL || server->task_num == 0);
+}
+
+static inline bool ipc_taskq_is_full(const ipc_server_t* server) {
+	return (server != NULL && server->task_num >= IPC_CTX_MAX);
+}
+
+static inline ipc_task_t* ipc_taskq_head(ipc_server_t* server) {
+	if(ipc_taskq_is_empty(server))
+		return NULL;
+	return &server->tasks[server->task_head];
+}
+
+static inline ipc_task_t* ipc_taskq_tail_slot(ipc_server_t* server) {
+	if(server == NULL || ipc_taskq_is_full(server))
+		return NULL;
+	return &server->tasks[server->task_tail];
+}
+
+static inline void ipc_taskq_push_tail(ipc_server_t* server) {
+	if(server == NULL || ipc_taskq_is_full(server))
+		return;
+	server->task_tail = (uint8_t)((server->task_tail + 1) % IPC_CTX_MAX);
+	server->task_num++;
+}
+
+static inline void ipc_taskq_pop_head(ipc_server_t* server) {
+	if(ipc_taskq_is_empty(server))
+		return;
+	server->task_head = (uint8_t)((server->task_head + 1) % IPC_CTX_MAX);
+	server->task_num--;
+	if(server->task_num == 0) {
+		server->task_head = 0;
+		server->task_tail = 0;
+	}
+}
+
+static inline bool ipc_taskq_is_head_slot(const ipc_server_t* server, const ipc_task_t* ipc) {
+	if(server == NULL || ipc == NULL || ipc_taskq_is_empty(server))
+		return false;
+	return (&server->tasks[server->task_head] == ipc);
+}
+
+static inline void ipc_task_reset(ipc_task_t* ipc) {
+	if(ipc == NULL)
+		return;
+	proto_clear(&ipc->arg_ret);
+	ipc->uid = 0;
+	ipc->counter = 0;
+	ipc->state = IPC_IDLE;
+	ipc->client_pid = 0;
+	ipc->client_uuid = 0;
+	ipc->client_intr = 0;
+	ipc->call_id = 0;
+}
+
 int32_t proc_ipc_setup(context_t* ctx, ewokos_addr_t entry, ewokos_addr_t extra_data, uint32_t flags) {
 	(void)ctx;
 	proc_t* cproc = get_current_proc();
@@ -46,9 +170,7 @@ int32_t proc_ipc_setup(context_t* ctx, ewokos_addr_t entry, ewokos_addr_t extra_
 inline ipc_task_t* proc_ipc_get_task(struct st_proc* serv_proc) {
 	if(serv_proc == NULL || serv_proc->space == NULL)
 		return NULL;
-	if(serv_proc->space->ipc_server.ctask.state == IPC_IDLE)
-		return NULL;
-	return &(serv_proc->space->ipc_server.ctask);
+	return ipc_taskq_head(&serv_proc->space->ipc_server);
 }
 
 uint32_t proc_ipc_fetch(struct st_proc* serv_proc) {
@@ -82,19 +204,18 @@ int32_t proc_ipc_do_task(context_t* ctx, proc_t* serv_proc, uint32_t core) {
 static void ipc_free(ipc_task_t* ipc) {
 	if(ipc == NULL)
 		return;
-	proto_clear(&ipc->arg_ret);
-	memset(ipc, 0, sizeof(ipc_task_t));
-	//kfree(ipc);
+	ipc_task_reset(ipc);
 }
 
 ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id, proto_t* arg) {
-	ipc_task_t* ipc = &serv_proc->space->ipc_server.ctask;
+	ipc_server_t* server = &serv_proc->space->ipc_server;
+	ipc_task_t* ipc = NULL;
 	//kprintf("ipc timeout check %d\n", usec);
 
-	proc_ipc_server_lock(&serv_proc->space->ipc_server);
+	proc_ipc_server_lock(server);
 
-	if(ipc->state != IPC_IDLE) {
-		proc_ipc_server_unlock(&serv_proc->space->ipc_server);
+	if(ipc_taskq_is_full(server)) {
+		proc_ipc_server_unlock(server);
 		return NULL;
 		/*if((usec - ipc->usec) < IPC_TIMEOUT_USEC || (ipc->call_id & IPC_NON_RETURN) == 0)
 			return NULL;
@@ -121,8 +242,14 @@ ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id
 	if(ipc == NULL)
 		return NULL;
 	*/
+	ipc = ipc_taskq_tail_slot(server);
+	if(ipc == NULL) {
+		proc_ipc_server_unlock(server);
+		return NULL;
+	}
+
 	_ipc_uid++;
-	memset(ipc, 0, sizeof(ipc_task_t));
+	ipc_task_reset(ipc);
 	ipc->uid = _ipc_uid;
 	ipc->state = IPC_BUSY;
 	ipc->client_pid = client_proc->info.pid;
@@ -131,39 +258,54 @@ ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id
 			client_proc->space->interrupt.state == INTR_STATE_WORKING) ? 1 : 0;
 	ipc->call_id = call_id;
 	ipc->counter = 0;
-
-	proc_ipc_server_unlock(&serv_proc->space->ipc_server);
-
 	if(arg != NULL && arg->data != NULL) {
 		proto_copy(&ipc->arg_ret, arg->data, arg->size);
 	}
+	ipc_taskq_push_tail(server);
+	proc_ipc_server_unlock(server);
 	proc_track_ipc_timeout(serv_proc);
 	return ipc; 
 }
 
 void proc_ipc_close(proc_t* serv_proc, ipc_task_t* ipc) {
-	if(ipc == NULL)
+	ipc_server_t* server = NULL;
+	if(serv_proc == NULL || ipc == NULL || serv_proc->space == NULL)
 		return;
+	server = &serv_proc->space->ipc_server;
 	proc_untrack_ipc_timeout(serv_proc);
-
-	/*if(serv_proc->space->ipc_server.ctask == ipc)
-		serv_proc->space->ipc_server.ctask = NULL;
-	*/
-	ipc_free(ipc);
+	proc_ipc_server_lock(server);
+	if(ipc_taskq_is_head_slot(server, ipc)) {
+		ipc_free(ipc);
+		ipc_taskq_pop_head(server);
+	}
+	proc_ipc_server_unlock(server);
+	if(proc_ipc_get_task(serv_proc) != NULL)
+		proc_track_ipc_timeout(serv_proc);
 }
 
 void proc_ipc_clear(proc_t* serv_proc) {
-	proc_ipc_close(serv_proc, &serv_proc->space->ipc_server.ctask);
+	if(serv_proc == NULL || serv_proc->space == NULL)
+		return;
+	ipc_server_t* server = &serv_proc->space->ipc_server;
+	proc_untrack_ipc_timeout(serv_proc);
+	proc_ipc_server_lock(server);
+	while(!ipc_taskq_is_empty(server)) {
+		ipc_task_t* ipc = ipc_taskq_head(server);
+		ipc_free(ipc);
+		ipc_taskq_pop_head(server);
+	}
+	proc_ipc_server_unlock(server);
 }
 
 int32_t proc_ipc_wait(context_t* ctx, struct st_proc* serv_proc, proc_t* proc) {
 	if(serv_proc == NULL || proc == NULL)
 		return -1;
 
-	ipc_queue_item_t* item = (ipc_queue_item_t*)kmalloc(sizeof(ipc_queue_item_t));
-	if(item == NULL)
-		return -1;
+	if(proc->ipc_waiting_on != NULL && proc->ipc_waiting_on != serv_proc)
+		proc_ipc_cancel_wait(proc);
 
+	ipc_queue_item_t* item = &proc->ipc_wait_item;
+	item->owner = proc;
 	item->pid = proc->info.pid;
 	item->uuid = proc->info.uuid;
 	proc_ipc_server_lock(&serv_proc->space->ipc_server);
@@ -174,57 +316,57 @@ int32_t proc_ipc_wait(context_t* ctx, struct st_proc* serv_proc, proc_t* proc) {
 	 * and sleeping until IPC timeout recovery fires.
 	 */
 	if(!serv_proc->space->ipc_server.disabled &&
-			serv_proc->space->ipc_server.ctask.state == IPC_IDLE) {
+			!ipc_taskq_is_full(&serv_proc->space->ipc_server)) {
 		proc_ipc_server_unlock(&serv_proc->space->ipc_server);
-		kfree(item);
 		return 1;
 	}
-	/*
-	 * Dedup: a proc may re-enter proc_ipc_wait() after being released by a
-	 * spurious/generic wake (signal, token-0 IPC-return edge, etc) while its
-	 * previous wait item is STILL queued (that item was never popped). Pushing
-	 * a second item lets proc_ipc_wakeup() waste a pop on the stale duplicate
-	 * (the proc is already READY), stranding genuine waiters behind it - the
-	 * server goes idle with a non-empty wait_queue and the reader blocks until
-	 * the peer closes. Reuse the existing item instead: at most one item per
-	 * pid, so every pop wakes a genuinely-waiting proc.
-	 */
-	bool already_queued = false;
-	{
-		queue_item_t* qit = serv_proc->space->ipc_server.wait_queue.head;
-		while(qit != NULL) {
-			ipc_queue_item_t* qi = (ipc_queue_item_t*)qit->data;
-			if(qi != NULL && qi->pid == proc->info.pid &&
-					qi->uuid == proc->info.uuid) {
-				already_queued = true;
-				break;
-			}
-			qit = qit->next;
-		}
+	if(!item->queued) {
+		ipc_waitq_link_tail(&serv_proc->space->ipc_server, item);
+		ipc_wait_item_set_server(item, serv_proc);
 	}
-	if(!already_queued)
-		queue_push(&serv_proc->space->ipc_server.wait_queue, item);
 	proc_ipc_server_unlock(&serv_proc->space->ipc_server);
-	if(already_queued)
-		kfree(item);
 	proc_block(ctx, proc);
 	return 0;
 }
 
+void proc_ipc_cancel_wait(struct st_proc* proc) {
+	if(proc == NULL || proc->ipc_waiting_on == NULL)
+		return;
+	proc_t* serv_proc = proc->ipc_waiting_on;
+	if(serv_proc->space == NULL)
+		return;
+	ipc_queue_item_t* item = &proc->ipc_wait_item;
+	proc_ipc_server_lock(&serv_proc->space->ipc_server);
+	if(item->queued && item->owner == proc && item->uuid == proc->info.uuid) {
+		ipc_waitq_unlink(&serv_proc->space->ipc_server, item);
+	}
+	if(proc->ipc_waiting_on == serv_proc)
+		proc->ipc_waiting_on = NULL;
+	proc_ipc_server_unlock(&serv_proc->space->ipc_server);
+}
+
 proc_t* proc_ipc_wakeup(struct st_proc* serv_proc) {
+	proc_t* first_woken = NULL;
+	uint32_t wake_budget = 0;
 	if(serv_proc == NULL)
 		return NULL;
 
-	while(true) {
+	proc_ipc_server_lock(&serv_proc->space->ipc_server);
+	wake_budget = (uint32_t)(IPC_CTX_MAX - serv_proc->space->ipc_server.task_num);
+	if(wake_budget > IPC_WAKE_BATCH_LIMIT)
+		wake_budget = IPC_WAKE_BATCH_LIMIT;
+	proc_ipc_server_unlock(&serv_proc->space->ipc_server);
+
+	while(wake_budget > 0) {
 		proc_ipc_server_lock(&serv_proc->space->ipc_server);
-		ipc_queue_item_t* item = (ipc_queue_item_t*)queue_pop(&serv_proc->space->ipc_server.wait_queue);
+		ipc_queue_item_t* item = ipc_waitq_pop(&serv_proc->space->ipc_server);
+		ipc_wait_item_clear_server(item, serv_proc);
 		proc_ipc_server_unlock(&serv_proc->space->ipc_server);
 		if(item == NULL)
-			return NULL;
+			break;
 
 		proc_t* proc = proc_get(item->pid);
 		uint32_t waiter_uuid = item->uuid;
-		kfree(item);
 
 		if(proc == NULL || proc->info.uuid != waiter_uuid)
 			continue;
@@ -241,8 +383,11 @@ proc_t* proc_ipc_wakeup(struct st_proc* serv_proc) {
 		}
 
 		proc_wakeup(proc);
-		return proc;
+		if(first_woken == NULL)
+			first_woken = proc;
+		wake_budget--;
 	}
+	return first_woken;
 }
 
 void proc_ipc_wakeup_all(struct st_proc* serv_proc) {
@@ -251,16 +396,15 @@ void proc_ipc_wakeup_all(struct st_proc* serv_proc) {
 
 	while(true) {
 		proc_ipc_server_lock(&serv_proc->space->ipc_server);
-		ipc_queue_item_t* item = (ipc_queue_item_t*)queue_pop(&serv_proc->space->ipc_server.wait_queue);
+		ipc_queue_item_t* item = ipc_waitq_pop(&serv_proc->space->ipc_server);
+		ipc_wait_item_clear_server(item, serv_proc);
 		proc_ipc_server_unlock(&serv_proc->space->ipc_server);
 		if(item == NULL)
 			break;
 		proc_t* proc = proc_get(item->pid);
 		if(proc == NULL || proc->info.uuid != item->uuid) {
-			kfree(item);
 			continue;
 		}
-		kfree(item);
 		proc_wakeup(proc);
 	}
 }

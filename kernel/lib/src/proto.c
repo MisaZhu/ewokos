@@ -35,15 +35,27 @@ void proto_copy(proto_t* proto, const void* data, uint32_t size) {
 }
 
 void proto_clear(proto_t* proto) {
+	if(proto->total_size == 0 && proto->data == NULL) {
+		proto->data = proto->buffer;
+		proto->total_size = PROTO_BUFFER;
+		proto->pre_alloc = 0;
+	}
 	proto->size = 0;
 	proto->offset = 0;
+}
+
+void proto_release(proto_t* proto) {
+	if(proto == NULL)
+		return;
 	if(!proto->pre_alloc && proto->data != NULL && proto->data != proto->buffer)
 		kfree(proto->data);
+	proto->size = 0;
+	proto->offset = 0;
 	proto->data = proto->buffer;
 	proto->total_size = PROTO_BUFFER;
+	proto->pre_alloc = 0;
 }
 
 #ifdef __cplusplus
 }
 #endif
-

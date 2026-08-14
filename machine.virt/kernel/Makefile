@@ -62,7 +62,7 @@ QEMU_SNAPSHOT ?= yes
 QEMU_AUDIO_ID ?= audio0
 QEMU_AUDIODEV ?= coreaudio
 QEMU_AUDIO_ARGS = -audiodev $(QEMU_AUDIODEV),id=$(QEMU_AUDIO_ID)
-QEMU_HOSTFWD ?=
+QEMU_HOSTFWD ?= hostfwd=tcp:127.0.0.1:2222-:22
 ifeq ($(strip $(QEMU_HOSTFWD)),)
 QEMU_NETDEV ?= user,id=net0
 else

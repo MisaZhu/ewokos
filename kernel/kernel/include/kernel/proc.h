@@ -55,6 +55,8 @@ typedef struct st_proc {
 
 	uint32_t          priority_count;
 	ipc_res_t         ipc_res;
+	ipc_queue_item_t  ipc_wait_item;
+	struct st_proc*   ipc_waiting_on;
 
 	int64_t           sleep_counter; //sleep usec
 	uint64_t          run_usec_counter; //runtime usec in current accounting window

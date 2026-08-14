@@ -31,9 +31,13 @@ typedef	struct {
 	int32_t   call_id;
 } ipc_task_t;
 
-typedef struct {
-	int32_t pid;
-	uint32_t uuid;
+typedef struct ipc_queue_item {
+	struct st_proc* owner;
+	int32_t         pid;
+	uint32_t        uuid;
+	uint8_t         queued;
+	struct ipc_queue_item* next;
+	struct ipc_queue_item* prev;
 } ipc_queue_item_t;
 
 typedef struct {
@@ -42,7 +46,10 @@ typedef struct {
 	ewokos_addr_t entry;
 	uint32_t      flags;
 	ewokos_addr_t extra_data;
-	ipc_task_t    ctask; //current_task
+	ipc_task_t    tasks[IPC_CTX_MAX];
+	uint8_t       task_head;
+	uint8_t       task_tail;
+	uint8_t       task_num;
 
     bool          do_switch;
 	uint8_t       restore_pending;
@@ -50,7 +57,8 @@ typedef struct {
 
 	ipc_res_t     saved_ipc_res;
 	saved_state_t saved_state;
-	queue_t       wait_queue;
+	ipc_queue_item_t* wait_head;
+	ipc_queue_item_t* wait_tail;
 } ipc_server_t;
 
 extern int32_t     proc_ipc_setup(context_t* ctx, ewokos_addr_t entry, ewokos_addr_t extra, uint32_t flags);
@@ -61,6 +69,7 @@ extern ipc_task_t* proc_ipc_get_task(struct st_proc* serv_proc);
 extern void        proc_ipc_close(struct st_proc* serv_proc, ipc_task_t* ipc);
 extern void        proc_ipc_clear(struct st_proc* serv_proc);
 extern int32_t     proc_ipc_wait(context_t* ctx, struct st_proc* serv_proc, struct st_proc* proc);
+extern void        proc_ipc_cancel_wait(struct st_proc* proc);
 extern struct st_proc*  proc_ipc_wakeup(struct st_proc* serv_proc);
 extern void        proc_ipc_wakeup_all(struct st_proc* serv_proc);
 

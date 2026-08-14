@@ -427,7 +427,8 @@ static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, prot
 
 	proc_cur_ipc_res(client_proc)->state = IPC_BUSY;
 	ctx->gpr[0] = ipc->uid;
-	proc_ipc_do_task(ctx, serv_proc, client_proc->info.core);
+	if(ipc == proc_ipc_get_task(serv_proc))
+		proc_ipc_do_task(ctx, serv_proc, client_proc->info.core);
 }
 
 static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_t* data) {
@@ -535,6 +536,7 @@ static void sys_ipc_end(context_t* ctx) {
 
 	proc_t* client_proc = proc_ipc_get_client(ipc);
 	bool wake_return_client = ((ipc->call_id & IPC_NON_RETURN) == 0);
+	bool throughput_mode = ((serv_proc->space->ipc_server.flags & IPC_NON_BLOCK) != 0);
 
 	serv_proc->space->ipc_server.restore_pending = 0;
 	proc_restore_state(ctx, serv_proc, &serv_proc->space->ipc_server.saved_state, &serv_proc->space->ipc_server.saved_ipc_res);
@@ -551,6 +553,7 @@ static void sys_ipc_end(context_t* ctx) {
 	}
 	proc_ipc_close(serv_proc, ipc);
 	proc_ipc_wakeup(serv_proc); 
+	ipc_task_t* next_ipc = proc_ipc_get_task(serv_proc);
 	if(wake_return_client &&
 			client_proc != NULL &&
 			client_proc->info.state != UNUSED &&
@@ -563,18 +566,16 @@ static void sys_ipc_end(context_t* ctx) {
 		 * metadata-heavy workloads into multi-second boot tails.
 		 */
 		proc_wakeup(client_proc);
-		proc_switch_multi_core(ctx, client_proc, serv_proc->info.core);
-		return;
+		if(!throughput_mode && next_ipc == NULL) {
+			proc_switch_multi_core(ctx, client_proc, serv_proc->info.core);
+			return;
+		}
 	}
 
-	/*if(proc_ipc_fetch(serv_proc) != 0)  {//fetch next buffered ipc
-		proc_save_state(serv_proc, &serv_proc->space->ipc_server.saved_state, &serv_proc->space->ipc_server.saved_ipc_res);
-		serv_proc->space->ipc_server.do_switch = true;
-		proc_ready(serv_proc);
-		//proc_ipc_do_task(ctx, serv_proc, serv_proc->info.core);
+	if(next_ipc != NULL) {
+		proc_ipc_do_task(ctx, serv_proc, serv_proc->info.core);
+		return;
 	}
-	*/
-	//else
 	schedule(ctx);
 }
 
