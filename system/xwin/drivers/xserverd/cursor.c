@@ -13,6 +13,19 @@ static inline void draw_cursor_raw(graph_t* g, int mx, int my, int mw, int mh, b
 	graph_fill_circle(g, mx+r, my+r, r*2/3, 0x88000000);
 }
 
+static inline void clamp_cursor_offset(gpos_t* offset, int w, int h) {
+	if(offset == NULL || w <= 0 || h <= 0)
+		return;
+	if(offset->x < 0)
+		offset->x = 0;
+	else if(offset->x >= w)
+		offset->x = w - 1;
+	if(offset->y < 0)
+		offset->y = 0;
+	else if(offset->y >= h)
+		offset->y = h - 1;
+}
+
 void draw_cursor(graph_t* g, cursor_t* cursor, int mx, int my, bool busy) {
 	if(cursor->type == CURSOR_TOUCH && !cursor->down && !busy)
 		return;
@@ -30,9 +43,16 @@ void draw_cursor(graph_t* g, cursor_t* cursor, int mx, int my, bool busy) {
 }
 
 void cursor_init(const char* theme, cursor_t* cursor) {
+	if(theme == NULL || theme[0] == 0 || cursor == NULL)
+		return;
+
 	if(cursor->img != NULL)
 		graph_free(cursor->img);
 	cursor->img = NULL;
+
+	if(cursor->img_busy != NULL)
+		graph_free(cursor->img_busy);
+	cursor->img_busy = NULL;
 
 	if(cursor->saved != NULL)
 		graph_free(cursor->saved);
@@ -64,10 +84,8 @@ void cursor_init(const char* theme, cursor_t* cursor) {
 	if(cursor->img != NULL) { 
 		cursor->size.w = cursor->img->w; 
 		cursor->size.h = cursor->img->h; 
-		if(cursor->offset.x >= cursor->size.w)
-			cursor->offset.x = cursor->size.w - 1;
-		if(cursor->offset.y >= cursor->size.h)
-			cursor->offset.y = cursor->size.h - 1;
+		clamp_cursor_offset(&cursor->offset, cursor->size.w, cursor->size.h);
+		clamp_cursor_offset(&cursor->offset_normal, cursor->size.w, cursor->size.h);
 	}
 
 	snprintf(fname, 255, "%s/%s/xwm/cursors/busy.json", X_THEME_ROOT, theme);
@@ -83,6 +101,8 @@ void cursor_init(const char* theme, cursor_t* cursor) {
 			strncpy(fname, v, 255);
 		cursor->img_busy = png_image_new(fname);
 	}
+	if(cursor->img_busy != NULL)
+		clamp_cursor_offset(&cursor->offset_busy, cursor->img_busy->w, cursor->img_busy->h);
 	if(conf_var != NULL)
 		json_var_unref(conf_var);
 }
