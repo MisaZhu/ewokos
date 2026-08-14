@@ -4,103 +4,248 @@
 [![GitHub commit activity](https://img.shields.io/github/commit-activity/m/MisaZhu/ewokos)](https://github.com/MisaZhu/ewokos/commits/main/)
 [![GitHub License](https://img.shields.io/github/license/MisaZhu/ewokos)](https://github.com/MisaZhu/ewokos/blob/main/LICENSE)
 
-EwokOS is a lightweight microkernel operating system for learning OS internals, experimenting with user-space system services, and bringing the same software stack to QEMU and real embedded hardware.
+EwokOS is a lightweight microkernel operating system aimed at OS learning, system bring-up, and practical experimentation across QEMU and real embedded boards. The project combines a small kernel with a large user-space stack: core services, storage, graphics, an X-like desktop, networking, and board-specific drivers.
 
 ## Author
 
 Misa.Z <misa.zhu@gmail.com>
 
-## Overview
+## What This Repository Contains
 
-The project combines a small microkernel with a user-space runtime that includes core system services, a virtual file system daemon, graphics and windowing, networking, and a growing collection of apps. The repository is organized around platform-specific `Makefile` builds instead of a single top-level build system, so each target machine ships with its own kernel and root filesystem recipes.
+This repository is the main EwokOS source tree. It contains:
+
+- The microkernel core and architecture layers
+- Base userland, libc pieces, shell, and system daemons
+- GUI, display, audio, and image libraries
+- An X-like window system and desktop applications
+- Networking tools and services such as SSH, SCP, Telnet, HTTP, and ping
+- Machine-specific ports for QEMU, Raspberry Pi, x86, RISC-V, handhelds, and board variants
+- Extra software trees provided through submodules such as `sw.extra/` and `apps/`
+
+The build is intentionally machine-centric. Instead of one monolithic top-level build, each target under `machine.virt/` or `machines/*/` provides its own kernel and rootfs recipes.
+
+## Latest Progress
+
+Recent work visible in the current branch includes:
+
+- AArch64 `64k` page-size support in the kernel port
+- FAT32 filesystem support added to the user-space stack
+- Raspberry Pi Wi-Fi performance improvements
+- Multi-display work across framebuffer and `xserverd`
+- Display device naming cleanup
+- USB mouse wheel scrolling support
+- `sdfsd` `readdir` bug fixes
+- Raspberry Pi 5 LCD HAT bring-up and board add-on work
+
+These items come directly from the latest commits in the current checkout and reflect active development rather than historical roadmap text.
+
+## Architecture Overview
+
+EwokOS follows a microkernel-oriented design:
+
+- The kernel handles low-level memory management, scheduling, interrupts, IPC, semaphores, signals, and process state
+- User-space services implement most system behavior, including boot orchestration, service discovery, filesystems, display management, and networking
+- Graphics is built on framebuffer/display services plus an X-like window system
+- Networking is implemented through user-space drivers and daemons
+- Machine ports provide the BSP, boot glue, storage drivers, interrupt/timer setup, and deployment flow for each target
+
+### Core Runtime Flow
+
+At a high level:
+
+1. The kernel boots and initializes MMU, IRQ, DMA/shared memory, scheduler state, and platform services.
+2. The kernel launches `/sbin/init`.
+3. `init` starts core user-space services such as `core`, `vfsd`, and storage helpers.
+4. Machine-specific init scripts bring up console, GUI, network, and X sessions.
+5. When X is enabled, the default desktop session launches window manager and desktop tools.
 
 ## Highlights
 
-- Microkernel design with process scheduling, MMU support, copy-on-write, signals, semaphores, and message-based IPC
-- User-space system services such as `init`, `core`, `vfsd`, `sessiond`, `displaymand`, `xserverd`, `netd`, `sshd`, `telnetd`, and `httpd`
-- Native GUI stack with framebuffer graphics, an X-like window system, themable window managers, and desktop apps
-- Integrated networking with TCP/IP services plus SSH, SCP, Telnet, ping, host lookup, HTTPS test tooling, and WebSocket test tooling
-- Multiple hardware ports spanning QEMU `virt`, Raspberry Pi families, RISC-V, x86, handhelds, and board-specific variants
-- Ext2 root filesystem image generation built directly from the repository tree
+- Microkernel core with scheduling, VM/MMU support, IPC, signals, semaphores, and SMP-aware code paths
+- User-space services including `init`, `core`, `vfsd`, `sdfsd`, `displaymand`, `xserverd`, `netd`, `sshd`, `telnetd`, and `httpd`
+- Native GUI and desktop stack with framebuffer rendering, themed window managers, and graphical apps
+- Networking tools including `ssh`, `scp`, `ping`, `host`, HTTPS test tooling, and WebSocket test tooling
+- Multiple machine ports for QEMU, Raspberry Pi families, x86, RISC-V, handheld devices, and special-purpose boards
+- Ext2 root filesystem image generation in-tree, with FAT32 support now being added to the broader stack
 
-## Supported Architectures
-
-- ARM 32-bit via `arm-none-eabi-*`
-- ARM 64-bit / AArch64 via `aarch64-none-elf-*`
-- RISC-V 64-bit via `riscv64-unknown-elf-*`
-- x86 support in a dedicated machine port
-
-## Main Targets
-
-| Path | Typical Use |
-|------|-------------|
-| `machine.virt/` | Recommended QEMU `virt` target for first-time builds |
-| `machines/raspix/` | Raspberry Pi 1/2/3/4 family and related add-on variants |
-| `machines/raspi5/` | Raspberry Pi 5 bring-up and native board support |
-| `machines/virt.riscv/` | QEMU RISC-V virt target |
-| `machines/x86/` | x86 PC-style target |
-| `machines/clockwork/picocalc/` | Clockwork Pi PicoCalc |
-| `machines/orangepi/` | Orange Pi target |
-| `machines/miyoo/` | Miyoo handheld target |
-| `machines/lego.ev3/` | LEGO Mindstorms EV3 target |
-| `machines/versatilepb/` | ARM versatilepb target for QEMU |
-| `machines/x2lite.rk3128/` | RK3128-based board target |
-
-Additional board-specific overlays and device integrations live under `machines/*/3rd/`.
-
-## Project Layout
+## Directory Structure
 
 ```text
 ewokos/
-├── kernel/              # Kernel core, architecture code, and low-level libraries
-├── system/              # Base userland: libc, commands, services, GUI, networking, X stack
-├── sw.extra/            # Extra apps, libraries, alternate X window managers
-├── apps/                # Additional app and library collection
-├── machine.virt/        # QEMU virt kernel and rootfs build for ARM/ARM64
-└── machines/            # Hardware- and board-specific ports
+├── README.md
+├── LICENSE
+├── kernel/
+│   ├── dev/                  # Common kernel device headers
+│   ├── kernel/               # Kernel core: proc, IPC, VM, scheduler, syscalls
+│   ├── lib/                  # Kernel-side helper libraries and ext2 readers
+│   ├── loadinit/             # Early userspace loading helpers
+│   └── platform/             # ARM, AArch64, RISC-V, x86 architecture code
+├── system/
+│   ├── basic/                # Base userland, shell, core services, libc pieces
+│   ├── gui/                  # Display, graphics, fonts, audio/image helpers
+│   ├── network/              # Network tools, daemons, and related libraries
+│   ├── platform/             # Userland platform build rules
+│   └── xwin/                 # X-like window system, libs, apps, and WMs
+├── machine.virt/
+│   ├── kernel/               # Recommended QEMU virt kernel target
+│   └── system/               # Recommended QEMU virt rootfs target
+├── machines/
+│   ├── docs/                 # SD card notes, screenshots, target-specific docs
+│   ├── clockwork/            # Clockwork Pi targets
+│   ├── lego.ev3/             # LEGO Mindstorms EV3 port
+│   ├── miyoo/                # Miyoo handheld port
+│   ├── orangepi/             # Orange Pi port
+│   ├── raspi5/               # Raspberry Pi 5 port and add-ons
+│   ├── raspix/               # Raspberry Pi family ports and many overlays
+│   ├── versatilepb/          # ARM versatilepb QEMU target
+│   ├── virt.riscv/           # QEMU RISC-V virt target
+│   ├── x2lite.rk3128/        # RK3128 target
+│   └── x86/                  # x86 PC-style target
+├── sw.extra/                 # Extra apps, SDL-based software, alternate WMs
+├── apps/                     # Additional apps and libraries
+└── .tmp_fat32_test/          # Local FAT32 test artifacts seen in this checkout
 ```
 
-### Key Subsystems
+### Key Source Directories
 
-- `kernel/kernel/src/`: scheduler, IPC, process management, memory management, IRQ handling, SMP support
-- `system/basic/`: shell, login/session flow, `init`, `core`, `vfsd`, file utilities, libc pieces
-- `system/gui/`: framebuffer, display service, graphics/audio helpers
-- `system/xwin/`: X-like client libraries, drivers, window managers, desktop apps
-- `system/network/`: networking drivers, libraries, CLI tools, and daemons
-- `sw.extra/` and `apps/`: extra demos, browsers, emulators, SDL- and widget-based software
+- `kernel/kernel/src/`: scheduler, process model, IPC, MMU, IRQ, semaphore, signal, syscall dispatch
+- `kernel/platform/`: architecture-specific boot, interrupt, and MMU code
+- `system/basic/sys/`: `init`, `core`, `vfsd`, and rootfs/filesystem daemons
+- `system/basic/bin/`: shell and command-line tools
+- `system/gui/`: display stack, graphics libraries, font and image support
+- `system/xwin/`: X client libraries, input helpers, window managers, and desktop apps
+- `system/network/`: network commands, libraries, and daemons
+- `machines/*/kernel/`: board support packages and per-target boot logic
+- `machines/*/system/`: per-target rootfs packaging, drivers, config, and init scripts
+- `machines/*/3rd/`: board overlays and third-party device integrations
+
+## Supported Architectures
+
+| Architecture | Tool Prefix | Notes |
+|-------------|-------------|-------|
+| ARM32 | `arm-none-eabi-` | Used by several classic ARM and embedded targets |
+| AArch64 | `aarch64-none-elf-` | Used by `machine.virt`, Raspberry Pi 5, and modern ARM64 ports |
+| RISC-V 64 | `riscv64-unknown-elf-` | Used by `machines/virt.riscv/` |
+| x86 / x86_64 | target-specific toolchain flow | Implemented in the dedicated `machines/x86/` port |
+
+## Target Support Matrix
+
+Support below is based on the checked-in source tree and build recipes in this checkout. Hardware validation depth can vary by board.
+
+| Target Path | Architecture | Typical Use | Current Support Level | Notes |
+|------------|--------------|-------------|-----------------------|-------|
+| `machine.virt/` | ARM32 / AArch64 | QEMU bring-up and development | Recommended, most complete | SMP, ext2 rootfs, VirtIO block/net/input/sound, 9P host share |
+| `machines/raspix/` | ARM family | Raspberry Pi family | Strong, board-focused | Broad add-on ecosystem under `3rd/`, Wi-Fi, camera, audio, LCD/touch overlays |
+| `machines/raspi5/` | AArch64 | Raspberry Pi 5 | Active and advancing | WLAN, USB host, fan control, NVMe FS daemon, LCD HAT integrations |
+| `machines/x86/` | x86 / x86_64 | PC-style QEMU target | Strong | Full machine-local kernel and system recipes with GUI/X stack |
+| `machines/virt.riscv/` | RISC-V 64 | QEMU RISC-V virt | Good kernel and desktop bring-up | Base, GUI, and X flow present; network integration is lighter than `machine.virt` |
+| `machines/versatilepb/` | ARM32 | QEMU ARM versatilepb | Stable classic target | Useful for smaller ARM bring-up and testing |
+| `machines/miyoo/` | ARM32 | Handheld target | Active port | Custom drivers for audio, graphics, storage, and handheld-specific setup |
+| `machines/orangepi/` | ARM / AArch64 family | Orange Pi board work | In-tree port | Kernel, system, and board packaging files are present |
+| `machines/lego.ev3/` | ARM32 | LEGO Mindstorms EV3 | In-tree port | Includes EV3-specific drivers and packaging flow |
+| `machines/x2lite.rk3128/` | ARM32 | RK3128 target | In-tree port | Kernel and system recipes are present |
+| `machines/clockwork/picocalc/` | ARM target | Clockwork Pi PicoCalc | Specialized target | Separate board package with custom kernel/system setup |
+| `machines/clockwork/uconsole/` | console/display environment | Clockwork uConsole support files | Specialized support tree | Focused on device/display and board support assets |
+
+## Board and Peripheral Support
+
+The tree already includes a large amount of board-specific and peripheral work.
+
+### Storage and Filesystems
+
+- Ext2 root filesystem image generation is part of the normal build flow
+- FAT32 support has recently been ported into the stack
+- SD and MMC support exist across many machine BSPs
+- Raspberry Pi 5 includes `nvmefsd` in its system drivers
+
+### Display and Input
+
+- Framebuffer-based display stack
+- X-like desktop window system
+- Multi-display work is actively landing
+- USB keyboard and mouse support on QEMU and x86-style targets
+- Touch controller integrations under Raspberry Pi add-on trees such as `gt911` and `xpt2046`
+- Many LCD HAT and Waveshare-style overlay trees for Raspberry Pi boards
+
+### Networking
+
+- User-space networking stack and daemons
+- `ssh`, `scp`, `ping`, `host`, `telnet`, `https_test`, and `ws_test`
+- `sshd`, `telnetd`, `httpd`, and machine-specific network drivers
+- Raspberry Pi WLAN work with Broadcom-related sources under `machines/raspix/` and `machines/raspi5/`
+
+### Graphics and Desktop
+
+- Framebuffer rendering, 2D helpers, fonts, PNG/JPEG/GIF/SVG/TGA support
+- X client libraries in both C and C++ forms
+- Desktop apps such as `xterm`, `xread`, `ximg`, `xlog`, `xapps`, `clock`, `cards`, and `mine`
+- Alternate window managers and demos in `sw.extra/`
+
+### Extra Software
+
+- `sw.extra/` contains demos and larger apps such as `doom`, `gears`, and SDL-related pieces
+- `apps/` contains extra libraries and applications such as emulator code, `xDraw`, `minivmac`, and `kimi_chat`
+- Some installations depend on submodules being checked out locally
+
+## Project Components
+
+### Kernel
+
+The kernel source under `kernel/` includes:
+
+- Process scheduler and ready queues
+- IPC, kernel event queues, and semaphore handling
+- Signal delivery and syscall dispatch
+- MMU, DMA, shared memory, and kernel allocators
+- SMP-related support
+- Architecture-specific boot and interrupt handling
+
+### Base User Space
+
+The base system under `system/basic/` includes:
+
+- Shell, login flow, and standard command-line tools
+- Core services such as `init`, `core`, and `vfsd`
+- Filesystem helpers and rootfs daemons
+- Basic libc and utility libraries
+
+### GUI and X Stack
+
+The graphics stack is split between `system/gui/` and `system/xwin/`:
+
+- Display, font, graph, and audio/image support libraries
+- X client libraries and input helpers
+- Desktop apps and window managers
+- Machine-specific display configs and init scripts
+
+### Network Stack
+
+The network tree under `system/network/` provides:
+
+- Interactive tools such as `ssh`, `scp`, `ping`, and `host`
+- Network daemons such as `sshd`
+- Additional services and drivers wired in through machine-specific system trees
 
 ## Host Requirements
 
 At minimum you need:
 
-- A matching cross toolchain for the architecture you want to build
 - `make`
+- A matching cross toolchain for the architecture you want to build
 - QEMU for emulator targets
-- `e2tools` and `mke2fs` / `e2fsprogs` for ext2 image creation
+- `e2tools` and `mke2fs` or `e2fsprogs` for ext2 image creation
 
-### Toolchain Prefixes Used by the Build
-
-| Architecture | Tool Prefix |
-|-------------|-------------|
-| ARM32 | `arm-none-eabi-` |
-| AArch64 | `aarch64-none-elf-` |
-| RISC-V 64 | `riscv64-unknown-elf-` |
-
-### Typical Packages
-
-On macOS, install the required cross toolchains, `qemu`, and ext2 tooling with Homebrew or your preferred package manager.
-
-On Debian/Ubuntu-like systems, install:
+### Typical Linux Packages
 
 ```bash
 sudo apt-get install make qemu-system-arm qemu-system-aarch64 qemu-system-misc e2tools e2fsprogs
 ```
 
-You also need the appropriate cross compiler packages or locally installed toolchains that provide the prefixes listed above.
+On macOS, install the same categories of tools with Homebrew or another package manager, plus the cross compilers required for the target architecture.
 
 ## Quick Start with `machine.virt`
 
-`machine.virt` is the easiest target to boot because it runs entirely in QEMU and defaults to AArch64 with SMP enabled.
+`machine.virt/` is the easiest place to start because it runs entirely in QEMU and has the most complete out-of-the-box development flow.
 
 ### 1. Build the Root Filesystem
 
@@ -110,7 +255,7 @@ make x
 make sd
 ```
 
-This produces a staged root filesystem under `system/build/virt/rootfs/` and an ext2 image named `root_aarch64.ext2` under `system/build/virt/`.
+This stages the root filesystem under `system/build/virt/rootfs/` and creates `root_aarch64.ext2` under `system/build/virt/`.
 
 ### 2. Build the Kernel
 
@@ -119,11 +264,13 @@ cd machine.virt/kernel
 make
 ```
 
-The default config builds an AArch64 image with:
+The default `machine.virt` configuration is:
 
 - `ARCH=aarch64`
 - `SMP=yes`
 - `PAGE_SIZE=16k`
+
+Recent kernel work also adds `64k` page support for AArch64-oriented ports.
 
 ### 3. Run in QEMU
 
@@ -132,19 +279,19 @@ cd machine.virt/kernel
 make run
 ```
 
-The QEMU setup for `machine.virt` currently includes:
+The current QEMU recipe includes:
 
 - RAM framebuffer output
-- VirtIO block storage for the root filesystem image
+- VirtIO block storage
 - VirtIO network
-- VirtIO keyboard and tablet input
+- VirtIO tablet and keyboard devices
 - VirtIO sound
-- 9P host sharing mounted with the tag `hostshare`
-- User-mode network forwarding for `127.0.0.1:2222 -> 22` and `127.0.0.1:2323 -> 23`
+- 9P host sharing mounted as `hostshare`
+- Optional host forwarding through `QEMU_HOSTFWD` or `QEMU_NETDEV`
 
 ### 4. Log In
 
-Default users are defined in `system/basic/etc/passwd`:
+Default users from `system/basic/etc/passwd`:
 
 | User | Password |
 |------|----------|
@@ -159,9 +306,9 @@ Default users are defined in `system/basic/etc/passwd`:
 ```bash
 make basic    # base userland only
 make network  # base userland + networking
-make gui      # adds framebuffer GUI components
-make x        # full base desktop stack (default)
-make sd       # generate ext2 root filesystem image
+make gui      # framebuffer GUI stack
+make x        # full desktop stack
+make sd       # generate ext2 rootfs image
 make clean
 ```
 
@@ -170,101 +317,75 @@ make clean
 ```bash
 make          # build the kernel image
 make asm      # generate kernel assembly listing
-make run      # boot QEMU normally
-make runasm   # boot QEMU with instruction trace output
-make debug    # start QEMU paused with a GDB server on :26000
-make debugasm # debug + instruction trace
-make gdb      # connect GDB to :26000
+make run      # boot QEMU with GUI
+make run-headless
+make runasm   # boot with instruction tracing
+make debug    # QEMU paused with GDB server on :26000
+make debugasm
+make gdb
 ```
 
 ### Common Variants
 
 ```bash
-# Build a 32-bit ARM virt kernel/rootfs
+# Build a 32-bit ARM virt rootfs and kernel
 cd machine.virt/system && make ARCH=arm x && make ARCH=arm sd
 cd ../kernel && make ARCH=arm && make ARCH=arm run
 
-# Override display backend selection if needed
+# Force a specific QEMU display backend
 QEMU_DISPLAY_OPTS=cocoa make run
 
-# Customize QEMU user networking
-QEMU_NETDEV='user,id=net0,hostfwd=tcp:127.0.0.1:2022-:22' make run
+# Customize host forwarding
+QEMU_HOSTFWD='hostfwd=tcp:127.0.0.1:2022-:22' make run
 ```
-
-## Boot and Runtime Flow
-
-At a high level the system boots like this:
-
-1. Kernel startup initializes MMU, IRQ, DMA/shared memory, process state, and platform services.
-2. The kernel launches `/sbin/init`.
-3. `init` starts user-space core services such as `core`, `vfsd`, and storage/filesystem helpers, then executes init scripts.
-4. When the X stack is enabled, the default session starts `xwm_ewok`, `statusbar`, and `xlauncher`.
-
-The default X session script lives in `system/xwin/etc/x/xinit.rd`.
-
-## Userland Components
-
-### Base Commands
-
-The base image currently builds utilities including:
-
-- `shell`, `login`, `session`, `ls`, `ps`, `pwd`, `cat`, `cp`, `rm`, `mkdir`
-- `mount`, `grep`, `head`, `more`, `vi`, `kill`, `whoami`, `chmod`, `chown`, `chgrp`
-- `date`, `json`, `sysinfo`, `svcinfo`, `uname`, `elfinfo`, `mmio`, `rx`
-
-### Network Commands and Services
-
-Networking-related binaries currently include:
-
-- CLI tools: `ipconfig`, `ping`, `host`, `https_test`, `telnet`, `ssh`, `scp`, `ws_test`
-- Daemons and drivers: `netd`, `httpd`, `sshd`, `telnetd`, and platform-specific network drivers
-
-### Desktop Apps
-
-The built-in X desktop currently includes apps such as:
-
-- `xterm`, `xread`, `xlog`, `xfinder`, `ximg`, `xprocs`, `xcores`, `xfonts`
-- `xapps`, `xipconfig`, `clock`, `cards`, `mine`, `SndPlayer`, `xDemo`, `wDemo`, `xtheme`, `xwm_theme`
-
-### Extra Apps
-
-Additional software under `sw.extra/` and `apps/` includes:
-
-- Graphics and demo apps: `3ddemo`, `Fireworks`, `calculator`, `calendar`, `doom`, `gears`, `imgui_demo`, `matrix`, `waterdrops`
-- Browser and multimedia experiments: `xBrowser`, `VideoPlayer`
-- Extra app packs and examples: NES emulator, `minivmac`, `kimi_chat`, `xDraw`, screen saver examples
-- Alternate window managers: `mac1984`, `openlook`, and `opencde`
 
 ## Working with Other Targets
 
 Most machine ports follow the same pattern:
 
 1. Build the target root filesystem in `machines/<target>/system`
-2. Generate the ext2 or board-specific image for that machine
+2. Generate the ext2 image or board-specific storage image
 3. Build the kernel in `machines/<target>/kernel`
-4. Run in QEMU or deploy to SD/storage media for real hardware
+4. Run in QEMU or deploy to SD card, eMMC, or board storage as appropriate
 
-For SD-card-oriented workflows, see `machines/docs/make_sd.md`.
+For SD-card-oriented flows, see `machines/docs/make_sd.md`.
+
+## Source Reading Guide
+
+If you want to understand the codebase quickly, start here:
+
+1. `kernel/kernel/src/` for scheduler, process state, IPC, signals, and VM
+2. `kernel/platform/` for boot, interrupts, and MMU differences by architecture
+3. `system/basic/sys/` for `init`, `core`, and `vfsd`
+4. `system/gui/` and `system/xwin/` for graphics, desktop, and X client APIs
+5. `system/network/` for daemons, tools, and protocol support
+6. `machine.virt/` for the simplest full boot path
+7. `machines/raspix/` and `machines/raspi5/` for the most active hardware bring-up work
 
 ## Documentation
 
 - [DeepWiki](https://deepwiki.com/MisaZhu/ewokos)
-- Platform-specific build settings in `machine.virt/` and `machines/`
-- Architecture rules in `kernel/platform/` and `system/platform/`
+- `machine.virt/` and `machines/*/` for target-specific build files
+- `kernel/platform/` and `system/platform/` for architecture and build rules
+- `machines/docs/` for SD card notes, board docs, and screenshots
+
+## Notes on Submodules
+
+This repository may rely on submodules depending on your checkout state. The current `.gitmodules` file references trees such as:
+
+- `sw.extra`
+- `machines`
+- `apps`
+- `machine.3rd`
+- `extra.apps`
+- `mariox`
+
+If a directory mentioned in the documentation is missing locally, initialize submodules before building or exploring the full software set.
 
 ## Contributing
 
-Contributions are welcome. Issues, bug reports, platform notes, and pull requests are all useful.
+Contributions are welcome. Bug reports, platform notes, board bring-up findings, documentation improvements, and pull requests are all useful.
 
 ## License
 
 This project is licensed under the terms in `LICENSE`.
-
-## Source Reading Tips
-
-Start with `kernel/kernel/src/` for the scheduler, process model, IPC, and memory code, then move to:
-
-- `system/basic/sys/` for `init`, `core`, and `vfsd`
-- `system/xwin/libs/x/` for the graphics/windowing client stack
-- `system/network/` for services and protocol support
-- `machine.virt/` for the easiest end-to-end boot path
