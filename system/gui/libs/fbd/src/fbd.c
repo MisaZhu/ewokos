@@ -554,10 +554,17 @@ static int32_t fb_dma(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int*
 	return dma->shm_id;
 }
 
-static void read_config(const char* conf_file, uint32_t* w, uint32_t* h, uint8_t* dep, int32_t* rotate, float* zoom) {
-	if(conf_file == NULL || conf_file[0] == 0)
-		conf_file = "/etc/framebuffer.json";
-	json_var_t *conf_var = json_parse_file(conf_file);	
+static void read_config(const char* conf_file, uint32_t index, uint32_t* w, uint32_t* h, uint8_t* dep, int32_t* rotate, float* zoom) {
+	char cfile[128] = {0};
+	if(conf_file == NULL || conf_file[0] == 0) {
+		if(index > 1)
+			sprintf(cfile, "/etc/framebuffer.%d.json", index-1);
+		else
+			sprintf(cfile, "/etc/framebuffer.json");
+	}
+	slog("read_config: %s\n", cfile);
+
+	json_var_t *conf_var = json_parse_file(cfile);	
 
 	const char* v = json_get_str_def(conf_var, "logo", "/usr/system/images/logos/ewokos.png");
 	if(v[0] != 0) 
@@ -610,7 +617,8 @@ int fbd_run(fbd_t* fbd, const char* mnt_name,
 	uint8_t dep = 32;
 	_rotate = G_ROTATE_0;
 
-	read_config(conf_file, &w, &h, &dep, &_rotate, &_zoom);
+	uint32_t index = add_display_fb_dev("/dev/display", mnt_name);
+	read_config(conf_file, index, &w, &h, &dep, &_rotate, &_zoom);
 
 	fb_dma_t dma;
 	dma.shm = NULL;
@@ -634,7 +642,6 @@ int fbd_run(fbd_t* fbd, const char* mnt_name,
 	dev.extra_data = &dma;
 	_cur_dma = &dma;
 
-	add_display_fb_dev("/dev/display", mnt_name);
 	device_run(&dev, mnt_name, FS_TYPE_CHAR, 0666);
 	shmdt(dma.shm);
 	return 0;
