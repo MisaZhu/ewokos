@@ -8,18 +8,18 @@ LDFLAGS = -L $(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-FBD_OBJS = $(ARCH)/fbd.o 
+FBDISPLAYD_OBJS = $(ARCH)/fbdisplayd.o 
 
-FBD = $(TARGET_DIR)/drivers/virt/fbd
+FBDISPLAYD = $(TARGET_DIR)/drivers/virt/fbdisplayd
 
-$(FBD): $(FBD_OBJS) \
+$(FBDISPLAYD): $(FBDISPLAYD_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a  \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libpng.a \
 		$(BUILD_DIR)/lib/libtinyjson.a \
-		$(BUILD_DIR)/lib/libfbd.a \
+		$(BUILD_DIR)/lib/libdisplayd.a \
 		$(BUILD_DIR)/lib/libarch_virt.a
-	$(LD) -Ttext=100 $(FBD_OBJS) -o $(FBD) $(LDFLAGS) -lgterminal -ltextgrid -lfbd -ltinyjson $(EWOK_LIB_GRAPH) $(EWOK_LIBC)
+	$(LD) -Ttext=100 $(FBDISPLAYD_OBJS) -o $(FBDISPLAYD) $(LDFLAGS) -lgterminal -ltextgrid -ldisplayd -ltinyjson $(EWOK_LIB_GRAPH) $(EWOK_LIBC)
 
 clean:
-	rm -f $(FBD_OBJS)
+	rm -f $(FBDISPLAYD_OBJS)

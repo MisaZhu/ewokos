@@ -14,10 +14,10 @@ SPLASHD = $(TARGET_DIR)/sbin/splashd
 
 $(SPLASHD): $(SPLASHD_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a  \
-		$(BUILD_DIR)/lib/libfb.a \
+		$(BUILD_DIR)/lib/libdisplay.a \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libfont.a  \
-		$(BUILD_DIR)/lib/libdisplay.a 
+		$(BUILD_DIR)/lib/libdisplayman.a 
 	$(LD) -Ttext=100 $(SPLASHD_OBJS) -o $(SPLASHD) $(LDFLAGS) $(EWOK_LIB_GRAPH) $(EWOK_LIBC)
 
 clean:

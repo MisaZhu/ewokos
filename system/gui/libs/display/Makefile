@@ -8,16 +8,15 @@ LDFLAGS = -L $(TARGET_DIR)/lib
 
 CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_displayLAY_OBJS = $(ARCH)/src/display.o
+LIB_DISPLAY_OBJS = $(ARCH)/src/display.o
 
-LIB_displayLAY = $(TARGET_DIR)/lib/libdisplay.a
+DISPLAY = $(TARGET_DIR)/lib/libdisplay.a
 
-$(LIB_displayLAY): $(LIB_displayLAY_OBJS)
-	$(AR) rcs $(LIB_displayLAY) $(LIB_displayLAY_OBJS)
+$(DISPLAY): $(LIB_DISPLAY_OBJS)
+	$(AR) rcs $(DISPLAY) $(LIB_DISPLAY_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 
 clean:
-	rm -f $(LIB_displayLAY_OBJS)
-	rm -f $(LIB_displayLAY)
-
+	rm -f $(LIB_DISPLAY_OBJS)
+	rm -f $(DISPLAY)

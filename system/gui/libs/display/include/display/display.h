@@ -1,22 +1,54 @@
-#ifndef SCREEN_H
-#define SCREEN_H
+#ifndef DISPLAY_H
+#define DISPLAY_H
 
-#include <stdbool.h>
-#include <stdint.h>
-#include <fb/fb.h>
+#include <graph/graph.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef struct {
+	uint32_t display_index;
+	int fd;
+	void* dma;
+	int32_t dma_id; //shm id of the dma buffer, so it can be shared with other procs
+	graph_t* g;
+} display_t;
+
+#define DISPLAY_DIRTY_MAX 4
+
+/* control block sitting right behind the pixel data inside the display dma
+ * share-memory. 'busy' stays at offset 0 so it keeps the layout of the
+ * original single busy byte. */
+typedef struct {
+	uint8_t busy;
+	uint8_t dirty_num;
+	uint8_t reserved[2];
+	grect_t dirty[DISPLAY_DIRTY_MAX];
+} display_ctrl_t;
 
 enum {
-    DISP_GET_DISP_DEV = 0,
-    DISP_ADD_DISP_DEV,
-    DISP_GET_DISP_NUM
+	DISPLAY_CNTL_GET_INFO = 0
 };
 
-#define DISP_MAX  8
+enum {
+	DISPLAY_DEV_CNTL_GET_INFO = 0,
+	DISPLAY_DEV_CNTL_SET_INFO
+};
 
-const char* get_display_fb_dev(const char* display_man_dev, uint32_t display_index);
-int32_t    add_display_fb_dev(const char* display_man_dev, const char* fb_dev, uint32_t display_index);
-uint32_t    get_display_num(const char* display_man_dev);
-int         display_fb_open(const char* display_man_dev, uint32_t display_index, fb_t* fb);
+int      display_set(const char *dev, int w, int h, int bpp);
+int      display_open(const char *dev, int32_t disp_index, display_t* display);
+int      display_dev_info(const char *dev, int* w, int* h, int* bpp);
+int      display_info(display_t* display, int* w, int* h, int* bpp);
+graph_t* display_fetch_graph(display_t* display);
+int      display_flush(display_t* display, bool waiting);
+int      display_close(display_t* display);
+bool     display_busy(display_t* display);
+display_ctrl_t* display_ctrl(display_t* display);
+int      display_set_dirty(display_t* display, const grect_t* rects, uint32_t num);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif

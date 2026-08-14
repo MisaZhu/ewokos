@@ -14,12 +14,12 @@ CONSOLED = $(TARGET_DIR)/drivers/consoled
 
 $(CONSOLED): $(CONSOLED_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a  \
-		$(BUILD_DIR)/lib/libfb.a \
+		$(BUILD_DIR)/lib/libdisplay.a \
 		$(BUILD_DIR)/lib/libtextgrid.a \
 		$(BUILD_DIR)/lib/libgterminal.a \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libfont.a  \
-		$(BUILD_DIR)/lib/libdisplay.a 
+		$(BUILD_DIR)/lib/libdisplayman.a 
 	$(LD) -Ttext=100 $(CONSOLED_OBJS) -o $(CONSOLED) $(LDFLAGS) -lgterminal -ltextgrid -ltinyjson $(EWOK_LIB_GRAPH) $(EWOK_LIBC)
 
 clean:

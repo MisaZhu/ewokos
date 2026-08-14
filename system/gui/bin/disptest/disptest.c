@@ -1,6 +1,6 @@
 #include <graph/graph.h>
+#include <displayman/displayman.h>
 #include <display/display.h>
-#include <fb/fb.h>
 #include <font/font.h>
 #include <mouse/mouse.h>
 #include <keyb/keyb.h>
@@ -9,11 +9,11 @@
 #include <math.h>
 
 int main(int argc, char** argv) {
-    fb_t fb;
-	if(display_fb_open("/dev/display", 0, &fb) != 0)
+    display_t display;
+	if(displayman_open("/dev/displayman", 0, &display) != 0)
 		return -1;
 
-	graph_t *g = fb_fetch_graph(&fb);
+	graph_t *g = display_fetch_graph(&display);
     font_t* font = font_new(DEFAULT_SYSTEM_FONT, true);
 
     int mouse_fd = open("/dev/mouse0", O_RDONLY | O_NONBLOCK);
@@ -31,7 +31,7 @@ int main(int argc, char** argv) {
             graph_fill_round_3d(g, x+rw, y+rw, w-2*rw, h-2*rw, r-rw, rw, 0xff008800, true);
             graph_draw_text_font(g, x+2*rw+4, y+2*rw+4, txt, font, 12, 0xff000000);
             dirty = false;
-            fb_flush(&fb, true);
+            display_flush(&display, true);
         }
 
         mouse_evt_t mevt;
@@ -63,6 +63,6 @@ int main(int argc, char** argv) {
     font_free(font);
     close(mouse_fd);
     close(keyb_fd);
-    fb_close(&fb);
+    display_close(&display);
     return 0;
 }

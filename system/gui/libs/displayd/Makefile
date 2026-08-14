@@ -8,16 +8,15 @@ LDFLAGS = -L $(TARGET_DIR)/lib
 
 CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_FB_OBJS = $(ARCH)/src/fb.o
+LIB_DISPLAYD_OBJS = $(ARCH)/src/displayd.o
 
-FB = $(TARGET_DIR)/lib/libfb.a
+DISPLAYD = $(TARGET_DIR)/lib/libdisplayd.a
 
-$(FB): $(LIB_FB_OBJS)
-	$(AR) rcs $(FB) $(LIB_FB_OBJS)
+$(DISPLAYD): $(LIB_DISPLAYD_OBJS)
+	$(AR) rcs $(DISPLAYD) $(LIB_DISPLAYD_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 
 clean:
-	rm -f $(LIB_FB_OBJS)
-	rm -f $(FB)
-
+	rm -f $(LIB_DISPLAYD_OBJS)
+	rm -f $(DISPLAYD)

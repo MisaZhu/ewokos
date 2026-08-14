@@ -8,9 +8,9 @@ LDFLAGS = -L $(BUILD_DIR)/lib
 
 CFLAGS += -Iinclude -I $(BUILD_DIR)/include
 
-DISPLAYD_OBJS = $(ARCH)/displayd.o
+DISPLAYD_OBJS = $(ARCH)/displaymand.o
 
-DISPLAYD = $(TARGET_DIR)/drivers/displayd
+DISPLAYD = $(TARGET_DIR)/drivers/displaymand
 
 $(DISPLAYD): $(DISPLAYD_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a  

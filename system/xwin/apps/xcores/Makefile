@@ -29,8 +29,8 @@ LD_LIB_DEPS = \
 	$(BUILD_DIR)/lib/libtga.a \
 	$(BUILD_DIR)/lib/libsvg.a \
 	$(BUILD_DIR)/lib/libz.a \
+	$(BUILD_DIR)/lib/libdisplayman.a \
 	$(BUILD_DIR)/lib/libdisplay.a \
-	$(BUILD_DIR)/lib/libfb.a \
 	$(BUILD_DIR)/lib/libkeyb.a \
 	$(BUILD_DIR)/lib/libmouse.a \
 	$(BUILD_DIR)/lib/libewoksys.a \

@@ -13,12 +13,12 @@
 #include <graph/graph.h>
 #include <graph/graph_ex.h>
 #include <graph/graph_image.h>
+#include <displayman/displayman.h>
 #include <display/display.h>
-#include <fb/fb.h>
 #include <font/font.h>
 
 typedef struct {
-    fb_t* fb;
+    display_t* display;
     graph_t* scr_g;
     font_t* font;
 	graph_t* img;
@@ -110,7 +110,7 @@ static void paint(uint32_t persantage, const char* msg, const char* img_fname) {
 	off_y += _splash_info.item_h;
 	paint_msg(msg, off_y);
 
-	fb_flush(_splash_info.fb, true);
+	display_flush(_splash_info.display, true);
 }
 
 static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
@@ -171,8 +171,8 @@ int main(int argc, char** argv) {
 
 	doargs(argc, argv);
 
-	fb_t fb;
-	if(display_fb_open("/dev/display", 0, &fb) != 0)
+	display_t display;
+	if(displayman_open("/dev/displayman", 0, &display) != 0)
 		return -1;
 
 	_splash_info.persantage = 0;
@@ -180,10 +180,10 @@ int main(int argc, char** argv) {
 	_splash_info.h = _h - 8;
 	_splash_info.font_size = _font_size;
 	_splash_info.item_h = _splash_info.font_size+4;
-	_splash_info.scr_g = fb_fetch_graph(&fb);
+	_splash_info.scr_g = display_fetch_graph(&display);
 	_splash_info.img = NULL;
     _splash_info.font = font_new(DEFAULT_SYSTEM_FONT, true);
-	_splash_info.fb = &fb;
+	_splash_info.display = &display;
 
 	if(ipc_serv_reg("sys.splashd") != 0) {
 		slog("reg sys.splashd ipc_serv error!\n");
@@ -196,4 +196,3 @@ int main(int argc, char** argv) {
 	}
 	return 0;
 }
-

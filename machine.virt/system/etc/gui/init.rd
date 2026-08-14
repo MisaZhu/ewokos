@@ -6,8 +6,8 @@
 @/bin/ipcserv /sbin/sessiond
 @/bin/bgrun /bin/session -r -t /dev/tty0 /bin/login
 
-@/bin/ipcserv /drivers/displayd        
-@/bin/ipcserv /drivers/virt/fbd      /dev/fb0
+@/bin/ipcserv /drivers/displaymand        
+@/bin/ipcserv /drivers/virt/fbdisplayd      /dev/disp0
 @/bin/ipcserv /drivers/virt/g2dd     /dev/g2d
 @/bin/ipcserv /drivers/fontd           
 

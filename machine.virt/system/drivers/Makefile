@@ -4,7 +4,7 @@ basic:
 	cd powerd; $(MAKE)
 
 gui:
-	cd fbd; $(MAKE)
+	cd fbdisplayd; $(MAKE)
 	cd g2dd; $(MAKE)
 	cd moused; $(MAKE)
 	cd keybd; $(MAKE)
@@ -16,7 +16,7 @@ network:
 clean:	
 	cd ttyd; $(MAKE) clean
 	cd virtfsd; $(MAKE) clean
-	cd fbd; $(MAKE) clean
+	cd fbdisplayd; $(MAKE) clean
 	cd g2dd; $(MAKE) clean
 	cd moused; $(MAKE) clean
 	cd keybd; $(MAKE) clean

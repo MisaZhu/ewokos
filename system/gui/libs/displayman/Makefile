@@ -8,16 +8,15 @@ LDFLAGS = -L $(TARGET_DIR)/lib
 
 CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_FBD_OBJS = $(ARCH)/src/fbd.o
+LIB_DISPLAYMAN_OBJS = $(ARCH)/src/displayman.o
 
-FBD = $(TARGET_DIR)/lib/libfbd.a
+LIB_DISPLAYMAN = $(TARGET_DIR)/lib/libdisplayman.a
 
-$(FBD): $(LIB_FBD_OBJS)
-	$(AR) rcs $(FBD) $(LIB_FBD_OBJS)
+$(LIB_DISPLAYMAN): $(LIB_DISPLAYMAN_OBJS)
+	$(AR) rcs $(LIB_DISPLAYMAN) $(LIB_DISPLAYMAN_OBJS)
 	cp -r include/* $(TARGET_DIR)/include
 
 
 clean:
-	rm -f $(LIB_FBD_OBJS)
-	rm -f $(FBD)
-
+	rm -f $(LIB_DISPLAYMAN_OBJS)
+	rm -f $(LIB_DISPLAYMAN)

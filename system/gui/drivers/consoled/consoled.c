@@ -5,10 +5,10 @@
 #include <string.h>
 #include <ewoksys/vfs.h>
 #include <gterminal/gterminal.h>
-#include <fb/fb.h>
+#include <display/display.h>
 #include <ewoksys/vdevice.h>
 #include <ewoksys/keydef.h>
-#include <display/display.h>
+#include <displayman/displayman.h>
 #include <graph/graph_png.h>
 #include <tinyjson/tinyjson.h>
 #include <ewoksys/klog.h>
@@ -24,7 +24,7 @@ typedef struct {
 	const char* id;
 	const char* display_dev;
 	uint32_t    display_index;
-	fb_t        fb;
+	display_t    display;
 	graph_t*    g;
 	gterminal_t terminal;
 	graph_t*    icon;
@@ -57,7 +57,7 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
 }
 
 static void init_graph(fb_console_t* console) {
-	console->g = fb_fetch_graph(&console->fb);
+	console->g = display_fetch_graph(&console->display);
 	graph_clear(console->g, 0xff000000);
 }
 
@@ -67,7 +67,7 @@ static int init_console(fb_console_t* console, const char* display_dev, const ui
 
 	console->display_dev = display_dev;
 	console->display_index = display_index;
-	if(display_fb_open(display_dev, console->display_index, &console->fb) != 0)
+	if(displayman_open(display_dev, console->display_index, &console->display) != 0)
 		return -1;
 	init_graph(console);
 	gterminal_init(&console->terminal);
@@ -79,7 +79,7 @@ static void close_console(fb_console_t* console) {
 	if(console->g != NULL)
 		graph_free(console->g);
 
-	fb_close(&console->fb);
+	display_close(&console->display);
 	if(console->icon != NULL)
 		graph_free(console->icon);
 	gterminal_close(&console->terminal);
@@ -119,7 +119,7 @@ static void flush(fb_console_t* console) {
 	}
 
 	gterminal_paint(&console->terminal, console->g, 0, 0, console->g->w, console->g->h);
-	fb_flush(&console->fb, true);
+	display_flush(&console->display, true);
 }
 
 static bool _flush = true;
@@ -294,7 +294,7 @@ int main(int argc, char** argv) {
 		snprintf(mnt_point, 127, "/dev/console0");
 
 	_keyb_fd = -1;
-	const char* display_dev = "/dev/display";
+	const char* display_dev = "/dev/displayman";
 
 	fb_console_t _console;
 	init_console(&_console, display_dev, _disp_index);

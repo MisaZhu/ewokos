@@ -10,7 +10,7 @@
 #include <ewoksys/basic_math.h>
 #include <ewoksys/kernel_tic.h>
 #include <sys/shm.h>
-#include <fb/fb.h>
+#include <display/display.h>
 #include <ewoksys/ipc.h>
 #include <x/xcntl.h>
 #include <x/xtheme.h>
@@ -20,7 +20,7 @@
 #include <graph/graph_png.h>
 #include <ewoksys/keydef.h>
 #include <tinyjson/tinyjson.h>
-#include <display/display.h>
+#include <displayman/displayman.h>
 #include "xserver.h"
 #include "xtheme.h"
 
@@ -721,7 +721,7 @@ static void x_repaint_add_dirty(graph_t* g, grect_t* rects, uint32_t* num, const
 	rect_union_to(&rects[0], &dirty);
 }
 
-/*the fb control block only carries FB_DIRTY_MAX rects, so merge the
+/*the fb control block only carries DISPLAY_DIRTY_MAX rects, so merge the
   cheapest pairs together until they fit; without this the daemon has to
   push the whole framebuffer to the panel*/
 static uint32_t pack_dirty_rects(const grect_t* rects, uint32_t num,
@@ -979,22 +979,22 @@ static inline void refresh_cursor(x_t* x) {
 }
 
 static int x_init_display(x_t* x, int32_t display_index) {
-	uint32_t display_num = get_display_num(x->display_man);
+	uint32_t display_num = displayman_get_num(x->display_man);
 	if(display_index >= 0 && display_index < (int32_t)display_num) {
-		if(display_fb_open(x->display_man, display_index, &x->displays[display_index].fb) != 0)
+		if(displayman_open(x->display_man, display_index, &x->displays[display_index].display) != 0)
 			return -1;
-		graph_t *g_fb = fb_fetch_graph(&x->displays[display_index].fb);
-		if(g_fb == NULL)
+		graph_t *g_display = display_fetch_graph(&x->displays[display_index].display);
+		if(g_display == NULL)
 			return -1;
 		/* Composite straight into the scan-out dma: no shadow buffer and
-		   no per-frame copy back into fb. */
-		x->displays[display_index].g_fb = g_fb;
-		x->displays[display_index].g = g_fb;
-		x->displays[display_index].g_shm_id = x->displays[display_index].fb.dma_id;
+		   no per-frame copy back into the display buffer. */
+		x->displays[display_index].g_display = g_display;
+		x->displays[display_index].g = g_display;
+		x->displays[display_index].g_shm_id = x->displays[display_index].display.dma_id;
 		x->displays[display_index].desktop_rect.x = 0;
 		x->displays[display_index].desktop_rect.y = 0;
-		x->displays[display_index].desktop_rect.w = g_fb->w;
-		x->displays[display_index].desktop_rect.h = g_fb->h;
+		x->displays[display_index].desktop_rect.w = g_display->w;
+		x->displays[display_index].desktop_rect.h = g_display->h;
 
 		//x_dirty(x, 0);
 		x->display_num = 1;
@@ -1002,18 +1002,18 @@ static int x_init_display(x_t* x, int32_t display_index) {
 	}
 
 	for(uint32_t i=0; i<display_num; i++) {
-		if(display_fb_open(x->display_man, i, &x->displays[i].fb) != 0)
+		if(displayman_open(x->display_man, i, &x->displays[i].display) != 0)
 			return -1;
-		graph_t *g_fb = fb_fetch_graph(&x->displays[i].fb);
-		if(g_fb == NULL)
+		graph_t *g_display = display_fetch_graph(&x->displays[i].display);
+		if(g_display == NULL)
 			return -1;
-		x->displays[i].g_fb = g_fb;
-		x->displays[i].g = g_fb;
-		x->displays[i].g_shm_id = x->displays[i].fb.dma_id;
+		x->displays[i].g_display = g_display;
+		x->displays[i].g = g_display;
+		x->displays[i].g_shm_id = x->displays[i].display.dma_id;
 		x->displays[i].desktop_rect.x = 0;
 		x->displays[i].desktop_rect.y = 0;
-		x->displays[i].desktop_rect.w = g_fb->w;
-		x->displays[i].desktop_rect.h = g_fb->h;
+		x->displays[i].desktop_rect.w = g_display->w;
+		x->displays[i].desktop_rect.h = g_display->h;
 		//x_dirty(x, i);
 	}
 	x->display_num = display_num;
@@ -1046,10 +1046,10 @@ static int x_init(x_t* x, const char* display_man, int32_t display_index) {
 static void x_close(x_t* x) {
 	for(uint32_t i=0; i<x->display_num; i++) {
 		x_display_t* display = &x->displays[i];
-		/* g and g_fb both alias the fb dma graph here; fb_close frees it. */
-		fb_close(&display->fb);
+		/* g and g_display both alias the scan-out dma graph here; display_close frees it. */
+		display_close(&display->display);
 		display->g = NULL;
-		display->g_fb = NULL;
+		display->g_display = NULL;
 		display->g_shm_id = -1;
 	}
 }
@@ -1098,7 +1098,7 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 	  while the fb daemon is still pushing the previous frame to the panel;
 	  otherwise it copies a half-drawn frame (tearing). need_repaint stays
 	  set so the frame is retried on the next step.*/
-	if(fb_busy(&display->fb))
+	if(display_busy(&display->display))
 		return;
 
 	if(!all_win_ready(x)) {
@@ -1200,9 +1200,9 @@ static void x_repaint(x_t* x, uint32_t display_index) {
 	if(do_flush && dirty_num > 0) {
 		/*tell the fb daemon what changed so it only pushes those areas to
 		  the scan-out buffer instead of the whole frame*/
-		grect_t fb_dirty[FB_DIRTY_MAX];
-		uint32_t fb_num = pack_dirty_rects(dirty_rects, dirty_num, fb_dirty, FB_DIRTY_MAX);
-		fb_set_dirty(&display->fb, fb_dirty, fb_num);
+		grect_t display_dirty[DISPLAY_DIRTY_MAX];
+		uint32_t display_num = pack_dirty_rects(dirty_rects, dirty_num, display_dirty, DISPLAY_DIRTY_MAX);
+		display_set_dirty(&display->display, display_dirty, display_num);
 		/*defer the flush IPC until after ipc_enable() to keep the
 		  ipc_disable() critical section as tight as possible*/
 		display->pending_flush = true;
@@ -2608,7 +2608,7 @@ int xserver_step(vdevice_t* dev, void* p) {
 	  like raspix whose framebuffer is scanned out continuously).*/
 	for(uint32_t i=0; i<x->display_num; i++) {
 		if(x->displays[i].pending_flush) {
-			fb_flush(&x->displays[i].fb, true);
+			display_flush(&x->displays[i].display, true);
 			x->displays[i].pending_flush = false;
 		}
 	}
@@ -2644,7 +2644,7 @@ static int doargs(int argc, char* argv[]) {
 
 int main(int argc, char** argv) {
 	const char* mnt_point = "/dev/x";
-	const char* display_man = "/dev/display";
+	const char* display_man = "/dev/displayman";
 	doargs(argc, argv);
 
 	x_t x;

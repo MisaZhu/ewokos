@@ -5,13 +5,13 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <fb/fb.h>
+#include <display/display.h>
 #include <x/xcntl.h>
 #include <x/xevent.h>
 #include <x/xtheme.h>
 #include <x/xwm.h>
 #include <ewoksys/vdevice.h>
-#include <display/display.h>
+#include <displayman/displayman.h>
 #include "cursor.h"
 #include "xevtpool.h"
 
@@ -94,10 +94,10 @@ typedef struct {
 } x_conf_t;
 
 typedef struct {
-	fb_t fb;
+	display_t display;
 	graph_t* g;
 	int32_t  g_shm_id;
-	graph_t* g_fb;
+	graph_t* g_display;
 	grect_t desktop_rect;
 	bool dirty;
 	bool cursor_task;

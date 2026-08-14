@@ -13,10 +13,10 @@ basic_libs:
 	cd freetype; $(MAKE)
 	cd graph;$(MAKE)
 	cd font;$(MAKE)
-	cd fb;$(MAKE)
-	cd g2d;$(MAKE)
 	cd display;$(MAKE)
-	cd fbd;$(MAKE)
+	cd g2d;$(MAKE)
+	cd displayman;$(MAKE)
+	cd displayd;$(MAKE)
 	cd textgrid;$(MAKE)
 	cd gterminal;$(MAKE)
 	cd libogg;$(MAKE)
@@ -26,7 +26,7 @@ basic_libs:
 clean:
 	cd gterminal;$(MAKE) clean
 	cd textgrid;$(MAKE) clean
-	cd display;$(MAKE) clean
+	cd displayman;$(MAKE) clean
 	cd libpng; $(MAKE) clean
 	cd libjpeg; $(MAKE) clean
 	cd libgif; $(MAKE) clean
@@ -36,11 +36,11 @@ clean:
 	cd font;$(MAKE) clean
 	cd minimp3;$(MAKE) clean
 	cd graph;$(MAKE) clean
-	cd fb;$(MAKE) clean
+	cd display;$(MAKE) clean
 	cd g2d;$(MAKE) clean
 	cd keyb;$(MAKE) clean
 	cd mouse;$(MAKE) clean
-	cd fbd;$(MAKE) clean
+	cd displayd;$(MAKE) clean
 	cd libogg;$(MAKE) clean
 	cd libvorbis;$(MAKE) clean
 	cd libiconbuf;$(MAKE) clean

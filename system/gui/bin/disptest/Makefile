@@ -9,16 +9,16 @@ LDFLAGS = -L $(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-TASK_OBJS = $(ARCH)/fbtest.o
+TASK_OBJS = $(ARCH)/disptest.o
 
-TASK = $(TARGET_DIR)/bin/fbtest
+TASK = $(TARGET_DIR)/bin/disptest
 
 $(TASK): $(TASK_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a  \
-		$(BUILD_DIR)/lib/libfb.a \
+		$(BUILD_DIR)/lib/libdisplay.a \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libfont.a  \
-		$(BUILD_DIR)/lib/libdisplay.a 
+		$(BUILD_DIR)/lib/libdisplayman.a 
 	mkdir -p $(TARGET_DIR)/bin 
 	$(LD) -Ttext=100 $(TASK_OBJS) -o $(TASK) $(LDFLAGS) -lkeyb -lmouse $(EWOK_LIB_GRAPH) $(BSP_LFLAGS) $(EWOK_LIBC)
 

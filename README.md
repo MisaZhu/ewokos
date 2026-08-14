@@ -17,7 +17,7 @@ The project combines a small microkernel with a user-space runtime that includes
 ## Highlights
 
 - Microkernel design with process scheduling, MMU support, copy-on-write, signals, semaphores, and message-based IPC
-- User-space system services such as `init`, `core`, `vfsd`, `sessiond`, `displayd`, `xserverd`, `netd`, `sshd`, `telnetd`, and `httpd`
+- User-space system services such as `init`, `core`, `vfsd`, `sessiond`, `displaymand`, `xserverd`, `netd`, `sshd`, `telnetd`, and `httpd`
 - Native GUI stack with framebuffer graphics, an X-like window system, themable window managers, and desktop apps
 - Integrated networking with TCP/IP services plus SSH, SCP, Telnet, ping, host lookup, HTTPS test tooling, and WebSocket test tooling
 - Multiple hardware ports spanning QEMU `virt`, Raspberry Pi families, RISC-V, x86, handhelds, and board-specific variants

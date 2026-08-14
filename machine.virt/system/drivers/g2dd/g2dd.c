@@ -501,7 +501,7 @@ static void read_config(const char* conf_file, uint32_t* w, uint32_t* h, uint32_
 	json_var_t* conf_var;
 
 	if (conf_file == NULL || conf_file[0] == 0)
-		conf_file = "/etc/framebuffer.json";
+		conf_file = "/etc/display.json";
 
 	conf_var = json_parse_file(conf_file);
 	*w = (uint32_t)json_get_int_def(conf_var, "width", 1024);
@@ -531,7 +531,7 @@ static int doargs(int argc, char* argv[], const char** conf_file) {
 }
 
 int main(int argc, char** argv) {
-	const char* conf_file = "/etc/framebuffer.json";
+	const char* conf_file = "/etc/display.json";
 	const char* mnt_point;
 	g2d_state_t state;
 	vdevice_t dev;

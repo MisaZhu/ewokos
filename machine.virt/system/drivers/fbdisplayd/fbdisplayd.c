@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <fbd/fbd.h>
+#include <displayd/displayd.h>
 #include <graph/graph.h>
 #include <graph/graph_png.h>
 #include <bsp/bsp_fb.h>
@@ -48,17 +48,17 @@ static int doargs(int argc, char* argv[]) {
 }
 
 int main(int argc, char** argv) {
-	fbd_t fbd;
+	fbdisplayd_t fbdisplayd;
 	int opti = doargs(argc, argv);
-	const char* mnt_point = (opti < argc && opti >= 0) ? argv[opti]: "/dev/fb0";
+	const char* mnt_point = (opti < argc && opti >= 0) ? argv[opti]: "/dev/disp0";
 
-	memset(&fbd, 0, sizeof(fbd));
-	fbd.splash = NULL;
-	fbd.flush = flush;
-	fbd.init = init;
-	fbd.get_info = get_info;
-	fbd_set_flush_rect(fbd_flush_rect_to);
+	memset(&fbdisplayd, 0, sizeof(fbdisplayd));
+	fbdisplayd.splash = NULL;
+	fbdisplayd.flush = flush;
+	fbdisplayd.init = init;
+	fbdisplayd.get_info = get_info;
+	fbdisplayd_set_flush_rect(fbdisplayd_flush_rect_to);
 
-	int res = fbd_run(&fbd, mnt_point, 640, 480, _conf_file, _display_index);
+	int res = fbdisplayd_run(&fbdisplayd, mnt_point, 640, 480, _conf_file, _display_index);
 	return res;
 }
