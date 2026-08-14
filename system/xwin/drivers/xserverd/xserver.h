@@ -94,6 +94,7 @@ typedef struct {
 } x_conf_t;
 
 typedef struct {
+	uint32_t display_index;
 	display_t display;
 	graph_t* g;
 	int32_t  g_shm_id;
@@ -104,6 +105,8 @@ typedef struct {
 	bool need_repaint;
 	bool pending_flush; //flush is issued outside the ipc_disable() section
 	uint32_t wait_ready; //frames spent waiting for the windows to get ready
+
+	bool active;
 } x_display_t;
 
 typedef struct {

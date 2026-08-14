@@ -61,30 +61,6 @@ static int32_t xserver_alloc_shm(uint32_t salt, int32_t size, int32_t flag, key_
 	return -1;
 }
 
-static int32_t read_config(x_t* x, const char* fname) {
-	x->config.fps = 60;
-
-	json_var_t *conf_var = json_parse_file(fname);	
-
-	x->config.fps = json_get_int_def(conf_var, "fps", 30);
-	x->config.bg_proc_priority = json_get_int_def(conf_var, "bg_proc_priority", 2);
-
-	const char* v = json_get_str_def(conf_var, "logo", "/usr/system/icons/xlogo.png");
-	x->config.logo = png_image_new(v);
-
-	v = json_get_str_def(conf_var, "cursor", "");
-	if(strcmp(v, "touch") == 0)
-		x->cursor.type = CURSOR_TOUCH;
-	else if(strcmp(v, "mouse") == 0)
-		x->cursor.type = CURSOR_MOUSE;
-	else {
-		if(strcmp(v, "none") == 0)
-			x->show_cursor = false;
-	}
-	if(conf_var != NULL)
-		json_var_unref(conf_var);
-	return 0;
-}
 
 static bool check_xwm(x_t* x) {
 	if(x->xwm_pid < 0) {
@@ -463,8 +439,10 @@ static inline void x_dirty(x_t* x, int32_t display_index) {
 		return;
 	}
 
-	for(uint32_t i=0; i<x->display_num; i++) {
+	for(uint32_t i=0; i<DISP_MAX; i++) {
 		x_display_t *display = &x->displays[i];
+		if(!display->active)
+			continue;
 		display->dirty = true;
 		display->need_repaint = true;
 	}
@@ -581,12 +559,15 @@ static void try_focus(x_t* x, xwin_t* win) {
 static inline void x_repaint_req(x_t* x, int32_t display_index) {
 	if(display_index >= 0 && display_index < DISP_MAX) {
 		x_display_t *display = &x->displays[display_index];
-		display->need_repaint = true;
+		if(display->active)
+			display->need_repaint = true;
 		return;
 	}
 
-	for(uint32_t i=0; i<x->display_num && i<DISP_MAX; i++) {
+	for(uint32_t i=0; i<DISP_MAX; i++) {
 		x_display_t *display = &x->displays[i];
+		if(!display->active)
+			continue;
 		display->need_repaint = true;
 	}
 }
@@ -978,49 +959,105 @@ static inline void refresh_cursor(x_t* x) {
 	x->cursor.drop = false;
 }
 
-static int x_init_display(x_t* x, int32_t display_index) {
-	uint32_t display_num = displayman_get_num(x->display_man);
-	if(display_index >= 0 && display_index < (int32_t)display_num) {
-		if(displayman_open(x->display_man, display_index, &x->displays[display_index].display) != 0)
-			return -1;
-		graph_t *g_display = display_fetch_graph(&x->displays[display_index].display);
-		if(g_display == NULL)
-			return -1;
-		/* Composite straight into the scan-out dma: no shadow buffer and
-		   no per-frame copy back into the display buffer. */
-		x->displays[display_index].g_display = g_display;
-		x->displays[display_index].g = g_display;
-		x->displays[display_index].g_shm_id = x->displays[display_index].display.dma_id;
-		x->displays[display_index].desktop_rect.x = 0;
-		x->displays[display_index].desktop_rect.y = 0;
-		x->displays[display_index].desktop_rect.w = g_display->w;
-		x->displays[display_index].desktop_rect.h = g_display->h;
+static int x_init_display(x_t* x) {
+	for(uint32_t i=0; i<DISP_MAX; i++) {
+		if(!x->displays[i].active)
+			continue;
+		x_display_t* display = &x->displays[i];
 
-		//x_dirty(x, 0);
-		x->display_num = 1;
-		return 0;
-	}
-
-	for(uint32_t i=0; i<display_num; i++) {
-		if(displayman_open(x->display_man, i, &x->displays[i].display) != 0)
-			return -1;
-		graph_t *g_display = display_fetch_graph(&x->displays[i].display);
+		if(displayman_open(x->display_man, display->display_index, &display->display) != 0)
+			continue;
+		graph_t *g_display = display_fetch_graph(&display->display);
 		if(g_display == NULL)
-			return -1;
-		x->displays[i].g_display = g_display;
-		x->displays[i].g = g_display;
-		x->displays[i].g_shm_id = x->displays[i].display.dma_id;
-		x->displays[i].desktop_rect.x = 0;
-		x->displays[i].desktop_rect.y = 0;
-		x->displays[i].desktop_rect.w = g_display->w;
-		x->displays[i].desktop_rect.h = g_display->h;
+			continue;
+		display->g_display = g_display;
+		display->g = g_display;
+		display->g_shm_id = display->display.dma_id;
+		display->desktop_rect.x = 0;
+		display->desktop_rect.y = 0;
+		display->desktop_rect.w = g_display->w;
+		display->desktop_rect.h = g_display->h;
 		//x_dirty(x, i);
 	}
-	x->display_num = display_num;
 	return 0;
 }
 
-static int x_init(x_t* x, const char* display_man, int32_t display_index) {
+static uint32_t active_display(x_t* x, const char* s) {
+	for(uint32_t i = 0; i < DISP_MAX; i++)
+		x->displays[i].active = false;
+
+	uint32_t num = 0;
+	if(s != NULL) {
+		const char* p = s;
+		while(*p != 0) {
+			char* end = NULL;
+			long index;
+
+			while(*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n' || *p == ',')
+				p++;
+			if(*p == 0)
+				break;
+
+			index = strtol(p, &end, 10);
+			if(end == p) {
+				while(*p != 0 && *p != ',')
+					p++;
+				continue;
+			}
+
+			if(index >= 0 && index < DISP_MAX) {
+				x->displays[num].active = true;
+				x->displays[num].display_index = index;
+				num++;
+			}
+			p = end;
+		}
+	}
+
+	return num;
+}
+
+static int32_t x_get_first_active_display(x_t* x) {
+	if(x->displays[0].active && x->displays[0].g != NULL) {
+		return 0;
+	}
+	return -1;
+}
+
+static uint32_t x_get_active_display_num(x_t* x) {
+	return x->display_num;
+}
+
+static int32_t read_config(x_t* x, const char* fname) {
+	x->config.fps = 60;
+
+	json_var_t *conf_var = json_parse_file(fname);	
+
+	const char* v = json_get_str_def(conf_var, "displays", "0");
+	x->display_num = active_display(x, v);
+
+	x->config.fps = json_get_int_def(conf_var, "fps", 30);
+	x->config.bg_proc_priority = json_get_int_def(conf_var, "bg_proc_priority", 2);
+
+	v = json_get_str_def(conf_var, "logo", "/usr/system/icons/xlogo.png");
+	x->config.logo = png_image_new(v);
+
+	v = json_get_str_def(conf_var, "cursor", "");
+	if(strcmp(v, "touch") == 0)
+		x->cursor.type = CURSOR_TOUCH;
+	else if(strcmp(v, "mouse") == 0)
+		x->cursor.type = CURSOR_MOUSE;
+	else {
+		if(strcmp(v, "none") == 0)
+			x->show_cursor = false;
+	}
+
+	if(conf_var != NULL)
+		json_var_unref(conf_var);
+	return 0;
+}
+
+static int x_init(x_t* x, const char* display_man) {
 	memset(x, 0, sizeof(x_t));
 	x->xwm_pid = -1;
 	for(uint32_t i = 0; i < DISP_MAX; i++) {
@@ -1028,10 +1065,17 @@ static int x_init(x_t* x, const char* display_man, int32_t display_index) {
 	}
 
 	x->display_man = display_man;
-	if(x_init_display(x, display_index) != 0)
+	read_config(x, "/etc/x/x.json");
+
+	if(x_init_display(x) != 0)
 		return -1;
 
-	x_display_t* display = &x->displays[0];
+	int32_t display_index = x_get_first_active_display(x);
+	if(display_index == -1)
+		return -1;
+	x->current_display = display_index;
+	x_display_t* display = &x->displays[display_index];
+
 	x->cursor.cpos.x = display->g->w/2;
 	x->cursor.cpos.y = display->g->h/2;
 	x->mouse_state.last_pos.x = x->cursor.cpos.x;
@@ -1044,8 +1088,10 @@ static int x_init(x_t* x, const char* display_man, int32_t display_index) {
 
 
 static void x_close(x_t* x) {
-	for(uint32_t i=0; i<x->display_num; i++) {
+	for(uint32_t i=0; i<DISP_MAX; i++) {
 		x_display_t* display = &x->displays[i];
+		if(!display->active)
+			continue;
 		/* g and g_display both alias the scan-out dma graph here; display_close frees it. */
 		display_close(&display->display);
 		display->g = NULL;
@@ -2474,7 +2520,7 @@ static int xserver_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, 
 		PF->add(ret, &scr, sizeof(xscreen_info_t));
 	}
 	else if(cmd == X_DCNTL_GET_DISP_NUM) {
-		PF->addi(ret, x->display_num);
+		PF->addi(ret, x_get_active_display_num(x));
 	}
 	else if(cmd == X_DCNTL_SET_XWM) {
 		x->xwm_pid = from_pid;
@@ -2569,7 +2615,6 @@ static int xserver_win_close(vdevice_t* dev, int fd, int from_pid, uint32_t node
 	return 0;
 }
 
-static int _disp_index = -1;
 int xserver_step(vdevice_t* dev, void* p) {
 	(void)dev;
 	x_t* x = (x_t*)p;
@@ -2595,7 +2640,10 @@ int xserver_step(vdevice_t* dev, void* p) {
 
 	ipc_disable();
 	check_wins(x);
-	for(uint32_t i=0; i<x->display_num; i++) {
+	for(uint32_t i=0; i<DISP_MAX; i++) {
+		x_display_t* display = &x->displays[i];
+		if(!display->active)
+			continue;
 		x_repaint(x, i);
 	}
 	ipc_enable();
@@ -2606,9 +2654,12 @@ int xserver_step(vdevice_t* dev, void* p) {
 	  scan-out dma, so the next frame must not overwrite it while the daemon
 	  is still pushing it to the panel (tearing/flicker, seen on real panels
 	  like raspix whose framebuffer is scanned out continuously).*/
-	for(uint32_t i=0; i<x->display_num; i++) {
-		if(x->displays[i].pending_flush) {
-			display_flush(&x->displays[i].display, true);
+	for(uint32_t i=0; i<DISP_MAX; i++) {
+		x_display_t* display = &x->displays[i];
+		if(!display->active)
+			continue;
+		if(display->pending_flush) {
+			display_flush(&display->display, true);
 			x->displays[i].pending_flush = false;
 		}
 	}
@@ -2623,6 +2674,7 @@ int xserver_step(vdevice_t* dev, void* p) {
 
 char* xserver_dev_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* p);
 
+/*
 static int doargs(int argc, char* argv[]) {
 	int c = 0;
 	while (c != -1) {
@@ -2641,17 +2693,17 @@ static int doargs(int argc, char* argv[]) {
 	}
 	return optind;
 }
+*/
 
 int main(int argc, char** argv) {
 	const char* mnt_point = "/dev/x";
 	const char* display_man = "/dev/displayman";
-	doargs(argc, argv);
+	//doargs(argc, argv);
 
 	x_t x;
-	if(x_init(&x, display_man, _disp_index) != 0)
+	if(x_init(&x, display_man) != 0)
 		return -1;
 
-	read_config(&x, "/etc/x/x.json");
 	cursor_init("default", &x.cursor);
 	x_load_theme("default", &x.config.theme);
 	x_dirty(&x, -1);

@@ -135,10 +135,11 @@ static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	}
 }
 
+static int32_t _disp_index = 0;
 static int doargs(int argc, char* argv[]) {
 	int c = 0;
 	while (c != -1) {
-		c = getopt (argc, argv, "w:h:f:d");
+		c = getopt (argc, argv, "w:h:f:i:d");
 		if(c == -1)
 			break;
 
@@ -154,6 +155,9 @@ static int doargs(int argc, char* argv[]) {
 			break;
 		case 'd':
 			_dark_mode = true;
+			break;
+		case 'i':
+			_disp_index = atoi(optarg);
 			break;
 		default:
 			c = -1;
@@ -172,7 +176,8 @@ int main(int argc, char** argv) {
 	doargs(argc, argv);
 
 	display_t display;
-	if(displayman_open("/dev/displayman", 0, &display) != 0)
+
+	if(displayman_open("/dev/displayman", _disp_index, &display) != 0)
 		return -1;
 
 	_splash_info.persantage = 0;
