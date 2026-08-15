@@ -88,18 +88,20 @@ typedef struct {
 	uint32_t uuid;
 } zombie_task_t;
 
+typedef enum {
+        DRIVER_ASYNC_JOB_NONE = 0,
+        DRIVER_ASYNC_JOB_CLOSE = 1,
+        DRIVER_ASYNC_JOB_DUP = 2,
+        DRIVER_ASYNC_JOB_KIDS = 3,
+} driver_async_job_type_t;
+
 typedef struct {
+        driver_async_job_type_t job_type;
 	int32_t pid;
 	int32_t owner_pid;
 	int32_t fd;
 	file_t file;
 } driver_close_task_t;
-
-typedef struct {
-        pthread_t thread;
-        pthread_mutex_t lock;
-        uint8_t started;
-} driver_close_worker_t;
 
 typedef struct clone_dup_ctx {
         pthread_mutex_t lock;
@@ -115,6 +117,7 @@ typedef struct clone_dup_ctx {
 } clone_dup_ctx_t;
 
 typedef struct {
+        driver_async_job_type_t job_type;
         int32_t mount_pid;
         int32_t from_pid;
         int32_t from_fd;
@@ -130,14 +133,14 @@ typedef struct {
 } driver_dup_job_t;
 
 typedef struct {
-        int32_t mount_pid;
         pthread_t thread;
         pthread_mutex_t lock;
         queue_t jobs;
         uint8_t started;
-} driver_dup_worker_t;
+} driver_async_worker_t;
 
 typedef struct {
+        driver_async_job_type_t job_type;
         int32_t mount_pid;
         uint32_t father_node_id;
         fsinfo_t father_info;
@@ -146,26 +149,13 @@ typedef struct {
         fsinfo_t* infos;
 } driver_kids_job_t;
 
-typedef struct {
-        int32_t mount_pid;
-        pthread_t thread;
-        pthread_mutex_t lock;
-        queue_t jobs;
-        uint8_t started;
-} driver_kids_worker_t;
-
-#define VFSD_WAKE_TOKEN_DRIVER_CLOSE 0x5646434cU
+#define VFSD_WAKE_TOKEN_DRIVER_ASYNC 0x56464153U
 #define VFSD_WAKE_TOKEN_CLONE_DUP    0x56464450U
 
 static proc_fds_t* _proc_fds_table = NULL;
 static uint32_t    _max_proc_table_num = 0;
 static queue_t     _zombie_tasks;
-static queue_t     _driver_close_tasks;
-static driver_close_worker_t _driver_close_worker = {0};
-static driver_dup_worker_t** _driver_dup_workers = NULL;
-static pthread_mutex_t _driver_dup_workers_lock = 0;
-static driver_kids_worker_t** _driver_kids_workers = NULL;
-static pthread_mutex_t _driver_kids_workers_lock = 0;
+static driver_async_worker_t _driver_async_worker = {0};
 static queue_t _driver_kids_results;
 static pthread_mutex_t _driver_kids_results_lock = 0;
 
@@ -177,6 +167,10 @@ static void enqueue_waiter(queue_t* q, int32_t pid, uint32_t uuid, bool wr, uint
 static wait_entry_t* wait_queue_pop(queue_t* q);
 static void wakeup_proc(wait_entry_t* waiter, vfs_node_t* node, int32_t events);
 static void enqueue_driver_close_task(driver_close_task_t* task);
+static void start_driver_async_worker(void);
+static void driver_async_process_close_job(driver_close_task_t* job);
+static void driver_async_process_dup_job(driver_dup_job_t* job);
+static void driver_async_process_kids_job(driver_kids_job_t* job);
 static void clone_dup_ctx_complete(clone_dup_ctx_t* ctx);
 static void clone_dup_ctx_unref(clone_dup_ctx_t* ctx);
 static void vfs_try_finish_umount(vfs_node_t* node);
@@ -250,16 +244,10 @@ static void vfsd_init(void) {
 	}
 
 	queue_init(&_zombie_tasks);
-	queue_init(&_driver_close_tasks);
-        pthread_mutex_init(&_driver_close_worker.lock, NULL);
-        pthread_mutex_init(&_driver_dup_workers_lock, NULL);
-        pthread_mutex_init(&_driver_kids_workers_lock, NULL);
+        pthread_mutex_init(&_driver_async_worker.lock, NULL);
+        queue_init(&_driver_async_worker.jobs);
         pthread_mutex_init(&_driver_kids_results_lock, NULL);
         queue_init(&_driver_kids_results);
-        _driver_dup_workers = (driver_dup_worker_t**)calloc(_max_proc_table_num,
-                        sizeof(driver_dup_worker_t*));
-        _driver_kids_workers = (driver_kids_worker_t**)calloc(_max_proc_table_num,
-                        sizeof(driver_kids_worker_t*));
 	_nodes_hash = hashmap_new(0);
 	_vfs_root = vfs_new_node();
 	strcpy(_vfs_root->fsinfo.name, "/");
@@ -460,94 +448,73 @@ static void vfs_drain_driver_kids_results(void) {
 	}
 }
 
-static void* driver_kids_worker_entry(void* arg) {
-	driver_kids_worker_t* worker = (driver_kids_worker_t*)arg;
+static void* driver_async_worker_entry(void* arg) {
+	driver_async_worker_t* worker = (driver_async_worker_t*)arg;
+	worker->thread = pthread_self();
 
 	while(true) {
-		driver_kids_job_t* job = NULL;
+		void* job = NULL;
+		driver_async_job_type_t type = DRIVER_ASYNC_JOB_NONE;
 
 		pthread_mutex_lock(&worker->lock);
-		job = (driver_kids_job_t*)queue_pop(&worker->jobs);
-		if(job == NULL) {
-			worker->started = 0;
-			pthread_mutex_unlock(&worker->lock);
-			break;
-		}
+		job = queue_pop(&worker->jobs);
 		pthread_mutex_unlock(&worker->lock);
+		if(job == NULL) {
+			proc_block_by(VFSD_WAKE_TOKEN_DRIVER_ASYNC);
+			continue;
+		}
 
-		job->res = vfs_fetch_kids_from_driver(job->mount_pid, &job->father_info,
-				&job->num, &job->infos);
-
-		pthread_mutex_lock(&_driver_kids_results_lock);
-		queue_push(&_driver_kids_results, job);
-		pthread_mutex_unlock(&_driver_kids_results_lock);
+		type = *((driver_async_job_type_t*)job);
+		if(type == DRIVER_ASYNC_JOB_CLOSE)
+			driver_async_process_close_job((driver_close_task_t*)job);
+		else if(type == DRIVER_ASYNC_JOB_DUP)
+			driver_async_process_dup_job((driver_dup_job_t*)job);
+		else if(type == DRIVER_ASYNC_JOB_KIDS)
+			driver_async_process_kids_job((driver_kids_job_t*)job);
+		else
+			free(job);
 	}
 
 	return NULL;
 }
 
-static int start_driver_kids_worker_locked(driver_kids_worker_t* worker) {
+static void start_driver_async_worker(void) {
 	pthread_t tid;
 
-	if(worker == NULL)
-		return -1;
-	if(worker->started != 0)
-		return 0;
-	if(pthread_create(&tid, NULL, driver_kids_worker_entry, worker) != 0)
-		return -1;
-	pthread_detach(tid);
-	worker->thread = tid;
-	worker->started = 1;
-	return 0;
-}
-
-static driver_kids_worker_t* get_driver_kids_worker(int32_t mount_pid) {
-	driver_kids_worker_t* worker = NULL;
-
-	if(mount_pid <= 0 || mount_pid >= (int32_t)_max_proc_table_num)
-		return NULL;
-
-	pthread_mutex_lock(&_driver_kids_workers_lock);
-	worker = _driver_kids_workers[mount_pid];
-	if(worker == NULL) {
-		worker = (driver_kids_worker_t*)calloc(1, sizeof(driver_kids_worker_t));
-		if(worker != NULL) {
-			worker->mount_pid = mount_pid;
-			pthread_mutex_init(&worker->lock, NULL);
-			queue_init(&worker->jobs);
-			_driver_kids_workers[mount_pid] = worker;
+	pthread_mutex_lock(&_driver_async_worker.lock);
+	if(_driver_async_worker.started == 0) {
+		if(pthread_create(&tid, NULL, driver_async_worker_entry, &_driver_async_worker) == 0) {
+			pthread_detach(tid);
+			_driver_async_worker.thread = tid;
+			_driver_async_worker.started = 1;
 		}
 	}
-	pthread_mutex_unlock(&_driver_kids_workers_lock);
-	return worker;
+	pthread_mutex_unlock(&_driver_async_worker.lock);
 }
 
 static bool queue_driver_kids_job(vfs_node_t* father, int32_t mount_pid) {
 	driver_kids_job_t* job;
-	driver_kids_worker_t* worker;
+	pthread_t tid;
 
 	if(father == NULL || mount_pid <= 0)
 		return false;
-	worker = get_driver_kids_worker(mount_pid);
-	if(worker == NULL)
+	if(_driver_async_worker.started == 0)
 		return false;
 	job = (driver_kids_job_t*)calloc(1, sizeof(driver_kids_job_t));
 	if(job == NULL)
 		return false;
 
+	job->job_type = DRIVER_ASYNC_JOB_KIDS;
 	job->mount_pid = mount_pid;
 	job->father_node_id = vfs_get_node_id(father);
 	memcpy(&job->father_info, gen_fsinfo(father), sizeof(fsinfo_t));
 
-	pthread_mutex_lock(&worker->lock);
-	queue_push(&worker->jobs, job);
-	if(start_driver_kids_worker_locked(worker) != 0) {
-		(void)queue_pop(&worker->jobs);
-		pthread_mutex_unlock(&worker->lock);
-		free_driver_kids_job(job);
-		return false;
-	}
-	pthread_mutex_unlock(&worker->lock);
+	pthread_mutex_lock(&_driver_async_worker.lock);
+	queue_push(&_driver_async_worker.jobs, job);
+	tid = _driver_async_worker.thread;
+	pthread_mutex_unlock(&_driver_async_worker.lock);
+	if(tid != 0)
+		proc_wakeup_by((int32_t)tid, VFSD_WAKE_TOKEN_DRIVER_ASYNC);
 
 	father->kids_loading = 1;
 	return true;
@@ -563,7 +530,7 @@ static void vfs_wait_kids_loaded(vfs_node_t* father) {
 			break;
 		if(waited >= KIDS_LOAD_WAIT_BUDGET_US) {
 			/*
-			 * The original job keeps running on its mount worker, but do not pin
+			 * The original job keeps running on the shared async worker, but do not pin
 			 * this directory in a permanently "loading" state. Clearing the flag
 			 * lets the next access requeue and retry instead of timing out behind
 			 * an old stuck request forever.
@@ -1194,26 +1161,11 @@ static void vfs_driver_close(int32_t pid, int32_t owner_pid, int32_t fd, file_t*
 	PF->clear(&in);
 }
 
-static void* driver_close_worker_entry(void* arg) {
-        driver_close_worker_t* worker = (driver_close_worker_t*)arg;
-        worker->thread = pthread_self();
-
-        while(true) {
-                driver_close_task_t* task = NULL;
-
-                pthread_mutex_lock(&worker->lock);
-                task = (driver_close_task_t*)queue_pop(&_driver_close_tasks);
-                pthread_mutex_unlock(&worker->lock);
-                if(task == NULL) {
-                        proc_block_by(VFSD_WAKE_TOKEN_DRIVER_CLOSE);
-                        continue;
-                }
-
-                vfs_driver_close(task->pid, task->owner_pid, task->fd, &task->file);
-                free(task);
-        }
-
-        return NULL;
+static void driver_async_process_close_job(driver_close_task_t* job) {
+        if(job == NULL)
+                return;
+        vfs_driver_close(job->pid, job->owner_pid, job->fd, &job->file);
+        free(job);
 }
 
 static void enqueue_driver_close_task(driver_close_task_t* task) {
@@ -1222,27 +1174,13 @@ static void enqueue_driver_close_task(driver_close_task_t* task) {
         if(task == NULL)
                 return;
 
-        pthread_mutex_lock(&_driver_close_worker.lock);
-        queue_push(&_driver_close_tasks, task);
-        tid = _driver_close_worker.thread;
-        pthread_mutex_unlock(&_driver_close_worker.lock);
+        task->job_type = DRIVER_ASYNC_JOB_CLOSE;
+        pthread_mutex_lock(&_driver_async_worker.lock);
+        queue_push(&_driver_async_worker.jobs, task);
+        tid = _driver_async_worker.thread;
+        pthread_mutex_unlock(&_driver_async_worker.lock);
         if(tid != 0)
-                proc_wakeup_by((int32_t)tid, VFSD_WAKE_TOKEN_DRIVER_CLOSE);
-}
-
-static void start_driver_close_worker(void) {
-        pthread_t tid;
-
-        pthread_mutex_lock(&_driver_close_worker.lock);
-        if(_driver_close_worker.started == 0) {
-                if(pthread_create(&tid, NULL, driver_close_worker_entry,
-                                &_driver_close_worker) == 0) {
-                        pthread_detach(tid);
-                        _driver_close_worker.thread = tid;
-                        _driver_close_worker.started = 1;
-                }
-        }
-        pthread_mutex_unlock(&_driver_close_worker.lock);
+                proc_wakeup_by((int32_t)tid, VFSD_WAKE_TOKEN_DRIVER_ASYNC);
 }
 
 static int vfs_driver_dup_now(int32_t mount_pid, int32_t from_pid, int32_t from_fd,
@@ -1329,86 +1267,43 @@ static bool driver_dup_job_still_valid(const driver_dup_job_t* job) {
         return true;
 }
 
-static void* driver_dup_worker_entry(void* arg) {
-        driver_dup_worker_t* worker = (driver_dup_worker_t*)arg;
+static void driver_async_process_kids_job(driver_kids_job_t* job) {
+        if(job == NULL)
+                return;
 
-        while(true) {
-                driver_dup_job_t* job = NULL;
+        job->res = vfs_fetch_kids_from_driver(job->mount_pid, &job->father_info,
+                        &job->num, &job->infos);
 
-                pthread_mutex_lock(&worker->lock);
-                job = (driver_dup_job_t*)queue_pop(&worker->jobs);
-                if(job == NULL) {
-                        /*
-                         * Dup jobs are bursty during fork/clone. Tear the
-                         * helper down as soon as the queue drains so vfsd does
-                         * not keep one detached thread per mount_pid forever.
-                         */
-                        worker->started = 0;
-                        pthread_mutex_unlock(&worker->lock);
-                        break;
-                }
-                pthread_mutex_unlock(&worker->lock);
+        pthread_mutex_lock(&_driver_kids_results_lock);
+        queue_push(&_driver_kids_results, job);
+        pthread_mutex_unlock(&_driver_kids_results_lock);
+}
 
-                if(!driver_dup_job_still_valid(job)) {
-                        if(job->ctx != NULL) {
-                                clone_dup_ctx_complete(job->ctx);
-                                clone_dup_ctx_unref(job->ctx);
-                        }
-                        free(job);
-                        continue;
-                }
+static void driver_async_process_dup_job(driver_dup_job_t* job) {
+        if(job == NULL)
+                return;
 
-                if(vfs_driver_dup_now(job->mount_pid, job->from_pid, job->from_fd,
-                                job->dup_pid, job->dup_fd, &job->file) != 0) {
-                        klog("vfsd: driver dup failed mount=%d from=%d:%d dup=%d:%d node=%u\n",
-                                job->mount_pid, job->from_pid, job->from_fd,
-                                job->dup_pid, job->dup_fd, job->file.fsinfo.node);
-                }
-
+        if(!driver_dup_job_still_valid(job)) {
                 if(job->ctx != NULL) {
                         clone_dup_ctx_complete(job->ctx);
                         clone_dup_ctx_unref(job->ctx);
                 }
                 free(job);
+                return;
         }
 
-        return NULL;
-}
-
-static int start_driver_dup_worker_locked(driver_dup_worker_t* worker) {
-        pthread_t tid;
-
-        if(worker == NULL)
-                return -1;
-        if(worker->started != 0)
-                return 0;
-        if(pthread_create(&tid, NULL, driver_dup_worker_entry, worker) != 0)
-                return -1;
-        pthread_detach(tid);
-        worker->thread = tid;
-        worker->started = 1;
-        return 0;
-}
-
-static driver_dup_worker_t* get_driver_dup_worker(int32_t mount_pid) {
-        driver_dup_worker_t* worker = NULL;
-
-        if(mount_pid <= 0 || mount_pid >= (int32_t)_max_proc_table_num)
-                return NULL;
-
-        pthread_mutex_lock(&_driver_dup_workers_lock);
-        worker = _driver_dup_workers[mount_pid];
-        if(worker == NULL) {
-                worker = (driver_dup_worker_t*)calloc(1, sizeof(driver_dup_worker_t));
-                if(worker != NULL) {
-                        worker->mount_pid = mount_pid;
-                        pthread_mutex_init(&worker->lock, NULL);
-                        queue_init(&worker->jobs);
-                        _driver_dup_workers[mount_pid] = worker;
-                }
+        if(vfs_driver_dup_now(job->mount_pid, job->from_pid, job->from_fd,
+                        job->dup_pid, job->dup_fd, &job->file) != 0) {
+                klog("vfsd: driver dup failed mount=%d from=%d:%d dup=%d:%d node=%u\n",
+                                job->mount_pid, job->from_pid, job->from_fd,
+                                job->dup_pid, job->dup_fd, job->file.fsinfo.node);
         }
-        pthread_mutex_unlock(&_driver_dup_workers_lock);
-        return worker;
+
+        if(job->ctx != NULL) {
+                clone_dup_ctx_complete(job->ctx);
+                clone_dup_ctx_unref(job->ctx);
+        }
+        free(job);
 }
 
 static clone_dup_ctx_t* clone_dup_ctx_create(void) {
@@ -1501,8 +1396,8 @@ static bool queue_driver_dup_job(clone_dup_ctx_t* ctx, int32_t mount_pid,
                 int32_t from_pid, int32_t from_fd,
                 int32_t dup_pid, int32_t dup_fd, file_t* file) {
         uint32_t type;
-        driver_dup_worker_t* worker;
         driver_dup_job_t* job;
+        pthread_t tid;
 
         if(file == NULL || file->node == NULL)
                 return false;
@@ -1511,15 +1406,14 @@ static bool queue_driver_dup_job(clone_dup_ctx_t* ctx, int32_t mount_pid,
                 return false;
         if(from_pid == dup_pid)
                 return false;
-
-        worker = get_driver_dup_worker(mount_pid);
-        if(worker == NULL)
+        if(_driver_async_worker.started == 0)
                 return false;
 
         job = (driver_dup_job_t*)calloc(1, sizeof(driver_dup_job_t));
         if(job == NULL)
                 return false;
 
+        job->job_type = DRIVER_ASYNC_JOB_DUP;
         job->mount_pid = mount_pid;
         job->from_pid = from_pid;
         job->from_fd = from_fd;
@@ -1535,19 +1429,12 @@ static bool queue_driver_dup_job(clone_dup_ctx_t* ctx, int32_t mount_pid,
                 pthread_mutex_unlock(&ctx->lock);
                 clone_dup_ctx_ref(ctx); /* released by whoever completes the job */
         }
-        pthread_mutex_lock(&worker->lock);
-        queue_push(&worker->jobs, job);
-        if(start_driver_dup_worker_locked(worker) != 0) {
-                (void)queue_pop(&worker->jobs);
-                pthread_mutex_unlock(&worker->lock);
-                if(ctx != NULL) {
-                        clone_dup_ctx_complete(ctx);
-                        clone_dup_ctx_unref(ctx);
-                }
-                free(job);
-                return false;
-        }
-        pthread_mutex_unlock(&worker->lock);
+        pthread_mutex_lock(&_driver_async_worker.lock);
+        queue_push(&_driver_async_worker.jobs, job);
+        tid = _driver_async_worker.thread;
+        pthread_mutex_unlock(&_driver_async_worker.lock);
+        if(tid != 0)
+                proc_wakeup_by((int32_t)tid, VFSD_WAKE_TOKEN_DRIVER_ASYNC);
         return true;
 }
 
@@ -3014,7 +2901,7 @@ int main(int argc, char** argv) {
 	}
 
         vfsd_init();
-        start_driver_close_worker();
+        start_driver_async_worker();
 	ipc_serv_run(handle, clear_pending_zombies, NULL, IPC_DEFAULT);
 
 	while(true) {
