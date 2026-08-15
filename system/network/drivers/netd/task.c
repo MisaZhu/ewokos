@@ -147,7 +147,7 @@ static int task_start_worker_locked(net_task_t *task) {
         if (saved_errno == 0)
             saved_errno = EAGAIN;
         errno = saved_errno;
-        klog("netd: task worker pthread_create failed fd=%d from_pid=%d node=%d err=%d\n",
+        slog("netd: task worker pthread_create failed fd=%d from_pid=%d node=%d err=%d\n",
                 task->fd, task->from_pid, task->node, saved_errno);
         return -1;
     }
@@ -314,7 +314,7 @@ void start_task(void){
         pthread_detach(wakeup_tid);
         wakeup_thread_ok = 1;
     } else {
-        klog("netd: wakeup flusher thread create failed, using direct wakeups\n");
+        slog("netd: wakeup flusher thread create failed, using direct wakeups\n");
     }
 
     /*
@@ -323,7 +323,7 @@ void start_task(void){
      */
     struct timeval timeout_interval = {0, TASK_TIMEOUT_TICK_US};
     if (net_timer_register("TASK Timeout", timeout_interval, task_timeout_check) == -1) {
-        klog("netd: task timeout timer register failed\n");
+        slog("netd: task timeout timer register failed\n");
     }
 }
 
@@ -331,7 +331,7 @@ net_task_t *create_task(int fd, int from_pid, int node){
     net_task_t *task = malloc(sizeof(net_task_t));
     if(task == NULL) {
         errno = ENOMEM;
-        klog("netd: create_task malloc failed fd=%d from_pid=%d node=%d active=%u created=%u freed=%u\n",
+        slog("netd: create_task malloc failed fd=%d from_pid=%d node=%d active=%u created=%u freed=%u\n",
                 fd, from_pid, node, task_active_count, task_total_created,
                 task_total_freed);
         return NULL;
@@ -783,8 +783,8 @@ int do_network_fcntl(net_task_t *task){
 			 * accept() now runs on the socket's dedicated worker, so it can
 			 * take the stack mutex directly. Using the trylock probe here can
 			 * strand the request in PROCESS forever: a transient "lock busy"
-			 * result leaves a queued backlog entry with no future edge to
-			 * restart the worker. Only park when the listen backlog is
+                         * result leaves a queued backlog entry with no future edge to
+                         * restart the worker. Only park when the listen backlog is
 			 * genuinely empty.
 			 */
 			if(sock >= 0 && !sock_readable(sock))
@@ -941,6 +941,7 @@ static int do_network_write(net_task_t *task){
     int tcp_desc = -1;
     int tcp_state = -1;
     int tcp_remain = -1;
+    int send_recheck = 0;
 
     /*
      * The client was already handed the full byte count when this write was
@@ -960,7 +961,7 @@ static int do_network_write(net_task_t *task){
 
     if(!sock_writable(task->sock)) {
         if(sock_tcp_scan_info(task->sock, &tcp_desc, &tcp_state, &tcp_remain) == 0) {
-            klog("netd: write wait sock=%d desc=%d state=%d remain=%d off=%u in=%u err=%d\n",
+            slog("netd: write wait sock=%d desc=%d state=%d remain=%d off=%u in=%u err=%d\n",
                     task->sock, tcp_desc, tcp_state, tcp_remain,
                     (unsigned int)task->write_off,
                     (unsigned int)task->write_in.size, task->write_err);
@@ -981,29 +982,60 @@ static int do_network_write(net_task_t *task){
         return 1;
     }
 
-    errno = 0;
-    ret = sock_send(task->sock, data + task->write_off, size - task->write_off);
-    sock_errno = errno;
-    if(ret < 0 && sock_errno == 0)
-        sock_errno = EAGAIN;
-    if(ret < 0 && (sock_errno == EAGAIN || sock_errno == EINTR)) {
-        task->write_in.offset = saved_offset;
-        pthread_mutex_lock(&task->lock);
-        task->write_ready = false;
-        pthread_mutex_unlock(&task->lock);
-        return 0;
-    }
-    if(ret < 0) {
-        pthread_mutex_lock(&task->lock);
-        if(task->write_err == 0)
-            task->write_err = sock_errno;
-        task->write_ready = false;
-        pthread_mutex_unlock(&task->lock);
-        return 1;
-    }
-    task->write_off += (uint32_t)ret;
-    if(task->write_off < (uint32_t)size) {
-        /* Window closed with a short send: stay armed for the ACK rearm. */
+    while(task->write_off < (uint32_t)size) {
+        errno = 0;
+        ret = sock_send(task->sock, data + task->write_off, size - task->write_off);
+        sock_errno = errno;
+        if(ret < 0 && sock_errno == 0)
+            sock_errno = EAGAIN;
+        if(ret < 0 && (sock_errno == EAGAIN || sock_errno == EINTR)) {
+            if(sock_tcp_scan_info(task->sock, &tcp_desc, &tcp_state, &tcp_remain) == 0) {
+                slog("netd: send defer sock=%d desc=%d state=%d remain=%d off=%u size=%d err=%d\n",
+                        task->sock, tcp_desc, tcp_state, tcp_remain,
+                        (unsigned int)task->write_off, size, sock_errno);
+            }
+            task->write_in.offset = saved_offset;
+            /*
+             * Lost-wakeup guard for the async write slot: the ACK/window update may
+             * have reopened the socket while this worker was still inside
+             * sock_send(). If we only wait for a future task_wakeup_tcp_writers(),
+             * a raspi5 timing window can leave write_state parked forever with no
+             * more ACK coming to rearm it.
+             */
+            send_recheck = (task->sock >= 0 && sock_writable(task->sock)) ? 1 : 0;
+            pthread_mutex_lock(&task->lock);
+            task->write_ready = send_recheck ? true : false;
+            if(send_recheck)
+                task->write_state = NET_TASK_START;
+            pthread_mutex_unlock(&task->lock);
+            return 0;
+        }
+        if(ret < 0) {
+            pthread_mutex_lock(&task->lock);
+            if(task->write_err == 0)
+                task->write_err = sock_errno;
+            task->write_ready = false;
+            pthread_mutex_unlock(&task->lock);
+            return 1;
+        }
+        task->write_off += (uint32_t)ret;
+        if(task->write_off >= (uint32_t)size)
+            break;
+
+        /*
+         * Keep draining within the same worker turn while the socket still has
+         * space. raspi5 often advances one async write slot in multiple small
+         * fragments (1438/2538/119...), and parking after every fragment makes
+         * progress hinge on perfect ACK wake cadence.
+         */
+        if(sock_writable(task->sock))
+            continue;
+
+        if(sock_tcp_scan_info(task->sock, &tcp_desc, &tcp_state, &tcp_remain) == 0) {
+            slog("netd: send short sock=%d desc=%d state=%d remain=%d off=%u size=%d ret=%d\n",
+                    task->sock, tcp_desc, tcp_state, tcp_remain,
+                    (unsigned int)task->write_off, size, ret);
+        }
         task->write_in.offset = saved_offset;
         pthread_mutex_lock(&task->lock);
         task->write_ready = false;
@@ -1193,6 +1225,12 @@ int task_wakeup_tcp_writers(int tcp_desc) {
     } else {
         task->write_ready = true;
         wake_node = task->node;
+    }
+    if(task->cmd == SOCK_SEND || task->write_state != NET_TASK_IDLE) {
+        slog("netd: writer wake desc=%d sock=%d cmd=%d wstate=%d state=%d worker=%d wake_node=%u off=%u err=%d\n",
+                tcp_desc, sock_id, task->cmd, task->write_state, task->state,
+                worker_ready, wake_node, (unsigned int)task->write_off,
+                task->write_err);
     }
     pthread_mutex_unlock(&task->lock);
 

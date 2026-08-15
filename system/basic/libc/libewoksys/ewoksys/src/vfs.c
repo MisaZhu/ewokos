@@ -482,7 +482,14 @@ static int read_pipe(int fd, ewokos_addr_t node, void* buf, uint32_t size, bool 
 		if(res != 0 || !block)
 			return res;
 
-		proc_block_by(node);
+		/*
+		 * The legacy IPC pipe path still relies on vfsd's uuid-validated wait
+		 * queues. Sleeping directly on proc_block_by(node) here would bypass
+		 * that registration and make correctness depend on ad-hoc direct wakes
+		 * instead of the shared VFS wakeup path.
+		 */
+		if(vfs_block(node, VFS_EVT_RD) != 0)
+			return -1;
 	}
 }
 
@@ -558,7 +565,13 @@ static int write_pipe(int fd, ewokos_addr_t node, const void* buf, uint32_t size
 		if(res != 0 || !block)
 			return res;
 
-		proc_block_by(node);
+		/*
+		 * Mirror read_pipe(): even the fallback IPC path must block via vfsd's
+		 * wait queue so wake delivery stays uuid-scoped and owned by the VFS
+		 * control plane instead of a raw proc_block_by(node) latch.
+		 */
+		if(vfs_block(node, VFS_EVT_WR) != 0)
+			return -1;
 	}
 }
 

@@ -2136,9 +2136,11 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 	 * Deliberately NOT stamping shm_ring->writer_pid here. That stamp is a
 	 * one-shot registration that the STAMPER must retire after its block
 	 * returns - but this caller is on the IPC fallback path (vfs.c
-	 * write_pipe()), which only does proc_block_by(node) and never clears a
-	 * stamp it did not write. The stamp therefore leaked and stayed in shared
-	 * memory forever, so every later reader of this pipe fired
+	 * write_pipe()), which does NOT own that shm stamp lifecycle. Let the
+	 * caller sleep through vfsd's wait queue instead of teaching the fallback
+	 * path to stamp and retire shared-memory pids it did not register. The old
+	 * direct-block variant leaked the stamp in shared memory forever, so every
+	 * later reader of this pipe fired
 	 * proc_wakeup_by(<dead pid>, <this node>). SYS_WAKEUP does not validate
 	 * uuid, and pids recycle fast (sshd forks per connection, the shell forks
 	 * per command), so those wakes landed on unrelated live processes carrying
@@ -2256,8 +2258,9 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 	 * Deliberately NOT stamping shm_ring->reader_pid here - see the mirror
 	 * comment in do_vfs_pipe_write() for why an un-retirable stamp turns into
 	 * stale cross-process wakeups. The uuid-validated wait queue below is the
-	 * only registration this IPC-fallback caller needs; a shm-path writer
-	 * publishes the empty->non-empty edge via vfs_wakeup(node, VFS_EVT_RD).
+	 * only registration this IPC-fallback caller needs; the caller now blocks
+	 * back through vfs_block(), and a shm-path writer publishes the
+	 * empty->non-empty edge via vfs_wakeup(node, VFS_EVT_RD).
 	 */
 	if(block) {
 		vfs_track_task_slot(pid);
