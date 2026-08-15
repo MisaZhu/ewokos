@@ -72,6 +72,6 @@
 @/bin/ipcserv /drivers/xserverd        /dev/x
 
 
-#@/bin/bgrun /bin/x/xsession misa 
+@/bin/bgrun /bin/x/xsession misa 
 #@/bin/bgrun /bin/x/xsession
 
