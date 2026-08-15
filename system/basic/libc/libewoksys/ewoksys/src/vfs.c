@@ -456,7 +456,8 @@ static int read_pipe(int fd, ewokos_addr_t node, void* buf, uint32_t size, bool 
 				__atomic_store_n(&ring->reader_pid, 0, __ATOMIC_RELAXED);
 				continue;
 			}
-			proc_block_by(node);
+			if(vfs_block(node, VFS_EVT_RD) != 0)
+				return -1;
 			__atomic_store_n(&ring->reader_pid, 0, __ATOMIC_RELAXED);
 		}
 	}
@@ -531,7 +532,8 @@ static int write_pipe(int fd, ewokos_addr_t node, const void* buf, uint32_t size
 					__atomic_store_n(&ring->writer_pid, 0, __ATOMIC_RELAXED);
 					continue;
 				}
-				proc_block_by(node);
+				if(vfs_block(node, VFS_EVT_WR) != 0)
+					return total > 0 ? total : -1;
 				__atomic_store_n(&ring->writer_pid, 0, __ATOMIC_RELAXED);
 			}
 		}
@@ -1205,6 +1207,35 @@ static uint32_t vfs_get_poll_events_by_node(ewokos_addr_t node_id) {
 	return res;
 }
 
+int  vfs_block_by_fd(int fd, int event) {
+	fsinfo_t info;
+	uint32_t wait_events = (uint32_t)event | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL;
+
+	if(vfs_get_by_fd(fd, &info) != 0 || info.node == 0)
+		return -1;
+
+	while(1) {
+		/*
+		 * For shared device nodes (notably /dev/net0), readiness is fd-local.
+		 * Re-check visibility through vfs_get_poll_events(fd) so one socket's
+		 * stale sticky node bit does not make another socket skip the sleep
+		 * forever.
+		 */
+		if((vfs_get_poll_events(fd) & wait_events) != 0) {
+			vfs_unblock(info.node);
+			return 0;
+		}
+		if(vfs_block_raw(info.node, event) != 0)
+			return -1;
+		if((vfs_get_poll_events(fd) & wait_events) != 0) {
+			vfs_unblock(info.node);
+			return 0;
+		}
+		proc_block_by(info.node);
+	}
+	return 0;
+}
+
 int  vfs_block(ewokos_addr_t node, int event) {
 	uint32_t wait_events = (uint32_t)event | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL;
 	while(1) {
@@ -1272,48 +1303,12 @@ int  vfs_clear_poll_events(ewokos_addr_t node_id, uint32_t events) {
 }
 
 uint32_t  vfs_get_poll_events(int fd) {
-        fsinfo_t info;
-        if(vfs_get_by_fd(fd, &info) != 0 || info.node == 0)
+	fsinfo_t info;
+	if(vfs_get_by_fd(fd, &info) != 0 || info.node == 0)
 		return 0;
 
-        uint32_t sticky = vfs_get_poll_events_by_node(info.node);
-        if(FS_IS_TYPE(info.type, FS_TYPE_PIPE)) {
-                fsfile_t* file = vfs_get_file(fd);
-                shm_pipe_t* ring = NULL;
-                if(file != NULL)
-                        ring = get_pipe_shm(fd, file);
-                if(ring != NULL) {
-                        uint32_t live = pipe_live_poll_events(ring);
-                        uint32_t sticky_rw = sticky & VFS_EVT_RW;
-                        uint32_t live_rw = live & VFS_EVT_RW;
-                        uint32_t stale_rw = sticky_rw & ~live_rw;
-                        if(stale_rw != 0) {
-                                vfs_clear_poll_events(info.node, stale_rw);
-                                sticky &= ~stale_rw;
-                        }
-                        return ((sticky | (live & VFS_EVT_CLOSE)) & ~VFS_EVT_RW) | live_rw;
-                }
-        }
-        uint32_t live = 0;
-        if(info.mount_pid > 0 && dev_poll(info.mount_pid, fd, &info, &live) == 0) {
-                uint32_t sticky_rw = sticky & VFS_EVT_RW;
-                uint32_t live_rw = live & VFS_EVT_RW;
-                uint32_t stale_rw = sticky_rw & ~live_rw;
-                if(stale_rw != 0) {
-                        vfs_clear_poll_events(info.node, stale_rw);
-                        sticky &= ~stale_rw;
-                }
-                return (sticky & ~VFS_EVT_RW) | live_rw;
-        }
-        return sticky;
-}
-
-static uint32_t vfs_get_poll_events_cached(int fd, const fsinfo_t* info) {
-        if(info == NULL || info->node == 0)
-                return 0;
-
-        uint32_t sticky = vfs_get_poll_events_by_node(info->node);
-        if(FS_IS_TYPE(info->type, FS_TYPE_PIPE)) {
+	uint32_t sticky = vfs_get_poll_events_by_node(info.node);
+	if(FS_IS_TYPE(info.type, FS_TYPE_PIPE)) {
 		fsfile_t* file = vfs_get_file(fd);
 		shm_pipe_t* ring = NULL;
 		if(file != NULL)
@@ -1324,22 +1319,62 @@ static uint32_t vfs_get_poll_events_cached(int fd, const fsinfo_t* info) {
 			uint32_t live_rw = live & VFS_EVT_RW;
 			uint32_t stale_rw = sticky_rw & ~live_rw;
 			if(stale_rw != 0) {
-                                vfs_clear_poll_events(info->node, stale_rw);
+				vfs_clear_poll_events(info.node, stale_rw);
 				sticky &= ~stale_rw;
 			}
 			return ((sticky | (live & VFS_EVT_CLOSE)) & ~VFS_EVT_RW) | live_rw;
 		}
 	}
 	uint32_t live = 0;
-        fsinfo_t live_info = *info;
-        if(live_info.mount_pid > 0 && dev_poll(live_info.mount_pid, fd, &live_info, &live) == 0) {
-		uint32_t sticky_rw = sticky & VFS_EVT_RW;
+	if(info.mount_pid > 0 && dev_poll(info.mount_pid, fd, &info, &live) == 0) {
 		uint32_t live_rw = live & VFS_EVT_RW;
-		uint32_t stale_rw = sticky_rw & ~live_rw;
-		if(stale_rw != 0) {
-                                vfs_clear_poll_events(info->node, stale_rw);
-			sticky &= ~stale_rw;
+		/*
+		 * Device nodes such as /dev/net0 can multiplex many logical
+		 * sockets behind one shared VFS node. Their RD/WR readiness is
+		 * fd-local, not node-global, so clearing sticky RW here based on
+		 * THIS fd's live state can erase another socket's only wake edge
+		 * before it blocks for accept()/send()/recv() again. Keep using
+		 * the live per-fd readiness to filter visibility, but leave the
+		 * shared node's sticky RW bits alone. Shared-node sleepers now
+		 * use vfs_block_by_fd() so they can wait on per-fd visibility
+		 * without globally consuming a sibling socket's edge.
+		 */
+		return (sticky & ~VFS_EVT_RW) | live_rw;
+	}
+	return sticky;
+}
+
+static uint32_t vfs_get_poll_events_cached(int fd, const fsinfo_t* info) {
+	if(info == NULL || info->node == 0)
+		return 0;
+
+	uint32_t sticky = vfs_get_poll_events_by_node(info->node);
+	if(FS_IS_TYPE(info->type, FS_TYPE_PIPE)) {
+		fsfile_t* file = vfs_get_file(fd);
+		shm_pipe_t* ring = NULL;
+		if(file != NULL)
+			ring = get_pipe_shm(fd, file);
+		if(ring != NULL) {
+			uint32_t live = pipe_live_poll_events(ring);
+			uint32_t sticky_rw = sticky & VFS_EVT_RW;
+			uint32_t live_rw = live & VFS_EVT_RW;
+			uint32_t stale_rw = sticky_rw & ~live_rw;
+			if(stale_rw != 0) {
+				vfs_clear_poll_events(info->node, stale_rw);
+				sticky &= ~stale_rw;
+			}
+			return ((sticky | (live & VFS_EVT_CLOSE)) & ~VFS_EVT_RW) | live_rw;
 		}
+	}
+	uint32_t live = 0;
+	fsinfo_t live_info = *info;
+	if(live_info.mount_pid > 0 && dev_poll(live_info.mount_pid, fd, &live_info, &live) == 0) {
+		uint32_t live_rw = live & VFS_EVT_RW;
+		/*
+		 * Same shared-device rule as vfs_get_poll_events(): do not let
+		 * one fd's live readiness clear RW bits for sibling sockets that
+		 * share the same node id (notably /dev/net0).
+		 */
 		return (sticky & ~VFS_EVT_RW) | live_rw;
 	}
 	return sticky;
@@ -1350,7 +1385,7 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 		return -1;
 
 	int res = 0;
-        poll_fd_cache_t* cache = NULL;
+	poll_fd_cache_t* cache = NULL;
 	bool registered = false;
 	bool multi_wait = (num > 1);
 	uint32_t backoff_us = VFS_POLL_BACKOFF_START_US;
@@ -1360,30 +1395,30 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 	if(timeout > 0)
 		start_ms = kernel_tic_ms(0);
 
-        cache = (poll_fd_cache_t*)calloc((size_t)num, sizeof(poll_fd_cache_t));
-        if(cache == NULL)
-                return -1;
+	cache = (poll_fd_cache_t*)calloc((size_t)num, sizeof(poll_fd_cache_t));
+	if(cache == NULL)
+		return -1;
 
 	while(true) {
-                for(int i = 0; i < num; ++i) {
-                        cache[i].valid = false;
-                        memset(&cache[i].info, 0, sizeof(fsinfo_t));
-                        if(vfs_get_by_fd(fds[i].fd, &cache[i].info) == 0 &&
-                                        cache[i].info.node != 0) {
-                                cache[i].valid = true;
-                        }
-                }
+		for(int i = 0; i < num; ++i) {
+			cache[i].valid = false;
+			memset(&cache[i].info, 0, sizeof(fsinfo_t));
+			if(vfs_get_by_fd(fds[i].fd, &cache[i].info) == 0 &&
+					cache[i].info.node != 0) {
+				cache[i].valid = true;
+			}
+		}
 
 		/* Phase 1: Check all FDs for current events */
 		res = 0;
 		for(int i = 0; i < num; ++i) {
-                        uint32_t visible;
+			uint32_t visible;
 			uint32_t mask = (uint32_t)fds[i].events | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL;
 
-                        if(cache[i].valid)
-                                visible = vfs_get_poll_events_cached(fds[i].fd, &cache[i].info);
-                        else
-                                visible = 0;
+			if(cache[i].valid)
+				visible = vfs_get_poll_events_cached(fds[i].fd, &cache[i].info);
+			else
+				visible = 0;
 			fds[i].revents = (uint16_t)(visible & mask);
 			if(fds[i].revents != 0)
 				res++;
@@ -1405,9 +1440,9 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 			/* Phase 3: Register for wakeup on the single node */
 			registered = true;
 			for(int i = 0; i < num; ++i) {
-                                if(cache[i].valid) {
-                                        wait_node = cache[i].info.node;
-                                        vfs_block_raw(cache[i].info.node, (int)fds[i].events);
+				if(cache[i].valid) {
+					wait_node = cache[i].info.node;
+					vfs_block_raw(cache[i].info.node, (int)fds[i].events);
 				}
 			}
 
@@ -1422,9 +1457,9 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 			 */
 			res = 0;
 			for(int i = 0; i < num; ++i) {
-                                if(cache[i].valid) {
-                                        uint32_t visible = vfs_get_poll_events_cached(fds[i].fd,
-                                                        &cache[i].info);
+				if(cache[i].valid) {
+					uint32_t visible = vfs_get_poll_events_cached(fds[i].fd,
+							&cache[i].info);
 					uint32_t mask = (uint32_t)fds[i].events | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL;
 					if((visible & mask) != 0) {
 						res++;
@@ -1447,7 +1482,8 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 					proc_block_by(wait_node);
 				else
 					proc_block();
-			} else {
+			}
+			else {
 				uint64_t now_ms = kernel_tic_ms(0);
 				uint64_t elapsed = now_ms - start_ms;
 				uint64_t remaining = (uint64_t)timeout - elapsed;
@@ -1473,25 +1509,26 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 		 * Registering multiple poll fds at once makes later nodes overwrite
 		 * earlier ones, which is exactly what breaks telnetd's socket+pipe poll.
 		 * For multi-fd poll, fall back to a short sleep loop instead of corrupting
-                 * the wait registration. Keep the fallback backoff noticeably above
-                 * 1ms, otherwise poll-heavy daemons can flood vfsd with
-                 * VFS_GET_BY_FD/VFS_GET_POLL_EVENTS IPCs and pin one CPU in pure
-                 * readiness probing.
+		 * the wait registration. Keep the fallback backoff noticeably above
+		 * 1ms, otherwise poll-heavy daemons can flood vfsd with
+		 * VFS_GET_BY_FD/VFS_GET_POLL_EVENTS IPCs and pin one CPU in pure
+		 * readiness probing.
 		 */
 		if(timeout < 0) {
-                        usleep(backoff_us);
+			usleep(backoff_us);
 			if(backoff_us < backoff_max_us) {
 				backoff_us *= 2;
 				if(backoff_us > backoff_max_us)
 					backoff_us = backoff_max_us;
 			}
-		} else {
+		}
+		else {
 			uint64_t now_ms = kernel_tic_ms(0);
 			uint64_t elapsed = now_ms - start_ms;
 			uint64_t remaining = (uint64_t)timeout - elapsed;
 			uint64_t remaining_us = remaining * 1000;
-                        if(remaining_us > backoff_us) {
-                                usleep(backoff_us);
+			if(remaining_us > backoff_us) {
+				usleep(backoff_us);
 				if(backoff_us < backoff_max_us) {
 					backoff_us *= 2;
 					if(backoff_us > backoff_max_us)
@@ -1513,11 +1550,11 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
 	 */
 	if(registered) {
 		for(int i = 0; i < num; ++i) {
-                        if(cache != NULL && cache[i].valid)
-                                vfs_unblock(cache[i].info.node);
+			if(cache != NULL && cache[i].valid)
+				vfs_unblock(cache[i].info.node);
 		}
 	}
-        free(cache);
+	free(cache);
 	return res;
 }
 

@@ -13,6 +13,21 @@
 
 static uint32_t fcntl_wait_event(int cmd) {
     switch (cmd) {
+        case SOCK_OPEN:
+        case SOCK_BIND:
+        case SOCK_LISTEN:
+        case SOCK_LINK:
+        case SOCK_SETOPT:
+        case SOCK_GETOPT:
+            /*
+             * netd completes these control-path commands on the per-socket
+             * worker now. They do not have a semantic readiness edge of their
+             * own, so use WR as the generic completion channel: the worker
+             * posts VFS_EVT_WR on finish and do_vfs_fcntl() waits on per-fd
+             * visibility, so a shared /dev/net0 node does not smear readiness
+             * across sibling sockets.
+             */
+            return VFS_EVT_WR;
         case SOCK_RECV:
         case SOCK_RECVFROM:
         case SOCK_ACCEPT:
@@ -40,6 +55,20 @@ static int fcntl_retry_backoff_us(uint32_t wait_event) {
     return (wait_event == VFS_EVT_WR) ? 0 : 3000;
 }
 
+static int fcntl_wait_uses_fd_visibility(int cmd) {
+    switch (cmd) {
+        case SOCK_RECV:
+        case SOCK_RECVFROM:
+        case SOCK_ACCEPT:
+        case SOCK_CONNECT:
+        case SOCK_SEND:
+        case SOCK_SENDTO:
+            return 1;
+        default:
+            return 0;
+    }
+}
+
 
 static int do_vfs_fcntl(int fd, int cmd, proto_t* arg_in, proto_t* arg_out){ 
     int ret;
@@ -56,31 +85,18 @@ static int do_vfs_fcntl(int fd, int cmd, proto_t* arg_in, proto_t* arg_out){
             continue;
         }
         /*
-         * /dev/net0 descriptors share the same VFS node, so RD/WR edges raised
-         * by an accepted/data socket can leave a stale event latched on the
-         * listener's node. If accept/connect/send retries block on that stale
-         * bit, vfs_block() returns immediately forever and the call appears to
-         * lose blocking mode after the first connection. Clear the stale edge,
-         * retry the actual fcntl once, then sleep only if it is still pending.
+         * Only readiness-driven commands should wait via fd-local visibility.
+         * Control-path fcntls such as OPEN/BIND/LISTEN/LINK complete via a
+         * synthetic sticky WR edge from netd's worker and do NOT have a
+         * corresponding live writable state; forcing them through
+         * vfs_get_poll_events(fd) would hide their only completion signal.
          */
-        vfs_clear_poll_events(info.node, wait_event);
-        ret = vfs_fcntl(fd, cmd, arg_in, arg_out);
-        if(ret != VFS_ERR_RETRY)
-            break;
-		/*
-		 * Mirror vfs_poll()'s live readiness re-check before sleeping.
-		 * Socket/device backends can publish a completed ACCEPT/RECV/SEND
-		 * through dev_poll() even if the sticky node bit was just cleared or
-		 * the wake edge landed in the retry window. Blocking here based only on
-		 * the sticky node state reintroduces the classic "accept done but user
-		 * thread never wakes" hang under reconnect/load.
-		 */
-		if((vfs_get_poll_events(fd) & (wait_event | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL)) != 0) {
-                        proc_usleep(fcntl_retry_backoff_us(wait_event));
-			continue;
-		}
-        if(vfs_block(info.node, wait_event) != 0)
+        if(fcntl_wait_uses_fd_visibility(cmd)) {
+            if(vfs_block_by_fd(fd, wait_event) != 0)
+                return -1;
+        } else if(vfs_block(info.node, wait_event) != 0) {
             return -1;
+        }
         proc_usleep(fcntl_retry_backoff_us(wait_event));
     };
 
@@ -88,13 +104,20 @@ static int do_vfs_fcntl(int fd, int cmd, proto_t* arg_in, proto_t* arg_out){
 }
 
 int socket (int domain, int type, int protocol){
+	int ret;
 	proto_t in,out;
     int fd = open("/dev/net0", 0);
-    if(fd <= 0)
+    if(fd < 0)
         return -1;
     PF->init(&in)->addi(&in, domain)->addi(&in, type)->addi(&in, protocol);
     PF->init(&out);
-    do_vfs_fcntl(fd, SOCK_OPEN, &in , &out);
+    ret = do_vfs_fcntl(fd, SOCK_OPEN, &in , &out);
+    if(ret != 0) {
+        PF->clear(&in);
+        PF->clear(&out);
+        close(fd);
+        return -1;
+    }
     int sock = proto_read_int(&out);
     PF->clear(&in);
     PF->clear(&out);
@@ -105,8 +128,10 @@ int socket (int domain, int type, int protocol){
     }
 
     fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
+	if(vfs_get_by_fd(fd, &info) != 0) {
+		close(fd);
 		return -1;
+	}
     return fd;
 }
 
@@ -121,8 +146,9 @@ int bind (int fd, const struct sockaddr* addr, uint32_t len){
     
     PF->init(&in)->add(&in, addr, len);
     PF->init(&out);
-	do_vfs_fcntl(fd, SOCK_BIND, &in , &out);
-    ret = proto_read_int(&out);
+	ret = do_vfs_fcntl(fd, SOCK_BIND, &in , &out);
+    if(ret == 0)
+        ret = proto_read_int(&out);
     PF->clear(&in);
 	PF->clear(&out);
 
@@ -320,8 +346,9 @@ int setsockopt (int fd, int level, int optname,
 
     PF->init(&in)->addi(&in, level)->addi(&in, optname)->add(&in, optval, optlen);
     PF->init(&out);
-	do_vfs_fcntl(fd, SOCK_SETOPT, &in , &out);
-    ret = proto_read_int(&out);
+	ret = do_vfs_fcntl(fd, SOCK_SETOPT, &in , &out);
+    if(ret == 0)
+        ret = proto_read_int(&out);
     PF->clear(&in);
 	PF->clear(&out);
 
@@ -333,8 +360,9 @@ int listen (int fd, int n){
 	proto_t in,out;
     PF->init(&in)->addi(&in, n);
     PF->init(&out);
-	do_vfs_fcntl(fd, SOCK_LISTEN, &in , &out);
-    ret = proto_read_int(&out);
+	ret = do_vfs_fcntl(fd, SOCK_LISTEN, &in , &out);
+    if(ret == 0)
+        ret = proto_read_int(&out);
     PF->clear(&in);
 	PF->clear(&out);
 
@@ -404,8 +432,9 @@ int shutdown (int fd, int how){
 	proto_t in, out;
     PF->init(&in)->addi(&in, how);
     PF->init(&out);
-    do_vfs_fcntl(fd, SOCK_CLOSE, NULL , &out);
-    ret = proto_read_int(&out);
+    ret = do_vfs_fcntl(fd, SOCK_CLOSE, NULL , &out);
+    if(ret == 0)
+        ret = proto_read_int(&out);
     PF->clear(&out);
     return ret;
 }

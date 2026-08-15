@@ -104,6 +104,13 @@ typedef struct clone_dup_ctx {
         pthread_mutex_t lock;
         int pending;
         pthread_t waiter;
+        /*
+         * Shared between the main IPC context and dup worker threads: the
+         * bounded wait below can give up and return while a worker still
+         * holds job->ctx, so the ctx must be heap-allocated and refcounted
+         * instead of living on the caller's stack.
+         */
+        int refs;
 } clone_dup_ctx_t;
 
 typedef struct {
@@ -145,8 +152,11 @@ static inline fsinfo_t* gen_fsinfo(vfs_node_t* node);
 static int32_t vfs_add_node(int32_t pid, vfs_node_t* father, vfs_node_t* node);
 static void vfs_track_task_slot(int32_t pid);
 static void enqueue_waiter(queue_t* q, int32_t pid, uint32_t uuid, bool wr, uint32_t node_id);
+static wait_entry_t* wait_queue_pop(queue_t* q);
+static void wakeup_proc(wait_entry_t* waiter, vfs_node_t* node, int32_t events);
 static void enqueue_driver_close_task(driver_close_task_t* task);
 static void clone_dup_ctx_complete(clone_dup_ctx_t* ctx);
+static void clone_dup_ctx_unref(clone_dup_ctx_t* ctx);
 static void vfs_try_finish_umount(vfs_node_t* node);
 
 static uint32_t vfs_alloc_node_id(void) {
@@ -600,8 +610,24 @@ static int32_t vfs_del_node(vfs_node_t* node) {
 		node->next->prev = node->prev;
 	if(node->prev != NULL)
 		node->prev->next = node->next;
-	queue_clear(&node->read_wait_queue, free);
-	queue_clear(&node->write_wait_queue, free);
+	/*
+	 * NEVER queue_clear(..., free) these queues: their queue_item_t nodes
+	 * are EMBEDDED in the wait_entry_t slots of the single-malloc
+	 * _proc_fds_table (see wait_queue_push()), so free() on item or data
+	 * is an invalid interior-pointer free that corrupts vfsd's heap. This
+	 * fired whenever a node died with waiters still linked - routine under
+	 * sshd's per-connection pipe churn, since wakeup_wait_queue() leaves
+	 * entries queued and KEV-driven exit cleanup lags ~50ms. Detach each
+	 * entry via wait_queue_pop() (clears waiter->queue, so no dangling
+	 * pointer into the freed node survives) and wake live owners: a client
+	 * still blocked on this dying node must re-check and bail out instead
+	 * of sleeping forever; spurious wakes are level-triggered-safe.
+	 */
+	wait_entry_t* waiter;
+	while((waiter = wait_queue_pop(&node->read_wait_queue)) != NULL)
+		wakeup_proc(waiter, node, VFS_EVT_CLOSE);
+	while((waiter = wait_queue_pop(&node->write_wait_queue)) != NULL)
+		wakeup_proc(waiter, node, VFS_EVT_CLOSE);
 	hashmap_remove(_nodes_hash, node_hash_key(node->node_id));
 	free(node);
 	return 0;
@@ -1102,8 +1128,10 @@ static void* driver_dup_worker_entry(void* arg) {
                 pthread_mutex_unlock(&worker->lock);
 
                 if(!driver_dup_job_still_valid(job)) {
-                        if(job->ctx != NULL)
+                        if(job->ctx != NULL) {
                                 clone_dup_ctx_complete(job->ctx);
+                                clone_dup_ctx_unref(job->ctx);
+                        }
                         free(job);
                         continue;
                 }
@@ -1115,8 +1143,10 @@ static void* driver_dup_worker_entry(void* arg) {
                                 job->dup_pid, job->dup_fd, job->file.fsinfo.node);
                 }
 
-                if(job->ctx != NULL)
+                if(job->ctx != NULL) {
                         clone_dup_ctx_complete(job->ctx);
+                        clone_dup_ctx_unref(job->ctx);
+                }
                 free(job);
         }
 
@@ -1159,9 +1189,27 @@ static driver_dup_worker_t* get_driver_dup_worker(int32_t mount_pid) {
         return worker;
 }
 
-static void clone_dup_ctx_init(clone_dup_ctx_t* ctx) {
-        memset(ctx, 0, sizeof(*ctx));
+static clone_dup_ctx_t* clone_dup_ctx_create(void) {
+        clone_dup_ctx_t* ctx = (clone_dup_ctx_t*)calloc(1, sizeof(clone_dup_ctx_t));
+        if(ctx == NULL)
+                return NULL;
         pthread_mutex_init(&ctx->lock, NULL);
+        ctx->refs = 1;
+        return ctx;
+}
+
+static void clone_dup_ctx_ref(clone_dup_ctx_t* ctx) {
+        if(ctx != NULL)
+                __atomic_add_fetch(&ctx->refs, 1, __ATOMIC_RELAXED);
+}
+
+static void clone_dup_ctx_unref(clone_dup_ctx_t* ctx) {
+        if(ctx == NULL)
+                return;
+        if(__atomic_sub_fetch(&ctx->refs, 1, __ATOMIC_ACQ_REL) == 0) {
+                pthread_mutex_destroy(&ctx->lock);
+                free(ctx);
+        }
 }
 
 static void clone_dup_ctx_complete(clone_dup_ctx_t* ctx) {
@@ -1183,7 +1231,26 @@ static void clone_dup_ctx_complete(clone_dup_ctx_t* ctx) {
                 proc_wakeup_by((int32_t)waiter, VFSD_WAKE_TOKEN_CLONE_DUP);
 }
 
-static void clone_dup_ctx_wait(clone_dup_ctx_t* ctx) {
+/*
+ * Upper bound for waiting on driver-side FS_CMD_DUP completion. This wait
+ * runs in vfsd's MAIN IPC context (do_vfs_dup/do_vfs_dup2), so an unbounded
+ * proc_block_by() here is a single point of failure for the whole system: if
+ * the target driver (netd under sshd load) does not answer - e.g. its
+ * dispatch context is itself stuck on a reverse call into vfsd - vfsd wedges
+ * forever, every VFS client (X included) hangs, and the kernel's IPC timeout
+ * never fires because it freezes the counter while the server is BLOCKed.
+ * Sleep-poll with backoff instead of a bare proc_block_by(): the sleep is
+ * timer-driven so it always returns, while clone_dup_ctx_complete()'s
+ * proc_wakeup_by() still interrupts it early on the fast path.
+ */
+#define CLONE_DUP_WAIT_BUDGET_US   2000000U
+#define CLONE_DUP_WAIT_STEP_MIN_US 500U
+#define CLONE_DUP_WAIT_STEP_MAX_US 5000U
+
+static void clone_dup_ctx_wait(clone_dup_ctx_t* ctx, int32_t mount_pid) {
+        uint32_t waited = 0;
+        uint32_t step = CLONE_DUP_WAIT_STEP_MIN_US;
+
         while(true) {
                 pthread_mutex_lock(&ctx->lock);
                 if(ctx->pending <= 0) {
@@ -1191,14 +1258,21 @@ static void clone_dup_ctx_wait(clone_dup_ctx_t* ctx) {
                         pthread_mutex_unlock(&ctx->lock);
                         return;
                 }
+                if(waited >= CLONE_DUP_WAIT_BUDGET_US) {
+                        ctx->waiter = 0;
+                        pthread_mutex_unlock(&ctx->lock);
+                        klog("vfsd: driver dup wait timeout mount=%d, giving up (async job still queued)\n",
+                                        mount_pid);
+                        return;
+                }
                 ctx->waiter = pthread_self();
                 pthread_mutex_unlock(&ctx->lock);
-                proc_block_by(VFSD_WAKE_TOKEN_CLONE_DUP);
+                proc_usleep(step);
+                waited += step;
+                step *= 2;
+                if(step > CLONE_DUP_WAIT_STEP_MAX_US)
+                        step = CLONE_DUP_WAIT_STEP_MAX_US;
         }
-}
-
-static void clone_dup_ctx_destroy(clone_dup_ctx_t* ctx) {
-        pthread_mutex_destroy(&ctx->lock);
 }
 
 static bool queue_driver_dup_job(clone_dup_ctx_t* ctx, int32_t mount_pid,
@@ -1237,14 +1311,17 @@ static bool queue_driver_dup_job(clone_dup_ctx_t* ctx, int32_t mount_pid,
                 pthread_mutex_lock(&ctx->lock);
                 ctx->pending++;
                 pthread_mutex_unlock(&ctx->lock);
+                clone_dup_ctx_ref(ctx); /* released by whoever completes the job */
         }
         pthread_mutex_lock(&worker->lock);
         queue_push(&worker->jobs, job);
         if(start_driver_dup_worker_locked(worker) != 0) {
                 (void)queue_pop(&worker->jobs);
                 pthread_mutex_unlock(&worker->lock);
-                if(ctx != NULL)
+                if(ctx != NULL) {
                         clone_dup_ctx_complete(ctx);
+                        clone_dup_ctx_unref(ctx);
+                }
                 free(job);
                 return false;
         }
@@ -1257,7 +1334,6 @@ static void vfs_driver_dup(int32_t from_pid, int32_t from_fd,
         uint32_t type;
         bool anonymous;
         int32_t mount_pid;
-        clone_dup_ctx_t ctx;
 
         if(file == NULL || file->node == NULL)
                 return;
@@ -1273,14 +1349,39 @@ static void vfs_driver_dup(int32_t from_pid, int32_t from_fd,
                 return;
 
         mount_pid = file->fsinfo.mount_pid;
-        clone_dup_ctx_init(&ctx);
-        if(!queue_driver_dup_job(&ctx, mount_pid, from_pid, from_fd, dup_pid, dup_fd, file)) {
-                clone_dup_ctx_destroy(&ctx);
+        clone_dup_ctx_t* ctx = clone_dup_ctx_create();
+        if(ctx == NULL ||
+                        !queue_driver_dup_job(ctx, mount_pid, from_pid, from_fd, dup_pid, dup_fd, file)) {
+                clone_dup_ctx_unref(ctx);
                 vfs_driver_dup_now(mount_pid, from_pid, from_fd, dup_pid, dup_fd, file);
                 return;
         }
-        clone_dup_ctx_wait(&ctx);
-        clone_dup_ctx_destroy(&ctx);
+        clone_dup_ctx_wait(ctx, mount_pid);
+        clone_dup_ctx_unref(ctx);
+}
+
+/*
+ * Retire any shm-pipe block registration owned by 'pid'.
+ *
+ * The stamp is normally cleared by the stamper itself right after
+ * proc_block_by() returns (see read_pipe()/write_pipe() in libc). A task that
+ * is killed while blocked never gets there, so its stamp would survive in
+ * shared memory and later make some peer call proc_wakeup_by() on a dead pid.
+ * SYS_WAKEUP performs no uuid check, so once that pid is recycled the wake
+ * hits an unrelated live process with this pipe's node token.
+ */
+static void pipe_retire_pid_stamps(vfs_node_t* node, int32_t pid) {
+	int32_t expect;
+
+	if(node == NULL || node->shm_ring == NULL || pid <= 0)
+		return;
+
+	expect = pid;
+	__atomic_compare_exchange_n(&node->shm_ring->reader_pid, &expect, 0,
+			false, __ATOMIC_ACQ_REL, __ATOMIC_RELAXED);
+	expect = pid;
+	__atomic_compare_exchange_n(&node->shm_ring->writer_pid, &expect, 0,
+			false, __ATOMIC_ACQ_REL, __ATOMIC_RELAXED);
 }
 
 static void proc_file_close(int pid, int fd, file_t* file) {
@@ -1291,6 +1392,8 @@ static void proc_file_close(int pid, int fd, file_t* file) {
 	vfs_node_t* node = file->node;
 	if(node == NULL)
 		return;
+
+	pipe_retire_pid_stamps(node, pid);
 
 	if(node->refs > 0)
 		node->refs--;
@@ -1320,15 +1423,20 @@ static void proc_file_close(int pid, int fd, file_t* file) {
 			if(node->shm_ring != NULL) {
 				if(node->refs_w == 0) {
 					__atomic_store_n(&node->shm_ring->writer_closed, 1, __ATOMIC_RELEASE);
-					/* Wake shm-path reader directly */
-					int32_t rpid = __atomic_load_n(&node->shm_ring->reader_pid, __ATOMIC_RELAXED);
+					/* Wake shm-path reader directly. The stamp is a ONE-SHOT
+					 * block registration (see read_pipe() in libc): consume it
+					 * with exchange so it can never fire a second, stale wake
+					 * at a recycled pid. */
+					int32_t rpid = __atomic_exchange_n(&node->shm_ring->reader_pid, 0,
+							__ATOMIC_ACQUIRE);
 					if(rpid > 0)
 						proc_wakeup_by(rpid, node->node_id);
 				}
 				if(read_refs == 0) {
 					__atomic_store_n(&node->shm_ring->reader_closed, 1, __ATOMIC_RELEASE);
-					/* Wake shm-path writer directly */
-					int32_t wpid = __atomic_load_n(&node->shm_ring->writer_pid, __ATOMIC_RELAXED);
+					/* Wake shm-path writer directly (one-shot, see above) */
+					int32_t wpid = __atomic_exchange_n(&node->shm_ring->writer_pid, 0,
+							__ATOMIC_ACQUIRE);
 					if(wpid > 0)
 						proc_wakeup_by(wpid, node->node_id);
 				}
@@ -1994,8 +2102,12 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 		if(n > 0) {
 			sync_pipe_poll_events(node);
 			do_node_wakeup(node, VFS_EVT_RD);
-			/* Also wake the shm-path reader directly (it bypasses wait queue) */
-			int32_t rpid = __atomic_load_n(&node->shm_ring->reader_pid, __ATOMIC_RELAXED);
+			/* Also wake the shm-path reader directly (it bypasses wait queue).
+			 * Consume the one-shot stamp with exchange, exactly like
+			 * write_pipe() in libc, so it cannot fire again later against a
+			 * pid that has since been recycled. */
+			int32_t rpid = __atomic_exchange_n(&node->shm_ring->reader_pid, 0,
+					__ATOMIC_ACQUIRE);
 			if(rpid > 0)
 				proc_wakeup_by(rpid, node_id);
 			PF->clear(out)->addi(out, n);
@@ -2020,11 +2132,22 @@ static void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out) {
 	/*
 	 * Buffer is full. If the caller requested blocking, register the
 	 * process on the write wait queue atomically.
-	 * Also store the pid in shm ring so the shm-path reader can wake us.
+	 *
+	 * Deliberately NOT stamping shm_ring->writer_pid here. That stamp is a
+	 * one-shot registration that the STAMPER must retire after its block
+	 * returns - but this caller is on the IPC fallback path (vfs.c
+	 * write_pipe()), which only does proc_block_by(node) and never clears a
+	 * stamp it did not write. The stamp therefore leaked and stayed in shared
+	 * memory forever, so every later reader of this pipe fired
+	 * proc_wakeup_by(<dead pid>, <this node>). SYS_WAKEUP does not validate
+	 * uuid, and pids recycle fast (sshd forks per connection, the shell forks
+	 * per command), so those wakes landed on unrelated live processes carrying
+	 * a foreign node token and poisoned their wake latch - the "sshd hangs the
+	 * X server" bug. The wait queue below is uuid-validated and already
+	 * covers this waiter: a shm-path reader publishes the full->not-full edge
+	 * via vfs_wakeup(node, VFS_EVT_WR), which reaches do_node_wakeup().
 	 */
 	if(block) {
-		if(node->shm_ring != NULL)
-			__atomic_store_n(&node->shm_ring->writer_pid, pid, __ATOMIC_RELAXED);
 		vfs_track_task_slot(pid);
 		uint32_t uuid = proc_get_uuid(pid);
 		if(uuid != 0)
@@ -2071,8 +2194,11 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 				PF->clear(out)->addi(out, n)->add(out, tmp, n);
 				sync_pipe_poll_events(node);
 				do_node_wakeup(node, VFS_EVT_WR);
-				/* Also wake the shm-path writer directly (it bypasses wait queue) */
-				int32_t wpid = __atomic_load_n(&node->shm_ring->writer_pid, __ATOMIC_RELAXED);
+				/* Also wake the shm-path writer directly (it bypasses wait
+				 * queue). One-shot stamp: consume with exchange (see
+				 * read_pipe() in libc). */
+				int32_t wpid = __atomic_exchange_n(&node->shm_ring->writer_pid, 0,
+						__ATOMIC_ACQUIRE);
 				if(wpid > 0)
 					proc_wakeup_by(wpid, node_id);
 				if(shm_pipe_readable(node->shm_ring) == 0 && node->refs_w == 0) {
@@ -2126,11 +2252,14 @@ static void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out) {
 	/*
 	 * Pipe is empty but writer is still alive. If the caller requested
 	 * blocking, register the process on the read wait queue atomically.
-	 * Also store the pid in shm ring so the shm-path writer can wake us.
+	 *
+	 * Deliberately NOT stamping shm_ring->reader_pid here - see the mirror
+	 * comment in do_vfs_pipe_write() for why an un-retirable stamp turns into
+	 * stale cross-process wakeups. The uuid-validated wait queue below is the
+	 * only registration this IPC-fallback caller needs; a shm-path writer
+	 * publishes the empty->non-empty edge via vfs_wakeup(node, VFS_EVT_RD).
 	 */
 	if(block) {
-		if(node->shm_ring != NULL)
-			__atomic_store_n(&node->shm_ring->reader_pid, pid, __ATOMIC_RELAXED);
 		vfs_track_task_slot(pid);
 		uint32_t uuid = proc_get_uuid(pid);
 		if(uuid != 0)
@@ -2167,6 +2296,23 @@ static void vfs_proc_exit(int32_t cpid) {
 		clear_zombie(cpid);
 		return;
 	}
+	/*
+	 * Generation guard: KEV_PROC_EXIT carries ONLY a pid and travels through
+	 * core's polled kevent queue (~50ms lag), while threads created with the
+	 * same recycled pid start running IMMEDIATELY (kfork readies threads
+	 * without the CREATED handshake used for procs). So by the time a stale
+	 * EXIT lands here, the slot may already be re-materialized for a LIVE new
+	 * generation (vfs_track_task_slot/do_vfs_proc_clone reaped the old one at
+	 * reuse time). Reaping in that case removes the live task's wait-queue
+	 * entry (it sleeps in the kernel forever) and closes its fds behind its
+	 * back - unrelated processes wedged by mere pid churn. The kernel zeroes
+	 * the vsyscall uuid at proc_terminate() BEFORE core can forward the
+	 * event, so "slot generation still alive" proves this EXIT belongs to an
+	 * earlier occupant: skip it. A genuine exit always fails this check and
+	 * reaps exactly as before.
+	 */
+	if(proc_check_uuid(cpid, _proc_fds_table[cpid].uuid) != 0)
+		return;
 	_proc_fds_table[cpid].state = ZOMBIE;
 	/*
 	 * Process exit cleanup must be deterministic. The deferred zombie queue
@@ -2301,9 +2447,14 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
 	int fpid = proto_read_int(in);
 	int cpid = proto_read_int(in);
         bool child_dead = false;
+        clone_dup_ctx_t* dup_ctx = clone_dup_ctx_create();
+        int32_t dup_wait_mount = 0;
+        bool dup_wait_needed = false;
 	if(fpid < 0 || fpid >= _max_proc_table_num ||
-			cpid < 0 || cpid >= _max_proc_table_num)
+                        cpid < 0 || cpid >= _max_proc_table_num) {
+                clone_dup_ctx_unref(dup_ctx);
 		return;
+        }
 
 	if(_proc_fds_table[cpid].state == RUNNING ||
 			_proc_fds_table[cpid].state == ZOMBIE) {
@@ -2346,13 +2497,31 @@ static void do_vfs_proc_clone(int32_t pid, proto_t* in) {
                          * not be reported as failed "driver dup" work.
 			 */
                         file->driver_ref = needs_driver_dup ? 1 : 0;
-                        if(needs_driver_dup && !queue_driver_dup_job(NULL, file->fsinfo.mount_pid,
-                                        fpid, i, cpid, i, file)) {
-                                klog("vfsd: async driver dup queue failed mount=%d from=%d:%d dup=%d:%d node=%u\n",
-                                                file->fsinfo.mount_pid, fpid, i, cpid, i, file->fsinfo.node);
+                        if(needs_driver_dup) {
+                                bool queued = false;
+
+                                if(dup_ctx != NULL) {
+                                        queued = queue_driver_dup_job(dup_ctx, file->fsinfo.mount_pid,
+                                                        fpid, i, cpid, i, file);
+                                }
+                                if(queued) {
+                                        dup_wait_needed = true;
+                                        if(dup_wait_mount <= 0)
+                                                dup_wait_mount = file->fsinfo.mount_pid;
+                                }
+                                else if(vfs_driver_dup_now(file->fsinfo.mount_pid,
+                                                fpid, i, cpid, i, file) != 0) {
+                                        klog("vfsd: driver dup failed mount=%d from=%d:%d dup=%d:%d node=%u\n",
+                                                        file->fsinfo.mount_pid, fpid, i, cpid, i, file->fsinfo.node);
+                                }
                         }
 		}
 	}
+        if(dup_ctx != NULL) {
+                if(dup_wait_needed)
+                        clone_dup_ctx_wait(dup_ctx, dup_wait_mount);
+                clone_dup_ctx_unref(dup_ctx);
+        }
         /*
          * fork() notifies vfsd synchronously via VFS_PROC_CLONE, but process
          * create/exit lifecycle still reaches us through the polled core event
@@ -2415,10 +2584,21 @@ static void do_vfs_block(int32_t pid, proto_t* in) {
 	if(node == NULL)
 		return;
 
-	if((node->events & (uint32_t)events) != 0) {
-		return;
-	}
-
+	/*
+	 * ALWAYS enqueue, even if the requested event bit is currently set.
+	 * Skipping registration here ("event already pending, client will see
+	 * it") races with third parties clearing node->events between this
+	 * handler returning and the client's re-check in vfs_block():
+	 * sync_pipe_poll_events() recomputes RD/WR on every pipe op, and older
+	 * userspace/device paths may still consume sticky bits between the
+	 * registration IPC and the caller's post-register visibility check. If
+	 * the bit vanishes in that window the client blocks while
+	 * registered on NO queue and nobody ever wakes it - the "unrelated
+	 * process hangs forever" failure mode. Registering unconditionally is
+	 * safe: if the client's re-check still sees the event it calls
+	 * VFS_UNBLOCK, which removes the entry; a leftover entry only costs one
+	 * spurious wakeup, and vfs_block()'s loop re-checks poll state anyway.
+	 */
 	vfs_track_task_slot(pid);
 	uint32_t uuid = proc_get_uuid(pid);
 	if(uuid == 0)
@@ -2447,7 +2627,7 @@ static void do_vfs_wakeup(int32_t pid, proto_t* in) {
 	int events = proto_read_int(in);
 	if(node_id == 0)
 		return;
-    vfs_node_t* node = vfs_get_node_by_id(node_id);
+	vfs_node_t* node = vfs_get_node_by_id(node_id);
 	do_node_wakeup(node, events);
 }
 

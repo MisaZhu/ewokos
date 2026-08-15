@@ -1046,6 +1046,21 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
     case TCP_PCB_STATE_SYN_RECEIVED:
         if (pcb->snd.una <= seg->ack && seg->ack <= pcb->snd.nxt) {
             pcb->state = TCP_PCB_STATE_ESTABLISHED;
+            /*
+             * Passive open must initialize the peer send window exactly like
+             * active connect does. Otherwise accepted sockets inherit a zero
+             * snd.wnd and tcp_writable() reports permanently non-writable, so
+             * server-first protocols (sshd banner, telnet negotiation) stall
+             * forever right after accept().
+             */
+            pcb->peer_wscale = seg->has_wscale ? seg->wscale : 0;
+            pcb->wsopt_ok = seg->has_wscale ? 1 : 0;
+            pcb->snd.wnd = tcp_peer_window(pcb, seg->wnd);
+            pcb->snd.wl1 = seg->seq;
+            pcb->snd.wl2 = seg->ack;
+            debugf("passive established desc=%d wnd=%u una=%u nxt=%u ack=%u seq=%u q=%u",
+                   indexof(pcbs, pcb), pcb->snd.wnd, pcb->snd.una, pcb->snd.nxt,
+                   seg->ack, seg->seq, pcb->queue.num);
             tcp_sched_wakeup_all(pcb);
             task_wakeup_tcp_writers(indexof(pcbs, pcb));
             if (pcb->parent) {
@@ -2275,6 +2290,9 @@ RETRY:
                 cap = 0;
             }
             if (!cap) {
+                debugf("tcp_send stalled desc=%d state=%d inflight=%u wnd=%u q=%u len=%zu sent=%zd",
+                       id, pcb->state, (unsigned int)inflight, (unsigned int)pcb->snd.wnd,
+                       pcb->queue.num, len, sent);
                 /*
                  * Send window is closed. Do NOT sched_sleep() here: this runs
                  * on the single per-socket netd worker thread, and blocking it

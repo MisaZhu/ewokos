@@ -5,7 +5,7 @@ BUILD_DIR = $(SYS_DIR)/build/$(HW)
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
 LDFLAGS = -L $(BUILD_DIR)/lib -lwolfssl
-CFLAGS += -I $(BUILD_DIR)/include -I $(BUILD_DIR)/include/wolfssl -DWOLFSSL_USER_SETTINGS
+CFLAGS += -I $(BUILD_DIR)/include -I $(BUILD_DIR)/include/wolfssl -DWOLFSSL_USER_SETTINGS -DSSHD_DEBUG
 
 TASK_OBJS = $(ARCH)/sshd.o $(ARCH)/sftp-core.o
 SFTP_SERVER_OBJS = $(ARCH)/sftp-server.o $(ARCH)/sftp-core.o

@@ -94,9 +94,19 @@ static inline void ipc_wait_item_set_server(ipc_queue_item_t* item, proc_t* serv
 static inline void ipc_wait_item_clear_server(ipc_queue_item_t* item, proc_t* serv_proc) {
 	if(item == NULL || item->owner == NULL)
 		return;
-	if(item->owner->info.uuid == item->uuid &&
-			item->owner->ipc_wait_item.uuid == item->uuid &&
-			item->owner->ipc_waiting_on == serv_proc) {
+	/*
+	 * Mirror proc_ipc_cancel_wait(): the queue item is embedded in
+	 * item->owner itself, so once this exact item is popped from
+	 * serv_proc's wait list we must clear owner->ipc_waiting_on
+	 * regardless of the owner's CURRENT uuid.
+	 *
+	 * exec() reassigns info.uuid in-place. Keeping the old uuid gate here
+	 * leaves owner->ipc_waiting_on pointing at serv_proc after the waiter
+	 * was already dequeued. A later proc_ipc_cancel_wait() on another IPC
+	 * path then follows that stale raw proc_t* - potentially after the
+	 * old server proc was buried - and dereferences freed/reused memory.
+	 */
+	if(item->owner->ipc_waiting_on == serv_proc) {
 		item->owner->ipc_waiting_on = NULL;
 	}
 }
@@ -337,7 +347,15 @@ void proc_ipc_cancel_wait(struct st_proc* proc) {
 		return;
 	ipc_queue_item_t* item = &proc->ipc_wait_item;
 	proc_ipc_server_lock(&serv_proc->space->ipc_server);
-	if(item->queued && item->owner == proc && item->uuid == proc->info.uuid) {
+	/*
+	 * The item is embedded in this very proc_t, so owner==proc by
+	 * construction. Do NOT gate the unlink on the uuid still matching:
+	 * exec() reassigns the uuid while a spuriously-woken waiter can still
+	 * be queued, and skipping the unlink then leaves the item linked in
+	 * the server queue with no handle left to ever remove it - a dangling
+	 * pointer into freed memory once the proc is buried.
+	 */
+	if(item->queued) {
 		ipc_waitq_unlink(&serv_proc->space->ipc_server, item);
 	}
 	if(proc->ipc_waiting_on == serv_proc)

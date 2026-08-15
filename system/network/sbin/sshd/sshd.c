@@ -1010,25 +1010,27 @@ static int load_host_key_from_file(const char* path) {
     struct stat st;
     int fd = -1;
     uint8_t der[2048];
-    ssize_t n;
+    size_t der_len;
 
     if(path == NULL || stat(path, &st) != 0)
         return -1;
     if(st.st_size <= 0 || st.st_size > (int)sizeof(der))
         return -1;
+    der_len = (size_t)st.st_size;
 
     fd = open(path, O_RDONLY);
     if(fd < 0)
         return -1;
-    n = read(fd, der, sizeof(der));
-    close(fd);
-    if(n <= 0)
+    if(read_fd_all(fd, der, der_len) != 0) {
+        close(fd);
         return -1;
+    }
+    close(fd);
 
     g_host_rsa = RSA_new();
     if(g_host_rsa == NULL)
         return -1;
-    if(wolfSSL_RSA_LoadDer(g_host_rsa, der, (int)n) != 1) {
+    if(wolfSSL_RSA_LoadDer(g_host_rsa, der, (int)der_len) != 1) {
         RSA_free(g_host_rsa);
         g_host_rsa = NULL;
         return -1;

@@ -45,6 +45,7 @@ typedef struct net_task{
     int write_state;
     int sock;
     int refs;
+    bool is_listener;
     bool pending_main_rd;
     bool write_ready;
     int thread_started;

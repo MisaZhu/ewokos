@@ -217,11 +217,23 @@ static int network_dup(vdevice_t* dev, int from_fd, int from_pid, int dup_fd, in
         (void)dup_fd;
         (void)dup_pid;
         (void)node;
-        (void)fsinfo;
 	(void)p;
-        /* vdevice.c clones the per-fd cache after FS_CMD_DUP; nothing else is
-         * needed here as long as vfsd has already delivered the cross-process
-         * dup before the parent closes the source fd. */
+        net_task_t *task = NULL;
+
+        if(fsinfo != NULL) {
+                task = (net_task_t *)(ewokos_addr_t)fsinfo->data;
+        }
+        if(task != NULL) {
+                pthread_mutex_lock(&task->lock);
+                task->refs++;
+                pthread_mutex_unlock(&task->lock);
+        }
+        /*
+         * /dev/net0 fds all share one VFS node, but each socket task has its
+         * own lifetime. Cross-process dup/fork clones fsinfo.data, so keep an
+         * explicit per-task refcount here; otherwise the parent's close after
+         * fork can leak or prematurely reap the accepted socket.
+         */
 	return 0;
 }
 
@@ -229,15 +241,22 @@ static int network_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fs
 	(void)dev;
         (void)fd;
 	(void)from_pid;
+        (void)node;
 	(void)p;
 	net_task_t *task = (net_task_t *)(ewokos_addr_t)fsinfo->data;
 	if(task) {
-                if(vdevice_count_node_refs(node) > 1) {
+                int refs_left;
+
+                pthread_mutex_lock(&task->lock);
+                if(task->refs > 0) {
+                        task->refs--;
+                }
+                refs_left = task->refs;
+                pthread_mutex_unlock(&task->lock);
+
+                if(refs_left > 0) {
 			return 0;
 		}
-                pthread_mutex_lock(&task->lock);
-		task->refs = 0;
-		pthread_mutex_unlock(&task->lock);
 		fsinfo->data = 0;
 		release_task(task);
 	}

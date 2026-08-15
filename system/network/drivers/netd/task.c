@@ -123,18 +123,15 @@ static struct sched_ctx wakeup_queue_ctx;
 static int wakeup_thread_ok = 0;
 
 static int task_cmd_runs_inline(int cmd) {
-    switch (cmd) {
-        case SOCK_OPEN:
-        case SOCK_BIND:
-        case SOCK_LISTEN:
-        case SOCK_ACCEPT:
-        case SOCK_LINK:
-        case SOCK_SETOPT:
-        case SOCK_GETOPT:
-            return 1;
-        default:
-            return 0;
-    }
+    (void)cmd;
+    /*
+     * The shared netd IPC dispatch path must stay a pure control-plane
+     * handoff. Even "small" socket fcntls like OPEN/BIND/LISTEN/LINK/GETOPT/
+     * SETOPT enter the stack and can take internal locks or trigger reverse
+     * IPC indirectly; running them inline recreates the same platform-wide
+     * coupling that let one blocked network client stall unrelated services.
+     */
+    return 0;
 }
 
 static int task_start_worker_locked(net_task_t *task) {
@@ -352,6 +349,7 @@ net_task_t *create_task(int fd, int from_pid, int node){
     task->write_state = NET_TASK_IDLE;
     task->sock = -1;
     task->refs = 1;
+    task->is_listener = false;
     task->running = true;
     task->write_ready = true;
     task->thread_started = 0;
@@ -662,7 +660,8 @@ int do_network_fcntl(net_task_t *task){
 			pthread_mutex_lock(&task_list_lock);
 			pthread_mutex_lock(&task->lock);
 			task->sock = sock;
-            task->write_ready = true;
+                        task->is_listener = false;
+                        task->write_ready = true;
 			if(sock >= 0 && sock < SOCKS_MAX) {
 				sock_to_task[sock] = task;
 			}
@@ -772,45 +771,37 @@ int do_network_fcntl(net_task_t *task){
 		case SOCK_LISTEN:
 			size = proto_read_int(&task->in);
 			ret = sock_listen(sock, size);
+                        if(ret == 0) {
+                                pthread_mutex_lock(&task->lock);
+                                task->is_listener = true;
+                                pthread_mutex_unlock(&task->lock);
+                        }
 			PF->addi(&task->out, ret);
 			break;	
 		case SOCK_ACCEPT:
-            /*
-             * accept() runs INLINE on the shared IPC dispatch thread, so the
-             * readiness probe must use the trylock variant: sock_readable()
-             * takes the stack mutex and pthread_mutex_lock() here is a
-             * try+yield spin, which froze all netd IPC whenever the stack was
-             * busy.
-             *
-             * The tri-state matters here. -1 means the probe lost the trylock
-             * race, NOT that the backlog is empty. This retry has already
-             * consumed the RD edge fired by the backlog push, and a queued
-             * connection generates no further edges -- treating -1 as "not
-             * ready" and parking stranded accept() until the NEXT handshake
-             * completed (frequent under stack-lock contention). Re-fire the
-             * RD edge through the deferred queue so the client retries
-             * shortly; only a genuinely empty backlog (0) parks.
-             */
-            if(sock >= 0) {
-                ret = sock_poll_readable(sock);
-                if(ret < 0)
-                    task_queue_vfs_wakeup(task->node, VFS_EVT_RD);
-                if(ret <= 0)
-                    return 0;
-            }
-            errno = 0;
+			/*
+			 * accept() now runs on the socket's dedicated worker, so it can
+			 * take the stack mutex directly. Using the trylock probe here can
+			 * strand the request in PROCESS forever: a transient "lock busy"
+			 * result leaves a queued backlog entry with no future edge to
+			 * restart the worker. Only park when the listen backlog is
+			 * genuinely empty.
+			 */
+			if(sock >= 0 && !sock_readable(sock))
+				return 0;
+			errno = 0;
 			ret = sock_accept(sock, &addr, &addrlen);
-            sock_errno = errno;
-            if(ret < 0 && sock_errno == 0)
-                sock_errno = EAGAIN;
-            if(ret < 0 && (sock_errno == EAGAIN || sock_errno == EINTR)) {
-                return 0;
-            }
+			sock_errno = errno;
+			if(ret < 0 && sock_errno == 0)
+				sock_errno = EAGAIN;
+			if(ret < 0 && (sock_errno == EAGAIN || sock_errno == EINTR)) {
+				return 0;
+			}
 			PF->addi(&task->out, ret);
                         if(ret >= 0){
 				PF->add(&task->out, &addr, addrlen);	
 			}
-            PF->addi(&task->out, ret < 0 ? sock_errno : 0);
+			PF->addi(&task->out, ret < 0 ? sock_errno : 0);
 			break;	
 		case SOCK_CLOSE:
 			ret = sock_close(sock);
@@ -825,7 +816,8 @@ int do_network_fcntl(net_task_t *task){
 				sock_to_task[task->sock] = NULL;
 			}
 			task->sock = sock;
-            task->write_ready = true;
+                        task->is_listener = false;
+                        task->write_ready = true;
 			if(sock >= 0 && sock < SOCKS_MAX) {
 				sock_to_task[sock] = task;
 			}
@@ -946,6 +938,9 @@ static int do_network_write(net_task_t *task){
     int sock_errno = 0;
     uint32_t saved_offset;
     char *data;
+    int tcp_desc = -1;
+    int tcp_state = -1;
+    int tcp_remain = -1;
 
     /*
      * The client was already handed the full byte count when this write was
@@ -964,6 +959,12 @@ static int do_network_write(net_task_t *task){
     }
 
     if(!sock_writable(task->sock)) {
+        if(sock_tcp_scan_info(task->sock, &tcp_desc, &tcp_state, &tcp_remain) == 0) {
+            klog("netd: write wait sock=%d desc=%d state=%d remain=%d off=%u in=%u err=%d\n",
+                    task->sock, tcp_desc, tcp_state, tcp_remain,
+                    (unsigned int)task->write_off,
+                    (unsigned int)task->write_in.size, task->write_err);
+        }
         pthread_mutex_lock(&task->lock);
         task->write_ready = false;
         pthread_mutex_unlock(&task->lock);
@@ -1115,7 +1116,7 @@ static int task_wakeup_socket_readers(int sock_type, int sock_desc, int match_so
         sched_wakeup(&task->wait_ctx);
         worker_ready = 1;
     } else if (task->read_state == NET_TASK_IDLE) {
-        if (task->thread_started && !task->read_cache_ready) {
+        if (!task->is_listener && task->thread_started && !task->read_cache_ready) {
             task->read_prefetch = true;
             task->read_state = NET_TASK_START;
             sched_wakeup(&task->wait_ctx);

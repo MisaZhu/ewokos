@@ -295,17 +295,11 @@ _read (int fd, void * buf, size_t size)
 		if(errno != EAGAIN || !block)
 			break;
 		/*
-		 * Char devices and sockets expose sticky RD events via vfsd. Once the
-		 * producer queue has been drained, a stale RD bit can make the next
-		 * vfs_block() return immediately forever, turning a blocking read loop
-		 * into a busy poll. Clear the stale edge, then retry the actual read
-		 * before sleeping so we do not lose data that arrived concurrently.
+		 * For shared device nodes, RD visibility is fd-local. Sleeping via the
+		 * fd-aware helper avoids clearing a node-global sticky bit that may
+		 * belong to a sibling descriptor.
 		 */
-		vfs_clear_poll_events(info.node, VFS_EVT_RD);
-		res = vfs_read(fd, &info, buf, size);
-		if(res >= 0 || errno != EAGAIN)
-			break;
-		vfs_block(info.node, VFS_EVT_RD);
+		vfs_block_by_fd(fd, VFS_EVT_RD);
 	}
 	return res;
 }
@@ -397,29 +391,10 @@ _write (int fd, const void * buf, size_t size)
 		if(errno != EAGAIN || !block)
 			break;
 		/*
-		 * Mirror the read-side stale-event handling. A previously completed send
-		 * can leave WR visible even though the socket is currently flow-controlled,
-		 * which turns the blocking write retry loop into a busy poll.
+		 * Mirror the read-side fix: on shared device nodes, wait on this fd's
+		 * live WR visibility instead of clearing the node-global sticky bit.
 		 */
-		vfs_clear_poll_events(info.node, VFS_EVT_WR);
-		res = vfs_write(fd, &info,
-				((const char *)buf) + total_written,
-				size - total_written);
-		if(res > 0) {
-			total_written += (size_t)res;
-			if(total_written >= size) {
-				res = (int)total_written;
-				break;
-			}
-			if(!block) {
-				res = (int)total_written;
-				break;
-			}
-			continue;
-		}
-		if(res == 0 || errno != EAGAIN)
-			break;
-		vfs_block(info.node, VFS_EVT_WR);
+		vfs_block_by_fd(fd, VFS_EVT_WR);
 	}
 	if(total_written > 0) {
 		res = (int)total_written;

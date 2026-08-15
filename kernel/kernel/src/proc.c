@@ -998,6 +998,17 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 	 */
 	kev_push(KEV_PROC_EXIT, proc->info.pid, 0, 0);
 
+	/*
+	 * Unlink this task's embedded ipc_wait_item from whatever server wait
+	 * queue it is on, for EVERY task type. Threads (netd per-task workers,
+	 * sshd's sftp thread) block in ipc_call waits too and are killed here
+	 * while still queued (e.g. their father proc terminating them above);
+	 * skipping this for non-PROC tasks leaves a dangling item inside the
+	 * server's wait list after proc_funeral() kfrees the proc_t, corrupting
+	 * the list and stranding every later waiter of that server (vfsd).
+	 */
+	proc_ipc_cancel_wait(proc);
+
 	if(proc->info.type == TASK_TYPE_PROC) {
 		semaphore_clear(proc->info.pid);
 		int32_t i;
@@ -1015,7 +1026,6 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 		}
 
 		/*free all ipc context*/
-		proc_ipc_cancel_wait(proc);
 		proc_ipc_clear(proc);
 		proc_ipc_wakeup_all(proc);
 		proc_interrupt_wakeup_all(proc);
@@ -1653,11 +1663,25 @@ void proc_block_by(context_t* ctx, proc_t* proc, ewokos_addr_t token) {
 		 * so requiring wake_by == token here loses nothing real.
 		 */
 		bool compatible = (token == 0) ? true : (proc->wake_by == token);
+		/*
+		 * A latched NON-ZERO token that mismatches a node block is a real
+		 * node edge from another node this proc is (stale-)registered on.
+		 * It must NOT be silently dropped into a block: the keep-earliest
+		 * branch in proc_wakeup_by() may have already discarded OUR node's
+		 * edge in favor of this one, so blocking here strands the proc
+		 * forever even though its event already fired. Return instead and
+		 * let the level-triggered userspace loop (vfs_block()) re-check the
+		 * node's sticky poll state and re-block - one spurious iteration at
+		 * worst. Token-0 latches (IPC-return artifacts of the ipc_calls
+		 * inside vfs_block() itself) keep the old drop-and-block behavior:
+		 * treating them as wakes makes the check-register-block loop spin.
+		 */
+		bool foreign_node_wake = (!compatible && proc->wake_by != 0);
 		proc->wake_pending = 0;
 		proc->wake_by = 0;
-		if(compatible)
+		if(compatible || foreign_node_wake)
 			run_now = true;
-		/* else: the latched wake was unrelated (generic IPC/other node) -
+		/* else: latched generic (token 0) IPC artifact vs node block -
 		 * drop it and block for our own token. */
 	}
 	else if(proc->info.state == READY) {
