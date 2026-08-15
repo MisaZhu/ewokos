@@ -938,9 +938,6 @@ static int do_network_write(net_task_t *task){
     int sock_errno = 0;
     uint32_t saved_offset;
     char *data;
-    int tcp_desc = -1;
-    int tcp_state = -1;
-    int tcp_remain = -1;
     int send_recheck = 0;
 
     /*
@@ -960,12 +957,6 @@ static int do_network_write(net_task_t *task){
     }
 
     if(!sock_writable(task->sock)) {
-        if(sock_tcp_scan_info(task->sock, &tcp_desc, &tcp_state, &tcp_remain) == 0) {
-            slog("netd: write wait sock=%d desc=%d state=%d remain=%d off=%u in=%u err=%d\n",
-                    task->sock, tcp_desc, tcp_state, tcp_remain,
-                    (unsigned int)task->write_off,
-                    (unsigned int)task->write_in.size, task->write_err);
-        }
         pthread_mutex_lock(&task->lock);
         task->write_ready = false;
         pthread_mutex_unlock(&task->lock);
@@ -989,11 +980,6 @@ static int do_network_write(net_task_t *task){
         if(ret < 0 && sock_errno == 0)
             sock_errno = EAGAIN;
         if(ret < 0 && (sock_errno == EAGAIN || sock_errno == EINTR)) {
-            if(sock_tcp_scan_info(task->sock, &tcp_desc, &tcp_state, &tcp_remain) == 0) {
-                slog("netd: send defer sock=%d desc=%d state=%d remain=%d off=%u size=%d err=%d\n",
-                        task->sock, tcp_desc, tcp_state, tcp_remain,
-                        (unsigned int)task->write_off, size, sock_errno);
-            }
             task->write_in.offset = saved_offset;
             /*
              * Lost-wakeup guard for the async write slot: the ACK/window update may
@@ -1031,11 +1017,6 @@ static int do_network_write(net_task_t *task){
         if(sock_writable(task->sock))
             continue;
 
-        if(sock_tcp_scan_info(task->sock, &tcp_desc, &tcp_state, &tcp_remain) == 0) {
-            slog("netd: send short sock=%d desc=%d state=%d remain=%d off=%u size=%d ret=%d\n",
-                    task->sock, tcp_desc, tcp_state, tcp_remain,
-                    (unsigned int)task->write_off, size, ret);
-        }
         task->write_in.offset = saved_offset;
         pthread_mutex_lock(&task->lock);
         task->write_ready = false;
@@ -1225,12 +1206,6 @@ int task_wakeup_tcp_writers(int tcp_desc) {
     } else {
         task->write_ready = true;
         wake_node = task->node;
-    }
-    if(task->cmd == SOCK_SEND || task->write_state != NET_TASK_IDLE) {
-        slog("netd: writer wake desc=%d sock=%d cmd=%d wstate=%d state=%d worker=%d wake_node=%u off=%u err=%d\n",
-                tcp_desc, sock_id, task->cmd, task->write_state, task->state,
-                worker_ready, wake_node, (unsigned int)task->write_off,
-                task->write_err);
     }
     pthread_mutex_unlock(&task->lock);
 

@@ -67,11 +67,6 @@
 #define SSH_SERVER_VERSION      "SSH-2.0-EwokOS_sshd"
 #define SSH_HOST_KEY_PATH       "/etc/ssh_host_rsa_key.der"
 #define SSHD_MAX_TRACKED_WORKERS 128
-#ifdef SSHD_DEBUG
-#define SSHD_DBG(fmt, ...) slog("sshd: " fmt, ##__VA_ARGS__)
-#else
-#define SSHD_DBG(fmt, ...) do { if(0) slog("sshd: " fmt, ##__VA_ARGS__); } while(0)
-#endif
 #define SSHD_STALL_LOG(fmt, ...) do { } while(0)
 
 #define SSH_MSG_DISCONNECT                      1
@@ -2088,11 +2083,6 @@ static void log_fd_write_failure(sshd_session_t* s, int fd, int saved_errno) {
 
     info_rc = vfs_get_by_fd(fd, &info);
     flags = vfs_get_flags(fd);
-    SSHD_DBG("child_stdin fail pid=%d fd=%d err=%d info_rc=%d node=%u type=%u flags=%x\n",
-            (int)s->child_pid, fd, saved_errno, info_rc,
-            info_rc == 0 ? info.node : 0,
-            info_rc == 0 ? info.type : 0,
-            flags);
 }
 
 static size_t ssh_console_copy_crlf(uint8_t* dst, size_t dst_cap,
@@ -2140,10 +2130,6 @@ static int send_channel_data_packet(sshd_session_t* s, uint32_t extended_type,
             packet_max = SSH_CHANNEL_DATA_MAX;
 
         if(win == 0) {
-            SSHD_DBG("channel_out wait_remote pid=%d ext=%u sent=%u remain=%u\n",
-                    (int)s->child_pid, extended_type,
-                    (unsigned int)sent,
-                    (unsigned int)(payload_len - sent));
             if(sshd_wait_remote_window(s) != 0)
                 break;
             continue;
@@ -2196,9 +2182,6 @@ static int send_channel_data_packet(sshd_session_t* s, uint32_t extended_type,
             return -1;
         }
         sshd_remote_window_sub(s, (uint32_t)chunk);
-        SSHD_DBG("channel_out sent pid=%d ext=%u chunk=%u win_left=%u\n",
-                (int)s->child_pid, extended_type, (unsigned int)chunk,
-                (unsigned int)sshd_remote_window_load(s));
         pthread_mutex_unlock(&s->send_lock);
         /* Replenish upload credit immediately after sending if owed */
         try_send_window_adjust(s);
@@ -2893,11 +2876,6 @@ static int flush_pending_input(sshd_session_t* s) {
             pthread_mutex_unlock(&s->state_lock);
         }
         /* EAGAIN or error — stop for now */
-        SSHD_DBG("flush_pending stop pid=%d n=%d err=%d off=%u len=%u chunk=%u\n",
-                (int)s->child_pid, (int)n, saved_errno,
-                (unsigned int)s->pending_in_off,
-                (unsigned int)s->pending_in_len,
-                (unsigned int)chunk);
         errno = saved_errno;
         break;
     }
@@ -2975,17 +2953,9 @@ static int wait_child_stdin_writable(sshd_session_t* s) {
             return -1;
         }
         if((pfds[0].revents & POLLOUT) != 0) {
-            SSHD_DBG("wait_child_stdin writable pid=%d pending=%u/%u\n",
-                    (int)s->child_pid,
-                    (unsigned int)s->pending_in_off,
-                    (unsigned int)s->pending_in_len);
             return 0;
         }
         if(nfds > 2 && (pfds[2].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) != 0) {
-            SSHD_DBG("wait_child_stdin socket_event pid=%d revents=%x pending=%u/%u\n",
-                    (int)s->child_pid, pfds[2].revents,
-                    (unsigned int)s->pending_in_off,
-                    (unsigned int)s->pending_in_len);
             return 1;
         }
     }
@@ -3136,10 +3106,6 @@ static int try_send_window_adjust(sshd_session_t* s) {
             (unsigned int)s->local_window,
             (unsigned int)s->win_adjust_owe,
             (unsigned int)s->remote_window);
-    SSHD_DBG("window_adjust sent pid=%d delta=%u local=%u owe=%u\n",
-            (int)s->child_pid, delta,
-            (unsigned int)s->local_window,
-            (unsigned int)s->win_adjust_owe);
     pthread_mutex_unlock(&s->state_lock);
     pthread_mutex_unlock(&s->send_lock);
     return 0;
@@ -3203,12 +3169,6 @@ static int handle_channel_data(sshd_session_t* s, const ssh_packet_t* packet) {
     if(enqueue_credit > 0 && try_send_window_adjust(s) < 0)
         return -1;
 
-    if(s->pending_in_len > s->pending_in_off || data_len >= SSH_LOCAL_WINDOW_LOW) {
-        SSHD_DBG("channel_data pid=%d data=%u pending=%u/%u\n",
-                (int)s->child_pid, data_len,
-                (unsigned int)s->pending_in_off,
-                (unsigned int)s->pending_in_len);
-    }
     return 0;
 }
 
@@ -3495,7 +3455,6 @@ static void reap_finished_workers(void) {
         if(pid <= 0)
             continue;
         rc = waitpid(pid, &status, WNOHANG);
-        SSHD_DBG("reap worker pid=%d rc=%d err=%d\n", (int)pid, (int)rc, errno);
         if(rc == pid) {
             g_tracked_workers[i] = 0;
             continue;
@@ -3563,7 +3522,6 @@ static int serve_client(int sock) {
     sshd_session_t* session;
     int ret = -1;
 
-    SSHD_DBG("serve_client start sock=%d\n", sock);
     session = (sshd_session_t*)calloc(1, sizeof(*session));
     if(session == NULL) {
         close(sock);
@@ -3577,17 +3535,11 @@ static int serve_client(int sock) {
     }
 
     if(send_banner(session) < 0) {
-        SSHD_DBG("serve_client send_banner fail sock=%d err=%s\n", sock,
-                g_error[0] ? g_error : "unknown");
         goto out;
     }
-    SSHD_DBG("serve_client banner_sent sock=%d\n", sock);
     if(receive_banner(session) < 0) {
-        SSHD_DBG("serve_client recv_banner fail sock=%d err=%s\n", sock,
-                g_error[0] ? g_error : "unknown");
         goto out;
     }
-    SSHD_DBG("serve_client banner_recv sock=%d client=%s\n", sock, session->client_version);
     if(receive_kexinit(session) < 0) {
         goto out;
     }
@@ -3610,8 +3562,6 @@ out:
     if(ret < 0 && session->socket >= 0) {
         send_disconnect(session, SSH_DISCONNECT_BY_APPLICATION, g_error[0] ? g_error : "sshd error");
     }
-    SSHD_DBG("serve_client done sock=%d ret=%d err=%s\n", sock, ret,
-            g_error[0] ? g_error : "none");
     session_destroy(session);
     return ret;
 }
@@ -3637,13 +3587,11 @@ int main(int argc, char* argv[]) {
         int sync_pipe[2] = {-1, -1};
 
         reap_finished_workers();
-        SSHD_DBG("listener before accept\n");
         int client_sock = accept(server_sock, (struct sockaddr*)&client_addr, &client_len);
         if(client_sock < 0) {
             proc_usleep(10000);
             continue;
         }
-        SSHD_DBG("listener accepted sock=%d\n", client_sock);
         if(pipe(sync_pipe) != 0) {
             sync_pipe[0] = -1;
             sync_pipe[1] = -1;
@@ -3666,7 +3614,6 @@ int main(int argc, char* argv[]) {
             serve_client(client_sock);
             exit(0);
         }
-        SSHD_DBG("listener forked pid=%d sock=%d\n", pid, client_sock);
         track_worker_pid(pid);
         if(sync_pipe[1] >= 0)
             close(sync_pipe[1]);

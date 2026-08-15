@@ -914,7 +914,7 @@ uint8_t* vfs_readfile(const char* fname, int* rsz) {
 		return NULL;
 
 	char* p = (char*)buf;
-	int fd = open(fullname, O_RDONLY);
+	int fd = vfs_open(&info, O_RDONLY);
 	int fsize = info.stat.size;
 	if(fd >= 0) {
 		while(fsize > 0) {

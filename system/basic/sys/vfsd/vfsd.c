@@ -38,6 +38,7 @@ typedef struct vfs_node {
 
   int32_t mount_id;
   uint8_t pending_umount;
+  uint8_t kids_loading;
   uint32_t refs;
   uint32_t refs_w;
   uint32_t events; //events for poll or select
@@ -136,6 +137,23 @@ typedef struct {
         uint8_t started;
 } driver_dup_worker_t;
 
+typedef struct {
+        int32_t mount_pid;
+        uint32_t father_node_id;
+        fsinfo_t father_info;
+        int32_t res;
+        uint32_t num;
+        fsinfo_t* infos;
+} driver_kids_job_t;
+
+typedef struct {
+        int32_t mount_pid;
+        pthread_t thread;
+        pthread_mutex_t lock;
+        queue_t jobs;
+        uint8_t started;
+} driver_kids_worker_t;
+
 #define VFSD_WAKE_TOKEN_DRIVER_CLOSE 0x5646434cU
 #define VFSD_WAKE_TOKEN_CLONE_DUP    0x56464450U
 
@@ -146,6 +164,10 @@ static queue_t     _driver_close_tasks;
 static driver_close_worker_t _driver_close_worker = {0};
 static driver_dup_worker_t** _driver_dup_workers = NULL;
 static pthread_mutex_t _driver_dup_workers_lock = 0;
+static driver_kids_worker_t** _driver_kids_workers = NULL;
+static pthread_mutex_t _driver_kids_workers_lock = 0;
+static queue_t _driver_kids_results;
+static pthread_mutex_t _driver_kids_results_lock = 0;
 
 static uint32_t vfs_get_node_id(vfs_node_t* node);
 static inline fsinfo_t* gen_fsinfo(vfs_node_t* node);
@@ -158,6 +180,8 @@ static void enqueue_driver_close_task(driver_close_task_t* task);
 static void clone_dup_ctx_complete(clone_dup_ctx_t* ctx);
 static void clone_dup_ctx_unref(clone_dup_ctx_t* ctx);
 static void vfs_try_finish_umount(vfs_node_t* node);
+static void vfs_drain_driver_kids_results(void);
+static vfs_node_t* vfs_find_kid_raw(vfs_node_t* father, const char* name);
 
 static uint32_t vfs_alloc_node_id(void) {
 	uint32_t node_id = _next_node_id++;
@@ -211,7 +235,7 @@ static vfs_node_t* vfs_get_node_by_id(uint32_t node_id) {
 }
 
 static void vfsd_init(void) {
-	int32_t i;
+	uint32_t i;
 	for(i = 0; i<FS_MOUNT_MAX; i++) {
 		memset(&_vfs_mounts[i], 0, sizeof(mount_t));
 	}
@@ -229,15 +253,20 @@ static void vfsd_init(void) {
 	queue_init(&_driver_close_tasks);
         pthread_mutex_init(&_driver_close_worker.lock, NULL);
         pthread_mutex_init(&_driver_dup_workers_lock, NULL);
+        pthread_mutex_init(&_driver_kids_workers_lock, NULL);
+        pthread_mutex_init(&_driver_kids_results_lock, NULL);
+        queue_init(&_driver_kids_results);
         _driver_dup_workers = (driver_dup_worker_t**)calloc(_max_proc_table_num,
                         sizeof(driver_dup_worker_t*));
+        _driver_kids_workers = (driver_kids_worker_t**)calloc(_max_proc_table_num,
+                        sizeof(driver_kids_worker_t*));
 	_nodes_hash = hashmap_new(0);
 	_vfs_root = vfs_new_node();
 	strcpy(_vfs_root->fsinfo.name, "/");
 }
 
 static file_t* vfs_get_file(int32_t pid, int32_t fd) {
-	if(pid < 0 || pid >= _max_proc_table_num || fd < 0 || fd >= MAX_OPEN_FILE_PER_PROC)
+	if(pid < 0 || (uint32_t)pid >= _max_proc_table_num || fd < 0 || fd >= MAX_OPEN_FILE_PER_PROC)
 		return NULL;
 	return &_proc_fds_table[pid].fds[fd];
 }
@@ -306,6 +335,30 @@ static inline void vfs_set_kids_loaded(vfs_node_t* node) {
 		node->fsinfo.state |= FS_STATE_KIDS_LOADED;
 }
 
+static int32_t vfs_commit_kids_to_node(vfs_node_t* father, const fsinfo_t* infos, uint32_t num) {
+	if(father == NULL || !FS_IS_TYPE(father->fsinfo.type, FS_TYPE_DIR))
+		return -1;
+
+	for(uint32_t i = 0; i < num; i++) {
+		fsinfo_t info;
+		vfs_node_t* node;
+
+		if(vfs_find_kid_raw(father, infos[i].name) != NULL)
+			continue;
+
+		node = vfs_new_node();
+		if(node == NULL)
+			continue;
+
+		memcpy(&info, &infos[i], sizeof(fsinfo_t));
+		info.node = vfs_get_node_id(node);
+		info.mount_pid = -1;
+		memcpy(&node->fsinfo, &info, sizeof(fsinfo_t));
+		vfs_add_node(0, father, node);
+	}
+	return 0;
+}
+
 static vfs_node_t* vfs_find_kid_raw(vfs_node_t* father, const char* name) {
 	if(father == NULL || name == NULL || strchr(name, '/') != NULL)
 		return NULL;
@@ -319,23 +372,15 @@ static vfs_node_t* vfs_find_kid_raw(vfs_node_t* father, const char* name) {
 	return NULL;
 }
 
-static int32_t vfs_load_kids_from_driver(vfs_node_t* father) {
-	if(father == NULL || !FS_IS_TYPE(father->fsinfo.type, FS_TYPE_DIR))
+static int32_t vfs_fetch_kids_from_driver(int32_t mount_pid, const fsinfo_t* info,
+		uint32_t* num, fsinfo_t** infos) {
+	if(num == NULL || infos == NULL || info == NULL || mount_pid <= 0)
 		return -1;
-	if(vfs_node_kids_loaded(father))
-		return 0;
-
-	int32_t mount_pid = get_mount_pid(father);
-	if(mount_pid <= 0) {
-		vfs_set_kids_loaded(father);
-		return 0;
-	}
-
-	fsinfo_t info;
-	memcpy(&info, gen_fsinfo(father), sizeof(fsinfo_t));
+	*num = 0;
+	*infos = NULL;
 
 	proto_t in, out;
-	PF->format(&in, "i,m", info.node, &info, sizeof(fsinfo_t));
+	PF->format(&in, "i,m", info->node, info, sizeof(fsinfo_t));
 	PF->init(&out);
 	int32_t res = ipc_call(mount_pid, FS_CMD_KIDS, &in, &out);
 	PF->clear(&in);
@@ -344,40 +389,217 @@ static int32_t vfs_load_kids_from_driver(vfs_node_t* father) {
 		return -1;
 	}
 
-	uint32_t num = (uint32_t)proto_read_int(&out);
+	*num = (uint32_t)proto_read_int(&out);
 	int32_t sz = 0;
-	fsinfo_t* infos = NULL;
-	if(num > 0) {
-		infos = (fsinfo_t*)proto_read(&out, &sz);
-		if(infos == NULL || sz < (int32_t)(sizeof(fsinfo_t) * num)) {
+	fsinfo_t* out_infos = NULL;
+	if(*num > 0) {
+		fsinfo_t* src = (fsinfo_t*)proto_read(&out, &sz);
+		if(src == NULL || sz < (int32_t)(sizeof(fsinfo_t) * (*num))) {
 			PF->clear(&out);
 			return -1;
 		}
-	}
 
-	for(uint32_t i = 0; i < num; i++) {
-		if(vfs_find_kid_raw(father, infos[i].name) != NULL)
-			continue;
-
-		vfs_node_t* node = vfs_new_node();
-		if(node == NULL)
-			continue;
-
-		infos[i].node = vfs_get_node_id(node);
-		infos[i].mount_pid = -1;
-		memcpy(&node->fsinfo, &infos[i], sizeof(fsinfo_t));
-		vfs_add_node(0, father, node);
+		out_infos = (fsinfo_t*)malloc(sizeof(fsinfo_t) * (*num));
+		if(out_infos == NULL) {
+			PF->clear(&out);
+			return -1;
+		}
+		memcpy(out_infos, src, sizeof(fsinfo_t) * (*num));
 	}
 
 	PF->clear(&out);
-	vfs_set_kids_loaded(father);
+	*infos = out_infos;
 	return 0;
 }
 
+static void free_driver_kids_job(driver_kids_job_t* job) {
+	if(job == NULL)
+		return;
+	if(job->infos != NULL)
+		free(job->infos);
+	free(job);
+}
+
+#define KIDS_LOAD_WAIT_BUDGET_US   2000000U
+#define KIDS_LOAD_WAIT_STEP_MIN_US 500U
+#define KIDS_LOAD_WAIT_STEP_MAX_US 5000U
+
+static void vfs_apply_driver_kids_job(driver_kids_job_t* job) {
+	vfs_node_t* father;
+
+	if(job == NULL)
+		return;
+	father = vfs_get_node_by_id(job->father_node_id);
+	if(father == NULL)
+		return;
+
+	father->kids_loading = 0;
+	if(job->res != 0)
+		return;
+	if(!FS_IS_TYPE(father->fsinfo.type, FS_TYPE_DIR))
+		return;
+	if(get_mount_pid(father) != job->mount_pid)
+		return;
+
+	(void)vfs_commit_kids_to_node(father, job->infos, job->num);
+	vfs_set_kids_loaded(father);
+}
+
+static void vfs_drain_driver_kids_results(void) {
+	while(true) {
+		driver_kids_job_t* job;
+
+		pthread_mutex_lock(&_driver_kids_results_lock);
+		job = (driver_kids_job_t*)queue_pop(&_driver_kids_results);
+		pthread_mutex_unlock(&_driver_kids_results_lock);
+		if(job == NULL)
+			break;
+
+		vfs_apply_driver_kids_job(job);
+		free_driver_kids_job(job);
+	}
+}
+
+static void* driver_kids_worker_entry(void* arg) {
+	driver_kids_worker_t* worker = (driver_kids_worker_t*)arg;
+
+	while(true) {
+		driver_kids_job_t* job = NULL;
+
+		pthread_mutex_lock(&worker->lock);
+		job = (driver_kids_job_t*)queue_pop(&worker->jobs);
+		if(job == NULL) {
+			worker->started = 0;
+			pthread_mutex_unlock(&worker->lock);
+			break;
+		}
+		pthread_mutex_unlock(&worker->lock);
+
+		job->res = vfs_fetch_kids_from_driver(job->mount_pid, &job->father_info,
+				&job->num, &job->infos);
+
+		pthread_mutex_lock(&_driver_kids_results_lock);
+		queue_push(&_driver_kids_results, job);
+		pthread_mutex_unlock(&_driver_kids_results_lock);
+	}
+
+	return NULL;
+}
+
+static int start_driver_kids_worker_locked(driver_kids_worker_t* worker) {
+	pthread_t tid;
+
+	if(worker == NULL)
+		return -1;
+	if(worker->started != 0)
+		return 0;
+	if(pthread_create(&tid, NULL, driver_kids_worker_entry, worker) != 0)
+		return -1;
+	pthread_detach(tid);
+	worker->thread = tid;
+	worker->started = 1;
+	return 0;
+}
+
+static driver_kids_worker_t* get_driver_kids_worker(int32_t mount_pid) {
+	driver_kids_worker_t* worker = NULL;
+
+	if(mount_pid <= 0 || mount_pid >= (int32_t)_max_proc_table_num)
+		return NULL;
+
+	pthread_mutex_lock(&_driver_kids_workers_lock);
+	worker = _driver_kids_workers[mount_pid];
+	if(worker == NULL) {
+		worker = (driver_kids_worker_t*)calloc(1, sizeof(driver_kids_worker_t));
+		if(worker != NULL) {
+			worker->mount_pid = mount_pid;
+			pthread_mutex_init(&worker->lock, NULL);
+			queue_init(&worker->jobs);
+			_driver_kids_workers[mount_pid] = worker;
+		}
+	}
+	pthread_mutex_unlock(&_driver_kids_workers_lock);
+	return worker;
+}
+
+static bool queue_driver_kids_job(vfs_node_t* father, int32_t mount_pid) {
+	driver_kids_job_t* job;
+	driver_kids_worker_t* worker;
+
+	if(father == NULL || mount_pid <= 0)
+		return false;
+	worker = get_driver_kids_worker(mount_pid);
+	if(worker == NULL)
+		return false;
+	job = (driver_kids_job_t*)calloc(1, sizeof(driver_kids_job_t));
+	if(job == NULL)
+		return false;
+
+	job->mount_pid = mount_pid;
+	job->father_node_id = vfs_get_node_id(father);
+	memcpy(&job->father_info, gen_fsinfo(father), sizeof(fsinfo_t));
+
+	pthread_mutex_lock(&worker->lock);
+	queue_push(&worker->jobs, job);
+	if(start_driver_kids_worker_locked(worker) != 0) {
+		(void)queue_pop(&worker->jobs);
+		pthread_mutex_unlock(&worker->lock);
+		free_driver_kids_job(job);
+		return false;
+	}
+	pthread_mutex_unlock(&worker->lock);
+
+	father->kids_loading = 1;
+	return true;
+}
+
+static void vfs_wait_kids_loaded(vfs_node_t* father) {
+	uint32_t waited = 0;
+	uint32_t step = KIDS_LOAD_WAIT_STEP_MIN_US;
+
+	while(father != NULL && father->kids_loading && !vfs_node_kids_loaded(father)) {
+		vfs_drain_driver_kids_results();
+		if(vfs_node_kids_loaded(father) || !father->kids_loading)
+			break;
+		if(waited >= KIDS_LOAD_WAIT_BUDGET_US) {
+			/*
+			 * The original job keeps running on its mount worker, but do not pin
+			 * this directory in a permanently "loading" state. Clearing the flag
+			 * lets the next access requeue and retry instead of timing out behind
+			 * an old stuck request forever.
+			 */
+			father->kids_loading = 0;
+			break;
+		}
+
+		proc_usleep(step);
+		waited += step;
+		step *= 2;
+		if(step > KIDS_LOAD_WAIT_STEP_MAX_US)
+			step = KIDS_LOAD_WAIT_STEP_MAX_US;
+	}
+	vfs_drain_driver_kids_results();
+}
+
 static inline void vfs_ensure_kids_loaded(vfs_node_t* father) {
+	int32_t mount_pid;
+
 	if(father == NULL || vfs_node_kids_loaded(father))
 		return;
-	vfs_load_kids_from_driver(father);
+	vfs_drain_driver_kids_results();
+	if(vfs_node_kids_loaded(father))
+		return;
+
+	mount_pid = get_mount_pid(father);
+	if(mount_pid <= 0) {
+		vfs_set_kids_loaded(father);
+		father->kids_loading = 0;
+		return;
+	}
+
+	if(!father->kids_loading && !queue_driver_kids_job(father, mount_pid))
+		return;
+	vfs_wait_kids_loaded(father);
 }
 
 static inline int32_t check_mount(int32_t pid, vfs_node_t* node) {
@@ -2696,6 +2918,7 @@ static void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 	(void)p;
 	if(pid < 0)
 		return;
+	vfs_drain_driver_kids_results();
 
 	switch(cmd) {
 	case VFS_NEW_NODE:
