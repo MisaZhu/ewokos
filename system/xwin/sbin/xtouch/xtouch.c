@@ -29,6 +29,11 @@ typedef struct {
 
 static xtouch_t _xtouch;
 static uint64_t _drag_time = 0;
+static const char* _default_config = "/etc/x/xtouch.json";
+
+static void usage(const char* prog) {
+	printf("Usage: %s [-c config_file] [touch_dev]\n", prog);
+}
 
 static void input(uint16_t state, int16_t tx, int16_t ty) {
 	xevent_t ev;
@@ -96,13 +101,28 @@ static int32_t read_config(const char* fname) {
 }
 
 int main(int argc, char** argv) {
-	(void)argc;
-	(void)argv;
+	const char* config = _default_config;
+	const char* touch_dev = "/dev/touch0";
+	int opt;
+
+	while((opt = getopt(argc, argv, "c:h")) != -1) {
+		switch(opt) {
+		case 'c':
+			config = optarg;
+			break;
+		case 'h':
+		default:
+			usage(argv[0]);
+			return opt == 'h' ? 0 : -1;
+		}
+	}
+
+	if(optind < argc)
+		touch_dev = argv[optind];
 
 	_x_pid = -1;
-	read_config("/etc/x/xtouch.json");
+	read_config(config);
 
-	const char* touch_dev = argc > 1 ? argv[1]:"/dev/touch0";
 	int fd = -1;
 	while(true) {
 		//fd = open(touch_dev, O_RDONLY | O_NONBLOCK);
