@@ -8,52 +8,52 @@ extern "C" {
 #endif
 
 void proto_init(proto_t* proto) {
-	proto->data = proto->buffer;
-	proto->total_size = PROTO_BUFFER;
-	proto->size = 0;
-	proto->pre_alloc = 0;
-	proto->offset = 0;
+    proto->data = proto->buffer;
+    proto->total_size = PROTO_BUFFER;
+    proto->size = 0;
+    proto->pre_alloc = 0;
+    proto->offset = 0;
 }
 
 void proto_copy(proto_t* proto, const void* data, uint32_t size) {
-	if(proto->total_size == 0 && proto->data == NULL) {
-		proto->data = proto->buffer;
-		proto->total_size = PROTO_BUFFER;
-	}
+    if(proto->total_size == 0 && proto->data == NULL) {
+        proto->data = proto->buffer;
+        proto->total_size = PROTO_BUFFER;
+    }
 
-	if(proto->total_size < size) {
-		if(proto->data != NULL && proto->data != proto->buffer) 
-			kfree(proto->data);
-		proto->data = kmalloc(size);
-		proto->total_size = size;
-	}
+    if(proto->total_size < size) {
+        if(proto->data != NULL && proto->data != proto->buffer) 
+            kfree(proto->data);
+        proto->data = kmalloc(size);
+        proto->total_size = size;
+    }
 
-	memcpy(proto->data, data, size);
-	proto->size = size;
-	proto->offset = 0;
-	proto->pre_alloc = false;
+    memcpy(proto->data, data, size);
+    proto->size = size;
+    proto->offset = 0;
+    proto->pre_alloc = false;
 }
 
 void proto_clear(proto_t* proto) {
-	if(proto->total_size == 0 && proto->data == NULL) {
-		proto->data = proto->buffer;
-		proto->total_size = PROTO_BUFFER;
-		proto->pre_alloc = 0;
-	}
-	proto->size = 0;
-	proto->offset = 0;
+    if(proto->total_size == 0 && proto->data == NULL) {
+        proto->data = proto->buffer;
+        proto->total_size = PROTO_BUFFER;
+        proto->pre_alloc = 0;
+    }
+    proto->size = 0;
+    proto->offset = 0;
 }
 
 void proto_release(proto_t* proto) {
-	if(proto == NULL)
-		return;
-	if(!proto->pre_alloc && proto->data != NULL && proto->data != proto->buffer)
-		kfree(proto->data);
-	proto->size = 0;
-	proto->offset = 0;
-	proto->data = proto->buffer;
-	proto->total_size = PROTO_BUFFER;
-	proto->pre_alloc = 0;
+    if(proto == NULL)
+        return;
+    if(!proto->pre_alloc && proto->data != NULL && proto->data != proto->buffer)
+        kfree(proto->data);
+    proto->size = 0;
+    proto->offset = 0;
+    proto->data = proto->buffer;
+    proto->total_size = PROTO_BUFFER;
+    proto->pre_alloc = 0;
 }
 
 #ifdef __cplusplus

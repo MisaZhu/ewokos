@@ -4,9 +4,9 @@
 #include <errno.h>
 
 long telldir(DIR* dirp) {
-	if(dirp == NULL) {
-		errno = EBADF;
-		return -1;
-	}
-	return (long)dirp->offset;
+    if(dirp == NULL) {
+        errno = EBADF;
+        return -1;
+    }
+    return (long)dirp->offset;
 }

@@ -74,17 +74,17 @@ ether_tap_addr(struct net_device *dev) {
     tap = PRIV(dev);
     proto_t  out;
 
-	while (ret) {
-		PF->init(&out);
-		ret = dev_cntl (tap->name, 0, NULL, &out);
-		if(ret == 0){
-			proto_read_to(&out, dev->addr, 6);
+    while (ret) {
+        PF->init(&out);
+        ret = dev_cntl (tap->name, 0, NULL, &out);
+        if(ret == 0){
+            proto_read_to(&out, dev->addr, 6);
             PF->clear(&out);
             return 0;
-		}
-		PF->clear(&out);
-		usleep(1000);
-	}
+        }
+        PF->clear(&out);
+        usleep(1000);
+    }
     return -1;
 }
 
@@ -317,7 +317,7 @@ ether_tap_init(const char *name, const char *addr)
     tap->fd = -1;
     tap->irq = SIGIRQ;
     dev->priv = tap;
-	dev->next = NULL;
+    dev->next = NULL;
     if (net_device_register(dev) == -1) {
         errorf("net_device_register() failure");
         memory_free(tap);

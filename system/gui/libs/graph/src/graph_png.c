@@ -8,7 +8,7 @@ extern "C" {
 
 static void png_read_data(png_structp ctx, png_bytep area, png_size_t size)
 {
-	FILE* src = png_get_io_ptr(ctx);
+    FILE* src = png_get_io_ptr(ctx);
     fread(area, size, 1, src);
 }
 
@@ -28,7 +28,7 @@ graph_t* png_image_new(const char* fname) {
     int ckey = -1;
     png_color_16 *transv;
 
-	FILE* src = fopen(fname, "rb");
+    FILE* src = fopen(fname, "rb");
     if ( !src ) {
         /* The error message has been set in SDL_RWFromFile */
         return NULL;
@@ -152,26 +152,26 @@ graph_t* png_image_new(const char* fname) {
     }
 
 #if SDL_BYTEORDER == SDL_LIL_ENDIAN
-	Rmask = 0x000000FF;
-	Gmask = 0x0000FF00;
-	Bmask = 0x00FF0000;
-	Amask = (num_channels == 4) ? 0xFF000000 : 0;
+    Rmask = 0x000000FF;
+    Gmask = 0x0000FF00;
+    Bmask = 0x00FF0000;
+    Amask = (num_channels == 4) ? 0xFF000000 : 0;
 #else
-	int s = (num_channels == 4) ? 0 : 8;
-	Rmask = 0xFF000000 >> s;
-	Gmask = 0x00FF0000 >> s;
-	Bmask = 0x0000FF00 >> s;
-	Amask = 0x000000FF >> s;
+    int s = (num_channels == 4) ? 0 : 8;
+    Rmask = 0xFF000000 >> s;
+    Gmask = 0x00FF0000 >> s;
+    Bmask = 0x0000FF00 >> s;
+    Amask = 0x000000FF >> s;
 #endif
-	// Check for reasonable image dimensions to prevent memory exhaustion
-	if (width > 8192 || height > 8192 || width * height > 64 * 1024 * 1024) {
-		goto done;
-	}
+    // Check for reasonable image dimensions to prevent memory exhaustion
+    if (width > 8192 || height > 8192 || width * height > 64 * 1024 * 1024) {
+        goto done;
+    }
 
-	g = graph_new(NULL, width, height);
-	if (g == NULL || g->buffer == NULL) {
-		goto done;
-	}
+    g = graph_new(NULL, width, height);
+    if (g == NULL || g->buffer == NULL) {
+        goto done;
+    }
 
     /* Create the array of pointers to image data */
     row_pointers = (png_bytep*) malloc(sizeof(png_bytep)*height);
@@ -194,11 +194,11 @@ graph_t* png_image_new(const char* fname) {
 
     lib.png_read_end(png_ptr, info_ptr);
     */
-	graph_reverse_rgb(g);
+    graph_reverse_rgb(g);
 
 done:   /* Clean up and return */
-	if(src != NULL)
-		fclose(src);
+    if(src != NULL)
+        fclose(src);
 
     if ( png_ptr ) {
         png_destroy_read_struct(&png_ptr,

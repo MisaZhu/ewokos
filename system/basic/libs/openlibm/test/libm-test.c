@@ -259,7 +259,7 @@ print_screen (int ok, int xfail)
 {
   if (output_points
       && (verbose > 1
-	  || (verbose == 1 && ok == xfail)))
+      || (verbose == 1 && ok == xfail)))
     return 1;
   return 0;
 }
@@ -272,7 +272,7 @@ print_screen_max_error (int ok, int xfail)
 {
   if (output_max_error
       && (verbose > 1
-	  || ((verbose == 1) && (ok == xfail))))
+      || ((verbose == 1) && (ok == xfail))))
     return 1;
   return 0;
 }
@@ -297,8 +297,8 @@ print_ulps (const char *test_name, FLOAT ulp)
     {
       fprintf (ulps_file, "Test \"%s\":\n", test_name);
       fprintf (ulps_file, "%s: % .4" PRINTF_NEXPR "\n",
-	       CHOOSE("ldouble", "double", "float",
-		      "ildouble", "idouble", "ifloat"), ulp);
+           CHOOSE("ldouble", "double", "float",
+              "ildouble", "idouble", "ifloat"), ulp);
     }
 }
 
@@ -309,8 +309,8 @@ print_function_ulps (const char *function_name, FLOAT ulp)
     {
       fprintf (ulps_file, "Function: \"%s\":\n", function_name);
       fprintf (ulps_file, "%s: % .4" PRINTF_NEXPR "\n",
-	       CHOOSE("ldouble", "double", "float",
-		      "ildouble", "idouble", "ifloat"), ulp);
+           CHOOSE("ldouble", "double", "float",
+              "ildouble", "idouble", "ifloat"), ulp);
     }
 }
 
@@ -318,24 +318,24 @@ print_function_ulps (const char *function_name, FLOAT ulp)
 #if 0 /* XXX scp XXX */
 static void
 print_complex_function_ulps (const char *function_name, FLOAT real_ulp,
-			     FLOAT imag_ulp)
+                 FLOAT imag_ulp)
 {
   if (output_ulps)
     {
       if (real_ulp != 0.0)
-	{
-	  fprintf (ulps_file, "Function: Real part of \"%s\":\n", function_name);
-	  fprintf (ulps_file, "%s: % .4" PRINTF_NEXPR "\n",
-		   CHOOSE("ldouble", "double", "float",
-			  "ildouble", "idouble", "ifloat"), real_ulp);
-	}
+    {
+      fprintf (ulps_file, "Function: Real part of \"%s\":\n", function_name);
+      fprintf (ulps_file, "%s: % .4" PRINTF_NEXPR "\n",
+           CHOOSE("ldouble", "double", "float",
+              "ildouble", "idouble", "ifloat"), real_ulp);
+    }
       if (imag_ulp != 0.0)
-	{
-	  fprintf (ulps_file, "Function: Imaginary part of \"%s\":\n", function_name);
-	  fprintf (ulps_file, "%s: % .4" PRINTF_NEXPR "\n",
-		   CHOOSE("ldouble", "double", "float",
-			  "ildouble", "idouble", "ifloat"), imag_ulp);
-	}
+    {
+      fprintf (ulps_file, "Function: Imaginary part of \"%s\":\n", function_name);
+      fprintf (ulps_file, "%s: % .4" PRINTF_NEXPR "\n",
+           CHOOSE("ldouble", "double", "float",
+              "ildouble", "idouble", "ifloat"), imag_ulp);
+    }
 
 
     }
@@ -371,7 +371,7 @@ print_max_error (const char *func_name, FLOAT allowed, int xfail)
 #if 0 /* XXX scp XXX */
 static void
 print_complex_max_error (const char *func_name, __complex__ FLOAT allowed,
-			 __complex__ int xfail)
+             __complex__ int xfail)
 {
   int ok = 0;
 
@@ -403,10 +403,10 @@ print_complex_max_error (const char *func_name, __complex__ FLOAT allowed,
 /* Test whether a given exception was raised.  */
 static void
 test_single_exception (const char *test_name,
-		       int exception,
-		       int exc_flag,
-		       int fe_flag,
-		       const char *flag_name)
+               int exception,
+               int exc_flag,
+               int fe_flag,
+               const char *flag_name)
 {
 /* Don't perform these checks if we're compiling with clang, because clang
    doesn't bother to set floating-point exceptions properly */
@@ -416,33 +416,33 @@ test_single_exception (const char *test_name,
   if (exception & exc_flag)
     {
       if (fetestexcept (fe_flag))
-	{
-	  if (print_screen (1, 0))
-	    printf ("Pass: %s: Exception \"%s\" set\n", test_name, flag_name);
-	}
+    {
+      if (print_screen (1, 0))
+        printf ("Pass: %s: Exception \"%s\" set\n", test_name, flag_name);
+    }
       else
-	{
-	  ok = 0;
-	  if (print_screen (0, 0))
-	    printf ("Failure: %s: Exception \"%s\" not set\n",
-		    test_name, flag_name);
-	}
+    {
+      ok = 0;
+      if (print_screen (0, 0))
+        printf ("Failure: %s: Exception \"%s\" not set\n",
+            test_name, flag_name);
+    }
     }
   else
     {
       if (fetestexcept (fe_flag))
-	{
-	  ok = 0;
-	  if (print_screen (0, 0))
-	    printf ("Failure: %s: Exception \"%s\" set\n",
-		    test_name, flag_name);
-	}
+    {
+      ok = 0;
+      if (print_screen (0, 0))
+        printf ("Failure: %s: Exception \"%s\" set\n",
+            test_name, flag_name);
+    }
       else
-	{
-	  if (print_screen (1, 0))
-	    printf ("%s: Exception \"%s\" not set\n", test_name,
-		    flag_name);
-	}
+    {
+      if (print_screen (1, 0))
+        printf ("%s: Exception \"%s\" not set\n", test_name,
+            flag_name);
+    }
     }
   if (!ok)
     ++noErrors;
@@ -462,13 +462,13 @@ test_exceptions (const char *test_name, int exception)
 #ifdef FE_DIVBYZERO
   if ((exception & DIVIDE_BY_ZERO_EXCEPTION_OK) == 0)
     test_single_exception (test_name, exception,
-			   DIVIDE_BY_ZERO_EXCEPTION, FE_DIVBYZERO,
-			   "Divide by zero");
+               DIVIDE_BY_ZERO_EXCEPTION, FE_DIVBYZERO,
+               "Divide by zero");
 #endif
 #ifdef FE_INVALID
   if ((exception & INVALID_EXCEPTION_OK) == 0)
     test_single_exception (test_name, exception, INVALID_EXCEPTION, FE_INVALID,
-			 "Invalid operation");
+             "Invalid operation");
 #endif
   feclearexcept (FE_ALL_EXCEPT);
 }
@@ -476,8 +476,8 @@ test_exceptions (const char *test_name, int exception)
 
 static void
 check_float_internal (const char *test_name, FLOAT computed, FLOAT expected,
-		      FLOAT max_ulp, int xfail, int exceptions,
-		      FLOAT *curr_max_error)
+              FLOAT max_ulp, int xfail, int exceptions,
+              FLOAT *curr_max_error)
 {
   int ok = 0;
   int print_diff = 0;
@@ -491,13 +491,13 @@ check_float_internal (const char *test_name, FLOAT computed, FLOAT expected,
     {
       /* Test for sign of infinities.  */
       if ((exceptions & IGNORE_ZERO_INF_SIGN) == 0
-	  && signbit (computed) != signbit (expected))
-	{
-	  ok = 0;
-	  printf ("infinity has wrong sign.\n");
-	}
+      && signbit (computed) != signbit (expected))
+    {
+      ok = 0;
+      printf ("infinity has wrong sign.\n");
+    }
       else
-	ok = 1;
+    ok = 1;
     }
   /* Don't calc ulp for NaNs or infinities.  */
   else if (isinf (computed) || isnan (computed) || isinf (expected) || isnan (expected))
@@ -507,41 +507,41 @@ check_float_internal (const char *test_name, FLOAT computed, FLOAT expected,
       diff = FUNC(fabs) (computed - expected);
       /* ilogb (0) isn't allowed.  */
       if (expected == 0.0)
-	ulp = diff / FUNC(ldexp) (1.0, - MANT_DIG);
+    ulp = diff / FUNC(ldexp) (1.0, - MANT_DIG);
       else
-	ulp = diff / FUNC(ldexp) (1.0, FUNC(ilogb) (expected) - MANT_DIG);
+    ulp = diff / FUNC(ldexp) (1.0, FUNC(ilogb) (expected) - MANT_DIG);
       set_max_error (ulp, curr_max_error);
       print_diff = 1;
       if ((exceptions & IGNORE_ZERO_INF_SIGN) == 0
-	  && computed == 0.0 && expected == 0.0
-	  && signbit(computed) != signbit (expected))
-	ok = 0;
+      && computed == 0.0 && expected == 0.0
+      && signbit(computed) != signbit (expected))
+    ok = 0;
       else if (ulp == 0.0 || (ulp <= max_ulp && !ignore_max_ulp))
-	ok = 1;
+    ok = 1;
       else
-	{
-	  ok = 0;
-	  print_ulps (test_name, ulp);
-	}
+    {
+      ok = 0;
+      print_ulps (test_name, ulp);
+    }
 
     }
   if (print_screen (ok, xfail))
     {
       if (!ok)
-	printf ("Failure: ");
+    printf ("Failure: ");
       printf ("Test: %s\n", test_name);
       printf ("Result:\n");
       printf (" is:         % .20" PRINTF_EXPR "  % .20" PRINTF_XEXPR "\n",
-	      computed, computed);
+          computed, computed);
       printf (" should be:  % .20" PRINTF_EXPR "  % .20" PRINTF_XEXPR "\n",
-	      expected, expected);
+          expected, expected);
       if (print_diff)
-	{
-	  printf (" difference: % .20" PRINTF_EXPR "  % .20" PRINTF_XEXPR
-		  "\n", diff, diff);
-	  printf (" ulp       : % .4" PRINTF_NEXPR "\n", ulp);
-	  printf (" max.ulp   : % .4" PRINTF_NEXPR "\n", max_ulp);
-	}
+    {
+      printf (" difference: % .20" PRINTF_EXPR "  % .20" PRINTF_XEXPR
+          "\n", diff, diff);
+      printf (" ulp       : % .4" PRINTF_NEXPR "\n", ulp);
+      printf (" max.ulp   : % .4" PRINTF_NEXPR "\n", max_ulp);
+    }
     }
   update_stats (ok, xfail);
 }
@@ -549,18 +549,18 @@ check_float_internal (const char *test_name, FLOAT computed, FLOAT expected,
 
 static void
 check_float (const char *test_name, FLOAT computed, FLOAT expected,
-	     FLOAT max_ulp, int xfail, int exceptions)
+         FLOAT max_ulp, int xfail, int exceptions)
 {
   check_float_internal (test_name, computed, expected, max_ulp, xfail,
-			exceptions, &max_error);
+            exceptions, &max_error);
 }
 
 #if 0 /* XXX scp XXX */
 static void
 check_complex (const char *test_name, __complex__ FLOAT computed,
-	       __complex__ FLOAT expected,
-	       __complex__ FLOAT max_ulp, __complex__ int xfail,
-	       int exception)
+           __complex__ FLOAT expected,
+           __complex__ FLOAT max_ulp, __complex__ int xfail,
+           int exception)
 {
   FLOAT part_comp, part_exp, part_max_ulp;
   int part_xfail;
@@ -573,7 +573,7 @@ check_complex (const char *test_name, __complex__ FLOAT computed,
   part_xfail = __real__ xfail;
 
   check_float_internal (str, part_comp, part_exp, part_max_ulp, part_xfail,
-			exception, &real_max_error);
+            exception, &real_max_error);
 
   sprintf (str, "Imaginary part of: %s", test_name);
   part_comp = __imag__ computed;
@@ -584,15 +584,15 @@ check_complex (const char *test_name, __complex__ FLOAT computed,
   /* Don't check again for exceptions, just pass through the
      zero/inf sign test.  */
   check_float_internal (str, part_comp, part_exp, part_max_ulp, part_xfail,
-			exception & IGNORE_ZERO_INF_SIGN,
-			&imag_max_error);
+            exception & IGNORE_ZERO_INF_SIGN,
+            &imag_max_error);
 }
 #endif
 
 /* Check that computed and expected values are equal (int values).  */
 static void
 check_int (const char *test_name, int computed, int expected, int max_ulp,
-	   int xfail, int exceptions)
+       int xfail, int exceptions)
 {
   int diff = computed - expected;
   int ok = 0;
@@ -608,7 +608,7 @@ check_int (const char *test_name, int computed, int expected, int max_ulp,
   if (print_screen (ok, xfail))
     {
       if (!ok)
-	printf ("Failure: ");
+    printf ("Failure: ");
       printf ("Test: %s\n", test_name);
       printf ("Result:\n");
       printf (" is:         %d\n", computed);
@@ -622,7 +622,7 @@ check_int (const char *test_name, int computed, int expected, int max_ulp,
 /* Check that computed and expected values are equal (long int values).  */
 static void
 check_long (const char *test_name, long int computed, long int expected,
-	    long int max_ulp, int xfail, int exceptions)
+        long int max_ulp, int xfail, int exceptions)
 {
   long int diff = computed - expected;
   int ok = 0;
@@ -638,7 +638,7 @@ check_long (const char *test_name, long int computed, long int expected,
   if (print_screen (ok, xfail))
     {
       if (!ok)
-	printf ("Failure: ");
+    printf ("Failure: ");
       printf ("Test: %s\n", test_name);
       printf ("Result:\n");
       printf (" is:         %ld\n", computed);
@@ -652,7 +652,7 @@ check_long (const char *test_name, long int computed, long int expected,
 /* Check that computed value is true/false.  */
 static void
 check_bool (const char *test_name, int computed, int expected,
-	    long int max_ulp, int xfail, int exceptions)
+        long int max_ulp, int xfail, int exceptions)
 {
   int ok = 0;
 
@@ -664,7 +664,7 @@ check_bool (const char *test_name, int computed, int expected,
   if (print_screen (ok, xfail))
     {
       if (!ok)
-	printf ("Failure: ");
+    printf ("Failure: ");
       printf ("Test: %s\n", test_name);
       printf ("Result:\n");
       printf (" is:         %d\n", computed);
@@ -678,9 +678,9 @@ check_bool (const char *test_name, int computed, int expected,
 /* check that computed and expected values are equal (long int values) */
 static void
 check_longlong (const char *test_name, long long int computed,
-		long long int expected,
-		long long int max_ulp, int xfail,
-		int exceptions)
+        long long int expected,
+        long long int max_ulp, int xfail,
+        int exceptions)
 {
   long long int diff = computed - expected;
   int ok = 0;
@@ -696,7 +696,7 @@ check_longlong (const char *test_name, long long int computed,
   if (print_screen (ok, xfail))
     {
       if (!ok)
-	printf ("Failure:");
+    printf ("Failure:");
       printf ("Test: %s\n", test_name);
       printf ("Result:\n");
       printf (" is:         %lld\n", computed);
@@ -4239,9 +4239,9 @@ initialize (void)
 
   minus_zero = FUNC(copysign) (0.0, -1.0);
   plus_infty = CHOOSE (HUGE_VALL, HUGE_VAL, HUGE_VALF,
-		       HUGE_VALL, HUGE_VAL, HUGE_VALF);
+               HUGE_VALL, HUGE_VAL, HUGE_VALF);
   minus_infty = CHOOSE (-HUGE_VALL, -HUGE_VAL, -HUGE_VALF,
-			-HUGE_VALL, -HUGE_VAL, -HUGE_VALF);
+            -HUGE_VALL, -HUGE_VAL, -HUGE_VALF);
 
   (void) &plus_zero;
   (void) &nan_value;
@@ -4292,9 +4292,9 @@ parse_opt (int key, char *arg, struct argp_state *state)
       break;
     case 'i':
       if (strcmp (arg, "yes") == 0)
-	ignore_max_ulp = 1;
+    ignore_max_ulp = 1;
       else if (strcmp (arg, "no") == 0)
-	ignore_max_ulp = 0;
+    ignore_max_ulp = 0;
       break;
     case 'p':
       output_points = 0;
@@ -4304,9 +4304,9 @@ parse_opt (int key, char *arg, struct argp_state *state)
       break;
     case 'v':
       if (optarg)
-	verbose = (unsigned int) strtoul (optarg, NULL, 0);
+    verbose = (unsigned int) strtoul (optarg, NULL, 0);
       else
-	verbose = 3;
+    verbose = 3;
       break;
     default:
       return ARGP_ERR_UNKNOWN;
@@ -4371,10 +4371,10 @@ main (int argc, char **argv)
     {
       ulps_file = fopen ("ULPs", "a");
       if (ulps_file == NULL)
-	{
-	  perror ("can't open file `ULPs' for writing: ");
-	  exit (1);
-	}
+    {
+      perror ("can't open file `ULPs' for writing: ");
+      exit (1);
+    }
     }
 
 
@@ -4515,7 +4515,7 @@ main (int argc, char **argv)
 
   printf ("\nTest suite completed:\n");
   printf ("  %d test cases plus %d tests for exception flags executed.\n",
-	  noTests, noExcTests);
+      noTests, noExcTests);
   if (noXFails)
     printf ("  %d expected failures occurred.\n", noXFails);
   if (noXPasses)

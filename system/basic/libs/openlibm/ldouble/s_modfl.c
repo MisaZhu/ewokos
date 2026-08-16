@@ -57,45 +57,45 @@ static const long double zero[] = { 0.0L, -0.0L };
 OLM_DLLEXPORT long double
 modfl(long double x, long double *iptr)
 {
-	union IEEEl2bits ux;
-	int e;
+    union IEEEl2bits ux;
+    int e;
 
-	ux.e = x;
-	e = ux.bits.exp - LDBL_MAX_EXP + 1;
-	if (e < HIBITS) {			/* Integer part is in manh. */
-		if (e < 0) {			/* |x|<1 */
-			*iptr = zero[ux.bits.sign];
-			return (x);
-		} else {
-			if ((GETFRAC(ux.bits.manh, HIBITS - 1 - e) |
-			     ux.bits.manl) == 0) {	/* X is an integer. */
-				*iptr = x;
-				return (zero[ux.bits.sign]);
-			} else {
-				/* Clear all but the top e+1 bits. */
-				ux.bits.manh >>= HIBITS - 1 - e;
-				ux.bits.manh <<= HIBITS - 1 - e;
-				ux.bits.manl = 0;
-				*iptr = ux.e;
-				return (x - ux.e);
-			}
-		}
-	} else if (e >= LDBL_MANT_DIG - 1) {	/* x has no fraction part. */
-		*iptr = x;
-		if (x != x)			/* Handle NaNs. */
-			return (x);
-		return (zero[ux.bits.sign]);
-	} else {				/* Fraction part is in manl. */
-		if (GETFRAC(ux.bits.manl, LDBL_MANT_DIG - 1 - e) == 0) {
-			/* x is integral. */
-			*iptr = x;
-			return (zero[ux.bits.sign]);
-		} else {
-			/* Clear all but the top e+1 bits. */
-			ux.bits.manl >>= LDBL_MANT_DIG - 1 - e;
-			ux.bits.manl <<= LDBL_MANT_DIG - 1 - e;
-			*iptr = ux.e;
-			return (x - ux.e);
-		}
-	}
+    ux.e = x;
+    e = ux.bits.exp - LDBL_MAX_EXP + 1;
+    if (e < HIBITS) {			/* Integer part is in manh. */
+        if (e < 0) {			/* |x|<1 */
+            *iptr = zero[ux.bits.sign];
+            return (x);
+        } else {
+            if ((GETFRAC(ux.bits.manh, HIBITS - 1 - e) |
+                 ux.bits.manl) == 0) {	/* X is an integer. */
+                *iptr = x;
+                return (zero[ux.bits.sign]);
+            } else {
+                /* Clear all but the top e+1 bits. */
+                ux.bits.manh >>= HIBITS - 1 - e;
+                ux.bits.manh <<= HIBITS - 1 - e;
+                ux.bits.manl = 0;
+                *iptr = ux.e;
+                return (x - ux.e);
+            }
+        }
+    } else if (e >= LDBL_MANT_DIG - 1) {	/* x has no fraction part. */
+        *iptr = x;
+        if (x != x)			/* Handle NaNs. */
+            return (x);
+        return (zero[ux.bits.sign]);
+    } else {				/* Fraction part is in manl. */
+        if (GETFRAC(ux.bits.manl, LDBL_MANT_DIG - 1 - e) == 0) {
+            /* x is integral. */
+            *iptr = x;
+            return (zero[ux.bits.sign]);
+        } else {
+            /* Clear all but the top e+1 bits. */
+            ux.bits.manl >>= LDBL_MANT_DIG - 1 - e;
+            ux.bits.manl <<= LDBL_MANT_DIG - 1 - e;
+            *iptr = ux.e;
+            return (x - ux.e);
+        }
+    }
 }

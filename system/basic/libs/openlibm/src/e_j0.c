@@ -72,7 +72,7 @@ huge 	= 1e300,
 one	= 1.0,
 invsqrtpi=  5.64189583547756279280e-01, /* 0x3FE20DD7, 0x50429B6D */
 tpi      =  6.36619772367581382433e-01, /* 0x3FE45F30, 0x6DC9C883 */
- 		/* R0/S0 on [0, 2.00] */
+        /* R0/S0 on [0, 2.00] */
 R02  =  1.56249999999999947958e-02, /* 0x3F8FFFFF, 0xFFFFFFFD */
 R03  = -1.89979294238854721751e-04, /* 0xBF28E6A5, 0xB61AC6E9 */
 R04  =  1.82954049532700665670e-06, /* 0x3EBEB1D1, 0x0C503919 */
@@ -87,49 +87,49 @@ static const double zero = 0.0;
 OLM_DLLEXPORT double
 __ieee754_j0(double x)
 {
-	double z, s,c,ss,cc,r,u,v;
-	int32_t hx,ix;
+    double z, s,c,ss,cc,r,u,v;
+    int32_t hx,ix;
 
-	GET_HIGH_WORD(hx,x);
-	ix = hx&0x7fffffff;
-	if(ix>=0x7ff00000) return one/(x*x);
-	x = fabs(x);
-	if(ix >= 0x40000000) {	/* |x| >= 2.0 */
-		s = sin(x);
-		c = cos(x);
-		ss = s-c;
-		cc = s+c;
-		if(ix<0x7fe00000) {  /* make sure x+x not overflow */
-		    z = -cos(x+x);
-		    if ((s*c)<zero) cc = z/ss;
-		    else 	    ss = z/cc;
-		}
-	/*
-	 * j0(x) = 1/sqrt(pi) * (P(0,x)*cc - Q(0,x)*ss) / sqrt(x)
-	 * y0(x) = 1/sqrt(pi) * (P(0,x)*ss + Q(0,x)*cc) / sqrt(x)
-	 */
-		if(ix>0x48000000) z = (invsqrtpi*cc)/sqrt(x);
-		else {
-		    u = pzero(x); v = qzero(x);
-		    z = invsqrtpi*(u*cc-v*ss)/sqrt(x);
-		}
-		return z;
-	}
-	if(ix<0x3f200000) {	/* |x| < 2**-13 */
-	    if(huge+x>one) {	/* raise inexact if x != 0 */
-	        if(ix<0x3e400000) return one;	/* |x|<2**-27 */
-	        else 	      return one - 0.25*x*x;
-	    }
-	}
-	z = x*x;
-	r =  z*(R02+z*(R03+z*(R04+z*R05)));
-	s =  one+z*(S01+z*(S02+z*(S03+z*S04)));
-	if(ix < 0x3FF00000) {	/* |x| < 1.00 */
-	    return one + z*(-0.25+(r/s));
-	} else {
-	    u = 0.5*x;
-	    return((one+u)*(one-u)+z*(r/s));
-	}
+    GET_HIGH_WORD(hx,x);
+    ix = hx&0x7fffffff;
+    if(ix>=0x7ff00000) return one/(x*x);
+    x = fabs(x);
+    if(ix >= 0x40000000) {	/* |x| >= 2.0 */
+        s = sin(x);
+        c = cos(x);
+        ss = s-c;
+        cc = s+c;
+        if(ix<0x7fe00000) {  /* make sure x+x not overflow */
+            z = -cos(x+x);
+            if ((s*c)<zero) cc = z/ss;
+            else 	    ss = z/cc;
+        }
+    /*
+     * j0(x) = 1/sqrt(pi) * (P(0,x)*cc - Q(0,x)*ss) / sqrt(x)
+     * y0(x) = 1/sqrt(pi) * (P(0,x)*ss + Q(0,x)*cc) / sqrt(x)
+     */
+        if(ix>0x48000000) z = (invsqrtpi*cc)/sqrt(x);
+        else {
+            u = pzero(x); v = qzero(x);
+            z = invsqrtpi*(u*cc-v*ss)/sqrt(x);
+        }
+        return z;
+    }
+    if(ix<0x3f200000) {	/* |x| < 2**-13 */
+        if(huge+x>one) {	/* raise inexact if x != 0 */
+            if(ix<0x3e400000) return one;	/* |x|<2**-27 */
+            else 	      return one - 0.25*x*x;
+        }
+    }
+    z = x*x;
+    r =  z*(R02+z*(R03+z*(R04+z*R05)));
+    s =  one+z*(S01+z*(S02+z*(S03+z*S04)));
+    if(ix < 0x3FF00000) {	/* |x| < 1.00 */
+        return one + z*(-0.25+(r/s));
+    } else {
+        u = 0.5*x;
+        return((one+u)*(one-u)+z*(r/s));
+    }
 }
 
 static const double
@@ -148,13 +148,13 @@ v04  =  4.41110311332675467403e-10; /* 0x3DFE5018, 0x3BD6D9EF */
 OLM_DLLEXPORT double
 __ieee754_y0(double x)
 {
-	double z, s,c,ss,cc,u,v;
-	int32_t hx,ix,lx;
+    double z, s,c,ss,cc,u,v;
+    int32_t hx,ix,lx;
 
-	EXTRACT_WORDS(hx,lx,x);
+    EXTRACT_WORDS(hx,lx,x);
         ix = 0x7fffffff&hx;
     /* Y0(NaN) is NaN, y0(-inf) is Nan, y0(inf) is 0  */
-	if(ix>=0x7ff00000) return  one/(x+x*x); 
+    if(ix>=0x7ff00000) return  one/(x+x*x); 
         if((ix|lx)==0) return -one/zero;
         if(hx<0) return zero/zero;
         if(ix >= 0x40000000) {  /* |x| >= 2.0 */
@@ -173,10 +173,10 @@ __ieee754_y0(double x)
                 c = cos(x);
                 ss = s-c;
                 cc = s+c;
-	/*
-	 * j0(x) = 1/sqrt(pi) * (P(0,x)*cc - Q(0,x)*ss) / sqrt(x)
-	 * y0(x) = 1/sqrt(pi) * (P(0,x)*ss + Q(0,x)*cc) / sqrt(x)
-	 */
+    /*
+     * j0(x) = 1/sqrt(pi) * (P(0,x)*cc - Q(0,x)*ss) / sqrt(x)
+     * y0(x) = 1/sqrt(pi) * (P(0,x)*ss + Q(0,x)*cc) / sqrt(x)
+     */
                 if(ix<0x7fe00000) {  /* make sure x+x not overflow */
                     z = -cos(x+x);
                     if ((s*c)<zero) cc = z/ss;
@@ -188,14 +188,14 @@ __ieee754_y0(double x)
                     z = invsqrtpi*(u*ss+v*cc)/sqrt(x);
                 }
                 return z;
-	}
-	if(ix<=0x3e400000) {	/* x < 2**-27 */
-	    return(u00 + tpi*__ieee754_log(x));
-	}
-	z = x*x;
-	u = u00+z*(u01+z*(u02+z*(u03+z*(u04+z*(u05+z*u06)))));
-	v = one+z*(v01+z*(v02+z*(v03+z*v04)));
-	return(u/v + tpi*(__ieee754_j0(x)*__ieee754_log(x)));
+    }
+    if(ix<=0x3e400000) {	/* x < 2**-27 */
+        return(u00 + tpi*__ieee754_log(x));
+    }
+    z = x*x;
+    u = u00+z*(u01+z*(u02+z*(u03+z*(u04+z*(u05+z*u06)))));
+    v = one+z*(v01+z*(v02+z*(v03+z*v04)));
+    return(u/v + tpi*(__ieee754_j0(x)*__ieee754_log(x)));
 }
 
 /* The asymptotic expansions of pzero is
@@ -271,25 +271,25 @@ static const double pS2[5] = {
   1.46576176948256193810e+01, /* 0x402D50B3, 0x44391809 */
 };
 
-	/* Note: This function is only called for ix>=0x40000000 (see above) */
-	static double pzero(double x)
+    /* Note: This function is only called for ix>=0x40000000 (see above) */
+    static double pzero(double x)
 {
-	const double *p,*q;
-	double z,r,s;
-	int32_t ix;
-	GET_HIGH_WORD(ix,x);
-	ix &= 0x7fffffff;
+    const double *p,*q;
+    double z,r,s;
+    int32_t ix;
+    GET_HIGH_WORD(ix,x);
+    ix &= 0x7fffffff;
         assert(ix>=0x40000000 && ix<=0x48000000);
-	if(ix>=0x40200000)     {p = pR8; q= pS8;}
-	else if(ix>=0x40122E8B){p = pR5; q= pS5;}
-	else if(ix>=0x4006DB6D){p = pR3; q= pS3;}
-	else                   {p = pR2; q= pS2;}
-	z = one/(x*x);
-	r = p[0]+z*(p[1]+z*(p[2]+z*(p[3]+z*(p[4]+z*p[5]))));
-	s = one+z*(q[0]+z*(q[1]+z*(q[2]+z*(q[3]+z*q[4]))));
-	return one+ r/s;
+    if(ix>=0x40200000)     {p = pR8; q= pS8;}
+    else if(ix>=0x40122E8B){p = pR5; q= pS5;}
+    else if(ix>=0x4006DB6D){p = pR3; q= pS3;}
+    else                   {p = pR2; q= pS2;}
+    z = one/(x*x);
+    r = p[0]+z*(p[1]+z*(p[2]+z*(p[3]+z*(p[4]+z*p[5]))));
+    s = one+z*(q[0]+z*(q[1]+z*(q[2]+z*(q[3]+z*q[4]))));
+    return one+ r/s;
 }
-		
+        
 
 /* For x >= 8, the asymptotic expansions of qzero is
  *	-1/8 s + 75/1024 s^3 - ..., where s = 1/x.
@@ -368,21 +368,21 @@ static const double qS2[6] = {
  -5.31095493882666946917e+00, /* 0xC0153E6A, 0xF8B32931 */
 };
 
-	/* Note: This function is only called for ix>=0x40000000 (see above) */
-	static double qzero(double x)
+    /* Note: This function is only called for ix>=0x40000000 (see above) */
+    static double qzero(double x)
 {
-	const double *p,*q;
-	double s,r,z;
-	int32_t ix;
-	GET_HIGH_WORD(ix,x);
-	ix &= 0x7fffffff;
+    const double *p,*q;
+    double s,r,z;
+    int32_t ix;
+    GET_HIGH_WORD(ix,x);
+    ix &= 0x7fffffff;
         assert(ix>=0x40000000 && ix<=0x48000000);
-	if(ix>=0x40200000)     {p = qR8; q= qS8;}
-	else if(ix>=0x40122E8B){p = qR5; q= qS5;}
-	else if(ix>=0x4006DB6D){p = qR3; q= qS3;}
-	else                   {p = qR2; q= qS2;}
-	z = one/(x*x);
-	r = p[0]+z*(p[1]+z*(p[2]+z*(p[3]+z*(p[4]+z*p[5]))));
-	s = one+z*(q[0]+z*(q[1]+z*(q[2]+z*(q[3]+z*(q[4]+z*q[5])))));
-	return (-.125 + r/s)/x;
+    if(ix>=0x40200000)     {p = qR8; q= qS8;}
+    else if(ix>=0x40122E8B){p = qR5; q= qS5;}
+    else if(ix>=0x4006DB6D){p = qR3; q= qS3;}
+    else                   {p = qR2; q= qS2;}
+    z = one/(x*x);
+    r = p[0]+z*(p[1]+z*(p[2]+z*(p[3]+z*(p[4]+z*p[5]))));
+    s = one+z*(q[0]+z*(q[1]+z*(q[2]+z*(q[3]+z*(q[4]+z*q[5])))));
+    return (-.125 + r/s)/x;
 }

@@ -60,12 +60,12 @@ S6  =  1.58969099521155010221e-10; /* 0x3DE5D93A, 0x5ACFD57C */
 OLM_DLLEXPORT double
 __kernel_sin(double x, double y, int iy)
 {
-	double z,r,v,w;
+    double z,r,v,w;
 
-	z	=  x*x;
-	w	=  z*z;
-	r	=  S2+z*(S3+z*S4) + z*w*(S5+z*S6);
-	v	=  z*x;
-	if(iy==0) return x+v*(S1+z*r);
-	else      return x-((z*(half*y-v*r)-y)-v*S1);
+    z	=  x*x;
+    w	=  z*z;
+    r	=  S2+z*(S3+z*S4) + z*w*(S5+z*S6);
+    v	=  z*x;
+    if(iy==0) return x+v*(S1+z*r);
+    else      return x-((z*(half*y-v*r)-y)-v*S1);
 }

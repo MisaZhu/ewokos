@@ -55,10 +55,10 @@ graph_t* get_icon(const char* icon, uint32_t size) {
     }
 
     if(vfs_get_by_name(dir_name, NULL) != 0) {
-		if(vfs_create(dir_name, NULL, FS_TYPE_DIR, 0777, false, true) != 0) {
-    		return ret;
+        if(vfs_create(dir_name, NULL, FS_TYPE_DIR, 0777, false, true) != 0) {
+            return ret;
         }
-	}
+    }
 
     int fd = open(icon_file, O_WRONLY | O_CREAT);
     if(fd < 0) {

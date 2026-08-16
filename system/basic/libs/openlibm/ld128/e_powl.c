@@ -174,10 +174,10 @@ powl(long double x, long double y)
   /* +-NaN return x+y */
   if ((ix > 0x7fff0000)
       || ((ix == 0x7fff0000)
-	  && ((p.parts32.mswlo | p.parts32.lswhi | p.parts32.lswlo) != 0))
+      && ((p.parts32.mswlo | p.parts32.lswhi | p.parts32.lswlo) != 0))
       || (iy > 0x7fff0000)
       || ((iy == 0x7fff0000)
-	  && ((q.parts32.mswlo | q.parts32.lswhi | q.parts32.lswlo) != 0)))
+      && ((q.parts32.mswlo | q.parts32.lswhi | q.parts32.lswlo) != 0)))
     return x + y;
 
   /* determine if y is an odd int when x < 0
@@ -189,47 +189,47 @@ powl(long double x, long double y)
   if (hx < 0)
     {
       if (iy >= 0x40700000)	/* 2^113 */
-	yisint = 2;		/* even integer y */
+    yisint = 2;		/* even integer y */
       else if (iy >= 0x3fff0000)	/* 1.0 */
-	{
-	  if (floorl (y) == y)
-	    {
-	      z = 0.5 * y;
-	      if (floorl (z) == z)
-		yisint = 2;
-	      else
-		yisint = 1;
-	    }
-	}
+    {
+      if (floorl (y) == y)
+        {
+          z = 0.5 * y;
+          if (floorl (z) == z)
+        yisint = 2;
+          else
+        yisint = 1;
+        }
+    }
     }
 
   /* special value of y */
   if ((q.parts32.mswlo | q.parts32.lswhi | q.parts32.lswlo) == 0)
     {
       if (iy == 0x7fff0000)	/* y is +-inf */
-	{
-	  if (((ix - 0x3fff0000) | p.parts32.mswlo | p.parts32.lswhi |
-	    p.parts32.lswlo) == 0)
-	    return y - y;	/* +-1**inf is NaN */
-	  else if (ix >= 0x3fff0000)	/* (|x|>1)**+-inf = inf,0 */
-	    return (hy >= 0) ? y : zero;
-	  else			/* (|x|<1)**-,+inf = inf,0 */
-	    return (hy < 0) ? -y : zero;
-	}
+    {
+      if (((ix - 0x3fff0000) | p.parts32.mswlo | p.parts32.lswhi |
+        p.parts32.lswlo) == 0)
+        return y - y;	/* +-1**inf is NaN */
+      else if (ix >= 0x3fff0000)	/* (|x|>1)**+-inf = inf,0 */
+        return (hy >= 0) ? y : zero;
+      else			/* (|x|<1)**-,+inf = inf,0 */
+        return (hy < 0) ? -y : zero;
+    }
       if (iy == 0x3fff0000)
-	{			/* y is  +-1 */
-	  if (hy < 0)
-	    return one / x;
-	  else
-	    return x;
-	}
+    {			/* y is  +-1 */
+      if (hy < 0)
+        return one / x;
+      else
+        return x;
+    }
       if (hy == 0x40000000)
-	return x * x;		/* y is  2 */
+    return x * x;		/* y is  2 */
       if (hy == 0x3ffe0000)
-	{			/* y is  0.5 */
-	  if (hx >= 0)		/* x >= +0 */
-	    return sqrtl (x);
-	}
+    {			/* y is  0.5 */
+      if (hx >= 0)		/* x >= +0 */
+        return sqrtl (x);
+    }
     }
 
   ax = fabsl (x);
@@ -237,21 +237,21 @@ powl(long double x, long double y)
   if ((p.parts32.mswlo | p.parts32.lswhi | p.parts32.lswlo) == 0)
     {
       if (ix == 0x7fff0000 || ix == 0 || ix == 0x3fff0000)
-	{
-	  z = ax;		/*x is +-0,+-inf,+-1 */
-	  if (hy < 0)
-	    z = one / z;	/* z = (1/|x|) */
-	  if (hx < 0)
-	    {
-	      if (((ix - 0x3fff0000) | yisint) == 0)
-		{
-		  z = (z - z) / (z - z);	/* (-1)**non-int is NaN */
-		}
-	      else if (yisint == 1)
-		z = -z;		/* (x<0)**odd = -(|x|**odd) */
-	    }
-	  return z;
-	}
+    {
+      z = ax;		/*x is +-0,+-inf,+-1 */
+      if (hy < 0)
+        z = one / z;	/* z = (1/|x|) */
+      if (hx < 0)
+        {
+          if (((ix - 0x3fff0000) | yisint) == 0)
+        {
+          z = (z - z) / (z - z);	/* (-1)**non-int is NaN */
+        }
+          else if (yisint == 1)
+        z = -z;		/* (x<0)**odd = -(|x|**odd) */
+        }
+      return z;
+    }
     }
 
   /* (x<0)**(non-int) is NaN */
@@ -265,17 +265,17 @@ powl(long double x, long double y)
     {
       /* if (1 - 2^-113)^y underflows, y > 1.1873e38 */
       if (iy > 0x407d654b)
-	{
-	  if (ix <= 0x3ffeffff)
-	    return (hy < 0) ? huge * huge : tiny * tiny;
-	  if (ix >= 0x3fff0000)
-	    return (hy > 0) ? huge * huge : tiny * tiny;
-	}
+    {
+      if (ix <= 0x3ffeffff)
+        return (hy < 0) ? huge * huge : tiny * tiny;
+      if (ix >= 0x3fff0000)
+        return (hy > 0) ? huge * huge : tiny * tiny;
+    }
       /* over/underflow if x is not close to one */
       if (ix < 0x3ffeffff)
-	return (hy < 0) ? huge * huge : tiny * tiny;
+    return (hy < 0) ? huge * huge : tiny * tiny;
       if (ix > 0x3fff0000)
-	return (hy > 0) ? huge * huge : tiny * tiny;
+    return (hy > 0) ? huge * huge : tiny * tiny;
     }
 
   n = 0;
@@ -378,26 +378,26 @@ powl(long double x, long double y)
     {
       /* if z > 16384 */
       if (((j - 0x400d0000) | o.parts32.mswlo | o.parts32.lswhi |
-	o.parts32.lswlo) != 0)
-	return s * huge * huge;	/* overflow */
+    o.parts32.lswlo) != 0)
+    return s * huge * huge;	/* overflow */
       else
-	{
-	  if (p_l + ovt > z - p_h)
-	    return s * huge * huge;	/* overflow */
-	}
+    {
+      if (p_l + ovt > z - p_h)
+        return s * huge * huge;	/* overflow */
+    }
     }
   else if ((j & 0x7fffffff) >= 0x400d01b9)	/* z <= -16495 */
     {
       /* z < -16495 */
       if (((j - 0xc00d01bc) | o.parts32.mswlo | o.parts32.lswhi |
-	o.parts32.lswlo)
-	  != 0)
-	return s * tiny * tiny;	/* underflow */
+    o.parts32.lswlo)
+      != 0)
+    return s * tiny * tiny;	/* underflow */
       else
-	{
-	  if (p_l <= z - p_h)
-	    return s * tiny * tiny;	/* underflow */
-	}
+    {
+      if (p_l <= z - p_h)
+        return s * tiny * tiny;	/* underflow */
+    }
     }
   /* compute 2**(p_h+p_l) */
   i = j & 0x7fffffff;

@@ -34,5 +34,5 @@ OLM_DLLEXPORT double complex
 conj(double complex z)
 {
 
-	return (CMPLX(creal(z), -cimag(z)));
+    return (CMPLX(creal(z), -cimag(z)));
 }

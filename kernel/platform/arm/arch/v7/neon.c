@@ -51,7 +51,7 @@ static void vfp_enable(void *unused)
 }
 
 void _enable_neon(void){
-	vfp_enable(0);	
+    vfp_enable(0);	
     uint32_t fpexc = fmrx(FPEXC);
     fmxr(FPEXC, fpexc | FPEXC_EN);
 }

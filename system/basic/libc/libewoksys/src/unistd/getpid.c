@@ -2,6 +2,6 @@
 #include <ewoksys/proc.h>
 
 int getpid(void) {
-	return proc_getpid(-1);
+    return proc_getpid(-1);
 }
 

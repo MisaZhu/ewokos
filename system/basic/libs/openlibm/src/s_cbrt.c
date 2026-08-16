@@ -23,8 +23,8 @@
  * Return cube root of x
  */
 static const u_int32_t
-	B1 = 715094163, /* B1 = (1023-1023/3-0.03306235651)*2**20 */
-	B2 = 696219795; /* B2 = (1023-1023/3-54/3-0.03306235651)*2**20 */
+    B1 = 715094163, /* B1 = (1023-1023/3-0.03306235651)*2**20 */
+    B2 = 696219795; /* B2 = (1023-1023/3-54/3-0.03306235651)*2**20 */
 
 /* |1/cbrt(x) - p(x)| < 2**-23.5 (~[-7.93e-8, 7.929e-8]). */
 static const double
@@ -37,19 +37,19 @@ P4 =  0.145996192886612446982;		/* 0x3fc2b000, 0xd4e4edd7 */
 OLM_DLLEXPORT double
 cbrt(double x)
 {
-	int32_t	hx;
-	union {
-	    double value;
-	    u_int64_t bits;
-	} u;
-	double r,s,t=0.0,w;
-	u_int32_t sign;
-	u_int32_t high,low;
+    int32_t	hx;
+    union {
+        double value;
+        u_int64_t bits;
+    } u;
+    double r,s,t=0.0,w;
+    u_int32_t sign;
+    u_int32_t high,low;
 
-	EXTRACT_WORDS(hx,low,x);
-	sign=hx&0x80000000; 		/* sign= sign(x) */
-	hx  ^=sign;
-	if(hx>=0x7ff00000) return(x+x); /* cbrt(NaN,INF) is itself */
+    EXTRACT_WORDS(hx,low,x);
+    sign=hx&0x80000000; 		/* sign= sign(x) */
+    hx  ^=sign;
+    if(hx>=0x7ff00000) return(x+x); /* cbrt(NaN,INF) is itself */
 
     /*
      * Rough cbrt to 5 bits:
@@ -66,15 +66,15 @@ cbrt(double x)
      * subtraction virtually to keep e >= 0 so that ordinary integer
      * division rounds towards minus infinity; this is also efficient.
      */
-	if(hx<0x00100000) { 		/* zero or subnormal? */
-	    if((hx|low)==0)
-		return(x);		/* cbrt(0) is itself */
-	    SET_HIGH_WORD(t,0x43500000); /* set t= 2**54 */
-	    t*=x;
-	    GET_HIGH_WORD(high,t);
-	    INSERT_WORDS(t,sign|((high&0x7fffffff)/3+B2),0);
-	} else
-	    INSERT_WORDS(t,sign|(hx/3+B1),0);
+    if(hx<0x00100000) { 		/* zero or subnormal? */
+        if((hx|low)==0)
+        return(x);		/* cbrt(0) is itself */
+        SET_HIGH_WORD(t,0x43500000); /* set t= 2**54 */
+        t*=x;
+        GET_HIGH_WORD(high,t);
+        INSERT_WORDS(t,sign|((high&0x7fffffff)/3+B2),0);
+    } else
+        INSERT_WORDS(t,sign|(hx/3+B1),0);
 
     /*
      * New cbrt to 23 bits:
@@ -86,8 +86,8 @@ cbrt(double x)
      *
      * Try to optimize for parallel evaluation as in k_tanf.c.
      */
-	r=(t*t)*(t/x);
-	t=t*((P0+r*(P1+r*P2))+((r*r)*r)*(P3+r*P4));
+    r=(t*t)*(t/x);
+    t=t*((P0+r*(P1+r*P2))+((r*r)*r)*(P3+r*P4));
 
     /*
      * Round t away from zero to 23 bits (sloppily except for ensuring that
@@ -99,18 +99,18 @@ cbrt(double x)
      * 0.667; the error in the rounded t can be up to about 3 23-bit ulps
      * before the final error is larger than 0.667 ulps.
      */
-	u.value=t;
-	u.bits=(u.bits+0x80000000)&0xffffffffc0000000ULL;
-	t=u.value;
+    u.value=t;
+    u.bits=(u.bits+0x80000000)&0xffffffffc0000000ULL;
+    t=u.value;
 
     /* one step Newton iteration to 53 bits with error < 0.667 ulps */
-	s=t*t;				/* t*t is exact */
-	r=x/s;				/* error <= 0.5 ulps; |r| < |t| */
-	w=t+t;				/* t+t is exact */
-	r=(r-t)/(w+r);			/* r-t is exact; w+r ~= 3*t */
-	t=t+t*r;			/* error <= 0.5 + 0.5/3 + epsilon */
+    s=t*t;				/* t*t is exact */
+    r=x/s;				/* error <= 0.5 ulps; |r| < |t| */
+    w=t+t;				/* t+t is exact */
+    r=(r-t)/(w+r);			/* r-t is exact; w+r ~= 3*t */
+    t=t+t*r;			/* error <= 0.5 + 0.5/3 + epsilon */
 
-	return(t);
+    return(t);
 }
 
 #if (LDBL_MANT_DIG == 53)

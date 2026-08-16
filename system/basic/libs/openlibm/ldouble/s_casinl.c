@@ -64,67 +64,67 @@ static const long double PIO2L = 1.570796326794896619231321691639751442098585L;
 long double complex
 casinl(long double complex z)
 {
-	long double complex w;
-	long double x, y, b;
-	static long double complex ca, ct, zz, z2;
+    long double complex w;
+    long double x, y, b;
+    static long double complex ca, ct, zz, z2;
 
-	x = creall(z);
-	y = cimagl(z);
+    x = creall(z);
+    y = cimagl(z);
 
-	if (y == 0.0L) {
-		if (fabsl(x) > 1.0L) {
-			w = PIO2L + 0.0L * I;
-			/*mtherr( "casinl", DOMAIN );*/
-		}
-		else {
-			w = asinl(x) + 0.0L * I;
-		}
-		return (w);
-	}
+    if (y == 0.0L) {
+        if (fabsl(x) > 1.0L) {
+            w = PIO2L + 0.0L * I;
+            /*mtherr( "casinl", DOMAIN );*/
+        }
+        else {
+            w = asinl(x) + 0.0L * I;
+        }
+        return (w);
+    }
 
-	/* Power series expansion */
-	b = cabsl(z);
-	if (b < 0.125L) {
-		long double complex sum;
-		long double n, cn;
+    /* Power series expansion */
+    b = cabsl(z);
+    if (b < 0.125L) {
+        long double complex sum;
+        long double n, cn;
 
-		z2 = (x - y) * (x + y) + (2.0L * x * y) * I;
-		cn = 1.0L;
-		n = 1.0L;
-		ca = x + y * I;
-		sum = x + y * I;
-		do {
-			ct = z2 * ca;
-			ca = ct;
+        z2 = (x - y) * (x + y) + (2.0L * x * y) * I;
+        cn = 1.0L;
+        n = 1.0L;
+        ca = x + y * I;
+        sum = x + y * I;
+        do {
+            ct = z2 * ca;
+            ca = ct;
 
-			cn *= n;
-			n += 1.0L;
-			cn /= n;
-			n += 1.0L;
-			b = cn/n;
+            cn *= n;
+            n += 1.0L;
+            cn /= n;
+            n += 1.0L;
+            b = cn/n;
 
-			ct *= b;
-			sum += ct;
-			b = cabsl(ct);
-		}
+            ct *= b;
+            sum += ct;
+            b = cabsl(ct);
+        }
 
-		while (b > MACHEPL);
-		w = sum;
-		return w;
-	}
+        while (b > MACHEPL);
+        w = sum;
+        return w;
+    }
 
-	ca = x + y * I;
-	ct = ca * I;	/* iz */
-	/* sqrt(1 - z*z) */
-	/* cmul(&ca, &ca, &zz) */
-	/* x * x  -  y * y */
-	zz = (x - y) * (x + y) + (2.0L * x * y) * I;
-	zz = 1.0L - creall(zz) - cimagl(zz) * I;
-	z2 = csqrtl(zz);
+    ca = x + y * I;
+    ct = ca * I;	/* iz */
+    /* sqrt(1 - z*z) */
+    /* cmul(&ca, &ca, &zz) */
+    /* x * x  -  y * y */
+    zz = (x - y) * (x + y) + (2.0L * x * y) * I;
+    zz = 1.0L - creall(zz) - cimagl(zz) * I;
+    z2 = csqrtl(zz);
 
-	zz = ct + z2;
-	zz = clogl(zz);
-	/* multiply by 1/i = -i */
-	w = zz * (-1.0L * I);
-	return (w);
+    zz = ct + z2;
+    zz = clogl(zz);
+    /* multiply by 1/i = -i */
+    w = zz * (-1.0L * I);
+    return (w);
 }

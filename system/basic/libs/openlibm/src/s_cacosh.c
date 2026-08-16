@@ -51,10 +51,10 @@
 double complex
 cacosh(double complex z)
 {
-	double complex w;
+    double complex w;
 
-	w = I * cacos (z);
-	return (w);
+    w = I * cacos (z);
+    return (w);
 }
 
 #if	LDBL_MANT_DIG == DBL_MANT_DIG

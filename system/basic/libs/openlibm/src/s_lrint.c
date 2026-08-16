@@ -49,13 +49,13 @@
 OLM_DLLEXPORT dtype
 fn(type x)
 {
-	fenv_t env;
-	dtype d;
+    fenv_t env;
+    dtype d;
 
-	feholdexcept(&env);
-	d = (dtype)roundit(x);
-	if (fetestexcept(FE_INVALID))
-		feclearexcept(FE_INEXACT);
-	feupdateenv(&env);
-	return (d);
+    feholdexcept(&env);
+    d = (dtype)roundit(x);
+    if (fetestexcept(FE_INVALID))
+        feclearexcept(FE_INEXACT);
+    feupdateenv(&env);
+    return (d);
 }

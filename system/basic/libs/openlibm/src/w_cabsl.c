@@ -18,5 +18,5 @@
 OLM_DLLEXPORT long double
 cabsl(long double complex z)
 {
-	return hypotl(creall(z), cimagl(z));
+    return hypotl(creall(z), cimagl(z));
 }

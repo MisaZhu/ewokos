@@ -72,29 +72,29 @@ tanhl(long double x)
     {
       /* for NaN it's not important which branch: tanhl(NaN) = NaN */
       if (jx & 0x80000000)
-	return one / x - one;	/* tanhl(-inf)= -1; */
+    return one / x - one;	/* tanhl(-inf)= -1; */
       else
-	return one / x + one;	/* tanhl(+inf)=+1 */
+    return one / x + one;	/* tanhl(+inf)=+1 */
     }
 
   /* |x| < 40 */
   if (ix < 0x40044000)
     {
       if (u.value == 0)
-	return x;		/* x == +- 0 */
+    return x;		/* x == +- 0 */
       if (ix < 0x3fc60000)	/* |x| < 2^-57 */
-	return x * (one + tiny); /* tanh(small) = small */
+    return x * (one + tiny); /* tanh(small) = small */
       u.parts32.mswhi = ix;	/* Absolute value of x.  */
       if (ix >= 0x3fff0000)
-	{			/* |x| >= 1  */
-	  t = expm1l (two * u.value);
-	  z = one - two / (t + two);
-	}
+    {			/* |x| >= 1  */
+      t = expm1l (two * u.value);
+      z = one - two / (t + two);
+    }
       else
-	{
-	  t = expm1l (-two * u.value);
-	  z = -t / (t + two);
-	}
+    {
+      t = expm1l (-two * u.value);
+      z = -t / (t + two);
+    }
       /* |x| > 40, return +-1 */
     }
   else

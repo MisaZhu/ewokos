@@ -156,8 +156,8 @@ inline void graph_blt_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int
     grect_t sr = {sx, sy, sw, sh};
     grect_t dr = {dx, dy, dw, dh};
     graph_insect(dst, &dr);
-	if(dst->clip.w > 0 && dst->clip.h > 0)
-		grect_insect(&dst->clip, &dr);
+    if(dst->clip.w > 0 && dst->clip.h > 0)
+        grect_insect(&dst->clip, &dr);
 
     if(!graph_insect_with(src, &sr, dst, &dr))
         return;
@@ -293,8 +293,8 @@ inline void graph_blt_alpha_arch(graph_t* src, int32_t sx, int32_t sy, int32_t s
     grect_t sr = {sx, sy, sw, sh};
     grect_t dr = {dx, dy, dw, dh};
     graph_insect(dst, &dr);
-	if(dst->clip.w > 0 && dst->clip.h > 0)
-		grect_insect(&dst->clip, &dr);
+    if(dst->clip.w > 0 && dst->clip.h > 0)
+        grect_insect(&dst->clip, &dr);
 
     if(!graph_insect_with(src, &sr, dst, &dr))
         return;
@@ -411,8 +411,8 @@ inline void graph_blt_alpha_mask_arch(graph_t* src, int32_t sx, int32_t sy, int3
     grect_t sr = {sx, sy, sw, sh};
     grect_t dr = {dx, dy, dw, dh};
     graph_insect(dst, &dr);
-	if(dst->clip.w > 0 && dst->clip.h > 0)
-		grect_insect(&dst->clip, &dr);
+    if(dst->clip.w > 0 && dst->clip.h > 0)
+        grect_insect(&dst->clip, &dr);
 
     if(!graph_insect_with(src, &sr, dst, &dr))
         return;
@@ -494,9 +494,9 @@ static void glass_neon(uint32_t* args, int width, int height,
     int total_pixels = w * h;
     int* rand_offsets = malloc(total_pixels * 2 * sizeof(int));
 
-	for (int i = 0; i < total_pixels * 2; i++) {
-		rand_offsets[i] = (rand() % range) - r;
-	}
+    for (int i = 0; i < total_pixels * 2; i++) {
+        rand_offsets[i] = (rand() % range) - r;
+    }
 
     // Process the image region.
     int offset_index = 0;
@@ -578,15 +578,15 @@ static void graph_glass_neon(graph_t* g, int x, int y, int w, int h, int r) {
         return;
     }
 
-	grect_t ir = {x, y, w, h};
-	if(!graph_insect(g, &ir))
-		return;
-	x = ir.x;
-	y = ir.y;
-	w = ir.w;
-	h = ir.h;
+    grect_t ir = {x, y, w, h};
+    if(!graph_insect(g, &ir))
+        return;
+    x = ir.x;
+    y = ir.y;
+    w = ir.w;
+    h = ir.h;
 
-	glass_neon(g->buffer, g->w, g->h, x, y, w, h, 2);
+    glass_neon(g->buffer, g->w, g->h, x, y, w, h, 2);
 }
 
 static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
@@ -813,15 +813,15 @@ static void graph_gaussian_neon(graph_t* g, int x, int y, int w, int h, int r) {
         return;
     }
 
-	grect_t ir = {x, y, w, h};
-	if(!graph_insect(g, &ir))
-		return;
-	x = ir.x;
-	y = ir.y;
-	w = ir.w;
-	h = ir.h;
+    grect_t ir = {x, y, w, h};
+    if(!graph_insect(g, &ir))
+        return;
+    x = ir.x;
+    y = ir.y;
+    w = ir.w;
+    h = ir.h;
 
-	gaussian_blur_neon(g->buffer, g->w, g->h, x, y, w, h, r);
+    gaussian_blur_neon(g->buffer, g->w, g->h, x, y, w, h, r);
 }
 
 inline void graph_glass_arch(graph_t* g, int x, int y, int w, int h, int r) {

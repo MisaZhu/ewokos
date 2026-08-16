@@ -30,7 +30,7 @@ loopback_setup(struct net_device *dev)
     dev->alen = 0; /* non address */
     dev->flags = NET_DEVICE_FLAG_LOOPBACK;
     dev->ops = &loopback_ops;
-	dev->next = NULL;
+    dev->next = NULL;
 }
 
 struct net_device *

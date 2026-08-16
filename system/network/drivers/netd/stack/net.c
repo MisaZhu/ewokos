@@ -476,8 +476,8 @@ net_timer_handler(void)
 int
 net_interrupt(void)
 {
-	infof("interrupt\n");
-	raise_softirq(SIGINT);	
+    infof("interrupt\n");
+    raise_softirq(SIGINT);	
     /* getpid(2) and kill(2) are signal safety functions. see signal-safety(7). */
     return 0;
 }

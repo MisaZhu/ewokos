@@ -2,6 +2,6 @@
 #include <ewoksys/vfs.h>
 
 int dup(int from) {
-	return vfs_dup(from);
+    return vfs_dup(from);
 }
 

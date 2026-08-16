@@ -53,24 +53,24 @@
 OLM_DLLEXPORT double complex
 cpow(double complex a, double complex z)
 {
-	double complex w;
-	double x, y, r, theta, absa, arga;
+    double complex w;
+    double x, y, r, theta, absa, arga;
 
-	x = creal (z);
-	y = cimag (z);
-	absa = cabs (a);
-	if (absa == 0.0) {
-		return (0.0 + 0.0 * I);
-	}
-	arga = carg (a);
-	r = pow (absa, x);
-	theta = x * arga;
-	if (y != 0.0) {
-		r = r * exp (-y * arga);
-		theta = theta + y * log (absa);
-	}
-	w = r * cos (theta) + (r * sin (theta)) * I;
-	return (w);
+    x = creal (z);
+    y = cimag (z);
+    absa = cabs (a);
+    if (absa == 0.0) {
+        return (0.0 + 0.0 * I);
+    }
+    arga = carg (a);
+    r = pow (absa, x);
+    theta = x * arga;
+    if (y != 0.0) {
+        r = r * exp (-y * arga);
+        theta = theta + y * log (absa);
+    }
+    w = r * cos (theta) + (r * sin (theta)) * I;
+    return (w);
 }
 
 #if	LDBL_MANT_DIG == DBL_MANT_DIG

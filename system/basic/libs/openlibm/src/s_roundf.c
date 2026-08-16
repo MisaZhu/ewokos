@@ -34,20 +34,20 @@
 OLM_DLLEXPORT float
 roundf(float x)
 {
-	float t;
+    float t;
 
-	if (!isfinite(x))
-		return (x);
+    if (!isfinite(x))
+        return (x);
 
-	if (x >= 0.0) {
-		t = floorf(x);
-		if (t - x <= -0.5)
-			t += 1.0;
-		return (t);
-	} else {
-		t = floorf(-x);
-		if (t + x <= -0.5)
-			t += 1.0;
-		return (-t);
-	}
+    if (x >= 0.0) {
+        t = floorf(x);
+        if (t - x <= -0.5)
+            t += 1.0;
+        return (t);
+    } else {
+        t = floorf(-x);
+        if (t + x <= -0.5)
+            t += 1.0;
+        return (-t);
+    }
 }

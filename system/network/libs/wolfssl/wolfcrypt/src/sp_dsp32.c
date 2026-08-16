@@ -4426,7 +4426,7 @@ static void sp_256_mont_inv_order_10(sp_digit* r, const sp_digit* a,
  * MP_OKAY on success.
  */
 int wolfSSL_DSP_ECC_Verify_256(remote_handle64 h, int32 *u1, int hashLen, int32* r, int rSz, int32* s, int sSz,
-	int32* x, int xSz, int32* y, int ySz, int32* z, int zSz, int* res)
+    int32* x, int xSz, int32* y, int ySz, int32* z, int zSz, int* res)
 {
 #if defined(WOLFSSL_SP_SMALL) || defined(WOLFSSL_SMALL_STACK)
     sp_digit* d = NULL;

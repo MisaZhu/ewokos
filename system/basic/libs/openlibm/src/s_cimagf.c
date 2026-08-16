@@ -33,5 +33,5 @@
 OLM_DLLEXPORT float
 cimagf(float complex z)
 {
-	return (__imag__ z);
+    return (__imag__ z);
 }

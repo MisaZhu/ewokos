@@ -55,9 +55,9 @@ static const long double PIO2L = 1.570796326794896619231321691639751442098585L;
 long double complex
 cacosl(long double complex z)
 {
-	long double complex w;
+    long double complex w;
 
-	w = casinl(z);
-	w = (PIO2L - creall(w)) - cimagl(w) * I;
-	return (w);
+    w = casinl(z);
+    w = (PIO2L - creall(w)) - cimagl(w) * I;
+    return (w);
 }

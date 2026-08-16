@@ -103,202 +103,202 @@ static inline void draw_round_corner_round(graph_t* g, int32_t corner_x, int32_t
 }
 
 void graph_fill_round(graph_t* g, int32_t x, int32_t y,
-		int32_t w, int32_t h,
-		int32_t r, uint32_t color) {
-	if(r <= 1) {
-		graph_fill_rect(g, x, y, w, h, color);
-		return;
-	}
-	// Limit radius to half of width/height
-	if(r > w/2) r = w/2;
-	if(r > h/2) r = h/2;
+        int32_t w, int32_t h,
+        int32_t r, uint32_t color) {
+    if(r <= 1) {
+        graph_fill_rect(g, x, y, w, h, color);
+        return;
+    }
+    // Limit radius to half of width/height
+    if(r > w/2) r = w/2;
+    if(r > h/2) r = h/2;
 
-	// Draw main rectangle body (non-corner area)
-	graph_fill_rect(g, x+r, y+r, w-r*2, h-r*2, color);
+    // Draw main rectangle body (non-corner area)
+    graph_fill_rect(g, x+r, y+r, w-r*2, h-r*2, color);
 
-	// Fill the remaining rectangular areas
-	// Top bar (between corners)
-	graph_fill_rect(g, x+r, y, w-r*2, r, color);
-	// Bottom bar (between corners)
-	graph_fill_rect(g, x+r, y+h-r, w-r*2, r, color);
-	// Left bar (between corners)
-	graph_fill_rect(g, x, y+r, r, h-r*2, color);
-	// Right bar (between corners)
-	graph_fill_rect(g, x+w-r, y+r, r, h-r*2, color);
+    // Fill the remaining rectangular areas
+    // Top bar (between corners)
+    graph_fill_rect(g, x+r, y, w-r*2, r, color);
+    // Bottom bar (between corners)
+    graph_fill_rect(g, x+r, y+h-r, w-r*2, r, color);
+    // Left bar (between corners)
+    graph_fill_rect(g, x, y+r, r, h-r*2, color);
+    // Right bar (between corners)
+    graph_fill_rect(g, x+w-r, y+r, r, h-r*2, color);
 
-	// Draw four corners with anti-aliasing (scanline optimization, non-floating point)
-	// Top-left corner
-	draw_round_corner_fill(g, x, y, r-1, r-1, r, color, 1, 1);
+    // Draw four corners with anti-aliasing (scanline optimization, non-floating point)
+    // Top-left corner
+    draw_round_corner_fill(g, x, y, r-1, r-1, r, color, 1, 1);
 
-	// Top-right corner
-	draw_round_corner_fill(g, x+w-r, y, 0, r-1, r, color, 0, 1);
+    // Top-right corner
+    draw_round_corner_fill(g, x+w-r, y, 0, r-1, r, color, 0, 1);
 
-	// Bottom-left corner
-	draw_round_corner_fill(g, x, y+h-r, r-1, 0, r, color, 1, 0);
+    // Bottom-left corner
+    draw_round_corner_fill(g, x, y+h-r, r-1, 0, r, color, 1, 0);
 
-	// Bottom-right corner
-	draw_round_corner_fill(g, x+w-r, y+h-r, 0, 0, r, color, 0, 0);
+    // Bottom-right corner
+    draw_round_corner_fill(g, x+w-r, y+h-r, 0, 0, r, color, 0, 0);
 }
 
 void graph_round(graph_t* g, int32_t x, int32_t y,
-		int32_t w, int32_t h,
-		int32_t r, int32_t rw, uint32_t color) {
-	if(r <= 1) {
-		graph_rect(g, x, y, w, h, color);
-		return;
-	}
-	// Limit radius to half of width/height
-	if(r > w/2) r = w/2;
-	if(r > h/2) r = h/2;
-	if(rw > r/2) rw = r/2;
+        int32_t w, int32_t h,
+        int32_t r, int32_t rw, uint32_t color) {
+    if(r <= 1) {
+        graph_rect(g, x, y, w, h, color);
+        return;
+    }
+    // Limit radius to half of width/height
+    if(r > w/2) r = w/2;
+    if(r > h/2) r = h/2;
+    if(rw > r/2) rw = r/2;
 
-	// Draw straight edges
-	for(int i = 0; i < rw; i++) {
-		int yy = y + i;
-		if(yy >= 0 && yy < g->h) {
-			for(int xx = x + r; xx < x + w - r; xx++) {
-				graph_pixel(g, xx, yy, color);
-			}
-		}
-	}
-	for(int i = 0; i < rw; i++) {
-		int yy = y + h - 1 - i;
-		if(yy >= 0 && yy < g->h) {
-			for(int xx = x + r; xx < x + w - r; xx++) {
-				graph_pixel(g, xx, yy, color);
-			}
-		}
-	}
-	for(int i = 0; i < rw; i++) {
-		int xx = x + i;
-		if(xx >= 0 && xx < g->w) {
-			for(int yy = y + r; yy < y + h - r; yy++) {
-				graph_pixel(g, xx, yy, color);
-			}
-		}
-	}
-	for(int i = 0; i < rw; i++) {
-		int xx = x + w - 1 - i;
-		if(xx >= 0 && xx < g->w) {
-			for(int yy = y + r; yy < y + h - r; yy++) {
-				graph_pixel(g, xx, yy, color);
-			}
-		}
-	}
+    // Draw straight edges
+    for(int i = 0; i < rw; i++) {
+        int yy = y + i;
+        if(yy >= 0 && yy < g->h) {
+            for(int xx = x + r; xx < x + w - r; xx++) {
+                graph_pixel(g, xx, yy, color);
+            }
+        }
+    }
+    for(int i = 0; i < rw; i++) {
+        int yy = y + h - 1 - i;
+        if(yy >= 0 && yy < g->h) {
+            for(int xx = x + r; xx < x + w - r; xx++) {
+                graph_pixel(g, xx, yy, color);
+            }
+        }
+    }
+    for(int i = 0; i < rw; i++) {
+        int xx = x + i;
+        if(xx >= 0 && xx < g->w) {
+            for(int yy = y + r; yy < y + h - r; yy++) {
+                graph_pixel(g, xx, yy, color);
+            }
+        }
+    }
+    for(int i = 0; i < rw; i++) {
+        int xx = x + w - 1 - i;
+        if(xx >= 0 && xx < g->w) {
+            for(int yy = y + r; yy < y + h - r; yy++) {
+                graph_pixel(g, xx, yy, color);
+            }
+        }
+    }
 
-	// Draw four corners with anti-aliasing (scanline optimization, non-floating point)
-	// Top-left corner
-	draw_round_corner_round(g, x, y, r-1, r-1, r, rw, color, 1, 1);
+    // Draw four corners with anti-aliasing (scanline optimization, non-floating point)
+    // Top-left corner
+    draw_round_corner_round(g, x, y, r-1, r-1, r, rw, color, 1, 1);
 
-	// Top-right corner
-	draw_round_corner_round(g, x+w-r, y, 0, r-1, r, rw, color, 0, 1);
+    // Top-right corner
+    draw_round_corner_round(g, x+w-r, y, 0, r-1, r, rw, color, 0, 1);
 
-	// Bottom-left corner
-	draw_round_corner_round(g, x, y+h-r, r-1, 0, r, rw, color, 1, 0);
+    // Bottom-left corner
+    draw_round_corner_round(g, x, y+h-r, r-1, 0, r, rw, color, 1, 0);
 
-	// Bottom-right corner
-	draw_round_corner_round(g, x+w-r, y+h-r, 0, 0, r, rw, color, 0, 0);
+    // Bottom-right corner
+    draw_round_corner_round(g, x+w-r, y+h-r, 0, 0, r, rw, color, 0, 0);
 }
 
 void graph_semi_round(graph_t* g, int32_t x, int32_t y,
-		int32_t w, int32_t r, int32_t rw, uint32_t color, bool top_half) {
-	if(r <= 1) {
-		if(top_half) {
-			for(int i = 0; i < rw; i++) {
-				int yy = y + i;
-				if(yy >= 0 && yy < g->h) {
-					for(int xx = x; xx < x + w; xx++) {
-						graph_pixel(g, xx, yy, color);
-					}
-				}
-			}
-		} else {
-			for(int i = 0; i < rw; i++) {
-				int yy = y + r - 1 - i;
-				if(yy >= 0 && yy < g->h) {
-					for(int xx = x; xx < x + w; xx++) {
-						graph_pixel(g, xx, yy, color);
-					}
-				}
-			}
-		}
-		return;
-	}
-	// Limit radius to half of width
-	if(r > w/2) r = w/2;
-	if(rw > r/2) rw = r/2;
+        int32_t w, int32_t r, int32_t rw, uint32_t color, bool top_half) {
+    if(r <= 1) {
+        if(top_half) {
+            for(int i = 0; i < rw; i++) {
+                int yy = y + i;
+                if(yy >= 0 && yy < g->h) {
+                    for(int xx = x; xx < x + w; xx++) {
+                        graph_pixel(g, xx, yy, color);
+                    }
+                }
+            }
+        } else {
+            for(int i = 0; i < rw; i++) {
+                int yy = y + r - 1 - i;
+                if(yy >= 0 && yy < g->h) {
+                    for(int xx = x; xx < x + w; xx++) {
+                        graph_pixel(g, xx, yy, color);
+                    }
+                }
+            }
+        }
+        return;
+    }
+    // Limit radius to half of width
+    if(r > w/2) r = w/2;
+    if(rw > r/2) rw = r/2;
 
-	if(top_half) {
-		// Top half: draw top edge
-		// Draw top edge
-		for(int i = 0; i < rw; i++) {
-			int yy = y + i;
-			if(yy >= 0 && yy < g->h) {
-				for(int xx = x + r; xx < x + w - r; xx++) {
-					graph_pixel(g, xx, yy, color);
-				}
-			}
-		}
+    if(top_half) {
+        // Top half: draw top edge
+        // Draw top edge
+        for(int i = 0; i < rw; i++) {
+            int yy = y + i;
+            if(yy >= 0 && yy < g->h) {
+                for(int xx = x + r; xx < x + w - r; xx++) {
+                    graph_pixel(g, xx, yy, color);
+                }
+            }
+        }
 
-		// Draw two top corners with anti-aliasing
-		// Top-left corner
-		draw_round_corner_round(g, x, y, r-1, r-1, r, rw, color, 1, 1);
+        // Draw two top corners with anti-aliasing
+        // Top-left corner
+        draw_round_corner_round(g, x, y, r-1, r-1, r, rw, color, 1, 1);
 
-		// Top-right corner
-		draw_round_corner_round(g, x+w-r, y, 0, r-1, r, rw, color, 0, 1);
-	} else {
-		// Bottom half: draw bottom edge
-		// Draw bottom edge
-		for(int i = 0; i < rw; i++) {
-			int yy = y + r - 1 - i;
-			if(yy >= 0 && yy < g->h) {
-				for(int xx = x + r; xx < x + w - r; xx++) {
-					graph_pixel(g, xx, yy, color);
-				}
-			}
-		}
+        // Top-right corner
+        draw_round_corner_round(g, x+w-r, y, 0, r-1, r, rw, color, 0, 1);
+    } else {
+        // Bottom half: draw bottom edge
+        // Draw bottom edge
+        for(int i = 0; i < rw; i++) {
+            int yy = y + r - 1 - i;
+            if(yy >= 0 && yy < g->h) {
+                for(int xx = x + r; xx < x + w - r; xx++) {
+                    graph_pixel(g, xx, yy, color);
+                }
+            }
+        }
 
-		// Draw two bottom corners with anti-aliasing
-		// Bottom-left corner
-		draw_round_corner_round(g, x, y, r-1, 0, r, rw, color, 1, 0);
+        // Draw two bottom corners with anti-aliasing
+        // Bottom-left corner
+        draw_round_corner_round(g, x, y, r-1, 0, r, rw, color, 1, 0);
 
-		// Bottom-right corner
-		draw_round_corner_round(g, x+w-r, y, 0, 0, r, rw, color, 0, 0);
-	}
+        // Bottom-right corner
+        draw_round_corner_round(g, x+w-r, y, 0, 0, r, rw, color, 0, 0);
+    }
 }
 
 void graph_semi_fill_round(graph_t* g, int32_t x, int32_t y,
-		int32_t w, int32_t r, uint32_t color, bool top_half) {
-	if(r <= 1) {
-		graph_fill_rect(g, x, y, w, r, color);
-		return;
-	}
-	// Limit radius to half of width
-	if(r > w/2) r = w/2;
+        int32_t w, int32_t r, uint32_t color, bool top_half) {
+    if(r <= 1) {
+        graph_fill_rect(g, x, y, w, r, color);
+        return;
+    }
+    // Limit radius to half of width
+    if(r > w/2) r = w/2;
 
-	if(top_half) {
-		// Top half
-		// Fill top bar (between corners)
-		graph_fill_rect(g, x+r, y, w-r*2, r, color);
+    if(top_half) {
+        // Top half
+        // Fill top bar (between corners)
+        graph_fill_rect(g, x+r, y, w-r*2, r, color);
 
-		// Draw two top corners with anti-aliasing
-		// Top-left corner
-		draw_round_corner_fill(g, x, y, r-1, r-1, r, color, 1, 1);
+        // Draw two top corners with anti-aliasing
+        // Top-left corner
+        draw_round_corner_fill(g, x, y, r-1, r-1, r, color, 1, 1);
 
-		// Top-right corner
-		draw_round_corner_fill(g, x+w-r, y, 0, r-1, r, color, 0, 1);
-	} else {
-		// Bottom half
-		// Fill bottom bar (between corners)
-		graph_fill_rect(g, x+r, y, w-r*2, r, color);
+        // Top-right corner
+        draw_round_corner_fill(g, x+w-r, y, 0, r-1, r, color, 0, 1);
+    } else {
+        // Bottom half
+        // Fill bottom bar (between corners)
+        graph_fill_rect(g, x+r, y, w-r*2, r, color);
 
-		// Draw two bottom corners with anti-aliasing
-		// Bottom-left corner
-		draw_round_corner_fill(g, x, y, r-1, 0, r, color, 1, 0);
+        // Draw two bottom corners with anti-aliasing
+        // Bottom-left corner
+        draw_round_corner_fill(g, x, y, r-1, 0, r, color, 1, 0);
 
-		// Bottom-right corner
-		draw_round_corner_fill(g, x+w-r, y, 0, 0, r, color, 0, 0);
-	}
+        // Bottom-right corner
+        draw_round_corner_fill(g, x+w-r, y, 0, 0, r, color, 0, 0);
+    }
 }
 
 #ifdef __cplusplus

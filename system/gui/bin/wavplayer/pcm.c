@@ -25,164 +25,164 @@ static int pcm_prepare(struct pcm *pcm);
 
 static int pcm_param_set(struct pcm *pcm, struct pcm_config *config)
 {
-	proto_t in, out;
-	PF->init(&in)->add(&in, config, sizeof(struct pcm_config));
-	PF->init(&out);
-	int ret = 0;
-	LOGV("+pcm_param_set() in_size:%d", sizeof(struct pcm_config));
-	ret = dev_cntl(pcm->name, CTRL_PCM_DEV_HW, &in, &out);
-	LOGV("-pcm_param_set() in_size:%d", sizeof(struct pcm_config));
-	if(ret == 0) {
-		ret = proto_read_int(&out);
-	}
+    proto_t in, out;
+    PF->init(&in)->add(&in, config, sizeof(struct pcm_config));
+    PF->init(&out);
+    int ret = 0;
+    LOGV("+pcm_param_set() in_size:%d", sizeof(struct pcm_config));
+    ret = dev_cntl(pcm->name, CTRL_PCM_DEV_HW, &in, &out);
+    LOGV("-pcm_param_set() in_size:%d", sizeof(struct pcm_config));
+    if(ret == 0) {
+        ret = proto_read_int(&out);
+    }
 
-	PF->clear(&in);
-	PF->clear(&out);
-	return ret;
+    PF->clear(&in);
+    PF->clear(&out);
+    return ret;
 }
 
 
 static int pcm_buf_avail(struct pcm *pcm)
 {
-	proto_t in, out;
-	PF->init(&in);
-	PF->init(&out);
-	int ret = 0;
+    proto_t in, out;
+    PF->init(&in);
+    PF->init(&out);
+    int ret = 0;
 
-	ret = dev_cntl(pcm->name, CTRL_PCM_BUF_AVAIL, &in, &out);
-	if(ret == 0) {
-		ret = proto_read_int(&out);
-	}
+    ret = dev_cntl(pcm->name, CTRL_PCM_BUF_AVAIL, &in, &out);
+    if(ret == 0) {
+        ret = proto_read_int(&out);
+    }
 
-	PF->clear(&in);
-	PF->clear(&out);
-	return ret;
+    PF->clear(&in);
+    PF->clear(&out);
+    return ret;
 }
 
 static int support_rate(unsigned int rate) {
-	switch (rate) {
-	case 8000:
-	case 16000:
-	case 32000:
-	case 44100:
-	case 48000:
-	case 96000:
-		return true;
-	}
-	return false;
+    switch (rate) {
+    case 8000:
+    case 16000:
+    case 32000:
+    case 44100:
+    case 48000:
+    case 96000:
+        return true;
+    }
+    return false;
 }
 
 static int support_channels(unsigned int channels) {
-	if (channels != 2) {
-		return false;
-	}
-	return true;
+    if (channels != 2) {
+        return false;
+    }
+    return true;
 }
 
 static int support_bit_depth(unsigned int bit_depth) {
-	switch (bit_depth)
-	{
-	case 16:
-	case 24:
-	case 32:
-		return true;
-	default:
-		return false;
-	}
+    switch (bit_depth)
+    {
+    case 16:
+    case 24:
+    case 32:
+        return true;
+    default:
+        return false;
+    }
 }
 
 static int is_valid_config(struct pcm_config *config)
 {
-	if (!support_bit_depth(config->bit_depth) ||
-		!support_channels(config->channels) ||
-		!support_rate(config->rate)) {
-		LOGE("%s() Unsupport config! bit:%d channels:%d rate:%d\n", __func__,
-			config->bit_depth, config->channels, config->rate);
-		return false;
-	}
+    if (!support_bit_depth(config->bit_depth) ||
+        !support_channels(config->channels) ||
+        !support_rate(config->rate)) {
+        LOGE("%s() Unsupport config! bit:%d channels:%d rate:%d\n", __func__,
+            config->bit_depth, config->channels, config->rate);
+        return false;
+    }
 
-	if (config->period_size == 0 || config->period_count == 0) {
-		LOGE("%s() Unsupport config! period_size:%d period_count:%d\n", __func__,
-			config->period_size, config->period_count);
-		return false;
-	}
+    if (config->period_size == 0 || config->period_count == 0) {
+        LOGE("%s() Unsupport config! period_size:%d period_count:%d\n", __func__,
+            config->period_size, config->period_count);
+        return false;
+    }
 
-	if (config->start_threshold == 0) {
-		config->start_threshold = config->period_size;
-	}
+    if (config->start_threshold == 0) {
+        config->start_threshold = config->period_size;
+    }
 
-	if (config->stop_threshold == 0) {
-		config->stop_threshold = config->period_size * config->period_count;
-	}
-	return true;
+    if (config->stop_threshold == 0) {
+        config->stop_threshold = config->period_size * config->period_count;
+    }
+    return true;
 }
 
 struct pcm* pcm_open(const char *name, struct pcm_config *config)
 {
-	struct pcm* pcm;
+    struct pcm* pcm;
 
-	if (!is_valid_config(config)) {
-		LOGE("%s() Error! Can't support config!", __func__);
-		return NULL;
-	}
+    if (!is_valid_config(config)) {
+        LOGE("%s() Error! Can't support config!", __func__);
+        return NULL;
+    }
 
-	pcm = calloc(1, sizeof(struct pcm));
-	if (pcm == NULL) {
-		return NULL;
-	}
+    pcm = calloc(1, sizeof(struct pcm));
+    if (pcm == NULL) {
+        return NULL;
+    }
 
-	strncpy(pcm->name, name, 31);
-	memcpy(&pcm->config, config, sizeof(struct pcm_config));
-	pcm->framesize = config->channels * config->bit_depth / 8;
+    strncpy(pcm->name, name, 31);
+    memcpy(&pcm->config, config, sizeof(struct pcm_config));
+    pcm->framesize = config->channels * config->bit_depth / 8;
 
-	pcm->fd = open(name, O_RDWR);
-	if (pcm->fd < 0) {
-		free(pcm);
-		LOGE("can not open pcm device:%s\n", name);
-		return NULL;
-	}
+    pcm->fd = open(name, O_RDWR);
+    if (pcm->fd < 0) {
+        free(pcm);
+        LOGE("can not open pcm device:%s\n", name);
+        return NULL;
+    }
 
-	int temp = pcm_param_set(pcm, &pcm->config);
-	if (temp != 0) {
-		LOGE("hw_parm() fail! return!\n");
-		close(pcm->fd);
-		free(pcm);
-		return NULL;
-	}
+    int temp = pcm_param_set(pcm, &pcm->config);
+    if (temp != 0) {
+        LOGE("hw_parm() fail! return!\n");
+        close(pcm->fd);
+        free(pcm);
+        return NULL;
+    }
 
-	return pcm;
+    return pcm;
 }
 
 static int pcm_try_write(struct pcm *pcm, const void* data, unsigned int count)
 {
-	if (count == 0) {
-		return 0;
-	}
+    if (count == 0) {
+        return 0;
+    }
 
-	/*
-	 * Returns bytes actually written (>= 0) or a negative errno. The
-	 * server uses partial-write semantics: an XRUN mid-write returns
-	 * the bytes consumed so far, so the caller must advance by the
-	 * returned count instead of treating a short write as an error.
-	 */
-	if (pcm->running == 0) {
-		int err = pcm_prepare(pcm);
-		if (err != 0) {
-			return err;
-		}
+    /*
+     * Returns bytes actually written (>= 0) or a negative errno. The
+     * server uses partial-write semantics: an XRUN mid-write returns
+     * the bytes consumed so far, so the caller must advance by the
+     * returned count instead of treating a short write as an error.
+     */
+    if (pcm->running == 0) {
+        int err = pcm_prepare(pcm);
+        if (err != 0) {
+            return err;
+        }
 
-		int written = write(pcm->fd, data, count);
-		if (written < 0) {
-			LOGW("%s() 1st write(fd) Fail! err:%d\n", __func__, written);
-			return written;
-		}
-		if (written > 0) {
-			pcm->running = 1;
-		}
-		return written;
-	}
+        int written = write(pcm->fd, data, count);
+        if (written < 0) {
+            LOGW("%s() 1st write(fd) Fail! err:%d\n", __func__, written);
+            return written;
+        }
+        if (written > 0) {
+            pcm->running = 1;
+        }
+        return written;
+    }
 
-	return write(pcm->fd, data, count);
+    return write(pcm->fd, data, count);
 }
 
 /*
@@ -192,168 +192,168 @@ static int pcm_try_write(struct pcm *pcm, const void* data, unsigned int count)
 */
 int wait_avail(struct pcm *pcm, int *avail, int time_out_ms)
 {
-	*avail = 0;
-	int ret = 0;
-	int period_bytes = pcm->config.period_size * pcm->framesize;
-	int min_avail = period_bytes / 4;
-	int max_try_count = time_out_ms / PCM_WAIT_SLEEP_MS;
-	int try_count = 0;
+    *avail = 0;
+    int ret = 0;
+    int period_bytes = pcm->config.period_size * pcm->framesize;
+    int min_avail = period_bytes / 4;
+    int max_try_count = time_out_ms / PCM_WAIT_SLEEP_MS;
+    int try_count = 0;
 
-	if (min_avail < pcm->framesize) {
-		min_avail = pcm->framesize;
-	}
+    if (min_avail < pcm->framesize) {
+        min_avail = pcm->framesize;
+    }
 
-	for(;;) {
-		ret = pcm_buf_avail(pcm);
-		if (ret < 0) {
-			LOGW("%s() PCM Not Running! break! err:%d\n",__func__, ret);
-			break;
-		}
+    for(;;) {
+        ret = pcm_buf_avail(pcm);
+        if (ret < 0) {
+            LOGW("%s() PCM Not Running! break! err:%d\n",__func__, ret);
+            break;
+        }
 
-		if (ret >= min_avail) {
-			*avail = ret;
-			break;
-		}
+        if (ret >= min_avail) {
+            *avail = ret;
+            break;
+        }
 
-		if(try_count++ >= max_try_count) {
-			LOGW("%s() Timeout %dMs, count %d\n",__func__, time_out_ms, try_count);
-			break;
-		}
+        if(try_count++ >= max_try_count) {
+            LOGW("%s() Timeout %dMs, count %d\n",__func__, time_out_ms, try_count);
+            break;
+        }
 
-		if (pcm->hook != NULL) {
-			pcm->hook(pcm->private);
-		} else {
-			proc_yield();
-		}
-	}
+        if (pcm->hook != NULL) {
+            pcm->hook(pcm->private);
+        } else {
+            proc_yield();
+        }
+    }
 
-	return ret;
+    return ret;
 }
 
 int pcm_write(struct pcm *pcm, const void* data, unsigned int count) {
-	int period_bytes = 0;
-	int avail = 0;
-	int bytes = (int)count;
-	int written = 0;
-	int offset = 0;
-	int copy_bytes = 0;
-	int ret = 0;
-	int xrun_retry = 0;
+    int period_bytes = 0;
+    int avail = 0;
+    int bytes = (int)count;
+    int written = 0;
+    int offset = 0;
+    int copy_bytes = 0;
+    int ret = 0;
+    int xrun_retry = 0;
 
-	period_bytes = pcm->config.period_size * pcm->framesize;
-	copy_bytes = bytes < period_bytes ? bytes : period_bytes;
-	while (bytes > 0) {
-		ret = wait_avail(pcm, &avail, 2000/*Ms*/);
-		if (ret == -EPIPE) {
-			/*
-			 * XRUN: the server stays in XRUN state (buf_avail keeps
-			 * returning -EPIPE) until we explicitly re-prepare, so a
-			 * bare continue would spin on IPC forever. Recover here
-			 * and bound the retries in case prepare keeps failing.
-			 */
-			if (xrun_retry++ >= 5) {
-				LOGE("%s() XRUN recover fail! give up\n", __func__);
-				break;
-			}
-			copy_bytes = (bytes < period_bytes ? bytes : period_bytes);
-			pcm->prepared = 0;
-			pcm->running = 0;
-			if (pcm_prepare(pcm) != 0) {
-				proc_usleep(10000);
-			}
-			/*If hanppen xrun then go 1st write*/
-			continue;
-		}
+    period_bytes = pcm->config.period_size * pcm->framesize;
+    copy_bytes = bytes < period_bytes ? bytes : period_bytes;
+    while (bytes > 0) {
+        ret = wait_avail(pcm, &avail, 2000/*Ms*/);
+        if (ret == -EPIPE) {
+            /*
+             * XRUN: the server stays in XRUN state (buf_avail keeps
+             * returning -EPIPE) until we explicitly re-prepare, so a
+             * bare continue would spin on IPC forever. Recover here
+             * and bound the retries in case prepare keeps failing.
+             */
+            if (xrun_retry++ >= 5) {
+                LOGE("%s() XRUN recover fail! give up\n", __func__);
+                break;
+            }
+            copy_bytes = (bytes < period_bytes ? bytes : period_bytes);
+            pcm->prepared = 0;
+            pcm->running = 0;
+            if (pcm_prepare(pcm) != 0) {
+                proc_usleep(10000);
+            }
+            /*If hanppen xrun then go 1st write*/
+            continue;
+        }
 
-		if (ret < 0 || (avail == 0)) {
-			break;
-		}
+        if (ret < 0 || (avail == 0)) {
+            break;
+        }
 
-		copy_bytes = bytes < avail ? bytes : avail;
+        copy_bytes = bytes < avail ? bytes : avail;
 
-		ret = pcm_try_write(pcm, data + offset, copy_bytes);
-		if (ret == -EPIPE) {
-			/* XRUN hit inside write(): recover the same way */
-			if (xrun_retry++ >= 5) {
-				LOGE("%s() XRUN recover fail! give up\n", __func__);
-				break;
-			}
-			pcm->prepared = 0;
-			pcm->running = 0;
-			if (pcm_prepare(pcm) != 0) {
-				proc_usleep(10000);
-			}
-			continue;
-		}
-		if (ret < 0) {
-			break;
-		}
-		/*
-		 * Only real write progress proves the XRUN recovery worked;
-		 * wait_avail succeeds right after re-prepare even when the
-		 * engine is wedged, so resetting there defeats the retry cap.
-		 */
-		if (ret > 0) {
-			xrun_retry = 0;
-		}
-		offset += ret;
-		written += ret;
-		bytes -= ret;
-		copy_bytes = bytes < period_bytes ? bytes : period_bytes;
-	}
+        ret = pcm_try_write(pcm, data + offset, copy_bytes);
+        if (ret == -EPIPE) {
+            /* XRUN hit inside write(): recover the same way */
+            if (xrun_retry++ >= 5) {
+                LOGE("%s() XRUN recover fail! give up\n", __func__);
+                break;
+            }
+            pcm->prepared = 0;
+            pcm->running = 0;
+            if (pcm_prepare(pcm) != 0) {
+                proc_usleep(10000);
+            }
+            continue;
+        }
+        if (ret < 0) {
+            break;
+        }
+        /*
+         * Only real write progress proves the XRUN recovery worked;
+         * wait_avail succeeds right after re-prepare even when the
+         * engine is wedged, so resetting there defeats the retry cap.
+         */
+        if (ret > 0) {
+            xrun_retry = 0;
+        }
+        offset += ret;
+        written += ret;
+        bytes -= ret;
+        copy_bytes = bytes < period_bytes ? bytes : period_bytes;
+    }
 
-	return (written == (int)count ? 0 : -1);
+    return (written == (int)count ? 0 : -1);
 }
 
 
 int pcm_close(struct pcm *pcm)
 {
-	if (pcm == NULL) {
-		return 0;
-	}
+    if (pcm == NULL) {
+        return 0;
+    }
 
-	close(pcm->fd);
-	free(pcm);
-	return 0;
+    close(pcm->fd);
+    free(pcm);
+    return 0;
 }
 
 static int pcm_prepare(struct pcm *pcm)
 {
-	if (pcm->prepared) {
-		return 0; //already prepared
-	}
+    if (pcm->prepared) {
+        return 0; //already prepared
+    }
 
-	proto_t in, out;
-	PF->init(&in);
-	PF->init(&out);
-	int ret = dev_cntl(pcm->name, CTRL_PCM_DEV_PRPARE, &in, &out);
-	if(ret == 0) {
-		ret = proto_read_int(&out);
-	}
-	PF->clear(&in);
-	PF->clear(&out);
+    proto_t in, out;
+    PF->init(&in);
+    PF->init(&out);
+    int ret = dev_cntl(pcm->name, CTRL_PCM_DEV_PRPARE, &in, &out);
+    if(ret == 0) {
+        ret = proto_read_int(&out);
+    }
+    PF->clear(&in);
+    PF->clear(&out);
 
-	if (ret == 0) {
-		pcm->prepared = 1;
-	} else {
-		LOGE("pcm_prepare() fail! ret =%d\n", ret);
-	}
-	return ret;
+    if (ret == 0) {
+        pcm->prepared = 1;
+    } else {
+        LOGE("pcm_prepare() fail! ret =%d\n", ret);
+    }
+    return ret;
 }
 
 void set_pcm_hook(struct pcm *pcm, pcm_hook_t func, void *data)
 {
-	pcm->hook = func;
-	pcm->private = data;
+    pcm->hook = func;
+    pcm->private = data;
 }
 
 void dump_pcm_config(struct pcm_config *config) {
     LOGD("dump_pcm_config() bits %d rate %d channels %d period_size %d period_count %d start_threshold %d stop_threshold%d\n",
-	config->bit_depth,
-	config->rate,
-	config->channels,
-	config->period_size,
-	config->period_count,
-	config->start_threshold,
-	config->stop_threshold);
+    config->bit_depth,
+    config->rate,
+    config->channels,
+    config->period_size,
+    config->period_count,
+    config->start_threshold,
+    config->stop_threshold);
 }

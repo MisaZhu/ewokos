@@ -11,28 +11,28 @@
 #include <sbi.h>
 
 struct sbiret sbi_ecall(int ext, int fid, unsigned long arg0,
-			unsigned long arg1, unsigned long arg2,
-			unsigned long arg3, unsigned long arg4,
-			unsigned long arg5)
+            unsigned long arg1, unsigned long arg2,
+            unsigned long arg3, unsigned long arg4,
+            unsigned long arg5)
 {
-	struct sbiret ret;
+    struct sbiret ret;
 
-	register uintptr_t a0 asm ("a0") = (uintptr_t)(arg0);
-	register uintptr_t a1 asm ("a1") = (uintptr_t)(arg1);
-	register uintptr_t a2 asm ("a2") = (uintptr_t)(arg2);
-	register uintptr_t a3 asm ("a3") = (uintptr_t)(arg3);
-	register uintptr_t a4 asm ("a4") = (uintptr_t)(arg4);
-	register uintptr_t a5 asm ("a5") = (uintptr_t)(arg5);
-	register uintptr_t a6 asm ("a6") = (uintptr_t)(fid);
-	register uintptr_t a7 asm ("a7") = (uintptr_t)(ext);
-	asm volatile ("ecall"
-		      : "+r" (a0), "+r" (a1)
-		      : "r" (a2), "r" (a3), "r" (a4), "r" (a5), "r" (a6), "r" (a7)
-		      : "memory");
-	ret.error = a0;
-	ret.value = a1;
+    register uintptr_t a0 asm ("a0") = (uintptr_t)(arg0);
+    register uintptr_t a1 asm ("a1") = (uintptr_t)(arg1);
+    register uintptr_t a2 asm ("a2") = (uintptr_t)(arg2);
+    register uintptr_t a3 asm ("a3") = (uintptr_t)(arg3);
+    register uintptr_t a4 asm ("a4") = (uintptr_t)(arg4);
+    register uintptr_t a5 asm ("a5") = (uintptr_t)(arg5);
+    register uintptr_t a6 asm ("a6") = (uintptr_t)(fid);
+    register uintptr_t a7 asm ("a7") = (uintptr_t)(ext);
+    asm volatile ("ecall"
+              : "+r" (a0), "+r" (a1)
+              : "r" (a2), "r" (a3), "r" (a4), "r" (a5), "r" (a6), "r" (a7)
+              : "memory");
+    ret.error = a0;
+    ret.value = a1;
 
-	return ret;
+    return ret;
 }
 
 /**
@@ -44,11 +44,11 @@ struct sbiret sbi_ecall(int ext, int fid, unsigned long arg0,
 void sbi_set_timer(uint64_t stime_value)
 {
 #if __riscv_xlen == 32
-	sbi_ecall(SBI_EXT_SET_TIMER, SBI_FID_SET_TIMER, stime_value,
-		  stime_value >> 32, 0, 0, 0, 0);
+    sbi_ecall(SBI_EXT_SET_TIMER, SBI_FID_SET_TIMER, stime_value,
+          stime_value >> 32, 0, 0, 0, 0);
 #else
-	sbi_ecall(SBI_EXT_SET_TIMER, SBI_FID_SET_TIMER, stime_value,
-		  0, 0, 0, 0, 0);
+    sbi_ecall(SBI_EXT_SET_TIMER, SBI_FID_SET_TIMER, stime_value,
+          0, 0, 0, 0, 0);
 #endif
 }
 
@@ -59,15 +59,15 @@ void sbi_set_timer(uint64_t stime_value)
  */
 long sbi_get_spec_version(void)
 {
-	struct sbiret ret;
+    struct sbiret ret;
 
-	ret = sbi_ecall(SBI_EXT_BASE, SBI_EXT_BASE_GET_SPEC_VERSION,
-			0, 0, 0, 0, 0, 0);
-	if (!ret.error)
-		if (ret.value)
-			return ret.value;
+    ret = sbi_ecall(SBI_EXT_BASE, SBI_EXT_BASE_GET_SPEC_VERSION,
+            0, 0, 0, 0, 0, 0);
+    if (!ret.error)
+        if (ret.value)
+            return ret.value;
 
-	return -ENOTSUPP;
+    return -ENOTSUPP;
 }
 
 /**
@@ -77,15 +77,15 @@ long sbi_get_spec_version(void)
  */
 int sbi_get_impl_id(void)
 {
-	struct sbiret ret;
+    struct sbiret ret;
 
-	ret = sbi_ecall(SBI_EXT_BASE, SBI_EXT_BASE_GET_IMP_ID,
-			0, 0, 0, 0, 0, 0);
-	if (!ret.error)
-		if (ret.value)
-			return ret.value;
+    ret = sbi_ecall(SBI_EXT_BASE, SBI_EXT_BASE_GET_IMP_ID,
+            0, 0, 0, 0, 0, 0);
+    if (!ret.error)
+        if (ret.value)
+            return ret.value;
 
-	return -ENOTSUPP;
+    return -ENOTSUPP;
 }
 
 /**
@@ -96,15 +96,15 @@ int sbi_get_impl_id(void)
  */
 int sbi_get_impl_version(long *version)
 {
-	struct sbiret ret;
+    struct sbiret ret;
 
-	ret = sbi_ecall(SBI_EXT_BASE, SBI_EXT_BASE_GET_IMP_VERSION,
-			0, 0, 0, 0, 0, 0);
-	if (ret.error)
-		return -ENOTSUPP;
-	if (version)
-		*version = ret.value;
-	return 0;
+    ret = sbi_ecall(SBI_EXT_BASE, SBI_EXT_BASE_GET_IMP_VERSION,
+            0, 0, 0, 0, 0, 0);
+    if (ret.error)
+        return -ENOTSUPP;
+    if (version)
+        *version = ret.value;
+    return 0;
 }
 
 /**
@@ -115,15 +115,15 @@ int sbi_get_impl_version(long *version)
  */
 int sbi_probe_extension(int extid)
 {
-	struct sbiret ret;
+    struct sbiret ret;
 
-	ret = sbi_ecall(SBI_EXT_BASE, SBI_EXT_BASE_PROBE_EXT, extid,
-			0, 0, 0, 0, 0);
-	if (!ret.error)
-		if (ret.value)
-			return ret.value;
+    ret = sbi_ecall(SBI_EXT_BASE, SBI_EXT_BASE_PROBE_EXT, extid,
+            0, 0, 0, 0, 0);
+    if (!ret.error)
+        if (ret.value)
+            return ret.value;
 
-	return -ENOTSUPP;
+    return -ENOTSUPP;
 }
 
 /**
@@ -134,17 +134,17 @@ int sbi_probe_extension(int extid)
  */
 int sbi_get_mvendorid(long *mvendorid)
 {
-	struct sbiret ret;
+    struct sbiret ret;
 
-	ret = sbi_ecall(SBI_EXT_BASE, SBI_EXT_BASE_GET_MVENDORID,
-			0, 0, 0, 0, 0, 0);
-	if (ret.error)
-		return -ENOTSUPP;
+    ret = sbi_ecall(SBI_EXT_BASE, SBI_EXT_BASE_GET_MVENDORID,
+            0, 0, 0, 0, 0, 0);
+    if (ret.error)
+        return -ENOTSUPP;
 
-	if (mvendorid)
-		*mvendorid = ret.value;
+    if (mvendorid)
+        *mvendorid = ret.value;
 
-	return 0;
+    return 0;
 }
 
 /**
@@ -155,18 +155,18 @@ int sbi_get_mvendorid(long *mvendorid)
  */
 int sbi_get_marchid(long *marchid)
 {
-	struct sbiret ret;
+    struct sbiret ret;
 
-	ret = sbi_ecall(SBI_EXT_BASE, SBI_EXT_BASE_GET_MARCHID,
-			0, 0, 0, 0, 0, 0);
+    ret = sbi_ecall(SBI_EXT_BASE, SBI_EXT_BASE_GET_MARCHID,
+            0, 0, 0, 0, 0, 0);
 
-	if (ret.error)
-		return -ENOTSUPP;
+    if (ret.error)
+        return -ENOTSUPP;
 
-	if (marchid)
-		*marchid = ret.value;
+    if (marchid)
+        *marchid = ret.value;
 
-	return 0;
+    return 0;
 }
 
 /**
@@ -177,18 +177,18 @@ int sbi_get_marchid(long *marchid)
  */
 int sbi_get_mimpid(long *mimpid)
 {
-	struct sbiret ret;
+    struct sbiret ret;
 
-	ret = sbi_ecall(SBI_EXT_BASE, SBI_EXT_BASE_GET_MIMPID,
-			0, 0, 0, 0, 0, 0);
+    ret = sbi_ecall(SBI_EXT_BASE, SBI_EXT_BASE_GET_MIMPID,
+            0, 0, 0, 0, 0, 0);
 
-	if (ret.error)
-		return -ENOTSUPP;
+    if (ret.error)
+        return -ENOTSUPP;
 
-	if (mimpid)
-		*mimpid = ret.value;
+    if (mimpid)
+        *mimpid = ret.value;
 
-	return 0;
+    return 0;
 }
 
 /**
@@ -199,8 +199,8 @@ int sbi_get_mimpid(long *mimpid)
  */
 void sbi_srst_reset(unsigned long type, unsigned long reason)
 {
-	sbi_ecall(SBI_EXT_SRST, SBI_EXT_SRST_RESET, type, reason,
-		  0, 0, 0, 0);
+    sbi_ecall(SBI_EXT_SRST, SBI_EXT_SRST_RESET, type, reason,
+          0, 0, 0, 0);
 }
 
 #ifdef CONFIG_SBI_V01
@@ -213,7 +213,7 @@ void sbi_srst_reset(unsigned long type, unsigned long reason)
  */
 void sbi_console_putchar(int ch)
 {
-	sbi_ecall(SBI_EXT_0_1_CONSOLE_PUTCHAR, 0, ch, 0, 0, 0, 0, 0);
+    sbi_ecall(SBI_EXT_0_1_CONSOLE_PUTCHAR, 0, ch, 0, 0, 0, 0, 0);
 }
 
 /**
@@ -223,11 +223,11 @@ void sbi_console_putchar(int ch)
  */
 int sbi_console_getchar(void)
 {
-	struct sbiret ret;
+    struct sbiret ret;
 
-	ret = sbi_ecall(SBI_EXT_0_1_CONSOLE_GETCHAR, 0, 0, 0, 0, 0, 0, 0);
+    ret = sbi_ecall(SBI_EXT_0_1_CONSOLE_GETCHAR, 0, 0, 0, 0, 0, 0, 0);
 
-	return ret.error;
+    return ret.error;
 }
 
 /**
@@ -237,7 +237,7 @@ int sbi_console_getchar(void)
  */
 void sbi_clear_ipi(void)
 {
-	sbi_ecall(SBI_EXT_0_1_CLEAR_IPI, 0, 0, 0, 0, 0, 0, 0);
+    sbi_ecall(SBI_EXT_0_1_CLEAR_IPI, 0, 0, 0, 0, 0, 0, 0);
 }
 
 /**
@@ -247,7 +247,7 @@ void sbi_clear_ipi(void)
  */
 void sbi_shutdown(void)
 {
-	sbi_ecall(SBI_EXT_0_1_SHUTDOWN, 0, 0, 0, 0, 0, 0, 0);
+    sbi_ecall(SBI_EXT_0_1_SHUTDOWN, 0, 0, 0, 0, 0, 0, 0);
 }
 
 /**
@@ -258,8 +258,8 @@ void sbi_shutdown(void)
  */
 void sbi_send_ipi(const unsigned long *hart_mask)
 {
-	sbi_ecall(SBI_EXT_SEND_IPI, SBI_FID_SEND_IPI, (unsigned long)hart_mask,
-		  0, 0, 0, 0, 0);
+    sbi_ecall(SBI_EXT_SEND_IPI, SBI_FID_SEND_IPI, (unsigned long)hart_mask,
+          0, 0, 0, 0, 0);
 }
 
 /**
@@ -270,8 +270,8 @@ void sbi_send_ipi(const unsigned long *hart_mask)
  */
 void sbi_remote_fence_i(const unsigned long *hart_mask)
 {
-	sbi_ecall(SBI_EXT_REMOTE_FENCE_I, SBI_FID_REMOTE_FENCE_I,
-		  (unsigned long)hart_mask, 0, 0, 0, 0, 0);
+    sbi_ecall(SBI_EXT_REMOTE_FENCE_I, SBI_FID_REMOTE_FENCE_I,
+          (unsigned long)hart_mask, 0, 0, 0, 0, 0);
 }
 
 /**
@@ -284,11 +284,11 @@ void sbi_remote_fence_i(const unsigned long *hart_mask)
  * Return: None
  */
 void sbi_remote_sfence_vma(const unsigned long *hart_mask,
-			   unsigned long start,
-			   unsigned long size)
+               unsigned long start,
+               unsigned long size)
 {
-	sbi_ecall(SBI_EXT_REMOTE_SFENCE_VMA, SBI_FID_REMOTE_SFENCE_VMA,
-		  (unsigned long)hart_mask, start, size, 0, 0, 0);
+    sbi_ecall(SBI_EXT_REMOTE_SFENCE_VMA, SBI_FID_REMOTE_SFENCE_VMA,
+          (unsigned long)hart_mask, start, size, 0, 0, 0);
 }
 
 /**
@@ -303,13 +303,13 @@ void sbi_remote_sfence_vma(const unsigned long *hart_mask,
  * Return: None
  */
 void sbi_remote_sfence_vma_asid(const unsigned long *hart_mask,
-				unsigned long start,
-				unsigned long size,
-				unsigned long asid)
+                unsigned long start,
+                unsigned long size,
+                unsigned long asid)
 {
-	sbi_ecall(SBI_EXT_REMOTE_SFENCE_VMA_ASID,
-		  SBI_FID_REMOTE_SFENCE_VMA_ASID,
-		  (unsigned long)hart_mask, start, size, asid, 0, 0);
+    sbi_ecall(SBI_EXT_REMOTE_SFENCE_VMA_ASID,
+          SBI_FID_REMOTE_SFENCE_VMA_ASID,
+          (unsigned long)hart_mask, start, size, asid, 0, 0);
 }
 
 #endif /* CONFIG_SBI_V01 */

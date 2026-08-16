@@ -4,9 +4,9 @@ sys_info_t _sys_info;
 
 __attribute__((weak))
 int32_t arch_clone_proc_vm(page_dir_entry_t* vm, page_dir_entry_t* kernel_vm) {
-	(void)vm;
-	(void)kernel_vm;
-	return 0;
+    (void)vm;
+    (void)kernel_vm;
+    return 0;
 }
 
 static uint32_t get_kmalloc_size(void) {
@@ -48,7 +48,7 @@ void sys_info_init(void) {
 
     _sys_info.kernel_base = KERNEL_BASE;
 
-	_sys_info.mmio.v_base = MMIO_BASE;
+    _sys_info.mmio.v_base = MMIO_BASE;
     if(_sys_info.mmio.size > MMIO_MAX_SIZE)
         _sys_info.mmio.size = MMIO_MAX_SIZE;
 
@@ -58,10 +58,10 @@ void sys_info_init(void) {
     _sys_info.allocable_phy_mem_base = V2P(KMALLOC_END);
 
     _sys_info.sys_dma.v_base = DMA_V_BASE;
-	_sys_info.sys_dma.phy_base = _sys_info.allocable_phy_mem_base;
+    _sys_info.sys_dma.phy_base = _sys_info.allocable_phy_mem_base;
     if(_sys_info.sys_dma.size == 0)
-    	_sys_info.sys_dma.size = get_dma_size();
-	_sys_info.allocable_phy_mem_base += _sys_info.sys_dma.size;
+        _sys_info.sys_dma.size = get_dma_size();
+    _sys_info.allocable_phy_mem_base += _sys_info.sys_dma.size;
 
     _sys_info.page_size = PAGE_SIZE;
 }

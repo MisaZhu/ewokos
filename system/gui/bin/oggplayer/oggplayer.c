@@ -16,22 +16,22 @@
 #include <vorbis/vorbisfile.h>
 
 struct pcm {
-	int fd;
-	int prepared;
-	int running;
-	char name[32];
-	int framesize;
-	struct pcm_config {
-		int bit_depth;
-		int rate;
-		int channels;
-		int period_size;
-		int period_count;
-		int start_threshold;
-		int stop_threshold;
-	} config;
-	int (*hook)(void *data);
-	void *private;
+    int fd;
+    int prepared;
+    int running;
+    char name[32];
+    int framesize;
+    struct pcm_config {
+        int bit_depth;
+        int rate;
+        int channels;
+        int period_size;
+        int period_count;
+        int start_threshold;
+        int stop_threshold;
+    } config;
+    int (*hook)(void *data);
+    void *private;
 };
 
 typedef int (*pcm_hook_t)(void *data);
@@ -47,508 +47,508 @@ static int pcm_prepare(struct pcm *pcm);
 
 static int pcm_param_set(struct pcm *pcm, struct pcm_config *config)
 {
-	proto_t in, out;
-	PF->init(&in)->add(&in, config, sizeof(struct pcm_config));
-	PF->init(&out);
-	int ret = 0;
-	ret = dev_cntl(pcm->name, CTRL_PCM_DEV_HW, &in, &out);
-	if(ret == 0) {
-		ret = proto_read_int(&out);
-	}
-	PF->clear(&in);
-	PF->clear(&out);
-	return ret;
+    proto_t in, out;
+    PF->init(&in)->add(&in, config, sizeof(struct pcm_config));
+    PF->init(&out);
+    int ret = 0;
+    ret = dev_cntl(pcm->name, CTRL_PCM_DEV_HW, &in, &out);
+    if(ret == 0) {
+        ret = proto_read_int(&out);
+    }
+    PF->clear(&in);
+    PF->clear(&out);
+    return ret;
 }
 
 static int pcm_buf_avail(struct pcm *pcm)
 {
-	proto_t in, out;
-	PF->init(&in);
-	PF->init(&out);
-	int ret = 0;
-	ret = dev_cntl(pcm->name, CTRL_PCM_BUF_AVAIL, &in, &out);
-	if(ret == 0) {
-		ret = proto_read_int(&out);
-	}
-	PF->clear(&in);
-	PF->clear(&out);
-	return ret;
+    proto_t in, out;
+    PF->init(&in);
+    PF->init(&out);
+    int ret = 0;
+    ret = dev_cntl(pcm->name, CTRL_PCM_BUF_AVAIL, &in, &out);
+    if(ret == 0) {
+        ret = proto_read_int(&out);
+    }
+    PF->clear(&in);
+    PF->clear(&out);
+    return ret;
 }
 
 static int support_rate(unsigned int rate) {
-	switch (rate) {
-	case 8000:
-	case 16000:
-	case 32000:
-	case 44100:
-	case 48000:
-	case 96000:
-		return 1;
-	}
-	return 0;
+    switch (rate) {
+    case 8000:
+    case 16000:
+    case 32000:
+    case 44100:
+    case 48000:
+    case 96000:
+        return 1;
+    }
+    return 0;
 }
 
 static int support_channels(unsigned int channels) {
-	if (channels != 2) {
-		return 0;
-	}
-	return 1;
+    if (channels != 2) {
+        return 0;
+    }
+    return 1;
 }
 
 static int support_bit_depth(unsigned int bit_depth) {
-	switch (bit_depth) {
-	case 16:
-	case 24:
-	case 32:
-		return 1;
-	default:
-		return 0;
-	}
+    switch (bit_depth) {
+    case 16:
+    case 24:
+    case 32:
+        return 1;
+    default:
+        return 0;
+    }
 }
 
 static int is_valid_config(struct pcm_config *config)
 {
-	if (!support_bit_depth(config->bit_depth) ||
-		!support_channels(config->channels) ||
-		!support_rate(config->rate)) {
-		return 0;
-	}
-	if (config->period_size == 0 || config->period_count == 0) {
-		return 0;
-	}
-	if (config->start_threshold == 0) {
-		config->start_threshold = config->period_size;
-	}
-	if (config->stop_threshold == 0) {
-		config->stop_threshold = config->period_size * config->period_count;
-	}
-	return 1;
+    if (!support_bit_depth(config->bit_depth) ||
+        !support_channels(config->channels) ||
+        !support_rate(config->rate)) {
+        return 0;
+    }
+    if (config->period_size == 0 || config->period_count == 0) {
+        return 0;
+    }
+    if (config->start_threshold == 0) {
+        config->start_threshold = config->period_size;
+    }
+    if (config->stop_threshold == 0) {
+        config->stop_threshold = config->period_size * config->period_count;
+    }
+    return 1;
 }
 
 static struct pcm* pcm_open(const char *name, struct pcm_config *config)
 {
-	struct pcm* pcm;
+    struct pcm* pcm;
 
-	if (!is_valid_config(config)) {
-		return NULL;
-	}
+    if (!is_valid_config(config)) {
+        return NULL;
+    }
 
-	pcm = calloc(1, sizeof(struct pcm));
-	if (pcm == NULL) {
-		return NULL;
-	}
+    pcm = calloc(1, sizeof(struct pcm));
+    if (pcm == NULL) {
+        return NULL;
+    }
 
-	strncpy(pcm->name, name, 31);
-	memcpy(&pcm->config, config, sizeof(struct pcm_config));
-	pcm->framesize = config->channels * config->bit_depth / 8;
+    strncpy(pcm->name, name, 31);
+    memcpy(&pcm->config, config, sizeof(struct pcm_config));
+    pcm->framesize = config->channels * config->bit_depth / 8;
 
-	pcm->fd = open(name, O_RDWR);
-	if (pcm->fd < 0) {
-		free(pcm);
-		return NULL;
-	}
+    pcm->fd = open(name, O_RDWR);
+    if (pcm->fd < 0) {
+        free(pcm);
+        return NULL;
+    }
 
-	int temp = pcm_param_set(pcm, &pcm->config);
-	if (temp != 0) {
-		close(pcm->fd);
-		free(pcm);
-		return NULL;
-	}
+    int temp = pcm_param_set(pcm, &pcm->config);
+    if (temp != 0) {
+        close(pcm->fd);
+        free(pcm);
+        return NULL;
+    }
 
-	return pcm;
+    return pcm;
 }
 
 static int pcm_try_write(struct pcm *pcm, const void* data, unsigned int count)
 {
-	if (count == 0) {
-		return 0;
-	}
+    if (count == 0) {
+        return 0;
+    }
 
-	/*
-	 * Returns bytes actually written (>= 0) or a negative errno. The
-	 * server uses partial-write semantics: an XRUN mid-write returns
-	 * the bytes consumed so far, so the caller must advance by the
-	 * returned count instead of treating a short write as an error.
-	 */
-	if (pcm->running == 0) {
-		int err = pcm_prepare(pcm);
-		if (err != 0) {
-			return err;
-		}
+    /*
+     * Returns bytes actually written (>= 0) or a negative errno. The
+     * server uses partial-write semantics: an XRUN mid-write returns
+     * the bytes consumed so far, so the caller must advance by the
+     * returned count instead of treating a short write as an error.
+     */
+    if (pcm->running == 0) {
+        int err = pcm_prepare(pcm);
+        if (err != 0) {
+            return err;
+        }
 
-		int written = write(pcm->fd, data, count);
-		if (written > 0) {
-			pcm->running = 1;
-		}
-		return written;
-	}
+        int written = write(pcm->fd, data, count);
+        if (written > 0) {
+            pcm->running = 1;
+        }
+        return written;
+    }
 
-	return write(pcm->fd, data, count);
+    return write(pcm->fd, data, count);
 }
 
 static int wait_avail(struct pcm *pcm, int *avail, int time_out_ms)
 {
-	*avail = 0;
-	int ret = 0;
-	int period_bytes = pcm->config.period_size * pcm->config.channels * (pcm->config.bit_depth / 8);
-	int min_avail = period_bytes / 4;
-	int max_try_count = time_out_ms / PCM_WAIT_SLEEP_MS;
-	int try_count = 0;
+    *avail = 0;
+    int ret = 0;
+    int period_bytes = pcm->config.period_size * pcm->config.channels * (pcm->config.bit_depth / 8);
+    int min_avail = period_bytes / 4;
+    int max_try_count = time_out_ms / PCM_WAIT_SLEEP_MS;
+    int try_count = 0;
 
-	if (min_avail < pcm->framesize) {
-		min_avail = pcm->framesize;
-	}
+    if (min_avail < pcm->framesize) {
+        min_avail = pcm->framesize;
+    }
 
-	for(;;) {
-		ret = pcm_buf_avail(pcm);
-		if (ret < 0) {
-			break;
-		}
+    for(;;) {
+        ret = pcm_buf_avail(pcm);
+        if (ret < 0) {
+            break;
+        }
 
-		if (ret >= min_avail) {
-			*avail = ret;
-			break;
-		}
+        if (ret >= min_avail) {
+            *avail = ret;
+            break;
+        }
 
-		if(try_count++ >= max_try_count) {
-			break;
-		}
+        if(try_count++ >= max_try_count) {
+            break;
+        }
 
-		if (pcm->hook != NULL) {
-			pcm->hook(pcm->private);
-		} else {
-			//proc_usleep(PCM_WAIT_SLEEP_MS * 1000);
-			proc_yield();
-		}
-	}
+        if (pcm->hook != NULL) {
+            pcm->hook(pcm->private);
+        } else {
+            //proc_usleep(PCM_WAIT_SLEEP_MS * 1000);
+            proc_yield();
+        }
+    }
 
-	return ret;
+    return ret;
 }
 
 static int pcm_write(struct pcm *pcm, const void* data, unsigned int count) {
-	int period_bytes = 0;
-	int avail = 0;
-	int bytes = (int)count;
-	int written = 0;
-	int offset = 0;
-	int copy_bytes = 0;
-	int ret = 0;
-	int xrun_retry = 0;
+    int period_bytes = 0;
+    int avail = 0;
+    int bytes = (int)count;
+    int written = 0;
+    int offset = 0;
+    int copy_bytes = 0;
+    int ret = 0;
+    int xrun_retry = 0;
 
-	period_bytes = pcm->config.period_size * pcm->config.channels * (pcm->config.bit_depth / 8);
-	copy_bytes = bytes < period_bytes ? bytes : period_bytes;
-	while (bytes > 0) {
-		ret = wait_avail(pcm, &avail, 2000);
-		if (ret == -EPIPE) {
-			/*
-			 * XRUN: the server keeps returning -EPIPE until we
-			 * re-prepare, so recover instead of dropping the rest
-			 * of the stream. Bound retries to avoid spinning if
-			 * prepare keeps failing.
-			 */
-			if (xrun_retry++ >= 5) {
-				break;
-			}
-			pcm->prepared = 0;
-			pcm->running = 0;
-			if (pcm_prepare(pcm) != 0) {
-				proc_usleep(10000);
-			}
-			continue;
-		}
+    period_bytes = pcm->config.period_size * pcm->config.channels * (pcm->config.bit_depth / 8);
+    copy_bytes = bytes < period_bytes ? bytes : period_bytes;
+    while (bytes > 0) {
+        ret = wait_avail(pcm, &avail, 2000);
+        if (ret == -EPIPE) {
+            /*
+             * XRUN: the server keeps returning -EPIPE until we
+             * re-prepare, so recover instead of dropping the rest
+             * of the stream. Bound retries to avoid spinning if
+             * prepare keeps failing.
+             */
+            if (xrun_retry++ >= 5) {
+                break;
+            }
+            pcm->prepared = 0;
+            pcm->running = 0;
+            if (pcm_prepare(pcm) != 0) {
+                proc_usleep(10000);
+            }
+            continue;
+        }
 
-		if (ret < 0 || (avail == 0)) {
-			break;
-		}
+        if (ret < 0 || (avail == 0)) {
+            break;
+        }
 
-		copy_bytes = bytes < avail ? bytes : avail;
+        copy_bytes = bytes < avail ? bytes : avail;
 
-		ret = pcm_try_write(pcm, data + offset, copy_bytes);
-		if (ret == -EPIPE) {
-			/* XRUN hit inside write(): recover the same way */
-			if (xrun_retry++ >= 5) {
-				break;
-			}
-			pcm->prepared = 0;
-			pcm->running = 0;
-			if (pcm_prepare(pcm) != 0) {
-				proc_usleep(10000);
-			}
-			continue;
-		}
-		if (ret < 0) {
-			break;
-		}
-		/*
-		 * Only real write progress proves the XRUN recovery worked;
-		 * wait_avail succeeds right after re-prepare even when the
-		 * engine is wedged, so resetting there defeats the retry cap.
-		 */
-		if (ret > 0) {
-			xrun_retry = 0;
-		}
-		offset += ret;
-		written += ret;
-		bytes -= ret;
-		copy_bytes = bytes < period_bytes ? bytes : period_bytes;
-	}
+        ret = pcm_try_write(pcm, data + offset, copy_bytes);
+        if (ret == -EPIPE) {
+            /* XRUN hit inside write(): recover the same way */
+            if (xrun_retry++ >= 5) {
+                break;
+            }
+            pcm->prepared = 0;
+            pcm->running = 0;
+            if (pcm_prepare(pcm) != 0) {
+                proc_usleep(10000);
+            }
+            continue;
+        }
+        if (ret < 0) {
+            break;
+        }
+        /*
+         * Only real write progress proves the XRUN recovery worked;
+         * wait_avail succeeds right after re-prepare even when the
+         * engine is wedged, so resetting there defeats the retry cap.
+         */
+        if (ret > 0) {
+            xrun_retry = 0;
+        }
+        offset += ret;
+        written += ret;
+        bytes -= ret;
+        copy_bytes = bytes < period_bytes ? bytes : period_bytes;
+    }
 
-	return (written == (int)count ? 0 : -1);
+    return (written == (int)count ? 0 : -1);
 }
 
 static int pcm_close(struct pcm *pcm)
 {
-	if (pcm == NULL) {
-		return 0;
-	}
-	close(pcm->fd);
-	free(pcm);
-	return 0;
+    if (pcm == NULL) {
+        return 0;
+    }
+    close(pcm->fd);
+    free(pcm);
+    return 0;
 }
 
 static int pcm_prepare(struct pcm *pcm)
 {
-	if (pcm->prepared) {
-		return 0;
-	}
+    if (pcm->prepared) {
+        return 0;
+    }
 
-	proto_t in, out;
-	PF->init(&in);
-	PF->init(&out);
-	int ret = dev_cntl(pcm->name, CTRL_PCM_DEV_PRPARE, &in, &out);
-	if(ret == 0) {
-		ret = proto_read_int(&out);
-	}
-	PF->clear(&in);
-	PF->clear(&out);
+    proto_t in, out;
+    PF->init(&in);
+    PF->init(&out);
+    int ret = dev_cntl(pcm->name, CTRL_PCM_DEV_PRPARE, &in, &out);
+    if(ret == 0) {
+        ret = proto_read_int(&out);
+    }
+    PF->clear(&in);
+    PF->clear(&out);
 
-	if (ret == 0) {
-		pcm->prepared = 1;
-	}
-	return ret;
+    if (ret == 0) {
+        pcm->prepared = 1;
+    }
+    return ret;
 }
 
 // OGG Vorbis file callbacks for fd-backed streaming
 typedef struct {
-	int fd;
+    int fd;
 } OggVorbis_DataSource;
 
 static size_t ogg_read_func(void *ptr, size_t size, size_t nmemb, void *datasource)
 {
-	OggVorbis_DataSource *ds = (OggVorbis_DataSource *)datasource;
-	ssize_t bytes_read;
+    OggVorbis_DataSource *ds = (OggVorbis_DataSource *)datasource;
+    ssize_t bytes_read;
 
-	if (size == 0 || nmemb == 0) {
-		return 0;
-	}
+    if (size == 0 || nmemb == 0) {
+        return 0;
+    }
 
-	if (ds == NULL || ds->fd < 0) {
-		return 0;
-	}
+    if (ds == NULL || ds->fd < 0) {
+        return 0;
+    }
 
-	bytes_read = read(ds->fd, ptr, size * nmemb);
-	if (bytes_read <= 0) {
-		return 0;
-	}
+    bytes_read = read(ds->fd, ptr, size * nmemb);
+    if (bytes_read <= 0) {
+        return 0;
+    }
 
-	return (size_t)bytes_read / size;
+    return (size_t)bytes_read / size;
 }
 
 static int ogg_seek_func(void *datasource, ogg_int64_t offset, int whence)
 {
-	OggVorbis_DataSource *ds = (OggVorbis_DataSource *)datasource;
-	if (ds == NULL || ds->fd < 0) {
-		return -1;
-	}
+    OggVorbis_DataSource *ds = (OggVorbis_DataSource *)datasource;
+    if (ds == NULL || ds->fd < 0) {
+        return -1;
+    }
 
-	return (lseek(ds->fd, (off_t)offset, whence) < 0) ? -1 : 0;
+    return (lseek(ds->fd, (off_t)offset, whence) < 0) ? -1 : 0;
 }
 
 static int ogg_close_func(void *datasource)
 {
-	OggVorbis_DataSource *ds = (OggVorbis_DataSource *)datasource;
-	if (ds == NULL || ds->fd < 0) {
-		return 0;
-	}
+    OggVorbis_DataSource *ds = (OggVorbis_DataSource *)datasource;
+    if (ds == NULL || ds->fd < 0) {
+        return 0;
+    }
 
-	close(ds->fd);
-	ds->fd = -1;
-	return 0;
+    close(ds->fd);
+    ds->fd = -1;
+    return 0;
 }
 
 static long ogg_tell_func(void *datasource)
 {
-	OggVorbis_DataSource *ds = (OggVorbis_DataSource *)datasource;
-	off_t pos;
+    OggVorbis_DataSource *ds = (OggVorbis_DataSource *)datasource;
+    off_t pos;
 
-	if (ds == NULL || ds->fd < 0) {
-		return -1;
-	}
+    if (ds == NULL || ds->fd < 0) {
+        return -1;
+    }
 
-	pos = lseek(ds->fd, 0, SEEK_CUR);
-	return (long)pos;
+    pos = lseek(ds->fd, 0, SEEK_CUR);
+    return (long)pos;
 }
 
 static int16_t ogg_float_to_s16(float sample) {
-	int value;
-	if (sample > 1.0f) {
-		sample = 1.0f;
-	} else if (sample < -1.0f) {
-		sample = -1.0f;
-	}
+    int value;
+    if (sample > 1.0f) {
+        sample = 1.0f;
+    } else if (sample < -1.0f) {
+        sample = -1.0f;
+    }
 
-	if (sample >= 0.0f) {
-		value = (int)(sample * 32767.0f + 0.5f);
-	} else {
-		value = (int)(sample * 32768.0f - 0.5f);
-	}
+    if (sample >= 0.0f) {
+        value = (int)(sample * 32767.0f + 0.5f);
+    } else {
+        value = (int)(sample * 32768.0f - 0.5f);
+    }
 
-	if (value > 32767) {
-		value = 32767;
-	} else if (value < -32768) {
-		value = -32768;
-	}
-	return (int16_t)value;
+    if (value > 32767) {
+        value = 32767;
+    } else if (value < -32768) {
+        value = -32768;
+    }
+    return (int16_t)value;
 }
 
 int ogg_play_file(const char *path, const char *snd_dev) {
-	OggVorbis_File vf;
-	vorbis_info *vi;
-	OggVorbis_DataSource ds;
-	ov_callbacks callbacks;
-	int16_t chunk_buffer[OGG_WRITE_CHUNK_FRAMES * 2];
-	int chunk_frames = 0;
-	int ret = 1;
-	int fd;
+    OggVorbis_File vf;
+    vorbis_info *vi;
+    OggVorbis_DataSource ds;
+    ov_callbacks callbacks;
+    int16_t chunk_buffer[OGG_WRITE_CHUNK_FRAMES * 2];
+    int chunk_frames = 0;
+    int ret = 1;
+    int fd;
 
-	fd = open(path, O_RDONLY);
-	if (fd < 0) {
-		printf("open %s failed\n", path);
-		return 1;
-	}
+    fd = open(path, O_RDONLY);
+    if (fd < 0) {
+        printf("open %s failed\n", path);
+        return 1;
+    }
 
-	ds.fd = fd;
+    ds.fd = fd;
 
-	callbacks.read_func = ogg_read_func;
-	callbacks.seek_func = ogg_seek_func;
-	callbacks.close_func = ogg_close_func;
-	callbacks.tell_func = ogg_tell_func;
+    callbacks.read_func = ogg_read_func;
+    callbacks.seek_func = ogg_seek_func;
+    callbacks.close_func = ogg_close_func;
+    callbacks.tell_func = ogg_tell_func;
 
-	if (ov_open_callbacks(&ds, &vf, NULL, 0, callbacks) < 0) {
-		printf("Not an Ogg Vorbis audio stream\n");
-		close(fd);
-		return 1;
-	}
+    if (ov_open_callbacks(&ds, &vf, NULL, 0, callbacks) < 0) {
+        printf("Not an Ogg Vorbis audio stream\n");
+        close(fd);
+        return 1;
+    }
 
-	vi = ov_info(&vf, -1);
+    vi = ov_info(&vf, -1);
 
-	int channels = vi->channels;
-	if (channels != 1 && channels != 2) {
-		channels = 2;
-	}
+    int channels = vi->channels;
+    if (channels != 1 && channels != 2) {
+        channels = 2;
+    }
 
-	int rate = vi->rate;
-	if (rate != 8000 && rate != 16000 && rate != 32000 &&
-		rate != 44100 && rate != 48000 && rate != 96000) {
-		rate = 44100;
-	}
+    int rate = vi->rate;
+    if (rate != 8000 && rate != 16000 && rate != 32000 &&
+        rate != 44100 && rate != 48000 && rate != 96000) {
+        rate = 44100;
+    }
 
-	// Force stereo output
-	int output_channels = 2;
+    // Force stereo output
+    int output_channels = 2;
 
-	struct pcm_config config = {
-		.bit_depth = 16,
-		.rate = rate,
-		.channels = output_channels,
-		.period_size = 2048,
-		.period_count = 4,
-		.start_threshold = 2048 * output_channels,
-		.stop_threshold = 0,
-	};
+    struct pcm_config config = {
+        .bit_depth = 16,
+        .rate = rate,
+        .channels = output_channels,
+        .period_size = 2048,
+        .period_count = 4,
+        .start_threshold = 2048 * output_channels,
+        .stop_threshold = 0,
+    };
 
-	struct pcm *pcm = pcm_open(snd_dev, &config);
-	if (pcm == NULL) {
-		printf("pcm_open failed: rate=%d, channels=%d\n", rate, output_channels);
-		ov_clear(&vf);
-		return 1;
-	}
+    struct pcm *pcm = pcm_open(snd_dev, &config);
+    if (pcm == NULL) {
+        printf("pcm_open failed: rate=%d, channels=%d\n", rate, output_channels);
+        ov_clear(&vf);
+        return 1;
+    }
 
-	int16_t stereo_buffer[OGG_MAX_FRAMES * 2];
+    int16_t stereo_buffer[OGG_MAX_FRAMES * 2];
 
-	printf("Playing: %s\n", path);
-	printf("Channels: %d, Rate: %d Hz\n", channels, rate);
+    printf("Playing: %s\n", path);
+    printf("Channels: %d, Rate: %d Hz\n", channels, rate);
 
-	int bitstream;
-	while (1) {
-		float **pcm_channels = NULL;
-		long frames_read = ov_read_float(&vf, &pcm_channels, OGG_MAX_FRAMES, &bitstream);
+    int bitstream;
+    while (1) {
+        float **pcm_channels = NULL;
+        long frames_read = ov_read_float(&vf, &pcm_channels, OGG_MAX_FRAMES, &bitstream);
 
-		if (frames_read == 0) {
-			break;
-		}
+        if (frames_read == 0) {
+            break;
+        }
 
-		if (frames_read < 0) {
-			printf("Error decoding Ogg Vorbis stream\n");
-			break;
-		}
+        if (frames_read < 0) {
+            printf("Error decoding Ogg Vorbis stream\n");
+            break;
+        }
 
-		int samples = (int)frames_read;
-		if (samples > OGG_MAX_FRAMES) {
-			samples = OGG_MAX_FRAMES;
-		}
-		for (int i = 0; i < samples; i++) {
-			float left = pcm_channels[0][i];
-			float right = (channels > 1) ? pcm_channels[1][i] : left;
-			stereo_buffer[i * 2] = ogg_float_to_s16(left);
-			stereo_buffer[i * 2 + 1] = ogg_float_to_s16(right);
-		}
+        int samples = (int)frames_read;
+        if (samples > OGG_MAX_FRAMES) {
+            samples = OGG_MAX_FRAMES;
+        }
+        for (int i = 0; i < samples; i++) {
+            float left = pcm_channels[0][i];
+            float right = (channels > 1) ? pcm_channels[1][i] : left;
+            stereo_buffer[i * 2] = ogg_float_to_s16(left);
+            stereo_buffer[i * 2 + 1] = ogg_float_to_s16(right);
+        }
 
-		if (chunk_frames + samples > OGG_WRITE_CHUNK_FRAMES) {
-			if (pcm_write(pcm, chunk_buffer, (unsigned int)(chunk_frames *
-					output_channels * (int)sizeof(int16_t))) != 0) {
-				printf("pcm_write failed\n");
-				goto out;
-			}
-			chunk_frames = 0;
-		}
+        if (chunk_frames + samples > OGG_WRITE_CHUNK_FRAMES) {
+            if (pcm_write(pcm, chunk_buffer, (unsigned int)(chunk_frames *
+                    output_channels * (int)sizeof(int16_t))) != 0) {
+                printf("pcm_write failed\n");
+                goto out;
+            }
+            chunk_frames = 0;
+        }
 
-		memcpy(chunk_buffer + chunk_frames * output_channels,
-				stereo_buffer,
-				(size_t)samples * output_channels * sizeof(int16_t));
-		chunk_frames += samples;
-	}
+        memcpy(chunk_buffer + chunk_frames * output_channels,
+                stereo_buffer,
+                (size_t)samples * output_channels * sizeof(int16_t));
+        chunk_frames += samples;
+    }
 
-	if (chunk_frames > 0) {
-		ret = pcm_write(pcm, chunk_buffer,
-				(unsigned int)(chunk_frames * output_channels * (int)sizeof(int16_t)));
-		if (ret != 0) {
-			printf("pcm_write failed, ret=%d\n", ret);
-			goto out;
-		}
-	}
+    if (chunk_frames > 0) {
+        ret = pcm_write(pcm, chunk_buffer,
+                (unsigned int)(chunk_frames * output_channels * (int)sizeof(int16_t)));
+        if (ret != 0) {
+            printf("pcm_write failed, ret=%d\n", ret);
+            goto out;
+        }
+    }
 
-	pcm_close(pcm);
-	pcm = NULL;
-	ret = 0;
+    pcm_close(pcm);
+    pcm = NULL;
+    ret = 0;
 
 out:
-	if (pcm != NULL) {
-		pcm_close(pcm);
-	}
-	ov_clear(&vf);
+    if (pcm != NULL) {
+        pcm_close(pcm);
+    }
+    ov_clear(&vf);
 
-	return ret;
+    return ret;
 }
 
 int main(int argc, char **argv) {
-	if(argc < 2) {
-		fprintf(stderr, "Usage: %s [ogg_fname] [snd_dev]\n", argv[0]);
-		return 1;
-	}
+    if(argc < 2) {
+        fprintf(stderr, "Usage: %s [ogg_fname] [snd_dev]\n", argv[0]);
+        return 1;
+    }
 
-	if(argc >= 3) {
-		return ogg_play_file(argv[1], argv[2]);
-	} else {
-		return ogg_play_file(argv[1], "/dev/sound0");
-	}
+    if(argc >= 3) {
+        return ogg_play_file(argv[1], argv[2]);
+    } else {
+        return ogg_play_file(argv[1], "/dev/sound0");
+    }
 }

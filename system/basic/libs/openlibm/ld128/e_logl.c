@@ -225,7 +225,7 @@ logl(long double x)
     {
       k = (m - 0xff00) >> 9;
       /* t is the argument 0.5 + (k+26)/128
-	 of the nearest item to u in the lookup table.  */
+     of the nearest item to u in the lookup table.  */
       t.parts32.mswhi = 0x3fff0000 + (k << 9);
       t.parts32.mswlo = 0;
       t.parts32.lswhi = 0;
@@ -253,25 +253,25 @@ logl(long double x)
   else
     {
       /* log(u) = log( t u/t ) = log(t) + log(u/t)
-	 log(t) is tabulated in the lookup table.
-	 Express log(u/t) = log(1+z),  where z = u/t - 1 = (u-t)/t.
-	cf. Cody & Waite. */
+     log(t) is tabulated in the lookup table.
+     Express log(u/t) = log(1+z),  where z = u/t - 1 = (u-t)/t.
+    cf. Cody & Waite. */
       z = (u.value - t.value) / t.value;
     }
   /* Series expansion of log(1+z).  */
   w = z * z;
   y = ((((((((((((l15 * z
-		  + l14) * z
-		 + l13) * z
-		+ l12) * z
-	       + l11) * z
-	      + l10) * z
-	     + l9) * z
-	    + l8) * z
-	   + l7) * z
-	  + l6) * z
-	 + l5) * z
-	+ l4) * z
+          + l14) * z
+         + l13) * z
+        + l12) * z
+           + l11) * z
+          + l10) * z
+         + l9) * z
+        + l8) * z
+       + l7) * z
+      + l6) * z
+     + l5) * z
+    + l4) * z
        + l3) * z * w;
   y -= 0.5 * w;
   y += e * ln2b;  /* Base 2 exponent offset times ln(2).  */

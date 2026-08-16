@@ -33,12 +33,12 @@
 OLM_DLLEXPORT type					\
 fn(type x, type y)			\
 {					\
-					\
-	if (isnan(x))			\
-		return (x);		\
-	if (isnan(y))			\
-		return (y);		\
-	return (x > y ? x - y : 0.0);	\
+                    \
+    if (isnan(x))			\
+        return (x);		\
+    if (isnan(y))			\
+        return (y);		\
+    return (x > y ? x - y : 0.0);	\
 }
 
 DECL(double, fdim)

@@ -117,10 +117,10 @@ long double px, xx;
 int n;
 
 if( x > MAXLOGL)
-	return (huge*huge);		/* overflow */
+    return (huge*huge);		/* overflow */
 
 if( x < MINLOGL )
-	return (twom10000*twom10000);	/* underflow */
+    return (twom10000*twom10000);	/* underflow */
 
 /* Express e**x = e**g 2**n
  *   = e**g e**( n loge(2) )

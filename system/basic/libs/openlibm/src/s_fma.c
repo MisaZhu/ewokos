@@ -39,8 +39,8 @@
  * bits of the result.
  */
 struct dd {
-	double hi;
-	double lo;
+    double hi;
+    double lo;
 };
 
 /*
@@ -51,13 +51,13 @@ struct dd {
 static inline struct dd
 dd_add(double a, double b)
 {
-	struct dd ret;
-	double s;
+    struct dd ret;
+    double s;
 
-	ret.hi = a + b;
-	s = ret.hi - a;
-	ret.lo = (a - (ret.hi - s)) + (b - s);
-	return (ret);
+    ret.hi = a + b;
+    s = ret.hi - a;
+    ret.lo = (a - (ret.hi - s)) + (b - s);
+    return (ret);
 }
 
 /*
@@ -74,20 +74,20 @@ dd_add(double a, double b)
 static inline double
 add_adjusted(double a, double b)
 {
-	struct dd sum;
-	u_int64_t hibits, lobits;
+    struct dd sum;
+    u_int64_t hibits, lobits;
 
-	sum = dd_add(a, b);
-	if (sum.lo != 0) {
-		EXTRACT_WORD64(hibits, sum.hi);
-		if ((hibits & 1) == 0) {
-			/* hibits += (int)copysign(1.0, sum.hi * sum.lo) */
-			EXTRACT_WORD64(lobits, sum.lo);
-			hibits += 1 - ((hibits ^ lobits) >> 62);
-			INSERT_WORD64(sum.hi, hibits);
-		}
-	}
-	return (sum.hi);
+    sum = dd_add(a, b);
+    if (sum.lo != 0) {
+        EXTRACT_WORD64(hibits, sum.hi);
+        if ((hibits & 1) == 0) {
+            /* hibits += (int)copysign(1.0, sum.hi * sum.lo) */
+            EXTRACT_WORD64(lobits, sum.lo);
+            hibits += 1 - ((hibits ^ lobits) >> 62);
+            INSERT_WORD64(sum.hi, hibits);
+        }
+    }
+    return (sum.hi);
 }
 
 /*
@@ -98,33 +98,33 @@ add_adjusted(double a, double b)
 static inline double
 add_and_denormalize(double a, double b, int scale)
 {
-	struct dd sum;
-	u_int64_t hibits, lobits;
-	int bits_lost;
+    struct dd sum;
+    u_int64_t hibits, lobits;
+    int bits_lost;
 
-	sum = dd_add(a, b);
+    sum = dd_add(a, b);
 
-	/*
-	 * If we are losing at least two bits of accuracy to denormalization,
-	 * then the first lost bit becomes a round bit, and we adjust the
-	 * lowest bit of sum.hi to make it a sticky bit summarizing all the
-	 * bits in sum.lo. With the sticky bit adjusted, the hardware will
-	 * break any ties in the correct direction.
-	 *
-	 * If we are losing only one bit to denormalization, however, we must
-	 * break the ties manually.
-	 */
-	if (sum.lo != 0) {
-		EXTRACT_WORD64(hibits, sum.hi);
-		bits_lost = -((int)(hibits >> 52) & 0x7ff) - scale + 1;
-		if ((bits_lost != 1) ^ (int)(hibits & 1)) {
-			/* hibits += (int)copysign(1.0, sum.hi * sum.lo) */
-			EXTRACT_WORD64(lobits, sum.lo);
-			hibits += 1 - (((hibits ^ lobits) >> 62) & 2);
-			INSERT_WORD64(sum.hi, hibits);
-		}
-	}
-	return (ldexp(sum.hi, scale));
+    /*
+     * If we are losing at least two bits of accuracy to denormalization,
+     * then the first lost bit becomes a round bit, and we adjust the
+     * lowest bit of sum.hi to make it a sticky bit summarizing all the
+     * bits in sum.lo. With the sticky bit adjusted, the hardware will
+     * break any ties in the correct direction.
+     *
+     * If we are losing only one bit to denormalization, however, we must
+     * break the ties manually.
+     */
+    if (sum.lo != 0) {
+        EXTRACT_WORD64(hibits, sum.hi);
+        bits_lost = -((int)(hibits >> 52) & 0x7ff) - scale + 1;
+        if ((bits_lost != 1) ^ (int)(hibits & 1)) {
+            /* hibits += (int)copysign(1.0, sum.hi * sum.lo) */
+            EXTRACT_WORD64(lobits, sum.lo);
+            hibits += 1 - (((hibits ^ lobits) >> 62) & 2);
+            INSERT_WORD64(sum.hi, hibits);
+        }
+    }
+    return (ldexp(sum.hi, scale));
 }
 
 /*
@@ -135,26 +135,26 @@ add_and_denormalize(double a, double b, int scale)
 static inline struct dd
 dd_mul(double a, double b)
 {
-	static const double split = 0x1p27 + 1.0;
-	struct dd ret;
-	double ha, hb, la, lb, p, q;
+    static const double split = 0x1p27 + 1.0;
+    struct dd ret;
+    double ha, hb, la, lb, p, q;
 
-	p = a * split;
-	ha = a - p;
-	ha += p;
-	la = a - ha;
+    p = a * split;
+    ha = a - p;
+    ha += p;
+    la = a - ha;
 
-	p = b * split;
-	hb = b - p;
-	hb += p;
-	lb = b - hb;
+    p = b * split;
+    hb = b - p;
+    hb += p;
+    lb = b - hb;
 
-	p = ha * hb;
-	q = ha * lb + la * hb;
+    p = ha * hb;
+    q = ha * lb + la * hb;
 
-	ret.hi = p + q;
-	ret.lo = p - ret.hi + q + la * lb;
-	return (ret);
+    ret.hi = p + q;
+    ret.lo = p - ret.hi + q + la * lb;
+    return (ret);
 }
 
 /*
@@ -177,106 +177,106 @@ dd_mul(double a, double b)
 OLM_DLLEXPORT double
 fma(double x, double y, double z)
 {
-	double xs, ys, zs, adj;
-	struct dd xy, r;
-	int oround;
-	int ex, ey, ez;
-	int spread;
+    double xs, ys, zs, adj;
+    struct dd xy, r;
+    int oround;
+    int ex, ey, ez;
+    int spread;
 
-	/*
-	 * Handle special cases. The order of operations and the particular
-	 * return values here are crucial in handling special cases involving
-	 * infinities, NaNs, overflows, and signed zeroes correctly.
-	 */
-	if (x == 0.0 || y == 0.0)
-		return (x * y + z);
-	if (z == 0.0)
-		return (x * y);
-	if (!isfinite(x) || !isfinite(y))
-		return (x * y + z);
-	if (!isfinite(z))
-		return (z);
+    /*
+     * Handle special cases. The order of operations and the particular
+     * return values here are crucial in handling special cases involving
+     * infinities, NaNs, overflows, and signed zeroes correctly.
+     */
+    if (x == 0.0 || y == 0.0)
+        return (x * y + z);
+    if (z == 0.0)
+        return (x * y);
+    if (!isfinite(x) || !isfinite(y))
+        return (x * y + z);
+    if (!isfinite(z))
+        return (z);
 
-	xs = frexp(x, &ex);
-	ys = frexp(y, &ey);
-	zs = frexp(z, &ez);
-	oround = fegetround();
-	spread = ex + ey - ez;
+    xs = frexp(x, &ex);
+    ys = frexp(y, &ey);
+    zs = frexp(z, &ez);
+    oround = fegetround();
+    spread = ex + ey - ez;
 
-	/*
-	 * If x * y and z are many orders of magnitude apart, the scaling
-	 * will overflow, so we handle these cases specially.  Rounding
-	 * modes other than FE_TONEAREST are painful.
-	 */
-	if (spread < -DBL_MANT_DIG) {
-		feraiseexcept(FE_INEXACT);
-		if (!isnormal(z))
-			feraiseexcept(FE_UNDERFLOW);
-		switch (oround) {
-		case FE_TONEAREST:
-			return (z);
-		case FE_TOWARDZERO:
-			if ((x > 0.0) ^ (y < 0.0) ^ (z < 0.0))
-				return (z);
-			else
-				return (nextafter(z, 0));
-		case FE_DOWNWARD:
-			if ((x > 0.0) ^ (y < 0.0))
-				return (z);
-			else
-				return (nextafter(z, -INFINITY));
-		default:	/* FE_UPWARD */
-			if ((x > 0.0) ^ (y < 0.0))
-				return (nextafter(z, INFINITY));
-			else
-				return (z);
-		}
-	}
-	if (spread <= DBL_MANT_DIG * 2)
-		zs = ldexp(zs, -spread);
-	else
-		zs = copysign(DBL_MIN, zs);
+    /*
+     * If x * y and z are many orders of magnitude apart, the scaling
+     * will overflow, so we handle these cases specially.  Rounding
+     * modes other than FE_TONEAREST are painful.
+     */
+    if (spread < -DBL_MANT_DIG) {
+        feraiseexcept(FE_INEXACT);
+        if (!isnormal(z))
+            feraiseexcept(FE_UNDERFLOW);
+        switch (oround) {
+        case FE_TONEAREST:
+            return (z);
+        case FE_TOWARDZERO:
+            if ((x > 0.0) ^ (y < 0.0) ^ (z < 0.0))
+                return (z);
+            else
+                return (nextafter(z, 0));
+        case FE_DOWNWARD:
+            if ((x > 0.0) ^ (y < 0.0))
+                return (z);
+            else
+                return (nextafter(z, -INFINITY));
+        default:	/* FE_UPWARD */
+            if ((x > 0.0) ^ (y < 0.0))
+                return (nextafter(z, INFINITY));
+            else
+                return (z);
+        }
+    }
+    if (spread <= DBL_MANT_DIG * 2)
+        zs = ldexp(zs, -spread);
+    else
+        zs = copysign(DBL_MIN, zs);
 
-	fesetround(FE_TONEAREST);
+    fesetround(FE_TONEAREST);
 
-	/*
-	 * Basic approach for round-to-nearest:
-	 *
-	 *     (xy.hi, xy.lo) = x * y		(exact)
-	 *     (r.hi, r.lo)   = xy.hi + z	(exact)
-	 *     adj = xy.lo + r.lo		(inexact; low bit is sticky)
-	 *     result = r.hi + adj		(correctly rounded)
-	 */
-	xy = dd_mul(xs, ys);
-	r = dd_add(xy.hi, zs);
+    /*
+     * Basic approach for round-to-nearest:
+     *
+     *     (xy.hi, xy.lo) = x * y		(exact)
+     *     (r.hi, r.lo)   = xy.hi + z	(exact)
+     *     adj = xy.lo + r.lo		(inexact; low bit is sticky)
+     *     result = r.hi + adj		(correctly rounded)
+     */
+    xy = dd_mul(xs, ys);
+    r = dd_add(xy.hi, zs);
 
-	spread = ex + ey;
+    spread = ex + ey;
 
-	if (r.hi == 0.0) {
-		/*
-		 * When the addends cancel to 0, ensure that the result has
-		 * the correct sign.
-		 */
-		fesetround(oround);
-		volatile double vzs = zs; /* XXX gcc CSE bug workaround */
-		return (xy.hi + vzs + ldexp(xy.lo, spread));
-	}
+    if (r.hi == 0.0) {
+        /*
+         * When the addends cancel to 0, ensure that the result has
+         * the correct sign.
+         */
+        fesetround(oround);
+        volatile double vzs = zs; /* XXX gcc CSE bug workaround */
+        return (xy.hi + vzs + ldexp(xy.lo, spread));
+    }
 
-	if (oround != FE_TONEAREST) {
-		/*
-		 * There is no need to worry about double rounding in directed
-		 * rounding modes.
-		 */
-		fesetround(oround);
-		adj = r.lo + xy.lo;
-		return (ldexp(r.hi + adj, spread));
-	}
+    if (oround != FE_TONEAREST) {
+        /*
+         * There is no need to worry about double rounding in directed
+         * rounding modes.
+         */
+        fesetround(oround);
+        adj = r.lo + xy.lo;
+        return (ldexp(r.hi + adj, spread));
+    }
 
-	adj = add_adjusted(r.lo, xy.lo);
-	if (spread + ilogb(r.hi) > -1023)
-		return (ldexp(r.hi + adj, spread));
-	else
-		return (add_and_denormalize(r.hi, adj, spread));
+    adj = add_adjusted(r.lo, xy.lo);
+    if (spread + ilogb(r.hi) > -1023)
+        return (ldexp(r.hi + adj, spread));
+    else
+        return (add_and_denormalize(r.hi, adj, spread));
 }
 
 #if (LDBL_MANT_DIG == 53)

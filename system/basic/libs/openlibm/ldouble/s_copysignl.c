@@ -34,10 +34,10 @@
 OLM_DLLEXPORT long double
 copysignl(long double x, long double y)
 {
-	union IEEEl2bits ux, uy;
+    union IEEEl2bits ux, uy;
 
-	ux.e = x;
-	uy.e = y;
-	ux.bits.sign = uy.bits.sign;
-	return (ux.e);
+    ux.e = x;
+    uy.e = y;
+    ux.bits.sign = uy.bits.sign;
+    return (ux.e);
 }

@@ -42,28 +42,28 @@ static const float zero[] = { 0.0, -0.0 };
 OLM_DLLEXPORT long double
 truncl(long double x)
 {
-	union IEEEl2bits u = { .e = x };
-	int e = u.bits.exp - LDBL_MAX_EXP + 1;
+    union IEEEl2bits u = { .e = x };
+    int e = u.bits.exp - LDBL_MAX_EXP + 1;
 
-	if (e < MANH_SIZE - 1) {
-		if (e < 0) {			/* raise inexact if x != 0 */
-			if (huge + x > 0.0)
-				u.e = zero[u.bits.sign];
-		} else {
-			uint64_t m = ((1llu << MANH_SIZE) - 1) >> (e + 1);
-			if (((u.bits.manh & m) | u.bits.manl) == 0)
-				return (x);	/* x is integral */
-			if (huge + x > 0.0) {	/* raise inexact flag */
-				u.bits.manh &= ~m;
-				u.bits.manl = 0;
-			}
-		}
-	} else if (e < LDBL_MANT_DIG - 1) {
-		uint64_t m = (uint64_t)-1 >> (64 - LDBL_MANT_DIG + e + 1);
-		if ((u.bits.manl & m) == 0)
-			return (x);	/* x is integral */
-		if (huge + x > 0.0)		/* raise inexact flag */
-			u.bits.manl &= ~m;
-	}
-	return (u.e);
+    if (e < MANH_SIZE - 1) {
+        if (e < 0) {			/* raise inexact if x != 0 */
+            if (huge + x > 0.0)
+                u.e = zero[u.bits.sign];
+        } else {
+            uint64_t m = ((1llu << MANH_SIZE) - 1) >> (e + 1);
+            if (((u.bits.manh & m) | u.bits.manl) == 0)
+                return (x);	/* x is integral */
+            if (huge + x > 0.0) {	/* raise inexact flag */
+                u.bits.manh &= ~m;
+                u.bits.manl = 0;
+            }
+        }
+    } else if (e < LDBL_MANT_DIG - 1) {
+        uint64_t m = (uint64_t)-1 >> (64 - LDBL_MANT_DIG + e + 1);
+        if ((u.bits.manl & m) == 0)
+            return (x);	/* x is integral */
+        if (huge + x > 0.0)		/* raise inexact flag */
+            u.bits.manl &= ~m;
+    }
+    return (u.e);
 }

@@ -6,34 +6,34 @@ extern "C" {
 #endif
 
 int  semaphore_alloc(void) {
-	return syscall0(SYS_SEMAPHORE_ALLOC);
+    return syscall0(SYS_SEMAPHORE_ALLOC);
 }
 
 void semaphore_free(int sem_id) {
-	syscall1(SYS_SEMAPHORE_FREE, sem_id);
+    syscall1(SYS_SEMAPHORE_FREE, sem_id);
 }
 
 int  semaphore_enter(int sem_id) {
-	int res = 0;
+    int res = 0;
 
-	//TODO 
-	//res = syscall1(SYS_SEMAPHORE_ENTER, (ewokos_addr_t)sem_id);
+    //TODO 
+    //res = syscall1(SYS_SEMAPHORE_ENTER, (ewokos_addr_t)sem_id);
 
-	while(true) {
-		res = syscall1(SYS_SEMAPHORE_TRY_ENTER, (ewokos_addr_t)sem_id);
-		if(res != -2)
-			break;
-		syscall0(SYS_YIELD);
-	}
-	return res;
+    while(true) {
+        res = syscall1(SYS_SEMAPHORE_TRY_ENTER, (ewokos_addr_t)sem_id);
+        if(res != -2)
+            break;
+        syscall0(SYS_YIELD);
+    }
+    return res;
 }
 
 int  semaphore_tryenter(int sem_id) {
-	return syscall1(SYS_SEMAPHORE_TRY_ENTER, (ewokos_addr_t)sem_id);
+    return syscall1(SYS_SEMAPHORE_TRY_ENTER, (ewokos_addr_t)sem_id);
 }
 
 int  semaphore_quit(int sem_id) {
-	return syscall1(SYS_SEMAPHORE_QUIT, (ewokos_addr_t)sem_id);
+    return syscall1(SYS_SEMAPHORE_QUIT, (ewokos_addr_t)sem_id);
 }
 
 #ifdef __cplusplus

@@ -25,7 +25,7 @@ huge    = 1e30,
 one	= 1.0,
 invsqrtpi=  5.6418961287e-01, /* 0x3f106ebb */
 tpi      =  6.3661974669e-01, /* 0x3f22f983 */
-	/* R0/S0 on [0,2] */
+    /* R0/S0 on [0,2] */
 r00  = -6.2500000000e-02, /* 0xbd800000 */
 r01  =  1.4070566976e-03, /* 0x3ab86cfd */
 r02  = -1.5995563444e-05, /* 0xb7862e36 */
@@ -41,43 +41,43 @@ static const float zero    = 0.0;
 OLM_DLLEXPORT float
 __ieee754_j1f(float x)
 {
-	float z, s,c,ss,cc,r,u,v,y;
-	int32_t hx,ix;
+    float z, s,c,ss,cc,r,u,v,y;
+    int32_t hx,ix;
 
-	GET_FLOAT_WORD(hx,x);
-	ix = hx&0x7fffffff;
-	if(ix>=0x7f800000) return one/x;
-	y = fabsf(x);
-	if(ix >= 0x40000000) {	/* |x| >= 2.0 */
-		s = sinf(y);
-		c = cosf(y);
-		ss = -s-c;
-		cc = s-c;
-		if(ix<0x7f000000) {  /* make sure y+y not overflow */
-		    z = cosf(y+y);
-		    if ((s*c)>zero) cc = z/ss;
-		    else 	    ss = z/cc;
-		}
-	/*
-	 * j1(x) = 1/sqrt(pi) * (P(1,x)*cc - Q(1,x)*ss) / sqrt(x)
-	 * y1(x) = 1/sqrt(pi) * (P(1,x)*ss + Q(1,x)*cc) / sqrt(x)
-	 */
-		if(ix>0x58000000) z = (invsqrtpi*cc)/sqrtf(y); /* |x|>2**49 */
-		else {
-		    u = ponef(y); v = qonef(y);
-		    z = invsqrtpi*(u*cc-v*ss)/sqrtf(y);
-		}
-		if(hx<0) return -z;
-		else  	 return  z;
-	}
-	if(ix<0x39000000) {	/* |x|<2**-13 */
-	    if(huge+x>one) return (float)0.5*x;/* inexact if x!=0 necessary */
-	}
-	z = x*x;
-	r =  z*(r00+z*(r01+z*(r02+z*r03)));
-	s =  one+z*(s01+z*(s02+z*(s03+z*(s04+z*s05))));
-	r *= x;
-	return(x*(float)0.5+r/s);
+    GET_FLOAT_WORD(hx,x);
+    ix = hx&0x7fffffff;
+    if(ix>=0x7f800000) return one/x;
+    y = fabsf(x);
+    if(ix >= 0x40000000) {	/* |x| >= 2.0 */
+        s = sinf(y);
+        c = cosf(y);
+        ss = -s-c;
+        cc = s-c;
+        if(ix<0x7f000000) {  /* make sure y+y not overflow */
+            z = cosf(y+y);
+            if ((s*c)>zero) cc = z/ss;
+            else 	    ss = z/cc;
+        }
+    /*
+     * j1(x) = 1/sqrt(pi) * (P(1,x)*cc - Q(1,x)*ss) / sqrt(x)
+     * y1(x) = 1/sqrt(pi) * (P(1,x)*ss + Q(1,x)*cc) / sqrt(x)
+     */
+        if(ix>0x58000000) z = (invsqrtpi*cc)/sqrtf(y); /* |x|>2**49 */
+        else {
+            u = ponef(y); v = qonef(y);
+            z = invsqrtpi*(u*cc-v*ss)/sqrtf(y);
+        }
+        if(hx<0) return -z;
+        else  	 return  z;
+    }
+    if(ix<0x39000000) {	/* |x|<2**-13 */
+        if(huge+x>one) return (float)0.5*x;/* inexact if x!=0 necessary */
+    }
+    z = x*x;
+    r =  z*(r00+z*(r01+z*(r02+z*r03)));
+    s =  one+z*(s01+z*(s02+z*(s03+z*(s04+z*s05))));
+    r *= x;
+    return(x*(float)0.5+r/s);
 }
 
 static const float U0[5] = {
@@ -98,13 +98,13 @@ static const float V0[5] = {
 OLM_DLLEXPORT float
 __ieee754_y1f(float x)
 {
-	float z, s,c,ss,cc,u,v;
-	int32_t hx,ix;
+    float z, s,c,ss,cc,u,v;
+    int32_t hx,ix;
 
-	GET_FLOAT_WORD(hx,x);
+    GET_FLOAT_WORD(hx,x);
         ix = 0x7fffffff&hx;
     /* if Y1(NaN) is NaN, Y1(-inf) is NaN, Y1(inf) is 0 */
-	if(ix>=0x7f800000) return  one/(x+x*x);
+    if(ix>=0x7f800000) return  one/(x+x*x);
         if(ix==0) return -one/zero;
         if(hx<0) return zero/zero;
         if(ix >= 0x40000000) {  /* |x| >= 2.0 */
@@ -218,17 +218,17 @@ static const float ps2[5] = {
   8.3646392822e+00, /* 0x4105d590 */
 };
 
-	static float ponef(float x)
+    static float ponef(float x)
 {
-	const float *p,*q;
-	float z,r,s;
+    const float *p,*q;
+    float z,r,s;
         int32_t ix;
-	GET_FLOAT_WORD(ix,x);
-	ix &= 0x7fffffff;
+    GET_FLOAT_WORD(ix,x);
+    ix &= 0x7fffffff;
         if(ix>=0x41000000)     {p = pr8; q= ps8;}
         else if(ix>=0x409173eb){p = pr5; q= ps5;}
         else if(ix>=0x4036d917){p = pr3; q= ps3;}
-	else                   {p = pr2; q= ps2;}	/* ix>=0x40000000 */
+    else                   {p = pr2; q= ps2;}	/* ix>=0x40000000 */
         z = one/(x*x);
         r = p[0]+z*(p[1]+z*(p[2]+z*(p[3]+z*(p[4]+z*p[5]))));
         s = one+z*(q[0]+z*(q[1]+z*(q[2]+z*(q[3]+z*q[4]))));
@@ -314,19 +314,19 @@ static const float qs2[6] = {
  -4.9594988823e+00, /* 0xc09eb437 */
 };
 
-	static float qonef(float x)
+    static float qonef(float x)
 {
-	const float *p,*q;
-	float  s,r,z;
-	int32_t ix;
-	GET_FLOAT_WORD(ix,x);
-	ix &= 0x7fffffff;
-	if(ix>=0x41000000)     {p = qr8; q= qs8;}
-	else if(ix>=0x409173eb){p = qr5; q= qs5;}
-	else if(ix>=0x4036d917){p = qr3; q= qs3;}
-	else                   {p = qr2; q= qs2;}	/* ix>=0x40000000 */
-	z = one/(x*x);
-	r = p[0]+z*(p[1]+z*(p[2]+z*(p[3]+z*(p[4]+z*p[5]))));
-	s = one+z*(q[0]+z*(q[1]+z*(q[2]+z*(q[3]+z*(q[4]+z*q[5])))));
-	return ((float).375 + r/s)/x;
+    const float *p,*q;
+    float  s,r,z;
+    int32_t ix;
+    GET_FLOAT_WORD(ix,x);
+    ix &= 0x7fffffff;
+    if(ix>=0x41000000)     {p = qr8; q= qs8;}
+    else if(ix>=0x409173eb){p = qr5; q= qs5;}
+    else if(ix>=0x4036d917){p = qr3; q= qs3;}
+    else                   {p = qr2; q= qs2;}	/* ix>=0x40000000 */
+    z = one/(x*x);
+    r = p[0]+z*(p[1]+z*(p[2]+z*(p[3]+z*(p[4]+z*p[5]))));
+    s = one+z*(q[0]+z*(q[1]+z*(q[2]+z*(q[3]+z*(q[4]+z*q[5])))));
+    return ((float).375 + r/s)/x;
 }

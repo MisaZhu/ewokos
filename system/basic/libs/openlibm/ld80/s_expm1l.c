@@ -114,14 +114,14 @@ x -= px * C2;
 
 /* Approximate exp(remainder ln 2).  */
 px = (((( P4 * x
-	 + P3) * x
-	+ P2) * x
+     + P3) * x
+    + P2) * x
        + P1) * x
       + P0) * x;
 
 qx = (((( x
-	 + Q4) * x
-	+ Q3) * x
+     + Q4) * x
+    + Q3) * x
        + Q2) * x
       + Q1) * x
      + Q0;

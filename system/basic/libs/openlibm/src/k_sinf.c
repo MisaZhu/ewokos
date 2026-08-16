@@ -37,12 +37,12 @@ extern
 OLM_DLLEXPORT float 
 __kernel_sindf(double x)
 {
-	double r, s, w, z;
+    double r, s, w, z;
 
-	/* Try to optimize for parallel evaluation as in k_tanf.c. */
-	z = x*x;
-	w = z*z;
-	r = S3+z*S4;
-	s = z*x;
-	return (x + s*(S1+z*S2)) + s*w*r;
+    /* Try to optimize for parallel evaluation as in k_tanf.c. */
+    z = x*x;
+    w = z*z;
+    r = S3+z*S4;
+    s = z*x;
+    return (x + s*(S1+z*S2)) + s*w*r;
 }

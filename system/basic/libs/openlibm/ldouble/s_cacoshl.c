@@ -49,8 +49,8 @@
 long double complex
 cacoshl(long double complex z)
 {
-	long double complex w;
+    long double complex w;
 
-	w = I * cacosl(z);
-	return (w);
+    w = I * cacosl(z);
+    return (w);
 }

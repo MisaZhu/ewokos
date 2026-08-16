@@ -61,13 +61,13 @@
 long double complex
 clogl(long double complex z)
 {
-	long double complex w;
-	long double p, rr;
+    long double complex w;
+    long double p, rr;
 
-	/*rr = sqrt(z->r * z->r  +  z->i * z->i);*/
-	p = cabsl(z);
-	p = logl(p);
-	rr = atan2l(cimagl(z), creall(z));
-	w = p + rr * I;
-	return (w);
+    /*rr = sqrt(z->r * z->r  +  z->i * z->i);*/
+    p = cabsl(z);
+    p = logl(p);
+    rr = atan2l(cimagl(z), creall(z));
+    w = p + rr * I;
+    return (w);
 }

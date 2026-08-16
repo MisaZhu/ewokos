@@ -2,10 +2,10 @@
 #include <ewoksys/proc.h>
 
 pid_t getppid(void) {
-	procinfo_t info;
+    procinfo_t info;
 
-	if (proc_info(getpid(), &info) != 0) {
-		return 0;
-	}
-	return info.father_pid;
+    if (proc_info(getpid(), &info) != 0) {
+        return 0;
+    }
+    return info.father_pid;
 }

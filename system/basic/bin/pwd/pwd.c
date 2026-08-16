@@ -3,10 +3,10 @@
 #include <ewoksys/fsinfo.h>
 
 int main(int argc, char* argv[]) {
-	(void)argc;
-	(void)argv;
+    (void)argc;
+    (void)argv;
 
-	char pwd[FS_FULL_NAME_MAX];
-	printf("%s\n", getcwd(pwd, FS_FULL_NAME_MAX));
-	return 0;
+    char pwd[FS_FULL_NAME_MAX];
+    printf("%s\n", getcwd(pwd, FS_FULL_NAME_MAX));
+    return 0;
 }

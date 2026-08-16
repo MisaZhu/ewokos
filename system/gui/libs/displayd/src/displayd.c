@@ -12,9 +12,9 @@
 #include <tinyjson/tinyjson.h>
 
 typedef struct {
-	uint32_t size;
-	uint8_t* shm;
-	int32_t  shm_id;
+    uint32_t size;
+    uint8_t* shm;
+    int32_t  shm_id;
 } fb_dma_t;
 
 static fbinfo_t _fbinfo = {0};
@@ -27,49 +27,49 @@ static char _logo[256] = {0};
 static fb_dma_t* _cur_dma = NULL; /* live shm, for fbdisplayd_refresh() */
 
 static int fb_fcntl(vdevice_t* dev, int fd,
-		int from_pid,
-		fsinfo_t* info,
-		int cmd,
-		proto_t* in,
-		proto_t* out,
-		void* p) {
+        int from_pid,
+        fsinfo_t* info,
+        int cmd,
+        proto_t* in,
+        proto_t* out,
+        void* p) {
 
-	(void)dev;
-	(void)fd;
-	(void)from_pid;
-	(void)info;
-	(void)in;
-	(void)p;
-	if(cmd == DISPLAY_CNTL_GET_INFO) { //get fb size
-		if(_rotate == G_ROTATE_270 || _rotate == G_ROTATE_90)
-			PF->addi(out, _zheight)->addi(out, _zwidth)->addi(out, _fbinfo.depth);
-		else
-			PF->addi(out, _zwidth)->addi(out, _zheight)->addi(out, _fbinfo.depth);
-	}
-	return 0;
+    (void)dev;
+    (void)fd;
+    (void)from_pid;
+    (void)info;
+    (void)in;
+    (void)p;
+    if(cmd == DISPLAY_CNTL_GET_INFO) { //get fb size
+        if(_rotate == G_ROTATE_270 || _rotate == G_ROTATE_90)
+            PF->addi(out, _zheight)->addi(out, _zwidth)->addi(out, _fbinfo.depth);
+        else
+            PF->addi(out, _zwidth)->addi(out, _zheight)->addi(out, _fbinfo.depth);
+    }
+    return 0;
 }
 
 static void draw_bg(graph_t* g) {
-	//graph_gradation(g, 0, 0, g->w, g->h, 0xff8888ff, 0xff000000, true);
-	graph_gradation(g, 0, 0, g->w, g->h, 0xff444488, 0xff000000, true);
+    //graph_gradation(g, 0, 0, g->w, g->h, 0xff8888ff, 0xff000000, true);
+    graph_gradation(g, 0, 0, g->w, g->h, 0xff444488, 0xff000000, true);
 #if __aarch64__
-	graph_t* logo = graph_image_new("/usr/system/icons/64bits.png");
-	if(logo != NULL) {
-		graph_blt_alpha(logo, 0, 0, logo->w, logo->h,
-				g, g->w - logo->w - 10, 10, logo->w, logo->h, 0xff);
-		graph_free(logo);
-	}
+    graph_t* logo = graph_image_new("/usr/system/icons/64bits.png");
+    if(logo != NULL) {
+        graph_blt_alpha(logo, 0, 0, logo->w, logo->h,
+                g, g->w - logo->w - 10, 10, logo->w, logo->h, 0xff);
+        graph_free(logo);
+    }
 #endif
 }
 
 static void default_splash(graph_t* g, const char* logo_fname) {
-	draw_bg(g);
-	graph_t* logo = graph_image_new(logo_fname);
-	if(logo != NULL) {
-		graph_blt_alpha(logo, 0, 0, logo->w, logo->h,
-				g, (g->w-logo->w)/2, (g->h-logo->h)/2, logo->w, logo->h, 0xff);
-		graph_free(logo);
-	}
+    draw_bg(g);
+    graph_t* logo = graph_image_new(logo_fname);
+    if(logo != NULL) {
+        graph_blt_alpha(logo, 0, 0, logo->w, logo->h,
+                g, (g->w-logo->w)/2, (g->h-logo->h)/2, logo->w, logo->h, 0xff);
+        graph_free(logo);
+    }
 }
 
 /*
@@ -87,112 +87,112 @@ static void default_splash(graph_t* g, const char* logo_fname) {
  * non-multiple-of-4 geometries.
  */
 static uint32_t rot90_to_fb(const fbinfo_t* fbi, const graph_t* g) {
-	/* dst[y][x] = src[sh-1-x][y]; dst is sh wide, sw tall */
-	uint32_t sw = (uint32_t)g->w, sh = (uint32_t)g->h;
-	uint32_t wf = sw & ~3U, hf = sh & ~3U;
-	uint8_t* dst_base = (uint8_t*)(ewokos_addr_t)fbi->pointer +
-			fbi->yoffset * fbi->pitch + fbi->xoffset * 4;
-	const uint32_t* src = g->buffer;
-	uint32_t x, y;
+    /* dst[y][x] = src[sh-1-x][y]; dst is sh wide, sw tall */
+    uint32_t sw = (uint32_t)g->w, sh = (uint32_t)g->h;
+    uint32_t wf = sw & ~3U, hf = sh & ~3U;
+    uint8_t* dst_base = (uint8_t*)(ewokos_addr_t)fbi->pointer +
+            fbi->yoffset * fbi->pitch + fbi->xoffset * 4;
+    const uint32_t* src = g->buffer;
+    uint32_t x, y;
 
-	for (y = 0; y < wf; y += 4) {
-		uint32_t* d0 = (uint32_t*)(dst_base + (y + 0) * fbi->pitch);
-		uint32_t* d1 = (uint32_t*)(dst_base + (y + 1) * fbi->pitch);
-		uint32_t* d2 = (uint32_t*)(dst_base + (y + 2) * fbi->pitch);
-		uint32_t* d3 = (uint32_t*)(dst_base + (y + 3) * fbi->pitch);
-		for (x = 0; x < hf; x += 4) {
-			const uint32_t* s0 = src + (sh - 1 - x) * sw + y;
-			const uint32_t* s1 = s0 - sw;
-			const uint32_t* s2 = s1 - sw;
-			const uint32_t* s3 = s2 - sw;
-			d0[x] = s0[0]; d0[x+1] = s1[0]; d0[x+2] = s2[0]; d0[x+3] = s3[0];
-			d1[x] = s0[1]; d1[x+1] = s1[1]; d1[x+2] = s2[1]; d1[x+3] = s3[1];
-			d2[x] = s0[2]; d2[x+1] = s1[2]; d2[x+2] = s2[2]; d2[x+3] = s3[2];
-			d3[x] = s0[3]; d3[x+1] = s1[3]; d3[x+2] = s2[3]; d3[x+3] = s3[3];
-		}
-		for (; x < sh; ++x) {
-			const uint32_t* s = src + (sh - 1 - x) * sw + y;
-			d0[x] = s[0]; d1[x] = s[1]; d2[x] = s[2]; d3[x] = s[3];
-		}
-	}
-	for (; y < sw; ++y) {
-		uint32_t* d = (uint32_t*)(dst_base + y * fbi->pitch);
-		for (x = 0; x < sh; ++x)
-			d[x] = src[(sh - 1 - x) * sw + y];
-	}
-	return sw * sh * 4U;
+    for (y = 0; y < wf; y += 4) {
+        uint32_t* d0 = (uint32_t*)(dst_base + (y + 0) * fbi->pitch);
+        uint32_t* d1 = (uint32_t*)(dst_base + (y + 1) * fbi->pitch);
+        uint32_t* d2 = (uint32_t*)(dst_base + (y + 2) * fbi->pitch);
+        uint32_t* d3 = (uint32_t*)(dst_base + (y + 3) * fbi->pitch);
+        for (x = 0; x < hf; x += 4) {
+            const uint32_t* s0 = src + (sh - 1 - x) * sw + y;
+            const uint32_t* s1 = s0 - sw;
+            const uint32_t* s2 = s1 - sw;
+            const uint32_t* s3 = s2 - sw;
+            d0[x] = s0[0]; d0[x+1] = s1[0]; d0[x+2] = s2[0]; d0[x+3] = s3[0];
+            d1[x] = s0[1]; d1[x+1] = s1[1]; d1[x+2] = s2[1]; d1[x+3] = s3[1];
+            d2[x] = s0[2]; d2[x+1] = s1[2]; d2[x+2] = s2[2]; d2[x+3] = s3[2];
+            d3[x] = s0[3]; d3[x+1] = s1[3]; d3[x+2] = s2[3]; d3[x+3] = s3[3];
+        }
+        for (; x < sh; ++x) {
+            const uint32_t* s = src + (sh - 1 - x) * sw + y;
+            d0[x] = s[0]; d1[x] = s[1]; d2[x] = s[2]; d3[x] = s[3];
+        }
+    }
+    for (; y < sw; ++y) {
+        uint32_t* d = (uint32_t*)(dst_base + y * fbi->pitch);
+        for (x = 0; x < sh; ++x)
+            d[x] = src[(sh - 1 - x) * sw + y];
+    }
+    return sw * sh * 4U;
 }
 
 static uint32_t rot270_to_fb(const fbinfo_t* fbi, const graph_t* g) {
-	/* dst[y][x] = src[x][sw-1-y]; dst is sh wide, sw tall */
-	uint32_t sw = (uint32_t)g->w, sh = (uint32_t)g->h;
-	uint32_t wf = sw & ~3U, hf = sh & ~3U;
-	uint8_t* dst_base = (uint8_t*)(ewokos_addr_t)fbi->pointer +
-			fbi->yoffset * fbi->pitch + fbi->xoffset * 4;
-	const uint32_t* src = g->buffer;
-	uint32_t x, y;
+    /* dst[y][x] = src[x][sw-1-y]; dst is sh wide, sw tall */
+    uint32_t sw = (uint32_t)g->w, sh = (uint32_t)g->h;
+    uint32_t wf = sw & ~3U, hf = sh & ~3U;
+    uint8_t* dst_base = (uint8_t*)(ewokos_addr_t)fbi->pointer +
+            fbi->yoffset * fbi->pitch + fbi->xoffset * 4;
+    const uint32_t* src = g->buffer;
+    uint32_t x, y;
 
-	for (y = 0; y < wf; y += 4) {
-		uint32_t* d0 = (uint32_t*)(dst_base + (y + 0) * fbi->pitch);
-		uint32_t* d1 = (uint32_t*)(dst_base + (y + 1) * fbi->pitch);
-		uint32_t* d2 = (uint32_t*)(dst_base + (y + 2) * fbi->pitch);
-		uint32_t* d3 = (uint32_t*)(dst_base + (y + 3) * fbi->pitch);
-		for (x = 0; x < hf; x += 4) {
-			/* sk[3-i] == src[x+k][sw-1-(y+i)] */
-			const uint32_t* s0 = src + (x + 0) * sw + (sw - 4 - y);
-			const uint32_t* s1 = s0 + sw;
-			const uint32_t* s2 = s1 + sw;
-			const uint32_t* s3 = s2 + sw;
-			d0[x] = s0[3]; d0[x+1] = s1[3]; d0[x+2] = s2[3]; d0[x+3] = s3[3];
-			d1[x] = s0[2]; d1[x+1] = s1[2]; d1[x+2] = s2[2]; d1[x+3] = s3[2];
-			d2[x] = s0[1]; d2[x+1] = s1[1]; d2[x+2] = s2[1]; d2[x+3] = s3[1];
-			d3[x] = s0[0]; d3[x+1] = s1[0]; d3[x+2] = s2[0]; d3[x+3] = s3[0];
-		}
-		for (; x < sh; ++x) {
-			const uint32_t* s = src + x * sw + (sw - 1 - y);
-			d0[x] = s[0]; d1[x] = s[-1]; d2[x] = s[-2]; d3[x] = s[-3];
-		}
-	}
-	for (; y < sw; ++y) {
-		uint32_t* d = (uint32_t*)(dst_base + y * fbi->pitch);
-		for (x = 0; x < sh; ++x)
-			d[x] = src[x * sw + (sw - 1 - y)];
-	}
-	return sw * sh * 4U;
+    for (y = 0; y < wf; y += 4) {
+        uint32_t* d0 = (uint32_t*)(dst_base + (y + 0) * fbi->pitch);
+        uint32_t* d1 = (uint32_t*)(dst_base + (y + 1) * fbi->pitch);
+        uint32_t* d2 = (uint32_t*)(dst_base + (y + 2) * fbi->pitch);
+        uint32_t* d3 = (uint32_t*)(dst_base + (y + 3) * fbi->pitch);
+        for (x = 0; x < hf; x += 4) {
+            /* sk[3-i] == src[x+k][sw-1-(y+i)] */
+            const uint32_t* s0 = src + (x + 0) * sw + (sw - 4 - y);
+            const uint32_t* s1 = s0 + sw;
+            const uint32_t* s2 = s1 + sw;
+            const uint32_t* s3 = s2 + sw;
+            d0[x] = s0[3]; d0[x+1] = s1[3]; d0[x+2] = s2[3]; d0[x+3] = s3[3];
+            d1[x] = s0[2]; d1[x+1] = s1[2]; d1[x+2] = s2[2]; d1[x+3] = s3[2];
+            d2[x] = s0[1]; d2[x+1] = s1[1]; d2[x+2] = s2[1]; d2[x+3] = s3[1];
+            d3[x] = s0[0]; d3[x+1] = s1[0]; d3[x+2] = s2[0]; d3[x+3] = s3[0];
+        }
+        for (; x < sh; ++x) {
+            const uint32_t* s = src + x * sw + (sw - 1 - y);
+            d0[x] = s[0]; d1[x] = s[-1]; d2[x] = s[-2]; d3[x] = s[-3];
+        }
+    }
+    for (; y < sw; ++y) {
+        uint32_t* d = (uint32_t*)(dst_base + y * fbi->pitch);
+        for (x = 0; x < sh; ++x)
+            d[x] = src[x * sw + (sw - 1 - y)];
+    }
+    return sw * sh * 4U;
 }
 
 static uint32_t rot180_to_fb(const fbinfo_t* fbi, const graph_t* g) {
-	/* dst[y][x] = src[sh-1-y][sw-1-x]; same geometry as the panel */
-	uint32_t sw = (uint32_t)g->w, sh = (uint32_t)g->h;
-	uint8_t* dst_base = (uint8_t*)(ewokos_addr_t)fbi->pointer +
-			fbi->yoffset * fbi->pitch + fbi->xoffset * 4;
-	const uint32_t* src = g->buffer;
+    /* dst[y][x] = src[sh-1-y][sw-1-x]; same geometry as the panel */
+    uint32_t sw = (uint32_t)g->w, sh = (uint32_t)g->h;
+    uint8_t* dst_base = (uint8_t*)(ewokos_addr_t)fbi->pointer +
+            fbi->yoffset * fbi->pitch + fbi->xoffset * 4;
+    const uint32_t* src = g->buffer;
 
-	for (uint32_t y = 0; y < sh; ++y) {
-		uint32_t* d = (uint32_t*)(dst_base + y * fbi->pitch);
-		const uint32_t* s = src + (sh - y) * sw - 1;
-		for (uint32_t x = 0; x < sw; ++x)
-			d[x] = s[-(int32_t)x];
-	}
-	return sw * sh * 4U;
+    for (uint32_t y = 0; y < sh; ++y) {
+        uint32_t* d = (uint32_t*)(dst_base + y * fbi->pitch);
+        const uint32_t* s = src + (sh - y) * sw - 1;
+        for (uint32_t x = 0; x < sw; ++x)
+            d[x] = s[-(int32_t)x];
+    }
+    return sw * sh * 4U;
 }
 
 uint32_t fbdisplayd_rotate_to(const fbinfo_t* fbinfo, const graph_t* g, int rotate) {
-	if (fbinfo == NULL || g == NULL || g->buffer == NULL)
-		return 0;
-	if (fbinfo->pointer == 0 || fbinfo->depth != 32)
-		return 0;
+    if (fbinfo == NULL || g == NULL || g->buffer == NULL)
+        return 0;
+    if (fbinfo->pointer == 0 || fbinfo->depth != 32)
+        return 0;
 
-	if (rotate == G_ROTATE_90 &&
-			(uint32_t)g->h == fbinfo->width && (uint32_t)g->w == fbinfo->height)
-		return rot90_to_fb(fbinfo, g);
-	if (rotate == G_ROTATE_270 &&
-			(uint32_t)g->h == fbinfo->width && (uint32_t)g->w == fbinfo->height)
-		return rot270_to_fb(fbinfo, g);
-	if (rotate == G_ROTATE_180 &&
-			(uint32_t)g->w == fbinfo->width && (uint32_t)g->h == fbinfo->height)
-		return rot180_to_fb(fbinfo, g);
-	return 0;
+    if (rotate == G_ROTATE_90 &&
+            (uint32_t)g->h == fbinfo->width && (uint32_t)g->w == fbinfo->height)
+        return rot90_to_fb(fbinfo, g);
+    if (rotate == G_ROTATE_270 &&
+            (uint32_t)g->h == fbinfo->width && (uint32_t)g->w == fbinfo->height)
+        return rot270_to_fb(fbinfo, g);
+    if (rotate == G_ROTATE_180 &&
+            (uint32_t)g->w == fbinfo->width && (uint32_t)g->h == fbinfo->height)
+        return rot180_to_fb(fbinfo, g);
+    return 0;
 }
 
 static graph_t* _rotate_g = NULL; /* cached rotate buffer, allocated once */
@@ -200,67 +200,67 @@ static uint32_t (*_flush_rect)(const fbinfo_t*, const graph_t*, const grect_t*) 
 static char* (*_dev_cmd)(int from_pid, int argc, char** argv) = NULL;
 
 void fbdisplayd_set_flush_rect(uint32_t (*flush_rect)(const fbinfo_t* fbinfo,
-		const graph_t* g, const grect_t* r)) {
-	_flush_rect = flush_rect;
+        const graph_t* g, const grect_t* r)) {
+    _flush_rect = flush_rect;
 }
 
 void fbdisplayd_set_dev_cmd(char* (*dev_cmd)(int from_pid, int argc, char** argv)) {
-	_dev_cmd = dev_cmd;
+    _dev_cmd = dev_cmd;
 }
 
 uint32_t fbdisplayd_flush_rect_to(const fbinfo_t* fbinfo, const graph_t* g, const grect_t* r) {
-	if(fbinfo == NULL || g == NULL || g->buffer == NULL || r == NULL)
-		return 0;
-	if(fbinfo->pointer == 0)
-		return 0;
-	if(fbinfo->depth != 32 && fbinfo->depth != 16)
-		return 0;
-	/* the rect addressing below only holds when the client frame and the
-	 * panel share the same geometry (no rotation, no scaling) */
-	if((uint32_t)g->w != fbinfo->width || (uint32_t)g->h != fbinfo->height)
-		return 0;
-	if(r->w <= 0 || r->h <= 0)
-		return 0;
+    if(fbinfo == NULL || g == NULL || g->buffer == NULL || r == NULL)
+        return 0;
+    if(fbinfo->pointer == 0)
+        return 0;
+    if(fbinfo->depth != 32 && fbinfo->depth != 16)
+        return 0;
+    /* the rect addressing below only holds when the client frame and the
+     * panel share the same geometry (no rotation, no scaling) */
+    if((uint32_t)g->w != fbinfo->width || (uint32_t)g->h != fbinfo->height)
+        return 0;
+    if(r->w <= 0 || r->h <= 0)
+        return 0;
 
-	uint32_t bytes_per_pixel = fbinfo->depth / 8;
-	if(fbinfo->depth == 32 &&
-			(ewokos_addr_t)fbinfo->pointer == (ewokos_addr_t)g->buffer)
-		return (uint32_t)r->w * (uint32_t)r->h * 4; //scan-out is the dma itself
+    uint32_t bytes_per_pixel = fbinfo->depth / 8;
+    if(fbinfo->depth == 32 &&
+            (ewokos_addr_t)fbinfo->pointer == (ewokos_addr_t)g->buffer)
+        return (uint32_t)r->w * (uint32_t)r->h * 4; //scan-out is the dma itself
 
-	/* several platforms leave pitch at 0 because their full-frame flush is a
-	 * plain memcpy that never needs it; a packed scan-out is the only sane
-	 * meaning of that, so assume it here too */
-	uint32_t pitch = fbinfo->pitch;
-	if(pitch < fbinfo->width * bytes_per_pixel)
-		pitch = fbinfo->width * bytes_per_pixel;
+    /* several platforms leave pitch at 0 because their full-frame flush is a
+     * plain memcpy that never needs it; a packed scan-out is the only sane
+     * meaning of that, so assume it here too */
+    uint32_t pitch = fbinfo->pitch;
+    if(pitch < fbinfo->width * bytes_per_pixel)
+        pitch = fbinfo->width * bytes_per_pixel;
 
-	uint8_t* dst = (uint8_t*)(ewokos_addr_t)fbinfo->pointer +
-			(fbinfo->yoffset + r->y) * pitch +
-			(fbinfo->xoffset + r->x) * bytes_per_pixel;
-	const uint32_t* src = g->buffer + r->y * g->w + r->x;
+    uint8_t* dst = (uint8_t*)(ewokos_addr_t)fbinfo->pointer +
+            (fbinfo->yoffset + r->y) * pitch +
+            (fbinfo->xoffset + r->x) * bytes_per_pixel;
+    const uint32_t* src = g->buffer + r->y * g->w + r->x;
 
-	if(fbinfo->depth == 32) {
-		uint32_t row_bytes = (uint32_t)r->w * 4;
-		for(int32_t y = 0; y < r->h; y++) {
-			memcpy(dst, src, row_bytes);
-			dst += pitch;
-			src += g->w;
-		}
-		return row_bytes * (uint32_t)r->h;
-	}
+    if(fbinfo->depth == 32) {
+        uint32_t row_bytes = (uint32_t)r->w * 4;
+        for(int32_t y = 0; y < r->h; y++) {
+            memcpy(dst, src, row_bytes);
+            dst += pitch;
+            src += g->w;
+        }
+        return row_bytes * (uint32_t)r->h;
+    }
 
-	for(int32_t y = 0; y < r->h; y++) {
-		uint16_t* d = (uint16_t*)dst;
-		for(int32_t x = 0; x < r->w; x++) {
-			uint32_t s = src[x];
-			d[x] = (uint16_t)((((s >> 16) & 0xff) >> 3) << 11 |
-					(((s >> 8) & 0xff) >> 2) << 5 |
-					((s & 0xff) >> 3));
-		}
-		dst += pitch;
-		src += g->w;
-	}
-	return (uint32_t)r->w * (uint32_t)r->h * 2;
+    for(int32_t y = 0; y < r->h; y++) {
+        uint16_t* d = (uint16_t*)dst;
+        for(int32_t x = 0; x < r->w; x++) {
+            uint32_t s = src[x];
+            d[x] = (uint16_t)((((s >> 16) & 0xff) >> 3) << 11 |
+                    (((s >> 8) & 0xff) >> 2) << 5 |
+                    ((s & 0xff) >> 3));
+        }
+        dst += pitch;
+        src += g->w;
+    }
+    return (uint32_t)r->w * (uint32_t)r->h * 2;
 }
 
 /*rotate a single client-space rect straight into the scan-out. Mirrors the
@@ -268,248 +268,248 @@ uint32_t fbdisplayd_flush_rect_to(const fbinfo_t* fbinfo, const graph_t* g, cons
   only for the damaged region. g is the client (pre-rotation) frame; r is in
   client coordinates. Returns 0 (=> full-frame fallback) on any surprise.*/
 static uint32_t fbdisplayd_rotate_rect_to(const fbinfo_t* fbi, const graph_t* g,
-		const grect_t* r, int rotate) {
-	if(fbi == NULL || g == NULL || g->buffer == NULL || r == NULL)
-		return 0;
-	if(fbi->pointer == 0 || fbi->depth != 32)
-		return 0;
+        const grect_t* r, int rotate) {
+    if(fbi == NULL || g == NULL || g->buffer == NULL || r == NULL)
+        return 0;
+    if(fbi->pointer == 0 || fbi->depth != 32)
+        return 0;
 
-	int32_t sw = g->w, sh = g->h;
-	int32_t rx0 = r->x < 0 ? 0 : r->x;
-	int32_t ry0 = r->y < 0 ? 0 : r->y;
-	int32_t rx1 = r->x + r->w; if(rx1 > sw) rx1 = sw;
-	int32_t ry1 = r->y + r->h; if(ry1 > sh) ry1 = sh;
-	if(rx0 >= rx1 || ry0 >= ry1)
-		return 0;
+    int32_t sw = g->w, sh = g->h;
+    int32_t rx0 = r->x < 0 ? 0 : r->x;
+    int32_t ry0 = r->y < 0 ? 0 : r->y;
+    int32_t rx1 = r->x + r->w; if(rx1 > sw) rx1 = sw;
+    int32_t ry1 = r->y + r->h; if(ry1 > sh) ry1 = sh;
+    if(rx0 >= rx1 || ry0 >= ry1)
+        return 0;
 
-	uint32_t pitch = fbi->pitch;
-	if(pitch < fbi->width * 4)
-		pitch = fbi->width * 4;
-	uint8_t* base = (uint8_t*)(ewokos_addr_t)fbi->pointer +
-			fbi->yoffset * pitch + fbi->xoffset * 4;
-	const uint32_t* src = g->buffer;
+    uint32_t pitch = fbi->pitch;
+    if(pitch < fbi->width * 4)
+        pitch = fbi->width * 4;
+    uint8_t* base = (uint8_t*)(ewokos_addr_t)fbi->pointer +
+            fbi->yoffset * pitch + fbi->xoffset * 4;
+    const uint32_t* src = g->buffer;
 
-	if(rotate == G_ROTATE_90) {
-		/* dst[y][x] = src[sh-1-x][y]; dst is sh wide, sw tall */
-		for(int32_t y = rx0; y < rx1; y++) {
-			uint32_t* d = (uint32_t*)(base + (uint32_t)y * pitch);
-			for(int32_t x = sh - ry1; x <= sh - 1 - ry0; x++)
-				d[x] = src[(sh - 1 - x) * sw + y];
-		}
-	}
-	else if(rotate == G_ROTATE_270) {
-		/* dst[y][x] = src[x][sw-1-y] */
-		for(int32_t y = sw - rx1; y <= sw - 1 - rx0; y++) {
-			uint32_t* d = (uint32_t*)(base + (uint32_t)y * pitch);
-			int32_t sc = sw - 1 - y;
-			for(int32_t x = ry0; x < ry1; x++)
-				d[x] = src[x * sw + sc];
-		}
-	}
-	else if(rotate == G_ROTATE_180) {
-		/* dst[y][x] = src[sh-1-y][sw-1-x]; same geometry as the panel */
-		for(int32_t y = sh - ry1; y <= sh - 1 - ry0; y++) {
-			uint32_t* d = (uint32_t*)(base + (uint32_t)y * pitch);
-			int32_t sr = sh - 1 - y;
-			for(int32_t x = sw - rx1; x <= sw - 1 - rx0; x++)
-				d[x] = src[sr * sw + (sw - 1 - x)];
-		}
-	}
-	else {
-		return 0;
-	}
-	return (uint32_t)(rx1 - rx0) * (uint32_t)(ry1 - ry0) * 4;
+    if(rotate == G_ROTATE_90) {
+        /* dst[y][x] = src[sh-1-x][y]; dst is sh wide, sw tall */
+        for(int32_t y = rx0; y < rx1; y++) {
+            uint32_t* d = (uint32_t*)(base + (uint32_t)y * pitch);
+            for(int32_t x = sh - ry1; x <= sh - 1 - ry0; x++)
+                d[x] = src[(sh - 1 - x) * sw + y];
+        }
+    }
+    else if(rotate == G_ROTATE_270) {
+        /* dst[y][x] = src[x][sw-1-y] */
+        for(int32_t y = sw - rx1; y <= sw - 1 - rx0; y++) {
+            uint32_t* d = (uint32_t*)(base + (uint32_t)y * pitch);
+            int32_t sc = sw - 1 - y;
+            for(int32_t x = ry0; x < ry1; x++)
+                d[x] = src[x * sw + sc];
+        }
+    }
+    else if(rotate == G_ROTATE_180) {
+        /* dst[y][x] = src[sh-1-y][sw-1-x]; same geometry as the panel */
+        for(int32_t y = sh - ry1; y <= sh - 1 - ry0; y++) {
+            uint32_t* d = (uint32_t*)(base + (uint32_t)y * pitch);
+            int32_t sr = sh - 1 - y;
+            for(int32_t x = sw - rx1; x <= sw - 1 - rx0; x++)
+                d[x] = src[sr * sw + (sw - 1 - x)];
+        }
+    }
+    else {
+        return 0;
+    }
+    return (uint32_t)(rx1 - rx0) * (uint32_t)(ry1 - ry0) * 4;
 }
 
 static inline int is_zoomed(void) {
-	return (_zoom > 0.0 && _zoom != 8.0 && _zoom != 1.0);
+    return (_zoom > 0.0 && _zoom != 8.0 && _zoom != 1.0);
 }
 
 static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, int rotate) {
-	if(fbinfo->depth != 32 && fbinfo->depth != 16)
-		return 0;
+    if(fbinfo->depth != 32 && fbinfo->depth != 16)
+        return 0;
 
-	int zoomed = is_zoomed();
-	graph_t g;
-	if(rotate == G_ROTATE_270 || rotate == G_ROTATE_90)
-		graph_init(&g, buf, _zheight, _zwidth);
-	else
-		graph_init(&g, buf, _zwidth, _zheight);
+    int zoomed = is_zoomed();
+    graph_t g;
+    if(rotate == G_ROTATE_270 || rotate == G_ROTATE_90)
+        graph_init(&g, buf, _zheight, _zwidth);
+    else
+        graph_init(&g, buf, _zwidth, _zheight);
 
-	/* fast path: driver rotates by itself, straight into the scan-out
-	 * buffer. Skips the intermediate rotate buffer AND the extra
-	 * full-frame copy the generic path below needs. */
-	if(rotate != G_ROTATE_0 && !zoomed && _fbdisplayd->flush_rotate != NULL) {
-		uint32_t res = _fbdisplayd->flush_rotate(fbinfo, &g, rotate);
-		if(res > 0)
-			return res;
-	}
+    /* fast path: driver rotates by itself, straight into the scan-out
+     * buffer. Skips the intermediate rotate buffer AND the extra
+     * full-frame copy the generic path below needs. */
+    if(rotate != G_ROTATE_0 && !zoomed && _fbdisplayd->flush_rotate != NULL) {
+        uint32_t res = _fbdisplayd->flush_rotate(fbinfo, &g, rotate);
+        if(res > 0)
+            return res;
+    }
 
-	graph_t* tmp_g = &g;
-	if(rotate == G_ROTATE_90 || rotate == G_ROTATE_270 || rotate == G_ROTATE_180) {
-		if(_rotate_g == NULL)
-			_rotate_g = graph_new(NULL, _zwidth, _zheight);
-		if(_rotate_g != NULL) {
-			graph_rotate_to(&g, _rotate_g, rotate);
-			tmp_g = _rotate_g;
-		}
-	}
+    graph_t* tmp_g = &g;
+    if(rotate == G_ROTATE_90 || rotate == G_ROTATE_270 || rotate == G_ROTATE_180) {
+        if(_rotate_g == NULL)
+            _rotate_g = graph_new(NULL, _zwidth, _zheight);
+        if(_rotate_g != NULL) {
+            graph_rotate_to(&g, _rotate_g, rotate);
+            tmp_g = _rotate_g;
+        }
+    }
 
-	if(zoomed) {
-		graph_t* gzoom = graph_new(NULL, fbinfo->width, fbinfo->height);
-		graph_scale_tof(tmp_g, gzoom, _zoom);
-		tmp_g = gzoom;
-	}
+    if(zoomed) {
+        graph_t* gzoom = graph_new(NULL, fbinfo->width, fbinfo->height);
+        graph_scale_tof(tmp_g, gzoom, _zoom);
+        tmp_g = gzoom;
+    }
 
-	uint32_t res = _fbdisplayd->flush(fbinfo, tmp_g);
-	if(tmp_g != &g && tmp_g != _rotate_g)
-		graph_free(tmp_g);
-	return res;
+    uint32_t res = _fbdisplayd->flush(fbinfo, tmp_g);
+    if(tmp_g != &g && tmp_g != _rotate_g)
+        graph_free(tmp_g);
+    return res;
 }
 
 static void init_graph(fb_dma_t* dma) {
-	graph_t g;
-	if(_rotate == G_ROTATE_270 || _rotate == G_ROTATE_90)
-		graph_init(&g, (const uint32_t*)dma->shm, _zheight, _zwidth);
-	else
-		graph_init(&g, (const uint32_t*)dma->shm, _zwidth, _zheight);
+    graph_t g;
+    if(_rotate == G_ROTATE_270 || _rotate == G_ROTATE_90)
+        graph_init(&g, (const uint32_t*)dma->shm, _zheight, _zwidth);
+    else
+        graph_init(&g, (const uint32_t*)dma->shm, _zwidth, _zheight);
 
-	if(_fbdisplayd->splash != NULL)
-		_fbdisplayd->splash(&g, _logo);
-	else
-		default_splash(&g, _logo);
-	flush(&_fbinfo, dma->shm, dma->size, _rotate);
+    if(_fbdisplayd->splash != NULL)
+        _fbdisplayd->splash(&g, _logo);
+    else
+        default_splash(&g, _logo);
+    flush(&_fbinfo, dma->shm, dma->size, _rotate);
 }
 
 static uint32_t _fb_dma_shm_seq = 1;
 
 static int fb_dma_init(fb_dma_t* dma) {
-	memset(dma, 0, sizeof(fb_dma_t));
-	uint32_t sz = _zwidth * _zheight * 4;
-	/*xwm draws the desktop and the window frames straight into this buffer,
-	  but it runs in the user session, not as a child of fbdisplayd: an IPC_PRIVATE
-	  segment is family-only in the kernel, so xwm could not attach it and
-	  nothing got drawn. A public key lets everyone who knows the id map it,
-	  like the other shared graphs.*/
-	dma->shm_id = -1;
-	for(uint32_t i = 0; i < 16; i++) {
-		uint32_t seq = _fb_dma_shm_seq++;
-		key_t key = (key_t)(0x4642444du ^ (key_t)(seq * 2654435761u));
-		if(key == 0 || key == IPC_PRIVATE)
-			key = (key_t)(seq | 1u);
-		dma->shm_id = shmget(key, sz + sizeof(display_ctrl_t), 0666 | IPC_CREAT | IPC_EXCL); //control block follows the pixels
-		if(dma->shm_id != -1)
-			break;
-	}
-	if(dma->shm_id == -1)
-		return -1;
-	dma->shm = shmat(dma->shm_id, 0, 0);
-	if(dma->shm == (void*)-1)
-		return -1;
-	//dma->size = _fbinfo.size_max;
-	memset(dma->shm, 0, sz + sizeof(display_ctrl_t));
-	dma->size = sz;
-	init_graph(dma);
-	return 0;
+    memset(dma, 0, sizeof(fb_dma_t));
+    uint32_t sz = _zwidth * _zheight * 4;
+    /*xwm draws the desktop and the window frames straight into this buffer,
+      but it runs in the user session, not as a child of fbdisplayd: an IPC_PRIVATE
+      segment is family-only in the kernel, so xwm could not attach it and
+      nothing got drawn. A public key lets everyone who knows the id map it,
+      like the other shared graphs.*/
+    dma->shm_id = -1;
+    for(uint32_t i = 0; i < 16; i++) {
+        uint32_t seq = _fb_dma_shm_seq++;
+        key_t key = (key_t)(0x4642444du ^ (key_t)(seq * 2654435761u));
+        if(key == 0 || key == IPC_PRIVATE)
+            key = (key_t)(seq | 1u);
+        dma->shm_id = shmget(key, sz + sizeof(display_ctrl_t), 0666 | IPC_CREAT | IPC_EXCL); //control block follows the pixels
+        if(dma->shm_id != -1)
+            break;
+    }
+    if(dma->shm_id == -1)
+        return -1;
+    dma->shm = shmat(dma->shm_id, 0, 0);
+    if(dma->shm == (void*)-1)
+        return -1;
+    //dma->size = _fbinfo.size_max;
+    memset(dma->shm, 0, sz + sizeof(display_ctrl_t));
+    dma->size = sz;
+    init_graph(dma);
+    return 0;
 }
 
 static void fb_get_info() {
-	fbinfo_t* info = _fbdisplayd->get_info();
-	memcpy(&_fbinfo, info, sizeof(fbinfo_t));
-	_zwidth = _fbinfo.width / _zoom;
-	_zheight = _fbinfo.height / _zoom;
+    fbinfo_t* info = _fbdisplayd->get_info();
+    memcpy(&_fbinfo, info, sizeof(fbinfo_t));
+    _zwidth = _fbinfo.width / _zoom;
+    _zheight = _fbinfo.height / _zoom;
 }
 
 static int fb_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
-	(void)dev;
-	(void)from_pid;
-	(void)ret;
-	(void)p;
+    (void)dev;
+    (void)from_pid;
+    (void)ret;
+    (void)p;
 
-	if(cmd == DISPLAY_DEV_CNTL_SET_INFO) { //set fb size and bpp
-		int w = proto_read_int(in);
-		int h = proto_read_int(in);
-		int bpp = proto_read_int(in);
-		if(_fbdisplayd->init(w, h, bpp) != 0)
-			return -1;
-		fb_get_info();
-	}
-	else if(cmd == DISPLAY_DEV_CNTL_GET_INFO) {
-		if(_rotate == G_ROTATE_270 || _rotate == G_ROTATE_90)
-			PF->addi(ret, _zheight)->addi(ret, _zwidth)->addi(ret, _fbinfo.depth);
-		else
-			PF->addi(ret, _zwidth)->addi(ret, _zheight)->addi(ret, _fbinfo.depth);
-	}	
-	return 0;
+    if(cmd == DISPLAY_DEV_CNTL_SET_INFO) { //set fb size and bpp
+        int w = proto_read_int(in);
+        int h = proto_read_int(in);
+        int bpp = proto_read_int(in);
+        if(_fbdisplayd->init(w, h, bpp) != 0)
+            return -1;
+        fb_get_info();
+    }
+    else if(cmd == DISPLAY_DEV_CNTL_GET_INFO) {
+        if(_rotate == G_ROTATE_270 || _rotate == G_ROTATE_90)
+            PF->addi(ret, _zheight)->addi(ret, _zwidth)->addi(ret, _fbinfo.depth);
+        else
+            PF->addi(ret, _zwidth)->addi(ret, _zheight)->addi(ret, _fbinfo.depth);
+    }	
+    return 0;
 }
 
 /*push only the rects the client declared dirty. Returns the bytes written,
   or -1 when the damage cannot be honoured and the whole frame is needed.*/
 static int32_t flush_dirty(fb_dma_t* dma, const grect_t* rects, uint32_t num) {
-	/*client (pre-rotation) geometry: for 90/270 the frame is transposed,
-	  matching flush()/GET_INFO. For rotate 0 this is _zwidth x _zheight,
-	  identical to the non-rotated path.*/
-	uint32_t gw, gh;
-	if(_rotate == G_ROTATE_90 || _rotate == G_ROTATE_270) {
-		gw = _zheight; gh = _zwidth;
-	}
-	else {
-		gw = _zwidth; gh = _zheight;
-	}
-	grect_t bounds = {0, 0, gw, gh};
-	graph_t g;
-	memset(&g, 0, sizeof(graph_t));
-	graph_init(&g, (const uint32_t*)dma->shm, gw, gh);
+    /*client (pre-rotation) geometry: for 90/270 the frame is transposed,
+      matching flush()/GET_INFO. For rotate 0 this is _zwidth x _zheight,
+      identical to the non-rotated path.*/
+    uint32_t gw, gh;
+    if(_rotate == G_ROTATE_90 || _rotate == G_ROTATE_270) {
+        gw = _zheight; gh = _zwidth;
+    }
+    else {
+        gw = _zwidth; gh = _zheight;
+    }
+    grect_t bounds = {0, 0, gw, gh};
+    graph_t g;
+    memset(&g, 0, sizeof(graph_t));
+    graph_init(&g, (const uint32_t*)dma->shm, gw, gh);
 
-	int32_t res = 0;
-	for(uint32_t i = 0; i < num; i++) {
-		grect_t r = rects[i];
-		if(!grect_insect(&bounds, &r))
-			continue;
-		uint32_t n = (_rotate == G_ROTATE_0)
-				? _flush_rect(&_fbinfo, &g, &r)
-				: fbdisplayd_rotate_rect_to(&_fbinfo, &g, &r, _rotate);
-		if(n == 0) //hook refused this geometry
-			return -1;
-		res += (int32_t)n;
-	}
-	return res;
+    int32_t res = 0;
+    for(uint32_t i = 0; i < num; i++) {
+        grect_t r = rects[i];
+        if(!grect_insect(&bounds, &r))
+            continue;
+        uint32_t n = (_rotate == G_ROTATE_0)
+                ? _flush_rect(&_fbinfo, &g, &r)
+                : fbdisplayd_rotate_rect_to(&_fbinfo, &g, &r, _rotate);
+        if(n == 0) //hook refused this geometry
+            return -1;
+        res += (int32_t)n;
+    }
+    return res;
 }
 
 static int32_t do_flush(fb_dma_t* dma) {
-	uint8_t* buf = (uint8_t*)dma->shm;
-	if(buf == NULL)
-		return -1;
+    uint8_t* buf = (uint8_t*)dma->shm;
+    if(buf == NULL)
+        return -1;
 
-	uint32_t size = dma->size;
-	display_ctrl_t* ctrl = (display_ctrl_t*)(buf + size);
-	uint32_t num = ctrl->dirty_num;
-	grect_t rects[DISPLAY_DIRTY_MAX];
-	if(num > DISPLAY_DIRTY_MAX)
-		num = 0;
-	if(num > 0)
-		memcpy(rects, ctrl->dirty, num * sizeof(grect_t));
-	ctrl->dirty_num = 0; //consumed, next flush is full unless declared again
+    uint32_t size = dma->size;
+    display_ctrl_t* ctrl = (display_ctrl_t*)(buf + size);
+    uint32_t num = ctrl->dirty_num;
+    grect_t rects[DISPLAY_DIRTY_MAX];
+    if(num > DISPLAY_DIRTY_MAX)
+        num = 0;
+    if(num > 0)
+        memcpy(rects, ctrl->dirty, num * sizeof(grect_t));
+    ctrl->dirty_num = 0; //consumed, next flush is full unless declared again
 
-	ctrl->busy = 1;
-	int32_t res = -1;
-	/*dirty-rect flushing: rotate 0 needs the driver's rect hook; a rotated
-	  panel is handled in-library, but only when it uses the generic
-	  fbdisplayd_rotate_to (so the rect rotate matches its full-frame model).*/
-	int dirty_ok = (num > 0) && !is_zoomed();
-	if(dirty_ok) {
-		if(_rotate == G_ROTATE_0)
-			dirty_ok = (_flush_rect != NULL);
-		else
-			dirty_ok = (_fbdisplayd->flush_rotate == fbdisplayd_rotate_to) &&
-					(_fbinfo.depth == 32);
-	}
-	if(dirty_ok)
-		res = flush_dirty(dma, rects, num);
-	if(res < 0)
-		res = flush(&_fbinfo, buf, size, _rotate);
-	ctrl->busy = 0;
-	return res;
+    ctrl->busy = 1;
+    int32_t res = -1;
+    /*dirty-rect flushing: rotate 0 needs the driver's rect hook; a rotated
+      panel is handled in-library, but only when it uses the generic
+      fbdisplayd_rotate_to (so the rect rotate matches its full-frame model).*/
+    int dirty_ok = (num > 0) && !is_zoomed();
+    if(dirty_ok) {
+        if(_rotate == G_ROTATE_0)
+            dirty_ok = (_flush_rect != NULL);
+        else
+            dirty_ok = (_fbdisplayd->flush_rotate == fbdisplayd_rotate_to) &&
+                    (_fbinfo.depth == 32);
+    }
+    if(dirty_ok)
+        res = flush_dirty(dma, rects, num);
+    if(res < 0)
+        res = flush(&_fbinfo, buf, size, _rotate);
+    ctrl->busy = 0;
+    return res;
 }
 
 /*return
@@ -517,13 +517,13 @@ static int32_t do_flush(fb_dma_t* dma) {
 -1: resized;
 >0: size flushed*/
 static int do_fb_flush(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, void* p) {
-	(void)dev;
-	(void)fd;
-	(void)from_pid;
-	(void)info;
+    (void)dev;
+    (void)fd;
+    (void)from_pid;
+    (void)info;
 
-	fb_dma_t* dma = (fb_dma_t*)p;
-	return do_flush(dma);
+    fb_dma_t* dma = (fb_dma_t*)p;
+    return do_flush(dma);
 }
 
 /*re-push the frame the client last drew. A driver that changes how pixels
@@ -533,119 +533,119 @@ static int do_fb_flush(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, voi
   rects would repaint a few patches with the new pixel pipeline and leave
   the rest of the screen as the old one drew it.*/
 int fbdisplayd_refresh(void) {
-	if(_cur_dma == NULL || _cur_dma->shm == NULL)
-		return -1;
+    if(_cur_dma == NULL || _cur_dma->shm == NULL)
+        return -1;
 
-	display_ctrl_t* ctrl = (display_ctrl_t*)(_cur_dma->shm + _cur_dma->size);
-	ctrl->dirty_num = 0;
-	ctrl->busy = 1;
-	uint32_t res = flush(&_fbinfo, _cur_dma->shm, _cur_dma->size, _rotate);
-	ctrl->busy = 0;
-	return res > 0 ? 0 : -1;
+    display_ctrl_t* ctrl = (display_ctrl_t*)(_cur_dma->shm + _cur_dma->size);
+    ctrl->dirty_num = 0;
+    ctrl->busy = 1;
+    uint32_t res = flush(&_fbinfo, _cur_dma->shm, _cur_dma->size, _rotate);
+    ctrl->busy = 0;
+    return res > 0 ? 0 : -1;
 }
 
 static int32_t fb_dma(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
-	(void)dev;
-	(void)fd;
-	(void)from_pid;
-	(void)info;
-	fb_dma_t* dma = (fb_dma_t*)p;
-	*size = dma->size;
-	return dma->shm_id;
+    (void)dev;
+    (void)fd;
+    (void)from_pid;
+    (void)info;
+    fb_dma_t* dma = (fb_dma_t*)p;
+    *size = dma->size;
+    return dma->shm_id;
 }
 
 static void read_config(const char* conf_file, uint32_t index, uint32_t* w, uint32_t* h, uint8_t* dep, int32_t* rotate, float* zoom) {
-	char cfile[128] = {0};
-	if(conf_file == NULL || conf_file[0] == 0) {
-		sprintf(cfile, "/etc/display.json");
-		if(index > 1)
-			sprintf(cfile, "/etc/display.%d.json", index-1);
-	}
-	else
-		sprintf(cfile, "%s", conf_file);
-	slog("read_config: %s\n", cfile);
+    char cfile[128] = {0};
+    if(conf_file == NULL || conf_file[0] == 0) {
+        sprintf(cfile, "/etc/display.json");
+        if(index > 1)
+            sprintf(cfile, "/etc/display.%d.json", index-1);
+    }
+    else
+        sprintf(cfile, "%s", conf_file);
+    slog("read_config: %s\n", cfile);
 
-	json_var_t *conf_var = json_parse_file(cfile);	
+    json_var_t *conf_var = json_parse_file(cfile);	
 
-	const char* v = json_get_str_def(conf_var, "logo", "/usr/system/images/logos/ewokos.png");
-	if(v[0] != 0) 
-		strncpy(_logo, v, 255);
+    const char* v = json_get_str_def(conf_var, "logo", "/usr/system/images/logos/ewokos.png");
+    if(v[0] != 0) 
+        strncpy(_logo, v, 255);
 
-	*zoom = json_get_float_def(conf_var, "zoom", 1.0);
-	*w = json_get_int_def(conf_var, "width", 0);
-	*h = json_get_int_def(conf_var, "height", 0);
-	*dep = json_get_int_def(conf_var, "depth", 32);
-	*rotate = json_get_int_def(conf_var, "rotate", 0);
+    *zoom = json_get_float_def(conf_var, "zoom", 1.0);
+    *w = json_get_int_def(conf_var, "width", 0);
+    *h = json_get_int_def(conf_var, "height", 0);
+    *dep = json_get_int_def(conf_var, "depth", 32);
+    *rotate = json_get_int_def(conf_var, "rotate", 0);
 
-	if(*zoom <= 0)
-		*zoom = 1.0;
-	else if(*zoom > 8.0)
-		*zoom = 8.0;
+    if(*zoom <= 0)
+        *zoom = 1.0;
+    else if(*zoom > 8.0)
+        *zoom = 8.0;
 
-	if(conf_var != NULL)
-		json_var_unref(conf_var);
+    if(conf_var != NULL)
+        json_var_unref(conf_var);
 }
 
 
 static int fb_dev_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
-		void* buf, int size, int offset, void* p) {
-	(void)dev;
-	(void)fd;
-	(void)from_pid;
-	(void)info;
-	(void)offset;
-	(void)p;
+        void* buf, int size, int offset, void* p) {
+    (void)dev;
+    (void)fd;
+    (void)from_pid;
+    (void)info;
+    (void)offset;
+    (void)p;
 
-	if(_fbdisplayd->read == NULL)
-		return 0;
-	return _fbdisplayd->read(buf, size);
+    if(_fbdisplayd->read == NULL)
+        return 0;
+    return _fbdisplayd->read(buf, size);
 }
 
 static char* fb_dev_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* p) {
-	(void)dev;
-	(void)p;
+    (void)dev;
+    (void)p;
 
-	if(_dev_cmd == NULL)
-		return NULL;
-	return _dev_cmd(from_pid, argc, argv);
+    if(_dev_cmd == NULL)
+        return NULL;
+    return _dev_cmd(from_pid, argc, argv);
 }
 
 int fbdisplayd_run(fbdisplayd_t* fbdisplayd, const char* mnt_name,
-		uint32_t def_w, uint32_t def_h, const char* conf_file, uint32_t display_index) {
-	_fbdisplayd = fbdisplayd;
-	uint32_t w = def_w, h = def_h;
-	_zoom = 1.0;
-	uint8_t dep = 32;
-	_rotate = G_ROTATE_0;
+        uint32_t def_w, uint32_t def_h, const char* conf_file, uint32_t display_index) {
+    _fbdisplayd = fbdisplayd;
+    uint32_t w = def_w, h = def_h;
+    _zoom = 1.0;
+    uint8_t dep = 32;
+    _rotate = G_ROTATE_0;
 
-	int32_t index = displayman_add_dev("/dev/displayman", mnt_name, display_index);
-	if(index < 0)
-		return -1;
-	read_config(conf_file, index, &w, &h, &dep, &_rotate, &_zoom);
+    int32_t index = displayman_add_dev("/dev/displayman", mnt_name, display_index);
+    if(index < 0)
+        return -1;
+    read_config(conf_file, index, &w, &h, &dep, &_rotate, &_zoom);
 
-	fb_dma_t dma;
-	dma.shm = NULL;
-	if(fbdisplayd->init(w, h, dep) != 0)
-		return -1;
-	fb_get_info();
-	
-	if(fb_dma_init(&dma) != 0)
-		return -1;
+    fb_dma_t dma;
+    dma.shm = NULL;
+    if(fbdisplayd->init(w, h, dep) != 0)
+        return -1;
+    fb_get_info();
+    
+    if(fb_dma_init(&dma) != 0)
+        return -1;
 
-	vdevice_t dev;
-	memset(&dev, 0, sizeof(vdevice_t));
-	strcpy(dev.name, "framebuffer");
-	dev.dma = fb_dma;
-	dev.flush = do_fb_flush;
-	dev.fcntl = fb_fcntl;
-	dev.dev_cntl = fb_dev_cntl;
-	dev.read = fb_dev_read;
-	dev.cmd = fb_dev_cmd;
+    vdevice_t dev;
+    memset(&dev, 0, sizeof(vdevice_t));
+    strcpy(dev.name, "framebuffer");
+    dev.dma = fb_dma;
+    dev.flush = do_fb_flush;
+    dev.fcntl = fb_fcntl;
+    dev.dev_cntl = fb_dev_cntl;
+    dev.read = fb_dev_read;
+    dev.cmd = fb_dev_cmd;
 
-	dev.extra_data = &dma;
-	_cur_dma = &dma;
+    dev.extra_data = &dma;
+    _cur_dma = &dma;
 
-	device_run(&dev, mnt_name, FS_TYPE_CHAR, 0666);
-	shmdt(dma.shm);
-	return 0;
+    device_run(&dev, mnt_name, FS_TYPE_CHAR, 0666);
+    shmdt(dma.shm);
+    return 0;
 }

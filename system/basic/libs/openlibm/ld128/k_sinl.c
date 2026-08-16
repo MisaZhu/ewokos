@@ -48,12 +48,12 @@ S12 =  0.64038150078671872796678569586315881020659912139412e-25;
 long double
 __kernel_sinl(long double x, long double y, int iy)
 {
-	long double z,r,v;
+    long double z,r,v;
 
-	z	=  x*x;
-	v	=  z*x;
-	r	=  S2+z*(S3+z*(S4+z*(S5+z*(S6+z*(S7+z*(S8+
-	    z*(S9+z*(S10+z*(S11+z*S12)))))))));
-	if(iy==0) return x+v*(S1+z*r);
-	else      return x-((z*(half*y-v*r)-y)-v*S1);
+    z	=  x*x;
+    v	=  z*x;
+    r	=  S2+z*(S3+z*(S4+z*(S5+z*(S6+z*(S7+z*(S8+
+        z*(S9+z*(S10+z*(S11+z*S12)))))))));
+    if(iy==0) return x+v*(S1+z*r);
+    else      return x-((z*(half*y-v*r)-y)-v*S1);
 }

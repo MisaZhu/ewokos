@@ -33,5 +33,5 @@
 OLM_DLLEXPORT long double
 cimagl(long double complex z)
 {
-	return (__imag__ z);
+    return (__imag__ z);
 }

@@ -15,37 +15,37 @@ static uint8_t _sector_buf[SECTOR_SIZE];
 static int32_t (*_read_sector)(int32_t sector, void* buf);
 
 static inline int hw_read_data(uint8_t* dest, uint32_t offset,  int size){
-	uint32_t sector = offset/SECTOR_SIZE;
-	uint32_t unalign = offset%SECTOR_SIZE;
+    uint32_t sector = offset/SECTOR_SIZE;
+    uint32_t unalign = offset%SECTOR_SIZE;
 
-	if(unalign){
-		uint32_t read_len = SECTOR_SIZE - unalign;
-		if(read_len > size)
-			read_len = size;
+    if(unalign){
+        uint32_t read_len = SECTOR_SIZE - unalign;
+        if(read_len > size)
+            read_len = size;
 
-		_read_sector(sector, _sector_buf);
+        _read_sector(sector, _sector_buf);
 
-		memcpy(dest, _sector_buf + unalign, read_len);
-		dest += read_len;
-		size -= read_len;
-		sector++;
-	}
+        memcpy(dest, _sector_buf + unalign, read_len);
+        dest += read_len;
+        size -= read_len;
+        sector++;
+    }
 
-	while(size/SECTOR_SIZE > 0){
-		_read_sector(sector, dest);
-		dest += SECTOR_SIZE;
-		size -= SECTOR_SIZE;
-		sector++;
-	}
+    while(size/SECTOR_SIZE > 0){
+        _read_sector(sector, dest);
+        dest += SECTOR_SIZE;
+        size -= SECTOR_SIZE;
+        sector++;
+    }
 
-	uint32_t left = size%SECTOR_SIZE;
+    uint32_t left = size%SECTOR_SIZE;
 
-	if(left){
-		_read_sector(sector, _sector_buf);
-		memcpy(dest, _sector_buf, left);
-	}
+    if(left){
+        _read_sector(sector, _sector_buf);
+        memcpy(dest, _sector_buf, left);
+    }
 
-	return size;
+    return size;
 }
 
 /* calculate size of entries array in bytes for specified number of entries */
@@ -91,7 +91,7 @@ static int valid_pmbr(uint8_t *firstsector)
     if (le16_to_cpu(pmbr->signature) != MSDOS_MBR_SIGNATURE)
         goto done;
 
-	ret = 0;
+    ret = 0;
     /* seems like a valid MBR was found, check DOS primary partitions */
     for (i = 0; i < 4; i++) {
         if (pmbr->partition_record[i].os_type == EFI_PMBR_OSTYPE) {
@@ -124,9 +124,9 @@ done:
 static ssize_t read_lba(uint64_t lba,
             void *buffer, const size_t bytes)
 {
-	for(int i = 0 ; i < (bytes + SECTOR_SIZE - 1)/SECTOR_SIZE; i++)
-	_read_sector(lba+i, (uint8_t*)buffer + i * SECTOR_SIZE);
-	return 0;
+    for(int i = 0 ; i < (bytes + SECTOR_SIZE - 1)/SECTOR_SIZE; i++)
+    _read_sector(lba+i, (uint8_t*)buffer + i * SECTOR_SIZE);
+    return 0;
 }
 
 /* Check if there is a valid header signature */
@@ -152,7 +152,7 @@ static int gpt_check_lba_sanity(struct gpt_header *header)
     /* the header has to be outside usable range */
     if (fu < GPT_PRIMARY_PARTITION_TABLE_LBA &&
         GPT_PRIMARY_PARTITION_TABLE_LBA < lu) {
-		printf("error: header outside of usable range\n");
+        printf("error: header outside of usable range\n");
         goto done;
     }
 
@@ -180,7 +180,7 @@ static unsigned char *gpt_read_entries(struct gpt_header *header)
     offset = (off_t) le64_to_cpu(header->partition_entry_lba) *
                SECTOR_SIZE;
 
-	hw_read_data(ret, offset, sz);
+    hw_read_data(ret, offset, sz);
     return ret;
 }
 
@@ -274,22 +274,22 @@ invalid:
 }
 
 uint32_t get_rootfs_entry(int32_t (*read_sector)(int32_t sector, void* buf)){
-	uint32_t rootfs_start = 0;
-	uint8_t *mbr = (uint8_t*)malloc(SECTOR_SIZE);
-	_read_sector = read_sector;
-	_read_sector(0, mbr);
+    uint32_t rootfs_start = 0;
+    uint8_t *mbr = (uint8_t*)malloc(SECTOR_SIZE);
+    _read_sector = read_sector;
+    _read_sector(0, mbr);
 
-	int mbr_type = valid_pmbr(mbr);
-	if(mbr_type == 0){
-    	partition_t* p = (partition_t*)(mbr + 0x1BE);
-    	for(int32_t i=0; i < 4; i++) {
-			if(p->start_sector > 0)
-				rootfs_start = p->start_sector;
-			p++;
-    	}
-	}else if(mbr_type == GPT_MBR_PROTECTIVE){
-		struct gpt_label gpt;
-		gpt.pheader = gpt_read_header(GPT_PRIMARY_PARTITION_TABLE_LBA, &gpt.ents);
+    int mbr_type = valid_pmbr(mbr);
+    if(mbr_type == 0){
+        partition_t* p = (partition_t*)(mbr + 0x1BE);
+        for(int32_t i=0; i < 4; i++) {
+            if(p->start_sector > 0)
+                rootfs_start = p->start_sector;
+            p++;
+        }
+    }else if(mbr_type == GPT_MBR_PROTECTIVE){
+        struct gpt_label gpt;
+        gpt.pheader = gpt_read_header(GPT_PRIMARY_PARTITION_TABLE_LBA, &gpt.ents);
         if(gpt.pheader){
             int n = partitions_in_use(&gpt);
             for(int i = 0; i < n; i++){
@@ -301,7 +301,7 @@ uint32_t get_rootfs_entry(int32_t (*read_sector)(int32_t sector, void* buf)){
             free(gpt.ents);
             free(gpt.pheader);
         }
-	}
-	free(mbr);
-	return rootfs_start;
+    }
+    free(mbr);
+    return rootfs_start;
 }

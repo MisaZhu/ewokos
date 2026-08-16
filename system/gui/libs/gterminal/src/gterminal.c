@@ -651,11 +651,11 @@ void gterminal_paint(gterminal_t* terminal, graph_t* g, int x, int y, int w, int
         return;
     }
 
-	textgrid_paint(g, terminal->textgrid,
+    textgrid_paint(g, terminal->textgrid,
             gterminal_draw_char, terminal,
             terminal->textgrid_start_row + terminal->scroll_offset, terminal->char_h,
             x, y, w, h);
-	draw_curs(terminal, g, x, y, w, h);
+    draw_curs(terminal, g, x, y, w, h);
 }
 
 #define ESC_BUF_CAP ((uint16_t)(sizeof(((gterminal_t*)0)->esc_buf) / sizeof(((gterminal_t*)0)->esc_buf[0])))

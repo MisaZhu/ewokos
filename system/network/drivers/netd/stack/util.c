@@ -42,7 +42,7 @@ hexdump(FILE *fp, const void *data, size_t size)
     src = (unsigned char *)data;
     infof("+------+-------------------------------------------------+------------------+\n");
     for(offset = 0; offset < (int)size; offset += 16) {
-		infof("| %04x | ", offset);
+        infof("| %04x | ", offset);
         for(index = 0; index < 16; index++) {
             if(offset + index < (int)size) {
                 infof("%02x ", 0xff & src[offset + index]);

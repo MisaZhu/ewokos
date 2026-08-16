@@ -11,96 +11,96 @@
 #include <setenv.h>
 
 static void welcome(void) {
-	const char* s = "\033[2J\033[0;0H" //clear screen and move to 0,0
-			"+-----Ewok micro-kernel OS-----------------------+\n"
-			"| https://github.com/MisaZhu/EwokOS.git          |\n"
-			"+------------------------------------------------+\n";
-	printf("%s", s);
+    const char* s = "\033[2J\033[0;0H" //clear screen and move to 0,0
+            "+-----Ewok micro-kernel OS-----------------------+\n"
+            "| https://github.com/MisaZhu/EwokOS.git          |\n"
+            "+------------------------------------------------+\n";
+    printf("%s", s);
 }
 
 static const char* _tty = "";
 static int _auto_restart = 0;
 
 static int doargs(int argc, char* argv[]) {
-	_tty = "";
+    _tty = "";
 
-	int c = 0;
-	while (c != -1) {
-		c = getopt (argc, argv, "rt:");
-		if(c == -1)
-			break;
+    int c = 0;
+    while (c != -1) {
+        c = getopt (argc, argv, "rt:");
+        if(c == -1)
+            break;
 
-		switch (c) {
-		case 'r':
-			_auto_restart = 1;
-			break;
-		case 't':
-			_tty = optarg;
-			break;
-		case '?':
-			return -1;
-		default:
-			c = -1;
-			break;
-		}
-	}
-	return optind;
+        switch (c) {
+        case 'r':
+            _auto_restart = 1;
+            break;
+        case 't':
+            _tty = optarg;
+            break;
+        case '?':
+            return -1;
+        default:
+            c = -1;
+            break;
+        }
+    }
+    return optind;
 }
 
 int main(int argc, char* argv[]) {
-	if(argc > 1 && strcmp(argv[1], "reload") == 0) {
-		if(session_reload() != 0) {
-			fprintf(stderr, "reload session database failed!\n");
-			return -1;
-		}
-		printf("session database reloaded.\n");
-		return 0;
-	}
+    if(argc > 1 && strcmp(argv[1], "reload") == 0) {
+        if(session_reload() != 0) {
+            fprintf(stderr, "reload session database failed!\n");
+            return -1;
+        }
+        printf("session database reloaded.\n");
+        return 0;
+    }
 
-	int argind = doargs(argc, argv);
-	if(argind < 0)
-		return -1;
+    int argind = doargs(argc, argv);
+    if(argind < 0)
+        return -1;
 
-	if(_tty[0] != 0) {
-		int fd = open(_tty, O_RDWR);
-		if(fd < 0) {
-			return -1;
-		}
+    if(_tty[0] != 0) {
+        int fd = open(_tty, O_RDWR);
+        if(fd < 0) {
+            return -1;
+        }
 
-		setenv("CONSOLE_ID", _tty);
-		dup2(fd, 0);
-		dup2(fd, 1);
-		dup2(fd, 2);
-		dup2(fd, VFS_BACKUP_FD0);
-		close(VFS_BACKUP_FD1);
-		close(fd);
-	}
+        setenv("CONSOLE_ID", _tty);
+        dup2(fd, 0);
+        dup2(fd, 1);
+        dup2(fd, 2);
+        dup2(fd, VFS_BACKUP_FD0);
+        close(VFS_BACKUP_FD1);
+        close(fd);
+    }
 
-	do {
-		int pid;
-		for(int i=argind; i<argc; i++) {
-			pid = fork();
-			if(pid == 0) {
-				if(proc_exec(argv[i]) < 0) {
-					exit(-1);
-				}
-			}
-			else {
-				ewok_waitpid(pid);
-			}
-		}
-		
-		pid = fork();
-		if(pid == 0) {
-			welcome();
-			fflush(stdout);
-			if(proc_exec("/bin/login") < 0) {
-				exit(-1);
-			}
-		}
-		else {
-			ewok_waitpid(pid);
-		}
-	}while(_auto_restart);
-	return 0;
+    do {
+        int pid;
+        for(int i=argind; i<argc; i++) {
+            pid = fork();
+            if(pid == 0) {
+                if(proc_exec(argv[i]) < 0) {
+                    exit(-1);
+                }
+            }
+            else {
+                ewok_waitpid(pid);
+            }
+        }
+        
+        pid = fork();
+        if(pid == 0) {
+            welcome();
+            fflush(stdout);
+            if(proc_exec("/bin/login") < 0) {
+                exit(-1);
+            }
+        }
+        else {
+            ewok_waitpid(pid);
+        }
+    }while(_auto_restart);
+    return 0;
 }

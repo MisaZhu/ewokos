@@ -2,6 +2,6 @@
 #include <ewoksys/thread.h>
 
 int gettid(void) {
-	return thread_get_id();
+    return thread_get_id();
 }
 

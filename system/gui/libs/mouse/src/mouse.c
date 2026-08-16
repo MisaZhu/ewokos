@@ -10,7 +10,7 @@ extern "C" {
 #include <unistd.h>
 
 int mouse_read(int fd, mouse_evt_t* evt) {
-	return read(fd, evt, sizeof(mouse_evt_t)) == sizeof(mouse_evt_t);
+    return read(fd, evt, sizeof(mouse_evt_t)) == sizeof(mouse_evt_t);
 }
 
 #ifdef __cplusplus

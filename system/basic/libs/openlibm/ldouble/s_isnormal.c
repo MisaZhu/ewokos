@@ -34,28 +34,28 @@
 OLM_DLLEXPORT int
 __isnormal(double d)
 {
-	union IEEEd2bits u;
+    union IEEEd2bits u;
 
-	u.d = d;
-	return (u.bits.exp != 0 && u.bits.exp != 2047);
+    u.d = d;
+    return (u.bits.exp != 0 && u.bits.exp != 2047);
 }
 
 OLM_DLLEXPORT int
 __isnormalf(float f)
 {
-	union IEEEf2bits u;
+    union IEEEf2bits u;
 
-	u.f = f;
-	return (u.bits.exp != 0 && u.bits.exp != 255);
+    u.f = f;
+    return (u.bits.exp != 0 && u.bits.exp != 255);
 }
 
 #ifdef OLM_LONG_DOUBLE
 OLM_DLLEXPORT int
 __isnormall(long double e)
 {
-	union IEEEl2bits u;
+    union IEEEl2bits u;
 
-	u.e = e;
-	return (u.bits.exp != 0 && u.bits.exp != 32767);
+    u.e = e;
+    return (u.bits.exp != 0 && u.bits.exp != 32767);
 }
 #endif

@@ -36,8 +36,8 @@ OLM_DLLEXPORT long double complex
 cprojl(long double complex z)
 {
 
-	if (!isinf(creall(z)) && !isinf(cimagl(z)))
-		return (z);
-	else
-		return (CMPLXL(INFINITY, copysignl(0.0, cimagl(z))));
+    if (!isinf(creall(z)) && !isinf(cimagl(z)))
+        return (z);
+    else
+        return (CMPLXL(INFINITY, copysignl(0.0, cimagl(z))));
 }

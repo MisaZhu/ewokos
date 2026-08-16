@@ -36,9 +36,9 @@
 #define DBG(fmt, ...) klog(fmt, ##__VA_ARGS__)
 #else
 #define DBG(fmt, ...) \
-	do                   \
-	{                    \
-	} while (0)
+    do                   \
+    {                    \
+    } while (0)
 #endif
 
 

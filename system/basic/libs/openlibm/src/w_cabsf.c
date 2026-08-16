@@ -12,8 +12,8 @@
 
 OLM_DLLEXPORT float
 cabsf(z)
-	float complex z;
+    float complex z;
 {
 
-	return hypotf(crealf(z), cimagf(z));
+    return hypotf(crealf(z), cimagf(z));
 }

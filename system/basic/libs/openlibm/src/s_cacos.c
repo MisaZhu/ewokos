@@ -55,11 +55,11 @@
 double complex
 cacos(double complex z)
 {
-	double complex w;
+    double complex w;
 
-	w = casin (z);
-	w = (M_PI_2 - creal (w)) - cimag (w) * I;
-	return (w);
+    w = casin (z);
+    w = (M_PI_2 - creal (w)) - cimag (w) * I;
+    return (w);
 }
 
 #if	LDBL_MANT_DIG == DBL_MANT_DIG

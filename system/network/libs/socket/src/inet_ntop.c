@@ -38,63 +38,63 @@ static const char *inet_ntop4 (const uint8_t *src, char *dst, socklen_t size);
 const char *
 inet_ntop (int af, const void *src, char *dst, socklen_t size)
 {
-	switch (af) {
-	case AF_INET:
-		return (inet_ntop4(src, dst, size));
-	default:
-		return (NULL);
-	}
+    switch (af) {
+    case AF_INET:
+        return (inet_ntop4(src, dst, size));
+    default:
+        return (NULL);
+    }
 }
 
 static void uint_to_str(uint8_t val, char *buf) {
-	if (val >= 100) {
-		*buf++ = '0' + val / 100;
-		val %= 100;
-		*buf++ = '0' + val / 10;
-		val %= 10;
-	} else if (val >= 10) {
-		*buf++ = '0' + val / 10;
-		val %= 10;
-	}
-	*buf++ = '0' + val;
-	*buf = '\0';
+    if (val >= 100) {
+        *buf++ = '0' + val / 100;
+        val %= 100;
+        *buf++ = '0' + val / 10;
+        val %= 10;
+    } else if (val >= 10) {
+        *buf++ = '0' + val / 10;
+        val %= 10;
+    }
+    *buf++ = '0' + val;
+    *buf = '\0';
 }
 
 static const char *
 inet_ntop4 (const uint8_t *src, char *dst, socklen_t size)
 {
-	char tmp[sizeof "255.255.255.255"];
-	char *ptr = tmp;
-	char octet_str[4];
-	
-	// Convert first octet
-	uint_to_str(src[0], octet_str);
-	strcpy(ptr, octet_str);
-	ptr += strlen(octet_str);
-	
-	// Add dot and second octet
-	*ptr++ = '.';
-	uint_to_str(src[1], octet_str);
-	strcpy(ptr, octet_str);
-	ptr += strlen(octet_str);
-	
-	// Add dot and third octet
-	*ptr++ = '.';
-	uint_to_str(src[2], octet_str);
-	strcpy(ptr, octet_str);
-	ptr += strlen(octet_str);
-	
-	// Add dot and fourth octet
-	*ptr++ = '.';
-	uint_to_str(src[3], octet_str);
-	strcpy(ptr, octet_str);
-	ptr += strlen(octet_str);
-	
-	// Null terminate
-	*ptr = '\0';
+    char tmp[sizeof "255.255.255.255"];
+    char *ptr = tmp;
+    char octet_str[4];
+    
+    // Convert first octet
+    uint_to_str(src[0], octet_str);
+    strcpy(ptr, octet_str);
+    ptr += strlen(octet_str);
+    
+    // Add dot and second octet
+    *ptr++ = '.';
+    uint_to_str(src[1], octet_str);
+    strcpy(ptr, octet_str);
+    ptr += strlen(octet_str);
+    
+    // Add dot and third octet
+    *ptr++ = '.';
+    uint_to_str(src[2], octet_str);
+    strcpy(ptr, octet_str);
+    ptr += strlen(octet_str);
+    
+    // Add dot and fourth octet
+    *ptr++ = '.';
+    uint_to_str(src[3], octet_str);
+    strcpy(ptr, octet_str);
+    ptr += strlen(octet_str);
+    
+    // Null terminate
+    *ptr = '\0';
 
-	if (ptr - tmp >= size) {
-		return (NULL);
-	}
-	return strcpy(dst, tmp);
+    if (ptr - tmp >= size) {
+        return (NULL);
+    }
+    return strcpy(dst, tmp);
 }

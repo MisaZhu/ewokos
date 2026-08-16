@@ -36,10 +36,10 @@ OLM_DLLEXPORT double complex
 cproj(double complex z)
 {
 
-	if (!isinf(creal(z)) && !isinf(cimag(z)))
-		return (z);
-	else
-		return (CMPLX(INFINITY, copysign(0.0, cimag(z))));
+    if (!isinf(creal(z)) && !isinf(cimag(z)))
+        return (z);
+    else
+        return (CMPLX(INFINITY, copysign(0.0, cimag(z))));
 }
 
 #if LDBL_MANT_DIG == 53

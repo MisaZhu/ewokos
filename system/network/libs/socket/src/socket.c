@@ -104,8 +104,8 @@ static int do_vfs_fcntl(int fd, int cmd, proto_t* arg_in, proto_t* arg_out){
 }
 
 int socket (int domain, int type, int protocol){
-	int ret;
-	proto_t in,out;
+    int ret;
+    proto_t in,out;
     int fd = open("/dev/net0", 0);
     if(fd < 0)
         return -1;
@@ -128,10 +128,10 @@ int socket (int domain, int type, int protocol){
     }
 
     fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0) {
-		close(fd);
-		return -1;
-	}
+    if(vfs_get_by_fd(fd, &info) != 0) {
+        close(fd);
+        return -1;
+    }
     return fd;
 }
 
@@ -142,15 +142,15 @@ int socketpair (int domain, int type, int protocol,int fds[2]){
 
 int bind (int fd, const struct sockaddr* addr, uint32_t len){
     int ret;
-	proto_t in,out;
+    proto_t in,out;
     
     PF->init(&in)->add(&in, addr, len);
     PF->init(&out);
-	ret = do_vfs_fcntl(fd, SOCK_BIND, &in , &out);
+    ret = do_vfs_fcntl(fd, SOCK_BIND, &in , &out);
     if(ret == 0)
         ret = proto_read_int(&out);
     PF->clear(&in);
-	PF->clear(&out);
+    PF->clear(&out);
 
     return ret;
 }
@@ -162,14 +162,14 @@ int getsockname (int fd, struct sockaddr* addr,uint32_t * len){
 
 int connect (int fd, const struct sockaddr* addr, uint32_t len){
     int ret;
-	proto_t in,out;
+    proto_t in,out;
     fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
-		return -1;
+    if(vfs_get_by_fd(fd, &info) != 0)
+        return -1;
 
     PF->init(&in)->add(&in, addr, len);
     PF->init(&out);
-	ret = do_vfs_fcntl(fd, SOCK_CONNECT, &in , &out);
+    ret = do_vfs_fcntl(fd, SOCK_CONNECT, &in , &out);
     if(ret == 0) {
         int sock_errno;
         ret = proto_read_int(&out);
@@ -179,7 +179,7 @@ int connect (int fd, const struct sockaddr* addr, uint32_t len){
         }
     }
     PF->clear(&in);
-	PF->clear(&out);
+    PF->clear(&out);
 
     return ret;
 }
@@ -191,14 +191,14 @@ int getpeername (int fd, struct sockaddr* addr,uint32_t * len){
 
 int32_t send (int fd, const void *buf, uint32_t n, int flags){
     int ret;
-	proto_t in,out;
+    proto_t in,out;
     fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
-		return -1;
+    if(vfs_get_by_fd(fd, &info) != 0)
+        return -1;
 
     PF->init(&in)->add(&in, buf, n);
     PF->init(&out);
-	ret = do_vfs_fcntl(fd, SOCK_SEND, &in , &out);
+    ret = do_vfs_fcntl(fd, SOCK_SEND, &in , &out);
     if(ret == 0) {
         int sock_errno;
         ret = proto_read_int(&out);
@@ -208,20 +208,20 @@ int32_t send (int fd, const void *buf, uint32_t n, int flags){
         }
     }
     PF->clear(&in);
-	PF->clear(&out);
+    PF->clear(&out);
     return ret;
 }
 
 int32_t recv (int fd, void *buf, uint32_t n, int flags){
     int ret;
-	proto_t in,out;
+    proto_t in,out;
     fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
-		return -1;
+    if(vfs_get_by_fd(fd, &info) != 0)
+        return -1;
 
     PF->init(&in)->addi(&in, n);
     PF->init(&out);
-	ret = do_vfs_fcntl(fd, SOCK_RECV, &in , &out);
+    ret = do_vfs_fcntl(fd, SOCK_RECV, &in , &out);
     if(ret == 0) {
         int sock_errno;
         ret = proto_read_int(&out);
@@ -234,23 +234,23 @@ int32_t recv (int fd, void *buf, uint32_t n, int flags){
         }
     }
     PF->clear(&in);
-	PF->clear(&out);
+    PF->clear(&out);
        
     return ret;
 }
 
 int32_t sendto (int fd, const void *buf, uint32_t n,
-		       int flags, const struct sockaddr* addr,
-		       uint32_t addr_len){
+               int flags, const struct sockaddr* addr,
+               uint32_t addr_len){
     int ret;
-	proto_t in,out;
+    proto_t in,out;
     fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
-		return -1;
+    if(vfs_get_by_fd(fd, &info) != 0)
+        return -1;
     
     PF->init(&in)->add(&in, buf, n)->add(&in, addr, addr_len);
     PF->init(&out);
-	ret = do_vfs_fcntl(fd, SOCK_SENDTO, &in , &out);
+    ret = do_vfs_fcntl(fd, SOCK_SENDTO, &in , &out);
     if(ret == 0) {
         int sock_errno;
         ret = proto_read_int(&out);
@@ -260,23 +260,23 @@ int32_t sendto (int fd, const void *buf, uint32_t n,
         }
     }
     PF->clear(&in);
-	PF->clear(&out);
+    PF->clear(&out);
     return ret;
 }
 
 int32_t recvfrom (int fd, void * buf, uint32_t n,
-			 int flags, struct sockaddr* addr,
-			 uint32_t * addr_len){
+             int flags, struct sockaddr* addr,
+             uint32_t * addr_len){
     int ret;
     uint32_t out_addr_len;
-	proto_t in,out;
+    proto_t in,out;
     fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
-		return -1;
+    if(vfs_get_by_fd(fd, &info) != 0)
+        return -1;
 
     PF->init(&in)->addi(&in, n)->addi(&in, *addr_len);
     PF->init(&out);
-	ret = do_vfs_fcntl(fd, SOCK_RECVFROM, &in , &out);
+    ret = do_vfs_fcntl(fd, SOCK_RECVFROM, &in , &out);
     if(ret == 0) {
         int sock_errno;
         ret = proto_read_int(&out);
@@ -295,7 +295,7 @@ int32_t recvfrom (int fd, void * buf, uint32_t n,
         }
     }
     PF->clear(&in);
-	PF->clear(&out);
+    PF->clear(&out);
 
     return ret;
 }
@@ -337,47 +337,47 @@ int getsockopt (int fd, int level, int optname, void * optval, uint32_t * optlen
 }
 
 int setsockopt (int fd, int level, int optname,
-		       const void *optval, uint32_t optlen){
+               const void *optval, uint32_t optlen){
     int ret;
-	proto_t in,out;
+    proto_t in,out;
     fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
-		return -1;
+    if(vfs_get_by_fd(fd, &info) != 0)
+        return -1;
 
     PF->init(&in)->addi(&in, level)->addi(&in, optname)->add(&in, optval, optlen);
     PF->init(&out);
-	ret = do_vfs_fcntl(fd, SOCK_SETOPT, &in , &out);
+    ret = do_vfs_fcntl(fd, SOCK_SETOPT, &in , &out);
     if(ret == 0)
         ret = proto_read_int(&out);
     PF->clear(&in);
-	PF->clear(&out);
+    PF->clear(&out);
 
     return ret;
 }
 
 int listen (int fd, int n){
     int ret;
-	proto_t in,out;
+    proto_t in,out;
     PF->init(&in)->addi(&in, n);
     PF->init(&out);
-	ret = do_vfs_fcntl(fd, SOCK_LISTEN, &in , &out);
+    ret = do_vfs_fcntl(fd, SOCK_LISTEN, &in , &out);
     if(ret == 0)
         ret = proto_read_int(&out);
     PF->clear(&in);
-	PF->clear(&out);
+    PF->clear(&out);
 
     return ret;
 }
 
 int accept (int fd, struct sockaddr* addr,uint32_t * addr_len){
     int ret;
-	proto_t in,out;
+    proto_t in,out;
     fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
-		return -1;
+    if(vfs_get_by_fd(fd, &info) != 0)
+        return -1;
 
     PF->init(&out);
-	ret = do_vfs_fcntl(fd, SOCK_ACCEPT, NULL , &out);
+    ret = do_vfs_fcntl(fd, SOCK_ACCEPT, NULL , &out);
     if(ret != 0) {
         klog("socket: accept fcntl failed fd=%d ret=%d node=%u\n",
                 fd, ret, info.node);
@@ -397,7 +397,7 @@ int accept (int fd, struct sockaddr* addr,uint32_t * addr_len){
     if(ret >= 0 && addr != NULL && addr_len != NULL) {
         proto_read_to(&out, addr, *addr_len);
     }
-	PF->clear(&out);
+    PF->clear(&out);
     int accept_fd = open("/dev/net0", 0);
     if(accept_fd < 0) {
         klog("socket: accept open link fd failed listen_fd=%d sock=%d node=%u err=%d\n",
@@ -407,7 +407,7 @@ int accept (int fd, struct sockaddr* addr,uint32_t * addr_len){
 
     PF->init(&in)->addi(&in, ret);
     PF->init(&out);
-	ret = do_vfs_fcntl(accept_fd, SOCK_LINK, &in , &out);
+    ret = do_vfs_fcntl(accept_fd, SOCK_LINK, &in , &out);
     if(ret != 0) {
         klog("socket: accept link failed listen_fd=%d accept_fd=%d sock=%d ret=%d node=%u\n",
                 fd, accept_fd, proto_read_int(&in), ret, info.node);
@@ -418,7 +418,7 @@ int accept (int fd, struct sockaddr* addr,uint32_t * addr_len){
     }
     ret = proto_read_int(&out);
     PF->clear(&in);
-	PF->clear(&out);
+    PF->clear(&out);
     if (ret != 0) {
         close(accept_fd);
         return -1;
@@ -429,7 +429,7 @@ int accept (int fd, struct sockaddr* addr,uint32_t * addr_len){
 
 int shutdown (int fd, int how){
     int ret;
-	proto_t in, out;
+    proto_t in, out;
     PF->init(&in)->addi(&in, how);
     PF->init(&out);
     ret = do_vfs_fcntl(fd, SOCK_CLOSE, NULL , &out);
@@ -746,7 +746,7 @@ struct hostent *gethostbyname(const char *name){
 int getaddrinfo( const char *node, const char *service, 
                 const struct addrinfo *hints, struct addrinfo **res){
     struct  addrinfo *ret = (struct  addrinfo *)malloc(sizeof(struct addrinfo));
-	struct sockaddr_in *in = (struct  sockaddr_in *)malloc(sizeof(struct sockaddr_in));
+    struct sockaddr_in *in = (struct  sockaddr_in *)malloc(sizeof(struct sockaddr_in));
 
     memset(ret, 0, sizeof(struct addrinfo));
     memset(in, 0, sizeof(IN_ADDR));
@@ -756,7 +756,7 @@ int getaddrinfo( const char *node, const char *service,
     
     in->sin_port = 4950;
     in->sin_family = AF_INET;
-	in->sin_addr.s_un.s_un_b.s_b1 = 0xc0;
+    in->sin_addr.s_un.s_un_b.s_b1 = 0xc0;
     in->sin_addr.s_un.s_un_b.s_b2 = 0xa8;
     in->sin_addr.s_un.s_un_b.s_b3 = 0x40;
     in->sin_addr.s_un.s_un_b.s_b4 = 0x01;

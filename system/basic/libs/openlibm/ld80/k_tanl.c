@@ -72,54 +72,54 @@ T33 =  0.0000023261313142559411;	/*  0x13835436c0c87f.0p-71 */
 
 long double
 __kernel_tanl(long double x, long double y, int iy) {
-	long double z, r, v, w, s;
-	long double osign;
-	int i;
+    long double z, r, v, w, s;
+    long double osign;
+    int i;
 
-	iy = (iy == 1 ? -1 : 1);	/* XXX recover original interface */
-	osign = (x >= 0 ? 1.0 : -1.0);	/* XXX slow, probably wrong for -0 */
-	if (fabsl(x) >= 0.67434) {
-		if (x < 0) {
-			x = -x;
-			y = -y;
-		}
-		z = pio4 - x;
-		w = pio4lo - y;
-		x = z + w;
-		y = 0.0;
-		i = 1;
-	} else
-		i = 0;
-	z = x * x;
-	w = z * z;
-	r = T5 + w * (T9 + w * (T13 + w * (T17 + w * (T21 +
-	    w * (T25 + w * (T29 + w * T33))))));
-	v = z * (T7 + w * (T11 + w * (T15 + w * (T19 + w * (T23 +
-	    w * (T27 + w * T31))))));
-	s = z * x;
-	r = y + z * (s * (r + v) + y);
-	r += T3 * s;
-	w = x + r;
-	if (i == 1) {
-		v = (long double) iy;
-		return osign *
-			(v - 2.0 * (x - (w * w / (w + v) - r)));
-	}
-	if (iy == 1)
-		return w;
-	else {
-		/*
-		 * if allow error up to 2 ulp, simply return
-		 * -1.0 / (x+r) here
-		 */
-		/* compute -1.0 / (x+r) accurately */
-		long double a, t;
-		z = w;
-		z = z + 0x1p32 - 0x1p32;
-		v = r - (z - x);	/* z+v = r+x */
-		t = a = -1.0 / w;	/* a = -1.0/w */
-		t = t + 0x1p32 - 0x1p32;
-		s = 1.0 + t * z;
-		return t + a * (s + t * v);
-	}
+    iy = (iy == 1 ? -1 : 1);	/* XXX recover original interface */
+    osign = (x >= 0 ? 1.0 : -1.0);	/* XXX slow, probably wrong for -0 */
+    if (fabsl(x) >= 0.67434) {
+        if (x < 0) {
+            x = -x;
+            y = -y;
+        }
+        z = pio4 - x;
+        w = pio4lo - y;
+        x = z + w;
+        y = 0.0;
+        i = 1;
+    } else
+        i = 0;
+    z = x * x;
+    w = z * z;
+    r = T5 + w * (T9 + w * (T13 + w * (T17 + w * (T21 +
+        w * (T25 + w * (T29 + w * T33))))));
+    v = z * (T7 + w * (T11 + w * (T15 + w * (T19 + w * (T23 +
+        w * (T27 + w * T31))))));
+    s = z * x;
+    r = y + z * (s * (r + v) + y);
+    r += T3 * s;
+    w = x + r;
+    if (i == 1) {
+        v = (long double) iy;
+        return osign *
+            (v - 2.0 * (x - (w * w / (w + v) - r)));
+    }
+    if (iy == 1)
+        return w;
+    else {
+        /*
+         * if allow error up to 2 ulp, simply return
+         * -1.0 / (x+r) here
+         */
+        /* compute -1.0 / (x+r) accurately */
+        long double a, t;
+        z = w;
+        z = z + 0x1p32 - 0x1p32;
+        v = r - (z - x);	/* z+v = r+x */
+        t = a = -1.0 / w;	/* a = -1.0/w */
+        t = t + 0x1p32 - 0x1p32;
+        s = 1.0 + t * z;
+        return t + a * (s + t * v);
+    }
 }

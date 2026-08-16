@@ -41,5 +41,5 @@ OLM_DLLEXPORT float
 tgammaf(float x)
 {
 
-	return (tgamma(x));
+    return (tgamma(x));
 }

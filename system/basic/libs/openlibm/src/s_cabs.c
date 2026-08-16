@@ -24,7 +24,7 @@
 double
 cabs(double complex z)
 {
-	return hypot(__real__ z, __imag__ z);
+    return hypot(__real__ z, __imag__ z);
 }
 
 #if	LDBL_MANT_DIG == DBL_MANT_DIG

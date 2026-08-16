@@ -12,29 +12,29 @@
 virtio_dev_t dev;
 
 int32_t virt_sd_init(void) {
-	_mmio_base = mmio_map();
+    _mmio_base = mmio_map();
     dev = virtio_get(VIRTIO_ID_BLOCK);
         if (!dev || virtio_init(dev, (1u << 9)) != 0) {
         klog("Virtio-blk init failed\n");
         return -1;
     }
-	return 0;
+    return 0;
 }
 
 int32_t virt_sd_read_sector(int32_t sector, void* buf) {
-	return virt_sd_read_blocks(sector, buf, 1);
+    return virt_sd_read_blocks(sector, buf, 1);
 }
 
 int32_t virt_sd_write_sector(int32_t sector, const void* buf) {
-	return virt_sd_write_blocks(sector, buf, 1);
+    return virt_sd_write_blocks(sector, buf, 1);
 }
 
 int32_t virt_sd_read_blocks(int32_t sector, void* buf, uint32_t count) {
-	return virtio_blk_transfer(dev, sector, buf, count, 0);
+    return virtio_blk_transfer(dev, sector, buf, count, 0);
 }
 
 int32_t virt_sd_write_blocks(int32_t sector, const void* buf, uint32_t count) {
-	return virtio_blk_transfer(dev, sector, (void*)buf, count, 1);
+    return virtio_blk_transfer(dev, sector, (void*)buf, count, 1);
 }
 
 int32_t virt_sd_flush(void) {

@@ -43,13 +43,13 @@
 OLM_DLLEXPORT type				\
 fn(type x)			\
 {				\
-	type ret;		\
-	fenv_t env;		\
-				\
-	fegetenv(&env);		\
-	ret = rint(x);		\
-	fesetenv(&env);		\
-	return (ret);		\
+    type ret;		\
+    fenv_t env;		\
+                \
+    fegetenv(&env);		\
+    ret = rint(x);		\
+    fesetenv(&env);		\
+    return (ret);		\
 }
 
 DECL(double, nearbyint, rint)

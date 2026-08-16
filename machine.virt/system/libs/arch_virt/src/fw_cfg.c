@@ -33,9 +33,9 @@ struct fw_dir {
 }__attribute__((packed));
 
 static struct fw_cfg_t{
-	struct fw_dma_access dma;
-	struct fw_dir dirs;
-	uint8_t buffer[256];
+    struct fw_dma_access dma;
+    struct fw_dir dirs;
+    uint8_t buffer[256];
 }*fw_cfg_vaddr, *fw_cfg_paddr;
 
 void fw_cfg_write_selector(uint16_t selector) {
@@ -53,8 +53,8 @@ void fw_cfg_dma_transfer(void* address, uint32_t length, uint32_t control) {
 
     *dma_address = BE64(&fw_cfg_paddr->dma);
     while (BE32(fw_cfg_vaddr->dma.control) & ~0x01){
-		proc_usleep(0);
-	}
+        proc_usleep(0);
+    }
 }
 
 void fw_cfg_dma_read(void* buf, int e, int length) {
@@ -68,7 +68,7 @@ void fw_cfg_dma_write(void* buf, int e, int length) {
 }
 
 struct fw_file *fw_file_get(const char* path) {
-	struct fw_dir *dir = &fw_cfg_vaddr->dirs;
+    struct fw_dir *dir = &fw_cfg_vaddr->dirs;
     int count = BE32(dir->count);
 
     for (int i = 0; i < count; i++) {
@@ -81,22 +81,22 @@ struct fw_file *fw_file_get(const char* path) {
 }
 
 int fw_init(){
-	uint32_t count;
-	fw_cfg_vaddr = dma_user_alloc(sizeof(struct fw_cfg_t));
-	fw_cfg_paddr = dma_user_phy(fw_cfg_vaddr);
-	fw_cfg_dma_read(&fw_cfg_paddr->dirs, 0x19, sizeof(struct fw_dir));
-	count = BE32(fw_cfg_vaddr->dirs.count);
-	uint64_t size = sizeof(struct fw_dir) + (sizeof(struct fw_file) * count);
+    uint32_t count;
+    fw_cfg_vaddr = dma_user_alloc(sizeof(struct fw_cfg_t));
+    fw_cfg_paddr = dma_user_phy(fw_cfg_vaddr);
+    fw_cfg_dma_read(&fw_cfg_paddr->dirs, 0x19, sizeof(struct fw_dir));
+    count = BE32(fw_cfg_vaddr->dirs.count);
+    uint64_t size = sizeof(struct fw_dir) + (sizeof(struct fw_file) * count);
     fw_cfg_dma_read(&fw_cfg_paddr->dirs, 0x19, size);
     return 0;
 }
 
 int fw_set_cfg(const char* path, void* cfg, int len){
-	struct fw_file* f = fw_file_get("etc/ramfb");
-	if(f != NULL && len >= 0 && (size_t)len < sizeof(fw_cfg_vaddr->buffer)){
-		memcpy(fw_cfg_vaddr->buffer, cfg, len);
-		fw_cfg_dma_write(&fw_cfg_paddr->buffer, BE16(f->select), len);
-		return 0;
-	}
-	return -1;
+    struct fw_file* f = fw_file_get("etc/ramfb");
+    if(f != NULL && len >= 0 && (size_t)len < sizeof(fw_cfg_vaddr->buffer)){
+        memcpy(fw_cfg_vaddr->buffer, cfg, len);
+        fw_cfg_dma_write(&fw_cfg_paddr->buffer, BE16(f->select), len);
+        return 0;
+    }
+    return -1;
 }

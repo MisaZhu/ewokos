@@ -179,26 +179,26 @@ inline void graph_scale_tof_fast(graph_t* g, graph_t* dst, float scale) {
 }
 
 graph_t* graph_scalef_fast(graph_t* g, float scale) {
-	graph_t* ret = NULL;
-	if(scale <= 0.0)
-		return NULL;
-	ret = graph_new(NULL, g->w*scale, g->h*scale);
-	if(ret == NULL)
-		return NULL;
-	graph_scale_tof_fast(g, ret, scale);
-	return ret;
+    graph_t* ret = NULL;
+    if(scale <= 0.0)
+        return NULL;
+    ret = graph_new(NULL, g->w*scale, g->h*scale);
+    if(ret == NULL)
+        return NULL;
+    graph_scale_tof_fast(g, ret, scale);
+    return ret;
 }
 
 graph_t* graph_scalef(graph_t* g, float scale) {
-	graph_t* ret = NULL;
-	if(scale <= 0.0)
-		return NULL;
-	
-	ret = graph_new(NULL, g->w*scale, g->h*scale);
-	if(ret == NULL)
-		return NULL;
-	graph_scale_tof(g, ret, scale);
-	return ret;
+    graph_t* ret = NULL;
+    if(scale <= 0.0)
+        return NULL;
+    
+    ret = graph_new(NULL, g->w*scale, g->h*scale);
+    if(ret == NULL)
+        return NULL;
+    graph_scale_tof(g, ret, scale);
+    return ret;
 }
 
 void graph_scale_fit_tof_cpu(graph_t* src, graph_t* dst) {
@@ -313,15 +313,15 @@ void graph_scale_fit_tof(graph_t* src, graph_t* dst) {
 }
 
 graph_t* graph_scale_fitf(graph_t* g, int32_t w, int32_t h) {
-	graph_t* ret = NULL;
+    graph_t* ret = NULL;
     if(w <= 0 || h <= 0)
         return NULL;
 
-	ret = graph_new(NULL, w, h);
-	if(ret == NULL)
-		return NULL;
-	graph_scale_fit_tof(g, ret);
-	return ret;
+    ret = graph_new(NULL, w, h);
+    if(ret == NULL)
+        return NULL;
+    graph_scale_fit_tof(g, ret);
+    return ret;
 }
 
 #ifdef __cplusplus

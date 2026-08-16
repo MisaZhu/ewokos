@@ -9,48 +9,48 @@ extern "C" {
 #endif
 
 inline uint32_t argb(uint32_t a, uint32_t r, uint32_t g, uint32_t b) {
-	return a << 24 | r << 16 | g << 8 | b;
+    return a << 24 | r << 16 | g << 8 | b;
 }
 
 inline uint8_t color_a(uint32_t c) {
-	return (c >> 24) & 0xff;
+    return (c >> 24) & 0xff;
 }
 
 inline uint8_t color_r(uint32_t c) {
-	return (c >> 16) & 0xff;
+    return (c >> 16) & 0xff;
 }
 
 inline uint8_t color_g(uint32_t c) {
-	return (c >> 8) & 0xff;
+    return (c >> 8) & 0xff;
 }
 
 inline uint8_t color_b(uint32_t c) {
-	return c & 0xff;
+    return c & 0xff;
 }
 
 inline uint32_t color_gray(uint32_t oc) {
-	uint8_t oa = (oc >> 24) & 0xff;
-	uint8_t or = (oc >> 16) & 0xff;
-	uint8_t og = (oc >> 8)  & 0xff;
-	uint8_t ob = oc & 0xff;
-	or = (or + og + ob) / 3;
-	return argb(oa, or, or, or);
+    uint8_t oa = (oc >> 24) & 0xff;
+    uint8_t or = (oc >> 16) & 0xff;
+    uint8_t og = (oc >> 8)  & 0xff;
+    uint8_t ob = oc & 0xff;
+    or = (or + og + ob) / 3;
+    return argb(oa, or, or, or);
 }
 
 inline uint32_t color_reverse(uint32_t oc) {
-	uint8_t oa = (oc >> 24) & 0xff;
-	uint8_t or = 0xff - ((oc >> 16) & 0xff);
-	uint8_t og = 0xff - ((oc >> 8)  & 0xff);
-	uint8_t ob = 0xff - (oc & 0xff);
-	return argb(oa, or, og, ob);
+    uint8_t oa = (oc >> 24) & 0xff;
+    uint8_t or = 0xff - ((oc >> 16) & 0xff);
+    uint8_t og = 0xff - ((oc >> 8)  & 0xff);
+    uint8_t ob = 0xff - (oc & 0xff);
+    return argb(oa, or, og, ob);
 }
 
 inline uint32_t color_reverse_rgb(uint32_t oc) {
-	uint8_t oa = (oc >> 24) & 0xff;
-	uint8_t or = ((oc) & 0xff);
-	uint8_t og = ((oc >> 8)  & 0xff);
-	uint8_t ob = ((oc >> 16)  & 0xff);
-	return argb(oa, or, og, ob);
+    uint8_t oa = (oc >> 24) & 0xff;
+    uint8_t or = ((oc) & 0xff);
+    uint8_t og = ((oc >> 8)  & 0xff);
+    uint8_t ob = ((oc >> 16)  & 0xff);
+    return argb(oa, or, og, ob);
 }
 
 static void* aligned_malloc(uint32_t size, uint32_t alignment) {
@@ -80,108 +80,108 @@ static void aligned_free(void* ptr) {
 }
 
 inline void graph_init(graph_t* g, const uint32_t* buffer, int32_t w, int32_t h) {
-	if(w <= 0 || h <= 0)
-		return;
+    if(w <= 0 || h <= 0)
+        return;
 
-	g->w = w;
-	g->h = h;
-	if(buffer != NULL) {
-		g->buffer = (uint32_t*)buffer;
-		g->need_free = false;
-	}
-	else {
-		g->buffer = (uint32_t*)aligned_malloc(w*h*4, 32);
-		g->need_free = true;
-	}
-	memset(&g->clip, 0, sizeof(grect_t));
+    g->w = w;
+    g->h = h;
+    if(buffer != NULL) {
+        g->buffer = (uint32_t*)buffer;
+        g->need_free = false;
+    }
+    else {
+        g->buffer = (uint32_t*)aligned_malloc(w*h*4, 32);
+        g->need_free = true;
+    }
+    memset(&g->clip, 0, sizeof(grect_t));
 }
 
 void graph_set_clip(graph_t* g, int x, int y, int w, int h) {
-	grect_t r = {x, y, w, h};
-	g->clip.x = 0;
-	g->clip.y = 0;
-	g->clip.w = g->w;
-	g->clip.h = g->h;
-	grect_insect(&r, &g->clip);
+    grect_t r = {x, y, w, h};
+    g->clip.x = 0;
+    g->clip.y = 0;
+    g->clip.w = g->w;
+    g->clip.h = g->h;
+    grect_insect(&r, &g->clip);
 }
 
 void graph_unset_clip(graph_t* g) {
-	memset(&g->clip, 0, sizeof(grect_t));
+    memset(&g->clip, 0, sizeof(grect_t));
 }
 
 graph_t* graph_new(uint32_t* buffer, int32_t w, int32_t h) {
-	if(w <= 0 || h <= 0)
-		return NULL;
+    if(w <= 0 || h <= 0)
+        return NULL;
 
-	graph_t* ret = (graph_t*)malloc(sizeof(graph_t));
-	if(ret != NULL)
-		graph_init(ret, buffer, w, h);
-	return ret;
+    graph_t* ret = (graph_t*)malloc(sizeof(graph_t));
+    if(ret != NULL)
+        graph_init(ret, buffer, w, h);
+    return ret;
 }
 
 graph_t* graph_dup(graph_t* g) {
-	if(g == NULL || g->buffer == NULL)
-		return NULL;
+    if(g == NULL || g->buffer == NULL)
+        return NULL;
 
-	graph_t* ret = graph_new(NULL, g->w, g->h);
-	if(ret == NULL)
-		return NULL;
-	ret->buffer = (uint32_t*)aligned_malloc(g->w*g->h*4, 32);
-	if(ret->buffer == NULL) {
-		graph_free(ret);
-		return NULL;
-	}
-	memcpy(ret->buffer, g->buffer, g->w*g->h*4);
-	return ret;
+    graph_t* ret = graph_new(NULL, g->w, g->h);
+    if(ret == NULL)
+        return NULL;
+    ret->buffer = (uint32_t*)aligned_malloc(g->w*g->h*4, 32);
+    if(ret->buffer == NULL) {
+        graph_free(ret);
+        return NULL;
+    }
+    memcpy(ret->buffer, g->buffer, g->w*g->h*4);
+    return ret;
 }
 
 void graph_free(graph_t* g) {
-	if(g == NULL)
-		return;
-	if(g->buffer != NULL && g->need_free)
-		aligned_free(g->buffer);
-	free(g);
+    if(g == NULL)
+        return;
+    if(g->buffer != NULL && g->need_free)
+        aligned_free(g->buffer);
+    free(g);
 }
 
 void graph_clear(graph_t* g, uint32_t color) {
-	if(g == NULL)
-		return;
-	if(g->w == 0 || g->h == 0)
-		return;
-	int32_t i = 0;
-	int32_t sz = g->w * 4;
-	while(i<g->w) {
-		g->buffer[i] = color;
-		++i;
-	}
-	char* p = (char*)g->buffer;
-	for(i=1; i<g->h; ++i) {
-		memcpy(p+(i*sz), p, sz);
-	}
+    if(g == NULL)
+        return;
+    if(g->w == 0 || g->h == 0)
+        return;
+    int32_t i = 0;
+    int32_t sz = g->w * 4;
+    while(i<g->w) {
+        g->buffer[i] = color;
+        ++i;
+    }
+    char* p = (char*)g->buffer;
+    for(i=1; i<g->h; ++i) {
+        memcpy(p+(i*sz), p, sz);
+    }
 }
 
 void graph_reverse(graph_t* g) {
-	if(g == NULL)
-		return;
-	for(int32_t i=0; i < g->w*g->h; i++) {
-		g->buffer[i] = color_reverse(g->buffer[i]);
-	}
+    if(g == NULL)
+        return;
+    for(int32_t i=0; i < g->w*g->h; i++) {
+        g->buffer[i] = color_reverse(g->buffer[i]);
+    }
 }
 
 void graph_reverse_rgb(graph_t* g) {
-	if(g == NULL)
-		return;
-	for(int32_t i=0; i < g->w*g->h; i++) {
-		g->buffer[i] = color_reverse_rgb(g->buffer[i]);
-	}
+    if(g == NULL)
+        return;
+    for(int32_t i=0; i < g->w*g->h; i++) {
+        g->buffer[i] = color_reverse_rgb(g->buffer[i]);
+    }
 }
 
 void graph_gray(graph_t* g) {
-	if(g == NULL)
-		return;
-	for(int32_t i=0; i < g->w*g->h; i++) {
-		g->buffer[i] = color_gray(g->buffer[i]);
-	}
+    if(g == NULL)
+        return;
+    for(int32_t i=0; i < g->w*g->h; i++) {
+        g->buffer[i] = color_gray(g->buffer[i]);
+    }
 }
 
 static inline void rotate_90_clockwise_cache_optimized(const uint32_t* src, uint32_t* dst, 
@@ -211,43 +211,43 @@ static inline void rotate_90_counter_clockwise_cache_optimized(const uint32_t* s
 }
 
 void graph_rotate_to(graph_t* g, graph_t* ret, int rot) {
-	if(g == NULL || ret == NULL)
-		return;
+    if(g == NULL || ret == NULL)
+        return;
 
-	if(rot == G_ROTATE_90) {
-		rotate_90_clockwise_cache_optimized(g->buffer, ret->buffer, g->w, g->h);
-	}
-	else if(rot == G_ROTATE_270) {
-		rotate_90_counter_clockwise_cache_optimized(g->buffer, ret->buffer, g->w, g->h);
-	}
-	else if(rot == G_ROTATE_180) {
-		int w0 = -(g->w);
-		int w1 = ((g->h+1) * g->w) - 1;
-		for(int i=0; i<g->h; ++i) {
-			w0 += g->w;
-			w1 -= g->w;
-			for(int j=0; j<g->w; ++j) {
-				ret->buffer[w0 + j] = g->buffer[w1 - j];
-			}
-		}
-	}
+    if(rot == G_ROTATE_90) {
+        rotate_90_clockwise_cache_optimized(g->buffer, ret->buffer, g->w, g->h);
+    }
+    else if(rot == G_ROTATE_270) {
+        rotate_90_counter_clockwise_cache_optimized(g->buffer, ret->buffer, g->w, g->h);
+    }
+    else if(rot == G_ROTATE_180) {
+        int w0 = -(g->w);
+        int w1 = ((g->h+1) * g->w) - 1;
+        for(int i=0; i<g->h; ++i) {
+            w0 += g->w;
+            w1 -= g->w;
+            for(int j=0; j<g->w; ++j) {
+                ret->buffer[w0 + j] = g->buffer[w1 - j];
+            }
+        }
+    }
 }
 
 inline graph_t* graph_rotate(graph_t* g, int rot) {
-	if(g == NULL)
-		return NULL;
-	graph_t* ret = NULL;
+    if(g == NULL)
+        return NULL;
+    graph_t* ret = NULL;
 
-	if(rot == G_ROTATE_90 || rot == G_ROTATE_270) {
-		ret = graph_new(NULL, g->h, g->w);
-	}
-	else if(rot == G_ROTATE_180) {
-		ret = graph_new(NULL, g->w, g->h);
-	}
-	else 
-		return NULL;
-	graph_rotate_to(g, ret, rot);
-	return ret;
+    if(rot == G_ROTATE_90 || rot == G_ROTATE_270) {
+        ret = graph_new(NULL, g->h, g->w);
+    }
+    else if(rot == G_ROTATE_180) {
+        ret = graph_new(NULL, g->w, g->h);
+    }
+    else 
+        return NULL;
+    graph_rotate_to(g, ret, rot);
+    return ret;
 }
 
 #ifdef __cplusplus

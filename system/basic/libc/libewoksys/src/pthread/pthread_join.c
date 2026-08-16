@@ -3,6 +3,6 @@
 #include <ewoksys/wait.h>
 
 int pthread_join(pthread_t thread, void **retval) {
-	(void)retval;
-	return ewok_waitpid(thread);
+    (void)retval;
+    return ewok_waitpid(thread);
 }

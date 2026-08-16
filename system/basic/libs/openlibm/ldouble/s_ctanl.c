@@ -74,84 +74,84 @@ static const long double DP3 = 1.8830410776607851167459095484560349402753e-39L;
 static long double
 redupil(long double x)
 {
-	long double t;
-	long i;
+    long double t;
+    long i;
 
-	t = x / PIL;
-	if (t >= 0.0L)
-		t += 0.5L;
-	else
-		t -= 0.5L;
+    t = x / PIL;
+    if (t >= 0.0L)
+        t += 0.5L;
+    else
+        t -= 0.5L;
 
-	i = t;	/* the multiple */
-	t = i;
-	t = ((x - t * DP1) - t * DP2) - t * DP3;
-	return (t);
+    i = t;	/* the multiple */
+    t = i;
+    t = ((x - t * DP1) - t * DP2) - t * DP3;
+    return (t);
 }
 
 static long double
 ctansl(long double complex z)
 {
-	long double f, x, x2, y, y2, rn, t;
-	long double d;
+    long double f, x, x2, y, y2, rn, t;
+    long double d;
 
-	x = fabsl(2.0L * creall(z));
-	y = fabsl(2.0L * cimagl(z));
+    x = fabsl(2.0L * creall(z));
+    y = fabsl(2.0L * cimagl(z));
 
-	x = redupil(x);
+    x = redupil(x);
 
-	x = x * x;
-	y = y * y;
-	x2 = 1.0L;
-	y2 = 1.0L;
-	f = 1.0L;
-	rn = 0.0L;
-	d = 0.0L;
-	do {
-		rn += 1.0L;
-		f *= rn;
-		rn += 1.0L;
-		f *= rn;
-		x2 *= x;
-		y2 *= y;
-		t = y2 + x2;
-		t /= f;
-		d += t;
+    x = x * x;
+    y = y * y;
+    x2 = 1.0L;
+    y2 = 1.0L;
+    f = 1.0L;
+    rn = 0.0L;
+    d = 0.0L;
+    do {
+        rn += 1.0L;
+        f *= rn;
+        rn += 1.0L;
+        f *= rn;
+        x2 *= x;
+        y2 *= y;
+        t = y2 + x2;
+        t /= f;
+        d += t;
 
-		rn += 1.0L;
-		f *= rn;
-		rn += 1.0L;
-		f *= rn;
-		x2 *= x;
-		y2 *= y;
-		t = y2 - x2;
-		t /= f;
-		d += t;
-	}
-	while (fabsl(t/d) > MACHEPL);
-	return(d);
+        rn += 1.0L;
+        f *= rn;
+        rn += 1.0L;
+        f *= rn;
+        x2 *= x;
+        y2 *= y;
+        t = y2 - x2;
+        t /= f;
+        d += t;
+    }
+    while (fabsl(t/d) > MACHEPL);
+    return(d);
 }
 
 long double complex
 ctanl(long double complex z)
 {
-	long double complex w;
-	long double d, x, y;
+    long double complex w;
+    long double d, x, y;
 
-	x = creall(z);
-	y = cimagl(z);
-	d = cosl(2.0L * x) + coshl(2.0L * y);
+    x = creall(z);
+    y = cimagl(z);
+    d = cosl(2.0L * x) + coshl(2.0L * y);
 
-	if (fabsl(d) < 0.25L) {
-		d = fabsl(d);
-		d = ctansl(z);
-	}
-	if (d == 0.0L) {
-		/*mtherr( "ctan", OVERFLOW );*/
-		w = LDBL_MAX + LDBL_MAX * I;
-		return (w);
-	}
+    if (fabsl(d) < 0.25L) {
+        d = fabsl(d);
+        d = ctansl(z);
+    }
+    if (d == 0.0L) {
+        /*mtherr( "ctan", OVERFLOW );*/
+        w = LDBL_MAX + LDBL_MAX * I;
+        return (w);
+    }
 
-	w = sinl(2.0L * x) / d + (sinhl(2.0L * y) / d) * I;
-	return (w);
+    w = sinl(2.0L * x) / d + (sinhl(2.0L * y) / d) * I;
+    return (w);
 }

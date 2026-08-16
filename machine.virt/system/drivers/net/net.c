@@ -17,168 +17,168 @@ static uint32_t _idle_sleep_us = 1000;
 #define VIRTNET_IDLE_SLEEP_MAX_US 50000U
 
 static int net_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t *info,
-					void *buf, int size, int offset, void *p)
+                    void *buf, int size, int offset, void *p)
 {
-	(void)dev;
-	(void)fd;
-	(void)from_pid;
-	(void)info;
-	(void)offset;
-	(void)p;
+    (void)dev;
+    (void)fd;
+    (void)from_pid;
+    (void)info;
+    (void)offset;
+    (void)p;
 
-	int ret = virtio_net_read(_net, buf, (uint32_t)size);
-	if (ret == 0 && size > 0)
-	{
-		return VFS_ERR_RETRY;
-	}
-	return ret;
+    int ret = virtio_net_read(_net, buf, (uint32_t)size);
+    if (ret == 0 && size > 0)
+    {
+        return VFS_ERR_RETRY;
+    }
+    return ret;
 }
 
 static int net_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t *info,
-					 const void *buf, int size, int offset, void *p)
+                     const void *buf, int size, int offset, void *p)
 {
-	(void)dev;
-	(void)fd;
-	(void)from_pid;
-	(void)info;
-	(void)offset;
-	(void)p;
+    (void)dev;
+    (void)fd;
+    (void)from_pid;
+    (void)info;
+    (void)offset;
+    (void)p;
 
-	int ret = virtio_net_write(_net, buf, (uint32_t)size);
-	if (ret == 0 && size > 0)
-	{
-		return VFS_ERR_RETRY;
-	}
-	return ret;
+    int ret = virtio_net_write(_net, buf, (uint32_t)size);
+    if (ret == 0 && size > 0)
+    {
+        return VFS_ERR_RETRY;
+    }
+    return ret;
 }
 
 static int net_dcntl(vdevice_t* dev, int from_pid, int cmd, proto_t *in, proto_t *ret, void *p)
 {
-	(void)dev;
-	(void)from_pid;
-	(void)in;
-	(void)p;
+    (void)dev;
+    (void)from_pid;
+    (void)in;
+    (void)p;
 
-	switch (cmd)
-	{
-	case 0: /* get mac */
-	{
-		uint8_t mac[6] = {0};
-		if (virtio_net_read_mac(_net, mac) == 0)
-		{
-			PF->add(ret, mac, sizeof(mac));
-		}
-		break;
-	}
-	case 1: /* get pending rx count */
-		PF->addi(ret, virtio_net_pending_rx(_net));
-		break;
-	default:
-		break;
-	}
+    switch (cmd)
+    {
+    case 0: /* get mac */
+    {
+        uint8_t mac[6] = {0};
+        if (virtio_net_read_mac(_net, mac) == 0)
+        {
+            PF->add(ret, mac, sizeof(mac));
+        }
+        break;
+    }
+    case 1: /* get pending rx count */
+        PF->addi(ret, virtio_net_pending_rx(_net));
+        break;
+    default:
+        break;
+    }
 
-	return 0;
+    return 0;
 }
 
 static uint32_t net_check_poll_events(vdevice_t* dev, int fd, int from_pid, fsinfo_t *info, void *p)
 {
-	(void)dev;
-	(void)fd;
-	(void)from_pid;
-	(void)info;
-	(void)p;
+    (void)dev;
+    (void)fd;
+    (void)from_pid;
+    (void)info;
+    (void)p;
 
-	uint32_t events = 0;
+    uint32_t events = 0;
 
-	if (virtio_net_pending_rx(_net) > 0)
-	{
-		events |= VFS_EVT_RD;
-	}
-	if (virtio_net_can_write(_net) > 0)
-	{
-		events |= VFS_EVT_WR;
-	}
-	return events;
+    if (virtio_net_pending_rx(_net) > 0)
+    {
+        events |= VFS_EVT_RD;
+    }
+    if (virtio_net_can_write(_net) > 0)
+    {
+        events |= VFS_EVT_WR;
+    }
+    return events;
 }
 
 static int net_loop_step(vdevice_t* dev, void *p)
 {
-	(void)p;
-	int pending_rx = 0;
-	int can_write = 0;
+    (void)p;
+    int pending_rx = 0;
+    int can_write = 0;
 
-	if (_net != NULL)
-	{
-		pending_rx = virtio_net_pending_rx(_net);
-		can_write = virtio_net_can_write(_net);
-	}
+    if (_net != NULL)
+    {
+        pending_rx = virtio_net_pending_rx(_net);
+        can_write = virtio_net_can_write(_net);
+    }
 
-	if (pending_rx > 0)
-	{
-		if (!_rx_ready)
-		{
-			vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
-		}
-		_rx_ready = true;
-	}
-	else
-	{
-		_rx_ready = false;
-	}
+    if (pending_rx > 0)
+    {
+        if (!_rx_ready)
+        {
+            vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
+        }
+        _rx_ready = true;
+    }
+    else
+    {
+        _rx_ready = false;
+    }
 
-	if (can_write > 0)
-	{
-		if (!_wr_ready)
-		{
-			vfs_wakeup(dev->mnt_info.node, VFS_EVT_WR);
-		}
-		_wr_ready = true;
-	}
-	else
-	{
-		_wr_ready = false;
-	}
+    if (can_write > 0)
+    {
+        if (!_wr_ready)
+        {
+            vfs_wakeup(dev->mnt_info.node, VFS_EVT_WR);
+        }
+        _wr_ready = true;
+    }
+    else
+    {
+        _wr_ready = false;
+    }
 
-	if (pending_rx > 0 || !_wr_ready)
-	{
-		_idle_sleep_us = 1000;
-	}
-	else if (_idle_sleep_us < VIRTNET_IDLE_SLEEP_MAX_US)
-	{
-		_idle_sleep_us += VIRTNET_IDLE_SLEEP_STEP_US;
-		if (_idle_sleep_us > VIRTNET_IDLE_SLEEP_MAX_US)
-		{
-			_idle_sleep_us = VIRTNET_IDLE_SLEEP_MAX_US;
-		}
-	}
-	proc_usleep(_idle_sleep_us);
-	return 0;
+    if (pending_rx > 0 || !_wr_ready)
+    {
+        _idle_sleep_us = 1000;
+    }
+    else if (_idle_sleep_us < VIRTNET_IDLE_SLEEP_MAX_US)
+    {
+        _idle_sleep_us += VIRTNET_IDLE_SLEEP_STEP_US;
+        if (_idle_sleep_us > VIRTNET_IDLE_SLEEP_MAX_US)
+        {
+            _idle_sleep_us = VIRTNET_IDLE_SLEEP_MAX_US;
+        }
+    }
+    proc_usleep(_idle_sleep_us);
+    return 0;
 }
 
 int main(int argc, char **argv)
 {
-	const char *mnt_point = argc > 1 ? argv[1] : "/dev/eth0";
+    const char *mnt_point = argc > 1 ? argv[1] : "/dev/eth0";
 
-	_net = virtio_net_get();
-	if (_net == NULL)
-	{
-		return -1;
-	}
+    _net = virtio_net_get();
+    if (_net == NULL)
+    {
+        return -1;
+    }
 
-	if (virtio_net_init(_net) != 0)
-	{
-		return -1;
-	}
+    if (virtio_net_init(_net) != 0)
+    {
+        return -1;
+    }
 
-	vdevice_t dev;
-	memset(&dev, 0, sizeof(vdevice_t));
-	strcpy(dev.name, "virtio-net");
-	dev.read = net_read;
-	dev.write = net_write;
-	dev.dev_cntl = net_dcntl;
-	dev.check_poll_events = net_check_poll_events;
-	dev.loop_step = net_loop_step;
+    vdevice_t dev;
+    memset(&dev, 0, sizeof(vdevice_t));
+    strcpy(dev.name, "virtio-net");
+    dev.read = net_read;
+    dev.write = net_write;
+    dev.dev_cntl = net_dcntl;
+    dev.check_poll_events = net_check_poll_events;
+    dev.loop_step = net_loop_step;
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
-	return 0;
+    device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
+    return 0;
 }

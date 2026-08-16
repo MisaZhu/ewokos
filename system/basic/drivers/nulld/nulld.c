@@ -7,53 +7,53 @@
 #include <ewoksys/syscall.h>
 
 static int null_read(vdevice_t* dev,
-		int fd,
-		int from_pid,
-		fsinfo_t* info,
-		void* buf,
-		int size,
-		int offset,
-		void* p) {
+        int fd,
+        int from_pid,
+        fsinfo_t* info,
+        void* buf,
+        int size,
+        int offset,
+        void* p) {
 
-	(void)dev;
-	(void)fd;
-	(void)from_pid;
-	(void)info;
-	(void)buf;
-	(void)size;
-	(void)offset;
-	(void)p;
-	return 0;
+    (void)dev;
+    (void)fd;
+    (void)from_pid;
+    (void)info;
+    (void)buf;
+    (void)size;
+    (void)offset;
+    (void)p;
+    return 0;
 }
 
 static int null_write(vdevice_t* dev,
-		int fd,
-		int from_pid,
-		fsinfo_t* info,
-		const void* buf,
-		int size,
-		int offset,
-		void* p) {
+        int fd,
+        int from_pid,
+        fsinfo_t* info,
+        const void* buf,
+        int size,
+        int offset,
+        void* p) {
 
-	(void)dev;
-	(void)fd;
-	(void)from_pid;
-	(void)info;
-	(void)buf;
-	(void)offset;
-	(void)p;
-	return size;
+    (void)dev;
+    (void)fd;
+    (void)from_pid;
+    (void)info;
+    (void)buf;
+    (void)offset;
+    (void)p;
+    return size;
 }
 
 int main(int argc, char** argv) {
-	const char* mnt_point = argc > 1 ? argv[1]: "/dev/null";
+    const char* mnt_point = argc > 1 ? argv[1]: "/dev/null";
 
-	vdevice_t dev;
-	memset(&dev, 0, sizeof(vdevice_t));
-	strcpy(dev.name, "null");
-	dev.read = null_read;
-	dev.write = null_write;
+    vdevice_t dev;
+    memset(&dev, 0, sizeof(vdevice_t));
+    strcpy(dev.name, "null");
+    dev.read = null_read;
+    dev.write = null_write;
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
-	return 0;
+    device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
+    return 0;
 }

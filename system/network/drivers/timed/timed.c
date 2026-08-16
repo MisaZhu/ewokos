@@ -16,60 +16,60 @@ static uint32_t _next_sync_sec = 0;
 #define TIME_SYNC_RETRY_MIN_SEC 5 
 
 static int time_dcntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
-	(void)dev;
-	(void)p;
-	if(cmd != 0 || _time_init == 0) {
-		PF->addi(ret, -1);
-		return -1;
-	}
+    (void)dev;
+    (void)p;
+    if(cmd != 0 || _time_init == 0) {
+        PF->addi(ret, -1);
+        return -1;
+    }
 
-	uint32_t current_time_sec;
-	kernel_tic(&current_time_sec, NULL);
-	time_t time = _time_init + current_time_sec - _time_sec_init;
-	PF->addi(ret, 0)->addi(ret, time);
-	return 0;
+    uint32_t current_time_sec;
+    kernel_tic(&current_time_sec, NULL);
+    time_t time = _time_init + current_time_sec - _time_sec_init;
+    PF->addi(ret, 0)->addi(ret, time);
+    return 0;
 }
 
 static int time_loop(vdevice_t* dev, void* p) {
-	(void)dev;
-	uint32_t current_time_sec;
-	kernel_tic(&current_time_sec, NULL);
+    (void)dev;
+    uint32_t current_time_sec;
+    kernel_tic(&current_time_sec, NULL);
 
-	if(_next_sync_sec != 0 && current_time_sec < _next_sync_sec) {
-		usleep(300000);
-		return 0;
-	}
+    if(_next_sync_sec != 0 && current_time_sec < _next_sync_sec) {
+        usleep(300000);
+        return 0;
+    }
 
-	if(_time_init == 0 || (current_time_sec - _time_sec_init) > TIME_SYNC_INTERVAL_SEC) {
-    	time_t t = ntpc_get_time(DEFAULT_NTP_SERVER, DEFAULT_NTP_PORT);
-		if(t > 0) {
-			_time_init = t;
-			kernel_tic(&_time_sec_init, NULL);
-			_next_sync_sec = _time_sec_init + TIME_SYNC_INTERVAL_SEC;
-		}
-		else {
-			// Before the first successful sync, retry every 5 seconds.
-			// After we have a valid time, fall back to the normal sync interval.
-			if(_time_init == 0) {
-				_next_sync_sec = current_time_sec + TIME_SYNC_RETRY_MIN_SEC;
-			}
-			else {
-				_next_sync_sec = current_time_sec + TIME_SYNC_INTERVAL_SEC;
-			}
-		}
-	}
-	usleep(300000);
-	return 0;
+    if(_time_init == 0 || (current_time_sec - _time_sec_init) > TIME_SYNC_INTERVAL_SEC) {
+        time_t t = ntpc_get_time(DEFAULT_NTP_SERVER, DEFAULT_NTP_PORT);
+        if(t > 0) {
+            _time_init = t;
+            kernel_tic(&_time_sec_init, NULL);
+            _next_sync_sec = _time_sec_init + TIME_SYNC_INTERVAL_SEC;
+        }
+        else {
+            // Before the first successful sync, retry every 5 seconds.
+            // After we have a valid time, fall back to the normal sync interval.
+            if(_time_init == 0) {
+                _next_sync_sec = current_time_sec + TIME_SYNC_RETRY_MIN_SEC;
+            }
+            else {
+                _next_sync_sec = current_time_sec + TIME_SYNC_INTERVAL_SEC;
+            }
+        }
+    }
+    usleep(300000);
+    return 0;
 }
 
 int main(int argc, char** argv) {
-	const char* mnt_point = "/dev/time";
-	vdevice_t dev;
-	memset(&dev, 0, sizeof(vdevice_t));
-	strcpy(dev.name, "time");
-	dev.dev_cntl = time_dcntl;
-	dev.loop_step = time_loop;
+    const char* mnt_point = "/dev/time";
+    vdevice_t dev;
+    memset(&dev, 0, sizeof(vdevice_t));
+    strcpy(dev.name, "time");
+    dev.dev_cntl = time_dcntl;
+    dev.loop_step = time_loop;
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
-	return 0;
+    device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
+    return 0;
 }

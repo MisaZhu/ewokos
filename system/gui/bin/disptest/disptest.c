@@ -10,10 +10,10 @@
 
 int main(int argc, char** argv) {
     display_t display;
-	if(displayman_open("/dev/displayman", 0, &display) != 0)
-		return -1;
+    if(displayman_open("/dev/displayman", 0, &display) != 0)
+        return -1;
 
-	graph_t *g = display_fetch_graph(&display);
+    graph_t *g = display_fetch_graph(&display);
     font_t* font = font_new(DEFAULT_SYSTEM_FONT, true);
 
     int mouse_fd = open("/dev/mouse0", O_RDONLY | O_NONBLOCK);
@@ -25,7 +25,7 @@ int main(int argc, char** argv) {
     while(!quit) {
         if(dirty) {
             int w = 128, h = 64, r = 16, rw = 3;
-		    graph_gradation(g, 0, 0, g->w, g->h, 0xff444488, 0xff000000, true);
+            graph_gradation(g, 0, 0, g->w, g->h, 0xff444488, 0xff000000, true);
             snprintf(txt, 63, "x:%d, y:%d", x, y);
             graph_fill_round_3d(g, x, y, w, h, r, rw, 0xff008800, false);
             graph_fill_round_3d(g, x+rw, y+rw, w-2*rw, h-2*rw, r-rw, rw, 0xff008800, true);

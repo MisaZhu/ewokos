@@ -111,10 +111,10 @@ struct virtq_t {
 // Device state
 struct virtio_device {
     uintptr_t base;
-	struct virtq_t* virtq;
-	uintptr_t phy;
+    struct virtq_t* virtq;
+    uintptr_t phy;
     int queue_ready;
-	uint64_t sector;
+    uint64_t sector;
 };
 
 static inline void mmio_write(uintptr_t addr, uint32_t value) {
@@ -135,13 +135,13 @@ static struct virtio_device virtio_dev;
 #define VIRTIO_BLK_DEVICE_ID      2u
 
 uint64_t get_phy_addr(struct virtio_device *dev, void* ptr){
-	return dev->phy + (ptr - (void*)dev->virtq);
+    return dev->phy + (ptr - (void*)dev->virtq);
 }
 
 // Initialize the virtio-blk device.
 int virtio_blk_init(struct virtio_device *dev) {
     uintptr_t base = dev->base;
-	uintptr_t paddr = dev->phy;
+    uintptr_t paddr = dev->phy;
 
     //printf("MAGIC:   %08x\n", mmio_read(base + VIRTIO_MMIO_MAGIC));
     //printf("VERSION: %08x\n", mmio_read(base + VIRTIO_MMIO_VERSION));
@@ -177,7 +177,7 @@ int virtio_blk_init(struct virtio_device *dev) {
 int virtio_blk_rw(struct virtio_device *dev, void *buffer, uint32_t count, int write) {
 
     uintptr_t base = dev->base;
-	struct virtq_t *virtq = dev->virtq;
+    struct virtq_t *virtq = dev->virtq;
     
     virtq->req.type =  write ? VIRTIO_BLK_T_OUT : VIRTIO_BLK_T_IN;
     virtq->req.sector = dev->sector;
@@ -213,15 +213,15 @@ int virtio_blk_rw(struct virtio_device *dev, void *buffer, uint32_t count, int w
     virtq->avail.idx++;
    
     mmio_write(base + VIRTIO_MMIO_QUEUE_NOTIFY, 0);
-	uint32_t timeout = 10000;
+    uint32_t timeout = 10000;
     while (timeout--){
-		uint32_t irq = mmio_read(base + VIRTIO_MMIO_INTERRUPT_STATUS);
-		if(irq & 0x1){
-			mmio_write(base + VIRTIO_MMIO_INTERRUPT_ACK, 0x1);
-	        if (!write)
-	            memcpy(buffer, buf_ptr, bytes);
-			break;
-		}
+        uint32_t irq = mmio_read(base + VIRTIO_MMIO_INTERRUPT_STATUS);
+        if(irq & 0x1){
+            mmio_write(base + VIRTIO_MMIO_INTERRUPT_ACK, 0x1);
+            if (!write)
+                memcpy(buffer, buf_ptr, bytes);
+            break;
+        }
         for (volatile int i = 0; i < 1000; i++);
     }
     
@@ -235,39 +235,39 @@ int virtio_blk_rw(struct virtio_device *dev, void *buffer, uint32_t count, int w
 static struct virtio_device device;
 
 static int plat_dma_alloc(void** vaddr, void** paddr, int size){
-	static __attribute__((__aligned__(PAGE_DIR_SIZE))) struct virtq_t virtq;
-	memset(&virtq, 0, sizeof(virtq));
-	ewokos_addr_t phy = (ewokos_addr_t)V2P(&virtq);
-	/*
-	 * The static virtqueue buffer already lives in mapped kernel RAM. The block
-	 * device only needs the physical address; remapping this RAM as device
-	 * memory and globally flushing the TLB here trips HVF on macOS.
-	 */
-	*vaddr = &virtq;
-	*paddr = phy;
+    static __attribute__((__aligned__(PAGE_DIR_SIZE))) struct virtq_t virtq;
+    memset(&virtq, 0, sizeof(virtq));
+    ewokos_addr_t phy = (ewokos_addr_t)V2P(&virtq);
+    /*
+     * The static virtqueue buffer already lives in mapped kernel RAM. The block
+     * device only needs the physical address; remapping this RAM as device
+     * memory and globally flushing the TLB here trips HVF on macOS.
+     */
+    *vaddr = &virtq;
+    *paddr = phy;
     //printf("DMA alloc p:%08x v:%08x size:%d\n", *paddr, *vaddr, size);
 }
 
 static uintptr_t virtio_blk_find_base(void) {
-	for(uint32_t i = 0; i < VIRTIO_MMIO_SLOT_COUNT; i++) {
-		uintptr_t base = MMIO_BASE + VIRTIO_MMIO_SLOT_BASE + (i * VIRTIO_MMIO_SLOT_STRIDE);
-		if(mmio_read(base + VIRTIO_MMIO_MAGIC) != VIRTIO_MMIO_MAGIC_VALUE)
-			continue;
-		if(mmio_read(base + VIRTIO_MMIO_DEVICE_ID) == VIRTIO_BLK_DEVICE_ID)
-			return base;
-	}
-	return 0;
+    for(uint32_t i = 0; i < VIRTIO_MMIO_SLOT_COUNT; i++) {
+        uintptr_t base = MMIO_BASE + VIRTIO_MMIO_SLOT_BASE + (i * VIRTIO_MMIO_SLOT_STRIDE);
+        if(mmio_read(base + VIRTIO_MMIO_MAGIC) != VIRTIO_MMIO_MAGIC_VALUE)
+            continue;
+        if(mmio_read(base + VIRTIO_MMIO_DEVICE_ID) == VIRTIO_BLK_DEVICE_ID)
+            return base;
+    }
+    return 0;
 }
 
 int32_t sd_init(void){
     uintptr_t base = virtio_blk_find_base();
 
-	if(base == 0) {
-		return -1;
-	}
-   	memset(&device, 0, sizeof(device));
-	device.base = base;
-	plat_dma_alloc(&device.virtq, &device.phy, 8192);
+    if(base == 0) {
+        return -1;
+    }
+    memset(&device, 0, sizeof(device));
+    device.base = base;
+    plat_dma_alloc(&device.virtq, &device.phy, 8192);
 
     if (virtio_blk_init(&device) != 0) {
         printf("Virtio-blk init failed\n");
@@ -277,8 +277,8 @@ int32_t sd_init(void){
 }
 
 int32_t sd_dev_read(int32_t sector) {
-	device.sector = sector;
-	return 0;
+    device.sector = sector;
+    return 0;
 }
 
 int32_t sd_dev_read_done(void* buffer) {
@@ -286,9 +286,9 @@ int32_t sd_dev_read_done(void* buffer) {
 }
 
 int32_t sd_dev_write(int32_t sector, const void* buf) {
-	return 0;
+    return 0;
 }
 
 int32_t sd_dev_write_done(void) {
-	return 0;
+    return 0;
 }

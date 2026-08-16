@@ -774,11 +774,11 @@ erfl(long double x)
   if (ix < 0x3ffec000)  /* a < 0.875 */
     {
       if (ix < 0x3fc60000) /* |x|<2**-57 */
-	{
-	  if (ix < 0x00080000)
-	    return 0.125 * (8.0 * x + efx8 * x);	/*avoid underflow */
-	  return x + efx * x;
-	}
+    {
+      if (ix < 0x00080000)
+        return 0.125 * (8.0 * x + efx8 * x);	/*avoid underflow */
+      return x + efx * x;
+    }
       y = a + a * neval (z, TN1, NTN1) / deval (z, TD1, NTD1);
     }
   else
@@ -813,7 +813,7 @@ erfcl(long double x)
   if (ix < 0x3ffd0000) /* |x| <1/4 */
     {
       if (ix < 0x3f8d0000) /* |x|<2**-114 */
-	return one - x;
+    return one - x;
       return one - erfl (x);
     }
   if (ix < 0x3fff4000) /* 1.25 */
@@ -821,50 +821,50 @@ erfcl(long double x)
       x = u.value;
       i = 8.0 * x;
       switch (i)
-	{
-	case 2:
-	  z = x - 0.25L;
-	  y = C13b + z * neval (z, RNr13, NRNr13) / deval (z, RDr13, NRDr13);
-	  y += C13a;
-	  break;
-	case 3:
-	  z = x - 0.375L;
-	  y = C14b + z * neval (z, RNr14, NRNr14) / deval (z, RDr14, NRDr14);
-	  y += C14a;
-	  break;
-	case 4:
-	  z = x - 0.5L;
-	  y = C15b + z * neval (z, RNr15, NRNr15) / deval (z, RDr15, NRDr15);
-	  y += C15a;
-	  break;
-	case 5:
-	  z = x - 0.625L;
-	  y = C16b + z * neval (z, RNr16, NRNr16) / deval (z, RDr16, NRDr16);
-	  y += C16a;
-	  break;
-	case 6:
-	  z = x - 0.75L;
-	  y = C17b + z * neval (z, RNr17, NRNr17) / deval (z, RDr17, NRDr17);
-	  y += C17a;
-	  break;
-	case 7:
-	  z = x - 0.875L;
-	  y = C18b + z * neval (z, RNr18, NRNr18) / deval (z, RDr18, NRDr18);
-	  y += C18a;
-	  break;
-	case 8:
-	  z = x - 1.0L;
-	  y = C19b + z * neval (z, RNr19, NRNr19) / deval (z, RDr19, NRDr19);
-	  y += C19a;
-	  break;
-	case 9:
-	  z = x - 1.125L;
-	  y = C20b + z * neval (z, RNr20, NRNr20) / deval (z, RDr20, NRDr20);
-	  y += C20a;
-	  break;
-	}
+    {
+    case 2:
+      z = x - 0.25L;
+      y = C13b + z * neval (z, RNr13, NRNr13) / deval (z, RDr13, NRDr13);
+      y += C13a;
+      break;
+    case 3:
+      z = x - 0.375L;
+      y = C14b + z * neval (z, RNr14, NRNr14) / deval (z, RDr14, NRDr14);
+      y += C14a;
+      break;
+    case 4:
+      z = x - 0.5L;
+      y = C15b + z * neval (z, RNr15, NRNr15) / deval (z, RDr15, NRDr15);
+      y += C15a;
+      break;
+    case 5:
+      z = x - 0.625L;
+      y = C16b + z * neval (z, RNr16, NRNr16) / deval (z, RDr16, NRDr16);
+      y += C16a;
+      break;
+    case 6:
+      z = x - 0.75L;
+      y = C17b + z * neval (z, RNr17, NRNr17) / deval (z, RDr17, NRDr17);
+      y += C17a;
+      break;
+    case 7:
+      z = x - 0.875L;
+      y = C18b + z * neval (z, RNr18, NRNr18) / deval (z, RDr18, NRDr18);
+      y += C18a;
+      break;
+    case 8:
+      z = x - 1.0L;
+      y = C19b + z * neval (z, RNr19, NRNr19) / deval (z, RDr19, NRDr19);
+      y += C19a;
+      break;
+    case 9:
+      z = x - 1.125L;
+      y = C20b + z * neval (z, RNr20, NRNr20) / deval (z, RDr20, NRDr20);
+      y += C20a;
+      break;
+    }
       if (sign & 0x80000000)
-	y = 2.0L - y;
+    y = 2.0L - y;
       return y;
     }
   /* 1.25 < |x| < 107 */
@@ -872,55 +872,55 @@ erfcl(long double x)
     {
       /* x < -9 */
       if ((ix >= 0x40022000) && (sign & 0x80000000))
-	return two - tiny;
+    return two - tiny;
 
       x = fabsl (x);
       z = one / (x * x);
       i = 8.0 / x;
       switch (i)
-	{
-	default:
-	case 0:
-	  p = neval (z, RNr1, NRNr1) / deval (z, RDr1, NRDr1);
-	  break;
-	case 1:
-	  p = neval (z, RNr2, NRNr2) / deval (z, RDr2, NRDr2);
-	  break;
-	case 2:
-	  p = neval (z, RNr3, NRNr3) / deval (z, RDr3, NRDr3);
-	  break;
-	case 3:
-	  p = neval (z, RNr4, NRNr4) / deval (z, RDr4, NRDr4);
-	  break;
-	case 4:
-	  p = neval (z, RNr5, NRNr5) / deval (z, RDr5, NRDr5);
-	  break;
-	case 5:
-	  p = neval (z, RNr6, NRNr6) / deval (z, RDr6, NRDr6);
-	  break;
-	case 6:
-	  p = neval (z, RNr7, NRNr7) / deval (z, RDr7, NRDr7);
-	  break;
-	case 7:
-	  p = neval (z, RNr8, NRNr8) / deval (z, RDr8, NRDr8);
-	  break;
-	}
+    {
+    default:
+    case 0:
+      p = neval (z, RNr1, NRNr1) / deval (z, RDr1, NRDr1);
+      break;
+    case 1:
+      p = neval (z, RNr2, NRNr2) / deval (z, RDr2, NRDr2);
+      break;
+    case 2:
+      p = neval (z, RNr3, NRNr3) / deval (z, RDr3, NRDr3);
+      break;
+    case 3:
+      p = neval (z, RNr4, NRNr4) / deval (z, RDr4, NRDr4);
+      break;
+    case 4:
+      p = neval (z, RNr5, NRNr5) / deval (z, RDr5, NRDr5);
+      break;
+    case 5:
+      p = neval (z, RNr6, NRNr6) / deval (z, RDr6, NRDr6);
+      break;
+    case 6:
+      p = neval (z, RNr7, NRNr7) / deval (z, RDr7, NRDr7);
+      break;
+    case 7:
+      p = neval (z, RNr8, NRNr8) / deval (z, RDr8, NRDr8);
+      break;
+    }
       u.value = x;
       u.parts32.lswlo = 0;
       u.parts32.lswhi &= 0xfe000000;
       z = u.value;
       r = expl (-z * z - 0.5625) *
-	expl ((z - x) * (z + x) + p);
+    expl ((z - x) * (z + x) + p);
       if ((sign & 0x80000000) == 0)
-	return r / x;
+    return r / x;
       else
-	return two - r / x;
+    return two - r / x;
     }
   else
     {
       if ((sign & 0x80000000) == 0)
-	return tiny * tiny;
+    return tiny * tiny;
       else
-	return two - tiny;
+    return two - tiny;
     }
 }

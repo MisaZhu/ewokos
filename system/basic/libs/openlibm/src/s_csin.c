@@ -62,30 +62,30 @@
 static void
 cchsh(double x, double *c, double *s)
 {
-	double e, ei;
+    double e, ei;
 
-	if (fabs(x) <= 0.5) {
-		*c = cosh(x);
-		*s = sinh(x);
-	}
-	else {
-		e = exp(x);
-		ei = 0.5/e;
-		e = 0.5 * e;
-		*s = e - ei;
-		*c = e + ei;
-	}
+    if (fabs(x) <= 0.5) {
+        *c = cosh(x);
+        *s = sinh(x);
+    }
+    else {
+        e = exp(x);
+        ei = 0.5/e;
+        e = 0.5 * e;
+        *s = e - ei;
+        *c = e + ei;
+    }
 }
 
 double complex
 csin(double complex z)
 {
-	double complex w;
-	double ch, sh;
+    double complex w;
+    double ch, sh;
 
-	cchsh( cimag (z), &ch, &sh );
-	w = sin (creal(z)) * ch + (cos (creal(z)) * sh) * I;
-	return (w);
+    cchsh( cimag (z), &ch, &sh );
+    w = sin (creal(z)) * ch + (cos (creal(z)) * sh) * I;
+    return (w);
 }
 
 #if	LDBL_MANT_DIG == DBL_MANT_DIG

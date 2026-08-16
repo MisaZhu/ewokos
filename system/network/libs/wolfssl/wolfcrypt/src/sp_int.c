@@ -1458,9 +1458,9 @@ static WC_INLINE sp_int_digit sp_div_word(sp_int_digit hi, sp_int_digit lo,
 {
     __asm__ __volatile__ (
         "lsrs	r3, %[d], #24\n\t"
-	"it	eq\n\t"
+    "it	eq\n\t"
         "moveq	r3, #8\n\t"
-	"it	ne\n\t"
+    "it	ne\n\t"
         "movne	r3, #0\n\t"
         "rsb	r4, r3, #31\n\t"
         "lsl	%[d], %[d], r3\n\t"
@@ -3001,12 +3001,12 @@ static WC_INLINE sp_int_digit sp_div_word(sp_int_digit hi, sp_int_digit lo,
         "lsr	r3, %[d], #24\n\t"
 #endif
         "beq	2%=f\n\t"
-	"\n1%=:\n\t"
+    "\n1%=:\n\t"
         "movs	r3, #0\n\t"
         "b	3%=f\n\t"
-	"\n2%=:\n\t"
+    "\n2%=:\n\t"
         "mov	r3, #8\n\t"
-	"\n3%=:\n\t"
+    "\n3%=:\n\t"
         "movs	r4, #31\n\t"
 #if defined(__clang__) || defined(WOLFSSL_KEIL)
         "subs	r4, r4, r3\n\t"

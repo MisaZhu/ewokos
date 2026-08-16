@@ -35,46 +35,46 @@
 OLM_DLLEXPORT double
 scalbln (double x, long n)
 {
-	int in;
+    int in;
 
-	in = (int)n;
-	if (in != n) {
-		if (n > 0)
-			in = INT_MAX;
-		else
-			in = INT_MIN;
-	}
-	return (scalbn(x, in));
+    in = (int)n;
+    if (in != n) {
+        if (n > 0)
+            in = INT_MAX;
+        else
+            in = INT_MIN;
+    }
+    return (scalbn(x, in));
 }
 
 OLM_DLLEXPORT float
 scalblnf (float x, long n)
 {
-	int in;
+    int in;
 
-	in = (int)n;
-	if (in != n) {
-		if (n > 0)
-			in = INT_MAX;
-		else
-			in = INT_MIN;
-	}
-	return (scalbnf(x, in));
+    in = (int)n;
+    if (in != n) {
+        if (n > 0)
+            in = INT_MAX;
+        else
+            in = INT_MIN;
+    }
+    return (scalbnf(x, in));
 }
 
 #ifdef OLM_LONG_DOUBLE
 OLM_DLLEXPORT long double
 scalblnl (long double x, long n)
 {
-	int in;
+    int in;
 
-	in = (int)n;
-	if (in != n) {
-		if (n > 0)
-			in = INT_MAX;
-		else
-			in = INT_MIN;
-	}
-	return (scalbnl(x, (int)n));
+    in = (int)n;
+    if (in != n) {
+        if (n > 0)
+            in = INT_MAX;
+        else
+            in = INT_MIN;
+    }
+    return (scalbnl(x, (int)n));
 }
 #endif

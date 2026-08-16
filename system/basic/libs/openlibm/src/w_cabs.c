@@ -17,7 +17,7 @@
 OLM_DLLEXPORT double
 cabs(double complex z)
 {
-	return hypot(creal(z), cimag(z));
+    return hypot(creal(z), cimag(z));
 }
 
 #if LDBL_MANT_DIG == 53

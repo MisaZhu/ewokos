@@ -125,55 +125,55 @@ static const double zero = 0., one = 1.0, tiny = 1e-300;
 
 OLM_DLLEXPORT double
 tgamma(x)
-	double x;
+    double x;
 {
-	struct Double u;
+    struct Double u;
 
-	if (isgreaterequal(x, 6)) {
-		if(x > 171.63)
-			return (x / zero);
-		u = large_gam(x);
-		return(__exp__D(u.a, u.b));
-	} else if (isgreaterequal(x, 1.0 + LEFT + x0))
-		return (small_gam(x));
-	else if (isgreater(x, 1.e-17))
-		return (smaller_gam(x));
-	else if (isgreater(x, -1.e-17)) {
-		if (x != 0.0)
-			u.a = one - tiny;	/* raise inexact */
-		return (one/x);
-	} else if (!isfinite(x))
-		return (x - x);		/* x is NaN or -Inf */
-	else
-		return (neg_gam(x));
+    if (isgreaterequal(x, 6)) {
+        if(x > 171.63)
+            return (x / zero);
+        u = large_gam(x);
+        return(__exp__D(u.a, u.b));
+    } else if (isgreaterequal(x, 1.0 + LEFT + x0))
+        return (small_gam(x));
+    else if (isgreater(x, 1.e-17))
+        return (smaller_gam(x));
+    else if (isgreater(x, -1.e-17)) {
+        if (x != 0.0)
+            u.a = one - tiny;	/* raise inexact */
+        return (one/x);
+    } else if (!isfinite(x))
+        return (x - x);		/* x is NaN or -Inf */
+    else
+        return (neg_gam(x));
 }
 /*
  * Accurate to max(ulp(1/128) absolute, 2^-66 relative) error.
  */
 static struct Double
 large_gam(x)
-	double x;
+    double x;
 {
-	double z, p;
-	struct Double t, u, v;
+    double z, p;
+    struct Double t, u, v;
 
-	z = one/(x*x);
-	p = Pa0+z*(Pa1+z*(Pa2+z*(Pa3+z*(Pa4+z*(Pa5+z*(Pa6+z*Pa7))))));
-	p = p/x;
+    z = one/(x*x);
+    p = Pa0+z*(Pa1+z*(Pa2+z*(Pa3+z*(Pa4+z*(Pa5+z*(Pa6+z*Pa7))))));
+    p = p/x;
 
-	u = __log__D(x);
-	u.a -= one;
-	v.a = (x -= .5);
-	TRUNC(v.a);
-	v.b = x - v.a;
-	t.a = v.a*u.a;			/* t = (x-.5)*(log(x)-1) */
-	t.b = v.b*u.a + x*u.b;
-	/* return t.a + t.b + lns2pi_hi + lns2pi_lo + p */
-	t.b += lns2pi_lo; t.b += p;
-	u.a = lns2pi_hi + t.b; u.a += t.a;
-	u.b = t.a - u.a;
-	u.b += lns2pi_hi; u.b += t.b;
-	return (u);
+    u = __log__D(x);
+    u.a -= one;
+    v.a = (x -= .5);
+    TRUNC(v.a);
+    v.b = x - v.a;
+    t.a = v.a*u.a;			/* t = (x-.5)*(log(x)-1) */
+    t.b = v.b*u.a + x*u.b;
+    /* return t.a + t.b + lns2pi_hi + lns2pi_lo + p */
+    t.b += lns2pi_lo; t.b += p;
+    u.a = lns2pi_hi + t.b; u.a += t.a;
+    u.b = t.a - u.a;
+    u.b += lns2pi_hi; u.b += t.b;
+    return (u);
 }
 /*
  * Good to < 1 ulp.  (provably .90 ulp; .87 ulp on 1,000,000 runs.)
@@ -181,137 +181,137 @@ large_gam(x)
  */
 static double
 small_gam(x)
-	double x;
+    double x;
 {
-	double y, ym1, t;
-	struct Double yy, r;
-	y = x - one;
-	ym1 = y - one;
-	if (y <= 1.0 + (LEFT + x0)) {
-		yy = ratfun_gam(y - x0, 0);
-		return (yy.a + yy.b);
-	}
-	r.a = y;
-	TRUNC(r.a);
-	yy.a = r.a - one;
-	y = ym1;
-	yy.b = r.b = y - yy.a;
-	/* Argument reduction: G(x+1) = x*G(x) */
-	for (ym1 = y-one; ym1 > LEFT + x0; y = ym1--, yy.a--) {
-		t = r.a*yy.a;
-		r.b = r.a*yy.b + y*r.b;
-		r.a = t;
-		TRUNC(r.a);
-		r.b += (t - r.a);
-	}
-	/* Return r*tgamma(y). */
-	yy = ratfun_gam(y - x0, 0);
-	y = r.b*(yy.a + yy.b) + r.a*yy.b;
-	y += yy.a*r.a;
-	return (y);
+    double y, ym1, t;
+    struct Double yy, r;
+    y = x - one;
+    ym1 = y - one;
+    if (y <= 1.0 + (LEFT + x0)) {
+        yy = ratfun_gam(y - x0, 0);
+        return (yy.a + yy.b);
+    }
+    r.a = y;
+    TRUNC(r.a);
+    yy.a = r.a - one;
+    y = ym1;
+    yy.b = r.b = y - yy.a;
+    /* Argument reduction: G(x+1) = x*G(x) */
+    for (ym1 = y-one; ym1 > LEFT + x0; y = ym1--, yy.a--) {
+        t = r.a*yy.a;
+        r.b = r.a*yy.b + y*r.b;
+        r.a = t;
+        TRUNC(r.a);
+        r.b += (t - r.a);
+    }
+    /* Return r*tgamma(y). */
+    yy = ratfun_gam(y - x0, 0);
+    y = r.b*(yy.a + yy.b) + r.a*yy.b;
+    y += yy.a*r.a;
+    return (y);
 }
 /*
  * Good on (0, 1+x0+LEFT].  Accurate to 1ulp.
  */
 static double
 smaller_gam(x)
-	double x;
+    double x;
 {
-	double t, d;
-	struct Double r, xx;
-	if (x < x0 + LEFT) {
-		t = x, TRUNC(t);
-		d = (t+x)*(x-t);
-		t *= t;
-		xx.a = (t + x), TRUNC(xx.a);
-		xx.b = x - xx.a; xx.b += t; xx.b += d;
-		t = (one-x0); t += x;
-		d = (one-x0); d -= t; d += x;
-		x = xx.a + xx.b;
-	} else {
-		xx.a =  x, TRUNC(xx.a);
-		xx.b = x - xx.a;
-		t = x - x0;
-		d = (-x0 -t); d += x;
-	}
-	r = ratfun_gam(t, d);
-	d = r.a/x, TRUNC(d);
-	r.a -= d*xx.a; r.a -= d*xx.b; r.a += r.b;
-	return (d + r.a/x);
+    double t, d;
+    struct Double r, xx;
+    if (x < x0 + LEFT) {
+        t = x, TRUNC(t);
+        d = (t+x)*(x-t);
+        t *= t;
+        xx.a = (t + x), TRUNC(xx.a);
+        xx.b = x - xx.a; xx.b += t; xx.b += d;
+        t = (one-x0); t += x;
+        d = (one-x0); d -= t; d += x;
+        x = xx.a + xx.b;
+    } else {
+        xx.a =  x, TRUNC(xx.a);
+        xx.b = x - xx.a;
+        t = x - x0;
+        d = (-x0 -t); d += x;
+    }
+    r = ratfun_gam(t, d);
+    d = r.a/x, TRUNC(d);
+    r.a -= d*xx.a; r.a -= d*xx.b; r.a += r.b;
+    return (d + r.a/x);
 }
 /*
  * returns (z+c)^2 * P(z)/Q(z) + a0
  */
 static struct Double
 ratfun_gam(z, c)
-	double z, c;
+    double z, c;
 {
-	double p, q;
-	struct Double r, t;
+    double p, q;
+    struct Double r, t;
 
-	q = Q0 +z*(Q1+z*(Q2+z*(Q3+z*(Q4+z*(Q5+z*(Q6+z*(Q7+z*Q8)))))));
-	p = P0 + z*(P1 + z*(P2 + z*(P3 + z*P4)));
+    q = Q0 +z*(Q1+z*(Q2+z*(Q3+z*(Q4+z*(Q5+z*(Q6+z*(Q7+z*Q8)))))));
+    p = P0 + z*(P1 + z*(P2 + z*(P3 + z*P4)));
 
-	/* return r.a + r.b = a0 + (z+c)^2*p/q, with r.a truncated to 26 bits. */
-	p = p/q;
-	t.a = z, TRUNC(t.a);		/* t ~= z + c */
-	t.b = (z - t.a) + c;
-	t.b *= (t.a + z);
-	q = (t.a *= t.a);		/* t = (z+c)^2 */
-	TRUNC(t.a);
-	t.b += (q - t.a);
-	r.a = p, TRUNC(r.a);		/* r = P/Q */
-	r.b = p - r.a;
-	t.b = t.b*p + t.a*r.b + a0_lo;
-	t.a *= r.a;			/* t = (z+c)^2*(P/Q) */
-	r.a = t.a + a0_hi, TRUNC(r.a);
-	r.b = ((a0_hi-r.a) + t.a) + t.b;
-	return (r);			/* r = a0 + t */
+    /* return r.a + r.b = a0 + (z+c)^2*p/q, with r.a truncated to 26 bits. */
+    p = p/q;
+    t.a = z, TRUNC(t.a);		/* t ~= z + c */
+    t.b = (z - t.a) + c;
+    t.b *= (t.a + z);
+    q = (t.a *= t.a);		/* t = (z+c)^2 */
+    TRUNC(t.a);
+    t.b += (q - t.a);
+    r.a = p, TRUNC(r.a);		/* r = P/Q */
+    r.b = p - r.a;
+    t.b = t.b*p + t.a*r.b + a0_lo;
+    t.a *= r.a;			/* t = (z+c)^2*(P/Q) */
+    r.a = t.a + a0_hi, TRUNC(r.a);
+    r.b = ((a0_hi-r.a) + t.a) + t.b;
+    return (r);			/* r = a0 + t */
 }
 
 static double
 neg_gam(x)
-	double x;
+    double x;
 {
-	int sgn = 1;
-	struct Double lg, lsine;
-	double y, z;
+    int sgn = 1;
+    struct Double lg, lsine;
+    double y, z;
 
-	y = ceil(x);
-	if (y == x)		/* Negative integer. */
-		return ((x - x) / zero);
-	z = y - x;
-	if (z > 0.5)
-		z = one - z;
-	y = 0.5 * y;
-	if (y == ceil(y))
-		sgn = -1;
-	if (z < .25)
-		z = sin(M_PI*z);
-	else
-		z = cos(M_PI*(0.5-z));
-	/* Special case: G(1-x) = Inf; G(x) may be nonzero. */
-	if (x < -170) {
-		if (x < -190)
-			return ((double)sgn*tiny*tiny);
-		y = one - x;		/* exact: 128 < |x| < 255 */
-		lg = large_gam(y);
-		lsine = __log__D(M_PI/z);	/* = TRUNC(log(u)) + small */
-		lg.a -= lsine.a;		/* exact (opposite signs) */
-		lg.b -= lsine.b;
-		y = -(lg.a + lg.b);
-		z = (y + lg.a) + lg.b;
-		y = __exp__D(y, z);
-		if (sgn < 0) y = -y;
-		return (y);
-	}
-	y = one-x;
-	if (one-y == x)
-		y = tgamma(y);
-	else		/* 1-x is inexact */
-		y = -x*tgamma(-x);
-	if (sgn < 0) y = -y;
-	return (M_PI / (y*z));
+    y = ceil(x);
+    if (y == x)		/* Negative integer. */
+        return ((x - x) / zero);
+    z = y - x;
+    if (z > 0.5)
+        z = one - z;
+    y = 0.5 * y;
+    if (y == ceil(y))
+        sgn = -1;
+    if (z < .25)
+        z = sin(M_PI*z);
+    else
+        z = cos(M_PI*(0.5-z));
+    /* Special case: G(1-x) = Inf; G(x) may be nonzero. */
+    if (x < -170) {
+        if (x < -190)
+            return ((double)sgn*tiny*tiny);
+        y = one - x;		/* exact: 128 < |x| < 255 */
+        lg = large_gam(y);
+        lsine = __log__D(M_PI/z);	/* = TRUNC(log(u)) + small */
+        lg.a -= lsine.a;		/* exact (opposite signs) */
+        lg.b -= lsine.b;
+        y = -(lg.a + lg.b);
+        z = (y + lg.a) + lg.b;
+        y = __exp__D(y, z);
+        if (sgn < 0) y = -y;
+        return (y);
+    }
+    y = one-x;
+    if (one-y == x)
+        y = tgamma(y);
+    else		/* 1-x is inexact */
+        y = -x*tgamma(-x);
+    if (sgn < 0) y = -y;
+    return (M_PI / (y*z));
 }
 
 #if (LDBL_MANT_DIG == 53)

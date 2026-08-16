@@ -60,30 +60,30 @@
 static void
 _cchsh(double x, double *c, double *s)
 {
-	double e, ei;
+    double e, ei;
 
-	if (fabs(x) <= 0.5) {
-		*c = cosh(x);
-		*s = sinh(x);
-	}
-	else {
-		e = exp(x);
-		ei = 0.5/e;
-		e = 0.5 * e;
-		*s = e - ei;
-		*c = e + ei;
-	}
+    if (fabs(x) <= 0.5) {
+        *c = cosh(x);
+        *s = sinh(x);
+    }
+    else {
+        e = exp(x);
+        ei = 0.5/e;
+        e = 0.5 * e;
+        *s = e - ei;
+        *c = e + ei;
+    }
 }
 
 double complex
 ccos(double complex z)
 {
-	double complex w;
-	double ch, sh;
+    double complex w;
+    double ch, sh;
 
-	_cchsh( cimag(z), &ch, &sh );
-	w = cos(creal (z)) * ch - (sin (creal (z)) * sh) * I;
-	return (w);
+    _cchsh( cimag(z), &ch, &sh );
+    w = cos(creal (z)) * ch - (sin (creal (z)) * sh) * I;
+    return (w);
 }
 
 #if	LDBL_MANT_DIG == DBL_MANT_DIG

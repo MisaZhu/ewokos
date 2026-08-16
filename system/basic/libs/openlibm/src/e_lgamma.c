@@ -29,8 +29,8 @@ OLM_DLLEXPORT double
 __ieee754_lgamma(double x)
 {
 #ifdef OPENLIBM_ONLY_THREAD_SAFE
-	int signgam;
+    int signgam;
 #endif
 
-	return __ieee754_lgamma_r(x,&signgam);
+    return __ieee754_lgamma_r(x,&signgam);
 }

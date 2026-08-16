@@ -45,7 +45,7 @@ asinhl(long double x)
   if (ix < 0x3fc70000)
     {				/* |x| < 2^ -56 */
       if (huge + x > one)
-	return x;		/* return x inexact except 0 */
+    return x;		/* return x inexact except 0 */
     }
   u.parts32.mswhi = ix;
   if (ix > 0x40350000)

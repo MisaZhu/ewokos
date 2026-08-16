@@ -15,247 +15,247 @@ extern "C" {
 
 static inline uint16x8_t neon_div255_u16(uint16x8_t v)
 {
-	uint16x8_t t = vaddq_u16(v, vdupq_n_u16(1));
-	t = vaddq_u16(t, vshrq_n_u16(v, 8));
-	return vshrq_n_u16(t, 8);
+    uint16x8_t t = vaddq_u16(v, vdupq_n_u16(1));
+    t = vaddq_u16(t, vshrq_n_u16(v, 8));
+    return vshrq_n_u16(t, 8);
 }
 
 static inline void neon_alpha_8(uint32_t *b, uint32_t *f, uint32_t *d, uint8_t alpha_more)
 {
-	uint8x8x4_t fg = vld4_u8((const uint8_t*)f);
-	uint8x8x4_t bg = vld4_u8((const uint8_t*)b);
-	uint8x8x4_t out;
-	uint8x8_t full = vdup_n_u8(0xff);
-	uint8x8_t scaled = vdup_n_u8(alpha_more);
-	uint8x8_t a = vmovn_u16(neon_div255_u16(vmull_u8(fg.val[3], scaled)));
-	uint8x8_t inv_a = vsub_u8(full, a);
-	uint16x8_t oa_add = neon_div255_u16(vmull_u8(vsub_u8(full, bg.val[3]), a));
+    uint8x8x4_t fg = vld4_u8((const uint8_t*)f);
+    uint8x8x4_t bg = vld4_u8((const uint8_t*)b);
+    uint8x8x4_t out;
+    uint8x8_t full = vdup_n_u8(0xff);
+    uint8x8_t scaled = vdup_n_u8(alpha_more);
+    uint8x8_t a = vmovn_u16(neon_div255_u16(vmull_u8(fg.val[3], scaled)));
+    uint8x8_t inv_a = vsub_u8(full, a);
+    uint16x8_t oa_add = neon_div255_u16(vmull_u8(vsub_u8(full, bg.val[3]), a));
 
-	out.val[0] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[0], a), vmull_u8(bg.val[0], inv_a))));
-	out.val[1] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[1], a), vmull_u8(bg.val[1], inv_a))));
-	out.val[2] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[2], a), vmull_u8(bg.val[2], inv_a))));
-	out.val[3] = vmovn_u16(vaddq_u16(vmovl_u8(bg.val[3]), oa_add));
+    out.val[0] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[0], a), vmull_u8(bg.val[0], inv_a))));
+    out.val[1] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[1], a), vmull_u8(bg.val[1], inv_a))));
+    out.val[2] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[2], a), vmull_u8(bg.val[2], inv_a))));
+    out.val[3] = vmovn_u16(vaddq_u16(vmovl_u8(bg.val[3]), oa_add));
 
-	vst4_u8((uint8_t*)d, out);
+    vst4_u8((uint8_t*)d, out);
 }
 
 static inline void neon_8(uint32_t *s, uint32_t *d)
 {
-	__asm volatile(
-		"vld4.8    {d20-d23},[%0]\n\t" // Load foreground
-		"vst4.8   {d20-d23},[%1]\n\t"
-		:
-		: "r"(s), "r"(d)
-		: "memory");
-	return;
+    __asm volatile(
+        "vld4.8    {d20-d23},[%0]\n\t" // Load foreground
+        "vst4.8   {d20-d23},[%1]\n\t"
+        :
+        : "r"(s), "r"(d)
+        : "memory");
+    return;
 }
 
 static inline void neon_fill_load(uint32_t *s)
 {
-	__asm volatile(
-		"vld4.8    {d20-d23},[%0]\n\t" // Load foreground
-		:
-		: "r"(s)
-		: "memory");
-	return;
+    __asm volatile(
+        "vld4.8    {d20-d23},[%0]\n\t" // Load foreground
+        :
+        : "r"(s)
+        : "memory");
+    return;
 }
 
 
 static inline void neon_fill_store(uint32_t *d)
 {
-	__asm volatile(
-		"vst4.8   {d20-d23},[%0]\n\t"
-		:
-		: "r"(d)
-		: "memory");
-	return;
+    __asm volatile(
+        "vst4.8   {d20-d23},[%0]\n\t"
+        :
+        : "r"(d)
+        : "memory");
+    return;
 }
 
 static inline void graph_pixel_argb_neon(graph_t *graph, int32_t x, int32_t y,
-								  uint32_t *src, int size, uint8_t alpha)
+                                  uint32_t *src, int size, uint8_t alpha)
 {
-	uint32_t fg[8];
-	uint32_t bg[8];
-	uint32_t *dst = &graph->buffer[y * graph->w + x];
+    uint32_t fg[8];
+    uint32_t bg[8];
+    uint32_t *dst = &graph->buffer[y * graph->w + x];
 
-	if (size >= 8)
-	{
-		neon_alpha_8(dst, src, dst, alpha);
-	}
-	else
-	{
-		memcpy(fg, src, 4 * size);
-		memcpy(bg, dst, 4 * size);
-		neon_alpha_8(bg, fg, bg, alpha);
-		memcpy(dst, bg, 4 * size);
-	}
+    if (size >= 8)
+    {
+        neon_alpha_8(dst, src, dst, alpha);
+    }
+    else
+    {
+        memcpy(fg, src, 4 * size);
+        memcpy(bg, dst, 4 * size);
+        neon_alpha_8(bg, fg, bg, alpha);
+        memcpy(dst, bg, 4 * size);
+    }
 }
 
 static inline void graph_pixel_neon(graph_t *graph, int32_t x, int32_t y,
-								  uint32_t *src, int size)
+                                  uint32_t *src, int size)
 {
-	uint32_t *dst = &graph->buffer[y * graph->w + x];
+    uint32_t *dst = &graph->buffer[y * graph->w + x];
 
-	if (size == 8)
-	{
-		neon_8(src, dst);
-	}
-	else
-	{
-		memcpy(dst, src, 4 * size);
-	}
+    if (size == 8)
+    {
+        neon_8(src, dst);
+    }
+    else
+    {
+        memcpy(dst, src, 4 * size);
+    }
 }
 
 void graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
-	uint32_t buf[8];
+    uint32_t buf[8];
 
-	if(g == NULL || w <= 0 || h <= 0)
-		return;
-	grect_t r = {x, y, w, h};
-	if(!graph_insect(g, &r))
-		return;
+    if(g == NULL || w <= 0 || h <= 0)
+        return;
+    grect_t r = {x, y, w, h};
+    if(!graph_insect(g, &r))
+        return;
     if(g->clip.w > 0 && g->clip.h > 0)
         grect_insect(&g->clip, &r);
 
-	register int32_t ex, ey;
-	y = r.y;
-	ex = r.x + r.w;
-	ey = r.y + r.h;
+    register int32_t ex, ey;
+    y = r.y;
+    ex = r.x + r.w;
+    ey = r.y + r.h;
 
-	for(int i = 0; i < 8; i++)
-		buf[i] = color;
-	
-	if(color_a(color) == 0xff) {
-		neon_fill_load(buf);
-		for(; y < ey; y++) {
-			x = r.x;
-			for(; x < ex; x+=8) {
-				uint32_t *dst = &g->buffer[y * g->w + x];
-				int pixels = ex -x;
-				if(pixels >= 8)
-					neon_fill_store(dst);
-				else
-					memcpy(dst, buf, pixels * 4);
-			}
-		}
-	}
-	else {
-		for(; y < ey; y++) {
-			x = r.x;
-			for(; x < ex; x+=8) {
-				graph_pixel_argb_neon(g, x, y, buf, MIN(ex-x, 8), 0xFF);
-			}
-		}
-	}
+    for(int i = 0; i < 8; i++)
+        buf[i] = color;
+    
+    if(color_a(color) == 0xff) {
+        neon_fill_load(buf);
+        for(; y < ey; y++) {
+            x = r.x;
+            for(; x < ex; x+=8) {
+                uint32_t *dst = &g->buffer[y * g->w + x];
+                int pixels = ex -x;
+                if(pixels >= 8)
+                    neon_fill_store(dst);
+                else
+                    memcpy(dst, buf, pixels * 4);
+            }
+        }
+    }
+    else {
+        for(; y < ey; y++) {
+            x = r.x;
+            for(; x < ex; x+=8) {
+                graph_pixel_argb_neon(g, x, y, buf, MIN(ex-x, 8), 0xFF);
+            }
+        }
+    }
 }
 
 inline void graph_blt_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
-		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
-	
-	if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
-		return;
+        graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
+    
+    if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
+        return;
 
-	grect_t sr = {sx, sy, sw, sh};
-	grect_t dr = {dx, dy, dw, dh};
-	graph_insect(dst, &dr);
-	if(dst->clip.w > 0 && dst->clip.h > 0)
-		grect_insect(&dst->clip, &dr);
+    grect_t sr = {sx, sy, sw, sh};
+    grect_t dr = {dx, dy, dw, dh};
+    graph_insect(dst, &dr);
+    if(dst->clip.w > 0 && dst->clip.h > 0)
+        grect_insect(&dst->clip, &dr);
 
-	if(!graph_insect_with(src, &sr, dst, &dr))
-		return;
+    if(!graph_insect_with(src, &sr, dst, &dr))
+        return;
 
-	if(dx < 0)
-		sr.x -= dx;
-	if(dy < 0)
-		sr.y -= dy;
+    if(dx < 0)
+        sr.x -= dx;
+    if(dy < 0)
+        sr.y -= dy;
 
-	register int32_t ex, ey;
-	sy = sr.y;
-	dy = dr.y;
-	ex = sr.x + sr.w;
-	ey = sr.y + sr.h;
-	int32_t w = ex - sr.x;
+    register int32_t ex, ey;
+    sy = sr.y;
+    dy = dr.y;
+    ex = sr.x + sr.w;
+    ey = sr.y + sr.h;
+    int32_t w = ex - sr.x;
 
-	/* Full-width rows on both sides: whole region is contiguous in memory,
-	   collapse the row loop into one big memcpy (common full-screen path) */
-	if(w == src->w && w == dst->w) {
-		memcpy(&dst->buffer[dy * w], &src->buffer[sy * w],
-				(size_t)(ey - sy) * (size_t)w * 4);
-		return;
-	}
+    /* Full-width rows on both sides: whole region is contiguous in memory,
+       collapse the row loop into one big memcpy (common full-screen path) */
+    if(w == src->w && w == dst->w) {
+        memcpy(&dst->buffer[dy * w], &src->buffer[sy * w],
+                (size_t)(ey - sy) * (size_t)w * 4);
+        return;
+    }
 
-	for(; sy < ey; sy++, dy++) {
-		const uint32_t *sp = &src->buffer[sy * src->w + sr.x];
-		uint32_t *dp = &dst->buffer[dy * dst->w + dr.x];
+    for(; sy < ey; sy++, dy++) {
+        const uint32_t *sp = &src->buffer[sy * src->w + sr.x];
+        uint32_t *dp = &dst->buffer[dy * dst->w + dr.x];
 
-		/* Wide rows: libc memcpy uses cache-managed assembly */
-		if(w >= 64) {
-			memcpy(dp, sp, w * 4);
-			continue;
-		}
+        /* Wide rows: libc memcpy uses cache-managed assembly */
+        if(w >= 64) {
+            memcpy(dp, sp, w * 4);
+            continue;
+        }
 
-		int32_t x = 0;
-		/* 16 pixels (64 bytes) per iteration */
-		for(; x <= w - 16; x += 16) {
-			uint32x4_t v0 = vld1q_u32(sp + x);
-			uint32x4_t v1 = vld1q_u32(sp + x + 4);
-			uint32x4_t v2 = vld1q_u32(sp + x + 8);
-			uint32x4_t v3 = vld1q_u32(sp + x + 12);
-			vst1q_u32(dp + x, v0);
-			vst1q_u32(dp + x + 4, v1);
-			vst1q_u32(dp + x + 8, v2);
-			vst1q_u32(dp + x + 12, v3);
-		}
-		/* 8 pixels */
-		if(x <= w - 8) {
-			uint32x4_t v0 = vld1q_u32(sp + x);
-			uint32x4_t v1 = vld1q_u32(sp + x + 4);
-			vst1q_u32(dp + x, v0);
-			vst1q_u32(dp + x + 4, v1);
-			x += 8;
-		}
-		/* Tail */
-		if(x < w)
-			memcpy(dp + x, sp + x, (w - x) * 4);
-	}
+        int32_t x = 0;
+        /* 16 pixels (64 bytes) per iteration */
+        for(; x <= w - 16; x += 16) {
+            uint32x4_t v0 = vld1q_u32(sp + x);
+            uint32x4_t v1 = vld1q_u32(sp + x + 4);
+            uint32x4_t v2 = vld1q_u32(sp + x + 8);
+            uint32x4_t v3 = vld1q_u32(sp + x + 12);
+            vst1q_u32(dp + x, v0);
+            vst1q_u32(dp + x + 4, v1);
+            vst1q_u32(dp + x + 8, v2);
+            vst1q_u32(dp + x + 12, v3);
+        }
+        /* 8 pixels */
+        if(x <= w - 8) {
+            uint32x4_t v0 = vld1q_u32(sp + x);
+            uint32x4_t v1 = vld1q_u32(sp + x + 4);
+            vst1q_u32(dp + x, v0);
+            vst1q_u32(dp + x + 4, v1);
+            x += 8;
+        }
+        /* Tail */
+        if(x < w)
+            memcpy(dp + x, sp + x, (w - x) * 4);
+    }
 }
 
 /* Inline alpha blend of 8 pixels: dst = fg over bg, with global alpha scaling.
    alpha_vec must be vdup_n_u8(alpha) — created once outside the loop. */
 static inline void blt_alpha_8_inline(uint32_t *dp, const uint32_t *sp, uint8x8_t alpha_vec)
 {
-	uint8x8x4_t fg = vld4_u8((const uint8_t*)sp);
-	uint8x8x4_t bg = vld4_u8((const uint8_t*)dp);
-	uint8x8_t full = vdup_n_u8(0xff);
-	uint8x8_t a = vmovn_u16(neon_div255_u16(vmull_u8(fg.val[3], alpha_vec)));
-	uint8x8_t inv_a = vsub_u8(full, a);
-	uint16x8_t oa_add = neon_div255_u16(vmull_u8(vsub_u8(full, bg.val[3]), a));
-	uint8x8x4_t out;
-	out.val[0] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[0], a), vmull_u8(bg.val[0], inv_a))));
-	out.val[1] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[1], a), vmull_u8(bg.val[1], inv_a))));
-	out.val[2] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[2], a), vmull_u8(bg.val[2], inv_a))));
-	out.val[3] = vmovn_u16(vaddq_u16(vmovl_u8(bg.val[3]), oa_add));
-	vst4_u8((uint8_t*)dp, out);
+    uint8x8x4_t fg = vld4_u8((const uint8_t*)sp);
+    uint8x8x4_t bg = vld4_u8((const uint8_t*)dp);
+    uint8x8_t full = vdup_n_u8(0xff);
+    uint8x8_t a = vmovn_u16(neon_div255_u16(vmull_u8(fg.val[3], alpha_vec)));
+    uint8x8_t inv_a = vsub_u8(full, a);
+    uint16x8_t oa_add = neon_div255_u16(vmull_u8(vsub_u8(full, bg.val[3]), a));
+    uint8x8x4_t out;
+    out.val[0] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[0], a), vmull_u8(bg.val[0], inv_a))));
+    out.val[1] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[1], a), vmull_u8(bg.val[1], inv_a))));
+    out.val[2] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[2], a), vmull_u8(bg.val[2], inv_a))));
+    out.val[3] = vmovn_u16(vaddq_u16(vmovl_u8(bg.val[3]), oa_add));
+    vst4_u8((uint8_t*)dp, out);
 }
 
 /* Horizontal max/min of 16 u8 lanes via pairwise folding (ARMv7 NEON
    has no vmaxvq/vminvq — those are AArch64 only) */
 static inline uint8_t neon_hmax_u8x16(uint8x16_t v)
 {
-	uint8x8_t m = vpmax_u8(vget_low_u8(v), vget_high_u8(v));
-	m = vpmax_u8(m, m);
-	m = vpmax_u8(m, m);
-	m = vpmax_u8(m, m);
-	return vget_lane_u8(m, 0);
+    uint8x8_t m = vpmax_u8(vget_low_u8(v), vget_high_u8(v));
+    m = vpmax_u8(m, m);
+    m = vpmax_u8(m, m);
+    m = vpmax_u8(m, m);
+    return vget_lane_u8(m, 0);
 }
 
 static inline uint8_t neon_hmin_u8x16(uint8x16_t v)
 {
-	uint8x8_t m = vpmin_u8(vget_low_u8(v), vget_high_u8(v));
-	m = vpmin_u8(m, m);
-	m = vpmin_u8(m, m);
-	m = vpmin_u8(m, m);
-	return vget_lane_u8(m, 0);
+    uint8x8_t m = vpmin_u8(vget_low_u8(v), vget_high_u8(v));
+    m = vpmin_u8(m, m);
+    m = vpmin_u8(m, m);
+    m = vpmin_u8(m, m);
+    return vget_lane_u8(m, 0);
 }
 
 /* Alpha blend of 16 pixels using full-width q registers, with block-level
@@ -264,104 +264,104 @@ static inline uint8_t neon_hmin_u8x16(uint8x16_t v)
 static inline void blt_alpha_16_inline(uint32_t *dp, const uint32_t *sp,
                                        uint8x16_t alpha_vec, uint8_t alpha)
 {
-	uint8x16x4_t fg = vld4q_u8((const uint8_t*)sp);
+    uint8x16x4_t fg = vld4q_u8((const uint8_t*)sp);
 
-	/* All 16 source alphas == 0: dst untouched, no read/write at all */
-	if(neon_hmax_u8x16(fg.val[3]) == 0)
-		return;
+    /* All 16 source alphas == 0: dst untouched, no read/write at all */
+    if(neon_hmax_u8x16(fg.val[3]) == 0)
+        return;
 
-	/* All 16 source alphas == 0xff at full global alpha: plain copy */
-	if(alpha == 0xff && neon_hmin_u8x16(fg.val[3]) == 0xff) {
-		vst4q_u8((uint8_t*)dp, fg);
-		return;
-	}
+    /* All 16 source alphas == 0xff at full global alpha: plain copy */
+    if(alpha == 0xff && neon_hmin_u8x16(fg.val[3]) == 0xff) {
+        vst4q_u8((uint8_t*)dp, fg);
+        return;
+    }
 
-	uint8x16x4_t bg = vld4q_u8((const uint8_t*)dp);
-	uint8x16_t full = vdupq_n_u8(0xff);
+    uint8x16x4_t bg = vld4q_u8((const uint8_t*)dp);
+    uint8x16_t full = vdupq_n_u8(0xff);
 
-	uint8x8_t a_lo = vmovn_u16(neon_div255_u16(vmull_u8(vget_low_u8(fg.val[3]), vget_low_u8(alpha_vec))));
-	uint8x8_t a_hi = vmovn_u16(neon_div255_u16(vmull_u8(vget_high_u8(fg.val[3]), vget_high_u8(alpha_vec))));
-	uint8x16_t a = vcombine_u8(a_lo, a_hi);
-	uint8x16_t inv_a = vsubq_u8(full, a);
+    uint8x8_t a_lo = vmovn_u16(neon_div255_u16(vmull_u8(vget_low_u8(fg.val[3]), vget_low_u8(alpha_vec))));
+    uint8x8_t a_hi = vmovn_u16(neon_div255_u16(vmull_u8(vget_high_u8(fg.val[3]), vget_high_u8(alpha_vec))));
+    uint8x16_t a = vcombine_u8(a_lo, a_hi);
+    uint8x16_t inv_a = vsubq_u8(full, a);
 
-	uint8x16x4_t out;
-	/* out = div255(fg*a + bg*(255-a)) per channel, low/high halves widened */
-	for(int c = 0; c < 3; c++) {
-		uint16x8_t lo = vaddq_u16(vmull_u8(vget_low_u8(fg.val[c]), a_lo),
-								  vmull_u8(vget_low_u8(bg.val[c]), vget_low_u8(inv_a)));
-		uint16x8_t hi = vaddq_u16(vmull_u8(vget_high_u8(fg.val[c]), a_hi),
-								  vmull_u8(vget_high_u8(bg.val[c]), vget_high_u8(inv_a)));
-		out.val[c] = vcombine_u8(vmovn_u16(neon_div255_u16(lo)), vmovn_u16(neon_div255_u16(hi)));
-	}
-	/* out_a = bg_a + div255((255-bg_a)*a) */
-	uint16x8_t oa_lo = neon_div255_u16(vmull_u8(vsub_u8(vget_low_u8(full), vget_low_u8(bg.val[3])), a_lo));
-	uint16x8_t oa_hi = neon_div255_u16(vmull_u8(vsub_u8(vget_high_u8(full), vget_high_u8(bg.val[3])), a_hi));
-	out.val[3] = vcombine_u8(
-		vmovn_u16(vaddq_u16(vmovl_u8(vget_low_u8(bg.val[3])), oa_lo)),
-		vmovn_u16(vaddq_u16(vmovl_u8(vget_high_u8(bg.val[3])), oa_hi)));
+    uint8x16x4_t out;
+    /* out = div255(fg*a + bg*(255-a)) per channel, low/high halves widened */
+    for(int c = 0; c < 3; c++) {
+        uint16x8_t lo = vaddq_u16(vmull_u8(vget_low_u8(fg.val[c]), a_lo),
+                                  vmull_u8(vget_low_u8(bg.val[c]), vget_low_u8(inv_a)));
+        uint16x8_t hi = vaddq_u16(vmull_u8(vget_high_u8(fg.val[c]), a_hi),
+                                  vmull_u8(vget_high_u8(bg.val[c]), vget_high_u8(inv_a)));
+        out.val[c] = vcombine_u8(vmovn_u16(neon_div255_u16(lo)), vmovn_u16(neon_div255_u16(hi)));
+    }
+    /* out_a = bg_a + div255((255-bg_a)*a) */
+    uint16x8_t oa_lo = neon_div255_u16(vmull_u8(vsub_u8(vget_low_u8(full), vget_low_u8(bg.val[3])), a_lo));
+    uint16x8_t oa_hi = neon_div255_u16(vmull_u8(vsub_u8(vget_high_u8(full), vget_high_u8(bg.val[3])), a_hi));
+    out.val[3] = vcombine_u8(
+        vmovn_u16(vaddq_u16(vmovl_u8(vget_low_u8(bg.val[3])), oa_lo)),
+        vmovn_u16(vaddq_u16(vmovl_u8(vget_high_u8(bg.val[3])), oa_hi)));
 
-	vst4q_u8((uint8_t*)dp, out);
+    vst4q_u8((uint8_t*)dp, out);
 }
 
 inline void graph_blt_alpha_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
-		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
-	if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
-		return;
+        graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
+    if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
+        return;
 
-	/* Global alpha 0: nothing visible, skip entirely */
-	if(alpha == 0)
-		return;
+    /* Global alpha 0: nothing visible, skip entirely */
+    if(alpha == 0)
+        return;
 
-	grect_t sr = {sx, sy, sw, sh};
-	grect_t dr = {dx, dy, dw, dh};
-	graph_insect(dst, &dr);
-	if(dst->clip.w > 0 && dst->clip.h > 0)
-		grect_insect(&dst->clip, &dr);
+    grect_t sr = {sx, sy, sw, sh};
+    grect_t dr = {dx, dy, dw, dh};
+    graph_insect(dst, &dr);
+    if(dst->clip.w > 0 && dst->clip.h > 0)
+        grect_insect(&dst->clip, &dr);
 
-	if(!graph_insect_with(src, &sr, dst, &dr))
-		return;
+    if(!graph_insect_with(src, &sr, dst, &dr))
+        return;
 
-	if(dx < 0)
-		sr.x -= dx;
-	if(dy < 0)
-		sr.y -= dy;
+    if(dx < 0)
+        sr.x -= dx;
+    if(dy < 0)
+        sr.y -= dy;
 
-	register int32_t ex, ey;
-	sy = sr.y;
-	dy = dr.y;
-	ex = sr.x + sr.w;
-	ey = sr.y + sr.h;
-	int32_t w = ex - sr.x;
+    register int32_t ex, ey;
+    sy = sr.y;
+    dy = dr.y;
+    ex = sr.x + sr.w;
+    ey = sr.y + sr.h;
+    int32_t w = ex - sr.x;
 
-	/* Create alpha vectors once — constant across the entire blit */
-	uint8x16_t alpha_vec16 = vdupq_n_u8(alpha);
-	uint8x8_t alpha_vec = vdup_n_u8(alpha);
+    /* Create alpha vectors once — constant across the entire blit */
+    uint8x16_t alpha_vec16 = vdupq_n_u8(alpha);
+    uint8x8_t alpha_vec = vdup_n_u8(alpha);
 
-	for(; sy < ey; sy++, dy++) {
-		const uint32_t *sp = &src->buffer[sy * src->w + sr.x];
-		uint32_t *dp = &dst->buffer[dy * dst->w + dr.x];
-		int32_t x = 0;
+    for(; sy < ey; sy++, dy++) {
+        const uint32_t *sp = &src->buffer[sy * src->w + sr.x];
+        uint32_t *dp = &dst->buffer[dy * dst->w + dr.x];
+        int32_t x = 0;
 
-		/* 16 pixels per iteration with transparent/opaque block fast paths */
-		for(; x <= w - 16; x += 16) {
-			__builtin_prefetch(sp + x + 64);
-			blt_alpha_16_inline(dp + x, sp + x, alpha_vec16, alpha);
-		}
-		/* 8 pixels */
-		if(x <= w - 8) {
-			blt_alpha_8_inline(dp + x, sp + x, alpha_vec);
-			x += 8;
-		}
-		/* Tail */
-		if(x < w) {
-			int remain = w - x;
-			uint32_t fg[8] = {0}, bg[8] = {0};
-			memcpy(fg, sp + x, 4 * remain);
-			memcpy(bg, dp + x, 4 * remain);
-			blt_alpha_8_inline(bg, fg, alpha_vec);
-			memcpy(dp + x, bg, 4 * remain);
-		}
-	}
+        /* 16 pixels per iteration with transparent/opaque block fast paths */
+        for(; x <= w - 16; x += 16) {
+            __builtin_prefetch(sp + x + 64);
+            blt_alpha_16_inline(dp + x, sp + x, alpha_vec16, alpha);
+        }
+        /* 8 pixels */
+        if(x <= w - 8) {
+            blt_alpha_8_inline(dp + x, sp + x, alpha_vec);
+            x += 8;
+        }
+        /* Tail */
+        if(x < w) {
+            int remain = w - x;
+            uint32_t fg[8] = {0}, bg[8] = {0};
+            memcpy(fg, sp + x, 4 * remain);
+            memcpy(bg, dp + x, 4 * remain);
+            blt_alpha_8_inline(bg, fg, alpha_vec);
+            memcpy(dp + x, bg, 4 * remain);
+        }
+    }
 }
 
 static inline void neon_mask_alpha_8(uint32_t *dst, uint32_t *src)
@@ -406,59 +406,59 @@ static inline void neon_mask_alpha_8(uint32_t *dst, uint32_t *src)
 }
 
 static inline void graph_pixel_alpha_mask_neon(graph_t *graph, int32_t x, int32_t y,
-								  uint32_t *src, int size)
+                                  uint32_t *src, int size)
 {
-	uint32_t *dst = &graph->buffer[y * graph->w + x];
+    uint32_t *dst = &graph->buffer[y * graph->w + x];
 
-	if (size == 8)
-	{
-		neon_mask_alpha_8(dst, src);
-	}
-	else
-	{
-		// For size < 8, use memcpy to handle boundaries
-		uint32_t src_buf[8] = {0};
-		uint32_t dst_buf[8] = {0};
-		memcpy(src_buf, src, 4 * size);
-		memcpy(dst_buf, dst, 4 * size);
-		neon_mask_alpha_8(dst_buf, src_buf);
-		memcpy(dst, dst_buf, 4 * size);
-	}
+    if (size == 8)
+    {
+        neon_mask_alpha_8(dst, src);
+    }
+    else
+    {
+        // For size < 8, use memcpy to handle boundaries
+        uint32_t src_buf[8] = {0};
+        uint32_t dst_buf[8] = {0};
+        memcpy(src_buf, src, 4 * size);
+        memcpy(dst_buf, dst, 4 * size);
+        neon_mask_alpha_8(dst_buf, src_buf);
+        memcpy(dst, dst_buf, 4 * size);
+    }
 }
 
 inline void graph_blt_alpha_mask_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
-		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
-	if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
-		return;
+        graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
+    if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
+        return;
 
-	grect_t sr = {sx, sy, sw, sh};
-	grect_t dr = {dx, dy, dw, dh};
-	graph_insect(dst, &dr);
-	if(dst->clip.w > 0 && dst->clip.h > 0)
-		grect_insect(&dst->clip, &dr);
+    grect_t sr = {sx, sy, sw, sh};
+    grect_t dr = {dx, dy, dw, dh};
+    graph_insect(dst, &dr);
+    if(dst->clip.w > 0 && dst->clip.h > 0)
+        grect_insect(&dst->clip, &dr);
 
-	if(!graph_insect_with(src, &sr, dst, &dr))
-		return;
+    if(!graph_insect_with(src, &sr, dst, &dr))
+        return;
 
-	if(dx < 0)
-		sr.x -= dx;
-	if(dy < 0)
-		sr.y -= dy;
+    if(dx < 0)
+        sr.x -= dx;
+    if(dy < 0)
+        sr.y -= dy;
 
-	register int32_t ex, ey;
-	sy = sr.y;
-	dy = dr.y;
-	ex = sr.x + sr.w;
-	ey = sr.y + sr.h;
+    register int32_t ex, ey;
+    sy = sr.y;
+    dy = dr.y;
+    ex = sr.x + sr.w;
+    ey = sr.y + sr.h;
 
-	for(; sy < ey; sy++, dy++) {
-		register int32_t sx = sr.x;
-		register int32_t dx = dr.x;
-		register int32_t offset = sy * src->w;
-		for(; sx < ex; sx+=8, dx+=8) {
-			graph_pixel_alpha_mask_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex-sx, 8));	
-		}
-	}
+    for(; sy < ey; sy++, dy++) {
+        register int32_t sx = sr.x;
+        register int32_t dx = dr.x;
+        register int32_t offset = sy * src->w;
+        for(; sx < ex; sx+=8, dx+=8) {
+            graph_pixel_alpha_mask_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex-sx, 8));	
+        }
+    }
 }
 
 static bool seeded = false;
@@ -470,10 +470,10 @@ static void glass_neon(uint32_t* args, int width, int height,
     if (x < 0 || y < 0 || x + w > width || y + h > height)
         return;
 
-	uint32_t *tmp = (uint32_t*)malloc(width * height * sizeof(uint32_t));
-	if(tmp == NULL)
-		return;
-	memcpy(tmp, args, width * height * sizeof(uint32_t));
+    uint32_t *tmp = (uint32_t*)malloc(width * height * sizeof(uint32_t));
+    if(tmp == NULL)
+        return;
+    memcpy(tmp, args, width * height * sizeof(uint32_t));
 
     // Use fixed random seed to ensure consistent effect
     if (!seeded) {
@@ -498,9 +498,9 @@ static void glass_neon(uint32_t* args, int width, int height,
     int total_pixels = w * h;
     int* rand_offsets = malloc(total_pixels * 2 * sizeof(int));
 
-	for (int i = 0; i < total_pixels * 2; i++) {
-		rand_offsets[i] = (rand() % range) - r;
-	}
+    for (int i = 0; i < total_pixels * 2; i++) {
+        rand_offsets[i] = (rand() % range) - r;
+    }
 
     // Process image area
     int offset_index = 0;
@@ -564,7 +564,7 @@ static void glass_neon(uint32_t* args, int width, int height,
         }
     }
     
-	free(tmp);
+    free(tmp);
     free(rand_offsets);
 }
 
@@ -573,15 +573,15 @@ static void graph_glass_neon(graph_t* g, int x, int y, int w, int h, int r) {
         return;
     }
 
-	grect_t ir = {x, y, w, h};
-	if(!graph_insect(g, &ir))
-		return;
-	x = ir.x;
-	y = ir.y;
-	w = ir.w;
-	h = ir.h;
+    grect_t ir = {x, y, w, h};
+    if(!graph_insect(g, &ir))
+        return;
+    x = ir.x;
+    y = ir.y;
+    w = ir.w;
+    h = ir.h;
 
-	glass_neon(g->buffer, g->w, g->h, x, y, w, h, 2);
+    glass_neon(g->buffer, g->w, g->h, x, y, w, h, 2);
 }
 
 static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
@@ -768,15 +768,15 @@ static void graph_gaussian_neon(graph_t* g, int x, int y, int w, int h, int r) {
         return;
     }
 
-	grect_t ir = {x, y, w, h};
-	if(!graph_insect(g, &ir))
-		return;
-	x = ir.x;
-	y = ir.y;
-	w = ir.w;
-	h = ir.h;
+    grect_t ir = {x, y, w, h};
+    if(!graph_insect(g, &ir))
+        return;
+    x = ir.x;
+    y = ir.y;
+    w = ir.w;
+    h = ir.h;
 
-	gaussian_blur_neon(g->buffer, g->w, g->h, x, y, w, h, r);
+    gaussian_blur_neon(g->buffer, g->w, g->h, x, y, w, h, r);
 }
 
 inline void graph_glass_arch(graph_t* g, int x, int y, int w, int h, int r) {

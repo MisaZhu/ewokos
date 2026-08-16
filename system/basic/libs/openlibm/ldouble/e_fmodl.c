@@ -65,86 +65,86 @@ static const long double one = 1.0, Zero[] = {0.0, -0.0,};
 OLM_DLLEXPORT long double
 fmodl(long double x, long double y)
 {
-	union IEEEl2bits ux, uy;
-	int64_t hx,hz;	/* We need a carry bit even if LDBL_MANH_SIZE is 32. */
-	manh_t hy;
-	manl_t lx,ly,lz;
-	int ix,iy,n,sx;
+    union IEEEl2bits ux, uy;
+    int64_t hx,hz;	/* We need a carry bit even if LDBL_MANH_SIZE is 32. */
+    manh_t hy;
+    manl_t lx,ly,lz;
+    int ix,iy,n,sx;
 
-	ux.e = x;
-	uy.e = y;
-	sx = ux.bits.sign;
+    ux.e = x;
+    uy.e = y;
+    sx = ux.bits.sign;
 
     /* purge off exception values */
-	if((uy.bits.exp|uy.bits.manh|uy.bits.manl)==0 || /* y=0 */
-	   (ux.bits.exp == BIAS + LDBL_MAX_EXP) ||	 /* or x not finite */
-	   (uy.bits.exp == BIAS + LDBL_MAX_EXP &&
-	    ((uy.bits.manh&~LDBL_NBIT)|uy.bits.manl)!=0)) /* or y is NaN */
-	    return (x*y)/(x*y);
-	if(ux.bits.exp<=uy.bits.exp) {
-	    if((ux.bits.exp<uy.bits.exp) ||
-	       (ux.bits.manh<=uy.bits.manh &&
-		(ux.bits.manh<uy.bits.manh ||
-		 ux.bits.manl<uy.bits.manl))) {
-		return x;		/* |x|<|y| return x or x-y */
-	    }
-	    if(ux.bits.manh==uy.bits.manh && ux.bits.manl==uy.bits.manl) {
-		return Zero[sx];	/* |x|=|y| return x*0*/
-	    }
-	}
+    if((uy.bits.exp|uy.bits.manh|uy.bits.manl)==0 || /* y=0 */
+       (ux.bits.exp == BIAS + LDBL_MAX_EXP) ||	 /* or x not finite */
+       (uy.bits.exp == BIAS + LDBL_MAX_EXP &&
+        ((uy.bits.manh&~LDBL_NBIT)|uy.bits.manl)!=0)) /* or y is NaN */
+        return (x*y)/(x*y);
+    if(ux.bits.exp<=uy.bits.exp) {
+        if((ux.bits.exp<uy.bits.exp) ||
+           (ux.bits.manh<=uy.bits.manh &&
+        (ux.bits.manh<uy.bits.manh ||
+         ux.bits.manl<uy.bits.manl))) {
+        return x;		/* |x|<|y| return x or x-y */
+        }
+        if(ux.bits.manh==uy.bits.manh && ux.bits.manl==uy.bits.manl) {
+        return Zero[sx];	/* |x|=|y| return x*0*/
+        }
+    }
 
     /* determine ix = ilogb(x) */
-	if(ux.bits.exp == 0) {	/* subnormal x */
-	    ux.e *= 0x1.0p512;
-	    ix = ux.bits.exp - (BIAS + 512);
-	} else {
-	    ix = ux.bits.exp - BIAS;
-	}
+    if(ux.bits.exp == 0) {	/* subnormal x */
+        ux.e *= 0x1.0p512;
+        ix = ux.bits.exp - (BIAS + 512);
+    } else {
+        ix = ux.bits.exp - BIAS;
+    }
 
     /* determine iy = ilogb(y) */
-	if(uy.bits.exp == 0) {	/* subnormal y */
-	    uy.e *= 0x1.0p512;
-	    iy = uy.bits.exp - (BIAS + 512);
-	} else {
-	    iy = uy.bits.exp - BIAS;
-	}
+    if(uy.bits.exp == 0) {	/* subnormal y */
+        uy.e *= 0x1.0p512;
+        iy = uy.bits.exp - (BIAS + 512);
+    } else {
+        iy = uy.bits.exp - BIAS;
+    }
 
     /* set up {hx,lx}, {hy,ly} and align y to x */
-	hx = SET_NBIT(ux.bits.manh);
-	hy = SET_NBIT(uy.bits.manh);
-	lx = ux.bits.manl;
-	ly = uy.bits.manl;
+    hx = SET_NBIT(ux.bits.manh);
+    hy = SET_NBIT(uy.bits.manh);
+    lx = ux.bits.manl;
+    ly = uy.bits.manl;
 
     /* fix point fmod */
-	n = ix - iy;
+    n = ix - iy;
 
-	while(n--) {
-	    hz=hx-hy;lz=lx-ly; if(lx<ly) hz -= 1;
-	    if(hz<0){hx = hx+hx+(lx>>MANL_SHIFT); lx = lx+lx;}
-	    else {
-		if ((hz|lz)==0)		/* return sign(x)*0 */
-		    return Zero[sx];
-		hx = hz+hz+(lz>>MANL_SHIFT); lx = lz+lz;
-	    }
-	}
-	hz=hx-hy;lz=lx-ly; if(lx<ly) hz -= 1;
-	if(hz>=0) {hx=hz;lx=lz;}
+    while(n--) {
+        hz=hx-hy;lz=lx-ly; if(lx<ly) hz -= 1;
+        if(hz<0){hx = hx+hx+(lx>>MANL_SHIFT); lx = lx+lx;}
+        else {
+        if ((hz|lz)==0)		/* return sign(x)*0 */
+            return Zero[sx];
+        hx = hz+hz+(lz>>MANL_SHIFT); lx = lz+lz;
+        }
+    }
+    hz=hx-hy;lz=lx-ly; if(lx<ly) hz -= 1;
+    if(hz>=0) {hx=hz;lx=lz;}
 
     /* convert back to floating value and restore the sign */
-	if((hx|lx)==0)			/* return sign(x)*0 */
-	    return Zero[sx];
-	while(hx<(1ULL<<HFRAC_BITS)) {	/* normalize x */
-	    hx = hx+hx+(lx>>MANL_SHIFT); lx = lx+lx;
-	    iy -= 1;
-	}
-	ux.bits.manh = hx; /* The mantissa is truncated here if needed. */
-	ux.bits.manl = lx;
-	if (iy < LDBL_MIN_EXP) {
-	    ux.bits.exp = iy + (BIAS + 512);
-	    ux.e *= 0x1p-512;
-	} else {
-	    ux.bits.exp = iy + BIAS;
-	}
-	x = ux.e * one;		/* create necessary signal */
-	return x;		/* exact output */
+    if((hx|lx)==0)			/* return sign(x)*0 */
+        return Zero[sx];
+    while(hx<(1ULL<<HFRAC_BITS)) {	/* normalize x */
+        hx = hx+hx+(lx>>MANL_SHIFT); lx = lx+lx;
+        iy -= 1;
+    }
+    ux.bits.manh = hx; /* The mantissa is truncated here if needed. */
+    ux.bits.manl = lx;
+    if (iy < LDBL_MIN_EXP) {
+        ux.bits.exp = iy + (BIAS + 512);
+        ux.e *= 0x1p-512;
+    } else {
+        ux.bits.exp = iy + BIAS;
+    }
+    x = ux.e * one;		/* create necessary signal */
+    return x;		/* exact output */
 }

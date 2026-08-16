@@ -11,16 +11,16 @@
 #include "minimp3/mp3player.h"
 
 int main(int argc, char **argv) {
-	if(argc < 2) {
-		fprintf(stderr, "Usage: %s [mp3_fname]\n", argv[0]);
-		return 1;
-	}
+    if(argc < 2) {
+        fprintf(stderr, "Usage: %s [mp3_fname]\n", argv[0]);
+        return 1;
+    }
 
-	if(argc >= 3) {
-		mp3_play_file(argv[1], argv[2]);
-	} else {
-		mp3_play_file(argv[1], "/dev/sound0");
+    if(argc >= 3) {
+        mp3_play_file(argv[1], argv[2]);
+    } else {
+        mp3_play_file(argv[1], "/dev/sound0");
 
-	}
-	return 0;
+    }
+    return 0;
 }

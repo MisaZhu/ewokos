@@ -59,14 +59,14 @@
 float complex
 clogf(float complex z)
 {
-	float complex w;
-	float p, rr, x, y;
+    float complex w;
+    float p, rr, x, y;
 
-	x = crealf(z);
-	y = cimagf(z);
-	rr = atan2f(y, x);
-	p = cabsf(z);
-	p = logf(p);
-	w = p + rr * I;
-	return (w);
+    x = crealf(z);
+    y = cimagf(z);
+    rr = atan2f(y, x);
+    p = cabsf(z);
+    p = logf(p);
+    w = p + rr * I;
+    return (w);
 }

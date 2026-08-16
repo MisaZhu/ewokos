@@ -33,7 +33,7 @@
 OLM_DLLEXPORT long double
 remainderl(long double x, long double y)
 {
-	int quo;
+    int quo;
 
-	return (remquol(x, y, &quo));
+    return (remquol(x, y, &quo));
 }

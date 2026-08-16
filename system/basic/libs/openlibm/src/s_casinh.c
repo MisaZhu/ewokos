@@ -51,10 +51,10 @@
 double complex
 casinh(double complex z)
 {
-	double complex w;
+    double complex w;
 
-	w = -1.0 * I * casin (z * I);
-	return (w);
+    w = -1.0 * I * casin (z * I);
+    return (w);
 }
 
 #if	LDBL_MANT_DIG == DBL_MANT_DIG

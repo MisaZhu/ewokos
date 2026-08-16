@@ -14,140 +14,140 @@
 
 
 static void input(int pid, mouse_evt_t* mevt) {
-	xevent_t ev;
-	bool is_scroll = mevt->button == MOUSE_BUTTON_SCROLL_UP ||
-			mevt->button == MOUSE_BUTTON_SCROLL_DOWN ||
-			mevt->button == MOUSE_BUTTON_SCROLL_LEFT ||
-			mevt->button == MOUSE_BUTTON_SCROLL_RIGHT;
+    xevent_t ev;
+    bool is_scroll = mevt->button == MOUSE_BUTTON_SCROLL_UP ||
+            mevt->button == MOUSE_BUTTON_SCROLL_DOWN ||
+            mevt->button == MOUSE_BUTTON_SCROLL_LEFT ||
+            mevt->button == MOUSE_BUTTON_SCROLL_RIGHT;
 
-	memset(&ev, 0, sizeof(xevent_t));
-	ev.type = XEVT_MOUSE;
-	ev.state = mevt->state;
-	if(is_scroll) {
-		/*
-		 * Scroll events need the current cursor position so xserver can route
-		 * them to the window under the pointer. Do not encode them as a large
-		 * relative move.
-		 */
-		ev.value.mouse.relative = 0;
-		ev.value.mouse.x = mevt->x;
-		ev.value.mouse.y = mevt->y;
-	}
-	else if(mevt->type == MOUSE_TYPE_REL){
-		ev.value.mouse.relative = 1;
-		ev.value.mouse.rx = mevt->x;
-		ev.value.mouse.ry = mevt->y;
-	}else if(mevt->type == MOUSE_TYPE_ABS){
-		ev.value.mouse.relative = 0;
-		ev.value.mouse.x = mevt->x;
-		ev.value.mouse.y = mevt->y;
-	}
-	ev.value.mouse.button = mevt->button;
-	proto_t in;
-	PF->init(&in)->add(&in, &ev, sizeof(xevent_t));
-	dev_cntl_by_pid(pid, X_DCNTL_INPUT, &in, NULL);
-	PF->clear(&in);
+    memset(&ev, 0, sizeof(xevent_t));
+    ev.type = XEVT_MOUSE;
+    ev.state = mevt->state;
+    if(is_scroll) {
+        /*
+         * Scroll events need the current cursor position so xserver can route
+         * them to the window under the pointer. Do not encode them as a large
+         * relative move.
+         */
+        ev.value.mouse.relative = 0;
+        ev.value.mouse.x = mevt->x;
+        ev.value.mouse.y = mevt->y;
+    }
+    else if(mevt->type == MOUSE_TYPE_REL){
+        ev.value.mouse.relative = 1;
+        ev.value.mouse.rx = mevt->x;
+        ev.value.mouse.ry = mevt->y;
+    }else if(mevt->type == MOUSE_TYPE_ABS){
+        ev.value.mouse.relative = 0;
+        ev.value.mouse.x = mevt->x;
+        ev.value.mouse.y = mevt->y;
+    }
+    ev.value.mouse.button = mevt->button;
+    proto_t in;
+    PF->init(&in)->add(&in, &ev, sizeof(xevent_t));
+    dev_cntl_by_pid(pid, X_DCNTL_INPUT, &in, NULL);
+    PF->clear(&in);
 }
 
 int main(int argc, char** argv) {
-	const char* dev_name = argc < 2 ? "/dev/mouse0":argv[1];
-	int xpid = -1;
-	int width = 0, height = 0;
-	int click_detect = 0;
+    const char* dev_name = argc < 2 ? "/dev/mouse0":argv[1];
+    int xpid = -1;
+    int width = 0, height = 0;
+    int click_detect = 0;
 
-	uint64_t click_time = 0;
-	uint64_t drag_time = 0;
+    uint64_t click_time = 0;
+    uint64_t drag_time = 0;
 
-	// Last known mouse position for wheel events
-	int last_x = 0;
-	int last_y = 0;
+    // Last known mouse position for wheel events
+    int last_x = 0;
+    int last_y = 0;
 
-	int fd = open(dev_name, O_RDONLY);
-	if(fd < 0) {
-		fprintf(stderr, "xmouse error: open [%s] failed!\n", dev_name);
-		return -1;
-	}
+    int fd = open(dev_name, O_RDONLY);
+    if(fd < 0) {
+        fprintf(stderr, "xmouse error: open [%s] failed!\n", dev_name);
+        return -1;
+    }
 
-	while(xpid < 0) {
-		xpid = dev_get_pid("/dev/x");
-		if(xpid > 0) {
-			xscreen_info_t scr;
-			x_screen_info(&scr, 0);
-			width = scr.size.w;
-			height = scr.size.h;
-			break;
-		}	
-		proc_usleep(100000);
-	}
+    while(xpid < 0) {
+        xpid = dev_get_pid("/dev/x");
+        if(xpid > 0) {
+            xscreen_info_t scr;
+            x_screen_info(&scr, 0);
+            width = scr.size.w;
+            height = scr.size.h;
+            break;
+        }	
+        proc_usleep(100000);
+    }
 
-	while(true) {
-		mouse_evt_t mevt;
-		if(mouse_read(fd, &mevt) == 1) {
-			//calculate absolute position
-			if(mevt.type == MOUSE_TYPE_ABS){
-				mevt.x = mevt.x * width / 32768;
-				mevt.y = mevt.y * height / 32768;
-			}
+    while(true) {
+        mouse_evt_t mevt;
+        if(mouse_read(fd, &mevt) == 1) {
+            //calculate absolute position
+            if(mevt.type == MOUSE_TYPE_ABS){
+                mevt.x = mevt.x * width / 32768;
+                mevt.y = mevt.y * height / 32768;
+            }
 
-			// Update last known position for relative movement
-			if(mevt.type == MOUSE_TYPE_REL){
-				last_x += mevt.x;
-				last_y += mevt.y;
-				// Clamp to screen bounds
-				if(last_x < 0) last_x = 0;
-				if(last_x >= width) last_x = width - 1;
-				if(last_y < 0) last_y = 0;
-				if(last_y >= height) last_y = height - 1;
-			}
-			else if(mevt.type == MOUSE_TYPE_ABS){
-				last_x = mevt.x;
-				last_y = mevt.y;
-			}
+            // Update last known position for relative movement
+            if(mevt.type == MOUSE_TYPE_REL){
+                last_x += mevt.x;
+                last_y += mevt.y;
+                // Clamp to screen bounds
+                if(last_x < 0) last_x = 0;
+                if(last_x >= width) last_x = width - 1;
+                if(last_y < 0) last_y = 0;
+                if(last_y >= height) last_y = height - 1;
+            }
+            else if(mevt.type == MOUSE_TYPE_ABS){
+                last_x = mevt.x;
+                last_y = mevt.y;
+            }
 
-			// For scroll wheel events, use last known position
-			if(mevt.button == MOUSE_BUTTON_SCROLL_UP || mevt.button == MOUSE_BUTTON_SCROLL_DOWN){
-				mevt.x = last_x;
-				mevt.y = last_y;
-			}
+            // For scroll wheel events, use last known position
+            if(mevt.button == MOUSE_BUTTON_SCROLL_UP || mevt.button == MOUSE_BUTTON_SCROLL_DOWN){
+                mevt.x = last_x;
+                mevt.y = last_y;
+            }
 
-			//double click detect
-			if(mevt.state == MOUSE_STATE_UP && mevt.button == MOUSE_BUTTON_LEFT){
-				if(kernel_tic_ms(0) - click_time < 300){
-					click_detect ++;
-				}
-				click_time = kernel_tic_ms(0);
-				drag_time = 0;
-			}
+            //double click detect
+            if(mevt.state == MOUSE_STATE_UP && mevt.button == MOUSE_BUTTON_LEFT){
+                if(kernel_tic_ms(0) - click_time < 300){
+                    click_detect ++;
+                }
+                click_time = kernel_tic_ms(0);
+                drag_time = 0;
+            }
 
-			//drag detect
-			if(mevt.state == MOUSE_STATE_DOWN && mevt.button == MOUSE_BUTTON_LEFT ){
-				drag_time = kernel_tic_ms(0);
-			}
+            //drag detect
+            if(mevt.state == MOUSE_STATE_DOWN && mevt.button == MOUSE_BUTTON_LEFT ){
+                drag_time = kernel_tic_ms(0);
+            }
 
-			if(mevt.state == MOUSE_STATE_MOVE){
-				click_detect = 0;
-				click_time = 0;
-				if(drag_time != 0 && kernel_tic_ms(0) - drag_time > 100){
-					mevt.state = MOUSE_STATE_DRAG;
-				}
-			}
+            if(mevt.state == MOUSE_STATE_MOVE){
+                click_detect = 0;
+                click_time = 0;
+                if(drag_time != 0 && kernel_tic_ms(0) - drag_time > 100){
+                    mevt.state = MOUSE_STATE_DRAG;
+                }
+            }
 
-			//report original event
-			input(xpid, &mevt);
+            //report original event
+            input(xpid, &mevt);
 
-			//report doubole click event
-			/*if(click_detect > 0){
-				click_detect = 0;
-				click_time = 0;
-				mevt.state = MOUSE_STATE_DOUBLE_CLICK;
-				input(xpid, &mevt);
-			}
-			*/
-		}
-		else 
-			proc_usleep(5000);
-	}
+            //report doubole click event
+            /*if(click_detect > 0){
+                click_detect = 0;
+                click_time = 0;
+                mevt.state = MOUSE_STATE_DOUBLE_CLICK;
+                input(xpid, &mevt);
+            }
+            */
+        }
+        else 
+            proc_usleep(5000);
+    }
 
-	close(fd);
-	return 0;
+    close(fd);
+    return 0;
 }

@@ -48,8 +48,8 @@
 float complex
 cacoshf(float complex z)
 {
-	float complex w;
+    float complex w;
 
-	w = I * cacosf (z);
-	return (w);
+    w = I * cacosf (z);
+    return (w);
 }

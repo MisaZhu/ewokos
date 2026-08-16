@@ -71,16 +71,16 @@
 long double
 __polevll(long double x, void *PP, int n)
 {
-	long double y;
-	long double *P;
+    long double y;
+    long double *P;
 
-	P = (long double *)PP;
-	y = *P++;
-	do {
-		y = y * x + *P++;
-	} while (--n);
+    P = (long double *)PP;
+    y = *P++;
+    do {
+        y = y * x + *P++;
+    } while (--n);
 
-	return (y);
+    return (y);
 }
 
 /*
@@ -90,15 +90,15 @@ __polevll(long double x, void *PP, int n)
 long double
 __p1evll(long double x, void *PP, int n)
 {
-	long double y;
-	long double *P;
+    long double y;
+    long double *P;
 
-	P = (long double *)PP;
-	n -= 1;
-	y = x + *P++;
-	do {
-		y = y * x + *P++;
-	} while (--n);
+    P = (long double *)PP;
+    n -= 1;
+    y = x + *P++;
+    do {
+        y = y * x + *P++;
+    } while (--n);
 
-	return (y);
+    return (y);
 }

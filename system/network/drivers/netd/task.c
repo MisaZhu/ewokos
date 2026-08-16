@@ -641,76 +641,76 @@ int  task_write(net_task_t* task, int from_pid,  char* buf,  int size, void *p){
 
 
 int do_network_fcntl(net_task_t *task){
-	int domain, sock,type,protocol, level, optname;
-	char *data, *optval;
-	int32_t size, addrlen = sizeof(struct sockaddr), optlen;
-	struct sockaddr *paddr;
-	struct sockaddr addr;
-	int ret = -1;
-	int sock_errno = 0;
-	sock = task->sock;
+    int domain, sock,type,protocol, level, optname;
+    char *data, *optval;
+    int32_t size, addrlen = sizeof(struct sockaddr), optlen;
+    struct sockaddr *paddr;
+    struct sockaddr addr;
+    int ret = -1;
+    int sock_errno = 0;
+    sock = task->sock;
 
-	switch(task->cmd){
-		case SOCK_OPEN:
-			domain = proto_read_int(&task->in);
-			type = proto_read_int(&task->in);
-			protocol = proto_read_int(&task->in);
-			sock = sock_open(domain, type, protocol);
-			PF->addi(&task->out, sock);
-			pthread_mutex_lock(&task_list_lock);
-			pthread_mutex_lock(&task->lock);
-			task->sock = sock;
+    switch(task->cmd){
+        case SOCK_OPEN:
+            domain = proto_read_int(&task->in);
+            type = proto_read_int(&task->in);
+            protocol = proto_read_int(&task->in);
+            sock = sock_open(domain, type, protocol);
+            PF->addi(&task->out, sock);
+            pthread_mutex_lock(&task_list_lock);
+            pthread_mutex_lock(&task->lock);
+            task->sock = sock;
                         task->is_listener = false;
                         task->write_ready = true;
-			if(sock >= 0 && sock < SOCKS_MAX) {
-				sock_to_task[sock] = task;
-			}
-			pthread_mutex_unlock(&task->lock);
-			pthread_mutex_unlock(&task_list_lock);
-			break;
-		case SOCK_BIND:
-			paddr = proto_read(&task->in, &addrlen);
-			if(paddr == NULL) {
-				ret = -1;
-			} else {
-				ret = sock_bind(sock, paddr, addrlen);
-			}
-			PF->addi(&task->out, ret);
-			break;
-		case SOCK_SENDTO:
-			data = proto_read(&task->in, &size);
-			paddr = proto_read(&task->in, &addrlen);
-			if(data == NULL || paddr == NULL) {
-				ret = -1;
-			} else {
-				errno = 0;
-				ret = sock_sendto(sock, data, size, paddr, addrlen);
-				sock_errno = errno;
-				if(ret < 0 && sock_errno == 0)
-					sock_errno = (ret == -17) ? EBADF : EIO;
-			}
-			PF->addi(&task->out, ret);
-			PF->addi(&task->out, ret < 0 ? sock_errno : 0);
-			break;
-		case SOCK_RECVFROM:
-			/*
-			 * Keep the per-socket worker event-driven: it must never
-			 * sched_sleep() inside the stack. If nothing is readable yet,
-			 * leave the request armed in PROCESS and let
-			 * task_wakeup_*_readers() restart it once data/EOF arrives,
-			 * mirroring the non-blocking do_network_read() path. Blocking
-			 * here parks the connection worker deep in the stack ("blk"),
-			 * which is only releasable via internal stack wakeups.
-			 */
-			if(sock >= 0 && !sock_readable(sock)) {
-				if(task_main_timed_out(task)) {
-					PF->addi(&task->out, -1);
-					PF->addi(&task->out, ETIMEDOUT);
-					break;
-				}
-				return 0;
-			}
-			size = proto_read_int(&task->in);
+            if(sock >= 0 && sock < SOCKS_MAX) {
+                sock_to_task[sock] = task;
+            }
+            pthread_mutex_unlock(&task->lock);
+            pthread_mutex_unlock(&task_list_lock);
+            break;
+        case SOCK_BIND:
+            paddr = proto_read(&task->in, &addrlen);
+            if(paddr == NULL) {
+                ret = -1;
+            } else {
+                ret = sock_bind(sock, paddr, addrlen);
+            }
+            PF->addi(&task->out, ret);
+            break;
+        case SOCK_SENDTO:
+            data = proto_read(&task->in, &size);
+            paddr = proto_read(&task->in, &addrlen);
+            if(data == NULL || paddr == NULL) {
+                ret = -1;
+            } else {
+                errno = 0;
+                ret = sock_sendto(sock, data, size, paddr, addrlen);
+                sock_errno = errno;
+                if(ret < 0 && sock_errno == 0)
+                    sock_errno = (ret == -17) ? EBADF : EIO;
+            }
+            PF->addi(&task->out, ret);
+            PF->addi(&task->out, ret < 0 ? sock_errno : 0);
+            break;
+        case SOCK_RECVFROM:
+            /*
+             * Keep the per-socket worker event-driven: it must never
+             * sched_sleep() inside the stack. If nothing is readable yet,
+             * leave the request armed in PROCESS and let
+             * task_wakeup_*_readers() restart it once data/EOF arrives,
+             * mirroring the non-blocking do_network_read() path. Blocking
+             * here parks the connection worker deep in the stack ("blk"),
+             * which is only releasable via internal stack wakeups.
+             */
+            if(sock >= 0 && !sock_readable(sock)) {
+                if(task_main_timed_out(task)) {
+                    PF->addi(&task->out, -1);
+                    PF->addi(&task->out, ETIMEDOUT);
+                    break;
+                }
+                return 0;
+            }
+            size = proto_read_int(&task->in);
             size = size < TASK_READ_BUF_SIZE ? size:TASK_READ_BUF_SIZE;
             errno = 0;
             ret = sock_recvfrom(sock, task->read_buf, size, &addr, &addrlen);
@@ -724,38 +724,38 @@ int do_network_fcntl(net_task_t *task){
                 PF->add(&task->out, &addr, addrlen);	
             }
             PF->addi(&task->out, ret < 0 ? sock_errno : 0);
-			break;
-		case SOCK_SEND:
-			data = proto_read(&task->in, &size);
+            break;
+        case SOCK_SEND:
+            data = proto_read(&task->in, &size);
             if(data && size){
-				errno = 0;
-			    ret = sock_send(sock, data, size);
-				sock_errno = errno;
-				if(ret < 0 && sock_errno == 0)
-					sock_errno = EAGAIN;
+                errno = 0;
+                ret = sock_send(sock, data, size);
+                sock_errno = errno;
+                if(ret < 0 && sock_errno == 0)
+                    sock_errno = EAGAIN;
             } else {
-				/* Nothing to send: report 0 bytes written, not a phantom -1
-				 * error.  A spurious -1/errno=0 here would get treated as
-				 * EAGAIN by task_write() and re-armed forever, blocking the
-				 * client on VFS_EVT_WR with no wakeup source. */
-				ret = 0;
-				sock_errno = 0;
-			}
-			PF->addi(&task->out, ret);
-			PF->addi(&task->out, ret < 0 ? sock_errno : 0);
-			break;
-		case SOCK_RECV:
-			/* Non-blocking mirror of do_network_read(): re-arm instead of
-			 * sched_sleep()-ing the worker inside tcp_receive(). */
-			if(sock >= 0 && !sock_readable(sock)) {
-				if(task_main_timed_out(task)) {
-					PF->addi(&task->out, -1);
-					PF->addi(&task->out, ETIMEDOUT);
-					break;
-				}
-				return 0;
-			}
-			size = proto_read_int(&task->in);
+                /* Nothing to send: report 0 bytes written, not a phantom -1
+                 * error.  A spurious -1/errno=0 here would get treated as
+                 * EAGAIN by task_write() and re-armed forever, blocking the
+                 * client on VFS_EVT_WR with no wakeup source. */
+                ret = 0;
+                sock_errno = 0;
+            }
+            PF->addi(&task->out, ret);
+            PF->addi(&task->out, ret < 0 ? sock_errno : 0);
+            break;
+        case SOCK_RECV:
+            /* Non-blocking mirror of do_network_read(): re-arm instead of
+             * sched_sleep()-ing the worker inside tcp_receive(). */
+            if(sock >= 0 && !sock_readable(sock)) {
+                if(task_main_timed_out(task)) {
+                    PF->addi(&task->out, -1);
+                    PF->addi(&task->out, ETIMEDOUT);
+                    break;
+                }
+                return 0;
+            }
+            size = proto_read_int(&task->in);
             size = size < TASK_READ_BUF_SIZE ? size:TASK_READ_BUF_SIZE;
             errno = 0;
             ret = sock_recv(sock, task->read_buf, size);
@@ -767,118 +767,118 @@ int do_network_fcntl(net_task_t *task){
                 PF->add(&task->out, task->read_buf, ret);
             }
             PF->addi(&task->out, ret < 0 ? sock_errno : 0);
-			break;
-		case SOCK_LISTEN:
-			size = proto_read_int(&task->in);
-			ret = sock_listen(sock, size);
+            break;
+        case SOCK_LISTEN:
+            size = proto_read_int(&task->in);
+            ret = sock_listen(sock, size);
                         if(ret == 0) {
                                 pthread_mutex_lock(&task->lock);
                                 task->is_listener = true;
                                 pthread_mutex_unlock(&task->lock);
                         }
-			PF->addi(&task->out, ret);
-			break;	
-		case SOCK_ACCEPT:
-			/*
-			 * accept() now runs on the socket's dedicated worker, so it can
-			 * take the stack mutex directly. Using the trylock probe here can
-			 * strand the request in PROCESS forever: a transient "lock busy"
+            PF->addi(&task->out, ret);
+            break;	
+        case SOCK_ACCEPT:
+            /*
+             * accept() now runs on the socket's dedicated worker, so it can
+             * take the stack mutex directly. Using the trylock probe here can
+             * strand the request in PROCESS forever: a transient "lock busy"
                          * result leaves a queued backlog entry with no future edge to
                          * restart the worker. Only park when the listen backlog is
-			 * genuinely empty.
-			 */
-			if(sock >= 0 && !sock_readable(sock))
-				return 0;
-			errno = 0;
-			ret = sock_accept(sock, &addr, &addrlen);
-			sock_errno = errno;
-			if(ret < 0 && sock_errno == 0)
-				sock_errno = EAGAIN;
-			if(ret < 0 && (sock_errno == EAGAIN || sock_errno == EINTR)) {
-				return 0;
-			}
-			PF->addi(&task->out, ret);
+             * genuinely empty.
+             */
+            if(sock >= 0 && !sock_readable(sock))
+                return 0;
+            errno = 0;
+            ret = sock_accept(sock, &addr, &addrlen);
+            sock_errno = errno;
+            if(ret < 0 && sock_errno == 0)
+                sock_errno = EAGAIN;
+            if(ret < 0 && (sock_errno == EAGAIN || sock_errno == EINTR)) {
+                return 0;
+            }
+            PF->addi(&task->out, ret);
                         if(ret >= 0){
-				PF->add(&task->out, &addr, addrlen);	
-			}
-			PF->addi(&task->out, ret < 0 ? sock_errno : 0);
-			break;	
-		case SOCK_CLOSE:
-			ret = sock_close(sock);
-			PF->addi(&task->out, ret);
-			break;
-		case SOCK_LINK:
-			sock = proto_read_int(&task->in);	
-			pthread_mutex_lock(&task_list_lock);
-			pthread_mutex_lock(&task->lock);
-			if(task->sock >= 0 && task->sock < SOCKS_MAX &&
-			   sock_to_task[task->sock] == task) {
-				sock_to_task[task->sock] = NULL;
-			}
-			task->sock = sock;
+                PF->add(&task->out, &addr, addrlen);	
+            }
+            PF->addi(&task->out, ret < 0 ? sock_errno : 0);
+            break;	
+        case SOCK_CLOSE:
+            ret = sock_close(sock);
+            PF->addi(&task->out, ret);
+            break;
+        case SOCK_LINK:
+            sock = proto_read_int(&task->in);	
+            pthread_mutex_lock(&task_list_lock);
+            pthread_mutex_lock(&task->lock);
+            if(task->sock >= 0 && task->sock < SOCKS_MAX &&
+               sock_to_task[task->sock] == task) {
+                sock_to_task[task->sock] = NULL;
+            }
+            task->sock = sock;
                         task->is_listener = false;
                         task->write_ready = true;
-			if(sock >= 0 && sock < SOCKS_MAX) {
-				sock_to_task[sock] = task;
-			}
-			pthread_mutex_unlock(&task->lock);
-			pthread_mutex_unlock(&task_list_lock);
-			PF->addi(&task->out, 0);
-			break;
-		case SOCK_CONNECT:
-			{
-				uint32_t saved_offset = task->in.offset;
-				paddr = proto_read(&task->in, &addrlen);
-				if(paddr == NULL) {
-					ret = -1;
-				} else {
-					errno = 0;
-					ret = sock_connect(sock, paddr, addrlen);
-					sock_errno = errno;
-					if(ret < 0 && sock_errno == 0)
-						sock_errno = EAGAIN;
-					if(ret < 0 && (sock_errno == EAGAIN || sock_errno == EINTR)) {
-						task->in.offset = saved_offset;
-						return 0;
-					}
-				}
-				PF->addi(&task->out, ret);
-				PF->addi(&task->out, ret < 0 ? sock_errno : 0);
-				break;
-			}
-		case SOCK_SETOPT:
-		level = proto_read_int(&task->in);
-		optname = proto_read_int(&task->in);
-		optval = proto_read(&task->in, &optlen);
-		if(optval == NULL) {
-			ret = -1;
-		} else {
-			ret = sock_setsockopt(sock, level, optname, optval, optlen);
-		}
-		PF->addi(&task->out, ret);
-		break;
-	case SOCK_GETOPT:
-		level = proto_read_int(&task->in);
-		optname = proto_read_int(&task->in);
-		optlen = proto_read_int(&task->in);
-		// First read the optlen, then process
-		ret = sock_getsockopt(sock, level, optname, task->read_buf, &optlen);
-		PF->addi(&task->out, ret);
-		if(ret == 0) {
-			PF->addi(&task->out, optlen);
-			PF->add(&task->out, task->read_buf, optlen);
-		}
-		break;
-		default:
-			break;
-	}
+            if(sock >= 0 && sock < SOCKS_MAX) {
+                sock_to_task[sock] = task;
+            }
+            pthread_mutex_unlock(&task->lock);
+            pthread_mutex_unlock(&task_list_lock);
+            PF->addi(&task->out, 0);
+            break;
+        case SOCK_CONNECT:
+            {
+                uint32_t saved_offset = task->in.offset;
+                paddr = proto_read(&task->in, &addrlen);
+                if(paddr == NULL) {
+                    ret = -1;
+                } else {
+                    errno = 0;
+                    ret = sock_connect(sock, paddr, addrlen);
+                    sock_errno = errno;
+                    if(ret < 0 && sock_errno == 0)
+                        sock_errno = EAGAIN;
+                    if(ret < 0 && (sock_errno == EAGAIN || sock_errno == EINTR)) {
+                        task->in.offset = saved_offset;
+                        return 0;
+                    }
+                }
+                PF->addi(&task->out, ret);
+                PF->addi(&task->out, ret < 0 ? sock_errno : 0);
+                break;
+            }
+        case SOCK_SETOPT:
+        level = proto_read_int(&task->in);
+        optname = proto_read_int(&task->in);
+        optval = proto_read(&task->in, &optlen);
+        if(optval == NULL) {
+            ret = -1;
+        } else {
+            ret = sock_setsockopt(sock, level, optname, optval, optlen);
+        }
+        PF->addi(&task->out, ret);
+        break;
+    case SOCK_GETOPT:
+        level = proto_read_int(&task->in);
+        optname = proto_read_int(&task->in);
+        optlen = proto_read_int(&task->in);
+        // First read the optlen, then process
+        ret = sock_getsockopt(sock, level, optname, task->read_buf, &optlen);
+        PF->addi(&task->out, ret);
+        if(ret == 0) {
+            PF->addi(&task->out, optlen);
+            PF->add(&task->out, task->read_buf, optlen);
+        }
+        break;
+        default:
+            break;
+    }
     return 1;
 }
 
 static int do_network_read(net_task_t *task){
-	int32_t size;
-	int ret;
-	int sock_errno = 0;
+    int32_t size;
+    int ret;
+    int sock_errno = 0;
     uint32_t saved_offset;
 
     if(task->sock < 0) {
@@ -913,7 +913,7 @@ static int do_network_read(net_task_t *task){
     }
 
     saved_offset = task->read_in.offset;
-	size = proto_read_int(&task->read_in);
+    size = proto_read_int(&task->read_in);
     size = size < TASK_READ_BUF_SIZE ? size:TASK_READ_BUF_SIZE;
     errno = 0;
     ret = sock_recv(task->sock, task->read_buf, size);

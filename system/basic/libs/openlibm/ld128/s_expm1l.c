@@ -107,13 +107,13 @@ expm1l(long double x)
     {
       /* Infinity. */
       if (((ix & 0xffff) | u.parts32.mswlo | u.parts32.lswhi |
-	u.parts32.lswlo) == 0)
-	{
-	  if (sign)
-	    return -1.0L;
-	  else
-	    return x;
-	}
+    u.parts32.lswlo) == 0)
+    {
+      if (sign)
+        return -1.0L;
+      else
+        return x;
+    }
       /* NaN. No invalid exception. */
       return x;
     }
@@ -140,12 +140,12 @@ expm1l(long double x)
 
   /* Approximate exp(remainder ln 2).  */
   px = (((((((P7 * x
-	      + P6) * x
-	     + P5) * x + P4) * x + P3) * x + P2) * x + P1) * x + P0) * x;
+          + P6) * x
+         + P5) * x + P4) * x + P3) * x + P2) * x + P1) * x + P0) * x;
 
   qx = (((((((x
-	      + Q7) * x
-	     + Q6) * x + Q5) * x + Q4) * x + Q3) * x + Q2) * x + Q1) * x + Q0;
+          + Q7) * x
+         + Q6) * x + Q5) * x + Q4) * x + Q3) * x + Q2) * x + Q1) * x + Q0;
 
   xx = x * x;
   qx = x + (0.5 * xx + xx * px / qx);
@@ -154,7 +154,7 @@ expm1l(long double x)
 
   We have qx = exp(remainder ln 2) - 1, so
   exp(x) - 1 = 2^k (qx + 1) - 1
-	     = 2^k qx + 2^k - 1.  */
+         = 2^k qx + 2^k - 1.  */
 
   px = ldexpl (1.0L, k);
   x = px * qx + (px - 1.0);

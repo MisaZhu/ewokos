@@ -78,11 +78,11 @@ sinhl(long double x)
   if (ix <= 0x40044000)
     {
       if (ix < 0x3fc60000) /* |x| < 2^-57 */
-	if (shuge + x > one)
-	  return x;		/* sinh(tiny) = tiny with inexact */
+    if (shuge + x > one)
+      return x;		/* sinh(tiny) = tiny with inexact */
       t = expm1l (u.value);
       if (ix < 0x3fff0000)
-	return h * (2.0 * t - t * t / (t + one));
+    return h * (2.0 * t - t * t / (t + one));
       return h * (t + t / (t + one));
     }
 

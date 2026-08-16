@@ -86,44 +86,44 @@ static const double invln2 = 0x1.71547652b82fep0;
 OLM_DLLEXPORT double exp(x)
 double x;
 {
-	double  z,hi,lo,c;
-	int k;
+    double  z,hi,lo,c;
+    int k;
 
 #if !defined(vax)&&!defined(tahoe)
-	if(x!=x) return(x);	/* x is NaN */
+    if(x!=x) return(x);	/* x is NaN */
 #endif	/* !defined(vax)&&!defined(tahoe) */
-	if( x <= lnhuge ) {
-		if( x >= lntiny ) {
+    if( x <= lnhuge ) {
+        if( x >= lntiny ) {
 
-		    /* argument reduction : x --> x - k*ln2 */
+            /* argument reduction : x --> x - k*ln2 */
 
-			k=invln2*x+copysign(0.5,x);	/* k=NINT(x/ln2) */
+            k=invln2*x+copysign(0.5,x);	/* k=NINT(x/ln2) */
 
-		    /* express x-k*ln2 as hi-lo and let x=hi-lo rounded */
+            /* express x-k*ln2 as hi-lo and let x=hi-lo rounded */
 
-			hi=x-k*ln2hi;
-			x=hi-(lo=k*ln2lo);
+            hi=x-k*ln2hi;
+            x=hi-(lo=k*ln2lo);
 
-		    /* return 2^k*[1+x+x*c/(2+c)]  */
-			z=x*x;
-			c= x - z*(p1+z*(p2+z*(p3+z*(p4+z*p5))));
-			return  scalb(1.0+(hi-(lo-(x*c)/(2.0-c))),k);
+            /* return 2^k*[1+x+x*c/(2+c)]  */
+            z=x*x;
+            c= x - z*(p1+z*(p2+z*(p3+z*(p4+z*p5))));
+            return  scalb(1.0+(hi-(lo-(x*c)/(2.0-c))),k);
 
-		}
-		/* end of x > lntiny */
+        }
+        /* end of x > lntiny */
 
-		else
-		     /* exp(-big#) underflows to zero */
-		     if(finite(x))  return(scalb(1.0,-5000));
+        else
+             /* exp(-big#) underflows to zero */
+             if(finite(x))  return(scalb(1.0,-5000));
 
-		     /* exp(-INF) is zero */
-		     else return(0.0);
-	}
-	/* end of x < lnhuge */
+             /* exp(-INF) is zero */
+             else return(0.0);
+    }
+    /* end of x < lnhuge */
 
-	else
-	/* exp(INF) is INF, exp(+big#) overflows to INF */
-	    return( finite(x) ?  scalb(1.0,5000)  : x);
+    else
+    /* exp(INF) is INF, exp(+big#) overflows to INF */
+        return( finite(x) ?  scalb(1.0,5000)  : x);
 }
 #endif
 
@@ -132,41 +132,41 @@ double x;
 double __exp__D(x, c)
 double x, c;
 {
-	double  z,hi,lo;
-	int k;
+    double  z,hi,lo;
+    int k;
 
-	if (x != x)	/* x is NaN */
-		return(x);
-	if ( x <= lnhuge ) {
-		if ( x >= lntiny ) {
+    if (x != x)	/* x is NaN */
+        return(x);
+    if ( x <= lnhuge ) {
+        if ( x >= lntiny ) {
 
-		    /* argument reduction : x --> x - k*ln2 */
-			z = invln2*x;
-			k = z + copysign(.5, x);
+            /* argument reduction : x --> x - k*ln2 */
+            z = invln2*x;
+            k = z + copysign(.5, x);
 
-		    /* express (x+c)-k*ln2 as hi-lo and let x=hi-lo rounded */
+            /* express (x+c)-k*ln2 as hi-lo and let x=hi-lo rounded */
 
-			hi=(x-k*ln2hi);			/* Exact. */
-			x= hi - (lo = k*ln2lo-c);
-		    /* return 2^k*[1+x+x*c/(2+c)]  */
-			z=x*x;
-			c= x - z*(p1+z*(p2+z*(p3+z*(p4+z*p5))));
-			c = (x*c)/(2.0-c);
+            hi=(x-k*ln2hi);			/* Exact. */
+            x= hi - (lo = k*ln2lo-c);
+            /* return 2^k*[1+x+x*c/(2+c)]  */
+            z=x*x;
+            c= x - z*(p1+z*(p2+z*(p3+z*(p4+z*p5))));
+            c = (x*c)/(2.0-c);
 
-			return  scalbn(1.+(hi-(lo - c)), k);
-		}
-		/* end of x > lntiny */
+            return  scalbn(1.+(hi-(lo - c)), k);
+        }
+        /* end of x > lntiny */
 
-		else
-		     /* exp(-big#) underflows to zero */
-		     if(isfinite(x))  return(scalbn(1.0,-5000));
+        else
+             /* exp(-big#) underflows to zero */
+             if(isfinite(x))  return(scalbn(1.0,-5000));
 
-		     /* exp(-INF) is zero */
-		     else return(0.0);
-	}
-	/* end of x < lnhuge */
+             /* exp(-INF) is zero */
+             else return(0.0);
+    }
+    /* end of x < lnhuge */
 
-	else
-	/* exp(INF) is INF, exp(+big#) overflows to INF */
-	    return( isfinite(x) ?  scalbn(1.0,5000)  : x);
+    else
+    /* exp(INF) is INF, exp(+big#) overflows to INF */
+        return( isfinite(x) ?  scalbn(1.0,5000)  : x);
 }

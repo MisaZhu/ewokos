@@ -34,28 +34,28 @@
 OLM_DLLEXPORT int
 __signbit(double d)
 {
-	union IEEEd2bits u;
+    union IEEEd2bits u;
 
-	u.d = d;
-	return (u.bits.sign);
+    u.d = d;
+    return (u.bits.sign);
 }
 
 OLM_DLLEXPORT int
 __signbitf(float f)
 {
-	union IEEEf2bits u;
+    union IEEEf2bits u;
 
-	u.f = f;
-	return (u.bits.sign);
+    u.f = f;
+    return (u.bits.sign);
 }
 
 #ifdef OLM_LONG_DOUBLE
 OLM_DLLEXPORT int
 __signbitl(long double e)
 {
-	union IEEEl2bits u;
+    union IEEEl2bits u;
 
-	u.e = e;
-	return (u.bits.sign);
+    u.e = e;
+    return (u.bits.sign);
 }
 #endif

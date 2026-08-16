@@ -9,46 +9,46 @@
 #include <sys/stat.h>
 
 static int run(const char* cmd) {
-	int pid = fork();
-	if(pid == 0) {
-		proc_detach();
+    int pid = fork();
+    if(pid == 0) {
+        proc_detach();
 
-		if(proc_exec(cmd) != 0) {
-			exit(-1);
-		}
-	}
-	else {
-		if(ipc_wait_ready(pid) != 0)
-			return -1;
-	}
-	return 0;
+        if(proc_exec(cmd) != 0) {
+            exit(-1);
+        }
+    }
+    else {
+        if(ipc_wait_ready(pid) != 0)
+            return -1;
+    }
+    return 0;
 }
 
 int main(int argc, char* argv[]) {
 
-	struct stat buf;
-	if(argc< 2)
-		return -1;
+    struct stat buf;
+    if(argc< 2)
+        return -1;
 
-	if(strncmp(argv[1], "/drivers", 8) == 0)
-		//printf("\033[1mdev: %-42s \033[0m", argv[1]);
-		printf("\033[1mdev: %s \033[0m", argv[1]);
-	else
-		//printf("run: %-42s ", argv[1]);
-		printf("run: %s ", argv[1]);
-	int ret = stat(argv[1], &buf);
-	if(ret >= 0 && buf.st_mode & X_OK){
-		str_t* cmd = str_new("");
-		for(int i=1; i<argc; i++) {
-			str_add(cmd, argv[i]);
-			str_addc(cmd, ' ');
-		}
+    if(strncmp(argv[1], "/drivers", 8) == 0)
+        //printf("\033[1mdev: %-42s \033[0m", argv[1]);
+        printf("\033[1mdev: %s \033[0m", argv[1]);
+    else
+        //printf("run: %-42s ", argv[1]);
+        printf("run: %s ", argv[1]);
+    int ret = stat(argv[1], &buf);
+    if(ret >= 0 && buf.st_mode & X_OK){
+        str_t* cmd = str_new("");
+        for(int i=1; i<argc; i++) {
+            str_add(cmd, argv[i]);
+            str_addc(cmd, ' ');
+        }
 
-		ret = run(cmd->cstr);
-		str_free(cmd);
-		printf("[\033[32m%s\033[0m]\n", "OK"); //green for ok
-	}
-	else 
-		printf("[\033[31m%s\033[0m]\n", "ERR!"); //red for failed
-	return ret;
+        ret = run(cmd->cstr);
+        str_free(cmd);
+        printf("[\033[32m%s\033[0m]\n", "OK"); //green for ok
+    }
+    else 
+        printf("[\033[31m%s\033[0m]\n", "ERR!"); //red for failed
+    return ret;
 }

@@ -16,17 +16,17 @@ extern "C" {
 #define KEY_MAX_ONE_TIME    6
 
 typedef struct {
-	uint8_t key;
-	int state;
-	int sm;
-	uint64_t timer;
+    uint8_t key;
+    int state;
+    int sm;
+    uint64_t timer;
 }key_state_t;
 
 enum {
-	KS_IDLE = 0,
-	KS_HOLD,
-	KS_REPEAT,
-	KS_RELEASE
+    KS_IDLE = 0,
+    KS_HOLD,
+    KS_REPEAT,
+    KS_RELEASE
 };
 
 key_state_t _key_state[KEYB_EVT_MAX];
@@ -110,10 +110,10 @@ static int key_state_machine(keyb_evt_t* evts, uint8_t num){
 }
 
 int keyb_read(int keyb_fd, keyb_evt_t* evts, uint8_t num) {
-	char v[KEYB_EVT_MAX] = { 0 };
-	int rd = read(keyb_fd, v, KEYB_EVT_MAX);
-	update_key_state(v, rd);
-	return key_state_machine(evts, num); 
+    char v[KEYB_EVT_MAX] = { 0 };
+    int rd = read(keyb_fd, v, KEYB_EVT_MAX);
+    update_key_state(v, rd);
+    return key_state_machine(evts, num); 
 }
 
 int keyb_ctrl_value(int key){

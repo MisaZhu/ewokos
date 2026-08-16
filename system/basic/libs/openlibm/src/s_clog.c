@@ -63,15 +63,15 @@
 double complex
 clog(double complex z)
 {
-	double complex w;
-	double p, rr;
+    double complex w;
+    double p, rr;
 
-	/*rr = sqrt( z->r * z->r  +  z->i * z->i );*/
-	rr = cabs(z);
-	p = log(rr);
-	rr = atan2 (cimag (z), creal (z));
-	w = p + rr * I;
-	return (w);
+    /*rr = sqrt( z->r * z->r  +  z->i * z->i );*/
+    rr = cabs(z);
+    p = log(rr);
+    rr = atan2 (cimag (z), creal (z));
+    w = p + rr * I;
+    return (w);
 }
 
 #if	LDBL_MANT_DIG == DBL_MANT_DIG

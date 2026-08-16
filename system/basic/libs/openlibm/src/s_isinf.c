@@ -35,31 +35,31 @@
 OLM_DLLEXPORT int
 (isinf) (double d)
 {
-	union IEEEd2bits u;
+    union IEEEd2bits u;
 
-	u.d = d;
-	return (u.bits.exp == 2047 && u.bits.manl == 0 && u.bits.manh == 0);
+    u.d = d;
+    return (u.bits.exp == 2047 && u.bits.manl == 0 && u.bits.manh == 0);
 }
 #endif
 
 OLM_DLLEXPORT int
 __isinff(float f)
 {
-	union IEEEf2bits u;
+    union IEEEf2bits u;
 
-	u.f = f;
-	return (u.bits.exp == 255 && u.bits.man == 0);
+    u.f = f;
+    return (u.bits.exp == 255 && u.bits.man == 0);
 }
 
 #ifdef OLM_LONG_DOUBLE
 OLM_DLLEXPORT int
 __isinfl(long double e)
 {
-	union IEEEl2bits u;
+    union IEEEl2bits u;
 
-	u.e = e;
-	mask_nbit_l(u);
-	return (u.bits.exp == 32767 && u.bits.manl == 0 && u.bits.manh == 0);
+    u.e = e;
+    mask_nbit_l(u);
+    return (u.bits.exp == 32767 && u.bits.manl == 0 && u.bits.manh == 0);
 }
 #endif
 

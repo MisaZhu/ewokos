@@ -9,56 +9,56 @@ static queue_t  _kev_queue;
 static int32_t _kev_lock = 0;
 
 void kev_init(void) {
-	queue_init(&_kev_queue);
-	_kev_lock = 0;
+    queue_init(&_kev_queue);
+    _kev_lock = 0;
 }
 
 kevent_t* kev_push(uint32_t type, uint32_t arg0, uint32_t arg1, uint32_t arg2) {
-	kevent_t* kev = (kevent_t*)kmalloc(sizeof(kevent_t));
-	kev->type = type;
-	kev->data[0] = arg0;
-	kev->data[1] = arg1;
-	kev->data[2] = arg2;
+    kevent_t* kev = (kevent_t*)kmalloc(sizeof(kevent_t));
+    kev->type = type;
+    kev->data[0] = arg0;
+    kev->data[1] = arg1;
+    kev->data[2] = arg2;
 #ifdef KERNEL_SMP
-	mcore_lock(&_kev_lock);
+    mcore_lock(&_kev_lock);
 #endif
 
-	queue_push(&_kev_queue, kev);
+    queue_push(&_kev_queue, kev);
 
 #ifdef KERNEL_SMP
-	mcore_unlock(&_kev_lock);
+    mcore_unlock(&_kev_lock);
 #endif
 
-	if(_core_proc_pid >= 0) {
-		proc_t* core = proc_get(_core_proc_pid);
-		if(core != NULL)
-			proc_wakeup(core);
-	}
-	return kev;
+    if(_core_proc_pid >= 0) {
+        proc_t* core = proc_get(_core_proc_pid);
+        if(core != NULL)
+            proc_wakeup(core);
+    }
+    return kev;
 }
 
 int32_t kev_pop(kevent_t* ret) {
-	proc_t* cproc = get_current_proc();
-	if(cproc->info.pid != _core_proc_pid)	 //only core proc access allowed.
-		return -1;
+    proc_t* cproc = get_current_proc();
+    if(cproc->info.pid != _core_proc_pid)	 //only core proc access allowed.
+        return -1;
 
 #ifdef KERNEL_SMP
-	mcore_lock(&_kev_lock);
+    mcore_lock(&_kev_lock);
 #endif
 
-	kevent_t* kev = queue_pop(&_kev_queue);
+    kevent_t* kev = queue_pop(&_kev_queue);
 
 #ifdef KERNEL_SMP
-	mcore_unlock(&_kev_lock);
+    mcore_unlock(&_kev_lock);
 #endif
-	if(kev == NULL) {
-		return -1;
-	}
+    if(kev == NULL) {
+        return -1;
+    }
 
-	ret->type = kev->type;
-	ret->data[0] = kev->data[0];
-	ret->data[1] = kev->data[1];
-	ret->data[2] = kev->data[2];
-	kfree(kev);
-	return 0;
+    ret->type = kev->type;
+    ret->data[0] = kev->data[0];
+    ret->data[1] = kev->data[1];
+    ret->data[2] = kev->data[2];
+    kfree(kev);
+    return 0;
 }

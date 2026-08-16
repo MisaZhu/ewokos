@@ -36,205 +36,205 @@ static vdevice_t* _dev = NULL;
 static volatile uint32_t _mouse_pending_wakeup = 0;
 
 static bool mouse_evt_empty(const mouse_evt_t* evt) {
-	return evt->type == 0 &&
-			evt->state == MOUSE_STATE_NONE &&
-			evt->button == MOUSE_BUTTON_NONE &&
-			evt->x == 0 &&
-			evt->y == 0;
+    return evt->type == 0 &&
+            evt->state == MOUSE_STATE_NONE &&
+            evt->button == MOUSE_BUTTON_NONE &&
+            evt->x == 0 &&
+            evt->y == 0;
 }
 
 static void mouse_drop_oldest_if_full(void) {
-	if (mouse_data_write - mouse_data_read >= CACHE_SIZE) {
-		mouse_data_read++;
-	}
+    if (mouse_data_write - mouse_data_read >= CACHE_SIZE) {
+        mouse_data_read++;
+    }
 }
 
 static void mouse_commit_slot(void) {
-	uint32_t slot = mouse_data_write % CACHE_SIZE;
+    uint32_t slot = mouse_data_write % CACHE_SIZE;
 
-	if(mouse_evt_empty(&mouse_data[slot])) {
-		return;
-	}
+    if(mouse_evt_empty(&mouse_data[slot])) {
+        return;
+    }
 
-	mouse_drop_oldest_if_full();
-	if(!mouse_data[slot].state) {
-		mouse_data[slot].state = MOUSE_STATE_MOVE;
-	}
-	mouse_data_write++;
-	memset(&mouse_data[mouse_data_write % CACHE_SIZE], 0, sizeof(mouse_evt_t));
-	_mouse_pending_wakeup = 1;
+    mouse_drop_oldest_if_full();
+    if(!mouse_data[slot].state) {
+        mouse_data[slot].state = MOUSE_STATE_MOVE;
+    }
+    mouse_data_write++;
+    memset(&mouse_data[mouse_data_write % CACHE_SIZE], 0, sizeof(mouse_evt_t));
+    _mouse_pending_wakeup = 1;
 }
 
 static void mouse_emit_wheel_button(uint8_t button) {
-	uint32_t slot = mouse_data_write % CACHE_SIZE;
+    uint32_t slot = mouse_data_write % CACHE_SIZE;
 
-	memset(&mouse_data[slot], 0, sizeof(mouse_evt_t));
-	mouse_data[slot].type = MOUSE_TYPE_REL;
-	mouse_data[slot].button = button;
-	mouse_data[slot].state = MOUSE_STATE_MOVE;
-	mouse_commit_slot();
+    memset(&mouse_data[slot], 0, sizeof(mouse_evt_t));
+    mouse_data[slot].type = MOUSE_TYPE_REL;
+    mouse_data[slot].button = button;
+    mouse_data[slot].state = MOUSE_STATE_MOVE;
+    mouse_commit_slot();
 }
 
 static int _read(vdevice_t* dev, int fd, int from_pid, fsinfo_t *info,
-					  void *buf, int size, int offset, void *p)
+                      void *buf, int size, int offset, void *p)
 {
-	(void)dev;
-	(void)fd;
-	(void)from_pid;
-	(void)offset;
-	(void)p;
-	(void)info;
+    (void)dev;
+    (void)fd;
+    (void)from_pid;
+    (void)offset;
+    (void)p;
+    (void)info;
 
-	if (mouse_data_write - mouse_data_read > 0)
-	{
-		memcpy(buf, &mouse_data[mouse_data_read % CACHE_SIZE], sizeof(mouse_evt_t));
-		memset(&mouse_data[mouse_data_read % CACHE_SIZE], 0, sizeof(mouse_evt_t));
-		mouse_data_read++;
-		return sizeof(mouse_evt_t);
-	}
-	return VFS_ERR_RETRY;
+    if (mouse_data_write - mouse_data_read > 0)
+    {
+        memcpy(buf, &mouse_data[mouse_data_read % CACHE_SIZE], sizeof(mouse_evt_t));
+        memset(&mouse_data[mouse_data_read % CACHE_SIZE], 0, sizeof(mouse_evt_t));
+        mouse_data_read++;
+        return sizeof(mouse_evt_t);
+    }
+    return VFS_ERR_RETRY;
 }
 
 static uint32_t mouse_check_poll_events(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, void* p) {
-	(void)dev;
-	(void)fd;
-	(void)from_pid;
-	(void)info;
-	(void)p;
+    (void)dev;
+    (void)fd;
+    (void)from_pid;
+    (void)info;
+    (void)p;
 
-	if (mouse_data_write - mouse_data_read > 0) {
-		return VFS_EVT_RD;
-	}
-	return 0;
+    if (mouse_data_write - mouse_data_read > 0) {
+        return VFS_EVT_RD;
+    }
+    return 0;
 }
 
 struct virtio_input_event
 {
-	uint16_t type;
-	uint16_t code;
-	uint32_t value;
+    uint16_t type;
+    uint16_t code;
+    uint32_t value;
 } __attribute__((packed));
 
 void mouse_interrupt_handle(struct virtio_device *virt_dev, struct virtio_input_event *event)
 {
-	(void)virt_dev;
-	if(_dev == NULL)
-		return;
+    (void)virt_dev;
+    if(_dev == NULL)
+        return;
 
-	if (event->type == EV_REL)
-	{
-		mouse_data[mouse_data_write % CACHE_SIZE].type = 1;
-		if (event->code == REL_X)
-		{
-			mouse_data[mouse_data_write % CACHE_SIZE].x = event->value;
-		}
-		else if (event->code == REL_Y)
-		{
-			mouse_data[mouse_data_write % CACHE_SIZE].y = event->value;
-		}
-		else if (event->code == REL_WHEEL)
-		{
-			int32_t wheel_value = (int32_t)event->value;
-			if (wheel_value > 0)
-			{
-				mouse_emit_wheel_button(MOUSE_BUTTON_SCROLL_DOWN);
-			}
-			else if (wheel_value < 0)
-			{
-				mouse_emit_wheel_button(MOUSE_BUTTON_SCROLL_UP);
-			}
-		}
-		else if (event->code == REL_HWHEEL)
-		{
-			int32_t wheel_value = (int32_t)event->value;
-			if (wheel_value > 0)
-			{
-				mouse_emit_wheel_button(MOUSE_BUTTON_SCROLL_RIGHT);
-			}
-			else if (wheel_value < 0)
-			{
-				mouse_emit_wheel_button(MOUSE_BUTTON_SCROLL_LEFT);
-			}
-		}
-	}else if(event->type == EV_ABS){
-		mouse_data[mouse_data_write % CACHE_SIZE].type = 2;
-		if(event->code == ABS_X){
-			mouse_data[mouse_data_write % CACHE_SIZE].x = event->value;
-		}else if(event->code == ABS_Y){
-			mouse_data[mouse_data_write % CACHE_SIZE].y = event->value;
-		}
-	}
-	else if (event->type == EV_KEY)
-	{
-		if (event->code == BTN_LEFT)
-		{
-				mouse_data[mouse_data_write % CACHE_SIZE].button = MOUSE_BUTTON_LEFT;
-			if (event->value){
-				mouse_data[mouse_data_write % CACHE_SIZE].state = MOUSE_STATE_DOWN;
-			}else{
-				mouse_data[mouse_data_write % CACHE_SIZE].state = MOUSE_STATE_UP;
-			}
-		}
-		else if (event->code == BTN_RIGHT)
-		{
-			mouse_data[mouse_data_write % CACHE_SIZE].button = MOUSE_BUTTON_RIGHT;
-			if (event->value){
-				mouse_data[mouse_data_write % CACHE_SIZE].state = MOUSE_STATE_DOWN;
-			}else{
-				mouse_data[mouse_data_write % CACHE_SIZE].state = MOUSE_STATE_UP;
-			}
-		}
-	}
-	else if (event->type == EV_SYN)
-	{
-		mouse_commit_slot();
-	}
+    if (event->type == EV_REL)
+    {
+        mouse_data[mouse_data_write % CACHE_SIZE].type = 1;
+        if (event->code == REL_X)
+        {
+            mouse_data[mouse_data_write % CACHE_SIZE].x = event->value;
+        }
+        else if (event->code == REL_Y)
+        {
+            mouse_data[mouse_data_write % CACHE_SIZE].y = event->value;
+        }
+        else if (event->code == REL_WHEEL)
+        {
+            int32_t wheel_value = (int32_t)event->value;
+            if (wheel_value > 0)
+            {
+                mouse_emit_wheel_button(MOUSE_BUTTON_SCROLL_DOWN);
+            }
+            else if (wheel_value < 0)
+            {
+                mouse_emit_wheel_button(MOUSE_BUTTON_SCROLL_UP);
+            }
+        }
+        else if (event->code == REL_HWHEEL)
+        {
+            int32_t wheel_value = (int32_t)event->value;
+            if (wheel_value > 0)
+            {
+                mouse_emit_wheel_button(MOUSE_BUTTON_SCROLL_RIGHT);
+            }
+            else if (wheel_value < 0)
+            {
+                mouse_emit_wheel_button(MOUSE_BUTTON_SCROLL_LEFT);
+            }
+        }
+    }else if(event->type == EV_ABS){
+        mouse_data[mouse_data_write % CACHE_SIZE].type = 2;
+        if(event->code == ABS_X){
+            mouse_data[mouse_data_write % CACHE_SIZE].x = event->value;
+        }else if(event->code == ABS_Y){
+            mouse_data[mouse_data_write % CACHE_SIZE].y = event->value;
+        }
+    }
+    else if (event->type == EV_KEY)
+    {
+        if (event->code == BTN_LEFT)
+        {
+                mouse_data[mouse_data_write % CACHE_SIZE].button = MOUSE_BUTTON_LEFT;
+            if (event->value){
+                mouse_data[mouse_data_write % CACHE_SIZE].state = MOUSE_STATE_DOWN;
+            }else{
+                mouse_data[mouse_data_write % CACHE_SIZE].state = MOUSE_STATE_UP;
+            }
+        }
+        else if (event->code == BTN_RIGHT)
+        {
+            mouse_data[mouse_data_write % CACHE_SIZE].button = MOUSE_BUTTON_RIGHT;
+            if (event->value){
+                mouse_data[mouse_data_write % CACHE_SIZE].state = MOUSE_STATE_DOWN;
+            }else{
+                mouse_data[mouse_data_write % CACHE_SIZE].state = MOUSE_STATE_UP;
+            }
+        }
+    }
+    else if (event->type == EV_SYN)
+    {
+        mouse_commit_slot();
+    }
 }
 
 static int mouse_loop_step(vdevice_t* dev, void* p)
 {
-	virtio_dev_t vio = (virtio_dev_t)p;
-	if (vio != NULL) {
-		virtio_input_drain(vio, 0);
-	}
-	if (_mouse_pending_wakeup != 0) {
-		_mouse_pending_wakeup = 0;
-		vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
-	}
-	usleep(MOUSE_SLEEP_US);
-	return 0;
+    virtio_dev_t vio = (virtio_dev_t)p;
+    if (vio != NULL) {
+        virtio_input_drain(vio, 0);
+    }
+    if (_mouse_pending_wakeup != 0) {
+        _mouse_pending_wakeup = 0;
+        vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
+    }
+    usleep(MOUSE_SLEEP_US);
+    return 0;
 }
 
 int main(int argc, char **argv)
 {
-	const char *mnt_point = argc > 1 ? argv[1] : "/dev/mouse0";
-	_mmio_base = mmio_map();
-	if (_mmio_base == 0) {
-		klog("moused: mmio_map failed\n");
-		return -1;
-	}
+    const char *mnt_point = argc > 1 ? argv[1] : "/dev/mouse0";
+    _mmio_base = mmio_map();
+    if (_mmio_base == 0) {
+        klog("moused: mmio_map failed\n");
+        return -1;
+    }
 
-	vdevice_t dev;
-	_dev = &dev;
+    vdevice_t dev;
+    _dev = &dev;
 
-	memset(&dev, 0, sizeof(vdevice_t));
-	strcpy(dev.name, "mouse");
-	dev.read = _read;
-	dev.check_poll_events = mouse_check_poll_events;
-	dev.loop_step = mouse_loop_step;
+    memset(&dev, 0, sizeof(vdevice_t));
+    strcpy(dev.name, "mouse");
+    dev.read = _read;
+    dev.check_poll_events = mouse_check_poll_events;
+    dev.loop_step = mouse_loop_step;
 
-	virtio_dev_t vio = virtio_input_get("QEMU Virtio Tablet");
-	if(!vio){
-		vio =  virtio_input_get("QEMU Virtio Mouse");
-	}
-	if (!vio || virtio_init(vio, 0) != 0)
-	{
-		klog("Virtio-input init failed\n");
-		return -1;
-	}
-	virtio_interrupt_enable(vio, mouse_interrupt_handle);
+    virtio_dev_t vio = virtio_input_get("QEMU Virtio Tablet");
+    if(!vio){
+        vio =  virtio_input_get("QEMU Virtio Mouse");
+    }
+    if (!vio || virtio_init(vio, 0) != 0)
+    {
+        klog("Virtio-input init failed\n");
+        return -1;
+    }
+    virtio_interrupt_enable(vio, mouse_interrupt_handle);
 
-	dev.extra_data = (void *)vio;
-	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
-	return 0;
+    dev.extra_data = (void *)vio;
+    device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
+    return 0;
 }

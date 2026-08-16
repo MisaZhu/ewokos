@@ -8,77 +8,77 @@ extern "C" {
 #endif
 
 inline void graph_set_pixel(graph_t* g, int32_t x, int32_t y, uint32_t color) {
-	g->buffer[y * g->w + x] = color;
+    g->buffer[y * g->w + x] = color;
 }
 
 inline uint32_t graph_get_pixel(graph_t* g, int32_t x, int32_t y) {
-	return g->buffer[y * g->w + x];
+    return g->buffer[y * g->w + x];
 }
 
 inline void graph_pixel_argb_raw(graph_t* graph, int32_t x, int32_t y,
-		uint8_t a, uint8_t r, uint8_t g, uint8_t b) {
-	if(a == 0)
-		return;
-	if(a == 0xff) {
-		graph->buffer[y * graph->w + x] = argb(a, r, g, b);
-		return;
-	}
+        uint8_t a, uint8_t r, uint8_t g, uint8_t b) {
+    if(a == 0)
+        return;
+    if(a == 0xff) {
+        graph->buffer[y * graph->w + x] = argb(a, r, g, b);
+        return;
+    }
 
-	register uint32_t oc = graph->buffer[y * graph->w + x];
-	register uint8_t oa = (oc >> 24) & 0xff;
-	register uint8_t or = (oc >> 16) & 0xff;
-	register uint8_t og = (oc >> 8)  & 0xff;
-	register uint8_t ob = oc & 0xff;
+    register uint32_t oc = graph->buffer[y * graph->w + x];
+    register uint8_t oa = (oc >> 24) & 0xff;
+    register uint8_t or = (oc >> 16) & 0xff;
+    register uint8_t og = (oc >> 8)  & 0xff;
+    register uint8_t ob = oc & 0xff;
 
-	register uint32_t inv_a = 255 - a;
-	oa = oa + (uint8_t)((255 - oa) * a / 255);
-	or = (uint8_t)((r * a + or * inv_a) / 255);
-	og = (uint8_t)((g * a + og * inv_a) / 255);
-	ob = (uint8_t)((b * a + ob * inv_a) / 255);
+    register uint32_t inv_a = 255 - a;
+    oa = oa + (uint8_t)((255 - oa) * a / 255);
+    or = (uint8_t)((r * a + or * inv_a) / 255);
+    og = (uint8_t)((g * a + og * inv_a) / 255);
+    ob = (uint8_t)((b * a + ob * inv_a) / 255);
 
-	graph->buffer[y * graph->w + x] = argb(oa, or, og, ob);
+    graph->buffer[y * graph->w + x] = argb(oa, or, og, ob);
 }
 
 inline void graph_pixel(graph_t* g, int32_t x, int32_t y, uint32_t color) {
-	register uint8_t a = (color >> 24) & 0xff;
-	if(g == NULL || a == 0)
-		return;
+    register uint8_t a = (color >> 24) & 0xff;
+    if(g == NULL || a == 0)
+        return;
 
-	if(g->clip.w == 0 || g->clip.h == 0) {
-		if(x < 0 || x >= g->w || y < 0 || y >= g->h)
-			return;
-	}
-	else {
-		if(x < g->clip.x || x >= (g->clip.x + g->clip.w) ||
-				y < g->clip.y || y >= (g->clip.y + g->clip.h))
-			return;
-	}
+    if(g->clip.w == 0 || g->clip.h == 0) {
+        if(x < 0 || x >= g->w || y < 0 || y >= g->h)
+            return;
+    }
+    else {
+        if(x < g->clip.x || x >= (g->clip.x + g->clip.w) ||
+                y < g->clip.y || y >= (g->clip.y + g->clip.h))
+            return;
+    }
 
-	if(a == 0xff) {
-		graph_set_pixel(g, x, y, color);
-		return;
-	}
+    if(a == 0xff) {
+        graph_set_pixel(g, x, y, color);
+        return;
+    }
 
-	register uint8_t r = (color >> 16) & 0xff;
-	register uint8_t gc = (color >> 8)  & 0xff;
-	register uint8_t b = color & 0xff;
-	graph_pixel_argb_raw(g, x, y, a, r, gc, b);
+    register uint8_t r = (color >> 16) & 0xff;
+    register uint8_t gc = (color >> 8)  & 0xff;
+    register uint8_t b = color & 0xff;
+    graph_pixel_argb_raw(g, x, y, a, r, gc, b);
 }
 
 inline void graph_pixel_argb(graph_t* graph, int32_t x, int32_t y,
-		uint8_t a, uint8_t r, uint8_t g, uint8_t b) {
-	if(graph == NULL || a == 0)
-		return;
-	if(graph->clip.w == 0 || graph->clip.h == 0) {
-		if(x < 0 || x >= graph->w || y < 0 || y >= graph->h)
-			return;
-	}
-	else {
-		if(x < graph->clip.x || x >= (graph->clip.x + graph->clip.w) ||
-				y < graph->clip.y || y >= (graph->clip.y + graph->clip.h))
-			return;
-	}
-	graph_pixel_argb_raw(graph, x, y, a, r, g, b);
+        uint8_t a, uint8_t r, uint8_t g, uint8_t b) {
+    if(graph == NULL || a == 0)
+        return;
+    if(graph->clip.w == 0 || graph->clip.h == 0) {
+        if(x < 0 || x >= graph->w || y < 0 || y >= graph->h)
+            return;
+    }
+    else {
+        if(x < graph->clip.x || x >= (graph->clip.x + graph->clip.w) ||
+                y < graph->clip.y || y >= (graph->clip.y + graph->clip.h))
+            return;
+    }
+    graph_pixel_argb_raw(graph, x, y, a, r, g, b);
 }
 
 #ifdef __cplusplus

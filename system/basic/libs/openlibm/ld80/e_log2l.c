@@ -121,17 +121,17 @@ long double y;
 int e;
 
 if( isnan(x) )
-	return(x);
+    return(x);
 if( x == INFINITY )
-	return(x);
+    return(x);
 /* Test for domain */
 if( x <= 0.0L )
-	{
-	if( x == 0.0L )
-		return( -INFINITY );
-	else
-		return( NAN );
-	}
+    {
+    if( x == 0.0L )
+        return( -INFINITY );
+    else
+        return( NAN );
+    }
 
 /* separate mantissa from exponent */
 
@@ -147,17 +147,17 @@ x = frexpl( x, &e );
 if( (e > 2) || (e < -2) )
 {
 if( x < SQRTH )
-	{ /* 2( 2x-1 )/( 2x+1 ) */
-	e -= 1;
-	z = x - 0.5L;
-	y = 0.5L * z + 0.5L;
-	}	
+    { /* 2( 2x-1 )/( 2x+1 ) */
+    e -= 1;
+    z = x - 0.5L;
+    y = 0.5L * z + 0.5L;
+    }	
 else
-	{ /*  2 (x-1)/(x+1)   */
-	z = x - 0.5L;
-	z -= 0.5L;
-	y = 0.5L * x  + 0.5L;
-	}
+    { /*  2 (x-1)/(x+1)   */
+    z = x - 0.5L;
+    z -= 0.5L;
+    y = 0.5L * x  + 0.5L;
+    }
 x = z / y;
 z = x*x;
 y = x * ( z * __polevll( z, R, 3 ) / __p1evll( z, S, 3 ) );
@@ -168,14 +168,14 @@ goto done;
 /* logarithm using log(1+x) = x - .5x**2 + x**3 P(x)/Q(x) */
 
 if( x < SQRTH )
-	{
-	e -= 1;
-	x = ldexpl( x, 1 ) - 1.0L; /*  2x - 1  */
-	}	
+    {
+    e -= 1;
+    x = ldexpl( x, 1 ) - 1.0L; /*  2x - 1  */
+    }	
 else
-	{
-	x = x - 1.0L;
-	}
+    {
+    x = x - 1.0L;
+    }
 z = x*x;
 y = x * ( z * __polevll( x, P, 6 ) / __p1evll( x, Q, 7 ) );
 y = y - ldexpl( z, -1 );   /* -0.5x^2 + ... */

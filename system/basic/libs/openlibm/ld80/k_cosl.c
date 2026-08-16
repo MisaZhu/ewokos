@@ -68,11 +68,11 @@ C7 =  4.7383039476436467e-14;		/*  0x1aac9d9af5c43e.0p-97 */
 long double
 __kernel_cosl(long double x, long double y)
 {
-	long double hz,z,r,w;
+    long double hz,z,r,w;
 
-	z  = x*x;
-	r  = z*(C1+z*(C2+z*(C3+z*(C4+z*(C5+z*(C6+z*C7))))));
-	hz = 0.5*z;
-	w  = one-hz;
-	return w + (((one-w)-hz) + (z*r-x*y));
+    z  = x*x;
+    r  = z*(C1+z*(C2+z*(C3+z*(C4+z*(C5+z*(C6+z*C7))))));
+    hz = 0.5*z;
+    w  = one-hz;
+    return w + (((one-w)-hz) + (z*r-x*y));
 }

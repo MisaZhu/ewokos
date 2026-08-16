@@ -37,7 +37,7 @@ int main2() {
         printf("sizes ?4 8 12?:\t%d %d %d\n", (int)sizeof(fx), (int)sizeof(dx), (int)sizeof(ldx));
         printf("bit repr:\n  f: %x\n  d: %llx\n ld: %llx%llx\n", *fxi, *dxi, (0xFFFF)&*ldxi2, *ldxi1);
         printf("\n");
-		main3();
+        main3();
         return 0;
 }
 

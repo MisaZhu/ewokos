@@ -100,12 +100,12 @@ long double px, xx;
 int n;
 
 if( isnan(x) )
-	return(x);
+    return(x);
 if( x > MAXLOGL)
-	return( INFINITY );
+    return( INFINITY );
 
 if( x < MINLOGL )
-	return(0.0L);
+    return(0.0L);
 
 /* Express e**x = e**g 2**n
  *   = e**g e**( n loge(2) )

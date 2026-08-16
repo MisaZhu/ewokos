@@ -47,44 +47,44 @@
 OLM_DLLEXPORT long double
 cosl(long double x)
 {
-	union IEEEl2bits z;
-	int e0;
-	long double y[2];
-	long double hi, lo;
+    union IEEEl2bits z;
+    int e0;
+    long double y[2];
+    long double hi, lo;
 
-	z.e = x;
-	z.bits.sign = 0;
+    z.e = x;
+    z.bits.sign = 0;
 
-	/* If x = +-0 or x is a subnormal number, then cos(x) = 1 */
-	if (z.bits.exp == 0)
-		return (1.0);
+    /* If x = +-0 or x is a subnormal number, then cos(x) = 1 */
+    if (z.bits.exp == 0)
+        return (1.0);
 
-	/* If x = NaN or Inf, then cos(x) = NaN. */
-	if (z.bits.exp == 32767)
-		return ((x - x) / (x - x));
+    /* If x = NaN or Inf, then cos(x) = NaN. */
+    if (z.bits.exp == 32767)
+        return ((x - x) / (x - x));
 
-	/* Optimize the case where x is already within range. */
-	if (z.e < M_PI_4)
-		return (__kernel_cosl(z.e, 0));
+    /* Optimize the case where x is already within range. */
+    if (z.e < M_PI_4)
+        return (__kernel_cosl(z.e, 0));
 
-	e0 = __ieee754_rem_pio2l(x, y);
-	hi = y[0];
-	lo = y[1];
+    e0 = __ieee754_rem_pio2l(x, y);
+    hi = y[0];
+    lo = y[1];
 
-	switch (e0 & 3) {
-	case 0:
-	    hi = __kernel_cosl(hi, lo);
-	    break;
-	case 1:
-	    hi = - __kernel_sinl(hi, lo, 1);
-	    break;
-	case 2:
-	    hi = - __kernel_cosl(hi, lo);
-	    break;
-	case 3:
-	    hi = __kernel_sinl(hi, lo, 1);
-	    break;
-	}
-	
-	return (hi);
+    switch (e0 & 3) {
+    case 0:
+        hi = __kernel_cosl(hi, lo);
+        break;
+    case 1:
+        hi = - __kernel_sinl(hi, lo, 1);
+        break;
+    case 2:
+        hi = - __kernel_cosl(hi, lo);
+        break;
+    case 3:
+        hi = __kernel_sinl(hi, lo, 1);
+        break;
+    }
+    
+    return (hi);
 }

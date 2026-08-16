@@ -730,7 +730,7 @@ png_get_iCCP(png_const_structrp png_ptr, png_inforp info_ptr,
 
    if (png_ptr != NULL && info_ptr != NULL && (info_ptr->valid & PNG_INFO_iCCP)
        && name != NULL && compression_type != NULL && profile != NULL &&
-		 proflen != NULL)
+         proflen != NULL)
    {
       *name = info_ptr->iccp_name;
       *profile = info_ptr->iccp_profile;

@@ -209,131 +209,131 @@ int i, nflg, iyflg, yoddint;
 long e;
 
 if( y == 0.0L )
-	return( 1.0L );
+    return( 1.0L );
 
 if( x == 1.0L )
-	return( 1.0L );
+    return( 1.0L );
 
 if( isnan(x) )
-	return( x );
+    return( x );
 if( isnan(y) )
-	return( y );
+    return( y );
 
 if( y == 1.0L )
-	return( x );
+    return( x );
 
 if( !isfinite(y) && x == -1.0L )
-	return( 1.0L );
+    return( 1.0L );
 
 if( y >= LDBL_MAX )
-	{
-	if( x > 1.0L )
-		return( INFINITY );
-	if( x > 0.0L && x < 1.0L )
-		return( 0.0L );
-	if( x < -1.0L )
-		return( INFINITY );
-	if( x > -1.0L && x < 0.0L )
-		return( 0.0L );
-	}
+    {
+    if( x > 1.0L )
+        return( INFINITY );
+    if( x > 0.0L && x < 1.0L )
+        return( 0.0L );
+    if( x < -1.0L )
+        return( INFINITY );
+    if( x > -1.0L && x < 0.0L )
+        return( 0.0L );
+    }
 if( y <= -LDBL_MAX )
-	{
-	if( x > 1.0L )
-		return( 0.0L );
-	if( x > 0.0L && x < 1.0L )
-		return( INFINITY );
-	if( x < -1.0L )
-		return( 0.0L );
-	if( x > -1.0L && x < 0.0L )
-		return( INFINITY );
-	}
+    {
+    if( x > 1.0L )
+        return( 0.0L );
+    if( x > 0.0L && x < 1.0L )
+        return( INFINITY );
+    if( x < -1.0L )
+        return( 0.0L );
+    if( x > -1.0L && x < 0.0L )
+        return( INFINITY );
+    }
 if( x >= LDBL_MAX )
-	{
-	if( y > 0.0L )
-		return( INFINITY );
-	return( 0.0L );
-	}
+    {
+    if( y > 0.0L )
+        return( INFINITY );
+    return( 0.0L );
+    }
 
 w = floorl(y);
 /* Set iyflg to 1 if y is an integer.  */
 iyflg = 0;
 if( w == y )
-	iyflg = 1;
+    iyflg = 1;
 
 /* Test for odd integer y.  */
 yoddint = 0;
 if( iyflg )
-	{
-	ya = fabsl(y);
-	ya = floorl(0.5L * ya);
-	yb = 0.5L * fabsl(w);
-	if( ya != yb )
-		yoddint = 1;
-	}
+    {
+    ya = fabsl(y);
+    ya = floorl(0.5L * ya);
+    yb = 0.5L * fabsl(w);
+    if( ya != yb )
+        yoddint = 1;
+    }
 
 if( x <= -LDBL_MAX )
-	{
-	if( y > 0.0L )
-		{
-		if( yoddint )
-			return( -INFINITY );
-		return( INFINITY );
-		}
-	if( y < 0.0L )
-		{
-		if( yoddint )
-			return( -0.0L );
-		return( 0.0 );
-		}
-	}
+    {
+    if( y > 0.0L )
+        {
+        if( yoddint )
+            return( -INFINITY );
+        return( INFINITY );
+        }
+    if( y < 0.0L )
+        {
+        if( yoddint )
+            return( -0.0L );
+        return( 0.0 );
+        }
+    }
 
 
 nflg = 0;	/* flag = 1 if x<0 raised to integer power */
 if( x <= 0.0L )
-	{
-	if( x == 0.0L )
-		{
-		if( y < 0.0 )
-			{
-			if( signbit(x) && yoddint )
-				return( -INFINITY );
-			return( INFINITY );
-			}
-		if( y > 0.0 )
-			{
-			if( signbit(x) && yoddint )
-				return( -0.0L );
-			return( 0.0 );
-			}
-		if( y == 0.0L )
-			return( 1.0L );  /*   0**0   */
-		else
-			return( 0.0L );  /*   0**y   */
-		}
-	else
-		{
-		if( iyflg == 0 )
-			return (x - x) / (x - x); /* (x<0)**(non-int) is NaN */
-		nflg = 1;
-		}
-	}
+    {
+    if( x == 0.0L )
+        {
+        if( y < 0.0 )
+            {
+            if( signbit(x) && yoddint )
+                return( -INFINITY );
+            return( INFINITY );
+            }
+        if( y > 0.0 )
+            {
+            if( signbit(x) && yoddint )
+                return( -0.0L );
+            return( 0.0 );
+            }
+        if( y == 0.0L )
+            return( 1.0L );  /*   0**0   */
+        else
+            return( 0.0L );  /*   0**y   */
+        }
+    else
+        {
+        if( iyflg == 0 )
+            return (x - x) / (x - x); /* (x<0)**(non-int) is NaN */
+        nflg = 1;
+        }
+    }
 
 /* Integer power of an integer.  */
 
 if( iyflg )
-	{
-	i = w;
-	w = floorl(x);
-	if( (w == x) && (fabsl(y) < 32768.0) )
-		{
-		w = powil( x, (int) y );
-		return( w );
-		}
-	}
+    {
+    i = w;
+    w = floorl(x);
+    if( (w == x) && (fabsl(y) < 32768.0) )
+        {
+        w = powil( x, (int) y );
+        return( w );
+        }
+    }
 
 
 if( nflg )
-	x = fabsl(x);
+    x = fabsl(x);
 
 /* separate significand from exponent */
 x = frexpl( x, &i );
@@ -342,15 +342,15 @@ e = i;
 /* find significand in antilog table A[] */
 i = 1;
 if( x <= douba(17) )
-	i = 17;
+    i = 17;
 if( x <= douba(i+8) )
-	i += 8;
+    i += 8;
 if( x <= douba(i+4) )
-	i += 4;
+    i += 4;
 if( x <= douba(i+2) )
-	i += 2;
+    i += 2;
 if( x >= douba(1) )
-	i = -1;
+    i = -1;
 i += 1;
 
 
@@ -413,19 +413,19 @@ w = ldexpl( Ga+Ha, LNXT );
 
 /* Test the power of 2 for overflow */
 if( w > MEXP )
-	return (huge * huge);		/* overflow */
+    return (huge * huge);		/* overflow */
 
 if( w < MNEXP )
-	return (twom10000 * twom10000);	/* underflow */
+    return (twom10000 * twom10000);	/* underflow */
 
 e = w;
 Hb = H - Ha;
 
 if( Hb > 0.0L )
-	{
-	e += 1;
-	Hb -= (1.0L/NXT);  /*0.0625L;*/
-	}
+    {
+    e += 1;
+    Hb -= (1.0L/NXT);  /*0.0625L;*/
+    }
 
 /* Now the product y * log2(x)  =  Hb + e/NXT.
  *
@@ -438,9 +438,9 @@ z = Hb * __polevll( Hb, R, 6 );  /*    z  =  2**Hb - 1    */
  * Find lookup table entry for the fractional power of 2.
  */
 if( e < 0 )
-	i = 0;
+    i = 0;
 else
-	i = 1;
+    i = 1;
 i = e/NXT + i;
 e = NXT*i - e;
 w = douba( e );
@@ -449,17 +449,17 @@ z = z + w;
 z = ldexpl( z, i );  /* multiply by integer power of 2 */
 
 if( nflg )
-	{
+    {
 /* For negative x,
  * find out if the integer exponent
  * is odd or even.
  */
-	w = ldexpl( y, -1 );
-	w = floorl(w);
-	w = ldexpl( w, 1 );
-	if( w != y )
-		z = -z; /* odd exponent */
-	}
+    w = ldexpl( y, -1 );
+    w = floorl(w);
+    w = ldexpl( w, 1 );
+    if( w != y )
+        z = -z; /* odd exponent */
+    }
 
 return( z );
 }
@@ -523,38 +523,38 @@ long double s;
 int n, e, sign, asign, lx;
 
 if( x == 0.0L )
-	{
-	if( nn == 0 )
-		return( 1.0L );
-	else if( nn < 0 )
-		return( LDBL_MAX );
-	else
-		return( 0.0L );
-	}
+    {
+    if( nn == 0 )
+        return( 1.0L );
+    else if( nn < 0 )
+        return( LDBL_MAX );
+    else
+        return( 0.0L );
+    }
 
 if( nn == 0 )
-	return( 1.0L );
+    return( 1.0L );
 
 
 if( x < 0.0L )
-	{
-	asign = -1;
-	x = -x;
-	}
+    {
+    asign = -1;
+    x = -x;
+    }
 else
-	asign = 0;
+    asign = 0;
 
 
 if( nn < 0 )
-	{
-	sign = -1;
-	n = -nn;
-	}
+    {
+    sign = -1;
+    n = -nn;
+    }
 else
-	{
-	sign = 1;
-	n = nn;
-	}
+    {
+    sign = 1;
+    n = nn;
+    }
 
 /* Overflow detection */
 
@@ -563,53 +563,53 @@ s = x;
 s = frexpl( s, &lx );
 e = (lx - 1)*n;
 if( (e == 0) || (e > 64) || (e < -64) )
-	{
-	s = (s - 7.0710678118654752e-1L) / (s +  7.0710678118654752e-1L);
-	s = (2.9142135623730950L * s - 0.5L + lx) * nn * LOGE2L;
-	}
+    {
+    s = (s - 7.0710678118654752e-1L) / (s +  7.0710678118654752e-1L);
+    s = (2.9142135623730950L * s - 0.5L + lx) * nn * LOGE2L;
+    }
 else
-	{
-	s = LOGE2L * e;
-	}
+    {
+    s = LOGE2L * e;
+    }
 
 if( s > MAXLOGL )
-	return (huge * huge);		/* overflow */
+    return (huge * huge);		/* overflow */
 
 if( s < MINLOGL )
-	return (twom10000 * twom10000);	/* underflow */
+    return (twom10000 * twom10000);	/* underflow */
 /* Handle tiny denormal answer, but with less accuracy
  * since roundoff error in 1.0/x will be amplified.
  * The precise demarcation should be the gradual underflow threshold.
  */
 if( s < (-MAXLOGL+2.0L) )
-	{
-	x = 1.0L/x;
-	sign = -sign;
-	}
+    {
+    x = 1.0L/x;
+    sign = -sign;
+    }
 
 /* First bit of the power */
 if( n & 1 )
-	y = x;
-		
+    y = x;
+        
 else
-	{
-	y = 1.0L;
-	asign = 0;
-	}
+    {
+    y = 1.0L;
+    asign = 0;
+    }
 
 ww = x;
 n >>= 1;
 while( n )
-	{
-	ww = ww * ww;	/* arg to the 2-to-the-kth power */
-	if( n & 1 )	/* if that bit is set, then include in product */
-		y *= ww;
-	n >>= 1;
-	}
+    {
+    ww = ww * ww;	/* arg to the 2-to-the-kth power */
+    if( n & 1 )	/* if that bit is set, then include in product */
+        y *= ww;
+    n >>= 1;
+    }
 
 if( asign )
-	y = -y; /* odd power of negative number */
+    y = -y; /* odd power of negative number */
 if( sign < 0 )
-	y = 1.0L/y;
+    y = 1.0L/y;
 return(y);
 }

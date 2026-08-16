@@ -38,11 +38,11 @@ extern
 OLM_DLLEXPORT float
 __kernel_cosdf(double x)
 {
-	double r, w, z;
+    double r, w, z;
 
-	/* Try to optimize for parallel evaluation as in k_tanf.c. */
-	z = x*x;
-	w = z*z;
-	r = C2+z*C3;
-	return ((one+z*C0) + w*C1) + (w*z)*r;
+    /* Try to optimize for parallel evaluation as in k_tanf.c. */
+    z = x*x;
+    w = z*z;
+    r = C2+z*C3;
+    return ((one+z*C0) + w*C1) + (w*z)*r;
 }

@@ -22,119 +22,119 @@ static uint64_t _irq_tic_last_usec = 0;
 static uint32_t _irq_tic_second = 0;
 
 static inline uint64_t irq_read_uptime_usec_stable(void) {
-	volatile uint32_t* ticks32 = (volatile uint32_t*)&_kernel_info.uptime_usec;
-	uint32_t hi1, lo, hi2;
+    volatile uint32_t* ticks32 = (volatile uint32_t*)&_kernel_info.uptime_usec;
+    uint32_t hi1, lo, hi2;
 
-	do {
-		hi1 = ticks32[1];
-		lo = ticks32[0];
-		hi2 = ticks32[1];
-	} while(hi1 != hi2);
+    do {
+        hi1 = ticks32[1];
+        lo = ticks32[0];
+        hi2 = ticks32[1];
+    } while(hi1 != hi2);
 
-	return ((uint64_t)hi1 << 32) | lo;
+    return ((uint64_t)hi1 << 32) | lo;
 }
 
 uint64_t irq_accounting_now_usec(void) {
-	if(strstr(_sys_info.machine, "miyoo") == NULL)
-		return timer_read_sys_usec();
+    if(strstr(_sys_info.machine, "miyoo") == NULL)
+        return timer_read_sys_usec();
 
-	uint64_t base = irq_read_uptime_usec_stable();
-	if(get_core_id() != 0)
-		return base;
+    uint64_t base = irq_read_uptime_usec_stable();
+    if(get_core_id() != 0)
+        return base;
 
-	uint64_t raw = timer_read_sys_usec();
-	uint64_t last = _irq_tic_last_usec;
-	if(raw > last)
-		return base + (raw - last);
-	return base;
+    uint64_t raw = timer_read_sys_usec();
+    uint64_t last = _irq_tic_last_usec;
+    if(raw > last)
+        return base + (raw - last);
+    return base;
 }
 
 static void dump_user_addr_words_internal(proc_t* proc, ewokos_addr_t addr, const char* tag) {
-	ewokos_addr_t page_phy;
-	uint32_t page_off;
-	uint32_t avail;
-	uint8_t* page_ptr;
+    ewokos_addr_t page_phy;
+    uint32_t page_off;
+    uint32_t avail;
+    uint8_t* page_ptr;
 
-	if(proc == NULL || proc->space == NULL) {
-		return;
-	}
+    if(proc == NULL || proc->space == NULL) {
+        return;
+    }
 
-	page_phy = resolve_phy_address(proc->space->vm, addr);
-	if(page_phy == 0) {
-		printf("%s: addr=0x%llX not mapped\n", tag, (unsigned long long)addr);
-		return;
-	}
-	page_ptr = (uint8_t*)(uintptr_t)P2V(page_phy);
-	page_off = ((uint32_t)addr) & (PAGE_SIZE - 1);
-	avail = PAGE_SIZE - page_off;
+    page_phy = resolve_phy_address(proc->space->vm, addr);
+    if(page_phy == 0) {
+        printf("%s: addr=0x%llX not mapped\n", tag, (unsigned long long)addr);
+        return;
+    }
+    page_ptr = (uint8_t*)(uintptr_t)P2V(page_phy);
+    page_off = ((uint32_t)addr) & (PAGE_SIZE - 1);
+    avail = PAGE_SIZE - page_off;
 
 #ifdef __x86_64__
-	ewokos_addr_t words[4];
-	memset(words, 0, sizeof(words));
-	memcpy(words, page_ptr + page_off, avail < sizeof(words) ? avail : sizeof(words));
-	printf("%s: %08x %08x %08x %08x\n",
-			tag,
-			(uint32_t)words[0],
-			(uint32_t)words[1],
-			(uint32_t)words[2],
-			(uint32_t)words[3]);
+    ewokos_addr_t words[4];
+    memset(words, 0, sizeof(words));
+    memcpy(words, page_ptr + page_off, avail < sizeof(words) ? avail : sizeof(words));
+    printf("%s: %08x %08x %08x %08x\n",
+            tag,
+            (uint32_t)words[0],
+            (uint32_t)words[1],
+            (uint32_t)words[2],
+            (uint32_t)words[3]);
 #else
-	if(avail >= sizeof(uint64_t)) {
-		uint32_t i;
-		uint32_t count = avail / sizeof(uint64_t);
-		if(count > 6) {
-			count = 6;
-		}
-		printf("%s64:", tag);
-		for(i = 0; i < count; ++i) {
-			uint64_t val = ((uint64_t*)(page_ptr + page_off))[i];
-			printf(" %08x%08x",
-					(uint32_t)(val >> 32),
-					(uint32_t)val);
-		}
-		printf("\n");
-	}
-	if(avail >= sizeof(uint32_t)) {
-		uint32_t i;
-		uint32_t count32 = avail / sizeof(uint32_t);
-		if(count32 > 8) {
-			count32 = 8;
-		}
-		printf("%s32:", tag);
-		for(i = 0; i < count32; ++i) {
-			uint32_t val = ((uint32_t*)(page_ptr + page_off))[i];
-			printf(" %08x", val);
-		}
-		printf("\n");
-	}
+    if(avail >= sizeof(uint64_t)) {
+        uint32_t i;
+        uint32_t count = avail / sizeof(uint64_t);
+        if(count > 6) {
+            count = 6;
+        }
+        printf("%s64:", tag);
+        for(i = 0; i < count; ++i) {
+            uint64_t val = ((uint64_t*)(page_ptr + page_off))[i];
+            printf(" %08x%08x",
+                    (uint32_t)(val >> 32),
+                    (uint32_t)val);
+        }
+        printf("\n");
+    }
+    if(avail >= sizeof(uint32_t)) {
+        uint32_t i;
+        uint32_t count32 = avail / sizeof(uint32_t);
+        if(count32 > 8) {
+            count32 = 8;
+        }
+        printf("%s32:", tag);
+        for(i = 0; i < count32; ++i) {
+            uint32_t val = ((uint32_t*)(page_ptr + page_off))[i];
+            printf(" %08x", val);
+        }
+        printf("\n");
+    }
 #endif
 }
 
 #if defined(__x86_64__) || defined(__aarch64__)
 void dump_user_addr_words(proc_t* proc, ewokos_addr_t addr, const char* tag) {
-	if(tag == NULL) {
-		tag = "user";
-	}
-	dump_user_addr_words_internal(proc, addr, tag);
+    if(tag == NULL) {
+        tag = "user";
+    }
+    dump_user_addr_words_internal(proc, addr, tag);
 }
 
 void dump_user_fault_words(proc_t* proc, context_t* ctx) {
-	if(proc == NULL || ctx == NULL) {
-		return;
-	}
-	dump_user_addr_words_internal(proc, ctx->sp, "user_sp");
-	if(ctx->pc != ctx->sp) {
-		dump_user_addr_words_internal(proc, (ewokos_addr_t)ctx->pc, "user_pc");
-	}
-	if(ctx->lr != 0 && ctx->lr != ctx->pc && ctx->lr != ctx->sp) {
-		dump_user_addr_words_internal(proc, (ewokos_addr_t)ctx->lr, "user_lr");
-	}
+    if(proc == NULL || ctx == NULL) {
+        return;
+    }
+    dump_user_addr_words_internal(proc, ctx->sp, "user_sp");
+    if(ctx->pc != ctx->sp) {
+        dump_user_addr_words_internal(proc, (ewokos_addr_t)ctx->pc, "user_pc");
+    }
+    if(ctx->lr != 0 && ctx->lr != ctx->pc && ctx->lr != ctx->sp) {
+        dump_user_addr_words_internal(proc, (ewokos_addr_t)ctx->lr, "user_lr");
+    }
 }
 #endif
 
 #if defined(__x86_64__) || defined(__aarch64__)
 static void dump_user_stack_words(proc_t* proc, context_t* ctx) {
-	dump_user_fault_words(proc, ctx);
+    dump_user_fault_words(proc, ctx);
 }
 #endif
 
@@ -143,295 +143,295 @@ static void dump_user_stack_words(proc_t* proc, context_t* ctx) {
 #ifdef KERNEL_SMP
 
 void ipi_enable_all(void) {
-	uint32_t i;
-	for(i=0; i<_sys_info.cores; i++) {
-		ipi_enable(i);
-	}
+    uint32_t i;
+    for(i=0; i<_sys_info.cores; i++) {
+        ipi_enable(i);
+    }
 }
 
 #endif
 
 static inline void irq_do_raw(context_t* ctx, uint32_t irq) {
-	//kprintf("irq_raw: 0x%x\n", irq);
-	interrupt_send(ctx, irq);
+    //kprintf("irq_raw: 0x%x\n", irq);
+    interrupt_send(ctx, irq);
 }
 
 static inline void irq_do_timer0(context_t* ctx) {
-	uint64_t usec = timer_read_sys_usec();
-	uint32_t usec_gap = usec - _irq_tic_last_usec;
+    uint64_t usec = timer_read_sys_usec();
+    uint32_t usec_gap = usec - _irq_tic_last_usec;
 
-	_irq_tic_last_usec = usec;
-	_kernel_info.uptime_usec = usec;
-	_irq_tic_second += usec_gap;
+    _irq_tic_last_usec = usec;
+    _kernel_info.uptime_usec = usec;
+    _irq_tic_second += usec_gap;
 
-	if(_irq_tic_second >= 1000000) { //SEC_TIC sec
-		_kernel_info.uptime_sec++;
-		_irq_tic_second = 0;
-		renew_kernel_sec();
-	}
-	renew_kernel_tic(usec_gap);
-	
+    if(_irq_tic_second >= 1000000) { //SEC_TIC sec
+        _kernel_info.uptime_sec++;
+        _irq_tic_second = 0;
+        renew_kernel_sec();
+    }
+    renew_kernel_tic(usec_gap);
+    
 #ifndef __x86_64__
-	timer_clear_interrupt(0);
+    timer_clear_interrupt(0);
 #endif
 
-	schedule(ctx);
+    schedule(ctx);
 }
 static inline void _irq_handler(uint32_t cid, context_t* ctx) {
-	uint32_t irq_raw;
+    uint32_t irq_raw;
 #ifdef __x86_64__
-	/* x86 trap entry already records the raw vector in the trap frame. */
-	irq_raw = (uint32_t)ctx->trap_no;
+    /* x86 trap entry already records the raw vector in the trap frame. */
+    irq_raw = (uint32_t)ctx->trap_no;
 #else
-	irq_raw = irq_get_arch();
+    irq_raw = irq_get_arch();
 #endif
-	uint32_t irq = irq_get_unified_arch(irq_raw);
+    uint32_t irq = irq_get_unified_arch(irq_raw);
 
-	//handle irq
-	if(irq > 0 && irq < IRQ_RAW_TOP) {
-		irq_do_raw(ctx, irq);
-	}
-	else if(cid == 0 && irq == IRQ_TIMER0) {
-		irq_do_timer0(ctx);
-	}
-	else {
+    //handle irq
+    if(irq > 0 && irq < IRQ_RAW_TOP) {
+        irq_do_raw(ctx, irq);
+    }
+    else if(cid == 0 && irq == IRQ_TIMER0) {
+        irq_do_timer0(ctx);
+    }
+    else {
 #ifdef KERNEL_SMP
-		ipi_clear(get_core_id());
+        ipi_clear(get_core_id());
 #endif
-	}
+    }
 #ifdef KERNEL_SMP
-	uint32_t core = get_core_id();
-	if(_cpu_cores[core].need_resched != 0) {
-		_cpu_cores[core].need_resched = 0;
-		if(!(cid == 0 && irq == IRQ_TIMER0)) {
-			schedule(ctx);
-		}
-	}
+    uint32_t core = get_core_id();
+    if(_cpu_cores[core].need_resched != 0) {
+        _cpu_cores[core].need_resched = 0;
+        if(!(cid == 0 && irq == IRQ_TIMER0)) {
+            schedule(ctx);
+        }
+    }
 #endif
-	irq_eoi_arch(irq_raw);
+    irq_eoi_arch(irq_raw);
 }
 
 inline void irq_handler(context_t* ctx) {
-	__irq_disable();
+    __irq_disable();
 #ifdef __x86_64__
-	if(get_core_id() == 0 && irq_get_unified_arch((uint32_t)ctx->trap_no) == IRQ_TIMER0) {
-		/*
-		 * x86 PIT time only advances when timer_clear_interrupt() bumps the
-		 * software tick counter. Account that tick before pausing the current
-		 * task, otherwise core0 loses almost the entire last slice and shows up
-		 * as fake 100% kernel residual.
-		 */
-		timer_clear_interrupt(0);
-	}
+    if(get_core_id() == 0 && irq_get_unified_arch((uint32_t)ctx->trap_no) == IRQ_TIMER0) {
+        /*
+         * x86 PIT time only advances when timer_clear_interrupt() bumps the
+         * software tick counter. Account that tick before pausing the current
+         * task, otherwise core0 loses almost the entire last slice and shows up
+         * as fake 100% kernel residual.
+         */
+        timer_clear_interrupt(0);
+    }
 #endif
-	proc_account_pause_current();
-	uint32_t cid = get_core_id();
-	kernel_lock();
-	_irq_handler(cid, ctx);
-	kernel_unlock();
-	proc_account_resume_current();
+    proc_account_pause_current();
+    uint32_t cid = get_core_id();
+    kernel_lock();
+    _irq_handler(cid, ctx);
+    kernel_unlock();
+    proc_account_resume_current();
 
-	proc_t* cproc = get_current_proc();
-	if(cproc != NULL && cproc->is_core_idle_proc) {
+    proc_t* cproc = get_current_proc();
+    if(cproc != NULL && cproc->is_core_idle_proc) {
 #ifndef __x86_64__
-		wfi();
+        wfi();
 #endif
-	}
+    }
 }
 
 static int32_t copy_on_write(proc_t* proc, ewokos_addr_t v_addr) {
-	v_addr = ALIGN_DOWN(v_addr, PAGE_SIZE);
-	ewokos_addr_t phy_addr = resolve_phy_address(proc->space->vm, v_addr);
-	char *page = kalloc_page();
-	if(page == NULL) {
-		return -1;
-	}
+    v_addr = ALIGN_DOWN(v_addr, PAGE_SIZE);
+    ewokos_addr_t phy_addr = resolve_phy_address(proc->space->vm, v_addr);
+    char *page = kalloc_page();
+    if(page == NULL) {
+        return -1;
+    }
 
-	if(phy_addr != 0) {
-		memcpy(page, (char*)P2V(phy_addr), PAGE_SIZE);
-		unmap_page_ref(proc->space->vm, v_addr);
-	}
-	else {
-		// Lazily reserved heap/stack pages have no backing page yet.
-		memset(page, 0, PAGE_SIZE);
-	}
-	map_page_ref(proc->space->vm,
-			v_addr,
-			V2P(page),
-			AP_RW_RW, PTE_ATTR_WRBACK);
-	flush_tlb();
-	return 0;
+    if(phy_addr != 0) {
+        memcpy(page, (char*)P2V(phy_addr), PAGE_SIZE);
+        unmap_page_ref(proc->space->vm, v_addr);
+    }
+    else {
+        // Lazily reserved heap/stack pages have no backing page yet.
+        memset(page, 0, PAGE_SIZE);
+    }
+    map_page_ref(proc->space->vm,
+            v_addr,
+            V2P(page),
+            AP_RW_RW, PTE_ATTR_WRBACK);
+    flush_tlb();
+    return 0;
 }
 
 static inline uint8_t is_user_heap_or_stack_fault(proc_t* proc, ewokos_addr_t addr_fault) {
-	if(proc == NULL || proc->space == NULL)
-		return 0;
+    if(proc == NULL || proc->space == NULL)
+        return 0;
 
-	ewokos_addr_t legel_addr_base = proc->space->rw_heap_base;
-	uint8_t in_heap = (addr_fault >= legel_addr_base && addr_fault < proc->space->heap_size);
-	uint8_t in_user_stack = (addr_fault >= USER_STACK_BOTTOM && addr_fault < USER_STACK_TOP);
-	return (uint8_t)(in_heap || in_user_stack);
+    ewokos_addr_t legel_addr_base = proc->space->rw_heap_base;
+    uint8_t in_heap = (addr_fault >= legel_addr_base && addr_fault < proc->space->heap_size);
+    uint8_t in_user_stack = (addr_fault >= USER_STACK_BOTTOM && addr_fault < USER_STACK_TOP);
+    return (uint8_t)(in_heap || in_user_stack);
 }
 
 static inline uint8_t is_recoverable_user_data_fault(uint32_t status) {
 #if __aarch64__
-	/*
-	 * AArch64 ESR_EL1.ISS[5:0] uses FSC/DFSC values:
-	 *   0x4..0x7  translation fault
-	 *   0x8..0xB  access flag fault
-	 *   0xC..0xF  permission fault
-	 *
-	 * Heap COW and lazily reserved heap/stack pages can legally fault in any of
-	 * these groups, so treat them all as recoverable user page faults.
-	 */
-	uint32_t fsc = status & 0x3f;
-	return (uint8_t)(fsc >= 0x4 && fsc <= 0xF);
+    /*
+     * AArch64 ESR_EL1.ISS[5:0] uses FSC/DFSC values:
+     *   0x4..0x7  translation fault
+     *   0x8..0xB  access flag fault
+     *   0xC..0xF  permission fault
+     *
+     * Heap COW and lazily reserved heap/stack pages can legally fault in any of
+     * these groups, so treat them all as recoverable user page faults.
+     */
+    uint32_t fsc = status & 0x3f;
+    return (uint8_t)(fsc >= 0x4 && fsc <= 0xF);
 #else
-	return (uint8_t)(((status & 0x5) == 0x5) || ((status & 0xD) == 0xD));
+    return (uint8_t)(((status & 0x5) == 0x5) || ((status & 0xD) == 0xD));
 #endif
 }
 
 void undef_abort_handler(context_t* ctx, uint32_t status) {
-	(void)ctx;
-	(void)status;
-	__irq_disable();
-	uint32_t core = get_core_id();
-	proc_t* cproc = get_current_proc();
-	if(cproc == NULL) {
-		printf("_kernel, undef instrunction abort!! (core %d)\n", core);
-		dump_ctx(ctx);
-		halt();
-	}
+    (void)ctx;
+    (void)status;
+    __irq_disable();
+    uint32_t core = get_core_id();
+    proc_t* cproc = get_current_proc();
+    if(cproc == NULL) {
+        printf("_kernel, undef instrunction abort!! (core %d)\n", core);
+        dump_ctx(ctx);
+        halt();
+    }
 
-	printf("pid: %d(%s), undef instrunction abort!! (core %d)\n", cproc->info.pid, cproc->info.cmd, core);
-	dump_ctx(&cproc->ctx);
+    printf("pid: %d(%s), undef instrunction abort!! (core %d)\n", cproc->info.pid, cproc->info.cmd, core);
+    dump_ctx(&cproc->ctx);
 
-	proc_exit(ctx, proc_get_proc(cproc), -1);
+    proc_exit(ctx, proc_get_proc(cproc), -1);
 }
 
 void prefetch_abort_handler(context_t* ctx, uint32_t status) {
-	(void)ctx;
-	__irq_disable();
-	uint32_t core = get_core_id();
+    (void)ctx;
+    __irq_disable();
+    uint32_t core = get_core_id();
 
-	proc_t* cproc = get_current_proc();
-	if(cproc == NULL) {
-		printf("_kernel, prefetch abort!! (core %d)\n", core);
-		dump_ctx(ctx);
-		halt();
-	}
-	/*kprintf("handle prefetch abort: %d, status: 0x%x, addr: 0x%x\n", cproc->info.pid, status, ctx->pc);
+    proc_t* cproc = get_current_proc();
+    if(cproc == NULL) {
+        printf("_kernel, prefetch abort!! (core %d)\n", core);
+        dump_ctx(ctx);
+        halt();
+    }
+    /*kprintf("handle prefetch abort: %d, status: 0x%x, addr: 0x%x\n", cproc->info.pid, status, ctx->pc);
 
-	if(((status & 0x1D) == 0xD || //permissions fault only
-		(status & 0x1F) == 0x6) && 
-			ctx->pc < cproc->space->heap_size) { //in proc heap only
-		if (kernel_lock_check() > 0)
-			return;
+    if(((status & 0x1D) == 0xD || //permissions fault only
+        (status & 0x1F) == 0x6) && 
+            ctx->pc < cproc->space->heap_size) { //in proc heap only
+        if (kernel_lock_check() > 0)
+            return;
 
-		kernel_lock();
-		int32_t res = copy_on_write(cproc, ctx->pc);
-		kernel_unlock();
-		if(res == 0)
-			return;
-	}
-	*/
+        kernel_lock();
+        int32_t res = copy_on_write(cproc, ctx->pc);
+        kernel_unlock();
+        if(res == 0)
+            return;
+    }
+    */
 
-	printf("pid: %d(%s), prefetch abort!! (core %d) code:0x%x\n", cproc->info.pid, cproc->info.cmd, core, status);
+    printf("pid: %d(%s), prefetch abort!! (core %d) code:0x%x\n", cproc->info.pid, cproc->info.cmd, core, status);
 #ifdef __x86_64__
-	printf("live: pc=%x sp=%x cs=%x ss=%x trap=%x err=%x\n",
-			(uint32_t)ctx->pc,
-			(uint32_t)ctx->sp,
-			(uint32_t)ctx->cs,
-			(uint32_t)ctx->ss,
-			(uint32_t)ctx->trap_no,
-			(uint32_t)ctx->err_code);
+    printf("live: pc=%x sp=%x cs=%x ss=%x trap=%x err=%x\n",
+            (uint32_t)ctx->pc,
+            (uint32_t)ctx->sp,
+            (uint32_t)ctx->cs,
+            (uint32_t)ctx->ss,
+            (uint32_t)ctx->trap_no,
+            (uint32_t)ctx->err_code);
 #endif
-	dump_ctx(&cproc->ctx);
+    dump_ctx(&cproc->ctx);
 #if defined(__x86_64__) || defined(__aarch64__)
-	dump_user_stack_words(cproc, ctx);
+    dump_user_stack_words(cproc, ctx);
 #endif
 
-	proc_exit(ctx, proc_get_proc(cproc), -1);
+    proc_exit(ctx, proc_get_proc(cproc), -1);
 }
 
 void data_abort_handler(context_t* ctx, ewokos_addr_t addr_fault, uint32_t status) {
-	(void)ctx;
-	__irq_disable();
-	proc_t* cproc = get_current_proc();
-	if(cproc == NULL) {
-		printf("_kernel, data abort!! core: %d, at: 0x%llX status: 0x%X\n", 
-			get_core_id(), (unsigned long long)addr_fault, status);
-		dump_ctx(ctx);
-		halt();
-	}
-	//kprintf("handle data abort: %d, 0x%x, 0x%x\n", cproc->info.pid, status, addr_fault);
+    (void)ctx;
+    __irq_disable();
+    proc_t* cproc = get_current_proc();
+    if(cproc == NULL) {
+        printf("_kernel, data abort!! core: %d, at: 0x%llX status: 0x%X\n", 
+            get_core_id(), (unsigned long long)addr_fault, status);
+        dump_ctx(ctx);
+        halt();
+    }
+    //kprintf("handle data abort: %d, 0x%x, 0x%x\n", cproc->info.pid, status, addr_fault);
 
-	uint32_t err = 0;
-	const char* errmsg = "";
-	ewokos_addr_t legel_addr_base = cproc->space->rw_heap_base;
-	uint8_t recoverable = is_recoverable_user_data_fault(status);
-	uint8_t in_user_heap_or_stack = is_user_heap_or_stack_fault(cproc, addr_fault);
-	ewokos_addr_t fault_page_phy = 0;
-	if(cproc->space != NULL && cproc->space->vm != NULL) {
-		fault_page_phy = resolve_phy_address(cproc->space->vm, ALIGN_DOWN(addr_fault, PAGE_SIZE));
-	}
+    uint32_t err = 0;
+    const char* errmsg = "";
+    ewokos_addr_t legel_addr_base = cproc->space->rw_heap_base;
+    uint8_t recoverable = is_recoverable_user_data_fault(status);
+    uint8_t in_user_heap_or_stack = is_user_heap_or_stack_fault(cproc, addr_fault);
+    ewokos_addr_t fault_page_phy = 0;
+    if(cproc->space != NULL && cproc->space->vm != NULL) {
+        fault_page_phy = resolve_phy_address(cproc->space->vm, ALIGN_DOWN(addr_fault, PAGE_SIZE));
+    }
 
-	if(recoverable) {
-		if(in_user_heap_or_stack) {
-			if (kernel_lock_check() > 0)
-				return;
+    if(recoverable) {
+        if(in_user_heap_or_stack) {
+            if (kernel_lock_check() > 0)
+                return;
 
-			kernel_lock();
-			int32_t res = copy_on_write(cproc, addr_fault);
-			kernel_unlock();
-			if(res == 0) 
-				return;
-			err = 1;
-			errmsg = "copy on write failed";
-		}
-		else {
-			err = 2;
-			errmsg = "illegel address";
-		}
-	}
-	else {
-		err = 3;
-		errmsg = "access denied";
-	}
+            kernel_lock();
+            int32_t res = copy_on_write(cproc, addr_fault);
+            kernel_unlock();
+            if(res == 0) 
+                return;
+            err = 1;
+            errmsg = "copy on write failed";
+        }
+        else {
+            err = 2;
+            errmsg = "illegel address";
+        }
+    }
+    else {
+        err = 3;
+        errmsg = "access denied";
+    }
 
-	printf("\npid: %d(%s), core: %d, data abort at: 0x%llX, status: 0x%X\n", 
-			cproc->info.pid, cproc->info.cmd, cproc->info.core, (unsigned long long)addr_fault, status);
-	printf("\tdebug: recov=%d in_heap_or_stack=%d heap(0x%llX->0x%llX) page_phy=0x%llX\n",
-			recoverable,
-			in_user_heap_or_stack,
-			(unsigned long long)legel_addr_base,
-			(unsigned long long)cproc->space->heap_size,
-			(unsigned long long)fault_page_phy);
-	if(err == 2) //illegel address
-		printf("\terror: %s! heap(0x%llX->0x%llX)\n",
-				errmsg,
-				(unsigned long long)legel_addr_base,
-				(unsigned long long)cproc->space->heap_size);
-	else
-		printf("\terror: %s!\n", errmsg);
+    printf("\npid: %d(%s), core: %d, data abort at: 0x%llX, status: 0x%X\n", 
+            cproc->info.pid, cproc->info.cmd, cproc->info.core, (unsigned long long)addr_fault, status);
+    printf("\tdebug: recov=%d in_heap_or_stack=%d heap(0x%llX->0x%llX) page_phy=0x%llX\n",
+            recoverable,
+            in_user_heap_or_stack,
+            (unsigned long long)legel_addr_base,
+            (unsigned long long)cproc->space->heap_size,
+            (unsigned long long)fault_page_phy);
+    if(err == 2) //illegel address
+        printf("\terror: %s! heap(0x%llX->0x%llX)\n",
+                errmsg,
+                (unsigned long long)legel_addr_base,
+                (unsigned long long)cproc->space->heap_size);
+    else
+        printf("\terror: %s!\n", errmsg);
 
-	dump_ctx(ctx);
+    dump_ctx(ctx);
 #if defined(__x86_64__) || defined(__aarch64__)
-	dump_user_stack_words(cproc, ctx);
+    dump_user_stack_words(cproc, ctx);
 #endif
-	proc_exit(ctx, proc_get_proc(cproc), -1);
+    proc_exit(ctx, proc_get_proc(cproc), -1);
 }
 
 void irq_init(void) {
-	irq_init_arch();
-	interrupt_init();
-	_kernel_info.uptime_sec = 0;
-	_kernel_info.uptime_usec = 0;
-	_irq_tic_second = 0;
-	_irq_tic_last_usec = timer_read_sys_usec();
-	irq_enable_arch(IRQ_TIMER0);
+    irq_init_arch();
+    interrupt_init();
+    _kernel_info.uptime_sec = 0;
+    _kernel_info.uptime_usec = 0;
+    _irq_tic_second = 0;
+    _irq_tic_last_usec = timer_read_sys_usec();
+    irq_enable_arch(IRQ_TIMER0);
 
 #ifdef KERNEL_SMP
-	ipi_enable_all();
+    ipi_enable_all();
 #endif
 }

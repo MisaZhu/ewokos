@@ -33,23 +33,23 @@ extern int sock_readable(int sock);
 extern int sock_writable(int sock);
 
 static int network_fcntl(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
-	int cmd, proto_t* in, proto_t* out, void* p) {
+    int cmd, proto_t* in, proto_t* out, void* p) {
     (void)dev;
     (void)p;
-	net_task_t *task = (net_task_t*)(ewokos_addr_t)info->data;
+    net_task_t *task = (net_task_t*)(ewokos_addr_t)info->data;
     if(task == NULL) {
         return -1;
     }
-	int res = task_cntl(task, from_pid, cmd, in, out, p);
-	return res;
+    int res = task_cntl(task, from_pid, cmd, in, out, p);
+    return res;
 }
 
 int network_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int oflag, void* p){
-	(void)dev;
-	(void)oflag;
-	(void)p;
+    (void)dev;
+    (void)oflag;
+    (void)p;
 
-	net_task_t *task = create_task(fd, from_pid, info->node);
+    net_task_t *task = create_task(fd, from_pid, info->node);
     if(task == NULL) {
         if(errno == 0)
             errno = EAGAIN;
@@ -57,167 +57,167 @@ int network_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int oflag
                 fd, from_pid, info->node, errno);
         return -1;
     }
-	info->data = (ewokos_addr_t)task;
-	return 0;
+    info->data = (ewokos_addr_t)task;
+    return 0;
 }
 
 static int network_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, 
-		void* buf, int size, int offset, void* p) {
-	(void)dev;
-	(void)fd;
-	(void)offset;
-	(void)p;
+        void* buf, int size, int offset, void* p) {
+    (void)dev;
+    (void)fd;
+    (void)offset;
+    (void)p;
 
-	net_task_t *task = (net_task_t*)(ewokos_addr_t)info->data;
-	int ret;
-	int sock = -1;
-	int still_readable = 0;
+    net_task_t *task = (net_task_t*)(ewokos_addr_t)info->data;
+    int ret;
+    int sock = -1;
+    int still_readable = 0;
     if(task == NULL) {
         return -1;
     }
-	ret = task_read(task, from_pid, buf, size, p);
-	if(ret == VFS_ERR_RETRY) {
-		/* Read was re-armed (not yet complete) — clear sticky flag.
-		 * The async worker will call vfs_wakeup when data is actually available. */
-		pthread_mutex_lock(&task->lock);
-		task->pending_main_rd = false;
-		pthread_mutex_unlock(&task->lock);
-	} else {
-		pthread_mutex_lock(&task->lock);
-		sock = task->sock;
-		pthread_mutex_unlock(&task->lock);
-		if(sock >= 0) {
-			still_readable = sock_readable(sock);
-		}
-		pthread_mutex_lock(&task->lock);
-		task->pending_main_rd = still_readable ? true : false;
-		pthread_mutex_unlock(&task->lock);
-	}
-	return ret;
+    ret = task_read(task, from_pid, buf, size, p);
+    if(ret == VFS_ERR_RETRY) {
+        /* Read was re-armed (not yet complete) — clear sticky flag.
+         * The async worker will call vfs_wakeup when data is actually available. */
+        pthread_mutex_lock(&task->lock);
+        task->pending_main_rd = false;
+        pthread_mutex_unlock(&task->lock);
+    } else {
+        pthread_mutex_lock(&task->lock);
+        sock = task->sock;
+        pthread_mutex_unlock(&task->lock);
+        if(sock >= 0) {
+            still_readable = sock_readable(sock);
+        }
+        pthread_mutex_lock(&task->lock);
+        task->pending_main_rd = still_readable ? true : false;
+        pthread_mutex_unlock(&task->lock);
+    }
+    return ret;
 }
 
 static int network_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
-		const void* buf, int size, int offset, void* p) {
-	(void)dev;
-	(void)offset;
+        const void* buf, int size, int offset, void* p) {
+    (void)dev;
+    (void)offset;
 
-	net_task_t *task = (net_task_t*)(ewokos_addr_t)info->data;
+    net_task_t *task = (net_task_t*)(ewokos_addr_t)info->data;
     if(task == NULL) {
         return -1;
     }
-	return task_write(task, from_pid, (char *)buf, size, p);
+    return task_write(task, from_pid, (char *)buf, size, p);
 }
 
 static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, void* p) {
-	(void)dev;
-	(void)fd;
-	(void)from_pid;
-	(void)info;
-	(void)p;
-	net_task_t *task = (net_task_t*)(ewokos_addr_t)info->data;
+    (void)dev;
+    (void)fd;
+    (void)from_pid;
+    (void)info;
+    (void)p;
+    net_task_t *task = (net_task_t*)(ewokos_addr_t)info->data;
 
-	uint32_t events = 0;
-	int main_sock = -1;
-	int read_state = NET_TASK_IDLE;
-	int write_state = NET_TASK_IDLE;
-	int main_state = NET_TASK_IDLE;
-	int main_cmd = 0;
-	int pending_main_rd = 0;
-	int write_ready = 0;
-	int cached_rd = 0;
-	int can_write = 0;
-	int wr_ready_live = 0;
-	int rd_ready_live = 0;
-	if (task != NULL) {
-		pthread_mutex_lock(&task->lock);
-		main_state = task->state;
-		main_cmd = task->cmd;
-		read_state = task->read_state;
-		write_state = task->write_state;
-		main_sock = task->sock;
-		pending_main_rd = task->pending_main_rd;
-		write_ready = task->write_ready ? 1 : 0;
-		cached_rd = task->read_cache_ready ? 1 : 0;
-		if (main_state == NET_TASK_IDLE || main_state == NET_TASK_FINISH) {
-			can_write = 1;
-		}
-		/*
-		 * recv()/recvfrom()/accept() run on the main async-fcntl state machine,
-		 * not read_state. Once the worker has produced a FINISH result, user
-		 * space must continue to observe RD until it consumes task->out;
-		 * otherwise vfs_get_poll_events() can mistake the completion wake for a
-		 * stale readability edge (the listening/data socket may already be
-		 * non-readable again) and clear the only notification that a blocked
-		 * accept()/recv() was waiting for.
-		 */
-		if (main_state == NET_TASK_FINISH &&
-				(task->cmd == SOCK_ACCEPT ||
-				 task->cmd == SOCK_RECV ||
-				 task->cmd == SOCK_RECVFROM)) {
-			events |= VFS_EVT_RD;
-		}
-		if (read_state == NET_TASK_FINISH) {
-			events |= VFS_EVT_RD;
-		}
-		if (write_state == NET_TASK_FINISH) {
-			events |= VFS_EVT_WR;
-		}
-		if (cached_rd) {
-			events |= VFS_EVT_RD;
-		}
-		pthread_mutex_unlock(&task->lock);
-		/*
-		 * Keep poll() off the stack hot path in the common case. The hint bits
-		 * still need a live recheck before they are published as readiness;
-		 * otherwise a stale write_ready/pending_main_rd can make poll() return
-		 * immediately forever and spin both sshd and the netd dispatch thread.
-		 */
-		if (!(events & VFS_EVT_WR) &&
-				can_write &&
-				!(main_state == NET_TASK_PROCESS && main_cmd == SOCK_CONNECT) &&
-				main_sock < 0) {
-			events |= VFS_EVT_WR;
-		}
-		if (!(events & VFS_EVT_WR) &&
-				can_write &&
-				write_state == NET_TASK_IDLE &&
-				write_ready &&
-				main_sock >= 0) {
+    uint32_t events = 0;
+    int main_sock = -1;
+    int read_state = NET_TASK_IDLE;
+    int write_state = NET_TASK_IDLE;
+    int main_state = NET_TASK_IDLE;
+    int main_cmd = 0;
+    int pending_main_rd = 0;
+    int write_ready = 0;
+    int cached_rd = 0;
+    int can_write = 0;
+    int wr_ready_live = 0;
+    int rd_ready_live = 0;
+    if (task != NULL) {
+        pthread_mutex_lock(&task->lock);
+        main_state = task->state;
+        main_cmd = task->cmd;
+        read_state = task->read_state;
+        write_state = task->write_state;
+        main_sock = task->sock;
+        pending_main_rd = task->pending_main_rd;
+        write_ready = task->write_ready ? 1 : 0;
+        cached_rd = task->read_cache_ready ? 1 : 0;
+        if (main_state == NET_TASK_IDLE || main_state == NET_TASK_FINISH) {
+            can_write = 1;
+        }
+        /*
+         * recv()/recvfrom()/accept() run on the main async-fcntl state machine,
+         * not read_state. Once the worker has produced a FINISH result, user
+         * space must continue to observe RD until it consumes task->out;
+         * otherwise vfs_get_poll_events() can mistake the completion wake for a
+         * stale readability edge (the listening/data socket may already be
+         * non-readable again) and clear the only notification that a blocked
+         * accept()/recv() was waiting for.
+         */
+        if (main_state == NET_TASK_FINISH &&
+                (task->cmd == SOCK_ACCEPT ||
+                 task->cmd == SOCK_RECV ||
+                 task->cmd == SOCK_RECVFROM)) {
+            events |= VFS_EVT_RD;
+        }
+        if (read_state == NET_TASK_FINISH) {
+            events |= VFS_EVT_RD;
+        }
+        if (write_state == NET_TASK_FINISH) {
+            events |= VFS_EVT_WR;
+        }
+        if (cached_rd) {
+            events |= VFS_EVT_RD;
+        }
+        pthread_mutex_unlock(&task->lock);
+        /*
+         * Keep poll() off the stack hot path in the common case. The hint bits
+         * still need a live recheck before they are published as readiness;
+         * otherwise a stale write_ready/pending_main_rd can make poll() return
+         * immediately forever and spin both sshd and the netd dispatch thread.
+         */
+        if (!(events & VFS_EVT_WR) &&
+                can_write &&
+                !(main_state == NET_TASK_PROCESS && main_cmd == SOCK_CONNECT) &&
+                main_sock < 0) {
+            events |= VFS_EVT_WR;
+        }
+        if (!(events & VFS_EVT_WR) &&
+                can_write &&
+                write_state == NET_TASK_IDLE &&
+                write_ready &&
+                main_sock >= 0) {
                         wr_ready_live = sock_poll_writable(main_sock);
                         if (wr_ready_live > 0) {
-				events |= VFS_EVT_WR;
+                events |= VFS_EVT_WR;
                         } else if (wr_ready_live == 0) {
-				pthread_mutex_lock(&task->lock);
-				task->write_ready = false;
-				pthread_mutex_unlock(&task->lock);
-			}
-		}
-		if (pending_main_rd) {
-			if (main_sock >= 0) {
+                pthread_mutex_lock(&task->lock);
+                task->write_ready = false;
+                pthread_mutex_unlock(&task->lock);
+            }
+        }
+        if (pending_main_rd) {
+            if (main_sock >= 0) {
                                 rd_ready_live = sock_poll_readable(main_sock);
-			}
+            }
                         if (main_sock >= 0 && rd_ready_live > 0) {
-				events |= VFS_EVT_RD;
+                events |= VFS_EVT_RD;
                         } else if (rd_ready_live == 0) {
-				pthread_mutex_lock(&task->lock);
-				task->pending_main_rd = false;
-				pthread_mutex_unlock(&task->lock);
-			}
-		}
-	}
+                pthread_mutex_lock(&task->lock);
+                task->pending_main_rd = false;
+                pthread_mutex_unlock(&task->lock);
+            }
+        }
+    }
 
-	return events;
+    return events;
 }
 
 static int network_dup(vdevice_t* dev, int from_fd, int from_pid, int dup_fd, int dup_pid,
-		uint32_t node, fsinfo_t* fsinfo, void* p) {
-	(void)dev;
+        uint32_t node, fsinfo_t* fsinfo, void* p) {
+    (void)dev;
         (void)from_fd;
         (void)from_pid;
         (void)dup_fd;
         (void)dup_pid;
         (void)node;
-	(void)p;
+    (void)p;
         net_task_t *task = NULL;
 
         if(fsinfo != NULL) {
@@ -234,17 +234,17 @@ static int network_dup(vdevice_t* dev, int from_fd, int from_pid, int dup_fd, in
          * explicit per-task refcount here; otherwise the parent's close after
          * fork can leak or prematurely reap the accepted socket.
          */
-	return 0;
+    return 0;
 }
 
 static int network_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fsinfo_t* fsinfo,void* p) {
-	(void)dev;
+    (void)dev;
         (void)fd;
-	(void)from_pid;
+    (void)from_pid;
         (void)node;
-	(void)p;
-	net_task_t *task = (net_task_t *)(ewokos_addr_t)fsinfo->data;
-	if(task) {
+    (void)p;
+    net_task_t *task = (net_task_t *)(ewokos_addr_t)fsinfo->data;
+    if(task) {
                 int refs_left;
 
                 pthread_mutex_lock(&task->lock);
@@ -255,12 +255,12 @@ static int network_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fs
                 pthread_mutex_unlock(&task->lock);
 
                 if(refs_left > 0) {
-			return 0;
-		}
-		fsinfo->data = 0;
-		release_task(task);
-	}
-	return 0;
+            return 0;
+        }
+        fsinfo->data = 0;
+        release_task(task);
+    }
+    return 0;
 }
 
 #define LOOPBACK_IP_ADDR "127.0.0.1"
@@ -322,91 +322,91 @@ static int setup(void)
     }
 
     if (ETHER_TAP_USE_DHCP) {
-	    if(dhcp_run(dev) == -1){
+        if(dhcp_run(dev) == -1){
             slog("dhcp_run() failure");
             return -1;
-	    }
+        }
     }
     else if (ip_route_set_default_gateway(iface, DEFAULT_GATEWAY) == -1) {
         slog("ip_route_set_default_gateway() failure");
         return -1;
     }
 
-	pthread_t tid;
+    pthread_t tid;
     pthread_create(&tid, NULL, net_thread, NULL);
 
     return 0;
 }
 
 int gettimeofday_plat(struct timeval *tp, void *tzp){
-	uint64_t usec;
-	kernel_tic(NULL, &usec);
+    uint64_t usec;
+    kernel_tic(NULL, &usec);
 
-	tp->tv_sec = usec / 1000000;
-	tp->tv_usec = usec % 1000000;
-	return 0;
+    tp->tv_sec = usec / 1000000;
+    tp->tv_usec = usec % 1000000;
+    return 0;
 }
 
 void mac2str(uint8_t *mac,  char* str){
-	for(int i = 0; i < 6; i++){
-		uint8_t val = mac[i];
-		uint8_t hval = (val>>4)&0xf;
-		uint8_t lval = val&0xf;
+    for(int i = 0; i < 6; i++){
+        uint8_t val = mac[i];
+        uint8_t hval = (val>>4)&0xf;
+        uint8_t lval = val&0xf;
 
-		if(hval <= 9)
-			*str++ = hval + '0';
-		else
-			*str++ = hval - 10 + 'A';
-		if(lval <= 9)
-			*str++ = lval + '0';
-		else
-			*str++ = lval - 10 + 'A';
-		*str++ = ':';
-	}
-	*(str - 1) = '\0';
+        if(hval <= 9)
+            *str++ = hval + '0';
+        else
+            *str++ = hval - 10 + 'A';
+        if(lval <= 9)
+            *str++ = lval + '0';
+        else
+            *str++ = lval - 10 + 'A';
+        *str++ = ':';
+    }
+    *(str - 1) = '\0';
 }
 
 char* network_devcmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* p) {
-	(void)dev;
-	(void)from_pid;
-	(void)argc;
-	(void)p;
-	json_var_t* json_var = json_var_new_array();
-	if(strcmp(argv[0], "ip") == 0) {
-		struct ip_iface *iface =  NULL;
-		while(true){
-			iface = ip_iface_itor(iface);
-			if(iface == NULL)
-				break;
-			char unicast[16];
-			char netmask[16];	
-			char broadcast[16];
-			char gateway[16];
-			char mac[ETHER_ADDR_STR_LEN];
-			ip_addr_ntop(iface->unicast, unicast, sizeof(unicast));
-			ip_addr_ntop(iface->netmask, netmask, sizeof(netmask));
-			ip_addr_ntop(iface->broadcast, broadcast, sizeof(broadcast));
-			ip_addr_ntop(iface->gateway, gateway, sizeof(gateway));
-			ether_addr_ntop(iface->iface.dev->addr, mac, sizeof(mac));
+    (void)dev;
+    (void)from_pid;
+    (void)argc;
+    (void)p;
+    json_var_t* json_var = json_var_new_array();
+    if(strcmp(argv[0], "ip") == 0) {
+        struct ip_iface *iface =  NULL;
+        while(true){
+            iface = ip_iface_itor(iface);
+            if(iface == NULL)
+                break;
+            char unicast[16];
+            char netmask[16];	
+            char broadcast[16];
+            char gateway[16];
+            char mac[ETHER_ADDR_STR_LEN];
+            ip_addr_ntop(iface->unicast, unicast, sizeof(unicast));
+            ip_addr_ntop(iface->netmask, netmask, sizeof(netmask));
+            ip_addr_ntop(iface->broadcast, broadcast, sizeof(broadcast));
+            ip_addr_ntop(iface->gateway, gateway, sizeof(gateway));
+            ether_addr_ntop(iface->iface.dev->addr, mac, sizeof(mac));
 
-			json_var_t* var_ip = json_var_new_obj(NULL, NULL);
-			json_var_add(var_ip, "ip", json_var_new_str(unicast));
-			json_var_add(var_ip, "netmask", json_var_new_str(netmask));
-			json_var_add(var_ip, "broadcast", json_var_new_str(broadcast));
-			json_var_add(var_ip, "gateway", json_var_new_str(gateway));
-			json_var_add(var_ip, "mac", json_var_new_str(mac));
-			json_var_array_add(json_var, var_ip);
-		}
-	}
-	char* ret = json_var_to_cstr(json_var);
-	json_var_unref(json_var);
-	return ret;
+            json_var_t* var_ip = json_var_new_obj(NULL, NULL);
+            json_var_add(var_ip, "ip", json_var_new_str(unicast));
+            json_var_add(var_ip, "netmask", json_var_new_str(netmask));
+            json_var_add(var_ip, "broadcast", json_var_new_str(broadcast));
+            json_var_add(var_ip, "gateway", json_var_new_str(gateway));
+            json_var_add(var_ip, "mac", json_var_new_str(mac));
+            json_var_array_add(json_var, var_ip);
+        }
+    }
+    char* ret = json_var_to_cstr(json_var);
+    json_var_unref(json_var);
+    return ret;
 }
 
 int main(int argc, char** argv) {
-	const char* mnt_point = argc > 1 ? argv[1]: "/dev/net0";
-	const char* net_dev = argc > 2 ? argv[2]: "/dev/eth0";
-	uint8_t mac[6];
+    const char* mnt_point = argc > 1 ? argv[1]: "/dev/net0";
+    const char* net_dev = argc > 2 ? argv[2]: "/dev/eth0";
+    uint8_t mac[6];
 
     if (argc > 3) {
         if (argc < 6) {
@@ -419,27 +419,27 @@ int main(int argc, char** argv) {
         ETHER_TAP_USE_DHCP = false;
     }
 
-	vdevice_t dev;
-	memset(&dev, 0, sizeof(vdevice_t));
-	strcpy(dev.name, "networkd");
+    vdevice_t dev;
+    memset(&dev, 0, sizeof(vdevice_t));
+    strcpy(dev.name, "networkd");
 
     pthread_mutex_init(&task_list_lock, NULL);
     start_task();
-	strcpy(ETHER_TAP_NAME, net_dev);
-	if(setup() != 0) {
+    strcpy(ETHER_TAP_NAME, net_dev);
+    if(setup() != 0) {
         pthread_mutex_destroy(&task_list_lock);
         return -1;
     }
-	
-	dev.fcntl = network_fcntl;
-	dev.open = network_open;
-	dev.dup = network_dup;
-	dev.read = network_read;
-	dev.write = network_write;
-	dev.close = network_close;
-	dev.cmd = network_devcmd;
-	dev.check_poll_events = network_check_poll_events;
-	device_run(&dev, mnt_point, FS_TYPE_ANNOUNIMOUS | FS_TYPE_CHAR, 0666);
+    
+    dev.fcntl = network_fcntl;
+    dev.open = network_open;
+    dev.dup = network_dup;
+    dev.read = network_read;
+    dev.write = network_write;
+    dev.close = network_close;
+    dev.cmd = network_devcmd;
+    dev.check_poll_events = network_check_poll_events;
+    device_run(&dev, mnt_point, FS_TYPE_ANNOUNIMOUS | FS_TYPE_CHAR, 0666);
     pthread_mutex_destroy(&task_list_lock);
-	return 0;
+    return 0;
 }

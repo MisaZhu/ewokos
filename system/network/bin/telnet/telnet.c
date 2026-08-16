@@ -46,8 +46,8 @@ static int stdout_pending_len = 0;
 static int stdout_flush_pending(void);
 
 static void detect_telnet_console(void) {
-	const char *cid = getenv("CONSOLE_ID");
-	_is_telnet_console = (cid != NULL && strcmp(cid, "telnet") == 0);
+    const char *cid = getenv("CONSOLE_ID");
+    _is_telnet_console = (cid != NULL && strcmp(cid, "telnet") == 0);
 }
 
 /* State machine for filtering IAC from stdin (telnet console input) */
@@ -58,85 +58,85 @@ static int _stdin_prev_cr = 0;    /* previous byte was CR */
    Also normalizes CRLF to LF and bare CR to LF.
    Returns number of clean data bytes remaining. */
 static ssize_t filter_stdin_iac(uint8_t *buf, ssize_t len) {
-	ssize_t out = 0;
+    ssize_t out = 0;
 
-	for(ssize_t i = 0; i < len; i++) {
-		uint8_t c = buf[i];
+    for(ssize_t i = 0; i < len; i++) {
+        uint8_t c = buf[i];
 
-		switch(_stdin_iac_state) {
-		case 0: /* DATA */
-			if(_stdin_prev_cr) {
-				_stdin_prev_cr = 0;
-				if(c == '\n') {
-					/* CRLF -> LF */
-					buf[out++] = '\n';
-					continue;
-				} else if(c == '\0') {
-					/* CR NUL -> LF */
-					buf[out++] = '\n';
-					continue;
-				} else {
-					/* bare CR followed by other char -> LF + that char */
-					buf[out++] = '\n';
-				}
-			}
-			if(c == TELNET_IAC) {
-				_stdin_iac_state = 1;
-			} else if(c == '\r') {
-				_stdin_prev_cr = 1;
-			} else {
-				buf[out++] = c;
-			}
-			break;
+        switch(_stdin_iac_state) {
+        case 0: /* DATA */
+            if(_stdin_prev_cr) {
+                _stdin_prev_cr = 0;
+                if(c == '\n') {
+                    /* CRLF -> LF */
+                    buf[out++] = '\n';
+                    continue;
+                } else if(c == '\0') {
+                    /* CR NUL -> LF */
+                    buf[out++] = '\n';
+                    continue;
+                } else {
+                    /* bare CR followed by other char -> LF + that char */
+                    buf[out++] = '\n';
+                }
+            }
+            if(c == TELNET_IAC) {
+                _stdin_iac_state = 1;
+            } else if(c == '\r') {
+                _stdin_prev_cr = 1;
+            } else {
+                buf[out++] = c;
+            }
+            break;
 
-		case 1: /* IAC */
-			if(c == TELNET_IAC) {
-				/* escaped IAC -> literal 0xFF */
-				buf[out++] = 0xFF;
-				_stdin_iac_state = 0;
-			} else if(c == TELNET_SB) {
-				_stdin_iac_state = 3;
-			} else if(c == TELNET_WILL || c == TELNET_WONT ||
-			          c == TELNET_DO || c == TELNET_DONT) {
-				_stdin_iac_state = 2;
-			} else {
-				/* single-byte command (e.g. SE, NOP, etc.) */
-				_stdin_iac_state = 0;
-			}
-			break;
+        case 1: /* IAC */
+            if(c == TELNET_IAC) {
+                /* escaped IAC -> literal 0xFF */
+                buf[out++] = 0xFF;
+                _stdin_iac_state = 0;
+            } else if(c == TELNET_SB) {
+                _stdin_iac_state = 3;
+            } else if(c == TELNET_WILL || c == TELNET_WONT ||
+                      c == TELNET_DO || c == TELNET_DONT) {
+                _stdin_iac_state = 2;
+            } else {
+                /* single-byte command (e.g. SE, NOP, etc.) */
+                _stdin_iac_state = 0;
+            }
+            break;
 
-		case 2: /* OPTION (after WILL/WONT/DO/DONT) */
-			/* consume the option byte, back to data */
-			_stdin_iac_state = 0;
-			break;
+        case 2: /* OPTION (after WILL/WONT/DO/DONT) */
+            /* consume the option byte, back to data */
+            _stdin_iac_state = 0;
+            break;
 
-		case 3: /* SB data */
-			if(c == TELNET_IAC) {
-				_stdin_iac_state = 4;
-			}
-			/* else consume sub-negotiation byte */
-			break;
+        case 3: /* SB data */
+            if(c == TELNET_IAC) {
+                _stdin_iac_state = 4;
+            }
+            /* else consume sub-negotiation byte */
+            break;
 
-		case 4: /* SB_IAC */
-			if(c == TELNET_SE) {
-				_stdin_iac_state = 0;
-			} else {
-				_stdin_iac_state = 3;
-			}
-			break;
+        case 4: /* SB_IAC */
+            if(c == TELNET_SE) {
+                _stdin_iac_state = 0;
+            } else {
+                _stdin_iac_state = 3;
+            }
+            break;
 
-		default:
-			_stdin_iac_state = 0;
-			break;
-		}
-	}
+        default:
+            _stdin_iac_state = 0;
+            break;
+        }
+    }
 
-	/* Handle trailing CR at end of buffer */
-	if(_stdin_prev_cr && _stdin_iac_state == 0) {
-		/* Keep prev_cr set so next call can resolve it */
-	}
+    /* Handle trailing CR at end of buffer */
+    if(_stdin_prev_cr && _stdin_iac_state == 0) {
+        /* Keep prev_cr set so next call can resolve it */
+    }
 
-	return out;
+    return out;
 }
 
 static int set_nonblock(int fd) {

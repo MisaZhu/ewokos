@@ -44,86 +44,86 @@
 
 
 static int _strlen(const char* str){
-	int  i = 0;
-	while(*str++ != 0){
-		i++;
-	}
-	return i;
+    int  i = 0;
+    while(*str++ != 0){
+        i++;
+    }
+    return i;
 }
 
 static void hex2str(int val, char* buf){
-	for(int i = 7; i >= 0; i--){
-		char a = (val >> i*4)&0xf;	
-		if(a < 10){
-			*buf++=a+'0';
-		}else{
-			*buf++=a - 10 +'A';
-		}
-	}
+    for(int i = 7; i >= 0; i--){
+        char a = (val >> i*4)&0xf;	
+        if(a < 10){
+            *buf++=a+'0';
+        }else{
+            *buf++=a - 10 +'A';
+        }
+    }
 }
 
 static void int2str(int val, char* buf){
-	int mask = 10000000;
-	int start = 0;
+    int mask = 10000000;
+    int start = 0;
 
-	if(val < 0){
-		*buf++ = '-';
-		val = -val;
-	}
+    if(val < 0){
+        *buf++ = '-';
+        val = -val;
+    }
 
-	for(int i = 0; i < 8; i++){
-		char a = (val/mask)%10;	
-		if(a > 0)
-			start = 1;
-		if(start){
-			*buf++=a+'0';
-		}
-		mask/=10;
-	}
-	if(!start){
-		*buf = '0';
-	}
+    for(int i = 0; i < 8; i++){
+        char a = (val/mask)%10;	
+        if(a > 0)
+            start = 1;
+        if(start){
+            *buf++=a+'0';
+        }
+        mask/=10;
+    }
+    if(!start){
+        *buf = '0';
+    }
 }
 
 static void dbg_kout(const char *str) {
 #if IO_DEBUG
-	int len = _strlen(str);
-	syscall2(SYS_KPRINT, (ewokos_addr_t)str, (ewokos_addr_t)len);
-	if(str[len-1]!='\n')
-		syscall2(SYS_KPRINT, (ewokos_addr_t)"\n", 1);	
+    int len = _strlen(str);
+    syscall2(SYS_KPRINT, (ewokos_addr_t)str, (ewokos_addr_t)len);
+    if(str[len-1]!='\n')
+        syscall2(SYS_KPRINT, (ewokos_addr_t)"\n", 1);	
 #endif
 }
 
 static void kout_str(const char *str) {
 #if IO_DEBUG
-	int len = _strlen(str);
+    int len = _strlen(str);
     syscall2(SYS_KPRINT, (ewokos_addr_t)str, (ewokos_addr_t)len);
 #endif
 }
 
 void kout_str_str(const char *a, const char* b) {
-	kout_str(a);
-	kout_str(" ");
-	kout_str(b);
-	kout_str("\n");
+    kout_str(a);
+    kout_str(" ");
+    kout_str(b);
+    kout_str("\n");
 }
 
 void kout_int(const char *lable, int value) {
-	char buf[9] = {0};
-	kout_str(lable);
-	kout_str(":");
-	int2str(value, buf);
-	kout_str(buf);
-	kout_str("\n");
+    char buf[9] = {0};
+    kout_str(lable);
+    kout_str(":");
+    int2str(value, buf);
+    kout_str(buf);
+    kout_str("\n");
 }
 
 void kout_hex(const char *lable, int value) {
-	char buf[9] = {0};
-	kout_str(lable);
-	kout_str(":");
-	hex2str(value, buf);
-	kout_str(buf);
-	kout_str("\n");
+    char buf[9] = {0};
+    kout_str(lable);
+    kout_str(":");
+    hex2str(value, buf);
+    kout_str(buf);
+    kout_str("\n");
 }
 
 // int malloc_test(const char* func, int line){
@@ -179,11 +179,11 @@ struct fdent
    This openfiles array is manipulated directly by only 
    these 5 functions:
 
-	findslot() - Translate entry.
-	newslot() - Find empty entry.
-	initilise_monitor_handles() - Initialize entries.
-	_swiopen() - Initialize entry.
-	_close() - Handle stdout == stderr case.
+    findslot() - Translate entry.
+    newslot() - Find empty entry.
+    initilise_monitor_handles() - Initialize entries.
+    _swiopen() - Initialize entry.
+    _close() - Handle stdout == stderr case.
 
    Every other function must use findslot().  */
 
@@ -201,7 +201,7 @@ extern void   __sinit (struct _reent *);
   do						\
     {						\
       if ((ptr) && !(ptr)->__cleanup)		\
-	__sinit (ptr);				\
+    __sinit (ptr);				\
     }						\
   while (0)
 
@@ -222,8 +222,8 @@ _has_ext_exit_extended (void)
 int
 _has_ext_stdout_stderr (void)
 {
-	dbg_kout(__func__);
-	return -1;
+    dbg_kout(__func__);
+    return -1;
 }
 
 static int
@@ -235,7 +235,7 @@ get_errno (void)
 //  register int r0 asm("r0");
 //  asm ("swi %a1" : "=r"(r0) : "i" (SWI_GetErrno));
 //  return r0;
-	return -1;
+    return -1;
 #endif
 }
 
@@ -262,207 +262,207 @@ checkerror (int result)
 int __attribute__((weak))
 _read (int fd, void * buf, size_t size)
 {
-	fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
-		return -1;
+    fsinfo_t info;
+    if(vfs_get_by_fd(fd, &info) != 0)
+        return -1;
 
-	errno = 0;
-	int flags = vfs_get_flags(fd);
-	if(flags == -1)
-	 		return -1;
+    errno = 0;
+    int flags = vfs_get_flags(fd);
+    if(flags == -1)
+            return -1;
 
-	bool block = true;
-	if(flags & O_NONBLOCK)
-		block = false;
+    bool block = true;
+    if(flags & O_NONBLOCK)
+        block = false;
 
-	int res = -1;
-	if(FS_IS_TYPE(info.type, FS_TYPE_PIPE)) {
-		while(1) {
-			res = vfs_read_pipe(fd, info.node, buf, size, block);
-			if(res >= 0 || errno != EAGAIN)
-				break;
-			if(!block)
-				break;
-		}
-		return res;
-	}
+    int res = -1;
+    if(FS_IS_TYPE(info.type, FS_TYPE_PIPE)) {
+        while(1) {
+            res = vfs_read_pipe(fd, info.node, buf, size, block);
+            if(res >= 0 || errno != EAGAIN)
+                break;
+            if(!block)
+                break;
+        }
+        return res;
+    }
 
-	while(1) {
-		res = vfs_read(fd, &info, buf, size);
-		if(res >= 0)
-			break;
+    while(1) {
+        res = vfs_read(fd, &info, buf, size);
+        if(res >= 0)
+            break;
 
-		if(errno != EAGAIN || !block)
-			break;
-		/*
-		 * For shared device nodes, RD visibility is fd-local. Sleeping via the
-		 * fd-aware helper avoids clearing a node-global sticky bit that may
-		 * belong to a sibling descriptor.
-		 */
-		vfs_block_by_fd(fd, VFS_EVT_RD);
-	}
-	return res;
+        if(errno != EAGAIN || !block)
+            break;
+        /*
+         * For shared device nodes, RD visibility is fd-local. Sleeping via the
+         * fd-aware helper avoids clearing a node-global sticky bit that may
+         * belong to a sibling descriptor.
+         */
+        vfs_block_by_fd(fd, VFS_EVT_RD);
+    }
+    return res;
 }
 
 off_t
 _lseek (int fd, off_t offset, int whence)
 {
-  	if(whence == SEEK_CUR) {
-		int cur = vfs_tell(fd);
-		if(cur < 0)
-			cur = 0;
-		offset += cur;
-	}
-	else if(whence == SEEK_END) {
-		fsinfo_t info;
-		int cur = 0;
-		if(vfs_get_by_fd(fd, &info) == 0)
-			cur = info.stat.size;
-		offset += cur;
-	}
-	vfs_seek(fd, offset);
-	return offset;
+    if(whence == SEEK_CUR) {
+        int cur = vfs_tell(fd);
+        if(cur < 0)
+            cur = 0;
+        offset += cur;
+    }
+    else if(whence == SEEK_END) {
+        fsinfo_t info;
+        int cur = 0;
+        if(vfs_get_by_fd(fd, &info) == 0)
+            cur = info.stat.size;
+        offset += cur;
+    }
+    vfs_seek(fd, offset);
+    return offset;
 }
 
 int __attribute__((weak))
 _write (int fd, const void * buf, size_t size)
 {
-	fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
-		return -1;
+    fsinfo_t info;
+    if(vfs_get_by_fd(fd, &info) != 0)
+        return -1;
 
-	errno = 0;
-	int flags = vfs_get_flags(fd);
-	if(flags == -1)
-	 		return -1;
-	bool block = true;
-	if(flags & O_NONBLOCK)
-		block = false;
+    errno = 0;
+    int flags = vfs_get_flags(fd);
+    if(flags == -1)
+            return -1;
+    bool block = true;
+    if(flags & O_NONBLOCK)
+        block = false;
 
-	int res = -1;
-	size_t total_written = 0;
-	if(FS_IS_TYPE(info.type, FS_TYPE_PIPE)) {
-		while(1) {
-			res = vfs_write_pipe(fd, info.node,
-					((const char *)buf) + total_written,
-					size - total_written, block);
-			if(res > 0) {
-				total_written += (size_t)res;
-				if(total_written >= size) {
-					res = (int)total_written;
-					break;
-				}
-				if(!block) {
-					res = (int)total_written;
-					break;
-				}
-				continue;
-			}
-			if(res == 0 || errno != EAGAIN)
-				break;
-			if(!block)
-				break;
-		}
-		if(total_written > 0) {
-			res = (int)total_written;
-		}
-		return res;
-	}
+    int res = -1;
+    size_t total_written = 0;
+    if(FS_IS_TYPE(info.type, FS_TYPE_PIPE)) {
+        while(1) {
+            res = vfs_write_pipe(fd, info.node,
+                    ((const char *)buf) + total_written,
+                    size - total_written, block);
+            if(res > 0) {
+                total_written += (size_t)res;
+                if(total_written >= size) {
+                    res = (int)total_written;
+                    break;
+                }
+                if(!block) {
+                    res = (int)total_written;
+                    break;
+                }
+                continue;
+            }
+            if(res == 0 || errno != EAGAIN)
+                break;
+            if(!block)
+                break;
+        }
+        if(total_written > 0) {
+            res = (int)total_written;
+        }
+        return res;
+    }
 
-	while(1) {
-		res = vfs_write(fd, &info,
-				((const char *)buf) + total_written,
-				size - total_written);
-		if(res > 0) {
-			total_written += (size_t)res;
-			if(total_written >= size) {
-				res = (int)total_written;
-				break;
-			}
-			if(!block) {
-				res = (int)total_written;
-				break;
-			}
-			continue;
-		}
-		if(res == 0)
-			break;
+    while(1) {
+        res = vfs_write(fd, &info,
+                ((const char *)buf) + total_written,
+                size - total_written);
+        if(res > 0) {
+            total_written += (size_t)res;
+            if(total_written >= size) {
+                res = (int)total_written;
+                break;
+            }
+            if(!block) {
+                res = (int)total_written;
+                break;
+            }
+            continue;
+        }
+        if(res == 0)
+            break;
 
-		if(errno != EAGAIN || !block)
-			break;
-		/*
-		 * Mirror the read-side fix: on shared device nodes, wait on this fd's
-		 * live WR visibility instead of clearing the node-global sticky bit.
-		 */
-		vfs_block_by_fd(fd, VFS_EVT_WR);
-	}
-	if(total_written > 0) {
-		res = (int)total_written;
-	}
-	return res;
+        if(errno != EAGAIN || !block)
+            break;
+        /*
+         * Mirror the read-side fix: on shared device nodes, wait on this fd's
+         * live WR visibility instead of clearing the node-global sticky bit.
+         */
+        vfs_block_by_fd(fd, VFS_EVT_WR);
+    }
+    if(total_written > 0) {
+        res = (int)total_written;
+    }
+    return res;
 }
 
 int
 _open (const char * fname, int oflag, ...)
 {
-  	int fd = -1;
-	bool created = false;
-	fsinfo_t info;
-	if(vfs_get_by_name(fname, &info) != 0) {
-		if((oflag & O_CREAT) != 0) {
-			if(vfs_create(fname, &info, FS_TYPE_FILE, 0644, false, false) != 0){
-				dbg_kout(" create error");
-				return -1;
-			}
-			created = true;
-		}
-		else  {
-			dbg_kout(" fsinfo err");
-			return -1;
-		}
-	}
+    int fd = -1;
+    bool created = false;
+    fsinfo_t info;
+    if(vfs_get_by_name(fname, &info) != 0) {
+        if((oflag & O_CREAT) != 0) {
+            if(vfs_create(fname, &info, FS_TYPE_FILE, 0644, false, false) != 0){
+                dbg_kout(" create error");
+                return -1;
+            }
+            created = true;
+        }
+        else  {
+            dbg_kout(" fsinfo err");
+            return -1;
+        }
+    }
 
-	fd = vfs_open(&info, oflag);
-	if(fd < 0) {
-		if(created)
-			vfs_del_node(info.node);
-		dbg_kout(" error");
-		return -1;
-	}
+    fd = vfs_open(&info, oflag);
+    if(fd < 0) {
+        if(created)
+            vfs_del_node(info.node);
+        dbg_kout(" error");
+        return -1;
+    }
 
-	uint32_t type = FS_BASE_TYPE(info.type);
-	bool needs_dev_open = true;
-	if((type == FS_TYPE_FILE || type == FS_TYPE_DIR || type == FS_TYPE_LINK) &&
-			(oflag & O_TRUNC) == 0) {
-		needs_dev_open = false;
-	}
+    uint32_t type = FS_BASE_TYPE(info.type);
+    bool needs_dev_open = true;
+    if((type == FS_TYPE_FILE || type == FS_TYPE_DIR || type == FS_TYPE_LINK) &&
+            (oflag & O_TRUNC) == 0) {
+        needs_dev_open = false;
+    }
 
-	if(needs_dev_open && dev_open(info.mount_pid, fd, &info, oflag) != 0) {
-		vfs_close_info(fd);
-		if(created)
-			vfs_del_node(info.node);
-		dbg_kout(" dev_err");
-		fd = -1;
-	}
-	else if(vfs_set_by_fd(fd, &info) != 0) {
-		vfs_close(fd);
-		if(created)
-			vfs_del_node(info.node);
-		fd = -1;
-	}
-	return fd;
+    if(needs_dev_open && dev_open(info.mount_pid, fd, &info, oflag) != 0) {
+        vfs_close_info(fd);
+        if(created)
+            vfs_del_node(info.node);
+        dbg_kout(" dev_err");
+        fd = -1;
+    }
+    else if(vfs_set_by_fd(fd, &info) != 0) {
+        vfs_close(fd);
+        if(created)
+            vfs_del_node(info.node);
+        fd = -1;
+    }
+    return fd;
 }
 
 /* fd, is a user file descriptor. */
 int
 _close (int fd)
 {
-	fsinfo_t info;
-	if(vfs_get_by_fd(fd, &info) != 0)
-		return -1;
+    fsinfo_t info;
+    if(vfs_get_by_fd(fd, &info) != 0)
+        return -1;
 
-	int ret = vfs_close(fd);
-	return ret;
+    int ret = vfs_close(fd);
+    return ret;
 }
 
 pid_t __attribute__((weak))
@@ -490,7 +490,7 @@ _sbrk (ptrdiff_t incr)
   __heap_size += incr;
   __heap_ptr = result;
   if(incr > 0)
-  	memset(__heap_end, 0, incr);
+    memset(__heap_end, 0, incr);
 
   prev_heap_end = __heap_end;
   __heap_end += incr;
@@ -499,11 +499,11 @@ _sbrk (ptrdiff_t incr)
 }
 
 void _libc_init(void){
-	dbg_kout(__func__);	
-	__heap_ptr = proc_malloc_expand(16384);
-	__heap_end = __heap_ptr;
-	__heap_size = 16384;	
-	memset(__heap_ptr, 0, __heap_size);
+    dbg_kout(__func__);	
+    __heap_ptr = proc_malloc_expand(16384);
+    __heap_end = __heap_ptr;
+    __heap_size = 16384;	
+    memset(__heap_ptr, 0, __heap_size);
 }
 
 void _libc_exit(void){
@@ -536,10 +536,10 @@ _stat (const char *fname, struct stat *st)
   memset (st, 0, sizeof (* st));
   /* The best we can do is try to open the file readonly.  If it exists,
      then we can guess a few things about it.  */
-	fsinfo_t info;
-	if(vfs_get_by_name(fname, &info) != 0) {
+    fsinfo_t info;
+    if(vfs_get_by_name(fname, &info) != 0) {
     return -1;
-	}
+    }
   st->st_uid = info.stat.uid;
   st->st_gid = info.stat.gid;
   st->st_size = info.stat.size;
@@ -566,60 +566,60 @@ _unlink (const char *path)
   dbg_kout(__func__);
   fsinfo_t info;
   if(vfs_get_by_name(path, &info) != 0)
-	return -1;
+    return -1;
   if(dev_unlink(info.mount_pid, info.node, path) != 0)	
-	return -1;
+    return -1;
   return 0;
 }
 
 uint64_t get_kernel_usec(void) {
-	vsyscall_info_t *vsys = (vsyscall_info_t *)syscall0(SYS_GET_VSYSCALL_INFO);
-	if (vsys != NULL)
-			return  vsys->kernel_usec;
-	return 0;
+    vsyscall_info_t *vsys = (vsyscall_info_t *)syscall0(SYS_GET_VSYSCALL_INFO);
+    if (vsys != NULL)
+            return  vsys->kernel_usec;
+    return 0;
 }
 
 int
 _gettimeofday (struct timeval * tp, void * tzvp)
 {
-	dbg_kout(__func__);
-	static uint32_t init_sec = 0;
-	static uint32_t init_sec_tic = 0;
-	static uint32_t last_try_tic = 0;
+    dbg_kout(__func__);
+    static uint32_t init_sec = 0;
+    static uint32_t init_sec_tic = 0;
+    static uint32_t last_try_tic = 0;
 
-	struct timezone *tzp = tzvp;
-	if (tp)
+    struct timezone *tzp = tzvp;
+    if (tp)
     {
-		uint64_t now_usec = get_kernel_usec();
-		uint32_t now_sec = now_usec / 1000000;
+        uint64_t now_usec = get_kernel_usec();
+        uint32_t now_sec = now_usec / 1000000;
 
-		int need_query = 0;
-		if(init_sec == 0) {
-			// Not yet synced: retry at most once every 5 seconds to avoid flooding timed.
-			if(last_try_tic == 0 || (now_sec - last_try_tic) >= 5)
-				need_query = 1;
-		}
-		else if((now_sec - init_sec_tic) > 600) {
-			need_query = 1;
-		}
+        int need_query = 0;
+        if(init_sec == 0) {
+            // Not yet synced: retry at most once every 5 seconds to avoid flooding timed.
+            if(last_try_tic == 0 || (now_sec - last_try_tic) >= 5)
+                need_query = 1;
+        }
+        else if((now_sec - init_sec_tic) > 600) {
+            need_query = 1;
+        }
 
-		if(need_query) {
-			last_try_tic = now_sec;
-			proto_t out;
-			PF->init(&out);
-			int res = -1;
-			if(dev_cmd_cntl("/dev/time", 0, NULL, &out) == 0) {
-				res = proto_read_int(&out);
-				if(res == 0) {
-					init_sec = proto_read_int(&out);
-					init_sec_tic = now_sec;
-				}
-			}
-			PF->clear(&out);
-		}
+        if(need_query) {
+            last_try_tic = now_sec;
+            proto_t out;
+            PF->init(&out);
+            int res = -1;
+            if(dev_cmd_cntl("/dev/time", 0, NULL, &out) == 0) {
+                res = proto_read_int(&out);
+                if(res == 0) {
+                    init_sec = proto_read_int(&out);
+                    init_sec_tic = now_sec;
+                }
+            }
+            PF->clear(&out);
+        }
 
-		tp->tv_usec = now_usec % 1000000;
-		tp->tv_sec = now_sec - init_sec_tic + init_sec;
+        tp->tv_usec = now_usec % 1000000;
+        tp->tv_sec = now_sec - init_sec_tic + init_sec;
     }
 
   /* Return fixed data for the timezone.  */
@@ -686,8 +686,8 @@ _isatty (int fd)
 int
 _system (const char *s)
 {
-	  dbg_kout(__func__);
-	  return 0;
+      dbg_kout(__func__);
+      return 0;
 }
 
 int
@@ -728,7 +728,7 @@ void __malloc_close(void){
 }
 
 void _kill(int pid, int sig){
-	syscall2(SYS_SIGNAL, (ewokos_addr_t)pid, (ewokos_addr_t)sig);
+    syscall2(SYS_SIGNAL, (ewokos_addr_t)pid, (ewokos_addr_t)sig);
 }
 
 void _fini(void){
@@ -738,17 +738,17 @@ void _fini(void){
 int
 _execve(const char *name, char *const argv[], char *const env[])
 {
-	return proc_exec(name);
+    return proc_exec(name);
 }
 
 int execl(const char *name, const char* arg0, ...) {
-	return proc_exec(name);
+    return proc_exec(name);
 }
 
 int _fork()
 {
-  	dbg_kout(__func__);
-	return proc_fork();
+    dbg_kout(__func__);
+    return proc_fork();
 }
 
 int _wait(int *status)
@@ -770,7 +770,7 @@ double __trunctfdf2(_Float128 x) {
 }
 
 float __trunctfsf2(_Float128 a) {
-	return (float)a;
+    return (float)a;
 }
 
 _Float128 __extenddftf2(double a) {
@@ -782,7 +782,7 @@ _Float128 __extendsftf2(float a) {
 }
 
 _Float128 __addtf3(_Float128 a, _Float128 b) {
-	return a + b;
+    return a + b;
 }
 
 #endif
@@ -804,29 +804,29 @@ void __sync_synchronize(void) {
  * Provide the helper symbol GCC lowers __atomic_exchange_n(..., 4 bytes) to.
  */
 uint32_t __atomic_exchange_4(volatile void* ptr, uint32_t val, int memmodel) {
-	volatile uint32_t* p = (volatile uint32_t*)ptr;
-	uint32_t old;
+    volatile uint32_t* p = (volatile uint32_t*)ptr;
+    uint32_t old;
 
-	(void)memmodel;
+    (void)memmodel;
 #if (__ARM_ARCH >= 6)
-	uint32_t tmp;
-	__asm__ __volatile__(
-			"dmb ish\n"
-			"1: ldrex %0, [%2]\n"
-			"strex %1, %3, [%2]\n"
-			"cmp %1, #0\n"
-			"bne 1b\n"
-			"dmb ish\n"
-			: "=&r"(old), "=&r"(tmp)
-			: "r"(p), "r"(val)
-			: "cc", "memory");
+    uint32_t tmp;
+    __asm__ __volatile__(
+            "dmb ish\n"
+            "1: ldrex %0, [%2]\n"
+            "strex %1, %3, [%2]\n"
+            "cmp %1, #0\n"
+            "bne 1b\n"
+            "dmb ish\n"
+            : "=&r"(old), "=&r"(tmp)
+            : "r"(p), "r"(val)
+            : "cc", "memory");
 #else
-	__asm__ __volatile__(
-			"swp %0, %2, [%1]\n"
-			: "=&r"(old)
-			: "r"(p), "r"(val)
-			: "memory");
+    __asm__ __volatile__(
+            "swp %0, %2, [%1]\n"
+            : "=&r"(old)
+            : "r"(p), "r"(val)
+            : "memory");
 #endif
-	return old;
+    return old;
 }
 #endif

@@ -20,27 +20,27 @@ bool GifNoisyPrint = false;
  Same as fprintf to stderr but with optional print.
 ******************************************************************************/
 void GifQprintf(char *Format, ...) {
-	va_list ArgPtr;
+    va_list ArgPtr;
 
-	va_start(ArgPtr, Format);
+    va_start(ArgPtr, Format);
 
-	if (GifNoisyPrint) {
-		char Line[128];
-		(void)vsnprintf(Line, sizeof(Line), Format, ArgPtr);
-		(void)fputs(Line, stderr);
-	}
+    if (GifNoisyPrint) {
+        char Line[128];
+        (void)vsnprintf(Line, sizeof(Line), Format, ArgPtr);
+        (void)fputs(Line, stderr);
+    }
 
-	va_end(ArgPtr);
+    va_end(ArgPtr);
 }
 
 void PrintGifError(int ErrorCode) {
-	const char *Err = GifErrorString(ErrorCode);
+    const char *Err = GifErrorString(ErrorCode);
 
-	if (Err != NULL) {
-		fprintf(stderr, "GIF-LIB error: %s.\n", Err);
-	} else {
-		fprintf(stderr, "GIF-LIB undefined error %d.\n", ErrorCode);
-	}
+    if (Err != NULL) {
+        fprintf(stderr, "GIF-LIB error: %s.\n", Err);
+    } else {
+        fprintf(stderr, "GIF-LIB undefined error %d.\n", ErrorCode);
+    }
 }
 
 /* end */

@@ -124,7 +124,7 @@ int intr_poll_once(void) {
 }
 
 void intr_loop(void) {
-	struct irq_entry *entry;
+    struct irq_entry *entry;
     uint32_t sleep_us = NETD_BUSY_SLEEP_US;
     uint32_t tap_rounds = 0;
     while(1){

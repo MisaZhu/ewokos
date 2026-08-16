@@ -12,20 +12,20 @@ static partition_t _partition;
 static uint32_t _ext2_block_size = EXT2_DEFAULT_BLOCK_SIZE;
 
 static int32_t ext2_validate_super(ext2_t* ext2) {
-	uint32_t unsupported_incompat = ext2->super.s_feature_incompat & ~EXT2_FEATURE_INCOMPAT_FILETYPE;
-	uint32_t unsupported_ro = ext2->super.s_feature_ro_compat &
-		~(EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER | EXT2_FEATURE_RO_COMPAT_LARGE_FILE);
+    uint32_t unsupported_incompat = ext2->super.s_feature_incompat & ~EXT2_FEATURE_INCOMPAT_FILETYPE;
+    uint32_t unsupported_ro = ext2->super.s_feature_ro_compat &
+        ~(EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER | EXT2_FEATURE_RO_COMPAT_LARGE_FILE);
 
-	if(ext2->super.s_magic != EXT2_SUPER_MAGIC)
-		return -1;
-	uint32_t block_size = ext2_block_size(ext2);
-	if(block_size != 1024 && block_size != 2048 && block_size != 4096)
-		return -1;
-	if(ext2_inode_size(ext2) < sizeof(INODE))
-		return -1;
-	if(unsupported_incompat != 0 || unsupported_ro != 0)
-		return -1;
-	return 0;
+    if(ext2->super.s_magic != EXT2_SUPER_MAGIC)
+        return -1;
+    uint32_t block_size = ext2_block_size(ext2);
+    if(block_size != 1024 && block_size != 2048 && block_size != 4096)
+        return -1;
+    if(ext2_inode_size(ext2) < sizeof(INODE))
+        return -1;
+    if(unsupported_incompat != 0 || unsupported_ro != 0)
+        return -1;
+    return 0;
 }
 
 /*
@@ -37,15 +37,15 @@ extern int32_t sd_dev_read_blocks(int32_t sector, void* buf, uint32_t count)
         __attribute__((weak));
 
 static int32_t sd_read_sector(int32_t sector, void* buf) {
-	for (int32_t retry = 0; retry < 8; ++retry) {
-		if (sd_dev_read(sector) != 0) {
-			continue;
-		}
-		if (sd_dev_read_done(buf) == 0) {
-			return 0;
-		}
-	}
-	return -1;
+    for (int32_t retry = 0; retry < 8; ++retry) {
+        if (sd_dev_read(sector) != 0) {
+            continue;
+        }
+        if (sd_dev_read_done(buf) == 0) {
+            return 0;
+        }
+    }
+    return -1;
 }
 
 static int32_t sd_read_sectors(int32_t sector, void* buf, uint32_t count) {
@@ -64,8 +64,8 @@ static int32_t sd_read_sectors(int32_t sector, void* buf, uint32_t count) {
 }
 
 static int32_t sd_read(int32_t block, void* buf) {
-	int32_t n = (int32_t)(_ext2_block_size / SECTOR_SIZE);
-	int32_t sector = block * n + _partition.start_sector;
+    int32_t n = (int32_t)(_ext2_block_size / SECTOR_SIZE);
+    int32_t sector = block * n + _partition.start_sector;
 
         if(sd_read_sectors(sector, buf, (uint32_t)n) == 0)
                 return 0;
@@ -86,330 +86,330 @@ static int32_t sd_read(int32_t block, void* buf) {
 static partition_t _partitions[PARTITION_MAX];
 
 int32_t read_partition(void) {
-	uint8_t sector[512];
-	if(sd_read_sector(0, sector) != 0)
-		return -1;
-	//check magic 
-	if(sector[510] != 0x55 || sector[511] != 0xAA) 
-		return -1;
-	uint8_t* p = sector + 0x1BE;
-	for(int32_t i=0; i<PARTITION_MAX; i++) {
-		memcpy(&_partitions[i], p, sizeof(partition_t));
-		p += sizeof(partition_t);
+    uint8_t sector[512];
+    if(sd_read_sector(0, sector) != 0)
+        return -1;
+    //check magic 
+    if(sector[510] != 0x55 || sector[511] != 0xAA) 
+        return -1;
+    uint8_t* p = sector + 0x1BE;
+    for(int32_t i=0; i<PARTITION_MAX; i++) {
+        memcpy(&_partitions[i], p, sizeof(partition_t));
+        p += sizeof(partition_t);
 //		printf("partition %d: start_sector: %d\n", i, _partitions[i].start_sector);
-	}
+    }
 
-	return 0;
+    return 0;
 }
 
 int32_t partition_get(uint32_t id, partition_t* p) {
-	if(id >= PARTITION_MAX)
-		return -1;
-	memcpy(p, &_partitions[id], sizeof(partition_t));
-	return 0;
+    if(id >= PARTITION_MAX)
+        return -1;
+    memcpy(p, &_partitions[id], sizeof(partition_t));
+    return 0;
 }
 
 #define SHORT_NAME_MAX 64
 
 static inline int32_t get_gd_index_by_ino(ext2_t* ext2, uint32_t ino) {
-	return (ino-1) / ext2->super.s_inodes_per_group;
+    return (ino-1) / ext2->super.s_inodes_per_group;
 }
 
 static inline int32_t get_ino_in_group(ext2_t* ext2, uint32_t ino, int32_t index) {
-	return ino - (index * ext2->super.s_inodes_per_group);
+    return ino - (index * ext2->super.s_inodes_per_group);
 }
 
 static inline int32_t get_gd_index_by_block(ext2_t* ext2, uint32_t block) {
-	return (int32_t)((block - ext2->super.s_first_data_block) / ext2->super.s_blocks_per_group);
+    return (int32_t)((block - ext2->super.s_first_data_block) / ext2->super.s_blocks_per_group);
 }
 
 static int32_t ext2_read(ext2_t* ext2, INODE* node, char *buf, int32_t nbytes, int32_t offset) {
-	//(2) count = 0
-	// avil = fileSize - OFT's offset // number of bytes still available in file.
-	int32_t count_read = 0;
-	char *cq = buf;
-	int32_t avil = node->i_size - offset;
-	int32_t blk =0, lbk = 0, start_byte = 0, remain = 0;
-	uint32_t block_size = ext2_block_size(ext2);
-	uint32_t entries_per_block = ext2_indirect_entries(ext2);
-	//(3)
-	/*(4) Compute LOGICAL BLOCK number lbk and start_byte in that block from offset;
-		lbk       = oftp->offset / EXT2_BLOCK_SIZE;
-		start_byte = oftp->offset % EXT2_BLOCK_SIZE;*/	
-	lbk = offset / (int32_t)block_size;
-	start_byte = offset % (int32_t)block_size;
-	if(nbytes > ((int32_t)block_size - start_byte))
-		nbytes = (int32_t)block_size - start_byte;
-	//(5) READ
-	//(5).1 direct blocks
-	if(lbk < 12) {
-		blk = node->i_block[lbk];
-	}
-	//(5).2 Indirect blocks contains 256 block number 
-	else if(lbk>=12 && lbk < (int32_t)(entries_per_block + 12)){
-		uint32_t indirect_buf[EXT2_MAX_BLOCK_SIZE / sizeof(uint32_t)];
-		ext2->read_block(node->i_block[12], (char*)indirect_buf);
-		blk = (int32_t)indirect_buf[lbk-12];
-	}
-	//(5).3 Double indiirect blocks
-	else{
-		int32_t count = lbk - 12 - (int32_t)entries_per_block;
-		int32_t num = count / (int32_t)entries_per_block;
-		int32_t pos_offset = count % (int32_t)entries_per_block;
-		uint32_t double_buf1[EXT2_MAX_BLOCK_SIZE / sizeof(uint32_t)];
-		ext2->read_block(node->i_block[13], (char*)double_buf1);
-		uint32_t double_buf2[EXT2_MAX_BLOCK_SIZE / sizeof(uint32_t)];
-		ext2->read_block((int32_t)double_buf1[num], (char*)double_buf2);
-		blk = (int32_t)double_buf2[pos_offset];
-	}
+    //(2) count = 0
+    // avil = fileSize - OFT's offset // number of bytes still available in file.
+    int32_t count_read = 0;
+    char *cq = buf;
+    int32_t avil = node->i_size - offset;
+    int32_t blk =0, lbk = 0, start_byte = 0, remain = 0;
+    uint32_t block_size = ext2_block_size(ext2);
+    uint32_t entries_per_block = ext2_indirect_entries(ext2);
+    //(3)
+    /*(4) Compute LOGICAL BLOCK number lbk and start_byte in that block from offset;
+        lbk       = oftp->offset / EXT2_BLOCK_SIZE;
+        start_byte = oftp->offset % EXT2_BLOCK_SIZE;*/	
+    lbk = offset / (int32_t)block_size;
+    start_byte = offset % (int32_t)block_size;
+    if(nbytes > ((int32_t)block_size - start_byte))
+        nbytes = (int32_t)block_size - start_byte;
+    //(5) READ
+    //(5).1 direct blocks
+    if(lbk < 12) {
+        blk = node->i_block[lbk];
+    }
+    //(5).2 Indirect blocks contains 256 block number 
+    else if(lbk>=12 && lbk < (int32_t)(entries_per_block + 12)){
+        uint32_t indirect_buf[EXT2_MAX_BLOCK_SIZE / sizeof(uint32_t)];
+        ext2->read_block(node->i_block[12], (char*)indirect_buf);
+        blk = (int32_t)indirect_buf[lbk-12];
+    }
+    //(5).3 Double indiirect blocks
+    else{
+        int32_t count = lbk - 12 - (int32_t)entries_per_block;
+        int32_t num = count / (int32_t)entries_per_block;
+        int32_t pos_offset = count % (int32_t)entries_per_block;
+        uint32_t double_buf1[EXT2_MAX_BLOCK_SIZE / sizeof(uint32_t)];
+        ext2->read_block(node->i_block[13], (char*)double_buf1);
+        uint32_t double_buf2[EXT2_MAX_BLOCK_SIZE / sizeof(uint32_t)];
+        ext2->read_block((int32_t)double_buf1[num], (char*)double_buf2);
+        blk = (int32_t)double_buf2[pos_offset];
+    }
 
-	char readbuf[EXT2_MAX_BLOCK_SIZE];
-	ext2->read_block(blk, readbuf);
-	char *cp = readbuf + start_byte;
-	remain = (int32_t)block_size - start_byte;
-	//(6)
-	while(remain){
-		int32_t min = 0;
-		if(avil <= nbytes){
-			min = avil;
-		}
-		else{
-			min = nbytes;
-		}
-		memcpy(cq, cp, min);
-		offset += min;
-		count_read += min;
-		avil -= min;
-		nbytes -= min;
-		remain -= min;
-		if(nbytes == 0 || avil == 0){
-			break;
-		}	
-	}
-	return count_read;
+    char readbuf[EXT2_MAX_BLOCK_SIZE];
+    ext2->read_block(blk, readbuf);
+    char *cp = readbuf + start_byte;
+    remain = (int32_t)block_size - start_byte;
+    //(6)
+    while(remain){
+        int32_t min = 0;
+        if(avil <= nbytes){
+            min = avil;
+        }
+        else{
+            min = nbytes;
+        }
+        memcpy(cq, cp, min);
+        offset += min;
+        count_read += min;
+        avil -= min;
+        nbytes -= min;
+        remain -= min;
+        if(nbytes == 0 || avil == 0){
+            break;
+        }	
+    }
+    return count_read;
 }	
 
 static INODE* get_node_by_ino(ext2_t* ext2, uint32_t ino, char* buf) {
-	if(ino == 0 || ino > ext2->super.s_inodes_count)
-		return NULL;
-	int32_t bgid = get_gd_index_by_ino(ext2, ino);
-	ino = get_ino_in_group(ext2, ino, bgid);
-	uint32_t inode_size = ext2_inode_size(ext2);
-	uint32_t inodes_per_block = ext2_block_size(ext2) / inode_size;
-	uint32_t offset = (ino - 1) % inodes_per_block;
-	int32_t blk = (int32_t)(ext2->gds[bgid].bg_inode_table + ((ino - 1) / inodes_per_block));
-	ext2->read_block(blk, buf);
-	return (INODE *)(buf + (offset * inode_size));
+    if(ino == 0 || ino > ext2->super.s_inodes_count)
+        return NULL;
+    int32_t bgid = get_gd_index_by_ino(ext2, ino);
+    ino = get_ino_in_group(ext2, ino, bgid);
+    uint32_t inode_size = ext2_inode_size(ext2);
+    uint32_t inodes_per_block = ext2_block_size(ext2) / inode_size;
+    uint32_t offset = (ino - 1) % inodes_per_block;
+    int32_t blk = (int32_t)(ext2->gds[bgid].bg_inode_table + ((ino - 1) / inodes_per_block));
+    ext2->read_block(blk, buf);
+    return (INODE *)(buf + (offset * inode_size));
 }
 
 static uint32_t search(ext2_t* ext2, INODE *ip, const char *name) {
-	int32_t i; 
-	char c, *cp;
-	DIR  *dp;
-	uint32_t block_size = ext2_block_size(ext2);
-	char buf[EXT2_MAX_BLOCK_SIZE];
+    int32_t i; 
+    char c, *cp;
+    DIR  *dp;
+    uint32_t block_size = ext2_block_size(ext2);
+    char buf[EXT2_MAX_BLOCK_SIZE];
 
-	for (i=0; i<12; i++){
-		if ( ip->i_block[i] ){
-			ext2->read_block(ip->i_block[i], buf);
-			dp = (DIR *)buf;
-			cp = buf;
-			while (cp < (buf + block_size)){
-				if(dp->name_len == 0 || dp->rec_len == 0)
-					break;
-				c = dp->name[dp->name_len];  // save last byte
-				dp->name[dp->name_len] = 0;   
-				if (strcmp(dp->name, name) == 0 ){
-					return dp->inode;
-				}
-				dp->name[dp->name_len] = c; // restore that last byte
-				cp += dp->rec_len;
-				dp = (DIR *)cp;
-			}
-		}
-	}
-	return 0;
+    for (i=0; i<12; i++){
+        if ( ip->i_block[i] ){
+            ext2->read_block(ip->i_block[i], buf);
+            dp = (DIR *)buf;
+            cp = buf;
+            while (cp < (buf + block_size)){
+                if(dp->name_len == 0 || dp->rec_len == 0)
+                    break;
+                c = dp->name[dp->name_len];  // save last byte
+                dp->name[dp->name_len] = 0;   
+                if (strcmp(dp->name, name) == 0 ){
+                    return dp->inode;
+                }
+                dp->name[dp->name_len] = c; // restore that last byte
+                cp += dp->rec_len;
+                dp = (DIR *)cp;
+            }
+        }
+    }
+    return 0;
 }
 
 #define MAX_DIR_DEPTH 32
 static int32_t split_fname(const char* filename, char* name[]) {
-	int32_t u, depth;
-	depth = 0;
+    int32_t u, depth;
+    depth = 0;
 
-	char hold[SHORT_NAME_MAX];
-	while(1) {
-		u = 0;
-		if(*filename == '/') filename++; //skip '/'
+    char hold[SHORT_NAME_MAX];
+    while(1) {
+        u = 0;
+        if(*filename == '/') filename++; //skip '/'
 
-		while(*filename != '/') {
-			hold[u] = *filename;
-			u++;
-			filename++;
-			if(*filename == 0 || u >= (SHORT_NAME_MAX-1))
-				break;
-		}
-		hold[u] = 0;
-		if(u > 0) {
-			name[depth] = (char*)kmalloc(u+1);
-			strcpy(name[depth], hold);
-		}
-		depth++;
-		if(depth >= MAX_DIR_DEPTH)
-			break;
-		if(*filename != 0)
-			filename++;
-		else
-			break;
-	}
-	return depth;
+        while(*filename != '/') {
+            hold[u] = *filename;
+            u++;
+            filename++;
+            if(*filename == 0 || u >= (SHORT_NAME_MAX-1))
+                break;
+        }
+        hold[u] = 0;
+        if(u > 0) {
+            name[depth] = (char*)kmalloc(u+1);
+            strcpy(name[depth], hold);
+        }
+        depth++;
+        if(depth >= MAX_DIR_DEPTH)
+            break;
+        if(*filename != 0)
+            filename++;
+        else
+            break;
+    }
+    return depth;
 }
 
 static uint32_t ext2_ino_by_fname(ext2_t* ext2, const char* filename) {
-	char buf[EXT2_MAX_BLOCK_SIZE];
-	int32_t depth, i;
-	uint32_t ino;
-	char* name[MAX_DIR_DEPTH];
-	INODE *ip;
+    char buf[EXT2_MAX_BLOCK_SIZE];
+    int32_t depth, i;
+    uint32_t ino;
+    char* name[MAX_DIR_DEPTH];
+    INODE *ip;
 
-	if(strcmp(filename, "/") == 0)
-		return 2; //ino 2 for root;
-	depth = split_fname(filename, name);
+    if(strcmp(filename, "/") == 0)
+        return 2; //ino 2 for root;
+    depth = split_fname(filename, name);
 
-	ino = 2;
-	ip = get_node_by_ino(ext2, ino, buf);
-	if(ip != NULL) {
-		for (i=0; i<depth; i++) {
-			ino = search(ext2, ip, name[i]);
-			if (ino == 0) {
-				break;
-			}
-			ip = get_node_by_ino(ext2, ino, buf);
-			if(ip == NULL) {
-				ino = 0;
-				break;
-			}
-		}
-	}
-	for (i=0; i<depth; i++) {
-		kfree(name[i]);
-	}
-	return ino;
+    ino = 2;
+    ip = get_node_by_ino(ext2, ino, buf);
+    if(ip != NULL) {
+        for (i=0; i<depth; i++) {
+            ino = search(ext2, ip, name[i]);
+            if (ino == 0) {
+                break;
+            }
+            ip = get_node_by_ino(ext2, ino, buf);
+            if(ip == NULL) {
+                ino = 0;
+                break;
+            }
+        }
+    }
+    for (i=0; i<depth; i++) {
+        kfree(name[i]);
+    }
+    return ino;
 }
 
 static int32_t ext2_node_by_ino(ext2_t* ext2, uint32_t ino, INODE* node) {
-	char buf[EXT2_MAX_BLOCK_SIZE];
-	INODE* p = get_node_by_ino(ext2, ino, buf);
-	if(p == NULL)
-		return -1;
-	memcpy(node, p, sizeof(INODE));
-	return 0;
+    char buf[EXT2_MAX_BLOCK_SIZE];
+    INODE* p = get_node_by_ino(ext2, ino, buf);
+    if(p == NULL)
+        return -1;
+    memcpy(node, p, sizeof(INODE));
+    return 0;
 }
 
 static inline int32_t get_gd_num(ext2_t* ext2) {
-	uint32_t count = ext2->super.s_blocks_count - ext2->super.s_first_data_block;
-	int32_t ret = (int32_t)(count / ext2->super.s_blocks_per_group);
-	if((count % ext2->super.s_blocks_per_group) != 0)
-		ret++;
-	return ret;
+    uint32_t count = ext2->super.s_blocks_count - ext2->super.s_first_data_block;
+    int32_t ret = (int32_t)(count / ext2->super.s_blocks_per_group);
+    if((count % ext2->super.s_blocks_per_group) != 0)
+        ret++;
+    return ret;
 }
 
 static int32_t get_gds(ext2_t* ext2) {
-	int32_t gd_size = sizeof(GD);
-	uint32_t block_size = ext2_block_size(ext2);
-	uint32_t gdt_block = ext2_gdt_start_block(ext2);
-	ext2->group_num = get_gd_num(ext2);
-	ext2->gds = (GD*)kmalloc(gd_size * ext2->group_num);
-	if (ext2->gds == NULL) {
-		return -1;
-	}
+    int32_t gd_size = sizeof(GD);
+    uint32_t block_size = ext2_block_size(ext2);
+    uint32_t gdt_block = ext2_gdt_start_block(ext2);
+    ext2->group_num = get_gd_num(ext2);
+    ext2->gds = (GD*)kmalloc(gd_size * ext2->group_num);
+    if (ext2->gds == NULL) {
+        return -1;
+    }
 
-	int32_t gd_num = (int32_t)(block_size / gd_size);
-	int32_t index = 0;
-	while(1) {
-		char buf[EXT2_MAX_BLOCK_SIZE];
-		if (ext2->read_block((int32_t)gdt_block, buf) != 0) {
-			return -1;
-		}
-		for(int32_t j=0; j<gd_num; j++) {
-			memcpy(&ext2->gds[index], buf+(j*gd_size), gd_size);
-			index++;
-			if(index >= ext2->group_num)
-				return 0;
-		}
-		gdt_block++;
-	}
-	return 0;
+    int32_t gd_num = (int32_t)(block_size / gd_size);
+    int32_t index = 0;
+    while(1) {
+        char buf[EXT2_MAX_BLOCK_SIZE];
+        if (ext2->read_block((int32_t)gdt_block, buf) != 0) {
+            return -1;
+        }
+        for(int32_t j=0; j<gd_num; j++) {
+            memcpy(&ext2->gds[index], buf+(j*gd_size), gd_size);
+            index++;
+            if(index >= ext2->group_num)
+                return 0;
+        }
+        gdt_block++;
+    }
+    return 0;
 }
 
 static int32_t ext2_init(ext2_t* ext2, read_block_func_t read_block) {
-	memset(&_partition, 0, sizeof(partition_t));
-	_partition.start_sector = get_rootfs_entry(sd_read_sector);
+    memset(&_partition, 0, sizeof(partition_t));
+    _partition.start_sector = get_rootfs_entry(sd_read_sector);
 
-	char buf[EXT2_MAX_BLOCK_SIZE];
-	ext2->read_block = read_block;
-	_ext2_block_size = EXT2_DEFAULT_BLOCK_SIZE;
+    char buf[EXT2_MAX_BLOCK_SIZE];
+    ext2->read_block = read_block;
+    _ext2_block_size = EXT2_DEFAULT_BLOCK_SIZE;
 
-	if (ext2->read_block(1, buf) != 0) {
-		return -1;
-	}
-	memcpy(&ext2->super, buf, sizeof(SUPER));
-	if (ext2_validate_super(ext2) != 0) {
-		return -1;
-	}
-	_ext2_block_size = ext2_block_size(ext2);
-	if (get_gds(ext2) != 0) {
-		return -1;
-	}
+    if (ext2->read_block(1, buf) != 0) {
+        return -1;
+    }
+    memcpy(&ext2->super, buf, sizeof(SUPER));
+    if (ext2_validate_super(ext2) != 0) {
+        return -1;
+    }
+    _ext2_block_size = ext2_block_size(ext2);
+    if (get_gds(ext2) != 0) {
+        return -1;
+    }
 
-	return 0;
+    return 0;
 }
 
 static void ext2_quit(ext2_t* ext2) {
-	kfree(ext2->gds);
+    kfree(ext2->gds);
 }
 
 static void* ext2_readfile(ext2_t* ext2, const char* fname, int32_t* size) {
-	void* ret = NULL;	
-	uint32_t block_size = ext2_block_size(ext2);
-	if(size != NULL)
-		*size = -1;
+    void* ret = NULL;	
+    uint32_t block_size = ext2_block_size(ext2);
+    if(size != NULL)
+        *size = -1;
 
-	uint32_t ino = ext2_ino_by_fname(ext2, fname);
-	if(ino > 0) {
-		INODE inode;
-		if(ext2_node_by_ino(ext2, ino, &inode) != 0) {
-			return ret;
-		}
+    uint32_t ino = ext2_ino_by_fname(ext2, fname);
+    if(ino > 0) {
+        INODE inode;
+        if(ext2_node_by_ino(ext2, ino, &inode) != 0) {
+            return ret;
+        }
 
-		char *data = (char*)kmalloc(inode.i_size+1); //one more byte for string end.
-		if(data != NULL) {
-			ret = data;
-			uint32_t rd = 0;
-			while(1) {
-				int sz = ext2_read(ext2, &inode, data, (int32_t)block_size, rd);
-				if(sz <= 0 || rd >= inode.i_size)
-					break;
-				data += sz;
-				rd += sz;
-			}
-			if(size != NULL) {
-				((char*)ret)[rd] = 0;
-				*size = rd;
-			}
-		}
-	}
-	return ret;
+        char *data = (char*)kmalloc(inode.i_size+1); //one more byte for string end.
+        if(data != NULL) {
+            ret = data;
+            uint32_t rd = 0;
+            while(1) {
+                int sz = ext2_read(ext2, &inode, data, (int32_t)block_size, rd);
+                if(sz <= 0 || rd >= inode.i_size)
+                    break;
+                data += sz;
+                rd += sz;
+            }
+            if(size != NULL) {
+                ((char*)ret)[rd] = 0;
+                *size = rd;
+            }
+        }
+    }
+    return ret;
 }
 
 void* sd_read_ext2(const char* fname, int32_t* size) {
-	ext2_t ext2;
-	if (ext2_init(&ext2, sd_read) != 0) {
-		if (size != NULL) {
-			*size = -1;
-		}
-		return NULL;
-	}
-	void* ret = ext2_readfile(&ext2, fname, size);
-	ext2_quit(&ext2);
-	return ret;
+    ext2_t ext2;
+    if (ext2_init(&ext2, sd_read) != 0) {
+        if (size != NULL) {
+            *size = -1;
+        }
+        return NULL;
+    }
+    void* ret = ext2_readfile(&ext2, fname, size);
+    ext2_quit(&ext2);
+    return ret;
 }

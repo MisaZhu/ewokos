@@ -23,7 +23,7 @@
 static proc_t **_task_table;//[_kernel_config.max_task_num];
 
 typedef struct {
-	page_dir_entry_t pde[PAGE_DIR_NUM];
+    page_dir_entry_t pde[PAGE_DIR_NUM];
 } proc_vm_t;
 
 static proc_vm_t *_proc_vm = NULL;
@@ -57,2280 +57,2280 @@ static uint32_t _x86_core_attach_trace_count = 0;
 #endif
 
 static inline uint64_t proc_account_now_usec(void) {
-	return irq_accounting_now_usec();
+    return irq_accounting_now_usec();
 }
 
 void proc_lock_enter(void) {
 #ifdef KERNEL_SMP
-	int32_t core = (int32_t)get_core_id();
-	if(_proc_lock_owner == core) {
-		_proc_lock_depth++;
-		return;
-	}
-	mcore_lock(&_proc_spin);
-	_proc_lock_owner = core;
-	_proc_lock_depth = 1;
+    int32_t core = (int32_t)get_core_id();
+    if(_proc_lock_owner == core) {
+        _proc_lock_depth++;
+        return;
+    }
+    mcore_lock(&_proc_spin);
+    _proc_lock_owner = core;
+    _proc_lock_depth = 1;
 #endif
 }
 
 void proc_lock_leave(void) {
 #ifdef KERNEL_SMP
-	if(_proc_lock_owner != (int32_t)get_core_id() || _proc_lock_depth == 0)
-		return;
-	_proc_lock_depth--;
-	if(_proc_lock_depth == 0) {
-		_proc_lock_owner = -1;
-		mcore_unlock(&_proc_spin);
-	}
+    if(_proc_lock_owner != (int32_t)get_core_id() || _proc_lock_depth == 0)
+        return;
+    _proc_lock_depth--;
+    if(_proc_lock_depth == 0) {
+        _proc_lock_owner = -1;
+        mcore_unlock(&_proc_spin);
+    }
 #endif
 }
 
 static inline void proc_account_running_until(proc_t* proc, uint64_t now_usec) {
-	if(proc == NULL || !proc->run_accounting_active)
-		return;
-	if(get_current_core_proc(proc->info.core) != proc)
-		return;
-	if(now_usec > proc->run_last_start_usec)
-		proc->run_usec_counter += now_usec - proc->run_last_start_usec;
-	proc->run_last_start_usec = now_usec;
+    if(proc == NULL || !proc->run_accounting_active)
+        return;
+    if(get_current_core_proc(proc->info.core) != proc)
+        return;
+    if(now_usec > proc->run_last_start_usec)
+        proc->run_usec_counter += now_usec - proc->run_last_start_usec;
+    proc->run_last_start_usec = now_usec;
 }
 
 static inline void proc_account_switch_out(proc_t* proc, uint64_t now_usec) {
-	proc_account_running_until(proc, now_usec);
-	if(proc != NULL)
-		proc->run_accounting_active = false;
+    proc_account_running_until(proc, now_usec);
+    if(proc != NULL)
+        proc->run_accounting_active = false;
 }
 
 static inline void proc_account_switch_in(proc_t* proc, uint64_t now_usec) {
-	if(proc == NULL)
-		return;
-	proc->run_last_start_usec = now_usec;
-	proc->run_accounting_active = true;
+    if(proc == NULL)
+        return;
+    proc->run_last_start_usec = now_usec;
+    proc->run_accounting_active = true;
 }
 
 static inline uint32_t proc_run_usec_snapshot_at(proc_t* proc, uint64_t now_usec) {
-	uint64_t average;
-	uint64_t window_usec;
+    uint64_t average;
+    uint64_t window_usec;
 
-	if (proc == NULL)
-		return 0;
+    if (proc == NULL)
+        return 0;
 
-	if(now_usec <= _run_window_start_usec)
-		return 0;
+    if(now_usec <= _run_window_start_usec)
+        return 0;
 
-	window_usec = now_usec - _run_window_start_usec;
-	average = (proc->run_usec_counter * 1000000ULL) / window_usec;
-	if (average > 0xffffffffULL)
-		average = 0xffffffffULL;
-	return (uint32_t)average;
+    window_usec = now_usec - _run_window_start_usec;
+    average = (proc->run_usec_counter * 1000000ULL) / window_usec;
+    if (average > 0xffffffffULL)
+        average = 0xffffffffULL;
+    return (uint32_t)average;
 }
 
 static void proc_refresh_runtime_stats_internal(bool refresh_idle, bool refresh_non_idle, uint64_t now_usec) {
-	for (uint32_t i = 0; i < _kernel_config.max_task_num; i++) {
-		proc_t* proc = _task_table[i];
-		if (proc == NULL || proc->info.state == UNUSED || proc->info.state == ZOMBIE)
-			continue;
-		if(proc->is_core_idle_proc && !refresh_idle)
-			continue;
-		if(!proc->is_core_idle_proc && !refresh_non_idle)
-			continue;
-		proc_account_running_until(proc, now_usec);
-		proc->info.run_usec = proc_run_usec_snapshot_at(proc, now_usec);
-	}
+    for (uint32_t i = 0; i < _kernel_config.max_task_num; i++) {
+        proc_t* proc = _task_table[i];
+        if (proc == NULL || proc->info.state == UNUSED || proc->info.state == ZOMBIE)
+            continue;
+        if(proc->is_core_idle_proc && !refresh_idle)
+            continue;
+        if(!proc->is_core_idle_proc && !refresh_non_idle)
+            continue;
+        proc_account_running_until(proc, now_usec);
+        proc->info.run_usec = proc_run_usec_snapshot_at(proc, now_usec);
+    }
 }
 
 void proc_refresh_runtime_stats(void) {
-	proc_lock_enter();
-	proc_refresh_runtime_stats_internal(false, true, proc_account_now_usec());
-	proc_lock_leave();
+    proc_lock_enter();
+    proc_refresh_runtime_stats_internal(false, true, proc_account_now_usec());
+    proc_lock_leave();
 }
 
 void proc_refresh_idle_runtime_stats(void) {
-	proc_lock_enter();
-	proc_refresh_runtime_stats_internal(true, false, proc_account_now_usec());
-	proc_lock_leave();
+    proc_lock_enter();
+    proc_refresh_runtime_stats_internal(true, false, proc_account_now_usec());
+    proc_lock_leave();
 }
 
 void proc_get_core_runtime_stats(uint32_t* core_procs, uint32_t* core_idles, uint32_t* core_kernels, uint32_t cores) {
-	uint64_t now_usec = proc_account_now_usec();
+    uint64_t now_usec = proc_account_now_usec();
 
-	if(core_procs != NULL)
-		memset(core_procs, 0, sizeof(uint32_t)*cores);
-	if(core_idles != NULL)
-		memset(core_idles, 0, sizeof(uint32_t)*cores);
-	if(core_kernels != NULL)
-		memset(core_kernels, 0, sizeof(uint32_t)*cores);
+    if(core_procs != NULL)
+        memset(core_procs, 0, sizeof(uint32_t)*cores);
+    if(core_idles != NULL)
+        memset(core_idles, 0, sizeof(uint32_t)*cores);
+    if(core_kernels != NULL)
+        memset(core_kernels, 0, sizeof(uint32_t)*cores);
 
-	proc_lock_enter();
-	proc_refresh_runtime_stats_internal(true, true, now_usec);
+    proc_lock_enter();
+    proc_refresh_runtime_stats_internal(true, true, now_usec);
 
-	for (uint32_t i = 0; i < _kernel_config.max_task_num; i++) {
-		proc_t* proc = _task_table[i];
-		uint32_t core;
-		uint64_t load;
+    for (uint32_t i = 0; i < _kernel_config.max_task_num; i++) {
+        proc_t* proc = _task_table[i];
+        uint32_t core;
+        uint64_t load;
 
-		if (proc == NULL || proc->info.state == UNUSED || proc->info.state == ZOMBIE)
-			continue;
-		core = proc->info.core;
-		if(core >= cores)
-			continue;
+        if (proc == NULL || proc->info.state == UNUSED || proc->info.state == ZOMBIE)
+            continue;
+        core = proc->info.core;
+        if(core >= cores)
+            continue;
 
-		if(proc->is_core_idle_proc) {
-			if(core_idles != NULL)
-				core_idles[core] = proc->info.run_usec;
-			continue;
-		}
+        if(proc->is_core_idle_proc) {
+            if(core_idles != NULL)
+                core_idles[core] = proc->info.run_usec;
+            continue;
+        }
 
-		if(core_procs == NULL)
-			continue;
-		load = (uint64_t)core_procs[core] + proc->info.run_usec;
-		if(load > 1000000ULL)
-			load = 1000000ULL;
-		core_procs[core] = (uint32_t)load;
-	}
+        if(core_procs == NULL)
+            continue;
+        load = (uint64_t)core_procs[core] + proc->info.run_usec;
+        if(load > 1000000ULL)
+            load = 1000000ULL;
+        core_procs[core] = (uint32_t)load;
+    }
 
-	if(core_kernels != NULL) {
-		for(uint32_t core = 0; core < cores; core++) {
-			uint32_t idle = core_idles != NULL ? core_idles[core] : 0;
-			uint32_t proc = core_procs != NULL ? core_procs[core] : 0;
-			uint32_t residual = 0;
+    if(core_kernels != NULL) {
+        for(uint32_t core = 0; core < cores; core++) {
+            uint32_t idle = core_idles != NULL ? core_idles[core] : 0;
+            uint32_t proc = core_procs != NULL ? core_procs[core] : 0;
+            uint32_t residual = 0;
 
-			if(idle > 1000000U)
-				idle = 1000000U;
-			if(proc > 1000000U)
-				proc = 1000000U;
+            if(idle > 1000000U)
+                idle = 1000000U;
+            if(proc > 1000000U)
+                proc = 1000000U;
 
-			if(idle + proc < 1000000U)
-				residual = 1000000U - idle - proc;
-			core_kernels[core] = residual;
-		}
-	}
+            if(idle + proc < 1000000U)
+                residual = 1000000U - idle - proc;
+            core_kernels[core] = residual;
+        }
+    }
 
-	proc_lock_leave();
+    proc_lock_leave();
 }
 
 /* proc_init initializes the process sub-system. */
 int32_t procs_init(void) {
-	_use_core_id = 0;
-	_ipc_uid = 0;
-	_proc_uuid = 0;
-	_core_proc_ready = false;
-	_run_window_start_usec = proc_account_now_usec();
-	int32_t i;
+    _use_core_id = 0;
+    _ipc_uid = 0;
+    _proc_uuid = 0;
+    _core_proc_ready = false;
+    _run_window_start_usec = proc_account_now_usec();
+    int32_t i;
 
-	uint32_t size = PAGE_DIR_SIZE + (_kernel_config.max_proc_num*sizeof(proc_vm_t));
-	ewokos_addr_t pde = (ewokos_addr_t)kmalloc(size);
-	if(pde == 0) {
-		printf("Panic: VMM process page dir entry table alloc failed (%d MB)!\n", size/1024/1024);
-		return -1;
-	}
+    uint32_t size = PAGE_DIR_SIZE + (_kernel_config.max_proc_num*sizeof(proc_vm_t));
+    ewokos_addr_t pde = (ewokos_addr_t)kmalloc(size);
+    if(pde == 0) {
+        printf("Panic: VMM process page dir entry table alloc failed (%d MB)!\n", size/1024/1024);
+        return -1;
+    }
 
-	_proc_vm = (proc_vm_t*)ALIGN_UP(pde, PAGE_DIR_SIZE);
+    _proc_vm = (proc_vm_t*)ALIGN_UP(pde, PAGE_DIR_SIZE);
 
-	size = _kernel_config.max_proc_num;
-	_proc_vm_mark = (uint8_t*)kmalloc(size);
-	for (i = 0; i < _kernel_config.max_proc_num; i++) {
-		_proc_vm_mark[i] = 0;
-	}
+    size = _kernel_config.max_proc_num;
+    _proc_vm_mark = (uint8_t*)kmalloc(size);
+    for (i = 0; i < _kernel_config.max_proc_num; i++) {
+        _proc_vm_mark[i] = 0;
+    }
 
-	size = _kernel_config.max_task_num*sizeof(proc_t);
-	_task_table = (proc_t**)kmalloc(size);
-	for (i = 0; i < _kernel_config.max_task_num; i++) {
-		_task_table[i] = NULL;
-	}
+    size = _kernel_config.max_task_num*sizeof(proc_t);
+    _task_table = (proc_t**)kmalloc(size);
+    for (i = 0; i < _kernel_config.max_task_num; i++) {
+        _task_table[i] = NULL;
+    }
 
-	_core_proc_pid = -1;
+    _core_proc_pid = -1;
 #ifdef KERNEL_SMP
-	_proc_spin = 0;
-	_proc_lock_owner = -1;
-	_proc_lock_depth = 0;
+    _proc_spin = 0;
+    _proc_lock_owner = -1;
+    _proc_lock_depth = 0;
 #endif
 
-	for (i = 0; i < CPU_MAX_CORES; i++) {
-		_current_proc[i] = -1;
-		queue_init(&_ready_queue[i]);
-	}
-	queue_init(&_interrupt_timeout_queue);
-	queue_init(&_ipc_timeout_queue);
-	queue_init(&_priority_update_queue);
+    for (i = 0; i < CPU_MAX_CORES; i++) {
+        _current_proc[i] = -1;
+        queue_init(&_ready_queue[i]);
+    }
+    queue_init(&_interrupt_timeout_queue);
+    queue_init(&_ipc_timeout_queue);
+    queue_init(&_priority_update_queue);
 
-	return 0;
+    return 0;
 }
 
 static inline void proc_track_timeout_queue(queue_t* q, proc_t* proc) {
-	if(q == NULL || proc == NULL)
-		return;
-	if(queue_in(q, proc) == NULL)
-		queue_push(q, proc);
+    if(q == NULL || proc == NULL)
+        return;
+    if(queue_in(q, proc) == NULL)
+        queue_push(q, proc);
 }
 
 static inline void proc_untrack_timeout_queue(queue_t* q, proc_t* proc) {
-	if(q == NULL || proc == NULL)
-		return;
-	queue_item_t* it = queue_in(q, proc);
-	if(it != NULL)
-		queue_remove(q, it);
+    if(q == NULL || proc == NULL)
+        return;
+    queue_item_t* it = queue_in(q, proc);
+    if(it != NULL)
+        queue_remove(q, it);
 }
 
 static inline void proc_track_priority_update(proc_t* proc) {
-	if(proc == NULL || proc->is_core_idle_proc)
-		return;
-	if(proc->info.state != READY && proc->info.state != RUNNING)
-		return;
-	proc_track_timeout_queue(&_priority_update_queue, proc);
+    if(proc == NULL || proc->is_core_idle_proc)
+        return;
+    if(proc->info.state != READY && proc->info.state != RUNNING)
+        return;
+    proc_track_timeout_queue(&_priority_update_queue, proc);
 }
 
 static inline void proc_untrack_priority_update(proc_t* proc) {
-	proc_untrack_timeout_queue(&_priority_update_queue, proc);
+    proc_untrack_timeout_queue(&_priority_update_queue, proc);
 }
 
 void proc_track_interrupt_timeout(proc_t* proc) {
-	proc_lock_enter();
-	if(proc == NULL || proc->space == NULL ||
-			proc->space->interrupt.state == INTR_STATE_IDLE) {
-		proc_lock_leave();
-		return;
-	}
-	proc_track_timeout_queue(&_interrupt_timeout_queue, proc);
-	proc_lock_leave();
+    proc_lock_enter();
+    if(proc == NULL || proc->space == NULL ||
+            proc->space->interrupt.state == INTR_STATE_IDLE) {
+        proc_lock_leave();
+        return;
+    }
+    proc_track_timeout_queue(&_interrupt_timeout_queue, proc);
+    proc_lock_leave();
 }
 
 void proc_untrack_interrupt_timeout(proc_t* proc) {
-	proc_lock_enter();
-	proc_untrack_timeout_queue(&_interrupt_timeout_queue, proc);
-	proc_lock_leave();
+    proc_lock_enter();
+    proc_untrack_timeout_queue(&_interrupt_timeout_queue, proc);
+    proc_lock_leave();
 }
 
 void proc_track_ipc_timeout(proc_t* proc) {
-	proc_lock_enter();
-	if(proc == NULL || proc->space == NULL ||
-			proc_ipc_get_task(proc) == NULL) {
-		proc_lock_leave();
-		return;
-	}
-	proc_track_timeout_queue(&_ipc_timeout_queue, proc);
-	proc_lock_leave();
+    proc_lock_enter();
+    if(proc == NULL || proc->space == NULL ||
+            proc_ipc_get_task(proc) == NULL) {
+        proc_lock_leave();
+        return;
+    }
+    proc_track_timeout_queue(&_ipc_timeout_queue, proc);
+    proc_lock_leave();
 }
 
 void proc_untrack_ipc_timeout(proc_t* proc) {
-	proc_lock_enter();
-	proc_untrack_timeout_queue(&_ipc_timeout_queue, proc);
-	proc_lock_leave();
+    proc_lock_enter();
+    proc_untrack_timeout_queue(&_ipc_timeout_queue, proc);
+    proc_lock_leave();
 }
 
 int32_t  proc_childof(proc_t* proc, proc_t* parent) {
-	while(proc != NULL) {
-		if(proc == parent)
-			return 0;
-		proc = proc_get(proc->info.father_pid);
-	}
-	return -1;
+    while(proc != NULL) {
+        if(proc == parent)
+            return 0;
+        proc = proc_get(proc->info.father_pid);
+    }
+    return -1;
 }
 
 proc_t* proc_get(int32_t pid) {
-	if(pid < 0 || pid >= _kernel_config.max_task_num)
-		return NULL;
+    if(pid < 0 || pid >= _kernel_config.max_task_num)
+        return NULL;
 
-	proc_t* p = _task_table[pid];
-	if(p->info.state == UNUSED || p->info.state == ZOMBIE)
-		return NULL;
-	return p;
+    proc_t* p = _task_table[pid];
+    if(p->info.state == UNUSED || p->info.state == ZOMBIE)
+        return NULL;
+    return p;
 }
 
 proc_t* proc_get_by_uuid(uint32_t uuid) {
-	proc_t* proc = NULL;
-	for (uint32_t i = 0; i < _kernel_config.max_task_num; i++) {
-		proc = _task_table[i];
-		if(proc != NULL && proc->info.uuid == uuid) {
-			break;
-		}
-	}
+    proc_t* proc = NULL;
+    for (uint32_t i = 0; i < _kernel_config.max_task_num; i++) {
+        proc = _task_table[i];
+        if(proc != NULL && proc->info.uuid == uuid) {
+            break;
+        }
+    }
 
-	if(proc == NULL || proc->info.state == UNUSED || proc->info.state == ZOMBIE)
-		return NULL;
-	return proc;
+    if(proc == NULL || proc->info.state == UNUSED || proc->info.state == ZOMBIE)
+        return NULL;
+    return proc;
 }
 
 proc_t* get_current_proc(void) {
-	uint32_t core_id = get_core_id();
-	proc_t* cproc = proc_get(_current_proc[core_id]);
-	if(cproc == NULL || cproc->info.state == UNUSED || cproc->info.state == ZOMBIE)
-		return NULL;
-	return cproc;
+    uint32_t core_id = get_core_id();
+    proc_t* cproc = proc_get(_current_proc[core_id]);
+    if(cproc == NULL || cproc->info.state == UNUSED || cproc->info.state == ZOMBIE)
+        return NULL;
+    return cproc;
 }
 
 proc_t* get_current_core_proc(uint32_t core) {
-	proc_t* cproc = proc_get(_current_proc[core]);
-	if(cproc == NULL || cproc->info.state == UNUSED || cproc->info.state == ZOMBIE)
-		return NULL;
-	return cproc;
+    proc_t* cproc = proc_get(_current_proc[core]);
+    if(cproc == NULL || cproc->info.state == UNUSED || cproc->info.state == ZOMBIE)
+        return NULL;
+    return cproc;
 }
 
 void set_current_proc(proc_t* proc) {
-	uint32_t core_id = get_core_id();
-	proc_t* cproc = proc_get(_current_proc[core_id]);
-	uint64_t now_usec = proc_account_now_usec();
+    uint32_t core_id = get_core_id();
+    proc_t* cproc = proc_get(_current_proc[core_id]);
+    uint64_t now_usec = proc_account_now_usec();
 
-	if(cproc != NULL && cproc != proc)
-		proc_account_switch_out(cproc, now_usec);
+    if(cproc != NULL && cproc != proc)
+        proc_account_switch_out(cproc, now_usec);
 
-	if(proc == NULL) {
-		_current_proc[core_id] = -1;
-		return;
-	}
+    if(proc == NULL) {
+        _current_proc[core_id] = -1;
+        return;
+    }
 
-	if(proc->info.core == core_id) {
-		_current_proc[core_id] = proc->info.pid;
-		if(cproc != proc || !proc->run_accounting_active)
-			proc_account_switch_in(proc, now_usec);
-	}
+    if(proc->info.core == core_id) {
+        _current_proc[core_id] = proc->info.pid;
+        if(cproc != proc || !proc->run_accounting_active)
+            proc_account_switch_in(proc, now_usec);
+    }
 }
 
 void proc_account_pause_current(void) {
-	proc_t* cproc = get_current_proc();
-	if(cproc == NULL)
-		return;
-	proc_account_switch_out(cproc, proc_account_now_usec());
+    proc_t* cproc = get_current_proc();
+    if(cproc == NULL)
+        return;
+    proc_account_switch_out(cproc, proc_account_now_usec());
 }
 
 void proc_account_resume_current(void) {
-	proc_t* cproc = get_current_proc();
-	if(cproc == NULL || cproc->info.state != RUNNING || cproc->run_accounting_active)
-		return;
-	proc_account_switch_in(cproc, proc_account_now_usec());
+    proc_t* cproc = get_current_proc();
+    if(cproc == NULL || cproc->info.state != RUNNING || cproc->run_accounting_active)
+        return;
+    proc_account_switch_in(cproc, proc_account_now_usec());
 }
 
 static inline uint32_t proc_get_user_stack_pages(proc_t* proc) {
-	if(proc->info.type == TASK_TYPE_PROC)
-		return STACK_PAGES;
-	return THREAD_STACK_PAGES;
+    if(proc->info.type == TASK_TYPE_PROC)
+        return STACK_PAGES;
+    return THREAD_STACK_PAGES;
 }
 
 static inline ewokos_addr_t proc_get_user_stack_base(proc_t* proc) {
-	if(proc->info.type == TASK_TYPE_PROC)
-		return USER_STACK_TOP - STACK_PAGES*PAGE_SIZE;
-	return proc->thread_stack_base;
+    if(proc->info.type == TASK_TYPE_PROC)
+        return USER_STACK_TOP - STACK_PAGES*PAGE_SIZE;
+    return proc->thread_stack_base;
 }
 
 static void map_stack(proc_t* proc, ewokos_addr_t* stacks, ewokos_addr_t base, uint32_t pages) {
-	uint32_t i;
-	for(i=0; i<pages; i++) {
-		page_table_entry_t* pte;
-		stacks[i] = (ewokos_addr_t)kalloc_page();
-		map_page(proc->space->vm,
-			base + PAGE_SIZE*i,
-			V2P(stacks[i]),
-			AP_RW_RW, PTE_ATTR_WRBACK);
+    uint32_t i;
+    for(i=0; i<pages; i++) {
+        page_table_entry_t* pte;
+        stacks[i] = (ewokos_addr_t)kalloc_page();
+        map_page(proc->space->vm,
+            base + PAGE_SIZE*i,
+            V2P(stacks[i]),
+            AP_RW_RW, PTE_ATTR_WRBACK);
 #ifdef __aarch64__
-		pte = get_page_table_entry(proc->space->vm, base + PAGE_SIZE*i);
-		if(pte != NULL) {
-			pte->UXN = 1;
-		}
+        pte = get_page_table_entry(proc->space->vm, base + PAGE_SIZE*i);
+        if(pte != NULL) {
+            pte->UXN = 1;
+        }
 #endif
-	}
-	flush_tlb();
+    }
+    flush_tlb();
 }
 
 static void unmap_stack(proc_t* proc, ewokos_addr_t* stacks, ewokos_addr_t base, uint32_t pages) {
-	uint32_t i;
-	for(i=0; i<pages; i++) {
-		unmap_page(proc->space->vm, base + PAGE_SIZE*i);
-		kfree_page((void*)stacks[i]);
-	}
-	flush_tlb();
+    uint32_t i;
+    for(i=0; i<pages; i++) {
+        unmap_page(proc->space->vm, base + PAGE_SIZE*i);
+        kfree_page((void*)stacks[i]);
+    }
+    flush_tlb();
 }
 
 ewokos_addr_t thread_stack_alloc(proc_t* proc) {
-	uint32_t i;
-	if(proc->space->thread_stacks == NULL) {
-		proc->space->thread_stacks = (thread_stack_t*)kmalloc(_kernel_config.max_task_per_proc*sizeof(thread_stack_t));
-		memset(proc->space->thread_stacks, 0, _kernel_config.max_task_per_proc*sizeof(thread_stack_t));
-	}
+    uint32_t i;
+    if(proc->space->thread_stacks == NULL) {
+        proc->space->thread_stacks = (thread_stack_t*)kmalloc(_kernel_config.max_task_per_proc*sizeof(thread_stack_t));
+        memset(proc->space->thread_stacks, 0, _kernel_config.max_task_per_proc*sizeof(thread_stack_t));
+    }
 
-	for(i=0; i<_kernel_config.max_task_per_proc; i++) {
-		if(proc->space->thread_stacks[i].base == 0)
-			break;
-	}
+    for(i=0; i<_kernel_config.max_task_per_proc; i++) {
+        if(proc->space->thread_stacks[i].base == 0)
+            break;
+    }
 
-	if(i >= _kernel_config.max_task_per_proc) {
-		printf("thread stack alloc failed(pid %d)!\n", proc->info.pid);
-		return 0;
-	}
+    if(i >= _kernel_config.max_task_per_proc) {
+        printf("thread stack alloc failed(pid %d)!\n", proc->info.pid);
+        return 0;
+    }
 
-	ewokos_addr_t base = USER_STACK_TOP - STACK_PAGES*PAGE_SIZE - THREAD_STACK_PAGES*PAGE_SIZE*(i+1);
-	uint32_t pages = THREAD_STACK_PAGES;
-	proc->space->thread_stacks[i].base = base;
-	if(proc->space->thread_stacks[i].stacks == NULL) 
-		proc->space->thread_stacks[i].stacks = kmalloc(THREAD_STACK_PAGES*sizeof(void*));
-	memset(proc->space->thread_stacks[i].stacks, 0, THREAD_STACK_PAGES*sizeof(void*));
-	map_stack(proc, proc->space->thread_stacks[i].stacks, base, pages);
-	return base;
+    ewokos_addr_t base = USER_STACK_TOP - STACK_PAGES*PAGE_SIZE - THREAD_STACK_PAGES*PAGE_SIZE*(i+1);
+    uint32_t pages = THREAD_STACK_PAGES;
+    proc->space->thread_stacks[i].base = base;
+    if(proc->space->thread_stacks[i].stacks == NULL) 
+        proc->space->thread_stacks[i].stacks = kmalloc(THREAD_STACK_PAGES*sizeof(void*));
+    memset(proc->space->thread_stacks[i].stacks, 0, THREAD_STACK_PAGES*sizeof(void*));
+    map_stack(proc, proc->space->thread_stacks[i].stacks, base, pages);
+    return base;
 }
 
 void thread_stack_free(proc_t* proc, ewokos_addr_t base) {
-	uint32_t i;
-	for(i=0; i<_kernel_config.max_task_per_proc; i++) {
-		if(proc->space->thread_stacks[i].base == base)
-			break;
-	}
-	if(i >= _kernel_config.max_task_per_proc) 
-		return;
-	unmap_stack(proc, proc->space->thread_stacks[i].stacks, base, THREAD_STACK_PAGES);
-	proc->space->thread_stacks[i].base = 0;
-	if(proc->space->thread_stacks[i].stacks != NULL)  {
-		kfree(proc->space->thread_stacks[i].stacks);
-		proc->space->thread_stacks[i].stacks = NULL;
-	}
+    uint32_t i;
+    for(i=0; i<_kernel_config.max_task_per_proc; i++) {
+        if(proc->space->thread_stacks[i].base == base)
+            break;
+    }
+    if(i >= _kernel_config.max_task_per_proc) 
+        return;
+    unmap_stack(proc, proc->space->thread_stacks[i].stacks, base, THREAD_STACK_PAGES);
+    proc->space->thread_stacks[i].base = 0;
+    if(proc->space->thread_stacks[i].stacks != NULL)  {
+        kfree(proc->space->thread_stacks[i].stacks);
+        proc->space->thread_stacks[i].stacks = NULL;
+    }
 }
 
 static inline void* proc_get_mem_tail(void* p) {
-	proc_t* proc = (proc_t*)p;
-	return (void*)proc->space->heap_size;
+    proc_t* proc = (proc_t*)p;
+    return (void*)proc->space->heap_size;
 }
 
 /* proc_shrink_memory shrinks the heap size of the given process. */
 static void proc_shrink_mem(proc_t* proc, int32_t page_num) {
-	if(page_num <= 0)
-		return;
+    if(page_num <= 0)
+        return;
 
-	int32_t i;
-	for (i = 0; i < page_num; i++) {
-		ewokos_addr_t virtual_addr = proc->space->heap_size - PAGE_SIZE;
-		unmap_page_ref(proc->space->vm, virtual_addr);
-		proc->space->heap_size -= PAGE_SIZE;
-		if (proc->space->heap_size == 0)
-			break;
-	}
-	flush_tlb();
+    int32_t i;
+    for (i = 0; i < page_num; i++) {
+        ewokos_addr_t virtual_addr = proc->space->heap_size - PAGE_SIZE;
+        unmap_page_ref(proc->space->vm, virtual_addr);
+        proc->space->heap_size -= PAGE_SIZE;
+        if (proc->space->heap_size == 0)
+            break;
+    }
+    flush_tlb();
 }
 
 /* proc_exapnad_memory expands the heap size of the given process. */
 static int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
-	int32_t i;
-	int32_t res = 0;
+    int32_t i;
+    int32_t res = 0;
 
-	for (i = 0; i < page_num; i++) {
-		void *page = kalloc_page();
-		if(page == NULL) {
-			printf("proc expand failed!! free mem size: (0x%llx), pid:%d(%s), pages ask:%d\n",
-					(unsigned long long)get_free_mem_size(),
-					proc->info.pid,
-					proc->info.cmd,
-					page_num);
-			proc_shrink_mem(proc, i);
-			res = -1;
-			break;
-		}
-		memset(page, 0, PAGE_SIZE);
-		map_page_ref(proc->space->vm,
-				proc->space->heap_size,
-				V2P(page),
-				AP_RW_RW, PTE_ATTR_WRBACK);
-		proc->space->heap_size += PAGE_SIZE;
-	}
-	flush_tlb();
-	return res;
+    for (i = 0; i < page_num; i++) {
+        void *page = kalloc_page();
+        if(page == NULL) {
+            printf("proc expand failed!! free mem size: (0x%llx), pid:%d(%s), pages ask:%d\n",
+                    (unsigned long long)get_free_mem_size(),
+                    proc->info.pid,
+                    proc->info.cmd,
+                    page_num);
+            proc_shrink_mem(proc, i);
+            res = -1;
+            break;
+        }
+        memset(page, 0, PAGE_SIZE);
+        map_page_ref(proc->space->vm,
+                proc->space->heap_size,
+                V2P(page),
+                AP_RW_RW, PTE_ATTR_WRBACK);
+        proc->space->heap_size += PAGE_SIZE;
+    }
+    flush_tlb();
+    return res;
 }
 
 static int32_t get_free_pde(void) {
-	for(int32_t i=0; i<_kernel_config.max_proc_num; i++) {
-		if(_proc_vm_mark[i] == 0) {
-			_proc_vm_mark[i] = 1;
-			return i;
-		}
-	}
-	return -1;
+    for(int32_t i=0; i<_kernel_config.max_proc_num; i++) {
+        if(_proc_vm_mark[i] == 0) {
+            _proc_vm_mark[i] = 1;
+            return i;
+        }
+    }
+    return -1;
 }
 
 static int32_t proc_init_space(proc_t* proc) {
-	int32_t pde_index = get_free_pde();
-	if(pde_index < 0) {
-		return -1;
-	}
+    int32_t pde_index = get_free_pde();
+    if(pde_index < 0) {
+        return -1;
+    }
 
-	page_dir_entry_t *vm = _proc_vm[pde_index].pde;
-	set_vm(vm);
-	proc->space = (proc_space_t*)kmalloc(sizeof(proc_space_t));
-	memset(proc->space, 0, sizeof(proc_space_t));
+    page_dir_entry_t *vm = _proc_vm[pde_index].pde;
+    set_vm(vm);
+    proc->space = (proc_space_t*)kmalloc(sizeof(proc_space_t));
+    memset(proc->space, 0, sizeof(proc_space_t));
 
-	proc->space->pde_index = pde_index;
-	proc->space->vm = vm;
-	proc->space->heap_size = 0;
-	proc->space->heap_used = 0;
-	proto_init(&proc->space->signal.saved_ipc_res.data);
-	proto_init(&proc->space->ipc_server.saved_ipc_res.data);
-	proto_init(&proc->space->interrupt.saved_ipc_res.data);
-	for(int i = 0; i < IPC_CTX_MAX; i++)
-		proto_init(&proc->space->ipc_server.tasks[i].arg_ret);
-	proto_init(&proc->space->interrupt.ipc_res.data);
-	return 0;
+    proc->space->pde_index = pde_index;
+    proc->space->vm = vm;
+    proc->space->heap_size = 0;
+    proc->space->heap_used = 0;
+    proto_init(&proc->space->signal.saved_ipc_res.data);
+    proto_init(&proc->space->ipc_server.saved_ipc_res.data);
+    proto_init(&proc->space->interrupt.saved_ipc_res.data);
+    for(int i = 0; i < IPC_CTX_MAX; i++)
+        proto_init(&proc->space->ipc_server.tasks[i].arg_ret);
+    proto_init(&proc->space->interrupt.ipc_res.data);
+    return 0;
 }
 
 static inline void proc_ipc_res_snapshot_clear(ipc_res_t* ipc_res) {
-	if(ipc_res == NULL)
-		return;
-	proto_clear(&ipc_res->data);
-	ipc_res->uid = 0;
-	ipc_res->state = IPC_IDLE;
+    if(ipc_res == NULL)
+        return;
+    proto_clear(&ipc_res->data);
+    ipc_res->uid = 0;
+    ipc_res->state = IPC_IDLE;
 }
 
 static inline void proc_ipc_res_snapshot_release(ipc_res_t* ipc_res) {
-	if(ipc_res == NULL)
-		return;
-	proto_release(&ipc_res->data);
-	ipc_res->uid = 0;
-	ipc_res->state = IPC_IDLE;
+    if(ipc_res == NULL)
+        return;
+    proto_release(&ipc_res->data);
+    ipc_res->uid = 0;
+    ipc_res->state = IPC_IDLE;
 }
 
 static inline void proc_ipc_res_snapshot_copy(ipc_res_t* dst, const ipc_res_t* src) {
-	if(dst == NULL || src == NULL)
-		return;
+    if(dst == NULL || src == NULL)
+        return;
 
-	proc_ipc_res_snapshot_clear(dst);
-	dst->uid = src->uid;
-	dst->state = src->state;
-	if(src->data.data != NULL && src->data.size != 0) {
-		proto_copy(&dst->data, src->data.data, src->data.size);
-	}
+    proc_ipc_res_snapshot_clear(dst);
+    dst->uid = src->uid;
+    dst->state = src->state;
+    if(src->data.data != NULL && src->data.size != 0) {
+        proto_copy(&dst->data, src->data.data, src->data.size);
+    }
 }
 
 static inline void proc_resume_after_timeout(proc_t* proc) {
-	if(proc == NULL)
-		return;
-	if(proc->info.state == READY || proc->info.state == RUNNING) {
-		proc_ready(proc);
-		return;
-	}
+    if(proc == NULL)
+        return;
+    if(proc->info.state == READY || proc->info.state == RUNNING) {
+        proc_ready(proc);
+        return;
+    }
 
-	/*
-	 * A timed-out interrupt/IPC service must not restore the server back into
-	 * a parked BLOCK/SLEEPING/WAIT state forever, otherwise it never returns
-	 * to its main loop to accept the next request.
-	 */
-	if(proc->info.state == BLOCK ||
-			proc->info.state == SLEEPING ||
-			proc->info.state == WAIT) {
-		proc_wakeup(proc);
-	}
+    /*
+     * A timed-out interrupt/IPC service must not restore the server back into
+     * a parked BLOCK/SLEEPING/WAIT state forever, otherwise it never returns
+     * to its main loop to accept the next request.
+     */
+    if(proc->info.state == BLOCK ||
+            proc->info.state == SLEEPING ||
+            proc->info.state == WAIT) {
+        proc_wakeup(proc);
+    }
 }
 
 void proc_save_state(proc_t* proc, saved_state_t* saved_state, ipc_res_t* saved_ipc_res) {
-	saved_state->state = proc->info.state;
-	saved_state->sleep_counter = proc->sleep_counter;
-	proc_ipc_res_snapshot_copy(saved_ipc_res, &proc->ipc_res);
+    saved_state->state = proc->info.state;
+    saved_state->sleep_counter = proc->sleep_counter;
+    proc_ipc_res_snapshot_copy(saved_ipc_res, &proc->ipc_res);
 }
 
 void proc_restore_state(context_t* ctx, proc_t* proc, saved_state_t* saved_state, ipc_res_t* saved_ipc_res) {
-	proc->info.state = saved_state->state;
-	proc->sleep_counter = saved_state->sleep_counter;
-	proc_ipc_res_snapshot_copy(&proc->ipc_res, saved_ipc_res);
-	memcpy(ctx, &saved_state->ctx, sizeof(context_t));
-	memset(saved_state, 0, sizeof(saved_state_t));
-	proc_ipc_res_snapshot_clear(saved_ipc_res);
+    proc->info.state = saved_state->state;
+    proc->sleep_counter = saved_state->sleep_counter;
+    proc_ipc_res_snapshot_copy(&proc->ipc_res, saved_ipc_res);
+    memcpy(ctx, &saved_state->ctx, sizeof(context_t));
+    memset(saved_state, 0, sizeof(saved_state_t));
+    proc_ipc_res_snapshot_clear(saved_ipc_res);
 }
 
 static void proc_interrupt_timeout(proc_t* proc) {
-	if(proc == NULL || proc->space == NULL) {
-		return;
-	}
+    if(proc == NULL || proc->space == NULL) {
+        return;
+    }
 
-	proc_interrupt_t* intr = &proc->space->interrupt;
-	uint32_t interrupt = intr->interrupt;
-	uint32_t intr_state = intr->state;
-	intr->counter = 0;
-	intr->state = INTR_STATE_IDLE;
-	proc_untrack_interrupt_timeout(proc);
+    proc_interrupt_t* intr = &proc->space->interrupt;
+    uint32_t interrupt = intr->interrupt;
+    uint32_t intr_state = intr->state;
+    intr->counter = 0;
+    intr->state = INTR_STATE_IDLE;
+    proc_untrack_interrupt_timeout(proc);
 
-	if(proc->info.state != UNUSED && proc->info.state != ZOMBIE) {
-		proc_restore_state(&proc->ctx, proc, &intr->saved_state, &intr->saved_ipc_res);
-		intr->restore_pending = (intr_state == INTR_STATE_WORKING) ? 1 : 0;
-		proc_resume_after_timeout(proc);
-	}
-	else {
-		intr->restore_pending = 0;
-	}
+    if(proc->info.state != UNUSED && proc->info.state != ZOMBIE) {
+        proc_restore_state(&proc->ctx, proc, &intr->saved_state, &intr->saved_ipc_res);
+        intr->restore_pending = (intr_state == INTR_STATE_WORKING) ? 1 : 0;
+        proc_resume_after_timeout(proc);
+    }
+    else {
+        intr->restore_pending = 0;
+    }
 
-	intr->entry = 0;
-	intr->data = 0;
-	intr->interrupt = 0;
+    intr->entry = 0;
+    intr->data = 0;
+    intr->interrupt = 0;
 
-	if(interrupt != 0 && interrupt != IRQ_SOFT) {
-		irq_enable_arch(interrupt);
-	}
+    if(interrupt != 0 && interrupt != IRQ_SOFT) {
+        irq_enable_arch(interrupt);
+    }
 
-	proc_interrupt_wakeup(proc);
+    proc_interrupt_wakeup(proc);
 #ifdef KERNEL_SMP
-	if(intr->restore_pending != 0 &&
-			_cpu_cores[proc->info.core].actived &&
-			proc->info.core != get_core_id()) {
-		_cpu_cores[proc->info.core].need_resched = 1;
-		ipi_send(proc->info.core);
-	}
+    if(intr->restore_pending != 0 &&
+            _cpu_cores[proc->info.core].actived &&
+            proc->info.core != get_core_id()) {
+        _cpu_cores[proc->info.core].need_resched = 1;
+        ipi_send(proc->info.core);
+    }
 #endif
 }
 
 static void proc_ipc_timeout(proc_t* proc) {
-	if(proc == NULL || proc->space == NULL) {
-		return;
-	}
+    if(proc == NULL || proc->space == NULL) {
+        return;
+    }
 
-	ipc_server_t* server = &proc->space->ipc_server;
-	ipc_task_t* ipc = proc_ipc_get_task(proc);
-	proc_t* client_proc = NULL;
-	uint32_t client_uid = 0;
+    ipc_server_t* server = &proc->space->ipc_server;
+    ipc_task_t* ipc = proc_ipc_get_task(proc);
+    proc_t* client_proc = NULL;
+    uint32_t client_uid = 0;
 
-	if(ipc == NULL || ipc->state == IPC_IDLE) {
-		server->do_switch = false;
-		server->restore_pending = 0;
-		return;
-	}
+    if(ipc == NULL || ipc->state == IPC_IDLE) {
+        server->do_switch = false;
+        server->restore_pending = 0;
+        return;
+    }
 
-	if(ipc->client_pid > 0) {
-		client_proc = proc_ipc_get_client(ipc);
-		client_uid = ipc->uid;
-	}
-	server->do_switch = false;
-	proc_restore_state(&proc->ctx, proc, &server->saved_state, &server->saved_ipc_res);
-	server->restore_pending = 1;
-	proc_resume_after_timeout(proc);
+    if(ipc->client_pid > 0) {
+        client_proc = proc_ipc_get_client(ipc);
+        client_uid = ipc->uid;
+    }
+    server->do_switch = false;
+    proc_restore_state(&proc->ctx, proc, &server->saved_state, &server->saved_ipc_res);
+    server->restore_pending = 1;
+    proc_resume_after_timeout(proc);
 
-	if(client_proc != NULL &&
-			client_proc->info.state != UNUSED &&
-			client_proc->info.state != ZOMBIE) {
-		ipc_res_t* cres = proc_ipc_client_res(client_proc, ipc);
-		if(cres != NULL && cres->uid == client_uid) {
-			cres->uid = 0;
-			cres->state = IPC_IDLE;
-			proto_clear(&cres->data);
-		}
-	}
+    if(client_proc != NULL &&
+            client_proc->info.state != UNUSED &&
+            client_proc->info.state != ZOMBIE) {
+        ipc_res_t* cres = proc_ipc_client_res(client_proc, ipc);
+        if(cres != NULL && cres->uid == client_uid) {
+            cres->uid = 0;
+            cres->state = IPC_IDLE;
+            proto_clear(&cres->data);
+        }
+    }
 
-	proc_ipc_close(proc, ipc);
+    proc_ipc_close(proc, ipc);
 
-	if(client_proc != NULL &&
-			client_proc->info.state != UNUSED &&
-			client_proc->info.state != ZOMBIE) {
-		proc_wakeup(client_proc);
-	}
+    if(client_proc != NULL &&
+            client_proc->info.state != UNUSED &&
+            client_proc->info.state != ZOMBIE) {
+        proc_wakeup(client_proc);
+    }
 
-	proc_ipc_wakeup(proc);
-	if(proc_ipc_get_task(proc) != NULL) {
-		proc_save_state(proc, &server->saved_state, &server->saved_ipc_res);
-		server->do_switch = true;
-		proc_resume_after_timeout(proc);
-	}
+    proc_ipc_wakeup(proc);
+    if(proc_ipc_get_task(proc) != NULL) {
+        proc_save_state(proc, &server->saved_state, &server->saved_ipc_res);
+        server->do_switch = true;
+        proc_resume_after_timeout(proc);
+    }
 #ifdef KERNEL_SMP
-	if(server->restore_pending != 0 &&
-			_cpu_cores[proc->info.core].actived &&
-			proc->info.core != get_core_id()) {
-		_cpu_cores[proc->info.core].need_resched = 1;
-		ipi_send(proc->info.core);
-	}
+    if(server->restore_pending != 0 &&
+            _cpu_cores[proc->info.core].actived &&
+            proc->info.core != get_core_id()) {
+        _cpu_cores[proc->info.core].need_resched = 1;
+        ipi_send(proc->info.core);
+    }
 #endif
 }
 
 void proc_switch_multi_core(context_t* ctx, proc_t* to, uint32_t core) {
-	if(to->info.core == core) {
-		proc_lock_enter();
-		if(to->info.state != RUNNING) {
-			proc_wakeup_all_state(to);
-		}
-		proc_lock_leave();
-		to->info.state = RUNNING;
-		proc_switch(ctx, to, true);
-	}
-	else {
+    if(to->info.core == core) {
+        proc_lock_enter();
+        if(to->info.state != RUNNING) {
+            proc_wakeup_all_state(to);
+        }
+        proc_lock_leave();
+        to->info.state = RUNNING;
+        proc_switch(ctx, to, true);
+    }
+    else {
 #ifdef KERNEL_SMP
-		/*
-		 * IPC dispatch can target a server that is sleeping or blocked on
-		 * another core.  Waking it with proc_ready() alone leaves the
-		 * nested saved_state copies untouched, so a concurrent restore path
-		 * can still drag the server back to SLEEPING/BLOCK and lose the
-		 * wakeup.  Reuse the full proc_wakeup() path so both the visible
-		 * state and the saved nested states become READY before the remote
-		 * core is kicked.
-		 */
-		proc_wakeup(to);
+        /*
+         * IPC dispatch can target a server that is sleeping or blocked on
+         * another core.  Waking it with proc_ready() alone leaves the
+         * nested saved_state copies untouched, so a concurrent restore path
+         * can still drag the server back to SLEEPING/BLOCK and lose the
+         * wakeup.  Reuse the full proc_wakeup() path so both the visible
+         * state and the saved nested states become READY before the remote
+         * core is kicked.
+         */
+        proc_wakeup(to);
 #endif
-	}
+    }
 }
 
 void proc_switch(context_t* ctx, proc_t* to, bool quick){
-	proc_lock_enter();
-	proc_t* cproc = get_current_proc();
-	if(to == NULL) {
-		proc_lock_leave();
-		return;
-	}
+    proc_lock_enter();
+    proc_t* cproc = get_current_proc();
+    if(to == NULL) {
+        proc_lock_leave();
+        return;
+    }
 
-	if(cproc != NULL && cproc->info.state != UNUSED) {
-		if(cproc->info.type == TASK_TYPE_PROC &&
-				cproc->space != NULL &&
-				(cproc->space->interrupt.restore_pending != 0 ||
-				 cproc->space->ipc_server.restore_pending != 0)) {
-			memcpy(ctx, &cproc->ctx, sizeof(context_t));
-			cproc->space->interrupt.restore_pending = 0;
-			cproc->space->ipc_server.restore_pending = 0;
-		}
-		else {
-			memcpy(&cproc->ctx, ctx, sizeof(context_t));
-		}
-	}
+    if(cproc != NULL && cproc->info.state != UNUSED) {
+        if(cproc->info.type == TASK_TYPE_PROC &&
+                cproc->space != NULL &&
+                (cproc->space->interrupt.restore_pending != 0 ||
+                 cproc->space->ipc_server.restore_pending != 0)) {
+            memcpy(ctx, &cproc->ctx, sizeof(context_t));
+            cproc->space->interrupt.restore_pending = 0;
+            cproc->space->ipc_server.restore_pending = 0;
+        }
+        else {
+            memcpy(&cproc->ctx, ctx, sizeof(context_t));
+        }
+    }
 
-	if(cproc != to) {
-		page_dir_entry_t *vm = to->space->vm;
-		set_translation_table_base(V2P(vm));
-	}
+    if(cproc != to) {
+        page_dir_entry_t *vm = to->space->vm;
+        set_translation_table_base(V2P(vm));
+    }
 
-	if(to->info.type == TASK_TYPE_PROC) {
-		if (to->space->interrupt.state == INTR_STATE_START) {																				// have irq request to handle
-			to->space->interrupt.state = INTR_STATE_WORKING; // clear irq request mask
-			memcpy(&to->space->interrupt.saved_state.ctx, &to->ctx, sizeof(context_t)); // save "to" context to irq ctx, will restore after irq done.
-			to->ctx.gpr[0] = to->space->interrupt.interrupt;
-			to->ctx.gpr[1] = to->space->interrupt.data;
-			to->ctx.pc = to->ctx.lr = to->space->interrupt.entry;
-			if(to->space->interrupt.stack == 0)
-				to->space->interrupt.stack = thread_stack_alloc(to);
-			to->ctx.sp = ALIGN_DOWN(to->space->interrupt.stack + THREAD_STACK_PAGES * PAGE_SIZE, EWOK_STACK_ALIGN) - EWOK_STACK_INIT_BIAS;
-		}
-		else if (to->space->signal.do_switch) {																			 // have signal request to handle
-			memcpy(&to->space->signal.saved_state.ctx, &to->ctx, sizeof(context_t)); // save "to" context to ipc ctx, will restore after ipc done.
-			to->ctx.gpr[0] = to->space->signal.sig_no;
-			to->ctx.pc = to->ctx.lr = to->space->signal.entry;
-			if(to->space->signal.stack == 0)
-				to->space->signal.stack = thread_stack_alloc(to);
-			to->ctx.sp = ALIGN_DOWN(to->space->signal.stack + THREAD_STACK_PAGES * PAGE_SIZE, EWOK_STACK_ALIGN) - EWOK_STACK_INIT_BIAS;
-			to->space->signal.do_switch = false; // clear ipc request mask
-		}
-		else if (to->space->ipc_server.do_switch) { // have ipc request to handle
-			ipc_task_t *ipc = proc_ipc_get_task(to);
-			if(ipc == NULL) {
-				to->space->ipc_server.do_switch = false;
-				goto proc_switch_done;
-			}
-			memcpy(&to->space->ipc_server.saved_state.ctx, &to->ctx, sizeof(context_t)); // save "to" context to ipc ctx, will restore after ipc done.
-			to->ctx.gpr[0] = ipc->uid;
-			to->ctx.gpr[1] = to->space->ipc_server.extra_data;
-			to->ctx.pc = to->ctx.lr = to->space->ipc_server.entry;
-			if(to->space->ipc_server.stack == 0)
-				to->space->ipc_server.stack = thread_stack_alloc(to);
-			to->ctx.sp = ALIGN_DOWN(to->space->ipc_server.stack + THREAD_STACK_PAGES * PAGE_SIZE, EWOK_STACK_ALIGN) - EWOK_STACK_INIT_BIAS;
-			to->space->ipc_server.do_switch = false; // clear ipc request mask
-		}
-	}
+    if(to->info.type == TASK_TYPE_PROC) {
+        if (to->space->interrupt.state == INTR_STATE_START) {																				// have irq request to handle
+            to->space->interrupt.state = INTR_STATE_WORKING; // clear irq request mask
+            memcpy(&to->space->interrupt.saved_state.ctx, &to->ctx, sizeof(context_t)); // save "to" context to irq ctx, will restore after irq done.
+            to->ctx.gpr[0] = to->space->interrupt.interrupt;
+            to->ctx.gpr[1] = to->space->interrupt.data;
+            to->ctx.pc = to->ctx.lr = to->space->interrupt.entry;
+            if(to->space->interrupt.stack == 0)
+                to->space->interrupt.stack = thread_stack_alloc(to);
+            to->ctx.sp = ALIGN_DOWN(to->space->interrupt.stack + THREAD_STACK_PAGES * PAGE_SIZE, EWOK_STACK_ALIGN) - EWOK_STACK_INIT_BIAS;
+        }
+        else if (to->space->signal.do_switch) {																			 // have signal request to handle
+            memcpy(&to->space->signal.saved_state.ctx, &to->ctx, sizeof(context_t)); // save "to" context to ipc ctx, will restore after ipc done.
+            to->ctx.gpr[0] = to->space->signal.sig_no;
+            to->ctx.pc = to->ctx.lr = to->space->signal.entry;
+            if(to->space->signal.stack == 0)
+                to->space->signal.stack = thread_stack_alloc(to);
+            to->ctx.sp = ALIGN_DOWN(to->space->signal.stack + THREAD_STACK_PAGES * PAGE_SIZE, EWOK_STACK_ALIGN) - EWOK_STACK_INIT_BIAS;
+            to->space->signal.do_switch = false; // clear ipc request mask
+        }
+        else if (to->space->ipc_server.do_switch) { // have ipc request to handle
+            ipc_task_t *ipc = proc_ipc_get_task(to);
+            if(ipc == NULL) {
+                to->space->ipc_server.do_switch = false;
+                goto proc_switch_done;
+            }
+            memcpy(&to->space->ipc_server.saved_state.ctx, &to->ctx, sizeof(context_t)); // save "to" context to ipc ctx, will restore after ipc done.
+            to->ctx.gpr[0] = ipc->uid;
+            to->ctx.gpr[1] = to->space->ipc_server.extra_data;
+            to->ctx.pc = to->ctx.lr = to->space->ipc_server.entry;
+            if(to->space->ipc_server.stack == 0)
+                to->space->ipc_server.stack = thread_stack_alloc(to);
+            to->ctx.sp = ALIGN_DOWN(to->space->ipc_server.stack + THREAD_STACK_PAGES * PAGE_SIZE, EWOK_STACK_ALIGN) - EWOK_STACK_INIT_BIAS;
+            to->space->ipc_server.do_switch = false; // clear ipc request mask
+        }
+    }
 
 proc_switch_done:
 
-	if(cproc != to && cproc != NULL &&
-			cproc->info.state != UNUSED &&
-			cproc != _cpu_cores[cproc->info.core].idle_proc) {
-			//halt proc can't be pushed into ready queue, can't be scheduled.
-		if(cproc->info.state == RUNNING) {
-			cproc->info.state = READY;
-			if(quick)
-				queue_push_head(&_ready_queue[cproc->info.core], cproc);
-			else
-				queue_push(&_ready_queue[cproc->info.core], cproc);
-		}	
-	}
+    if(cproc != to && cproc != NULL &&
+            cproc->info.state != UNUSED &&
+            cproc != _cpu_cores[cproc->info.core].idle_proc) {
+            //halt proc can't be pushed into ready queue, can't be scheduled.
+        if(cproc->info.state == RUNNING) {
+            cproc->info.state = READY;
+            if(quick)
+                queue_push_head(&_ready_queue[cproc->info.core], cproc);
+            else
+                queue_push(&_ready_queue[cproc->info.core], cproc);
+        }	
+    }
 
-	to->info.state = RUNNING;
-	proc_track_priority_update(to);
-	if(cproc != to)
-		set_current_proc(to);
-	memcpy(ctx, &to->ctx, sizeof(context_t));
-	proc_lock_leave();
+    to->info.state = RUNNING;
+    proc_track_priority_update(to);
+    if(cproc != to)
+        set_current_proc(to);
+    memcpy(ctx, &to->ctx, sizeof(context_t));
+    proc_lock_leave();
 }
 
 static inline void proc_unmap_shms(proc_t *proc) {
-	int32_t i;
-	for(i=0; i<SHM_MAX; i++) {
-		int32_t shm = proc->space->shms[i];
-		if(shm > 0) {
-			shm_proc_unmap_by_id(proc, shm, true);
-		}
-	}
+    int32_t i;
+    for(i=0; i<SHM_MAX; i++) {
+        int32_t shm = proc->space->shms[i];
+        if(shm > 0) {
+            shm_proc_unmap_by_id(proc, shm, true);
+        }
+    }
 }
 
 static inline void proc_queue_remove_all(proc_t* proc) {
-	queue_item_t* it = queue_in(&_ready_queue[proc->info.core], proc);
-	while(it != NULL) {
-		queue_remove(&_ready_queue[proc->info.core], it);
-		it = queue_in(&_ready_queue[proc->info.core], proc);
-	}
+    queue_item_t* it = queue_in(&_ready_queue[proc->info.core], proc);
+    while(it != NULL) {
+        queue_remove(&_ready_queue[proc->info.core], it);
+        it = queue_in(&_ready_queue[proc->info.core], proc);
+    }
 }
 
 static inline void proc_ready_with_order(proc_t* proc, bool push_head) {
-	proc_lock_enter();
-	if(proc == NULL) {
-		proc_lock_leave();
-		return;
-	}
+    proc_lock_enter();
+    if(proc == NULL) {
+        proc_lock_leave();
+        return;
+    }
 
-	proc->info.state = READY;
-	proc_track_priority_update(proc);
+    proc->info.state = READY;
+    proc_track_priority_update(proc);
 
 #ifdef __x86_64__
-	if(proc->priority_count == 0)
-		proc->priority_count = proc->info.priority;
+    if(proc->priority_count == 0)
+        proc->priority_count = proc->info.priority;
 
-	proc_queue_remove_all(proc);
-	if(push_head)
-		queue_push_head(&_ready_queue[proc->info.core], proc);
-	else
-		queue_push(&_ready_queue[proc->info.core], proc);
+    proc_queue_remove_all(proc);
+    if(push_head)
+        queue_push_head(&_ready_queue[proc->info.core], proc);
+    else
+        queue_push(&_ready_queue[proc->info.core], proc);
 #else
-	if(proc->priority_count == 0)
-		proc->priority_count = proc->info.priority;
+    if(proc->priority_count == 0)
+        proc->priority_count = proc->info.priority;
 
-	queue_item_t* ready_hit = queue_in(&_ready_queue[proc->info.core], proc);
-	if(ready_hit != NULL) {
-		if(push_head && ready_hit != _ready_queue[proc->info.core].head) {
-			queue_remove(&_ready_queue[proc->info.core], ready_hit);
-			ready_hit = NULL;
-		}
-		else {
-			proc_lock_leave();
-			return;
-		}
-	}
+    queue_item_t* ready_hit = queue_in(&_ready_queue[proc->info.core], proc);
+    if(ready_hit != NULL) {
+        if(push_head && ready_hit != _ready_queue[proc->info.core].head) {
+            queue_remove(&_ready_queue[proc->info.core], ready_hit);
+            ready_hit = NULL;
+        }
+        else {
+            proc_lock_leave();
+            return;
+        }
+    }
 
-	if(push_head)
-		queue_push_head(&_ready_queue[proc->info.core], proc);
-	else
-		queue_push(&_ready_queue[proc->info.core], proc);
+    if(push_head)
+        queue_push_head(&_ready_queue[proc->info.core], proc);
+    else
+        queue_push(&_ready_queue[proc->info.core], proc);
 #endif
-	proc_lock_leave();
+    proc_lock_leave();
 }
 
 void proc_ready(proc_t* proc) {
-	proc_ready_with_order(proc, false);
+    proc_ready_with_order(proc, false);
 }
 
 proc_t* proc_get_core_ready(uint32_t core_id) {
-	proc_lock_enter();
-	proc_t* ready = (proc_t*)_ready_queue[core_id].head;
-	proc_lock_leave();
-	return ready;
+    proc_lock_enter();
+    proc_t* ready = (proc_t*)_ready_queue[core_id].head;
+    proc_lock_leave();
+    return ready;
 }
 
 bool proc_have_ready_task(uint32_t core) {
-	proc_lock_enter();
-	if(core >= CPU_MAX_CORES || core >= _sys_info.cores) {
-		proc_lock_leave();
-		return false;
-	}
-	bool ready = !queue_is_empty(&_ready_queue[core]);
-	proc_lock_leave();
-	return ready;
+    proc_lock_enter();
+    if(core >= CPU_MAX_CORES || core >= _sys_info.cores) {
+        proc_lock_leave();
+        return false;
+    }
+    bool ready = !queue_is_empty(&_ready_queue[core]);
+    proc_lock_leave();
+    return ready;
 }
 
 proc_t* proc_get_next_ready(void) {
-	proc_lock_enter();
-	uint32_t core_id = get_core_id();
-	proc_t* next = queue_pop(&_ready_queue[core_id]);
-	while(next != NULL && next->info.state != READY && next->info.state != RUNNING)
-		next = queue_pop(&_ready_queue[core_id]);
-	if(next == NULL) {
-		proc_t*	cproc = get_current_proc();
-		if(cproc != NULL && cproc->info.state == RUNNING &&
-				cproc != _cpu_cores[cproc->info.core].idle_proc)
-				//halt proc can't be sheduled.
-			next = cproc;
-	}
-	proc_lock_leave();
-	return next;
+    proc_lock_enter();
+    uint32_t core_id = get_core_id();
+    proc_t* next = queue_pop(&_ready_queue[core_id]);
+    while(next != NULL && next->info.state != READY && next->info.state != RUNNING)
+        next = queue_pop(&_ready_queue[core_id]);
+    if(next == NULL) {
+        proc_t*	cproc = get_current_proc();
+        if(cproc != NULL && cproc->info.state == RUNNING &&
+                cproc != _cpu_cores[cproc->info.core].idle_proc)
+                //halt proc can't be sheduled.
+            next = cproc;
+    }
+    proc_lock_leave();
+    return next;
 }
 
 static inline void proc_unready_locked(proc_t* proc, int32_t state) {
 #ifdef __x86_64__
-	proc_queue_remove_all(proc);
+    proc_queue_remove_all(proc);
 #else
-	queue_item_t* it = queue_in(&_ready_queue[proc->info.core], proc);
-	if(it != NULL)
-		queue_remove(&_ready_queue[proc->info.core], it);
+    queue_item_t* it = queue_in(&_ready_queue[proc->info.core], proc);
+    if(it != NULL)
+        queue_remove(&_ready_queue[proc->info.core], it);
 #endif
-	proc_untrack_priority_update(proc);
-	proc->info.state = state;
+    proc_untrack_priority_update(proc);
+    proc->info.state = state;
 }
 
 static inline void proc_unready(proc_t* proc, int32_t state) {
-	proc_lock_enter();
-	proc_unready_locked(proc, state);
-	proc_lock_leave();
+    proc_lock_enter();
+    proc_unready_locked(proc, state);
+    proc_lock_leave();
 }
 
 static void proc_wakeup_waiting(int32_t pid) {
-	int32_t i;
-	for (i = 0; i < _kernel_config.max_task_num; i++) {
-		proc_t *proc = _task_table[i];
-		if (proc != NULL && proc->info.state == WAIT && proc->info.wait_for == pid) {
-			proc->info.wait_for = -1;
+    int32_t i;
+    for (i = 0; i < _kernel_config.max_task_num; i++) {
+        proc_t *proc = _task_table[i];
+        if (proc != NULL && proc->info.state == WAIT && proc->info.wait_for == pid) {
+            proc->info.wait_for = -1;
 #ifdef __x86_64__
-			proc_ready_with_order(proc, true);
+            proc_ready_with_order(proc, true);
 #else
-			proc_ready(proc);
+            proc_ready(proc);
 #endif
-		}
-	}
+        }
+    }
 }
 
 static inline void proc_update_vsyscall(proc_t* proc) {
-	if(_kernel_info.vsyscall_info == NULL || proc == NULL || proc->info.pid < 0)
-		return;
+    if(_kernel_info.vsyscall_info == NULL || proc == NULL || proc->info.pid < 0)
+        return;
 
-	_kernel_info.vsyscall_info->proc_info[proc->info.pid].father_pid = proc->info.father_pid;
-	_kernel_info.vsyscall_info->proc_info[proc->info.pid].uuid = proc->info.uuid;
-	_kernel_info.vsyscall_info->proc_info[proc->info.pid].type = proc->info.type;
+    _kernel_info.vsyscall_info->proc_info[proc->info.pid].father_pid = proc->info.father_pid;
+    _kernel_info.vsyscall_info->proc_info[proc->info.pid].uuid = proc->info.uuid;
+    _kernel_info.vsyscall_info->proc_info[proc->info.pid].type = proc->info.type;
 }
 
 static void proc_terminate(context_t* ctx, proc_t* proc) {
-	if(proc->info.state == ZOMBIE || proc->info.state == UNUSED)
-		return;
-	proc_unready(proc, ZOMBIE);
-	proc_untrack_interrupt_timeout(proc);
-	proc_untrack_ipc_timeout(proc);
-	/*
-	 * Every task pid may own a cloned VFS fd table. If a thread is terminated
-	 * by the kernel before user-mode cleanup runs, vfsd still needs an exit
-	 * event to release those descriptors; otherwise device refs (for example
-	 * netd socket tasks) can stay pinned forever.
-	 */
-	kev_push(KEV_PROC_EXIT, proc->info.pid, 0, 0);
+    if(proc->info.state == ZOMBIE || proc->info.state == UNUSED)
+        return;
+    proc_unready(proc, ZOMBIE);
+    proc_untrack_interrupt_timeout(proc);
+    proc_untrack_ipc_timeout(proc);
+    /*
+     * Every task pid may own a cloned VFS fd table. If a thread is terminated
+     * by the kernel before user-mode cleanup runs, vfsd still needs an exit
+     * event to release those descriptors; otherwise device refs (for example
+     * netd socket tasks) can stay pinned forever.
+     */
+    kev_push(KEV_PROC_EXIT, proc->info.pid, 0, 0);
 
-	/*
-	 * Unlink this task's embedded ipc_wait_item from whatever server wait
-	 * queue it is on, for EVERY task type. Threads (netd per-task workers,
-	 * sshd's sftp thread) block in ipc_call waits too and are killed here
-	 * while still queued (e.g. their father proc terminating them above);
-	 * skipping this for non-PROC tasks leaves a dangling item inside the
-	 * server's wait list after proc_funeral() kfrees the proc_t, corrupting
-	 * the list and stranding every later waiter of that server (vfsd).
-	 */
-	proc_ipc_cancel_wait(proc);
+    /*
+     * Unlink this task's embedded ipc_wait_item from whatever server wait
+     * queue it is on, for EVERY task type. Threads (netd per-task workers,
+     * sshd's sftp thread) block in ipc_call waits too and are killed here
+     * while still queued (e.g. their father proc terminating them above);
+     * skipping this for non-PROC tasks leaves a dangling item inside the
+     * server's wait list after proc_funeral() kfrees the proc_t, corrupting
+     * the list and stranding every later waiter of that server (vfsd).
+     */
+    proc_ipc_cancel_wait(proc);
 
-	if(proc->info.type == TASK_TYPE_PROC) {
-		semaphore_clear(proc->info.pid);
-		int32_t i;
-		for (i = 0; i < _kernel_config.max_task_num; i++) {
-			proc_t *p = _task_table[i];
-			if(p != NULL) {
-				/*terminate forked from this proc*/
-				if(p->info.father_pid == proc->info.pid) { //terminate forked children, skip reloaded ones
-					if(p->info.type == TASK_TYPE_PROC)
-						proc_signal_send(ctx, p, SYS_SIG_STOP, false);
-					else
-						proc_exit(ctx, p, 0);
-				}
-			}
-		}
+    if(proc->info.type == TASK_TYPE_PROC) {
+        semaphore_clear(proc->info.pid);
+        int32_t i;
+        for (i = 0; i < _kernel_config.max_task_num; i++) {
+            proc_t *p = _task_table[i];
+            if(p != NULL) {
+                /*terminate forked from this proc*/
+                if(p->info.father_pid == proc->info.pid) { //terminate forked children, skip reloaded ones
+                    if(p->info.type == TASK_TYPE_PROC)
+                        proc_signal_send(ctx, p, SYS_SIG_STOP, false);
+                    else
+                        proc_exit(ctx, p, 0);
+                }
+            }
+        }
 
-		/*free all ipc context*/
-		proc_ipc_clear(proc);
-		proc_ipc_wakeup_all(proc);
-		proc_interrupt_wakeup_all(proc);
-	
-		if(proc->space->interrupt.state != INTR_STATE_IDLE) {
-			if(proc->space->interrupt.interrupt != IRQ_SOFT) {
-				irq_enable_arch(proc->space->interrupt.interrupt);
-			}
-			proc->space->interrupt.state = INTR_STATE_IDLE;
-		}
-		proc->info.father_pid = 0;
-	}
-	else if(proc->info.type == TASK_TYPE_THREAD) { //TODO
-		proc->info.father_pid = 0;
-	}
-	proc_wakeup_waiting(proc->info.pid);
+        /*free all ipc context*/
+        proc_ipc_clear(proc);
+        proc_ipc_wakeup_all(proc);
+        proc_interrupt_wakeup_all(proc);
+    
+        if(proc->space->interrupt.state != INTR_STATE_IDLE) {
+            if(proc->space->interrupt.interrupt != IRQ_SOFT) {
+                irq_enable_arch(proc->space->interrupt.interrupt);
+            }
+            proc->space->interrupt.state = INTR_STATE_IDLE;
+        }
+        proc->info.father_pid = 0;
+    }
+    else if(proc->info.type == TASK_TYPE_THREAD) { //TODO
+        proc->info.father_pid = 0;
+    }
+    proc_wakeup_waiting(proc->info.pid);
 
-	proc->info.uuid = 0;
-	proc_update_vsyscall(proc);
+    proc->info.uuid = 0;
+    proc_update_vsyscall(proc);
 }
 
 static inline void proc_init_user_stack(proc_t* proc) {
-	if(proc->info.type == TASK_TYPE_THREAD) {
-		proc->thread_stack_base = thread_stack_alloc(proc);
-	}
-	else {
-		ewokos_addr_t base =  proc_get_user_stack_base(proc);
-		uint32_t pages = proc_get_user_stack_pages(proc);
-		map_stack(proc, proc->space->user_stack, base, pages);
-	}
+    if(proc->info.type == TASK_TYPE_THREAD) {
+        proc->thread_stack_base = thread_stack_alloc(proc);
+    }
+    else {
+        ewokos_addr_t base =  proc_get_user_stack_base(proc);
+        uint32_t pages = proc_get_user_stack_pages(proc);
+        map_stack(proc, proc->space->user_stack, base, pages);
+    }
 }
 
 static inline void proc_free_user_stack(proc_t* proc) {
-	/*free user_stack*/
-	if(proc->info.type == TASK_TYPE_THREAD) {
-		if(proc->thread_stack_base != 0) {
-			thread_stack_free(proc, proc->thread_stack_base);
-		}
-	}
-	else {
-		ewokos_addr_t base = proc_get_user_stack_base(proc);
-		uint32_t pages = proc_get_user_stack_pages(proc);
-		unmap_stack(proc, proc->space->user_stack, base, pages);
-	}
+    /*free user_stack*/
+    if(proc->info.type == TASK_TYPE_THREAD) {
+        if(proc->thread_stack_base != 0) {
+            thread_stack_free(proc, proc->thread_stack_base);
+        }
+    }
+    else {
+        ewokos_addr_t base = proc_get_user_stack_base(proc);
+        uint32_t pages = proc_get_user_stack_pages(proc);
+        unmap_stack(proc, proc->space->user_stack, base, pages);
+    }
 }
 
 static void proc_funeral_dump_target(const char* stage, proc_t* current, proc_t* target) {
-	if(target == NULL) {
-		printf("proc_funeral[%s]: target=null\n", stage);
-		return;
-	}
+    if(target == NULL) {
+        printf("proc_funeral[%s]: target=null\n", stage);
+        return;
+    }
 
-	printf("proc_funeral[%s]: current(pid=%d cmd=%s) target(pid=%d type=%d state=%d cmd=%s)\n",
-			stage,
-			current ? current->info.pid : -1,
-			current ? current->info.cmd : "<none>",
-			target->info.pid,
-			target->info.type,
-			target->info.state,
-			target->info.cmd);
+    printf("proc_funeral[%s]: current(pid=%d cmd=%s) target(pid=%d type=%d state=%d cmd=%s)\n",
+            stage,
+            current ? current->info.pid : -1,
+            current ? current->info.cmd : "<none>",
+            target->info.pid,
+            target->info.type,
+            target->info.state,
+            target->info.cmd);
 }
 
 static void proc_funeral_dump_space(const char* stage, proc_space_t* space) {
-	if(space == NULL) {
-		printf("proc_funeral[%s]: space=null\n", stage);
-		return;
-	}
+    if(space == NULL) {
+        printf("proc_funeral[%s]: space=null\n", stage);
+        return;
+    }
 
-	printf("proc_funeral[%s]: pde_index=%d refs=%d heap=%x malloc=%x shm0=%d\n",
-			stage,
-			space->pde_index,
-			space->refs,
-			space->heap_size,
-			space->malloc_base,
-			space->shms[0]);
+    printf("proc_funeral[%s]: pde_index=%d refs=%d heap=%x malloc=%x shm0=%d\n",
+            stage,
+            space->pde_index,
+            space->refs,
+            space->heap_size,
+            space->malloc_base,
+            space->shms[0]);
 }
 
 void proc_funeral(proc_t* proc) {
-	proc_t* cproc = get_current_proc();
-	proc_space_t* space;
-	if(cproc == NULL || cproc == proc || proc->info.state == UNUSED)
-		return;
-	space = proc->space;
-	if(space == NULL) {
-		proc_funeral_dump_target("space-null", cproc, proc);
-		_task_table[proc->info.pid] = NULL;
-		kfree(proc);
-		return;
-	}
-	if(proc->info.type == TASK_TYPE_PROC) {
-		if(space->refs > 0) //keep it still got child thread running.
-			return;
-	}
-	else {
-		if(space->refs > 0)
-			space->refs--;
-	}
+    proc_t* cproc = get_current_proc();
+    proc_space_t* space;
+    if(cproc == NULL || cproc == proc || proc->info.state == UNUSED)
+        return;
+    space = proc->space;
+    if(space == NULL) {
+        proc_funeral_dump_target("space-null", cproc, proc);
+        _task_table[proc->info.pid] = NULL;
+        kfree(proc);
+        return;
+    }
+    if(proc->info.type == TASK_TYPE_PROC) {
+        if(space->refs > 0) //keep it still got child thread running.
+            return;
+    }
+    else {
+        if(space->refs > 0)
+            space->refs--;
+    }
 
-	if(space->vm == NULL) {
-		proc_funeral_dump_target("vm-null", cproc, proc);
-		proc_funeral_dump_space("vm-null", space);
-		_task_table[proc->info.pid] = NULL;
-		kfree(proc);
-		return;
-	}
+    if(space->vm == NULL) {
+        proc_funeral_dump_target("vm-null", cproc, proc);
+        proc_funeral_dump_space("vm-null", space);
+        _task_table[proc->info.pid] = NULL;
+        kfree(proc);
+        return;
+    }
 
-	if(proc->info.type == TASK_TYPE_PROC &&
-			space->pde_index >= _kernel_config.max_proc_num) {
-		proc_funeral_dump_target("pde-bad", cproc, proc);
-		proc_funeral_dump_space("pde-bad", space);
-		_task_table[proc->info.pid] = NULL;
-		kfree(proc);
-		return;
-	}
+    if(proc->info.type == TASK_TYPE_PROC &&
+            space->pde_index >= _kernel_config.max_proc_num) {
+        proc_funeral_dump_target("pde-bad", cproc, proc);
+        proc_funeral_dump_space("pde-bad", space);
+        _task_table[proc->info.pid] = NULL;
+        kfree(proc);
+        return;
+    }
 
-	set_translation_table_base(V2P(space->vm));
-	dma_release(proc->info.pid);
-	proc_free_user_stack(proc);
+    set_translation_table_base(V2P(space->vm));
+    dma_release(proc->info.pid);
+    proc_free_user_stack(proc);
 
-	if(proc->info.type == TASK_TYPE_PROC) {
-		//free small_stack
-		if (space->interrupt.stack != 0) {
-			thread_stack_free(proc, space->interrupt.stack);
-		}
-		if (space->signal.stack != 0) {
-			thread_stack_free(proc, space->signal.stack);
-		}
-		if (space->ipc_server.stack != 0) {
-			thread_stack_free(proc, space->ipc_server.stack);
-		}
+    if(proc->info.type == TASK_TYPE_PROC) {
+        //free small_stack
+        if (space->interrupt.stack != 0) {
+            thread_stack_free(proc, space->interrupt.stack);
+        }
+        if (space->signal.stack != 0) {
+            thread_stack_free(proc, space->signal.stack);
+        }
+        if (space->ipc_server.stack != 0) {
+            thread_stack_free(proc, space->ipc_server.stack);
+        }
 
-		/*free proc heap*/
-		proc_shrink_mem(proc, space->heap_size / PAGE_SIZE);
+        /*free proc heap*/
+        proc_shrink_mem(proc, space->heap_size / PAGE_SIZE);
 
-		/*unmap share mems*/
-		proc_unmap_shms(proc);
+        /*unmap share mems*/
+        proc_unmap_shms(proc);
 
-		set_translation_table_base(V2P(cproc->space->vm));
-		free_page_tables(space->vm);
+        set_translation_table_base(V2P(cproc->space->vm));
+        free_page_tables(space->vm);
 
-		if(_proc_vm_mark == NULL) {
-			proc_funeral_dump_target("mark-null", cproc, proc);
-		}
-		else {
-			_proc_vm_mark[space->pde_index] = 0;
-		}
+        if(_proc_vm_mark == NULL) {
+            proc_funeral_dump_target("mark-null", cproc, proc);
+        }
+        else {
+            _proc_vm_mark[space->pde_index] = 0;
+        }
 
-		if(space->thread_stacks != NULL)
-			kfree(space->thread_stacks);
-		proto_release(&proc->ipc_res.data);
-		for(int i = 0; i < IPC_CTX_MAX; i++)
-			proto_release(&space->ipc_server.tasks[i].arg_ret);
-		proc_ipc_res_snapshot_release(&space->signal.saved_ipc_res);
-		proc_ipc_res_snapshot_release(&space->ipc_server.saved_ipc_res);
-		proc_ipc_res_snapshot_release(&space->interrupt.saved_ipc_res);
-		proto_release(&space->interrupt.ipc_res.data);
-		kfree(space);
-		proc->space = NULL;
-	}
-	else {
-		set_translation_table_base(V2P(cproc->space->vm));
-	}
+        if(space->thread_stacks != NULL)
+            kfree(space->thread_stacks);
+        proto_release(&proc->ipc_res.data);
+        for(int i = 0; i < IPC_CTX_MAX; i++)
+            proto_release(&space->ipc_server.tasks[i].arg_ret);
+        proc_ipc_res_snapshot_release(&space->signal.saved_ipc_res);
+        proc_ipc_res_snapshot_release(&space->ipc_server.saved_ipc_res);
+        proc_ipc_res_snapshot_release(&space->interrupt.saved_ipc_res);
+        proto_release(&space->interrupt.ipc_res.data);
+        kfree(space);
+        proc->space = NULL;
+    }
+    else {
+        set_translation_table_base(V2P(cproc->space->vm));
+    }
 
-	_task_table[proc->info.pid] = NULL;
-	kfree(proc);
+    _task_table[proc->info.pid] = NULL;
+    kfree(proc);
 }
 
 static inline bool proc_can_reap_locked(proc_t* proc) {
-	if(proc == NULL || proc->info.state != ZOMBIE)
-		return false;
-	if(proc->info.type == TASK_TYPE_PROC &&
-			proc->space != NULL &&
-			proc->space->refs > 0) {
-		return false;
-	}
-	return true;
+    if(proc == NULL || proc->info.state != ZOMBIE)
+        return false;
+    if(proc->info.type == TASK_TYPE_PROC &&
+            proc->space != NULL &&
+            proc->space->refs > 0) {
+        return false;
+    }
+    return true;
 }
 
 static proc_t* proc_take_zombie_by_pid(int32_t pid) {
-	proc_t* proc = NULL;
+    proc_t* proc = NULL;
 
-	if(pid < 0 || pid >= _kernel_config.max_task_num)
-		return NULL;
+    if(pid < 0 || pid >= _kernel_config.max_task_num)
+        return NULL;
 
-	proc_lock_enter();
-	proc = _task_table[pid];
-	if(proc_can_reap_locked(proc)) {
-		_task_table[pid] = NULL;
-	}
-	else {
-		proc = NULL;
-	}
-	proc_lock_leave();
-	return proc;
+    proc_lock_enter();
+    proc = _task_table[pid];
+    if(proc_can_reap_locked(proc)) {
+        _task_table[pid] = NULL;
+    }
+    else {
+        proc = NULL;
+    }
+    proc_lock_leave();
+    return proc;
 }
 
 static proc_t* proc_take_next_zombie(void) {
-	proc_t* proc = NULL;
+    proc_t* proc = NULL;
 
-	proc_lock_enter();
-	for(int32_t i = 0; i < _kernel_config.max_task_num; i++) {
-		proc = _task_table[i];
-		if(!proc_can_reap_locked(proc))
-			continue;
-		_task_table[i] = NULL;
-		break;
-	}
-	proc_lock_leave();
-	return proc;
+    proc_lock_enter();
+    for(int32_t i = 0; i < _kernel_config.max_task_num; i++) {
+        proc = _task_table[i];
+        if(!proc_can_reap_locked(proc))
+            continue;
+        _task_table[i] = NULL;
+        break;
+    }
+    proc_lock_leave();
+    return proc;
 }
 
 void proc_zombie_funeral(void) {
-	proc_t* proc = NULL;
-	while((proc = proc_take_next_zombie()) != NULL) {
-		proc_funeral(proc);
-	}
+    proc_t* proc = NULL;
+    while((proc = proc_take_next_zombie()) != NULL) {
+        proc_funeral(proc);
+    }
 }
 
 static inline void proc_kick_ready_core(proc_t* proc) {
 #ifdef KERNEL_SMP
-	if(proc == NULL)
-		return;
-	if(_cpu_cores[proc->info.core].actived &&
-			proc->info.core != get_core_id()) {
-		_cpu_cores[proc->info.core].need_resched = 1;
-		ipi_send(proc->info.core);
-	}
+    if(proc == NULL)
+        return;
+    if(_cpu_cores[proc->info.core].actived &&
+            proc->info.core != get_core_id()) {
+        _cpu_cores[proc->info.core].need_resched = 1;
+        ipi_send(proc->info.core);
+    }
 #else
-	(void)proc;
+    (void)proc;
 #endif
 }
 
 /* proc_free frees all resources allocated by proc. */
 void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
-	(void)res;
-	if(proc->info.state != UNUSED && proc->info.state != ZOMBIE)
-		proc_terminate(ctx, proc);
-	schedule(ctx);
+    (void)res;
+    if(proc->info.state != UNUSED && proc->info.state != ZOMBIE)
+        proc_terminate(ctx, proc);
+    schedule(ctx);
 }
 
 void* proc_malloc(proc_t* proc, int32_t size) {
-	int64_t delta;
-	ewokos_addr_t size_abs;
-	uint32_t pages;
+    int64_t delta;
+    ewokos_addr_t size_abs;
+    uint32_t pages;
 
-	proc->space->heap_used += size;
-	delta = (int64_t)proc->space->heap_used - (int64_t)proc->space->heap_size;
+    proc->space->heap_used += size;
+    delta = (int64_t)proc->space->heap_used - (int64_t)proc->space->heap_size;
 
-	if(delta == 0)
-		return (void*)proc->space->malloc_base;
+    if(delta == 0)
+        return (void*)proc->space->malloc_base;
 
-	uint8_t shrink = 0;
-	if(delta < 0) {
-		shrink = 1;
-		size_abs = (ewokos_addr_t)(-delta);
-		size_abs = ALIGN_DOWN(size_abs, PAGE_SIZE);
-	}
-	else {
-		size_abs = ALIGN_UP((ewokos_addr_t)delta, PAGE_SIZE);
-	}
+    uint8_t shrink = 0;
+    if(delta < 0) {
+        shrink = 1;
+        size_abs = (ewokos_addr_t)(-delta);
+        size_abs = ALIGN_DOWN(size_abs, PAGE_SIZE);
+    }
+    else {
+        size_abs = ALIGN_UP((ewokos_addr_t)delta, PAGE_SIZE);
+    }
 
-	pages = (uint32_t)(size_abs / PAGE_SIZE);
-	if(pages == 0)
-		return (void*)proc->space->malloc_base;
+    pages = (uint32_t)(size_abs / PAGE_SIZE);
+    if(pages == 0)
+        return (void*)proc->space->malloc_base;
 
-	if(shrink != 0) {
-		//printf("kproc shrink pages: %d, size: %d\n", pages, size);
-		proc_shrink_mem(proc, pages);
-	}
-	else {
-		//printf("kproc expand pages: %d, size: %d\n", pages, size);
-		if(proc_expand_mem(proc, pages) != 0)
-			return NULL;
-	}
-	return (void*)proc->space->malloc_base;
+    if(shrink != 0) {
+        //printf("kproc shrink pages: %d, size: %d\n", pages, size);
+        proc_shrink_mem(proc, pages);
+    }
+    else {
+        //printf("kproc expand pages: %d, size: %d\n", pages, size);
+        if(proc_expand_mem(proc, pages) != 0)
+            return NULL;
+    }
+    return (void*)proc->space->malloc_base;
 }
 
 ewokos_addr_t proc_msize(proc_t* proc) {
-	return proc->space->heap_size - proc->space->malloc_base;
+    return proc->space->heap_size - proc->space->malloc_base;
 }
 
 void proc_free(proc_t* proc) {
-	ewokos_addr_t size = proc_msize(proc);
-	uint32_t pages = (uint32_t)(size / PAGE_SIZE);
-	proc_shrink_mem(proc, pages);
+    ewokos_addr_t size = proc_msize(proc);
+    uint32_t pages = (uint32_t)(size / PAGE_SIZE);
+    proc_shrink_mem(proc, pages);
 }
 
 static inline uint32_t core_task_count_locked(uint32_t core) {
-	uint32_t count = 0;
+    uint32_t count = 0;
 
-	for(uint32_t i = 0; i < _kernel_config.max_task_num; i++) {
-		proc_t* task = _task_table[i];
-		if(task == NULL || task->info.state == UNUSED || task->info.state == ZOMBIE)
-			continue;
-		if(task->is_core_idle_proc || task->info.core != core)
-			continue;
-		count++;
-	}
-	return count;
+    for(uint32_t i = 0; i < _kernel_config.max_task_num; i++) {
+        proc_t* task = _task_table[i];
+        if(task == NULL || task->info.state == UNUSED || task->info.state == ZOMBIE)
+            continue;
+        if(task->is_core_idle_proc || task->info.core != core)
+            continue;
+        count++;
+    }
+    return count;
 }
 
 static inline uint32_t core_fetch(proc_t* proc) {
-	if(_sys_info.cores == 1 || proc->info.uid < 0)
-		return 0;
+    if(_sys_info.cores == 1 || proc->info.uid < 0)
+        return 0;
 
-	//fetch the next core.
-	/*uint32_t ret = _use_core_id++; 
-	if(_use_core_id >= _sys_info.cores) 
-		_use_core_id = 1;
-	return ret;
-	*/
+    //fetch the next core.
+    /*uint32_t ret = _use_core_id++; 
+    if(_use_core_id >= _sys_info.cores) 
+        _use_core_id = 1;
+    return ret;
+    */
 
-	/*
-	 * Pick the least loaded active core first, then use idle time as a
-	 * tie-breaker.  Relying on idle time alone can collapse a burst of
-	 * thread creations onto the same core because the accounting window has
-	 * not yet reflected the freshly attached tasks.
-	 */
-	uint32_t start = _use_core_id;
-	if(start >= _sys_info.cores)
-		start = 0;
+    /*
+     * Pick the least loaded active core first, then use idle time as a
+     * tie-breaker.  Relying on idle time alone can collapse a burst of
+     * thread creations onto the same core because the accounting window has
+     * not yet reflected the freshly attached tasks.
+     */
+    uint32_t start = _use_core_id;
+    if(start >= _sys_info.cores)
+        start = 0;
 
-	uint32_t ret = 0;
-	uint32_t best_tasks = 0xffffffffU;
-	uint32_t best_idle = 0;
-	bool found = false;
+    uint32_t ret = 0;
+    uint32_t best_tasks = 0xffffffffU;
+    uint32_t best_idle = 0;
+    bool found = false;
 
-	proc_lock_enter();
-	proc_refresh_runtime_stats_internal(true, false, proc_account_now_usec());
+    proc_lock_enter();
+    proc_refresh_runtime_stats_internal(true, false, proc_account_now_usec());
 
-	for(uint32_t off = 0; off < _sys_info.cores; off++) {
-		uint32_t i = (start + off) % _sys_info.cores;
-		if(!_cpu_cores[i].actived || _cpu_cores[i].idle_proc == NULL)
-			continue;
+    for(uint32_t off = 0; off < _sys_info.cores; off++) {
+        uint32_t i = (start + off) % _sys_info.cores;
+        if(!_cpu_cores[i].actived || _cpu_cores[i].idle_proc == NULL)
+            continue;
 
-		if(_cpu_cores[i].idle_proc->info.state == CREATED) {
-			_use_core_id = (i + 1) % _sys_info.cores;
-			proc_lock_leave();
-			return i;
-		}
+        if(_cpu_cores[i].idle_proc->info.state == CREATED) {
+            _use_core_id = (i + 1) % _sys_info.cores;
+            proc_lock_leave();
+            return i;
+        }
 
-		uint32_t task_count = core_task_count_locked(i);
-		uint32_t idle_usec = _cpu_cores[i].idle_proc->info.run_usec;
-		if(!found || task_count < best_tasks ||
-				(task_count == best_tasks && idle_usec > best_idle)) {
-			ret = i;
-			best_tasks = task_count;
-			best_idle = idle_usec;
-			found = true;
-		}
-	}
-	proc_lock_leave();
+        uint32_t task_count = core_task_count_locked(i);
+        uint32_t idle_usec = _cpu_cores[i].idle_proc->info.run_usec;
+        if(!found || task_count < best_tasks ||
+                (task_count == best_tasks && idle_usec > best_idle)) {
+            ret = i;
+            best_tasks = task_count;
+            best_idle = idle_usec;
+            found = true;
+        }
+    }
+    proc_lock_leave();
 
-	if(!found)
-		return 0;
+    if(!found)
+        return 0;
 
-	_use_core_id = (ret + 1) % _sys_info.cores;
-	return ret;
+    _use_core_id = (ret + 1) % _sys_info.cores;
+    return ret;
 }
 
 static inline void core_attach(proc_t* proc) {
-	proc_t* parent;
+    proc_t* parent;
 
-	if(proc == NULL) {
-		return;
-	}
+    if(proc == NULL) {
+        return;
+    }
 
-	/*
-	* Keep threads with their parent because they share one address space and
-	* frequently synchronize with the creator. Real processes can be queued
-	* onto another core safely because they are only woken after fork/clone
-	* setup is finished.
-	*/
-	/*parent = proc_get(proc->info.father_pid);
-	if(parent != NULL) {
-		
-		if(proc->info.type != TASK_TYPE_PROC) {
-			proc->info.core = parent->info.core;
-			return;
-		}
-	}
-	*/
+    /*
+    * Keep threads with their parent because they share one address space and
+    * frequently synchronize with the creator. Real processes can be queued
+    * onto another core safely because they are only woken after fork/clone
+    * setup is finished.
+    */
+    /*parent = proc_get(proc->info.father_pid);
+    if(parent != NULL) {
+        
+        if(proc->info.type != TASK_TYPE_PROC) {
+            proc->info.core = parent->info.core;
+            return;
+        }
+    }
+    */
 
-	proc->info.core = core_fetch(proc);
+    proc->info.core = core_fetch(proc);
 }
 
 /* proc_creates allocates a new process and returns it. */
 proc_t *proc_create(int32_t type, proc_t* parent) {
-	int32_t index = -1;
-	uint32_t i;
+    int32_t index = -1;
+    uint32_t i;
 
-	for (i = 0; i < _kernel_config.max_task_num; i++) {
-		int32_t at = i + _last_create_pid;
-		if(at >= _kernel_config.max_task_num)
-			at = at % _kernel_config.max_task_num;
-		if (_task_table[at] == NULL) {
-			_task_table[at] = (proc_t*)kmalloc(sizeof(proc_t));
-			index = at;
-			break;
-		}
-	}
-	if (index < 0) {
-		return NULL;
-	}
-	_last_create_pid = index+1;
+    for (i = 0; i < _kernel_config.max_task_num; i++) {
+        int32_t at = i + _last_create_pid;
+        if(at >= _kernel_config.max_task_num)
+            at = at % _kernel_config.max_task_num;
+        if (_task_table[at] == NULL) {
+            _task_table[at] = (proc_t*)kmalloc(sizeof(proc_t));
+            index = at;
+            break;
+        }
+    }
+    if (index < 0) {
+        return NULL;
+    }
+    _last_create_pid = index+1;
 
-	proc_t *proc = _task_table[index];
-	memset(proc, 0, sizeof(proc_t));
-	proc->info.wait_for = -1;
-	proc->info.uuid = ++_proc_uuid;
-	proc->info.pid = index;
-	proc->info.type = type;
-	proc->info.father_pid = -1;
-	proc->info.state = CREATED;
-	proto_init(&proc->ipc_res.data);
-	proc->ipc_wait_item.owner = proc;
+    proc_t *proc = _task_table[index];
+    memset(proc, 0, sizeof(proc_t));
+    proc->info.wait_for = -1;
+    proc->info.uuid = ++_proc_uuid;
+    proc->info.pid = index;
+    proc->info.type = type;
+    proc->info.father_pid = -1;
+    proc->info.state = CREATED;
+    proto_init(&proc->ipc_res.data);
+    proc->ipc_wait_item.owner = proc;
 
-	if(type == TASK_TYPE_PROC) {
-		proc_init_space(proc);
-	}
-	else {
-		proc->space = parent->space;
-		proc->space->refs++;
-		if(proc->space->thread_stacks == NULL) {
-			proc->space->thread_stacks = (thread_stack_t*)kmalloc(_kernel_config.max_task_per_proc*sizeof(thread_stack_t));
-			memset(proc->space->thread_stacks, 0, _kernel_config.max_task_per_proc*sizeof(thread_stack_t));
-		}
-	}
+    if(type == TASK_TYPE_PROC) {
+        proc_init_space(proc);
+    }
+    else {
+        proc->space = parent->space;
+        proc->space->refs++;
+        if(proc->space->thread_stacks == NULL) {
+            proc->space->thread_stacks = (thread_stack_t*)kmalloc(_kernel_config.max_task_per_proc*sizeof(thread_stack_t));
+            memset(proc->space->thread_stacks, 0, _kernel_config.max_task_per_proc*sizeof(thread_stack_t));
+        }
+    }
 
-	if(parent != NULL) {
-		proc->info.father_pid = parent->info.pid;
-		proc->info.uid = parent->info.uid;
-		proc->info.gid = parent->info.gid;
-		strcpy(proc->info.cmd, parent->info.cmd);
-	}
+    if(parent != NULL) {
+        proc->info.father_pid = parent->info.pid;
+        proc->info.uid = parent->info.uid;
+        proc->info.gid = parent->info.gid;
+        strcpy(proc->info.cmd, parent->info.cmd);
+    }
 
-	proc_init_user_stack(proc);
-	proc->info.start_sec = _kernel_info.uptime_sec;
-	CONTEXT_INIT(proc->ctx);
+    proc_init_user_stack(proc);
+    proc->info.start_sec = _kernel_info.uptime_sec;
+    CONTEXT_INIT(proc->ctx);
 
-	proc_update_vsyscall(proc);
-	return proc;
+    proc_update_vsyscall(proc);
+    return proc;
 }
 
 static inline void proc_free_heap(proc_t* proc) {
-	proc_shrink_mem(proc, proc->space->heap_size/PAGE_SIZE);
-	proc->space->heap_used = 0;
+    proc_shrink_mem(proc, proc->space->heap_size/PAGE_SIZE);
+    proc->space->heap_used = 0;
 }
 
 static void proc_load_segment(proc_t* proc,
-		uint32_t vaddr,
-		const uint8_t* src,
-		uint32_t filesz,
-		uint32_t memsz) {
-	uint32_t copied = 0;
+        uint32_t vaddr,
+        const uint8_t* src,
+        uint32_t filesz,
+        uint32_t memsz) {
+    uint32_t copied = 0;
 
-	while (copied < filesz) {
-		uint32_t cur_vaddr = vaddr + copied;
-		uint32_t page_off = cur_vaddr & (PAGE_SIZE - 1);
-		uint32_t chunk = PAGE_SIZE - page_off;
-		if (chunk > (filesz - copied))
-			chunk = filesz - copied;
+    while (copied < filesz) {
+        uint32_t cur_vaddr = vaddr + copied;
+        uint32_t page_off = cur_vaddr & (PAGE_SIZE - 1);
+        uint32_t chunk = PAGE_SIZE - page_off;
+        if (chunk > (filesz - copied))
+            chunk = filesz - copied;
 
-		ewokos_addr_t kaddr = resolve_kernel_address(proc->space->vm, cur_vaddr);
-		memcpy((void*)kaddr, src + copied, chunk);
-		copied += chunk;
-	}
+        ewokos_addr_t kaddr = resolve_kernel_address(proc->space->vm, cur_vaddr);
+        memcpy((void*)kaddr, src + copied, chunk);
+        copied += chunk;
+    }
 
-	while (copied < memsz) {
-		uint32_t cur_vaddr = vaddr + copied;
-		uint32_t page_off = cur_vaddr & (PAGE_SIZE - 1);
-		uint32_t chunk = PAGE_SIZE - page_off;
-		if (chunk > (memsz - copied))
-			chunk = memsz - copied;
+    while (copied < memsz) {
+        uint32_t cur_vaddr = vaddr + copied;
+        uint32_t page_off = cur_vaddr & (PAGE_SIZE - 1);
+        uint32_t chunk = PAGE_SIZE - page_off;
+        if (chunk > (memsz - copied))
+            chunk = memsz - copied;
 
-		ewokos_addr_t kaddr = resolve_kernel_address(proc->space->vm, cur_vaddr);
-		memset((void*)kaddr, 0, chunk);
-		copied += chunk;
-	}
+        ewokos_addr_t kaddr = resolve_kernel_address(proc->space->vm, cur_vaddr);
+        memset((void*)kaddr, 0, chunk);
+        copied += chunk;
+    }
 }
 
 /* proc_load loads the given ELF process image into the given process. */
 int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
-	uint32_t prog_header_offset = 0;
-	uint32_t prog_header_count = 0;
-	uint32_t i = 0;
+    uint32_t prog_header_offset = 0;
+    uint32_t prog_header_count = 0;
+    uint32_t i = 0;
 
-	proc->info.uuid = ++_proc_uuid; //load elf means a totally new proc
-	int32_t shm_id = shm_get(0, size, 0666);
-	if(shm_id <= 0) {
-		return -1;
-	}
-	uint8_t* proc_image = (uint8_t*)shm_proc_map(proc, shm_id);
-	if(proc_image == NULL) {
-		// Don't unmap if mapping failed
-		return -1;
-	}
-	memcpy(proc_image, image, size);
-	proc_free_heap(proc);
-	proc->space->rw_heap_base = 0;
+    proc->info.uuid = ++_proc_uuid; //load elf means a totally new proc
+    int32_t shm_id = shm_get(0, size, 0666);
+    if(shm_id <= 0) {
+        return -1;
+    }
+    uint8_t* proc_image = (uint8_t*)shm_proc_map(proc, shm_id);
+    if(proc_image == NULL) {
+        // Don't unmap if mapping failed
+        return -1;
+    }
+    memcpy(proc_image, image, size);
+    proc_free_heap(proc);
+    proc->space->rw_heap_base = 0;
 
-	/*read elf format from saved proc image*/
-	if (ELF_TYPE(proc_image) != ELFTYPE_EXECUTABLE) {
-		shm_proc_unmap(proc, (void*)proc_image);
-		return -1;
-	}
+    /*read elf format from saved proc image*/
+    if (ELF_TYPE(proc_image) != ELFTYPE_EXECUTABLE) {
+        shm_proc_unmap(proc, (void*)proc_image);
+        return -1;
+    }
 
-	prog_header_count = ELF_PHNUM(proc_image);
-	uint32_t *debug = 0;
-	for (i = 0; i < prog_header_count; i++) {
-		/* make enough room for this section */
-		uint32_t vaddr = ELF_PVADDR(proc_image, i);
-		uint32_t memsz = ELF_PSIZE(proc_image, i);
-		uint32_t filesz = ELF_PFILESZ(proc_image, i);
-		uint32_t offset = ELF_POFFSET(proc_image, i);
-		uint32_t flags = ELF_PFLAGS(proc_image, i);
+    prog_header_count = ELF_PHNUM(proc_image);
+    uint32_t *debug = 0;
+    for (i = 0; i < prog_header_count; i++) {
+        /* make enough room for this section */
+        uint32_t vaddr = ELF_PVADDR(proc_image, i);
+        uint32_t memsz = ELF_PSIZE(proc_image, i);
+        uint32_t filesz = ELF_PFILESZ(proc_image, i);
+        uint32_t offset = ELF_POFFSET(proc_image, i);
+        uint32_t flags = ELF_PFLAGS(proc_image, i);
 
-		uint8_t rdonly = 0; 
-		if((flags & 0x2) == 0) {
-			rdonly = 1;
-		}
-		else {
-			if(proc->space->rw_heap_base == 0)
-				proc->space->rw_heap_base = vaddr;
-			else if(vaddr < proc->space->rw_heap_base)
-				proc->space->rw_heap_base = vaddr;
-		}
+        uint8_t rdonly = 0; 
+        if((flags & 0x2) == 0) {
+            rdonly = 1;
+        }
+        else {
+            if(proc->space->rw_heap_base == 0)
+                proc->space->rw_heap_base = vaddr;
+            else if(vaddr < proc->space->rw_heap_base)
+                proc->space->rw_heap_base = vaddr;
+        }
 
-		ewokos_addr_t old_heap_size = proc->space->heap_size;
-		ewokos_addr_t need_heap_size = ALIGN_UP((ewokos_addr_t)vaddr + memsz, PAGE_SIZE);
-		if (proc->space->heap_size < need_heap_size) {
-			uint32_t expand_pages = (uint32_t)((need_heap_size - proc->space->heap_size) / PAGE_SIZE);
-			proc->space->heap_used += expand_pages * PAGE_SIZE;
-			if(proc_expand_mem(proc, expand_pages) != 0){ 
-				shm_proc_unmap(proc, (void*)proc_image);
-				return -1;
-			}
-		}
+        ewokos_addr_t old_heap_size = proc->space->heap_size;
+        ewokos_addr_t need_heap_size = ALIGN_UP((ewokos_addr_t)vaddr + memsz, PAGE_SIZE);
+        if (proc->space->heap_size < need_heap_size) {
+            uint32_t expand_pages = (uint32_t)((need_heap_size - proc->space->heap_size) / PAGE_SIZE);
+            proc->space->heap_used += expand_pages * PAGE_SIZE;
+            if(proc_expand_mem(proc, expand_pages) != 0){ 
+                shm_proc_unmap(proc, (void*)proc_image);
+                return -1;
+            }
+        }
 
-		/* Copy initialized bytes in page-sized chunks instead of byte-by-byte. */
-		if (offset < size) {
-			uint32_t copy_filesz = filesz;
-			if (copy_filesz > (size - offset))
-				copy_filesz = size - offset;
-			proc_load_segment(proc, vaddr, proc_image + offset, copy_filesz, memsz);
-		}
-		else
-			proc_load_segment(proc, vaddr, proc_image, 0, memsz);
-		prog_header_offset += sizeof(struct elf_program_header);
+        /* Copy initialized bytes in page-sized chunks instead of byte-by-byte. */
+        if (offset < size) {
+            uint32_t copy_filesz = filesz;
+            if (copy_filesz > (size - offset))
+                copy_filesz = size - offset;
+            proc_load_segment(proc, vaddr, proc_image + offset, copy_filesz, memsz);
+        }
+        else
+            proc_load_segment(proc, vaddr, proc_image, 0, memsz);
+        prog_header_offset += sizeof(struct elf_program_header);
 
-		if(rdonly) {
-			while (old_heap_size < proc->space->heap_size) {
-				ewokos_addr_t phy_page = (ewokos_addr_t)resolve_phy_address(proc->space->vm, old_heap_size);
-				map_page(proc->space->vm,
-					old_heap_size,
-					phy_page,
-					AP_RW_R, PTE_ATTR_WRBACK);
-				old_heap_size += PAGE_SIZE;
-			}
-		}
-	}
+        if(rdonly) {
+            while (old_heap_size < proc->space->heap_size) {
+                ewokos_addr_t phy_page = (ewokos_addr_t)resolve_phy_address(proc->space->vm, old_heap_size);
+                map_page(proc->space->vm,
+                    old_heap_size,
+                    phy_page,
+                    AP_RW_R, PTE_ATTR_WRBACK);
+                old_heap_size += PAGE_SIZE;
+            }
+        }
+    }
 
-	if(proc->space->rw_heap_base < 0x400)
-			proc->space->rw_heap_base = 0x400; //1024
-	proc->space->malloc_base = proc->space->heap_size;
-	ewokos_addr_t user_stack_base =  proc_get_user_stack_base(proc);
-	uint32_t pages = proc_get_user_stack_pages(proc);
-	proc->ctx.sp = ALIGN_DOWN(user_stack_base + pages*PAGE_SIZE, EWOK_STACK_ALIGN) - EWOK_STACK_INIT_BIAS;
-	proc->ctx.pc = ELF_ENTRY(proc_image);
-	proc->ctx.lr = ELF_ENTRY(proc_image);
-	proc_ready(proc);
-	shm_proc_unmap(proc, (void*)proc_image);
+    if(proc->space->rw_heap_base < 0x400)
+            proc->space->rw_heap_base = 0x400; //1024
+    proc->space->malloc_base = proc->space->heap_size;
+    ewokos_addr_t user_stack_base =  proc_get_user_stack_base(proc);
+    uint32_t pages = proc_get_user_stack_pages(proc);
+    proc->ctx.sp = ALIGN_DOWN(user_stack_base + pages*PAGE_SIZE, EWOK_STACK_ALIGN) - EWOK_STACK_INIT_BIAS;
+    proc->ctx.pc = ELF_ENTRY(proc_image);
+    proc->ctx.lr = ELF_ENTRY(proc_image);
+    proc_ready(proc);
+    shm_proc_unmap(proc, (void*)proc_image);
 
-	proc_update_vsyscall(proc);
-	return 0;
+    proc_update_vsyscall(proc);
+    return 0;
 }
 
 void proc_usleep(context_t* ctx, uint32_t count) {
-	proc_t* cproc = get_current_proc();
-	if(cproc == NULL)
-		return;
+    proc_t* cproc = get_current_proc();
+    if(cproc == NULL)
+        return;
 
-	proc_lock_enter();
-	if(cproc->info.state == READY) {
-		/* A cross-core wakeup (e.g. IPC dispatch) already marked us READY;
-		 * honour it instead of sleeping. */
-		cproc->info.state = RUNNING;
-		proc_lock_leave();
-		return;
-	}
-	cproc->sleep_counter = count;
-	proc_unready_locked(cproc, SLEEPING);
-	proc_lock_leave();
-	proc_account_pause_current();
-	schedule(ctx);
-	proc_account_resume_current();
+    proc_lock_enter();
+    if(cproc->info.state == READY) {
+        /* A cross-core wakeup (e.g. IPC dispatch) already marked us READY;
+         * honour it instead of sleeping. */
+        cproc->info.state = RUNNING;
+        proc_lock_leave();
+        return;
+    }
+    cproc->sleep_counter = count;
+    proc_unready_locked(cproc, SLEEPING);
+    proc_lock_leave();
+    proc_account_pause_current();
+    schedule(ctx);
+    proc_account_resume_current();
 }
-	
+    
 void proc_block_by(context_t* ctx, proc_t* proc, ewokos_addr_t token) {
-	if(proc == NULL)
-		return;
-	proc_lock_enter();
-	/*
-	 * A wakeup may arrive between userspace finishing its readiness re-check
-	 * and the actual SYS_BLOCK trap. In that gap the proc is still RUNNING
-	 * (the common self-block case) or was only pushed READY by the waker, so
-	 * proc_wakeup_by() merely LATCHED the wake (wake_pending) instead of
-	 * clearing a BLOCK. Consume a compatible pending wake here regardless of
-	 * READY vs RUNNING and do NOT block; otherwise that edge is lost until
-	 * some unrelated later event (e.g. the peer closing) - the bug that made a
-	 * pipe reader (node token) OR an IPC caller (generic token 0) sleep with
-	 * its result already produced and only recover after close.
-	 *
-	 * wake_pending is checked instead of "wake_by != 0" because a generic
-	 * IPC/signal wake carries token 0, which is a VALID wake yet identical to
-	 * the "no wake" sentinel - that ambiguity was the residual lost wakeup.
-	 *
-	 * A generic block (token 0) accepts any pending wake; a node-scoped block
-	 * accepts a generic (wake_by 0) or same-node wake, so an unrelated node's
-	 * edge cannot spuriously satisfy us.
-	 */
-	bool run_now = false;
-	if(proc->wake_pending) {
-		/*
-		 * A generic block (token 0: IPC-return wait, waitpid, signal) accepts
-		 * any pending wake. A node-scoped block (token != 0: vfs_block) must be
-		 * released ONLY by a wake carrying the SAME node token. A leftover
-		 * GENERIC (wake_by == 0) wake - e.g. the token-0 IPC-return wake that
-		 * every ipc_call() inside vfs_block() produces - must NOT satisfy a
-		 * node block, otherwise proc_block_by(node) returns without blocking
-		 * and vfs_block()'s check-register-block loop busy-spins
-		 * (re-register/re-block) forever, starving the guest until an unrelated
-		 * event finally changes the poll state. Node wakes always carry a
-		 * non-zero node token (see wakeup_proc -> proc_wakeup_by(pid, node_id)),
-		 * so requiring wake_by == token here loses nothing real.
-		 */
-		bool compatible = (token == 0) ? true : (proc->wake_by == token);
-		/*
-		 * A latched NON-ZERO token that mismatches a node block is a real
-		 * node edge from another node this proc is (stale-)registered on.
-		 * It must NOT be silently dropped into a block: the keep-earliest
-		 * branch in proc_wakeup_by() may have already discarded OUR node's
-		 * edge in favor of this one, so blocking here strands the proc
-		 * forever even though its event already fired. Return instead and
-		 * let the level-triggered userspace loop (vfs_block()) re-check the
-		 * node's sticky poll state and re-block - one spurious iteration at
-		 * worst. Token-0 latches (IPC-return artifacts of the ipc_calls
-		 * inside vfs_block() itself) keep the old drop-and-block behavior:
-		 * treating them as wakes makes the check-register-block loop spin.
-		 */
-		bool foreign_node_wake = (!compatible && proc->wake_by != 0);
-		proc->wake_pending = 0;
-		proc->wake_by = 0;
-		if(compatible || foreign_node_wake)
-			run_now = true;
-		/* else: latched generic (token 0) IPC artifact vs node block -
-		 * drop it and block for our own token. */
-	}
-	else if(proc->info.state == READY) {
-		/* made runnable generically (IPC dispatch/signal/etc) with no scoped
-		 * wake to honor: run instead of blocking. */
-		run_now = true;
-	}
+    if(proc == NULL)
+        return;
+    proc_lock_enter();
+    /*
+     * A wakeup may arrive between userspace finishing its readiness re-check
+     * and the actual SYS_BLOCK trap. In that gap the proc is still RUNNING
+     * (the common self-block case) or was only pushed READY by the waker, so
+     * proc_wakeup_by() merely LATCHED the wake (wake_pending) instead of
+     * clearing a BLOCK. Consume a compatible pending wake here regardless of
+     * READY vs RUNNING and do NOT block; otherwise that edge is lost until
+     * some unrelated later event (e.g. the peer closing) - the bug that made a
+     * pipe reader (node token) OR an IPC caller (generic token 0) sleep with
+     * its result already produced and only recover after close.
+     *
+     * wake_pending is checked instead of "wake_by != 0" because a generic
+     * IPC/signal wake carries token 0, which is a VALID wake yet identical to
+     * the "no wake" sentinel - that ambiguity was the residual lost wakeup.
+     *
+     * A generic block (token 0) accepts any pending wake; a node-scoped block
+     * accepts a generic (wake_by 0) or same-node wake, so an unrelated node's
+     * edge cannot spuriously satisfy us.
+     */
+    bool run_now = false;
+    if(proc->wake_pending) {
+        /*
+         * A generic block (token 0: IPC-return wait, waitpid, signal) accepts
+         * any pending wake. A node-scoped block (token != 0: vfs_block) must be
+         * released ONLY by a wake carrying the SAME node token. A leftover
+         * GENERIC (wake_by == 0) wake - e.g. the token-0 IPC-return wake that
+         * every ipc_call() inside vfs_block() produces - must NOT satisfy a
+         * node block, otherwise proc_block_by(node) returns without blocking
+         * and vfs_block()'s check-register-block loop busy-spins
+         * (re-register/re-block) forever, starving the guest until an unrelated
+         * event finally changes the poll state. Node wakes always carry a
+         * non-zero node token (see wakeup_proc -> proc_wakeup_by(pid, node_id)),
+         * so requiring wake_by == token here loses nothing real.
+         */
+        bool compatible = (token == 0) ? true : (proc->wake_by == token);
+        /*
+         * A latched NON-ZERO token that mismatches a node block is a real
+         * node edge from another node this proc is (stale-)registered on.
+         * It must NOT be silently dropped into a block: the keep-earliest
+         * branch in proc_wakeup_by() may have already discarded OUR node's
+         * edge in favor of this one, so blocking here strands the proc
+         * forever even though its event already fired. Return instead and
+         * let the level-triggered userspace loop (vfs_block()) re-check the
+         * node's sticky poll state and re-block - one spurious iteration at
+         * worst. Token-0 latches (IPC-return artifacts of the ipc_calls
+         * inside vfs_block() itself) keep the old drop-and-block behavior:
+         * treating them as wakes makes the check-register-block loop spin.
+         */
+        bool foreign_node_wake = (!compatible && proc->wake_by != 0);
+        proc->wake_pending = 0;
+        proc->wake_by = 0;
+        if(compatible || foreign_node_wake)
+            run_now = true;
+        /* else: latched generic (token 0) IPC artifact vs node block -
+         * drop it and block for our own token. */
+    }
+    else if(proc->info.state == READY) {
+        /* made runnable generically (IPC dispatch/signal/etc) with no scoped
+         * wake to honor: run instead of blocking. */
+        run_now = true;
+    }
 
-	if(run_now) {
-		if(proc->info.state == READY)
-			proc->info.state = RUNNING;
-		proc->block_by = 0;
-		proc_lock_leave();
-		return;
-	}
-	/*
-	 * Hold the lock through proc_unready_locked() to close the race window
-	 * where another core's proc_ready() (e.g. from IPC dispatch) could
-	 * enqueue us between the check above and the state transition
-	 * to BLOCK. Without this, a cross-core IPC wakeup can be lost.
-	 */
-	proc->block_by = token;
-	proc_unready_locked(proc, BLOCK);
-	proc_lock_leave();
-	if(proc == get_current_proc())
-		proc_account_pause_current();
-	//proc_block_saved_state(pid_by, event, cproc);
-	schedule(ctx);
-	if(proc == get_current_proc())
-		proc_account_resume_current();
+    if(run_now) {
+        if(proc->info.state == READY)
+            proc->info.state = RUNNING;
+        proc->block_by = 0;
+        proc_lock_leave();
+        return;
+    }
+    /*
+     * Hold the lock through proc_unready_locked() to close the race window
+     * where another core's proc_ready() (e.g. from IPC dispatch) could
+     * enqueue us between the check above and the state transition
+     * to BLOCK. Without this, a cross-core IPC wakeup can be lost.
+     */
+    proc->block_by = token;
+    proc_unready_locked(proc, BLOCK);
+    proc_lock_leave();
+    if(proc == get_current_proc())
+        proc_account_pause_current();
+    //proc_block_saved_state(pid_by, event, cproc);
+    schedule(ctx);
+    if(proc == get_current_proc())
+        proc_account_resume_current();
 }
 
 void proc_block(context_t* ctx, proc_t* proc) {
-	proc_block_by(ctx, proc, 0);
+    proc_block_by(ctx, proc, 0);
 }
 
 void proc_waitpid(context_t* ctx, int32_t pid) {
-	proc_t* cproc = get_current_proc();
-	proc_t* p;
-	if(cproc == NULL || pid < 0 || pid >= _kernel_config.max_task_num)
-		return;
+    proc_t* cproc = get_current_proc();
+    proc_t* p;
+    if(cproc == NULL || pid < 0 || pid >= _kernel_config.max_task_num)
+        return;
 
-	proc_lock_enter();
-	p = _task_table[pid];
-	if(p == NULL || p->info.state == UNUSED) {
-		proc_lock_leave();
-		return;
-	}
-	if(p->info.state == ZOMBIE) {
-		proc_lock_leave();
-		p = proc_take_zombie_by_pid(pid);
-		if(p != NULL)
-			proc_funeral(p);
-		return;
-	}
+    proc_lock_enter();
+    p = _task_table[pid];
+    if(p == NULL || p->info.state == UNUSED) {
+        proc_lock_leave();
+        return;
+    }
+    if(p->info.state == ZOMBIE) {
+        proc_lock_leave();
+        p = proc_take_zombie_by_pid(pid);
+        if(p != NULL)
+            proc_funeral(p);
+        return;
+    }
 
-	/*
-	 * Publish WAIT while holding the proc lock so a fast child exit cannot
-	 * run proc_wakeup_waiting(pid) before the parent becomes visible as a
-	 * waiter, otherwise the wake edge is lost and waitpid() can sleep forever.
-	 */
-	cproc->info.wait_for = pid;
-	proc_unready_locked(cproc, WAIT);
-	proc_lock_leave();
-	proc_account_pause_current();
-	schedule(ctx);
-	proc_account_resume_current();
+    /*
+     * Publish WAIT while holding the proc lock so a fast child exit cannot
+     * run proc_wakeup_waiting(pid) before the parent becomes visible as a
+     * waiter, otherwise the wake edge is lost and waitpid() can sleep forever.
+     */
+    cproc->info.wait_for = pid;
+    proc_unready_locked(cproc, WAIT);
+    proc_lock_leave();
+    proc_account_pause_current();
+    schedule(ctx);
+    proc_account_resume_current();
 
-	p = proc_take_zombie_by_pid(pid);
-	if(p != NULL) {
-		proc_funeral(p);
-	}
+    p = proc_take_zombie_by_pid(pid);
+    if(p != NULL) {
+        proc_funeral(p);
+    }
 }
 
 static void proc_wakeup_all_state(proc_t* proc) {
-	if(proc->space == NULL)
-		return;
+    if(proc->space == NULL)
+        return;
 
-	/*
-	 * Interrupt work that has already been posted to a process
-	 * (INTR_STATE_START) must preempt ordinary READY tasks on that target
-	 * core, otherwise the handler can sit behind unrelated runnable work
-	 * until the watchdog fires even though the IRQ has already been
-	 * delivered cross-core.
-	 */
-	bool push_head = (proc->space->interrupt.state == INTR_STATE_START);
-	proc_ready_with_order(proc, push_head);
-	proc->space->ipc_server.saved_state.state = READY;
-	proc->space->signal.saved_state.state = READY;
-	proc->space->interrupt.saved_state.state = READY;
+    /*
+     * Interrupt work that has already been posted to a process
+     * (INTR_STATE_START) must preempt ordinary READY tasks on that target
+     * core, otherwise the handler can sit behind unrelated runnable work
+     * until the watchdog fires even though the IRQ has already been
+     * delivered cross-core.
+     */
+    bool push_head = (proc->space->interrupt.state == INTR_STATE_START);
+    proc_ready_with_order(proc, push_head);
+    proc->space->ipc_server.saved_state.state = READY;
+    proc->space->signal.saved_state.state = READY;
+    proc->space->interrupt.saved_state.state = READY;
 }
 
 void proc_wakeup_by(proc_t* proc, ewokos_addr_t token) {
-	proc_lock_enter();
-	if(proc == NULL || proc->info.state == UNUSED ||
-			proc->info.state == ZOMBIE) {
-		proc_lock_leave();
-		return;
-	}
-	proc_ipc_cancel_wait(proc);
+    proc_lock_enter();
+    if(proc == NULL || proc->info.state == UNUSED ||
+            proc->info.state == ZOMBIE) {
+        proc_lock_leave();
+        return;
+    }
+    proc_ipc_cancel_wait(proc);
 
-	/*
-	 * Node-scoped wakeup. token 0 is a generic/unconditional wake (IPC,
-	 * signals, waitpid, interrupts) and always applies. A non-zero token is a
-	 * VFS node id: if the proc is blocked on a DIFFERENT specific node, this
-	 * edge is not for it and must be ignored. Without this the kernel wakeup
-	 * is unconditional and an event on one node (e.g. tty keyboard RD) wrongly
-	 * releases a proc blocked on an unrelated node (e.g. a shell pipe write).
-	 */
-	if(proc->info.state == BLOCK) {
-		if(token != 0 && proc->block_by != 0 && proc->block_by != token) {
-			proc_lock_leave();
-			return;
-		}
-		proc->block_by = 0;
-		proc->wake_by = 0;
-		proc->wake_pending = 0;
-		proc_wakeup_all_state(proc);
-	}
-	else {
-		/*
-		 * Not blocked yet. Latch the wake so an edge landing in the gap
-		 * between VFS registration and proc_block() is not lost, and tag it
-		 * with the token so only a matching (or generic) block consumes it.
-		 * wake_pending marks presence explicitly because token 0 (a valid
-		 * generic wake) is otherwise indistinguishable from "no wake".
-		 *
-		 * Preserve a previously latched non-zero node token against a later
-		 * generic wake (token 0). vfs_block() issues multiple ipc_call()
-		 * round-trips before the final proc_block_by(node); their generic
-		 * return wakes must not overwrite the real node-scoped wake that just
-		 * arrived from vfsd/netd, otherwise proc_block_by(node) drops the
-		 * downgraded generic wake as incompatible and sleeps forever.
-		 */
-		proc_wakeup_all_state(proc);
-		if(!proc->wake_pending) {
-			proc->wake_by = token;
-			proc->wake_pending = 1;
-		}
-		else if(proc->wake_by == 0 && token != 0) {
-			/* Upgrade a generic pending wake to a specific node wake. */
-			proc->wake_by = token;
-		}
-		else if(proc->wake_by != 0 && token == 0) {
-			/* Keep the stronger node-scoped wake. */
-		}
-		else if(proc->wake_by != 0 && token != 0 && proc->wake_by != token) {
-			/*
-			 * Preserve the earliest node-scoped wake. A self-blocking thread
-			 * (e.g. accept()/poll()) can receive multiple IPC round-trip wakes
-			 * from unrelated nodes before it finally traps into proc_block_by()
-			 * for the node it just registered with vfsd. If a later different
-			 * node overwrites the original token here, proc_block_by(target)
-			 * drops the mismatched wake as incompatible and sleeps forever even
-			 * though the real target node already fired. VFS still keeps level
-			 * state per node, so losing the later edge is less harmful than
-			 * clobbering the first one that is about to be consumed.
-			 */
-		}
-		else {
-			proc->wake_by = token;
-		}
-	}
-	proc_lock_leave();
+    /*
+     * Node-scoped wakeup. token 0 is a generic/unconditional wake (IPC,
+     * signals, waitpid, interrupts) and always applies. A non-zero token is a
+     * VFS node id: if the proc is blocked on a DIFFERENT specific node, this
+     * edge is not for it and must be ignored. Without this the kernel wakeup
+     * is unconditional and an event on one node (e.g. tty keyboard RD) wrongly
+     * releases a proc blocked on an unrelated node (e.g. a shell pipe write).
+     */
+    if(proc->info.state == BLOCK) {
+        if(token != 0 && proc->block_by != 0 && proc->block_by != token) {
+            proc_lock_leave();
+            return;
+        }
+        proc->block_by = 0;
+        proc->wake_by = 0;
+        proc->wake_pending = 0;
+        proc_wakeup_all_state(proc);
+    }
+    else {
+        /*
+         * Not blocked yet. Latch the wake so an edge landing in the gap
+         * between VFS registration and proc_block() is not lost, and tag it
+         * with the token so only a matching (or generic) block consumes it.
+         * wake_pending marks presence explicitly because token 0 (a valid
+         * generic wake) is otherwise indistinguishable from "no wake".
+         *
+         * Preserve a previously latched non-zero node token against a later
+         * generic wake (token 0). vfs_block() issues multiple ipc_call()
+         * round-trips before the final proc_block_by(node); their generic
+         * return wakes must not overwrite the real node-scoped wake that just
+         * arrived from vfsd/netd, otherwise proc_block_by(node) drops the
+         * downgraded generic wake as incompatible and sleeps forever.
+         */
+        proc_wakeup_all_state(proc);
+        if(!proc->wake_pending) {
+            proc->wake_by = token;
+            proc->wake_pending = 1;
+        }
+        else if(proc->wake_by == 0 && token != 0) {
+            /* Upgrade a generic pending wake to a specific node wake. */
+            proc->wake_by = token;
+        }
+        else if(proc->wake_by != 0 && token == 0) {
+            /* Keep the stronger node-scoped wake. */
+        }
+        else if(proc->wake_by != 0 && token != 0 && proc->wake_by != token) {
+            /*
+             * Preserve the earliest node-scoped wake. A self-blocking thread
+             * (e.g. accept()/poll()) can receive multiple IPC round-trip wakes
+             * from unrelated nodes before it finally traps into proc_block_by()
+             * for the node it just registered with vfsd. If a later different
+             * node overwrites the original token here, proc_block_by(target)
+             * drops the mismatched wake as incompatible and sleeps forever even
+             * though the real target node already fired. VFS still keeps level
+             * state per node, so losing the later edge is less harmful than
+             * clobbering the first one that is about to be consumed.
+             */
+        }
+        else {
+            proc->wake_by = token;
+        }
+    }
+    proc_lock_leave();
 #ifdef KERNEL_SMP
-	if(_cpu_cores[proc->info.core].actived) {
-		_cpu_cores[proc->info.core].need_resched = 1;
-		if(proc->info.core != get_core_id()) {
-		ipi_send(proc->info.core);
-		}
-	}
+    if(_cpu_cores[proc->info.core].actived) {
+        _cpu_cores[proc->info.core].need_resched = 1;
+        if(proc->info.core != get_core_id()) {
+        ipi_send(proc->info.core);
+        }
+    }
 #endif
 }
 
 void proc_wakeup(proc_t* proc) {
-	proc_wakeup_by(proc, 0);
+    proc_wakeup_by(proc, 0);
 }
 
 static inline char* proc_clone_addr_to_ptr(proc_t* proc, ewokos_addr_t addr) {
-	ewokos_addr_t phy = resolve_phy_address(proc->space->vm, addr);
-	if(phy == 0) {
-		return NULL;
-	}
-	return (char*)P2V(phy);
+    ewokos_addr_t phy = resolve_phy_address(proc->space->vm, addr);
+    if(phy == 0) {
+        return NULL;
+    }
+    return (char*)P2V(phy);
 }
 
 static inline void proc_page_clone(proc_t* to, ewokos_addr_t to_addr, proc_t* from, ewokos_addr_t from_addr) {
-	char *to_ptr = proc_clone_addr_to_ptr(to, to_addr);
-	char *from_ptr = proc_clone_addr_to_ptr(from, from_addr);
-	if(to_ptr == NULL || from_ptr == NULL) {
-		printf("panic: proc_page_clone invalid addr to=0x%llx from=0x%llx\n",
-				(unsigned long long)to_addr,
-				(unsigned long long)from_addr);
-		return;
-	}
-	memcpy(to_ptr, from_ptr, PAGE_SIZE);
+    char *to_ptr = proc_clone_addr_to_ptr(to, to_addr);
+    char *from_ptr = proc_clone_addr_to_ptr(from, from_addr);
+    if(to_ptr == NULL || from_ptr == NULL) {
+        printf("panic: proc_page_clone invalid addr to=0x%llx from=0x%llx\n",
+                (unsigned long long)to_addr,
+                (unsigned long long)from_addr);
+        return;
+    }
+    memcpy(to_ptr, from_ptr, PAGE_SIZE);
 }
 
 static int32_t proc_clone(proc_t* child, proc_t* parent) {
-	uint32_t pages = parent->space->heap_size / PAGE_SIZE;
-	if((parent->space->heap_size % PAGE_SIZE) != 0)
-		pages++;
+    uint32_t pages = parent->space->heap_size / PAGE_SIZE;
+    if((parent->space->heap_size % PAGE_SIZE) != 0)
+        pages++;
 
-	// Copy On Write
-	uint32_t p;
-	for(p=0; p<pages; ++p) { 
-		ewokos_addr_t v_addr = (ewokos_addr_t)p * PAGE_SIZE;
-		ewokos_addr_t phy_page_addr = resolve_phy_address(parent->space->vm, v_addr);
+    // Copy On Write
+    uint32_t p;
+    for(p=0; p<pages; ++p) { 
+        ewokos_addr_t v_addr = (ewokos_addr_t)p * PAGE_SIZE;
+        ewokos_addr_t phy_page_addr = resolve_phy_address(parent->space->vm, v_addr);
 
-		/*
-		 * Some virtual pages below heap_size are reserved but not backed yet.
-		 * Skip those holes instead of remapping them to physical 0.
-		 */
-		if(phy_page_addr == 0)
-			continue;
+        /*
+         * Some virtual pages below heap_size are reserved but not backed yet.
+         * Skip those holes instead of remapping them to physical 0.
+         */
+        if(phy_page_addr == 0)
+            continue;
 
-		map_page_ref(child->space->vm,
-				v_addr,
-				phy_page_addr,
-				AP_RW_R, PTE_ATTR_WRBACK); // share page table to child with read only permissions, and ref the page
+        map_page_ref(child->space->vm,
+                v_addr,
+                phy_page_addr,
+                AP_RW_R, PTE_ATTR_WRBACK); // share page table to child with read only permissions, and ref the page
 
-		map_page(parent->space->vm,
-				v_addr,
-				phy_page_addr,
-				AP_RW_R, PTE_ATTR_WRBACK); // set parent page table with read only permissions
-	}
-	flush_tlb();
-	child->space->heap_size = pages * PAGE_SIZE;
-	/*
-	 * Preserve the parent's actual heap break. User-space allocators keep
-	 * their current break in process memory and continue from there after
-	 * fork(), so resetting heap_used to heap_size desynchronizes kernel/user
-	 * heap state in the child.
-	 */
-	child->space->heap_used = parent->space->heap_used;
+        map_page(parent->space->vm,
+                v_addr,
+                phy_page_addr,
+                AP_RW_R, PTE_ATTR_WRBACK); // set parent page table with read only permissions
+    }
+    flush_tlb();
+    child->space->heap_size = pages * PAGE_SIZE;
+    /*
+     * Preserve the parent's actual heap break. User-space allocators keep
+     * their current break in process memory and continue from there after
+     * fork(), so resetting heap_used to heap_size desynchronizes kernel/user
+     * heap state in the child.
+     */
+    child->space->heap_used = parent->space->heap_used;
 
-	// Copy the process user stack via its user virtual addresses. The
-	// user_stack[] array stores kernel backing-page pointers, not process
-	// virtual addresses, so passing it into resolve_kernel_address() will
-	// translate an unmapped address and can collapse to P2V(0).
-	int32_t i;
-	ewokos_addr_t user_stack_base = proc_get_user_stack_base(parent);
-	for(i=0; i<STACK_PAGES; i++) {
-		ewokos_addr_t vaddr = user_stack_base + PAGE_SIZE*i;
-		proc_page_clone(child, vaddr, parent, vaddr);
-	}
-	child->space->malloc_base = parent->space->malloc_base;
-	child->space->rw_heap_base = parent->space->rw_heap_base;
-	return 0;
+    // Copy the process user stack via its user virtual addresses. The
+    // user_stack[] array stores kernel backing-page pointers, not process
+    // virtual addresses, so passing it into resolve_kernel_address() will
+    // translate an unmapped address and can collapse to P2V(0).
+    int32_t i;
+    ewokos_addr_t user_stack_base = proc_get_user_stack_base(parent);
+    for(i=0; i<STACK_PAGES; i++) {
+        ewokos_addr_t vaddr = user_stack_base + PAGE_SIZE*i;
+        proc_page_clone(child, vaddr, parent, vaddr);
+    }
+    child->space->malloc_base = parent->space->malloc_base;
+    child->space->rw_heap_base = parent->space->rw_heap_base;
+    return 0;
 }
 
 proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
-	proc_t *child = NULL;
-	child = proc_create(type, parent);
-	if(child == NULL) {
-		printf("panic: kfork create proc failed!!(%d)\n", parent->info.pid);
-		return NULL;
-	}
-	if(ctx != NULL)
-		memcpy(&child->ctx, ctx, sizeof(context_t));
-	else
-		memcpy(&child->ctx, &parent->ctx, sizeof(context_t));
-	child->ctx.gpr[0] = 0;
+    proc_t *child = NULL;
+    child = proc_create(type, parent);
+    if(child == NULL) {
+        printf("panic: kfork create proc failed!!(%d)\n", parent->info.pid);
+        return NULL;
+    }
+    if(ctx != NULL)
+        memcpy(&child->ctx, ctx, sizeof(context_t));
+    else
+        memcpy(&child->ctx, &parent->ctx, sizeof(context_t));
+    child->ctx.gpr[0] = 0;
 
-	if(type == TASK_TYPE_PROC) {
-		if(proc_clone(child, parent) != 0) {
-			printf("panic: kfork clone failed!!(%d)\n", parent->info.pid);
-			return NULL;
-		}
-		/*printf("clone: \n\tfather: 0x%x->0x%x\n\tchild:  0x%x->0x%x\n",
-				parent->space->malloc_base, parent->space->heap_size,
-				child->space->malloc_base, child->space->heap_size);
-				*/
-	}
-	else {
-		child->ctx.sp = ALIGN_DOWN(child->thread_stack_base + THREAD_STACK_PAGES*PAGE_SIZE, EWOK_STACK_ALIGN) - EWOK_STACK_INIT_BIAS;
-	}
-	return child;
+    if(type == TASK_TYPE_PROC) {
+        if(proc_clone(child, parent) != 0) {
+            printf("panic: kfork clone failed!!(%d)\n", parent->info.pid);
+            return NULL;
+        }
+        /*printf("clone: \n\tfather: 0x%x->0x%x\n\tchild:  0x%x->0x%x\n",
+                parent->space->malloc_base, parent->space->heap_size,
+                child->space->malloc_base, child->space->heap_size);
+                */
+    }
+    else {
+        child->ctx.sp = ALIGN_DOWN(child->thread_stack_base + THREAD_STACK_PAGES*PAGE_SIZE, EWOK_STACK_ALIGN) - EWOK_STACK_INIT_BIAS;
+    }
+    return child;
 }
 
 proc_t* kfork(context_t* ctx, int32_t type) {
-	proc_t* cproc = get_current_proc();
-	proc_t* child = kfork_raw(ctx, type, cproc);
-	core_attach(child);
+    proc_t* cproc = get_current_proc();
+    proc_t* child = kfork_raw(ctx, type, cproc);
+    core_attach(child);
 
-	if(_core_proc_ready && child->info.type == TASK_TYPE_PROC) {
-		kev_push(KEV_PROC_CREATED, cproc->info.pid, child->info.pid, 0);
-	}
-	else
-		proc_ready(child);
-	return child;
+    if(_core_proc_ready && child->info.type == TASK_TYPE_PROC) {
+        kev_push(KEV_PROC_CREATED, cproc->info.pid, child->info.pid, 0);
+    }
+    else
+        proc_ready(child);
+    return child;
 }
 
 int32_t get_procs_num(void) {
-	int32_t res = 0;
-	uint32_t i;
-	proc_lock_enter();
-	for(i=0; i<_kernel_config.max_task_num; i++) {
-		if(_task_table[i] != NULL &&
-				_task_table[i]->info.state != UNUSED &&
-				_task_table[i]->info.state != ZOMBIE)  {
-			if(!_task_table[i]->is_core_idle_proc)
-				res++;
-		}
-	}
-	proc_lock_leave();
-	return res;
+    int32_t res = 0;
+    uint32_t i;
+    proc_lock_enter();
+    for(i=0; i<_kernel_config.max_task_num; i++) {
+        if(_task_table[i] != NULL &&
+                _task_table[i]->info.state != UNUSED &&
+                _task_table[i]->info.state != ZOMBIE)  {
+            if(!_task_table[i]->is_core_idle_proc)
+                res++;
+        }
+    }
+    proc_lock_leave();
+    return res;
 }
 
 int32_t get_procs(int32_t num, procinfo_t* procs) {
-	if(procs == NULL)
-		return -1;
+    if(procs == NULL)
+        return -1;
 
-	proc_lock_enter();
-	proc_refresh_runtime_stats_internal(false, true, proc_account_now_usec());
-	int32_t j = 0;
-	uint32_t i;
-	for(i=0; i<_kernel_config.max_task_num && j<(num); i++) {
-		proc_t* p = _task_table[i];
-		if(p != NULL &&
-				p->info.state != UNUSED &&
-				p->info.state != ZOMBIE &&
-				!p->is_core_idle_proc) {
-			memcpy(&procs[j], &p->info, sizeof(procinfo_t));
-			procs[j].heap_size = (p->space != NULL) ? p->space->heap_size : 0;
-			j++;
-		}
-	}
-	proc_lock_leave();
-	return j;
+    proc_lock_enter();
+    proc_refresh_runtime_stats_internal(false, true, proc_account_now_usec());
+    int32_t j = 0;
+    uint32_t i;
+    for(i=0; i<_kernel_config.max_task_num && j<(num); i++) {
+        proc_t* p = _task_table[i];
+        if(p != NULL &&
+                p->info.state != UNUSED &&
+                p->info.state != ZOMBIE &&
+                !p->is_core_idle_proc) {
+            memcpy(&procs[j], &p->info, sizeof(procinfo_t));
+            procs[j].heap_size = (p->space != NULL) ? p->space->heap_size : 0;
+            j++;
+        }
+    }
+    proc_lock_leave();
+    return j;
 }
 
 int32_t get_proc(int32_t pid, procinfo_t *info) {
-	proc_lock_enter();
-	proc_t* proc = proc_get(pid);
-	if(proc == NULL) {
-		proc_lock_leave();
-		return -1;
-	}
+    proc_lock_enter();
+    proc_t* proc = proc_get(pid);
+    if(proc == NULL) {
+        proc_lock_leave();
+        return -1;
+    }
 
-	proc_refresh_runtime_stats_internal(false, true, proc_account_now_usec());
-	memcpy(info, &proc->info, sizeof(procinfo_t));
-	info->heap_size = proc->space->heap_size;
-	proc_lock_leave();
-	return 0;
+    proc_refresh_runtime_stats_internal(false, true, proc_account_now_usec());
+    memcpy(info, &proc->info, sizeof(procinfo_t));
+    info->heap_size = proc->space->heap_size;
+    proc_lock_leave();
+    return 0;
 }
 
 int32_t proc_get_root_pid_visible(int32_t pid) {
-	int32_t result = -1;
-	proc_lock_enter();
-	proc_t* cproc = get_current_proc();
-	proc_t* proc = cproc;
-	if(cproc == NULL) {
-		proc_lock_leave();
-		return -1;
-	}
-	if(pid >= 0)
-		proc = proc_get(pid);
-	if(proc == NULL) {
-		proc_lock_leave();
-		return -1;
-	}
-	if(cproc->info.uid > 0 && cproc->info.uid != proc->info.uid) {
-		proc_lock_leave();
-		return -1;
-	}
-	proc_t* root = proc_get_proc(proc);
-	if(root != NULL)
-		result = root->info.pid;
-	proc_lock_leave();
-	return result;
+    int32_t result = -1;
+    proc_lock_enter();
+    proc_t* cproc = get_current_proc();
+    proc_t* proc = cproc;
+    if(cproc == NULL) {
+        proc_lock_leave();
+        return -1;
+    }
+    if(pid >= 0)
+        proc = proc_get(pid);
+    if(proc == NULL) {
+        proc_lock_leave();
+        return -1;
+    }
+    if(cproc->info.uid > 0 && cproc->info.uid != proc->info.uid) {
+        proc_lock_leave();
+        return -1;
+    }
+    proc_t* root = proc_get_proc(proc);
+    if(root != NULL)
+        result = root->info.pid;
+    proc_lock_leave();
+    return result;
 }
 
 int32_t proc_get_current_thread_id_safe(void) {
-	int32_t pid = -1;
-	proc_lock_enter();
-	proc_t* cproc = get_current_proc();
-	if(cproc != NULL)
-		pid = cproc->info.pid;
-	proc_lock_leave();
-	return pid;
+    int32_t pid = -1;
+    proc_lock_enter();
+    proc_t* cproc = get_current_proc();
+    if(cproc != NULL)
+        pid = cproc->info.pid;
+    proc_lock_leave();
+    return pid;
 }
 
 int32_t proc_get_current_uid_safe(void) {
-	int32_t uid = -1;
-	proc_lock_enter();
-	proc_t* cproc = get_current_proc();
-	if(cproc != NULL)
-		uid = cproc->info.uid;
-	proc_lock_leave();
-	return uid;
+    int32_t uid = -1;
+    proc_lock_enter();
+    proc_t* cproc = get_current_proc();
+    if(cproc != NULL)
+        uid = cproc->info.uid;
+    proc_lock_leave();
+    return uid;
 }
 
 int32_t proc_get_current_gid_safe(void) {
-	int32_t gid = -1;
-	proc_lock_enter();
-	proc_t* cproc = get_current_proc();
-	if(cproc != NULL)
-		gid = cproc->info.gid;
-	proc_lock_leave();
-	return gid;
+    int32_t gid = -1;
+    proc_lock_enter();
+    proc_t* cproc = get_current_proc();
+    if(cproc != NULL)
+        gid = cproc->info.gid;
+    proc_lock_leave();
+    return gid;
 }
 
 int32_t proc_get_cmd_safe(int32_t pid, char* cmd, int32_t sz) {
-	if(cmd == NULL || sz <= 0)
-		return -1;
-	proc_lock_enter();
-	proc_t* proc = proc_get(pid);
-	if(proc == NULL) {
-		proc_lock_leave();
-		return -1;
-	}
-	sstrncpy(cmd, proc->info.cmd, sz);
-	proc_lock_leave();
-	return 0;
+    if(cmd == NULL || sz <= 0)
+        return -1;
+    proc_lock_enter();
+    proc_t* proc = proc_get(pid);
+    if(proc == NULL) {
+        proc_lock_leave();
+        return -1;
+    }
+    sstrncpy(cmd, proc->info.cmd, sz);
+    proc_lock_leave();
+    return 0;
 }
 
 int32_t proc_get_ready_ping_safe(int32_t pid) {
-	int32_t ret = -1;
-	proc_lock_enter();
-	proc_t* proc = proc_get_proc(proc_get(pid));
-	if(proc != NULL && proc->space->ready_ping)
-		ret = 0;
-	proc_lock_leave();
-	return ret;
+    int32_t ret = -1;
+    proc_lock_enter();
+    proc_t* proc = proc_get_proc(proc_get(pid));
+    if(proc != NULL && proc->space->ready_ping)
+        ret = 0;
+    proc_lock_leave();
+    return ret;
 }
 
 int32_t proc_get_core_pid_safe(void) {
-	int32_t pid;
-	proc_lock_enter();
-	pid = _core_proc_pid;
-	proc_lock_leave();
-	return pid;
+    int32_t pid;
+    proc_lock_enter();
+    pid = _core_proc_pid;
+    proc_lock_leave();
+    return pid;
 }
 
 void proc_set_core_pid_safe(int32_t pid) {
-	proc_lock_enter();
-	_core_proc_pid = pid;
-	proc_lock_leave();
+    proc_lock_enter();
+    _core_proc_pid = pid;
+    proc_lock_leave();
 }
 
 static int32_t renew_sleep_counter(uint32_t usec) {
-	proc_lock_enter();
-	uint32_t i;
-	int32_t res = -1;
-	for(i=0; i<_kernel_config.max_task_num; i++) {
-		proc_t* proc = _task_table[i];
-		if(proc == NULL)
-			continue;
+    proc_lock_enter();
+    uint32_t i;
+    int32_t res = -1;
+    for(i=0; i<_kernel_config.max_task_num; i++) {
+        proc_t* proc = _task_table[i];
+        if(proc == NULL)
+            continue;
 
-		if(proc->info.state == SLEEPING) {
-			proc->sleep_counter -= usec;
-			if(proc->sleep_counter <= 0) {
-				proc->sleep_counter = 0;
-				proc_ready(proc);
-				proc_kick_ready_core(proc);
-				res = 0;
-			}
-		}
-	}
-	proc_lock_leave();
-	return res;
+        if(proc->info.state == SLEEPING) {
+            proc->sleep_counter -= usec;
+            if(proc->sleep_counter <= 0) {
+                proc->sleep_counter = 0;
+                proc_ready(proc);
+                proc_kick_ready_core(proc);
+                res = 0;
+            }
+        }
+    }
+    proc_lock_leave();
+    return res;
 }
 
 static int32_t renew_interrupt_counter(uint32_t usec) {
-	proc_lock_enter();
-	int32_t res = -1;
-	queue_item_t* it = _interrupt_timeout_queue.head;
-	while(it != NULL) {
-		queue_item_t* next = it->next;
-		proc_t* proc = (proc_t*)it->data;
-		if(proc == NULL ||
-				proc->info.state == UNUSED || proc->info.state == ZOMBIE ||
-				proc->space == NULL ||
-				proc->space->interrupt.state == INTR_STATE_IDLE) {
-			proc_untrack_interrupt_timeout(proc);
-			it = next;
-			continue;
-		}
-		/*
-		 * Only age the handler while it is actually runnable. When it is
-		 * BLOCK/SLEEPING/WAIT it is legitimately parked on a nested IPC reply,
-		 * a sleep, or a wait - not a runaway. Force-aborting it here would
-		 * orphan the in-flight nested IPC and break recovery of the IPC that
-		 * the interrupt issued, so freeze (reset) the watchdog while parked.
-		 * A genuinely stuck nested call is reclaimed by that call's own IPC
-		 * timeout, which keeps running because the nested server is not parked.
-		 */
-		if(proc->info.state == BLOCK ||
-				proc->info.state == SLEEPING ||
-				proc->info.state == WAIT) {
-			proc->space->interrupt.counter = 0;
-			it = next;
-			continue;
-		}
-		proc->space->interrupt.counter += usec;
-		if(proc->space->interrupt.counter >= INTERRUPT_TIMEOUT_USEC) {
-			printf("interrupt timeout: %d , %d\n", proc->space->interrupt.interrupt, proc->info.pid);
-			proc_interrupt_timeout(proc);
-			res = 0;
-		}
-		it = next;
-	}
-	proc_lock_leave();
-	return res;
+    proc_lock_enter();
+    int32_t res = -1;
+    queue_item_t* it = _interrupt_timeout_queue.head;
+    while(it != NULL) {
+        queue_item_t* next = it->next;
+        proc_t* proc = (proc_t*)it->data;
+        if(proc == NULL ||
+                proc->info.state == UNUSED || proc->info.state == ZOMBIE ||
+                proc->space == NULL ||
+                proc->space->interrupt.state == INTR_STATE_IDLE) {
+            proc_untrack_interrupt_timeout(proc);
+            it = next;
+            continue;
+        }
+        /*
+         * Only age the handler while it is actually runnable. When it is
+         * BLOCK/SLEEPING/WAIT it is legitimately parked on a nested IPC reply,
+         * a sleep, or a wait - not a runaway. Force-aborting it here would
+         * orphan the in-flight nested IPC and break recovery of the IPC that
+         * the interrupt issued, so freeze (reset) the watchdog while parked.
+         * A genuinely stuck nested call is reclaimed by that call's own IPC
+         * timeout, which keeps running because the nested server is not parked.
+         */
+        if(proc->info.state == BLOCK ||
+                proc->info.state == SLEEPING ||
+                proc->info.state == WAIT) {
+            proc->space->interrupt.counter = 0;
+            it = next;
+            continue;
+        }
+        proc->space->interrupt.counter += usec;
+        if(proc->space->interrupt.counter >= INTERRUPT_TIMEOUT_USEC) {
+            printf("interrupt timeout: %d , %d\n", proc->space->interrupt.interrupt, proc->info.pid);
+            proc_interrupt_timeout(proc);
+            res = 0;
+        }
+        it = next;
+    }
+    proc_lock_leave();
+    return res;
 }
 
 static int32_t renew_ipc_counter(uint32_t usec) {
-	proc_lock_enter();
-	int32_t res = -1;
-	queue_item_t* it = _ipc_timeout_queue.head;
-	while(it != NULL) {
-		queue_item_t* next = it->next;
-		proc_t* proc = (proc_t*)it->data;
-		if(proc == NULL ||
-				proc->info.state == UNUSED || proc->info.state == ZOMBIE ||
-				proc->space == NULL) {
-			proc_untrack_ipc_timeout(proc);
-			it = next;
-			continue;
-		}
-		ipc_task_t* ipc = proc_ipc_get_task(proc);
-		if(ipc == NULL || ipc->state == IPC_IDLE) {
-			proc_untrack_ipc_timeout(proc);
-			it = next;
-			continue;
-		}
+    proc_lock_enter();
+    int32_t res = -1;
+    queue_item_t* it = _ipc_timeout_queue.head;
+    while(it != NULL) {
+        queue_item_t* next = it->next;
+        proc_t* proc = (proc_t*)it->data;
+        if(proc == NULL ||
+                proc->info.state == UNUSED || proc->info.state == ZOMBIE ||
+                proc->space == NULL) {
+            proc_untrack_ipc_timeout(proc);
+            it = next;
+            continue;
+        }
+        ipc_task_t* ipc = proc_ipc_get_task(proc);
+        if(ipc == NULL || ipc->state == IPC_IDLE) {
+            proc_untrack_ipc_timeout(proc);
+            it = next;
+            continue;
+        }
 
-		/*
-		 * Do not age the in-flight service task while the server is preempted
-		 * by an interrupt (INTR_STATE_WORKING) or is itself parked on a nested
-		 * IPC/sleep/wait. Those are legitimate, recoverable stalls: aborting
-		 * the ctask here would drop the client's reply just because an
-		 * interrupt ran during the service. Freeze (reset) the counter so the
-		 * timeout only measures a continuous runnable service stall.
-		 */
-		if(proc->space->interrupt.state == INTR_STATE_WORKING ||
-				proc->info.state == BLOCK ||
-				proc->info.state == SLEEPING ||
-				proc->info.state == WAIT) {
-			ipc->counter = 0;
-			it = next;
-			continue;
-		}
+        /*
+         * Do not age the in-flight service task while the server is preempted
+         * by an interrupt (INTR_STATE_WORKING) or is itself parked on a nested
+         * IPC/sleep/wait. Those are legitimate, recoverable stalls: aborting
+         * the ctask here would drop the client's reply just because an
+         * interrupt ran during the service. Freeze (reset) the counter so the
+         * timeout only measures a continuous runnable service stall.
+         */
+        if(proc->space->interrupt.state == INTR_STATE_WORKING ||
+                proc->info.state == BLOCK ||
+                proc->info.state == SLEEPING ||
+                proc->info.state == WAIT) {
+            ipc->counter = 0;
+            it = next;
+            continue;
+        }
 
-		ipc->counter += usec;
-		if(ipc->counter >= IPC_TIMEOUT_USEC) {
-			proc_t* client = proc_get(ipc->client_pid);
-			printf("ipc timeout: uid:%u clt:%d(%s), srv:%d(%s), call:%d/0x%x\n",
-					ipc->uid,
-					ipc->client_pid,
-					client ? client->info.cmd : "?",
-					proc->info.pid,
-					proc->info.cmd,
-					ipc->call_id,
-					ipc->call_id);
-			proc_ipc_timeout(proc);
-			res = 0;
-		}
-		it = next;
-	}
-	proc_lock_leave();
-	return res;
+        ipc->counter += usec;
+        if(ipc->counter >= IPC_TIMEOUT_USEC) {
+            proc_t* client = proc_get(ipc->client_pid);
+            printf("ipc timeout: uid:%u clt:%d(%s), srv:%d(%s), call:%d/0x%x\n",
+                    ipc->uid,
+                    ipc->client_pid,
+                    client ? client->info.cmd : "?",
+                    proc->info.pid,
+                    proc->info.cmd,
+                    ipc->call_id,
+                    ipc->call_id);
+            proc_ipc_timeout(proc);
+            res = 0;
+        }
+        it = next;
+    }
+    proc_lock_leave();
+    return res;
 }
 
 static int32_t renew_priority_counter(uint32_t usec) {
-	(void)usec;
-	proc_lock_enter();
-	queue_item_t* it = _priority_update_queue.head;
-	while(it != NULL) {
-		queue_item_t* next = it->next;
-		proc_t* proc = (proc_t*)it->data;
-		if(proc == NULL || proc->info.state == UNUSED || proc->info.state == ZOMBIE ||
-				(proc->info.state != RUNNING && proc->info.state != READY)) {
-			proc_untrack_priority_update(proc);
-			it = next;
-			continue;
-		}
-		if(proc->priority_count > 0)
-			proc->priority_count--;
+    (void)usec;
+    proc_lock_enter();
+    queue_item_t* it = _priority_update_queue.head;
+    while(it != NULL) {
+        queue_item_t* next = it->next;
+        proc_t* proc = (proc_t*)it->data;
+        if(proc == NULL || proc->info.state == UNUSED || proc->info.state == ZOMBIE ||
+                (proc->info.state != RUNNING && proc->info.state != READY)) {
+            proc_untrack_priority_update(proc);
+            it = next;
+            continue;
+        }
+        if(proc->priority_count > 0)
+            proc->priority_count--;
 
-		if(proc->priority_count > 0) {
-			it = next;
-			continue;
-		}
+        if(proc->priority_count > 0) {
+            it = next;
+            continue;
+        }
 
-		if(proc->info.state == READY) {
-			proc_ready(proc);
-		}
-		else if(proc->info.state == RUNNING &&
-				get_current_core_proc(proc->info.core) == proc) {
-			proc->priority_count = proc->info.priority;
-		}
-		it = next;
-	}
-	proc_lock_leave();
-	return 0;
+        if(proc->info.state == READY) {
+            proc_ready(proc);
+        }
+        else if(proc->info.state == RUNNING &&
+                get_current_core_proc(proc->info.core) == proc) {
+            proc->priority_count = proc->info.priority;
+        }
+        it = next;
+    }
+    proc_lock_leave();
+    return 0;
 }
 
 static void renew_vsyscall_info(void) {
-	if(_kernel_info.vsyscall_info == NULL)
-		return;
+    if(_kernel_info.vsyscall_info == NULL)
+        return;
 
-	_kernel_info.vsyscall_info->kernel_usec = _kernel_info.uptime_usec;
+    _kernel_info.vsyscall_info->kernel_usec = _kernel_info.uptime_usec;
 }
 
 int32_t renew_kernel_tic(uint32_t usec) {
-	renew_vsyscall_info();
-	renew_priority_counter(usec);
-	renew_interrupt_counter(usec);
-	renew_ipc_counter(usec);
-	return renew_sleep_counter(usec);	
+    renew_vsyscall_info();
+    renew_priority_counter(usec);
+    renew_interrupt_counter(usec);
+    renew_ipc_counter(usec);
+    return renew_sleep_counter(usec);	
 }
 
 void renew_kernel_sec(void) {
-	proc_zombie_funeral();
-	proc_refresh_runtime_stats();
-	uint64_t now_usec = proc_account_now_usec();
-	if(now_usec - _run_window_start_usec >=
-			((uint64_t)KERNEL_PROC_RUN_RECOUNT_SEC * 1000000ULL)) {
-		for(uint32_t i=0; i<_kernel_config.max_task_num; i++) {
-			proc_t* proc = _task_table[i];
-			if(proc == NULL)
-				continue;
-			if(proc->info.state != UNUSED && proc->info.state != ZOMBIE) {
-				proc->run_usec_counter = 0;
-				proc->info.run_usec = 0;
-				if(proc->run_accounting_active)
-					proc->run_last_start_usec = now_usec;
-			}
-		}
-		_run_window_start_usec = now_usec;
-	}
+    proc_zombie_funeral();
+    proc_refresh_runtime_stats();
+    uint64_t now_usec = proc_account_now_usec();
+    if(now_usec - _run_window_start_usec >=
+            ((uint64_t)KERNEL_PROC_RUN_RECOUNT_SEC * 1000000ULL)) {
+        for(uint32_t i=0; i<_kernel_config.max_task_num; i++) {
+            proc_t* proc = _task_table[i];
+            if(proc == NULL)
+                continue;
+            if(proc->info.state != UNUSED && proc->info.state != ZOMBIE) {
+                proc->run_usec_counter = 0;
+                proc->info.run_usec = 0;
+                if(proc->run_accounting_active)
+                    proc->run_last_start_usec = now_usec;
+            }
+        }
+        _run_window_start_usec = now_usec;
+    }
 }
 
 proc_t* proc_get_proc(proc_t* proc) {
-	while(proc != NULL) {
-		if(proc->info.type == TASK_TYPE_PROC)
-			return proc;
-		proc = proc_get(proc->info.father_pid);
-	}
-	return NULL;
+    while(proc != NULL) {
+        if(proc->info.type == TASK_TYPE_PROC)
+            return proc;
+        proc = proc_get(proc->info.father_pid);
+    }
+    return NULL;
 }
 
 int32_t get_proc_pid(int32_t pid) {
-	proc_t* p = proc_get_proc(proc_get(pid));
-	if(p == NULL)
-		return pid;
-	return p->info.pid;
+    proc_t* p = proc_get_proc(proc_get(pid));
+    if(p == NULL)
+        return pid;
+    return p->info.pid;
 }
 
 /*
@@ -2344,14 +2344,14 @@ int32_t get_proc_pid(int32_t pid) {
  * SAME task that made the call.
  */
 proc_t* proc_ipc_get_client(ipc_task_t* ipc) {
-	if(ipc == NULL || ipc->client_pid < 0)
-		return NULL;
-	proc_t* client = proc_get(ipc->client_pid);
-	if(client == NULL)
-		return NULL;
-	if(ipc->client_uuid != 0 && client->info.uuid != ipc->client_uuid)
-		return NULL;
-	return client;
+    if(ipc == NULL || ipc->client_pid < 0)
+        return NULL;
+    proc_t* client = proc_get(ipc->client_pid);
+    if(client == NULL)
+        return NULL;
+    if(ipc->client_uuid != 0 && client->info.uuid != ipc->client_uuid)
+        return NULL;
+    return client;
 }
 
 /*
@@ -2361,11 +2361,11 @@ proc_t* proc_ipc_get_client(ipc_task_t* ipc) {
  * that is parked while the handler runs. Used by sys_ipc_call/sys_ipc_get_return.
  */
 ipc_res_t* proc_cur_ipc_res(proc_t* proc) {
-	if(proc == NULL)
-		return NULL;
-	if(proc->space != NULL && proc->space->interrupt.state == INTR_STATE_WORKING)
-		return &proc->space->interrupt.ipc_res;
-	return &proc->ipc_res;
+    if(proc == NULL)
+        return NULL;
+    if(proc->space != NULL && proc->space->interrupt.state == INTR_STATE_WORKING)
+        return &proc->space->interrupt.ipc_res;
+    return &proc->ipc_res;
 }
 
 /*
@@ -2374,19 +2374,19 @@ ipc_res_t* proc_cur_ipc_res(proc_t* proc) {
  * (sys_ipc_set_return) and by proc_ipc_timeout when clearing the client.
  */
 ipc_res_t* proc_ipc_client_res(proc_t* client, ipc_task_t* ipc) {
-	if(client == NULL || ipc == NULL)
-		return NULL;
-	if(ipc->client_intr && client->space != NULL)
-		return &client->space->interrupt.ipc_res;
-	return &client->ipc_res;
+    if(client == NULL || ipc == NULL)
+        return NULL;
+    if(ipc->client_intr && client->space != NULL)
+        return &client->space->interrupt.ipc_res;
+    return &client->ipc_res;
 }
 
 proc_t* kfork_core_halt(uint32_t core) {
-	proc_t* cproc = _task_table[0];
-	proc_t* child = kfork_raw(NULL, TASK_TYPE_PROC, cproc);
-	child->info.core = core;
-	_cpu_cores[core].idle_proc = child;
-	child->is_core_idle_proc = true;
+    proc_t* cproc = _task_table[0];
+    proc_t* child = kfork_raw(NULL, TASK_TYPE_PROC, cproc);
+    child->info.core = core;
+    _cpu_cores[core].idle_proc = child;
+    child->is_core_idle_proc = true;
 
-	return child;
+    return child;
 }

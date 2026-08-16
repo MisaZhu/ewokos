@@ -30,7 +30,7 @@ inet_ntoa (struct in_addr in)
 {
   unsigned char *bytes = (unsigned char *) &in;
   snprintf (buffer, sizeof (buffer), "%d.%d.%d.%d",
-	      bytes[0], bytes[1], bytes[2], bytes[3]);
+          bytes[0], bytes[1], bytes[2], bytes[3]);
 
   return buffer;
 }

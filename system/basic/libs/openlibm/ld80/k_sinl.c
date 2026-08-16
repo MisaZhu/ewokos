@@ -52,11 +52,11 @@ S8 =  2.6174587166648325e-15;		/*  0x179372ea0b3f64.0p-101 */
 long double
 __kernel_sinl(long double x, long double y, int iy)
 {
-	long double z,r,v;
+    long double z,r,v;
 
-	z	=  x*x;
-	v	=  z*x;
-	r	=  S2+z*(S3+z*(S4+z*(S5+z*(S6+z*(S7+z*S8)))));
-	if(iy==0) return x+v*(S1+z*r);
-	else      return x-((z*(half*y-v*r)-y)-v*S1);
+    z	=  x*x;
+    v	=  z*x;
+    r	=  S2+z*(S3+z*(S4+z*(S5+z*(S6+z*(S7+z*S8)))));
+    if(iy==0) return x+v*(S1+z*r);
+    else      return x-((z*(half*y-v*r)-y)-v*S1);
 }

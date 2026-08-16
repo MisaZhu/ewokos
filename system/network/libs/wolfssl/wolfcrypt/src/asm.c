@@ -101,8 +101,8 @@ WC_INLINE static int set_cpuid_flags(void) {
     if(cpuid_check == 0) {
         if(cpuid_flag(7, 0, EBX, 8)){  cpuid_flags |= CPUID_BMI2 ; }
         if(cpuid_flag(7, 0, EBX,19)){  cpuid_flags |= CPUID_ADX  ; }
-		cpuid_check = 1 ;
-		return 0 ;
+        cpuid_check = 1 ;
+        return 0 ;
     }
     return 1 ;
 }

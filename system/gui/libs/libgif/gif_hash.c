@@ -35,16 +35,16 @@ static int KeyItem(uint32_t Item);
  Initialize HashTable - allocate the memory needed and clear it.	      *
 ******************************************************************************/
 GifHashTableType *_InitHashTable(void) {
-	GifHashTableType *HashTable;
+    GifHashTableType *HashTable;
 
-	if ((HashTable = (GifHashTableType *)malloc(
-	         sizeof(GifHashTableType))) == NULL) {
-		return NULL;
-	}
+    if ((HashTable = (GifHashTableType *)malloc(
+             sizeof(GifHashTableType))) == NULL) {
+        return NULL;
+    }
 
-	_ClearHashTable(HashTable);
+    _ClearHashTable(HashTable);
 
-	return HashTable;
+    return HashTable;
 }
 
 /******************************************************************************
@@ -52,7 +52,7 @@ GifHashTableType *_InitHashTable(void) {
  This part is a little machine depended. Use the commented part otherwise.   *
 ******************************************************************************/
 void _ClearHashTable(GifHashTableType *HashTable) {
-	memset(HashTable->HTable, 0xFF, HT_SIZE * sizeof(uint32_t));
+    memset(HashTable->HTable, 0xFF, HT_SIZE * sizeof(uint32_t));
 }
 
 /******************************************************************************
@@ -60,21 +60,21 @@ void _ClearHashTable(GifHashTableType *HashTable) {
  new one.								      *
 ******************************************************************************/
 void _InsertHashTable(GifHashTableType *HashTable, uint32_t Key, int Code) {
-	int HKey = KeyItem(Key);
-	uint32_t *HTable = HashTable->HTable;
+    int HKey = KeyItem(Key);
+    uint32_t *HTable = HashTable->HTable;
 
 #ifdef DEBUG_HIT_RATE
-	NumberOfTests++;
-	NumberOfMisses++;
+    NumberOfTests++;
+    NumberOfMisses++;
 #endif /* DEBUG_HIT_RATE */
 
-	while (HT_GET_KEY(HTable[HKey]) != 0xFFFFFL) {
+    while (HT_GET_KEY(HTable[HKey]) != 0xFFFFFL) {
 #ifdef DEBUG_HIT_RATE
-		NumberOfMisses++;
+        NumberOfMisses++;
 #endif /* DEBUG_HIT_RATE */
-		HKey = (HKey + 1) & HT_KEY_MASK;
-	}
-	HTable[HKey] = HT_PUT_KEY(Key) | HT_PUT_CODE(Code);
+        HKey = (HKey + 1) & HT_KEY_MASK;
+    }
+    HTable[HKey] = HT_PUT_KEY(Key) | HT_PUT_CODE(Code);
 }
 
 /******************************************************************************
@@ -82,25 +82,25 @@ void _InsertHashTable(GifHashTableType *HashTable, uint32_t Key, int Code) {
  Returns the Code if key was found, -1 if not.				      *
 ******************************************************************************/
 int _ExistsHashTable(GifHashTableType *HashTable, uint32_t Key) {
-	int HKey = KeyItem(Key);
-	uint32_t *HTable = HashTable->HTable, HTKey;
+    int HKey = KeyItem(Key);
+    uint32_t *HTable = HashTable->HTable, HTKey;
 
 #ifdef DEBUG_HIT_RATE
-	NumberOfTests++;
-	NumberOfMisses++;
+    NumberOfTests++;
+    NumberOfMisses++;
 #endif /* DEBUG_HIT_RATE */
 
-	while ((HTKey = HT_GET_KEY(HTable[HKey])) != 0xFFFFFL) {
+    while ((HTKey = HT_GET_KEY(HTable[HKey])) != 0xFFFFFL) {
 #ifdef DEBUG_HIT_RATE
-		NumberOfMisses++;
+        NumberOfMisses++;
 #endif /* DEBUG_HIT_RATE */
-		if (Key == HTKey) {
-			return HT_GET_CODE(HTable[HKey]);
-		}
-		HKey = (HKey + 1) & HT_KEY_MASK;
-	}
+        if (Key == HTKey) {
+            return HT_GET_CODE(HTable[HKey]);
+        }
+        HKey = (HKey + 1) & HT_KEY_MASK;
+    }
 
-	return -1;
+    return -1;
 }
 
 /******************************************************************************
@@ -111,7 +111,7 @@ int _ExistsHashTable(GifHashTableType *HashTable, uint32_t Key) {
  evaluating more complex keys (such as twin prime keys) does not worth it!   *
 ******************************************************************************/
 static int KeyItem(uint32_t Item) {
-	return ((Item >> 12) ^ Item) & HT_KEY_MASK;
+    return ((Item >> 12) ^ Item) & HT_KEY_MASK;
 }
 
 #ifdef DEBUG_HIT_RATE
@@ -120,8 +120,8 @@ static int KeyItem(uint32_t Item) {
  was tested per operation. This routine was used to test the KeyItem routine *
 ******************************************************************************/
 void HashTablePrintHitRatio(void) {
-	printf("Hash Table Hit Ratio is %ld/%ld = %ld%%.\n", NumberOfMisses,
-	       NumberOfTests, NumberOfMisses * 100 / NumberOfTests);
+    printf("Hash Table Hit Ratio is %ld/%ld = %ld%%.\n", NumberOfMisses,
+           NumberOfTests, NumberOfMisses * 100 / NumberOfTests);
 }
 #endif /* DEBUG_HIT_RATE */
 

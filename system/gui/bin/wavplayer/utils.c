@@ -11,17 +11,17 @@
 #include "utils.h"
 
 typedef struct {
-	char* p;
-	uint32_t index;
-	uint32_t size;
+    char* p;
+    uint32_t index;
+    uint32_t size;
 } outc_arg_t;
 
 static void outc_sn(char c, void* p) {
-	outc_arg_t* arg = (outc_arg_t*)p;
-	if(arg->index >= arg->size)
-		return;
-	arg->p[arg->index] = c;
-	arg->index++;
+    outc_arg_t* arg = (outc_arg_t*)p;
+    if(arg->index >= arg->size)
+        return;
+    arg->p[arg->index] = c;
+    arg->index++;
 }
 
 extern void x_log(int logLevel, const char* tag, const char *fmt, ...)
@@ -58,19 +58,19 @@ extern void x_log(int logLevel, const char* tag, const char *fmt, ...)
         break;
     }
 
-	outc_arg_t arg;
-	arg.p = logBuf + len;
-	arg.index = 0;
-	arg.size = MAX_LOG_BUF_SIZE - len;
+    outc_arg_t arg;
+    arg.p = logBuf + len;
+    arg.index = 0;
+    arg.size = MAX_LOG_BUF_SIZE - len;
 
-	va_list ap;
-	va_start(ap, fmt);
-	//vprintf(outc_sn, &arg, fmt, ap); //TODO
-	arg.p[arg.index] = 0;
-	va_end(ap);
-	len += arg.index;
+    va_list ap;
+    va_start(ap, fmt);
+    //vprintf(outc_sn, &arg, fmt, ap); //TODO
+    arg.p[arg.index] = 0;
+    va_end(ap);
+    len += arg.index;
 
-	slog("%s\n", logBuf);
+    slog("%s\n", logBuf);
 }
 
 #define ID_RIFF 0x46464952
