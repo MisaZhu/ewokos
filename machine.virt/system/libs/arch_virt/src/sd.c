@@ -14,7 +14,7 @@ virtio_dev_t dev;
 int32_t virt_sd_init(void) {
 	_mmio_base = mmio_map();
     dev = virtio_get(VIRTIO_ID_BLOCK);
-	if (!dev || virtio_init(dev, 0) != 0) {
+        if (!dev || virtio_init(dev, (1u << 9)) != 0) {
         klog("Virtio-blk init failed\n");
         return -1;
     }
@@ -35,4 +35,8 @@ int32_t virt_sd_read_blocks(int32_t sector, void* buf, uint32_t count) {
 
 int32_t virt_sd_write_blocks(int32_t sector, const void* buf, uint32_t count) {
 	return virtio_blk_transfer(dev, sector, (void*)buf, count, 1);
+}
+
+int32_t virt_sd_flush(void) {
+        return virtio_blk_flush(dev);
 }

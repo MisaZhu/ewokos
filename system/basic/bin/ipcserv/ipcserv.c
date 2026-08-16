@@ -18,7 +18,8 @@ static int run(const char* cmd) {
 		}
 	}
 	else {
-		ipc_wait_ready(pid);
+		if(ipc_wait_ready(pid) != 0)
+			return -1;
 	}
 	return 0;
 }

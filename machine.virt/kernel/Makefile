@@ -58,7 +58,9 @@ QEMU_GUI_DISPLAY = cocoa,zoom-to-fit=on,zoom-interpolation=on
 endif
 
 QEMU_AUDIO_ENABLE ?= yes
-QEMU_SNAPSHOT ?= yes
+# Persist rootfs writes by default so ext2 changes made in the guest survive
+# reboot. Use `make ... QEMU_SNAPSHOT=yes` when a disposable session is needed.
+QEMU_SNAPSHOT ?= no
 QEMU_AUDIO_ID ?= audio0
 QEMU_AUDIODEV ?= coreaudio
 QEMU_AUDIO_ARGS = -audiodev $(QEMU_AUDIODEV),id=$(QEMU_AUDIO_ID)

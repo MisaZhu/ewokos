@@ -141,6 +141,7 @@ static int32_t (*sd_init_arch)(void);
 static int32_t (*sd_read_sector_arch)(int32_t sector, void* buf);
 static int32_t (*sd_read_sectors_arch)(int32_t sector, void* buf, uint32_t count);
 static int32_t (*sd_write_sector_arch)(int32_t sector, const void* buf);
+static int32_t (*sd_write_sectors_arch)(int32_t sector, const void* buf, uint32_t count);
 
 int32_t sd_read_sector(int32_t sector, void* buf) {
 	if(_sd_buffer.enabled) {
@@ -234,6 +235,33 @@ int32_t sd_write_sector(int32_t sector, const void* buf) {
 	return 0;
 }
 
+int32_t sd_write_sectors(int32_t sector, const void* buf, uint32_t count) {
+	const char* p = (const char*)buf;
+
+	if(count == 0)
+		return 0;
+
+	if(sd_write_sectors_arch != NULL) {
+		if(sd_write_sectors_arch(sector, buf, count) == 0) {
+			if(_sd_buffer.enabled) {
+				for(uint32_t i = 0; i < count; i++)
+					sector_buf_set(sector + (int32_t)i, p + (i * SECTOR_SIZE));
+			}
+			return (int32_t)(count * SECTOR_SIZE);
+		}
+		return 0;
+	}
+
+	while(count > 0) {
+		if(sd_write_sector(sector, p) != SECTOR_SIZE)
+			return 0;
+		sector++;
+		count--;
+		p += SECTOR_SIZE;
+	}
+	return (int32_t)((p - (const char*)buf));
+}
+
 int32_t sd_read(int32_t block, void* buf) {
 	int32_t n = (int32_t)(_ext2_block_size / SECTOR_SIZE);
 	int32_t sector = block * n + _partition.start_sector;
@@ -256,15 +284,21 @@ int32_t sd_read_blocks(int32_t block, void* buf, uint32_t count) {
 int32_t sd_write(int32_t block, const void* buf) {
 	int32_t n = (int32_t)(_ext2_block_size / SECTOR_SIZE);
 	int32_t sector = block * n + _partition.start_sector;
-	const char* p = (char*)buf;
 
-	while(n > 0) {
-		if(sd_write_sector(sector, p) != SECTOR_SIZE)
-			return -1;
-		sector++;
-		n--;
-		p += 512;
-	}
+	if(sd_write_sectors(sector, buf, (uint32_t)n) != (n * SECTOR_SIZE))
+		return -1;
+	return 0;
+}
+
+int32_t sd_write_blocks(int32_t block, const void* buf, uint32_t count) {
+	int32_t n = (int32_t)(_ext2_block_size / SECTOR_SIZE);
+	int32_t sector = block * n + _partition.start_sector;
+	uint32_t sectors = count * (uint32_t)n;
+
+	if(count == 0)
+		return 0;
+	if(sd_write_sectors(sector, buf, sectors) != (int32_t)(count * _ext2_block_size))
+		return -1;
 	return 0;
 }
 
@@ -346,10 +380,15 @@ int32_t sd_quit(void) {
 }
 
 int32_t sd_init(sd_init_func init, sd_read_sector_func rd, sd_write_sector_func wr) {
-	return sd_init_ex(init, rd, NULL, wr);
+	return sd_init_ex2(init, rd, NULL, wr, NULL);
 }
 
 int32_t sd_init_ex(sd_init_func init, sd_read_sector_func rd, sd_read_sectors_func rds, sd_write_sector_func wr) {
+	return sd_init_ex2(init, rd, rds, wr, NULL);
+}
+
+int32_t sd_init_ex2(sd_init_func init, sd_read_sector_func rd, sd_read_sectors_func rds,
+		sd_write_sector_func wr, sd_write_sectors_func wrs) {
 	memset(&_sd_buffer, 0, sizeof(sd_buffer_t));
 	memset(&_partition, 0, sizeof(partition_t));
 	_sd_buffer.enabled = 1;
@@ -358,6 +397,7 @@ int32_t sd_init_ex(sd_init_func init, sd_read_sector_func rd, sd_read_sectors_fu
 	sd_read_sector_arch = rd;
 	sd_read_sectors_arch = rds;
 	sd_write_sector_arch = wr;
+	sd_write_sectors_arch = wrs;
 
 	if(sd_init_arch() != 0)
 		return -1;

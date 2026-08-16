@@ -37,12 +37,16 @@ extern "C"
 		syscall0(SYS_IPC_READY);
 	}
 
-	void ipc_wait_ready(int pid)
+	int ipc_wait_ready(int pid)
 	{
+		procinfo_t info;
+
 		while (1)
 		{
 			if (ipc_ping(pid) == 0)
-				break;
+				return 0;
+			if (proc_info(pid, &info) != 0 || info.state == UNUSED || info.state == ZOMBIE)
+				return -1;
 			proc_usleep(10000);
 		}
 	}

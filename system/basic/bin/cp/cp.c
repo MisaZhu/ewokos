@@ -6,7 +6,10 @@
 #include <sys/errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <ewoksys/vfs.h>
+
+#define CP_BUF_SIZE VFS_BUF_SIZE
 
 static const char* path_basename(const char* path) {
 	const char* base = path;
@@ -33,19 +36,70 @@ static const char* path_basename(const char* path) {
 	return base;
 }
 
-static int build_target_path(const char* src, const char* dst, char* out, size_t out_size) {
+static void normalize_target_path(char* path) {
+        size_t len;
+
+        if(path == NULL)
+                return;
+
+        len = strlen(path);
+        while(len > 1 && path[len - 1] == '/') {
+                path[len - 1] = 0;
+                len--;
+        }
+
+        while(len > 2 && path[len - 2] == '/' && path[len - 1] == '.') {
+                path[len - 1] = 0;
+                len--;
+                while(len > 1 && path[len - 1] == '/') {
+                        path[len - 1] = 0;
+                        len--;
+                }
+        }
+}
+
+static int path_is_dir_arg(const char* path) {
+        size_t len;
+
+        if(path == NULL || path[0] == 0)
+                return 0;
+
+        if(strcmp(path, ".") == 0 || strcmp(path, "..") == 0)
+                return 1;
+
+        len = strlen(path);
+        if(path[len - 1] == '/')
+                return 1;
+        if(len >= 2 && path[len - 2] == '/' && path[len - 1] == '.')
+                return 1;
+        if(len >= 3 && path[len - 3] == '/' && path[len - 2] == '.' && path[len - 1] == '.')
+                return 1;
+        return 0;
+}
+
+static int build_target_path(const char* src, const char* dst, const char* dst_arg, char* out, size_t out_size) {
 	struct stat st;
+        char normalized[FS_FULL_NAME_MAX+1] = {0};
+        int is_dir = 0;
 
-	if(stat(dst, &st) == 0 && S_ISDIR(st.st_mode)) {
+        snprintf(normalized, sizeof(normalized), "%s", dst);
+        normalize_target_path(normalized);
+
+        if(path_is_dir_arg(dst_arg))
+                is_dir = 1;
+        else if(stat(normalized, &st) == 0 && S_ISDIR(st.st_mode))
+                is_dir = 1;
+
+        if(is_dir) {
 		const char* name = path_basename(src);
-		size_t dst_len = strlen(dst);
+                size_t dst_len = strlen(normalized);
 
-		if(dst_len > 0 && dst[dst_len - 1] == '/')
-			return snprintf(out, out_size, "%s%s", dst, name) < (int)out_size ? 0 : -1;
-		return snprintf(out, out_size, "%s/%s", dst, name) < (int)out_size ? 0 : -1;
+                if(dst_len == 1 && normalized[0] == '/')
+                        return snprintf(out, out_size, "%s%s", normalized, name) < (int)out_size ? 0 : -1;
+                return snprintf(out, out_size, "%s/%s", normalized, name) < (int)out_size ? 0 : -1;
 	}
 
-	return snprintf(out, out_size, "%s", dst) < (int)out_size ? 0 : -1;
+        return snprintf(out, out_size, "%s", normalized) < (int)out_size ? 0 : -1;
 }
 
 void out(void* data, int32_t size) {
@@ -71,6 +125,13 @@ int main(int argc, char** argv) {
 	char src[FS_FULL_NAME_MAX+1] = {0};
 	char dst[FS_FULL_NAME_MAX+1] = {0};
 	char target[FS_FULL_NAME_MAX+1] = {0};
+        char* buf = NULL;
+        int ret = -1;
+        unsigned long long total = 0;
+        struct timeval tv_begin;
+        struct timeval tv_end;
+
+        gettimeofday(&tv_begin, NULL);
 
 	if(argc < 3) {
 		printf("  Usage: cp <file_from> <file_to>\n");
@@ -80,19 +141,20 @@ int main(int argc, char** argv) {
 	vfs_fullname(argv[1], src, FS_FULL_NAME_MAX);
 	vfs_fullname(argv[2], dst, FS_FULL_NAME_MAX);
 
-	struct stat st;
-	if(stat(src, &st) != 0) {
-		printf("'%s' stat info failed!\n", src);
-		return -1;
-	}
-
 	int fd_from = open(src, O_RDONLY);
 	if(fd_from < 0) {
 		printf("'%s' open failed!\n", src);
 		return -1;
 	}
+
+	struct stat st;
+	if(fstat(fd_from, &st) != 0) {
+		printf("'%s' stat info failed!\n", src);
+		close(fd_from);
+		return -1;
+	}
 	
-	if(build_target_path(src, dst, target, sizeof(target)) != 0) {
+        if(build_target_path(src, dst, argv[2], target, sizeof(target)) != 0) {
 		printf("target path too long!\n");
 		close(fd_from);
 		return -1;
@@ -105,17 +167,59 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 
+        buf = (char*)malloc(CP_BUF_SIZE);
+        if(buf == NULL) {
+                printf("buffer alloc failed!\n");
+                close(fd_to);
+                close(fd_from);
+                return -1;
+        }
+
 	while(1) {
-		char buf[1024*4];
-		int sz = read(fd_from, buf, sizeof(buf));
-		if(sz > 0)
-			sz = write(fd_to, buf, sz);
-		if(sz <= 0)
+                int sz = read(fd_from, buf, CP_BUF_SIZE);
+                int off = 0;
+
+                if(sz == 0) {
+                        ret = 0;
 			break;
+                }
+                if(sz < 0)
+                        break;
+
+                while(off < sz) {
+                        int wr = write(fd_to, buf + off, sz - off);
+                        if(wr <= 0)
+                                goto done;
+                        off += wr;
+                        total += (unsigned long long)wr;
+                }
 	}
 
+done:
+        gettimeofday(&tv_end, NULL);
 	fchmod(fd_to, st.st_mode);
+        free(buf);
 	close(fd_to);
 	close(fd_from);
-	return 0;
+        if(ret == 0) {
+                unsigned long long usec = 0;
+                unsigned long long begin_usec =
+                                (unsigned long long)tv_begin.tv_sec * 1000000ULL +
+                                (unsigned long long)tv_begin.tv_usec;
+                unsigned long long end_usec =
+                                (unsigned long long)tv_end.tv_sec * 1000000ULL +
+                                (unsigned long long)tv_end.tv_usec;
+                unsigned long long speed_x100 = 0;
+
+                if(end_usec > begin_usec)
+                        usec = end_usec - begin_usec;
+                if(usec == 0)
+                        usec = 1;
+
+                speed_x100 = (total * 1000000ULL * 100ULL) / (usec * 1024ULL);
+                printf("\n%llu.%02llu KB/s\n",
+                                speed_x100 / 100ULL,
+                                speed_x100 % 100ULL);
+        }
+        return ret;
 }

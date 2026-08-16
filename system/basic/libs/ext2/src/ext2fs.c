@@ -11,6 +11,20 @@
 static int32_t ext2_bdealloc(ext2_t* ext2, uint32_t block);
 static int32_t need_len(int32_t len);
 static int32_t ext2_ensure_data_block(ext2_t* ext2, INODE* node, int32_t lbk, int32_t* blk);
+static int32_t ext2_flush_meta(ext2_t* ext2);
+static char* ext2_get_block_bitmap(ext2_t* ext2, uint32_t blk);
+static char* ext2_get_inode_bitmap(ext2_t* ext2, uint32_t blk);
+static uint32_t* ext2_get_cached_indirect_block(ext2_t* ext2, uint32_t blk);
+
+static uint32_t _cached_block_bitmap_blk = 0;
+static uint8_t _cached_block_bitmap_dirty = 0;
+static char* _cached_block_bitmap = NULL;
+static uint32_t _cached_inode_bitmap_blk = 0;
+static uint8_t _cached_inode_bitmap_dirty = 0;
+static char* _cached_inode_bitmap = NULL;
+static uint32_t _cached_indirect_blk = 0;
+static uint8_t _cached_indirect_dirty = 0;
+static uint32_t _cached_indirect_block[EXT2_MAX_BLOCK_SIZE / sizeof(uint32_t)];
 
 static int32_t ext2_validate_super(ext2_t* ext2) {
 	uint32_t unsupported_incompat = ext2->super.s_feature_incompat & ~EXT2_FEATURE_INCOMPAT_FILETYPE;
@@ -62,6 +76,22 @@ static int32_t ext2_read_blocks_io(ext2_t* ext2, int32_t block, void* buf, uint3
 	return 0;
 }
 
+static int32_t ext2_write_blocks_io(ext2_t* ext2, int32_t block, const void* buf, uint32_t count) {
+	const char* p = (const char*)buf;
+	uint32_t block_size = ext2_block_size(ext2);
+
+	if(count == 0)
+		return 0;
+	if(ext2->write_blocks != NULL)
+		return ext2->write_blocks(block, buf, count);
+
+	for(uint32_t i = 0; i < count; i++) {
+		if(ext2->write_block(block + (int32_t)i, p + (i * block_size)) != 0)
+			return -1;
+	}
+	return 0;
+}
+
 static int32_t ext2_get_data_block(ext2_t* ext2, INODE* node, int32_t lbk, int32_t* blk) {
 	uint32_t entries_per_block = ext2_indirect_entries(ext2);
 	uint32_t ptr_buf[EXT2_MAX_BLOCK_SIZE / sizeof(uint32_t)];
@@ -73,9 +103,11 @@ static int32_t ext2_get_data_block(ext2_t* ext2, INODE* node, int32_t lbk, int32
 		return 0;
 	}
 	else if(lbk < (int32_t)(entries_per_block + 12)) {
+		uint32_t* ptr_buf;
 		if(node->i_block[12] == 0)
 			return -1;
-		if(ext2->read_block(node->i_block[12], (char*)ptr_buf) != 0)
+		ptr_buf = ext2_get_cached_indirect_block(ext2, node->i_block[12]);
+		if(ptr_buf == NULL)
 			return -1;
 		*blk = (int32_t)ptr_buf[lbk - 12];
 		return (*blk == 0) ? -1 : 0;
@@ -320,44 +352,138 @@ static int32_t set_super(ext2_t* ext2) {
 	return ext2->write_block(super_block, buf);
 }
 
+static void mark_gd_dirty(ext2_t* ext2, uint32_t index) {
+        if(ext2->dirty_gds != NULL && index < (uint32_t)ext2->group_num)
+                ext2->dirty_gds[index] = 1;
+}
+
+static int32_t ext2_flush_meta(ext2_t* ext2) {
+        if(_cached_indirect_blk != 0 && _cached_indirect_dirty != 0) {
+                if(ext2->write_block((int32_t)_cached_indirect_blk, (char*)_cached_indirect_block) != 0)
+                        return -1;
+                _cached_indirect_dirty = 0;
+        }
+
+        if(_cached_block_bitmap != NULL &&
+                        _cached_block_bitmap_blk != 0 &&
+                        _cached_block_bitmap_dirty != 0) {
+                if(ext2->write_block((int32_t)_cached_block_bitmap_blk, _cached_block_bitmap) != 0)
+                        return -1;
+                _cached_block_bitmap_dirty = 0;
+        }
+
+        if(_cached_inode_bitmap != NULL &&
+                        _cached_inode_bitmap_blk != 0 &&
+                        _cached_inode_bitmap_dirty != 0) {
+                if(ext2->write_block((int32_t)_cached_inode_bitmap_blk, _cached_inode_bitmap) != 0)
+                        return -1;
+                _cached_inode_bitmap_dirty = 0;
+        }
+
+        if(ext2->dirty_gds != NULL) {
+                for(uint32_t i = 0; i < (uint32_t)ext2->group_num; i++) {
+                        if(ext2->dirty_gds[i] != 0) {
+                                if(set_gd(ext2, i) != 0)
+                                        return -1;
+                                ext2->dirty_gds[i] = 0;
+                        }
+                }
+        }
+
+        if(ext2->dirty_super != 0) {
+                if(set_super(ext2) != 0)
+                        return -1;
+                ext2->dirty_super = 0;
+        }
+        return 0;
+}
+
+static char* ext2_get_block_bitmap(ext2_t* ext2, uint32_t blk) {
+        if(_cached_block_bitmap == NULL)
+                return NULL;
+        if(_cached_block_bitmap_blk != blk) {
+                if(_cached_block_bitmap_blk != 0 && _cached_block_bitmap_dirty != 0) {
+                        if(ext2->write_block((int32_t)_cached_block_bitmap_blk, _cached_block_bitmap) != 0)
+                                return NULL;
+                        _cached_block_bitmap_dirty = 0;
+                }
+                if(ext2->read_block((int32_t)blk, _cached_block_bitmap) != 0)
+                        return NULL;
+                _cached_block_bitmap_blk = blk;
+        }
+        return _cached_block_bitmap;
+}
+
+static char* ext2_get_inode_bitmap(ext2_t* ext2, uint32_t blk) {
+        if(_cached_inode_bitmap == NULL)
+                return NULL;
+        if(_cached_inode_bitmap_blk != blk) {
+                if(_cached_inode_bitmap_blk != 0 && _cached_inode_bitmap_dirty != 0) {
+                        if(ext2->write_block((int32_t)_cached_inode_bitmap_blk, _cached_inode_bitmap) != 0)
+                                return NULL;
+                        _cached_inode_bitmap_dirty = 0;
+                }
+                if(ext2->read_block((int32_t)blk, _cached_inode_bitmap) != 0)
+                        return NULL;
+                _cached_inode_bitmap_blk = blk;
+        }
+        return _cached_inode_bitmap;
+}
+
+static uint32_t* ext2_get_cached_indirect_block(ext2_t* ext2, uint32_t blk) {
+        if(blk == 0)
+                return NULL;
+
+        if(_cached_indirect_blk != blk) {
+                if(_cached_indirect_blk != 0 && _cached_indirect_dirty != 0) {
+                        if(ext2->write_block((int32_t)_cached_indirect_blk, (char*)_cached_indirect_block) != 0)
+                                return NULL;
+                        _cached_indirect_dirty = 0;
+                }
+                if(ext2->read_block((int32_t)blk, (char*)_cached_indirect_block) != 0)
+                        return NULL;
+                _cached_indirect_blk = blk;
+        }
+        return _cached_indirect_block;
+}
+
 static void inc_free_blocks(ext2_t* ext2, uint32_t block) {
 	int32_t index = get_gd_index_by_block(ext2, block);
 	ext2->gds[index].bg_free_blocks_count++;
-	set_gd(ext2, index);
+        mark_gd_dirty(ext2, (uint32_t)index);
 
 	ext2->super.s_free_blocks_count++;
-	set_super(ext2);
+        ext2->dirty_super = 1;
 }
 
 static void inc_free_inodes(ext2_t* ext2, uint32_t ino) {
 	uint32_t index = get_gd_index_by_ino(ext2, ino);
 	ext2->gds[index].bg_free_inodes_count++;
-	set_gd(ext2, index);
+        mark_gd_dirty(ext2, index);
 
 	ext2->super.s_free_inodes_count++;
-	set_super(ext2);
+        ext2->dirty_super = 1;
 }
 
 static void dec_free_blocks(ext2_t* ext2, uint32_t block) {
 	uint32_t index = get_gd_index_by_block(ext2, block);
 	ext2->gds[index].bg_free_blocks_count--;
-	set_gd(ext2, index);
+        mark_gd_dirty(ext2, index);
 
 	ext2->super.s_free_blocks_count--;
-	set_super(ext2);
+        ext2->dirty_super = 1;
 }
 
 static void dec_free_inodes(ext2_t* ext2, uint32_t ino) {
 	uint32_t index = get_gd_index_by_ino(ext2, ino);
 	ext2->gds[index].bg_free_inodes_count--;
-	set_gd(ext2, index);
+        mark_gd_dirty(ext2, index);
 
 	ext2->super.s_free_inodes_count--;
-	set_super(ext2);
+        ext2->dirty_super = 1;
 }
 
 static int32_t ext2_idealloc(ext2_t* ext2, uint32_t ino) {
-	char buf[EXT2_MAX_BLOCK_SIZE];
 	if (ino > ext2->super.s_inodes_count)
 		return -1;
 
@@ -367,47 +493,50 @@ static int32_t ext2_idealloc(ext2_t* ext2, uint32_t ino) {
 
 	//uint32_t blk = index*ext2->super.s_blocks_per_group + ext2->gds[index].bg_inode_bitmap;
 	uint32_t blk = ext2->gds[index].bg_inode_bitmap;
-	if(ext2->read_block(blk, buf) != 0)
+        char* buf = ext2_get_inode_bitmap(ext2, blk);
+        if(buf == NULL)
 		return -1;
 
 	clr_bit(buf, (int32_t)(ino_g - 1));
-	// write buf back
-	if(ext2->write_block(blk, buf) != 0) // update free inode count in SUPER and GD
-		return -1;
+        _cached_inode_bitmap_dirty = 1;
 	inc_free_inodes(ext2, ino);
 	return 0;
 }
 
 static int32_t ext2_bdealloc(ext2_t* ext2, uint32_t block) {
-	char buf[EXT2_MAX_BLOCK_SIZE];
+        char zero_buf[EXT2_MAX_BLOCK_SIZE];
 	if (block == 0)
 		return -1;
+
+        if(_cached_indirect_blk == block) {
+                _cached_indirect_blk = 0;
+                _cached_indirect_dirty = 0;
+                memset(_cached_indirect_block, 0, sizeof(_cached_indirect_block));
+        }
 
 	uint32_t index = get_gd_index_by_block(ext2, block);
 	uint32_t block_g = get_block_in_group(ext2, block, index);
 
 	//uint32_t blk = index * ext2->super.s_blocks_per_group + ext2->gds[index].bg_block_bitmap;
 	uint32_t blk = ext2->gds[index].bg_block_bitmap;
-	if(ext2->read_block(blk, buf) != 0)
+        char* buf = ext2_get_block_bitmap(ext2, blk);
+        if(buf == NULL)
 		return -1;
 
 	clr_bit(buf, (int32_t)block_g);
-	// write buf back
-	if(ext2->write_block(blk, buf) != 0)
-		return -1;
+        _cached_block_bitmap_dirty = 1;
 	// update free inode count in SUPER and GD
 	inc_free_blocks(ext2, block);
 
 	// Zero out the block content
-	memset(buf, 0, ext2_block_size(ext2));
-	if(ext2->write_block(block, buf) != 0)
+        memset(zero_buf, 0, ext2_block_size(ext2));
+        if(ext2->write_block(block, zero_buf) != 0)
 		return -1;
 
 	return 0;
 }
 
 static uint32_t ext2_ialloc(ext2_t* ext2) {  //alloc a node, inode start with 1 not 0!!
-	char buf[EXT2_MAX_BLOCK_SIZE];
 	uint32_t index = 0;
 	uint32_t i, blk = 0, ino = 0;
 	for (i=0; i < ext2->super.s_inodes_count; i++){
@@ -416,15 +545,15 @@ static uint32_t ext2_ialloc(ext2_t* ext2) {  //alloc a node, inode start with 1 
 			index = get_gd_index_by_ino(ext2, ino);
 			//blk = index*ext2->super.s_inodes_per_group + ext2->gds[index].bg_inode_bitmap;
 			blk = ext2->gds[index].bg_inode_bitmap;
-			if(ext2->read_block(blk, buf) != 0)
+                        if(ext2_get_inode_bitmap(ext2, blk) == NULL)
 				return 0;
 		}
 	
 		uint32_t ino_g = get_ino_in_group(ext2, ino, index);
+                        char* buf = _cached_inode_bitmap;
 		if (tst_bit(buf, ino_g-1) == 0){
 			set_bit(buf, (int32_t)(ino_g - 1));
-			if(ext2->write_block(blk, buf) != 0)
-				return 0;
+                        _cached_inode_bitmap_dirty = 1;
 			// update free inode count in SUPER and GD
 			dec_free_inodes(ext2, ino);
 			return ino;
@@ -434,26 +563,36 @@ static uint32_t ext2_ialloc(ext2_t* ext2) {  //alloc a node, inode start with 1 
 } 
 
 static int32_t ext2_balloc(ext2_t* ext2) { //alloc a block
- 	char buf[EXT2_MAX_BLOCK_SIZE];
 	uint32_t index = 0;
 	uint32_t blk = 0;
 
-	for (uint32_t block = ext2->super.s_first_data_block; block < ext2->super.s_blocks_count; block++) {
-		if(((block - ext2->super.s_first_data_block) % ext2->super.s_blocks_per_group) == 0) {
-			index = get_gd_index_by_block(ext2, block);
-			//blk = index*ext2->super.s_blocks_per_group + ext2->gds[index].bg_block_bitmap;
-			blk = ext2->gds[index].bg_block_bitmap;
-			if(ext2->read_block(blk, buf) != 0)
-				return 0;
-		}
+	uint32_t start = ext2->next_alloc_block;
+	if(start < ext2->super.s_first_data_block || start >= ext2->super.s_blocks_count)
+		start = ext2->super.s_first_data_block;
 
-		uint32_t block_g = get_block_in_group(ext2, block, index);
-		if (tst_bit(buf, (int32_t)block_g) == 0) {
-			set_bit(buf, (int32_t)block_g);
-			if(ext2->write_block(blk, buf) != 0)
-				return 0;
-			dec_free_blocks(ext2, block);
-			return block;
+	for(uint32_t pass = 0; pass < 2; pass++) {
+		uint32_t begin = (pass == 0) ? start : ext2->super.s_first_data_block;
+		uint32_t end = (pass == 0) ? ext2->super.s_blocks_count : start;
+
+		for(uint32_t block = begin; block < end; block++) {
+			if(((block - ext2->super.s_first_data_block) % ext2->super.s_blocks_per_group) == 0) {
+				index = get_gd_index_by_block(ext2, block);
+				blk = ext2->gds[index].bg_block_bitmap;
+                                if(ext2_get_block_bitmap(ext2, blk) == NULL)
+					return 0;
+			}
+
+			uint32_t block_g = get_block_in_group(ext2, block, index);
+                        char* buf = _cached_block_bitmap;
+			if(tst_bit(buf, (int32_t)block_g) == 0) {
+				set_bit(buf, (int32_t)block_g);
+                                _cached_block_bitmap_dirty = 1;
+				dec_free_blocks(ext2, block);
+				ext2->next_alloc_block = block + 1;
+				if(ext2->next_alloc_block >= ext2->super.s_blocks_count)
+					ext2->next_alloc_block = ext2->super.s_first_data_block;
+				return block;
+			}
 		}
 	}
 	return 0;
@@ -748,7 +887,9 @@ int32_t put_node(ext2_t* ext2, uint32_t ino, INODE *node) {
 	if(ext2->read_block(blk, buf) != 0)
 		return -1;
 	memcpy(buf + (offset * inode_size), node, sizeof(INODE));
-	return ext2->write_block(blk, buf);	
+        if(ext2->write_block(blk, buf) != 0)
+                return -1;
+        return ext2_flush_meta(ext2);
 }
 
 int32_t ext2_create_dir(ext2_t* ext2, uint32_t father_ino, INODE* father_inp, const char *name,
@@ -871,36 +1012,47 @@ static int32_t ext2_ensure_data_block(ext2_t* ext2, INODE* node, int32_t lbk, in
 	uint32_t indirect2[EXT2_MAX_BLOCK_SIZE / sizeof(uint32_t)];
 	uint32_t indirect3[EXT2_MAX_BLOCK_SIZE / sizeof(uint32_t)];
 	uint32_t block_size = ext2_block_size(ext2);
+        uint32_t sectors_per_block = block_size / SECTOR_SIZE;
 
 	if(lbk < 12) {
 		if(node->i_block[lbk] == 0) {
 			node->i_block[lbk] = ext2_balloc(ext2);
 			if(node->i_block[lbk] == 0)
 				return -1;
+                        node->i_blocks += sectors_per_block;
 		}
 		*blk = node->i_block[lbk];
 		return 0;
 	}
 
 	if(lbk < (int32_t)(entries_per_block + 12)) {
+		uint32_t* indirect;
 		if(node->i_block[12] == 0) {
 			node->i_block[12] = ext2_balloc(ext2);
 			if(node->i_block[12] == 0)
 				return -1;
-			memset(indirect1, 0, block_size);
-			if(ext2->write_block(node->i_block[12], (char*)indirect1) != 0)
-				return -1;
+                        node->i_blocks += sectors_per_block;
+			if(_cached_indirect_blk != node->i_block[12]) {
+				if(_cached_indirect_blk != 0 && _cached_indirect_dirty != 0) {
+					if(ext2->write_block((int32_t)_cached_indirect_blk, (char*)_cached_indirect_block) != 0)
+						return -1;
+				}
+				_cached_indirect_blk = node->i_block[12];
+				_cached_indirect_dirty = 0;
+			}
+			memset(_cached_indirect_block, 0, block_size);
 		}
-		if(ext2->read_block(node->i_block[12], (char*)indirect1) != 0)
+		indirect = ext2_get_cached_indirect_block(ext2, node->i_block[12]);
+		if(indirect == NULL)
 			return -1;
-		if(indirect1[lbk - 12] == 0) {
-			indirect1[lbk - 12] = ext2_balloc(ext2);
-			if(indirect1[lbk - 12] == 0)
+		if(indirect[lbk - 12] == 0) {
+			indirect[lbk - 12] = ext2_balloc(ext2);
+			if(indirect[lbk - 12] == 0)
 				return -1;
-			if(ext2->write_block(node->i_block[12], (char*)indirect1) != 0)
-				return -1;
+                        node->i_blocks += sectors_per_block;
+			_cached_indirect_dirty = 1;
 		}
-		*blk = (int32_t)indirect1[lbk - 12];
+		*blk = (int32_t)indirect[lbk - 12];
 		return 0;
 	}
 
@@ -913,6 +1065,7 @@ static int32_t ext2_ensure_data_block(ext2_t* ext2, INODE* node, int32_t lbk, in
 			node->i_block[13] = ext2_balloc(ext2);
 			if(node->i_block[13] == 0)
 				return -1;
+                        node->i_blocks += sectors_per_block;
 			memset(indirect1, 0, block_size);
 			if(ext2->write_block(node->i_block[13], (char*)indirect1) != 0)
 				return -1;
@@ -923,6 +1076,7 @@ static int32_t ext2_ensure_data_block(ext2_t* ext2, INODE* node, int32_t lbk, in
 			indirect1[num] = ext2_balloc(ext2);
 			if(indirect1[num] == 0)
 				return -1;
+                        node->i_blocks += sectors_per_block;
 			memset(indirect2, 0, block_size);
 			if(ext2->write_block((int32_t)indirect1[num], (char*)indirect2) != 0)
 				return -1;
@@ -935,6 +1089,7 @@ static int32_t ext2_ensure_data_block(ext2_t* ext2, INODE* node, int32_t lbk, in
 			indirect2[pos] = ext2_balloc(ext2);
 			if(indirect2[pos] == 0)
 				return -1;
+                        node->i_blocks += sectors_per_block;
 			if(ext2->write_block((int32_t)indirect1[num], (char*)indirect2) != 0)
 				return -1;
 		}
@@ -955,6 +1110,7 @@ static int32_t ext2_ensure_data_block(ext2_t* ext2, INODE* node, int32_t lbk, in
 			node->i_block[14] = ext2_balloc(ext2);
 			if(node->i_block[14] == 0)
 				return -1;
+                        node->i_blocks += sectors_per_block;
 			memset(indirect1, 0, block_size);
 			if(ext2->write_block(node->i_block[14], (char*)indirect1) != 0)
 				return -1;
@@ -965,6 +1121,7 @@ static int32_t ext2_ensure_data_block(ext2_t* ext2, INODE* node, int32_t lbk, in
 			indirect1[num1] = ext2_balloc(ext2);
 			if(indirect1[num1] == 0)
 				return -1;
+                        node->i_blocks += sectors_per_block;
 			memset(indirect2, 0, block_size);
 			if(ext2->write_block((int32_t)indirect1[num1], (char*)indirect2) != 0)
 				return -1;
@@ -977,6 +1134,7 @@ static int32_t ext2_ensure_data_block(ext2_t* ext2, INODE* node, int32_t lbk, in
 			indirect2[num2] = ext2_balloc(ext2);
 			if(indirect2[num2] == 0)
 				return -1;
+                        node->i_blocks += sectors_per_block;
 			memset(indirect3, 0, block_size);
 			if(ext2->write_block((int32_t)indirect2[num2], (char*)indirect3) != 0)
 				return -1;
@@ -989,6 +1147,7 @@ static int32_t ext2_ensure_data_block(ext2_t* ext2, INODE* node, int32_t lbk, in
 			indirect3[pos] = ext2_balloc(ext2);
 			if(indirect3[pos] == 0)
 				return -1;
+                        node->i_blocks += sectors_per_block;
 			if(ext2->write_block((int32_t)indirect2[num2], (char*)indirect3) != 0)
 				return -1;
 		}
@@ -1011,36 +1170,74 @@ int32_t ext2_write(ext2_t* ext2, INODE* node, const char *data, int32_t nbytes, 
 		lbk = offset / (int32_t)block_size;
 		start_byte = offset % (int32_t)block_size;
 
-		if(ext2_ensure_data_block(ext2, node, lbk, &blk) != 0)
-			return nbytes_copy;
+		if(start_byte == 0 && nbytes >= (int32_t)block_size) {
+			int32_t max_blocks = nbytes / (int32_t)block_size;
+			int32_t run_blocks = 0;
+			int32_t first_blk = 0;
 
-		if(ext2->read_block(blk, buf) != 0)
-			return nbytes_copy;
-		cp = buf + start_byte;
-		remain = (int32_t)block_size - start_byte;
-		
-		int32_t min = 0;
-		if(nbytes<=remain){
-			min = nbytes;
+			while(run_blocks < max_blocks) {
+				int32_t cur_blk = 0;
+				if(ext2_ensure_data_block(ext2, node, lbk + run_blocks, &cur_blk) != 0)
+					break;
+				if(run_blocks == 0)
+					first_blk = cur_blk;
+				else if(cur_blk != (first_blk + run_blocks))
+					break;
+				run_blocks++;
+			}
+
+			if(run_blocks > 0 && ext2_write_blocks_io(ext2, first_blk, cq, (uint32_t)run_blocks) == 0) {
+				int32_t wrote = run_blocks * (int32_t)block_size;
+				nbytes_copy += wrote;
+				nbytes -= wrote;
+				offset += wrote;
+				cq += wrote;
+				if(offset > (int32_t)node->i_size)
+					node->i_size = offset;
+				continue;
+			}
+
+			if(ext2_ensure_data_block(ext2, node, lbk, &blk) != 0)
+				return nbytes_copy;
+			if(ext2->write_block(blk, (char*)cq) != 0)
+				return nbytes_copy;
+			nbytes_copy += (int32_t)block_size;
+			nbytes -= (int32_t)block_size;
+			offset += (int32_t)block_size;
+			cq += block_size;
+			if(offset > (int32_t)node->i_size)
+				node->i_size = offset;
 		}
-		else{
-			min = remain;
+		else {
+			if(ext2_ensure_data_block(ext2, node, lbk, &blk) != 0)
+				return nbytes_copy;
+			if(ext2->read_block(blk, buf) != 0)
+				return nbytes_copy;
+			cp = buf + start_byte;
+			remain = (int32_t)block_size - start_byte;
+
+			int32_t min = 0;
+			if(nbytes <= remain) {
+				min = nbytes;
+			}
+			else {
+				min = remain;
+			}
+			memcpy(cp, cq, min);
+			nbytes_copy += min;
+			nbytes -= min;
+			remain -= min;
+			offset += min;
+			cq += min;
+			if(offset > (int32_t)node->i_size) {
+				node->i_size = offset;
+			}
+
+			if(ext2->write_block(blk, buf) != 0)
+				return nbytes_copy;
 		}
-		memcpy(cp, cq, min);
-		nbytes_copy += min;
-		nbytes -= min;
-		remain -= min;
-		offset += min;
-		cq += min;
-		if(offset > (int32_t)node->i_size){
-			node->i_size = offset;
-		}
-		
-		if(ext2->write_block(blk, buf) != 0)
-			return nbytes_copy;
 	}
 	if(nbytes_copy > 0) {
-		node->i_blocks = ext2_inode_reserved_sectors(ext2, node);
 		node->i_mtime = now;
 		node->i_ctime = now;
 	}
@@ -1235,6 +1432,8 @@ static int32_t ext2_remove_path(ext2_t* ext2, const char* fname, int32_t want_di
 		return -1;
 	if(ext2_idealloc(ext2, ino) != 0)
 		return -1;
+        if(ext2_flush_meta(ext2) != 0)
+                return -1;
 	return 0;
 }
 
@@ -1290,15 +1489,49 @@ static int32_t get_gds(ext2_t* ext2) {
 }
 
 int32_t ext2_init(ext2_t* ext2, read_block_func_t read_block, write_block_func_t write_block, uint32_t buffer_size) {
-	return ext2_init_ex(ext2, read_block, NULL, write_block, buffer_size);
+	return ext2_init_ex2(ext2, read_block, NULL, write_block, NULL, buffer_size);
 }
 
 int32_t ext2_init_ex(ext2_t* ext2, read_block_func_t read_block, read_blocks_func_t read_blocks, write_block_func_t write_block, uint32_t buffer_size) {
+	return ext2_init_ex2(ext2, read_block, read_blocks, write_block, NULL, buffer_size);
+}
+
+int32_t ext2_init_ex2(ext2_t* ext2, read_block_func_t read_block, read_blocks_func_t read_blocks,
+		write_block_func_t write_block, write_blocks_func_t write_blocks, uint32_t buffer_size) {
 	char buf[EXT2_MAX_BLOCK_SIZE];
 	ext2->read_block = read_block;
 	ext2->read_blocks = read_blocks;
 	ext2->write_block = write_block;
+	ext2->write_blocks = write_blocks;
 	ext2->gds = NULL;
+	ext2->next_alloc_block = 0;
+        ext2->dirty_gds = NULL;
+        ext2->dirty_super = 0;
+        ext2->cached_block_bitmap = NULL;
+	ext2->cached_block_bitmap_blk = 0;
+	ext2->cached_block_bitmap_dirty = 0;
+        ext2->cached_inode_bitmap = NULL;
+	ext2->cached_inode_bitmap_blk = 0;
+	ext2->cached_inode_bitmap_dirty = 0;
+        _cached_block_bitmap_blk = 0;
+        _cached_block_bitmap_dirty = 0;
+        _cached_inode_bitmap_blk = 0;
+        _cached_inode_bitmap_dirty = 0;
+        _cached_indirect_blk = 0;
+        _cached_indirect_dirty = 0;
+        memset(_cached_indirect_block, 0, sizeof(_cached_indirect_block));
+
+        if(_cached_block_bitmap == NULL)
+                _cached_block_bitmap = malloc(EXT2_MAX_BLOCK_SIZE);
+        if(_cached_inode_bitmap == NULL)
+                _cached_inode_bitmap = malloc(EXT2_MAX_BLOCK_SIZE);
+        if(_cached_block_bitmap == NULL || _cached_inode_bitmap == NULL) {
+                free(_cached_block_bitmap);
+                free(_cached_inode_bitmap);
+                _cached_block_bitmap = NULL;
+                _cached_inode_bitmap = NULL;
+                return -1;
+        }
 	sd_set_block_size(EXT2_DEFAULT_BLOCK_SIZE);
 
 	//read super block
@@ -1311,12 +1544,29 @@ int32_t ext2_init_ex(ext2_t* ext2, read_block_func_t read_block, read_blocks_fun
 		return -1;
 	if(get_gds(ext2) != 0)
 		return -1;
+        ext2->dirty_gds = (uint8_t*)calloc((size_t)ext2->group_num, sizeof(uint8_t));
+        if(ext2->dirty_gds == NULL)
+                return -1;
+	ext2->next_alloc_block = ext2->super.s_first_data_block;
 	sd_set_max_sector_index(ext2->super.s_blocks_count * (ext2_block_size(ext2) / SECTOR_SIZE));
 	sd_set_buffer_size(buffer_size);
 	return 0;
 }
 
 void ext2_quit(ext2_t* ext2) {
+        (void)ext2_flush_meta(ext2);
+        free(_cached_block_bitmap);
+        free(_cached_inode_bitmap);
+        _cached_block_bitmap = NULL;
+        _cached_inode_bitmap = NULL;
+        _cached_block_bitmap_blk = 0;
+        _cached_inode_bitmap_blk = 0;
+        _cached_block_bitmap_dirty = 0;
+        _cached_inode_bitmap_dirty = 0;
+        _cached_indirect_blk = 0;
+        _cached_indirect_dirty = 0;
+        memset(_cached_indirect_block, 0, sizeof(_cached_indirect_block));
+        free(ext2->dirty_gds);
 	free(ext2->gds);
 }
 

@@ -114,15 +114,26 @@ typedef struct ext2_dir_entry_2 {
 typedef int32_t (*read_block_func_t)(int32_t block, void* buf);
 typedef int32_t (*read_blocks_func_t)(int32_t block, void* buf, uint32_t count);
 typedef int32_t (*write_block_func_t)(int32_t block, const void* buf);
+typedef int32_t (*write_blocks_func_t)(int32_t block, const void* buf, uint32_t count);
 
 typedef struct {
 	int32_t group_num;
 	SUPER super;
 	GD* gds;
+        uint32_t next_alloc_block;
+        uint8_t* dirty_gds;
+        uint8_t dirty_super;
+        uint32_t cached_block_bitmap_blk;
+        uint8_t cached_block_bitmap_dirty;
+        char* cached_block_bitmap;
+        uint32_t cached_inode_bitmap_blk;
+        uint8_t cached_inode_bitmap_dirty;
+        char* cached_inode_bitmap;
 
 	read_block_func_t read_block;
 	read_blocks_func_t read_blocks;
 	write_block_func_t write_block;
+        write_blocks_func_t write_blocks;
 } ext2_t;
 
 static inline uint32_t ext2_block_size(const ext2_t* ext2) {

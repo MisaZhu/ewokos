@@ -61,7 +61,10 @@ static void run_before_vfs(const char* cmd) {
 		}
 	}
 	else
-		ipc_wait_ready(pid);
+		if(ipc_wait_ready(pid) != 0) {
+			klog("[failed]!\n");
+			return;
+		}
 	klog("[ok]\n");
 }
 

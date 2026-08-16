@@ -16,8 +16,153 @@
 
 #define SD_BUFFER_SIZE (1024*1024*64) //64M buffer size
 
+typedef struct inode_cache {
+	int fd;
+	int pid;
+	ewokos_addr_t node;
+	uint32_t ino;
+	uint8_t dirty;
+	INODE inode;
+	struct inode_cache* next;
+} inode_cache_t;
+
+static inode_cache_t* _inode_cache = NULL;
+
+static void set_fsinfo_stat(node_stat_t* stat, INODE* inode);
+static void set_inode_stat(node_stat_t* stat, INODE* inode);
+
 static int32_t ext2_sd_read_blocks(int32_t block, void* buf, uint32_t count) {
 	return sd_read_blocks(block, buf, count);
+}
+
+static int32_t ext2_sd_write_blocks(int32_t block, const void* buf, uint32_t count) {
+        return sd_write_blocks(block, buf, count);
+}
+
+static inode_cache_t* inode_cache_find(int fd, int pid, ewokos_addr_t node) {
+	inode_cache_t* entry = _inode_cache;
+
+	while(entry != NULL) {
+		if(entry->fd == fd && entry->pid == pid && entry->node == node)
+			return entry;
+		entry = entry->next;
+	}
+	return NULL;
+}
+
+static inode_cache_t* inode_cache_find_by_node(ewokos_addr_t node) {
+	inode_cache_t* entry = _inode_cache;
+
+	while(entry != NULL) {
+		if(entry->node == node)
+			return entry;
+		entry = entry->next;
+	}
+	return NULL;
+}
+
+static inode_cache_t* inode_cache_get(ext2_t* ext2, int fd, int pid, ewokos_addr_t node, uint32_t ino) {
+	inode_cache_t* entry = inode_cache_find(fd, pid, node);
+
+	if(entry != NULL)
+		return entry;
+
+	entry = (inode_cache_t*)calloc(1, sizeof(inode_cache_t));
+	if(entry == NULL)
+		return NULL;
+
+	if(ext2_node_by_ino(ext2, ino, &entry->inode) != 0) {
+		free(entry);
+		return NULL;
+	}
+
+	entry->fd = fd;
+	entry->pid = pid;
+	entry->node = node;
+	entry->ino = ino;
+	entry->next = _inode_cache;
+	_inode_cache = entry;
+	return entry;
+}
+
+static inode_cache_t* inode_cache_seed(int fd, int pid, ewokos_addr_t node, uint32_t ino, const INODE* inode) {
+	inode_cache_t* entry = inode_cache_find(fd, pid, node);
+
+	if(entry == NULL) {
+		entry = (inode_cache_t*)calloc(1, sizeof(inode_cache_t));
+		if(entry == NULL)
+			return NULL;
+		entry->fd = fd;
+		entry->pid = pid;
+		entry->node = node;
+		entry->next = _inode_cache;
+		_inode_cache = entry;
+	}
+
+	entry->ino = ino;
+	memcpy(&entry->inode, inode, sizeof(INODE));
+	entry->dirty = 0;
+	return entry;
+}
+
+static int inode_cache_flush_entry(ext2_t* ext2, inode_cache_t* entry, fsinfo_t* info) {
+	if(entry == NULL)
+		return -1;
+
+	if(entry->dirty != 0) {
+		if(put_node(ext2, entry->ino, &entry->inode) != 0)
+			return -1;
+		entry->dirty = 0;
+	}
+
+	if(info != NULL)
+		set_fsinfo_stat(&info->stat, &entry->inode);
+	return 0;
+}
+
+static int inode_cache_flush(ext2_t* ext2, int fd, int pid, ewokos_addr_t node, fsinfo_t* info) {
+	inode_cache_t* entry = inode_cache_find(fd, pid, node);
+
+	if(entry == NULL)
+		return 0;
+	return inode_cache_flush_entry(ext2, entry, info);
+}
+
+static int inode_cache_sync_node(ext2_t* ext2, ewokos_addr_t node, fsinfo_t* info) {
+	inode_cache_t* entry = inode_cache_find_by_node(node);
+	inode_cache_t* iter;
+
+	if(entry == NULL)
+		return 0;
+
+	set_inode_stat(&info->stat, &entry->inode);
+	entry->dirty = 1;
+	if(inode_cache_flush_entry(ext2, entry, info) != 0)
+		return -1;
+
+	iter = _inode_cache;
+	while(iter != NULL) {
+		if(iter != entry && iter->node == node) {
+			memcpy(&iter->inode, &entry->inode, sizeof(INODE));
+			iter->dirty = 0;
+		}
+		iter = iter->next;
+	}
+	return 0;
+}
+
+static void inode_cache_drop(int fd, int pid, ewokos_addr_t node) {
+	inode_cache_t** pp = &_inode_cache;
+
+	while(*pp != NULL) {
+		inode_cache_t* entry = *pp;
+		if(entry->fd == fd && entry->pid == pid && entry->node == node) {
+			*pp = entry->next;
+			free(entry);
+			return;
+		}
+		pp = &entry->next;
+	}
 }
 
 static uint32_t dir_block_count(ext2_t* ext2, const INODE* inode) {
@@ -177,16 +322,14 @@ static int sdext2_create(vdevice_t* dev, int pid, fsinfo_t* info_to, fsinfo_t* i
 
 static int sdext2_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int oflag, void* p) {
 	(void)dev;
-	(void)fd;
-	(void)from_pid;
 
 	/*
 	 * Path lookup already validated inode existence before VFS asks the
-	 * mounted filesystem to open it. For regular non-truncating opens,
-	 * there is no per-fd state to initialize in ext2, so avoid the extra
-	 * synchronous inode fetch on every exec/script read.
+	 * mounted filesystem to open it. Keep read-only opens lightweight, and
+	 * only seed per-fd inode state for writers/truncates so subsequent
+	 * reads/writes can reuse the cached inode.
 	 */
-	if((oflag & O_TRUNC) == 0) {
+	if((oflag & (O_TRUNC | O_WRONLY | O_RDWR)) == 0) {
 		return 0;
 	}
 
@@ -205,15 +348,22 @@ static int sdext2_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int
 			return -1;
 		set_fsinfo_stat(&info->stat, &inode);
 	}
+	if(FS_IS_TYPE(info->type, FS_TYPE_FILE) &&
+			inode_cache_seed(fd, from_pid, info->node, (uint32_t)ino, &inode) == NULL)
+		return -1;
 	return 0;	
 }
 
 static int sdext2_set(vdevice_t* dev, int from_pid, fsinfo_t* info, void* p) {
 	(void)dev;
+	(void)from_pid;
 	ext2_t* ext2 = (ext2_t*)p;
 	int32_t ino = (int32_t)info->data;
 	if(ino == 0)
 		return -1;
+
+	if(inode_cache_find_by_node(info->node) != NULL)
+		return inode_cache_sync_node(ext2, info->node, info);
 
 	INODE inode;
 	if(ext2_node_by_ino(ext2, ino, &inode) != 0) {
@@ -309,14 +459,16 @@ static fsinfo_t* sdext2_kids(vdevice_t* dev, fsinfo_t* info_dir, uint32_t* num, 
 static int sdext2_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 		void* buf, int size, int offset, void* p) {
 	(void)dev;
-	(void)fd;
 
 	ext2_t* ext2 = (ext2_t*)p;
 	int32_t ino = (int32_t)info->data;
 	if(ino == 0)
 		ino = 2;
 	INODE inode;
-	if(ext2_node_by_ino(ext2, ino, &inode) != 0) {
+	inode_cache_t* entry = inode_cache_find(fd, from_pid, info->node);
+	if(entry != NULL)
+		memcpy(&inode, &entry->inode, sizeof(INODE));
+	else if(ext2_node_by_ino(ext2, ino, &inode) != 0) {
 		return -1;
 	}
 
@@ -335,24 +487,37 @@ static int sdext2_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 static int sdext2_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 		const void* buf, int size, int offset, void* p) {
 	(void)dev;
-	(void)fd;
-	(void)from_pid;
 
 	ext2_t* ext2 = (ext2_t*)p;
 	int32_t ino = (int32_t)info->data;
 	if(ino == 0)
 		return -1;
 
-	INODE inode;
-	if(ext2_node_by_ino(ext2, ino, &inode) != 0) {
+	inode_cache_t* entry = inode_cache_get(ext2, fd, from_pid, info->node, (uint32_t)ino);
+	if(entry == NULL) {
 		return -1;
 	}
-	size = ext2_write(ext2, &inode, buf, size, offset);
+	size = ext2_write(ext2, &entry->inode, buf, size, offset);
 	if(size >= 0) {
-		set_fsinfo_stat(&info->stat, &inode);
-		put_node(ext2, ino, &inode);
+		entry->dirty = 1;
+		set_fsinfo_stat(&info->stat, &entry->inode);
 	}
 	return size;	
+}
+
+static int sdext2_flush(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, void* p) {
+	(void)dev;
+	if(inode_cache_flush((ext2_t*)p, fd, from_pid, info->node, info) != 0)
+		return -1;
+	return bsp_sd_flush();
+}
+
+static int sdext2_close(vdevice_t* dev, int fd, int from_pid, ewokos_addr_t node, fsinfo_t* info, void* p) {
+	(void)dev;
+	if(inode_cache_flush((ext2_t*)p, fd, from_pid, node, info) != 0)
+		return -1;
+	inode_cache_drop(fd, from_pid, node);
+	return bsp_sd_flush();
 }
 
 static int sdext2_unlink(vdevice_t* dev, fsinfo_t* info, const char* fname, void* p) {
@@ -377,7 +542,7 @@ int main(int argc, char** argv) {
 	}
 
 	ext2_t ext2;
-	if(ext2_init_ex(&ext2, sd_read, ext2_sd_read_blocks, sd_write, SD_BUFFER_SIZE) != 0) { //max buffer size 16MB
+        if(ext2_init_ex2(&ext2, sd_read, ext2_sd_read_blocks, sd_write, ext2_sd_write_blocks, SD_BUFFER_SIZE) != 0) { //max buffer size 16MB
 		sd_quit();
 		return -1;
 	}
@@ -390,6 +555,8 @@ int main(int argc, char** argv) {
 	dev.write = sdext2_write;
 	dev.create = sdext2_create;
 	dev.open = sdext2_open;
+        dev.close = sdext2_close;
+        dev.flush = sdext2_flush;
 	dev.set = sdext2_set;
 	dev.get = sdext2_get;
 	dev.kids = sdext2_kids;

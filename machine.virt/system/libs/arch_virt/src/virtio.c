@@ -60,7 +60,9 @@
 
 #define VIRTIO_BLK_T_IN 0
 #define VIRTIO_BLK_T_OUT 1
+#define VIRTIO_BLK_T_FLUSH 4
 #define VIRTIO_BLK_OK 0
+#define VIRTIO_BLK_F_FLUSH 9
 
 #define VIRTIO_INPUT_CFG_ID_NAME 0x01
 
@@ -1213,6 +1215,67 @@ int virtio_blk_transfer(virtio_dev_t dev, uint64_t sector, void *buffer, uint32_
 	}
 
 	return 0;
+}
+
+int virtio_blk_flush(virtio_dev_t dev)
+{
+        uintptr_t base;
+        struct virtq_t *virtq;
+        struct virtio_blk_req *req;
+        uint8_t *status;
+        uint16_t used_before;
+        uint8_t completed = 0;
+
+        if (dev == NULL || dev->virtq == NULL)
+        {
+                return -1;
+        }
+
+        base = dev->base;
+        virtq = dev->virtq;
+        req = (struct virtio_blk_req *)virtq->buf0;
+        status = (uint8_t *)virtq->buf0 + sizeof(struct virtio_blk_req);
+        used_before = virtq->used.idx;
+
+        req->type = VIRTIO_BLK_T_FLUSH;
+        req->reserved = 0;
+        req->sector = 0;
+        *status = 0xFF;
+
+        virtq->desc[0].addr = get_phy_addr(dev, req);
+        virtq->desc[0].len = sizeof(struct virtio_blk_req);
+        virtq->desc[0].flags = VIRTQ_DESC_F_NEXT;
+        virtq->desc[0].next = 1;
+
+        virtq->desc[1].addr = get_phy_addr(dev, status);
+        virtq->desc[1].len = sizeof(uint8_t);
+        virtq->desc[1].flags = VIRTQ_DESC_F_WRITE;
+        virtq->desc[1].next = 0;
+
+        virtq->avail.ring[virtq->avail.idx % VIRTIO_QUEUE_SIZE] = 0;
+        mem_barrier();
+        virtq->avail.idx++;
+        mem_barrier();
+        put32(base + VIRTIO_MMIO_QUEUE_NOTIFY, 0);
+
+        for (uint32_t i = 0; i < VIRTIO_TIMEOUT_LOOPS; i++)
+        {
+                virtio_ack_interrupt(base, 0x1);
+                mem_barrier();
+                if (virtq->used.idx != used_before)
+                {
+                        completed = 1;
+                        break;
+                }
+                proc_usleep(0);
+        }
+
+        memset(&virtq->desc[0], 0, sizeof(struct virtq_desc) * 2);
+        if (!completed || *status != VIRTIO_BLK_OK)
+        {
+                return -1;
+        }
+        return 0;
 }
 
 /*
