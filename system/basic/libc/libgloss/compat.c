@@ -2182,6 +2182,13 @@ int feof(FILE *stream) {
     return stream->eof;
 }
 
+int fileno(FILE *stream) {
+    if (stream == NULL) {
+        return -1;
+    }
+    return stream->fd;
+}
+
 void rewind(FILE *stream) {
     if (stream == NULL) {
         return;

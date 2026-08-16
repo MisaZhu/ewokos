@@ -51,6 +51,7 @@ FILE *fdopen(int fd, const char *mode);
 int fclose(FILE *stream);
 int fseek(FILE *stream, long offset, int whence);
 long ftell(FILE *stream);
+int fileno(FILE *stream);
 char *fgets(char *str, int size, FILE *stream);
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
 size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
