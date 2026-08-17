@@ -15,7 +15,8 @@ $(TASK): $(TASK_OBJS) \
 		$(BUILD_DIR)/lib/libwebsockets.a \
 		$(BUILD_DIR)/lib/libwolfssl.a \
 		$(BUILD_DIR)/lib/libsocket.a \
-		$(BUILD_DIR)/lib/libewoksys.a
+		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libopenlibm.a
 		$(LD) -Ttext=100 $(TASK_OBJS) -o $(TASK) $(LDFLAGS) -lwebsockets -lwolfssl -lopenlibm -lsocket $(EWOK_LIBC)
 
 clean:

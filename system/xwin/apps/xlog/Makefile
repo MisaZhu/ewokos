@@ -24,7 +24,9 @@ $(XLOG): $(XLOG_OBJS) \
 		$(BUILD_DIR)/lib/libwidget++.a \
 		$(BUILD_DIR)/lib/libtinyjson.a \
 		$(BUILD_DIR)/lib/libfont.a \
-		$(BUILD_DIR)/lib/libcxx.a 
+		$(BUILD_DIR)/lib/libgraph.a \
+		$(BUILD_DIR)/lib/libcxx.a \
+		$(BUILD_DIR)/lib/libewokstl.a
 	$(LD) -Ttext=100 $(XLOG_OBJS) -o $(XLOG) $(LDFLAGS)  $(EWOK_LIB_X) -lgterminal -ltextgrid $(EWOK_LIB_GRAPH)  $(EWOK_LIBC) -lcxx
 
 $(XLOG_DIR):

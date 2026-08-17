@@ -12,7 +12,16 @@ TASK = wlayout
 
 all: $(TASK)
 
-$(TASK): $(TASK_OBJS) 
+$(TASK): $(TASK_OBJS) \
+		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libewokstl.a \
+		$(BUILD_DIR)/lib/libx++.a \
+		$(BUILD_DIR)/lib/libx.a \
+		$(BUILD_DIR)/lib/libfont.a \
+		$(BUILD_DIR)/lib/libgraph.a \
+		$(BUILD_DIR)/lib/libwidget++.a \
+		$(BUILD_DIR)/lib/libopenlibm.a \
+		$(BUILD_DIR)/lib/libcxx.a
 	mkdir -p $(TARGET_DIR)
 	$(LD) -Ttext=100 $(TASK_OBJS) -o $(TARGET_DIR)/$(TASK) $(LDFLAGS) $(EWOK_LIB_X) $(EWOK_LIB_GRAPH) -lopenlibm $(EWOK_LIBC) -lcxx
 

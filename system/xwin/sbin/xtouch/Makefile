@@ -15,7 +15,9 @@ XMOUSED = $(TARGET_DIR)/sbin/x/xtouch
 $(XMOUSED): $(XMOUSED_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a  \
 		$(BUILD_DIR)/lib/libgraph.a \
-		$(BUILD_DIR)/lib/libx.a
+		$(BUILD_DIR)/lib/libx.a \
+		$(BUILD_DIR)/lib/libtinyjson.a \
+		$(BUILD_DIR)/lib/libbsp.a
 	$(LD) -Ttext=100 $(XMOUSED_OBJS) -o $(XMOUSED) $(LDFLAGS) -lx -ltinyjson -lgraph  $(BSP_LFLAGS) $(EWOK_LIBC)
 
 clean:

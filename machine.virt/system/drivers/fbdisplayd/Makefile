@@ -18,7 +18,12 @@ $(FBDISPLAYD): $(FBDISPLAYD_OBJS) \
 		$(BUILD_DIR)/lib/libpng.a \
 		$(BUILD_DIR)/lib/libtinyjson.a \
 		$(BUILD_DIR)/lib/libdisplayd.a \
-		$(BUILD_DIR)/lib/libarch_virt.a
+		$(BUILD_DIR)/lib/libarch_virt.a \
+		$(BUILD_DIR)/lib/libdisplay.a \
+		$(BUILD_DIR)/lib/libfont.a \
+		$(BUILD_DIR)/lib/libdisplayman.a \
+		$(BUILD_DIR)/lib/libgterminal.a \
+		$(BUILD_DIR)/lib/libtextgrid.a
 	$(LD) -Ttext=100 $(FBDISPLAYD_OBJS) -o $(FBDISPLAYD) $(LDFLAGS) -lgterminal -ltextgrid -ldisplayd -ltinyjson $(EWOK_LIB_GRAPH) $(EWOK_LIBC)
 
 clean:

@@ -13,7 +13,13 @@ LOAD_FONT_OBJS = $(ARCH)/load_font.o
 LOAD_FONT = $(TARGET_DIR)/bin/load_font
 
 
-$(LOAD_FONT): $(LOAD_FONT_OBJS) $(BUILD_DIR)/lib/libewoksys.a
+$(LOAD_FONT): $(LOAD_FONT_OBJS) $(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libdisplay.a \
+		$(BUILD_DIR)/lib/libgraph.a \
+		$(BUILD_DIR)/lib/libfont.a \
+		$(BUILD_DIR)/lib/libdisplayman.a \
+		$(BUILD_DIR)/lib/libtinyjson.a \
+		$(BUILD_DIR)/lib/libbsp.a
 	$(LD) -Ttext=100 $(LOAD_FONT_OBJS) -o $(LOAD_FONT) $(LDFLAGS) -ltinyjson $(EWOK_LIB_GRAPH) $(BSP_LFLAGS) $(EWOK_LIBC)
 
 clean:

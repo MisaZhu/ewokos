@@ -15,7 +15,8 @@ VIRTFSD = $(TARGET_DIR)/drivers/virt/virtfsd
 $(VIRTFSD): $(VIRTFSD_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a  \
 		$(BUILD_DIR)/lib/libsd.a \
-		$(BUILD_DIR)/lib/libarch_virt.a 
+		$(BUILD_DIR)/lib/libarch_virt.a \
+		$(BUILD_DIR)/lib/libbsp.a
 	$(LD) -Ttext=100 $(VIRTFSD_OBJS) -o $(VIRTFSD) $(LDFLAGS) -larch_virt $(BSP_LFLAGS) $(EWOK_LIBC) 
 
 clean:

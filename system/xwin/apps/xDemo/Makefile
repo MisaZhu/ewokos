@@ -19,7 +19,10 @@ $(TASK): $(TASK_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a  \
 		$(BUILD_DIR)/lib/libx.a \
 		$(BUILD_DIR)/lib/libgraph.a \
-		$(BUILD_DIR)/lib/libfont.a
+		$(BUILD_DIR)/lib/libfont.a \
+		$(BUILD_DIR)/lib/libewokstl.a \
+		$(BUILD_DIR)/lib/libx++.a \
+		$(BUILD_DIR)/lib/libwidget++.a
 	$(LD) -Ttext=100 $(TASK_OBJS) -o $(TASK) $(LDFLAGS) $(EWOK_LIB_X) $(EWOK_LIB_GRAPH) $(EWOK_LIBC)
 
 $(TASK_DIR):

@@ -13,7 +13,9 @@ SCP = $(TARGET_DIR)/bin/scp
 
 $(SCP): $(SCP_OBJS) \
                 $(BUILD_DIR)/lib/libewoksys.a \
-                $(BUILD_DIR)/lib/libwolfssl.a
+                $(BUILD_DIR)/lib/libwolfssl.a \
+                $(BUILD_DIR)/lib/libsocket.a \
+                $(BUILD_DIR)/lib/libopenlibm.a
 	$(LD) -Ttext=100 $(SCP_OBJS) -o $(SCP) $(LDFLAGS) -lsocket -lopenlibm $(EWOK_LIBC)
 
 $(ARCH)/ssh_support.o: ../ssh/ssh.c ../ssh/ssh.h

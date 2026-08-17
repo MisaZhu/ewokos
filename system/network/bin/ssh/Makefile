@@ -12,7 +12,9 @@ TASK_OBJS = $(ARCH)/main.o $(ARCH)/ssh.o
 TASK = $(TARGET_DIR)/bin/ssh
 
 $(TASK): $(TASK_OBJS) $(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libwolfssl.a
+		$(BUILD_DIR)/lib/libwolfssl.a \
+		$(BUILD_DIR)/lib/libsocket.a \
+		$(BUILD_DIR)/lib/libopenlibm.a
 	$(LD) -Ttext=100 $(TASK_OBJS) -o $(TASK) $(LDFLAGS) -lsocket -lopenlibm $(EWOK_LIBC)
 
 clean:

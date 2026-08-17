@@ -17,7 +17,8 @@ all: $(TASK) $(SFTP_SERVER)
 
 $(TASK): $(TASK_OBJS) $(BUILD_DIR)/lib/libewoksys.a \
 		$(BUILD_DIR)/lib/libsocket.a \
-		$(BUILD_DIR)/lib/libwolfssl.a
+		$(BUILD_DIR)/lib/libwolfssl.a \
+		$(BUILD_DIR)/lib/libopenlibm.a
 	$(LD) -Ttext=100 $(TASK_OBJS) -o $(TASK) $(LDFLAGS) -lsocket -lopenlibm $(EWOK_LIBC)
 
 $(SFTP_SERVER): $(SFTP_SERVER_OBJS) $(BUILD_DIR)/lib/libewoksys.a

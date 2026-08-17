@@ -16,7 +16,8 @@ $(FONTD): $(FONTD_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a  \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libfreetype.a \
-		$(BUILD_DIR)/lib/libtinyjson.a
+		$(BUILD_DIR)/lib/libtinyjson.a \
+		$(BUILD_DIR)/lib/libbsp.a
 	$(LD) -Ttext=100 $(FONTD_OBJS) -o $(FONTD) $(LDFLAGS)  -lfreetype -lgraph  $(BSP_LFLAGS) -ltinyjson $(EWOK_LIBC)
 
 clean:

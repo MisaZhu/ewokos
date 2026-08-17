@@ -14,7 +14,8 @@ SND = $(TARGET_DIR)/drivers/virt/snd
 
 $(SND): $(SND_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a \
-		$(BUILD_DIR)/lib/libarch_virt.a
+		$(BUILD_DIR)/lib/libarch_virt.a \
+		$(BUILD_DIR)/lib/libbsp.a
 	$(LD) -Ttext=100 $(SND_OBJS) -o $(SND) $(LDFLAGS) $(BSP_LFLAGS) $(EWOK_LIBC)
 
 clean:

@@ -16,7 +16,8 @@ all: $(TASK)
 
 $(TASK): $(TASK_OBJS)  \
 		$(SYS_DIR)/build/$(HW)/lib/libvorbis.a \
-		$(SYS_DIR)/build/$(HW)/lib/libogg.a
+		$(SYS_DIR)/build/$(HW)/lib/libogg.a \
+		$(SYS_DIR)/build/$(HW)/lib/libewoksys.a
 	mkdir -p $(BUILD_DIR)
 	$(LD) -Ttext=100 $(TASK_OBJS) -o $(BUILD_DIR)/$(TASK) $(LDFLAGS) -lvorbis -logg -lm $(EWOK_LIBC)
 

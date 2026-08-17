@@ -13,7 +13,8 @@ HTTPD_OBJS = $(ARCH)/httpd.o
 HTTPD = $(TARGET_DIR)/sbin/httpd
 
 $(HTTPD): $(HTTPD_OBJS) \
-		$(BUILD_DIR)/lib/libewoksys.a 
+		$(BUILD_DIR)/lib/libewoksys.a \
+		$(BUILD_DIR)/lib/libsocket.a
 	$(LD) -Ttext=100 $(HTTPD_OBJS) -o $(HTTPD) $(LDFLAGS)    -lsocket  $(EWOK_LIBC)
 
 clean:
