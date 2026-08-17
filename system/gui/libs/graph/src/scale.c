@@ -1,4 +1,5 @@
 #include <graph/graph.h>
+#include <graph/graph_arch.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -14,156 +15,177 @@ extern "C" {
 #define FIXED_SCALE (1 << FIXED_SHIFT)
 #define FIXED_MASK (FIXED_SCALE - 1)
 
-static inline uint32_t bilinear_interp_u8(uint32_t p00, uint32_t p01, uint32_t p10, uint32_t p11,
-                                          uint32_t fx, uint32_t fy) {
-    uint32_t one_minus_fx = FIXED_SCALE - fx;
-    uint32_t one_minus_fy = FIXED_SCALE - fy;
-
-    uint32_t r00 = (p00 >> 16) & 0xFF;
-    uint32_t g00 = (p00 >> 8) & 0xFF;
-    uint32_t b00 = p00 & 0xFF;
-    uint32_t a00 = (p00 >> 24) & 0xFF;
-
-    uint32_t r01 = (p01 >> 16) & 0xFF;
-    uint32_t g01 = (p01 >> 8) & 0xFF;
-    uint32_t b01 = p01 & 0xFF;
-    uint32_t a01 = (p01 >> 24) & 0xFF;
-
-    uint32_t r10 = (p10 >> 16) & 0xFF;
-    uint32_t g10 = (p10 >> 8) & 0xFF;
-    uint32_t b10 = p10 & 0xFF;
-    uint32_t a10 = (p10 >> 24) & 0xFF;
-
-    uint32_t r11 = (p11 >> 16) & 0xFF;
-    uint32_t g11 = (p11 >> 8) & 0xFF;
-    uint32_t b11 = p11 & 0xFF;
-    uint32_t a11 = (p11 >> 24) & 0xFF;
-
-    uint64_t tmp_r = (uint64_t)one_minus_fx * one_minus_fy * r00 +
-                     (uint64_t)fx * one_minus_fy * r01 +
-                     (uint64_t)one_minus_fx * fy * r10 +
-                     (uint64_t)fx * fy * r11;
-    uint64_t tmp_g = (uint64_t)one_minus_fx * one_minus_fy * g00 +
-                     (uint64_t)fx * one_minus_fy * g01 +
-                     (uint64_t)one_minus_fx * fy * g10 +
-                     (uint64_t)fx * fy * g11;
-    uint64_t tmp_b = (uint64_t)one_minus_fx * one_minus_fy * b00 +
-                     (uint64_t)fx * one_minus_fy * b01 +
-                     (uint64_t)one_minus_fx * fy * b10 +
-                     (uint64_t)fx * fy * b11;
-    uint64_t tmp_a = (uint64_t)one_minus_fx * one_minus_fy * a00 +
-                     (uint64_t)fx * one_minus_fy * a01 +
-                     (uint64_t)one_minus_fx * fy * a10 +
-                     (uint64_t)fx * fy * a11;
-
-    uint32_t r = tmp_r >> (2 * FIXED_SHIFT);
-    uint32_t g = tmp_g >> (2 * FIXED_SHIFT);
-    uint32_t b = tmp_b >> (2 * FIXED_SHIFT);
-    uint32_t a = tmp_a >> (2 * FIXED_SHIFT);
-
-    return (a << 24) | (r << 16) | (g << 8) | b;
+/* Interpolate two packed channels (bytes 0 and 2 of a 32-bit word) with an
+   8-bit weight: w0 + w1 = 256 keeps each 16-bit lane carry-free, since the
+   per-lane sum is at most 255*256 = 0xFF00 */
+static inline uint32_t scale_lerp_rb(uint32_t a, uint32_t b, uint32_t w1) {
+    uint32_t w0 = 256 - w1;
+    return ((((a & 0x00FF00FF) * w0 + (b & 0x00FF00FF) * w1) >> 8) & 0x00FF00FF);
 }
 
-void graph_scale_tof_cpu(graph_t* g, graph_t* dst, float scale) {
-    if(scale <= 0.0 ||
-            dst->w < (int)(g->w*scale) ||
-            dst->h < (int)(g->h*scale))
-        return;
+static inline uint32_t scale_lerp_ga(uint32_t a, uint32_t b, uint32_t w1) {
+    uint32_t w0 = 256 - w1;
+    return ((((((a >> 8) & 0x00FF00FF) * w0 + ((b >> 8) & 0x00FF00FF) * w1) >> 8)
+            & 0x00FF00FF) << 8);
+}
+
+/* Bilinear with pre-quantized 8-bit fractional weights (0..256):
+   two-pass lerp over channel pairs, 8x32-bit multiplies total */
+static inline uint32_t bilinear_interp_w8(uint32_t p00, uint32_t p01, uint32_t p10, uint32_t p11,
+                                          uint32_t fx8, uint32_t fy8) {
+    uint32_t top_rb = scale_lerp_rb(p00, p01, fx8);
+    uint32_t top_ga = scale_lerp_ga(p00, p01, fx8);
+    uint32_t bot_rb = scale_lerp_rb(p10, p11, fx8);
+    uint32_t bot_ga = scale_lerp_ga(p10, p11, fx8);
+    return scale_lerp_rb(top_rb, bot_rb, fy8) | scale_lerp_ga(top_ga, bot_ga, fy8);
+}
+
+static inline uint32_t bilinear_interp_u8(uint32_t p00, uint32_t p01, uint32_t p10, uint32_t p11,
+                                          uint32_t fx, uint32_t fy) {
+    /* Quantize 16-bit fractions to rounded 8-bit weights (max +/-1 LSB),
+       replacing 16x64-bit multiplies and per-channel unpacking */
+    return bilinear_interp_w8(p00, p01, p10, p11, (fx + 128) >> 8, (fy + 128) >> 8);
+}
+
+/**
+ * @brief Uniform image scaling, fixed-point bilinear. scale is converted to
+ *        16.16 fixed point once at entry; no float in the loops.
+ *        Column mapping is row-independent and precomputed once, with 8-bit
+ *        quantized weights, so the inner loop is pure loads + packed lerps.
+ * @param g source image
+ * @param dst output image, w/h must be pre-set to round(g->w*scale), round(g->h*scale)
+ * @param scale scaling factor
+ */
+void graph_scale_tof_cpu(graph_t* g, graph_t* dst, float scale)
+{
+    if(!g || !dst || !g->buffer || !dst->buffer) return;
+    if(scale <= 0.0f) return;
 
     int src_w = g->w;
     int src_h = g->h;
     int dst_w = dst->w;
     int dst_h = dst->h;
-    int is_downscale = (scale < 1.0f);
 
-    if (!is_downscale) {
-        int hmax = g->h - 1;
-        int wmax = g->w - 1;
-        uint32_t inv_scale = (uint32_t)((1.0f / scale) * FIXED_SCALE);
+    if(src_w <= 0 || src_h <= 0 || dst_w <= 0 || dst_h <= 0) return;
 
-        for(int i = 0; i < dst_h; i++) {
-            uint32_t gi = (i * inv_scale) >> FIXED_SHIFT;
-            int gi0 = (int)gi;
-            uint32_t gi_frac = (i * inv_scale) & FIXED_MASK;
-            int gi1 = gi0 + 1;
+    uint32_t inv_scale_f = (uint32_t)(FIXED_SCALE / scale);
 
-            if(gi0 < 0) { gi0 = 0; gi1 = 0; gi_frac = 0; }
-            else if(gi0 >= hmax) { gi0 = hmax; gi1 = hmax; gi_frac = 0; }
-            if(gi1 > hmax) gi1 = hmax;
+    uint32_t *src_buf = g->buffer;
+    uint32_t *out_buf = dst->buffer;
 
-            int gi0w = gi0 * g->w;
-            int gi1w = gi1 * g->w;
+    int src_wmax = src_w - 1;
+    int src_hmax = src_h - 1;
 
-            for(int j = 0; j < dst_w; j++) {
-                uint32_t gj = (j * inv_scale) >> FIXED_SHIFT;
-                int gj0 = (int)gj;
-                uint32_t gj_frac = (j * inv_scale) & FIXED_MASK;
-                int gj1 = gj0 + 1;
+    /* 1:1 fast path: exact copy */
+    if(inv_scale_f == FIXED_SCALE && dst_w == src_w && dst_h == src_h) {
+        memcpy(out_buf, src_buf, (size_t)src_w * (size_t)src_h * sizeof(uint32_t));
+        return;
+    }
 
-                if(gj0 < 0) { gj0 = 0; gj1 = 0; gj_frac = 0; }
-                else if(gj0 >= wmax) { gj0 = wmax; gj1 = wmax; gj_frac = 0; }
-                if(gj1 > wmax) gj1 = wmax;
+    /* Column mapping depends only on ox: precompute once for all rows */
+    int *x0 = (int*)malloc((size_t)dst_w * sizeof(int));
+    int *x1 = (int*)malloc((size_t)dst_w * sizeof(int));
+    uint16_t *fx8_arr = (uint16_t*)malloc((size_t)dst_w * sizeof(uint16_t));
 
-                uint32_t p00 = g->buffer[gi0w + gj0];
-                uint32_t p01 = g->buffer[gi0w + gj1];
-                uint32_t p10 = g->buffer[gi1w + gj0];
-                uint32_t p11 = g->buffer[gi1w + gj1];
+    if(x0 != NULL && x1 != NULL && fx8_arr != NULL) {
+        uint32_t sx_f = 0;
+        for(int ox = 0; ox < dst_w; ox++) {
+            int cx0 = (int)(sx_f >> FIXED_SHIFT);
+            uint32_t fx = sx_f & FIXED_MASK;
+
+            if(cx0 >= src_wmax) { cx0 = src_wmax; fx = 0; }
+            x0[ox] = cx0;
+            x1[ox] = (cx0 < src_wmax) ? cx0 + 1 : src_wmax;
+            fx8_arr[ox] = (uint16_t)((fx + 128) >> 8); /* 0..256, rounded */
+            sx_f += inv_scale_f;
+        }
+
+        uint32_t sy_f = 0;
+        for(int oy = 0; oy < dst_h; oy++) {
+            int y0 = (int)(sy_f >> FIXED_SHIFT);
+            uint32_t fy = sy_f & FIXED_MASK;
+
+            if(y0 >= src_hmax) { y0 = src_hmax; fy = 0; }
+            int y1 = (y0 < src_hmax) ? y0 + 1 : src_hmax;
+            uint32_t fy8 = (fy + 128) >> 8;
+
+            const uint32_t *row0 = src_buf + y0 * src_w;
+            const uint32_t *row1 = src_buf + y1 * src_w;
+            uint32_t *drow = out_buf + oy * dst_w;
+
+            for(int ox = 0; ox < dst_w; ox++) {
+                int cx0 = x0[ox];
+                int cx1 = x1[ox];
+
+                uint32_t p00 = row0[cx0];
+                uint32_t p01 = row0[cx1];
+                uint32_t p10 = row1[cx0];
+                uint32_t p11 = row1[cx1];
 
                 if(p00 == p01 && p00 == p10 && p00 == p11) {
-                    dst->buffer[i * dst_w + j] = p00;
+                    drow[ox] = p00;
                     continue;
                 }
 
-                dst->buffer[i * dst_w + j] = bilinear_interp_u8(p00, p01, p10, p11, gj_frac, gi_frac);
+                drow[ox] = bilinear_interp_w8(p00, p01, p10, p11, fx8_arr[ox], fy8);
             }
+
+            sy_f += inv_scale_f;
         }
-    } else {
-        float src_scale = 1.0f / scale;
-        for(int i = 0; i < dst_h; i++) {
-            float src_start_y = i * src_scale;
-            float src_end_y = (i + 1) * src_scale;
-            int src_y_start = (int)src_start_y;
-            int src_y_end = (int)src_end_y;
-            if (src_y_start < 0) src_y_start = 0;
-            if (src_y_end >= src_h) src_y_end = src_h - 1;
 
-            for(int j = 0; j < dst_w; j++) {
-                float src_start_x = j * src_scale;
-                float src_end_x = (j + 1) * src_scale;
-                int src_x_start = (int)src_start_x;
-                int src_x_end = (int)src_end_x;
-                if (src_x_start < 0) src_x_start = 0;
-                if (src_x_end >= src_w) src_x_end = src_w - 1;
+        free(x0);
+        free(x1);
+        free(fx8_arr);
+        return;
+    }
 
-                uint64_t sum_r = 0, sum_g = 0, sum_b = 0, sum_a = 0;
-                uint32_t count = 0;
+    free(x0);
+    free(x1);
+    free(fx8_arr);
 
-                for (int sy = src_y_start; sy <= src_y_end; sy++) {
-                    int row_offset = sy * src_w;
-                    for (int sx = src_x_start; sx <= src_x_end; sx++) {
-                        uint32_t p = g->buffer[row_offset + sx];
-                        sum_r += (p >> 16) & 0xFF;
-                        sum_g += (p >> 8) & 0xFF;
-                        sum_b += p & 0xFF;
-                        sum_a += (p >> 24) & 0xFF;
-                        count++;
-                    }
-                }
+    /* Fallback: incremental fixed-point stepping, no per-pixel multiply */
+    for(int oy = 0; oy < dst_h; oy++)
+    {
+        // sy_f = oy * (1/scale), source Y coordinate in fixed point
+        uint32_t sy_f = (uint32_t)oy * inv_scale_f;
+        int y0 = (int)(sy_f >> FIXED_SHIFT);
+        uint32_t fy = sy_f & FIXED_MASK;
 
-                if (count > 0) {
-                    uint32_t r = sum_r / count;
-                    uint32_t g = sum_g / count;
-                    uint32_t b = sum_b / count;
-                    uint32_t a = sum_a / count;
-                    dst->buffer[i * dst_w + j] = (a << 24) | (r << 16) | (g << 8) | b;
-                }
+        if(y0 >= src_hmax) { y0 = src_hmax; fy = 0; }
+        int y1 = (y0 < src_hmax) ? y0 + 1 : src_hmax;
+
+        const uint32_t *row0 = src_buf + y0 * src_w;
+        const uint32_t *row1 = src_buf + y1 * src_w;
+        uint32_t *drow = out_buf + oy * dst_w;
+
+        uint32_t sx_f = 0;
+        for(int ox = 0; ox < dst_w; ox++)
+        {
+            int x0 = (int)(sx_f >> FIXED_SHIFT);
+            uint32_t fx = sx_f & FIXED_MASK;
+
+            if(x0 >= src_wmax) { x0 = src_wmax; fx = 0; }
+            int x1 = (x0 < src_wmax) ? x0 + 1 : src_wmax;
+
+            uint32_t p00 = row0[x0];
+            uint32_t p01 = row0[x1];
+            uint32_t p10 = row1[x0];
+            uint32_t p11 = row1[x1];
+
+            if(p00 == p01 && p00 == p10 && p00 == p11) {
+                drow[ox] = p00;
+            } else {
+                drow[ox] = bilinear_interp_u8(p00, p01, p10, p11, fx, fy);
             }
+
+            sx_f += inv_scale_f;
         }
     }
 }
 
 inline void graph_scale_tof(graph_t* g, graph_t* dst, float scale) {
 #if ARCH_BOOST
+    //graph_scale_tof_cpu(g, dst, scale);
     graph_scale_tof_arch(g, dst, scale);
 #else
     graph_scale_tof_cpu(g, dst, scale);
@@ -172,6 +194,7 @@ inline void graph_scale_tof(graph_t* g, graph_t* dst, float scale) {
 
 inline void graph_scale_tof_fast(graph_t* g, graph_t* dst, float scale) {
 #if ARCH_BOOST
+    //graph_scale_tof_cpu(g, dst, scale);
     graph_scale_tof_fast_arch(g, dst, scale);
 #else
     graph_scale_tof_cpu(g, dst, scale);

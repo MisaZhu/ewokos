@@ -1091,54 +1091,47 @@ enum {
     GRAPH_SCALE_FIXED_MASK = GRAPH_SCALE_FIXED_SCALE - 1
 };
 
+/* interpolate the packed (byte 0, byte 2) channels with an 8-bit weight;
+   w0+w1 = 256 keeps each 16-bit lane carry-free (255*256 = 0xFF00) */
+static inline uint32_t graph_scale_lerp_rb_bsp(uint32_t a, uint32_t b, uint32_t w1) {
+    uint32_t w0 = 256 - w1;
+    return ((((a & 0x00FF00FF) * w0 + (b & 0x00FF00FF) * w1) >> 8) & 0x00FF00FF);
+}
+
+static inline uint32_t graph_scale_lerp_ga_bsp(uint32_t a, uint32_t b, uint32_t w1) {
+    uint32_t w0 = 256 - w1;
+    return ((((((a >> 8) & 0x00FF00FF) * w0 + ((b >> 8) & 0x00FF00FF) * w1) >> 8)
+            & 0x00FF00FF) << 8);
+}
+
+/* same, with +128 rounding per lane to match the NEON vmla/rnd paths
+   bit-exactly (per-lane max is 255*256 + 128 = 0xFF80, still carry-free) */
+static inline uint32_t graph_scale_lerp_rb_bsp_r(uint32_t a, uint32_t b, uint32_t w1) {
+    uint32_t w0 = 256 - w1;
+    return ((((a & 0x00FF00FF) * w0 + (b & 0x00FF00FF) * w1 + 0x00800080u) >> 8)
+            & 0x00FF00FF);
+}
+
+static inline uint32_t graph_scale_lerp_ga_bsp_r(uint32_t a, uint32_t b, uint32_t w1) {
+    uint32_t w0 = 256 - w1;
+    return ((((((a >> 8) & 0x00FF00FF) * w0 + ((b >> 8) & 0x00FF00FF) * w1 + 0x00800080u) >> 8)
+            & 0x00FF00FF) << 8);
+}
+
 static inline uint32_t graph_scale_bilinear_interp_bsp(uint32_t p00, uint32_t p01, uint32_t p10, uint32_t p11,
         uint32_t fx, uint32_t fy) {
-    uint32_t one_minus_fx = GRAPH_SCALE_FIXED_SCALE - fx;
-    uint32_t one_minus_fy = GRAPH_SCALE_FIXED_SCALE - fy;
+    /* quantize 16.16 fractions to 8-bit rounded weights, matching the NEON
+       path precision; 8x32-bit multiplies instead of 16x64-bit */
+    uint32_t fx8 = (fx + 128) >> 8;
+    uint32_t fy8 = (fy + 128) >> 8;
 
-    uint32_t r00 = (p00 >> 16) & 0xFF;
-    uint32_t g00 = (p00 >> 8) & 0xFF;
-    uint32_t b00 = p00 & 0xFF;
-    uint32_t a00 = (p00 >> 24) & 0xFF;
+    uint32_t top_rb = graph_scale_lerp_rb_bsp(p00, p01, fx8);
+    uint32_t top_ga = graph_scale_lerp_ga_bsp(p00, p01, fx8);
+    uint32_t bot_rb = graph_scale_lerp_rb_bsp(p10, p11, fx8);
+    uint32_t bot_ga = graph_scale_lerp_ga_bsp(p10, p11, fx8);
 
-    uint32_t r01 = (p01 >> 16) & 0xFF;
-    uint32_t g01 = (p01 >> 8) & 0xFF;
-    uint32_t b01 = p01 & 0xFF;
-    uint32_t a01 = (p01 >> 24) & 0xFF;
-
-    uint32_t r10 = (p10 >> 16) & 0xFF;
-    uint32_t g10 = (p10 >> 8) & 0xFF;
-    uint32_t b10 = p10 & 0xFF;
-    uint32_t a10 = (p10 >> 24) & 0xFF;
-
-    uint32_t r11 = (p11 >> 16) & 0xFF;
-    uint32_t g11 = (p11 >> 8) & 0xFF;
-    uint32_t b11 = p11 & 0xFF;
-    uint32_t a11 = (p11 >> 24) & 0xFF;
-
-    uint64_t tmp_r = (uint64_t)one_minus_fx * one_minus_fy * r00 +
-                     (uint64_t)fx * one_minus_fy * r01 +
-                     (uint64_t)one_minus_fx * fy * r10 +
-                     (uint64_t)fx * fy * r11;
-    uint64_t tmp_g = (uint64_t)one_minus_fx * one_minus_fy * g00 +
-                     (uint64_t)fx * one_minus_fy * g01 +
-                     (uint64_t)one_minus_fx * fy * g10 +
-                     (uint64_t)fx * fy * g11;
-    uint64_t tmp_b = (uint64_t)one_minus_fx * one_minus_fy * b00 +
-                     (uint64_t)fx * one_minus_fy * b01 +
-                     (uint64_t)one_minus_fx * fy * b10 +
-                     (uint64_t)fx * fy * b11;
-    uint64_t tmp_a = (uint64_t)one_minus_fx * one_minus_fy * a00 +
-                     (uint64_t)fx * one_minus_fy * a01 +
-                     (uint64_t)one_minus_fx * fy * a10 +
-                     (uint64_t)fx * fy * a11;
-
-    uint32_t r = (uint32_t)(tmp_r >> (2 * GRAPH_SCALE_FIXED_SHIFT));
-    uint32_t g = (uint32_t)(tmp_g >> (2 * GRAPH_SCALE_FIXED_SHIFT));
-    uint32_t b = (uint32_t)(tmp_b >> (2 * GRAPH_SCALE_FIXED_SHIFT));
-    uint32_t a = (uint32_t)(tmp_a >> (2 * GRAPH_SCALE_FIXED_SHIFT));
-
-    return (a << 24) | (r << 16) | (g << 8) | b;
+    return graph_scale_lerp_rb_bsp(top_rb, bot_rb, fy8) |
+           graph_scale_lerp_ga_bsp(top_ga, bot_ga, fy8);
 }
 
 static void graph_scale_prepare_axis_bsp(int dst_len, int src_max, uint32_t inv_scale,
@@ -1233,6 +1226,139 @@ static int graph_scale_integer_downsample_bsp(graph_t* g, graph_t* dst, uint32_t
     return 1;
 }
 
+/* Separable two-pass upscale for scale >= 1 (inv_scale <= FIXED_SCALE):
+   each source row feeds ~scale destination rows, so the horizontal lerp is
+   computed once per source row into a 2-slot row cache (gi0 advances <= 1
+   per destination row), and the vertical pass becomes a contiguous scan.
+   All scratch comes from a single malloc. Returns 0 on malloc failure so
+   the caller falls back to the gather path. */
+static int graph_scale_separable_upscale_bsp(graph_t* g, graph_t* dst, uint32_t inv_scale) {
+    int src_w = g->w;
+    int dst_w = dst->w;
+    int dst_h = dst->h;
+    int hmax = g->h - 1;
+    int wmax = src_w - 1;
+
+    size_t cols = (size_t)dst_w;
+    size_t fx8_bytes = (cols * sizeof(uint16_t) + 3u) & ~(size_t)3u; /* keep u32 rows aligned */
+    uint8_t *mem = (uint8_t*)malloc(cols * 2 * sizeof(int) + fx8_bytes +
+                                    2 * cols * sizeof(uint32_t));
+    if(mem == NULL)
+        return 0;
+
+    int *x0 = (int*)mem;
+    int *x1 = x0 + cols;
+    uint16_t *fx8 = (uint16_t*)(x1 + cols);
+    uint32_t *hrow[2];
+    hrow[0] = (uint32_t*)((uint8_t*)fx8 + fx8_bytes);
+    hrow[1] = hrow[0] + cols;
+    int hrow_y[2] = {-2, -2}; /* source row cached in each slot */
+
+    /* column mapping + 8-bit rounded weights, computed once */
+    uint32_t pos = 0;
+    for(int j = 0; j < dst_w; j++) {
+        int base = (int)(pos >> GRAPH_SCALE_FIXED_SHIFT);
+        uint32_t f = pos & GRAPH_SCALE_FIXED_MASK;
+        int next = base + 1;
+
+        if(base >= wmax) {
+            base = wmax;
+            next = wmax;
+            f = 0;
+        }
+        else if(next > wmax) {
+            next = wmax;
+        }
+
+        x0[j] = base;
+        x1[j] = next;
+        fx8[j] = (uint16_t)((f + 128) >> 8); /* 0..256 */
+        pos += inv_scale;
+    }
+
+    uint32_t src_y = 0;
+    for(int i = 0; i < dst_h; i++) {
+        int gi0 = (int)(src_y >> GRAPH_SCALE_FIXED_SHIFT);
+        uint32_t gi_frac = src_y & GRAPH_SCALE_FIXED_MASK;
+
+        if(gi0 >= hmax) {
+            gi0 = hmax;
+            gi_frac = 0;
+        }
+        int gi1 = (gi0 < hmax) ? gi0 + 1 : hmax;
+        uint16_t fy8 = (uint16_t)((gi_frac + 128) >> 8);
+        if(fy8 == 256) {
+            /* folds exactly into the next source row (bit-exact) */
+            gi0 = gi1;
+            fy8 = 0;
+        }
+
+        /* make sure both needed rows are cached; row access is monotonic,
+           so evicting the slot holding the lowest row is always safe */
+        for(int n = 0; n < 2; n++) {
+            int y = (n == 0) ? gi0 : gi1;
+            if(hrow_y[0] == y || hrow_y[1] == y)
+                continue;
+
+            int slot = (hrow_y[0] < hrow_y[1]) ? 0 : 1;
+            const uint32_t *srow = g->buffer + y * src_w;
+            uint32_t *hr = hrow[slot];
+
+            for(int j = 0; j < dst_w; j++) {
+                uint32_t a = srow[x0[j]];
+                uint32_t b = srow[x1[j]];
+
+                if(a == b)
+                    hr[j] = a;
+                else
+                    hr[j] = graph_scale_lerp_rb_bsp_r(a, b, fx8[j]) |
+                            graph_scale_lerp_ga_bsp_r(a, b, fx8[j]);
+            }
+            hrow_y[slot] = y;
+        }
+
+        const uint32_t *r0 = (hrow_y[0] == gi0) ? hrow[0] : hrow[1];
+        const uint32_t *r1 = (hrow_y[0] == gi1) ? hrow[0] : hrow[1];
+        uint32_t *drow = dst->buffer + i * dst_w;
+
+        if(fy8 == 0 || r0 == r1) {
+            memcpy(drow, r0, cols * sizeof(uint32_t));
+        }
+        else {
+            uint16x8_t wv0 = vdupq_n_u16((uint16_t)(256 - fy8));
+            uint16x8_t wv1 = vdupq_n_u16(fy8);
+            uint16x8_t rnd = vdupq_n_u16(128);
+
+            int j = 0;
+            for(; j <= dst_w - 4; j += 4) {
+                uint8x16_t b0 = vreinterpretq_u8_u32(vld1q_u32(r0 + j));
+                uint8x16_t b1 = vreinterpretq_u8_u32(vld1q_u32(r1 + j));
+
+                uint16x8_t t0l = vmovl_u8(vget_low_u8(b0));
+                uint16x8_t t0h = vmovl_u8(vget_high_u8(b0));
+                uint16x8_t t1l = vmovl_u8(vget_low_u8(b1));
+                uint16x8_t t1h = vmovl_u8(vget_high_u8(b1));
+
+                uint16x8_t ol = vshrq_n_u16(vmlaq_u16(vmlaq_u16(rnd, t0l, wv0), t1l, wv1), 8);
+                uint16x8_t oh = vshrq_n_u16(vmlaq_u16(vmlaq_u16(rnd, t0h, wv0), t1h, wv1), 8);
+
+                vst1q_u32(drow + j,
+                        vreinterpretq_u32_u8(vcombine_u8(vmovn_u16(ol), vmovn_u16(oh))));
+            }
+
+            for(; j < dst_w; j++) {
+                drow[j] = graph_scale_lerp_rb_bsp_r(r0[j], r1[j], fy8) |
+                          graph_scale_lerp_ga_bsp_r(r0[j], r1[j], fy8);
+            }
+        }
+
+        src_y += inv_scale;
+    }
+
+    free(mem);
+    return 1;
+}
+
 void graph_scale_tof_fast_arch(graph_t* g, graph_t* dst, double scale) {
     if(scale <= 0.0 ||
             dst->w < (int)(g->w*scale) ||
@@ -1252,6 +1378,12 @@ void graph_scale_tof_fast_arch(graph_t* g, graph_t* dst, double scale) {
     }
 
     if(scale < 1.0 && graph_scale_integer_downsample_bsp(g, dst, inv_scale))
+        return;
+
+    /* scale >= 1: separable two-pass with row cache; falls through to the
+       gather path below on malloc failure */
+    if(inv_scale <= GRAPH_SCALE_FIXED_SCALE &&
+            graph_scale_separable_upscale_bsp(g, dst, inv_scale))
         return;
 
     int *x0 = (int*)malloc((size_t)dst_w * sizeof(int));

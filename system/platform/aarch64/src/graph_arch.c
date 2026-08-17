@@ -889,101 +889,161 @@ static inline float get_weight_fast(float x) {
     return weight_table[index];
 }
 
+/* Fast floor: avoids the library call overhead of floorf */
+static inline int fast_floorf(float x) {
+    int i = (int)x;
+    return i - ((float)i > x);
+}
+
+/* Max x-positions covered by the precomputed weight table per 8-pixel block.
+   For scale >= 0.1 with lanczos_a=2 the span is at most ~48 positions. */
+#define SCALE_XW_MAX 128
+
 void graph_scale_tof_arch(graph_t* g, graph_t* dst, double scale) {
     init_weight_table();
-    
+
     if(scale <= 0.0 ||
             dst->w < (int)(g->w*scale) ||
             dst->h < (int)(g->h*scale))
         return;
 
-    float effective_scale = scale < 1.0f ? scale : 1.0f;
-    int lanczos_a = 2;  // Changed from 3 to 2 for Lanczos2
-    float inv_scale = 1.0f / scale;
+    float effective_scale = scale < 1.0f ? (float)scale : 1.0f;
+    const int lanczos_a = 2;
+    float inv_scale = 1.0f / (float)scale;
+    float adjusted_a = (float)lanczos_a / effective_scale;  /* hoisted: constant */
+    int src_w = g->w;
+    int src_h = g->h;
+    const uint32_t* src_buf = g->buffer;
+    uint32_t* dst_buf = dst->buffer;
+    int dst_w = dst->w;
+    int dst_h = dst->h;
 
-    for(int i = 0; i < dst->h; i++) {
-        float gi = (float)i * inv_scale;
+    for(int i = 0; i < dst_h; i++) {
+        float center_y = (float)i * inv_scale;
+
+        /* --- Precompute y-weights once per output row (shared by all j-blocks) --- */
+        int start_y = fast_floorf(center_y - adjusted_a);
+        int end_y   = fast_floorf(center_y + adjusted_a) + 1;
+
+        float          ky_arr[16];
+        const uint32_t* row_ptrs[16];
+        int n_y = 0;
+        for(int y = start_y; y <= end_y && n_y < 16; y++) {
+            float ky = get_weight_fast((y - center_y) * effective_scale);
+            if(ky != 0.0f) {
+                ky_arr[n_y]  = ky;
+                row_ptrs[n_y] = src_buf + CLAMP(y, 0, src_h - 1) * src_w;
+                n_y++;
+            }
+        }
 
         int j = 0;
-        for(; j <= dst->w - 8; j += 8) {
+        for(; j <= dst_w - 8; j += 8) {
             float center_x[8];
-            float center_y = gi;
             int start_x[8], end_x[8];
-            int start_y, end_y;
 
             for(int k = 0; k < 8; k++) {
                 center_x[k] = (float)(j + k) * inv_scale;
+                start_x[k]  = fast_floorf(center_x[k] - adjusted_a);
+                end_x[k]    = fast_floorf(center_x[k] + adjusted_a) + 1;
             }
 
-            float adjusted_a = (float)lanczos_a / effective_scale;
-            start_y = (int)floorf(center_y - adjusted_a);
-            end_y = (int)floorf(center_y + adjusted_a) + 1;
-
-            for(int k = 0; k < 8; k++) {
-                start_x[k] = (int)floorf(center_x[k] - adjusted_a);
-                end_x[k] = (int)floorf(center_x[k] + adjusted_a) + 1;
+            int min_start_x = start_x[0];
+            int max_end_x   = end_x[0];
+            for(int k = 1; k < 8; k++) {
+                if(start_x[k] < min_start_x) min_start_x = start_x[k];
+                if(end_x[k]   > max_end_x)   max_end_x   = end_x[k];
             }
 
-            float32x4_t sum_r[2] = {vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)};
-            float32x4_t sum_g[2] = {vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)};
-            float32x4_t sum_b[2] = {vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)};
-            float32x4_t sum_a[2] = {vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)};
+            int num_x = max_end_x - min_start_x + 1;
+
+            /* --- Precompute x-weights once per block (reused across all y-rows) --- */
+            float xw[SCALE_XW_MAX * 8];
+            int use_precomputed = (num_x <= SCALE_XW_MAX) && (n_y >= 2);
+
+            if(use_precomputed) {
+                for(int x = min_start_x; x <= max_end_x; x++) {
+                    float* xw_row = &xw[(x - min_start_x) * 8];
+                    for(int k = 0; k < 8; k++) {
+                        xw_row[k] = (x >= start_x[k] && x <= end_x[k])
+                            ? get_weight_fast(((float)x - center_x[k]) * effective_scale)
+                            : 0.0f;
+                    }
+                }
+            }
+
+            float32x4_t sum_r[2]      = {vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)};
+            float32x4_t sum_g[2]      = {vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)};
+            float32x4_t sum_b[2]      = {vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)};
+            float32x4_t sum_a[2]      = {vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)};
             float32x4_t sum_weight[2] = {vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)};
 
-            for(int y = start_y; y <= end_y; y++) {
-                float ky_arg = (y - center_y) * effective_scale;
-                float ky = get_weight_fast(ky_arg);
-                if(ky == 0.0f) continue;
-                float32x4_t ky_vec = vdupq_n_f32(ky);
+            for(int yi = 0; yi < n_y; yi++) {
+                float32x4_t ky_vec = vdupq_n_f32(ky_arr[yi]);
+                const uint32_t* row_ptr = row_ptrs[yi];
 
-                int max_end_x = start_x[0];
-                for(int k = 1; k < 8; k++) {
-                    if(end_x[k] > max_end_x) max_end_x = end_x[k];
-                }
+                if(use_precomputed) {
+                    /* x-weights already include the per-pixel range check */
+                    for(int x = min_start_x; x <= max_end_x; x++) {
+                        const float* xw_row = &xw[(x - min_start_x) * 8];
+                        float32x4_t weight0 = vmulq_f32(vld1q_f32(xw_row),     ky_vec);
+                        float32x4_t weight1 = vmulq_f32(vld1q_f32(xw_row + 4), ky_vec);
 
-                int cy = CLAMP(y, 0, g->h - 1);
-                uint32_t* row_ptr = &g->buffer[cy * g->w];
+                        int cx = CLAMP(x, 0, src_w - 1);
+                        uint32_t p = row_ptr[cx];
 
-                for(int x = start_x[0]; x <= max_end_x; x++) {
-                    float kx[8];
-                    for(int k = 0; k < 8; k++) {
-                        if(x >= start_x[k] && x <= end_x[k]) {
-                            float kx_arg = ((float)x - center_x[k]) * effective_scale;
-                            kx[k] = get_weight_fast(kx_arg);
-                        } else {
-                            kx[k] = 0.0f;
-                        }
+                        float32x4_t r_f = vdupq_n_f32((float)((p >> 16) & 0xFF));
+                        float32x4_t g_f = vdupq_n_f32((float)((p >>  8) & 0xFF));
+                        float32x4_t b_f = vdupq_n_f32((float)( p        & 0xFF));
+                        float32x4_t a_f = vdupq_n_f32((float)((p >> 24) & 0xFF));
+
+                        sum_r[0] = vfmaq_f32(sum_r[0], r_f, weight0);
+                        sum_r[1] = vfmaq_f32(sum_r[1], r_f, weight1);
+                        sum_g[0] = vfmaq_f32(sum_g[0], g_f, weight0);
+                        sum_g[1] = vfmaq_f32(sum_g[1], g_f, weight1);
+                        sum_b[0] = vfmaq_f32(sum_b[0], b_f, weight0);
+                        sum_b[1] = vfmaq_f32(sum_b[1], b_f, weight1);
+                        sum_a[0] = vfmaq_f32(sum_a[0], a_f, weight0);
+                        sum_a[1] = vfmaq_f32(sum_a[1], a_f, weight1);
+                        sum_weight[0] = vaddq_f32(sum_weight[0], weight0);
+                        sum_weight[1] = vaddq_f32(sum_weight[1], weight1);
                     }
+                } else {
+                    /* Fallback for very wide kernels: compute kx inline */
+                    for(int x = min_start_x; x <= max_end_x; x++) {
+                        float kx0f = (x >= start_x[0] && x <= end_x[0]) ? get_weight_fast(((float)x - center_x[0]) * effective_scale) : 0.0f;
+                        float kx1f = (x >= start_x[1] && x <= end_x[1]) ? get_weight_fast(((float)x - center_x[1]) * effective_scale) : 0.0f;
+                        float kx2f = (x >= start_x[2] && x <= end_x[2]) ? get_weight_fast(((float)x - center_x[2]) * effective_scale) : 0.0f;
+                        float kx3f = (x >= start_x[3] && x <= end_x[3]) ? get_weight_fast(((float)x - center_x[3]) * effective_scale) : 0.0f;
+                        float kx4f = (x >= start_x[4] && x <= end_x[4]) ? get_weight_fast(((float)x - center_x[4]) * effective_scale) : 0.0f;
+                        float kx5f = (x >= start_x[5] && x <= end_x[5]) ? get_weight_fast(((float)x - center_x[5]) * effective_scale) : 0.0f;
+                        float kx6f = (x >= start_x[6] && x <= end_x[6]) ? get_weight_fast(((float)x - center_x[6]) * effective_scale) : 0.0f;
+                        float kx7f = (x >= start_x[7] && x <= end_x[7]) ? get_weight_fast(((float)x - center_x[7]) * effective_scale) : 0.0f;
 
-                    float32x4_t kx0 = (float32x4_t){kx[0], kx[1], kx[2], kx[3]};
-                    float32x4_t kx1 = (float32x4_t){kx[4], kx[5], kx[6], kx[7]};
+                        float32x4_t kx0 = (float32x4_t){kx0f, kx1f, kx2f, kx3f};
+                        float32x4_t kx1 = (float32x4_t){kx4f, kx5f, kx6f, kx7f};
+                        float32x4_t weight0 = vmulq_f32(kx0, ky_vec);
+                        float32x4_t weight1 = vmulq_f32(kx1, ky_vec);
 
-                    int cx = CLAMP(x, 0, g->w - 1);
-                    uint32_t p = row_ptr[cx];
+                        int cx = CLAMP(x, 0, src_w - 1);
+                        uint32_t p = row_ptr[cx];
 
-                    float r_val = (float)((p >> 16) & 0xFF);
-                    float g_val = (float)((p >> 8) & 0xFF);
-                    float b_val = (float)(p & 0xFF);
-                    float a_val = (float)((p >> 24) & 0xFF);
+                        float32x4_t r_f = vdupq_n_f32((float)((p >> 16) & 0xFF));
+                        float32x4_t g_f = vdupq_n_f32((float)((p >>  8) & 0xFF));
+                        float32x4_t b_f = vdupq_n_f32((float)( p        & 0xFF));
+                        float32x4_t a_f = vdupq_n_f32((float)((p >> 24) & 0xFF));
 
-                    float32x4_t r_f = vdupq_n_f32(r_val);
-                    float32x4_t g_f = vdupq_n_f32(g_val);
-                    float32x4_t b_f = vdupq_n_f32(b_val);
-                    float32x4_t a_f = vdupq_n_f32(a_val);
-
-                    float32x4_t weight0 = vmulq_f32(kx0, ky_vec);
-                    float32x4_t weight1 = vmulq_f32(kx1, ky_vec);
-
-                    sum_r[0] = vfmaq_f32(sum_r[0], r_f, weight0);
-                    sum_r[1] = vfmaq_f32(sum_r[1], r_f, weight1);
-                    sum_g[0] = vfmaq_f32(sum_g[0], g_f, weight0);
-                    sum_g[1] = vfmaq_f32(sum_g[1], g_f, weight1);
-                    sum_b[0] = vfmaq_f32(sum_b[0], b_f, weight0);
-                    sum_b[1] = vfmaq_f32(sum_b[1], b_f, weight1);
-                    sum_a[0] = vfmaq_f32(sum_a[0], a_f, weight0);
-                    sum_a[1] = vfmaq_f32(sum_a[1], a_f, weight1);
-                    sum_weight[0] = vfmaq_f32(sum_weight[0], vdupq_n_f32(1.0f), weight0);
-                    sum_weight[1] = vfmaq_f32(sum_weight[1], vdupq_n_f32(1.0f), weight1);
+                        sum_r[0] = vfmaq_f32(sum_r[0], r_f, weight0);
+                        sum_r[1] = vfmaq_f32(sum_r[1], r_f, weight1);
+                        sum_g[0] = vfmaq_f32(sum_g[0], g_f, weight0);
+                        sum_g[1] = vfmaq_f32(sum_g[1], g_f, weight1);
+                        sum_b[0] = vfmaq_f32(sum_b[0], b_f, weight0);
+                        sum_b[1] = vfmaq_f32(sum_b[1], b_f, weight1);
+                        sum_a[0] = vfmaq_f32(sum_a[0], a_f, weight0);
+                        sum_a[1] = vfmaq_f32(sum_a[1], a_f, weight1);
+                        sum_weight[0] = vaddq_f32(sum_weight[0], weight0);
+                        sum_weight[1] = vaddq_f32(sum_weight[1], weight1);
+                    }
                 }
             }
 
@@ -991,7 +1051,7 @@ void graph_scale_tof_arch(graph_t* g, graph_t* dst, double scale) {
             float32x4_t inv_weight1 = vrecpeq_f32(sum_weight[1]);
             inv_weight0 = vmulq_f32(inv_weight0, vrecpsq_f32(sum_weight[0], inv_weight0));
             inv_weight1 = vmulq_f32(inv_weight1, vrecpsq_f32(sum_weight[1], inv_weight1));
-            
+
             sum_r[0] = vmulq_f32(sum_r[0], inv_weight0);
             sum_r[1] = vmulq_f32(sum_r[1], inv_weight1);
             sum_g[0] = vmulq_f32(sum_g[0], inv_weight0);
@@ -1003,20 +1063,16 @@ void graph_scale_tof_arch(graph_t* g, graph_t* dst, double scale) {
 
             uint16x8_t result_r = vcombine_u16(
                 vqmovn_u32(vcvtq_u32_f32(sum_r[0])),
-                vqmovn_u32(vcvtq_u32_f32(sum_r[1]))
-            );
+                vqmovn_u32(vcvtq_u32_f32(sum_r[1])));
             uint16x8_t result_g = vcombine_u16(
                 vqmovn_u32(vcvtq_u32_f32(sum_g[0])),
-                vqmovn_u32(vcvtq_u32_f32(sum_g[1]))
-            );
+                vqmovn_u32(vcvtq_u32_f32(sum_g[1])));
             uint16x8_t result_b = vcombine_u16(
                 vqmovn_u32(vcvtq_u32_f32(sum_b[0])),
-                vqmovn_u32(vcvtq_u32_f32(sum_b[1]))
-            );
+                vqmovn_u32(vcvtq_u32_f32(sum_b[1])));
             uint16x8_t result_a = vcombine_u16(
                 vqmovn_u32(vcvtq_u32_f32(sum_a[0])),
-                vqmovn_u32(vcvtq_u32_f32(sum_a[1]))
-            );
+                vqmovn_u32(vcvtq_u32_f32(sum_a[1])));
 
             uint8x8_t r8 = vqmovn_u16(result_r);
             uint8x8_t g8 = vqmovn_u16(result_g);
@@ -1027,76 +1083,60 @@ void graph_scale_tof_arch(graph_t* g, graph_t* dst, double scale) {
             uint16x8_t ba = vmovl_u8(b8);
             uint16x8_t aa = vshlq_n_u16(vmovl_u8(a8), 8);
             uint16x8_t ra = vmovl_u8(r8);
-            
+
             uint16x8_t gb = vorrq_u16(ga, ba);
             uint16x8_t ar = vorrq_u16(aa, ra);
-            
-            uint16x4_t gb_lo = vget_low_u16(gb);
-            uint16x4_t gb_hi = vget_high_u16(gb);
-            uint16x4_t ar_lo = vget_low_u16(ar);
-            uint16x4_t ar_hi = vget_high_u16(ar);
-            
-            uint32x4_t result_lo = vshlq_n_u32(vmovl_u16(ar_lo), 16);
-            uint32x4_t result_hi = vshlq_n_u32(vmovl_u16(ar_hi), 16);
-            
-            result_lo = vorrq_u32(result_lo, vmovl_u16(gb_lo));
-            result_hi = vorrq_u32(result_hi, vmovl_u16(gb_hi));
-            
-            vst1q_u32(&dst->buffer[i * dst->w + j], result_lo);
-            vst1q_u32(&dst->buffer[i * dst->w + j + 4], result_hi);
+
+            uint32x4_t result_lo = vshlq_n_u32(vmovl_u16(vget_low_u16(ar)), 16);
+            uint32x4_t result_hi = vshlq_n_u32(vmovl_u16(vget_high_u16(ar)), 16);
+
+            result_lo = vorrq_u32(result_lo, vmovl_u16(vget_low_u16(gb)));
+            result_hi = vorrq_u32(result_hi, vmovl_u16(vget_high_u16(gb)));
+
+            vst1q_u32(&dst_buf[i * dst_w + j],     result_lo);
+            vst1q_u32(&dst_buf[i * dst_w + j + 4], result_hi);
         }
 
-        for(; j < dst->w; j++) {
-            float gj = (float)j * inv_scale;
-            float center_x = gj;
-            float center_y = gi;
-
-            float adjusted_a = (float)lanczos_a / effective_scale;
-            int start_x = (int)floorf(center_x - adjusted_a);
-            int end_x = (int)floorf(center_x + adjusted_a) + 1;
-            int start_y = (int)floorf(center_y - adjusted_a);
-            int end_y = (int)floorf(center_y + adjusted_a) + 1;
+        /* Scalar tail: use get_weight_fast instead of expensive lanczos_kernel */
+        for(; j < dst_w; j++) {
+            float center_x = (float)j * inv_scale;
+            int start_x = fast_floorf(center_x - adjusted_a);
+            int end_x   = fast_floorf(center_x + adjusted_a) + 1;
 
             float sum_r = 0.0f, sum_g = 0.0f, sum_b = 0.0f, sum_a = 0.0f;
             float sum_weight = 0.0f;
 
-            for(int y = start_y; y <= end_y; y++) {
-                float ky = lanczos_kernel((y - center_y) * effective_scale, lanczos_a);
+            for(int yi = 0; yi < n_y; yi++) {
+                float ky = ky_arr[yi];
+                const uint32_t* row_ptr = row_ptrs[yi];
                 for(int x = start_x; x <= end_x; x++) {
-                    float kx = lanczos_kernel((x - center_x) * effective_scale, lanczos_a);
+                    float kx = get_weight_fast((x - center_x) * effective_scale);
+                    if(kx == 0.0f) continue;
                     float weight = ky * kx;
-
-                    int cx = CLAMP(x, 0, g->w - 1);
-                    int cy = CLAMP(y, 0, g->h - 1);
-                    uint32_t p = g->buffer[cy * g->w + cx];
-
-                    uint8_t r = (p >> 16) & 0xFF;
-                    uint8_t g_val = (p >> 8) & 0xFF;
-                    uint8_t b = p & 0xFF;
-                    uint8_t a_val = (p >> 24) & 0xFF;
-
-                    sum_r += (float)r * weight;
-                    sum_g += (float)g_val * weight;
-                    sum_b += (float)b * weight;
-                    sum_a += (float)a_val * weight;
+                    int cx = CLAMP(x, 0, src_w - 1);
+                    uint32_t p = row_ptr[cx];
+                    sum_r += (float)((p >> 16) & 0xFF) * weight;
+                    sum_g += (float)((p >>  8) & 0xFF) * weight;
+                    sum_b += (float)( p        & 0xFF) * weight;
+                    sum_a += (float)((p >> 24) & 0xFF) * weight;
                     sum_weight += weight;
                 }
             }
 
             if(sum_weight != 0.0f) {
-                float inv_weight = 1.0f / sum_weight;
-                sum_r *= inv_weight;
-                sum_g *= inv_weight;
-                sum_b *= inv_weight;
-                sum_a *= inv_weight;
+                float inv_w = 1.0f / sum_weight;
+                sum_r *= inv_w;
+                sum_g *= inv_w;
+                sum_b *= inv_w;
+                sum_a *= inv_w;
             }
 
-            uint8_t r = (uint8_t)CLAMP(sum_r, 0.0f, 255.0f);
+            uint8_t r     = (uint8_t)CLAMP(sum_r, 0.0f, 255.0f);
             uint8_t g_val = (uint8_t)CLAMP(sum_g, 0.0f, 255.0f);
-            uint8_t b = (uint8_t)CLAMP(sum_b, 0.0f, 255.0f);
+            uint8_t b     = (uint8_t)CLAMP(sum_b, 0.0f, 255.0f);
             uint8_t a_val = (uint8_t)CLAMP(sum_a, 0.0f, 255.0f);
-
-            dst->buffer[i*dst->w + j] = (a_val << 24) | (r << 16) | (g_val << 8) | b;
+            dst_buf[i * dst_w + j] = ((uint32_t)a_val << 24) | ((uint32_t)r << 16)
+                                   | ((uint32_t)g_val <<  8) |  (uint32_t)b;
         }
     }
 }
@@ -1107,54 +1147,47 @@ enum {
     GRAPH_SCALE_FIXED_MASK = GRAPH_SCALE_FIXED_SCALE - 1
 };
 
+/* interpolate the packed (byte 0, byte 2) channels with an 8-bit weight;
+   w0+w1 = 256 keeps each 16-bit lane carry-free (255*256 = 0xFF00) */
+static inline uint32_t graph_scale_lerp_rb_bsp(uint32_t a, uint32_t b, uint32_t w1) {
+    uint32_t w0 = 256 - w1;
+    return ((((a & 0x00FF00FF) * w0 + (b & 0x00FF00FF) * w1) >> 8) & 0x00FF00FF);
+}
+
+static inline uint32_t graph_scale_lerp_ga_bsp(uint32_t a, uint32_t b, uint32_t w1) {
+    uint32_t w0 = 256 - w1;
+    return ((((((a >> 8) & 0x00FF00FF) * w0 + ((b >> 8) & 0x00FF00FF) * w1) >> 8)
+            & 0x00FF00FF) << 8);
+}
+
+/* same, with +128 rounding per lane to match the NEON vmla/rnd paths
+   bit-exactly (per-lane max is 255*256 + 128 = 0xFF80, still carry-free) */
+static inline uint32_t graph_scale_lerp_rb_bsp_r(uint32_t a, uint32_t b, uint32_t w1) {
+    uint32_t w0 = 256 - w1;
+    return ((((a & 0x00FF00FF) * w0 + (b & 0x00FF00FF) * w1 + 0x00800080u) >> 8)
+            & 0x00FF00FF);
+}
+
+static inline uint32_t graph_scale_lerp_ga_bsp_r(uint32_t a, uint32_t b, uint32_t w1) {
+    uint32_t w0 = 256 - w1;
+    return ((((((a >> 8) & 0x00FF00FF) * w0 + ((b >> 8) & 0x00FF00FF) * w1 + 0x00800080u) >> 8)
+            & 0x00FF00FF) << 8);
+}
+
 static inline uint32_t graph_scale_bilinear_interp_bsp(uint32_t p00, uint32_t p01, uint32_t p10, uint32_t p11,
         uint32_t fx, uint32_t fy) {
-    uint32_t one_minus_fx = GRAPH_SCALE_FIXED_SCALE - fx;
-    uint32_t one_minus_fy = GRAPH_SCALE_FIXED_SCALE - fy;
+    /* quantize 16.16 fractions to 8-bit rounded weights, matching the NEON
+       path precision; 8x32-bit multiplies instead of 16x64-bit */
+    uint32_t fx8 = (fx + 128) >> 8;
+    uint32_t fy8 = (fy + 128) >> 8;
 
-    uint32_t r00 = (p00 >> 16) & 0xFF;
-    uint32_t g00 = (p00 >> 8) & 0xFF;
-    uint32_t b00 = p00 & 0xFF;
-    uint32_t a00 = (p00 >> 24) & 0xFF;
+    uint32_t top_rb = graph_scale_lerp_rb_bsp(p00, p01, fx8);
+    uint32_t top_ga = graph_scale_lerp_ga_bsp(p00, p01, fx8);
+    uint32_t bot_rb = graph_scale_lerp_rb_bsp(p10, p11, fx8);
+    uint32_t bot_ga = graph_scale_lerp_ga_bsp(p10, p11, fx8);
 
-    uint32_t r01 = (p01 >> 16) & 0xFF;
-    uint32_t g01 = (p01 >> 8) & 0xFF;
-    uint32_t b01 = p01 & 0xFF;
-    uint32_t a01 = (p01 >> 24) & 0xFF;
-
-    uint32_t r10 = (p10 >> 16) & 0xFF;
-    uint32_t g10 = (p10 >> 8) & 0xFF;
-    uint32_t b10 = p10 & 0xFF;
-    uint32_t a10 = (p10 >> 24) & 0xFF;
-
-    uint32_t r11 = (p11 >> 16) & 0xFF;
-    uint32_t g11 = (p11 >> 8) & 0xFF;
-    uint32_t b11 = p11 & 0xFF;
-    uint32_t a11 = (p11 >> 24) & 0xFF;
-
-    uint64_t tmp_r = (uint64_t)one_minus_fx * one_minus_fy * r00 +
-                     (uint64_t)fx * one_minus_fy * r01 +
-                     (uint64_t)one_minus_fx * fy * r10 +
-                     (uint64_t)fx * fy * r11;
-    uint64_t tmp_g = (uint64_t)one_minus_fx * one_minus_fy * g00 +
-                     (uint64_t)fx * one_minus_fy * g01 +
-                     (uint64_t)one_minus_fx * fy * g10 +
-                     (uint64_t)fx * fy * g11;
-    uint64_t tmp_b = (uint64_t)one_minus_fx * one_minus_fy * b00 +
-                     (uint64_t)fx * one_minus_fy * b01 +
-                     (uint64_t)one_minus_fx * fy * b10 +
-                     (uint64_t)fx * fy * b11;
-    uint64_t tmp_a = (uint64_t)one_minus_fx * one_minus_fy * a00 +
-                     (uint64_t)fx * one_minus_fy * a01 +
-                     (uint64_t)one_minus_fx * fy * a10 +
-                     (uint64_t)fx * fy * a11;
-
-    uint32_t r = (uint32_t)(tmp_r >> (2 * GRAPH_SCALE_FIXED_SHIFT));
-    uint32_t g = (uint32_t)(tmp_g >> (2 * GRAPH_SCALE_FIXED_SHIFT));
-    uint32_t b = (uint32_t)(tmp_b >> (2 * GRAPH_SCALE_FIXED_SHIFT));
-    uint32_t a = (uint32_t)(tmp_a >> (2 * GRAPH_SCALE_FIXED_SHIFT));
-
-    return (a << 24) | (r << 16) | (g << 8) | b;
+    return graph_scale_lerp_rb_bsp(top_rb, bot_rb, fy8) |
+           graph_scale_lerp_ga_bsp(top_ga, bot_ga, fy8);
 }
 
 static void graph_scale_prepare_axis_bsp(int dst_len, int src_max, uint32_t inv_scale,
@@ -1249,6 +1282,139 @@ static int graph_scale_integer_downsample_bsp(graph_t* g, graph_t* dst, uint32_t
     return 1;
 }
 
+/* Separable two-pass upscale for scale >= 1 (inv_scale <= FIXED_SCALE):
+   each source row feeds ~scale destination rows, so the horizontal lerp is
+   computed once per source row into a 2-slot row cache (gi0 advances <= 1
+   per destination row), and the vertical pass becomes a contiguous scan.
+   All scratch comes from a single malloc. Returns 0 on malloc failure so
+   the caller falls back to the gather path. */
+static int graph_scale_separable_upscale_bsp(graph_t* g, graph_t* dst, uint32_t inv_scale) {
+    int src_w = g->w;
+    int dst_w = dst->w;
+    int dst_h = dst->h;
+    int hmax = g->h - 1;
+    int wmax = src_w - 1;
+
+    size_t cols = (size_t)dst_w;
+    size_t fx8_bytes = (cols * sizeof(uint16_t) + 3u) & ~(size_t)3u; /* keep u32 rows aligned */
+    uint8_t *mem = (uint8_t*)malloc(cols * 2 * sizeof(int) + fx8_bytes +
+                                    2 * cols * sizeof(uint32_t));
+    if(mem == NULL)
+        return 0;
+
+    int *x0 = (int*)mem;
+    int *x1 = x0 + cols;
+    uint16_t *fx8 = (uint16_t*)(x1 + cols);
+    uint32_t *hrow[2];
+    hrow[0] = (uint32_t*)((uint8_t*)fx8 + fx8_bytes);
+    hrow[1] = hrow[0] + cols;
+    int hrow_y[2] = {-2, -2}; /* source row cached in each slot */
+
+    /* column mapping + 8-bit rounded weights, computed once */
+    uint32_t pos = 0;
+    for(int j = 0; j < dst_w; j++) {
+        int base = (int)(pos >> GRAPH_SCALE_FIXED_SHIFT);
+        uint32_t f = pos & GRAPH_SCALE_FIXED_MASK;
+        int next = base + 1;
+
+        if(base >= wmax) {
+            base = wmax;
+            next = wmax;
+            f = 0;
+        }
+        else if(next > wmax) {
+            next = wmax;
+        }
+
+        x0[j] = base;
+        x1[j] = next;
+        fx8[j] = (uint16_t)((f + 128) >> 8); /* 0..256 */
+        pos += inv_scale;
+    }
+
+    uint32_t src_y = 0;
+    for(int i = 0; i < dst_h; i++) {
+        int gi0 = (int)(src_y >> GRAPH_SCALE_FIXED_SHIFT);
+        uint32_t gi_frac = src_y & GRAPH_SCALE_FIXED_MASK;
+
+        if(gi0 >= hmax) {
+            gi0 = hmax;
+            gi_frac = 0;
+        }
+        int gi1 = (gi0 < hmax) ? gi0 + 1 : hmax;
+        uint16_t fy8 = (uint16_t)((gi_frac + 128) >> 8);
+        if(fy8 == 256) {
+            /* folds exactly into the next source row (bit-exact) */
+            gi0 = gi1;
+            fy8 = 0;
+        }
+
+        /* make sure both needed rows are cached; row access is monotonic,
+           so evicting the slot holding the lowest row is always safe */
+        for(int n = 0; n < 2; n++) {
+            int y = (n == 0) ? gi0 : gi1;
+            if(hrow_y[0] == y || hrow_y[1] == y)
+                continue;
+
+            int slot = (hrow_y[0] < hrow_y[1]) ? 0 : 1;
+            const uint32_t *srow = g->buffer + y * src_w;
+            uint32_t *hr = hrow[slot];
+
+            for(int j = 0; j < dst_w; j++) {
+                uint32_t a = srow[x0[j]];
+                uint32_t b = srow[x1[j]];
+
+                if(a == b)
+                    hr[j] = a;
+                else
+                    hr[j] = graph_scale_lerp_rb_bsp_r(a, b, fx8[j]) |
+                            graph_scale_lerp_ga_bsp_r(a, b, fx8[j]);
+            }
+            hrow_y[slot] = y;
+        }
+
+        const uint32_t *r0 = (hrow_y[0] == gi0) ? hrow[0] : hrow[1];
+        const uint32_t *r1 = (hrow_y[0] == gi1) ? hrow[0] : hrow[1];
+        uint32_t *drow = dst->buffer + i * dst_w;
+
+        if(fy8 == 0 || r0 == r1) {
+            memcpy(drow, r0, cols * sizeof(uint32_t));
+        }
+        else {
+            uint16x8_t wv0 = vdupq_n_u16((uint16_t)(256 - fy8));
+            uint16x8_t wv1 = vdupq_n_u16(fy8);
+            uint16x8_t rnd = vdupq_n_u16(128);
+
+            int j = 0;
+            for(; j <= dst_w - 4; j += 4) {
+                uint8x16_t b0 = vreinterpretq_u8_u32(vld1q_u32(r0 + j));
+                uint8x16_t b1 = vreinterpretq_u8_u32(vld1q_u32(r1 + j));
+
+                uint16x8_t t0l = vmovl_u8(vget_low_u8(b0));
+                uint16x8_t t0h = vmovl_u8(vget_high_u8(b0));
+                uint16x8_t t1l = vmovl_u8(vget_low_u8(b1));
+                uint16x8_t t1h = vmovl_u8(vget_high_u8(b1));
+
+                uint16x8_t ol = vshrq_n_u16(vmlaq_u16(vmlaq_u16(rnd, t0l, wv0), t1l, wv1), 8);
+                uint16x8_t oh = vshrq_n_u16(vmlaq_u16(vmlaq_u16(rnd, t0h, wv0), t1h, wv1), 8);
+
+                vst1q_u32(drow + j,
+                        vreinterpretq_u32_u8(vcombine_u8(vmovn_u16(ol), vmovn_u16(oh))));
+            }
+
+            for(; j < dst_w; j++) {
+                drow[j] = graph_scale_lerp_rb_bsp_r(r0[j], r1[j], fy8) |
+                          graph_scale_lerp_ga_bsp_r(r0[j], r1[j], fy8);
+            }
+        }
+
+        src_y += inv_scale;
+    }
+
+    free(mem);
+    return 1;
+}
+
 void graph_scale_tof_fast_arch(graph_t* g, graph_t* dst, double scale) {
     if(scale <= 0.0 ||
             dst->w < (int)(g->w*scale) ||
@@ -1268,6 +1434,12 @@ void graph_scale_tof_fast_arch(graph_t* g, graph_t* dst, double scale) {
     }
 
     if(scale < 1.0 && graph_scale_integer_downsample_bsp(g, dst, inv_scale))
+        return;
+
+    /* scale >= 1: separable two-pass with row cache; falls through to the
+       gather path below on malloc failure */
+    if(inv_scale <= GRAPH_SCALE_FIXED_SCALE &&
+            graph_scale_separable_upscale_bsp(g, dst, inv_scale))
         return;
 
     int *x0 = (int*)malloc((size_t)dst_w * sizeof(int));
