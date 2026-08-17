@@ -46,9 +46,12 @@ int main(int argc, char* argv[]) {
 
         ret = run(cmd->cstr);
         str_free(cmd);
-        printf("[\033[32m%s\033[0m]\n", "OK"); //green for ok
+        if(ret == 0)
+            printf("[\033[32m%s\033[0m]\n", "OK"); //green for ok
+        else
+            printf("[\033[31m%s\033[0m]\n", "ERR!"); //red for failed
     }
     else 
-        printf("[\033[31m%s\033[0m]\n", "ERR!"); //red for failed
+        printf("[\033[31m%s\033[0m]\n", "Missed!"); //red for failed
     return ret;
 }

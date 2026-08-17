@@ -36,6 +36,21 @@ void kout(const char *str, uint32_t len) {
     syscall2(SYS_KPRINT, (ewokos_addr_t)str, (ewokos_addr_t)len);
 }
 
+void sout(const char *str, uint32_t len) {
+    if(str == NULL || len == 0)
+        return;
+    log_lock();
+    const char* log_dev = "/dev/log";
+    if(_slog_fd <= 0 && log_dev != NULL) {
+        _slog_fd = open(log_dev, O_WRONLY);
+    }
+
+    if(_slog_fd > 0) {
+        write(_slog_fd, str, len);
+    }
+    log_unlock();
+}
+
 void klog(const char *format, ...) {
     char buf[BUF_SIZE+1];
     log_lock();
@@ -55,33 +70,7 @@ void klog(const char *format, ...) {
     syscall2(SYS_KPRINT, (ewokos_addr_t)buf, (ewokos_addr_t)len);
     log_unlock();
 
-    /*const char* log_dev = "/dev/klog";
-    if(_klog_fd <= 0 && log_dev != NULL) {
-        _klog_fd = open(log_dev, O_WRONLY);
-    }
-
-    if(_klog_fd > 0) {
-        write(_klog_fd, _buf, strlen(_buf));
-    }
-    */
-}
-
-void sout(const char *str, uint32_t len) {
-    if(str == NULL || len == 0)
-        return;
-    log_lock();
-    const char* log_dev = "/dev/log";
-    if(_slog_fd <= 0 && log_dev != NULL) {
-        _slog_fd = open(log_dev, O_WRONLY);
-    }
-
-    if(_slog_fd > 0) {
-        write(_slog_fd, str, len);
-    }
-    else {
-        kout(str, len);
-    }
-    log_unlock();
+    sout(buf, len);
 }
 
 void slog(const char *format, ...) {
@@ -94,10 +83,10 @@ void slog(const char *format, ...) {
     sout(buf, strlen(buf));
 }
 
-void flog(const char* fname, const char *format, ...) {
+void flog(int fd, const char *format, ...) {
     char buf[BUF_SIZE+1];
 
-    if(fname == NULL || format == NULL) {
+    if(fd < 0 || format == NULL) {
         return;
     }
 
@@ -115,12 +104,8 @@ void flog(const char* fname, const char *format, ...) {
     }
 
     log_lock();
-    int fd = open(fname, O_WRONLY | O_CREAT | O_APPEND, 0644);
-    if(fd >= 0) {
-        lseek(fd, 0, SEEK_END);
-        write(fd, buf, len);
-        close(fd);
-    }
+    lseek(fd, 0, SEEK_END);
+    write(fd, buf, len);
     log_unlock();
 }
 

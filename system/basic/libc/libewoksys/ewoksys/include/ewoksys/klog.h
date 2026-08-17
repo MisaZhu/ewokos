@@ -9,7 +9,7 @@ extern "C" {
 
 void kout(const char *str, uint32_t len);
 void klog(const char *format, ...);
-void flog(const char* fname, const char *format, ...);
+void flog(int fd, const char *format, ...);
 void slog(const char *format, ...);
 void sout(const char *str, uint32_t len);
 
