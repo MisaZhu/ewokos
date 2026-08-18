@@ -123,5 +123,6 @@ int stat(const char* name, struct stat* buf);
 int lstat(const char* name, struct stat* buf);
 int fstat(int fd, struct stat* buf);
 int mkfifo(const char* name, mode_t mode);
+mode_t umask(mode_t mask);
 
 #endif

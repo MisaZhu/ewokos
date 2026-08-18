@@ -52,9 +52,18 @@ void srandom(unsigned int seed);
 
 char *getenv(const char *name);
 int __ewok_setenv_impl(const char *name, const char *value, int overwrite);
+int unsetenv(const char *name);
+int putenv(char *string);
 int remove(const char *path);
 int mkstemp(char *path_template);
+char *mkdtemp(char *path_template);
 char *tempnam(const char *dir, const char *pfx);
+char *realpath(const char *path, char *resolved);
+int posix_memalign(void **memptr, size_t alignment, size_t size);
+void *memalign(size_t alignment, size_t size);
+void *valloc(size_t size);
+int rand_r(unsigned int *seedp);
+int system(const char *command);
 void *bsearch(const void *key, const void *base, size_t nmemb, size_t size,
 		int (*compar)(const void *, const void *));
 void qsort(void *base, size_t nmemb, size_t size,

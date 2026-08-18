@@ -61,12 +61,29 @@ LIB_EWOKSYS_OBJS =  \
 	$(ARCH)/src/unistd/rmdir.o \
 	$(ARCH)/src/unistd/rename.o \
 	$(ARCH)/src/unistd/errno.o \
+	$(ARCH)/src/unistd/ftruncate.o \
+	$(ARCH)/src/unistd/truncate.o \
+	$(ARCH)/src/unistd/fsync.o \
+	$(ARCH)/src/unistd/pread.o \
+	$(ARCH)/src/unistd/dup3.o \
+	$(ARCH)/src/unistd/sysconf.o \
+	$(ARCH)/src/unistd/hostname.o \
+	$(ARCH)/src/unistd/daemon.o \
+	$(ARCH)/src/unistd/ttyname.o \
+	$(ARCH)/src/unistd/ids.o \
+	$(ARCH)/src/unistd/alarm.o \
+	\
+	$(ARCH)/src/libgen/basename.o \
+	$(ARCH)/src/libgen/dirname.o \
+	\
+	$(ARCH)/src/sched/sched.o \
 	\
 	$(ARCH)/src/sys/shm/shmget.o \
 	$(ARCH)/src/sys/shm/shmat.o \
 	$(ARCH)/src/sys/shm/shmdt.o \
 	\
 	$(ARCH)/src/signal/kill.o \
+	$(ARCH)/src/signal/raise.o \
 	$(ARCH)/src/signal/signal.o \
 	$(ARCH)/src/signal/sigaction.o \
 	\
@@ -76,6 +93,10 @@ LIB_EWOKSYS_OBJS =  \
 	$(ARCH)/src/sys/select/select.o \
 	$(ARCH)/src/sys/utsname/uname.o \
 	$(ARCH)/src/sys/wait/wait.o \
+	$(ARCH)/src/sys/uio/readv.o \
+	$(ARCH)/src/sys/statvfs/statvfs.o \
+	$(ARCH)/src/sys/resource/resource.o \
+	$(ARCH)/src/sys/time/utimes.o \
 	\
 	$(ARCH)/src/fcntl/fchmod.o \
 	$(ARCH)/src/fcntl/chmod.o \
@@ -87,6 +108,11 @@ LIB_EWOKSYS_OBJS =  \
 	$(ARCH)/src/string/strspn.o \
 	$(ARCH)/src/string/strsep.o \
 	$(ARCH)/src/string/strlcpy.o \
+	$(ARCH)/src/string/strlcat.o \
+	$(ARCH)/src/string/stpcpy.o \
+	$(ARCH)/src/string/memrchr.o \
+	$(ARCH)/src/string/strcasestr.o \
+	$(ARCH)/src/string/bstrings.o \
 	\
 	$(ARCH)/src/stdio/putch.o \
 	$(ARCH)/src/stdio/fputs.o \
@@ -95,8 +121,13 @@ LIB_EWOKSYS_OBJS =  \
 	$(ARCH)/src/dirent/readdir.o \
 	$(ARCH)/src/dirent/closedir.o \
 	$(ARCH)/src/dirent/opendir.o \
+	$(ARCH)/src/dirent/rewinddir.o \
+	$(ARCH)/src/dirent/seekdir.o \
+	$(ARCH)/src/dirent/telldir.o \
 	\
 	$(ARCH)/src/pthread/pthread_create.o \
+	$(ARCH)/src/pthread/pthread_key.o \
+	$(ARCH)/src/pthread/pthread_exit.o \
 	$(ARCH)/src/pthread/pthread_mutex_destroy.o \
 	$(ARCH)/src/pthread/pthread_mutex_init.o \
 	$(ARCH)/src/pthread/pthread_mutex_lock.o \
@@ -107,6 +138,22 @@ LIB_EWOKSYS_OBJS =  \
 	$(ARCH)/src/pthread/pthread_join.o\
 	$(ARCH)/src/pthread/pthread_detach.o\
 	$(ARCH)/src/pthread/pthread_cond.o\
+	$(ARCH)/src/pthread/pthread_once.o\
+	$(ARCH)/src/pthread/pthread_key.o\
+	$(ARCH)/src/pthread/pthread_exit.o\
+	$(ARCH)/src/pthread/pthread_attr.o\
+	$(ARCH)/src/pthread/pthread_attr_obj.o\
+	$(ARCH)/src/pthread/pthread_cancel.o\
+	$(ARCH)/src/pthread/pthread_rwlock.o\
+	$(ARCH)/src/pthread/pthread_barrier.o\
+	\
+	$(ARCH)/src/semaphore/sem_init.o\
+	$(ARCH)/src/semaphore/sem_wait.o\
+	$(ARCH)/src/semaphore/sem_post.o\
+	\
+	$(ARCH)/src/termios/termios.o \
+	$(ARCH)/src/fnmatch/fnmatch.o \
+	$(ARCH)/src/glob/glob.o \
 	\
 	$(ARCH)/src/poll/poll.o \
 	\
@@ -116,10 +163,15 @@ LIB_EWOKSYS_OBJS =  \
 	$(ARCH)/src/stdlib/mkstemp.o \
 	$(ARCH)/src/stdlib/setenv.o \
 	$(ARCH)/src/stdlib/tempnam.o \
+	$(ARCH)/src/stdlib/mkdtemp.o \
+	$(ARCH)/src/stdlib/realpath.o \
 	\
 	$(ARCH)/src/time/strftime.o \
 	$(ARCH)/src/time/nanosleep.o \
-	$(ARCH)/src/time/clock_gettime.o
+	$(ARCH)/src/time/clock_gettime.o \
+	$(ARCH)/src/time/clock_getres.o \
+	$(ARCH)/src/time/clock_settime.o \
+	$(ARCH)/src/time/strptime.o
 	
 EWOKSYS = $(TARGET_DIR)/lib/libewoksys.a
 OBJ_DIRS = $(sort $(dir $(LIB_EWOKSYS_OBJS)))

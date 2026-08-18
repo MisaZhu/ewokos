@@ -60,14 +60,6 @@ static int index_in_strings(const char* strings, const char* key) {
  * yet doesn't represent any valid Unicode character.
  * Also, -1 is reserved for error indication and we don't use it. */
 
-static void* memrchr(const void* s, int c, size_t n) {
-    char* cp = (char*)s;
-    for (int i = n - 1; i >= 0; i--)
-        if (cp[i] == c)
-            return cp + i;
-    return NULL;
-}
-
 static void* zalloc(size_t bytes) {
     char* cp = (char*)malloc(bytes);
     if (cp)

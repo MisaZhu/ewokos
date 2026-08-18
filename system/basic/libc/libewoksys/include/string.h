@@ -35,6 +35,12 @@ char *strdup(const char *s);
 char *strndup(const char *s, size_t n);
 char *strerror(int errnum);
 size_t strlcpy(char *dest, const char *src, size_t size);
+size_t strlcat(char *dest, const char *src, size_t size);
+char *stpcpy(char *dest, const char *src);
+char *stpncpy(char *dest, const char *src, size_t n);
+void *memrchr(const void *s, int c, size_t n);
+void *memccpy(void *dest, const void *src, int c, size_t n);
+char *strcasestr(const char *haystack, const char *needle);
 
 #ifdef __cplusplus
 }

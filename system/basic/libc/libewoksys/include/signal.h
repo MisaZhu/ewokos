@@ -34,6 +34,7 @@ struct sigaction {
 
 sighandler_t signal(int signum, sighandler_t handler);
 int          kill(int pid, int sig);
+int          raise(int sig);
 int          sigemptyset(sigset_t *set);
 int          sigfillset(sigset_t *set);
 int          sigaddset(sigset_t *set, int signum);

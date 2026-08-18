@@ -39,6 +39,21 @@ int fcntl(int fd, int cmd, ...) {
     if(cmd == F_GETFD) {
         return vfs_get_fd_flags(fd);
     }
+    else if(cmd == F_DUPFD || cmd == F_DUPFD_CLOEXEC) {
+        va_list args;
+        va_start(args, cmd);
+        int start = va_arg(args, int);
+        va_end(args);
+        if(start < 0)
+            start = 0;
+        for(int to = start; to < MAX_OPEN_FILE_PER_PROC; to++) {
+            fsinfo_t info;
+            if(vfs_get_by_fd(to, &info) == 0)
+                continue; /* fd in use */
+            return vfs_dup2(fd, to);
+        }
+        return -1;
+    }
     else if(cmd == F_SETFD) {
         va_list args;
         va_start(args, cmd);

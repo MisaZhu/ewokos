@@ -6,6 +6,7 @@
 
 typedef unsigned int mode_t;
 typedef int pid_t;
+typedef int id_t;
 typedef int uid_t;
 typedef int gid_t;
 typedef long off_t;

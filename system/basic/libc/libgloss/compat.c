@@ -18,6 +18,7 @@
 #include <setjmp.h>
 #include <ewoksys/trunkmem.h>
 #include <ewoksys/vfs.h>
+#include <sys/mman.h>
 
 void ewok_longjmp(jmp_buf env, int val) {
     longjmp(env, val);
@@ -657,6 +658,90 @@ static void compat_heap_init(void) {
     compat_heap_ready = 1;
 }
 
+/*
+ * mmap() and aligned allocations are backed by the regular heap, but the
+ * returned pointers are not the raw heap-block heads, so trunk_free()
+ * cannot release them directly. A small registry maps such pointers back
+ * to their raw blocks so that free()/munmap() work as expected.
+ */
+struct ewok_mem_reg {
+    void *ptr;   /* pointer handed to the caller */
+    void *raw;   /* raw heap block head */
+    size_t size; /* usable size of ptr */
+    struct ewok_mem_reg *next;
+};
+
+static struct ewok_mem_reg *ewok_mem_reg_list = NULL;
+static volatile int ewok_mem_reg_lock = 0;
+
+static void ewok_reg_lock(void) {
+    while (__sync_lock_test_and_set(&ewok_mem_reg_lock, 1)) {
+    }
+}
+
+static void ewok_reg_unlock(void) {
+    __sync_lock_release(&ewok_mem_reg_lock);
+}
+
+/* Allocate `size` bytes with `align` alignment, register the result. */
+static void *ewok_reg_alloc(size_t size, size_t align) {
+    void *raw;
+    uintptr_t addr;
+    struct ewok_mem_reg *reg;
+
+    compat_heap_init();
+    raw = trunk_malloc(&compat_heap, (uint32_t)(size + align));
+    if (raw == NULL) {
+        return NULL;
+    }
+
+    addr = (uintptr_t)raw;
+    if (align > 0) {
+        addr = (addr + (align - 1)) & ~(uintptr_t)(align - 1);
+    }
+
+    reg = (struct ewok_mem_reg *)trunk_malloc(&compat_heap,
+            (uint32_t)sizeof(struct ewok_mem_reg));
+    if (reg == NULL) {
+        trunk_free(&compat_heap, (char *)raw);
+        return NULL;
+    }
+
+    reg->ptr = (void *)addr;
+    reg->raw = raw;
+    reg->size = size;
+    ewok_reg_lock();
+    reg->next = ewok_mem_reg_list;
+    ewok_mem_reg_list = reg;
+    ewok_reg_unlock();
+    return reg->ptr;
+}
+
+/*
+ * Release `ptr` if it is a registered allocation. Returns 1 when handled,
+ * 0 when `ptr` is a normal heap pointer.
+ */
+static int ewok_reg_try_free(void *ptr) {
+    struct ewok_mem_reg **pp;
+    struct ewok_mem_reg *reg;
+    int handled = 0;
+
+    ewok_reg_lock();
+    for (pp = &ewok_mem_reg_list; *pp != NULL; pp = &(*pp)->next) {
+        if ((*pp)->ptr == ptr) {
+            reg = *pp;
+            *pp = reg->next;
+            ewok_reg_unlock();
+            compat_heap_init();
+            trunk_free(&compat_heap, (char *)reg->raw);
+            trunk_free(&compat_heap, (char *)reg);
+            return 1;
+        }
+    }
+    ewok_reg_unlock();
+    return handled;
+}
+
 void *malloc(size_t size) {
     void *ptr;
 
@@ -678,6 +763,10 @@ void *malloc(size_t size) {
 
 void free(void *ptr) {
     if (ptr == NULL) {
+        return;
+    }
+
+    if (ewok_reg_try_free(ptr)) {
         return;
     }
 
@@ -732,6 +821,137 @@ void *realloc(void *ptr, size_t size) {
     memcpy(new_ptr, ptr, old_size < size ? old_size : size);
     free(ptr);
     return new_ptr;
+}
+
+int getpagesize(void) {
+    return 4096;
+}
+
+/*
+ * The kernel has no user-space memory mapping facility; anonymous private
+ * mappings are emulated with zero-filled heap memory.
+ */
+void *mmap(void *addr, size_t len, int prot, int flags, int fd, off_t offset) {
+    void *ptr;
+
+    (void)prot;
+    (void)offset;
+    if (len == 0 || len > UINT32_MAX - 4096) {
+        errno = EINVAL;
+        return MAP_FAILED;
+    }
+    if (fd >= 0 || (flags & MAP_FIXED) != 0 || addr != NULL) {
+        /* file-backed and fixed-address mappings are not supported */
+        errno = ENODEV;
+        return MAP_FAILED;
+    }
+
+    ptr = ewok_reg_alloc(len, 4096);
+    if (ptr == NULL) {
+        errno = ENOMEM;
+        return MAP_FAILED;
+    }
+    memset(ptr, 0, len);
+    return ptr;
+}
+
+int munmap(void *addr, size_t len) {
+    (void)len;
+    if (addr == NULL || addr == MAP_FAILED) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (!ewok_reg_try_free(addr)) {
+        errno = EINVAL;
+        return -1;
+    }
+    return 0;
+}
+
+int mprotect(void *addr, size_t len, int prot) {
+    (void)len;
+    (void)prot;
+    if (addr == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+    return 0;
+}
+
+int msync(void *addr, size_t len, int flags) {
+    (void)len;
+    (void)flags;
+    if (addr == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+    return 0;
+}
+
+int posix_madvise(void *addr, size_t len, int advice) {
+    (void)len;
+    if (addr == NULL || advice < POSIX_MADV_NORMAL ||
+            advice > POSIX_MADV_DONTNEED) {
+        return EINVAL;
+    }
+    return 0;
+}
+
+void *memalign(size_t alignment, size_t size) {
+    /* Small alignments are already satisfied by the heap allocator. */
+    if (alignment <= 8) {
+        return malloc(size);
+    }
+    if ((alignment & (alignment - 1)) != 0) {
+        errno = EINVAL;
+        return NULL;
+    }
+    void *ptr = ewok_reg_alloc(size, alignment);
+    if (ptr == NULL) {
+        errno = ENOMEM;
+    }
+    return ptr;
+}
+
+int posix_memalign(void **memptr, size_t alignment, size_t size) {
+    void *ptr;
+
+    if (memptr == NULL || alignment < sizeof(void *) ||
+            (alignment & (alignment - 1)) != 0) {
+        return EINVAL;
+    }
+
+    if (alignment <= 8) {
+        ptr = malloc(size);
+    } else {
+        ptr = ewok_reg_alloc(size, alignment);
+    }
+    if (ptr == NULL) {
+        return ENOMEM;
+    }
+    *memptr = ptr;
+    return 0;
+}
+
+void *valloc(size_t size) {
+    return memalign(4096, size);
+}
+
+int rand_r(unsigned int *seedp) {
+    if (seedp == NULL) {
+        return rand();
+    }
+    *seedp = *seedp * 1103515245u + 12345u;
+    return (int)((*seedp >> 16) & 0x7fff);
+}
+
+int system(const char *command) {
+    /* There is no shell / fork() on this system. */
+    if (command == NULL) {
+        return 0;
+    }
+    errno = ENOSYS;
+    return -1;
 }
 
 char *getenv(const char *name) {
@@ -1185,6 +1405,78 @@ struct tm *localtime_r(const time_t *timer, struct tm *result) {
     }
     *result = *tmp;
     return result;
+}
+
+struct tm *gmtime_r(const time_t *timer, struct tm *result) {
+    time_t epoch;
+
+    if (result == NULL) {
+        errno = EINVAL;
+        return NULL;
+    }
+    epoch = (timer != NULL) ? *timer : 0;
+    fill_tm_from_epoch(epoch, result);
+    return result;
+}
+
+char *asctime_r(const struct tm *tm, char *buf) {
+    static const char wday_abbr[7][4] = {
+        "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
+    };
+    static const char month_abbr[12][4] = {
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    };
+
+    if (tm == NULL || buf == NULL) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    int wday = tm->tm_wday;
+    int mon = tm->tm_mon;
+    if (wday < 0 || wday > 6) {
+        wday = 0;
+    }
+    if (mon < 0 || mon > 11) {
+        mon = 0;
+    }
+
+    snprintf(buf, 26, "%s %s%3d %.2d:%.2d:%.2d %d\n",
+             wday_abbr[wday], month_abbr[mon], tm->tm_mday,
+             tm->tm_hour, tm->tm_min, tm->tm_sec, tm->tm_year + 1900);
+    return buf;
+}
+
+char *asctime(const struct tm *tm) {
+    static char asctime_buf[32];
+    return asctime_r(tm, asctime_buf);
+}
+
+char *ctime_r(const time_t *timer, char *buf) {
+    struct tm tm;
+
+    if (timer == NULL) {
+        errno = EINVAL;
+        return NULL;
+    }
+    if (gmtime_r(timer, &tm) == NULL) {
+        return NULL;
+    }
+    return asctime_r(&tm, buf);
+}
+
+char *ctime(const time_t *timer) {
+    static char ctime_buf[32];
+    return ctime_r(timer, ctime_buf);
+}
+
+double difftime(time_t time1, time_t time0) {
+    return (double)((long long)time1 - (long long)time0);
+}
+
+void tzset(void) {
+    /* TZ is re-read from the environment on every localtime() call. */
 }
 
 time_t mktime(struct tm *tm) {
@@ -2052,6 +2344,9 @@ FILE *fopen(const char *path, const char *mode) {
         free(stream);
         return NULL;
     }
+    stream->eof = 0;
+    stream->has_unget = 0;
+    stream->unget_ch = 0;
     return stream;
 }
 
@@ -2069,6 +2364,9 @@ FILE *fdopen(int fd, const char *mode) {
         return NULL;
     }
     stream->fd = fd;
+    stream->eof = 0;
+    stream->has_unget = 0;
+    stream->unget_ch = 0;
     return stream;
 }
 

@@ -154,3 +154,50 @@ int __ewok_setenv_impl(const char *name, const char *value, int overwrite) {
 int setenv(const char *name, const char *value, ...) {
     return __ewok_setenv_impl(name, value, 1);
 }
+
+int unsetenv(const char *name) {
+    size_t name_len;
+    int i;
+
+    if (name == NULL || *name == '\0' || strchr(name, '=') != NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    if (init_env_buffer() != 0) {
+        errno = ENOMEM;
+        return -1;
+    }
+
+    name_len = strlen(name);
+    i = 0;
+    while (i < env_count) {
+        if (strncmp(env_buffer[i], name, name_len) == 0 &&
+                env_buffer[i][name_len] == '=') {
+            free(env_buffer[i]);
+            for (int j = i; j < env_count; j++) {
+                env_buffer[j] = env_buffer[j + 1];
+            }
+            env_count--;
+        } else {
+            i++;
+        }
+    }
+    return 0;
+}
+
+int putenv(char *string) {
+    char *eq;
+    int ret;
+
+    if (string == NULL || (eq = strchr(string, '=')) == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    /* temporarily split "name=value" so the shared impl can copy it */
+    *eq = '\0';
+    ret = __ewok_setenv_impl(string, eq + 1, 1);
+    *eq = '=';
+    return ret;
+}
