@@ -84,13 +84,15 @@ inline void flush_tlb_addr(ewokos_addr_t addr) {
         "isb\n"
         :: "r"(page) : "memory");
 #elif defined(__arm__)
-    /* ARMv7 SMP: TLBIMVAIS (invalidate unified TLB by MVA, inner shareable). */
-    __asm__ volatile(
-        "dsb ishst\n"
-        "mcr p15, 0, %0, c8, c3, 1\n"
-        "dsb ish\n"
-        "isb\n"
-        :: "r"(addr & ~(ewokos_addr_t)0xfff) : "memory");
+    /* ARMv7 and older: __set_translation_table_base() programs TTBR0 with
+     * IRGN/ORGN/S bits all zero, so the table walker fetches page tables as
+     * non-cacheable memory and does NOT snoop the D-cache. PTE stores made
+     * through the cacheable kernel mapping stay in the D-cache and a bare
+     * dsb+TLBIMVAIS never publishes them to the walker (hangs real Cortex-A7
+     * boards like miyoo; QEMU does not model this). Keep the historical full
+     * flush (D-cache clean + global TLB invalidate) on arm32. */
+    (void)addr;
+    flush_tlb();
 #elif defined(__riscv)
     __asm__ volatile("sfence.vma %0" :: "r"(addr) : "memory");
 #elif defined(__i386__) || defined(__x86_64__)
