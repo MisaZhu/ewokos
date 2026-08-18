@@ -800,8 +800,8 @@ void __sync_synchronize(void) {
 #if defined(__arm__)
 /*
  * Bare-metal ARM toolchains in this tree do not ship libatomic, but the shm
- * pipe fast path needs a 32-bit exchange for one-shot wake registrations.
- * Provide the helper symbol GCC lowers __atomic_exchange_n(..., 4 bytes) to.
+ * pipe fast path and vfsd refcounting need 32-bit atomic ops. Provide the
+ * helper symbols GCC lowers __atomic_* builtins (4 bytes) to.
  */
 uint32_t __atomic_exchange_4(volatile void* ptr, uint32_t val, int memmodel) {
     volatile uint32_t* p = (volatile uint32_t*)ptr;
@@ -829,4 +829,129 @@ uint32_t __atomic_exchange_4(volatile void* ptr, uint32_t val, int memmodel) {
 #endif
     return old;
 }
-#endif
+
+uint32_t __atomic_load_4(const volatile void* ptr, int memmodel) {
+    const volatile uint32_t* p = (const volatile uint32_t*)ptr;
+    uint32_t val;
+
+    (void)memmodel;
+    val = *p;
+    __sync_synchronize();
+    return val;
+}
+
+void __atomic_store_4(volatile void* ptr, uint32_t val, int memmodel) {
+    volatile uint32_t* p = (volatile uint32_t*)ptr;
+
+    (void)memmodel;
+    __sync_synchronize();
+    *p = val;
+}
+
+#if (__ARM_ARCH >= 6)
+#define ATOMIC_FETCH_OP_4(name, op) \
+    uint32_t __atomic_fetch_##name##_4(volatile void* ptr, uint32_t val, \
+            int memmodel) { \
+        volatile uint32_t* p = (volatile uint32_t*)ptr; \
+        uint32_t old, tmp, res; \
+        (void)memmodel; \
+        __asm__ __volatile__( \
+                "dmb ish\n" \
+                "1: ldrex %0, [%3]\n" \
+                op " %1, %0, %4\n" \
+                "strex %2, %1, [%3]\n" \
+                "cmp %2, #0\n" \
+                "bne 1b\n" \
+                "dmb ish\n" \
+                : "=&r"(old), "=&r"(tmp), "=&r"(res) \
+                : "r"(p), "r"(val) \
+                : "cc", "memory"); \
+        return old; \
+    }
+
+ATOMIC_FETCH_OP_4(add, "add")
+ATOMIC_FETCH_OP_4(sub, "sub")
+ATOMIC_FETCH_OP_4(and, "and")
+ATOMIC_FETCH_OP_4(or, "orr")
+ATOMIC_FETCH_OP_4(xor, "eor")
+#undef ATOMIC_FETCH_OP_4
+
+_Bool __atomic_compare_exchange_4(volatile void* ptr, void* expected,
+        uint32_t desired, _Bool weak, int success_memmodel,
+        int failure_memmodel) {
+    volatile uint32_t* p = (volatile uint32_t*)ptr;
+    uint32_t exp = *(volatile uint32_t*)expected;
+    uint32_t old, res;
+
+    (void)weak;
+    (void)success_memmodel;
+    (void)failure_memmodel;
+    __asm__ __volatile__(
+            "dmb ish\n"
+            "1: ldrex %0, [%2]\n"
+            "cmp %0, %3\n"
+            "bne 2f\n"
+            "strex %1, %4, [%2]\n"
+            "cmp %1, #0\n"
+            "bne 1b\n"
+            "mov %1, #1\n"
+            "b 3f\n"
+            "2: clrex\n"
+            "mov %1, #0\n"
+            "3: dmb ish\n"
+            : "=&r"(old), "=&r"(res)
+            : "r"(p), "r"(exp), "r"(desired)
+            : "cc", "memory");
+    if(!res)
+        *(volatile uint32_t*)expected = old;
+    return res;
+}
+#else /* __ARM_ARCH < 6: no ldrex/strex, emulate with swp */
+#define ATOMIC_FETCH_OP_4(name, expr) \
+    uint32_t __atomic_fetch_##name##_4(volatile void* ptr, uint32_t val, \
+            int memmodel) { \
+        volatile uint32_t* p = (volatile uint32_t*)ptr; \
+        uint32_t old, want; \
+        (void)memmodel; \
+        do { \
+            old = *p; \
+            want = (expr); \
+            __asm__ __volatile__("swp %0, %2, [%1]\n" \
+                    : "=&r"(want) : "r"(p), "r"(want) : "memory"); \
+        } while(want != old); \
+        return old; \
+    }
+
+ATOMIC_FETCH_OP_4(add, old + val)
+ATOMIC_FETCH_OP_4(sub, old - val)
+ATOMIC_FETCH_OP_4(and, old & val)
+ATOMIC_FETCH_OP_4(or, old | val)
+ATOMIC_FETCH_OP_4(xor, old ^ val)
+#undef ATOMIC_FETCH_OP_4
+
+_Bool __atomic_compare_exchange_4(volatile void* ptr, void* expected,
+        uint32_t desired, _Bool weak, int success_memmodel,
+        int failure_memmodel) {
+    volatile uint32_t* p = (volatile uint32_t*)ptr;
+    uint32_t exp = *(volatile uint32_t*)expected;
+    uint32_t old;
+
+    (void)weak;
+    (void)success_memmodel;
+    (void)failure_memmodel;
+    if(*p != exp) {
+        *(volatile uint32_t*)expected = *p;
+        return 0;
+    }
+    __asm__ __volatile__("swp %0, %2, [%1]\n"
+            : "=&r"(old)
+            : "r"(p), "r"(desired)
+            : "memory");
+    if(old != exp) {
+        *(volatile uint32_t*)expected = old;
+        return 0;
+    }
+    return 1;
+}
+#endif /* __ARM_ARCH >= 6 */
+#endif /* __arm__ */
