@@ -1435,6 +1435,16 @@ static inline uint32x2_t graph_scale_ld1_u32_pair_bsp(const uint32_t *p) {
 }
 #endif
 
+/* Difference-form u8 lerp, same integer arithmetic as the scalar w8 path:
+   out = a + round((b - a) * w1 / 256), w1 unsigned 0..255. NEON has no
+   mixed-sign u8xs8 widening multiply, so take the difference of two unsigned
+   widening products; it lands in s16 range (|.| <= 65025) and vrshrn applies
+   the +128 rounding shift. No pixel widening, no w0 weight vectors. */
+static inline uint8x8_t graph_scale_lerp8_bsp(uint8x8_t a, uint8x8_t b, uint8x8_t w1) {
+    int16x8_t acc = vreinterpretq_s16_u16(vsubq_u16(vmull_u8(b, w1), vmull_u8(a, w1)));
+    return vadd_u8(a, vreinterpret_u8_s8(vrshrn_n_s16(acc, 8)));
+}
+
 void graph_scale_tof_fast_arch(graph_t* g, graph_t* dst, double scale) {
     if(scale <= 0.0 ||
             dst->w < (int)(g->w*scale) ||
@@ -1511,9 +1521,14 @@ void graph_scale_tof_fast_arch(graph_t* g, graph_t* dst, double scale) {
             uint32_t *drow = dst->buffer + i * dst_w;
 
             uint16_t fy = (uint16_t)((gi_frac + 128) >> 8);
-            uint16x8_t wv0 = vdupq_n_u16((uint16_t)(256 - fy));
-            uint16x8_t wv1 = vdupq_n_u16(fy);
-            uint16x8_t rnd = vdupq_n_u16(128);
+            if(fy == 256) {
+                /* folds exactly into the next source row (bit-exact, same as
+                   the scalar w8 path); keeps the weight in u8 range */
+                gi1 = gi0;
+                row1 = row0;
+                fy = 0;
+            }
+            uint8x8_t wy = vdup_n_u8((uint8_t)fy);
 
             int j = 0;
             for(; j < neon_w; j += 4) {
@@ -1542,42 +1557,34 @@ void graph_scale_tof_fast_arch(graph_t* g, graph_t* dst, double scale) {
                 }
 
                 /* horizontal weight vectors from 4 bytes of fx8:
-                   [a b c d] -> l: [aaaa bbbb], h: [cccc dddd] as u16 lanes.
+                   [a b c d] -> l: [aaaa bbbb], h: [cccc dddd] as w1 bytes.
                    lane-load keeps the read within the fx8 array bounds */
                 uint8x8_t f8 = vreinterpret_u8_u32(
                         vld1_lane_u32((const uint32_t*)(fx8 + j), vdup_n_u32(0), 0));
                 uint8x8x2_t fz = vzip_u8(f8, f8);
-                uint8x8x2_t rl = vzip_u8(fz.val[0], fz.val[0]);
-                uint16x8_t h1l = vmovl_u8(rl.val[0]); /* w1 for px0,px1 */
-                uint16x8_t h1h = vmovl_u8(rl.val[1]); /* w1 for px2,px3 */
-                uint16x8_t h0l = graph_scale_expand_w0_bsp(rl.val[0]);
-                uint16x8_t h0h = graph_scale_expand_w0_bsp(rl.val[1]);
+                uint8x8x2_t wl = vzip_u8(fz.val[0], fz.val[0]);
 
-                /* top row horizontal lerp: (p00*w0 + p01*w1 + 128) >> 8,
-                   w0+w1 = 256 so no u16 overflow */
-                uint16x8_t t0l = vmovl_u8(vget_low_u8(vreinterpretq_u8_u32(u0.val[0])));
-                uint16x8_t t1l = vmovl_u8(vget_low_u8(vreinterpretq_u8_u32(u0.val[1])));
-                uint16x8_t tl = vshrq_n_u16(vmlaq_u16(vmlaq_u16(rnd, t0l, h0l), t1l, h1l), 8);
+                /* horizontal lerp in u8 (2 pixels per d-register half) */
+                uint8x16_t tl = vcombine_u8(
+                        graph_scale_lerp8_bsp(vget_low_u8(vreinterpretq_u8_u32(u0.val[0])),
+                                              vget_low_u8(vreinterpretq_u8_u32(u0.val[1])),
+                                              wl.val[0]),
+                        graph_scale_lerp8_bsp(vget_high_u8(vreinterpretq_u8_u32(u0.val[0])),
+                                              vget_high_u8(vreinterpretq_u8_u32(u0.val[1])),
+                                              wl.val[1]));
+                uint8x16_t bl = vcombine_u8(
+                        graph_scale_lerp8_bsp(vget_low_u8(vreinterpretq_u8_u32(u1.val[0])),
+                                              vget_low_u8(vreinterpretq_u8_u32(u1.val[1])),
+                                              wl.val[0]),
+                        graph_scale_lerp8_bsp(vget_high_u8(vreinterpretq_u8_u32(u1.val[0])),
+                                              vget_high_u8(vreinterpretq_u8_u32(u1.val[1])),
+                                              wl.val[1]));
 
-                uint16x8_t t0h = vmovl_u8(vget_high_u8(vreinterpretq_u8_u32(u0.val[0])));
-                uint16x8_t t1h = vmovl_u8(vget_high_u8(vreinterpretq_u8_u32(u0.val[1])));
-                uint16x8_t th = vshrq_n_u16(vmlaq_u16(vmlaq_u16(rnd, t0h, h0h), t1h, h1h), 8);
+                /* vertical lerp in u8 + pack */
+                uint8x8_t ol = graph_scale_lerp8_bsp(vget_low_u8(tl), vget_low_u8(bl), wy);
+                uint8x8_t oh = graph_scale_lerp8_bsp(vget_high_u8(tl), vget_high_u8(bl), wy);
 
-                /* bottom row horizontal lerp */
-                uint16x8_t b0l = vmovl_u8(vget_low_u8(vreinterpretq_u8_u32(u1.val[0])));
-                uint16x8_t b1l = vmovl_u8(vget_low_u8(vreinterpretq_u8_u32(u1.val[1])));
-                uint16x8_t bl = vshrq_n_u16(vmlaq_u16(vmlaq_u16(rnd, b0l, h0l), b1l, h1l), 8);
-
-                uint16x8_t b0h = vmovl_u8(vget_high_u8(vreinterpretq_u8_u32(u1.val[0])));
-                uint16x8_t b1h = vmovl_u8(vget_high_u8(vreinterpretq_u8_u32(u1.val[1])));
-                uint16x8_t bh = vshrq_n_u16(vmlaq_u16(vmlaq_u16(rnd, b0h, h0h), b1h, h1h), 8);
-
-                /* vertical lerp + pack */
-                uint16x8_t ol = vshrq_n_u16(vmlaq_u16(vmlaq_u16(rnd, tl, wv0), bl, wv1), 8);
-                uint16x8_t oh = vshrq_n_u16(vmlaq_u16(vmlaq_u16(rnd, th, wv0), bh, wv1), 8);
-
-                vst1q_u32(drow + j,
-                        vreinterpretq_u32_u8(vcombine_u8(vmovn_u16(ol), vmovn_u16(oh))));
+                vst1q_u32(drow + j, vreinterpretq_u32_u8(vcombine_u8(ol, oh)));
             }
 
             for(; j < dst_w; j++) {
