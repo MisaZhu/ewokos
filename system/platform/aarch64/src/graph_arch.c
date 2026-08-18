@@ -1415,6 +1415,26 @@ static int graph_scale_separable_upscale_bsp(graph_t* g, graph_t* dst, uint32_t 
     return 1;
 }
 
+static inline uint16x8_t graph_scale_expand_w0_bsp(uint8x8_t w1_bytes) {
+    /* 256 - w1 per u16 lane (w1 in 0..255) */
+    return vsubq_u16(vdupq_n_u16(256), vmovl_u8(w1_bytes));
+}
+
+#if defined(__GNUC__) && !defined(__clang__)
+/* GCC with -mstrict-align lowers vld1_u32 on a pointer without proven 8-byte
+   alignment to 2 scalar loads + orr + fmov. LD1 itself supports unaligned
+   addresses in normal memory, so emit the single-instruction load directly. */
+static inline uint32x2_t graph_scale_ld1_u32_pair_bsp(const uint32_t *p) {
+    uint32x2_t v;
+    __asm__("ld1 {%0.2s}, [%1]" : "=w"(v) : "r"(p) : );
+    return v;
+}
+#else
+static inline uint32x2_t graph_scale_ld1_u32_pair_bsp(const uint32_t *p) {
+    return vld1_u32(p);
+}
+#endif
+
 void graph_scale_tof_fast_arch(graph_t* g, graph_t* dst, double scale) {
     if(scale <= 0.0 ||
             dst->w < (int)(g->w*scale) ||
@@ -1445,26 +1465,23 @@ void graph_scale_tof_fast_arch(graph_t* g, graph_t* dst, double scale) {
     int *x0 = (int*)malloc((size_t)dst_w * sizeof(int));
     int *x1 = (int*)malloc((size_t)dst_w * sizeof(int));
     uint32_t *x_frac = (uint32_t*)malloc((size_t)dst_w * sizeof(uint32_t));
-    uint16_t *wh0 = (uint16_t*)malloc((size_t)dst_w * 4 * sizeof(uint16_t));
-    uint16_t *wh1 = (uint16_t*)malloc((size_t)dst_w * 4 * sizeof(uint16_t));
+    uint8_t *fx8 = (uint8_t*)malloc((size_t)dst_w * sizeof(uint8_t));
 
-    if(x0 != NULL && x1 != NULL && x_frac != NULL && wh0 != NULL && wh1 != NULL) {
+    if(x0 != NULL && x1 != NULL && x_frac != NULL && fx8 != NULL) {
         graph_scale_prepare_axis_bsp(dst_w, wmax, inv_scale, x0, x1, x_frac);
 
-        /* per-column 8-bit-fraction horizontal weights, replicated per channel */
+        /* per-column 8-bit horizontal weights, expanded in-register per
+           iteration; a weight of 256 folds exactly into the next column */
         for(int j = 0; j < dst_w; j++) {
             uint32_t f = (x_frac[j] + 128) >> 8; /* 0..256 */
-            uint16_t w1 = (uint16_t)f;
-            uint16_t w0 = (uint16_t)(256 - f);
-            int o = j * 4;
-            wh0[o] = w0;
-            wh0[o + 1] = w0;
-            wh0[o + 2] = w0;
-            wh0[o + 3] = w0;
-            wh1[o] = w1;
-            wh1[o + 1] = w1;
-            wh1[o + 2] = w1;
-            wh1[o + 3] = w1;
+            if(f == 256) {
+                f = 0;
+                if(x0[j] < wmax) {
+                    x0[j]++;
+                    x1[j] = (x0[j] < wmax) ? x0[j] + 1 : wmax;
+                }
+            }
+            fx8[j] = (uint8_t)f;
         }
 
         /* pair-load of (x0[j], x0[j]+1) stays in bounds while x0[j] < wmax;
@@ -1502,54 +1519,60 @@ void graph_scale_tof_fast_arch(graph_t* g, graph_t* dst, double scale) {
             for(; j < neon_w; j += 4) {
                 /* gather (p00,p01) pairs for 4 output columns from both rows;
                    x1[j] == x0[j]+1 in the NEON-safe prefix */
-                uint32x4_t ab0 = vcombine_u32(vld1_u32(row0 + x0[j]), vld1_u32(row0 + x0[j + 1]));
-                uint32x4_t cd0 = vcombine_u32(vld1_u32(row0 + x0[j + 2]), vld1_u32(row0 + x0[j + 3]));
+                uint32x4_t ab0 = vcombine_u32(graph_scale_ld1_u32_pair_bsp(row0 + x0[j]),
+                                              graph_scale_ld1_u32_pair_bsp(row0 + x0[j + 1]));
+                uint32x4_t cd0 = vcombine_u32(graph_scale_ld1_u32_pair_bsp(row0 + x0[j + 2]),
+                                              graph_scale_ld1_u32_pair_bsp(row0 + x0[j + 3]));
                 uint32x4x2_t u0 = vuzpq_u32(ab0, cd0);
 
-                uint32x4_t ab1 = vcombine_u32(vld1_u32(row1 + x0[j]), vld1_u32(row1 + x0[j + 1]));
-                uint32x4_t cd1 = vcombine_u32(vld1_u32(row1 + x0[j + 2]), vld1_u32(row1 + x0[j + 3]));
+                uint32x4_t ab1 = vcombine_u32(graph_scale_ld1_u32_pair_bsp(row1 + x0[j]),
+                                              graph_scale_ld1_u32_pair_bsp(row1 + x0[j + 1]));
+                uint32x4_t cd1 = vcombine_u32(graph_scale_ld1_u32_pair_bsp(row1 + x0[j + 2]),
+                                              graph_scale_ld1_u32_pair_bsp(row1 + x0[j + 3]));
                 uint32x4x2_t u1 = vuzpq_u32(ab1, cd1);
 
-                uint32x4_t p00 = u0.val[0];
-                uint32x4_t p01 = u0.val[1];
-                uint32x4_t p10 = u1.val[0];
-                uint32x4_t p11 = u1.val[1];
-
-                uint32x4_t eq = vandq_u32(
-                        vandq_u32(vceqq_u32(p00, p01), vceqq_u32(p00, p10)),
-                        vceqq_u32(p00, p11));
-                uint32x2_t eq2 = vand_u32(vget_low_u32(eq), vget_high_u32(eq));
-                if((vget_lane_u32(eq2, 0) & vget_lane_u32(eq2, 1)) == 0xFFFFFFFFu) {
-                    vst1q_u32(drow + j, p00);
+                /* flat 4-pixel block: skip weights and the whole lerp chain */
+                uint32x4_t neq = vorrq_u32(
+                        vorrq_u32(veorq_u32(u0.val[0], u0.val[1]),
+                                  veorq_u32(u0.val[0], u1.val[0])),
+                        veorq_u32(u0.val[0], u1.val[1]));
+                if(vmaxvq_u32(neq) == 0) {
+                    vst1q_u32(drow + j, u0.val[0]);
                     continue;
                 }
 
-                uint8x16_t b00 = vreinterpretq_u8_u32(p00);
-                uint8x16_t b01 = vreinterpretq_u8_u32(p01);
-                uint8x16_t b10 = vreinterpretq_u8_u32(p10);
-                uint8x16_t b11 = vreinterpretq_u8_u32(p11);
+                /* horizontal weight vectors from 4 bytes of fx8:
+                   [a b c d] -> l: [aaaa bbbb], h: [cccc dddd] as u16 lanes.
+                   lane-load keeps the read within the fx8 array bounds */
+                uint8x8_t f8 = vreinterpret_u8_u32(
+                        vld1_lane_u32((const uint32_t*)(fx8 + j), vdup_n_u32(0), 0));
+                uint8x8x2_t fz = vzip_u8(f8, f8);
+                uint8x8x2_t rl = vzip_u8(fz.val[0], fz.val[0]);
+                uint16x8_t h1l = vmovl_u8(rl.val[0]); /* w1 for px0,px1 */
+                uint16x8_t h1h = vmovl_u8(rl.val[1]); /* w1 for px2,px3 */
+                uint16x8_t h0l = graph_scale_expand_w0_bsp(rl.val[0]);
+                uint16x8_t h0h = graph_scale_expand_w0_bsp(rl.val[1]);
 
-                uint16x8_t p00l = vmovl_u8(vget_low_u8(b00));
-                uint16x8_t p00h = vmovl_u8(vget_high_u8(b00));
-                uint16x8_t p01l = vmovl_u8(vget_low_u8(b01));
-                uint16x8_t p01h = vmovl_u8(vget_high_u8(b01));
-                uint16x8_t p10l = vmovl_u8(vget_low_u8(b10));
-                uint16x8_t p10h = vmovl_u8(vget_high_u8(b10));
-                uint16x8_t p11l = vmovl_u8(vget_low_u8(b11));
-                uint16x8_t p11h = vmovl_u8(vget_high_u8(b11));
+                /* top row horizontal lerp: (p00*w0 + p01*w1 + 128) >> 8,
+                   w0+w1 = 256 so no u16 overflow */
+                uint16x8_t t0l = vmovl_u8(vget_low_u8(vreinterpretq_u8_u32(u0.val[0])));
+                uint16x8_t t1l = vmovl_u8(vget_low_u8(vreinterpretq_u8_u32(u0.val[1])));
+                uint16x8_t tl = vshrq_n_u16(vmlaq_u16(vmlaq_u16(rnd, t0l, h0l), t1l, h1l), 8);
 
-                uint16x8_t w0l = vld1q_u16(wh0 + j * 4);
-                uint16x8_t w0h = vld1q_u16(wh0 + j * 4 + 8);
-                uint16x8_t w1l = vld1q_u16(wh1 + j * 4);
-                uint16x8_t w1h = vld1q_u16(wh1 + j * 4 + 8);
+                uint16x8_t t0h = vmovl_u8(vget_high_u8(vreinterpretq_u8_u32(u0.val[0])));
+                uint16x8_t t1h = vmovl_u8(vget_high_u8(vreinterpretq_u8_u32(u0.val[1])));
+                uint16x8_t th = vshrq_n_u16(vmlaq_u16(vmlaq_u16(rnd, t0h, h0h), t1h, h1h), 8);
 
-                /* horizontal lerp: (p00*w0 + p01*w1 + 128) >> 8, w0+w1 = 256 so no u16 overflow */
-                uint16x8_t tl = vshrq_n_u16(vmlaq_u16(vmlaq_u16(rnd, p00l, w0l), p01l, w1l), 8);
-                uint16x8_t th = vshrq_n_u16(vmlaq_u16(vmlaq_u16(rnd, p00h, w0h), p01h, w1h), 8);
-                uint16x8_t bl = vshrq_n_u16(vmlaq_u16(vmlaq_u16(rnd, p10l, w0l), p11l, w1l), 8);
-                uint16x8_t bh = vshrq_n_u16(vmlaq_u16(vmlaq_u16(rnd, p10h, w0h), p11h, w1h), 8);
+                /* bottom row horizontal lerp */
+                uint16x8_t b0l = vmovl_u8(vget_low_u8(vreinterpretq_u8_u32(u1.val[0])));
+                uint16x8_t b1l = vmovl_u8(vget_low_u8(vreinterpretq_u8_u32(u1.val[1])));
+                uint16x8_t bl = vshrq_n_u16(vmlaq_u16(vmlaq_u16(rnd, b0l, h0l), b1l, h1l), 8);
 
-                /* vertical lerp */
+                uint16x8_t b0h = vmovl_u8(vget_high_u8(vreinterpretq_u8_u32(u1.val[0])));
+                uint16x8_t b1h = vmovl_u8(vget_high_u8(vreinterpretq_u8_u32(u1.val[1])));
+                uint16x8_t bh = vshrq_n_u16(vmlaq_u16(vmlaq_u16(rnd, b0h, h0h), b1h, h1h), 8);
+
+                /* vertical lerp + pack */
                 uint16x8_t ol = vshrq_n_u16(vmlaq_u16(vmlaq_u16(rnd, tl, wv0), bl, wv1), 8);
                 uint16x8_t oh = vshrq_n_u16(vmlaq_u16(vmlaq_u16(rnd, th, wv0), bh, wv1), 8);
 
@@ -1577,16 +1600,14 @@ void graph_scale_tof_fast_arch(graph_t* g, graph_t* dst, double scale) {
         free(x0);
         free(x1);
         free(x_frac);
-        free(wh0);
-        free(wh1);
+        free(fx8);
         return;
     }
 
     free(x0);
     free(x1);
     free(x_frac);
-    free(wh0);
-    free(wh1);
+    free(fx8);
 
     uint32_t src_y = 0;
     for(int i = 0; i < dst_h; i++) {
