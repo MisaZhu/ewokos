@@ -366,6 +366,12 @@ static int snd_prepare_stream(void)
         return 0;
     }
 
+    /* stop first (result ignored: the stream may already be stopped)
+       so the device completes all pending tx buffers; tx_reset can
+       then reclaim every slot instead of leaving them inflight */
+    (void)virtio_snd_pcm_ctl(_snd.dev, VIRTIO_SND_R_PCM_STOP, (uint32_t)_snd.stream_id);
+    _snd.started = false;
+
     virtio_snd_tx_reset(_snd.dev);
     virtio_snd_clear_error(_snd.dev);
     if (virtio_snd_pcm_ctl(_snd.dev, VIRTIO_SND_R_PCM_PREPARE, (uint32_t)_snd.stream_id) != 0)

@@ -1763,9 +1763,23 @@ void virtio_snd_tx_reset(virtio_dev_t dev)
         return;
     }
 
+    /*
+        Only reclaim slots the device has already returned through the
+        used ring. Slots still held by the device MUST stay inflight:
+        resubmitting a descriptor chain the device still owns corrupts
+        the avail ring (qemu: "Virtqueue size exceeded") and bricks the
+        device. Pending slots are reclaimed by later reaps once the
+        device completes them (a PCM_STOP flushes them per spec).
+    */
+    virtio_ack_interrupt(dev->base, 0x3);
+    virtio_snd_reap_tx(snd);
+
     for (uint32_t i = 0; i < VIRTIO_SND_TX_SLOT_MAX; i++)
     {
-        snd->tx_slots[i].inflight = false;
+        if (snd->tx_slots[i].inflight)
+        {
+            continue;
+        }
         if (snd->tx_slots[i].status != NULL)
         {
             memset(snd->tx_slots[i].status, 0, sizeof(struct virtio_snd_pcm_status));
@@ -1775,7 +1789,6 @@ void virtio_snd_tx_reset(virtio_dev_t dev)
             memset(snd->tx_slots[i].data, 0, snd->tx_slot_bytes);
         }
     }
-    snd->tx_used_idx = snd->queues[VIRTIO_SND_VQ_TX]->used.idx;
     snd->last_error = 0;
 }
 
