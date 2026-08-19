@@ -954,4 +954,82 @@ _Bool __atomic_compare_exchange_4(volatile void* ptr, void* expected,
     return 1;
 }
 #endif /* __ARM_ARCH >= 6 */
+
+/*
+ * Legacy __sync_* builtins used by pthread: GCC lowers them to these
+ * out-of-line libgcc helpers when the target arch has no suitable inline
+ * sequence (no -march given, the tree default is armv4t). Modern GCC
+ * dropped these helpers from libgcc, so provide them here on top of the
+ * __atomic_* implementations above.
+ */
+#define __SYNC_SEQ_CST 5
+
+uint32_t __sync_lock_test_and_set_4(volatile void* ptr, uint32_t val) {
+    return __atomic_exchange_4(ptr, val, __SYNC_SEQ_CST);
+}
+
+void __sync_lock_release_4(volatile void* ptr) {
+    __sync_synchronize();
+    *(volatile uint32_t*)ptr = 0;
+}
+
+uint32_t __sync_fetch_and_add_4(volatile void* ptr, uint32_t val) {
+    return __atomic_fetch_add_4(ptr, val, __SYNC_SEQ_CST);
+}
+
+uint32_t __sync_fetch_and_sub_4(volatile void* ptr, uint32_t val) {
+    return __atomic_fetch_sub_4(ptr, val, __SYNC_SEQ_CST);
+}
+
+uint32_t __sync_fetch_and_and_4(volatile void* ptr, uint32_t val) {
+    return __atomic_fetch_and_4(ptr, val, __SYNC_SEQ_CST);
+}
+
+uint32_t __sync_fetch_and_or_4(volatile void* ptr, uint32_t val) {
+    return __atomic_fetch_or_4(ptr, val, __SYNC_SEQ_CST);
+}
+
+uint32_t __sync_fetch_and_xor_4(volatile void* ptr, uint32_t val) {
+    return __atomic_fetch_xor_4(ptr, val, __SYNC_SEQ_CST);
+}
+
+_Bool __sync_bool_compare_and_swap_4(volatile void* ptr, uint32_t oldval,
+        uint32_t newval) {
+    uint32_t expected = oldval;
+    return __atomic_compare_exchange_4(ptr, &expected, newval, 0,
+            __SYNC_SEQ_CST, __SYNC_SEQ_CST);
+}
+
+uint32_t __sync_val_compare_and_swap_4(volatile void* ptr, uint32_t oldval,
+        uint32_t newval) {
+    volatile uint32_t* p = (volatile uint32_t*)ptr;
+    uint32_t cur;
+
+#if (__ARM_ARCH >= 6)
+    uint32_t res;
+    __asm__ __volatile__(
+            "dmb ish\n"
+            "1: ldrex %0, [%2]\n"
+            "cmp %0, %3\n"
+            "bne 2f\n"
+            "strex %1, %4, [%2]\n"
+            "cmp %1, #0\n"
+            "bne 1b\n"
+            "2: clrex\n"
+            "dmb ish\n"
+            : "=&r"(cur), "=&r"(res)
+            : "r"(p), "r"(oldval), "r"(newval)
+            : "cc", "memory");
+#else
+    do {
+        cur = *p;
+        if(cur != oldval)
+            break;
+        __asm__ __volatile__("swp %0, %2, [%1]\n"
+                : "=&r"(cur) : "r"(p), "r"(newval) : "memory");
+    } while(cur != oldval);
+#endif
+    return cur;
+}
+#undef __SYNC_SEQ_CST
 #endif /* __arm__ */

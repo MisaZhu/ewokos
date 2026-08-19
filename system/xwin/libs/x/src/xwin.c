@@ -107,13 +107,8 @@ xwin_t* xwin_open(x_t* xp, int32_t disp_index, int x, int y, int w, int h, const
     disp_index = x_get_display_id(disp_index);
 
     int fd = open("/dev/x", O_RDWR);
-    /* #region debug-point A:open-dev-x */
-    if(fd < 0) {
-        klog("[DEBUG][A] xwin_open open /dev/x failed pid=%d title=%s disp=%d w=%d h=%d style=%x\n",
-                        getpid(), title == NULL ? "<null>" : title, disp_index, w, h, style);
+    if(fd < 0)
         return NULL;
-    }
-    /* #endregion */
 
     grect_t xr;
     x_get_desktop_space(disp_index, &xr);

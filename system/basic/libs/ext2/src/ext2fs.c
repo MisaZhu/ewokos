@@ -10,7 +10,7 @@
 
 static int32_t ext2_bdealloc(ext2_t* ext2, uint32_t block);
 static int32_t need_len(int32_t len);
-static int32_t ext2_ensure_data_block(ext2_t* ext2, INODE* node, int32_t lbk, int32_t* blk);
+static int32_t ext2_ensure_data_block(ext2_t* ext2, INODE* node, int32_t lbk, int32_t* blk, int32_t* is_new);
 static int32_t ext2_flush_meta(ext2_t* ext2);
 static char* ext2_get_block_bitmap(ext2_t* ext2, uint32_t blk);
 static char* ext2_get_inode_bitmap(ext2_t* ext2, uint32_t blk);
@@ -504,7 +504,6 @@ static int32_t ext2_idealloc(ext2_t* ext2, uint32_t ino) {
 }
 
 static int32_t ext2_bdealloc(ext2_t* ext2, uint32_t block) {
-        char zero_buf[EXT2_MAX_BLOCK_SIZE];
     if (block == 0)
         return -1;
 
@@ -528,11 +527,14 @@ static int32_t ext2_bdealloc(ext2_t* ext2, uint32_t block) {
     // update free inode count in SUPER and GD
     inc_free_blocks(ext2, block);
 
-    // Zero out the block content
-        memset(zero_buf, 0, ext2_block_size(ext2));
-        if(ext2->write_block(block, zero_buf) != 0)
-        return -1;
-
+    /* Do NOT zero the freed block on disk: unlinking/truncating a large
+     * file would issue one synchronous SD write (plus a read-back verify
+     * on real hosts) per block, which pushed rm of a multi-MB file past
+     * the kernel's 10s IPC timeout and got the unlink aborted mid-flight.
+     * Freed blocks may now hold stale data; every path that reads a
+     * freshly allocated block before writing it must not assume zeroes
+     * (ext2_write memsets partial-write targets, dir/indirect blocks are
+     * always initialized in memory before their first write). */
     return 0;
 }
 
@@ -615,7 +617,7 @@ static int32_t write_child(ext2_t* ext2, INODE* pip, uint32_t ino, const char *n
     nlen = need_len((int32_t)name_len);
     for(uint32_t lbk = 0; ; lbk++) {
         if(lbk >= blocks) {
-            if(ext2_ensure_data_block(ext2, pip, (int32_t)lbk, &blk) != 0)
+            if(ext2_ensure_data_block(ext2, pip, (int32_t)lbk, &blk, NULL) != 0)
                 return -1;
             memset(buf, 0, block_size);
             dp = (DIR_T *)buf;
@@ -1006,7 +1008,7 @@ int32_t ext2_create_file(ext2_t* ext2, uint32_t father_ino, INODE* father_inp, c
     return ino;
 }
 
-static int32_t ext2_ensure_data_block(ext2_t* ext2, INODE* node, int32_t lbk, int32_t* blk) {
+static int32_t ext2_ensure_data_block(ext2_t* ext2, INODE* node, int32_t lbk, int32_t* blk, int32_t* is_new) {
     uint32_t entries_per_block = ext2_indirect_entries(ext2);
     uint32_t indirect1[EXT2_MAX_BLOCK_SIZE / sizeof(uint32_t)];
     uint32_t indirect2[EXT2_MAX_BLOCK_SIZE / sizeof(uint32_t)];
@@ -1014,12 +1016,17 @@ static int32_t ext2_ensure_data_block(ext2_t* ext2, INODE* node, int32_t lbk, in
     uint32_t block_size = ext2_block_size(ext2);
         uint32_t sectors_per_block = block_size / SECTOR_SIZE;
 
+    if(is_new != NULL)
+        *is_new = 0;
+
     if(lbk < 12) {
         if(node->i_block[lbk] == 0) {
             node->i_block[lbk] = ext2_balloc(ext2);
             if(node->i_block[lbk] == 0)
                 return -1;
                         node->i_blocks += sectors_per_block;
+            if(is_new != NULL)
+                *is_new = 1;
         }
         *blk = node->i_block[lbk];
         return 0;
@@ -1051,6 +1058,8 @@ static int32_t ext2_ensure_data_block(ext2_t* ext2, INODE* node, int32_t lbk, in
                 return -1;
                         node->i_blocks += sectors_per_block;
             _cached_indirect_dirty = 1;
+            if(is_new != NULL)
+                *is_new = 1;
         }
         *blk = (int32_t)indirect[lbk - 12];
         return 0;
@@ -1092,6 +1101,8 @@ static int32_t ext2_ensure_data_block(ext2_t* ext2, INODE* node, int32_t lbk, in
                         node->i_blocks += sectors_per_block;
             if(ext2->write_block((int32_t)indirect1[num], (char*)indirect2) != 0)
                 return -1;
+            if(is_new != NULL)
+                *is_new = 1;
         }
         *blk = (int32_t)indirect2[pos];
         return 0;
@@ -1150,6 +1161,8 @@ static int32_t ext2_ensure_data_block(ext2_t* ext2, INODE* node, int32_t lbk, in
                         node->i_blocks += sectors_per_block;
             if(ext2->write_block((int32_t)indirect2[num2], (char*)indirect3) != 0)
                 return -1;
+            if(is_new != NULL)
+                *is_new = 1;
         }
         *blk = (int32_t)indirect3[pos];
         return 0;
@@ -1177,7 +1190,7 @@ int32_t ext2_write(ext2_t* ext2, INODE* node, const char *data, int32_t nbytes, 
 
             while(run_blocks < max_blocks) {
                 int32_t cur_blk = 0;
-                if(ext2_ensure_data_block(ext2, node, lbk + run_blocks, &cur_blk) != 0)
+                if(ext2_ensure_data_block(ext2, node, lbk + run_blocks, &cur_blk, NULL) != 0)
                     break;
                 if(run_blocks == 0)
                     first_blk = cur_blk;
@@ -1197,7 +1210,7 @@ int32_t ext2_write(ext2_t* ext2, INODE* node, const char *data, int32_t nbytes, 
                 continue;
             }
 
-            if(ext2_ensure_data_block(ext2, node, lbk, &blk) != 0)
+            if(ext2_ensure_data_block(ext2, node, lbk, &blk, NULL) != 0)
                 return nbytes_copy;
             if(ext2->write_block(blk, (char*)cq) != 0)
                 return nbytes_copy;
@@ -1209,9 +1222,15 @@ int32_t ext2_write(ext2_t* ext2, INODE* node, const char *data, int32_t nbytes, 
                 node->i_size = offset;
         }
         else {
-            if(ext2_ensure_data_block(ext2, node, lbk, &blk) != 0)
+            int32_t fresh = 0;
+            if(ext2_ensure_data_block(ext2, node, lbk, &blk, &fresh) != 0)
                 return nbytes_copy;
-            if(ext2->read_block(blk, buf) != 0)
+            /* A freshly allocated block may still hold stale data from a
+             * previously deleted file (freed blocks are no longer zeroed
+             * on disk): start from zeroes instead of reading it back. */
+            if(fresh != 0)
+                memset(buf, 0, block_size);
+            else if(ext2->read_block(blk, buf) != 0)
                 return nbytes_copy;
             cp = buf + start_byte;
             remain = (int32_t)block_size - start_byte;

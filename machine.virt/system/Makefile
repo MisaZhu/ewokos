@@ -75,9 +75,9 @@ clean:
 SD = root_$(ARCH).ext2
 sd:
 	@echo "\n====building ext2 format sdcard image===="
-#2048M ext2 sd
+#512M ext2 sd
 	cd $(BUILD_DIR); \
-	dd if=/dev/zero of=${SD} bs=1k count=2048k
+	dd if=/dev/zero of=${SD} bs=1k count=512k
 #make ext2 fs with: block_size=4096 inode_size=128
 	cd $(BUILD_DIR); \
 	mke2fs -b 4096 -I 128 ${SD}
