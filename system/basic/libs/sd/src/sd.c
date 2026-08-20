@@ -112,13 +112,16 @@ static inline void sector_buf_set(uint32_t index, const void* data) {
         memset(_sd_buffer.sector_buf[block_index].data, 0, sz);
     }
 
-    if(_sd_buffer.sector_buf[block_index].data[index] == 0)
+    if(_sd_buffer.sector_buf[block_index].data[index] == 0) {
         _sd_buffer.sector_buf[block_index].data[index] = (ewokos_addr_t)malloc(SECTOR_SIZE);
+        if(_sd_buffer.sector_buf[block_index].data[index] == 0)
+            return; //OOM: skip caching instead of memcpy into a NULL slot
+        _sd_buffer.sector_buffered++; //count populated slots, not set calls
+    }
 
     memcpy((void*)_sd_buffer.sector_buf[block_index].data[index], data, SECTOR_SIZE);
     _sd_buffer.last_counter++;
     _sd_buffer.sector_buf[block_index].counter = _sd_buffer.last_counter;
-    _sd_buffer.sector_buffered++;
 }
 
 static inline void* sector_buf_get(uint32_t index) {

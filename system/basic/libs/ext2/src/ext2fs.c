@@ -92,10 +92,16 @@ static int32_t ext2_write_blocks_io(ext2_t* ext2, int32_t block, const void* buf
     return 0;
 }
 
+/*
+ * Returns 0 with *blk == 0 for a sparse hole (a never-allocated block,
+ * e.g. created by lseek past EOF + write); -1 only for real I/O errors
+ * or an out-of-range logical block. Callers must check *blk == 0.
+ */
 static int32_t ext2_get_data_block(ext2_t* ext2, INODE* node, int32_t lbk, int32_t* blk) {
     uint32_t entries_per_block = ext2_indirect_entries(ext2);
     uint32_t ptr_buf[EXT2_MAX_BLOCK_SIZE / sizeof(uint32_t)];
 
+    *blk = 0;
     if(lbk < 0)
         return -1;
     if(lbk < 12) {
@@ -105,12 +111,12 @@ static int32_t ext2_get_data_block(ext2_t* ext2, INODE* node, int32_t lbk, int32
     else if(lbk < (int32_t)(entries_per_block + 12)) {
         uint32_t* ptr_buf;
         if(node->i_block[12] == 0)
-            return -1;
+            return 0;
         ptr_buf = ext2_get_cached_indirect_block(ext2, node->i_block[12]);
         if(ptr_buf == NULL)
             return -1;
         *blk = (int32_t)ptr_buf[lbk - 12];
-        return (*blk == 0) ? -1 : 0;
+        return 0;
     }
     else if(lbk < (int32_t)(entries_per_block * entries_per_block + entries_per_block + 12)) {
         int32_t count = lbk - 12 - (int32_t)entries_per_block;
@@ -118,15 +124,15 @@ static int32_t ext2_get_data_block(ext2_t* ext2, INODE* node, int32_t lbk, int32
         int32_t pos_offset = count % (int32_t)entries_per_block;
         uint32_t indirect1[EXT2_MAX_BLOCK_SIZE / sizeof(uint32_t)];
         if(node->i_block[13] == 0)
-            return -1;
+            return 0;
         if(ext2->read_block(node->i_block[13], (char*)indirect1) != 0)
             return -1;
         if(indirect1[num] == 0)
-            return -1;
+            return 0;
         if(ext2->read_block((int32_t)indirect1[num], (char*)ptr_buf) != 0)
             return -1;
         *blk = (int32_t)ptr_buf[pos_offset];
-        return (*blk == 0) ? -1 : 0;
+        return 0;
     }
     else if(lbk < (int32_t)(entries_per_block * entries_per_block * entries_per_block +
             entries_per_block * entries_per_block + entries_per_block + 12)) {
@@ -139,19 +145,19 @@ static int32_t ext2_get_data_block(ext2_t* ext2, INODE* node, int32_t lbk, int32
         uint32_t indirect1[EXT2_MAX_BLOCK_SIZE / sizeof(uint32_t)];
         uint32_t indirect2[EXT2_MAX_BLOCK_SIZE / sizeof(uint32_t)];
         if(node->i_block[14] == 0)
-            return -1;
+            return 0;
         if(ext2->read_block(node->i_block[14], (char*)indirect1) != 0)
             return -1;
         if(indirect1[num1] == 0)
-            return -1;
+            return 0;
         if(ext2->read_block((int32_t)indirect1[num1], (char*)indirect2) != 0)
             return -1;
         if(indirect2[num2] == 0)
-            return -1;
+            return 0;
         if(ext2->read_block((int32_t)indirect2[num2], (char*)ptr_buf) != 0)
             return -1;
         *blk = (int32_t)ptr_buf[pos_offset];
-        return (*blk == 0) ? -1 : 0;
+        return 0;
     }
     return -1;
 }
@@ -163,6 +169,20 @@ static int32_t ext2_read_inode_block(ext2_t* ext2, INODE* node, uint32_t lbk, ch
     return ext2->read_block(blk, buf);
 }
 
+/* Read an indirect-pointer block, preferring the dirty cached copy:
+ * ext2_ensure_data_block defers the write-back of a single-indirect
+ * block, so a direct ext2->read_block on it would return stale card
+ * data (wrong i_blocks accounting, missed blocks on truncate/unlink). */
+static int32_t ext2_read_indirect_block(ext2_t* ext2, uint32_t blk, uint32_t* buf) {
+    if(blk == 0)
+        return -1;
+    if(_cached_indirect_blk == blk) {
+        memcpy(buf, _cached_indirect_block, ext2_block_size(ext2));
+        return 0;
+    }
+    return ext2->read_block((int32_t)blk, (char*)buf);
+}
+
 static uint32_t ext2_count_indirect_blocks(ext2_t* ext2, uint32_t blk, int32_t depth) {
     uint32_t block_size = ext2_block_size(ext2);
     uint32_t ptr_buf[EXT2_MAX_BLOCK_SIZE / sizeof(uint32_t)];
@@ -171,7 +191,7 @@ static uint32_t ext2_count_indirect_blocks(ext2_t* ext2, uint32_t blk, int32_t d
 
     if(blk == 0)
         return 0;
-    if(ext2->read_block((int32_t)blk, (char*)ptr_buf) != 0)
+    if(ext2_read_indirect_block(ext2, blk, ptr_buf) != 0)
         return count;
 
     for(uint32_t i = 0; i < entries_per_block; i++) {
@@ -206,7 +226,7 @@ static int32_t ext2_free_indirect_tree(ext2_t* ext2, uint32_t blk, int32_t depth
 
     if(blk == 0)
         return 0;
-    if(ext2->read_block((int32_t)blk, (char*)ptr_buf) != 0)
+    if(ext2_read_indirect_block(ext2, blk, ptr_buf) != 0)
         return -1;
 
     for(uint32_t i = 0; i < entries_per_block; i++) {
@@ -774,12 +794,17 @@ int32_t ext2_read_block(ext2_t* ext2, INODE* node, char *buf, int32_t nbytes, in
     //(5) READ
     if(ext2_get_data_block(ext2, node, lbk, &blk) != 0)
         return -1;
-    if(blk == 0)
-        return -1;
 
     char readbuf[EXT2_MAX_BLOCK_SIZE];
     char *cp;
-    if(start_byte == 0 && nbytes >= (int32_t)block_size) {
+    if(blk == 0) {
+        /* Sparse hole (lseek past EOF + write): reads as zeroes instead
+         * of failing, otherwise the hole would look like EOF and hide
+         * all data written beyond it. */
+        memset(readbuf, 0, block_size);
+        cp = readbuf + start_byte;
+    }
+    else if(start_byte == 0 && nbytes >= (int32_t)block_size) {
         if(ext2->read_block(blk, cq) != 0)
             return -1;
         cp = cq;
@@ -829,7 +854,8 @@ int32_t ext2_read(ext2_t* ext2, INODE* node, char *buf, int32_t nbytes, int32_t 
 
             if(max_blocks > full_blocks)
                 max_blocks = full_blocks;
-            if(max_blocks > 0 && ext2_get_data_block(ext2, node, start_lbk, &first_blk) == 0) {
+            if(max_blocks > 0 && ext2_get_data_block(ext2, node, start_lbk, &first_blk) == 0 &&
+                    first_blk != 0) {
                 int32_t blocks = 1;
                 while(blocks < max_blocks) {
                     int32_t next_blk = 0;
@@ -841,7 +867,7 @@ int32_t ext2_read(ext2_t* ext2, INODE* node, char *buf, int32_t nbytes, int32_t 
                 }
 
                 if(ext2_read_blocks_io(ext2, first_blk, p, (uint32_t)blocks) != 0)
-                    return 0;
+                    return ret - nbytes;
 
                 int32_t rd = blocks * (int32_t)block_size;
                 nbytes -= rd;
@@ -854,13 +880,13 @@ int32_t ext2_read(ext2_t* ext2, INODE* node, char *buf, int32_t nbytes, int32_t 
 
         int32_t rd = ext2_read_block(ext2, node, p, nbytes, offset);
         if(rd <= 0)
-            return 0;
+            return ret - nbytes;
         nbytes -= rd;
         offset += rd;
         avil -= rd;
         p += rd;
     }
-    return ret;
+    return ret - nbytes;
 }
 
 static INODE* get_node_by_ino(ext2_t* ext2, uint32_t ino, char* buf) {
@@ -899,16 +925,19 @@ int32_t ext2_create_dir(ext2_t* ext2, uint32_t father_ino, INODE* father_inp, co
     uint32_t ino, i, blk;
     uint32_t block_size = ext2_block_size(ext2);
     uint32_t now = ext2_now();
+    INODE* inp;
     char buf[EXT2_MAX_BLOCK_SIZE];
 
     ino = ext2_ialloc(ext2); //alloc a node id from table
     if(ino == 0)
         return -1;
     blk = ext2_balloc(ext2); //alloc a block
+    if(blk == 0) //disk full: nothing committed to the parent dir yet, roll back
+        goto fail_ino;
 
-    INODE* inp = get_node_by_ino(ext2, ino, buf); //read inode from block
+    inp = get_node_by_ino(ext2, ino, buf); //read inode from block
     if(inp == NULL)
-        return -1;
+        goto fail;
     //set inode info
     /* Force the on-disk file-type bits: the VFS only hands us the
      * permission bits, and without S_IFDIR every other ext2
@@ -929,7 +958,7 @@ int32_t ext2_create_dir(ext2_t* ext2, uint32_t father_ino, INODE* father_inp, co
     }
 
     if(put_node(ext2, ino, inp) != 0)
-        return -1; //write inode back to block
+        goto fail; //write inode back to block
 
     /* Initialize the new directory's data block ON DISK with "." and
      * "..". The old code left the freshly allocated block holding
@@ -952,10 +981,10 @@ int32_t ext2_create_dir(ext2_t* ext2, uint32_t father_ino, INODE* father_inp, co
     dp->name[0] = '.';
     dp->name[1] = '.';
     if(ext2->write_block(blk, buf) != 0)
-        return -1;
+        goto fail;
 
     if(write_child(ext2, father_inp, ino, name, EXT2_FT_DIR) < 0) //write dir info (name, type)
-        return -1;
+        goto fail;
 
     /* write_child may have grown the parent (new i_block/i_size) and
      * ".." adds a link to it: persist the parent inode, otherwise the
@@ -963,24 +992,36 @@ int32_t ext2_create_dir(ext2_t* ext2, uint32_t father_ino, INODE* father_inp, co
     father_inp->i_links_count++;
     father_inp->i_mtime = now;
     father_inp->i_ctime = now;
+    /* keep bg_used_dirs_count in sync so external tools (fsck) stay happy */
+    uint32_t gidx = get_gd_index_by_ino(ext2, ino);
+    ext2->gds[gidx].bg_used_dirs_count++;
+    mark_gd_dirty(ext2, gidx);
     if(put_node(ext2, father_ino, father_inp) != 0)
-        return -1;
+        return -1; //the dirent is already committed; only the parent's inode update was lost
     return ino;
+
+fail: //no dirent written yet: release both allocations
+    ext2_bdealloc(ext2, blk);
+fail_ino:
+    ext2_idealloc(ext2, ino);
+    ext2_flush_meta(ext2);
+    return -1;
 }
 
 int32_t ext2_create_file(ext2_t* ext2, uint32_t father_ino, INODE* father_inp, const char *name,
         uint16_t uid, uint16_t gid, uint16_t mode ) {
     uint32_t ino, i;
     uint32_t now = ext2_now();
+    INODE* inp;
     char buf[EXT2_MAX_BLOCK_SIZE];
 
     ino = ext2_ialloc(ext2);
     if(ino == 0)
         return -1;
 
-    INODE* inp = get_node_by_ino(ext2, ino, buf);
+    inp = get_node_by_ino(ext2, ino, buf);
     if(inp == NULL)
-        return -1;
+        goto fail;
     inp->i_mode = EXT2_S_IFREG | (mode & 0x0FFF);
     inp->i_uid  = uid;
     inp->i_gid  = gid;
@@ -995,17 +1036,22 @@ int32_t ext2_create_file(ext2_t* ext2, uint32_t father_ino, INODE* father_inp, c
         inp->i_block[i] = 0;
     }
     if(put_node(ext2, ino, inp) != 0)
-        return -1;
+        goto fail;
 
     if(write_child(ext2, father_inp, ino, name, EXT2_FT_FILE) < 0)
-        return -1;
+        goto fail;
 
     /* Persist parent inode changes made by write_child (see above). */
     father_inp->i_mtime = now;
     father_inp->i_ctime = now;
     if(put_node(ext2, father_ino, father_inp) != 0)
-        return -1;
+        return -1; //the dirent is already committed; only the parent's inode update was lost
     return ino;
+
+fail: //no dirent written yet: release the allocated inode
+    ext2_idealloc(ext2, ino);
+    ext2_flush_meta(ext2);
+    return -1;
 }
 
 static int32_t ext2_ensure_data_block(ext2_t* ext2, INODE* node, int32_t lbk, int32_t* blk, int32_t* is_new) {
@@ -1451,6 +1497,12 @@ static int32_t ext2_remove_path(ext2_t* ext2, const char* fname, int32_t want_di
         return -1;
     if(ext2_idealloc(ext2, ino) != 0)
         return -1;
+    if(want_dir) { //keep bg_used_dirs_count in sync (see ext2_create_dir)
+        uint32_t gidx = get_gd_index_by_ino(ext2, ino);
+        if(ext2->gds[gidx].bg_used_dirs_count > 0)
+            ext2->gds[gidx].bg_used_dirs_count--;
+        mark_gd_dirty(ext2, gidx);
+    }
         if(ext2_flush_meta(ext2) != 0)
                 return -1;
     return 0;

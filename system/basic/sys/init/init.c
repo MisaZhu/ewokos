@@ -14,6 +14,7 @@
 #include <dirent.h>
 #include <sd/sd.h>
 #include <ext2/ext2fs.h>
+#include <ext3/ext3fs.h>
 #include <bsp/bsp_sd.h>
 
 #define SD_BUFFER_SIZE (1024*1024*8)
@@ -32,6 +33,31 @@ static void* sd_read_ext2(const char* fname, int32_t* size) {
     return ret;
 }
 
+static int32_t ext_sd_write_blocks(int32_t block, const void* buf, uint32_t count) {
+    return sd_write_blocks(block, buf, count);
+}
+
+/* ext3 path through the ext3 library: the journal is recovered on init and
+ * the fs is committed/closed cleanly on quit; only the read API is used. */
+static void* sd_read_ext3(const char* fname, int32_t* size) {
+    ext3_t ext3;
+    if(ext3_init_ex2(&ext3, sd_read, ext2_sd_read_blocks, sd_write, ext_sd_write_blocks,
+            bsp_sd_flush, SD_BUFFER_SIZE) != 0) {
+        return NULL;
+    }
+    void* ret = ext3_readfile(&ext3, fname, size);
+    ext3_quit(&ext3);
+    return ret;
+}
+
+/* same contract as the kernel's read_fs: probe the partition and use the
+ * matching reader (ext3 preferred when a usable journal is present) */
+static void* read_fs(const char* fname, int32_t* size) {
+    if(ext3_probe(sd_read) == EXT3_PROBE_EXT3)
+        return sd_read_ext3(fname, size);
+    return sd_read_ext2(fname, size);
+}
+
 static int32_t exec_from_sd(const char* prog) {
     int32_t sz;
     if(bsp_sd_init() != 0){
@@ -39,7 +65,7 @@ static int32_t exec_from_sd(const char* prog) {
         return -1;
     }
 
-    char* elf = sd_read_ext2(prog, &sz);
+    char* elf = read_fs(prog, &sz);
     if(elf != NULL) {
         int res = syscall3(SYS_EXEC_ELF, (ewokos_addr_t)prog, (ewokos_addr_t)elf, (ewokos_addr_t)sz);
         free(elf);

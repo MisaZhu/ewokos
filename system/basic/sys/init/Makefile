@@ -16,8 +16,9 @@ $(INIT): $(INIT_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a  \
 		$(BUILD_DIR)/lib/libbsp.a \
 		$(BUILD_DIR)/lib/libsd.a \
-		$(BUILD_DIR)/lib/libext2.a 
-	$(LD) -Ttext=100 $(INIT_OBJS) -o $(INIT) $(LDFLAGS)  $(BSP_LFLAGS) -lsd -lext2  $(EWOK_LIBC) 
+		$(BUILD_DIR)/lib/libext2.a  \
+		$(BUILD_DIR)/lib/libext3.a 
+	$(LD) -Ttext=100 $(INIT_OBJS) -o $(INIT) $(LDFLAGS)  $(BSP_LFLAGS) -lsd -lext2 -lext3  $(EWOK_LIBC) 
 
 clean:
 	rm -fr $(INIT) $(INIT_OBJS)

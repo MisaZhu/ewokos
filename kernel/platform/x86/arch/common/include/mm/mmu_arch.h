@@ -2,6 +2,7 @@
 #define MMU_ARCH_H
 
 #include <stdint.h>
+#include <ewokos_config.h>
 #include <mm/mmudef.h>
 
 #define PAGE_PML4_INDEX(x) (((x) >> 39) & 0x1FF)

@@ -239,9 +239,14 @@ void xwin_close(xwin_t* xwin) {
         if(!xwin->on_close(xwin))
             return;
     }
+
+    // Wait out any in-flight xwin_repaint() (it can be blocked in the
+    // UPDATE IPC on another thread) before tearing the window down:
+    // fd, workspace shm and xinfo must stay valid while a repaint is
+    // using them.
+    pthread_mutex_lock(&xwin->painting_lock);
     close(xwin->fd);
     xwin->fd = -1;
-    pthread_mutex_destroy(&xwin->painting_lock);
 
     if(xwin->ws_g_shm != NULL) {
         shmdt(xwin->ws_g_shm);
@@ -255,6 +260,8 @@ void xwin_close(xwin_t* xwin) {
     }
 
     xwin->data = NULL;
+    pthread_mutex_unlock(&xwin->painting_lock);
+    pthread_mutex_destroy(&xwin->painting_lock);
 
     if(xwin->x->main_win == xwin)
         x_terminate(xwin->x);
@@ -290,7 +297,10 @@ void xwin_repaint(xwin_t* xwin) {
         return;
     }
     vfs_fcntl_wait(xwin->fd, XWIN_CNTL_UPDATE, NULL);
-    xwin->xinfo->update_theme = false;	
+    // The UPDATE above blocks on IPC: a concurrent xwin_close() may have
+    // torn xinfo down while waiting, so never touch it unchecked.
+    if(xwin->xinfo != NULL)
+        xwin->xinfo->update_theme = false;	
     pthread_mutex_unlock(&xwin->painting_lock);
 }
 

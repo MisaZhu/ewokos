@@ -98,7 +98,7 @@ endif
 ifeq ($(QEMU_SNAPSHOT),yes)
 QEMU_ARGS += -snapshot
 endif
-QEMU_ARGS += -drive file=$(SYS_DIR)/root_$(ARCH).ext2,format=raw,id=blk0,if=none -device virtio-blk-device,drive=blk0
+QEMU_ARGS += -drive file=$(SYS_DIR)/root_$(ARCH).img,format=raw,id=blk0,if=none -device virtio-blk-device,drive=blk0
 QEMU_ARGS += -netdev $(QEMU_NETDEV) -device $(QEMU_NET_DEVICE)
 QEMU_ARGS += -fsdev local,id=fsdev0,path=$(HOME),security_model=none -device virtio-9p-device,fsdev=fsdev0,mount_tag=hostshare
 

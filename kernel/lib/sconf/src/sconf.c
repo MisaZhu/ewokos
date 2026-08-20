@@ -1,6 +1,6 @@
 #include <sconf.h>
+#include <readfs.h>
 #include <kstring.h>
-#include <ext2read.h>
 #include <mm/kmalloc.h>
 #include <stddef.h>
 
@@ -145,7 +145,7 @@ const char* sconf_get(sconf_t *conf, const char*name) {
 
 sconf_t* sconf_load(const char* fname) {
     int32_t size;
-    char* str = sd_read_ext2(fname, &size);
+    char* str = read_fs(fname, &size);
     if(str == NULL || size == 0)
         return NULL;
     sconf_t* ret = sconf_parse(str);

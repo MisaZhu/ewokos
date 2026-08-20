@@ -1,4 +1,4 @@
-#include "ext2read.h"
+#include <readfs.h>
 #include <stddef.h>
 #include <kprintf.h>
 #include <kernel/kernel.h>
@@ -12,7 +12,7 @@ int32_t load_init_proc(void) {
     const char* prog = "/sbin/init";
     int32_t sz;
 
-    char* elf = sd_read_ext2(prog, &sz);
+    char* elf = read_fs(prog, &sz);
     if(elf != NULL) {
         proc_t *proc = proc_create(TASK_TYPE_PROC, NULL);
         strcpy(proc->info.cmd, prog);
