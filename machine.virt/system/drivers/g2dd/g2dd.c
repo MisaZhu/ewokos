@@ -548,7 +548,7 @@ int main(int argc, char** argv) {
         return -1;
 
     memset(&dev, 0, sizeof(dev));
-    strcpy(dev.name, "g2d");
+    strcpy(dev.desc, "g2d");
     dev.dev_cntl = g2d_dev_cntl;
     dev.cmd = g2d_cmd;
     dev.extra_data = &state;

@@ -2707,7 +2707,7 @@ int main(int argc, char** argv) {
 
     vdevice_t dev;
     memset(&dev, 0, sizeof(vdevice_t));
-    strcpy(dev.name, "xserver");
+    strcpy(dev.desc, "xserver");
     dev.fcntl = xserver_fcntl;
     dev.close = xserver_win_close;
     dev.open = xserver_win_open;

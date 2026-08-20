@@ -969,7 +969,7 @@ static int do_mount(vdevice_t* dev, int type, int mode) {
     }
 
     //mount the new node to mnt_point, previous node will be saved as well
-    if(vfs_mount(dev->mnt_info.node, info.node) != 0) {
+    if(vfs_mount(dev->mnt_info.node, info.node, dev->desc) != 0) {
         vfs_del_node(info.node);
         return -1;
     }

@@ -9,6 +9,10 @@ ifeq ($(ARCH),arm)
 export ARCH_VER=v7
 endif
 
+ifeq ($(FS),)
+FS=ext3
+endif
+
 
 EWOKOS_ROOT_DIR = ../..
 SYS_ROOT_DIR = $(EWOKOS_ROOT_DIR)/system
@@ -74,15 +78,15 @@ clean:
 
 SD = root_$(ARCH).img
 sd:
-	@echo "\n====building ext3 format sdcard image===="
-#512M ext3 sd
+	@echo "\n====building ${FS} format sdcard image===="
+#512M ext2/ext3 sd
 	cd $(BUILD_DIR); \
 	dd if=/dev/zero of=${SD} bs=1k count=512k
-#make ext3 fs with: block_size=4096 inode_size=128
+#make ext2/ext3 fs with: block_size=4096 inode_size=128
 	cd $(BUILD_DIR); \
-	mke2fs -t ext3 -b 4096 -I 128 ${SD}
+	mke2fs -t ${FS} -b 4096 -I 128 ${SD}
 
 	cd $(TARGET_DIR); \
 	find . -type f | e2cp -ap -G0 -O0 -d ../${SD}:/
 
-	@echo "==== ext3 format sdcard image created  ====\n"
+	@echo "==== ${FS} format sdcard image created  ====\n"

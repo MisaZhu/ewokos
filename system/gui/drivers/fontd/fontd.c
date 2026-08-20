@@ -507,7 +507,7 @@ int main(int argc, char** argv) {
 
     vdevice_t dev;
     memset(&dev, 0, sizeof(vdevice_t));
-    strcpy(dev.name, "font");
+    strcpy(dev.desc, "font");
     dev.dev_cntl = font_dev_cntl;
     dev.cmd = font_cmd;
 

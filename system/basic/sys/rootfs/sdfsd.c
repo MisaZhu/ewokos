@@ -617,13 +617,15 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    if(ext3_has_journal(&ext3))
+    /*if(ext3_has_journal(&ext3)) {
         klog("ext3 (journal ino %u, %u txns / %u blocks recovered)\n",
                 ext3.journal_ino, ext3.recovered_txns, ext3.recovered_blocks);
+    }
+    */
 
     vdevice_t dev;
     memset(&dev, 0, sizeof(vdevice_t));
-    strcpy(dev.name, ext3_has_journal(&ext3) ? "rootfs(ext3)" : "rootfs(ext2)");
+    strcpy(dev.desc, ext3_has_journal(&ext3) ? "rootfs:ext3" : "rootfs:ext2");
     dev.mount = sdext_mount;
     dev.read = sdext_read;
     dev.write = sdext_write;

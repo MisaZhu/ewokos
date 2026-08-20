@@ -857,11 +857,12 @@ int vfs_get_mount(fsinfo_t* info, mount_t* mount) {
 */
 
 
-int vfs_mount(ewokos_addr_t mount_node_to, ewokos_addr_t node) {
+int vfs_mount(ewokos_addr_t mount_node_to, ewokos_addr_t node, const char* dev_desc) {
     proto_t in, out;
     PF->init(&in)->
         addi(&in, mount_node_to)->
-        addi(&in, node);
+        addi(&in, node)->
+        adds(&in, dev_desc);
     PF->init(&out);
     int res = ipc_call(get_vfsd_pid(), VFS_MOUNT, &in, &out);
     PF->clear(&in);

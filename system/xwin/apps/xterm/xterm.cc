@@ -588,7 +588,7 @@ int run(const char* mnt_point) {
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
-	strcpy(dev.name, "xconsole");
+	strcpy(dev.desc, "xconsole");
 	dev.write = console_write;
 	dev.read = console_read;
 	dev.loop_step = console_loop;

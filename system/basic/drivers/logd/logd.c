@@ -101,7 +101,7 @@ int main(int argc, char** argv) {
 
     vdevice_t dev;
     memset(&dev, 0, sizeof(vdevice_t));
-    strcpy(dev.name, "null");
+    strcpy(dev.desc, "slog");
     dev.read = log_read;
     dev.write = log_write;
     dev.extra_data = _buffer;

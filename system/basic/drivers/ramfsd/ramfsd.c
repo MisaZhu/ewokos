@@ -131,7 +131,7 @@ int main(int argc, char** argv) {
 
     vdevice_t dev;
     memset(&dev, 0, sizeof(vdevice_t));
-    strcpy(dev.name, "ramfs");
+    strcpy(dev.desc, "ramfs");
     dev.read = ramfs_read;
     dev.write = ramfs_write;
     dev.unlink = ramfs_unlink;

@@ -50,7 +50,7 @@ int main(int argc, char** argv) {
 
     vdevice_t dev;
     memset(&dev, 0, sizeof(vdevice_t));
-    strcpy(dev.name, "null");
+    strcpy(dev.desc, "null");
     dev.read = null_read;
     dev.write = null_write;
 

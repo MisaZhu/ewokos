@@ -327,7 +327,7 @@ int main(int argc, char** argv) {
 
     vdevice_t dev;
     memset(&dev, 0, sizeof(vdevice_t));
-    strcpy(dev.name, "fat32fs");
+    strcpy(dev.desc, "fat32fs");
     dev.mount = fat32fs_mount;
     dev.read = fat32fs_read;
     dev.write = fat32fs_write;

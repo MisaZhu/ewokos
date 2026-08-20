@@ -58,10 +58,13 @@ enum {
 	DEV_CNTL_REFRESH = 0x10000
 };
 
+#define DESC_MAX 128
+
 typedef struct {
 	int32_t pid;
 	ewokos_addr_t org_node;
 	char org_name[FS_FULL_NAME_MAX];
+	char desc[DESC_MAX];
 } mount_t;
 
 typedef struct {

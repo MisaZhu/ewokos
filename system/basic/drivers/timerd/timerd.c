@@ -195,7 +195,7 @@ int main(int argc, char** argv) {
 
     vdevice_t dev;
     memset(&dev, 0, sizeof(vdevice_t));
-    strcpy(dev.name, "timer");
+    strcpy(dev.desc, "timer");
     dev.dev_cntl = timer_dcntl;
     dev.cmd = timer_cmd;
     dev.loop_step = timer_loop;

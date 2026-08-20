@@ -293,7 +293,7 @@ int main(int argc, char** argv) {
 
     vdevice_t dev;
     memset(&dev, 0, sizeof(vdevice_t));
-    strcpy(dev.name, "vkeybtick");
+    strcpy(dev.desc, "vkeybtick");
     dev.read = vkeyb_read;
     dev.loop_step = vkeyb_loop;
     dev.check_poll_events = vkeyb_check_poll_events;

@@ -322,7 +322,7 @@ int main(int argc, char **argv)
 
     vdevice_t dev;
     memset(&dev, 0, sizeof(vdevice_t));
-    strcpy(dev.name, "sharedfs(virtfs)");
+    strcpy(dev.desc, "sharedfs(virtfs)");
 
     dev.mount = _mount;
     dev.read = _read;

@@ -156,7 +156,7 @@ int main(int argc, char **argv)
     _dev = &dev;
 
     memset(&dev, 0, sizeof(vdevice_t));
-    strcpy(dev.name, "keyboard");
+    strcpy(dev.desc, "keyboard");
     dev.read = keybd_read;
     dev.check_poll_events = keybd_check_poll_events;
     dev.loop_step = keybd_loop_step;

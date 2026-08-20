@@ -86,7 +86,7 @@ int main(int argc, char** argv) {
 
     vdevice_t dev;
     memset(&dev, 0, sizeof(vdevice_t));
-    strcpy(dev.name, "display");
+    strcpy(dev.desc, "display manager");
     dev.dev_cntl = DISP_dev_cntl;
     dev.extra_data = &display_man;
 

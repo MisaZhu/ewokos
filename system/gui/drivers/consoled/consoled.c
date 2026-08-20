@@ -302,7 +302,7 @@ int main(int argc, char** argv) {
 
     vdevice_t dev;
     memset(&dev, 0, sizeof(vdevice_t));
-    strcpy(dev.name, "console");
+    strcpy(dev.desc, "console");
     dev.write = console_write;
     dev.read = console_read;
     dev.extra_data = &_console;

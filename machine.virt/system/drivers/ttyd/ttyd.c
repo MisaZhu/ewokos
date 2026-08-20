@@ -125,7 +125,7 @@ int main(int argc, char** argv) {
 
     vdevice_t dev;
     memset(&dev, 0, sizeof(vdevice_t));
-    strcpy(dev.name, "tty");
+    strcpy(dev.desc, "tty");
     dev.read = tty_read;
     dev.write = tty_write;
     dev.check_poll_events = tty_check_poll_events;

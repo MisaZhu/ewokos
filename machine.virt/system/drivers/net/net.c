@@ -172,7 +172,7 @@ int main(int argc, char **argv)
 
     vdevice_t dev;
     memset(&dev, 0, sizeof(vdevice_t));
-    strcpy(dev.name, "virtio-net");
+    strcpy(dev.desc, "virtio-net");
     dev.read = net_read;
     dev.write = net_write;
     dev.dev_cntl = net_dcntl;

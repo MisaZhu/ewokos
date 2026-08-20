@@ -702,7 +702,7 @@ static const char* fullname(vfs_node_t* node) {
     return ret;
 }
 
-static int32_t vfs_mount(int32_t pid, vfs_node_t* org, vfs_node_t* node) {
+static int32_t vfs_mount(int32_t pid, vfs_node_t* org, vfs_node_t* node, const char* desc) {
     if(org == NULL || node == NULL)
         return -1;
         
@@ -716,6 +716,7 @@ static int32_t vfs_mount(int32_t pid, vfs_node_t* org, vfs_node_t* node) {
     _vfs_mounts[id].pid = pid;
     _vfs_mounts[id].org_node = vfs_get_node_id(org);
     strcpy(_vfs_mounts[id].org_name, fullname(org));
+    strncpy(_vfs_mounts[id].desc, desc, DESC_MAX-1);
     strcpy(node->fsinfo.name, org->fsinfo.name);
     node->mount_id =  id;
 
@@ -2080,12 +2081,14 @@ static void do_vfs_mount(int32_t pid, proto_t* in, proto_t* out) {
     if(node_id == 0)
         return;
 
+    const char* desc = proto_read_str(in);
+
     vfs_node_t* node_to = vfs_get_node_by_id(node_to_id);
     vfs_node_t* node = vfs_get_node_by_id(node_id);
     if(node_to == NULL || node == NULL)
     return;
 
-    vfs_mount(pid, node_to, node);
+    vfs_mount(pid, node_to, node, desc);
     PF->clear(out)->addi(out, 0);
 }
 

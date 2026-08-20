@@ -65,7 +65,7 @@ int       vfs_get_mount_by_fname(const char* fname, mount_t* mount, char* dev_fn
 
 fsinfo_t* vfs_kids(fsinfo_t* info, uint32_t* num);
 
-int       vfs_mount(ewokos_addr_t mount_node_to, ewokos_addr_t node);
+int       vfs_mount(ewokos_addr_t mount_node_to, ewokos_addr_t node, const char* dev_desc);
 int       vfs_umount(ewokos_addr_t node);
 
 int       vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_node_only, bool autodir);

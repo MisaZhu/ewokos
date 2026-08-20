@@ -66,7 +66,7 @@ int main(int argc, char** argv) {
     const char* mnt_point = "/dev/time";
     vdevice_t dev;
     memset(&dev, 0, sizeof(vdevice_t));
-    strcpy(dev.name, "time");
+    strcpy(dev.desc, "time");
     dev.dev_cntl = time_dcntl;
     dev.loop_step = time_loop;
 

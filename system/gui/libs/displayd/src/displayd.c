@@ -634,7 +634,7 @@ int fbdisplayd_run(fbdisplayd_t* fbdisplayd, const char* mnt_name,
 
     vdevice_t dev;
     memset(&dev, 0, sizeof(vdevice_t));
-    strcpy(dev.name, "framebuffer");
+    strcpy(dev.desc, "display");
     dev.dma = fb_dma;
     dev.flush = do_fb_flush;
     dev.fcntl = fb_fcntl;

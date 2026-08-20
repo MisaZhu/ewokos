@@ -862,7 +862,7 @@ int main(int argc, char **argv)
 
     vdevice_t dev;
     memset(&dev, 0, sizeof(vdevice_t));
-    strcpy(dev.name, "virtio-snd");
+    strcpy(dev.desc, "virtio-snd");
     dev.open = snd_open;
     dev.close = snd_close;
     dev.read = snd_read;
