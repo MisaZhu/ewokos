@@ -1282,6 +1282,88 @@ static int graph_scale_integer_downsample_bsp(graph_t* g, graph_t* dst, uint32_t
     return 1;
 }
 
+/* Exact power-of-two integer upscale (2x, 4x, ...): every source pixel
+   becomes a factor x factor block, so the whole scale is pure pixel
+   replication — no weights, no interpolation, same nearest semantics as
+   the integer downsample path above.  Only an exact-size dst takes this
+   path; anything else falls through to the separable bilinear upscale. */
+static int graph_scale_integer_upscale_bsp(graph_t* g, graph_t* dst, uint32_t inv_scale) {
+    if(inv_scale == 0 || (GRAPH_SCALE_FIXED_SCALE % inv_scale) != 0)
+        return 0;
+
+    uint32_t factor = GRAPH_SCALE_FIXED_SCALE / inv_scale;
+    if(factor < 2 || (factor & (factor - 1)) != 0)
+        return 0;
+
+    unsigned shift = 0;
+    while((1U << shift) < factor)
+        shift++;
+
+    int src_w = g->w;
+    int dst_w = dst->w;
+    int dst_h = dst->h;
+    if((uint32_t)dst_w != ((uint32_t)src_w << shift) ||
+            (uint32_t)dst_h != ((uint32_t)g->h << shift))
+        return 0;
+
+    size_t row_bytes = (size_t)dst_w * sizeof(uint32_t);
+
+    for(int y = 0; y < g->h; y++) {
+        const uint32_t *srow = g->buffer + y * src_w;
+        uint32_t *drow = dst->buffer + (((size_t)y << shift) * (size_t)dst_w);
+        int x = 0;
+
+        if(shift == 1) {
+            /* 2x: duplicate each pixel */
+            for(; x <= src_w - 4; x += 4) {
+                uint32x4_t v = vld1q_u32(srow + x);
+                uint32x4x2_t z = vzipq_u32(v, v); /* [a a b b], [c c d d] */
+                vst1q_u32(drow + (x << 1), z.val[0]);
+                vst1q_u32(drow + (x << 1) + 4, z.val[1]);
+            }
+            for(; x < src_w; x++) {
+                uint32_t p = srow[x];
+                drow[(x << 1)] = p;
+                drow[(x << 1) + 1] = p;
+            }
+        }
+        else if(shift == 2) {
+            /* 4x: quadruple each pixel */
+            for(; x <= src_w - 4; x += 4) {
+                uint32x4_t v = vld1q_u32(srow + x);
+                uint32_t *d = drow + (x << 2);
+                vst1q_u32(d,      vdupq_lane_u32(vget_low_u32(v), 0));
+                vst1q_u32(d + 4,  vdupq_lane_u32(vget_low_u32(v), 1));
+                vst1q_u32(d + 8,  vdupq_lane_u32(vget_high_u32(v), 0));
+                vst1q_u32(d + 12, vdupq_lane_u32(vget_high_u32(v), 1));
+            }
+            for(; x < src_w; x++) {
+                uint32_t p = srow[x];
+                uint32_t *d = drow + (x << 2);
+                d[0] = p;
+                d[1] = p;
+                d[2] = p;
+                d[3] = p;
+            }
+        }
+        else {
+            /* 8x and beyond: scalar block fill */
+            for(; x < src_w; x++) {
+                uint32_t p = srow[x];
+                uint32_t *d = drow + ((uint32_t)x << shift);
+                for(uint32_t k = 0; k < factor; k++)
+                    d[k] = p;
+            }
+        }
+
+        /* the other factor-1 destination rows are identical copies */
+        for(uint32_t k = 1; k < factor; k++)
+            memcpy(drow + k * dst_w, drow, row_bytes);
+    }
+
+    return 1;
+}
+
 /* Separable two-pass upscale for scale >= 1 (inv_scale <= FIXED_SCALE):
    each source row feeds ~scale destination rows, so the horizontal lerp is
    computed once per source row into a 2-slot row cache (gi0 advances <= 1
@@ -1464,6 +1546,12 @@ void graph_scale_tof_fast_arch(graph_t* g, graph_t* dst, double scale) {
     }
 
     if(scale < 1.0 && graph_scale_integer_downsample_bsp(g, dst, inv_scale))
+        return;
+
+    /* exact power-of-two integer upscale (2x, 4x, ...): pure pixel
+       replication, no interpolation — nearest, like the downsample path */
+    if(inv_scale < GRAPH_SCALE_FIXED_SCALE &&
+            graph_scale_integer_upscale_bsp(g, dst, inv_scale))
         return;
 
     /* scale >= 1: separable two-pass with row cache; falls through to the
