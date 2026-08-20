@@ -1,7 +1,6 @@
 #include <sd/sd.h>
 //#include <ext2/ext2fs.h>
 #include <ext3/ext3fs.h>
-#include <bsp/bsp_sd.h>
 
 #define SD_BUFFER_SIZE (1024*1024*8)
 
@@ -25,7 +24,7 @@ static int32_t ext_sd_read_blocks(int32_t block, void* buf, uint32_t count) {
 static void* read_ext3(const char* fname, int32_t* size) {
     ext3_t ext3;
     if(ext3_init_ex2(&ext3, sd_read, ext_sd_read_blocks, sd_write, NULL,
-            bsp_sd_flush, SD_BUFFER_SIZE) != 0) {
+            sd_flush, SD_BUFFER_SIZE) != 0) {
         return NULL;
     }
     void* ret = ext3_readfile(&ext3, fname, size);

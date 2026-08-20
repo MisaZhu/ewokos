@@ -539,7 +539,7 @@ static int sdext_flush(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, voi
         return -1;
     if(ext3_commit(ext3) != 0)
         return -1;
-    return bsp_sd_flush();
+    return sd_flush();
 }
 
 static int sdext_close(vdevice_t* dev, int fd, int from_pid, ewokos_addr_t node, fsinfo_t* info, void* p) {
@@ -552,7 +552,7 @@ static int sdext_close(vdevice_t* dev, int fd, int from_pid, ewokos_addr_t node,
     if(ext3_commit(ext3) != 0)
         return -1;
     inode_cache_drop(node);
-    return bsp_sd_flush();
+    return sd_flush();
 }
 
 /* fork() inheritance: vfsd sends FS_CMD_DUP per inherited fd, and each
@@ -609,7 +609,7 @@ int main(int argc, char** argv) {
 
     ext3_t ext3;
     int32_t ret = ext3_init_ex2(&ext3, sd_read, sdext_sd_read_blocks, sd_write, sdext_sd_write_blocks,
-            bsp_sd_flush, SD_BUFFER_SIZE);
+            sd_flush, SD_BUFFER_SIZE);
     if(ret != 0) {
         if(ret == EXT3_ERR_JOURNAL)
             klog("sdfsd: ext3 journal unusable, run e2fsck!\n");

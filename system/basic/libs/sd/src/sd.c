@@ -141,6 +141,7 @@ static inline void* sector_buf_get(uint32_t index) {
 
 //sd arch functions 
 static int32_t (*sd_init_arch)(void);
+static int32_t (*sd_flush_arch)(void);
 static int32_t (*sd_read_sector_arch)(int32_t sector, void* buf);
 static int32_t (*sd_read_sectors_arch)(int32_t sector, void* buf, uint32_t count);
 static int32_t (*sd_write_sector_arch)(int32_t sector, const void* buf);
@@ -382,16 +383,18 @@ int32_t sd_quit(void) {
     return 0;
 }
 
+int32_t sd_flush(void) {
+    if(sd_flush_arch == NULL)
+        return 0;
+    return sd_flush_arch();
+}
+
 int32_t sd_init(sd_init_func init, sd_read_sector_func rd, sd_write_sector_func wr) {
-    return sd_init_ex2(init, rd, NULL, wr, NULL);
+    return sd_init_ex(init, rd, NULL, wr, NULL, NULL);
 }
 
-int32_t sd_init_ex(sd_init_func init, sd_read_sector_func rd, sd_read_sectors_func rds, sd_write_sector_func wr) {
-    return sd_init_ex2(init, rd, rds, wr, NULL);
-}
-
-int32_t sd_init_ex2(sd_init_func init, sd_read_sector_func rd, sd_read_sectors_func rds,
-        sd_write_sector_func wr, sd_write_sectors_func wrs) {
+int32_t sd_init_ex(sd_init_func init, sd_read_sector_func rd, sd_read_sectors_func rds,
+        sd_write_sector_func wr, sd_write_sectors_func wrs, sd_flush_func flsh) {
     memset(&_sd_buffer, 0, sizeof(sd_buffer_t));
     memset(&_partition, 0, sizeof(partition_t));
     _sd_buffer.enabled = 1;
@@ -401,6 +404,7 @@ int32_t sd_init_ex2(sd_init_func init, sd_read_sector_func rd, sd_read_sectors_f
     sd_read_sectors_arch = rds;
     sd_write_sector_arch = wr;
     sd_write_sectors_arch = wrs;
+    sd_flush_arch = flsh;
 
     if(sd_init_arch() != 0)
         return -1;
