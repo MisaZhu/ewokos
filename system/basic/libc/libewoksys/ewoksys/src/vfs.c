@@ -1186,8 +1186,19 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
              * Drivers such as ramfs can mutate per-file fsinfo.data/stat.size on write.
              * Sync the updated fsinfo back to vfsd's node so reopening the same path
              * (for shell pipe temp files, redirections, etc.) sees the new backing data.
+             *
+             * For plain sequential growth (only stat fields move) the push is
+             * throttled to 256KB boundaries: the server tags the reply fsinfo
+             * with FS_STATE_CHANGED, so vfs_close pushes the final state and
+             * every intermediate update during e.g. a large file copy is just
+             * one wasted IPC round-trip per write.
              */
-            vfs_update(info, false);
+            bool push = (file == NULL) ||
+                    (file->info.data != info->data) ||
+                    (((uint32_t)offset >> 18) != ((uint32_t)file->info.stat.size >> 18));
+            vfs_update_file(info);
+            if(push)
+                vfs_set_info(info);
             vfs_seek(fd, offset);
         }
     }

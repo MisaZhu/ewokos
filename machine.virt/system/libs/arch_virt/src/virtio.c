@@ -58,6 +58,15 @@
 
 #define VIRTIO_INTERRUPT_BASE 0x30
 
+/*
+ * Dedicated blk data buffer: the 4KB virtq page only leaves ~3.5KB for
+ * request+data+status (6 sectors/request), which forced every large I/O
+ * into a long chain of tiny requests. A separate 64KB DMA buffer moves
+ * 128 sectors per request instead.
+ */
+#define VIRTIO_BLK_DMA_SIZE (64 * 1024)
+#define VIRTIO_BLK_MAX_SECTORS (VIRTIO_BLK_DMA_SIZE / 512)
+
 #define VIRTIO_BLK_T_IN 0
 #define VIRTIO_BLK_T_OUT 1
 #define VIRTIO_BLK_T_FLUSH 4
@@ -241,6 +250,8 @@ struct virtio_device
     uintptr_t base;
     struct virtq_t *virtq;
     uintptr_t phy;
+    uint8_t *blk_data;
+    uintptr_t blk_data_phy;
     int queue_ready;
     int interrupt;
     int device_id;
@@ -332,6 +343,19 @@ static virtio_dev_t virtio_alloc_device(uintptr_t base, int dev_id, bool alloc_q
 
     if (alloc_queue)
     {
+        /*
+         * Allocate the blk data buffer before the virtq: dma_user_alloc is a
+         * bump allocator that sizes the underlying region on first call, so
+         * the largest user must go first.
+         */
+        if (dev_id == VIRTIO_ID_BLOCK)
+        {
+            dev->blk_data = dma_user_alloc(VIRTIO_BLK_DMA_SIZE);
+            if (dev->blk_data != NULL)
+            {
+                dev->blk_data_phy = (uintptr_t)dma_user_phy(dev->blk_data);
+            }
+        }
         dev->virtq = dma_user_alloc(sizeof(struct virtq_t));
         if (dev->virtq == NULL || (intptr_t)dev->virtq == -1)
         {
@@ -1127,8 +1151,17 @@ int virtio_blk_transfer(virtio_dev_t dev, uint64_t sector, void *buffer, uint32_
 {
     uintptr_t base = dev->base;
     struct virtq_t *virtq = dev->virtq;
-    uint32_t payload_bytes_max = sizeof(virtq->buf0) - sizeof(struct virtio_blk_req) - sizeof(uint8_t);
-    uint32_t max_sectors = payload_bytes_max / 512;
+    /*
+     * Payload lives in the dedicated 64KB DMA buffer when available (128
+     * sectors/request); fall back to the small in-ring area (6 sectors)
+     * if the buffer could not be allocated.
+     */
+    uint32_t max_sectors = VIRTIO_BLK_MAX_SECTORS;
+    if (dev->blk_data == NULL)
+    {
+        uint32_t payload_bytes_max = sizeof(virtq->buf0) - sizeof(struct virtio_blk_req) - sizeof(uint8_t);
+        max_sectors = payload_bytes_max / 512;
+    }
     uint8_t *io_buf = (uint8_t *)buffer;
 
     if (count == 0)
@@ -1145,9 +1178,21 @@ int virtio_blk_transfer(virtio_dev_t dev, uint64_t sector, void *buffer, uint32_
         uint32_t chunk = count > max_sectors ? max_sectors : count;
         uint32_t bytes = chunk * 512;
         struct virtio_blk_req *req = (struct virtio_blk_req *)virtq->buf0;
-        uint8_t *buf = (uint8_t *)virtq->buf0 + sizeof(struct virtio_blk_req);
-        uint8_t *status = &buf[bytes];
+        uint8_t *buf;
+        uint64_t buf_phy;
+        uint8_t *status = (uint8_t *)virtq->buf1;
         uint16_t used_before = virtq->used.idx;
+
+        if (dev->blk_data != NULL)
+        {
+            buf = dev->blk_data;
+            buf_phy = dev->blk_data_phy;
+        }
+        else
+        {
+            buf = (uint8_t *)virtq->buf0 + sizeof(struct virtio_blk_req);
+            buf_phy = get_phy_addr(dev, buf);
+        }
 
         req->type = isWrite ? VIRTIO_BLK_T_OUT : VIRTIO_BLK_T_IN;
         req->reserved = 0;
@@ -1164,7 +1209,7 @@ int virtio_blk_transfer(virtio_dev_t dev, uint64_t sector, void *buffer, uint32_
         virtq->desc[0].flags = VIRTQ_DESC_F_NEXT;
         virtq->desc[0].next = 1;
 
-        virtq->desc[1].addr = get_phy_addr(dev, buf);
+        virtq->desc[1].addr = buf_phy;
         virtq->desc[1].len = bytes;
         virtq->desc[1].flags = VIRTQ_DESC_F_NEXT | (isWrite ? 0 : VIRTQ_DESC_F_WRITE);
         virtq->desc[1].next = 2;
@@ -1180,27 +1225,34 @@ int virtio_blk_transfer(virtio_dev_t dev, uint64_t sector, void *buffer, uint32_
         mem_barrier();
         put32(base + VIRTIO_MMIO_QUEUE_NOTIFY, 0);
 
+        /*
+         * Wait on used.idx (plain DMA-coherent memory) instead of reading
+         * the MMIO interrupt status every iteration: each MMIO read is a
+         * VM exit, and proc_usleep(0) costs two kernel_tic syscalls, so
+         * the old loop burned several traps per poll. Spin briefly (QEMU
+         * usually completes within microseconds), then yield; ack the
+         * interrupt once after completion.
+         */
         uint8_t completed = 0;
         for (uint32_t i = 0; i < VIRTIO_TIMEOUT_LOOPS; i++)
         {
-            /*
-             * Interrupt status is only a wake hint. If the edge is consumed by
-             * another poll site, the request may already be complete while the
-             * status bit is clear. Track used.idx like the other virtio request
-             * queues so blk I/O completion cannot be lost.
-             */
-            virtio_ack_interrupt(base, 0x1);
             mem_barrier();
             if (virtq->used.idx != used_before)
             {
-                if (!isWrite)
-                {
-                    memcpy(io_buf, buf, bytes);
-                }
                 completed = 1;
                 break;
             }
-            proc_usleep(0);
+            if (i >= 128)
+            {
+                proc_usleep(0);
+            }
+        }
+        virtio_ack_interrupt(base, 0x1);
+        mem_barrier();
+
+        if (completed && !isWrite)
+        {
+            memcpy(io_buf, buf, bytes);
         }
 
         memset(&virtq->desc[0], 0, sizeof(struct virtq_desc) * 3);
@@ -1260,15 +1312,19 @@ int virtio_blk_flush(virtio_dev_t dev)
 
         for (uint32_t i = 0; i < VIRTIO_TIMEOUT_LOOPS; i++)
         {
-                virtio_ack_interrupt(base, 0x1);
                 mem_barrier();
                 if (virtq->used.idx != used_before)
                 {
                         completed = 1;
                         break;
                 }
-                proc_usleep(0);
+                if (i >= 128)
+                {
+                        proc_usleep(0);
+                }
         }
+        virtio_ack_interrupt(base, 0x1);
+        mem_barrier();
 
         memset(&virtq->desc[0], 0, sizeof(struct virtq_desc) * 2);
         if (!completed || *status != VIRTIO_BLK_OK)

@@ -64,13 +64,25 @@ static const char* get_cmd(procinfo_t* proc, int full) {
     return proc->cmd;
 }
 
-static const char* get_core_loading(sys_info_t* sys_info, procinfo_t* proc) {
+static const char* get_core_loading(sys_info_t* sys_info, procinfo_t* proc, uint32_t run_usec) {
     static char ret[8];
     if(sys_info->cores > 1)
-        snprintf(ret, 7, "%d:%d%%", proc->core, proc->run_usec/10000);
+        snprintf(ret, 7, "%d:%d%%", proc->core, run_usec/10000);
     else
-        snprintf(ret, 7, "%d%%", proc->run_usec/10000);
+        snprintf(ret, 7, "%d%%", run_usec/10000);
     return ret;
+}
+
+static uint32_t get_loading(procinfo_t* procs, int num, procinfo_t* proc, int8_t thread) {
+    uint32_t run_usec = proc->run_usec;
+    if(thread == 0 && proc->type == TASK_TYPE_PROC) { //aggregate all thread loadings
+        for(int i=0; i<num; i++) {
+            procinfo_t* p = &procs[i];
+            if(p->type == TASK_TYPE_THREAD && p->father_pid == proc->pid)
+                run_usec += p->run_usec;
+        }
+    }
+    return run_usec;
 }
 
 static int doargs(int argc, char* argv[], int8_t* full, int8_t* all, int8_t* thread) {
@@ -158,7 +170,7 @@ int main(int argc, char* argv[]) {
                     get_owner(proc),
                     proc->pid,
                     proc->father_pid,
-                    get_core_loading(&sys_info, proc),
+                    get_core_loading(&sys_info, proc, get_loading(procs, num, proc, thread)),
                     get_state(proc),
                     sec / (3600),
                     sec / 60,
@@ -172,7 +184,7 @@ int main(int argc, char* argv[]) {
                     get_owner(proc),
                     proc->pid,
                     proc->father_pid,
-                    get_core_loading(&sys_info, proc),
+                    get_core_loading(&sys_info, proc, get_loading(procs, num, proc, thread)),
                     get_state(proc),
                     get_cmd(proc, full));
 

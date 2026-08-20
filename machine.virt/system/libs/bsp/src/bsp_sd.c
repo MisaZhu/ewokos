@@ -83,6 +83,32 @@ static int32_t bsp_sd_read_cache_sectors(int32_t sector, void* buf, uint32_t cou
             return -1;
 
         if(l3_entry[l3] == 0) {
+            /*
+             * Streaming path: a run of full, uncached pages is read
+             * straight into the caller's buffer, skipping the
+             * prefetch_buf->page->out double copy and keeping bulk data
+             * out of the cache (it is never re-read, but would evict
+             * hot metadata pages).
+             */
+            if(sector_offset == 0) {
+                uint32_t max_pages = 0x200 - l3;
+                uint32_t run = remaining / SD_CACHE_PAGE_SECTORS;
+                if(run > max_pages)
+                    run = max_pages;
+                uint32_t uncached = 0;
+                while(uncached < run && l3_entry[l3 + uncached] == 0)
+                    uncached++;
+                if(uncached >= 4) {
+                    uint32_t run_sectors = uncached * SD_CACHE_PAGE_SECTORS;
+                    if(virt_sd_read_blocks((int32_t)current_sector, out, run_sectors) != 0)
+                        return -1;
+                    out += uncached * SD_CACHE_PAGE_SIZE;
+                    current_sector += run_sectors;
+                    remaining -= run_sectors;
+                    continue;
+                }
+            }
+
             uint32_t needed_pages = (sector_offset + remaining + SD_CACHE_PAGE_SECTORS - 1) / SD_CACHE_PAGE_SECTORS;
             uint32_t max_pages = 0x200 - l3;
             if(needed_pages > max_pages)
