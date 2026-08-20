@@ -375,7 +375,7 @@ static void* ext3_readfile(ext3_t* ext3, const char* fname, int32_t* size) {
     return ret;
 }
 
-void* sd_read_ext3(const char* fname, int32_t* size) {
+void* read_ext3(const char* fname, int32_t* size) {
     ext3_t* ext3 = &_ext3;
     if (ext3_init(ext3) != 0) {
         if (size != NULL) {
