@@ -8,7 +8,7 @@ LDFLAGS = -L $(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-INIT_OBJS = $(ARCH)/init.o 
+INIT_OBJS = $(ARCH)/init.o $(ARCH)/readfs.o
 	
 INIT = $(TARGET_DIR)/sbin/init
 
