@@ -9,7 +9,7 @@
 #include <sys/time.h>
 #include <ewoksys/vfs.h>
 
-#define CP_BUF_SIZE VFS_BUF_SIZE
+#define CP_BUF_SIZE (1024*256)
 
 static const char* path_basename(const char* path) {
     const char* base = path;

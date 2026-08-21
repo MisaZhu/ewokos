@@ -25,9 +25,6 @@ typedef struct pollfd {
     uint16_t revents;  
 } vfs_pollfd_t;
 
-
-#define VFS_BUF_SIZE (1024*64)
-
 #define VFS_BACKUP_FD0 (MAX_OPEN_FILE_PER_PROC-3)
 #define VFS_BACKUP_FD1 (MAX_OPEN_FILE_PER_PROC-2)
 

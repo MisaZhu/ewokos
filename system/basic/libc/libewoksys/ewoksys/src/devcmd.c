@@ -146,7 +146,7 @@ int dev_open(int dev_pid, int fd, fsinfo_t* info, int oflag) {
 }
 
 #define SHM_ON  256
-#define SHM_MAX (1024*64)
+#define SHM_MAX (1024*256)
 
 /*
  * Per-fd persistent transfer buffer cache.

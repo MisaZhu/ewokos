@@ -904,6 +904,8 @@ int vfs_seek(int fd, int offset) {
     return 0;
 }
 
+#define VFS_BUF_SIZE (1024*256)
+
 uint8_t* vfs_readfile(const char* fname, int* rsz) {
     char fullname[FS_FULL_NAME_MAX+1] = {0};
     vfs_fullname(fname, fullname, FS_FULL_NAME_MAX);
