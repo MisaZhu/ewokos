@@ -21,48 +21,61 @@ static inline uint16x8_t neon_div255_u16(uint16x8_t v)
     return vshrq_n_u16(t, 8);
 }
 
-static inline void neon_8(uint32_t *s, uint32_t *d)
+static inline void neon_16(uint32_t *s, uint32_t *d)
 {
     __asm volatile(
-        "ld4 {v20.8b-v23.8b}, [%0]\n\t"    // Load source
-        "st4 {v20.8b-v23.8b}, [%1]\n\t"    // Store to destination
+        "ld4 {v20.16b-v23.16b}, [%0]\n\t"    // Load source
+        "st4 {v20.16b-v23.16b}, [%1]\n\t"    // Store to destination
         :
         : "r"(s), "r"(d)
         : "memory", "v20", "v21", "v22", "v23");
 }
 
-static inline void neon_alpha_8(uint32_t *b, uint32_t *f, uint32_t *d, uint8_t alpha_more)
+static inline void neon_alpha_16(uint32_t *b, uint32_t *f, uint32_t *d, uint8_t alpha_more)
 {
-    uint8x8x4_t fg = vld4_u8((const uint8_t*)f);
-    uint8x8x4_t bg = vld4_u8((const uint8_t*)b);
-    uint8x8x4_t out;
-    uint8x8_t full = vdup_n_u8(0xff);
-    uint8x8_t scaled = vdup_n_u8(alpha_more);
-    uint8x8_t a = vmovn_u16(neon_div255_u16(vmull_u8(fg.val[3], scaled)));
-    uint8x8_t inv_a = vsub_u8(full, a);
-    uint16x8_t oa_add = neon_div255_u16(vmull_u8(vsub_u8(full, bg.val[3]), a));
+    uint8x16x4_t fg = vld4q_u8((const uint8_t*)f);
+    uint8x16x4_t bg = vld4q_u8((const uint8_t*)b);
+    uint8x16x4_t out;
+    uint8x16_t full = vdupq_n_u8(0xff);
+    uint8x16_t scaled = vdupq_n_u8(alpha_more);
 
-    out.val[0] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[0], a), vmull_u8(bg.val[0], inv_a))));
-    out.val[1] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[1], a), vmull_u8(bg.val[1], inv_a))));
-    out.val[2] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[2], a), vmull_u8(bg.val[2], inv_a))));
-    out.val[3] = vmovn_u16(vaddq_u16(vmovl_u8(bg.val[3]), oa_add));
+    uint8x8_t a_lo = vmovn_u16(neon_div255_u16(vmull_u8(vget_low_u8(fg.val[3]), vget_low_u8(scaled))));
+    uint8x8_t a_hi = vmovn_u16(neon_div255_u16(vmull_u8(vget_high_u8(fg.val[3]), vget_high_u8(scaled))));
+    uint8x16_t a = vcombine_u8(a_lo, a_hi);
+    uint8x16_t inv_a = vsubq_u8(full, a);
 
-    vst4_u8((uint8_t*)d, out);
+    uint16x8_t oa_lo = neon_div255_u16(vmull_u8(vsub_u8(vget_low_u8(full), vget_low_u8(bg.val[3])), a_lo));
+    uint16x8_t oa_hi = neon_div255_u16(vmull_u8(vsub_u8(vget_high_u8(full), vget_high_u8(bg.val[3])), a_hi));
+
+    /* out = div255(fg*a + bg*(255-a)) per channel, low/high halves widened */
+    for(int c = 0; c < 3; c++) {
+        uint16x8_t lo = vaddq_u16(vmull_u8(vget_low_u8(fg.val[c]), a_lo),
+                                  vmull_u8(vget_low_u8(bg.val[c]), vget_low_u8(inv_a)));
+        uint16x8_t hi = vaddq_u16(vmull_u8(vget_high_u8(fg.val[c]), a_hi),
+                                  vmull_u8(vget_high_u8(bg.val[c]), vget_high_u8(inv_a)));
+        out.val[c] = vcombine_u8(vmovn_u16(neon_div255_u16(lo)), vmovn_u16(neon_div255_u16(hi)));
+    }
+    /* out_a = bg_a + div255((255-bg_a)*a) */
+    out.val[3] = vcombine_u8(
+        vmovn_u16(vaddq_u16(vmovl_u8(vget_low_u8(bg.val[3])), oa_lo)),
+        vmovn_u16(vaddq_u16(vmovl_u8(vget_high_u8(bg.val[3])), oa_hi)));
+
+    vst4q_u8((uint8_t*)d, out);
 }
 
-static inline void neon_fill_load_8(uint32_t *s)
+static inline void neon_fill_load_16(uint32_t *s)
 {
     __asm volatile(
-        "ld4 {v20.8b-v23.8b}, [%0]\n\t"    // Load source
+        "ld4 {v20.16b-v23.16b}, [%0]\n\t"    // Load source
         :
         : "r"(s)
         : "memory", "v20", "v21", "v22", "v23");
 }
 
-static inline void neon_fill_store_8(uint32_t *d)
+static inline void neon_fill_store_16(uint32_t *d)
 {
     __asm volatile(
-        "st4 {v20.8b-v23.8b}, [%0]\n\t"    // Store to destination
+        "st4 {v20.16b-v23.16b}, [%0]\n\t"    // Store to destination
         :
         : "r"(d)
         : "memory", "v20", "v21", "v22", "v23");
@@ -73,18 +86,18 @@ static inline void graph_pixel_argb_neon(graph_t *graph, int32_t x, int32_t y,
 {
     uint32_t *dst = &graph->buffer[y * graph->w + x];
 
-    if (size == 8)
+    if (size == 16)
     {
-        neon_alpha_8(dst, src, dst, alpha_more);
+        neon_alpha_16(dst, src, dst, alpha_more);
     }
     else
     {
-        // For size < 8, use memcpy to handle the edge case safely.
-        uint32_t fg[8] = {0};
-        uint32_t bg[8] = {0};
+        // For size < 16, use memcpy to handle the edge case safely.
+        uint32_t fg[16] = {0};
+        uint32_t bg[16] = {0};
         memcpy(fg, src, 4*size);
         memcpy(bg, dst, 4*size);
-        neon_alpha_8(bg, fg, bg, alpha_more);
+        neon_alpha_16(bg, fg, bg, alpha_more);
         memcpy(dst, bg, 4*size);
     }
 }
@@ -94,9 +107,9 @@ static inline void graph_pixel_neon(graph_t *graph, int32_t x, int32_t y,
 {
     uint32_t *dst = &graph->buffer[y * graph->w + x];
 
-    if (size == 8)
+    if (size == 16)
     {
-        neon_8(src, dst);
+        neon_16(src, dst);
     }
     else
     {
@@ -105,7 +118,7 @@ static inline void graph_pixel_neon(graph_t *graph, int32_t x, int32_t y,
 }
 
 void graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
-    uint32_t buf[8] = {0};
+    uint32_t buf[16] = {0};
 
     if(g == NULL || w <= 0 || h <= 0)
         return;
@@ -120,18 +133,18 @@ void graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uin
     ex = r.x + r.w;
     ey = r.y + r.h;
 
-    for(int i = 0; i < 8; i++)
+    for(int i = 0; i < 16; i++)
         buf[i] = color;
     
     if(color_a(color) == 0xff) {
-        neon_fill_load_8(buf);
+        neon_fill_load_16(buf);
         for(; y < ey; y++) {
             x = r.x;
-            for(; x < ex; x+=8) {
+            for(; x < ex; x+=16) {
                 uint32_t *dst = &g->buffer[y * g->w + x];
                 int pixels = ex -x;
-                if(pixels >= 8)
-                    neon_fill_store_8(dst);
+                if(pixels >= 16)
+                    neon_fill_store_16(dst);
                 else
                     memcpy(dst, buf, pixels * 4);
             }
@@ -140,12 +153,48 @@ void graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uin
     else {
         for(; y < ey; y++) {
             x = r.x;
-            for(; x < ex; x+=8) {
-                graph_pixel_argb_neon(g, x, y, buf, MIN(ex-x, 8), 0xFF);
+            for(; x < ex; x+=16) {
+                graph_pixel_argb_neon(g, x, y, buf, MIN(ex-x, 16), 0xFF);
             }
         }
     }
 }
+
+#if defined(__GNUC__) && !defined(__clang__)
+/* GCC with -mstrict-align lowers vld1q_u32/vst1q_u32 on pointers without
+   proven 16-byte alignment to scalar ldp w/orr/stp w sequences. LD1/ST1 and
+   LDP/STP (q-form) themselves support unaligned addresses in Normal memory
+   (the kernel boots with SCTLR_EL1.A=0), so emit the instructions directly. */
+static inline uint32x4_t blt_ld1q_u32_bsp(const uint32_t *p) {
+    uint32x4_t v;
+    __asm__("ld1 {%0.4s}, [%1]" : "=w"(v) : "r"(p));
+    return v;
+}
+static inline void blt_st1q_u32_bsp(uint32_t *p, uint32x4_t v) {
+    __asm__("st1 {%1.4s}, [%0]" :: "r"(p), "w"(v) : "memory");
+}
+static inline void blt_ldpq_u32_bsp(const uint32_t *p, uint32x4_t *a, uint32x4_t *b) {
+    __asm__("ldp %q0, %q1, [%2]" : "=w"(*a), "=w"(*b) : "r"(p));
+}
+static inline void blt_stpq_u32_bsp(uint32_t *p, uint32x4_t a, uint32x4_t b) {
+    __asm__("stp %q1, %q2, [%0]" :: "r"(p), "w"(a), "w"(b) : "memory");
+}
+#else
+static inline uint32x4_t blt_ld1q_u32_bsp(const uint32_t *p) {
+    return vld1q_u32(p);
+}
+static inline void blt_st1q_u32_bsp(uint32_t *p, uint32x4_t v) {
+    vst1q_u32(p, v);
+}
+static inline void blt_ldpq_u32_bsp(const uint32_t *p, uint32x4_t *a, uint32x4_t *b) {
+    *a = vld1q_u32(p);
+    *b = vld1q_u32(p + 4);
+}
+static inline void blt_stpq_u32_bsp(uint32_t *p, uint32x4_t a, uint32x4_t b) {
+    vst1q_u32(p, a);
+    vst1q_u32(p + 4, b);
+}
+#endif
 
 /* Row copy that never falls back to libc memcpy: the EwokOS libc one is a
    plain byte loop, while 128-bit NEON load/stores move 16 pixels in a few
@@ -153,28 +202,24 @@ void graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uin
    scan-out memory. */
 static inline void blt_copy_row_neon(uint32_t *dp, const uint32_t *sp, int32_t w) {
     int32_t x = 0;
-    /* 16 pixels (64 bytes) per iteration */
+    /* 16 pixels (64 bytes) per iteration: 2x ldp q + 2x stp q */
     for(; x <= w - 16; x += 16) {
-        uint32x4_t v0 = vld1q_u32(sp + x);
-        uint32x4_t v1 = vld1q_u32(sp + x + 4);
-        uint32x4_t v2 = vld1q_u32(sp + x + 8);
-        uint32x4_t v3 = vld1q_u32(sp + x + 12);
-        vst1q_u32(dp + x, v0);
-        vst1q_u32(dp + x + 4, v1);
-        vst1q_u32(dp + x + 8, v2);
-        vst1q_u32(dp + x + 12, v3);
+        uint32x4_t v0, v1, v2, v3;
+        blt_ldpq_u32_bsp(sp + x, &v0, &v1);
+        blt_ldpq_u32_bsp(sp + x + 8, &v2, &v3);
+        blt_stpq_u32_bsp(dp + x, v0, v1);
+        blt_stpq_u32_bsp(dp + x + 8, v2, v3);
     }
-    /* 8 pixels */
+    /* 8 pixels: 1x ldp q + 1x stp q */
     if(x <= w - 8) {
-        uint32x4_t v0 = vld1q_u32(sp + x);
-        uint32x4_t v1 = vld1q_u32(sp + x + 4);
-        vst1q_u32(dp + x, v0);
-        vst1q_u32(dp + x + 4, v1);
+        uint32x4_t v0, v1;
+        blt_ldpq_u32_bsp(sp + x, &v0, &v1);
+        blt_stpq_u32_bsp(dp + x, v0, v1);
         x += 8;
     }
     /* 4 pixels */
     if(x <= w - 4) {
-        vst1q_u32(dp + x, vld1q_u32(sp + x));
+        blt_st1q_u32_bsp(dp + x, blt_ld1q_u32_bsp(sp + x));
         x += 4;
     }
     /* Tail */
@@ -232,24 +277,6 @@ inline void graph_blt_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int
         uint32_t *dp = &dst->buffer[dy * dst->w + dr.x];
         blt_copy_row_neon(dp, sp, w);
     }
-}
-
-/* Inline alpha blend of 8 pixels: dst = fg over bg, with global alpha scaling.
-   alpha_vec must be vdup_n_u8(alpha) — created once outside the loop. */
-static inline void blt_alpha_8_inline(uint32_t *dp, const uint32_t *sp, uint8x8_t alpha_vec)
-{
-    uint8x8x4_t fg = vld4_u8((const uint8_t*)sp);
-    uint8x8x4_t bg = vld4_u8((const uint8_t*)dp);
-    uint8x8_t full = vdup_n_u8(0xff);
-    uint8x8_t a = vmovn_u16(neon_div255_u16(vmull_u8(fg.val[3], alpha_vec)));
-    uint8x8_t inv_a = vsub_u8(full, a);
-    uint16x8_t oa_add = neon_div255_u16(vmull_u8(vsub_u8(full, bg.val[3]), a));
-    uint8x8x4_t out;
-    out.val[0] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[0], a), vmull_u8(bg.val[0], inv_a))));
-    out.val[1] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[1], a), vmull_u8(bg.val[1], inv_a))));
-    out.val[2] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[2], a), vmull_u8(bg.val[2], inv_a))));
-    out.val[3] = vmovn_u16(vaddq_u16(vmovl_u8(bg.val[3]), oa_add));
-    vst4_u8((uint8_t*)dp, out);
 }
 
 /* Alpha blend of 16 pixels using full-width q registers, with block-level
@@ -327,9 +354,8 @@ inline void graph_blt_alpha_arch(graph_t* src, int32_t sx, int32_t sy, int32_t s
     ey = sr.y + sr.h;
     int32_t w = ex - sr.x;
 
-    /* Create alpha vectors once — constant across the entire blit */
+    /* Create alpha vector once — constant across the entire blit */
     uint8x16_t alpha_vec16 = vdupq_n_u8(alpha);
-    uint8x8_t alpha_vec = vdup_n_u8(alpha);
 
     for(; sy < ey; sy++, dy++) {
         const uint32_t *sp = &src->buffer[sy * src->w + sr.x];
@@ -341,57 +367,52 @@ inline void graph_blt_alpha_arch(graph_t* src, int32_t sx, int32_t sy, int32_t s
             __asm volatile("prfm pldl1keep, [%0, #256]" : : "r"(sp + x));
             blt_alpha_16_inline(dp + x, sp + x, alpha_vec16, alpha);
         }
-        /* 8 pixels */
-        if(x <= w - 8) {
-            blt_alpha_8_inline(dp + x, sp + x, alpha_vec);
-            x += 8;
-        }
-        /* Tail */
+        /* Tail: zero-padded 16-pixel block (padding lanes blend as identity) */
         if(x < w) {
             int remain = w - x;
-            uint32_t fg[8] = {0}, bg[8] = {0};
+            uint32_t fg[16] = {0}, bg[16] = {0};
             memcpy(fg, sp + x, 4 * remain);
             memcpy(bg, dp + x, 4 * remain);
-            blt_alpha_8_inline(bg, fg, alpha_vec);
+            blt_alpha_16_inline(bg, fg, alpha_vec16, alpha);
             memcpy(dp + x, bg, 4 * remain);
         }
     }
 }
 
-static inline void neon_mask_alpha_8(uint32_t *dst, uint32_t *src)
+static inline void neon_mask_alpha_16(uint32_t *dst, uint32_t *src)
 {
     __asm volatile(
-        // Load 8 dst pixels (RGBA)
-        "ld4 {v20.8b-v23.8b}, [%0]\n\t"
-        // Load 8 src pixels (RGBA)
-        "ld4 {v24.8b-v27.8b}, [%1]\n\t"
+        // Load 16 dst pixels (RGBA)
+        "ld4 {v20.16b-v23.16b}, [%0]\n\t"
+        // Load 16 src pixels (RGBA)
+        "ld4 {v24.16b-v27.16b}, [%1]\n\t"
         
         // v23 = dst_a, v27 = src_a
         // Create zero vector
-        "movi v28.8b, #0\n\t"
+        "movi v28.16b, #0\n\t"
         // Compare src_a > 0 (cmhi returns 0xFF where true, 0x00 where false)
-        "cmhi v28.8b, v27.8b, v28.8b\n\t"  // v28: 0xFF where src_a > 0, 0x00 where src_a == 0
+        "cmhi v28.16b, v27.16b, v28.16b\n\t"  // v28: 0xFF where src_a > 0, 0x00 where src_a == 0
         
         // Compare dst_a > src_a
-        "cmhi v29.8b, v23.8b, v27.8b\n\t"  // v29: 0xFF where dst_a > src_a
+        "cmhi v29.16b, v23.16b, v27.16b\n\t"  // v29: 0xFF where dst_a > src_a
         
         // Create mask for src_a == 0: set all channels to 0
-        "and v20.8b, v20.8b, v28.8b\n\t"    // R
-        "and v21.8b, v21.8b, v28.8b\n\t"    // G
-        "and v22.8b, v22.8b, v28.8b\n\t"    // B
-        "and v23.8b, v23.8b, v28.8b\n\t"    // A
+        "and v20.16b, v20.16b, v28.16b\n\t"    // R
+        "and v21.16b, v21.16b, v28.16b\n\t"    // G
+        "and v22.16b, v22.16b, v28.16b\n\t"    // B
+        "and v23.16b, v23.16b, v28.16b\n\t"    // A
         
         // For dst_a > src_a: keep dst RGB, replace alpha with src_a
         // First, mask src_a where condition is true
-        "and v30.8b, v27.8b, v29.8b\n\t"
+        "and v30.16b, v27.16b, v29.16b\n\t"
         // Mask dst_a where condition is false
-        "mvn v28.8b, v29.8b\n\t"
-        "and v23.8b, v23.8b, v28.8b\n\t"
+        "mvn v28.16b, v29.16b\n\t"
+        "and v23.16b, v23.16b, v28.16b\n\t"
         // Combine
-        "orr v23.8b, v23.8b, v30.8b\n\t"
+        "orr v23.16b, v23.16b, v30.16b\n\t"
         
         // Store result
-        "st4 {v20.8b-v23.8b}, [%0]\n\t"
+        "st4 {v20.16b-v23.16b}, [%0]\n\t"
         :
         : "r"(dst), "r"(src)
         : "memory", "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27", 
@@ -403,18 +424,18 @@ static inline void graph_pixel_alpha_mask_neon(graph_t *graph, int32_t x, int32_
 {
     uint32_t *dst = &graph->buffer[y * graph->w + x];
 
-    if (size == 8)
+    if (size == 16)
     {
-        neon_mask_alpha_8(dst, src);
+        neon_mask_alpha_16(dst, src);
     }
     else
     {
-        // For size < 8, use memcpy to handle boundaries
-        uint32_t src_buf[8] = {0};
-        uint32_t dst_buf[8] = {0};
+        // For size < 16, use memcpy to handle boundaries
+        uint32_t src_buf[16] = {0};
+        uint32_t dst_buf[16] = {0};
         memcpy(src_buf, src, 4 * size);
         memcpy(dst_buf, dst, 4 * size);
-        neon_mask_alpha_8(dst_buf, src_buf);
+        neon_mask_alpha_16(dst_buf, src_buf);
         memcpy(dst, dst_buf, 4 * size);
     }
 }
@@ -456,10 +477,10 @@ inline void graph_blt_alpha_mask_arch(graph_t* src, int32_t sx, int32_t sy, int3
         __asm volatile("prfm pldl1keep, [%0, #256]\n\t" : : "r"(&dst->buffer[dy * dst->w + dx]));
         __asm volatile("prfm pldl1keep, [%0, #256]\n\t" : : "r"(&dst->buffer[(dy + 1) * dst->w + dx]));
         
-        for(; sx < ex - 7; sx += 8, dx += 8) {
+        for(; sx < ex - 15; sx += 16, dx += 16) {
             // Process two rows in parallel
-            graph_pixel_alpha_mask_neon(dst, dx, dy, &src->buffer[offset1 + sx], 8);
-            graph_pixel_alpha_mask_neon(dst, dx, dy + 1, &src->buffer[offset2 + sx], 8);
+            graph_pixel_alpha_mask_neon(dst, dx, dy, &src->buffer[offset1 + sx], 16);
+            graph_pixel_alpha_mask_neon(dst, dx, dy + 1, &src->buffer[offset2 + sx], 16);
         }
         
         // Process remaining pixels
@@ -476,8 +497,8 @@ inline void graph_blt_alpha_mask_arch(graph_t* src, int32_t sx, int32_t sy, int3
         register int32_t dx = dr.x;
         register int32_t offset = sy * src->w;
         
-        for(; sx < ex; sx += 8, dx += 8) {
-            graph_pixel_alpha_mask_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex - sx, 8));
+        for(; sx < ex; sx += 16, dx += 16) {
+            graph_pixel_alpha_mask_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex - sx, 16));
         }
     }
 }
@@ -522,10 +543,10 @@ static void glass_neon(uint32_t* args, int width, int height,
         // Preload data into the cache.
         __asm volatile("prfm pldl1keep, [%0, #256]\n\t" : : "r"(&args[j * width + x]));
         
-        for (int i = x; i <= x_end; i += 8) {
-            // Handle the remaining pixels when fewer than 8 are left.
+        for (int i = x; i <= x_end; i += 16) {
+            // Handle the remaining pixels when fewer than 16 are left.
             int remaining = x_end - i + 1;
-            if (remaining < 8) {
+            if (remaining < 16) {
                 for (int k = 0; k < remaining; k++) {
                     int rx = i + k + rand_offsets[offset_index++];
                     int ry = j + rand_offsets[offset_index++];
@@ -539,9 +560,9 @@ static void glass_neon(uint32_t* args, int width, int height,
                 break;
             }
             
-            // Generate random offsets for 8 pixels.
-            int rand_x[8], rand_y[8];
-            for (int k = 0; k < 8; k++) {
+            // Generate random offsets for 16 pixels.
+            int rand_x[16], rand_y[16];
+            for (int k = 0; k < 16; k++) {
                 rand_x[k] = rand_offsets[offset_index++];
                 rand_y[k] = rand_offsets[offset_index++];
             }
@@ -556,7 +577,7 @@ static void glass_neon(uint32_t* args, int width, int height,
             ry0 = vmaxq_s32(vy, vminq_s32(vy_end, ry0));
             int32x4_t rpos0 = vmlaq_s32(rx0, ry0, vwidth);
             
-            // Process the last 4 pixels.
+            // Process pixels 4-7.
             int32x4_t vrand_x1 = vld1q_s32(&rand_x[4]);
             int32x4_t vrand_y1 = vld1q_s32(&rand_y[4]);
             int32x4_t vi1 = {i+4, i+5, i+6, i+7};
@@ -566,23 +587,51 @@ static void glass_neon(uint32_t* args, int width, int height,
             ry1 = vmaxq_s32(vy, vminq_s32(vy_end, ry1));
             int32x4_t rpos1 = vmlaq_s32(rx1, ry1, vwidth);
             
+            // Process pixels 8-11.
+            int32x4_t vrand_x2 = vld1q_s32(&rand_x[8]);
+            int32x4_t vrand_y2 = vld1q_s32(&rand_y[8]);
+            int32x4_t vi2 = {i+8, i+9, i+10, i+11};
+            int32x4_t rx2 = vaddq_s32(vi2, vrand_x2);
+            int32x4_t ry2 = vaddq_s32(vj, vrand_y2);
+            rx2 = vmaxq_s32(vx, vminq_s32(vx_end, rx2));
+            ry2 = vmaxq_s32(vy, vminq_s32(vy_end, ry2));
+            int32x4_t rpos2 = vmlaq_s32(rx2, ry2, vwidth);
+            
+            // Process the last 4 pixels.
+            int32x4_t vrand_x3 = vld1q_s32(&rand_x[12]);
+            int32x4_t vrand_y3 = vld1q_s32(&rand_y[12]);
+            int32x4_t vi3 = {i+12, i+13, i+14, i+15};
+            int32x4_t rx3 = vaddq_s32(vi3, vrand_x3);
+            int32x4_t ry3 = vaddq_s32(vj, vrand_y3);
+            rx3 = vmaxq_s32(vx, vminq_s32(vx_end, rx3));
+            ry3 = vmaxq_s32(vy, vminq_s32(vy_end, ry3));
+            int32x4_t rpos3 = vmlaq_s32(rx3, ry3, vwidth);
+            
             // Extract the positions into scalar arrays.
-            int rpos_arr0[4], rpos_arr1[4];
+            int rpos_arr0[4], rpos_arr1[4], rpos_arr2[4], rpos_arr3[4];
             vst1q_s32(rpos_arr0, rpos0);
             vst1q_s32(rpos_arr1, rpos1);
+            vst1q_s32(rpos_arr2, rpos2);
+            vst1q_s32(rpos_arr3, rpos3);
             
             // Gather the pixel values in a batch.
-            uint32_t pixels[8];
+            uint32_t pixels[16];
             for (int k = 0; k < 4; k++) {
-                pixels[k] = args[rpos_arr0[k]];
-                pixels[k + 4] = args[rpos_arr1[k]];
+                pixels[k]      = args[rpos_arr0[k]];
+                pixels[k + 4]  = args[rpos_arr1[k]];
+                pixels[k + 8]  = args[rpos_arr2[k]];
+                pixels[k + 12] = args[rpos_arr3[k]];
             }
             
             // Store the results in a batch.
             uint32x4_t pixels0 = vld1q_u32(pixels);
             uint32x4_t pixels1 = vld1q_u32(&pixels[4]);
-            vst1q_u32(&args[j * width + i], pixels0);
-            vst1q_u32(&args[j * width + i + 4], pixels1);
+            uint32x4_t pixels2 = vld1q_u32(&pixels[8]);
+            uint32x4_t pixels3 = vld1q_u32(&pixels[12]);
+            vst1q_u32(&args[j * width + i],      pixels0);
+            vst1q_u32(&args[j * width + i + 4],  pixels1);
+            vst1q_u32(&args[j * width + i + 8],  pixels2);
+            vst1q_u32(&args[j * width + i + 12], pixels3);
         }
     }
     
@@ -636,14 +685,14 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
     // Temporary buffer.
     uint32_t* temp = (uint32_t*)malloc(w * h * sizeof(uint32_t));
     
-    // NEON-optimized horizontal blur, processing 8 pixels at a time.
+    // NEON-optimized horizontal blur, processing 16 pixels at a time.
     for (int j = 0; j < h; j++) {
         // Preload data into the cache.
         __asm volatile("prfm pldl1keep, [%0, #256]\n\t" : : "r"(&pixels[(y + j) * width + x]));
         
-        for (int i = 0; i < w; i += 8) {
-            if (i + 8 > w) {
-                // Handle the remaining pixels when fewer than 8 are left.
+        for (int i = 0; i < w; i += 16) {
+            if (i + 16 > w) {
+                // Handle the remaining pixels when fewer than 16 are left.
                 for (int k = i; k < w; k++) {
                     float32x4_t accum = vdupq_n_f32(0.0f);
                     
@@ -676,8 +725,10 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
                 break;
             }
             
-            // Process 8 pixels in parallel.
-            float32x4_t accum[8] = {
+            // Process 16 pixels in parallel.
+            float32x4_t accum[16] = {
+                vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f),
+                vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f),
                 vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f),
                 vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)
             };
@@ -685,12 +736,8 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
             for (int m = -radius; m <= radius; m++) {
                 float weight = kernel[m + radius];
                 
-                // Load 8 pixels in a batch.
-                uint32x4_t pixels0 = vld1q_u32(&pixels[(y + j) * width + x + i]);
-                uint32x4_t pixels1 = vld1q_u32(&pixels[(y + j) * width + x + i + 4]);
-                
-                // Process the first 4 pixels.
-                for (int k = 0; k < 4; k++) {
+                // Process 16 pixels in parallel.
+                for (int k = 0; k < 16; k++) {
                     int px = x + i + k + m;
                     if (px < x) px = x;
                     if (px >= x + w) px = x + w - 1;
@@ -706,28 +753,10 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
                     // Multiply by the weight and accumulate.
                     accum[k] = vmlaq_n_f32(accum[k], vPixelF, weight);
                 }
-                
-                // Process the last 4 pixels.
-                for (int k = 4; k < 8; k++) {
-                    int px = x + i + k + m;
-                    if (px < x) px = x;
-                    if (px >= x + w) px = x + w - 1;
-                    
-                    uint32_t pixel = pixels[(y + j) * width + px];
-                    
-                    // Extract ARGB channels.
-                    uint8x8_t vPixel = vreinterpret_u8_u32(vdup_n_u32(pixel));
-                    uint16x8_t vPixel16 = vmovl_u8(vPixel);
-                    uint32x4_t vPixel32 = vmovl_u16(vget_low_u16(vPixel16));
-                    float32x4_t vPixelF = vcvtq_f32_u32(vPixel32);
-                    
-                    // 乘以权重并累加
-                    accum[k] = vmlaq_n_f32(accum[k], vPixelF, weight);
-                }
             }
             
             // 转换为整数并存储
-            for (int k = 0; k < 8; k++) {
+            for (int k = 0; k < 16; k++) {
                 uint32x4_t result = vcvtq_u32_f32(accum[k]);
                 uint8x8_t res8 = vmovn_u16(vcombine_u16(
                     vmovn_u32(result),
@@ -738,10 +767,10 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
         }
     }
     
-    // NEON优化垂直模糊，并行处理8个像素
-    for (int j = 0; j < h; j += 8) {
-        if (j + 8 > h) {
-            // 处理剩余不足8个像素的情况
+    // NEON优化垂直模糊，并行处理16个像素
+    for (int j = 0; j < h; j += 16) {
+        if (j + 16 > h) {
+            // 处理剩余不足16个像素的情况
             for (int k = j; k < h; k++) {
                 for (int i = 0; i < w; i++) {
                     float32x4_t accum = vdupq_n_f32(0.0f);
@@ -780,8 +809,10 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
             // 预加载数据到缓存
             __asm volatile("prfm pldl1keep, [%0, #256]\n\t" : : "r"(&temp[i]));
             
-            // 并行处理8个像素
-            float32x4_t accum[8] = {
+            // 并行处理16个像素
+            float32x4_t accum[16] = {
+                vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f),
+                vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f),
                 vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f),
                 vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)
             };
@@ -789,8 +820,8 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
             for (int m = -radius; m <= radius; m++) {
                 float weight = kernel[m + radius];
                 
-                // 处理8个像素
-                for (int k = 0; k < 8; k++) {
+                // 处理16个像素
+                for (int k = 0; k < 16; k++) {
                     int py = y + j + k + m;
                     if (py < y) py = y;
                     if (py >= y + h) py = y + h - 1;
@@ -809,7 +840,7 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
             }
             
             // 转换为整数并存储
-            for (int k = 0; k < 8; k++) {
+            for (int k = 0; k < 16; k++) {
                 uint32x4_t result = vcvtq_u32_f32(accum[k]);
                 uint8x8_t res8 = vmovn_u16(vcombine_u16(
                     vmovn_u32(result),
@@ -911,8 +942,9 @@ static inline int fast_floorf(float x) {
     return i - ((float)i > x);
 }
 
-/* Max x-positions covered by the precomputed weight table per 8-pixel block.
-   For scale >= 0.1 with lanczos_a=2 the span is at most ~48 positions. */
+/* Max x-positions covered by the precomputed weight table per 16-pixel block.
+   For scale >= 0.2 with lanczos_a=2 the span is at most ~100 positions;
+   smaller scales take the inline-weight fallback below. */
 #define SCALE_XW_MAX 128
 
 void graph_scale_tof_arch(graph_t* g, graph_t* dst, double scale) {
@@ -954,11 +986,11 @@ void graph_scale_tof_arch(graph_t* g, graph_t* dst, double scale) {
         }
 
         int j = 0;
-        for(; j <= dst_w - 8; j += 8) {
-            float center_x[8];
-            int start_x[8], end_x[8];
+        for(; j <= dst_w - 16; j += 16) {
+            float center_x[16];
+            int start_x[16], end_x[16];
 
-            for(int k = 0; k < 8; k++) {
+            for(int k = 0; k < 16; k++) {
                 center_x[k] = (float)(j + k) * inv_scale;
                 start_x[k]  = fast_floorf(center_x[k] - adjusted_a);
                 end_x[k]    = fast_floorf(center_x[k] + adjusted_a) + 1;
@@ -966,7 +998,7 @@ void graph_scale_tof_arch(graph_t* g, graph_t* dst, double scale) {
 
             int min_start_x = start_x[0];
             int max_end_x   = end_x[0];
-            for(int k = 1; k < 8; k++) {
+            for(int k = 1; k < 16; k++) {
                 if(start_x[k] < min_start_x) min_start_x = start_x[k];
                 if(end_x[k]   > max_end_x)   max_end_x   = end_x[k];
             }
@@ -974,13 +1006,13 @@ void graph_scale_tof_arch(graph_t* g, graph_t* dst, double scale) {
             int num_x = max_end_x - min_start_x + 1;
 
             /* --- Precompute x-weights once per block (reused across all y-rows) --- */
-            float xw[SCALE_XW_MAX * 8];
+            float xw[SCALE_XW_MAX * 16];
             int use_precomputed = (num_x <= SCALE_XW_MAX) && (n_y >= 2);
 
             if(use_precomputed) {
                 for(int x = min_start_x; x <= max_end_x; x++) {
-                    float* xw_row = &xw[(x - min_start_x) * 8];
-                    for(int k = 0; k < 8; k++) {
+                    float* xw_row = &xw[(x - min_start_x) * 16];
+                    for(int k = 0; k < 16; k++) {
                         xw_row[k] = (x >= start_x[k] && x <= end_x[k])
                             ? get_weight_fast(((float)x - center_x[k]) * effective_scale)
                             : 0.0f;
@@ -988,11 +1020,11 @@ void graph_scale_tof_arch(graph_t* g, graph_t* dst, double scale) {
                 }
             }
 
-            float32x4_t sum_r[2]      = {vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)};
-            float32x4_t sum_g[2]      = {vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)};
-            float32x4_t sum_b[2]      = {vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)};
-            float32x4_t sum_a[2]      = {vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)};
-            float32x4_t sum_weight[2] = {vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)};
+            float32x4_t sum_r[4]      = {vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)};
+            float32x4_t sum_g[4]      = {vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)};
+            float32x4_t sum_b[4]      = {vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)};
+            float32x4_t sum_a[4]      = {vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)};
+            float32x4_t sum_weight[4] = {vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)};
 
             for(int yi = 0; yi < n_y; yi++) {
                 float32x4_t ky_vec = vdupq_n_f32(ky_arr[yi]);
@@ -1001,9 +1033,11 @@ void graph_scale_tof_arch(graph_t* g, graph_t* dst, double scale) {
                 if(use_precomputed) {
                     /* x-weights already include the per-pixel range check */
                     for(int x = min_start_x; x <= max_end_x; x++) {
-                        const float* xw_row = &xw[(x - min_start_x) * 8];
-                        float32x4_t weight0 = vmulq_f32(vld1q_f32(xw_row),     ky_vec);
-                        float32x4_t weight1 = vmulq_f32(vld1q_f32(xw_row + 4), ky_vec);
+                        const float* xw_row = &xw[(x - min_start_x) * 16];
+                        float32x4_t weight0 = vmulq_f32(vld1q_f32(xw_row),      ky_vec);
+                        float32x4_t weight1 = vmulq_f32(vld1q_f32(xw_row + 4),  ky_vec);
+                        float32x4_t weight2 = vmulq_f32(vld1q_f32(xw_row + 8),  ky_vec);
+                        float32x4_t weight3 = vmulq_f32(vld1q_f32(xw_row + 12), ky_vec);
 
                         int cx = CLAMP(x, 0, src_w - 1);
                         uint32_t p = row_ptr[cx];
@@ -1015,31 +1049,38 @@ void graph_scale_tof_arch(graph_t* g, graph_t* dst, double scale) {
 
                         sum_r[0] = vfmaq_f32(sum_r[0], r_f, weight0);
                         sum_r[1] = vfmaq_f32(sum_r[1], r_f, weight1);
+                        sum_r[2] = vfmaq_f32(sum_r[2], r_f, weight2);
+                        sum_r[3] = vfmaq_f32(sum_r[3], r_f, weight3);
                         sum_g[0] = vfmaq_f32(sum_g[0], g_f, weight0);
                         sum_g[1] = vfmaq_f32(sum_g[1], g_f, weight1);
+                        sum_g[2] = vfmaq_f32(sum_g[2], g_f, weight2);
+                        sum_g[3] = vfmaq_f32(sum_g[3], g_f, weight3);
                         sum_b[0] = vfmaq_f32(sum_b[0], b_f, weight0);
                         sum_b[1] = vfmaq_f32(sum_b[1], b_f, weight1);
+                        sum_b[2] = vfmaq_f32(sum_b[2], b_f, weight2);
+                        sum_b[3] = vfmaq_f32(sum_b[3], b_f, weight3);
                         sum_a[0] = vfmaq_f32(sum_a[0], a_f, weight0);
                         sum_a[1] = vfmaq_f32(sum_a[1], a_f, weight1);
+                        sum_a[2] = vfmaq_f32(sum_a[2], a_f, weight2);
+                        sum_a[3] = vfmaq_f32(sum_a[3], a_f, weight3);
                         sum_weight[0] = vaddq_f32(sum_weight[0], weight0);
                         sum_weight[1] = vaddq_f32(sum_weight[1], weight1);
+                        sum_weight[2] = vaddq_f32(sum_weight[2], weight2);
+                        sum_weight[3] = vaddq_f32(sum_weight[3], weight3);
                     }
                 } else {
                     /* Fallback for very wide kernels: compute kx inline */
                     for(int x = min_start_x; x <= max_end_x; x++) {
-                        float kx0f = (x >= start_x[0] && x <= end_x[0]) ? get_weight_fast(((float)x - center_x[0]) * effective_scale) : 0.0f;
-                        float kx1f = (x >= start_x[1] && x <= end_x[1]) ? get_weight_fast(((float)x - center_x[1]) * effective_scale) : 0.0f;
-                        float kx2f = (x >= start_x[2] && x <= end_x[2]) ? get_weight_fast(((float)x - center_x[2]) * effective_scale) : 0.0f;
-                        float kx3f = (x >= start_x[3] && x <= end_x[3]) ? get_weight_fast(((float)x - center_x[3]) * effective_scale) : 0.0f;
-                        float kx4f = (x >= start_x[4] && x <= end_x[4]) ? get_weight_fast(((float)x - center_x[4]) * effective_scale) : 0.0f;
-                        float kx5f = (x >= start_x[5] && x <= end_x[5]) ? get_weight_fast(((float)x - center_x[5]) * effective_scale) : 0.0f;
-                        float kx6f = (x >= start_x[6] && x <= end_x[6]) ? get_weight_fast(((float)x - center_x[6]) * effective_scale) : 0.0f;
-                        float kx7f = (x >= start_x[7] && x <= end_x[7]) ? get_weight_fast(((float)x - center_x[7]) * effective_scale) : 0.0f;
+                        float kx[16];
+                        for(int k = 0; k < 16; k++)
+                            kx[k] = (x >= start_x[k] && x <= end_x[k])
+                                ? get_weight_fast(((float)x - center_x[k]) * effective_scale)
+                                : 0.0f;
 
-                        float32x4_t kx0 = (float32x4_t){kx0f, kx1f, kx2f, kx3f};
-                        float32x4_t kx1 = (float32x4_t){kx4f, kx5f, kx6f, kx7f};
-                        float32x4_t weight0 = vmulq_f32(kx0, ky_vec);
-                        float32x4_t weight1 = vmulq_f32(kx1, ky_vec);
+                        float32x4_t weight0 = vmulq_f32(vld1q_f32(kx),      ky_vec);
+                        float32x4_t weight1 = vmulq_f32(vld1q_f32(kx + 4),  ky_vec);
+                        float32x4_t weight2 = vmulq_f32(vld1q_f32(kx + 8),  ky_vec);
+                        float32x4_t weight3 = vmulq_f32(vld1q_f32(kx + 12), ky_vec);
 
                         int cx = CLAMP(x, 0, src_w - 1);
                         uint32_t p = row_ptr[cx];
@@ -1051,66 +1092,96 @@ void graph_scale_tof_arch(graph_t* g, graph_t* dst, double scale) {
 
                         sum_r[0] = vfmaq_f32(sum_r[0], r_f, weight0);
                         sum_r[1] = vfmaq_f32(sum_r[1], r_f, weight1);
+                        sum_r[2] = vfmaq_f32(sum_r[2], r_f, weight2);
+                        sum_r[3] = vfmaq_f32(sum_r[3], r_f, weight3);
                         sum_g[0] = vfmaq_f32(sum_g[0], g_f, weight0);
                         sum_g[1] = vfmaq_f32(sum_g[1], g_f, weight1);
+                        sum_g[2] = vfmaq_f32(sum_g[2], g_f, weight2);
+                        sum_g[3] = vfmaq_f32(sum_g[3], g_f, weight3);
                         sum_b[0] = vfmaq_f32(sum_b[0], b_f, weight0);
                         sum_b[1] = vfmaq_f32(sum_b[1], b_f, weight1);
+                        sum_b[2] = vfmaq_f32(sum_b[2], b_f, weight2);
+                        sum_b[3] = vfmaq_f32(sum_b[3], b_f, weight3);
                         sum_a[0] = vfmaq_f32(sum_a[0], a_f, weight0);
                         sum_a[1] = vfmaq_f32(sum_a[1], a_f, weight1);
+                        sum_a[2] = vfmaq_f32(sum_a[2], a_f, weight2);
+                        sum_a[3] = vfmaq_f32(sum_a[3], a_f, weight3);
                         sum_weight[0] = vaddq_f32(sum_weight[0], weight0);
                         sum_weight[1] = vaddq_f32(sum_weight[1], weight1);
+                        sum_weight[2] = vaddq_f32(sum_weight[2], weight2);
+                        sum_weight[3] = vaddq_f32(sum_weight[3], weight3);
                     }
                 }
             }
 
             float32x4_t inv_weight0 = vrecpeq_f32(sum_weight[0]);
             float32x4_t inv_weight1 = vrecpeq_f32(sum_weight[1]);
+            float32x4_t inv_weight2 = vrecpeq_f32(sum_weight[2]);
+            float32x4_t inv_weight3 = vrecpeq_f32(sum_weight[3]);
             inv_weight0 = vmulq_f32(inv_weight0, vrecpsq_f32(sum_weight[0], inv_weight0));
             inv_weight1 = vmulq_f32(inv_weight1, vrecpsq_f32(sum_weight[1], inv_weight1));
+            inv_weight2 = vmulq_f32(inv_weight2, vrecpsq_f32(sum_weight[2], inv_weight2));
+            inv_weight3 = vmulq_f32(inv_weight3, vrecpsq_f32(sum_weight[3], inv_weight3));
 
             sum_r[0] = vmulq_f32(sum_r[0], inv_weight0);
             sum_r[1] = vmulq_f32(sum_r[1], inv_weight1);
+            sum_r[2] = vmulq_f32(sum_r[2], inv_weight2);
+            sum_r[3] = vmulq_f32(sum_r[3], inv_weight3);
             sum_g[0] = vmulq_f32(sum_g[0], inv_weight0);
             sum_g[1] = vmulq_f32(sum_g[1], inv_weight1);
+            sum_g[2] = vmulq_f32(sum_g[2], inv_weight2);
+            sum_g[3] = vmulq_f32(sum_g[3], inv_weight3);
             sum_b[0] = vmulq_f32(sum_b[0], inv_weight0);
             sum_b[1] = vmulq_f32(sum_b[1], inv_weight1);
+            sum_b[2] = vmulq_f32(sum_b[2], inv_weight2);
+            sum_b[3] = vmulq_f32(sum_b[3], inv_weight3);
             sum_a[0] = vmulq_f32(sum_a[0], inv_weight0);
             sum_a[1] = vmulq_f32(sum_a[1], inv_weight1);
+            sum_a[2] = vmulq_f32(sum_a[2], inv_weight2);
+            sum_a[3] = vmulq_f32(sum_a[3], inv_weight3);
 
-            uint16x8_t result_r = vcombine_u16(
+            uint16x8_t result_r01 = vcombine_u16(
                 vqmovn_u32(vcvtq_u32_f32(sum_r[0])),
                 vqmovn_u32(vcvtq_u32_f32(sum_r[1])));
-            uint16x8_t result_g = vcombine_u16(
+            uint16x8_t result_r23 = vcombine_u16(
+                vqmovn_u32(vcvtq_u32_f32(sum_r[2])),
+                vqmovn_u32(vcvtq_u32_f32(sum_r[3])));
+            uint16x8_t result_g01 = vcombine_u16(
                 vqmovn_u32(vcvtq_u32_f32(sum_g[0])),
                 vqmovn_u32(vcvtq_u32_f32(sum_g[1])));
-            uint16x8_t result_b = vcombine_u16(
+            uint16x8_t result_g23 = vcombine_u16(
+                vqmovn_u32(vcvtq_u32_f32(sum_g[2])),
+                vqmovn_u32(vcvtq_u32_f32(sum_g[3])));
+            uint16x8_t result_b01 = vcombine_u16(
                 vqmovn_u32(vcvtq_u32_f32(sum_b[0])),
                 vqmovn_u32(vcvtq_u32_f32(sum_b[1])));
-            uint16x8_t result_a = vcombine_u16(
+            uint16x8_t result_b23 = vcombine_u16(
+                vqmovn_u32(vcvtq_u32_f32(sum_b[2])),
+                vqmovn_u32(vcvtq_u32_f32(sum_b[3])));
+            uint16x8_t result_a01 = vcombine_u16(
                 vqmovn_u32(vcvtq_u32_f32(sum_a[0])),
                 vqmovn_u32(vcvtq_u32_f32(sum_a[1])));
+            uint16x8_t result_a23 = vcombine_u16(
+                vqmovn_u32(vcvtq_u32_f32(sum_a[2])),
+                vqmovn_u32(vcvtq_u32_f32(sum_a[3])));
 
-            uint8x8_t r8 = vqmovn_u16(result_r);
-            uint8x8_t g8 = vqmovn_u16(result_g);
-            uint8x8_t b8 = vqmovn_u16(result_b);
-            uint8x8_t a8 = vqmovn_u16(result_a);
+            uint8x16_t r16 = vcombine_u8(vqmovn_u16(result_r01), vqmovn_u16(result_r23));
+            uint8x16_t g16 = vcombine_u8(vqmovn_u16(result_g01), vqmovn_u16(result_g23));
+            uint8x16_t b16 = vcombine_u8(vqmovn_u16(result_b01), vqmovn_u16(result_b23));
+            uint8x16_t a16 = vcombine_u8(vqmovn_u16(result_a01), vqmovn_u16(result_a23));
 
-            uint16x8_t ga = vshlq_n_u16(vmovl_u8(g8), 8);
-            uint16x8_t ba = vmovl_u8(b8);
-            uint16x8_t aa = vshlq_n_u16(vmovl_u8(a8), 8);
-            uint16x8_t ra = vmovl_u8(r8);
+            /* interleave channels into B,G,R,A byte order (little-endian ARGB) */
+            uint8x16x2_t bg = vzipq_u8(b16, g16);
+            uint8x16x2_t ra = vzipq_u8(r16, a16);
+            uint16x8x2_t plo = vzipq_u16(vreinterpretq_u16_u8(bg.val[0]),
+                                         vreinterpretq_u16_u8(ra.val[0]));
+            uint16x8x2_t phi = vzipq_u16(vreinterpretq_u16_u8(bg.val[1]),
+                                         vreinterpretq_u16_u8(ra.val[1]));
 
-            uint16x8_t gb = vorrq_u16(ga, ba);
-            uint16x8_t ar = vorrq_u16(aa, ra);
-
-            uint32x4_t result_lo = vshlq_n_u32(vmovl_u16(vget_low_u16(ar)), 16);
-            uint32x4_t result_hi = vshlq_n_u32(vmovl_u16(vget_high_u16(ar)), 16);
-
-            result_lo = vorrq_u32(result_lo, vmovl_u16(vget_low_u16(gb)));
-            result_hi = vorrq_u32(result_hi, vmovl_u16(vget_high_u16(gb)));
-
-            vst1q_u32(&dst_buf[i * dst_w + j],     result_lo);
-            vst1q_u32(&dst_buf[i * dst_w + j + 4], result_hi);
+            vst1q_u32(&dst_buf[i * dst_w + j],      vreinterpretq_u32_u16(plo.val[0]));
+            vst1q_u32(&dst_buf[i * dst_w + j + 4],  vreinterpretq_u32_u16(plo.val[1]));
+            vst1q_u32(&dst_buf[i * dst_w + j + 8],  vreinterpretq_u32_u16(phi.val[0]));
+            vst1q_u32(&dst_buf[i * dst_w + j + 12], vreinterpretq_u32_u16(phi.val[1]));
         }
 
         /* Scalar tail: use get_weight_fast instead of expensive lanczos_kernel */
@@ -1708,6 +1779,11 @@ static inline uint8x8_t neon_rgb_to_y8(uint8x8_t b8, uint8x8_t g8, uint8x8_t r8)
     return vmovn_u16(vcombine_u16(vmovn_u32(y0), vmovn_u32(y1)));
 }
 
+static inline uint8x16_t neon_rgb_to_y16(uint8x16_t b, uint8x16_t g, uint8x16_t r) {
+    return vcombine_u8(neon_rgb_to_y8(vget_low_u8(b), vget_low_u8(g), vget_low_u8(r)),
+                       neon_rgb_to_y8(vget_high_u8(b), vget_high_u8(g), vget_high_u8(r)));
+}
+
 static inline uint8_t rgb_to_y_scalar_bsp(uint32_t pixel) {
     uint32_t b = pixel & 0xff;
     uint32_t g = (pixel >> 8) & 0xff;
@@ -1742,32 +1818,40 @@ void rgb2nv12_arch(uint8_t *out, uint32_t *in, int w, int h) {
         int x = 0;
 
         if(y + 1 < h) {
-            for(; x + 7 < w; x += 8) {
+            for(; x + 15 < w; x += 16) {
                 const uint32_t *src_row0 = in + (h - 1 - y) * w + (w - 1 - x);
                 const uint32_t *src_row1 = in + (h - 2 - y) * w + (w - 1 - x);
-                uint32_t row0_pixels[8];
-                uint32_t row1_pixels[8];
-                uint8x8_t yv0;
-                uint8x8_t yv1;
+                uint32_t row0_pixels[16];
+                uint32_t row1_pixels[16];
+                uint8x16_t yv0;
+                uint8x16_t yv1;
 
                 vst1q_u32(row0_pixels, neon_reverse_u32x4(vld1q_u32(src_row0 - 3)));
                 vst1q_u32(row0_pixels + 4, neon_reverse_u32x4(vld1q_u32(src_row0 - 7)));
+                vst1q_u32(row0_pixels + 8, neon_reverse_u32x4(vld1q_u32(src_row0 - 11)));
+                vst1q_u32(row0_pixels + 12, neon_reverse_u32x4(vld1q_u32(src_row0 - 15)));
                 vst1q_u32(row1_pixels, neon_reverse_u32x4(vld1q_u32(src_row1 - 3)));
                 vst1q_u32(row1_pixels + 4, neon_reverse_u32x4(vld1q_u32(src_row1 - 7)));
+                vst1q_u32(row1_pixels + 8, neon_reverse_u32x4(vld1q_u32(src_row1 - 11)));
+                vst1q_u32(row1_pixels + 12, neon_reverse_u32x4(vld1q_u32(src_row1 - 15)));
 
-                uint8x8x4_t bgra0 = vld4_u8((const uint8_t*)row0_pixels);
-                uint8x8x4_t bgra1 = vld4_u8((const uint8_t*)row1_pixels);
+                uint8x16x4_t bgra0 = vld4q_u8((const uint8_t*)row0_pixels);
+                uint8x16x4_t bgra1 = vld4q_u8((const uint8_t*)row1_pixels);
 
-                yv0 = neon_rgb_to_y8(bgra0.val[0], bgra0.val[1], bgra0.val[2]);
-                yv1 = neon_rgb_to_y8(bgra1.val[0], bgra1.val[1], bgra1.val[2]);
+                yv0 = neon_rgb_to_y16(bgra0.val[0], bgra0.val[1], bgra0.val[2]);
+                yv1 = neon_rgb_to_y16(bgra1.val[0], bgra1.val[1], bgra1.val[2]);
 
-                vst1_u8(y_row0 + x, yv0);
-                vst1_u8(y_row1 + x, yv1);
+                vst1q_u8(y_row0 + x, yv0);
+                vst1q_u8(y_row1 + x, yv1);
 
                 rgb_to_uv_scalar_bsp(row0_pixels[0], uv_row + x);
                 rgb_to_uv_scalar_bsp(row0_pixels[2], uv_row + x + 2);
                 rgb_to_uv_scalar_bsp(row0_pixels[4], uv_row + x + 4);
                 rgb_to_uv_scalar_bsp(row0_pixels[6], uv_row + x + 6);
+                rgb_to_uv_scalar_bsp(row0_pixels[8], uv_row + x + 8);
+                rgb_to_uv_scalar_bsp(row0_pixels[10], uv_row + x + 10);
+                rgb_to_uv_scalar_bsp(row0_pixels[12], uv_row + x + 12);
+                rgb_to_uv_scalar_bsp(row0_pixels[14], uv_row + x + 14);
             }
 
             for(; x + 1 < w; x += 2) {
@@ -1791,17 +1875,19 @@ void rgb2nv12_arch(uint8_t *out, uint32_t *in, int w, int h) {
             }
         }
         else {
-            for(; x + 7 < w; x += 8) {
+            for(; x + 15 < w; x += 16) {
                 const uint32_t *src_row0 = in + (h - 1 - y) * w + (w - 1 - x);
-                uint32_t row0_pixels[8];
-                uint8x8_t yv0;
+                uint32_t row0_pixels[16];
+                uint8x16_t yv0;
 
                 vst1q_u32(row0_pixels, neon_reverse_u32x4(vld1q_u32(src_row0 - 3)));
                 vst1q_u32(row0_pixels + 4, neon_reverse_u32x4(vld1q_u32(src_row0 - 7)));
+                vst1q_u32(row0_pixels + 8, neon_reverse_u32x4(vld1q_u32(src_row0 - 11)));
+                vst1q_u32(row0_pixels + 12, neon_reverse_u32x4(vld1q_u32(src_row0 - 15)));
 
-                uint8x8x4_t bgra0 = vld4_u8((const uint8_t*)row0_pixels);
-                yv0 = neon_rgb_to_y8(bgra0.val[0], bgra0.val[1], bgra0.val[2]);
-                vst1_u8(y_row0 + x, yv0);
+                uint8x16x4_t bgra0 = vld4q_u8((const uint8_t*)row0_pixels);
+                yv0 = neon_rgb_to_y16(bgra0.val[0], bgra0.val[1], bgra0.val[2]);
+                vst1q_u8(y_row0 + x, yv0);
             }
 
             for(; x < w; ++x) {

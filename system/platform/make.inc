@@ -20,6 +20,3 @@ extra:
 	make HW=$(HW) -C $(EWOKOS_ROOT_DIR)/sw.extra
 	cp -r $(EWOKOS_ROOT_DIR)/sw.extra/usr $(EWOKOS_ROOT_DIR)/system/build/$(HW)/rootfs/
 	cp -r $(EWOKOS_ROOT_DIR)/sw.extra/data $(EWOKOS_ROOT_DIR)/system/build/$(HW)/rootfs/
-
-apps:
-	make HW=$(HW) -C $(EWOKOS_ROOT_DIR)/apps
