@@ -17,3 +17,6 @@
 [submodule "apps"]
 	path = apps
 	url = https://github.com/MisaZhu/ewokos.apps
+[submodule "projects"]
+	path = projects
+	url = https://github.com/MisaZhu/ewokos.projects.git
