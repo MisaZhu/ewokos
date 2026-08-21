@@ -162,9 +162,11 @@ void graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uin
 
 #if defined(__GNUC__) && !defined(__clang__)
 /* GCC with -mstrict-align lowers vld1q_u32/vst1q_u32 on pointers without
-   proven 16-byte alignment to scalar ldp w/orr/stp w sequences. LD1/ST1 and
-   LDP/STP (q-form) themselves support unaligned addresses in Normal memory
-   (the kernel boots with SCTLR_EL1.A=0), so emit the instructions directly. */
+   proven 16-byte alignment to scalar ldp w/orr/stp w sequences. LD1/ST1
+   tolerate unaligned addresses in Normal memory (the kernel boots with
+   SCTLR_EL1.A=0), so emit them directly. NOTE: do NOT use LDP/STP q-form
+   here — unlike LD1/ST1 they require 16-byte alignment even with A=0 and
+   fault on dirty-rect rows whose x*4 offset is not 16-byte aligned. */
 static inline uint32x4_t blt_ld1q_u32_bsp(const uint32_t *p) {
     uint32x4_t v;
     __asm__("ld1 {%0.4s}, [%1]" : "=w"(v) : "r"(p));
@@ -173,11 +175,11 @@ static inline uint32x4_t blt_ld1q_u32_bsp(const uint32_t *p) {
 static inline void blt_st1q_u32_bsp(uint32_t *p, uint32x4_t v) {
     __asm__("st1 {%1.4s}, [%0]" :: "r"(p), "w"(v) : "memory");
 }
-static inline void blt_ldpq_u32_bsp(const uint32_t *p, uint32x4_t *a, uint32x4_t *b) {
-    __asm__("ldp %q0, %q1, [%2]" : "=w"(*a), "=w"(*b) : "r"(p));
+static inline void blt_ld1q_x4_u32_bsp(const uint32_t *p, uint32x4_t *a, uint32x4_t *b, uint32x4_t *c, uint32x4_t *d) {
+    __asm__("ld1 {%0.4s-%3.4s}, [%4]" : "=w"(*a), "=w"(*b), "=w"(*c), "=w"(*d) : "r"(p));
 }
-static inline void blt_stpq_u32_bsp(uint32_t *p, uint32x4_t a, uint32x4_t b) {
-    __asm__("stp %q1, %q2, [%0]" :: "r"(p), "w"(a), "w"(b) : "memory");
+static inline void blt_st1q_x4_u32_bsp(uint32_t *p, uint32x4_t a, uint32x4_t b, uint32x4_t c, uint32x4_t d) {
+    __asm__("st1 {%1.4s-%4.4s}, [%0]" :: "r"(p), "w"(a), "w"(b), "w"(c), "w"(d) : "memory");
 }
 #else
 static inline uint32x4_t blt_ld1q_u32_bsp(const uint32_t *p) {
@@ -186,13 +188,17 @@ static inline uint32x4_t blt_ld1q_u32_bsp(const uint32_t *p) {
 static inline void blt_st1q_u32_bsp(uint32_t *p, uint32x4_t v) {
     vst1q_u32(p, v);
 }
-static inline void blt_ldpq_u32_bsp(const uint32_t *p, uint32x4_t *a, uint32x4_t *b) {
+static inline void blt_ld1q_x4_u32_bsp(const uint32_t *p, uint32x4_t *a, uint32x4_t *b, uint32x4_t *c, uint32x4_t *d) {
     *a = vld1q_u32(p);
     *b = vld1q_u32(p + 4);
+    *c = vld1q_u32(p + 8);
+    *d = vld1q_u32(p + 12);
 }
-static inline void blt_stpq_u32_bsp(uint32_t *p, uint32x4_t a, uint32x4_t b) {
+static inline void blt_st1q_x4_u32_bsp(uint32_t *p, uint32x4_t a, uint32x4_t b, uint32x4_t c, uint32x4_t d) {
     vst1q_u32(p, a);
     vst1q_u32(p + 4, b);
+    vst1q_u32(p + 8, c);
+    vst1q_u32(p + 12, d);
 }
 #endif
 
@@ -202,19 +208,18 @@ static inline void blt_stpq_u32_bsp(uint32_t *p, uint32x4_t a, uint32x4_t b) {
    scan-out memory. */
 static inline void blt_copy_row_neon(uint32_t *dp, const uint32_t *sp, int32_t w) {
     int32_t x = 0;
-    /* 16 pixels (64 bytes) per iteration: 2x ldp q + 2x stp q */
+    /* 16 pixels (64 bytes) per iteration: 1x ld1 x4 + 1x st1 x4 */
     for(; x <= w - 16; x += 16) {
         uint32x4_t v0, v1, v2, v3;
-        blt_ldpq_u32_bsp(sp + x, &v0, &v1);
-        blt_ldpq_u32_bsp(sp + x + 8, &v2, &v3);
-        blt_stpq_u32_bsp(dp + x, v0, v1);
-        blt_stpq_u32_bsp(dp + x + 8, v2, v3);
+        blt_ld1q_x4_u32_bsp(sp + x, &v0, &v1, &v2, &v3);
+        blt_st1q_x4_u32_bsp(dp + x, v0, v1, v2, v3);
     }
-    /* 8 pixels: 1x ldp q + 1x stp q */
+    /* 8 pixels */
     if(x <= w - 8) {
-        uint32x4_t v0, v1;
-        blt_ldpq_u32_bsp(sp + x, &v0, &v1);
-        blt_stpq_u32_bsp(dp + x, v0, v1);
+        uint32x4_t v0 = blt_ld1q_u32_bsp(sp + x);
+        uint32x4_t v1 = blt_ld1q_u32_bsp(sp + x + 4);
+        blt_st1q_u32_bsp(dp + x, v0);
+        blt_st1q_u32_bsp(dp + x + 4, v1);
         x += 8;
     }
     /* 4 pixels */
