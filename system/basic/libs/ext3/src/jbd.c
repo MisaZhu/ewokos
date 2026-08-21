@@ -188,7 +188,42 @@ typedef struct jbd_replay {
 	uint32_t txns;
 	uint32_t blocks;
 	uint32_t fs_blocks;	/* s_blocks_count bound for tag sanity */
+
+	/* tags of the transaction being scanned (replay pass), accumulated
+	 * across ALL of its descriptor blocks until the commit block */
+	uint32_t* tag_blocks;
+	uint32_t* tag_log_blocks;
+	uint32_t* tag_flags;
+	uint32_t tag_num;
+	uint32_t tag_cap;
 } jbd_replay_t;
+
+/* append one descriptor tag to the pending-transaction list, growing
+ * the arrays as needed: a transaction may span several descriptor
+ * blocks (txn_limit can exceed the per-descriptor tag capacity) */
+static int32_t jbd_tag_add(jbd_replay_t* rp, uint32_t blk, uint32_t log_blk, uint32_t flags) {
+	if(rp->tag_num == rp->tag_cap) {
+		uint32_t cap = (rp->tag_cap == 0) ? JBD_MAX_TAGS_PER_BLOCK : (rp->tag_cap * 2);
+		uint32_t* b = (uint32_t*)realloc(rp->tag_blocks, cap * sizeof(uint32_t));
+		if(b == NULL)
+			return -1;
+		rp->tag_blocks = b;
+		uint32_t* l = (uint32_t*)realloc(rp->tag_log_blocks, cap * sizeof(uint32_t));
+		if(l == NULL)
+			return -1;
+		rp->tag_log_blocks = l;
+		uint32_t* f = (uint32_t*)realloc(rp->tag_flags, cap * sizeof(uint32_t));
+		if(f == NULL)
+			return -1;
+		rp->tag_flags = f;
+		rp->tag_cap = cap;
+	}
+	rp->tag_blocks[rp->tag_num] = blk;
+	rp->tag_log_blocks[rp->tag_num] = log_blk;
+	rp->tag_flags[rp->tag_num] = flags;
+	rp->tag_num++;
+	return 0;
+}
 
 static int32_t jbd_revoke_test(const jbd_replay_t* rp, uint32_t block, uint32_t sequence) {
 	const jbd_revoke_rec_t* r = rp->revokes;
@@ -237,11 +272,8 @@ static int32_t jbd_do_one_pass(jbd_replay_t* rp, jbd_pass_t pass) {
 	uint32_t scanned = 0;
 	uint32_t cap = jbd_log_capacity(j);
 
-	/* buffered tags of the transaction being scanned (replay pass) */
-	uint32_t tag_blocks[JBD_MAX_TAGS_PER_BLOCK];
-	uint32_t tag_log_blocks[JBD_MAX_TAGS_PER_BLOCK];
-	uint32_t tag_flags[JBD_MAX_TAGS_PER_BLOCK];
-	uint32_t tag_num = 0;
+	/* start with no pending tags for the transaction being scanned */
+	rp->tag_num = 0;
 
 	while(scanned < cap) {
 		uint32_t blocktype = 0, hdr_seq = 0;
@@ -281,11 +313,11 @@ static int32_t jbd_do_one_pass(jbd_replay_t* rp, jbd_pass_t pass) {
 				uint32_t flags = jbd_get_be32(rp->desc, tagp + 4);
 				io_block = jbd_log_wrap(j, io_block, 1);
 
-				if(pass == JBD_PASS_REPLAY && used < JBD_MAX_TAGS_PER_BLOCK) {
-					tag_blocks[used] = blk;
-					tag_log_blocks[used] = io_block;
-					tag_flags[used] = flags;
-					tag_num = used + 1;
+				/* accumulate: the txn's tags may continue in a
+				 * following descriptor block */
+				if(pass == JBD_PASS_REPLAY) {
+					if(jbd_tag_add(rp, blk, io_block, flags) != 0)
+						return -1;
 				}
 				used++;
 
@@ -304,22 +336,22 @@ static int32_t jbd_do_one_pass(jbd_replay_t* rp, jbd_pass_t pass) {
 
 		if(blocktype == JBD_COMMIT_BLOCK) {
 			if(pass == JBD_PASS_REPLAY) {
-				for(uint32_t i = 0; i < tag_num; i++) {
-					uint32_t blk = tag_blocks[i];
+				for(uint32_t i = 0; i < rp->tag_num; i++) {
+					uint32_t blk = rp->tag_blocks[i];
 					if(blk == 0 || blk >= rp->fs_blocks)
 						continue;
 					if(jbd_revoke_test(rp, blk, sequence))
 						continue;
-					if(jbd_log_read(j, tag_log_blocks[i], rp->data) != 0)
+					if(jbd_log_read(j, rp->tag_log_blocks[i], rp->data) != 0)
 						return -1;
 					/* an escaped block was stored with the magic zeroed */
-					if(tag_flags[i] & JBD_FLAG_ESCAPE)
+					if(rp->tag_flags[i] & JBD_FLAG_ESCAPE)
 						jbd_set_be32(rp->data, 0, JBD_MAGIC_NUMBER);
 					if(j->write_block((int32_t)blk, rp->data) != 0)
 						return -1;
 					rp->blocks++;
 				}
-				tag_num = 0;
+				rp->tag_num = 0;
 				rp->txns++;
 			}
 			rp->last_seq = sequence;
@@ -381,6 +413,9 @@ int32_t jbd_recover(jbd_t* j) {
 	}
 
 	jbd_revoke_free(&rp);
+	free(rp.tag_blocks);
+	free(rp.tag_log_blocks);
+	free(rp.tag_flags);
 	free(rp.data);
 	free(rp.desc);
 	return ret;

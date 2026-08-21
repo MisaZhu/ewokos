@@ -585,9 +585,6 @@ static uint32_t ext2_ialloc(ext2_t* ext2) {  //alloc a node, inode start with 1 
 } 
 
 static int32_t ext2_balloc(ext2_t* ext2) { //alloc a block
-    uint32_t index = 0;
-    uint32_t blk = 0;
-
     uint32_t start = ext2->next_alloc_block;
     if(start < ext2->super.s_first_data_block || start >= ext2->super.s_blocks_count)
         start = ext2->super.s_first_data_block;
@@ -597,18 +594,22 @@ static int32_t ext2_balloc(ext2_t* ext2) { //alloc a block
         uint32_t end = (pass == 0) ? ext2->super.s_blocks_count : start;
 
         for(uint32_t block = begin; block < end; block++) {
-            if(((block - ext2->super.s_first_data_block) % ext2->super.s_blocks_per_group) == 0) {
-                index = get_gd_index_by_block(ext2, block);
-                blk = ext2->gds[index].bg_block_bitmap;
-                                if(ext2_get_block_bitmap(ext2, blk) == NULL)
-                    return 0;
-            }
+            /* resolve the group for EVERY block: the scan may start in
+             * the middle of a group (next_alloc_block continuation) and
+             * the bitmap cache may have been retargeted by a free/dealloc
+             * since the last call; relying on a group-boundary-only
+             * reload tested bits of the wrong group (out of the cached
+             * bitmap buffer) and double-allocated live blocks */
+            uint32_t index = get_gd_index_by_block(ext2, block);
+            uint32_t blk = ext2->gds[index].bg_block_bitmap;
+            char* buf = ext2_get_block_bitmap(ext2, blk);
+            if(buf == NULL)
+                return 0;
 
             uint32_t block_g = get_block_in_group(ext2, block, index);
-                        char* buf = _cached_block_bitmap;
             if(tst_bit(buf, (int32_t)block_g) == 0) {
                 set_bit(buf, (int32_t)block_g);
-                                _cached_block_bitmap_dirty = 1;
+                _cached_block_bitmap_dirty = 1;
                 dec_free_blocks(ext2, block);
                 ext2->next_alloc_block = block + 1;
                 if(ext2->next_alloc_block >= ext2->super.s_blocks_count)
@@ -683,20 +684,37 @@ static int32_t write_child(ext2_t* ext2, INODE* pip, uint32_t ino, const char *n
         }
         if(dp->rec_len == 0 || dp->rec_len < need_len(dp->name_len) || (cp + dp->rec_len) > (buf + block_size))
             dp->rec_len = (uint16_t)((buf + block_size) - cp);
-        ideal_len = need_len(dp->name_len);
-        remain = dp->rec_len-ideal_len;
-        if(remain >= nlen){
-            dp->rec_len = ideal_len;
-            cp += dp->rec_len;
-            dp = (DIR_T *)cp;
-            dp->inode = ino;
-            dp->rec_len = remain;
-            dp->name_len = (uint8_t)name_len;
-            dp->file_type = (uint8_t)ftype;
-            strcpy(dp->name, name);
-            pip->i_mtime = now;
-            pip->i_ctime = now;
-            return ext2->write_block(blk, buf);
+        if(dp->inode == 0) {
+            /* deleted/hole entry at the tail: reuse it in place. Splitting
+             * it like a live entry would carve off need_len(0)==8 bytes,
+             * below the 12-byte ext2 minimum entry size (fsck flags the
+             * directory as corrupted). */
+            if(dp->rec_len >= nlen) {
+                dp->inode = ino;
+                dp->name_len = (uint8_t)name_len;
+                dp->file_type = (uint8_t)ftype;
+                strcpy(dp->name, name);
+                pip->i_mtime = now;
+                pip->i_ctime = now;
+                return ext2->write_block(blk, buf);
+            }
+        }
+        else {
+            ideal_len = need_len(dp->name_len);
+            remain = dp->rec_len-ideal_len;
+            if(remain >= nlen){
+                dp->rec_len = ideal_len;
+                cp += dp->rec_len;
+                dp = (DIR_T *)cp;
+                dp->inode = ino;
+                dp->rec_len = remain;
+                dp->name_len = (uint8_t)name_len;
+                dp->file_type = (uint8_t)ftype;
+                strcpy(dp->name, name);
+                pip->i_mtime = now;
+                pip->i_ctime = now;
+                return ext2->write_block(blk, buf);
+            }
         }
     }
     return -1;
@@ -759,12 +777,21 @@ static int32_t ext2_rm_child(ext2_t* ext2, INODE *ip, const char *name) {
             memset(cpbuf, 0, block_size);
             memcpy(cpbuf, buf, first_len);
             memcpy(cpbuf + first_len, buf + first_len + rec_len, block_size - (first_len + rec_len));
-            // Update the last entry's rec_len
+            /* After the shift the entries tile exactly [0, block_size -
+             * rec_len): extend the LAST one over the freed tail. Walking
+             * with "cp + rec_len < block end" here stepped PAST the moved
+             * last entry into the zeroed tail and minted a phantom inode-0
+             * entry there, which write_child then mistook for a full block
+             * (needlessly growing the directory) and later split into an
+             * illegal 8-byte entry. */
+            char* used_end = cpbuf + block_size - rec_len;
             cp = cpbuf;
-            while((cp + ((DIR_T *)cp)->rec_len) < (cpbuf + block_size)) {
-                if(((DIR_T *)cp)->rec_len == 0) //corrupted entry, heal below
+            while(cp < used_end) {
+                dp = (DIR_T *)cp;
+                if(dp->rec_len == 0 || dp->rec_len < need_len(dp->name_len) ||
+                        (cp + dp->rec_len) >= used_end) //last entry (or corrupted: heal below)
                     break;
-                cp += ((DIR_T *)cp)->rec_len;
+                cp += dp->rec_len;
             }
             ((DIR_T *)cp)->rec_len = (uint16_t)(block_size - (cp - cpbuf));
             ip->i_mtime = ext2_now();

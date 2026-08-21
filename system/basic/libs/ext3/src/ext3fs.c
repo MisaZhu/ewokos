@@ -761,9 +761,6 @@ static uint32_t ext3_ialloc(ext3_t* ext3) {  //alloc a node, inode start with 1 
 }
 
 static int32_t ext3_balloc(ext3_t* ext3) { //alloc a block
-    uint32_t index = 0;
-    uint32_t blk = 0;
-
     uint32_t start = ext3->next_alloc_block;
     if(start < ext3->super.s_first_data_block || start >= ext3->super.s_blocks_count)
         start = ext3->super.s_first_data_block;
@@ -773,18 +770,22 @@ static int32_t ext3_balloc(ext3_t* ext3) { //alloc a block
         uint32_t end = (pass == 0) ? ext3->super.s_blocks_count : start;
 
         for(uint32_t block = begin; block < end; block++) {
-            if(((block - ext3->super.s_first_data_block) % ext3->super.s_blocks_per_group) == 0) {
-                index = get_gd_index_by_block(ext3, block);
-                blk = ext3->gds[index].bg_block_bitmap;
-                                if(ext3_get_block_bitmap(ext3, blk) == NULL)
-                    return 0;
-            }
+            /* resolve the group for EVERY block: the scan may start in
+             * the middle of a group (next_alloc_block continuation) and
+             * the bitmap cache may have been retargeted by a free/dealloc
+             * since the last call; relying on a group-boundary-only
+             * reload tested bits of the wrong group (out of the cached
+             * bitmap buffer) and double-allocated live blocks */
+            uint32_t index = get_gd_index_by_block(ext3, block);
+            uint32_t blk = ext3->gds[index].bg_block_bitmap;
+            char* buf = ext3_get_block_bitmap(ext3, blk);
+            if(buf == NULL)
+                return 0;
 
             uint32_t block_g = get_block_in_group(ext3, block, index);
-                        char* buf = _cached_block_bitmap;
             if(tst_bit(buf, (int32_t)block_g) == 0) {
                 set_bit(buf, (int32_t)block_g);
-                                _cached_block_bitmap_dirty = 1;
+                _cached_block_bitmap_dirty = 1;
                 dec_free_blocks(ext3, block);
                 ext3->next_alloc_block = block + 1;
                 if(ext3->next_alloc_block >= ext3->super.s_blocks_count)
@@ -860,20 +861,37 @@ static int32_t write_child(ext3_t* ext3, EXT3_INODE* pip, uint32_t ino, const ch
         }
         if(dp->rec_len == 0 || dp->rec_len < need_len(dp->name_len) || (cp + dp->rec_len) > (buf + block_size))
             dp->rec_len = (uint16_t)((buf + block_size) - cp);
-        ideal_len = need_len(dp->name_len);
-        remain = dp->rec_len-ideal_len;
-        if(remain >= nlen){
-            dp->rec_len = ideal_len;
-            cp += dp->rec_len;
-            dp = (EXT3_DIR_T *)cp;
-            dp->inode = ino;
-            dp->rec_len = remain;
-            dp->name_len = (uint8_t)name_len;
-            dp->file_type = (uint8_t)ftype;
-            strcpy(dp->name, name);
-            pip->i_mtime = now;
-            pip->i_ctime = now;
-            return ext3_write_meta_blk(ext3, (uint32_t)blk, buf);
+        if(dp->inode == 0) {
+            /* deleted/hole entry at the tail: reuse it in place. Splitting
+             * it like a live entry would carve off need_len(0)==8 bytes,
+             * below the 12-byte ext2 minimum entry size (fsck flags the
+             * directory as corrupted). */
+            if(dp->rec_len >= nlen) {
+                dp->inode = ino;
+                dp->name_len = (uint8_t)name_len;
+                dp->file_type = (uint8_t)ftype;
+                strcpy(dp->name, name);
+                pip->i_mtime = now;
+                pip->i_ctime = now;
+                return ext3_write_meta_blk(ext3, (uint32_t)blk, buf);
+            }
+        }
+        else {
+            ideal_len = need_len(dp->name_len);
+            remain = dp->rec_len-ideal_len;
+            if(remain >= nlen){
+                dp->rec_len = ideal_len;
+                cp += dp->rec_len;
+                dp = (EXT3_DIR_T *)cp;
+                dp->inode = ino;
+                dp->rec_len = remain;
+                dp->name_len = (uint8_t)name_len;
+                dp->file_type = (uint8_t)ftype;
+                strcpy(dp->name, name);
+                pip->i_mtime = now;
+                pip->i_ctime = now;
+                return ext3_write_meta_blk(ext3, (uint32_t)blk, buf);
+            }
         }
     }
     return -1;
@@ -936,12 +954,21 @@ static int32_t ext3_rm_child(ext3_t* ext3, EXT3_INODE *ip, const char *name) {
             memset(cpbuf, 0, block_size);
             memcpy(cpbuf, buf, first_len);
             memcpy(cpbuf + first_len, buf + first_len + rec_len, block_size - (first_len + rec_len));
-            // Update the last entry's rec_len
+            /* After the shift the entries tile exactly [0, block_size -
+             * rec_len): extend the LAST one over the freed tail. Walking
+             * with "cp + rec_len < block end" here stepped PAST the moved
+             * last entry into the zeroed tail and minted a phantom inode-0
+             * entry there, which write_child then mistook for a full block
+             * (needlessly growing the directory) and later split into an
+             * illegal 8-byte entry. */
+            char* used_end = cpbuf + block_size - rec_len;
             cp = cpbuf;
-            while((cp + ((EXT3_DIR_T *)cp)->rec_len) < (cpbuf + block_size)) {
-                if(((EXT3_DIR_T *)cp)->rec_len == 0) //corrupted entry, heal below
+            while(cp < used_end) {
+                dp = (EXT3_DIR_T *)cp;
+                if(dp->rec_len == 0 || dp->rec_len < need_len(dp->name_len) ||
+                        (cp + dp->rec_len) >= used_end) //last entry (or corrupted: heal below)
                     break;
-                cp += ((EXT3_DIR_T *)cp)->rec_len;
+                cp += dp->rec_len;
             }
             ((EXT3_DIR_T *)cp)->rec_len = (uint16_t)(block_size - (cp - cpbuf));
             ip->i_mtime = ext3_now();
@@ -1287,9 +1314,17 @@ static int32_t ext3_ensure_data_block(ext3_t* ext3, EXT3_INODE* node, int32_t lb
         if(indirect == NULL)
             return -1;
         if(indirect[lbk - 12] == 0) {
-            indirect[lbk - 12] = ext3_balloc(ext3);
-            if(indirect[lbk - 12] == 0)
+            /* balloc can trigger an auto-commit (bitmap eviction filling
+             * the transaction), which may flush or reload the shared
+             * static indirect cache: never write through the old pointer
+             * afterwards, re-acquire it first */
+            uint32_t new_blk = ext3_balloc(ext3);
+            if(new_blk == 0)
                 return -1;
+            indirect = ext3_get_cached_indirect_block(ext3, node->i_block[12]);
+            if(indirect == NULL)
+                return -1;
+            indirect[lbk - 12] = new_blk;
             node->i_blocks += sectors_per_block;
             _cached_indirect_dirty = 1;
             if(is_new != NULL)
@@ -1754,17 +1789,78 @@ static int32_t ext3_get_gds(ext3_t* ext3) {
 /* ---------- journal plumbing ---------- */
 
 /* translate a journal-file block index to its fs block number by
- * walking the journal inode's block tree.  Only ever reads (through
- * the cache-aware helpers), so it is safe to call while a transaction
- * is being written. */
+ * walking the journal inode's block tree with local buffers only.
+ * This runs in the middle of jbd_commit() - including auto-commits
+ * fired from inside ext3_ensure_data_block/ext3_balloc - so it must
+ * NEVER go through ext3_get_cached_indirect_block: loading the journal
+ * indirect block into the shared static cache would clobber the buffer
+ * a caller further up the stack still holds a pointer into, and the
+ * polluted block would then be flushed back as the caller's indirect
+ * block, permanently corrupting the journal's block map. */
 static int32_t ext3_jbd_map(void* ctx, uint32_t jblock, uint32_t* fs_block) {
     ext3_t* ext3 = (ext3_t*)ctx;
-    int32_t blk = 0;
-    if(ext3_get_data_block(ext3, &ext3->journal_inode, (int32_t)jblock, &blk) != 0)
+    EXT3_INODE* node = &ext3->journal_inode;
+    uint32_t entries_per_block = ext3_indirect_entries(ext3);
+    uint32_t ptr_buf[EXT3_MAX_BLOCK_SIZE / sizeof(uint32_t)];
+    uint32_t blk = 0;
+    int32_t lbk = (int32_t)jblock;
+
+    if(lbk < 0)
         return -1;
+    if(lbk < 12) {
+        blk = node->i_block[lbk];
+    }
+    else if(lbk < (int32_t)(entries_per_block + 12)) {
+        if(node->i_block[12] == 0)
+            return -1;
+        /* copies out of the static cache if resident, never evicts */
+        if(ext3_read_indirect_block(ext3, node->i_block[12], ptr_buf) != 0)
+            return -1;
+        blk = ptr_buf[lbk - 12];
+    }
+    else if(lbk < (int32_t)(entries_per_block * entries_per_block + entries_per_block + 12)) {
+        int32_t count = lbk - 12 - (int32_t)entries_per_block;
+        int32_t num = count / (int32_t)entries_per_block;
+        int32_t pos = count % (int32_t)entries_per_block;
+        if(node->i_block[13] == 0)
+            return -1;
+        if(ext3_read_blk(ext3, node->i_block[13], (char*)ptr_buf) != 0)
+            return -1;
+        if(ptr_buf[num] == 0)
+            return -1;
+        if(ext3_read_blk(ext3, ptr_buf[num], (char*)ptr_buf) != 0)
+            return -1;
+        blk = ptr_buf[pos];
+    }
+    else if(lbk < (int32_t)(entries_per_block * entries_per_block * entries_per_block +
+            entries_per_block * entries_per_block + entries_per_block + 12)) {
+        int32_t count = lbk - 12 - (int32_t)entries_per_block -
+            (int32_t)(entries_per_block * entries_per_block);
+        int32_t num1 = count / (int32_t)(entries_per_block * entries_per_block);
+        int32_t rem = count % (int32_t)(entries_per_block * entries_per_block);
+        int32_t num2 = rem / (int32_t)entries_per_block;
+        int32_t pos = rem % (int32_t)entries_per_block;
+        if(node->i_block[14] == 0)
+            return -1;
+        if(ext3_read_blk(ext3, node->i_block[14], (char*)ptr_buf) != 0)
+            return -1;
+        if(ptr_buf[num1] == 0)
+            return -1;
+        if(ext3_read_blk(ext3, ptr_buf[num1], (char*)ptr_buf) != 0)
+            return -1;
+        if(ptr_buf[num2] == 0)
+            return -1;
+        if(ext3_read_blk(ext3, ptr_buf[num2], (char*)ptr_buf) != 0)
+            return -1;
+        blk = ptr_buf[pos];
+    }
+    else {
+        return -1;
+    }
+
     if(blk == 0)
         return -1;
-    *fs_block = (uint32_t)blk;
+    *fs_block = blk;
     return 0;
 }
 

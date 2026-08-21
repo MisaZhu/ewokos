@@ -216,7 +216,10 @@ static void set_inode_stat(node_stat_t* stat, EXT3_INODE* inode) {
     inode->i_mtime = stat->mtime;
     inode->i_gid = stat->gid;
     inode->i_uid = stat->uid;
-    inode->i_links_count = stat->links_count;
+    /* i_links_count is owned by the fs (create/link/unlink/mkdir):
+     * a generic stat update (chmod/chown) arrives with the VFS's
+     * links_count, which vfsd never maintains (0) and was wiping the
+     * real on-disk value (fsck: "deleted inode has zero dtime"). */
     //keep the on-disk file-type bits (S_IFDIR/S_IFREG): the VFS stat
     //mode only carries permissions, a plain chmod must not wipe them.
     inode->i_mode = (inode->i_mode & 0xF000) | (stat->mode & 0x0FFF);
