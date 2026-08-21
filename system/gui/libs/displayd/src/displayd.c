@@ -202,30 +202,15 @@ uint32_t fbdisplayd_flush_rect_to(const fbinfo_t* fbinfo, const graph_t* g, cons
         pitch = fbinfo->width * bytes_per_pixel;
 
     if(fbinfo->depth == 32) {
-        if(pitch == fbinfo->width * 4) {
-            /*packed scan-out: blit through graph_blt so the arch kernels
-              (NEON/SSE streaming copies) do the work */
-            graph_t dst;
-            uint32_t* base = (uint32_t*)((uint8_t*)(ewokos_addr_t)fbinfo->pointer +
-                    fbinfo->yoffset * pitch + fbinfo->xoffset * 4);
-            graph_init(&dst, base, fbinfo->width, fbinfo->height);
-            graph_blt((graph_t*)g, r->x, r->y, r->w, r->h,
-                    &dst, fbinfo->xoffset + r->x, fbinfo->yoffset + r->y, r->w, r->h);
-            return (uint32_t)r->w * (uint32_t)r->h * 4;
-        }
-
-        /*pitched scan-out: plain row copies */
-        uint8_t* dst = (uint8_t*)(ewokos_addr_t)fbinfo->pointer +
-                (fbinfo->yoffset + r->y) * pitch +
-                (fbinfo->xoffset + r->x) * 4;
-        const uint32_t* src = g->buffer + r->y * g->w + r->x;
-        uint32_t row_bytes = (uint32_t)r->w * 4;
-        for(int32_t y = 0; y < r->h; y++) {
-            memcpy(dst, src, row_bytes);
-            dst += pitch;
-            src += g->w;
-        }
-        return row_bytes * (uint32_t)r->h;
+        /*packed scan-out: blit through graph_blt so the arch kernels
+            (NEON/SSE streaming copies) do the work */
+        graph_t dst;
+        uint32_t* base = (uint32_t*)((uint8_t*)(ewokos_addr_t)fbinfo->pointer +
+                fbinfo->yoffset * pitch + fbinfo->xoffset * 4);
+        graph_init(&dst, base, fbinfo->width, fbinfo->height);
+        graph_blt((graph_t*)g, r->x, r->y, r->w, r->h,
+                &dst, fbinfo->xoffset + r->x, fbinfo->yoffset + r->y, r->w, r->h);
+        return (uint32_t)r->w * (uint32_t)r->h * 4;
     }
 
     /*16bpp scan-out: graph_blt only handles ARGB, convert pixel by pixel */
