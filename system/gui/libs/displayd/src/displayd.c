@@ -78,27 +78,41 @@ static graph_t* _rect_g = NULL;   /* cached dirty-rect extraction buffer */
 /*
  * Rotation into the scan-out buffer, built on graph_rotate_to.
  *
- * Scan-out mappings are typically Normal Non-Cacheable: stores only
- * merge into DRAM bursts when they hit the write-combine buffers
- * sequentially. graph_rotate_to's arch kernels walk the DESTINATION
- * row-major and fill every row left-to-right with contiguous 4-pixel
- * stores (4x4 micro-tiles), keeping at most 4 open WC streams at a
- * time, which suits that model.
+ * Scan-out mappings are typically Normal Non-Cacheable (NC): CPU stores
+ * bypass the cache and go straight to DRAM so the HVS DMA engine sees
+ * them without cache-coherency stalls. NC writes are merged into DRAM
+ * bursts by the write-combine (WC) buffer, but only when stores arrive
+ * sequentially within a single WC stream.
  *
- * A packed scan-out (pitch == width*4) is rotated straight into place;
- * a pitched one is rotated into a cached graph first, then copied
- * row-by-row.
+ * graph_rotate_to's arch kernels walk the DESTINATION row-major and fill
+ * every row left-to-right with 4x4 micro-tiles, keeping 4 open WC
+ * streams at a time. That works, but 4 concurrent strided WC streams are
+ * still much slower than a single contiguous one.
+ *
+ * To maximise throughput we therefore ALWAYS rotate into a cacheable
+ * intermediate buffer first (L1/L2 write-back absorbs the strided
+ * stores at cache bandwidth) and then do a single sequential memcpy
+ * to the NC scan-out buffer (one WC stream, maximum DRAM burst
+ * efficiency). The extra copy doubles the total bytes moved, but the
+ * per-byte write efficiency of a contiguous stream vs a 4-way strided
+ * rotation more than compensates on typical ARM SoCs (BCM2711 etc.).
  */
 static graph_t* ensure_graph(graph_t** cache, int32_t w, int32_t h) {
     if(w <= 0 || h <= 0)
         return NULL;
     /*grow-only: dirty rects and full frames alternate on the same cache,
-      shrinking here would free/realloc megabytes every frame. Callers
-      always wrap the buffer with their exact dimensions. */
+      shrinking here would free/realloc megabytes every frame. The buffer
+      is reused but w/h are always updated to the requested dimensions so
+      callers can pass the returned graph_t* directly to graph_rotate_to,
+      graph_blt, etc. without a graph_init wrapper. */
     if(*cache == NULL || (*cache)->w * (*cache)->h < w * h) {
         if(*cache != NULL)
             graph_free(*cache);
         *cache = graph_new(NULL, w, h);
+    }
+    else {
+        (*cache)->w = w;
+        (*cache)->h = h;
     }
     return *cache;
 }
@@ -135,23 +149,20 @@ uint32_t fbdisplayd_rotate_to(const fbinfo_t* fbinfo, const graph_t* g, int rota
     uint8_t* base = (uint8_t*)(ewokos_addr_t)fbinfo->pointer +
             fbinfo->yoffset * pitch + fbinfo->xoffset * 4;
 
-    if (pitch == fbinfo->width * 4) {
-        /*packed scan-out: rotate straight into it, no intermediate frame */
-        graph_t dst;
-        graph_init(&dst, (const uint32_t*)base, dw, dh);
-        graph_rotate_to((graph_t*)g, &dst, rotate);
-        return (uint32_t)dw * (uint32_t)dh * 4;
-    }
-
-    /*pitched scan-out: rotate into the cache, then copy rows */
+    /*
+     * Always rotate into a cacheable intermediate buffer, then copy to
+     * the NC scan-out buffer. Rotating directly into NC memory (the old
+     * packed path) writes through 4 strided WC streams which is far
+     * slower than a cache-backed rotation + graph_blt (NEON streaming copy).
+     */
     graph_t* tmp = ensure_graph(&_rotate_g, dw, dh);
     if (tmp == NULL)
         return 0;
-    graph_t dst;
-    graph_init(&dst, tmp->buffer, dw, dh);
-    graph_rotate_to((graph_t*)g, &dst, rotate);
-    for (int32_t y = 0; y < dh; ++y)
-        memcpy(base + (uint32_t)y * pitch, tmp->buffer + y * dw, (uint32_t)dw * 4);
+    graph_rotate_to((graph_t*)g, tmp, rotate);
+
+    graph_t dst_g;
+    graph_init(&dst_g, (uint32_t*)base, dw, dh);
+    graph_blt(tmp, 0, 0, dw, dh, &dst_g, 0, 0, dw, dh);
     return (uint32_t)dw * (uint32_t)dh * 4;
 }
 
@@ -270,14 +281,8 @@ static uint32_t fbdisplayd_rotate_rect_to(const fbinfo_t* fbi, const graph_t* g,
         return 0;
 
     /*extract the damaged rect into a packed graph */
-    graph_t src_g, rot_g;
-    graph_init(&src_g, src_cache->buffer, rw, rh);
-    graph_init(&rot_g, rot_cache->buffer, dw, dh);
-    const uint32_t* srow = g->buffer + ry0 * sw + rx0;
-    for(int32_t y = 0; y < rh; ++y)
-        memcpy(src_g.buffer + y * rw, srow + y * sw, (uint32_t)rw * 4);
-
-    graph_rotate_to(&src_g, &rot_g, rotate);
+    graph_blt((graph_t*)g, rx0, ry0, rw, rh, src_cache, 0, 0, rw, rh);
+    graph_rotate_to(src_cache, rot_cache, rotate);
 
     /*where the rotated rect lands in panel space */
     int32_t dy0, dx0;
@@ -294,10 +299,9 @@ static uint32_t fbdisplayd_rotate_rect_to(const fbinfo_t* fbi, const graph_t* g,
     uint32_t pitch = fb_pitch32(fbi);
     uint8_t* base = (uint8_t*)(ewokos_addr_t)fbi->pointer +
             fbi->yoffset * pitch + fbi->xoffset * 4;
-    for(int32_t y = 0; y < dh; ++y)
-        memcpy(base + (uint32_t)(dy0 + y) * pitch + (uint32_t)dx0 * 4,
-                rot_g.buffer + y * dw, (uint32_t)dw * 4);
-
+    graph_t dst;
+    graph_init(&dst, (uint32_t*)base, fbi->width, fbi->height);
+    graph_blt(rot_cache, 0, 0, dw, dh, &dst, dx0, dy0, dw, dh);
     return (uint32_t)rw * (uint32_t)rh * 4;
 }
 
@@ -316,9 +320,11 @@ static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, in
     else
         graph_init(&g, buf, _zwidth, _zheight);
 
-    /* fast path: driver rotates by itself, straight into the scan-out
-     * buffer. Skips the intermediate rotate buffer AND the extra
-     * full-frame copy the generic path below needs. */
+    /* fast path: driver-side rotation via fbdisplayd_rotate_to(), which
+     * rotates into a cacheable intermediate and copies to the NC scan-out
+     * in one pass. If the driver declines (returns 0), fall through to
+     * the generic path below which does the same two-step rotation+flush
+     * but through the library's own _rotate_g cache and driver flush(). */
     if(rotate != G_ROTATE_0 && !zoomed && _fbdisplayd->flush_rotate != NULL) {
         uint32_t res = _fbdisplayd->flush_rotate(fbinfo, &g, rotate);
         if(res > 0)
@@ -326,13 +332,11 @@ static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, in
     }
 
     graph_t* tmp_g = &g;
-    graph_t rot_g;
     if(rotate == G_ROTATE_90 || rotate == G_ROTATE_270 || rotate == G_ROTATE_180) {
         graph_t* rg = ensure_graph(&_rotate_g, _zwidth, _zheight);
         if(rg != NULL) {
-            graph_init(&rot_g, rg->buffer, _zwidth, _zheight);
-            graph_rotate_to(&g, &rot_g, rotate);
-            tmp_g = &rot_g;
+            graph_rotate_to(&g, rg, rotate);
+            tmp_g = rg;
         }
     }
 
