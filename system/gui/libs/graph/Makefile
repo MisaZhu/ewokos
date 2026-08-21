@@ -28,6 +28,7 @@ LIB_GRAPH_OBJS = \
 	$(ARCH)/src/arc.o \
 	$(ARCH)/src/round.o \
 	$(ARCH)/src/scale.o \
+	$(ARCH)/src/rotate.o \
 	$(ARCH)/src/bitmap.o
 
 GRAPH = $(TARGET_DIR)/lib/libgraph.a

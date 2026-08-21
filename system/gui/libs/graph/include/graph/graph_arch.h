@@ -24,6 +24,8 @@ void  graph_gaussian_arch(graph_t* g, int x, int y, int w, int h, int r);
 
 void rgb2nv12_arch(uint8_t  *out,  uint32_t *in , int w, int h);
 
+void graph_rotate_to_arch(graph_t* g, graph_t* ret, int rot);
+
 #ifdef __cplusplus 
 }
 #endif

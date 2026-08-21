@@ -18,6 +18,7 @@ void graph_blt_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32
 void graph_blt_mask_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
         graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh);
 void graph_scale_tof_cpu(graph_t* g, graph_t* dst, float scale);
+void graph_rotate_to_cpu(graph_t* g, graph_t* dst, int rot);
 void graph_gaussian_cpu(graph_t* g, int x, int y, int w, int h, int r);
 void graph_glass_cpu(graph_t* g, int x, int y, int w, int h, int r);
 
@@ -134,6 +135,10 @@ void graph_scale_tof_arch(graph_t* g, graph_t* dst, double scale) {
 
 void graph_scale_tof_fast_arch(graph_t* g, graph_t* dst, double scale) {
     graph_scale_tof_cpu(g, dst, (float)scale);
+}
+
+void graph_rotate_to_arch(graph_t* g, graph_t* dst, int rot) {
+    graph_rotate_to_cpu(g, dst, rot);
 }
 
 void graph_glass_arch(graph_t* g, int x, int y, int w, int h, int r) {

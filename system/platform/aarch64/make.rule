@@ -5,6 +5,11 @@ CXX = aarch64-none-elf-c++
 LD =  aarch64-none-elf-ld
 OBJDUMP =  aarch64-none-elf-objdump
 
+# NOTE: no -mstrict-align here. The kernel boots with SCTLR_EL1.A=0 (see
+# kernel/platform/aarch64/arch/v8/boot.S), so unaligned loads/stores are
+# legal; -mstrict-align made GCC scalarize every NEON memory access
+# (vld1q/vst1q -> ldp w/orr/stp w), silently killing all ARCH_BOOST kernels.
+
 CFLAGS =  -march=armv8-a -Wno-incompatible-pointer-types -Wno-int-conversion \
 		-Wno-implicit-function-declaration \
         -Wall -Wextra -fPIC \
@@ -12,7 +17,6 @@ CFLAGS =  -march=armv8-a -Wno-incompatible-pointer-types -Wno-int-conversion \
 		-fno-builtin-memmove \
 		-fno-builtin-memset \
         -Wno-unused-parameter \
-		-mstrict-align \
         -mno-outline-atomics \
         -std=c99
 
@@ -24,7 +28,6 @@ CXXFLAGS = -march=armv8-a \
         -Wno-unused-parameter \
         -pedantic \
 		-fno-rtti \
-		-mstrict-align \
         -mno-outline-atomics \
         -fno-exceptions \
         -fno-use-cxa-atexit \

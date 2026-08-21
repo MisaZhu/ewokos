@@ -149,11 +149,55 @@ void graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uin
     }
 }
 
+/* Row copy that never falls back to libc memcpy: the EwokOS libc one is a
+   plain byte loop, while 128-bit NEON load/stores move 16 pixels in a few
+   instructions and merge cleanly into write-combine bursts on non-cacheable
+   scan-out memory. */
+static inline void blt_copy_row_neon(uint32_t *dp, const uint32_t *sp, int32_t w) {
+    int32_t x = 0;
+    /* 16 pixels (64 bytes) per iteration */
+    for(; x <= w - 16; x += 16) {
+        uint32x4_t v0 = vld1q_u32(sp + x);
+        uint32x4_t v1 = vld1q_u32(sp + x + 4);
+        uint32x4_t v2 = vld1q_u32(sp + x + 8);
+        uint32x4_t v3 = vld1q_u32(sp + x + 12);
+        vst1q_u32(dp + x, v0);
+        vst1q_u32(dp + x + 4, v1);
+        vst1q_u32(dp + x + 8, v2);
+        vst1q_u32(dp + x + 12, v3);
+    }
+    /* 8 pixels */
+    if(x <= w - 8) {
+        uint32x4_t v0 = vld1q_u32(sp + x);
+        uint32x4_t v1 = vld1q_u32(sp + x + 4);
+        vst1q_u32(dp + x, v0);
+        vst1q_u32(dp + x + 4, v1);
+        x += 8;
+    }
+    /* 4 pixels */
+    if(x <= w - 4) {
+        vst1q_u32(dp + x, vld1q_u32(sp + x));
+        x += 4;
+    }
+    /* Tail */
+    for(; x < w; x++)
+        dp[x] = sp[x];
+}
+
 inline void graph_blt_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
         graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
     
     if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
         return;
+
+    /* overlapping copy within one graph needs memmove ordering; the CPU
+       path handles it */
+    if(src == dst &&
+            dx < sx + sw && sx < dx + dw &&
+            dy < sy + sh && sy < dy + dh) {
+        graph_blt_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
+        return;
+    }
 
     grect_t sr = {sx, sy, sw, sh};
     grect_t dr = {dx, dy, dw, dh};
@@ -177,46 +221,18 @@ inline void graph_blt_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int
     int32_t w = ex - sr.x;
 
     /* Full-width rows on both sides: whole region is contiguous in memory,
-       collapse the row loop into one big memcpy (common full-screen path) */
+       collapse the row loop into one streaming NEON copy (common full-screen
+       path) */
     if(w == src->w && w == dst->w) {
-        memcpy(&dst->buffer[dy * w], &src->buffer[sy * w],
-                (size_t)(ey - sy) * (size_t)w * 4);
+        blt_copy_row_neon(&dst->buffer[dy * w], &src->buffer[sy * w],
+                (ey - sy) * w);
         return;
     }
 
     for(; sy < ey; sy++, dy++) {
         const uint32_t *sp = &src->buffer[sy * src->w + sr.x];
         uint32_t *dp = &dst->buffer[dy * dst->w + dr.x];
-
-        /* Wide rows: libc memcpy uses cache-managed assembly */
-        if(w >= 64) {
-            memcpy(dp, sp, w * 4);
-            continue;
-        }
-
-        int32_t x = 0;
-        /* 16 pixels (64 bytes) per iteration */
-        for(; x <= w - 16; x += 16) {
-            uint32x4_t v0 = vld1q_u32(sp + x);
-            uint32x4_t v1 = vld1q_u32(sp + x + 4);
-            uint32x4_t v2 = vld1q_u32(sp + x + 8);
-            uint32x4_t v3 = vld1q_u32(sp + x + 12);
-            vst1q_u32(dp + x, v0);
-            vst1q_u32(dp + x + 4, v1);
-            vst1q_u32(dp + x + 8, v2);
-            vst1q_u32(dp + x + 12, v3);
-        }
-        /* 8 pixels */
-        if(x <= w - 8) {
-            uint32x4_t v0 = vld1q_u32(sp + x);
-            uint32x4_t v1 = vld1q_u32(sp + x + 4);
-            vst1q_u32(dp + x, v0);
-            vst1q_u32(dp + x + 4, v1);
-            x += 8;
-        }
-        /* Tail */
-        if(x < w)
-            memcpy(dp + x, sp + x, (w - x) * 4);
+        blt_copy_row_neon(dp, sp, w);
     }
 }
 
@@ -1812,6 +1828,173 @@ void rgb2nv12_arch(uint8_t *out, uint32_t *in, int w, int h) {
                 y_row0[x] = rgb_to_y_scalar_bsp(rgb2nv12_get_src_pixel(in, w, h, y, x));
             }
         }
+    }
+}
+
+static inline uint32x4_t rotate_rev4_u32(uint32x4_t v) {
+    /* reverse the four 32-bit lanes: {a,b,c,d} -> {d,c,b,a} */
+    return vcombine_u32(vget_high_u32(vrev64q_u32(v)), vget_low_u32(vrev64q_u32(v)));
+}
+
+static inline void rotate_90_cw_neon(const uint32_t* src, uint32_t* dst, int width, int height) {
+    /* dst is (height x width); dst[y][x] = src[height-1-x][y].
+       The outer loop walks DESTINATION row bands so every dst row is
+       filled left-to-right (ascending): scan-out mappings are usually
+       Normal Non-Cacheable, and write-combine only merges stores into
+       DRAM bursts when they arrive sequentially. The source lives in
+       cacheable memory, so its strided reads are absorbed by L1/L2. */
+    int y = 0;
+    for(; y + 4 <= width; y += 4) {
+        uint32_t* d0 = dst + (y + 0) * height;
+        uint32_t* d1 = dst + (y + 1) * height;
+        uint32_t* d2 = dst + (y + 2) * height;
+        uint32_t* d3 = dst + (y + 3) * height;
+        int x = 0;
+
+        for(; x + 4 <= height; x += 4) {
+            const uint32_t* s0 = src + (height - 1 - x) * width + y;
+            const uint32_t* s1 = s0 - width;
+            const uint32_t* s2 = s1 - width;
+            const uint32_t* s3 = s2 - width;
+            uint32x4_t v0 = vld1q_u32(s0);
+            uint32x4_t v1 = vld1q_u32(s1);
+            uint32x4_t v2 = vld1q_u32(s2);
+            uint32x4_t v3 = vld1q_u32(s3);
+
+            /* transpose the 4x4 pixel block into columns */
+            uint32x4x2_t t01 = vtrnq_u32(v0, v1);
+            uint32x4x2_t t23 = vtrnq_u32(v2, v3);
+            uint32x4_t c0 = vcombine_u32(vget_low_u32(t01.val[0]), vget_low_u32(t23.val[0]));
+            uint32x4_t c1 = vcombine_u32(vget_low_u32(t01.val[1]), vget_low_u32(t23.val[1]));
+            uint32x4_t c2 = vcombine_u32(vget_high_u32(t01.val[0]), vget_high_u32(t23.val[0]));
+            uint32x4_t c3 = vcombine_u32(vget_high_u32(t01.val[1]), vget_high_u32(t23.val[1]));
+
+            vst1q_u32(d0 + x, c0);
+            vst1q_u32(d1 + x, c1);
+            vst1q_u32(d2 + x, c2);
+            vst1q_u32(d3 + x, c3);
+        }
+
+        for(; x < height; ++x) {
+            d0[x] = src[(height - 1 - x) * width + y + 0];
+            d1[x] = src[(height - 1 - x) * width + y + 1];
+            d2[x] = src[(height - 1 - x) * width + y + 2];
+            d3[x] = src[(height - 1 - x) * width + y + 3];
+        }
+    }
+
+    for(; y < width; ++y) {
+        uint32_t* d = dst + y * height;
+        for(int x = 0; x < height; ++x)
+            d[x] = src[(height - 1 - x) * width + y];
+    }
+}
+
+static inline void rotate_270_cw_neon(const uint32_t* src, uint32_t* dst, int width, int height) {
+    /* dst is (height x width); dst[y][x] = src[x][width-1-y], dst rows ascending */
+    int y = 0;
+    for(; y + 4 <= width; y += 4) {
+        uint32_t* d0 = dst + (y + 0) * height;
+        uint32_t* d1 = dst + (y + 1) * height;
+        uint32_t* d2 = dst + (y + 2) * height;
+        uint32_t* d3 = dst + (y + 3) * height;
+        int x = 0;
+
+        for(; x + 4 <= height; x += 4) {
+            const uint32_t* s0 = src + (x + 0) * width + (width - 4 - y);
+            const uint32_t* s1 = s0 + width;
+            const uint32_t* s2 = s1 + width;
+            const uint32_t* s3 = s2 + width;
+            uint32x4_t v0 = vld1q_u32(s0);
+            uint32x4_t v1 = vld1q_u32(s1);
+            uint32x4_t v2 = vld1q_u32(s2);
+            uint32x4_t v3 = vld1q_u32(s3);
+
+            /* transpose the 4x4 pixel block into columns */
+            uint32x4x2_t t01 = vtrnq_u32(v0, v1);
+            uint32x4x2_t t23 = vtrnq_u32(v2, v3);
+            uint32x4_t c0 = vcombine_u32(vget_low_u32(t01.val[0]), vget_low_u32(t23.val[0]));
+            uint32x4_t c1 = vcombine_u32(vget_low_u32(t01.val[1]), vget_low_u32(t23.val[1]));
+            uint32x4_t c2 = vcombine_u32(vget_high_u32(t01.val[0]), vget_high_u32(t23.val[0]));
+            uint32x4_t c3 = vcombine_u32(vget_high_u32(t01.val[1]), vget_high_u32(t23.val[1]));
+
+            /* dst[y+i][x+j] = src[x+3-j][width-1-(y+i)]: row i takes column 3-i */
+            vst1q_u32(d0 + x, c3);
+            vst1q_u32(d1 + x, c2);
+            vst1q_u32(d2 + x, c1);
+            vst1q_u32(d3 + x, c0);
+        }
+
+        for(; x < height; ++x) {
+            d0[x] = src[(x + 0) * width + width - 1 - (y + 0)];
+            d1[x] = src[(x + 0) * width + width - 1 - (y + 1)];
+            d2[x] = src[(x + 0) * width + width - 1 - (y + 2)];
+            d3[x] = src[(x + 0) * width + width - 1 - (y + 3)];
+        }
+    }
+
+    for(; y < width; ++y) {
+        uint32_t* d = dst + y * height;
+        for(int x = 0; x < height; ++x)
+            d[x] = src[x * width + width - 1 - y];
+    }
+}
+
+static inline void rotate_180_neon(const uint32_t* src, uint32_t* dst, int width, int height) {
+    /* dst[y][x] = src[height-1-y][width-1-x], dst rows ascending */
+    int y = 0;
+    for(; y + 4 <= height; y += 4) {
+        uint32_t* d0 = dst + (y + 0) * width;
+        uint32_t* d1 = dst + (y + 1) * width;
+        uint32_t* d2 = dst + (y + 2) * width;
+        uint32_t* d3 = dst + (y + 3) * width;
+        const uint32_t* s0 = src + (height - 1 - (y + 0)) * width;
+        const uint32_t* s1 = src + (height - 1 - (y + 1)) * width;
+        const uint32_t* s2 = src + (height - 1 - (y + 2)) * width;
+        const uint32_t* s3 = src + (height - 1 - (y + 3)) * width;
+        int x = 0;
+
+        for(; x + 4 <= width; x += 4) {
+            vst1q_u32(d0 + x, rotate_rev4_u32(vld1q_u32(s0 + width - x - 4)));
+            vst1q_u32(d1 + x, rotate_rev4_u32(vld1q_u32(s1 + width - x - 4)));
+            vst1q_u32(d2 + x, rotate_rev4_u32(vld1q_u32(s2 + width - x - 4)));
+            vst1q_u32(d3 + x, rotate_rev4_u32(vld1q_u32(s3 + width - x - 4)));
+        }
+
+        for(; x < width; ++x) {
+            d0[x] = s0[width - 1 - x];
+            d1[x] = s1[width - 1 - x];
+            d2[x] = s2[width - 1 - x];
+            d3[x] = s3[width - 1 - x];
+        }
+    }
+
+    for(; y < height; ++y) {
+        uint32_t* d = dst + y * width;
+        const uint32_t* s = src + (height - 1 - y) * width;
+        for(int x = 0; x < width; ++x)
+            d[x] = s[width - 1 - x];
+    }
+}
+
+void graph_rotate_to_arch(graph_t* g, graph_t* ret, int rot) {
+    if(g == NULL || ret == NULL ||
+            g->buffer == NULL || ret->buffer == NULL ||
+            g->w <= 0 || g->h <= 0)
+        return;
+
+    if(rot == G_ROTATE_90 || rot == G_ROTATE_270) {
+        if(ret->w < g->h || ret->h < g->w)
+            return;
+        if(rot == G_ROTATE_90)
+            rotate_90_cw_neon(g->buffer, ret->buffer, g->w, g->h);
+        else
+            rotate_270_cw_neon(g->buffer, ret->buffer, g->w, g->h);
+    }
+    else if(rot == G_ROTATE_180) {
+        if(ret->w < g->w || ret->h < g->h)
+            return;
+        rotate_180_neon(g->buffer, ret->buffer, g->w, g->h);
     }
 }
 
