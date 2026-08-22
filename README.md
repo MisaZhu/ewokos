@@ -20,7 +20,7 @@ This repository is the main EwokOS source tree. It contains:
 - An X-like window system and desktop applications
 - Networking tools and services such as SSH, SCP, Telnet, HTTP, and ping
 - Machine-specific ports for QEMU, Raspberry Pi, x86, RISC-V, handhelds, and board variants
-- Extra software trees provided through submodules such as `sw.extra/` and `apps/`
+- Extra software trees provided through submodules such as `projects/`, `sw.extra/`, and `apps/`
 
 The build is intentionally machine-centric. Instead of one monolithic top-level build, each target under `machine.virt/` or `machines/*/` provides its own kernel and rootfs recipes.
 
@@ -28,14 +28,12 @@ The build is intentionally machine-centric. Instead of one monolithic top-level 
 
 Recent work visible in the current branch includes:
 
-- AArch64 `64k` page-size support in the kernel port
-- FAT32 filesystem support added to the user-space stack
-- Raspberry Pi Wi-Fi performance improvements
-- Multi-display work across framebuffer and `xserverd`
-- Display device naming cleanup
-- USB mouse wheel scrolling support
-- `sdfsd` `readdir` bug fixes
-- Raspberry Pi 5 LCD HAT bring-up and board add-on work
+- Ext3 ported as the default root filesystem: `sdfsd` now serves journaled, crash-safe ext3, with automatic ext2-compatible fallback when no journal is present; the kernel boot loader reads ext2/ext3 directly
+- SD card write performance improvements, including Raspberry Pi SD driver speed-ups, removal of per-write verification, and write-cache flushing tuned for ext3
+- Display rotation speed-ups via arch-accelerated `graph_rotate_to_arch` paths (ARM, AArch64, x86) and a faster display daemon
+- Larger projects (browser, `macemu`, `minivmac`, `nesemu`, `soft3d`, `video`, `saver`) moved into the new `projects/` tree
+- `macemu` HiDPI mode support
+- Simplified, rewritten Makefiles across the `system/` build trees
 
 These items come directly from the latest commits in the current checkout and reflect active development rather than historical roadmap text.
 
@@ -66,7 +64,7 @@ At a high level:
 - Native GUI and desktop stack with framebuffer rendering, themed window managers, and graphical apps
 - Networking tools including `ssh`, `scp`, `ping`, `host`, HTTPS test tooling, and WebSocket test tooling
 - Multiple machine ports for QEMU, Raspberry Pi families, x86, RISC-V, handheld devices, and special-purpose boards
-- Ext2 root filesystem image generation in-tree, with FAT32 support now being added to the broader stack
+- Ext3 root filesystem image generation in-tree as the default (journaled, with ext2-compatible fallback); FAT32 support is also part of the broader stack
 
 ## Directory Structure
 
@@ -77,7 +75,7 @@ ewokos/
 ├── kernel/
 │   ├── dev/                  # Common kernel device headers
 │   ├── kernel/               # Kernel core: proc, IPC, VM, scheduler, syscalls
-│   ├── lib/                  # Kernel-side helper libraries and ext2 readers
+│   ├── lib/                  # Kernel-side helper libraries and ext2/ext3 readers
 │   ├── loadinit/             # Early userspace loading helpers
 │   └── platform/             # ARM, AArch64, RISC-V, x86 architecture code
 ├── system/
@@ -101,9 +99,10 @@ ewokos/
 │   ├── virt.riscv/           # QEMU RISC-V virt target
 │   ├── x2lite.rk3128/        # RK3128 target
 │   └── x86/                  # x86 PC-style target
+├── projects/                 # Larger standalone projects: browser, macemu,
+│                             # minivmac, nesemu, soft3d, video, saver
 ├── sw.extra/                 # Extra apps, SDL-based software, alternate WMs
-├── apps/                     # Additional apps and libraries
-└── .tmp_fat32_test/          # Local FAT32 test artifacts seen in this checkout
+└── apps/                     # Additional apps and libraries (submodule)
 ```
 
 ### Key Source Directories
@@ -134,7 +133,7 @@ Support below is based on the checked-in source tree and build recipes in this c
 
 | Target Path | Architecture | Typical Use | Current Support Level | Notes |
 |------------|--------------|-------------|-----------------------|-------|
-| `machine.virt/` | ARM32 / AArch64 | QEMU bring-up and development | Recommended, most complete | SMP, ext2 rootfs, VirtIO block/net/input/sound, 9P host share |
+| `machine.virt/` | ARM32 / AArch64 | QEMU bring-up and development | Recommended, most complete | SMP, ext3 rootfs, VirtIO block/net/input/sound, 9P host share |
 | `machines/raspix/` | ARM family | Raspberry Pi family | Strong, board-focused | Broad add-on ecosystem under `3rd/`, Wi-Fi, camera, audio, LCD/touch overlays |
 | `machines/raspi5/` | AArch64 | Raspberry Pi 5 | Active and advancing | WLAN, USB host, fan control, NVMe FS daemon, LCD HAT integrations |
 | `machines/x86/` | x86 / x86_64 | PC-style QEMU target | Strong | Full machine-local kernel and system recipes with GUI/X stack |
@@ -153,9 +152,10 @@ The tree already includes a large amount of board-specific and peripheral work.
 
 ### Storage and Filesystems
 
-- Ext2 root filesystem image generation is part of the normal build flow
-- FAT32 support has recently been ported into the stack
-- SD and MMC support exist across many machine BSPs
+- Ext3 root filesystem image generation is the default build flow, with journaling for crash safety; cards without a journal are served in ext2-compatible mode
+- The kernel boot loader can read ext2/ext3 directly to load init
+- FAT32 support has also been ported into the stack
+- SD and MMC support exist across many machine BSPs, with recent write-path speed-ups (faster Raspberry Pi SD transfers, removed per-write verification)
 - Raspberry Pi 5 includes `nvmefsd` in its system drivers
 
 ### Display and Input
@@ -177,14 +177,16 @@ The tree already includes a large amount of board-specific and peripheral work.
 ### Graphics and Desktop
 
 - Framebuffer rendering, 2D helpers, fonts, PNG/JPEG/GIF/SVG/TGA support
+- Arch-accelerated graphics paths, including scaling and rotation (`graph_rotate_to_arch`) for ARM, AArch64, and x86
 - X client libraries in both C and C++ forms
 - Desktop apps such as `xterm`, `xread`, `ximg`, `xlog`, `xapps`, `clock`, `cards`, and `mine`
 - Alternate window managers and demos in `sw.extra/`
 
 ### Extra Software
 
-- `sw.extra/` contains demos and larger apps such as `doom`, `gears`, and SDL-related pieces
-- `apps/` contains extra libraries and applications such as emulator code, `xDraw`, `minivmac`, and `kimi_chat`
+- `projects/` holds the larger standalone projects: a web browser, `macemu` and `minivmac` Macintosh emulators, `nesemu`, the `soft3d` software 3D stack, `video`, and `saver`
+- `sw.extra/` contains demos and larger apps such as `doom`, `calculator`, `calendar`, and SDL-related pieces
+- `apps/` may hold additional applications and libraries depending on your checkout
 - Some installations depend on submodules being checked out locally
 
 ## Project Components
@@ -233,7 +235,7 @@ At minimum you need:
 - `make`
 - A matching cross toolchain for the architecture you want to build
 - QEMU for emulator targets
-- `e2tools` and `mke2fs` or `e2fsprogs` for ext2 image creation
+- `e2tools` and `mke2fs` or `e2fsprogs` for ext2/ext3 image creation
 
 ### Typical Linux Packages
 
@@ -255,7 +257,7 @@ make x
 make sd
 ```
 
-This stages the root filesystem under `system/build/virt/rootfs/` and creates `root_aarch64.ext2` under `system/build/virt/`.
+This stages the root filesystem under `system/build/virt/rootfs/` and creates `root_aarch64.img` under `system/build/virt/`. The image is ext3 by default; pass `FS=ext2` to `make sd` for an ext2 image instead.
 
 ### 2. Build the Kernel
 
@@ -308,7 +310,7 @@ make basic    # base userland only
 make network  # base userland + networking
 make gui      # framebuffer GUI stack
 make x        # full desktop stack
-make sd       # generate ext2 rootfs image
+make sd       # generate ext3 rootfs image (FS=ext2 supported)
 make clean
 ```
 
@@ -319,6 +321,8 @@ make          # build the kernel image
 make asm      # generate kernel assembly listing
 make run      # boot QEMU with GUI
 make run-headless
+make run-gui  # same as make run (explicit GUI form)
+make run-gui-hvf  # GUI run accelerated with QEMU HVF (host CPUs)
 make runasm   # boot with instruction tracing
 make debug    # QEMU paused with GDB server on :26000
 make debugasm
@@ -344,7 +348,7 @@ QEMU_HOSTFWD='hostfwd=tcp:127.0.0.1:2022-:22' make run
 Most machine ports follow the same pattern:
 
 1. Build the target root filesystem in `machines/<target>/system`
-2. Generate the ext2 image or board-specific storage image
+2. Generate the ext2/ext3 image or board-specific storage image
 3. Build the kernel in `machines/<target>/kernel`
 4. Run in QEMU or deploy to SD card, eMMC, or board storage as appropriate
 
@@ -375,10 +379,7 @@ This repository may rely on submodules depending on your checkout state. The cur
 
 - `sw.extra`
 - `machines`
-- `apps`
-- `machine.3rd`
-- `extra.apps`
-- `mariox`
+- `projects`
 
 If a directory mentioned in the documentation is missing locally, initialize submodules before building or exploring the full software set.
 
