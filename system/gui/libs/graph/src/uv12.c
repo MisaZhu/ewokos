@@ -59,9 +59,9 @@ void rgb2nv12_cpu(uint8_t  *out,  uint32_t *in , int w, int h)
     return;
 }
 
-inline void rgb2nv12(uint8_t  *out,  uint32_t *in , int w, int h) {
+inline void argb_2_nv12(uint8_t  *out,  uint32_t *in , int w, int h) {
 #ifdef ARCH_BOOST
-    rgb2nv12_arch(out,  in , w, h);
+    argb_2_nv12_arch(out,  in , w, h);
 #else
     rgb2nv12_cpu(out,  in , w, h);
 #endif

@@ -1667,7 +1667,7 @@ static inline uint32_t rgb2nv12_get_src_pixel(const uint32_t *in, int w, int h, 
     return in[(h - 1 - y) * w + (w - 1 - x)];
 }
 
-void rgb2nv12_arch(uint8_t *out, uint32_t *in, int w, int h) {
+void argb_2_nv12_arch(uint8_t *out, uint32_t *in, int w, int h) {
     if(out == NULL || in == NULL || w <= 0 || h <= 0)
         return;
 
@@ -1746,6 +1746,48 @@ void rgb2nv12_arch(uint8_t *out, uint32_t *in, int w, int h) {
             for(; x < w; ++x) {
                 y_row0[x] = rgb_to_y_scalar_bsp(rgb2nv12_get_src_pixel(in, w, h, y, x));
             }
+        }
+    }
+}
+
+static inline uint16_t rgb_to_555_scalar_bsp(uint32_t pixel) {
+    uint32_t b = pixel & 0xff;
+    uint32_t g = (pixel >> 8) & 0xff;
+    uint32_t r = (pixel >> 16) & 0xff;
+    return (uint16_t)(((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3));
+}
+
+static inline uint16x8_t neon_rgb_to_555_u8x8(uint8x8_t b8, uint8x8_t g8, uint8x8_t r8) {
+    /* 0RRRRRGGGGGBBBBB: widen each channel into the high byte, then
+       shift-right-insert keeps the top bits of the previous channels */
+    uint16x8_t d = vshrq_n_u16(vshll_n_u8(r8, 8), 1);
+    d = vsriq_n_u16(d, vshll_n_u8(g8, 8), 6);
+    d = vsriq_n_u16(d, vshll_n_u8(b8, 8), 11);
+    return d;
+}
+
+void argb_2_rgb15_arch(uint16_t *out, uint32_t *in, int w, int h) {
+    if(out == NULL || in == NULL || w <= 0 || h <= 0)
+        return;
+
+    for(int y = 0; y < h; y++) {
+        uint16_t *dst_row = out + y * w;
+        int x = 0;
+
+        for(; x + 7 < w; x += 8) {
+            const uint32_t *src_row = in + (h - 1 - y) * w + (w - 1 - x);
+            uint32_t row_pixels[8];
+
+            vst1q_u32(row_pixels, neon_reverse_u32x4(vld1q_u32(src_row - 3)));
+            vst1q_u32(row_pixels + 4, neon_reverse_u32x4(vld1q_u32(src_row - 7)));
+
+            uint8x8x4_t bgra = vld4_u8((const uint8_t*)row_pixels);
+            vst1q_u16(dst_row + x,
+                neon_rgb_to_555_u8x8(bgra.val[0], bgra.val[1], bgra.val[2]));
+        }
+
+        for(; x < w; ++x) {
+            dst_row[x] = rgb_to_555_scalar_bsp(rgb2nv12_get_src_pixel(in, w, h, y, x));
         }
     }
 }
@@ -1893,6 +1935,203 @@ static inline void rotate_180_neon(const uint32_t* src, uint32_t* dst, int width
         const uint32_t* s = src + (height - 1 - y) * width;
         for(int x = 0; x < width; ++x)
             d[x] = s[width - 1 - x];
+    }
+}
+
+/*
+ *  XRGB1555 -> ARGB8888 (NEON, 8 pixels per iteration).
+ *  Straight linear scan (no rotation), the inverse of argb_2_rgb15_arch.
+ */
+void rgb15_2_argb_arch(uint32_t *out, uint16_t *in, int w, int h) {
+    if(out == NULL || in == NULL || w <= 0 || h <= 0)
+        return;
+
+    const uint16x8_t mask_r = vdupq_n_u16(0x7c00);
+    const uint16x8_t mask_g = vdupq_n_u16(0x03e0);
+    const uint16x8_t mask_b = vdupq_n_u16(0x001f);
+
+    for(int y = 0; y < h; y++) {
+        const uint16_t *src_row = in + y * w;
+        uint32_t *dst_row = out + y * w;
+        int x = 0;
+
+        for(; x + 7 < w; x += 8) {
+            uint16x8_t px = vld1q_u16(src_row + x);
+
+            /* 5-bit fields, shifted down to bits 0-4 */
+            uint16x8_t r5 = vshrq_n_u16(vandq_u16(px, mask_r), 10);
+            uint16x8_t g5 = vshrq_n_u16(vandq_u16(px, mask_g), 5);
+            uint16x8_t b5 = vandq_u16(px, mask_b);
+
+            /* (x << 3) | (x >> 2) within 16-bit lanes */
+            uint16x8_t r8 = vorrq_u16(vshlq_n_u16(r5, 3), vshrq_n_u16(r5, 2));
+            uint16x8_t g8 = vorrq_u16(vshlq_n_u16(g5, 3), vshrq_n_u16(g5, 2));
+            uint16x8_t b8 = vorrq_u16(vshlq_n_u16(b5, 3), vshrq_n_u16(b5, 2));
+
+            /* pack into 0xAARRGGBB */
+            uint16x8_t ar = vorrq_u16(vdupq_n_u16((int16_t)0xff00), r8);
+            uint16x8_t gb = vorrq_u16(vshlq_n_u16(g8, 8), b8);
+            uint32x4_t lo = vorrq_u32(vshll_n_u16(vget_low_u16(ar), 16),
+                                      vmovl_u16(vget_low_u16(gb)));
+            uint32x4_t hi = vorrq_u32(vshll_n_u16(vget_high_u16(ar), 16),
+                                      vmovl_u16(vget_high_u16(gb)));
+
+            vst1q_u32(dst_row + x,     lo);
+            vst1q_u32(dst_row + x + 4, hi);
+        }
+
+        for(; x < w; ++x) {
+            uint16_t v = src_row[x];
+            uint32_t r = (v >> 10) & 0x1f;
+            uint32_t g = (v >>  5) & 0x1f;
+            uint32_t b =  v        & 0x1f;
+            r = (r << 3) | (r >> 2);
+            g = (g << 3) | (g >> 2);
+            b = (b << 3) | (b >> 2);
+            dst_row[x] = 0xff000000u | (r << 16) | (g << 8) | b;
+        }
+    }
+}
+
+/*
+ *  ARGB8888 -> RGB24 (NEON, 4 pixels per iteration): strip alpha.
+ */
+void argb_2_rgb24_arch(uint32_t *out, uint32_t *in, int w, int h) {
+    if(out == NULL || in == NULL || w <= 0 || h <= 0)
+        return;
+
+    const uint32x4_t mask = vdupq_n_u32(0x00ffffffu);
+
+    for(int y = 0; y < h; y++) {
+        const uint32_t *src_row = in + y * w;
+        uint32_t *dst_row = out + y * w;
+        int x = 0;
+
+        for(; x + 3 < w; x += 4) {
+            uint32x4_t px = vld1q_u32(src_row + x);
+            vst1q_u32(dst_row + x, vandq_u32(px, mask));
+        }
+
+        for(; x < w; ++x)
+            dst_row[x] = src_row[x] & 0x00ffffffu;
+    }
+}
+
+/*
+ *  RGB24 -> ARGB8888 (NEON, 4 pixels per iteration): set alpha to 0xFF.
+ */
+void rgb24_2_argb_arch(uint32_t *out, uint32_t *in, int w, int h) {
+    if(out == NULL || in == NULL || w <= 0 || h <= 0)
+        return;
+
+    const uint32x4_t alpha = vdupq_n_u32(0xff000000u);
+    const uint32x4_t mask  = vdupq_n_u32(0x00ffffffu);
+
+    for(int y = 0; y < h; y++) {
+        const uint32_t *src_row = in + y * w;
+        uint32_t *dst_row = out + y * w;
+        int x = 0;
+
+        for(; x + 3 < w; x += 4) {
+            uint32x4_t px = vld1q_u32(src_row + x);
+            vst1q_u32(dst_row + x, vorrq_u32(vandq_u32(px, mask), alpha));
+        }
+
+        for(; x < w; ++x)
+            dst_row[x] = 0xff000000u | (src_row[x] & 0x00ffffffu);
+    }
+}
+
+/*
+ * Big-endian [00][RR][GG][BB] byte stream -> ARGB8888.
+ * vrev32_u8 reverses each 32-bit word, then OR in alpha.
+ */
+void rgb24be_2_argb_arch(uint32_t *out, const uint8_t *in, int bpr, int w, int h)
+{
+    if(out == NULL || in == NULL || w <= 0 || h <= 0)
+        return;
+
+    const uint32x4_t alpha = vdupq_n_u32(0xff000000u);
+
+    for(int y = 0; y < h; y++) {
+        const uint8_t *src_row = in + y * bpr;
+        uint32_t *dst_row = out + y * w;
+        int x = 0;
+
+        for(; x + 3 < w; x += 4) {
+            uint8x16_t raw = vld1q_u8(src_row + x * 4);
+            uint8x16_t rev = vrev32q_u8(raw);
+            uint32x4_t px  = vorrq_u32(vreinterpretq_u32_u8(rev), alpha);
+            vst1q_u32(dst_row + x, px);
+        }
+
+        for(; x < w; ++x) {
+            const uint8_t *p = src_row + x * 4;
+            dst_row[x] = 0xff000000u |
+                         ((uint32_t)p[1] << 16) |
+                         ((uint32_t)p[2] <<  8) |
+                          (uint32_t)p[3];
+        }
+    }
+}
+
+/*
+ * Big-endian XRGB1555 byte stream -> ARGB8888.
+ * vrev32_u8 swaps each 32-bit word to host-order XRGB1555,
+ * then expands 5-bit channels to 8.
+ */
+void rgb15be_2_argb_arch(uint32_t *out, const uint8_t *in, int bpr, int w, int h)
+{
+    if(out == NULL || in == NULL || w <= 0 || h <= 0)
+        return;
+
+    const uint16x8_t mask_r = vdupq_n_u16(0x7c00);
+    const uint16x8_t mask_g = vdupq_n_u16(0x03e0);
+    const uint16x8_t mask_b = vdupq_n_u16(0x001f);
+
+    for(int y = 0; y < h; y++) {
+        const uint8_t *src_row = in + y * bpr;
+        uint32_t *dst_row = out + y * w;
+        int x = 0;
+
+        for(; x + 7 < w; x += 8) {
+            /* Load 8 pixels as raw bytes, swap hi/lo within each 16-bit pixel */
+            uint8x16_t raw = vld1q_u8(src_row + x * 2);
+            uint16x8_t px  = vreinterpretq_u16_u8(vrev16q_u8(raw));
+
+            /* 5-bit fields, shifted down to bits 0-4 */
+            uint16x8_t r5 = vshrq_n_u16(vandq_u16(px, mask_r), 10);
+            uint16x8_t g5 = vshrq_n_u16(vandq_u16(px, mask_g), 5);
+            uint16x8_t b5 = vandq_u16(px, mask_b);
+
+            /* (x << 3) | (x >> 2) within 16-bit lanes */
+            uint16x8_t r8 = vorrq_u16(vshlq_n_u16(r5, 3), vshrq_n_u16(r5, 2));
+            uint16x8_t g8 = vorrq_u16(vshlq_n_u16(g5, 3), vshrq_n_u16(g5, 2));
+            uint16x8_t b8 = vorrq_u16(vshlq_n_u16(b5, 3), vshrq_n_u16(b5, 2));
+
+            /* pack into 0xAARRGGBB */
+            uint16x8_t ar = vorrq_u16(vdupq_n_u16((int16_t)0xff00), r8);
+            uint16x8_t gb = vorrq_u16(vshlq_n_u16(g8, 8), b8);
+            uint32x4_t lo = vorrq_u32(vshll_n_u16(vget_low_u16(ar), 16),
+                                      vmovl_u16(vget_low_u16(gb)));
+            uint32x4_t hi = vorrq_u32(vshll_n_u16(vget_high_u16(ar), 16),
+                                      vmovl_u16(vget_high_u16(gb)));
+
+            vst1q_u32(dst_row + x,     lo);
+            vst1q_u32(dst_row + x + 4, hi);
+        }
+
+        for(; x < w; ++x) {
+            const uint8_t *p = src_row + x * 2;
+            uint16_t v = ((uint16_t)p[0] << 8) | p[1];
+            uint32_t r = (v >> 10) & 0x1f;
+            uint32_t g = (v >>  5) & 0x1f;
+            uint32_t b =  v        & 0x1f;
+            r = (r << 3) | (r >> 2);
+            g = (g << 3) | (g >> 2);
+            b = (b << 3) | (b >> 2);
+            dst_row[x] = 0xff000000u | (r << 16) | (g << 8) | b;
+        }
     }
 }
 
