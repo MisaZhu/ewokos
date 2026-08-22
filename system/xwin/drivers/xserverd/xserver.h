@@ -39,10 +39,6 @@ typedef struct st_xwin {
 	bool dirty;
 	bool ready;
 	bool frame_dirty;
-	/*frame_g did not receive the latest content because the frameless
-	  bypass composited straight from the workspace snapshot: it has to
-	  be rebuilt fully before xwm draws decorations into it again*/
-	bool frame_g_stale;
 	/*the shadow bands of this window already sit blended on the display:
 	  blending them again would darken them further, so they only get
 	  blended again after what is below them was repainted*/

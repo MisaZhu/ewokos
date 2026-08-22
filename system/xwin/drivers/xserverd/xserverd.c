@@ -89,30 +89,27 @@ static bool need_repaint_desktop(x_t* x, xwin_t* win);
 
 /*theme alpha here only means the frame has translucent edge/corner pixels;
   the workspace interior still gets copied opaquely and should not force the
-  whole window into the expensive translucent-window path.*/
+  whole window into the expensive translucent-window path.
+
+  Such frames are blended on top of the workspace (win_dirty forces
+  frame_dirty for them), so their ws part has to live inside frame_g:
+  xserverd copies it there and xwm draws the decorations over it.*/
 static inline bool frame_cuts_ws(x_t* x, xwin_t* win) {
     if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0)
         return false;
     return x->config.xwm_theme.frameAlpha;
 }
 
-/*frameless windows whose frame xwm would not touch can be composited
-  straight from the workspace snapshot: the ws->frame_g copy and the
-  DRAW_FRAME ipc round trip fall away. The only thing xwm still paints
-  on a frameless window is the background effect of an unfocused one,
-  and winr must equal wsr so the damage math of draw_win holds.*/
-static inline bool win_can_skip_frame(x_t* x, xwin_t* win) {
-    if((win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0)
-        return false;
-    if(win->xinfo->winr.x != win->xinfo->wsr.x ||
-            win->xinfo->winr.y != win->xinfo->wsr.y ||
-            win->xinfo->winr.w != win->xinfo->wsr.w ||
-            win->xinfo->winr.h != win->xinfo->wsr.h)
-        return false;
-    if(x->config.xwm_theme.bgEffect != 0 && !win->xinfo->focused &&
-            (win->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) == 0)
-        return false;
-    return true;
+/*the theme's background effect blends the desktop over the WHOLE
+  window of an unfocused one (xwm's drawBGEffect runs over the entire
+  winr). While that blend is live the workspace pixels only exist in
+  frame_g, so content changes have to be copied there. Every other
+  window without a translucent frame keeps pristine workspace pixels in
+  the snapshot and gets composited straight from it.*/
+static inline bool win_bg_effect_active(x_t* x, xwin_t* win) {
+    return x->config.xwm_theme.bgEffect != 0 &&
+            !win->xinfo->focused &&
+            (win->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) == 0;
 }
 static void xwin_revalidate_geometry(x_t* x, xwin_t* win);
 
@@ -169,18 +166,20 @@ static void prepare_win_content(x_t* x, xwin_t* win, const grect_t* ws_dmg) {
     if(win->frame_g == NULL)
         return;
 
-    /*the frameless bypass composites straight from the workspace
-      snapshot, so neither the frame content nor the decorations of
-      xwm have to be prepared here*/
-    if(win_can_skip_frame(x, win))
-        return;
-
     if(win->frame_dirty) {
         clear_frame_ring(win);
         ws_dmg = NULL; //the whole frame is being rebuilt
     }
 
-    if(win->dirty || win->frame_dirty) {
+    /*two kinds of windows need their content inside frame_g:
+      - the background effect mixes the desktop into the whole window, so
+        the blended picture has to be rebuilt there on every change;
+      - a translucent frame (rounded corners) is drawn on top of the
+        workspace, so xwm has to blend it over a fresh content copy.
+      Every other workspace is composited straight from the workspace
+      snapshot in draw_win, so this copy stays untouched.*/
+    if((win_bg_effect_active(x, win) || frame_cuts_ws(x, win)) &&
+            (win->dirty || win->frame_dirty)) {
         graph_t* g = win->ws_g_buffer;
         int32_t ox = win->xinfo->wsr.x - win->xinfo->winr.x;
         int32_t oy = win->xinfo->wsr.y - win->xinfo->winr.y;
@@ -200,6 +199,13 @@ static void prepare_win_content(x_t* x, xwin_t* win, const grect_t* ws_dmg) {
     }
 
     if(!win->frame_dirty)
+        return;
+
+    /*a frameless window only visits xwm for the background effect;
+      without it there are no decorations to draw, so the DRAW_FRAME
+      round trip is skipped*/
+    if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0 &&
+            !win_bg_effect_active(x, win))
         return;
 
     if(!check_xwm(x))
@@ -313,23 +319,90 @@ static inline void blit_win_area(graph_t* g, graph_t* disp_g, int32_t win_x, int
                 disp_g, win_x + d.x, win_y + d.y, d.w, d.h);
 }
 
+/*blit the rect d (frame coordinates) of the window onto the display,
+  sourcing the pixels split up: the workspace part comes straight from
+  the workspace snapshot (frame_g never received it), everything around
+  it comes from frame_g where xwm put the decorations. While the
+  background effect blends the window or a translucent frame is drawn
+  over the workspace the whole picture only exists in frame_g, so those
+  cases fall back to a single source.*/
+static void blit_win_part(x_t* x, xwin_t* win, graph_t* disp_g,
+        const grect_t* d, bool alpha) {
+    if(d->w <= 0 || d->h <= 0)
+        return;
+
+    graph_t* ring = win->frame_g;
+    if(ring == NULL)
+        return;
+
+    int32_t win_x = win->xinfo->winr.x;
+    int32_t win_y = win->xinfo->winr.y;
+
+    if(win_bg_effect_active(x, win) || frame_cuts_ws(x, win) ||
+            win->ws_g_buffer == NULL) {
+        if(alpha)
+            graph_blt_alpha(ring, d->x, d->y, d->w, d->h,
+                    disp_g, win_x + d->x, win_y + d->y, d->w, d->h, 0xff);
+        else
+            graph_blt(ring, d->x, d->y, d->w, d->h,
+                    disp_g, win_x + d->x, win_y + d->y, d->w, d->h);
+        return;
+    }
+
+    graph_t* ws = win->ws_g_buffer;
+    int32_t ox = win->xinfo->wsr.x - win->xinfo->winr.x;
+    int32_t oy = win->xinfo->wsr.y - win->xinfo->winr.y;
+
+    int32_t d1 = d->x, d2 = d->x + d->w;
+    int32_t e1 = d->y, e2 = d->y + d->h;
+    int32_t w1 = ox, w2 = ox + (int32_t)win->xinfo->wsr.w;
+    int32_t n1 = oy, n2 = oy + (int32_t)win->xinfo->wsr.h;
+
+    /*the part of d inside the workspace: straight from the snapshot*/
+    int32_t ix1 = d1 > w1 ? d1 : w1;
+    int32_t iy1 = e1 > n1 ? e1 : n1;
+    int32_t ix2 = d2 < w2 ? d2 : w2;
+    int32_t iy2 = e2 < n2 ? e2 : n2;
+    if(ix1 < ix2 && iy1 < iy2) {
+        if(alpha)
+            graph_blt_alpha(ws, ix1 - ox, iy1 - oy, ix2 - ix1, iy2 - iy1,
+                    disp_g, win_x + ix1, win_y + iy1, ix2 - ix1, iy2 - iy1, 0xff);
+        else
+            graph_blt(ws, ix1 - ox, iy1 - oy, ix2 - ix1, iy2 - iy1,
+                    disp_g, win_x + ix1, win_y + iy1, ix2 - ix1, iy2 - iy1);
+    }
+
+    /*the parts of d outside the workspace: up to four bands from frame_g*/
+    grect_t bands[4];
+    uint32_t num = 0;
+    int32_t y0 = e1 > n1 ? e1 : n1;
+    int32_t y1 = e2 < n2 ? e2 : n2;
+    if(e1 < n1) //top
+        bands[num++] = (grect_t){d1, e1, d2 - d1, (n1 < e2 ? n1 : e2) - e1};
+    if(n2 < e2) //bottom
+        bands[num++] = (grect_t){d1, n2 > e1 ? n2 : e1, d2 - d1, e2 - (n2 > e1 ? n2 : e1)};
+    if(y0 < y1) {
+        if(d1 < w1) //left
+            bands[num++] = (grect_t){d1, y0, (w1 < d2 ? w1 : d2) - d1, y1 - y0};
+        if(w2 < d2) //right
+            bands[num++] = (grect_t){w2 > d1 ? w2 : d1, y0, d2 - (w2 > d1 ? w2 : d1), y1 - y0};
+    }
+    for(uint32_t i = 0; i < num; i++) {
+        grect_t* b = &bands[i];
+        if(b->w <= 0 || b->h <= 0)
+            continue;
+        if(alpha)
+            graph_blt_alpha(ring, b->x, b->y, b->w, b->h,
+                    disp_g, win_x + b->x, win_y + b->y, b->w, b->h, 0xff);
+        else
+            graph_blt(ring, b->x, b->y, b->w, b->h,
+                    disp_g, win_x + b->x, win_y + b->y, b->w, b->h);
+    }
+}
+
 /*out_dmg gets the area of disp_g the window actually touched*/
 static int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
     win_mark_frame_dirty(x, win);
-
-    bool skip_frame = win_can_skip_frame(x, win);
-    if(skip_frame) {
-        /*the content goes to the display straight from the workspace
-          snapshot, so any change leaves frame_g behind*/
-        if(win->dirty || win->frame_dirty)
-            win->frame_g_stale = true;
-    }
-    else if(win->frame_g_stale) {
-        /*frame_g was bypassed while it was not needed: rebuild it fully
-          before the decorations get drawn into it again*/
-        win->frame_g_stale = false;
-        win->frame_dirty = true;
-    }
 
     grect_t ws_dmg = win->damage;
     bool has_dmg = win->has_damage && !win->frame_dirty;
@@ -350,9 +423,12 @@ static int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
         dmg.h = win->xinfo->winr.h;
     }
 
-    /*the frameless bypass blits the workspace snapshot directly, every
-      other window shows the frame graph xwm decorated*/
-    graph_t* g = skip_frame ? win->ws_g_buffer : win->frame_g;
+    /*unless the background effect or a translucent frame keeps the whole
+      picture inside frame_g, that graph only holds the decorations here:
+      the workspace pixels are composited straight from the workspace
+      snapshot. blit_win_part does that split for every rect handed to
+      it.*/
+    graph_t* g = win->frame_g;
     if(g != NULL) {
         grect_t bounds = {0, 0, g->w, g->h};
         if(!grect_insect(&bounds, &dmg)) {
@@ -361,11 +437,7 @@ static int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
         }
         else if(win->xinfo->alpha) {
             /*the window content itself is translucent, blend the whole window*/
-            graph_blt_alpha(g, dmg.x, dmg.y, dmg.w, dmg.h,
-                    disp_g,
-                    win->xinfo->winr.x + dmg.x,
-                    win->xinfo->winr.y + dmg.y,
-                    dmg.w, dmg.h, 0xff);
+            blit_win_part(x, win, disp_g, &dmg, true);
         }
         else if(x->config.xwm_theme.shadow > 0 &&
                 !x->config.xwm_theme.frameAlpha) {
@@ -385,8 +457,9 @@ static int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
             grect_t right = {g->w - s_right, 0, s_right, g->h};
             grect_t bottom = {0, g->h - s_bottom, g->w - s_right, s_bottom};
 
-            blit_win_area(g, disp_g, win->xinfo->winr.x, win->xinfo->winr.y,
-                    &dmg, &inner, false);
+            grect_t d = dmg;
+            if(grect_insect(&inner, &d))
+                blit_win_part(x, win, disp_g, &d, false);
 
             /*the bands already sit blended on the display: blending them
               again would put shadow on shadow and darken them further, so
@@ -407,9 +480,11 @@ static int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
             }
         }
         else if(x->config.xwm_theme.frameAlpha) {
-            /*for themed alpha frames only the border ring needs blending;
-              copy the middle opaquely and blend the four edges. The edge
-              width follows the larger of frame width and round radius.*/
+            /*for themed alpha frames the whole picture gets rebuilt in
+              frame_g (the rounded corners are cut into the content there),
+              so only the border ring needs blending; copy the middle
+              opaquely and blend the four edges. The edge width follows the
+              larger of frame width and round radius.*/
             int32_t edge = (int32_t)x->config.xwm_theme.frameW;
             if((int32_t)x->config.xwm_theme.round > edge)
                 edge = (int32_t)x->config.xwm_theme.round;
@@ -432,22 +507,16 @@ static int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
                 blit_win_area(g, disp_g, wx, wy, &dmg, &bottom, true);
                 blit_win_area(g, disp_g, wx, wy, &dmg, &left, true);
                 blit_win_area(g, disp_g, wx, wy, &dmg, &right, true);
-                blit_win_area(g, disp_g, wx, wy, &dmg, &mid, false);
+                grect_t d = dmg;
+                if(grect_insect(&mid, &d))
+                    blit_win_part(x, win, disp_g, &d, false);
             }
             else {
-                graph_blt(g, dmg.x, dmg.y, dmg.w, dmg.h,
-                        disp_g,
-                        win->xinfo->winr.x + dmg.x,
-                        win->xinfo->winr.y + dmg.y,
-                        dmg.w, dmg.h);
+                blit_win_part(x, win, disp_g, &dmg, false);
             }
         }
         else {
-            graph_blt(g, dmg.x, dmg.y, dmg.w, dmg.h,
-                    disp_g,
-                    win->xinfo->winr.x + dmg.x,
-                    win->xinfo->winr.y + dmg.y,
-                    dmg.w, dmg.h);
+            blit_win_part(x, win, disp_g, &dmg, false);
         }
     }
 
@@ -1779,7 +1848,6 @@ static void xwin_revalidate_geometry(x_t* x, xwin_t* win) {
     win->xinfo->frame_g_shm_id = frame_g_shm_id;
     win->frame_g = graph_new(win->frame_g_shm, win->xinfo->winr.w, win->xinfo->winr.h);
     win->frame_dirty = true;
-    win->frame_g_stale = false;
     win->has_damage = false;
     win->composited = false;
     win->shadow_valid = false;
@@ -2034,7 +2102,6 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
         win->xinfo->frame_g_shm_id = frame_g_shm_id;
         win->frame_g = graph_new(win->frame_g_shm, win->xinfo->winr.w, win->xinfo->winr.h);
         win->frame_dirty = true;
-        win->frame_g_stale = false;
         win->ready = false;
         win->has_damage = false;
         win->damage_skip = 0;
