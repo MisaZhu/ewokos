@@ -6,11 +6,9 @@ __cpu_dcache_clean_flush:
 __flush_dcache_all:
 	bx lr
  
- /*
 .global	__invalidate_dcache_all
 __invalidate_dcache_all:
 	bx lr
-*/
 
 .global __flush_tlb
 __flush_tlb:
