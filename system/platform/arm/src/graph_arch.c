@@ -149,6 +149,21 @@ void graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uin
     }
 }
 
+/* Copy 16 pixels (64 bytes) with multi-register VLD1/VST1: 4 instructions
+   instead of 8 single-q loads/stores. This GCC has no vld1q_u32_x4-style
+   intrinsics and struct asm operands don't print register lists, so pin the
+   d-registers and clobber them. VLD1/VST1 without alignment qualifiers
+   tolerate unaligned addresses, same as vld1q_u32/vst1q_u32. */
+static inline void blt_copy_16_neon(uint32_t *dp, const uint32_t *sp) {
+    __asm__ volatile(
+        "vld1.32 {d0-d3}, [%0]\n\t"
+        "vld1.32 {d4-d7}, [%1]\n\t"
+        "vst1.32 {d0-d3}, [%2]\n\t"
+        "vst1.32 {d4-d7}, [%3]"
+        :: "r"(sp), "r"(sp + 8), "r"(dp), "r"(dp + 8)
+        : "memory", "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7");
+}
+
 /* Row copy that never falls back to libc memcpy: the EwokOS libc one is a
    plain byte loop, while 128-bit NEON load/stores move 16 pixels in a few
    instructions and merge cleanly into write-combine bursts on non-cacheable
@@ -156,16 +171,8 @@ void graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uin
 static inline void blt_copy_row_neon(uint32_t *dp, const uint32_t *sp, int32_t w) {
     int32_t x = 0;
     /* 16 pixels (64 bytes) per iteration */
-    for(; x <= w - 16; x += 16) {
-        uint32x4_t v0 = vld1q_u32(sp + x);
-        uint32x4_t v1 = vld1q_u32(sp + x + 4);
-        uint32x4_t v2 = vld1q_u32(sp + x + 8);
-        uint32x4_t v3 = vld1q_u32(sp + x + 12);
-        vst1q_u32(dp + x, v0);
-        vst1q_u32(dp + x + 4, v1);
-        vst1q_u32(dp + x + 8, v2);
-        vst1q_u32(dp + x + 12, v3);
-    }
+    for(; x <= w - 16; x += 16)
+        blt_copy_16_neon(dp + x, sp + x);
     /* 8 pixels */
     if(x <= w - 8) {
         uint32x4_t v0 = vld1q_u32(sp + x);
