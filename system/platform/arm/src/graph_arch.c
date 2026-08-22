@@ -243,24 +243,6 @@ inline void graph_blt_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int
     }
 }
 
-/* Inline alpha blend of 8 pixels: dst = fg over bg, with global alpha scaling.
-   alpha_vec must be vdup_n_u8(alpha) — created once outside the loop. */
-static inline void blt_alpha_8_inline(uint32_t *dp, const uint32_t *sp, uint8x8_t alpha_vec)
-{
-    uint8x8x4_t fg = vld4_u8((const uint8_t*)sp);
-    uint8x8x4_t bg = vld4_u8((const uint8_t*)dp);
-    uint8x8_t full = vdup_n_u8(0xff);
-    uint8x8_t a = vmovn_u16(neon_div255_u16(vmull_u8(fg.val[3], alpha_vec)));
-    uint8x8_t inv_a = vsub_u8(full, a);
-    uint16x8_t oa_add = neon_div255_u16(vmull_u8(vsub_u8(full, bg.val[3]), a));
-    uint8x8x4_t out;
-    out.val[0] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[0], a), vmull_u8(bg.val[0], inv_a))));
-    out.val[1] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[1], a), vmull_u8(bg.val[1], inv_a))));
-    out.val[2] = vmovn_u16(neon_div255_u16(vaddq_u16(vmull_u8(fg.val[2], a), vmull_u8(bg.val[2], inv_a))));
-    out.val[3] = vmovn_u16(vaddq_u16(vmovl_u8(bg.val[3]), oa_add));
-    vst4_u8((uint8_t*)dp, out);
-}
-
 /* Horizontal max/min of 16 u8 lanes via pairwise folding (ARMv7 NEON
    has no vmaxvq/vminvq — those are AArch64 only) */
 static inline uint8_t neon_hmax_u8x16(uint8x16_t v)
@@ -281,39 +263,54 @@ static inline uint8_t neon_hmin_u8x16(uint8x16_t v)
     return vget_lane_u8(m, 0);
 }
 
-/* Alpha blend of 16 pixels using full-width q registers, with block-level
-   fast paths: fully-transparent blocks are skipped without touching dst,
-   fully-opaque blocks (at full global alpha) become a plain store. */
-static inline void blt_alpha_16_inline(uint32_t *dp, const uint32_t *sp,
-                                       uint8x16_t alpha_vec, uint8_t alpha)
+/* Blend 8 pixels; a is the per-pixel effective alpha. Channels use
+   vmull+vmlal instead of vmull+vmull+vaddq: one fewer instruction per
+   channel. */
+static inline void blt_alpha8_blend_core(uint32_t *dp, uint8x8x4_t fg, uint8x8_t a)
 {
-    uint8x16x4_t fg = vld4q_u8((const uint8_t*)sp);
+    uint8x8x4_t bg = vld4_u8((const uint8_t*)dp);
+    uint8x8_t full = vdup_n_u8(0xff);
+    uint8x8_t inv_a = vsub_u8(full, a);
+    uint16x8_t oa_add = neon_div255_u16(vmull_u8(vsub_u8(full, bg.val[3]), a));
+    uint8x8x4_t out;
+    out.val[0] = vmovn_u16(neon_div255_u16(vmlal_u8(vmull_u8(fg.val[0], a), bg.val[0], inv_a)));
+    out.val[1] = vmovn_u16(neon_div255_u16(vmlal_u8(vmull_u8(fg.val[1], a), bg.val[1], inv_a)));
+    out.val[2] = vmovn_u16(neon_div255_u16(vmlal_u8(vmull_u8(fg.val[2], a), bg.val[2], inv_a)));
+    out.val[3] = vmovn_u16(vaddq_u16(vmovl_u8(bg.val[3]), oa_add));
+    vst4_u8((uint8_t*)dp, out);
+}
 
-    /* All 16 source alphas == 0: dst untouched, no read/write at all */
-    if(neon_hmax_u8x16(fg.val[3]) == 0)
-        return;
+/* 8px blend with global alpha 0xff: effective alpha = source alpha */
+static inline void blt_alpha8_blend_a255(uint32_t *dp, uint8x8x4_t fg)
+{
+    blt_alpha8_blend_core(dp, fg, fg.val[3]);
+}
 
-    /* All 16 source alphas == 0xff at full global alpha: plain copy */
-    if(alpha == 0xff && neon_hmin_u8x16(fg.val[3]) == 0xff) {
-        vst4q_u8((uint8_t*)dp, fg);
-        return;
-    }
+/* 8px blend with a global alpha < 0xff */
+static inline void blt_alpha8_blend_scaled(uint32_t *dp, uint8x8x4_t fg, uint8x8_t alpha_vec)
+{
+    uint8x8_t a = vmovn_u16(neon_div255_u16(vmull_u8(fg.val[3], alpha_vec)));
+    blt_alpha8_blend_core(dp, fg, a);
+}
 
+/* Blend 16 pixels whose effective alpha is already known to be neither
+   all-zero nor all-opaque. a_lo/a_hi are the per-pixel effective alphas
+   (src_a scaled by the global alpha). */
+static inline void blt_alpha16_blend_core(uint32_t *dp, uint8x16x4_t fg,
+        uint8x8_t a_lo, uint8x8_t a_hi)
+{
     uint8x16x4_t bg = vld4q_u8((const uint8_t*)dp);
     uint8x16_t full = vdupq_n_u8(0xff);
-
-    uint8x8_t a_lo = vmovn_u16(neon_div255_u16(vmull_u8(vget_low_u8(fg.val[3]), vget_low_u8(alpha_vec))));
-    uint8x8_t a_hi = vmovn_u16(neon_div255_u16(vmull_u8(vget_high_u8(fg.val[3]), vget_high_u8(alpha_vec))));
     uint8x16_t a = vcombine_u8(a_lo, a_hi);
     uint8x16_t inv_a = vsubq_u8(full, a);
 
     uint8x16x4_t out;
     /* out = div255(fg*a + bg*(255-a)) per channel, low/high halves widened */
     for(int c = 0; c < 3; c++) {
-        uint16x8_t lo = vaddq_u16(vmull_u8(vget_low_u8(fg.val[c]), a_lo),
-                                  vmull_u8(vget_low_u8(bg.val[c]), vget_low_u8(inv_a)));
-        uint16x8_t hi = vaddq_u16(vmull_u8(vget_high_u8(fg.val[c]), a_hi),
-                                  vmull_u8(vget_high_u8(bg.val[c]), vget_high_u8(inv_a)));
+        uint16x8_t lo = vmull_u8(vget_low_u8(fg.val[c]), a_lo);
+        lo = vmlal_u8(lo, vget_low_u8(bg.val[c]), vget_low_u8(inv_a));
+        uint16x8_t hi = vmull_u8(vget_high_u8(fg.val[c]), a_hi);
+        hi = vmlal_u8(hi, vget_high_u8(bg.val[c]), vget_high_u8(inv_a));
         out.val[c] = vcombine_u8(vmovn_u16(neon_div255_u16(lo)), vmovn_u16(neon_div255_u16(hi)));
     }
     /* out_a = bg_a + div255((255-bg_a)*a) */
@@ -324,6 +321,90 @@ static inline void blt_alpha_16_inline(uint32_t *dp, const uint32_t *sp,
         vmovn_u16(vaddq_u16(vmovl_u8(vget_high_u8(bg.val[3])), oa_hi)));
 
     vst4q_u8((uint8_t*)dp, out);
+}
+
+/* 16px blend with global alpha 0xff: effective alpha is the source alpha
+   itself, skipping the per-block div255(fg_a*alpha) scaling chain. The
+   caller must have ruled out the all-transparent and all-opaque cases. */
+static inline void blt_alpha16_blend_a255(uint32_t *dp, uint8x16x4_t fg)
+{
+    blt_alpha16_blend_core(dp, fg,
+            vget_low_u8(fg.val[3]), vget_high_u8(fg.val[3]));
+}
+
+/* 16px blend with a global alpha < 0xff */
+static inline void blt_alpha16_blend_scaled(uint32_t *dp, uint8x16x4_t fg,
+        uint8x16_t alpha_vec)
+{
+    uint8x8_t a_lo = vmovn_u16(neon_div255_u16(vmull_u8(vget_low_u8(fg.val[3]), vget_low_u8(alpha_vec))));
+    uint8x8_t a_hi = vmovn_u16(neon_div255_u16(vmull_u8(vget_high_u8(fg.val[3]), vget_high_u8(alpha_vec))));
+    blt_alpha16_blend_core(dp, fg, a_lo, a_hi);
+}
+
+/* 32px block: one combined transparent check (max of pairwise-OR) and one
+   combined opaque check (min of pairwise-AND) instead of two vpmax trees
+   per 16px. Blending preserves block-level semantics bit-exactly: fg_a==0
+   is the identity on dst, and fg_a==0xff gives div255(x*255) == x per
+   channel with out_a = bg_a + (255-bg_a) == 255. Global alpha is 0xff. */
+static inline void blt_alpha32_a255(uint32_t *dp, const uint32_t *sp)
+{
+    __builtin_prefetch(sp + 64);
+
+    uint8x16x4_t fg0 = vld4q_u8((const uint8_t*)sp);
+    uint8x16x4_t fg1 = vld4q_u8((const uint8_t*)(sp + 16));
+
+    /* All 32 source alphas == 0: dst untouched, no read/write at all */
+    if(neon_hmax_u8x16(vorrq_u8(fg0.val[3], fg1.val[3])) == 0)
+        return;
+    /* All 32 source alphas == 0xff: plain copy */
+    if(neon_hmin_u8x16(vandq_u8(fg0.val[3], fg1.val[3])) == 0xff) {
+        vst4q_u8((uint8_t*)dp, fg0);
+        vst4q_u8((uint8_t*)(dp + 16), fg1);
+        return;
+    }
+
+    blt_alpha16_blend_a255(dp, fg0);
+    blt_alpha16_blend_a255(dp + 16, fg1);
+}
+
+/* 32px block with a global alpha < 0xff */
+static inline void blt_alpha32_scaled(uint32_t *dp, const uint32_t *sp,
+        uint8x16_t alpha_vec)
+{
+    __builtin_prefetch(sp + 64);
+
+    uint8x16x4_t fg0 = vld4q_u8((const uint8_t*)sp);
+    uint8x16x4_t fg1 = vld4q_u8((const uint8_t*)(sp + 16));
+
+    uint8x16_t a_or = vorrq_u8(fg0.val[3], fg1.val[3]);
+    if(neon_hmax_u8x16(a_or) == 0)
+        return;
+
+    blt_alpha16_blend_scaled(dp, fg0, alpha_vec);
+    blt_alpha16_blend_scaled(dp + 16, fg1, alpha_vec);
+}
+
+/* Remaining 16px block with per-block checks, global alpha 0xff */
+static inline void blt_alpha16_a255_checked(uint32_t *dp, const uint32_t *sp)
+{
+    uint8x16x4_t fg = vld4q_u8((const uint8_t*)sp);
+    if(neon_hmax_u8x16(fg.val[3]) == 0)
+        return;
+    if(neon_hmin_u8x16(fg.val[3]) == 0xff) {
+        vst4q_u8((uint8_t*)dp, fg);
+        return;
+    }
+    blt_alpha16_blend_a255(dp, fg);
+}
+
+/* Remaining 16px block with per-block checks, global alpha < 0xff */
+static inline void blt_alpha16_scaled_checked(uint32_t *dp, const uint32_t *sp,
+        uint8x16_t alpha_vec)
+{
+    uint8x16x4_t fg = vld4q_u8((const uint8_t*)sp);
+    if(neon_hmax_u8x16(fg.val[3]) == 0)
+        return;
+    blt_alpha16_blend_scaled(dp, fg, alpha_vec);
 }
 
 inline void graph_blt_alpha_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
@@ -356,6 +437,39 @@ inline void graph_blt_alpha_arch(graph_t* src, int32_t sx, int32_t sy, int32_t s
     ey = sr.y + sr.h;
     int32_t w = ex - sr.x;
 
+    if(alpha == 0xff) {
+        /* most common case: global alpha full, effective alpha = src alpha */
+        for(; sy < ey; sy++, dy++) {
+            const uint32_t *sp = &src->buffer[sy * src->w + sr.x];
+            uint32_t *dp = &dst->buffer[dy * dst->w + dr.x];
+            int32_t x = 0;
+
+            for(; x <= w - 32; x += 32)
+                blt_alpha32_a255(dp + x, sp + x);
+            if(x <= w - 16) {
+                blt_alpha16_a255_checked(dp + x, sp + x);
+                x += 16;
+            }
+            if(x <= w - 8) {
+                uint8x8x4_t fg = vld4_u8((const uint8_t*)(sp + x));
+                blt_alpha8_blend_a255(dp + x, fg);
+                x += 8;
+            }
+            /* Tail: zero-padded 8-pixel block; padding lanes blend as
+               identity (fg_a=0 -> out=bg) */
+            if(x < w) {
+                int remain = w - x;
+                uint32_t fg[8] = {0}, bg[8] = {0};
+                memcpy(fg, sp + x, 4 * remain);
+                memcpy(bg, dp + x, 4 * remain);
+                uint8x8x4_t fgv = vld4_u8((const uint8_t*)fg);
+                blt_alpha8_blend_a255(bg, fgv);
+                memcpy(dp + x, bg, 4 * remain);
+            }
+        }
+        return;
+    }
+
     /* Create alpha vectors once — constant across the entire blit */
     uint8x16_t alpha_vec16 = vdupq_n_u8(alpha);
     uint8x8_t alpha_vec = vdup_n_u8(alpha);
@@ -365,23 +479,25 @@ inline void graph_blt_alpha_arch(graph_t* src, int32_t sx, int32_t sy, int32_t s
         uint32_t *dp = &dst->buffer[dy * dst->w + dr.x];
         int32_t x = 0;
 
-        /* 16 pixels per iteration with transparent/opaque block fast paths */
-        for(; x <= w - 16; x += 16) {
-            __builtin_prefetch(sp + x + 64);
-            blt_alpha_16_inline(dp + x, sp + x, alpha_vec16, alpha);
+        for(; x <= w - 32; x += 32)
+            blt_alpha32_scaled(dp + x, sp + x, alpha_vec16);
+        if(x <= w - 16) {
+            blt_alpha16_scaled_checked(dp + x, sp + x, alpha_vec16);
+            x += 16;
         }
-        /* 8 pixels */
         if(x <= w - 8) {
-            blt_alpha_8_inline(dp + x, sp + x, alpha_vec);
+            uint8x8x4_t fg = vld4_u8((const uint8_t*)(sp + x));
+            blt_alpha8_blend_scaled(dp + x, fg, alpha_vec);
             x += 8;
         }
-        /* Tail */
+        /* Tail: zero-padded 8-pixel block; padding lanes blend as identity */
         if(x < w) {
             int remain = w - x;
             uint32_t fg[8] = {0}, bg[8] = {0};
             memcpy(fg, sp + x, 4 * remain);
             memcpy(bg, dp + x, 4 * remain);
-            blt_alpha_8_inline(bg, fg, alpha_vec);
+            uint8x8x4_t fgv = vld4_u8((const uint8_t*)fg);
+            blt_alpha8_blend_scaled(bg, fgv, alpha_vec);
             memcpy(dp + x, bg, 4 * remain);
         }
     }

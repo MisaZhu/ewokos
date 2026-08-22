@@ -3,6 +3,7 @@
 *_data.c
 .DS_*
 kernel*.img
+root*.img
 kernel*.elf
 kernel*.asm
 system/build

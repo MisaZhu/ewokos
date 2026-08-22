@@ -29,9 +29,6 @@ all: x
 
 include $(SYS_ROOT_DIR)/platform/make.inc
 
-final:
-	@echo "all done."
-
 basic: basic_sys
 	@$(MAKE) final
 
@@ -73,18 +70,17 @@ clean:
 	done
 	@$(MAKE) -C $(EWOKOS_ROOT_DIR)/sw.extra HW=$(HW) clean
 	rm -fr $(BUILD_DIR)
+	rm -fr $(FINAL_DIR)
 
 SD = root_$(ARCH).img
 sd:
 	@echo "\n====building ${FS} format sdcard image===="
 #512M ext2/ext3 sd
-	cd $(BUILD_DIR); \
 	dd if=/dev/zero of=${SD} bs=1k count=512k
 #make ext2/ext3 fs with: block_size=4096 inode_size=128
-	cd $(BUILD_DIR); \
 	mke2fs -t ${FS} -b 4096 -I 128 ${SD}
 
-	cd $(TARGET_DIR); \
+	cd $(FINAL_DIR); \
 	find . -type f | e2cp -ap -G0 -O0 -d ../${SD}:/
 
 	@echo "==== ${FS} format sdcard image created  ====\n"

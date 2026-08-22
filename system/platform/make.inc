@@ -15,11 +15,21 @@ kernel_heads:
 	mkdir -p ${BUILD_DIR}/lib
 	mkdir -p ${BUILD_DIR}/rootfs
 	cp -r $(KERNEL_H) $(BUILD_DIR)/include/
+
+FINAL_DIR = build
+
+final:
+	@mkdir -p $(FINAL_DIR)
+	@cp -r $(BUILD_DIR)/rootfs/* $(FINAL_DIR)/
+	@rm -fr $(BUILD_DIR)/rootfs
+	@echo "all done."
 	
 extra: 
 	make HW=$(HW) -C $(EWOKOS_ROOT_DIR)/sw.extra
 	cp -r $(EWOKOS_ROOT_DIR)/sw.extra/usr $(EWOKOS_ROOT_DIR)/system/build/$(HW)/rootfs/
 	cp -r $(EWOKOS_ROOT_DIR)/sw.extra/data $(EWOKOS_ROOT_DIR)/system/build/$(HW)/rootfs/
+	@make final
 
 projs:
 	make HW=$(HW) -C $(EWOKOS_ROOT_DIR)/projects
+	@make final
