@@ -156,7 +156,11 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
         if(xwm->get_frame != NULL)
             xwm->get_frame(&info, &rframe, xwm->data);
 
-        if((info.style & XWIN_STYLE_NO_TITLE) == 0) {
+        /*a fullscreen window fills the display edge to edge: no title,
+          buttons, frame or shadow may be drawn over its content*/
+        bool full_screen = (info.state == XWIN_STATE_FULL_SCREEN);
+
+        if((info.style & XWIN_STYLE_NO_TITLE) == 0 && !full_screen) {
             if(xwm->draw_title != NULL && rtitle.w > 0 && rtitle.h > 0)
                 xwm->draw_title(&desktop_g, &frame_g, &info, &rtitle, top, xwm->data);
 
@@ -171,7 +175,7 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
                 xwm->draw_close(&frame_g, &info, &rclose, top, xwm->data);
         }
 
-        if(info.state != XWIN_STATE_MAX) {
+        if(info.state != XWIN_STATE_MAX && !full_screen) {
             if(xwm->draw_frame != NULL)
                 xwm->draw_frame(&desktop_g, &frame_g, &ws_g, &info, &rframe, top, xwm->data);
 
@@ -208,7 +212,8 @@ static void get_frame_areas(xwm_t* xwm, proto_t* in, proto_t* out) {
     memset(&rresize, 0, sizeof(grect_t));
 
     if((info.style & XWIN_STYLE_NO_TITLE) == 0 &&
-            (info.style & XWIN_STYLE_NO_FRAME) == 0) {
+            (info.style & XWIN_STYLE_NO_FRAME) == 0 &&
+            info.state != XWIN_STATE_FULL_SCREEN) {
 
         if(xwm->get_title != NULL)
             xwm->get_title(&info, &rtitle, xwm->data);

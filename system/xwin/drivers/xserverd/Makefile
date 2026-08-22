@@ -9,6 +9,13 @@ LDFLAGS = -L $(BUILD_DIR)/lib
 CFLAGS += -I $(BUILD_DIR)/include -I./
 
 XSERVERD_OBJS = $(ARCH)/xserverd.o \
+	$(ARCH)/xserver_dev.o \
+	$(ARCH)/xwin.o \
+	$(ARCH)/xrender.o \
+	$(ARCH)/xrepaint.o \
+	$(ARCH)/xinput.o \
+	$(ARCH)/xwin_cmd.o \
+	$(ARCH)/xshm.o \
 	$(ARCH)/cursor.o \
 	$(ARCH)/xevtpool.o \
 	$(ARCH)/xcmd.o \

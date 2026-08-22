@@ -148,4 +148,87 @@ typedef struct {
 	vdevice_t* dev;
 } x_t;
 
+/*maximized and fullscreen windows fill the display edge to edge: xwm draws
+  no frame, shadow or rounded corners for them, so no translucent frame
+  pixels cut into their workspace*/
+static inline bool win_edge_to_edge(xwin_t* win) {
+	return win->xinfo->state == XWIN_STATE_MAX ||
+			win->xinfo->state == XWIN_STATE_FULL_SCREEN;
+}
+
+/*theme alpha here only means the frame has translucent edge/corner pixels;
+  the workspace interior still gets copied opaquely and should not force the
+  whole window into the expensive translucent-window path.
+
+  Such frames are blended on top of the workspace (win_dirty forces
+  frame_dirty for them), so their ws part has to live inside frame_g:
+  xserverd copies it there and xwm draws the decorations over it.*/
+static inline bool frame_cuts_ws(x_t* x, xwin_t* win) {
+	if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0)
+		return false;
+	if(win_edge_to_edge(win))
+		return false;
+	return x->config.xwm_theme.frameAlpha;
+}
+
+/*the theme's background effect blends the desktop over the WHOLE
+  window of an unfocused one (xwm's drawBGEffect runs over the entire
+  winr). While that blend is live the workspace pixels only exist in
+  frame_g, so content changes have to be copied there. Every other
+  window without a translucent frame keeps pristine workspace pixels in
+  the snapshot and gets composited straight from it.*/
+static inline bool win_bg_effect_active(x_t* x, xwin_t* win) {
+	return x->config.xwm_theme.bgEffect != 0 &&
+			!win->xinfo->focused &&
+			(win->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) == 0;
+}
+
+/*small rectangle helpers shared between the compositor modules*/
+static inline bool rect_is_valid(const grect_t* r) {
+	return r->w > 0 && r->h > 0;
+}
+
+static inline bool rect_contains(const grect_t* out, const grect_t* in) {
+	return in->x >= out->x && in->y >= out->y &&
+			(in->x + in->w) <= (out->x + out->w) &&
+			(in->y + in->h) <= (out->y + out->h);
+}
+
+static inline void rect_union_to(grect_t* dst, const grect_t* src) {
+	int32_t x0 = dst->x < src->x ? dst->x : src->x;
+	int32_t y0 = dst->y < src->y ? dst->y : src->y;
+	int32_t x1 = (dst->x + dst->w) > (src->x + src->w) ? (dst->x + dst->w) : (src->x + src->w);
+	int32_t y1 = (dst->y + dst->h) > (src->y + src->h) ? (dst->y + dst->h) : (src->y + src->h);
+	dst->x = x0;
+	dst->y = y0;
+	dst->w = x1 - x0;
+	dst->h = y1 - y0;
+}
+
+static inline bool rect_overlap_or_touch(const grect_t* a, const grect_t* b) {
+	if((a->x + a->w) < b->x || (b->x + b->w) < a->x)
+		return false;
+	if((a->y + a->h) < b->y || (b->y + b->h) < a->y)
+		return false;
+	return true;
+}
+
+static inline bool rect_clip_to_graph(graph_t* g, grect_t* r) {
+	grect_t bounds = {0, 0, g->w, g->h};
+	return grect_insect(&bounds, r);
+}
+
+/*core state helpers living in xserverd.c*/
+bool check_xwm(x_t* x);
+void x_dirty(x_t* x, int32_t display_index);
+void x_repaint_req(x_t* x, int32_t display_index);
+
+/*vdevice entry points living in xserver_dev.c*/
+int xserver_step(vdevice_t* dev, void* p);
+int xserver_fcntl(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
+		int cmd, proto_t* in, proto_t* out, void* p);
+int xserver_win_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int oflag, void* p);
+int xserver_win_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fsinfo_t* fsinfo, void* p);
+int xserver_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto_t* ret, void* p);
+
 #endif
