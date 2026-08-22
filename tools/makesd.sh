@@ -1,7 +1,7 @@
 #!/bin/zsh
 # macOS SD card partition & format script
 # Pure MBR layout:
-#   1: FAT32 512M bootfs (lowercase volume label)
+#   1: FAT32 128M bootfs (lowercase volume label)
 #   2: overwrite partition2 to ext3 rootfs with mke2fs
 # mke2fs params: -F -t ext3 -L rootfs -b 4096 -I 128
 # Usage: sudo ./makesd.sh /dev/disk4
@@ -41,7 +41,7 @@ diskutil unmountDisk "${SD_DISK}" || true
 echo "[2] Create MBR partition table, two placeholder FAT32 partitions"
 diskutil eraseDisk FAT32 TMP MBRFormat "${SD_DISK}"
 diskutil partitionDisk "${SD_DISK}" MBRFormat \
-    FAT32 dummy1 512M \
+    FAT32 dummy1 128M \
     FAT32 dummy2 0B
 
 DISK_NUM=${SD_DISK#/dev/disk}
