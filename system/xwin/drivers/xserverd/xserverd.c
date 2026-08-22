@@ -95,6 +95,25 @@ static inline bool frame_cuts_ws(x_t* x, xwin_t* win) {
         return false;
     return x->config.xwm_theme.frameAlpha;
 }
+
+/*frameless windows whose frame xwm would not touch can be composited
+  straight from the workspace snapshot: the ws->frame_g copy and the
+  DRAW_FRAME ipc round trip fall away. The only thing xwm still paints
+  on a frameless window is the background effect of an unfocused one,
+  and winr must equal wsr so the damage math of draw_win holds.*/
+static inline bool win_can_skip_frame(x_t* x, xwin_t* win) {
+    if((win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0)
+        return false;
+    if(win->xinfo->winr.x != win->xinfo->wsr.x ||
+            win->xinfo->winr.y != win->xinfo->wsr.y ||
+            win->xinfo->winr.w != win->xinfo->wsr.w ||
+            win->xinfo->winr.h != win->xinfo->wsr.h)
+        return false;
+    if(x->config.xwm_theme.bgEffect != 0 && !win->xinfo->focused &&
+            (win->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) == 0)
+        return false;
+    return true;
+}
 static void xwin_revalidate_geometry(x_t* x, xwin_t* win);
 
 static void win_mark_frame_dirty(x_t* x, xwin_t* win) {
@@ -148,6 +167,12 @@ static void prepare_win_content(x_t* x, xwin_t* win, const grect_t* ws_dmg) {
         return;
 
     if(win->frame_g == NULL)
+        return;
+
+    /*the frameless bypass composites straight from the workspace
+      snapshot, so neither the frame content nor the decorations of
+      xwm have to be prepared here*/
+    if(win_can_skip_frame(x, win))
         return;
 
     if(win->frame_dirty) {
@@ -292,6 +317,20 @@ static inline void blit_win_area(graph_t* g, graph_t* disp_g, int32_t win_x, int
 static int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
     win_mark_frame_dirty(x, win);
 
+    bool skip_frame = win_can_skip_frame(x, win);
+    if(skip_frame) {
+        /*the content goes to the display straight from the workspace
+          snapshot, so any change leaves frame_g behind*/
+        if(win->dirty || win->frame_dirty)
+            win->frame_g_stale = true;
+    }
+    else if(win->frame_g_stale) {
+        /*frame_g was bypassed while it was not needed: rebuild it fully
+          before the decorations get drawn into it again*/
+        win->frame_g_stale = false;
+        win->frame_dirty = true;
+    }
+
     grect_t ws_dmg = win->damage;
     bool has_dmg = win->has_damage && !win->frame_dirty;
 
@@ -311,7 +350,9 @@ static int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
         dmg.h = win->xinfo->winr.h;
     }
 
-    graph_t* g = win->frame_g;
+    /*the frameless bypass blits the workspace snapshot directly, every
+      other window shows the frame graph xwm decorated*/
+    graph_t* g = skip_frame ? win->ws_g_buffer : win->frame_g;
     if(g != NULL) {
         grect_t bounds = {0, 0, g->w, g->h};
         if(!grect_insect(&bounds, &dmg)) {
@@ -1738,6 +1779,7 @@ static void xwin_revalidate_geometry(x_t* x, xwin_t* win) {
     win->xinfo->frame_g_shm_id = frame_g_shm_id;
     win->frame_g = graph_new(win->frame_g_shm, win->xinfo->winr.w, win->xinfo->winr.h);
     win->frame_dirty = true;
+    win->frame_g_stale = false;
     win->has_damage = false;
     win->composited = false;
     win->shadow_valid = false;
@@ -1992,6 +2034,7 @@ static int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t
         win->xinfo->frame_g_shm_id = frame_g_shm_id;
         win->frame_g = graph_new(win->frame_g_shm, win->xinfo->winr.w, win->xinfo->winr.h);
         win->frame_dirty = true;
+        win->frame_g_stale = false;
         win->ready = false;
         win->has_damage = false;
         win->damage_skip = 0;
