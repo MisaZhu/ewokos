@@ -1,15 +1,11 @@
+DIRS = xlauncher statusbar xsession xfont anim wlayout
 all:
-	cd xlauncher; $(MAKE)
-	cd statusbar; $(MAKE)
-	cd xsession; $(MAKE)
-	cd xfont; $(MAKE)
-	cd anim; $(MAKE)
-	cd wlayout; $(MAKE)
+	@for dir in $(DIRS); do \
+		$(MAKE) -C $$dir || exit 1; \
+	done
 
+CLEAN_DIRS = xlauncher statusbar xsession xfont anim wlayout
 clean:
-	cd xlauncher; $(MAKE) clean
-	cd statusbar; $(MAKE) clean
-	cd xsession; $(MAKE) clean
-	cd xfont; $(MAKE) clean
-	cd anim; $(MAKE) clean
-	cd wlayout; $(MAKE) clean
+	@for dir in $(CLEAN_DIRS); do \
+		$(MAKE) -C $$dir clean; \
+	done

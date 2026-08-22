@@ -1,46 +1,14 @@
 all: basic_libs
 	@echo "all done."
 
+DIRS = minimp3 keyb mouse libpng libjpeg libgif libtga libsvg freetype graph font display g2d displayman displayd textgrid gterminal libogg libvorbis libiconbuf
 basic_libs:
-	cd minimp3;$(MAKE)
-	cd keyb;$(MAKE)
-	cd mouse;$(MAKE)
-	cd libpng; $(MAKE)
-	cd libjpeg; $(MAKE)
-	cd libgif; $(MAKE)
-	cd libtga; $(MAKE)
-	cd libsvg; $(MAKE)
-	cd freetype; $(MAKE)
-	cd graph;$(MAKE)
-	cd font;$(MAKE)
-	cd display;$(MAKE)
-	cd g2d;$(MAKE)
-	cd displayman;$(MAKE)
-	cd displayd;$(MAKE)
-	cd textgrid;$(MAKE)
-	cd gterminal;$(MAKE)
-	cd libogg;$(MAKE)
-	cd libvorbis;$(MAKE)
-	cd libiconbuf;$(MAKE)
+	@for dir in $(DIRS); do \
+		$(MAKE) -C $$dir || exit 1; \
+	done
 
+CLEAN_DIRS = gterminal textgrid displayman libpng libjpeg libgif libtga libsvg freetype font minimp3 graph display g2d keyb mouse displayd libogg libvorbis libiconbuf
 clean:
-	cd gterminal;$(MAKE) clean
-	cd textgrid;$(MAKE) clean
-	cd displayman;$(MAKE) clean
-	cd libpng; $(MAKE) clean
-	cd libjpeg; $(MAKE) clean
-	cd libgif; $(MAKE) clean
-	cd libtga; $(MAKE) clean
-	cd libsvg; $(MAKE) clean
-	cd freetype; $(MAKE) clean
-	cd font;$(MAKE) clean
-	cd minimp3;$(MAKE) clean
-	cd graph;$(MAKE) clean
-	cd display;$(MAKE) clean
-	cd g2d;$(MAKE) clean
-	cd keyb;$(MAKE) clean
-	cd mouse;$(MAKE) clean
-	cd displayd;$(MAKE) clean
-	cd libogg;$(MAKE) clean
-	cd libvorbis;$(MAKE) clean
-	cd libiconbuf;$(MAKE) clean
+	@for dir in $(CLEAN_DIRS); do \
+		$(MAKE) -C $$dir clean; \
+	done

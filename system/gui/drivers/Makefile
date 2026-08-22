@@ -1,12 +1,14 @@
 all: drivers
 	@echo "all done."
 
+DIRS = fontd displaymand consoled
 drivers:
-	cd fontd;$(MAKE)
-	cd displaymand;$(MAKE)
-	cd consoled;$(MAKE)
+	@for dir in $(DIRS); do \
+		$(MAKE) -C $$dir || exit 1; \
+	done
 
+CLEAN_DIRS = fontd displaymand consoled
 clean:
-	cd fontd;$(MAKE) clean
-	cd displaymand;$(MAKE) clean
-	cd consoled;$(MAKE) clean
+	@for dir in $(CLEAN_DIRS); do \
+		$(MAKE) -C $$dir clean; \
+	done

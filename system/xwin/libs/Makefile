@@ -1,12 +1,14 @@
 all: x_libs
 	@echo "all done."
 
+DIRS = x x++ widget++
 x_libs:
-	cd x;$(MAKE)
-	cd x++;$(MAKE)
-	cd widget++;$(MAKE)
+	@for dir in $(DIRS); do \
+		$(MAKE) -C $$dir || exit 1; \
+	done
 
+CLEAN_DIRS = x x++ widget++
 clean:
-	cd x;$(MAKE) clean
-	cd x++;$(MAKE) clean
-	cd widget++;$(MAKE) clean
+	@for dir in $(CLEAN_DIRS); do \
+		$(MAKE) -C $$dir clean; \
+	done

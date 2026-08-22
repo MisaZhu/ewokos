@@ -1,11 +1,11 @@
+DIRS = xim/none xim/vkey xmouse xtouch
 all:
-	cd xim/none; $(MAKE)
-	cd xim/vkey; $(MAKE)
-	cd xmouse; $(MAKE)
-	cd xtouch; $(MAKE)
+	@for dir in $(DIRS); do \
+		$(MAKE) -C $$dir || exit 1; \
+	done
 
+CLEAN_DIRS = xim/none xim/vkey xmouse xtouch
 clean:
-	cd xim/none; $(MAKE) clean
-	cd xim/vkey; $(MAKE) clean
-	cd xmouse; $(MAKE) clean
-	cd xtouch; $(MAKE) clean
+	@for dir in $(CLEAN_DIRS); do \
+		$(MAKE) -C $$dir clean; \
+	done

@@ -1,11 +1,11 @@
+DIRS = core init rootfs vfsd
 all:
-	cd core;$(MAKE)
-	cd init;$(MAKE)
-	cd rootfs;$(MAKE)
-	cd vfsd;$(MAKE)
+	@for dir in $(DIRS); do \
+		$(MAKE) -C $$dir || exit 1; \
+	done
 
+CLEAN_DIRS = core init rootfs vfsd
 clean:
-	cd core;$(MAKE) clean
-	cd init;$(MAKE) clean
-	cd rootfs;$(MAKE) clean
-	cd vfsd;$(MAKE) clean
+	@for dir in $(CLEAN_DIRS); do \
+		$(MAKE) -C $$dir clean; \
+	done

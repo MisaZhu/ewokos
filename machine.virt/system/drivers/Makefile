@@ -1,25 +1,20 @@
+BASIC_DIRS = ttyd virtfsd powerd
 basic: 
-	cd ttyd; $(MAKE)
-	cd virtfsd; $(MAKE)
-	cd powerd; $(MAKE)
+	@for dir in $(BASIC_DIRS); do \
+		$(MAKE) -C $$dir || exit 1; \
+	done
 
+GUI_DIRS = fbdisplayd g2dd moused keybd snd
 gui:
-	cd fbdisplayd; $(MAKE)
-	cd g2dd; $(MAKE)
-	cd moused; $(MAKE)
-	cd keybd; $(MAKE)
-	cd snd; $(MAKE)
+	@for dir in $(GUI_DIRS); do \
+		$(MAKE) -C $$dir || exit 1; \
+	done
 
 network:
 	cd net; $(MAKE)
 
+CLEAN_DIRS = ttyd virtfsd fbdisplayd g2dd moused keybd snd powerd net
 clean:	
-	cd ttyd; $(MAKE) clean
-	cd virtfsd; $(MAKE) clean
-	cd fbdisplayd; $(MAKE) clean
-	cd g2dd; $(MAKE) clean
-	cd moused; $(MAKE) clean
-	cd keybd; $(MAKE) clean
-	cd snd; $(MAKE) clean
-	cd powerd; $(MAKE) clean
-	cd net; $(MAKE) clean
+	@for dir in $(CLEAN_DIRS); do \
+		$(MAKE) -C $$dir clean; \
+	done

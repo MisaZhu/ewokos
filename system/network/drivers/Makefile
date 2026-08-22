@@ -1,10 +1,14 @@
 all: basic_drivers
 	@echo "all done."
 
+DIRS = netd timed
 basic_drivers:
-	cd netd;$(MAKE)
-	cd timed;$(MAKE)
+	@for dir in $(DIRS); do \
+		$(MAKE) -C $$dir || exit 1; \
+	done
 
+CLEAN_DIRS = netd timed
 clean:
-	cd netd;$(MAKE) clean
-	cd timed;$(MAKE) clean
+	@for dir in $(CLEAN_DIRS); do \
+		$(MAKE) -C $$dir clean; \
+	done

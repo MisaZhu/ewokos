@@ -1,41 +1,11 @@
+DIRS = xlog xterm xread xcores xfonts xapps cards mine xfinder ximg xprocs xDemo wDemo xwm_theme xtheme xwifi clock xg2dtest SndPlayer
 all:
-	cd xlog; $(MAKE)
-	cd xterm; $(MAKE)
-	cd xread; $(MAKE)
-	cd xcores; $(MAKE)
-	cd xfonts; $(MAKE)
-	cd xapps; $(MAKE)
-	cd cards; $(MAKE)
-	cd mine; $(MAKE)
-	cd xfinder; $(MAKE)
-	cd ximg; $(MAKE)
-	cd xprocs; $(MAKE)
-	cd xDemo; $(MAKE)
-	cd wDemo; $(MAKE)
-	cd xwm_theme; $(MAKE)
-	cd xtheme; $(MAKE)
-	cd xwifi; $(MAKE)
-	cd clock; $(MAKE)
-	cd xg2dtest; $(MAKE)
-	cd SndPlayer; $(MAKE)
+	@for dir in $(DIRS); do \
+		$(MAKE) -C $$dir || exit 1; \
+	done
 
+CLEAN_DIRS = xlog xterm xread xcores xfonts xapps cards mine xfinder ximg xprocs xDemo wDemo xwm_theme xtheme xwifi clock xg2dtest SndPlayer
 clean:
-	cd xlog; $(MAKE) clean
-	cd xterm; $(MAKE) clean
-	cd xread; $(MAKE) clean
-	cd xcores; $(MAKE) clean
-	cd xfonts; $(MAKE) clean
-	cd xapps; $(MAKE) clean
-	cd cards; $(MAKE) clean
-	cd mine; $(MAKE) clean
-	cd xfinder; $(MAKE) clean
-	cd ximg; $(MAKE) clean
-	cd xprocs; $(MAKE) clean
-	cd xDemo; $(MAKE) clean
-	cd wDemo; $(MAKE) clean
-	cd xwm_theme; $(MAKE) clean
-	cd xtheme; $(MAKE) clean
-	cd xwifi; $(MAKE) clean
-	cd clock; $(MAKE) clean
-	cd xg2dtest; $(MAKE) clean
-	cd SndPlayer; $(MAKE) clean
+	@for dir in $(CLEAN_DIRS); do \
+		$(MAKE) -C $$dir clean; \
+	done

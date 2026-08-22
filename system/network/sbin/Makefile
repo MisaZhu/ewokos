@@ -1,9 +1,11 @@
+DIRS = telnetd httpd sshd
 all:
-	cd telnetd;$(MAKE)
-	cd httpd;$(MAKE)
-	cd sshd;$(MAKE)
+	@for dir in $(DIRS); do \
+		$(MAKE) -C $$dir || exit 1; \
+	done
 
+CLEAN_DIRS = telnetd httpd sshd
 clean:
-	cd telnetd;$(MAKE) clean
-	cd httpd;$(MAKE) clean
-	cd sshd;$(MAKE) clean
+	@for dir in $(CLEAN_DIRS); do \
+		$(MAKE) -C $$dir clean; \
+	done

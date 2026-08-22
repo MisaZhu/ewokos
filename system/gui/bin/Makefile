@@ -1,20 +1,14 @@
 all: builtin_apps
 	@echo "all done."
 
+DIRS = splash disptest g2dtest wavplayer mp3player oggplayer load_font
 builtin_apps:
-	cd splash;$(MAKE)
-	cd disptest;$(MAKE)
-	cd g2dtest;$(MAKE)
-	cd wavplayer;$(MAKE)
-	cd mp3player;$(MAKE)
-	cd oggplayer;$(MAKE)
-	cd load_font;$(MAKE)
+	@for dir in $(DIRS); do \
+		$(MAKE) -C $$dir || exit 1; \
+	done
 
+CLEAN_DIRS = splash disptest g2dtest wavplayer mp3player oggplayer load_font
 clean:
-	cd splash;$(MAKE) clean
-	cd disptest;$(MAKE) clean
-	cd g2dtest;$(MAKE) clean
-	cd wavplayer;$(MAKE) clean
-	cd mp3player;$(MAKE) clean
-	cd oggplayer;$(MAKE) clean
-	cd load_font;$(MAKE) clean
+	@for dir in $(CLEAN_DIRS); do \
+		$(MAKE) -C $$dir clean; \
+	done

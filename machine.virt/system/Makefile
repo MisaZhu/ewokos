@@ -66,14 +66,12 @@ x_sys: gui_sys
 	cd $(SYS_ROOT_DIR)/xwin;make
 	@cp -r etc/xwin/* ${TARGET_DIR}/etc
 
+CLEAN_DIRS = libs drivers $(SYS_ROOT_DIR)/xwin $(SYS_ROOT_DIR)/gui $(SYS_ROOT_DIR)/network $(SYS_ROOT_DIR)/basic
 clean:
-	cd libs;$(MAKE) clean
-	cd drivers;$(MAKE) clean
-	cd $(SYS_ROOT_DIR)/xwin;$(MAKE) clean
-	cd $(SYS_ROOT_DIR)/gui;$(MAKE) clean
-	cd $(SYS_ROOT_DIR)/network;$(MAKE) clean
-	cd $(SYS_ROOT_DIR)/basic;$(MAKE) clean
-	cd $(EWOKOS_ROOT_DIR)/sw.extra/; $(MAKE) HW=$(HW) clean
+	@for dir in $(CLEAN_DIRS); do \
+		$(MAKE) -C $$dir clean; \
+	done
+	@$(MAKE) -C $(EWOKOS_ROOT_DIR)/sw.extra HW=$(HW) clean
 	rm -fr $(BUILD_DIR)
 
 SD = root_$(ARCH).img

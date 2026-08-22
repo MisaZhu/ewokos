@@ -1,29 +1,14 @@
 all: basic_libs
 	@echo "all done."
 
+DIRS = sd ext2 ext3 fat32 elf tinyjson openlibm zlib gpio c++/c++ c++/stl c++/object++
 basic_libs:
-	cd sd;$(MAKE)
-	cd ext2;$(MAKE)
-	cd ext3;$(MAKE)
-	cd fat32;$(MAKE)
-	cd elf;$(MAKE)
-	cd tinyjson;$(MAKE)
-	cd openlibm;$(MAKE)
-	cd zlib;$(MAKE)
-	cd gpio;$(MAKE)
-	cd c++/c++;$(MAKE)
-	cd c++/stl;$(MAKE)
-	cd c++/object++;$(MAKE)
+	@for dir in $(DIRS); do \
+		$(MAKE) -C $$dir || exit 1; \
+	done
 
+CLEAN_DIRS = ext2 ext3 fat32 elf sd tinyjson gpio openlibm zlib c++/stl c++/c++
 clean:
-	cd ext2;$(MAKE) clean
-	cd ext3;$(MAKE) clean
-	cd fat32;$(MAKE) clean
-	cd elf;$(MAKE) clean
-	cd sd;$(MAKE) clean
-	cd tinyjson;$(MAKE) clean
-	cd gpio;$(MAKE) clean
-	cd openlibm;$(MAKE) clean
-	cd zlib;$(MAKE) clean
-	cd c++/stl;$(MAKE) clean
-	cd c++/c++;$(MAKE) clean
+	@for dir in $(CLEAN_DIRS); do \
+		$(MAKE) -C $$dir clean; \
+	done

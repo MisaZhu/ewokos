@@ -22,8 +22,8 @@ sbins: network_libs
 network_driver: network_libs
 	cd drivers; $(MAKE)
 
+CLEAN_DIRS = libs bin sbin drivers
 clean:
-	cd libs; $(MAKE) clean
-	cd bin; $(MAKE) clean
-	cd sbin; $(MAKE) clean
-	cd drivers; $(MAKE) clean
+	@for dir in $(CLEAN_DIRS); do \
+		$(MAKE) -C $$dir clean; \
+	done

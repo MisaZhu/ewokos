@@ -5,9 +5,11 @@ ROOT_DIR = ..
 all: mkdirs basic_libs builtin_apps basic_drivers
 	@echo "all done."
 
+BASIC_LIBS_DIRS = libc libs
 basic_libs:
-	cd libc;$(MAKE)
-	cd libs;$(MAKE)
+	@for dir in $(BASIC_LIBS_DIRS); do \
+		$(MAKE) -C $$dir || exit 1; \
+	done
 
 basic_drivers: basic_libs
 	cd drivers;$(MAKE)
@@ -21,15 +23,14 @@ mkdirs:
 	@chmod 750 ${TARGET_DIR}/home/root
 	@cp -r etc ${TARGET_DIR}
 
+BUILTIN_APPS_DIRS = sys sbin bin
 builtin_apps: basic_libs
-	cd sys;$(MAKE)
-	cd sbin;$(MAKE)
-	cd bin;$(MAKE)
+	@for dir in $(BUILTIN_APPS_DIRS); do \
+		$(MAKE) -C $$dir || exit 1; \
+	done
 
+CLEAN_DIRS = sys sbin bin libc libs drivers
 clean:
-	cd sys;$(MAKE) clean
-	cd sbin;$(MAKE) clean
-	cd bin;$(MAKE) clean
-	cd libc;$(MAKE) clean
-	cd libs;$(MAKE) clean
-	cd drivers;$(MAKE) clean
+	@for dir in $(CLEAN_DIRS); do \
+		$(MAKE) -C $$dir clean; \
+	done

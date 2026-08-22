@@ -17,20 +17,14 @@ mkdirs:
 	@mkdir -p ${TARGET_DIR}/usr/x/themes/default
 	@cp -r usr/x/themes/opencde/* ${TARGET_DIR}/usr/x/themes/default/
 
+DIRS = libs drivers bin sbin xwm/opencde xwm/ewokwm apps
 all: mkdirs
-	cd libs; $(MAKE)
-	cd drivers; $(MAKE)
-	cd bin; $(MAKE)
-	cd sbin; $(MAKE)
-	cd xwm/opencde; $(MAKE)
-	cd xwm/ewokwm; $(MAKE)
-	cd apps; $(MAKE)
+	@for dir in $(DIRS); do \
+		$(MAKE) -C $$dir || exit 1; \
+	done
 
+CLEAN_DIRS = libs drivers bin sbin xwm/opencde xwm/ewokwm apps
 clean:
-	cd libs; $(MAKE) clean
-	cd drivers; $(MAKE) clean
-	cd bin; $(MAKE) clean
-	cd sbin; $(MAKE) clean
-	cd xwm/opencde; $(MAKE) clean
-	cd xwm/ewokwm; $(MAKE) clean
-	cd apps; $(MAKE) clean
+	@for dir in $(CLEAN_DIRS); do \
+		$(MAKE) -C $$dir clean; \
+	done

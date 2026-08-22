@@ -1,16 +1,14 @@
 all: basic_drivers
 	@echo "all done."
 
+DIRS = nulld logd ramfsd fat32fsd timerd
 basic_drivers:
-	cd nulld;$(MAKE)
-	cd logd;$(MAKE)
-	cd ramfsd;$(MAKE)
-	cd fat32fsd;$(MAKE)
-	cd timerd;$(MAKE)
+	@for dir in $(DIRS); do \
+		$(MAKE) -C $$dir || exit 1; \
+	done
 
+CLEAN_DIRS = nulld logd ramfsd fat32fsd timerd
 clean:
-	cd nulld;$(MAKE) clean
-	cd logd;$(MAKE) clean
-	cd ramfsd;$(MAKE) clean
-	cd fat32fsd;$(MAKE) clean
-	cd timerd;$(MAKE) clean
+	@for dir in $(CLEAN_DIRS); do \
+		$(MAKE) -C $$dir clean; \
+	done

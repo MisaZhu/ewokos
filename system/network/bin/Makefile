@@ -1,20 +1,12 @@
 
+DIRS = ipconfig ping host https_test telnet ssh scp ws_test
 all:
-	cd ipconfig; $(MAKE)
-	cd ping; $(MAKE)
-	cd host; $(MAKE)
-	cd https_test; $(MAKE)
-	cd telnet; $(MAKE)
-	cd ssh; $(MAKE)
-	cd scp; $(MAKE)
-	cd ws_test; $(MAKE)
+	@for dir in $(DIRS); do \
+		$(MAKE) -C $$dir || exit 1; \
+	done
 
+CLEAN_DIRS = ipconfig ping host https_test telnet ssh scp ws_test
 clean:
-	cd ipconfig; $(MAKE) clean
-	cd ping; $(MAKE) clean
-	cd host; $(MAKE) clean
-	cd https_test; $(MAKE) clean
-	cd telnet; $(MAKE) clean
-	cd ssh; $(MAKE) clean
-	cd scp; $(MAKE) clean
-	cd ws_test; $(MAKE) clean
+	@for dir in $(CLEAN_DIRS); do \
+		$(MAKE) -C $$dir clean; \
+	done

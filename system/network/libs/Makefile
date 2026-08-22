@@ -1,16 +1,14 @@
 all: basic_libs
 	@echo "all done."
 
+DIRS = socket ntpc wolfssl libtinyhttpsc libwebsockets
 basic_libs:
-	cd socket;$(MAKE)
-	cd ntpc;$(MAKE)
-	cd wolfssl;$(MAKE)
-	cd libtinyhttpsc;$(MAKE)
-	cd libwebsockets;$(MAKE)
+	@for dir in $(DIRS); do \
+		$(MAKE) -C $$dir || exit 1; \
+	done
 
+CLEAN_DIRS = socket ntpc wolfssl libtinyhttpsc libwebsockets
 clean:
-	cd socket;$(MAKE) clean
-	cd ntpc;$(MAKE) clean
-	cd wolfssl;$(MAKE) clean
-	cd libtinyhttpsc;$(MAKE) clean
-	cd libwebsockets;$(MAKE) clean
+	@for dir in $(CLEAN_DIRS); do \
+		$(MAKE) -C $$dir clean; \
+	done

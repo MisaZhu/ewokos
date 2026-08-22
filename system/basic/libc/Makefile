@@ -1,14 +1,17 @@
 all: basic_libs
 	@echo "all done."
 
+DIRS = libewoksys libgloss
 basic_libs:
 ifneq ($(ARCH),aarch64)
 	cd softfloat;$(MAKE)
 endif
-	cd libewoksys;$(MAKE)
-	cd libgloss;$(MAKE)
+	@for dir in $(DIRS); do \
+		$(MAKE) -C $$dir || exit 1; \
+	done
 
+CLEAN_DIRS = softfloat libewoksys libgloss
 clean:
-	cd softfloat;$(MAKE) clean
-	cd libewoksys;$(MAKE) clean
-	cd libgloss;$(MAKE) clean
+	@for dir in $(CLEAN_DIRS); do \
+		$(MAKE) -C $$dir clean; \
+	done
