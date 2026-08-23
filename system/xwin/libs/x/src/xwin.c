@@ -50,9 +50,17 @@ static int xwin_update_info(xwin_t* xwin, uint8_t type) {
         return -1;
 
     if(xwin->ws_g_shm != NULL && (type & X_UPDATE_REBUILD) != 0) {
-        shmdt(xwin->ws_g_shm);
-        xwin->ws_g_shm = NULL;
-        xwin->ws_g_shm_id = -1;
+        // Wait out any in-flight xwin_repaint() on another thread (it
+        // holds painting_lock across the whole blit into ws_g_shm):
+        // detaching the workspace shm here while a blit writes into it
+        // turns the next store into a data abort on the unmapped page.
+        pthread_mutex_lock(&xwin->painting_lock);
+        if(xwin->ws_g_shm != NULL) {
+            shmdt(xwin->ws_g_shm);
+            xwin->ws_g_shm = NULL;
+            xwin->ws_g_shm_id = -1;
+        }
+        pthread_mutex_unlock(&xwin->painting_lock);
     }
 
     proto_t in;
@@ -164,6 +172,9 @@ xwin_t* xwin_open(x_t* xp, int32_t disp_index, int x, int y, int w, int h, const
 
     ret->xinfo_shm_id = xinfo_shm_id;
     ret->xinfo = xinfo;
+    // Must be ready before the first xwin_update_info() below: its
+    // REBUILD path takes painting_lock to serialize against repaints
+    pthread_mutex_init(&ret->painting_lock, NULL);
     memset(ret->xinfo, 0, sizeof(xinfo_t));
     ret->xinfo->ws_g_shm_id = -1;
     ret->xinfo->win = xwin_handle(ret);
@@ -190,7 +201,6 @@ xwin_t* xwin_open(x_t* xp, int32_t disp_index, int x, int y, int w, int h, const
         ret->xinfo->state = XWIN_STATE_MAX;
 
     xwin_update_info(ret, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
-    pthread_mutex_init(&ret->painting_lock, NULL);
     return ret;
 }
 
