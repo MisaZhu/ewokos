@@ -76,7 +76,8 @@ SD = root_$(ARCH).img
 sd:
 	@echo "\n====building ${FS} format sdcard image===="
 #512M ext2/ext3 sd
-	dd if=/dev/zero of=${SD} bs=1k count=1024k
+	rm -fr ${SD}
+	dd if=/dev/zero of=${SD} bs=1k count=2048k
 #make ext2/ext3 fs with: block_size=4096 inode_size=128
 	mke2fs -t ${FS} -b 4096 -I 128 ${SD}
 
