@@ -176,10 +176,21 @@ static inline void blt_st1q_u32_bsp(uint32_t *p, uint32x4_t v) {
     __asm__("st1 {%1.4s}, [%0]" :: "r"(p), "w"(v) : "memory");
 }
 static inline void blt_ld1q_x4_u32_bsp(const uint32_t *p, uint32x4_t *a, uint32x4_t *b, uint32x4_t *c, uint32x4_t *d) {
-    __asm__("ld1 {%0.4s-%3.4s}, [%4]" : "=w"(*a), "=w"(*b), "=w"(*c), "=w"(*d) : "r"(p));
+    /* 4 independent single-register LD1s instead of the ld1 {vA.4s-vD.4s}
+       range form: GCC "=w" constraints do NOT guarantee consecutive
+       register allocation, so the range syntax breaks as soon as register
+       pressure rises. Throughput is equivalent (the 4-reg form is 4 uops
+       anyway) and independent loads pipeline at least as well. */
+    *a = blt_ld1q_u32_bsp(p);
+    *b = blt_ld1q_u32_bsp(p + 4);
+    *c = blt_ld1q_u32_bsp(p + 8);
+    *d = blt_ld1q_u32_bsp(p + 12);
 }
 static inline void blt_st1q_x4_u32_bsp(uint32_t *p, uint32x4_t a, uint32x4_t b, uint32x4_t c, uint32x4_t d) {
-    __asm__("st1 {%1.4s-%4.4s}, [%0]" :: "r"(p), "w"(a), "w"(b), "w"(c), "w"(d) : "memory");
+    blt_st1q_u32_bsp(p, a);
+    blt_st1q_u32_bsp(p + 4, b);
+    blt_st1q_u32_bsp(p + 8, c);
+    blt_st1q_u32_bsp(p + 12, d);
 }
 #else
 static inline uint32x4_t blt_ld1q_u32_bsp(const uint32_t *p) {
@@ -208,11 +219,23 @@ static inline void blt_st1q_x4_u32_bsp(uint32_t *p, uint32x4_t a, uint32x4_t b, 
    scan-out memory. */
 static inline void blt_copy_row_neon(uint32_t *dp, const uint32_t *sp, int32_t w) {
     int32_t x = 0;
-    /* 16 pixels (64 bytes) per iteration: 1x ld1 x4 + 1x st1 x4 */
-    for(; x <= w - 16; x += 16) {
+    /* 32 pixels (128 bytes) per iteration with a rolling prefetch 4 cache
+       lines ahead: keeps the load pipe fed on long rows / full-screen runs
+       instead of stalling on every new cache line. */
+    for(; x <= w - 32; x += 32) {
+        __asm volatile("prfm pldl1keep, [%0, #256]" : : "r"(sp + x));
+        uint32x4_t v0, v1, v2, v3, v4, v5, v6, v7;
+        blt_ld1q_x4_u32_bsp(sp + x, &v0, &v1, &v2, &v3);
+        blt_ld1q_x4_u32_bsp(sp + x + 16, &v4, &v5, &v6, &v7);
+        blt_st1q_x4_u32_bsp(dp + x, v0, v1, v2, v3);
+        blt_st1q_x4_u32_bsp(dp + x + 16, v4, v5, v6, v7);
+    }
+    /* 16 pixels */
+    if(x <= w - 16) {
         uint32x4_t v0, v1, v2, v3;
         blt_ld1q_x4_u32_bsp(sp + x, &v0, &v1, &v2, &v3);
         blt_st1q_x4_u32_bsp(dp + x, v0, v1, v2, v3);
+        x += 16;
     }
     /* 8 pixels */
     if(x <= w - 8) {
@@ -333,30 +356,62 @@ static inline void blt_alpha16_blend_scaled(uint32_t *dp, uint8x16x4_t fg,
     blt_alpha16_blend_core(dp, fg, a_lo, a_hi);
 }
 
-/* 32px block: one combined transparent check (max of pairwise-OR) and one
-   combined opaque check (min of pairwise-AND) instead of two reductions
-   per 16px. Blending preserves block-level semantics bit-exactly: fg_a==0
-   is the identity on dst, and fg_a==0xff gives div255(x*255) == x per
-   channel with out_a = bg_a + (255-bg_a) == 255. Global alpha is 0xff. */
+/* 16px sub-block already loaded interleaved (cheap ld1). Alphas are the
+   top byte of each u32 lane: max-of-OR == 0 means all transparent,
+   min-of-AND == 0xff means all opaque. Uniform blocks never touch the
+   expensive ld4/st4 de-interleave path: transparent skips all memory
+   access, opaque is a plain st1 copy. Only truly mixed blocks reload the
+   source de-interleaved for the blend math. */
+static inline void blt_alpha16_a255_regs(uint32_t *dp, const uint32_t *sp,
+        uint32x4_t s0, uint32x4_t s1, uint32x4_t s2, uint32x4_t s3)
+{
+    uint32x4_t or_a = vorrq_u32(vorrq_u32(s0, s1), vorrq_u32(s2, s3));
+    if(vmaxvq_u32(vshrq_n_u32(or_a, 24)) == 0)
+        return;
+    uint32x4_t and_a = vandq_u32(vandq_u32(s0, s1), vandq_u32(s2, s3));
+    if(vminvq_u32(vshrq_n_u32(and_a, 24)) == 0xff) {
+        blt_st1q_x4_u32_bsp(dp, s0, s1, s2, s3);
+        return;
+    }
+    uint8x16x4_t fg = vld4q_u8((const uint8_t*)sp);
+    blt_alpha16_blend_a255(dp, fg);
+}
+
+/* 32px block, global alpha 0xff: combined transparent/opaque checks over
+   all 8 interleaved vectors first (one reduction each), then per-16px
+   sub-block checks only when the block is mixed. Blending preserves
+   block-level semantics bit-exactly: fg_a==0 is the identity on dst, and
+   fg_a==0xff gives div255(x*255) == x per channel with
+   out_a = bg_a + (255-bg_a) == 255. */
 static inline void blt_alpha32_a255(uint32_t *dp, const uint32_t *sp)
 {
     __asm volatile("prfm pldl1keep, [%0, #256]" : : "r"(sp));
 
-    uint8x16x4_t fg0 = vld4q_u8((const uint8_t*)sp);
-    uint8x16x4_t fg1 = vld4q_u8((const uint8_t*)(sp + 16));
+    uint32x4_t s0, s1, s2, s3, s4, s5, s6, s7;
+    blt_ld1q_x4_u32_bsp(sp, &s0, &s1, &s2, &s3);
+    blt_ld1q_x4_u32_bsp(sp + 16, &s4, &s5, &s6, &s7);
 
+    uint32x4_t or_a = vorrq_u32(
+            vorrq_u32(vorrq_u32(s0, s1), vorrq_u32(s2, s3)),
+            vorrq_u32(vorrq_u32(s4, s5), vorrq_u32(s6, s7)));
     /* All 32 source alphas == 0: dst untouched, no read/write at all */
-    if(vmaxvq_u8(vorrq_u8(fg0.val[3], fg1.val[3])) == 0)
+    if(vmaxvq_u32(vshrq_n_u32(or_a, 24)) == 0)
         return;
-    /* All 32 source alphas == 0xff: plain copy */
-    if(vminvq_u8(vandq_u8(fg0.val[3], fg1.val[3])) == 0xff) {
-        vst4q_u8((uint8_t*)dp, fg0);
-        vst4q_u8((uint8_t*)(dp + 16), fg1);
+    uint32x4_t and_a = vandq_u32(
+            vandq_u32(vandq_u32(s0, s1), vandq_u32(s2, s3)),
+            vandq_u32(vandq_u32(s4, s5), vandq_u32(s6, s7)));
+    /* All 32 source alphas == 0xff: plain interleaved copy, no de/re-
+       interleave at all */
+    if(vminvq_u32(vshrq_n_u32(and_a, 24)) == 0xff) {
+        blt_st1q_x4_u32_bsp(dp, s0, s1, s2, s3);
+        blt_st1q_x4_u32_bsp(dp + 16, s4, s5, s6, s7);
         return;
     }
 
-    blt_alpha16_blend_a255(dp, fg0);
-    blt_alpha16_blend_a255(dp + 16, fg1);
+    /* Mixed block: blend reads dst too, prefetch it as well */
+    __asm volatile("prfm pldl1keep, [%0, #256]" : : "r"(dp));
+    blt_alpha16_a255_regs(dp, sp, s0, s1, s2, s3);
+    blt_alpha16_a255_regs(dp + 16, sp + 16, s4, s5, s6, s7);
 }
 
 /* 32px block with a global alpha < 0xff */
@@ -364,6 +419,8 @@ static inline void blt_alpha32_scaled(uint32_t *dp, const uint32_t *sp,
         uint8x16_t alpha_vec)
 {
     __asm volatile("prfm pldl1keep, [%0, #256]" : : "r"(sp));
+    /* scaled blend always reads dst unless fully transparent */
+    __asm volatile("prfm pldl1keep, [%0, #256]" : : "r"(dp));
 
     uint8x16x4_t fg0 = vld4q_u8((const uint8_t*)sp);
     uint8x16x4_t fg1 = vld4q_u8((const uint8_t*)(sp + 16));
@@ -379,14 +436,9 @@ static inline void blt_alpha32_scaled(uint32_t *dp, const uint32_t *sp,
 /* Remaining 16px block with per-block checks, global alpha 0xff */
 static inline void blt_alpha16_a255_checked(uint32_t *dp, const uint32_t *sp)
 {
-    uint8x16x4_t fg = vld4q_u8((const uint8_t*)sp);
-    if(vmaxvq_u8(fg.val[3]) == 0)
-        return;
-    if(vminvq_u8(fg.val[3]) == 0xff) {
-        vst4q_u8((uint8_t*)dp, fg);
-        return;
-    }
-    blt_alpha16_blend_a255(dp, fg);
+    uint32x4_t s0, s1, s2, s3;
+    blt_ld1q_x4_u32_bsp(sp, &s0, &s1, &s2, &s3);
+    blt_alpha16_a255_regs(dp, sp, s0, s1, s2, s3);
 }
 
 /* Remaining 16px block with per-block checks, global alpha < 0xff */

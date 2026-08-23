@@ -257,7 +257,7 @@ int main(int argc, char* argv[]) {
     xwin->on_repaint = on_repaint;
     xwin_set_visible(xwin, true);
 
-    int32_t timerID = timer_set(5000, _timerHandler);
+    int32_t timerID = timer_set(2000, _timerHandler);
     x_run(&x, xwin);
     timer_remove(timerID);
     xwin_destroy(xwin);
