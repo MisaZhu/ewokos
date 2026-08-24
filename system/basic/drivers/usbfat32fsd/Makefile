@@ -10,7 +10,7 @@ CFLAGS += -I $(BUILD_DIR)/include
 
 FAT32FSD_OBJS = $(ARCH)/fat32fsd.o
 
-FAT32FSD = $(TARGET_DIR)/drivers/fat32fsd
+FAT32FSD = $(TARGET_DIR)/drivers/usbfat32fsd
 
 $(FAT32FSD): $(FAT32FSD_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a  \
