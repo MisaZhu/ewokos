@@ -25,8 +25,15 @@ static void x_repaint_add_dirty(graph_t* g, grect_t* rects, uint32_t* num, const
                 }
                 if(rect_overlap_or_touch(&rects[i], &rects[j])) {
                     rect_union_to(&rects[i], &rects[j]);
-                    rects[j] = rects[*num - 1];
                     (*num)--;
+                    rects[j] = rects[*num];
+                    /*the growing union sat in the last slot: the swap-with-
+                      last removal just moved it into slot j — follow it, or
+                      i keeps growing a dead slot and the live copy gets
+                      merged away against its own ghost, losing the whole
+                      accumulated region*/
+                    if(i == *num)
+                        i = j;
                     j = 0;
                     continue;
                 }
