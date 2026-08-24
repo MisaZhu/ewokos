@@ -238,7 +238,7 @@ static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
     (void)out;
     int fd = proto_read_int(in);
     ewokos_addr_t node = proto_read_int(in);
-    fsinfo_t* fsinfo = proto_read(in, NULL);
+    fsinfo_t* fsinfo = proto_read(in, NULL); //blob only advances the cursor, never trusted below
     int close_pid = proto_read_int(in);
     int owner_pid = proto_read_int(in);
     if(close_pid > 0) {
@@ -250,22 +250,23 @@ static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
     if(owner_pid <= 0)
         owner_pid = from_pid;
     owner_pid = file_owner_pid(owner_pid);
+    (void)fsinfo;
 
-        /*
-         * Prefer the device-side per-fd entry over the caller's blob: for
-         * anonymous single-node devices fsinfo.data is fd-private and the
-         * caller's copy may name another instance, which would release the
-         * wrong task (and dereference it after free on a second close).
-         * Seed from the blob only when this server has no entry (e.g. a
-         * server restart mid-connection).
-         */
-        fsinfo_t* info = fsinfo;
-        if(fsinfo != NULL)
-                info = dev_get_file_seeded(fd, owner_pid, node, fsinfo);
-        else
-                info = dev_get_file(fd, owner_pid, node);
+    /*
+     * Only the device-side per-fd entry is authoritative for close: it was
+     * created by do_open() and kept in sync by dev_update_file(). Do NOT
+     * re-seed it from the caller's blob -- for anonymous single-node
+     * devices fsinfo.data is fd-private state (e.g. a netd task pointer),
+     * and a stale/duplicate FS_CMD_CLOSE arrives after file_del() already
+     * dropped the entry; seeding from the caller blob would hand the
+     * driver a dangling pointer and dereference it after free (the netd
+     * exit-time data abort). No entry means this server holds no state
+     * for the fd (already closed, or the driver restarted), so skip the
+     * device close entirely: there is nothing to release.
+     */
+    fsinfo_t* info = dev_get_file(fd, owner_pid, node);
 
-    if(dev != NULL && dev->close != NULL) {
+    if(info != NULL && dev != NULL && dev->close != NULL) {
         dev->close(dev, fd, owner_pid, node, info, p);
     }
     file_del(fd, owner_pid, node);

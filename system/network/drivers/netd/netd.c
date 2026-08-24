@@ -236,54 +236,68 @@ static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
 static int network_dup(vdevice_t* dev, int from_fd, int from_pid, int dup_fd, int dup_pid,
         uint32_t node, fsinfo_t* fsinfo, void* p) {
     (void)dev;
-        (void)from_fd;
-        (void)from_pid;
-        (void)dup_fd;
-        (void)dup_pid;
-        (void)node;
+    (void)from_fd;
+    (void)from_pid;
+    (void)dup_fd;
+    (void)dup_pid;
     (void)p;
-        net_task_t *task = NULL;
-
-        if(fsinfo != NULL) {
-                task = (net_task_t *)(ewokos_addr_t)fsinfo->data;
-        }
-        if(task != NULL) {
-                pthread_mutex_lock(&task->lock);
-                task->refs++;
-                pthread_mutex_unlock(&task->lock);
-        }
-        /*
-         * /dev/net0 fds all share one VFS node, but each socket task has its
-         * own lifetime. Cross-process dup/fork clones fsinfo.data, so keep an
-         * explicit per-task refcount here; otherwise the parent's close after
-         * fork can leak or prematurely reap the accepted socket.
-         */
+    (void)fsinfo;
+    /*
+     * /dev/net0 fds all share the device mount, but every open gets its
+     * own anonymous VFS node and each socket task has its own lifetime.
+     * Cross-process dup/fork clones fsinfo.data, so keep an explicit
+     * per-task refcount here; otherwise the parent's close after fork can
+     * leak or prematurely reap the accepted socket. Resolve the task via
+     * the live task_list (keyed by the unique node id), never through the
+     * caller-supplied fsinfo.data blob, which can be stale.
+     */
+    net_task_t *task = task_find_live_by_node(node);
+    if(task != NULL) {
+        task->refs++; /* task->lock already held by the lookup */
+        pthread_mutex_unlock(&task->lock);
+    }
     return 0;
 }
 
 static int network_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fsinfo_t* fsinfo,void* p) {
     (void)dev;
-        (void)fd;
+    (void)fd;
     (void)from_pid;
-        (void)node;
     (void)p;
-    net_task_t *task = (net_task_t *)(ewokos_addr_t)fsinfo->data;
-    if(task) {
-                int refs_left;
-
-                pthread_mutex_lock(&task->lock);
-                if(task->refs > 0) {
-                        task->refs--;
-                }
-                refs_left = task->refs;
-                pthread_mutex_unlock(&task->lock);
-
-                if(refs_left > 0) {
-            return 0;
-        }
-        fsinfo->data = 0;
-        release_task(task);
+    /*
+     * FS_CMD_CLOSE can legitimately arrive TWICE for one socket: the client's
+     * close() delivers it directly, and vfsd's process-exit cleanup
+     * (clear_zombie) delivers it again when the VFS slot removal lost the
+     * race with KEV_PROC_EXIT at client shutdown. Resolve the task through
+     * the live task_list instead of fsinfo.data: on the second close the
+     * per-fd cache entry is already gone, the framework re-seeds fsinfo from
+     * the caller's stale blob, and data still points at the freed task
+     * (dereferencing it was the netd data-abort). A node that no longer
+     * resolves to a live task is a stale/duplicate close -- drop it.
+     */
+    net_task_t *task = task_find_live_by_node(node);
+    if(task == NULL) {
+        return 0;
     }
+    /* task->lock held from the lookup. */
+    bool mine = false;
+    if(task->refs > 0) {
+        task->refs--;
+        mine = (task->refs == 0);
+    }
+    pthread_mutex_unlock(&task->lock);
+
+    if(!mine)
+        return 0;
+
+    if(fsinfo != NULL)
+        fsinfo->data = 0;
+    /*
+     * Release ONLY on the close whose own decrement reached zero. A close
+     * that merely observes refs==0 (already released by someone else) must
+     * not re-enter release_task() on a task that may be mid-teardown.
+     */
+    release_task(task);
     return 0;
 }
 

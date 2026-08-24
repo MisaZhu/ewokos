@@ -116,6 +116,7 @@ typedef struct net_task{
 }net_task_t;
 
 net_task_t *create_task(int fd, int from_pid, int node);
+net_task_t *task_find_live_by_node(uint32_t node);
 void start_task(void);
 void release_task(net_task_t *task);
 int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *out, void *p);

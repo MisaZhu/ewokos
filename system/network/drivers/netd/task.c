@@ -351,6 +351,40 @@ void start_task(void){
     }
 }
 
+net_task_t *task_find_live_by_node(uint32_t node){
+    /*
+     * Resolve a still-LIVE task by its VFS node. Anonymous /dev/net0 opens
+     * each get a unique, monotonically allocated node id from vfsd, and the
+     * self-reap / task_free_unstarted() paths remove the task from task_list
+     * (under task_list_lock) BEFORE destroying its lock and freeing it, so a
+     * hit here is guaranteed valid. The task's own lock is taken before the
+     * list lock is dropped: the task can leave the list (and later be freed)
+     * the instant we release task_list_lock, but it cannot be freed while
+     * task->lock is held by someone else's destroy path.
+     *
+     * Never resolve tasks through fsinfo.data: a duplicated/stale FS_CMD_CLOSE
+     * re-seeds that blob with a pointer to an already-freed task.
+     */
+    if(node == 0)
+        return NULL;
+
+    pthread_mutex_lock(&task_list_lock);
+    net_task_t *t = task_list;
+    while(t != NULL) {
+        if((uint32_t)t->node == node) {
+            if(pthread_mutex_lock(&t->lock) != 0) {
+                pthread_mutex_unlock(&task_list_lock);
+                return NULL;
+            }
+            pthread_mutex_unlock(&task_list_lock);
+            return t;
+        }
+        t = t->next;
+    }
+    pthread_mutex_unlock(&task_list_lock);
+    return NULL;
+}
+
 net_task_t *create_task(int fd, int from_pid, int node){
     net_task_t *task = malloc(sizeof(net_task_t));
     if(task == NULL) {
