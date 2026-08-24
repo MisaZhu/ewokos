@@ -6,6 +6,7 @@
 #include <sys/errno.h>
 #include <sys/time.h>
 #include <ewoksys/kernel_tic.h>
+#include <ewoksys/klog.h>
 
 #include "../platform.h"
 
@@ -238,7 +239,6 @@ udp_input(const uint8_t *data, size_t len, ip_addr_t src, ip_addr_t dst, struct 
     task_wakeup_udp_readers(udp_pcb_id(pcb));
     mutex_unlock(&mutex);
 }
-
 ssize_t
 udp_output(struct ip_endpoint *src, struct ip_endpoint *dst, const  uint8_t *data, size_t len)
 {
@@ -456,7 +456,6 @@ udp_recvfrom(int id, uint8_t *buf, size_t size, struct ip_endpoint *foreign)
         return -1;
     }
     
-    slog("recvfrom timeout:%d ... ", rcv_timeout->tv_sec);
     while (!(entry = queue_pop(&pcb->queue))) {
         struct timeval abs_timeout;
         if (sched_sleep(&pcb->ctx, &mutex, sock_get_timeout_abs(rcv_timeout, &abs_timeout)) == -1) {
@@ -478,7 +477,6 @@ udp_recvfrom(int id, uint8_t *buf, size_t size, struct ip_endpoint *foreign)
             return -1;
         }
     }
-    slog("recved\n");
     mutex_unlock(&mutex);
     if (foreign) {
         *foreign = entry->foreign;

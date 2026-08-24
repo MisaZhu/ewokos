@@ -70,7 +70,7 @@ void klog(const char *format, ...) {
     syscall2(SYS_KPRINT, (ewokos_addr_t)buf, (ewokos_addr_t)len);
     log_unlock();
 
-    sout(buf, len);
+    //sout(buf, len);
 }
 
 void slog(const char *format, ...) {

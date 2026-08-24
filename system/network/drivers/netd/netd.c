@@ -40,8 +40,7 @@ static int network_fcntl(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
     if(task == NULL) {
         return -1;
     }
-    int res = task_cntl(task, from_pid, cmd, in, out, p);
-    return res;
+    return task_cntl(task, from_pid, cmd, in, out, p);
 }
 
 int network_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int oflag, void* p){
@@ -122,6 +121,7 @@ static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
     int write_state = NET_TASK_IDLE;
     int main_state = NET_TASK_IDLE;
     int main_cmd = 0;
+    int sendto_state = NET_TASK_IDLE;
     int pending_main_rd = 0;
     int write_ready = 0;
     int cached_rd = 0;
@@ -134,6 +134,7 @@ static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
         main_cmd = task->cmd;
         read_state = task->read_state;
         write_state = task->write_state;
+        sendto_state = task->sendto_state;
         main_sock = task->sock;
         pending_main_rd = task->pending_main_rd;
         write_ready = task->write_ready ? 1 : 0;
@@ -156,10 +157,33 @@ static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
                  task->cmd == SOCK_RECVFROM)) {
             events |= VFS_EVT_RD;
         }
+        /*
+         * Symmetric guard for the write side: connect() completes on the main
+         * slot and its completion wake is VFS_EVT_WR. Without this the WR edge
+         * is only re-derived from live sock_poll_writable() state, which can
+         * transiently fail (stack mutex trylock busy -> -1, or a momentary
+         * not-writable reading that also clears write_ready) -- the sticky WR
+         * is then replaced by vfs_get_poll_events() and the blocked connect()
+         * caller sleeps forever with no further event to re-wake it.
+         */
+        if (main_state == NET_TASK_FINISH && task->cmd == SOCK_CONNECT) {
+            events |= VFS_EVT_WR;
+        }
         if (read_state == NET_TASK_FINISH) {
             events |= VFS_EVT_RD;
         }
         if (write_state == NET_TASK_FINISH) {
+            events |= VFS_EVT_WR;
+        }
+        /*
+         * Out-of-band SENDTO side slot: its completion must stay visible as
+         * WR until the client collects it. vfs_get_poll_events() replaces the
+         * sticky RW bits with this live state, so without this the side-slot
+         * completion edge is silently dropped while the main slot is busy
+         * with an armed recv/recvfrom/accept -- the sendto() caller would
+         * then never wake to pick up its result.
+         */
+        if (sendto_state == NET_TASK_FINISH) {
             events |= VFS_EVT_WR;
         }
         if (cached_rd) {

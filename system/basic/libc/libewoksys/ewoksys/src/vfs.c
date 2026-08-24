@@ -110,6 +110,19 @@ static inline fsfile_t* vfs_set_file(int fd, fsinfo_t* info) {
 }
 
 static inline void vfs_update_file(fsinfo_t* info) {
+    /*
+     * Anonymous single-node char devices (e.g. /dev/net0, xserverd) keep
+     * fd-private per-open state in fsinfo.data (netd: its task pointer),
+     * but every socket/client shares ONE node. Broadcasting one fd's
+     * fsinfo to every fd on the same node clobbers the siblings' data
+     * pointers: a later close() then releases another socket's task (its
+     * own task leaks -> orphaned netd worker thread) and dereferences the
+     * freed task again on the next close (netd data abort in
+     * network_close). File/pipe nodes describe one object per node, so
+     * the broadcast remains valid for them.
+     */
+    if(FS_IS_ANONYMOUS(info->type) && FS_IS_TYPE(info->type, FS_TYPE_CHAR))
+        return;
     for(uint32_t i=0; i<MAX_OPEN_FILE_PER_PROC; i++) {
         if(_fsfiles[i].info.node == info->node)
             memcpy(&_fsfiles[i].info, info, sizeof(fsinfo_t));

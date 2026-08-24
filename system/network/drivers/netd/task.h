@@ -64,6 +64,38 @@ typedef struct net_task{
     uint32_t write_off;
     int write_err;
     /*
+     * Out-of-band SENDTO slot. The main fcntl slot is single-flight: while a
+     * blocking recv()/recvfrom()/accept() sits armed in it (state PROCESS),
+     * a sendto() on the same socket used to get a bare VFS_ERR_RETRY with
+     * nothing armed that could ever fire the VFS_EVT_WR the caller then
+     * sleeps on -- the send->recv->send hang (circular wait: the armed recv
+     * wants a reply to the very datagram the blocked send never emitted).
+     * SENDTO shares no request state with the armed command, so it runs
+     * through this side slot on the same worker whenever the main slot is
+     * busy, and its completion fires VFS_EVT_WR independently.
+     */
+    int sendto_state;
+    int sendto_from_pid;
+    proto_t sendto_in;
+    proto_t sendto_out;
+    /*
+     * Out-of-band RECVFROM slot: mirror image of the SENDTO side slot. While
+     * the main fcntl slot is busy (e.g. an in-flight SENDTO issued from
+     * another thread of the same process on the same socket), a recvfrom()
+     * used to get a bare VFS_ERR_RETRY with nothing armed: the caller parks
+     * on VFS_EVT_RD, the busy SENDTO completes with a WR edge only, and
+     * arriving datagrams wake nobody -> the reader thread wedges forever
+     * (macemu DNS dies permanently after the first reply). Runs on the same
+     * worker with its own SO_RCVTIMEO deadline; completion fires
+     * VFS_EVT_RD independently of the main slot.
+     */
+    int recvfrom_state;
+    int recvfrom_from_pid;
+    proto_t recvfrom_in;
+    proto_t recvfrom_out;
+    struct timeval recvfrom_deadline;
+    bool recvfrom_deadline_set;
+    /*
      * FS_CMD_CLOSE arrives on the dispatch thread; the VFS_EVT_CLOSE wakeup
      * (a reverse IPC to vfsd) must NOT be issued there (vfsd is synchronously
      * waiting on netd for that very close). Defer it to the worker self-reap.

@@ -79,6 +79,26 @@ static void task_arm_main_deadline_locked(net_task_t *task, int cmd) {
     task->main_deadline_set = true;
 }
 
+/* Arm/disarm task->recvfrom_deadline for the out-of-band RECVFROM slot.
+ * Caller holds task->lock. Mirrors task_arm_main_deadline_locked(). */
+static void task_arm_recvfrom_deadline_locked(net_task_t *task) {
+    struct timeval timeout;
+
+    task->recvfrom_deadline_set = false;
+    if (task->sock < 0)
+        return;
+    if (sock_get_rcvtimeo(task->sock, &timeout) != 0)
+        return;
+    task_now(&task->recvfrom_deadline);
+    task->recvfrom_deadline.tv_sec += timeout.tv_sec;
+    task->recvfrom_deadline.tv_usec += timeout.tv_usec;
+    if (task->recvfrom_deadline.tv_usec >= 1000000) {
+        task->recvfrom_deadline.tv_sec += task->recvfrom_deadline.tv_usec / 1000000;
+        task->recvfrom_deadline.tv_usec %= 1000000;
+    }
+    task->recvfrom_deadline_set = true;
+}
+
 static void* task_thread(void* arg);
 static void task_list_remove(net_task_t * task);
 static bool task_main_timed_out(net_task_t *task);
@@ -183,6 +203,10 @@ static void task_free_unstarted(net_task_t *task) {
     PF->clear(&task->read_out);
     PF->clear(&task->write_in);
     PF->clear(&task->write_out);
+    PF->clear(&task->sendto_in);
+    PF->clear(&task->sendto_out);
+    PF->clear(&task->recvfrom_in);
+    PF->clear(&task->recvfrom_out);
     sched_ctx_destroy(&task->wait_ctx);
 
     pthread_mutex_lock(&task_list_lock);
@@ -415,13 +439,47 @@ static uint32_t task_arm_wait_event(int cmd) {
 int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *out, void *p){
     from_pid = task_owner_pid(from_pid);
     pthread_mutex_lock(&task->lock);
-    
-    if(task->state == NET_TASK_FINISH){
-        if(cmd != task->cmd){
+
+    /*
+     * Collect a completed out-of-band SENDTO (see sendto_state in task.h)
+     * before touching the main slot.
+     */
+    if(cmd == SOCK_SENDTO && task->sendto_state == NET_TASK_FINISH) {
+        if(from_pid == task->sendto_from_pid) {
+            PF->copy(out, task->sendto_out.data, task->sendto_out.size);
+            PF->clear(&task->sendto_out);
+            PF->clear(&task->sendto_in);
+            task->sendto_state = NET_TASK_IDLE;
             pthread_mutex_unlock(&task->lock);
-            return VFS_ERR_RETRY;
+            return 0;
         }
-        if(from_pid == task->from_pid) {
+        /* A fork/dup'd new owner: drop the stale side completion. */
+        PF->clear(&task->sendto_out);
+        PF->clear(&task->sendto_in);
+        task->sendto_state = NET_TASK_IDLE;
+    }
+
+    /*
+     * Collect a completed out-of-band RECVFROM (see recvfrom_state in
+     * task.h) before touching the main slot.
+     */
+    if(cmd == SOCK_RECVFROM && task->recvfrom_state == NET_TASK_FINISH) {
+        if(from_pid == task->recvfrom_from_pid) {
+            PF->copy(out, task->recvfrom_out.data, task->recvfrom_out.size);
+            PF->clear(&task->recvfrom_out);
+            PF->clear(&task->recvfrom_in);
+            task->recvfrom_state = NET_TASK_IDLE;
+            pthread_mutex_unlock(&task->lock);
+            return 0;
+        }
+        /* A fork/dup'd new owner: drop the stale side completion. */
+        PF->clear(&task->recvfrom_out);
+        PF->clear(&task->recvfrom_in);
+        task->recvfrom_state = NET_TASK_IDLE;
+    }
+
+    if(task->state == NET_TASK_FINISH){
+        if(cmd == task->cmd && from_pid == task->from_pid) {
             PF->copy(out, task->out.data, task->out.size);
             PF->clear(&task->out);
             PF->clear(&task->in);
@@ -429,16 +487,25 @@ int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *o
             pthread_mutex_unlock(&task->lock);
             return 0;
         }
+        if(from_pid != task->from_pid) {
+            /*
+             * The same socket can be inherited across fork()/dup(). If a new pid
+             * touches the socket after the previous owner completed an async
+             * request, drop the stale completion and arm the new request in this
+             * call. Returning RETRY here can strand the caller in VFS_EVT_WR sleep
+             * with no freshly armed operation to wake it.
+             */
+            PF->clear(&task->out);
+            PF->clear(&task->in);
+            task->state = NET_TASK_IDLE;
+        }
         /*
-         * The same socket can be inherited across fork()/dup(). If a new pid
-         * touches the socket after the previous owner completed an async
-         * request, drop the stale completion and arm the new request in this
-         * call. Returning RETRY here can strand the caller in VFS_EVT_WR sleep
-         * with no freshly armed operation to wake it.
+         * cmd != task->cmd from the SAME pid: the slot holds the owner's own
+         * uncollected result. Keep it (discarding would drop e.g. a datagram
+         * a reader thread is about to pick up) and treat the slot as busy
+         * below: SENDTO is diverted to the side slot, other commands RETRY
+         * until the owner collects -- its completion wakeup already fired.
          */
-        PF->clear(&task->out);
-        PF->clear(&task->in);
-        task->state = NET_TASK_IDLE;
     }
 
     if(task->state == NET_TASK_IDLE){
@@ -489,6 +556,48 @@ int  task_cntl(net_task_t* task, int from_pid, int cmd, proto_t *in,  proto_t *o
         sched_wakeup(&task->wait_ctx);
         pthread_mutex_unlock(&task->lock);
         // Signal task thread to wake up
+    } else if(cmd == SOCK_SENDTO && task->sendto_state == NET_TASK_IDLE) {
+        /*
+         * The main slot is busy: an armed request in START/PROCESS, or an
+         * uncollected same-owner FINISH kept above. A bare VFS_ERR_RETRY for
+         * SENDTO here is the send->recv->send hang: the caller sleeps on
+         * VFS_EVT_WR, but live WR visibility is gated on the main slot being
+         * IDLE/FINISH, so nothing can wake it while the read owns the slot.
+         * Divert to the out-of-band side slot; its completion fires
+         * VFS_EVT_WR independently of the armed request.
+         */
+        if(!task->thread_started && task_start_worker_locked(task) != 0) {
+            pthread_mutex_unlock(&task->lock);
+            return -1;
+        }
+        task->sendto_from_pid = from_pid;
+        PF->clear(&task->sendto_in);
+        PF->clear(&task->sendto_out);
+        PF->copy(&task->sendto_in, in->data, in->size);
+        task->sendto_state = NET_TASK_START;
+        sched_wakeup(&task->wait_ctx);
+        pthread_mutex_unlock(&task->lock);
+    } else if(cmd == SOCK_RECVFROM && task->recvfrom_state == NET_TASK_IDLE) {
+        /*
+         * The main slot is busy (typically an in-flight SENDTO from another
+         * thread on the same socket). A bare VFS_ERR_RETRY here is the
+         * recv-side twin of the send->recv->send hang: the caller parks on
+         * VFS_EVT_RD, the busy op completes with a WR edge, and arriving
+         * datagrams wake nobody. Divert to the out-of-band side slot; its
+         * completion fires VFS_EVT_RD independently of the main slot.
+         */
+        if(!task->thread_started && task_start_worker_locked(task) != 0) {
+            pthread_mutex_unlock(&task->lock);
+            return -1;
+        }
+        task->recvfrom_from_pid = from_pid;
+        task_arm_recvfrom_deadline_locked(task);
+        PF->clear(&task->recvfrom_in);
+        PF->clear(&task->recvfrom_out);
+        PF->copy(&task->recvfrom_in, in->data, in->size);
+        task->recvfrom_state = NET_TASK_START;
+        sched_wakeup(&task->wait_ctx);
+        pthread_mutex_unlock(&task->lock);
     } else {
         pthread_mutex_unlock(&task->lock);
     }
@@ -1035,6 +1144,95 @@ int task_check_read_events(void) {
 }
 
 /*
+ * Out-of-band SENDTO executor for the side slot (see sendto_state in
+ * task.h). Runs on the per-socket worker like every other stack entry;
+ * the main slot may simultaneously hold an armed recv/recvfrom/accept.
+ * Result layout matches the main-slot SOCK_SENDTO: ret, errno.
+ */
+static void do_network_sendto(net_task_t *task){
+    int32_t size, addrlen = sizeof(struct sockaddr);
+    char *data;
+    struct sockaddr *paddr;
+    int ret = -1;
+    int sock_errno = EINVAL;
+
+    data = proto_read(&task->sendto_in, &size);
+    paddr = proto_read(&task->sendto_in, &addrlen);
+    if(data != NULL && paddr != NULL) {
+        errno = 0;
+        ret = sock_sendto(task->sock, data, size, paddr, addrlen);
+        sock_errno = errno;
+        if(ret < 0 && sock_errno == 0)
+            sock_errno = (ret == -17) ? EBADF : EIO;
+    }
+    pthread_mutex_lock(&task->lock);
+    PF->addi(&task->sendto_out, ret);
+    PF->addi(&task->sendto_out, ret < 0 ? sock_errno : 0);
+    task->sendto_state = NET_TASK_FINISH;
+    pthread_mutex_unlock(&task->lock);
+    task_queue_vfs_wakeup(task->node, VFS_EVT_WR);
+}
+
+/*
+ * Has the armed out-of-band RECVFROM passed its SO_RCVTIMEO deadline?
+ * Mirrors task_main_timed_out(); the flag is cleared so the timeout is
+ * reported exactly once.
+ */
+static bool task_recvfrom_timed_out(net_task_t *task) {
+    bool expired = false;
+
+    pthread_mutex_lock(&task->lock);
+    if(task->recvfrom_deadline_set && task_deadline_expired(&task->recvfrom_deadline)) {
+        task->recvfrom_deadline_set = false;
+        expired = true;
+    }
+    pthread_mutex_unlock(&task->lock);
+    return expired;
+}
+
+/*
+ * Out-of-band RECVFROM executor for the side slot; mirrors the main-slot
+ * SOCK_RECVFROM non-blocking semantics: stay armed (return 0) until data is
+ * readable or the side SO_RCVTIMEO deadline expires. Self-completes: sets
+ * recvfrom_state=FINISH and fires VFS_EVT_RD. Result layout matches the
+ * main-slot RECVFROM: ret [, addrlen, data, addr] , errno.
+ */
+static int do_network_recvfrom(net_task_t *task){
+    int32_t size, addrlen = sizeof(struct sockaddr);
+    struct sockaddr addr;
+    int ret = -1;
+    int sock_errno = 0;
+
+    if(task->sock < 0 || !sock_readable(task->sock)) {
+        if(!task_recvfrom_timed_out(task))
+            return 0; /* stay armed */
+        PF->addi(&task->recvfrom_out, -1);
+        PF->addi(&task->recvfrom_out, ETIMEDOUT);
+    } else {
+        size = proto_read_int(&task->recvfrom_in);
+        size = size < TASK_READ_BUF_SIZE ? size : TASK_READ_BUF_SIZE;
+        errno = 0;
+        ret = sock_recvfrom(task->sock, task->read_buf, size, &addr, &addrlen);
+        sock_errno = errno;
+        if(ret < 0 && sock_errno == 0)
+            sock_errno = EAGAIN;
+        PF->addi(&task->recvfrom_out, ret);
+        if(ret > 0){
+            PF->addi(&task->recvfrom_out, addrlen);
+            PF->add(&task->recvfrom_out, task->read_buf, ret);
+            PF->add(&task->recvfrom_out, &addr, addrlen);
+        }
+        PF->addi(&task->recvfrom_out, ret < 0 ? sock_errno : 0);
+    }
+    pthread_mutex_lock(&task->lock);
+    task->recvfrom_state = NET_TASK_FINISH;
+    task->recvfrom_deadline_set = false;
+    pthread_mutex_unlock(&task->lock);
+    task_queue_vfs_wakeup(task->node, VFS_EVT_RD);
+    return 1;
+}
+
+/*
  * Has the armed recv()/recvfrom() request passed its SO_RCVTIMEO deadline?
  * Called from do_network_fcntl() with task->lock NOT held. The flag is cleared
  * so the timeout is reported exactly once.
@@ -1076,6 +1274,13 @@ void task_timeout_check(void) {
                 (task->cmd == SOCK_RECV || task->cmd == SOCK_RECVFROM) &&
                 task_deadline_expired(&task->main_deadline)) {
             task->state = NET_TASK_START;
+            sched_wakeup(&task->wait_ctx);
+        }
+        if(task->running &&
+                task->recvfrom_deadline_set &&
+                task->recvfrom_state == NET_TASK_PROCESS &&
+                task_deadline_expired(&task->recvfrom_deadline)) {
+            task->recvfrom_state = NET_TASK_START;
             sched_wakeup(&task->wait_ctx);
         }
         pthread_mutex_unlock(&task->lock);
@@ -1124,11 +1329,16 @@ static int task_wakeup_socket_readers(int sock_type, int sock_desc, int match_so
         task->state = NET_TASK_START;
         sched_wakeup(&task->wait_ctx);
         worker_ready = 1;
-    } else if (task->read_state == NET_TASK_PROCESS) {
+    } else if (task->recvfrom_state == NET_TASK_PROCESS) {
+        /* Out-of-band RECVFROM armed while the main slot was busy. */
+        task->recvfrom_state = NET_TASK_START;
+        sched_wakeup(&task->wait_ctx);
+        worker_ready = 1;
+    } else if (sock_type == SOCK_STREAM && task->read_state == NET_TASK_PROCESS) {
         task->read_state = NET_TASK_START;
         sched_wakeup(&task->wait_ctx);
         worker_ready = 1;
-    } else if (task->read_state == NET_TASK_IDLE) {
+    } else if (sock_type == SOCK_STREAM && task->read_state == NET_TASK_IDLE) {
         if (!task->is_listener && task->thread_started && !task->read_cache_ready) {
             task->read_prefetch = true;
             task->read_state = NET_TASK_START;
@@ -1137,6 +1347,22 @@ static int task_wakeup_socket_readers(int sock_type, int sock_desc, int match_so
         } else {
             wake_node = task->node;
         }
+    } else if (sock_type != SOCK_STREAM) {
+        /*
+         * Non-stream sockets (UDP/RAW): data can only be consumed by
+         * recvfrom. sock_recv() refuses non-SOCK_STREAM, so routing the
+         * arrival into the vfs-read prefetch machinery would wedge
+         * read_state forever and silently swallow every wakeup. Unstick any
+         * legacy wedged prefetch and raise an RD edge instead, so a parked
+         * recvfrom retries and (re)arms on the queued datagram.
+         */
+        if (task->read_state != NET_TASK_IDLE) {
+            PF->clear(&task->read_in);
+            PF->clear(&task->read_out);
+            task->read_state = NET_TASK_IDLE;
+            task->read_prefetch = false;
+        }
+        wake_node = task->node;
     }
     pthread_mutex_unlock(&task->lock);
 
@@ -1274,11 +1500,23 @@ static void* task_thread(void* arg){
         PF->clear(&task->write_out);
         task->write_state = NET_TASK_IDLE;
     }
+    if(task->sendto_state != NET_TASK_START) {
+        PF->clear(&task->sendto_in);
+        PF->clear(&task->sendto_out);
+        task->sendto_state = NET_TASK_IDLE;
+    }
+    if(task->recvfrom_state != NET_TASK_START) {
+        PF->clear(&task->recvfrom_in);
+        PF->clear(&task->recvfrom_out);
+        task->recvfrom_state = NET_TASK_IDLE;
+    }
 
     while(1){
         bool run_main = false;
         bool run_read = false;
         bool run_write = false;
+        bool run_sendto = false;
+        bool run_recvfrom = false;
         bool main_completed = false;
         bool read_completed = false;
         bool write_completed = false;
@@ -1286,7 +1524,9 @@ static void* task_thread(void* arg){
         while(task->running &&
               task->state != NET_TASK_START &&
               task->read_state != NET_TASK_START &&
-              task->write_state != NET_TASK_START) {
+              task->write_state != NET_TASK_START &&
+              task->sendto_state != NET_TASK_START &&
+              task->recvfrom_state != NET_TASK_START) {
             sched_sleep(&task->wait_ctx, (mutex_t*)&task->lock, NULL);
         }
 
@@ -1306,6 +1546,14 @@ static void* task_thread(void* arg){
         if(task->write_state == NET_TASK_START) {
             task->write_state = NET_TASK_PROCESS;
             run_write = true;
+        }
+        if(task->sendto_state == NET_TASK_START) {
+            task->sendto_state = NET_TASK_PROCESS;
+            run_sendto = true;
+        }
+        if(task->recvfrom_state == NET_TASK_START) {
+            task->recvfrom_state = NET_TASK_PROCESS;
+            run_recvfrom = true;
         }
         pthread_mutex_unlock(&task->lock);
 
@@ -1327,6 +1575,15 @@ static void* task_thread(void* arg){
         }
         if(run_write) {
             write_completed = do_network_write(task) ? true : false;
+        }
+        if(run_sendto) {
+            /* Self-completes: sets sendto_state=FINISH and fires WR. */
+            do_network_sendto(task);
+        }
+        if(run_recvfrom) {
+            /* Self-completes: sets recvfrom_state=FINISH and fires RD, or
+             * stays armed (PROCESS) until data arrives / deadline expires. */
+            do_network_recvfrom(task);
         }
 
         if(run_main && main_completed) {
@@ -1469,6 +1726,10 @@ static void* task_thread(void* arg){
     PF->clear(&task->read_out);
     PF->clear(&task->write_in);
     PF->clear(&task->write_out);
+    PF->clear(&task->sendto_in);
+    PF->clear(&task->sendto_out);
+    PF->clear(&task->recvfrom_in);
+    PF->clear(&task->recvfrom_out);
 
     sched_ctx_destroy(&task->wait_ctx);
     pthread_mutex_lock(&task_list_lock);

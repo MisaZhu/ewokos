@@ -145,8 +145,15 @@ static fsinfo_t* dev_get_file_seeded(int fd, int pid, ewokos_addr_t node, const 
         pid = file_owner_pid(pid);
         fsinfo_t* info = file_get_cache(fd, pid, node);
         if(info != NULL) {
-                if(seed != NULL)
-                        memcpy(info, seed, sizeof(fsinfo_t));
+                /*
+                 * The server-side entry is authoritative: it was created by
+                 * do_open() and kept in sync by dev_update_file(). Do NOT
+                 * overwrite it with the client-supplied blob — for anonymous
+                 * single-node devices (e.g. /dev/net0) fsinfo.data carries
+                 * fd-private state, and a client blob can hold a sibling
+                 * fd's value, which would poison this entry and later make
+                 * close/read/write operate on the wrong device instance.
+                 */
                 return info;
         }
 
@@ -244,11 +251,22 @@ static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
         owner_pid = from_pid;
     owner_pid = file_owner_pid(owner_pid);
 
+        /*
+         * Prefer the device-side per-fd entry over the caller's blob: for
+         * anonymous single-node devices fsinfo.data is fd-private and the
+         * caller's copy may name another instance, which would release the
+         * wrong task (and dereference it after free on a second close).
+         * Seed from the blob only when this server has no entry (e.g. a
+         * server restart mid-connection).
+         */
+        fsinfo_t* info = fsinfo;
         if(fsinfo != NULL)
-                (void)dev_get_file_seeded(fd, owner_pid, node, fsinfo);
+                info = dev_get_file_seeded(fd, owner_pid, node, fsinfo);
+        else
+                info = dev_get_file(fd, owner_pid, node);
 
     if(dev != NULL && dev->close != NULL) {
-        dev->close(dev, fd, owner_pid, node, fsinfo, p);
+        dev->close(dev, fd, owner_pid, node, info, p);
     }
     file_del(fd, owner_pid, node);
 }

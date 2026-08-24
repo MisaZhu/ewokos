@@ -13,7 +13,7 @@
 @/bin/ipcserv /drivers/virt/fbdisplayd  /dev/disp0
 @/bin/ipcserv /drivers/fontd 
 
-#@/bin/ipcserv /drivers/virt/g2dd     /dev/g2d
+@/bin/ipcserv /drivers/virt/g2dd     /dev/g2d
 
 @/bin/ipcserv /sbin/splashd -w 320 -h 240 -f 12 -d
 @/bin/splash -i /usr/system/images/logos/ewokos.png -m "start..."
