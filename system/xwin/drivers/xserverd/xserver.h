@@ -58,6 +58,13 @@ typedef struct st_xwin {
 	bool has_damage;
 	uint32_t damage_skip; //consecutive full-width damages, backs off detection
 	uint32_t not_ready_ticks; //steps spent waiting for the first frame
+	/*an UPDATE was accepted but its damage has not been composited yet:
+	  further UPDATEs for this window become O(1) no-ops and the pending
+	  copy is redone against the freshest ws_g at the next step (see
+	  x_refresh_pending_updates). This keeps fast-repainting clients from
+	  stacking heavy damage-detect+copy IPCs in the queue that mouse and
+	  event delivery share.*/
+	bool refresh_pending;
 
 	/*xinfo lives in memory the client owns and can be replayed from an old
 	  copy of itself (the un-maximize path restores a whole snapshot), so the

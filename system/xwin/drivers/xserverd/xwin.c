@@ -520,18 +520,10 @@ static void copy_ws_rect(xwin_t* win, const grect_t* r) {
     }
 }
 
-int x_update(int fd, int from_pid, x_t* x) {
-    if(fd < 0)
-        return -1;
-    
-    xwin_t* win = x_get_win(x, fd, from_pid);
-    if(win == NULL || win->xinfo == NULL ||
-            win->ws_g == NULL || win->ws_g_buffer == NULL)
-        return -1;
-
-    if(!win->xinfo->visible)
-        return 0;
-
+/*detect what the client changed in ws_g and copy it across to the snapshot
+  the compositor reads from. Shared by the UPDATE IPC path and the per-step
+  refresh of windows whose queued copy was overtaken by further repaints.*/
+static void x_update_copy(x_t* x, xwin_t* win) {
     grect_t full = {0, 0, win->ws_g->w, win->ws_g->h};
     grect_t dmg = full;
     bool has_dmg = false;
@@ -540,11 +532,11 @@ int x_update(int fd, int from_pid, x_t* x) {
         has_dmg = detect_ws_damage(win, &dmg);
         if(!has_dmg) {
             if(!win->dirty && !win->frame_dirty)
-                return 0; //the client redrew the very same picture
+                return; //the client redrew the very same picture
             /*nothing new in the workspace, but a repaint is still pending:
               keep the damage already recorded and just ask for it again*/
             win_dirty(x, win);
-            return 0;
+            return;
         }
 
         /*detection costs a full compare pass: back off for a while when the
@@ -575,8 +567,51 @@ int x_update(int fd, int from_pid, x_t* x) {
     win->damage = dmg;
     win->has_damage = has_dmg;
     win->ready = true;
-    win_dirty(x, win);	
+    win_dirty(x, win);
+}
+
+int x_update(int fd, int from_pid, x_t* x) {
+    if(fd < 0)
+        return -1;
+    
+    xwin_t* win = x_get_win(x, fd, from_pid);
+    if(win == NULL || win->xinfo == NULL ||
+            win->ws_g == NULL || win->ws_g_buffer == NULL)
+        return -1;
+
+    if(!win->xinfo->visible)
+        return 0;
+
+    /*a copy of this window is already queued for the next step: the refresh
+      there re-detects against the freshest ws_g content, so this call has
+      nothing to do. Keeping stacked UPDATEs O(1) is what stops
+      fast-repainting clients from clogging the IPC queue that mouse input
+      and event delivery share with them (the detect+copy for one window is
+      a full-workspace pass on slow hardware).*/
+    if(win->refresh_pending)
+        return 0;
+
+    x_update_copy(x, win);
+    win->refresh_pending = true;
     return 0;
+}
+
+/*redone once per step (under ipc_disable, before compositing) for every
+  window whose queued copy was overtaken by further client repaints: one
+  detect+copy against the newest content per window per frame, no matter
+  how many UPDATE IPCs arrived since the last composite. The display output
+  is identical to doing every copy inline, only the IPC queue stays light.*/
+void x_refresh_pending_updates(x_t* x) {
+    xwin_t* win = x->win_head;
+    while(win != NULL) {
+        if(win->refresh_pending) {
+            win->refresh_pending = false;
+            if(win->ready && win->xinfo != NULL && win->xinfo->visible &&
+                    win->ws_g != NULL && win->ws_g_buffer != NULL)
+                x_update_copy(x, win);
+        }
+        win = win->next;
+    }
 }
 
 /*

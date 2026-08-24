@@ -36,5 +36,6 @@ bool covered_by_opaque_win(x_t* x, xwin_t* from, uint32_t display_index, const g
 
 /*client content update (XWIN_CNTL_UPDATE)*/
 int x_update(int fd, int from_pid, x_t* x);
+void x_refresh_pending_updates(x_t* x);
 
 #endif

@@ -144,8 +144,7 @@ int main(int argc, char** argv) {
             }
             */
         }
-        else 
-            proc_usleep(5000);
+        proc_usleep(3000);
     }
 
     close(fd);

@@ -235,6 +235,10 @@ int xserver_step(vdevice_t* dev, void* p) {
 
     ipc_disable();
     check_wins(x);
+    /*windows whose queued content copy was overtaken by further client
+      repaints get one fresh detect+copy here, so stacked UPDATE IPCs stay
+      O(1) and can't queue up ahead of mouse input / event delivery*/
+    x_refresh_pending_updates(x);
     for(uint32_t i=0; i<DISP_MAX; i++) {
         x_display_t* display = &x->displays[i];
         if(!display->active)

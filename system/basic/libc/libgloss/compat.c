@@ -59,6 +59,25 @@ static unsigned long prng_state = 1;
 int __bss_start__ __attribute__((weak));
 int __bss_end__ __attribute__((weak));
 
+/* The mem* functions below copy/compare word-wide instead of byte-wide:
+   the byte loops were the single hottest code in the whole userland (every
+   IPC buffer, shm window copy and damage compare funnels through them).
+   Rules honored:
+   - ARM builds use -mstrict-align, so the word path only engages when both
+     pointers share the same misalignment and is entered word-aligned.
+   - GCC loop-distribution must not pattern-match these loops back into
+     calls to themselves (x86 builds lack -fno-builtin-*), hence the
+     attribute. */
+#if defined(__GNUC__) && !defined(__clang__)
+#define MEM_NO_IDIOM __attribute__((optimize("no-tree-loop-distribute-patterns")))
+#else
+#define MEM_NO_IDIOM
+#endif
+
+#define MEM_WORD_SZ   sizeof(unsigned long)
+#define MEM_WORD_MASK (MEM_WORD_SZ - 1)
+
+MEM_NO_IDIOM
 void *memcpy(void *dest, const void *src, size_t n) {
     unsigned char *d = (unsigned char *)dest;
     const unsigned char *s = (const unsigned char *)src;
@@ -67,12 +86,38 @@ void *memcpy(void *dest, const void *src, size_t n) {
         return dest;
     }
 
-    for (size_t i = 0; i < n; ++i) {
-        d[i] = s[i];
+    if (n >= 2 * MEM_WORD_SZ &&
+            (((uintptr_t)d ^ (uintptr_t)s) & MEM_WORD_MASK) == 0) {
+        while (((uintptr_t)d & MEM_WORD_MASK) != 0) {
+            *d++ = *s++;
+            n--;
+        }
+        unsigned long *dw = (unsigned long *)d;
+        const unsigned long *sw = (const unsigned long *)s;
+        while (n >= 4 * MEM_WORD_SZ) {
+            dw[0] = sw[0];
+            dw[1] = sw[1];
+            dw[2] = sw[2];
+            dw[3] = sw[3];
+            dw += 4;
+            sw += 4;
+            n -= 4 * MEM_WORD_SZ;
+        }
+        while (n >= MEM_WORD_SZ) {
+            *dw++ = *sw++;
+            n -= MEM_WORD_SZ;
+        }
+        d = (unsigned char *)dw;
+        s = (const unsigned char *)sw;
+    }
+
+    while (n-- > 0) {
+        *d++ = *s++;
     }
     return dest;
 }
 
+MEM_NO_IDIOM
 void *memmove(void *dest, const void *src, size_t n) {
     unsigned char *d = (unsigned char *)dest;
     const unsigned char *s = (const unsigned char *)src;
@@ -80,24 +125,69 @@ void *memmove(void *dest, const void *src, size_t n) {
     if (d == s || n == 0) {
         return dest;
     }
-    if (d < s) {
-        for (size_t i = 0; i < n; ++i) {
-            d[i] = s[i];
+    if (d < s || d >= s + n) {
+        /* forward copy is safe (also covers all non-overlapping cases) */
+        return memcpy(dest, src, n);
+    }
+
+    /* overlapping with dest above src: copy backward */
+    d += n;
+    s += n;
+    if (n >= 2 * MEM_WORD_SZ &&
+            (((uintptr_t)d ^ (uintptr_t)s) & MEM_WORD_MASK) == 0) {
+        while (((uintptr_t)d & MEM_WORD_MASK) != 0) {
+            *--d = *--s;
+            n--;
         }
-    } else {
-        for (size_t i = n; i > 0; --i) {
-            d[i - 1] = s[i - 1];
+        unsigned long *dw = (unsigned long *)d;
+        const unsigned long *sw = (const unsigned long *)s;
+        while (n >= MEM_WORD_SZ) {
+            *--dw = *--sw;
+            n -= MEM_WORD_SZ;
         }
+        d = (unsigned char *)dw;
+        s = (const unsigned char *)sw;
+    }
+    while (n-- > 0) {
+        *--d = *--s;
     }
     return dest;
 }
 
+MEM_NO_IDIOM
 void *memset(void *s, int c, size_t n) {
-    volatile unsigned char *p = (volatile unsigned char *)s;
+    unsigned char *p = (unsigned char *)s;
     unsigned char v = (unsigned char)c;
 
     if (p == NULL) {
         return s;
+    }
+
+    if (n >= 2 * MEM_WORD_SZ) {
+        while (((uintptr_t)p & MEM_WORD_MASK) != 0) {
+            *p++ = v;
+            n--;
+        }
+        unsigned long w = v;
+        w |= w << 8;
+        w |= w << 16;
+        /* no-op on 32-bit long, fills the high half on 64-bit; the split
+           shift avoids an undefined 32-bit-long shift by 32 */
+        w |= (w << 16) << 16;
+        unsigned long *pw = (unsigned long *)p;
+        while (n >= 4 * MEM_WORD_SZ) {
+            pw[0] = w;
+            pw[1] = w;
+            pw[2] = w;
+            pw[3] = w;
+            pw += 4;
+            n -= 4 * MEM_WORD_SZ;
+        }
+        while (n >= MEM_WORD_SZ) {
+            *pw++ = w;
+            n -= MEM_WORD_SZ;
+        }
+        p = (unsigned char *)pw;
     }
 
     while (n-- > 0) {
@@ -106,9 +196,33 @@ void *memset(void *s, int c, size_t n) {
     return s;
 }
 
+MEM_NO_IDIOM
 int memcmp(const void *s1, const void *s2, size_t n) {
     const unsigned char *a = (const unsigned char *)s1;
     const unsigned char *b = (const unsigned char *)s2;
+
+    if (n >= 2 * MEM_WORD_SZ &&
+            (((uintptr_t)a ^ (uintptr_t)b) & MEM_WORD_MASK) == 0) {
+        while (((uintptr_t)a & MEM_WORD_MASK) != 0) {
+            if (*a != *b) {
+                return (int)*a - (int)*b;
+            }
+            a++;
+            b++;
+            n--;
+        }
+        const unsigned long *aw = (const unsigned long *)a;
+        const unsigned long *bw = (const unsigned long *)b;
+        /* on the first differing word fall through: the byte tail below
+           locates the differing byte and returns the correct sign */
+        while (n >= MEM_WORD_SZ && *aw == *bw) {
+            aw++;
+            bw++;
+            n -= MEM_WORD_SZ;
+        }
+        a = (const unsigned char *)aw;
+        b = (const unsigned char *)bw;
+    }
 
     for (size_t i = 0; i < n; ++i) {
         if (a[i] != b[i]) {
