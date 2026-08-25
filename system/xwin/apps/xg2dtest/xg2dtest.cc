@@ -190,7 +190,6 @@ class G2DTestWidget: public Widget {
 	  设备没有像素回读接口，预览只是把同一组命令在本地 graph 上
 	  镜像一遍，让画面可见。*/
 	struct TestCtx {
-		g2d_t g2d;
 		g2d_info_t info;
 		uint32_t w0;      /*初始目标面尺寸*/
 		uint32_t h0;
@@ -201,7 +200,6 @@ class G2DTestWidget: public Widget {
 		bool pass;
 
 		TestCtx() : preview(NULL), failures(0), pass(false) {
-			memset(&g2d, 0, sizeof(g2d));
 			memset(&info, 0, sizeof(info));
 			w0 = 0;
 			h0 = 0;
@@ -257,7 +255,7 @@ class G2DTestWidget: public Widget {
 	void checkInfo(TestCtx& ctx, const char* label, uint32_t exp_w, uint32_t exp_h) {
 		g2d_info_t info;
 
-		if(g2d_info(&ctx.g2d, &info) != 0) {
+		if(g2d_info(&info) != 0) {
 			appendLog(ctx, "FAIL %-18s g2d_info failed", label);
 			markFailure(ctx, "%s g2d_info failed", label);
 			return;
@@ -276,7 +274,7 @@ class G2DTestWidget: public Widget {
 	void syncPreview(TestCtx& ctx) {
 		g2d_info_t info;
 
-		if(g2d_info(&ctx.g2d, &info) != 0)
+		if(g2d_info(&info) != 0)
 			return;
 		if(info.width == 0 || info.height == 0)
 			return;
@@ -463,17 +461,10 @@ class G2DTestWidget: public Widget {
 		ctx.firstFailure.clear();
 		ctx.logs.clear();
 
-		if(g2d_open("/dev/g2d", &ctx.g2d) != 0) {
-			appendLog(ctx, "FAIL open /dev/g2d");
-			markFailure(ctx, "open /dev/g2d failed");
-			return;
-		}
-
-		ret = g2d_info(&ctx.g2d, &ctx.info);
+		ret = g2d_info(&ctx.info);
 		if(ret != 0) {
 			appendLog(ctx, "FAIL g2d_info ret=%d", ret);
 			markFailure(ctx, "g2d_info failed");
-			g2d_close(&ctx.g2d);
 			return;
 		}
 		ctx.w0 = ctx.info.width;
@@ -489,7 +480,6 @@ class G2DTestWidget: public Widget {
 			markFailure(ctx, "create shm images failed");
 			shm_image_destroy(&alpha_img);
 			shm_image_destroy(&opaque_img);
-			g2d_close(&ctx.g2d);
 			return;
 		}
 
@@ -498,18 +488,18 @@ class G2DTestWidget: public Widget {
 		graph_init(&opaque_graph, opaque_img.pixels, opaque_img.width, opaque_img.height);
 		graph_init(&alpha_graph, alpha_img.pixels, alpha_img.width, alpha_img.height);
 
-		ret = g2d_clear(&ctx.g2d, bg_color);
+		ret = g2d_clear(bg_color);
 		checkRet(ctx, "clear", ret, true);
 		if(ctx.preview != NULL)
 			graph_clear(ctx.preview, bg_color);
 
 		g2d_fill_req_init(&fill, g2d_rect(24, 24, 220, 120), make_color(0xff, pulse, 0x40, 0x60));
-		ret = g2d_fill_rect(&ctx.g2d, &fill);
+		ret = g2d_fill_rect(&fill);
 		checkRet(ctx, "fill_rect #1", ret, true);
 		fillPreview(ctx, &fill);
 
 		g2d_fill_req_init(&fill, g2d_rect((int32_t)ctx.w0 - 180, 40, 140, 96), make_color(0xff, 0x50, 0x30, pulse));
-		ret = g2d_fill_rect(&ctx.g2d, &fill);
+		ret = g2d_fill_rect(&fill);
 		checkRet(ctx, "fill_rect #2", ret, true);
 		fillPreview(ctx, &fill);
 
@@ -523,7 +513,7 @@ class G2DTestWidget: public Widget {
 				src_rect,
 				g2d_rect(48, 72, (int32_t)opaque_img.width, (int32_t)opaque_img.height),
 				0xff);
-		ret = g2d_blit_shm(&ctx.g2d, &blit);
+		ret = g2d_blit_shm(&blit);
 		checkRet(ctx, "blit_opaque", ret, true);
 		blitPreview(ctx, &blit, &opaque_graph, 0);
 
@@ -540,7 +530,7 @@ class G2DTestWidget: public Widget {
 				g2d_rect(blit2_x, blit2_y, 180, 140),
 				0xff,
 				G2D_ROTATE_90);
-		ret = g2d_blit_shm(&ctx.g2d, &blit);
+		ret = g2d_blit_shm(&blit);
 		checkRet(ctx, "blit_scale_rot90", ret, true);
 		blitPreview(ctx, &blit, &opaque_graph, 0);
 
@@ -555,7 +545,7 @@ class G2DTestWidget: public Widget {
 				g2d_rect((int32_t)ctx.w0 / 2, (int32_t)ctx.h0 / 2 - 32,
 						(int32_t)alpha_img.width, (int32_t)alpha_img.height),
 				0xff);
-		ret = g2d_blit_alpha_shm(&ctx.g2d, &blit);
+		ret = g2d_blit_alpha_shm(&blit);
 		checkRet(ctx, "blit_alpha", ret, true);
 		blitPreview(ctx, &blit, &alpha_graph, 1);
 
@@ -572,7 +562,7 @@ class G2DTestWidget: public Widget {
 				g2d_rect(alpha2_x, alpha2_y, 200, 120),
 				0xff,
 				G2D_ROTATE_270);
-		ret = g2d_blit_alpha_shm(&ctx.g2d, &blit);
+		ret = g2d_blit_alpha_shm(&blit);
 		checkRet(ctx, "blit_alpha_rot270", ret, true);
 		blitPreview(ctx, &blit, &alpha_graph, 1);
 
@@ -589,12 +579,12 @@ class G2DTestWidget: public Widget {
 				g2d_rect((int32_t)ctx.w0 - 300, (int32_t)ctx.h0 - 300, 220, 220),
 				0xff,
 				45);
-		ret = g2d_blit_shm(&ctx.g2d, &blit);
+		ret = g2d_blit_shm(&blit);
 		checkRet(ctx, "blit_rot45", ret, true);
 		blitPreview(ctx, &blit, &opaque_graph, 0);
 
 		g2d_fill_req_init(&fill, g2d_rect(0, (int32_t)ctx.h0 - 36, (int32_t)ctx.w0, 36), 0xff000000);
-		ret = g2d_fill_rect(&ctx.g2d, &fill);
+		ret = g2d_fill_rect(&fill);
 		checkRet(ctx, "fill_rect footer", ret, true);
 		fillPreview(ctx, &fill);
 
@@ -606,7 +596,7 @@ class G2DTestWidget: public Widget {
 		/*target rotate: clockwise degrees, any angle; 90/270 swap width/height,
 		  180 does not, other angles grow to the rotated bounding box*/
 		g2d_rotate_req_init(&rotate_req, G2D_ROTATE_90);
-		ret = g2d_rotate(&ctx.g2d, &rotate_req);
+		ret = g2d_rotate(&rotate_req);
 		checkRet(ctx, "rotate_90", ret, true);
 		checkInfo(ctx, "rotate_90_size", ctx.h0, ctx.w0);
 		rotatePreview(ctx, G2D_ROTATE_90);
@@ -614,7 +604,7 @@ class G2DTestWidget: public Widget {
 		usleep(STAGE_DELAY_MS * 1000);
 
 		g2d_rotate_req_init(&rotate_req, G2D_ROTATE_180);
-		ret = g2d_rotate(&ctx.g2d, &rotate_req);
+		ret = g2d_rotate(&rotate_req);
 		checkRet(ctx, "rotate_180", ret, true);
 		checkInfo(ctx, "rotate_180_size", ctx.h0, ctx.w0);
 		rotatePreview(ctx, G2D_ROTATE_180);
@@ -622,7 +612,7 @@ class G2DTestWidget: public Widget {
 		usleep(STAGE_DELAY_MS * 1000);
 
 		g2d_rotate_req_init(&rotate_req, G2D_ROTATE_270);
-		ret = g2d_rotate(&ctx.g2d, &rotate_req);
+		ret = g2d_rotate(&rotate_req);
 		checkRet(ctx, "rotate_270", ret, true);
 		checkInfo(ctx, "rotate_270_size", ctx.w0, ctx.h0);
 		rotatePreview(ctx, G2D_ROTATE_270);
@@ -633,7 +623,7 @@ class G2DTestWidget: public Widget {
 		  -315 normalizes to 45, so the expected size is the 45-degree box*/
 		uint32_t rot45 = rotated45_size(ctx.w0, ctx.h0);
 		g2d_rotate_req_init(&rotate_req, -315);
-		ret = g2d_rotate(&ctx.g2d, &rotate_req);
+		ret = g2d_rotate(&rotate_req);
 		checkRet(ctx, "rotate_-315", ret, true);
 		checkInfo(ctx, "rotate_-315_size", rot45, rot45);
 		rotatePreview(ctx, -315);
@@ -644,7 +634,7 @@ class G2DTestWidget: public Widget {
 		  box of a square at 45 degree is a larger square*/
 		uint32_t rot45_2 = rotated45_size(rot45, rot45);
 		g2d_rotate_req_init(&rotate_req, -45);
-		ret = g2d_rotate(&ctx.g2d, &rotate_req);
+		ret = g2d_rotate(&rotate_req);
 		checkRet(ctx, "rotate_-45", ret, true);
 		checkInfo(ctx, "rotate_-45_size", rot45_2, rot45_2);
 		rotatePreview(ctx, -45);
@@ -653,7 +643,7 @@ class G2DTestWidget: public Widget {
 
 		/*target scale_to: shrink, restore, invalid size*/
 		g2d_scale_to_req_init(&scale_req, 320, 240);
-		ret = g2d_scale_to(&ctx.g2d, &scale_req);
+		ret = g2d_scale_to(&scale_req);
 		checkRet(ctx, "scale_to_320x240", ret, true);
 		checkInfo(ctx, "scale_to_size", 320, 240);
 		scalePreviewTo(ctx, 320, 240);
@@ -661,13 +651,13 @@ class G2DTestWidget: public Widget {
 		usleep(STAGE_DELAY_MS * 1000);
 
 		g2d_scale_to_req_init(&scale_req, ctx.w0, ctx.h0);
-		ret = g2d_scale_to(&ctx.g2d, &scale_req);
+		ret = g2d_scale_to(&scale_req);
 		checkRet(ctx, "scale_to_restore", ret, true);
 		checkInfo(ctx, "scale_restore_size", ctx.w0, ctx.h0);
 		scalePreviewTo(ctx, ctx.w0, ctx.h0);
 
 		g2d_scale_to_req_init(&scale_req, 0, 0);
-		ret = g2d_scale_to(&ctx.g2d, &scale_req);
+		ret = g2d_scale_to(&scale_req);
 		checkRet(ctx, "scale_to_invalid", ret, false);
 		checkInfo(ctx, "scale_invalid_size", ctx.w0, ctx.h0);
 
@@ -676,7 +666,6 @@ class G2DTestWidget: public Widget {
 
 		shm_image_destroy(&alpha_img);
 		shm_image_destroy(&opaque_img);
-		g2d_close(&ctx.g2d);
 	}
 
 	void publishResult(TestCtx& ctx) {

@@ -139,7 +139,7 @@ typedef struct {
     uint32_t seq; /* frame counter, varies positions/colors between frames */
 } bench_ctx_t;
 
-typedef int (*bench_frame_fn)(g2d_t* g2d, void* ctx);
+typedef int (*bench_frame_fn)(void* ctx);
 
 static uint32_t bench_now_usec(void) {
     uint32_t low = 0;
@@ -147,14 +147,14 @@ static uint32_t bench_now_usec(void) {
     return low;
 }
 
-static int bench_frame_clear(g2d_t* g2d, void* p) {
+static int bench_frame_clear(void* p) {
     bench_ctx_t* ctx = (bench_ctx_t*)p;
     uint32_t color = 0xff000000u | ((ctx->seq * 0x010101u) & 0xffffffu);
     ctx->seq++;
-    return g2d_clear(g2d, color);
+    return g2d_clear(color);
 }
 
-static int bench_frame_fill(g2d_t* g2d, void* p) {
+static int bench_frame_fill(void* p) {
     bench_ctx_t* ctx = (bench_ctx_t*)p;
     g2d_fill_req_t fill;
     int32_t maxx;
@@ -173,14 +173,14 @@ static int bench_frame_fill(g2d_t* g2d, void* p) {
         int32_t y = maxy > 0 ? (int32_t)((seed >> 8) % (uint32_t)maxy) : 0;
         g2d_fill_req_init(&fill, g2d_rect(x, y, 64, 64),
                 0xff000000u | ((seed * 31u) & 0xffffffu));
-        if(g2d_fill_rect(g2d, &fill) != 0)
+        if(g2d_fill_rect(&fill) != 0)
             return -1;
     }
     ctx->seq++;
     return 0;
 }
 
-static int bench_frame_blit(g2d_t* g2d, void* p) {
+static int bench_frame_blit(void* p) {
     bench_ctx_t* ctx = (bench_ctx_t*)p;
     g2d_blit_req_t blit;
     int32_t dw;
@@ -206,12 +206,12 @@ static int bench_frame_blit(g2d_t* g2d, void* p) {
             g2d_rect(0, 0, (int32_t)ctx->opaque->width, (int32_t)ctx->opaque->height),
             g2d_rect(x, y, dw, dh),
             0xff);
-    ret = g2d_blit_shm(g2d, &blit);
+    ret = g2d_blit_shm(&blit);
     ctx->seq++;
     return ret;
 }
 
-static int bench_frame_blit_alpha(g2d_t* g2d, void* p) {
+static int bench_frame_blit_alpha(void* p) {
     bench_ctx_t* ctx = (bench_ctx_t*)p;
     g2d_blit_req_t blit;
     int32_t dw;
@@ -237,7 +237,7 @@ static int bench_frame_blit_alpha(g2d_t* g2d, void* p) {
             g2d_rect(0, 0, (int32_t)ctx->alpha->width, (int32_t)ctx->alpha->height),
             g2d_rect(x, y, dw, dh),
             0xff);
-    ret = g2d_blit_alpha_shm(g2d, &blit);
+    ret = g2d_blit_alpha_shm(&blit);
     ctx->seq++;
     return ret;
 }
@@ -245,20 +245,20 @@ static int bench_frame_blit_alpha(g2d_t* g2d, void* p) {
 /* rotate the destination surface back and forth: even frames rotate 90,
    odd frames rotate 270, so dimensions only oscillate between
    wxh and hxw instead of growing with every rotation. */
-static int bench_frame_rotate(g2d_t* g2d, void* p) {
+static int bench_frame_rotate(void* p) {
     bench_ctx_t* ctx = (bench_ctx_t*)p;
     g2d_rotate_req_t rq;
     int ret;
 
     g2d_rotate_req_init(&rq, (ctx->seq % 2) == 0 ? 90 : 270);
-    ret = g2d_rotate(g2d, &rq);
+    ret = g2d_rotate(&rq);
     ctx->seq++;
     return ret;
 }
 
 /* scale_to ping-pong between the original size and half size,
    keeping the surface dimensions bounded. */
-static int bench_frame_scale(g2d_t* g2d, void* p) {
+static int bench_frame_scale(void* p) {
     bench_ctx_t* ctx = (bench_ctx_t*)p;
     g2d_scale_to_req_t sq;
     uint32_t tw;
@@ -278,23 +278,23 @@ static int bench_frame_scale(g2d_t* g2d, void* p) {
         th = ctx->h;
     }
     g2d_scale_to_req_init(&sq, tw, th);
-    ret = g2d_scale_to(g2d, &sq);
+    ret = g2d_scale_to(&sq);
     ctx->seq++;
     return ret;
 }
 
 /* one mixed frame = clear + 16 fills + opaque blit + alpha blit */
-static int bench_frame_mixed(g2d_t* g2d, void* p) {
-    if(bench_frame_clear(g2d, p) != 0)
+static int bench_frame_mixed(void* p) {
+    if(bench_frame_clear(p) != 0)
         return -1;
-    if(bench_frame_fill(g2d, p) != 0)
+    if(bench_frame_fill(p) != 0)
         return -1;
-    if(bench_frame_blit(g2d, p) != 0)
+    if(bench_frame_blit(p) != 0)
         return -1;
-    return bench_frame_blit_alpha(g2d, p);
+    return bench_frame_blit_alpha(p);
 }
 
-static void bench_run(g2d_t* g2d, const char* label, bench_frame_fn fn,
+static void bench_run(const char* label, bench_frame_fn fn,
         bench_ctx_t* ctx, int* failures) {
     uint32_t frames = 0;
     uint32_t elapsed = 0;
@@ -302,7 +302,7 @@ static void bench_run(g2d_t* g2d, const char* label, bench_frame_fn fn,
 
     t0 = bench_now_usec();
     while(elapsed < BENCH_USEC && frames < BENCH_MAX_FRAMES) {
-        if(fn(g2d, ctx) != 0) {
+        if(fn(ctx) != 0) {
             printf("FAIL %-22s bench frame %u failed\n", label, frames);
             (*failures)++;
             return;
@@ -320,11 +320,11 @@ static void bench_run(g2d_t* g2d, const char* label, bench_frame_fn fn,
 
 /* the destination surface size is only observable through g2d_info,
    used to verify rotate/scale_to actually took effect. */
-static int check_info(g2d_t* g2d, const char* label,
+static int check_info(const char* label,
         uint32_t exp_w, uint32_t exp_h, int* failures) {
     g2d_info_t info;
 
-    if(g2d_info(g2d, &info) != 0) {
+    if(g2d_info(&info) != 0) {
         printf("FAIL %-22s g2d_info failed\n", label);
         (*failures)++;
         return -1;
@@ -340,7 +340,6 @@ static int check_info(g2d_t* g2d, const char* label,
 }
 
 int main(int argc, char** argv) {
-    g2d_t g2d;
     g2d_info_t info;
     g2d_fill_req_t fill;
     g2d_blit_req_t blit;
@@ -364,15 +363,9 @@ int main(int argc, char** argv) {
     (void)argc;
     (void)argv;
 
-    if(g2d_open("/dev/g2d", &g2d) != 0) {
-        printf("open /dev/g2d failed\n");
-        return -1;
-    }
-
-    ret = g2d_info(&g2d, &info);
+    ret = g2d_info(&info);
     if(ret != 0) {
         printf("g2d_info failed\n");
-        g2d_close(&g2d);
         return -1;
     }
     w0 = info.width;
@@ -382,28 +375,26 @@ int main(int argc, char** argv) {
 
     if(shm_image_create(&opaque_img, 0x47324410, 160, 120) != 0) {
         printf("create opaque shm failed\n");
-        g2d_close(&g2d);
         return -1;
     }
     if(shm_image_create(&alpha_img, 0x47324411, 128, 128) != 0) {
         printf("create alpha shm failed\n");
         shm_image_destroy(&opaque_img);
-        g2d_close(&g2d);
         return -1;
     }
 
     fill_checker(&opaque_img);
     fill_alpha_circle(&alpha_img);
 
-    ret = g2d_clear(&g2d, bg_color);
+    ret = g2d_clear(bg_color);
     check_ret("clear", ret, 1, &failures);
 
     g2d_fill_req_init(&fill, g2d_rect(24, 24, 220, 120), 0xff204060);
-    ret = g2d_fill_rect(&g2d, &fill);
+    ret = g2d_fill_rect(&fill);
     check_ret("fill_rect #1", ret, 1, &failures);
 
     g2d_fill_req_init(&fill, g2d_rect((int32_t)w0 - 180, 40, 140, 96), 0xff503040);
-    ret = g2d_fill_rect(&g2d, &fill);
+    ret = g2d_fill_rect(&fill);
     check_ret("fill_rect #2", ret, 1, &failures);
 
     src_rect = g2d_rect(0, 0, (int32_t)opaque_img.width, (int32_t)opaque_img.height);
@@ -416,7 +407,7 @@ int main(int argc, char** argv) {
             src_rect,
             g2d_rect(48, 72, (int32_t)opaque_img.width, (int32_t)opaque_img.height),
             0xff);
-    ret = g2d_blit_shm(&g2d, &blit);
+    ret = g2d_blit_shm(&blit);
     check_ret("blit_opaque", ret, 1, &failures);
 
     blit2_x = (int32_t)w0 - 280;
@@ -432,7 +423,7 @@ int main(int argc, char** argv) {
             g2d_rect(blit2_x, blit2_y, 180, 140),
             0xff,
             90);
-    ret = g2d_blit_shm(&g2d, &blit);
+    ret = g2d_blit_shm(&blit);
     check_ret("blit_scale_rotate", ret, 1, &failures);
 
     src_rect = g2d_rect(0, 0, (int32_t)alpha_img.width, (int32_t)alpha_img.height);
@@ -446,7 +437,7 @@ int main(int argc, char** argv) {
             g2d_rect((int32_t)w0 / 2, (int32_t)h0 / 2 - 32,
                     (int32_t)alpha_img.width, (int32_t)alpha_img.height),
             0xff);
-    ret = g2d_blit_alpha_shm(&g2d, &blit);
+    ret = g2d_blit_alpha_shm(&blit);
     check_ret("blit_alpha", ret, 1, &failures);
 
     alpha2_x = (int32_t)w0 / 2 - 220;
@@ -462,54 +453,54 @@ int main(int argc, char** argv) {
             g2d_rect(alpha2_x, alpha2_y, 200, 120),
             0xff,
             45);
-    ret = g2d_blit_alpha_shm(&g2d, &blit);
+    ret = g2d_blit_alpha_shm(&blit);
     check_ret("blit_alpha_scale_rot", ret, 1, &failures);
 
     /* rotate the destination surface by any clockwise degree.
        90/270 swap dimensions, other angles grow to the bounding box. */
     g2d_rotate_req_init(&rotate_req, 90);
-    ret = g2d_rotate(&g2d, &rotate_req);
+    ret = g2d_rotate(&rotate_req);
     check_ret("rotate_90", ret, 1, &failures);
-    check_info(&g2d, "rotate_90_size", h0, w0, &failures);
+    check_info("rotate_90_size", h0, w0, &failures);
 
     g2d_rotate_req_init(&rotate_req, 180);
-    ret = g2d_rotate(&g2d, &rotate_req);
+    ret = g2d_rotate(&rotate_req);
     check_ret("rotate_180", ret, 1, &failures);
-    check_info(&g2d, "rotate_180_size", h0, w0, &failures);
+    check_info("rotate_180_size", h0, w0, &failures);
 
     /* negative degrees are normalized: -270 == 90, back to w0 x h0 */
     g2d_rotate_req_init(&rotate_req, -270);
-    ret = g2d_rotate(&g2d, &rotate_req);
+    ret = g2d_rotate(&rotate_req);
     check_ret("rotate_-270", ret, 1, &failures);
-    check_info(&g2d, "rotate_-270_size", w0, h0, &failures);
+    check_info("rotate_-270_size", w0, h0, &failures);
 
     /* arbitrary angle: surface becomes the rotated bounding box */
     rot45 = rotated45_size(w0, h0);
     g2d_rotate_req_init(&rotate_req, 45);
-    ret = g2d_rotate(&g2d, &rotate_req);
+    ret = g2d_rotate(&rotate_req);
     check_ret("rotate_45", ret, 1, &failures);
-    check_info(&g2d, "rotate_45_size", rot45, rot45, &failures);
+    check_info("rotate_45_size", rot45, rot45, &failures);
 
     /* scale the destination surface back to the original size */
     g2d_scale_to_req_init(&scale_req, w0, h0);
-    ret = g2d_scale_to(&g2d, &scale_req);
+    ret = g2d_scale_to(&scale_req);
     check_ret("scale_to_restore", ret, 1, &failures);
-    check_info(&g2d, "scale_restore_size", w0, h0, &failures);
+    check_info("scale_restore_size", w0, h0, &failures);
 
     g2d_scale_to_req_init(&scale_req, 320, 240);
-    ret = g2d_scale_to(&g2d, &scale_req);
+    ret = g2d_scale_to(&scale_req);
     check_ret("scale_to_320x240", ret, 1, &failures);
-    check_info(&g2d, "scale_to_size", 320, 240, &failures);
+    check_info("scale_to_size", 320, 240, &failures);
 
     g2d_scale_to_req_init(&scale_req, w0, h0);
-    ret = g2d_scale_to(&g2d, &scale_req);
+    ret = g2d_scale_to(&scale_req);
     check_ret("scale_to_restore2", ret, 1, &failures);
-    check_info(&g2d, "scale_restore2_size", w0, h0, &failures);
+    check_info("scale_restore2_size", w0, h0, &failures);
 
     g2d_scale_to_req_init(&scale_req, 0, 0);
-    ret = g2d_scale_to(&g2d, &scale_req);
+    ret = g2d_scale_to(&scale_req);
     check_ret("scale_to_invalid", ret, 0, &failures);
-    check_info(&g2d, "scale_invalid_size", w0, h0, &failures);
+    check_info("scale_invalid_size", w0, h0, &failures);
 
     /* fps benchmark on the restored w0 x h0 surface */
     bench_ctx.opaque = &opaque_img;
@@ -518,37 +509,36 @@ int main(int argc, char** argv) {
     bench_ctx.h = h0;
     bench_ctx.seq = 0;
     printf("--- fps benchmark ---\n");
-    bench_run(&g2d, "clear", bench_frame_clear, &bench_ctx, &failures);
-    bench_run(&g2d, "fill_rect x16", bench_frame_fill, &bench_ctx, &failures);
-    bench_run(&g2d, "blit_opaque", bench_frame_blit, &bench_ctx, &failures);
-    bench_run(&g2d, "blit_alpha", bench_frame_blit_alpha, &bench_ctx, &failures);
-    bench_run(&g2d, "mixed_frame", bench_frame_mixed, &bench_ctx, &failures);
+    bench_run("clear", bench_frame_clear, &bench_ctx, &failures);
+    bench_run("fill_rect x16", bench_frame_fill, &bench_ctx, &failures);
+    bench_run("blit_opaque", bench_frame_blit, &bench_ctx, &failures);
+    bench_run("blit_alpha", bench_frame_blit_alpha, &bench_ctx, &failures);
+    bench_run("mixed_frame", bench_frame_mixed, &bench_ctx, &failures);
 
     bench_ctx.seq = 0;
-    bench_run(&g2d, "rotate_90/270", bench_frame_rotate, &bench_ctx, &failures);
+    bench_run("rotate_90/270", bench_frame_rotate, &bench_ctx, &failures);
     /* odd frame count leaves the surface rotated 90: rotate back */
     if((bench_ctx.seq % 2) != 0) {
         g2d_rotate_req_init(&rotate_req, 270);
-        ret = g2d_rotate(&g2d, &rotate_req);
+        ret = g2d_rotate(&rotate_req);
         check_ret("rotate_bench_restore", ret, 1, &failures);
     }
-    check_info(&g2d, "rotate_bench_size", w0, h0, &failures);
+    check_info("rotate_bench_size", w0, h0, &failures);
 
     bench_ctx.seq = 0;
-    bench_run(&g2d, "scale_to ping-pong", bench_frame_scale, &bench_ctx, &failures);
+    bench_run("scale_to ping-pong", bench_frame_scale, &bench_ctx, &failures);
     /* odd frame count leaves the surface scaled down: restore */
     if((bench_ctx.seq % 2) != 0) {
         g2d_scale_to_req_init(&scale_req, w0, h0);
-        ret = g2d_scale_to(&g2d, &scale_req);
+        ret = g2d_scale_to(&scale_req);
         check_ret("scale_bench_restore", ret, 1, &failures);
     }
-    check_info(&g2d, "scale_bench_size", w0, h0, &failures);
+    check_info("scale_bench_size", w0, h0, &failures);
 
     printf("g2dtest summary: %s (%d failure)\n", failures == 0 ? "PASS" : "FAIL", failures);
     usleep(50000);
 
     shm_image_destroy(&alpha_img);
     shm_image_destroy(&opaque_img);
-    g2d_close(&g2d);
     return failures == 0 ? 0 : -1;
 }

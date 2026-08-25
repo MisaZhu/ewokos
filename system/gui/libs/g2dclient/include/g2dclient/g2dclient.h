@@ -9,10 +9,6 @@
 extern "C" {
 #endif
 
-typedef struct {
-	char dev[FS_FULL_NAME_MAX];
-} g2d_t;
-
 enum {
 	G2D_DEV_CNTL_GET_INFO = 0,
 	G2D_DEV_CNTL_CLEAR,
@@ -183,15 +179,14 @@ static inline void g2d_scale_to_req_init(g2d_scale_to_req_t* req, uint32_t width
 	req->height = height;
 }
 
-int g2d_open(const char* dev, g2d_t* g2d);
-int g2d_close(g2d_t* g2d);
-int g2d_info(g2d_t* g2d, g2d_info_t* info);
-int g2d_clear(g2d_t* g2d, uint32_t color);
-int g2d_fill_rect(g2d_t* g2d, const g2d_fill_req_t* req);
-int g2d_blit_shm(g2d_t* g2d, const g2d_blit_req_t* req);
-int g2d_blit_alpha_shm(g2d_t* g2d, const g2d_blit_req_t* req);
-int g2d_rotate(g2d_t* g2d, const g2d_rotate_req_t* req);
-int g2d_scale_to(g2d_t* g2d, const g2d_scale_to_req_t* req);
+int g2d_set_dev(const char* dev);
+int g2d_info(g2d_info_t* info);
+int g2d_clear(uint32_t color);
+int g2d_fill_rect(const g2d_fill_req_t* req);
+int g2d_blit_shm(const g2d_blit_req_t* req);
+int g2d_blit_alpha_shm(const g2d_blit_req_t* req);
+int g2d_rotate(const g2d_rotate_req_t* req);
+int g2d_scale_to(const g2d_scale_to_req_t* req);
 
 #ifdef __cplusplus
 }
