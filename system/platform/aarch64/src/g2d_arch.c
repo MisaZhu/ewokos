@@ -3,6 +3,7 @@
    matters: 14-bit fixed point trig, ceiling bounding-box sizes, the
    div255-free (a*x)>>8 effective alpha and the per-pixel /255 blend. */
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 #ifdef __cplusplus
@@ -589,6 +590,317 @@ void arch_g2d_blt_alpha(uint32_t* argb_src, int32_t src_w, int32_t src_h,
 
 /* -------------------------------------------------------------- scale --- */
 
+/* bilinear scaler filling the whole destination, with per-axis 16.16
+   fixed-point stepping and 8-bit quantized weights */
+enum {
+	G2D_SCALE_FIXED_SHIFT = 16,
+	G2D_SCALE_FIXED_SCALE = 1 << G2D_SCALE_FIXED_SHIFT,
+	G2D_SCALE_FIXED_MASK = G2D_SCALE_FIXED_SCALE - 1
+};
+
+/* interpolate the packed (byte 0, byte 2) channels with an 8-bit weight;
+   w0+w1 = 256 keeps each 16-bit lane carry-free (255*256 = 0xFF00) */
+static inline uint32_t g2d_scale_lerp_rb(uint32_t a, uint32_t b, uint32_t w1) {
+	uint32_t w0 = 256 - w1;
+	return ((((a & 0x00FF00FF) * w0 + (b & 0x00FF00FF) * w1) >> 8) & 0x00FF00FF);
+}
+
+static inline uint32_t g2d_scale_lerp_ga(uint32_t a, uint32_t b, uint32_t w1) {
+	uint32_t w0 = 256 - w1;
+	return ((((((a >> 8) & 0x00FF00FF) * w0 + ((b >> 8) & 0x00FF00FF) * w1) >> 8)
+			& 0x00FF00FF) << 8);
+}
+
+/* same, with +128 rounding per lane to match the NEON vmla/rnd paths
+   bit-exactly (per-lane max is 255*256 + 128 = 0xFF80, still carry-free) */
+static inline uint32_t g2d_scale_lerp_rb_r(uint32_t a, uint32_t b, uint32_t w1) {
+	uint32_t w0 = 256 - w1;
+	return ((((a & 0x00FF00FF) * w0 + (b & 0x00FF00FF) * w1 + 0x00800080u) >> 8)
+			& 0x00FF00FF);
+}
+
+static inline uint32_t g2d_scale_lerp_ga_r(uint32_t a, uint32_t b, uint32_t w1) {
+	uint32_t w0 = 256 - w1;
+	return ((((((a >> 8) & 0x00FF00FF) * w0 + ((b >> 8) & 0x00FF00FF) * w1 + 0x00800080u) >> 8)
+			& 0x00FF00FF) << 8);
+}
+
+static inline uint32_t g2d_scale_bilinear_interp(uint32_t p00, uint32_t p01, uint32_t p10, uint32_t p11,
+		uint32_t fx, uint32_t fy) {
+	/* quantize 16.16 fractions to 8-bit rounded weights, matching the NEON
+	   path precision; 8x32-bit multiplies instead of 16x64-bit */
+	uint32_t fx8 = (fx + 128) >> 8;
+	uint32_t fy8 = (fy + 128) >> 8;
+
+	uint32_t top_rb = g2d_scale_lerp_rb(p00, p01, fx8);
+	uint32_t top_ga = g2d_scale_lerp_ga(p00, p01, fx8);
+	uint32_t bot_rb = g2d_scale_lerp_rb(p10, p11, fx8);
+	uint32_t bot_ga = g2d_scale_lerp_ga(p10, p11, fx8);
+
+	return g2d_scale_lerp_rb(top_rb, bot_rb, fy8) |
+			g2d_scale_lerp_ga(top_ga, bot_ga, fy8);
+}
+
+static void g2d_scale_prepare_axis(int dst_len, int src_max, uint32_t inv_scale,
+		int *idx0, int *idx1, uint32_t *frac) {
+	uint32_t pos = 0;
+
+	for(int i = 0; i < dst_len; i++) {
+		int base = (int)(pos >> G2D_SCALE_FIXED_SHIFT);
+		uint32_t f = pos & G2D_SCALE_FIXED_MASK;
+		int next = base + 1;
+
+		if(base >= src_max) {
+			base = src_max;
+			next = src_max;
+			f = 0;
+		}
+		else if(next > src_max) {
+			next = src_max;
+		}
+
+		idx0[i] = base;
+		idx1[i] = next;
+		frac[i] = f;
+		pos += inv_scale;
+	}
+}
+
+/* plain decimation when both axes are exact integer steps >= 2 */
+static int g2d_scale_integer_downsample(const uint32_t* argb_src, int32_t src_w,
+		uint32_t* argb_dst, int32_t dst_w, int32_t dst_h,
+		uint32_t inv_x, uint32_t inv_y) {
+	if((inv_x & G2D_SCALE_FIXED_MASK) != 0 || (inv_y & G2D_SCALE_FIXED_MASK) != 0)
+		return 0;
+
+	uint32_t step_x = inv_x >> G2D_SCALE_FIXED_SHIFT;
+	uint32_t step_y = inv_y >> G2D_SCALE_FIXED_SHIFT;
+	if(step_x < 2 || step_y < 2)
+		return 0;
+
+	int is_pow2_x = (step_x & (step_x - 1)) == 0;
+	int is_pow2_y = (step_y & (step_y - 1)) == 0;
+
+	if(is_pow2_x && is_pow2_y) {
+		unsigned shift_x = 0;
+		unsigned shift_y = 0;
+		while((1U << shift_x) < step_x)
+			shift_x++;
+		while((1U << shift_y) < step_y)
+			shift_y++;
+
+		for(int32_t y = 0; y < dst_h; y++) {
+			const uint32_t *src_row = argb_src + (y << shift_y) * src_w;
+			uint32_t *dst_row = argb_dst + y * dst_w;
+			int32_t x = 0;
+
+			for(; x <= dst_w - 4; x += 4) {
+				dst_row[x] = src_row[x << shift_x];
+				dst_row[x + 1] = src_row[(x + 1) << shift_x];
+				dst_row[x + 2] = src_row[(x + 2) << shift_x];
+				dst_row[x + 3] = src_row[(x + 3) << shift_x];
+			}
+
+			for(; x < dst_w; x++)
+				dst_row[x] = src_row[x << shift_x];
+		}
+
+		return 1;
+	}
+
+	uint32_t src_y = 0;
+	for(int32_t y = 0; y < dst_h; y++) {
+		const uint32_t *src_row = argb_src + src_y * src_w;
+		uint32_t *dst_row = argb_dst + y * dst_w;
+		uint32_t src_x = 0;
+		int32_t x = 0;
+
+		for(; x <= dst_w - 4; x += 4) {
+			dst_row[x] = src_row[src_x];
+			src_x += step_x;
+			dst_row[x + 1] = src_row[src_x];
+			src_x += step_x;
+			dst_row[x + 2] = src_row[src_x];
+			src_x += step_x;
+			dst_row[x + 3] = src_row[src_x];
+			src_x += step_x;
+		}
+
+		for(; x < dst_w; x++) {
+			dst_row[x] = src_row[src_x];
+			src_x += step_x;
+		}
+
+		src_y += step_y;
+	}
+
+	return 1;
+}
+
+/* Separable two-pass upscale for scale >= 1 on both axes (inv <= FIXED_SCALE):
+   each source row feeds ~scale destination rows, so the horizontal lerp is
+   computed once per source row into a 2-slot row cache (gi0 advances <= 1
+   per destination row), and the vertical pass becomes a contiguous scan.
+   All scratch comes from a single malloc. Returns 0 on malloc failure so
+   the caller falls back to the gather path. */
+static int g2d_scale_separable_upscale(const uint32_t* argb_src, int32_t src_w, int32_t src_h,
+		uint32_t* argb_dst, int32_t dst_w, int32_t dst_h,
+		uint32_t inv_x, uint32_t inv_y) {
+	int hmax = src_h - 1;
+	int wmax = src_w - 1;
+
+	size_t cols = (size_t)dst_w;
+	size_t fx8_bytes = (cols * sizeof(uint16_t) + 3u) & ~(size_t)3u; /* keep u32 rows aligned */
+	uint8_t *mem = (uint8_t*)malloc(cols * 2 * sizeof(int) + fx8_bytes +
+			2 * cols * sizeof(uint32_t));
+	if(mem == NULL)
+		return 0;
+
+	int *x0 = (int*)mem;
+	int *x1 = x0 + cols;
+	uint16_t *fx8 = (uint16_t*)(x1 + cols);
+	uint32_t *hrow[2];
+	hrow[0] = (uint32_t*)((uint8_t*)fx8 + fx8_bytes);
+	hrow[1] = hrow[0] + cols;
+	int hrow_y[2] = {-2, -2}; /* source row cached in each slot */
+
+	/* column mapping + 8-bit rounded weights, computed once */
+	uint32_t pos = 0;
+	for(int j = 0; j < dst_w; j++) {
+		int base = (int)(pos >> G2D_SCALE_FIXED_SHIFT);
+		uint32_t f = pos & G2D_SCALE_FIXED_MASK;
+		int next = base + 1;
+
+		if(base >= wmax) {
+			base = wmax;
+			next = wmax;
+			f = 0;
+		}
+		else if(next > wmax) {
+			next = wmax;
+		}
+
+		x0[j] = base;
+		x1[j] = next;
+		fx8[j] = (uint16_t)((f + 128) >> 8); /* 0..256 */
+		pos += inv_x;
+	}
+
+	uint32_t src_y = 0;
+	for(int i = 0; i < dst_h; i++) {
+		int gi0 = (int)(src_y >> G2D_SCALE_FIXED_SHIFT);
+		uint32_t gi_frac = src_y & G2D_SCALE_FIXED_MASK;
+
+		if(gi0 >= hmax) {
+			gi0 = hmax;
+			gi_frac = 0;
+		}
+		int gi1 = (gi0 < hmax) ? gi0 + 1 : hmax;
+		uint16_t fy8 = (uint16_t)((gi_frac + 128) >> 8);
+		if(fy8 == 256) {
+			/* folds exactly into the next source row (bit-exact) */
+			gi0 = gi1;
+			fy8 = 0;
+		}
+
+		/* make sure both needed rows are cached; row access is monotonic,
+		   so evicting the slot holding the lowest row is always safe */
+		for(int n = 0; n < 2; n++) {
+			int y = (n == 0) ? gi0 : gi1;
+			if(hrow_y[0] == y || hrow_y[1] == y)
+				continue;
+
+			int slot = (hrow_y[0] < hrow_y[1]) ? 0 : 1;
+			const uint32_t *srow = argb_src + y * src_w;
+			uint32_t *hr = hrow[slot];
+
+			for(int j = 0; j < dst_w; j++) {
+				uint32_t a = srow[x0[j]];
+				uint32_t b = srow[x1[j]];
+
+				if(a == b)
+					hr[j] = a;
+				else
+					hr[j] = g2d_scale_lerp_rb_r(a, b, fx8[j]) |
+							g2d_scale_lerp_ga_r(a, b, fx8[j]);
+			}
+			hrow_y[slot] = y;
+		}
+
+		const uint32_t *r0 = (hrow_y[0] == gi0) ? hrow[0] : hrow[1];
+		const uint32_t *r1 = (hrow_y[0] == gi1) ? hrow[0] : hrow[1];
+		uint32_t *drow = argb_dst + i * dst_w;
+
+		if(fy8 == 0 || r0 == r1) {
+			memcpy(drow, r0, cols * sizeof(uint32_t));
+		}
+		else if(((uintptr_t)drow & 0xF) != 0) {
+			/* unaligned row start: SIMD stores can fault on Device-mapped
+			   framebuffer memory */
+			for(int j = 0; j < dst_w; j++)
+				drow[j] = g2d_scale_lerp_rb_r(r0[j], r1[j], fy8) |
+						g2d_scale_lerp_ga_r(r0[j], r1[j], fy8);
+		}
+		else {
+			uint16x8_t wv0 = vdupq_n_u16((uint16_t)(256 - fy8));
+			uint16x8_t wv1 = vdupq_n_u16(fy8);
+			uint16x8_t rnd = vdupq_n_u16(128);
+
+			int j = 0;
+			for(; j <= dst_w - 4; j += 4) {
+				uint8x16_t b0 = vreinterpretq_u8_u32(g2d_ld1q_u32(r0 + j));
+				uint8x16_t b1 = vreinterpretq_u8_u32(g2d_ld1q_u32(r1 + j));
+
+				uint16x8_t t0l = vmovl_u8(vget_low_u8(b0));
+				uint16x8_t t0h = vmovl_u8(vget_high_u8(b0));
+				uint16x8_t t1l = vmovl_u8(vget_low_u8(b1));
+				uint16x8_t t1h = vmovl_u8(vget_high_u8(b1));
+
+				uint16x8_t ol = vshrq_n_u16(vmlaq_u16(vmlaq_u16(rnd, t0l, wv0), t1l, wv1), 8);
+				uint16x8_t oh = vshrq_n_u16(vmlaq_u16(vmlaq_u16(rnd, t0h, wv0), t1h, wv1), 8);
+
+				g2d_st1q_u32(drow + j,
+						vreinterpretq_u32_u8(vcombine_u8(vmovn_u16(ol), vmovn_u16(oh))));
+			}
+
+			for(; j < dst_w; j++) {
+				drow[j] = g2d_scale_lerp_rb_r(r0[j], r1[j], fy8) |
+						g2d_scale_lerp_ga_r(r0[j], r1[j], fy8);
+			}
+		}
+
+		src_y += inv_y;
+	}
+
+	free(mem);
+	return 1;
+}
+
+#if defined(__GNUC__) && !defined(__clang__)
+/* GCC with -mstrict-align lowers vld1_u32 on a pointer without proven 8-byte
+   alignment to 2 scalar loads + orr + fmov. LD1 itself supports unaligned
+   addresses in normal memory, so emit the single-instruction load directly. */
+static inline uint32x2_t g2d_scale_ld1_u32_pair(const uint32_t *p) {
+	uint32x2_t v;
+	__asm__("ld1 {%0.2s}, [%1]" : "=w"(v) : "r"(p) : );
+	return v;
+}
+#else
+static inline uint32x2_t g2d_scale_ld1_u32_pair(const uint32_t *p) {
+	return vld1_u32(p);
+}
+#endif
+
+/* Difference-form u8 lerp, same integer arithmetic as the scalar w8 path:
+   out = a + round((b - a) * w1 / 256), w1 unsigned 0..255. NEON has no
+   mixed-sign u8xs8 widening multiply, so take the difference of two unsigned
+   widening products; it lands in s16 range (|.| <= 65025) and vrshrn applies
+   the +128 rounding shift. No pixel widening, no w0 weight vectors. */
+static inline uint8x8_t g2d_scale_lerp8(uint8x8_t a, uint8x8_t b, uint8x8_t w1) {
+	int16x8_t acc = vreinterpretq_s16_u16(vsubq_u16(vmull_u8(b, w1), vmull_u8(a, w1)));
+	return vadd_u8(a, vreinterpret_u8_s8(vrshrn_n_s16(acc, 8)));
+}
+
 void arch_g2d_scale_to(uint32_t* argb_src, int32_t src_w, int32_t src_h,
 		uint32_t* argb_dst, int32_t dst_w, int32_t dst_h) {
 	if(argb_src == NULL || argb_dst == NULL ||
@@ -600,53 +912,223 @@ void arch_g2d_scale_to(uint32_t* argb_src, int32_t src_w, int32_t src_h,
 		return;
 	}
 
-	/* nearest-neighbor scaling of the whole surface */
-	for(int32_t row = 0; row < dst_h; row++) {
-		int32_t src_y = (int32_t)((int64_t)row * src_h / dst_h);
-		if(src_y >= src_h) src_y = src_h - 1;
-		const uint32_t* srow = argb_src + src_y * src_w;
-		uint32_t* drow = argb_dst + row * dst_w;
+	/* per-axis 16.16 fixed-point source step */
+	uint32_t inv_x = (uint32_t)(((uint64_t)src_w << G2D_SCALE_FIXED_SHIFT) / dst_w);
+	uint32_t inv_y = (uint32_t)(((uint64_t)src_h << G2D_SCALE_FIXED_SHIFT) / dst_h);
 
-		/* exact 2x downsample: 8 dst pixels per iteration from 2 loads */
-		if(src_w == dst_w * 2) {
-			int32_t col = 0;
-			for(; col <= dst_w - 8; col += 8) {
-				uint32_t p0 = srow[col * 2];
-				uint32_t p1 = srow[col * 2 + 2];
-				uint32_t p2 = srow[col * 2 + 4];
-				uint32_t p3 = srow[col * 2 + 6];
-				drow[col] = p0; drow[col + 1] = p1;
-				drow[col + 2] = p2; drow[col + 3] = p3;
-				p0 = srow[col * 2 + 8];
-				p1 = srow[col * 2 + 10];
-				p2 = srow[col * 2 + 12];
-				p3 = srow[col * 2 + 14];
-				drow[col + 4] = p0; drow[col + 5] = p1;
-				drow[col + 6] = p2; drow[col + 7] = p3;
+	/* integer decimation: no interpolation needed at all */
+	if(g2d_scale_integer_downsample(argb_src, src_w, argb_dst, dst_w, dst_h, inv_x, inv_y))
+		return;
+
+	/* scale >= 1 on both axes: separable two-pass with row cache; falls
+	   through to the gather path below on malloc failure */
+	if(inv_x <= G2D_SCALE_FIXED_SCALE && inv_y <= G2D_SCALE_FIXED_SCALE &&
+			g2d_scale_separable_upscale(argb_src, src_w, src_h, argb_dst, dst_w, dst_h, inv_x, inv_y))
+		return;
+
+	int wmax = src_w - 1;
+	int hmax = src_h - 1;
+
+	int *x0 = (int*)malloc((size_t)dst_w * sizeof(int));
+	int *x1 = (int*)malloc((size_t)dst_w * sizeof(int));
+	uint32_t *x_frac = (uint32_t*)malloc((size_t)dst_w * sizeof(uint32_t));
+	uint8_t *fx8 = (uint8_t*)malloc((size_t)dst_w * sizeof(uint8_t));
+
+	if(x0 != NULL && x1 != NULL && x_frac != NULL && fx8 != NULL) {
+		g2d_scale_prepare_axis(dst_w, wmax, inv_x, x0, x1, x_frac);
+
+		/* per-column 8-bit horizontal weights, expanded in-register per
+		   iteration; a weight of 256 folds exactly into the next column */
+		for(int j = 0; j < dst_w; j++) {
+			uint32_t f = (x_frac[j] + 128) >> 8; /* 0..256 */
+			if(f == 256) {
+				f = 0;
+				if(x0[j] < wmax) {
+					x0[j]++;
+					x1[j] = (x0[j] < wmax) ? x0[j] + 1 : wmax;
+				}
 			}
-			for(; col < dst_w; col++)
-				drow[col] = srow[col * 2];
-			continue;
-		}
-		/* exact 2x upsample: duplicate each src pixel into pairs */
-		if(dst_w == src_w * 2) {
-			int32_t col = 0;
-			for(; col <= dst_w - 8; col += 8) {
-				uint32x4_t p = g2d_ld1q_u32(srow + (col >> 1));
-				uint32x4x2_t z = vzipq_u32(p, p);
-				g2d_st1q_u32(drow + col, z.val[0]);
-				g2d_st1q_u32(drow + col + 4, z.val[1]);
-			}
-			for(; col < dst_w; col++)
-				drow[col] = srow[col >> 1];
-			continue;
+			fx8[j] = (uint8_t)f;
 		}
 
-		for(int32_t col = 0; col < dst_w; col++) {
-			int32_t src_x = (int32_t)((int64_t)col * src_w / dst_w);
-			if(src_x >= src_w) src_x = src_w - 1;
-			drow[col] = srow[src_x];
+		/* pair-load of (x0[j], x0[j]+1) stays in bounds while x0[j] < wmax;
+		   x0 is non-decreasing, so the NEON-safe prefix is contiguous */
+		int j_safe = 0;
+		while(j_safe < dst_w && x0[j_safe] < wmax)
+			j_safe++;
+		int neon_w = j_safe & ~3;
+
+		uint32_t src_y = 0;
+		for(int i = 0; i < dst_h; i++) {
+			int gi0 = (int)(src_y >> G2D_SCALE_FIXED_SHIFT);
+			uint32_t gi_frac = src_y & G2D_SCALE_FIXED_MASK;
+			int gi1 = gi0 + 1;
+
+			if(gi0 >= hmax) {
+				gi0 = hmax;
+				gi1 = hmax;
+				gi_frac = 0;
+			}
+			else if(gi1 > hmax) {
+				gi1 = hmax;
+			}
+
+			const uint32_t *row0 = argb_src + gi0 * src_w;
+			const uint32_t *row1 = argb_src + gi1 * src_w;
+			uint32_t *drow = argb_dst + i * dst_w;
+
+			uint16_t fy = (uint16_t)((gi_frac + 128) >> 8);
+			if(fy == 256) {
+				/* folds exactly into the next source row (bit-exact, same as
+				   the scalar w8 path); keeps the weight in u8 range */
+				gi1 = gi0;
+				row1 = row0;
+				fy = 0;
+			}
+			uint8x8_t wy = vdup_n_u8((uint8_t)fy);
+
+			/* 16-byte SIMD stores need an aligned row start: the surface may
+			   be Device-mapped framebuffer memory where unaligned accesses
+			   fault */
+			int rw = (((uintptr_t)drow & 0xF) == 0) ? neon_w : 0;
+
+			int j = 0;
+			for(; j < rw; j += 4) {
+				/* gather (p00,p01) pairs for 4 output columns from both rows;
+				   x1[j] == x0[j]+1 in the NEON-safe prefix */
+				uint32x4_t ab0 = vcombine_u32(g2d_scale_ld1_u32_pair(row0 + x0[j]),
+						g2d_scale_ld1_u32_pair(row0 + x0[j + 1]));
+				uint32x4_t cd0 = vcombine_u32(g2d_scale_ld1_u32_pair(row0 + x0[j + 2]),
+						g2d_scale_ld1_u32_pair(row0 + x0[j + 3]));
+				uint32x4x2_t u0 = vuzpq_u32(ab0, cd0);
+
+				uint32x4_t ab1 = vcombine_u32(g2d_scale_ld1_u32_pair(row1 + x0[j]),
+						g2d_scale_ld1_u32_pair(row1 + x0[j + 1]));
+				uint32x4_t cd1 = vcombine_u32(g2d_scale_ld1_u32_pair(row1 + x0[j + 2]),
+						g2d_scale_ld1_u32_pair(row1 + x0[j + 3]));
+				uint32x4x2_t u1 = vuzpq_u32(ab1, cd1);
+
+				/* flat 4-pixel block: skip weights and the whole lerp chain */
+				uint32x4_t neq = vorrq_u32(
+						vorrq_u32(veorq_u32(u0.val[0], u0.val[1]),
+								veorq_u32(u0.val[0], u1.val[0])),
+						veorq_u32(u0.val[0], u1.val[1]));
+				if(vmaxvq_u32(neq) == 0) {
+					g2d_st1q_u32(drow + j, u0.val[0]);
+					continue;
+				}
+
+				/* horizontal weight vectors from 4 bytes of fx8:
+				   [a b c d] -> l: [aaaa bbbb], h: [cccc dddd] as w1 bytes.
+				   lane-load keeps the read within the fx8 array bounds */
+				uint8x8_t f8 = vreinterpret_u8_u32(
+						vld1_lane_u32((const uint32_t*)(fx8 + j), vdup_n_u32(0), 0));
+				uint8x8x2_t fz = vzip_u8(f8, f8);
+				uint8x8x2_t wl = vzip_u8(fz.val[0], fz.val[0]);
+
+				/* horizontal lerp in u8 (2 pixels per d-register half) */
+				uint8x16_t tl = vcombine_u8(
+						g2d_scale_lerp8(vget_low_u8(vreinterpretq_u8_u32(u0.val[0])),
+								vget_low_u8(vreinterpretq_u8_u32(u0.val[1])),
+								wl.val[0]),
+						g2d_scale_lerp8(vget_high_u8(vreinterpretq_u8_u32(u0.val[0])),
+								vget_high_u8(vreinterpretq_u8_u32(u0.val[1])),
+								wl.val[1]));
+				uint8x16_t bl = vcombine_u8(
+						g2d_scale_lerp8(vget_low_u8(vreinterpretq_u8_u32(u1.val[0])),
+								vget_low_u8(vreinterpretq_u8_u32(u1.val[1])),
+								wl.val[0]),
+						g2d_scale_lerp8(vget_high_u8(vreinterpretq_u8_u32(u1.val[0])),
+								vget_high_u8(vreinterpretq_u8_u32(u1.val[1])),
+								wl.val[1]));
+
+				/* vertical lerp in u8 + pack */
+				uint8x8_t ol = g2d_scale_lerp8(vget_low_u8(tl), vget_low_u8(bl), wy);
+				uint8x8_t oh = g2d_scale_lerp8(vget_high_u8(tl), vget_high_u8(bl), wy);
+
+				g2d_st1q_u32(drow + j, vreinterpretq_u32_u8(vcombine_u8(ol, oh)));
+			}
+
+			for(; j < dst_w; j++) {
+				uint32_t p00 = row0[x0[j]];
+				uint32_t p01 = row0[x1[j]];
+				uint32_t p10 = row1[x0[j]];
+				uint32_t p11 = row1[x1[j]];
+
+				if(p00 == p01 && p00 == p10 && p00 == p11) {
+					drow[j] = p00;
+				}
+				else {
+					drow[j] = g2d_scale_bilinear_interp(p00, p01, p10, p11, x_frac[j], gi_frac);
+				}
+			}
+
+			src_y += inv_y;
 		}
+
+		free(x0);
+		free(x1);
+		free(x_frac);
+		free(fx8);
+		return;
+	}
+
+	free(x0);
+	free(x1);
+	free(x_frac);
+	free(fx8);
+
+	/* scalar fallback on malloc failure */
+	uint32_t src_y = 0;
+	for(int i = 0; i < dst_h; i++) {
+		int gi0 = (int)(src_y >> G2D_SCALE_FIXED_SHIFT);
+		uint32_t gi_frac = src_y & G2D_SCALE_FIXED_MASK;
+		int gi1 = gi0 + 1;
+
+		if(gi0 >= hmax) {
+			gi0 = hmax;
+			gi1 = hmax;
+			gi_frac = 0;
+		}
+		else if(gi1 > hmax) {
+			gi1 = hmax;
+		}
+
+		int gi0w = gi0 * src_w;
+		int gi1w = gi1 * src_w;
+		int dst_row = i * dst_w;
+		uint32_t src_x = 0;
+
+		for(int j = 0; j < dst_w; j++) {
+			int gj0 = (int)(src_x >> G2D_SCALE_FIXED_SHIFT);
+			uint32_t gj_frac = src_x & G2D_SCALE_FIXED_MASK;
+			int gj1 = gj0 + 1;
+
+			if(gj0 >= wmax) {
+				gj0 = wmax;
+				gj1 = wmax;
+				gj_frac = 0;
+			}
+			else if(gj1 > wmax) {
+				gj1 = wmax;
+			}
+
+			uint32_t p00 = argb_src[gi0w + gj0];
+			uint32_t p01 = argb_src[gi0w + gj1];
+			uint32_t p10 = argb_src[gi1w + gj0];
+			uint32_t p11 = argb_src[gi1w + gj1];
+
+			if(p00 == p01 && p00 == p10 && p00 == p11) {
+				argb_dst[dst_row + j] = p00;
+			}
+			else {
+				argb_dst[dst_row + j] = g2d_scale_bilinear_interp(p00, p01, p10, p11, gj_frac, gi_frac);
+			}
+
+			src_x += inv_x;
+		}
+
+		src_y += inv_y;
 	}
 }
 
