@@ -138,7 +138,7 @@ int usbhid_vdev_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* node,
     return 0;
 }
 
-int usbhid_vdev_close(vdevice_t* dev, int fd, int from_pid, uint32_t node,
+int usbhid_vdev_close(vdevice_t* dev, int fd, int from_pid, ewokos_addr_t node,
         fsinfo_t* fsinfo, void* p) {
     (void)dev;
     (void)node;

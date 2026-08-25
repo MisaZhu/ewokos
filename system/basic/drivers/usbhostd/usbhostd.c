@@ -24,7 +24,7 @@
 #include <ewoksys/kernel_tic.h>
 #include <ewoksys/klog.h>
 #include <ewoksys/proc.h>
-#include <bsp/bsp_usb.h>
+#include <usb/bsp_usb.h>
 #include <usb/usb_defs.h>
 #include <usb/usbhid.h>
 #include <usb/usbhidsrv.h>
@@ -42,9 +42,13 @@
 #define USB_HUB_PWR_WAIT_MAX_MS 500u
 #define USB_HUB_CONNECT_GRACE_MS 300u
 #define USB_HUB_RETRY_INTERVAL_MS 500u
+/* root-port bring-up failures: after this many consecutive failures the
+   whole controller is re-initialized (a wedged port state on some
+   controllers only clears with a bring-up from scratch) */
+#define USB_ENUM_FAIL_REINIT_AFTER 6u
 
 /* enumeration / bring-up logging; per-report traffic stays silent */
-#define USB_LOG_ENABLE 0
+#define USB_LOG_ENABLE 1
 #if USB_LOG_ENABLE
 #define slog(...) klog(__VA_ARGS__)
 #else
@@ -74,7 +78,7 @@ typedef struct {
     uint8_t ep_addr;
     uint16_t max_packet;
     uint8_t report_len;
-    uint8_t kbd_report_id;   /* composite only */
+    uint8_t kbd_report_id;   /* report-ID keyboard / composite */
     uint8_t mouse_report_id; /* composite only */
     mouse_parser_t mouse;
     touch_parser_t touch;
@@ -86,6 +90,7 @@ static usb_dev_t _devs[USB_MAX_DEVS];
 static usb_input_dev_t _inputs[USB_MAX_INPUTS];
 static uint64_t _next_scan_ms = 0;
 static uint32_t _idle_sleep_us = USB_IDLE_SLEEP_MIN_US;
+static uint32_t _enum_fail_streak = 0;
 
 static inline uint16_t le16(const void* p) {
     const uint8_t* b = (const uint8_t*)p;
@@ -320,23 +325,36 @@ static int usb_input_setup(int dev_idx, const hid_candidate_t* cand,
     return slot;
 }
 
-static int usb_register_keyboard(int dev_idx, const hid_candidate_t* cand) {
+static int usb_register_keyboard(int dev_idx, const hid_candidate_t* cand,
+        uint8_t kbd_rid) {
     bsp_usb_dev_t* hdev = _devs[dev_idx].hdev;
     int slot;
 
     /* Set_Protocol is only defined for boot-subclass interfaces; non-boot
-       interfaces default to Report protocol and must not receive it. */
+       interfaces default to Report protocol and must not receive it.
+       Report IDs only exist in Report protocol, so a boot interface whose
+       descriptor carries one must run in Report protocol or the IDs are
+       silently dropped from every report. */
     if (cand->subclass == USB_SUBCLASS_BOOT) {
-        (void)usb_hid_set_protocol(hdev, cand->iface_num, 0);
+        (void)usb_hid_set_protocol(hdev, cand->iface_num, kbd_rid != 0 ? 1 : 0);
     }
     (void)usb_hid_set_idle(hdev, cand->iface_num);
     slot = usb_input_setup(dev_idx, cand, USB_INPUT_KEYBOARD);
     if (slot < 0) {
         return -1;
     }
-    _inputs[slot].report_len = 8;
-    slog("usbhostd: register keyboard slot=%d dev=%d iface=%u ep=%02x interval=%u maxpkt=%u\n",
-            slot, dev_idx, cand->iface_num, cand->ep_addr, cand->interval, cand->max_packet);
+    _inputs[slot].kbd_report_id = kbd_rid;
+    if (kbd_rid != 0) {
+        /* the endpoint may also carry other collections (consumer/media):
+           request full packets and filter by report ID when polling */
+        _inputs[slot].report_len = (uint8_t)_inputs[slot].max_packet;
+    }
+    else {
+        _inputs[slot].report_len = 8;
+    }
+    slog("usbhostd: register keyboard slot=%d dev=%d iface=%u ep=%02x interval=%u maxpkt=%u rid=%u\n",
+            slot, dev_idx, cand->iface_num, cand->ep_addr, cand->interval,
+            cand->max_packet, kbd_rid);
     return 0;
 }
 
@@ -643,7 +661,13 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
         else if (dev_type == HID_DEV_TYPE_KEYBOARD ||
                 (candidates[i].subclass == USB_SUBCLASS_BOOT &&
                  candidates[i].protocol == USB_PROTOCOL_KEYBOARD)) {
-            if (usb_register_keyboard(dev_idx, &candidates[i]) == 0) {
+            /* a keyboard collection may multiplex extra reports (e.g.
+               consumer/media) on the same endpoint via report IDs even
+               without a mouse collection; plain boot layouts have ID 0 */
+            uint8_t kbd_rid = desc_ok ?
+                    hid_find_kbd_report_id(report_desc,
+                            candidates[i].report_desc_len) : 0;
+            if (usb_register_keyboard(dev_idx, &candidates[i], kbd_rid) == 0) {
                 registered++;
             }
         }
@@ -876,6 +900,8 @@ static void usb_hub_scan(int dev_idx) {
     }
 }
 
+static void usb_enum_failed(void);
+
 /* check the bsp root ports for connect/disconnect */
 static void usb_scan_root_ports(void) {
     int port_count = bsp_usb_root_port_count();
@@ -901,11 +927,53 @@ static void usb_scan_root_ports(void) {
         if (connected && !have_dev) {
             int speed = bsp_usb_root_port_reset(p);
             if (speed < 0) {
+                slog("usbhostd: root port=%d reset_failed\n", p);
+                usb_enum_failed();
                 continue;
             }
             slog("usbhostd: root port=%d connected speed=%d\n", p, speed);
-            usb_enumerate_device(p, speed, -1, 0);
+            if (usb_enumerate_device(p, speed, -1, 0) < 0) {
+                usb_enum_failed();
+            }
+            else {
+                _enum_fail_streak = 0;
+            }
         }
+    }
+}
+
+/*
+ * Root-port bring-up failed this pass. Retry tighter than the normal scan
+ * tick -- devices whose firmware needs a moment after power-up come back
+ * fast -- backing off stepwise towards the scan interval. After a streak
+ * of failures re-initialize the whole controller: some controllers latch a
+ * wedged port state (reset succeeds, then no SETUP ever gets answered)
+ * that only a bring-up from scratch clears.
+ */
+static void usb_enum_failed(void) {
+    uint64_t now = kernel_tic_ms(0);
+    uint32_t retry_ms;
+
+    _enum_fail_streak++;
+    retry_ms = 200u + (_enum_fail_streak - 1u) * 100u;
+    if (retry_ms > USB_SCAN_INTERVAL_MS) {
+        retry_ms = USB_SCAN_INTERVAL_MS;
+    }
+    if (_enum_fail_streak >= USB_ENUM_FAIL_REINIT_AFTER) {
+        _enum_fail_streak = 0;
+        if (bsp_usb_reinit() == 0) {
+            slog("usbhostd: controller re-init after repeated enumeration failures\n");
+            /* the controller forgot every device (all addresses and
+               endpoints are gone): drop the policy tables too, stale bsp
+               handles must never be polled -- the next scan re-enumerates
+               the tree from scratch */
+            memset(_devs, 0, sizeof(_devs));
+            memset(_inputs, 0, sizeof(_inputs));
+            retry_ms = 500u; /* let the controller settle */
+        }
+    }
+    if (now + retry_ms < _next_scan_ms) {
+        _next_scan_ms = now + retry_ms;
     }
 }
 
@@ -940,14 +1008,29 @@ static bool usb_poll_inputs(vdevice_t* dev) {
         }
 
         if (in->type == USB_INPUT_KEYBOARD) {
+            /* the endpoint may carry reports from other collections
+               (consumer/media): keep only the keyboard collection's
+               report ID */
+            if (in->kbd_report_id != 0 &&
+                    (ret < 2 || report[0] != in->kbd_report_id)) {
+                continue;
+            }
             if ((uint8_t)ret == in->last_len && memcmp(in->last_report, report, ret) == 0) {
                 continue;
             }
             memcpy(in->last_report, report, ret);
             in->last_len = (uint8_t)ret;
             memset(payload, 0, sizeof(payload));
-            memcpy(payload, report,
-                    ret > USB_KEYBOARD_EVENT_SIZE ? USB_KEYBOARD_EVENT_SIZE : ret);
+            if (in->kbd_report_id != 0) {
+                /* strip the report ID: consumers expect the plain body */
+                memcpy(payload, report + 1,
+                        (ret - 1) > USB_KEYBOARD_EVENT_SIZE ?
+                                USB_KEYBOARD_EVENT_SIZE : (ret - 1));
+            }
+            else {
+                memcpy(payload, report,
+                        ret > USB_KEYBOARD_EVENT_SIZE ? USB_KEYBOARD_EVENT_SIZE : ret);
+            }
             usbhid_dispatch(USB_REPORT_ID_KEYBOARD, payload, USB_KEYBOARD_EVENT_SIZE);
             wakeup = true;
         }

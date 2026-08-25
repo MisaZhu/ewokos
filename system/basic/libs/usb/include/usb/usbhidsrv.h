@@ -46,7 +46,7 @@ void usbhid_dispatch(uint8_t report_id, const uint8_t* data, uint8_t len);
 /* vdevice callbacks wired straight into the daemon's vdevice_t */
 int usbhid_vdev_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* node,
         int oflag, void* p);
-int usbhid_vdev_close(vdevice_t* dev, int fd, int from_pid, uint32_t node,
+int usbhid_vdev_close(vdevice_t* dev, int fd, int from_pid, ewokos_addr_t node,
         fsinfo_t* fsinfo, void* p);
 int usbhid_vdev_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* node,
         void* buf, int size, int offset, void* p);
