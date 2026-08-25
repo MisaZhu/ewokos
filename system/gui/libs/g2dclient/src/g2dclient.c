@@ -4,7 +4,7 @@
 
 #define G2D_DEFAULT_DEV "/dev/g2d"
 static char _g2d_dev[FS_FULL_NAME_MAX] = { 0 };
-static int  _dev_pid = -1;
+static int  _dev_pid = 0;
 
 static int g2d_dev_pid(void) {
     if(_dev_pid > 0)
@@ -16,6 +16,19 @@ static int g2d_dev_pid(void) {
     if(_dev_pid <= 0)
         _dev_pid = dev_get_pid(G2D_DEFAULT_DEV);
     return _dev_pid;
+}
+
+int has_g2d(void) {
+    if(_dev_pid > 0) // got the dev pid, okay.
+        return 0;
+
+    if(_dev_pid < 0) //have already tried to get dev pid and failed!
+        return -1;
+
+    //should be the first time the get dev pid
+    if(g2d_dev_pid() > 0)
+        return 0; //yes
+    return -1;
 }
 
 static int g2d_send_struct(int cmd, const void* data, uint32_t size) {

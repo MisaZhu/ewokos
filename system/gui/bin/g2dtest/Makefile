@@ -21,7 +21,7 @@ $(TASK): $(TASK_OBJS) \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libdisplayman.a
 	mkdir -p $(TARGET_DIR)/bin
-	$(LD) -Ttext=100 $(TASK_OBJS) -o $(TASK) $(LDFLAGS) -lg2dclient $(EWOK_LIB_GRAPH) $(EWOK_LIBC)
+	$(LD) -Ttext=100 $(TASK_OBJS) -o $(TASK) $(LDFLAGS) $(EWOK_LIB_GRAPH) -lg2dclient $(EWOK_LIBC)
 
 clean:
 	rm -f $(TASK_OBJS)

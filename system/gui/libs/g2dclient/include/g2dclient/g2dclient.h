@@ -179,6 +179,7 @@ static inline void g2d_scale_to_req_init(g2d_scale_to_req_t* req, uint32_t width
 	req->height = height;
 }
 
+int has_g2d(void);
 int g2d_set_dev(const char* dev);
 int g2d_info(g2d_info_t* info);
 int g2d_clear(uint32_t color);

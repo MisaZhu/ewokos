@@ -184,6 +184,11 @@ void graph_scale_tof_cpu(graph_t* g, graph_t* dst, float scale)
 }
 
 inline void graph_scale_tof(graph_t* g, graph_t* dst, float scale) {
+    if(graph_has_g2d() == 0) {
+        graph_scale_tof_g2d(g, dst, scale);
+        return;
+    }
+
 #if ARCH_BOOST
     //graph_scale_tof_cpu(g, dst, scale);
     graph_scale_tof_arch(g, dst, scale);
@@ -193,6 +198,10 @@ inline void graph_scale_tof(graph_t* g, graph_t* dst, float scale) {
 }
 
 inline void graph_scale_tof_fast(graph_t* g, graph_t* dst, float scale) {
+    if(graph_has_g2d() == 0) {
+        graph_scale_tof_g2d(g, dst, scale);
+        return;
+    }
 #if ARCH_BOOST
     //graph_scale_tof_cpu(g, dst, scale);
     graph_scale_tof_fast_arch(g, dst, scale);

@@ -4,6 +4,8 @@
 #include <graph/graph_arch.h>
 #endif
 
+#include <graph/graph_g2d.h>
+
 #ifdef __cplusplus 
 extern "C" { 
 #endif
@@ -58,6 +60,11 @@ void graph_rotate_to_cpu(graph_t* g, graph_t* ret, int rot) {
 }
 
 void graph_rotate_to(graph_t* g, graph_t* ret, int rot) {
+    if(graph_has_g2d() == 0) {
+        graph_rotate_to_g2d(g, ret, rot);
+        return;
+    }
+
 #ifdef ARCH_BOOST
     graph_rotate_to_arch(g, ret, rot);
 #else
