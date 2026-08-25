@@ -137,6 +137,7 @@ void xwin_revalidate_geometry(x_t* x, xwin_t* win) {
     win->frame_g_shm_id = frame_g_shm_id;
     win->xinfo->frame_g_shm_id = frame_g_shm_id;
     win->frame_g = graph_new(win->frame_g_shm, win->xinfo->winr.w, win->xinfo->winr.h);
+    win->frame_g->shm_id = frame_g_shm_id;
     win->frame_dirty = true;
     win->has_damage = false;
     win->composited = false;
@@ -310,8 +311,9 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
 
         win->xinfo->ws_g_shm_id = ws_g_shm_id;
         win->ws_g = graph_new(win->ws_g_shm, win->xinfo->wsr.w, win->xinfo->wsr.h);
+        win->ws_g->shm_id = ws_g_shm_id;
         graph_clear(win->ws_g, 0x0);
-        win->ws_g_buffer = graph_new(NULL, win->xinfo->wsr.w, win->xinfo->wsr.h);
+        win->ws_g_buffer = graph_new_shm(win->xinfo->wsr.w, win->xinfo->wsr.h);
         graph_clear(win->ws_g_buffer, 0x0);
 
         int32_t frame_g_shm_id = xserver_alloc_shm(uuid ^ 0x46520000u,
@@ -339,6 +341,7 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
 
         win->xinfo->frame_g_shm_id = frame_g_shm_id;
         win->frame_g = graph_new(win->frame_g_shm, win->xinfo->winr.w, win->xinfo->winr.h);
+        win->frame_g->shm_id = frame_g_shm_id;
         win->frame_dirty = true;
         win->ready = false;
         win->has_damage = false;

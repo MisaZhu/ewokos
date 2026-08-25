@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <sys/shm.h>
 #include <ewoksys/proto.h>
+#include <ewoksys/klog.h>
 #include <ewoksys/vdevice.h>
 #include <bsp/bsp_g2d.h>
 #include <g2dclient/g2dclient.h>
@@ -121,6 +122,7 @@ static int32_t g2d_blit_render(const g2d_attached_t* dst,
 		return -1;
 	if(req->dw <= 0 || req->dh <= 0)
 		return -1;
+    //slog("g2d_blit_render src:%d x %d, dst: %d x %d, alpha: %d\n", src_w, src_h, dst->width, dst->height, use_alpha);
 
 	if(use_alpha != 0) {
 		bsp_g2d_blt_alpha(src_buf, src_w, src_h, sx, sy, sw, sh,
@@ -268,6 +270,7 @@ static int32_t g2dd_handle_scale_to(proto_t* in) {
 		return -1;
 	}
 
+    slog("g2dd_handle_scale_to %dx%d\n", src.width, src.height);
 	bsp_g2d_scale_to(src.buffer, (int32_t)src.width, (int32_t)src.height,
 			dst.buffer, (int32_t)dst.width, (int32_t)dst.height);
 

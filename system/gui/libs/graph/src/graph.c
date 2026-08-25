@@ -139,7 +139,7 @@ graph_t* graph_new_shm(int32_t w, int32_t h) {
     if(g2d_shm_alloc((uint32_t)w * (uint32_t)h * sizeof(uint32_t),
                 &shm_id, &pixels) != 0 || shm_id <= 0) {
         if(pixels != NULL)
-            g2d_shm_free(pixels);
+            shmdt(pixels);
         aligned_free(ret);
         return NULL;
     }
@@ -179,12 +179,15 @@ graph_t* graph_dup(graph_t* g) {
 void graph_free(graph_t* g) {
     if(g == NULL)
         return;
-    if(g->shm_id > 0) {
-        if(g->buffer != NULL)
-            g2d_shm_free(g->buffer);
+
+    if(g->need_free) {
+        if(g->shm_id > 0) {
+            if(g->buffer != NULL)
+                shmdt(g->buffer);
+        }
+        else if(g->buffer != NULL)
+            aligned_free(g->buffer);
     }
-    else if(g->buffer != NULL && g->need_free)
-        aligned_free(g->buffer);
     aligned_free(g);
 }
 

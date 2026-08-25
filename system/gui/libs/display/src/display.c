@@ -157,6 +157,7 @@ graph_t* display_fetch_graph(display_t* display) {
         return NULL;
     
     g = graph_new((uint32_t*)dma, w, h);
+    g->shm_id = dma_id;
     display->dma = dma;
     display->dma_id = dma_id;
     display->g = g;
