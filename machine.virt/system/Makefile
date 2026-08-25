@@ -41,7 +41,7 @@ gui: gui_sys
 x: x_sys
 	@$(MAKE) final
 
-basic_sys: kernel_heads
+basic_sys: kernel_heads ewok_heads
 	rm -f $(BUILD_DIR)/lib/libbsp.a
 	mkdir -p $(TARGET_DIR)/drivers/$(HW)
 	cd libs;make

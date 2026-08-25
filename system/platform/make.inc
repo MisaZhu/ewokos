@@ -10,11 +10,21 @@ KERNEL_H = \
 	$(KERNEL_DIR)/platform/$(ARCH)/arch/common/include/arch_context.h \
 	$(KERNEL_DIR)/platform/$(ARCH)/arch/common/include/ewokos_config.h
 
+LIBEWOKSYS_DIR = $(EWOKOS_ROOT_DIR)/system/basic/libc/libewoksys
+
 kernel_heads:
 	mkdir -p ${BUILD_DIR}/include
 	mkdir -p ${BUILD_DIR}/lib
 	mkdir -p ${BUILD_DIR}/rootfs
 	cp -r $(KERNEL_H) $(BUILD_DIR)/include/
+
+ewok_heads:
+# pre-install libc headers so libs (arch/bsp) built before basic can use
+# pthread.h/sys/*.h (same set as libewoksys install_headers)
+	mkdir -p $(BUILD_DIR)/include/ewoksys $(BUILD_DIR)/include/sys
+	cp -r $(LIBEWOKSYS_DIR)/ewoksys/include/ewoksys/* $(BUILD_DIR)/include/ewoksys/
+	cp -r $(LIBEWOKSYS_DIR)/include/sys/* $(BUILD_DIR)/include/sys/
+	cp $(LIBEWOKSYS_DIR)/include/*.h $(BUILD_DIR)/include/
 
 FINAL_DIR = build_$(ARCH)
 
