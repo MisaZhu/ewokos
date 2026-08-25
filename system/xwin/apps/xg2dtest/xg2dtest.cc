@@ -13,7 +13,6 @@
 #include <string.h>
 #include <stdarg.h>
 #include <pthread.h>
-#include <math.h>
 #include <string>
 #include <vector>
 
@@ -22,16 +21,16 @@ using namespace Ewok;
 /*dwell time (ms) for each rotate/scale stage so transitions are visible*/
 #define STAGE_DELAY_MS 160
 
-/*45 degree rotation grows the surface to a square bounding box; the
-  device computes it with 14-bit fixed point (sin45*16384 = 11585),
-  duplicated here to predict the rotated size, same as g2dtest.*/
-#define ROT45_FP   11585
-#define ROT45_BITS 14
+#define CANVAS_W 560u
+#define CANVAS_H 320u
 
-static uint32_t rotated45_size(uint32_t w, uint32_t h) {
-	uint64_t sum = (uint64_t)(w + h) * ROT45_FP;
-	return (uint32_t)((sum + (1u << ROT45_BITS) - 1) >> ROT45_BITS);
-}
+/*stateless g2d: the canvases are shm segments owned by this app and
+  carried in the requests by shm id. the driver attaches, operates in
+  place and detaches, so the shm pixels ARE the result and the preview
+  is just a graph_t wrapped over them, a true readback instead of a
+  cpu mirror. rotation is clockwise degrees; 90/270 swap dimensions and
+  the dst canvas must be created at the rotated size, so the rotate
+  stages ping-pong between two canvases.*/
 
 typedef struct {
 	int shm_id;
@@ -39,7 +38,6 @@ typedef struct {
 	uint32_t size;
 	uint32_t width;
 	uint32_t height;
-	uint32_t stride;
 } shm_image_t;
 
 static int shm_image_create(shm_image_t* img, key_t key, uint32_t width, uint32_t height) {
@@ -47,12 +45,11 @@ static int shm_image_create(shm_image_t* img, key_t key, uint32_t width, uint32_
 		return -1;
 
 	memset(img, 0, sizeof(*img));
-	img->stride = width * 4;
-	img->size = img->stride * height;
+	img->size = width * height * 4;
 	img->width = width;
 	img->height = height;
 	img->shm_id = shmget(key, img->size, 0666 | IPC_CREAT);
-	if(img->shm_id < 0)
+	if(img->shm_id <= 0)
 		return -1;
 	img->pixels = (uint32_t*)shmat(img->shm_id, 0, 0);
 	if(img->pixels == (void*)-1) {
@@ -72,8 +69,23 @@ static void shm_image_destroy(shm_image_t* img) {
 	img->shm_id = -1;
 }
 
+static g2d_canvas_t img_canvas(const shm_image_t* img) {
+	return g2d_canvas(img->shm_id, img->size, img->width, img->height);
+}
+
 static uint32_t make_color(uint8_t a, uint8_t r, uint8_t g, uint8_t b) {
 	return ((uint32_t)a << 24) | ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
+}
+
+static void img_clear(shm_image_t* img, uint32_t color) {
+	uint32_t i;
+	uint32_t n;
+
+	if(img == NULL || img->pixels == NULL)
+		return;
+	n = img->width * img->height;
+	for(i = 0; i < n; i++)
+		img->pixels[i] = color;
 }
 
 static void fill_checker(shm_image_t* img) {
@@ -122,87 +134,38 @@ static void fill_alpha_circle(shm_image_t* img) {
 	}
 }
 
-/*preview-only mirror of the device's arbitrary-angle rotate: nearest
-  sampling inverse mapping into the rotated bounding box, sized with the
-  same 14-bit fixed point ceiling as bsp_g2d_rotated_size(). Right angles
-  are handled by graph_rotate() elsewhere, degree is clockwise.*/
-static graph_t* graph_rotate_any(graph_t* src, int32_t degree) {
-	graph_t* dst;
-	double rad;
-	int32_t c_fp;
-	int32_t s_fp;
-	int32_t dw;
-	int32_t dh;
-	int32_t scx;
-	int32_t scy;
-	int32_t dcx;
-	int32_t dcy;
-	int32_t x;
-	int32_t y;
-	int32_t norm;
+/*deterministic corner markers so rotations can be verified: clockwise
+  90 moves TL->TR, TR->BR, BR->BL, BL->TL*/
+static void set_corner_markers(shm_image_t* img) {
+	uint32_t w;
+	uint32_t h;
 
-	if(src == NULL || src->buffer == NULL)
-		return NULL;
-	norm = ((degree % 360) + 360) % 360;
-	if(norm == 0)
-		return graph_dup(src);
-
-	rad = (double)norm * M_PI / 180.0;
-	c_fp = (int32_t)(cos(rad) * 16384.0 + 0.5);
-	s_fp = (int32_t)(sin(rad) * 16384.0 + 0.5);
-	if(c_fp < 0) c_fp = -c_fp;
-	if(s_fp < 0) s_fp = -s_fp;
-	dw = (int32_t)(((int64_t)src->w * c_fp + (int64_t)src->h * s_fp + 16383) >> 14);
-	dh = (int32_t)(((int64_t)src->w * s_fp + (int64_t)src->h * c_fp + 16383) >> 14);
-	if(dw < 1 || dh < 1)
-		return NULL;
-
-	dst = graph_new(NULL, dw, dh);
-	if(dst == NULL || dst->buffer == NULL) {
-		if(dst != NULL)
-			graph_free(dst);
-		return NULL;
-	}
-	graph_clear(dst, 0xff101820);
-
-	scx = (src->w - 1) / 2;
-	scy = (src->h - 1) / 2;
-	dcx = (dw - 1) / 2;
-	dcy = (dh - 1) / 2;
-	for(y = 0; y < dh; y++) {
-		for(x = 0; x < dw; x++) {
-			int32_t dx = x - dcx;
-			int32_t dy = y - dcy;
-			/*inverse of the clockwise rotation in y-down coordinates*/
-			int32_t sx = scx + (int32_t)(((int64_t)dx * c_fp + (int64_t)dy * s_fp) >> 14);
-			int32_t sy = scy + (int32_t)(((int64_t)dy * c_fp - (int64_t)dx * s_fp) >> 14);
-			if(sx >= 0 && sx < src->w && sy >= 0 && sy < src->h)
-				dst->buffer[y * dw + x] = src->buffer[sy * src->w + sx];
-		}
-	}
-	return dst;
+	if(img == NULL || img->pixels == NULL)
+		return;
+	w = img->width;
+	h = img->height;
+	img->pixels[0] = 0xff000001u;                 /* TL */
+	img->pixels[w - 1] = 0xff000002u;             /* TR */
+	img->pixels[(h - 1) * w + w - 1] = 0xff000003u; /* BR */
+	img->pixels[(h - 1) * w] = 0xff000004u;       /* BL */
 }
 
 class G2DTestWidget: public Widget {
-	/*测试在后台线程循环执行：一轮 = 一组命令级检查（返回码 +
-	  g2d_info 尺寸验证）。所有中间结果先写本地 TestCtx（不持锁），
-	  跑完短暂加锁发布给 UI，避免长时间持锁饿死窗口重绘。
-	  设备没有像素回读接口，预览只是把同一组命令在本地 graph 上
-	  镜像一遍，让画面可见。*/
+	/*测试在后台线程循环执行：一轮 = 基础场景 + rotate/scale 分阶段
+	  检查（返回码 + shm 像素验证）。画布本身就是 shm，驱动原地写入，
+	  预览直接包在画布像素上，就是设备的真实输出。所有中间结果先写
+	  本地 TestCtx（不持锁），跑完短暂加锁发布给 UI，避免长时间持锁
+	  饿死窗口重绘。*/
 	struct TestCtx {
-		g2d_info_t info;
-		uint32_t w0;      /*初始目标面尺寸*/
-		uint32_t h0;
-		graph_t* preview;
+		shm_image_t* canvas;   /*当前活动画布（A/B 乒乓）*/
+		graph_t previewWrap;   /*直接包在活动画布像素上的预览*/
 		std::vector<std::string> logs;
 		std::string firstFailure;
 		int failures;
 		bool pass;
 
-		TestCtx() : preview(NULL), failures(0), pass(false) {
-			memset(&info, 0, sizeof(info));
-			w0 = 0;
-			h0 = 0;
+		TestCtx() : canvas(NULL), failures(0), pass(false) {
+			memset(&previewWrap, 0, sizeof(previewWrap));
 		}
 	};
 
@@ -251,448 +214,253 @@ class G2DTestWidget: public Widget {
 		appendLog(ctx, "PASS %-18s ret=%d", label, ret);
 	}
 
-	/*目标面尺寸只能通过 g2d_info 观察，用来验证 rotate/scale_to 生效*/
-	void checkInfo(TestCtx& ctx, const char* label, uint32_t exp_w, uint32_t exp_h) {
-		g2d_info_t info;
+	void checkPixel(TestCtx& ctx, const char* label, const shm_image_t* img,
+			uint32_t x, uint32_t y, uint32_t expect) {
+		uint32_t got;
 
-		if(g2d_info(&info) != 0) {
-			appendLog(ctx, "FAIL %-18s g2d_info failed", label);
-			markFailure(ctx, "%s g2d_info failed", label);
+		if(img == NULL || img->pixels == NULL ||
+				x >= img->width || y >= img->height) {
+			appendLog(ctx, "FAIL %-18s bad coords", label);
+			markFailure(ctx, "%s bad coords", label);
 			return;
 		}
-		if(info.width != exp_w || info.height != exp_h) {
-			appendLog(ctx, "FAIL %-18s %ux%u (expect %ux%u)",
-					label, info.width, info.height, exp_w, exp_h);
-			markFailure(ctx, "%s size %ux%u", label, info.width, info.height);
+		got = img->pixels[y * img->width + x];
+		if(got != expect) {
+			appendLog(ctx, "FAIL %-18s (%u,%u) %08x want %08x", label, x, y, got, expect);
+			markFailure(ctx, "%s pixel", label);
 			return;
 		}
-		appendLog(ctx, "PASS %-18s %ux%u", label, info.width, info.height);
+		appendLog(ctx, "PASS %-18s (%u,%u)", label, x, y);
 	}
 
-	/*预览镜像：没有像素回读，只保证预览与目标面同尺寸，
-	  内容按命令重画。*/
-	void syncPreview(TestCtx& ctx) {
-		g2d_info_t info;
-
-		if(g2d_info(&info) != 0)
-			return;
-		if(info.width == 0 || info.height == 0)
-			return;
-		if(ctx.preview != NULL &&
-				ctx.preview->w == (int32_t)info.width &&
-				ctx.preview->h == (int32_t)info.height)
-			return;
-		if(ctx.preview != NULL) {
-			graph_free(ctx.preview);
-			ctx.preview = NULL;
-		}
-		ctx.preview = graph_new(NULL, (int32_t)info.width, (int32_t)info.height);
-		if(ctx.preview != NULL && ctx.preview->buffer == NULL) {
-			graph_free(ctx.preview);
-			ctx.preview = NULL;
+	void checkSize(TestCtx& ctx, const char* label, const shm_image_t* img,
+			uint32_t exp_w, uint32_t exp_h) {
+		if(img == NULL || img->width != exp_w || img->height != exp_h) {
+			appendLog(ctx, "FAIL %-18s size", label);
+			markFailure(ctx, "%s size", label);
 			return;
 		}
-		if(ctx.preview != NULL)
-			graph_clear(ctx.preview, 0xff101820);
+		appendLog(ctx, "PASS %-18s %ux%u", label, exp_w, exp_h);
 	}
 
-	void fillPreview(TestCtx& ctx, const g2d_fill_req_t* req) {
-		if(ctx.preview == NULL || req == NULL)
-			return;
-		graph_fill_rect(ctx.preview, req->rect.x, req->rect.y, req->rect.w, req->rect.h, req->color);
-	}
-
-	graph_t* cropPreviewSource(graph_t* src, const g2d_blit_req_t* req) {
-		graph_t* cropped;
-
-		if(src == NULL || req == NULL)
-			return NULL;
-		if(req->sx < 0 || req->sy < 0 || req->sw <= 0 || req->sh <= 0)
-			return NULL;
-		if(req->sx + req->sw > src->w || req->sy + req->sh > src->h)
-			return NULL;
-
-		cropped = graph_new(NULL, req->sw, req->sh);
-		if(cropped == NULL || cropped->buffer == NULL) {
-			if(cropped != NULL)
-				graph_free(cropped);
-			return NULL;
-		}
-
-		graph_blt(src,
-				req->sx, req->sy, req->sw, req->sh,
-				cropped,
-				0, 0, req->sw, req->sh);
-		return cropped;
-	}
-
-	graph_t* preparePreviewSource(graph_t* src, const g2d_blit_req_t* req) {
-		graph_t* cropped;
-		graph_t* rotated;
-		int32_t norm;
-
-		if(src == NULL || req == NULL)
-			return NULL;
-		cropped = cropPreviewSource(src, req);
-		if(cropped == NULL)
-			return NULL;
-		norm = ((req->rotate % 360) + 360) % 360;
-		if(norm == 0)
-			return cropped;
-
-		/*rotate 是顺时针度数：90 的倍数走 graph_rotate（参数是顺时针
-		  90 度步数），任意角度走本地镜像旋转*/
-		if(norm % 90 == 0)
-			rotated = graph_rotate(cropped, (int)(norm / 90));
-		else
-			rotated = graph_rotate_any(cropped, norm);
-		graph_free(cropped);
-		return rotated;
-	}
-
-	void blitPreview(TestCtx& ctx, const g2d_blit_req_t* req, graph_t* src, uint8_t alpha) {
-		graph_t* prepared;
-
-		if(ctx.preview == NULL || req == NULL || src == NULL)
-			return;
-		prepared = preparePreviewSource(src, req);
-		if(prepared == NULL)
-			return;
-		if(alpha != 0) {
-			if(prepared->w == req->dw && prepared->h == req->dh) {
-				graph_blt_alpha(prepared,
-						0, 0, prepared->w, prepared->h,
-						ctx.preview,
-						req->dx, req->dy, req->dw, req->dh,
-						req->alpha);
-			}
-			else {
-				graph_blt_fit_alpha(prepared,
-						0, 0, prepared->w, prepared->h,
-						ctx.preview,
-						req->dx, req->dy, req->dw, req->dh,
-						req->alpha);
-			}
-		}
-		else {
-			if(prepared->w == req->dw && prepared->h == req->dh) {
-				graph_blt(prepared,
-						0, 0, prepared->w, prepared->h,
-						ctx.preview,
-						req->dx, req->dy, req->dw, req->dh);
-			}
-			else {
-				graph_blt_fit(prepared,
-						0, 0, prepared->w, prepared->h,
-						ctx.preview,
-						req->dx, req->dy, req->dw, req->dh);
-			}
-		}
-		graph_free(prepared);
-	}
-
-	/*rotate/scale_to 之后目标面内容未知，预览只按同一角度镜像旋转。
-	  degree 是顺时针度数，支持任意角度*/
-	void rotatePreview(TestCtx& ctx, int32_t degree) {
-		graph_t* rotated;
-		int32_t norm;
-
-		if(ctx.preview == NULL)
-			return;
-		norm = ((degree % 360) + 360) % 360;
-		if(norm == 0)
-			return;
-		if(norm % 90 == 0)
-			rotated = graph_rotate(ctx.preview, (int)(norm / 90));
-		else
-			rotated = graph_rotate_any(ctx.preview, norm);
-		if(rotated == NULL)
-			return;
-		graph_free(ctx.preview);
-		ctx.preview = rotated;
-	}
-
-	void scalePreviewTo(TestCtx& ctx, uint32_t w, uint32_t h) {
-		graph_t* scaled;
-
-		if(ctx.preview == NULL || w == 0 || h == 0)
-			return;
-		if((uint32_t)ctx.preview->w == w && (uint32_t)ctx.preview->h == h)
-			return;
-		scaled = graph_new(NULL, (int32_t)w, (int32_t)h);
-		if(scaled == NULL || scaled->buffer == NULL) {
-			if(scaled != NULL)
-				graph_free(scaled);
-			return;
-		}
-		graph_blt_fit(ctx.preview, 0, 0, ctx.preview->w, ctx.preview->h,
-				scaled, 0, 0, (int32_t)w, (int32_t)h);
-		graph_free(ctx.preview);
-		ctx.preview = scaled;
-	}
-
-	/*now_ms makes the fill colors vary with time so the preview visibly
-	  updates each round, making it easy to confirm it keeps refreshing
-	  (positions/sizes stay fixed so the checks are not affected)*/
-	void runTest(TestCtx& ctx, uint64_t now_ms) {
+	void runTest(TestCtx& ctx) {
+		shm_image_t canvasA;
+		shm_image_t canvasB;
+		shm_image_t scaled;
 		shm_image_t opaque_img;
 		shm_image_t alpha_img;
 		g2d_fill_req_t fill;
 		g2d_blit_req_t blit;
 		g2d_rotate_req_t rotate_req;
 		g2d_scale_to_req_t scale_req;
-		g2d_rect_t src_rect;
-		graph_t opaque_graph;
-		graph_t alpha_graph;
 		uint32_t bg_color = 0xff101820;
-		uint8_t pulse = (uint8_t)(0x30 + ((now_ms / 8) % 96));
-		int32_t blit2_x;
-		int32_t blit2_y;
-		int32_t alpha2_x;
-		int32_t alpha2_y;
 		int ret;
 
+		memset(&canvasA, 0, sizeof(canvasA));
+		memset(&canvasB, 0, sizeof(canvasB));
+		memset(&scaled, 0, sizeof(scaled));
 		memset(&opaque_img, 0, sizeof(opaque_img));
 		memset(&alpha_img, 0, sizeof(alpha_img));
-		memset(&opaque_graph, 0, sizeof(opaque_graph));
-		memset(&alpha_graph, 0, sizeof(alpha_graph));
+		ctx.canvas = NULL;
 		ctx.failures = 0;
 		ctx.pass = false;
 		ctx.firstFailure.clear();
 		ctx.logs.clear();
 
-		ret = g2d_info(&ctx.info);
-		if(ret != 0) {
-			appendLog(ctx, "FAIL g2d_info ret=%d", ret);
-			markFailure(ctx, "g2d_info failed");
+		if(has_g2d() != 0) {
+			appendLog(ctx, "FAIL g2d device not found");
+			markFailure(ctx, "g2d device not found");
 			return;
 		}
-		ctx.w0 = ctx.info.width;
-		ctx.h0 = ctx.info.height;
-		appendLog(ctx, "g2d: %ux%u depth=%u backend=%u",
-				ctx.info.width, ctx.info.height, ctx.info.depth, ctx.info.backend);
+		appendLog(ctx, "g2d: stateless shm canvas %ux%u", CANVAS_W, CANVAS_H);
 
-		syncPreview(ctx);
-
-		if(shm_image_create(&opaque_img, 0x47324420, 160, 120) != 0 ||
-				shm_image_create(&alpha_img, 0x47324421, 128, 128) != 0) {
-			appendLog(ctx, "FAIL create shm images");
-			markFailure(ctx, "create shm images failed");
-			shm_image_destroy(&alpha_img);
-			shm_image_destroy(&opaque_img);
-			return;
+		if(shm_image_create(&canvasA, 0x47324420, CANVAS_W, CANVAS_H) != 0 ||
+				shm_image_create(&canvasB, 0x47324421, CANVAS_H, CANVAS_W) != 0 ||
+				shm_image_create(&opaque_img, 0x47324422, 160, 120) != 0 ||
+				shm_image_create(&alpha_img, 0x47324423, 128, 128) != 0) {
+			appendLog(ctx, "FAIL create shm canvases");
+			markFailure(ctx, "create shm canvases failed");
+			goto cleanup;
 		}
 
 		fill_checker(&opaque_img);
 		fill_alpha_circle(&alpha_img);
-		graph_init(&opaque_graph, opaque_img.pixels, opaque_img.width, opaque_img.height);
-		graph_init(&alpha_graph, alpha_img.pixels, alpha_img.width, alpha_img.height);
+		ctx.canvas = &canvasA;
 
-		ret = g2d_clear(bg_color);
-		checkRet(ctx, "clear", ret, true);
-		if(ctx.preview != NULL)
-			graph_clear(ctx.preview, bg_color);
-
-		g2d_fill_req_init(&fill, g2d_rect(24, 24, 220, 120), make_color(0xff, pulse, 0x40, 0x60));
+		/*stage 1: base scene on canvasA, verified against the shm pixels
+		  the driver wrote in place*/
+		img_clear(&canvasA, bg_color);
+		g2d_fill_req_init(&fill, img_canvas(&canvasA), g2d_rect(24, 24, 220, 120), 0xff204060);
 		ret = g2d_fill_rect(&fill);
-		checkRet(ctx, "fill_rect #1", ret, true);
-		fillPreview(ctx, &fill);
+		checkRet(ctx, "fill_rect", ret, true);
+		checkPixel(ctx, "fill_inside", &canvasA, 100, 60, 0xff204060);
+		checkPixel(ctx, "fill_outside", &canvasA, 10, 10, bg_color);
 
-		g2d_fill_req_init(&fill, g2d_rect((int32_t)ctx.w0 - 180, 40, 140, 96), make_color(0xff, 0x50, 0x30, pulse));
+		g2d_fill_req_init(&fill, img_canvas(&canvasA), g2d_rect(380, 40, 140, 96), 0xff503040);
 		ret = g2d_fill_rect(&fill);
 		checkRet(ctx, "fill_rect #2", ret, true);
-		fillPreview(ctx, &fill);
 
-		src_rect = g2d_rect(0, 0, (int32_t)opaque_img.width, (int32_t)opaque_img.height);
 		g2d_blit_req_init(&blit,
-				opaque_img.shm_id,
-				opaque_img.size,
-				opaque_img.width,
-				opaque_img.height,
-				opaque_img.stride,
-				src_rect,
-				g2d_rect(48, 72, (int32_t)opaque_img.width, (int32_t)opaque_img.height),
+				img_canvas(&canvasA), img_canvas(&opaque_img),
+				g2d_rect(0, 0, (int32_t)opaque_img.width, (int32_t)opaque_img.height),
+				g2d_rect(48, 172, (int32_t)opaque_img.width, (int32_t)opaque_img.height),
 				0xff);
 		ret = g2d_blit_shm(&blit);
 		checkRet(ctx, "blit_opaque", ret, true);
-		blitPreview(ctx, &blit, &opaque_graph, 0);
+		checkPixel(ctx, "blit_pixel", &canvasA, 48, 172, opaque_img.pixels[0]);
 
-		blit2_x = (int32_t)ctx.w0 - 280;
-		blit2_y = 96;
-		src_rect = g2d_rect(20, 16, 80, 60);
-		g2d_blit_req_init_ex(&blit,
-				opaque_img.shm_id,
-				opaque_img.size,
-				opaque_img.width,
-				opaque_img.height,
-				opaque_img.stride,
-				src_rect,
-				g2d_rect(blit2_x, blit2_y, 180, 140),
-				0xff,
-				G2D_ROTATE_90);
-		ret = g2d_blit_shm(&blit);
-		checkRet(ctx, "blit_scale_rot90", ret, true);
-		blitPreview(ctx, &blit, &opaque_graph, 0);
-
-		src_rect = g2d_rect(0, 0, (int32_t)alpha_img.width, (int32_t)alpha_img.height);
 		g2d_blit_req_init(&blit,
-				alpha_img.shm_id,
-				alpha_img.size,
-				alpha_img.width,
-				alpha_img.height,
-				alpha_img.stride,
-				src_rect,
-				g2d_rect((int32_t)ctx.w0 / 2, (int32_t)ctx.h0 / 2 - 32,
-						(int32_t)alpha_img.width, (int32_t)alpha_img.height),
+				img_canvas(&canvasA), img_canvas(&opaque_img),
+				g2d_rect(0, 0, (int32_t)opaque_img.width, (int32_t)opaque_img.height),
+				g2d_rect(280, 160, 200, 130),
+				0xff);
+		ret = g2d_blit_shm(&blit);
+		checkRet(ctx, "blit_scale", ret, true);
+		checkPixel(ctx, "blit_scale_tl", &canvasA, 280, 160, opaque_img.pixels[0]);
+
+		/*rotated blit: crop rotated clockwise 90 then scaled into dst;
+		  the dst top-left gets the crop bottom-left pixel*/
+		g2d_blit_req_init_ex(&blit,
+				img_canvas(&canvasA), img_canvas(&opaque_img),
+				g2d_rect(20, 16, 80, 60),
+				g2d_rect(232, 24, 120, 100),
+				0xff, G2D_ROTATE_90);
+		ret = g2d_blit_shm(&blit);
+		checkRet(ctx, "blit_rot90", ret, true);
+		checkPixel(ctx, "blit_rot90_tl", &canvasA, 232, 24,
+				opaque_img.pixels[75 * opaque_img.width + 20]);
+
+		g2d_blit_req_init(&blit,
+				img_canvas(&canvasA), img_canvas(&alpha_img),
+				g2d_rect(0, 0, (int32_t)alpha_img.width, (int32_t)alpha_img.height),
+				g2d_rect(220, 150, (int32_t)alpha_img.width, (int32_t)alpha_img.height),
 				0xff);
 		ret = g2d_blit_alpha_shm(&blit);
 		checkRet(ctx, "blit_alpha", ret, true);
-		blitPreview(ctx, &blit, &alpha_graph, 1);
+		checkPixel(ctx, "blit_alpha_corner", &canvasA, 220, 150, bg_color);
+		checkPixel(ctx, "blit_alpha_center", &canvasA, 220 + 64, 150 + 64,
+				alpha_img.pixels[64 * alpha_img.width + 64]);
 
-		alpha2_x = (int32_t)ctx.w0 / 2 - 220;
-		alpha2_y = (int32_t)ctx.h0 / 2 + 40;
-		src_rect = g2d_rect(16, 16, 96, 80);
-		g2d_blit_req_init_ex(&blit,
-				alpha_img.shm_id,
-				alpha_img.size,
-				alpha_img.width,
-				alpha_img.height,
-				alpha_img.stride,
-				src_rect,
-				g2d_rect(alpha2_x, alpha2_y, 200, 120),
-				0xff,
-				G2D_ROTATE_270);
-		ret = g2d_blit_alpha_shm(&blit);
-		checkRet(ctx, "blit_alpha_rot270", ret, true);
-		blitPreview(ctx, &blit, &alpha_graph, 1);
-
-		/*blit with arbitrary-angle rotation: the crop is rotated 45 into its
-		  bounding box, then scaled into the dst rect*/
-		src_rect = g2d_rect(0, 0, (int32_t)opaque_img.width, (int32_t)opaque_img.height);
-		g2d_blit_req_init_ex(&blit,
-				opaque_img.shm_id,
-				opaque_img.size,
-				opaque_img.width,
-				opaque_img.height,
-				opaque_img.stride,
-				src_rect,
-				g2d_rect((int32_t)ctx.w0 - 300, (int32_t)ctx.h0 - 300, 220, 220),
-				0xff,
-				45);
-		ret = g2d_blit_shm(&blit);
-		checkRet(ctx, "blit_rot45", ret, true);
-		blitPreview(ctx, &blit, &opaque_graph, 0);
-
-		g2d_fill_req_init(&fill, g2d_rect(0, (int32_t)ctx.h0 - 36, (int32_t)ctx.w0, 36), 0xff000000);
+		g2d_fill_req_init(&fill, img_canvas(&canvasA),
+				g2d_rect(0, (int32_t)canvasA.height - 32, (int32_t)canvasA.width, 32), 0xff000000);
 		ret = g2d_fill_rect(&fill);
-		checkRet(ctx, "fill_rect footer", ret, true);
-		fillPreview(ctx, &fill);
+		checkRet(ctx, "fill_footer", ret, true);
 
-		/*stage display: publish the base scene and dwell on it briefly
-		  before entering the rotate/scale stages*/
 		publishPreview(ctx);
 		usleep(STAGE_DELAY_MS * 1000);
 
-		/*target rotate: clockwise degrees, any angle; 90/270 swap width/height,
-		  180 does not, other angles grow to the rotated bounding box*/
-		g2d_rotate_req_init(&rotate_req, G2D_ROTATE_90);
+		/*stage 2: rotate ping-pong. corners travel clockwise and 90/270
+		  swap the dimensions, so the dst canvas must be the other one.*/
+		img_clear(&canvasA, bg_color);
+		set_corner_markers(&canvasA);
+
+		g2d_rotate_req_init(&rotate_req, img_canvas(&canvasA), img_canvas(&canvasB), 90);
 		ret = g2d_rotate(&rotate_req);
 		checkRet(ctx, "rotate_90", ret, true);
-		checkInfo(ctx, "rotate_90_size", ctx.h0, ctx.w0);
-		rotatePreview(ctx, G2D_ROTATE_90);
+		ctx.canvas = &canvasB;
+		checkSize(ctx, "rot90_size", &canvasB, CANVAS_H, CANVAS_W);
+		checkPixel(ctx, "rot90_TL_from_BL", &canvasB, 0, 0, 0xff000004u);
+		checkPixel(ctx, "rot90_TR_from_TL", &canvasB, canvasB.width - 1, 0, 0xff000001u);
 		publishPreview(ctx);
 		usleep(STAGE_DELAY_MS * 1000);
 
-		g2d_rotate_req_init(&rotate_req, G2D_ROTATE_180);
+		g2d_rotate_req_init(&rotate_req, img_canvas(&canvasB), img_canvas(&canvasA), 180);
 		ret = g2d_rotate(&rotate_req);
 		checkRet(ctx, "rotate_180", ret, true);
-		checkInfo(ctx, "rotate_180_size", ctx.h0, ctx.w0);
-		rotatePreview(ctx, G2D_ROTATE_180);
+		checkSize(ctx, "rot180_size", &canvasA, CANVAS_H, CANVAS_W);
+		checkPixel(ctx, "rot180_TL_from_BR", &canvasA, 0, 0, 0xff000003u);
 		publishPreview(ctx);
 		usleep(STAGE_DELAY_MS * 1000);
 
-		g2d_rotate_req_init(&rotate_req, G2D_ROTATE_270);
+		g2d_rotate_req_init(&rotate_req, img_canvas(&canvasA), img_canvas(&canvasB), 270);
 		ret = g2d_rotate(&rotate_req);
 		checkRet(ctx, "rotate_270", ret, true);
-		checkInfo(ctx, "rotate_270_size", ctx.w0, ctx.h0);
-		rotatePreview(ctx, G2D_ROTATE_270);
+		ctx.canvas = &canvasA;
+		checkSize(ctx, "rot270_size", &canvasB, CANVAS_W, CANVAS_H);
+		checkPixel(ctx, "rot270_TL_from_TR", &canvasB, 0, 0, 0xff000002u);
+		checkPixel(ctx, "rot270_BR_from_BL", &canvasB,
+				canvasB.width - 1, canvasB.height - 1, 0xff000004u);
 		publishPreview(ctx);
 		usleep(STAGE_DELAY_MS * 1000);
 
-		/*arbitrary angle: surface grows to the rotated bounding box;
-		  -315 normalizes to 45, so the expected size is the 45-degree box*/
-		uint32_t rot45 = rotated45_size(ctx.w0, ctx.h0);
-		g2d_rotate_req_init(&rotate_req, -315);
+		/*rejects: dst canvas size must match the rotated size*/
+		g2d_rotate_req_init(&rotate_req, img_canvas(&canvasA), img_canvas(&canvasA), 90);
 		ret = g2d_rotate(&rotate_req);
-		checkRet(ctx, "rotate_-315", ret, true);
-		checkInfo(ctx, "rotate_-315_size", rot45, rot45);
-		rotatePreview(ctx, -315);
-		publishPreview(ctx);
-		usleep(STAGE_DELAY_MS * 1000);
-
-		/*negative angle on the rotated square: -45 == 315, the bounding
-		  box of a square at 45 degree is a larger square*/
-		uint32_t rot45_2 = rotated45_size(rot45, rot45);
-		g2d_rotate_req_init(&rotate_req, -45);
+		checkRet(ctx, "rotate_90_badsize", ret, false);
+		g2d_rotate_req_init(&rotate_req, img_canvas(&canvasA), img_canvas(&canvasB), 0);
 		ret = g2d_rotate(&rotate_req);
-		checkRet(ctx, "rotate_-45", ret, true);
-		checkInfo(ctx, "rotate_-45_size", rot45_2, rot45_2);
-		rotatePreview(ctx, -45);
+		checkRet(ctx, "rotate_0_reject", ret, false);
 		publishPreview(ctx);
 		usleep(STAGE_DELAY_MS * 1000);
 
-		/*target scale_to: shrink, restore, invalid size*/
-		g2d_scale_to_req_init(&scale_req, 320, 240);
-		ret = g2d_scale_to(&scale_req);
-		checkRet(ctx, "scale_to_320x240", ret, true);
-		checkInfo(ctx, "scale_to_size", 320, 240);
-		scalePreviewTo(ctx, 320, 240);
+		/*stage 3: scale_to into a dedicated dst canvas (nearest neighbor
+		  keeps the corners), then a rotated blit over the pattern*/
+		fill_checker(&canvasA);
+		if(shm_image_create(&scaled, 0x47324424, 320, 240) == 0) {
+			g2d_scale_to_req_init(&scale_req, img_canvas(&canvasA), img_canvas(&scaled));
+			ret = g2d_scale_to(&scale_req);
+			checkRet(ctx, "scale_to_320x240", ret, true);
+			checkPixel(ctx, "scale_tl", &scaled, 0, 0, canvasA.pixels[0]);
+			checkPixel(ctx, "scale_br", &scaled, 319, 239,
+					canvasA.pixels[(canvasA.height - 1) * canvasA.width + canvasA.width - 1]);
+			shm_image_destroy(&scaled);
+		}
+		else {
+			appendLog(ctx, "FAIL scale shm");
+			markFailure(ctx, "create scale shm failed");
+		}
 		publishPreview(ctx);
 		usleep(STAGE_DELAY_MS * 1000);
 
-		g2d_scale_to_req_init(&scale_req, ctx.w0, ctx.h0);
-		ret = g2d_scale_to(&scale_req);
-		checkRet(ctx, "scale_to_restore", ret, true);
-		checkInfo(ctx, "scale_restore_size", ctx.w0, ctx.h0);
-		scalePreviewTo(ctx, ctx.w0, ctx.h0);
-
-		g2d_scale_to_req_init(&scale_req, 0, 0);
-		ret = g2d_scale_to(&scale_req);
-		checkRet(ctx, "scale_to_invalid", ret, false);
-		checkInfo(ctx, "scale_invalid_size", ctx.w0, ctx.h0);
+		img_clear(&canvasA, bg_color);
+		g2d_blit_req_init_ex(&blit,
+				img_canvas(&canvasA), img_canvas(&opaque_img),
+				g2d_rect(0, 0, (int32_t)opaque_img.width, (int32_t)opaque_img.height),
+				g2d_rect(170, 50, 220, 220),
+				0xff, 45);
+		ret = g2d_blit_shm(&blit);
+		checkRet(ctx, "blit_rot45", ret, true);
+		publishPreview(ctx);
+		usleep(STAGE_DELAY_MS * 1000);
 
 		ctx.pass = (ctx.failures == 0);
 		appendLog(ctx, "summary: %s (%d failure)", ctx.pass ? "PASS" : "FAIL", ctx.failures);
 
+	cleanup:
+		shm_image_destroy(&scaled);
 		shm_image_destroy(&alpha_img);
 		shm_image_destroy(&opaque_img);
+		shm_image_destroy(&canvasB);
+		shm_image_destroy(&canvasA);
+		ctx.canvas = NULL;
 	}
 
 	void publishResult(TestCtx& ctx) {
 		/*only briefly holds the lock while handing results to the UI,
-		  to avoid starving UI repaints.*/
+		  to avoid starving UI repaints. the last publishPreview already
+		  stored the final canvas frame: ctx.previewWrap now wraps a
+		  DETACHED shm canvas (runTest cleanup destroyed the images), so
+		  it must not be read again.*/
 		pthread_mutex_lock(&stateLock);
-		if(preview != NULL)
-			graph_free(preview);
-		preview = ctx.preview;
-		ctx.preview = NULL;
 		logs.swap(ctx.logs);
 		firstFailure.swap(ctx.firstFailure);
 		failures = ctx.failures;
 		testPass = ctx.pass;
 		testDone = true;
-		framesPublished++;
 		pthread_mutex_unlock(&stateLock);
 	}
 
-	/*publish an intermediate preview frame (a dup, so the thread keeps its
-		own preview) to show rotate/scale stages step by step.*/
+	/*publish an intermediate preview frame: the preview is a graph_t
+	  wrapped directly over the active shm canvas, so this is the real
+	  device output, not a cpu mirror.*/
 	void publishPreview(TestCtx& ctx) {
 		graph_t* copy;
 
-		if(ctx.preview == NULL)
+		if(ctx.canvas == NULL || ctx.canvas->pixels == NULL)
 			return;
-		copy = graph_dup(ctx.preview);
+		graph_init(&ctx.previewWrap, ctx.canvas->pixels,
+				(int32_t)ctx.canvas->width, (int32_t)ctx.canvas->height);
+		copy = graph_dup(&ctx.previewWrap);
 		if(copy == NULL)
 			return;
 		pthread_mutex_lock(&stateLock);
@@ -711,7 +479,7 @@ class G2DTestWidget: public Widget {
 			uint64_t now;
 			TestCtx ctx;
 			/*the test itself holds no lock; publishing briefly locks only.*/
-			self->runTest(ctx, kernel_tic_ms(0));
+			self->runTest(ctx);
 			self->publishResult(ctx);
 
 			now = kernel_tic_ms(0);

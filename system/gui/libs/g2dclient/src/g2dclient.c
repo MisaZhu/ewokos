@@ -1,6 +1,9 @@
 #include <g2dclient/g2dclient.h>
 #include <ewoksys/vdevice.h>
 #include <ewoksys/proto.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <unistd.h>
 
 #define G2D_DEFAULT_DEV "/dev/g2d"
 static char _g2d_dev[FS_FULL_NAME_MAX] = { 0 };
@@ -57,27 +60,39 @@ int g2d_set_dev(const char* dev) {
     return 0;
 }
 
-int g2d_info(g2d_info_t* info) {
-    proto_t out;
-    int ret;
+/* shm canvases: keyed 0666 segments because the driver is an unrelated
+   process and cannot map IPC_PRIVATE (family-only) segments. a fresh key
+   per allocation because shmget() returns an existing keyed segment
+   WITHOUT resizing it. the kernel frees the segment once both sides
+   (client and driver) have detached. */
+static uint32_t _g2d_shm_seq = 0;
 
-    int pid = g2d_dev_pid();
-    if(pid <= 0)
+int g2d_shm_alloc(uint32_t size, int* shm_id, uint32_t** pixels) {
+    key_t key;
+    int id;
+    void* addr;
+
+    if(size == 0 || shm_id == NULL || pixels == NULL)
         return -1;
 
-    memset(info, 0, sizeof(*info));
-    PF->init(&out);
-    ret = dev_cntl_by_pid(pid, G2D_DEV_CNTL_GET_INFO, NULL, &out);
-    if(ret == 0) {
-        if(proto_read_to(&out, info, sizeof(*info)) != sizeof(*info))
-            ret = -1;
-    }
-    PF->clear(&out);
-    return ret;
+    key = (key_t)(0x47324430u + (((uint32_t)getpid() & 0xffffu) << 16) +
+            (_g2d_shm_seq & 0xffffu));
+    _g2d_shm_seq++;
+
+    id = shmget(key, (int)size, 0666 | IPC_CREAT);
+    if(id <= 0)
+        return -1;
+    addr = shmat(id, 0, 0);
+    if(addr == (void*)-1)
+        return -1;
+    *shm_id = id;
+    *pixels = (uint32_t*)addr;
+    return 0;
 }
 
-int g2d_clear(uint32_t color) {
-    return g2d_send_struct(G2D_DEV_CNTL_CLEAR, &color, sizeof(color));
+void g2d_shm_free(uint32_t* pixels) {
+    if(pixels != NULL)
+        shmdt(pixels);
 }
 
 int g2d_fill_rect(const g2d_fill_req_t* req) {

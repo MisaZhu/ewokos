@@ -43,6 +43,7 @@ typedef struct {
 	int32_t h;
 	grect_t clip;
 	bool need_free;
+	int32_t shm_id;
 } graph_t;
 
 
@@ -60,8 +61,10 @@ uint32_t color_reverse_rgb(uint32_t c);
 
 uint32_t argb_int(uint32_t c);
 
-void     graph_init(graph_t* g, const uint32_t* buffer, int32_t w, int32_t h);
 graph_t* graph_new(uint32_t* buffer, int32_t w, int32_t h);
+graph_t* graph_new_shm(int32_t w, int32_t h);
+
+void     graph_init(graph_t* g, const uint32_t* buffer, int32_t w, int32_t h);
 void     graph_free(graph_t* g);
 graph_t* graph_dup(graph_t* g);
 

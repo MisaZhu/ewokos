@@ -41,6 +41,8 @@ bitmap_t* graph_to_bitmap(graph_t* g) {
 graph_t*  graph_from_bitmap(bitmap_t* bmp, uint32_t color) {
     int32_t bw = bmp->w / 8;
     uint32_t* p = (uint32_t*)malloc(bmp->w * bmp->h * 4);
+    if(p == NULL)
+        return NULL;
     memset(p, 0, bmp->w * bmp->h * 4);
 
     for(int32_t j=0; j<bmp->h; j++) {
@@ -54,10 +56,12 @@ graph_t*  graph_from_bitmap(bitmap_t* bmp, uint32_t color) {
         }
     }
 
-    graph_t* ret = (graph_t*)malloc(sizeof(graph_t));
-    ret->buffer = p;
-    ret->w = bmp->w;
-    ret->h = bmp->h;
+    graph_t* ret = graph_new(p, bmp->w, bmp->h);
+    if(ret == NULL) {
+        free(p);
+        return NULL;
+    }
+    ret->need_free = true; /* graph_free owns the malloc'd pixels */
     return  ret;
 }
 

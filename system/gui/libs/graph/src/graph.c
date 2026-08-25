@@ -1,4 +1,5 @@
 #include <graph/graph.h>
+#include <g2dclient/g2dclient.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -80,11 +81,13 @@ static void aligned_free(void* ptr) {
 }
 
 inline void graph_init(graph_t* g, const uint32_t* buffer, int32_t w, int32_t h) {
-    if(w <= 0 || h <= 0)
+    if(w <= 0 || h <= 0 || g == NULL)
         return;
 
+    memset(g, 0, sizeof(graph_t));
     g->w = w;
     g->h = h;
+    g->shm_id = -1;
     if(buffer != NULL) {
         g->buffer = (uint32_t*)buffer;
         g->need_free = false;
@@ -113,9 +116,36 @@ graph_t* graph_new(uint32_t* buffer, int32_t w, int32_t h) {
     if(w <= 0 || h <= 0)
         return NULL;
 
-    graph_t* ret = (graph_t*)malloc(sizeof(graph_t));
+    graph_t* ret = (graph_t*)aligned_malloc(sizeof(graph_t), 32);
     if(ret != NULL)
         graph_init(ret, buffer, w, h);
+    return ret;
+}
+
+graph_t* graph_new_shm(int32_t w, int32_t h) {
+    graph_t* ret;
+    uint32_t* pixels = NULL;
+    int shm_id = -1;
+
+    if(w <= 0 || h <= 0)
+        return NULL;
+
+    ret = (graph_t*)aligned_malloc(sizeof(graph_t), 32);
+    if(ret == NULL)
+        return NULL;
+
+    /* the pixel buffer IS a keyed shm canvas shared with /dev/g2d,
+       the id is kept in the graph so g2d ops can use it directly */
+    if(g2d_shm_alloc((uint32_t)w * (uint32_t)h * sizeof(uint32_t),
+                &shm_id, &pixels) != 0 || shm_id <= 0) {
+        if(pixels != NULL)
+            g2d_shm_free(pixels);
+        aligned_free(ret);
+        return NULL;
+    }
+
+    graph_init(ret, pixels, w, h);
+    ret->shm_id = shm_id;
     return ret;
 }
 
@@ -123,10 +153,21 @@ graph_t* graph_dup(graph_t* g) {
     if(g == NULL || g->buffer == NULL)
         return NULL;
 
-    graph_t* ret = graph_new(NULL, g->w, g->h);
-    if(ret == NULL)
-        return NULL;
-    ret->buffer = (uint32_t*)aligned_malloc(g->w*g->h*4, 32);
+    /* an shm-backed graph dups into its own shm canvas so the copy
+       stays usable by g2d ops, zero copy like the source */
+    graph_t* ret;
+    if(g->shm_id > 0) {
+        ret = graph_new_shm(g->w, g->h);
+        if(ret == NULL)
+            return NULL;
+    }
+    else {
+        ret = graph_new(NULL, g->w, g->h);
+        if(ret == NULL)
+            return NULL;
+    }
+    /* graph_init/graph_new_shm can leave buffer NULL if the pixel
+       allocation fails */
     if(ret->buffer == NULL) {
         graph_free(ret);
         return NULL;
@@ -138,9 +179,13 @@ graph_t* graph_dup(graph_t* g) {
 void graph_free(graph_t* g) {
     if(g == NULL)
         return;
-    if(g->buffer != NULL && g->need_free)
+    if(g->shm_id > 0) {
+        if(g->buffer != NULL)
+            g2d_shm_free(g->buffer);
+    }
+    else if(g->buffer != NULL && g->need_free)
         aligned_free(g->buffer);
-    free(g);
+    aligned_free(g);
 }
 
 void graph_clear(graph_t* g, uint32_t color) {

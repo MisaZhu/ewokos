@@ -192,7 +192,7 @@ void graph_set(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t 
 }
 
 inline void graph_fill_rect(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
-    if(graph_has_g2d() == 0) {
+    if(graph_has_g2d() == 0 && g->shm_id > 0) {
         graph_fill_g2d(g, x, y, w, h, color);
         return;
     }
@@ -343,7 +343,7 @@ void graph_blt_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 inline void graph_blt(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
         graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
 
-    if(graph_has_g2d() == 0) {
+    if(graph_has_g2d() == 0 && src->shm_id > 0 && dst->shm_id > 0) {
         graph_blt_g2d(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
         return;
     }
@@ -515,7 +515,7 @@ void graph_blt_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32
 inline void graph_blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
         graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
 
-    if(graph_has_g2d() == 0) {
+    if(graph_has_g2d() == 0 && src->shm_id > 0 && dst->shm_id > 0) {
         graph_blt_alpha_g2d(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
         return;
     }

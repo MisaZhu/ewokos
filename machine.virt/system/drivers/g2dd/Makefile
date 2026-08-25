@@ -15,12 +15,11 @@ G2DD = $(TARGET_DIR)/drivers/virt/g2dd
 $(G2DD): $(G2DD_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a \
 		$(BUILD_DIR)/lib/libgraph.a \
-		$(BUILD_DIR)/lib/libtinyjson.a \
 		$(BUILD_DIR)/lib/libarch_virt.a \
 		$(BUILD_DIR)/lib/libdisplay.a \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libdisplayman.a
-	$(LD) -Ttext=100 $(G2DD_OBJS) -o $(G2DD) $(LDFLAGS) -ltinyjson $(EWOK_LIB_GRAPH) $(EWOK_LIBC)
+	$(LD) -Ttext=100 $(G2DD_OBJS) -o $(G2DD) $(LDFLAGS) $(EWOK_LIB_GRAPH) $(EWOK_LIBC)
 
 clean:
 	rm -f $(G2DD_OBJS)

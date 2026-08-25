@@ -10,9 +10,7 @@ extern "C" {
 #endif
 
 enum {
-	G2D_DEV_CNTL_GET_INFO = 0,
-	G2D_DEV_CNTL_CLEAR,
-	G2D_DEV_CNTL_FILL_RECT,
+	G2D_DEV_CNTL_FILL_RECT = 0,
 	G2D_DEV_CNTL_BLIT,
 	G2D_DEV_CNTL_BLIT_ALPHA,
 	G2D_DEV_CNTL_ROTATE,
@@ -39,44 +37,42 @@ typedef struct {
 	int32_t h;
 } g2d_rect_t;
 
+/* a canvas is a keyed shm segment of w*h ARGB8888 pixels shared with
+   the driver: the client writes pixels in, the driver attaches to the
+   same segment and operates on it in place. the driver owns no canvas
+   of its own, every request carries the canvases it works on. */
 typedef struct {
-	uint32_t width;
-	uint32_t height;
-	uint32_t depth;
-	uint32_t format;
-	uint32_t backend;
-} g2d_info_t;
+	int32_t shm_id;
+	uint32_t size;  /* segment size in bytes, must be >= w*h*4 */
+	uint32_t w;
+	uint32_t h;
+} g2d_canvas_t;
 
 typedef struct {
+	g2d_canvas_t dst;
 	g2d_rect_t rect;
 	uint32_t color;
 } g2d_fill_req_t;
 
-/* rotates the destination surface clockwise by degree (any angle,
-   normalized to [0, 360) by the driver). 90/270 swap the surface
-   dimensions, other angles grow to the rotated bounding box. */
+/* rotates the src canvas clockwise by degree (any angle, normalized to
+   [0, 360) by the driver) into the dst canvas. 90/270 swap dimensions,
+   other angles grow to the rotated bounding box; the driver rejects the
+   request when the dst canvas size does not match the rotated size. */
 typedef struct {
+	g2d_canvas_t src;
+	g2d_canvas_t dst;
 	int32_t rotate;
 } g2d_rotate_req_t;
 
-/* scales the destination surface to width x height. */
+/* scales the src canvas into the dst canvas (nearest neighbor). */
 typedef struct {
-	uint32_t width;
-	uint32_t height;
+	g2d_canvas_t src;
+	g2d_canvas_t dst;
 } g2d_scale_to_req_t;
 
 typedef struct {
-	int32_t x;
-	int32_t y;
-} g2d_pixel_req_t;
-
-typedef struct {
-	uint32_t src_w;
-	uint32_t src_h;
-	uint32_t src_stride;
-	uint32_t src_format;
-	int32_t src_shm_id;
-	uint32_t src_size;
+	g2d_canvas_t dst;
+	g2d_canvas_t src;
 	int32_t sx;
 	int32_t sy;
 	int32_t sw;
@@ -87,6 +83,8 @@ typedef struct {
 	int32_t dh;
 	uint8_t alpha;
 	uint8_t reserved[3];
+	/* rotates the cropped clockwise by degree before scaling it into
+	   the dst rect (any angle, normalized to [0, 360) by the driver) */
 	int32_t rotate;
 } g2d_blit_req_t;
 
@@ -99,19 +97,27 @@ static inline g2d_rect_t g2d_rect(int32_t x, int32_t y, int32_t w, int32_t h) {
 	return rect;
 }
 
-static inline void g2d_fill_req_init(g2d_fill_req_t* req, g2d_rect_t rect, uint32_t color) {
+static inline g2d_canvas_t g2d_canvas(int32_t shm_id, uint32_t size, uint32_t w, uint32_t h) {
+	g2d_canvas_t canvas;
+	canvas.shm_id = shm_id;
+	canvas.size = size;
+	canvas.w = w;
+	canvas.h = h;
+	return canvas;
+}
+
+static inline void g2d_fill_req_init(g2d_fill_req_t* req, g2d_canvas_t dst, g2d_rect_t rect, uint32_t color) {
 	if(req == NULL)
 		return;
+	memset(req, 0, sizeof(*req));
+	req->dst = dst;
 	req->rect = rect;
 	req->color = color;
 }
 
 static inline void g2d_blit_req_init_ex(g2d_blit_req_t* req,
-		int32_t src_shm_id,
-		uint32_t src_size,
-		uint32_t src_w,
-		uint32_t src_h,
-		uint32_t src_stride,
+		g2d_canvas_t dst,
+		g2d_canvas_t src,
 		g2d_rect_t src_rect,
 		g2d_rect_t dst_rect,
 		uint8_t alpha,
@@ -119,12 +125,8 @@ static inline void g2d_blit_req_init_ex(g2d_blit_req_t* req,
 	if(req == NULL)
 		return;
 	memset(req, 0, sizeof(*req));
-	req->src_w = src_w;
-	req->src_h = src_h;
-	req->src_stride = src_stride;
-	req->src_format = G2D_FMT_ARGB8888;
-	req->src_shm_id = src_shm_id;
-	req->src_size = src_size;
+	req->dst = dst;
+	req->src = src;
 	req->sx = src_rect.x;
 	req->sy = src_rect.y;
 	req->sw = src_rect.w;
@@ -138,24 +140,12 @@ static inline void g2d_blit_req_init_ex(g2d_blit_req_t* req,
 }
 
 static inline void g2d_blit_req_init(g2d_blit_req_t* req,
-		int32_t src_shm_id,
-		uint32_t src_size,
-		uint32_t src_w,
-		uint32_t src_h,
-		uint32_t src_stride,
+		g2d_canvas_t dst,
+		g2d_canvas_t src,
 		g2d_rect_t src_rect,
 		g2d_rect_t dst_rect,
 		uint8_t alpha) {
-	g2d_blit_req_init_ex(req,
-			src_shm_id,
-			src_size,
-			src_w,
-			src_h,
-			src_stride,
-			src_rect,
-			dst_rect,
-			alpha,
-			G2D_ROTATE_0);
+	g2d_blit_req_init_ex(req, dst, src, src_rect, dst_rect, alpha, G2D_ROTATE_0);
 }
 
 static inline void g2d_blit_req_set_rotate(g2d_blit_req_t* req, int32_t rotate) {
@@ -164,25 +154,32 @@ static inline void g2d_blit_req_set_rotate(g2d_blit_req_t* req, int32_t rotate) 
 	req->rotate = rotate;
 }
 
-static inline void g2d_rotate_req_init(g2d_rotate_req_t* req, int32_t rotate) {
+static inline void g2d_rotate_req_init(g2d_rotate_req_t* req, g2d_canvas_t src, g2d_canvas_t dst, int32_t rotate) {
 	if(req == NULL)
 		return;
 	memset(req, 0, sizeof(*req));
+	req->src = src;
+	req->dst = dst;
 	req->rotate = rotate;
 }
 
-static inline void g2d_scale_to_req_init(g2d_scale_to_req_t* req, uint32_t width, uint32_t height) {
+static inline void g2d_scale_to_req_init(g2d_scale_to_req_t* req, g2d_canvas_t src, g2d_canvas_t dst) {
 	if(req == NULL)
 		return;
 	memset(req, 0, sizeof(*req));
-	req->width = width;
-	req->height = height;
+	req->src = src;
+	req->dst = dst;
 }
 
 int has_g2d(void);
 int g2d_set_dev(const char* dev);
-int g2d_info(g2d_info_t* info);
-int g2d_clear(uint32_t color);
+
+/* allocate a keyed shm canvas segment (0666 so the driver can attach)
+   and map it; a fresh key is used every time because shmget() returns
+   an existing keyed segment WITHOUT resizing it. */
+int g2d_shm_alloc(uint32_t size, int* shm_id, uint32_t** pixels);
+void g2d_shm_free(uint32_t* pixels);
+
 int g2d_fill_rect(const g2d_fill_req_t* req);
 int g2d_blit_shm(const g2d_blit_req_t* req);
 int g2d_blit_alpha_shm(const g2d_blit_req_t* req);

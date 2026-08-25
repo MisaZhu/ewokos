@@ -7,7 +7,7 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 
 LDFLAGS = -L $(BUILD_DIR)/lib
 
-CFLAGS += -I $(SYS_DIR)/gui/libs/g2dclient/include -I $(BUILD_DIR)/include
+CFLAGS += -I $(SYS_DIR)/gui/libs/g2dclient/include -I $(SYS_DIR)/gui/libs/graph/include -I $(BUILD_DIR)/include
 
 TASK_OBJS = $(ARCH)/g2dtest.o
 

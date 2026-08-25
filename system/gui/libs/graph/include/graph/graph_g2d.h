@@ -16,7 +16,6 @@ void  graph_blt_alpha_g2d(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int3
 					graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha);	
 
 void  graph_scale_tof_g2d(graph_t* g, graph_t* dst, double scale);
-void  graph_scale_tof_fast_g2d(graph_t* g, graph_t* dst, double scale);
 
 void  graph_rotate_to_g2d(graph_t* g, graph_t* ret, int rot);
 
