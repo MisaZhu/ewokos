@@ -36,7 +36,6 @@ int g2d_open(const char* dev, g2d_t* g2d) {
         return -1;
     memset(g2d, 0, sizeof(*g2d));
     strncpy(g2d->dev, dev, FS_FULL_NAME_MAX - 1);
-    g2d->dev[FS_FULL_NAME_MAX - 1] = 0;
     return 0;
 }
 
