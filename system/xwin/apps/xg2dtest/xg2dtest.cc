@@ -13,10 +13,25 @@
 #include <string.h>
 #include <stdarg.h>
 #include <pthread.h>
+#include <math.h>
 #include <string>
 #include <vector>
 
 using namespace Ewok;
+
+/*dwell time (ms) for each rotate/scale stage so transitions are visible*/
+#define STAGE_DELAY_MS 160
+
+/*45 degree rotation grows the surface to a square bounding box; the
+  device computes it with 14-bit fixed point (sin45*16384 = 11585),
+  duplicated here to predict the rotated size, same as g2dtest.*/
+#define ROT45_FP   11585
+#define ROT45_BITS 14
+
+static uint32_t rotated45_size(uint32_t w, uint32_t h) {
+	uint64_t sum = (uint64_t)(w + h) * ROT45_FP;
+	return (uint32_t)((sum + (1u << ROT45_BITS) - 1) >> ROT45_BITS);
+}
 
 typedef struct {
 	int shm_id;
@@ -107,6 +122,67 @@ static void fill_alpha_circle(shm_image_t* img) {
 	}
 }
 
+/*preview-only mirror of the device's arbitrary-angle rotate: nearest
+  sampling inverse mapping into the rotated bounding box, sized with the
+  same 14-bit fixed point ceiling as bsp_g2d_rotated_size(). Right angles
+  are handled by graph_rotate() elsewhere, degree is clockwise.*/
+static graph_t* graph_rotate_any(graph_t* src, int32_t degree) {
+	graph_t* dst;
+	double rad;
+	int32_t c_fp;
+	int32_t s_fp;
+	int32_t dw;
+	int32_t dh;
+	int32_t scx;
+	int32_t scy;
+	int32_t dcx;
+	int32_t dcy;
+	int32_t x;
+	int32_t y;
+	int32_t norm;
+
+	if(src == NULL || src->buffer == NULL)
+		return NULL;
+	norm = ((degree % 360) + 360) % 360;
+	if(norm == 0)
+		return graph_dup(src);
+
+	rad = (double)norm * M_PI / 180.0;
+	c_fp = (int32_t)(cos(rad) * 16384.0 + 0.5);
+	s_fp = (int32_t)(sin(rad) * 16384.0 + 0.5);
+	if(c_fp < 0) c_fp = -c_fp;
+	if(s_fp < 0) s_fp = -s_fp;
+	dw = (int32_t)(((int64_t)src->w * c_fp + (int64_t)src->h * s_fp + 16383) >> 14);
+	dh = (int32_t)(((int64_t)src->w * s_fp + (int64_t)src->h * c_fp + 16383) >> 14);
+	if(dw < 1 || dh < 1)
+		return NULL;
+
+	dst = graph_new(NULL, dw, dh);
+	if(dst == NULL || dst->buffer == NULL) {
+		if(dst != NULL)
+			graph_free(dst);
+		return NULL;
+	}
+	graph_clear(dst, 0xff101820);
+
+	scx = (src->w - 1) / 2;
+	scy = (src->h - 1) / 2;
+	dcx = (dw - 1) / 2;
+	dcy = (dh - 1) / 2;
+	for(y = 0; y < dh; y++) {
+		for(x = 0; x < dw; x++) {
+			int32_t dx = x - dcx;
+			int32_t dy = y - dcy;
+			/*inverse of the clockwise rotation in y-down coordinates*/
+			int32_t sx = scx + (int32_t)(((int64_t)dx * c_fp + (int64_t)dy * s_fp) >> 14);
+			int32_t sy = scy + (int32_t)(((int64_t)dy * c_fp - (int64_t)dx * s_fp) >> 14);
+			if(sx >= 0 && sx < src->w && sy >= 0 && sy < src->h)
+				dst->buffer[y * dw + x] = src->buffer[sy * src->w + sx];
+		}
+	}
+	return dst;
+}
+
 class G2DTestWidget: public Widget {
 	/*测试在后台线程循环执行：一轮 = 一组命令级检查（返回码 +
 	  g2d_info 尺寸验证）。所有中间结果先写本地 TestCtx（不持锁），
@@ -139,6 +215,7 @@ class G2DTestWidget: public Widget {
 	bool testPass;
 	int failures;
 	uint32_t fps;
+	uint32_t framesPublished;
 	uint64_t fpsTick;
 	std::string firstFailure;
 	pthread_t benchThread;
@@ -254,17 +331,23 @@ class G2DTestWidget: public Widget {
 	graph_t* preparePreviewSource(graph_t* src, const g2d_blit_req_t* req) {
 		graph_t* cropped;
 		graph_t* rotated;
+		int32_t norm;
 
 		if(src == NULL || req == NULL)
 			return NULL;
 		cropped = cropPreviewSource(src, req);
 		if(cropped == NULL)
 			return NULL;
-		if(req->rotate == G2D_ROTATE_0)
+		norm = ((req->rotate % 360) + 360) % 360;
+		if(norm == 0)
 			return cropped;
 
-		/*graph_rotate 的参数是顺时针 90 度步数，与 G2D_ROTATE_* 编码一致*/
-		rotated = graph_rotate(cropped, (int)(req->rotate & 3));
+		/*rotate 是顺时针度数：90 的倍数走 graph_rotate（参数是顺时针
+		  90 度步数），任意角度走本地镜像旋转*/
+		if(norm % 90 == 0)
+			rotated = graph_rotate(cropped, (int)(norm / 90));
+		else
+			rotated = graph_rotate_any(cropped, norm);
 		graph_free(cropped);
 		return rotated;
 	}
@@ -310,15 +393,23 @@ class G2DTestWidget: public Widget {
 		graph_free(prepared);
 	}
 
-	/*rotate/scale_to 之后目标面内容未知，预览只同步尺寸*/
-	void rotatePreview(TestCtx& ctx, uint8_t rotate) {
+	/*rotate/scale_to 之后目标面内容未知，预览只按同一角度镜像旋转。
+	  degree 是顺时针度数，支持任意角度*/
+	void rotatePreview(TestCtx& ctx, int32_t degree) {
 		graph_t* rotated;
+		int32_t norm;
 
 		if(ctx.preview == NULL)
 			return;
-		if(rotate == G2D_ROTATE_0)
+		norm = ((degree % 360) + 360) % 360;
+		if(norm == 0)
 			return;
-		rotated = graph_rotate(ctx.preview, (int)(rotate & 3));
+		if(norm % 90 == 0)
+			rotated = graph_rotate(ctx.preview, (int)(norm / 90));
+		else
+			rotated = graph_rotate_any(ctx.preview, norm);
+		if(rotated == NULL)
+			return;
 		graph_free(ctx.preview);
 		ctx.preview = rotated;
 	}
@@ -342,7 +433,10 @@ class G2DTestWidget: public Widget {
 		ctx.preview = scaled;
 	}
 
-	void runTest(TestCtx& ctx) {
+	/*now_ms makes the fill colors vary with time so the preview visibly
+	  updates each round, making it easy to confirm it keeps refreshing
+	  (positions/sizes stay fixed so the checks are not affected)*/
+	void runTest(TestCtx& ctx, uint64_t now_ms) {
 		shm_image_t opaque_img;
 		shm_image_t alpha_img;
 		g2d_fill_req_t fill;
@@ -353,6 +447,7 @@ class G2DTestWidget: public Widget {
 		graph_t opaque_graph;
 		graph_t alpha_graph;
 		uint32_t bg_color = 0xff101820;
+		uint8_t pulse = (uint8_t)(0x30 + ((now_ms / 8) % 96));
 		int32_t blit2_x;
 		int32_t blit2_y;
 		int32_t alpha2_x;
@@ -408,12 +503,12 @@ class G2DTestWidget: public Widget {
 		if(ctx.preview != NULL)
 			graph_clear(ctx.preview, bg_color);
 
-		g2d_fill_req_init(&fill, g2d_rect(24, 24, 220, 120), 0xff204060);
+		g2d_fill_req_init(&fill, g2d_rect(24, 24, 220, 120), make_color(0xff, pulse, 0x40, 0x60));
 		ret = g2d_fill_rect(&ctx.g2d, &fill);
 		checkRet(ctx, "fill_rect #1", ret, true);
 		fillPreview(ctx, &fill);
 
-		g2d_fill_req_init(&fill, g2d_rect((int32_t)ctx.w0 - 180, 40, 140, 96), 0xff503040);
+		g2d_fill_req_init(&fill, g2d_rect((int32_t)ctx.w0 - 180, 40, 140, 96), make_color(0xff, 0x50, 0x30, pulse));
 		ret = g2d_fill_rect(&ctx.g2d, &fill);
 		checkRet(ctx, "fill_rect #2", ret, true);
 		fillPreview(ctx, &fill);
@@ -481,36 +576,89 @@ class G2DTestWidget: public Widget {
 		checkRet(ctx, "blit_alpha_rot270", ret, true);
 		blitPreview(ctx, &blit, &alpha_graph, 1);
 
+		/*blit with arbitrary-angle rotation: the crop is rotated 45 into its
+		  bounding box, then scaled into the dst rect*/
+		src_rect = g2d_rect(0, 0, (int32_t)opaque_img.width, (int32_t)opaque_img.height);
+		g2d_blit_req_init_ex(&blit,
+				opaque_img.shm_id,
+				opaque_img.size,
+				opaque_img.width,
+				opaque_img.height,
+				opaque_img.stride,
+				src_rect,
+				g2d_rect((int32_t)ctx.w0 - 300, (int32_t)ctx.h0 - 300, 220, 220),
+				0xff,
+				45);
+		ret = g2d_blit_shm(&ctx.g2d, &blit);
+		checkRet(ctx, "blit_rot45", ret, true);
+		blitPreview(ctx, &blit, &opaque_graph, 0);
+
 		g2d_fill_req_init(&fill, g2d_rect(0, (int32_t)ctx.h0 - 36, (int32_t)ctx.w0, 36), 0xff000000);
 		ret = g2d_fill_rect(&ctx.g2d, &fill);
 		checkRet(ctx, "fill_rect footer", ret, true);
 		fillPreview(ctx, &fill);
 
-		/*目标面 rotate：90/270 交换宽高，180 不变*/
+		/*stage display: publish the base scene and dwell on it briefly
+		  before entering the rotate/scale stages*/
+		publishPreview(ctx);
+		usleep(STAGE_DELAY_MS * 1000);
+
+		/*target rotate: clockwise degrees, any angle; 90/270 swap width/height,
+		  180 does not, other angles grow to the rotated bounding box*/
 		g2d_rotate_req_init(&rotate_req, G2D_ROTATE_90);
 		ret = g2d_rotate(&ctx.g2d, &rotate_req);
 		checkRet(ctx, "rotate_90", ret, true);
 		checkInfo(ctx, "rotate_90_size", ctx.h0, ctx.w0);
 		rotatePreview(ctx, G2D_ROTATE_90);
+		publishPreview(ctx);
+		usleep(STAGE_DELAY_MS * 1000);
 
 		g2d_rotate_req_init(&rotate_req, G2D_ROTATE_180);
 		ret = g2d_rotate(&ctx.g2d, &rotate_req);
 		checkRet(ctx, "rotate_180", ret, true);
 		checkInfo(ctx, "rotate_180_size", ctx.h0, ctx.w0);
 		rotatePreview(ctx, G2D_ROTATE_180);
+		publishPreview(ctx);
+		usleep(STAGE_DELAY_MS * 1000);
 
 		g2d_rotate_req_init(&rotate_req, G2D_ROTATE_270);
 		ret = g2d_rotate(&ctx.g2d, &rotate_req);
 		checkRet(ctx, "rotate_270", ret, true);
 		checkInfo(ctx, "rotate_270_size", ctx.w0, ctx.h0);
 		rotatePreview(ctx, G2D_ROTATE_270);
+		publishPreview(ctx);
+		usleep(STAGE_DELAY_MS * 1000);
 
-		/*目标面 scale_to：缩小、恢复、非法尺寸*/
+		/*arbitrary angle: surface grows to the rotated bounding box;
+		  -315 normalizes to 45, so the expected size is the 45-degree box*/
+		uint32_t rot45 = rotated45_size(ctx.w0, ctx.h0);
+		g2d_rotate_req_init(&rotate_req, -315);
+		ret = g2d_rotate(&ctx.g2d, &rotate_req);
+		checkRet(ctx, "rotate_-315", ret, true);
+		checkInfo(ctx, "rotate_-315_size", rot45, rot45);
+		rotatePreview(ctx, -315);
+		publishPreview(ctx);
+		usleep(STAGE_DELAY_MS * 1000);
+
+		/*negative angle on the rotated square: -45 == 315, the bounding
+		  box of a square at 45 degree is a larger square*/
+		uint32_t rot45_2 = rotated45_size(rot45, rot45);
+		g2d_rotate_req_init(&rotate_req, -45);
+		ret = g2d_rotate(&ctx.g2d, &rotate_req);
+		checkRet(ctx, "rotate_-45", ret, true);
+		checkInfo(ctx, "rotate_-45_size", rot45_2, rot45_2);
+		rotatePreview(ctx, -45);
+		publishPreview(ctx);
+		usleep(STAGE_DELAY_MS * 1000);
+
+		/*target scale_to: shrink, restore, invalid size*/
 		g2d_scale_to_req_init(&scale_req, 320, 240);
 		ret = g2d_scale_to(&ctx.g2d, &scale_req);
 		checkRet(ctx, "scale_to_320x240", ret, true);
 		checkInfo(ctx, "scale_to_size", 320, 240);
 		scalePreviewTo(ctx, 320, 240);
+		publishPreview(ctx);
+		usleep(STAGE_DELAY_MS * 1000);
 
 		g2d_scale_to_req_init(&scale_req, ctx.w0, ctx.h0);
 		ret = g2d_scale_to(&ctx.g2d, &scale_req);
@@ -532,7 +680,8 @@ class G2DTestWidget: public Widget {
 	}
 
 	void publishResult(TestCtx& ctx) {
-		/*仅在把后台结果交给 UI 时短暂持锁，避免长时间占用 stateLock。*/
+		/*only briefly holds the lock while handing results to the UI,
+		  to avoid starving UI repaints.*/
 		pthread_mutex_lock(&stateLock);
 		if(preview != NULL)
 			graph_free(preview);
@@ -543,30 +692,49 @@ class G2DTestWidget: public Widget {
 		failures = ctx.failures;
 		testPass = ctx.pass;
 		testDone = true;
+		framesPublished++;
+		pthread_mutex_unlock(&stateLock);
+	}
+
+	/*publish an intermediate preview frame (a dup, so the thread keeps its
+		own preview) to show rotate/scale stages step by step.*/
+	void publishPreview(TestCtx& ctx) {
+		graph_t* copy;
+
+		if(ctx.preview == NULL)
+			return;
+		copy = graph_dup(ctx.preview);
+		if(copy == NULL)
+			return;
+		pthread_mutex_lock(&stateLock);
+		if(preview != NULL)
+			graph_free(preview);
+		preview = copy;
+		framesPublished++;
 		pthread_mutex_unlock(&stateLock);
 	}
 
 	static void* benchThreadEntry(void* p) {
 		G2DTestWidget* self = (G2DTestWidget*)p;
-		uint32_t loop_count = 0;
 		uint64_t tick = kernel_tic_ms(0);
 
 		while(self->benchRunning) {
 			uint64_t now;
 			TestCtx ctx;
-			/*测试全程不持锁，跑完才短暂加锁发布，UI 重绘不会被饿死。*/
-			self->runTest(ctx);
+			/*the test itself holds no lock; publishing briefly locks only.*/
+			self->runTest(ctx, kernel_tic_ms(0));
 			self->publishResult(ctx);
 
-			loop_count++;
 			now = kernel_tic_ms(0);
 			if(now - tick >= 1000) {
 				uint64_t elapsed = now - tick;
 				pthread_mutex_lock(&self->stateLock);
+				/*fps = published preview frames per second, so it reflects
+				  the visible stage transitions instead of full test loops*/
 				if(elapsed != 0)
-					self->fps = (uint32_t)((loop_count * 1000ULL) / elapsed);
+					self->fps = (uint32_t)(((uint64_t)self->framesPublished * 1000ULL) / elapsed);
+				self->framesPublished = 0;
 				pthread_mutex_unlock(&self->stateLock);
-				loop_count = 0;
 				tick = now;
 			}
 		}
@@ -659,6 +827,7 @@ public:
 		testPass = false;
 		failures = 0;
 		fps = 0;
+		framesPublished = 0;
 		fpsTick = kernel_tic_ms(0);
 		firstFailure.clear();
 		benchRunning = true;

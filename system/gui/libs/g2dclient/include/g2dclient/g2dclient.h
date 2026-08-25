@@ -27,13 +27,13 @@ enum {
 	G2D_FMT_ARGB8888 = 0
 };
 
-/* clockwise rotation codes (steps of 90 degrees), used by
-   g2d_rotate_req_t.rotate and g2d_blit_req_t.rotate */
+/* common clockwise rotation degrees, any angle is accepted and
+   normalized to [0, 360) by the driver */
 enum {
 	G2D_ROTATE_0 = 0,
-	G2D_ROTATE_90 = 1,
-	G2D_ROTATE_180 = 2,
-	G2D_ROTATE_270 = 3
+	G2D_ROTATE_90 = 90,
+	G2D_ROTATE_180 = 180,
+	G2D_ROTATE_270 = 270
 };
 
 typedef struct {
@@ -56,11 +56,11 @@ typedef struct {
 	uint32_t color;
 } g2d_fill_req_t;
 
-/* rotates the destination surface clockwise, see G2D_ROTATE_*.
-   surface dimensions are swapped for 90/270. */
+/* rotates the destination surface clockwise by degree (any angle,
+   normalized to [0, 360) by the driver). 90/270 swap the surface
+   dimensions, other angles grow to the rotated bounding box. */
 typedef struct {
-	uint8_t rotate;
-	uint8_t reserved[3];
+	int32_t rotate;
 } g2d_rotate_req_t;
 
 /* scales the destination surface to width x height. */
@@ -90,8 +90,8 @@ typedef struct {
 	int32_t dw;
 	int32_t dh;
 	uint8_t alpha;
-	uint8_t rotate;
-	uint8_t reserved[6];
+	uint8_t reserved[3];
+	int32_t rotate;
 } g2d_blit_req_t;
 
 static inline g2d_rect_t g2d_rect(int32_t x, int32_t y, int32_t w, int32_t h) {
@@ -119,7 +119,7 @@ static inline void g2d_blit_req_init_ex(g2d_blit_req_t* req,
 		g2d_rect_t src_rect,
 		g2d_rect_t dst_rect,
 		uint8_t alpha,
-		uint8_t rotate) {
+		int32_t rotate) {
 	if(req == NULL)
 		return;
 	memset(req, 0, sizeof(*req));
@@ -162,13 +162,13 @@ static inline void g2d_blit_req_init(g2d_blit_req_t* req,
 			G2D_ROTATE_0);
 }
 
-static inline void g2d_blit_req_set_rotate(g2d_blit_req_t* req, uint8_t rotate) {
+static inline void g2d_blit_req_set_rotate(g2d_blit_req_t* req, int32_t rotate) {
 	if(req == NULL)
 		return;
 	req->rotate = rotate;
 }
 
-static inline void g2d_rotate_req_init(g2d_rotate_req_t* req, uint8_t rotate) {
+static inline void g2d_rotate_req_init(g2d_rotate_req_t* req, int32_t rotate) {
 	if(req == NULL)
 		return;
 	memset(req, 0, sizeof(*req));

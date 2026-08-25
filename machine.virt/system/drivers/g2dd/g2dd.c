@@ -171,8 +171,8 @@ static int32_t g2d_surface_blit(g2d_surface_t* dst, const g2d_import_t* src,
             req->sy + req->sh > (int32_t)src->height)
         return -1;
 
-    /* rotate codes are steps of 90 degrees (G2D_ROTATE_*) */
-    degree = g2d_norm_degree((int32_t)(req->rotate & 3) * 90);
+    /* rotate is clockwise degrees, normalized to [0, 360) */
+    degree = g2d_norm_degree(req->rotate);
 
     /* no rotation: blt scales and clips the crop rect directly */
     if (degree == 0) {
@@ -399,7 +399,7 @@ static int32_t g2dd_handle_rotate(proto_t* in, g2d_state_t* state) {
         return -1;
     if (proto_read_to(in, &req, sizeof(req)) != sizeof(req))
         return -1;
-    return g2d_state_rotate(state, (int32_t)(req.rotate & 3) * 90);
+    return g2d_state_rotate(state, req.rotate);
 }
 
 static int32_t g2dd_handle_scale_to(proto_t* in, g2d_state_t* state) {
