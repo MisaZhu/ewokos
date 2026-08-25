@@ -1,4 +1,5 @@
 #include <graph/graph_arch.h>
+#include <g2d_arch.h>
 #include <ewoksys/core.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,16 +20,6 @@ static inline uint16x8_t neon_div255_u16(uint16x8_t v)
     uint16x8_t t = vaddq_u16(v, vdupq_n_u16(1));
     t = vaddq_u16(t, vshrq_n_u16(v, 8));
     return vshrq_n_u16(t, 8);
-}
-
-static inline void neon_16(uint32_t *s, uint32_t *d)
-{
-    __asm volatile(
-        "ld4 {v20.16b-v23.16b}, [%0]\n\t"    // Load source
-        "st4 {v20.16b-v23.16b}, [%1]\n\t"    // Store to destination
-        :
-        : "r"(s), "r"(d)
-        : "memory", "v20", "v21", "v22", "v23");
 }
 
 static inline void neon_alpha_16(uint32_t *b, uint32_t *f, uint32_t *d, uint8_t alpha_more)
@@ -63,24 +54,6 @@ static inline void neon_alpha_16(uint32_t *b, uint32_t *f, uint32_t *d, uint8_t 
     vst4q_u8((uint8_t*)d, out);
 }
 
-static inline void neon_fill_load_16(uint32_t *s)
-{
-    __asm volatile(
-        "ld4 {v20.16b-v23.16b}, [%0]\n\t"    // Load source
-        :
-        : "r"(s)
-        : "memory", "v20", "v21", "v22", "v23");
-}
-
-static inline void neon_fill_store_16(uint32_t *d)
-{
-    __asm volatile(
-        "st4 {v20.16b-v23.16b}, [%0]\n\t"    // Store to destination
-        :
-        : "r"(d)
-        : "memory", "v20", "v21", "v22", "v23");
-}
-
 static inline void graph_pixel_argb_neon(graph_t *graph, int32_t x, int32_t y,
                                   uint32_t *src, int size, uint8_t alpha_more)
 {
@@ -102,24 +75,7 @@ static inline void graph_pixel_argb_neon(graph_t *graph, int32_t x, int32_t y,
     }
 }
 
-static inline void graph_pixel_neon(graph_t *graph, int32_t x, int32_t y,
-                                  uint32_t *src, int size)
-{
-    uint32_t *dst = &graph->buffer[y * graph->w + x];
-
-    if (size == 16)
-    {
-        neon_16(src, dst);
-    }
-    else
-    {
-        memcpy(dst, src, 4 * size);
-    }
-}
-
 void graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
-    uint32_t buf[16] = {0};
-
     if(g == NULL || w <= 0 || h <= 0)
         return;
     grect_t r = {x, y, w, h};
@@ -128,168 +84,32 @@ void graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uin
     if(g->clip.w > 0 && g->clip.h > 0)
         grect_insect(&g->clip, &r);
 
-    register int32_t ex, ey;
-    y = r.y;
-    ex = r.x + r.w;
-    ey = r.y + r.h;
-
-    for(int i = 0; i < 16; i++)
-        buf[i] = color;
-    
+    /* opaque fill: handled by the g2d engine (memset / NEON row stores) */
     if(color_a(color) == 0xff) {
-        neon_fill_load_16(buf);
-        for(; y < ey; y++) {
-            x = r.x;
-            for(; x < ex; x+=16) {
-                uint32_t *dst = &g->buffer[y * g->w + x];
-                int pixels = ex - x;
-                if(pixels > 16)
-                    pixels = 16;
-                /* 16px SIMD store needs a 16-byte aligned row start: the
-                   graph buffer may be Device-mapped framebuffer memory
-                   where any unaligned access faults */
-                if(pixels == 16 && (((uintptr_t)dst & 0xF) == 0))
-                    neon_fill_store_16(dst);
-                else
-                    memcpy(dst, buf, pixels * 4);
-            }
-        }
-    }
-    else {
-        for(; y < ey; y++) {
-            x = r.x;
-            for(; x < ex; x+=16) {
-                graph_pixel_argb_neon(g, x, y, buf, MIN(ex-x, 16), 0xFF);
-            }
-        }
-    }
-}
-
-#if defined(__GNUC__) && !defined(__clang__)
-/* GCC with -mstrict-align lowers vld1q_u32/vst1q_u32 on pointers without
-   proven 16-byte alignment to scalar ldp w/orr/stp w sequences. LD1/ST1
-   tolerate unaligned addresses in Normal memory (the kernel boots with
-   SCTLR_EL1.A=0), so emit them directly. NOTE: do NOT use LDP/STP q-form
-   here — unlike LD1/ST1 they require 16-byte alignment even with A=0.
-   IMPORTANT: unaligned accesses to Device memory fault unconditionally
-   (SCTLR.A only relaxes Normal memory). The VC framebuffer sits in a
-   reserved RAM carve-out that SYS_MEM_MAP maps as Device-nGnRnE, so a
-   dirty-rect row whose x*4 offset is not 16-byte aligned crashes on the
-   first 16-byte SIMD store. Callers must only reach these helpers with
-   16-byte aligned pointers (see blt_copy_row_neon). */
-static inline uint32x4_t blt_ld1q_u32_bsp(const uint32_t *p) {
-    uint32x4_t v;
-    __asm__("ld1 {%0.4s}, [%1]" : "=w"(v) : "r"(p));
-    return v;
-}
-static inline void blt_st1q_u32_bsp(uint32_t *p, uint32x4_t v) {
-    __asm__("st1 {%1.4s}, [%0]" :: "r"(p), "w"(v) : "memory");
-}
-static inline void blt_ld1q_x4_u32_bsp(const uint32_t *p, uint32x4_t *a, uint32x4_t *b, uint32x4_t *c, uint32x4_t *d) {
-    /* 4 independent single-register LD1s instead of the ld1 {vA.4s-vD.4s}
-       range form: GCC "=w" constraints do NOT guarantee consecutive
-       register allocation, so the range syntax breaks as soon as register
-       pressure rises. Throughput is equivalent (the 4-reg form is 4 uops
-       anyway) and independent loads pipeline at least as well. */
-    *a = blt_ld1q_u32_bsp(p);
-    *b = blt_ld1q_u32_bsp(p + 4);
-    *c = blt_ld1q_u32_bsp(p + 8);
-    *d = blt_ld1q_u32_bsp(p + 12);
-}
-static inline void blt_st1q_x4_u32_bsp(uint32_t *p, uint32x4_t a, uint32x4_t b, uint32x4_t c, uint32x4_t d) {
-    blt_st1q_u32_bsp(p, a);
-    blt_st1q_u32_bsp(p + 4, b);
-    blt_st1q_u32_bsp(p + 8, c);
-    blt_st1q_u32_bsp(p + 12, d);
-}
-#else
-static inline uint32x4_t blt_ld1q_u32_bsp(const uint32_t *p) {
-    return vld1q_u32(p);
-}
-static inline void blt_st1q_u32_bsp(uint32_t *p, uint32x4_t v) {
-    vst1q_u32(p, v);
-}
-static inline void blt_ld1q_x4_u32_bsp(const uint32_t *p, uint32x4_t *a, uint32x4_t *b, uint32x4_t *c, uint32x4_t *d) {
-    *a = vld1q_u32(p);
-    *b = vld1q_u32(p + 4);
-    *c = vld1q_u32(p + 8);
-    *d = vld1q_u32(p + 12);
-}
-static inline void blt_st1q_x4_u32_bsp(uint32_t *p, uint32x4_t a, uint32x4_t b, uint32x4_t c, uint32x4_t d) {
-    vst1q_u32(p, a);
-    vst1q_u32(p + 4, b);
-    vst1q_u32(p + 8, c);
-    vst1q_u32(p + 12, d);
-}
-#endif
-
-/* Row copy that never falls back to libc memcpy: the EwokOS libc one is a
-   plain byte loop, while 128-bit NEON load/stores move 16 pixels in a few
-   instructions and merge cleanly into write-combine bursts on non-cacheable
-   scan-out memory. */
-static inline void blt_copy_row_neon(uint32_t *dp, const uint32_t *sp, int32_t w) {
-    /* The destination graph can be the framebuffer, which SYS_MEM_MAP maps
-       as Device memory when its physical base sits in a reserved carve-out
-       (VC fb on Raspberry Pi): ANY unaligned access to Device memory is an
-       unconditional alignment fault, so the 16-byte SIMD path may only run
-       on 16-byte aligned rows. Odd-x dirty rects fall back to a scalar
-       word copy instead. */
-    if((((uintptr_t)dp | (uintptr_t)sp) & 0xF) != 0) {
-        for(int32_t x = 0; x < w; x++)
-            dp[x] = sp[x];
+        arch_g2d_fill(g->buffer, g->w, g->h, r.x, r.y, r.w, r.h, color);
         return;
     }
-    int32_t x = 0;
-    /* 32 pixels (128 bytes) per iteration with a rolling prefetch 4 cache
-       lines ahead: keeps the load pipe fed on long rows / full-screen runs
-       instead of stalling on every new cache line. */
-    for(; x <= w - 32; x += 32) {
-        __asm volatile("prfm pldl1keep, [%0, #256]" : : "r"(sp + x));
-        uint32x4_t v0, v1, v2, v3, v4, v5, v6, v7;
-        blt_ld1q_x4_u32_bsp(sp + x, &v0, &v1, &v2, &v3);
-        blt_ld1q_x4_u32_bsp(sp + x + 16, &v4, &v5, &v6, &v7);
-        blt_st1q_x4_u32_bsp(dp + x, v0, v1, v2, v3);
-        blt_st1q_x4_u32_bsp(dp + x + 16, v4, v5, v6, v7);
+
+    /* translucent fill: blend the solid color against what is there */
+    uint32_t buf[16];
+    for(int i = 0; i < 16; i++)
+        buf[i] = color;
+
+    register int32_t ex, ey;
+    ey = r.y + r.h;
+    ex = r.x + r.w;
+    for(int32_t yy = r.y; yy < ey; yy++) {
+        for(int32_t xx = r.x; xx < ex; xx += 16) {
+            graph_pixel_argb_neon(g, xx, yy, buf, MIN(ex - xx, 16), 0xFF);
+        }
     }
-    /* 16 pixels */
-    if(x <= w - 16) {
-        uint32x4_t v0, v1, v2, v3;
-        blt_ld1q_x4_u32_bsp(sp + x, &v0, &v1, &v2, &v3);
-        blt_st1q_x4_u32_bsp(dp + x, v0, v1, v2, v3);
-        x += 16;
-    }
-    /* 8 pixels */
-    if(x <= w - 8) {
-        uint32x4_t v0 = blt_ld1q_u32_bsp(sp + x);
-        uint32x4_t v1 = blt_ld1q_u32_bsp(sp + x + 4);
-        blt_st1q_u32_bsp(dp + x, v0);
-        blt_st1q_u32_bsp(dp + x + 4, v1);
-        x += 8;
-    }
-    /* 4 pixels */
-    if(x <= w - 4) {
-        blt_st1q_u32_bsp(dp + x, blt_ld1q_u32_bsp(sp + x));
-        x += 4;
-    }
-    /* Tail */
-    for(; x < w; x++)
-        dp[x] = sp[x];
 }
 
 inline void graph_blt_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
         graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
-    
+
     if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
         return;
-
-    /* overlapping copy within one graph needs memmove ordering; the CPU
-       path handles it */
-    if(src == dst &&
-            dx < sx + sw && sx < dx + dw &&
-            dy < sy + sh && sy < dy + dh) {
-        graph_blt_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
-        return;
-    }
 
     grect_t sr = {sx, sy, sw, sh};
     grect_t dr = {dx, dy, dw, dh};
@@ -305,171 +125,10 @@ inline void graph_blt_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int
     if(dy < 0)
         sr.y -= dy;
 
-    register int32_t ex, ey;
-    sy = sr.y;
-    dy = dr.y;
-    ex = sr.x + sr.w;
-    ey = sr.y + sr.h;
-    int32_t w = ex - sr.x;
-
-    /* Full-width rows on both sides: whole region is contiguous in memory,
-       collapse the row loop into one streaming NEON copy (common full-screen
-       path) */
-    if(w == src->w && w == dst->w) {
-        blt_copy_row_neon(&dst->buffer[dy * w], &src->buffer[sy * w],
-                (ey - sy) * w);
-        return;
-    }
-
-    for(; sy < ey; sy++, dy++) {
-        const uint32_t *sp = &src->buffer[sy * src->w + sr.x];
-        uint32_t *dp = &dst->buffer[dy * dst->w + dr.x];
-        blt_copy_row_neon(dp, sp, w);
-    }
-}
-
-/* Blend 16 pixels whose effective alpha is already known to be neither
-   all-zero nor all-opaque. a_lo/a_hi are the per-pixel effective alphas
-   (src_a scaled by the global alpha). Channels use vmull+vmlal instead of
-   vmull+vmull+vaddq: one fewer instruction per channel half. */
-static inline void blt_alpha16_blend_core(uint32_t *dp, uint8x16x4_t fg,
-        uint8x8_t a_lo, uint8x8_t a_hi)
-{
-    uint8x16x4_t bg = vld4q_u8((const uint8_t*)dp);
-    uint8x16_t full = vdupq_n_u8(0xff);
-    uint8x16_t a = vcombine_u8(a_lo, a_hi);
-    uint8x16_t inv_a = vsubq_u8(full, a);
-
-    uint8x16x4_t out;
-    /* out = div255(fg*a + bg*(255-a)) per channel, low/high halves widened */
-    for(int c = 0; c < 3; c++) {
-        uint16x8_t lo = vmull_u8(vget_low_u8(fg.val[c]), a_lo);
-        lo = vmlal_u8(lo, vget_low_u8(bg.val[c]), vget_low_u8(inv_a));
-        uint16x8_t hi = vmull_u8(vget_high_u8(fg.val[c]), a_hi);
-        hi = vmlal_u8(hi, vget_high_u8(bg.val[c]), vget_high_u8(inv_a));
-        out.val[c] = vcombine_u8(vmovn_u16(neon_div255_u16(lo)), vmovn_u16(neon_div255_u16(hi)));
-    }
-    /* out_a = bg_a + div255((255-bg_a)*a) */
-    uint16x8_t oa_lo = neon_div255_u16(vmull_u8(vsub_u8(vget_low_u8(full), vget_low_u8(bg.val[3])), a_lo));
-    uint16x8_t oa_hi = neon_div255_u16(vmull_u8(vsub_u8(vget_high_u8(full), vget_high_u8(bg.val[3])), a_hi));
-    out.val[3] = vcombine_u8(
-        vmovn_u16(vaddq_u16(vmovl_u8(vget_low_u8(bg.val[3])), oa_lo)),
-        vmovn_u16(vaddq_u16(vmovl_u8(vget_high_u8(bg.val[3])), oa_hi)));
-
-    vst4q_u8((uint8_t*)dp, out);
-}
-
-/* 16px blend with global alpha 0xff: effective alpha is the source alpha
-   itself, skipping the per-block div255(fg_a*alpha) scaling chain. The
-   caller must have ruled out the all-transparent and all-opaque cases. */
-static inline void blt_alpha16_blend_a255(uint32_t *dp, uint8x16x4_t fg)
-{
-    blt_alpha16_blend_core(dp, fg,
-            vget_low_u8(fg.val[3]), vget_high_u8(fg.val[3]));
-}
-
-/* 16px blend with a global alpha < 0xff */
-static inline void blt_alpha16_blend_scaled(uint32_t *dp, uint8x16x4_t fg,
-        uint8x16_t alpha_vec)
-{
-    uint8x8_t a_lo = vmovn_u16(neon_div255_u16(vmull_u8(vget_low_u8(fg.val[3]), vget_low_u8(alpha_vec))));
-    uint8x8_t a_hi = vmovn_u16(neon_div255_u16(vmull_u8(vget_high_u8(fg.val[3]), vget_high_u8(alpha_vec))));
-    blt_alpha16_blend_core(dp, fg, a_lo, a_hi);
-}
-
-/* 16px sub-block already loaded interleaved (cheap ld1). Alphas are the
-   top byte of each u32 lane: max-of-OR == 0 means all transparent,
-   min-of-AND == 0xff means all opaque. Uniform blocks never touch the
-   expensive ld4/st4 de-interleave path: transparent skips all memory
-   access, opaque is a plain st1 copy. Only truly mixed blocks reload the
-   source de-interleaved for the blend math. */
-static inline void blt_alpha16_a255_regs(uint32_t *dp, const uint32_t *sp,
-        uint32x4_t s0, uint32x4_t s1, uint32x4_t s2, uint32x4_t s3)
-{
-    uint32x4_t or_a = vorrq_u32(vorrq_u32(s0, s1), vorrq_u32(s2, s3));
-    if(vmaxvq_u32(vshrq_n_u32(or_a, 24)) == 0)
-        return;
-    uint32x4_t and_a = vandq_u32(vandq_u32(s0, s1), vandq_u32(s2, s3));
-    if(vminvq_u32(vshrq_n_u32(and_a, 24)) == 0xff) {
-        blt_st1q_x4_u32_bsp(dp, s0, s1, s2, s3);
-        return;
-    }
-    uint8x16x4_t fg = vld4q_u8((const uint8_t*)sp);
-    blt_alpha16_blend_a255(dp, fg);
-}
-
-/* 32px block, global alpha 0xff: combined transparent/opaque checks over
-   all 8 interleaved vectors first (one reduction each), then per-16px
-   sub-block checks only when the block is mixed. Blending preserves
-   block-level semantics bit-exactly: fg_a==0 is the identity on dst, and
-   fg_a==0xff gives div255(x*255) == x per channel with
-   out_a = bg_a + (255-bg_a) == 255. */
-static inline void blt_alpha32_a255(uint32_t *dp, const uint32_t *sp)
-{
-    __asm volatile("prfm pldl1keep, [%0, #256]" : : "r"(sp));
-
-    uint32x4_t s0, s1, s2, s3, s4, s5, s6, s7;
-    blt_ld1q_x4_u32_bsp(sp, &s0, &s1, &s2, &s3);
-    blt_ld1q_x4_u32_bsp(sp + 16, &s4, &s5, &s6, &s7);
-
-    uint32x4_t or_a = vorrq_u32(
-            vorrq_u32(vorrq_u32(s0, s1), vorrq_u32(s2, s3)),
-            vorrq_u32(vorrq_u32(s4, s5), vorrq_u32(s6, s7)));
-    /* All 32 source alphas == 0: dst untouched, no read/write at all */
-    if(vmaxvq_u32(vshrq_n_u32(or_a, 24)) == 0)
-        return;
-    uint32x4_t and_a = vandq_u32(
-            vandq_u32(vandq_u32(s0, s1), vandq_u32(s2, s3)),
-            vandq_u32(vandq_u32(s4, s5), vandq_u32(s6, s7)));
-    /* All 32 source alphas == 0xff: plain interleaved copy, no de/re-
-       interleave at all */
-    if(vminvq_u32(vshrq_n_u32(and_a, 24)) == 0xff) {
-        blt_st1q_x4_u32_bsp(dp, s0, s1, s2, s3);
-        blt_st1q_x4_u32_bsp(dp + 16, s4, s5, s6, s7);
-        return;
-    }
-
-    /* Mixed block: blend reads dst too, prefetch it as well */
-    __asm volatile("prfm pldl1keep, [%0, #256]" : : "r"(dp));
-    blt_alpha16_a255_regs(dp, sp, s0, s1, s2, s3);
-    blt_alpha16_a255_regs(dp + 16, sp + 16, s4, s5, s6, s7);
-}
-
-/* 32px block with a global alpha < 0xff */
-static inline void blt_alpha32_scaled(uint32_t *dp, const uint32_t *sp,
-        uint8x16_t alpha_vec)
-{
-    __asm volatile("prfm pldl1keep, [%0, #256]" : : "r"(sp));
-    /* scaled blend always reads dst unless fully transparent */
-    __asm volatile("prfm pldl1keep, [%0, #256]" : : "r"(dp));
-
-    uint8x16x4_t fg0 = vld4q_u8((const uint8_t*)sp);
-    uint8x16x4_t fg1 = vld4q_u8((const uint8_t*)(sp + 16));
-
-    uint8x16_t a_or = vorrq_u8(fg0.val[3], fg1.val[3]);
-    if(vmaxvq_u8(a_or) == 0)
-        return;
-
-    blt_alpha16_blend_scaled(dp, fg0, alpha_vec);
-    blt_alpha16_blend_scaled(dp + 16, fg1, alpha_vec);
-}
-
-/* Remaining 16px block with per-block checks, global alpha 0xff */
-static inline void blt_alpha16_a255_checked(uint32_t *dp, const uint32_t *sp)
-{
-    uint32x4_t s0, s1, s2, s3;
-    blt_ld1q_x4_u32_bsp(sp, &s0, &s1, &s2, &s3);
-    blt_alpha16_a255_regs(dp, sp, s0, s1, s2, s3);
-}
-
-/* Remaining 16px block with per-block checks, global alpha < 0xff */
-static inline void blt_alpha16_scaled_checked(uint32_t *dp, const uint32_t *sp,
-        uint8x16_t alpha_vec)
-{
-    uint8x16x4_t fg = vld4q_u8((const uint8_t*)sp);
-    if(vmaxvq_u8(fg.val[3]) == 0)
-        return;
-    blt_alpha16_blend_scaled(dp, fg, alpha_vec);
+    /* 1:1 copy of the clipped region; the g2d engine keeps overlapping
+       copies within one buffer safe (memmove ordering) */
+    arch_g2d_blt(src->buffer, src->w, src->h, sr.x, sr.y, sr.w, sr.h,
+            dst->buffer, dst->w, dst->h, dr.x, dr.y, sr.w, sr.h);
 }
 
 inline void graph_blt_alpha_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
@@ -495,64 +154,12 @@ inline void graph_blt_alpha_arch(graph_t* src, int32_t sx, int32_t sy, int32_t s
     if(dy < 0)
         sr.y -= dy;
 
-    register int32_t ex, ey;
-    sy = sr.y;
-    dy = dr.y;
-    ex = sr.x + sr.w;
-    ey = sr.y + sr.h;
-    int32_t w = ex - sr.x;
-
-    if(alpha == 0xff) {
-        /* most common case: global alpha full, effective alpha = src alpha */
-        for(; sy < ey; sy++, dy++) {
-            const uint32_t *sp = &src->buffer[sy * src->w + sr.x];
-            uint32_t *dp = &dst->buffer[dy * dst->w + dr.x];
-            int32_t x = 0;
-
-            for(; x <= w - 32; x += 32)
-                blt_alpha32_a255(dp + x, sp + x);
-            if(x <= w - 16) {
-                blt_alpha16_a255_checked(dp + x, sp + x);
-                x += 16;
-            }
-            /* Tail: zero-padded block; padding lanes blend as identity */
-            if(x < w) {
-                int remain = w - x;
-                uint32_t fg[16] = {0}, bg[16] = {0};
-                memcpy(fg, sp + x, 4 * remain);
-                memcpy(bg, dp + x, 4 * remain);
-                uint8x16x4_t fgv = vld4q_u8((const uint8_t*)fg);
-                blt_alpha16_blend_a255(bg, fgv);
-                memcpy(dp + x, bg, 4 * remain);
-            }
-        }
-        return;
-    }
-
-    uint8x16_t alpha_vec16 = vdupq_n_u8(alpha);
-    for(; sy < ey; sy++, dy++) {
-        const uint32_t *sp = &src->buffer[sy * src->w + sr.x];
-        uint32_t *dp = &dst->buffer[dy * dst->w + dr.x];
-        int32_t x = 0;
-
-        for(; x <= w - 32; x += 32)
-            blt_alpha32_scaled(dp + x, sp + x, alpha_vec16);
-        if(x <= w - 16) {
-            blt_alpha16_scaled_checked(dp + x, sp + x, alpha_vec16);
-            x += 16;
-        }
-        /* Tail: zero-padded block; padding lanes blend as identity */
-        if(x < w) {
-            int remain = w - x;
-            uint32_t fg[16] = {0}, bg[16] = {0};
-            memcpy(fg, sp + x, 4 * remain);
-            memcpy(bg, dp + x, 4 * remain);
-            uint8x16x4_t fgv = vld4q_u8((const uint8_t*)fg);
-            blt_alpha16_blend_scaled(bg, fgv, alpha_vec16);
-            memcpy(dp + x, bg, 4 * remain);
-        }
-    }
+    /* 1:1 blend of the clipped region; the g2d engine applies the same
+       per-block transparent/opaque fast paths and div255 blend math */
+    arch_g2d_blt_alpha(src->buffer, src->w, src->h, sr.x, sr.y, sr.w, sr.h,
+            dst->buffer, dst->w, dst->h, dr.x, dr.y, sr.w, sr.h, alpha);
 }
+
 
 static inline void neon_mask_alpha_16(uint32_t *dst, uint32_t *src)
 {
@@ -2120,152 +1727,6 @@ void argb_2_rgb15_arch(uint16_t *out, uint32_t *in, int w, int h) {
     }
 }
 
-static inline uint32x4_t rotate_rev4_u32(uint32x4_t v) {
-    /* reverse the four 32-bit lanes: {a,b,c,d} -> {d,c,b,a} */
-    return vcombine_u32(vget_high_u32(vrev64q_u32(v)), vget_low_u32(vrev64q_u32(v)));
-}
-
-static inline void rotate_90_cw_neon(const uint32_t* src, uint32_t* dst, int width, int height) {
-    /* dst is (height x width); dst[y][x] = src[height-1-x][y].
-       The outer loop walks DESTINATION row bands so every dst row is
-       filled left-to-right (ascending): scan-out mappings are usually
-       Normal Non-Cacheable, and write-combine only merges stores into
-       DRAM bursts when they arrive sequentially. The source lives in
-       cacheable memory, so its strided reads are absorbed by L1/L2. */
-    int y = 0;
-    for(; y + 4 <= width; y += 4) {
-        uint32_t* d0 = dst + (y + 0) * height;
-        uint32_t* d1 = dst + (y + 1) * height;
-        uint32_t* d2 = dst + (y + 2) * height;
-        uint32_t* d3 = dst + (y + 3) * height;
-        int x = 0;
-
-        for(; x + 4 <= height; x += 4) {
-            const uint32_t* s0 = src + (height - 1 - x) * width + y;
-            const uint32_t* s1 = s0 - width;
-            const uint32_t* s2 = s1 - width;
-            const uint32_t* s3 = s2 - width;
-            uint32x4_t v0 = vld1q_u32(s0);
-            uint32x4_t v1 = vld1q_u32(s1);
-            uint32x4_t v2 = vld1q_u32(s2);
-            uint32x4_t v3 = vld1q_u32(s3);
-
-            /* transpose the 4x4 pixel block into columns */
-            uint32x4x2_t t01 = vtrnq_u32(v0, v1);
-            uint32x4x2_t t23 = vtrnq_u32(v2, v3);
-            uint32x4_t c0 = vcombine_u32(vget_low_u32(t01.val[0]), vget_low_u32(t23.val[0]));
-            uint32x4_t c1 = vcombine_u32(vget_low_u32(t01.val[1]), vget_low_u32(t23.val[1]));
-            uint32x4_t c2 = vcombine_u32(vget_high_u32(t01.val[0]), vget_high_u32(t23.val[0]));
-            uint32x4_t c3 = vcombine_u32(vget_high_u32(t01.val[1]), vget_high_u32(t23.val[1]));
-
-            vst1q_u32(d0 + x, c0);
-            vst1q_u32(d1 + x, c1);
-            vst1q_u32(d2 + x, c2);
-            vst1q_u32(d3 + x, c3);
-        }
-
-        for(; x < height; ++x) {
-            d0[x] = src[(height - 1 - x) * width + y + 0];
-            d1[x] = src[(height - 1 - x) * width + y + 1];
-            d2[x] = src[(height - 1 - x) * width + y + 2];
-            d3[x] = src[(height - 1 - x) * width + y + 3];
-        }
-    }
-
-    for(; y < width; ++y) {
-        uint32_t* d = dst + y * height;
-        for(int x = 0; x < height; ++x)
-            d[x] = src[(height - 1 - x) * width + y];
-    }
-}
-
-static inline void rotate_270_cw_neon(const uint32_t* src, uint32_t* dst, int width, int height) {
-    /* dst is (height x width); dst[y][x] = src[x][width-1-y], dst rows ascending */
-    int y = 0;
-    for(; y + 4 <= width; y += 4) {
-        uint32_t* d0 = dst + (y + 0) * height;
-        uint32_t* d1 = dst + (y + 1) * height;
-        uint32_t* d2 = dst + (y + 2) * height;
-        uint32_t* d3 = dst + (y + 3) * height;
-        int x = 0;
-
-        for(; x + 4 <= height; x += 4) {
-            const uint32_t* s0 = src + (x + 0) * width + (width - 4 - y);
-            const uint32_t* s1 = s0 + width;
-            const uint32_t* s2 = s1 + width;
-            const uint32_t* s3 = s2 + width;
-            uint32x4_t v0 = vld1q_u32(s0);
-            uint32x4_t v1 = vld1q_u32(s1);
-            uint32x4_t v2 = vld1q_u32(s2);
-            uint32x4_t v3 = vld1q_u32(s3);
-
-            /* transpose the 4x4 pixel block into columns */
-            uint32x4x2_t t01 = vtrnq_u32(v0, v1);
-            uint32x4x2_t t23 = vtrnq_u32(v2, v3);
-            uint32x4_t c0 = vcombine_u32(vget_low_u32(t01.val[0]), vget_low_u32(t23.val[0]));
-            uint32x4_t c1 = vcombine_u32(vget_low_u32(t01.val[1]), vget_low_u32(t23.val[1]));
-            uint32x4_t c2 = vcombine_u32(vget_high_u32(t01.val[0]), vget_high_u32(t23.val[0]));
-            uint32x4_t c3 = vcombine_u32(vget_high_u32(t01.val[1]), vget_high_u32(t23.val[1]));
-
-            /* dst[y+i][x+j] = src[x+3-j][width-1-(y+i)]: row i takes column 3-i */
-            vst1q_u32(d0 + x, c3);
-            vst1q_u32(d1 + x, c2);
-            vst1q_u32(d2 + x, c1);
-            vst1q_u32(d3 + x, c0);
-        }
-
-        for(; x < height; ++x) {
-            d0[x] = src[(x + 0) * width + width - 1 - (y + 0)];
-            d1[x] = src[(x + 0) * width + width - 1 - (y + 1)];
-            d2[x] = src[(x + 0) * width + width - 1 - (y + 2)];
-            d3[x] = src[(x + 0) * width + width - 1 - (y + 3)];
-        }
-    }
-
-    for(; y < width; ++y) {
-        uint32_t* d = dst + y * height;
-        for(int x = 0; x < height; ++x)
-            d[x] = src[x * width + width - 1 - y];
-    }
-}
-
-static inline void rotate_180_neon(const uint32_t* src, uint32_t* dst, int width, int height) {
-    /* dst[y][x] = src[height-1-y][width-1-x], dst rows ascending */
-    int y = 0;
-    for(; y + 4 <= height; y += 4) {
-        uint32_t* d0 = dst + (y + 0) * width;
-        uint32_t* d1 = dst + (y + 1) * width;
-        uint32_t* d2 = dst + (y + 2) * width;
-        uint32_t* d3 = dst + (y + 3) * width;
-        const uint32_t* s0 = src + (height - 1 - (y + 0)) * width;
-        const uint32_t* s1 = src + (height - 1 - (y + 1)) * width;
-        const uint32_t* s2 = src + (height - 1 - (y + 2)) * width;
-        const uint32_t* s3 = src + (height - 1 - (y + 3)) * width;
-        int x = 0;
-
-        for(; x + 4 <= width; x += 4) {
-            vst1q_u32(d0 + x, rotate_rev4_u32(vld1q_u32(s0 + width - x - 4)));
-            vst1q_u32(d1 + x, rotate_rev4_u32(vld1q_u32(s1 + width - x - 4)));
-            vst1q_u32(d2 + x, rotate_rev4_u32(vld1q_u32(s2 + width - x - 4)));
-            vst1q_u32(d3 + x, rotate_rev4_u32(vld1q_u32(s3 + width - x - 4)));
-        }
-
-        for(; x < width; ++x) {
-            d0[x] = s0[width - 1 - x];
-            d1[x] = s1[width - 1 - x];
-            d2[x] = s2[width - 1 - x];
-            d3[x] = s3[width - 1 - x];
-        }
-    }
-
-    for(; y < height; ++y) {
-        uint32_t* d = dst + y * width;
-        const uint32_t* s = src + (height - 1 - y) * width;
-        for(int x = 0; x < width; ++x)
-            d[x] = s[width - 1 - x];
-    }
-}
-
 /*
  *  XRGB1555 -> ARGB8888 (NEON, 16 pixels per iteration).
  *  Straight linear scan (no rotation), the inverse of argb_2_rgb15_arch.
@@ -2506,16 +1967,17 @@ void graph_rotate_to_arch(graph_t* g, graph_t* ret, int rot) {
     if(rot == G_ROTATE_90 || rot == G_ROTATE_270) {
         if(ret->w < g->h || ret->h < g->w)
             return;
-        if(rot == G_ROTATE_90)
-            rotate_90_cw_neon(g->buffer, ret->buffer, g->w, g->h);
-        else
-            rotate_270_cw_neon(g->buffer, ret->buffer, g->w, g->h);
     }
     else if(rot == G_ROTATE_180) {
         if(ret->w < g->w || ret->h < g->h)
             return;
-        rotate_180_neon(g->buffer, ret->buffer, g->w, g->h);
     }
+    else
+        return;
+
+    /* quadrant rotations are implemented by the g2d engine (rot codes map
+       1:1 to clockwise degrees) */
+    arch_g2d_rotate(g->buffer, g->w, g->h, ret->buffer, ret->w, ret->h, rot * 90);
 }
 
 #endif

@@ -6,11 +6,13 @@ TARGET_DIR = $(BUILD_DIR)
 
 LDFLAGS = -L $(TARGET_DIR)/lib
 
-CFLAGS += -Iinclude -I $(TARGET_DIR)/include
+CFLAGS += -Iinclude -I $(TARGET_DIR)/include \
+	-I $(SYS_DIR)/platform/$(ARCH)/include/$(ARCH)
 
 
 LIB_GRAPH_OBJS = \
 	$(SYS_DIR)/platform/$(ARCH)/src/$(ARCH)/graph_arch.o \
+	$(SYS_DIR)/platform/$(ARCH)/src/$(ARCH)/g2d_arch.o \
 	$(ARCH)/src/graph.o \
 	$(ARCH)/src/graph_ex.o \
 	$(ARCH)/src/graph_png.o \
