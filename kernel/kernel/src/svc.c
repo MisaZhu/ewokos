@@ -839,7 +839,7 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
         ctx->gpr[0] = sys_dma_alloc(arg0, (uint32_t)arg1);
         return;
     case SYS_DMA_FREE:
-                sys_dma_free(arg0, arg1);
+        sys_dma_free(arg0, arg1);
         return;
     case SYS_DMA_SET:
         ctx->gpr[0] = sys_dma_set((ewokos_addr_t)arg0, (uint32_t)arg1, arg2);
