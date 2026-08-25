@@ -1,23 +1,23 @@
 SYS_DIR=../../..
 include $(SYS_DIR)/platform/$(ARCH)/make.rule
 
-BUILD_DIR = $(SYS_DIR)/build/$(HW)/rootfs/bin
+BUILD_DIR = $(SYS_DIR)/build_$(ARCH)/$(HW)/rootfs/bin
 
 TASK = oggplayer
 TASK_OBJS = $(ARCH)/oggplayer.o
 
-CFLAGS += -I $(SYS_DIR)/build/$(HW)/include
+CFLAGS += -I $(SYS_DIR)/build_$(ARCH)/$(HW)/include
 CFLAGS += -I $(SYS_DIR)/gui/libs/libogg/include
 CFLAGS += -I $(SYS_DIR)/gui/libs/libvorbis/include
 
-LDFLAGS += -L $(SYS_DIR)/build/$(HW)/lib
+LDFLAGS += -L $(SYS_DIR)/build_$(ARCH)/$(HW)/lib
 
 all: $(TASK)
 
 $(TASK): $(TASK_OBJS)  \
-		$(SYS_DIR)/build/$(HW)/lib/libvorbis.a \
-		$(SYS_DIR)/build/$(HW)/lib/libogg.a \
-		$(SYS_DIR)/build/$(HW)/lib/libewoksys.a
+		$(SYS_DIR)/build_$(ARCH)/$(HW)/lib/libvorbis.a \
+		$(SYS_DIR)/build_$(ARCH)/$(HW)/lib/libogg.a \
+		$(SYS_DIR)/build_$(ARCH)/$(HW)/lib/libewoksys.a
 	mkdir -p $(BUILD_DIR)
 	$(LD) -Ttext=100 $(TASK_OBJS) -o $(BUILD_DIR)/$(TASK) $(LDFLAGS) -lvorbis -logg -lm $(EWOK_LIBC)
 

@@ -1,7 +1,7 @@
 SYS_DIR=../../../..
 include $(SYS_DIR)/platform/$(ARCH)/make.rule
 
-BUILD_DIR = $(SYS_DIR)/build/$(HW)
+BUILD_DIR = $(SYS_DIR)/build_$(ARCH)/$(HW)
 TARGET_DIR = $(BUILD_DIR)
 
 LDFLAGS = -L $(TARGET_DIR)/lib

@@ -1,4 +1,4 @@
-BUILD_DIR = ../build/$(HW)
+BUILD_DIR = ../build_$(ARCH)/$(HW)
 TARGET_DIR = $(BUILD_DIR)/rootfs
 ROOT_DIR = ..
 

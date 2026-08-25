@@ -16,7 +16,7 @@ kernel_heads:
 	mkdir -p ${BUILD_DIR}/rootfs
 	cp -r $(KERNEL_H) $(BUILD_DIR)/include/
 
-FINAL_DIR = build
+FINAL_DIR = build_$(ARCH)
 
 final:
 	@mkdir -p $(FINAL_DIR)
@@ -26,8 +26,8 @@ final:
 	
 extra: 
 	make HW=$(HW) -C $(EWOKOS_ROOT_DIR)/sw.extra
-	cp -r $(EWOKOS_ROOT_DIR)/sw.extra/usr $(EWOKOS_ROOT_DIR)/system/build/$(HW)/rootfs/
-	cp -r $(EWOKOS_ROOT_DIR)/sw.extra/data $(EWOKOS_ROOT_DIR)/system/build/$(HW)/rootfs/
+	cp -r $(EWOKOS_ROOT_DIR)/sw.extra/usr $(EWOKOS_ROOT_DIR)/system/build_$(ARCH)/$(HW)/rootfs/
+	cp -r $(EWOKOS_ROOT_DIR)/sw.extra/data $(EWOKOS_ROOT_DIR)/system/build_$(ARCH)/$(HW)/rootfs/
 	@make final
 
 projs:

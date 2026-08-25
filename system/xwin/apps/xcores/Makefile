@@ -3,7 +3,7 @@ include $(SYS_DIR)/platform/$(ARCH)/make.rule
 
 .DEFAULT_GOAL := all
 
-BUILD_DIR = $(SYS_DIR)/build/$(HW)
+BUILD_DIR = $(SYS_DIR)/build_$(ARCH)/$(HW)
 TARGET_DIR = $(BUILD_DIR)/rootfs
 
 LDFLAGS = -L $(BUILD_DIR)/lib
