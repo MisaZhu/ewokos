@@ -1,7 +1,7 @@
 #include <Widget/WidgetWin.h>
 #include <Widget/WidgetX.h>
 #include <x++/X.h>
-#include <g2d/g2d.h>
+#include <g2dclient/g2dclient.h>
 #include <graph/graph.h>
 #include <font/font.h>
 #include <ewoksys/kernel_tic.h>
@@ -61,51 +61,6 @@ static uint32_t make_color(uint8_t a, uint8_t r, uint8_t g, uint8_t b) {
 	return ((uint32_t)a << 24) | ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
 }
 
-static uint32_t blend_over(uint32_t dst, uint32_t src) {
-	uint8_t sa = (src >> 24) & 0xff;
-	uint8_t sr = (src >> 16) & 0xff;
-	uint8_t sg = (src >> 8) & 0xff;
-	uint8_t sb = src & 0xff;
-	uint8_t da = (dst >> 24) & 0xff;
-	uint8_t dr = (dst >> 16) & 0xff;
-	uint8_t dg = (dst >> 8) & 0xff;
-	uint8_t db = dst & 0xff;
-	uint32_t inv_a = 255 - sa;
-
-	if(sa == 0)
-		return dst;
-	if(sa == 0xff)
-		return src;
-
-	da = da + (uint8_t)((255 - da) * sa / 255);
-	dr = (uint8_t)((sr * sa + dr * inv_a) / 255);
-	dg = (uint8_t)((sg * sa + dg * inv_a) / 255);
-	db = (uint8_t)((sb * sa + db * inv_a) / 255);
-	return make_color(da, dr, dg, db);
-}
-
-static uint32_t checker_color(uint32_t width, uint32_t height, uint32_t x, uint32_t y) {
-	uint8_t r = (uint8_t)((x * 255) / width);
-	uint8_t g = (uint8_t)((y * 255) / height);
-	uint8_t b = ((x / 16 + y / 16) & 1) ? 0xd0 : 0x30;
-	return make_color(0xff, r, g, b);
-}
-
-static uint32_t alpha_circle_color(uint32_t width, uint32_t height, int32_t x, int32_t y) {
-	int32_t cx = (int32_t)width / 2;
-	int32_t cy = (int32_t)height / 2;
-	int32_t radius = (int32_t)((width < height ? width : height) / 2) - 2;
-	int32_t radius2 = radius * radius;
-	int32_t dx = x - cx;
-	int32_t dy = y - cy;
-	int32_t d2 = dx * dx + dy * dy;
-	uint8_t alpha = 0;
-
-	if(d2 < radius2)
-		alpha = (uint8_t)(255 - ((d2 * 255) / radius2));
-	return make_color(alpha, 0xff, 0xe0, 0x20);
-}
-
 static void fill_checker(shm_image_t* img) {
 	uint32_t x;
 	uint32_t y;
@@ -114,32 +69,55 @@ static void fill_checker(shm_image_t* img) {
 		return;
 
 	for(y = 0; y < img->height; y++) {
-		for(x = 0; x < img->width; x++)
-			img->pixels[y * img->width + x] = checker_color(img->width, img->height, x, y);
+		for(x = 0; x < img->width; x++) {
+			uint8_t r = (uint8_t)((x * 255) / img->width);
+			uint8_t g = (uint8_t)((y * 255) / img->height);
+			uint8_t b = ((x / 16 + y / 16) & 1) ? 0xd0 : 0x30;
+			img->pixels[y * img->width + x] = make_color(0xff, r, g, b);
+		}
 	}
 }
 
 static void fill_alpha_circle(shm_image_t* img) {
 	int32_t x;
 	int32_t y;
+	int32_t cx;
+	int32_t cy;
+	int32_t radius;
+	int32_t radius2;
 
 	if(img == NULL || img->pixels == NULL)
 		return;
 
+	cx = (int32_t)img->width / 2;
+	cy = (int32_t)img->height / 2;
+	radius = (int32_t)((img->width < img->height ? img->width : img->height) / 2) - 2;
+	radius2 = radius * radius;
+
 	for(y = 0; y < (int32_t)img->height; y++) {
-		for(x = 0; x < (int32_t)img->width; x++)
-			img->pixels[y * img->width + x] = alpha_circle_color(img->width, img->height, x, y);
+		for(x = 0; x < (int32_t)img->width; x++) {
+			int32_t dx = x - cx;
+			int32_t dy = y - cy;
+			int32_t d2 = dx * dx + dy * dy;
+			uint8_t alpha = 0;
+			if(d2 < radius2)
+				alpha = (uint8_t)(255 - ((d2 * 255) / radius2));
+			img->pixels[y * img->width + x] = make_color(alpha, 0xff, 0xe0, 0x20);
+		}
 	}
 }
 
 class G2DTestWidget: public Widget {
-	/*测试在后台线程执行。所有中间结果先写入本地 TestCtx（不持锁），
-	  跑完后短暂加锁发布给 UI，避免长时间持锁饿死窗口重绘。*/
+	/*测试在后台线程循环执行：一轮 = 一组命令级检查（返回码 +
+	  g2d_info 尺寸验证）。所有中间结果先写本地 TestCtx（不持锁），
+	  跑完短暂加锁发布给 UI，避免长时间持锁饿死窗口重绘。
+	  设备没有像素回读接口，预览只是把同一组命令在本地 graph 上
+	  镜像一遍，让画面可见。*/
 	struct TestCtx {
 		g2d_t g2d;
 		g2d_info_t info;
-		g2d_stats_t stats_before;
-		g2d_stats_t stats_after;
+		uint32_t w0;      /*初始目标面尺寸*/
+		uint32_t h0;
 		graph_t* preview;
 		std::vector<std::string> logs;
 		std::string firstFailure;
@@ -149,8 +127,8 @@ class G2DTestWidget: public Widget {
 		TestCtx() : preview(NULL), failures(0), pass(false) {
 			memset(&g2d, 0, sizeof(g2d));
 			memset(&info, 0, sizeof(info));
-			memset(&stats_before, 0, sizeof(stats_before));
-			memset(&stats_after, 0, sizeof(stats_after));
+			w0 = 0;
+			h0 = 0;
 		}
 	};
 
@@ -188,27 +166,65 @@ class G2DTestWidget: public Widget {
 		ctx.failures++;
 	}
 
-	void clearPreview(TestCtx& ctx, uint32_t color) {
+	void checkRet(TestCtx& ctx, const char* label, int ret, bool expect_ok) {
+		bool ok = expect_ok ? (ret == 0) : (ret != 0);
+		if(!ok) {
+			appendLog(ctx, "FAIL %-18s ret=%d (expect %s)", label, ret, expect_ok ? "ok" : "error");
+			markFailure(ctx, "%s ret=%d", label, ret);
+			return;
+		}
+		appendLog(ctx, "PASS %-18s ret=%d", label, ret);
+	}
+
+	/*目标面尺寸只能通过 g2d_info 观察，用来验证 rotate/scale_to 生效*/
+	void checkInfo(TestCtx& ctx, const char* label, uint32_t exp_w, uint32_t exp_h) {
+		g2d_info_t info;
+
+		if(g2d_info(&ctx.g2d, &info) != 0) {
+			appendLog(ctx, "FAIL %-18s g2d_info failed", label);
+			markFailure(ctx, "%s g2d_info failed", label);
+			return;
+		}
+		if(info.width != exp_w || info.height != exp_h) {
+			appendLog(ctx, "FAIL %-18s %ux%u (expect %ux%u)",
+					label, info.width, info.height, exp_w, exp_h);
+			markFailure(ctx, "%s size %ux%u", label, info.width, info.height);
+			return;
+		}
+		appendLog(ctx, "PASS %-18s %ux%u", label, info.width, info.height);
+	}
+
+	/*预览镜像：没有像素回读，只保证预览与目标面同尺寸，
+	  内容按命令重画。*/
+	void syncPreview(TestCtx& ctx) {
+		g2d_info_t info;
+
+		if(g2d_info(&ctx.g2d, &info) != 0)
+			return;
+		if(info.width == 0 || info.height == 0)
+			return;
+		if(ctx.preview != NULL &&
+				ctx.preview->w == (int32_t)info.width &&
+				ctx.preview->h == (int32_t)info.height)
+			return;
+		if(ctx.preview != NULL) {
+			graph_free(ctx.preview);
+			ctx.preview = NULL;
+		}
+		ctx.preview = graph_new(NULL, (int32_t)info.width, (int32_t)info.height);
+		if(ctx.preview != NULL && ctx.preview->buffer == NULL) {
+			graph_free(ctx.preview);
+			ctx.preview = NULL;
+			return;
+		}
 		if(ctx.preview != NULL)
-			graph_clear(ctx.preview, color);
+			graph_clear(ctx.preview, 0xff101820);
 	}
 
 	void fillPreview(TestCtx& ctx, const g2d_fill_req_t* req) {
 		if(ctx.preview == NULL || req == NULL)
 			return;
 		graph_fill_rect(ctx.preview, req->rect.x, req->rect.y, req->rect.w, req->rect.h, req->color);
-	}
-
-	bool rotateValid(uint8_t rotate) {
-		switch(rotate) {
-		case G2D_ROTATE_0:
-		case G2D_ROTATE_90:
-		case G2D_ROTATE_180:
-		case G2D_ROTATE_270:
-			return true;
-		default:
-			return false;
-		}
 	}
 
 	graph_t* cropPreviewSource(graph_t* src, const g2d_blit_req_t* req) {
@@ -239,7 +255,7 @@ class G2DTestWidget: public Widget {
 		graph_t* cropped;
 		graph_t* rotated;
 
-		if(src == NULL || req == NULL || !rotateValid(req->rotate))
+		if(src == NULL || req == NULL)
 			return NULL;
 		cropped = cropPreviewSource(src, req);
 		if(cropped == NULL)
@@ -247,7 +263,8 @@ class G2DTestWidget: public Widget {
 		if(req->rotate == G2D_ROTATE_0)
 			return cropped;
 
-		rotated = graph_rotate(cropped, req->rotate);
+		/*graph_rotate 的参数是顺时针 90 度步数，与 G2D_ROTATE_* 编码一致*/
+		rotated = graph_rotate(cropped, (int)(req->rotate & 3));
 		graph_free(cropped);
 		return rotated;
 	}
@@ -293,85 +310,36 @@ class G2DTestWidget: public Widget {
 		graph_free(prepared);
 	}
 
-	bool initPreview(TestCtx& ctx) {
-		if(ctx.info.width == 0 || ctx.info.height == 0)
-			return false;
-		if(ctx.preview != NULL && ctx.preview->w == (int32_t)ctx.info.width && ctx.preview->h == (int32_t)ctx.info.height)
-			return true;
-		if(ctx.preview != NULL) {
-			graph_free(ctx.preview);
-			ctx.preview = NULL;
-		}
-		ctx.preview = graph_new(NULL, ctx.info.width, ctx.info.height);
-		return ctx.preview != NULL && ctx.preview->buffer != NULL;
+	/*rotate/scale_to 之后目标面内容未知，预览只同步尺寸*/
+	void rotatePreview(TestCtx& ctx, uint8_t rotate) {
+		graph_t* rotated;
+
+		if(ctx.preview == NULL)
+			return;
+		if(rotate == G2D_ROTATE_0)
+			return;
+		rotated = graph_rotate(ctx.preview, (int)(rotate & 3));
+		graph_free(ctx.preview);
+		ctx.preview = rotated;
 	}
 
-	bool verifyPixel(TestCtx& ctx, const char* label, int32_t x, int32_t y, uint32_t expected) {
-		uint32_t actual = 0;
-		int ret = g2d_get_pixel(&ctx.g2d, x, y, &actual);
-		if(ret != 0) {
-			appendLog(ctx, "FAIL %-18s readback (%d,%d) ret=%d", label, x, y, ret);
-			markFailure(ctx, "%s readback error", label);
-			return false;
-		}
-		if(actual != expected) {
-			appendLog(ctx, "FAIL %-18s (%d,%d) act=0x%08x exp=0x%08x", label, x, y, actual, expected);
-			markFailure(ctx, "%s pixel mismatch", label);
-			return false;
-		}
-		appendLog(ctx, "PASS %-18s (%d,%d) 0x%08x", label, x, y, actual);
-		return true;
-	}
+	void scalePreviewTo(TestCtx& ctx, uint32_t w, uint32_t h) {
+		graph_t* scaled;
 
-	bool verifyPreviewPixel(TestCtx& ctx, const char* label, int32_t x, int32_t y) {
-		if(ctx.preview == NULL || x < 0 || y < 0 || x >= ctx.preview->w || y >= ctx.preview->h) {
-			appendLog(ctx, "FAIL %-18s invalid ref point (%d,%d)", label, x, y);
-			markFailure(ctx, "%s invalid ref", label);
-			return false;
+		if(ctx.preview == NULL || w == 0 || h == 0)
+			return;
+		if((uint32_t)ctx.preview->w == w && (uint32_t)ctx.preview->h == h)
+			return;
+		scaled = graph_new(NULL, (int32_t)w, (int32_t)h);
+		if(scaled == NULL || scaled->buffer == NULL) {
+			if(scaled != NULL)
+				graph_free(scaled);
+			return;
 		}
-		return verifyPixel(ctx, label, x, y, graph_get_pixel(ctx.preview, x, y));
-	}
-
-	bool verifyStats(TestCtx& ctx) {
-		uint32_t clear_ops;
-		uint32_t fill_ops;
-		uint32_t blit_ops;
-		uint32_t alpha_ops;
-		uint32_t vc_present_ops;
-		uint32_t soft_present_ops;
-
-		if(g2d_get_stats(&ctx.g2d, &ctx.stats_after) != 0) {
-			appendLog(ctx, "FAIL g2d_get_stats(after)");
-			markFailure(ctx, "g2d_get_stats(after) failed");
-			return false;
-		}
-
-		clear_ops = (ctx.stats_after.vc_clear_ops - ctx.stats_before.vc_clear_ops) +
-				(ctx.stats_after.soft_clear_ops - ctx.stats_before.soft_clear_ops);
-		fill_ops = (ctx.stats_after.vc_fill_ops - ctx.stats_before.vc_fill_ops) +
-				(ctx.stats_after.soft_fill_ops - ctx.stats_before.soft_fill_ops);
-		blit_ops = (ctx.stats_after.vc_blit_ops - ctx.stats_before.vc_blit_ops) +
-				(ctx.stats_after.soft_blit_ops - ctx.stats_before.soft_blit_ops);
-		alpha_ops = (ctx.stats_after.vc_alpha_blit_ops - ctx.stats_before.vc_alpha_blit_ops) +
-				(ctx.stats_after.soft_alpha_blit_ops - ctx.stats_before.soft_alpha_blit_ops);
-		vc_present_ops = ctx.stats_after.vc_present_ops - ctx.stats_before.vc_present_ops;
-		soft_present_ops = ctx.stats_after.soft_present_ops - ctx.stats_before.soft_present_ops;
-
-		appendLog(ctx, "stats total clear=%u fill=%u blit=%u alpha=%u present=%u",
-				clear_ops, fill_ops, blit_ops, alpha_ops, vc_present_ops + soft_present_ops);
-		if(clear_ops != 1 || fill_ops != 3 || blit_ops != 2 || alpha_ops != 2) {
-			appendLog(ctx, "FAIL unexpected stats total");
-			markFailure(ctx, "stats total mismatch");
-			return false;
-		}
-		if(vc_present_ops != 0 || soft_present_ops != 0) {
-			appendLog(ctx, "FAIL present counters changed vc_present=%u soft_present=%u",
-					vc_present_ops, soft_present_ops);
-			markFailure(ctx, "present counters changed");
-			return false;
-		}
-		appendLog(ctx, "PASS stats totals");
-		return true;
+		graph_blt_fit(ctx.preview, 0, 0, ctx.preview->w, ctx.preview->h,
+				scaled, 0, 0, (int32_t)w, (int32_t)h);
+		graph_free(ctx.preview);
+		ctx.preview = scaled;
 	}
 
 	void runTest(TestCtx& ctx) {
@@ -379,6 +347,8 @@ class G2DTestWidget: public Widget {
 		shm_image_t alpha_img;
 		g2d_fill_req_t fill;
 		g2d_blit_req_t blit;
+		g2d_rotate_req_t rotate_req;
+		g2d_scale_to_req_t scale_req;
 		g2d_rect_t src_rect;
 		graph_t opaque_graph;
 		graph_t alpha_graph;
@@ -411,23 +381,12 @@ class G2DTestWidget: public Widget {
 			g2d_close(&ctx.g2d);
 			return;
 		}
-		appendLog(ctx, "g2d: %ux%u depth=%u backend=%u(%s)",
-				ctx.info.width, ctx.info.height, ctx.info.depth,
-				ctx.info.backend, g2d_backend_name(ctx.info.backend));
+		ctx.w0 = ctx.info.width;
+		ctx.h0 = ctx.info.height;
+		appendLog(ctx, "g2d: %ux%u depth=%u backend=%u",
+				ctx.info.width, ctx.info.height, ctx.info.depth, ctx.info.backend);
 
-		if(!initPreview(ctx)) {
-			appendLog(ctx, "FAIL preview alloc");
-			markFailure(ctx, "preview alloc failed");
-			g2d_close(&ctx.g2d);
-			return;
-		}
-
-		if(g2d_get_stats(&ctx.g2d, &ctx.stats_before) != 0) {
-			appendLog(ctx, "FAIL g2d_get_stats(before)");
-			markFailure(ctx, "g2d_get_stats(before) failed");
-			g2d_close(&ctx.g2d);
-			return;
-		}
+		syncPreview(ctx);
 
 		if(shm_image_create(&opaque_img, 0x47324420, 160, 120) != 0 ||
 				shm_image_create(&alpha_img, 0x47324421, 128, 128) != 0) {
@@ -445,23 +404,18 @@ class G2DTestWidget: public Widget {
 		graph_init(&alpha_graph, alpha_img.pixels, alpha_img.width, alpha_img.height);
 
 		ret = g2d_clear(&ctx.g2d, bg_color);
-		appendLog(ctx, "g2d_clear: %d", ret);
-		if(ret != 0)
-			markFailure(ctx, "g2d_clear failed");
-		clearPreview(ctx, bg_color);
+		checkRet(ctx, "clear", ret, true);
+		if(ctx.preview != NULL)
+			graph_clear(ctx.preview, bg_color);
 
 		g2d_fill_req_init(&fill, g2d_rect(24, 24, 220, 120), 0xff204060);
 		ret = g2d_fill_rect(&ctx.g2d, &fill);
-		appendLog(ctx, "fill_rect #1: %d", ret);
-		if(ret != 0)
-			markFailure(ctx, "fill_rect #1 failed");
+		checkRet(ctx, "fill_rect #1", ret, true);
 		fillPreview(ctx, &fill);
 
-		g2d_fill_req_init(&fill, g2d_rect((int32_t)ctx.info.width - 180, 40, 140, 96), 0xff503040);
+		g2d_fill_req_init(&fill, g2d_rect((int32_t)ctx.w0 - 180, 40, 140, 96), 0xff503040);
 		ret = g2d_fill_rect(&ctx.g2d, &fill);
-		appendLog(ctx, "fill_rect #2: %d", ret);
-		if(ret != 0)
-			markFailure(ctx, "fill_rect #2 failed");
+		checkRet(ctx, "fill_rect #2", ret, true);
 		fillPreview(ctx, &fill);
 
 		src_rect = g2d_rect(0, 0, (int32_t)opaque_img.width, (int32_t)opaque_img.height);
@@ -475,12 +429,10 @@ class G2DTestWidget: public Widget {
 				g2d_rect(48, 72, (int32_t)opaque_img.width, (int32_t)opaque_img.height),
 				0xff);
 		ret = g2d_blit_shm(&ctx.g2d, &blit);
-		appendLog(ctx, "blit_opaque: %d", ret);
-		if(ret != 0)
-			markFailure(ctx, "blit_opaque failed");
+		checkRet(ctx, "blit_opaque", ret, true);
 		blitPreview(ctx, &blit, &opaque_graph, 0);
 
-		blit2_x = (int32_t)ctx.info.width - 280;
+		blit2_x = (int32_t)ctx.w0 - 280;
 		blit2_y = 96;
 		src_rect = g2d_rect(20, 16, 80, 60);
 		g2d_blit_req_init_ex(&blit,
@@ -494,9 +446,7 @@ class G2DTestWidget: public Widget {
 				0xff,
 				G2D_ROTATE_90);
 		ret = g2d_blit_shm(&ctx.g2d, &blit);
-		appendLog(ctx, "blit_scale_rotate: %d", ret);
-		if(ret != 0)
-			markFailure(ctx, "blit_scale_rotate failed");
+		checkRet(ctx, "blit_scale_rot90", ret, true);
 		blitPreview(ctx, &blit, &opaque_graph, 0);
 
 		src_rect = g2d_rect(0, 0, (int32_t)alpha_img.width, (int32_t)alpha_img.height);
@@ -507,17 +457,15 @@ class G2DTestWidget: public Widget {
 				alpha_img.height,
 				alpha_img.stride,
 				src_rect,
-				g2d_rect((int32_t)ctx.info.width / 2, (int32_t)ctx.info.height / 2 - 32,
+				g2d_rect((int32_t)ctx.w0 / 2, (int32_t)ctx.h0 / 2 - 32,
 						(int32_t)alpha_img.width, (int32_t)alpha_img.height),
 				0xff);
 		ret = g2d_blit_alpha_shm(&ctx.g2d, &blit);
-		appendLog(ctx, "blit_alpha: %d", ret);
-		if(ret != 0)
-			markFailure(ctx, "blit_alpha failed");
+		checkRet(ctx, "blit_alpha", ret, true);
 		blitPreview(ctx, &blit, &alpha_graph, 1);
 
-		alpha2_x = (int32_t)ctx.info.width / 2 - 220;
-		alpha2_y = (int32_t)ctx.info.height / 2 + 40;
+		alpha2_x = (int32_t)ctx.w0 / 2 - 220;
+		alpha2_y = (int32_t)ctx.h0 / 2 + 40;
 		src_rect = g2d_rect(16, 16, 96, 80);
 		g2d_blit_req_init_ex(&blit,
 				alpha_img.shm_id,
@@ -530,46 +478,50 @@ class G2DTestWidget: public Widget {
 				0xff,
 				G2D_ROTATE_270);
 		ret = g2d_blit_alpha_shm(&ctx.g2d, &blit);
-		appendLog(ctx, "blit_alpha_scale_rotate: %d", ret);
-		if(ret != 0)
-			markFailure(ctx, "blit_alpha_scale_rotate failed");
+		checkRet(ctx, "blit_alpha_rot270", ret, true);
 		blitPreview(ctx, &blit, &alpha_graph, 1);
 
-		g2d_fill_req_init(&fill, g2d_rect(0, (int32_t)ctx.info.height - 36, (int32_t)ctx.info.width, 36), 0xff000000);
+		g2d_fill_req_init(&fill, g2d_rect(0, (int32_t)ctx.h0 - 36, (int32_t)ctx.w0, 36), 0xff000000);
 		ret = g2d_fill_rect(&ctx.g2d, &fill);
-		appendLog(ctx, "fill_rect footer: %d", ret);
-		if(ret != 0)
-			markFailure(ctx, "fill_rect footer failed");
+		checkRet(ctx, "fill_rect footer", ret, true);
 		fillPreview(ctx, &fill);
 
-		verifyPixel(ctx, "clear_bg", 0, 0, bg_color);
-		verifyPixel(ctx, "fill1_inside", 24, 24, 0xff204060);
-		verifyPixel(ctx, "fill1_outside", 23, 24, bg_color);
-		verifyPixel(ctx, "fill2_inside", (int32_t)ctx.info.width - 180, 40, 0xff503040);
-		verifyPixel(ctx, "blit_opaque_tl", 48, 72, checker_color(opaque_img.width, opaque_img.height, 0, 0));
-		verifyPixel(ctx, "blit_opaque_mid", 58, 92, checker_color(opaque_img.width, opaque_img.height, 10, 20));
-		verifyPixel(ctx, "blit_opaque_br",
-				48 + (int32_t)opaque_img.width - 1,
-				72 + (int32_t)opaque_img.height - 1,
-				checker_color(opaque_img.width, opaque_img.height, opaque_img.width - 1, opaque_img.height - 1));
+		/*目标面 rotate：90/270 交换宽高，180 不变*/
+		g2d_rotate_req_init(&rotate_req, G2D_ROTATE_90);
+		ret = g2d_rotate(&ctx.g2d, &rotate_req);
+		checkRet(ctx, "rotate_90", ret, true);
+		checkInfo(ctx, "rotate_90_size", ctx.h0, ctx.w0);
+		rotatePreview(ctx, G2D_ROTATE_90);
 
-		verifyPreviewPixel(ctx, "alpha_base_tl",
-				(int32_t)ctx.info.width / 2,
-				(int32_t)ctx.info.height / 2 - 32);
-		verifyPreviewPixel(ctx, "alpha_base_mid",
-				(int32_t)ctx.info.width / 2 + 64,
-				(int32_t)ctx.info.height / 2 + 32);
-		verifyPreviewPixel(ctx, "alpha_base_partial",
-				(int32_t)ctx.info.width / 2 + 96,
-				(int32_t)ctx.info.height / 2 + 32);
-		verifyPreviewPixel(ctx, "blit_scale_rot_tl", blit2_x, blit2_y);
-		verifyPreviewPixel(ctx, "blit_scale_rot_mid", blit2_x + 90, blit2_y + 70);
-		verifyPreviewPixel(ctx, "blit_scale_rot_br", blit2_x + 179, blit2_y + 139);
-		verifyPreviewPixel(ctx, "alpha_rot_tl", alpha2_x, alpha2_y);
-		verifyPreviewPixel(ctx, "alpha_rot_mid", alpha2_x + 100, alpha2_y + 60);
-		verifyPreviewPixel(ctx, "alpha_rot_br", alpha2_x + 199, alpha2_y + 119);
-		verifyPreviewPixel(ctx, "footer_fill", 0, (int32_t)ctx.info.height - 1);
-		verifyStats(ctx);
+		g2d_rotate_req_init(&rotate_req, G2D_ROTATE_180);
+		ret = g2d_rotate(&ctx.g2d, &rotate_req);
+		checkRet(ctx, "rotate_180", ret, true);
+		checkInfo(ctx, "rotate_180_size", ctx.h0, ctx.w0);
+		rotatePreview(ctx, G2D_ROTATE_180);
+
+		g2d_rotate_req_init(&rotate_req, G2D_ROTATE_270);
+		ret = g2d_rotate(&ctx.g2d, &rotate_req);
+		checkRet(ctx, "rotate_270", ret, true);
+		checkInfo(ctx, "rotate_270_size", ctx.w0, ctx.h0);
+		rotatePreview(ctx, G2D_ROTATE_270);
+
+		/*目标面 scale_to：缩小、恢复、非法尺寸*/
+		g2d_scale_to_req_init(&scale_req, 320, 240);
+		ret = g2d_scale_to(&ctx.g2d, &scale_req);
+		checkRet(ctx, "scale_to_320x240", ret, true);
+		checkInfo(ctx, "scale_to_size", 320, 240);
+		scalePreviewTo(ctx, 320, 240);
+
+		g2d_scale_to_req_init(&scale_req, ctx.w0, ctx.h0);
+		ret = g2d_scale_to(&ctx.g2d, &scale_req);
+		checkRet(ctx, "scale_to_restore", ret, true);
+		checkInfo(ctx, "scale_restore_size", ctx.w0, ctx.h0);
+		scalePreviewTo(ctx, ctx.w0, ctx.h0);
+
+		g2d_scale_to_req_init(&scale_req, 0, 0);
+		ret = g2d_scale_to(&ctx.g2d, &scale_req);
+		checkRet(ctx, "scale_to_invalid", ret, false);
+		checkInfo(ctx, "scale_invalid_size", ctx.w0, ctx.h0);
 
 		ctx.pass = (ctx.failures == 0);
 		appendLog(ctx, "summary: %s (%d failure)", ctx.pass ? "PASS" : "FAIL", ctx.failures);

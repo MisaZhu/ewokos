@@ -142,8 +142,13 @@ void graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uin
             x = r.x;
             for(; x < ex; x+=16) {
                 uint32_t *dst = &g->buffer[y * g->w + x];
-                int pixels = ex -x;
-                if(pixels >= 16)
+                int pixels = ex - x;
+                if(pixels > 16)
+                    pixels = 16;
+                /* 16px SIMD store needs a 16-byte aligned row start: the
+                   graph buffer may be Device-mapped framebuffer memory
+                   where any unaligned access faults */
+                if(pixels == 16 && (((uintptr_t)dst & 0xF) == 0))
                     neon_fill_store_16(dst);
                 else
                     memcpy(dst, buf, pixels * 4);
@@ -165,8 +170,13 @@ void graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uin
    proven 16-byte alignment to scalar ldp w/orr/stp w sequences. LD1/ST1
    tolerate unaligned addresses in Normal memory (the kernel boots with
    SCTLR_EL1.A=0), so emit them directly. NOTE: do NOT use LDP/STP q-form
-   here — unlike LD1/ST1 they require 16-byte alignment even with A=0 and
-   fault on dirty-rect rows whose x*4 offset is not 16-byte aligned. */
+   here — unlike LD1/ST1 they require 16-byte alignment even with A=0.
+   IMPORTANT: unaligned accesses to Device memory fault unconditionally
+   (SCTLR.A only relaxes Normal memory). The VC framebuffer sits in a
+   reserved RAM carve-out that SYS_MEM_MAP maps as Device-nGnRnE, so a
+   dirty-rect row whose x*4 offset is not 16-byte aligned crashes on the
+   first 16-byte SIMD store. Callers must only reach these helpers with
+   16-byte aligned pointers (see blt_copy_row_neon). */
 static inline uint32x4_t blt_ld1q_u32_bsp(const uint32_t *p) {
     uint32x4_t v;
     __asm__("ld1 {%0.4s}, [%1]" : "=w"(v) : "r"(p));
@@ -218,6 +228,17 @@ static inline void blt_st1q_x4_u32_bsp(uint32_t *p, uint32x4_t a, uint32x4_t b, 
    instructions and merge cleanly into write-combine bursts on non-cacheable
    scan-out memory. */
 static inline void blt_copy_row_neon(uint32_t *dp, const uint32_t *sp, int32_t w) {
+    /* The destination graph can be the framebuffer, which SYS_MEM_MAP maps
+       as Device memory when its physical base sits in a reserved carve-out
+       (VC fb on Raspberry Pi): ANY unaligned access to Device memory is an
+       unconditional alignment fault, so the 16-byte SIMD path may only run
+       on 16-byte aligned rows. Odd-x dirty rects fall back to a scalar
+       word copy instead. */
+    if((((uintptr_t)dp | (uintptr_t)sp) & 0xF) != 0) {
+        for(int32_t x = 0; x < w; x++)
+            dp[x] = sp[x];
+        return;
+    }
     int32_t x = 0;
     /* 32 pixels (128 bytes) per iteration with a rolling prefetch 4 cache
        lines ahead: keeps the load pipe fed on long rows / full-screen runs

@@ -132,7 +132,10 @@ void graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uin
             for(; x < ex; x+=8) {
                 uint32_t *dst = &g->buffer[y * g->w + x];
                 int pixels = ex -x;
-                if(pixels >= 8)
+                /* 8px SIMD store needs a 32-byte aligned row start: the
+                   graph buffer may be Device-mapped framebuffer memory
+                   where any unaligned access faults */
+                if(pixels >= 8 && (((uintptr_t)dst & 0x1F) == 0))
                     neon_fill_store(dst);
                 else
                     memcpy(dst, buf, pixels * 4);
@@ -153,7 +156,9 @@ void graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uin
    instead of 8 single-q loads/stores. This GCC has no vld1q_u32_x4-style
    intrinsics and struct asm operands don't print register lists, so pin the
    d-registers and clobber them. VLD1/VST1 without alignment qualifiers
-   tolerate unaligned addresses, same as vld1q_u32/vst1q_u32. */
+   tolerate unaligned addresses in Normal memory, but NOT in Device memory
+   (the framebuffer may be Device-mapped by SYS_MEM_MAP) — callers must
+   only pass aligned pointers (see blt_copy_row_neon). */
 static inline void blt_copy_16_neon(uint32_t *dp, const uint32_t *sp) {
     __asm__ volatile(
         "vld1.32 {d0-d3}, [%0]\n\t"
@@ -169,6 +174,16 @@ static inline void blt_copy_16_neon(uint32_t *dp, const uint32_t *sp) {
    instructions and merge cleanly into write-combine bursts on non-cacheable
    scan-out memory. */
 static inline void blt_copy_row_neon(uint32_t *dp, const uint32_t *sp, int32_t w) {
+    /* The destination graph can be the framebuffer, which SYS_MEM_MAP maps
+       as Device memory when its physical base sits in a reserved carve-out
+       (VC fb on Raspberry Pi): ANY unaligned access to Device memory is an
+       unconditional alignment fault, so the SIMD path may only run on
+       aligned rows. Odd-x dirty rects fall back to a scalar word copy. */
+    if((((uintptr_t)dp | (uintptr_t)sp) & 0x1F) != 0) {
+        for(int32_t x = 0; x < w; x++)
+            dp[x] = sp[x];
+        return;
+    }
     int32_t x = 0;
     /* 16 pixels (64 bytes) per iteration */
     for(; x <= w - 16; x += 16)

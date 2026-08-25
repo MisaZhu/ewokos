@@ -6,26 +6,27 @@
 #include <sys/shm.h>
 #include <ewoksys/proto.h>
 #include <ewoksys/vdevice.h>
-#include <graph/graph.h>
+#include <bsp/bsp_g2d.h>
 #include <tinyjson/tinyjson.h>
-#include <g2d/g2d.h>
+#include <g2dclient/g2dclient.h>
 
 typedef struct {
     uint32_t width;
     uint32_t height;
-    graph_t* graph;
+    uint32_t* buffer;
 } g2d_surface_t;
 
 typedef struct {
-    graph_t view;
-    graph_t* owned_graph;
+    uint32_t* buffer;
+    uint32_t width;
+    uint32_t height;
+    uint32_t* owned_buffer;
     void* shm_ptr;
 } g2d_import_t;
 
 typedef struct {
     g2d_surface_t dst;
     uint32_t clear_color;
-    g2d_stats_t stats;
 } g2d_state_t;
 
 static int32_t g2d_surface_init(g2d_surface_t* surface, uint32_t width, uint32_t height) {
@@ -33,14 +34,9 @@ static int32_t g2d_surface_init(g2d_surface_t* surface, uint32_t width, uint32_t
         return -1;
 
     memset(surface, 0, sizeof(*surface));
-    surface->graph = graph_new(NULL, width, height);
-    if (surface->graph == NULL || surface->graph->buffer == NULL) {
-        if (surface->graph != NULL) {
-            graph_free(surface->graph);
-            surface->graph = NULL;
-        }
+    surface->buffer = (uint32_t*)malloc((size_t)width * height * sizeof(uint32_t));
+    if (surface->buffer == NULL)
         return -1;
-    }
 
     surface->width = width;
     surface->height = height;
@@ -50,149 +46,166 @@ static int32_t g2d_surface_init(g2d_surface_t* surface, uint32_t width, uint32_t
 static void g2d_surface_release(g2d_surface_t* surface) {
     if (surface == NULL)
         return;
-    if (surface->graph != NULL) {
-        graph_free(surface->graph);
-        surface->graph = NULL;
+    if (surface->buffer != NULL) {
+        free(surface->buffer);
+        surface->buffer = NULL;
     }
     surface->width = 0;
     surface->height = 0;
 }
 
 static int32_t g2d_surface_clear(g2d_surface_t* surface, uint32_t color) {
-    if (surface == NULL || surface->graph == NULL)
+    if (surface == NULL || surface->buffer == NULL)
         return -1;
-    graph_clear(surface->graph, color);
+    bsp_g2d_fill(surface->buffer, (int32_t)surface->width, (int32_t)surface->height,
+            0, 0, (int32_t)surface->width, (int32_t)surface->height, color);
     return 0;
 }
 
 static int32_t g2d_surface_fill_rect(g2d_surface_t* surface, const g2d_fill_req_t* req) {
-    if (surface == NULL || surface->graph == NULL || req == NULL)
+    if (surface == NULL || surface->buffer == NULL || req == NULL)
         return -1;
-    graph_fill_rect(surface->graph,
-            req->rect.x, req->rect.y,
-            req->rect.w, req->rect.h,
-            req->color);
+    bsp_g2d_fill(surface->buffer, (int32_t)surface->width, (int32_t)surface->height,
+            req->rect.x, req->rect.y, req->rect.w, req->rect.h, req->color);
     return 0;
 }
 
-static int32_t g2d_blit_rotate_valid(uint8_t rotate) {
-    switch (rotate) {
-    case G2D_ROTATE_0:
-    case G2D_ROTATE_90:
-    case G2D_ROTATE_180:
-    case G2D_ROTATE_270:
-        return 1;
-    default:
+static int32_t g2d_norm_degree(int32_t degree) {
+    return ((degree % 360) + 360) % 360;
+}
+
+static int32_t g2d_surface_rotate(g2d_surface_t* surface, int32_t degree) {
+    uint32_t* rotated;
+    int32_t new_w;
+    int32_t new_h;
+
+    if (surface == NULL || surface->buffer == NULL)
+        return -1;
+
+    degree = g2d_norm_degree(degree);
+    if (degree == 0)
+        return 0;
+
+    if (degree == 180) {
+        /* bsp_g2d_rotate supports 180 in place */
+        bsp_g2d_rotate(surface->buffer, (int32_t)surface->width, (int32_t)surface->height,
+                surface->buffer, (int32_t)surface->width, (int32_t)surface->height, 180);
         return 0;
     }
+
+    /* any other angle changes the surface dimensions (90/270 swap them,
+       other angles grow to the rotated bounding box), need a new buffer */
+    bsp_g2d_rotated_size((int32_t)surface->width, (int32_t)surface->height,
+            degree, &new_w, &new_h);
+    if (new_w <= 0 || new_h <= 0)
+        return -1;
+    rotated = (uint32_t*)malloc((size_t)new_w * new_h * sizeof(uint32_t));
+    if (rotated == NULL)
+        return -1;
+    bsp_g2d_rotate(surface->buffer, (int32_t)surface->width, (int32_t)surface->height,
+            rotated, new_w, new_h, degree);
+    free(surface->buffer);
+    surface->buffer = rotated;
+    surface->width = (uint32_t)new_w;
+    surface->height = (uint32_t)new_h;
+    return 0;
 }
 
-static graph_t* g2d_surface_crop_source(graph_t* src, const g2d_blit_req_t* req) {
-    graph_t* cropped;
+static int32_t g2d_surface_scale_to(g2d_surface_t* surface, uint32_t width, uint32_t height) {
+    uint32_t* scaled;
 
-    if (src == NULL || req == NULL)
-        return NULL;
-    if (req->sx < 0 || req->sy < 0 || req->sw <= 0 || req->sh <= 0)
-        return NULL;
-    if (req->sx + req->sw > src->w || req->sy + req->sh > src->h)
-        return NULL;
+    if (surface == NULL || surface->buffer == NULL || width == 0 || height == 0)
+        return -1;
+    if (width == surface->width && height == surface->height)
+        return 0;
 
-    cropped = graph_new(NULL, req->sw, req->sh);
-    if (cropped == NULL || cropped->buffer == NULL) {
-        if (cropped != NULL)
-            graph_free(cropped);
-        return NULL;
-    }
-
-    graph_blt(src,
-            req->sx, req->sy, req->sw, req->sh,
-            cropped,
-            0, 0, req->sw, req->sh);
-    return cropped;
+    scaled = (uint32_t*)malloc((size_t)width * height * sizeof(uint32_t));
+    if (scaled == NULL)
+        return -1;
+    bsp_g2d_scale_to(surface->buffer, (int32_t)surface->width, (int32_t)surface->height,
+            scaled, (int32_t)width, (int32_t)height);
+    free(surface->buffer);
+    surface->buffer = scaled;
+    surface->width = width;
+    surface->height = height;
+    return 0;
 }
 
-static graph_t* g2d_surface_prepare_source(graph_t* src, const g2d_blit_req_t* req) {
-    graph_t* cropped;
-    graph_t* rotated;
-
-    if (src == NULL || req == NULL)
-        return NULL;
-    if (!g2d_blit_rotate_valid(req->rotate))
-        return NULL;
-
-    cropped = g2d_surface_crop_source(src, req);
-    if (cropped == NULL)
-        return NULL;
-    if (req->rotate == G2D_ROTATE_0)
-        return cropped;
-
-    rotated = graph_rotate(cropped, req->rotate);
-    graph_free(cropped);
-    return rotated;
-}
-
-static int32_t g2d_surface_render_prepared(g2d_surface_t* dst, graph_t* prepared, const g2d_blit_req_t* req, uint8_t use_alpha) {
-    if (dst == NULL || dst->graph == NULL || prepared == NULL || req == NULL)
+static int32_t g2d_surface_render(g2d_surface_t* dst,
+        uint32_t* src_buf, int32_t src_w, int32_t src_h,
+        int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+        const g2d_blit_req_t* req, uint8_t use_alpha) {
+    if (dst == NULL || dst->buffer == NULL || src_buf == NULL || req == NULL)
         return -1;
     if (req->dw <= 0 || req->dh <= 0)
         return -1;
 
     if (use_alpha != 0) {
-        if (prepared->w == req->dw && prepared->h == req->dh) {
-            graph_blt_alpha(prepared,
-                    0, 0, prepared->w, prepared->h,
-                    dst->graph,
-                    req->dx, req->dy, req->dw, req->dh,
-                    req->alpha);
-        }
-        else {
-            graph_blt_fit_alpha(prepared,
-                    0, 0, prepared->w, prepared->h,
-                    dst->graph,
-                    req->dx, req->dy, req->dw, req->dh,
-                    req->alpha);
-        }
+        bsp_g2d_blt_alpha(src_buf, src_w, src_h, sx, sy, sw, sh,
+                dst->buffer, (int32_t)dst->width, (int32_t)dst->height,
+                req->dx, req->dy, req->dw, req->dh, req->alpha);
     }
     else {
-        if (prepared->w == req->dw && prepared->h == req->dh) {
-            graph_blt(prepared,
-                    0, 0, prepared->w, prepared->h,
-                    dst->graph,
-                    req->dx, req->dy, req->dw, req->dh);
-        }
-        else {
-            graph_blt_fit(prepared,
-                    0, 0, prepared->w, prepared->h,
-                    dst->graph,
-                    req->dx, req->dy, req->dw, req->dh);
-        }
+        bsp_g2d_blt(src_buf, src_w, src_h, sx, sy, sw, sh,
+                dst->buffer, (int32_t)dst->width, (int32_t)dst->height,
+                req->dx, req->dy, req->dw, req->dh);
     }
     return 0;
 }
 
-static int32_t g2d_surface_blit(g2d_surface_t* dst, graph_t* src, const g2d_blit_req_t* req, uint8_t use_alpha) {
-    graph_t* prepared;
+static int32_t g2d_surface_blit(g2d_surface_t* dst, const g2d_import_t* src,
+        const g2d_blit_req_t* req, uint8_t use_alpha) {
+    uint32_t* cropped;
+    uint32_t* rotated;
+    int32_t degree;
+    int32_t rw;
+    int32_t rh;
     int32_t ret;
 
-    if (dst == NULL || dst->graph == NULL || src == NULL || req == NULL)
+    if (dst == NULL || dst->buffer == NULL || src == NULL ||
+            src->buffer == NULL || req == NULL)
         return -1;
-    prepared = g2d_surface_prepare_source(src, req);
-    if (prepared == NULL)
+    if (req->sx < 0 || req->sy < 0 || req->sw <= 0 || req->sh <= 0)
+        return -1;
+    if (req->sx + req->sw > (int32_t)src->width ||
+            req->sy + req->sh > (int32_t)src->height)
         return -1;
 
-    ret = g2d_surface_render_prepared(dst, prepared, req, use_alpha);
-    graph_free(prepared);
+    /* rotate codes are steps of 90 degrees (G2D_ROTATE_*) */
+    degree = g2d_norm_degree((int32_t)(req->rotate & 3) * 90);
+
+    /* no rotation: blt scales and clips the crop rect directly */
+    if (degree == 0) {
+        return g2d_surface_render(dst, src->buffer,
+                (int32_t)src->width, (int32_t)src->height,
+                req->sx, req->sy, req->sw, req->sh, req, use_alpha);
+    }
+
+    /* rotated path: crop into a temp surface, then rotate into another */
+    cropped = (uint32_t*)malloc((size_t)req->sw * req->sh * sizeof(uint32_t));
+    if (cropped == NULL)
+        return -1;
+    bsp_g2d_blt(src->buffer, (int32_t)src->width, (int32_t)src->height,
+            req->sx, req->sy, req->sw, req->sh,
+            cropped, req->sw, req->sh, 0, 0, req->sw, req->sh);
+
+    bsp_g2d_rotated_size(req->sw, req->sh, degree, &rw, &rh);
+    if (rw <= 0 || rh <= 0) {
+        free(cropped);
+        return -1;
+    }
+    rotated = (uint32_t*)malloc((size_t)rw * rh * sizeof(uint32_t));
+    if (rotated == NULL) {
+        free(cropped);
+        return -1;
+    }
+    bsp_g2d_rotate(cropped, req->sw, req->sh, rotated, rw, rh, degree);
+    free(cropped);
+
+    ret = g2d_surface_render(dst, rotated, rw, rh,
+            0, 0, rw, rh, req, use_alpha);
+    free(rotated);
     return ret;
-}
-
-static int32_t g2d_surface_get_pixel(g2d_surface_t* surface, int32_t x, int32_t y, uint32_t* pixel) {
-    if (surface == NULL || surface->graph == NULL || pixel == NULL)
-        return -1;
-    if (x < 0 || y < 0 || x >= surface->graph->w || y >= surface->graph->h)
-        return -1;
-
-    *pixel = graph_get_pixel(surface->graph, x, y);
-    return 0;
 }
 
 static void g2d_import_init(g2d_import_t* import) {
@@ -204,8 +217,8 @@ static void g2d_import_init(g2d_import_t* import) {
 static void g2d_import_release(g2d_import_t* import) {
     if (import == NULL)
         return;
-    if (import->owned_graph != NULL)
-        graph_free(import->owned_graph);
+    if (import->owned_buffer != NULL)
+        free(import->owned_buffer);
     if (import->shm_ptr != NULL)
         shmdt(import->shm_ptr);
     memset(import, 0, sizeof(*import));
@@ -216,7 +229,7 @@ static int32_t g2d_import_from_shm(g2d_import_t* import, const g2d_blit_req_t* r
     uint32_t stride;
     uint32_t min_size;
     uint32_t y;
-    graph_t* packed;
+    uint32_t* packed;
 
     if (import == NULL || req == NULL)
         return -1;
@@ -240,25 +253,27 @@ static int32_t g2d_import_from_shm(g2d_import_t* import, const g2d_blit_req_t* r
     g2d_import_init(import);
     import->shm_ptr = shm;
     if (stride == req->src_w * 4) {
-        graph_init(&import->view, (const uint32_t*)shm, req->src_w, req->src_h);
+        import->buffer = (uint32_t*)shm;
+        import->width = req->src_w;
+        import->height = req->src_h;
         return 0;
     }
 
-    packed = graph_new(NULL, req->src_w, req->src_h);
-    if (packed == NULL || packed->buffer == NULL) {
-        if (packed != NULL)
-            graph_free(packed);
+    packed = (uint32_t*)malloc((size_t)req->src_w * req->src_h * sizeof(uint32_t));
+    if (packed == NULL) {
         g2d_import_release(import);
         return -1;
     }
 
     for (y = 0; y < req->src_h; ++y) {
-        memcpy(((uint8_t*)packed->buffer) + y * req->src_w * 4,
-                shm + y * stride,
-                req->src_w * 4);
+        memcpy(((uint8_t*)packed) + (size_t)y * req->src_w * 4,
+                shm + (size_t)y * stride,
+                (size_t)req->src_w * 4);
     }
-    import->owned_graph = packed;
-    import->view = *packed;
+    import->owned_buffer = packed;
+    import->buffer = packed;
+    import->width = req->src_w;
+    import->height = req->src_h;
     return 0;
 }
 
@@ -267,13 +282,14 @@ static int32_t g2d_state_init(g2d_state_t* state, uint32_t width, uint32_t heigh
     if (state == NULL)
         return -1;
 
+    if (bsp_g2d_init() != 0)
+        return -1;
+
     memset(state, 0, sizeof(*state));
     if (g2d_surface_init(&state->dst, width, height) != 0)
         return -1;
 
     state->clear_color = 0xff000000u;
-    memset(&state->stats, 0, sizeof(state->stats));
-    state->stats.backend = G2D_BACKEND_SOFT_NV12;
     return 0;
 }
 
@@ -290,50 +306,37 @@ static int32_t g2d_state_clear(g2d_state_t* state, uint32_t color) {
         return -1;
 
     state->clear_color = color;
-    state->stats.soft_clear_ops++;
     return 0;
 }
 
 static int32_t g2d_state_fill_rect(g2d_state_t* state, const g2d_fill_req_t* req) {
     if (state == NULL)
         return -1;
-    if (g2d_surface_fill_rect(&state->dst, req) != 0)
-        return -1;
-
-    state->stats.soft_fill_ops++;
-    return 0;
+    return g2d_surface_fill_rect(&state->dst, req);
 }
 
-static int32_t g2d_state_blit(g2d_state_t* state, const g2d_blit_req_t* req, graph_t* src, uint8_t use_alpha) {
+static int32_t g2d_state_blit(g2d_state_t* state, const g2d_blit_req_t* req, const g2d_import_t* src, uint8_t use_alpha) {
     if (state == NULL)
         return -1;
-    if (g2d_surface_blit(&state->dst, src, req, use_alpha) != 0)
-        return -1;
-
-    if (use_alpha != 0)
-        state->stats.soft_alpha_blit_ops++;
-    else
-        state->stats.soft_blit_ops++;
-    return 0;
+    return g2d_surface_blit(&state->dst, src, req, use_alpha);
 }
 
-static int32_t g2d_state_present(g2d_state_t* state) {
-    if (state == NULL || state->dst.graph == NULL)
-        return -1;
-    state->stats.soft_present_ops++;
-    return 0;
-}
-
-static int32_t g2d_state_get_pixel(g2d_state_t* state, int32_t x, int32_t y, uint32_t* pixel) {
+static int32_t g2d_state_rotate(g2d_state_t* state, int32_t degree) {
     if (state == NULL)
         return -1;
-    return g2d_surface_get_pixel(&state->dst, x, y, pixel);
+    return g2d_surface_rotate(&state->dst, degree);
+}
+
+static int32_t g2d_state_scale_to(g2d_state_t* state, uint32_t width, uint32_t height) {
+    if (state == NULL)
+        return -1;
+    return g2d_surface_scale_to(&state->dst, width, height);
 }
 
 static int32_t g2d_reply_info(proto_t* ret, const g2d_state_t* state) {
     g2d_info_t info;
 
-    if (ret == NULL || state == NULL || state->dst.graph == NULL)
+    if (ret == NULL || state == NULL || state->dst.buffer == NULL)
         return -1;
 
     memset(&info, 0, sizeof(info));
@@ -341,28 +344,8 @@ static int32_t g2d_reply_info(proto_t* ret, const g2d_state_t* state) {
     info.height = state->dst.height;
     info.depth = 32;
     info.format = G2D_FMT_ARGB8888;
-    info.backend = G2D_BACKEND_SOFT_NV12;
+    info.backend = 0; /* software backend */
     PF->init(ret)->add(ret, &info, sizeof(info));
-    return 0;
-}
-
-static int32_t g2d_reply_stats(proto_t* ret, const g2d_state_t* state) {
-    g2d_stats_t stats;
-
-    if (ret == NULL || state == NULL)
-        return -1;
-
-    stats = state->stats;
-    stats.backend = G2D_BACKEND_SOFT_NV12;
-    stats.vc_ready = 0;
-    PF->init(ret)->add(ret, &stats, sizeof(stats));
-    return 0;
-}
-
-static int32_t g2d_reply_pixel(proto_t* ret, uint32_t pixel) {
-    if (ret == NULL)
-        return -1;
-    PF->init(ret)->add(ret, &pixel, sizeof(pixel));
     return 0;
 }
 
@@ -404,30 +387,29 @@ static int32_t g2dd_handle_blit(proto_t* in, g2d_state_t* state, uint8_t use_alp
     if (g2d_import_from_shm(&import, &req) != 0)
         return -1;
 
-    ret = g2d_state_blit(state, &req, &import.view, use_alpha);
+    ret = g2d_state_blit(state, &req, &import, use_alpha);
     g2d_import_release(&import);
     return ret;
 }
 
-static int32_t g2dd_handle_present(g2d_state_t* state) {
-    return g2d_state_present(state);
-}
+static int32_t g2dd_handle_rotate(proto_t* in, g2d_state_t* state) {
+    g2d_rotate_req_t req;
 
-static int32_t g2dd_handle_get_pixel(proto_t* in, proto_t* ret, g2d_state_t* state) {
-    g2d_pixel_req_t req;
-    uint32_t pixel;
-
-    if (in == NULL || ret == NULL || state == NULL)
+    if (in == NULL || state == NULL)
         return -1;
     if (proto_read_to(in, &req, sizeof(req)) != sizeof(req))
         return -1;
-    if (g2d_state_get_pixel(state, req.x, req.y, &pixel) != 0)
-        return -1;
-    return g2d_reply_pixel(ret, pixel);
+    return g2d_state_rotate(state, (int32_t)(req.rotate & 3) * 90);
 }
 
-static int32_t g2dd_handle_get_stats(proto_t* ret, g2d_state_t* state) {
-    return g2d_reply_stats(ret, state);
+static int32_t g2dd_handle_scale_to(proto_t* in, g2d_state_t* state) {
+    g2d_scale_to_req_t req;
+
+    if (in == NULL || state == NULL)
+        return -1;
+    if (proto_read_to(in, &req, sizeof(req)) != sizeof(req))
+        return -1;
+    return g2d_state_scale_to(state, req.width, req.height);
 }
 
 static char* g2d_strdup(const char* s) {
@@ -449,17 +431,15 @@ static char* g2d_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* 
     (void)from_pid;
     g2d_state_t* state = (g2d_state_t*)p;
 
-    if (argc <= 0 || argv == NULL || argv[0] == NULL || state == NULL || state->dst.graph == NULL)
+    if (argc <= 0 || argv == NULL || argv[0] == NULL || state == NULL || state->dst.buffer == NULL)
         return NULL;
 
     if (strcmp(argv[0], "info") == 0) {
         static char info[96];
-        snprintf(info, sizeof(info), "%dx%d argb8888 via soft",
-                state->dst.graph->w, state->dst.graph->h);
+        snprintf(info, sizeof(info), "%ux%u argb8888 via soft",
+                state->dst.width, state->dst.height);
         return g2d_strdup(info);
     }
-    if (strcmp(argv[0], "present") == 0)
-        return g2dd_handle_present(state) == 0 ? g2d_strdup("ok") : NULL;
     if (strcmp(argv[0], "clear") == 0 && argc > 1) {
         uint32_t color = (uint32_t)strtoul(argv[1], NULL, 0);
         return g2d_state_clear(state, color) == 0 ? g2d_strdup("ok") : NULL;
@@ -486,12 +466,10 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
         return g2dd_handle_blit(in, state, 0);
     case G2D_DEV_CNTL_BLIT_ALPHA:
         return g2dd_handle_blit(in, state, 1);
-    case G2D_DEV_CNTL_PRESENT:
-        return g2dd_handle_present(state);
-    case G2D_DEV_CNTL_GET_PIXEL:
-        return g2dd_handle_get_pixel(in, ret, state);
-    case G2D_DEV_CNTL_GET_STATS:
-        return g2dd_handle_get_stats(ret, state);
+    case G2D_DEV_CNTL_ROTATE:
+        return g2dd_handle_rotate(in, state);
+    case G2D_DEV_CNTL_SCALE_TO:
+        return g2dd_handle_scale_to(in, state);
     default:
         return -1;
     }

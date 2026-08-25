@@ -1,5 +1,5 @@
-#ifndef G2D_G2D_H
-#define G2D_G2D_H
+#ifndef G2D_G2D_CLIENT_H
+#define G2D_G2D_CLIENT_H
 
 #include <stdint.h>
 #include <string.h>
@@ -19,28 +19,21 @@ enum {
 	G2D_DEV_CNTL_FILL_RECT,
 	G2D_DEV_CNTL_BLIT,
 	G2D_DEV_CNTL_BLIT_ALPHA,
-	G2D_DEV_CNTL_PRESENT,
-	G2D_DEV_CNTL_GET_PIXEL,
-	G2D_DEV_CNTL_GET_STATS
+	G2D_DEV_CNTL_ROTATE,
+	G2D_DEV_CNTL_SCALE_TO
 };
 
 enum {
 	G2D_FMT_ARGB8888 = 0
 };
 
+/* clockwise rotation codes (steps of 90 degrees), used by
+   g2d_rotate_req_t.rotate and g2d_blit_req_t.rotate */
 enum {
 	G2D_ROTATE_0 = 0,
 	G2D_ROTATE_90 = 1,
 	G2D_ROTATE_180 = 2,
 	G2D_ROTATE_270 = 3
-};
-
-enum {
-	G2D_BACKEND_SOFT_NV12 = 0,
-	G2D_BACKEND_MI_GFX = 1,
-	G2D_BACKEND_VC_MAILBOX = 2,
-	G2D_BACKEND_VC4_KMS_V3D = 3,
-	G2D_BACKEND_SSD20XD_GE = 2
 };
 
 typedef struct {
@@ -62,6 +55,19 @@ typedef struct {
 	g2d_rect_t rect;
 	uint32_t color;
 } g2d_fill_req_t;
+
+/* rotates the destination surface clockwise, see G2D_ROTATE_*.
+   surface dimensions are swapped for 90/270. */
+typedef struct {
+	uint8_t rotate;
+	uint8_t reserved[3];
+} g2d_rotate_req_t;
+
+/* scales the destination surface to width x height. */
+typedef struct {
+	uint32_t width;
+	uint32_t height;
+} g2d_scale_to_req_t;
 
 typedef struct {
 	int32_t x;
@@ -87,22 +93,6 @@ typedef struct {
 	uint8_t rotate;
 	uint8_t reserved[6];
 } g2d_blit_req_t;
-
-typedef struct {
-	uint32_t backend;
-	uint32_t vc_ready;
-	uint32_t vc_clear_ops;
-	uint32_t vc_fill_ops;
-	uint32_t vc_blit_ops;
-	uint32_t vc_alpha_blit_ops;
-	uint32_t vc_present_ops;
-	uint32_t soft_clear_ops;
-	uint32_t soft_fill_ops;
-	uint32_t soft_blit_ops;
-	uint32_t soft_alpha_blit_ops;
-	uint32_t soft_present_ops;
-	uint32_t soft_fallback_ops;
-} g2d_stats_t;
 
 static inline g2d_rect_t g2d_rect(int32_t x, int32_t y, int32_t w, int32_t h) {
 	g2d_rect_t rect;
@@ -178,24 +168,19 @@ static inline void g2d_blit_req_set_rotate(g2d_blit_req_t* req, uint8_t rotate) 
 	req->rotate = rotate;
 }
 
-static inline int g2d_backend_is_vc(uint32_t backend) {
-	return backend == G2D_BACKEND_VC_MAILBOX ||
-			backend == G2D_BACKEND_VC4_KMS_V3D;
+static inline void g2d_rotate_req_init(g2d_rotate_req_t* req, uint8_t rotate) {
+	if(req == NULL)
+		return;
+	memset(req, 0, sizeof(*req));
+	req->rotate = rotate;
 }
 
-static inline const char* g2d_backend_name(uint32_t backend) {
-	switch (backend) {
-	case G2D_BACKEND_SOFT_NV12:
-		return "soft";
-	case G2D_BACKEND_MI_GFX:
-		return "mi_gfx";
-	case G2D_BACKEND_VC_MAILBOX:
-		return "vc_mailbox_legacy";
-	case G2D_BACKEND_VC4_KMS_V3D:
-		return "vc4_kms_v3d";
-	default:
-		return "unknown";
-	}
+static inline void g2d_scale_to_req_init(g2d_scale_to_req_t* req, uint32_t width, uint32_t height) {
+	if(req == NULL)
+		return;
+	memset(req, 0, sizeof(*req));
+	req->width = width;
+	req->height = height;
 }
 
 int g2d_open(const char* dev, g2d_t* g2d);
@@ -205,11 +190,8 @@ int g2d_clear(g2d_t* g2d, uint32_t color);
 int g2d_fill_rect(g2d_t* g2d, const g2d_fill_req_t* req);
 int g2d_blit_shm(g2d_t* g2d, const g2d_blit_req_t* req);
 int g2d_blit_alpha_shm(g2d_t* g2d, const g2d_blit_req_t* req);
-/* Legacy display hook. Offscreen-only backends may return -1. */
-int g2d_present(g2d_t* g2d);
-/* Reads back the current offscreen destination surface. */
-int g2d_get_pixel(g2d_t* g2d, int32_t x, int32_t y, uint32_t* pixel);
-int g2d_get_stats(g2d_t* g2d, g2d_stats_t* stats);
+int g2d_rotate(g2d_t* g2d, const g2d_rotate_req_t* req);
+int g2d_scale_to(g2d_t* g2d, const g2d_scale_to_req_t* req);
 
 #ifdef __cplusplus
 }
