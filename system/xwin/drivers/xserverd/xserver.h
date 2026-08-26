@@ -56,12 +56,20 @@ typedef struct st_xwin {
 	uint32_t damage_skip; //consecutive full-width damages, backs off detection
 	uint32_t not_ready_ticks; //steps spent waiting for the first frame
 	/*an UPDATE was accepted but its damage has not been composited yet:
-	  further UPDATEs for this window become O(1) no-ops and the pending
-	  copy is redone against the freshest ws_g at the next step (see
-	  x_refresh_pending_updates). This keeps fast-repainting clients from
-	  stacking heavy damage-detect+copy IPCs in the queue that mouse and
-	  event delivery share.*/
+	  further UPDATEs for this window become O(1) no-ops until the next
+	  step clears the flag (see x_refresh_pending_updates). This keeps
+	  fast-repainting clients from stacking heavy damage-detect+copy IPCs
+	  in the queue that mouse and event delivery share. The snapshot copy
+	  itself only ever runs inside the blocking UPDATE IPC: the client is
+	  suspended there, so its ws_g is stable. Copying at step time instead
+	  races the client's own rendering into the same shm and tears the
+	  frame (partial flicker, seen with fast-repainting apps like matrix).*/
 	bool refresh_pending;
+	/*an UPDATE was dropped because a copy was already queued. The dropped
+	  content only survives if the client sends another UPDATE later; if it
+	  stops repainting, the grace counter below asks it to repaint again.*/
+	bool update_overtaken;
+	uint32_t repaint_grace; //steps an overtaken update stayed unrecovered
 
 	grect_t r_title;
 	grect_t r_close;

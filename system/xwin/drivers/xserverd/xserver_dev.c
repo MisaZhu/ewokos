@@ -235,9 +235,10 @@ int xserver_step(vdevice_t* dev, void* p) {
 
     ipc_disable();
     check_wins(x);
-    /*windows whose queued content copy was overtaken by further client
-      repaints get one fresh detect+copy here, so stacked UPDATE IPCs stay
-      O(1) and can't queue up ahead of mouse input / event delivery*/
+    /*release the per-window update slots so a new UPDATE IPC may snapshot
+      again. The snapshot itself never runs here: the client renders into
+      ws_g freely between its blocking UPDATE IPCs, so it is only safe to
+      read inside those (see x_refresh_pending_updates)*/
     x_refresh_pending_updates(x);
     for(uint32_t i=0; i<DISP_MAX; i++) {
         x_display_t* display = &x->displays[i];

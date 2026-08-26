@@ -528,8 +528,9 @@ static void copy_ws_rect(xwin_t* win, const grect_t* r) {
 }
 
 /*detect what the client changed in ws_g and copy it across to the snapshot
-  the compositor reads from. Shared by the UPDATE IPC path and the per-step
-  refresh of windows whose queued copy was overtaken by further repaints.*/
+  the compositor reads from. Only ever called from inside the blocking
+  UPDATE IPC: the client is suspended there, so ws_g cannot change under
+  the detect+copy.*/
 static void x_update_copy(x_t* x, xwin_t* win) {
     grect_t full = {0, 0, win->ws_g->w, win->ws_g->h};
     grect_t dmg = full;
@@ -591,33 +592,61 @@ int x_update(int fd, int from_pid, x_t* x) {
     if(win->ws_g_buffer == NULL)
         return -1;
 
-    /*a copy of this window is already queued for the next step: the refresh
-      there re-detects against the freshest ws_g content, so this call has
-      nothing to do. Keeping stacked UPDATEs O(1) is what stops
-      fast-repainting clients from clogging the IPC queue that mouse input
-      and event delivery share with them (the detect+copy for one window is
-      a full-workspace pass on slow hardware).*/
-    if(win->refresh_pending)
+    /*a copy of this window is already queued for the next step. The copy
+      must not be redone here either: stacked UPDATEs stay O(1) so
+      fast-repainting clients cannot clog the IPC queue that mouse input
+      and event delivery share with them (the detect+copy for one window
+      is a full-workspace pass on slow hardware). Remember the drop so the
+      step can ask the client for a fresh repaint when none follows.*/
+    if(win->refresh_pending) {
+        win->update_overtaken = true;
         return 0;
+    }
 
     x_update_copy(x, win);
     win->refresh_pending = true;
+    /*this copy picked up the freshest content: a recovery repaint for an
+      earlier drop is no longer needed*/
+    win->update_overtaken = false;
+    win->repaint_grace = 0;
     return 0;
 }
 
-/*redone once per step (under ipc_disable, before compositing) for every
-  window whose queued copy was overtaken by further client repaints: one
-  detect+copy against the newest content per window per frame, no matter
-  how many UPDATE IPCs arrived since the last composite. The display output
-  is identical to doing every copy inline, only the IPC queue stays light.*/
+/*runs once per step (under ipc_disable, before compositing): releases the
+  per-window update slot so the next UPDATE IPC may snapshot again. The
+  snapshot copy itself deliberately does NOT happen here: outside the
+  blocking UPDATE IPC the client is free to render into ws_g, so a
+  step-time detect+copy would read a half-drawn frame and composite it
+  (partial flicker, fullscreen inconsistency). A dropped UPDATE whose
+  client stops repainting is recovered by pushing XEVT_WIN_REPAINT after a
+  short grace period: the client resends its content through the race-free
+  UPDATE IPC path.*/
 void x_refresh_pending_updates(x_t* x) {
     xwin_t* win = x->win_head;
     while(win != NULL) {
-        if(win->refresh_pending) {
+        if(win->refresh_pending)
             win->refresh_pending = false;
-            if(win->ready && win->xinfo != NULL && win->xinfo->visible &&
-                    win->ws_g != NULL && win->ws_g_buffer != NULL)
-                x_update_copy(x, win);
+
+        if(win->update_overtaken) {
+            if(win->repaint_grace < 2) {
+                win->repaint_grace++;
+            }
+            else {
+                /*no fresh UPDATE arrived since the drop: ask the client
+                  to repaint so its latest content gets snapshotted*/
+                win->repaint_grace = 0;
+                win->update_overtaken = false;
+                if(win->xinfo != NULL && win->xinfo->visible) {
+                    xevent_t ev;
+                    memset(&ev, 0, sizeof(xevent_t));
+                    ev.type = XEVT_WIN;
+                    ev.value.window.event = XEVT_WIN_REPAINT;
+                    x_push_event(x, win, &ev);
+                }
+            }
+        }
+        else {
+            win->repaint_grace = 0;
         }
         win = win->next;
     }
