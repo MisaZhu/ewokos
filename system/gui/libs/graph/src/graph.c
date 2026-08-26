@@ -149,7 +149,7 @@ static graph_t* graph_new_shm_row(int32_t w, int32_t h, bool contig) {
 
     /* the graph_t header itself is heap-allocated (aligned so it can
        safely host simd ops); only the pixels go into shm */
-    ret = (graph_t*)aligned_malloc(sizeof(graph_t), 64);
+    ret = (graph_t*)aligned_malloc(sizeof(graph_t), GRAPH_MEM_ALIGN);
     if(ret == NULL)
         return NULL;
     memset(ret, 0, sizeof(graph_t));
