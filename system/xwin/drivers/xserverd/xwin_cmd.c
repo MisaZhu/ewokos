@@ -119,12 +119,9 @@ void xwin_revalidate_geometry(x_t* x, xwin_t* win) {
     /*publishes -1 right away: a failure below leaves the window without a
       frame, and an id pointing at freed memory is worse than no id*/
     if(win->frame_g != NULL) {
-        /*a frame-direct window holds the display graph: never free it*/
-        if(!win->frame_direct)
-            graph_free(win->frame_g);
+        graph_free(win->frame_g);
         win->frame_g = NULL;
     }
-    win->frame_direct = false;
     win->xinfo->frame_g_shm_id = -1;
 
     /*graph_new_shm allocates its own keyed shm canvas: the buffer and the
@@ -276,28 +273,14 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
         type = type | X_UPDATE_REBUILD | X_UPDATE_REFRESH;
     }
     
-    /*fullscreen opaque windows paint straight into the display graph; the
-      flag can flip either way on a state/style/alpha/geometry change, so
-      the buffers are rebuilt whenever the mode does not match anymore*/
-    bool direct = win_ws_direct(x, win);
-    /*a maximized opaque window with a title bar keeps its own workspace
-      buffer but its frame becomes the display graph*/
-    bool fdirect = !direct && win_frame_direct(x, win);
-
     if((type & X_UPDATE_REBUILD) != 0 ||
             win->ws_g == NULL ||
-            win->ws_direct != direct ||
-            win->frame_direct != fdirect ||
-            (win->frame_g == NULL && !win->ws_direct && !win->frame_direct)) {
+            win->frame_g == NULL) {
 
         if(win->ws_g != NULL) {
-            /*direct windows hold ws_g as an alias of the display graph:
-              the display owns it, so it must not be freed here*/
-            if(!win->ws_direct)
-                graph_free(win->ws_g);
+            graph_free(win->ws_g);
             win->ws_g = NULL;
         }
-        win->ws_direct = false;
         win->xinfo->ws_g_shm_id = -1;
 
         if(win->ws_g_buffer != NULL) {
@@ -306,13 +289,9 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
         }
 
         if(win->frame_g != NULL) {
-            /*frame-direct windows hold frame_g as an alias of the display
-              graph: the display owns it, so it must not be freed here*/
-            if(!win->frame_direct)
-                graph_free(win->frame_g);
+            graph_free(win->frame_g);
             win->frame_g = NULL;
         }
-        win->frame_direct = false;
         win->xinfo->frame_g_shm_id = -1;
 
         win->frame_dirty = true;
@@ -320,52 +299,28 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
         win->has_damage = false;
         win->damage_skip = 0;
 
-        if(direct) {
-            /*publish the display shm as the workspace: the client paints
-              edge to edge onto the scan-out buffer itself, so the server
-              keeps no snapshot and never copies the window to the display*/
-            x_display_t* display = &x->displays[win->xinfo->display_index];
-            win->ws_g = display->g;
-            win->ws_direct = true;
-            win->xinfo->ws_g_shm_id = display->g_shm_id;
-        }
-        else {
-            /*graph_new_shm allocates its own keyed shm canvas: the buffer and
-              the shm id both travel inside the graph, no window-level mirrors*/
-            win->ws_g = graph_new_shm(win->xinfo->wsr.w, win->xinfo->wsr.h);
-            if(win->ws_g == NULL)
-                return -1;
-            win->xinfo->ws_g_shm_id = win->ws_g->shm_id;
-            graph_clear(win->ws_g, 0x0);
-            win->ws_g_buffer = graph_new_shm(win->xinfo->wsr.w, win->xinfo->wsr.h);
-            graph_clear(win->ws_g_buffer, 0x0);
+        /*graph_new_shm allocates its own keyed shm canvas: the buffer and
+          the shm id both travel inside the graph, no window-level mirrors*/
+        win->ws_g = graph_new_shm(win->xinfo->wsr.w, win->xinfo->wsr.h);
+        if(win->ws_g == NULL)
+            return -1;
+        win->xinfo->ws_g_shm_id = win->ws_g->shm_id;
+        graph_clear(win->ws_g, 0x0);
+        win->ws_g_buffer = graph_new_shm(win->xinfo->wsr.w, win->xinfo->wsr.h);
+        graph_clear(win->ws_g_buffer, 0x0);
 
-            if(fdirect) {
-                /*publish the display shm as the frame: xwm maps it via
-                  frame_g_shm_id and paints the title bar straight onto the
-                  scan-out buffer, the workspace is composited directly into
-                  it. winr covers the display exactly, so frame-local
-                  coordinates are display coordinates.*/
-                x_display_t* display = &x->displays[win->xinfo->display_index];
-                win->frame_g = display->g;
-                win->frame_direct = true;
-                win->xinfo->frame_g_shm_id = display->g_shm_id;
+        win->frame_g = graph_new_shm(win->xinfo->winr.w, win->xinfo->winr.h);
+        if(win->frame_g == NULL) {
+            graph_free(win->ws_g);
+            win->ws_g = NULL;
+            win->xinfo->ws_g_shm_id = -1;
+            if(win->ws_g_buffer != NULL) {
+                graph_free(win->ws_g_buffer);
+                win->ws_g_buffer = NULL;
             }
-            else {
-                win->frame_g = graph_new_shm(win->xinfo->winr.w, win->xinfo->winr.h);
-                if(win->frame_g == NULL) {
-                    graph_free(win->ws_g);
-                    win->ws_g = NULL;
-                    win->xinfo->ws_g_shm_id = -1;
-                    if(win->ws_g_buffer != NULL) {
-                        graph_free(win->ws_g_buffer);
-                        win->ws_g_buffer = NULL;
-                    }
-                    return -1;
-                }
-                win->xinfo->frame_g_shm_id = win->frame_g->shm_id;
-            }
+            return -1;
         }
+        win->xinfo->frame_g_shm_id = win->frame_g->shm_id;
     }
     x_update_frame_areas(x, win);
     if((type & X_UPDATE_REFRESH) != 0 || win->xinfo->alpha) {

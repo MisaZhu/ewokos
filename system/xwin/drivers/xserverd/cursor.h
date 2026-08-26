@@ -24,7 +24,6 @@ typedef struct {
 
 	uint32_t type;
 	bool down;
-	bool drop;
 
 	/*state of the cursor currently sitting on the display: as long as none
 	  of it changed and nothing gets drawn underneath, it does not have to be

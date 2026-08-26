@@ -239,19 +239,13 @@ void x_del_win(x_t* x, xwin_t* win) {
         x->win_last = NULL;
 
     if(win->ws_g != NULL) {
-        /*direct windows alias the display graph: the display owns it*/
-        if(!win->ws_direct)
-            graph_free(win->ws_g);
+        graph_free(win->ws_g);
         win->ws_g = NULL;
     }
-    win->ws_direct = false;
     if(win->frame_g != NULL) {
-        /*frame-direct windows alias the display graph: the display owns it*/
-        if(!win->frame_direct)
-            graph_free(win->frame_g);
+        graph_free(win->frame_g);
         win->frame_g = NULL;
     }
-    win->frame_direct = false;
     if(win->xinfo != NULL) {
         win->xinfo->ws_g_shm_id = -1;
         win->xinfo->frame_g_shm_id = -1;
@@ -382,11 +376,10 @@ static void mark_dirty(x_t* x, xwin_t* win) {
                     r.y == check_r->y &&
                     r.w == check_r->w &&
                     r.h == check_r->h) {
-                if(top->frame_direct ||
-                    (!top->xinfo->alpha &&
+                if(!top->xinfo->alpha &&
                     !need_repaint_desktop(x, top) &&
                     (top->xinfo->focused ||
-                    (top->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) != 0))) {
+                    (top->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) != 0)) {
                     /*fully hidden by an opaque workspace above: stop extending
                       upward here, but keep the dirty marks collected so far so
                       the covering window can repaint its frame ring if needed.*/
@@ -421,11 +414,6 @@ void xwin_top(x_t* x, xwin_t* win) {
 }
 
 bool need_repaint_frame(x_t* x, xwin_t* win) {
-    /*a frame-direct window keeps its decoration straight on the display:
-      nothing below it ever shines through, so nothing invalidates it*/
-    if(win->frame_direct)
-        return false;
-
     if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0 && !win->xinfo->alpha)
         return false;
 
@@ -445,8 +433,6 @@ bool need_repaint_frame(x_t* x, xwin_t* win) {
   the compositor too, so shadow alone should not escalate into a whole-display
   repaint.*/
 bool need_repaint_desktop(x_t* x, xwin_t* win) {
-    if(win->frame_direct)
-        return false;
     if(win->xinfo->alpha)
         return true;
     if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0)
@@ -602,33 +588,6 @@ int x_update(int fd, int from_pid, x_t* x) {
     if(!win->xinfo->visible)
         return 0;
 
-    if(win->ws_direct) {
-        /*the client painted straight into the display graph: there is
-          nothing to detect or copy. The compositor pass only pushes the
-          frame to the panel and repaints what sits above the window
-          (the client may have overwritten it). Everything below stays
-          covered by this window, so no full-display dirty pass is
-          escalated. The cursor backdrop may have been overwritten too,
-          so the saved copy must be dropped instead of restored.*/
-        win->ready = true;
-        win->dirty = true;
-        win->has_damage = false;
-        x->cursor.drop = true;
-
-        xwin_t* top = win->next;
-        while(top != NULL) {
-            if(top->xinfo != NULL && top->xinfo->visible &&
-                    top->xinfo->display_index == win->xinfo->display_index) {
-                top->dirty = true;
-                top->has_damage = false;
-                top->shadow_valid = false; //its bands were overwritten
-            }
-            top = top->next;
-        }
-        x_repaint_req(x, win->xinfo->display_index);
-        return 0;
-    }
-
     if(win->ws_g_buffer == NULL)
         return -1;
 
@@ -687,21 +646,16 @@ bool covered_by_opaque_win(x_t* x, xwin_t* from, uint32_t display_index, const g
     while(top != NULL) {
         if(top->ready && top->xinfo != NULL && top->xinfo->visible &&
                 top->xinfo->display_index == display_index) {
-            /*a direct window paints its whole area onto the display
-              itself: it covers everything below it no matter the focus or
-              theme effects. For a frame-direct one the covering area is
-              the frame (title bar included), not just the workspace.*/
-            if(top->ws_direct || top->frame_direct) {
-                const grect_t* cover = top->frame_direct ?
-                        &top->xinfo->winr : &top->xinfo->wsr;
-                if(rect_contains(cover, r))
-                    return true;
-            }
-            else if(!top->xinfo->alpha &&
+            if(!top->xinfo->alpha &&
                     !need_repaint_desktop(x, top) &&
                     (top->xinfo->focused ||
                     (top->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) != 0)) {
-                if(rect_contains(&top->xinfo->wsr, r))
+                /*an edge-to-edge window is opaque across its whole winr:
+                  the title strip is solid decoration drawn by xwm, so it
+                  covers just like the workspace does*/
+                const grect_t* cover = win_edge_to_edge(top) ?
+                        &top->xinfo->winr : &top->xinfo->wsr;
+                if(rect_contains(cover, r))
                     return true;
             }
         }

@@ -94,20 +94,6 @@ void hide_cursor(x_t* x) {
     if(display->g == NULL)
         return;
 
-    if(x->cursor.drop) {
-        /*what sits below the cursor got repainted behind its back (a
-          direct-to-display window painted there): the saved backdrop is
-          stale and must not be blended back onto the display. Free it and
-          fall through so a fresh one is captured right away, otherwise
-          refresh_cursor sees saved==NULL and the cursor stays invisible
-          for a frame (flicker at the client's update rate).*/
-        if(x->cursor.saved != NULL) {
-            graph_free(x->cursor.saved);
-            x->cursor.saved = NULL;
-        }
-        x->cursor.drop = false;
-    }
-
     if(x->cursor.saved == NULL) {
         x->cursor.saved = graph_new(NULL, x->cursor.size.w, x->cursor.size.h);
         graph_blt(display->g,
@@ -151,7 +137,6 @@ static inline void refresh_cursor(x_t* x) {
 
     x->cursor.old_pos.x = x->cursor.cpos.x;
     x->cursor.old_pos.y = x->cursor.cpos.y;
-    x->cursor.drop = false;
 }
 
 static bool all_win_ready(x_t* x) {

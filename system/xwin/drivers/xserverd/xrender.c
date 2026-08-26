@@ -19,10 +19,8 @@ static void win_mark_frame_dirty(x_t* x, xwin_t* win) {
 
     /*the background effect mixes the desktop into the frame of an unfocused
       window, so its frame has to be built again whenever the content
-      changed. Without such an effect the frame keeps its picture.
-      A frame-direct window gets no background effect at all (its frame is
-      the display itself), same as a fullscreen one.*/
-    if(win->dirty && !win->xinfo->focused && !win->frame_direct &&
+      changed. Without such an effect the frame keeps its picture.*/
+    if(win->dirty && !win->xinfo->focused &&
             x->config.xwm_theme.bgEffect != 0 &&
             (win->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) == 0) {
         win->frame_dirty = true;
@@ -41,10 +39,6 @@ static void win_mark_frame_dirty(x_t* x, xwin_t* win) {
 static void clear_frame_ring(xwin_t* win) {
     graph_t* g = win->frame_g;
     if(g == NULL)
-        return;
-    /*the ring of a frame-direct window lives on the display: wiping it
-      would erase whatever sits around the workspace there*/
-    if(win->frame_direct)
         return;
 
     grect_t bounds = {0, 0, g->w, g->h};
@@ -84,10 +78,8 @@ static void prepare_win_content(x_t* x, xwin_t* win, const grect_t* ws_dmg) {
       - a translucent frame (rounded corners) is drawn on top of the
         workspace, so xwm has to blend it over a fresh content copy.
       Every other workspace is composited straight from the workspace
-      snapshot in draw_win, so this copy stays untouched. A frame-direct
-      window composites the snapshot straight into the display itself.*/
-    if(!win->frame_direct &&
-            (win_bg_effect_active(x, win) || frame_cuts_ws(x, win)) &&
+      snapshot in draw_win, so this copy stays untouched.*/
+    if((win_bg_effect_active(x, win) || frame_cuts_ws(x, win)) &&
             (win->dirty || win->frame_dirty)) {
         graph_t* g = win->ws_g_buffer;
         int32_t ox = win->xinfo->wsr.x - win->xinfo->winr.x;
@@ -124,24 +116,13 @@ static void prepare_win_content(x_t* x, xwin_t* win, const grect_t* ws_dmg) {
     if(!check_xwm(x))
         return;
 
-    /*a frame-direct window hands the display shm over as its frame: the
-      background effect would read it back and blend onto the same buffer
-      in one go. It stays decoration-only, like a fullscreen window.*/
-    xinfo_t frame_info;
-    xinfo_t* info = win->xinfo;
-    if(win->frame_direct && win_bg_effect_active(x, win)) {
-        memcpy(&frame_info, win->xinfo, sizeof(xinfo_t));
-        frame_info.style |= XWIN_STYLE_NO_BG_EFFECT;
-        info = &frame_info;
-    }
-
     //klog("win title: %s win->frame_dirty: %d\n", win->xinfo->title, win->frame_dirty);
     proto_t in;
     PF->format(&in, "i,i,i,m",
         (ewokos_addr_t)display->g_shm_id,
         (ewokos_addr_t)display->g->w,
         (ewokos_addr_t)display->g->h,
-        info, sizeof(xinfo_t));
+        win->xinfo, sizeof(xinfo_t));
 
     if(top_proc(x, win))
         PF->addi(&in, 1); //top win
@@ -326,62 +307,6 @@ static void blit_win_part(x_t* x, xwin_t* win, graph_t* disp_g,
 
 /*out_dmg gets the area of disp_g the window actually touched*/
 int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
-    if(win->ws_direct) {
-        /*the client paints straight into the display graph: never touch
-          the pixels here, just declare the region dirty so the fb daemon
-          pushes it and whatever sits above the window gets repainted by
-          the normal bottom-to-top pass*/
-        memcpy(out_dmg, &win->xinfo->winr, sizeof(grect_t));
-        win->dirty = false;
-        win->frame_dirty = false;
-        win->has_damage = false;
-        return 0;
-    }
-
-    if(win->frame_direct) {
-        /*frame_g is the display graph: the decoration was painted there by
-          xwm (prepare_win_content sends the display shm as the frame) and
-          the workspace snapshot goes straight into the scan-out buffer.
-          The usual frame_g-to-display blit would be a self-copy.*/
-        win_mark_frame_dirty(x, win);
-
-        grect_t ws_dmg = win->damage;
-        bool has_dmg = win->has_damage && !win->frame_dirty;
-
-        prepare_win_content(x, win, has_dmg ? &ws_dmg : NULL);
-
-        if(win->ws_g_buffer != NULL) {
-            if(has_dmg) {
-                graph_blt(win->ws_g_buffer, ws_dmg.x, ws_dmg.y,
-                        ws_dmg.w, ws_dmg.h,
-                        disp_g,
-                        win->xinfo->wsr.x + ws_dmg.x,
-                        win->xinfo->wsr.y + ws_dmg.y,
-                        ws_dmg.w, ws_dmg.h);
-                out_dmg->x = win->xinfo->wsr.x + ws_dmg.x;
-                out_dmg->y = win->xinfo->wsr.y + ws_dmg.y;
-                out_dmg->w = ws_dmg.w;
-                out_dmg->h = ws_dmg.h;
-            }
-            else {
-                graph_blt(win->ws_g_buffer, 0, 0,
-                        win->xinfo->wsr.w, win->xinfo->wsr.h,
-                        disp_g,
-                        win->xinfo->wsr.x, win->xinfo->wsr.y,
-                        win->xinfo->wsr.w, win->xinfo->wsr.h);
-                memcpy(out_dmg, &win->xinfo->winr, sizeof(grect_t));
-            }
-        }
-        /*the decoration redraw touched the ring around the workspace*/
-        if(win->frame_dirty)
-            memcpy(out_dmg, &win->xinfo->winr, sizeof(grect_t));
-
-        win->dirty = false;
-        win->frame_dirty = false;
-        win->has_damage = false;
-        return 0;
-    }
-
     win_mark_frame_dirty(x, win);
 
     grect_t ws_dmg = win->damage;
@@ -539,7 +464,7 @@ void refresh_shadows_above(x_t* x, xwin_t* below, const grect_t* region) {
     while(w != NULL) {
         if(w->ready && w->xinfo != NULL && w->xinfo->visible &&
                 w->xinfo->display_index == below->xinfo->display_index &&
-                w->frame_g != NULL && !w->frame_direct) {
+                w->frame_g != NULL) {
             int32_t s_right = w->xinfo->winr.w -
                     ((w->xinfo->wsr.x - w->xinfo->winr.x) + w->xinfo->wsr.w);
             int32_t s_bottom = w->xinfo->winr.h -

@@ -30,18 +30,7 @@ typedef struct st_xwin {
 
 	graph_t* ws_g; //workspace graph, owns its shm canvas (graph_new_shm)
 	graph_t* ws_g_buffer; //workspace graph buffer
-	/*ws_g aliases the display graph: the client paints straight onto the
-	  scan-out buffer and the server skips the detect+copy+blit pipeline.
-	  The display owns the graph, ws_g must never be freed for it.*/
-	bool ws_direct;
-
 	graph_t* frame_g; //frame graph, owns its shm canvas (graph_new_shm)
-	/*frame_g aliases the display graph (maximized opaque window with a
-	  title bar): xwm draws the decorations straight onto the scan-out
-	  buffer and the workspace snapshot is composited directly into it,
-	  so the frame_g-to-display blit disappears. The display owns the
-	  graph, frame_g must never be freed for it.*/
-	bool frame_direct;
 
 	xinfo_t* xinfo;
 	bool dirty;
@@ -162,58 +151,6 @@ typedef struct {
 static inline bool win_edge_to_edge(xwin_t* win) {
 	return win->xinfo->state == XWIN_STATE_MAX ||
 			win->xinfo->state == XWIN_STATE_FULL_SCREEN;
-}
-
-/*a fullscreen opaque window covers the display edge to edge, so the client
-  can paint straight into the display graph: the server aliases ws_g to it,
-  publishes the display shm id to the client and does no xwin-to-display
-  copy for the window at all*/
-static inline bool win_ws_direct(x_t* x, xwin_t* win) {
-	if(win->xinfo == NULL || win->xinfo->alpha)
-		return false;
-	if(!win_edge_to_edge(win))
-		return false;
-	if(win->xinfo->display_index >= DISP_MAX)
-		return false;
-
-	x_display_t* display = &x->displays[win->xinfo->display_index];
-	if(!display->active || display->g == NULL || display->g_shm_id <= 0)
-		return false;
-
-	/*the workspace must cover the display exactly: the client interprets
-	  the shm with wsr.w as the row stride*/
-	return win->xinfo->wsr.x == 0 && win->xinfo->wsr.y == 0 &&
-			win->xinfo->wsr.w == display->g->w &&
-			win->xinfo->wsr.h == display->g->h;
-}
-
-/*a maximized opaque window keeps a title bar, so its workspace cannot
-  alias the display (the row stride differs). Instead frame_g aliases
-  the display graph: xwm paints the title bar straight onto the scan-out
-  buffer (DRAW_FRAME maps frame_g_shm_id) and the workspace snapshot is
-  blitted directly into it, skipping the frame_g-to-display copy.
-
-  Unlike a fullscreen window the decorations are drawn by xwm into
-  frame-local coordinates, so the frame must cover the display exactly
-  for the two coordinate spaces to line up. A maximized window without
-  title bar already qualifies for win_ws_direct and never comes here.*/
-static inline bool win_frame_direct(x_t* x, xwin_t* win) {
-	if(win->xinfo == NULL || win->xinfo->alpha)
-		return false;
-	if(win->xinfo->state != XWIN_STATE_MAX)
-		return false;
-	if((win->xinfo->style & XWIN_STYLE_NO_TITLE) != 0)
-		return false;
-	if(win->xinfo->display_index >= DISP_MAX)
-		return false;
-
-	x_display_t* display = &x->displays[win->xinfo->display_index];
-	if(!display->active || display->g == NULL || display->g_shm_id <= 0)
-		return false;
-
-	return win->xinfo->winr.x == 0 && win->xinfo->winr.y == 0 &&
-			win->xinfo->winr.w == display->g->w &&
-			win->xinfo->winr.h == display->g->h;
 }
 
 /*theme alpha here only means the frame has translucent edge/corner pixels;
