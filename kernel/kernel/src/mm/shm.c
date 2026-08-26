@@ -14,6 +14,12 @@
 #define 	IPC_PRIVATE 0
 #define 	IPC_CREAT   00001000 /* create if key is nonexistent */
 #define 	IPC_EXCL    00002000 /* fail if key exists */
+/* ewokos-specific (mirror of sys/ipc.h): back the new segment from the
+   reserved contiguous slab (_sys_info.shm_contig) instead of scattered
+   kalloc pages, so the physical memory is contiguous and usable by dma
+   hardware. only affects creation; fails (never silently falls back) when
+   the slab is unconfigured or full */
+#define 	IPC_CONTIG  0x01000000
 
 #ifdef KERNEL_SMP
 extern void mcore_lock(int32_t* v);
@@ -33,12 +39,82 @@ typedef struct share_mem {
     int32_t flag; 
     int32_t owner_pid; //process id which alloced this shm
     int32_t refs;
+    uint8_t contig; //backed by the contiguous slab instead of kalloc pages
+    ewokos_addr_t phy_base; //slab physical base, valid when contig
     struct share_mem* next;
     struct share_mem* prev;
 } share_mem_t;
 
 static share_mem_t* _shm_head = NULL;
 static share_mem_t* _shm_tail = NULL;
+
+/* contiguous slab sub-allocator: first-fit with split and merge, managing
+   physical page runs inside _sys_info.shm_contig. entries are never
+   compacted (released ones turn into empty slots, paddr == 0), so no
+   overlapping copies are needed. always called with the shm lock held. */
+#define SHM_POOL_MAX 64
+typedef struct {
+    ewokos_addr_t paddr; //0 means empty slot
+    uint32_t pages;
+    uint8_t used;
+} shm_pool_item_t;
+
+static shm_pool_item_t _shm_pool[SHM_POOL_MAX];
+static uint32_t _shm_pool_count = 0;
+
+static ewokos_addr_t shm_pool_alloc(uint32_t pages) {
+    for(uint32_t i = 0; i < _shm_pool_count; i++) {
+        shm_pool_item_t* it = &_shm_pool[i];
+        if(it->paddr == 0 || it->used || it->pages < pages)
+            continue;
+        if(it->pages > pages) { //split the remainder into a free entry
+            int32_t slot = -1;
+            for(uint32_t j = 0; j < _shm_pool_count; j++) {
+                if(_shm_pool[j].paddr == 0) {
+                    slot = (int32_t)j;
+                    break;
+                }
+            }
+            if(slot < 0) {
+                if(_shm_pool_count >= SHM_POOL_MAX)
+                    return 0;
+                slot = (int32_t)_shm_pool_count++;
+            }
+            _shm_pool[slot].paddr = it->paddr + pages * PAGE_SIZE;
+            _shm_pool[slot].pages = it->pages - pages;
+            _shm_pool[slot].used = 0;
+            it->pages = pages;
+        }
+        it->used = 1;
+        return it->paddr;
+    }
+    return 0;
+}
+
+static void shm_pool_free(ewokos_addr_t paddr) {
+    for(uint32_t i = 0; i < _shm_pool_count; i++) {
+        shm_pool_item_t* it = &_shm_pool[i];
+        if(it->paddr != paddr || !it->used)
+            continue;
+        it->used = 0;
+        //merge with physically adjacent free neighbours
+        for(uint32_t j = 0; j < _shm_pool_count; j++) {
+            shm_pool_item_t* nb = &_shm_pool[j];
+            if(j == i || nb->paddr == 0 || nb->used)
+                continue;
+            if(it->paddr + it->pages * PAGE_SIZE == nb->paddr) { //nb is right
+                it->pages += nb->pages;
+                nb->paddr = 0;
+            }
+            else if(nb->paddr + nb->pages * PAGE_SIZE == it->paddr) { //nb is left
+                it->paddr = nb->paddr;
+                it->pages += nb->pages;
+                nb->paddr = 0;
+            }
+        }
+        return;
+    }
+}
 
 static inline void shm_lock(void) {
 #ifdef KERNEL_SMP
@@ -58,6 +134,15 @@ void shm_init() {
     _shm_head = NULL;
     _shm_tail = NULL;
     id_counter = 1;
+
+    //seed the contiguous slab pool when kernel.conf reserved one
+    _shm_pool_count = 0;
+    if(_sys_info.shm_contig.size > 0) {
+        _shm_pool[0].paddr = _sys_info.shm_contig.phy_base;
+        _shm_pool[0].pages = _sys_info.shm_contig.size / PAGE_SIZE;
+        _shm_pool[0].used = 0;
+        _shm_pool_count = 1;
+    }
 }
 
 static share_mem_t* shm_new(void) {
@@ -106,16 +191,47 @@ static int32_t shm_map_pages(ewokos_addr_t addr, uint32_t pages) {
     return 1;
 }
 
-static int32_t shm_alloc(int32_t key, uint32_t size, int32_t flag) {
+/* map a run of already reserved contiguous physical pages into the shm
+   window. zeroing must go through the kernel direct map (P2V, set up in
+   map_allocable_pages), NOT the window VA: the window sits in the private
+   user half of the address space and is unmapped in kernel/syscall context */
+static int32_t shm_map_pages_contig(ewokos_addr_t addr, ewokos_addr_t paddr, uint32_t pages) {
+    uint32_t i;
+    memset((void*)P2V(paddr), 0, pages * PAGE_SIZE);
+    for (i = 0; i < pages; i++) {
+        map_page(_kernel_info.kernel_vm,
+                addr,
+                paddr,
+                AP_RW_D, PTE_ATTR_NOCACHE);
+        flush_tlb_addr(addr);
+        addr += PAGE_SIZE;
+        paddr += PAGE_SIZE;
+    }
+    return 1;
+}
+
+static int32_t shm_alloc(int32_t key, uint32_t size, int32_t flag, uint8_t contig) {
     size = ALIGN_UP(size, 32);
     ewokos_addr_t addr = shmem_tail;
     uint32_t pages = (size / PAGE_SIZE);
     if((size % PAGE_SIZE) != 0)
         pages++;
+
+    /* grab the contiguous physical run up front; strict failure when the
+       slab is unconfigured or exhausted (never fall back to scattered
+       pages, hardware would silently get a non-contiguous buffer) */
+    ewokos_addr_t pool_paddr = 0;
+    if(contig) {
+        pool_paddr = shm_pool_alloc(pages);
+        if(pool_paddr == 0)
+            return -1;
+    }
     
     share_mem_t* i = _shm_head;
     while(i != NULL) { //search for available memory block
-        if(!i->used && i->pages >= pages)
+        /* free blocks keep their backing type: a slab run cannot back a
+           scattered request and vice versa */
+        if(!i->used && i->pages >= pages && i->contig == contig)
             break;
         i = i->next;
     }
@@ -128,6 +244,7 @@ static int32_t shm_alloc(int32_t key, uint32_t size, int32_t flag) {
             if(tmp != NULL) {
                 tmp->pages = i->pages -  pages;
                 tmp->addr = i->addr + (pages * PAGE_SIZE);
+                tmp->contig = i->contig; //free remainder keeps the backing type
                 i->pages = pages;
                 tmp->next = i->next;
                 tmp->prev = i;
@@ -140,11 +257,16 @@ static int32_t shm_alloc(int32_t key, uint32_t size, int32_t flag) {
         }
     }
     else { // not found, need to expand pages for new block.
-        if((shmem_tail + size) >= (SHM_BASE + SHM_MAX_SIZE))
+        if((shmem_tail + size) >= (SHM_BASE + SHM_MAX_SIZE)) {
+            if(contig)
+                shm_pool_free(pool_paddr);
             return -1;
+        }
 
         i = shm_new();
         if(i == NULL) {
+            if(contig)
+                shm_pool_free(pool_paddr);
             return -1;
         }
         i->addr = addr;
@@ -159,7 +281,14 @@ static int32_t shm_alloc(int32_t key, uint32_t size, int32_t flag) {
     }		
 
     if(i->pages == 0) { // map pages expanded new block
-        if(!shm_map_pages(addr, pages)) {
+        int32_t ok;
+        if(contig)
+            ok = shm_map_pages_contig(addr, pool_paddr, pages);
+        else
+            ok = shm_map_pages(addr, pages);
+        if(!ok) {
+            if(contig)
+                shm_pool_free(pool_paddr);
             return -1;
         }
         i->pages = pages;
@@ -171,6 +300,8 @@ static int32_t shm_alloc(int32_t key, uint32_t size, int32_t flag) {
     i->used = 1;
     i->key = key;
     i->id = id_counter++;
+    i->contig = contig;
+    i->phy_base = pool_paddr;
     proc_t* current_proc = get_current_proc();
     i->owner_pid = current_proc ? current_proc->info.pid : -1;
     i->flag = flag;
@@ -209,7 +340,7 @@ int32_t shm_get(int32_t key, uint32_t size, int32_t flag) {
         flag = 0666;
     }
 
-    int32_t ret = shm_alloc(key, size, (flag & 0666));
+    int32_t ret = shm_alloc(key, size, (flag & 0666), (flag & IPC_CONTIG) != 0);
     shm_unlock();
     return ret;
 }
@@ -249,9 +380,17 @@ uint32_t shm_alloced_size(void) {
 }
 
 static share_mem_t* free_item(share_mem_t* it) {
+    if(it->contig) {
+        /* hand the physical run back to the slab pool right away; the
+           window block stays as a free contig node (never merged with
+           scattered-type neighbours, they cannot share a pool run) */
+        shm_pool_free(it->phy_base);
+        it->used = 0;
+        return it->next;
+    }
     //shm_unmap_pages(it->addr, it->pages);
     it->used = 0;
-    if(it->next != NULL && !it->next->used) { //merge right free items
+    if(it->next != NULL && !it->next->used && it->next->contig == it->contig) { //merge right free items
         share_mem_t* p = it->next;
         it->next = p->next;
         if(p->next != NULL)
@@ -262,7 +401,7 @@ static share_mem_t* free_item(share_mem_t* it) {
         kfree(p);
     }
 
-    if(it->prev != NULL && !it->prev->used) { //merge left free items
+    if(it->prev != NULL && !it->prev->used && it->prev->contig == it->contig) { //merge left free items
         share_mem_t* p = it->prev;
         p->next = it->next;
         if(it->next != NULL)

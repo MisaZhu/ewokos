@@ -4,21 +4,21 @@ int32_t arch_g2d_init(void) {
     return 0;
 }
 
-void  arch_g2d_fill(uint32_t* argb, int32_t argb_w, int32_t argb_h,
+void  arch_g2d_fill(uint32_t* argb, uint8_t contig, int32_t argb_w, int32_t argb_h,
 			int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {}
 
-void  arch_g2d_blt(uint32_t* argb_src, int32_t src_w, int32_t src_h,
+void  arch_g2d_blt(uint32_t* argb_src, uint8_t src_contig, int32_t src_w, int32_t src_h,
 			int32_t sx, int32_t sy, int32_t sw, int32_t sh,
-			uint32_t* argb_dst, int32_t dst_w, int32_t dst_h,
+			uint32_t* argb_dst, uint8_t dst_contig, int32_t dst_w, int32_t dst_h,
 			int32_t dx, int32_t dy, int32_t dw, int32_t dh) {}
 
-void  arch_g2d_blt_alpha(uint32_t* argb_src, int32_t src_w, int32_t src_h,
+void  arch_g2d_blt_alpha(uint32_t* argb_src, uint8_t src_contig, int32_t src_w, int32_t src_h,
 			int32_t sx, int32_t sy, int32_t sw, int32_t sh,
-			uint32_t* argb_dst, int32_t dst_w, int32_t dst_h,
+			uint32_t* argb_dst, uint8_t dst_contig, int32_t dst_w, int32_t dst_h,
 			int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {}
 
-void  arch_g2d_scale_to(uint32_t* argb_src, int32_t src_w, int32_t src_h,
-			uint32_t* argb_dst, int32_t dst_w, int32_t dst_h) {}
+void  arch_g2d_scale_to(uint32_t* argb_src, uint8_t src_contig, int32_t src_w, int32_t src_h,
+			uint32_t* argb_dst, uint8_t dst_contig, int32_t dst_w, int32_t dst_h) {}
 
 /* smallest size able to hold src_w x src_h rotated clockwise by degree
    (any angle). exact swap/keep for multiples of 90, rotated bounding
@@ -31,5 +31,5 @@ void  arch_g2d_rotated_size(int32_t src_w, int32_t src_h, int32_t degree,
    angles other than 0/90/180/270 pixels outside the rotated content
    become transparent.
    in-place (argb_src == argb_dst) is only valid for 0/180. */
-void  arch_g2d_rotate(uint32_t* argb_src, int32_t src_w, int32_t src_h,
-			uint32_t* argb_dst, int32_t dst_w, int32_t dst_h, int32_t degree) {}
+void  arch_g2d_rotate(uint32_t* argb_src, uint8_t src_contig, int32_t src_w, int32_t src_h,
+			uint32_t* argb_dst, uint8_t dst_contig, int32_t dst_w, int32_t dst_h, int32_t degree) {}

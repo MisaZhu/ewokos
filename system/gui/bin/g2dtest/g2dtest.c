@@ -36,7 +36,7 @@ static void canvas_free(graph_t* g) {
 
 static g2d_canvas_t img_canvas(const graph_t* g) {
     return g2d_canvas(g->shm_id, (uint32_t)g->w * (uint32_t)g->h * 4u,
-            (uint32_t)g->w, (uint32_t)g->h);
+            (uint32_t)g->w, (uint32_t)g->h, g->shm_contig ? 1 : 0);
 }
 
 static uint32_t make_color(uint8_t a, uint8_t r, uint8_t g, uint8_t b) {

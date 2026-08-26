@@ -41,6 +41,9 @@ typedef struct {
    the driver: the client writes pixels in, the driver attaches to the
    same segment and operates on it in place. the driver owns no canvas
    of its own, every request carries the canvases it works on.
+   contig != 0 tells the driver the shm backing is physically
+   contiguous (allocated with IPC_CONTIG), needed by hardware 2d paths
+   that work on physical addresses.
    when dma != 0 the canvas lives in dma memory instead: addr is the
    buffer address returned by dma_alloc() (a vaddr in the sys_dma v
    window, mapped only into the allocator; the g2d driver mem-maps it
@@ -48,7 +51,8 @@ typedef struct {
 typedef struct {
 	int32_t shm_id;
 	uint8_t dma;      /* 0: shm canvas (shm_id), !=0: dma canvas (addr) */
-	uint8_t reserved[3];
+	uint8_t contig;   /* shm backing physically contiguous (IPC_CONTIG) */
+	uint8_t reserved[2];
 	uint32_t size;  /* segment size in bytes, must be >= w*h*4 */
 	uint32_t w;
 	uint32_t h;
@@ -104,13 +108,13 @@ static inline g2d_rect_t g2d_rect(int32_t x, int32_t y, int32_t w, int32_t h) {
 	return rect;
 }
 
-static inline g2d_canvas_t g2d_canvas(int32_t shm_id, uint32_t size, uint32_t w, uint32_t h) {
+static inline g2d_canvas_t g2d_canvas(int32_t shm_id, uint32_t size, uint32_t w, uint32_t h, uint8_t contig) {
 	g2d_canvas_t canvas;
 	canvas.shm_id = shm_id;
 	canvas.dma = 0;
+	canvas.contig = contig;
 	canvas.reserved[0] = 0;
 	canvas.reserved[1] = 0;
-	canvas.reserved[2] = 0;
 	canvas.size = size;
 	canvas.w = w;
 	canvas.h = h;
@@ -122,9 +126,9 @@ static inline g2d_canvas_t g2d_canvas_dma(ewokos_addr_t addr, uint32_t size, uin
 	g2d_canvas_t canvas;
 	canvas.shm_id = 0;
 	canvas.dma = 1;
+	canvas.contig = 1; /* dma window memory is physically contiguous */
 	canvas.reserved[0] = 0;
 	canvas.reserved[1] = 0;
-	canvas.reserved[2] = 0;
 	canvas.size = size;
 	canvas.w = w;
 	canvas.h = h;

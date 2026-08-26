@@ -24,6 +24,7 @@ typedef struct {
 	uint32_t width;
 	uint32_t height;
 	uint8_t dma; /* dma canvas: buffer is a dma address, no shmdt */
+	uint8_t contig; /* backing memory physically contiguous */
 } g2d_attached_t;
 
 static int32_t g2d_norm_degree(int32_t degree) {
@@ -79,6 +80,7 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 		at->width = canvas->w;
 		at->height = canvas->h;
 		at->dma = 1;
+		at->contig = canvas->contig;
 		return 0;
 	}
 
@@ -91,6 +93,7 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 	at->width = canvas->w;
 	at->height = canvas->h;
 	at->dma = 0;
+	at->contig = canvas->contig;
 	return 0;
 }
 
@@ -151,9 +154,10 @@ static int32_t g2dd_handle_fill_rect(proto_t* in) {
 	if(g2d_attach(&req.dst, &dst) != 0)
 		return -1;
 
-    slog("g2d_fill rect dst: %d x %d, alpha: 0x%08x\n", dst.width, dst.height, req.color);
+    slog("g2d_fill rect dst: %d x %d, color: 0x%08X, contig: %d\n", dst.width, dst.height, req.color, dst.contig);
+
 	if(((req.color >> 24) & 0xff) == 0xff) {
-		bsp_g2d_fill(dst.buffer, (int32_t)dst.width, (int32_t)dst.height,
+		bsp_g2d_fill(dst.buffer, dst.contig, (int32_t)dst.width, (int32_t)dst.height,
 				req.rect.x, req.rect.y, req.rect.w, req.rect.h, req.color);
 	}
 	else {
@@ -166,23 +170,25 @@ static int32_t g2dd_handle_fill_rect(proto_t* in) {
 }
 
 static int32_t g2d_blit_render(const g2d_attached_t* dst,
-		uint32_t* src_buf, int32_t src_w, int32_t src_h,
+		uint32_t* src_buf, uint8_t src_contig, int32_t src_w, int32_t src_h,
 		int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		const g2d_blit_req_t* req, uint8_t use_alpha) {
 	if(dst == NULL || dst->buffer == NULL || src_buf == NULL || req == NULL)
 		return -1;
 	if(req->dw <= 0 || req->dh <= 0)
 		return -1;
-    slog("g2d_blit_render src:%d x %d, dst: %d x %d, alpha: %d\n", src_w, src_h, dst->width, dst->height, use_alpha);
+
+    slog("g2d_blit_render src:%d x %d, dst: %d x %d, alpha: %d, src:contig: %d, dst:contig: %d\n", 
+            src_w, src_h, dst->width, dst->height, use_alpha, src_contig, dst->contig);
 
 	if(use_alpha != 0) {
-		bsp_g2d_blt_alpha(src_buf, src_w, src_h, sx, sy, sw, sh,
-				dst->buffer, (int32_t)dst->width, (int32_t)dst->height,
+		bsp_g2d_blt_alpha(src_buf, src_contig, src_w, src_h, sx, sy, sw, sh,
+				dst->buffer, dst->contig, (int32_t)dst->width, (int32_t)dst->height,
 				req->dx, req->dy, req->dw, req->dh, req->alpha);
 	}
 	else {
-		bsp_g2d_blt(src_buf, src_w, src_h, sx, sy, sw, sh,
-				dst->buffer, (int32_t)dst->width, (int32_t)dst->height,
+		bsp_g2d_blt(src_buf, src_contig, src_w, src_h, sx, sy, sw, sh,
+				dst->buffer, dst->contig, (int32_t)dst->width, (int32_t)dst->height,
 				req->dx, req->dy, req->dw, req->dh);
 	}
 	return 0;
@@ -226,7 +232,7 @@ static int32_t g2dd_handle_blit(proto_t* in, uint8_t use_alpha) {
 
 	/* no rotation: blt scales and clips the crop rect directly */
 	if(degree == 0) {
-		ret = g2d_blit_render(&dst, src.buffer,
+		ret = g2d_blit_render(&dst, src.buffer, src.contig,
 				(int32_t)src.width, (int32_t)src.height,
 				req.sx, req.sy, req.sw, req.sh, &req, use_alpha);
 		goto done;
@@ -237,9 +243,9 @@ static int32_t g2dd_handle_blit(proto_t* in, uint8_t use_alpha) {
 	cropped = (uint32_t*)malloc((size_t)req.sw * req.sh * sizeof(uint32_t));
 	if(cropped == NULL)
 		goto done;
-	bsp_g2d_blt(src.buffer, (int32_t)src.width, (int32_t)src.height,
+	bsp_g2d_blt(src.buffer, src.contig, (int32_t)src.width, (int32_t)src.height,
 			req.sx, req.sy, req.sw, req.sh,
-			cropped, req.sw, req.sh, 0, 0, req.sw, req.sh);
+			cropped, 0, req.sw, req.sh, 0, 0, req.sw, req.sh);
 
 	bsp_g2d_rotated_size(req.sw, req.sh, degree, &rw, &rh);
 	if(rw <= 0 || rh <= 0) {
@@ -251,10 +257,10 @@ static int32_t g2dd_handle_blit(proto_t* in, uint8_t use_alpha) {
 		free(cropped);
 		goto done;
 	}
-	bsp_g2d_rotate(cropped, req.sw, req.sh, rotated, rw, rh, degree);
+	bsp_g2d_rotate(cropped, 0, req.sw, req.sh, rotated, 0, rw, rh, degree);
 	free(cropped);
 
-	ret = g2d_blit_render(&dst, rotated, rw, rh,
+	ret = g2d_blit_render(&dst, rotated, 0, rw, rh,
 			0, 0, rw, rh, &req, use_alpha);
 	free(rotated);
 
@@ -291,13 +297,12 @@ static int32_t g2dd_handle_rotate(proto_t* in) {
 		return -1;
 	}
 
-    slog("g2dd_handle_rotate %dx%d\n", src.width, src.height);
 	ret = -1;
 	bsp_g2d_rotated_size((int32_t)src.width, (int32_t)src.height,
 			degree, &rw, &rh);
 	if(rw == (int32_t)dst.width && rh == (int32_t)dst.height) {
-		bsp_g2d_rotate(src.buffer, (int32_t)src.width, (int32_t)src.height,
-				dst.buffer, rw, rh, degree);
+		bsp_g2d_rotate(src.buffer, src.contig, (int32_t)src.width, (int32_t)src.height,
+				dst.buffer, dst.contig, rw, rh, degree);
 		ret = 0;
 	}
 
@@ -323,9 +328,10 @@ static int32_t g2dd_handle_scale_to(proto_t* in) {
 		return -1;
 	}
 
-    slog("g2dd_handle_scale_to %dx%d\n", src.width, src.height);
-	bsp_g2d_scale_to(src.buffer, (int32_t)src.width, (int32_t)src.height,
-			dst.buffer, (int32_t)dst.width, (int32_t)dst.height);
+    slog("g2dd_handle_scale_to %d x %d, src:contig: %d, dst:contig: %d\n", src.width, src.height, src.contig, dst.contig);
+
+	bsp_g2d_scale_to(src.buffer, src.contig, (int32_t)src.width, (int32_t)src.height,
+			dst.buffer, dst.contig, (int32_t)dst.width, (int32_t)dst.height);
 
 	g2d_detach(&src);
 	g2d_detach(&dst);

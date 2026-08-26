@@ -43,6 +43,19 @@ static uint32_t get_dma_size(void) {
     return ret;
 }
 
+
+static uint32_t get_shm_contig_size(void) {
+    uint32_t ret = 4*MB;
+
+    if(_sys_info.total_phy_mem_size >= 8ull*GB)
+        ret = 32*MB;
+    else if(_sys_info.total_phy_mem_size >= 4ull*GB)
+        ret = 16*MB;
+    else if(_sys_info.total_phy_mem_size >= 2ull*GB)
+        ret = 8*MB;
+    return ret;
+}
+
 void sys_info_init(void) {
     sys_info_init_arch();
 
@@ -62,6 +75,15 @@ void sys_info_init(void) {
     if(_sys_info.sys_dma.size == 0)
         _sys_info.sys_dma.size = get_dma_size();
     _sys_info.allocable_phy_mem_base += _sys_info.sys_dma.size;
+
+    /* physically-contiguous slab for IPC_CONTIG shm segments, carved right
+       after the dma window with a default size. kernel.conf "shm_contig_size"
+       re-carves it (a fresh reservation, so it still lands after a relocated
+       dma window) */
+    _sys_info.shm_contig.phy_base = _sys_info.allocable_phy_mem_base;
+    _sys_info.shm_contig.v_base = 0;
+    _sys_info.shm_contig.size = get_shm_contig_size();
+    _sys_info.allocable_phy_mem_base += _sys_info.shm_contig.size;
 
     _sys_info.page_size = PAGE_SIZE;
 }

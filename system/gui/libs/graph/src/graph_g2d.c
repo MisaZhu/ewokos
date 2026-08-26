@@ -32,7 +32,8 @@ static int g2d_check_graph(const graph_t* g) {
 static g2d_canvas_t g2d_graph_canvas(const graph_t* g) {
 	return g2d_canvas(g->shm_id,
 			(uint32_t)g->w * (uint32_t)g->h * sizeof(uint32_t),
-			(uint32_t)g->w, (uint32_t)g->h);
+			(uint32_t)g->w, (uint32_t)g->h,
+			g->shm_contig ? 1 : 0);
 }
 
 void graph_fill_g2d(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {

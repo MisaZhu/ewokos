@@ -1,9 +1,9 @@
 #include <graph/graph.h>
-#include <g2dclient/g2dclient.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <math.h>
+#include <sys/shm.h>
 
 #ifdef __cplusplus 
 extern "C" { 
@@ -124,32 +124,80 @@ graph_t* graph_new(uint32_t* buffer, int32_t w, int32_t h) {
     return ret;
 }
 
-graph_t* graph_new_shm(int32_t w, int32_t h) {
+/* shm canvases: keyed 0666 segments because /dev/g2d is an unrelated
+   process and cannot map IPC_PRIVATE (family-only) segments. a fresh key
+   per allocation, created with IPC_EXCL: without EXCL shmget() would
+   return an existing keyed segment WITHOUT resizing it. the kernel frees
+   the segment once every attached process has detached. */
+static uint32_t _graph_shm_seq = 0;
+
+
+/* allocate a graph whose pixel buffer lives in a freshly created,
+   process-unique keyed shm segment so it can be shared with the g2d
+   device process with zero copy. a new key is tried on every loop
+   iteration (pid + sequence counter) because IPC_EXCL makes shmget()
+   fail when the key already exists. `contig` requests a physically
+   contiguous segment (needed by some g2d hardware paths). */
+static graph_t* graph_new_shm_row(int32_t w, int32_t h, bool contig) {
     graph_t* ret;
     uint32_t* pixels = NULL;
     int shm_id = -1;
+    uint32_t size;
 
     if(w <= 0 || h <= 0)
         return NULL;
 
-    ret = (graph_t*)aligned_malloc(sizeof(graph_t), 32);
+    /* the graph_t header itself is heap-allocated (aligned so it can
+       safely host simd ops); only the pixels go into shm */
+    ret = (graph_t*)aligned_malloc(sizeof(graph_t), 64);
     if(ret == NULL)
         return NULL;
+    memset(ret, 0, sizeof(graph_t));
 
     /* the pixel buffer IS a keyed shm canvas shared with /dev/g2d,
        the id is kept in the graph so g2d ops can use it directly */
-    if(g2d_shm_alloc((uint32_t)w * (uint32_t)h * sizeof(uint32_t),
-                &shm_id, &pixels) != 0 || shm_id <= 0) {
-        if(pixels != NULL)
-            shmdt(pixels);
+    size = (uint32_t)w * (uint32_t)h * sizeof(uint32_t);
+    /* up to 16 attempts: IPC_EXCL fails on key collisions, so bump the
+       sequence counter and retry with a fresh key */
+    for(int32_t i = 0; i < 16 && shm_id <= 0; i++) {
+        key_t key = (key_t)(0x47525030u + (((uint32_t)getpid() & 0xffffu) << 16) +
+                (_graph_shm_seq & 0xffffu));
+        _graph_shm_seq++;
+        if(contig)
+            shm_id = shmget(key, (int)size, 0666 | IPC_CREAT | IPC_EXCL | IPC_CONTIG);
+        else
+            shm_id = shmget(key, (int)size, 0666 | IPC_CREAT | IPC_EXCL);
+    }
+
+    if(shm_id <= 0) {
+        aligned_free(ret);
+        return NULL;
+    }
+
+    /* attach the segment into this process so the pixels are also
+       directly readable/writable by the cpu */
+    pixels = (uint32_t*)shmat(shm_id, 0, 0);
+    if(pixels == (void*)-1) {
         aligned_free(ret);
         return NULL;
     }
 
     graph_init(ret, pixels, w, h);
     ret->shm_id = shm_id;
+    ret->shm_contig = contig;
     ret->need_free = true; /* graph_free owns the shm canvas */
     return ret;
+}
+
+/* create a w x h graph backed by a shared-memory canvas (zero-copy
+   capable for g2d operations). prefers a physically contiguous segment
+   for hardware g2d and falls back to a non-contiguous one when the
+   contig allocation is not available. */
+graph_t* graph_new_shm(int32_t w, int32_t h) {
+    graph_t* g = graph_new_shm_row(w, h, true);
+    if(g == NULL)
+        g = graph_new_shm_row(w, h, false);
+    return g;
 }
 
 graph_t* graph_dup(graph_t* g) {

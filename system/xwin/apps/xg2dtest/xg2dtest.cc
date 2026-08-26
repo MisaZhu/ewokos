@@ -70,7 +70,8 @@ static void shm_image_destroy(shm_image_t* img) {
 }
 
 static g2d_canvas_t img_canvas(const shm_image_t* img) {
-	return g2d_canvas(img->shm_id, img->size, img->width, img->height);
+	/* plain shmget() segment: scattered pages, not contiguous */
+	return g2d_canvas(img->shm_id, img->size, img->width, img->height, 0);
 }
 
 static uint32_t make_color(uint8_t a, uint8_t r, uint8_t g, uint8_t b) {

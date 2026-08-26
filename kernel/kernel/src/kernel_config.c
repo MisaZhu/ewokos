@@ -36,6 +36,20 @@ static void load_kernel_config_file() {
         }
     }
 
+    v = sconf_get(sconf, "shm_contig_size");
+    if(v[0] != 0) {
+        uint32_t iv = atoi(v);
+        if(iv > 0) {
+            iv = ALIGN_UP(iv, PAGE_SIZE);
+            //carve the contiguous shm slab right after the dma window, before
+            //allocable_base_reserv_size below relocates the dma window using
+            //the (already advanced) allocable base.
+            _sys_info.shm_contig.phy_base = _sys_info.allocable_phy_mem_base;
+            _sys_info.shm_contig.size = iv;
+            _sys_info.allocable_phy_mem_base += iv;
+        }
+    }
+
     v = sconf_get(sconf, "allocable_base_reserv_size");
     if(v[0] != 0) {
         uint32_t iv = atoi(v);

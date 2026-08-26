@@ -43,7 +43,9 @@ typedef struct {
 	int32_t h;
 	grect_t clip;
 	bool need_free;
+
 	int32_t shm_id;
+	bool shm_contig;
 } graph_t;
 
 

@@ -184,6 +184,7 @@ graph_t* display_fetch_graph(display_t* display) {
     
     g = graph_new((uint32_t*)shm, w, h);
     g->shm_id = shm_id;
+    g->shm_contig = true;
     display->shm = shm;
     display->shm_id = shm_id;
     display->g = g;

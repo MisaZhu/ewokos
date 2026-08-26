@@ -365,14 +365,22 @@ static uint32_t _disp_shm_seq = 1;
   but it runs in the user session, not as a child of fbdisplayd: an IPC_PRIVATE
   segment is family-only in the kernel, so xwm could not attach it and
   nothing got drawn. A public key lets everyone who knows the id map it,
-  like the other shared graphs.*/
+  like the other shared graphs.
+  The key is derived from the tag mixed with a sequence counter so repeated
+  opens never collide with a still-attached segment; IPC_EXCL makes shmget
+  fail on reuse, and the loop retries with the next sequence value. Keys of
+  0 / IPC_PRIVATE are forced to a non-private value.
+  IPC_CONTIG is an EwokOS-specific flag: the segment is backed by the
+  kernel's reserved physically-contiguous slab instead of scattered pages,
+  because display hardware (and DMA) needs a single contiguous physical
+  buffer; creation fails strictly if the slab is unconfigured or exhausted.*/
 static int32_t shm_new_segment(uint32_t tag, uint32_t sz) {
     for(uint32_t i = 0; i < 16; i++) {
         uint32_t seq = _disp_shm_seq++;
         key_t key = (key_t)(tag ^ (key_t)(seq * 2654435761u));
         if(key == 0 || key == IPC_PRIVATE)
             key = (key_t)(seq | 1u);
-        int32_t id = shmget(key, sz, 0666 | IPC_CREAT | IPC_EXCL);
+        int32_t id = shmget(key, sz, 0666 | IPC_CREAT | IPC_EXCL | IPC_CONTIG);
         if(id != -1)
             return id;
     }

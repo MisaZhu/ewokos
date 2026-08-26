@@ -44,6 +44,9 @@ typedef struct {
 
 	mmio_info_t    mmio;
 	dma_info_t     sys_dma;
+	/* reserved physically-contiguous slab backing IPC_CONTIG segments.
+	   size == 0 means the slab is not configured (contig shm fails) */
+	dma_info_t     shm_contig;
 	uint32_t       cores;
 	uint32_t       core_idles[MAX_CORE_NUM];
 	uint32_t       core_procs[MAX_CORE_NUM];

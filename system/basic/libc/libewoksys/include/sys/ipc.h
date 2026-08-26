@@ -11,6 +11,12 @@ typedef long int key_t;
 #define 	IPC_NOWAIT  00004000 /* return error on wait */
 #define 	IPC_DIPC    00010000 /* make it distributed */
 #define 	IPC_OWN     00020000 /* this machine is the DIPC owner */
+#define 	IPC_CONTIG  0x01000000 /* ewok-specific: back the new segment
+	                                  with physically contiguous memory
+	                                  from the kernel's reserved slab
+	                                  (kernel.conf "shm_contig_size");
+	                                  creation fails strictly when the
+	                                  slab is unconfigured or exhausted */
 #define 	IPC_RMID    0 /* remove resource */
 #define 	IPC_SET     1 /* set ipc_perm options */
 #define 	IPC_STAT    2 /* get ipc_perm options */
