@@ -150,6 +150,8 @@ static int32_t g2dd_handle_fill_rect(proto_t* in) {
 
 	if(g2d_attach(&req.dst, &dst) != 0)
 		return -1;
+
+    slog("g2d_fill rect dst: %d x %d, alpha: 0x%08x\n", dst.width, dst.height, req.color);
 	if(((req.color >> 24) & 0xff) == 0xff) {
 		bsp_g2d_fill(dst.buffer, (int32_t)dst.width, (int32_t)dst.height,
 				req.rect.x, req.rect.y, req.rect.w, req.rect.h, req.color,
@@ -293,6 +295,7 @@ static int32_t g2dd_handle_rotate(proto_t* in) {
 		return -1;
 	}
 
+    slog("g2dd_handle_rotate %dx%d\n", src.width, src.height);
 	ret = -1;
 	bsp_g2d_rotated_size((int32_t)src.width, (int32_t)src.height,
 			degree, &rw, &rh);

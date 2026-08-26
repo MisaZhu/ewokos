@@ -75,28 +75,65 @@ void arch_g2d_fill(uint32_t* argb, int32_t argb_w, int32_t argb_h,
 			(((color >> 16) & 0xff) == cb) &&
 			(((color >> 24) & 0xff) == cb);
 
+	/* whole-width rectangles are one contiguous block in memory */
+	int full_rows = (x == 0 && w == argb_w);
+
 	if(same_bytes) {
 		/* all four channel bytes equal: a byte memset fills whole pixels */
-		for(int32_t row = 0; row < h; row++)
-			memset(argb + (y + row) * argb_w + x, cb, (size_t)w * 4);
+		if(full_rows) {
+			memset(argb + y * argb_w, cb, (size_t)w * h * 4);
+		} else {
+			for(int32_t row = 0; row < h; row++)
+				memset(argb + (y + row) * argb_w + x, cb, (size_t)w * 4);
+		}
 		return;
 	}
 
 	uint32x4_t vc = vdupq_n_u32(color);
 
+	if(full_rows) {
+		/* contiguous w*h pixel block: one aligned-store run instead of
+		   per-row setup */
+		uint32_t* dp = argb + y * argb_w;
+		int32_t total = w * h;
+		int32_t cx = 0;
+		uintptr_t dpa = (uintptr_t)dp;
+		if(dpa & 0xF) {
+			int32_t head = (int32_t)((16 - (dpa & 0xF)) >> 2);
+			if(head > total)
+				head = total;
+			for(; cx < head; cx++)
+				dp[cx] = color;
+		}
+		for(; cx <= total - 16; cx += 16) {
+			vst1q_u32(dp + cx, vc);
+			vst1q_u32(dp + cx + 4, vc);
+			vst1q_u32(dp + cx + 8, vc);
+			vst1q_u32(dp + cx + 12, vc);
+		}
+		for(; cx < total; cx++)
+			dp[cx] = color;
+		return;
+	}
+
 	for(int32_t row = 0; row < h; row++) {
 		uint32_t* dp = argb + (y + row) * argb_w + x;
+		int32_t cx = 0;
 
-		/* 16px SIMD stores need a 16-byte aligned row start: the surface
-		   may be Device-mapped framebuffer memory where any unaligned
-		   access faults (odd x or odd surface width) */
-		if(((uintptr_t)dp & 0xF) != 0) {
-			for(int32_t cx = 0; cx < w; cx++)
+		/* 16px SIMD stores need a 16-byte aligned start: the surface may
+		   be Device-mapped framebuffer memory where any unaligned access
+		   faults (odd x or odd surface width). A scalar head of at most
+		   3 pixels realigns the row instead of falling back to a full
+		   scalar loop. */
+		uintptr_t dpa = (uintptr_t)dp;
+		if(dpa & 0xF) {
+			int32_t head = (int32_t)((16 - (dpa & 0xF)) >> 2);
+			if(head > w)
+				head = w;
+			for(; cx < head; cx++)
 				dp[cx] = color;
-			continue;
 		}
 
-		int32_t cx = 0;
 		for(; cx <= w - 16; cx += 16) {
 			vst1q_u32(dp + cx, vc);
 			vst1q_u32(dp + cx + 4, vc);

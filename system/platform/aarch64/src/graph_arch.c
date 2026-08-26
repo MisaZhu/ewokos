@@ -22,28 +22,53 @@ static inline uint16x8_t neon_div255_u16(uint16x8_t v)
     return vshrq_n_u16(t, 8);
 }
 
-static inline void neon_alpha_16(uint32_t *b, uint32_t *f, uint32_t *d, uint8_t alpha_more)
+static inline uint32_t fill_div255(uint32_t v)
 {
-    uint8x16x4_t fg = vld4q_u8((const uint8_t*)f);
-    uint8x16x4_t bg = vld4q_u8((const uint8_t*)b);
+    return (v + 1 + (v >> 8)) >> 8;
+}
+
+/* scalar blend of one pixel against a constant color, bit-identical math
+   to neon_fill_alpha_16 (used for the head/tail alignment pixels) */
+static inline uint32_t fill_blend_px(uint32_t dst, uint32_t color, uint32_t a)
+{
+    uint32_t inv_a = 255 - a;
+    uint32_t db = dst & 0xff;
+    uint32_t dg = (dst >> 8) & 0xff;
+    uint32_t dr = (dst >> 16) & 0xff;
+    uint32_t da = (dst >> 24) & 0xff;
+    uint32_t ob = fill_div255((color & 0xff) * a + db * inv_a);
+    uint32_t og = fill_div255(((color >> 8) & 0xff) * a + dg * inv_a);
+    uint32_t or_ = fill_div255(((color >> 16) & 0xff) * a + dr * inv_a);
+    uint32_t oa = da + fill_div255((255 - da) * a);
+    return (oa << 24) | (or_ << 16) | (og << 8) | ob;
+}
+
+/* Solid-color source-over blend, 16 pixels per call. The fg color and its
+   effective alpha are loop-invariant for a fill, so the per-channel fg*a
+   products are precomputed once (cpa_*); per block only the bg load, three
+   bg*inv_a multiplies, four div255 and the store remain. The caller must
+   pass a 16-byte aligned d (Device-mapped surfaces fault on unaligned
+   access). */
+static inline void neon_fill_alpha_16(uint32_t *d,
+        uint16x8_t cpa_b, uint16x8_t cpa_g, uint16x8_t cpa_r,
+        uint8x8_t inv_a8, uint8x8_t a8)
+{
+    uint8x16x4_t bg = vld4q_u8((const uint8_t*)d);
     uint8x16x4_t out;
-    uint8x16_t full = vdupq_n_u8(0xff);
-    uint8x16_t scaled = vdupq_n_u8(alpha_more);
+    uint8x8_t full8 = vdup_n_u8(0xff);
 
-    uint8x8_t a_lo = vmovn_u16(neon_div255_u16(vmull_u8(vget_low_u8(fg.val[3]), vget_low_u8(scaled))));
-    uint8x8_t a_hi = vmovn_u16(neon_div255_u16(vmull_u8(vget_high_u8(fg.val[3]), vget_high_u8(scaled))));
-    uint8x16_t a = vcombine_u8(a_lo, a_hi);
-    uint8x16_t inv_a = vsubq_u8(full, a);
+    uint16x8_t oa_lo = neon_div255_u16(vmull_u8(vsub_u8(full8, vget_low_u8(bg.val[3])), a8));
+    uint16x8_t oa_hi = neon_div255_u16(vmull_u8(vsub_u8(full8, vget_high_u8(bg.val[3])), a8));
 
-    uint16x8_t oa_lo = neon_div255_u16(vmull_u8(vsub_u8(vget_low_u8(full), vget_low_u8(bg.val[3])), a_lo));
-    uint16x8_t oa_hi = neon_div255_u16(vmull_u8(vsub_u8(vget_high_u8(full), vget_high_u8(bg.val[3])), a_hi));
+    uint16x8_t cpa[3];
+    cpa[0] = cpa_b;
+    cpa[1] = cpa_g;
+    cpa[2] = cpa_r;
 
-    /* out = div255(fg*a + bg*(255-a)) per channel, low/high halves widened */
+    /* out = div255(color_c*a + bg_c*inv_a) per channel, low/high widened */
     for(int c = 0; c < 3; c++) {
-        uint16x8_t lo = vaddq_u16(vmull_u8(vget_low_u8(fg.val[c]), a_lo),
-                                  vmull_u8(vget_low_u8(bg.val[c]), vget_low_u8(inv_a)));
-        uint16x8_t hi = vaddq_u16(vmull_u8(vget_high_u8(fg.val[c]), a_hi),
-                                  vmull_u8(vget_high_u8(bg.val[c]), vget_high_u8(inv_a)));
+        uint16x8_t lo = vaddq_u16(cpa[c], vmull_u8(vget_low_u8(bg.val[c]), inv_a8));
+        uint16x8_t hi = vaddq_u16(cpa[c], vmull_u8(vget_high_u8(bg.val[c]), inv_a8));
         out.val[c] = vcombine_u8(vmovn_u16(neon_div255_u16(lo)), vmovn_u16(neon_div255_u16(hi)));
     }
     /* out_a = bg_a + div255((255-bg_a)*a) */
@@ -54,27 +79,6 @@ static inline void neon_alpha_16(uint32_t *b, uint32_t *f, uint32_t *d, uint8_t 
     vst4q_u8((uint8_t*)d, out);
 }
 
-static inline void graph_pixel_argb_neon(graph_t *graph, int32_t x, int32_t y,
-                                  uint32_t *src, int size, uint8_t alpha_more)
-{
-    uint32_t *dst = &graph->buffer[y * graph->w + x];
-
-    if (size == 16)
-    {
-        neon_alpha_16(dst, src, dst, alpha_more);
-    }
-    else
-    {
-        // For size < 16, use memcpy to handle the edge case safely.
-        uint32_t fg[16] = {0};
-        uint32_t bg[16] = {0};
-        memcpy(fg, src, 4*size);
-        memcpy(bg, dst, 4*size);
-        neon_alpha_16(bg, fg, bg, alpha_more);
-        memcpy(dst, bg, 4*size);
-    }
-}
-
 void graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
     if(g == NULL || w <= 0 || h <= 0)
         return;
@@ -83,6 +87,8 @@ void graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uin
         return;
     if(g->clip.w > 0 && g->clip.h > 0)
         grect_insect(&g->clip, &r);
+    if(r.w <= 0 || r.h <= 0)
+        return;
 
     /* opaque fill: handled by the g2d engine (memset / NEON row stores) */
     if(color_a(color) == 0xff) {
@@ -90,18 +96,39 @@ void graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uin
         return;
     }
 
-    /* translucent fill: blend the solid color against what is there */
-    uint32_t buf[16];
-    for(int i = 0; i < 16; i++)
-        buf[i] = color;
+    /* fully transparent fill is a no-op */
+    if(color_a(color) == 0)
+        return;
 
-    register int32_t ex, ey;
-    ey = r.y + r.h;
-    ex = r.x + r.w;
+    /* translucent fill: blend the solid color against what is there. The
+       color and its effective alpha are constants, so every per-channel
+       constant is hoisted out of the row loop; scalar head/tail pixels
+       keep all NEON accesses 16-byte aligned. */
+    uint32_t ca = color_a(color);
+    uint8x8_t a8 = vdup_n_u8((uint8_t)ca);
+    uint8x8_t inv_a8 = vdup_n_u8((uint8_t)(255 - ca));
+    uint16x8_t cpa_b = vmull_u8(vdup_n_u8((uint8_t)color), a8);
+    uint16x8_t cpa_g = vmull_u8(vdup_n_u8((uint8_t)(color >> 8)), a8);
+    uint16x8_t cpa_r = vmull_u8(vdup_n_u8((uint8_t)(color >> 16)), a8);
+
+    int32_t ey = r.y + r.h;
     for(int32_t yy = r.y; yy < ey; yy++) {
-        for(int32_t xx = r.x; xx < ex; xx += 16) {
-            graph_pixel_argb_neon(g, xx, yy, buf, MIN(ex - xx, 16), 0xFF);
+        uint32_t* row = g->buffer + yy * g->w + r.x;
+        int32_t n = r.w;
+        int32_t i = 0;
+
+        uintptr_t ra = (uintptr_t)row;
+        if(ra & 0xF) {
+            int32_t head = (int32_t)((16 - (ra & 0xF)) >> 2);
+            if(head > n)
+                head = n;
+            for(; i < head; i++)
+                row[i] = fill_blend_px(row[i], color, ca);
         }
+        for(; i <= n - 16; i += 16)
+            neon_fill_alpha_16(row + i, cpa_b, cpa_g, cpa_r, inv_a8, a8);
+        for(; i < n; i++)
+            row[i] = fill_blend_px(row[i], color, ca);
     }
 }
 
