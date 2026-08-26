@@ -7,24 +7,22 @@ extern "C" {
 #endif
 
 inline int graph_g2d_avaliable(graph_t* g) {
-    if(has_g2d() == 0 && (g->shm_id > 0 || g->dma != 0))
+    if(has_g2d() == 0 && g->shm_id > 0)
 		return 0;
 	return -1;
 }
 
 /* graph_*_g2d: offload the operation to the /dev/g2d service. the
-   device is stateless: every canvas travels inside the request either
-   as a keyed shm segment id or as a dma address, the driver attaches
-   (shm) or uses the identity dma window (dma) and operates in place.
-   only shm-backed graphs (created via graph_new_shm) and dma-backed
-   graphs (graph_new_dma) can be processed, zero copy: the device
-   writes directly into the graph's own canvas. no cpu fallback: if the
-   device path fails, it fails. */
+   device is stateless: every canvas travels inside the request as a
+   keyed shm segment id, the driver attaches and operates in place.
+   only shm-backed graphs (created via graph_new_shm) can be processed,
+   zero copy: the device writes directly into the graph's own canvas.
+   no cpu fallback: if the device path fails, it fails. */
 
 static int g2d_check_graph(const graph_t* g) {
 	if(g == NULL || g->buffer == NULL)
 		return 0;
-	if(g->shm_id <= 0 && !g->dma)
+	if(g->shm_id <= 0)
 		return 0;
 	if(g->w <= 0 || g->h <= 0)
 		return 0;
@@ -32,10 +30,6 @@ static int g2d_check_graph(const graph_t* g) {
 }
 
 static g2d_canvas_t g2d_graph_canvas(const graph_t* g) {
-	if(g->dma)
-		return g2d_canvas_dma((ewokos_addr_t)(uintptr_t)g->buffer,
-				(uint32_t)g->w * (uint32_t)g->h * sizeof(uint32_t),
-				(uint32_t)g->w, (uint32_t)g->h);
 	return g2d_canvas(g->shm_id,
 			(uint32_t)g->w * (uint32_t)g->h * sizeof(uint32_t),
 			(uint32_t)g->w, (uint32_t)g->h);

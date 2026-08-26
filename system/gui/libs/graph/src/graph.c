@@ -1,6 +1,5 @@
 #include <graph/graph.h>
 #include <g2dclient/g2dclient.h>
-#include <ewoksys/dma.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -55,6 +54,8 @@ inline uint32_t color_reverse_rgb(uint32_t oc) {
     return argb(oa, or, og, ob);
 }
 
+#define GRAPH_MEM_ALIGN 64
+
 static void* aligned_malloc(uint32_t size, uint32_t alignment) {
     // Check if alignment is a power of 2
     if ((alignment & (alignment - 1)) != 0) {
@@ -94,7 +95,7 @@ inline void graph_init(graph_t* g, const uint32_t* buffer, int32_t w, int32_t h)
         g->need_free = false;
     }
     else {
-        g->buffer = (uint32_t*)aligned_malloc(w*h*4, 32);
+        g->buffer = (uint32_t*)aligned_malloc(w*h*4, GRAPH_MEM_ALIGN);
         g->need_free = true;
     }
     memset(&g->clip, 0, sizeof(grect_t));
@@ -117,7 +118,7 @@ graph_t* graph_new(uint32_t* buffer, int32_t w, int32_t h) {
     if(w <= 0 || h <= 0)
         return NULL;
 
-    graph_t* ret = (graph_t*)aligned_malloc(sizeof(graph_t), 32);
+    graph_t* ret = (graph_t*)aligned_malloc(sizeof(graph_t), GRAPH_MEM_ALIGN);
     if(ret != NULL)
         graph_init(ret, buffer, w, h);
     return ret;
@@ -148,35 +149,6 @@ graph_t* graph_new_shm(int32_t w, int32_t h) {
     graph_init(ret, pixels, w, h);
     ret->shm_id = shm_id;
     ret->need_free = true; /* graph_free owns the shm canvas */
-    return ret;
-}
-
-graph_t* graph_new_dma(int32_t w, int32_t h) {
-    graph_t* ret;
-    ewokos_addr_t addr;
-    uint32_t size;
-
-    if(w <= 0 || h <= 0)
-        return NULL;
-
-    ret = (graph_t*)aligned_malloc(sizeof(graph_t), 32);
-    if(ret == NULL)
-        return NULL;
-
-    /* the pixel buffer comes from the sys_dma pool; dma_alloc() maps it
-       into this process in the sys_dma v window, so the returned address
-       is a usable pointer here and is carried to /dev/g2d as-is (g2dd
-       mem-maps the same address on attach) */
-    size = (uint32_t)w * (uint32_t)h * sizeof(uint32_t);
-    addr = dma_alloc(0, size);
-    if(addr == 0) {
-        aligned_free(ret);
-        return NULL;
-    }
-
-    graph_init(ret, (const uint32_t*)(uintptr_t)addr, w, h);
-    ret->dma = true;
-    ret->need_free = true; /* graph_free owns the dma allocation */
     return ret;
 }
 
@@ -215,10 +187,6 @@ void graph_free(graph_t* g) {
         if(g->shm_id > 0) {
             if(g->buffer != NULL)
                 shmdt(g->buffer);
-        }
-        else if(g->dma) {
-            if(g->buffer != NULL)
-                dma_free(0, (ewokos_addr_t)(uintptr_t)g->buffer);
         }
         else if(g->buffer != NULL)
             aligned_free(g->buffer);

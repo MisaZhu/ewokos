@@ -44,7 +44,6 @@ typedef struct {
 	grect_t clip;
 	bool need_free;
 	int32_t shm_id;
-	bool dma; /* buffer is dma memory allocated via dma_alloc */
 } graph_t;
 
 
@@ -64,9 +63,6 @@ uint32_t argb_int(uint32_t c);
 
 graph_t* graph_new(uint32_t* buffer, int32_t w, int32_t h);
 graph_t* graph_new_shm(int32_t w, int32_t h);
-/* same as graph_new_shm but the pixels live in the sys_dma pool
-   (dma_alloc), usable as a dma canvas by /dev/g2d. requires uid 0. */
-graph_t* graph_new_dma(int32_t w, int32_t h);
 
 void     graph_init(graph_t* g, const uint32_t* buffer, int32_t w, int32_t h);
 void     graph_free(graph_t* g);
