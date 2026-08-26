@@ -223,9 +223,12 @@ static int32_t shm_alloc(int32_t key, uint32_t size, int32_t flag, uint8_t conti
     ewokos_addr_t pool_paddr = 0;
     if(contig) {
         pool_paddr = shm_pool_alloc(pages);
-        if(pool_paddr == 0)
+        if(pool_paddr == 0) {
+            printf("shm_pool_alloc error size: %d!!!!!\n", size/KB);
             return -1;
+        }
     }
+
     
     share_mem_t* i = _shm_head;
     while(i != NULL) { //search for available memory block
@@ -280,7 +283,12 @@ static int32_t shm_alloc(int32_t key, uint32_t size, int32_t flag, uint8_t conti
         }
     }		
 
-    if(i->pages == 0) { // map pages expanded new block
+    /* map pages for a fresh block; a REUSED free contig block must also be
+       remapped: free_item returned its physical run to the slab pool, so the
+       window PTEs still point at a run somebody else may own now. Retargeting
+       them at pool_paddr is mandatory or two segments alias the same memory
+       (scattered blocks are different: their kalloc pages stay with the block) */
+    if(i->pages == 0 || contig) {
         int32_t ok;
         if(contig)
             ok = shm_map_pages_contig(addr, pool_paddr, pages);
@@ -381,12 +389,11 @@ uint32_t shm_alloced_size(void) {
 
 static share_mem_t* free_item(share_mem_t* it) {
     if(it->contig) {
-        /* hand the physical run back to the slab pool right away; the
-           window block stays as a free contig node (never merged with
-           scattered-type neighbours, they cannot share a pool run) */
+        /* hand the physical run back to the slab pool right away; the window
+           block itself stays free and is still merged with neighbours below
+           (the merge is contig-type guarded, and reuse always remaps the
+           window PTEs onto a fresh pool run, so stale PTEs are harmless) */
         shm_pool_free(it->phy_base);
-        it->used = 0;
-        return it->next;
     }
     //shm_unmap_pages(it->addr, it->pages);
     it->used = 0;

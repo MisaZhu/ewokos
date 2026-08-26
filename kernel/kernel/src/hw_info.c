@@ -87,7 +87,8 @@ void sys_info_config(void) {
        re-carves it (a fresh reservation, so it still lands after a relocated
        dma window) */
     _sys_info.shm_contig.phy_base = _sys_info.allocable_phy_mem_base;
-    _sys_info.shm_contig.v_base = 0;
-    _sys_info.shm_contig.size = get_shm_contig_size();
+    _sys_info.shm_contig.v_base = 0; //unused.
+    if(_sys_info.shm_contig.size == 0)
+        _sys_info.shm_contig.size = get_shm_contig_size();
     _sys_info.allocable_phy_mem_base += _sys_info.shm_contig.size;
 }
