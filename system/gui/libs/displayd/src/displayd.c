@@ -17,18 +17,18 @@ typedef struct {
     int32_t  shm_id;
     display_ctrl_t* ctrl; //independent shm segment for the control block
     int32_t  ctrl_id;
-} fb_dma_t;
+} disp_shm_t;
 
-static fbinfo_t _fbinfo = {0};
+static disp_info_t _fbinfo = {0};
 static int32_t _rotate = 0;
 static float _zoom = 1.0;
 static int32_t _zwidth;
 static int32_t _zheight;
 static fbdisplayd_t* _fbdisplayd = NULL;
 static char _logo[256] = {0};
-static fb_dma_t* _cur_dma = NULL; /* live shm, for fbdisplayd_refresh() */
+static disp_shm_t* _cur_shm = NULL; /* live shm, for fbdisplayd_refresh() */
 
-static int fb_fcntl(vdevice_t* dev, int fd,
+static int disp_fcntl(vdevice_t* dev, int fd,
         int from_pid,
         fsinfo_t* info,
         int cmd,
@@ -49,9 +49,9 @@ static int fb_fcntl(vdevice_t* dev, int fd,
             PF->addi(out, _zwidth)->addi(out, _zheight)->addi(out, _fbinfo.depth);
     }
     else if(cmd == DISPLAY_CNTL_GET_CTRL) { //shm id of the ctrl block
-        fb_dma_t* dma = (fb_dma_t*)p;
-        if(dma != NULL)
-            PF->addi(out, dma->ctrl_id);
+        disp_shm_t* shm = (disp_shm_t*)p;
+        if(shm != NULL)
+            PF->addi(out, shm->ctrl_id);
     }
     return 0;
 }
@@ -124,7 +124,7 @@ static graph_t* ensure_graph(graph_t** cache, int32_t w, int32_t h) {
     return *cache;
 }
 
-static uint32_t fb_pitch32(const fbinfo_t* fbi) {
+static uint32_t disp_pitch32(const disp_info_t* fbi) {
     /*several platforms leave pitch at 0 because their full-frame flush is a
       plain memcpy; a packed scan-out is the only sane meaning of that */
     uint32_t pitch = fbi->pitch;
@@ -133,7 +133,7 @@ static uint32_t fb_pitch32(const fbinfo_t* fbi) {
     return pitch;
 }
 
-uint32_t fbdisplayd_rotate_to(const fbinfo_t* fbinfo, const graph_t* g, int rotate) {
+uint32_t fbdisplayd_rotate_to(const disp_info_t* fbinfo, const graph_t* g, int rotate) {
     if (fbinfo == NULL || g == NULL || g->buffer == NULL)
         return 0;
     if (fbinfo->pointer == 0 || fbinfo->depth != 32)
@@ -152,7 +152,7 @@ uint32_t fbdisplayd_rotate_to(const fbinfo_t* fbinfo, const graph_t* g, int rota
     if ((uint32_t)dw != fbinfo->width || (uint32_t)dh != fbinfo->height)
         return 0;
 
-    uint32_t pitch = fb_pitch32(fbinfo);
+    uint32_t pitch = disp_pitch32(fbinfo);
     uint8_t* base = (uint8_t*)(ewokos_addr_t)fbinfo->pointer +
             fbinfo->yoffset * pitch + fbinfo->xoffset * 4;
 
@@ -173,10 +173,10 @@ uint32_t fbdisplayd_rotate_to(const fbinfo_t* fbinfo, const graph_t* g, int rota
     return (uint32_t)dw * (uint32_t)dh * 4;
 }
 
-static uint32_t (*_flush_rect)(const fbinfo_t*, const graph_t*, const grect_t*) = NULL;
+static uint32_t (*_flush_rect)(const disp_info_t*, const graph_t*, const grect_t*) = NULL;
 static char* (*_dev_cmd)(int from_pid, int argc, char** argv) = NULL;
 
-void fbdisplayd_set_flush_rect(uint32_t (*flush_rect)(const fbinfo_t* fbinfo,
+void fbdisplayd_set_flush_rect(uint32_t (*flush_rect)(const disp_info_t* fbinfo,
         const graph_t* g, const grect_t* r)) {
     _flush_rect = flush_rect;
 }
@@ -185,7 +185,7 @@ void fbdisplayd_set_dev_cmd(char* (*dev_cmd)(int from_pid, int argc, char** argv
     _dev_cmd = dev_cmd;
 }
 
-uint32_t fbdisplayd_flush_rect_to(const fbinfo_t* fbinfo, const graph_t* g, const grect_t* r) {
+uint32_t fbdisplayd_flush_rect_to(const disp_info_t* fbinfo, const graph_t* g, const grect_t* r) {
     if(fbinfo == NULL || g == NULL || g->buffer == NULL || r == NULL)
         return 0;
     if(fbinfo->pointer == 0)
@@ -245,7 +245,7 @@ uint32_t fbdisplayd_flush_rect_to(const fbinfo_t* fbinfo, const graph_t* g, cons
   then copied into the panel-space rect it lands on. g is the client
   (pre-rotation) frame; r is in client coordinates. Returns 0
   (=> full-frame fallback) on any surprise.*/
-static uint32_t fbdisplayd_rotate_rect_to(const fbinfo_t* fbi, const graph_t* g,
+static uint32_t fbdisplayd_rotate_rect_to(const disp_info_t* fbi, const graph_t* g,
         const grect_t* r, int rotate) {
     if(fbi == NULL || g == NULL || g->buffer == NULL || r == NULL)
         return 0;
@@ -288,7 +288,7 @@ static uint32_t fbdisplayd_rotate_rect_to(const fbinfo_t* fbi, const graph_t* g,
         dy0 = sh - ry1; dx0 = sw - rx1;
     }
 
-    uint32_t pitch = fb_pitch32(fbi);
+    uint32_t pitch = disp_pitch32(fbi);
     uint8_t* base = (uint8_t*)(ewokos_addr_t)fbi->pointer +
             fbi->yoffset * pitch + fbi->xoffset * 4;
     graph_t dst;
@@ -301,7 +301,7 @@ static inline int is_zoomed(void) {
     return (_zoom > 0.0 && _zoom != 8.0 && _zoom != 1.0);
 }
 
-static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, int rotate) {
+static uint32_t flush(const disp_info_t* fbinfo, const void* buf, uint32_t size, int rotate) {
     if(fbinfo->depth != 32 && fbinfo->depth != 16)
         return 0;
 
@@ -345,21 +345,21 @@ static uint32_t flush(const fbinfo_t* fbinfo, const void* buf, uint32_t size, in
     return res;
 }
 
-static void init_graph(fb_dma_t* dma) {
+static void init_graph(disp_shm_t* shm) {
     graph_t g;
     if(_rotate == G_ROTATE_270 || _rotate == G_ROTATE_90)
-        graph_init(&g, (const uint32_t*)dma->shm, _zheight, _zwidth);
+        graph_init(&g, (const uint32_t*)shm->shm, _zheight, _zwidth);
     else
-        graph_init(&g, (const uint32_t*)dma->shm, _zwidth, _zheight);
+        graph_init(&g, (const uint32_t*)shm->shm, _zwidth, _zheight);
 
     if(_fbdisplayd->splash != NULL)
         _fbdisplayd->splash(&g, _logo);
     else
         default_splash(&g, _logo);
-    flush(&_fbinfo, dma->shm, dma->size, _rotate);
+    flush(&_fbinfo, shm->shm, shm->size, _rotate);
 }
 
-static uint32_t _fb_dma_shm_seq = 1;
+static uint32_t _disp_shm_seq = 1;
 
 /*xwm draws the desktop and the window frames straight into this buffer,
   but it runs in the user session, not as a child of fbdisplayd: an IPC_PRIVATE
@@ -368,7 +368,7 @@ static uint32_t _fb_dma_shm_seq = 1;
   like the other shared graphs.*/
 static int32_t shm_new_segment(uint32_t tag, uint32_t sz) {
     for(uint32_t i = 0; i < 16; i++) {
-        uint32_t seq = _fb_dma_shm_seq++;
+        uint32_t seq = _disp_shm_seq++;
         key_t key = (key_t)(tag ^ (key_t)(seq * 2654435761u));
         if(key == 0 || key == IPC_PRIVATE)
             key = (key_t)(seq | 1u);
@@ -379,41 +379,41 @@ static int32_t shm_new_segment(uint32_t tag, uint32_t sz) {
     return -1;
 }
 
-static int fb_dma_init(fb_dma_t* dma) {
-    memset(dma, 0, sizeof(fb_dma_t));
+static int disp_shm_init(disp_shm_t* shm) {
+    memset(shm, 0, sizeof(disp_shm_t));
     uint32_t sz = _zwidth * _zheight * 4;
 
-    dma->shm_id = shm_new_segment(0x4642444d, sz); //pixels only
-    if(dma->shm_id == -1)
+    shm->shm_id = shm_new_segment(0x4642444d, sz); //pixels only
+    if(shm->shm_id == -1)
         return -1;
-    dma->shm = shmat(dma->shm_id, 0, 0);
-    if(dma->shm == (void*)-1)
+    shm->shm = shmat(shm->shm_id, 0, 0);
+    if(shm->shm == (void*)-1)
         return -1;
-    memset(dma->shm, 0, sz);
+    memset(shm->shm, 0, sz);
 
-    /*the ctrl block lives in its own small segment so the pixel dma stays
+    /*the ctrl block lives in its own small segment so the pixel shm stays
       exactly one framebuffer; clients get the id via DISPLAY_CNTL_GET_CTRL.*/
-    dma->ctrl_id = shm_new_segment(0x46424443, sizeof(display_ctrl_t));
-    if(dma->ctrl_id == -1)
+    shm->ctrl_id = shm_new_segment(0x46424443, sizeof(display_ctrl_t));
+    if(shm->ctrl_id == -1)
         return -1;
-    dma->ctrl = (display_ctrl_t*)shmat(dma->ctrl_id, 0, 0);
-    if(dma->ctrl == (void*)-1)
+    shm->ctrl = (display_ctrl_t*)shmat(shm->ctrl_id, 0, 0);
+    if(shm->ctrl == (void*)-1)
         return -1;
-    memset(dma->ctrl, 0, sizeof(display_ctrl_t));
+    memset(shm->ctrl, 0, sizeof(display_ctrl_t));
 
-    dma->size = sz;
-    init_graph(dma);
+    shm->size = sz;
+    init_graph(shm);
     return 0;
 }
 
-static void fb_get_info() {
-    fbinfo_t* info = _fbdisplayd->get_info();
-    memcpy(&_fbinfo, info, sizeof(fbinfo_t));
+static void disp_get_info() {
+    disp_info_t* info = _fbdisplayd->get_info();
+    memcpy(&_fbinfo, info, sizeof(disp_info_t));
     _zwidth = _fbinfo.width / _zoom;
     _zheight = _fbinfo.height / _zoom;
 }
 
-static int fb_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
+static int disp_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
     (void)dev;
     (void)from_pid;
     (void)ret;
@@ -425,7 +425,7 @@ static int fb_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto
         int bpp = proto_read_int(in);
         if(_fbdisplayd->init(w, h, bpp) != 0)
             return -1;
-        fb_get_info();
+        disp_get_info();
     }
     else if(cmd == DISPLAY_DEV_CNTL_GET_INFO) {
         if(_rotate == G_ROTATE_270 || _rotate == G_ROTATE_90)
@@ -438,7 +438,7 @@ static int fb_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto
 
 /*push only the rects the client declared dirty. Returns the bytes written,
   or -1 when the damage cannot be honoured and the whole frame is needed.*/
-static int32_t flush_dirty(fb_dma_t* dma, const grect_t* rects, uint32_t num) {
+static int32_t flush_dirty(disp_shm_t* shm, const grect_t* rects, uint32_t num) {
     /*client (pre-rotation) geometry: for 90/270 the frame is transposed,
       matching flush()/GET_INFO. For rotate 0 this is _zwidth x _zheight,
       identical to the non-rotated path.*/
@@ -452,7 +452,7 @@ static int32_t flush_dirty(fb_dma_t* dma, const grect_t* rects, uint32_t num) {
     grect_t bounds = {0, 0, gw, gh};
     graph_t g;
     memset(&g, 0, sizeof(graph_t));
-    graph_init(&g, (const uint32_t*)dma->shm, gw, gh);
+    graph_init(&g, (const uint32_t*)shm->shm, gw, gh);
 
     int32_t res = 0;
     for(uint32_t i = 0; i < num; i++) {
@@ -469,13 +469,13 @@ static int32_t flush_dirty(fb_dma_t* dma, const grect_t* rects, uint32_t num) {
     return res;
 }
 
-static int32_t do_flush(fb_dma_t* dma) {
-    uint8_t* buf = (uint8_t*)dma->shm;
-    if(buf == NULL || dma->ctrl == NULL)
+static int32_t do_flush(disp_shm_t* shm) {
+    uint8_t* buf = (uint8_t*)shm->shm;
+    if(buf == NULL || shm->ctrl == NULL)
         return -1;
 
-    uint32_t size = dma->size;
-    display_ctrl_t* ctrl = dma->ctrl;
+    uint32_t size = shm->size;
+    display_ctrl_t* ctrl = shm->ctrl;
     uint32_t num = ctrl->dirty_num;
     grect_t rects[DISPLAY_DIRTY_MAX];
     if(num > DISPLAY_DIRTY_MAX)
@@ -498,7 +498,7 @@ static int32_t do_flush(fb_dma_t* dma) {
                     (_fbinfo.depth == 32);
     }
     if(dirty_ok)
-        res = flush_dirty(dma, rects, num);
+        res = flush_dirty(shm, rects, num);
     if(res < 0)
         res = flush(&_fbinfo, buf, size, _rotate);
     ctrl->busy = 0;
@@ -509,14 +509,14 @@ static int32_t do_flush(fb_dma_t* dma) {
 0: error;
 -1: resized;
 >0: size flushed*/
-static int do_fb_flush(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, void* p) {
+static int do_disp_flush(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, void* p) {
     (void)dev;
     (void)fd;
     (void)from_pid;
     (void)info;
 
-    fb_dma_t* dma = (fb_dma_t*)p;
-    return do_flush(dma);
+    disp_shm_t* shm = (disp_shm_t*)p;
+    return do_flush(shm);
 }
 
 /*re-push the frame the client last drew. A driver that changes how pixels
@@ -526,25 +526,25 @@ static int do_fb_flush(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, voi
   rects would repaint a few patches with the new pixel pipeline and leave
   the rest of the screen as the old one drew it.*/
 int fbdisplayd_refresh(void) {
-    if(_cur_dma == NULL || _cur_dma->shm == NULL || _cur_dma->ctrl == NULL)
+    if(_cur_shm == NULL || _cur_shm->shm == NULL || _cur_shm->ctrl == NULL)
         return -1;
 
-    display_ctrl_t* ctrl = _cur_dma->ctrl;
+    display_ctrl_t* ctrl = _cur_shm->ctrl;
     ctrl->dirty_num = 0;
     ctrl->busy = 1;
-    uint32_t res = flush(&_fbinfo, _cur_dma->shm, _cur_dma->size, _rotate);
+    uint32_t res = flush(&_fbinfo, _cur_shm->shm, _cur_shm->size, _rotate);
     ctrl->busy = 0;
     return res > 0 ? 0 : -1;
 }
 
-static int32_t fb_dma(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
+static int32_t disp_shm(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
     (void)dev;
     (void)fd;
     (void)from_pid;
     (void)info;
-    fb_dma_t* dma = (fb_dma_t*)p;
-    *size = dma->size;
-    return dma->shm_id;
+    disp_shm_t* shm = (disp_shm_t*)p;
+    *size = shm->size;
+    return shm->shm_id;
 }
 
 static void read_config(const char* conf_file, uint32_t index, uint32_t* w, uint32_t* h, uint8_t* dep, int32_t* rotate, float* zoom) {
@@ -580,7 +580,7 @@ static void read_config(const char* conf_file, uint32_t index, uint32_t* w, uint
 }
 
 
-static int fb_dev_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
+static int disp_dev_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
         void* buf, int size, int offset, void* p) {
     (void)dev;
     (void)fd;
@@ -594,7 +594,7 @@ static int fb_dev_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
     return _fbdisplayd->read(buf, size);
 }
 
-static char* fb_dev_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* p) {
+static char* disp_dev_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* p) {
     (void)dev;
     (void)p;
 
@@ -616,31 +616,31 @@ int fbdisplayd_run(fbdisplayd_t* fbdisplayd, const char* mnt_name,
         return -1;
     read_config(conf_file, index, &w, &h, &dep, &_rotate, &_zoom);
 
-    fb_dma_t dma;
-    dma.shm = NULL;
+    disp_shm_t shm;
+    shm.shm = NULL;
     if(fbdisplayd->init(w, h, dep) != 0)
         return -1;
-    fb_get_info();
+    disp_get_info();
     
-    if(fb_dma_init(&dma) != 0)
+    if(disp_shm_init(&shm) != 0)
         return -1;
 
     vdevice_t dev;
     memset(&dev, 0, sizeof(vdevice_t));
     strcpy(dev.desc, "display");
-    dev.dma = fb_dma;
-    dev.flush = do_fb_flush;
-    dev.fcntl = fb_fcntl;
-    dev.dev_cntl = fb_dev_cntl;
-    dev.read = fb_dev_read;
-    dev.cmd = fb_dev_cmd;
+    dev.shm = disp_shm;
+    dev.flush = do_disp_flush;
+    dev.fcntl = disp_fcntl;
+    dev.dev_cntl = disp_dev_cntl;
+    dev.read = disp_dev_read;
+    dev.cmd = disp_dev_cmd;
 
-    dev.extra_data = &dma;
-    _cur_dma = &dma;
+    dev.extra_data = &shm;
+    _cur_shm = &shm;
 
     device_run(&dev, mnt_name, FS_TYPE_CHAR, 0666);
-    shmdt(dma.shm);
-    if(dma.ctrl != NULL && dma.ctrl != (void*)-1)
-        shmdt(dma.ctrl);
+    shmdt(shm.shm);
+    if(shm.ctrl != NULL && shm.ctrl != (void*)-1)
+        shmdt(shm.ctrl);
     return 0;
 }

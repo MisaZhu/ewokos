@@ -7,14 +7,14 @@
 #include <graph/graph_png.h>
 #include <bsp/bsp_fb.h>
 
-static uint32_t flush(const fbinfo_t* fbinfo, const graph_t* g) {
+static uint32_t flush(const disp_info_t* fbinfo, const graph_t* g) {
     uint32_t sz = 4 * g->w * g->h;
     if(fbinfo->pointer != g->buffer)
         memcpy((void*)fbinfo->pointer, g->buffer, sz);
     return sz;
 }
 
-static fbinfo_t* get_info(void) {
+static disp_info_t* get_info(void) {
     return bsp_get_fbinfo();
 }
 

@@ -19,7 +19,7 @@ int display_open(const char *dev, int32_t disp_index, display_t* display) {
         return -1;
 
     memset(display, 0, sizeof(display_t));
-    display->dma_id = -1;
+    display->shm_id = -1;
     display->fd = open(dev, O_RDWR);
     if(display->fd < 0)
         return -1;
@@ -85,7 +85,7 @@ int display_close(display_t* display) {
         return -1;
     if(display->g != NULL) {
         graph_free(display->g);
-        shmdt(display->dma);
+        shmdt(display->shm);
     }
     if(display->ctrl != NULL)
         shmdt(display->ctrl);
@@ -154,8 +154,8 @@ graph_t* display_fetch_graph(display_t* display) {
         return NULL;
 
     int w, h, bpp;
-    int32_t dma_id;
-    uint8_t* dma;
+    int32_t shm_id;
+    uint8_t* shm;
     graph_t* g;
 
     if(display_info(display, &w, &h, &bpp) != 0 ||
@@ -167,25 +167,25 @@ graph_t* display_fetch_graph(display_t* display) {
 
     if(display->g != NULL) {
         graph_free(display->g);
-        shmdt(display->dma);
+        shmdt(display->shm);
         display->g = NULL;
-        display->dma = NULL;
+        display->shm = NULL;
     }
 
-    dma_id = vfs_dma(display->fd, NULL);
-    if(dma_id == -1) 
+    shm_id = vfs_shm(display->fd, NULL);
+    if(shm_id == -1) 
         return NULL;
     
-    dma = shmat(dma_id, 0, 0);
-    if(dma == (void*)-1) 
+    shm = shmat(shm_id, 0, 0);
+    if(shm == (void*)-1) 
         return NULL;
 
     attach_ctrl(display); //best effort: without it flushes just go full-frame
     
-    g = graph_new((uint32_t*)dma, w, h);
-    g->shm_id = dma_id;
-    display->dma = dma;
-    display->dma_id = dma_id;
+    g = graph_new((uint32_t*)shm, w, h);
+    g->shm_id = shm_id;
+    display->shm = shm;
+    display->shm_id = shm_id;
     display->g = g;
     return g;
 }

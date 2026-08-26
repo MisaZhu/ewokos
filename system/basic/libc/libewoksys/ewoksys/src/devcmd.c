@@ -385,13 +385,13 @@ int dev_flush(int dev_pid, int fd, ewokos_addr_t node, int8_t wait) {
     return res;
 }
 
-int dev_dma(int dev_pid, int fd, ewokos_addr_t node, int* size) {
+int dev_shm(int dev_pid, int fd, ewokos_addr_t node, int* size) {
     proto_t in, out;
     PF->init(&out);
     PF->init(&in)->addi(&in, fd)->addi(&in, node);
 
     int32_t shm_id = -1;
-    if(ipc_call(dev_pid, FS_CMD_DMA, &in, &out) == 0) {
+    if(ipc_call(dev_pid, FS_CMD_SHM, &in, &out) == 0) {
         shm_id = proto_read_int(&out);
         if(size != NULL)
             *size = proto_read_int(&out);

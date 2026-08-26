@@ -535,16 +535,16 @@ static void do_write_block(vdevice_t* dev, int from_pid, proto_t *in, proto_t* o
     }
 }
 
-static void do_dma(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
+static void do_shm(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
     int fd = proto_read_int(in);
     ewokos_addr_t node = proto_read_int(in);
 
     int shm_id = -1;	
     int size = 0;
-    if(dev != NULL && dev->dma != NULL) {
+    if(dev != NULL && dev->shm != NULL) {
                 fsinfo_t* info = dev_get_file(fd, from_pid, node);
         if(info != NULL)
-            shm_id = dev->dma(dev, fd, from_pid, info, &size, p);
+            shm_id = dev->shm(dev, fd, from_pid, info, &size, p);
     }
     PF->addi(out, shm_id)->addi(out, size);
 }
@@ -924,8 +924,8 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
     case FS_CMD_WRITE_BLOCK:
         do_write_block(dev, from_pid, in, out, p);
         break;
-    case FS_CMD_DMA:
-        do_dma(dev, from_pid, in, out, p);
+    case FS_CMD_SHM:
+        do_shm(dev, from_pid, in, out, p);
         break;
     case FS_CMD_FLUSH:
         do_flush(dev, from_pid, in, out, p);

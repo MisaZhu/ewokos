@@ -84,7 +84,7 @@ static int x_init_display(x_t* x) {
             continue;
         display->g_display = g_display;
         display->g = g_display;
-        display->g_shm_id = display->display.dma_id;
+        display->g_shm_id = display->display.shm_id;
         display->desktop_rect.x = 0;
         display->desktop_rect.y = 0;
         display->desktop_rect.w = g_display->w;

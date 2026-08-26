@@ -8,7 +8,7 @@
 
 #define ALIGN_UP(x, alignment) (((x) + alignment - 1) & ~(alignment - 1))
 
-static fbinfo_t _fb_info;
+static disp_info_t _fb_info;
 
 struct fb_cfg {
     uint64_t address;
@@ -20,13 +20,13 @@ struct fb_cfg {
 } __attribute__((packed));
 
 int32_t virt_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
-    memset(&_fb_info, 0, sizeof(fbinfo_t));
+    memset(&_fb_info, 0, sizeof(disp_info_t));
 
     _mmio_base = mmio_map();
     sys_info_t sysinfo;
     syscall1(SYS_GET_SYS_INFO, (ewokos_addr_t)&sysinfo);
 
-    memset(&_fb_info, 0, sizeof(fbinfo_t));
+    memset(&_fb_info, 0, sizeof(disp_info_t));
     _fb_info.width = w;
     _fb_info.height = h;
     _fb_info.vwidth = w;
@@ -55,6 +55,6 @@ int32_t virt_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
     return 0;
 }
 
-fbinfo_t* virt_get_fbinfo(void) {
+disp_info_t* virt_get_fbinfo(void) {
     return &_fb_info;
 }

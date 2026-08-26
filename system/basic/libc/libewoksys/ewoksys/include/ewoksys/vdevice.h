@@ -28,7 +28,7 @@ typedef struct st_vdevice {
 	int (*write)(struct st_vdevice* dev, int fd, int from_pid, fsinfo_t* info, const void* buf, int size, int offset, void* p);
 	int (*read_block)(struct st_vdevice* dev, int from_pid, void* buf, int size, int index, void* p);
 	int (*write_block)(struct st_vdevice* dev, int from_pid, const void* buf, int size, int index, void* p);
-	int32_t (*dma)(struct st_vdevice* dev, int fd, int from_pid, fsinfo_t* fsinfo, int* size, void* p);
+	int32_t (*shm)(struct st_vdevice* dev, int fd, int from_pid, fsinfo_t* fsinfo, int* size, void* p);
 	int (*flush)(struct st_vdevice* dev, int fd, int from_pid, fsinfo_t* fsinfo, void* p);
 	int (*fcntl)(struct st_vdevice* dev, int fd, int from_pid, fsinfo_t* info, int cmd, proto_t* in, proto_t* out, void* p);
 	int (*set)(struct st_vdevice* dev, int from_pid, fsinfo_t* info, void* p);

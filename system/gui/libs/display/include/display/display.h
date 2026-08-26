@@ -23,8 +23,8 @@ typedef struct {
 typedef struct {
 	uint32_t display_index;
 	int fd;
-	void* dma;
-	int32_t dma_id; //shm id of the dma buffer, so it can be shared with other procs
+	void* shm;
+	int32_t shm_id; //shm id of the pixel buffer, so it can be shared with other procs
 	display_ctrl_t* ctrl; //attached ctrl block (its own shm segment)
 	graph_t* g;
 } display_t;

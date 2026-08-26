@@ -4,7 +4,7 @@
 #include <string.h>
 #include <arch/virt/framebuffer.h>
 
-fbinfo_t* bsp_get_fbinfo(void) {
+disp_info_t* bsp_get_fbinfo(void) {
   return virt_get_fbinfo();
 }
 

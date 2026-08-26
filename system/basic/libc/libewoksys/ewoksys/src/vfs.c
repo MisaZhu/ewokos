@@ -1107,11 +1107,11 @@ inline int  vfs_fcntl_wait(int fd, int cmd, proto_t* in) {
     return res;
 }
 
-int32_t vfs_dma(int fd, int* size) {
+int32_t vfs_shm(int fd, int* size) {
     fsinfo_t info;
     if(vfs_get_by_fd(fd, &info) != 0)
         return 0;
-    return dev_dma(info.mount_pid, fd, info.node, size);
+    return dev_shm(info.mount_pid, fd, info.node, size);
 }
 
 int vfs_flush(int fd, bool wait) {
