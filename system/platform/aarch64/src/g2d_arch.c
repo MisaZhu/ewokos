@@ -132,55 +132,187 @@ void arch_g2d_fill(uint32_t* argb, int32_t argb_w, int32_t argb_h,
 
 /* ----------------------------------------------------------------- blt --- */
 
+#define G2D_PREFETCH(srcp) \
+    __asm volatile("prfm pldl1keep, [%0, #256]" : : "r"(srcp))
+
+/* aligned-load shift: assemble 16 bytes at (base + off) from two aligned
+   16-byte loads, so misaligned sources never need unaligned NEON loads
+   (Device-mapped surfaces fault on ANY unaligned access) */
+static inline uint32x4_t g2d_ld1_shift(uint32x4_t prev, uint32x4_t cur, int off) {
+    if(off == 4)
+        return vextq_u32(prev, cur, 1);
+    if(off == 8)
+        return vextq_u32(prev, cur, 2);
+    return vextq_u32(prev, cur, 3);
+}
+
 /* Row copy that never falls back to libc memcpy: the EwokOS libc one is a
    plain byte loop, while 128-bit NEON load/stores move 16 pixels in a few
    instructions and merge cleanly into write-combine bursts on non-cacheable
-   memory. */
+   memory.
+
+   Alignment strategy (Device-mapped destinations fault on any unaligned
+   access): a scalar head of at most 3 pixels brings dp to a 16-byte
+   boundary so every SIMD store stays aligned. Aligned sources use plain
+   loads; misaligned sources are assembled from aligned load pairs via
+   VEXT (the look-behind stays inside the buffer because graph bases are
+   at least 16-byte aligned), so no path ever issues an unaligned access. */
 static inline void g2d_row_copy_neon(uint32_t *dp, const uint32_t *sp, int32_t w) {
-    /* The destination can be Device-mapped memory where ANY unaligned access
-       is an unconditional alignment fault, so the 16-byte SIMD path may only
-       run on 16-byte aligned rows. Unaligned rows fall back to a scalar
-       word copy instead. */
-    if((((uintptr_t)dp | (uintptr_t)sp) & 0xF) != 0) {
-        for(int32_t x = 0; x < w; x++)
+    int32_t x = 0;
+    uintptr_t dpa = (uintptr_t)dp;
+    if(dpa & 0xF) {
+        int32_t head = (int32_t)((16 - (dpa & 0xF)) >> 2);
+        if(head > w)
+            head = w;
+        for(; x < head; x++)
+            dp[x] = sp[x];
+        if(x >= w)
+            return;
+    }
+
+    uintptr_t spa = (uintptr_t)(sp + x);
+    if((spa & 0xF) == 0) {
+        /* aligned fast path: 32 pixels (128 bytes) per iteration with a
+           rolling prefetch 4 cache lines ahead, loads issued ahead of the
+           stores so the load pipe overlaps with the store drain */
+        for(; x <= w - 32; x += 32) {
+            G2D_PREFETCH(sp + x);
+            uint32x4_t v0, v1, v2, v3, v4, v5, v6, v7;
+            g2d_ld1q_x4_u32(sp + x, &v0, &v1, &v2, &v3);
+            g2d_ld1q_x4_u32(sp + x + 16, &v4, &v5, &v6, &v7);
+            g2d_st1q_x4_u32(dp + x, v0, v1, v2, v3);
+            g2d_st1q_x4_u32(dp + x + 16, v4, v5, v6, v7);
+        }
+        /* 16 pixels */
+        if(x <= w - 16) {
+            uint32x4_t v0, v1, v2, v3;
+            g2d_ld1q_x4_u32(sp + x, &v0, &v1, &v2, &v3);
+            g2d_st1q_x4_u32(dp + x, v0, v1, v2, v3);
+            x += 16;
+        }
+        /* 8 pixels */
+        if(x <= w - 8) {
+            g2d_st1q_u32(dp + x, g2d_ld1q_u32(sp + x));
+            g2d_st1q_u32(dp + x + 4, g2d_ld1q_u32(sp + x + 4));
+            x += 8;
+        }
+        /* 4 pixels */
+        if(x <= w - 4) {
+            g2d_st1q_u32(dp + x, g2d_ld1q_u32(sp + x));
+            x += 4;
+        }
+        for(; x < w; x++)
             dp[x] = sp[x];
         return;
     }
-    int32_t x = 0;
-    /* 32 pixels (128 bytes) per iteration with a rolling prefetch 4 cache
-       lines ahead: keeps the load pipe fed on long rows / full-screen runs
-       instead of stalling on every new cache line. */
-    for(; x <= w - 32; x += 32) {
-        __asm volatile("prfm pldl1keep, [%0, #256]" : : "r"(sp + x));
-        uint32x4_t v0, v1, v2, v3, v4, v5, v6, v7;
-        g2d_ld1q_x4_u32(sp + x, &v0, &v1, &v2, &v3);
-        g2d_ld1q_x4_u32(sp + x + 16, &v4, &v5, &v6, &v7);
-        g2d_st1q_x4_u32(dp + x, v0, v1, v2, v3);
-        g2d_st1q_x4_u32(dp + x + 16, v4, v5, v6, v7);
+
+    /* misaligned source: vext-shifted aligned loads, 16 pixels/iteration */
+    int off = (int)(spa & 0xF);
+    const uint32_t *base = (const uint32_t *)(spa & ~(uintptr_t)0xF);
+    uint32x4_t prev = g2d_ld1q_u32(base);
+    for(; x <= w - 16; x += 16) {
+        G2D_PREFETCH(sp + x);
+        uint32x4_t cur = g2d_ld1q_u32(base + 4);
+        g2d_st1q_u32(dp + x, g2d_ld1_shift(prev, cur, off));
+        prev = cur;
+        base += 4;
+        cur = g2d_ld1q_u32(base + 4);
+        g2d_st1q_u32(dp + x + 4, g2d_ld1_shift(prev, cur, off));
+        prev = cur;
+        base += 4;
+        cur = g2d_ld1q_u32(base + 4);
+        g2d_st1q_u32(dp + x + 8, g2d_ld1_shift(prev, cur, off));
+        prev = cur;
+        base += 4;
+        cur = g2d_ld1q_u32(base + 4);
+        g2d_st1q_u32(dp + x + 12, g2d_ld1_shift(prev, cur, off));
+        prev = cur;
+        base += 4;
     }
-    /* 16 pixels */
-    if(x <= w - 16) {
-        uint32x4_t v0, v1, v2, v3;
-        g2d_ld1q_x4_u32(sp + x, &v0, &v1, &v2, &v3);
-        g2d_st1q_x4_u32(dp + x, v0, v1, v2, v3);
-        x += 16;
-    }
-    /* 8 pixels */
-    if(x <= w - 8) {
-        uint32x4_t v0 = g2d_ld1q_u32(sp + x);
-        uint32x4_t v1 = g2d_ld1q_u32(sp + x + 4);
-        g2d_st1q_u32(dp + x, v0);
-        g2d_st1q_u32(dp + x + 4, v1);
-        x += 8;
-    }
-    /* 4 pixels */
-    if(x <= w - 4) {
-        g2d_st1q_u32(dp + x, g2d_ld1q_u32(sp + x));
-        x += 4;
-    }
-    /* Tail */
     for(; x < w; x++)
         dp[x] = sp[x];
+}
+
+/* backward variant for overlapping self-copies (scroll down): mirrored
+   alignment handling — a scalar tail right-aligns dp to a 16-byte end
+   boundary, then aligned stores walk downwards. Misaligned sources use
+   look-ahead aligned load pairs + VEXT. */
+static inline void g2d_row_copy_back_neon(uint32_t *dp, const uint32_t *sp, int32_t w) {
+    int32_t x = w;
+    uintptr_t dpe = (uintptr_t)(dp + x);
+    if(dpe & 0xF) {
+        int32_t tail = (int32_t)((dpe & 0xF) >> 2);
+        if(tail > w)
+            tail = w;
+        for(int32_t i = 0; i < tail; i++) {
+            x--;
+            dp[x] = sp[x];
+        }
+        if(x <= 0)
+            return;
+    }
+
+    uintptr_t spe = (uintptr_t)(sp + x);
+    if((spe & 0xF) == 0) {
+        for(; x >= 32; x -= 32) {
+            G2D_PREFETCH(sp + x - 32);
+            uint32x4_t v0, v1, v2, v3, v4, v5, v6, v7;
+            g2d_ld1q_x4_u32(sp + x - 16, &v4, &v5, &v6, &v7);
+            g2d_ld1q_x4_u32(sp + x - 32, &v0, &v1, &v2, &v3);
+            g2d_st1q_x4_u32(dp + x - 32, v0, v1, v2, v3);
+            g2d_st1q_x4_u32(dp + x - 16, v4, v5, v6, v7);
+        }
+        if(x >= 16) {
+            uint32x4_t v0, v1, v2, v3;
+            g2d_ld1q_x4_u32(sp + x - 16, &v0, &v1, &v2, &v3);
+            g2d_st1q_x4_u32(dp + x - 16, v0, v1, v2, v3);
+            x -= 16;
+        }
+        if(x >= 8) {
+            g2d_st1q_u32(dp + x - 8, g2d_ld1q_u32(sp + x - 8));
+            g2d_st1q_u32(dp + x - 4, g2d_ld1q_u32(sp + x - 4));
+            x -= 8;
+        }
+        if(x >= 4) {
+            g2d_st1q_u32(dp + x - 4, g2d_ld1q_u32(sp + x - 4));
+            x -= 4;
+        }
+        while(x > 0) {
+            x--;
+            dp[x] = sp[x];
+        }
+        return;
+    }
+
+    /* misaligned source: assemble each 16-byte chunk from the aligned pair
+       straddling its END (look-ahead, safe to the end of the buffer) */
+    int off = (int)(spe & 0xF);
+    const uint32_t *base = (const uint32_t *)(spe & ~(uintptr_t)0xF);
+    uint32x4_t next = g2d_ld1q_u32(base);
+    while(x >= 16) {
+        uint32x4_t cur;
+        x -= 16;
+        base -= 4;
+        cur = g2d_ld1q_u32(base);
+        g2d_st1q_u32(dp + x + 12, g2d_ld1_shift(cur, next, off));
+        next = cur;
+        base -= 4;
+        cur = g2d_ld1q_u32(base);
+        g2d_st1q_u32(dp + x + 8, g2d_ld1_shift(cur, next, off));
+        next = cur;
+        base -= 4;
+        cur = g2d_ld1q_u32(base);
+        g2d_st1q_u32(dp + x + 4, g2d_ld1_shift(cur, next, off));
+        next = cur;
+        base -= 4;
+        cur = g2d_ld1q_u32(base);
+        g2d_st1q_u32(dp + x, g2d_ld1_shift(cur, next, off));
+        next = cur;
+    }
+    while(x > 0) {
+        x--;
+        dp[x] = sp[x];
+    }
 }
 
 /* clip src/dst pair against their buffers, keeping the mapping aligned.
@@ -273,12 +405,12 @@ void arch_g2d_blt(uint32_t* argb_src, int32_t src_w, int32_t src_h,
 						argb_src + (sy + row) * src_w + sx, sw);
 		}
 		else {
-			/* overlapping copy going downwards: reverse row order */
+			/* overlapping copy going downwards: reverse row order, NEON rows */
 			for(int32_t row = 0; row < sh; row++) {
 				int32_t r = sh - 1 - row;
-				memmove(argb_dst + (dy + r) * dst_w + dx,
-					argb_src + (sy + r) * src_w + sx,
-					(size_t)sw * sizeof(uint32_t));
+				g2d_row_copy_back_neon(
+						argb_dst + (dy + r) * dst_w + dx,
+						argb_src + (sy + r) * src_w + sx, sw);
 			}
 		}
 		return;
