@@ -22,51 +22,6 @@ static void load_kernel_config_file() {
     if(v[0] != 0)
         _kernel_config.cores = atoi(v);
 
-    v = sconf_get(sconf, "dma_size");
-    if(v[0] != 0) {
-        uint32_t iv = atoi(v);
-        if(iv > 0) {
-            iv = ALIGN_UP(iv, PAGE_SIZE);
-            //sys_info_init() has already reserved the default dma window from
-            //allocable memory, so grow/shrink that reservation together with
-            //the pool size. Must run BEFORE allocable_base_reserv_size below,
-            //which relocates the dma window using this size.
-            _sys_info.allocable_phy_mem_base = _sys_info.allocable_phy_mem_base - _sys_info.sys_dma.size + iv;
-            _sys_info.sys_dma.size = iv;
-        }
-    }
-
-    v = sconf_get(sconf, "shm_contig_size");
-    if(v[0] != 0) {
-        uint32_t iv = atoi(v);
-        if(iv > 0) {
-            iv = ALIGN_UP(iv, PAGE_SIZE);
-            //carve the contiguous shm slab right after the dma window, before
-            //allocable_base_reserv_size below relocates the dma window using
-            //the (already advanced) allocable base.
-            _sys_info.shm_contig.phy_base = _sys_info.allocable_phy_mem_base;
-            _sys_info.shm_contig.size = iv;
-            _sys_info.allocable_phy_mem_base += iv;
-        }
-    }
-
-    v = sconf_get(sconf, "allocable_base_reserv_size");
-    if(v[0] != 0) {
-        uint32_t iv = atoi(v);
-        if(iv > 0) {
-            _sys_info.allocable_phy_mem_base += ALIGN_UP(iv, PAGE_SIZE);
-            _sys_info.sys_dma.phy_base = _sys_info.allocable_phy_mem_base;
-            _sys_info.allocable_phy_mem_base += _sys_info.sys_dma.size;
-        }
-    }
-    
-    v = sconf_get(sconf, "allocable_top_reserv_size");
-    if(v[0] != 0) {
-        uint32_t iv = atoi(v);
-        if(iv > 0)
-            _sys_info.allocable_phy_mem_top -= ALIGN_UP(atoi(v), PAGE_SIZE);
-    }
-
     v = sconf_get(sconf, "timer_freq");
     if(v[0] != 0)
         _kernel_config.timer_freq = atoi(v);

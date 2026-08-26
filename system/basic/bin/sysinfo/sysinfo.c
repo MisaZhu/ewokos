@@ -33,6 +33,8 @@ int main(int argc, char* argv[]) {
     get_mem_size_desc(sys_info.total_usable_mem_size, t_mem);
     char dma_size[32] = {0};
     get_mem_size_desc(sys_info.sys_dma.size, dma_size);
+    char shm_contig_size[32] = {0};
+    get_mem_size_desc(sys_info.shm_contig.size, shm_contig_size);
     char res_mem[32] = {0};
     get_mem_size_desc(sys_info.phy_offset + sys_info.total_phy_mem_size - sys_info.allocable_phy_mem_top, res_mem);
     char allocable_mem[32] = {0};
@@ -48,6 +50,7 @@ int main(int argc, char* argv[]) {
         "usable mem size    %s\n"
         "kernel mem         phy:0x%08x%08x ~ 0x%08x%08x (%s/%s)\n"
         "sys_dma_base       phy:0x%08x%08x,V:0x%08x%08x (%s)\n"
+        "shm_contig_base    phy:0x%08x%08x (%s)\n"
         "reserved mem       phy:0x%08x%08x ~ 0x%08x%08x (%s)\n"
         "allocable mem      phy:0x%08x%08x ~ 0x%08x%08x (%s/%s)\n"
         "mmio               phy:0x%08x%08x,V:0x%08x%08x (%s)\n",
@@ -62,6 +65,8 @@ int main(int argc, char* argv[]) {
         addr_hi(sys_info.sys_dma.phy_base), addr_lo(sys_info.sys_dma.phy_base),
         addr_hi(sys_info.sys_dma.v_base), addr_lo(sys_info.sys_dma.v_base),
         dma_size,
+        addr_hi(sys_info.shm_contig.phy_base), addr_lo(sys_info.shm_contig.phy_base),
+        shm_contig_size,
         addr_hi(sys_info.allocable_phy_mem_top), addr_lo(sys_info.allocable_phy_mem_top),
         addr_hi(sys_info.phy_offset + sys_info.total_phy_mem_size), addr_lo(sys_info.phy_offset + sys_info.total_phy_mem_size),
         res_mem,

@@ -70,6 +70,12 @@ void sys_info_init(void) {
 
     _sys_info.allocable_phy_mem_base = V2P(KMALLOC_END);
 
+
+
+    _sys_info.page_size = PAGE_SIZE;
+}
+
+void sys_info_config(void) {
     _sys_info.sys_dma.v_base = DMA_V_BASE;
     _sys_info.sys_dma.phy_base = _sys_info.allocable_phy_mem_base;
     if(_sys_info.sys_dma.size == 0)
@@ -84,6 +90,4 @@ void sys_info_init(void) {
     _sys_info.shm_contig.v_base = 0;
     _sys_info.shm_contig.size = get_shm_contig_size();
     _sys_info.allocable_phy_mem_base += _sys_info.shm_contig.size;
-
-    _sys_info.page_size = PAGE_SIZE;
 }
