@@ -28,7 +28,7 @@ void kout_str(const char* s) {
     kout(s, strlen(s));
 }
 
-#define PRINTF_BUF_MAX 1024
+#define PRINTF_BUF_MAX (1024*2)
 static uint32_t _len = 0;
 static char _buf[PRINTF_BUF_MAX+1];
 static void outc(char c, void* p) {

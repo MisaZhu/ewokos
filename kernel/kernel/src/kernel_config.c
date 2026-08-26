@@ -43,10 +43,23 @@ static void load_kernel_config_file() {
     if(v[0] != 0)
         _kernel_config.uart_baud = atoi(v);
 
+    v = sconf_get(sconf, "kmalloc_size");
+    if(v[0] != 0)
+        _kernel_config.kmalloc_size = atoi(v);
+
+    v = sconf_get(sconf, "dma_size");
+    if(v[0] != 0)
+        _kernel_config.dma_size = atoi(v);
+
+    v = sconf_get(sconf, "shm_contig_size");
+    if(v[0] != 0)
+        _kernel_config.shm_contig_size = atoi(v);
+
     sconf_free(sconf);
 }
 
 void load_kernel_config(void) {
+    memset(&_kernel_config, 0, sizeof(kernel_conf_t));
     load_kernel_config_file();
 
     uint32_t cores_max = get_cpu_cores();

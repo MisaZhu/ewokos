@@ -33,6 +33,9 @@ typedef struct {
 	uint32_t max_proc_num;
 	uint32_t max_task_num;
 	uint32_t max_task_per_proc;
+	uint32_t kmalloc_size;
+	uint32_t dma_size;
+	uint32_t shm_contig_size;
 } kernel_conf_t;
 
 extern kernel_conf_t _kernel_config;
