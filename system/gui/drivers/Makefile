@@ -1,7 +1,7 @@
 all: drivers
 	@echo "all done."
 
-DIRS = fontd displaymand consoled
+DIRS = fontd displaymand consoled g2dd
 drivers:
 	@for dir in $(DIRS); do \
 		$(MAKE) -C $$dir || exit 1; \

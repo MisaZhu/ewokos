@@ -4,7 +4,7 @@ basic:
 		$(MAKE) -C $$dir || exit 1; \
 	done
 
-GUI_DIRS = fbdisplayd g2dd moused keybd snd
+GUI_DIRS = fbdisplayd moused keybd snd
 gui:
 	@for dir in $(GUI_DIRS); do \
 		$(MAKE) -C $$dir || exit 1; \
