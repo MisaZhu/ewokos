@@ -224,7 +224,6 @@ static int32_t shm_alloc(int32_t key, uint32_t size, int32_t flag, uint8_t conti
     if(contig) {
         pool_paddr = shm_pool_alloc(pages);
         if(pool_paddr == 0) {
-            printf("shm_pool_alloc error size: %d!!!!!\n", size/KB);
             return -1;
         }
     }

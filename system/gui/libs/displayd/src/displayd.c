@@ -15,6 +15,7 @@ typedef struct {
     uint32_t size;
     uint8_t* shm;
     int32_t  shm_id;
+    uint8_t  shm_contig;
     display_ctrl_t* ctrl; //independent shm segment for the control block
     int32_t  ctrl_id;
 } disp_shm_t;
@@ -374,13 +375,19 @@ static uint32_t _disp_shm_seq = 1;
   kernel's reserved physically-contiguous slab instead of scattered pages,
   because display hardware (and DMA) needs a single contiguous physical
   buffer; creation fails strictly if the slab is unconfigured or exhausted.*/
-static int32_t shm_new_segment(uint32_t tag, uint32_t sz) {
-    for(uint32_t i = 0; i < 16; i++) {
+static int32_t shm_new_segment(uint32_t tag, uint32_t sz, bool contig) {
+    for(uint32_t i = 0; i < 4; i++) {
         uint32_t seq = _disp_shm_seq++;
-        key_t key = (key_t)(tag ^ (key_t)(seq * 2654435761u));
+        key_t key = (key_t)(0x47525030u + (((uint32_t)getpid() & 0xffffu) << 16) +
+                (seq & 0xffffu));
         if(key == 0 || key == IPC_PRIVATE)
             key = (key_t)(seq | 1u);
-        int32_t id = shmget(key, sz, 0666 | IPC_CREAT | IPC_EXCL | IPC_CONTIG);
+
+        int32_t id = -1;
+        if(contig)
+            id = shmget(key, sz, 0666 | IPC_CREAT | IPC_EXCL | IPC_CONTIG);
+        else
+            id = shmget(key, sz, 0666 | IPC_CREAT | IPC_EXCL);
         if(id != -1)
             return id;
     }
@@ -391,17 +398,25 @@ static int disp_shm_init(disp_shm_t* shm) {
     memset(shm, 0, sizeof(disp_shm_t));
     uint32_t sz = _zwidth * _zheight * 4;
 
-    shm->shm_id = shm_new_segment(0x4642444d, sz); //pixels only
-    if(shm->shm_id == -1)
+    bool contig = false;
+    shm->shm_id = shm_new_segment(0x4642444d, sz, true); //pixels only
+    if(shm->shm_id > 0)
+        contig = true;
+    else
+        shm->shm_id = shm_new_segment(0x4642444d, sz, false); //pixels only
+
+    if(shm->shm_id <= 0)
         return -1;
+
     shm->shm = shmat(shm->shm_id, 0, 0);
     if(shm->shm == (void*)-1)
         return -1;
+    shm->shm_contig = contig;
     memset(shm->shm, 0, sz);
 
     /*the ctrl block lives in its own small segment so the pixel shm stays
       exactly one framebuffer; clients get the id via DISPLAY_CNTL_GET_CTRL.*/
-    shm->ctrl_id = shm_new_segment(0x46424443, sizeof(display_ctrl_t));
+    shm->ctrl_id = shm_new_segment(0x46424443, sizeof(display_ctrl_t), false);
     if(shm->ctrl_id == -1)
         return -1;
     shm->ctrl = (display_ctrl_t*)shmat(shm->ctrl_id, 0, 0);
@@ -545,13 +560,14 @@ int fbdisplayd_refresh(void) {
     return res > 0 ? 0 : -1;
 }
 
-static int32_t disp_shm(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
+static int32_t disp_shm(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, uint8_t* contig, int* size, void* p) {
     (void)dev;
     (void)fd;
     (void)from_pid;
     (void)info;
     disp_shm_t* shm = (disp_shm_t*)p;
     *size = shm->size;
+    *contig = shm->shm_contig;
     return shm->shm_id;
 }
 

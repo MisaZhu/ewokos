@@ -1,5 +1,6 @@
 #include <kernel/kernel.h>
 #include <mm/kmalloc.h>
+#include <mm/mmudef.h>
 #include <kernel/core.h>
 #include <stddef.h>
 #include <sconf.h>
@@ -8,6 +9,29 @@
 #include <kprintf.h>
 
 kernel_conf_t _kernel_config;
+
+static uint32_t mem_size(const char* v) {
+    uint32_t size = 0;
+
+    if(v == NULL)
+        return 0;
+
+    uint32_t len = strlen(v);
+    if(len == 0)
+        return 0;
+
+    char unit = v[len-1];
+    char s[16] = {0};
+    sstrncpy(s, v, len-1);
+
+    size = atoi(s);
+    if(unit == 'k' || unit == 'K')
+        size = size * KB;
+    else if(unit == 'm' || unit == 'M')
+        size = size * MB;
+
+    return size;
+}
 
 static void load_kernel_config_file() {
     sconf_t* sconf = sconf_load("/etc/kernel/kernel.conf");
@@ -45,15 +69,15 @@ static void load_kernel_config_file() {
 
     v = sconf_get(sconf, "kmalloc_size");
     if(v[0] != 0)
-        _kernel_config.kmalloc_size = atoi(v);
+        _kernel_config.kmalloc_size = mem_size(v);
 
     v = sconf_get(sconf, "dma_size");
     if(v[0] != 0)
-        _kernel_config.dma_size = atoi(v);
+        _kernel_config.dma_size = mem_size(v);
 
     v = sconf_get(sconf, "shm_contig_size");
     if(v[0] != 0)
-        _kernel_config.shm_contig_size = atoi(v);
+        _kernel_config.shm_contig_size = mem_size(v);
 
     sconf_free(sconf);
 }

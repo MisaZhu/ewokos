@@ -20,7 +20,7 @@ extern void dev_io_on_close(int fd);
 extern void dev_io_on_fork(void);
 extern int dev_poll(int dev_pid, int fd, fsinfo_t* info, uint32_t* events);
 extern int dev_flush(int dev_pid, int fd, ewokos_addr_t node, int8_t wait);
-extern int dev_shm(int dev_pid, int fd, ewokos_addr_t node, int* size);
+extern int dev_shm(int dev_pid, int fd, ewokos_addr_t node, uint8_t* contig, int* size);
 extern int dev_read_block(int dev_pid, void* buf, uint32_t size, int32_t index);
 extern int dev_write_block(int dev_pid, const void* buf, uint32_t size, int32_t index);
 extern int dev_fcntl(int dev_pid, int fd, fsinfo_t* info, int cmd, proto_t* arg_in, proto_t* arg_out);

@@ -155,6 +155,7 @@ graph_t* display_fetch_graph(display_t* display) {
 
     int w, h, bpp;
     int32_t shm_id;
+    uint8_t contig;
     uint8_t* shm;
     graph_t* g;
 
@@ -172,7 +173,7 @@ graph_t* display_fetch_graph(display_t* display) {
         display->shm = NULL;
     }
 
-    shm_id = vfs_shm(display->fd, NULL);
+    shm_id = vfs_shm(display->fd, &contig, NULL);
     if(shm_id == -1) 
         return NULL;
     
@@ -184,7 +185,7 @@ graph_t* display_fetch_graph(display_t* display) {
     
     g = graph_new((uint32_t*)shm, w, h);
     g->shm_id = shm_id;
-    g->shm_contig = true;
+    g->shm_contig = (contig != 0);
     display->shm = shm;
     display->shm_id = shm_id;
     display->g = g;

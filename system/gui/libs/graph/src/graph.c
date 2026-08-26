@@ -159,7 +159,7 @@ static graph_t* graph_new_shm_row(int32_t w, int32_t h, bool contig) {
     size = (uint32_t)w * (uint32_t)h * sizeof(uint32_t);
     /* up to 16 attempts: IPC_EXCL fails on key collisions, so bump the
        sequence counter and retry with a fresh key */
-    for(int32_t i = 0; i < 16 && shm_id <= 0; i++) {
+    for(int32_t i = 0; i < 4 && shm_id <= 0; i++) {
         key_t key = (key_t)(0x47525030u + (((uint32_t)getpid() & 0xffffu) << 16) +
                 (_graph_shm_seq & 0xffffu));
         _graph_shm_seq++;
