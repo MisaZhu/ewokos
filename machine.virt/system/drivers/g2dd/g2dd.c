@@ -11,13 +11,16 @@
 #include <g2dclient/g2dclient.h>
 
 /* stateless g2d service: the driver owns no canvas. every request
-   carries its canvases as keyed shm segment ids (g2d_canvas_t), the
-   driver attaches to them, operates in place and detaches. */
+   carries its canvases (g2d_canvas_t) either as keyed shm segment ids
+   the driver attaches to, or as dma addresses usable directly through
+   the identity dma window. the driver operates in place and detaches
+   shm canvases when done. */
 
 typedef struct {
 	uint32_t* buffer;
 	uint32_t width;
 	uint32_t height;
+	uint8_t dma; /* dma canvas: buffer is a dma address, no shmdt */
 } g2d_attached_t;
 
 static int32_t g2d_norm_degree(int32_t degree) {
@@ -31,22 +34,38 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 
 	if(canvas == NULL || at == NULL)
 		return -1;
-	if(canvas->shm_id <= 0 || canvas->w == 0 || canvas->h == 0)
+	if(canvas->w == 0 || canvas->h == 0)
 		return -1;
 	if(canvas->size < canvas->w * canvas->h * sizeof(uint32_t))
 		return -1;
 
+	if(canvas->dma != 0) {
+		/* dma canvas: addr is the dma address of the buffer. the kernel
+		   maps the dma window identity (vaddr == dma addr) into every
+		   process, so the driver can use it directly */
+		if(canvas->addr == 0)
+			return -1;
+		at->buffer = (uint32_t*)(uintptr_t)canvas->addr;
+		at->width = canvas->w;
+		at->height = canvas->h;
+		at->dma = 1;
+		return 0;
+	}
+
+	if(canvas->shm_id <= 0)
+		return -1;
 	p = shmat(canvas->shm_id, 0, 0);
 	if(p == (void*)-1)
 		return -1;
 	at->buffer = (uint32_t*)p;
 	at->width = canvas->w;
 	at->height = canvas->h;
+	at->dma = 0;
 	return 0;
 }
 
 static void g2d_detach(const g2d_attached_t* at) {
-	if(at != NULL && at->buffer != NULL)
+	if(at != NULL && at->buffer != NULL && at->dma == 0)
 		shmdt(at->buffer);
 }
 
@@ -103,7 +122,8 @@ static int32_t g2dd_handle_fill_rect(proto_t* in) {
 		return -1;
 	if(((req.color >> 24) & 0xff) == 0xff) {
 		bsp_g2d_fill(dst.buffer, (int32_t)dst.width, (int32_t)dst.height,
-				req.rect.x, req.rect.y, req.rect.w, req.rect.h, req.color);
+				req.rect.x, req.rect.y, req.rect.w, req.rect.h, req.color,
+				dst.dma);
 	}
 	else {
 		g2d_fill_alpha(dst.buffer, (int32_t)dst.width, (int32_t)dst.height,
@@ -116,23 +136,25 @@ static int32_t g2dd_handle_fill_rect(proto_t* in) {
 
 static int32_t g2d_blit_render(const g2d_attached_t* dst,
 		uint32_t* src_buf, int32_t src_w, int32_t src_h,
-		int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+		int32_t sx, int32_t sy, int32_t sw, int32_t sh, uint8_t src_dma,
 		const g2d_blit_req_t* req, uint8_t use_alpha) {
 	if(dst == NULL || dst->buffer == NULL || src_buf == NULL || req == NULL)
 		return -1;
 	if(req->dw <= 0 || req->dh <= 0)
 		return -1;
-    //slog("g2d_blit_render src:%d x %d, dst: %d x %d, alpha: %d\n", src_w, src_h, dst->width, dst->height, use_alpha);
+    slog("g2d_blit_render src:%d x %d, dst: %d x %d, alpha: %d\n", src_w, src_h, dst->width, dst->height, use_alpha);
 
 	if(use_alpha != 0) {
 		bsp_g2d_blt_alpha(src_buf, src_w, src_h, sx, sy, sw, sh,
 				dst->buffer, (int32_t)dst->width, (int32_t)dst->height,
-				req->dx, req->dy, req->dw, req->dh, req->alpha);
+				req->dx, req->dy, req->dw, req->dh, req->alpha,
+				src_dma, dst->dma);
 	}
 	else {
 		bsp_g2d_blt(src_buf, src_w, src_h, sx, sy, sw, sh,
 				dst->buffer, (int32_t)dst->width, (int32_t)dst->height,
-				req->dx, req->dy, req->dw, req->dh);
+				req->dx, req->dy, req->dw, req->dh,
+				src_dma, dst->dma);
 	}
 	return 0;
 }
@@ -177,17 +199,19 @@ static int32_t g2dd_handle_blit(proto_t* in, uint8_t use_alpha) {
 	if(degree == 0) {
 		ret = g2d_blit_render(&dst, src.buffer,
 				(int32_t)src.width, (int32_t)src.height,
-				req.sx, req.sy, req.sw, req.sh, &req, use_alpha);
+				req.sx, req.sy, req.sw, req.sh, src.dma, &req, use_alpha);
 		goto done;
 	}
 
-	/* rotated path: crop into a temp surface, then rotate into another */
+	/* rotated path: crop into a temp surface, then rotate into another;
+	   the temp surfaces are plain malloc memory, never dma */
 	cropped = (uint32_t*)malloc((size_t)req.sw * req.sh * sizeof(uint32_t));
 	if(cropped == NULL)
 		goto done;
 	bsp_g2d_blt(src.buffer, (int32_t)src.width, (int32_t)src.height,
 			req.sx, req.sy, req.sw, req.sh,
-			cropped, req.sw, req.sh, 0, 0, req.sw, req.sh);
+			cropped, req.sw, req.sh, 0, 0, req.sw, req.sh,
+			src.dma, 0);
 
 	bsp_g2d_rotated_size(req.sw, req.sh, degree, &rw, &rh);
 	if(rw <= 0 || rh <= 0) {
@@ -199,11 +223,11 @@ static int32_t g2dd_handle_blit(proto_t* in, uint8_t use_alpha) {
 		free(cropped);
 		goto done;
 	}
-	bsp_g2d_rotate(cropped, req.sw, req.sh, rotated, rw, rh, degree);
+	bsp_g2d_rotate(cropped, req.sw, req.sh, rotated, rw, rh, degree, 0, 0);
 	free(cropped);
 
 	ret = g2d_blit_render(&dst, rotated, rw, rh,
-			0, 0, rw, rh, &req, use_alpha);
+			0, 0, rw, rh, 0, &req, use_alpha);
 	free(rotated);
 
 done:
@@ -244,7 +268,7 @@ static int32_t g2dd_handle_rotate(proto_t* in) {
 			degree, &rw, &rh);
 	if(rw == (int32_t)dst.width && rh == (int32_t)dst.height) {
 		bsp_g2d_rotate(src.buffer, (int32_t)src.width, (int32_t)src.height,
-				dst.buffer, rw, rh, degree);
+				dst.buffer, rw, rh, degree, src.dma, dst.dma);
 		ret = 0;
 	}
 
@@ -272,7 +296,8 @@ static int32_t g2dd_handle_scale_to(proto_t* in) {
 
     slog("g2dd_handle_scale_to %dx%d\n", src.width, src.height);
 	bsp_g2d_scale_to(src.buffer, (int32_t)src.width, (int32_t)src.height,
-			dst.buffer, (int32_t)dst.width, (int32_t)dst.height);
+			dst.buffer, (int32_t)dst.width, (int32_t)dst.height,
+			src.dma, dst.dma);
 
 	g2d_detach(&src);
 	g2d_detach(&dst);

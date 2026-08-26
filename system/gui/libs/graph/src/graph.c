@@ -1,5 +1,6 @@
 #include <graph/graph.h>
 #include <g2dclient/g2dclient.h>
+#include <ewoksys/dma.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -149,6 +150,35 @@ graph_t* graph_new_shm(int32_t w, int32_t h) {
     return ret;
 }
 
+graph_t* graph_new_dma(int32_t w, int32_t h) {
+    graph_t* ret;
+    ewokos_addr_t addr;
+    uint32_t size;
+
+    if(w <= 0 || h <= 0)
+        return NULL;
+
+    ret = (graph_t*)aligned_malloc(sizeof(graph_t), 32);
+    if(ret == NULL)
+        return NULL;
+
+    /* the pixel buffer comes from the sys_dma pool; the kernel maps the
+       dma window identity (vaddr == dma addr) into every process, so the
+       returned address doubles as a usable pointer and as the dma
+       address carried to /dev/g2d */
+    size = (uint32_t)w * (uint32_t)h * sizeof(uint32_t);
+    addr = dma_alloc(0, size);
+    if(addr == 0) {
+        aligned_free(ret);
+        return NULL;
+    }
+
+    graph_init(ret, (const uint32_t*)(uintptr_t)addr, w, h);
+    ret->dma = true;
+    ret->need_free = true; /* graph_free owns the dma allocation */
+    return ret;
+}
+
 graph_t* graph_dup(graph_t* g) {
     if(g == NULL || g->buffer == NULL)
         return NULL;
@@ -184,6 +214,10 @@ void graph_free(graph_t* g) {
         if(g->shm_id > 0) {
             if(g->buffer != NULL)
                 shmdt(g->buffer);
+        }
+        else if(g->dma) {
+            if(g->buffer != NULL)
+                dma_free(0, (ewokos_addr_t)(uintptr_t)g->buffer);
         }
         else if(g->buffer != NULL)
             aligned_free(g->buffer);
