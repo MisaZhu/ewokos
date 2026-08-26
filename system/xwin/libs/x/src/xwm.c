@@ -60,6 +60,7 @@ static bool fetch_frame_graph(xwm_t* xwm, xinfo_t* info, graph_t* g) {
     g->buffer = frame_g_shm;
     g->w = info->winr.w;
     g->h = info->winr.h;
+    g->shm_id = info->frame_g_shm_id;
     g->need_free = false;
     return true;
 }
@@ -75,12 +76,20 @@ static bool fetch_ws_graph(xwm_t* xwm, xinfo_t* info, graph_t* g) {
     g->buffer = ws_g_shm;
     g->w = info->wsr.w;
     g->h = info->wsr.h;
+    g->shm_id = info->ws_g_shm_id;
     g->need_free = false;
     return true;
 }
 
-static void free_win_graph(graph_t* g) {
+/*keep_shm_id is the display shm handed over by DRAW_FRAME: a direct
+  window aliases it as its frame/workspace, and it is the very segment
+  the cached desktop graph points at. shmat on an already-mapped id is
+  a no-op that does not take a ref, so detaching it here would tear the
+  desktop mapping out of this process and leave the cache dangling.*/
+static void free_win_graph(graph_t* g, int32_t keep_shm_id) {
     if(g->buffer == NULL)
+        return;
+    if(g->shm_id == keep_shm_id)
         return;
     shmdt(g->buffer);
 }
@@ -130,7 +139,7 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
     if(!fetch_frame_graph(xwm, &info, &frame_g))
         return;
     if(!fetch_ws_graph(xwm, &info, &ws_g)) {
-        free_win_graph(&frame_g);
+        free_win_graph(&frame_g, shm_id);
         return;
     }
     
@@ -196,8 +205,8 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
             xwm->draw_bg_effect != NULL) {
         xwm->draw_bg_effect(&desktop_g, &frame_g, &ws_g, &info, bg_effect, xwm->data);
     }
-    free_win_graph(&frame_g);
-    free_win_graph(&ws_g);
+    free_win_graph(&frame_g, shm_id);
+    free_win_graph(&ws_g, shm_id);
 }
 
 static void get_frame_areas(xwm_t* xwm, proto_t* in, proto_t* out) {
