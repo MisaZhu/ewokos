@@ -7,14 +7,17 @@
 #include <ewoksys/proto.h>
 #include <ewoksys/klog.h>
 #include <ewoksys/vdevice.h>
+#include <ewoksys/sys.h>
+#include <ewoksys/syscall.h>
+#include <sysinfo.h>
 #include <bsp/bsp_g2d.h>
 #include <g2dclient/g2dclient.h>
 
 /* stateless g2d service: the driver owns no canvas. every request
    carries its canvases (g2d_canvas_t) either as keyed shm segment ids
-   the driver attaches to, or as dma addresses usable directly through
-   the identity dma window. the driver operates in place and detaches
-   shm canvases when done. */
+   the driver attaches to, or as dma addresses the driver mem-maps on
+   attach. the driver operates in place and detaches shm canvases when
+   done. */
 
 typedef struct {
 	uint32_t* buffer;
@@ -25,6 +28,32 @@ typedef struct {
 
 static int32_t g2d_norm_degree(int32_t degree) {
 	return ((degree % 360) + 360) % 360;
+}
+
+/* map a dma canvas into this process. addr is the vaddr the allocator
+   got from dma_alloc(): a slot in the sys_dma v window that the kernel
+   only mapped into the allocator itself, so map the same vaddr here.
+   identity dma addresses (inside the phy window) are already visible
+   in every process and need no mapping */
+static int32_t g2d_dma_map(ewokos_addr_t addr, uint32_t size) {
+	sys_info_t sysinfo;
+	ewokos_addr_t paddr;
+
+	sys_get_sys_info(&sysinfo);
+	if(addr >= sysinfo.sys_dma.v_base &&
+			(addr + size) <= (sysinfo.sys_dma.v_base + sysinfo.sys_dma.size)) {
+		paddr = addr - sysinfo.sys_dma.v_base + sysinfo.sys_dma.phy_base;
+	}
+	else if(addr >= sysinfo.sys_dma.phy_base &&
+			(addr + size) <= (sysinfo.sys_dma.phy_base + sysinfo.sys_dma.size)) {
+		return 0;
+	}
+	else
+		return -1;
+
+	if(syscall3(SYS_MEM_MAP, addr, paddr, size) != addr)
+		return -1;
+	return 0;
 }
 
 /* attach a request canvas; rejects undersized segments so the mapping
@@ -40,10 +69,11 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 		return -1;
 
 	if(canvas->dma != 0) {
-		/* dma canvas: addr is the dma address of the buffer. the kernel
-		   maps the dma window identity (vaddr == dma addr) into every
-		   process, so the driver can use it directly */
+		/* dma canvas: addr is the dma buffer address in the allocator's
+		   sys_dma v window; map it into this process before use */
 		if(canvas->addr == 0)
+			return -1;
+		if(g2d_dma_map(canvas->addr, canvas->size) != 0)
 			return -1;
 		at->buffer = (uint32_t*)(uintptr_t)canvas->addr;
 		at->width = canvas->w;

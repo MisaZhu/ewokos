@@ -42,9 +42,9 @@ typedef struct {
    same segment and operates on it in place. the driver owns no canvas
    of its own, every request carries the canvases it works on.
    when dma != 0 the canvas lives in dma memory instead: addr is the
-   dma address of the w*h ARGB8888 buffer (the kernel maps the dma
-   window identity into every process, so the driver can use it
-   directly) and shm_id is ignored. */
+   buffer address returned by dma_alloc() (a vaddr in the sys_dma v
+   window, mapped only into the allocator; the g2d driver mem-maps it
+   on attach) and shm_id is ignored. */
 typedef struct {
 	int32_t shm_id;
 	uint8_t dma;      /* 0: shm canvas (shm_id), !=0: dma canvas (addr) */

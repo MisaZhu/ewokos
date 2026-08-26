@@ -7,7 +7,6 @@
 #include <ewoksys/proc.h>
 #include <ewoksys/ipc.h>
 #include "xwin.h"
-#include "xshm.h"
 
 static void remove_win(x_t* x, xwin_t* win) {
     xwin_t* prev = win->prev;
@@ -239,9 +238,17 @@ void x_del_win(x_t* x, xwin_t* win) {
     if(win == x->win_last)
         x->win_last = NULL;
 
+    if(win->ws_g != NULL) {
+        graph_free(win->ws_g);
+        win->ws_g = NULL;
+    }
+    if(win->frame_g != NULL) {
+        graph_free(win->frame_g);
+        win->frame_g = NULL;
+    }
     if(win->xinfo != NULL) {
-        release_graph_shm(&win->ws_g, &win->ws_g_shm, &win->xinfo->ws_g_shm_id);
-        release_graph_shm(&win->frame_g, &win->frame_g_shm, &win->xinfo->frame_g_shm_id);
+        win->xinfo->ws_g_shm_id = -1;
+        win->xinfo->frame_g_shm_id = -1;
     }
     
     if(win->ws_g_buffer != NULL) {

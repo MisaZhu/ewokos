@@ -15,6 +15,8 @@ typedef struct {
     uint32_t size;
     uint8_t* shm;
     int32_t  shm_id;
+    display_ctrl_t* ctrl; //independent shm segment for the control block
+    int32_t  ctrl_id;
 } fb_dma_t;
 
 static fbinfo_t _fbinfo = {0};
@@ -45,6 +47,11 @@ static int fb_fcntl(vdevice_t* dev, int fd,
             PF->addi(out, _zheight)->addi(out, _zwidth)->addi(out, _fbinfo.depth);
         else
             PF->addi(out, _zwidth)->addi(out, _zheight)->addi(out, _fbinfo.depth);
+    }
+    else if(cmd == DISPLAY_CNTL_GET_CTRL) { //shm id of the ctrl block
+        fb_dma_t* dma = (fb_dma_t*)p;
+        if(dma != NULL)
+            PF->addi(out, dma->ctrl_id);
     }
     return 0;
 }
@@ -354,31 +361,46 @@ static void init_graph(fb_dma_t* dma) {
 
 static uint32_t _fb_dma_shm_seq = 1;
 
+/*xwm draws the desktop and the window frames straight into this buffer,
+  but it runs in the user session, not as a child of fbdisplayd: an IPC_PRIVATE
+  segment is family-only in the kernel, so xwm could not attach it and
+  nothing got drawn. A public key lets everyone who knows the id map it,
+  like the other shared graphs.*/
+static int32_t shm_new_segment(uint32_t tag, uint32_t sz) {
+    for(uint32_t i = 0; i < 16; i++) {
+        uint32_t seq = _fb_dma_shm_seq++;
+        key_t key = (key_t)(tag ^ (key_t)(seq * 2654435761u));
+        if(key == 0 || key == IPC_PRIVATE)
+            key = (key_t)(seq | 1u);
+        int32_t id = shmget(key, sz, 0666 | IPC_CREAT | IPC_EXCL);
+        if(id != -1)
+            return id;
+    }
+    return -1;
+}
+
 static int fb_dma_init(fb_dma_t* dma) {
     memset(dma, 0, sizeof(fb_dma_t));
     uint32_t sz = _zwidth * _zheight * 4;
-    /*xwm draws the desktop and the window frames straight into this buffer,
-      but it runs in the user session, not as a child of fbdisplayd: an IPC_PRIVATE
-      segment is family-only in the kernel, so xwm could not attach it and
-      nothing got drawn. A public key lets everyone who knows the id map it,
-      like the other shared graphs.*/
-    dma->shm_id = -1;
-    for(uint32_t i = 0; i < 16; i++) {
-        uint32_t seq = _fb_dma_shm_seq++;
-        key_t key = (key_t)(0x4642444du ^ (key_t)(seq * 2654435761u));
-        if(key == 0 || key == IPC_PRIVATE)
-            key = (key_t)(seq | 1u);
-        dma->shm_id = shmget(key, sz + sizeof(display_ctrl_t), 0666 | IPC_CREAT | IPC_EXCL); //control block follows the pixels
-        if(dma->shm_id != -1)
-            break;
-    }
+
+    dma->shm_id = shm_new_segment(0x4642444d, sz); //pixels only
     if(dma->shm_id == -1)
         return -1;
     dma->shm = shmat(dma->shm_id, 0, 0);
     if(dma->shm == (void*)-1)
         return -1;
-    //dma->size = _fbinfo.size_max;
-    memset(dma->shm, 0, sz + sizeof(display_ctrl_t));
+    memset(dma->shm, 0, sz);
+
+    /*the ctrl block lives in its own small segment so the pixel dma stays
+      exactly one framebuffer; clients get the id via DISPLAY_CNTL_GET_CTRL.*/
+    dma->ctrl_id = shm_new_segment(0x46424443, sizeof(display_ctrl_t));
+    if(dma->ctrl_id == -1)
+        return -1;
+    dma->ctrl = (display_ctrl_t*)shmat(dma->ctrl_id, 0, 0);
+    if(dma->ctrl == (void*)-1)
+        return -1;
+    memset(dma->ctrl, 0, sizeof(display_ctrl_t));
+
     dma->size = sz;
     init_graph(dma);
     return 0;
@@ -449,11 +471,11 @@ static int32_t flush_dirty(fb_dma_t* dma, const grect_t* rects, uint32_t num) {
 
 static int32_t do_flush(fb_dma_t* dma) {
     uint8_t* buf = (uint8_t*)dma->shm;
-    if(buf == NULL)
+    if(buf == NULL || dma->ctrl == NULL)
         return -1;
 
     uint32_t size = dma->size;
-    display_ctrl_t* ctrl = (display_ctrl_t*)(buf + size);
+    display_ctrl_t* ctrl = dma->ctrl;
     uint32_t num = ctrl->dirty_num;
     grect_t rects[DISPLAY_DIRTY_MAX];
     if(num > DISPLAY_DIRTY_MAX)
@@ -504,10 +526,10 @@ static int do_fb_flush(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, voi
   rects would repaint a few patches with the new pixel pipeline and leave
   the rest of the screen as the old one drew it.*/
 int fbdisplayd_refresh(void) {
-    if(_cur_dma == NULL || _cur_dma->shm == NULL)
+    if(_cur_dma == NULL || _cur_dma->shm == NULL || _cur_dma->ctrl == NULL)
         return -1;
 
-    display_ctrl_t* ctrl = (display_ctrl_t*)(_cur_dma->shm + _cur_dma->size);
+    display_ctrl_t* ctrl = _cur_dma->ctrl;
     ctrl->dirty_num = 0;
     ctrl->busy = 1;
     uint32_t res = flush(&_fbinfo, _cur_dma->shm, _cur_dma->size, _rotate);
@@ -618,5 +640,7 @@ int fbdisplayd_run(fbdisplayd_t* fbdisplayd, const char* mnt_name,
 
     device_run(&dev, mnt_name, FS_TYPE_CHAR, 0666);
     shmdt(dma.shm);
+    if(dma.ctrl != NULL && dma.ctrl != (void*)-1)
+        shmdt(dma.ctrl);
     return 0;
 }

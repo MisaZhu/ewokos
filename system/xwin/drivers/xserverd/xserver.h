@@ -28,12 +28,10 @@ typedef struct st_xwin {
 	int from_main_pid; //main proc pid
 	uint32_t from_main_pid_uuid;
 
-	void*    ws_g_shm;
-	graph_t* ws_g; //workspace graph
+	graph_t* ws_g; //workspace graph, owns its shm canvas (graph_new_shm)
 	graph_t* ws_g_buffer; //workspace graph buffer
 
-	void*    frame_g_shm;
-	graph_t* frame_g; //frame graph
+	graph_t* frame_g; //frame graph, owns its shm canvas (graph_new_shm)
 
 	xinfo_t* xinfo;
 	bool dirty;
@@ -65,13 +63,6 @@ typedef struct st_xwin {
 	  stacking heavy damage-detect+copy IPCs in the queue that mouse and
 	  event delivery share.*/
 	bool refresh_pending;
-
-	/*xinfo lives in memory the client owns and can be replayed from an old
-	  copy of itself (the un-maximize path restores a whole snapshot), so the
-	  ids of the buffers the server really holds are kept here and published
-	  into xinfo on every update.*/
-	int32_t ws_g_shm_id;
-	int32_t frame_g_shm_id;
 
 	grect_t r_title;
 	grect_t r_close;

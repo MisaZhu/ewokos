@@ -22,6 +22,20 @@ static void load_kernel_config_file() {
     if(v[0] != 0)
         _kernel_config.cores = atoi(v);
 
+    v = sconf_get(sconf, "dma_size");
+    if(v[0] != 0) {
+        uint32_t iv = atoi(v);
+        if(iv > 0) {
+            iv = ALIGN_UP(iv, PAGE_SIZE);
+            //sys_info_init() has already reserved the default dma window from
+            //allocable memory, so grow/shrink that reservation together with
+            //the pool size. Must run BEFORE allocable_base_reserv_size below,
+            //which relocates the dma window using this size.
+            _sys_info.allocable_phy_mem_base = _sys_info.allocable_phy_mem_base - _sys_info.sys_dma.size + iv;
+            _sys_info.sys_dma.size = iv;
+        }
+    }
+
     v = sconf_get(sconf, "allocable_base_reserv_size");
     if(v[0] != 0) {
         uint32_t iv = atoi(v);

@@ -87,15 +87,16 @@ int display_close(display_t* display) {
         graph_free(display->g);
         shmdt(display->dma);
     }
+    if(display->ctrl != NULL)
+        shmdt(display->ctrl);
     close(display->fd);
     return 0;
 }
 
 display_ctrl_t* display_ctrl(display_t* display) {
-    if(display == NULL || display->dma == NULL || display->g == NULL)
+    if(display == NULL)
         return NULL;
-    uint32_t size = display->g->w * display->g->h * 4;
-    return (display_ctrl_t*)(((uint8_t*)display->dma) + size);
+    return display->ctrl;
 }
 
 bool display_busy(display_t* display) {
@@ -122,6 +123,29 @@ int display_set_dirty(display_t* display, const grect_t* rects, uint32_t num) {
 
     memcpy(ctrl->dirty, rects, num * sizeof(grect_t));
     ctrl->dirty_num = (uint8_t)num;
+    return 0;
+}
+
+/*ask the daemon for the shm id of the ctrl block and attach it. The ctrl
+  segment is independent of the pixel dma, so it survives geometry changes
+  without being re-mapped.*/
+static int attach_ctrl(display_t* display) {
+    if(display->ctrl != NULL)
+        return 0;
+
+    proto_t out;
+    PF->init(&out);
+    int32_t ctrl_id = -1;
+    if(vfs_fcntl(display->fd, DISPLAY_CNTL_GET_CTRL, NULL, &out) == 0)
+        ctrl_id = proto_read_int(&out);
+    PF->clear(&out);
+    if(ctrl_id <= 0)
+        return -1;
+
+    display_ctrl_t* ctrl = (display_ctrl_t*)shmat(ctrl_id, 0, 0);
+    if(ctrl == (void*)-1)
+        return -1;
+    display->ctrl = ctrl;
     return 0;
 }
 
@@ -155,6 +179,8 @@ graph_t* display_fetch_graph(display_t* display) {
     dma = shmat(dma_id, 0, 0);
     if(dma == (void*)-1) 
         return NULL;
+
+    attach_ctrl(display); //best effort: without it flushes just go full-frame
     
     g = graph_new((uint32_t*)dma, w, h);
     g->shm_id = dma_id;

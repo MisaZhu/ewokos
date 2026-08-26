@@ -7,7 +7,6 @@
 #include <x/xwm.h>
 #include "xwin_cmd.h"
 #include "xwin.h"
-#include "xshm.h"
 #include "xinput.h" //get_mouse_owner
 #include "xtheme.h"
 
@@ -117,27 +116,20 @@ void xwin_revalidate_geometry(x_t* x, xwin_t* win) {
 
     memcpy(&win->xinfo->winr, &winr, sizeof(grect_t));
 
-    release_graph_shm(&win->frame_g, &win->frame_g_shm, &win->frame_g_shm_id);
-    /*published right away: a failure below leaves the window without a
+    /*publishes -1 right away: a failure below leaves the window without a
       frame, and an id pointing at freed memory is worse than no id*/
+    if(win->frame_g != NULL) {
+        graph_free(win->frame_g);
+        win->frame_g = NULL;
+    }
     win->xinfo->frame_g_shm_id = -1;
 
-    key_t key = 0;
-    int32_t frame_g_shm_id = xserver_alloc_shm(0x46520000u,
-            win->xinfo->winr.w * win->xinfo->winr.h * 4,
-            0666|IPC_CREAT|IPC_EXCL, &key);
-    if(frame_g_shm_id == -1)
+    /*graph_new_shm allocates its own keyed shm canvas: the buffer and the
+      shm id both travel inside frame_g, no window-level mirrors*/
+    win->frame_g = graph_new_shm(win->xinfo->winr.w, win->xinfo->winr.h);
+    if(win->frame_g == NULL)
         return;
-
-    void* shm = shmat(frame_g_shm_id, 0, 0);
-    if(shm == (void*)-1)
-        return;
-
-    win->frame_g_shm = shm;
-    win->frame_g_shm_id = frame_g_shm_id;
-    win->xinfo->frame_g_shm_id = frame_g_shm_id;
-    win->frame_g = graph_new(win->frame_g_shm, win->xinfo->winr.w, win->xinfo->winr.h);
-    win->frame_g->shm_id = frame_g_shm_id;
+    win->xinfo->frame_g_shm_id = win->frame_g->shm_id;
     win->frame_dirty = true;
     win->has_damage = false;
     win->composited = false;
@@ -219,9 +211,9 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
         win->xinfo = NULL;
         return -1;
     }
-    if(win->xinfo->ws_g_shm_id == 0 && win->ws_g_shm == NULL)
+    if(win->xinfo->ws_g_shm_id == 0 && win->ws_g == NULL)
         win->xinfo->ws_g_shm_id = -1;
-    if(win->xinfo->frame_g_shm_id == 0 && win->frame_g_shm == NULL)
+    if(win->xinfo->frame_g_shm_id == 0 && win->frame_g == NULL)
         win->xinfo->frame_g_shm_id = -1;
 
     if((win->xinfo->style & XWIN_STYLE_LAUNCHER) != 0)
@@ -282,66 +274,48 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
     }
     
     if((type & X_UPDATE_REBUILD) != 0 ||
-            win->ws_g_shm == NULL ||
-            win->frame_g_shm == NULL ||
-            win->ws_g == NULL) {
+            win->ws_g == NULL ||
+            win->frame_g == NULL) {
 
-        release_graph_shm(&win->ws_g, &win->ws_g_shm, &win->xinfo->ws_g_shm_id);
+        if(win->ws_g != NULL) {
+            graph_free(win->ws_g);
+            win->ws_g = NULL;
+        }
+        win->xinfo->ws_g_shm_id = -1;
 
         if(win->ws_g_buffer != NULL) {
             graph_free(win->ws_g_buffer);
             win->ws_g_buffer = NULL;
         }
 
-        release_graph_shm(&win->frame_g, &win->frame_g_shm, &win->xinfo->frame_g_shm_id);
-
-        uint32_t uuid = proc_get_uuid(from_pid);
-        key_t key = 0;
-        int32_t ws_g_shm_id = xserver_alloc_shm(uuid ^ 0x57530000u,
-                        win->xinfo->wsr.w * win->xinfo->wsr.h * 4,
-                        0666|IPC_CREAT|IPC_EXCL, &key);
-        if(ws_g_shm_id == -1)
-            return -1;
-
-        win->ws_g_shm = shmat(ws_g_shm_id, 0, 0);
-        if(win->ws_g_shm == (void*)-1) {
-            win->ws_g_shm = NULL;
-            return -1;
+        if(win->frame_g != NULL) {
+            graph_free(win->frame_g);
+            win->frame_g = NULL;
         }
+        win->xinfo->frame_g_shm_id = -1;
 
-        win->xinfo->ws_g_shm_id = ws_g_shm_id;
-        win->ws_g = graph_new(win->ws_g_shm, win->xinfo->wsr.w, win->xinfo->wsr.h);
-        win->ws_g->shm_id = ws_g_shm_id;
+        /*graph_new_shm allocates its own keyed shm canvas: the buffer and
+          the shm id both travel inside the graph, no window-level mirrors*/
+        win->ws_g = graph_new_shm(win->xinfo->wsr.w, win->xinfo->wsr.h);
+        if(win->ws_g == NULL)
+            return -1;
+        win->xinfo->ws_g_shm_id = win->ws_g->shm_id;
         graph_clear(win->ws_g, 0x0);
         win->ws_g_buffer = graph_new_shm(win->xinfo->wsr.w, win->xinfo->wsr.h);
         graph_clear(win->ws_g_buffer, 0x0);
 
-        int32_t frame_g_shm_id = xserver_alloc_shm(uuid ^ 0x46520000u,
-                        win->xinfo->winr.w * win->xinfo->winr.h * 4,
-                        0666|IPC_CREAT|IPC_EXCL, &key);
-        if(frame_g_shm_id == -1) {
-            release_graph_shm(&win->ws_g, &win->ws_g_shm, &win->xinfo->ws_g_shm_id);
+        win->frame_g = graph_new_shm(win->xinfo->winr.w, win->xinfo->winr.h);
+        if(win->frame_g == NULL) {
+            graph_free(win->ws_g);
+            win->ws_g = NULL;
+            win->xinfo->ws_g_shm_id = -1;
             if(win->ws_g_buffer != NULL) {
                 graph_free(win->ws_g_buffer);
                 win->ws_g_buffer = NULL;
             }
             return -1;
         }
-
-        win->frame_g_shm = shmat(frame_g_shm_id, 0, 0);
-        if(win->frame_g_shm == (void*)-1) {
-            win->frame_g_shm = NULL;
-            release_graph_shm(&win->ws_g, &win->ws_g_shm, &win->xinfo->ws_g_shm_id);
-            if(win->ws_g_buffer != NULL) {
-                graph_free(win->ws_g_buffer);
-                win->ws_g_buffer = NULL;
-            }
-            return -1;
-        }
-
-        win->xinfo->frame_g_shm_id = frame_g_shm_id;
-        win->frame_g = graph_new(win->frame_g_shm, win->xinfo->winr.w, win->xinfo->winr.h);
-        win->frame_g->shm_id = frame_g_shm_id;
+        win->xinfo->frame_g_shm_id = win->frame_g->shm_id;
         win->frame_dirty = true;
         win->ready = false;
         win->has_damage = false;

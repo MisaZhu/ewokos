@@ -147,6 +147,7 @@ graph_t* graph_new_shm(int32_t w, int32_t h) {
 
     graph_init(ret, pixels, w, h);
     ret->shm_id = shm_id;
+    ret->need_free = true; /* graph_free owns the shm canvas */
     return ret;
 }
 
@@ -162,10 +163,10 @@ graph_t* graph_new_dma(int32_t w, int32_t h) {
     if(ret == NULL)
         return NULL;
 
-    /* the pixel buffer comes from the sys_dma pool; the kernel maps the
-       dma window identity (vaddr == dma addr) into every process, so the
-       returned address doubles as a usable pointer and as the dma
-       address carried to /dev/g2d */
+    /* the pixel buffer comes from the sys_dma pool; dma_alloc() maps it
+       into this process in the sys_dma v window, so the returned address
+       is a usable pointer here and is carried to /dev/g2d as-is (g2dd
+       mem-maps the same address on attach) */
     size = (uint32_t)w * (uint32_t)h * sizeof(uint32_t);
     addr = dma_alloc(0, size);
     if(addr == 0) {

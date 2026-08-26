@@ -343,6 +343,25 @@ static ewokos_addr_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint3
     if(cproc->info.uid > 0)
         return 0;
 
+    if(size == 0)
+        return 0;
+
+    /*
+     * The sys_dma pool is reserved driver memory carved out below the
+     * allocable heap. dma_alloc() maps its buffer only into the caller,
+     * so another root daemon (g2dd attaching a client's dma canvas) must
+     * be able to map the same physical range into itself. Same NOCACHE
+     * attribute as sys_dma_alloc() to avoid cache aliasing between the
+     * two mappings.
+     */
+    if(paddr >= _sys_info.sys_dma.phy_base &&
+            (paddr + size) <= (_sys_info.sys_dma.phy_base + _sys_info.sys_dma.size)) {
+        size = ALIGN_UP(size, PAGE_SIZE);
+        map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, PTE_ATTR_NOCACHE);
+        flush_tlb();
+        return vaddr;
+    }
+
     /*allocatable memory can only mapped by kernel,
     userspace can map upper address such as MMIO/FRAMEBUFFER... */
     if(check_mem_map_arch(paddr, size) != 0) {

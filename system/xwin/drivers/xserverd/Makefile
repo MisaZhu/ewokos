@@ -15,7 +15,6 @@ XSERVERD_OBJS = $(ARCH)/xserverd.o \
 	$(ARCH)/xrepaint.o \
 	$(ARCH)/xinput.o \
 	$(ARCH)/xwin_cmd.o \
-	$(ARCH)/xshm.o \
 	$(ARCH)/cursor.o \
 	$(ARCH)/xevtpool.o \
 	$(ARCH)/xcmd.o \

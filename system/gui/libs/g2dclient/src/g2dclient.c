@@ -62,9 +62,10 @@ int g2d_set_dev(const char* dev) {
 
 /* shm canvases: keyed 0666 segments because the driver is an unrelated
    process and cannot map IPC_PRIVATE (family-only) segments. a fresh key
-   per allocation because shmget() returns an existing keyed segment
-   WITHOUT resizing it. the kernel frees the segment once both sides
-   (client and driver) have detached. */
+   per allocation, created with IPC_EXCL: without EXCL shmget() would
+   return an existing keyed segment WITHOUT resizing it, and in a long
+   lived process the key space wraps after 65536 allocations. the kernel
+   frees the segment once both sides (client and driver) have detached. */
 static uint32_t _g2d_shm_seq = 0;
 
 int g2d_shm_alloc(uint32_t size, int* shm_id, uint32_t** pixels) {
@@ -75,11 +76,16 @@ int g2d_shm_alloc(uint32_t size, int* shm_id, uint32_t** pixels) {
     if(size == 0 || shm_id == NULL || pixels == NULL)
         return -1;
 
-    key = (key_t)(0x47324430u + (((uint32_t)getpid() & 0xffffu) << 16) +
-            (_g2d_shm_seq & 0xffffu));
-    _g2d_shm_seq++;
+    id = -1;
+    for(int32_t i = 0; i < 16; i++) {
+        key = (key_t)(0x47324430u + (((uint32_t)getpid() & 0xffffu) << 16) +
+                (_g2d_shm_seq & 0xffffu));
+        _g2d_shm_seq++;
 
-    id = shmget(key, (int)size, 0666 | IPC_CREAT);
+        id = shmget(key, (int)size, 0666 | IPC_CREAT | IPC_EXCL);
+        if(id > 0)
+            break;
+    }
     if(id <= 0)
         return -1;
     addr = shmat(id, 0, 0);

@@ -7,19 +7,12 @@
 extern "C" {
 #endif
 
-typedef struct {
-	uint32_t display_index;
-	int fd;
-	void* dma;
-	int32_t dma_id; //shm id of the dma buffer, so it can be shared with other procs
-	graph_t* g;
-} display_t;
-
 #define DISPLAY_DIRTY_MAX 4
 
-/* control block sitting right behind the pixel data inside the display dma
- * share-memory. 'busy' stays at offset 0 so it keeps the layout of the
- * original single busy byte. */
+/* control block for the display framebuffer, living in its own small shm
+ * segment (id obtained via DISPLAY_CNTL_GET_CTRL). 'busy' is set by the
+ * daemon while a flush is in flight; the dirty rects describe the damaged
+ * region of the next flush. */
 typedef struct {
 	uint8_t busy;
 	uint8_t dirty_num;
@@ -27,8 +20,18 @@ typedef struct {
 	grect_t dirty[DISPLAY_DIRTY_MAX];
 } display_ctrl_t;
 
+typedef struct {
+	uint32_t display_index;
+	int fd;
+	void* dma;
+	int32_t dma_id; //shm id of the dma buffer, so it can be shared with other procs
+	display_ctrl_t* ctrl; //attached ctrl block (its own shm segment)
+	graph_t* g;
+} display_t;
+
 enum {
-	DISPLAY_CNTL_GET_INFO = 0
+	DISPLAY_CNTL_GET_INFO = 0,
+	DISPLAY_CNTL_GET_CTRL //get the shm id of the ctrl block
 };
 
 enum {
