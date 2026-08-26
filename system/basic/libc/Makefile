@@ -3,7 +3,7 @@ all: basic_libs
 
 DIRS = libewoksys libgloss
 basic_libs:
-ifneq ($(ARCH),aarch64)
+ifeq ($(ARCH),arm)
 	cd softfloat;$(MAKE)
 endif
 	@for dir in $(DIRS); do \

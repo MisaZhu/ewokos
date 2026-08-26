@@ -15,7 +15,7 @@ G2DD = $(TARGET_DIR)/drivers/$(HW)/g2dd
 $(G2DD): $(G2DD_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a \
 		$(BUILD_DIR)/lib/libgraph.a \
-		$(BUILD_DIR)/lib/libarch_virt.a \
+		$(BUILD_DIR)/lib/libbsp.a \
 		$(BUILD_DIR)/lib/libdisplay.a \
 		$(BUILD_DIR)/lib/libfont.a \
 		$(BUILD_DIR)/lib/libdisplayman.a
