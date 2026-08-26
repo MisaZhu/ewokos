@@ -184,7 +184,7 @@ void graph_scale_tof_cpu(graph_t* g, graph_t* dst, float scale)
 }
 
 inline void graph_scale_tof(graph_t* g, graph_t* dst, float scale) {
-    if(graph_has_g2d() == 0 && g->shm_id > 0 && dst->shm_id > 0) {
+    if(graph_g2d_avaliable(g) == 0 && graph_g2d_avaliable(dst) == 0) {
         graph_scale_tof_g2d(g, dst, scale);
         return;
     }
@@ -198,7 +198,7 @@ inline void graph_scale_tof(graph_t* g, graph_t* dst, float scale) {
 }
 
 inline void graph_scale_tof_fast(graph_t* g, graph_t* dst, float scale) {
-    if(graph_has_g2d() == 0 && g->shm_id > 0 && dst->shm_id > 0) {
+    if(graph_g2d_avaliable(g) == 0 && graph_g2d_avaliable(dst) == 0) {
         graph_scale_tof_g2d(g, dst, scale);
         return;
     }

@@ -7,7 +7,7 @@
 extern "C" { 
 #endif
 
-int   graph_has_g2d(void);
+int   graph_g2d_avaliable(graph_t* g);
 
 void  graph_fill_g2d(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
 void  graph_blt_g2d(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,

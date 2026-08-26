@@ -6,8 +6,10 @@
 extern "C" { 
 #endif
 
-inline int graph_has_g2d(void) {
-    return has_g2d();
+inline int graph_g2d_avaliable(graph_t* g) {
+    if(has_g2d() == 0 && (g->shm_id > 0 || g->dma != 0))
+		return 0;
+	return -1;
 }
 
 /* graph_*_g2d: offload the operation to the /dev/g2d service. the

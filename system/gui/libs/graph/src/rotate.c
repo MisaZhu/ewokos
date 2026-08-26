@@ -60,7 +60,7 @@ void graph_rotate_to_cpu(graph_t* g, graph_t* ret, int rot) {
 }
 
 void graph_rotate_to(graph_t* g, graph_t* ret, int rot) {
-    if(graph_has_g2d() == 0 && g->shm_id > 0) {
+    if(graph_g2d_avaliable(g) == 0 && graph_g2d_avaliable(ret) == 0) {
         graph_rotate_to_g2d(g, ret, rot);
         return;
     }
