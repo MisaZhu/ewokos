@@ -192,8 +192,7 @@ void graph_set(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t 
 }
 
 inline void graph_fill_rect(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
-    if(graph_g2d_avaliable(g) == 0 && 
-            (x != 0 || y != 0 || w != g->w || h == g->h || color_a(color) != 0xFF)) {
+    if(graph_g2d_avaliable(g) == 0) {
         graph_fill_g2d(g, x, y, w, h, color);
         return;
     }
