@@ -1750,16 +1750,32 @@ void arch_g2d_rotate(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_cont
 
 /* cpu back end for sub-alignment tails and narrow copies: scalar 1:1
    copy or blend with exact per-pixel access, no alignment, contiguity
-   or simd requirements. use_alpha == 0 is a plain copy; otherwise the
-   same math as the simd paths (effective alpha (src_a * alpha) >> 8,
-   then the /255 blend). */
-void arch_g2d_blt_cpu(uint32_t* argb_src, int32_t src_w,
+   or simd requirements. the 1:1 rect is clipped against both buffer
+   bounds first (callers hand in unclipped window rects: a row that
+   overruns the right edge would otherwise wrap into the left edge of
+   the next row). use_alpha == 0 is a plain copy; otherwise the same
+   math as the simd paths (effective alpha (src_a * alpha) >> 8, then
+   the /255 blend). */
+void arch_g2d_blt_cpu(uint32_t* argb_src, int32_t src_w, int32_t src_h,
 		int32_t sx, int32_t sy, int32_t sw, int32_t sh,
-		uint32_t* argb_dst, int32_t dst_w,
+		uint32_t* argb_dst, int32_t dst_w, int32_t dst_h,
 		int32_t dx, int32_t dy, uint8_t use_alpha, uint8_t alpha) {
 	if(argb_src == NULL || argb_dst == NULL || sw <= 0 || sh <= 0)
 		return;
 	if(use_alpha != 0 && alpha == 0)
+		return;
+
+	/* 1:1 mapping: cutting one side shifts the other surface's origin by
+	   the same delta, cutting right/bottom just shrinks the size */
+	if(dx < 0) { sx -= dx; sw += dx; dx = 0; }
+	if(dy < 0) { sy -= dy; sh += dy; dy = 0; }
+	if(sx < 0) { dx -= sx; sw += sx; sx = 0; }
+	if(sy < 0) { dy -= sy; sh += sy; sy = 0; }
+	if(sx + sw > src_w) sw = src_w - sx;
+	if(sy + sh > src_h) sh = src_h - sy;
+	if(dx + sw > dst_w) sw = dst_w - dx;
+	if(dy + sh > dst_h) sh = dst_h - dy;
+	if(sw <= 0 || sh <= 0)
 		return;
 
 	for(int32_t row = 0; row < sh; row++) {

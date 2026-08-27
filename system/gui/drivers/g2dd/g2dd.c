@@ -208,14 +208,15 @@ static int32_t g2d_alloc_surface(int32_t w, int32_t h, g2d_attached_t* surf) {
 
 /* cpu fallback for widths below G2D_PITCH_ALIGN: thin wrapper over the
    arch back end's scalar blit (arch_g2d_blt_cpu), exact per-pixel
-   access with the same blend math as the simd paths. */
-static void g2d_cpu_blt(uint32_t* dst_buf, int32_t dst_w,
+   access with the same blend math as the simd paths. the back end
+   clips the rect against both canvas bounds. */
+static void g2d_cpu_blt(uint32_t* dst_buf, int32_t dst_w, int32_t dst_h,
 		int32_t dx, int32_t dy, int32_t w, int32_t h,
-		const uint32_t* src_buf, int32_t src_w,
+		const uint32_t* src_buf, int32_t src_w, int32_t src_h,
 		int32_t sx, int32_t sy, uint8_t use_alpha, uint8_t alpha) {
 	G2DD_LOG("g2d_cpu_blt %d x %d, dst at (%d,%d), src at (%d,%d), alpha: %d\n", w, h, dx, dy, sx, sy, alpha);
-	bsp_g2d_blt_cpu((uint32_t*)src_buf, src_w, sx, sy, w, h,
-			dst_buf, dst_w, dx, dy, use_alpha, alpha);
+	bsp_g2d_blt_cpu((uint32_t*)src_buf, src_w, src_h, sx, sy, w, h,
+			dst_buf, dst_w, dst_h, dx, dy, use_alpha, alpha);
 }
 
 /* pitch alignment rule for 1:1 copies: the width is split into an
@@ -245,8 +246,9 @@ static void g2d_blt_split(const g2d_attached_t* dst,
 		}
 	}
 	if(aw < sw) {
-		g2d_cpu_blt(dst->buffer, (int32_t)dst->width, dx + aw, dy, sw - aw, sh,
-				src_buf, src_w, sx + aw, sy, use_alpha, alpha);
+		g2d_cpu_blt(dst->buffer, (int32_t)dst->width, (int32_t)dst->height,
+				dx + aw, dy, sw - aw, sh,
+				src_buf, src_w, src_h, sx + aw, sy, use_alpha, alpha);
 	}
 }
 
