@@ -20,7 +20,8 @@ INST_DIR = /usr/local/ewokos
 
 BUILD_DIR = $(SYS_ROOT_DIR)/build_$(ARCH)/$(HW)
 TARGET_DIR = $(BUILD_DIR)/rootfs
-EXTRA_APPS_DIR = $(EWOKOS_ROOT_DIR)/extra.apps
+
+HW_KERNEL_DIR = ../kernel
 
 export BSP_LFLAGS = -lbsp -larch_virt
 
@@ -74,6 +75,15 @@ x_sys: gui_sys
 	$(MAKE) -C $(SYS_ROOT_DIR)/xwin
 	@mkdir -p ${TARGET_DIR}/etc
 	@cp -Rp etc/xwin/. ${TARGET_DIR}/etc/
+
+kernel:
+	$(MAKE) -C $(HW_KERNEL_DIR)
+
+kclean:
+	$(MAKE) -C $(HW_KERNEL_DIR) clean
+
+run: kernel
+	$(MAKE) -C $(HW_KERNEL_DIR) run
 
 CLEAN_DIRS = libs drivers $(SYS_ROOT_DIR)/xwin $(SYS_ROOT_DIR)/gui $(SYS_ROOT_DIR)/network $(SYS_ROOT_DIR)/basic
 clean:

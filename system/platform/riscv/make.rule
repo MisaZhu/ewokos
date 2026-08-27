@@ -1,8 +1,11 @@
 AR = riscv64-unknown-elf-ar
 AS = riscv64-unknown-elf-as
-CC = riscv64-unknown-elf-gcc
-CXX = riscv64-unknown-elf-c++
-LD = riscv64-unknown-elf-ld
+CCACHE := $(shell command -v ccache 2>/dev/null)
+CC = $(CCACHE) riscv64-unknown-elf-gcc
+CXX = $(CCACHE) riscv64-unknown-elf-c++
+LD_BIN = riscv64-unknown-elf-ld
+# ensure the output directory exists before linking (parallel-safe)
+LD = mkdir -p $(dir $@) && $(LD_BIN)
 OBJDUMP = riscv64-unknown-elf-objdump
 
 ARCH = riscv

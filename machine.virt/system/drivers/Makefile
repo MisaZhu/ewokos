@@ -4,12 +4,11 @@ basic: $(BASIC_DIRS)
 GUI_DIRS = fbdisplayd moused keybd snd
 gui: $(GUI_DIRS)
 
-$(BASIC_DIRS) $(GUI_DIRS):
-	@$(MAKE) -C $@
-
 NET_DIRS = net
-network:
-	cd net; $(MAKE)
+network: $(NET_DIRS)
+
+$(BASIC_DIRS) $(GUI_DIRS) $(NET_DIRS):
+	@$(MAKE) -C $@
 
 .PHONY: basic gui network clean $(BASIC_DIRS) $(GUI_DIRS) $(NET_DIRS)
 

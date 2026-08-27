@@ -2,8 +2,9 @@
 CROSS_COMPILE ?= x86_64-elf-
 AR = $(CROSS_COMPILE)ar
 AS = $(CROSS_COMPILE)as
-CC = $(CROSS_COMPILE)gcc
-CXX = $(CROSS_COMPILE)c++
+CCACHE := $(shell command -v ccache 2>/dev/null)
+CC = $(CCACHE) $(CROSS_COMPILE)gcc
+CXX = $(CCACHE) $(CROSS_COMPILE)c++
 LD = $(CROSS_COMPILE)ld
 OBJCOPY = $(CROSS_COMPILE)objcopy
 OBJDUMP = $(CROSS_COMPILE)objdump

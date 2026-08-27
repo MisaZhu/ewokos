@@ -1,8 +1,11 @@
 AR = x86_64-elf-ar
 AS = x86_64-elf-as
-CC = x86_64-elf-gcc
-CXX = x86_64-elf-c++
-LD = x86_64-elf-ld
+CCACHE := $(shell command -v ccache 2>/dev/null)
+CC = $(CCACHE) x86_64-elf-gcc
+CXX = $(CCACHE) x86_64-elf-c++
+LD_BIN = x86_64-elf-ld
+# ensure the output directory exists before linking (parallel-safe)
+LD = mkdir -p $(dir $@) && $(LD_BIN)
 OBJDUMP = x86_64-elf-objdump
 LIBGCC = $(shell $(CC) -print-libgcc-file-name)
 

@@ -1,8 +1,9 @@
 # tools
 AR = arm-none-eabi-ar
 AS = arm-none-eabi-as
-CC = arm-none-eabi-gcc
-CXX = arm-none-eabi-c++
+CCACHE := $(shell command -v ccache 2>/dev/null)
+CC = $(CCACHE) arm-none-eabi-gcc
+CXX = $(CCACHE) arm-none-eabi-c++
 LD = arm-none-eabi-ld
 OBJCOPY = arm-none-eabi-objcopy
 OBJDUMP = arm-none-eabi-objdump

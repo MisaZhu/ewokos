@@ -1,8 +1,9 @@
 # tools
 AR = aarch64-none-elf-ar
 AS = aarch64-none-elf-as
-CC = aarch64-none-elf-gcc
-CXX = aarch64-none-elf-c++
+CCACHE := $(shell command -v ccache 2>/dev/null)
+CC = $(CCACHE) aarch64-none-elf-gcc
+CXX = $(CCACHE) aarch64-none-elf-c++
 LD = aarch64-none-elf-ld
 OBJCOPY = aarch64-none-elf-objcopy
 OBJDUMP = aarch64-none-elf-objdump

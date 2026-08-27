@@ -1,3 +1,11 @@
+# default to parallel build; sub-makes share the jobserver via $(MAKE)
+ifeq ($(MAKELEVEL),0)
+ifeq ($(filter -j%,$(MAKEFLAGS)),)
+NPROCS := $(shell sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 4)
+MAKEFLAGS += -j$(NPROCS)
+endif
+endif
+
 KERNEL_TO_ARCH_OBJ = $(if $(filter ./,$(dir $(1))),$(ARCH)/$(notdir $(1)),$(dir $(1))$(ARCH)/$(notdir $(1)))
 KERNEL_TO_ARCH_OBJS = $(foreach obj,$(1),$(call KERNEL_TO_ARCH_OBJ,$(obj)))
 
