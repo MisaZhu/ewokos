@@ -1,8 +1,13 @@
+# use ccache transparently when installed (brew install ccache)
+CCACHE := $(shell command -v ccache 2>/dev/null)
+
 AR = aarch64-none-elf-ar
 AS = aarch64-none-elf-as
-CC = aarch64-none-elf-gcc
-CXX = aarch64-none-elf-c++
-LD =  aarch64-none-elf-ld
+CC = $(CCACHE) aarch64-none-elf-gcc
+CXX = $(CCACHE) aarch64-none-elf-c++
+LD_BIN = aarch64-none-elf-ld
+# ensure the output directory exists before linking (parallel-safe)
+LD = mkdir -p $(dir $@) && $(LD_BIN)
 OBJDUMP =  aarch64-none-elf-objdump
 
 # NOTE: no -mstrict-align here. The kernel boots with SCTLR_EL1.A=0 (see

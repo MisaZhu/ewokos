@@ -512,19 +512,21 @@ net_event_handler(void)
     return handled;
 }
 
-void *net_thread(void* p)
+/*
+ * Bring every registered device online. The protocol engine itself runs as
+ * intr_step() rounds on the caller's thread (netd drives it from
+ * device_run()'s loop_step), so no thread is spawned here.
+ */
+int
+net_run(void)
 {
     struct net_device *dev;
-    (void)p;
-
 
     debugf("open all devices...");
     for (dev = devices; dev; dev = dev->next) {
         net_device_open(dev);
     }
-
-    intr_loop();
-    return NULL;
+    return 0;
 }
 
 void

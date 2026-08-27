@@ -68,9 +68,9 @@ $(LIB_FT): $(OBJS) Makefile
 	$(AR) rcs -o $(LIB_FT) $(OBJS)
 
 install_headers:
-	rm -rf $(TARGET_DIR)/include/freetype
-	cp -R include/freetype $(TARGET_DIR)/include
-	cp -f include/ft2build.h $(TARGET_DIR)/include
+	@mkdir -p $(TARGET_DIR)/include/freetype
+	cp -Rp include/freetype/. $(TARGET_DIR)/include/freetype/
+	cp -Rp include/ft2build.h $(TARGET_DIR)/include/
 
 $(ARCH)/%.o: %.c
 	@mkdir -p $(dir $@)

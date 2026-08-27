@@ -26,21 +26,12 @@
 #include "stack/loopback.h"
 #include "stack/ether_tap.h"
 
-int dflag[16];
-int dcnt;
-
-extern int sock_readable(int sock);
-extern int sock_writable(int sock);
-
 static int network_fcntl(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
     int cmd, proto_t* in, proto_t* out, void* p) {
     (void)dev;
+    (void)fd;
     (void)p;
-    net_task_t *task = (net_task_t*)(ewokos_addr_t)info->data;
-    if(task == NULL) {
-        return -1;
-    }
-    return task_cntl(task, from_pid, cmd, in, out, p);
+    return task_cntl(info->node, from_pid, cmd, in, out);
 }
 
 int network_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int oflag, void* p){
@@ -48,6 +39,11 @@ int network_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int oflag
     (void)oflag;
     (void)p;
 
+    /*
+     * Tasks are resolved through the live task_list keyed by the unique
+     * anonymous node id, never through fsinfo.data (a duplicated/stale
+     * FS_CMD_CLOSE can re-seed that blob with a freed pointer).
+     */
     net_task_t *task = create_task(fd, from_pid, info->node);
     if(task == NULL) {
         if(errno == 0)
@@ -56,181 +52,35 @@ int network_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int oflag
                 fd, from_pid, info->node, errno);
         return -1;
     }
-    info->data = (ewokos_addr_t)task;
     return 0;
 }
 
-static int network_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, 
+static int network_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
         void* buf, int size, int offset, void* p) {
     (void)dev;
     (void)fd;
+    (void)from_pid;
     (void)offset;
     (void)p;
-
-    net_task_t *task = (net_task_t*)(ewokos_addr_t)info->data;
-    int ret;
-    int sock = -1;
-    int still_readable = 0;
-    if(task == NULL) {
-        return -1;
-    }
-    ret = task_read(task, from_pid, buf, size, p);
-    if(ret == VFS_ERR_RETRY) {
-        /* Read was re-armed (not yet complete) — clear sticky flag.
-         * The async worker will call vfs_wakeup when data is actually available. */
-        pthread_mutex_lock(&task->lock);
-        task->pending_main_rd = false;
-        pthread_mutex_unlock(&task->lock);
-    } else {
-        pthread_mutex_lock(&task->lock);
-        sock = task->sock;
-        pthread_mutex_unlock(&task->lock);
-        if(sock >= 0) {
-            still_readable = sock_readable(sock);
-        }
-        pthread_mutex_lock(&task->lock);
-        task->pending_main_rd = still_readable ? true : false;
-        pthread_mutex_unlock(&task->lock);
-    }
-    return ret;
+    return task_read(info->node, buf, size);
 }
 
 static int network_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
         const void* buf, int size, int offset, void* p) {
     (void)dev;
+    (void)fd;
+    (void)from_pid;
     (void)offset;
-
-    net_task_t *task = (net_task_t*)(ewokos_addr_t)info->data;
-    if(task == NULL) {
-        return -1;
-    }
-    return task_write(task, from_pid, (char *)buf, size, p);
+    (void)p;
+    return task_write(info->node, (const char*)buf, size);
 }
 
 static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, void* p) {
     (void)dev;
     (void)fd;
     (void)from_pid;
-    (void)info;
     (void)p;
-    net_task_t *task = (net_task_t*)(ewokos_addr_t)info->data;
-
-    uint32_t events = 0;
-    int main_sock = -1;
-    int read_state = NET_TASK_IDLE;
-    int write_state = NET_TASK_IDLE;
-    int main_state = NET_TASK_IDLE;
-    int main_cmd = 0;
-    int sendto_state = NET_TASK_IDLE;
-    int pending_main_rd = 0;
-    int write_ready = 0;
-    int cached_rd = 0;
-    int can_write = 0;
-    int wr_ready_live = 0;
-    int rd_ready_live = 0;
-    if (task != NULL) {
-        pthread_mutex_lock(&task->lock);
-        main_state = task->state;
-        main_cmd = task->cmd;
-        read_state = task->read_state;
-        write_state = task->write_state;
-        sendto_state = task->sendto_state;
-        main_sock = task->sock;
-        pending_main_rd = task->pending_main_rd;
-        write_ready = task->write_ready ? 1 : 0;
-        cached_rd = task->read_cache_ready ? 1 : 0;
-        if (main_state == NET_TASK_IDLE || main_state == NET_TASK_FINISH) {
-            can_write = 1;
-        }
-        /*
-         * recv()/recvfrom()/accept() run on the main async-fcntl state machine,
-         * not read_state. Once the worker has produced a FINISH result, user
-         * space must continue to observe RD until it consumes task->out;
-         * otherwise vfs_get_poll_events() can mistake the completion wake for a
-         * stale readability edge (the listening/data socket may already be
-         * non-readable again) and clear the only notification that a blocked
-         * accept()/recv() was waiting for.
-         */
-        if (main_state == NET_TASK_FINISH &&
-                (task->cmd == SOCK_ACCEPT ||
-                 task->cmd == SOCK_RECV ||
-                 task->cmd == SOCK_RECVFROM)) {
-            events |= VFS_EVT_RD;
-        }
-        /*
-         * Symmetric guard for the write side: connect() completes on the main
-         * slot and its completion wake is VFS_EVT_WR. Without this the WR edge
-         * is only re-derived from live sock_poll_writable() state, which can
-         * transiently fail (stack mutex trylock busy -> -1, or a momentary
-         * not-writable reading that also clears write_ready) -- the sticky WR
-         * is then replaced by vfs_get_poll_events() and the blocked connect()
-         * caller sleeps forever with no further event to re-wake it.
-         */
-        if (main_state == NET_TASK_FINISH && task->cmd == SOCK_CONNECT) {
-            events |= VFS_EVT_WR;
-        }
-        if (read_state == NET_TASK_FINISH) {
-            events |= VFS_EVT_RD;
-        }
-        if (write_state == NET_TASK_FINISH) {
-            events |= VFS_EVT_WR;
-        }
-        /*
-         * Out-of-band SENDTO side slot: its completion must stay visible as
-         * WR until the client collects it. vfs_get_poll_events() replaces the
-         * sticky RW bits with this live state, so without this the side-slot
-         * completion edge is silently dropped while the main slot is busy
-         * with an armed recv/recvfrom/accept -- the sendto() caller would
-         * then never wake to pick up its result.
-         */
-        if (sendto_state == NET_TASK_FINISH) {
-            events |= VFS_EVT_WR;
-        }
-        if (cached_rd) {
-            events |= VFS_EVT_RD;
-        }
-        pthread_mutex_unlock(&task->lock);
-        /*
-         * Keep poll() off the stack hot path in the common case. The hint bits
-         * still need a live recheck before they are published as readiness;
-         * otherwise a stale write_ready/pending_main_rd can make poll() return
-         * immediately forever and spin both sshd and the netd dispatch thread.
-         */
-        if (!(events & VFS_EVT_WR) &&
-                can_write &&
-                !(main_state == NET_TASK_PROCESS && main_cmd == SOCK_CONNECT) &&
-                main_sock < 0) {
-            events |= VFS_EVT_WR;
-        }
-        if (!(events & VFS_EVT_WR) &&
-                can_write &&
-                write_state == NET_TASK_IDLE &&
-                write_ready &&
-                main_sock >= 0) {
-                        wr_ready_live = sock_poll_writable(main_sock);
-                        if (wr_ready_live > 0) {
-                events |= VFS_EVT_WR;
-                        } else if (wr_ready_live == 0) {
-                pthread_mutex_lock(&task->lock);
-                task->write_ready = false;
-                pthread_mutex_unlock(&task->lock);
-            }
-        }
-        if (pending_main_rd) {
-            if (main_sock >= 0) {
-                                rd_ready_live = sock_poll_readable(main_sock);
-            }
-                        if (main_sock >= 0 && rd_ready_live > 0) {
-                events |= VFS_EVT_RD;
-                        } else if (rd_ready_live == 0) {
-                pthread_mutex_lock(&task->lock);
-                task->pending_main_rd = false;
-                pthread_mutex_unlock(&task->lock);
-            }
-        }
-    }
-
-    return events;
+    return task_poll_events(info->node);
 }
 
 static int network_dup(vdevice_t* dev, int from_fd, int from_pid, int dup_fd, int dup_pid,
@@ -285,6 +135,13 @@ static int network_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fs
         task->refs--;
         mine = (task->refs == 0);
     }
+    if(mine) {
+        /*
+         * Reject new operations before the lock drops: release_task()
+         * drains the handlers still inflight and then frees the task.
+         */
+        task->closing = true;
+    }
     pthread_mutex_unlock(&task->lock);
 
     if(!mine)
@@ -313,8 +170,6 @@ static char ETHER_TAP_IP_ADDR[16] = ETHER_TAP_IP_ADDR_DEFAULT;
 static char ETHER_TAP_NETMASK[16] = ETHER_TAP_NETMASK_DEFAULT;
 static char DEFAULT_GATEWAY[16] = DEFAULT_GATEWAY_DEFAULT;
 static bool ETHER_TAP_USE_DHCP = true;
-
-void *net_thread(void* p);
 
 static int setup(void)
 {
@@ -370,8 +225,12 @@ static int setup(void)
         return -1;
     }
 
-    pthread_t tid;
-    pthread_create(&tid, NULL, net_thread, NULL);
+    /* Open all devices; the protocol engine runs on the main thread via
+     * device_run()'s loop_step (network_loop_step), not a private thread. */
+    if (net_run() == -1) {
+        slog("net_run() failure");
+        return -1;
+    }
 
     return 0;
 }
@@ -441,6 +300,17 @@ char* network_devcmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* 
     return ret;
 }
 
+/*
+ * One protocol-engine round (packet RX, timers, deferred VFS wakeup flush
+ * plus the adaptive sleep), driven by device_run() on the main thread.
+ */
+static int network_loop_step(vdevice_t* dev, void* p) {
+    (void)dev;
+    (void)p;
+    intr_step();
+    return 0;
+}
+
 int main(int argc, char** argv) {
     const char* mnt_point = argc > 1 ? argv[1]: "/dev/net0";
     const char* net_dev = argc > 2 ? argv[2]: "/dev/eth0";
@@ -477,7 +347,18 @@ int main(int argc, char** argv) {
     dev.close = network_close;
     dev.cmd = network_devcmd;
     dev.check_poll_events = network_check_poll_events;
-    device_run(&dev, mnt_point, FS_TYPE_ANNOUNIMOUS | FS_TYPE_CHAR, 0666, false);
+    dev.loop_step = network_loop_step;
+    dev.loop_step_threaded = false;
+    /*
+     * IPC_MULTI_TASK: handlers run concurrently on the kernel worker pool
+     * and never touch the main context, which is left free to drive the
+     * protocol engine through loop_step -- netd spawns no thread of its own.
+     * All shared state is guarded (task_list_lock/task->lock here,
+     * socks_lock and the stack mutex inside the stack, _files_lock in the
+     * vdevice framework); blocking socket ops never park a pool worker --
+     * they return VFS_ERR_RETRY and are re-armed by stack wakeups.
+     */
+    device_run(&dev, mnt_point, FS_TYPE_ANNOUNIMOUS | FS_TYPE_CHAR, 0666, true);
     pthread_mutex_destroy(&task_list_lock);
     return 0;
 }

@@ -21,15 +21,26 @@ extern "C" {
 #endif
 
 static map_t  _files_hash = NULL;
+/*
+ * Serializes every access to _files_hash and the fsinfo_t entries it owns.
+ * IPC_MULTI_TASK servers dispatch requests on concurrent kernel workers, so
+ * the per-fd file cache must behave like a thread-safe table. The lock is a
+ * leaf: never perform IPC (vfs_get_by_node etc.) while holding it.
+ */
+static pthread_mutex_t _files_lock;
+static pthread_mutex_t _shm_lock;
 static fsinfo_t* file_add(int fd, int pid, fsinfo_t* info);
 
 static void device_init(vdevice_t* dev) {
+    (void)dev;
     _files_hash = hashmap_new(0);
+    pthread_mutex_init(&_files_lock, NULL);
+    pthread_mutex_init(&_shm_lock, NULL);
 }
 
-static inline const char* file_hash_key(int fd, int pid, ewokos_addr_t node) {
-    static char key[64];
-    snprintf(key, sizeof(key), "%x:%x:%llx", fd, pid,
+#define FILE_KEY_LEN 64
+static inline const char* file_hash_key(char* key, int fd, int pid, ewokos_addr_t node) {
+    snprintf(key, FILE_KEY_LEN, "%x:%x:%llx", fd, pid,
             (unsigned long long)node);
     return key;
 }
@@ -38,9 +49,11 @@ static inline int file_owner_pid(int pid) {
     return proc_getpid_or_raw(pid);
 }
 
+/* callers must hold _files_lock */
 static fsinfo_t* file_get_cache(int fd, int pid, ewokos_addr_t node) {
     fsinfo_t* info = NULL;
-    hashmap_get(_files_hash, file_hash_key(fd, pid, node), (void**)&info);
+    char key[FILE_KEY_LEN];
+    hashmap_get(_files_hash, file_hash_key(key, fd, pid, node), (void**)&info);
     return info;
 }
 
@@ -69,6 +82,7 @@ static int file_find_same_owner_node(map_t in, const char* key, any_t value, any
     return 1;
 }
 
+/* callers must hold _files_lock */
 static fsinfo_t* file_clone_same_owner_node(int fd, int pid, ewokos_addr_t node) {
     file_clone_lookup_t lookup;
     lookup.pid = pid;
@@ -80,9 +94,11 @@ static fsinfo_t* file_clone_same_owner_node(int fd, int pid, ewokos_addr_t node)
     return file_add(fd, pid, lookup.info);
 }
 
+/* callers must hold _files_lock */
 static fsinfo_t* file_add(int fd, int pid, fsinfo_t* info) {
+    char key_buf[FILE_KEY_LEN];
     pid = file_owner_pid(pid);
-    const char* key = file_hash_key(fd, pid, info->node);
+    const char* key = file_hash_key(key_buf, fd, pid, info->node);
 
     /* Reuse the entry when the same fd is registered again, otherwise the
      * previous fsinfo is dropped on the floor on every re-open. */
@@ -120,20 +136,24 @@ static int file_count_same_node(map_t in, const char* key, any_t value, any_t ar
 }
 
 int vdevice_count_node_refs(ewokos_addr_t node) {
-        file_count_lookup_t lookup;
+    file_count_lookup_t lookup;
 
-        if(node == 0 || _files_hash == NULL)
-                return 0;
-        lookup.node = node;
-        lookup.count = 0;
-        hashmap_iterate(_files_hash, file_count_same_node, &lookup);
-        return lookup.count;
+    if(node == 0 || _files_hash == NULL)
+        return 0;
+    lookup.node = node;
+    lookup.count = 0;
+    pthread_mutex_lock(&_files_lock);
+    hashmap_iterate(_files_hash, file_count_same_node, &lookup);
+    pthread_mutex_unlock(&_files_lock);
+    return lookup.count;
 }
 
+/* callers must hold _files_lock */
 static void file_del(int fd, int pid, ewokos_addr_t node) {
+    char key_buf[FILE_KEY_LEN];
     pid = file_owner_pid(pid);
     fsinfo_t* info = NULL;
-    const char* key = file_hash_key(fd, pid, node);
+    const char* key = file_hash_key(key_buf, fd, pid, node);
     hashmap_get(_files_hash, key, (void**)&info);
     if(info == NULL)
         return;
@@ -142,45 +162,91 @@ static void file_del(int fd, int pid, ewokos_addr_t node) {
     free(info);
 }
 
-static fsinfo_t* dev_get_file_seeded(int fd, int pid, ewokos_addr_t node, const fsinfo_t* seed) {
-        pid = file_owner_pid(pid);
-        fsinfo_t* info = file_get_cache(fd, pid, node);
-        if(info != NULL) {
-                /*
-                 * The server-side entry is authoritative: it was created by
-                 * do_open() and kept in sync by dev_update_file(). Do NOT
-                 * overwrite it with the client-supplied blob — for anonymous
-                 * single-node devices (e.g. /dev/net0) fsinfo.data carries
-                 * fd-private state, and a client blob can hold a sibling
-                 * fd's value, which would poison this entry and later make
-                 * close/read/write operate on the wrong device instance.
-                 */
-                return info;
-        }
+/*
+ * Copy-out lookup used by the request handlers: fills the caller's stack
+ * fsinfo_t so a concurrent do_close()/file_del() on another worker thread
+ * can never free the entry from under this handler. The vfsd lookup
+ * fallback runs outside the lock (it is an IPC round-trip).
+ *
+ * The server-side entry is authoritative: it was created by do_open() and
+ * kept in sync by dev_update_file(). Do NOT overwrite it with the
+ * client-supplied blob — for anonymous single-node devices (e.g. /dev/net0)
+ * a client blob can hold a sibling fd's private state, which would poison
+ * this entry and make close/read/write operate on the wrong instance.
+ */
+static int dev_fetch_file_seeded(int fd, int pid, ewokos_addr_t node, const fsinfo_t* seed, fsinfo_t* out) {
+    pid = file_owner_pid(pid);
 
-        if(seed != NULL)
-                return file_add(fd, pid, (fsinfo_t*)seed);
-
+    pthread_mutex_lock(&_files_lock);
+    fsinfo_t* info = file_get_cache(fd, pid, node);
+    if(info == NULL && seed != NULL)
+        info = file_add(fd, pid, (fsinfo_t*)seed);
+    if(info == NULL)
         info = file_clone_same_owner_node(fd, pid, node);
-        if(info != NULL)
-                return info;
+    if(info != NULL) {
+        memcpy(out, info, sizeof(fsinfo_t));
+        pthread_mutex_unlock(&_files_lock);
+        return 0;
+    }
+    pthread_mutex_unlock(&_files_lock);
 
-        fsinfo_t i;
-        if(vfs_get_by_node(node, &i) != 0)
-                return NULL;
-        return file_add(fd, pid, &i);
+    fsinfo_t i;
+    if(vfs_get_by_node(node, &i) != 0)
+        return -1;
+
+    pthread_mutex_lock(&_files_lock);
+    info = file_get_cache(fd, pid, node); /* re-check: raced with another worker */
+    if(info == NULL)
+        info = file_add(fd, pid, &i);
+    if(info == NULL) {
+        pthread_mutex_unlock(&_files_lock);
+        return -1;
+    }
+    memcpy(out, info, sizeof(fsinfo_t));
+    pthread_mutex_unlock(&_files_lock);
+    return 0;
 }
 
+static int dev_fetch_file(int fd, int pid, ewokos_addr_t node, fsinfo_t* out) {
+    return dev_fetch_file_seeded(fd, pid, node, NULL, out);
+}
+
+/*
+ * Legacy pointer API kept for single-task drivers; the returned entry is
+ * only stable while no concurrent close can drop it. Multi-task request
+ * handlers use the dev_fetch_file*() copy variants instead.
+ */
 fsinfo_t* dev_get_file(int fd, int pid, ewokos_addr_t node) {
-        return dev_get_file_seeded(fd, pid, node, NULL);
+    pid = file_owner_pid(pid);
+
+    pthread_mutex_lock(&_files_lock);
+    fsinfo_t* info = file_get_cache(fd, pid, node);
+    if(info == NULL)
+        info = file_clone_same_owner_node(fd, pid, node);
+    pthread_mutex_unlock(&_files_lock);
+    if(info != NULL)
+        return info;
+
+    fsinfo_t i;
+    if(vfs_get_by_node(node, &i) != 0)
+        return NULL;
+
+    pthread_mutex_lock(&_files_lock);
+    info = file_get_cache(fd, pid, node);
+    if(info == NULL)
+        info = file_add(fd, pid, &i);
+    pthread_mutex_unlock(&_files_lock);
+    return info;
 }
 
 int dev_update_file(int fd, int from_pid, fsinfo_t* finfo) {
-    fsinfo_t* info = dev_get_file(fd, from_pid, finfo->node);
-    if(info == NULL)
+    if(finfo == NULL)
         return -1;
-    memcpy(info, finfo, sizeof(fsinfo_t));
-    return 0;
+    /* insert-or-overwrite: net effect matches the old lookup+memcpy */
+    pthread_mutex_lock(&_files_lock);
+    fsinfo_t* info = file_add(fd, from_pid, finfo);
+    pthread_mutex_unlock(&_files_lock);
+    return (info == NULL) ? -1 : 0;
 }
 
 static void do_open(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
@@ -227,7 +293,9 @@ static void do_open(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
     }
     PF->addi(out, res);
     if(res == 0) {
+        pthread_mutex_lock(&_files_lock);
         file_add(fd, from_pid, &info);
+        pthread_mutex_unlock(&_files_lock);
         PF->add(out, &info, sizeof(fsinfo_t));
     }
     else
@@ -265,12 +333,15 @@ static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
      * for the fd (already closed, or the driver restarted), so skip the
      * device close entirely: there is nothing to release.
      */
-    fsinfo_t* info = dev_get_file(fd, owner_pid, node);
+    fsinfo_t finfo;
+    bool has_info = (dev_fetch_file(fd, owner_pid, node, &finfo) == 0);
 
-    if(info != NULL && dev != NULL && dev->close != NULL) {
-        dev->close(dev, fd, owner_pid, node, info, p);
+    if(has_info && dev != NULL && dev->close != NULL) {
+        dev->close(dev, fd, owner_pid, node, &finfo, p);
     }
+    pthread_mutex_lock(&_files_lock);
     file_del(fd, owner_pid, node);
+    pthread_mutex_unlock(&_files_lock);
 }
 
 static void do_dup(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
@@ -291,10 +362,12 @@ static void do_dup(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
      * fsinfo.data, so falling back to node-level lookup on the first access of
      * the duplicated fd would lose the socket instance binding.
      */
+    pthread_mutex_lock(&_files_lock);
     file_del(dup_fd, dup_owner_pid, node);
     if(fsinfo != NULL) {
         file_add(dup_fd, dup_owner_pid, fsinfo);
     }
+    pthread_mutex_unlock(&_files_lock);
     (void)from_pid;
 }
 
@@ -319,6 +392,7 @@ typedef struct {
     int32_t  shm_id;
     void*    addr;
     uint32_t lru;   /* higher = more recently used */
+    int32_t  pins;  /* concurrent users; pinned entries are never evicted */
 } shm_cache_t;
 static shm_cache_t _shm_cache[SHM_CACHE_NUM];
 static uint32_t _shm_cache_tick = 0;
@@ -327,32 +401,79 @@ static void* shm_cache_get(int32_t shm_id) {
     if(shm_id <= 0)
         return NULL;
 
-    int free_i = -1, lru_i = 0;
-    uint32_t lru_min = 0xffffffff;
+    pthread_mutex_lock(&_shm_lock);
     for(int i=0; i<SHM_CACHE_NUM; i++) {
         if(_shm_cache[i].addr != NULL && _shm_cache[i].shm_id == shm_id) {
             _shm_cache[i].lru = ++_shm_cache_tick;
-            return _shm_cache[i].addr;
+            _shm_cache[i].pins++;
+            void* cached = _shm_cache[i].addr;
+            pthread_mutex_unlock(&_shm_lock);
+            return cached;
         }
-        if(_shm_cache[i].addr == NULL && free_i < 0)
-            free_i = i;
-        if(_shm_cache[i].lru < lru_min) {
+    }
+    pthread_mutex_unlock(&_shm_lock);
+
+    /* map outside the lock: shmat is a kernel round-trip */
+    void* addr = shmat(shm_id, 0, 0);
+    if(addr == (void*)-1 || addr == NULL)
+        return NULL;
+
+    pthread_mutex_lock(&_shm_lock);
+    int free_i = -1, lru_i = -1;
+    uint32_t lru_min = 0xffffffff;
+    for(int i=0; i<SHM_CACHE_NUM; i++) {
+        if(_shm_cache[i].addr != NULL && _shm_cache[i].shm_id == shm_id) {
+            /* another worker cached the same segment while we were mapping */
+            _shm_cache[i].lru = ++_shm_cache_tick;
+            _shm_cache[i].pins++;
+            void* cached = _shm_cache[i].addr;
+            pthread_mutex_unlock(&_shm_lock);
+            shmdt(addr);
+            return cached;
+        }
+        if(_shm_cache[i].addr == NULL) {
+            if(free_i < 0)
+                free_i = i;
+        }
+        else if(_shm_cache[i].pins == 0 && _shm_cache[i].lru < lru_min) {
             lru_min = _shm_cache[i].lru;
             lru_i = i;
         }
     }
 
-    void* addr = shmat(shm_id, 0, 0);
-    if(addr == (void*)-1 || addr == NULL)
-        return NULL;
-
     int slot = (free_i >= 0) ? free_i : lru_i;
-    if(free_i < 0 && _shm_cache[slot].addr != NULL)
-        shmdt(_shm_cache[slot].addr); /* evict LRU */
+    if(slot < 0) {
+        /* every slot pinned by an in-flight request: hand out a one-shot
+         * mapping; shm_cache_put() detaches it */
+        pthread_mutex_unlock(&_shm_lock);
+        return addr;
+    }
+    void* evict = _shm_cache[slot].addr;
     _shm_cache[slot].shm_id = shm_id;
     _shm_cache[slot].addr = addr;
     _shm_cache[slot].lru = ++_shm_cache_tick;
+    _shm_cache[slot].pins = 1;
+    pthread_mutex_unlock(&_shm_lock);
+    if(evict != NULL)
+        shmdt(evict); /* evict unpinned LRU */
     return addr;
+}
+
+/* release a mapping obtained via shm_cache_get() */
+static void shm_cache_put(int32_t shm_id, void* addr) {
+    if(shm_id <= 0 || addr == NULL || addr == (void*)-1)
+        return;
+    pthread_mutex_lock(&_shm_lock);
+    for(int i=0; i<SHM_CACHE_NUM; i++) {
+        if(_shm_cache[i].addr == addr && _shm_cache[i].shm_id == shm_id) {
+            if(_shm_cache[i].pins > 0)
+                _shm_cache[i].pins--;
+            pthread_mutex_unlock(&_shm_lock);
+            return;
+        }
+    }
+    pthread_mutex_unlock(&_shm_lock);
+    shmdt(addr); /* one-shot mapping that never entered the cache */
 }
 
 static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
@@ -362,13 +483,12 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
     size = proto_read_int(in);
     offset = proto_read_int(in);
     int32_t shm_id = proto_read_int(in);
-        fsinfo_t seed_info;
+    fsinfo_t seed_info, finfo;
     char buffer[READ_BUF_SIZE];
     int32_t rd = -1;
 
-        proto_read_to(in, &seed_info, sizeof(fsinfo_t));
-        fsinfo_t* info = dev_get_file_seeded(fd, from_pid, node, &seed_info);
-    if(info == NULL) {
+    proto_read_to(in, &seed_info, sizeof(fsinfo_t));
+    if(dev_fetch_file_seeded(fd, from_pid, node, &seed_info, &finfo) != 0) {
         PF->addi(out, -1);
         return;
     }
@@ -394,7 +514,7 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
             PF->addi(out, -1);
         }
         else {
-            rd = dev->read(dev, fd, from_pid, info, buf, size, offset, p);
+            rd = dev->read(dev, fd, from_pid, &finfo, buf, size, offset, p);
             PF->addi(out, rd);
             if(rd > 0) {
                 if(rd > size)
@@ -411,6 +531,8 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
             if(shm_id == -1 && buf != buffer)
                 free(buf);
         }
+        if(shm_id != -1)
+            shm_cache_put(shm_id, buf);
     }
     else {
         PF->addi(out, -1);
@@ -433,12 +555,11 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
     ewokos_addr_t node = proto_read_int(in);
     offset = proto_read_int(in);
     int32_t shm_id = proto_read_int(in);
-        fsinfo_t seed_info;
+    fsinfo_t seed_info, finfo;
     int32_t wr = -1;
     
-        proto_read_to(in, &seed_info, sizeof(fsinfo_t));
-        fsinfo_t* info = dev_get_file_seeded(fd, from_pid, node, &seed_info);
-    if(info == NULL) {
+    proto_read_to(in, &seed_info, sizeof(fsinfo_t));
+    if(dev_fetch_file_seeded(fd, from_pid, node, &seed_info, &finfo) != 0) {
         PF->addi(out, -1);
         return;
     }
@@ -461,17 +582,19 @@ static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
             PF->addi(out, -1);
         }
         else {
-            size = dev->write(dev, fd, from_pid, info, data, size, offset, p);
+            size = dev->write(dev, fd, from_pid, &finfo, data, size, offset, p);
             wr = size;
-            info->state |= FS_STATE_CHANGED;
-            dev_update_file(fd, from_pid, info);
+            finfo.state |= FS_STATE_CHANGED;
+            dev_update_file(fd, from_pid, &finfo);
             PF->addi(out, size);
-            PF->add(out, info, sizeof(fsinfo_t));
+            PF->add(out, &finfo, sizeof(fsinfo_t));
             if(size < 0) {
                 PF->addi(out, errno);
             }
         }
         /* cached shm stays mapped; proto_read path owns no buffer to free */
+        if(shm_id != -1)
+            shm_cache_put(shm_id, data);
     }
     else {
         PF->addi(out, -1);
@@ -544,9 +667,9 @@ static void do_shm(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
     int size = 0;
     uint8_t contig = 0;
     if(dev != NULL && dev->shm != NULL) {
-                fsinfo_t* info = dev_get_file(fd, from_pid, node);
-        if(info != NULL)
-            shm_id = dev->shm(dev, fd, from_pid, info, &contig, &size, p);
+        fsinfo_t finfo;
+        if(dev_fetch_file(fd, from_pid, node, &finfo) == 0)
+            shm_id = dev->shm(dev, fd, from_pid, &finfo, &contig, &size, p);
     }
     PF->addi(out, shm_id)->addi(out, contig)->addi(out, size);
 }
@@ -555,11 +678,10 @@ static void do_fcntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
     int fd = proto_read_int(in);
     ewokos_addr_t node = proto_read_int(in);
     int32_t cmd = proto_read_int(in);
-        fsinfo_t seed_info;
+    fsinfo_t seed_info, finfo;
 
-        proto_read_to(in, &seed_info, sizeof(fsinfo_t));
-        fsinfo_t* info = dev_get_file_seeded(fd, from_pid, node, &seed_info);
-    if(info == NULL) {
+    proto_read_to(in, &seed_info, sizeof(fsinfo_t));
+    if(dev_fetch_file_seeded(fd, from_pid, node, &seed_info, &finfo) != 0) {
         PF->addi(out, -1);
         return;
     }
@@ -573,14 +695,14 @@ static void do_fcntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 
     int res = -1;
     if(dev != NULL && dev->fcntl != NULL) {
-        res = dev->fcntl(dev, fd, from_pid, info, cmd, &arg_in, &arg_out, p);
+        res = dev->fcntl(dev, fd, from_pid, &finfo, cmd, &arg_in, &arg_out, p);
         if(res == 0)
-            dev_update_file(fd, from_pid, info);
+            dev_update_file(fd, from_pid, &finfo);
     }
     PF->clear(&arg_in);
 
     PF->addi(out, res)->
-            add(out, info, sizeof(fsinfo_t))->
+            add(out, &finfo, sizeof(fsinfo_t))->
             add(out, arg_out.data, arg_out.size);
     PF->clear(&arg_out);
 }
@@ -589,9 +711,9 @@ static void do_flush(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
     (void)from_pid;
     int fd = proto_read_int(in);
     ewokos_addr_t node = proto_read_int(in);
-        fsinfo_t* info = dev_get_file(fd, from_pid, node);
+    fsinfo_t finfo;
 
-    if(info == NULL) {
+    if(dev_fetch_file(fd, from_pid, node, &finfo) != 0) {
         PF->addi(out, -1)->addi(out, ENOENT);
         return;
     }
@@ -603,7 +725,7 @@ static void do_flush(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 
     int ret = 0;
     if(dev != NULL && dev->flush != NULL) {
-        ret = dev->flush(dev, fd, from_pid, info, p);
+        ret = dev->flush(dev, fd, from_pid, &finfo, p);
     }
     PF->addi(out, ret);
 }
@@ -875,16 +997,16 @@ static void do_dev_cntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out,
 static void do_poll(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
     int fd = proto_read_int(in);
     ewokos_addr_t node = proto_read_int(in);
-        fsinfo_t seed_info;
+    fsinfo_t seed_info, finfo;
 
     PF->addi(out, -1);
-        proto_read_to(in, &seed_info, sizeof(fsinfo_t));
-        fsinfo_t* info = dev_get_file_seeded(fd, from_pid, node, &seed_info);
-    if(info == NULL || dev == NULL || dev->check_poll_events == NULL) {
+    proto_read_to(in, &seed_info, sizeof(fsinfo_t));
+    if(dev_fetch_file_seeded(fd, from_pid, node, &seed_info, &finfo) != 0 ||
+            dev == NULL || dev->check_poll_events == NULL) {
         return;
     }
 
-    uint32_t events = dev->check_poll_events(dev, fd, from_pid, info, p);
+    uint32_t events = dev->check_poll_events(dev, fd, from_pid, &finfo, p);
     PF->clear(out)->addi(out, 0)->addi(out, events);
 }
 

@@ -1,8 +1,13 @@
+# use ccache transparently when installed (brew install ccache)
+CCACHE := $(shell command -v ccache 2>/dev/null)
+
 AR = arm-none-eabi-ar
 AS = arm-none-eabi-as
-CC = arm-none-eabi-gcc
-CXX = arm-none-eabi-c++
-LD = arm-none-eabi-ld
+CC = $(CCACHE) arm-none-eabi-gcc
+CXX = $(CCACHE) arm-none-eabi-c++
+LD_BIN = arm-none-eabi-ld
+# ensure the output directory exists before linking (parallel-safe)
+LD = mkdir -p $(dir $@) && $(LD_BIN)
 OBJDUMP = arm-none-eabi-objdump
 LIBGCC = $(shell $(CC) -print-libgcc-file-name)
 

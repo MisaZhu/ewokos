@@ -2,13 +2,18 @@ all: x_libs
 	@echo "all done."
 
 DIRS = x x++ widget++
-x_libs:
-	@for dir in $(DIRS); do \
-		$(MAKE) -C $$dir || exit 1; \
-	done
+x_libs: $(DIRS)
 
-CLEAN_DIRS = x x++ widget++
+# build chain: x -> x++ -> widget++
+x++: x
+widget++: x++
+
+$(DIRS):
+	@$(MAKE) -C $@
+
+.PHONY: all x_libs clean $(DIRS)
+
 clean:
-	@for dir in $(CLEAN_DIRS); do \
+	@for dir in $(DIRS); do \
 		$(MAKE) -C $$dir clean; \
 	done

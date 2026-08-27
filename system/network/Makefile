@@ -7,19 +7,19 @@ all: mkdirs network_libs bins sbins network_driver
 	@echo "all done."
 
 mkdirs:
-	@mkdir -p ${TARGET_DIR}/drivers
-	@cp -r etc ${TARGET_DIR}
+	@mkdir -p ${TARGET_DIR}/drivers ${TARGET_DIR}/etc
+	@cp -Rp etc/. ${TARGET_DIR}/etc/
 
 network_libs:
 	cd libs; $(MAKE)
 
-bins: network_libs
+bins: mkdirs network_libs
 	cd bin; $(MAKE)
 
-sbins: network_libs
+sbins: mkdirs network_libs
 	cd sbin; $(MAKE)
 
-network_driver: network_libs
+network_driver: mkdirs network_libs
 	cd drivers; $(MAKE)
 
 CLEAN_DIRS = libs bin sbin drivers

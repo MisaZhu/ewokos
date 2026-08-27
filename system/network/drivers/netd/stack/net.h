@@ -121,7 +121,7 @@ extern int
 net_event_handler(void);
 
 extern void
-intr_loop(void);
+intr_step(void);
 
 extern int
 net_interrupt(void);

@@ -123,15 +123,21 @@ int intr_poll_once(void) {
     return handled;
 }
 
-void intr_loop(void) {
+/*
+ * One protocol-engine round: drain softirqs, poll the tap, run timers,
+ * flush deferred VFS wakeups, then sleep by the adaptive cadence below.
+ * Driven by the main thread via device_run()'s loop_step (under
+ * IPC_MULTI_TASK the kernel worker pool serves IPC and never touches the
+ * main context), so netd needs no dedicated protocol thread.
+ */
+void intr_step(void) {
     struct irq_entry *entry;
-    uint32_t sleep_us = NETD_BUSY_SLEEP_US;
-    uint32_t tap_rounds = 0;
-    while(1){
+    static uint32_t sleep_us = NETD_BUSY_SLEEP_US;
+    static uint32_t tap_rounds = 0;
+    {
         int protocol_more_pending = 0;
         int event_ready = 0;
         int tap_pending = 0;
-        int task_ready = 0;
         int tcp_timer_due = -1;
 
         while (softirq_take(SIGNET)) {
@@ -168,7 +174,7 @@ void intr_loop(void) {
 
         tcp_timer_due = tcp_timer_due_us();
 
-        if (protocol_more_pending || event_ready || task_ready) {
+        if (protocol_more_pending || event_ready) {
             sleep_us = NETD_BUSY_SLEEP_US;
         } else if (tap_pending) {
             /*
@@ -224,6 +230,14 @@ void intr_loop(void) {
                 sleep_us = NETD_DEEP_IDLE_SLEEP_MAX_US;
             }
         }
+        /*
+         * Deliver the VFS wakeups queued by this round's packet/timer
+         * processing (and by pool-worker teardown) with no netd lock held.
+         * Flushing here, after the stack work and before the sleep, gives
+         * zero added latency for stack-generated RD/WR edges and replaces
+         * the old dedicated flusher thread.
+         */
+        task_flush_wakeups();
         usleep(sleep_us);
     }
     return;

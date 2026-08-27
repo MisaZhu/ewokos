@@ -276,7 +276,7 @@ ether_tap_isr(unsigned int irq, void *id)
      * delivers ~23 frames per 32KB TCP window -- well under the 256-frame
      * burst budget -- so gating the fast path on a FULL burst (the previous
      * more_work-only condition) classified every bulk-transfer round as idle
-     * and let intr_loop back off to the 50ms deep sleep between windows,
+     * and let intr_step back off to the 50ms deep sleep between windows,
      * capping throughput near 32KB/50ms (~600KB/s). Idle rounds still return
      * -1 (delivered == 0), so the anti-spin backoff is preserved.
      */

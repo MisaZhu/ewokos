@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <pthread.h>
 
 #include "util.h"
 #include "net.h"
@@ -38,11 +39,21 @@ static struct sock socks[SOCKS_MAX];
 static int tcp_desc_to_sock[TCP_PCB_SIZE];
 static int udp_desc_to_sock[UDP_PCB_SIZE];
 
+/*
+ * Protects the socks[] slot allocation state (used flag), the desc->sock
+ * reverse maps and the RAW ICMP receive queues against concurrent IPC pool
+ * workers. It is a LEAF lock: never call tcp_xxx/udp_xxx stack functions
+ * (which take the stack mutex) while holding it.
+ */
+static pthread_mutex_t socks_lock;
+
 void sock_init_maps(void) {
     memset(tcp_desc_to_sock, -1, sizeof(tcp_desc_to_sock));
     memset(udp_desc_to_sock, -1, sizeof(udp_desc_to_sock));
+    pthread_mutex_init(&socks_lock, NULL);
 }
 
+/* callers must hold socks_lock */
 static void sock_map_register(struct sock *s) {
     int id = indexof(socks, s);
     if (s->type == SOCK_STREAM && s->desc >= 0 && s->desc < TCP_PCB_SIZE)
@@ -51,6 +62,7 @@ static void sock_map_register(struct sock *s) {
         udp_desc_to_sock[s->desc] = id;
 }
 
+/* callers must hold socks_lock */
 static void sock_map_unregister(struct sock *s) {
     int id = indexof(socks, s);
     if (s->type == SOCK_STREAM && s->desc >= 0 && s->desc < TCP_PCB_SIZE) {
@@ -115,12 +127,15 @@ sock_alloc(void)
 {
     struct sock *entry;
 
+    pthread_mutex_lock(&socks_lock);
     for (entry = socks; entry < tailof(socks); entry++) {
         if (!entry->used) {
             entry->used = 1;
+            pthread_mutex_unlock(&socks_lock);
             return entry;
         }
     }
+    pthread_mutex_unlock(&socks_lock);
     errorf("sock_alloc exhausted: used=%d max=%d", sock_used_count(), SOCKS_MAX);
     return NULL;
 }
@@ -128,17 +143,22 @@ sock_alloc(void)
 static int
 sock_free(struct sock *s)
 {
+    struct icmp_packet *packet = NULL;
+
+    pthread_mutex_lock(&socks_lock);
     sock_map_unregister(s);
-    // Free ICMP packet queue for RAW sockets
+    // Detach the ICMP packet queue of RAW sockets, free it outside the lock
     if (s->type == SOCK_RAW) {
-        struct icmp_packet *packet = s->recv_queue;
-        while (packet) {
-            struct icmp_packet *next = packet->next;
-            free(packet);
-            packet = next;
-        }
+        packet = s->recv_queue;
     }
     memset(s, 0, sizeof(*s));
+    pthread_mutex_unlock(&socks_lock);
+
+    while (packet) {
+        struct icmp_packet *next = packet->next;
+        free(packet);
+        packet = next;
+    }
     return 0;
 }
 
@@ -147,6 +167,10 @@ sock_get(int id)
 {
     if (id < 0 || id >= (int)countof(socks)) {
         /* out of range */
+        return NULL;
+    }
+    if (!socks[id].used) {
+        /* slot free or already closed */
         return NULL;
     }
     return &socks[id];
@@ -200,7 +224,9 @@ sock_open(int domain, int type, int protocol)
         sock_free(s);
         return -1;
     }
+    pthread_mutex_lock(&socks_lock);
     sock_map_register(s);
+    pthread_mutex_unlock(&socks_lock);
     return indexof(socks, s);
 }
 
@@ -271,82 +297,42 @@ sock_recvfrom(int id, void *buf, size_t n, struct sockaddr *addr, int *addrlen)
         return -1;
     case SOCK_RAW:
         switch (s->family) {
-        case AF_INET:
-            // Check if there are packets in the receive queue
+        case AF_INET: {
+            struct icmp_packet *packet = NULL;
+
+            // Non-blocking pop from the receive queue; the netd task layer
+            // enforces SO_RCVTIMEO by re-issuing the request, so a pool
+            // worker must never park in here.
+            pthread_mutex_lock(&socks_lock);
             if (s->recv_queue) {
-                struct icmp_packet *packet = s->recv_queue;
-                
-                // Remove packet from queue
+                packet = s->recv_queue;
                 s->recv_queue = packet->next;
                 if (!s->recv_queue) {
                     s->recv_queue_tail = NULL;
                 }
-                
-                // Copy packet data to buffer
-                size_t copy_len = (n < packet->len) ? n : packet->len;
-                memcpy(buf, packet->data, copy_len);
-                
-                // Set source address
-                if (addr && addrlen) {
-                    ((struct sockaddr_in *)addr)->sin_family = AF_INET;
-                    ((struct sockaddr_in *)addr)->sin_addr = packet->src;
-                    ((struct sockaddr_in *)addr)->sin_port = 0; // ICMP doesn't use port
-                    *addrlen = sizeof(struct sockaddr_in);
-                }
-                
-                // Free the packet
-                free(packet);
-                return copy_len;
             }
-            
-            // If no packets and timeout is set, wait with timeout
-            uint32_t rcv_timeout = s->rcv_timeout.tv_sec * 1000000 + s->rcv_timeout.tv_usec;
-            if (rcv_timeout > 0) {
-                struct timeval start, now, diff;
-                gettimeofday(&start, NULL);
-                
-                while (1) {
-                    // Check if packet arrived
-                    if (s->recv_queue) {
-                        struct icmp_packet *packet = s->recv_queue;
-                        
-                        // Remove packet from queue
-                        s->recv_queue = packet->next;
-                        if (!s->recv_queue) {
-                            s->recv_queue_tail = NULL;
-                        }
-                        
-                        // Copy packet data to buffer
-                        size_t copy_len = (n < packet->len) ? n : packet->len;
-                        memcpy(buf, packet->data, copy_len);
-                        
-                        // Set source address
-                        if (addr && addrlen) {
-                            ((struct sockaddr_in *)addr)->sin_family = AF_INET;
-                            ((struct sockaddr_in *)addr)->sin_addr = packet->src;
-                            ((struct sockaddr_in *)addr)->sin_port = 0; // ICMP doesn't use port
-                            *addrlen = sizeof(struct sockaddr_in);
-                        }
-                        
-                        // Free the packet
-                        free(packet);
-                        return copy_len;
-                    }
-                    
-                    // Check if timeout occurred
-                    gettimeofday(&now, NULL);
-                    timersub(&now, &start, &diff);
-                    if ((diff.tv_sec * 1000000 + diff.tv_usec) >= rcv_timeout) {
-                        errno = ETIMEDOUT;
-                        return -1;
-                    }
-                    
-                    // Sleep for a short time
-                    proc_usleep(10000);
-                }
+            pthread_mutex_unlock(&socks_lock);
+
+            if (!packet) {
+                errno = EAGAIN;
+                return -1;
             }
-            
-            return -1; // No packets available and no timeout set
+
+            // Copy packet data to buffer
+            size_t copy_len = (n < packet->len) ? n : packet->len;
+            memcpy(buf, packet->data, copy_len);
+
+            // Set source address
+            if (addr && addrlen) {
+                ((struct sockaddr_in *)addr)->sin_family = AF_INET;
+                ((struct sockaddr_in *)addr)->sin_addr = packet->src;
+                ((struct sockaddr_in *)addr)->sin_port = 0; // ICMP doesn't use port
+                *addrlen = sizeof(struct sockaddr_in);
+            }
+
+            free(packet);
+            return copy_len;
+        }
         }
         return -1;
     default:
@@ -466,7 +452,9 @@ sock_accept(int id, struct sockaddr *addr, int *addrlen)
             new_s->family = s->family;
             new_s->type = s->type;
             new_s->desc = ret;
+            pthread_mutex_lock(&socks_lock);
             sock_map_register(new_s);
+            pthread_mutex_unlock(&socks_lock);
             ret = indexof(socks, new_s);
             return ret;
         }
@@ -555,7 +543,11 @@ sock_send(int id, const void *buf, size_t n)
 void
 sock_add_icmp_packet(const uint8_t *data, size_t len, ip_addr_t src, ip_addr_t dst)
 {
+    int wake_ids[8];
+    int wake_cnt = 0;
+
     // Find all RAW sockets with IPPROTO_ICMP
+    pthread_mutex_lock(&socks_lock);
     for (int i = 0; i < countof(socks); i++) {
         struct sock *s = &socks[i];
         if (s->used && s->type == SOCK_RAW && s->protocol == IPPROTO_ICMP) {
@@ -568,7 +560,7 @@ sock_add_icmp_packet(const uint8_t *data, size_t len, ip_addr_t src, ip_addr_t d
                 packet->src = src;
                 packet->dst = dst;
                 packet->next = NULL;
-                
+
                 // Add to queue
                 if (s->recv_queue_tail) {
                     s->recv_queue_tail->next = packet;
@@ -576,10 +568,16 @@ sock_add_icmp_packet(const uint8_t *data, size_t len, ip_addr_t src, ip_addr_t d
                     s->recv_queue = packet;
                 }
                 s->recv_queue_tail = packet;
-                task_wakeup_raw_readers(indexof(socks, s));
+                if (wake_cnt < (int)countof(wake_ids))
+                    wake_ids[wake_cnt++] = i;
             }
         }
     }
+    pthread_mutex_unlock(&socks_lock);
+
+    // Wake readers outside socks_lock: the task layer takes its own locks
+    for (int i = 0; i < wake_cnt; i++)
+        task_wakeup_raw_readers(wake_ids[i]);
 }
 
 // Set socket options
@@ -793,28 +791,6 @@ sock_data_readable(int id)
 }
 
 int
-sock_tcp_scan_info(int id, int *desc, int *state, int *remain)
-{
-    struct sock *s;
-
-    s = sock_get(id);
-    if (!s || s->type != SOCK_STREAM) {
-        return -1;
-    }
-
-    if (desc) {
-        *desc = s->desc;
-    }
-    if (state) {
-        *state = tcp_state(s->desc);
-    }
-    if (remain) {
-        *remain = tcp_recv_remain(s->desc);
-    }
-    return 0;
-}
-
-int
 sock_writable(int id)
 {
     struct sock *s;
@@ -847,6 +823,26 @@ sock_poll_writable(int id)
     return 1;
 }
 
+/*
+ * True while a TCP connect is still inside the handshake
+ * (SYN_SENT/SYN_RECEIVED). tcp_poll_writable() reports non-transfer states
+ * as writable, so without this check a connect() blocked on VFS_EVT_WR
+ * would busy-spin instead of sleeping until the handshake completes.
+ */
+int
+sock_connect_pending(int id)
+{
+    struct sock *s;
+    int state;
+
+    s = sock_get(id);
+    if (!s || s->type != SOCK_STREAM) {
+        return 0;
+    }
+    state = tcp_state(s->desc);
+    return (state == TCP_STATE_SYN_SENT || state == TCP_STATE_SYN_RECEIVED);
+}
+
 int
 sock_get_desc(int id)
 {
@@ -870,15 +866,25 @@ sock_get_type(int id)
 int
 sock_id_from_tcp_desc(int tcp_desc)
 {
+    int id;
+
     if (tcp_desc < 0 || tcp_desc >= TCP_PCB_SIZE)
         return -1;
-    return tcp_desc_to_sock[tcp_desc];
+    pthread_mutex_lock(&socks_lock);
+    id = tcp_desc_to_sock[tcp_desc];
+    pthread_mutex_unlock(&socks_lock);
+    return id;
 }
 
 int
 sock_id_from_udp_desc(int udp_desc)
 {
+    int id;
+
     if (udp_desc < 0 || udp_desc >= UDP_PCB_SIZE)
         return -1;
-    return udp_desc_to_sock[udp_desc];
+    pthread_mutex_lock(&socks_lock);
+    id = udp_desc_to_sock[udp_desc];
+    pthread_mutex_unlock(&socks_lock);
+    return id;
 }

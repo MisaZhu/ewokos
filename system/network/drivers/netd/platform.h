@@ -57,9 +57,8 @@ int intr_poll_once(void);
 #define SIGMAX    0x5
 
 
-extern int dflag[16];
-extern int dcnt;
-#define TRACE()     do{dflag[dcnt%(sizeof(dflag)/sizeof(int))] = __LINE__; dcnt++;}while(0)
+/* Debug trace hook, disabled (dflag/dcnt ring buffer removed). */
+#define TRACE()     do{}while(0)
 
 #define mutex_lock(x)	      pthread_mutex_lock((void*)x)
 #define mutex_unlock(x)     pthread_mutex_unlock((void*)x)

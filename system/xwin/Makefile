@@ -3,28 +3,30 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 ROOT_DIR = ..
 
 
-all: mkdirs
+DIRS = libs drivers bin sbin xwm/opencde xwm/ewokwm apps
+all: mkdirs $(DIRS)
 	@echo "all done."
+
+# everything else links against the x libs
+drivers bin sbin xwm/opencde xwm/ewokwm apps: libs
+$(DIRS): mkdirs
+	@$(MAKE) -C $@
+
+.PHONY: all mkdirs clean $(DIRS)
 
 mkdirs:
 	@mkdir -p ${TARGET_DIR}/drivers
 	@mkdir -p ${TARGET_DIR}/apps
 	@mkdir -p ${TARGET_DIR}/sbin/x
 	@mkdir -p ${TARGET_DIR}/bin/x
-	@cp -r data ${TARGET_DIR}
-	@cp -r usr ${TARGET_DIR}
-	@cp -r etc ${TARGET_DIR}
+	@mkdir -p ${TARGET_DIR}/data ${TARGET_DIR}/usr ${TARGET_DIR}/etc
+	@cp -Rp data/. ${TARGET_DIR}/data/
+	@cp -Rp usr/. ${TARGET_DIR}/usr/
+	@cp -Rp etc/. ${TARGET_DIR}/etc/
 	@mkdir -p ${TARGET_DIR}/usr/x/themes/default
-	@cp -r usr/x/themes/opencde/* ${TARGET_DIR}/usr/x/themes/default/
+	@cp -Rp usr/x/themes/opencde/. ${TARGET_DIR}/usr/x/themes/default/
 
-DIRS = libs drivers bin sbin xwm/opencde xwm/ewokwm apps
-all: mkdirs
-	@for dir in $(DIRS); do \
-		$(MAKE) -C $$dir || exit 1; \
-	done
-
-CLEAN_DIRS = libs drivers bin sbin xwm/opencde xwm/ewokwm apps
 clean:
-	@for dir in $(CLEAN_DIRS); do \
+	@for dir in $(DIRS); do \
 		$(MAKE) -C $$dir clean; \
 	done

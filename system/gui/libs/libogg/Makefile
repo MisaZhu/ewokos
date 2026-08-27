@@ -23,22 +23,16 @@ $(LIBOGG): $(OBJS) Makefile
 	cp -r include/* $(TARGET_DIR)/include
 
 $(ARCH)/%.o: %.c
-	@mkdir -p $(dir $@)
-	@mkdir -p $(dir $(DEPDIR)/$*.Tpo)
-	$(CC) $(CFLAGS) -std=c99 -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
-	@mv -f $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+	@mkdir -p $(dir $@) $(DEPDIR)/$(dir $*)
+	$(CC) $(CFLAGS) -std=c99 -MD -MP -MT $@ -MF $(DEPDIR)/$*.Po -c -o $@ $<
 
 $(ARCH)/%.o: %.cpp
-	@mkdir -p $(dir $@)
-	@mkdir -p $(dir $(DEPDIR)/$*.Tpo)
-	$(CXX) $(CPPFLAGS) -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
-	@mv -f $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+	@mkdir -p $(dir $@) $(DEPDIR)/$(dir $*)
+	$(CXX) $(CPPFLAGS) -MD -MP -MT $@ -MF $(DEPDIR)/$*.Po -c -o $@ $<
 
 $(ARCH)/%.o: %.S
-	@mkdir -p $(dir $@)
-	@mkdir -p $(dir $(DEPDIR)/$*.Tpo)
-	$(CC) $(CFLAGS) -std=c99 -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
-	@mv -f $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+	@mkdir -p $(dir $@) $(DEPDIR)/$(dir $*)
+	$(CC) $(CFLAGS) -std=c99 -MD -MP -MT $@ -MF $(DEPDIR)/$*.Po -c -o $@ $<
 
 clean:
 	rm -rf $(ARCH) libogg.a

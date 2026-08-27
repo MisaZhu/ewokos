@@ -1683,6 +1683,12 @@ AGAIN:
     return id;
 }
 
+/*
+ * Read-only state query, valid for BOTH pcb modes: the socket layer's poll
+ * path (sock_connect_pending()) inspects socket-mode pcbs through here, so
+ * no RFC793-mode guard. A missing pcb is a normal race with teardown (poll
+ * after release), not an error worth logging.
+ */
 int
 tcp_state(int id)
 {
@@ -1692,14 +1698,9 @@ tcp_state(int id)
     mutex_lock(&mutex);
     pcb = tcp_pcb_get(id);
     if (!pcb) {
-        errorf("pcb not found %d\n", id);
+        debugf("pcb not found %d", id);
         mutex_unlock(&mutex);
         return -17;
-    }
-    if (pcb->mode != TCP_PCB_MODE_RFC793) {
-        errorf("not opened in rfc793 mode");
-        mutex_unlock(&mutex);
-        return -1;
     }
     state = pcb->state;
     mutex_unlock(&mutex);
@@ -2109,7 +2110,7 @@ tcp_timer_due_us(void)
 /*
  * True while any live connection has unacknowledged segments in flight AND
  * the most recent (re)transmission is fresh (within ~50ms), i.e. the peer's
- * ACK is plausibly imminent. intr_loop uses this to keep the poll cadence
+ * ACK is plausibly imminent. intr_step uses this to keep the poll cadence
  * fast between a TX burst and the ACKs: the retransmit-queue RTO reported by
  * tcp_timer_due_us() is hundreds of ms away, but ACKs land within ~1 RTT and
  * re-open the send path, so sleeping toward the RTO deadline stalls every

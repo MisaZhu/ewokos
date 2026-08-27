@@ -35,11 +35,11 @@ final:
 	@echo "all done."
 	
 extra: 
-	make HW=$(HW) -C $(EWOKOS_ROOT_DIR)/sw.extra
+	$(MAKE) HW=$(HW) -C $(EWOKOS_ROOT_DIR)/sw.extra
 	cp -r $(EWOKOS_ROOT_DIR)/sw.extra/usr $(EWOKOS_ROOT_DIR)/system/build_$(ARCH)/$(HW)/rootfs/
 	cp -r $(EWOKOS_ROOT_DIR)/sw.extra/data $(EWOKOS_ROOT_DIR)/system/build_$(ARCH)/$(HW)/rootfs/
-	@make final
+	@$(MAKE) final
 
 projs:
-	make HW=$(HW) -C $(EWOKOS_ROOT_DIR)/projects
-	@make final
+	$(MAKE) HW=$(HW) -C $(EWOKOS_ROOT_DIR)/projects
+	@$(MAKE) final

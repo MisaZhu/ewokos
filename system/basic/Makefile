@@ -11,7 +11,7 @@ basic_libs:
 		$(MAKE) -C $$dir || exit 1; \
 	done
 
-basic_drivers: basic_libs
+basic_drivers: mkdirs basic_libs
 	cd drivers;$(MAKE)
 
 mkdirs:
@@ -21,10 +21,10 @@ mkdirs:
 	@mkdir -p ${TARGET_DIR}/drivers/proc
 	@mkdir -p ${TARGET_DIR}/home/root
 	@chmod 750 ${TARGET_DIR}/home/root
-	@cp -r etc ${TARGET_DIR}
+	@cp -Rp etc/. ${TARGET_DIR}/etc/
 
 BUILTIN_APPS_DIRS = sys sbin bin
-builtin_apps: basic_libs
+builtin_apps: mkdirs basic_libs
 	@for dir in $(BUILTIN_APPS_DIRS); do \
 		$(MAKE) -C $$dir || exit 1; \
 	done

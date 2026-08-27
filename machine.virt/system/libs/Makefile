@@ -7,8 +7,7 @@ basic_libs:
 		$(MAKE) -C $$dir || exit 1; \
 	done
 
-CLEAN_DIRS = arch_virt bsp
 clean:
-	@for dir in $(CLEAN_DIRS); do \
+	@for dir in $(DIRS); do \
 		$(MAKE) -C $$dir clean; \
 	done

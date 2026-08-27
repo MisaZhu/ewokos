@@ -1,19 +1,19 @@
 BASIC_DIRS = ttyd virtfsd powerd
-basic: 
-	@for dir in $(BASIC_DIRS); do \
-		$(MAKE) -C $$dir || exit 1; \
-	done
+basic: $(BASIC_DIRS)
 
 GUI_DIRS = fbdisplayd moused keybd snd
-gui:
-	@for dir in $(GUI_DIRS); do \
-		$(MAKE) -C $$dir || exit 1; \
-	done
+gui: $(GUI_DIRS)
 
+$(BASIC_DIRS) $(GUI_DIRS):
+	@$(MAKE) -C $@
+
+NET_DIRS = net
 network:
 	cd net; $(MAKE)
 
-CLEAN_DIRS = ttyd virtfsd fbdisplayd g2dd moused keybd snd powerd net
+.PHONY: basic gui network clean $(BASIC_DIRS) $(GUI_DIRS) $(NET_DIRS)
+
+CLEAN_DIRS = $(BASIC_DIRS) $(GUI_DIRS) $(NET_DIRS)
 clean:	
 	@for dir in $(CLEAN_DIRS); do \
 		$(MAKE) -C $$dir clean; \
