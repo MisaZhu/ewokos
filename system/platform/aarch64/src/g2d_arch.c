@@ -11,6 +11,24 @@
 extern "C" {
 #endif
 
+/* scalar per-pixel blend, same math as the C reference: effective alpha
+   (src_a * alpha) >> 8 is applied by the callers, then the /255 blend.
+   shared by the simd tails and the cpu blt below. */
+static inline uint32_t g2d_blend_argb_scalar(uint32_t dst_color, uint8_t a,
+		uint8_t r, uint8_t g, uint8_t b) {
+	uint32_t oa = (dst_color >> 24) & 0xff;
+	uint32_t dr = (dst_color >> 16) & 0xff;
+	uint32_t dg = (dst_color >> 8) & 0xff;
+	uint32_t db = dst_color & 0xff;
+	uint32_t inv_a = 255 - a;
+
+	oa = oa + (255 - oa) * a / 255;
+	dr = (r * a + dr * inv_a) / 255;
+	dg = (g * a + dg * inv_a) / 255;
+	db = (b * a + db * inv_a) / 255;
+	return (oa << 24) | (dr << 16) | (dg << 8) | db;
+}
+
 #ifdef ARCH_BOOST
 #include <arm_neon.h>
 
@@ -650,23 +668,9 @@ static inline void g2d_alpha16_scaled_checked(uint32_t *dp, const uint32_t *sp,
     g2d_alpha16_blend_scaled(dp, fg, alpha_vec);
 }
 
-/* scalar tail blending one pixel at a time, same math as the C reference:
-   effective alpha (src_a * alpha) >> 8, then the /255 blend. */
-static inline uint32_t g2d_blend_argb_scalar(uint32_t dst_color, uint8_t a,
-		uint8_t r, uint8_t g, uint8_t b) {
-	uint32_t oa = (dst_color >> 24) & 0xff;
-	uint32_t dr = (dst_color >> 16) & 0xff;
-	uint32_t dg = (dst_color >> 8) & 0xff;
-	uint32_t db = dst_color & 0xff;
-	uint32_t inv_a = 255 - a;
-
-	oa = oa + (255 - oa) * a / 255;
-	dr = (r * a + dr * inv_a) / 255;
-	dg = (g * a + dg * inv_a) / 255;
-	db = (b * a + db * inv_a) / 255;
-	return (oa << 24) | (dr << 16) | (dg << 8) | db;
-}
-
+/* alpha blit: 1:1 goes through simd blocks with per-block transparent/
+   opaque checks and a zero-padded scalar tail; scaled blits gather
+   nearest-neighbor and blend per pixel with g2d_blend_argb_scalar. */
 void arch_g2d_blt_alpha(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
 		int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h,
@@ -1623,6 +1627,62 @@ void arch_g2d_rotate(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_cont
 	}
 }
 
+/* alpha fill: simd rows with a scalar head for 16-byte realignment (the
+   surface may be Device-mapped framebuffer memory where any unaligned
+   access faults) and a scalar tail; the fill color is constant so the
+   de-interleaved fg vector and the effective alpha are set up once. */
+void arch_g2d_fill_alpha(uint32_t* argb, int32_t argb_w, int32_t argb_h,
+		int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
+	uint8_t a;
+	uint8_t rb, gb, bb;
+	uint8x16x4_t fg;
+	uint8x8_t a8;
+
+	if(argb == NULL)
+		return;
+	a = (uint8_t)((color >> 24) & 0xff);
+	if(a == 0)
+		return;
+	if(x < 0) { w += x; x = 0; }
+	if(y < 0) { h += y; y = 0; }
+	if(w <= 0 || h <= 0 || x >= argb_w || y >= argb_h)
+		return;
+	if(x + w > argb_w) w = argb_w - x;
+	if(y + h > argb_h) h = argb_h - y;
+
+	rb = (uint8_t)((color >> 16) & 0xff);
+	gb = (uint8_t)((color >> 8) & 0xff);
+	bb = (uint8_t)(color & 0xff);
+	/* vld4q ordering of an argb pixel stream: val[0]=b,1=g,2=r,3=a */
+	fg.val[0] = vdupq_n_u8(bb);
+	fg.val[1] = vdupq_n_u8(gb);
+	fg.val[2] = vdupq_n_u8(rb);
+	fg.val[3] = vdupq_n_u8(a);
+	a8 = vdup_n_u8(a);
+
+	for(int32_t row = y; row < y + h; row++) {
+		uint32_t* dp = argb + row * argb_w + x;
+		int32_t cx = 0;
+
+		/* scalar head realigns the row start to 16 bytes */
+		uintptr_t dpa = (uintptr_t)dp;
+		if(dpa & 0xF) {
+			int32_t head = (int32_t)((16 - (dpa & 0xF)) >> 2);
+			if(head > w)
+				head = w;
+			for(; cx < head; cx++)
+				dp[cx] = g2d_blend_argb_scalar(dp[cx], a, rb, gb, bb);
+		}
+
+		for(; cx <= w - 16; cx += 16)
+			g2d_alpha16_blend_core(dp + cx, fg, a8, a8);
+
+		/* scalar tail, at most 15 pixels per row */
+		for(; cx < w; cx++)
+			dp[cx] = g2d_blend_argb_scalar(dp[cx], a, rb, gb, bb);
+	}
+}
+
 #else /* !ARCH_BOOST: portable fallback, same semantics as the C reference */
 
 int32_t arch_g2d_init(void) {
@@ -1687,6 +1747,83 @@ void arch_g2d_rotate(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_cont
 }
 
 #endif /* ARCH_BOOST */
+
+/* cpu back end for sub-alignment tails and narrow copies: scalar 1:1
+   copy or blend with exact per-pixel access, no alignment, contiguity
+   or simd requirements. use_alpha == 0 is a plain copy; otherwise the
+   same math as the simd paths (effective alpha (src_a * alpha) >> 8,
+   then the /255 blend). */
+void arch_g2d_blt_cpu(uint32_t* argb_src, int32_t src_w,
+		int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+		uint32_t* argb_dst, int32_t dst_w,
+		int32_t dx, int32_t dy, uint8_t use_alpha, uint8_t alpha) {
+	if(argb_src == NULL || argb_dst == NULL || sw <= 0 || sh <= 0)
+		return;
+	if(use_alpha != 0 && alpha == 0)
+		return;
+
+	for(int32_t row = 0; row < sh; row++) {
+		const uint32_t* sp = argb_src + (sy + row) * src_w + sx;
+		uint32_t* dp = argb_dst + (dy + row) * dst_w + dx;
+
+		if(use_alpha == 0) {
+			memcpy(dp, sp, (size_t)sw * sizeof(uint32_t));
+			continue;
+		}
+		for(int32_t col = 0; col < sw; col++) {
+			uint32_t color = sp[col];
+			uint32_t src_a = (color >> 24) & 0xff;
+			uint8_t sa;
+
+			if(src_a == 0)
+				continue;
+			sa = (uint8_t)((alpha == 0xff) ? src_a : (src_a * alpha) >> 8);
+			if(sa == 0)
+				continue;
+			if(sa == 0xff) {
+				dp[col] = color;
+				continue;
+			}
+			dp[col] = g2d_blend_argb_scalar(dp[col], sa,
+					(uint8_t)((color >> 16) & 0xff),
+					(uint8_t)((color >> 8) & 0xff),
+					(uint8_t)(color & 0xff));
+		}
+	}
+}
+
+#ifndef ARCH_BOOST
+/* cpu back end for alpha fills: blend a solid color over a sub-rect,
+   clipped to the buffer bounds, exact per-pixel access with the same
+   blend math as the simd paths. alpha == 0 or an empty/fully clipped
+   rect is a no-op. */
+void arch_g2d_fill_alpha(uint32_t* argb, int32_t argb_w, int32_t argb_h,
+		int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
+	uint8_t a;
+
+	if(argb == NULL)
+		return;
+	a = (uint8_t)((color >> 24) & 0xff);
+	if(a == 0)
+		return;
+	if(x < 0) { w += x; x = 0; }
+	if(y < 0) { h += y; y = 0; }
+	if(w <= 0 || h <= 0 || x >= argb_w || y >= argb_h)
+		return;
+	if(x + w > argb_w) w = argb_w - x;
+	if(y + h > argb_h) h = argb_h - y;
+
+	for(int32_t row = y; row < y + h; row++) {
+		uint32_t* dp = argb + row * argb_w + x;
+		for(int32_t col = 0; col < w; col++) {
+			dp[col] = g2d_blend_argb_scalar(dp[col], a,
+					(uint8_t)((color >> 16) & 0xff),
+					(uint8_t)((color >> 8) & 0xff),
+					(uint8_t)(color & 0xff));
+		}
+	}
+}
+#endif /* !ARCH_BOOST */
 
 #ifdef __cplusplus
 }

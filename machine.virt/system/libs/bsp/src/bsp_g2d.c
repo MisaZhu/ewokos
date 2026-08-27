@@ -16,6 +16,11 @@ void  bsp_g2d_fill(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32
 	arch_g2d_fill(argb, argb_phy, contig, argb_w, argb_h, x, y, w, h, color);
 }
 
+void  bsp_g2d_fill_alpha(uint32_t* argb, int32_t argb_w, int32_t argb_h,
+		int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
+	arch_g2d_fill_alpha(argb, argb_w, argb_h, x, y, w, h, color);
+}
+
 void  bsp_g2d_blt(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
 			int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 			uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h,
@@ -30,6 +35,14 @@ void  bsp_g2d_blt_alpha(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_c
 			int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
 	arch_g2d_blt_alpha(argb_src, src_phy, src_contig, src_w, src_h, sx, sy, sw, sh,
 			argb_dst, dst_phy, dst_contig, dst_w, dst_h, dx, dy, dw, dh, alpha);
+}
+
+void  bsp_g2d_blt_cpu(uint32_t* argb_src, int32_t src_w,
+			int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+			uint32_t* argb_dst, int32_t dst_w,
+			int32_t dx, int32_t dy, uint8_t use_alpha, uint8_t alpha) {
+	arch_g2d_blt_cpu(argb_src, src_w, sx, sy, sw, sh,
+			argb_dst, dst_w, dx, dy, use_alpha, alpha);
 }
 
 void  bsp_g2d_scale_to(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,

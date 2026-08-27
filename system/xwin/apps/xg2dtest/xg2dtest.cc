@@ -5,8 +5,6 @@
 #include <graph/graph.h>
 #include <font/font.h>
 #include <ewoksys/kernel_tic.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
 #include <unistd.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -30,48 +28,45 @@ using namespace Ewok;
   is just a graph_t wrapped over them, a true readback instead of a
   cpu mirror. rotation is clockwise degrees; 90/270 swap dimensions and
   the dst canvas must be created at the rotated size, so the rotate
-  stages ping-pong between two canvases.*/
+  stages hop between canvases of matching size.*/
 
 typedef struct {
-	int shm_id;
+	graph_t* g;
 	uint32_t* pixels;
 	uint32_t size;
 	uint32_t width;
 	uint32_t height;
 } shm_image_t;
 
-static int shm_image_create(shm_image_t* img, key_t key, uint32_t width, uint32_t height) {
+static int shm_image_create(shm_image_t* img, uint32_t width, uint32_t height) {
 	if(img == NULL || width == 0 || height == 0)
 		return -1;
 
 	memset(img, 0, sizeof(*img));
+	/* graph_new_shm canvas: prefers a physically contiguous shm segment
+	   (IPC_CONTIG) and falls back to a scattered one; the contig flag
+	   travels with the graph so img_canvas can report it */
+	img->g = graph_new_shm((int32_t)width, (int32_t)height);
+	if(img->g == NULL || img->g->buffer == NULL)
+		return -1;
+	img->pixels = img->g->buffer;
 	img->size = width * height * 4;
 	img->width = width;
 	img->height = height;
-	img->shm_id = shmget(key, img->size, 0666 | IPC_CREAT);
-	if(img->shm_id <= 0)
-		return -1;
-	img->pixels = (uint32_t*)shmat(img->shm_id, 0, 0);
-	if(img->pixels == (void*)-1) {
-		img->pixels = NULL;
-		img->shm_id = -1;
-		return -1;
-	}
 	return 0;
 }
 
 static void shm_image_destroy(shm_image_t* img) {
 	if(img == NULL)
 		return;
-	if(img->pixels != NULL)
-		shmdt(img->pixels);
+	if(img->g != NULL)
+		graph_free(img->g);
 	memset(img, 0, sizeof(*img));
-	img->shm_id = -1;
 }
 
 static g2d_canvas_t img_canvas(const shm_image_t* img) {
-	/* plain shmget() segment: scattered pages, not contiguous */
-	return g2d_canvas(img->shm_id, img->size, img->width, img->height, 0);
+	return g2d_canvas(img->g->shm_id, img->size, img->width, img->height,
+			img->g->shm_contig ? 1 : 0);
 }
 
 static uint32_t make_color(uint8_t a, uint8_t r, uint8_t g, uint8_t b) {
@@ -152,14 +147,16 @@ static void set_corner_markers(shm_image_t* img) {
 }
 
 class G2DTestWidget: public Widget {
-	/*测试在后台线程循环执行：一轮 = 基础场景 + rotate/scale 分阶段
-	  检查（返回码 + shm 像素验证）。画布本身就是 shm，驱动原地写入，
-	  预览直接包在画布像素上，就是设备的真实输出。所有中间结果先写
-	  本地 TestCtx（不持锁），跑完短暂加锁发布给 UI，避免长时间持锁
-	  饿死窗口重绘。*/
+	/*the test loops in a background thread: one round = base scene +
+	  staged rotate/scale checks (return codes + shm pixel validation).
+	  the canvases ARE shm, the driver writes them in place and the
+	  preview wraps the canvas pixels directly, a true readback instead
+	  of a cpu mirror. all intermediate results go into the local
+	  TestCtx first (no lock held), then a brief lock hands them to the
+	  UI so long lock holds never starve window repaints.*/
 	struct TestCtx {
-		shm_image_t* canvas;   /*当前活动画布（A/B 乒乓）*/
-		graph_t previewWrap;   /*直接包在活动画布像素上的预览*/
+		shm_image_t* canvas;   /*currently active canvas (A/B ping-pong)*/
+		graph_t previewWrap;   /*preview wrapped over the active canvas pixels*/
 		std::vector<std::string> logs;
 		std::string firstFailure;
 		int failures;
@@ -170,7 +167,7 @@ class G2DTestWidget: public Widget {
 		}
 	};
 
-	//发布给 UI 的状态，仅在短暂持锁时读写。
+	//state published to the UI, read/written only under brief lock holds.
 	graph_t* preview;
 	std::vector<std::string> logs;
 	bool testDone;
@@ -247,6 +244,7 @@ class G2DTestWidget: public Widget {
 	void runTest(TestCtx& ctx) {
 		shm_image_t canvasA;
 		shm_image_t canvasB;
+		shm_image_t canvasC;
 		shm_image_t scaled;
 		shm_image_t opaque_img;
 		shm_image_t alpha_img;
@@ -259,6 +257,7 @@ class G2DTestWidget: public Widget {
 
 		memset(&canvasA, 0, sizeof(canvasA));
 		memset(&canvasB, 0, sizeof(canvasB));
+		memset(&canvasC, 0, sizeof(canvasC));
 		memset(&scaled, 0, sizeof(scaled));
 		memset(&opaque_img, 0, sizeof(opaque_img));
 		memset(&alpha_img, 0, sizeof(alpha_img));
@@ -275,10 +274,11 @@ class G2DTestWidget: public Widget {
 		}
 		appendLog(ctx, "g2d: stateless shm canvas %ux%u", CANVAS_W, CANVAS_H);
 
-		if(shm_image_create(&canvasA, 0x47324420, CANVAS_W, CANVAS_H) != 0 ||
-				shm_image_create(&canvasB, 0x47324421, CANVAS_H, CANVAS_W) != 0 ||
-				shm_image_create(&opaque_img, 0x47324422, 160, 120) != 0 ||
-				shm_image_create(&alpha_img, 0x47324423, 128, 128) != 0) {
+		if(shm_image_create(&canvasA, CANVAS_W, CANVAS_H) != 0 ||
+				shm_image_create(&canvasB, CANVAS_H, CANVAS_W) != 0 ||
+				shm_image_create(&canvasC, CANVAS_H, CANVAS_W) != 0 ||
+				shm_image_create(&opaque_img, 160, 120) != 0 ||
+				shm_image_create(&alpha_img, 128, 128) != 0) {
 			appendLog(ctx, "FAIL create shm canvases");
 			markFailure(ctx, "create shm canvases failed");
 			goto cleanup;
@@ -351,7 +351,8 @@ class G2DTestWidget: public Widget {
 		usleep(STAGE_DELAY_MS * 1000);
 
 		/*stage 2: rotate ping-pong. corners travel clockwise and 90/270
-		  swap the dimensions, so the dst canvas must be the other one.*/
+		  swap the dimensions, so the dst canvas must be the other size;
+		  180 keeps the dimensions, so it needs the same-size canvasC.*/
 		img_clear(&canvasA, bg_color);
 		set_corner_markers(&canvasA);
 
@@ -365,22 +366,23 @@ class G2DTestWidget: public Widget {
 		publishPreview(ctx);
 		usleep(STAGE_DELAY_MS * 1000);
 
-		g2d_rotate_req_init(&rotate_req, img_canvas(&canvasB), img_canvas(&canvasA), 180);
+		g2d_rotate_req_init(&rotate_req, img_canvas(&canvasB), img_canvas(&canvasC), 180);
 		ret = g2d_rotate(&rotate_req);
 		checkRet(ctx, "rotate_180", ret, true);
-		checkSize(ctx, "rot180_size", &canvasA, CANVAS_H, CANVAS_W);
-		checkPixel(ctx, "rot180_TL_from_BR", &canvasA, 0, 0, 0xff000003u);
+		ctx.canvas = &canvasC;
+		checkSize(ctx, "rot180_size", &canvasC, CANVAS_H, CANVAS_W);
+		checkPixel(ctx, "rot180_TL_from_BR", &canvasC, 0, 0, 0xff000002u);
 		publishPreview(ctx);
 		usleep(STAGE_DELAY_MS * 1000);
 
-		g2d_rotate_req_init(&rotate_req, img_canvas(&canvasA), img_canvas(&canvasB), 270);
+		g2d_rotate_req_init(&rotate_req, img_canvas(&canvasC), img_canvas(&canvasA), 270);
 		ret = g2d_rotate(&rotate_req);
 		checkRet(ctx, "rotate_270", ret, true);
 		ctx.canvas = &canvasA;
-		checkSize(ctx, "rot270_size", &canvasB, CANVAS_W, CANVAS_H);
-		checkPixel(ctx, "rot270_TL_from_TR", &canvasB, 0, 0, 0xff000002u);
-		checkPixel(ctx, "rot270_BR_from_BL", &canvasB,
-				canvasB.width - 1, canvasB.height - 1, 0xff000004u);
+		checkSize(ctx, "rot270_size", &canvasA, CANVAS_W, CANVAS_H);
+		checkPixel(ctx, "rot270_TL_from_TR", &canvasA, 0, 0, 0xff000003u);
+		checkPixel(ctx, "rot270_BR_from_BL", &canvasA,
+				canvasA.width - 1, canvasA.height - 1, 0xff000001u);
 		publishPreview(ctx);
 		usleep(STAGE_DELAY_MS * 1000);
 
@@ -397,7 +399,7 @@ class G2DTestWidget: public Widget {
 		/*stage 3: scale_to into a dedicated dst canvas (nearest neighbor
 		  keeps the corners), then a rotated blit over the pattern*/
 		fill_checker(&canvasA);
-		if(shm_image_create(&scaled, 0x47324424, 320, 240) == 0) {
+		if(shm_image_create(&scaled, 320, 240) == 0) {
 			g2d_scale_to_req_init(&scale_req, img_canvas(&canvasA), img_canvas(&scaled));
 			ret = g2d_scale_to(&scale_req);
 			checkRet(ctx, "scale_to_320x240", ret, true);
@@ -431,6 +433,7 @@ class G2DTestWidget: public Widget {
 		shm_image_destroy(&scaled);
 		shm_image_destroy(&alpha_img);
 		shm_image_destroy(&opaque_img);
+		shm_image_destroy(&canvasC);
 		shm_image_destroy(&canvasB);
 		shm_image_destroy(&canvasA);
 		ctx.canvas = NULL;
@@ -513,7 +516,8 @@ protected:
 		uint32_t status_color = 0xff555566;
 		char status_text[128];
 		char detail_text[224];
-		/*调试信息移到右侧，占窗口宽度 1/3，预览占左侧剩余区域。*/
+		/*debug info on the right, 1/3 of the window width; the preview
+		  takes the remaining left area.*/
 		int32_t right_w = r.w / 3;
 		int32_t left_w = r.w - right_w;
 		int32_t body_y = r.y + header_h;

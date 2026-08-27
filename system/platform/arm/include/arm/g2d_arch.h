@@ -14,6 +14,12 @@ int32_t arch_g2d_init(void);
 void  arch_g2d_fill(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32_t argb_w, int32_t argb_h,
 			int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
 
+/* scalar cpu alpha fill of a sub-rect, clipped to the buffer bounds:
+   exact per-pixel access, no alignment/contiguity/simd requirements;
+   same blend math as arch_g2d_blt_alpha. alpha == 0 is a no-op. */
+void  arch_g2d_fill_alpha(uint32_t* argb, int32_t argb_w, int32_t argb_h,
+			int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
+
 void  arch_g2d_blt(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
 			int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 			uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h,
@@ -23,6 +29,15 @@ void  arch_g2d_blt_alpha(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_
 			int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 			uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h,
 			int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha);
+
+/* scalar cpu 1:1 copy or blend of a sub-rect: exact per-pixel access,
+   no alignment/contiguity/simd requirements. use_alpha == 0 is a plain
+   copy; otherwise the same blend math as arch_g2d_blt_alpha (effective
+   alpha (src_a * alpha) >> 8, then the /255 blend). */
+void  arch_g2d_blt_cpu(uint32_t* argb_src, int32_t src_w,
+			int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+			uint32_t* argb_dst, int32_t dst_w,
+			int32_t dx, int32_t dy, uint8_t use_alpha, uint8_t alpha);
 
 void  arch_g2d_scale_to(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
 			uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h);

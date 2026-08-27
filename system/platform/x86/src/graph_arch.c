@@ -1,4 +1,6 @@
 #include <graph/graph_arch.h>
+#include <g2d_arch.h>
+#include <stdint.h>
 #include <string.h>
 #include <ewokos_config.h>
 
@@ -83,25 +85,6 @@ static inline int x86_can_stream_blt(graph_t* src, const grect_t* sr,
     return 1;
 }
 
-static inline uint32_t x86_fill_div255(uint32_t v) {
-    return (v + 1 + (v >> 8)) >> 8;
-}
-
-/* scalar blend of one pixel against a constant color, bit-identical math
-   to x86_blend_4px (used for the head/tail alignment pixels) */
-static inline uint32_t x86_fill_blend_px(uint32_t dst, uint32_t color, uint32_t a) {
-    uint32_t inv_a = 255 - a;
-    uint32_t db = dst & 0xff;
-    uint32_t dg = (dst >> 8) & 0xff;
-    uint32_t dr = (dst >> 16) & 0xff;
-    uint32_t da = (dst >> 24) & 0xff;
-    uint32_t ob = x86_fill_div255((color & 0xff) * a + db * inv_a);
-    uint32_t og = x86_fill_div255(((color >> 8) & 0xff) * a + dg * inv_a);
-    uint32_t or_ = x86_fill_div255(((color >> 16) & 0xff) * a + dr * inv_a);
-    uint32_t oa = da + x86_fill_div255((255 - da) * a);
-    return (oa << 24) | (or_ << 16) | (og << 8) | ob;
-}
-
 /* Fill a run of pixels with a constant color. A scalar head of at most
    3 pixels brings the destination to a 16-byte boundary so the streaming
    stores stay aligned; the caller issues one _mm_sfence after all runs. */
@@ -164,74 +147,6 @@ static inline void x86_fill_opaque(graph_t* g, const grect_t* r, uint32_t color)
     }
     _mm_sfence();
 }
-
-/* div255 for eight unsigned 16-bit lanes, same rounding as the scalar
-   helper: (v + 1 + (v >> 8)) >> 8 (max input 65025, no lane overflow) */
-static inline __m128i x86_div255_epu16(__m128i v) {
-    __m128i t = _mm_add_epi16(v, _mm_set1_epi16(1));
-    t = _mm_add_epi16(t, _mm_srli_epi16(v, 8));
-    return _mm_srli_epi16(t, 8);
-}
-
-/* Source-over blend of 4 pixels against a constant color. Lanes hold
-   [b,g,r,a,b,g,r,a] after the byte unpack; the alpha lane is replaced
-   with bg_a + div255((255-bg_a)*a) via alpha_mask. dst must be 16-byte
-   aligned. */
-static inline void x86_blend_4px(uint32_t* dst, __m128i cpa16, __m128i a16,
-        __m128i inv_a16, __m128i alpha_mask, __m128i full16, __m128i zero) {
-    __m128i bg = _mm_load_si128((const __m128i*)dst);
-    __m128i lo = _mm_unpacklo_epi8(bg, zero);
-    __m128i hi = _mm_unpackhi_epi8(bg, zero);
-
-    __m128i blend_lo = x86_div255_epu16(_mm_add_epi16(cpa16, _mm_mullo_epi16(lo, inv_a16)));
-    __m128i blend_hi = x86_div255_epu16(_mm_add_epi16(cpa16, _mm_mullo_epi16(hi, inv_a16)));
-
-    __m128i oa_lo = _mm_add_epi16(lo, x86_div255_epu16(_mm_mullo_epi16(_mm_sub_epi16(full16, lo), a16)));
-    __m128i oa_hi = _mm_add_epi16(hi, x86_div255_epu16(_mm_mullo_epi16(_mm_sub_epi16(full16, hi), a16)));
-
-    lo = _mm_or_si128(_mm_and_si128(alpha_mask, oa_lo), _mm_andnot_si128(alpha_mask, blend_lo));
-    hi = _mm_or_si128(_mm_and_si128(alpha_mask, oa_hi), _mm_andnot_si128(alpha_mask, blend_hi));
-
-    _mm_store_si128((__m128i*)dst, _mm_packus_epi16(lo, hi));
-}
-
-static inline void x86_fill_alpha(graph_t* g, const grect_t* r, uint32_t color) {
-    uint32_t a = color_a(color);
-    uint32_t inv_a = 255 - a;
-    uint32_t cb = color & 0xff;
-    uint32_t cg = (color >> 8) & 0xff;
-    uint32_t cr = (color >> 16) & 0xff;
-
-    /* per-lane color*a constants for the [b,g,r,a,b,g,r,a] lane layout;
-       the alpha lanes are don't-care (masked away), so they hold 0 */
-    __m128i cpa16 = _mm_set_epi32((int)(cr * a), (int)((cg * a) << 16 | (cb * a)),
-            (int)(cr * a), (int)((cg * a) << 16 | (cb * a)));
-    __m128i a16 = _mm_set1_epi16((short)a);
-    __m128i inv_a16 = _mm_set1_epi16((short)inv_a);
-    __m128i alpha_mask = _mm_set_epi32((int)0xFFFF0000, 0, (int)0xFFFF0000, 0);
-    __m128i full16 = _mm_set1_epi16(255);
-    __m128i zero = _mm_setzero_si128();
-
-    for (int32_t row = 0; row < r->h; ++row) {
-        uint32_t* rp = g->buffer + (r->y + row) * g->w + r->x;
-        int32_t i = 0;
-
-        /* scalar head brings rp to a 16-byte boundary so the SIMD
-           load/stores stay aligned */
-        while (i < r->w && (((ewokos_addr_t)(rp + i)) & 0x0F) != 0) {
-            rp[i] = x86_fill_blend_px(rp[i], color, a);
-            ++i;
-        }
-
-        for (; i + 4 <= r->w; i += 4) {
-            x86_blend_4px(rp + i, cpa16, a16, inv_a16, alpha_mask, full16, zero);
-        }
-
-        for (; i < r->w; ++i) {
-            rp[i] = x86_fill_blend_px(rp[i], color, a);
-        }
-    }
-}
 #endif
 
 void graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
@@ -251,11 +166,9 @@ void graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uin
         return;
     }
 
-    /* fully transparent fill is a no-op */
-    if(color_a(color) == 0)
-        return;
-
-    x86_fill_alpha(g, &r, color);
+    /* translucent fill: handled by the g2d engine alpha fill (simd rows
+       with scalar head/tail alignment, same blend math as blit alpha) */
+    arch_g2d_fill_alpha(g->buffer, g->w, g->h, r.x, r.y, r.w, r.h, color);
 #else
     graph_fill_cpu(g, x, y, w, h, color);
 #endif
