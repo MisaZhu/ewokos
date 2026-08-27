@@ -19,6 +19,14 @@
    the driver attaches to, or as dma addresses the driver mem-maps on
    attach. the driver operates in place and detaches shm canvases when
    done. */
+#define G2DD_DEBUG 1
+
+
+#if G2DD_DEBUG
+#define G2DD_LOG(...) slog(__VA_ARGS__)
+#else
+#define G2DD_LOG(...)
+#endif
 
 typedef struct {
 	uint32_t* buffer;
@@ -163,7 +171,7 @@ static int32_t g2dd_handle_fill_rect(proto_t* in) {
 	if(g2d_attach(&req.dst, &dst) != 0)
 		return -1;
 
-    slog("g2d_fill rect dst: %d x %d, color: 0x%08X, contig: %d\n", dst.width, dst.height, req.color, dst.contig);
+	G2DD_LOG("g2d_fill rect dst: %d x %d, color: 0x%08X, dst:contig: %d:(0x%08X)\n", dst.width, dst.height, req.color, dst.contig, dst.phy);
 
 	if(((req.color >> 24) & 0xff) == 0xff) {
 		bsp_g2d_fill(dst.buffer, dst.phy, dst.contig, (int32_t)dst.width, (int32_t)dst.height,
@@ -187,7 +195,7 @@ static int32_t g2d_blit_render(const g2d_attached_t* dst,
 	if(req->dw <= 0 || req->dh <= 0)
 		return -1;
 
-    slog("g2d_blit_render src:%d x %d, dst: %d x %d, alpha: %d, src:contig: %d:(0x%08X), dst:contig: %d:(0x%08X)\n", 
+	G2DD_LOG("g2d_blit_render src:%d x %d, dst: %d x %d, alpha: %d, src:contig: %d:(0x%08X), dst:contig: %d:(0x%08X)\n", 
             src_w, src_h, dst->width, dst->height, use_alpha, src_contig, src_phy, dst->contig, dst->phy);
 
 	if(use_alpha != 0) {
@@ -337,7 +345,7 @@ static int32_t g2dd_handle_scale_to(proto_t* in) {
 		return -1;
 	}
 
-    slog("g2dd_handle_scale_to %d x %d, src:contig: %d, dst:contig: %d\n", src.width, src.height, src.contig, dst.contig);
+	G2DD_LOG("g2dd_handle_scale_to %d x %d, src:contig: %d:(0x%08X), dst:contig: %d:(0x%08X)\n", src.width, src.height, src.contig, src.phy, dst.contig, dst.phy);
 
 	bsp_g2d_scale_to(src.buffer, src.phy, src.contig, (int32_t)src.width, (int32_t)src.height,
 			dst.buffer, dst.phy, dst.contig, (int32_t)dst.width, (int32_t)dst.height);
