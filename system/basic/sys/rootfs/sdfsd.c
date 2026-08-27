@@ -643,7 +643,7 @@ int main(int argc, char** argv) {
     dev.unlink = sdext_unlink;
 
     dev.extra_data = &ext3;
-    device_run(&dev, "/", FS_TYPE_DIR, 0777);
+    device_run(&dev, "/", FS_TYPE_DIR, 0777, false);
     ext3_quit(&ext3);
     sd_quit();
     return 0;

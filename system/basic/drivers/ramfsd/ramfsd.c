@@ -136,6 +136,6 @@ int main(int argc, char** argv) {
     dev.write = ramfs_write;
     dev.unlink = ramfs_unlink;
     
-    device_run(&dev, mnt_point, FS_TYPE_DIR, 0777);
+    device_run(&dev, mnt_point, FS_TYPE_DIR, 0777, false);
     return 0;
 }

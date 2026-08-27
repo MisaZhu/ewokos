@@ -339,7 +339,7 @@ int main(int argc, char** argv) {
     dev.unlink = fat32fs_unlink;
 
     dev.extra_data = &fat;
-    device_run(&dev, mnt_point, FS_TYPE_DIR, 0777);
+    device_run(&dev, mnt_point, FS_TYPE_DIR, 0777, false);
     fat32_quit(&fat);
     sd_quit();
     return 0;

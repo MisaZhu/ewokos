@@ -106,7 +106,7 @@ int main(int argc, char** argv) {
     dev.write = log_write;
     dev.extra_data = _buffer;
 
-    device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
+    device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666, false);
 
     charbuf_free(_buffer);
     return 0;

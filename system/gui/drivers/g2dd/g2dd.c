@@ -20,7 +20,7 @@
    the driver attaches to, or as dma addresses the driver mem-maps on
    attach. the driver operates in place and detaches shm canvases when
    done. */
-#define G2DD_DEBUG 1
+#define G2DD_DEBUG 0
 
 
 #if G2DD_DEBUG
@@ -550,7 +550,7 @@ int main(int argc, char** argv) {
 	dev.cmd = g2d_cmd;
 	dev.extra_data = NULL;
 
-	if(device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666) != 0)
+	if(device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666, false) != 0)
 		return -1;
 	return 0;
 }

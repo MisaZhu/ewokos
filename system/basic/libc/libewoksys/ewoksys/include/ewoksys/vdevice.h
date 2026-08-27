@@ -45,7 +45,7 @@ typedef struct st_vdevice {
 	uint32_t (*check_poll_events)(struct st_vdevice* dev, int fd, int from_pid, fsinfo_t* info, void* p);
 } vdevice_t;
 
-extern int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int mode);
+extern int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int mode, bool multi_task);
 extern void device_stop(vdevice_t* dev);
 
 extern int dev_get_pid(const char* fname);

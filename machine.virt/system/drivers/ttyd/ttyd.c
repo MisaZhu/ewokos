@@ -135,7 +135,7 @@ int main(int argc, char** argv) {
     handler.handler = interrupt_handle;
     sys_interrupt_setup(33, &handler);
 
-    device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
+    device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666, false);
     charbuf_free(_buffer);
     return 0;
 }

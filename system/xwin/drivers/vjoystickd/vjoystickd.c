@@ -310,7 +310,7 @@ int main(int argc, char** argv) {
     dev.read = vjoystick_read;
     dev.loop_step = vjoy_loop;
 
-    device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
+    device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444, false);
 
     close(_joys_fd);
     return 0;

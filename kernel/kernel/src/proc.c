@@ -304,7 +304,7 @@ void proc_untrack_interrupt_timeout(proc_t* proc) {
 void proc_track_ipc_timeout(proc_t* proc) {
     proc_lock_enter();
     if(proc == NULL || proc->space == NULL ||
-            proc_ipc_get_task(proc) == NULL) {
+            proc_ipc_task_count(proc) == 0) {
         proc_lock_leave();
         return;
     }
@@ -1038,7 +1038,23 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
         }
         proc->info.father_pid = 0;
     }
-    else if(proc->info.type == TASK_TYPE_THREAD) { //TODO
+    else if(proc->info.type == TASK_TYPE_THREAD) {
+        /*
+         * A multi_task IPC worker dying before SYS_IPC_END (exit, kill,
+         * fatal fault) must release its request: reset the client's reply
+         * slot and free the task slot, otherwise the client waits until
+         * its own timeout. owner may already be a zombie when the whole
+         * server proc is being torn down - its own terminate path clears
+         * the slots, so skip in that case.
+         */
+        if(proc->ipc_task != NULL) {
+            proc_t* owner = proc_get_proc(proc);
+            if(owner != NULL && owner->space != NULL &&
+                    owner->space->ipc_server.multi_task) {
+                proc_ipc_task_abort(owner, proc->ipc_task);
+            }
+            proc->ipc_task = NULL;
+        }
         proc->info.father_pid = 0;
     }
     proc_wakeup_waiting(proc->info.pid);
@@ -1975,6 +1991,47 @@ proc_t* kfork(context_t* ctx, int32_t type) {
     return child;
 }
 
+/*
+ * Spawn a worker thread inside a multi_task IPC server to serve the given
+ * request. The thread starts directly at the server's ipc entry with the
+ * same calling convention the single-task context switch uses:
+ * arg0 = ipc uid, arg1 = server extra_data. The server's own main context
+ * is never touched; the worker owns the request until SYS_IPC_END (or its
+ * own termination, which aborts the request).
+ * Returns 0 on success, -1 if the thread (or its stack) could not be
+ * created - the caller must then release the task slot and let the client
+ * retry.
+ */
+int32_t proc_ipc_spawn_worker(context_t* ctx, proc_t* serv_proc, ipc_task_t* ipc) {
+    if(serv_proc == NULL || ipc == NULL || serv_proc->space == NULL)
+        return -1;
+    ipc_server_t* server = &serv_proc->space->ipc_server;
+    if(server->entry == 0)
+        return -1;
+
+    proc_t* worker = kfork_raw(NULL, TASK_TYPE_THREAD, serv_proc);
+    if(worker == NULL)
+        return -1;
+
+    if(worker->thread_stack_base == 0) { //no thread stack slot left
+        proc_terminate(ctx, worker);
+        return -1;
+    }
+
+    worker->ctx.pc = server->entry;
+    worker->ctx.lr = server->entry;
+    worker->ctx.gpr[0] = ipc->uid;
+    worker->ctx.gpr[1] = server->extra_data;
+
+    worker->ipc_task = ipc;
+    ipc->handler_pid = worker->info.pid;
+    ipc->handler_uuid = worker->info.uuid;
+
+    core_attach(worker);
+    proc_ready(worker);
+    return 0;
+}
+
 int32_t get_procs_num(void) {
     int32_t res = 0;
     uint32_t i;
@@ -2189,6 +2246,64 @@ static int32_t renew_interrupt_counter(uint32_t usec) {
     return res;
 }
 
+/*
+ * Watchdog for multi_task servers: every in-flight slot has its own
+ * worker thread, so age (or freeze) each task independently instead of
+ * looking at the queue head only.
+ */
+static int32_t renew_ipc_multi_counter(proc_t* proc, uint32_t usec) {
+    ipc_server_t* server = &proc->space->ipc_server;
+    int32_t res = -1;
+
+    for(int32_t i = 0; i < IPC_CTX_MAX; i++) {
+        ipc_task_t* ipc = &server->tasks[i];
+        if(ipc->uid == 0 || ipc->state == IPC_IDLE)
+            continue;
+
+        proc_t* worker = proc_get(ipc->handler_pid);
+        if(worker == NULL || worker->info.uuid != ipc->handler_uuid) {
+            //worker vanished without closing the request
+            proc_ipc_task_abort(proc, ipc);
+            res = 0;
+            continue;
+        }
+
+        /*
+         * Same policy as the single-task path below: freeze the counter
+         * while the worker is parked on a nested IPC/sleep/wait or the
+         * server is preempted by an interrupt - those are legitimate,
+         * recoverable stalls. Only a continuous runnable stall times out.
+         */
+        if(proc->space->interrupt.state == INTR_STATE_WORKING ||
+                worker->info.state == BLOCK ||
+                worker->info.state == SLEEPING ||
+                worker->info.state == WAIT) {
+            ipc->counter = 0;
+            continue;
+        }
+
+        ipc->counter += usec;
+        if(ipc->counter >= IPC_TIMEOUT_USEC) {
+            proc_t* client = proc_get(ipc->client_pid);
+            printf("ipc(multi) timeout: uid:%u clt:%d(%s), srv:%d(%s), worker:%d, call:%d/0x%x\n",
+                    ipc->uid,
+                    ipc->client_pid,
+                    client ? client->info.cmd : "?",
+                    proc->info.pid,
+                    proc->info.cmd,
+                    worker->info.pid,
+                    ipc->call_id,
+                    ipc->call_id);
+            proc_ipc_task_abort(proc, ipc);
+            res = 0;
+        }
+    }
+
+    if(proc_ipc_task_count(proc) == 0)
+        proc_untrack_ipc_timeout(proc);
+    return res;
+}
+
 static int32_t renew_ipc_counter(uint32_t usec) {
     proc_lock_enter();
     int32_t res = -1;
@@ -2203,6 +2318,14 @@ static int32_t renew_ipc_counter(uint32_t usec) {
             it = next;
             continue;
         }
+
+        if(proc->space->ipc_server.multi_task) {
+            if(renew_ipc_multi_counter(proc, usec) == 0)
+                res = 0;
+            it = next;
+            continue;
+        }
+
         ipc_task_t* ipc = proc_ipc_get_task(proc);
         if(ipc == NULL || ipc->state == IPC_IDLE) {
             proc_untrack_ipc_timeout(proc);

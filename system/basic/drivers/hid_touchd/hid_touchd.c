@@ -165,5 +165,5 @@ int main(int argc, char** argv) {
     dev.loop_step = touch_loop;
     dev.read = touch_read;
     dev.check_poll_events = touch_check_poll_events;
-    return device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
+    return device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444, false);
 }

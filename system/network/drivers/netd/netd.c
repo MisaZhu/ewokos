@@ -477,7 +477,7 @@ int main(int argc, char** argv) {
     dev.close = network_close;
     dev.cmd = network_devcmd;
     dev.check_poll_events = network_check_poll_events;
-    device_run(&dev, mnt_point, FS_TYPE_ANNOUNIMOUS | FS_TYPE_CHAR, 0666);
+    device_run(&dev, mnt_point, FS_TYPE_ANNOUNIMOUS | FS_TYPE_CHAR, 0666, false);
     pthread_mutex_destroy(&task_list_lock);
     return 0;
 }

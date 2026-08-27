@@ -2904,8 +2904,8 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-        vfsd_init();
-        start_driver_async_worker();
+    vfsd_init();
+    start_driver_async_worker();
     ipc_serv_run(handle, clear_pending_zombies, NULL, IPC_DEFAULT);
 
     while(true) {

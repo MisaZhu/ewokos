@@ -70,6 +70,6 @@ int main(int argc, char** argv) {
     dev.dev_cntl = time_dcntl;
     dev.loop_step = time_loop;
 
-    device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
+    device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666, false);
     return 0;
 }

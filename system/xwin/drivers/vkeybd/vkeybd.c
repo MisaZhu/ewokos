@@ -298,7 +298,7 @@ int main(int argc, char** argv) {
     dev.loop_step = vkeyb_loop;
     dev.check_poll_events = vkeyb_check_poll_events;
 
-    device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
+    device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444, false);
 
     close(_keyb_fd);
     return 0;

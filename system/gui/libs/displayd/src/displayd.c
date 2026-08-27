@@ -662,7 +662,7 @@ int fbdisplayd_run(fbdisplayd_t* fbdisplayd, const char* mnt_name,
     dev.extra_data = &shm;
     _cur_shm = &shm;
 
-    device_run(&dev, mnt_name, FS_TYPE_CHAR, 0666);
+    device_run(&dev, mnt_name, FS_TYPE_CHAR, 0666, false);
     shmdt(shm.shm);
     if(shm.ctrl != NULL && shm.ctrl != (void*)-1)
         shmdt(shm.ctrl);

@@ -606,7 +606,7 @@ int run(const char* mnt_point) {
 	if(_win_failed)
 		return -1;
 
-	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0600);
+	device_run(&dev, mnt_point, FS_TYPE_CHAR, 0600, false);
 	syscall1(SYS_EXIT, (ewokos_addr_t)0);
 	__builtin_unreachable();
 }

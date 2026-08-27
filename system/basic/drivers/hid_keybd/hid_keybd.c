@@ -314,6 +314,6 @@ int main(int argc, char** argv) {
     dev.loop_step = loop;
     dev.check_poll_events = keyb_check_poll_events;
 
-    device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
+    device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444, false);
     return 0;
 }

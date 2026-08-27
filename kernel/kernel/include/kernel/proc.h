@@ -57,6 +57,12 @@ typedef struct st_proc {
 	ipc_res_t         ipc_res;
 	ipc_queue_item_t  ipc_wait_item;
 	struct st_proc*   ipc_waiting_on;
+	/*
+	 * multi_task IPC mode only: the ipc task this worker thread is currently
+	 * serving (set by the kernel when the thread is spawned for a request).
+	 * NULL for main proc contexts and non-IPC threads.
+	 */
+	ipc_task_t*       ipc_task;
 
 	int64_t           sleep_counter; //sleep usec
 	uint64_t          run_usec_counter; //runtime usec in current accounting window

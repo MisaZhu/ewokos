@@ -1174,5 +1174,5 @@ int main(int argc, char** argv) {
     /* USBMSC_CMD_* sector I/O for a claimed mass-storage device;
        platforms without MSC always return -1 */
     dev.dev_cntl = usb_dev_cntl;
-    return device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
+    return device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444, false);
 }

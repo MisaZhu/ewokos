@@ -540,7 +540,7 @@ int main(int argc, char** argv) {
 
     dev.extra_data = &_fat;
     _dev = &dev;
-    device_run(&dev, mnt_point, FS_TYPE_DIR, 0777);
+    device_run(&dev, mnt_point, FS_TYPE_DIR, 0777, false);
     fat32_quit(&_fat);
     if(!_usb_mode)
         sd_quit();

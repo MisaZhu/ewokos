@@ -308,7 +308,7 @@ int main(int argc, char** argv) {
     dev.extra_data = &_console;
     dev.loop_step = console_loop;
 
-    device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
+    device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666, false);
     close_console(&_console);
     charbuf_free(_buffer);
     return 0;

@@ -336,6 +336,6 @@ int main(int argc, char **argv)
     dev.unlink = _unlink;
 
     dev.extra_data = fs;
-    device_run(&dev, "/mnt/share", FS_TYPE_DIR, 0777);
+    device_run(&dev, "/mnt/share", FS_TYPE_DIR, 0777, false);
     return 0;
 }

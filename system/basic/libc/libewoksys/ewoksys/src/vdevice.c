@@ -1033,13 +1033,13 @@ void device_stop(vdevice_t* dev) {
     dev->terminated = true;
 }
 
-int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int mode) {
+int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int mode, bool multi_task) {
     if(dev == NULL)
         return -1;
     device_init(dev);
 
     sys_signal(SYS_SIG_STOP, sig_stop, dev);
-    
+
     if(mnt_point != NULL) {
         if(vfs_get_by_name(mnt_point, &dev->mnt_info) != 0) {
             if(vfs_create(mnt_point, &dev->mnt_info, FS_BASE_TYPE(mnt_type), mode, true, true) != 0)
@@ -1051,25 +1051,28 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int mode) {
     }
 
     int ipc_flags = 0;
-        pthread_t loop_tid;
-        bool loop_thread_started = false;
+    pthread_t loop_tid;
+    bool loop_thread_started = false;
 
-    //if(dev->loop_step != NULL) 
-    ipc_flags |= IPC_NON_BLOCK;
+    if(dev->loop_step != NULL)
+        ipc_flags |= IPC_NON_BLOCK;
+    if(multi_task)
+        ipc_flags |= IPC_MULTI_TASK;
+
     ipc_serv_run(handle, device_handled, dev, ipc_flags);
 
-        if(dev->loop_step != NULL && dev->loop_step_threaded) {
-                if(pthread_create(&loop_tid, NULL, device_loop_thread_entry, dev) == 0) {
-                        pthread_detach(loop_tid);
-                        loop_thread_started = true;
-                }
+    if(dev->loop_step != NULL && dev->loop_step_threaded) {
+        if(pthread_create(&loop_tid, NULL, device_loop_thread_entry, dev) == 0) {
+            pthread_detach(loop_tid);
+            loop_thread_started = true;
         }
+    }
 
     while(!dev->terminated) {
-                if(loop_thread_started) {
-                        usleep(100000);
-                }
-                else if(dev->loop_step != NULL) {
+        if(loop_thread_started) {
+            usleep(100000);
+        }
+        else if(dev->loop_step != NULL) {
             dev->loop_step(dev, dev->extra_data);
         }
         else {

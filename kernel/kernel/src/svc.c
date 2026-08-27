@@ -122,18 +122,18 @@ static int32_t sys_get_thread_id(void) {
 
 static void sys_usleep(context_t* ctx, uint32_t count) {
     proc_t * cproc = get_current_proc();
-    ipc_task_t* ipc = proc_ipc_get_task(cproc);
     if(cproc->info.type == TASK_TYPE_PROC && cproc->space->interrupt.state != INTR_STATE_IDLE)
         return;
 
     /*
-     * ipc_server.ctask lives in the shared proc space, so sibling threads of an
-     * IPC service process can observe it as busy even though they are not the
-     * thread currently servicing that IPC. Only the main proc context should use
-     * the "schedule instead of true sleep" fast path; regular worker threads
-     * like netd's net_thread must still enter real proc_usleep().
+     * Only the context actually serving an ipc request may take the
+     * "schedule instead of true sleep" fast path (single-task mode only;
+     * see proc_ipc_sync_serving()). In multi_task mode the owner proc
+     * never serves requests itself, so its main loop and regular worker
+     * threads (e.g. netd's net_thread) must still enter real
+     * proc_usleep().
      */
-    if(cproc->info.type == TASK_TYPE_PROC && ipc != NULL) {
+    if(cproc->info.type == TASK_TYPE_PROC && proc_ipc_sync_serving(cproc)) {
         schedule(ctx);
         return;
     }
@@ -390,235 +390,14 @@ static ewokos_addr_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint3
 }
 
 static void sys_ipc_setup(context_t* ctx, ewokos_addr_t entry, ewokos_addr_t extra_data, uint32_t flags) {
-    proc_t* cproc = get_current_proc();
     ctx->gpr[0] = proc_ipc_setup(ctx, entry, extra_data, flags);
 }
 
-static void sys_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, proto_t* arg) {
-    ctx->gpr[0] = 0;
-
-    proc_t* client_proc = get_current_proc();
-    serv_pid = get_proc_pid(serv_pid);
-    proc_t* serv_proc = proc_get(serv_pid);
-
-    if(client_proc->info.pid == serv_pid) { //can't do self ipc
-        printf("ipc can't call self service (client: %d, server: %d, call: 0x%x\n", client_proc->info.pid, serv_pid, call_id);
-        ctx->gpr[0] = IPC_ERROR_SELF;
-        return;
-    }
-
-
-    if(serv_proc == NULL ||
-            serv_proc->space->ipc_server.entry == 0) {//no ipc service setup
-        //printf("ipc not ready (client: %d, server: %d, call: 0x%x\n", client_proc->info.pid, serv_pid, call_id);
-        ctx->gpr[0] = IPC_ERROR_NO_READY;
-        return;
-    }
-
-    /*if(client_proc->info.type == TASK_TYPE_PROC && 
-            client_proc->space->interrupt.state == INTR_STATE_WORKING) {
-            //client_proc->space->interrupt.interrupt != IRQ_SOFT) {
-        printf("ipc can't call in interrupt (client: %d, server: %d, call: 0x%x\n",
-                client_proc->info.pid, serv_pid, call_id);
-        ctx->gpr[0] = IPC_ERROR_IN_INTR;
-        return;
-    }
-        */
-
-    if(serv_proc->space->ipc_server.disabled) {
-        ctx->gpr[0] = IPC_ERROR_RETRY; // blocked if server disabled, should retry
-        proc_ipc_wait(ctx, serv_proc, client_proc);
-        return;
-    }
-
-    if(serv_proc->space->interrupt.state != INTR_STATE_IDLE) {
-        //if((call_id & IPC_NON_RETURN) == 0) {
-            ctx->gpr[0] = IPC_ERROR_RETRY; // blocked if proc is on interrupt task, should retry
-            proc_interrupt_wait(ctx, serv_proc, client_proc);
-            return;
-        //}
-        //call_id = call_id | IPC_LAZY; //not do task immediately
-        //serv_proc->space->interrupt.saved_state.state = READY;
-    }
-
-    ipc_task_t* ipc = proc_ipc_req(serv_proc, client_proc, call_id, arg);
-    if(ipc == NULL) {
-        ctx->gpr[0] = IPC_ERROR_RETRY; 
-        proc_ipc_wait(ctx, serv_proc, client_proc);
-        return;
-    }
-
-    proc_cur_ipc_res(client_proc)->state = IPC_BUSY;
-    ctx->gpr[0] = ipc->uid;
-    if(ipc == proc_ipc_get_task(serv_proc))
-        proc_ipc_do_task(ctx, serv_proc, client_proc->info.core);
-}
-
-static void sys_ipc_get_return(context_t* ctx, int32_t pid, uint32_t uid, proto_t* data) {
-    ctx->gpr[0] = 0;
-    proc_t* client_proc = get_current_proc();
-    if(uid == 0 || client_proc == NULL) {
-        ctx->gpr[0] = -2;
-        return;
-    }
-    pid = get_proc_pid(pid);
-
-    ipc_res_t* res = proc_cur_ipc_res(client_proc);
-    if(res->state != IPC_RETURN) { //block retry for serv return
-        proc_t* serv_proc = proc_get(pid);
-        ipc_task_t* ipc = proc_ipc_get_task(serv_proc);
-        if(ipc == NULL) {
-            ctx->gpr[0] = -2;
-            return;
-        }
-
-        if((ipc->call_id & IPC_NON_RETURN) == 0 || ipc->uid != uid) {
-            ctx->gpr[0] = -1;
-            proc_block(ctx, client_proc);
-            return;
-        }
-        return;
-    }
-
-    if(res->uid != uid) {
-        ctx->gpr[0] = -2;
-        return;
-    }
-
-    if(data != NULL && data->data != NULL) {
-        if(data->total_size >= res->data.size)
-            proto_copy(data, res->data.data, res->data.size);
-        else {
-            ctx->gpr[0] = res->data.size; //return ret_arg size if input pkg not big enought
-            return;
-        }
-    }
-
-    res->uid = 0;
-    res->state = IPC_IDLE;
-    proto_clear(&res->data);
-}
-
-static int32_t sys_ipc_get_info(uint32_t uid, int32_t* ipc_info, proto_t* arg) {
-    proc_t* serv_proc = proc_get_proc(get_current_proc());
-    ipc_task_t* ipc = proc_ipc_get_task(serv_proc);
-    if(uid == 0 ||
-            ipc == NULL ||
-            ipc->uid != uid ||
-            ipc->state != IPC_BUSY ||
-            serv_proc->space->ipc_server.entry == 0) {
-        return -1;
-    }
-
-    //ipc_info[0] = get_proc_pid(ipc->client_pid);
-    ipc_info[0] = ipc->client_pid;
-    ipc_info[1] = ipc->call_id;
-
-    proc_t* client_proc = proc_get(ipc->client_pid);
-
-    if(arg != NULL) {
-        if(arg->total_size >= ipc->arg_ret.size && ipc->arg_ret.data != NULL)
-            proto_copy(arg, ipc->arg_ret.data, ipc->arg_ret.size);
-        else
-            return ipc->arg_ret.size;
-    }
-    return 0;
-}
-
-static void sys_ipc_set_return(context_t* ctx, uint32_t uid, proto_t* data) {
-    (void)ctx;
-    proc_t* serv_proc = proc_get_proc(get_current_proc());
-    ipc_task_t* ipc = proc_ipc_get_task(serv_proc);
-    if(uid == 0 ||
-            ipc == NULL ||
-            ipc->uid != uid ||
-            serv_proc->space->ipc_server.entry == 0 ||
-            ipc->state != IPC_BUSY ||
-            (ipc->call_id & IPC_NON_RETURN) != 0) {
-        return;
-    }
-
-    proc_t* client_proc = proc_ipc_get_client(ipc);
-    if(client_proc != NULL) {
-        ipc_res_t* res = proc_ipc_client_res(client_proc, ipc);
-        res->state = IPC_RETURN;
-        res->uid = uid;
-        if(data != NULL) {
-            proto_copy(&res->data, data->data, data->size);
-        }
-    }
-}
-
-static void sys_ipc_end(context_t* ctx) {
-    proc_t* serv_proc = proc_get_proc(get_current_proc());
-    ipc_task_t* ipc = proc_ipc_get_task(serv_proc);
-    if(serv_proc == NULL ||
-            serv_proc->space->ipc_server.entry == 0 ||
-            ipc == NULL)
-        return;
-
-    proc_t* client_proc = proc_ipc_get_client(ipc);
-    bool wake_return_client = ((ipc->call_id & IPC_NON_RETURN) == 0);
-    bool throughput_mode = ((serv_proc->space->ipc_server.flags & IPC_NON_BLOCK) != 0);
-
-    serv_proc->space->ipc_server.restore_pending = 0;
-    proc_restore_state(ctx, serv_proc, &serv_proc->space->ipc_server.saved_state, &serv_proc->space->ipc_server.saved_ipc_res);
-
-    // Fix: If the server was BLOCK/SLEEPING when the IPC arrived,
-    // make it READY so it can be re-scheduled to continue its main loop.
-    // Without this, the server gets stranded in BLOCK with no wakeup source.
-    if(serv_proc->info.state == BLOCK || serv_proc->info.state == SLEEPING) {
-        serv_proc->info.state = READY;
-    }
-
-    if(serv_proc->info.state == READY || serv_proc->info.state == RUNNING) {
-        proc_ready(serv_proc);
-    }
-    proc_ipc_close(serv_proc, ipc);
-    proc_ipc_wakeup(serv_proc); 
-    ipc_task_t* next_ipc = proc_ipc_get_task(serv_proc);
-    if(wake_return_client &&
-            client_proc != NULL &&
-            client_proc->info.state != UNUSED &&
-            client_proc->info.state != ZOMBIE) {
-        /*
-         * Do not wake the caller from sys_ipc_set_return() before the server
-         * fully closes the current ctask. Otherwise the caller can immediately
-         * issue the next ipc_call(), hit IPC_ERROR_RETRY against the still-busy
-         * server slot, and spin in short RET->END races that amplify VFS
-         * metadata-heavy workloads into multi-second boot tails.
-         */
-        proc_wakeup(client_proc);
-        if(!throughput_mode && next_ipc == NULL) {
-            proc_switch_multi_core(ctx, client_proc, serv_proc->info.core);
-            return;
-        }
-    }
-
-    if(next_ipc != NULL) {
-        proc_ipc_do_task(ctx, serv_proc, serv_proc->info.core);
-        return;
-    }
-    schedule(ctx);
-}
-
-static int32_t sys_ipc_disable(void) {
-    proc_t* cproc = proc_get_proc(get_current_proc());
-    ipc_task_t* ipc = proc_ipc_get_task(cproc);
-    if(ipc != NULL && ipc->state != IPC_IDLE)
-        return -1;
-    cproc->space->ipc_server.disabled = true;
-    return 0;
-}
-
-static void sys_ipc_enable(void) {
-    proc_t* cproc = proc_get_proc(get_current_proc());
-    if(!cproc->space->ipc_server.disabled)
-        return;
-
-    cproc->space->ipc_server.disabled = false;
-    proc_ipc_wakeup(cproc);
-}
+/*
+ * The core logic of SYS_IPC_CALL / GET_RETURN / GET_ARG / SET_RETURN /
+ * END / DISABLE / ENABLE lives in kernel/ipc.c (proc_ipc_*); the syscall
+ * table below dispatches into those directly.
+ */
 
 static int32_t sys_proc_ping(int32_t pid) {
     return proc_get_ready_ping_safe(pid);
@@ -680,7 +459,14 @@ static void sys_proc_block(context_t* ctx, ewokos_addr_t token) {
     if(cproc == NULL)
         return;
 
-    if(proc_ipc_get_task(cproc) != NULL) {//don't block the proc when it's serving ipc
+    /*
+     * Don't block the context while it synchronously serves an ipc request
+     * (single-task mode only - there the server's main context is hijacked
+     * and blocking it would strand the restore state machine). multi_task
+     * worker threads are independent contexts and are allowed to block; the
+     * client simply keeps waiting, and the watchdog freezes while parked.
+     */
+    if(proc_ipc_sync_serving(cproc)) {
         schedule(ctx);
         return;
     }
@@ -877,19 +663,19 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
         sys_ipc_setup(ctx, arg0, arg1, arg2);
         return;
     case SYS_IPC_CALL:
-        sys_ipc_call(ctx, arg0, arg1, (proto_t*)arg2);
+        proc_ipc_call(ctx, arg0, arg1, (proto_t*)arg2);
         return;
     case SYS_IPC_GET_RETURN:
-        sys_ipc_get_return(ctx, arg0, (uint32_t)arg1, (proto_t*)arg2);
+        proc_ipc_get_return(ctx, arg0, (uint32_t)arg1, (proto_t*)arg2);
         return;
     case SYS_IPC_SET_RETURN:
-        sys_ipc_set_return(ctx, (uint32_t)arg0, (proto_t*)arg1);
+        proc_ipc_set_return((uint32_t)arg0, (proto_t*)arg1);
         return;
     case SYS_IPC_END:
-        sys_ipc_end(ctx);
+        proc_ipc_end(ctx);
         return;
     case SYS_IPC_GET_ARG:
-        ctx->gpr[0] = sys_ipc_get_info((uint32_t)arg0, (int32_t*)arg1, (proto_t*)arg2);
+        ctx->gpr[0] = proc_ipc_get_arg((uint32_t)arg0, (int32_t*)arg1, (proto_t*)arg2);
         return;
     case SYS_IPC_PING:
         ctx->gpr[0] = sys_proc_ping(arg0);
@@ -913,10 +699,10 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
         ctx->gpr[0] = sys_core_proc_pid();
         return;
     case SYS_IPC_DISABLE:
-        ctx->gpr[0] = sys_ipc_disable();
+        ctx->gpr[0] = proc_ipc_disable();
         return;
     case SYS_IPC_ENABLE:
-        sys_ipc_enable();
+        proc_ipc_enable();
         return;
     case SYS_INTR_SETUP:
                 ctx->gpr[0] = sys_interrupt_setup((uint32_t)arg0, arg1, arg2);

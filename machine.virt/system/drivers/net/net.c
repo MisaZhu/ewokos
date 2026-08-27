@@ -179,6 +179,6 @@ int main(int argc, char **argv)
     dev.check_poll_events = net_check_poll_events;
     dev.loop_step = net_loop_step;
 
-    device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666);
+    device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666, false);
     return 0;
 }

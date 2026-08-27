@@ -235,6 +235,6 @@ int main(int argc, char **argv)
     virtio_interrupt_enable(vio, mouse_interrupt_handle);
 
     dev.extra_data = (void *)vio;
-    device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
+    device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444, false);
     return 0;
 }

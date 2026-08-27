@@ -252,7 +252,7 @@ int main(int argc, char** argv) {
     dev.extra_data = &x;
     x.dev = &dev;
 
-    device_run(&dev, mnt_point, FS_TYPE_CHAR | FS_TYPE_ANNOUNIMOUS, 0666);
+    device_run(&dev, mnt_point, FS_TYPE_CHAR | FS_TYPE_ANNOUNIMOUS, 0666, false);
     x_close(&x);
     return 0;
 }

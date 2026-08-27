@@ -513,7 +513,7 @@ int main(int argc, char** argv) {
 
     font_open(DEFAULT_SYSTEM_FONT, DEFAULT_SYSTEM_FONT_FILE);
 
-    device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444);
+    device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444, false);
     font_dev_quit();
     return 0;
 }
