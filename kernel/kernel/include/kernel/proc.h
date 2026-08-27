@@ -136,6 +136,9 @@ extern ipc_res_t* proc_ipc_client_res(proc_t* client, ipc_task_t* ipc);
 extern proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent);
 extern proc_t* kfork(context_t* ctx, int32_t type);
 extern proc_t* kfork_core_halt(uint32_t core);
+extern ewokos_addr_t thread_stack_alloc(proc_t* proc);
+extern void    thread_stack_free(proc_t* proc, ewokos_addr_t base);
+extern bool    proc_thread_stack_available(proc_t* proc);
 
 extern int32_t get_procs_num(void);
 extern int32_t get_procs(int32_t num, procinfo_t* procs);

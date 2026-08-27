@@ -483,6 +483,23 @@ void thread_stack_free(proc_t* proc, ewokos_addr_t base) {
     }
 }
 
+/*
+ * True when the proc's space still has a free thread stack slot (or none
+ * allocated yet). Used by multi_task IPC to block requesters instead of
+ * letting them spin when every slot is occupied.
+ */
+bool proc_thread_stack_available(proc_t* proc) {
+    if(proc == NULL || proc->space == NULL)
+        return false;
+    if(proc->space->thread_stacks == NULL)
+        return true;
+    for(uint32_t i = 0; i < _kernel_config.max_task_per_proc; i++) {
+        if(proc->space->thread_stacks[i].base == 0)
+            return true;
+    }
+    return false;
+}
+
 static inline void* proc_get_mem_tail(void* p) {
     proc_t* proc = (proc_t*)p;
     return (void*)proc->space->heap_size;
@@ -1119,6 +1136,25 @@ static void proc_funeral_dump_space(const char* stage, proc_space_t* space) {
             space->shms[0]);
 }
 
+/*
+ * A worker thread was just buried and its thread stack slot freed. Wake
+ * callers blocked in multi_task ipc on the space owner so they can retry
+ * spawning their worker right away instead of waiting for a later wake
+ * edge. The owner PROC is guaranteed still present: a proc's funeral is
+ * deferred while space->refs > 0, and this very funeral only just
+ * dropped that ref.
+ */
+static void proc_wake_thread_stack_waiters(proc_space_t* space) {
+    for(int32_t i = 0; i < _kernel_config.max_task_num; i++) {
+        proc_t* p = _task_table[i];
+        if(p == NULL || p->space != space || p->info.type != TASK_TYPE_PROC)
+            continue;
+        if(p->space->ipc_server.multi_task)
+            proc_ipc_wakeup(p);
+        return;
+    }
+}
+
 void proc_funeral(proc_t* proc) {
     proc_t* cproc = get_current_proc();
     proc_space_t* space;
@@ -1157,6 +1193,8 @@ void proc_funeral(proc_t* proc) {
         return;
     }
 
+    bool freed_thread_stack =
+        (proc->info.type == TASK_TYPE_THREAD && proc->thread_stack_base != 0);
     set_translation_table_base(V2P(space->vm));
     dma_release(proc->info.pid);
     proc_free_user_stack(proc);
@@ -1202,7 +1240,28 @@ void proc_funeral(proc_t* proc) {
         proc->space = NULL;
     }
     else {
+        /*
+         * Threads share their owner's space. Return the per-thread stack
+         * slot (ipc pool workers, pthreads) here or every terminated
+         * thread leaks its slot and pages for the lifetime of the owner:
+         * once max_task_per_proc slots are gone the owner can never
+         * create threads (or take an interrupt, whose handler stack also
+         * comes from this pool) again. Paths that already released the
+         * stack cleared thread_stack_base, so this is a no-op for them.
+         * The space's vm is still the active translation table.
+         */
+        if(proc->thread_stack_base != 0) {
+            thread_stack_free(proc, proc->thread_stack_base);
+            proc->thread_stack_base = 0;
+        }
         set_translation_table_base(V2P(cproc->space->vm));
+        /*
+         * This thread's stack slot only just became reusable; let multi_task
+         * ipc callers blocked on the owner retry their worker spawn at once
+         * instead of sitting until the next ipc completion wakes them.
+         */
+        if(freed_thread_stack)
+            proc_wake_thread_stack_waiters(space);
     }
 
     _task_table[proc->info.pid] = NULL;
@@ -1953,6 +2012,16 @@ proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
     proc_t *child = NULL;
     child = proc_create(type, parent);
     if(child == NULL) {
+        /*
+         * Task table full. Terminated tasks normally sit as zombies until
+         * the 1Hz funeral sweep frees their slots; a burst (e.g. multi_task
+         * ipc worker threads at boot) can exhaust the table before then.
+         * Bury the waiting zombies now and retry once before giving up.
+         */
+        proc_zombie_funeral();
+        child = proc_create(type, parent);
+    }
+    if(child == NULL) {
         printf("panic: kfork create proc failed!!(%d)\n", parent->info.pid);
         return NULL;
     }
@@ -1992,44 +2061,115 @@ proc_t* kfork(context_t* ctx, int32_t type) {
 }
 
 /*
- * Spawn a worker thread inside a multi_task IPC server to serve the given
- * request. The thread starts directly at the server's ipc entry with the
- * same calling convention the single-task context switch uses:
- * arg0 = ipc uid, arg1 = server extra_data. The server's own main context
- * is never touched; the worker owns the request until SYS_IPC_END (or its
- * own termination, which aborts the request).
- * Returns 0 on success, -1 if the thread (or its stack) could not be
- * created - the caller must then release the task slot and let the client
- * retry.
+ * Spawn one PARKED persistent worker thread for a multi_task IPC server's
+ * pool. It is created exactly like the old per-request worker (ipc entry,
+ * extra_data, its own thread stack) but is never made READY: it stays
+ * BLOCKed until a request is assigned to it and it is woken, then it
+ * parks itself again after every SYS_IPC_END instead of exiting. This
+ * avoids the per-request thread create/teardown cost.
+ * Returns the parked worker, or NULL when the proc table or the per-proc
+ * thread stack slots are exhausted - the pool then simply stays short and
+ * is refilled on later ipc calls.
  */
-int32_t proc_ipc_spawn_worker(context_t* ctx, proc_t* serv_proc, ipc_task_t* ipc) {
-    if(serv_proc == NULL || ipc == NULL || serv_proc->space == NULL)
-        return -1;
+proc_t* proc_ipc_pool_spawn(proc_t* serv_proc) {
+    if(serv_proc == NULL || serv_proc->space == NULL)
+        return NULL;
     ipc_server_t* server = &serv_proc->space->ipc_server;
     if(server->entry == 0)
-        return -1;
+        return NULL;
 
     proc_t* worker = kfork_raw(NULL, TASK_TYPE_THREAD, serv_proc);
     if(worker == NULL)
-        return -1;
+        return NULL;
 
     if(worker->thread_stack_base == 0) { //no thread stack slot left
-        proc_terminate(ctx, worker);
-        return -1;
+        proc_terminate(NULL, worker);
+        return NULL;
     }
 
     worker->ctx.pc = server->entry;
     worker->ctx.lr = server->entry;
-    worker->ctx.gpr[0] = ipc->uid;
     worker->ctx.gpr[1] = server->extra_data;
-
-    worker->ipc_task = ipc;
-    ipc->handler_pid = worker->info.pid;
-    ipc->handler_uuid = worker->info.uuid;
+    /* gpr[0] (ipc uid) and sp are (re)set per request at assignment time */
 
     core_attach(worker);
-    proc_ready(worker);
-    return 0;
+    worker->info.state = BLOCK; //parked until a request is assigned
+    return worker;
+}
+
+/*
+ * Park a multi_task IPC pool worker after it finished serving a request:
+ * flip it RUNNING->BLOCK (keeping its proc slot and thread stack), wake
+ * any clients blocked on the pool, and switch away. A later request
+ * rewrites the worker's saved context and wakes it instead of spawning a
+ * fresh thread.
+ *
+ * The BLOCK transition happens under the same server lock the pool
+ * assignment and the pool wait-queue re-check use, and BEFORE the wakeup:
+ * a retrying client either already observes this worker idle or is queued
+ * and gets woken below - it cannot slip in between and strand.
+ */
+void proc_ipc_pool_park(context_t* ctx, proc_t* worker, proc_t* serv_proc, proc_t* wake_client) {
+    if(worker == NULL || serv_proc == NULL || serv_proc->space == NULL)
+        return;
+    ipc_server_t* server = &serv_proc->space->ipc_server;
+
+    proc_ipc_server_lock(server);
+    proc_lock_enter();
+    worker->block_by = 0;
+    worker->wake_by = 0;
+    worker->wake_pending = 0;
+    proc_unready_locked(worker, BLOCK);
+    proc_lock_leave();
+    /* stamp idle start so the 1Hz shrink sweep can retire extra members */
+    for(uint32_t i = 0; i < IPC_TASK_POOL_MAX_NUM; i++) {
+        if(server->pool[i].pid == worker->info.pid &&
+                server->pool[i].uuid == worker->info.uuid) {
+            server->pool[i].idle_sec = _kernel_info.uptime_sec;
+            break;
+        }
+    }
+    proc_ipc_server_unlock(server);
+
+    proc_ipc_wakeup(serv_proc); //let blocked callers reach the idle worker
+    if(wake_client != NULL)
+        proc_wakeup(wake_client);
+
+    if(worker == get_current_proc())
+        proc_account_pause_current();
+    schedule(ctx);
+
+    /*
+     * Woken. Normally a new request was bound to this worker (its ctx was
+     * rewritten). If the idle-shrink sweep quit-marked this member instead
+     * (idle beyond IPC_TASK_SELF_QUIT_TIMEOUT, pool above MIN_NUM), drop
+     * the pool slot and terminate - the proc slot and thread stack are
+     * released by the funeral, and a later request simply grows the pool
+     * again when needed.
+     */
+    bool quitting = false;
+    proc_ipc_server_lock(server);
+    for(uint32_t i = 0; i < IPC_TASK_POOL_MAX_NUM; i++) {
+        if(server->pool[i].pid == worker->info.pid &&
+                server->pool[i].uuid == worker->info.uuid) {
+            quitting = (server->pool[i].quit != 0);
+            if(quitting) {
+                server->pool[i].pid = 0;
+                server->pool[i].uuid = 0;
+                server->pool[i].idle_sec = 0;
+                server->pool[i].quit = 0;
+            }
+            break;
+        }
+    }
+    proc_ipc_server_unlock(server);
+    if(quitting) {
+        proc_exit(ctx, worker, 0); //never returns
+        return;
+    }
+
+    if(worker == get_current_proc())
+        proc_account_resume_current();
 }
 
 int32_t get_procs_num(void) {
@@ -2422,6 +2562,20 @@ int32_t renew_kernel_tic(uint32_t usec) {
 void renew_kernel_sec(void) {
     proc_zombie_funeral();
     proc_refresh_runtime_stats();
+    /*
+     * Retire multi_task IPC pool members that grew beyond the base
+     * IPC_TASK_POOL_MIN_NUM count and sat idle long enough.
+     */
+    for(uint32_t i = 0; i < _kernel_config.max_task_num; i++) {
+        proc_t* proc = _task_table[i];
+        if(proc != NULL &&
+                proc->info.type == TASK_TYPE_PROC &&
+                proc->info.state != UNUSED &&
+                proc->info.state != ZOMBIE &&
+                proc->space != NULL &&
+                proc->space->ipc_server.multi_task)
+            proc_ipc_pool_shrink(proc);
+    }
     uint64_t now_usec = proc_account_now_usec();
     if(now_usec - _run_window_start_usec >=
             ((uint64_t)KERNEL_PROC_RUN_RECOUNT_SEC * 1000000ULL)) {

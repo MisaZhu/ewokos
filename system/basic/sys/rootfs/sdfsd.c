@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <unistd.h>
+#include <pthread.h>
 #include <ewoksys/wait.h>
 #include <string.h>
 #include <ewoksys/ipc.h>
@@ -15,6 +16,39 @@
 #include <bsp/bsp_sd.h>
 
 #define SD_BUFFER_SIZE (1024*1024*64) //64M buffer size
+
+/*
+ * Locking model (multi_task IPC: every FS request runs in its own
+ * kernel-spawned worker thread):
+ *
+ *   _fs_lock (rwlock) guards all shared fs state: the ext3 handle
+ *   (dirty-block cache, journal, bitmaps), the inode cache list and
+ *   the sd sector cache reached through it.
+ *     - read-only requests (read/get/kids/mount) take it SHARED so
+ *       concurrent readers run in parallel;
+ *     - every mutating request (write/create/open/set/flush/close/
+ *       dup/unlink) takes it EXCLUSIVE, so no two writes can ever
+ *       interleave.
+ *   The sd layer serializes its own device IO on top of this.
+ *
+ *   Synchronous IPC back into vfsd (vfs_new_nodes/vfs_del_node) must
+ *   happen OUTSIDE the lock: vfsd serves devices in single-task mode
+ *   and would otherwise deadlock waiting on a locked-out sdfsd worker.
+ */
+static pthread_rwlock_t _fs_lock = {0};
+
+static inline void fs_rdlock(void) {
+    pthread_rwlock_rdlock(&_fs_lock);
+}
+
+static inline void fs_wrlock(void) {
+    pthread_rwlock_wrlock(&_fs_lock);
+}
+
+static inline void fs_unlock(void) {
+    pthread_rwlock_unlock(&_fs_lock);
+}
+
 
 /*
  * Root filesystem driver for the sd card, serving both ext2 and ext3.
@@ -228,11 +262,13 @@ static void set_inode_stat(node_stat_t* stat, EXT3_INODE* inode) {
 
 #define NEW_NODES_BATCH 64
 
-static int32_t add_nodes(ext3_t* ext3, EXT3_INODE *ip, fsinfo_t* dinfo) {
+/* Scan one directory's data blocks and collect its child entries.
+ * Touches only the ext3 read path, safe under the shared fs lock. */
+static fsinfo_t* dir_collect_entries(ext3_t* ext3, EXT3_INODE* dir_inode, uint32_t* num) {
     char *cp;
     EXT3_DIR_T  *dp;
     uint32_t block_size = ext3_block_size(ext3);
-    uint32_t blocks = dir_block_count(ext3, ip);
+    uint32_t blocks = dir_block_count(ext3, dir_inode);
     char buf[EXT3_MAX_BLOCK_SIZE + 1];
 
     fsinfo_t* kids = NULL;
@@ -241,7 +277,7 @@ static int32_t add_nodes(ext3_t* ext3, EXT3_INODE *ip, fsinfo_t* dinfo) {
 
     for(uint32_t lbk = 0; lbk < blocks; lbk++) {
         memset(buf, 0, sizeof(buf));
-        int32_t rd = ext3_read_block(ext3, ip, buf, (int32_t)block_size, (int32_t)(lbk * block_size));
+        int32_t rd = ext3_read_block(ext3, dir_inode, buf, (int32_t)block_size, (int32_t)(lbk * block_size));
         if(rd <= 0)
             continue;
         dp = (EXT3_DIR_T *)buf;
@@ -279,33 +315,46 @@ static int32_t add_nodes(ext3_t* ext3, EXT3_INODE *ip, fsinfo_t* dinfo) {
         }
     }
 
-    if(kid_num == 0)
-        return 0;
+    *num = kid_num;
+    return kids;
+}
 
+/* Register collected children with vfsd. Issues synchronous IPC back
+ * into vfsd: must run OUTSIDE _fs_lock (see locking model above). */
+static void dir_publish_entries(fsinfo_t* kids, uint32_t num, ewokos_addr_t parent) {
     //only preload the first level under the mount root; deeper directories
     //are expanded lazily by vfsd through FS_CMD_KIDS.
-    for(uint32_t off = 0; off < kid_num; off += NEW_NODES_BATCH) {
-        uint32_t n = kid_num - off;
+    for(uint32_t off = 0; off < num; off += NEW_NODES_BATCH) {
+        uint32_t n = num - off;
         if(n > NEW_NODES_BATCH)
             n = NEW_NODES_BATCH;
-        if(vfs_new_nodes(&kids[off], n, dinfo->node) != 0) {
+        if(vfs_new_nodes(&kids[off], n, parent) != 0) {
             //fall back to the one-by-one path (old vfsd)
             for(uint32_t j = 0; j < n; j++)
-                vfs_new_node(&kids[off+j], dinfo->node, false, false);
+                vfs_new_node(&kids[off+j], parent, false, false);
         }
     }
-    free(kids);
-    return 0;
 }
 
 static int sdext_mount(vdevice_t* dev, fsinfo_t* info, void* p) {
     (void)dev;
     ext3_t* ext3 = (ext3_t*)p;
     EXT3_INODE root_node;
+    fsinfo_t* kids = NULL;
+    uint32_t num = 0;
+
+    fs_rdlock();
     info->state |= FS_STATE_KIDS_LOADED;
-    if(ext3_node_by_fname(ext3, "/", &root_node) != 0)
+    int ret = ext3_node_by_fname(ext3, "/", &root_node);
+    if(ret == 0)
+        kids = dir_collect_entries(ext3, &root_node, &num);
+    fs_unlock();
+
+    if(ret != 0)
         return -1;
-    add_nodes(ext3, &root_node, info);
+
+    dir_publish_entries(kids, num, info->node);
+    free(kids);
     return 0;
 }
 
@@ -315,9 +364,12 @@ static int sdext_create(vdevice_t* dev, int pid, fsinfo_t* info_to, fsinfo_t* in
     int32_t ino_to = (int32_t)info_to->data;
     if(ino_to == 0) ino_to = 2;
 
+    fs_wrlock();
     EXT3_INODE inode_to;
-    if(ext3_node_by_ino(ext3, ino_to, &inode_to) != 0)
+    if(ext3_node_by_ino(ext3, ino_to, &inode_to) != 0) {
+        fs_unlock();
         return -1;
+    }
 
     int ino = -1;
     if(FS_IS_TYPE(info->type, FS_TYPE_DIR))  {
@@ -329,11 +381,16 @@ static int sdext_create(vdevice_t* dev, int pid, fsinfo_t* info_to, fsinfo_t* in
         ino = ext3_create_file(ext3, ino_to, &inode_to, info->name, info->stat.uid, info->stat.gid, info->stat.mode);
     }
 
-    if(ino == -1)
+    if(ino == -1) {
+        fs_unlock();
         return -1;
+    }
     /* journal the new dirent + inode + bitmap updates now: a crash
      * before the next commit must not lose the just-created entry */
-    if(ext3_commit(ext3) != 0)
+    int ret = ext3_commit(ext3);
+    fs_unlock();
+
+    if(ret != 0)
         return -1;
     info->data = ino;
     if(FS_IS_TYPE(info->type, FS_TYPE_DIR))
@@ -358,21 +415,30 @@ static int sdext_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int 
     if(ino == 0)
         return -1;
 
+    fs_wrlock();
     EXT3_INODE inode;
     if(ext3_node_by_ino(ext3, ino, &inode) != 0) {
+        fs_unlock();
         return -1;
     }
 
     if((oflag & O_TRUNC) != 0) {
-        if(ext3_truncate(ext3, (uint32_t)ino, &inode) != 0)
+        if(ext3_truncate(ext3, (uint32_t)ino, &inode) != 0) {
+            fs_unlock();
             return -1;
+        }
         /* the truncated state (freed blocks, zeroed size) must be
          * journaled before the file is handed out again */
-        if(ext3_commit(ext3) != 0)
+        if(ext3_commit(ext3) != 0) {
+            fs_unlock();
             return -1;
+        }
         set_fsinfo_stat(&info->stat, &inode);
     }
-    if(inode_cache_seed(info->node, (uint32_t)ino, &inode, (oflag & O_TRUNC) != 0) == NULL)
+    inode_cache_t* entry = inode_cache_seed(info->node, (uint32_t)ino, &inode, (oflag & O_TRUNC) != 0);
+    fs_unlock();
+
+    if(entry == NULL)
         return -1;
     return 0;
 }
@@ -385,43 +451,55 @@ static int sdext_set(vdevice_t* dev, int from_pid, fsinfo_t* info, void* p) {
     if(ino == 0)
         return -1;
 
-    if(inode_cache_find_by_node(info->node) != NULL)
-        return inode_cache_sync_node(ext3, info->node, info);
+    fs_wrlock();
+    if(inode_cache_find_by_node(info->node) != NULL) {
+        int ret = inode_cache_sync_node(ext3, info->node, info);
+        fs_unlock();
+        return ret;
+    }
 
     EXT3_INODE inode;
     if(ext3_node_by_ino(ext3, ino, &inode) != 0) {
+        fs_unlock();
         return -1;
     }
 
     set_inode_stat(&info->stat, &inode);
     ext3_put_node(ext3, ino, &inode);
     (void)ext3_commit(ext3);
+    fs_unlock();
     return 0;
 }
 
 static int sdext_get(vdevice_t* dev, int from_pid, const char* fname, fsinfo_t* info, void* p) {
     (void)dev;
     ext3_t* ext3 = (ext3_t*)p;
+
+    fs_rdlock();
     EXT3_DIR_T dirp;
     uint32_t ino = ext3_ino_by_fname(ext3, fname, &dirp);
-    if(ino <= 0)
+    if(ino <= 0) {
+        fs_unlock();
         return -1;
+    }
 
     EXT3_INODE inode;
-    if(ext3_node_by_ino(ext3, ino, &inode) != 0)
+    if(ext3_node_by_ino(ext3, ino, &inode) != 0) {
+        fs_unlock();
         return -1;
+    }
 
     memset(info, 0, sizeof(fsinfo_t));
     strcpy(info->name, dirp.name);
     info->type = dirent_type_to_fs(&dirp, &inode);
     info->data = (uint32_t)ino;
     set_fsinfo_stat(&info->stat, &inode);
+    fs_unlock();
     return 0;
 }
 
 static fsinfo_t* sdext_kids(vdevice_t* dev, fsinfo_t* info_dir, uint32_t* num, void* p) {
     (void)dev;
-    fsinfo_t* ret = NULL;
     *num = 0;
     if(!FS_IS_TYPE(info_dir->type, FS_TYPE_DIR))
         return NULL;
@@ -430,53 +508,15 @@ static fsinfo_t* sdext_kids(vdevice_t* dev, fsinfo_t* info_dir, uint32_t* num, v
     int32_t ino_dir = (int32_t)info_dir->data;
     if(ino_dir == 0) ino_dir = 2;
 
+    fs_rdlock();
     EXT3_INODE inode_dir;
-    if(ext3_node_by_ino(ext3, ino_dir, &inode_dir) != 0)
+    if(ext3_node_by_ino(ext3, ino_dir, &inode_dir) != 0) {
+        fs_unlock();
         return NULL;
-
-    char *cp;
-    EXT3_DIR_T  *dp;
-    uint32_t block_size = ext3_block_size(ext3);
-    uint32_t blocks = dir_block_count(ext3, &inode_dir);
-    char buf[EXT3_MAX_BLOCK_SIZE + 1];
-
-    for(uint32_t lbk = 0; lbk < blocks; lbk++) {
-        memset(buf, 0, sizeof(buf));
-        if(ext3_read_block(ext3, &inode_dir, buf, (int32_t)block_size, (int32_t)(lbk * block_size)) <= 0)
-            continue;
-        dp = (EXT3_DIR_T *)buf;
-        cp = buf;
-
-        while (cp < (buf + block_size)){
-            if(dp->name_len == 0 || dp->rec_len < 12 ||
-                    dp->rec_len < (uint16_t)(4 * ((8 + dp->name_len + 3) / 4)) ||
-                    (cp + dp->rec_len) > (buf + block_size))
-                break;
-
-            if(dp->inode != 0 && !dirent_name_equals(dp, ".") && !dirent_name_equals(dp, "..")) {
-                int32_t ino = dp->inode;
-                EXT3_INODE ip_node;
-                if(ext3_node_by_ino(ext3, ino, &ip_node) == 0) {
-                    int32_t type = dirent_type_to_fs(dp, &ip_node);
-                    if(type == FS_TYPE_DIR || type == FS_TYPE_FILE) {
-                        fsinfo_t f;
-                        memset(&f, 0, sizeof(fsinfo_t));
-                        memcpy(f.name, dp->name, dp->name_len);
-                        f.name[dp->name_len] = 0;
-                        f.data = (uint32_t)ino;
-                        f.type = type;
-                        set_fsinfo_stat(&f.stat, &ip_node);
-
-                        ret = realloc(ret, sizeof(fsinfo_t) * (*num + 1));
-                        memcpy(&ret[*num], &f, sizeof(fsinfo_t));
-                        (*num)++;
-                    }
-                }
-            }
-            cp += dp->rec_len;
-            dp = (EXT3_DIR_T *)cp;
-        }
     }
+
+    fsinfo_t* ret = dir_collect_entries(ext3, &inode_dir, num);
+    fs_unlock();
     return ret;
 }
 
@@ -488,11 +528,14 @@ static int sdext_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
     int32_t ino = (int32_t)info->data;
     if(ino == 0)
         ino = 2;
+
+    fs_rdlock();
     EXT3_INODE inode;
     inode_cache_t* entry = inode_cache_find_by_node(info->node);
     if(entry != NULL)
         memcpy(&inode, &entry->inode, sizeof(EXT3_INODE));
     else if(ext3_node_by_ino(ext3, ino, &inode) != 0) {
+        fs_unlock();
         return -1;
     }
 
@@ -505,6 +548,7 @@ static int sdext_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
     if(size > 0) {
         size = ext3_read(ext3, &inode, buf, size, offset);
     }
+    fs_unlock();
     return size;
 }
 
@@ -517,8 +561,10 @@ static int sdext_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
     if(ino == 0)
         return -1;
 
+    fs_wrlock();
     inode_cache_t* entry = inode_cache_get(ext3, info->node, (uint32_t)ino);
     if(entry == NULL) {
+        fs_unlock();
         return -1;
     }
     /* data goes straight to the card (ordered mode); the inode and any
@@ -530,6 +576,7 @@ static int sdext_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
         entry->dirty = 1;
         set_fsinfo_stat(&info->stat, &entry->inode);
     }
+    fs_unlock();
     return size;
 }
 
@@ -538,9 +585,14 @@ static int sdext_flush(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, voi
     (void)fd;
     (void)from_pid;
     ext3_t* ext3 = (ext3_t*)p;
-    if(inode_cache_flush(ext3, info->node, info) != 0)
-        return -1;
-    if(ext3_commit(ext3) != 0)
+
+    fs_wrlock();
+    int ret = inode_cache_flush(ext3, info->node, info);
+    if(ret == 0)
+        ret = ext3_commit(ext3);
+    fs_unlock();
+
+    if(ret != 0)
         return -1;
     return sd_flush();
 }
@@ -550,11 +602,17 @@ static int sdext_close(vdevice_t* dev, int fd, int from_pid, ewokos_addr_t node,
     (void)fd;
     (void)from_pid;
     ext3_t* ext3 = (ext3_t*)p;
-    if(inode_cache_flush(ext3, node, info) != 0)
+
+    fs_wrlock();
+    int ret = inode_cache_flush(ext3, node, info);
+    if(ret == 0)
+        ret = ext3_commit(ext3);
+    if(ret == 0)
+        inode_cache_drop(node);
+    fs_unlock();
+
+    if(ret != 0)
         return -1;
-    if(ext3_commit(ext3) != 0)
-        return -1;
-    inode_cache_drop(node);
     return sd_flush();
 }
 
@@ -570,22 +628,32 @@ static int sdext_dup(vdevice_t* dev, int from_fd, int from_pid, int dup_fd, int 
     (void)dup_pid;
     (void)fsinfo;
     (void)p;
+
+    fs_wrlock();
     inode_cache_t* entry = inode_cache_find_by_node(node);
     if(entry != NULL)
         entry->refs++;
+    fs_unlock();
     return 0;
 }
 
 static int sdext_unlink(vdevice_t* dev, fsinfo_t* info, const char* fname, void* p) {
     (void)dev;
     ext3_t* ext3 = (ext3_t*)p;
+
+    fs_wrlock();
     int ret = FS_IS_TYPE(info->type, FS_TYPE_DIR) ? ext3_rmdir(ext3, fname) : ext3_unlink(ext3, fname);
+    if(ret == 0) {
+        /* best effort: the node must go away in vfsd regardless; on ext3
+         * the removal is already durable in the journal once this commit
+         * succeeds, so a crash cannot resurrect the entry */
+        (void)ext3_commit(ext3);
+    }
+    fs_unlock();
+
     if(ret != 0)
         return -1;
-    /* best effort: the node must go away in vfsd regardless; on ext3
-     * the removal is already durable in the journal once this commit
-     * succeeds, so a crash cannot resurrect the entry */
-    (void)ext3_commit(ext3);
+    /* synchronous IPC back into vfsd: outside the lock */
     return vfs_del_node(info->node);
 }
 
@@ -643,7 +711,12 @@ int main(int argc, char** argv) {
     dev.unlink = sdext_unlink;
 
     dev.extra_data = &ext3;
-    device_run(&dev, "/", FS_TYPE_DIR, 0777, false);
+
+    /* init the fs lock while still single-threaded, before any IPC
+     * worker can exist; multi_task serves each request in its own
+     * kernel-spawned thread, the rwlock keeps writes exclusive */
+    pthread_rwlock_init(&_fs_lock, NULL);
+    device_run(&dev, "/", FS_TYPE_DIR, 0777, true);
     ext3_quit(&ext3);
     sd_quit();
     return 0;

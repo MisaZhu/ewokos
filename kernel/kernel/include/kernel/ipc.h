@@ -4,10 +4,26 @@
 #include <proto.h>
 #include <kernel/context.h>
 #include <queue.h>
+#include <stddef.h>
 
 struct st_proc;
 
 #define IPC_CTX_MAX 8
+/*
+ * MAX Number of persistent worker threads in a multi_task server's pool.
+ * They are spawned once (parked/BLOCKed), reused for every request and
+ * never terminated between requests. When all of them are busy the
+ * requesting client blocks inside the kernel until one parks again.
+ */
+#define IPC_TASK_POOL_MAX_NUM 16
+#define IPC_TASK_POOL_MIN_NUM 2
+
+/*
+ * Seconds a pool member spawned BEYOND IPC_TASK_POOL_MIN_NUM may sit
+ * idle (parked, no request) before it terminates itself to release its
+ * proc slot and thread stack. The MIN_NUM base members never quit.
+ */
+#define IPC_TASK_SELF_QUIT_TIMEOUT  3 //seconds
 
 enum {
 	SIG_STATE_IDLE = 0,
@@ -43,6 +59,13 @@ typedef struct ipc_queue_item {
 } ipc_queue_item_t;
 
 typedef struct {
+	int32_t  pid;  //0 = empty slot
+	uint32_t uuid; //uuid of the worker (pid slot reuse guard)
+	uint32_t idle_sec; //uptime_sec when the worker parked (0 = not idle)
+	uint8_t  quit; //idle sweep asked this member to terminate itself
+} ipc_pool_worker_t;
+
+typedef struct {
 	int32_t       lock;  // per-server spinlock for SMP protection
 	bool          disabled;
 	bool          multi_task;
@@ -53,6 +76,7 @@ typedef struct {
 	uint8_t       task_head;
 	uint8_t       task_tail;
 	uint8_t       task_num;
+	ipc_pool_worker_t pool[IPC_TASK_POOL_MAX_NUM]; //persistent worker threads (multi_task)
 
     bool          do_switch;
 	uint8_t       restore_pending;
@@ -64,6 +88,30 @@ typedef struct {
 	ipc_queue_item_t* wait_tail;
 } ipc_server_t;
 
+#ifdef KERNEL_SMP
+extern void mcore_lock(int32_t* v);
+extern void mcore_unlock(int32_t* v);
+#endif
+
+static inline void proc_ipc_server_lock(ipc_server_t* server) {
+#ifdef KERNEL_SMP
+	if(server != NULL)
+		mcore_lock(&server->lock);
+#else
+	(void)server;
+#endif
+}
+
+static inline void proc_ipc_server_unlock(ipc_server_t* server) {
+#ifdef KERNEL_SMP
+	if(server != NULL)
+		mcore_unlock(&server->lock);
+#else
+	(void)server;
+#endif
+}
+
+
 extern int32_t     proc_ipc_setup(context_t* ctx, ewokos_addr_t entry, ewokos_addr_t extra, uint32_t flags);
 extern int32_t     proc_ipc_do_task(context_t* ctx, struct st_proc* proc, uint32_t core);
 extern ipc_task_t* proc_ipc_req(struct st_proc* serv_proc, struct st_proc* client_proc, int32_t call_id, proto_t* arg);
@@ -73,7 +121,9 @@ extern uint32_t    proc_ipc_task_count(struct st_proc* serv_proc);
 extern ipc_task_t* proc_ipc_find_task(struct st_proc* serv_proc, uint32_t uid);
 extern ipc_task_t* proc_ipc_current_task(struct st_proc* proc);
 extern ipc_task_t* proc_ipc_serving_task(struct st_proc* proc, uint32_t uid);
-extern int32_t     proc_ipc_spawn_worker(context_t* ctx, struct st_proc* serv_proc, ipc_task_t* ipc);
+extern struct st_proc* proc_ipc_pool_spawn(struct st_proc* serv_proc);
+extern void        proc_ipc_pool_park(context_t* ctx, struct st_proc* worker, struct st_proc* serv_proc, struct st_proc* wake_client);
+extern void        proc_ipc_pool_shrink(struct st_proc* serv_proc);
 extern void        proc_ipc_task_abort(struct st_proc* serv_proc, ipc_task_t* ipc);
 extern struct st_proc* proc_ipc_finish_task(struct st_proc* serv_proc, ipc_task_t* ipc, bool* wake_client);
 extern void        proc_ipc_close(struct st_proc* serv_proc, ipc_task_t* ipc);

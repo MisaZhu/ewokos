@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,6 +33,21 @@ typedef struct {
 } sd_buffer_t;
 
 static sd_buffer_t _sd_buffer;
+
+/* Serializes device IO and the sector cache: with multi_task IPC servers
+ * (e.g. sdfsd) the read/write paths run concurrently in worker threads,
+ * and neither the SD host nor _sd_buffer is reentrant. Initialized in
+ * sd_init_ex while still single-threaded (lazy init on first lock would
+ * race between two threads). */
+static pthread_mutex_t _sd_io_lock = 0;
+
+static inline void sd_io_lock(void) {
+    pthread_mutex_lock(&_sd_io_lock);
+}
+
+static inline void sd_io_unlock(void) {
+    pthread_mutex_unlock(&_sd_io_lock);
+}
 
 static sector_buf_block_t* sector_buf_new(uint32_t num) {
     if(num == 0)
@@ -148,19 +164,23 @@ static int32_t (*sd_write_sector_arch)(int32_t sector, const void* buf);
 static int32_t (*sd_write_sectors_arch)(int32_t sector, const void* buf, uint32_t count);
 
 int32_t sd_read_sector(int32_t sector, void* buf) {
+    int32_t ret = 0;
+
+    sd_io_lock();
     if(_sd_buffer.enabled) {
         void* b = sector_buf_get(sector);
         if(b != NULL) {
             memcpy(buf, b, SECTOR_SIZE);
-            return SECTOR_SIZE;
+            ret = SECTOR_SIZE;
         }
-    }	
-    if(sd_read_sector_arch(sector, buf) == 0) {
+    }
+    if(ret == 0 && sd_read_sector_arch(sector, buf) == 0) {
         if(_sd_buffer.enabled)
             sector_buf_set(sector, buf);
-        return SECTOR_SIZE;
+        ret = SECTOR_SIZE;
     }
-    return 0;
+    sd_io_unlock();
+    return ret;
 }
 
 static int32_t sd_read_sectors_arch_fallback(int32_t sector, void* buf, uint32_t count) {
@@ -176,10 +196,12 @@ static int32_t sd_read_sectors_arch_fallback(int32_t sector, void* buf, uint32_t
 int32_t sd_read_sectors(int32_t sector, void* buf, uint32_t count) {
     char* p = (char*)buf;
     uint32_t remaining = count;
+    int32_t ret = 0;
 
     if(count == 0)
         return 0;
 
+    sd_io_lock();
     while(remaining > 0) {
         uint32_t cached = 0;
 
@@ -193,8 +215,10 @@ int32_t sd_read_sectors(int32_t sector, void* buf, uint32_t count) {
             }
         }
 
-        if(cached == remaining)
-            return (int32_t)(count * SECTOR_SIZE);
+        if(cached == remaining) {
+            ret = (int32_t)(count * SECTOR_SIZE);
+            goto out;
+        }
 
         sector += (int32_t)cached;
         p += cached * SECTOR_SIZE;
@@ -211,10 +235,10 @@ int32_t sd_read_sectors(int32_t sector, void* buf, uint32_t count) {
 
         if(sd_read_sectors_arch != NULL) {
             if(sd_read_sectors_arch(sector, p, uncached) != 0)
-                return 0;
+                goto out;
         }
         else if(sd_read_sectors_arch_fallback(sector, p, uncached) != 0) {
-            return 0;
+            goto out;
         }
 
         if(_sd_buffer.enabled) {
@@ -227,43 +251,59 @@ int32_t sd_read_sectors(int32_t sector, void* buf, uint32_t count) {
         remaining -= uncached;
     }
 
-    return (int32_t)(count * SECTOR_SIZE);
+    ret = (int32_t)(count * SECTOR_SIZE);
+out:
+    sd_io_unlock();
+    return ret;
 }
 
 int32_t sd_write_sector(int32_t sector, const void* buf) {
+    int32_t ret = 0;
+
+    sd_io_lock();
     if(sd_write_sector_arch(sector, buf) == 0)  {
         if(_sd_buffer.enabled)
             sector_buf_set(sector, buf);
-        return SECTOR_SIZE;
+        ret = SECTOR_SIZE;
     }
-    return 0;
+    sd_io_unlock();
+    return ret;
 }
 
 int32_t sd_write_sectors(int32_t sector, const void* buf, uint32_t count) {
     const char* p = (const char*)buf;
+    int32_t ret = 0;
 
     if(count == 0)
         return 0;
 
+    sd_io_lock();
     if(sd_write_sectors_arch != NULL) {
         if(sd_write_sectors_arch(sector, buf, count) == 0) {
             if(_sd_buffer.enabled) {
                 for(uint32_t i = 0; i < count; i++)
                     sector_buf_set(sector + (int32_t)i, p + (i * SECTOR_SIZE));
             }
-            return (int32_t)(count * SECTOR_SIZE);
+            ret = (int32_t)(count * SECTOR_SIZE);
         }
-        return 0;
+        sd_io_unlock();
+        return ret;
     }
 
     while(count > 0) {
-        if(sd_write_sector(sector, p) != SECTOR_SIZE)
+        if(sd_write_sector_arch(sector, p) != 0) {
+            sd_io_unlock();
             return 0;
+        }
+        if(_sd_buffer.enabled)
+            sector_buf_set(sector, p);
         sector++;
         count--;
         p += SECTOR_SIZE;
     }
-    return (int32_t)((p - (const char*)buf));
+    ret = (int32_t)(p - (const char*)buf);
+    sd_io_unlock();
+    return ret;
 }
 
 int32_t sd_read(int32_t block, void* buf) {
@@ -386,7 +426,11 @@ int32_t sd_quit(void) {
 int32_t sd_flush(void) {
     if(sd_flush_arch == NULL)
         return 0;
-    return sd_flush_arch();
+
+    sd_io_lock();
+    int32_t ret = sd_flush_arch();
+    sd_io_unlock();
+    return ret;
 }
 
 int32_t sd_init(sd_init_func init, sd_read_sector_func rd, sd_write_sector_func wr) {
@@ -395,6 +439,10 @@ int32_t sd_init(sd_init_func init, sd_read_sector_func rd, sd_write_sector_func 
 
 int32_t sd_init_ex(sd_init_func init, sd_read_sector_func rd, sd_read_sectors_func rds,
         sd_write_sector_func wr, sd_write_sectors_func wrs, sd_flush_func flsh) {
+    /* init the IO lock while still single-threaded; every later user of
+     * this library reaches the lock through the public IO entry points */
+    pthread_mutex_init(&_sd_io_lock, NULL);
+
     memset(&_sd_buffer, 0, sizeof(sd_buffer_t));
     memset(&_partition, 0, sizeof(partition_t));
     _sd_buffer.enabled = 1;
