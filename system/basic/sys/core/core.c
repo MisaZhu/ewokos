@@ -5,6 +5,7 @@
 #include <sys/errno.h>
 #include <ewoksys/mstr.h>
 #include <ewoksys/ipc.h>
+#include <ewoksys/ipc_serv.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/sys.h>

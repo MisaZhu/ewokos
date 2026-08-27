@@ -1,5 +1,6 @@
 #include <ewoksys/session.h>
 #include <ewoksys/ipc.h>
+#include <ewoksys/ipc_serv.h>
 #include <string.h>
 
 #ifdef __cplusplus

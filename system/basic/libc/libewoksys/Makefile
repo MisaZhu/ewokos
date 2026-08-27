@@ -19,6 +19,7 @@ LIB_EWOKSYS_OBJS =  \
 	$(ARCH)/ewoksys/src/charbuf.o \
 	$(ARCH)/ewoksys/src/vfs.o \
 	$(ARCH)/ewoksys/src/ipc.o \
+	$(ARCH)/ewoksys/src/ipc_serv.o \
 	$(ARCH)/ewoksys/src/signal.o \
 	$(ARCH)/ewoksys/src/interrupt.o \
 	$(ARCH)/ewoksys/src/vdevice.o \

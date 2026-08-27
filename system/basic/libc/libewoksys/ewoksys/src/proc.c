@@ -1,5 +1,6 @@
 #include <ewoksys/proc.h>
 #include <ewoksys/ipc.h>
+#include <ewoksys/ipc_serv.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/sys.h>

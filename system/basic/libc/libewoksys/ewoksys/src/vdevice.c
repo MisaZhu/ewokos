@@ -1,6 +1,7 @@
 #include <ewoksys/vdevice.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/ipc.h>
+#include <ewoksys/ipc_serv.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>

@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <ewoksys/ipc.h>
+#include <ewoksys/ipc_serv.h>
 #include <sys/shm.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/vdevice.h>

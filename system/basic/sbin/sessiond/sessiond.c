@@ -7,6 +7,7 @@
 #include <ewoksys/md5.h>
 #include <ewoksys/mstr.h>
 #include <ewoksys/ipc.h>
+#include <ewoksys/ipc_serv.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/keydef.h>
 #include <ewoksys/session.h>
