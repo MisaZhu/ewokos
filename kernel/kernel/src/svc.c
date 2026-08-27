@@ -336,6 +336,10 @@ static ewokos_addr_t sys_dma_phy(int32_t dma_block_id, ewokos_addr_t vaddr) {
     return dma_phy_addr(dma_block_id, vaddr);
 }
 
+static ewokos_addr_t sys_shm_contig_phy(int32_t shm_id, ewokos_addr_t vaddr) {
+    return shm_contig_phy_addr(shm_id, vaddr);
+}
+
 static ewokos_addr_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint32_t size) {
     proc_t* cproc = proc_get_proc(get_current_proc());
     uint32_t attr;
@@ -844,6 +848,9 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
         return;
     case SYS_PROC_SHM_UNMAP:
         ctx->gpr[0] = sys_shm_unmap((void*)arg0);
+        return;
+    case SYS_SHM_CONTIG_PHY_ADDR:
+        ctx->gpr[0] = sys_shm_contig_phy(arg0, (ewokos_addr_t)arg1);
         return;
     case SYS_THREAD:
         sys_thread(ctx, arg0, arg1, arg2);

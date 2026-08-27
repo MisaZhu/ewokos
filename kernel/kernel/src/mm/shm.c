@@ -586,6 +586,26 @@ int32_t shm_set_owner(uint32_t id, int32_t pid) {
     return 0;
 }
 
+/* resolve the physical address of vaddr inside a contig-backed shm segment
+   (for dma hardware). fails (returns 0) for scattered kalloc-backed
+   segments: their pages are not physically contiguous, and returning an
+   address would let hardware walk into unrelated memory */
+ewokos_addr_t shm_contig_phy_addr(int32_t id, ewokos_addr_t vaddr) {
+    shm_lock();
+    share_mem_t* it = shm_item_by_id(id);
+    if(it == NULL || !it->contig || it->phy_base == 0) {
+        shm_unlock();
+        return 0;
+    }
+    if(vaddr < it->addr || vaddr >= (it->addr + it->pages * PAGE_SIZE)) {
+        shm_unlock();
+        return 0;
+    }
+    ewokos_addr_t ret = it->phy_base + (vaddr - it->addr);
+    shm_unlock();
+    return ret;
+}
+
 /*unmap share memory of process*/
 int32_t shm_proc_unmap(proc_t* proc, void* p) {
     shm_lock();

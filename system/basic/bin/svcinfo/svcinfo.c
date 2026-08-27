@@ -138,6 +138,8 @@ static inline const char* svc_name(int32_t code) {
         return "mmio_rw";
     case SYS_PROC_PRIORITY:
         return "proc_priority";
+    case SYS_SHM_CONTIG_PHY_ADDR:
+        return "shm_contig_phy_addr";
     }
     return "unknown";
 }
