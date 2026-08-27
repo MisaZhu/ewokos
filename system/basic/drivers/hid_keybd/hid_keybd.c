@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/klog.h>
 #include <ewoksys/ipc.h>
@@ -28,16 +29,18 @@
 #define HID_KEYBOARD_FIRST_KEY_IDX 2
 #define MAX_KEY 6 /* standard boot keyboard snapshot: mod, reserved, key[6] */
 
-/* exponential idle backoff: poll the hid device fast while reports flow,
-   back off to a slow cadence when it stays silent to stop burning CPU */
-#define HID_IDLE_SLEEP_MIN_US 3000u
-#define HID_IDLE_SLEEP_MAX_US 50000u
+/* re-check cadence used while keys are held: some keyboards go silent
+   between the press and release reports, so an unbounded kernel block
+   could stall the level-triggered wakeups of /dev/keyb0 readers */
+#define HID_WAIT_FALLBACK_US 20000u
 /* retry cadence while /dev/hid0 is not there yet */
 #define HID_CONNECT_SLEEP_US 200000u
 
 static int hid = -1;
 static const char* _dev_point = "/dev/hid0";
-static uint32_t _idle_sleep_us = HID_IDLE_SLEEP_MIN_US;
+/* cached fsinfo of the open /dev/hid0 fd: node id and mount pid stay stable
+   for the whole mount, so the wait path does not pay a VFS_GET_BY_FD IPC */
+static fsinfo_t _hid_info;
 
 /* current held-key state, refreshed by each HID report snapshot */
 static uint8_t _mod = 0;
@@ -173,8 +176,54 @@ static bool hid_connect(void) {
         close(fd);
         return false;
     }
+    if (vfs_get_by_fd(fd, &_hid_info) != 0 || _hid_info.node == 0) {
+        close(fd);
+        return false;
+    }
+    /*
+     * Register on the node's read wait queue once and keep it permanently:
+     * hid_wait_report() then needs only proc_block_by()/usleep.
+     * wait_queue_push dedupes a same-waiter same-node entry, so reconnects
+     * cannot pile up.
+     */
+    proto_t in;
+    PF->init(&in)->
+        addi(&in, _hid_info.node)->
+        addi(&in, VFS_EVT_RD);
+    ipc_call(get_vfsd_pid(), VFS_BLOCK, &in, NULL);
+    PF->clear(&in);
     hid = fd;
     return true;
+}
+
+/*
+ * Wait until the per-fd subscriber queue on /dev/hid0 holds a report.
+ *
+ * The waiter registration is set up once in hid_connect() and never
+ * removed, so when idle the wait is a single proc_block_by(): the kernel
+ * parks us with zero IPCs until usbhostd's vfs_wakeup() fires
+ * proc_wakeup_by(pid, node) through vfsd. Wakeups landing while we are
+ * RUNNING are latched by the kernel and consumed by proc_block_by()
+ * instead of sleeping, so no edge can be lost, and a spurious wake (xim's
+ * 20ms non-blocking polls of /dev/keyb0 preempt the block through IPC, or
+ * a mouse report hits the shared hid0 node) costs one empty read before
+ * we sleep again - the old per-pass register/dev_poll/unblock round trip
+ * burned ~4 IPCs on every such wake, which is exactly why this driver
+ * still showed CPU while the idle mouse did not.
+ *
+ * Difference from the mouse: while keys are HELD we never block unbounded.
+ * Some keyboards send no repeat reports between the press and the release
+ * snapshot, and /dev/keyb0 readers rely on this driver's level-triggered
+ * wakeups to keep seeing the held-key stream, so the hold case uses a
+ * bounded sleep instead.
+ */
+static void hid_wait_report(void) {
+    if (_key_count > 0) {
+        proc_usleep(HID_WAIT_FALLBACK_US);
+    }
+    else {
+        proc_block_by(_hid_info.node);
+    }
 }
 
 static int loop(vdevice_t* dev, void* p) {
@@ -185,14 +234,28 @@ static int loop(vdevice_t* dev, void* p) {
         return 0;
     }
 
-    ipc_disable();
+    /*
+     * Event-driven wait: the kernel parks us (zero IPCs) until usbhostd's
+     * vfs_wakeup() fires, so an idle keyboard costs nothing instead of the
+     * old endless poll loop with its exponential backoff sleep.
+     * hid_wait_report() verifies readiness through the live per-fd queue
+     * only, never the sticky node bits, so a failed IPC can neither
+     * busy-spin nor wedge us forever; while keys are held it keeps a
+     * bounded cadence for the level-triggered wakeups below.
+     */
+    hid_wait_report();
 
-    bool got = false;
+    /*
+     * Drain every queued snapshot in one pass: reads are O_NONBLOCK, so the
+     * loop stops at the first EAGAIN. Only the LAST snapshot matters - each
+     * report is a full state image, earlier ones in the same burst are stale.
+     */
+    ipc_disable();
+    bool failed = false;
     while(true) {
         uint8_t buf[HID_KEYBOARD_REPORT_SIZE] = {0};
         int res = read(hid, buf, HID_KEYBOARD_REPORT_SIZE);
         if(res == HID_KEYBOARD_REPORT_SIZE) {
-            got = true;
             /* each report is a full snapshot: mod, reserved, keycodes */
             uint8_t keys[MAX_KEY];
             int count = 0;
@@ -204,43 +267,37 @@ static int loop(vdevice_t* dev, void* p) {
             _mod = buf[0];
             _key_count = count;
             memcpy(_keys, keys, sizeof(keys));
+            continue;
         }
-        else {
-            break;
+        if (res < 0 && errno != EAGAIN) {
+            /* hard failure (node gone / usbhostd restarted): reconnect */
+            failed = true;
         }
+        break;
+    }
+    ipc_enable();
+
+    if (failed) {
+        close(hid);
+        hid = -1;
+        memset(&_hid_info, 0, sizeof(fsinfo_t));
+        proc_usleep(HID_CONNECT_SLEEP_US);
+        return 0;
     }
 
-    ipc_enable();
     /*
-     * Level-triggered wakeup: re-assert VFS_EVT_RD whenever keys are
-     * still held, not only on the edge when a new report arrives.
-     * The libgloss _read() loop clears the sticky RD bit
-     * (vfs_clear_poll_events) before vfs_block(), and vfs_block() only
-     * prechecks sticky bits — so if the edge was consumed while keys
-     * remain held, a blocked reader would sleep forever until the next
-     * physical key event.
+     * Level-triggered wakeup: re-assert VFS_EVT_RD whenever keys are still
+     * held, not only on the edge when a new report arrives. /dev/keyb0
+     * readers see held keys as a continuously readable stream
+     * (keyb_check_poll_events reports RD while _key_count > 0); if the only
+     * edge they were woken by got consumed while keys remain held, they
+     * could sleep with data still visible. Re-asserting on every pass where
+     * keys are held keeps them fed - at the bounded hid_wait_report()
+     * cadence, not a busy loop.
      */
     if(_key_count > 0) {
-        _idle_sleep_us = HID_IDLE_SLEEP_MIN_US;
         vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
     }
-    else if(got) {
-        _idle_sleep_us = HID_IDLE_SLEEP_MIN_US;
-    }
-    else if (_idle_sleep_us < HID_IDLE_SLEEP_MAX_US) {
-        _idle_sleep_us <<= 1;
-        if (_idle_sleep_us > HID_IDLE_SLEEP_MAX_US) {
-            _idle_sleep_us = HID_IDLE_SLEEP_MAX_US;
-        }
-    }
-    /*
-     * device_run() does not pace loop_step, so this has to sleep on every
-     * pass. It used to skip the sleep whenever keys were held, which meant
-     * simply holding a key down pinned a core at 100%: _key_count stays
-     * non-zero until the release report arrives. The floor is well under
-     * the endpoint's own bInterval, so nothing is lost by always waiting.
-     */
-    proc_usleep(_idle_sleep_us);
     return 0;
 }
 

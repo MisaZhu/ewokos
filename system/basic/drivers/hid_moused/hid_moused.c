@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/vdevice.h>
@@ -11,17 +12,14 @@
 
 #define CACHE_SIZE (32)
 
-/* exponential idle backoff: poll the hid device fast while reports flow,
-   back off to a slow cadence when it stays silent to stop burning CPU */
-#define HID_IDLE_SLEEP_MIN_US 3000u
-#define HID_IDLE_SLEEP_MAX_US 50000u
-
 /* retry cadence while /dev/hid0 is not there yet */
 #define HID_CONNECT_SLEEP_US 200000u
 
 static int hid = -1;
 static const char* _dev_point = "/dev/hid0";
-static uint32_t _idle_sleep_us = HID_IDLE_SLEEP_MIN_US;
+/* cached fsinfo of the open /dev/hid0 fd: node id and mount pid stay stable
+   for the whole mount, so the wait path does not pay a VFS_GET_BY_FD IPC */
+static fsinfo_t _hid_info;
 static mouse_evt_t mouse_data[CACHE_SIZE];
 static uint32_t mouse_data_read = 0;
 static uint32_t mouse_data_write = 0;
@@ -135,6 +133,11 @@ static bool hid_connect(void) {
     int fd;
     if (hid >= 0)
         return true;
+    /*
+     * O_NONBLOCK: this driver waits in hid_wait_report() instead of inside
+     * read(). Empty-queue reads must return EAGAIN immediately so the drain
+     * loop terminates and the wait path stays in control of when to sleep.
+     */
     fd = open(_dev_point, O_RDONLY | O_NONBLOCK);
     if (fd < 0)
         return false;
@@ -142,8 +145,48 @@ static bool hid_connect(void) {
         close(fd);
         return false;
     }
+    if (vfs_get_by_fd(fd, &_hid_info) != 0 || _hid_info.node == 0) {
+        close(fd);
+        return false;
+    }
+    /*
+     * Register on the node's read wait queue once and keep it permanently:
+     * hid_wait_report() then needs only proc_block_by(). wait_queue_push
+     * dedupes a same-waiter same-node entry, so reconnects cannot pile up.
+     */
+    proto_t in;
+    PF->init(&in)->
+        addi(&in, _hid_info.node)->
+        addi(&in, VFS_EVT_RD);
+    ipc_call(get_vfsd_pid(), VFS_BLOCK, &in, NULL);
+    PF->clear(&in);
     hid = fd;
     return true;
+}
+
+/*
+ * Wait until the per-fd subscriber queue on /dev/hid0 holds a report.
+ *
+ * The waiter registration is set up once in hid_connect() and never
+ * removed, so waiting is a single proc_block_by(): the kernel parks us
+ * with zero IPCs until usbhostd's vfs_wakeup() fires
+ * proc_wakeup_by(pid, node) through vfsd. If the wakeup lands while we
+ * are still RUNNING (mid-drain, or a spurious wake), the kernel latches
+ * the token and proc_block_by() consumes it instead of sleeping - no edge
+ * can be lost, and a spurious wake (a keyboard report hitting the shared
+ * hid0 node, or an IPC preempting the block) costs one empty read before
+ * we sleep again instead of the old register/dev_poll/unblock round trip.
+ *
+ * Readiness is deliberately NOT checked through poll events: the node's
+ * sticky RD bit is set by every vfs_wakeup() and never cleared, and
+ * vfs_get_poll_events() falls back to exactly those sticky bits when its
+ * own dev_poll IPC fails - trusting them turned the wait loop into a
+ * sleepless busy-spin ("stutter, then the mouse dies"). A stale wake only
+ * costs one empty read; a missed one cannot happen because the
+ * registration never goes away.
+ */
+static void hid_wait_report(void) {
+    proc_block_by(_hid_info.node);
 }
 
 static int _loop(vdevice_t* dev, void* p) {
@@ -154,53 +197,56 @@ static int _loop(vdevice_t* dev, void* p) {
         return 0;
     }
 
-    ipc_disable();
+    /*
+     * Event-driven wait: the kernel parks us (zero IPCs) until usbhostd's
+     * vfs_wakeup() fires, so an idle mouse costs nothing instead of the old
+     * ~250 blind poll iterations per second. hid_wait_report() verifies
+     * readiness through the live per-fd queue only, never the sticky node
+     * bits, so a failed IPC can neither busy-spin nor wedge us forever.
+     */
+    hid_wait_report();
 
-    bool wakeup = false;
-    while(true) {
+    /*
+     * Drain every queued report in one pass: reads are O_NONBLOCK, so the
+     * loop stops at the first EAGAIN. Draining keeps cursor latency flat
+     * when wakeups coalesce or a burst arrives; a plain one-report-per-pass
+     * scheme amplifies backlog into visible lag under load.
+     */
+    bool failed = false;
+    ipc_disable();
+    while (true) {
         uint8_t buf[8] = {0};
         int res = read(hid, buf, 7);
-        if(res == 7) {
+        if (res == 7) {
             /* payload: buttons, dx, dy, wheel (deltas are signed) */
             mouse_handle_report(buf[0], (int8_t)buf[1], (int8_t)buf[2], (int8_t)buf[3]);
-            wakeup = true;
+            continue;
         }
-        else {
-            break;
+        if (res < 0 && errno != EAGAIN) {
+            /* hard failure (node gone / usbhostd restarted): reconnect */
+            failed = true;
         }
+        break;
+    }
+    ipc_enable();
+
+    if (failed) {
+        close(hid);
+        hid = -1;
+        memset(&_hid_info, 0, sizeof(fsinfo_t));
+        proc_usleep(HID_CONNECT_SLEEP_US);
+        return 0;
     }
 
-    ipc_enable();
     /*
-     * Level-triggered wakeup: re-assert VFS_EVT_RD whenever the ring
-     * still has unread events, not only on the edge when a new report
-     * arrives.  The libgloss _read() loop clears the sticky RD bit
-     * (vfs_clear_poll_events) before vfs_block(), and vfs_block() only
-     * prechecks sticky bits — so if the edge was consumed while events
-     * remain queued, a blocked reader (xmouse) would sleep forever
-     * until the next physical mouse movement.
+     * Level-triggered wakeup for /dev/mouse0 readers: re-assert VFS_EVT_RD
+     * while the ring still has unread events, not only on the edge when a
+     * new report arrives, so a blocked xmouse cannot sleep on data that is
+     * already queued for it.
      */
     if(mouse_data_write - mouse_data_read > 0) {
-        _idle_sleep_us = HID_IDLE_SLEEP_MIN_US;
         vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
     }
-    else if(wakeup) {
-        _idle_sleep_us = HID_IDLE_SLEEP_MIN_US;
-    }
-    else if (_idle_sleep_us < HID_IDLE_SLEEP_MAX_US) {
-        _idle_sleep_us <<= 1;
-        if (_idle_sleep_us > HID_IDLE_SLEEP_MAX_US) {
-            _idle_sleep_us = HID_IDLE_SLEEP_MAX_US;
-        }
-    }
-    /*
-     * device_run() does not pace loop_step, so this has to sleep on every
-     * pass. It used to skip the sleep whenever the ring still held events,
-     * which pinned a core at 100% for as long as a reader was slow to drain
-     * it. The floor is well under the endpoint's own bInterval, so nothing
-     * is lost by always waiting.
-     */
-    usleep(_idle_sleep_us);
     return 0;
 }
 
