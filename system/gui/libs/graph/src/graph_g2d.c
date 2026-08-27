@@ -1,5 +1,6 @@
 #include <graph/graph_g2d.h>
 #include <g2dclient/g2dclient.h>
+#include <ewoksys/shm.h>
 #include <string.h>
 
 #ifdef __cplusplus 
@@ -30,10 +31,17 @@ static int g2d_check_graph(const graph_t* g) {
 }
 
 static g2d_canvas_t g2d_graph_canvas(const graph_t* g) {
-	return g2d_canvas(g->shm_id,
+	g2d_canvas_t canvas = g2d_canvas(g->shm_id,
 			(uint32_t)g->w * (uint32_t)g->h * sizeof(uint32_t),
 			(uint32_t)g->w, (uint32_t)g->h,
 			g->shm_contig ? 1 : 0);
+	/* contig shm canvases travel with their resolved physical base so
+	   the driver's hardware 2d path can work on physical addresses
+	   directly (the shm window is mapped at the same vaddr in every
+	   process, so the client-side translation is valid driver-side) */
+	if(g->shm_contig)
+		canvas.phy = shm_contig_phy_addr(g->shm_id, (ewokos_addr_t)g->buffer);
+	return canvas;
 }
 
 void graph_fill_g2d(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {

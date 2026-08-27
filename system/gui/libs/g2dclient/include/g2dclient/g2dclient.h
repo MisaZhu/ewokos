@@ -43,7 +43,9 @@ typedef struct {
    of its own, every request carries the canvases it works on.
    contig != 0 tells the driver the shm backing is physically
    contiguous (allocated with IPC_CONTIG), needed by hardware 2d paths
-   that work on physical addresses.
+   that work on physical addresses; phy then carries the resolved
+   physical base of the segment (shm_contig_phy_addr on the client
+   side), 0 when unknown.
    when dma != 0 the canvas lives in dma memory instead: addr is the
    buffer address returned by dma_alloc() (a vaddr in the sys_dma v
    window, mapped only into the allocator; the g2d driver mem-maps it
@@ -57,6 +59,7 @@ typedef struct {
 	uint32_t w;
 	uint32_t h;
 	ewokos_addr_t addr; /* dma address of the buffer when dma != 0 */
+	ewokos_addr_t phy;  /* physical base of the buffer when contig != 0 */
 } g2d_canvas_t;
 
 typedef struct {
@@ -119,6 +122,7 @@ static inline g2d_canvas_t g2d_canvas(int32_t shm_id, uint32_t size, uint32_t w,
 	canvas.w = w;
 	canvas.h = h;
 	canvas.addr = 0;
+	canvas.phy = 0;
 	return canvas;
 }
 
@@ -133,6 +137,7 @@ static inline g2d_canvas_t g2d_canvas_dma(ewokos_addr_t addr, uint32_t size, uin
 	canvas.w = w;
 	canvas.h = h;
 	canvas.addr = addr;
+	canvas.phy = 0; /* resolved by the driver from the sys_dma window */
 	return canvas;
 }
 

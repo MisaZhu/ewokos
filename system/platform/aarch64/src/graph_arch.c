@@ -1,6 +1,7 @@
 #include <graph/graph_arch.h>
 #include <g2d_arch.h>
 #include <ewoksys/core.h>
+#include <ewoksys/shm.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -14,6 +15,12 @@ extern "C" {
 #include <arm_neon.h>
 
 #define MIN(a, b) (((a) > (b))?(b):(a))
+
+/* physical base of a contig shm graph buffer, 0 otherwise; consumed by
+   hardware g2d engines that work on physical addresses */
+static inline ewokos_addr_t graph_g2d_phy(const graph_t* g) {
+    return g->shm_contig ? shm_contig_phy_addr(g->shm_id, (ewokos_addr_t)g->buffer) : 0;
+}
 
 static inline uint16x8_t neon_div255_u16(uint16x8_t v)
 {
@@ -92,7 +99,7 @@ void graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uin
 
     /* opaque fill: handled by the g2d engine (memset / NEON row stores) */
     if(color_a(color) == 0xff) {
-        arch_g2d_fill(g->buffer, g->shm_contig ? 1 : 0, g->w, g->h, r.x, r.y, r.w, r.h, color);
+        arch_g2d_fill(g->buffer, graph_g2d_phy(g), g->shm_contig ? 1 : 0, g->w, g->h, r.x, r.y, r.w, r.h, color);
         return;
     }
 
@@ -154,8 +161,8 @@ inline void graph_blt_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int
 
     /* 1:1 copy of the clipped region; the g2d engine keeps overlapping
        copies within one buffer safe (memmove ordering) */
-    arch_g2d_blt(src->buffer, src->shm_contig ? 1 : 0, src->w, src->h, sr.x, sr.y, sr.w, sr.h,
-            dst->buffer, dst->shm_contig ? 1 : 0, dst->w, dst->h, dr.x, dr.y, sr.w, sr.h);
+    arch_g2d_blt(src->buffer, graph_g2d_phy(src), src->shm_contig ? 1 : 0, src->w, src->h, sr.x, sr.y, sr.w, sr.h,
+            dst->buffer, graph_g2d_phy(dst), dst->shm_contig ? 1 : 0, dst->w, dst->h, dr.x, dr.y, sr.w, sr.h);
 }
 
 inline void graph_blt_alpha_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
@@ -183,8 +190,8 @@ inline void graph_blt_alpha_arch(graph_t* src, int32_t sx, int32_t sy, int32_t s
 
     /* 1:1 blend of the clipped region; the g2d engine applies the same
        per-block transparent/opaque fast paths and div255 blend math */
-    arch_g2d_blt_alpha(src->buffer, src->shm_contig ? 1 : 0, src->w, src->h, sr.x, sr.y, sr.w, sr.h,
-            dst->buffer, dst->shm_contig ? 1 : 0, dst->w, dst->h, dr.x, dr.y, sr.w, sr.h, alpha);
+    arch_g2d_blt_alpha(src->buffer, graph_g2d_phy(src), src->shm_contig ? 1 : 0, src->w, src->h, sr.x, sr.y, sr.w, sr.h,
+            dst->buffer, graph_g2d_phy(dst), dst->shm_contig ? 1 : 0, dst->w, dst->h, dr.x, dr.y, sr.w, sr.h, alpha);
 }
 
 
@@ -696,7 +703,7 @@ void graph_scale_tof_arch(graph_t* g, graph_t* dst, double scale) {
 
     /* whole-surface scale: handled by the g2d engine (bilinear with
        integer-decimation and separable-upscale fast paths) */
-    arch_g2d_scale_to(g->buffer, g->shm_contig ? 1 : 0, g->w, g->h, dst->buffer, dst->shm_contig ? 1 : 0, dst->w, dst->h);
+    arch_g2d_scale_to(g->buffer, graph_g2d_phy(g), g->shm_contig ? 1 : 0, g->w, g->h, dst->buffer, graph_g2d_phy(dst), dst->shm_contig ? 1 : 0, dst->w, dst->h);
 }
 
 void graph_scale_tof_fast_arch(graph_t* g, graph_t* dst, double scale) {
@@ -705,7 +712,7 @@ void graph_scale_tof_fast_arch(graph_t* g, graph_t* dst, double scale) {
             dst->h < (int)(g->h*scale))
         return;
 
-    arch_g2d_scale_to(g->buffer, g->shm_contig ? 1 : 0, g->w, g->h, dst->buffer, dst->shm_contig ? 1 : 0, dst->w, dst->h);
+    arch_g2d_scale_to(g->buffer, graph_g2d_phy(g), g->shm_contig ? 1 : 0, g->w, g->h, dst->buffer, graph_g2d_phy(dst), dst->shm_contig ? 1 : 0, dst->w, dst->h);
 }
 
 static inline uint32x4_t neon_reverse_u32x4(uint32x4_t v) {
@@ -1147,7 +1154,7 @@ void graph_rotate_to_arch(graph_t* g, graph_t* ret, int rot) {
 
     /* quadrant rotations are implemented by the g2d engine (rot codes map
        1:1 to clockwise degrees) */
-    arch_g2d_rotate(g->buffer, g->shm_contig ? 1 : 0, g->w, g->h, ret->buffer, ret->shm_contig ? 1 : 0, ret->w, ret->h, rot * 90);
+    arch_g2d_rotate(g->buffer, graph_g2d_phy(g), g->shm_contig ? 1 : 0, g->w, g->h, ret->buffer, graph_g2d_phy(ret), ret->shm_contig ? 1 : 0, ret->w, ret->h, rot * 90);
 }
 
 #endif
