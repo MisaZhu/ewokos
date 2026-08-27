@@ -12,9 +12,39 @@
 #include <syscalls.h>
 #include <dev/timer.h>
 
+/* ======================================================================
+ * Kernel-side IPC (inter-process call) machinery.
+ *
+ * A client proc issues a request to a server proc identified by pid +
+ * call_id, passing a proto_t argument package. The kernel allocates an
+ * ipc_task_t slot inside the server's ipc_server_t, delivers the request,
+ * and routes the return package back to the client's ipc_res_t slot.
+ *
+ * Two server modes:
+ *  - single-task (default): the server's main context is hijacked to run
+ *    the ipc handler; its state is saved before and restored after.
+ *  - multi_task (IPC_MULTI_TASK): requests are served concurrently by a
+ *    pool of worker threads inside the server proc (see the worker pool
+ *    section further below); the main context is never touched.
+ *
+ * Clients that arrive while the server is busy/disabled/full park on the
+ * server's wait queue and are woken when capacity frees up.
+ * ====================================================================== */
+
+/* legacy per-client pending-request cap (kept for the disabled buffering path) */
 #define IPC_BUFFER_SIZE 32
+/* max waiters woken per proc_ipc_wakeup() call to avoid wake storms */
 #define IPC_WAKE_BATCH_LIMIT 2
 
+/* ----------------------------------------------------------------------
+ * Wait queue helpers. Clients blocked for server capacity park their
+ * embedded ipc_queue_item_t (proc->ipc_wait_item) on a doubly linked
+ * FIFO list inside the target server. The item lives inside the proc,
+ * so no allocation is needed - but it must be unlinked from ANY server
+ * queue before the proc is buried or re-queued elsewhere.
+ * ---------------------------------------------------------------------- */
+
+/* Append a waiter to the tail of the server's wait queue (FIFO order). */
 static inline void ipc_waitq_link_tail(ipc_server_t* server, ipc_queue_item_t* item) {
     if(server == NULL || item == NULL)
         return;
@@ -28,6 +58,7 @@ static inline void ipc_waitq_link_tail(ipc_server_t* server, ipc_queue_item_t* i
     item->queued = 1;
 }
 
+/* Remove a waiter from the server's wait queue (any position). */
 static inline void ipc_waitq_unlink(ipc_server_t* server, ipc_queue_item_t* item) {
     if(server == NULL || item == NULL || !item->queued)
         return;
@@ -44,6 +75,7 @@ static inline void ipc_waitq_unlink(ipc_server_t* server, ipc_queue_item_t* item
     item->queued = 0;
 }
 
+/* Pop the longest-waiting item from the head of the wait queue. */
 static inline ipc_queue_item_t* ipc_waitq_pop(ipc_server_t* server) {
     ipc_queue_item_t* item = NULL;
     if(server == NULL)
@@ -62,6 +94,11 @@ static inline ipc_queue_item_t* ipc_waitq_pop(ipc_server_t* server) {
     return item;
 }
 
+/*
+ * Record which server proc this waiter is currently queued on, so cancel
+ * paths can find it. Only applied when the item still belongs to the
+ * owner's current incarnation (uuid matches both sides).
+ */
 static inline void ipc_wait_item_set_server(ipc_queue_item_t* item, proc_t* serv_proc) {
     if(item == NULL || item->owner == NULL)
         return;
@@ -90,6 +127,14 @@ static inline void ipc_wait_item_clear_server(ipc_queue_item_t* item, proc_t* se
         item->owner->ipc_waiting_on = NULL;
     }
 }
+
+/* ----------------------------------------------------------------------
+ * Task queue helpers. Each server owns a fixed array of IPC_CTX_MAX
+ * ipc_task_t slots. In single-task mode they form a strict FIFO ring
+ * (the main context serves one request at a time); in multi_task mode
+ * the slots are a plain pool grabbed/freed by uid since worker threads
+ * complete requests out of order.
+ * ---------------------------------------------------------------------- */
 
 static inline bool ipc_taskq_is_empty(const ipc_server_t* server) {
     return (server == NULL || server->task_num == 0);
@@ -150,6 +195,12 @@ static inline void ipc_task_reset(ipc_task_t* ipc) {
     ipc->handler_uuid = 0;
 }
 
+/*
+ * Register the current proc as an IPC server. entry is the handler
+ * function the server (or its workers) jumps to for each request;
+ * extra_data is handed to the handler as arg1; flags select the serving
+ * model (IPC_MULTI_TASK, IPC_NON_BLOCK, ...).
+ */
 int32_t proc_ipc_setup(context_t* ctx, ewokos_addr_t entry, ewokos_addr_t extra_data, uint32_t flags) {
     (void)ctx;
     proc_t* cproc = get_current_proc();
@@ -166,12 +217,14 @@ int32_t proc_ipc_setup(context_t* ctx, ewokos_addr_t entry, ewokos_addr_t extra_
     return 0;
 }
 
+/* The server's head-of-queue task (the one served next), or NULL. */
 inline ipc_task_t* proc_ipc_get_task(struct st_proc* serv_proc) {
     if(serv_proc == NULL || serv_proc->space == NULL)
         return NULL;
     return ipc_taskq_head(&serv_proc->space->ipc_server);
 }
 
+/* Number of in-flight ipc tasks currently held by the server. */
 uint32_t proc_ipc_task_count(struct st_proc* serv_proc) {
     if(serv_proc == NULL || serv_proc->space == NULL)
         return 0;
@@ -245,6 +298,7 @@ bool proc_ipc_sync_serving(struct st_proc* proc) {
     return (proc_ipc_get_task(owner) != NULL);
 }
 
+/* Return the uid of the server's head-of-queue task, or 0 if none. */
 uint32_t proc_ipc_fetch(struct st_proc* serv_proc) {
     ipc_task_t* ipc = NULL;
 
@@ -254,6 +308,14 @@ uint32_t proc_ipc_fetch(struct st_proc* serv_proc) {
     return ipc->uid;
 }
 
+/*
+ * Begin serving the server's head-of-queue task in single-task mode:
+ * save the server's current context into ipc_server.saved_state (so it
+ * can be restored at SYS_IPC_END), mark do_switch, and hand the cpu over
+ * to the server on the requested core. IPC_LAZY requests defer the actual
+ * context switch - the caller stays running and the server picks the task
+ * up lazily. Returns -1 when there is nothing to serve.
+ */
 int32_t proc_ipc_do_task(context_t* ctx, proc_t* serv_proc, uint32_t core) {
     ipc_task_t* ipc = proc_ipc_get_task(serv_proc);
     if(ipc == NULL ||
@@ -273,12 +335,21 @@ int32_t proc_ipc_do_task(context_t* ctx, proc_t* serv_proc, uint32_t core) {
     return 0;
 }
 
+/* Release a task slot back to the idle pool (in-place reset, no free). */
 static void ipc_free(ipc_task_t* ipc) {
     if(ipc == NULL)
         return;
     ipc_task_reset(ipc);
 }
 
+/*
+ * Allocate a task slot on the server for a new request from client_proc
+ * and fill it in (uid, client identity, call_id, copied argument). Picks
+ * a free slot per the server's model: any free slot for multi_task, the
+ * FIFO ring tail otherwise. Returns NULL when no slot is available - the
+ * caller then blocks the client on the server's wait queue. On success
+ * the server is armed with the IPC timeout watchdog.
+ */
 ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id, proto_t* arg) {
     ipc_server_t* server = &serv_proc->space->ipc_server;
     ipc_task_t* ipc = NULL;
@@ -361,6 +432,12 @@ ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id
     return ipc; 
 }
 
+/*
+ * Finish and release a task slot. multi_task frees the exact slot
+ * (out-of-order completion); single-task only pops when this slot is the
+ * queue head, preserving FIFO. Re-arms the timeout watchdog if other
+ * tasks remain in flight.
+ */
 void proc_ipc_close(proc_t* serv_proc, ipc_task_t* ipc) {
     ipc_server_t* server = NULL;
     if(serv_proc == NULL || ipc == NULL || serv_proc->space == NULL)
@@ -470,6 +547,7 @@ void proc_ipc_task_abort(proc_t* serv_proc, ipc_task_t* ipc) {
     }
 }
 
+/* Discard every in-flight task of a server (used when the server exits). */
 void proc_ipc_clear(proc_t* serv_proc) {
     if(serv_proc == NULL || serv_proc->space == NULL)
         return;
@@ -484,6 +562,13 @@ void proc_ipc_clear(proc_t* serv_proc) {
     proc_ipc_server_unlock(server);
 }
 
+/*
+ * Block a client on the server's wait queue because the server cannot
+ * accept the request right now (busy/disabled/full). The re-check under
+ * the server lock is what closes the finish-vs-enqueue race (see below).
+ * Returns 1 when the server became available before blocking (caller
+ * should retry at once), 0 after the client was actually blocked.
+ */
 int32_t proc_ipc_wait(context_t* ctx, struct st_proc* serv_proc, proc_t* proc) {
     if(serv_proc == NULL || proc == NULL)
         return -1;
@@ -773,6 +858,11 @@ static int32_t proc_ipc_wait_pool(context_t* ctx, proc_t* serv_proc, proc_t* pro
 }
 
 
+/*
+ * Detach proc from whichever server wait queue it is parked on (e.g. it
+ * got woken by another path, or it is being re-targeted). Safe to call
+ * even when proc is not queued. Clears ipc_waiting_on on success.
+ */
 void proc_ipc_cancel_wait(struct st_proc* proc) {
     if(proc == NULL || proc->ipc_waiting_on == NULL)
         return;
@@ -797,6 +887,13 @@ void proc_ipc_cancel_wait(struct st_proc* proc) {
     proc_ipc_server_unlock(&serv_proc->space->ipc_server);
 }
 
+/*
+ * Wake up to IPC_WAKE_BATCH_LIMIT waiters from the server's wait queue as
+ * capacity frees up (bounded so one wakeup doesn't flood the server). Stale
+ * or already-released waiters are skipped without consuming budget. Returns
+ * the first proc actually woken (or NULL), letting the caller hand it the
+ * cpu directly.
+ */
 proc_t* proc_ipc_wakeup(struct st_proc* serv_proc) {
     proc_t* first_woken = NULL;
     uint32_t wake_budget = 0;
@@ -842,6 +939,10 @@ proc_t* proc_ipc_wakeup(struct st_proc* serv_proc) {
     return first_woken;
 }
 
+/*
+ * Wake EVERY waiter on the server's wait queue (server shutting down or
+ * re-enabled). Unlike proc_ipc_wakeup() there is no batch budget.
+ */
 void proc_ipc_wakeup_all(struct st_proc* serv_proc) {
     if(serv_proc == NULL)
         return;
@@ -866,7 +967,15 @@ void proc_ipc_wakeup_all(struct st_proc* serv_proc) {
  * dispatches into these.
  * ====================================================================== */
 
-/* SYS_IPC_CALL */
+/*
+ * SYS_IPC_CALL: the client side of an ipc request. Validates the target
+ * server, allocates a task slot via proc_ipc_req(), and - for single-task
+ * servers - hands the cpu to the server to run the handler. For multi_task
+ * servers the request is dispatched to a pool worker instead and the client
+ * either returns immediately with the request uid or blocks until a worker
+ * is free. ctx->gpr[0] carries the result: the request uid on success, or
+ * an IPC_ERROR_* code.
+ */
 void proc_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, proto_t* arg) {
     ctx->gpr[0] = 0;
 
@@ -964,7 +1073,13 @@ void proc_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, proto_t* a
         proc_ipc_do_task(ctx, serv_proc, client_proc->info.core);
 }
 
-/* SYS_IPC_GET_RETURN */
+/*
+ * SYS_IPC_GET_RETURN: the client retrieves the server's reply for the
+ * request identified by uid. Blocks (returning -1) until the reply lands
+ * in the client's ipc_res_t; returns -2 if the request no longer exists.
+ * IPC_NON_RETURN requests carry no reply, so they return at once. If the
+ * caller's buffer is too small the required size is returned instead.
+ */
 void proc_ipc_get_return(context_t* ctx, int32_t serv_pid, uint32_t uid, proto_t* data) {
     ctx->gpr[0] = 0;
     proc_t* client_proc = get_current_proc();
@@ -1020,7 +1135,12 @@ void proc_ipc_get_return(context_t* ctx, int32_t serv_pid, uint32_t uid, proto_t
     proto_clear(&res->data);
 }
 
-/* SYS_IPC_GET_ARG */
+/*
+ * SYS_IPC_GET_ARG: the server reads the incoming request identified by
+ * uid - who called (client_pid), the call_id, and the argument package.
+ * Returns 0 on success, -1 when this context is not serving that uid, or
+ * the required buffer size when the caller's buffer is too small.
+ */
 int32_t proc_ipc_get_arg(uint32_t uid, int32_t* ipc_info, proto_t* arg) {
     proc_t* cproc = get_current_proc();
     if(cproc == NULL || cproc->space == NULL ||
@@ -1043,7 +1163,12 @@ int32_t proc_ipc_get_arg(uint32_t uid, int32_t* ipc_info, proto_t* arg) {
     return 0;
 }
 
-/* SYS_IPC_SET_RETURN */
+/*
+ * SYS_IPC_SET_RETURN: the server writes its reply for the request uid into
+ * the client's ipc_res_t slot (state -> IPC_RETURN). The client is not
+ * woken here; that happens at SYS_IPC_END once the task slot is released,
+ * to avoid RET->END races. Ignored for IPC_NON_RETURN requests.
+ */
 void proc_ipc_set_return(uint32_t uid, proto_t* data) {
     proc_t* cproc = get_current_proc();
     if(cproc == NULL || cproc->space == NULL ||
@@ -1196,7 +1321,11 @@ void proc_ipc_end(context_t* ctx) {
     schedule(ctx);
 }
 
-/* SYS_IPC_DISABLE */
+/*
+ * SYS_IPC_DISABLE: a server stops accepting NEW requests. Refused while
+ * any request is still being served so in-flight work can drain cleanly.
+ * Blocked callers park on the wait queue until re-enabled.
+ */
 int32_t proc_ipc_disable(void) {
     proc_t* cproc = proc_get_proc(get_current_proc());
     if(proc_ipc_task_count(cproc) > 0) //still serving requests (any slot/thread)
@@ -1205,7 +1334,9 @@ int32_t proc_ipc_disable(void) {
     return 0;
 }
 
-/* SYS_IPC_ENABLE */
+/*
+ * SYS_IPC_ENABLE: re-open a disabled server and let the parked waiters in.
+ */
 void proc_ipc_enable(void) {
     proc_t* cproc = proc_get_proc(get_current_proc());
     if(!cproc->space->ipc_server.disabled)

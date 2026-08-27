@@ -8,7 +8,16 @@ LDFLAGS = -L $(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-VFSD_OBJS = $(ARCH)/vfsd.o 
+VFSD_OBJS = $(ARCH)/vfsd.o \
+			$(ARCH)/node.o \
+			$(ARCH)/mount.o \
+			$(ARCH)/fd.o \
+			$(ARCH)/waitq.o \
+			$(ARCH)/driver_async.o \
+			$(ARCH)/proc.o \
+			$(ARCH)/pipe.o \
+			$(ARCH)/handlers.o \
+			$(ARCH)/proc_handlers.o
 	
 VFSD = $(TARGET_DIR)/sbin/vfsd
 
