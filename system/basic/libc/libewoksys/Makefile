@@ -119,10 +119,13 @@ LIB_EWOKSYS_OBJS =  \
 	$(ARCH)/src/stdio/putch.o \
 	$(ARCH)/src/stdio/fputs.o \
 	$(ARCH)/src/stdio/setvbuf.o \
+	$(ARCH)/src/stdio/ftello.o \
+	$(ARCH)/src/stdio/tmpfile.o \
 	\
 	$(ARCH)/src/dirent/readdir.o \
 	$(ARCH)/src/dirent/closedir.o \
 	$(ARCH)/src/dirent/opendir.o \
+	$(ARCH)/src/dirent/dirfd.o \
 	$(ARCH)/src/dirent/rewinddir.o \
 	$(ARCH)/src/dirent/seekdir.o \
 	$(ARCH)/src/dirent/telldir.o \

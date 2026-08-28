@@ -139,7 +139,7 @@ static void task_queue_vfs_wakeup(uint32_t node, uint32_t events) {
  * stack mutex and every other netd lock, so the blocking vfs_wakeup() IPC
  * can never wedge the stack. Wakeups queued by the round itself are
  * delivered before the loop sleeps; wakeups queued by pool workers
- * (release_task's VFS_EVT_CLOSE) ride the next round.
+ * (e.g. the SO_RCVTIMEO sweeper) ride the next round.
  */
 void task_flush_wakeups(void) {
     pending_wakeup_t batch[WAKEUP_QUEUE_MAX];
@@ -898,12 +898,19 @@ void release_task(net_task_t *task) {
         sock_close(fin_sock);
 
     /*
-     * Deliver CLOSE through the deferred reverse-IPC path: vfsd may be
-     * synchronously waiting on this very FS_CMD_CLOSE, so a direct
-     * vfs_wakeup() from here can deadlock netd<->vfsd.
+     * Do NOT publish VFS_EVT_CLOSE here. release_task() only runs once
+     * netd-side refs hit zero, i.e. every client has already closed its fd;
+     * vfsd's own close path (proc_file_close -> do_node_wakeup(CLOSE) and
+     * vfsd_del_node waiter drain) wakes every still-blocked client before
+     * this deferred wakeup could even ride the next protocol round. In the
+     * documented double-close race the vfs node can still be ALIVE when this
+     * runs: latching CLOSE into node->events then poisons it forever
+     * (nothing ever clears sticky CLOSE/ERR/NVAL), turning every later
+     * vfs_block_by_fd()/poll() on that node into a no-sleep livelock that
+     * floods vfsd with IPCs and freezes the whole system. A blocked client
+     * can never observe this edge as its sole wake source (it holds an fd,
+     * so refs > 0, so release cannot fire), so dropping it is safe.
      */
-    if (task->from_pid > 0 && task->node > 0)
-        task_queue_vfs_wakeup((uint32_t)task->node, VFS_EVT_CLOSE);
 
     pthread_mutex_lock(&task_list_lock);
     if (task_active_count > 0)

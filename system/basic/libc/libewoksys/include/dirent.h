@@ -31,10 +31,13 @@ typedef struct {
 	fsinfo_t*     kids;   //kids info
 	uint32_t      offset; //read offset
 	struct dirent entry;  //per-directory cached entry for readdir
+	char          name[FS_NODE_NAME_MAX]; //directory path (for dirfd)
+	int           fd;     //lazily opened fd for dirfd(), -1 if none
 } DIR;
 
 DIR*           opendir(const char* name);
 int            closedir(DIR* dirp);
+int            dirfd(DIR* dirp);
 long           telldir(DIR* dirp);
 struct dirent* readdir(DIR *dirp);
 void           rewinddir(DIR* dirp);

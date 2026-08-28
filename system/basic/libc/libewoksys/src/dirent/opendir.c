@@ -28,5 +28,7 @@ DIR* opendir(const char* name) {
     ret->kids = kids;
     ret->num = num;
     ret->offset = 0;
+    ret->fd = -1;
+    strncpy(ret->name, name, FS_NODE_NAME_MAX - 1);
     return ret;
 }

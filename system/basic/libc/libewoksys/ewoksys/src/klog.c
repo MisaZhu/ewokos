@@ -80,7 +80,6 @@ void slog(const char *format, ...) {
     memset(buf, 0, sizeof(buf));
     vsnprintf(buf, BUF_SIZE, format, ap);
     va_end(ap);
-    kout(buf, strlen(buf));
     sout(buf, strlen(buf));
 }
 

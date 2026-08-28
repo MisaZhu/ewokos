@@ -73,6 +73,7 @@ int fork(void);
 int isatty(int fd);
 int execve(const char *pathname, char *const argv[], char *const envp[]);
 int execv(const char *pathname, char *const argv[]);
+int execvp(const char *file, char *const argv[]);
 int execl(const char *pathname, const char *arg, ...);
 
 int chdir(const char *path);

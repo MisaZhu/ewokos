@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <ewoksys/vfs.h>
+#include <ewoksys/klog.h>
 #include <ewoksys/vdevice.h>
 #include <ewoksys/charbuf.h>
 
@@ -34,6 +35,7 @@ static int log_read(vdevice_t* dev,
     return i==0 ? VFS_ERR_RETRY : i;
 }
 
+static bool _log_kmsg = false;
 static int log_write(vdevice_t* dev,
         int fd,
         int from_pid,
@@ -53,6 +55,12 @@ static int log_write(vdevice_t* dev,
 
     charbuf_t* buffer = (charbuf_t*)p;
     uint8_t *data = (uint8_t *)buf;
+
+    if(_log_kmsg) {
+        data[size] = '\0';
+        kout(data, size);
+    }
+
     int i = 0;
     while(i<size) {
         if(charbuf_push(buffer, data[i], true) != 0)
@@ -70,7 +78,7 @@ static uint32_t _log_size = LOG_SIZE_DEFAULT;
 static int doargs(int argc, char* argv[]) {
     int c = 0;
     while (c != -1) {
-        c = getopt (argc, argv, "b:");
+        c = getopt (argc, argv, "b:k");
         if(c == -1)
             break;
 
@@ -78,6 +86,8 @@ static int doargs(int argc, char* argv[]) {
         case 'b':
             _log_size = atoi(optarg);
             break;
+        case 'k':
+            _log_kmsg = true;
         default:
             c = -1;
             break;

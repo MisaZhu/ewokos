@@ -1,4 +1,4 @@
-DIRS = xlog xterm xread xcores xfonts xapps cards mine xfinder ximg xprocs xDemo wDemo xwm_theme xtheme xwifi clock xg2dtest SndPlayer
+DIRS = xlog xterm xread xcores xfonts xapps xfinder ximg xprocs xDemo wDemo xwm_theme xtheme xwifi clock xg2dtest SndPlayer
 all: $(DIRS)
 
 $(DIRS):

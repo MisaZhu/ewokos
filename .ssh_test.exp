@@ -1,0 +1,40 @@
+#!/usr/bin/expect -f
+# SSH smoke test against the EwokOS guest on 127.0.0.1:2222.
+# Usage: .ssh_test.exp ["command to run"] [timeout_sec]
+set timeout 20
+if {[llength $argv] >= 2} { set timeout [lindex $argv 1] }
+set cmd "echo SSH_SMOKE_OK"
+if {[llength $argv] >= 1} { set cmd [lindex $argv 0] }
+
+log_user 1
+spawn ssh -o ConnectTimeout=8 -o StrictHostKeyChecking=no \
+    -o UserKnownHostsFile=/dev/null -o PreferredAuthentications=password \
+    -o PubkeyAuthentication=no -p 2222 root@127.0.0.1
+
+expect {
+    -re "(P|p)assword:" { send "root\r" }
+    timeout { puts "\nEXPECT_FAIL: no password prompt"; exit 2 }
+    eof { puts "\nEXPECT_FAIL: closed before password"; exit 3 }
+}
+expect {
+    -re {[#$] $} { }
+    -re {[#$] } { }
+    "Permission denied" { puts "\nEXPECT_FAIL: auth rejected"; exit 4 }
+    timeout {
+        set f [open ".ssh_last.log" w]
+        puts -nonewline $f $expect_out(buffer)
+        close $f
+        puts "\nEXPECT_FAIL: no shell prompt (buffer dumped to .ssh_last.log)"
+        exit 5
+    }
+    eof { puts "\nEXPECT_FAIL: closed before prompt"; exit 6 }
+}
+send "$cmd; echo __RC__=$?\r"
+expect {
+    -re "__RC__=(\[0-9\]+)" { puts "\nCMD_DONE rc=$expect_out(1,string)" }
+    timeout { puts "\nEXPECT_FAIL: command never completed"; exit 7 }
+    eof { puts "\nEXPECT_FAIL: closed during command"; exit 8 }
+}
+send "exit\r"
+expect eof
+exit 0

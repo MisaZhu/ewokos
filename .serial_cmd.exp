@@ -1,0 +1,25 @@
+#!/usr/bin/expect -f
+# Run a single command on the EwokOS guest through the QEMU unix-socket serial.
+# Usage: .serial_cmd.exp "command" [timeout_sec]
+set timeout 15
+if {[llength $argv] >= 2} { set timeout [lindex $argv 1] }
+set cmd [lindex $argv 0]
+
+log_user 1
+spawn nc -U /Users/mingmingzhu/work/ewokos/.serial.sock
+
+send "\r"
+expect {
+    -re "login:" { send "root\r"; exp_continue }
+    -re "(P|p)assword:" { send "root\r"; exp_continue }
+    -re {[#$] } { }
+    timeout { }
+}
+send "$cmd\r"
+expect {
+    -re {[#$] $} { }
+    -re {[#$] } { }
+    timeout { puts "\nSERIAL_TIMEOUT" }
+    eof { puts "\nSERIAL_EOF" }
+}
+exit 0

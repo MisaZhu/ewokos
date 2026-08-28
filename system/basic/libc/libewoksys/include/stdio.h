@@ -3,6 +3,7 @@
 
 #include <stdarg.h>
 #include <stddef.h>
+#include <sys/types.h>
 
 #define EOF (-1)
 #define SEEK_SET 0
@@ -51,6 +52,9 @@ FILE *fdopen(int fd, const char *mode);
 int fclose(FILE *stream);
 int fseek(FILE *stream, long offset, int whence);
 long ftell(FILE *stream);
+int fseeko(FILE *stream, off_t offset, int whence);
+off_t ftello(FILE *stream);
+FILE *tmpfile(void);
 int fileno(FILE *stream);
 char *fgets(char *str, int size, FILE *stream);
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);

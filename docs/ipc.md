@@ -331,12 +331,16 @@ Setting `IPC_MULTI_TASK` in `SYS_IPC_SETUP` flags (e.g.
 
 Instead of creating and terminating a thread per request, the server
 keeps a **persistent pool** of parked worker threads
-(`ipc_server_t.pool[IPC_TASK_POOL_MAX_NUM]`):
+(`ipc_server_t.pool`, dynamically allocated with `pool_num` slots in
+`proc_ipc_setup()`). The pool has no fixed hard cap: it is sized by the
+proc's own thread limit (`_kernel_config.max_task_per_proc`), since every
+pool worker needs one of the proc's thread stack slots. When the proc runs
+out of thread slots, new requests are blocked instead of spawning.
 
 | Constant | Value | Meaning |
 |---|---|---|
 | `IPC_TASK_POOL_MIN_NUM` | 2 | base workers; always kept alive |
-| `IPC_TASK_POOL_MAX_NUM` | 16 | hard pool size limit |
+| `pool_num` | `max_task_per_proc` | allocated slots; proc thread limit |
 | `IPC_TASK_SELF_QUIT_TIMEOUT` | 3 s | idle time before an *extra* worker quits |
 
 Lifecycle:

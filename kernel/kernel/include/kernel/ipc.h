@@ -10,12 +10,14 @@ struct st_proc;
 
 #define IPC_CTX_MAX 8
 /*
- * MAX Number of persistent worker threads in a multi_task server's pool.
- * They are spawned once (parked/BLOCKed), reused for every request and
- * never terminated between requests. When all of them are busy the
- * requesting client blocks inside the kernel until one parks again.
+ * MIN Number of persistent worker threads kept alive in a multi_task
+ * server's pool. They are spawned once (parked/BLOCKed), reused for every
+ * request and never terminated between requests. The pool has no fixed
+ * hard cap: it is sized by the proc's own thread limit
+ * (_kernel_config.max_task_per_proc, see pool_num) and grows on demand
+ * while workers are busy. When the proc runs out of thread slots the
+ * requesting client blocks inside the kernel until a worker parks again.
  */
-#define IPC_TASK_POOL_MAX_NUM 16
 #define IPC_TASK_POOL_MIN_NUM 2
 
 /*
@@ -76,7 +78,13 @@ typedef struct {
 	uint8_t       task_head;
 	uint8_t       task_tail;
 	uint8_t       task_num;
-	ipc_pool_worker_t pool[IPC_TASK_POOL_MAX_NUM]; //persistent worker threads (multi_task)
+	/*
+	 * Persistent worker threads (multi_task). Dynamically sized by the
+	 * proc's own thread limit (_kernel_config.max_task_per_proc); pool_num
+	 * holds the number of allocated slots. NULL/0 for non multi_task procs.
+	 */
+	ipc_pool_worker_t* pool;
+	uint32_t      pool_num;
 
     bool          do_switch;
 	uint8_t       restore_pending;

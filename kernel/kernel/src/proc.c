@@ -1229,6 +1229,8 @@ void proc_funeral(proc_t* proc) {
 
         if(space->thread_stacks != NULL)
             kfree(space->thread_stacks);
+        if(space->ipc_server.pool != NULL)
+            kfree(space->ipc_server.pool);
         proto_release(&proc->ipc_res.data);
         for(int i = 0; i < IPC_CTX_MAX; i++)
             proto_release(&space->ipc_server.tasks[i].arg_ret);
@@ -2122,7 +2124,7 @@ void proc_ipc_pool_park(context_t* ctx, proc_t* worker, proc_t* serv_proc, proc_
     proc_unready_locked(worker, BLOCK);
     proc_lock_leave();
     /* stamp idle start so the 1Hz shrink sweep can retire extra members */
-    for(uint32_t i = 0; i < IPC_TASK_POOL_MAX_NUM; i++) {
+    for(uint32_t i = 0; i < server->pool_num; i++) {
         if(server->pool[i].pid == worker->info.pid &&
                 server->pool[i].uuid == worker->info.uuid) {
             server->pool[i].idle_sec = _kernel_info.uptime_sec;
@@ -2149,7 +2151,7 @@ void proc_ipc_pool_park(context_t* ctx, proc_t* worker, proc_t* serv_proc, proc_
      */
     bool quitting = false;
     proc_ipc_server_lock(server);
-    for(uint32_t i = 0; i < IPC_TASK_POOL_MAX_NUM; i++) {
+    for(uint32_t i = 0; i < server->pool_num; i++) {
         if(server->pool[i].pid == worker->info.pid &&
                 server->pool[i].uuid == worker->info.uuid) {
             quitting = (server->pool[i].quit != 0);

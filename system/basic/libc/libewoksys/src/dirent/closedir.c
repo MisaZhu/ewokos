@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <errno.h>
 
 int closedir(DIR* dirp) {
@@ -9,6 +10,8 @@ int closedir(DIR* dirp) {
         errno = EBADF;
         return -1;
     }
+    if(dirp->fd >= 0)
+        close(dirp->fd);
     if(dirp->kids != NULL)
         free(dirp->kids);
     free(dirp);
