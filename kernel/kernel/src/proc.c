@@ -33,9 +33,11 @@ static queue_t _ready_queue[CPU_MAX_CORES];
 static queue_t _interrupt_timeout_queue;
 static queue_t _ipc_timeout_queue;
 static queue_t _priority_update_queue;
+
 static int32_t _current_proc[CPU_MAX_CORES];
 static uint32_t _use_core_id = 0;
 static uint32_t _proc_uuid = 0;
+static inline void proc_kick_ready_core(proc_t* proc);
 static int32_t _last_create_pid = 0;
 static uint64_t _run_window_start_usec = 0;
 static void proc_wakeup_all_state(proc_t* proc);
@@ -908,6 +910,12 @@ static inline void proc_ready_with_order(proc_t* proc, bool push_head) {
         }
         else {
             proc_lock_leave();
+            /*
+             * Already queued - still kick the target core: if the IPI of the
+             * original enqueue was consumed by a handler pass that ran before
+             * the enqueue became visible, this re-kick heals the wedge.
+             */
+            proc_kick_ready_core(proc);
             return;
         }
     }
@@ -918,6 +926,16 @@ static inline void proc_ready_with_order(proc_t* proc, bool push_head) {
         queue_push(&_ready_queue[proc->info.core], proc);
 #endif
     proc_lock_leave();
+    /*
+     * A proc made ready on a remote core must force that core to reschedule:
+     * secondary cores have no timer tick of their own and only leave the
+     * idle halt loop when an IPI arrives. Every enqueue path funnels through
+     * here (fork ready, sleep-expiry renew, priority requeue, ipc/interrupt
+     * restores), so this is the single point that can guarantee delivery -
+     * without it a remote wakeup silently starves (e.g. vfsd pipe pipelines
+     * wedge with the child READY in a sleeping core's queue).
+     */
+    proc_kick_ready_core(proc);
 }
 
 void proc_ready(proc_t* proc) {
@@ -946,14 +964,16 @@ proc_t* proc_get_next_ready(void) {
     proc_lock_enter();
     uint32_t core_id = get_core_id();
     proc_t* next = queue_pop(&_ready_queue[core_id]);
-    while(next != NULL && next->info.state != READY && next->info.state != RUNNING)
+    while(next != NULL && next->info.state != READY && next->info.state != RUNNING) {
         next = queue_pop(&_ready_queue[core_id]);
+    }
     if(next == NULL) {
         proc_t*	cproc = get_current_proc();
         if(cproc != NULL && cproc->info.state == RUNNING &&
-                cproc != _cpu_cores[cproc->info.core].idle_proc)
+                cproc != _cpu_cores[cproc->info.core].idle_proc) {
                 //halt proc can't be sheduled.
             next = cproc;
+        }
     }
     proc_lock_leave();
     return next;
@@ -1072,6 +1092,16 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
             }
             proc->ipc_task = NULL;
         }
+        /*
+         * Release any kernel semaphore this thread still holds. Semaphore
+         * occupancy is per-task and semaphore_clear() only runs for a
+         * dying PROC, so a thread terminated mid critical section (fatal
+         * fault, kill) would otherwise leave the lock OCCUPIED forever
+         * and wedge every other thread of the surviving proc (malloc
+         * global lock, rwlock internals, driver queues) in
+         * semaphore_enter().
+         */
+        semaphore_clear_occupied(proc->info.pid);
         proc->info.father_pid = 0;
     }
     proc_wakeup_waiting(proc->info.pid);
@@ -2169,6 +2199,30 @@ void proc_ipc_pool_park(context_t* ctx, proc_t* worker, proc_t* serv_proc, proc_
         proc_exit(ctx, worker, 0); //never returns
         return;
     }
+
+    /*
+     * Lost-bind self heal (SMP): a new request may have been bound to this
+     * worker in the window between the BLOCK transition above and
+     * schedule() saving the live frame - ipc_pool_bind_locked() rewrote
+     * worker->ctx, but the save in proc_switch() then clobbered the
+     * rewrite, so the worker resumes HERE instead of at the server entry
+     * while worker->ipc_task is set. Re-enter the ipc entry directly: ctx
+     * is the live trap frame the syscall epilogue will restore, so fixing
+     * it up here lands the worker in the handler with the right uid and a
+     * fresh stack. A NULL ipc_task is a plain spurious wake - fall
+     * through and let userspace re-park via the no-task SYS_IPC_END path.
+     */
+    proc_ipc_server_lock(server);
+    ipc_task_t* ipc = worker->ipc_task;
+    if(ipc != NULL) {
+        ctx->pc = server->entry;
+        ctx->lr = server->entry;
+        ctx->gpr[0] = ipc->uid;
+        ctx->gpr[1] = server->extra_data;
+        ctx->sp = ALIGN_DOWN(worker->thread_stack_base +
+                THREAD_STACK_PAGES*PAGE_SIZE, EWOK_STACK_ALIGN) - EWOK_STACK_INIT_BIAS;
+    }
+    proc_ipc_server_unlock(server);
 
     if(worker == get_current_proc())
         proc_account_resume_current();

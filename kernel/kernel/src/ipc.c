@@ -480,15 +480,18 @@ void proc_ipc_close(proc_t* serv_proc, ipc_task_t* ipc) {
 
 /*
  * Complete a multi_task request from SYS_IPC_END. Claims the task and
- * resolves its client atomically under the server lock, so a concurrent
- * watchdog abort (timer context, another core) can never leave this path
- * reading a slot that was already freed and reused. Returns the client to
- * wake (NULL if the task was already aborted) and reports through
- * *wake_client whether that client waits for a return at all.
+ * resolves its client atomically under the server lock, and only when the
+ * recorded handler is the calling worker: a concurrent watchdog abort
+ * (timer context, another core) may already have freed the slot and had
+ * it REUSED by a new request bound to a different worker - without the
+ * handler check this path would tear down that live request and wake the
+ * wrong client. Returns the client to wake (NULL if the task was already
+ * aborted) and reports through *wake_client whether that client waits for
+ * a return at all.
  */
-proc_t* proc_ipc_finish_task(proc_t* serv_proc, ipc_task_t* ipc, bool* wake_client) {
+proc_t* proc_ipc_finish_task(proc_t* serv_proc, proc_t* worker, ipc_task_t* ipc, bool* wake_client) {
     proc_t* client_proc = NULL;
-    if(serv_proc == NULL || ipc == NULL || serv_proc->space == NULL || wake_client == NULL)
+    if(serv_proc == NULL || worker == NULL || ipc == NULL || serv_proc->space == NULL || wake_client == NULL)
         return NULL;
     ipc_server_t* server = &serv_proc->space->ipc_server;
     if(!server->multi_task)
@@ -497,7 +500,9 @@ proc_t* proc_ipc_finish_task(proc_t* serv_proc, ipc_task_t* ipc, bool* wake_clie
     *wake_client = false;
     proc_untrack_ipc_timeout(serv_proc);
     proc_ipc_server_lock(server);
-    if(ipc->uid != 0 && ipc->state != IPC_IDLE) {
+    if(ipc->uid != 0 && ipc->state != IPC_IDLE &&
+            ipc->handler_pid == worker->info.pid &&
+            ipc->handler_uuid == worker->info.uuid) {
         *wake_client = ((ipc->call_id & IPC_NON_RETURN) == 0);
         client_proc = proc_ipc_get_client(ipc);
         ipc_free(ipc);
@@ -1066,7 +1071,19 @@ void proc_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, proto_t* a
             ipc_task_t* ipc = proc_ipc_req(serv_proc, client_proc, call_id, arg);
             if(ipc == NULL) { //all task slots busy
                 ctx->gpr[0] = IPC_ERROR_RETRY;
-                proc_ipc_wait(ctx, serv_proc, client_proc);
+                if(proc_ipc_wait(ctx, serv_proc, client_proc) == 0)
+                    /*
+                     * Really blocked: schedule() already rewrote the
+                     * exception frame to another proc, but the C flow
+                     * still runs on THIS kernel stack until we return.
+                     * Looping here would re-block an already-BLOCK proc
+                     * and spin in-kernel forever while holding
+                     * kernel_lock (starving core0's timer -> global
+                     * freeze). Return so the eret yields the cpu; after
+                     * the wake the client resumes in userspace with
+                     * IPC_ERROR_RETRY and libc re-issues the call.
+                     */
+                    return;
             }
             else {
                 proc_cur_ipc_res(client_proc)->state = IPC_BUSY;
@@ -1075,11 +1092,14 @@ void proc_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, proto_t* a
                     return;
                 //no idle pool worker: free the task slot, block and retry
                 proc_ipc_close(serv_proc, ipc);
-                proc_ipc_wait_pool(ctx, serv_proc, client_proc);
+                ctx->gpr[0] = IPC_ERROR_RETRY; //the closed uid must not leak to the client
+                if(proc_ipc_wait_pool(ctx, serv_proc, client_proc) == 0)
+                    return; //really blocked: yield via eret, libc retries after the wake
             }
 
             /*
-             * Woken for a retry: the server may have exited meanwhile.
+             * Retry-at-once path (wait returned 1: capacity freed while we
+             * were enqueueing). The server may have exited meanwhile.
              * Re-resolve it by pid+uuid before touching it again.
              */
             serv_proc = proc_get(serv_pid);
@@ -1092,7 +1112,8 @@ void proc_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, proto_t* a
             }
             if(serv_proc->space->ipc_server.disabled) {
                 ctx->gpr[0] = IPC_ERROR_RETRY;
-                proc_ipc_wait(ctx, serv_proc, client_proc);
+                if(proc_ipc_wait(ctx, serv_proc, client_proc) == 0)
+                    return; //really blocked: yield via eret
             }
         }
     }
@@ -1247,17 +1268,23 @@ void proc_ipc_set_return(uint32_t uid, proto_t* data) {
  */
 static void ipc_end_multi(context_t* ctx, proc_t* worker, proc_t* serv_proc) {
     ipc_server_t* server = &serv_proc->space->ipc_server;
+    /*
+     * Capture and detach the served task under the server lock: the
+     * watchdog abort (timer context, another core) detaches and frees the
+     * same fields under this lock. Reading/clearing worker->ipc_task
+     * unlocked can interleave with an abort and let proc_ipc_finish_task()
+     * below observe a slot that was already freed - and possibly REUSED
+     * by a new request bound to another worker.
+     */
+    proc_ipc_server_lock(server);
     ipc_task_t* ipc = worker->ipc_task;
     worker->ipc_task = NULL;
-
-    bool pool_member;
-    proc_ipc_server_lock(server);
-    pool_member = ipc_pool_is_member(server, worker);
+    bool pool_member = ipc_pool_is_member(server, worker);
     proc_ipc_server_unlock(server);
 
     if(ipc != NULL) {
         bool wake_return_client = false;
-        proc_t* client_proc = proc_ipc_finish_task(serv_proc, ipc, &wake_return_client);
+        proc_t* client_proc = proc_ipc_finish_task(serv_proc, worker, ipc, &wake_return_client);
 
         if(pool_member) {
             proc_ipc_pool_park(ctx, worker, serv_proc,

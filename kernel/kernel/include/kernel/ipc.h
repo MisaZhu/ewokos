@@ -133,7 +133,7 @@ extern struct st_proc* proc_ipc_pool_spawn(struct st_proc* serv_proc);
 extern void        proc_ipc_pool_park(context_t* ctx, struct st_proc* worker, struct st_proc* serv_proc, struct st_proc* wake_client);
 extern void        proc_ipc_pool_shrink(struct st_proc* serv_proc);
 extern void        proc_ipc_task_abort(struct st_proc* serv_proc, ipc_task_t* ipc);
-extern struct st_proc* proc_ipc_finish_task(struct st_proc* serv_proc, ipc_task_t* ipc, bool* wake_client);
+extern struct st_proc* proc_ipc_finish_task(struct st_proc* serv_proc, struct st_proc* worker, ipc_task_t* ipc, bool* wake_client);
 extern void        proc_ipc_close(struct st_proc* serv_proc, ipc_task_t* ipc);
 extern void        proc_ipc_clear(struct st_proc* serv_proc);
 extern int32_t     proc_ipc_wait(context_t* ctx, struct st_proc* serv_proc, struct st_proc* proc);

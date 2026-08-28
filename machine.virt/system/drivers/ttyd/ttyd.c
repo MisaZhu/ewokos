@@ -37,9 +37,19 @@ static void uart_init(){
     put32(UART0 + UART_CR, 0x301);
 }
 
-static inline void uart_basic_trans(char c) {
-  /* wait until transmit buffer is full */
+static inline int32_t uart_basic_trans(char c) {
+  /*
+   * Wait for space in the transmit FIFO, but never forever: a stuck host
+   * side (paused terminal, backpressured serial sink) must not pin the
+   * whole IPC service loop here - while ttyd spins, nobody can service
+   * reads/polls and every client of /dev/tty0 wedges behind it.
+   * On persistent TXFF, cut the write short; the caller retries the
+   * remainder and the service loop stays responsive.
+   */
+  int32_t spins = 0;
   while(get32(UART0 + UART_FLAGS) & UART_TRANSMIT){
+    if(++spins > 10000)
+      return -1;
     proc_usleep(0);
   }
 
@@ -47,14 +57,18 @@ static inline void uart_basic_trans(char c) {
   if(c == '\r')
     c = '\n';
   put32(UART0+UART_DATA, c);
+  return 0;
 }
 
  static int32_t uart_write(const void* data, uint32_t size) {
   int32_t i;
   for(i=0; i<(int32_t)size; i++) {
     char c = ((char*)data)[i];
-    uart_basic_trans(c);
+    if(uart_basic_trans(c) != 0)
+      break;
   }
+  if(i == 0)
+    return VFS_ERR_RETRY;
   return i;
 }
 

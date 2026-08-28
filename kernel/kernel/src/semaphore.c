@@ -42,6 +42,26 @@ void semaphore_clear(int32_t pid) {
     }
 }
 
+/*
+ * Release every semaphore currently OCCUPIED by the given task pid,
+ * without touching ownership (creater_pid). semaphore_clear() only runs
+ * when a whole PROC dies, but semaphore occupancy is per-task: a THREAD
+ * that terminates while holding a lock (multi_task IPC worker killed
+ * mid-handler by a fatal fault, etc.) would otherwise leave it occupied
+ * forever, and every other thread of the surviving proc would spin
+ * indefinitely in semaphore_enter().
+ */
+void semaphore_clear_occupied(int32_t pid) {
+    for(int32_t i=0; i<SEMAPHORE_MAX; i++) {
+        if(_semaphores[i].creater_pid != -1 &&
+                _semaphores[i].occupied == SEM_OCCUPIED &&
+                _semaphores[i].occupied_pid == pid) {
+            _semaphores[i].occupied = SEM_IDLE;
+            _semaphores[i].occupied_pid = -1;
+        }
+    }
+}
+
 void semaphore_free(uint32_t sem_id) {
     if(sem_id == 0)
         return;

@@ -23,5 +23,6 @@ void    semaphore_enter(context_t* ctx, uint32_t sem_id);
 void    semaphore_try_enter(context_t* ctx, uint32_t sem_id);
 int32_t semaphore_quit(uint32_t sem_id);
 void    semaphore_clear(int32_t pid);
+void    semaphore_clear_occupied(int32_t pid);
 
 #endif

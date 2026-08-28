@@ -134,13 +134,26 @@ inline int proc_getpid(int pid) {
     if(pid >= MAX_PROC_NUM)
         return -1;
 
-    while(true) {
+    /*
+     * The vsyscall table is mutated lock-free by the kernel, and the
+     * multi_task IPC pool churns thread slots constantly (spawn on demand,
+     * self-quit when idle), so a torn read can produce a father_pid cycle
+     * or an out-of-range link. Bound the walk and range-check every hop:
+     * degrading to "unknown owner" is harmless, while an infinite spin
+     * here wedges the caller - vfsd runs this under _vfs_lock(write) in
+     * every fd op (open/close/dup/dup2/clone), so a spin deadlocks the
+     * whole system.
+     */
+    uint32_t steps = 0;
+    while(steps++ < MAX_PROC_NUM) {
         if(_vsyscall_info->proc_info[pid].uuid == 0)
             return -1;
 
         if(_vsyscall_info->proc_info[pid].type == TASK_TYPE_PROC)
             return pid;
         pid = _vsyscall_info->proc_info[pid].father_pid;
+        if(pid < 0 || pid >= MAX_PROC_NUM)
+            return -1;
     }
     return -1;
 }
