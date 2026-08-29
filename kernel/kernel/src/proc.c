@@ -796,11 +796,27 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
         }
     }
 
-    if(cproc != to) {
+    /*
+     * Threads share the owner's address space, so a switch between two
+     * contexts of the SAME space (e.g. an ipc client thread and a pool
+     * worker thread, or any two threads of one proc) keeps the current
+     * translation table - reloading the same base would only force a
+     * pointless TLB flush.
+     */
+    if(cproc != to &&
+            (cproc == NULL || cproc->space != to->space)) {
         page_dir_entry_t *vm = to->space->vm;
         set_translation_table_base(V2P(vm));
     }
 
+    /*
+     * Special-context injection (interrupt/signal/single-task ipc hijack)
+     * targets the proc's MAIN context only - those mechanisms saved the
+     * main context's state and must resume exactly there. Threads are
+     * independent contexts: a multi_task ipc pool worker gets its handler
+     * context bound directly by ipc_pool_bind_locked() before the switch,
+     * so a thread's saved ctx must be loaded untouched, never rewritten.
+     */
     if(to->info.type == TASK_TYPE_PROC) {
         if (to->space->interrupt.state == INTR_STATE_START) {																				// have irq request to handle
             to->space->interrupt.state = INTR_STATE_WORKING; // clear irq request mask
@@ -2093,17 +2109,18 @@ proc_t* kfork(context_t* ctx, int32_t type) {
 }
 
 /*
- * Spawn one PARKED persistent worker thread for a multi_task IPC server's
- * pool. It is created exactly like the old per-request worker (ipc entry,
- * extra_data, its own thread stack) but is never made READY: it stays
- * BLOCKed until a request is assigned to it and it is woken, then it
- * parks itself again after every SYS_IPC_END instead of exiting. This
- * avoids the per-request thread create/teardown cost.
+ * Spawn one PARKED worker thread for a multi_task IPC server's pool,
+ * pinned to the requesting client's core. It is created exactly like the
+ * old per-request worker (ipc entry, extra_data, its own thread stack) but
+ * is never made READY: it stays BLOCKed until a request is assigned to it
+ * and it is woken, then it parks itself again after every SYS_IPC_END
+ * instead of exiting. This avoids the per-request thread create/teardown
+ * cost.
  * Returns the parked worker, or NULL when the proc table or the per-proc
  * thread stack slots are exhausted - the pool then simply stays short and
  * is refilled on later ipc calls.
  */
-proc_t* proc_ipc_pool_spawn(proc_t* serv_proc) {
+proc_t* proc_ipc_pool_spawn(proc_t* serv_proc, uint32_t core) {
     if(serv_proc == NULL || serv_proc->space == NULL)
         return NULL;
     ipc_server_t* server = &serv_proc->space->ipc_server;
@@ -2124,7 +2141,15 @@ proc_t* proc_ipc_pool_spawn(proc_t* serv_proc) {
     worker->ctx.gpr[1] = server->extra_data;
     /* gpr[0] (ipc uid) and sp are (re)set per request at assignment time */
 
-    core_attach(worker);
+    /*
+     * Pin the worker to the requesting client's core so the request is
+     * served where the client runs; only an out-of-range core falls back
+     * to the load-balanced attach.
+     */
+    if(core < _sys_info.cores)
+        worker->info.core = core;
+    else
+        core_attach(worker);
     worker->info.state = BLOCK; //parked until a request is assigned
     return worker;
 }
@@ -2140,6 +2165,12 @@ proc_t* proc_ipc_pool_spawn(proc_t* serv_proc) {
  * assignment and the pool wait-queue re-check use, and BEFORE the wakeup:
  * a retrying client either already observes this worker idle or is queued
  * and gets woken below - it cannot slip in between and strand.
+ *
+ * The switch-away is a REAL-TIME RETURN: when the client waiting for this
+ * request's reply is runnable on the current core (the common case - pool
+ * workers are pinned to the requesting client's core), the cpu is handed
+ * straight back to it, thread or process alike, mirroring the dispatch
+ * switch in proc_ipc_call(); anything else keeps the FIFO schedule.
  */
 void proc_ipc_pool_park(context_t* ctx, proc_t* worker, proc_t* serv_proc, proc_t* wake_client) {
     if(worker == NULL || serv_proc == NULL || serv_proc->space == NULL)
@@ -2169,7 +2200,25 @@ void proc_ipc_pool_park(context_t* ctx, proc_t* worker, proc_t* serv_proc, proc_
 
     if(worker == get_current_proc())
         proc_account_pause_current();
-    schedule(ctx);
+
+    /*
+     * Hand the cpu straight back to the client waiting for the reply when
+     * it is runnable on the current core. proc_wakeup() above normalized
+     * any live blocked client to READY and left terminated ones untouched,
+     * so the READY check also filters out dead clients; a remote client
+     * was already kicked via its own core's queue by the wakeup.
+     * proc_switch() handles thread and process clients the same and the
+     * worker resumes right here when it is re-woken for a later request,
+     * exactly as with schedule().
+     */
+    if(wake_client != NULL &&
+            wake_client->info.core == get_core_id() &&
+            wake_client->info.state == READY) {
+        proc_switch(ctx, wake_client, true);
+    }
+    else {
+        schedule(ctx);
+    }
 
     /*
      * Woken. Normally a new request was bound to this worker (its ctx was
@@ -2619,8 +2668,8 @@ void renew_kernel_sec(void) {
     proc_zombie_funeral();
     proc_refresh_runtime_stats();
     /*
-     * Retire multi_task IPC pool members that grew beyond the base
-     * IPC_TASK_POOL_MIN_NUM count and sat idle long enough.
+     * Retire multi_task IPC pool members that sat parked and idle long
+     * enough (an idle pool drains back to its default empty state).
      */
     for(uint32_t i = 0; i < _kernel_config.max_task_num; i++) {
         proc_t* proc = _task_table[i];

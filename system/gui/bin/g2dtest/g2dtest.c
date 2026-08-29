@@ -23,8 +23,8 @@ static uint32_t rotated45_size(uint32_t w, uint32_t h) {
     return (uint32_t)((sum + (1u << ROT45_BITS) - 1) >> ROT45_BITS);
 }
 
-#define CANVAS_W 480u
-#define CANVAS_H 272u
+#define CANVAS_W 800u
+#define CANVAS_H 600u
 
 static graph_t* canvas_create(uint32_t width, uint32_t height) {
     return graph_new_shm((int32_t)width, (int32_t)height);
@@ -199,8 +199,8 @@ static int bench_frame_blit(void* p) {
     int32_t y;
     int ret;
 
-    dw = ctx->canvas->w / 2;
-    dh = ctx->canvas->h / 2;
+    dw = ctx->canvas->w;
+    dh = ctx->canvas->h;
     maxx = ctx->canvas->w - dw;
     maxy = ctx->canvas->h - dh;
     x = maxx > 0 ? (int32_t)((ctx->seq * 37u) % (uint32_t)maxx) : 0;
@@ -227,8 +227,8 @@ static int bench_frame_blit_alpha(void* p) {
     int32_t y;
     int ret;
 
-    dw = ctx->canvas->w / 3;
-    dh = ctx->canvas->h / 3;
+    dw = ctx->canvas->w;
+    dh = ctx->canvas->h;
     maxx = ctx->canvas->w - dw;
     maxy = ctx->canvas->h - dh;
     x = maxx > 0 ? (int32_t)((ctx->seq * 41u) % (uint32_t)maxx) : 0;
@@ -310,8 +310,8 @@ int main(int argc, char** argv) {
         printf("create canvas shm failed\n");
         return -1;
     }
-    opaque_img = canvas_create(160, 120);
-    alpha_img = canvas_create(128, 128);
+    opaque_img = canvas_create(640, 480);
+    alpha_img = canvas_create(640, 480);
     if(opaque_img == NULL || alpha_img == NULL) {
         printf("create source shm failed\n");
         canvas_free(opaque_img);
@@ -456,6 +456,12 @@ int main(int argc, char** argv) {
     bench_ctx.alpha = alpha_img;
     bench_ctx.seq = 0;
     printf("--- fps benchmark ---\n");
+    printf("bench frame: canvas %ux%u, fill 16x(64x64), opaque %ux%u -> %ux%u, alpha %ux%u -> %ux%u\n",
+            (uint32_t)canvas->w, (uint32_t)canvas->h,
+            (uint32_t)opaque_img->w, (uint32_t)opaque_img->h,
+            (uint32_t)canvas->w, (uint32_t)canvas->h,
+            (uint32_t)alpha_img->w, (uint32_t)alpha_img->h,
+            (uint32_t)canvas->w, (uint32_t)canvas->h);
     bench_run("fill_rect x16", bench_frame_fill, &bench_ctx, &failures);
     bench_run("blit_opaque", bench_frame_blit, &bench_ctx, &failures);
     bench_run("blit_alpha", bench_frame_blit_alpha, &bench_ctx, &failures);

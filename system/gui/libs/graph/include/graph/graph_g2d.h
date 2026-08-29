@@ -3,6 +3,8 @@
 
 #include <graph/graph.h>
 
+#define G2D_MIN_SIZE (64*64)
+
 #ifdef __cplusplus 
 extern "C" { 
 #endif

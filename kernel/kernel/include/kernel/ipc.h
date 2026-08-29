@@ -10,20 +10,20 @@ struct st_proc;
 
 #define IPC_CTX_MAX 8
 /*
- * MIN Number of persistent worker threads kept alive in a multi_task
- * server's pool. They are spawned once (parked/BLOCKed), reused for every
- * request and never terminated between requests. The pool has no fixed
- * hard cap: it is sized by the proc's own thread limit
- * (_kernel_config.max_task_per_proc, see pool_num) and grows on demand
- * while workers are busy. When the proc runs out of thread slots the
- * requesting client blocks inside the kernel until a worker parks again.
+ * Worker pool of a multi_task server (ipc_server_t.pool): the pool starts
+ * EMPTY - no persistent minimum of worker threads is kept. Workers are
+ * spawned on demand as requests arrive, each pinned to the requesting
+ * client's core, and parked (BLOCKed) between requests for reuse. The pool
+ * has no fixed hard cap: it is sized by the proc's own thread limit
+ * (_kernel_config.max_task_per_proc, see pool_num). When the proc runs out
+ * of thread slots the requesting client blocks inside the kernel until a
+ * worker parks again.
  */
-#define IPC_TASK_POOL_MIN_NUM 2
 
 /*
- * Seconds a pool member spawned BEYOND IPC_TASK_POOL_MIN_NUM may sit
- * idle (parked, no request) before it terminates itself to release its
- * proc slot and thread stack. The MIN_NUM base members never quit.
+ * Seconds a pool member may sit idle (parked, no request) before it
+ * terminates itself to release its proc slot and thread stack. Every
+ * parked member is eligible, so an idle pool drains back to empty.
  */
 #define IPC_TASK_SELF_QUIT_TIMEOUT  3 //seconds
 
@@ -129,7 +129,7 @@ extern uint32_t    proc_ipc_task_count(struct st_proc* serv_proc);
 extern ipc_task_t* proc_ipc_find_task(struct st_proc* serv_proc, uint32_t uid);
 extern ipc_task_t* proc_ipc_current_task(struct st_proc* proc);
 extern ipc_task_t* proc_ipc_serving_task(struct st_proc* proc, uint32_t uid);
-extern struct st_proc* proc_ipc_pool_spawn(struct st_proc* serv_proc);
+extern struct st_proc* proc_ipc_pool_spawn(struct st_proc* serv_proc, uint32_t core);
 extern void        proc_ipc_pool_park(context_t* ctx, struct st_proc* worker, struct st_proc* serv_proc, struct st_proc* wake_client);
 extern void        proc_ipc_pool_shrink(struct st_proc* serv_proc);
 extern void        proc_ipc_task_abort(struct st_proc* serv_proc, ipc_task_t* ipc);

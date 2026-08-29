@@ -30,7 +30,7 @@ static int g2d_check_graph(const graph_t* g) {
 		return 0;
 	*/
 
-	if((g->w * g->h) < (256 * 256))
+	if((g->w * g->h) < G2D_MIN_SIZE)
 		return 0;
 	return 1;
 }

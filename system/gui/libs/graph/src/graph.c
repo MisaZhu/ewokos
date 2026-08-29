@@ -1,4 +1,5 @@
 #include <graph/graph.h>
+#include <graph/graph_g2d.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -200,7 +201,7 @@ static graph_t* graph_new_shm_row(int32_t w, int32_t h, bool contig) {
 graph_t* graph_new_shm(int32_t w, int32_t h) {
     graph_t* g = NULL;
 
-	if((w * h) >= (256 * 256))
+	if((w * h) >= G2D_MIN_SIZE)
         g = graph_new_shm_row(w, h, true);
 
     if(g == NULL)

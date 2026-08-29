@@ -215,17 +215,17 @@ int32_t proc_ipc_setup(context_t* ctx, ewokos_addr_t entry, ewokos_addr_t extra_
      */
     cproc->space->ipc_server.multi_task = ((flags & IPC_MULTI_TASK) != 0);
     /*
-     * multi_task: allocate the persistent worker pool, sized by the proc's
-     * own thread limit (max_task_per_proc). There is no separate hard cap:
-     * the pool can never hold more live workers than the proc can back with
-     * thread stack slots; when those run out ipc_pool_assign() blocks the
-     * client instead of spawning.
+     * multi_task: allocate the worker pool slot array, sized by the proc's
+     * own thread limit (max_task_per_proc). The pool starts EMPTY - slots
+     * are filled on demand by ipc_pool_assign() as requests arrive, one
+     * parked worker pinned to the requesting client's core at a time.
+     * There is no separate hard cap: the pool can never hold more live
+     * workers than the proc can back with thread stack slots; when those
+     * run out ipc_pool_assign() blocks the client instead of spawning.
      */
     ipc_server_t* server = &cproc->space->ipc_server;
     if(server->multi_task && server->pool == NULL) {
         uint32_t num = _kernel_config.max_task_per_proc;
-        if(num < IPC_TASK_POOL_MIN_NUM)
-            num = IPC_TASK_POOL_MIN_NUM;
         server->pool = (ipc_pool_worker_t*)kmalloc(num*sizeof(ipc_pool_worker_t));
         memset(server->pool, 0, num*sizeof(ipc_pool_worker_t));
         server->pool_num = num;
@@ -623,18 +623,22 @@ int32_t proc_ipc_wait(context_t* ctx, struct st_proc* serv_proc, proc_t* proc) {
 }
 
 /* ======================================================================
- * multi_task worker pool: a server starts with IPC_TASK_POOL_MIN_NUM
- * persistent threads (spawned parked/BLOCK on first use) and grows on
- * demand while every member is busy, up to pool_num slots (sized by the
- * proc's own thread limit max_task_per_proc); only when the proc has no
- * free thread slot (or every member is busy) does the client block.
- * Members are woken with a rewritten context per request and re-parked
- * after SYS_IPC_END instead of being created/terminated for every request.
+ * multi_task worker pool: the pool starts EMPTY - no worker thread exists
+ * until the first request arrives. Each request is handed to a parked
+ * worker pinned to the requesting client's core or, when there is none
+ * (never spawned yet, or all of that core's members are busy), to a
+ * freshly spawned worker pinned to that same core, up to pool_num slots
+ * (sized by the proc's own thread limit max_task_per_proc); only when
+ * every member is busy and the proc has no free thread slot does the
+ * client block. Members are woken with a rewritten context per request
+ * and re-parked after SYS_IPC_END instead of being created/terminated for
+ * every request; a member that stays parked for IPC_TASK_SELF_QUIT_TIMEOUT
+ * seconds self-terminates, draining an idle pool back to empty.
  * ====================================================================== */
 
 /*
  * Resolve pool slot i to its live worker thread. Drops stale slots (the
- * worker died or its pid slot was reused) so replenish can refill them.
+ * worker died or its pid slot was reused) so a later grow can refill them.
  * Caller holds the server lock (only needed for the stale-slot write).
  */
 static proc_t* ipc_pool_slot_worker(ipc_server_t* server, uint32_t i) {
@@ -729,43 +733,20 @@ static void ipc_pool_bind_locked(ipc_server_t* server, proc_t* worker, ipc_task_
 }
 
 /*
- * Ensure the pool holds at least IPC_TASK_POOL_MIN_NUM live workers
- * (spawned parked). The pool is NOT filled to its full size up front:
- * additional members are created on demand by ipc_pool_assign() when every
- * current member is busy. Spawn failures (task table or thread stack slots
- * exhausted) leave the pool short; the next ipc call retries. Runs in
- * syscall context (kernel_lock held), so no two replenishers can race for
- * the same slot.
+ * Scan pool slots for a parked/idle worker and bind request ipc to the
+ * first one found. With same_core_only set, only members pinned to the
+ * given core are considered (a worker keeps its home core for its whole
+ * lifetime); otherwise any parked member qualifies. Returns the bound
+ * worker, or NULL when no slot holds a usable idle worker. Caller holds
+ * the server lock.
  */
-static void ipc_pool_replenish(proc_t* serv_proc) {
-    ipc_server_t* server = &serv_proc->space->ipc_server;
-    while(true) {
-        proc_ipc_server_lock(server);
-        bool missing = (ipc_pool_count_locked(server) < IPC_TASK_POOL_MIN_NUM);
-        proc_ipc_server_unlock(server);
-        if(!missing)
-            return;
-        proc_t* w = proc_ipc_pool_spawn(serv_proc);
-        if(w == NULL)
-            return; //resources exhausted; retry on a later call
-        proc_ipc_server_lock(server);
-        ipc_pool_register_locked(server, w);
-        proc_ipc_server_unlock(server);
-    }
-}
-
-/*
- * Scan pool slots [from, to) for a parked/idle worker and bind request ipc
- * to the first one found. Returns the bound worker, or NULL when no slot in
- * the range holds a usable idle worker. Caller holds the server lock.
- */
-static proc_t* ipc_pool_pick_idle_locked(ipc_server_t* server, ipc_task_t* ipc, uint32_t from, uint32_t to) {
-    if(to > server->pool_num)
-        to = server->pool_num;
-    for(uint32_t i = from; i < to; i++) {
+static proc_t* ipc_pool_pick_idle_locked(ipc_server_t* server, ipc_task_t* ipc, uint32_t core, bool same_core_only) {
+    for(uint32_t i = 0; i < server->pool_num; i++) {
         proc_t* w = ipc_pool_slot_worker(server, i);
         if(w == NULL || server->pool[i].quit ||
                 w->info.state != BLOCK || w->ipc_task != NULL)
+            continue;
+        if(same_core_only && w->info.core != core)
             continue;
         ipc_pool_bind_locked(server, w, ipc);
         return w;
@@ -774,68 +755,69 @@ static proc_t* ipc_pool_pick_idle_locked(ipc_server_t* server, ipc_task_t* ipc, 
 }
 
 /*
- * Hand request ipc to a pool worker. Prefers the persistent base workers in
- * slots [0, IPC_TASK_POOL_MIN_NUM); only when every base worker is busy does
- * it fall back to an on-demand extra beyond MIN_NUM, and finally grow the
- * pool on demand (spawn parked + register + bind). Growth is bounded by the
- * proc's own thread limit (pool_num == max_task_per_proc) and by whether a
- * thread stack slot is still free. Returns the bound worker, or NULL when no
- * worker is idle and none can be spawned (pool full or the proc's threads
- * exhausted) - the caller then blocks the client until one parks.
+ * Hand request ipc to a pool worker, keeping the work on the requesting
+ * client's core: first look for a parked member pinned to that core; when
+ * there is none (never spawned, or all of them busy) grow the pool with a
+ * new worker pinned to that same core. Growth is bounded by the proc's own
+ * thread limit (pool_num == max_task_per_proc) and by whether a thread
+ * stack slot is still free. Only when growing is impossible does the
+ * assignment fall back to a parked member on ANY core. Returns the bound
+ * worker, or NULL when no member is idle and none can be spawned - the
+ * caller then blocks the client until one parks.
  */
-static proc_t* ipc_pool_assign(proc_t* serv_proc, ipc_task_t* ipc) {
+static proc_t* ipc_pool_assign(proc_t* serv_proc, ipc_task_t* ipc, uint32_t core) {
     ipc_server_t* server = &serv_proc->space->ipc_server;
     proc_t* worker = NULL;
 
-    uint32_t base = IPC_TASK_POOL_MIN_NUM;
-    if(base > server->pool_num)
-        base = server->pool_num;
-
     proc_ipc_server_lock(server);
-    /* base workers first, then on-demand extras */
-    worker = ipc_pool_pick_idle_locked(server, ipc, 0, base);
-    if(worker == NULL)
-        worker = ipc_pool_pick_idle_locked(server, ipc, base, server->pool_num);
+    worker = ipc_pool_pick_idle_locked(server, ipc, core, true);
     if(worker == NULL) {
         /*
-         * No idle member: grow the pool on demand. The count check is
-         * under the lock; the spawn runs outside it (it can bury zombies)
-         * and the new worker is registered + bound in the next critical
+         * No parked member on the client's core: grow the pool on demand
+         * with a new worker pinned to that core. The count check is under
+         * the lock; the spawn runs outside it (it can bury zombies) and
+         * the new worker is registered + bound in the next critical
          * section. Syscalls are serialized by kernel_lock, so no other
          * grower can slip in between. When the proc has no free thread
-         * slot left (its own thread limit), do NOT spawn - the caller
-         * blocks the client until a worker parks and frees its slot.
+         * slot left (its own thread limit), do NOT spawn.
          */
         bool can_grow = (ipc_pool_count_locked(server) < server->pool_num) &&
                 proc_thread_stack_available(serv_proc);
         proc_ipc_server_unlock(server);
-        if(!can_grow)
-            return NULL; //proc threads exhausted / all busy: caller blocks
-        worker = proc_ipc_pool_spawn(serv_proc);
-        if(worker == NULL)
-            return NULL; //resources exhausted: caller blocks the client
+        if(can_grow) {
+            worker = proc_ipc_pool_spawn(serv_proc, core);
+            if(worker != NULL) {
+                proc_ipc_server_lock(server);
+                ipc_pool_register_locked(server, worker);
+                ipc_pool_bind_locked(server, worker, ipc);
+                proc_ipc_server_unlock(server);
+                proc_wakeup(worker); //BLOCK -> READY; enters the rewritten ctx
+                return worker;
+            }
+        }
+        /* growth impossible or failed: fall back to any parked member */
         proc_ipc_server_lock(server);
-        ipc_pool_register_locked(server, worker);
-        ipc_pool_bind_locked(server, worker, ipc);
+        worker = ipc_pool_pick_idle_locked(server, ipc, core, false);
     }
     proc_ipc_server_unlock(server);
 
+    if(worker == NULL)
+        return NULL; //all members busy and no thread slot: caller blocks
     proc_wakeup(worker); //BLOCK -> READY; enters the rewritten ctx
     return worker;
 }
 
 /*
- * Idle-shrink sweep (called from the 1Hz renew_kernel_sec tick): when the
- * pool holds more live members than IPC_TASK_POOL_MIN_NUM, mark ONE member
- * that sat parked idle for at least IPC_TASK_SELF_QUIT_TIMEOUT seconds for
- * self-termination and wake it - the worker notices the quit mark right
- * after waking from its park and exits, releasing its proc slot and thread
- * stack. The sweep retires from the HIGH end of the pool so the persistent
- * base workers in [0, IPC_TASK_POOL_MIN_NUM) are kept for reuse and the
- * on-demand extras are reaped first; it also stops once only MIN_NUM members
- * are left. Runs in timer interrupt context; all pool state is touched under
- * the same server lock that assignment and park use, so a worker is never
- * quit-marked while a request is being bound to it.
+ * Idle-shrink sweep (called from the 1Hz renew_kernel_sec tick): mark ONE
+ * member that sat parked idle for at least IPC_TASK_SELF_QUIT_TIMEOUT
+ * seconds for self-termination and wake it - the worker notices the quit
+ * mark right after waking from its park and exits, releasing its proc slot
+ * and thread stack. There is no persistent base set: every parked member
+ * is eligible, so an idle pool drains back to its default EMPTY state and
+ * a later request grows it again on demand. Runs in timer interrupt
+ * context; all pool state is touched under the same server lock that
+ * assignment and park use, so a worker is never quit-marked while a
+ * request is being bound to it.
  */
 void proc_ipc_pool_shrink(proc_t* serv_proc) {
     if(serv_proc == NULL || serv_proc->space == NULL)
@@ -846,10 +828,9 @@ void proc_ipc_pool_shrink(proc_t* serv_proc) {
 
     proc_t* target = NULL;
     proc_ipc_server_lock(server);
-    uint32_t live = ipc_pool_count_locked(server);
-    if(live > IPC_TASK_POOL_MIN_NUM) {
+    if(ipc_pool_count_locked(server) > 0) {
         for(uint32_t i = server->pool_num; i > 0; i--) {
-            uint32_t idx = i - 1; //retire high slots first, keep base [0,MIN_NUM)
+            uint32_t idx = i - 1;
             proc_t* w = ipc_pool_slot_worker(server, idx);
             if(w == NULL || server->pool[idx].quit ||
                     w->info.state != BLOCK || w->ipc_task != NULL)
@@ -880,8 +861,6 @@ void proc_ipc_pool_shrink(proc_t* serv_proc) {
 static int32_t proc_ipc_wait_pool(context_t* ctx, proc_t* serv_proc, proc_t* proc) {
     if(serv_proc == NULL || proc == NULL || serv_proc->space == NULL)
         return -1;
-
-    ipc_pool_replenish(serv_proc); //a missing member may be spawnable now
 
     if(proc->ipc_waiting_on != NULL && proc->ipc_waiting_on != serv_proc)
         proc_ipc_cancel_wait(proc);
@@ -1052,22 +1031,23 @@ void proc_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, proto_t* a
     if(serv_proc->space->ipc_server.multi_task) {
         /*
          * multi_task server: the server's main context is never hijacked.
-         * Requests are served by a persistent pool of worker threads
-         * inside the server proc (IPC_TASK_POOL_MIN_NUM created up front,
-         * grown on demand up to the proc's thread limit, members parked
-         * between requests), each running the ipc entry, so requests are
-         * served concurrently. No interrupt-state gate here either: a
-         * worker thread is an independent context and can safely run
-         * while the server's main context handles an interrupt.
+         * Requests are served by a pool of worker threads inside the
+         * server proc, each running the ipc entry, so requests are served
+         * concurrently. The pool starts EMPTY - workers are spawned on
+         * demand, each pinned to the requesting client's core, parked
+         * between requests, and retired after sitting idle. No
+         * interrupt-state gate here either: a worker thread is an
+         * independent context and can safely run while the server's main
+         * context handles an interrupt.
          *
-         * When every worker is busy and the proc has no free thread slot
-         * to grow the pool (or no task slot is free) the client is kept
-         * blocked INSIDE the kernel until a worker parks; returning RETRY
-         * unblocked would make userspace ipc_call busy-loop.
+         * When every worker on the client's core is busy and the proc has
+         * no free thread slot to grow the pool (or no task slot is free)
+         * the client is kept blocked INSIDE the kernel until a worker
+         * parks; returning RETRY unblocked would make userspace ipc_call
+         * busy-loop.
          */
         uint32_t serv_uuid = serv_proc->info.uuid;
         while(true) {
-            ipc_pool_replenish(serv_proc);
             ipc_task_t* ipc = proc_ipc_req(serv_proc, client_proc, call_id, arg);
             if(ipc == NULL) { //all task slots busy
                 ctx->gpr[0] = IPC_ERROR_RETRY;
@@ -1088,8 +1068,25 @@ void proc_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, proto_t* a
             else {
                 proc_cur_ipc_res(client_proc)->state = IPC_BUSY;
                 ctx->gpr[0] = ipc->uid;
-                if(ipc_pool_assign(serv_proc, ipc) != NULL)
+                proc_t* worker = ipc_pool_assign(serv_proc, ipc, client_proc->info.core);
+                if(worker != NULL) {
+                    /*
+                     * Real-time dispatch: pool workers are pinned to the
+                     * requesting client's core, so the common case hands
+                     * the cpu STRAIGHT to the worker thread - the request
+                     * starts running now instead of after the client blocks
+                     * in get_return and wins a FIFO reschedule. Worth it
+                     * only when the client will wait for the reply:
+                     * IPC_LAZY / IPC_NON_RETURN callers keep running and
+                     * the woken worker serves asynchronously. A cross-core
+                     * fallback worker was already woken by ipc_pool_assign()
+                     * and is picked up by its own core.
+                     */
+                    if((call_id & (IPC_LAZY | IPC_NON_RETURN)) == 0 &&
+                            worker->info.core == client_proc->info.core)
+                        proc_switch_multi_core(ctx, worker, client_proc->info.core);
                     return;
+                }
                 //no idle pool worker: free the task slot, block and retry
                 proc_ipc_close(serv_proc, ipc);
                 ctx->gpr[0] = IPC_ERROR_RETRY; //the closed uid must not leak to the client
