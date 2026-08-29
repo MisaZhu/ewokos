@@ -432,7 +432,18 @@ ipc_task_t* proc_ipc_req(proc_t* serv_proc, proc_t* client_proc, int32_t call_id
     ipc->state = IPC_BUSY;
     ipc->client_pid = client_proc->info.pid;
     ipc->client_uuid = client_proc->info.uuid;
-    ipc->client_intr = (client_proc->space != NULL &&
+    /*
+     * Interrupt-originated calls get their reply in the process's dedicated
+     * interrupt ipc_res (see proc_ipc_client_res). Only a process's MAIN
+     * context ever runs an interrupt handler (proc_switch injects handlers
+     * into TASK_TYPE_PROC contexts alone), so gate on the task type: a thread
+     * calling while its process's main context happens to be inside an
+     * interrupt handler is a plain task-context caller, and its reply belongs
+     * in its own per-task ipc_res - exactly what proc_cur_ipc_res() selects
+     * for the client's own sys_ipc_call/sys_ipc_get_return.
+     */
+    ipc->client_intr = (client_proc->info.type == TASK_TYPE_PROC &&
+            client_proc->space != NULL &&
             client_proc->space->interrupt.state == INTR_STATE_WORKING) ? 1 : 0;
     ipc->call_id = call_id;
     ipc->counter = 0;

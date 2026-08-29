@@ -2741,11 +2741,21 @@ proc_t* proc_ipc_get_client(ipc_task_t* ipc) {
  * interrupt handler runs with its own dedicated ipc_res, so an IPC it issues
  * never collides with the main context's outstanding IPC-as-client request
  * that is parked while the handler runs. Used by sys_ipc_call/sys_ipc_get_return.
+ *
+ * The interrupt slot belongs to the process's MAIN context alone: interrupt
+ * handlers are only ever injected into TASK_TYPE_PROC contexts (proc_switch),
+ * while space->interrupt.state is process-wide. A THREAD issuing an IPC while
+ * its process's main context happens to sit inside an interrupt handler is
+ * still a plain task-context caller: its reply belongs in its own per-task
+ * ipc_res, never in the shared interrupt slot (which it would otherwise
+ * clobber, and which the handler's own reply would then overwrite).
  */
 ipc_res_t* proc_cur_ipc_res(proc_t* proc) {
     if(proc == NULL)
         return NULL;
-    if(proc->space != NULL && proc->space->interrupt.state == INTR_STATE_WORKING)
+    if(proc->info.type == TASK_TYPE_PROC &&
+            proc->space != NULL &&
+            proc->space->interrupt.state == INTR_STATE_WORKING)
         return &proc->space->interrupt.ipc_res;
     return &proc->ipc_res;
 }

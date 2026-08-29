@@ -22,6 +22,16 @@ using namespace Ewok;
 #define CANVAS_W 560u
 #define CANVAS_H 320u
 
+/*throughput bench geometry, kept in sync with g2dtest so the reported
+  fps is directly comparable: one bench frame = 16 random 64x64 fills
+  + a full-canvas opaque blit + a full-canvas alpha blit*/
+#define BENCH_CANVAS_W 800u
+#define BENCH_CANVAS_H 600u
+#define BENCH_SRC_W 640u
+#define BENCH_SRC_H 480u
+#define BENCH_USEC 1000000u /* ~1 second per measurement */
+#define BENCH_MAX_FRAMES 5000u
+
 /*stateless g2d: the canvases are shm segments owned by this app and
   carried in the requests by shm id. the driver attaches, operates in
   place and detaches, so the shm pixels ARE the result and the preview
@@ -173,9 +183,8 @@ class G2DTestWidget: public Widget {
 	bool testDone;
 	bool testPass;
 	int failures;
-	uint32_t fps;
-	uint32_t framesPublished;
-	uint64_t fpsTick;
+	uint32_t fps;        /*measured g2d throughput: bench frames per second*/
+	uint32_t usPerFrame; /*avg microseconds per bench frame*/
 	std::string firstFailure;
 	pthread_t benchThread;
 	pthread_mutex_t stateLock;
@@ -471,33 +480,99 @@ class G2DTestWidget: public Widget {
 		if(preview != NULL)
 			graph_free(preview);
 		preview = copy;
-		framesPublished++;
 		pthread_mutex_unlock(&stateLock);
+	}
+
+	static uint32_t benchNowUsec(void) {
+		uint32_t low = 0;
+		kernel_tic32(NULL, NULL, &low);
+		return low;
+	}
+
+	/*one bench frame = 16 random 64x64 fills + full-canvas opaque blit
+	  + full-canvas alpha blit, all synchronous IPC to /dev/g2d, same
+	  mix as g2dtest's mixed_frame*/
+	static int benchFrame(shm_image_t* canvas, shm_image_t* opaque,
+			shm_image_t* alpha, uint32_t seq) {
+		g2d_fill_req_t fill;
+		g2d_blit_req_t blit;
+		int32_t maxx = (int32_t)canvas->width - 64;
+		int32_t maxy = (int32_t)canvas->height - 64;
+		uint32_t i;
+
+		for(i = 0; i < 16; i++) {
+			uint32_t seed = seq * 17u + i * 977u;
+			int32_t x = maxx > 0 ? (int32_t)(seed % (uint32_t)maxx) : 0;
+			int32_t y = maxy > 0 ? (int32_t)((seed >> 8) % (uint32_t)maxy) : 0;
+			g2d_fill_req_init(&fill, img_canvas(canvas), g2d_rect(x, y, 64, 64),
+					0xff000000u | ((seed * 31u) & 0xffffffu));
+			if(g2d_fill_rect(&fill) != 0)
+				return -1;
+		}
+		g2d_blit_req_init(&blit,
+				img_canvas(canvas), img_canvas(opaque),
+				g2d_rect(0, 0, (int32_t)opaque->width, (int32_t)opaque->height),
+				g2d_rect(0, 0, (int32_t)canvas->width, (int32_t)canvas->height),
+				0xff);
+		if(g2d_blit_shm(&blit) != 0)
+			return -1;
+		g2d_blit_req_init(&blit,
+				img_canvas(canvas), img_canvas(alpha),
+				g2d_rect(0, 0, (int32_t)alpha->width, (int32_t)alpha->height),
+				g2d_rect(0, 0, (int32_t)canvas->width, (int32_t)canvas->height),
+				0xff);
+		return g2d_blit_alpha_shm(&blit);
+	}
+
+	/*~1s of back-to-back bench frames on dedicated canvases, so the
+	  displayed fps measures real g2d throughput instead of the visual
+	  stage dwell time*/
+	void runPerfBench() {
+		shm_image_t canvas;
+		shm_image_t opaque;
+		shm_image_t alpha;
+		uint32_t frames = 0;
+		uint32_t elapsed = 0;
+		uint32_t t0;
+
+		memset(&canvas, 0, sizeof(canvas));
+		memset(&opaque, 0, sizeof(opaque));
+		memset(&alpha, 0, sizeof(alpha));
+		if(shm_image_create(&canvas, BENCH_CANVAS_W, BENCH_CANVAS_H) == 0 &&
+				shm_image_create(&opaque, BENCH_SRC_W, BENCH_SRC_H) == 0 &&
+				shm_image_create(&alpha, BENCH_SRC_W, BENCH_SRC_H) == 0) {
+			fill_checker(&opaque);
+			fill_alpha_circle(&alpha);
+
+			t0 = benchNowUsec();
+			while(elapsed < BENCH_USEC && frames < BENCH_MAX_FRAMES && benchRunning) {
+				if(benchFrame(&canvas, &opaque, &alpha, frames) != 0)
+					break;
+				frames++;
+				elapsed = benchNowUsec() - t0;
+			}
+			if(frames > 0 && elapsed > 0) {
+				pthread_mutex_lock(&stateLock);
+				fps = (uint32_t)(((uint64_t)frames * 1000000u) / elapsed);
+				usPerFrame = elapsed / frames;
+				pthread_mutex_unlock(&stateLock);
+			}
+		}
+		shm_image_destroy(&alpha);
+		shm_image_destroy(&opaque);
+		shm_image_destroy(&canvas);
 	}
 
 	static void* benchThreadEntry(void* p) {
 		G2DTestWidget* self = (G2DTestWidget*)p;
-		uint64_t tick = kernel_tic_ms(0);
 
 		while(self->benchRunning) {
-			uint64_t now;
 			TestCtx ctx;
 			/*the test itself holds no lock; publishing briefly locks only.*/
 			self->runTest(ctx);
 			self->publishResult(ctx);
-
-			now = kernel_tic_ms(0);
-			if(now - tick >= 1000) {
-				uint64_t elapsed = now - tick;
-				pthread_mutex_lock(&self->stateLock);
-				/*fps = published preview frames per second, so it reflects
-				  the visible stage transitions instead of full test loops*/
-				if(elapsed != 0)
-					self->fps = (uint32_t)(((uint64_t)self->framesPublished * 1000ULL) / elapsed);
-				self->framesPublished = 0;
-				pthread_mutex_unlock(&self->stateLock);
-				tick = now;
-			}
+			/*throughput burst after each visual round*/
+			self->runPerfBench();
 		}
 		return NULL;
 	}
@@ -533,17 +608,20 @@ protected:
 
 		if(!testDone) {
 			status_color = 0xff3a5878;
-			snprintf(status_text, sizeof(status_text), "xg2dtest RUNNING  fps=%u", fps);
+			snprintf(status_text, sizeof(status_text), "xg2dtest RUNNING  g2d %u fps (%u us/frame)", fps, usPerFrame);
 			snprintf(detail_text, sizeof(detail_text), "running g2d API checks...");
 		}
 		else if(testPass) {
 			status_color = 0xff1d7f3b;
-			snprintf(status_text, sizeof(status_text), "xg2dtest TEST PASSED  fps=%u", fps);
-			snprintf(detail_text, sizeof(detail_text), "all g2d API checks passed");
+			snprintf(status_text, sizeof(status_text), "xg2dtest TEST PASSED  g2d %u fps (%u us/frame)", fps, usPerFrame);
+			snprintf(detail_text, sizeof(detail_text),
+					"bench frame %ux%u: 16x fill 64x64 + blit %ux%u + alpha %ux%u",
+					BENCH_CANVAS_W, BENCH_CANVAS_H, BENCH_SRC_W, BENCH_SRC_H,
+					BENCH_SRC_W, BENCH_SRC_H);
 		}
 		else {
 			status_color = 0xff8f2d2d;
-			snprintf(status_text, sizeof(status_text), "xg2dtest TEST FAILED  failures=%d  fps=%u", failures, fps);
+			snprintf(status_text, sizeof(status_text), "xg2dtest TEST FAILED  failures=%d  g2d %u fps", failures, fps);
 			snprintf(detail_text, sizeof(detail_text), "first failure: %s",
 					firstFailure.empty() ? "unknown" : firstFailure.c_str());
 		}
@@ -589,8 +667,7 @@ public:
 		testPass = false;
 		failures = 0;
 		fps = 0;
-		framesPublished = 0;
-		fpsTick = kernel_tic_ms(0);
+		usPerFrame = 0;
 		firstFailure.clear();
 		benchRunning = true;
 		benchThreadStarted = false;
