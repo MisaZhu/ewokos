@@ -98,17 +98,17 @@ int32_t arch_g2d_init(void) {
 	return 0;
 }
 
-void arch_g2d_fill(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32_t argb_w, int32_t argb_h,
+int32_t arch_g2d_fill(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32_t argb_w, int32_t argb_h,
 		int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
 	if(argb == NULL || argb_w <= 0 || argb_h <= 0 || w <= 0 || h <= 0)
-		return;
+		return 0;
 
 	if(x < 0) { w += x; x = 0; }
 	if(y < 0) { h += y; y = 0; }
 	if(x + w > argb_w) w = argb_w - x;
 	if(y + h > argb_h) h = argb_h - y;
 	if(w <= 0 || h <= 0)
-		return;
+		return 0;
 
 	uint8_t cb = (uint8_t)color;
 	int same_bytes = (((color >> 8) & 0xff) == cb) &&
@@ -126,7 +126,7 @@ void arch_g2d_fill(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32
 			for(int32_t row = 0; row < h; row++)
 				memset(argb + (y + row) * argb_w + x, cb, (size_t)w * 4);
 		}
-		return;
+		return 0;
 	}
 
 	/* broadcast once, then the row loop only stores. Do NOT round-trip the
@@ -154,7 +154,7 @@ void arch_g2d_fill(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32
 			g2d_st1q_x4_u32(dp + cx, vc, vc, vc, vc);
 		for(; cx < total; cx++)
 			dp[cx] = color;
-		return;
+		return 0;
 	}
 
 	for(int32_t row = 0; row < h; row++) {
@@ -180,6 +180,7 @@ void arch_g2d_fill(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32
 		for(; cx < w; cx++)
 			dp[cx] = color;
 	}
+	return 0;
 }
 
 /* ----------------------------------------------------------------- blt --- */
@@ -427,18 +428,18 @@ static int g2d_blt_clip(int32_t src_w, int32_t src_h,
 	return (*sw > 0 && *sh > 0 && *dw > 0 && *dh > 0);
 }
 
-void arch_g2d_blt(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
+int32_t arch_g2d_blt(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
 		int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h,
 		int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
 	if(argb_src == NULL || argb_dst == NULL ||
 			src_w <= 0 || src_h <= 0 || dst_w <= 0 || dst_h <= 0 ||
 			sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
-		return;
+		return 0;
 
 	if(!g2d_blt_clip(src_w, src_h, &sx, &sy, &sw, &sh,
 			dst_w, dst_h, &dx, &dy, &dw, &dh))
-		return;
+		return 0;
 
 	/* 1:1 row copy (overlap-safe) */
 	if(sw == dw && sh == dh) {
@@ -449,7 +450,7 @@ void arch_g2d_blt(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig,
 			if(dx == 0 && sx == 0 && sw == src_w && sw == dst_w) {
 				g2d_row_copy_neon(&argb_dst[dy * dst_w],
 						&argb_src[sy * src_w], sh * sw);
-				return;
+				return 0;
 			}
 			for(int32_t row = 0; row < sh; row++)
 				g2d_row_copy_neon(
@@ -465,7 +466,7 @@ void arch_g2d_blt(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig,
 						argb_src + (sy + r) * src_w + sx, sw);
 			}
 		}
-		return;
+		return 0;
 	}
 
 	/* nearest-neighbor scaling */
@@ -512,6 +513,7 @@ void arch_g2d_blt(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig,
 			drow[col] = srow[src_x];
 		}
 	}
+	return 0;
 }
 
 /* ---------------------------------------------------------- blt alpha --- */
@@ -671,18 +673,18 @@ static inline void g2d_alpha16_scaled_checked(uint32_t *dp, const uint32_t *sp,
 /* alpha blit: 1:1 goes through simd blocks with per-block transparent/
    opaque checks and a zero-padded scalar tail; scaled blits gather
    nearest-neighbor and blend per pixel with g2d_blend_argb_scalar. */
-void arch_g2d_blt_alpha(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
+int32_t arch_g2d_blt_alpha(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
 		int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h,
 		int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
 	if(argb_src == NULL || argb_dst == NULL ||
 			src_w <= 0 || src_h <= 0 || dst_w <= 0 || dst_h <= 0 ||
 			sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0 || alpha == 0)
-		return;
+		return 0;
 
 	if(!g2d_blt_clip(src_w, src_h, &sx, &sy, &sw, &sh,
 			dst_w, dst_h, &dx, &dy, &dw, &dh))
-		return;
+		return 0;
 
 	/* 1:1 blit: 16/32px SIMD blocks with per-block alpha checks */
 	if(sw == dw && sh == dh) {
@@ -724,7 +726,7 @@ void arch_g2d_blt_alpha(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_c
 				memcpy(dp + x, bg, 4 * remain);
 			}
 		}
-		return;
+		return 0;
 	}
 
 	/* scaled blit: nearest-neighbor gather + scalar blend per pixel */
@@ -756,6 +758,7 @@ void arch_g2d_blt_alpha(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_c
 				(uint8_t)(color & 0xff));
 		}
 	}
+	return 0;
 }
 
 /* -------------------------------------------------------------- scale --- */
@@ -1071,15 +1074,15 @@ static inline uint8x8_t g2d_scale_lerp8(uint8x8_t a, uint8x8_t b, uint8x8_t w1) 
 	return vadd_u8(a, vreinterpret_u8_s8(vrshrn_n_s16(acc, 8)));
 }
 
-void arch_g2d_scale_to(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
+int32_t arch_g2d_scale_to(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
 		uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h) {
 	if(argb_src == NULL || argb_dst == NULL ||
 			src_w <= 0 || src_h <= 0 || dst_w <= 0 || dst_h <= 0)
-		return;
+		return 0;
 
 	if(src_w == dst_w && src_h == dst_h) {
 		g2d_row_copy_neon(argb_dst, argb_src, src_w * src_h);
-		return;
+		return 0;
 	}
 
 	/* per-axis 16.16 fixed-point source step */
@@ -1088,13 +1091,13 @@ void arch_g2d_scale_to(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_co
 
 	/* integer decimation: no interpolation needed at all */
 	if(g2d_scale_integer_downsample(argb_src, src_w, argb_dst, dst_w, dst_h, inv_x, inv_y))
-		return;
+		return 0;
 
 	/* scale >= 1 on both axes: separable two-pass with row cache; falls
 	   through to the gather path below on malloc failure */
 	if(inv_x <= G2D_SCALE_FIXED_SCALE && inv_y <= G2D_SCALE_FIXED_SCALE &&
 			g2d_scale_separable_upscale(argb_src, src_w, src_h, argb_dst, dst_w, dst_h, inv_x, inv_y))
-		return;
+		return 0;
 
 	int wmax = src_w - 1;
 	int hmax = src_h - 1;
@@ -1240,7 +1243,7 @@ void arch_g2d_scale_to(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_co
 		free(x1);
 		free(x_frac);
 		free(fx8);
-		return;
+		return 0;
 	}
 
 	free(x0);
@@ -1300,6 +1303,7 @@ void arch_g2d_scale_to(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_co
 
 		src_y += inv_y;
 	}
+	return 0;
 }
 
 /* ------------------------------------------------------------- rotate --- */
@@ -1347,7 +1351,7 @@ static inline int32_t g2d_cos_fp(int32_t degree) {
 /* smallest size able to hold src_w x src_h rotated clockwise by degree
    (any angle). exact swap/keep for multiples of 90, rotated bounding
    box otherwise. */
-void arch_g2d_rotated_size(int32_t src_w, int32_t src_h, int32_t degree,
+int32_t arch_g2d_rotated_size(int32_t src_w, int32_t src_h, int32_t degree,
 		int32_t* dst_w, int32_t* dst_h) {
 	int32_t c;
 	int32_t s;
@@ -1355,11 +1359,11 @@ void arch_g2d_rotated_size(int32_t src_w, int32_t src_h, int32_t degree,
 	int32_t h;
 
 	if(dst_w == NULL || dst_h == NULL)
-		return;
+		return 0;
 	*dst_w = 0;
 	*dst_h = 0;
 	if(src_w <= 0 || src_h <= 0)
-		return;
+		return 0;
 
 	degree = g2d_norm_degree(degree);
 	if(degree % 90 == 0) {
@@ -1371,7 +1375,7 @@ void arch_g2d_rotated_size(int32_t src_w, int32_t src_h, int32_t degree,
 			*dst_w = src_w;
 			*dst_h = src_h;
 		}
-		return;
+		return 0;
 	}
 
 	c = g2d_cos_fp(degree);
@@ -1383,6 +1387,7 @@ void arch_g2d_rotated_size(int32_t src_w, int32_t src_h, int32_t degree,
 	h = (int32_t)(((int64_t)src_w * s + (int64_t)src_h * c + G2D_FP_ONE - 1) >> G2D_FP_BITS);
 	*dst_w = (w < 1) ? 1 : w;
 	*dst_h = (h < 1) ? 1 : h;
+	return 0;
 }
 
 static inline uint32x4_t rotate_rev4_u32(uint32x4_t v) {
@@ -1536,7 +1541,7 @@ static inline void g2d_rotate_180_neon(const uint32_t* src, uint32_t* dst, int w
    angles other than 0/90/180/270 pixels outside the rotated content
    become transparent.
    in-place (argb_src == argb_dst) is only valid for 0/180. */
-void arch_g2d_rotate(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
+int32_t arch_g2d_rotate(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
 		uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h, int32_t degree) {
 	int32_t bw;
 	int32_t bh;
@@ -1549,21 +1554,21 @@ void arch_g2d_rotate(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_cont
 
 	if(argb_src == NULL || argb_dst == NULL ||
 			src_w <= 0 || src_h <= 0 || dst_w <= 0 || dst_h <= 0)
-		return;
+		return 0;
 
 	degree = g2d_norm_degree(degree);
 	if(degree == 0) {
 		/* plain copy */
 		if(dst_w < src_w || dst_h < src_h)
-			return;
+			return 0;
 		if(argb_src != argb_dst)
 			g2d_row_copy_neon(argb_dst, argb_src, src_w * src_h);
-		return;
+		return 0;
 	}
 
 	if(degree == 180) {
 		if(dst_w < src_w || dst_h < src_h)
-			return;
+			return 0;
 		if(argb_src == argb_dst) {
 			/* in-place reversal */
 			uint32_t* lo = argb_src;
@@ -1575,31 +1580,31 @@ void arch_g2d_rotate(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_cont
 				lo++;
 				hi--;
 			}
-			return;
+			return 0;
 		}
 		g2d_rotate_180_neon(argb_src, argb_dst, src_w, src_h);
-		return;
+		return 0;
 	}
 
 	if(degree == 90 || degree == 270) {
 		/* 90/270 change surface dimensions, in-place is not supported */
 		if(argb_src == argb_dst || dst_w < src_h || dst_h < src_w)
-			return;
+			return 0;
 
 		if(degree == 90)
 			g2d_rotate_90_cw_neon(argb_src, argb_dst, src_w, src_h);
 		else
 			g2d_rotate_270_cw_neon(argb_src, argb_dst, src_w, src_h);
-		return;
+		return 0;
 	}
 
 	/* arbitrary angle: inverse-mapped nearest neighbor, rotation around
 	   the center, content written into the top-left bw x bh bounding box. */
 	if(argb_src == argb_dst)
-		return;
+		return 0;
 	arch_g2d_rotated_size(src_w, src_h, degree, &bw, &bh);
 	if(bw <= 0 || bh <= 0 || dst_w < bw || dst_h < bh)
-		return;
+		return 0;
 
 	memset(argb_dst, 0, (size_t)dst_w * dst_h * sizeof(uint32_t));
 
@@ -1625,13 +1630,14 @@ void arch_g2d_rotate(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_cont
 				drow[x] = argb_src[sy * src_w + sx];
 		}
 	}
+	return 0;
 }
 
 /* alpha fill: simd rows with a scalar head for 16-byte realignment (the
    surface may be Device-mapped framebuffer memory where any unaligned
    access faults) and a scalar tail; the fill color is constant so the
    de-interleaved fg vector and the effective alpha are set up once. */
-void arch_g2d_fill_alpha(uint32_t* argb, int32_t argb_w, int32_t argb_h,
+int32_t arch_g2d_fill_alpha(uint32_t* argb, int32_t argb_w, int32_t argb_h,
 		int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
 	uint8_t a;
 	uint8_t rb, gb, bb;
@@ -1639,14 +1645,14 @@ void arch_g2d_fill_alpha(uint32_t* argb, int32_t argb_w, int32_t argb_h,
 	uint8x8_t a8;
 
 	if(argb == NULL)
-		return;
+		return 0;
 	a = (uint8_t)((color >> 24) & 0xff);
 	if(a == 0)
-		return;
+		return 0;
 	if(x < 0) { w += x; x = 0; }
 	if(y < 0) { h += y; y = 0; }
 	if(w <= 0 || h <= 0 || x >= argb_w || y >= argb_h)
-		return;
+		return 0;
 	if(x + w > argb_w) w = argb_w - x;
 	if(y + h > argb_h) h = argb_h - y;
 
@@ -1681,6 +1687,7 @@ void arch_g2d_fill_alpha(uint32_t* argb, int32_t argb_w, int32_t argb_h,
 		for(; cx < w; cx++)
 			dp[cx] = g2d_blend_argb_scalar(dp[cx], a, rb, gb, bb);
 	}
+	return 0;
 }
 
 #else /* !ARCH_BOOST: portable fallback, same semantics as the C reference */
@@ -1689,26 +1696,27 @@ int32_t arch_g2d_init(void) {
 	return 0;
 }
 
-void arch_g2d_fill(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32_t argb_w, int32_t argb_h,
+int32_t arch_g2d_fill(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32_t argb_w, int32_t argb_h,
 		int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
 	if(argb == NULL || argb_w <= 0 || argb_h <= 0 || w <= 0 || h <= 0)
-		return;
+		return 0;
 
 	if(x < 0) { w += x; x = 0; }
 	if(y < 0) { h += y; y = 0; }
 	if(x + w > argb_w) w = argb_w - x;
 	if(y + h > argb_h) h = argb_h - y;
 	if(w <= 0 || h <= 0)
-		return;
+		return 0;
 
 	for(int32_t row = 0; row < h; row++) {
 		uint32_t* p = argb + (y + row) * argb_w + x;
 		for(int32_t col = 0; col < w; col++)
 			p[col] = color;
 	}
+	return 0;
 }
 
-void arch_g2d_blt(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
+int32_t arch_g2d_blt(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
 		int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h,
 		int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
@@ -1716,9 +1724,10 @@ void arch_g2d_blt(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig,
 	(void)sx; (void)sy; (void)sw; (void)sh;
 	(void)argb_dst; (void)dst_phy; (void)dst_contig; (void)dst_w; (void)dst_h;
 	(void)dx; (void)dy; (void)dw; (void)dh;
+	return 0;
 }
 
-void arch_g2d_blt_alpha(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
+int32_t arch_g2d_blt_alpha(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
 		int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h,
 		int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
@@ -1726,24 +1735,28 @@ void arch_g2d_blt_alpha(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_c
 	(void)sx; (void)sy; (void)sw; (void)sh;
 	(void)argb_dst; (void)dst_phy; (void)dst_contig; (void)dst_w; (void)dst_h;
 	(void)dx; (void)dy; (void)dw; (void)dh; (void)alpha;
+	return 0;
 }
 
-void arch_g2d_scale_to(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
+int32_t arch_g2d_scale_to(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
 		uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h) {
 	(void)argb_src; (void)src_phy; (void)src_contig; (void)src_w; (void)src_h;
 	(void)argb_dst; (void)dst_phy; (void)dst_contig; (void)dst_w; (void)dst_h;
+	return 0;
 }
 
-void arch_g2d_rotated_size(int32_t src_w, int32_t src_h, int32_t degree,
+int32_t arch_g2d_rotated_size(int32_t src_w, int32_t src_h, int32_t degree,
 		int32_t* dst_w, int32_t* dst_h) {
 	(void)src_w; (void)src_h; (void)degree;
 	(void)dst_w; (void)dst_h;
+	return 0;
 }
 
-void arch_g2d_rotate(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
+int32_t arch_g2d_rotate(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
 		uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h, int32_t degree) {
 	(void)argb_src; (void)src_phy; (void)src_contig; (void)src_w; (void)src_h;
 	(void)argb_dst; (void)dst_phy; (void)dst_contig; (void)dst_w; (void)dst_h; (void)degree;
+	return 0;
 }
 
 #endif /* ARCH_BOOST */
@@ -1756,14 +1769,14 @@ void arch_g2d_rotate(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_cont
    the next row). use_alpha == 0 is a plain copy; otherwise the same
    math as the simd paths (effective alpha (src_a * alpha) >> 8, then
    the /255 blend). */
-void arch_g2d_blt_cpu(uint32_t* argb_src, int32_t src_w, int32_t src_h,
+int32_t arch_g2d_blt_cpu(uint32_t* argb_src, int32_t src_w, int32_t src_h,
 		int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		uint32_t* argb_dst, int32_t dst_w, int32_t dst_h,
 		int32_t dx, int32_t dy, uint8_t use_alpha, uint8_t alpha) {
 	if(argb_src == NULL || argb_dst == NULL || sw <= 0 || sh <= 0)
-		return;
+		return 0;
 	if(use_alpha != 0 && alpha == 0)
-		return;
+		return 0;
 
 	/* 1:1 mapping: cutting one side shifts the other surface's origin by
 	   the same delta, cutting right/bottom just shrinks the size */
@@ -1776,7 +1789,7 @@ void arch_g2d_blt_cpu(uint32_t* argb_src, int32_t src_w, int32_t src_h,
 	if(dx + sw > dst_w) sw = dst_w - dx;
 	if(dy + sh > dst_h) sh = dst_h - dy;
 	if(sw <= 0 || sh <= 0)
-		return;
+		return 0;
 
 	for(int32_t row = 0; row < sh; row++) {
 		const uint32_t* sp = argb_src + (sy + row) * src_w + sx;
@@ -1806,6 +1819,7 @@ void arch_g2d_blt_cpu(uint32_t* argb_src, int32_t src_w, int32_t src_h,
 					(uint8_t)(color & 0xff));
 		}
 	}
+	return 0;
 }
 
 #ifndef ARCH_BOOST
@@ -1813,19 +1827,19 @@ void arch_g2d_blt_cpu(uint32_t* argb_src, int32_t src_w, int32_t src_h,
    clipped to the buffer bounds, exact per-pixel access with the same
    blend math as the simd paths. alpha == 0 or an empty/fully clipped
    rect is a no-op. */
-void arch_g2d_fill_alpha(uint32_t* argb, int32_t argb_w, int32_t argb_h,
+int32_t arch_g2d_fill_alpha(uint32_t* argb, int32_t argb_w, int32_t argb_h,
 		int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
 	uint8_t a;
 
 	if(argb == NULL)
-		return;
+		return 0;
 	a = (uint8_t)((color >> 24) & 0xff);
 	if(a == 0)
-		return;
+		return 0;
 	if(x < 0) { w += x; x = 0; }
 	if(y < 0) { h += y; y = 0; }
 	if(w <= 0 || h <= 0 || x >= argb_w || y >= argb_h)
-		return;
+		return 0;
 	if(x + w > argb_w) w = argb_w - x;
 	if(y + h > argb_h) h = argb_h - y;
 
@@ -1838,6 +1852,7 @@ void arch_g2d_fill_alpha(uint32_t* argb, int32_t argb_w, int32_t argb_h,
 					(uint8_t)(color & 0xff));
 		}
 	}
+	return 0;
 }
 #endif /* !ARCH_BOOST */
 

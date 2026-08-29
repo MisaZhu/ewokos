@@ -46,6 +46,8 @@ static int g2d_send_struct(int cmd, const void* data, uint32_t size) {
     PF->init(&in)->add(&in, data, size);
     PF->init(&out);
     ret = dev_cntl_by_pid(pid, cmd, &in, &out);
+    if(ret == 0)
+        ret = proto_read_int(&out);
     PF->clear(&out);
     PF->clear(&in);
     return ret;
@@ -105,11 +107,11 @@ int g2d_fill_rect(const g2d_fill_req_t* req) {
     return g2d_send_struct(G2D_DEV_CNTL_FILL_RECT, req, sizeof(*req));
 }
 
-int g2d_blit_shm(const g2d_blit_req_t* req) {
+int g2d_blit(const g2d_blit_req_t* req) {
     return g2d_send_struct(G2D_DEV_CNTL_BLIT, req, sizeof(*req));
 }
 
-int g2d_blit_alpha_shm(const g2d_blit_req_t* req) {
+int g2d_blit_alpha(const g2d_blit_req_t* req) {
     return g2d_send_struct(G2D_DEV_CNTL_BLIT_ALPHA, req, sizeof(*req));
 }
 

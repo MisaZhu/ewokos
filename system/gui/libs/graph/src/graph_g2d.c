@@ -67,19 +67,18 @@ int graph_fill_g2d(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint3
 
 	g2d_fill_req_init(&fill, g2d_graph_canvas(g),
 			g2d_rect(r.x, r.y, r.w, r.h), color);
-	g2d_fill_rect(&fill);
-	return 0;
+	return g2d_fill_rect(&fill);
 }
 
-static void g2d_do_blt(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+static int g2d_do_blt(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh,
 		uint8_t alpha, uint8_t use_alpha) {
 	g2d_blit_req_t blit;
 
 	if(!g2d_check_graph(src) || !g2d_check_graph(dst))
-		return;
+		return -1;
 	if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
-		return;
+		return -1;
 
 	g2d_blit_req_init_ex(&blit,
 			g2d_graph_canvas(dst),
@@ -89,17 +88,15 @@ static void g2d_do_blt(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t
 			alpha,
 			G2D_ROTATE_0);
 	if(use_alpha != 0)
-		g2d_blit_alpha_shm(&blit);
-	else
-		g2d_blit_shm(&blit);
+		return g2d_blit_alpha(&blit);
+	return g2d_blit(&blit);
 }
 
 int graph_blt_g2d(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
 	if(!g2d_check_graph(src) || !g2d_check_graph(dst))
 		return -1;
-	g2d_do_blt(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, 0xff, 0);
-	return 0;
+	return g2d_do_blt(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, 0xff, 0);
 }
 
 int graph_blt_alpha_g2d(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
@@ -109,18 +106,17 @@ int graph_blt_alpha_g2d(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_
 
 	if(!g2d_check_graph(src) || !g2d_check_graph(dst))
 		return -1;
-	g2d_do_blt(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha, 1);
-	return 0;
+	return g2d_do_blt(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha, 1);
 }
 
 /* scales g into dst (dst keeps its own size), nearest neighbor on the
    device */
-static void g2d_do_scale(graph_t* g, graph_t* dst, double scale) {
+static int g2d_do_scale(graph_t* g, graph_t* dst, double scale) {
 	g2d_scale_to_req_t req;
 	(void)scale;
 
 	g2d_scale_to_req_init(&req, g2d_graph_canvas(g), g2d_graph_canvas(dst));
-	g2d_scale_to(&req);
+	return g2d_scale_to(&req);
 }
 
 int graph_scale_tof_g2d(graph_t* g, graph_t* dst, double scale) {
@@ -128,8 +124,7 @@ int graph_scale_tof_g2d(graph_t* g, graph_t* dst, double scale) {
 		return 0;
 	if(!g2d_check_graph(g) && !g2d_check_graph(dst))
 		return -1;
-	g2d_do_scale(g, dst, scale);
-	return 0;
+	return g2d_do_scale(g, dst, scale);
 }
 
 /* graph rot values are clockwise 90-degree steps, same as the device */
@@ -154,8 +149,7 @@ int graph_rotate_to_g2d(graph_t* g, graph_t* ret, int rot) {
 		return 0;
 
 	g2d_rotate_req_init(&req, g2d_graph_canvas(g), g2d_graph_canvas(ret), degree);
-	g2d_rotate(&req);
-	return 0;
+	return g2d_rotate(&req);
 }
 
 #ifdef __cplusplus 

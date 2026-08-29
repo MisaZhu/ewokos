@@ -22,7 +22,7 @@
    the driver attaches to, or as dma addresses the driver mem-maps on
    attach. the driver operates in place and detaches shm canvases when
    done. */
-#define G2DD_DEBUG 0
+#define G2DD_DEBUG 1
 
 
 /* g2d request counter: each debug line reports how many requests were
@@ -166,12 +166,56 @@ static void g2d_detach(const g2d_attached_t* at) {
 		shmdt(at->buffer);
 }
 
+/* window clipping at the driver boundary: every rect handed to bsp_g2d
+   is computed exact and in-bounds here first, the back end does not
+   guarantee coordinate validity (a hardware 2d engine may not clip at
+   all). */
+
+/* clip a rect to a w x h canvas; returns 0 when nothing is left */
+static int32_t g2d_clip_rect(int32_t w, int32_t h,
+		int32_t* x, int32_t* y, int32_t* rw, int32_t* rh) {
+	if(*x < 0) { *rw += *x; *x = 0; }
+	if(*y < 0) { *rh += *y; *y = 0; }
+	if(*x + *rw > w) *rw = w - *x;
+	if(*y + *rh > h) *rh = h - *y;
+	return (*rw > 0 && *rh > 0);
+}
+
+/* clip the dst rect to the dst canvas, scaling the src rect with the
+   same proportion so the src->dst mapping stays aligned; returns 0
+   when nothing is left to draw. sw/sh/dw/dh must be > 0 on entry. */
+static int32_t g2d_clip_dst(int32_t dst_w, int32_t dst_h,
+		int32_t* sx, int32_t* sy, int32_t* sw, int32_t* sh,
+		int32_t* dx, int32_t* dy, int32_t* dw, int32_t* dh) {
+	if(*dx < 0) {
+		int32_t cut = (int32_t)((int64_t)(-*dx) * *sw / *dw);
+		*sx += cut; *sw -= cut;
+		*dw += *dx; *dx = 0;
+	}
+	if(*dy < 0) {
+		int32_t cut = (int32_t)((int64_t)(-*dy) * *sh / *dh);
+		*sy += cut; *sh -= cut;
+		*dh += *dy; *dy = 0;
+	}
+	if(*dx + *dw > dst_w) {
+		int32_t over = *dx + *dw - dst_w;
+		int32_t cut = (int32_t)((int64_t)over * *sw / *dw);
+		*dw -= over; *sw -= cut;
+	}
+	if(*dy + *dh > dst_h) {
+		int32_t over = *dy + *dh - dst_h;
+		int32_t cut = (int32_t)((int64_t)over * *sh / *dh);
+		*dh -= over; *sh -= cut;
+	}
+	return (*sw > 0 && *sh > 0 && *dw > 0 && *dh > 0);
+}
+
 /* alpha fill: thin wrapper over the arch back end's scalar/simd alpha
-   fill (arch_g2d_fill_alpha), which clips to the canvas bounds and
-   uses the same blend math as the blit paths */
-static void g2d_fill_alpha(uint32_t* buf, int32_t bw, int32_t bh,
+   fill (arch_g2d_fill_alpha); the caller hands in a rect already
+   clipped to the canvas bounds, same blend math as the blit paths */
+static int32_t g2d_fill_alpha(uint32_t* buf, int32_t bw, int32_t bh,
 		int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
-	bsp_g2d_fill_alpha(buf, bw, bh, x, y, w, h, color);
+	return bsp_g2d_fill_alpha(buf, bw, bh, x, y, w, h, color);
 }
 
 /* temp surfaces for the rotated path: backed by keyed shm segments the
@@ -248,11 +292,11 @@ static int32_t g2d_alloc_surface(int32_t w, int32_t h, g2d_attached_t* surf) {
    arch back end's scalar blit (arch_g2d_blt_cpu), exact per-pixel
    access with the same blend math as the simd paths. the back end
    clips the rect against both canvas bounds. */
-static void g2d_cpu_blt(uint32_t* dst_buf, int32_t dst_w, int32_t dst_h,
+static int32_t g2d_cpu_blt(uint32_t* dst_buf, int32_t dst_w, int32_t dst_h,
 		int32_t dx, int32_t dy, int32_t w, int32_t h,
 		const uint32_t* src_buf, int32_t src_w, int32_t src_h,
 		int32_t sx, int32_t sy, uint8_t use_alpha, uint8_t alpha) {
-	bsp_g2d_blt_cpu((uint32_t*)src_buf, src_w, src_h, sx, sy, w, h,
+	return bsp_g2d_blt_cpu((uint32_t*)src_buf, src_w, src_h, sx, sy, w, h,
 			dst_buf, dst_w, dst_h, dx, dy, use_alpha, alpha);
 }
 
@@ -260,39 +304,43 @@ static void g2d_cpu_blt(uint32_t* dst_buf, int32_t dst_w, int32_t dst_h,
    aligned part (whole G2D_PITCH_ALIGN byte groups) handed to the back
    end and a sub-alignment tail done on the cpu; copies narrower than
    G2D_PITCH_ALIGN never reach the back end at all (aw == 0). */
-static void g2d_blt_split(const g2d_attached_t* dst,
+static int32_t g2d_blt_split(const g2d_attached_t* dst,
 		uint32_t* src_buf, ewokos_addr_t src_phy, uint8_t src_contig,
 		int32_t src_w, int32_t src_h, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		int32_t dx, int32_t dy, uint8_t use_alpha, uint8_t alpha) {
 	int32_t aw;
+	int32_t ret = -1;
 
 	if(use_alpha != 0 && alpha == 0)
-		return;
+		return -1;
 
 	aw = sw - sw % G2D_PITCH_ALIGN_PX;
 	if(aw > 0) {
 		if(use_alpha != 0) {
-			bsp_g2d_blt_alpha(src_buf, src_phy, src_contig, src_w, src_h, sx, sy, aw, sh,
+			ret = bsp_g2d_blt_alpha(src_buf, src_phy, src_contig, src_w, src_h, sx, sy, aw, sh,
 					dst->buffer, dst->phy, dst->contig, (int32_t)dst->width, (int32_t)dst->height,
 					dx, dy, aw, sh, alpha);
 		}
 		else {
-			bsp_g2d_blt(src_buf, src_phy, src_contig, src_w, src_h, sx, sy, aw, sh,
+			ret = bsp_g2d_blt(src_buf, src_phy, src_contig, src_w, src_h, sx, sy, aw, sh,
 					dst->buffer, dst->phy, dst->contig, (int32_t)dst->width, (int32_t)dst->height,
 					dx, dy, aw, sh);
 		}
+		if(ret != 0)
+			return ret;
 	}
 	if(aw < sw) {
-		g2d_cpu_blt(dst->buffer, (int32_t)dst->width, (int32_t)dst->height,
+		ret = g2d_cpu_blt(dst->buffer, (int32_t)dst->width, (int32_t)dst->height,
 				dx + aw, dy, sw - aw, sh,
 				src_buf, src_w, src_h, sx + aw, sy, use_alpha, alpha);
 	}
+	return ret;
 }
 
 static int32_t g2dd_handle_fill_rect(proto_t* in) {
 	g2d_fill_req_t req;
 	g2d_attached_t dst;
-	int32_t ret;
+	int32_t ret = -1;
 
 	if(in == NULL)
 		return -1;
@@ -302,18 +350,25 @@ static int32_t g2dd_handle_fill_rect(proto_t* in) {
 	if(g2d_attach(&req.dst, &dst) != 0)
 		return -1;
 
+	/* clip the fill rect to the canvas: the back end gets exact
+	   in-bounds coordinates only */
+	if(!g2d_clip_rect((int32_t)dst.width, (int32_t)dst.height,
+			&req.rect.x, &req.rect.y, &req.rect.w, &req.rect.h)) {
+		g2d_detach(&dst);
+		return 0; /* fully clipped: nothing to fill */
+	}
+
 	G2DD_LOG("g2d_fill rect dst: %d x %d, color: 0x%08X, dst:contig: %d:(0x%08X)\n", dst.width, dst.height, req.color, dst.contig, dst.phy);
 
 	if(((req.color >> 24) & 0xff) == 0xff) {
-		bsp_g2d_fill(dst.buffer, dst.phy, dst.contig, (int32_t)dst.width, (int32_t)dst.height,
+		ret = bsp_g2d_fill(dst.buffer, dst.phy, dst.contig, (int32_t)dst.width, (int32_t)dst.height,
 				req.rect.x, req.rect.y, req.rect.w, req.rect.h, req.color);
 	}
 	else {
-		g2d_fill_alpha(dst.buffer, (int32_t)dst.width, (int32_t)dst.height,
+		ret = g2d_fill_alpha(dst.buffer, (int32_t)dst.width, (int32_t)dst.height,
 				req.rect.x, req.rect.y, req.rect.w, req.rect.h, req.color);
 	}
 	g2d_detach(&dst);
-	ret = 0;
 	return ret;
 }
 
@@ -321,10 +376,26 @@ static int32_t g2d_blit_render(const g2d_attached_t* dst,
 		uint32_t* src_buf, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
 		int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		const g2d_blit_req_t* req, uint8_t use_alpha) {
+	int32_t dx;
+	int32_t dy;
+	int32_t dw;
+	int32_t dh;
+
 	if(dst == NULL || dst->buffer == NULL || src_buf == NULL || req == NULL)
 		return -1;
-	if(req->dw <= 0 || req->dh <= 0)
+	if(sw <= 0 || sh <= 0 || req->dw <= 0 || req->dh <= 0)
 		return -1;
+
+	/* clip the dst rect to the dst canvas, scaling the src rect with the
+	   same proportion: the back end gets exact in-bounds coordinates
+	   only */
+	dx = req->dx;
+	dy = req->dy;
+	dw = req->dw;
+	dh = req->dh;
+	if(!g2d_clip_dst((int32_t)dst->width, (int32_t)dst->height,
+			&sx, &sy, &sw, &sh, &dx, &dy, &dw, &dh))
+		return 0; /* fully clipped: nothing to draw */
 
 	G2DD_LOG("g2d_blit_render src:%d x %d, dst: %d x %d, alpha: %d, src:contig: %d:(0x%08X), dst:contig: %d:(0x%08X)\n", 
             src_w, src_h, dst->width, dst->height, use_alpha, src_contig, src_phy, dst->contig, dst->phy);
@@ -332,23 +403,20 @@ static int32_t g2d_blit_render(const g2d_attached_t* dst,
 	/* 1:1 copies go through the pitch-aligned split (aligned part to the
 	   NEON back end, sub-alignment tail on the cpu); scaled blits are
 	   scalar inside the back end and need no split */
-	if(sw == req->dw && sh == req->dh) {
-		g2d_blt_split(dst, src_buf, src_phy, src_contig, src_w, src_h,
-				sx, sy, sw, sh, req->dx, req->dy, use_alpha, req->alpha);
-		return 0;
+	if(sw == dw && sh == dh) {
+		return g2d_blt_split(dst, src_buf, src_phy, src_contig, src_w, src_h,
+				sx, sy, sw, sh, dx, dy, use_alpha, req->alpha);
 	}
 
 	if(use_alpha != 0) {
-		bsp_g2d_blt_alpha(src_buf, src_phy, src_contig, src_w, src_h, sx, sy, sw, sh,
+		return bsp_g2d_blt_alpha(src_buf, src_phy, src_contig, src_w, src_h, sx, sy, sw, sh,
 				dst->buffer, dst->phy, dst->contig, (int32_t)dst->width, (int32_t)dst->height,
-				req->dx, req->dy, req->dw, req->dh, req->alpha);
+				dx, dy, dw, dh, req->alpha);
 	}
-	else {
-		bsp_g2d_blt(src_buf, src_phy, src_contig, src_w, src_h, sx, sy, sw, sh,
-				dst->buffer, dst->phy, dst->contig, (int32_t)dst->width, (int32_t)dst->height,
-				req->dx, req->dy, req->dw, req->dh);
-	}
-	return 0;
+
+	return bsp_g2d_blt(src_buf, src_phy, src_contig, src_w, src_h, sx, sy, sw, sh,
+			dst->buffer, dst->phy, dst->contig, (int32_t)dst->width, (int32_t)dst->height,
+			dx, dy, dw, dh);
 }
 
 /* blit src crop into the dst canvas; with rotation the crop goes into
@@ -381,7 +449,8 @@ static int32_t g2dd_handle_blit(proto_t* in, uint8_t use_alpha) {
 
 	ret = -1;
 	/* clip the crop rect to the source canvas (cutting), scaling the dst
-	   rect with the same proportion; the back end clips the dst side */
+	   rect with the same proportion; g2d_blit_render clips the dst side
+	   the same way */
 	if(req.sx < 0) {
 		int32_t cut = (int32_t)((int64_t)(-req.sx) * req.dw / req.sw);
 		req.dx += cut; req.dw -= cut;
@@ -421,22 +490,31 @@ static int32_t g2dd_handle_blit(proto_t* in, uint8_t use_alpha) {
 	   back end like any client canvas */
 	if(g2d_alloc_surface(req.sw, req.sh, &cropped) != 0)
 		goto done;
-	g2d_blt_split(&cropped, src.buffer, src.phy, src.contig,
+	ret = g2d_blt_split(&cropped, src.buffer, src.phy, src.contig,
 			(int32_t)src.width, (int32_t)src.height,
 			req.sx, req.sy, req.sw, req.sh, 0, 0, 0, 0xff);
+	if(ret != 0) {
+		g2d_detach(&cropped);
+		goto done;
+	}
 
 	bsp_g2d_rotated_size(req.sw, req.sh, degree, &rw, &rh);
 	if(rw <= 0 || rh <= 0) {
 		g2d_detach(&cropped);
+		ret = -1;
 		goto done;
 	}
 	if(g2d_alloc_surface(rw, rh, &rotated) != 0) {
 		g2d_detach(&cropped);
 		goto done;
 	}
-	bsp_g2d_rotate(cropped.buffer, cropped.phy, cropped.contig, req.sw, req.sh,
+	ret = bsp_g2d_rotate(cropped.buffer, cropped.phy, cropped.contig, req.sw, req.sh,
 			rotated.buffer, rotated.phy, rotated.contig, rw, rh, degree);
 	g2d_detach(&cropped);
+	if(ret != 0) {
+		g2d_detach(&rotated);
+		goto done;
+	}
 
 	ret = g2d_blit_render(&dst, rotated.buffer, rotated.phy, rotated.contig, rw, rh,
 			0, 0, rw, rh, &req, use_alpha);
@@ -457,7 +535,7 @@ static int32_t g2dd_handle_rotate(proto_t* in) {
 	int32_t degree;
 	int32_t rw;
 	int32_t rh;
-	int32_t ret;
+	int32_t ret = -1;
 
 	if(in == NULL)
 		return -1;
@@ -479,9 +557,8 @@ static int32_t g2dd_handle_rotate(proto_t* in) {
 	bsp_g2d_rotated_size((int32_t)src.width, (int32_t)src.height,
 			degree, &rw, &rh);
 	if(rw == (int32_t)dst.width && rh == (int32_t)dst.height) {
-		bsp_g2d_rotate(src.buffer, src.phy, src.contig, (int32_t)src.width, (int32_t)src.height,
+		ret = bsp_g2d_rotate(src.buffer, src.phy, src.contig, (int32_t)src.width, (int32_t)src.height,
 				dst.buffer, dst.phy, dst.contig, rw, rh, degree);
-		ret = 0;
 	}
 
 	g2d_detach(&src);
@@ -493,6 +570,7 @@ static int32_t g2dd_handle_scale_to(proto_t* in) {
 	g2d_scale_to_req_t req;
 	g2d_attached_t src;
 	g2d_attached_t dst;
+	int32_t ret= -1;
 
 	if(in == NULL)
 		return -1;
@@ -511,18 +589,18 @@ static int32_t g2dd_handle_scale_to(proto_t* in) {
 	/* same-size scale_to is a plain 1:1 copy: route it through the pitch
 	   split instead of the scaler's internal full-buffer row copy */
 	if(src.width == dst.width && src.height == dst.height) {
-		g2d_blt_split(&dst, src.buffer, src.phy, src.contig,
+		ret = g2d_blt_split(&dst, src.buffer, src.phy, src.contig,
 				(int32_t)src.width, (int32_t)src.height,
 				0, 0, (int32_t)src.width, (int32_t)src.height, 0, 0, 0, 0xff);
 	}
 	else {
-		bsp_g2d_scale_to(src.buffer, src.phy, src.contig, (int32_t)src.width, (int32_t)src.height,
+		ret = bsp_g2d_scale_to(src.buffer, src.phy, src.contig, (int32_t)src.width, (int32_t)src.height,
 				dst.buffer, dst.phy, dst.contig, (int32_t)dst.width, (int32_t)dst.height);
 	}
 
 	g2d_detach(&src);
 	g2d_detach(&dst);
-	return 0;
+	return ret;
 }
 
 static char* g2d_strdup(const char* s) {
@@ -581,6 +659,11 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 		res = -1;
 	}
 	g2d_task_unlock();
+
+	if(res != 0) {
+		G2DD_LOG("g2d_dev_cntl: ret is not 0!\n");
+	}
+	PF->clear(ret)->addi(ret, res);
 	return res;
 }
 

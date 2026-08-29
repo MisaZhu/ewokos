@@ -128,7 +128,7 @@ process). Payload pixels never enter the IPC message:
 ```
 client: graph_new_shm() ── draw with CPU if wanted ──
         g2d_canvas(shm_id, size, w, h, contig)
-        g2d_blit_shm(&req)  ── dev_cntl(pid, G2D_DEV_CNTL_BLIT, &req) ──►
+        g2d_blit(&req)  ── dev_cntl(pid, G2D_DEV_CNTL_BLIT, &req) ──►
 g2dd:   shmat(req.dst.shm_id) / shmat(req.src.shm_id)
         bsp_g2d_blt(...)                       ← writes dst in place
         shmdt(src); shmdt(dst)

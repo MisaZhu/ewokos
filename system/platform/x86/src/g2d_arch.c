@@ -78,19 +78,19 @@ static inline void x86_blend_4px(uint32_t* dst, __m128i cpa16, __m128i a16,
 /* alpha fill: simd rows of 4 pixels with a scalar head for 16-byte
    realignment and a scalar tail; the fill color is constant so the
    per-channel color*a constants are set up once per call. */
-void arch_g2d_fill_alpha(uint32_t* argb, int32_t argb_w, int32_t argb_h,
+int32_t arch_g2d_fill_alpha(uint32_t* argb, int32_t argb_w, int32_t argb_h,
 		int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
 	uint32_t a;
 
 	if(argb == NULL)
-		return;
+		return 0;
 	a = (color >> 24) & 0xff;
 	if(a == 0)
-		return;
+		return 0;
 	if(x < 0) { w += x; x = 0; }
 	if(y < 0) { h += y; y = 0; }
 	if(w <= 0 || h <= 0 || x >= argb_w || y >= argb_h)
-		return;
+		return 0;
 	if(x + w > argb_w) w = argb_w - x;
 	if(y + h > argb_h) h = argb_h - y;
 
@@ -129,6 +129,7 @@ void arch_g2d_fill_alpha(uint32_t* argb, int32_t argb_w, int32_t argb_h,
 				dp[i] = x86_fill_blend_px(dp[i], color, a);
 		}
 	}
+	return 0;
 }
 #endif /* ARCH_BOOST */
 
@@ -136,35 +137,35 @@ int32_t arch_g2d_init(void) {
     return 0;
 }
 
-void  arch_g2d_fill(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32_t argb_w, int32_t argb_h,
-			int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {}
+int32_t arch_g2d_fill(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32_t argb_w, int32_t argb_h,
+			int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) { return 0; }
 
-void  arch_g2d_blt(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
+int32_t arch_g2d_blt(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
 			int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 			uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h,
-			int32_t dx, int32_t dy, int32_t dw, int32_t dh) {}
+			int32_t dx, int32_t dy, int32_t dw, int32_t dh) { return 0; }
 
-void  arch_g2d_blt_alpha(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
+int32_t arch_g2d_blt_alpha(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
 			int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 			uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h,
-			int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {}
+			int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) { return 0; }
 
-void  arch_g2d_scale_to(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
-			uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h) {}
+int32_t arch_g2d_scale_to(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
+			uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h) { return 0; }
 
 /* smallest size able to hold src_w x src_h rotated clockwise by degree
    (any angle). exact swap/keep for multiples of 90, rotated bounding
    box otherwise. */
-void  arch_g2d_rotated_size(int32_t src_w, int32_t src_h, int32_t degree,
-			int32_t* dst_w, int32_t* dst_h) {}
+int32_t arch_g2d_rotated_size(int32_t src_w, int32_t src_h, int32_t degree,
+			int32_t* dst_w, int32_t* dst_h) { return 0; }
 
 /* rotate the whole source surface clockwise by degree (any angle).
    dst must be at least the size given by arch_g2d_rotated_size(); for
    angles other than 0/90/180/270 pixels outside the rotated content
    become transparent.
    in-place (argb_src == argb_dst) is only valid for 0/180. */
-void  arch_g2d_rotate(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
-			uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h, int32_t degree) {}
+int32_t arch_g2d_rotate(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
+			uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h, int32_t degree) { return 0; }
 
 /* cpu back end for sub-alignment tails and narrow copies: scalar 1:1
    copy or blend with exact per-pixel access, no alignment, contiguity
@@ -174,14 +175,14 @@ void  arch_g2d_rotate(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_con
    the next row). use_alpha == 0 is a plain copy; otherwise the same
    math as the simd paths (effective alpha (src_a * alpha) >> 8, then
    the /255 blend). */
-void arch_g2d_blt_cpu(uint32_t* argb_src, int32_t src_w, int32_t src_h,
+int32_t arch_g2d_blt_cpu(uint32_t* argb_src, int32_t src_w, int32_t src_h,
 		int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		uint32_t* argb_dst, int32_t dst_w, int32_t dst_h,
 		int32_t dx, int32_t dy, uint8_t use_alpha, uint8_t alpha) {
 	if(argb_src == NULL || argb_dst == NULL || sw <= 0 || sh <= 0)
-		return;
+		return 0;
 	if(use_alpha != 0 && alpha == 0)
-		return;
+		return 0;
 
 	/* 1:1 mapping: cutting one side shifts the other surface's origin by
 	   the same delta, cutting right/bottom just shrinks the size */
@@ -194,7 +195,7 @@ void arch_g2d_blt_cpu(uint32_t* argb_src, int32_t src_w, int32_t src_h,
 	if(dx + sw > dst_w) sw = dst_w - dx;
 	if(dy + sh > dst_h) sh = dst_h - dy;
 	if(sw <= 0 || sh <= 0)
-		return;
+		return 0;
 
 	for(int32_t row = 0; row < sh; row++) {
 		const uint32_t* sp = argb_src + (sy + row) * src_w + sx;
@@ -224,6 +225,7 @@ void arch_g2d_blt_cpu(uint32_t* argb_src, int32_t src_w, int32_t src_h,
 					(uint8_t)(color & 0xff));
 		}
 	}
+	return 0;
 }
 
 #ifndef ARCH_BOOST
@@ -231,19 +233,19 @@ void arch_g2d_blt_cpu(uint32_t* argb_src, int32_t src_w, int32_t src_h,
    clipped to the buffer bounds, exact per-pixel access with the same
    blend math as the simd paths. alpha == 0 or an empty/fully clipped
    rect is a no-op. */
-void arch_g2d_fill_alpha(uint32_t* argb, int32_t argb_w, int32_t argb_h,
+int32_t arch_g2d_fill_alpha(uint32_t* argb, int32_t argb_w, int32_t argb_h,
 		int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
 	uint8_t a;
 
 	if(argb == NULL)
-		return;
+		return 0;
 	a = (uint8_t)((color >> 24) & 0xff);
 	if(a == 0)
-		return;
+		return 0;
 	if(x < 0) { w += x; x = 0; }
 	if(y < 0) { h += y; y = 0; }
 	if(w <= 0 || h <= 0 || x >= argb_w || y >= argb_h)
-		return;
+		return 0;
 	if(x + w > argb_w) w = argb_w - x;
 	if(y + h > argb_h) h = argb_h - y;
 
@@ -256,5 +258,6 @@ void arch_g2d_fill_alpha(uint32_t* argb, int32_t argb_w, int32_t argb_h,
 					(uint8_t)(color & 0xff));
 		}
 	}
+	return 0;
 }
 #endif /* !ARCH_BOOST */

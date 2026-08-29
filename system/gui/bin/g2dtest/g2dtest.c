@@ -211,7 +211,7 @@ static int bench_frame_blit(void* p) {
             g2d_rect(0, 0, ctx->opaque->w, ctx->opaque->h),
             g2d_rect(x, y, dw, dh),
             0xff);
-    ret = g2d_blit_shm(&blit);
+    ret = g2d_blit(&blit);
     ctx->seq++;
     return ret;
 }
@@ -239,7 +239,7 @@ static int bench_frame_blit_alpha(void* p) {
             g2d_rect(0, 0, ctx->alpha->w, ctx->alpha->h),
             g2d_rect(x, y, dw, dh),
             0xff);
-    ret = g2d_blit_alpha_shm(&blit);
+    ret = g2d_blit_alpha(&blit);
     ctx->seq++;
     return ret;
 }
@@ -346,7 +346,7 @@ int main(int argc, char** argv) {
             g2d_rect(0, 0, opaque_img->w, opaque_img->h),
             g2d_rect(48, 72, opaque_img->w, opaque_img->h),
             0xff);
-    ret = g2d_blit_shm(&blit);
+    ret = g2d_blit(&blit);
     check_ret("blit_opaque", ret, 1, &failures);
     check_pixel("blit_pixel", canvas, 48, 72, opaque_img->buffer[0], &failures);
     check_pixel("blit_pixel2", canvas, 48 + 100, 72 + 60,
@@ -359,7 +359,7 @@ int main(int argc, char** argv) {
             g2d_rect(0, 0, opaque_img->w, opaque_img->h),
             g2d_rect(260, 40, 160, 120),
             0xff);
-    ret = g2d_blit_shm(&blit);
+    ret = g2d_blit(&blit);
     check_ret("blit_scale", ret, 1, &failures);
     check_pixel("blit_scale_tl", canvas, 260, 40, opaque_img->buffer[0], &failures);
 
@@ -371,7 +371,7 @@ int main(int argc, char** argv) {
             g2d_rect(0, 0, alpha_img->w, alpha_img->h),
             g2d_rect(32, 32, alpha_img->w, alpha_img->h),
             0xff);
-    ret = g2d_blit_alpha_shm(&blit);
+    ret = g2d_blit_alpha(&blit);
     check_ret("blit_alpha", ret, 1, &failures);
     check_pixel("blit_alpha_corner", canvas, 32, 32, bg_color, &failures);
     check_pixel("blit_alpha_center", canvas,

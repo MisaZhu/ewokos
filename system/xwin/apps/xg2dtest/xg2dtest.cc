@@ -315,7 +315,7 @@ class G2DTestWidget: public Widget {
 				g2d_rect(0, 0, (int32_t)opaque_img.width, (int32_t)opaque_img.height),
 				g2d_rect(48, 172, (int32_t)opaque_img.width, (int32_t)opaque_img.height),
 				0xff);
-		ret = g2d_blit_shm(&blit);
+		ret = g2d_blit(&blit);
 		checkRet(ctx, "blit_opaque", ret, true);
 		checkPixel(ctx, "blit_pixel", &canvasA, 48, 172, opaque_img.pixels[0]);
 
@@ -324,7 +324,7 @@ class G2DTestWidget: public Widget {
 				g2d_rect(0, 0, (int32_t)opaque_img.width, (int32_t)opaque_img.height),
 				g2d_rect(280, 160, 200, 130),
 				0xff);
-		ret = g2d_blit_shm(&blit);
+		ret = g2d_blit(&blit);
 		checkRet(ctx, "blit_scale", ret, true);
 		checkPixel(ctx, "blit_scale_tl", &canvasA, 280, 160, opaque_img.pixels[0]);
 
@@ -335,7 +335,7 @@ class G2DTestWidget: public Widget {
 				g2d_rect(20, 16, 80, 60),
 				g2d_rect(232, 24, 120, 100),
 				0xff, G2D_ROTATE_90);
-		ret = g2d_blit_shm(&blit);
+		ret = g2d_blit(&blit);
 		checkRet(ctx, "blit_rot90", ret, true);
 		checkPixel(ctx, "blit_rot90_tl", &canvasA, 232, 24,
 				opaque_img.pixels[75 * opaque_img.width + 20]);
@@ -345,7 +345,7 @@ class G2DTestWidget: public Widget {
 				g2d_rect(0, 0, (int32_t)alpha_img.width, (int32_t)alpha_img.height),
 				g2d_rect(220, 150, (int32_t)alpha_img.width, (int32_t)alpha_img.height),
 				0xff);
-		ret = g2d_blit_alpha_shm(&blit);
+		ret = g2d_blit_alpha(&blit);
 		checkRet(ctx, "blit_alpha", ret, true);
 		checkPixel(ctx, "blit_alpha_corner", &canvasA, 220, 150, bg_color);
 		checkPixel(ctx, "blit_alpha_center", &canvasA, 220 + 64, 150 + 64,
@@ -430,7 +430,7 @@ class G2DTestWidget: public Widget {
 				g2d_rect(0, 0, (int32_t)opaque_img.width, (int32_t)opaque_img.height),
 				g2d_rect(170, 50, 220, 220),
 				0xff, 45);
-		ret = g2d_blit_shm(&blit);
+		ret = g2d_blit(&blit);
 		checkRet(ctx, "blit_rot45", ret, true);
 		publishPreview(ctx);
 		usleep(STAGE_DELAY_MS * 1000);
@@ -514,14 +514,14 @@ class G2DTestWidget: public Widget {
 				g2d_rect(0, 0, (int32_t)opaque->width, (int32_t)opaque->height),
 				g2d_rect(0, 0, (int32_t)canvas->width, (int32_t)canvas->height),
 				0xff);
-		if(g2d_blit_shm(&blit) != 0)
+		if(g2d_blit(&blit) != 0)
 			return -1;
 		g2d_blit_req_init(&blit,
 				img_canvas(canvas), img_canvas(alpha),
 				g2d_rect(0, 0, (int32_t)alpha->width, (int32_t)alpha->height),
 				g2d_rect(0, 0, (int32_t)canvas->width, (int32_t)canvas->height),
 				0xff);
-		return g2d_blit_alpha_shm(&blit);
+		return g2d_blit_alpha(&blit);
 	}
 
 	/*~1s of back-to-back bench frames on dedicated canvases, so the

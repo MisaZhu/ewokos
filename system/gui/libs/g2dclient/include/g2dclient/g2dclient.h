@@ -216,8 +216,8 @@ int g2d_shm_alloc(uint32_t size, int* shm_id, uint32_t** pixels);
 void g2d_shm_free(uint32_t* pixels);
 
 int g2d_fill_rect(const g2d_fill_req_t* req);
-int g2d_blit_shm(const g2d_blit_req_t* req);
-int g2d_blit_alpha_shm(const g2d_blit_req_t* req);
+int g2d_blit(const g2d_blit_req_t* req);
+int g2d_blit_alpha(const g2d_blit_req_t* req);
 int g2d_rotate(const g2d_rotate_req_t* req);
 int g2d_scale_to(const g2d_scale_to_req_t* req);
 
