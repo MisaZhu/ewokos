@@ -62,6 +62,7 @@ static bool fetch_frame_graph(xwm_t* xwm, xinfo_t* info, graph_t* g) {
     g->w = info->winr.w;
     g->h = info->winr.h;
     g->shm_id = info->frame_g_shm_id;
+    g->shm_contig = info->frame_g_shm_contig;
     g->need_free = false;
     return true;
 }
@@ -78,6 +79,7 @@ static bool fetch_ws_graph(xwm_t* xwm, xinfo_t* info, graph_t* g) {
     g->w = info->wsr.w;
     g->h = info->wsr.h;
     g->shm_id = info->ws_g_shm_id;
+    g->shm_contig = info->ws_g_shm_contig;
     g->need_free = false;
     return true;
 }

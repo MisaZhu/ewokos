@@ -21,6 +21,10 @@ typedef long int key_t;
 #define 	IPC_SET     1 /* set ipc_perm options */
 #define 	IPC_STAT    2 /* get ipc_perm options */
 #define 	IPC_INFO    3 /* see ipcs */
+#define 	IPC_SHM_IS_CONTIG 0x01000001 /* ewok-specific shmctl cmd: query
+	                                  whether the segment is backed by the
+	                                  physically-contiguous slab (returns 1)
+	                                  or scattered pages (returns 0) */
 
 key_t ftok(const char* fname, int proj_id);
 

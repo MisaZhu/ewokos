@@ -191,7 +191,9 @@ void do_vfs_pipe_open(int32_t pid, proto_t* out) {
             node->data_ptr = NULL;
             node->fsinfo.data = (uint32_t)shm_id;
         } else {
-            /* shm map failed, fall back to buffer */
+            /* shm map failed: destroy the never-attached segment, then
+             * fall back to buffer */
+            shmctl(shm_id, IPC_RMID, NULL);
             buffer_t* buf = (buffer_t*)malloc(sizeof(buffer_t));
             memset(buf, 0, sizeof(buffer_t));
             node->data_ptr = buf;
@@ -212,6 +214,17 @@ void do_vfs_pipe_open(int32_t pid, proto_t* out) {
 
     fd0 = vfsd_open(pid, node, O_RDONLY);
     if(fd0 < 0) {
+        /* vfsd_del_node() frees only the node itself: release the resources
+         * the open above would have owned (the close path at refs==0 does
+         * this same shmdt/free pair) */
+        if(node->shm_ring != NULL) {
+            shmdt(node->shm_ring);
+            node->shm_ring = NULL;
+        }
+        if(node->data_ptr != NULL) {
+            free(node->data_ptr);
+            node->data_ptr = NULL;
+        }
         vfsd_del_node(node);
         pthread_rwlock_unlock(&_vfs_lock);
         return;
@@ -219,8 +232,11 @@ void do_vfs_pipe_open(int32_t pid, proto_t* out) {
 
     fd1 = vfsd_open(pid, node, O_WRONLY);
     if(fd1 < 0) {
+        /* vfsd_close() runs the full close path for this nameless node:
+         * refs drops to 0, so it already shmdt()'d the ring, freed the
+         * buffer and deleted the node - touching node here would be a
+         * use-after-free */
         vfsd_close(pid, fd0);
-        vfsd_del_node(node);
         pthread_rwlock_unlock(&_vfs_lock);
         return;
     }

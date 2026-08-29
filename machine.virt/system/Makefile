@@ -82,7 +82,7 @@ kernel:
 kclean:
 	$(MAKE) -C $(HW_KERNEL_DIR) clean
 
-run: kernel
+run:
 	$(MAKE) -C $(HW_KERNEL_DIR) run
 
 CLEAN_DIRS = libs drivers $(SYS_ROOT_DIR)/xwin $(SYS_ROOT_DIR)/gui $(SYS_ROOT_DIR)/network $(SYS_ROOT_DIR)/basic

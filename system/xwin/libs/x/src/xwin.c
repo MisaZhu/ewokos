@@ -232,6 +232,11 @@ static graph_t* x_get_graph(xwin_t* xwin, graph_t* g) {
     g->buffer = xwin->ws_g_shm;
     g->w = xwin->xinfo->wsr.w;
     g->h = xwin->xinfo->wsr.h;
+    /*carry the canvas identity + backing type so g2d ops can engage on this
+      graph; need_free stays false, the shm is owned by the server and the
+      detach above, graph_free must not touch it*/
+    g->shm_id = xwin->xinfo->ws_g_shm_id;
+    g->shm_contig = xwin->xinfo->ws_g_shm_contig;
     g->need_free = false;
     return g;
 }

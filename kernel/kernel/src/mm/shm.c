@@ -14,6 +14,9 @@
 #define 	IPC_PRIVATE 0
 #define 	IPC_CREAT   00001000 /* create if key is nonexistent */
 #define 	IPC_EXCL    00002000 /* fail if key exists */
+#define 	IPC_RMID    0 /* remove resource (mirror of sys/ipc.h) */
+/* ewok-specific shmctl cmd (mirror of sys/ipc.h): query contig backing */
+#define 	IPC_SHM_IS_CONTIG 0x01000001
 /* ewokos-specific (mirror of sys/ipc.h): back the new segment from the
    reserved contiguous slab (_sys_info.shm_contig) instead of scattered
    kalloc pages, so the physical memory is contiguous and usable by dma
@@ -175,7 +178,6 @@ static int32_t shm_map_pages(ewokos_addr_t addr, uint32_t pages) {
     for (i = 0; i < pages; i++) {
         char *page = kalloc_page();
         if(page == NULL) {
-            printf("shm_map: kalloc failed!\n", (uint32_t)page);
             shm_unmap_pages(old_addr, i);
             return 0;
         }
@@ -570,6 +572,35 @@ int32_t shm_proc_unmap_by_id(proc_t* proc, uint32_t id, bool free_it) {
         return -1;
     }
     int32_t ret = shm_proc_unmap_it(proc, it, free_it);
+    shm_unlock();
+    return ret;
+}
+
+/* shmctl() back end.
+   IPC_RMID: destroy the segment only when no process has it attached
+   (refs == 0). An unattached segment is invisible to every process, so
+   destroying it cannot affect anyone; a still-attached one is left
+   untouched and the call fails. Lets a creator back out cleanly when a
+   follow-up step (e.g. its own shmat) fails right after shmget.
+   IPC_SHM_IS_CONTIG: return 1 when the segment is backed by the
+   physically-contiguous slab, 0 for scattered kalloc pages. */
+int32_t shm_ctrl(int32_t id, int32_t cmd) {
+    shm_lock();
+    share_mem_t* it = shm_item_by_id(id);
+    if(it == NULL) {
+        shm_unlock();
+        return -1;
+    }
+    int32_t ret = -1;
+    if(cmd == IPC_RMID) {
+        if(it->refs <= 0) {
+            free_item(it);
+            ret = 0;
+        }
+    }
+    else if(cmd == IPC_SHM_IS_CONTIG) {
+        ret = it->contig ? 1 : 0;
+    }
     shm_unlock();
     return ret;
 }

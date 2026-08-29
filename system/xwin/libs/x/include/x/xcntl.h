@@ -87,6 +87,13 @@ typedef struct {
 	bool alpha;
 	bool focused;
 	bool hide_cursor;
+	bool ws_g_shm_contig; /* ws_g shm backing is physically contiguous
+	                           (IPC_CONTIG); published by the server together
+	                           with ws_g_shm_id so clients can mark their
+	                           workspace graph g2d-capable */
+	bool frame_g_shm_contig; /* same as ws_g_shm_contig, for the frame
+	                           graph published via frame_g_shm_id (xwm draws
+	                           window frames through g2d on it) */
 	grect_t wsr; //workspace rect
 	grect_t winr; //window rect
 	char title[XWIN_TITLE_MAX];

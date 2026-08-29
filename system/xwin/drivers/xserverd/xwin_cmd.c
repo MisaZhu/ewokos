@@ -282,6 +282,7 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
             win->ws_g = NULL;
         }
         win->xinfo->ws_g_shm_id = -1;
+        win->xinfo->ws_g_shm_contig = false;
 
         if(win->ws_g_buffer != NULL) {
             graph_free(win->ws_g_buffer);
@@ -293,6 +294,7 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
             win->frame_g = NULL;
         }
         win->xinfo->frame_g_shm_id = -1;
+        win->xinfo->frame_g_shm_contig = false;
 
         win->frame_dirty = true;
         win->ready = false;
@@ -310,6 +312,9 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
         if(win->ws_g == NULL)
             return -1;
         win->xinfo->ws_g_shm_id = win->ws_g->shm_id;
+        /*publish the backing type with the id: clients mark their workspace
+          graph with it, and g2d only engages on contig-backed canvases*/
+        win->xinfo->ws_g_shm_contig = win->ws_g->shm_contig;
         graph_clear(win->ws_g, 0x0);
         win->ws_g_buffer = graph_new_shm(win->xinfo->wsr.w, win->xinfo->wsr.h);
         graph_clear(win->ws_g_buffer, 0x0);
@@ -319,6 +324,7 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
             graph_free(win->ws_g);
             win->ws_g = NULL;
             win->xinfo->ws_g_shm_id = -1;
+            win->xinfo->ws_g_shm_contig = false;
             if(win->ws_g_buffer != NULL) {
                 graph_free(win->ws_g_buffer);
                 win->ws_g_buffer = NULL;
@@ -326,6 +332,7 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
             return -1;
         }
         win->xinfo->frame_g_shm_id = win->frame_g->shm_id;
+        win->xinfo->frame_g_shm_contig = win->frame_g->shm_contig;
     }
     x_update_frame_areas(x, win);
     if((type & X_UPDATE_REFRESH) != 0 || win->xinfo->alpha) {

@@ -66,6 +66,8 @@ static inline const char* svc_name(int32_t code) {
         return "shm_map";
     case SYS_PROC_SHM_UNMAP:
         return "shm_unmap";
+    case SYS_PROC_SHM_CTRL:
+        return "shm_ctrl";
     case SYS_GET_SYS_INFO:
         return "get_sys_info";
     case SYS_GET_SYS_STATE:

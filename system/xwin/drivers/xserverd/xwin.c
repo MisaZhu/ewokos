@@ -248,7 +248,9 @@ void x_del_win(x_t* x, xwin_t* win) {
     }
     if(win->xinfo != NULL) {
         win->xinfo->ws_g_shm_id = -1;
+        win->xinfo->ws_g_shm_contig = false;
         win->xinfo->frame_g_shm_id = -1;
+        win->xinfo->frame_g_shm_contig = false;
     }
     
     if(win->ws_g_buffer != NULL) {

@@ -193,8 +193,12 @@ static void* get_io_shm(int fd, uint32_t size) {
     if(shm_id == -1)
         return NULL;
     void* shm = shmat(shm_id, 0, 0);
-    if(shm == (void*)-1)
+    if(shm == (void*)-1) {
+        /* destroy the segment when nobody has it attached (a leftover
+           from an earlier failed attempt gets cleaned up the same way) */
+        shmctl(shm_id, IPC_RMID, NULL);
         return NULL;
+    }
 
     c->shm_id = shm_id;
     c->addr = shm;
@@ -426,8 +430,11 @@ int dev_read_block(int pid, void* buf, uint32_t size, int32_t index) {
     if(shm_id == -1) 
         return -1;
     void* shm = shmat(shm_id, 0, 0);
-    if(shm == (void*)-1)
+    if(shm == (void*)-1) {
+        /* destroy the never-attached segment so it cannot leak */
+        shmctl(shm_id, IPC_RMID, NULL);
         return 0;
+    }
 
     proto_t in, out;
     PF->init(&out);

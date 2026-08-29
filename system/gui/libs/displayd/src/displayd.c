@@ -409,19 +409,33 @@ static int disp_shm_init(disp_shm_t* shm) {
         return -1;
 
     shm->shm = shmat(shm->shm_id, 0, 0);
-    if(shm->shm == (void*)-1)
+    if(shm->shm == (void*)-1) {
+        /* never attached: IPC_RMID destroys the segment outright */
+        shmctl(shm->shm_id, IPC_RMID, NULL);
+        shm->shm = NULL;
         return -1;
+    }
     shm->shm_contig = contig;
     memset(shm->shm, 0, sz);
 
     /*the ctrl block lives in its own small segment so the pixel shm stays
       exactly one framebuffer; clients get the id via DISPLAY_CNTL_GET_CTRL.*/
     shm->ctrl_id = shm_new_segment(0x46424443, sizeof(display_ctrl_t), false);
-    if(shm->ctrl_id == -1)
+    if(shm->ctrl_id == -1) {
+        /* attached by us only: shmdt drops refs to 0 and the kernel
+           frees the pixel segment */
+        shmdt(shm->shm);
+        shm->shm = NULL;
         return -1;
+    }
     shm->ctrl = (display_ctrl_t*)shmat(shm->ctrl_id, 0, 0);
-    if(shm->ctrl == (void*)-1)
+    if(shm->ctrl == (void*)-1) {
+        shmctl(shm->ctrl_id, IPC_RMID, NULL); /* ctrl was never attached */
+        shmdt(shm->shm);
+        shm->shm = NULL;
+        shm->ctrl = NULL;
         return -1;
+    }
     memset(shm->ctrl, 0, sizeof(display_ctrl_t));
 
     shm->size = sz;

@@ -193,8 +193,8 @@ void graph_set(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t 
 
 inline void graph_fill_rect(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
     if(graph_g2d_avaliable(g) == 0) {
-        graph_fill_g2d(g, x, y, w, h, color);
-        return;
+        if(graph_fill_g2d(g, x, y, w, h, color) == 0)
+            return;
     }
 
 #ifdef ARCH_BOOST
@@ -344,8 +344,8 @@ inline void graph_blt(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t 
         graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
 
     if(graph_g2d_avaliable(src) == 0 && graph_g2d_avaliable(dst) == 0) {
-        graph_blt_g2d(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
-        return;
+        if(graph_blt_g2d(src, sx, sy, sw, sh, dst, dx, dy, dw, dh) == 0)
+            return;
     }
 
 #ifdef ARCH_BOOST
@@ -516,8 +516,8 @@ inline void graph_blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, in
         graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
 
     if(graph_g2d_avaliable(src) == 0 && graph_g2d_avaliable(dst) == 0) {
-        graph_blt_alpha_g2d(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
-        return;
+        if(graph_blt_alpha_g2d(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha) == 0)
+            return;
     }
 
 #ifdef ARCH_BOOST

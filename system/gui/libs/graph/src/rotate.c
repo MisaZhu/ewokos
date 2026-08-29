@@ -61,8 +61,8 @@ void graph_rotate_to_cpu(graph_t* g, graph_t* ret, int rot) {
 
 void graph_rotate_to(graph_t* g, graph_t* ret, int rot) {
     if(graph_g2d_avaliable(g) == 0 && graph_g2d_avaliable(ret) == 0) {
-        graph_rotate_to_g2d(g, ret, rot);
-        return;
+        if(graph_rotate_to_g2d(g, ret, rot) == 0)
+            return;
     }
 
 #ifdef ARCH_BOOST

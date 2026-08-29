@@ -10,6 +10,7 @@ extern "C" {
 int shmget(key_t key, int size, int flag);
 void *shmat(int shmid, const void *addr, int flag);
 int shmdt(void *p);
+int shmctl(int shmid, int cmd, void* buf);
 
 
 #ifdef __cplusplus

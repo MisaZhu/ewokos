@@ -83,6 +83,7 @@ LIB_EWOKSYS_OBJS =  \
 	$(ARCH)/src/sys/shm/shmget.o \
 	$(ARCH)/src/sys/shm/shmat.o \
 	$(ARCH)/src/sys/shm/shmdt.o \
+	$(ARCH)/src/sys/shm/shmctl.o \
 	\
 	$(ARCH)/src/signal/kill.o \
 	$(ARCH)/src/signal/raise.o \

@@ -163,8 +163,9 @@ static graph_t* graph_new_shm_row(int32_t w, int32_t h, bool contig) {
         key_t key = (key_t)(0x47525030u + (((uint32_t)getpid() & 0xffffu) << 16) +
                 (_graph_shm_seq & 0xffffu));
         _graph_shm_seq++;
-        if(contig)
+        if(contig) {
             shm_id = shmget(key, (int)size, 0666 | IPC_CREAT | IPC_EXCL | IPC_CONTIG);
+        }
         else
             shm_id = shmget(key, (int)size, 0666 | IPC_CREAT | IPC_EXCL);
     }
@@ -178,6 +179,9 @@ static graph_t* graph_new_shm_row(int32_t w, int32_t h, bool contig) {
        directly readable/writable by the cpu */
     pixels = (uint32_t*)shmat(shm_id, 0, 0);
     if(pixels == (void*)-1) {
+        /* destroy the never-attached segment (IPC_RMID is a no-op when
+           somebody else managed to attach it in the meantime) */
+        shmctl(shm_id, IPC_RMID, NULL);
         aligned_free(ret);
         return NULL;
     }
@@ -194,7 +198,11 @@ static graph_t* graph_new_shm_row(int32_t w, int32_t h, bool contig) {
    for hardware g2d and falls back to a non-contiguous one when the
    contig allocation is not available. */
 graph_t* graph_new_shm(int32_t w, int32_t h) {
-    graph_t* g = graph_new_shm_row(w, h, true);
+    graph_t* g = NULL;
+
+	if((w * h) >= (256 * 256))
+        g = graph_new_shm_row(w, h, true);
+
     if(g == NULL)
         g = graph_new_shm_row(w, h, false);
     return g;

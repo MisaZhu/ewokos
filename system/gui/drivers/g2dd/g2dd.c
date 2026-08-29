@@ -4,9 +4,11 @@
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
+#include <pthread.h>
 #include <sys/shm.h>
 #include <ewoksys/proto.h>
 #include <ewoksys/klog.h>
+#include <ewoksys/kernel_tic.h>
 #include <ewoksys/vdevice.h>
 #include <ewoksys/sys.h>
 #include <ewoksys/syscall.h>
@@ -23,10 +25,43 @@
 #define G2DD_DEBUG 0
 
 
+/* g2d request counter: each debug line reports how many requests were
+   served in the ~1s window since the previous line at that call site
+   (a per-second rate, not a running total); guarded by _g2d_task_lock */
+static uint64_t _g2dd_req_cnt = 0;
+
+/* g2dd runs multi-task (device_run with multi_task=true): dev_cntl
+   handlers execute on concurrent ipc worker threads, so serialize the
+   whole request with a plain mutex. the critical section covers the
+   request counter, the rate-limited log state, the shm key PRNG and
+   the bsp_g2d back end calls (simd/hardware paths may carry shared
+   state). */
+static pthread_mutex_t _g2d_task_lock = PTHREAD_MUTEX_INITIALIZER;
+
+static inline void g2d_task_lock(void) {
+	pthread_mutex_lock(&_g2d_task_lock);
+}
+
+static inline void g2d_task_unlock(void) {
+	pthread_mutex_unlock(&_g2d_task_lock);
+}
+
+/* debug logs are rate-limited to one line per second per call site:
+   g2dd services every frame, so per-request logging floods the
+   console */
 #if G2DD_DEBUG
-#define G2DD_LOG(...) slog(__VA_ARGS__)
+#define G2DD_LOG(fmt, ...) do { \
+	static uint64_t _last_ms = 0; \
+	static uint64_t _last_cnt = 0; \
+	uint64_t _now_ms = kernel_tic_ms(0); \
+	if(_last_ms == 0 || _now_ms - _last_ms >= 1000) { \
+		slog("[%llu/s] " fmt, (unsigned long long)(_g2dd_req_cnt - _last_cnt), ##__VA_ARGS__); \
+		_last_ms = _now_ms; \
+		_last_cnt = _g2dd_req_cnt; \
+	} \
+} while(0)
 #else
-#define G2DD_LOG(...)
+#define G2DD_LOG(fmt, ...)
 #endif
 
 /* byte alignment the 1:1 blit width is split at: the aligned part goes
@@ -193,8 +228,11 @@ static int32_t g2d_alloc_surface(int32_t w, int32_t h, g2d_attached_t* surf) {
 		return -1;
 
 	p = shmat(shm_id, 0, 0);
-	if(p == (void*)-1)
+	if(p == (void*)-1) {
+		/* destroy the never-attached segment so it cannot leak */
+		shmctl(shm_id, IPC_RMID, NULL);
 		return -1;
+	}
 
 	surf->buffer = (uint32_t*)p;
 	surf->width = (uint32_t)w;
@@ -214,7 +252,6 @@ static void g2d_cpu_blt(uint32_t* dst_buf, int32_t dst_w, int32_t dst_h,
 		int32_t dx, int32_t dy, int32_t w, int32_t h,
 		const uint32_t* src_buf, int32_t src_w, int32_t src_h,
 		int32_t sx, int32_t sy, uint8_t use_alpha, uint8_t alpha) {
-	G2DD_LOG("g2d_cpu_blt %d x %d, dst at (%d,%d), src at (%d,%d), alpha: %d\n", w, h, dx, dy, sx, sy, alpha);
 	bsp_g2d_blt_cpu((uint32_t*)src_buf, src_w, src_h, sx, sy, w, h,
 			dst_buf, dst_w, dst_h, dx, dy, use_alpha, alpha);
 }
@@ -521,20 +558,30 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 	(void)ret;
 	(void)p;
 
+	int res = -1;
+	g2d_task_lock();
+	_g2dd_req_cnt++;
 	switch (cmd) {
 	case G2D_DEV_CNTL_FILL_RECT:
-		return g2dd_handle_fill_rect(in);
+		res = g2dd_handle_fill_rect(in);
+		break;
 	case G2D_DEV_CNTL_BLIT:
-		return g2dd_handle_blit(in, 0);
+		res = g2dd_handle_blit(in, 0);
+		break;
 	case G2D_DEV_CNTL_BLIT_ALPHA:
-		return g2dd_handle_blit(in, 1);
+		res = g2dd_handle_blit(in, 1);
+		break;
 	case G2D_DEV_CNTL_ROTATE:
-		return g2dd_handle_rotate(in);
+		res = g2dd_handle_rotate(in);
+		break;
 	case G2D_DEV_CNTL_SCALE_TO:
-		return g2dd_handle_scale_to(in);
+		res = g2dd_handle_scale_to(in);
+		break;
 	default:
-		return -1;
+		res = -1;
 	}
+	g2d_task_unlock();
+	return res;
 }
 
 int main(int argc, char** argv) {
@@ -552,7 +599,7 @@ int main(int argc, char** argv) {
 	dev.cmd = g2d_cmd;
 	dev.extra_data = NULL;
 
-	if(device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666, false) != 0)
+	if(device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666, true) != 0)
 		return -1;
 	return 0;
 }
