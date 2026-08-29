@@ -165,25 +165,14 @@ static uint32_t bench_now_usec(void) {
 static int bench_frame_fill(void* p) {
     bench_ctx_t* ctx = (bench_ctx_t*)p;
     g2d_fill_req_t fill;
-    int32_t maxx;
-    int32_t maxy;
-    uint32_t i;
+    uint32_t seed = ctx->seq * 31u;
 
-    maxx = ctx->canvas->w - 64;
-    maxy = ctx->canvas->h - 64;
-    if(maxx < 0)
-        maxx = 0;
-    if(maxy < 0)
-        maxy = 0;
-    for(i = 0; i < 16; i++) {
-        uint32_t seed = ctx->seq * 17u + i * 977u;
-        int32_t x = maxx > 0 ? (int32_t)(seed % (uint32_t)maxx) : 0;
-        int32_t y = maxy > 0 ? (int32_t)((seed >> 8) % (uint32_t)maxy) : 0;
-        g2d_fill_req_init(&fill, img_canvas(ctx->canvas), g2d_rect(x, y, 64, 64),
-                0xff000000u | ((seed * 31u) & 0xffffffu));
-        if(g2d_fill_rect(&fill) != 0)
-            return -1;
-    }
+    /* one full-canvas fill per frame */
+    g2d_fill_req_init(&fill, img_canvas(ctx->canvas),
+            g2d_rect(0, 0, ctx->canvas->w, ctx->canvas->h),
+            0xff000000u | (seed & 0xffffffu));
+    if(g2d_fill_rect(&fill) != 0)
+        return -1;
     ctx->seq++;
     return 0;
 }
@@ -244,7 +233,7 @@ static int bench_frame_blit_alpha(void* p) {
     return ret;
 }
 
-/* one mixed frame = 16 fills + opaque blit + alpha blit */
+/* one mixed frame = 1 full-canvas fill + opaque blit + alpha blit */
 static int bench_frame_mixed(void* p) {
     if(bench_frame_fill(p) != 0)
         return -1;
@@ -456,13 +445,14 @@ int main(int argc, char** argv) {
     bench_ctx.alpha = alpha_img;
     bench_ctx.seq = 0;
     printf("--- fps benchmark ---\n");
-    printf("bench frame: canvas %ux%u, fill 16x(64x64), opaque %ux%u -> %ux%u, alpha %ux%u -> %ux%u\n",
+    printf("bench frame: canvas %ux%u, fill %ux%u, opaque %ux%u -> %ux%u, alpha %ux%u -> %ux%u\n",
+            (uint32_t)canvas->w, (uint32_t)canvas->h,
             (uint32_t)canvas->w, (uint32_t)canvas->h,
             (uint32_t)opaque_img->w, (uint32_t)opaque_img->h,
             (uint32_t)canvas->w, (uint32_t)canvas->h,
             (uint32_t)alpha_img->w, (uint32_t)alpha_img->h,
             (uint32_t)canvas->w, (uint32_t)canvas->h);
-    bench_run("fill_rect x16", bench_frame_fill, &bench_ctx, &failures);
+    bench_run("fill_rect", bench_frame_fill, &bench_ctx, &failures);
     bench_run("blit_opaque", bench_frame_blit, &bench_ctx, &failures);
     bench_run("blit_alpha", bench_frame_blit_alpha, &bench_ctx, &failures);
     bench_run("mixed_frame", bench_frame_mixed, &bench_ctx, &failures);

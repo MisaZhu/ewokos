@@ -44,11 +44,11 @@ int main(int argc, char** argv) {
     vfsd_init();
     start_driver_async_worker();
     /*
-     * IPC_MULTI_TASK: every request is served by its own kernel-spawned
+     * IPC_MULTI_CORE: every request is served by its own kernel-spawned
      * worker thread inside this proc; all shared state is guarded by
      * _vfs_lock (see the lock rules in vfsd.h).
      */
-    ipc_serv_run(handle, clear_pending_zombies, NULL, IPC_MULTI_TASK);
+    ipc_serv_run(handle, clear_pending_zombies, NULL, IPC_MULTI_CORE);
 
     while(true) {
         /*

@@ -489,26 +489,19 @@ class G2DTestWidget: public Widget {
 		return low;
 	}
 
-	/*one bench frame = 16 random 64x64 fills + full-canvas opaque blit
+	/*one bench frame = 1 full-canvas fill + full-canvas opaque blit
 	  + full-canvas alpha blit, all synchronous IPC to /dev/g2d, same
 	  mix as g2dtest's mixed_frame*/
 	static int benchFrame(shm_image_t* canvas, shm_image_t* opaque,
 			shm_image_t* alpha, uint32_t seq) {
 		g2d_fill_req_t fill;
 		g2d_blit_req_t blit;
-		int32_t maxx = (int32_t)canvas->width - 64;
-		int32_t maxy = (int32_t)canvas->height - 64;
-		uint32_t i;
 
-		for(i = 0; i < 16; i++) {
-			uint32_t seed = seq * 17u + i * 977u;
-			int32_t x = maxx > 0 ? (int32_t)(seed % (uint32_t)maxx) : 0;
-			int32_t y = maxy > 0 ? (int32_t)((seed >> 8) % (uint32_t)maxy) : 0;
-			g2d_fill_req_init(&fill, img_canvas(canvas), g2d_rect(x, y, 64, 64),
-					0xff000000u | ((seed * 31u) & 0xffffffu));
-			if(g2d_fill_rect(&fill) != 0)
-				return -1;
-		}
+		g2d_fill_req_init(&fill, img_canvas(canvas),
+				g2d_rect(0, 0, (int32_t)canvas->width, (int32_t)canvas->height),
+				0xff000000u | ((seq * 31u) & 0xffffffu));
+		if(g2d_fill_rect(&fill) != 0)
+			return -1;
 		g2d_blit_req_init(&blit,
 				img_canvas(canvas), img_canvas(opaque),
 				g2d_rect(0, 0, (int32_t)opaque->width, (int32_t)opaque->height),
@@ -615,8 +608,9 @@ protected:
 			status_color = 0xff1d7f3b;
 			snprintf(status_text, sizeof(status_text), "xg2dtest TEST PASSED  g2d %u fps (%u us/frame)", fps, usPerFrame);
 			snprintf(detail_text, sizeof(detail_text),
-					"bench frame %ux%u: 16x fill 64x64 + blit %ux%u + alpha %ux%u",
-					BENCH_CANVAS_W, BENCH_CANVAS_H, BENCH_SRC_W, BENCH_SRC_H,
+					"bench frame %ux%u: fill %ux%u + blit %ux%u + alpha %ux%u",
+					BENCH_CANVAS_W, BENCH_CANVAS_H, BENCH_CANVAS_W, BENCH_CANVAS_H,
+					BENCH_SRC_W, BENCH_SRC_H,
 					BENCH_SRC_W, BENCH_SRC_H);
 		}
 		else {

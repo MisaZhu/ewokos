@@ -3,7 +3,7 @@
 This document describes the **inter-process communication (IPC)** mechanism
 of EwokOS and the **multitasking design** it is built on: the task model,
 the scheduler, the single-task "context hijack" server mode, and the
-multi-task (`IPC_MULTI_TASK`) worker-thread-pool server mode.
+worker-thread-pool server modes (`IPC_MULTI_TASK` and `IPC_MULTI_CORE`).
 
 ## 1. Architecture Overview
 
@@ -35,7 +35,7 @@ Key components:
 | task model / scheduler | `kernel/kernel/src/proc.c`, `kernel/kernel/src/schedule.c` | `proc_t`, ready queues, context switch, block/wake |
 | syscall dispatcher | `kernel/kernel/src/svc.c` | thin dispatcher into `proc_ipc_*` |
 | syscall numbers | `kernel/kernel/include/syscalls.h` | `SYS_IPC_SETUP/CALL/...` |
-| flags / states | `kernel/kernel/include/procinfo.h` | `IPC_MULTI_TASK`, `IPC_NON_RETURN`, task states |
+| flags / states | `kernel/kernel/include/procinfo.h` | `IPC_MULTI_TASK`, `IPC_MULTI_CORE`, `IPC_NON_RETURN`, task states |
 | client/server library | `system/basic/libc/libewoksys/ewoksys/src/ipc.c`, `ipc_serv.c` | `ipc_call()`, `ipc_serv_run()`, `ipc_serv_reg()` |
 | payload marshalling | `system/basic/libc/libewoksys/ewoksys/src/proto.c` (`proto_t`) | length-prefixed byte packages |
 | name service | `system/basic/sys/core/core.c` | registers `ipc_serv_id` → pid |
@@ -153,10 +153,12 @@ consumed by the matching block, preventing both lost and spurious wakes.
 | `SYS_IPC_PING` / `SYS_IPC_READY` | both | readiness handshake (`ipc_wait_ready`) |
 
 Return codes of `SYS_IPC_CALL`: positive = ipc `uid`;
-`IPC_ERROR_RETRY (-1)` = server busy/disabled (the kernel blocks the
-client instead of returning where possible), `IPC_ERROR_SELF (-2)` =
-self-call, `IPC_ERROR_NO_READY (-3)` = no such server / service not set
-up.
+`IPC_ERROR_RETRY (-1)` = server busy/unavailable: task-slot exhaustion,
+the disabled state, and an all-busy `IPC_MULTI_TASK` pool still park the
+client in the kernel, while a busy per-core pool worker
+(`IPC_MULTI_CORE` mode) is returned to userspace, which retries;
+`IPC_ERROR_SELF (-2)` = self-call, `IPC_ERROR_NO_READY (-3)` =
+no such server / service not set up.
 
 ### 3.2 Payload format
 
@@ -187,10 +189,11 @@ A server holds `ipc_server_t` in its `proc_space_t`:
 - `wait_head/wait_tail`: intrusive doubly-linked wait queue of blocked
   clients (each client contributes its embedded `ipc_wait_item`);
 - `lock`: per-server spinlock used on `KERNEL_SMP` builds;
-- `pool` / `pool_num`: the multi-task worker-pool slot array
+- `pool` / `pool_num`: the worker-pool slot array
   (`ipc_pool_worker_t`: `pid` + `uuid`, `idle_sec` park timestamp,
   `quit` mark), allocated at `SYS_IPC_SETUP` with `max_task_per_proc`
-  slots (see §5.1);
+  (`IPC_MULTI_TASK`) or `_sys_info.cores` (`IPC_MULTI_CORE`) slots
+  (see §5.1);
 - `entry`, `extra_data`, `flags`, `disabled`, `multi_task`, and the
   single-task-mode machinery (`saved_state`, `saved_ipc_res`, `stack`,
   `do_switch`, `restore_pending`).
@@ -232,9 +235,11 @@ register name → `ipc_serv_run(handle, handled, p, flags)` → main loop.
 
 1. if `opkg == NULL`, set `IPC_NON_RETURN` in `call_id` (fire and
    forget);
-2. `SYS_IPC_CALL` in a retry loop (the kernel itself blocks the client
-   on `IPC_ERROR_RETRY` whenever possible, so spinning here only covers
-   races);
+2. `SYS_IPC_CALL` in a retry loop (the kernel still blocks the client
+   on `IPC_ERROR_RETRY` for task-slot exhaustion, disabled servers and
+   an all-busy `IPC_MULTI_TASK` pool; a busy per-core worker of an
+   `IPC_MULTI_CORE` server is reported back instead, and this loop is
+   where the requester waits);
 3. for calls with a reply: `SYS_IPC_GET_RETURN` loop — `-1` means
    "reply not ready yet, the kernel blocked us and woke us", a positive
    value means "buffer too small, resize and retry once".
@@ -245,8 +250,8 @@ resize protocol) → user callback `_ipc_serv_handle(pid, cmd, in, out, p)`
 
 `call_id` encoding (`procinfo.h`): bits `0..28` are the user command
 (`IPC_NON_RETURN_MASK`), bit 30 is `IPC_LAZY`, bit 31 is
-`IPC_NON_RETURN`. Server `flags` are `IPC_NON_BLOCK (0x01)` and
-`IPC_MULTI_TASK (0x02)`.
+`IPC_NON_RETURN`. Server `flags` are `IPC_NON_BLOCK (0x01)`,
+`IPC_MULTI_TASK (0x02)` and `IPC_MULTI_CORE (0x04)`.
 
 ## 4. Single-Task Server Mode (default)
 
@@ -318,8 +323,10 @@ empty, preferring to drain queued requests instead.
 
 - A server accepts at most `IPC_CTX_MAX = 8` queued requests; beyond
   that (or while disabled) the client is **blocked inside the kernel**
-  on the server's wait queue (`proc_ipc_wait`) — never returned a busy
-  error that userspace would spin on.
+  on the server's wait queue (`proc_ipc_wait`). The one case that does
+  return a busy error to userspace is an `IPC_MULTI_CORE` server whose
+  per-core pool worker is busy: the client gets `IPC_ERROR_RETRY` and
+  waits in `ipc_call`'s retry loop (§5.1).
 - On every completion, `proc_ipc_wakeup()` admits at most
   `min(free_slots, IPC_WAKE_BATCH_LIMIT = 2)` waiters per edge,
   skipping stale entries (dead or already-released waiters) so a single
@@ -327,9 +334,10 @@ empty, preferring to drain queued requests instead.
 - `SYS_IPC_DISABLE` only succeeds when no request is in flight;
   `SYS_IPC_ENABLE` wakes queued clients.
 
-## 5. Multi-Task Server Mode (`IPC_MULTI_TASK`)
+## 5. Worker-Pool Server Modes (`IPC_MULTI_TASK` / `IPC_MULTI_CORE`)
 
-Setting `IPC_MULTI_TASK` in `SYS_IPC_SETUP` flags (e.g.
+Setting `IPC_MULTI_TASK` or `IPC_MULTI_CORE` in `SYS_IPC_SETUP` flags
+(e.g.
 `device_run(&dev, "/", FS_TYPE_DIR, 0777, true)` in
 `system/basic/sys/rootfs/sdfsd.c`) switches the server to fully
 **concurrent request handling**:
@@ -349,28 +357,39 @@ Setting `IPC_MULTI_TASK` in `SYS_IPC_SETUP` flags (e.g.
 
 Instead of creating and terminating a thread per request, the server
 keeps a pool of **parked worker threads** (`ipc_server_t.pool`,
-dynamically allocated with `pool_num` slots in `proc_ipc_setup()`). Two
-policies define the current design:
+dynamically allocated with `pool_num` slots in `proc_ipc_setup()`).
+Two shared policies plus a per-mode assignment rule define the current
+design:
 
 - **Empty by default** — no worker thread exists until the first
   request arrives, and idle members self-quit after a few seconds, so a
   quiet server's pool drains back to empty. No proc slots or thread
   stacks are held hostage by rarely-called servers.
 - **Client-core affinity** — every worker is pinned to the core of the
-  client whose request spawned it, and assignment always prefers a
-  parked worker on the requesting client's core. Requests are served
-  where their clients run (cache locality), and both the dispatch and
-  the reply path can use direct context switches (steps 4–5 below).
+  client whose request spawned it. Requests are served where their
+  clients run (cache locality), and both the dispatch and the reply
+  path can use direct context switches (steps 4–5 below).
+- **One worker per core** (`IPC_MULTI_CORE`) — each core has at most
+  ONE pool member. A request that finds its core's member busy is
+  answered with `IPC_ERROR_RETRY` immediately and the requester waits
+  by retrying from userspace; there is no pool wait queue. Cross-core
+  assignment happens only as a liveness fallback when the client's core
+  has no member and spawning one is impossible.
+- **Grow to the thread budget** (`IPC_MULTI_TASK`) — the pool is not
+  limited to one member per core; it grows on demand up to the proc's
+  thread limit. Only when every member is busy AND no new worker can be
+  spawned does the client park on the server wait queue until a worker
+  parks (`proc_ipc_wait_pool`).
 
-The pool has no fixed hard cap: `pool_num` is the proc's own thread
-limit (`_kernel_config.max_task_per_proc`), since every worker needs
-one of the proc's thread stack slots. When the proc runs out of thread
-slots, new requests are blocked instead of spawning.
+`pool_num` is sized by mode: `_kernel_config.max_task_per_proc` for
+`IPC_MULTI_TASK` (a generous registration budget for concurrent
+workers), `_sys_info.cores` for `IPC_MULTI_CORE` (the one-per-core rule
+caps live members at the machine's core count).
 
 | Constant | Value | Meaning |
 |---|---|---|
 | initial size | 0 | the pool starts empty; no persistent base set |
-| `pool_num` | `max_task_per_proc` | allocated slots; proc thread limit |
+| `pool_num` | `max_task_per_proc` / `_sys_info.cores` | allocated slots (MULTI_TASK / MULTI_CORE) |
 | `IPC_TASK_SELF_QUIT_TIMEOUT` | 3 s | parked idle time before a member self-quits |
 
 Lifecycle:
@@ -383,23 +402,29 @@ Lifecycle:
    (`worker->info.core = core`); only an out-of-range core falls back
    to the load-balanced `core_attach`. There is no replenish step —
    spawning happens exclusively on demand, in step 3.
-2. **Assign, same core first** — `ipc_pool_assign(serv_proc, ipc,
-   client_core)` scans for a parked member (BLOCK, no task attached,
-   not quit-marked) **pinned to the client's core** and *binds* the
-   request: under the server lock it rewrites the worker's saved
-   context (`gpr[0] = uid`, fresh `sp` on the worker's own stack),
-   records `worker->ipc_task = ipc` / `ipc->handler_pid+uuid`, then
-   wakes the worker. The scheduler later restores exactly this context.
-3. **Grow on demand; cross-core only as fallback** — when no parked
-   member exists on the client's core (never spawned, or all busy), one
-   new worker pinned to that core is spawned, registered and bound in
-   the same call, provided the pool is below `pool_num` and a thread
-   stack slot is free. Only when growth is **impossible** does the
-   assignment fall back to a parked member on *any* core; and only when
-   every member is busy *and* growth is impossible does the client
-   block inside the kernel (`proc_ipc_wait_pool`) until a worker
-   parks — the task slot acquired for that attempt is released first,
-   so nothing is wasted while blocked.
+2. **Assign on the client's core first** — `ipc_pool_assign(serv_proc,
+   ipc, client_core)` scans for a parked member (BLOCK, no task
+   attached, not quit-marked) **pinned to the client's core** and
+   *binds* the request: under the server lock it rewrites the worker's
+   saved context (`gpr[0] = uid`, fresh `sp` on the worker's own
+   stack), records `worker->ipc_task = ipc` / `ipc->handler_pid+uuid`,
+   then wakes the worker. The scheduler later restores exactly this
+   context.
+3. **Grow on demand; busy handling differs by mode** — when the
+   client's core has no parked member, a new worker pinned to that core
+   is spawned, registered and bound in the same call, provided the pool
+   is below `pool_num` and a thread stack slot is free. Under
+   `IPC_MULTI_CORE` growth is additionally suppressed once the core has
+   ANY member (one per core): a request that finds its core's member
+   **busy** releases the task slot acquired for that attempt and the
+   client gets `IPC_ERROR_RETRY`, so the requester waits by retrying
+   from userspace (`ipc_call`'s retry loop). Under `IPC_MULTI_TASK`
+   the pool keeps growing past one member per core; only when every
+   member is busy and growth is impossible does the client park on the
+   server wait queue until a worker parks. In both modes, when growth
+   is impossible the assignment falls back to a parked member on *any*
+   core, so a spawn failure cannot strand a client while other cores
+   sit idle.
 4. **Real-time dispatch** — after a same-core assignment for a call
    that waits for its reply (neither `IPC_LAZY` nor `IPC_NON_RETURN`),
    `proc_ipc_call` hands the CPU **straight to the worker** via
@@ -441,9 +466,10 @@ client (core N)       kernel                        worker thread (core N)
   ├────────────────────►│ proc_ipc_req: free slot,      │
   │                     │   uid, copy arg               │
   │                     │ ipc_pool_assign(core N):      │
-  │                     │   parked worker on core N,    │
-  │                     │   else spawn one on core N,   │
-  │                     │   else any-core fallback;     │
+  │                     │   parked member of core N,    │
+  │                     │   else spawn a worker; busy → │
+  │                     │   RETRY (MULTI_CORE) / park   │
+  │                     │   in-kernel (MULTI_TASK);     │
   │                     │   bind (rewrite ctx) + wake   │
   │                     │ proc_switch_multi_core ──────►│ runs ipc entry:
   │  (reply-expected    │   direct switch to the worker │   GET_ARG(uid)
@@ -462,9 +488,12 @@ client (core N)       kernel                        worker thread (core N)
 Notable details:
 
 - `proc_ipc_call` loops inside the kernel: on task-slot exhaustion it
-  blocks the client on the server wait queue, on worker exhaustion on
-  the pool wait queue, re-validating the server (pid+uuid) after every
-  wake because the server may have exited meanwhile;
+  blocks the client on the server wait queue, re-validating the server
+  (pid+uuid) after every wake because the server may have exited
+  meanwhile; a busy pool worker is handled per mode — `IPC_MULTI_TASK`
+  parks the client on the same wait queue until a worker parks, while
+  `IPC_MULTI_CORE` releases the attempt's task slot and returns
+  `IPC_ERROR_RETRY` to userspace;
 - completion goes through `proc_ipc_finish_task()`, which claims the
   task and resolves its client **atomically under the server lock**, so
   a concurrent watchdog abort (timer context, possibly another core) can
@@ -532,26 +561,28 @@ Notable details:
 | Constant | Value | Defined in |
 |---|---|---|
 | `IPC_CTX_MAX` | 8 | `kernel/kernel/include/kernel/ipc.h` |
-| worker-pool slots (`pool_num`) | `max_task_per_proc` | allocated in `proc_ipc_setup()` |
+| worker-pool slots (`pool_num`) | `max_task_per_proc` / `_sys_info.cores` | allocated in `proc_ipc_setup()` (MULTI_TASK / MULTI_CORE) |
 | `IPC_TASK_SELF_QUIT_TIMEOUT` | 3 s | same |
 | `IPC_TIMEOUT_USEC` | 10 s | `kernel/kernel/include/kernel/kernel.h` |
 | `IPC_WAKE_BATCH_LIMIT` | 2 | `kernel/kernel/src/ipc.c` |
 | `THREAD_STACK_PAGES` | 64 | `kernel/kernel/include/kernel/proc.h` |
-| `IPC_NON_BLOCK` / `IPC_MULTI_TASK` | 0x01 / 0x02 | `kernel/kernel/include/procinfo.h` |
+| `IPC_NON_BLOCK` / `IPC_MULTI_TASK` / `IPC_MULTI_CORE` | 0x01 / 0x02 / 0x04 | `kernel/kernel/include/procinfo.h` |
 | `IPC_NON_RETURN` / `IPC_LAZY` | bit 31 / bit 30 of `call_id` | same |
 
 ### Server-mode comparison
 
-| Aspect | single-task (default) | multi-task (`IPC_MULTI_TASK`) |
-|---|---|---|
-| handler execution context | server main context (hijacked) | pool worker thread, pinned to the client's core |
-| concurrency | 1 request at a time, FIFO | up to 8 in-flight, out of order |
-| server main loop | suspended while serving | untouched |
-| handler stack | dedicated `ipc_server.stack` | each worker's own thread stack |
-| completion order | FIFO (`ipc_end` pops head) | by uid (`proc_ipc_find_task`) |
-| blocking handler | illegal (`proc_ipc_sync_serving`) | fine (only the worker blocks) |
-| from interrupt-context client | supported via `interrupt.ipc_res` | same |
-| extra machinery | save/restore state machine | per-core worker pool: assign/grow/park/shrink + direct switches |
+| Aspect | single-task (default) | multi-task (`IPC_MULTI_TASK`) | multi-core (`IPC_MULTI_CORE`) |
+|---|---|---|---|
+| handler execution context | server main context (hijacked) | pool worker thread, pinned to the client's core | same |
+| concurrency | 1 request at a time, FIFO | up to 8 in-flight, out of order | one worker per core |
+| server busy | client parks on the wait queue | parks until a worker parks | `IPC_ERROR_RETRY`, userspace retries |
+| server main loop | suspended while serving | untouched | untouched |
+| handler stack | dedicated `ipc_server.stack` | each worker's own thread stack | same |
+| completion order | FIFO (`ipc_end` pops head) | by uid (`proc_ipc_find_task`) | same |
+| blocking handler | illegal (`proc_ipc_sync_serving`) | fine (only the worker blocks) | same |
+| from interrupt-context client | supported via `interrupt.ipc_res` | same | same |
+| pool slots (`pool_num`) | — | `max_task_per_proc` | `_sys_info.cores` |
+| extra machinery | save/restore state machine | worker pool: assign/grow/park/shrink + direct switches | same, plus the one-per-core rule |
 
 ### Source map
 
