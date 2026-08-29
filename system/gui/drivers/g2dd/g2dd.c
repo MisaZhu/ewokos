@@ -22,7 +22,7 @@
    the driver attaches to, or as dma addresses the driver mem-maps on
    attach. the driver operates in place and detaches shm canvases when
    done. */
-#define G2DD_DEBUG 1
+#define G2DD_DEBUG 0
 
 
 /* g2d request counter: each debug line reports how many requests were
