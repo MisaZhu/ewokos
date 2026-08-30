@@ -37,6 +37,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <unistd.h>
 #include <sys/shm.h>
 #include <sys/errno.h>
 #include <ewoksys/vfs.h>
@@ -149,6 +150,40 @@ static void waiters_snapshot(pipe_entry_t* e, uint32_t events, wake_snap_t* snap
     }
 }
 
+/*
+ * The pipe ring must NOT be an IPC_PRIVATE segment: the kernel grants
+ * private shm only to the owner and its descendants (check_access
+ * "family only" rule), but a pipe ring is attached by whoever holds the
+ * fd — pipeline children are piped's clients, not its children — so a
+ * private ring is unattachable for every non-root user (shmat fails,
+ * libc read/write then dies with EIO). Use a fresh keyed 0666 segment
+ * per pipe instead: the mode bits are only consulted for keyed
+ * segments, so other=r+w lets any uid attach.
+ *
+ * Key = fingerprint | pid | counter. piped is a permanent single
+ * instance, so the monotonic counter alone keeps keys unique for the
+ * daemon's lifetime; the fingerprint keeps piped's key space apart from
+ * other keyed-shm users (graph/g2dd), the pid distinguishes a restarted
+ * instance, and IPC_EXCL turns a post-wraparound collision into a retry
+ * instead of silently returning an existing segment WITHOUT resizing it.
+ */
+#define PIPE_SHM_KEY_FP   0x50000000u /* 'P' << 24: piped key-space fingerprint */
+#define PIPE_SHM_KEY_RETRIES 16       
+
+static int32_t pipe_shm_alloc(void) {
+    static uint32_t _key_seq = 0;
+
+    for(int i = 0; i < PIPE_SHM_KEY_RETRIES; i++) {
+        key_t key = (key_t)(PIPE_SHM_KEY_FP |
+                (((uint32_t)getpid() & 0xffu) << 16) | (_key_seq & 0xffffu));
+        _key_seq++;
+        int32_t id = shmget(key, SHM_PIPE_PAGE_SIZE, IPC_CREAT | IPC_EXCL | 0666);
+        if(id > 0)
+            return id;
+    }
+    return -1;
+}
+
 static int pipe_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int oflag, void* p) {
     (void)dev; (void)fd; (void)from_pid; (void)p;
 
@@ -169,7 +204,7 @@ static int pipe_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int o
     }
 
     /* shm allocation is a kernel round trip: do it outside _pipes_lock */
-    int32_t shm_id = shmget(IPC_PRIVATE, SHM_PIPE_PAGE_SIZE, IPC_CREAT | 0666);
+    int32_t shm_id = pipe_shm_alloc();
     if(shm_id <= 0) {
         errno = ENOMEM;
         return -1;
