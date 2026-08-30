@@ -501,6 +501,6 @@ int main(int argc, char** argv) {
     dev.fcntl = pipe_fcntl;
     dev.check_poll_events = pipe_check_poll_events;
 
-    device_run(&dev, mnt_point, FS_TYPE_ANNOUNIMOUS | FS_TYPE_CHAR, 0666, false);
+    device_run(&dev, mnt_point, FS_TYPE_ANNOUNIMOUS | FS_TYPE_CHAR, 0666, true);
     return 0;
 }
