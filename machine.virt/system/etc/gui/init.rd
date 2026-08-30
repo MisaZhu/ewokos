@@ -26,6 +26,7 @@
 @/bin/ipcserv /drivers/virt/keybd   /dev/keyb0
 @/bin/ipcserv /drivers/virt/moused  /dev/mouse0
 
+@/bin/ipcserv /drivers/piped           /dev/pipe0
 @/bin/ipcserv /drivers/ramfsd          /tmp
 @/bin/ipcserv /drivers/nulld           /dev/null
 

@@ -9,7 +9,7 @@
  *   waitq.c          wait queues and node event wakeup
  *   driver_async.c   async driver worker (close/dup/kids jobs), kids lazy load
  *   proc.c           process lifecycle (clone/exit/zombie, fd slot tracking)
- *   pipe.c           pipe open/read/write, shm pipe lifecycle
+ *   pipe.c           fd-close ref accounting (proc_file_close)
  *   handlers.c       node/mount/query IPC handlers + main dispatch
  *   proc_handlers.c  proc/block/poll IPC handlers
  *   vfsd.c           init + main()
@@ -38,7 +38,6 @@
 #include <ewoksys/syscall.h>
 #include <ewoksys/hashmap.h>
 #include <ewoksys/queue.h>
-#include <ewoksys/shm_pipe.h>
 #include <procinfo.h>
 #include <sysinfo.h>
 
@@ -49,7 +48,6 @@ typedef struct vfs_node {
     struct vfs_node* next; /*next brother*/
     struct vfs_node* prev; /*prev brother*/
     void* data_ptr;
-    shm_pipe_t* shm_ring;     /* shared-memory pipe ring (NULL if not allocated) */
     uint32_t node_id;
     uint32_t kids_num;
 
@@ -72,9 +70,11 @@ typedef struct {
      * Tracks whether this fd owns a driver-side reference that must be
      * returned with FS_CMD_CLOSE when the fd dies without an explicit
      * user-space close. Set by vfsd_open() (open/accept create driver
-     * state) and by do_vfs_proc_clone() (fork sends FS_CMD_DUP per
-     * inherited fd); cleared by vfsd_dup()/vfsd_dup2() because same-process
-     * duplication never notifies the driver.
+     * state), by do_vfs_proc_clone() (fork sends FS_CMD_DUP per inherited
+     * fd) and by vfsd_dup()/vfsd_dup2() for pipe fds (piped counts
+     * descriptors, and a dup'd pipe end routinely outlives its source).
+     * Same-process dup of non-pipe fds clears it: those devices rebuild
+     * their per-fd state lazily from the surviving source fd.
      */
     uint32_t driver_ref;
     fsinfo_t fsinfo;
@@ -236,7 +236,8 @@ extern vfs_node_t* vfs_open_announimous(int32_t pid, vfs_node_t* node);
 extern vfs_node_t* vfsd_get_by_fd(int32_t pid, int32_t fd);
 extern void vfsd_close(int32_t pid, int32_t fd);
 extern vfs_node_t* vfsd_dup(int32_t pid, int32_t from, int32_t *ret);
-extern vfs_node_t* vfsd_dup2(int32_t pid, int32_t from, int32_t to);
+extern vfs_node_t* vfsd_dup2(int32_t pid, int32_t from, int32_t to,
+        driver_close_task_t** pipe_victim);
 extern void vfs_fill_node_fsinfo(vfs_node_t* node, fsinfo_t* out);
 extern int32_t vfs_fill_file_fsinfo(file_t* file, fsinfo_t* out);
 extern fsinfo_t* vfs_get_kids(uint32_t node_id, uint32_t* num);
@@ -253,10 +254,12 @@ extern int32_t get_tracked_owner_pid(int32_t pid);
 /* ---- driver_async.c ---- */
 extern void start_driver_async_worker(void);
 extern void enqueue_driver_close_task(driver_close_task_t* task);
+extern void vfs_driver_close(int32_t pid, int32_t owner_pid, int32_t fd, file_t* file);
 extern int vfs_driver_dup_now(int32_t mount_pid, int32_t from_pid, int32_t from_fd,
         int32_t dup_pid, int32_t dup_fd, const file_t* file);
-extern void vfs_driver_dup(int32_t from_pid, int32_t from_fd,
+extern int vfs_driver_dup(int32_t from_pid, int32_t from_fd,
         int32_t dup_pid, int32_t dup_fd, file_t* file);
+extern void vfs_clear_fd_driver_ref(int32_t pid, int32_t fd, const vfs_node_t* node);
 extern bool queue_driver_dup_job(clone_dup_ctx_t* ctx, int32_t mount_pid,
         int32_t from_pid, int32_t from_fd,
         int32_t dup_pid, int32_t dup_fd, file_t* file);
@@ -274,11 +277,7 @@ extern void remove_zombie_task(int32_t pid, uint32_t uuid);
 extern void clear_zombie(int32_t cpid);
 
 /* ---- pipe.c ---- */
-extern void sync_pipe_poll_events(vfs_node_t* node);
 extern void proc_file_close(int pid, int fd, file_t* file);
-extern void do_vfs_pipe_open(int32_t pid, proto_t* out);
-extern void do_vfs_pipe_write(int pid, proto_t* in, proto_t* out);
-extern void do_vfs_pipe_read(int pid, proto_t* in, proto_t* out);
 
 /* ---- proc_handlers.c ---- */
 extern void do_vfs_proc_clone(int32_t pid, proto_t* in);

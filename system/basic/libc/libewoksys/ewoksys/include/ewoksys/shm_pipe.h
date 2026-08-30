@@ -38,7 +38,14 @@ typedef struct {
 	int32_t node_id;                 /* VFS node ID (blocking token) */
 	int32_t shm_id;                  /* shared memory ID */
 	int32_t capacity;                /* ring data capacity */
-	int32_t _reserved[7];            /* pad header to 64 bytes */
+	/*
+	 * Number of poll waiters currently registered inside piped for this pipe.
+	 * Peers check it before emitting a PIPE_EDGE notification: data edges only
+	 * need IPC while somebody can actually be woken by them, so a plain
+	 * reader/writer pair stays at zero IPC for its whole lifetime.
+	 */
+	volatile int32_t has_poll_waiters;
+	int32_t _reserved[6];            /* pad header to 64 bytes */
 	char data[SHM_PIPE_DATA_SIZE];   /* circular ring buffer */
 } shm_pipe_t;
 

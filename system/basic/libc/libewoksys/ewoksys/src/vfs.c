@@ -22,6 +22,18 @@
 extern "C" {
 #endif
 
+/*
+ * Minimal wire-protocol constants for the standalone pipe driver. The
+ * canonical definitions live in system/basic/drivers/piped/piped.h; libc
+ * deliberately keeps no piped-specific header — only these values and the
+ * shared data-plane ring (ewoksys/shm_pipe.h). Keep both sides in sync.
+ */
+#define PIPE_DEV_PATH      "/dev/pipe0"
+#define PIPE_ATTACH        0x100
+#define PIPE_POLL_WAIT     0x101
+#define PIPE_POLL_UNWAIT   0x102
+#define PIPE_EDGE          0x103
+
 
 static fsfile_t _fsfiles[MAX_OPEN_FILE_PER_PROC];
 static shm_pipe_t* _pipe_shm[MAX_OPEN_FILE_PER_PROC];
@@ -30,6 +42,9 @@ static uint32_t vfs_get_poll_events_by_node(ewokos_addr_t node_id);
 typedef struct {
         fsinfo_t info;
         bool valid;
+        /* true when this fd parked through piped (PIPE_POLL_WAIT) instead of
+         * vfsd's vfs_block_raw; cleanup must go back to piped too. */
+        bool pipe_wait;
 } poll_fd_cache_t;
 
 #define VFS_MULTI_POLL_BACKOFF_US 20000
@@ -409,183 +424,173 @@ static inline uint32_t pipe_live_poll_events(shm_pipe_t* ring) {
     return events;
 }
 
-static int read_pipe(int fd, ewokos_addr_t node, void* buf, uint32_t size, bool block) {
+/*
+ * Tell piped that this fd just moved the ring across the empty/full edge.
+ * Skipped entirely while nobody is registered for poll wakeups — a plain
+ * blocking reader/writer pair then stays at zero IPC for its whole life.
+ * Fire-and-forget: piped snapshots its waiters and wakes them with
+ * proc_wakeup_by(pid, ring->node_id).
+ */
+static void pipe_edge_notify(int fd, fsfile_t* file, shm_pipe_t* ring, uint32_t events) {
+    if(__atomic_load_n(&ring->has_poll_waiters, __ATOMIC_ACQUIRE) <= 0)
+        return;
+    proto_t in;
+    PF->init(&in)->addi(&in, (int)events);
+    dev_fcntl(file->info.mount_pid, fd, &file->info, PIPE_EDGE, &in, NULL);
+    PF->clear(&in);
+}
+
+/* Register/unregister this fd as a poll waiter inside piped. On success the
+ * caller must sleep on the pipe token (ring->node_id): that is what piped's
+ * PIPE_EDGE/close-edge wakes are fired against. */
+static int pipe_poll_register(int fd, fsfile_t* file, uint32_t events) {
+    proto_t in;
+    PF->init(&in)->addi(&in, (int)events);
+    int res = dev_fcntl(file->info.mount_pid, fd, &file->info, PIPE_POLL_WAIT, &in, NULL);
+    PF->clear(&in);
+    return res;
+}
+
+static int pipe_poll_unregister(int fd, fsfile_t* file) {
+    if(file == NULL)
+        return -1;
+    return dev_fcntl(file->info.mount_pid, fd, &file->info, PIPE_POLL_UNWAIT, NULL, NULL);
+}
+
+static int read_pipe(int fd, void* buf, uint32_t size, bool block) {
     fsfile_t* file = &_fsfiles[fd];
     shm_pipe_t* ring = get_pipe_shm(fd, file);
 
-    if(ring != NULL) {
-        /*
-         * Fast path: shared-memory pipe — zero IPC.
-         *
-         * reader_pid/writer_pid are NOT a persistent "who last touched this
-         * pipe" marker — they are a one-shot block registration. A peer is
-         * stamped ONLY right before it enters proc_block_by, and the counter-
-         * party CLEARS the stamp (atomic exchange) after it fires the wake.
-         *
-         * Why this matters: proc_wakeup_by() in the kernel destroys any non-
-         * BLOCK state (WAIT/SLEEP/READY) unconditionally on the else branch.
-         * If we kept a stale writer_pid stamped after every write, a later
-         * unrelated read would wake a writer that is no longer blocked — e.g.
-         * a shell that just fork()+waitpid()'d after echoing its prompt would
-         * still be stamped as writer_pid; the telnet relay's next read of
-         * pending echo bytes would then yank the shell out of WAIT before its
-         * child actually exited, producing a premature prompt.
-         */
-        int32_t my_pid = thread_get_id();
-
-        while(1) {
-            int32_t was_writable = shm_pipe_writable(ring);
-            int32_t n = shm_pipe_read(ring, buf, (int32_t)size);
-            if(n > 0) {
-                /*
-                 * Shared-memory reads bypass vfsd, so its sticky poll state and
-                 * wait queues do not see the ring transition automatically.
-                 * Publish the full->not-full edge so POLLOUT/block waiters on the
-                 * pipe wake once the reader frees space again.
-                 */
-                if(was_writable <= 0 && shm_pipe_writable(ring) > 0)
-                    vfs_wakeup(node, VFS_EVT_WR);
-                /* Consume the writer's block registration (if any) and wake
-                 * it exactly once. Exchange guarantees the stamp cannot
-                 * survive to fire a second, stale wake. */
-                int32_t wpid = __atomic_exchange_n(&ring->writer_pid, 0,
-                        __ATOMIC_ACQUIRE);
-                if(wpid > 0)
-                    proc_wakeup_by(wpid, node);
-                return n;
-            }
-            /* Ring empty — check if writer closed */
-            if(__atomic_load_n(&ring->writer_closed, __ATOMIC_ACQUIRE))
-                return -1;
-            if(!block)
-                return 0;
-            /* Register-then-recheck: publish our pid so a writer producing
-             * data between the last shm_pipe_read and proc_block_by can
-             * still wake us; the kernel latches wake_pending in that gap. */
-            __atomic_store_n(&ring->reader_pid, my_pid, __ATOMIC_RELEASE);
-            if(shm_pipe_readable(ring) > 0 ||
-                    __atomic_load_n(&ring->writer_closed, __ATOMIC_ACQUIRE)) {
-                /* Producer beat us — retire the registration and retry. */
-                __atomic_store_n(&ring->reader_pid, 0, __ATOMIC_RELAXED);
-                continue;
-            }
-            if(vfs_block(node, VFS_EVT_RD) != 0)
-                return -1;
-            __atomic_store_n(&ring->reader_pid, 0, __ATOMIC_RELAXED);
-        }
+    if(ring == NULL) {
+        /* piped pipes are shm-only: no ring means the pipe id on this fd is
+         * broken (or /dev/pipe0 was never wired). There is no vfsd fallback. */
+        errno = EIO;
+        return -1;
     }
 
-    /* Fallback: old IPC path (no shm available) */
+    /*
+     * Shared-memory pipe — zero IPC data path.
+     *
+     * reader_pid/writer_pid are NOT a persistent "who last touched this
+     * pipe" marker — they are a one-shot block registration. A peer is
+     * stamped ONLY right before it enters proc_block_by, and the counter-
+     * party CLEARS the stamp (atomic exchange) after it fires the wake.
+     *
+     * Why this matters: proc_wakeup_by() in the kernel destroys any non-
+     * BLOCK state (WAIT/SLEEP/READY) unconditionally on the else branch.
+     * If we kept a stale writer_pid stamped after every write, a later
+     * unrelated read would wake a writer that is no longer blocked — e.g.
+     * a shell that just fork()+waitpid()'d after echoing its prompt would
+     * still be stamped as writer_pid; the telnet relay's next read of
+     * pending echo bytes would then yank the shell out of WAIT before its
+     * child actually exited, producing a premature prompt.
+     *
+     * Block/wake token: the pipe's ring->node_id (the read end's node).
+     * The two ends are separate anonymous nodes under piped, so sleeping
+     * on this fd's own node would mismatch the peer's wakes.
+     */
+    int32_t my_pid = thread_get_id();
+    ewokos_addr_t token = (ewokos_addr_t)ring->node_id;
+
     while(1) {
-        proto_t in, out;
-        PF->format(&in, "i,i,i,i", (ewokos_addr_t)fd, node,
-                (ewokos_addr_t)size, (ewokos_addr_t)(block ? 1 : 0));
-        PF->init(&out);
-
-        int vfsd_pid = get_vfsd_pid();
-        int res = ipc_call(vfsd_pid, VFS_PIPE_READ, &in, &out);
-        PF->clear(&in);
-        if(res == 0) {
-            res = proto_read_int(&out);
-            if(res > 0)
-                res = proto_read_to(&out, buf, size);
+        int32_t was_writable = shm_pipe_writable(ring);
+        int32_t n = shm_pipe_read(ring, buf, (int32_t)size);
+        if(n > 0) {
+            /*
+             * Shared-memory reads bypass every control plane, so publish the
+             * full->not-full edge to piped's poll waiters (only while some
+             * exist) and wake the directly-blocked writer through its stamp.
+             */
+            if(was_writable <= 0 && shm_pipe_writable(ring) > 0)
+                pipe_edge_notify(fd, file, ring, VFS_EVT_WR);
+            /* Consume the writer's block registration (if any) and wake
+             * it exactly once. Exchange guarantees the stamp cannot
+             * survive to fire a second, stale wake. */
+            int32_t wpid = __atomic_exchange_n(&ring->writer_pid, 0,
+                    __ATOMIC_ACQUIRE);
+            if(wpid > 0)
+                proc_wakeup_by(wpid, token);
+            return n;
         }
-        PF->clear(&out);
-
-        if(res != 0 || !block)
-            return res;
-
-        /*
-         * The legacy IPC pipe path still relies on vfsd's uuid-validated wait
-         * queues. Sleeping directly on proc_block_by(node) here would bypass
-         * that registration and make correctness depend on ad-hoc direct wakes
-         * instead of the shared VFS wakeup path.
-         */
-        if(vfs_block(node, VFS_EVT_RD) != 0)
+        /* Ring empty — check if writer closed */
+        if(__atomic_load_n(&ring->writer_closed, __ATOMIC_ACQUIRE)) {
+            klog("PX: EOF shm=%d fd=%d pid=%d\n",
+                    (int)file->info.data, fd, my_pid);
             return -1;
+        }
+        if(!block)
+            return 0;
+        /* Register-then-recheck: publish our pid so a writer producing
+         * data between the last shm_pipe_read and proc_block_by can
+         * still wake us; the kernel latches wake_pending in that gap. */
+        __atomic_store_n(&ring->reader_pid, my_pid, __ATOMIC_RELEASE);
+        if(shm_pipe_readable(ring) > 0 ||
+                __atomic_load_n(&ring->writer_closed, __ATOMIC_ACQUIRE)) {
+            /* Producer beat us — retire the registration and retry. */
+            __atomic_store_n(&ring->reader_pid, 0, __ATOMIC_RELAXED);
+            continue;
+        }
+        proc_block_by(token);
+        __atomic_store_n(&ring->reader_pid, 0, __ATOMIC_RELAXED);
     }
 }
 
-static int write_pipe(int fd, ewokos_addr_t node, const void* buf, uint32_t size, bool block) {
+static int write_pipe(int fd, const void* buf, uint32_t size, bool block) {
     fsfile_t* file = &_fsfiles[fd];
     shm_pipe_t* ring = get_pipe_shm(fd, file);
 
-    if(ring != NULL) {
-        /* Fast path: shared-memory pipe — zero IPC.
-         * See read_pipe() for the rationale behind stamping reader_pid/
-         * writer_pid only at block time and clearing the peer's stamp with
-         * an atomic exchange after firing the wake. */
-        int32_t my_pid = thread_get_id();
-        const char* p = (const char*)buf;
-        int32_t total = 0;
+    if(ring == NULL) {
+        errno = EIO; /* see read_pipe(): shm-only, no vfsd fallback */
+        return -1;
+    }
 
-        while(total < (int32_t)size) {
-            /* Check if reader closed */
-            if(__atomic_load_n(&ring->reader_closed, __ATOMIC_ACQUIRE))
-                return total > 0 ? total : -1;
+    /* See read_pipe() for the stamp/wake protocol and the ring->node_id
+     * block token. */
+    int32_t my_pid = thread_get_id();
+    ewokos_addr_t token = (ewokos_addr_t)ring->node_id;
+    const char* p = (const char*)buf;
+    int32_t total = 0;
 
-            int32_t was_readable = shm_pipe_readable(ring);
-            int32_t n = shm_pipe_write(ring, p + total, (int32_t)size - total);
-            if(n > 0) {
-                total += n;
-                /*
-                 * Mirror read_pipe(): a direct shm write must surface the
-                 * empty->non-empty edge back to vfsd so poll(POLLIN) and
-                 * VFS_BLOCK readers waiting on this node are released.
-                 */
-                if(was_readable <= 0 && shm_pipe_readable(ring) > 0)
-                    vfs_wakeup(node, VFS_EVT_RD);
-                /* Consume the reader's block registration (if any) — see
-                 * read_pipe() for why this must be exchange, not load. */
-                int32_t rpid = __atomic_exchange_n(&ring->reader_pid, 0,
-                        __ATOMIC_ACQUIRE);
-                if(rpid > 0)
-                    proc_wakeup_by(rpid, node);
-            } else {
-                /* Ring full */
-                if(!block)
-                    return total > 0 ? total : 0;
-                /* Register-then-recheck (mirror of read_pipe). */
-                __atomic_store_n(&ring->writer_pid, my_pid, __ATOMIC_RELEASE);
-                if(shm_pipe_writable(ring) > 0 ||
-                        __atomic_load_n(&ring->reader_closed, __ATOMIC_ACQUIRE)) {
-                    __atomic_store_n(&ring->writer_pid, 0, __ATOMIC_RELAXED);
-                    continue;
-                }
-                if(vfs_block(node, VFS_EVT_WR) != 0)
-                    return total > 0 ? total : -1;
+    while(total < (int32_t)size) {
+        /* Check if reader closed */
+        if(__atomic_load_n(&ring->reader_closed, __ATOMIC_ACQUIRE)) {
+            klog("PX: EPIPE shm=%d fd=%d pid=%d total=%d/%u\n",
+                    (int)file->info.data, fd, my_pid, total, size);
+            return total > 0 ? total : -1;
+        }
+
+        int32_t was_readable = shm_pipe_readable(ring);
+        int32_t n = shm_pipe_write(ring, p + total, (int32_t)size - total);
+        if(n > 0) {
+            total += n;
+            /*
+             * Mirror read_pipe(): surface the empty->non-empty edge to
+             * piped's poll waiters so poll(POLLIN) readers wake.
+             */
+            if(was_readable <= 0 && shm_pipe_readable(ring) > 0)
+                pipe_edge_notify(fd, file, ring, VFS_EVT_RD);
+            /* Consume the reader's block registration (if any) — see
+             * read_pipe() for why this must be exchange, not load. */
+            int32_t rpid = __atomic_exchange_n(&ring->reader_pid, 0,
+                    __ATOMIC_ACQUIRE);
+            if(rpid > 0)
+                proc_wakeup_by(rpid, token);
+        } else {
+            /* Ring full */
+            if(!block)
+                return total > 0 ? total : 0;
+            /* Register-then-recheck (mirror of read_pipe). */
+            __atomic_store_n(&ring->writer_pid, my_pid, __ATOMIC_RELEASE);
+            if(shm_pipe_writable(ring) > 0 ||
+                    __atomic_load_n(&ring->reader_closed, __ATOMIC_ACQUIRE)) {
                 __atomic_store_n(&ring->writer_pid, 0, __ATOMIC_RELAXED);
+                continue;
             }
+            proc_block_by(token);
+            __atomic_store_n(&ring->writer_pid, 0, __ATOMIC_RELAXED);
         }
-        return total;
     }
-
-    /* Fallback: old IPC path */
-    while(1) {
-        proto_t in, out;
-        PF->format(&in, "i,i,m,i", (ewokos_addr_t)fd, node, buf, size,
-                (ewokos_addr_t)(block ? 1 : 0));
-        PF->init(&out);
-
-        int vfsd_pid = get_vfsd_pid();
-        int res = ipc_call(vfsd_pid, VFS_PIPE_WRITE, &in, &out);
-        PF->clear(&in);
-        if(res == 0) {
-            res = proto_read_int(&out);
-        }
-        PF->clear(&out);
-
-        if(res != 0 || !block)
-            return res;
-
-        /*
-         * Mirror read_pipe(): even the fallback IPC path must block via vfsd's
-         * wait queue so wake delivery stays uuid-scoped and owned by the VFS
-         * control plane instead of a raw proc_block_by(node) latch.
-         */
-        if(vfs_block(node, VFS_EVT_WR) != 0)
-            return -1;
-    }
+    return total;
 }
 
 int vfs_close_info(int fd) {
@@ -676,44 +681,94 @@ int vfs_dup2(int fd, int to) {
 }
 
 int vfs_open_pipe(int fd[2]) {
-    proto_t out;
-    PF->init(&out);
-    int res = ipc_call(get_vfsd_pid(), VFS_PIPE_OPEN, NULL, &out);
-    if(res == 0) {
-        if(proto_read_int(&out) == 0) {
-            fd[0] = proto_read_int(&out);
-            fd[1] = proto_read_int(&out);
-            int32_t shm_id = proto_read_int(&out);
-            fsinfo_t info;
-            proto_read_to(&out, &info, sizeof(fsinfo_t));
-            fsfile_t* read_end = vfs_set_file(fd[0], &info);
-            fsfile_t* write_end = vfs_set_file(fd[1], &info);
-            if(read_end != NULL) {
-                read_end->flags = O_RDONLY;
-                read_end->fd_flags = FD_CLOEXEC;
-            }
-            if(write_end != NULL) {
-                write_end->flags = O_WRONLY;
-                write_end->fd_flags = FD_CLOEXEC;
-            }
-
-            /* Map shared-memory pipe ring buffer if available */
-            if(shm_id > 0) {
-                shm_pipe_t* ring = (shm_pipe_t*)shmat(shm_id, NULL, 0);
-                if(ring != (void*)-1) {
-                    if(fd[0] >= 0 && fd[0] < MAX_OPEN_FILE_PER_PROC)
-                        _pipe_shm[fd[0]] = ring;
-                    if(fd[1] >= 0 && fd[1] < MAX_OPEN_FILE_PER_PROC)
-                        _pipe_shm[fd[1]] = ring;
-                }
-            }
-        }
-        else {
-            res = -1;
-        }
+    /*
+     * Anonymous pipes live in the standalone pipe driver (piped) mounted at
+     * PIPE_DEV_PATH:
+     *   fd[0] = open(O_RDONLY)          -> piped creates pipe + shm ring
+     *   fd[1] = open(O_WRONLY)          -> unattached write end
+     *   fcntl(PIPE_ATTACH, shm_id)      -> bind write end to the pipe
+     * The open reply carries FS_TYPE_PIPE + the shm id in fsinfo.data, so the
+     * fast path (and post-fork lazy shmat) works from both ends.
+     */
+    fsinfo_t info;
+    if(vfs_get_by_name(PIPE_DEV_PATH, &info) != 0)
+        return -1;
+    int rfd = vfs_open(&info, O_RDONLY);
+    if(rfd < 0)
+        return -1;
+    /* let piped create the pipe + shm ring; persist its reply (FS_TYPE_PIPE +
+     * shm id in fsinfo.data) on the fd side, exactly like _open() does */
+    if(dev_open(info.mount_pid, rfd, &info, O_RDONLY) != 0 ||
+            vfs_set_by_fd(rfd, &info) != 0 ||
+            !FS_IS_TYPE(info.type, FS_TYPE_PIPE) || (int32_t)info.data <= 0) {
+        /* PIPE_DEV_PATH exists but is not piped (machine not wired) */
+        vfs_close(rfd);
+        errno = ENOENT;
+        return -1;
     }
+
+    /* fresh lookup: the read-end open left 'info' pointing at that end's
+     * anonymous node; opening again must create a second node */
+    fsinfo_t winfo;
+    if(vfs_get_by_name(PIPE_DEV_PATH, &winfo) != 0) {
+        vfs_close(rfd);
+        return -1;
+    }
+    int wfd = vfs_open(&winfo, O_WRONLY);
+    if(wfd < 0) {
+        vfs_close(rfd);
+        return -1;
+    }
+    if(dev_open(winfo.mount_pid, wfd, &winfo, O_WRONLY) != 0 ||
+            vfs_set_by_fd(wfd, &winfo) != 0) {
+        vfs_close(wfd);
+        vfs_close(rfd);
+        return -1;
+    }
+
+    proto_t in, out;
+    PF->init(&in)->addi(&in, (int)info.data);
+    PF->init(&out);
+    int res = dev_fcntl(winfo.mount_pid, wfd, &winfo, PIPE_ATTACH, &in, &out);
+    PF->clear(&in);
     PF->clear(&out);
-    return res;
+    if(res != 0) {
+        vfs_close(wfd);
+        vfs_close(rfd);
+        return -1;
+    }
+    /* piped answered with fsinfo.data = shm id; persist on the fd side so
+     * post-fork lazy shmat() works from the write end too */
+    winfo.data = info.data;
+    vfs_set_by_fd(wfd, &winfo);
+
+    fsfile_t* read_end = vfs_get_file(rfd);
+    fsfile_t* write_end = vfs_get_file(wfd);
+    if(read_end != NULL) {
+        read_end->flags = O_RDONLY;
+        read_end->fd_flags = FD_CLOEXEC;
+    }
+    if(write_end != NULL) {
+        write_end->flags = O_WRONLY;
+        write_end->fd_flags = FD_CLOEXEC;
+        /* pipe id for lazy shmat() after fork (dev_fcntl already refreshed
+         * winfo.data; keep the local copy authoritative) */
+        write_end->info.data = info.data;
+    }
+
+    /* Map the shared-memory ring once for both ends */
+    int32_t shm_id = (int32_t)info.data;
+    shm_pipe_t* ring = (shm_pipe_t*)shmat(shm_id, NULL, 0);
+    if(ring != (void*)-1) {
+        if(rfd >= 0 && rfd < MAX_OPEN_FILE_PER_PROC)
+            _pipe_shm[rfd] = ring;
+        if(wfd >= 0 && wfd < MAX_OPEN_FILE_PER_PROC)
+            _pipe_shm[wfd] = ring;
+    }
+
+    fd[0] = rfd;
+    fd[1] = wfd;
+    return 0;
 }
 
 int vfs_get_mount_by_id(int id, mount_t* mount) {
@@ -1123,7 +1178,8 @@ int vfs_flush(int fd, bool wait) {
 }
 
 int vfs_read_pipe(int fd, ewokos_addr_t node, void* buf, uint32_t size, bool block) {
-    int res = read_pipe(fd, node, buf, size, block);
+    (void)node; /* piped pipes block/wake on the ring token, not this fd's node */
+    int res = read_pipe(fd, buf, size, block);
     if(res == 0) { // pipe empty, do retry
         errno = EAGAIN;
         return -1;
@@ -1159,7 +1215,8 @@ int vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size) {
 }
 
 int vfs_write_pipe(int fd, ewokos_addr_t node, const void* buf, uint32_t size, bool block) {
-    int res = write_pipe(fd, node, buf, size, block);
+    (void)node; /* piped pipes block/wake on the ring token, not this fd's node */
+    int res = write_pipe(fd, buf, size, block);
     if(res == 0) { // pipe not empty, do retry
         errno = EAGAIN;
         return -1;
@@ -1347,24 +1404,18 @@ uint32_t  vfs_get_poll_events(int fd) {
     if(vfs_get_by_fd(fd, &info) != 0 || info.node == 0)
         return 0;
 
-    uint32_t sticky = vfs_get_poll_events_by_node(info.node);
     if(FS_IS_TYPE(info.type, FS_TYPE_PIPE)) {
         fsfile_t* file = vfs_get_file(fd);
         shm_pipe_t* ring = NULL;
         if(file != NULL)
             ring = get_pipe_shm(fd, file);
-        if(ring != NULL) {
-            uint32_t live = pipe_live_poll_events(ring);
-            uint32_t sticky_rw = sticky & VFS_EVT_RW;
-            uint32_t live_rw = live & VFS_EVT_RW;
-            uint32_t stale_rw = sticky_rw & ~live_rw;
-            if(stale_rw != 0) {
-                vfs_clear_poll_events(info.node, stale_rw);
-                sticky &= ~stale_rw;
-            }
-            return ((sticky | (live & VFS_EVT_CLOSE)) & ~VFS_EVT_RW) | live_rw;
-        }
+        /* piped pipes are fully described by the ring's live state: vfsd's
+         * sticky node bits are never published for them, so skip that IPC. */
+        if(ring != NULL)
+            return pipe_live_poll_events(ring);
     }
+
+    uint32_t sticky = vfs_get_poll_events_by_node(info.node);
     uint32_t live = 0;
     if(info.mount_pid > 0 && dev_poll(info.mount_pid, fd, &info, &live) == 0) {
         uint32_t live_rw = live & VFS_EVT_RW;
@@ -1388,24 +1439,18 @@ static uint32_t vfs_get_poll_events_cached(int fd, const fsinfo_t* info) {
     if(info == NULL || info->node == 0)
         return 0;
 
-    uint32_t sticky = vfs_get_poll_events_by_node(info->node);
     if(FS_IS_TYPE(info->type, FS_TYPE_PIPE)) {
         fsfile_t* file = vfs_get_file(fd);
         shm_pipe_t* ring = NULL;
         if(file != NULL)
             ring = get_pipe_shm(fd, file);
-        if(ring != NULL) {
-            uint32_t live = pipe_live_poll_events(ring);
-            uint32_t sticky_rw = sticky & VFS_EVT_RW;
-            uint32_t live_rw = live & VFS_EVT_RW;
-            uint32_t stale_rw = sticky_rw & ~live_rw;
-            if(stale_rw != 0) {
-                vfs_clear_poll_events(info->node, stale_rw);
-                sticky &= ~stale_rw;
-            }
-            return ((sticky | (live & VFS_EVT_CLOSE)) & ~VFS_EVT_RW) | live_rw;
-        }
+        /* same as vfs_get_poll_events(): the ring's live state is complete
+         * for piped pipes, no vfsd sticky-bits IPC needed */
+        if(ring != NULL)
+            return pipe_live_poll_events(ring);
     }
+
+    uint32_t sticky = vfs_get_poll_events_by_node(info->node);
     uint32_t live = 0;
     fsinfo_t live_info = *info;
     if(live_info.mount_pid > 0 && dev_poll(live_info.mount_pid, fd, &live_info, &live) == 0) {
@@ -1442,6 +1487,7 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
     while(true) {
         for(int i = 0; i < num; ++i) {
             cache[i].valid = false;
+            cache[i].pipe_wait = false;
             memset(&cache[i].info, 0, sizeof(fsinfo_t));
             if(vfs_get_by_fd(fds[i].fd, &cache[i].info) == 0 &&
                     cache[i].info.node != 0) {
@@ -1480,10 +1526,27 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
             /* Phase 3: Register for wakeup on the single node */
             registered = true;
             for(int i = 0; i < num; ++i) {
-                if(cache[i].valid) {
-                    wait_node = cache[i].info.node;
-                    vfs_block_raw(cache[i].info.node, (int)fds[i].events);
+                if(!cache[i].valid)
+                    continue;
+                fsfile_t* file = vfs_get_file(fds[i].fd);
+                shm_pipe_t* ring = NULL;
+                if(FS_IS_TYPE(cache[i].info.type, FS_TYPE_PIPE) && file != NULL)
+                    ring = get_pipe_shm(fds[i].fd, file);
+                if(ring != NULL) {
+                    /*
+                     * piped pipe fd: park inside piped's waiter table and
+                     * sleep on the pipe token (ring->node_id) — that is the
+                     * token piped's PIPE_EDGE/close wakes fire against. This
+                     * keeps the whole poll wait off vfsd.
+                     */
+                    if(pipe_poll_register(fds[i].fd, file, (uint32_t)fds[i].events) == 0) {
+                        cache[i].pipe_wait = true;
+                        wait_node = (uint32_t)ring->node_id;
+                        continue;
+                    }
                 }
+                wait_node = cache[i].info.node;
+                vfs_block_raw(cache[i].info.node, (int)fds[i].events);
             }
 
             /*
@@ -1590,8 +1653,12 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
      */
     if(registered) {
         for(int i = 0; i < num; ++i) {
-            if(cache != NULL && cache[i].valid)
-                vfs_unblock(cache[i].info.node);
+            if(cache != NULL && cache[i].valid) {
+                if(cache[i].pipe_wait)
+                    pipe_poll_unregister(fds[i].fd, vfs_get_file(fds[i].fd));
+                else
+                    vfs_unblock(cache[i].info.node);
+            }
         }
     }
     free(cache);

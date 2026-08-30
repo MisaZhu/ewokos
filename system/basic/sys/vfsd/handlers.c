@@ -126,20 +126,12 @@ static void do_vfs_new_node(int pid, proto_t* in, proto_t* out) {
     info.node = vfs_get_node_id(node);
     info.mount_pid = -1;
     memcpy(&node->fsinfo, &info, sizeof(fsinfo_t));
-    if(FS_IS_TYPE(info.type, FS_TYPE_PIPE)) {
-        buffer_t* buf = (buffer_t*)malloc(sizeof(buffer_t));
-        memset(buf, 0, sizeof(buffer_t));
-        node->data_ptr = buf;
-        node->shm_ring = NULL;
-        node->fsinfo.data = 0;
-        /*
-         * A freshly created FIFO must advertise its true poll state
-         * immediately (empty buffer => VFS_EVT_WR). Without this a blocking
-         * writer/reader on the named pipe spins forever waiting for an edge
-         * that is only ever asserted from a later pipe read/write/close.
-         */
-        sync_pipe_poll_events(node);
-    }
+    /*
+     * FS_TYPE_PIPE nodes (mkfifo) no longer get any vfsd-side buffer: the
+     * in-vfsd pipe backend has been replaced by the standalone pipe driver
+     * (system/basic/drivers/piped), which only serves anonymous pipes. The
+     * node is still created so paths resolve, but it has no data backend.
+     */
 
     if(node_to != NULL && !vfs_write_over)
         vfs_add_node(pid, node_to, node);
@@ -180,14 +172,6 @@ static void do_vfs_new_nodes(int pid, proto_t* in, proto_t* out) {
         pthread_rwlock_unlock(&_vfs_lock);
         PF->addi(out, EPERM);
         return;
-    }
-
-    //pipes need per-node buffer setup, only plain files/dirs are batchable
-    for(int32_t i=0; i<num; i++) {
-        if(FS_IS_TYPE(infos[i].type, FS_TYPE_PIPE)) {
-            pthread_rwlock_unlock(&_vfs_lock);
-            return;
-        }
     }
 
     uint32_t* ids = (uint32_t*)malloc(sizeof(uint32_t)*num);
@@ -298,9 +282,11 @@ static void do_vfs_close(int32_t pid, proto_t* in) {
 }
 
 /*
- * Same-process dup/dup2: the driver-side notification (vfs_driver_dup) is a
- * no-op for same-process dups, so these handlers never block on a driver -
- * but keep the call outside the lock anyway for the invariant.
+ * Same-process dup/dup2: only pipe fds notify the driver (piped counts
+ * descriptors). The notification is synchronous so the driver ref exists
+ * before the caller can close anything on this pipe; if it fails the new
+ * fd's driver_ref is dropped again to keep exit-time CLOSE accounting
+ * balanced.
  */
 static void do_vfs_dup(int32_t pid, proto_t* in, proto_t* out) {
     int fd = proto_read_int(in);
@@ -326,8 +312,10 @@ static void do_vfs_dup(int32_t pid, proto_t* in, proto_t* out) {
         return;
     }
 
-    if(have_file)
-        vfs_driver_dup(owner, fd, owner, fdto, &dup_file);
+    if(have_file) {
+        if(vfs_driver_dup(owner, fd, owner, fdto, &dup_file) != 0)
+            vfs_clear_fd_driver_ref(owner, fdto, dup_file.node);
+    }
 
     fsinfo_t out_info;
     bool have_info = false;
@@ -350,9 +338,10 @@ static void do_vfs_dup2(int32_t pid, proto_t* in, proto_t* out) {
     file_t dup_file;
     bool have_file = false;
     int32_t owner = -1;
+    driver_close_task_t* pipe_victim = NULL;
 
     pthread_rwlock_wrlock(&_vfs_lock);
-    vfs_node_t* node = vfsd_dup2(pid, fd, fdto);
+    vfs_node_t* node = vfsd_dup2(pid, fd, fdto, &pipe_victim);
     if(node != NULL) {
         owner = vfs_fd_owner_pid(pid);
         file_t* file = vfs_check_fd(pid, fdto);
@@ -363,13 +352,28 @@ static void do_vfs_dup2(int32_t pid, proto_t* in, proto_t* out) {
     }
     pthread_rwlock_unlock(&_vfs_lock);
 
+    /*
+     * A pipe victim is closed synchronously BEFORE the new end's FS_CMD_DUP:
+     * the dup2 overwrite is the one spot where a -1 must land before its
+     * paired +1, otherwise piped's refcount transiently shows an extra live
+     * descriptor. Non-pipe victims stay on the async queue (netd sockets may
+     * stall; dup2 of a socket must not wedge on them).
+     */
+    if(pipe_victim != NULL) {
+        vfs_driver_close(pipe_victim->pid, pipe_victim->owner_pid,
+                pipe_victim->fd, &pipe_victim->file);
+        free(pipe_victim);
+    }
+
     if(node == NULL) {
         PF->addi(out, -1);
         return;
     }
 
-    if(have_file)
-        vfs_driver_dup(owner, fd, owner, fdto, &dup_file);
+    if(have_file) {
+        if(vfs_driver_dup(owner, fd, owner, fdto, &dup_file) != 0)
+            vfs_clear_fd_driver_ref(owner, fdto, dup_file.node);
+    }
 
     fsinfo_t out_info;
     bool have_info = false;
@@ -541,15 +545,9 @@ void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
     case VFS_OPEN:
         do_vfs_open(pid, in, out);
         break;
-    case VFS_PIPE_OPEN:
-        do_vfs_pipe_open(pid, out);
-        break;
-    case VFS_PIPE_WRITE:
-        do_vfs_pipe_write(pid, in, out);
-        break;
-    case VFS_PIPE_READ:
-        do_vfs_pipe_read(pid, in, out);
-        break;
+    /* VFS_PIPE_OPEN/VFS_PIPE_WRITE/VFS_PIPE_READ ids are intentionally kept
+     * unused (no case here): anonymous pipes now live entirely inside the
+     * standalone pipe driver, and reusing the ids would shift the protocol. */
     case VFS_DUP:
         do_vfs_dup(pid, in, out);
         break;
