@@ -481,9 +481,16 @@ static void sys_proc_block(context_t* ctx, ewokos_addr_t token) {
 static void sys_proc_wakeup(context_t* ctx, int32_t pid, ewokos_addr_t token) {
     (void)ctx;
     proc_t* cproc = proc_get_proc(get_current_proc());
-    if(cproc->info.uid > 0)
-        return;
     proc_t* proc = proc_get(pid);
+    /*
+     * Non-root may only wake a same-uid peer (same rule as sys_signal):
+     * the shm-pipe data plane relies on reader/writer waking each other
+     * directly with proc_wakeup_by(), and both ends of a pipe normally
+     * run as the same user. Cross-user wakes stay root-only.
+     */
+    if(cproc->info.uid > 0 &&
+            (proc == NULL || cproc->info.uid != proc->info.uid))
+        return;
     proc_wakeup_by(proc, token);
 }
 
