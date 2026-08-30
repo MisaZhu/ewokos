@@ -175,26 +175,31 @@ void draw_desktop(x_t* x, uint32_t display_index) {
         graph_fill_rect(display->g, 0, 0, display->g->w, display->g->h, 0xff000000);
 }
 
-static void draw_drag_frame(x_t* xp, uint32_t display_index) {
+/*the rect the drag frame outline is drawn at: the window rect without
+  the shadow band, shifted or sized by the drag delta*/
+void get_drag_frame_rect(x_t* x, grect_t* r) {
+    r->x = x->current.win_drag->xinfo->winr.x;
+    r->y = x->current.win_drag->xinfo->winr.y;
+    r->w = x->current.win_drag->xinfo->winr.w - x->config.xwm_theme.shadow;
+    r->h = x->current.win_drag->xinfo->winr.h - x->config.xwm_theme.shadow;
+
+    if(x->current.drag_state == X_win_DRAG_MOVE)  {
+        r->x += x->current.pos_delta.x;
+        r->y += x->current.pos_delta.y;
+    }
+    else if(x->current.drag_state == X_win_DRAG_RESIZE)  {
+        r->w += x->current.pos_delta.x;
+        r->h += x->current.pos_delta.y;
+    }
+}
+
+void draw_drag_frame(x_t* xp, uint32_t display_index) {
     x_display_t *display = &xp->displays[display_index];
     if(display->g == NULL)
         return;
 
-    int x = xp->current.win_drag->xinfo->winr.x;
-    int y = xp->current.win_drag->xinfo->winr.y;
-    int w = xp->current.win_drag->xinfo->winr.w - xp->config.xwm_theme.shadow;
-    int h = xp->current.win_drag->xinfo->winr.h - xp->config.xwm_theme.shadow;
-
-    if(xp->current.drag_state == X_win_DRAG_MOVE)  {
-        x += xp->current.pos_delta.x;
-        y += xp->current.pos_delta.y;
-    }
-    else if(xp->current.drag_state == X_win_DRAG_RESIZE)  {
-        w += xp->current.pos_delta.x;
-        h += xp->current.pos_delta.y;
-    }
-
-    grect_t r = {x, y, w, h};
+    grect_t r;
+    get_drag_frame_rect(xp, &r);
 
     proto_t in;
     PF->format(&in, "i,i,i,m",
@@ -436,17 +441,6 @@ int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
     win->frame_dirty = false;
     win->has_damage = false;
     return 0;
-}
-
-int drag_win(graph_t* disp_g, x_t* x, xwin_t* win) {
-    if(x->current.win_drag == win &&
-            (win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0 &&
-            win->xinfo->state != XWIN_STATE_MAX &&
-            win->xinfo->state != XWIN_STATE_FULL_SCREEN) {
-        draw_drag_frame(x, win->xinfo->display_index);
-        return 0;
-    }
-    return -1;
 }
 
 /*a region was just repainted fresh; where it reaches into the shadow bands

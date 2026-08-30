@@ -204,7 +204,9 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
             x->current.pos_delta.x = mrx;
             x->current.pos_delta.y = mry;
         }
-        x_dirty(x, x->current_display);
+        /*the drag frame is an overlay now: only its old and new outline
+          rects are repainted, the scene underneath stays untouched*/
+        x_repaint_req(x, x->current_display);
         return; //drag win frame, don't push xwin event.
     }
 
@@ -292,6 +294,14 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
         if(ev->state ==  MOUSE_STATE_DOWN)
             x_unfocus(x);
     }
+
+    /*redraw the cursor right away (cheap composite + non-blocking flush)
+      so the pointer tracks at event rate; waiting for the next paced
+      frame would show every move a frame period late. When it is skipped
+      (daemon mid-push / frame flush in flight) cursor_task stays set and
+      the frame path draws it instead.*/
+    if(x_cursor_redraw_now(x, x->current_display))
+        display->cursor_task = false;
 
     return 0;
 }
