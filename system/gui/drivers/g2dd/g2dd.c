@@ -15,6 +15,7 @@
 #include <ewoksys/shm.h>
 #include <sysinfo.h>
 #include <bsp/bsp_g2d.h>
+#include <g2d_arch.h>
 #include <g2dclient/g2dclient.h>
 
 /* stateless g2d service: the driver owns no canvas. every request
@@ -288,16 +289,22 @@ static int32_t g2d_alloc_surface(int32_t w, int32_t h, g2d_attached_t* surf) {
 	return 0;
 }
 
-/* cpu fallback for widths below G2D_PITCH_ALIGN: thin wrapper over the
-   arch back end's scalar blit (arch_g2d_blt_cpu), exact per-pixel
-   access with the same blend math as the simd paths. the back end
-   clips the rect against both canvas bounds. */
+/* cpu fallback for widths below G2D_PITCH_ALIGN: dispatches to the
+   platform arch engine's 1:1 blit (arch_g2d_blt / arch_g2d_blt_alpha,
+   shipped in libgraph.a on every target). the software engine works on
+   the virtual pointers and ignores phy/contig (passed 0 here), and its
+   NEON blocks + scalar/padded tail handle any width, same blend math as
+   the simd paths. the back end clips the rect against both canvas
+   bounds. */
 static int32_t g2d_cpu_blt(uint32_t* dst_buf, int32_t dst_w, int32_t dst_h,
 		int32_t dx, int32_t dy, int32_t w, int32_t h,
 		const uint32_t* src_buf, int32_t src_w, int32_t src_h,
 		int32_t sx, int32_t sy, uint8_t use_alpha, uint8_t alpha) {
-	return bsp_g2d_blt_cpu((uint32_t*)src_buf, src_w, src_h, sx, sy, w, h,
-			dst_buf, dst_w, dst_h, dx, dy, use_alpha, alpha);
+	if(use_alpha != 0)
+		return arch_g2d_blt_alpha((uint32_t*)src_buf, 0, 0, src_w, src_h, sx, sy, w, h,
+				dst_buf, 0, 0, dst_w, dst_h, dx, dy, w, h, alpha);
+	return arch_g2d_blt((uint32_t*)src_buf, 0, 0, src_w, src_h, sx, sy, w, h,
+			dst_buf, 0, 0, dst_w, dst_h, dx, dy, w, h);
 }
 
 /* pitch alignment rule for 1:1 copies: the width is split into an

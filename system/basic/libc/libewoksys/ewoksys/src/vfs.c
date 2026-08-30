@@ -513,11 +513,8 @@ static int read_pipe(int fd, void* buf, uint32_t size, bool block) {
             return n;
         }
         /* Ring empty — check if writer closed */
-        if(__atomic_load_n(&ring->writer_closed, __ATOMIC_ACQUIRE)) {
-            klog("PX: EOF shm=%d fd=%d pid=%d\n",
-                    (int)file->info.data, fd, my_pid);
+        if(__atomic_load_n(&ring->writer_closed, __ATOMIC_ACQUIRE))
             return -1;
-        }
         if(!block)
             return 0;
         /* Register-then-recheck: publish our pid so a writer producing
@@ -553,11 +550,8 @@ static int write_pipe(int fd, const void* buf, uint32_t size, bool block) {
 
     while(total < (int32_t)size) {
         /* Check if reader closed */
-        if(__atomic_load_n(&ring->reader_closed, __ATOMIC_ACQUIRE)) {
-            klog("PX: EPIPE shm=%d fd=%d pid=%d total=%d/%u\n",
-                    (int)file->info.data, fd, my_pid, total, size);
+        if(__atomic_load_n(&ring->reader_closed, __ATOMIC_ACQUIRE))
             return total > 0 ? total : -1;
-        }
 
         int32_t was_readable = shm_pipe_readable(ring);
         int32_t n = shm_pipe_write(ring, p + total, (int32_t)size - total);

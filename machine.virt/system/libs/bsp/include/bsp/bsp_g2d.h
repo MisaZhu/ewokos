@@ -31,15 +31,6 @@ int32_t bsp_g2d_blt_alpha(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src
 			uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h,
 			int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha);
 
-/* scalar cpu 1:1 copy or blend of a sub-rect, clipped against both
-   buffer bounds: exact per-pixel access, no alignment/contiguity/simd
-   requirements. use_alpha == 0 is a plain copy; otherwise the same
-   blend math as bsp_g2d_blt_alpha. */
-int32_t bsp_g2d_blt_cpu(uint32_t* argb_src, int32_t src_w, int32_t src_h,
-			int32_t sx, int32_t sy, int32_t sw, int32_t sh,
-			uint32_t* argb_dst, int32_t dst_w, int32_t dst_h,
-			int32_t dx, int32_t dy, uint8_t use_alpha, uint8_t alpha);
-
 int32_t bsp_g2d_scale_to(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
 			uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h);
 

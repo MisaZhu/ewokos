@@ -2146,20 +2146,22 @@ proc_t* proc_ipc_pool_spawn(proc_t* serv_proc, uint32_t core) {
         return NULL;
     }
 
+    /*
+     * Pin the worker to the requesting client's core so the request is
+     * served where the client runs. A request NEVER crosses cores, so
+     * there is no load-balanced attach fallback: an out-of-range core
+     * fails the spawn (cannot happen for a running client).
+     */
+    if(core >= _sys_info.cores) {
+        proc_terminate(NULL, worker);
+        return NULL;
+    }
+    worker->info.core = core;
+
     worker->ctx.pc = server->entry;
     worker->ctx.lr = server->entry;
     worker->ctx.gpr[1] = server->extra_data;
     /* gpr[0] (ipc uid) and sp are (re)set per request at assignment time */
-
-    /*
-     * Pin the worker to the requesting client's core so the request is
-     * served where the client runs; only an out-of-range core falls back
-     * to the load-balanced attach.
-     */
-    if(core < _sys_info.cores)
-        worker->info.core = core;
-    else
-        core_attach(worker);
     worker->info.state = BLOCK; //parked until a request is assigned
     return worker;
 }
@@ -2255,6 +2257,15 @@ void proc_ipc_pool_park(context_t* ctx, proc_t* worker, proc_t* serv_proc, proc_
     }
     proc_ipc_server_unlock(server);
     if(quitting) {
+        /*
+         * This member's pool slot (and, via the funeral, its thread
+         * stack) is about to free up - a client parked on the server
+         * wait queue because its own core had no worker may now be able
+         * to grow one there. Requests never cross cores, so without
+         * this kick such a waiter would sit until a foreign-core park
+         * happened to wake it.
+         */
+        proc_ipc_wakeup(serv_proc);
         proc_exit(ctx, worker, 0); //never returns
         return;
     }

@@ -1761,67 +1761,6 @@ int32_t arch_g2d_rotate(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_c
 
 #endif /* ARCH_BOOST */
 
-/* cpu back end for sub-alignment tails and narrow copies: scalar 1:1
-   copy or blend with exact per-pixel access, no alignment, contiguity
-   or simd requirements. the 1:1 rect is clipped against both buffer
-   bounds first (callers hand in unclipped window rects: a row that
-   overruns the right edge would otherwise wrap into the left edge of
-   the next row). use_alpha == 0 is a plain copy; otherwise the same
-   math as the simd paths (effective alpha (src_a * alpha) >> 8, then
-   the /255 blend). */
-int32_t arch_g2d_blt_cpu(uint32_t* argb_src, int32_t src_w, int32_t src_h,
-		int32_t sx, int32_t sy, int32_t sw, int32_t sh,
-		uint32_t* argb_dst, int32_t dst_w, int32_t dst_h,
-		int32_t dx, int32_t dy, uint8_t use_alpha, uint8_t alpha) {
-	if(argb_src == NULL || argb_dst == NULL || sw <= 0 || sh <= 0)
-		return 0;
-	if(use_alpha != 0 && alpha == 0)
-		return 0;
-
-	/* 1:1 mapping: cutting one side shifts the other surface's origin by
-	   the same delta, cutting right/bottom just shrinks the size */
-	if(dx < 0) { sx -= dx; sw += dx; dx = 0; }
-	if(dy < 0) { sy -= dy; sh += dy; dy = 0; }
-	if(sx < 0) { dx -= sx; sw += sx; sx = 0; }
-	if(sy < 0) { dy -= sy; sh += sy; sy = 0; }
-	if(sx + sw > src_w) sw = src_w - sx;
-	if(sy + sh > src_h) sh = src_h - sy;
-	if(dx + sw > dst_w) sw = dst_w - dx;
-	if(dy + sh > dst_h) sh = dst_h - dy;
-	if(sw <= 0 || sh <= 0)
-		return 0;
-
-	for(int32_t row = 0; row < sh; row++) {
-		const uint32_t* sp = argb_src + (sy + row) * src_w + sx;
-		uint32_t* dp = argb_dst + (dy + row) * dst_w + dx;
-
-		if(use_alpha == 0) {
-			memcpy(dp, sp, (size_t)sw * sizeof(uint32_t));
-			continue;
-		}
-		for(int32_t col = 0; col < sw; col++) {
-			uint32_t color = sp[col];
-			uint32_t src_a = (color >> 24) & 0xff;
-			uint8_t sa;
-
-			if(src_a == 0)
-				continue;
-			sa = (uint8_t)((alpha == 0xff) ? src_a : (src_a * alpha) >> 8);
-			if(sa == 0)
-				continue;
-			if(sa == 0xff) {
-				dp[col] = color;
-				continue;
-			}
-			dp[col] = g2d_blend_argb_scalar(dp[col], sa,
-					(uint8_t)((color >> 16) & 0xff),
-					(uint8_t)((color >> 8) & 0xff),
-					(uint8_t)(color & 0xff));
-		}
-	}
-	return 0;
-}
-
 #ifndef ARCH_BOOST
 /* cpu back end for alpha fills: blend a solid color over a sub-rect,
    clipped to the buffer bounds, exact per-pixel access with the same

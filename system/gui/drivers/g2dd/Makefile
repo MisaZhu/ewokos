@@ -6,7 +6,8 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 
 LDFLAGS = -L $(BUILD_DIR)/lib
 
-CFLAGS += -I $(BUILD_DIR)/include
+CFLAGS += -I $(BUILD_DIR)/include \
+	-I $(SYS_DIR)/platform/$(ARCH)/include/$(ARCH)
 
 G2DD_OBJS = $(ARCH)/g2dd.o
 

@@ -12,13 +12,14 @@ PIPED_OBJS = $(ARCH)/piped.o
 
 PIPED = $(TARGET_DIR)/drivers/piped
 
-$(ARCH)/piped.o: piped.c piped.h
-	$(CC) $(CFLAGS) -c piped.c -o $@
-
 $(PIPED): $(PIPED_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a 
 	mkdir -p $(TARGET_DIR)/drivers/
 	$(LD) -Ttext=100 $(PIPED_OBJS) -o $(PIPED) $(LDFLAGS) $(EWOK_LIBC)
+
+$(ARCH)/piped.o: piped.c piped.h
+	@mkdir -p $(ARCH)
+	$(CC) $(CFLAGS) -c piped.c -o $@
 
 clean:
 	rm -f $(PIPED_OBJS)
