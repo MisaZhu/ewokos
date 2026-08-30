@@ -156,7 +156,9 @@ Return codes of `SYS_IPC_CALL`: positive = ipc `uid`;
 `IPC_ERROR_RETRY (-1)` = server busy/unavailable: task-slot exhaustion,
 the disabled state, and an all-busy `IPC_MULTI_TASK` pool still park the
 client in the kernel, while a busy per-core pool worker
-(`IPC_MULTI_CORE` mode) is returned to userspace, which retries;
+(`IPC_MULTI_CORE` mode) — and, under `IPC_MULTI_TASK`, a requester that
+already owns an in-flight task on the server — is returned to userspace,
+which retries;
 `IPC_ERROR_SELF (-2)` = self-call, `IPC_ERROR_NO_READY (-3)` =
 no such server / service not set up.
 
@@ -379,7 +381,12 @@ design:
   limited to one member per core; it grows on demand up to the proc's
   thread limit. Only when every member is busy AND no new worker can be
   spawned does the client park on the server wait queue until a worker
-  parks (`proc_ipc_wait_pool`).
+  parks (`proc_ipc_wait_pool`). Growth is throttled per requester: a
+  client that already owns an in-flight task on this server never
+  spawns a new worker for its next request (a parked member may still
+  be reused) — when no member is idle it gets `IPC_ERROR_RETRY` and
+  waits by retrying from userspace, exactly like the `IPC_MULTI_CORE`
+  busy path, so a single requester cannot pile up workers.
 
 `pool_num` is sized by mode: `_kernel_config.max_task_per_proc` for
 `IPC_MULTI_TASK` (a generous registration budget for concurrent
@@ -491,7 +498,9 @@ Notable details:
   blocks the client on the server wait queue, re-validating the server
   (pid+uuid) after every wake because the server may have exited
   meanwhile; a busy pool worker is handled per mode — `IPC_MULTI_TASK`
-  parks the client on the same wait queue until a worker parks, while
+  parks the client on the same wait queue until a worker parks (unless
+  the requester already owns an in-flight task there: then it gets
+  `IPC_ERROR_RETRY` like `IPC_MULTI_CORE`), while
   `IPC_MULTI_CORE` releases the attempt's task slot and returns
   `IPC_ERROR_RETRY` to userspace;
 - completion goes through `proc_ipc_finish_task()`, which claims the

@@ -119,11 +119,17 @@ void vfs_fill_node_fsinfo(vfs_node_t* node, fsinfo_t* out) {
 /*
  * Fill a fsinfo snapshot of an open fd. Replaces the old static-buffer
  * gen_file_fsinfo(). caller must hold _vfs_lock (read or write).
+ *
+ * The fd-side type comes from file->fsinfo, NOT the node: drivers advertise
+ * a per-fd type through VFS_SET_BY_FD after open (piped: FS_TYPE_PIPE on an
+ * anonymous CHAR node). It is initialized from the node type at open/dup, so
+ * for every other device it stays identical to node->fsinfo.type.
  */
 int32_t vfs_fill_file_fsinfo(file_t* file, fsinfo_t* out) {
     if(file == NULL || file->node == NULL || out == NULL)
         return -1;
     memcpy(out, &file->node->fsinfo, sizeof(fsinfo_t));
+    out->type = file->fsinfo.type;
     out->data = file->fsinfo.data;
     out->node = vfs_get_node_id(file->node);
     out->mount_pid = get_mount_pid(file->node);
@@ -176,8 +182,12 @@ vfs_node_t* vfsd_dup(int32_t pid, int32_t from, int32_t *ret) {
 
     memcpy(f_to, f, sizeof(file_t));
     /* Same-process dup() never sends FS_CMD_DUP, so the new fd owns no
-     * driver-side reference; the surviving source fd keeps it. */
-    f_to->driver_ref = 0;
+     * driver-side reference; the surviving source fd keeps it.
+     * Pipes are the exception: piped counts descriptors, and the dup'd end
+     * can outlive its source (dup2(pipe,1); close(pipe)) — without its own
+     * ref the pipe end would be declared closed while the dup'd descriptor
+     * is still open. vfs_driver_dup() below ships the matching FS_CMD_DUP. */
+    f_to->driver_ref = FS_IS_TYPE(f->fsinfo.type, FS_TYPE_PIPE) ? 1 : 0;
     f->node->refs++;
     if((f->flags & (O_WRONLY | O_RDWR)) != 0)
         f->node->refs_w++;
@@ -185,8 +195,14 @@ vfs_node_t* vfsd_dup(int32_t pid, int32_t from, int32_t *ret) {
     return f_to->node;
 }
 
-/* caller must hold _vfs_lock (write) */
-vfs_node_t* vfsd_dup2(int32_t pid, int32_t from, int32_t to) {
+/* caller must hold _vfs_lock (write).
+ * pipe_victim: optional out-param. When the overwritten fd is a pipe end,
+ * its driver close task is handed back instead of queued — the handler
+ * ships it synchronously before the new end's FS_CMD_DUP so piped never
+ * observes the +1 before the paired -1. NULL for non-pipe victims (they
+ * keep the async queue). */
+vfs_node_t* vfsd_dup2(int32_t pid, int32_t from, int32_t to,
+        driver_close_task_t** pipe_victim) {
     int32_t owner = vfs_fd_owner_pid(pid);
     file_t* f = vfs_check_fd(owner, from);
     if(f == NULL)
@@ -206,11 +222,11 @@ vfs_node_t* vfsd_dup2(int32_t pid, int32_t from, int32_t to) {
      * chance to close() the overwritten file, so unlike the explicit
      * vfsd_close() path (where libc notifies the driver first), no
      * FS_CMD_CLOSE reaches the driver for the old target. If it owned
-     * a driver-side reference (driver_ref=1), return it through the
-     * deferred close queue now — otherwise the driver's per-fd ref
-     * leaks. A telnet shell's pipeline child dup2()ing a pipe over its
-     * inherited socket fd 0 (driver_ref=1 from fork) leaked the netd
-     * connection ref, keeping the connection task alive after exit.
+     * a driver-side reference (driver_ref=1), return it now — otherwise
+     * the driver's per-fd ref leaks. A telnet shell's pipeline child
+     * dup2()ing a pipe over its inherited socket fd 0 (driver_ref=1 from
+     * fork) leaked the netd connection ref, keeping the connection task
+     * alive after exit.
      */
     file_t* f_old = vfs_get_file(owner, to);
     if(f_old != NULL && f_old->node != NULL) {
@@ -228,7 +244,13 @@ vfs_node_t* vfsd_dup2(int32_t pid, int32_t from, int32_t to) {
                 task->owner_pid = owner;
                 task->fd = to;
                 task->file = *f_old;
-                enqueue_driver_close_task(task);
+                if(FS_IS_TYPE(f_old->fsinfo.type, FS_TYPE_PIPE) &&
+                        pipe_victim != NULL) {
+                    task->job_type = DRIVER_ASYNC_JOB_CLOSE;
+                    *pipe_victim = task;
+                } else {
+                    enqueue_driver_close_task(task);
+                }
             }
         }
     }
@@ -239,12 +261,30 @@ vfs_node_t* vfsd_dup2(int32_t pid, int32_t from, int32_t to) {
 
     memcpy(f_to, f, sizeof(file_t));
     /* Same-process dup2() never sends FS_CMD_DUP, so the new fd owns no
-     * driver-side reference; the surviving source fd keeps it. */
-    f_to->driver_ref = 0;
+     * driver-side reference; the surviving source fd keeps it.
+     * Pipes excepted — see vfsd_dup() above. */
+    f_to->driver_ref = FS_IS_TYPE(f->fsinfo.type, FS_TYPE_PIPE) ? 1 : 0;
     f->node->refs++;
     if((f->flags & (O_WRONLY | O_RDWR)) != 0)
         f->node->refs_w++;
     return f->node;
+}
+
+/*
+ * Undo the driver_ref mark when the matching FS_CMD_DUP never reached the
+ * driver: without this, clear_zombie() would ship an unmatched FS_CMD_CLOSE
+ * at exit and drive piped's descriptor refcount below the true count.
+ * 'node' re-validates the slot: the fd may have been closed/reused between
+ * the failed dup and this call. Must be called with NO _vfs_lock held.
+ */
+void vfs_clear_fd_driver_ref(int32_t pid, int32_t fd, const vfs_node_t* node) {
+    if(pid < 0 || fd < 0 || fd >= MAX_OPEN_FILE_PER_PROC || node == NULL)
+        return;
+    pthread_rwlock_wrlock(&_vfs_lock);
+    file_t* f = vfs_get_file(pid, fd);
+    if(f != NULL && f->node == node)
+        f->driver_ref = 0;
+    pthread_rwlock_unlock(&_vfs_lock);
 }
 
 /*

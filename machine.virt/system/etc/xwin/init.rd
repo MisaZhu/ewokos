@@ -53,6 +53,7 @@
 @/bin/ipcserv /drivers/nulld           /dev/null
 
 @/bin/splash -m "mount /tmp" -p 74
+@/bin/ipcserv /drivers/piped           /dev/pipe0
 @/bin/ipcserv /drivers/ramfsd          /tmp
 
 @/bin/splash -m "mount /mnt/share" -p 78

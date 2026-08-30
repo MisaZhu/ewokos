@@ -165,6 +165,34 @@ static bool x_is_hide_cursor_on_win(x_t* x) {
     return true;
 }
 
+/*immediate cursor redraw for input latency: composites just the cursor
+  into the scan-out buffer and posts a non-blocking dirty flush, so a
+  mouse move shows up at event rate instead of one paced frame late.
+  Runs inside the input IPC handler (the main context is borrowed), so it
+  must never block and must never touch the buffer or the ctrl dirty list
+  while a push/flush is in flight - skipped then, and the frame path
+  retries it via display->cursor_task.*/
+bool x_cursor_redraw_now(x_t* x, uint32_t display_index) {
+    x_display_t* display = &x->displays[display_index];
+    if(!display->active || display->g == NULL ||
+            display->flush_inflight ||
+            display_busy(&display->display))
+        return false;
+    if((!x->show_cursor && !x->mouse_state.busy) ||
+            x->current_display != display_index ||
+            x_is_hide_cursor_on_win(x))
+        return false;
+
+    grect_t dirty[2];
+    x_get_cursor_rect(x, &dirty[0], true);
+    hide_cursor(x);
+    x_get_cursor_rect(x, &dirty[1], false);
+    refresh_cursor(x);
+    display_set_dirty(&display->display, dirty, 2);
+    display_flush(&display->display, false);
+    return true;
+}
+
 #define X_WAIT_READY_MAX 4
 
 void x_repaint(x_t* x, uint32_t display_index) {
@@ -212,6 +240,21 @@ void x_repaint(x_t* x, uint32_t display_index) {
         }
     }
 
+    /*erase the last drag outline by putting the saved scene band back; a
+      full repaint rewrites that area anyway, so there the stale band is
+      just dropped. Either way the outline is off the screen after this.*/
+    if(x->current.drag_band_valid && x->current.drag_display == display_index) {
+        if(!display->dirty) {
+            graph_blt(x->current.drag_band, 0, 0,
+                    x->current.drag_rect.w, x->current.drag_rect.h,
+                    display->g, x->current.drag_rect.x, x->current.drag_rect.y,
+                    x->current.drag_rect.w, x->current.drag_rect.h);
+            x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &x->current.drag_rect);
+            do_flush = true;
+        }
+        x->current.drag_band_valid = false;
+    }
+
     if(display->dirty) {
         /* skip desktop drawing if fully covered by an opaque window
            (e.g. fullscreen window on top) */
@@ -254,14 +297,57 @@ void x_repaint(x_t* x, uint32_t display_index) {
                         x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &win_dirty);
                         do_flush = true;
                     }
-                    if(drag_win(display->g, x, win) == 0) {
-                        x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &display->desktop_rect);
-                        do_flush = true;
-                    }
                 }
             }
         }
         win = win->next;
+    }
+
+    /*draw the drag frame as an overlay: save the scene band under the new
+      outline rect, then let the xwm draw the outline into it. Only the
+      old and new outline rects get flushed, so a drag step costs two band
+      blits plus a small push instead of a whole-display repaint.*/
+    if(x->current.win_drag != NULL && x->current.drag_state != 0 &&
+            x->current.win_drag->xinfo->display_index == display_index) {
+        grect_t r;
+        get_drag_frame_rect(x, &r);
+        /*the xwm draws the outline frameW pixels OUTSIDE the given rect
+          (graph_frame at r inflated by frameW), so the band and the dirty
+          region have to cover the inflated outline, or that outer ring is
+          never restored and the frame trails*/
+        int32_t wd = x->config.xwm_theme.frameW;
+        if(wd <= 0)
+            wd = 2;
+        r.x -= wd;
+        r.y -= wd;
+        r.w += wd * 2;
+        r.h += wd * 2;
+        if(rect_clip_to_graph(display->g, &r) && r.w > 0 && r.h > 0) {
+            if(x->current.drag_band == NULL ||
+                    x->current.drag_band->w != r.w ||
+                    x->current.drag_band->h != r.h) {
+                if(x->current.drag_band != NULL)
+                    graph_free(x->current.drag_band);
+                x->current.drag_band = graph_new(NULL, r.w, r.h);
+            }
+            if(x->current.drag_band != NULL) {
+                graph_blt(display->g, r.x, r.y, r.w, r.h,
+                        x->current.drag_band, 0, 0, r.w, r.h);
+                x->current.drag_rect = r;
+                x->current.drag_display = display_index;
+                x->current.drag_band_valid = true;
+                draw_drag_frame(x, display_index);
+                x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &r);
+                do_flush = true;
+            }
+        }
+    }
+    else if(x->current.drag_band != NULL &&
+            x->current.drag_display == display_index) {
+        /*the drag ended; the erase above already restored the scene*/
+        graph_free(x->current.drag_band);
+        x->current.drag_band = NULL;
+        x->current.drag_band_valid = false;
     }
 
     if(x->current_display == display_index) {
@@ -288,6 +374,13 @@ void x_repaint(x_t* x, uint32_t display_index) {
         grect_t display_dirty[DISPLAY_DIRTY_MAX];
         uint32_t display_num = pack_dirty_rects(dirty_rects, dirty_num, display_dirty, DISPLAY_DIRTY_MAX);
         display_set_dirty(&display->display, display_dirty, display_num);
+        /*the ctrl dirty list is a single slot owned by this frame until the
+          flush lands: between this write and the flush completion the input
+          handler's fast cursor flush must stay out of it (and out of the
+          scan-out buffer), or the daemon would push the cursor rects
+          instead of the frame rects - the erased drag outline then never
+          reaches the panel and trails*/
+        display->flush_inflight = true;
         /*defer the flush IPC until after ipc_enable() to keep the
           ipc_disable() critical section as tight as possible*/
         display->pending_flush = true;

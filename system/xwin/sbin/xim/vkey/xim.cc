@@ -360,6 +360,9 @@ protected:
 		xevent_t ev;
 		ev.type = XEVT_IM;
 		ev.value.im.value = c;
+		ev.value.im.key_code = c;
+		ev.value.im.shift = 0;
+		ev.value.im.ctrl = 0;
 		ev.state = XIM_STATE_PRESS;
 
 		proto_t in;

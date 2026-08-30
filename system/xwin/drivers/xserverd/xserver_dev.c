@@ -210,6 +210,10 @@ int xserver_win_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fsinf
     return 0;
 }
 
+/*pacing quantum while a window drag is active: drag feedback tracks the
+  pointer at ~125Hz instead of the configured frame fps*/
+#define X_DRAG_STEP_MS 8
+
 int xserver_step(vdevice_t* dev, void* p) {
     (void)dev;
     x_t* x = (x_t*)p;
@@ -259,14 +263,27 @@ int xserver_step(vdevice_t* dev, void* p) {
         if(!display->active)
             continue;
         if(display->pending_flush) {
+            /*inbound IPC is enabled here, so the input handler can run
+              while this waits on the daemon: the fast cursor redraw must
+              stay out of the scan-out buffer and the ctrl dirty list for
+              that window*/
+            display->flush_inflight = true;
             display_flush(&display->display, true);
-            x->displays[i].pending_flush = false;
+            display->flush_inflight = false;
+            display->pending_flush = false;
         }
     }
 
+    /*a window drag tracks the pointer: pace tighter than the frame fps
+      while one is active, so the drag frame doesn't lag a whole frame
+      period behind*/
+    uint32_t quantum = tm;
+    if(x->current.win_drag != NULL && x->current.drag_state != 0)
+        quantum = X_DRAG_STEP_MS;
+
     uint32_t gap = (uint32_t)(kernel_tic_ms(0) - tik);
-    if(gap < tm) {
-        gap = tm - gap;
+    if(gap < quantum) {
+        gap = quantum - gap;
         proc_usleep(gap*1000);
     }
     return 0;

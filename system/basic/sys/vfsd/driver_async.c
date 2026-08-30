@@ -61,10 +61,12 @@ void start_driver_async_worker(void) {
 }
 
 /*
- * Outbound FS_CMD_CLOSE: only ever called from the async driver worker
- * thread, which holds NO vfsd locks (see lock rules in vfsd.h).
+ * Outbound FS_CMD_CLOSE. Normally only ever called from the async driver
+ * worker thread; the dup2 pipe-victim path calls it directly from a handler
+ * UNLOCKED phase to keep the -1 ahead of the paired FS_CMD_DUP. Never call
+ * while _vfs_lock is held (see lock rules in vfsd.h).
  */
-static void vfs_driver_close(int32_t pid, int32_t owner_pid, int32_t fd, file_t* file) {
+void vfs_driver_close(int32_t pid, int32_t owner_pid, int32_t fd, file_t* file) {
     if(file == NULL)
         return;
     uint32_t type = FS_BASE_TYPE(file->fsinfo.type);
@@ -135,24 +137,16 @@ int vfs_driver_dup_now(int32_t mount_pid, int32_t from_pid, int32_t from_fd,
         return 0;
 
     /*
-     * Same-process dup2() only needs the new fd to resolve to the same device
-     * state as an existing live fd in that process. Let the device-side cache
-     * lazily clone from the surviving source fd on first access instead of
-     * synchronously round-tripping through FS_CMD_DUP while we are still inside
-     * the VFS_DUP2 IPC handler.
-     */
-    if(from_pid == dup_pid)
-        return 0;
-
-    /*
-     * Cross-process fork/clone is different from same-process dup2(): the
-     * parent is free to close the source fd before the child performs its
-     * first device I/O. Anonymous device nodes (for example accepted netd
-     * sockets) keep their live per-fd runtime object behind fsinfo.data, so
-     * a lazy first-access clone lets the parent's early close reap that
-     * runtime object before the child-side cache exists. Send FS_CMD_DUP
-     * eagerly here so the driver has established the child reference before
-     * fork returns to user space.
+     * Whether a same-process dup still needs this round trip is decided by
+     * the caller (vfs_driver_dup): most devices let the device-side cache
+     * lazily clone from the surviving source fd on first access, but piped
+     * counts descriptors and must see every dup. Cross-process fork/clone
+     * always ships: the parent is free to close the source fd before the
+     * child performs its first device I/O, and anonymous device nodes (for
+     * example accepted netd sockets) keep their live per-fd runtime object
+     * behind fsinfo.data — a lazy first-access clone would let the parent's
+     * early close reap that runtime object before the child-side cache
+     * exists.
      */
 
     proto_t in;
@@ -374,39 +368,31 @@ static void driver_async_process_dup_job(driver_dup_job_t* job) {
 }
 
 /*
- * Notify the mount driver of a cross-process fd inheritance. May sleep on
- * the dup-wait budget and (fallback path) issue IPC, so it must be called
- * with NO _vfs_lock held. Same-process dups are a no-op here.
+ * Notify the mount driver of a same-process dup/dup2 (VFS_DUP/VFS_DUP2
+ * handlers). Must be called with NO _vfs_lock held.
+ *
+ * Only pipes need this: piped refcounts descriptors to derive reader/writer
+ * closed, and a dup'd pipe end routinely outlives its source fd (shell
+ * pipelines do dup2(pipe,0/1) then close the original). Every other device
+ * keeps the lazy first-access clone design — no round trip here.
+ *
+ * The round trip is synchronous by design and must stay that way: piped's
+ * refcount only stays consistent if the +1 lands before the caller can
+ * issue any further close on this pipe (libc sends FS_CMD_CLOSE directly
+ * from user space, bypassing every vfsd queue). Returns non-zero if the
+ * driver never got the +1; the caller then drops driver_ref on the new fd
+ * so exit cleanup does not ship an unmatched CLOSE.
  */
-void vfs_driver_dup(int32_t from_pid, int32_t from_fd,
+int vfs_driver_dup(int32_t from_pid, int32_t from_fd,
         int32_t dup_pid, int32_t dup_fd, file_t* file) {
-    uint32_t type;
-    bool anonymous;
-    int32_t mount_pid;
-
     if(file == NULL || file->node == NULL)
-        return;
-
-    type = FS_BASE_TYPE(file->fsinfo.type);
-    anonymous = FS_IS_ANONYMOUS(file->fsinfo.type);
-    if(type == FS_TYPE_FILE || type == FS_TYPE_DIR || type == FS_TYPE_LINK)
-        return;
-    if(anonymous)
-        return;
-
-    if(from_pid == dup_pid)
-        return;
-
-    mount_pid = file->fsinfo.mount_pid;
-    clone_dup_ctx_t* ctx = clone_dup_ctx_create();
-    if(ctx == NULL ||
-            !queue_driver_dup_job(ctx, mount_pid, from_pid, from_fd, dup_pid, dup_fd, file)) {
-        clone_dup_ctx_unref(ctx);
-        vfs_driver_dup_now(mount_pid, from_pid, from_fd, dup_pid, dup_fd, file);
-        return;
-    }
-    clone_dup_ctx_wait(ctx, mount_pid);
-    clone_dup_ctx_unref(ctx);
+        return 0;
+    if(!FS_IS_TYPE(file->fsinfo.type, FS_TYPE_PIPE))
+        return 0;
+    if(file->fsinfo.mount_pid <= 0)
+        return 0;
+    return vfs_driver_dup_now(file->fsinfo.mount_pid, from_pid, from_fd,
+            dup_pid, dup_fd, file);
 }
 
 /* ---- directory kids lazy loading ---- */

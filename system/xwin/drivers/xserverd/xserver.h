@@ -86,6 +86,13 @@ typedef struct {
 	gpos_t old_pos;
 	gpos_t pos_delta;
 	uint32_t drag_state;
+	/*drag frame overlay: the scene pixels under the last-drawn outline,
+	  so moving the outline restores the scene from the band instead of
+	  repainting the whole display for every drag step*/
+	graph_t* drag_band;
+	grect_t drag_rect;      //where drag_band was taken from (clipped)
+	int32_t drag_display;   //display the band belongs to
+	bool drag_band_valid;   //the outline is on screen at drag_rect
 } x_current_t;
 
 typedef struct {
@@ -109,6 +116,12 @@ typedef struct {
 	bool cursor_task;
 	bool need_repaint;
 	bool pending_flush; //flush is issued outside the ipc_disable() section
+	/*a frame owns the ctrl dirty list and the scan-out buffer from its
+	  display_set_dirty() until its flush lands: the input handler's
+	  fast cursor redraw must stay out for that whole window, or it
+	  would overwrite the frame's dirty rects before the daemon reads
+	  them*/
+	bool flush_inflight;
 	uint32_t wait_ready; //frames spent waiting for the windows to get ready
 
 	bool active;

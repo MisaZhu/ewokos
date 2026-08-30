@@ -1892,7 +1892,17 @@ static void proc_wakeup_all_state(proc_t* proc) {
      */
     bool push_head = (proc->space->interrupt.state == INTR_STATE_START);
     proc_ready_with_order(proc, push_head);
-    proc->space->ipc_server.saved_state.state = READY;
+    /*
+     * An ipc dispatch wake (do_switch armed by proc_ipc_do_task right
+     * before the server is woken) borrows the main context only for the
+     * handler: the saved main-loop state - a SLEEPING state included,
+     * with its remaining sleep_counter - must survive so SYS_IPC_END can
+     * restore it and the server resumes its interrupted usleep instead of
+     * having every request cut the sleep short. A wake with no dispatch
+     * pending is a real event and still cancels the saved sleep.
+     */
+    if(!proc->space->ipc_server.do_switch)
+        proc->space->ipc_server.saved_state.state = READY;
     proc->space->signal.saved_state.state = READY;
     proc->space->interrupt.saved_state.state = READY;
 }

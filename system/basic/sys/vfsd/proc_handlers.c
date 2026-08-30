@@ -64,7 +64,19 @@ void do_vfs_proc_clone(int32_t pid, proto_t* in) {
             if(needs_driver_dup) {
                 bool queued = false;
 
-                if(dup_ctx != NULL) {
+                /*
+                 * Pipes never take the async dup queue: piped derives
+                 * reader/writer-closed from its descriptor refcount, and an
+                 * inherited pipe end must be counted BEFORE fork returns.
+                 * A queued +1 races the fast direct FS_CMD_CLOSE that libc
+                 * sends from any process (shell closing its pipe fds, a
+                 * quick child exiting); the transient zero marks the pipe
+                 * closed while descriptors are still alive and writers get
+                 * EPIPE / readers EOF mid-pipeline. The sync fallback below
+                 * completes before the parent leaves VFS_PROC_CLONE.
+                 */
+                if(dup_ctx != NULL &&
+                        !FS_IS_TYPE(f->fsinfo.type, FS_TYPE_PIPE)) {
                     queued = queue_driver_dup_job(dup_ctx, file->fsinfo.mount_pid,
                             fpid, i, cpid, i, file);
                 }
@@ -108,6 +120,17 @@ void do_vfs_proc_clone(int32_t pid, proto_t* in) {
         if(vfs_driver_dup_now(mount_pid, fpid, fd_i, cpid, fd_i, &snapshot) != 0) {
             klog("vfsd: driver dup failed mount=%d from=%d:%d dup=%d:%d node=%u\n",
                     mount_pid, fpid, fd_i, cpid, fd_i, snapshot.fsinfo.node);
+            /*
+             * The +1 never reached the driver: drop the driver_ref mark so
+             * clear_zombie() does not ship an unmatched FS_CMD_CLOSE at exit
+             * (that would drive piped's refcount below the true descriptor
+             * count and close a pipe some other holder still uses).
+             */
+            pthread_rwlock_wrlock(&_vfs_lock);
+            file_t* recheck = vfs_get_file(cpid, fd_i);
+            if(recheck != NULL && recheck->node == snapshot.node)
+                recheck->driver_ref = 0;
+            pthread_rwlock_unlock(&_vfs_lock);
         }
     }
 
@@ -153,9 +176,9 @@ void do_vfs_block(int32_t pid, proto_t* in) {
      * Skipping registration here ("event already pending, client will see
      * it") races with third parties clearing node->events between this
      * handler returning and the client's re-check in vfs_block():
-     * sync_pipe_poll_events() recomputes RD/WR on every pipe op, and older
-     * userspace/device paths may still consume sticky bits between the
-     * registration IPC and the caller's post-register visibility check. If
+     * device drivers and other userspace/device paths may consume sticky
+     * bits between the registration IPC and the caller's post-register
+     * visibility check. If
      * the bit vanishes in that window the client blocks while
      * registered on NO queue and nobody ever wakes it - the "unrelated
      * process hangs forever" failure mode. Registering unconditionally is
