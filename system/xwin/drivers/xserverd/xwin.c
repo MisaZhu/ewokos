@@ -402,7 +402,13 @@ void check_wins(x_t* x) {
     while(w != NULL) {
         xwin_t* p = w->prev;
         if(w->from_main_pid < 0 || proc_check_uuid(w->from_main_pid, w->from_main_pid_uuid) != w->from_main_pid_uuid) {
+            /*the owner died without closing its fd: mirror the close path
+              and drop its event pool + anonymous vfs node too, otherwise
+              both leak on every crashed/killed client*/
+            int main_pid = w->from_main_pid;
             x_del_win(x, w);
+            if(main_pid >= 0 && !has_win_by_main_pid(x, main_pid))
+                x_quit(main_pid);
         }
         w = p;
     }
@@ -614,8 +620,8 @@ int x_update(int fd, int from_pid, x_t* x) {
     return 0;
 }
 
-/*runs once per step (under ipc_disable, before compositing): releases the
-  per-window update slot so the next UPDATE IPC may snapshot again. The
+/*runs once per step (under the server lock, before compositing): releases
+  the per-window update slot so the next UPDATE IPC may snapshot again. The
   snapshot copy itself deliberately does NOT happen here: outside the
   blocking UPDATE IPC the client is free to render into ws_g, so a
   step-time detect+copy would read a half-drawn frame and composite it

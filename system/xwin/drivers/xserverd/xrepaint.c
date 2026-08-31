@@ -168,10 +168,10 @@ static bool x_is_hide_cursor_on_win(x_t* x) {
 /*immediate cursor redraw for input latency: composites just the cursor
   into the scan-out buffer and posts a non-blocking dirty flush, so a
   mouse move shows up at event rate instead of one paced frame late.
-  Runs inside the input IPC handler (the main context is borrowed), so it
-  must never block and must never touch the buffer or the ctrl dirty list
-  while a push/flush is in flight - skipped then, and the frame path
-  retries it via display->cursor_task.*/
+  Runs inside the input IPC handler (a worker thread holding the server
+  lock), so it must never block and must never touch the buffer or the
+  ctrl dirty list while a push/flush is in flight - skipped then, and
+  the frame path retries it via display->cursor_task.*/
 bool x_cursor_redraw_now(x_t* x, uint32_t display_index) {
     x_display_t* display = &x->displays[display_index];
     if(!display->active || display->g == NULL ||
@@ -381,8 +381,8 @@ void x_repaint(x_t* x, uint32_t display_index) {
           instead of the frame rects - the erased drag outline then never
           reaches the panel and trails*/
         display->flush_inflight = true;
-        /*defer the flush IPC until after ipc_enable() to keep the
-          ipc_disable() critical section as tight as possible*/
+        /*defer the flush IPC until after the server lock is released to
+          keep the locked compositing section as tight as possible*/
         display->pending_flush = true;
     }
 }

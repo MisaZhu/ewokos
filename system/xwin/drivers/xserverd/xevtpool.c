@@ -145,3 +145,21 @@ void xevent_remove(int pid) {
 void xevent_pool_init(void) {
     _xevt_pool_head = NULL;
 }
+
+/*diagnostic snapshot for the 'stat' command: how many client pools and
+  queued events the server still holds (a pool for a client that is long
+  gone points at a leaked cleanup path)*/
+void xevent_pool_stats(uint32_t* pools, uint32_t* events) {
+    uint32_t p = 0;
+    uint32_t e = 0;
+    xevt_pool_t* pool = _xevt_pool_head;
+    while(pool != NULL) {
+        p++;
+        e += pool->num;
+        pool = pool->next;
+    }
+    if(pools != NULL)
+        *pools = p;
+    if(events != NULL)
+        *events = e;
+}

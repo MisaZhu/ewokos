@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <pthread.h>
 #include <display/display.h>
 #include <x/xcntl.h>
 #include <x/xevent.h>
@@ -115,7 +116,7 @@ typedef struct {
 	bool dirty;
 	bool cursor_task;
 	bool need_repaint;
-	bool pending_flush; //flush is issued outside the ipc_disable() section
+	bool pending_flush; //flush is issued outside the server lock section
 	/*a frame owns the ctrl dirty list and the scan-out buffer from its
 	  display_set_dirty() until its flush lands: the input handler's
 	  fast cursor redraw must stay out for that whole window, or it
@@ -240,6 +241,15 @@ static inline bool rect_clip_to_graph(graph_t* g, grect_t* r) {
 bool check_xwm(x_t* x);
 void x_dirty(x_t* x, int32_t display_index);
 void x_repaint_req(x_t* x, int32_t display_index);
+
+/*server-wide state lock (xserver_dev.c): IPC_MULTI_TASK dispatches the
+  handlers on concurrent kernel worker threads, so every access to x_t,
+  the window list and the event pools must hold this mutex. Handlers may
+  block in outbound IPC (xwm geometry, vfs_wakeup) while holding it; the
+  blocking fb flush and the step pacing sleep deliberately run outside.*/
+extern pthread_mutex_t x_server_lock;
+void x_server_lock_enter(void);
+void x_server_lock_leave(void);
 
 /*vdevice entry points living in xserver_dev.c*/
 int xserver_step(vdevice_t* dev, void* p);

@@ -252,7 +252,12 @@ int main(int argc, char** argv) {
     dev.extra_data = &x;
     x.dev = &dev;
 
-    device_run(&dev, mnt_point, FS_TYPE_CHAR | FS_TYPE_ANNOUNIMOUS, 0666, false);
+    /*multi_task serves the IPC requests on kernel worker threads, so the
+      handlers and the loop_step run concurrently: the server state lock
+      must be ready before the first request lands*/
+    pthread_mutex_init(&x_server_lock, NULL);
+    device_run(&dev, mnt_point, FS_TYPE_CHAR | FS_TYPE_ANNOUNIMOUS, 0666, true);
+    pthread_mutex_destroy(&x_server_lock);
     x_close(&x);
     return 0;
 }
