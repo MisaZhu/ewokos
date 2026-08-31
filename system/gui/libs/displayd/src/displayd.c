@@ -116,7 +116,7 @@ static graph_t* ensure_graph(graph_t** cache, int32_t w, int32_t h) {
     if(*cache == NULL || (*cache)->w * (*cache)->h < w * h) {
         if(*cache != NULL)
             graph_free(*cache);
-        *cache = graph_new(NULL, w, h);
+        *cache = graph_new_shm(w, h);
     }
     else {
         (*cache)->w = w;
@@ -335,7 +335,7 @@ static uint32_t flush(const disp_info_t* fbinfo, const void* buf, uint32_t size,
 
     graph_t* gzoom = NULL;
     if(zoomed) {
-        gzoom = graph_new(NULL, fbinfo->width, fbinfo->height);
+        gzoom = graph_new_shm(fbinfo->width, fbinfo->height);
         graph_scale_tof(tmp_g, gzoom, _zoom);
         tmp_g = gzoom;
     }
