@@ -14,7 +14,8 @@ enum {
 	G2D_DEV_CNTL_BLIT,
 	G2D_DEV_CNTL_BLIT_ALPHA,
 	G2D_DEV_CNTL_ROTATE,
-	G2D_DEV_CNTL_SCALE_TO
+	G2D_DEV_CNTL_SCALE_TO,
+	G2D_DEV_CNTL_BLIT_TO_PHY
 };
 
 enum {
@@ -83,6 +84,30 @@ typedef struct {
 	g2d_canvas_t src;
 	g2d_canvas_t dst;
 } g2d_scale_to_req_t;
+
+/* 1:1 blit of a src crop into a RAW PHYSICAL destination (e.g. the
+   scan-out buffer): no dst canvas exists because the buffer is not a
+   shm segment. the physical range must be contiguous driver-visible
+   ram (the hardware 2d has no mmu); the driver rejects anything
+   outside the validated ram windows or the declared size. no alpha,
+   scaling or rotation - 1:1 copy only. pitch is the dst row stride in
+   bytes. */
+typedef struct {
+	g2d_canvas_t src;
+	int32_t sx;
+	int32_t sy;
+	int32_t sw;
+	int32_t sh;
+	ewokos_addr_t dst_phy;
+	uint32_t dst_size;  /* bytes available at dst_phy */
+	int32_t dst_w;      /* visible surface geometry */
+	int32_t dst_h;
+	uint32_t pitch;     /* row stride in bytes (>= dst_w*4, %4==0) */
+	int32_t dx;
+	int32_t dy;
+	int32_t dw;
+	int32_t dh;
+} g2d_blit_to_phy_req_t;
 
 typedef struct {
 	g2d_canvas_t dst;
@@ -206,6 +231,31 @@ static inline void g2d_scale_to_req_init(g2d_scale_to_req_t* req, g2d_canvas_t s
 	req->dst = dst;
 }
 
+static inline void g2d_blit_to_phy_req_init(g2d_blit_to_phy_req_t* req,
+		g2d_canvas_t src,
+		g2d_rect_t src_rect,
+		ewokos_addr_t dst_phy, uint32_t dst_size,
+		int32_t dst_w, int32_t dst_h, uint32_t pitch,
+		g2d_rect_t dst_rect) {
+	if(req == NULL)
+		return;
+	memset(req, 0, sizeof(*req));
+	req->src = src;
+	req->sx = src_rect.x;
+	req->sy = src_rect.y;
+	req->sw = src_rect.w;
+	req->sh = src_rect.h;
+	req->dst_phy = dst_phy;
+	req->dst_size = dst_size;
+	req->dst_w = dst_w;
+	req->dst_h = dst_h;
+	req->pitch = pitch;
+	req->dx = dst_rect.x;
+	req->dy = dst_rect.y;
+	req->dw = dst_rect.w;
+	req->dh = dst_rect.h;
+}
+
 int has_g2d(void);
 int g2d_set_dev(const char* dev);
 
@@ -220,6 +270,7 @@ int g2d_blit(const g2d_blit_req_t* req);
 int g2d_blit_alpha(const g2d_blit_req_t* req);
 int g2d_rotate(const g2d_rotate_req_t* req);
 int g2d_scale_to(const g2d_scale_to_req_t* req);
+int g2d_blit_to_phy(const g2d_blit_to_phy_req_t* req);
 
 #ifdef __cplusplus
 }

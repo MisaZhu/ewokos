@@ -126,3 +126,9 @@ int g2d_scale_to(const g2d_scale_to_req_t* req) {
         return -1;
     return g2d_send_struct(G2D_DEV_CNTL_SCALE_TO, req, sizeof(*req));
 }
+
+int g2d_blit_to_phy(const g2d_blit_to_phy_req_t* req) {
+    if(req == NULL)
+        return -1;
+    return g2d_send_struct(G2D_DEV_CNTL_BLIT_TO_PHY, req, sizeof(*req));
+}

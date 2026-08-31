@@ -6,9 +6,11 @@
 #include <ewoksys/syscall.h>
 #include <ewoksys/vdevice.h>
 #include <sys/shm.h>
+#include <ewoksys/shm.h>
 #include <display/display.h>
 #include <displayd/displayd.h>
 #include <graph/graph_image.h>
+#include <g2dclient/g2dclient.h>
 #include <tinyjson/tinyjson.h>
 
 typedef struct {
@@ -82,6 +84,7 @@ static void default_splash(graph_t* g, const char* logo_fname) {
 
 static graph_t* _rotate_g = NULL; /* cached rotate buffer, grown as needed */
 static graph_t* _rect_g = NULL;   /* cached dirty-rect extraction buffer */
+static graph_t* _zoom_g = NULL;   /* cached zoom staging canvas */
 
 /*
  * Rotation into the scan-out buffer, built on graph_rotate_to.
@@ -302,16 +305,64 @@ static inline int is_zoomed(void) {
     return (_zoom > 0.0 && _zoom != 8.0 && _zoom != 1.0);
 }
 
-static uint32_t flush(const disp_info_t* fbinfo, const void* buf, uint32_t size, int rotate) {
+/*full-frame push of a contig shm canvas straight into the scan-out via
+  g2d: replaces the driver's CPU blt when both ends can be addressed
+  physically (src: contig shm segment, dst: the fb's physical base).
+  The scan-out is a single contiguous block (firmware allocation or the
+  sys_dma pool), so the no-mmu g2d engine can write it directly.
+  Returns the bytes written, or 0 to fall back to the driver flush.*/
+static uint32_t flush_g2d(const disp_info_t* fbinfo, const graph_t* g) {
+    if(has_g2d() != 0)
+        return 0;
+    if(g == NULL || g->buffer == NULL || g->shm_id <= 0 || !g->shm_contig)
+        return 0;
+    if(fbinfo == NULL || fbinfo->pointer == 0 || fbinfo->depth != 32 ||
+            fbinfo->phy_base == 0 || fbinfo->size == 0)
+        return 0;
+    if((uint32_t)g->w != fbinfo->width || (uint32_t)g->h != fbinfo->height)
+        return 0;
+
+    uint32_t pitch = disp_pitch32(fbinfo);
+    uint32_t off = (uint32_t)(fbinfo->yoffset * pitch + fbinfo->xoffset * 4);
+    if(off >= fbinfo->size)
+        return 0;
+
+    ewokos_addr_t src_phy = shm_contig_phy_addr(g->shm_id,
+            (ewokos_addr_t)g->buffer);
+    if(src_phy == 0)
+        return 0;
+
+    g2d_blit_to_phy_req_t req;
+    g2d_canvas_t canvas = g2d_canvas(g->shm_id,
+            (uint32_t)g->w * (uint32_t)g->h * 4u,
+            (uint32_t)g->w, (uint32_t)g->h, 1);
+    canvas.phy = src_phy;
+    g2d_blit_to_phy_req_init(&req, canvas,
+            g2d_rect(0, 0, g->w, g->h),
+            fbinfo->phy_base + off, fbinfo->size - off,
+            (int32_t)fbinfo->width, (int32_t)fbinfo->height, pitch,
+            g2d_rect(0, 0, fbinfo->width, fbinfo->height));
+    if(g2d_blit_to_phy(&req) != 0)
+        return 0;
+    return (uint32_t)g->w * (uint32_t)g->h * 4u;
+}
+
+static uint32_t flush(const disp_info_t* fbinfo, const disp_shm_t* shm, int rotate) {
     if(fbinfo->depth != 32 && fbinfo->depth != 16)
         return 0;
 
     int zoomed = is_zoomed();
     graph_t g;
     if(rotate == G_ROTATE_270 || rotate == G_ROTATE_90)
-        graph_init(&g, buf, _zheight, _zwidth);
+        graph_init(&g, shm->shm, _zheight, _zwidth);
     else
-        graph_init(&g, buf, _zwidth, _zheight);
+        graph_init(&g, shm->shm, _zwidth, _zheight);
+    /*the client frame IS the display shm canvas: restore the canvas
+      identity graph_init drops, so graph_scale_tof/graph_blt and the
+      g2d scan-out push below can route it through /dev/g2d instead of
+      falling back to the cpu */
+    g.shm_id = shm->shm_id;
+    g.shm_contig = shm->shm_contig;
 
     /* fast path: driver-side rotation via fbdisplayd_rotate_to(), which
      * rotates into a cacheable intermediate and copies to the NC scan-out
@@ -335,14 +386,20 @@ static uint32_t flush(const disp_info_t* fbinfo, const void* buf, uint32_t size,
 
     graph_t* gzoom = NULL;
     if(zoomed) {
-        gzoom = graph_new_shm(fbinfo->width, fbinfo->height);
-        graph_scale_tof(tmp_g, gzoom, _zoom);
-        tmp_g = gzoom;
+        /*pooled like _rotate_g: allocating/freeing a contig shm segment
+          every frame is a slab round trip each way */
+        gzoom = ensure_graph(&_zoom_g, fbinfo->width, fbinfo->height);
+        if(gzoom != NULL) {
+            graph_scale_tof(tmp_g, gzoom, _zoom);
+            tmp_g = gzoom;
+        }
     }
 
-    uint32_t res = _fbdisplayd->flush(fbinfo, tmp_g);
-    if(gzoom != NULL)
-        graph_free(gzoom);
+    /*try the g2d scan-out push first (contig shm src + physical fb);
+      the driver flush stays as the universal fallback */
+    uint32_t res = flush_g2d(fbinfo, tmp_g);
+    if(res == 0)
+        res = _fbdisplayd->flush(fbinfo, tmp_g);
     return res;
 }
 
@@ -357,7 +414,7 @@ static void init_graph(disp_shm_t* shm) {
         _fbdisplayd->splash(&g, _logo);
     else
         default_splash(&g, _logo);
-    flush(&_fbinfo, shm->shm, shm->size, _rotate);
+    flush(&_fbinfo, shm, _rotate);
 }
 
 static uint32_t _disp_shm_seq = 1;
@@ -595,7 +652,6 @@ static int32_t do_flush(disp_shm_t* shm) {
     if(buf == NULL || shm->ctrl == NULL)
         return -1;
 
-    uint32_t size = shm->size;
     display_ctrl_t* ctrl = shm->ctrl;
     uint32_t num = ctrl->dirty_num;
     grect_t rects[DISPLAY_DIRTY_MAX];
@@ -621,7 +677,7 @@ static int32_t do_flush(disp_shm_t* shm) {
     if(dirty_ok)
         res = flush_dirty(shm, rects, num);
     if(res < 0)
-        res = flush(&_fbinfo, buf, size, _rotate);
+        res = flush(&_fbinfo, shm, _rotate);
     ctrl->busy = 0;
     return res;
 }
@@ -653,7 +709,7 @@ int fbdisplayd_refresh(void) {
     display_ctrl_t* ctrl = _cur_shm->ctrl;
     ctrl->dirty_num = 0;
     ctrl->busy = 1;
-    uint32_t res = flush(&_fbinfo, _cur_shm->shm, _cur_shm->size, _rotate);
+    uint32_t res = flush(&_fbinfo, _cur_shm, _rotate);
     ctrl->busy = 0;
     return res > 0 ? 0 : -1;
 }
