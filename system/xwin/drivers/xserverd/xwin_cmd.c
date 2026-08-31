@@ -298,6 +298,7 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
 
         win->frame_dirty = true;
         win->ready = false;
+        win->not_ready_ms = 0; //restart the stuck-window timeout
         win->has_damage = false;
         win->damage_skip = 0;
         /*the old workspace shm is gone: any queued snapshot or recovery

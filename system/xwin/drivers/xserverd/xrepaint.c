@@ -1,6 +1,7 @@
 /*the per-display repaint pipeline: dirty rect collection, compositing
   order, cursor overlay and the flush to the fb daemon*/
 #include <string.h>
+#include <ewoksys/kernel_tic.h>
 #include "xrepaint.h"
 #include "xrender.h"
 #include "xwin.h"
@@ -139,11 +140,29 @@ static inline void refresh_cursor(x_t* x) {
     x->cursor.old_pos.y = x->cursor.cpos.y;
 }
 
+/* a window stuck !ready (client stalled behind the input IPC storm after
+   a resize/rebuild) must not throttle the whole display forever: once it
+   has been stuck this long the repaint proceeds without it. The composite
+   loop skips !ready windows, so its area simply shows what is below until
+   the client catches up with its next UPDATE. */
+#define X_NOT_READY_TIMEOUT_MS 500
+
 static bool all_win_ready(x_t* x) {
+    uint64_t now = kernel_tic_ms(0);
     xwin_t* win = x->win_head;
     while(win != NULL) {
-        if(win->xinfo != NULL && win->xinfo->visible && !win->ready)
-            return false;
+        if(win->xinfo != NULL && win->xinfo->visible && !win->ready) {
+            if(win->not_ready_ms == 0) {
+                win->not_ready_ms = (now == 0) ? 1 : now;
+                return false;
+            }
+            if((now - win->not_ready_ms) < X_NOT_READY_TIMEOUT_MS)
+                return false;
+            /* stuck too long: stop holding every other window hostage */
+        }
+        else if(win->not_ready_ms != 0) {
+            win->not_ready_ms = 0;
+        }
         win = win->next;
     }
     return true;
@@ -328,7 +347,7 @@ void x_repaint(x_t* x, uint32_t display_index) {
                     x->current.drag_band->h != r.h) {
                 if(x->current.drag_band != NULL)
                     graph_free(x->current.drag_band);
-                x->current.drag_band = graph_new(NULL, r.w, r.h);
+                x->current.drag_band = graph_new_shm(r.w, r.h);
             }
             if(x->current.drag_band != NULL) {
                 graph_blt(display->g, r.x, r.y, r.w, r.h,

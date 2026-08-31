@@ -55,7 +55,10 @@ typedef struct st_xwin {
 	grect_t damage;
 	bool has_damage;
 	uint32_t damage_skip; //consecutive full-width damages, backs off detection
-	uint32_t not_ready_ticks; //steps spent waiting for the first frame
+	/*tic (ms) when this window was last seen visible and !ready; 0 while
+	  ready. all_win_ready() stops throttling repaints for the whole
+	  display once a window has been stuck past X_NOT_READY_TIMEOUT_MS.*/
+	uint64_t not_ready_ms;
 	/*an UPDATE was accepted but its damage has not been composited yet:
 	  further UPDATEs for this window become O(1) no-ops until the next
 	  step clears the flag (see x_refresh_pending_updates). This keeps

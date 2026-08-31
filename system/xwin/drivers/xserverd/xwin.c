@@ -583,6 +583,7 @@ static void x_update_copy(x_t* x, xwin_t* win) {
     win->damage = dmg;
     win->has_damage = has_dmg;
     win->ready = true;
+    win->not_ready_ms = 0;
     win_dirty(x, win);
 }
 
