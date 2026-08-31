@@ -107,14 +107,52 @@ static void fd_del(int fd, int from_pid) {
     }
 }
 
-void usbhid_dispatch(uint8_t report_id, const uint8_t* data, uint8_t len) {
+/*
+ * Fan one event out to every subscriber of report_id. Returns true when at
+ * least one subscriber's queue went EMPTY -> non-empty: the daemon should
+ * fire its vfs_wakeup() only on that edge. Waking per report while the
+ * consumer still has unread events queued only piles vfsd IPCs onto an
+ * already-fed reader, and under load that overhead is what turns mouse
+ * latency into a worsening backlog storm.
+ */
+bool usbhid_dispatch_evt(uint8_t report_id, const uint8_t* data, uint8_t len) {
     fd_info_t* cur = _fds;
+    bool woke = false;
     while (cur != NULL) {
         if (cur->report_id == report_id) {
+            bool was_empty = !queue_has_data(&cur->queue);
             queue_push(&cur->queue, data, len);
+            if (was_empty) {
+                woke = true;
+            }
         }
         cur = cur->next;
     }
+    return woke;
+}
+
+void usbhid_dispatch(uint8_t report_id, const uint8_t* data, uint8_t len) {
+    (void)usbhid_dispatch_evt(report_id, data, len);
+}
+
+/*
+ * True when at least one subscriber still holds undrained events. The
+ * daemon re-asserts its node wakeup at a bounded rate while this holds:
+ * the empty->non-empty edge wake can be swallowed by a consumer sitting
+ * in a generic token-0 IPC-return wait (the kernel spends the node wake
+ * unblocking that wait without latching it), and once the queue is
+ * non-empty no further edge fires -- without the re-assert the queued
+ * reports would sit there forever.
+ */
+bool usbhid_backlog(void) {
+    fd_info_t* cur = _fds;
+    while (cur != NULL) {
+        if (queue_has_data(&cur->queue)) {
+            return true;
+        }
+        cur = cur->next;
+    }
+    return false;
 }
 
 int usbhid_vdev_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* node,

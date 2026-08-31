@@ -7,6 +7,7 @@
 #include <ewoksys/ipc.h>
 #include <ewoksys/vdevice.h>
 #include <ewoksys/mmio.h>
+#include <ewoksys/kernel_tic.h>
 #include <mouse/mouse.h>
 #include <fcntl.h>
 
@@ -14,6 +15,14 @@
 
 /* retry cadence while /dev/hid0 is not there yet */
 #define HID_CONNECT_SLEEP_US 200000u
+
+/*
+ * Movement/wheel coalescing cadence: pending deltas are flushed at most
+ * once per interval, capping the event rate on /dev/mouse0 at 100Hz even
+ * for 1000Hz USB mice. Button DOWN/UP events are NEVER coalesced - they
+ * bypass this path and are pushed immediately.
+ */
+#define MOUSE_FLUSH_MS 10u
 
 static int hid = -1;
 static const char* _dev_point = "/dev/hid0";
@@ -24,6 +33,11 @@ static mouse_evt_t mouse_data[CACHE_SIZE];
 static uint32_t mouse_data_read = 0;
 static uint32_t mouse_data_write = 0;
 static uint8_t last_btn = 0;
+/* coalesced movement/wheel waiting for the next flush tick */
+static int pend_dx = 0;
+static int pend_dy = 0;
+static int pend_wheel = 0;
+static uint64_t last_flush_ms = 0;
 
 static void mouse_push_evt(uint8_t state, uint8_t button, int16_t x, int16_t y) {
     if (mouse_data_write - mouse_data_read >= CACHE_SIZE) {
@@ -49,15 +63,34 @@ static uint8_t hid_btn_to_mouse(uint8_t mask) {
     return MOUSE_BUTTON_NONE;
 }
 
-static void mouse_emit_wheel(int8_t wheel) {
-    while (wheel > 0) {
+static int16_t clamp_i16(int v) {
+    if (v > 32767)
+        return 32767;
+    if (v < -32768)
+        return -32768;
+    return (int16_t)v;
+}
+
+/*
+ * Emit the coalesced movement/wheel as at most two events (one move plus
+ * one scroll direction) and restart the flush window. Wheel notches inside
+ * one window collapse into a single directional event to stay under the
+ * 100Hz cap; physical wheel rates are far below that, so no notch a user
+ * can produce is actually lost.
+ */
+static void mouse_flush_pending(void) {
+    if (pend_dx != 0 || pend_dy != 0) {
+        mouse_push_evt(MOUSE_STATE_MOVE, MOUSE_BUTTON_NONE,
+                clamp_i16(pend_dx), clamp_i16(pend_dy));
+    }
+    if (pend_wheel > 0)
         mouse_push_evt(MOUSE_STATE_MOVE, MOUSE_BUTTON_SCROLL_UP, 0, 0);
-        wheel--;
-    }
-    while (wheel < 0) {
+    else if (pend_wheel < 0)
         mouse_push_evt(MOUSE_STATE_MOVE, MOUSE_BUTTON_SCROLL_DOWN, 0, 0);
-        wheel++;
-    }
+    pend_dx = 0;
+    pend_dy = 0;
+    pend_wheel = 0;
+    last_flush_ms = kernel_tic_ms(0);
 }
 
 static void mouse_handle_report(uint8_t btn, int8_t dx, int8_t dy, int8_t wheel) {
@@ -65,17 +98,25 @@ static void mouse_handle_report(uint8_t btn, int8_t dx, int8_t dy, int8_t wheel)
     uint8_t released = last_btn & (uint8_t)~btn;
     last_btn = btn;
 
-    if (pressed) {
-        mouse_push_evt(MOUSE_STATE_DOWN, hid_btn_to_mouse(pressed), dx, dy);
-    }
-    else if (released) {
-        mouse_push_evt(MOUSE_STATE_UP, hid_btn_to_mouse(released), dx, dy);
+    if (pressed || released) {
+        /*
+         * Button edges are never coalesced or delayed by the flush cadence:
+         * drop any queued movement first (keeps move-then-click ordering),
+         * then push the edge immediately.
+         */
+        mouse_flush_pending();
+        if (pressed)
+            mouse_push_evt(MOUSE_STATE_DOWN, hid_btn_to_mouse(pressed), dx, dy);
+        else
+            mouse_push_evt(MOUSE_STATE_UP, hid_btn_to_mouse(released), dx, dy);
     }
     else if (dx != 0 || dy != 0) {
-        mouse_push_evt(MOUSE_STATE_MOVE, MOUSE_BUTTON_NONE, dx, dy);
+        pend_dx += dx;
+        pend_dy += dy;
     }
 
-    mouse_emit_wheel(wheel);
+    if (wheel != 0)
+        pend_wheel += wheel;
 }
 
 static int _read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* node,
@@ -236,6 +277,22 @@ static int _loop(vdevice_t* dev, void* p) {
         memset(&_hid_info, 0, sizeof(fsinfo_t));
         proc_usleep(HID_CONNECT_SLEEP_US);
         return 0;
+    }
+
+    /*
+     * Flush coalesced movement/wheel at most once per MOUSE_FLUSH_MS so the
+     * event rate on /dev/mouse0 never exceeds 100Hz. Button edges were
+     * already pushed during the drain above; reports arriving while we
+     * sleep here queue up on /dev/hid0 and are drained (buttons included,
+     * none lost) on the next loop pass - a click during the window waits
+     * at most one flush interval.
+     */
+    if (pend_dx != 0 || pend_dy != 0 || pend_wheel != 0) {
+        uint64_t now = kernel_tic_ms(0);
+        uint64_t next = last_flush_ms + MOUSE_FLUSH_MS;
+        if (now < next)
+            proc_usleep((uint32_t)((next - now) * 1000u));
+        mouse_flush_pending();
     }
 
     /*

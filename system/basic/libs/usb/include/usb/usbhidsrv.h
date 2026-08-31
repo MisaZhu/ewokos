@@ -40,8 +40,16 @@ typedef struct fd_info {
 
 const char* usbhid_input_type_name(usb_input_type_t type);
 
-/* fan out one event to every subscriber of report_id */
+/* fan out one event to every subscriber of report_id; the _evt variant
+   returns true when a subscriber's queue went empty -> non-empty, which is
+   the edge the daemon should fire its vfs_wakeup() on */
+bool usbhid_dispatch_evt(uint8_t report_id, const uint8_t* data, uint8_t len);
 void usbhid_dispatch(uint8_t report_id, const uint8_t* data, uint8_t len);
+
+/* true while any subscriber queue still holds undrained events; the daemon
+   re-asserts its node wakeup at a bounded rate while this holds (see
+   usbhid_backlog in usbhidsrv.c) */
+bool usbhid_backlog(void);
 
 /* vdevice callbacks wired straight into the daemon's vdevice_t */
 int usbhid_vdev_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* node,

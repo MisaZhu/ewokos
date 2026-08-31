@@ -46,6 +46,12 @@
    whole controller is re-initialized (a wedged port state on some
    controllers only clears with a bring-up from scratch) */
 #define USB_ENUM_FAIL_REINIT_AFTER 6u
+/* backlog wake re-assert: an edge wake can be swallowed by a consumer
+   parked in a generic token-0 IPC wait (see usbhid_backlog), so while a
+   subscriber queue stays undrained the node wake is re-fired at this
+   cadence. Healthy consumers drain within a few ms, so this normally
+   never fires */
+#define USB_WAKE_REASSERT_MS 30u
 
 /* enumeration / bring-up logging; per-report traffic stays silent */
 #define USB_LOG_ENABLE 1
@@ -91,6 +97,7 @@ static usb_input_dev_t _inputs[USB_MAX_INPUTS];
 static uint64_t _next_scan_ms = 0;
 static uint32_t _idle_sleep_us = USB_IDLE_SLEEP_MIN_US;
 static uint32_t _enum_fail_streak = 0;
+static uint64_t _next_reassert_ms = 0;
 
 static inline uint16_t le16(const void* p) {
     const uint8_t* b = (const uint8_t*)p;
@@ -982,7 +989,11 @@ static void usb_enum_failed(void) {
 static bool usb_poll_inputs(vdevice_t* dev) {
     uint8_t report[USB_MAX_REPORT];
     uint8_t payload[USB_MAX_EVENT_SIZE];
-    bool wakeup = false;
+    bool got = false;
+    /* per report id: a subscriber queue went empty -> non-empty this pass.
+       The vfs_wakeup fires on that edge only; a consumer still draining its
+       queue gets no repeated wake IPCs per report */
+    uint32_t wake_mask = 0;
 
     for (int i = 0; i < USB_MAX_INPUTS; ++i) {
         usb_input_dev_t* in = &_inputs[i];
@@ -1031,16 +1042,20 @@ static bool usb_poll_inputs(vdevice_t* dev) {
                 memcpy(payload, report,
                         ret > USB_KEYBOARD_EVENT_SIZE ? USB_KEYBOARD_EVENT_SIZE : ret);
             }
-            usbhid_dispatch(USB_REPORT_ID_KEYBOARD, payload, USB_KEYBOARD_EVENT_SIZE);
-            wakeup = true;
+            if (usbhid_dispatch_evt(USB_REPORT_ID_KEYBOARD, payload, USB_KEYBOARD_EVENT_SIZE)) {
+                wake_mask |= 1u << USB_REPORT_ID_KEYBOARD;
+            }
+            got = true;
         }
         else if (in->type == USB_INPUT_MOUSE) {
             memset(payload, 0, sizeof(payload));
             if (mouse_normalize_report(&in->mouse, report, ret, payload) != USB_POINTER_EVENT_SIZE) {
                 memcpy(payload, report, ret > USB_POINTER_EVENT_SIZE ? USB_POINTER_EVENT_SIZE : ret);
             }
-            usbhid_dispatch(USB_REPORT_ID_MOUSE, payload, USB_POINTER_EVENT_SIZE);
-            wakeup = true;
+            if (usbhid_dispatch_evt(USB_REPORT_ID_MOUSE, payload, USB_POINTER_EVENT_SIZE)) {
+                wake_mask |= 1u << USB_REPORT_ID_MOUSE;
+            }
+            got = true;
         }
         else if (in->type == USB_INPUT_TOUCH) {
             if ((uint8_t)ret == in->last_len && memcmp(in->last_report, report, ret) == 0) {
@@ -1050,8 +1065,10 @@ static bool usb_poll_inputs(vdevice_t* dev) {
             in->last_len = (uint8_t)ret;
             if (touch_normalize_report(&in->touch, in->report_len, report, ret, payload) ==
                     USB_POINTER_EVENT_SIZE) {
-                usbhid_dispatch(USB_REPORT_ID_TOUCH, payload, USB_POINTER_EVENT_SIZE);
-                wakeup = true;
+                if (usbhid_dispatch_evt(USB_REPORT_ID_TOUCH, payload, USB_POINTER_EVENT_SIZE)) {
+                    wake_mask |= 1u << USB_REPORT_ID_TOUCH;
+                }
+                got = true;
             }
         }
         else if (in->type == USB_INPUT_COMPOSITE) {
@@ -1069,8 +1086,10 @@ static bool usb_poll_inputs(vdevice_t* dev) {
                 memset(payload, 0, sizeof(payload));
                 memcpy(payload, report + 1,
                         (ret - 1) > USB_KEYBOARD_EVENT_SIZE ? USB_KEYBOARD_EVENT_SIZE : (ret - 1));
-                usbhid_dispatch(USB_REPORT_ID_KEYBOARD, payload, USB_KEYBOARD_EVENT_SIZE);
-                wakeup = true;
+                if (usbhid_dispatch_evt(USB_REPORT_ID_KEYBOARD, payload, USB_KEYBOARD_EVENT_SIZE)) {
+                    wake_mask |= 1u << USB_REPORT_ID_KEYBOARD;
+                }
+                got = true;
             }
             else if (rid == in->mouse_report_id) {
                 memset(payload, 0, sizeof(payload));
@@ -1078,17 +1097,30 @@ static bool usb_poll_inputs(vdevice_t* dev) {
                     memcpy(payload, report + 1,
                             (ret - 1) > USB_POINTER_EVENT_SIZE ? USB_POINTER_EVENT_SIZE : (ret - 1));
                 }
-                usbhid_dispatch(USB_REPORT_ID_MOUSE, payload, USB_POINTER_EVENT_SIZE);
-                wakeup = true;
+                if (usbhid_dispatch_evt(USB_REPORT_ID_MOUSE, payload, USB_POINTER_EVENT_SIZE)) {
+                    wake_mask |= 1u << USB_REPORT_ID_MOUSE;
+                }
+                got = true;
             }
             /* other report IDs (gamepad etc.): no consumer yet, drop */
         }
     }
 
-    if (wakeup) {
+    /*
+     * Wake only on the empty -> non-empty edge of a subscriber queue: the
+     * consumer drains its whole queue in one pass, so per-report wakes while
+     * it is still draining just stack vfsd IPCs onto the burst. A blocked
+     * reader is parked with a permanent waiter registration, so the edge is
+     * safe to rely on for delivery. An edge that reaches a consumer sitting
+     * in a generic token-0 IPC-return wait, however, is spent without a
+     * latch and can be lost, and a non-empty queue produces no further edge:
+     * usb_step therefore re-asserts the wake while usbhid_backlog() holds.
+     */
+    if (wake_mask != 0) {
         vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
+        _next_reassert_ms = kernel_tic_ms(0) + USB_WAKE_REASSERT_MS;
     }
-    return wakeup;
+    return got;
 }
 
 /* ---------------- main loop ---------------- */
@@ -1117,6 +1149,18 @@ static int usb_step(vdevice_t* dev, void* p) {
 
     bsp_usb_poll();
     got = usb_poll_inputs(dev);
+
+    /*
+     * Re-assert the node wake while a subscriber queue is still undrained
+     * (see usbhid_backlog): the original edge wake may have been spent on
+     * a consumer's generic IPC wait without ever reaching its node block.
+     * Paced by USB_WAKE_REASSERT_MS so a wedged consumer costs at most a
+     * few dozen vfsd wakes per second instead of a per-report storm.
+     */
+    if (kernel_tic_ms(0) >= _next_reassert_ms && usbhid_backlog()) {
+        vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
+        _next_reassert_ms = kernel_tic_ms(0) + USB_WAKE_REASSERT_MS;
+    }
 
     for (int i = 0; i < USB_MAX_INPUTS; ++i) {
         if (_inputs[i].present) {
