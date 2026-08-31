@@ -29,8 +29,11 @@ static const char* get_state(procinfo_t* proc) {
         snprintf(ret, 13, "wat[%d]", proc->wait_for);
     else {
         strcpy(ret, _states[proc->state]);
-        if((proc->state == 5 || proc->state == 6) && proc->priority > 0)
-            snprintf(ret, 13, "%s(%d)", ret, proc->priority);
+        if((proc->state == 5 || proc->state == 6) && proc->priority > 0) {
+            char tmp[32];
+            snprintf(tmp, sizeof(tmp), "%s(%d)", ret, proc->priority);
+            strcpy(ret, tmp);
+        }
     }
     return ret;
 }
@@ -65,11 +68,11 @@ static const char* get_cmd(procinfo_t* proc, int full) {
 }
 
 static const char* get_core_loading(sys_info_t* sys_info, procinfo_t* proc, uint32_t run_usec) {
-    static char ret[8];
+    static char ret[16];
     if(sys_info->cores > 1)
-        snprintf(ret, 7, "%d:%d%%", proc->core, run_usec/10000);
+        snprintf(ret, sizeof(ret), "%d:%d%%", proc->core, run_usec/10000);
     else
-        snprintf(ret, 7, "%d%%", run_usec/10000);
+        snprintf(ret, sizeof(ret), "%d%%", run_usec/10000);
     return ret;
 }
 
@@ -83,6 +86,16 @@ static uint32_t get_loading(procinfo_t* procs, int num, procinfo_t* proc, int8_t
         }
     }
     return run_usec;
+}
+
+static int get_thread_num(procinfo_t* procs, int num, procinfo_t* proc) {
+    int n = 0;
+    for(int i=0; i<num; i++) {
+        procinfo_t* p = &procs[i];
+        if(p->type == TASK_TYPE_THREAD && p->father_pid == proc->pid)
+            n++;
+    }
+    return n;
 }
 
 static int doargs(int argc, char* argv[], int8_t* full, int8_t* all, int8_t* thread) {
@@ -192,8 +205,13 @@ int main(int argc, char* argv[]) {
 
             if(proc->type == TASK_TYPE_THREAD)
                 printf(" [THRD:%d]\n", proc->father_pid);
-            else
-                printf("\n");
+            else {
+                int tnum = (thread == 0) ? get_thread_num(procs, num, proc) : 0;
+                if(tnum > 0)
+                    printf(" [%dt]\n", tnum);
+                else
+                    printf("\n");
+            }
         }
     }
     printf("\n\033[1mtask_num: %d, memory: total %d MB, free %d MB, shm %d MB\n", num, t_mem, fr_mem, shm_mem);
