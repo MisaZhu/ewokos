@@ -397,7 +397,9 @@ static uint32_t flush(const disp_info_t* fbinfo, const disp_shm_t* shm, int rota
 
     /*try the g2d scan-out push first (contig shm src + physical fb);
       the driver flush stays as the universal fallback */
-    uint32_t res = flush_g2d(fbinfo, tmp_g);
+    uint32_t res = 0;
+    if(has_g2d() != 0)
+        res = flush_g2d(fbinfo, tmp_g);
     if(res == 0)
         res = _fbdisplayd->flush(fbinfo, tmp_g);
     return res;
