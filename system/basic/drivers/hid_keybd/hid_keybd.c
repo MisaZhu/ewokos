@@ -13,6 +13,7 @@
 #include <ewoksys/proc.h>
 #include <ewoksys/interrupt.h>
 #include <ewoksys/timer.h>
+#include <ewoksys/kernel_tic.h>
 #include <fcntl.h>
 #include <ewoksys/keydef.h>
 
@@ -36,6 +37,17 @@
 /* retry cadence while /dev/hid0 is not there yet */
 #define HID_CONNECT_SLEEP_US 200000u
 
+/*
+ * Cap the drain/wakeup pass rate at 100Hz: gaming keyboards report at up
+ * to 1000Hz, and without pacing every report would wake the loop for a
+ * full drain pass. Pacing is lossless here - every report is a complete
+ * state snapshot and the drain keeps only the newest one anyway, so
+ * coalescing passes changes nothing the reader could observe. The
+ * keys-held repeat stream runs at the slower HID_WAIT_FALLBACK_US cadence
+ * and is unaffected.
+ */
+#define KEYB_PASS_MS 10u
+
 static int hid = -1;
 static const char* _dev_point = "/dev/hid0";
 /* cached fsinfo of the open /dev/hid0 fd: node id and mount pid stay stable
@@ -46,6 +58,8 @@ static fsinfo_t _hid_info;
 static uint8_t _mod = 0;
 static uint8_t _keys[MAX_KEY];
 static int _key_count = 0;
+/* timestamp of the last drain pass, for the KEYB_PASS_MS rate cap */
+static uint64_t _last_pass_ms = 0;
 
 const char downMap[] = {  
         ' ',' ',' ',' ','a','b','c','d',    'e','f','g','h','i','j','k','l',
@@ -246,6 +260,21 @@ static int loop(vdevice_t* dev, void* p) {
     hid_wait_report();
 
     /*
+     * Rate cap: never run a drain pass sooner than KEYB_PASS_MS after the
+     * previous one, so a 1000Hz keyboard cannot drive the loop above 100Hz.
+     * Reports arriving during this paced sleep queue up on /dev/hid0 (the
+     * edge wakeup is latched, so the next hid_wait_report() returns at
+     * once), and since the drain below keeps only the newest full snapshot
+     * nothing is lost - the reader always sees the current key state. The
+     * keys-held path already sleeps 20ms in hid_wait_report(), so this is
+     * a no-op there and only bites on the idle/edge-driven path.
+     */
+    uint64_t now = kernel_tic_ms(0);
+    uint64_t next = _last_pass_ms + KEYB_PASS_MS;
+    if (now < next)
+        proc_usleep((uint32_t)((next - now) * 1000u));
+
+    /*
      * Drain every queued snapshot in one pass: reads are O_NONBLOCK, so the
      * loop stops at the first EAGAIN. Only the LAST snapshot matters - each
      * report is a full state image, earlier ones in the same burst are stale.
@@ -276,6 +305,7 @@ static int loop(vdevice_t* dev, void* p) {
         break;
     }
     ipc_enable();
+    _last_pass_ms = kernel_tic_ms(0);
 
     if (failed) {
         close(hid);

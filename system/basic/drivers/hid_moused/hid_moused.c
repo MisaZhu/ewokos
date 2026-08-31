@@ -11,7 +11,13 @@
 #include <mouse/mouse.h>
 #include <fcntl.h>
 
-#define CACHE_SIZE (32)
+/*
+ * Event queue cap: never more than 8 events sit between this driver and
+ * its reader. xmouse consumes at ~330 events/s while this driver produces
+ * at most ~200/s (100Hz flush x move+wheel), so the queue normally stays
+ * nearly empty; the cap is a hard bound for a wedged/slow reader.
+ */
+#define CACHE_SIZE (8)
 
 /* retry cadence while /dev/hid0 is not there yet */
 #define HID_CONNECT_SLEEP_US 200000u
@@ -29,9 +35,10 @@ static const char* _dev_point = "/dev/hid0";
 /* cached fsinfo of the open /dev/hid0 fd: node id and mount pid stay stable
    for the whole mount, so the wait path does not pay a VFS_GET_BY_FD IPC */
 static fsinfo_t _hid_info;
+/* contiguous event queue: queued events live in [0, mouse_data_count);
+   read pops slot 0, push appends, eviction removes a slot in the middle */
 static mouse_evt_t mouse_data[CACHE_SIZE];
-static uint32_t mouse_data_read = 0;
-static uint32_t mouse_data_write = 0;
+static int mouse_data_count = 0;
 static uint8_t last_btn = 0;
 /* coalesced movement/wheel waiting for the next flush tick */
 static int pend_dx = 0;
@@ -39,18 +46,45 @@ static int pend_dy = 0;
 static int pend_wheel = 0;
 static uint64_t last_flush_ms = 0;
 
+/*
+ * Queue-full eviction policy: button DOWN/UP edges are NEVER dropped.
+ * Make room by removing, in priority order, the oldest coalesced movement
+ * (button==NONE), then the oldest wheel event; only if the queue is made
+ * up entirely of button edges (pathological: reader wedged through 8+
+ * clicks) is the incoming event refused instead of evicting a queued one.
+ * memmove keeps the surviving events in their original relative order.
+ */
 static void mouse_push_evt(uint8_t state, uint8_t button, int16_t x, int16_t y) {
-    if (mouse_data_write - mouse_data_read >= CACHE_SIZE) {
-        mouse_data_read++;
+    if (mouse_data_count >= CACHE_SIZE) {
+        int victim = -1;
+        for (int i = 0; i < mouse_data_count; i++) {
+            if (mouse_data[i].state == MOUSE_STATE_MOVE &&
+                    mouse_data[i].button == MOUSE_BUTTON_NONE) {
+                victim = i; /* oldest coalesced movement */
+                break;
+            }
+        }
+        if (victim < 0) {
+            for (int i = 0; i < mouse_data_count; i++) {
+                if (mouse_data[i].state == MOUSE_STATE_MOVE) {
+                    victim = i; /* oldest wheel event */
+                    break;
+                }
+            }
+        }
+        if (victim < 0)
+            return; /* nothing but button edges queued: keep them all */
+        memmove(&mouse_data[victim], &mouse_data[victim + 1],
+                (size_t)(mouse_data_count - victim - 1) * sizeof(mouse_evt_t));
+        mouse_data_count--;
     }
-    mouse_evt_t* evt = &mouse_data[mouse_data_write % CACHE_SIZE];
+    mouse_evt_t* evt = &mouse_data[mouse_data_count++];
     memset(evt, 0, sizeof(mouse_evt_t));
     evt->type = MOUSE_TYPE_REL;
     evt->state = state;
     evt->button = button;
     evt->x = x;
     evt->y = y;
-    mouse_data_write++;
 }
 
 static uint8_t hid_btn_to_mouse(uint8_t mask) {
@@ -131,10 +165,11 @@ static int _read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* node,
     if (size < (int)sizeof(mouse_evt_t))
         return -1;
 
-    if (mouse_data_write - mouse_data_read > 0) {
-        memcpy(buf, &mouse_data[mouse_data_read % CACHE_SIZE], sizeof(mouse_evt_t));
-        memset(&mouse_data[mouse_data_read % CACHE_SIZE], 0, sizeof(mouse_evt_t));
-        mouse_data_read++;
+    if (mouse_data_count > 0) {
+        memcpy(buf, &mouse_data[0], sizeof(mouse_evt_t));
+        memmove(&mouse_data[0], &mouse_data[1],
+                (size_t)(mouse_data_count - 1) * sizeof(mouse_evt_t));
+        mouse_data_count--;
         return sizeof(mouse_evt_t);
     }
     return VFS_ERR_RETRY;
@@ -147,7 +182,7 @@ static uint32_t mouse_check_poll_events(vdevice_t* dev, int fd, int from_pid, fs
     (void)node;
     (void)p;
 
-    if (mouse_data_write - mouse_data_read > 0) {
+    if (mouse_data_count > 0) {
         return VFS_EVT_RD;
     }
     return 0;
@@ -297,11 +332,11 @@ static int _loop(vdevice_t* dev, void* p) {
 
     /*
      * Level-triggered wakeup for /dev/mouse0 readers: re-assert VFS_EVT_RD
-     * while the ring still has unread events, not only on the edge when a
+     * while the queue still has unread events, not only on the edge when a
      * new report arrives, so a blocked xmouse cannot sleep on data that is
      * already queued for it.
      */
-    if(mouse_data_write - mouse_data_read > 0) {
+    if(mouse_data_count > 0) {
         vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
     }
     return 0;
