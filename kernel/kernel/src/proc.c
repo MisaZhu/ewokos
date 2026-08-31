@@ -1731,14 +1731,19 @@ void proc_usleep(context_t* ctx, uint32_t count) {
     if(cproc == NULL)
         return;
 
+    /*
+     * No READY fast path here: sleeping must honour its full duration.
+     * Skipping the sleep when state == READY turned every paced daemon
+     * (e.g. xserverd's frame-pacing usleep) into a hot loop under IPC
+     * load - each restored/preempted context is transiently re-queued
+     * READY by proc_ready(), which cancelled the pacing sleep over and
+     * over. A READY mark means "reschedulable bookkeeping", not
+     * "urgent work pending": single-task IPC requests are served by
+     * immediate context hijack, so nothing is left waiting for the
+     * sleeper. The timer (renew_sleep_counter) always wakes it, so
+     * sleeping here cannot strand the process.
+     */
     proc_lock_enter();
-    if(cproc->info.state == READY) {
-        /* A cross-core wakeup (e.g. IPC dispatch) already marked us READY;
-         * honour it instead of sleeping. */
-        cproc->info.state = RUNNING;
-        proc_lock_leave();
-        return;
-    }
     cproc->sleep_counter = count;
     proc_unready_locked(cproc, SLEEPING);
     proc_lock_leave();
