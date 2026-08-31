@@ -60,18 +60,48 @@ static void queue_push(usb_queue_t* queue, const uint8_t* data, uint8_t len) {
     }
 }
 
+/*
+ * Pop as many WHOLE queued events as fit into the caller's buffer and
+ * return their combined byte count. A consumer draining with a buffer
+ * sized for the full queue (USB_QUEUE_DEPTH * event size) empties a
+ * whole backlog in one read round-trip instead of one IPC per event.
+ * Callers whose buffer fits a single event (the 8-byte keyboard read)
+ * keep their one-event-per-read behaviour. An event larger than the
+ * buffer is truncated and consumed anyway so the queue can never wedge.
+ */
 static int queue_pop(usb_queue_t* queue, void* buf, int size) {
-    int len;
+    uint8_t* dst = (uint8_t*)buf;
+    int total = 0;
+
     if (!queue_has_data(queue)) {
         return VFS_ERR_RETRY;
     }
-    len = queue->len[queue->rd];
-    if (len > size) {
-        len = size;
+    while (queue_has_data(queue)) {
+        int len = queue->len[queue->rd];
+        if (len > USB_MAX_EVENT_SIZE) {
+            len = USB_MAX_EVENT_SIZE;
+        }
+        if (total + len > size) {
+            break;
+        }
+        memcpy(dst + total, queue->data[queue->rd], len);
+        total += len;
+        queue->rd = (uint8_t)((queue->rd + 1u) % USB_QUEUE_DEPTH);
     }
-    memcpy(buf, queue->data[queue->rd], len);
-    queue->rd = (uint8_t)((queue->rd + 1u) % USB_QUEUE_DEPTH);
-    return len;
+    if (total == 0) {
+        /* first event alone does not fit: legacy truncated copy */
+        int len = queue->len[queue->rd];
+        if (len > USB_MAX_EVENT_SIZE) {
+            len = USB_MAX_EVENT_SIZE;
+        }
+        if (len > size) {
+            len = size;
+        }
+        memcpy(dst, queue->data[queue->rd], len);
+        queue->rd = (uint8_t)((queue->rd + 1u) % USB_QUEUE_DEPTH);
+        total = len;
+    }
+    return total;
 }
 
 static fd_info_t* fd_find(int fd, int from_pid) {

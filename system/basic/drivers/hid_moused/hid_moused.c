@@ -30,6 +30,17 @@
  */
 #define MOUSE_FLUSH_MS 10u
 
+/*
+ * /dev/hid0 subscriber-queue protocol (see libs/usb/usb_defs.h): fixed
+ * 7-byte pointer events, queue depth 32. One read sized for the whole
+ * queue drains an entire backlog in a single vfsd/usbhostd round-trip;
+ * the old one-event-per-read drain paid that round-trip per report,
+ * which is exactly the load a 1000Hz mouse drives on raspi5.
+ */
+#define HID_EVT_SIZE 7
+#define HID_QUEUE_DEPTH 32
+#define MOUSE_DRAIN_SIZE (HID_QUEUE_DEPTH * HID_EVT_SIZE)
+
 static int hid = -1;
 static const char* _dev_point = "/dev/hid0";
 /* cached fsinfo of the open /dev/hid0 fd: node id and mount pid stay stable
@@ -284,18 +295,27 @@ static int _loop(vdevice_t* dev, void* p) {
 
     /*
      * Drain every queued report in one pass: reads are O_NONBLOCK, so the
-     * loop stops at the first EAGAIN. Draining keeps cursor latency flat
-     * when wakeups coalesce or a burst arrives; a plain one-report-per-pass
-     * scheme amplifies backlog into visible lag under load.
+     * loop stops at the first EAGAIN. Each read fetches a whole batch
+     * (up to the full queue depth) from usbhidsrv's batched queue_pop, so
+     * a backlog costs one vfsd/usbhostd round-trip, not one per report.
+     * Draining keeps cursor latency flat when wakeups coalesce or a burst
+     * arrives; a plain one-report-per-pass scheme amplifies backlog into
+     * visible lag under load.
      */
     bool failed = false;
+    uint8_t buf[MOUSE_DRAIN_SIZE];
     ipc_disable();
     while (true) {
-        uint8_t buf[8] = {0};
-        int res = read(hid, buf, 7);
-        if (res == 7) {
-            /* payload: buttons, dx, dy, wheel (deltas are signed) */
-            mouse_handle_report(buf[0], (int8_t)buf[1], (int8_t)buf[2], (int8_t)buf[3]);
+        int res = read(hid, buf, sizeof(buf));
+        if (res >= HID_EVT_SIZE) {
+            /* payload per event: buttons, dx, dy, wheel (deltas signed) */
+            for (int off = 0; off + HID_EVT_SIZE <= res; off += HID_EVT_SIZE) {
+                mouse_handle_report(buf[off], (int8_t)buf[off + 1],
+                        (int8_t)buf[off + 2], (int8_t)buf[off + 3]);
+            }
+            if (res < (int)sizeof(buf)) {
+                break; /* short batch: the queue ran dry */
+            }
             continue;
         }
         if (res < 0 && errno != EAGAIN) {

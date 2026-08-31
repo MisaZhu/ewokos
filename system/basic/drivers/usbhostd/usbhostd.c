@@ -90,6 +90,7 @@ typedef struct {
     touch_parser_t touch;
     uint8_t last_report[USB_MAX_REPORT];
     uint8_t last_len;
+    uint8_t last_mouse_btn;  /* buttons of the last dispatched mouse frame */
 } usb_input_dev_t;
 
 static usb_dev_t _devs[USB_MAX_DEVS];
@@ -986,6 +987,24 @@ static void usb_enum_failed(void) {
 
 /* ---------------- input polling / dispatch ---------------- */
 
+/*
+ * Mouse reports are incremental: unlike keyboard snapshots, a frame byte-
+ * identical to the previous one can still carry fresh movement, so the
+ * memcmp dedupe used for keyboards is wrong here. The only frame that
+ * carries no information at all is "buttons unchanged AND zero movement
+ * AND zero wheel". Devices that ignore Set_Idle resend exactly that frame
+ * at up to 1000Hz (raspi5 honours the real 1ms bInterval), and without
+ * this drop the whole dispatch/wake/drain chain runs flat-out forever on
+ * an idle mouse.
+ */
+static bool mouse_payload_idle(usb_input_dev_t* in, const uint8_t* payload) {
+    if (payload[0] != in->last_mouse_btn ||
+            payload[1] != 0 || payload[2] != 0 || payload[3] != 0) {
+        return false;
+    }
+    return true;
+}
+
 static bool usb_poll_inputs(vdevice_t* dev) {
     uint8_t report[USB_MAX_REPORT];
     uint8_t payload[USB_MAX_EVENT_SIZE];
@@ -1049,7 +1068,13 @@ static bool usb_poll_inputs(vdevice_t* dev) {
         }
         else if (in->type == USB_INPUT_MOUSE) {
             memset(payload, 0, sizeof(payload));
-            if (mouse_normalize_report(&in->mouse, report, ret, payload) != USB_POINTER_EVENT_SIZE) {
+            if (mouse_normalize_report(&in->mouse, report, ret, payload) == USB_POINTER_EVENT_SIZE) {
+                if (mouse_payload_idle(in, payload)) {
+                    continue;
+                }
+                in->last_mouse_btn = payload[0];
+            }
+            else {
                 memcpy(payload, report, ret > USB_POINTER_EVENT_SIZE ? USB_POINTER_EVENT_SIZE : ret);
             }
             if (usbhid_dispatch_evt(USB_REPORT_ID_MOUSE, payload, USB_POINTER_EVENT_SIZE)) {
@@ -1093,7 +1118,13 @@ static bool usb_poll_inputs(vdevice_t* dev) {
             }
             else if (rid == in->mouse_report_id) {
                 memset(payload, 0, sizeof(payload));
-                if (mouse_normalize_report(&in->mouse, report, ret, payload) != USB_POINTER_EVENT_SIZE) {
+                if (mouse_normalize_report(&in->mouse, report, ret, payload) == USB_POINTER_EVENT_SIZE) {
+                    if (mouse_payload_idle(in, payload)) {
+                        continue;
+                    }
+                    in->last_mouse_btn = payload[0];
+                }
+                else {
                     memcpy(payload, report + 1,
                             (ret - 1) > USB_POINTER_EVENT_SIZE ? USB_POINTER_EVENT_SIZE : (ret - 1));
                 }
