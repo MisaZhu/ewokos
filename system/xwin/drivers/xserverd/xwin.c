@@ -1,5 +1,5 @@
 /*window list management, focus handling, client events and the
-  workspace damage/dirty bookkeeping of the x server*/
+  workspace snapshot/dirty bookkeeping of the x server*/
 #include <stdlib.h>
 #include <string.h>
 #include <sys/shm.h>
@@ -337,7 +337,6 @@ static void mark_dirty_confirm(x_t* x, xwin_t* win) {
         if(v->dirty_mark) {
             v->dirty = true;
             v->dirty_mark = false;
-            v->has_damage = false; //the area below it was repainted
 
             if(v != win && v->xinfo != NULL) {
                 if(need_repaint_desktop(x, v))
@@ -463,125 +462,16 @@ static void win_dirty(x_t* x, xwin_t* win) {
     x_repaint_req(x, win->xinfo->display_index);
 }
 
-#define X_DAMAGE_BAND     8
-#define X_DAMAGE_SKIP_MAX 8
-
-/*compare the workspace against the copy we keep and return the bounding box
-  of what the client actually changed. The rows are checked in bands so a
-  single memcmp covers several of them; the columns are then only probed
-  where they could still widen the box. Returns false when nothing changed.*/
-static bool detect_ws_damage(xwin_t* win, grect_t* dmg) {
-    const uint32_t* src = win->ws_g->buffer;
-    const uint32_t* dst = win->ws_g_buffer->buffer;
-    int32_t w = win->ws_g->w;
-    int32_t h = win->ws_g->h;
-    size_t row_bytes = (size_t)w * sizeof(uint32_t);
-
-    int32_t y0 = -1, y1 = 0;
-    int32_t x0 = w, x1 = 0;
-
-    for(int32_t y = 0; y < h; y += X_DAMAGE_BAND) {
-        int32_t bh = (y + X_DAMAGE_BAND) > h ? (h - y) : X_DAMAGE_BAND;
-        const uint32_t* s = src + (size_t)y * w;
-        const uint32_t* d = dst + (size_t)y * w;
-        if(memcmp(s, d, row_bytes * bh) == 0)
-            continue;
-
-        if(y0 < 0)
-            y0 = y;
-        y1 = y + bh;
-
-        if(x0 == 0 && x1 == w) //already full width, only the rows still matter
-            continue;
-
-        for(int32_t i = 0; i < bh; i++) {
-            const uint32_t* sr = s + (size_t)i * w;
-            const uint32_t* dr = d + (size_t)i * w;
-            int32_t l = 0;
-            while(l < x0 && sr[l] == dr[l])
-                l++;
-            if(l < x0)
-                x0 = l;
-
-            int32_t r = w - 1;
-            while(r >= x1 && sr[r] == dr[r])
-                r--;
-            if(r >= x1)
-                x1 = r + 1;
-
-            if(x0 == 0 && x1 == w)
-                break;
-        }
-    }
-
-    if(y0 < 0 || x1 <= x0)
-        return false;
-
-    dmg->x = x0;
-    dmg->y = y0;
-    dmg->w = x1 - x0;
-    dmg->h = y1 - y0;
-    return true;
-}
-
-static void copy_ws_rect(xwin_t* win, const grect_t* r) {
-    graph_t* src = win->ws_g;
-    graph_t* dst = win->ws_g_buffer;
-    size_t row_bytes = (size_t)r->w * sizeof(uint32_t);
-    for(int32_t y = 0; y < r->h; y++) {
-        memcpy(dst->buffer + (size_t)(r->y + y) * dst->w + r->x,
-                src->buffer + (size_t)(r->y + y) * src->w + r->x,
-                row_bytes);
-    }
-}
-
-/*detect what the client changed in ws_g and copy it across to the snapshot
-  the compositor reads from. Only ever called from inside the blocking
+/*copy the whole workspace across to the snapshot the compositor reads
+  from. The copy rides graph_blt: contig shm canvases travel through
+  /dev/g2d (zero-copy on physical addresses) instead of a cpu pass over
+  the non-cacheable shm window. Only ever called from inside the blocking
   UPDATE IPC: the client is suspended there, so ws_g cannot change under
-  the detect+copy.*/
+  the copy.*/
 static void x_update_copy(x_t* x, xwin_t* win) {
-    grect_t full = {0, 0, win->ws_g->w, win->ws_g->h};
-    grect_t dmg = full;
-    bool has_dmg = false;
+    graph_blt(win->ws_g, 0, 0, win->ws_g->w, win->ws_g->h,
+            win->ws_g_buffer, 0, 0, win->ws_g->w, win->ws_g->h);
 
-    if(win->ready && win->damage_skip == 0) {
-        has_dmg = detect_ws_damage(win, &dmg);
-        if(!has_dmg) {
-            if(!win->dirty && !win->frame_dirty)
-                return; //the client redrew the very same picture
-            /*nothing new in the workspace, but a repaint is still pending:
-              keep the damage already recorded and just ask for it again*/
-            win_dirty(x, win);
-            return;
-        }
-
-        /*detection costs a full compare pass: back off for a while when the
-          client keeps repainting almost everything anyway*/
-        if((int64_t)dmg.w * dmg.h * 4 >= (int64_t)full.w * full.h * 3)
-            win->damage_skip = X_DAMAGE_SKIP_MAX;
-    }
-    else if(win->damage_skip > 0) {
-        win->damage_skip--;
-    }
-
-    /*several updates may pile up between two repaints, so never narrow a
-      damage that has not been composited yet*/
-    if(win->dirty && !win->has_damage)
-        has_dmg = false;
-    else if(has_dmg && win->has_damage)
-        rect_union_to(&dmg, &win->damage);
-
-    if(has_dmg) {
-        copy_ws_rect(win, &dmg);
-    }
-    else {
-        dmg = full;
-        memcpy(win->ws_g_buffer->buffer, win->ws_g->buffer,
-                (size_t)win->ws_g->w * win->ws_g->h * sizeof(uint32_t));
-    }
-
-    win->damage = dmg;
-    win->has_damage = has_dmg;
     win->ready = true;
     win->not_ready_ms = 0;
     win_dirty(x, win);
@@ -604,7 +494,7 @@ int x_update(int fd, int from_pid, x_t* x) {
     /*a copy of this window is already queued for the next step. The copy
       must not be redone here either: stacked UPDATEs stay O(1) so
       fast-repainting clients cannot clog the IPC queue that mouse input
-      and event delivery share with them (the detect+copy for one window
+      and event delivery share with them (the snapshot copy for one window
       is a full-workspace pass on slow hardware). Remember the drop so the
       step can ask the client for a fresh repaint when none follows.*/
     if(win->refresh_pending) {

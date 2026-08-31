@@ -291,7 +291,6 @@ void x_repaint(x_t* x, uint32_t display_index) {
                 win->xinfo->display_index == display_index) {
             if(display->dirty) {
                 win->dirty = true;
-                win->has_damage = false; //everything below it got repainted
                 win->shadow_valid = false; //the bands must be blended fresh
             }
 
@@ -303,7 +302,6 @@ void x_repaint(x_t* x, uint32_t display_index) {
                                 covered_by_opaque_win(x, win, display_index, &win->xinfo->winr)) {
                     win->dirty = false;
                     win->frame_dirty = false;
-                    win->has_damage = false;
                     /*its area gets overwritten by the covering window, so
                       whatever shadow sat there is gone*/
                     win->shadow_valid = false;

@@ -5,7 +5,7 @@
 
   - xserver.h     shared types (x_t, xwin_t, ...) and small helpers
   - xshm.c        shared-memory allocation/teardown helpers
-  - xwin.c        window list, focus, client events, damage tracking
+  - xwin.c        window list, focus, client events, workspace snapshots
   - xrender.c     compositing: desktop, window content and frame drawing
   - xrepaint.c    per-display repaint pipeline and dirty rect collection
   - xinput.c      mouse/touch and IME input handling

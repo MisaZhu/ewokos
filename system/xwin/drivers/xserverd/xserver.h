@@ -44,25 +44,15 @@ typedef struct st_xwin {
 	grect_t shadow_rect; //winr the shadow bands were blended for
 	bool dirty_mark;
 	bool busy;
-	/*the current ws_g_buffer snapshot made it to the display at least
-	  once. Without it a snapshot that was never composited would look
-	  'unchanged' to the damage detection and the window would stay
-	  blank forever.*/
-	bool composited;
 
-	/*damaged area of ws_g, in workspace coordinates. When has_damage is
-	  false the whole workspace has to be treated as damaged.*/
-	grect_t damage;
-	bool has_damage;
-	uint32_t damage_skip; //consecutive full-width damages, backs off detection
 	/*tic (ms) when this window was last seen visible and !ready; 0 while
 	  ready. all_win_ready() stops throttling repaints for the whole
 	  display once a window has been stuck past X_NOT_READY_TIMEOUT_MS.*/
 	uint64_t not_ready_ms;
-	/*an UPDATE was accepted but its damage has not been composited yet:
+	/*an UPDATE was accepted but its snapshot has not been composited yet:
 	  further UPDATEs for this window become O(1) no-ops until the next
 	  step clears the flag (see x_refresh_pending_updates). This keeps
-	  fast-repainting clients from stacking heavy damage-detect+copy IPCs
+	  fast-repainting clients from stacking heavy snapshot-copy IPCs
 	  in the queue that mouse and event delivery share. The snapshot copy
 	  itself only ever runs inside the blocking UPDATE IPC: the client is
 	  suspended there, so its ws_g is stable. Copying at step time instead

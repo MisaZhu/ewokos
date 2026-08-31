@@ -58,8 +58,7 @@ static void clear_frame_ring(xwin_t* win) {
     graph_set(g, ws.x + ws.w, ws.y, g->w - ws.x - ws.w, ws.h, 0); //right
 }
 
-/*ws_dmg: damaged area of the workspace, NULL means all of it*/
-static void prepare_win_content(x_t* x, xwin_t* win, const grect_t* ws_dmg) {
+static void prepare_win_content(x_t* x, xwin_t* win) {
     x_display_t *display = &x->displays[win->xinfo->display_index];
     if(display->g == NULL)
         return;
@@ -67,10 +66,8 @@ static void prepare_win_content(x_t* x, xwin_t* win, const grect_t* ws_dmg) {
     if(win->frame_g == NULL)
         return;
 
-    if(win->frame_dirty) {
+    if(win->frame_dirty)
         clear_frame_ring(win);
-        ws_dmg = NULL; //the whole frame is being rebuilt
-    }
 
     /*two kinds of windows need their content inside frame_g:
       - the background effect mixes the desktop into the whole window, so
@@ -84,19 +81,10 @@ static void prepare_win_content(x_t* x, xwin_t* win, const grect_t* ws_dmg) {
         graph_t* g = win->ws_g_buffer;
         int32_t ox = win->xinfo->wsr.x - win->xinfo->winr.x;
         int32_t oy = win->xinfo->wsr.y - win->xinfo->winr.y;
-        //klog("win title: %s win->dirty: %d win->frame_dirty: %d\n", win->xinfo->title, win->dirty, win->frame_dirty);
-        if(ws_dmg != NULL) {
-            graph_blt(g, ws_dmg->x, ws_dmg->y, ws_dmg->w, ws_dmg->h,
-                    win->frame_g,
-                    ox + ws_dmg->x, oy + ws_dmg->y,
-                    ws_dmg->w, ws_dmg->h);
-        }
-        else {
-            graph_blt(g, 0, 0, g->w, g->h,
-                    win->frame_g, ox, oy,
-                    win->xinfo->wsr.w,
-                    win->xinfo->wsr.h);
-        }
+        graph_blt(g, 0, 0, g->w, g->h,
+                win->frame_g, ox, oy,
+                win->xinfo->wsr.w,
+                win->xinfo->wsr.h);
     }
 
     if(!win->frame_dirty)
@@ -314,24 +302,11 @@ static void blit_win_part(x_t* x, xwin_t* win, graph_t* disp_g,
 int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
     win_mark_frame_dirty(x, win);
 
-    grect_t ws_dmg = win->damage;
-    bool has_dmg = win->has_damage && !win->frame_dirty;
+    prepare_win_content(x, win);
 
-    prepare_win_content(x, win, has_dmg ? &ws_dmg : NULL);
-
-    grect_t dmg; //damaged area in frame_g coordinates
-    if(has_dmg) {
-        dmg.x = ws_dmg.x + win->xinfo->wsr.x - win->xinfo->winr.x;
-        dmg.y = ws_dmg.y + win->xinfo->wsr.y - win->xinfo->winr.y;
-        dmg.w = ws_dmg.w;
-        dmg.h = ws_dmg.h;
-    }
-    else {
-        dmg.x = 0;
-        dmg.y = 0;
-        dmg.w = win->xinfo->winr.w;
-        dmg.h = win->xinfo->winr.h;
-    }
+    /*the workspace snapshot is copied whole on every update, so the whole
+      window gets recomposited (in frame_g coordinates)*/
+    grect_t dmg = {0, 0, win->xinfo->winr.w, win->xinfo->winr.h};
 
     /*unless the background effect or a translucent frame keeps the whole
       picture inside frame_g, that graph only holds the decorations here:
@@ -379,7 +354,7 @@ int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
                     memcmp(&win->shadow_rect, &win->xinfo->winr, sizeof(grect_t)) == 0;
             if(!bands_ok) {
                 /*the bands are missing on the display, so they get blended
-                  whole no matter what the damaged area of this draw is*/
+                  whole*/
                 grect_t whole = {0, 0, g->w, g->h};
                 blit_win_area(g, disp_g, win->xinfo->winr.x, win->xinfo->winr.y,
                         &whole, &right, true);
@@ -439,7 +414,6 @@ int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
 
     win->dirty = false;
     win->frame_dirty = false;
-    win->has_damage = false;
     return 0;
 }
 
@@ -491,7 +465,6 @@ void refresh_shadows_above(x_t* x, xwin_t* below, const grect_t* region) {
                     /*the bands were never blended for this placement: the
                       window has to paint them whole on its own draw*/
                     w->dirty = true;
-                    w->has_damage = false;
                 }
             }
         }

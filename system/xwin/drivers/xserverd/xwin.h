@@ -2,7 +2,7 @@
 #define XWIN_H
 
 /*window list management, focus handling, client events and the
-  workspace damage/dirty bookkeeping*/
+  workspace snapshot/dirty bookkeeping*/
 
 #include "xserver.h"
 

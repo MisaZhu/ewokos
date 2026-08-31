@@ -131,8 +131,6 @@ void xwin_revalidate_geometry(x_t* x, xwin_t* win) {
         return;
     win->xinfo->frame_g_shm_id = win->frame_g->shm_id;
     win->frame_dirty = true;
-    win->has_damage = false;
-    win->composited = false;
     win->shadow_valid = false;
     x_update_frame_areas(x, win);
 }
@@ -299,8 +297,6 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
         win->frame_dirty = true;
         win->ready = false;
         win->not_ready_ms = 0; //restart the stuck-window timeout
-        win->has_damage = false;
-        win->damage_skip = 0;
         /*the old workspace shm is gone: any queued snapshot or recovery
           bookkeeping refers to it*/
         win->refresh_pending = false;
