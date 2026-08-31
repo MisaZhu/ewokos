@@ -252,7 +252,11 @@ int xserver_step(vdevice_t* dev, void* p) {
       hold a winr equal to their wsr (the fallback of get_xwm_win_space),
       which no decorated window can have. Re-fetch their geometry before
       anything gets drawn with it*/
-    x_server_lock_enter();
+    if(x->config.multi_task)
+        x_server_lock_enter();
+    else
+        ipc_disable();
+
     if(x->xwm_changed) {
         if(check_xwm(x)) {
             xwin_t* win = x->win_head;
@@ -277,7 +281,11 @@ int xserver_step(vdevice_t* dev, void* p) {
             continue;
         x_repaint(x, i);
     }
-    x_server_lock_leave();
+
+    if(x->config.multi_task)
+        x_server_lock_leave();
+    else
+        ipc_enable();
 
     /*the flush is a plain outbound IPC to the fb daemon and touches no
       window state, so it runs with the server lock released. It waits for

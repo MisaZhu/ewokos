@@ -122,8 +122,9 @@ static int32_t sys_get_thread_id(void) {
 
 static void sys_usleep(context_t* ctx, uint32_t count) {
     proc_t * cproc = get_current_proc();
-    if(cproc->info.type == TASK_TYPE_PROC && cproc->space->interrupt.state != INTR_STATE_IDLE)
+    /*if(cproc->info.type == TASK_TYPE_PROC && cproc->space->interrupt.state != INTR_STATE_IDLE)
         return;
+    */
 
     /*
      * Only the context actually serving an ipc request may take the
@@ -133,10 +134,11 @@ static void sys_usleep(context_t* ctx, uint32_t count) {
      * threads (e.g. netd's net_thread) must still enter real
      * proc_usleep().
      */
-    if(cproc->info.type == TASK_TYPE_PROC && proc_ipc_sync_serving(cproc)) {
+    /*if(cproc->info.type == TASK_TYPE_PROC && proc_ipc_sync_serving(cproc)) {
         schedule(ctx);
         return;
     }
+        */
 
     proc_usleep(ctx, count);
 }

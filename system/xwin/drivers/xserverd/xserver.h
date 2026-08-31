@@ -107,6 +107,8 @@ typedef struct {
 	graph_t* logo;
 	x_theme_t theme;
 	xwm_theme_t xwm_theme;
+
+	bool multi_task;
 } x_conf_t;
 
 typedef struct {

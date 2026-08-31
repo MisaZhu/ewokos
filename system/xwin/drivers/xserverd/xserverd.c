@@ -142,6 +142,7 @@ static int32_t read_config(x_t* x, const char* fname) {
     x->display_num = active_displays(x, display_arr_var);
 
     x->config.fps = json_get_int_def(conf_var, "fps", 30);
+    x->config.multi_task = json_get_int_def(conf_var, "multi_task", 0);
     x->config.bg_proc_priority = json_get_int_def(conf_var, "bg_proc_priority", 2);
 
     const char* v = json_get_str_def(conf_var, "cursor", "");
@@ -256,7 +257,7 @@ int main(int argc, char** argv) {
       handlers and the loop_step run concurrently: the server state lock
       must be ready before the first request lands*/
     pthread_mutex_init(&x_server_lock, NULL);
-    device_run(&dev, mnt_point, FS_TYPE_CHAR | FS_TYPE_ANNOUNIMOUS, 0666, true);
+    device_run(&dev, mnt_point, FS_TYPE_CHAR | FS_TYPE_ANNOUNIMOUS, 0666, x.config.multi_task);
     pthread_mutex_destroy(&x_server_lock);
     x_close(&x);
     return 0;
