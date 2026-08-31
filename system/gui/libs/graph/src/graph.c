@@ -201,7 +201,7 @@ static graph_t* graph_new_shm_row(int32_t w, int32_t h, bool contig) {
 graph_t* graph_new_shm(int32_t w, int32_t h) {
     graph_t* g = NULL;
 
-	if((w * h) >= G2D_MIN_SIZE)
+	if(has_g2d() == 0 && (w * h) >= G2D_MIN_SIZE)
         g = graph_new_shm_row(w, h, true);
 
     if(g == NULL)
