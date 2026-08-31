@@ -475,6 +475,65 @@ static int disp_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, pro
 
 /*push only the rects the client declared dirty. Returns the bytes written,
   or -1 when the damage cannot be honoured and the whole frame is needed.*/
+
+/*dirty-rect coalescing: every surviving rect is one g2d/blit dispatch with
+  a fixed overhead (IPC, cache maintenance), so fewer larger rects beat
+  many small ones. Two passes: (1) union every overlapping/touching pair
+  until stable, (2) while more than max remain, merge the cheapest pair
+  (smallest union-area growth), the same policy xserverd's pack uses.*/
+static void dirty_union_to(grect_t* dst, const grect_t* src) {
+    int32_t x0 = dst->x < src->x ? dst->x : src->x;
+    int32_t y0 = dst->y < src->y ? dst->y : src->y;
+    int32_t x1 = (dst->x + dst->w) > (src->x + src->w) ? (dst->x + dst->w) : (src->x + src->w);
+    int32_t y1 = (dst->y + dst->h) > (src->y + src->h) ? (dst->y + dst->h) : (src->y + src->h);
+    dst->x = x0; dst->y = y0; dst->w = x1 - x0; dst->h = y1 - y0;
+}
+
+static inline int dirty_overlap_or_touch(const grect_t* a, const grect_t* b) {
+    return a->x <= b->x + b->w && b->x <= a->x + a->w &&
+           a->y <= b->y + b->h && b->y <= a->y + a->h;
+}
+
+static uint32_t merge_dirty_rects(grect_t* rects, uint32_t num, uint32_t max) {
+    int changed = 1;
+    while(changed && num > 1) {
+        changed = 0;
+        for(uint32_t i = 0; i < num && !changed; i++) {
+            for(uint32_t j = i + 1; j < num && !changed; j++) {
+                if(dirty_overlap_or_touch(&rects[i], &rects[j])) {
+                    dirty_union_to(&rects[i], &rects[j]);
+                    num--;
+                    if(j < num)
+                        rects[j] = rects[num];
+                    changed = 1;
+                }
+            }
+        }
+    }
+
+    while(num > max) {
+        uint32_t ba = 0, bb = 1;
+        int64_t best = -1;
+        for(uint32_t i = 0; i < num; i++) {
+            for(uint32_t j = i + 1; j < num; j++) {
+                grect_t u = rects[i];
+                dirty_union_to(&u, &rects[j]);
+                int64_t cost = (int64_t)u.w * u.h -
+                        (int64_t)rects[i].w * rects[i].h -
+                        (int64_t)rects[j].w * rects[j].h;
+                if(best < 0 || cost < best) {
+                    best = cost; ba = i; bb = j;
+                }
+            }
+        }
+        dirty_union_to(&rects[ba], &rects[bb]);
+        num--;
+        if(bb < num)
+            rects[bb] = rects[num];
+    }
+    return num;
+}
+
 static int32_t flush_dirty(disp_shm_t* shm, const grect_t* rects, uint32_t num) {
     /*client (pre-rotation) geometry: for 90/270 the frame is transposed,
       matching flush()/GET_INFO. For rotate 0 this is _zwidth x _zheight,
@@ -487,15 +546,40 @@ static int32_t flush_dirty(disp_shm_t* shm, const grect_t* rects, uint32_t num) 
         gw = _zwidth; gh = _zheight;
     }
     grect_t bounds = {0, 0, gw, gh};
+    /*+1 slack: num <= DISPLAY_DIRTY_MAX (guaranteed by do_flush) and only
+      decreases, but GCC's range analysis cannot see that through the
+      merge_dirty_rects call and warns on merged[num - 1] without it */
+    grect_t merged[DISPLAY_DIRTY_MAX + 1];
+    uint32_t mnum = 0;
     graph_t g;
     memset(&g, 0, sizeof(graph_t));
     graph_init(&g, (const uint32_t*)shm->shm, gw, gh);
 
-    int32_t res = 0;
+    /*clip to the frame first, then coalesce into at most DISPLAY_DIRTY_MAX
+      dispatches (do_flush already guarantees num <= DISPLAY_DIRTY_MAX) */
     for(uint32_t i = 0; i < num; i++) {
         grect_t r = rects[i];
-        if(!grect_insect(&bounds, &r))
-            continue;
+        if(grect_insect(&bounds, &r) && mnum < DISPLAY_DIRTY_MAX)
+            merged[mnum++] = r;
+    }
+    if(mnum == 0)
+        return 0;
+    mnum = merge_dirty_rects(merged, mnum, DISPLAY_DIRTY_MAX);
+
+    /*the merged region is most of the frame anyway: one sequential
+      full-frame push beats N separate dispatches with their fixed
+      per-request overhead */
+    {
+        int64_t area = 0;
+        for(uint32_t i = 0; i < mnum; i++)
+            area += (int64_t)merged[i].w * merged[i].h;
+        if(area * 2 >= (int64_t)gw * gh)
+            return -1;
+    }
+
+    int32_t res = 0;
+    for(uint32_t i = 0; i < mnum; i++) {
+        grect_t r = merged[i];
         uint32_t n = (_rotate == G_ROTATE_0)
                 ? _flush_rect(&_fbinfo, &g, &r)
                 : fbdisplayd_rotate_rect_to(&_fbinfo, &g, &r, _rotate);
