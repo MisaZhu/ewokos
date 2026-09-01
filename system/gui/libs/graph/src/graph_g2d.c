@@ -53,7 +53,7 @@ int graph_fill_g2d(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint3
 	g2d_fill_req_t fill;
 	grect_t r;
 
-	if(!g2d_check_graph(g) || w <= 0 || h <= 0)
+	if(!g2d_check_graph(g) || (w * h < G2D_MIN_SIZE))
 		return -1;
 
 	/* same clipping as graph_fill_cpu */
