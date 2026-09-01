@@ -233,7 +233,7 @@ static void loop(void* p) {
     _repaint = false;
     */
     xwin_repaint(xwin);
-    proc_usleep(2000);
+    proc_usleep(1000);
 }
 
 static void _timerHandler(void) {

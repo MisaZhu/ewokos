@@ -69,7 +69,7 @@ static inline void g2d_task_unlock(void) {
    to the back end, the sub-alignment tail stays on the cpu. any
    multiple of 4 bytes (a whole pixel group) works; */
 #ifndef G2D_PITCH_ALIGN
-#define G2D_PITCH_ALIGN 32
+#define G2D_PITCH_ALIGN 64
 #endif
 #if (G2D_PITCH_ALIGN % 4) != 0 || G2D_PITCH_ALIGN <= 0
 #error G2D_PITCH_ALIGN must be a positive multiple of 4 (whole pixels)
