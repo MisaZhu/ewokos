@@ -229,11 +229,21 @@ static bool hid_connect(void) {
  * Some keyboards send no repeat reports between the press and the release
  * snapshot, and /dev/keyb0 readers rely on this driver's level-triggered
  * wakeups to keep seeing the held-key stream, so the hold case uses a
- * bounded sleep instead.
+ * bounded timed block instead: it still keeps the cadence when the keyboard
+ * goes silent, but a report edge (release/new press) wakes us early.
  */
 static void hid_wait_report(void) {
     if (_key_count > 0) {
-        proc_usleep(HID_WAIT_FALLBACK_US);
+        /*
+         * Timed block on the hid0 node token instead of proc_usleep():
+         * usbhostd's wakeups carry the node token, so a report arriving
+         * while keys are held releases the wait early; the deadline keeps
+         * the level-triggered cadence when the keyboard sends no repeats.
+         * proc_block_timeout() drops the latched generic token-0 wakes
+         * xim's /dev/keyb0 poll IPCs leave behind, so they cannot break
+         * the pacing.
+         */
+        proc_block_timeout(_hid_info.node, HID_WAIT_FALLBACK_US);
     }
     else {
         proc_block_by(_hid_info.node);

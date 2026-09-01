@@ -35,7 +35,10 @@ static int write_all_retry(int fd, const void* buf, size_t len) {
             continue;
         }
         if(errno == EAGAIN || errno == EINTR) {
-            proc_usleep(1000);
+            /* park on the node's WR wait queue with a bounded deadline
+             * instead of probing the write once per ms: the driver's wake
+             * edge releases us early, an idle retry costs zero CPU. */
+            vfs_block_by_fd_timeout(fd, VFS_EVT_WR, 100*1000);
             continue;
         }
         if(wr == 0 && errno == 0)

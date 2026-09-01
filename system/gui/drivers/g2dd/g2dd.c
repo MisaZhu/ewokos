@@ -661,7 +661,7 @@ static int32_t g2dd_handle_blit_to_phy(proto_t* in) {
 			(uint64_t)(dx + dw) * 4u > req.dst_size)
 		goto done;
 
-	G2DD_LOG("g2dd_handle_blit_to_phy %d x %d, src:contig: %d:(0x%08X), dst:contig: %d:(0x%08X)\n", src.width, src.height, src.contig, src.phy, req.dst_phy, req.dst_size);
+	G2DD_LOG("g2dd_handle_blit_to_phy %d x %d, src:contig: %d:(0x%08X), dst: 0x%08X sz:%d\n", src.width, src.height, src.contig, src.phy, req.dst_phy, req.dst_size);
 	ret = bsp_g2d_blt_phy(src.buffer, src.phy, src.contig,
 			(int32_t)src.width, (int32_t)src.height, sx, sy, sw, sh,
 			req.dst_phy, req.dst_size, req.dst_w, req.dst_h, req.pitch,

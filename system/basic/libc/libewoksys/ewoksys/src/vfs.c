@@ -974,7 +974,11 @@ uint8_t* vfs_readfile(const char* fname, int* rsz) {
                 p += sz;
             }
             else {
-                proc_usleep(1000);
+                /* fd became temporarily empty (VFS_ERR_RETRY): park on the
+                 * node's RD wait queue with a bounded deadline instead of
+                 * the old 1ms usleep probe loop; the driver's wake edge
+                 * releases us early. */
+                vfs_block_by_fd_timeout(fd, VFS_EVT_RD, 100*1000);
             }
         }
         close(fd);
@@ -1308,6 +1312,59 @@ int  vfs_block_by_fd(int fd, int event) {
         proc_block_by(info.node);
     }
     return 0;
+}
+
+/*
+ * Timed variant of vfs_block_by_fd(): wait up to timeout_usec for the fd's
+ * event, returning 0 on readiness and -1 on timeout/error.
+ *
+ * Replaces the old usleep(1000)-and-probe-again retry loops scattered over
+ * the EAGAIN paths (printf, shell pipe writes, vfs_readfile): instead of
+ * waking 1000 times a second to re-issue the IO probe, the caller registers
+ * on the node's vfsd wait queue and parks in proc_block_timeout(), released
+ * early by the driver's token-scoped wake edge or at the deadline. Each
+ * round re-checks the per-fd live visibility and re-registers, mirroring
+ * vfs_block_by_fd(); the registration is dropped before returning so no
+ * stale waiter survives.
+ */
+int  vfs_block_by_fd_timeout(int fd, int event, uint32_t timeout_usec) {
+    fsinfo_t info;
+    uint32_t wait_events = (uint32_t)event | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL;
+
+    if(vfs_get_by_fd(fd, &info) != 0 || info.node == 0)
+        return -1;
+
+    uint64_t start_ms = kernel_tic_ms(0);
+    bool registered = false;
+    while(1) {
+        if((vfs_get_poll_events(fd) & wait_events) != 0) {
+            if(registered)
+                vfs_unblock(info.node);
+            return 0;
+        }
+        uint64_t elapsed_ms = kernel_tic_ms(0) - start_ms;
+        if(elapsed_ms * 1000ULL >= (uint64_t)timeout_usec)
+            break;
+        uint64_t remain_us = (uint64_t)timeout_usec - elapsed_ms * 1000ULL;
+        if(!registered && vfs_block_raw(info.node, event) != 0)
+            return -1;
+        registered = true;
+        if((vfs_get_poll_events(fd) & wait_events) != 0) {
+            vfs_unblock(info.node);
+            return 0;
+        }
+        /*
+         * Timed, token-scoped sleep: proc_block_timeout() discards the
+         * latched generic token-0 wakes our vfs_block_raw() IPC left behind,
+         * so the wait stays parked until a real edge for this node (or the
+         * deadline) arrives.
+         */
+        uint32_t slice = (remain_us > 0xffffffffULL) ? 0xffffffffU : (uint32_t)remain_us;
+        proc_block_timeout(info.node, slice);
+    }
+    if(registered)
+        vfs_unblock(info.node);
+    return -1;
 }
 
 int  vfs_block(ewokos_addr_t node, int event) {

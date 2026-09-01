@@ -76,8 +76,13 @@ uint32_t Slider::getValue() {
     uint32_t max = horizontal? area.w - area.h: area.h - area.w;
     if(max == 0)
         return 0;
-    uint32_t v = (pos * range) / max;
-    return v; // 计算当前值并返回
+    /* round to nearest so the value survives the pos->value round trip:
+       with max > range several pixels map to one value, and truncation
+       would report one step too low for a rounded setPos/setValue */
+    uint32_t v = (pos * range + max / 2) / max;
+    if(v >= range)
+        v = range - 1;
+    return v;
 }
 
 void Slider::setPos(uint32_t pos) {
@@ -90,7 +95,8 @@ void Slider::setValue(uint32_t value) {
     uint32_t max = horizontal? area.w - area.h: area.h - area.w;
     if(max == 0)
         return;   
-    uint32_t newPos = (value * max) / range;
+    /* round like getValue() so setValue(v) -> getValue() == v */
+    uint32_t newPos = (value * max + range / 2) / range;
     if(newPos >= max)
         newPos = max - 1; 
     setPos(newPos);
