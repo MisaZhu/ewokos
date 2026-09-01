@@ -25,7 +25,7 @@ extern "C" {
  */
 
 #define SHM_PIPE_HEADER_SIZE  64
-#define SHM_PIPE_PAGE_SIZE    4096
+#define SHM_PIPE_PAGE_SIZE    (4096*32)
 #define SHM_PIPE_DATA_SIZE    (SHM_PIPE_PAGE_SIZE - SHM_PIPE_HEADER_SIZE)
 
 typedef struct {

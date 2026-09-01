@@ -1052,9 +1052,16 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
              * snd.wnd and tcp_writable() reports permanently non-writable, so
              * server-first protocols (sshd banner, telnet negotiation) stall
              * forever right after accept().
+             *
+             * peer_wscale/wsopt_ok were already captured from the peer's SYN
+             * (LISTEN handler); do NOT overwrite them from this segment. This
+             * is the handshake-completing ACK, and RFC 7323 makes WSOPT valid
+             * only in SYN segments, so seg->has_wscale is always 0 here and
+             * overwriting dropped the negotiated scale - the peer's window
+             * then collapsed to its raw 16-bit value (e.g. a 256KB window
+             * shifted by 6 read as 4096) and capped bulk upload at
+             * window/RTT (~4KB per RTT on wifi).
              */
-            pcb->peer_wscale = seg->has_wscale ? seg->wscale : 0;
-            pcb->wsopt_ok = seg->has_wscale ? 1 : 0;
             pcb->snd.wnd = tcp_peer_window(pcb, seg->wnd);
             pcb->snd.wl1 = seg->seq;
             pcb->snd.wl2 = seg->ack;
@@ -1102,7 +1109,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
                 tcp_retransmit_queue_cleanup(pcb);
                 pcb->dupacks = 0;
             } else if (len == 0 && pcb->queue.num > 0 &&
-                       seg->wnd == pcb->snd.wnd &&
+                       tcp_peer_window(pcb, seg->wnd) == pcb->snd.wnd &&
                        !TCP_FLG_ISSET(flags, TCP_FLG_SYN | TCP_FLG_FIN)) {
                 /*
                  * RFC 5681 fast retransmit. Without it, every frame lost on a
@@ -1115,6 +1122,10 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
                  * RTO timer still backstops multi-loss windows. Refresh
                  * entry->last without doubling rto so the timer path doesn't
                  * fire a duplicate retransmit right behind this one.
+                 *
+                 * Compare the SCALED peer window with snd.wnd: a raw-vs-
+                 * scaled compare never matches once window scaling is in
+                 * effect, which silently disabled fast retransmit.
                  */
                 if (pcb->dupacks < 0xff) {
                     pcb->dupacks++;
@@ -2217,6 +2228,42 @@ tcp_accept(int id, struct ip_endpoint *foreign)
  * TCP User Command (Common)
  */
 
+/*
+ * Temporary per-second TX diagnostics (mirrors wland's "wtx:" line):
+ * segments/bytes emitted by tcp_send, stall breakdown (window-closed vs
+ * retransmit-queue-full), and the observed send window / peak inflight.
+ */
+static uint32_t tcp_dbg_segs;
+static uint32_t tcp_dbg_bytes;
+static uint32_t tcp_dbg_wnd_stalls;
+static uint32_t tcp_dbg_q_stalls;
+static uint32_t tcp_dbg_last_wnd;
+static uint32_t tcp_dbg_max_inflight;
+
+static void
+tcp_dbg_flush(struct tcp_pcb *pcb)
+{
+    struct timeval now;
+    static uint64_t last_sec;
+
+    gettimeofday(&now, NULL);
+    if ((uint64_t)now.tv_sec == last_sec)
+        return;
+    last_sec = now.tv_sec;
+    if (tcp_dbg_segs == 0 && tcp_dbg_wnd_stalls == 0 && tcp_dbg_q_stalls == 0)
+        return;
+    slog("ntx: segs=%u bytes=%u wstall=%u qstall=%u wnd=%u peak=%u\n",
+         (unsigned)tcp_dbg_segs, (unsigned)tcp_dbg_bytes,
+         (unsigned)tcp_dbg_wnd_stalls, (unsigned)tcp_dbg_q_stalls,
+         (unsigned)tcp_dbg_last_wnd, (unsigned)tcp_dbg_max_inflight);
+    (void)pcb;
+    tcp_dbg_segs = 0;
+    tcp_dbg_bytes = 0;
+    tcp_dbg_wnd_stalls = 0;
+    tcp_dbg_q_stalls = 0;
+    tcp_dbg_max_inflight = 0;
+}
+
 ssize_t
 tcp_send(int id, uint8_t *data, size_t len)
 {
@@ -2291,6 +2338,12 @@ RETRY:
                 cap = 0;
             }
             if (!cap) {
+                if (inflight >= pcb->snd.wnd)
+                    tcp_dbg_wnd_stalls++;
+                else
+                    tcp_dbg_q_stalls++;
+                tcp_dbg_last_wnd = pcb->snd.wnd;
+                tcp_dbg_flush(pcb);
                 debugf("tcp_send stalled desc=%d state=%d inflight=%u wnd=%u q=%u len=%zu sent=%zd",
                        id, pcb->state, (unsigned int)inflight, (unsigned int)pcb->snd.wnd,
                        pcb->queue.num, len, sent);
@@ -2359,6 +2412,12 @@ RETRY:
             }
             pcb->snd.nxt += slen;
             sent += slen;
+            tcp_dbg_segs++;
+            tcp_dbg_bytes += slen;
+            tcp_dbg_last_wnd = pcb->snd.wnd;
+            if (inflight + slen > tcp_dbg_max_inflight)
+                tcp_dbg_max_inflight = inflight + slen;
+            tcp_dbg_flush(pcb);
             /*
              * Keep pipelining until the caller's buffer is drained or the
              * window/retransmit-queue caps close (cap==0 above). The old
