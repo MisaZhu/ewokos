@@ -6,6 +6,7 @@
     "##cursor": "touch",
     "logo": "/usr/system/icons/xlogo.png",
     "gray_mode": 0,
+    "multi_task": 0,
     "bg_proc_priority": 0,
     "#bg_proc_priority":  4
 }
