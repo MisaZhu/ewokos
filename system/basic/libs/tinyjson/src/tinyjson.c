@@ -520,8 +520,16 @@ static json_var_t* json_parse_factor(json_lex_t *l) {
         int i = 0;
         if(strchr(l->tk_str->cstr, 'x') != NULL || strchr(l->tk_str->cstr, 'X') != NULL)
             i = strtoul(l->tk_str->cstr, 0, 16);
-        else	
-            i = atoi(l->tk_str->cstr);
+        else {
+            /* atoi() silently wraps values beyond int range (e.g. a
+               2400000000 Hz clock rate); keep them as float instead */
+            long long ll = strtoll(l->tk_str->cstr, NULL, 10);
+            if(ll < -2147483647LL - 1 || ll > 2147483647LL) {
+                json_lex_js_chkread(l, JSON_LEX_INT);
+                return json_var_new_float((float)ll);
+            }
+            i = (int)ll;
+        }
         json_lex_js_chkread(l, JSON_LEX_INT);
         return json_var_new_int(i);
     }
