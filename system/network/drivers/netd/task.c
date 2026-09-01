@@ -747,6 +747,9 @@ int task_write(uint32_t node, const char* buf, int size) {
              * writes return the accepted byte count; libc loops on it. */
             ret = VFS_ERR_RETRY;
         }
+        /* Burst boundary: push any coalesced tap frames out now instead of
+         * waiting for the next batch-full or interrupt-loop flush. */
+        net_tx_flush();
     }
 
     int saved_errno = errno;

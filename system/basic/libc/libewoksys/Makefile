@@ -37,6 +37,7 @@ LIB_EWOKSYS_OBJS =  \
 	$(ARCH)/ewoksys/src/mmio.o  \
 	$(ARCH)/ewoksys/src/dma.o  \
 	$(ARCH)/ewoksys/src/shm.o  \
+	$(ARCH)/ewoksys/src/shm_pipe.o  \
 	$(ARCH)/ewoksys/src/session.o  \
 	$(ARCH)/ewoksys/src/hashmap.o  \
 	$(ARCH)/ewoksys/src/queue.o  \

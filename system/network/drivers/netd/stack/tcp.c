@@ -2228,42 +2228,6 @@ tcp_accept(int id, struct ip_endpoint *foreign)
  * TCP User Command (Common)
  */
 
-/*
- * Temporary per-second TX diagnostics (mirrors wland's "wtx:" line):
- * segments/bytes emitted by tcp_send, stall breakdown (window-closed vs
- * retransmit-queue-full), and the observed send window / peak inflight.
- */
-static uint32_t tcp_dbg_segs;
-static uint32_t tcp_dbg_bytes;
-static uint32_t tcp_dbg_wnd_stalls;
-static uint32_t tcp_dbg_q_stalls;
-static uint32_t tcp_dbg_last_wnd;
-static uint32_t tcp_dbg_max_inflight;
-
-static void
-tcp_dbg_flush(struct tcp_pcb *pcb)
-{
-    struct timeval now;
-    static uint64_t last_sec;
-
-    gettimeofday(&now, NULL);
-    if ((uint64_t)now.tv_sec == last_sec)
-        return;
-    last_sec = now.tv_sec;
-    if (tcp_dbg_segs == 0 && tcp_dbg_wnd_stalls == 0 && tcp_dbg_q_stalls == 0)
-        return;
-    slog("ntx: segs=%u bytes=%u wstall=%u qstall=%u wnd=%u peak=%u\n",
-         (unsigned)tcp_dbg_segs, (unsigned)tcp_dbg_bytes,
-         (unsigned)tcp_dbg_wnd_stalls, (unsigned)tcp_dbg_q_stalls,
-         (unsigned)tcp_dbg_last_wnd, (unsigned)tcp_dbg_max_inflight);
-    (void)pcb;
-    tcp_dbg_segs = 0;
-    tcp_dbg_bytes = 0;
-    tcp_dbg_wnd_stalls = 0;
-    tcp_dbg_q_stalls = 0;
-    tcp_dbg_max_inflight = 0;
-}
-
 ssize_t
 tcp_send(int id, uint8_t *data, size_t len)
 {
@@ -2338,12 +2302,6 @@ RETRY:
                 cap = 0;
             }
             if (!cap) {
-                if (inflight >= pcb->snd.wnd)
-                    tcp_dbg_wnd_stalls++;
-                else
-                    tcp_dbg_q_stalls++;
-                tcp_dbg_last_wnd = pcb->snd.wnd;
-                tcp_dbg_flush(pcb);
                 debugf("tcp_send stalled desc=%d state=%d inflight=%u wnd=%u q=%u len=%zu sent=%zd",
                        id, pcb->state, (unsigned int)inflight, (unsigned int)pcb->snd.wnd,
                        pcb->queue.num, len, sent);
@@ -2412,12 +2370,6 @@ RETRY:
             }
             pcb->snd.nxt += slen;
             sent += slen;
-            tcp_dbg_segs++;
-            tcp_dbg_bytes += slen;
-            tcp_dbg_last_wnd = pcb->snd.wnd;
-            if (inflight + slen > tcp_dbg_max_inflight)
-                tcp_dbg_max_inflight = inflight + slen;
-            tcp_dbg_flush(pcb);
             /*
              * Keep pipelining until the caller's buffer is drained or the
              * window/retransmit-queue caps close (cap==0 above). The old
