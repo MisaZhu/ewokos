@@ -5,6 +5,7 @@
 #include <Widget/WidgetWin.h>
 #include <Widget/RootWidget.h>
 #include <ewoksys/proc.h>
+#include <ewoksys/kernel_tic.h>
 #include <tinyjson/tinyjson.h>
 #include <graph/graph_image.h>
 #include <dirent.h>
@@ -17,6 +18,7 @@
 using namespace Ewok;
 
 #define MAX_FILES 1024
+#define LOAD_BUDGET_MS 50 /*time budget per timer tick for progressive loading*/
 
 class CWDLabel: public Label {
 protected:
@@ -55,6 +57,9 @@ class FileGrid: public Grid {
 	graph_t* fileIcon;
 	graph_t* devIcon;
 	map_t iconCache;
+	DIR* dirp; /*directory handle for progressive loading*/
+	uint32_t fileNum; /*number of entries loaded so far*/
+	bool loading;
 
 	CWDLabel *cwdLabel;
 
@@ -179,11 +184,17 @@ class FileGrid: public Grid {
 	}
 
 	void readDir(const char* r) {
-		DIR* dirp = opendir(r);
+		if(dirp != NULL) {
+			closedir(dirp);
+			dirp = NULL;
+		}
+		loading = false;
+		dirp = opendir(r);
 		if(dirp == NULL)
 			return;
 		if(!ensureFileCapacity(1)) {
 			closedir(dirp);
+			dirp = NULL;
 			return;
 		}
 		if(r != cwd) {
@@ -193,31 +204,55 @@ class FileGrid: public Grid {
 
 		strcpy(files[0].d_name, "..");
 		files[0].d_type = DT_DIR;
+		fileNum = 1;
+		itemStart = 0;
+		itemSelected = 0;
+		setItemNum(fileNum);
+		updateScroller();
+		loading = true;
+	}
 
-		int i;
-		int num = 1;
-		for(i=1; i<MAX_FILES; i++) {
+	/*progressive loading: read entries step by step inside the event
+	  loop so each entry is painted as soon as it is read*/
+	void readDirStep(void) {
+		if(!loading || dirp == NULL)
+			return;
+
+		uint64_t t0 = kernel_tic_ms(0);
+		while(fileNum < MAX_FILES) {
 			struct dirent* it = readdir(dirp);
 			if(it == NULL)
 				break;
 			if(it->d_name[0] == '.')
 				continue;
-			if(!ensureFileCapacity(num + 1))
+			if(!ensureFileCapacity(fileNum + 1))
 				break;
-			memcpy(&files[num], it, sizeof(struct dirent));
+			memcpy(&files[fileNum], it, sizeof(struct dirent));
 
 			if(it->d_type != DT_DIR && check(it->d_name, ".png")) {
 				const char* fname = getFullname(it->d_name);
 				getImgIconAndCache(fname);
 			}
-			num++;
+			fileNum++;
+			setItemNum(fileNum);
+			update();
+
+			if((kernel_tic_ms(0) - t0) >= LOAD_BUDGET_MS)
+				break;
 		}
-		closedir(dirp);
-		setItemNum(num);
-		itemStart = 0;
-		itemSelected = 0;
-		updateScroller();
-		getWin()->busy(false);
+
+		if(dirp != NULL && fileNum >= MAX_FILES) {
+			closedir(dirp);
+			dirp = NULL;
+		}
+
+		if(dirp == NULL) {
+			loading = false;
+			itemSelected = 0;
+			updateScroller();
+			update();
+			getWin()->busy(false);
+		}
 	}
 
 	void loadBasicIcons() {
@@ -311,6 +346,11 @@ class FileGrid: public Grid {
 	}
 
 protected:
+	/*progressive loading driven by the event loop timer*/
+	void onTimer(uint32_t timerFPS, uint32_t timerSteps) {
+		readDirStep();
+	}
+
 	void drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
 		graph_fill_rect(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
 	}
@@ -360,6 +400,9 @@ public:
 		cwd[0] = 0;
 		cwdLabel = NULL;
 		scrollerV = NULL;
+		dirp = NULL;
+		fileNum = 0;
+		loading = false;
 		iconCache = hashmap_new(0);
 		fileIcon = NULL;
 		dirIcon = NULL;
@@ -368,6 +411,8 @@ public:
 	}
 
 	~FileGrid() {
+		if(dirp != NULL)
+			closedir(dirp);
 		if(files != NULL)
 			free(files);
 		if(iconCache != NULL) {

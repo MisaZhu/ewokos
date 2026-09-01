@@ -64,10 +64,9 @@ int main(int argc, char** argv) {
 	root->focus(fm);
 
 	win.open(&x, -1, -1, -1, 0, 0, "xfinder", XWIN_STYLE_NORMAL);
-	win.busy(true);
+	/*window shows right away; directory entries are loaded and drawn
+	  progressively inside the event loop*/
 	fm->loadDir("/");
-	win.repaint();
-	win.busy(false);
 	widgetXRun(&x, &win);
 	return 0;
 }
