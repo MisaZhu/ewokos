@@ -68,8 +68,8 @@ public:
 		x_pid = -1;
 		keybFD = -1;
 		while(true) {
-			keybFD = open(keyb_dev, O_RDONLY | O_NONBLOCK);
-			//keybFD = open(keyb_dev, O_RDONLY);
+			//keybFD = open(keyb_dev, O_RDONLY | O_NONBLOCK);
+			keybFD = open(keyb_dev, O_RDONLY);
 			if(keybFD >= 0)
 				break;
 			proc_usleep(300000);
@@ -96,7 +96,17 @@ public:
 	}
 };
 
+/*
+ * Pacing between reads while keys are HELD. keybFD is opened blocking:
+ * while no key is down, hid_keybd reports no VFS_EVT_RD and this proc
+ * parks inside vfsd's node wait queue with zero IPCs, so an idle
+ * keyboard costs nothing in the whole USB HID chain. While keys are
+ * held the read keeps returning the live snapshot immediately
+ * (level-triggered RD), and this sleep is what keeps that loop at a
+ * sane cadence and paces keyb.c's KEY_REPEAT state machine.
+ */
 static uint32_t _timer = 20000;
+
 static int doargs(int argc, char* argv[]) {
 	int c = 0;
 	while (c != -1) {
@@ -126,7 +136,8 @@ int main(int argc, char* argv[]) {
 
 	XIM xim(keyb_dev);
 	while(true) {
-		//if(xim.read() == 0)
+		/* blocks inside vfsd while no key is down (zero IPCs); returns
+		   at once with the live snapshot while keys are held */
 		xim.read();
 		proc_usleep(_timer);
 	}

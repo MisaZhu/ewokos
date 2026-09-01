@@ -5,14 +5,14 @@
 #include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/vdevice.h>
 #include <ewoksys/ipc.h>
+#include <ewoksys/proc.h>
 #include <ewoksys/kernel_tic.h>
 
 #define HID_TOUCH_REPORT_ID 3
-#define HID_IDLE_SLEEP_MIN_US 1000u
-#define HID_IDLE_SLEEP_MAX_US 4000u
 #define TOUCH_CACHE_SIZE 128u
 
 /*
@@ -27,12 +27,24 @@
 /* retry cadence while /dev/hid0 is not there yet */
 #define HID_CONNECT_SLEEP_US 200000u
 
+/*
+ * /dev/hid0 subscriber-queue protocol (see libs/usb/usb_defs.h): fixed
+ * 7-byte touch events, queue depth 32. One read sized for the whole
+ * queue drains an entire backlog in a single vfsd/usbhostd round-trip;
+ * the old one-event-per-read drain paid that round-trip per report.
+ */
+#define HID_EVT_SIZE 7
+#define HID_QUEUE_DEPTH 32
+#define TOUCH_DRAIN_SIZE (HID_QUEUE_DEPTH * HID_EVT_SIZE)
+
 static int hid = -1;
 static const char* _dev_point = "/dev/hid0";
+/* cached fsinfo of the open /dev/hid0 fd: node id and mount pid stay stable
+   for the whole mount, so the wait path does not pay a VFS_GET_BY_FD IPC */
+static fsinfo_t _hid_info;
 static uint16_t touch_data[TOUCH_CACHE_SIZE][3];
 static uint32_t touch_data_read = 0;
 static uint32_t touch_data_write = 0;
-static uint32_t idle_sleep_us = HID_IDLE_SLEEP_MIN_US;
 /* last contact state and position emitted to the reader, used to spot
    empty (repeated release / stationary) reports */
 static uint16_t last_state = 0;
@@ -131,7 +143,8 @@ static int touch_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* node,
 
 static int set_report_id(int fd, int id) {
     proto_t in;
-    PF->init(&in)->addi(&in, id);
+    PF->init(&in);
+    PF->addi(&in, id);
     int ret = vfs_fcntl(fd, 0, &in, NULL);
     PF->clear(&in);
     return ret;
@@ -153,8 +166,8 @@ static uint32_t touch_check_poll_events(vdevice_t* dev, int fd, int from_pid, fs
  * boot.
  * This is retried from the loop instead of before device_run(), so
  * /dev/touch0 gets registered immediately: ipcserv waits for that
- * registration before init.rd moves on, and blocking here would stall the
- * whole boot on a machine with no touch panel attached.
+ * registration before init.rd moves on, and blocking here would stall
+ * the whole boot on a machine with no touch panel attached.
  */
 static bool hid_connect(void) {
     int fd;
@@ -169,12 +182,45 @@ static bool hid_connect(void) {
         close(fd);
         return false;
     }
+    if (vfs_get_by_fd(fd, &_hid_info) != 0 || _hid_info.node == 0) {
+        close(fd);
+        return false;
+    }
+    /*
+     * Register on the node's read wait queue once and keep it permanently:
+     * touch_wait_report() then needs only proc_block_by().
+     * wait_queue_push dedupes a same-waiter same-node entry, so reconnects
+     * cannot pile up.
+     */
+    proto_t in;
+    PF->init(&in)->
+        addi(&in, _hid_info.node)->
+        addi(&in, VFS_EVT_RD);
+    ipc_call(get_vfsd_pid(), VFS_BLOCK, &in, NULL);
+    PF->clear(&in);
     hid = fd;
     return true;
 }
 
+/*
+ * Wait until the per-fd subscriber queue on /dev/hid0 holds a report.
+ *
+ * The waiter registration is set up once in hid_connect() and never
+ * removed, so waiting is a single proc_block_by(): the kernel parks us
+ * with zero IPCs until usbhostd's dispatch fires proc_wakeup_by(pid, node)
+ * on the empty -> non-empty edge of OUR queue. If the wakeup lands while
+ * we are still RUNNING (mid-drain, or a spurious wake), the kernel latches
+ * the token and proc_block_by() consumes it instead of sleeping - no edge
+ * can be lost, and a spurious wake costs one empty read before we sleep
+ * again. Waiting is deliberately not verified through the node's sticky
+ * poll bits: a stale wake only costs one empty read, while trusting the
+ * sticky bits could busy-spin.
+ */
+static void touch_wait_report(void) {
+    proc_block_by(_hid_info.node);
+}
+
 static int touch_loop(vdevice_t* dev, void* p) {
-    uint8_t buf[8] = {0};
     (void)p;
 
     if (!hid_connect()) {
@@ -182,26 +228,62 @@ static int touch_loop(vdevice_t* dev, void* p) {
         return 0;
     }
 
-    uint32_t wr_before = touch_data_write;
+    /*
+     * Event-driven wait: the kernel parks us (zero IPCs) until usbhostd's
+     * dispatch wakes us, so an idle touch panel costs nothing instead of
+     * the old blind poll loop that kept reading /dev/hid0 every 1-4ms
+     * forever. Touch reports only ever arrive through the subscriber
+     * queue, so there is nothing to re-check on a timer.
+     */
+    touch_wait_report();
+
+    bool failed = false;
+    uint8_t buf[TOUCH_DRAIN_SIZE];
+    /*
+     * Drain every queued report in one pass: reads are O_NONBLOCK, so the
+     * loop stops at the first EAGAIN. Each read fetches a whole batch (up
+     * to the full queue depth) from usbhidsrv's batched queue_pop, so a
+     * backlog costs one vfsd/usbhostd round-trip, not one per report.
+     */
     ipc_disable();
     while (true) {
-        int ret = read(hid, buf, 7);
-        if (ret != 7) {
-            break;
+        int ret = read(hid, buf, sizeof(buf));
+        if (ret >= HID_EVT_SIZE) {
+            /* payload per event: contact state, x, y (little-endian u16) */
+            for (int off = 0; off + HID_EVT_SIZE <= ret; off += HID_EVT_SIZE) {
+                touch_handle_report((uint16_t)buf[off],
+                        (uint16_t)buf[off + 1] | ((uint16_t)buf[off + 2] << 8),
+                        (uint16_t)buf[off + 3] | ((uint16_t)buf[off + 4] << 8));
+            }
+            if (ret < (int)sizeof(buf)) {
+                break; /* short batch: the queue ran dry */
+            }
+            continue;
         }
-                touch_handle_report((uint16_t)buf[0],
-                                (uint16_t)buf[1] | ((uint16_t)buf[2] << 8),
-                                (uint16_t)buf[3] | ((uint16_t)buf[4] << 8));
+        if (ret < 0 && errno != EAGAIN) {
+            /* hard failure (node gone / usbhostd restarted): reconnect */
+            failed = true;
+        }
+        break;
     }
     ipc_enable();
+
+    if (failed) {
+        close(hid);
+        hid = -1;
+        memset(&_hid_info, 0, sizeof(fsinfo_t));
+        proc_usleep(HID_CONNECT_SLEEP_US);
+        return 0;
+    }
 
     /*
      * Flush the coalesced position at most once per TOUCH_FLUSH_MS so the
      * event rate on /dev/touch0 never exceeds 100Hz. Contact edges were
      * already pushed during the drain above; reports arriving while we
      * sleep here queue up on /dev/hid0 and are drained (edges included,
-     * none lost) on the next loop pass - a tap during the window waits
-     * at most one flush interval.
+     * none lost) on the next loop pass - a tap during the window waits at
+     * most one flush interval. The edge wake is latched while we are
+     * RUNNING, so touch_wait_report() returns at once afterwards.
      */
     if (pend_valid) {
         uint64_t now = kernel_tic_ms(0);
@@ -210,29 +292,16 @@ static int touch_loop(vdevice_t* dev, void* p) {
             proc_usleep((uint32_t)((next - now) * 1000u));
         touch_flush_pending();
     }
-    bool produced = (touch_data_write != wr_before);
 
-        if (touch_has_data()) {
-        idle_sleep_us = HID_IDLE_SLEEP_MIN_US;
+    /*
+     * Level-triggered wakeup for /dev/touch0 readers: re-assert VFS_EVT_RD
+     * while the queue still has unread events, not only on the edge when a
+     * new report arrives, so a blocked reader cannot sleep on data that is
+     * already queued for it.
+     */
+    if (touch_has_data()) {
         vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
     }
-        else if (produced) {
-                idle_sleep_us = HID_IDLE_SLEEP_MIN_US;
-        }
-    else if (idle_sleep_us < HID_IDLE_SLEEP_MAX_US) {
-        idle_sleep_us <<= 1;
-        if (idle_sleep_us > HID_IDLE_SLEEP_MAX_US) {
-            idle_sleep_us = HID_IDLE_SLEEP_MAX_US;
-        }
-    }
-    /*
-     * device_run() does not pace loop_step, so this has to sleep on every
-     * pass. It used to skip the sleep whenever the ring still held events,
-     * which pinned a core at 100% for as long as a reader was slow to drain
-     * it. The floor is well under the endpoint's own bInterval, so nothing
-     * is lost by always waiting.
-     */
-    usleep(idle_sleep_us);
     return 0;
 }
 
