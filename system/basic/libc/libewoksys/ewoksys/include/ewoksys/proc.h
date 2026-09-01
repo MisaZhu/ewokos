@@ -21,6 +21,7 @@ void     proc_detach(void);
 
 void     proc_block(void);
 void     proc_block_by(ewokos_addr_t token);
+void     proc_block_timeout(ewokos_addr_t token, uint32_t timeout_usec);
 void     proc_wakeup(int32_t pid);
 void     proc_wakeup_by(int32_t pid, ewokos_addr_t token);
 void     proc_init(void);

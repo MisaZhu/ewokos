@@ -47,23 +47,6 @@ typedef struct {
         bool pipe_wait;
 } poll_fd_cache_t;
 
-#define VFS_MULTI_POLL_BACKOFF_US 20000
-/*
- * Starting backoff for the poll() paths that cannot park on a node token.
- *
- * A finite timeout forces a sleep loop: there is no timed kernel block, so
- * proc_block_by() could overshoot the deadline. Sleeping a flat 10ms/20ms
- * there throws away the wakeup that was already registered and turns every
- * "producer refills a moment later" round into a full backoff period. With a
- * 4032-byte shm_pipe ring that alone caps a relay (sshd/telnetd shell output)
- * near 4KB per backoff, i.e. a couple hundred KB/s regardless of link speed.
- *
- * Ramp instead: catch the common sub-millisecond refill on the first retry and
- * still reach the old ceiling within ~25ms so a genuinely idle waiter does not
- * flood vfsd with readiness IPCs.
- */
-#define VFS_POLL_BACKOFF_START_US 200U
-
 static int vfs_get_by_fd_raw(int fd, fsinfo_t* info) {
     proto_t in, out;
     PF->init(&in)->addi(&in, fd);
@@ -1466,10 +1449,6 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
     int res = 0;
     poll_fd_cache_t* cache = NULL;
     bool registered = false;
-    bool multi_wait = (num > 1);
-    uint32_t backoff_us = VFS_POLL_BACKOFF_START_US;
-    uint32_t backoff_max_us = multi_wait ? VFS_MULTI_POLL_BACKOFF_US :
-            10000U;
     uint64_t start_ms = 0;
     if(timeout > 0)
         start_ms = kernel_tic_ms(0);
@@ -1515,65 +1494,80 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
                 break;
         }
 
-        if(!multi_wait) {
-            uint32_t wait_node = 0;
-            /* Phase 3: Register for wakeup on the single node */
-            registered = true;
-            for(int i = 0; i < num; ++i) {
-                if(!cache[i].valid)
+        /*
+         * Phase 3: Register a waiter for every valid fd.
+         *
+         * shm pipe fds park in piped's waiter table (one slot per pipe per
+         * pid, so several pipes of one process never overwrite each other);
+         * everything else registers on its vfsd node. vfsd keeps one read
+         * and one write waiter per pid, so with several device fds the LAST
+         * registration wins there — the timed block below still bounds the
+         * wait and every poll round re-registers, which keeps coverage
+         * correct without needing per-fd waiter slots in vfsd.
+         */
+        uint32_t wait_node = 0;
+        for(int i = 0; i < num; ++i) {
+            if(!cache[i].valid)
+                continue;
+            fsfile_t* file = vfs_get_file(fds[i].fd);
+            shm_pipe_t* ring = NULL;
+            if(FS_IS_TYPE(cache[i].info.type, FS_TYPE_PIPE) && file != NULL)
+                ring = get_pipe_shm(fds[i].fd, file);
+            if(ring != NULL) {
+                /*
+                 * piped wakes poll waiters with proc_wakeup_by(pid,
+                 * ring->node_id); remember one pipe token as the scoped
+                 * block target below.
+                 */
+                if(pipe_poll_register(fds[i].fd, file, (uint32_t)fds[i].events) == 0) {
+                    cache[i].pipe_wait = true;
+                    wait_node = (uint32_t)ring->node_id;
                     continue;
-                fsfile_t* file = vfs_get_file(fds[i].fd);
-                shm_pipe_t* ring = NULL;
-                if(FS_IS_TYPE(cache[i].info.type, FS_TYPE_PIPE) && file != NULL)
-                    ring = get_pipe_shm(fds[i].fd, file);
-                if(ring != NULL) {
-                    /*
-                     * piped pipe fd: park inside piped's waiter table and
-                     * sleep on the pipe token (ring->node_id) — that is the
-                     * token piped's PIPE_EDGE/close wakes fire against. This
-                     * keeps the whole poll wait off vfsd.
-                     */
-                    if(pipe_poll_register(fds[i].fd, file, (uint32_t)fds[i].events) == 0) {
-                        cache[i].pipe_wait = true;
-                        wait_node = (uint32_t)ring->node_id;
-                        continue;
-                    }
-                }
-                wait_node = cache[i].info.node;
-                vfs_block_raw(cache[i].info.node, (int)fds[i].events);
-            }
-
-            /*
-             * Phase 4: Re-check after registration (prevent race).
-             *
-             * This must use the full visible readiness, not only the sticky node
-             * bits. Socket/device drivers can publish a live RD/WR state from
-             * dev_poll() before a new vfs_wakeup() edge is latched. Looking only
-             * at sticky events here misses that window and the subsequent
-             * proc_block() can sleep forever even though the fd is already ready.
-             */
-            res = 0;
-            for(int i = 0; i < num; ++i) {
-                if(cache[i].valid) {
-                    uint32_t visible = vfs_get_poll_events_cached(fds[i].fd,
-                            &cache[i].info);
-                    uint32_t mask = (uint32_t)fds[i].events | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL;
-                    if((visible & mask) != 0) {
-                        res++;
-                        break;
-                    }
                 }
             }
-            if(res > 0)
-                continue; /* Events appeared during registration, re-do full check */
+            wait_node = cache[i].info.node;
+            vfs_block_raw(cache[i].info.node, (int)fds[i].events);
+        }
+        registered = true;
 
-            /*
-             * Phase 5: Block until the single watched node wakes us.
-             *
-             * vfsd wakes registered poll waiters with proc_wakeup_by(pid, node).
-             * Sleeping with a generic proc_block() here drops that node token, so
-             * poll(POLLOUT) can sleep forever after netd raises a write wakeup.
-             */
+        /*
+         * Phase 4: Re-check after registration (prevent race).
+         *
+         * This must use the full visible readiness, not only the sticky node
+         * bits. Socket/device drivers can publish a live RD/WR state from
+         * dev_poll() before a new vfs_wakeup() edge is latched. Looking only
+         * at sticky events here misses that window and the subsequent block
+         * can sleep until the timeout even though the fd is already ready.
+         */
+        bool ready_during_register = false;
+        for(int i = 0; i < num; ++i) {
+            if(cache[i].valid) {
+                uint32_t visible = vfs_get_poll_events_cached(fds[i].fd,
+                        &cache[i].info);
+                uint32_t mask = (uint32_t)fds[i].events | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL;
+                if((visible & mask) != 0) {
+                    ready_during_register = true;
+                    break;
+                }
+            }
+        }
+        if(ready_during_register)
+            continue; /* Events appeared during registration, re-do full check */
+
+        /*
+         * Phase 5: Really sleep until a registered source wakes us.
+         *
+         * Single fd: block scoped to that node token (vfsd wakes registered
+         * poll waiters with proc_wakeup_by(pid, node); piped uses the pipe
+         * ring token). Multiple fds: a generic block, released by ANY node
+         * token wake — a wake from any registered source carries a non-zero
+         * token, so no registration can starve the others. proc_block_timeout
+         * discards the latched generic token-0 wakes our registration IPCs
+         * left behind and honours the deadline, so a finite timeout no longer
+         * degrades into a usleep/probe spin loop: an idle waiter issues zero
+         * readiness IPCs until an event edge or its deadline arrives.
+         */
+        if(num == 1) {
             if(timeout < 0) {
                 if(wait_node != 0)
                     proc_block_by(wait_node);
@@ -1581,61 +1575,29 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
                     proc_block();
             }
             else {
-                uint64_t now_ms = kernel_tic_ms(0);
-                uint64_t elapsed = now_ms - start_ms;
-                uint64_t remaining = (uint64_t)timeout - elapsed;
-                uint64_t remaining_us = remaining * 1000;
-                if(remaining_us > backoff_us) {
-                    usleep(backoff_us);
-                    if(backoff_us < backoff_max_us) {
-                        backoff_us *= 2;
-                        if(backoff_us > backoff_max_us)
-                            backoff_us = backoff_max_us;
-                    }
-                }
-                else if(remaining > 0)
-                    usleep((uint32_t)remaining_us);
+                uint64_t elapsed = kernel_tic_ms(0) - start_ms;
+                uint64_t remaining_us = ((uint64_t)timeout > elapsed) ?
+                        ((uint64_t)timeout - elapsed) * 1000 : 1;
+                if(remaining_us > 0xffffffffULL)
+                    remaining_us = 0xffffffffULL;
+                if(wait_node != 0)
+                    proc_block_timeout(wait_node, (uint32_t)remaining_us);
                 else
-                    break;
-            }
-            continue;
-        }
-
-        /*
-         * vfsd currently keeps only one read waiter and one write waiter per pid.
-         * Registering multiple poll fds at once makes later nodes overwrite
-         * earlier ones, which is exactly what breaks telnetd's socket+pipe poll.
-         * For multi-fd poll, fall back to a short sleep loop instead of corrupting
-         * the wait registration. Keep the fallback backoff noticeably above
-         * 1ms, otherwise poll-heavy daemons can flood vfsd with
-         * VFS_GET_BY_FD/VFS_GET_POLL_EVENTS IPCs and pin one CPU in pure
-         * readiness probing.
-         */
-        if(timeout < 0) {
-            usleep(backoff_us);
-            if(backoff_us < backoff_max_us) {
-                backoff_us *= 2;
-                if(backoff_us > backoff_max_us)
-                    backoff_us = backoff_max_us;
+                    usleep((uint32_t)remaining_us);
             }
         }
         else {
-            uint64_t now_ms = kernel_tic_ms(0);
-            uint64_t elapsed = now_ms - start_ms;
-            uint64_t remaining = (uint64_t)timeout - elapsed;
-            uint64_t remaining_us = remaining * 1000;
-            if(remaining_us > backoff_us) {
-                usleep(backoff_us);
-                if(backoff_us < backoff_max_us) {
-                    backoff_us *= 2;
-                    if(backoff_us > backoff_max_us)
-                        backoff_us = backoff_max_us;
-                }
+            if(timeout < 0) {
+                proc_block_timeout(0, 0);
             }
-            else if(remaining > 0)
-                usleep((uint32_t)remaining_us);
-            else
-                break;
+            else {
+                uint64_t elapsed = kernel_tic_ms(0) - start_ms;
+                uint64_t remaining_us = ((uint64_t)timeout > elapsed) ?
+                        ((uint64_t)timeout - elapsed) * 1000 : 1;
+                if(remaining_us > 0xffffffffULL)
+                    remaining_us = 0xffffffffULL;
+                proc_block_timeout(0, (uint32_t)remaining_us);
+            }
         }
     }
 

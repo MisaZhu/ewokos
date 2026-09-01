@@ -1832,6 +1832,13 @@ void proc_block_by(context_t* ctx, proc_t* proc, ewokos_addr_t token) {
      * to BLOCK. Without this, a cross-core IPC wakeup can be lost.
      */
     proc->block_by = token;
+    /*
+     * An untimed block must not carry a sleep_counter: the timer release in
+     * renew_sleep_counter() treats BLOCK + counter > 0 as a timed poll-block
+     * deadline. A stale counter can linger after a SLEEPING proc was woken
+     * generically (the counter is only zeroed by the timer expiry path).
+     */
+    proc->sleep_counter = 0;
     proc_unready_locked(proc, BLOCK);
     proc_lock_leave();
     if(proc == get_current_proc())
@@ -1844,6 +1851,72 @@ void proc_block_by(context_t* ctx, proc_t* proc, ewokos_addr_t token) {
 
 void proc_block(context_t* ctx, proc_t* proc) {
     proc_block_by(ctx, proc, 0);
+}
+
+/*
+ * Timed block used to emulate poll()/select() with a finite timeout.
+ *
+ * Differences from proc_block_by():
+ *  - timeout_usec > 0 releases the block at the deadline even when no wake
+ *    arrives (renew_sleep_counter() counts a BLOCK state that carries a
+ *    sleep_counter down to zero). timeout_usec == 0 blocks forever.
+ *  - A latched GENERIC (wake_by == 0) pending wake is DROPPED instead of
+ *    satisfying the block. Every ipc_call() the caller issued while
+ *    registering its waiters (vfs_block_raw / piped PIPE_POLL_WAIT) leaves
+ *    such a token-0 wake latched; honoring it here would make the block
+ *    return immediately and turn poll() back into a hot probe loop. Real
+ *    device edges always wake with a non-zero node token, so they still
+ *    satisfy the block (generic block: any node token; node block: the
+ *    matching token). The timeout bounds any edge lost to this discard.
+ */
+void proc_block_by_timeout(context_t* ctx, proc_t* proc, ewokos_addr_t token,
+        uint32_t timeout_usec) {
+    if(proc == NULL)
+        return;
+    proc_lock_enter();
+    bool run_now = false;
+    if(proc->wake_pending) {
+        bool compatible = (token == 0) ? (proc->wake_by != 0)
+                                       : (proc->wake_by == token);
+        /*
+         * A mismatched NON-ZERO token is a real edge from another node this
+         * proc is (stale-)registered on: return without blocking so the
+         * level-triggered userspace loop re-checks, same rule as
+         * proc_block_by(). A generic token-0 latch is only an IPC artifact
+         * here: drop it and really block.
+         */
+        bool foreign_node_wake = (!compatible && proc->wake_by != 0);
+        proc->wake_pending = 0;
+        proc->wake_by = 0;
+        if(compatible || foreign_node_wake)
+            run_now = true;
+    }
+    else if(proc->info.state == READY) {
+        run_now = true;
+    }
+
+    if(run_now) {
+        if(proc->info.state == READY)
+            proc->info.state = RUNNING;
+        proc->block_by = 0;
+        proc_lock_leave();
+        return;
+    }
+    proc->block_by = token;
+    /*
+     * sleep_counter doubles as the deadline while state == BLOCK; the timer
+     * tick releases the block on expiry. proc_wakeup_by() zeroes it when a
+     * real wake releases the block early, so a late expiry can never fire a
+     * spurious wake on an unrelated later sleep.
+     */
+    proc->sleep_counter = timeout_usec;
+    proc_unready_locked(proc, BLOCK);
+    proc_lock_leave();
+    if(proc == get_current_proc())
+        proc_account_pause_current();
+    schedule(ctx);
+    if(proc == get_current_proc())
+        proc_account_resume_current();
 }
 
 void proc_waitpid(context_t* ctx, int32_t pid) {
@@ -1935,6 +2008,12 @@ void proc_wakeup_by(proc_t* proc, ewokos_addr_t token) {
             return;
         }
         proc->block_by = 0;
+        /*
+         * Cancel a pending timed poll-block deadline: the wake already
+         * releases the proc, and a leftover sleep_counter would fire a
+         * spurious ready-edge when it expires.
+         */
+        proc->sleep_counter = 0;
         proc->wake_by = 0;
         proc->wake_pending = 0;
         proc_wakeup_all_state(proc);
@@ -2464,6 +2543,22 @@ static int32_t renew_sleep_counter(uint32_t usec) {
             proc->sleep_counter -= usec;
             if(proc->sleep_counter <= 0) {
                 proc->sleep_counter = 0;
+                proc_ready(proc);
+                proc_kick_ready_core(proc);
+                res = 0;
+            }
+        }
+        else if(proc->info.state == BLOCK && proc->sleep_counter > 0) {
+            /*
+             * Timed poll-block (proc_block_by_timeout): the deadline rides
+             * sleep_counter while the state stays BLOCK. Expiry releases
+             * the block exactly like a wake would; token wakes that arrive
+             * first cancel the counter in proc_wakeup_by().
+             */
+            proc->sleep_counter -= usec;
+            if(proc->sleep_counter <= 0) {
+                proc->sleep_counter = 0;
+                proc->block_by = 0;
                 proc_ready(proc);
                 proc_kick_ready_core(proc);
                 res = 0;
