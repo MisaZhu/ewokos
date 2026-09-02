@@ -278,7 +278,9 @@ net_task_t *create_task(int fd, int from_pid, int node) {
     task->sock = -1;
     task->refs = 1;
     task->inflight = 0;
+    task->fin_sock = -1;
     task->closing = false;
+    task->dead = false;
     task->is_listener = false;
     task_list_add(task);
     pthread_mutex_lock(&task_list_lock);
@@ -286,6 +288,21 @@ net_task_t *create_task(int fd, int from_pid, int node) {
     task_active_count++;
     pthread_mutex_unlock(&task_list_lock);
     return task;
+}
+
+/*
+ * Final accounting + memory release. Callers must guarantee nothing can
+ * still reach @task: off task_list, not in sock_to_task[], and no inflight
+ * operation left (or handed off to the last task_end_op()).
+ */
+static void task_destroy(net_task_t *task) {
+    pthread_mutex_lock(&task_list_lock);
+    if (task_active_count > 0)
+        task_active_count--;
+    task_total_freed++;
+    pthread_mutex_unlock(&task_list_lock);
+    pthread_mutex_destroy(&task->lock);
+    free(task);
 }
 
 /*
@@ -313,7 +330,26 @@ static net_task_t *task_begin_op(uint32_t node, int *sock) {
 static void task_end_op(net_task_t *task) {
     pthread_mutex_lock(&task->lock);
     task->inflight--;
+    /*
+     * Zombie handoff (see release_task()): the teardown drain timed out
+     * because an operation was stalled -- typically task_write() riding out
+     * wl0 TX backpressure inside net_tx_flush() at sshd-transfer end. The
+     * LAST op out owns the deferred close and free. release_task() freeing
+     * the task and destroying task->lock while this thread still held the
+     * pointer was a use-after-free on a destroyed mutex: the reused
+     * semaphore/heap block corrupted live locks and wedged or crashed netd
+     * right after the transfer's close.
+     */
+    bool last = (task->dead && task->inflight == 0);
+    int fin_sock = last ? task->fin_sock : -1;
     pthread_mutex_unlock(&task->lock);
+    if (!last)
+        return;
+    /* Outside task->lock: sock_close() takes the stack mutex and the lock
+     * order is stack mutex -> task_list_lock -> task->lock. */
+    if (fin_sock >= 0)
+        sock_close(fin_sock);
+    task_destroy(task);
 }
 
 /*
@@ -895,8 +931,32 @@ void release_task(net_task_t *task) {
     int fin_sock = task_detach_sock(task);
     task_wait_other_ops(task, 0);
 
-    /* sock_close() may spend ~300ms in TCP graceful-close retries; under
-     * IPC_MULTI_TASK that only occupies this one pool worker. */
+    /*
+     * Re-check under the lock: the bounded drain above can time out while a
+     * handler is legitimately stalled -- task_write()'s net_tx_flush() rides
+     * wl0 TX backpressure for seconds at the end of an sshd upload, exactly
+     * when the client's close() lands here. Destroying task->lock and
+     * freeing the task while that handler still holds the pointer made its
+     * task_end_op() lock a destroyed mutex in freed memory: the recycled
+     * semaphore id / heap block corrupted live locks (stack mutex included)
+     * and netd stopped responding for good. Hand the deferred sock_close +
+     * free to the LAST task_end_op() instead; new operations cannot start
+     * (closing is set and the task is off the list), so inflight only
+     * decreases.
+     */
+    pthread_mutex_lock(&task->lock);
+    if (task->inflight > 0) {
+        task->dead = true;
+        task->fin_sock = fin_sock;
+        pthread_mutex_unlock(&task->lock);
+        slog("netd: task node=%d release deferred to last inflight op\n",
+             task->node);
+        return;
+    }
+    pthread_mutex_unlock(&task->lock);
+
+    /* sock_close() runs the TCP graceful close; under IPC_MULTI_TASK that
+     * only occupies this one pool worker. */
     if (fin_sock >= 0)
         sock_close(fin_sock);
 
@@ -915,11 +975,5 @@ void release_task(net_task_t *task) {
      * so refs > 0, so release cannot fire), so dropping it is safe.
      */
 
-    pthread_mutex_lock(&task_list_lock);
-    if (task_active_count > 0)
-        task_active_count--;
-    task_total_freed++;
-    pthread_mutex_unlock(&task_list_lock);
-    pthread_mutex_destroy(&task->lock);
-    free(task);
+    task_destroy(task);
 }

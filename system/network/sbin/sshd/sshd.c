@@ -72,6 +72,7 @@
 #define SSH_MSG_DISCONNECT                      1
 #define SSH_MSG_SERVICE_REQUEST                 5
 #define SSH_MSG_SERVICE_ACCEPT                  6
+#define SSH_MSG_EXT_INFO                        7
 #define SSH_MSG_KEXINIT                         20
 #define SSH_MSG_NEWKEYS                         21
 #define SSH_MSG_KEXDH_INIT                      30
@@ -147,6 +148,7 @@ static void wait_inherited_socket_ready(int sync_fd) {
 }
 
 #define SSH_KEX_ALG_MLKEM768_X25519_SHA256 "mlkem768x25519-sha256"
+#define SSH_KEX_ALG_CURVE25519_SHA256      "curve25519-sha256"
 #define SSH_KEX_ALG_DH_GROUP14_SHA256      "diffie-hellman-group14-sha256"
 
 #define SSH_X25519_KEY_LEN         CURVE25519_PUB_KEY_SIZE
@@ -229,6 +231,7 @@ struct sshd_session {
     uint32_t seq_c2s;
     uint32_t seq_s2c;
     int encryption_enabled;
+    int client_ext_info_c;  /* client advertised ext-info-c in KEXINIT (RFC 8308) */
 
     int authenticated;
     session_info_t user_info;
@@ -1301,6 +1304,7 @@ static int parse_client_kexinit(sshd_session_t* s,
         const uint8_t* payload, size_t payload_len) {
     static const char* kex_pref[] = {
         SSH_KEX_ALG_MLKEM768_X25519_SHA256,
+        SSH_KEX_ALG_CURVE25519_SHA256,
         SSH_KEX_ALG_DH_GROUP14_SHA256
     };
     static const char* hostkey_pref[] = {
@@ -1341,6 +1345,8 @@ static int parse_client_kexinit(sshd_session_t* s,
         sshd_set_error("unsupported client kex algorithms");
         return -1;
     }
+    s->client_ext_info_c =
+        (choose_client_algo(kex, kex_len, "ext-info-c") == 0) ? 1 : 0;
     if(choose_first_supported_algo(hostkey, hostkey_len,
                 hostkey_pref, sizeof(hostkey_pref) / sizeof(hostkey_pref[0]),
                 s->negotiated_hostkey_alg, sizeof(s->negotiated_hostkey_alg)) < 0) {
@@ -1445,9 +1451,11 @@ static int send_kexinit(sshd_session_t* s) {
 
     if(write_ssh_string(packet.payload, sizeof(packet.payload), &off,
                 (const uint8_t*)SSH_KEX_ALG_MLKEM768_X25519_SHA256 ","
-                SSH_KEX_ALG_DH_GROUP14_SHA256,
+                SSH_KEX_ALG_CURVE25519_SHA256 ","
+                SSH_KEX_ALG_DH_GROUP14_SHA256 ",ext-info-s",
                 sizeof(SSH_KEX_ALG_MLKEM768_X25519_SHA256 ","
-                    SSH_KEX_ALG_DH_GROUP14_SHA256) - 1) < 0 ||
+                    SSH_KEX_ALG_CURVE25519_SHA256 ","
+                    SSH_KEX_ALG_DH_GROUP14_SHA256 ",ext-info-s") - 1) < 0 ||
             write_ssh_string(packet.payload, sizeof(packet.payload), &off,
                 (const uint8_t*)"rsa-sha2-256,ssh-rsa", 20) < 0 ||
             write_ssh_string(packet.payload, sizeof(packet.payload), &off,
@@ -1455,9 +1463,9 @@ static int send_kexinit(sshd_session_t* s) {
             write_ssh_string(packet.payload, sizeof(packet.payload), &off,
                 (const uint8_t*)"aes128-ctr,aes256-ctr", 21) < 0 ||
             write_ssh_string(packet.payload, sizeof(packet.payload), &off,
-                (const uint8_t*)"hmac-sha2-256", 14) < 0 ||
+                (const uint8_t*)"hmac-sha2-256", sizeof("hmac-sha2-256") - 1) < 0 ||
             write_ssh_string(packet.payload, sizeof(packet.payload), &off,
-                (const uint8_t*)"hmac-sha2-256", 14) < 0 ||
+                (const uint8_t*)"hmac-sha2-256", sizeof("hmac-sha2-256") - 1) < 0 ||
             write_ssh_string(packet.payload, sizeof(packet.payload), &off,
                 (const uint8_t*)"none", 4) < 0 ||
             write_ssh_string(packet.payload, sizeof(packet.payload), &off,
@@ -1873,14 +1881,175 @@ fail:
     return -1;
 }
 
+static int do_key_exchange_curve25519_sha256(sshd_session_t* s) {
+    ssh_packet_t packet;
+    WC_RNG rng;
+    curve25519_key server_key;
+    const uint8_t* c_pub = NULL;
+    uint32_t c_pub_len = 0;
+    uint8_t server_pub[SSH_X25519_KEY_LEN];
+    word32 server_pub_len = sizeof(server_pub);
+    uint8_t k_raw[SSH_X25519_KEY_LEN];
+    uint8_t k_mpint[4 + SSH_X25519_KEY_LEN + 1];
+    size_t k_mpint_len = 0;
+    uint8_t exchange_hash[32];
+    uint8_t signature_blob[384];
+    size_t signature_blob_len = 0;
+    int rng_inited = 0;
+    int server_key_inited = 0;
+    size_t off = 0;
+
+    memset(&rng, 0, sizeof(rng));
+    memset(&server_key, 0, sizeof(server_key));
+    memset(server_pub, 0, sizeof(server_pub));
+    memset(k_raw, 0, sizeof(k_raw));
+    memset(k_mpint, 0, sizeof(k_mpint));
+
+    if(ssh_packet_receive(s, &packet) < 0)
+        return -1;
+    if(packet.type != SSH_MSG_KEXDH_INIT) {
+        sshd_set_error("expected KEX_ECDH_INIT, got %u", packet.type);
+        return -1;
+    }
+    if(read_ssh_string(packet.payload, packet.payload_len, &off, &c_pub, &c_pub_len) < 0)
+        return -1;
+    if(c_pub_len != SSH_X25519_KEY_LEN) {
+        sshd_set_error("invalid curve25519 client pubkey length: %u", c_pub_len);
+        goto fail;
+    }
+
+    if(wc_InitRng(&rng) != 0) {
+        sshd_set_error("wc_InitRng failed");
+        goto fail;
+    }
+    rng_inited = 1;
+
+    wc_curve25519_init(&server_key);
+    server_key_inited = 1;
+    if(wc_curve25519_make_key(&rng, SSH_X25519_KEY_LEN, &server_key) != 0) {
+        sshd_set_error("wc_curve25519_make_key failed");
+        goto fail;
+    }
+    if(wc_curve25519_export_public_ex(&server_key, server_pub, &server_pub_len,
+                EC25519_LITTLE_ENDIAN) != 0 ||
+            server_pub_len != SSH_X25519_KEY_LEN) {
+        sshd_set_error("wc_curve25519_export_public_ex failed");
+        goto fail;
+    }
+
+    if(ssh_curve25519_shared_secret_be(&server_key, c_pub, k_raw) != 0) {
+        sshd_set_error("curve25519 shared secret failed");
+        goto fail;
+    }
+    if(ssh_encode_mpint(k_raw, sizeof(k_raw), k_mpint, sizeof(k_mpint), &k_mpint_len) < 0) {
+        sshd_set_error("encode curve25519 shared secret failed");
+        goto fail;
+    }
+
+    {
+        SHA256_CTX ctx;
+        SHA256_Init(&ctx);
+        sha256_update_ssh_string(&ctx, (const uint8_t*)s->client_version, strlen(s->client_version));
+        sha256_update_ssh_string(&ctx, (const uint8_t*)s->server_version, strlen(s->server_version));
+        sha256_update_ssh_string(&ctx, s->client_kexinit, s->client_kexinit_len);
+        sha256_update_ssh_string(&ctx, s->server_kexinit, s->server_kexinit_len);
+        sha256_update_ssh_string(&ctx, g_hostkey_blob, g_hostkey_blob_len);
+        sha256_update_ssh_string(&ctx, c_pub, c_pub_len);
+        sha256_update_ssh_string(&ctx, server_pub, SSH_X25519_KEY_LEN);
+        SHA256_Update(&ctx, k_mpint, k_mpint_len);
+        SHA256_Final(exchange_hash, &ctx);
+    }
+
+    if(s->session_id_len == 0) {
+        memcpy(s->session_id, exchange_hash, sizeof(exchange_hash));
+        s->session_id_len = sizeof(exchange_hash);
+    }
+    derive_keys(s, k_mpint, k_mpint_len, exchange_hash, sizeof(exchange_hash));
+
+    if(build_signature_blob(exchange_hash, sizeof(exchange_hash), s->negotiated_hostkey_alg,
+                signature_blob, sizeof(signature_blob), &signature_blob_len) < 0) {
+        sshd_set_error("build curve25519 signature failed");
+        goto fail;
+    }
+
+    memset(&packet, 0, sizeof(packet));
+    packet.type = SSH_MSG_KEXDH_REPLY;
+    off = 0;
+    if(write_ssh_string(packet.payload, sizeof(packet.payload), &off,
+                g_hostkey_blob, (uint32_t)g_hostkey_blob_len) < 0 ||
+            write_ssh_string(packet.payload, sizeof(packet.payload), &off,
+                server_pub, SSH_X25519_KEY_LEN) < 0 ||
+            write_ssh_string(packet.payload, sizeof(packet.payload), &off,
+                signature_blob, (uint32_t)signature_blob_len) < 0) {
+        sshd_set_error("build curve25519 KEX reply failed");
+        goto fail;
+    }
+    packet.payload_len = off;
+    if(ssh_packet_send(s, &packet) < 0)
+        goto fail;
+
+    memset(&packet, 0, sizeof(packet));
+    packet.type = SSH_MSG_NEWKEYS;
+    if(ssh_packet_send(s, &packet) < 0)
+        goto fail;
+    if(ssh_packet_receive(s, &packet) < 0)
+        goto fail;
+    if(packet.type != SSH_MSG_NEWKEYS) {
+        sshd_set_error("expected NEWKEYS, got %u", packet.type);
+        goto fail;
+    }
+
+    s->encryption_enabled = 1;
+    if(server_key_inited)
+        wc_curve25519_free(&server_key);
+    if(rng_inited)
+        wc_FreeRng(&rng);
+    memset(k_raw, 0, sizeof(k_raw));
+    memset(k_mpint, 0, sizeof(k_mpint));
+    return 0;
+
+fail:
+    if(server_key_inited)
+        wc_curve25519_free(&server_key);
+    if(rng_inited)
+        wc_FreeRng(&rng);
+    memset(k_raw, 0, sizeof(k_raw));
+    memset(k_mpint, 0, sizeof(k_mpint));
+    return -1;
+}
+
 static int do_key_exchange(sshd_session_t* s) {
     if(strcmp(s->negotiated_kex_alg, SSH_KEX_ALG_MLKEM768_X25519_SHA256) == 0)
         return do_key_exchange_mlkem768x25519_sha256(s);
+    if(strcmp(s->negotiated_kex_alg, SSH_KEX_ALG_CURVE25519_SHA256) == 0)
+        return do_key_exchange_curve25519_sha256(s);
     if(strcmp(s->negotiated_kex_alg, SSH_KEX_ALG_DH_GROUP14_SHA256) == 0)
         return do_key_exchange_group14_sha256(s);
 
     sshd_set_error("unsupported negotiated kex algorithm: %s", s->negotiated_kex_alg);
     return -1;
+}
+
+/* RFC 8308: sent as the next packet after our first SSH_MSG_NEWKEYS when the
+ * client advertised "ext-info-c" in its KEXINIT kex algorithm list. Some
+ * clients (russh/AnySCP) refuse to proceed without this extension
+ * negotiation. */
+static int send_ext_info(sshd_session_t* s) {
+    ssh_packet_t packet;
+    size_t off = 0;
+    static const char sig_algs[] = "rsa-sha2-256,ssh-rsa";
+
+    memset(&packet, 0, sizeof(packet));
+    packet.type = SSH_MSG_EXT_INFO;
+    ssh_write_uint32(packet.payload + off, 1);
+    off += 4;
+    if(write_ssh_string(packet.payload, sizeof(packet.payload), &off,
+                (const uint8_t*)"server-sig-algs", 15) < 0 ||
+            write_ssh_string(packet.payload, sizeof(packet.payload), &off,
+                (const uint8_t*)sig_algs, (uint32_t)(sizeof(sig_algs) - 1)) < 0)
+        return -1;
+    packet.payload_len = off;
+    return ssh_packet_send(s, &packet);
 }
 
 static int send_service_accept(sshd_session_t* s, const char* name) {
@@ -1918,6 +2087,14 @@ static int handle_service_and_auth(sshd_session_t* s) {
 
     if(ssh_packet_receive(s, &packet) < 0) {
         return -1;
+    }
+    /* RFC 8308: since we advertise "ext-info-s", the client may send its
+     * SSH_MSG_EXT_INFO right after NEWKEYS; skip it (we have no use for the
+     * client's extensions) and keep waiting for the service request. */
+    while(packet.type == SSH_MSG_EXT_INFO) {
+        if(ssh_packet_receive(s, &packet) < 0) {
+            return -1;
+        }
     }
     if(packet.type != SSH_MSG_SERVICE_REQUEST)
         return -1;
@@ -3548,6 +3725,11 @@ static int serve_client(int sock) {
     }
     if(do_key_exchange(session) < 0) {
         goto out;
+    }
+    if(session->client_ext_info_c) {
+        if(send_ext_info(session) < 0) {
+            goto out;
+        }
     }
     if(handle_service_and_auth(session) < 0) {
         goto out;

@@ -157,6 +157,38 @@ queue_peek(struct queue_head *queue)
     return queue->head->data;
 }
 
+/*
+ * Unlink the entry carrying @data (pointer identity). Returns 1 when found.
+ * Needed by tcp_pcb_release(): a released-but-unaccepted child pcb must be
+ * unlinked from its parent's backlog or the dangling entry outlives the pcb.
+ */
+int
+queue_remove(struct queue_head *queue, void *data)
+{
+    struct queue_entry *entry, *prev = NULL;
+
+    if (!queue) {
+        return 0;
+    }
+    for (entry = queue->head; entry; prev = entry, entry = entry->next) {
+        if (entry->data != data) {
+            continue;
+        }
+        if (prev) {
+            prev->next = entry->next;
+        } else {
+            queue->head = entry->next;
+        }
+        if (queue->tail == entry) {
+            queue->tail = prev;
+        }
+        queue->num--;
+        memory_free(entry);
+        return 1;
+    }
+    return 0;
+}
+
 void
 queue_foreach(struct queue_head *queue, void (*func)(void *arg, void *data), void *arg)
 {

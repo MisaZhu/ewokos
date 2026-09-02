@@ -234,28 +234,26 @@ int
 sock_close(int id)
 {
     struct sock *s;
-    int retry = 100; // Max 10 seconds wait (100 * 100ms)
     s = sock_get(id);
     if (!s) {
         errorf("sock_close invalid id=%d used=%d", id, sock_used_count());
         return -17;
     }
     switch (s->type) {
-    case SOCK_STREAM:
-        // Try to close TCP connection gracefully
-        while (retry-- > 0) {
-            int ret = tcp_close(s->desc);
-            if (ret == 0 || ret == -17) {
-                // Connection closed successfully or PCB already released (RST)
-                break;
-            }
-            // If connection is still closing, wait a bit
-            usleep(3000); // 3ms
+    case SOCK_STREAM: {
+        /*
+         * tcp_close() absorbs TX backpressure internally now (the FIN rides
+         * the retransmit queue), so it returns 0 or -17 for every known
+         * state and never needs a retry. The old 100x3ms retry loop queued
+         * a duplicate FIN entry per attempt and, once exhausted, abandoned
+         * the pcb without a sock -- leaking the slot forever.
+         */
+        int ret = tcp_close(s->desc);
+        if (ret != 0 && ret != -17) {
+            errorf("sock_close: tcp_close desc=%d unexpected ret=%d", s->desc, ret);
         }
-        if (retry <= 0) {
-            errorf("sock_close: timeout waiting for TCP close");
-        }
-        break;    
+        break;
+    }
     case SOCK_DGRAM:
         udp_close(s->desc);
         break;

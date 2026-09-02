@@ -244,6 +244,11 @@ tcp_output_segment(uint32_t seq, uint32_t ack, uint8_t flg, uint16_t wnd, uint8_
 static void tcp_persist_arm(struct tcp_pcb *pcb);
 static void tcp_persist_disarm(struct tcp_pcb *pcb);
 
+/* stack/sock.c reverse map: which socket (if any) owns a tcp desc. Takes the
+ * leaf socks_lock; safe under the stack mutex (same order as the
+ * task_wakeup_* paths). Used by the tcp_timer() orphan reaper. */
+extern int sock_id_from_tcp_desc(int tcp_desc);
+
 static uint32_t
 tcp_peer_window(const struct tcp_pcb *pcb, uint16_t wnd)
 {
@@ -407,6 +412,19 @@ tcp_pcb_release(struct tcp_pcb *pcb)
      */
     task_wakeup_tcp_readers(indexof(pcbs, pcb));
     task_wakeup_tcp_writers(indexof(pcbs, pcb));
+
+    /*
+     * A not-yet-accepted child sits in its parent's backlog by bare pointer.
+     * Releasing it here (peer RST before accept, orphan reap) without
+     * unlinking left a dangling entry: tcp_accept() would later pop a FREE
+     * or reused pcb and hand a stale/foreign connection to the caller.
+     * queue_remove() is a no-op when the child was already popped or the
+     * parent's own release drained it first.
+     */
+    if (pcb->parent) {
+        queue_remove(&pcb->parent->backlog, pcb);
+        pcb->parent = NULL;
+    }
 
     tcp_persist_disarm(pcb);
 
@@ -1512,6 +1530,42 @@ tcp_timer(void)
             }
         }
         /*
+         * Orphan reaper. A socket-mode pcb whose owning sock is gone can
+         * never see another tcp_close(): sock_free() already ran, so if the
+         * pcb parks in CLOSED (RST/retransmit-deadline, close_reason != 0)
+         * or in a FIN-wait state whose final peer segment never arrives, the
+         * slot leaks forever and after <= TCP_PCB_SIZE leaks netd refuses
+         * every new connection ("no free PCB"). close_reason == 0 CLOSED is
+         * deliberately spared: a fresh tcp_open() pcb sits in that state for
+         * a moment before sock_open() registers the desc->sock mapping.
+         * sock_id_from_tcp_desc() takes only the leaf socks_lock, the same
+         * order the task_wakeup_* paths already use under this mutex.
+         */
+        if (pcb->mode == TCP_PCB_MODE_SOCKET &&
+            sock_id_from_tcp_desc(indexof(pcbs, pcb)) < 0) {
+            if (pcb->state == TCP_PCB_STATE_CLOSED && pcb->close_reason != 0) {
+                tcp_log_close_event("tcp_timer orphan reap", pcb);
+                tcp_pcb_release(pcb);
+                continue;
+            }
+            if ((pcb->state == TCP_PCB_STATE_FIN_WAIT1 ||
+                 pcb->state == TCP_PCB_STATE_FIN_WAIT2 ||
+                 pcb->state == TCP_PCB_STATE_CLOSING ||
+                 pcb->state == TCP_PCB_STATE_LAST_ACK) &&
+                pcb->queue.num == 0) {
+                /* Our FIN is ACKed but the peer's closing segment never
+                 * came. Nobody waits on this pcb; borrow the TIME_WAIT
+                 * timer as a grace period, then reclaim the slot. */
+                if (!timerisset(&pcb->tw_timer)) {
+                    tcp_set_timewait_timer(pcb);
+                } else if (timercmp(&now, &pcb->tw_timer, >) != 0) {
+                    tcp_log_close_event("tcp_timer orphan fin-wait reap", pcb);
+                    tcp_pcb_release(pcb);
+                    continue;
+                }
+            }
+        }
+        /*
          * Only the oldest unacknowledged segment gates forward progress:
          * cumulative ACK cannot pass a hole before that head segment is
          * recovered, and retransmitting younger queued data first does not
@@ -2216,6 +2270,9 @@ tcp_accept(int id, struct ip_endpoint *foreign)
         errno = EAGAIN;
         return -1;
     }
+    /* Accepted: sever the backlog linkage so a later release of this pcb
+     * does not scan the (possibly reused) parent. */
+    new_pcb->parent = NULL;
     if (foreign) {
         *foreign = new_pcb->foreign;
     }
@@ -2509,26 +2566,35 @@ tcp_close(int id)
         pcb->close_reason = 0; /* normal close */
         break;
     case TCP_PCB_STATE_SYN_SENT:
-        if (tcp_output_segment(pcb->snd.nxt, pcb->rcv.nxt, TCP_FLG_RST | TCP_FLG_ACK, 0, NULL, 0, &pcb->local, &pcb->foreign) < 0) {
-            mutex_unlock(&mutex);
-            return -1;
-        }
+        /*
+         * Best-effort RST: a wire failure here is wl0 TX backpressure, and
+         * the old -1 return made sock_close() retry then give up, orphaning
+         * the pcb forever. Nothing retransmits an RST anyway; the peer's
+         * SYN-ACK retransmits will meet a CLOSED pcb and get RSTs then.
+         */
+        tcp_output_segment(pcb->snd.nxt, pcb->rcv.nxt, TCP_FLG_RST | TCP_FLG_ACK, 0, NULL, 0, &pcb->local, &pcb->foreign);
         pcb->state = TCP_PCB_STATE_CLOSED;
         pcb->close_reason = 0; /* normal close */
         break;
     case TCP_PCB_STATE_SYN_RECEIVED:
-        if (tcp_output(pcb, TCP_FLG_ACK | TCP_FLG_FIN, NULL, 0) < 0) {
-            mutex_unlock(&mutex);
-            return -1;
-        }
+        /*
+         * Same discipline as tcp_send(): tcp_output() queued the FIN on the
+         * retransmit queue BEFORE the wire attempt, so a failed send is TX
+         * backpressure, not a failed close -- the RTO timer delivers the
+         * FIN. Returning -1 without advancing state/snd.nxt made
+         * sock_close() retry: every retry queued a duplicate FIN entry at
+         * the same seq, and when the wl0 congestion at sshd-upload end
+         * outlived the retries the pcb was abandoned in ESTABLISHED/
+         * CLOSE_WAIT with no owning socket -- leaked until "no free PCB"
+         * refused every new connection.
+         */
+        tcp_output(pcb, TCP_FLG_ACK | TCP_FLG_FIN, NULL, 0);
         pcb->snd.nxt++;
         pcb->state = TCP_PCB_STATE_FIN_WAIT1;
         break;
     case TCP_PCB_STATE_ESTABLISHED:
-        if (tcp_output(pcb, TCP_FLG_ACK | TCP_FLG_FIN, NULL, 0) < 0) {
-            mutex_unlock(&mutex);
-            return -1;
-        }
+        /* FIN rides the retransmit queue; wire failure is backpressure. */
+        tcp_output(pcb, TCP_FLG_ACK | TCP_FLG_FIN, NULL, 0);
         pcb->snd.nxt++;
         pcb->state = TCP_PCB_STATE_FIN_WAIT1;
         break;
@@ -2538,10 +2604,8 @@ tcp_close(int id)
         mutex_unlock(&mutex);
         return 0;
     case TCP_PCB_STATE_CLOSE_WAIT:
-        if (tcp_output(pcb, TCP_FLG_ACK | TCP_FLG_FIN, NULL, 0) < 0) {
-            mutex_unlock(&mutex);
-            return -1;
-        }
+        /* FIN rides the retransmit queue; wire failure is backpressure. */
+        tcp_output(pcb, TCP_FLG_ACK | TCP_FLG_FIN, NULL, 0);
         pcb->snd.nxt++;
         pcb->state = TCP_PCB_STATE_LAST_ACK;
         break;

@@ -21,6 +21,13 @@
  *               of that id and must not hit a reused connection).
  *  - closing:   set once refs hit 0; rejects new operations while the
  *               teardown drains.
+ *  - dead:      release_task() drained its bounded window but an operation
+ *               was still inflight (e.g. task_write() stalled in
+ *               net_tx_flush() on wl0 TX backpressure): ownership of the
+ *               deferred sock_close + free is handed to the LAST
+ *               task_end_op(). Freeing eagerly was a use-after-free on a
+ *               destroyed mutex inside that op's task_end_op().
+ *  - fin_sock:  the detached socket id the deferred teardown must close.
  *  - rcv_*:     SO_RCVTIMEO bookkeeping for blocking recv()/recvfrom()
  *               (see task_timeout_check() in task.c).
  *
@@ -33,7 +40,9 @@ typedef struct net_task {
     int sock;                   /* bound stack socket id, -1 when unbound */
     int refs;
     int inflight;
+    int fin_sock;               /* deferred-close socket id (dead handoff) */
     bool closing;
+    bool dead;                  /* freed by the last task_end_op() */
     bool is_listener;
     bool rcv_deadline_set;      /* armed SO_RCVTIMEO deadline */
     bool rcv_timeout_pending;   /* expired deadline latched for the retried recv */

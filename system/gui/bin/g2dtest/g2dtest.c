@@ -139,27 +139,24 @@ static int check_pixel(const char* label, const graph_t* g,
     return 0;
 }
 
-/* fps benchmark: the full op set (fill / opaque blit / alpha blit /
-   mixed frame / rotate 180,90,45 / scale 1:1, 2x down, 2x up, 1.875x up,
-   0.75x down) runs once per resolution group, so ops at the same
-   resolution compare directly. the fractional scale is 15/8 (1.875x),
-   close to the 2x up output size, so its fps difference vs scale_to_2x_up
-   isolates the fractional-step interpolation cost. each bench renders
-   frames through /dev/g2d for about 1 second and reports completed
-   frames per second; a frame is one full render pass of the op, all ops
-   are synchronous IPC, so fps measures the full client->driver round
-   trip. the fractional (non-integer) scale benches need a software-style
-   backend (hardware backends may only offer power-of-two scaling) and
-   are probed once and skipped when unsupported. */
+/* fps benchmark: the op set (fill / opaque blit / alpha blit / mixed
+   frame / rotate 180,90,45 / scale 1:1) runs once per resolution group,
+   so ops at the same resolution compare directly. every blit and the
+   scale bench are 1:1 at the group's own resolution: the source canvas
+   is group-sized and both rects are the full canvas, so each group
+   exercises the identity copy path. each bench renders frames through
+   /dev/g2d for about 1 second and reports completed frames per second;
+   a frame is one full render pass of the op, all ops are synchronous
+   IPC, so fps measures the full client->driver round trip. */
 
 #define BENCH_USEC       (1000000u) /* ~1 second per bench */
 #define BENCH_MAX_FRAMES 5000u
 
 /* resolutions the full op set runs at */
-#define BENCH_GROUPS 3u
+#define BENCH_GROUPS 4u
 
-static const uint32_t bench_group_w[BENCH_GROUPS] = { 640u, 800u, 1280u };
-static const uint32_t bench_group_h[BENCH_GROUPS] = { 480u, 600u, 960u };
+static const uint32_t bench_group_w[BENCH_GROUPS] = { 640u, 800u, 1280u, 1920u };
+static const uint32_t bench_group_h[BENCH_GROUPS] = { 480u, 600u, 960u, 1080u };
 
 typedef struct {
     graph_t* canvas;
@@ -168,12 +165,8 @@ typedef struct {
     graph_t* rot_dst;    /* rotate 90 ping-pong partner (h x w) */
     graph_t* rot180_dst; /* rotate 180 dst, same size as canvas */
     graph_t* rot45_dst;  /* rotate 45 dst, rotated bounding box of canvas */
-    graph_t* scale_src;  /* scale_to source (640x480) */
-    graph_t* scale_big;  /* scale_to 2x up dst */
-    graph_t* scale_small;/* scale_to 2x down dst */
+    graph_t* scale_src;  /* scale_to source (group-sized) */
     graph_t* scale_same; /* scale_to 1:1 dst (same size as scale src) */
-    graph_t* scale_float_up;   /* scale_to fractional 1.875x up dst (near 2x) */
-    graph_t* scale_float_down; /* scale_to fractional 0.75x down dst */
     uint32_t seq;    /* frame counter, varies positions/colors between frames */
     uint32_t rot_swap;   /* rotate 90 ping-pong phase selector */
 } bench_ctx_t;
@@ -311,56 +304,12 @@ static int bench_frame_rotate45(void* p) {
     return g2d_rotate(&req);
 }
 
-/* scale_to whole-surface rescale, 2x bilinear upscale */
-static int bench_frame_scale_up(void* p) {
-    bench_ctx_t* ctx = (bench_ctx_t*)p;
-    g2d_scale_to_req_t req;
-
-    g2d_scale_to_req_init(&req, img_canvas(ctx->scale_src), img_canvas(ctx->scale_big));
-    ctx->seq++;
-    return g2d_scale_to(&req);
-}
-
-/* 2x downscale */
-static int bench_frame_scale_down(void* p) {
-    bench_ctx_t* ctx = (bench_ctx_t*)p;
-    g2d_scale_to_req_t req;
-
-    g2d_scale_to_req_init(&req, img_canvas(ctx->scale_src), img_canvas(ctx->scale_small));
-    ctx->seq++;
-    return g2d_scale_to(&req);
-}
-
 /* same-size scale_to is a plain 1:1 copy (row-copy fast path) */
 static int bench_frame_scale_1to1(void* p) {
     bench_ctx_t* ctx = (bench_ctx_t*)p;
     g2d_scale_to_req_t req;
 
     g2d_scale_to_req_init(&req, img_canvas(ctx->scale_src), img_canvas(ctx->scale_same));
-    ctx->seq++;
-    return g2d_scale_to(&req);
-}
-
-/* fractional ("float") scale factor, 1.25x up: the fixed-point source
-   step is not an integer, so every dst pixel interpolates through the
-   general bilinear path instead of the integer-ratio fast paths the 2x
-   benches hit */
-static int bench_frame_scale_float_up(void* p) {
-    bench_ctx_t* ctx = (bench_ctx_t*)p;
-    g2d_scale_to_req_t req;
-
-    g2d_scale_to_req_init(&req, img_canvas(ctx->scale_src), img_canvas(ctx->scale_float_up));
-    ctx->seq++;
-    return g2d_scale_to(&req);
-}
-
-/* 0.75x down, fractional step: no integer downsample fast path, falls
-   through to the general bilinear gather path */
-static int bench_frame_scale_float_down(void* p) {
-    bench_ctx_t* ctx = (bench_ctx_t*)p;
-    g2d_scale_to_req_t req;
-
-    g2d_scale_to_req_init(&req, img_canvas(ctx->scale_src), img_canvas(ctx->scale_float_down));
     ctx->seq++;
     return g2d_scale_to(&req);
 }
@@ -401,33 +350,6 @@ static void bench_run_group(const char* op, bench_frame_fn fn,
     bench_run(label, fn, ctx, failures);
 }
 
-/* probe whether the g2d backend supports fractional (non-integer) scale
-   ratios: the software backends do (general bilinear path), a hardware
-   backend may only offer power-of-two scaling, in which case the
-   fractional benches are skipped instead of failing the whole run.
-   canvases must be >= G2D_MIN_SIZE (64x64) so graph_new_shm backs them
-   with physically contiguous shm exactly like the real benches: a
-   smaller probe would silently fall back to scattered shm and a
-   hardware backend rejects that regardless of its scaling support,
-   misreporting "not supported". */
-static int scale_float_probe(void) {
-    g2d_scale_to_req_t req;
-    graph_t* src;
-    graph_t* dst;
-    int ret = -1;
-
-    src = canvas_create(256, 192);
-    dst = canvas_create(320, 240); /* 1.25x: non-integer ratio */
-    if(src != NULL && dst != NULL) {
-        fill_pattern(src);
-        g2d_scale_to_req_init(&req, img_canvas(src), img_canvas(dst));
-        ret = g2d_scale_to(&req);
-    }
-    canvas_free(src);
-    canvas_free(dst);
-    return ret;
-}
-
 int main(int argc, char** argv) {
     g2d_fill_req_t fill;
     g2d_blit_req_t blit;
@@ -445,7 +367,6 @@ int main(int argc, char** argv) {
     uint32_t h0 = CANVAS_H;
     uint32_t rot45;
     uint32_t g;
-    int scale_float_ok;
     int failures = 0;
     int ret;
 
@@ -603,24 +524,72 @@ int main(int argc, char** argv) {
     }
     canvas_free(rotated);
 
+    /* big-surface rotate: past the driver's large-surface threshold the
+       destination is dispatched in 2D tiles, which the small tests above
+       never exercise (the fps groups only time those paths).  90 degrees
+       with a source width % 16 != 0 falls back from the rot90 kernel to
+       the tiled affine blit; 45 degrees uses the tiled rotate kernel,
+       whose out-of-content samples must read back as transparent 0. */
+    {
+        graph_t* big = canvas_create(1080, 1920);
+        graph_t* big_rot = canvas_create(1920, 1080);
+        if(big == NULL || big_rot == NULL) {
+            printf("create big rotate shm failed\n");
+            failures++;
+        }
+        else {
+            img_clear(big, 0xff304050u);
+            big->buffer[0] = 0xff000001u;                            /* TL */
+            big->buffer[1080 - 1] = 0xff000002u;                     /* TR */
+            big->buffer[(1920 - 1) * 1080 + 1080 - 1] = 0xff000003u; /* BR */
+            big->buffer[(1920 - 1) * 1080] = 0xff000004u;            /* BL */
+            g2d_rotate_req_init(&rotate_req, img_canvas(big), img_canvas(big_rot), 90);
+            ret = g2d_rotate(&rotate_req);
+            check_ret("big_rotate_90", ret, 1, &failures);
+            check_pixel("big_rot90_TL_from_BL", big_rot, 0, 0, 0xff000004u, &failures);
+            check_pixel("big_rot90_TR_from_TL", big_rot, 1919, 0, 0xff000001u, &failures);
+            check_pixel("big_rot90_BR_from_TR", big_rot, 1919, 1079, 0xff000002u, &failures);
+            check_pixel("big_rot90_BL_from_BR", big_rot, 0, 1079, 0xff000003u, &failures);
+            check_pixel("big_rot90_body", big_rot, 960, 540, 0xff304050u, &failures);
+        }
+        canvas_free(big);
+        canvas_free(big_rot);
+    }
+    {
+        uint32_t r45big = rotated45_size(1280, 720);
+        graph_t* big = canvas_create(1280, 720);
+        graph_t* big45 = canvas_create(r45big, r45big);
+        if(big == NULL || big45 == NULL) {
+            printf("create big rot45 shm failed\n");
+            failures++;
+        }
+        else {
+            img_clear(big, 0xff664422u);
+            g2d_rotate_req_init(&rotate_req, img_canvas(big), img_canvas(big45), 45);
+            ret = g2d_rotate(&rotate_req);
+            check_ret("big_rotate_45", ret, 1, &failures);
+            /* the bbox corners sit outside the rotated content box, so
+               argb_rotate writes transparent 0 there - in every tile */
+            check_pixel("big_rot45_TL_clear", big45, 0, 0, 0x00000000u, &failures);
+            check_pixel("big_rot45_BR_clear", big45, r45big - 1, r45big - 1,
+                    0x00000000u, &failures);
+            check_pixel("big_rot45_center", big45, r45big / 2, r45big / 2,
+                    0xff664422u, &failures);
+        }
+        canvas_free(big);
+        canvas_free(big45);
+    }
+
     /* fps benchmark: the full op set runs once per resolution group */
     printf("--- fps benchmark ---\n");
     printf("PERF %-30s %8s %8s %8s %8s\n", "label", "frames", "us", "fps", "us/frame");
-    /* fractional scale needs a software-style backend; probe once so the
-       scale_to_float_* benches skip cleanly on backends that only do
-       power-of-two scaling */
-    scale_float_ok = (scale_float_probe() == 0);
-    if(!scale_float_ok)
-        printf("note: fractional (non-integer) scale probe failed, scale_to_float_* skipped\n");
     /* each group allocates its canvases in three stages so the peak
        contiguous shm stays small: the fill/blit stage (canvas + pattern
        src + alpha src), the rotate stage (reuses the canvas, frees the
        alpha src, adds the three rotate dsts) and the scale stage (frees
-       the rotate dsts, adds the five scale dsts). a group like
-       1280x960 needs ~77 MiB of contiguous shm when all canvases are
-       alive at once, more than the 64 MiB slab some kernels reserve, so
-       holding only the canvases the current stage needs keeps every
-       group inside the slab. */
+       the rotate dsts, adds the 1:1 scale dst). at 1920x1080 the rotate
+       stage peaks around 55 MB, inside the 128 MB contiguous slab the
+       raspi5 kernel reserves. */
     for(g = 0; g < BENCH_GROUPS; g++) {
         uint32_t gw = bench_group_w[g];
         uint32_t gh = bench_group_h[g];
@@ -632,17 +601,9 @@ int main(int argc, char** argv) {
         graph_t* g_rot180 = NULL;
         graph_t* g_rot45 = NULL;
         graph_t* g_scale_same = NULL;
-        graph_t* g_scale_down = NULL;
-        graph_t* g_scale_up = NULL;
-        graph_t* g_scale_float_up = NULL;
-        graph_t* g_scale_float_down = NULL;
 
-        if(scale_float_ok)
-            printf("group %ux%u: fill, blit, alpha, mixed, rotate 180/90/45, scale 1:1/2x down/2x up/1.875x up/0.75x down\n",
-                    gw, gh);
-        else
-            printf("group %ux%u: fill, blit, alpha, mixed, rotate 180/90/45, scale 1:1/2x down/2x up (fractional scale skipped)\n",
-                    gw, gh);
+        printf("group %ux%u: fill, blit, alpha, mixed, rotate 180/90/45, scale 1:1\n",
+                gw, gh);
 
         /* stage a: fill / blit / alpha / mixed share the work canvas,
            the pattern src and the alpha src */
@@ -695,46 +656,22 @@ int main(int argc, char** argv) {
         bench_run_group("rotate_45_bbox", bench_frame_rotate45, gw, gh, &bench_ctx, &failures);
 
         /* stage c: scale reuses the pattern src, frees the rotate dsts
-           and adds the five scale dsts */
+           and adds the 1:1 scale dst */
         canvas_free(g_rot45);
         canvas_free(g_rot180);
         canvas_free(g_rot90);
         g_scale_same = canvas_create(gw, gh);
-        g_scale_down = canvas_create(gw / 2, gh / 2);
-        g_scale_up = canvas_create(gw * 2, gh * 2);
-        g_scale_float_up = scale_float_ok ? canvas_create(gw * 15 / 8, gh * 15 / 8) : NULL;
-        g_scale_float_down = scale_float_ok ? canvas_create(gw * 3 / 4, gh * 3 / 4) : NULL;
-        if(g_scale_same == NULL || g_scale_down == NULL || g_scale_up == NULL ||
-                (scale_float_ok && (g_scale_float_up == NULL || g_scale_float_down == NULL))) {
-            printf("create group %ux%u stage c shm failed, scale benches skipped\n", gw, gh);
+        if(g_scale_same == NULL) {
+            printf("create group %ux%u stage c shm failed, scale bench skipped\n", gw, gh);
             failures++;
-            canvas_free(g_scale_same);
-            canvas_free(g_scale_down);
-            canvas_free(g_scale_up);
-            canvas_free(g_scale_float_up);
-            canvas_free(g_scale_float_down);
             canvas_free(g_src);
             canvas_free(g_canvas);
             continue;
         }
         bench_ctx.scale_src = g_src;
-        bench_ctx.scale_big = g_scale_up;
-        bench_ctx.scale_small = g_scale_down;
         bench_ctx.scale_same = g_scale_same;
-        bench_ctx.scale_float_up = g_scale_float_up;
-        bench_ctx.scale_float_down = g_scale_float_down;
         bench_run_group("scale_to_1to1", bench_frame_scale_1to1, gw, gh, &bench_ctx, &failures);
-        bench_run_group("scale_to_2x_down", bench_frame_scale_down, gw, gh, &bench_ctx, &failures);
-        bench_run_group("scale_to_2x_up", bench_frame_scale_up, gw, gh, &bench_ctx, &failures);
-        if(scale_float_ok) {
-            bench_run_group("scale_to_float_up", bench_frame_scale_float_up, gw, gh, &bench_ctx, &failures);
-            bench_run_group("scale_to_float_down", bench_frame_scale_float_down, gw, gh, &bench_ctx, &failures);
-        }
 
-        canvas_free(g_scale_float_down);
-        canvas_free(g_scale_float_up);
-        canvas_free(g_scale_up);
-        canvas_free(g_scale_down);
         canvas_free(g_scale_same);
         canvas_free(g_src);
         canvas_free(g_canvas);
