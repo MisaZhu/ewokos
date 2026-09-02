@@ -30,6 +30,7 @@ typedef struct st_xwin {
 	uint32_t from_main_pid_uuid;
 
 	graph_t* ws_g; //workspace graph, owns its shm canvas (graph_new_shm)
+	graph_t* ws_g2; //second workspace graph for fps_async double-buffering (graph_new_shm), NULL when fps_async=0
 	graph_t* ws_g_buffer; //workspace graph buffer
 	graph_t* frame_g; //frame graph, owns its shm canvas (graph_new_shm)
 
@@ -49,21 +50,6 @@ typedef struct st_xwin {
 	  ready. all_win_ready() stops throttling repaints for the whole
 	  display once a window has been stuck past X_NOT_READY_TIMEOUT_MS.*/
 	uint64_t not_ready_ms;
-	/*an UPDATE was accepted but its snapshot has not been composited yet:
-	  further UPDATEs for this window become O(1) no-ops until the next
-	  step clears the flag (see x_refresh_pending_updates). This keeps
-	  fast-repainting clients from stacking heavy snapshot-copy IPCs
-	  in the queue that mouse and event delivery share. The snapshot copy
-	  itself only ever runs inside the blocking UPDATE IPC: the client is
-	  suspended there, so its ws_g is stable. Copying at step time instead
-	  races the client's own rendering into the same shm and tears the
-	  frame (partial flicker, seen with fast-repainting apps like matrix).*/
-	bool refresh_pending;
-	/*an UPDATE was dropped because a copy was already queued. The dropped
-	  content only survives if the client sends another UPDATE later; if it
-	  stops repainting, the grace counter below asks it to repaint again.*/
-	bool update_overtaken;
-	uint32_t repaint_grace; //steps an overtaken update stayed unrecovered
 
 	grect_t r_title;
 	grect_t r_close;
@@ -99,6 +85,8 @@ typedef struct {
 	xwm_theme_t xwm_theme;
 
 	bool multi_task;
+	bool fps_async;   /*0: client repaint blocks until the server snapshots it (client fps capped to server fps).
+	                    1: double-buffered, client repaint never blocks and keeps its own fps.*/
 } x_conf_t;
 
 typedef struct {

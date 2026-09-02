@@ -49,16 +49,24 @@ static int xwin_update_info(xwin_t* xwin, uint8_t type) {
     if(xwin->xinfo == NULL)
         return -1;
 
-    if(xwin->ws_g_shm != NULL && (type & X_UPDATE_REBUILD) != 0) {
+    if((xwin->ws_g_shm != NULL || xwin->ws_g2_shm != NULL) &&
+            (type & X_UPDATE_REBUILD) != 0) {
         // Wait out any in-flight xwin_repaint() on another thread (it
-        // holds painting_lock across the whole blit into ws_g_shm):
-        // detaching the workspace shm here while a blit writes into it
-        // turns the next store into a data abort on the unmapped page.
+        // holds painting_lock across the whole blit into the workspace
+        // shm): detaching a buffer here while a blit writes into it turns
+        // the next store into a data abort on the unmapped page. Both the
+        // ws_g and the fps_async ws_g2 buffer are dropped so the next
+        // x_get_graph remaps the freshly rebuilt shm ids.
         pthread_mutex_lock(&xwin->painting_lock);
         if(xwin->ws_g_shm != NULL) {
             shmdt(xwin->ws_g_shm);
             xwin->ws_g_shm = NULL;
             xwin->ws_g_shm_id = -1;
+        }
+        if(xwin->ws_g2_shm != NULL) {
+            shmdt(xwin->ws_g2_shm);
+            xwin->ws_g2_shm = NULL;
+            xwin->ws_g2_shm_id = -1;
         }
         pthread_mutex_unlock(&xwin->painting_lock);
     }
@@ -140,6 +148,7 @@ xwin_t* xwin_open(x_t* xp, int32_t disp_index, int x, int y, int w, int h, const
     ret->fd = fd;
     ret->x = xp;
     ret->ws_g_shm_id = -1;
+    ret->ws_g2_shm_id = -1;
 
     key_t key = 0;
     uint32_t uuid = proc_get_uuid(getpid());
@@ -180,6 +189,12 @@ xwin_t* xwin_open(x_t* xp, int32_t disp_index, int x, int y, int w, int h, const
     ret->xinfo->win = xwin_handle(ret);
     ret->xinfo->style = style;
     ret->xinfo->display_index = disp_index;
+    /*update_pid must start at -1, not 0: pid 0 is a valid kernel/idle
+      context and the server would fire a bogus proc_wakeup_by(0, ...) if
+      it ever observed update_requested before the first repaint published
+      a real thread pid.*/
+    ret->xinfo->update_requested = 0;
+    ret->xinfo->update_pid = -1;
     if(xp->main_win == NULL) {
         ret->xinfo->is_main = true;
         xp->main_win = ret;
@@ -213,30 +228,81 @@ static graph_t* x_get_graph(xwin_t* xwin, graph_t* g) {
     if(xwin == NULL || xwin->xinfo == NULL || xwin->xinfo->ws_g_shm_id == -1)
         return NULL;
 
+    /*The client render target is ALWAYS ws_g (buffer 0), in both modes. This is
+      required by framebuffer-style clients (e.g. the SDL2 ewokos backend) which
+      cache the pixel pointer returned at window-create time (surface->pixels)
+      and blit every frame into that one fixed buffer, re-checking it still
+      matches at present. Returning an alternating buffer here would make that
+      check fail after the first swap and freeze the display. fps_async keeps a
+      stable render target and instead performs the "flip" as an explicit copy
+      ws_g -> ws_g2 inside xwin_repaint (see there), so ws_g2 is the handoff
+      buffer the server snapshots while the client keeps painting ws_g.*/
+    int32_t shm_id = xwin->xinfo->ws_g_shm_id;
+    bool contig = xwin->xinfo->ws_g_shm_contig;
+    void** cache = &xwin->ws_g_shm;
+    int32_t* cache_id = &xwin->ws_g_shm_id;
+    if(shm_id == -1)
+        return NULL;
+
     /*the server may rebuild the workspace shm and publish a new id into xinfo;
       remap only when that id changed, instead of paying a shmat syscall on
       every repaint.*/
-    if(xwin->ws_g_shm == NULL || xwin->ws_g_shm_id != xwin->xinfo->ws_g_shm_id) {
-        void* p = shmat(xwin->xinfo->ws_g_shm_id, 0, 0);
+    if(*cache == NULL || *cache_id != shm_id) {
+        void* p = shmat(shm_id, 0, 0);
         if(p == (void*)-1)
             return NULL;
-        if(xwin->ws_g_shm != NULL)
-            shmdt(xwin->ws_g_shm);
-        xwin->ws_g_shm = p;
-        xwin->ws_g_shm_id = xwin->xinfo->ws_g_shm_id;
+        if(*cache != NULL)
+            shmdt(*cache);
+        *cache = p;
+        *cache_id = shm_id;
+        /*on_resize tracks the workspace geometry, which only changes on a
+          server rebuild (a fresh ws_g shm id).*/
         if(xwin->on_resize != NULL) {
             xwin->on_resize(xwin);
         }
     }
 
-    g->buffer = xwin->ws_g_shm;
+    g->buffer = *cache;
     g->w = xwin->xinfo->wsr.w;
     g->h = xwin->xinfo->wsr.h;
     /*carry the canvas identity + backing type so g2d ops can engage on this
       graph; need_free stays false, the shm is owned by the server and the
       detach above, graph_free must not touch it*/
-    g->shm_id = xwin->xinfo->ws_g_shm_id;
-    g->shm_contig = xwin->xinfo->ws_g_shm_contig;
+    g->shm_id = shm_id;
+    g->shm_contig = contig;
+    g->need_free = false;
+    return g;
+}
+
+/*Attach (and cache) the fps_async handoff buffer ws_g2 and describe it as a
+  graph_t so xwin_repaint can blit the freshly rendered ws_g into it. ws_g2 is
+  the buffer the server snapshots, so copying into it here - rather than letting
+  the server read ws_g directly - is what lets the client keep painting ws_g
+  without blocking and without tearing the server's source. Returns NULL when
+  fps_async is off or ws_g2 is not (yet) published.*/
+static graph_t* x_get_flip_graph(xwin_t* xwin, graph_t* g) {
+    if(xwin == NULL || xwin->xinfo == NULL || !xwin->xinfo->fps_async)
+        return NULL;
+
+    int32_t shm_id = xwin->xinfo->ws_g2_shm_id;
+    if(shm_id <= 0)
+        return NULL;
+
+    if(xwin->ws_g2_shm == NULL || xwin->ws_g2_shm_id != shm_id) {
+        void* p = shmat(shm_id, 0, 0);
+        if(p == (void*)-1)
+            return NULL;
+        if(xwin->ws_g2_shm != NULL)
+            shmdt(xwin->ws_g2_shm);
+        xwin->ws_g2_shm = p;
+        xwin->ws_g2_shm_id = shm_id;
+    }
+
+    g->buffer = xwin->ws_g2_shm;
+    g->w = xwin->xinfo->wsr.w;
+    g->h = xwin->xinfo->wsr.h;
+    g->shm_id = shm_id;
+    g->shm_contig = xwin->xinfo->ws_g2_shm_contig;
     g->need_free = false;
     return g;
 }
@@ -268,6 +334,11 @@ void xwin_close(xwin_t* xwin) {
         xwin->ws_g_shm = NULL;
     }
     xwin->ws_g_shm_id = -1;
+    if(xwin->ws_g2_shm != NULL) {
+        shmdt(xwin->ws_g2_shm);
+        xwin->ws_g2_shm = NULL;
+    }
+    xwin->ws_g2_shm_id = -1;
 
     if(xwin->xinfo != NULL) {
         shmdt(xwin->xinfo);
@@ -311,11 +382,55 @@ void xwin_repaint(xwin_t* xwin) {
         pthread_mutex_unlock(&xwin->painting_lock);
         return;
     }
-    vfs_fcntl_wait(xwin->fd, XWIN_CNTL_UPDATE, NULL);
-    // The UPDATE above blocks on IPC: a concurrent xwin_close() may have
-    // torn xinfo down while waiting, so never touch it unchecked.
+
+    if(xwin->xinfo->fps_async) {
+        /*Non-blocking, double-buffered submit. The client always renders into
+          ws_g (see x_get_graph); here we "flip" by copying the just-rendered
+          ws_g into the handoff buffer ws_g2, which is the buffer the server
+          snapshots. We only publish when the server has consumed the previous
+          submission (update_requested==0): that is the invariant which keeps
+          ws_g2 stable while the server reads it, so this copy never races the
+          snapshot and the client never blocks. While the server is still busy
+          we simply skip this frame - the client keeps its own fps, the display
+          fps stays the server's. front_index is written before the barrier and
+          update_requested after it, so the server never reads ws_g2 until the
+          copy is fully visible.*/
+        if(xwin->xinfo->update_requested == 0) {
+            graph_t front;
+            memset(&front, 0, sizeof(graph_t));
+            if(g.buffer != NULL && x_get_flip_graph(xwin, &front) != NULL &&
+                    front.buffer != NULL) {
+                graph_blt(&g, 0, 0, g.w, g.h, &front, 0, 0, front.w, front.h);
+                xwin->xinfo->front_index = 1;
+                __sync_synchronize();
+                xwin->xinfo->update_requested = 1;
+            }
+        }
+        xwin->xinfo->update_theme = false;
+        pthread_mutex_unlock(&xwin->painting_lock);
+        return;
+    }
+
+    /*blocking shm UPDATE handshake (replaces the XWIN_CNTL_UPDATE IPC). Publish
+      the CURRENT THREAD pid - not getpid(): proc_wakeup_by targets one specific
+      proc entry, and getpid returns the root task pid, so on a painter thread
+      (e.g. macemu's present_thread) the server would wake the wrong context and
+      this thread would stay blocked forever. The barrier pairs with the server's
+      __sync_synchronize so it never observes update_requested=1 with a half-drawn
+      ws_g. The while loop absorbs spurious wakeups and the latched-wake race the
+      kernel documents in proc_block_by: if the server already cleared the flag
+      and fired the wake before we trapped in, wake_pending releases us
+      immediately and the re-check exits.*/
+    xwin->xinfo->update_pid = thread_get_id();
+    __sync_synchronize();
+    xwin->xinfo->update_requested = 1;
+    while(xwin->xinfo != NULL && xwin->xinfo->update_requested) {
+        proc_block_by(xwin->xinfo->win);
+    }
+    /*xwin_close may have torn xinfo down while we were parked: never touch
+      it unchecked after the block returns.*/
     if(xwin->xinfo != NULL)
-        xwin->xinfo->update_theme = false;	
+        xwin->xinfo->update_theme = false;
     pthread_mutex_unlock(&xwin->painting_lock);
 }
 

@@ -18,7 +18,7 @@ $(FONTD): $(FONTD_OBJS) \
 		$(BUILD_DIR)/lib/libfreetype.a \
 		$(BUILD_DIR)/lib/libtinyjson.a \
 		$(BUILD_DIR)/lib/libbsp.a
-	$(LD) -Ttext=100 $(FONTD_OBJS) -o $(FONTD) $(LDFLAGS)  -lfreetype -lgraph -lg2dclient $(BSP_LFLAGS) -ltinyjson $(EWOK_LIBC)
+	$(LD) -Ttext=100 $(FONTD_OBJS) -o $(FONTD) $(LDFLAGS)  -lfreetype -lgraph -lg2dclient -lopenlibm $(BSP_LFLAGS) -ltinyjson $(EWOK_LIBC)
 
 clean:
 	rm -f $(FONTD_OBJS)

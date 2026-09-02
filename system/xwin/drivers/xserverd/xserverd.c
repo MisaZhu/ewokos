@@ -143,6 +143,7 @@ static int32_t read_config(x_t* x, const char* fname) {
 
     x->config.fps = json_get_int_def(conf_var, "fps", 30);
     x->config.multi_task = json_get_int_def(conf_var, "multi_task", 0);
+    x->config.fps_async = json_get_int_def(conf_var, "fps_async", 0);
     x->config.bg_proc_priority = json_get_int_def(conf_var, "bg_proc_priority", 2);
 
     const char* v = json_get_str_def(conf_var, "cursor", "");

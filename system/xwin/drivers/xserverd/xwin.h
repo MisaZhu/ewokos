@@ -34,8 +34,9 @@ bool need_repaint_frame(x_t* x, xwin_t* win);
 bool need_repaint_desktop(x_t* x, xwin_t* win);
 bool covered_by_opaque_win(x_t* x, xwin_t* from, uint32_t display_index, const grect_t* r);
 
-/*client content update (XWIN_CNTL_UPDATE)*/
-int x_update(int fd, int from_pid, x_t* x);
-void x_refresh_pending_updates(x_t* x);
+/*client content update: shm-based handshake polled from loop_step
+  (replaces the old XWIN_CNTL_UPDATE IPC fast path)*/
+void x_poll_updates(x_t* x);
+void x_update_release(x_t* x, xwin_t* win);
 
 #endif

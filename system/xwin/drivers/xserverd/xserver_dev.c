@@ -36,10 +36,7 @@ int xserver_fcntl(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 
     int res = -1;
     x_server_lock_enter();
-    if(cmd == XWIN_CNTL_UPDATE) {
-        res = x_update(fd, from_pid, x);
-    }	
-    else if(cmd == XWIN_CNTL_UPDATE_INFO) {
+    if(cmd == XWIN_CNTL_UPDATE_INFO) {
         res = xwin_update_info(fd, from_pid, in, out, x);
     }
     else if(cmd == XWIN_CNTL_WORK_SPACE) {
@@ -270,11 +267,12 @@ int xserver_step(vdevice_t* dev, void* p) {
     }
 
     check_wins(x);
-    /*release the per-window update slots so a new UPDATE IPC may snapshot
-      again. The snapshot itself never runs here: the client renders into
-      ws_g freely between its blocking UPDATE IPCs, so it is only safe to
-      read inside those (see x_refresh_pending_updates)*/
-    x_refresh_pending_updates(x);
+    /*poll the shm UPDATE handshake flags: clients that painted since the
+      last step are parked in proc_block_by(xinfo->win), so their ws_g is
+      stable while we snapshot it. This replaces the old per-UPDATE IPC
+      entirely - the server now runs strictly at its own fps regardless
+      of how fast clients repaint (see x_poll_updates).*/
+    x_poll_updates(x);
     for(uint32_t i=0; i<DISP_MAX; i++) {
         x_display_t* display = &x->displays[i];
         if(!display->active)

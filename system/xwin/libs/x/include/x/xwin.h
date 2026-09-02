@@ -18,6 +18,8 @@ typedef struct st_xwin {
 
 	void* ws_g_shm;
 	int32_t ws_g_shm_id;
+	void* ws_g2_shm;   //second render buffer attach (fps_async double-buffering)
+	int32_t ws_g2_shm_id;
 	int32_t xinfo_shm_id;
 	xinfo_t *xinfo;
 	xinfo_t xinfo_prev; //for backup the state before fullscreen/min/max.

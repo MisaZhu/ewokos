@@ -98,6 +98,50 @@ typedef struct {
 	grect_t winr; //window rect
 	char title[XWIN_TITLE_MAX];
 	char name[X_APP_NAME_MAX];
+
+	/*shm-based UPDATE handshake (replaces the XWIN_CNTL_UPDATE IPC fast
+	  path). Client paints into ws_g, publishes its calling thread pid into
+	  update_pid, issues a full memory barrier, then sets update_requested=1
+	  and blocks on token=xinfo->win. Server polls the flag from loop_step at
+	  its own fps, snapshots ws_g into ws_g_buffer, clears the flag and wakes
+	  update_pid. update_pid must be the CURRENT THREAD pid (thread_get_id,
+	  not getpid: getpid returns the root task pid, and proc_wakeup_by
+	  targets one specific proc entry, so waking the wrong thread would
+	  leave the blocked painter stuck). Both fields are volatile and the
+	  barrier pairs with __sync_synchronize on ARM (dmb ish) so the server
+	  never sees update_requested=1 with a stale ws_g.*/
+	volatile uint32_t update_requested;
+	volatile int32_t  update_pid;
+
+	/*fps_async double-buffering (x.json "fps_async":1). The server allocates a
+	  second workspace buffer ws_g2 (graph_new_shm) and publishes its shm id here.
+	  The client render target is ALWAYS ws_g (never alternated): framebuffer-style
+	  clients such as the SDL2 ewokos backend cache the pixel pointer handed back at
+	  window-create time and blit every frame into that one fixed buffer, so the
+	  render target must stay stable. The "flip" is therefore an explicit copy the
+	  client does in xwin_repaint: only when the server has consumed the previous
+	  submission (update_requested==0) does it blit ws_g -> ws_g2, set front_index=1
+	  and update_requested=1 - all without blocking, so the client keeps its own fps.
+	  The server snapshots ws_g[front_index] (= ws_g2) into ws_g_buffer at its own
+	  fps and clears update_requested only AFTER that copy, so ws_g2 is stable while
+	  the server reads it and the client can keep painting ws_g without tearing.
+	  front_index selects the server's snapshot source (1 => ws_g2); back_index is
+	  reserved and stays 0 (the client always renders ws_g).*/
+	bool fps_async;
+	int32_t ws_g2_shm_id;
+	bool ws_g2_shm_contig;
+	volatile uint32_t back_index;
+	volatile uint32_t front_index;
+
+	/*the server's private composite source (ws_g_buffer) shm, published so xwm
+	  blends decorations over the SAME stable snapshot the compositor reads,
+	  never the client's live render buffer. In fps_async mode the client may be
+	  painting into ws_g or ws_g2 at any moment, so xwm reading those directly
+	  would sample a half-drawn frame; ws_g_buffer is server-owned and the client
+	  never touches it, so it is always consistent with frame_g (prepare_win_content
+	  blits frame_g from it). Both modes use this, so xwm behaviour is uniform.*/
+	int32_t ws_g_buffer_shm_id;
+	bool ws_g_buffer_shm_contig;
 } xinfo_t;
 
 typedef struct {
