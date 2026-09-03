@@ -673,8 +673,17 @@ static void gterminal_draw_char(graph_t* g,
     }
     fg = (fg & 0x00ffffff) | 0xff000000;
 
-    if(bg != 0)
-        graph_fill_rect(g, chx, chy, chw, chh, bg);
+    if(bg != 0) {
+        /* The console background already laid terminal->bg_color into the
+         * canvas this repaint; source-over blending the same translucent
+         * colour on top of it would stack the alpha (text rows end up
+         * darker than empty rows), so translucent backs are written raw.
+         * Opaque backs (SGR/reverse) keep the normal fill path. */
+        if(color_a(bg) == 0xff)
+            graph_fill_rect(g, chx, chy, chw, chh, bg);
+        else
+            graph_set(g, chx, chy, chw, chh, bg);
+    }
     
     if((tch->state & TERM_STATE_HIDE) == 0 && tch->c >= 27) {
         if((tch->state & TERM_STATE_FLASH) != 0 && !terminal->flash_show) {
