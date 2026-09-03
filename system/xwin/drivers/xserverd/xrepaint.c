@@ -220,6 +220,7 @@ void x_repaint(x_t* x, uint32_t display_index) {
     uint32_t dirty_num = 0;
     bool cursor_hidden = false;
     bool cursor_refreshed = false;
+    bool desktop_retry = false;
     grect_t cursor_old_rect;
     grect_t cursor_new_rect;
 
@@ -278,9 +279,16 @@ void x_repaint(x_t* x, uint32_t display_index) {
         /* skip desktop drawing if fully covered by an opaque window
            (e.g. fullscreen window on top) */
         if(!covered_by_opaque_win(x, NULL, display_index, &display->desktop_rect)) {
-            draw_desktop(x, display_index);
-            x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &display->desktop_rect);
-            do_flush = true;
+            if(draw_desktop(x, display_index) == 0) {
+                x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &display->desktop_rect);
+                do_flush = true;
+            }
+            else {
+                /*the xwm refused the draw: nothing was painted, so keep the
+                  display dirty and retry next frame instead of flushing an
+                  untouched (or worse, fallback-filled) scan-out region*/
+                desktop_retry = true;
+            }
         }
     }
 
@@ -384,7 +392,7 @@ void x_repaint(x_t* x, uint32_t display_index) {
         x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &cursor_new_rect);
     }
 
-    display->dirty = false;
+    display->dirty = desktop_retry;
     if(do_flush && dirty_num > 0) {
         /*tell the fb daemon what changed so it only pushes those areas to
           the scan-out buffer instead of the whole frame*/

@@ -137,14 +137,19 @@ static void draw_init_desktop(x_t* x, x_display_t *display) {
     }
 }
 
-void draw_desktop(x_t* x, uint32_t display_index) {
+/*returns 0 when the desktop actually got drawn: a failed xwm call must
+  NOT paint a fallback over the scan-out - the black fill used to stay on
+  the panel forever (display->dirty is cleared at the end of the frame),
+  with stale cursor save-bands ghosting over it. The caller keeps the
+  display dirty instead so the next frame retries the xwm.*/
+int draw_desktop(x_t* x, uint32_t display_index) {
     x_display_t *display = &x->displays[display_index];
     if(display->g == NULL)
-        return;
+        return -1;
 
     if(!check_xwm(x)) {
         draw_init_desktop(x, display);
-        return;
+        return 0;
     }	
     else if(x->config.logo != NULL) {
         graph_free(x->config.logo);
@@ -160,7 +165,8 @@ void draw_desktop(x_t* x, uint32_t display_index) {
     int res = ipc_call_wait(x->xwm_pid, XWM_CNTL_DRAW_DESKTOP, &in);
     PF->clear(&in);
     if(res != 0)
-        graph_fill_rect(display->g, 0, 0, display->g->w, display->g->h, 0xff000000);
+        return -1;
+    return 0;
 }
 
 /*the rect the drag frame outline is drawn at: the window rect without
