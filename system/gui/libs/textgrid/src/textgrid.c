@@ -208,7 +208,11 @@ int textgrid_push(textgrid_t* grid, textchar_t* tch) {
     }
 
     bool new_line = false;
-    if((uint32_t)(grid->curs_x + 1) >= grid->cols || grid->rows == 0) { //new line needed
+    /* curs_x is the column about to be written, so it may address the last
+     * column (cols-1); wrapping here one column early would spill the final
+     * char of every full-width line onto the next row and grow rows by a
+     * phantom line, which scrolls the visible window up one row. */
+    if((uint32_t)grid->curs_x >= grid->cols || grid->rows == 0) { //new line needed
         new_line = true;
         grid->curs_x = 0;
     }

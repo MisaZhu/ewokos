@@ -158,6 +158,22 @@ static void do_esc_color(gterminal_t* terminal, uint16_t* values, uint8_t vnum) 
             terminal->term_conf.set = 1;
             terminal->term_conf.state |= TERM_STATE_REVERSE;
         }
+        else if(v == 22 || v == 21) {
+            terminal->term_conf.set = 1;
+            terminal->term_conf.state &= ~TERM_STATE_HIGH_LIGHT;
+        }
+        else if(v == 24) {
+            terminal->term_conf.set = 1;
+            terminal->term_conf.state &= ~TERM_STATE_UNDERLINE;
+        }
+        else if(v == 25) {
+            terminal->term_conf.set = 1;
+            terminal->term_conf.state &= ~TERM_STATE_FLASH;
+        }
+        else if(v == 28) {
+            terminal->term_conf.set = 1;
+            terminal->term_conf.state &= ~TERM_STATE_HIDE;
+        }
         else if(v == 27) {
             terminal->term_conf.set = 1;
             terminal->term_conf.state &= ~TERM_STATE_REVERSE;
@@ -636,19 +652,26 @@ static void gterminal_draw_char(graph_t* g,
         void*p) {
     gterminal_t* terminal = (gterminal_t*)p;
     uint32_t fg = tch->color, bg = tch->bg_color;
+    bool reverse = (tch->state & TERM_STATE_REVERSE) != 0;
 
     if(fg == 0)
         fg = terminal->fg_color;
     if(bg == 0)
         bg = terminal->bg_color;
 
-    if((tch->state & TERM_STATE_REVERSE) != 0) {
+    if(reverse) {
         uint32_t tmp_c = fg;
         fg = bg;
         bg = tmp_c;
+        /* A reversed cell must stay legible on a transparent theme: paint
+         * the band solid with the foreground colour and draw the glyph in
+         * the (possibly unset) background colour, like tty0 does. */
+        bg = (bg & 0x00ffffff) | 0xff000000;
     }
-
-    bg = (bg & 0x00ffffff) | (terminal->transparent  << 24);
+    else {
+        bg = (bg & 0x00ffffff) | (terminal->transparent  << 24);
+    }
+    fg = (fg & 0x00ffffff) | 0xff000000;
 
     if(bg != 0)
         graph_fill_rect(g, chx, chy, chw, chh, bg);
@@ -744,6 +767,43 @@ void gterminal_put(gterminal_t* terminal, const char* buf, int size) {
                 terminal->esc_size = 0;
                 terminal->in_esc = false;
             }
+            continue;
+        }
+
+        /* CR and LF are cursor moves, not printable cells.  Storing them in
+         * the grid (as textgrid_push does for unknown chars) leaves landmines:
+         * the next char pushed next to a stored CR/LF clears the rest of the
+         * row and slips in an extra newline, which is how curses' cheap
+         * CR/LF cursor moves turned into blank rows and lost title bands. */
+        if(c == '\r') {
+            textgrid_move_to(terminal->textgrid, 0, terminal->textgrid->curs_y);
+            continue;
+        }
+        if(c == '\n' || c == '\v' || c == '\f') {
+            textgrid_t* tg = terminal->textgrid;
+            if(tg->rows == 0) {
+                textchar_t blank = {0};
+                textgrid_put(tg, 0, 0, &blank);
+            }
+            textgrid_move_to(tg, 0, tg->curs_y + 1);
+            continue;
+        }
+        if(c == '\a')
+            continue;                       /* bell: never a cell, never a move */
+        if(c == '\b') {
+            /* cursor left only; erasing (like textgrid_push does for the
+             * CONSOLE_LEFT key) would eat glyphs on overstrike sequences */
+            textgrid_t* tg = terminal->textgrid;
+            if(tg->curs_x > 0)
+                textgrid_move_to(tg, tg->curs_x - 1, tg->curs_y);
+            continue;
+        }
+        if(c == '\t') {
+            textgrid_t* tg = terminal->textgrid;
+            uint32_t nx = (tg->curs_x + 8) & ~(uint32_t)7;
+            if(nx >= tg->cols)
+                nx = tg->cols - 1;
+            textgrid_move_to(tg, (int32_t)nx, tg->curs_y);
             continue;
         }
 
