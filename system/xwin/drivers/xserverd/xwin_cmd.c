@@ -213,7 +213,7 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
         win->xinfo->ws_g_shm_id = -1;
     if(win->xinfo->ws_g2_shm_id == 0 && win->ws_g2 == NULL)
         win->xinfo->ws_g2_shm_id = -1;
-    if(win->xinfo->ws_g_buffer_shm_id == 0 && win->ws_g_buffer == NULL)
+    if(win->xinfo->ws_g_buffer_shm_id == 0)
         win->xinfo->ws_g_buffer_shm_id = -1;
     if(win->xinfo->frame_g_shm_id == 0 && win->frame_g == NULL)
         win->xinfo->frame_g_shm_id = -1;
@@ -301,10 +301,6 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
         win->xinfo->ws_g2_shm_id = -1;
         win->xinfo->ws_g2_shm_contig = false;
 
-        if(win->ws_g_buffer != NULL) {
-            graph_free(win->ws_g_buffer);
-            win->ws_g_buffer = NULL;
-        }
         win->xinfo->ws_g_buffer_shm_id = -1;
         win->xinfo->ws_g_buffer_shm_contig = false;
 
@@ -318,6 +314,8 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
         win->frame_dirty = true;
         win->ready = false;
         win->not_ready_ms = 0; //restart the stuck-window timeout
+        win->paint_ms = 0;     //the old canvas is gone, so is any claim on it
+        win->accept_ms = 0;
 
         /*graph_new_shm allocates its own keyed shm canvas: the buffer and
           the shm id both travel inside the graph, no window-level mirrors*/
@@ -358,13 +356,18 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
         win->xinfo->front_index = 0;
         win->xinfo->update_requested = 0;
 
-        win->ws_g_buffer = graph_new_shm(win->xinfo->wsr.w, win->xinfo->wsr.h);
-        graph_clear(win->ws_g_buffer, 0x0);
-        /*publish the composite source so xwm blends decorations over the SAME
-          stable snapshot the compositor reads, never the client's live render
-          buffer (which fps_async may be painting into right now)*/
-        win->xinfo->ws_g_buffer_shm_id = win->ws_g_buffer->shm_id;
-        win->xinfo->ws_g_buffer_shm_contig = win->ws_g_buffer->shm_contig;
+        /*Publish the compositor's source for xwm. There is no private snapshot
+          any more - the compositor reads the buffer the client published into,
+          so that is what xwm has to blend decorations over, and one full-frame
+          copy per window per frame is gone. Until the first present this is
+          ws_g in both modes (front_index is 0, so win_comp_src picks ws_g);
+          x_accept_update republishes it whenever the source moves. xwm is only
+          ever handed it from inside draw_win, which win_src_stable gates on the
+          client's painting flag, so it still never samples a half-drawn frame.
+          Not allocating the snapshot also frees a whole wsr-sized contig
+          segment per window.*/
+        win->xinfo->ws_g_buffer_shm_id = win->ws_g->shm_id;
+        win->xinfo->ws_g_buffer_shm_contig = win->ws_g->shm_contig;
 
         win->frame_g = graph_new_shm(win->xinfo->winr.w, win->xinfo->winr.h);
         if(win->frame_g == NULL) {
@@ -379,10 +382,6 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
                 win->xinfo->ws_g2_shm_contig = false;
             }
             win->xinfo->fps_async = false;
-            if(win->ws_g_buffer != NULL) {
-                graph_free(win->ws_g_buffer);
-                win->ws_g_buffer = NULL;
-            }
             win->xinfo->ws_g_buffer_shm_id = -1;
             win->xinfo->ws_g_buffer_shm_contig = false;
             return -1;

@@ -31,7 +31,6 @@ typedef struct st_xwin {
 
 	graph_t* ws_g; //workspace graph, owns its shm canvas (graph_new_shm)
 	graph_t* ws_g2; //second workspace graph for fps_async double-buffering (graph_new_shm), NULL when fps_async=0
-	graph_t* ws_g_buffer; //workspace graph buffer
 	graph_t* frame_g; //frame graph, owns its shm canvas (graph_new_shm)
 
 	xinfo_t* xinfo;
@@ -50,6 +49,18 @@ typedef struct st_xwin {
 	  ready. all_win_ready() stops throttling repaints for the whole
 	  display once a window has been stuck past X_NOT_READY_TIMEOUT_MS.*/
 	uint64_t not_ready_ms;
+
+	/*tic (ms) since the compositor first found xinfo->painting set; 0 while
+	  the canvas is readable. A client that goes idle after its last frame
+	  never clears painting, so win_src_stable() stops waiting once this
+	  passes X_PAINT_TIMEOUT_MS.*/
+	uint64_t paint_ms;
+
+	/*tic (ms) since a frame was accepted but not yet composited; 0 when no
+	  accept is outstanding. The client is parked (blocking) or locked out of
+	  its handoff buffer (fps_async) for that whole time, so x_poll_updates
+	  releases it once this passes X_ACCEPT_TIMEOUT_MS.*/
+	uint64_t accept_ms;
 
 	grect_t r_title;
 	grect_t r_close;
@@ -100,6 +111,10 @@ typedef struct {
 	bool cursor_task;
 	bool need_repaint;
 	bool pending_flush; //flush is issued outside the server lock section
+	/*full rebuilds spent waiting for a window's painter to finish: a rebuild
+	  paints the desktop over everything, so a mid-frame window cannot simply
+	  be skipped the way an incremental repaint skips it*/
+	uint32_t paint_wait;
 	/*a frame owns the ctrl dirty list and the scan-out buffer from its
 	  display_set_dirty() until its flush lands: the input handler's
 	  fast cursor redraw must stay out for that whole window, or it
@@ -149,6 +164,20 @@ typedef struct {
 	x_conf_t config;
 	vdevice_t* dev;
 } x_t;
+
+/*the canvas the compositor reads a window's workspace from. There is no
+  private snapshot any more: the buffer the client published into IS the
+  snapshot, and it stays put until x_update_commit hands it back. In
+  fps_async mode that is the handoff buffer the client copied its frame onto
+  (front_index, published before the barrier), otherwise the client's own
+  render target - which win_src_stable() only lets the compositor touch while
+  the painter is parked or idle.*/
+static inline graph_t* win_comp_src(xwin_t* win) {
+	if(win->xinfo != NULL && win->xinfo->fps_async &&
+			win->xinfo->front_index == 1)
+		return win->ws_g2;
+	return win->ws_g;
+}
 
 /*maximized and fullscreen windows fill the display edge to edge: xwm draws
   no frame, shadow or rounded corners for them, so no translucent frame

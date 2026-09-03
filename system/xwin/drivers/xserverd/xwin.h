@@ -35,8 +35,12 @@ bool need_repaint_desktop(x_t* x, xwin_t* win);
 bool covered_by_opaque_win(x_t* x, xwin_t* from, uint32_t display_index, const grect_t* r);
 
 /*client content update: shm-based handshake polled from loop_step
-  (replaces the old XWIN_CNTL_UPDATE IPC fast path)*/
+  (replaces the old XWIN_CNTL_UPDATE IPC fast path). A published frame is
+  accepted in place (no snapshot copy) and composited out of the client's own
+  buffer; x_update_commit hands that buffer back once the compositor is done
+  reading it, x_update_release drops it without compositing.*/
 void x_poll_updates(x_t* x);
+void x_update_commit(x_t* x, xwin_t* win);
 void x_update_release(x_t* x, xwin_t* win);
 
 #endif

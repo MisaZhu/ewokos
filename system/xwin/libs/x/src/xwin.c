@@ -372,6 +372,18 @@ void xwin_repaint(xwin_t* xwin) {
         xwin->on_update_theme(xwin);
     }
 
+    /*Claim the workspace before anything draws into it: the compositor reads this
+      very buffer now (there is no private snapshot any more), so it has to
+      know the canvas is mid-frame. For an on_repaint app the drawing happens
+      inside this call, so this is the exact bracket. For a framebuffer-style
+      app (the SDL2 backend draws into the window surface between presents)
+      the flag is already set from the release at the end of the previous
+      call - this write just re-asserts it. fps_async skips it: there the
+      compositor reads ws_g2, which only the handoff copy below writes, and
+      that copy brackets itself.*/
+    if(xwin->xinfo != NULL && !xwin->xinfo->fps_async)
+        xwin->xinfo->painting = 1;
+
     graph_t g;
     if(xwin_fetch_graph(xwin, &g) != NULL) {
         if(xwin->on_repaint != NULL) {
@@ -400,8 +412,14 @@ void xwin_repaint(xwin_t* xwin) {
             memset(&front, 0, sizeof(graph_t));
             if(g.buffer != NULL && x_get_flip_graph(xwin, &front) != NULL &&
                     front.buffer != NULL) {
+                /*the handoff copy is the only write the compositor's source
+                  buffer sees from this side, so bracket exactly it: while it
+                  runs the server must not composite ws_g2 or hand it to xwm*/
+                xwin->xinfo->painting = 1;
+                __sync_synchronize();
                 graph_blt(&g, 0, 0, g.w, g.h, &front, 0, 0, front.w, front.h);
                 xwin->xinfo->front_index = 1;
+                xwin->xinfo->painting = 0;
                 __sync_synchronize();
                 xwin->xinfo->update_requested = 1;
             }
@@ -422,6 +440,10 @@ void xwin_repaint(xwin_t* xwin) {
       and fired the wake before we trapped in, wake_pending releases us
       immediately and the re-check exits.*/
     xwin->xinfo->update_pid = thread_get_id();
+    /*the frame is complete: hand the canvas over. Clearing before the barrier
+      means the server can never observe update_requested=1 while painting is
+      still 1, and never composite a buffer we are about to write again.*/
+    xwin->xinfo->painting = 0;
     __sync_synchronize();
     xwin->xinfo->update_requested = 1;
     while(xwin->xinfo != NULL && xwin->xinfo->update_requested) {
@@ -429,8 +451,16 @@ void xwin_repaint(xwin_t* xwin) {
     }
     /*xwin_close may have torn xinfo down while we were parked: never touch
       it unchecked after the block returns.*/
-    if(xwin->xinfo != NULL)
+    if(xwin->xinfo != NULL) {
         xwin->xinfo->update_theme = false;
+        /*Released: the server is done with this frame and the app is about to
+          draw the next one into ws_g, which the compositor reads directly.
+          Re-claim it here so a framebuffer-style app - which draws outside
+          this library - is covered too, and keep it claimed until the next
+          publish above. An app that goes idle instead leaves the flag set;
+          the server bounds that wait with X_PAINT_TIMEOUT_MS.*/
+        xwin->xinfo->painting = 1;
+    }
     pthread_mutex_unlock(&xwin->painting_lock);
 }
 
