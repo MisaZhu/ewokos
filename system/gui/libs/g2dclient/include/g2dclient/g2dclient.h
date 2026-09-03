@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <ewoksys/fsinfo.h>
+#include <ewoksys/ewokdef.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -14,7 +15,8 @@ enum {
 	G2D_DEV_CNTL_BLIT,
 	G2D_DEV_CNTL_BLIT_ALPHA,
 	G2D_DEV_CNTL_ROTATE,
-	G2D_DEV_CNTL_SCALE_TO
+	G2D_DEV_CNTL_SCALE_TO,
+	G2D_DEV_CNTL_GET_CLOCK
 };
 
 enum {
@@ -213,6 +215,10 @@ int g2d_set_dev(const char* dev);
    and map it; a fresh key is used every time because shmget() returns
    an existing keyed segment WITHOUT resizing it. */
 int g2d_shm_alloc(uint32_t size, int* shm_id, uint32_t** pixels);
+/* Allocate a physically contiguous shared canvas and return its physical
+   base.  The physical address is valid for GPU consumers such as VC4. */
+int g2d_shm_alloc_phy(uint32_t size, int* shm_id, uint32_t** pixels,
+                      ewokos_addr_t* phy);
 void g2d_shm_free(uint32_t* pixels);
 
 int g2d_fill_rect(const g2d_fill_req_t* req);
@@ -220,6 +226,12 @@ int g2d_blit(const g2d_blit_req_t* req);
 int g2d_blit_alpha(const g2d_blit_req_t* req);
 int g2d_rotate(const g2d_rotate_req_t* req);
 int g2d_scale_to(const g2d_scale_to_req_t* req);
+
+/* query the g2d engine clock rate in Hz (as confirmed by the driver at
+   startup; hardware backends pin the GPU to its max rate). returns 0 on
+   success with *hz set (0 Hz when the platform has no engine clock),
+   -1 when the driver cannot report one. */
+int g2d_get_clock(uint32_t* hz);
 
 #ifdef __cplusplus
 }

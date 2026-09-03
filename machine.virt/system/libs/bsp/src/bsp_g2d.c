@@ -11,6 +11,11 @@ int32_t bsp_g2d_init(void) {
 	return arch_g2d_init();
 }
 
+/* software back end has no engine clock to report */
+uint32_t bsp_g2d_clock_hz(void) {
+	return 0;
+}
+
 int32_t bsp_g2d_fill(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32_t argb_w, int32_t argb_h,
 			int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
 	return arch_g2d_fill(argb, argb_phy, contig, argb_w, argb_h, x, y, w, h, color);
