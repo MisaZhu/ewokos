@@ -122,8 +122,9 @@ static int32_t sys_get_thread_id(void) {
 
 static void sys_usleep(context_t* ctx, uint32_t count) {
     proc_t * cproc = get_current_proc();
-    if(cproc->info.type == TASK_TYPE_PROC && cproc->space->interrupt.state != INTR_STATE_IDLE)
+    /*if(cproc->info.type == TASK_TYPE_PROC && cproc->space->interrupt.state != INTR_STATE_IDLE)
         return;
+    */
 
     /*
      * Only the context actually serving an ipc request may take the
@@ -133,10 +134,11 @@ static void sys_usleep(context_t* ctx, uint32_t count) {
      * threads (e.g. netd's net_thread) must still enter real
      * proc_usleep().
      */
-    if(cproc->info.type == TASK_TYPE_PROC && proc_ipc_sync_serving(cproc)) {
+    /*if(cproc->info.type == TASK_TYPE_PROC && proc_ipc_sync_serving(cproc)) {
         schedule(ctx);
         return;
     }
+        */
 
     proc_usleep(ctx, count);
 }
@@ -478,12 +480,34 @@ static void sys_proc_block(context_t* ctx, ewokos_addr_t token) {
     proc_block_by(ctx, cproc, token);
 }
 
+static void sys_proc_block_timeout(context_t* ctx, ewokos_addr_t token, uint32_t timeout_usec) {
+    proc_t* cproc = get_current_proc();
+    if(cproc == NULL)
+        return;
+
+    /* Same guard as sys_proc_block(): never park a hijacked single-task IPC
+     * service context; just yield and let the caller re-check. */
+    if(proc_ipc_sync_serving(cproc)) {
+        schedule(ctx);
+        return;
+    }
+
+    proc_block_by_timeout(ctx, cproc, token, timeout_usec);
+}
+
 static void sys_proc_wakeup(context_t* ctx, int32_t pid, ewokos_addr_t token) {
     (void)ctx;
     proc_t* cproc = proc_get_proc(get_current_proc());
-    if(cproc->info.uid > 0)
-        return;
     proc_t* proc = proc_get(pid);
+    /*
+     * Non-root may only wake a same-uid peer (same rule as sys_signal):
+     * the shm-pipe data plane relies on reader/writer waking each other
+     * directly with proc_wakeup_by(), and both ends of a pipe normally
+     * run as the same user. Cross-user wakes stay root-only.
+     */
+    if(cproc->info.uid > 0 &&
+            (proc == NULL || cproc->info.uid != proc->info.uid))
+        return;
     proc_wakeup_by(proc, token);
 }
 
@@ -698,6 +722,9 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
         return;
     case SYS_BLOCK:
         sys_proc_block(ctx, (uint32_t)arg0);
+        return;
+    case SYS_BLOCK_TIMEOUT:
+        sys_proc_block_timeout(ctx, (uint32_t)arg0, (uint32_t)arg1);
         return;
     case SYS_CORE_READY:
         sys_core_proc_ready();

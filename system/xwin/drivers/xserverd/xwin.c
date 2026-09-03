@@ -1,5 +1,5 @@
 /*window list management, focus handling, client events and the
-  workspace damage/dirty bookkeeping of the x server*/
+  workspace snapshot/dirty bookkeeping of the x server*/
 #include <stdlib.h>
 #include <string.h>
 #include <sys/shm.h>
@@ -220,6 +220,14 @@ void x_del_win(x_t* x, xwin_t* win) {
     if(win == x->win_focus)
         hide_win(x, x->im_state.win_xim);
 
+    /*a painter thread may be parked in proc_block_by(xinfo->win) waiting
+      for the step poll to snapshot it. The window is going away and its
+      ws_g is about to be freed, so release the handshake first: clear
+      the flag and wake the exact thread, otherwise it blocks forever on
+      a token nobody will ever fire again. Must happen before graph_free
+      below and before shmdt(win->xinfo) at the end.*/
+    x_update_release(x, win);
+
     remove_win(x, win);
     if(win == x->current.win_drag) {
         x->current.win_drag = NULL;
@@ -242,6 +250,10 @@ void x_del_win(x_t* x, xwin_t* win) {
         graph_free(win->ws_g);
         win->ws_g = NULL;
     }
+    if(win->ws_g2 != NULL) {
+        graph_free(win->ws_g2);
+        win->ws_g2 = NULL;
+    }
     if(win->frame_g != NULL) {
         graph_free(win->frame_g);
         win->frame_g = NULL;
@@ -249,6 +261,10 @@ void x_del_win(x_t* x, xwin_t* win) {
     if(win->xinfo != NULL) {
         win->xinfo->ws_g_shm_id = -1;
         win->xinfo->ws_g_shm_contig = false;
+        win->xinfo->ws_g2_shm_id = -1;
+        win->xinfo->ws_g2_shm_contig = false;
+        win->xinfo->ws_g_buffer_shm_id = -1;
+        win->xinfo->ws_g_buffer_shm_contig = false;
         win->xinfo->frame_g_shm_id = -1;
         win->xinfo->frame_g_shm_contig = false;
     }
@@ -337,7 +353,6 @@ static void mark_dirty_confirm(x_t* x, xwin_t* win) {
         if(v->dirty_mark) {
             v->dirty = true;
             v->dirty_mark = false;
-            v->has_damage = false; //the area below it was repainted
 
             if(v != win && v->xinfo != NULL) {
                 if(need_repaint_desktop(x, v))
@@ -402,7 +417,13 @@ void check_wins(x_t* x) {
     while(w != NULL) {
         xwin_t* p = w->prev;
         if(w->from_main_pid < 0 || proc_check_uuid(w->from_main_pid, w->from_main_pid_uuid) != w->from_main_pid_uuid) {
+            /*the owner died without closing its fd: mirror the close path
+              and drop its event pool + anonymous vfs node too, otherwise
+              both leak on every crashed/killed client*/
+            int main_pid = w->from_main_pid;
             x_del_win(x, w);
+            if(main_pid >= 0 && !has_win_by_main_pid(x, main_pid))
+                x_quit(main_pid);
         }
         w = p;
     }
@@ -457,198 +478,86 @@ static void win_dirty(x_t* x, xwin_t* win) {
     x_repaint_req(x, win->xinfo->display_index);
 }
 
-#define X_DAMAGE_BAND     8
-#define X_DAMAGE_SKIP_MAX 8
+/*copy the whole workspace across to the snapshot the compositor reads
+  from. The copy rides graph_blt: contig shm canvases travel through
+  /dev/g2d (zero-copy on physical addresses) instead of a cpu pass over
+  the non-cacheable shm window. src is the buffer the client finished
+  rendering: ws_g in the blocking handshake (client parked, ws_g stable),
+  or ws_g[front_index] in fps_async mode (client already moved on to the
+  other buffer, so src is stable there too).*/
+static void x_update_copy(x_t* x, xwin_t* win, graph_t* src) {
+    graph_blt(src, 0, 0, src->w, src->h,
+            win->ws_g_buffer, 0, 0, src->w, src->h);
 
-/*compare the workspace against the copy we keep and return the bounding box
-  of what the client actually changed. The rows are checked in bands so a
-  single memcmp covers several of them; the columns are then only probed
-  where they could still widen the box. Returns false when nothing changed.*/
-static bool detect_ws_damage(xwin_t* win, grect_t* dmg) {
-    const uint32_t* src = win->ws_g->buffer;
-    const uint32_t* dst = win->ws_g_buffer->buffer;
-    int32_t w = win->ws_g->w;
-    int32_t h = win->ws_g->h;
-    size_t row_bytes = (size_t)w * sizeof(uint32_t);
-
-    int32_t y0 = -1, y1 = 0;
-    int32_t x0 = w, x1 = 0;
-
-    for(int32_t y = 0; y < h; y += X_DAMAGE_BAND) {
-        int32_t bh = (y + X_DAMAGE_BAND) > h ? (h - y) : X_DAMAGE_BAND;
-        const uint32_t* s = src + (size_t)y * w;
-        const uint32_t* d = dst + (size_t)y * w;
-        if(memcmp(s, d, row_bytes * bh) == 0)
-            continue;
-
-        if(y0 < 0)
-            y0 = y;
-        y1 = y + bh;
-
-        if(x0 == 0 && x1 == w) //already full width, only the rows still matter
-            continue;
-
-        for(int32_t i = 0; i < bh; i++) {
-            const uint32_t* sr = s + (size_t)i * w;
-            const uint32_t* dr = d + (size_t)i * w;
-            int32_t l = 0;
-            while(l < x0 && sr[l] == dr[l])
-                l++;
-            if(l < x0)
-                x0 = l;
-
-            int32_t r = w - 1;
-            while(r >= x1 && sr[r] == dr[r])
-                r--;
-            if(r >= x1)
-                x1 = r + 1;
-
-            if(x0 == 0 && x1 == w)
-                break;
-        }
-    }
-
-    if(y0 < 0 || x1 <= x0)
-        return false;
-
-    dmg->x = x0;
-    dmg->y = y0;
-    dmg->w = x1 - x0;
-    dmg->h = y1 - y0;
-    return true;
-}
-
-static void copy_ws_rect(xwin_t* win, const grect_t* r) {
-    graph_t* src = win->ws_g;
-    graph_t* dst = win->ws_g_buffer;
-    size_t row_bytes = (size_t)r->w * sizeof(uint32_t);
-    for(int32_t y = 0; y < r->h; y++) {
-        memcpy(dst->buffer + (size_t)(r->y + y) * dst->w + r->x,
-                src->buffer + (size_t)(r->y + y) * src->w + r->x,
-                row_bytes);
-    }
-}
-
-/*detect what the client changed in ws_g and copy it across to the snapshot
-  the compositor reads from. Only ever called from inside the blocking
-  UPDATE IPC: the client is suspended there, so ws_g cannot change under
-  the detect+copy.*/
-static void x_update_copy(x_t* x, xwin_t* win) {
-    grect_t full = {0, 0, win->ws_g->w, win->ws_g->h};
-    grect_t dmg = full;
-    bool has_dmg = false;
-
-    if(win->ready && win->damage_skip == 0) {
-        has_dmg = detect_ws_damage(win, &dmg);
-        if(!has_dmg) {
-            if(!win->dirty && !win->frame_dirty)
-                return; //the client redrew the very same picture
-            /*nothing new in the workspace, but a repaint is still pending:
-              keep the damage already recorded and just ask for it again*/
-            win_dirty(x, win);
-            return;
-        }
-
-        /*detection costs a full compare pass: back off for a while when the
-          client keeps repainting almost everything anyway*/
-        if((int64_t)dmg.w * dmg.h * 4 >= (int64_t)full.w * full.h * 3)
-            win->damage_skip = X_DAMAGE_SKIP_MAX;
-    }
-    else if(win->damage_skip > 0) {
-        win->damage_skip--;
-    }
-
-    /*several updates may pile up between two repaints, so never narrow a
-      damage that has not been composited yet*/
-    if(win->dirty && !win->has_damage)
-        has_dmg = false;
-    else if(has_dmg && win->has_damage)
-        rect_union_to(&dmg, &win->damage);
-
-    if(has_dmg) {
-        copy_ws_rect(win, &dmg);
-    }
-    else {
-        dmg = full;
-        memcpy(win->ws_g_buffer->buffer, win->ws_g->buffer,
-                (size_t)win->ws_g->w * win->ws_g->h * sizeof(uint32_t));
-    }
-
-    win->damage = dmg;
-    win->has_damage = has_dmg;
     win->ready = true;
+    win->not_ready_ms = 0;
     win_dirty(x, win);
 }
 
-int x_update(int fd, int from_pid, x_t* x) {
-    if(fd < 0)
-        return -1;
-    
-    xwin_t* win = x_get_win(x, fd, from_pid);
-    if(win == NULL || win->xinfo == NULL || win->ws_g == NULL)
-        return -1;
+/*release a client that is parked on the shm UPDATE handshake without
+  snapshotting: the window is going away, is being rebuilt, or turned
+  invisible. Clears the request flag and wakes the exact thread that
+  published itself into update_pid, so xwin_repaint returns instead of
+  blocking forever on a token nobody will ever fire again.*/
+void x_update_release(x_t* x, xwin_t* win) {
+    (void)x;
+    if(win == NULL || win->xinfo == NULL)
+        return;
 
-    if(!win->xinfo->visible)
-        return 0;
-
-    if(win->ws_g_buffer == NULL)
-        return -1;
-
-    /*a copy of this window is already queued for the next step. The copy
-      must not be redone here either: stacked UPDATEs stay O(1) so
-      fast-repainting clients cannot clog the IPC queue that mouse input
-      and event delivery share with them (the detect+copy for one window
-      is a full-workspace pass on slow hardware). Remember the drop so the
-      step can ask the client for a fresh repaint when none follows.*/
-    if(win->refresh_pending) {
-        win->update_overtaken = true;
-        return 0;
-    }
-
-    x_update_copy(x, win);
-    win->refresh_pending = true;
-    /*this copy picked up the freshest content: a recovery repaint for an
-      earlier drop is no longer needed*/
-    win->update_overtaken = false;
-    win->repaint_grace = 0;
-    return 0;
+    int32_t pid = win->xinfo->update_pid;
+    win->xinfo->update_requested = 0;
+    win->xinfo->update_pid = -1;
+    __sync_synchronize();
+    if(pid >= 0)
+        proc_wakeup_by(pid, win->xinfo->win);
 }
 
-/*runs once per step (under ipc_disable, before compositing): releases the
-  per-window update slot so the next UPDATE IPC may snapshot again. The
-  snapshot copy itself deliberately does NOT happen here: outside the
-  blocking UPDATE IPC the client is free to render into ws_g, so a
-  step-time detect+copy would read a half-drawn frame and composite it
-  (partial flicker, fullscreen inconsistency). A dropped UPDATE whose
-  client stops repainting is recovered by pushing XEVT_WIN_REPAINT after a
-  short grace period: the client resends its content through the race-free
-  UPDATE IPC path.*/
-void x_refresh_pending_updates(x_t* x) {
+/*runs once per step (under the server lock, before compositing): scans
+  every window's shm handshake flag and snapshots the ones that asked for
+  it. This replaces the old XWIN_CNTL_UPDATE IPC path entirely - no vdevice
+  dispatch, no file cache lookup, no fsinfo_t round-trip on the hot path.
+  Two modes:
+  - fps_async=0 (blocking): the client is parked in proc_block_by(xinfo->win)
+    while we copy ws_g, so ws_g is stable; we clear the flag before the copy
+    and wake the painter afterwards. Clients that repaint faster than the
+    server fps simply stay blocked until the next step picks them up, which
+    is exactly the throttling we want.
+  - fps_async=1 (double-buffered): the client published a complete frame into
+    ws_g[front_index] and already returned to render the other buffer, so we
+    snapshot front_index and never wake anyone. We clear the flag AFTER the
+    copy: the client flips buffers only when it sees update_requested==0, so
+    clearing after the snapshot guarantees it never starts rendering the
+    buffer we are reading. No tearing, and the client keeps its own fps.*/
+void x_poll_updates(x_t* x) {
     xwin_t* win = x->win_head;
     while(win != NULL) {
-        if(win->refresh_pending)
-            win->refresh_pending = false;
+        if(win->xinfo != NULL && win->xinfo->update_requested) {
+            if(win->xinfo->fps_async) {
+                uint32_t fi = win->xinfo->front_index;
+                graph_t* src = (fi == 1) ? win->ws_g2 : win->ws_g;
+                if(win->xinfo->visible && src != NULL && win->ws_g_buffer != NULL)
+                    x_update_copy(x, win, src);
+                /*clear AFTER the copy so the client cannot flip onto src
+                  until we are done reading it (see header comment)*/
+                __sync_synchronize();
+                win->xinfo->update_requested = 0;
+            } else {
+                int32_t pid = win->xinfo->update_pid;
+                ewokos_addr_t token = win->xinfo->win;
 
-        if(win->update_overtaken) {
-            if(win->repaint_grace < 2) {
-                win->repaint_grace++;
+                /*clear the flag BEFORE the copy so a second painter thread
+                  that races in during graph_blt re-asserts it and gets
+                  picked up next step instead of being lost*/
+                win->xinfo->update_requested = 0;
+                win->xinfo->update_pid = -1;
+                __sync_synchronize();
+
+                if(win->xinfo->visible && win->ws_g != NULL && win->ws_g_buffer != NULL)
+                    x_update_copy(x, win, win->ws_g);
+
+                if(pid >= 0)
+                    proc_wakeup_by(pid, token);
             }
-            else {
-                /*no fresh UPDATE arrived since the drop: ask the client
-                  to repaint so its latest content gets snapshotted*/
-                win->repaint_grace = 0;
-                win->update_overtaken = false;
-                if(win->xinfo != NULL && win->xinfo->visible) {
-                    xevent_t ev;
-                    memset(&ev, 0, sizeof(xevent_t));
-                    ev.type = XEVT_WIN;
-                    ev.value.window.event = XEVT_WIN_REPAINT;
-                    x_push_event(x, win, &ev);
-                }
-            }
-        }
-        else {
-            win->repaint_grace = 0;
         }
         win = win->next;
     }

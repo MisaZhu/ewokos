@@ -20,15 +20,16 @@
  * ipc_task_t slot inside the server's ipc_server_t, delivers the request,
  * and routes the return package back to the client's ipc_res_t slot.
  *
- * Two pool server modes (the worker pool section further below):
- *  - multi_task (IPC_MULTI_TASK): requests are served concurrently by a
- *    pool of worker threads inside the server proc, up to
- *    max_task_per_proc members; when no worker is idle the client parks
- *    on the server's wait queue until one parks - unless that client
- *    already owns an in-flight task on this server, in which case the
- *    request is answered with IPC_ERROR_RETRY (the MULTI_CORE shape) so
- *    a single requester cannot pile up workers. The main context is
- *    never touched.
+ * Pool server modes (the worker pool section further below). Both pin
+ * every request to the requesting client's core - a request NEVER
+ * crosses cores:
+ *  - multi_task (IPC_MULTI_TASK): requests from DIFFERENT requesters are
+ *    served concurrently by a pool of worker threads inside the server
+ *    proc, up to max_task_per_proc members. Requests from ONE requester
+ *    are strictly serialized - at most one in flight at a time, any call
+ *    kind (IPC_NON_RETURN included) - so their processing order is
+ *    preserved; when no same-core worker can serve a request the client
+ *    parks on the server's wait queue. The main context is never touched.
  *  - multi_core (IPC_MULTI_CORE): same worker pool machinery, but at
  *    most ONE worker per core; when the client's core already has a
  *    worker and it is busy, the request is answered with
@@ -651,14 +652,15 @@ int32_t proc_ipc_wait(context_t* ctx, struct st_proc* serv_proc, proc_t* proc) {
  * parked for IPC_TASK_SELF_QUIT_TIMEOUT seconds self-terminates, draining
  * an idle pool back to empty.
  *
- * The two modes differ only in assignment policy (see ipc_pool_assign):
+ * The two modes differ only in assignment policy (see ipc_pool_assign);
+ * both keep every request on the requesting client's core:
  *  - IPC_MULTI_TASK: the pool grows up to max_task_per_proc members; a
- *    request that finds every member busy and cannot spawn parks the
- *    client on the server wait queue until a worker parks. Growth is
- *    throttled per requester: a client that already owns an in-flight
- *    task on this server never spawns a new worker for its next
- *    request - it gets IPC_ERROR_RETRY and waits by retrying from
- *    userspace, exactly like the MULTI_CORE busy path.
+ *    request that finds no same-core worker and cannot spawn parks the
+ *    client on the server wait queue until one is available. A
+ *    requester that already owns an in-flight task on this server is
+ *    never assigned a second worker - its request parks until the
+ *    earlier one completes, so one requester's requests (any call kind,
+ *    IPC_NON_RETURN included) stay strictly ordered.
  *  - IPC_MULTI_CORE: at most ONE member per core; a request that finds
  *    its core's member busy is answered with IPC_ERROR_RETRY and the
  *    requester waits by retrying from userspace - no pool wait queue.
@@ -751,20 +753,19 @@ static void ipc_pool_bind_locked(ipc_server_t* server, proc_t* worker, ipc_task_
 }
 
 /*
- * Scan pool slots for a parked/idle worker and bind request ipc to the
- * first one found. With same_core_only set, only members pinned to the
- * given core are considered (a worker keeps its home core for its whole
- * lifetime); otherwise any parked member qualifies. Returns the bound
- * worker, or NULL when no slot holds a usable idle worker. Caller holds
- * the server lock.
+ * Scan pool slots for a parked/idle worker pinned to the given core (a
+ * worker keeps its home core for its whole lifetime and requests never
+ * cross cores) and bind request ipc to the first one found. Returns the
+ * bound worker, or NULL when no slot holds a usable idle worker. Caller
+ * holds the server lock.
  */
-static proc_t* ipc_pool_pick_idle_locked(ipc_server_t* server, ipc_task_t* ipc, uint32_t core, bool same_core_only) {
+static proc_t* ipc_pool_pick_idle_locked(ipc_server_t* server, ipc_task_t* ipc, uint32_t core) {
     for(uint32_t i = 0; i < server->pool_num; i++) {
         proc_t* w = ipc_pool_slot_worker(server, i);
         if(w == NULL || server->pool[i].quit ||
                 w->info.state != BLOCK || w->ipc_task != NULL)
             continue;
-        if(same_core_only && w->info.core != core)
+        if(w->info.core != core)
             continue;
         ipc_pool_bind_locked(server, w, ipc);
         return w;
@@ -773,16 +774,17 @@ static proc_t* ipc_pool_pick_idle_locked(ipc_server_t* server, ipc_task_t* ipc, 
 }
 
 /*
- * Any parked/idle worker in the pool, on any core. Used by the
- * IPC_MULTI_TASK busy path (proc_ipc_wait_pool) to decide whether the
- * caller can retry at once instead of blocking. Caller holds the server
- * lock.
+ * Any parked/idle worker in the pool pinned to the given core. Used by
+ * the IPC_MULTI_TASK busy path (proc_ipc_wait_pool) to decide whether
+ * the caller can retry at once instead of blocking. Caller holds the
+ * server lock.
  */
-static bool ipc_pool_has_idle(ipc_server_t* server) {
+static bool ipc_pool_has_idle(ipc_server_t* server, uint32_t core) {
     for(uint32_t i = 0; i < server->pool_num; i++) {
         proc_t* w = ipc_pool_slot_worker(server, i);
         if(w != NULL && !server->pool[i].quit &&
-                w->info.state == BLOCK && w->ipc_task == NULL)
+                w->info.state == BLOCK && w->ipc_task == NULL &&
+                w->info.core == core)
             return true;
     }
     return false;
@@ -808,9 +810,9 @@ static proc_t* ipc_pool_core_member_locked(ipc_server_t* server, uint32_t core) 
 /*
  * True when the requesting client (pid+uuid) already owns ANOTHER
  * in-flight task on this server (skip excludes the request currently
- * being assigned). Used by the IPC_MULTI_TASK assignment policy: while
- * every pool member is busy, a requester that is already being served
- * must not grow the pool for yet another of its requests.
+ * being assigned). The match ignores call_id, so IPC_NON_RETURN counts
+ * exactly like any other call. Used by the IPC_MULTI_TASK assignment
+ * policy to keep one requester's requests strictly serialized.
  * Caller holds the server lock.
  */
 static bool ipc_server_client_busy_locked(ipc_server_t* server, int32_t client_pid, uint32_t client_uuid, const ipc_task_t* skip) {
@@ -827,79 +829,69 @@ static bool ipc_server_client_busy_locked(ipc_server_t* server, int32_t client_p
 }
 
 /*
- * Hand request ipc to a pool worker, keeping the work on the requesting
- * client's core: first look for a parked member pinned to that core.
- * When there is none, grow the pool with a new worker pinned to that
- * same core - under IPC_MULTI_CORE only if the core has NO member at
- * all (one member per core; its busy member must not be bypassed),
- * under IPC_MULTI_TASK whenever the pool is still below its
- * max_task_per_proc budget AND the requesting client has no other task
- * in flight on this server (a client already being served must not pile
- * up workers while every member is busy). Growth is also bounded by
- * free thread stack slots; only when growing is impossible does
- * assignment fall back to a parked member on ANY core, so a spawn
- * failure can never strand a client forever while other cores sit idle.
- * Returns the bound worker, or NULL when no member is idle and none may
- * be spawned: under IPC_MULTI_CORE - and under IPC_MULTI_TASK when the
- * client already has a task being served - the caller answers
- * IPC_ERROR_RETRY and the requester waits by retrying from userspace,
- * otherwise the caller blocks the client until a worker parks.
+ * Hand request ipc to a pool worker on the requesting client's core -
+ * a request NEVER crosses cores: first look for a parked member pinned
+ * to that core, and when there is none, grow the pool with a new worker
+ * pinned to that same core - under IPC_MULTI_CORE only if the core has
+ * NO member at all (one member per core; its busy member must not be
+ * bypassed), under IPC_MULTI_TASK only while the pool is still below
+ * its max_task_per_proc budget. Growth is also bounded by free thread
+ * stack slots; when nothing can be assigned the caller parks the client
+ * (MULTI_TASK) or answers IPC_ERROR_RETRY (MULTI_CORE).
+ *
+ * Per-requester ordering: when the requesting client already owns
+ * another in-flight task on this server (any call kind, IPC_NON_RETURN
+ * included), NOTHING is assigned here - binding the new request to any
+ * idle worker would let it run concurrently with, and finish before,
+ * the earlier one. The caller parks the requester until its earlier
+ * task completes, so a requester's requests are served strictly one at
+ * a time in send order.
  */
 static proc_t* ipc_pool_assign(proc_t* serv_proc, ipc_task_t* ipc, uint32_t core) {
     ipc_server_t* server = &serv_proc->space->ipc_server;
     proc_t* worker = NULL;
 
     proc_ipc_server_lock(server);
-    worker = ipc_pool_pick_idle_locked(server, ipc, core, true);
-    /*
-     * IPC_MULTI_TASK growth throttle: when the requesting client already
-     * has another task in flight on this server, do NOT spawn a new
-     * worker for its next request - a single requester must not pile up
-     * workers while every member is busy. A parked member (any core) may
-     * still be reused since that spawns nothing; when none is idle the
-     * caller answers IPC_ERROR_RETRY like the IPC_MULTI_CORE busy path.
-     */
-    bool no_grow = ((server->flags & IPC_MULTI_CORE) == 0) &&
+    bool no_assign = ((server->flags & IPC_MULTI_CORE) == 0) &&
             ipc_server_client_busy_locked(server, ipc->client_pid, ipc->client_uuid, ipc);
-    if(worker == NULL && no_grow) {
-        /* growth suppressed: only an already-parked member may serve it */
-        worker = ipc_pool_pick_idle_locked(server, ipc, core, false);
-    }
-    if(worker == NULL && !no_grow &&
-            ((server->flags & IPC_MULTI_CORE) == 0 ||
-            ipc_pool_core_member_locked(server, core) == NULL)) {
-        /*
-         * No parked member on the client's core (and, under
-         * IPC_MULTI_CORE, no member there at all): grow on demand. The
-         * count check is under the lock; the spawn runs outside it (it
-         * can bury zombies) and the new worker is registered + bound in
-         * the next critical section. Syscalls are serialized by
-         * kernel_lock, so no other grower can slip in between. When the
-         * proc has no free thread slot left (its own thread limit), do
-         * NOT spawn.
-         */
-        bool can_grow = (ipc_pool_count_locked(server) < server->pool_num) &&
-                proc_thread_stack_available(serv_proc);
-        proc_ipc_server_unlock(server);
-        if(can_grow) {
-            worker = proc_ipc_pool_spawn(serv_proc, core);
-            if(worker != NULL) {
-                proc_ipc_server_lock(server);
-                ipc_pool_register_locked(server, worker);
-                ipc_pool_bind_locked(server, worker, ipc);
-                proc_ipc_server_unlock(server);
-                proc_wakeup(worker); //BLOCK -> READY; enters the rewritten ctx
-                return worker;
+    if(!no_assign) {
+        worker = ipc_pool_pick_idle_locked(server, ipc, core);
+        if(worker == NULL &&
+                ((server->flags & IPC_MULTI_CORE) == 0 ||
+                ipc_pool_core_member_locked(server, core) == NULL)) {
+            /*
+             * No parked member on the client's core (and, under
+             * IPC_MULTI_CORE, no member there at all): grow on demand. The
+             * count check is under the lock; the spawn runs outside it (it
+             * can bury zombies) and the new worker is registered + bound in
+             * the next critical section. Syscalls are serialized by
+             * kernel_lock, so no other grower can slip in between. When the
+             * proc has no free thread slot left (its own thread limit), do
+             * NOT spawn.
+             */
+            bool can_grow = (ipc_pool_count_locked(server) < server->pool_num) &&
+                    proc_thread_stack_available(serv_proc);
+            proc_ipc_server_unlock(server);
+            if(can_grow) {
+                worker = proc_ipc_pool_spawn(serv_proc, core);
+                if(worker != NULL) {
+                    proc_ipc_server_lock(server);
+                    ipc_pool_register_locked(server, worker);
+                    ipc_pool_bind_locked(server, worker, ipc);
+                    proc_ipc_server_unlock(server);
+                    proc_wakeup(worker); //BLOCK -> READY; enters the rewritten ctx
+                    return worker;
+                }
             }
+            /* growth impossible: retry the same-core pick only (never cross cores) */
+            proc_ipc_server_lock(server);
+            worker = ipc_pool_pick_idle_locked(server, ipc, core);
         }
-        /* growth impossible or failed: fall back to any parked member */
-        proc_ipc_server_lock(server);
-        worker = ipc_pool_pick_idle_locked(server, ipc, core, false);
     }
     proc_ipc_server_unlock(server);
 
     if(worker == NULL)
-        return NULL; //busy: MULTI_CORE -> client retries; MULTI_TASK -> caller blocks
+        return NULL; //busy: MULTI_CORE -> client retries; MULTI_TASK -> caller parks
     proc_wakeup(worker); //BLOCK -> READY; enters the rewritten ctx
     return worker;
 }
@@ -949,14 +941,15 @@ void proc_ipc_pool_shrink(proc_t* serv_proc) {
 /*
  * IPC_MULTI_TASK busy path (IPC_MULTI_CORE never parks the client here:
  * it answers IPC_ERROR_RETRY instead). Block the client until a pool
- * worker parks (becomes idle). Same shape as the old stack-slot wait:
- * the re-check happens under the same server lock the park path flips
- * its BLOCK state with, so a worker parking right before we enqueue
- * still wakes us (the park issues proc_ipc_wakeup() after the
- * transition). Returns 1 when a worker is already idle again (caller
- * retries at once), 0 after a block/wake cycle.
+ * worker on the client's OWN core parks (becomes idle) - requests never
+ * cross cores. Same shape as the old stack-slot wait: the re-check
+ * happens under the same server lock the park path flips its BLOCK
+ * state with, so a worker parking right before we enqueue still wakes
+ * us (the park issues proc_ipc_wakeup() after the transition). Returns
+ * 1 when a same-core worker is already idle again (caller retries at
+ * once), 0 after a block/wake cycle.
  */
-static int32_t proc_ipc_wait_pool(context_t* ctx, proc_t* serv_proc, proc_t* proc) {
+static int32_t proc_ipc_wait_pool(context_t* ctx, proc_t* serv_proc, proc_t* proc, uint32_t core) {
     if(serv_proc == NULL || proc == NULL || serv_proc->space == NULL)
         return -1;
 
@@ -969,7 +962,46 @@ static int32_t proc_ipc_wait_pool(context_t* ctx, proc_t* serv_proc, proc_t* pro
     item->uuid = proc->info.uuid;
     ipc_server_t* server = &serv_proc->space->ipc_server;
     proc_ipc_server_lock(server);
-    if(!server->disabled && ipc_pool_has_idle(server)) {
+    if(!server->disabled && ipc_pool_has_idle(server, core)) {
+        proc_ipc_server_unlock(server);
+        return 1;
+    }
+    if(!item->queued) {
+        ipc_waitq_link_tail(server, item);
+        ipc_wait_item_set_server(item, serv_proc);
+    }
+    proc_ipc_server_unlock(server);
+    proc_block(ctx, proc);
+    return 0;
+}
+
+/*
+ * Per-requester ordering wait (IPC_MULTI_TASK): block the requester
+ * until its EARLIER in-flight task on this server completes. multi_task
+ * serves one requester's requests strictly one at a time - any call
+ * kind, IPC_NON_RETURN included - so request N+1 must not be assigned
+ * before N finished. Same lock/re-check shape as proc_ipc_wait_pool():
+ * the finish path wakes waiters through proc_ipc_wakeup() (park / end),
+ * and a watchdog abort of that very task wakes this client directly, so
+ * the re-check under the server lock only has to close the
+ * finish-vs-enqueue race. Returns 1 when the requester is already free
+ * again (caller retries at once), 0 after a block/wake cycle.
+ */
+static int32_t proc_ipc_wait_requester(context_t* ctx, proc_t* serv_proc, proc_t* proc) {
+    if(serv_proc == NULL || proc == NULL || serv_proc->space == NULL)
+        return -1;
+
+    if(proc->ipc_waiting_on != NULL && proc->ipc_waiting_on != serv_proc)
+        proc_ipc_cancel_wait(proc);
+
+    ipc_queue_item_t* item = &proc->ipc_wait_item;
+    item->owner = proc;
+    item->pid = proc->info.pid;
+    item->uuid = proc->info.uuid;
+    ipc_server_t* server = &serv_proc->space->ipc_server;
+    proc_ipc_server_lock(server);
+    if(!server->disabled &&
+            !ipc_server_client_busy_locked(server, proc->info.pid, proc->info.uuid, NULL)) {
         proc_ipc_server_unlock(server);
         return 1;
     }
@@ -1141,13 +1173,15 @@ void proc_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, proto_t* a
          * ONE worker per core and a busy core answers the request with
          * IPC_ERROR_RETRY right away - the requester waits by retrying
          * from userspace, no kernel wait queue involved. IPC_MULTI_TASK
-         * grows up to max_task_per_proc workers and, when all are busy
-         * and no growth is possible, parks the client on the server
-         * wait queue until a worker parks - except when the requester
-         * already owns an in-flight task here: then growth is throttled
-         * and the request gets the MULTI_CORE-shaped IPC_ERROR_RETRY.
-         * Task-slot exhaustion and the disabled state park the client
-         * on the wait queue in both modes.
+         * grows up to max_task_per_proc workers and, when no same-core
+         * worker is idle and no growth is possible, parks the client on
+         * the server wait queue until a same-core worker parks - and a
+         * requester that already owns an in-flight task here parks
+         * until THAT completes instead, keeping one requester's
+         * requests strictly ordered (any call kind, IPC_NON_RETURN
+         * included). Requests never cross cores. Task-slot exhaustion
+         * and the disabled state park the client on the wait queue in
+         * both modes.
          */
         uint32_t serv_uuid = serv_proc->info.uuid;
         while(true) {
@@ -1175,15 +1209,14 @@ void proc_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, proto_t* a
                 if(worker != NULL) {
                     /*
                      * Real-time dispatch: pool workers are pinned to the
-                     * requesting client's core, so the common case hands
-                     * the cpu STRAIGHT to the worker thread - the request
-                     * starts running now instead of after the client blocks
-                     * in get_return and wins a FIFO reschedule. Worth it
+                     * requesting client's core (requests never cross
+                     * cores), so the common case hands the cpu STRAIGHT
+                     * to the worker thread - the request starts running
+                     * now instead of after the client blocks in
+                     * get_return and wins a FIFO reschedule. Worth it
                      * only when the client will wait for the reply:
                      * IPC_LAZY / IPC_NON_RETURN callers keep running and
-                     * the woken worker serves asynchronously. A cross-core
-                     * fallback worker was already woken by ipc_pool_assign()
-                     * and is picked up by its own core.
+                     * the woken worker serves asynchronously.
                      */
                     if((call_id & (IPC_LAZY | IPC_NON_RETURN)) == 0 &&
                             worker->info.core == client_proc->info.core)
@@ -1201,11 +1234,13 @@ void proc_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, proto_t* a
                     return;
                 }
                 /*
-                 * IPC_MULTI_TASK: the requester already owns an in-flight
-                 * task on this server (pool growth was throttled for it in
-                 * ipc_pool_assign): same answer as the MULTI_CORE busy
-                 * path - retry from userspace, no pool wait queue. The
-                 * attempt's slot is already closed above, so any task
+                 * IPC_MULTI_TASK busy, two shapes: the requester already
+                 * owns an in-flight task on this server - its new request
+                 * must not overtake the earlier one (per-requester
+                 * ordering, IPC_NON_RETURN included), so park it until
+                 * that task completes. Otherwise no same-core worker is
+                 * idle and none may be spawned: park until one is.
+                 * The attempt's slot is already closed above, so any task
                  * found now belongs to an earlier request of this client.
                  */
                 ipc_server_t* server = &serv_proc->space->ipc_server;
@@ -1213,10 +1248,11 @@ void proc_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, proto_t* a
                 bool client_busy = ipc_server_client_busy_locked(server,
                         client_proc->info.pid, client_proc->info.uuid, NULL);
                 proc_ipc_server_unlock(server);
-                if(client_busy)
-                    return;
-                //no idle pool worker: block until one parks, then retry
-                if(proc_ipc_wait_pool(ctx, serv_proc, client_proc) == 0)
+                if(client_busy) {
+                    if(proc_ipc_wait_requester(ctx, serv_proc, client_proc) == 0)
+                        return; //really blocked: yield via eret, libc retries after the wake
+                }
+                else if(proc_ipc_wait_pool(ctx, serv_proc, client_proc, client_proc->info.core) == 0)
                     return; //really blocked: yield via eret, libc retries after the wake
             }
 

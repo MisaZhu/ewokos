@@ -1,10 +1,22 @@
 /*
  * piped.c - standalone pipe driver.
  *
- * Owns every anonymous pipe created by pipe()/pipe2(). Runs with
- * IPC_MULTI_TASK so heavy pipe users (sshd relays, shell pipelines) exercise
- * only this process: their traffic never touches vfsd's global lock or its
- * per-core IPC worker pool.
+ * Owns every anonymous pipe created by pipe()/pipe2().
+ *
+ * MUST run single-task (no IPC_MULTI_TASK): the lifecycle refcount protocol
+ * only stays correct when request PROCESSING order matches ACCEPTANCE order.
+ * vfsd ships fork/dup2 inheritance FS_CMD_DUPs synchronously (before the new
+ * holder can run and close anything) and libc ships FS_CMD_CLOSE directly,
+ * so every dup is accepted into piped's kernel queue before any paired close.
+ * Single-task serving is a strict FIFO ring (head-only execution, head-only
+ * pop), so a close can never be processed before the dup that justifies it.
+ * A multi_task worker pool completes requests out of order - and can even
+ * drop an accepted task silently via watchdog abort - so a reordered close
+ * drives the refcount to zero while descriptors still live, latching
+ * writer_closed/reader_closed: readers then see instant EOF (empty
+ * "ps|dump") and writers see EPIPE mid-pipeline. All handlers are O(1)
+ * registry ops (data moves through the shm ring, never through this
+ * process), so concurrent serving would buy nothing anyway.
  *
  * Data transfer never comes here at all — reader and writer move bytes
  * through the shared-memory ring (ewoksys/shm_pipe.h) and block/wake each
@@ -25,12 +37,12 @@
 #include <string.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <unistd.h>
 #include <sys/shm.h>
 #include <sys/errno.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/vdevice.h>
 #include <ewoksys/proc.h>
-#include <ewoksys/klog.h>
 #include <ewoksys/shm_pipe.h>
 #include "piped.h"
 
@@ -60,9 +72,6 @@ typedef struct {
 
 static pipe_entry_t _pipes[MAX_PIPES];
 static pthread_mutex_t _pipes_lock;
-/* TEMP DEBUG: lifecycle tracing on by default until the pipeline truncation
- * is root-caused; toggle at runtime with PIPE_DBG fcntl. */
-static bool _dbg = true;
 
 /* wake snapshot: filled under _pipes_lock, delivered after unlocking */
 #define WAKE_MAX (MAX_PIPE_WAITERS + 1)
@@ -141,6 +150,40 @@ static void waiters_snapshot(pipe_entry_t* e, uint32_t events, wake_snap_t* snap
     }
 }
 
+/*
+ * The pipe ring must NOT be an IPC_PRIVATE segment: the kernel grants
+ * private shm only to the owner and its descendants (check_access
+ * "family only" rule), but a pipe ring is attached by whoever holds the
+ * fd — pipeline children are piped's clients, not its children — so a
+ * private ring is unattachable for every non-root user (shmat fails,
+ * libc read/write then dies with EIO). Use a fresh keyed 0666 segment
+ * per pipe instead: the mode bits are only consulted for keyed
+ * segments, so other=r+w lets any uid attach.
+ *
+ * Key = fingerprint | pid | counter. piped is a permanent single
+ * instance, so the monotonic counter alone keeps keys unique for the
+ * daemon's lifetime; the fingerprint keeps piped's key space apart from
+ * other keyed-shm users (graph/g2dd), the pid distinguishes a restarted
+ * instance, and IPC_EXCL turns a post-wraparound collision into a retry
+ * instead of silently returning an existing segment WITHOUT resizing it.
+ */
+#define PIPE_SHM_KEY_FP   0x50000000u /* 'P' << 24: piped key-space fingerprint */
+#define PIPE_SHM_KEY_RETRIES 16       
+
+static int32_t pipe_shm_alloc(void) {
+    static uint32_t _key_seq = 0;
+
+    for(int i = 0; i < PIPE_SHM_KEY_RETRIES; i++) {
+        key_t key = (key_t)(PIPE_SHM_KEY_FP |
+                (((uint32_t)getpid() & 0xffu) << 16) | (_key_seq & 0xffffu));
+        _key_seq++;
+        int32_t id = shmget(key, SHM_PIPE_PAGE_SIZE, IPC_CREAT | IPC_EXCL | 0666);
+        if(id > 0)
+            return id;
+    }
+    return -1;
+}
+
 static int pipe_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int oflag, void* p) {
     (void)dev; (void)fd; (void)from_pid; (void)p;
 
@@ -161,7 +204,7 @@ static int pipe_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int o
     }
 
     /* shm allocation is a kernel round trip: do it outside _pipes_lock */
-    int32_t shm_id = shmget(IPC_PRIVATE, SHM_PIPE_PAGE_SIZE, IPC_CREAT | 0666);
+    int32_t shm_id = pipe_shm_alloc();
     if(shm_id <= 0) {
         errno = ENOMEM;
         return -1;
@@ -197,9 +240,6 @@ static int pipe_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int o
     e->ring = ring;
     e->read_node = info->node;
     e->read_refs = 1;
-    if(_dbg)
-        klog("PD: open shm=%d rn=%u r=1 w=0 by=%d\n",
-                shm_id, (uint32_t)info->node, from_pid);
     pthread_mutex_unlock(&_pipes_lock);
 
     /* Advertise the pipe identity on this fd: FS_TYPE_PIPE makes libc use
@@ -222,31 +262,22 @@ static int pipe_dup(vdevice_t* dev, int from_fd, int from_pid, int dup_fd, int d
     pthread_mutex_lock(&_pipes_lock);
     pipe_entry_t* e = entry_by_node(node, &end);
     if(e != NULL) {
-        bool revive = false;
         if(end == PIPE_END_READ) {
             if(++e->read_refs > 0) {
                 /* Revive: dup2 overwriting a pipe fd queues the victim's
                  * driver close as an async task; that -1 can land before
                  * this +1. Clearing the flag here is safe — while any end
                  * descriptor is alive no peer may observe a closed edge. */
-                revive = __atomic_exchange_n(&e->ring->reader_closed, 0,
-                        __ATOMIC_ACQ_REL) != 0;
+                __atomic_exchange_n(&e->ring->reader_closed, 0,
+                        __ATOMIC_ACQ_REL);
             }
         }
         else {
             if(++e->write_refs > 0)
-                revive = __atomic_exchange_n(&e->ring->writer_closed, 0,
-                        __ATOMIC_ACQ_REL) != 0;
+                __atomic_exchange_n(&e->ring->writer_closed, 0,
+                        __ATOMIC_ACQ_REL);
         }
-        if(_dbg)
-            klog("PD: dup shm=%d end=%c %d:%d->%d:%d r=%d w=%d%s\n",
-                    e->shm_id, end == PIPE_END_READ ? 'R' : 'W',
-                    from_pid, from_fd, dup_pid, dup_fd,
-                    e->read_refs, e->write_refs, revive ? " REVIVE" : "");
     }
-    else if(_dbg)
-        klog("PD: dup LOST node=%u %d:%d->%d:%d\n",
-                (uint32_t)node, from_pid, from_fd, dup_pid, dup_fd);
     pthread_mutex_unlock(&_pipes_lock);
     return 0;
 }
@@ -285,7 +316,12 @@ static int pipe_close(vdevice_t* dev, int fd, int from_pid, ewokos_addr_t node,
             __atomic_store_n(&ring->reader_closed, 1, __ATOMIC_RELEASE);
             /* one-shot wake for a shm-path writer blocked on EPIPE */
             stamp_pid = __atomic_exchange_n(&ring->writer_pid, 0, __ATOMIC_ACQUIRE);
-            waiters_snapshot(e, VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL, &snap);
+            /*
+             * Close is pipe-wide, never interest-filtered: wake every waiter.
+             * A poll(POLLIN)-only waiter must still wake to observe POLLHUP,
+             * and an events==0 registration can never match an interest mask.
+             */
+            waiters_snapshot(e, VFS_EVT_RW | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL, &snap);
         }
     }
     else {
@@ -297,24 +333,14 @@ static int pipe_close(vdevice_t* dev, int fd, int from_pid, ewokos_addr_t node,
             __atomic_store_n(&ring->writer_closed, 1, __ATOMIC_RELEASE);
             /* one-shot wake for a shm-path reader blocked on EOF */
             stamp_pid = __atomic_exchange_n(&ring->reader_pid, 0, __ATOMIC_ACQUIRE);
-            waiters_snapshot(e, VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL, &snap);
+            /* see the read-end close above: close wakes every waiter */
+            waiters_snapshot(e, VFS_EVT_RW | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL, &snap);
         }
     }
 
     if(e->read_refs <= 0 && e->write_refs <= 0) {
         e->used = false;
         destroy = true;
-    }
-    if(_dbg) {
-        bool under = (e->read_refs < 0 || e->write_refs < 0);
-        klog("PD: close shm=%d end=%c by=%d fd=%d r=%d w=%d%s%s\n",
-                e->shm_id, end == PIPE_END_READ ? 'R' : 'W',
-                from_pid, fd, e->read_refs, e->write_refs,
-                ((end == PIPE_END_READ && e->read_refs <= 0) ||
-                 (end == PIPE_END_WRITE && e->write_refs <= 0)) ? " EDGE" : "",
-                under ? " UNDERFLOW" : "");
-        if(destroy)
-            klog("PD: destroy shm=%d\n", shm_id);
     }
     pthread_mutex_unlock(&_pipes_lock);
 
@@ -350,9 +376,6 @@ static int pipe_fcntl(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int 
         }
         e->write_node = info->node;
         e->write_refs = 1;
-        if(_dbg)
-            klog("PD: attach shm=%d wn=%u r=%d w=1 by=%d\n",
-                    shm_id, (uint32_t)info->node, e->read_refs, from_pid);
         pthread_mutex_unlock(&_pipes_lock);
         info->data = (uint32_t)shm_id;
         return 0;
@@ -433,23 +456,6 @@ static int pipe_fcntl(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int 
         pthread_mutex_unlock(&_pipes_lock);
 
         wake_snap_fire(&snap, token);
-        return 0;
-    }
-    case PIPE_DBG: {
-        _dbg = !_dbg;
-        klog("PD: dbg=%d live pipes:\n", _dbg ? 1 : 0);
-        pthread_mutex_lock(&_pipes_lock);
-        for(int i = 0; i < MAX_PIPES; i++) {
-            pipe_entry_t* e = &_pipes[i];
-            if(!e->used)
-                continue;
-            klog("PD:  shm=%d r=%d w=%d rc=%d wc=%d\n", e->shm_id,
-                    e->read_refs, e->write_refs,
-                    (int)__atomic_load_n(&e->ring->reader_closed, __ATOMIC_ACQUIRE),
-                    (int)__atomic_load_n(&e->ring->writer_closed, __ATOMIC_ACQUIRE));
-        }
-        pthread_mutex_unlock(&_pipes_lock);
-        PF->addi(out, _dbg ? 1 : 0);
         return 0;
     }
     }

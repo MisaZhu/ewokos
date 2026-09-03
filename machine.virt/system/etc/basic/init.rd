@@ -5,8 +5,5 @@
 @/bin/ipcserv /drivers/ramfsd          /tmp
 @/bin/ipcserv /drivers/nulld           /dev/null
 
-#@/bin/ipcserv /sbin/sessiond
-#@/bin/bgrun /bin/session -r -t /dev/tty0
-
-@set_stdio /dev/tty0
-@/bin/shell
+@/bin/ipcserv /sbin/sessiond
+@/bin/bgrun /bin/session -r -t /dev/tty0

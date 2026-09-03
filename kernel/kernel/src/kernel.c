@@ -80,7 +80,7 @@ static void reset_kernel_vm(void) {
 
 static void map_allocable_pages(page_dir_entry_t* vm) {
     //map kernel dma memory
-    map_pages_size(vm, _sys_info.sys_dma.phy_base, _sys_info.sys_dma.phy_base, _sys_info.sys_dma.size, AP_RW_D, PTE_ATTR_WRBACK);
+    map_pages_size(vm, _sys_info.sys_dma.phy_base, _sys_info.sys_dma.phy_base, _sys_info.sys_dma.size, AP_RW_D, PTE_ATTR_NOCACHE);
     //direct-map the reserved contiguous shm slab so the kernel can zero it
     //(the shm window itself lives in the private user half and is not
     //accessible from kernel/syscall context)
@@ -125,7 +125,7 @@ static void clone_kernel_vm(page_dir_entry_t* vm) {
     // Keep the low DMA identity window available while leaving the rest of
     // the user half private for per-process mappings.
     map_pages_size(vm, _sys_info.sys_dma.phy_base, _sys_info.sys_dma.phy_base,
-            _sys_info.sys_dma.size, AP_RW_D, PTE_ATTR_WRBACK);
+            _sys_info.sys_dma.size, AP_RW_D, PTE_ATTR_NOCACHE);
     flush_tlb();
 }
 #elif defined(__aarch64__)
@@ -148,7 +148,7 @@ static void clone_kernel_vm(page_dir_entry_t* vm) {
      * through arch_clone_proc_vm().
      */
     map_pages_size(vm, _sys_info.sys_dma.phy_base, _sys_info.sys_dma.phy_base,
-            _sys_info.sys_dma.size, AP_RW_D, PTE_ATTR_WRBACK);
+            _sys_info.sys_dma.size, AP_RW_D, PTE_ATTR_NOCACHE);
     if(arch_clone_proc_vm(vm, _kernel_info.kernel_vm) != 0)
         return;
     flush_dcache();
@@ -173,7 +173,7 @@ static void clone_kernel_vm(page_dir_entry_t* vm) {
      * need additional low-half mappings can extend this through arch_clone_proc_vm().
      */
     map_pages_size(vm, _sys_info.sys_dma.phy_base, _sys_info.sys_dma.phy_base,
-            _sys_info.sys_dma.size, AP_RW_D, PTE_ATTR_WRBACK);
+            _sys_info.sys_dma.size, AP_RW_D, PTE_ATTR_NOCACHE);
     if(arch_clone_proc_vm(vm, _kernel_info.kernel_vm) != 0)
         return;
     flush_dcache();

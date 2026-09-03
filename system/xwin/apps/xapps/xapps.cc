@@ -29,12 +29,15 @@ typedef struct {
 } item_t;
 
 #define ITEM_MAX 128
+#define LOAD_BUDGET_MS 50 /*time budget per timer tick for progressive loading*/
 static bool _launcher = false;
 
 class AppGrid: public Grid {
 	item_t items[ITEM_MAX];	
 	static const uint32_t titleMargin = 8;
 	uint32_t iconSize;
+	DIR* dirp; /*directory handle for progressive loading*/
+	int loadCount; /*number of apps loaded so far*/
 
 	string getIconFname(const char* appName) {
 		//try theme icon first
@@ -96,6 +99,12 @@ class AppGrid: public Grid {
 	}
 
 protected:
+	/*progressive loading: fetch apps (info + icon) step by step inside
+	  the event loop so each loaded app is painted as soon as ready*/
+	void onTimer(uint32_t timerFPS, uint32_t timerSteps) {
+		loadAppsStep();
+	}
+
 	void drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
 		graph_fill_rect(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
 	}
@@ -132,35 +141,62 @@ public:
 	AppGrid() {
 		iconSize = 32;
 		scrollerV = NULL;
+		dirp = NULL;
+		loadCount = 0;
 		for(int i=0; i<ITEM_MAX; i++)
 			memset(&items[i], 0, sizeof(item_t));
 	}
 
 	~AppGrid() {
+		if(dirp != NULL)
+			closedir(dirp);
 		clearItem();
 	}
 
-	bool loadApps(void) {
-		DIR* dirp = opendir("/apps");
+	bool startLoadApps(void) {
+		dirp = opendir("/apps");
 		if(dirp == NULL)
 			return false;
-		int i = 0;
-		while(1) {
+		loadCount = 0;
+		return true;
+	}
+
+	/*load as many apps as fit in the time budget, each one becomes
+	  visible right after it is added*/
+	void loadAppsStep(void) {
+		if(dirp == NULL)
+			return;
+
+		uint64_t t0 = kernel_tic_ms(0);
+		while(loadCount < ITEM_MAX) {
 			struct dirent* it = readdir(dirp);
-			if(it == NULL || i >= ITEM_MAX)
+			if(it == NULL) {
+				closedir(dirp);
+				dirp = NULL;
 				break;
+			}
 
 			if(it->d_name[0] == '.')
 				continue;
+
+			int i = loadCount;
 			items[i].app = it->d_name;
 			items[i].fname = "/apps/";
 			items[i].fname = items[i].fname + it->d_name + "/" +  it->d_name;
 			items[i].icon = getIconFname(it->d_name);
-			i++;
+			items[i].iconImg = get_icon(items[i].icon.c_str(), iconSize);
+			loadCount++;
+			setItemNum(loadCount);
+			update();
+
+			if((kernel_tic_ms(0) - t0) >= LOAD_BUDGET_MS)
+				break;
 		}
-		setItemNum(i);
-		closedir(dirp);
-		return true;
+
+		if(dirp != NULL && loadCount >= ITEM_MAX) {
+			closedir(dirp);
+			dirp = NULL;
+		}
 	}
 
 	void setIconSize(uint32_t size) {
@@ -244,10 +280,10 @@ int main(int argc, char** argv) {
 			XWIN_STYLE_NO_TITLE | XWIN_STYLE_NO_BG_EFFECT | XWIN_STYLE_MAX, false);
 	}
 
-	win.busy(true);
-	apps->loadApps();
+	/*show window first so the alpha background appears right away,
+	  apps are then loaded and drawn progressively in the event loop*/
+	apps->startLoadApps();
 	win.setVisible(true);
-	win.busy(false);
 
 	widgetXRun(&x, &win);
 	return 0;

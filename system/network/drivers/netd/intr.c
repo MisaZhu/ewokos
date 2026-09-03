@@ -170,6 +170,12 @@ void intr_step(void) {
         }
         net_timer_handler();
 
+        /*
+         * Push any coalesced tap frames left by one-off senders (ARP replies,
+         * ICMP, short UDP) so they do not wait for the next bulk writer.
+         */
+        net_tx_flush();
+
         kernel_tic(NULL, NULL);
 
         tcp_timer_due = tcp_timer_due_us();

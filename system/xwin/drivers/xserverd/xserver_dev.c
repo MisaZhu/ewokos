@@ -11,6 +11,23 @@
 #include "xinput.h"
 #include "xwin_cmd.h"
 
+/*serializes every access to the server state (x_t, window list, event
+  pools, cursor): IPC_MULTI_TASK serves the requests on concurrent kernel
+  worker threads inside this proc, and the main thread's loop_step shares
+  the very same state. The lock is held across the handlers' outbound IPC
+  to xwm/vfsd too - those servers answer without needing this lock, so no
+  cycle can form - but released before the blocking fb flush and the step
+  pacing sleep, which must not stall input delivery.*/
+pthread_mutex_t x_server_lock;
+
+void x_server_lock_enter(void) {
+    pthread_mutex_lock(&x_server_lock);
+}
+
+void x_server_lock_leave(void) {
+    pthread_mutex_unlock(&x_server_lock);
+}
+
 int xserver_fcntl(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
         int cmd, proto_t* in, proto_t* out, void* p) {
     (void)dev;
@@ -18,10 +35,8 @@ int xserver_fcntl(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
     x_t* x = (x_t*)p;
 
     int res = -1;
-    if(cmd == XWIN_CNTL_UPDATE) {
-        res = x_update(fd, from_pid, x);
-    }	
-    else if(cmd == XWIN_CNTL_UPDATE_INFO) {
+    x_server_lock_enter();
+    if(cmd == XWIN_CNTL_UPDATE_INFO) {
         res = xwin_update_info(fd, from_pid, in, out, x);
     }
     else if(cmd == XWIN_CNTL_WORK_SPACE) {
@@ -39,6 +54,7 @@ int xserver_fcntl(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
     else if(cmd == XWIN_CNTL_SET_BUSY) {
         res = do_xwin_set_busy(fd, from_pid, in, x);
     }
+    x_server_lock_leave();
     return res;
 }
 
@@ -59,7 +75,9 @@ int xserver_win_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int o
     win->from_pid = from_pid;
     win->from_main_pid = proc_getpid(from_pid);
     win->from_main_pid_uuid = proc_get_uuid(win->from_main_pid);
+    x_server_lock_enter();
     push_win(x, win);
+    x_server_lock_leave();
     return 0;
 }
 
@@ -97,6 +115,7 @@ int xserver_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto_t
     (void)dev;
     x_t* x = (x_t*)p;
 
+    x_server_lock_enter();
     if(cmd == DEV_CNTL_REFRESH) {
         x_dirty(x, -1);
     }
@@ -185,6 +204,7 @@ int xserver_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto_t
     else if(cmd == X_DCNTL_QUIT) {
         x_quit(from_pid);
     }
+    x_server_lock_leave();
     return 0;
 }
 
@@ -192,8 +212,11 @@ int xserver_win_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fsinf
     (void)dev;
     (void)fsinfo;
     x_t* x = (x_t*)p;
+
+    x_server_lock_enter();
     xwin_t* win = x_get_win(x, fd, from_pid);
     if(win == NULL) {
+        x_server_lock_leave();
         return -1;
     }
 
@@ -207,6 +230,7 @@ int xserver_win_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fsinf
         x_quit(main_pid);
 
     x_dirty(x, disp_index);
+    x_server_lock_leave();
     return 0;
 }
 
@@ -225,6 +249,11 @@ int xserver_step(vdevice_t* dev, void* p) {
       hold a winr equal to their wsr (the fallback of get_xwm_win_space),
       which no decorated window can have. Re-fetch their geometry before
       anything gets drawn with it*/
+    if(x->config.multi_task)
+        x_server_lock_enter();
+    else
+        ipc_disable();
+
     if(x->xwm_changed) {
         if(check_xwm(x)) {
             xwin_t* win = x->win_head;
@@ -237,36 +266,41 @@ int xserver_step(vdevice_t* dev, void* p) {
         }
     }
 
-    ipc_disable();
     check_wins(x);
-    /*release the per-window update slots so a new UPDATE IPC may snapshot
-      again. The snapshot itself never runs here: the client renders into
-      ws_g freely between its blocking UPDATE IPCs, so it is only safe to
-      read inside those (see x_refresh_pending_updates)*/
-    x_refresh_pending_updates(x);
+    /*poll the shm UPDATE handshake flags: clients that painted since the
+      last step are parked in proc_block_by(xinfo->win), so their ws_g is
+      stable while we snapshot it. This replaces the old per-UPDATE IPC
+      entirely - the server now runs strictly at its own fps regardless
+      of how fast clients repaint (see x_poll_updates).*/
+    x_poll_updates(x);
     for(uint32_t i=0; i<DISP_MAX; i++) {
         x_display_t* display = &x->displays[i];
         if(!display->active)
             continue;
         x_repaint(x, i);
     }
-    ipc_enable();
+
+    if(x->config.multi_task)
+        x_server_lock_leave();
+    else
+        ipc_enable();
 
     /*the flush is a plain outbound IPC to the fb daemon and touches no
-      window state, so it runs with inbound IPC re-enabled. It waits for the
-      daemon to finish copying: compositing now writes straight into the
-      scan-out dma, so the next frame must not overwrite it while the daemon
-      is still pushing it to the panel (tearing/flicker, seen on real panels
-      like raspix whose framebuffer is scanned out continuously).*/
+      window state, so it runs with the server lock released. It waits for
+      the daemon to finish copying: compositing now writes straight into
+      the scan-out dma, so the next frame must not overwrite it while the
+      daemon is still pushing it to the panel (tearing/flicker, seen on
+      real panels like raspix whose framebuffer is scanned out
+      continuously).*/
     for(uint32_t i=0; i<DISP_MAX; i++) {
         x_display_t* display = &x->displays[i];
         if(!display->active)
             continue;
         if(display->pending_flush) {
-            /*inbound IPC is enabled here, so the input handler can run
-              while this waits on the daemon: the fast cursor redraw must
-              stay out of the scan-out buffer and the ctrl dirty list for
-              that window*/
+            /*the lock is released here, so an input handler worker can run
+              while this waits on the daemon: flush_inflight keeps the fast
+              cursor redraw out of the scan-out buffer and the ctrl dirty
+              list for that window*/
             display->flush_inflight = true;
             display_flush(&display->display, true);
             display->flush_inflight = false;

@@ -6,9 +6,11 @@
 #include <ewoksys/syscall.h>
 #include <ewoksys/vdevice.h>
 #include <sys/shm.h>
+#include <ewoksys/shm.h>
 #include <display/display.h>
 #include <displayd/displayd.h>
 #include <graph/graph_image.h>
+#include <g2dclient/g2dclient.h>
 #include <tinyjson/tinyjson.h>
 
 typedef struct {
@@ -82,6 +84,7 @@ static void default_splash(graph_t* g, const char* logo_fname) {
 
 static graph_t* _rotate_g = NULL; /* cached rotate buffer, grown as needed */
 static graph_t* _rect_g = NULL;   /* cached dirty-rect extraction buffer */
+static graph_t* _zoom_g = NULL;   /* cached zoom staging canvas */
 
 /*
  * Rotation into the scan-out buffer, built on graph_rotate_to.
@@ -116,7 +119,7 @@ static graph_t* ensure_graph(graph_t** cache, int32_t w, int32_t h) {
     if(*cache == NULL || (*cache)->w * (*cache)->h < w * h) {
         if(*cache != NULL)
             graph_free(*cache);
-        *cache = graph_new(NULL, w, h);
+        *cache = graph_new_shm(w, h);
     }
     else {
         (*cache)->w = w;
@@ -302,16 +305,64 @@ static inline int is_zoomed(void) {
     return (_zoom > 0.0 && _zoom != 8.0 && _zoom != 1.0);
 }
 
-static uint32_t flush(const disp_info_t* fbinfo, const void* buf, uint32_t size, int rotate) {
+/*full-frame push of a contig shm canvas straight into the scan-out via
+  g2d: replaces the driver's CPU blt when both ends can be addressed
+  physically (src: contig shm segment, dst: the fb's physical base).
+  The scan-out is a single contiguous block (firmware allocation or the
+  sys_dma pool), so the no-mmu g2d engine can write it directly.
+  Returns the bytes written, or 0 to fall back to the driver flush.*/
+static uint32_t flush_g2d(const disp_info_t* fbinfo, const graph_t* g) {
+    if(has_g2d() != 0)
+        return 0;
+    if(g == NULL || g->buffer == NULL || g->shm_id <= 0 || !g->shm_contig)
+        return 0;
+    if(fbinfo == NULL || fbinfo->pointer == 0 || fbinfo->depth != 32 ||
+            fbinfo->phy_base == 0 || fbinfo->size == 0)
+        return 0;
+    if((uint32_t)g->w != fbinfo->width || (uint32_t)g->h != fbinfo->height)
+        return 0;
+
+    uint32_t pitch = disp_pitch32(fbinfo);
+    uint32_t off = (uint32_t)(fbinfo->yoffset * pitch + fbinfo->xoffset * 4);
+    if(off >= fbinfo->size)
+        return 0;
+
+    ewokos_addr_t src_phy = shm_contig_phy_addr(g->shm_id,
+            (ewokos_addr_t)g->buffer);
+    if(src_phy == 0)
+        return 0;
+
+    g2d_blit_to_phy_req_t req;
+    g2d_canvas_t canvas = g2d_canvas(g->shm_id,
+            (uint32_t)g->w * (uint32_t)g->h * 4u,
+            (uint32_t)g->w, (uint32_t)g->h, 1);
+    canvas.phy = src_phy;
+    g2d_blit_to_phy_req_init(&req, canvas,
+            g2d_rect(0, 0, g->w, g->h),
+            fbinfo->phy_base + off, fbinfo->size - off,
+            (int32_t)fbinfo->width, (int32_t)fbinfo->height, pitch,
+            g2d_rect(0, 0, fbinfo->width, fbinfo->height));
+    if(g2d_blit_to_phy(&req) != 0)
+        return 0;
+    return (uint32_t)g->w * (uint32_t)g->h * 4u;
+}
+
+static uint32_t flush(const disp_info_t* fbinfo, const disp_shm_t* shm, int rotate) {
     if(fbinfo->depth != 32 && fbinfo->depth != 16)
         return 0;
 
     int zoomed = is_zoomed();
     graph_t g;
     if(rotate == G_ROTATE_270 || rotate == G_ROTATE_90)
-        graph_init(&g, buf, _zheight, _zwidth);
+        graph_init(&g, shm->shm, _zheight, _zwidth);
     else
-        graph_init(&g, buf, _zwidth, _zheight);
+        graph_init(&g, shm->shm, _zwidth, _zheight);
+    /*the client frame IS the display shm canvas: restore the canvas
+      identity graph_init drops, so graph_scale_tof/graph_blt and the
+      g2d scan-out push below can route it through /dev/g2d instead of
+      falling back to the cpu */
+    g.shm_id = shm->shm_id;
+    g.shm_contig = shm->shm_contig;
 
     /* fast path: driver-side rotation via fbdisplayd_rotate_to(), which
      * rotates into a cacheable intermediate and copies to the NC scan-out
@@ -335,14 +386,22 @@ static uint32_t flush(const disp_info_t* fbinfo, const void* buf, uint32_t size,
 
     graph_t* gzoom = NULL;
     if(zoomed) {
-        gzoom = graph_new(NULL, fbinfo->width, fbinfo->height);
-        graph_scale_tof(tmp_g, gzoom, _zoom);
-        tmp_g = gzoom;
+        /*pooled like _rotate_g: allocating/freeing a contig shm segment
+          every frame is a slab round trip each way */
+        gzoom = ensure_graph(&_zoom_g, fbinfo->width, fbinfo->height);
+        if(gzoom != NULL) {
+            graph_scale_tof(tmp_g, gzoom, _zoom);
+            tmp_g = gzoom;
+        }
     }
 
-    uint32_t res = _fbdisplayd->flush(fbinfo, tmp_g);
-    if(gzoom != NULL)
-        graph_free(gzoom);
+    /*try the g2d scan-out push first (contig shm src + physical fb);
+      the driver flush stays as the universal fallback */
+    uint32_t res = 0;
+    if(has_g2d() == 0)
+        res = flush_g2d(fbinfo, tmp_g);
+    if(res == 0)
+        res = _fbdisplayd->flush(fbinfo, tmp_g);
     return res;
 }
 
@@ -357,7 +416,7 @@ static void init_graph(disp_shm_t* shm) {
         _fbdisplayd->splash(&g, _logo);
     else
         default_splash(&g, _logo);
-    flush(&_fbinfo, shm->shm, shm->size, _rotate);
+    flush(&_fbinfo, shm, _rotate);
 }
 
 static uint32_t _disp_shm_seq = 1;
@@ -475,6 +534,65 @@ static int disp_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, pro
 
 /*push only the rects the client declared dirty. Returns the bytes written,
   or -1 when the damage cannot be honoured and the whole frame is needed.*/
+
+/*dirty-rect coalescing: every surviving rect is one g2d/blit dispatch with
+  a fixed overhead (IPC, cache maintenance), so fewer larger rects beat
+  many small ones. Two passes: (1) union every overlapping/touching pair
+  until stable, (2) while more than max remain, merge the cheapest pair
+  (smallest union-area growth), the same policy xserverd's pack uses.*/
+static void dirty_union_to(grect_t* dst, const grect_t* src) {
+    int32_t x0 = dst->x < src->x ? dst->x : src->x;
+    int32_t y0 = dst->y < src->y ? dst->y : src->y;
+    int32_t x1 = (dst->x + dst->w) > (src->x + src->w) ? (dst->x + dst->w) : (src->x + src->w);
+    int32_t y1 = (dst->y + dst->h) > (src->y + src->h) ? (dst->y + dst->h) : (src->y + src->h);
+    dst->x = x0; dst->y = y0; dst->w = x1 - x0; dst->h = y1 - y0;
+}
+
+static inline int dirty_overlap_or_touch(const grect_t* a, const grect_t* b) {
+    return a->x <= b->x + b->w && b->x <= a->x + a->w &&
+           a->y <= b->y + b->h && b->y <= a->y + a->h;
+}
+
+static uint32_t merge_dirty_rects(grect_t* rects, uint32_t num, uint32_t max) {
+    int changed = 1;
+    while(changed && num > 1) {
+        changed = 0;
+        for(uint32_t i = 0; i < num && !changed; i++) {
+            for(uint32_t j = i + 1; j < num && !changed; j++) {
+                if(dirty_overlap_or_touch(&rects[i], &rects[j])) {
+                    dirty_union_to(&rects[i], &rects[j]);
+                    num--;
+                    if(j < num)
+                        rects[j] = rects[num];
+                    changed = 1;
+                }
+            }
+        }
+    }
+
+    while(num > max) {
+        uint32_t ba = 0, bb = 1;
+        int64_t best = -1;
+        for(uint32_t i = 0; i < num; i++) {
+            for(uint32_t j = i + 1; j < num; j++) {
+                grect_t u = rects[i];
+                dirty_union_to(&u, &rects[j]);
+                int64_t cost = (int64_t)u.w * u.h -
+                        (int64_t)rects[i].w * rects[i].h -
+                        (int64_t)rects[j].w * rects[j].h;
+                if(best < 0 || cost < best) {
+                    best = cost; ba = i; bb = j;
+                }
+            }
+        }
+        dirty_union_to(&rects[ba], &rects[bb]);
+        num--;
+        if(bb < num)
+            rects[bb] = rects[num];
+    }
+    return num;
+}
+
 static int32_t flush_dirty(disp_shm_t* shm, const grect_t* rects, uint32_t num) {
     /*client (pre-rotation) geometry: for 90/270 the frame is transposed,
       matching flush()/GET_INFO. For rotate 0 this is _zwidth x _zheight,
@@ -487,15 +605,40 @@ static int32_t flush_dirty(disp_shm_t* shm, const grect_t* rects, uint32_t num) 
         gw = _zwidth; gh = _zheight;
     }
     grect_t bounds = {0, 0, gw, gh};
+    /*+1 slack: num <= DISPLAY_DIRTY_MAX (guaranteed by do_flush) and only
+      decreases, but GCC's range analysis cannot see that through the
+      merge_dirty_rects call and warns on merged[num - 1] without it */
+    grect_t merged[DISPLAY_DIRTY_MAX + 1];
+    uint32_t mnum = 0;
     graph_t g;
     memset(&g, 0, sizeof(graph_t));
     graph_init(&g, (const uint32_t*)shm->shm, gw, gh);
 
-    int32_t res = 0;
+    /*clip to the frame first, then coalesce into at most DISPLAY_DIRTY_MAX
+      dispatches (do_flush already guarantees num <= DISPLAY_DIRTY_MAX) */
     for(uint32_t i = 0; i < num; i++) {
         grect_t r = rects[i];
-        if(!grect_insect(&bounds, &r))
-            continue;
+        if(grect_insect(&bounds, &r) && mnum < DISPLAY_DIRTY_MAX)
+            merged[mnum++] = r;
+    }
+    if(mnum == 0)
+        return 0;
+    mnum = merge_dirty_rects(merged, mnum, DISPLAY_DIRTY_MAX);
+
+    /*the merged region is most of the frame anyway: one sequential
+      full-frame push beats N separate dispatches with their fixed
+      per-request overhead */
+    {
+        int64_t area = 0;
+        for(uint32_t i = 0; i < mnum; i++)
+            area += (int64_t)merged[i].w * merged[i].h;
+        if(area * 2 >= (int64_t)gw * gh)
+            return -1;
+    }
+
+    int32_t res = 0;
+    for(uint32_t i = 0; i < mnum; i++) {
+        grect_t r = merged[i];
         uint32_t n = (_rotate == G_ROTATE_0)
                 ? _flush_rect(&_fbinfo, &g, &r)
                 : fbdisplayd_rotate_rect_to(&_fbinfo, &g, &r, _rotate);
@@ -511,7 +654,6 @@ static int32_t do_flush(disp_shm_t* shm) {
     if(buf == NULL || shm->ctrl == NULL)
         return -1;
 
-    uint32_t size = shm->size;
     display_ctrl_t* ctrl = shm->ctrl;
     uint32_t num = ctrl->dirty_num;
     grect_t rects[DISPLAY_DIRTY_MAX];
@@ -537,7 +679,7 @@ static int32_t do_flush(disp_shm_t* shm) {
     if(dirty_ok)
         res = flush_dirty(shm, rects, num);
     if(res < 0)
-        res = flush(&_fbinfo, buf, size, _rotate);
+        res = flush(&_fbinfo, shm, _rotate);
     ctrl->busy = 0;
     return res;
 }
@@ -569,7 +711,7 @@ int fbdisplayd_refresh(void) {
     display_ctrl_t* ctrl = _cur_shm->ctrl;
     ctrl->dirty_num = 0;
     ctrl->busy = 1;
-    uint32_t res = flush(&_fbinfo, _cur_shm->shm, _cur_shm->size, _rotate);
+    uint32_t res = flush(&_fbinfo, _cur_shm, _rotate);
     ctrl->busy = 0;
     return res > 0 ? 0 : -1;
 }

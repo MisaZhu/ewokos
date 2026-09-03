@@ -15,6 +15,7 @@
 #include <ewoksys/shm.h>
 #include <sysinfo.h>
 #include <bsp/bsp_g2d.h>
+#include <g2d_arch.h>
 #include <g2dclient/g2dclient.h>
 
 /* stateless g2d service: the driver owns no canvas. every request
@@ -68,7 +69,7 @@ static inline void g2d_task_unlock(void) {
    to the back end, the sub-alignment tail stays on the cpu. any
    multiple of 4 bytes (a whole pixel group) works; */
 #ifndef G2D_PITCH_ALIGN
-#define G2D_PITCH_ALIGN 32
+#define G2D_PITCH_ALIGN 64
 #endif
 #if (G2D_PITCH_ALIGN % 4) != 0 || G2D_PITCH_ALIGN <= 0
 #error G2D_PITCH_ALIGN must be a positive multiple of 4 (whole pixels)
@@ -288,16 +289,22 @@ static int32_t g2d_alloc_surface(int32_t w, int32_t h, g2d_attached_t* surf) {
 	return 0;
 }
 
-/* cpu fallback for widths below G2D_PITCH_ALIGN: thin wrapper over the
-   arch back end's scalar blit (arch_g2d_blt_cpu), exact per-pixel
-   access with the same blend math as the simd paths. the back end
-   clips the rect against both canvas bounds. */
+/* cpu fallback for widths below G2D_PITCH_ALIGN: dispatches to the
+   platform arch engine's 1:1 blit (arch_g2d_blt / arch_g2d_blt_alpha,
+   shipped in libgraph.a on every target). the software engine works on
+   the virtual pointers and ignores phy/contig (passed 0 here), and its
+   NEON blocks + scalar/padded tail handle any width, same blend math as
+   the simd paths. the back end clips the rect against both canvas
+   bounds. */
 static int32_t g2d_cpu_blt(uint32_t* dst_buf, int32_t dst_w, int32_t dst_h,
 		int32_t dx, int32_t dy, int32_t w, int32_t h,
 		const uint32_t* src_buf, int32_t src_w, int32_t src_h,
 		int32_t sx, int32_t sy, uint8_t use_alpha, uint8_t alpha) {
-	return bsp_g2d_blt_cpu((uint32_t*)src_buf, src_w, src_h, sx, sy, w, h,
-			dst_buf, dst_w, dst_h, dx, dy, use_alpha, alpha);
+	if(use_alpha != 0)
+		return arch_g2d_blt_alpha((uint32_t*)src_buf, 0, 0, src_w, src_h, sx, sy, w, h,
+				dst_buf, 0, 0, dst_w, dst_h, dx, dy, w, h, alpha);
+	return arch_g2d_blt((uint32_t*)src_buf, 0, 0, src_w, src_h, sx, sy, w, h,
+			dst_buf, 0, 0, dst_w, dst_h, dx, dy, w, h);
 }
 
 /* pitch alignment rule for 1:1 copies: the width is split into an
@@ -603,6 +610,67 @@ static int32_t g2dd_handle_scale_to(proto_t* in) {
 	return ret;
 }
 
+/* blit a src crop 1:1 into a raw physical destination (scan-out
+   buffer): no dst canvas to attach, the back end writes the physical
+   range directly. the src must be a contig shm canvas (the only kind
+   the hardware 2d can read); the dst range is validated against the
+   declared geometry and size here, and against the ram windows inside
+   the back end. */
+static int32_t g2dd_handle_blit_to_phy(proto_t* in) {
+	g2d_blit_to_phy_req_t req;
+	g2d_attached_t src;
+	int32_t sx, sy, sw, sh;
+	int32_t dx, dy, dw, dh;
+	int32_t ret = -1;
+
+	if(in == NULL)
+		return -1;
+	if(proto_read_to(in, &req, sizeof(req)) != sizeof(req))
+		return -1;
+	if(req.sw <= 0 || req.sh <= 0 || req.dw <= 0 || req.dh <= 0 ||
+			req.dst_w <= 0 || req.dst_h <= 0 || req.dst_size == 0)
+		return -1;
+	/* 1:1 copy only; the dst stride must be whole pixels */
+	if(req.sw != req.dw || req.sh != req.dh)
+		return -1;
+	if(req.pitch < (uint32_t)req.dst_w * 4u || (req.pitch & 3u) != 0)
+		return -1;
+
+	if(g2d_attach(&req.src, &src) != 0)
+		return -1;
+	if(src.contig == 0 || src.phy == 0)
+		goto done;
+
+	/* clip the crop to the src canvas, scaling the dst rect with the
+	   same proportion (exact here: 1:1) */
+	sx = req.sx; sy = req.sy; sw = req.sw; sh = req.sh;
+	dx = req.dx; dy = req.dy; dw = req.dw; dh = req.dh;
+	if(!g2d_clip_dst((int32_t)src.width, (int32_t)src.height,
+			&dx, &dy, &dw, &dh, &sx, &sy, &sw, &sh))
+		goto done;
+	if(sw != dw || sh != dh)
+		goto done;
+	/* clip the dst rect to the visible geometry */
+	if(!g2d_clip_dst(req.dst_w, req.dst_h,
+			&sx, &sy, &sw, &sh, &dx, &dy, &dw, &dh))
+		goto done;
+	if(sw != dw || sh != dh)
+		goto done;
+	/* the touched rows must fit the declared physical segment */
+	if((uint64_t)(dy + dh - 1) * req.pitch +
+			(uint64_t)(dx + dw) * 4u > req.dst_size)
+		goto done;
+
+	G2DD_LOG("g2dd_handle_blit_to_phy %d x %d, src:contig: %d:(0x%08X), dst: 0x%08X sz:%d\n", src.width, src.height, src.contig, src.phy, req.dst_phy, req.dst_size);
+	ret = bsp_g2d_blt_phy(src.buffer, src.phy, src.contig,
+			(int32_t)src.width, (int32_t)src.height, sx, sy, sw, sh,
+			req.dst_phy, req.dst_size, req.dst_w, req.dst_h, req.pitch,
+			dx, dy, dw, dh);
+done:
+	g2d_detach(&src);
+	return ret;
+}
+
 static char* g2d_strdup(const char* s) {
 	size_t len;
 	char* ret;
@@ -662,6 +730,9 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 		   backends without one is "cannot report" */
 		clock_hz = bsp_g2d_clock_hz();
 		res = (clock_hz > 0) ? 0 : -1;
+		break;
+	case G2D_DEV_CNTL_BLIT_TO_PHY:
+		res = g2dd_handle_blit_to_phy(in);
 		break;
 	default:
 		res = -1;

@@ -88,6 +88,8 @@ extern void *
 queue_pop(struct queue_head *queue);
 extern void *
 queue_peek(struct queue_head *queue);
+extern int
+queue_remove(struct queue_head *queue, void *data);
 extern void
 queue_foreach(struct queue_head *queue, void (*func)(void *arg, void *data), void *arg);
 

@@ -32,7 +32,11 @@
 #define USB_MAX_INPUTS 8
 #define USB_MAX_DEVS 8
 #define USB_SCAN_INTERVAL_MS 1000u
-#define USB_IDLE_SLEEP_MIN_US 1000u
+/* active-loop pacing floor. Interrupt reports arrive at most every 8ms
+   (INT_IN_MIN_EXP clamp in the xhci bsp), so a 2ms loop floor adds at
+   most a quarter-report of latency while halving the loop's own share of
+   the active CPU load versus a 1ms floor */
+#define USB_IDLE_SLEEP_MIN_US 2000u
 #define USB_IDLE_SLEEP_MAX_US 8000u
 #define USB_NO_INPUT_SLEEP_US 20000u
 #define USB_MAX_HUB_DEPTH 2
@@ -46,6 +50,12 @@
    whole controller is re-initialized (a wedged port state on some
    controllers only clears with a bring-up from scratch) */
 #define USB_ENUM_FAIL_REINIT_AFTER 6u
+/* backlog wake re-assert: an edge wake can be swallowed by a consumer
+   parked in a generic token-0 IPC wait (see usbhid_backlog), so while a
+   subscriber queue stays undrained its directed wake is re-fired at this
+   cadence. Healthy consumers drain within a few ms, so this normally
+   never fires */
+#define USB_WAKE_REASSERT_MS 30u
 
 /* enumeration / bring-up logging; per-report traffic stays silent */
 #define USB_LOG_ENABLE 1
@@ -84,6 +94,7 @@ typedef struct {
     touch_parser_t touch;
     uint8_t last_report[USB_MAX_REPORT];
     uint8_t last_len;
+    uint8_t last_mouse_btn;  /* buttons of the last dispatched mouse frame */
 } usb_input_dev_t;
 
 static usb_dev_t _devs[USB_MAX_DEVS];
@@ -91,6 +102,7 @@ static usb_input_dev_t _inputs[USB_MAX_INPUTS];
 static uint64_t _next_scan_ms = 0;
 static uint32_t _idle_sleep_us = USB_IDLE_SLEEP_MIN_US;
 static uint32_t _enum_fail_streak = 0;
+static uint64_t _next_reassert_ms = 0;
 
 static inline uint16_t le16(const void* p) {
     const uint8_t* b = (const uint8_t*)p;
@@ -979,10 +991,34 @@ static void usb_enum_failed(void) {
 
 /* ---------------- input polling / dispatch ---------------- */
 
+/*
+ * Mouse reports are incremental: unlike keyboard snapshots, a frame byte-
+ * identical to the previous one can still carry fresh movement, so the
+ * memcmp dedupe used for keyboards is wrong here. The only frame that
+ * carries no information at all is "buttons unchanged AND zero movement
+ * AND zero wheel". Devices that ignore Set_Idle resend exactly that frame
+ * at up to 1000Hz (raspi5 honours the real 1ms bInterval), and without
+ * this drop the whole dispatch/wake/drain chain runs flat-out forever on
+ * an idle mouse.
+ */
+static bool mouse_payload_idle(usb_input_dev_t* in, const uint8_t* payload) {
+    if (payload[0] != in->last_mouse_btn ||
+            payload[1] != 0 || payload[2] != 0 || payload[3] != 0) {
+        return false;
+    }
+    return true;
+}
+
 static bool usb_poll_inputs(vdevice_t* dev) {
     uint8_t report[USB_MAX_REPORT];
     uint8_t payload[USB_MAX_EVENT_SIZE];
-    bool wakeup = false;
+    bool got = false;
+    /* at least one subscriber queue went empty -> non-empty this pass */
+    bool any_edge = false;
+
+    /* subscribers are woken directly inside usbhid_dispatch_evt() on the
+       empty -> non-empty edge of their own queue; no node broadcast here */
+    usbhid_set_node(dev->mnt_info.node);
 
     for (int i = 0; i < USB_MAX_INPUTS; ++i) {
         usb_input_dev_t* in = &_inputs[i];
@@ -1031,16 +1067,26 @@ static bool usb_poll_inputs(vdevice_t* dev) {
                 memcpy(payload, report,
                         ret > USB_KEYBOARD_EVENT_SIZE ? USB_KEYBOARD_EVENT_SIZE : ret);
             }
-            usbhid_dispatch(USB_REPORT_ID_KEYBOARD, payload, USB_KEYBOARD_EVENT_SIZE);
-            wakeup = true;
+            if (usbhid_dispatch_evt(USB_REPORT_ID_KEYBOARD, payload, USB_KEYBOARD_EVENT_SIZE)) {
+                any_edge = true;
+            }
+            got = true;
         }
         else if (in->type == USB_INPUT_MOUSE) {
             memset(payload, 0, sizeof(payload));
-            if (mouse_normalize_report(&in->mouse, report, ret, payload) != USB_POINTER_EVENT_SIZE) {
+            if (mouse_normalize_report(&in->mouse, report, ret, payload) == USB_POINTER_EVENT_SIZE) {
+                if (mouse_payload_idle(in, payload)) {
+                    continue;
+                }
+                in->last_mouse_btn = payload[0];
+            }
+            else {
                 memcpy(payload, report, ret > USB_POINTER_EVENT_SIZE ? USB_POINTER_EVENT_SIZE : ret);
             }
-            usbhid_dispatch(USB_REPORT_ID_MOUSE, payload, USB_POINTER_EVENT_SIZE);
-            wakeup = true;
+            if (usbhid_dispatch_evt(USB_REPORT_ID_MOUSE, payload, USB_POINTER_EVENT_SIZE)) {
+                any_edge = true;
+            }
+            got = true;
         }
         else if (in->type == USB_INPUT_TOUCH) {
             if ((uint8_t)ret == in->last_len && memcmp(in->last_report, report, ret) == 0) {
@@ -1050,8 +1096,10 @@ static bool usb_poll_inputs(vdevice_t* dev) {
             in->last_len = (uint8_t)ret;
             if (touch_normalize_report(&in->touch, in->report_len, report, ret, payload) ==
                     USB_POINTER_EVENT_SIZE) {
-                usbhid_dispatch(USB_REPORT_ID_TOUCH, payload, USB_POINTER_EVENT_SIZE);
-                wakeup = true;
+                if (usbhid_dispatch_evt(USB_REPORT_ID_TOUCH, payload, USB_POINTER_EVENT_SIZE)) {
+                    any_edge = true;
+                }
+                got = true;
             }
         }
         else if (in->type == USB_INPUT_COMPOSITE) {
@@ -1069,26 +1117,43 @@ static bool usb_poll_inputs(vdevice_t* dev) {
                 memset(payload, 0, sizeof(payload));
                 memcpy(payload, report + 1,
                         (ret - 1) > USB_KEYBOARD_EVENT_SIZE ? USB_KEYBOARD_EVENT_SIZE : (ret - 1));
-                usbhid_dispatch(USB_REPORT_ID_KEYBOARD, payload, USB_KEYBOARD_EVENT_SIZE);
-                wakeup = true;
+                if (usbhid_dispatch_evt(USB_REPORT_ID_KEYBOARD, payload, USB_KEYBOARD_EVENT_SIZE)) {
+                    any_edge = true;
+                }
+                got = true;
             }
             else if (rid == in->mouse_report_id) {
                 memset(payload, 0, sizeof(payload));
-                if (mouse_normalize_report(&in->mouse, report, ret, payload) != USB_POINTER_EVENT_SIZE) {
+                if (mouse_normalize_report(&in->mouse, report, ret, payload) == USB_POINTER_EVENT_SIZE) {
+                    if (mouse_payload_idle(in, payload)) {
+                        continue;
+                    }
+                    in->last_mouse_btn = payload[0];
+                }
+                else {
                     memcpy(payload, report + 1,
                             (ret - 1) > USB_POINTER_EVENT_SIZE ? USB_POINTER_EVENT_SIZE : (ret - 1));
                 }
-                usbhid_dispatch(USB_REPORT_ID_MOUSE, payload, USB_POINTER_EVENT_SIZE);
-                wakeup = true;
+                if (usbhid_dispatch_evt(USB_REPORT_ID_MOUSE, payload, USB_POINTER_EVENT_SIZE)) {
+                    any_edge = true;
+                }
+                got = true;
             }
             /* other report IDs (gamepad etc.): no consumer yet, drop */
         }
     }
 
-    if (wakeup) {
-        vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
+    /*
+     * The edge wakes already fired inside usbhid_dispatch_evt(), directed
+     * at each subscriber's own proc. Arm the backlog re-assert in case an
+     * edge was spent on a consumer's generic token-0 IPC wait before it
+     * reached its node block (see usbhid_backlog): while a queue stays
+     * undrained, usb_step re-fires the directed wakes at a bounded rate.
+     */
+    if (any_edge) {
+        _next_reassert_ms = kernel_tic_ms(0) + USB_WAKE_REASSERT_MS;
     }
-    return wakeup;
+    return got;
 }
 
 /* ---------------- main loop ---------------- */
@@ -1117,6 +1182,18 @@ static int usb_step(vdevice_t* dev, void* p) {
 
     bsp_usb_poll();
     got = usb_poll_inputs(dev);
+
+    /*
+     * Re-assert the directed wakes while a subscriber queue is still
+     * undrained (see usbhid_backlog): the original edge wake may have been
+     * spent on a consumer's generic IPC wait without ever reaching its node
+     * block. Paced by USB_WAKE_REASSERT_MS so a wedged consumer costs at
+     * most a few dozen syscalls per second instead of a per-report storm.
+     */
+    if (kernel_tic_ms(0) >= _next_reassert_ms && usbhid_backlog()) {
+        usbhid_rewake_backlog();
+        _next_reassert_ms = kernel_tic_ms(0) + USB_WAKE_REASSERT_MS;
+    }
 
     for (int i = 0; i < USB_MAX_INPUTS; ++i) {
         if (_inputs[i].present) {

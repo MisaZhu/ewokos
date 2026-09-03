@@ -74,12 +74,6 @@ static const char* get_owner(procinfo_t* proc) {
 	return name;
 }
 
-static const char* get_core_loading(procinfo_t* proc) {
-	static char ret[16];
-	snprintf(ret, sizeof(ret), "%d:%d%%", proc->core, proc->run_usec/10000);
-	return ret;
-}
-
 static procinfo_t* ps(int &num) {
 	num = syscall0(SYS_GET_PROCS_NUM);
 	procinfo_t* procs = (procinfo_t*)malloc(sizeof(procinfo_t)*num);
@@ -145,6 +139,8 @@ static void refresh_sample(uint32_t timerStep) {
 class Procs: public Columns {
 	int coreIndex;
 	procinfo_t* procs;
+	int* threadNums;
+	uint32_t* runUsecs; /*sum of proc and all its threads' run_usec*/
 	int procNum;
 protected:
 	void drawItem(graph_t* g, XTheme* theme, int row, int col, const grect_t& r) {
@@ -167,7 +163,11 @@ protected:
 			str = s;
 		}
 		else if(col == 2) {
-			str = get_core_loading(proc);
+			uint32_t run_usec = proc->run_usec;
+			if(runUsecs != NULL)
+				run_usec = runUsecs[row];
+			snprintf(s, sizeof(s), "%d:%d%%", proc->core, (int)(run_usec/10000));
+			str = s;
 		}
 		else if(col == 3) {
 			str = get_state(proc);
@@ -180,10 +180,15 @@ protected:
 			//char s[128] = { 0 };
 			//str = vfs_file_name(proc->cmd, s, 127);
 			str = proc->cmd;
-			if(proc->type != TASK_TYPE_PROC)
-				str += "[t]";
+			if(threadNums != NULL && threadNums[row] > 0)
+				snprintf(s, sizeof(s), " [%dt]", threadNums[row]);
+			else
+				s[0] = 0;
+			str += s;
 		}
-		int load = proc->run_usec/10000;
+		int load = (int)(proc->run_usec/10000);
+		if(runUsecs != NULL)
+			load = (int)(runUsecs[row]/10000);
 		if(load >= 80)
 			graph_fill_rect(g, r.x, r.y, r.w, r.h, 0xffff6666);
 		else if(load >= 60)
@@ -202,7 +207,7 @@ protected:
 	void build() {
 		add("OWNER", 64);
 		add("PID", 32);
-		add("CPU", 48);
+		add("CPU", 56);
 		add("STATE", 72);
 		add("HEAP", 64);
 		add("CMD", 0);
@@ -213,23 +218,33 @@ protected:
 			return;
 
 		procinfo_t* procsNew = (procinfo_t*)malloc(sizeof(procinfo_t)*procNum);
+		int* threadNumsNew = (int*)malloc(sizeof(int)*procNum);
+		uint32_t* runUsecsNew = (uint32_t*)malloc(sizeof(uint32_t)*procNum);
 		int num = 0;
 		for(int i=0; i<procNum; i++) {
 			procinfo_t* proc = &procs[i];
 			if((int32_t)proc->core != coreIndex)
 				continue;
 			memcpy(&procsNew[num], &procs[i], sizeof(procinfo_t));
+			threadNumsNew[num] = threadNums != NULL ? threadNums[i] : 0;
+			runUsecsNew[num] = runUsecs != NULL ? runUsecs[i] : proc->run_usec;
 			num++;
 		}
 
 		free(procs);
 		procs = procsNew;
+		free(threadNums);
+		threadNums = threadNumsNew;
+		free(runUsecs);
+		runUsecs = runUsecsNew;
 		procNum = num;
 	}
 
 public: 
 	Procs() {
 		procs = NULL;
+		threadNums = NULL;
+		runUsecs = NULL;
 		coreIndex = -1;
 		procNum = 0;
 		build();
@@ -250,14 +265,65 @@ public:
 			return;
 
 		refresh_sample(timerSteps);
-		if(procs != NULL)
+		if(procs != NULL) {
 			free(procs);
-		procNum = _sample.procNum;
-		procs = NULL;
-		if(procNum > 0 && _sample.procs != NULL) {
-			procs = (procinfo_t*)malloc(sizeof(procinfo_t)*procNum);
-			if(procs != NULL)
-				memcpy(procs, _sample.procs, sizeof(procinfo_t)*procNum);
+			procs = NULL;
+		}
+		if(threadNums != NULL) {
+			free(threadNums);
+			threadNums = NULL;
+		}
+		if(runUsecs != NULL) {
+			free(runUsecs);
+			runUsecs = NULL;
+		}
+		procNum = 0;
+		int num = _sample.procNum;
+		if(num > 0 && _sample.procs != NULL) {
+			procs = (procinfo_t*)malloc(sizeof(procinfo_t)*num);
+			threadNums = (int*)calloc(num, sizeof(int));
+			runUsecs = (uint32_t*)calloc(num, sizeof(uint32_t));
+			if(procs != NULL && threadNums != NULL && runUsecs != NULL) {
+				/*only list procs, count threads and sum their run_usec into owner proc*/
+				for(int i=0; i<num; i++) {
+					procinfo_t* p = &_sample.procs[i];
+					if(p->type != TASK_TYPE_THREAD)
+						continue;
+					for(int j=0; j<num; j++) {
+						procinfo_t* o = &_sample.procs[j];
+						if(o->type != TASK_TYPE_THREAD && o->pid == p->father_pid) {
+							threadNums[j]++;
+							runUsecs[j] += p->run_usec;
+							break;
+						}
+					}
+				}
+				int cnt = 0;
+				for(int i=0; i<num; i++) {
+					procinfo_t* p = &_sample.procs[i];
+					if(p->type == TASK_TYPE_THREAD)
+						continue;
+					memcpy(&procs[cnt], p, sizeof(procinfo_t));
+					threadNums[cnt] = threadNums[i];
+					runUsecs[cnt] = runUsecs[i] + p->run_usec;
+					cnt++;
+				}
+				procNum = cnt;
+			}
+			else {
+				if(procs != NULL) {
+					free(procs);
+					procs = NULL;
+				}
+				if(threadNums != NULL) {
+					free(threadNums);
+					threadNums = NULL;
+				}
+				if(runUsecs != NULL) {
+					free(runUsecs);
+					runUsecs = NULL;
+				}
+			}
 		}
 		rowNum = procNum;
 		filter();

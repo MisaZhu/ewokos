@@ -1,6 +1,7 @@
 /*the per-display repaint pipeline: dirty rect collection, compositing
   order, cursor overlay and the flush to the fb daemon*/
 #include <string.h>
+#include <ewoksys/kernel_tic.h>
 #include "xrepaint.h"
 #include "xrender.h"
 #include "xwin.h"
@@ -139,11 +140,29 @@ static inline void refresh_cursor(x_t* x) {
     x->cursor.old_pos.y = x->cursor.cpos.y;
 }
 
+/* a window stuck !ready (client stalled behind the input IPC storm after
+   a resize/rebuild) must not throttle the whole display forever: once it
+   has been stuck this long the repaint proceeds without it. The composite
+   loop skips !ready windows, so its area simply shows what is below until
+   the client catches up with its next UPDATE. */
+#define X_NOT_READY_TIMEOUT_MS 500
+
 static bool all_win_ready(x_t* x) {
+    uint64_t now = kernel_tic_ms(0);
     xwin_t* win = x->win_head;
     while(win != NULL) {
-        if(win->xinfo != NULL && win->xinfo->visible && !win->ready)
-            return false;
+        if(win->xinfo != NULL && win->xinfo->visible && !win->ready) {
+            if(win->not_ready_ms == 0) {
+                win->not_ready_ms = (now == 0) ? 1 : now;
+                return false;
+            }
+            if((now - win->not_ready_ms) < X_NOT_READY_TIMEOUT_MS)
+                return false;
+            /* stuck too long: stop holding every other window hostage */
+        }
+        else if(win->not_ready_ms != 0) {
+            win->not_ready_ms = 0;
+        }
         win = win->next;
     }
     return true;
@@ -168,10 +187,10 @@ static bool x_is_hide_cursor_on_win(x_t* x) {
 /*immediate cursor redraw for input latency: composites just the cursor
   into the scan-out buffer and posts a non-blocking dirty flush, so a
   mouse move shows up at event rate instead of one paced frame late.
-  Runs inside the input IPC handler (the main context is borrowed), so it
-  must never block and must never touch the buffer or the ctrl dirty list
-  while a push/flush is in flight - skipped then, and the frame path
-  retries it via display->cursor_task.*/
+  Runs inside the input IPC handler (a worker thread holding the server
+  lock), so it must never block and must never touch the buffer or the
+  ctrl dirty list while a push/flush is in flight - skipped then, and
+  the frame path retries it via display->cursor_task.*/
 bool x_cursor_redraw_now(x_t* x, uint32_t display_index) {
     x_display_t* display = &x->displays[display_index];
     if(!display->active || display->g == NULL ||
@@ -272,7 +291,6 @@ void x_repaint(x_t* x, uint32_t display_index) {
                 win->xinfo->display_index == display_index) {
             if(display->dirty) {
                 win->dirty = true;
-                win->has_damage = false; //everything below it got repainted
                 win->shadow_valid = false; //the bands must be blended fresh
             }
 
@@ -284,7 +302,6 @@ void x_repaint(x_t* x, uint32_t display_index) {
                                 covered_by_opaque_win(x, win, display_index, &win->xinfo->winr)) {
                     win->dirty = false;
                     win->frame_dirty = false;
-                    win->has_damage = false;
                     /*its area gets overwritten by the covering window, so
                       whatever shadow sat there is gone*/
                     win->shadow_valid = false;
@@ -328,7 +345,7 @@ void x_repaint(x_t* x, uint32_t display_index) {
                     x->current.drag_band->h != r.h) {
                 if(x->current.drag_band != NULL)
                     graph_free(x->current.drag_band);
-                x->current.drag_band = graph_new(NULL, r.w, r.h);
+                x->current.drag_band = graph_new_shm(r.w, r.h);
             }
             if(x->current.drag_band != NULL) {
                 graph_blt(display->g, r.x, r.y, r.w, r.h,
@@ -381,8 +398,8 @@ void x_repaint(x_t* x, uint32_t display_index) {
           instead of the frame rects - the erased drag outline then never
           reaches the panel and trails*/
         display->flush_inflight = true;
-        /*defer the flush IPC until after ipc_enable() to keep the
-          ipc_disable() critical section as tight as possible*/
+        /*defer the flush IPC until after the server lock is released to
+          keep the locked compositing section as tight as possible*/
         display->pending_flush = true;
     }
 }

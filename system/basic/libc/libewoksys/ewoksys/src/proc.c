@@ -199,6 +199,19 @@ inline void proc_block_by(ewokos_addr_t token) {
 }
 
 /**
+ * @brief block the current proc on a VFS node token with a deadline.
+ *
+ * Poll-emulation block: the kernel releases the proc when a matching wake
+ * arrives OR when timeout_usec elapses (timeout_usec == 0 blocks forever).
+ * Unlike proc_block_by(), a latched generic (token-0) wake from an ipc_call
+ * round-trip is discarded instead of satisfying the block, so registration
+ * IPCs cannot turn the wait into a hot probe loop.
+ */
+inline void proc_block_timeout(ewokos_addr_t token, uint32_t timeout_usec) {
+    syscall2(SYS_BLOCK_TIMEOUT, (ewokos_addr_t)token, (ewokos_addr_t)timeout_usec);
+}
+
+/**
  * @brief wakeup process by pid
  * 
  * @param pid wakeup blocked process pid

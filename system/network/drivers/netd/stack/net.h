@@ -64,6 +64,9 @@ struct net_device_ops {
     int (*close)(struct net_device *dev);
     int (*transmit)(struct net_device *dev, uint16_t type, const uint8_t *data, size_t len, const void *dst);
     int (*poll)(struct net_device *dev);
+    /* Push any coalesced (batched) transmit frames to the device. Optional;
+     * devices without TX batching leave this NULL. */
+    int (*flush)(struct net_device *dev);
 };
 
 struct net_device {
@@ -95,6 +98,8 @@ extern struct net_iface *
 net_device_get_iface(struct net_device *dev, int family);
 extern int
 net_device_output(struct net_device *dev, uint16_t type, const uint8_t *data, size_t len, const void *dst);
+extern void
+net_tx_flush(void);
 extern struct net_device *
 net_device_get_loopback(void);
 

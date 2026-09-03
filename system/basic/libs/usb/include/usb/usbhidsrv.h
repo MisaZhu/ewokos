@@ -40,8 +40,25 @@ typedef struct fd_info {
 
 const char* usbhid_input_type_name(usb_input_type_t type);
 
-/* fan out one event to every subscriber of report_id */
+/* cache the /dev/hid0 node id for the directed subscriber wakes; the
+   daemon calls this once its vdevice is mounted (node id is stable) */
+void usbhid_set_node(ewokos_addr_t node);
+
+/* fan out one event to every subscriber of report_id; each subscriber
+   whose queue went empty -> non-empty is woken directly with
+   proc_wakeup_by(pid, node). The _evt variant returns true when at least
+   one such edge wake fired */
+bool usbhid_dispatch_evt(uint8_t report_id, const uint8_t* data, uint8_t len);
 void usbhid_dispatch(uint8_t report_id, const uint8_t* data, uint8_t len);
+
+/* true while any subscriber queue still holds undrained events; the daemon
+   re-asserts its wakes at a bounded rate while this holds (see
+   usbhid_backlog in usbhidsrv.c) */
+bool usbhid_backlog(void);
+
+/* re-fire the directed wakes for every subscriber with an undrained queue
+   (the bounded-rate re-assert); returns true when a wake fired */
+bool usbhid_rewake_backlog(void);
 
 /* vdevice callbacks wired straight into the daemon's vdevice_t */
 int usbhid_vdev_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* node,

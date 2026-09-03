@@ -131,8 +131,6 @@ void xwin_revalidate_geometry(x_t* x, xwin_t* win) {
         return;
     win->xinfo->frame_g_shm_id = win->frame_g->shm_id;
     win->frame_dirty = true;
-    win->has_damage = false;
-    win->composited = false;
     win->shadow_valid = false;
     x_update_frame_areas(x, win);
 }
@@ -213,6 +211,10 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
     }
     if(win->xinfo->ws_g_shm_id == 0 && win->ws_g == NULL)
         win->xinfo->ws_g_shm_id = -1;
+    if(win->xinfo->ws_g2_shm_id == 0 && win->ws_g2 == NULL)
+        win->xinfo->ws_g2_shm_id = -1;
+    if(win->xinfo->ws_g_buffer_shm_id == 0 && win->ws_g_buffer == NULL)
+        win->xinfo->ws_g_buffer_shm_id = -1;
     if(win->xinfo->frame_g_shm_id == 0 && win->frame_g == NULL)
         win->xinfo->frame_g_shm_id = -1;
 
@@ -277,6 +279,14 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
             win->ws_g == NULL ||
             win->frame_g == NULL) {
 
+        /*a painter thread may be parked in proc_block_by(xinfo->win) on the
+          old ws_g. Release the handshake before freeing it: clear the flag
+          and wake the thread so xwin_repaint returns instead of blocking
+          forever, and so it re-fetches the new shm id on its next paint.
+          This runs inside the UPDATE_INFO IPC (caller holds x_server_lock);
+          the wakeup itself is a plain syscall and needs no extra locking.*/
+        x_update_release(x, win);
+
         if(win->ws_g != NULL) {
             graph_free(win->ws_g);
             win->ws_g = NULL;
@@ -284,10 +294,19 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
         win->xinfo->ws_g_shm_id = -1;
         win->xinfo->ws_g_shm_contig = false;
 
+        if(win->ws_g2 != NULL) {
+            graph_free(win->ws_g2);
+            win->ws_g2 = NULL;
+        }
+        win->xinfo->ws_g2_shm_id = -1;
+        win->xinfo->ws_g2_shm_contig = false;
+
         if(win->ws_g_buffer != NULL) {
             graph_free(win->ws_g_buffer);
             win->ws_g_buffer = NULL;
         }
+        win->xinfo->ws_g_buffer_shm_id = -1;
+        win->xinfo->ws_g_buffer_shm_contig = false;
 
         if(win->frame_g != NULL) {
             graph_free(win->frame_g);
@@ -298,13 +317,7 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
 
         win->frame_dirty = true;
         win->ready = false;
-        win->has_damage = false;
-        win->damage_skip = 0;
-        /*the old workspace shm is gone: any queued snapshot or recovery
-          bookkeeping refers to it*/
-        win->refresh_pending = false;
-        win->update_overtaken = false;
-        win->repaint_grace = 0;
+        win->not_ready_ms = 0; //restart the stuck-window timeout
 
         /*graph_new_shm allocates its own keyed shm canvas: the buffer and
           the shm id both travel inside the graph, no window-level mirrors*/
@@ -316,8 +329,42 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
           graph with it, and g2d only engages on contig-backed canvases*/
         win->xinfo->ws_g_shm_contig = win->ws_g->shm_contig;
         graph_clear(win->ws_g, 0x0);
+
+        /*fps_async double-buffering: allocate the handoff buffer ws_g2 and
+          publish it. The client always renders into ws_g and, at present, copies
+          ws_g -> ws_g2 (the "flip") so ws_g2 is a stable frame the server can
+          snapshot while the client keeps painting ws_g - no blocking, no tearing.
+          When fps_async is off ws_g2 stays NULL and the client uses the blocking
+          single-buffer handshake.*/
+        win->xinfo->fps_async = x->config.fps_async;
+        if(x->config.fps_async) {
+            win->ws_g2 = graph_new_shm(win->xinfo->wsr.w, win->xinfo->wsr.h);
+            if(win->ws_g2 == NULL) {
+                graph_free(win->ws_g);
+                win->ws_g = NULL;
+                win->xinfo->ws_g_shm_id = -1;
+                win->xinfo->ws_g_shm_contig = false;
+                win->xinfo->fps_async = false;
+                return -1;
+            }
+            win->xinfo->ws_g2_shm_id = win->ws_g2->shm_id;
+            win->xinfo->ws_g2_shm_contig = win->ws_g2->shm_contig;
+            graph_clear(win->ws_g2, 0x0);
+        }
+        /*reset the handshake state on every rebuild: front_index 0 means "no
+          flip published yet", so the server will not snapshot until the client's
+          first present sets front_index=1 with a fresh ws_g2 copy.*/
+        win->xinfo->back_index = 0;
+        win->xinfo->front_index = 0;
+        win->xinfo->update_requested = 0;
+
         win->ws_g_buffer = graph_new_shm(win->xinfo->wsr.w, win->xinfo->wsr.h);
         graph_clear(win->ws_g_buffer, 0x0);
+        /*publish the composite source so xwm blends decorations over the SAME
+          stable snapshot the compositor reads, never the client's live render
+          buffer (which fps_async may be painting into right now)*/
+        win->xinfo->ws_g_buffer_shm_id = win->ws_g_buffer->shm_id;
+        win->xinfo->ws_g_buffer_shm_contig = win->ws_g_buffer->shm_contig;
 
         win->frame_g = graph_new_shm(win->xinfo->winr.w, win->xinfo->winr.h);
         if(win->frame_g == NULL) {
@@ -325,10 +372,19 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
             win->ws_g = NULL;
             win->xinfo->ws_g_shm_id = -1;
             win->xinfo->ws_g_shm_contig = false;
+            if(win->ws_g2 != NULL) {
+                graph_free(win->ws_g2);
+                win->ws_g2 = NULL;
+                win->xinfo->ws_g2_shm_id = -1;
+                win->xinfo->ws_g2_shm_contig = false;
+            }
+            win->xinfo->fps_async = false;
             if(win->ws_g_buffer != NULL) {
                 graph_free(win->ws_g_buffer);
                 win->ws_g_buffer = NULL;
             }
+            win->xinfo->ws_g_buffer_shm_id = -1;
+            win->xinfo->ws_g_buffer_shm_contig = false;
             return -1;
         }
         win->xinfo->frame_g_shm_id = win->frame_g->shm_id;

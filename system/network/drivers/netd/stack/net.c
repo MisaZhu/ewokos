@@ -318,6 +318,24 @@ net_device_output(struct net_device *dev, uint16_t type, const uint8_t *data, si
     }
     return 0;
 }
+
+/*
+ * Push coalesced (batched) TX frames of every registered device to the wire.
+ * Called at natural burst boundaries (end of a socket write) and from the
+ * interrupt loop, so one-off frames (ARP/ICMP) do not sit in a batch waiting
+ * for the next bulk writer.
+ */
+void
+net_tx_flush(void)
+{
+    struct net_device *dev;
+    for (dev = devices; dev; dev = dev->next) {
+        if (NET_DEVICE_IS_UP(dev) && dev->ops && dev->ops->flush) {
+            dev->ops->flush(dev);
+        }
+    }
+}
+
 int
 net_input_handler(uint16_t type, const uint8_t *data, size_t len, struct net_device *dev)
 {

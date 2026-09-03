@@ -41,8 +41,4 @@
  * in: [uint32 events] */
 #define PIPE_EDGE        0x103
 
-/* Debug: toggle lifecycle tracing (klog "PD:" lines) and dump every live
- * pipe's refcounts in the reply. No arguments. */
-#define PIPE_DBG         0x104
-
 #endif

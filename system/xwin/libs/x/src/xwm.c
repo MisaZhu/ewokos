@@ -68,18 +68,23 @@ static bool fetch_frame_graph(xwm_t* xwm, xinfo_t* info, graph_t* g) {
 }
 
 static bool fetch_ws_graph(xwm_t* xwm, xinfo_t* info, graph_t* g) {
-    if(info == NULL || info->ws_g_shm_id == -1)
+    /*read the server's composite source (ws_g_buffer), NOT the client's live
+      render buffer (ws_g/ws_g2): in fps_async mode the client may be painting
+      into ws_g or ws_g2 at this very moment, so sampling it would tear. The
+      compositor blits frame_g from ws_g_buffer, so reading it here keeps the
+      decorations consistent with the frame content in both modes.*/
+    if(info == NULL || info->ws_g_buffer_shm_id == -1)
         return false;
     memset(g, 0, sizeof(graph_t));
 
-    uint32_t* ws_g_shm = (uint32_t*)shmat(info->ws_g_shm_id, 0, 0);
+    uint32_t* ws_g_shm = (uint32_t*)shmat(info->ws_g_buffer_shm_id, 0, 0);
     if(ws_g_shm == NULL || ws_g_shm == (void*)-1)
         return false;
     g->buffer = ws_g_shm;
     g->w = info->wsr.w;
     g->h = info->wsr.h;
-    g->shm_id = info->ws_g_shm_id;
-    g->shm_contig = info->ws_g_shm_contig;
+    g->shm_id = info->ws_g_buffer_shm_id;
+    g->shm_contig = info->ws_g_buffer_shm_contig;
     g->need_free = false;
     return true;
 }

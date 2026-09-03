@@ -123,6 +123,7 @@ extern void    proc_free(proc_t* proc);
 
 extern void    proc_block(context_t* text, proc_t* proc);
 extern void    proc_block_by(context_t* ctx, proc_t* proc, ewokos_addr_t token);
+extern void    proc_block_by_timeout(context_t* ctx, proc_t* proc, ewokos_addr_t token, uint32_t timeout_usec);
 extern void    proc_wakeup(proc_t* proc);
 extern void    proc_wakeup_by(proc_t* proc, ewokos_addr_t token);
 extern void    proc_waitpid(context_t* ctx, int32_t pid);

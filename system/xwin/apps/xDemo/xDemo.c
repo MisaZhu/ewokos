@@ -228,10 +228,12 @@ static void on_repaint(xwin_t* xwin, graph_t* g) {
 static bool _repaint = false;
 static void loop(void* p) {
     xwin_t* xwin = (xwin_t*)p;
-    if(_repaint)
+    /*if(_repaint)
         xwin_repaint(xwin);
     _repaint = false;
-    proc_usleep(3000);
+    */
+    xwin_repaint(xwin);
+    proc_usleep(1000);
 }
 
 static void _timerHandler(void) {
@@ -257,9 +259,9 @@ int main(int argc, char* argv[]) {
     xwin->on_repaint = on_repaint;
     xwin_set_visible(xwin, true);
 
-    int32_t timerID = timer_set(2000, _timerHandler);
+    //int32_t timerID = timer_set(2000, _timerHandler);
     x_run(&x, xwin);
-    timer_remove(timerID);
+    //timer_remove(timerID);
     xwin_destroy(xwin);
     xtest_free();
     return 0;

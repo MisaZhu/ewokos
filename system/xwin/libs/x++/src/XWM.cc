@@ -307,8 +307,10 @@ void XWM::drawDesktop(graph_t* g) {
 		if(scale != 1.0 && !patternFit && patternMode == DESKTOP_PATTERN_FIT) {
 			// Calculate scale to fit desktop while maintaining aspect ratio
 			// Use the smaller dimension to ensure the pattern fills the entire screen
-			graph_t * desktopPatternFit = graph_scale_fitf(desktopPattern, g->w, g->h);
+			//graph_t * desktopPatternFit = graph_scale_fitf(desktopPattern, g->w, g->h);
+			graph_t * desktopPatternFit = graph_new_shm(g->w, g->h);
 			if(desktopPatternFit != NULL) {
+				graph_scale_fit_tof(desktopPattern, desktopPatternFit);
 				graph_free(desktopPattern);
 				desktopPattern = desktopPatternFit; 
 			}
@@ -436,7 +438,15 @@ void XWM::updateTheme(bool loadFromX) {
 	if(xwm.theme.patternName[0] != 0 && strcmp(xwm.theme.patternName, "none") != 0) {
 		char fname[FS_FULL_NAME_MAX+1] = {0};
 		x_get_theme_fname(X_THEME_ROOT, "xwm", xwm.theme.patternName, fname, FS_FULL_NAME_MAX);
-		desktopPattern = graph_image_new_bg(fname, xwm.theme.desktopBGColor);
+		graph_t* img = graph_image_new_bg(fname, xwm.theme.desktopBGColor);
+		desktopPattern = graph_new_shm(img->w, img->h);
+		if(desktopPattern != NULL) {
+			memcpy(desktopPattern->buffer, img->buffer, img->w * img->h * 4);
+			graph_free(img);
+		}
+		else {
+			desktopPattern = img;
+		}
 	}
 }
 

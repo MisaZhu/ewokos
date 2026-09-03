@@ -46,31 +46,49 @@ static int doargs(int argc, char* argv[]) {
 }
 
 int main(int argc, char** argv) {
-    const char* fname = "";
     int argind = doargs(argc, argv);
-    if(argind < argc)
-        fname = argv[argind];
-    else {
-        printf("  Usage: cat <file>\n");
-        return -1;
-    }
 
-    int fd = open(fname, 0);
-    if(fd < 0) {
-        printf("Can't open [%s]!\n", argv[1]);
-        return -1;
-    }
-
-    while(1) {
-        char buf[1024*4];
-        int sz = read(fd, buf, sizeof(buf));
-        if(sz > 0) {
-            out(buf, sz);
-        }
-        else {
-            if(!_streaming && (sz == 0 || errno != EAGAIN))
+    /* no args (or "-"): copy stdin to stdout so cat works in pipelines */
+    int nf = argc - argind;
+    if(nf == 0) {
+        /* stdin: read until EOF (0); EAGAIN means retry, not stop */
+        while(1) {
+            char buf[1024*4];
+            errno = 0;
+            int sz = read(0, buf, sizeof(buf));
+            if(sz > 0)
+                out(buf, sz);
+            else if(sz == 0)
+                break;
+            else if(errno != EAGAIN && errno != EINTR)
                 break;
         }
+        return 0;
+    }
+
+    for(int f = argind; f < argc; f++) {
+        const char* fname = argv[f];
+        int fd = (fname[0] == '-' && fname[1] == 0) ? 0 : open(fname, 0);
+        if(fd < 0) {
+            printf("Can't open [%s]!\n", fname);
+            return -1;
+        }
+
+        while(1) {
+            char buf[1024*4];
+            errno = 0;
+            int sz = read(fd, buf, sizeof(buf));
+            if(sz > 0) {
+                out(buf, sz);
+            }
+            else {
+                if(!_streaming && (sz == 0 || errno != EAGAIN))
+                    break;
+            }
+        }
+
+        if(fd > 0)
+            close(fd);
     }
 
     return 0;

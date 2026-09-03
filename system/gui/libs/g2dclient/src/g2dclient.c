@@ -173,3 +173,9 @@ int g2d_get_clock(uint32_t* hz) {
     PF->clear(&in);
     return ret;
 }
+
+int g2d_blit_to_phy(const g2d_blit_to_phy_req_t* req) {
+    if(req == NULL)
+        return -1;
+    return g2d_send_struct(G2D_DEV_CNTL_BLIT_TO_PHY, req, sizeof(*req));
+}

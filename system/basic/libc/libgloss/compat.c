@@ -2238,6 +2238,31 @@ static int vsscanf_impl(const char *str, const char *format, va_list ap, const c
             }
             out[count] = 0;
             ++assigned;
+        } else if (*format == 'u') {
+            char *endp;
+            unsigned long long v;
+            while (is_space(*s)) {
+                ++s;
+            }
+            v = (long_flag >= 2) ? strtoull(s, &endp, 10) : (unsigned long long)strtoul(s, &endp, 10);
+            if (endp == s) {
+                break;
+            }
+            s = endp;
+            if (long_flag >= 2) {
+                *va_arg(ap, unsigned long long *) = v;
+            } else if (long_flag == 1) {
+                *va_arg(ap, unsigned long *) = (unsigned long)v;
+            } else {
+                *va_arg(ap, unsigned int *) = (unsigned int)v;
+            }
+            ++assigned;
+        } else if (*format == '%') {
+            /* literal '%%': consumes one '%' from the input, no assignment */
+            if (*s != '%') {
+                break;
+            }
+            ++s;
         } else if (*format == 'g' || *format == 'f') {
             char *endp;
             double v;
@@ -2356,7 +2381,10 @@ static ssize_t write_all_retry_compat(int fd, const void *buf, size_t len) {
             continue;
         }
         if(errno == EAGAIN || errno == EINTR) {
-            usleep(1000);
+            /* park on the node's WR wait queue with a bounded deadline
+             * instead of probing the write once per ms: the driver's wake
+             * edge releases us early, an idle retry costs zero CPU. */
+            vfs_block_by_fd_timeout(fd, VFS_EVT_WR, 100*1000);
             continue;
         }
         if(wr == 0 && errno == 0)

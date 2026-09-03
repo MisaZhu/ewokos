@@ -1,9 +1,11 @@
 @export TZ=CST-8
 @/bin/ipcserv /drivers/logd  -k /dev/log
+@/bin/ipcserv /drivers/virt/g2dd     /dev/g2d
 
 @/bin/ipcserv /drivers/virt/ttyd /dev/tty0
 @/bin/ipcserv /sbin/sessiond
 @/bin/bgrun /bin/session -r -t /dev/tty0
+
 
 #@echo "+---------------------------------------+\n"
 #@echo "|  < EwokOS MicroKernel >               |\n" 
@@ -12,8 +14,6 @@
 @/bin/ipcserv /drivers/displaymand         
 @/bin/ipcserv /drivers/virt/fbdisplayd  /dev/disp0
 @/bin/ipcserv /drivers/fontd 
-
-@/bin/ipcserv /drivers/virt/g2dd     /dev/g2d
 
 @/bin/ipcserv /sbin/splashd -w 320 -h 240 -f 12 -d
 @/bin/splash -i /usr/system/images/logos/ewokos.png -m "start..."

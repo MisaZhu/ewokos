@@ -26,6 +26,8 @@ typedef uint32_t mutex_t;
 
 #define timerclear(t) ((t)->tv_sec = (t)->tv_usec = 0)
 
+#define timerisset(t) ((t)->tv_sec || (t)->tv_usec)
+
 struct sched_ctx {
   volatile int available;
 	volatile int cond;

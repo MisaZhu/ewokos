@@ -323,25 +323,34 @@ static void do_close(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, vo
 
     /*
      * Only the device-side per-fd entry is authoritative for close: it was
-     * created by do_open() and kept in sync by dev_update_file(). Do NOT
-     * re-seed it from the caller's blob -- for anonymous single-node
-     * devices fsinfo.data is fd-private state (e.g. a netd task pointer),
-     * and a stale/duplicate FS_CMD_CLOSE arrives after file_del() already
-     * dropped the entry; seeding from the caller blob would hand the
-     * driver a dangling pointer and dereference it after free (the netd
-     * exit-time data abort). No entry means this server holds no state
-     * for the fd (already closed, or the driver restarted), so skip the
-     * device close entirely: there is nothing to release.
+     * created by do_open()/do_dup() and kept in sync by dev_update_file().
+     * A close must NEVER fall back to node-level resurrection
+     * (dev_fetch_file()'s vfs_get_by_node path): a stale/duplicate
+     * FS_CMD_CLOSE arrives after file_del() already dropped the entry (the
+     * fire-and-forget VFS_CLOSE races with vfsd's zombie cleanup, which can
+     * re-ship a close for the same fd), and resurrecting the entry would run
+     * dev->close() twice for one descriptor, double-decrementing the
+     * driver's refcount (piped destroyed the pipe early; netd dropped a live
+     * connection). No entry means this server holds no state for the fd, so
+     * skip the device close entirely: there is nothing to release.
+     *
+     * Lookup and delete are one locked section so that two closes racing on
+     * the same (fd, owner, node) claim the entry exactly once.
      */
     fsinfo_t finfo;
-    bool has_info = (dev_fetch_file(fd, owner_pid, node, &finfo) == 0);
+    bool has_info = false;
+    pthread_mutex_lock(&_files_lock);
+    fsinfo_t* info = file_get_cache(fd, owner_pid, node);
+    if(info != NULL) {
+        memcpy(&finfo, info, sizeof(fsinfo_t));
+        has_info = true;
+        file_del(fd, owner_pid, node);
+    }
+    pthread_mutex_unlock(&_files_lock);
 
     if(has_info && dev != NULL && dev->close != NULL) {
         dev->close(dev, fd, owner_pid, node, &finfo, p);
     }
-    pthread_mutex_lock(&_files_lock);
-    file_del(fd, owner_pid, node);
-    pthread_mutex_unlock(&_files_lock);
 }
 
 static void do_dup(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {

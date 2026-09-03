@@ -5,7 +5,7 @@
 
   - xserver.h     shared types (x_t, xwin_t, ...) and small helpers
   - xshm.c        shared-memory allocation/teardown helpers
-  - xwin.c        window list, focus, client events, damage tracking
+  - xwin.c        window list, focus, client events, workspace snapshots
   - xrender.c     compositing: desktop, window content and frame drawing
   - xrepaint.c    per-display repaint pipeline and dirty rect collection
   - xinput.c      mouse/touch and IME input handling
@@ -142,6 +142,8 @@ static int32_t read_config(x_t* x, const char* fname) {
     x->display_num = active_displays(x, display_arr_var);
 
     x->config.fps = json_get_int_def(conf_var, "fps", 30);
+    x->config.multi_task = json_get_int_def(conf_var, "multi_task", 0);
+    x->config.fps_async = json_get_int_def(conf_var, "fps_async", 0);
     x->config.bg_proc_priority = json_get_int_def(conf_var, "bg_proc_priority", 2);
 
     const char* v = json_get_str_def(conf_var, "cursor", "");
@@ -252,7 +254,12 @@ int main(int argc, char** argv) {
     dev.extra_data = &x;
     x.dev = &dev;
 
-    device_run(&dev, mnt_point, FS_TYPE_CHAR | FS_TYPE_ANNOUNIMOUS, 0666, false);
+    /*multi_task serves the IPC requests on kernel worker threads, so the
+      handlers and the loop_step run concurrently: the server state lock
+      must be ready before the first request lands*/
+    pthread_mutex_init(&x_server_lock, NULL);
+    device_run(&dev, mnt_point, FS_TYPE_CHAR | FS_TYPE_ANNOUNIMOUS, 0666, x.config.multi_task);
+    pthread_mutex_destroy(&x_server_lock);
     x_close(&x);
     return 0;
 }
