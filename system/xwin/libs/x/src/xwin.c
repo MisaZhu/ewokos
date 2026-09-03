@@ -45,6 +45,52 @@ static ewokos_addr_t xwin_handle(const xwin_t* xwin) {
     return (ewokos_addr_t)xwin->xinfo_shm_id;
 }
 
+/*Process-wide registry of every window this process opened. The server no
+  longer echoes a raw client pointer in xevent.win - it sends back only the
+  window's xinfo shm handle - so the event loop must be able to resolve that
+  handle to the xwin_t of ANY window, not just the main/prompt ones. Menus,
+  submenus and dialogs are extra windows in the same process; without this
+  registry all of their mouse and focus events would be dropped.*/
+static xwin_t* _xwin_registry = NULL;
+
+static void xwin_registry_add(xwin_t* xwin) {
+    ipc_disable();
+    xwin->reg_next = _xwin_registry;
+    _xwin_registry = xwin;
+    ipc_enable();
+}
+
+static void xwin_registry_remove(xwin_t* xwin) {
+    ipc_disable();
+    xwin_t** pp = &_xwin_registry;
+    while(*pp != NULL) {
+        if(*pp == xwin) {
+            *pp = xwin->reg_next;
+            xwin->reg_next = NULL;
+            break;
+        }
+        pp = &(*pp)->reg_next;
+    }
+    ipc_enable();
+}
+
+xwin_t* xwin_find_by_handle(ewokos_addr_t handle) {
+    if(handle == 0)
+        return NULL;
+
+    ipc_disable();
+    xwin_t* xwin = _xwin_registry;
+    while(xwin != NULL) {
+        if((ewokos_addr_t)xwin->xinfo_shm_id == handle) {
+            ipc_enable();
+            return xwin;
+        }
+        xwin = xwin->reg_next;
+    }
+    ipc_enable();
+    return NULL;
+}
+
 static int xwin_update_info(xwin_t* xwin, uint8_t type) {
     if(xwin->xinfo == NULL)
         return -1;
@@ -215,6 +261,7 @@ xwin_t* xwin_open(x_t* xp, int32_t disp_index, int x, int y, int w, int h, const
     if((style & XWIN_STYLE_MAX) != 0)
         ret->xinfo->state = XWIN_STATE_MAX;
 
+    xwin_registry_add(ret);
     xwin_update_info(ret, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
     return ret;
 }
@@ -308,8 +355,10 @@ static graph_t* x_get_flip_graph(xwin_t* xwin, graph_t* g) {
 }
 
 void xwin_destroy(xwin_t* xwin) {
-    if(xwin != NULL)
+    if(xwin != NULL) {
+        xwin_registry_remove(xwin);
         free(xwin);
+    }
 }
 
 void xwin_close(xwin_t* xwin) {
@@ -320,6 +369,8 @@ void xwin_close(xwin_t* xwin) {
         if(!xwin->on_close(xwin))
             return;
     }
+
+    xwin_registry_remove(xwin);
 
     // Wait out any in-flight xwin_repaint() (it can be blocked in the
     // UPDATE IPC on another thread) before tearing the window down:

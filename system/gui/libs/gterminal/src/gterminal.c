@@ -122,14 +122,25 @@ static uint32_t color256(uint8_t idx) {
     }
 }
 
+static void sgr_reset(gterminal_t* terminal) {
+    terminal->term_conf.state = 0;
+    terminal->term_conf.bg_color = 0;
+    terminal->term_conf.fg_color = 0;
+    terminal->term_conf.set = 0;
+}
+
 static void do_esc_color(gterminal_t* terminal, uint16_t* values, uint8_t vnum) {
+    /* ECMA-48: "CSI m" with no parameters means SGR 0. xterm's sgr0 is exactly
+     * "\E[m", so ignoring the empty form would latch the previous attributes
+     * (e.g. reverse video from a title line) onto every following cell. */
+    if(vnum == 0) {
+        sgr_reset(terminal);
+        return;
+    }
     for(uint8_t i=0; i<vnum; i++) {
         uint16_t v = values[i];
         if(v == 0) {
-            terminal->term_conf.state = 0;
-            terminal->term_conf.bg_color = 0;
-            terminal->term_conf.fg_color = 0;
-            terminal->term_conf.set = 0;
+            sgr_reset(terminal);
         }
         else if(v == 1) {
             terminal->term_conf.set = 1;
@@ -242,15 +253,23 @@ static void run_esc_cmd(gterminal_t* terminal, UNICODE16 cmd, uint16_t* values, 
         terminal->scroll_bottom : (terminal->rows - 1);
 
     if(cmd == 'J') {
+        /* Erased cells take the current attributes, like on a real terminal,
+         * so cleared areas stay consistent with subsequently written text. */
         textchar_t tch = {0};
         if(terminal->term_conf.set) {
             tch.bg_color = terminal->term_conf.bg_color;
+            tch.color = terminal->term_conf.fg_color;
+            tch.state = terminal->term_conf.state;
         }
         
         if(vnum == 0 || values[0] == 0) {
             for(uint16_t x = tg->curs_x; x < tg->cols; x++)
                 textgrid_put(tg, x, tg->curs_y, &tch);
-            for(int32_t y = tg->curs_y + 1; y <= bottom_row && y < (int32_t)tg->rows; y++)
+            /* Clear (and thereby back) all the way to the bottom of the visible
+             * window, not just to the last produced row. textgrid_put grows the
+             * grid on demand, so capping at tg->rows would leave the lower part
+             * of a full-screen app's window (e.g. vi) unbacked and unpainted. */
+            for(int32_t y = tg->curs_y + 1; y <= bottom_row; y++)
                 for(uint16_t x = 0; x < tg->cols; x++)
                     textgrid_put(tg, x, y, &tch);
         }
@@ -262,7 +281,9 @@ static void run_esc_cmd(gterminal_t* terminal, UNICODE16 cmd, uint16_t* values, 
                 textgrid_put(tg, x, tg->curs_y, &tch);
         }
         else if(values[0] == 2) {
-            for(int32_t y = top_row; y <= bottom_row && y < (int32_t)tg->rows; y++)
+            /* Erase the entire visible window: back every row up to bottom_row
+             * so the whole screen is cleared even before any content exists. */
+            for(int32_t y = top_row; y <= bottom_row; y++)
                 for(uint16_t x = 0; x < tg->cols; x++)
                     textgrid_put(tg, x, y, &tch);
             textgrid_move_to(tg, 0, top_row);
@@ -274,6 +295,11 @@ static void run_esc_cmd(gterminal_t* terminal, UNICODE16 cmd, uint16_t* values, 
     }
     else if(cmd == 'K') {
         textchar_t tch = {0};
+        if(terminal->term_conf.set) {
+            tch.bg_color = terminal->term_conf.bg_color;
+            tch.color = terminal->term_conf.fg_color;
+            tch.state = terminal->term_conf.state;
+        }
         if(vnum == 0 || values[0] == 0) {
             for(uint16_t x = tg->curs_x; x < tg->cols; x++)
                 textgrid_put(tg, x, tg->curs_y, &tch);
@@ -624,7 +650,7 @@ static void gterminal_draw_char(graph_t* g,
 
     bg = (bg & 0x00ffffff) | (terminal->transparent  << 24);
 
-    if(bg != 0 && bg != terminal->bg_color) 
+    if(bg != 0)
         graph_fill_rect(g, chx, chy, chw, chh, bg);
     
     if((tch->state & TERM_STATE_HIDE) == 0 && tch->c >= 27) {
@@ -660,6 +686,19 @@ void gterminal_paint(gterminal_t* terminal, graph_t* g, int x, int y, int w, int
 
 #define ESC_BUF_CAP ((uint16_t)(sizeof(((gterminal_t*)0)->esc_buf) / sizeof(((gterminal_t*)0)->esc_buf[0])))
 
+/* Map DEC alternate-charset (line-drawing) codes onto ASCII fallbacks so box
+ * drawing stays legible on fonts that lack box glyphs. */
+static UNICODE16 acs_to_ascii(UNICODE16 c) {
+    switch(c) {
+    case 'q': return '-';                       /* horizontal line */
+    case 'x': return '|';                       /* vertical line   */
+    case 'l': case 'k': case 'm': case 'j':     /* corners         */
+    case 't': case 'u': case 'v': case 'w':     /* tees            */
+    case 'n': return '+';                       /* plus            */
+    default:  return c;
+    }
+}
+
 void gterminal_put(gterminal_t* terminal, const char* buf, int size) {
     if(terminal == NULL || terminal->textgrid == NULL || buf == NULL || size <= 0)
         return;
@@ -690,6 +729,16 @@ void gterminal_put(gterminal_t* terminal, const char* buf, int size) {
             }
             terminal->esc_buf[terminal->esc_size] = c;
             terminal->esc_size++;
+            /* charset designators ESC ( X / ESC ) X are exactly two bytes and
+             * are not letter-terminated; act as soon as both have arrived. */
+            if(terminal->esc_size == 2 &&
+               (terminal->esc_buf[0] == '(' || terminal->esc_buf[0] == ')')) {
+                if(terminal->esc_buf[0] == '(')
+                    terminal->alt_charset = (terminal->esc_buf[1] == '0');
+                terminal->esc_size = 0;
+                terminal->in_esc = false;
+                continue;
+            }
             if((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
                 do_esc_cmd(terminal, terminal->esc_buf, 0, terminal->esc_size);
                 terminal->esc_size = 0;
@@ -699,7 +748,7 @@ void gterminal_put(gterminal_t* terminal, const char* buf, int size) {
         }
 
         textchar_t tch;
-        tch.c = c;
+        tch.c = terminal->alt_charset ? acs_to_ascii(c) : c;
         if(terminal->term_conf.set == 0) {
             terminal->term_conf.fg_color = 0;
             terminal->term_conf.bg_color = 0;

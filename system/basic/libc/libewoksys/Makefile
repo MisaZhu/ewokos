@@ -43,6 +43,7 @@ LIB_EWOKSYS_OBJS =  \
 	$(ARCH)/ewoksys/src/queue.o  \
 	$(ARCH)/ewoksys/src/timer.o \
 	$(ARCH)/ewoksys/src/sys.o \
+	$(ARCH)/ewoksys/src/tty.o \
 	\
 	$(ARCH)/src/unistd/getuid.o \
 	$(ARCH)/src/unistd/usleep.o \
@@ -90,6 +91,8 @@ LIB_EWOKSYS_OBJS =  \
 	$(ARCH)/src/signal/raise.o \
 	$(ARCH)/src/signal/signal.o \
 	$(ARCH)/src/signal/sigaction.o \
+	\
+	$(ARCH)/src/err/err.o \
 	\
 	$(ARCH)/src/sys/stat/mkdir.o \
 	$(ARCH)/src/sys/stat/lstat.o \

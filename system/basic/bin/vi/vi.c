@@ -18,6 +18,8 @@
 #include <string.h>
 #include <stdbool.h>
 #include <fcntl.h>
+#include <poll.h>
+#include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <ewokos_config.h>
 #include <ewoksys/proc.h>
@@ -3696,9 +3698,123 @@ static void* xmalloc_open_read_close(const char* filename) {
     return buf;
 }
 
+/* How long to wait for a terminal to answer the cursor-position report.
+ * A real terminal replies within a few milliseconds even over a slow serial
+ * line, so the timeout only bounds the wait for terminals that never answer. */
+#define VI_SIZE_PROBE_TIMEOUT_MS 200
+
+// vi cannot include <unistd.h> (it declares a non-static optind that clashes
+// with vi's own static one), so declare the libc helpers we need here.
+// <sys/ioctl.h> is unistd-free and gives us TIOCGWINSZ / struct winsize.
+int isatty(int fd);
+int ioctl(int fd, int request, ...);
+
+// Read the "ESC [ <row> ; <col> R" cursor-position report from stdin.
+// Returns true and fills *rows/*cols on success, false on timeout/garbage.
+static bool read_cursor_pos_reply(uint32_t* rows, uint32_t* cols) {
+    enum { WANT_ESC, WANT_BRACKET, WANT_PARAMS } state = WANT_ESC;
+    uint32_t row = 0, col = 0;
+    bool parsing_col = false;
+
+    for (;;) {
+        struct pollfd pfd;
+        pfd.fd = 0; // stdin
+        pfd.events = POLLIN;
+        pfd.revents = 0;
+        // The opening ESC may never arrive; the bytes after it come together.
+        int wait_ms = (state == WANT_ESC) ? VI_SIZE_PROBE_TIMEOUT_MS : 100;
+        if (poll(&pfd, 1, wait_ms) <= 0)
+            return false;
+
+        char c;
+        if (read(0, &c, 1) != 1)
+            return false;
+
+        if (state == WANT_ESC) {
+            if (c == 0x1b)
+                state = WANT_BRACKET;
+            // else: stale input ahead of the reply - skip it
+        }
+        else if (state == WANT_BRACKET) {
+            state = (c == '[') ? WANT_PARAMS : WANT_ESC;
+        }
+        else { // WANT_PARAMS
+            if (c >= '0' && c <= '9') {
+                if (parsing_col)
+                    col = col * 10 + (uint32_t)(c - '0');
+                else
+                    row = row * 10 + (uint32_t)(c - '0');
+            }
+            else if (c == ';') {
+                parsing_col = true;
+            }
+            else if (c == 'R') {
+                if (row > 0 && col > 0) {
+                    *rows = row;
+                    *cols = col;
+                    return true;
+                }
+                return false;
+            }
+            else {
+                // not a cursor-position report; resync on the next ESC
+                state = WANT_ESC;
+                row = col = 0;
+                parsing_col = false;
+            }
+        }
+    }
+}
+
 void get_screen_xy(uint32_t* x, uint32_t* y) {
-    *x = 80;
-    *y = 24;
+    uint32_t cols = 80, rows = 24; // VT100 fallback for a silent terminal
+    bool have_size = false;
+
+    // Preferred path: ask the terminal driver for its window size directly.
+    // The GUI consoles (consoled/xterm) publish their live textgrid geometry
+    // through TIOCGWINSZ. This is a single synchronous IPC with no round-trip
+    // race, so it is both faster and far more reliable than the cursor-position
+    // probe below (which needs the terminal to answer on stdin mid-poll).
+    if (isatty(0)) {
+        struct winsize ws;
+        memset(&ws, 0, sizeof(ws));
+        if (ioctl(0, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 0 && ws.ws_col > 0) {
+            rows = ws.ws_row;
+            cols = ws.ws_col;
+            have_size = true;
+        }
+    }
+
+    // Fallback: ask the terminal itself over the wire. Park the cursor at an
+    // absurd row/col (it clamps to the real bottom-right corner) and request a
+    // cursor-position report. This is how the /dev/tty0 serial console reveals
+    // the geometry of whatever emulator is attached, and it works the same for
+    // ssh/telnet. Only probe a real terminal so we never swallow redirected or
+    // piped stdin.
+    if (!have_size && isatty(0) && isatty(1)) { // stdin and stdout are the terminal
+        fflush(stdout);
+        puts_no_eol(ESC "[999;999H");
+        puts_no_eol(ESC "[6n");
+        fflush(stdout);
+
+        uint32_t r = 0, c = 0;
+        if (read_cursor_pos_reply(&r, &c)) {
+            rows = r;
+            cols = c;
+        }
+        // we moved the cursor to the corner; put it back home
+        puts_no_eol(ESC_SET_CURSOR_TOPLEFT);
+        fflush(stdout);
+    }
+
+    // keep the geometry inside the buffers the rest of vi assumes
+    if (cols < 2) cols = 2;
+    if (rows < 2) rows = 2;
+    if (cols > MAX_SCR_COLS) cols = MAX_SCR_COLS;
+    if (rows > MAX_SCR_ROWS) rows = MAX_SCR_ROWS;
+
+    *x = cols;
+    *y = rows;
 }
 
 int main(int argc, char** argv) {

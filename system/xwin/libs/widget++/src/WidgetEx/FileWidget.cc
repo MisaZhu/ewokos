@@ -190,11 +190,16 @@ class FileGrid: public Grid {
 		}
 		loading = false;
 		dirp = opendir(r);
-		if(dirp == NULL)
+		if(dirp == NULL) {
+			/*loading cannot start: clear a busy cursor that may have been
+			  left on by a previous, still in-progress load*/
+			getWin()->busy(false);
 			return;
+		}
 		if(!ensureFileCapacity(1)) {
 			closedir(dirp);
 			dirp = NULL;
+			getWin()->busy(false);
 			return;
 		}
 		if(r != cwd) {
@@ -219,14 +224,19 @@ class FileGrid: public Grid {
 			return;
 
 		uint64_t t0 = kernel_tic_ms(0);
+		bool done = false;
 		while(fileNum < MAX_FILES) {
 			struct dirent* it = readdir(dirp);
-			if(it == NULL)
+			if(it == NULL) {
+				done = true; /*end of directory reached*/
 				break;
+			}
 			if(it->d_name[0] == '.')
 				continue;
-			if(!ensureFileCapacity(fileNum + 1))
+			if(!ensureFileCapacity(fileNum + 1)) {
+				done = true; /*cannot grow further, stop loading*/
 				break;
+			}
 			memcpy(&files[fileNum], it, sizeof(struct dirent));
 
 			if(it->d_type != DT_DIR && check(it->d_name, ".png")) {
@@ -238,10 +248,17 @@ class FileGrid: public Grid {
 			update();
 
 			if((kernel_tic_ms(0) - t0) >= LOAD_BUDGET_MS)
-				break;
+				break; /*time budget used up, resume on the next tick*/
 		}
 
-		if(dirp != NULL && fileNum >= MAX_FILES) {
+		if(fileNum >= MAX_FILES)
+			done = true;
+
+		/*only close the handle once reading is truly finished; a break caused
+		  by the time budget leaves dirp open so loading continues next tick.
+		  Closing it here is what lets the completion block below run and clear
+		  the busy cursor.*/
+		if(done && dirp != NULL) {
 			closedir(dirp);
 			dirp = NULL;
 		}

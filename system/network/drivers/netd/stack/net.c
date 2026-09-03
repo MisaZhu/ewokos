@@ -336,6 +336,26 @@ net_tx_flush(void)
     }
 }
 
+/*
+ * Non-blocking counterpart of net_tx_flush(). Used by the socket receive
+ * path, which generates a window-update ACK that should reach the wire
+ * immediately but must never park on device TX backpressure: doing so would
+ * hold the device lock away from the interrupt loop's inbound drain and
+ * stall RX for the whole backpressure window. Devices that do not batch TX
+ * (or do not implement tryflush) are simply skipped -- intr_step() flushes
+ * them at the end of every round anyway.
+ */
+void
+net_tx_tryflush(void)
+{
+    struct net_device *dev;
+    for (dev = devices; dev; dev = dev->next) {
+        if (NET_DEVICE_IS_UP(dev) && dev->ops && dev->ops->tryflush) {
+            dev->ops->tryflush(dev);
+        }
+    }
+}
+
 int
 net_input_handler(uint16_t type, const uint8_t *data, size_t len, struct net_device *dev)
 {

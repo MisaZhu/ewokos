@@ -511,6 +511,35 @@ void _libc_exit(void){
 }
 
 
+/* EwokOS keeps the file type in fsinfo_t.type and, for RAM-backed nodes
+ * (the ramfs /tmp tree, the /dev auto-dir, device nodes, ...), stores only
+ * the permission bits in stat.mode. ext3-backed nodes do carry the on-disk
+ * S_IF* bits, so stat() was inconsistent: S_ISDIR()/S_ISREG() failed for RAM
+ * nodes and callers that rely on st_mode alone (the macOS SFTP client, cp,
+ * glob, scp -r) mis-reported directories as plain files. Synthesize a
+ * consistent POSIX st_mode by forcing the type bits from info.type while
+ * preserving the permission bits. */
+static mode_t fsinfo_stat_mode(const fsinfo_t* info) {
+  mode_t type;
+
+  if(FS_IS_TYPE(info->type, FS_TYPE_DIR))
+    type = S_IFDIR;
+  else if(FS_IS_TYPE(info->type, FS_TYPE_FILE))
+    type = S_IFREG;
+  else if(FS_IS_TYPE(info->type, FS_TYPE_LINK))
+    type = S_IFLNK;
+  else if(FS_IS_TYPE(info->type, FS_TYPE_PIPE))
+    type = S_IFIFO;
+  else if(FS_IS_TYPE(info->type, FS_TYPE_CHAR))
+    type = S_IFCHR;
+  else if(FS_IS_TYPE(info->type, FS_TYPE_BLOCK))
+    type = S_IFBLK;
+  else
+    type = info->stat.mode & S_IFMT; /* unknown: keep whatever the fs set */
+
+  return (info->stat.mode & ~S_IFMT) | type;
+}
+
 int __attribute__((weak))
 _fstat (int fd, struct stat * st)
 {
@@ -522,7 +551,7 @@ _fstat (int fd, struct stat * st)
   st->st_uid = info.stat.uid;
   st->st_gid = info.stat.gid;
   st->st_size = info.stat.size;
-  st->st_mode = info.stat.mode;
+  st->st_mode = fsinfo_stat_mode(&info);
   st->st_atime = info.stat.atime;
   st->st_ctime = info.stat.ctime;
   st->st_mtime = info.stat.mtime;
@@ -543,7 +572,7 @@ _stat (const char *fname, struct stat *st)
   st->st_uid = info.stat.uid;
   st->st_gid = info.stat.gid;
   st->st_size = info.stat.size;
-  st->st_mode = info.stat.mode;
+  st->st_mode = fsinfo_stat_mode(&info);
   st->st_atime = info.stat.atime;
   st->st_ctime = info.stat.ctime;
   st->st_mtime = info.stat.mtime;

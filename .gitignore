@@ -30,3 +30,4 @@ system/network/libs/openssl/demos/**/*.pem
 .understandignore
 .understand-anything
 .qoder
+.ccache*

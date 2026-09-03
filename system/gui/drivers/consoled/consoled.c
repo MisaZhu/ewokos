@@ -19,6 +19,7 @@
 #include <sysinfo.h>
 #include <font/font.h>
 #include <keyb/keyb.h>
+#include <ewoksys/tty.h>
 
 typedef struct {
     const char* id;
@@ -124,6 +125,36 @@ static void flush(fb_console_t* console) {
 
 static bool _flush = true;
 static int _disp_index = 0;
+static charbuf_t* _buffer = NULL;   /* bytes pending for read() (declared early:
+                                       the line discipline and CPR callback use it) */
+static tty_state_t _tty;            /* shared terminal line discipline */
+static vdevice_t* _dev = NULL;      /* lets output_callback wake readers */
+
+/* gterminal's replies to terminal queries (e.g. the cursor-position report vi
+ * asks for) arrive here and are queued as input for the reader. */
+static void console_output_cb(void* p, const char* buf, int size) {
+    (void)p;
+    for(int i = 0; i < size; i++)
+        charbuf_push(_buffer, buf[i], true);
+    if(_dev != NULL)
+        vfs_wakeup(_dev->mnt_info.node, VFS_EVT_RD);
+}
+
+/* Line-discipline emit callbacks: queue bytes for read(), echo to the screen. */
+static void console_emit_read(void* arg, const char* buf, int size) {
+    (void)arg;
+    for(int i = 0; i < size; i++)
+        charbuf_push(_buffer, buf[i], true);
+}
+
+static void console_emit_echo(void* arg, const char* buf, int size) {
+    fb_console_t* console = (fb_console_t*)arg;
+    if(console == NULL || size <= 0)
+        return;
+    _flush = true;
+    gterminal_put(&console->terminal, buf, size);
+}
+
 static int console_write(vdevice_t* dev,
         int fd,
         int from_pid,
@@ -144,13 +175,26 @@ static int console_write(vdevice_t* dev,
         return 0;
 
     const char* pb = (const char*)buf;
-    gterminal_put(&console->terminal, pb, size);
+    if((_tty.tio.c_oflag & OPOST) == 0) {
+        gterminal_put(&console->terminal, pb, size);
+    }
+    else {
+        /* OPOST may expand NL->CRLF, so give tty_output room to grow. */
+        char* tmp = (char*)malloc((size_t)size * 2);
+        if(tmp != NULL) {
+            int m = tty_output(&_tty, pb, size, tmp, size * 2);
+            gterminal_put(&console->terminal, tmp, m);
+            free(tmp);
+        }
+        else {
+            gterminal_put(&console->terminal, pb, size);
+        }
+    }
     return size;
 }
 
 static int _keyb_fd = -1;
 static const char* _keyb_dev = "";
-static charbuf_t *_buffer;
 
 static int console_read(vdevice_t* dev,
         int fd,
@@ -162,6 +206,7 @@ static int console_read(vdevice_t* dev,
         void* p) {
 
     (void)dev;
+    tty_set_foreground(&_tty, from_pid);
     char c;
     int res = charbuf_pop(_buffer, &c);
 
@@ -169,6 +214,22 @@ static int console_read(vdevice_t* dev,
         return VFS_ERR_RETRY;
     ((char*)buf)[0] = c;
     return 1;
+}
+
+static uint32_t console_check_poll_events(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, void* p) {
+    (void)dev;
+    (void)fd;
+    (void)from_pid;
+    (void)info;
+    (void)p;
+
+    /* Level-triggered: report readable whenever bytes are pending. Without this
+     * poll() only sees the edge from vfs_wakeup(), so a full-screen app that
+     * reads one byte at a time (e.g. vi's cursor-position probe) can miss the
+     * rest of a multi-byte reply and time out. */
+    if(!charbuf_is_empty(_buffer))
+        return VFS_EVT_RD;
+    return 0;
 }
 
 static int console_loop(vdevice_t* dev, void* p) {
@@ -247,7 +308,10 @@ static int console_loop(vdevice_t* dev, void* p) {
             }
             else {
                 gterminal_scroll(&console->terminal, 0);
-                charbuf_push(_buffer, c, true);
+                char ch = (char)c;
+                tty_input(&_tty, &ch, 1,
+                        console_emit_read, NULL,
+                        console_emit_echo, console);
             }
         }
         if(n > 0)
@@ -257,6 +321,18 @@ static int console_loop(vdevice_t* dev, void* p) {
     ipc_enable();
     usleep(30000);
     return 0;
+}
+
+static int console_dcntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
+    (void)dev;
+    (void)from_pid;
+    fb_console_t* console = (fb_console_t*)p;
+    /* Report the live textgrid geometry so TIOCGWINSZ answers without a probe. */
+    if(console != NULL)
+        tty_set_winsize(&_tty,
+                (unsigned short)console->terminal.rows,
+                (unsigned short)console->terminal.cols);
+    return tty_dev_cntl(&_tty, cmd, in, ret);
 }
 
 static const char* _mnt_point = "";
@@ -285,6 +361,7 @@ static int doargs(int argc, char* argv[]) {
 int main(int argc, char** argv) {
     _disp_index = 0;
     _buffer = charbuf_new(0);
+    tty_init(&_tty);
     int argind = doargs(argc, argv);
 
     char mnt_point[128] = {0};
@@ -299,6 +376,8 @@ int main(int argc, char** argv) {
     fb_console_t _console;
     init_console(&_console, display_dev, _disp_index);
     reset_console(&_console);
+    _console.terminal.output_callback = console_output_cb;
+    _console.terminal.output_callback_arg = NULL;
 
     vdevice_t dev;
     memset(&dev, 0, sizeof(vdevice_t));
@@ -307,6 +386,9 @@ int main(int argc, char** argv) {
     dev.read = console_read;
     dev.extra_data = &_console;
     dev.loop_step = console_loop;
+    dev.check_poll_events = console_check_poll_events;
+    dev.dev_cntl = console_dcntl;
+    _dev = &dev;
 
     device_run(&dev, mnt_point, FS_TYPE_CHAR, 0666, false);
     close_console(&_console);

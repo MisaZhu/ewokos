@@ -26,6 +26,7 @@ extern "C" {
 #include <ewoksys/basic_math.h>
 #include <ewoksys/timer.h>
 #include <ewoksys/wait.h>
+#include <ewoksys/tty.h>
 
 #include <WidgetEx/ConsoleWidget.h>
 #include <Widget/WidgetWin.h>
@@ -50,6 +51,7 @@ static pthread_mutex_t _buffer_lock;
 static pthread_mutex_t _output_lock;
 static std::string* _output_pending = NULL;
 static int _shell_pid = -1;
+static tty_state_t _tty;   /* shared terminal line discipline */
 
 static inline void buffer_push_char(char c) {
 	pthread_mutex_lock(&_buffer_lock);
@@ -91,6 +93,20 @@ static inline std::string output_queue_take(void) {
 	return out;
 }
 
+/* Line-discipline emit callbacks: queue bytes for read(), and echo typed bytes
+ * back through the normal output path (a separate lock, so no deadlock with the
+ * term_lock held by input()). */
+static void xterm_emit_read(void* arg, const char* buf, int size) {
+	(void)arg;
+	for(int i = 0; i < size; i++)
+		buffer_push_char(buf[i]);
+}
+
+static void xterm_emit_echo(void* arg, const char* buf, int size) {
+	(void)arg;
+	output_queue_push(buf, size);
+}
+
 class TermWidget : public ConsoleWidget {
 	pthread_mutex_t term_lock;
 	bool showXIM;
@@ -118,6 +134,14 @@ public:
 
 	void unlock() {
 		pthread_mutex_unlock(&term_lock);
+	}
+
+	/* Report the current textgrid geometry for TIOCGWINSZ. */
+	void queryWinsize(unsigned short* rows, unsigned short* cols) {
+		lock();
+		*rows = (unsigned short)terminal.rows;
+		*cols = (unsigned short)terminal.cols;
+		unlock();
 	}
 
 	void fontZoom(bool zoomIn) {
@@ -189,7 +213,8 @@ public:
 	}
 protected:
 	void input(int32_t c) {
-		buffer_push_char(c);
+		char ch = (char)c;
+		tty_input(&_tty, &ch, 1, xterm_emit_read, NULL, xterm_emit_echo, NULL);
 		vfs_wakeup(_dev->mnt_info.node, VFS_EVT_RD);
 	}
 
@@ -511,7 +536,21 @@ static int console_write(vdevice_t* dev, int fd,
 	if(size <= 0 || _consoleWidget == NULL)
 		return 0;
 
-	output_queue_push((const char*)buf, size);
+	if((_tty.tio.c_oflag & OPOST) == 0) {
+		output_queue_push((const char*)buf, size);
+	}
+	else {
+		/* OPOST may expand NL->CRLF, so give tty_output room to grow. */
+		char* tmp = (char*)malloc((size_t)size * 2);
+		if(tmp != NULL) {
+			int m = tty_output(&_tty, (const char*)buf, size, tmp, size * 2);
+			output_queue_push(tmp, m);
+			free(tmp);
+		}
+		else {
+			output_queue_push((const char*)buf, size);
+		}
+	}
 	return size;
 }
 
@@ -519,11 +558,11 @@ static int console_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 		void* buf, int size, int offset, void* p) {
 	(void)dev;
 	(void)fd;
-	(void)from_pid;
 	(void)offset;
 	(void)p;
 	(void)size;
 
+	tty_set_foreground(&_tty, from_pid);
 
 	if(_consoleWidget == NULL) {
 		return 0; //closed
@@ -568,6 +607,19 @@ static int console_loop(vdevice_t* dev, void* p) {
 	return 0;
 }
 
+static int console_dcntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
+	(void)dev;
+	(void)from_pid;
+	(void)p;
+	/* Report the live textgrid geometry so TIOCGWINSZ answers without a probe. */
+	if(_consoleWidget != NULL) {
+		unsigned short r = 0, c = 0;
+		_consoleWidget->queryWinsize(&r, &c);
+		tty_set_winsize(&_tty, r, c);
+	}
+	return tty_dev_cntl(&_tty, cmd, in, ret);
+}
+
 static void do_signal(int sig, void* p) {
 	_dev->terminated = true;
 }
@@ -585,6 +637,7 @@ int run(const char* mnt_point) {
 	pthread_mutex_init(&_buffer_lock, NULL);
 	pthread_mutex_init(&_output_lock, NULL);
 	_output_pending = new std::string();
+	tty_init(&_tty);
 
 	vdevice_t dev;
 	memset(&dev, 0, sizeof(vdevice_t));
@@ -593,6 +646,7 @@ int run(const char* mnt_point) {
 	dev.read = console_read;
 	dev.loop_step = console_loop;
 	dev.check_poll_events = console_check_poll_events;
+	dev.dev_cntl = console_dcntl;
 	_dev = &dev;
 
 	pthread_t tid;
