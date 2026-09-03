@@ -8,6 +8,12 @@
    times. returns 0 on success. */
 int32_t bsp_g2d_init(void);
 
+/* clock rate of the 2D engine in Hz, as confirmed during bsp_g2d_init()
+   (the hardware backend pins the GPU to its max rate at init and reads
+   back the actual rate). returns 0 when the platform has no such clock
+   (software backends) or the rate could not be confirmed. */
+uint32_t bsp_g2d_clock_hz(void);
+
 /* contig/src_contig/dst_contig: != 0 when the buffer backing is
    physically contiguous (contig shm slab or dma memory), required by
    hardware 2d paths that work on physical addresses. *_phy carries the

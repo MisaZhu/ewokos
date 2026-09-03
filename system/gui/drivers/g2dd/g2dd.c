@@ -705,6 +705,8 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 	(void)p;
 
 	int res = -1;
+	uint32_t clock_hz = 0;
+	int is_clock = (cmd == G2D_DEV_CNTL_GET_CLOCK);
 	g2d_task_lock();
 	_g2dd_req_cnt++;
 	switch (cmd) {
@@ -723,6 +725,12 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 	case G2D_DEV_CNTL_SCALE_TO:
 		res = g2dd_handle_scale_to(in);
 		break;
+	case G2D_DEV_CNTL_GET_CLOCK:
+		/* report the engine clock pinned at startup; 0 Hz on
+		   backends without one is "cannot report" */
+		clock_hz = bsp_g2d_clock_hz();
+		res = (clock_hz > 0) ? 0 : -1;
+		break;
 	case G2D_DEV_CNTL_BLIT_TO_PHY:
 		res = g2dd_handle_blit_to_phy(in);
 		break;
@@ -731,10 +739,12 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 	}
 	g2d_task_unlock();
 
-	if(res != 0) {
+	if(res != 0 && !is_clock) {
 		G2DD_LOG("g2d_dev_cntl: ret is not 0!\n");
 	}
 	PF->clear(ret)->addi(ret, res);
+	if(is_clock && res == 0)
+		PF->addi(ret, clock_hz);
 	return res;
 }
 

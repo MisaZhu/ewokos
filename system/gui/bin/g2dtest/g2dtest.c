@@ -377,6 +377,17 @@ int main(int argc, char** argv) {
         printf("g2d device not found\n");
         return -1;
     }
+    /* confirm the g2d engine clock every run: hardware backends pin the
+       gpu to its max rate at driver startup, so fps numbers are only
+       comparable across runs at a known clock; software backends have
+       no engine clock and report n/a */
+    {
+        uint32_t gpu_hz = 0;
+        if(g2d_get_clock(&gpu_hz) == 0 && gpu_hz > 0)
+            printf("gpu clock: %u Hz (%u MHz)\n", gpu_hz, gpu_hz / 1000000);
+        else
+            printf("gpu clock: n/a (no engine clock reported)\n");
+    }
     printf("g2d: stateless shm canvas test %ux%u\n", w0, h0);
 
     canvas = canvas_create(w0, h0);

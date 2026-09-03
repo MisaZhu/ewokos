@@ -3,6 +3,7 @@
 #include <ewoksys/proto.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <ewoksys/shm.h>
 #include <unistd.h>
 
 #define G2D_DEFAULT_DEV "/dev/g2d"
@@ -71,6 +72,11 @@ int g2d_set_dev(const char* dev) {
 static uint32_t _g2d_shm_seq = 0;
 
 int g2d_shm_alloc(uint32_t size, int* shm_id, uint32_t** pixels) {
+    return g2d_shm_alloc_phy(size, shm_id, pixels, NULL);
+}
+
+int g2d_shm_alloc_phy(uint32_t size, int* shm_id, uint32_t** pixels,
+        ewokos_addr_t* phy) {
     key_t key;
     int id;
     void* addr;
@@ -84,7 +90,9 @@ int g2d_shm_alloc(uint32_t size, int* shm_id, uint32_t** pixels) {
                 (_g2d_shm_seq & 0xffffu));
         _g2d_shm_seq++;
 
-        id = shmget(key, (int)size, 0666 | IPC_CREAT | IPC_EXCL);
+        /* GPU canvases must come from the physically-contiguous IPC slab;
+           ordinary scattered shm cannot be represented by one VC4 address. */
+        id = shmget(key, (int)size, 0666 | IPC_CREAT | IPC_EXCL | IPC_CONTIG);
         if(id > 0)
             break;
     }
@@ -95,6 +103,15 @@ int g2d_shm_alloc(uint32_t size, int* shm_id, uint32_t** pixels) {
         return -1;
     *shm_id = id;
     *pixels = (uint32_t*)addr;
+    if(phy != NULL) {
+        *phy = shm_contig_phy_addr(id, (ewokos_addr_t)addr);
+        if(*phy == 0) {
+            shmdt(addr);
+            *pixels = NULL;
+            *shm_id = -1;
+            return -1;
+        }
+    }
     return 0;
 }
 
@@ -125,6 +142,36 @@ int g2d_scale_to(const g2d_scale_to_req_t* req) {
     if(req == NULL)
         return -1;
     return g2d_send_struct(G2D_DEV_CNTL_SCALE_TO, req, sizeof(*req));
+}
+
+/* the driver answers with a status int (0 = ok, -1 = cannot report)
+   followed by the engine clock in Hz, so this reads the payload
+   directly instead of going through g2d_send_struct() */
+int g2d_get_clock(uint32_t* hz) {
+    proto_t in;
+    proto_t out;
+    int32_t dummy = 0;
+    int ret;
+
+    if(hz == NULL)
+        return -1;
+    *hz = 0;
+
+    int pid = g2d_dev_pid();
+    if(pid <= 0)
+        return -1;
+
+    PF->init(&in)->add(&in, &dummy, sizeof(dummy));
+    PF->init(&out);
+    ret = dev_cntl_by_pid(pid, G2D_DEV_CNTL_GET_CLOCK, &in, &out);
+    if(ret == 0) {
+        ret = proto_read_int(&out);
+        if(ret == 0)
+            *hz = (uint32_t)proto_read_int(&out);
+    }
+    PF->clear(&out);
+    PF->clear(&in);
+    return ret;
 }
 
 int g2d_blit_to_phy(const g2d_blit_to_phy_req_t* req) {
