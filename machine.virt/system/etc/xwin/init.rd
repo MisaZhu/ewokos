@@ -1,5 +1,5 @@
 @export TZ=CST-8
-@/bin/ipcserv /drivers/logd  -k /dev/log
+@/bin/ipcserv /drivers/logd  /dev/log
 @/bin/ipcserv /drivers/virt/g2dd     /dev/g2d
 
 @/bin/ipcserv /drivers/virt/ttyd /dev/tty0
