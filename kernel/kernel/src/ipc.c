@@ -1136,6 +1136,10 @@ void proc_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, proto_t* a
     ctx->gpr[0] = 0;
 
     proc_t* client_proc = get_current_proc();
+    if(client_proc == NULL) { //caller was terminated while running: no valid ipc context to reply into
+        ctx->gpr[0] = IPC_ERROR_NO_READY;
+        return;
+    }
     serv_pid = get_proc_pid(serv_pid);
     proc_t* serv_proc = proc_get(serv_pid);
 

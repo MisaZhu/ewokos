@@ -286,33 +286,16 @@ static int console_loop(vdevice_t* dev, void* p) {
             if(ev->key == KEY_LSHIFT || ev->key == KEY_RSHIFT || ev->key == KEY_CTRL)
                 continue;
 
-            if(c == KEY_UP) {
-                gterminal_scroll(&console->terminal, -1);
-                _flush = true;	
-            }
-            else if(c == KEY_DOWN) {
-                gterminal_scroll(&console->terminal, 1);
-                _flush = true;	
-            }
-            else if(c == KEY_LEFT) {
-                if(console->terminal.font_size > 5)
-                    console->terminal.font_size--;
-                gterminal_resize(&console->terminal, console->g->w, console->g->h);
-                _flush = true;	
-            }
-            else if(c == KEY_RIGHT) {
-                if(console->terminal.font_size < 99)
-                    console->terminal.font_size++;
-                gterminal_resize(&console->terminal, console->g->w, console->g->h);
-                _flush = true;	
-            }
-            else {
-                gterminal_scroll(&console->terminal, 0);
-                char ch = (char)c;
-                tty_input(&_tty, &ch, 1,
-                        console_emit_read, NULL,
-                        console_emit_echo, console);
-            }
+            /* Arrow keys belong to the shell (history recall and in-line
+             * cursor editing), not to the console view. Same policy as xterm:
+             * the terminal is only scrolled back to the bottom so what the
+             * user types stays visible. */
+            if(gterminal_scroll(&console->terminal, 0))
+                _flush = true;
+            char ch = (char)c;
+            tty_input(&_tty, &ch, 1,
+                    console_emit_read, NULL,
+                    console_emit_echo, console);
         }
         if(n > 0)
             vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);

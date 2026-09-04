@@ -302,30 +302,16 @@ protected:
 			if(c > 0 && c < 128) {
 				bool needUpdate = true;
 				lock();
-				if(c == KEY_UP) {
-					gterminal_scroll(&terminal, -1);
-				}
-				else if(c == KEY_DOWN) {
-					gterminal_scroll(&terminal, 1);
-				}
-				else if(c == KEY_LEFT) {
-					if(terminal.font_size > 5)
-						terminal.font_size--;
-					gterminal_resize(&terminal, area.w-scrollW, area.h);
-				}
-				else if(c == KEY_RIGHT) {
-					if(terminal.font_size < 99)
-						terminal.font_size++;
-					gterminal_resize(&terminal, area.w-scrollW, area.h);
+				/* Arrow keys are not terminal-view shortcuts any more: they are
+				 * handed to the shell as-is (up/down recall history, left/right
+				 * move the in-line cursor). Scrolling and font zooming stay on
+				 * the mouse and the menubar. */
+				if(c != KEY_LSHIFT && c != KEY_RSHIFT && c != KEY_CTRL) {
+					input(c);
+					gterminal_scroll(&terminal, 0);
 				}
 				else {
-					if(c != KEY_LSHIFT && c != KEY_RSHIFT && c != KEY_CTRL) {
-						input(c);
-						gterminal_scroll(&terminal, 0);
-					}
-					else {
-						needUpdate = false;
-					}
+					needUpdate = false;
 				}
 				unlock();
 				if(needUpdate)

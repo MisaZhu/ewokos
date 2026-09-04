@@ -18,5 +18,6 @@ int32_t cmd_gets(int fd, str_t* buf);
 int32_t handle_shell_cmd(const char* cmd);
 void    add_history(const char* cmd);
 void    free_history(void);
+void    prompt(void);
 
 #endif

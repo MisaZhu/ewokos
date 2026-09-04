@@ -309,7 +309,8 @@ static int run_cmd(char* cmd) {
     return do_stage_cmd(cmd);
 }
 
-static void prompt(void) {
+/* Not static: cmd_gets reprints the prompt after listing TAB candidates. */
+void prompt(void) {
     int uid = getuid();
     const char* cid = getenv("CONSOLE_ID");
     const char* user = getenv("USER");
