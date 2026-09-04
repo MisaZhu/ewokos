@@ -91,6 +91,7 @@ clean:
 		$(MAKE) -C $$dir clean; \
 	done
 	@$(MAKE) -C $(EWOKOS_ROOT_DIR)/sw.extra HW=$(HW) clean
+	@$(MAKE) -C $(EWOKOS_ROOT_DIR)/projects HW=$(HW) clean
 	rm -fr $(BUILD_DIR)
 	rm -fr $(FINAL_DIR)
 
