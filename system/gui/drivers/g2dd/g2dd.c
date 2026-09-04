@@ -82,6 +82,9 @@ typedef struct {
 	uint32_t height;
 	uint8_t dma; /* dma canvas: buffer is a dma address, no shmdt */
 	uint8_t contig; /* backing memory physically contiguous */
+	uint8_t cached; /* mapping is owned by the attach cache: detach only
+	                   drops the cache reference, never shmdt()s */
+	int32_t shm_id; /* segment a cached mapping is bound to */
 	ewokos_addr_t phy; /* physical base of the buffer when contig */
 } g2d_attached_t;
 
@@ -115,6 +118,189 @@ static int32_t g2d_dma_map(ewokos_addr_t addr, uint32_t size, ewokos_addr_t* pad
 	return 0;
 }
 
+/* attach cache: a compositor hands the very same handful of full-frame
+   shm canvases to every single request (the scan-out buffer, each
+   window's workspace snapshot, its frame graph), and shmat/shmdt of one
+   is a per-page walk in the kernel - shm_proc_map() does a map_page()
+   plus a flush_tlb_addr() for EVERY page and the unmap side does the
+   same again. An 800x480 argb frame is 375 pages, so one blit attaching
+   src and dst costs around 1500 page table updates and 1500 TLB
+   invalidations to move 1.4MB: the mapping churn, not the copy, is what
+   the engine spends its time on. Keeping the recent segments attached
+   turns all of that into a table lookup.
+
+   Two properties keep this correct:
+   - a hit is revalidated with shmctl(IPC_SHM_IS_CONTIG), which fails
+     once the segment is gone. Ids grow monotonically so a freed id is
+     never handed out again, but shm_alloc() DOES reuse the shm window
+     ADDRESS of a freed block for a new segment - a stale entry would
+     then quietly serve a buffer belonging to somebody else.
+   - entries are dropped again (idle TTL, plus LRU eviction when the
+     table is full). graph_free() only shmdt()s and the kernel frees a
+     segment once its last attach goes away, so holding a mapping
+     forever would pin the segment and leak the physically contiguous
+     slab the whole display stack allocates from. An entry still
+     referenced by an in-flight request is never evicted.
+
+   Everything runs under _g2d_task_lock (g2d_dev_cntl takes it before
+   dispatching any handler), so the table needs no locking of its own. */
+#define G2D_ATTACH_CACHE_MAX 32
+#define G2D_ATTACH_CACHE_TTL_MS 250
+
+typedef struct {
+	int32_t shm_id;
+	uint32_t* buffer;
+	uint8_t contig;
+	ewokos_addr_t phy;
+	uint32_t bytes; /* segment size: the cache budgets what it pins */
+	uint32_t refs; /* in-flight attaches; >0 pins the entry */
+	uint8_t stale; /* segment died while pinned: drop it on the last release */
+	uint64_t last_ms; /* kernel_tic_ms of the most recent attach */
+	uint8_t used;
+} g2d_attach_entry_t;
+
+static g2d_attach_entry_t _g2d_attach_cache[G2D_ATTACH_CACHE_MAX];
+static uint64_t _g2d_attach_sweep_ms = 0;
+
+/* ON by default: a compositor hands the very same handful of full-frame
+   canvases to every request, so nearly every attach is a table hit and
+   the per-request page walk disappears. What keeps the pinning honest is
+   g2d_cache_budget() below (a quarter of the contig slab), the idle TTL
+   sweep and LRU eviction.
+
+   `devcmd /dev/g2d cache 0` still drops back to the plain shmat/shmdt
+   path without a rebuild - and drains the table when it does. That drain
+   is not cosmetic: the kernel takes NO reference on a repeat shmat of an
+   id this process already has mapped, so a bypass attach of a cached id
+   is a no-op handing back the very address an entry owns, and its paired
+   shmdt() would tear that mapping out of the page table while the entry
+   still points at it. Bare `cache` reports the counters. */
+static int32_t _g2d_cache_enabled = 1;
+static uint64_t _g2d_cache_hits = 0;
+static uint64_t _g2d_cache_misses = 0;
+static uint64_t _g2d_cache_evicts = 0;
+static uint64_t _g2d_cache_stale = 0;
+static uint64_t _g2d_cache_bytes = 0;
+/* TTL drops are accounted separately from evictions: an eviction means the
+   table or its byte budget was full, a sweep drop means the entry simply
+   went idle. Without this split a ~50% hit rate with `evict 0` cannot be
+   told apart from a stream of never-seen-before segment ids. */
+static uint64_t _g2d_cache_swept = 0;
+
+/* the cache's shmat is a kernel reference, so every entry pins its
+   segment (and its physically contiguous slab pages) even after the
+   owner released it. an unbounded pin set starves fresh
+   graph_new_shm(IPC_CONTIG) allocations: the fallback non-contig graphs
+   are refused by g2d_check_graph and drop the compositor onto cpu
+   copies over the non-cacheable shm window, which misses frame
+   deadlines and leaves windows undrawn. cap the pinning at a quarter of
+   the slab, resolved once from sysinfo. */
+static uint64_t g2d_cache_budget(void) {
+	static uint64_t budget = 0;
+	sys_info_t si;
+
+	if(budget == 0) {
+		sys_get_sys_info(&si);
+		budget = si.shm_contig.size / 4;
+		if(budget == 0)
+			budget = 4 * 1024 * 1024;
+	}
+	return budget;
+}
+
+/* tear an entry down: the mapping goes back to the kernel (which frees
+   the segment once this last reference drops) and its bytes leave the
+   pin budget */
+static void g2d_cache_drop(g2d_attach_entry_t* e) {
+	shmdt(e->buffer);
+	_g2d_cache_bytes -= e->bytes;
+	e->buffer = NULL;
+	e->bytes = 0;
+	e->stale = 0;
+	e->used = 0;
+}
+
+static g2d_attach_entry_t* g2d_cache_find(int32_t shm_id) {
+	for(uint32_t i = 0; i < G2D_ATTACH_CACHE_MAX; i++) {
+		if(_g2d_attach_cache[i].used && _g2d_attach_cache[i].shm_id == shm_id)
+			return &_g2d_attach_cache[i];
+	}
+	return NULL;
+}
+
+/* unpin the segments nobody has asked for within the TTL, so a canvas
+   its owner already released stops blocking its own free. Throttled to
+   one walk per TTL: on a 60fps compositor this runs a few times a
+   second instead of once per canvas. */
+static void g2d_cache_sweep(uint64_t now_ms) {
+	if(_g2d_attach_sweep_ms != 0 &&
+			(now_ms - _g2d_attach_sweep_ms) < G2D_ATTACH_CACHE_TTL_MS)
+		return;
+	_g2d_attach_sweep_ms = now_ms;
+
+	for(uint32_t i = 0; i < G2D_ATTACH_CACHE_MAX; i++) {
+		g2d_attach_entry_t* e = &_g2d_attach_cache[i];
+		if(!e->used || e->refs > 0)
+			continue;
+		if((now_ms - e->last_ms) < G2D_ATTACH_CACHE_TTL_MS)
+			continue;
+		g2d_cache_drop(e);
+		_g2d_cache_swept++;
+	}
+}
+
+/* a free slot, else the least recently used unpinned one (detached to
+   make room). NULL when every entry is in flight, which leaves the
+   caller on the plain shmat/shmdt path - slow but always correct. */
+static g2d_attach_entry_t* g2d_cache_alloc(void) {
+	g2d_attach_entry_t* oldest = NULL;
+
+	for(uint32_t i = 0; i < G2D_ATTACH_CACHE_MAX; i++) {
+		g2d_attach_entry_t* e = &_g2d_attach_cache[i];
+		if(!e->used)
+			return e;
+		if(e->refs > 0)
+			continue;
+		if(oldest == NULL || e->last_ms < oldest->last_ms)
+			oldest = e;
+	}
+	if(oldest == NULL)
+		return NULL;
+
+	g2d_cache_drop(oldest);
+	_g2d_cache_evicts++;
+	return oldest;
+}
+
+static void g2d_cache_release(int32_t shm_id) {
+	g2d_attach_entry_t* e = g2d_cache_find(shm_id);
+	if(e == NULL || e->refs == 0)
+		return;
+	e->refs--;
+	if(e->refs > 0 || !e->stale)
+		return;
+	/* last in-flight user of a segment that turned out to be gone: drop the
+	   mapping right here, the sweep would keep skipping a pinned entry */
+	g2d_cache_drop(e);
+}
+
+/* hand every unpinned mapping back at once. Called when the cache is
+   switched off at runtime: the sweep only runs on the enabled path, so a
+   table left standing would pin its segments forever and, as the comment
+   on _g2d_cache_enabled spells out, the bypass path would then unmap
+   buffers the entries are still pointing at. An entry with refs>0 belongs
+   to the request in flight; g2d_cache_release drops it once that request
+   is done with it. */
+static void g2d_cache_drain(void) {
+	for(uint32_t i = 0; i < G2D_ATTACH_CACHE_MAX; i++) {
+		g2d_attach_entry_t* e = &_g2d_attach_cache[i];
+		if(!e->used || e->refs > 0)
+			continue;
+		g2d_cache_drop(e);
+	}
+	_g2d_attach_sweep_ms = 0;
+}
+
 /* attach a request canvas; rejects undersized segments so the mapping
    can never be written past its end */
 static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
@@ -126,6 +312,12 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 		return -1;
 	if(canvas->size < canvas->w * canvas->h * sizeof(uint32_t))
 		return -1;
+
+	/* at is a caller stack variable: every field detach looks at has to
+	   be written here, cached/shm_id included */
+	at->cached = 0;
+	at->shm_id = -1;
+	at->phy = 0;
 
 	if(canvas->dma != 0) {
 		/* dma canvas: addr is the dma buffer address in the allocator's
@@ -144,9 +336,73 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 
 	if(canvas->shm_id <= 0)
 		return -1;
+
+	uint64_t now_ms = kernel_tic_ms(0);
+
+	if(_g2d_cache_enabled == 0) {
+		/* bypass: plain attach, never published to the cache */
+		p = shmat(canvas->shm_id, 0, 0);
+		if(p == (void*)-1)
+			return -1;
+		at->buffer = (uint32_t*)p;
+		at->width = canvas->w;
+		at->height = canvas->h;
+		at->dma = 0;
+		at->contig = canvas->contig;
+		at->phy = canvas->phy;
+		if(at->contig != 0 && at->phy == 0)
+			at->phy = shm_contig_phy_addr(canvas->shm_id, (ewokos_addr_t)p);
+		return 0;
+	}
+
+	g2d_cache_sweep(now_ms);
+
+	g2d_attach_entry_t* e = g2d_cache_find(canvas->shm_id);
+	if(e != NULL) {
+		/* the segment may have been freed and its window address handed
+		   to a new one since this entry was filled: shmctl fails on a
+		   gone id, and the contig backing is a property of the segment
+		   so a mismatch means the entry describes something else */
+		int32_t alive = shmctl(canvas->shm_id, IPC_SHM_IS_CONTIG, NULL);
+		if(alive < 0 || (uint8_t)alive != e->contig) {
+			_g2d_cache_stale++;
+			if(e->refs > 0) {
+				/* pinned by this very request (src and dst naming one
+				   segment). Our own attach is a kernel reference, so the
+				   segment cannot have been freed underneath us and the
+				   mapping is good for the rest of this request. Falling
+				   through to a bare shmat/shmdt is exactly what would
+				   tear it down while the entry still points at it, so the
+				   entry is reused and marked for the matching release to
+				   drop. */
+				e->stale = 1;
+			}
+			else {
+				g2d_cache_drop(e);
+				e = NULL;
+			}
+		}
+	}
+
+	if(e != NULL) {
+		_g2d_cache_hits++;
+		e->refs++;
+		e->last_ms = now_ms;
+		at->buffer = e->buffer;
+		at->width = canvas->w;
+		at->height = canvas->h;
+		at->dma = 0;
+		at->contig = e->contig;
+		at->phy = e->phy;
+		at->cached = 1;
+		at->shm_id = canvas->shm_id;
+		return 0;
+	}
+
 	p = shmat(canvas->shm_id, 0, 0);
 	if(p == (void*)-1)
 		return -1;
+	_g2d_cache_misses++;
 	at->buffer = (uint32_t*)p;
 	at->width = canvas->w;
 	at->height = canvas->h;
@@ -159,12 +415,57 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 	at->phy = canvas->phy;
 	if(at->contig != 0 && at->phy == 0)
 		at->phy = shm_contig_phy_addr(canvas->shm_id, (ewokos_addr_t)p);
+
+	/* make room inside the pin budget before adopting the mapping: shed
+	   the least recently used unpinned entries first, and when nothing
+	   is sheddable (or the segment alone exceeds the budget) this attach
+	   simply stays uncached and detaches the old way */
+	while(_g2d_cache_bytes + canvas->size > g2d_cache_budget()) {
+		g2d_attach_entry_t* lru = NULL;
+		for(uint32_t i = 0; i < G2D_ATTACH_CACHE_MAX; i++) {
+			g2d_attach_entry_t* c = &_g2d_attach_cache[i];
+			if(!c->used || c->refs > 0)
+				continue;
+			if(lru == NULL || c->last_ms < lru->last_ms)
+				lru = c;
+		}
+		if(lru == NULL)
+			break;
+		g2d_cache_drop(lru);
+		_g2d_cache_evicts++;
+	}
+
+	e = g2d_cache_alloc();
+	if(e != NULL && _g2d_cache_bytes + canvas->size <= g2d_cache_budget()) {
+		e->shm_id = canvas->shm_id;
+		e->buffer = (uint32_t*)p;
+		e->contig = canvas->contig;
+		e->phy = at->phy;
+		e->bytes = canvas->size;
+		e->refs = 1;
+		e->stale = 0;
+		e->last_ms = now_ms;
+		e->used = 1;
+		_g2d_cache_bytes += canvas->size;
+		at->cached = 1;
+		at->shm_id = canvas->shm_id;
+	}
 	return 0;
 }
 
 static void g2d_detach(const g2d_attached_t* at) {
-	if(at != NULL && at->buffer != NULL && at->dma == 0)
-		shmdt(at->buffer);
+	if(at == NULL || at->buffer == NULL || at->dma != 0)
+		return;
+	if(at->cached != 0) {
+		/* the cache owns the mapping and hands it to the next request;
+		   tearing it down here is exactly the churn this avoids */
+		g2d_cache_release(at->shm_id);
+		return;
+	}
+	/* a temp surface from g2d_alloc_surface, or an attach the full cache
+	   could not adopt: this process is the only one left holding it, so
+	   the shmdt is what lets the kernel free the segment */
+	shmdt(at->buffer);
 }
 
 /* window clipping at the driver boundary: every rect handed to bsp_g2d
@@ -695,6 +996,38 @@ static char* g2d_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* 
 
 	if(strcmp(argv[0], "info") == 0)
 		return g2d_strdup("stateless argb8888 shm canvases via soft");
+
+	/* `devcmd /dev/g2d cache 0|1` toggles the attach cache at runtime,
+	   `devcmd /dev/g2d cache` reports the hit/miss/evict counters */
+	if(strcmp(argv[0], "cache") == 0) {
+		char buf[192];
+		uint32_t slots = 0;
+		for(uint32_t i = 0; i < G2D_ATTACH_CACHE_MAX; i++) {
+			if(_g2d_attach_cache[i].used)
+				slots++;
+		}
+		if(argc > 1 && argv[1] != NULL) {
+			int32_t on = (atoi(argv[1]) != 0) ? 1 : 0;
+			/* never leave cached mappings behind a bypass: their shmdt
+			   would come from a path the cache cannot see */
+			if(on == 0 && _g2d_cache_enabled != 0)
+				g2d_cache_drain();
+			_g2d_cache_enabled = on;
+		}
+		snprintf(buf, sizeof(buf),
+				"cache %s hits %llu miss %llu sweep %llu evict %llu stale %llu slots %u/%u pin %uKB/%uKB",
+				_g2d_cache_enabled ? "on" : "off",
+				(unsigned long long)_g2d_cache_hits,
+				(unsigned long long)_g2d_cache_misses,
+				(unsigned long long)_g2d_cache_swept,
+				(unsigned long long)_g2d_cache_evicts,
+				(unsigned long long)_g2d_cache_stale,
+				(unsigned int)slots,
+				(unsigned int)G2D_ATTACH_CACHE_MAX,
+				(unsigned int)(_g2d_cache_bytes / 1024),
+				(unsigned int)(g2d_cache_budget() / 1024));
+		return g2d_strdup(buf);
+	}
 	return NULL;
 }
 

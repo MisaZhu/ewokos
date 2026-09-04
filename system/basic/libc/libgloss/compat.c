@@ -1661,7 +1661,8 @@ typedef enum {
     FMT_LEN_LL,
     FMT_LEN_Z,
     FMT_LEN_T,
-    FMT_LEN_J
+    FMT_LEN_J,
+    FMT_LEN_LD
 } fmt_len_t;
 
 typedef struct {
@@ -1782,6 +1783,16 @@ static void fmt_parse(const char **format, fmt_spec_t *spec) {
     }
     else if (*p == 'j') {
         spec->length = FMT_LEN_J;
+        ++p;
+    }
+    else if (*p == 'L') {
+        /*
+         * C99 long double. EwokOS targets do not link libgcc's 128-bit
+         * quad-precision routines, so 'L' is accepted for compatibility and
+         * the argument is consumed as a double (long double == double on arm;
+         * no in-tree code passes a true quad to printf on aarch64).
+         */
+        spec->length = FMT_LEN_LD;
         ++p;
     }
 
@@ -2055,6 +2066,386 @@ static void append_formatted_float(char *buf, size_t size, size_t *pos,
     }
 }
 
+/*
+ * Emit an already-built number string with field-width padding. Mirrors the
+ * tail of append_formatted_float so the %e/%g/%a paths share one routine.
+ */
+static void emit_padded(char *buf, size_t size, size_t *pos,
+        const char *out, int out_len, const fmt_spec_t *spec) {
+    int pad = spec->width - out_len;
+
+    if (!spec->left && pad > 0) {
+        char pad_char = spec->zero ? '0' : ' ';
+        if (pad_char == '0' && out_len > 0 &&
+                (out[0] == '-' || out[0] == '+' || out[0] == ' ')) {
+            append_char(buf, size, pos, out[0]);
+            append_repeat(buf, size, pos, '0', pad);
+            append_mem(buf, size, pos, out + 1, (size_t)(out_len - 1));
+            return;
+        }
+        append_repeat(buf, size, pos, pad_char, pad);
+    }
+    append_mem(buf, size, pos, out, (size_t)out_len);
+    if (spec->left && pad > 0) {
+        append_repeat(buf, size, pos, ' ', pad);
+    }
+}
+
+/* %e / %E : [-]d.ddddde[+-]DD  (exponent always at least two digits) */
+static void append_formatted_exp(char *buf, size_t size, size_t *pos,
+        double value, const fmt_spec_t *spec, int upper) {
+    char out[64];
+    char ebuf[8];
+    int out_len = 0;
+    int precision = spec->precision >= 0 ? spec->precision : 6;
+    int exponent = 0;
+    int en = 0;
+    int i;
+    char sign = 0;
+    char expch = upper ? 'E' : 'e';
+    unsigned long long ip;
+    unsigned long long fp = 0;
+    unsigned long long scale = 1;
+
+    if (precision > 17) {
+        precision = 17;
+    }
+
+    if (value != value) {
+        emit_padded(buf, size, pos, upper ? "NAN" : "nan", 3, spec);
+        return;
+    }
+    if (value > DBL_MAX || value < -DBL_MAX) {
+        if (value < 0.0) {
+            emit_padded(buf, size, pos, upper ? "-INF" : "-inf", 4, spec);
+        }
+        else {
+            emit_padded(buf, size, pos, upper ? "INF" : "inf", 3, spec);
+        }
+        return;
+    }
+
+    if (value < 0.0) {
+        sign = '-';
+        value = -value;
+    }
+    else if (spec->plus) {
+        sign = '+';
+    }
+    else if (spec->space) {
+        sign = ' ';
+    }
+
+    if (value != 0.0) {
+        while (value >= 10.0) { value /= 10.0; exponent++; }
+        while (value < 1.0)   { value *= 10.0; exponent--; }
+    }
+
+    {
+        double delta = 0.5;
+        for (i = 0; i < precision; ++i) {
+            delta /= 10.0;
+        }
+        value += delta;
+        if (value >= 10.0) { value /= 10.0; exponent++; }
+    }
+
+    ip = (unsigned long long)value;
+    if (precision > 0) {
+        double frac = value - (double)ip;
+        for (i = 0; i < precision; ++i) {
+            scale *= 10ULL;
+        }
+        fp = (unsigned long long)(frac * (double)scale);
+        if (fp >= scale) { fp = 0; ip++; }
+        if (ip >= 10ULL) { ip = 1ULL; exponent++; }
+    }
+
+    if (sign != 0) {
+        out[out_len++] = sign;
+    }
+    out[out_len++] = (char)('0' + (int)(ip % 10ULL));
+    if (precision > 0 || spec->alt) {
+        out[out_len++] = '.';
+    }
+    for (i = precision - 1; i >= 0; --i) {
+        out[out_len + i] = (char)('0' + (int)(fp % 10ULL));
+        fp /= 10ULL;
+    }
+    out_len += precision;
+    out[out_len++] = expch;
+    out[out_len++] = (exponent < 0) ? '-' : '+';
+    if (exponent < 0) {
+        exponent = -exponent;
+    }
+    do {
+        ebuf[en++] = (char)('0' + (exponent % 10));
+        exponent /= 10;
+    } while (exponent != 0);
+    while (en < 2) {
+        ebuf[en++] = '0';
+    }
+    for (i = en - 1; i >= 0; --i) {
+        out[out_len++] = ebuf[i];
+    }
+    out[out_len] = 0;
+
+    emit_padded(buf, size, pos, out, out_len, spec);
+}
+
+/* %a / %A : [-]0xh.hhhhp[+-]D  (IEEE-754 double bit decomposition, no libm) */
+static void append_formatted_hexfloat(char *buf, size_t size, size_t *pos,
+        double value, const fmt_spec_t *spec, int upper) {
+    union { double d; uint64_t u; } cvt;
+    const char *hexd = upper ? "0123456789ABCDEF" : "0123456789abcdef";
+    char xch = upper ? 'X' : 'x';
+    char pch = upper ? 'P' : 'p';
+    char out[128];
+    char raw[16];
+    char frac[80];
+    int out_len = 0;
+    int fl = 0;
+    int precision = spec->precision;
+    int sigdigits;
+    int bexp;
+    int dec_exp;
+    int lead;
+    int i;
+    char sign = 0;
+    uint64_t u;
+    uint64_t mant;
+
+    if (precision > 64) {
+        precision = 64;
+    }
+
+    cvt.d = value;
+    u = cvt.u;
+    bexp = (int)((u >> 52) & 0x7FFULL);
+    mant = u & 0xFFFFFFFFFFFFFULL;
+
+    if (bexp == 0x7FF) {
+        if (mant != 0ULL) {
+            emit_padded(buf, size, pos, upper ? "NAN" : "nan", 3, spec);
+        }
+        else if (u >> 63) {
+            emit_padded(buf, size, pos, upper ? "-INF" : "-inf", 4, spec);
+        }
+        else {
+            emit_padded(buf, size, pos, upper ? "INF" : "inf", 3, spec);
+        }
+        return;
+    }
+
+    if (u >> 63) {
+        sign = '-';
+    }
+    else if (spec->plus) {
+        sign = '+';
+    }
+    else if (spec->space) {
+        sign = ' ';
+    }
+
+    if (bexp == 0) {
+        lead = 0;
+        dec_exp = -1022;
+        if (mant == 0ULL) {
+            if (sign != 0) {
+                out[out_len++] = sign;
+            }
+            out[out_len++] = '0';
+            out[out_len++] = xch;
+            out[out_len++] = '0';
+            if (precision > 0 || spec->alt) {
+                out[out_len++] = '.';
+            }
+            for (i = 0; i < precision; ++i) {
+                out[out_len++] = '0';
+            }
+            out[out_len++] = pch;
+            out[out_len++] = '+';
+            out[out_len++] = '0';
+            out[out_len] = 0;
+            emit_padded(buf, size, pos, out, out_len, spec);
+            return;
+        }
+    }
+    else {
+        lead = 1;
+        dec_exp = bexp - 1023;
+    }
+
+    if (precision >= 0 && precision < 13) {
+        int shift = (13 - precision) * 4;
+        uint64_t half = 1ULL << (shift - 1);
+        uint64_t dropped = mant & ((half << 1) - 1ULL);
+        mant >>= shift;
+        if (dropped > half) {
+            mant++;
+            if (precision == 0 || mant >= (1ULL << (precision * 4))) {
+                mant = 0;
+                if (lead == 1) {
+                    dec_exp++;
+                }
+                else {
+                    lead = 1;
+                }
+            }
+        }
+        sigdigits = precision;
+    }
+    else {
+        sigdigits = 13;
+    }
+
+    for (i = sigdigits - 1; i >= 0; --i) {
+        raw[i] = hexd[mant & 0xFULL];
+        mant >>= 4;
+    }
+
+    if (precision < 0) {
+        for (i = 0; i < 13; ++i) {
+            frac[fl++] = raw[i];
+        }
+        if (!spec->alt) {
+            while (fl > 0 && frac[fl - 1] == '0') {
+                fl--;
+            }
+        }
+    }
+    else {
+        for (i = 0; i < sigdigits; ++i) {
+            frac[fl++] = raw[i];
+        }
+        while (fl < precision && fl < (int)sizeof(frac)) {
+            frac[fl++] = '0';
+        }
+    }
+
+    if (sign != 0) {
+        out[out_len++] = sign;
+    }
+    out[out_len++] = '0';
+    out[out_len++] = xch;
+    out[out_len++] = (char)('0' + lead);
+    if (fl > 0 || spec->alt) {
+        out[out_len++] = '.';
+        for (i = 0; i < fl; ++i) {
+            out[out_len++] = frac[i];
+        }
+    }
+    out[out_len++] = pch;
+    out[out_len++] = (dec_exp < 0) ? '-' : '+';
+    if (dec_exp < 0) {
+        dec_exp = -dec_exp;
+    }
+    {
+        char e2[8];
+        int en = 0;
+        do {
+            e2[en++] = (char)('0' + (dec_exp % 10));
+            dec_exp /= 10;
+        } while (dec_exp != 0);
+        for (i = en - 1; i >= 0; --i) {
+            out[out_len++] = e2[i];
+        }
+    }
+    out[out_len] = 0;
+
+    emit_padded(buf, size, pos, out, out_len, spec);
+}
+
+/* %g / %G : shorter of %e/%f, trailing zeros trimmed unless '#' */
+static void append_formatted_g(char *buf, size_t size, size_t *pos,
+        double value, const fmt_spec_t *spec, int upper) {
+    char tmpbuf[256];
+    size_t tpos = 0;
+    fmt_spec_t sub;
+    double av;
+    int X = 0;
+    int P;
+    int len;
+    int i;
+
+    if (value != value || value > DBL_MAX || value < -DBL_MAX) {
+        append_formatted_exp(buf, size, pos, value, spec, upper);
+        return;
+    }
+
+    P = (spec->precision >= 0) ? spec->precision : 6;
+    if (P == 0) {
+        P = 1;
+    }
+
+    av = (value < 0.0) ? -value : value;
+    if (av != 0.0) {
+        while (av >= 10.0) { av /= 10.0; X++; }
+        while (av < 1.0)   { av *= 10.0; X--; }
+    }
+
+    sub = *spec;
+    sub.width = 0;
+    sub.left = 0;
+    sub.zero = 0;
+
+    if (P > X && X >= -4) {
+        sub.precision = P - 1 - X;
+        if (sub.precision < 0) {
+            sub.precision = 0;
+        }
+        append_formatted_float(tmpbuf, sizeof(tmpbuf), &tpos, value, &sub);
+    }
+    else {
+        sub.precision = P - 1;
+        if (sub.precision < 0) {
+            sub.precision = 0;
+        }
+        append_formatted_exp(tmpbuf, sizeof(tmpbuf), &tpos, value, &sub, upper);
+    }
+
+    len = (int)tpos;
+    if (len > (int)sizeof(tmpbuf) - 1) {
+        len = (int)sizeof(tmpbuf) - 1;
+    }
+    tmpbuf[len] = 0;
+
+    if (!spec->alt) {
+        int epos = -1;
+        int end;
+        int hasdot = 0;
+        for (i = 0; i < len; ++i) {
+            if (tmpbuf[i] == 'e' || tmpbuf[i] == 'E') { epos = i; break; }
+        }
+        end = (epos >= 0) ? epos : len;
+        for (i = 0; i < end; ++i) {
+            if (tmpbuf[i] == '.') { hasdot = 1; break; }
+        }
+        if (hasdot) {
+            int k = end - 1;
+            int newlen;
+            while (k > 0 && tmpbuf[k] == '0') {
+                k--;
+            }
+            if (tmpbuf[k] == '.') {
+                k--;
+            }
+            newlen = k + 1;
+            if (epos >= 0) {
+                int en = len - epos;
+                for (i = 0; i < en; ++i) {
+                    tmpbuf[newlen + i] = tmpbuf[epos + i];
+                }
+                newlen += en;
+            }
+            len = newlen;
+            tmpbuf[len] = 0;
+        }
+    }
+
+    emit_padded(buf, size, pos, tmpbuf, len, spec);
+}
+
 int vsnprintf(char *str, size_t size, const char *format, va_list ap) {
     size_t pos = 0;
 
@@ -2122,6 +2513,36 @@ int vsnprintf(char *str, size_t size, const char *format, va_list ap) {
         case 'f':
         case 'F':
             append_formatted_float(str, size, &pos, va_arg(ap, double), &spec);
+            break;
+        case 'e':
+            append_formatted_exp(str, size, &pos, va_arg(ap, double), &spec, 0);
+            break;
+        case 'E':
+            append_formatted_exp(str, size, &pos, va_arg(ap, double), &spec, 1);
+            break;
+        case 'g':
+            append_formatted_g(str, size, &pos, va_arg(ap, double), &spec, 0);
+            break;
+        case 'G':
+            append_formatted_g(str, size, &pos, va_arg(ap, double), &spec, 1);
+            break;
+        case 'a':
+            append_formatted_hexfloat(str, size, &pos, va_arg(ap, double), &spec, 0);
+            break;
+        case 'A':
+            append_formatted_hexfloat(str, size, &pos, va_arg(ap, double), &spec, 1);
+            break;
+        case 'n':
+            switch (spec.length) {
+            case FMT_LEN_HH: *va_arg(ap, signed char *) = (signed char)pos; break;
+            case FMT_LEN_H:  *va_arg(ap, short *) = (short)pos; break;
+            case FMT_LEN_L:  *va_arg(ap, long *) = (long)pos; break;
+            case FMT_LEN_LL: *va_arg(ap, long long *) = (long long)pos; break;
+            case FMT_LEN_Z:  *va_arg(ap, ssize_t *) = (ssize_t)pos; break;
+            case FMT_LEN_J:  *va_arg(ap, long long *) = (long long)pos; break;
+            case FMT_LEN_T:  *va_arg(ap, ptrdiff_t *) = (ptrdiff_t)pos; break;
+            default:         *va_arg(ap, int *) = (int)pos; break;
+            }
             break;
         case 0:
             --format;
@@ -2429,6 +2850,45 @@ int vfprintf(FILE *stream, const char *format, va_list ap) {
     return len;
 }
 
+int vasprintf(char **strp, const char *format, va_list ap) {
+    va_list ap_copy;
+    char *buf;
+    int len;
+
+    if (strp == NULL) {
+        return -1;
+    }
+    *strp = NULL;
+
+    va_copy(ap_copy, ap);
+    len = vsnprintf(NULL, 0, format, ap_copy);
+    va_end(ap_copy);
+    if (len < 0) {
+        return -1;
+    }
+
+    buf = (char *)malloc((size_t)len + 1);
+    if (buf == NULL) {
+        return -1;
+    }
+    va_copy(ap_copy, ap);
+    vsnprintf(buf, (size_t)len + 1, format, ap_copy);
+    va_end(ap_copy);
+
+    *strp = buf;
+    return len;
+}
+
+int asprintf(char **strp, const char *format, ...) {
+    va_list ap;
+    int len;
+
+    va_start(ap, format);
+    len = vasprintf(strp, format, ap);
+    va_end(ap);
+    return len;
+}
+
 int fprintf(FILE *stream, const char *format, ...) {
     va_list ap;
     int ret;
@@ -2685,6 +3145,12 @@ int ferror(FILE *stream) {
     return 0;
 }
 
+void clearerr(FILE *stream) {
+    if (stream != NULL) {
+        stream->eof = 0;
+    }
+}
+
 int putchar(int c) {
     char ch = (char)c;
     return (write_all_retry_compat(1, &ch, 1) == 1) ? c : EOF;
@@ -2699,6 +3165,10 @@ int putc(int c, FILE *stream) {
     char ch = (char)c;
     int fd = (stream != NULL) ? stream->fd : 1;
     return (write_all_retry_compat(fd, &ch, 1) == 1) ? c : EOF;
+}
+
+int fputc(int c, FILE *stream) {
+    return putc(c, stream);
 }
 
 int puts(const char *s) {

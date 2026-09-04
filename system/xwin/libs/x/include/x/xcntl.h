@@ -103,8 +103,9 @@ typedef struct {
 	  path). Client paints into ws_g, publishes its calling thread pid into
 	  update_pid, issues a full memory barrier, then sets update_requested=1
 	  and blocks on token=xinfo->win. Server polls the flag from loop_step at
-	  its own fps, snapshots ws_g into ws_g_buffer, clears the flag and wakes
-	  update_pid. update_pid must be the CURRENT THREAD pid (thread_get_id,
+	  its own fps, composites ws_g straight onto the scan-out (the parked
+	  client cannot be writing it), then clears the flag and wakes update_pid.
+	  update_pid must be the CURRENT THREAD pid (thread_get_id,
 	  not getpid: getpid returns the root task pid, and proc_wakeup_by
 	  targets one specific proc entry, so waking the wrong thread would
 	  leave the blocked painter stuck). Both fields are volatile and the
@@ -122,10 +123,10 @@ typedef struct {
 	  client does in xwin_repaint: only when the server has consumed the previous
 	  submission (update_requested==0) does it blit ws_g -> ws_g2, set front_index=1
 	  and update_requested=1 - all without blocking, so the client keeps its own fps.
-	  The server snapshots ws_g[front_index] (= ws_g2) into ws_g_buffer at its own
-	  fps and clears update_requested only AFTER that copy, so ws_g2 is stable while
-	  the server reads it and the client can keep painting ws_g without tearing.
-	  front_index selects the server's snapshot source (1 => ws_g2); back_index is
+	  The server composites ws_g[front_index] (= ws_g2) straight onto the scan-out at
+	  its own fps and clears update_requested only AFTER that blit, so ws_g2 is stable
+	  while the server reads it and the client can keep painting ws_g without tearing.
+	  front_index selects the server's composite source (1 => ws_g2); back_index is
 	  reserved and stays 0 (the client always renders ws_g).*/
 	bool fps_async;
 	int32_t ws_g2_shm_id;
@@ -133,15 +134,50 @@ typedef struct {
 	volatile uint32_t back_index;
 	volatile uint32_t front_index;
 
-	/*the server's private composite source (ws_g_buffer) shm, published so xwm
-	  blends decorations over the SAME stable snapshot the compositor reads,
-	  never the client's live render buffer. In fps_async mode the client may be
-	  painting into ws_g or ws_g2 at any moment, so xwm reading those directly
-	  would sample a half-drawn frame; ws_g_buffer is server-owned and the client
-	  never touches it, so it is always consistent with frame_g (prepare_win_content
-	  blits frame_g from it). Both modes use this, so xwm behaviour is uniform.*/
+	/*the shm id of the canvas the compositor reads this window's workspace
+	  from, published so xwm blends decorations over the SAME pixels instead of
+	  a second copy. It used to name a private server-owned snapshot taken on
+	  every accepted frame; that snapshot is gone - the compositor now reads the
+	  buffer the client published into, so this names that buffer instead (ws_g
+	  in the blocking handshake, ws_g[front_index] in fps_async mode) and the
+	  server republishes it on every accept. xwm is only ever handed it while
+	  the client is parked or idle (see painting), so it still never samples a
+	  half-drawn frame.*/
 	int32_t ws_g_buffer_shm_id;
 	bool ws_g_buffer_shm_contig;
+
+	/*"the client may be writing into the buffer the compositor reads". The
+	  compositor no longer keeps a private snapshot: it composites straight out
+	  of the client's own canvas, so it needs to know when that canvas is
+	  mid-frame. libx owns this flag and brackets both client styles with it:
+	  - on_repaint apps draw inside xwin_repaint, so the flag is set on entry
+	    and cleared (with a barrier) right before update_requested is published;
+	  - framebuffer-style apps (the SDL2 backend) draw into the surface between
+	    two presents, so the flag is also set the moment the server releases a
+	    parked painter and stays set until their next present clears it.
+	  In fps_async mode the compositor reads ws_g2, which only the handoff copy
+	  writes, so there the flag brackets just that blit.
+	  A client that goes idle after its last frame never clears it, so the
+	  server bounds the wait (X_PAINT_TIMEOUT_MS) rather than stalling.*/
+	volatile uint32_t painting;
+
+	/*Geometry handoff (server-exclusive geometry writes). The client used to
+	  write the live wsr/state directly before issuing UPDATE_INFO, so a resize
+	  or move published new geometry into shared memory while the compositor - a
+	  separate process the ipc_disable barrier does not fence out of the shm -
+	  could still read it against a stale winr/buffer, drawing the frame at the
+	  wrong offset or under-copying the workspace (tearing). Instead the client
+	  now stages the new workspace rect into wsr_pending (and, for max/restore,
+	  the new state into state_pending), raises geom_pending behind a release
+	  barrier, then issues UPDATE_INFO. The server consumes the pending geometry
+	  at the very start of xwin_update_info, under x_server_lock, before it
+	  recomputes winr and rebuilds the buffers, so live geometry and the matching
+	  buffers only ever change together inside the lock. The compositor never
+	  reads these fields. geom_pending is written last by the client and read +
+	  cleared first by the server, both bracketed by __sync_synchronize.*/
+	grect_t wsr_pending;
+	uint32_t state_pending;
+	volatile uint32_t geom_pending;
 } xinfo_t;
 
 typedef struct {

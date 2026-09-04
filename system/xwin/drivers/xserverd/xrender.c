@@ -74,17 +74,19 @@ static void prepare_win_content(x_t* x, xwin_t* win) {
         the blended picture has to be rebuilt there on every change;
       - a translucent frame (rounded corners) is drawn on top of the
         workspace, so xwm has to blend it over a fresh content copy.
-      Every other workspace is composited straight from the workspace
-      snapshot in draw_win, so this copy stays untouched.*/
+      Every other workspace is composited straight from the client's own
+      published buffer in draw_win, so this copy stays untouched.*/
     if((win_bg_effect_active(x, win) || frame_cuts_ws(x, win)) &&
             (win->dirty || win->frame_dirty)) {
-        graph_t* g = win->ws_g_buffer;
-        int32_t ox = win->xinfo->wsr.x - win->xinfo->winr.x;
-        int32_t oy = win->xinfo->wsr.y - win->xinfo->winr.y;
-        graph_blt(g, 0, 0, g->w, g->h,
-                win->frame_g, ox, oy,
-                win->xinfo->wsr.w,
-                win->xinfo->wsr.h);
+        graph_t* g = win_comp_src(win);
+        if(g != NULL) {
+            int32_t ox = win->xinfo->wsr.x - win->xinfo->winr.x;
+            int32_t oy = win->xinfo->wsr.y - win->xinfo->winr.y;
+            graph_blt(g, 0, 0, g->w, g->h,
+                    win->frame_g, ox, oy,
+                    win->xinfo->wsr.w,
+                    win->xinfo->wsr.h);
+        }
     }
 
     if(!win->frame_dirty)
@@ -137,14 +139,19 @@ static void draw_init_desktop(x_t* x, x_display_t *display) {
     }
 }
 
-void draw_desktop(x_t* x, uint32_t display_index) {
+/*returns 0 when the desktop actually got drawn: a failed xwm call must
+  NOT paint a fallback over the scan-out - the black fill used to stay on
+  the panel forever (display->dirty is cleared at the end of the frame),
+  with stale cursor save-bands ghosting over it. The caller keeps the
+  display dirty instead so the next frame retries the xwm.*/
+int draw_desktop(x_t* x, uint32_t display_index) {
     x_display_t *display = &x->displays[display_index];
     if(display->g == NULL)
-        return;
+        return -1;
 
     if(!check_xwm(x)) {
         draw_init_desktop(x, display);
-        return;
+        return 0;
     }	
     else if(x->config.logo != NULL) {
         graph_free(x->config.logo);
@@ -160,7 +167,8 @@ void draw_desktop(x_t* x, uint32_t display_index) {
     int res = ipc_call_wait(x->xwm_pid, XWM_CNTL_DRAW_DESKTOP, &in);
     PF->clear(&in);
     if(res != 0)
-        graph_fill_rect(display->g, 0, 0, display->g->w, display->g->h, 0xff000000);
+        return -1;
+    return 0;
 }
 
 /*the rect the drag frame outline is drawn at: the window rect without
@@ -219,8 +227,8 @@ static inline void blit_win_area(graph_t* g, graph_t* disp_g, int32_t win_x, int
 
 /*blit the rect d (frame coordinates) of the window onto the display,
   sourcing the pixels split up: the workspace part comes straight from
-  the workspace snapshot (frame_g never received it), everything around
-  it comes from frame_g where xwm put the decorations. While the
+  the buffer the client published (frame_g never received it), everything
+  around it comes from frame_g where xwm put the decorations. While the
   background effect blends the window or a translucent frame is drawn
   over the workspace the whole picture only exists in frame_g, so those
   cases fall back to a single source.*/
@@ -236,8 +244,9 @@ static void blit_win_part(x_t* x, xwin_t* win, graph_t* disp_g,
     int32_t win_x = win->xinfo->winr.x;
     int32_t win_y = win->xinfo->winr.y;
 
+    graph_t* ws = win_comp_src(win);
     if(win_bg_effect_active(x, win) || frame_cuts_ws(x, win) ||
-            win->ws_g_buffer == NULL) {
+            ws == NULL) {
         if(alpha)
             graph_blt_alpha(ring, d->x, d->y, d->w, d->h,
                     disp_g, win_x + d->x, win_y + d->y, d->w, d->h, 0xff);
@@ -247,7 +256,6 @@ static void blit_win_part(x_t* x, xwin_t* win, graph_t* disp_g,
         return;
     }
 
-    graph_t* ws = win->ws_g_buffer;
     int32_t ox = win->xinfo->wsr.x - win->xinfo->winr.x;
     int32_t oy = win->xinfo->wsr.y - win->xinfo->winr.y;
 
@@ -256,7 +264,7 @@ static void blit_win_part(x_t* x, xwin_t* win, graph_t* disp_g,
     int32_t w1 = ox, w2 = ox + (int32_t)win->xinfo->wsr.w;
     int32_t n1 = oy, n2 = oy + (int32_t)win->xinfo->wsr.h;
 
-    /*the part of d inside the workspace: straight from the snapshot*/
+    /*the part of d inside the workspace: straight from the published buffer*/
     int32_t ix1 = d1 > w1 ? d1 : w1;
     int32_t iy1 = e1 > n1 ? e1 : n1;
     int32_t ix2 = d2 < w2 ? d2 : w2;
@@ -304,15 +312,15 @@ int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
 
     prepare_win_content(x, win);
 
-    /*the workspace snapshot is copied whole on every update, so the whole
+    /*the published frame is accepted whole on every update, so the whole
       window gets recomposited (in frame_g coordinates)*/
     grect_t dmg = {0, 0, win->xinfo->winr.w, win->xinfo->winr.h};
 
     /*unless the background effect or a translucent frame keeps the whole
       picture inside frame_g, that graph only holds the decorations here:
-      the workspace pixels are composited straight from the workspace
-      snapshot. blit_win_part does that split for every rect handed to
-      it.*/
+      the workspace pixels are composited straight from the buffer the
+      client published. blit_win_part does that split for every rect handed
+      to it.*/
     graph_t* g = win->frame_g;
     if(g != NULL) {
         grect_t bounds = {0, 0, g->w, g->h};

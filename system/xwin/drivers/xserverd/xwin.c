@@ -1,12 +1,23 @@
 /*window list management, focus handling, client events and the
-  workspace snapshot/dirty bookkeeping of the x server*/
+  workspace accept/dirty bookkeeping of the x server*/
 #include <stdlib.h>
 #include <string.h>
 #include <sys/shm.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/ipc.h>
+#include <ewoksys/kernel_tic.h>
 #include "xwin.h"
+
+/*how long a published frame may sit unconsumed before its client is let go
+  anyway. Normally one step: x_poll_updates accepts, x_repaint composites
+  from the very same buffer and commits. This only fires when the frame never
+  reached the compositor at all - the display stuck busy, the window covered,
+  its display inactive - and in every one of those the content is not on
+  screen anyway, so dropping the claim costs a frame, not a picture. Without
+  it a blocking client stays parked in proc_block_by and an fps_async client
+  stays locked out of its handoff buffer for as long as the condition lasts.*/
+#define X_ACCEPT_TIMEOUT_MS 200
 
 static void remove_win(x_t* x, xwin_t* win) {
     xwin_t* prev = win->prev;
@@ -269,11 +280,6 @@ void x_del_win(x_t* x, xwin_t* win) {
         win->xinfo->frame_g_shm_contig = false;
     }
     
-    if(win->ws_g_buffer != NULL) {
-        graph_free(win->ws_g_buffer);
-        win->ws_g_buffer = NULL;
-    }
-
     shmdt(win->xinfo);
     if(win == x->win_focus)
         x->win_focus = NULL;
@@ -478,31 +484,63 @@ static void win_dirty(x_t* x, xwin_t* win) {
     x_repaint_req(x, win->xinfo->display_index);
 }
 
-/*copy the whole workspace across to the snapshot the compositor reads
-  from. The copy rides graph_blt: contig shm canvases travel through
-  /dev/g2d (zero-copy on physical addresses) instead of a cpu pass over
-  the non-cacheable shm window. src is the buffer the client finished
-  rendering: ws_g in the blocking handshake (client parked, ws_g stable),
-  or ws_g[front_index] in fps_async mode (client already moved on to the
-  other buffer, so src is stable there too).*/
-static void x_update_copy(x_t* x, xwin_t* win, graph_t* src) {
-    graph_blt(src, 0, 0, src->w, src->h,
-            win->ws_g_buffer, 0, 0, src->w, src->h);
+/*accept a published frame IN PLACE: the buffer the client rendered into is
+  the compositor's source from here on, so there is no snapshot to take and
+  the whole-frame copy the old x_update_copy did is simply gone. That is the
+  whole point of this path - one full-frame move less per window per frame.
+
+  It is safe because the client cannot be writing that buffer while we own
+  it: a blocking painter is parked in proc_block_by until x_update_commit
+  wakes it, and an fps_async client only starts its handoff copy once
+  update_requested is back to 0, which the same commit does after the blit.
+  What is left to do here is the bookkeeping - the window became ready, its
+  content changed, and xwm has to be pointed at the canvas the compositor
+  will actually read.*/
+static void x_accept_update(x_t* x, xwin_t* win) {
+    graph_t* src = win_comp_src(win);
+    if(src != NULL) {
+        /*xwm blends decorations over the same pixels the compositor reads, so
+          republish the id whenever the source moves (fps_async flips it onto
+          the handoff buffer on the first present after a rebuild)*/
+        win->xinfo->ws_g_buffer_shm_id = src->shm_id;
+        win->xinfo->ws_g_buffer_shm_contig = src->shm_contig;
+    }
 
     win->ready = true;
     win->not_ready_ms = 0;
+    if(win->accept_ms == 0) {
+        uint64_t now = kernel_tic_ms(0);
+        win->accept_ms = (now == 0) ? 1 : now;
+    }
     win_dirty(x, win);
 }
 
-/*release a client that is parked on the shm UPDATE handshake without
-  snapshotting: the window is going away, is being rebuilt, or turned
-  invisible. Clears the request flag and wakes the exact thread that
-  published itself into update_pid, so xwin_repaint returns instead of
-  blocking forever on a token nobody will ever fire again.*/
-void x_update_release(x_t* x, xwin_t* win) {
+/*hand the published buffer back to its client. Called once the compositor is
+  done reading it (x_repaint, right after draw_win), or when the frame is not
+  going on screen at all (covered window, accept timeout). Deliberately NOT
+  called from x_poll_updates any more: releasing there would let the painter
+  start the next frame into the very buffer this step is about to composite.
+
+  - fps_async=0 (blocking): the painter is still parked, so clear the flag and
+    wake the exact thread that published itself into update_pid.
+  - fps_async=1: nobody is waiting, but the flag still has to be cleared AFTER
+    the blit - the client copies onto the handoff buffer only when it sees
+    update_requested==0, so clearing late is what keeps it off the buffer we
+    were reading.*/
+void x_update_commit(x_t* x, xwin_t* win) {
     (void)x;
     if(win == NULL || win->xinfo == NULL)
         return;
+
+    win->accept_ms = 0;
+    if(!win->xinfo->update_requested)
+        return;
+
+    if(win->xinfo->fps_async) {
+        __sync_synchronize();
+        win->xinfo->update_requested = 0;
+        return;
+    }
 
     int32_t pid = win->xinfo->update_pid;
     win->xinfo->update_requested = 0;
@@ -512,52 +550,39 @@ void x_update_release(x_t* x, xwin_t* win) {
         proc_wakeup_by(pid, win->xinfo->win);
 }
 
-/*runs once per step (under the server lock, before compositing): scans
-  every window's shm handshake flag and snapshots the ones that asked for
-  it. This replaces the old XWIN_CNTL_UPDATE IPC path entirely - no vdevice
-  dispatch, no file cache lookup, no fsinfo_t round-trip on the hot path.
-  Two modes:
-  - fps_async=0 (blocking): the client is parked in proc_block_by(xinfo->win)
-    while we copy ws_g, so ws_g is stable; we clear the flag before the copy
-    and wake the painter afterwards. Clients that repaint faster than the
-    server fps simply stay blocked until the next step picks them up, which
-    is exactly the throttling we want.
-  - fps_async=1 (double-buffered): the client published a complete frame into
-    ws_g[front_index] and already returned to render the other buffer, so we
-    snapshot front_index and never wake anyone. We clear the flag AFTER the
-    copy: the client flips buffers only when it sees update_requested==0, so
-    clearing after the snapshot guarantees it never starts rendering the
-    buffer we are reading. No tearing, and the client keeps its own fps.*/
+/*release a client that is parked on the shm UPDATE handshake without
+  compositing it: the window is going away, is being rebuilt, or turned
+  invisible. Clears the request flag and wakes the exact thread that
+  published itself into update_pid, so xwin_repaint returns instead of
+  blocking forever on a token nobody will ever fire again.*/
+void x_update_release(x_t* x, xwin_t* win) {
+    x_update_commit(x, win);
+}
+
+/*runs once per step (under the server lock, before compositing): scans every
+  window's shm handshake flag and accepts the frames that were published. This
+  replaces the old XWIN_CNTL_UPDATE IPC path entirely - no vdevice dispatch, no
+  file cache lookup, no fsinfo_t round-trip on the hot path - and it does not
+  copy anything: the accepted buffer is composited as-is later in this step and
+  handed back by x_update_commit. Clients that repaint faster than the server
+  fps stay blocked (or stay locked out of their handoff buffer) until a step
+  picks them up, which is exactly the throttling we want.*/
 void x_poll_updates(x_t* x) {
+    uint64_t now = kernel_tic_ms(0);
     xwin_t* win = x->win_head;
     while(win != NULL) {
-        if(win->xinfo != NULL && win->xinfo->update_requested) {
-            if(win->xinfo->fps_async) {
-                uint32_t fi = win->xinfo->front_index;
-                graph_t* src = (fi == 1) ? win->ws_g2 : win->ws_g;
-                if(win->xinfo->visible && src != NULL && win->ws_g_buffer != NULL)
-                    x_update_copy(x, win, src);
-                /*clear AFTER the copy so the client cannot flip onto src
-                  until we are done reading it (see header comment)*/
-                __sync_synchronize();
-                win->xinfo->update_requested = 0;
-            } else {
-                int32_t pid = win->xinfo->update_pid;
-                ewokos_addr_t token = win->xinfo->win;
-
-                /*clear the flag BEFORE the copy so a second painter thread
-                  that races in during graph_blt re-asserts it and gets
-                  picked up next step instead of being lost*/
-                win->xinfo->update_requested = 0;
-                win->xinfo->update_pid = -1;
-                __sync_synchronize();
-
-                if(win->xinfo->visible && win->ws_g != NULL && win->ws_g_buffer != NULL)
-                    x_update_copy(x, win, win->ws_g);
-
-                if(pid >= 0)
-                    proc_wakeup_by(pid, token);
+        if(win->xinfo != NULL) {
+            if(win->xinfo->update_requested) {
+                if(win->xinfo->visible && win_comp_src(win) != NULL)
+                    x_accept_update(x, win);
+                else
+                    x_update_commit(x, win); //nothing to show: don't hold it parked
             }
+
+            /*an accepted frame that never reached the compositor still holds
+              its client off the buffer; bound that (see X_ACCEPT_TIMEOUT_MS)*/
+            if(win->accept_ms != 0 && (now - win->accept_ms) >= X_ACCEPT_TIMEOUT_MS)
+                x_update_commit(x, win);
         }
         win = win->next;
     }

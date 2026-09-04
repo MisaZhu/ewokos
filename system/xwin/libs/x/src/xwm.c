@@ -68,11 +68,23 @@ static bool fetch_frame_graph(xwm_t* xwm, xinfo_t* info, graph_t* g) {
 }
 
 static bool fetch_ws_graph(xwm_t* xwm, xinfo_t* info, graph_t* g) {
-    /*read the server's composite source (ws_g_buffer), NOT the client's live
-      render buffer (ws_g/ws_g2): in fps_async mode the client may be painting
-      into ws_g or ws_g2 at this very moment, so sampling it would tear. The
-      compositor blits frame_g from ws_g_buffer, so reading it here keeps the
-      decorations consistent with the frame content in both modes.*/
+    /*read the server's composite source, which is the canvas the compositor
+      blits frame_g and the scan-out from - so the decorations land on exactly
+      the pixels that go on screen, in both modes.
+
+      That used to be a private server-owned snapshot (ws_g_buffer) taken on
+      every accepted frame. The snapshot is gone: the compositor now reads the
+      buffer the client published into, and ws_g_buffer_shm_id names that one
+      instead (ws_g in the blocking handshake, ws_g[front_index] in fps_async
+      mode). Sampling a client's live render buffer would tear, so the server
+      only ever issues DRAW_FRAME from inside draw_win, gated on the client's
+      xinfo->painting flag - by the time this runs the painter is parked or
+      idle and the buffer holds a complete frame.
+
+      The shmat/shmdt pair here is xwm's own: the segment keeps a reference
+      from the server (which allocated it) and from the client (which renders
+      into it), so detaching after the draw cannot free it out from under
+      either.*/
     if(info == NULL || info->ws_g_buffer_shm_id == -1)
         return false;
     memset(g, 0, sizeof(graph_t));

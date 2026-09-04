@@ -168,6 +168,38 @@ static bool all_win_ready(x_t* x) {
     return true;
 }
 
+/*the compositor reads each client's own buffer now, so a window whose painter
+  is mid-frame must not be composited: its pixels are half-drawn. A published
+  frame is always readable - the server owns that buffer until x_update_commit
+  hands it back. Otherwise libx's painting flag says whether the client may be
+  writing it, and that flag is bracketed around both client styles (on_repaint
+  apps draw inside xwin_repaint, framebuffer-style ones draw between presents).
+  A client that goes idle after its last frame leaves the flag set for good, so
+  the wait is bounded instead of stalling every repaint behind it.*/
+#define X_PAINT_TIMEOUT_MS 100
+
+static bool win_src_stable(x_t* x, xwin_t* win) {
+    (void)x;
+    if(win->xinfo == NULL)
+        return false;
+
+    if(win->xinfo->update_requested || !win->xinfo->painting) {
+        win->paint_ms = 0;
+        return true;
+    }
+
+    uint64_t now = kernel_tic_ms(0);
+    if(win->paint_ms == 0) {
+        win->paint_ms = (now == 0) ? 1 : now;
+        return false;
+    }
+    /*stuck painting: either a genuinely slow renderer or an idle client that
+      never published again. It is not going to clear the flag by itself, and
+      in the idle case the buffer already holds a complete frame, so stop
+      waiting - the same trade X_NOT_READY_TIMEOUT_MS makes above.*/
+    return (now - win->paint_ms) >= X_PAINT_TIMEOUT_MS;
+}
+
 static bool x_is_hide_cursor_on_win(x_t* x) {
     xwin_t* win = get_top_focus_win(x, false);
     if(win == NULL)
@@ -220,6 +252,8 @@ void x_repaint(x_t* x, uint32_t display_index) {
     uint32_t dirty_num = 0;
     bool cursor_hidden = false;
     bool cursor_refreshed = false;
+    bool desktop_retry = false;
+    bool paint_retry = false;
     grect_t cursor_old_rect;
     grect_t cursor_new_rect;
 
@@ -242,6 +276,31 @@ void x_repaint(x_t* x, uint32_t display_index) {
         }
     }
     display->wait_ready = 0;
+
+    if(display->dirty) {
+        /*a full rebuild paints the desktop over everything, so a window whose
+          painter is mid-frame cannot simply be skipped the way an incremental
+          repaint skips it - that would leave a hole. Hold the whole rebuild
+          back until the painter publishes, with the same small budget
+          all_win_ready uses; win_src_stable bounds the wait per window too, so
+          an idle client cannot stall a rebuild forever.*/
+        bool painting = false;
+        xwin_t* w = x->win_head;
+        while(w != NULL) {
+            if(w->ready && w->xinfo != NULL && w->xinfo->visible &&
+                    w->xinfo->display_index == display_index &&
+                    !win_src_stable(x, w)) {
+                painting = true;
+                break;
+            }
+            w = w->next;
+        }
+        if(painting && display->paint_wait < X_WAIT_READY_MAX) {
+            display->paint_wait++;
+            return;
+        }
+    }
+    display->paint_wait = 0;
 
     display->need_repaint = false;
     bool do_flush = false;
@@ -278,9 +337,16 @@ void x_repaint(x_t* x, uint32_t display_index) {
         /* skip desktop drawing if fully covered by an opaque window
            (e.g. fullscreen window on top) */
         if(!covered_by_opaque_win(x, NULL, display_index, &display->desktop_rect)) {
-            draw_desktop(x, display_index);
-            x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &display->desktop_rect);
-            do_flush = true;
+            if(draw_desktop(x, display_index) == 0) {
+                x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &display->desktop_rect);
+                do_flush = true;
+            }
+            else {
+                /*the xwm refused the draw: nothing was painted, so keep the
+                  display dirty and retry next frame instead of flushing an
+                  untouched (or worse, fallback-filled) scan-out region*/
+                desktop_retry = true;
+            }
         }
     }
 
@@ -305,6 +371,19 @@ void x_repaint(x_t* x, uint32_t display_index) {
                     /*its area gets overwritten by the covering window, so
                       whatever shadow sat there is gone*/
                     win->shadow_valid = false;
+                    /*the published frame is not going on screen, so hand the
+                      buffer back now instead of leaving the client parked (or
+                      locked out of its handoff buffer) until the accept
+                      timeout. When the window is uncovered the rebuild reads
+                      whatever is in the buffer then.*/
+                    x_update_commit(x, win);
+                }
+                else if(!display->dirty && !win_src_stable(x, win)) {
+                    /*mid-frame, and nothing below it changed: the scan-out still
+                      holds the picture the last composite put there, so leave
+                      the window alone (dirty stays set) and take its frame on a
+                      later step instead of compositing half-drawn pixels*/
+                    paint_retry = true;
                 }
                 else {
                     grect_t win_dirty;
@@ -314,6 +393,10 @@ void x_repaint(x_t* x, uint32_t display_index) {
                         x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &win_dirty);
                         do_flush = true;
                     }
+                    /*draw_win is the last reader of the published buffer - it
+                      also handed it to xwm for the decorations - so the painter
+                      may have it back now, and not a moment earlier*/
+                    x_update_commit(x, win);
                 }
             }
         }
@@ -384,7 +467,10 @@ void x_repaint(x_t* x, uint32_t display_index) {
         x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &cursor_new_rect);
     }
 
-    display->dirty = false;
+    display->dirty = desktop_retry;
+    /*a window skipped because its painter was mid-frame still owes its picture*/
+    if(paint_retry)
+        display->need_repaint = true;
     if(do_flush && dirty_num > 0) {
         /*tell the fb daemon what changed so it only pushes those areas to
           the scan-out buffer instead of the whole frame*/

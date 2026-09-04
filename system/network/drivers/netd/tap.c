@@ -141,9 +141,16 @@ ether_tap_close(struct net_device *dev)
  * bytes accepted (0 or more), -1 on a hard fd error (reopen already tried),
  * or NET_DEVICE_TX_AGAIN when the device stayed congested for the whole
  * ETHER_TAP_TX_WAIT_MS window. Caller must hold tap->lock.
+ *
+ * nowait: make a single write() attempt and report congestion immediately
+ * instead of parking on POLLOUT. The receive path needs this -- it flushes
+ * the window-update ACK from an IPC worker, and holding tap->lock across a
+ * 200ms POLLOUT park would block the main thread's ether_tap_isr() from
+ * draining inbound frames, i.e. a download could freeze RX. A batch left
+ * behind by a nowait flush simply rides the next flush.
  */
 static ssize_t
-ether_tap_write_batch_once(struct ether_tap *tap)
+ether_tap_write_batch_once(struct ether_tap *tap, int nowait)
 {
     int ret;
     struct pollfd pfd;
@@ -157,6 +164,9 @@ ether_tap_write_batch_once(struct ether_tap *tap)
             continue;
         }
         if (errno == EAGAIN) {
+            if (nowait) {
+                return NET_DEVICE_TX_AGAIN;
+            }
             /*
              * /dev/wl0 uses VFS_ERR_RETRY to signal software-TX congestion.
              * Waiting for POLLOUT preserves backpressure and keeps TCP from
@@ -197,10 +207,10 @@ ether_tap_write_batch_once(struct ether_tap *tap)
  * dropped here. Caller must hold tap->lock.
  */
 static int
-ether_tap_flush_locked(struct ether_tap *tap)
+ether_tap_flush_locked(struct ether_tap *tap, int nowait)
 {
     while (tap->batch_len > 0) {
-        ssize_t n = ether_tap_write_batch_once(tap);
+        ssize_t n = ether_tap_write_batch_once(tap, nowait);
         if (n <= 0) {
             return (int)n; /* -1 or NET_DEVICE_TX_AGAIN: batch retained */
         }
@@ -220,8 +230,30 @@ ether_tap_flush(struct net_device *dev)
     int ret;
 
     mutex_lock(&tap->lock);
-    ret = (tap->batch_len == 0) ? 0 : ether_tap_flush_locked(tap);
+    ret = (tap->batch_len == 0) ? 0 : ether_tap_flush_locked(tap, 0);
     mutex_unlock(&tap->lock);
+    return ret;
+}
+
+/*
+ * Non-blocking variant for the receive path: push a pending window-update
+ * ACK out now, but never park on POLLOUT and never wait for the lock.
+ *
+ * trylock because the whole point is to avoid queueing behind a blocking
+ * writer. If another thread already owns the tap (a bulk writer mid-batch,
+ * or the main thread draining RX) the ACK rides that owner's flush or the
+ * next intr_step() round -- both are within one cadence period.
+ */
+static int
+ether_tap_tryflush(struct net_device *dev)
+{
+    struct ether_tap *tap = PRIV(dev);
+    int ret;
+
+    if (pthread_mutex_trylock(&tap->lock) != 0)
+        return 0;
+    ret = (tap->batch_len == 0) ? 0 : ether_tap_flush_locked(tap, 1);
+    pthread_mutex_unlock(&tap->lock);
     return ret;
 }
 
@@ -245,7 +277,7 @@ ether_tap_write(struct net_device *dev, const uint8_t *frame, size_t flen)
         mutex_lock(&tap->lock);
         memcpy(tap->batch_single, single, 2 + flen);
         tap->batch_len = 2 + flen;
-        ret = (int)ether_tap_write_batch_once(tap);
+        ret = (int)ether_tap_write_batch_once(tap, 0);
         tap->batch_len = 0;
         mutex_unlock(&tap->lock);
         TRACE();
@@ -262,7 +294,7 @@ ether_tap_write(struct net_device *dev, const uint8_t *frame, size_t flen)
     tap->batch_frames++;
 
     if (tap->batch_frames >= ETHER_TAP_BATCH_MAX_FRAMES) {
-        ret = ether_tap_flush_locked(tap);
+        ret = ether_tap_flush_locked(tap, 0);
         mutex_unlock(&tap->lock);
         TRACE();
         /*
@@ -391,6 +423,7 @@ static struct net_device_ops ether_tap_ops = {
     .close = ether_tap_close,
     .transmit = ether_tap_transmit,
     .flush = ether_tap_flush,
+    .tryflush = ether_tap_tryflush,
 };
 
 struct net_device *

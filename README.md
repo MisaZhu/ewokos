@@ -209,7 +209,7 @@ The base system under `system/basic/` includes:
 - Shell, login flow, and standard command-line tools
 - Core services such as `init`, `core`, and `vfsd`
 - Filesystem helpers and rootfs daemons
-- Basic libc and utility libraries
+- Basic libc and utility libraries (see [C Library, Standards, and Bundled Libraries](#c-library-standards-and-bundled-libraries))
 
 ### GUI and X Stack
 
@@ -227,6 +227,80 @@ The network tree under `system/network/` provides:
 - Interactive tools such as `ssh`, `scp`, `ping`, and `host`
 - Network daemons such as `sshd`
 - Additional services and drivers wired in through machine-specific system trees
+
+## C Library, Standards, and Bundled Libraries
+
+EwokOS ships its own C library, `libewoksys`, instead of relying on a hosted libc. It provides ISO C standard headers plus a POSIX-like API subset, layered over the cross-toolchain runtime (`newlib` + `libgloss`), with `openlibm` for math and `softfloat` for software floating point on ARM32.
+
+The default link group is declared per architecture in `system/platform/<arch>/make.rule`:
+
+```make
+# AArch64 / x86
+EWOK_LIBC = --start-group -lewoksys -lc -lgloss --end-group
+# ARM32 additionally links the software FP runtime
+EWOK_LIBC = --start-group -lewoksys -lc -lgloss -lsoftfloat --end-group $(LIBGCC)
+```
+
+### libc Source Layout
+
+- `system/basic/libc/libewoksys/` — the native EwokOS C library: standard headers, POSIX-like implementations, and the EwokOS system API (IPC, VFS, devices, shared memory, processes, logging)
+- `system/basic/libc/libgloss/` — toolchain syscall glue (`_open`, `_close`, `_read`, `_write`, `_lseek`, `_stat`, `_fstat`, `_sbrk`, `_kill`, `_fork`, `_wait`, `_getpid`, `_gettimeofday`, `_isatty`, ...)
+- `system/basic/libc/softfloat/` — software floating-point / `aeabi` runtime helpers used on ARM32 (`-mfloat-abi=softfp`)
+
+### Supported Standards
+
+**ISO C (C90/C99 subset)** — provided by the `libewoksys` headers:
+`<stdio.h>`, `<stdlib.h>`, `<string.h>`, `<strings.h>`, `<ctype.h>`, `<math.h>`, `<assert.h>`, `<errno.h>`, `<setjmp.h>`, `<time.h>`, `<float.h>`, `<inttypes.h>`, `<stdarg.h>`, `<stddef.h>`, `<wchar.h>`, `<malloc.h>`.
+
+**POSIX-like API** — a practical subset oriented at embedded and system programming:
+
+| Area | Headers | Representative APIs |
+|------|---------|---------------------|
+| Process & files | `<unistd.h>`, `<fcntl.h>`, `<dirent.h>`, `<sys/stat.h>`, `<sys/wait.h>` | fork/exec family, `getpid`/`getuid`/`getgid`, `dup`/`dup2`/`dup3`, `pipe`, `getcwd`/`chdir`, `fsync`, `truncate`/`ftruncate`, `sysconf`, `daemon`, `wait` |
+| Memory | `<sys/mman.h>`, `<malloc.h>` | `mmap`/`munmap` with `PROT_*` / `MAP_*` flags |
+| Signals | `<signal.h>` | signal handlers and delivery |
+| Threads | `<pthread.h>`, `<semaphore.h>` | mutexes, condition variables, rwlocks, barriers, keys, `pthread_once`, attributes, cancel/detach/join, POSIX semaphores |
+| Terminal, I/O multiplexing & scheduling | `<termios.h>`, `<sched.h>`, `<poll.h>`, `<sys/select.h>` | termios control, `poll`/`select` readiness, `sched_yield` |
+| Shared memory & IPC | `<sys/shm.h>`, `<sys/ipc.h>` | `shmget`/`shmat`/`shmdt`/`shmctl` |
+| System info & scatter/gather I/O | `<sys/ioctl.h>`, `<sys/uio.h>`, `<sys/utsname.h>`, `<sys/resource.h>`, `<sys/statvfs.h>`, `<sys/time.h>`, `<sys/times.h>` | `ioctl`, `readv`/`writev`, `uname`, resource/`statvfs` queries, time-of-day |
+| Misc utilities | `<getopt.h>`, `<glob.h>`, `<fnmatch.h>`, `<libgen.h>`, `<err.h>` | argument parsing, globbing, pattern matching, path helpers |
+
+**BSD Sockets** — via the `socket` library (`system/network/libs/socket`):
+`<sys/socket.h>`, `<netinet/in.h>`, `<arpa/inet.h>`, `<netinet/if_ether.h>`, `<netinet/ether.h>`, with `socket`, `bind`, `listen`, `accept`, `connect`, `send`/`recv`, `sendmsg`/`recvmsg`, `shutdown`, `socketpair`, `getsockname`/`getpeername`, `gethostbyname`, and `inet_addr`/`inet_ntoa`/`inet_pton`/`inet_ntop`.
+
+**C++** — `libcxx` (C++ runtime support) plus `libewokstl`, a lightweight STL subset:
+`string`/`wstring`, `vector`, `list`, `deque`, `queue`, `stack`, `set`, `map`, `unordered_set`, `unordered_map`, `algorithm`, `iterator`, `functional`, `memory`, `tuple`, `utility`, `iostream`/`sstream`/`fstream`, and the header-only `object++` (`UniObject`) helper.
+
+> The libc favors a compact, embedded-appropriate subset. A few hosted-libc features are intentionally absent or simplified — for example `vprintf` is not provided; use `vfprintf(stdout, ...)` instead.
+
+### Commonly Bundled Libraries
+
+Beyond libc, the tree builds a set of static libraries grouped under `system/*/libs`:
+
+| Library | Location | Purpose |
+|---------|----------|---------|
+| `ewoksys` | `system/basic/libc/libewoksys` | Native EwokOS system API: IPC, VFS/vdevice, processes, shared memory, DMA, logging (`slog`/`klog`), timers, sessions |
+| `openlibm` | `system/basic/libs/openlibm` | Math library (`-lopenlibm`) |
+| `zlib` | `system/basic/libs/zlib` | Deflate compression (`-lz`) |
+| `tinyjson` | `system/basic/libs/tinyjson` | Minimal JSON parser/builder |
+| `sd` / `ext2` / `ext3` / `fat32` | `system/basic/libs/*` | Storage and filesystem readers/writers |
+| `elf` | `system/basic/libs/elf` | ELF parsing/loading |
+| `gpio` / `usb` | `system/basic/libs/*` | GPIO and USB helper libraries |
+| `socket` | `system/network/libs/socket` | BSD sockets client API |
+| `wolfssl` | `system/network/libs/wolfssl` | TLS/SSL |
+| `libwebsockets` | `system/network/libs/libwebsockets` | WebSocket client/server |
+| `libtinyhttpsc` | `system/network/libs/libtinyhttpsc` | Tiny HTTPS client |
+| `ntpc` | `system/network/libs/ntpc` | NTP client |
+| `graph` / `g2dclient` | `system/gui/libs/*` | 2D framebuffer graphics and 2D-acceleration client |
+| `display` / `displayman` | `system/gui/libs/*` | Display service client libraries |
+| `font` / `freetype` / `libiconbuf` | `system/gui/libs/*` | Font rendering (bitmap + FreeType) |
+| `libpng` / `libjpeg` / `libgif` / `libtga` / `libsvg` | `system/gui/libs/*` | Image codecs |
+| `libogg` / `libvorbis` / `minimp3` | `system/gui/libs/*` | Audio codecs |
+| `textgrid` / `gterminal` | `system/gui/libs/*` | Text grid and terminal emulation |
+| `keyb` / `mouse` | `system/gui/libs/*` | Keyboard and mouse input clients |
+| `x` / `x++` / `widget++` | `system/xwin/libs/*` | X-like window system client libs (C, C++, widget toolkit) |
+
+The graphics and window-system groups are also declared in `make.rule` as `EWOK_LIB_GRAPH` and `EWOK_LIB_X`, so applications can link them as a unit.
 
 ## Host Requirements
 

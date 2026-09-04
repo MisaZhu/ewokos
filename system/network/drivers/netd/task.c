@@ -672,6 +672,11 @@ int task_cntl(uint32_t node, int from_pid, int cmd, proto_t *in, proto_t *out) {
             break;
         }
         task_recv_done(task);
+        /* Same non-blocking window-update ACK flush as task_read(); do it
+         * before building the reply so the ACK reaches the wire ahead of our
+         * own IPC return. */
+        if (ret > 0)
+            net_tx_tryflush();
         PF->addi(out, ret);
         if (ret > 0) {
             if (cmd == SOCK_RECVFROM) {
@@ -754,6 +759,22 @@ int task_read(uint32_t node, char* buf, int size) {
         if (ret < 0 && (errno == 0 || errno == EAGAIN || errno == EINTR))
             ret = VFS_ERR_RETRY; /* raced with another reader */
     }
+
+    /*
+     * tcp_receive() grows rcv.wnd and emits the matching window-update ACK,
+     * which ether_tap only coalesces into its TX batch. Left alone, that ACK
+     * sits until the next intr_step() round runs net_tx_flush() -- a whole
+     * cadence period of added RTT on every single read, which is precisely
+     * the stall the peer's sender sees on a download. Push it out now so the
+     * window reopens on the wire immediately.
+     *
+     * tryflush, not flush: this runs on an IPC worker, and the blocking flush
+     * can park up to ETHER_TAP_TX_WAIT_MS on POLLOUT while holding the device
+     * lock the main thread needs to drain inbound frames. A congested ACK
+     * simply rides the next round.
+     */
+    if (ret > 0)
+        net_tx_tryflush();
 
     int saved_errno = errno;
     task_end_op(task);

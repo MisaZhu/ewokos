@@ -78,17 +78,6 @@ static bool x_pop_event(x_t* x, xevent_t* ev) {
     return true;
 }
 
-static xwin_t* x_find_win_by_handle(x_t* x, ewokos_addr_t handle) {
-    if(x == NULL || handle == 0)
-        return NULL;
-
-    if(x->main_win != NULL && (ewokos_addr_t)x->main_win->xinfo_shm_id == handle)
-        return x->main_win;
-    if(x->prompt_win != NULL && (ewokos_addr_t)x->prompt_win->xinfo_shm_id == handle)
-        return x->prompt_win;
-    return NULL;
-}
-
 void x_push_event(x_t* x, xevent_t* ev) {
     if(x == NULL || ev == NULL)
         return;
@@ -385,10 +374,12 @@ int  x_run(x_t* x, void* loop_data) {
             res = x_get_event(x, xserv_pid, &xev, block);
         }
         if(res == 0) {
-            xwin_t* xwin = x_find_win_by_handle(x, xev.win);
+            /*the server only echoes a window's shm handle in xev.win, so
+              resolve it against the process-wide window registry: menus,
+              submenus and dialogs are extra windows beyond main/prompt and
+              must still receive their mouse and focus events.*/
+            xwin_t* xwin = xwin_find_by_handle(xev.win);
             if(xwin != NULL) {
-                if(xwin != x->main_win && xwin != x->prompt_win)
-                    continue;
                 if(xwin->fd < 0 || xwin->xinfo == NULL)
                     continue;
                 if(xev.type == XEVT_WIN) {

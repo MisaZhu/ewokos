@@ -67,6 +67,10 @@ struct net_device_ops {
     /* Push any coalesced (batched) transmit frames to the device. Optional;
      * devices without TX batching leave this NULL. */
     int (*flush)(struct net_device *dev);
+    /* Same as flush() but never blocks: one transmit attempt, no POLLOUT park,
+     * no waiting for the device lock. For callers (the socket receive path)
+     * that must not stall the interrupt loop's RX drain. Optional. */
+    int (*tryflush)(struct net_device *dev);
 };
 
 struct net_device {
@@ -100,6 +104,8 @@ extern int
 net_device_output(struct net_device *dev, uint16_t type, const uint8_t *data, size_t len, const void *dst);
 extern void
 net_tx_flush(void);
+extern void
+net_tx_tryflush(void);
 extern struct net_device *
 net_device_get_loopback(void);
 

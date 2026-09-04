@@ -11,8 +11,18 @@
 static virtio_dev_t _net = NULL;
 static bool _rx_ready = false;
 static bool _wr_ready = true;
-static uint32_t _idle_sleep_us = 1000;
+static uint32_t _idle_sleep_us = 400;
 
+/*
+ * proc_usleep() only re-checks sleep_counter from the kernel timer IRQ, so a
+ * request of N us costs ceil(N / tick) ticks. With timer_freq = 1024 the tick
+ * is 976us, which made the previous 1000us busy value always sleep TWO ticks
+ * (~1.95ms) and halved the rate at which this driver reaped TX completions
+ * and published VFS_EVT_WR -- the edge netd's ether_tap parks on for POLLOUT
+ * backpressure. 400us is below the tick period for every timer_freq the
+ * kernel accepts, so the busy cadence now lands on the first tick.
+ */
+#define VIRTNET_BUSY_SLEEP_US 400U
 #define VIRTNET_IDLE_SLEEP_STEP_US 1000U
 #define VIRTNET_IDLE_SLEEP_MAX_US 50000U
 
@@ -44,12 +54,32 @@ static int net_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t *info,
     (void)offset;
     (void)p;
 
-    int ret = virtio_net_write(_net, buf, (uint32_t)size);
-    if (ret == 0 && size > 0)
+    /*
+     * netd's ether_tap coalesces TX frames as [u16 len][frame] entries and
+     * pushes a whole burst in one write() IPC. Parse that framing here (same
+     * contract as the raspix wl0 driver). Handing the raw batch straight to
+     * virtio_net_write would glue the 2-byte length prefix onto the front of
+     * the Ethernet frame, corrupting the destination MAC and shifting every
+     * transmission so the device drops it. Return the number of batch bytes
+     * consumed; ether_tap retains and retries any remainder.
+     */
+    const uint8_t *in = (const uint8_t *)buf;
+    int off = 0;
+    while (off + 2 <= size)
     {
-        return VFS_ERR_RETRY;
+        int flen = in[off] | (in[off + 1] << 8);
+        if (flen == 0 || off + 2 + flen > size)
+        {
+            break;
+        }
+        int len = virtio_net_write(_net, in + off + 2, (uint32_t)flen);
+        if (len <= 0)
+        {
+            break;
+        }
+        off += 2 + flen;
     }
-    return ret;
+    return (off > 0) ? off : VFS_ERR_RETRY;
 }
 
 static int net_dcntl(vdevice_t* dev, int from_pid, int cmd, proto_t *in, proto_t *ret, void *p)
@@ -141,7 +171,7 @@ static int net_loop_step(vdevice_t* dev, void *p)
 
     if (pending_rx > 0 || !_wr_ready)
     {
-        _idle_sleep_us = 1000;
+        _idle_sleep_us = VIRTNET_BUSY_SLEEP_US;
     }
     else if (_idle_sleep_us < VIRTNET_IDLE_SLEEP_MAX_US)
     {

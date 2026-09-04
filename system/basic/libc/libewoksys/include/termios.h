@@ -94,6 +94,9 @@ typedef unsigned int tcflag_t;
 #define TCSANOW   0
 #define TCSADRAIN 1
 #define TCSAFLUSH 2
+/* NetBSD/BSD "soft" change flag; a no-op here so `TCSASOFT | TCSADRAIN`
+ * style code (e.g. libcurses) keeps working unchanged. */
+#define TCSASOFT  0
 
 /* tcflush queue selectors */
 #define TCIFLUSH  0

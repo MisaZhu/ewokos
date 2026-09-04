@@ -5,7 +5,7 @@
 
 #include "xserver.h"
 
-void draw_desktop(x_t* x, uint32_t display_index);
+int draw_desktop(x_t* x, uint32_t display_index);
 int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg);
 
 /*drag frame overlay: the outline rect, and drawing it (via the xwm) into

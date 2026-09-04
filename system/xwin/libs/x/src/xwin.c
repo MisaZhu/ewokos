@@ -45,6 +45,52 @@ static ewokos_addr_t xwin_handle(const xwin_t* xwin) {
     return (ewokos_addr_t)xwin->xinfo_shm_id;
 }
 
+/*Process-wide registry of every window this process opened. The server no
+  longer echoes a raw client pointer in xevent.win - it sends back only the
+  window's xinfo shm handle - so the event loop must be able to resolve that
+  handle to the xwin_t of ANY window, not just the main/prompt ones. Menus,
+  submenus and dialogs are extra windows in the same process; without this
+  registry all of their mouse and focus events would be dropped.*/
+static xwin_t* _xwin_registry = NULL;
+
+static void xwin_registry_add(xwin_t* xwin) {
+    ipc_disable();
+    xwin->reg_next = _xwin_registry;
+    _xwin_registry = xwin;
+    ipc_enable();
+}
+
+static void xwin_registry_remove(xwin_t* xwin) {
+    ipc_disable();
+    xwin_t** pp = &_xwin_registry;
+    while(*pp != NULL) {
+        if(*pp == xwin) {
+            *pp = xwin->reg_next;
+            xwin->reg_next = NULL;
+            break;
+        }
+        pp = &(*pp)->reg_next;
+    }
+    ipc_enable();
+}
+
+xwin_t* xwin_find_by_handle(ewokos_addr_t handle) {
+    if(handle == 0)
+        return NULL;
+
+    ipc_disable();
+    xwin_t* xwin = _xwin_registry;
+    while(xwin != NULL) {
+        if((ewokos_addr_t)xwin->xinfo_shm_id == handle) {
+            ipc_enable();
+            return xwin;
+        }
+        xwin = xwin->reg_next;
+    }
+    ipc_enable();
+    return NULL;
+}
+
 static int xwin_update_info(xwin_t* xwin, uint8_t type) {
     if(xwin->xinfo == NULL)
         return -1;
@@ -215,6 +261,7 @@ xwin_t* xwin_open(x_t* xp, int32_t disp_index, int x, int y, int w, int h, const
     if((style & XWIN_STYLE_MAX) != 0)
         ret->xinfo->state = XWIN_STATE_MAX;
 
+    xwin_registry_add(ret);
     xwin_update_info(ret, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
     return ret;
 }
@@ -308,8 +355,10 @@ static graph_t* x_get_flip_graph(xwin_t* xwin, graph_t* g) {
 }
 
 void xwin_destroy(xwin_t* xwin) {
-    if(xwin != NULL)
+    if(xwin != NULL) {
+        xwin_registry_remove(xwin);
         free(xwin);
+    }
 }
 
 void xwin_close(xwin_t* xwin) {
@@ -320,6 +369,8 @@ void xwin_close(xwin_t* xwin) {
         if(!xwin->on_close(xwin))
             return;
     }
+
+    xwin_registry_remove(xwin);
 
     // Wait out any in-flight xwin_repaint() (it can be blocked in the
     // UPDATE IPC on another thread) before tearing the window down:
@@ -372,6 +423,18 @@ void xwin_repaint(xwin_t* xwin) {
         xwin->on_update_theme(xwin);
     }
 
+    /*Claim the workspace before anything draws into it: the compositor reads this
+      very buffer now (there is no private snapshot any more), so it has to
+      know the canvas is mid-frame. For an on_repaint app the drawing happens
+      inside this call, so this is the exact bracket. For a framebuffer-style
+      app (the SDL2 backend draws into the window surface between presents)
+      the flag is already set from the release at the end of the previous
+      call - this write just re-asserts it. fps_async skips it: there the
+      compositor reads ws_g2, which only the handoff copy below writes, and
+      that copy brackets itself.*/
+    if(xwin->xinfo != NULL && !xwin->xinfo->fps_async)
+        xwin->xinfo->painting = 1;
+
     graph_t g;
     if(xwin_fetch_graph(xwin, &g) != NULL) {
         if(xwin->on_repaint != NULL) {
@@ -400,8 +463,14 @@ void xwin_repaint(xwin_t* xwin) {
             memset(&front, 0, sizeof(graph_t));
             if(g.buffer != NULL && x_get_flip_graph(xwin, &front) != NULL &&
                     front.buffer != NULL) {
+                /*the handoff copy is the only write the compositor's source
+                  buffer sees from this side, so bracket exactly it: while it
+                  runs the server must not composite ws_g2 or hand it to xwm*/
+                xwin->xinfo->painting = 1;
+                __sync_synchronize();
                 graph_blt(&g, 0, 0, g.w, g.h, &front, 0, 0, front.w, front.h);
                 xwin->xinfo->front_index = 1;
+                xwin->xinfo->painting = 0;
                 __sync_synchronize();
                 xwin->xinfo->update_requested = 1;
             }
@@ -422,6 +491,10 @@ void xwin_repaint(xwin_t* xwin) {
       and fired the wake before we trapped in, wake_pending releases us
       immediately and the re-check exits.*/
     xwin->xinfo->update_pid = thread_get_id();
+    /*the frame is complete: hand the canvas over. Clearing before the barrier
+      means the server can never observe update_requested=1 while painting is
+      still 1, and never composite a buffer we are about to write again.*/
+    xwin->xinfo->painting = 0;
     __sync_synchronize();
     xwin->xinfo->update_requested = 1;
     while(xwin->xinfo != NULL && xwin->xinfo->update_requested) {
@@ -429,8 +502,16 @@ void xwin_repaint(xwin_t* xwin) {
     }
     /*xwin_close may have torn xinfo down while we were parked: never touch
       it unchecked after the block returns.*/
-    if(xwin->xinfo != NULL)
+    if(xwin->xinfo != NULL) {
         xwin->xinfo->update_theme = false;
+        /*Released: the server is done with this frame and the app is about to
+          draw the next one into ws_g, which the compositor reads directly.
+          Re-claim it here so a framebuffer-style app - which draws outside
+          this library - is covered too, and keep it claimed until the next
+          publish above. An app that goes idle instead leaves the flag set;
+          the server bounds that wait with X_PAINT_TIMEOUT_MS.*/
+        xwin->xinfo->painting = 1;
+    }
     pthread_mutex_unlock(&xwin->painting_lock);
 }
 
@@ -455,6 +536,23 @@ int xwin_set_display(xwin_t* xwin, uint32_t display_index) {
     return 0;
 }
 
+/*Stage a geometry change into the pending handoff fields and flag it for the
+  server, instead of writing the live wsr/state the compositor reads. The server
+  applies these under x_server_lock at the start of xwin_update_info, so live
+  geometry and the rebuilt buffers only ever change together, atomically w.r.t.
+  the compositor. Both fields are seeded by the caller from the current live
+  values so changing one axis (or the state) leaves the others intact. The
+  pending writes are ordered before geom_pending with a release barrier; the
+  synchronous UPDATE_INFO round-trip that follows guarantees the server has
+  applied them (and updated live wsr) before this call returns, so a subsequent
+  stage seeds from fresh values.*/
+static void xwin_stage_geom(xwin_t* xwin, const grect_t* wsr, uint32_t state) {
+    xwin->xinfo->wsr_pending = *wsr;
+    xwin->xinfo->state_pending = state;
+    __sync_synchronize();
+    xwin->xinfo->geom_pending = 1;
+}
+
 int xwin_resize_to(xwin_t* xwin, int w, int h) {
     grect_t xr;
     x_get_desktop_space(xwin->xinfo->display_index, &xr);
@@ -463,8 +561,10 @@ int xwin_resize_to(xwin_t* xwin, int w, int h) {
     if(h > xr.h)
         h = xr.h;
 
-    xwin->xinfo->wsr.w = w;
-    xwin->xinfo->wsr.h = h;
+    grect_t wsr = xwin->xinfo->wsr;
+    wsr.w = w;
+    wsr.h = h;
+    xwin_stage_geom(xwin, &wsr, xwin->xinfo->state);
     xwin_update_info(xwin, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
     xwin_repaint(xwin);
     return 0;
@@ -472,7 +572,9 @@ int xwin_resize_to(xwin_t* xwin, int w, int h) {
 
 int xwin_max(xwin_t* xwin) {
     memcpy(&xwin->xinfo_prev, xwin->xinfo, sizeof(xinfo_t));
-    xwin->xinfo->state = XWIN_STATE_MAX;
+    /*stage the max state instead of writing it live: the server turns
+      state_pending into state (and clamps wsr to fullscreen) under the lock*/
+    xwin_stage_geom(xwin, &xwin->xinfo->wsr, XWIN_STATE_MAX);
     xwin_update_info(xwin, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
 
     if(xwin->on_resize != NULL)
@@ -486,8 +588,10 @@ int xwin_resize(xwin_t* xwin, int dw, int dh) {
 }
 
 int xwin_move_to(xwin_t* xwin, int x, int y) {
-    xwin->xinfo->wsr.x = x;
-    xwin->xinfo->wsr.y = y;
+    grect_t wsr = xwin->xinfo->wsr;
+    wsr.x = x;
+    wsr.y = y;
+    xwin_stage_geom(xwin, &wsr, xwin->xinfo->state);
     xwin_update_info(xwin, X_UPDATE_REFRESH);
     xwin->on_move(xwin);
     return 0;
@@ -529,16 +633,20 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
         }
     }
     else if(ev->value.window.event == XEVT_WIN_RESIZE) {
-        xwin->xinfo->wsr.w += ev->value.window.v0;
-        xwin->xinfo->wsr.h += ev->value.window.v1;
+        grect_t wsr = xwin->xinfo->wsr;
+        wsr.w += ev->value.window.v0;
+        wsr.h += ev->value.window.v1;
+        xwin_stage_geom(xwin, &wsr, xwin->xinfo->state);
         xwin_update_info(xwin, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
         if(xwin->on_resize != NULL)
             xwin->on_resize(xwin);
         xwin_repaint(xwin);
     }
     else if(ev->value.window.event == XEVT_WIN_MOVE) {
-        xwin->xinfo->wsr.x += ev->value.window.v0;
-        xwin->xinfo->wsr.y += ev->value.window.v1;
+        grect_t wsr = xwin->xinfo->wsr;
+        wsr.x += ev->value.window.v0;
+        wsr.y += ev->value.window.v1;
+        xwin_stage_geom(xwin, &wsr, xwin->xinfo->state);
         xwin_update_info(xwin, X_UPDATE_REFRESH);
         if(xwin->on_move != NULL)
             xwin->on_move(xwin);
@@ -554,7 +662,13 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
             xwin->on_resize(xwin);
 
         if(xwin->xinfo->state == XWIN_STATE_MAX) {
-            memcpy(xwin->xinfo, &xwin->xinfo_prev, sizeof(xinfo_t));
+            /*restore the pre-max geometry through the pending handoff rather
+              than memcpy-ing the whole backed-up xinfo back over the live one:
+              a full memcpy wrote wsr/state the compositor reads directly (the
+              same race the pending path removes), and dragged stale shm ids
+              back with it. Only wsr and state actually need restoring here -
+              max never changes style, and update_info rebuilds every buffer.*/
+            xwin_stage_geom(xwin, &xwin->xinfo_prev.wsr, xwin->xinfo_prev.state);
             xwin_update_info(xwin, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
             if(xwin->on_resize != NULL)
                 xwin->on_resize(xwin);

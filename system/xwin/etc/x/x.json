@@ -8,7 +8,7 @@
     "gray_mode": 0,
     "multi_task": 0,
     "bg_proc_priority": 0,
-    "fps_async": 0,
+    "fps_async": 1,
     "#fps_async": "0=client repaint blocks until the server snapshots it (client fps capped to server fps); 1=double-buffered, client repaint never blocks and keeps its own fps",
     "#bg_proc_priority":  4
 }

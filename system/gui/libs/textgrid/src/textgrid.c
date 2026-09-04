@@ -75,7 +75,14 @@ static int textgrid_expand(textgrid_t* grid, uint32_t rows) {
     if(grid == NULL || grid->cols == 0)
         return -1;
 
-    uint32_t rows_new = grid->rows + rows;
+    /* Grow the allocated capacity (total_rows), not the produced-row count.
+     * Callers that jump the cursor (textgrid_move_to/textgrid_put) compute
+     * rows = y - total_rows + 1 so that total_rows becomes y+1; basing this on
+     * grid->rows undershoots whenever produced < allocated, which leaves curs_y
+     * and rows pointing past the allocation and corrupts the heap. This is what
+     * stopped a full-screen app (vi) from using rows below the ones already
+     * produced. */
+    uint32_t rows_new = grid->total_rows + rows;
     if(rows_new <= grid->max_rows || grid->rows == 0) {
         // Check for integer overflow.
         if(grid->cols == 0 ||
@@ -201,7 +208,11 @@ int textgrid_push(textgrid_t* grid, textchar_t* tch) {
     }
 
     bool new_line = false;
-    if((uint32_t)(grid->curs_x + 1) >= grid->cols || grid->rows == 0) { //new line needed
+    /* curs_x is the column about to be written, so it may address the last
+     * column (cols-1); wrapping here one column early would spill the final
+     * char of every full-width line onto the next row and grow rows by a
+     * phantom line, which scrolls the visible window up one row. */
+    if((uint32_t)grid->curs_x >= grid->cols || grid->rows == 0) { //new line needed
         new_line = true;
         grid->curs_x = 0;
     }

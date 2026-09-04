@@ -37,9 +37,12 @@ typedef struct st_xwin {
 	void (*on_repaint)(struct st_xwin* xwin, graph_t* g);
 	void (*on_reorg)(struct st_xwin* xwin);
 	void (*on_event)(struct st_xwin* xwin, xevent_t* ev);
+
+	struct st_xwin* reg_next; //process-wide registry link (xwin_open/xwin_close)
 } xwin_t;
 
 xwin_t*  xwin_open(x_t* xp, int32_t disp_index, int x, int y, int w, int h, const char* title, int style);
+xwin_t*  xwin_find_by_handle(ewokos_addr_t handle);
 void     xwin_close(xwin_t* xwin);
 void     xwin_destroy(xwin_t* xwin);
 int      xwin_set_visible(xwin_t* xwin, bool visible);

@@ -54,10 +54,35 @@ struct irq_entry *irq_vec;
 static uint32_t gSignel[SIGMAX] = {0};
 static mutex_t gSignelLock = MUTEX_INITIALIZER;
 
-#define NETD_BUSY_SLEEP_US 1000U
+/*
+ * proc_usleep() is quantised to kernel timer ticks: sleep_counter is only
+ * decremented from the timer IRQ (irq_do_timer0 -> renew_kernel_tic ->
+ * renew_sleep_counter), so a request of N us actually costs
+ * ceil(N / tick_period) ticks. With the shipped timer_freq of 1024Hz
+ * (tick = 976us) the historical 1000us busy cadence left 24us on the
+ * counter after the first tick and therefore ALWAYS slept two ticks
+ * (~1.95ms worst case, ~1.46ms average). That halved the protocol-engine
+ * round rate and added ~1.5-2ms to every ACK, every reader wakeup and
+ * every send-window reopen -- a pure software tax that capped throughput
+ * at window/round-trip no matter how fast the link was.
+ *
+ * 400us is below the tick period at any timer_freq the kernel accepts
+ * (>= 256Hz), so the busy cadence now always wakes on the first tick after
+ * the request: 0..976us, ~490us average -- roughly 3x tighter than before.
+ */
+#define NETD_BUSY_SLEEP_US 400U
 #define NETD_IDLE_SLEEP_STEP_US 1000U
 #define NETD_IDLE_SLEEP_MAX_US 10000U
 #define NETD_DEEP_IDLE_SLEEP_MAX_US 50000U
+
+/*
+ * Bound on the tap->protocol re-poll passes inside one round. Frames keep
+ * landing while a pass runs (the tap drain is a synchronous IPC to the
+ * driver and pool workers feed the stack concurrently), so the round loops
+ * until nothing moved -- but a permanently-ready device must not be able to
+ * starve the adaptive sleep at the end of the round.
+ */
+#define NETD_ROUND_PASSES_MAX 4
 
 static uint32_t softirq_pending(uint32_t sig)
 {
@@ -124,9 +149,9 @@ int intr_poll_once(void) {
 }
 
 /*
- * One protocol-engine round: drain softirqs, poll the tap, run timers,
- * flush deferred VFS wakeups, then sleep by the adaptive cadence below.
- * Driven by the main thread via device_run()'s loop_step (under
+ * One protocol-engine round: poll the tap, drain what it enqueued, run
+ * timers, flush deferred VFS wakeups, then sleep by the adaptive cadence
+ * below. Driven by the main thread via device_run()'s loop_step (under
  * IPC_MULTI_TASK the kernel worker pool serves IPC and never touches the
  * main context), so netd needs no dedicated protocol thread.
  */
@@ -134,14 +159,47 @@ void intr_step(void) {
     struct irq_entry *entry;
     static uint32_t sleep_us = NETD_BUSY_SLEEP_US;
     static uint32_t tap_rounds = 0;
-    {
-        int protocol_more_pending = 0;
-        int event_ready = 0;
-        int tap_pending = 0;
-        int tcp_timer_due = -1;
+    int protocol_more_pending = 0;
+    int event_ready = 0;
+    int tap_pending = 0;
+    int tcp_timer_due = -1;
+    int passes = 0;
+    int progress;
 
+    do {
+        progress = 0;
+
+        /*
+         * Poll the device BEFORE draining the protocol queue.
+         *
+         * ether_tap_isr() -> ether_poll_helper() -> net_input_handler() ->
+         * net_protocol_enqueue() raises SIGNET, so a frame pulled off the
+         * wire in this pass reaches ip_input()/tcp_input() in the very same
+         * pass. The previous order (drain SIGNET first, then run the tap
+         * ISR, with no re-drain afterwards) parked every inbound frame in
+         * the protocol queue for one whole extra round: an incoming ACK
+         * reopened the send window a round late and incoming data woke the
+         * parked reader a round late. At the old two-tick cadence that was
+         * ~2ms of pure software latency on every single packet, which is
+         * what pinned both machine.virt (virtio-net, effectively unlimited
+         * link) and raspix (WLAN) to the same low plateau.
+         */
+        for (entry = irq_vec; entry; entry = entry->next) {
+            if (entry->irq == SIGIRQ) {
+                if (entry->handler(entry->irq, entry->dev) == 0) {
+                    tap_pending = 1;
+                    progress = 1;
+                }
+            }
+        }
+
+        /*
+         * net_protocol_handler() re-raises SIGNET while frames remain, so
+         * this loop empties the queue completely in one pass.
+         */
         while (softirq_take(SIGNET)) {
             net_protocol_handler();
+            progress = 1;
         }
         /*
          * Preserve the old dedicated protocol-thread cadence: only force the
@@ -149,25 +207,18 @@ void intr_step(void) {
          * current batch. A single queued frame should still allow the unified
          * loop to back off once the queue becomes empty.
          */
-        if (softirq_pending(SIGNET)) {
+        if (softirq_pending(SIGNET))
             protocol_more_pending = 1;
-            while (softirq_take(SIGNET)) {
-                net_protocol_handler();
-            }
-        }
-        while(softirq_take(SIGINT)){
+
+        while (softirq_take(SIGINT)) {
             if (net_event_handler() > 0) {
                 event_ready = 1;
+                progress = 1;
             }
         }
-        for (entry = irq_vec; entry; entry = entry->next) {
-            if (entry->irq == SIGIRQ) {
-                int ret = entry->handler(entry->irq, entry->dev);
-                if (ret == 0) {
-                    tap_pending = 1;
-                }
-            }
-        }
+    } while (progress && ++passes < NETD_ROUND_PASSES_MAX);
+
+    {
         net_timer_handler();
 
         /*
@@ -186,13 +237,13 @@ void intr_step(void) {
             /*
              * Keep the fast cadence for every tap-delivered round. On raspix
              * bulk upload, wl0-drain is predominantly carrying inbound TCP ACKs:
-             * even a "small" 2ms backoff here lets ACK bursts accumulate in the
-             * wland RX queue, which then overflows and collapses the sender's
-             * effective window back to the ~500KB/s plateau. The older 4ms path
-             * was much worse; the later 2ms fallback is still too slow for this
-             * ACK-return workload. Stay at the 1ms busy cadence whenever tap
-             * work was observed and rely on the no-packet branches below for
-             * idle CPU reduction instead of penalizing ACK service.
+             * any backoff here lets ACK bursts accumulate in the wland RX queue,
+             * which then overflows and collapses the sender's effective window
+             * back to the ~500KB/s plateau. The older 4ms path was much worse;
+             * a 2ms fallback is still too slow for this ACK-return workload.
+             * Stay at the busy cadence whenever tap work was observed and rely
+             * on the no-packet branches below for idle CPU reduction instead of
+             * penalizing ACK service.
              */
             sleep_us = NETD_BUSY_SLEEP_US;
             tap_rounds++;
@@ -227,9 +278,9 @@ void intr_step(void) {
             tap_rounds = 0;
             /*
              * TCP timers are evaluated against wall-clock time in
-             * net_timer_handler(), so keeping the loop pinned at 1ms whenever a
-             * retransmit/TIME_WAIT entry exists just burns CPU. Only real
-             * packets or read-ready wakeups need the fast path.
+             * net_timer_handler(), so keeping the loop pinned at the busy
+             * cadence whenever a retransmit/TIME_WAIT entry exists just burns
+             * CPU. Only real packets or read-ready wakeups need the fast path.
              */
             sleep_us += NETD_IDLE_SLEEP_STEP_US;
             if (sleep_us > NETD_DEEP_IDLE_SLEEP_MAX_US) {

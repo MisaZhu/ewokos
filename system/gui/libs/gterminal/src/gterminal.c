@@ -122,14 +122,25 @@ static uint32_t color256(uint8_t idx) {
     }
 }
 
+static void sgr_reset(gterminal_t* terminal) {
+    terminal->term_conf.state = 0;
+    terminal->term_conf.bg_color = 0;
+    terminal->term_conf.fg_color = 0;
+    terminal->term_conf.set = 0;
+}
+
 static void do_esc_color(gterminal_t* terminal, uint16_t* values, uint8_t vnum) {
+    /* ECMA-48: "CSI m" with no parameters means SGR 0. xterm's sgr0 is exactly
+     * "\E[m", so ignoring the empty form would latch the previous attributes
+     * (e.g. reverse video from a title line) onto every following cell. */
+    if(vnum == 0) {
+        sgr_reset(terminal);
+        return;
+    }
     for(uint8_t i=0; i<vnum; i++) {
         uint16_t v = values[i];
         if(v == 0) {
-            terminal->term_conf.state = 0;
-            terminal->term_conf.bg_color = 0;
-            terminal->term_conf.fg_color = 0;
-            terminal->term_conf.set = 0;
+            sgr_reset(terminal);
         }
         else if(v == 1) {
             terminal->term_conf.set = 1;
@@ -146,6 +157,22 @@ static void do_esc_color(gterminal_t* terminal, uint16_t* values, uint8_t vnum) 
         else if(v == 7) {
             terminal->term_conf.set = 1;
             terminal->term_conf.state |= TERM_STATE_REVERSE;
+        }
+        else if(v == 22 || v == 21) {
+            terminal->term_conf.set = 1;
+            terminal->term_conf.state &= ~TERM_STATE_HIGH_LIGHT;
+        }
+        else if(v == 24) {
+            terminal->term_conf.set = 1;
+            terminal->term_conf.state &= ~TERM_STATE_UNDERLINE;
+        }
+        else if(v == 25) {
+            terminal->term_conf.set = 1;
+            terminal->term_conf.state &= ~TERM_STATE_FLASH;
+        }
+        else if(v == 28) {
+            terminal->term_conf.set = 1;
+            terminal->term_conf.state &= ~TERM_STATE_HIDE;
         }
         else if(v == 27) {
             terminal->term_conf.set = 1;
@@ -242,15 +269,23 @@ static void run_esc_cmd(gterminal_t* terminal, UNICODE16 cmd, uint16_t* values, 
         terminal->scroll_bottom : (terminal->rows - 1);
 
     if(cmd == 'J') {
+        /* Erased cells take the current attributes, like on a real terminal,
+         * so cleared areas stay consistent with subsequently written text. */
         textchar_t tch = {0};
         if(terminal->term_conf.set) {
             tch.bg_color = terminal->term_conf.bg_color;
+            tch.color = terminal->term_conf.fg_color;
+            tch.state = terminal->term_conf.state;
         }
         
         if(vnum == 0 || values[0] == 0) {
             for(uint16_t x = tg->curs_x; x < tg->cols; x++)
                 textgrid_put(tg, x, tg->curs_y, &tch);
-            for(int32_t y = tg->curs_y + 1; y <= bottom_row && y < (int32_t)tg->rows; y++)
+            /* Clear (and thereby back) all the way to the bottom of the visible
+             * window, not just to the last produced row. textgrid_put grows the
+             * grid on demand, so capping at tg->rows would leave the lower part
+             * of a full-screen app's window (e.g. vi) unbacked and unpainted. */
+            for(int32_t y = tg->curs_y + 1; y <= bottom_row; y++)
                 for(uint16_t x = 0; x < tg->cols; x++)
                     textgrid_put(tg, x, y, &tch);
         }
@@ -262,7 +297,9 @@ static void run_esc_cmd(gterminal_t* terminal, UNICODE16 cmd, uint16_t* values, 
                 textgrid_put(tg, x, tg->curs_y, &tch);
         }
         else if(values[0] == 2) {
-            for(int32_t y = top_row; y <= bottom_row && y < (int32_t)tg->rows; y++)
+            /* Erase the entire visible window: back every row up to bottom_row
+             * so the whole screen is cleared even before any content exists. */
+            for(int32_t y = top_row; y <= bottom_row; y++)
                 for(uint16_t x = 0; x < tg->cols; x++)
                     textgrid_put(tg, x, y, &tch);
             textgrid_move_to(tg, 0, top_row);
@@ -274,6 +311,11 @@ static void run_esc_cmd(gterminal_t* terminal, UNICODE16 cmd, uint16_t* values, 
     }
     else if(cmd == 'K') {
         textchar_t tch = {0};
+        if(terminal->term_conf.set) {
+            tch.bg_color = terminal->term_conf.bg_color;
+            tch.color = terminal->term_conf.fg_color;
+            tch.state = terminal->term_conf.state;
+        }
         if(vnum == 0 || values[0] == 0) {
             for(uint16_t x = tg->curs_x; x < tg->cols; x++)
                 textgrid_put(tg, x, tg->curs_y, &tch);
@@ -610,22 +652,38 @@ static void gterminal_draw_char(graph_t* g,
         void*p) {
     gterminal_t* terminal = (gterminal_t*)p;
     uint32_t fg = tch->color, bg = tch->bg_color;
+    bool reverse = (tch->state & TERM_STATE_REVERSE) != 0;
 
     if(fg == 0)
         fg = terminal->fg_color;
     if(bg == 0)
         bg = terminal->bg_color;
 
-    if((tch->state & TERM_STATE_REVERSE) != 0) {
+    if(reverse) {
         uint32_t tmp_c = fg;
         fg = bg;
         bg = tmp_c;
+        /* A reversed cell must stay legible on a transparent theme: paint
+         * the band solid with the foreground colour and draw the glyph in
+         * the (possibly unset) background colour, like tty0 does. */
+        bg = (bg & 0x00ffffff) | 0xff000000;
     }
+    else {
+        bg = (bg & 0x00ffffff) | (terminal->transparent  << 24);
+    }
+    fg = (fg & 0x00ffffff) | 0xff000000;
 
-    bg = (bg & 0x00ffffff) | (terminal->transparent  << 24);
-
-    if(bg != 0 && bg != terminal->bg_color) 
-        graph_fill_rect(g, chx, chy, chw, chh, bg);
+    if(bg != 0) {
+        /* The console background already laid terminal->bg_color into the
+         * canvas this repaint; source-over blending the same translucent
+         * colour on top of it would stack the alpha (text rows end up
+         * darker than empty rows), so translucent backs are written raw.
+         * Opaque backs (SGR/reverse) keep the normal fill path. */
+        if(color_a(bg) == 0xff)
+            graph_fill_rect(g, chx, chy, chw, chh, bg);
+        else
+            graph_set(g, chx, chy, chw, chh, bg);
+    }
     
     if((tch->state & TERM_STATE_HIDE) == 0 && tch->c >= 27) {
         if((tch->state & TERM_STATE_FLASH) != 0 && !terminal->flash_show) {
@@ -660,6 +718,19 @@ void gterminal_paint(gterminal_t* terminal, graph_t* g, int x, int y, int w, int
 
 #define ESC_BUF_CAP ((uint16_t)(sizeof(((gterminal_t*)0)->esc_buf) / sizeof(((gterminal_t*)0)->esc_buf[0])))
 
+/* Map DEC alternate-charset (line-drawing) codes onto ASCII fallbacks so box
+ * drawing stays legible on fonts that lack box glyphs. */
+static UNICODE16 acs_to_ascii(UNICODE16 c) {
+    switch(c) {
+    case 'q': return '-';                       /* horizontal line */
+    case 'x': return '|';                       /* vertical line   */
+    case 'l': case 'k': case 'm': case 'j':     /* corners         */
+    case 't': case 'u': case 'v': case 'w':     /* tees            */
+    case 'n': return '+';                       /* plus            */
+    default:  return c;
+    }
+}
+
 void gterminal_put(gterminal_t* terminal, const char* buf, int size) {
     if(terminal == NULL || terminal->textgrid == NULL || buf == NULL || size <= 0)
         return;
@@ -690,6 +761,16 @@ void gterminal_put(gterminal_t* terminal, const char* buf, int size) {
             }
             terminal->esc_buf[terminal->esc_size] = c;
             terminal->esc_size++;
+            /* charset designators ESC ( X / ESC ) X are exactly two bytes and
+             * are not letter-terminated; act as soon as both have arrived. */
+            if(terminal->esc_size == 2 &&
+               (terminal->esc_buf[0] == '(' || terminal->esc_buf[0] == ')')) {
+                if(terminal->esc_buf[0] == '(')
+                    terminal->alt_charset = (terminal->esc_buf[1] == '0');
+                terminal->esc_size = 0;
+                terminal->in_esc = false;
+                continue;
+            }
             if((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
                 do_esc_cmd(terminal, terminal->esc_buf, 0, terminal->esc_size);
                 terminal->esc_size = 0;
@@ -698,8 +779,45 @@ void gterminal_put(gterminal_t* terminal, const char* buf, int size) {
             continue;
         }
 
+        /* CR and LF are cursor moves, not printable cells.  Storing them in
+         * the grid (as textgrid_push does for unknown chars) leaves landmines:
+         * the next char pushed next to a stored CR/LF clears the rest of the
+         * row and slips in an extra newline, which is how curses' cheap
+         * CR/LF cursor moves turned into blank rows and lost title bands. */
+        if(c == '\r') {
+            textgrid_move_to(terminal->textgrid, 0, terminal->textgrid->curs_y);
+            continue;
+        }
+        if(c == '\n' || c == '\v' || c == '\f') {
+            textgrid_t* tg = terminal->textgrid;
+            if(tg->rows == 0) {
+                textchar_t blank = {0};
+                textgrid_put(tg, 0, 0, &blank);
+            }
+            textgrid_move_to(tg, 0, tg->curs_y + 1);
+            continue;
+        }
+        if(c == '\a')
+            continue;                       /* bell: never a cell, never a move */
+        if(c == '\b') {
+            /* cursor left only; erasing (like textgrid_push does for the
+             * CONSOLE_LEFT key) would eat glyphs on overstrike sequences */
+            textgrid_t* tg = terminal->textgrid;
+            if(tg->curs_x > 0)
+                textgrid_move_to(tg, tg->curs_x - 1, tg->curs_y);
+            continue;
+        }
+        if(c == '\t') {
+            textgrid_t* tg = terminal->textgrid;
+            uint32_t nx = (tg->curs_x + 8) & ~(uint32_t)7;
+            if(nx >= tg->cols)
+                nx = tg->cols - 1;
+            textgrid_move_to(tg, (int32_t)nx, tg->curs_y);
+            continue;
+        }
+
         textchar_t tch;
-        tch.c = c;
+        tch.c = terminal->alt_charset ? acs_to_ascii(c) : c;
         if(terminal->term_conf.set == 0) {
             terminal->term_conf.fg_color = 0;
             terminal->term_conf.bg_color = 0;

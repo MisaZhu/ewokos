@@ -599,6 +599,7 @@ int main(int argc, char** argv) {
     graph_t* scaled;
     graph_t* opaque_img;
     graph_t* alpha_img;
+    graph_t* wide;
     bench_ctx_t bench_ctx;
     uint32_t bg_color = 0xff101820;
     uint32_t fill_color = 0xff204060;
@@ -674,6 +675,44 @@ int main(int argc, char** argv) {
         };
         check_data("fill_clip_data", canvas, 0, 0, w0, h0,
                 expect_fill_state, &fs, 0, &failures);
+    }
+
+    /* 16-pixel-aligned fills.  Aligned and full-width rects used to take a
+       different kernel from every other fill: one that walked a whole row
+       block inside a single QPU thread, so its iteration count grew with
+       the surface width.  640 px and 800 px retired cleanly but 1280 px
+       wedged VideoCore for good.  These cases keep the aligned geometries
+       pixel-verified now that they share the general span dispatch. */
+    g2d_fill_req_init(&fill, img_canvas(canvas), g2d_rect(64, 32, 512, 256),
+            0xff305070);
+    ret = g2d_fill_rect(&fill);
+    check_ret("fill_aligned", ret, 1, &failures);
+    check_pixel("fill_align_inside", canvas, 320, 160, 0xff305070, &failures);
+    check_pixel("fill_align_first", canvas, 64, 32, 0xff305070, &failures);
+    check_pixel("fill_align_last", canvas, 575, 287, 0xff305070, &failures);
+    check_pixel("fill_align_left", canvas, 63, 300, bg_color, &failures);
+    check_pixel("fill_align_right", canvas, 576, 32, bg_color, &failures);
+
+    /* A 1280-wide full-canvas fill is the exact shape that used to ask one
+       thread for 1280 serial VDWs, so it is the regression guard for the
+       wedge; it also covers a full-width rect whose rows are physically
+       contiguous across the whole surface. */
+    wide = canvas_create(1280, 32);
+    if(wide == NULL) {
+        printf("FAIL %-22s create 1280x32 failed\n", "fill_fullwidth");
+        failures++;
+    } else {
+        img_clear(wide, bg_color);
+        g2d_fill_req_init(&fill, img_canvas(wide),
+                g2d_rect(0, 0, wide->w, wide->h), 0xff406080);
+        ret = g2d_fill_rect(&fill);
+        check_ret("fill_fullwidth", ret, 1, &failures);
+        check_pixel("fill_full_TL", wide, 0, 0, 0xff406080, &failures);
+        check_pixel("fill_full_BR", wide, 1279, 31, 0xff406080, &failures);
+        check_pixel("fill_full_mid", wide, 640, 16, 0xff406080, &failures);
+        check_pixel("fill_full_group", wide, 16, 0, 0xff406080, &failures);
+        canvas_free(wide);
+        wide = NULL;
     }
 
     /* opaque 1:1 blit: canvas pixels become the pattern */
