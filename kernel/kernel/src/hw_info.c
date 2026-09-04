@@ -85,8 +85,8 @@ void sys_info_init(void) {
 }
 
 void sys_info_config(void) {
-    _sys_info.kmalloc_size = get_kmalloc_size();
-    _sys_info.allocable_phy_mem_base = V2P(KMALLOC_END);
+    if(_sys_info.kmalloc_size == 0)
+        _sys_info.kmalloc_size = get_kmalloc_size();
 
     _sys_info.allocable_phy_mem_base = V2P(KMALLOC_END);
 
