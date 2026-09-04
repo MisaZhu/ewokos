@@ -36,6 +36,7 @@ static void usage(const char* prog) {
 }
 
 static void input(uint16_t state, int16_t tx, int16_t ty) {
+    //slog("xtouch raw: %d, %d\n", tx, ty);
     xevent_t ev;
     memset(&ev, 0, sizeof(xevent_t));
     ev.type = XEVT_MOUSE;
@@ -170,8 +171,7 @@ int main(int argc, char** argv) {
 
             input(mv[0], tx, ty);
         }
-        else
-            proc_usleep(1000);
+        proc_usleep(3000);
     }
 
     close(fd);
