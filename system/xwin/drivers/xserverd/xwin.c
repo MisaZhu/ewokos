@@ -508,6 +508,7 @@ static void x_accept_update(x_t* x, xwin_t* win) {
 
     win->ready = true;
     win->not_ready_ms = 0;
+    win->repaint_req_ms = 0;
     if(win->accept_ms == 0) {
         uint64_t now = kernel_tic_ms(0);
         win->accept_ms = (now == 0) ? 1 : now;
@@ -559,6 +560,31 @@ void x_update_release(x_t* x, xwin_t* win) {
     x_update_commit(x, win);
 }
 
+/*Abandon an accepted frame that never reached the compositor (its display
+  stayed busy or is inactive - see X_ACCEPT_TIMEOUT_MS). Handing the buffer
+  back is only half of it: from that moment the client may flip into ws_g2
+  again at any time, so the compositor must stop reading it too. A full
+  rebuild bypasses win_src_stable, so leaving win->dirty set here would let
+  draw_win (and the DRAW_FRAME it hands xwm) sample that buffer while the
+  client's next handoff copy is half done - a torn frame and garbled
+  decorations. Drop the damage instead; the area keeps whatever the scan-out
+  already holds, which is what it held before too since this frame never got
+  there, and ask the client for the picture again so an idle one does not
+  leave the window blank until its next spontaneous repaint.*/
+static void x_accept_abandon(x_t* x, xwin_t* win) {
+    win->dirty = false;
+    win->frame_dirty = false;
+    x_update_commit(x, win);
+
+    if(win->xinfo != NULL && win->xinfo->visible) {
+        xevent_t ev;
+        memset(&ev, 0, sizeof(xevent_t));
+        ev.type = XEVT_WIN;
+        ev.value.window.event = XEVT_WIN_REPAINT;
+        x_push_event(x, win, &ev);
+    }
+}
+
 /*runs once per step (under the server lock, before compositing): scans every
   window's shm handshake flag and accepts the frames that were published. This
   replaces the old XWIN_CNTL_UPDATE IPC path entirely - no vdevice dispatch, no
@@ -573,6 +599,14 @@ void x_poll_updates(x_t* x) {
     while(win != NULL) {
         if(win->xinfo != NULL) {
             if(win->xinfo->update_requested) {
+                /*the client published with a release barrier only; pair it here.
+                  Without this acquire the load of front_index (which selects
+                  ws_g2) and of the ws_g2 pixels themselves can be reordered
+                  ahead of the flag on this core: the compositor then blits the
+                  buffer graph_clear left empty, commits it as presented, and
+                  the window stays blank forever - the client believes its frame
+                  landed and an event-driven app never paints again.*/
+                __sync_synchronize();
                 if(win->xinfo->visible && win_comp_src(win) != NULL)
                     x_accept_update(x, win);
                 else
@@ -580,9 +614,36 @@ void x_poll_updates(x_t* x) {
             }
 
             /*an accepted frame that never reached the compositor still holds
-              its client off the buffer; bound that (see X_ACCEPT_TIMEOUT_MS)*/
+              its client off the buffer; bound that (see x_accept_abandon)*/
             if(win->accept_ms != 0 && (now - win->accept_ms) >= X_ACCEPT_TIMEOUT_MS)
-                x_update_commit(x, win);
+                x_accept_abandon(x, win);
+
+            /*a visible window that never became ready is simply not on screen:
+              the composite loop skips !ready windows. Its client may well think
+              it already presented - an fps_async present skipped while the
+              server still owned the handoff buffer is not re-issued by an
+              event-driven app whose widget layer already consumed its dirty
+              state, and ws_g2 (which win_comp_src picks) is still empty. Ask
+              for the frame again; ws_g holds the complete picture, so even a
+              client that redraws nothing on the event still flips it over.*/
+            if(win->xinfo->visible && !win->ready) {
+                if(win->not_ready_ms == 0)
+                    win->not_ready_ms = (now == 0) ? 1 : now;
+                else if((now - win->not_ready_ms) >= X_NOT_READY_TIMEOUT_MS &&
+                        (win->repaint_req_ms == 0 ||
+                        (now - win->repaint_req_ms) >= X_NOT_READY_TIMEOUT_MS)) {
+                    win->repaint_req_ms = (now == 0) ? 1 : now;
+                    xevent_t ev;
+                    memset(&ev, 0, sizeof(xevent_t));
+                    ev.type = XEVT_WIN;
+                    ev.value.window.event = XEVT_WIN_REPAINT;
+                    x_push_event(x, win, &ev);
+                }
+            }
+            else if(win->not_ready_ms != 0) {
+                win->not_ready_ms = 0;
+                win->repaint_req_ms = 0;
+            }
         }
         win = win->next;
     }

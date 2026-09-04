@@ -366,6 +366,14 @@ int  x_run(x_t* x, void* loop_data) {
     bool block = x->on_loop==NULL ? true:false;
     xevent_t xev;
     while(!x->terminated) {
+        /*fps_async: publish presents that had to be skipped because the server
+          was still compositing the handoff buffer. The picture only exists in
+          ws_g and the widget layer has already consumed its dirty state, so
+          this is the only thing that will ever put it on screen - an app that
+          blocks below (no on_loop) is covered by the server re-requesting the
+          frame after X_NOT_READY_TIMEOUT_MS, which wakes it up here.*/
+        xwin_retry_pending_presents();
+
         int res = -1;
         if(x_pop_event(x, &xev)) {
             res = 0;

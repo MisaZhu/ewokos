@@ -11,11 +11,22 @@
 #include "xtheme.h"
 
 static int x_update_frame_areas(x_t* x, xwin_t* win) {
-    if(!check_xwm(x))
+    if(!check_xwm(x)) {
+        win->frame_areas_valid = false;
         return -1;
+    }
 
-    if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0)
+    if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0) {
+        /*no frame, no areas: get_win_frame_pos bails out on the same style
+          bit, so an empty (zeroed) set is the correct content here*/
+        memset(&win->r_title, 0, sizeof(grect_t));
+        memset(&win->r_close, 0, sizeof(grect_t));
+        memset(&win->r_min, 0, sizeof(grect_t));
+        memset(&win->r_max, 0, sizeof(grect_t));
+        memset(&win->r_resize, 0, sizeof(grect_t));
+        win->frame_areas_valid = true;
         return -1;
+    }
 
     proto_t in, out;
     PF->init(&out);
@@ -23,11 +34,29 @@ static int x_update_frame_areas(x_t* x, xwin_t* win) {
     int res = ipc_call(x->xwm_pid, XWM_CNTL_GET_FRAME_AREAS, &in, &out);
     PF->clear(&in);
 
-    proto_read_to(&out, &win->r_title, sizeof(grect_t));
-    proto_read_to(&out, &win->r_close, sizeof(grect_t));
-    proto_read_to(&out, &win->r_min, sizeof(grect_t));
-    proto_read_to(&out, &win->r_max, sizeof(grect_t));
-    proto_read_to(&out, &win->r_resize, sizeof(grect_t));
+    if(res == 0) {
+        proto_read_to(&out, &win->r_title, sizeof(grect_t));
+        proto_read_to(&out, &win->r_close, sizeof(grect_t));
+        proto_read_to(&out, &win->r_min, sizeof(grect_t));
+        proto_read_to(&out, &win->r_max, sizeof(grect_t));
+        proto_read_to(&out, &win->r_resize, sizeof(grect_t));
+        win->frame_areas_valid = true;
+    }
+    else {
+        /*xwm refused: drop what is cached instead of keeping it. These are
+          absolute screen rects derived from winr, and proto_read_to leaves its
+          destination untouched on an empty reply - so the previous (smaller)
+          frame's areas would survive a resize and the close/max/resize hit
+          tests would land inside the workspace. Zeroed rects match nothing
+          (check_in_rect needs w > 0); xwin_revalidate_geometry retries.*/
+        memset(&win->r_title, 0, sizeof(grect_t));
+        memset(&win->r_close, 0, sizeof(grect_t));
+        memset(&win->r_min, 0, sizeof(grect_t));
+        memset(&win->r_max, 0, sizeof(grect_t));
+        memset(&win->r_resize, 0, sizeof(grect_t));
+        win->frame_areas_valid = false;
+        check_xwm(x); //refresh the liveness state
+    }
     PF->clear(&out);
     return res;
 }
@@ -85,54 +114,92 @@ static int get_xwm_win_space(x_t* x, int style, int state, grect_t* rin, grect_t
   the theme decorates can never have winr == wsr, so that equality is the
   tell: fetch the geometry again and rebuild the frame buffer at the
   corrected size. The workspace buffer is untouched, the client does not
-  notice any of this.*/
+  notice any of this.
+
+  Runs every step, not only when the xwm was replaced: get_xwm_win_space
+  also falls back to winr == wsr when a single ipc_call is refused in
+  flight, which is what a resize drag burst can provoke, and xwm then draws
+  the title and buttons straight over the workspace. Both that and a refused
+  GET_FRAME_AREAS (whose cached rects would otherwise keep describing the
+  pre-resize frame) heal here on the next frame instead of sticking until
+  the next theme change.
+
+  Deliberately does NOT require win->ready: a window stuck !ready is exactly
+  the one whose geometry has to be right before its first composite, and
+  nothing reads frame_g while the compositor skips the window.*/
 void xwin_revalidate_geometry(x_t* x, xwin_t* win) {
-    if(win->xinfo == NULL || !win->ready)
+    if(win->xinfo == NULL)
         return;
     if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0)
         return;
 
-    /*mirrors what xwm's getWinSpace adds around the workspace*/
-    bool edge = win->xinfo->state == XWIN_STATE_MAX ||
-            win->xinfo->state == XWIN_STATE_FULL_SCREEN;
-    bool deco = ((win->xinfo->style & XWIN_STYLE_NO_TITLE) == 0 &&
-            win->xinfo->state != XWIN_STATE_FULL_SCREEN &&
-            x->config.xwm_theme.titleH > 0) ||
-            (!edge && (x->config.xwm_theme.frameW > 0 ||
-            x->config.xwm_theme.shadow > 0));
-    if(!deco)
-        return;
-    if(memcmp(&win->xinfo->winr, &win->xinfo->wsr, sizeof(grect_t)) != 0)
-        return;
-    if(!check_xwm(x))
+    bool need_frame = (win->frame_g == NULL);
+    bool winr_fixed = false;
+
+    if(check_xwm(x)) {
+        /*mirrors what xwm's getWinSpace adds around the workspace*/
+        bool edge = win->xinfo->state == XWIN_STATE_MAX ||
+                win->xinfo->state == XWIN_STATE_FULL_SCREEN;
+        bool deco = ((win->xinfo->style & XWIN_STYLE_NO_TITLE) == 0 &&
+                win->xinfo->state != XWIN_STATE_FULL_SCREEN &&
+                x->config.xwm_theme.titleH > 0) ||
+                (!edge && (x->config.xwm_theme.frameW > 0 ||
+                x->config.xwm_theme.shadow > 0));
+
+        if(deco &&
+                memcmp(&win->xinfo->winr, &win->xinfo->wsr, sizeof(grect_t)) == 0) {
+            grect_t winr;
+            get_xwm_win_space(x, (int)win->xinfo->style, (int)win->xinfo->state,
+                    &win->xinfo->wsr, &winr);
+            if(memcmp(&winr, &win->xinfo->winr, sizeof(grect_t)) != 0) {
+                memcpy(&win->xinfo->winr, &winr, sizeof(grect_t));
+                /*frame_g is sized from winr and the hit-test areas are derived
+                  from it, so the corrected rect invalidates both*/
+                need_frame = true;
+                winr_fixed = true;
+            }
+        }
+
+        /*the close/min/max/resize rects are absolute screen coords computed
+          from winr: refetch them whenever they are missing, were refused, or
+          the rect they describe just changed. Runs after the repair above so
+          they are never fetched for a winr that is about to be replaced.*/
+        if(winr_fixed || !win->frame_areas_valid)
+            x_update_frame_areas(x, win);
+    }
+
+    if(!need_frame)
         return;
 
-    grect_t winr;
-    if(get_xwm_win_space(x, (int)win->xinfo->style, (int)win->xinfo->state,
-            &win->xinfo->wsr, &winr) != 0)
-        return;
-    if(memcmp(&winr, &win->xinfo->winr, sizeof(grect_t)) == 0)
-        return;
-
-    memcpy(&win->xinfo->winr, &winr, sizeof(grect_t));
-
-    /*publishes -1 right away: a failure below leaves the window without a
-      frame, and an id pointing at freed memory is worse than no id*/
+    /*draw_win and prepare_win_content both bail out on a NULL frame_g, so a
+      window without one is never composited at all. shm can run out in the
+      middle of a resize burst: retry here every step instead of leaving the
+      window blank for good, which is what the old early return did.*/
     if(win->frame_g != NULL) {
         graph_free(win->frame_g);
         win->frame_g = NULL;
     }
+    /*publishes -1 right away: an id pointing at freed memory is worse than
+      no id*/
     win->xinfo->frame_g_shm_id = -1;
+    win->xinfo->frame_g_shm_contig = false;
 
     /*graph_new_shm allocates its own keyed shm canvas: the buffer and the
       shm id both travel inside frame_g, no window-level mirrors*/
     win->frame_g = graph_new_shm(win->xinfo->winr.w, win->xinfo->winr.h);
     if(win->frame_g == NULL)
-        return;
+        return; //retried on the next step
     win->xinfo->frame_g_shm_id = win->frame_g->shm_id;
+    /*xwm reads this off the published id to decide whether it may drive g2d
+      on the frame canvas. Leaving the freed buffer's flag behind would either
+      cost the acceleration or, worse, point g2d at memory that is not
+      physically contiguous - garbled decorations over a correct frame.*/
+    win->xinfo->frame_g_shm_contig = win->frame_g->shm_contig;
     win->frame_dirty = true;
     win->shadow_valid = false;
-    x_update_frame_areas(x, win);
+    /*the outer rect moved: whatever the scan-out holds there (workspace
+      pixels drawn at the undecorated offset) has to be repainted over*/
+    x_dirty(x, win->xinfo->display_index);
 }
 
 int do_xwin_top(int fd, int from_pid, x_t* x) {
@@ -332,6 +399,7 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
         win->frame_dirty = true;
         win->ready = false;
         win->not_ready_ms = 0; //restart the stuck-window timeout
+        win->repaint_req_ms = 0;
         win->paint_ms = 0;     //the old canvas is gone, so is any claim on it
         win->accept_ms = 0;
 
@@ -356,16 +424,21 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
         if(x->config.fps_async) {
             win->ws_g2 = graph_new_shm(win->xinfo->wsr.w, win->xinfo->wsr.h);
             if(win->ws_g2 == NULL) {
-                graph_free(win->ws_g);
-                win->ws_g = NULL;
-                win->xinfo->ws_g_shm_id = -1;
-                win->xinfo->ws_g_shm_contig = false;
+                /*no shm left for the handoff buffer: fall back to the blocking
+                  single-buffer handshake for THIS window instead of destroying
+                  it. Tearing it down here freed ws_g too and returned -1, which
+                  left the client with ws_g_shm_id == -1 for good - xwin_open
+                  does not retry - so the window ran but never drew anything.
+                  ws_g stays valid and front_index 0 keeps win_comp_src on it.*/
                 win->xinfo->fps_async = false;
-                return -1;
+                win->xinfo->ws_g2_shm_id = -1;
+                win->xinfo->ws_g2_shm_contig = false;
             }
-            win->xinfo->ws_g2_shm_id = win->ws_g2->shm_id;
-            win->xinfo->ws_g2_shm_contig = win->ws_g2->shm_contig;
-            graph_clear(win->ws_g2, 0x0);
+            else {
+                win->xinfo->ws_g2_shm_id = win->ws_g2->shm_id;
+                win->xinfo->ws_g2_shm_contig = win->ws_g2->shm_contig;
+                graph_clear(win->ws_g2, 0x0);
+            }
         }
         /*reset the handshake state on every rebuild: front_index 0 means "no
           flip published yet", so the server will not snapshot until the client's

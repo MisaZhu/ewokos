@@ -140,12 +140,8 @@ static inline void refresh_cursor(x_t* x) {
     x->cursor.old_pos.y = x->cursor.cpos.y;
 }
 
-/* a window stuck !ready (client stalled behind the input IPC storm after
-   a resize/rebuild) must not throttle the whole display forever: once it
-   has been stuck this long the repaint proceeds without it. The composite
-   loop skips !ready windows, so its area simply shows what is below until
-   the client catches up with its next UPDATE. */
-#define X_NOT_READY_TIMEOUT_MS 500
+/* X_NOT_READY_TIMEOUT_MS lives in xserver.h: all_win_ready below and the
+   stuck-window repaint request in x_poll_updates share the same budget */
 
 static bool all_win_ready(x_t* x) {
     uint64_t now = kernel_tic_ms(0);

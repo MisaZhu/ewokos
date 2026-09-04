@@ -18,6 +18,15 @@
 
 #define X_EVENT_MAX 16
 
+/* a window stuck !ready (client stalled behind the input IPC storm after
+   a resize/rebuild, or an fps_async present the client dropped because the
+   server still owned the handoff buffer) must not throttle the whole display
+   forever: once it has been stuck this long the repaint proceeds without it.
+   The composite loop skips !ready windows, so its area simply shows what is
+   below until the client catches up with its next UPDATE. The same budget
+   paces x_poll_updates asking such a window for its picture again. */
+#define X_NOT_READY_TIMEOUT_MS 500
+
 enum {
 	X_win_DRAG_MOVE = 1,
 	X_win_DRAG_RESIZE
@@ -61,6 +70,18 @@ typedef struct st_xwin {
 	  its handoff buffer (fps_async) for that whole time, so x_poll_updates
 	  releases it once this passes X_ACCEPT_TIMEOUT_MS.*/
 	uint64_t accept_ms;
+
+	/*tic (ms) of the last XEVT_WIN_REPAINT sent to a window that never became
+	  ready; 0 while none is outstanding. Bounds how often x_poll_updates asks
+	  such a window for its picture again.*/
+	uint64_t repaint_req_ms;
+
+	/*the hit-test areas below describe the CURRENT winr. Cleared whenever xwm
+	  refused GET_FRAME_AREAS: they are absolute screen rects derived from
+	  winr, so keeping the previous set would leave the close/min/max/resize
+	  tests describing the old, smaller frame - they land inside the workspace
+	  after a resize. xwin_revalidate_geometry retries until this is true.*/
+	bool frame_areas_valid;
 
 	grect_t r_title;
 	grect_t r_close;
