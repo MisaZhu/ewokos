@@ -873,6 +873,13 @@ void gterminal_resize(gterminal_t* terminal, uint32_t gw, uint32_t gh) {
     terminal->scroll_bottom = UINT32_MAX;
     int32_t start_row = (int32_t)terminal->textgrid->rows - (int32_t)terminal->rows;
     terminal->textgrid_start_row = start_row < 0 ? 0:start_row;
+
+    /* The view anchor was clamped against the old geometry; re-clamp it so a
+     * resize can never leave scroll_offset pointing past the history. */
+    if(terminal->scroll_offset > 0)
+        terminal->scroll_offset = 0;
+    else if(-terminal->scroll_offset > terminal->textgrid_start_row)
+        terminal->scroll_offset = -terminal->textgrid_start_row;
 }
 
 #ifdef __cplusplus

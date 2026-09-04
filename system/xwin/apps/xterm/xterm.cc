@@ -234,6 +234,9 @@ protected:
 						fontZoom(false);
 				}
 				zooming = true;
+				/* keep the scroll anchor in sync, otherwise the first vertical
+				 * move after a zoom scrolls by the whole zoom duration */
+				mouse_last_y = ev->value.mouse.y;
 				return true;
 			}
 		}
