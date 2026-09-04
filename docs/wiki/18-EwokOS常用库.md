@@ -92,7 +92,6 @@ EwokOS 的 GUI 与不少应用用 C++ 写，C++ 运行时也在基础库里
 | [display](../../system/gui/libs/display/) | `-ldisplay` | `display/display.h` | 显示设备抽象（分辨率、色深、翻转） |
 | [displayman](../../system/gui/libs/displayman/) | `-ldisplayman` | `displayman/displayman.h` | 显示管理（多输出/动态时序） |
 | [displayd](../../system/gui/libs/displayd/) | （驱动） | — | 显示守护进程侧库 |
-| [fb](../../system/gui/libs/fb/) / [fbd](../../system/gui/libs/fbd/) | （framebuffer） | — | Framebuffer 访问与其驱动（第 13 章） |
 | [textgrid](../../system/gui/libs/textgrid/) | `-ltextgrid` | `textgrid/textgrid.h`、`text_content.h` | 字符网格：终端的"行列 + 字符"模型 |
 | [gterminal](../../system/gui/libs/gterminal/) | `-lgterminal` | `gterminal/gterminal.h` | 图形终端：把 textgrid 用 font/graph 画出来 |
 
@@ -182,9 +181,9 @@ Grid  Columns  Split  Splitter  Stage  Blank  SpriteAnim  SpriteWin
 本章列的是**核心系统自带**的库。仓库里还有一个独立的子模块
 [sw.extra/](../../sw.extra/)，收录了更大的第三方套件与应用，例如：
 
-- **SDL2**（[sw.extra/sdl2/](../../sw.extra/sdl2/)）——跨平台多媒体/游戏开发层；
+- **SDL2**（[sw.extra/libs/SDL2/](../../sw.extra/libs/SDL2/)）——跨平台多媒体/游戏开发层；
 - **curses**（[sw.extra/libs/curses/](../../sw.extra/libs/curses/)）——文本终端 UI（`libcurses` + `libterminfo`）；
-- **widget++** 的额外控件、**vim**、计算器、日历等应用。
+- **vim**、计算器、日历等应用（`widget++` 的扩展控件则在 `projects` 里，见 [19](19-EwokOS扩展库.md)）。
 
 它们同样以源码 vendored、用定制 Makefile 交叉编译，但属于"扩展软件"，
 不在核心 `system/` 构建链里，按需启用。

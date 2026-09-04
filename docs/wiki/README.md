@@ -64,7 +64,7 @@ EwokOS 是一个真实存在的、可运行的微内核操作系统（支持 ARM
 | [06 中断与定时器](06-中断与定时器.md) | 树莓派中断源、中断处理四步法、时钟心跳 | `kernel/kernel/src/irq.c`、`interrupt.c` |
 | [07 进程与调度器](07-进程与调度器.md) | 进程三要素、第一个进程的创建、上下文切换、调度、fork 与写时复制 | `kernel/kernel/src/proc.c`、`schedule.c` |
 | [08 系统调用](08-系统调用.md) | 系统调用的意义、`svc #0`、分发、与中断的异同 | `kernel/kernel/src/svc.c` |
-| [09 IPC 进程间通信](09-IPC进程间通信.md) | IPC 实现方法、数据交换效率、同步 RPC、通信即服务 | `kernel/kernel/src/ipc.c`、`docs/ipc.md` |
+| [09 IPC 进程间通信](09-IPC进程间通信.md) | IPC 实现方法、数据交换效率、同步 RPC、通信即服务 | `kernel/kernel/src/ipc.c` |
 
 ### 第 3 部分：用户态
 
@@ -92,7 +92,7 @@ EwokOS 是一个真实存在的、可运行的微内核操作系统（支持 ARM
 | [16 库生态总览](16-EwokOS库生态总览.md) | 库为何自建、五层地图、目录结构、`EWOK_LIBC`/`EWOK_LIB_GRAPH`/`EWOK_LIB_X` 链接、构建安装流 | `system/platform/*/make.rule` |
 | [17 EwokOS 的 libc](17-EwokOS的libc.md) | C 运行时拼图：newlib + libgloss + libewoksys + openlibm + softfloat；`printf` 的完整调用链；errno | `system/basic/libc/` |
 | [18 EwokOS 常用库](18-EwokOS常用库.md) | 基础库/图形库/窗口库/网络库速查；“我想干什么→用哪个库”对照表 | `system/*/libs/` |
-| [19 EwokOS 扩展库](19-EwokOS扩展库.md) | `sw.extra`（SDL2/curses/widget++）与 `projects`（litehtml/cglm/ferox/portablegl/imgui/ffmpeg）等选装库 | `sw.extra/`、`projects/` |
+| [19 EwokOS 扩展库](19-EwokOS扩展库.md) | `sw.extra`（SDL2/curses）与 `projects`（litehtml/cglm/ferox/portablegl/imgui/ffmpeg/widget++ 扩展控件）等选装库 | `sw.extra/`、`projects/` |
 
 ### 附录
 
