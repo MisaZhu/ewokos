@@ -82,6 +82,17 @@ EwokOS 是一个真实存在的、可运行的微内核操作系统（支持 ARM
 | [14 烧录到树莓派](14-制作镜像并烧录到树莓派.md) | SD 卡镜像、分区、烧录、真机启动 | `tools/makesd.sh`、`tools/bootfs/` |
 | [15 调试与进阶](15-调试技巧与进阶路线.md) | GDB 调试、日志体系、接下来做什么 | — |
 
+### 第 5 部分：EwokOS 库生态（ewokos 系列）
+
+一个独立的“系列”，专门盘点 EwokOS 的库：从 libc（C 运行时）到各类常用库。
+想写真实应用、想知道“干某件事该用哪个库”时，从这里查。
+
+| 章节 | 内容 | 对应源码 |
+|------|------|----------|
+| [16 库生态总览](16-EwokOS库生态总览.md) | 库为何自建、五层地图、目录结构、`EWOK_LIBC`/`EWOK_LIB_GRAPH`/`EWOK_LIB_X` 链接、构建安装流 | `system/platform/*/make.rule` |
+| [17 EwokOS 的 libc](17-EwokOS的libc.md) | C 运行时拼图：newlib + libgloss + libewoksys + openlibm + softfloat；`printf` 的完整调用链；errno | `system/basic/libc/` |
+| [18 EwokOS 常用库](18-EwokOS常用库.md) | 基础库/图形库/窗口库/网络库速查；“我想干什么→用哪个库”对照表 | `system/*/libs/` |
+
 ### 附录
 
 | 章节 | 内容 |
