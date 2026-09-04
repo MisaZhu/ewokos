@@ -42,7 +42,7 @@ EwokOS 是一个真实存在的、可运行的微内核操作系统（支持 ARM
    │
 第 4 部分  完整系统（图形界面 → 制作镜像 → 烧录树莓派实机）
    │
-第 5 部分  ewokos 系列（库生态总览 → libc → 常用库）
+第 5 部分  ewokos 系列（库生态总览 → libc → 常用库 → 扩展库）
 ```
 
 ## 章节目录
@@ -92,6 +92,7 @@ EwokOS 是一个真实存在的、可运行的微内核操作系统（支持 ARM
 | [16 库生态总览](16-EwokOS库生态总览.md) | 库为何自建、五层地图、目录结构、`EWOK_LIBC`/`EWOK_LIB_GRAPH`/`EWOK_LIB_X` 链接、构建安装流 | `system/platform/*/make.rule` |
 | [17 EwokOS 的 libc](17-EwokOS的libc.md) | C 运行时拼图：newlib + libgloss + libewoksys + openlibm + softfloat；`printf` 的完整调用链；errno | `system/basic/libc/` |
 | [18 EwokOS 常用库](18-EwokOS常用库.md) | 基础库/图形库/窗口库/网络库速查；“我想干什么→用哪个库”对照表 | `system/*/libs/` |
+| [19 EwokOS 扩展库](19-EwokOS扩展库.md) | `sw.extra`（SDL2/curses/widget++）与 `projects`（litehtml/cglm/ferox/portablegl/imgui/ffmpeg）等选装库 | `sw.extra/`、`projects/` |
 
 ### 附录
 
