@@ -536,6 +536,23 @@ int xwin_set_display(xwin_t* xwin, uint32_t display_index) {
     return 0;
 }
 
+/*Stage a geometry change into the pending handoff fields and flag it for the
+  server, instead of writing the live wsr/state the compositor reads. The server
+  applies these under x_server_lock at the start of xwin_update_info, so live
+  geometry and the rebuilt buffers only ever change together, atomically w.r.t.
+  the compositor. Both fields are seeded by the caller from the current live
+  values so changing one axis (or the state) leaves the others intact. The
+  pending writes are ordered before geom_pending with a release barrier; the
+  synchronous UPDATE_INFO round-trip that follows guarantees the server has
+  applied them (and updated live wsr) before this call returns, so a subsequent
+  stage seeds from fresh values.*/
+static void xwin_stage_geom(xwin_t* xwin, const grect_t* wsr, uint32_t state) {
+    xwin->xinfo->wsr_pending = *wsr;
+    xwin->xinfo->state_pending = state;
+    __sync_synchronize();
+    xwin->xinfo->geom_pending = 1;
+}
+
 int xwin_resize_to(xwin_t* xwin, int w, int h) {
     grect_t xr;
     x_get_desktop_space(xwin->xinfo->display_index, &xr);
@@ -544,8 +561,10 @@ int xwin_resize_to(xwin_t* xwin, int w, int h) {
     if(h > xr.h)
         h = xr.h;
 
-    xwin->xinfo->wsr.w = w;
-    xwin->xinfo->wsr.h = h;
+    grect_t wsr = xwin->xinfo->wsr;
+    wsr.w = w;
+    wsr.h = h;
+    xwin_stage_geom(xwin, &wsr, xwin->xinfo->state);
     xwin_update_info(xwin, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
     xwin_repaint(xwin);
     return 0;
@@ -553,7 +572,9 @@ int xwin_resize_to(xwin_t* xwin, int w, int h) {
 
 int xwin_max(xwin_t* xwin) {
     memcpy(&xwin->xinfo_prev, xwin->xinfo, sizeof(xinfo_t));
-    xwin->xinfo->state = XWIN_STATE_MAX;
+    /*stage the max state instead of writing it live: the server turns
+      state_pending into state (and clamps wsr to fullscreen) under the lock*/
+    xwin_stage_geom(xwin, &xwin->xinfo->wsr, XWIN_STATE_MAX);
     xwin_update_info(xwin, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
 
     if(xwin->on_resize != NULL)
@@ -567,8 +588,10 @@ int xwin_resize(xwin_t* xwin, int dw, int dh) {
 }
 
 int xwin_move_to(xwin_t* xwin, int x, int y) {
-    xwin->xinfo->wsr.x = x;
-    xwin->xinfo->wsr.y = y;
+    grect_t wsr = xwin->xinfo->wsr;
+    wsr.x = x;
+    wsr.y = y;
+    xwin_stage_geom(xwin, &wsr, xwin->xinfo->state);
     xwin_update_info(xwin, X_UPDATE_REFRESH);
     xwin->on_move(xwin);
     return 0;
@@ -610,16 +633,20 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
         }
     }
     else if(ev->value.window.event == XEVT_WIN_RESIZE) {
-        xwin->xinfo->wsr.w += ev->value.window.v0;
-        xwin->xinfo->wsr.h += ev->value.window.v1;
+        grect_t wsr = xwin->xinfo->wsr;
+        wsr.w += ev->value.window.v0;
+        wsr.h += ev->value.window.v1;
+        xwin_stage_geom(xwin, &wsr, xwin->xinfo->state);
         xwin_update_info(xwin, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
         if(xwin->on_resize != NULL)
             xwin->on_resize(xwin);
         xwin_repaint(xwin);
     }
     else if(ev->value.window.event == XEVT_WIN_MOVE) {
-        xwin->xinfo->wsr.x += ev->value.window.v0;
-        xwin->xinfo->wsr.y += ev->value.window.v1;
+        grect_t wsr = xwin->xinfo->wsr;
+        wsr.x += ev->value.window.v0;
+        wsr.y += ev->value.window.v1;
+        xwin_stage_geom(xwin, &wsr, xwin->xinfo->state);
         xwin_update_info(xwin, X_UPDATE_REFRESH);
         if(xwin->on_move != NULL)
             xwin->on_move(xwin);
@@ -635,7 +662,13 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
             xwin->on_resize(xwin);
 
         if(xwin->xinfo->state == XWIN_STATE_MAX) {
-            memcpy(xwin->xinfo, &xwin->xinfo_prev, sizeof(xinfo_t));
+            /*restore the pre-max geometry through the pending handoff rather
+              than memcpy-ing the whole backed-up xinfo back over the live one:
+              a full memcpy wrote wsr/state the compositor reads directly (the
+              same race the pending path removes), and dragged stale shm ids
+              back with it. Only wsr and state actually need restoring here -
+              max never changes style, and update_info rebuilds every buffer.*/
+            xwin_stage_geom(xwin, &xwin->xinfo_prev.wsr, xwin->xinfo_prev.state);
             xwin_update_info(xwin, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
             if(xwin->on_resize != NULL)
                 xwin->on_resize(xwin);

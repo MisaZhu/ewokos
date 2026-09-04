@@ -160,6 +160,24 @@ typedef struct {
 	  A client that goes idle after its last frame never clears it, so the
 	  server bounds the wait (X_PAINT_TIMEOUT_MS) rather than stalling.*/
 	volatile uint32_t painting;
+
+	/*Geometry handoff (server-exclusive geometry writes). The client used to
+	  write the live wsr/state directly before issuing UPDATE_INFO, so a resize
+	  or move published new geometry into shared memory while the compositor - a
+	  separate process the ipc_disable barrier does not fence out of the shm -
+	  could still read it against a stale winr/buffer, drawing the frame at the
+	  wrong offset or under-copying the workspace (tearing). Instead the client
+	  now stages the new workspace rect into wsr_pending (and, for max/restore,
+	  the new state into state_pending), raises geom_pending behind a release
+	  barrier, then issues UPDATE_INFO. The server consumes the pending geometry
+	  at the very start of xwin_update_info, under x_server_lock, before it
+	  recomputes winr and rebuilds the buffers, so live geometry and the matching
+	  buffers only ever change together inside the lock. The compositor never
+	  reads these fields. geom_pending is written last by the client and read +
+	  cleared first by the server, both bracketed by __sync_synchronize.*/
+	grect_t wsr_pending;
+	uint32_t state_pending;
+	volatile uint32_t geom_pending;
 } xinfo_t;
 
 typedef struct {

@@ -223,6 +223,24 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
     if((win->xinfo->style & XWIN_STYLE_XIM) != 0)
         x->im_state.win_xim = win;
 
+    /*Apply the client-staged geometry handoff first, inside x_server_lock and
+      before anything below reads wsr/state. The client no longer writes the
+      live wsr/state the compositor samples concurrently (that let a frame pair
+      a new wsr with a stale winr/buffer: frame drawn at the wrong offset, or an
+      under-copied workspace tearing); it stages wsr_pending + state_pending and
+      raises geom_pending instead. Consuming them here means live geometry and
+      the rebuilt buffers below only ever change together, atomically w.r.t. the
+      compositor. geom_pending is read + cleared first, bracketed by barriers, so
+      a torn wsr_pending can never be observed. This runs before the wsr_w/winr_w
+      snapshot below, which then compares against the freshly applied geometry.*/
+    if(win->xinfo->geom_pending) {
+        __sync_synchronize();
+        win->xinfo->wsr = win->xinfo->wsr_pending;
+        win->xinfo->state = win->xinfo->state_pending;
+        win->xinfo->geom_pending = 0;
+        __sync_synchronize();
+    }
+
     int wsr_w = win->xinfo->wsr.w;
     int wsr_h = win->xinfo->wsr.h;
     int winr_w = win->xinfo->winr.w;

@@ -47,6 +47,24 @@ typedef struct {
         bool pipe_wait;
 } poll_fd_cache_t;
 
+#define VFS_MULTI_POLL_BACKOFF_US 20000
+/*
+ * Backoff for poll() waits that cannot park on a single node token.
+ *
+ * vfsd keeps only one read and one write waiter per pid, so a multi-fd
+ * poll() registering on several nodes leaves only the LAST registration
+ * armed — events on the evicted nodes can never wake the block. An
+ * infinite timeout therefore must not block forever: it sleeps on this
+ * bounded deadline and re-checks every fd level-triggered each round.
+ *
+ * Ramp instead of a flat sleep: catch the common sub-millisecond refill
+ * on the first retry (a flat 10ms/20ms would cap a relay such as
+ * sshd/telnetd shell output near 4KB per period — the shm_pipe ring is
+ * 4032 bytes), and still reach the ceiling within ~25ms so a genuinely
+ * idle waiter does not flood vfsd with readiness IPCs.
+ */
+#define VFS_POLL_BACKOFF_START_US 200U
+
 static int vfs_get_by_fd_raw(int fd, fsinfo_t* info) {
     proto_t in, out;
     PF->init(&in)->addi(&in, fd);
@@ -1506,6 +1524,7 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
     int res = 0;
     poll_fd_cache_t* cache = NULL;
     bool registered = false;
+    uint32_t backoff_us = VFS_POLL_BACKOFF_START_US;
     uint64_t start_ms = 0;
     if(timeout > 0)
         start_ms = kernel_tic_ms(0);
@@ -1558,9 +1577,11 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
          * pid, so several pipes of one process never overwrite each other);
          * everything else registers on its vfsd node. vfsd keeps one read
          * and one write waiter per pid, so with several device fds the LAST
-         * registration wins there — the timed block below still bounds the
-         * wait and every poll round re-registers, which keeps coverage
-         * correct without needing per-fd waiter slots in vfsd.
+         * registration wins there — events on the evicted nodes never wake
+         * the block, which is why even an infinite-timeout block below
+         * carries a bounded deadline and every poll round re-registers.
+         * Coverage stays correct without needing per-fd waiter slots in
+         * vfsd.
          */
         uint32_t wait_node = 0;
         for(int i = 0; i < num; ++i) {
@@ -1618,11 +1639,16 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
          * poll waiters with proc_wakeup_by(pid, node); piped uses the pipe
          * ring token). Multiple fds: a generic block, released by ANY node
          * token wake — a wake from any registered source carries a non-zero
-         * token, so no registration can starve the others. proc_block_timeout
-         * discards the latched generic token-0 wakes our registration IPCs
-         * left behind and honours the deadline, so a finite timeout no longer
-         * degrades into a usleep/probe spin loop: an idle waiter issues zero
-         * readiness IPCs until an event edge or its deadline arrives.
+         * token. But vfsd armed only the LAST registered node (one read
+         * waiter per pid), so fds evicted from the waiter slot never raise
+         * a wake: with an infinite timeout the block below must stay bounded
+         * by the capped backoff, otherwise input on an evicted fd (telnet's
+         * keyboard, evicted by its socket registration) is lost forever.
+         * proc_block_timeout discards the latched generic token-0 wakes our
+         * registration IPCs left behind and honours the deadline, so a
+         * finite timeout no longer degrades into a usleep/probe spin loop:
+         * an idle waiter issues zero readiness IPCs until an event edge or
+         * its deadline arrives.
          */
         if(num == 1) {
             if(timeout < 0) {
@@ -1645,7 +1671,18 @@ int vfs_poll(vfs_pollfd_t* fds, int num, int timeout) {
         }
         else {
             if(timeout < 0) {
-                proc_block_timeout(0, 0);
+                /*
+                 * Never block unbounded here: vfsd armed only the LAST
+                 * registered node (one read waiter per pid), so events on
+                 * the evicted fds never wake us — they are caught by the
+                 * level-triggered re-check after this bounded deadline.
+                 */
+                proc_block_timeout(0, backoff_us);
+                if(backoff_us < VFS_MULTI_POLL_BACKOFF_US) {
+                    backoff_us *= 2;
+                    if(backoff_us > VFS_MULTI_POLL_BACKOFF_US)
+                        backoff_us = VFS_MULTI_POLL_BACKOFF_US;
+                }
             }
             else {
                 uint64_t elapsed = kernel_tic_ms(0) - start_ms;

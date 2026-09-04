@@ -143,6 +143,12 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
     }
     else if(ev->state == MOUSE_STATE_UP) {
         if(pos == FRAME_R_RESIZE) {//window resize
+            /*still clear the drag state before bailing out: returning early
+              here used to skip the win_drag/drag_state reset at the end of this
+              branch, so a button release over the resize corner could leave the
+              drag latched and its overlay outline stuck on screen*/
+            x->current.win_drag = NULL;
+            x->current.drag_state = 0;
             return;
         }
 
