@@ -27,7 +27,7 @@ static int32_t _rotate = 0;
 static float _zoom = 1.0;
 static int32_t _zwidth;
 static int32_t _zheight;
-static fbdisplayd_t* _fbdisplayd = NULL;
+static displayd_t* _fbdisplayd = NULL;
 static char _logo[256] = {0};
 static disp_shm_t* _cur_shm = NULL; /* live shm, for fbdisplayd_refresh() */
 
@@ -783,7 +783,28 @@ static char* disp_dev_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, v
     return _dev_cmd(from_pid, argc, argv);
 }
 
-int fbdisplayd_run(fbdisplayd_t* fbdisplayd, const char* mnt_name,
+static uint32_t disp_dev_check_poll_events(vdevice_t* dev, int fd, int from_pid, fsinfo_t* node, void* p) {
+    (void)dev;
+    (void)fd;
+    (void)from_pid;
+    (void)node;
+    (void)p;
+
+    if(_fbdisplayd->check_poll_events == NULL)
+        return 0;
+    return _fbdisplayd->check_poll_events();
+}
+
+static int disp_dev_loop(vdevice_t* dev, void* p) {
+    (void)dev;
+    (void)p;
+
+    if(_fbdisplayd->step_loop == NULL)
+        return 0;
+    return _fbdisplayd->step_loop();
+}
+
+int fbdisplayd_run(displayd_t* fbdisplayd, const char* mnt_name,
         uint32_t def_w, uint32_t def_h, const char* conf_file, uint32_t display_index) {
     _fbdisplayd = fbdisplayd;
     uint32_t w = def_w, h = def_h;
@@ -814,6 +835,15 @@ int fbdisplayd_run(fbdisplayd_t* fbdisplayd, const char* mnt_name,
     dev.dev_cntl = disp_dev_cntl;
     dev.read = disp_dev_read;
     dev.cmd = disp_dev_cmd;
+
+    /* Opt-in device-loop hooks (e.g. touch sampling on the panel's shared SPI
+     * bus). Wire them only when the driver provides them: an always-on
+     * loop_step would flip every display driver to IPC_NON_BLOCK and hot-spin
+     * the main loop, since device_run() only sleeps when loop_step is NULL. */
+    if(fbdisplayd->step_loop != NULL)
+        dev.loop_step = disp_dev_loop;
+    if(fbdisplayd->check_poll_events != NULL)
+        dev.check_poll_events = disp_dev_check_poll_events;
 
     dev.extra_data = &shm;
     _cur_shm = &shm;

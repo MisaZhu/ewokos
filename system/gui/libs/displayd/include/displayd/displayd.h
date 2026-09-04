@@ -23,9 +23,12 @@ typedef struct {
     int32_t   (*read)(uint8_t *buf, uint32_t size);
     disp_info_t* (*get_info)(void);
     void      (*splash)(graph_t* g, const char* logo);
-} fbdisplayd_t;
 
-extern int fbdisplayd_run(fbdisplayd_t* fbdisplayd, const char* mnt_name,
+    int32_t (*check_poll_events)(void);
+    int (*step_loop)(void);
+} displayd_t;
+
+extern int fbdisplayd_run(displayd_t* fbdisplayd, const char* mnt_name,
     uint32_t def_w,
     uint32_t def_h,
     const char* conf_file,
@@ -42,8 +45,8 @@ extern uint32_t fbdisplayd_rotate_to(const disp_info_t* fbinfo, const graph_t* g
 
 /* Opt-in partial flush. Once registered, libfbdisplayd pushes only the rects the
  * client declared through display_set_dirty() instead of the whole frame. It is
- * a separate registration (not a fbdisplayd_t field) because several drivers leave
- * the tail of their fbdisplayd_t uninitialised. Only used when no rotation and no
+ * a separate registration (not a displayd_t field) because several drivers leave
+ * the tail of their displayd_t uninitialised. Only used when no rotation and no
  * zoom is active; returning 0 makes libfbdisplayd fall back to a full flush. */
 extern void fbdisplayd_set_flush_rect(uint32_t (*flush_rect)(const disp_info_t* fbinfo,
 		const graph_t* g, const grect_t* r));
@@ -56,8 +59,8 @@ extern uint32_t fbdisplayd_flush_rect_to(const disp_info_t* fbinfo, const graph_
 
 /* Opt-in dev.cmd handler (see the `devcmd` tool), for panel side knobs like
  * the backlight that have no place in the fbinfo/fcntl API. Like
- * fbdisplayd_set_flush_rect() this is a separate registration (not a fbdisplayd_t field)
- * because several drivers leave the tail of their fbdisplayd_t uninitialised. The
+ * fbdisplayd_set_flush_rect() this is a separate registration (not a displayd_t field)
+ * because several drivers leave the tail of their displayd_t uninitialised. The
  * returned string is malloc'ed and freed by the caller; NULL means the
  * command is not supported. */
 extern void fbdisplayd_set_dev_cmd(char* (*dev_cmd)(int from_pid, int argc, char** argv));
