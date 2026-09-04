@@ -139,6 +139,245 @@ static int check_pixel(const char* label, const graph_t* g,
     return 0;
 }
 
+/* -------------------------------------------------------------------- */
+/* data-integrity checks: every functional api call that returned 0 must
+   also have produced the expected pixels, otherwise a backend that
+   reports ok without rendering (or renders the wrong content) would
+   still count as pass.  the fps benchmark below deliberately does not
+   do this: its frames only time the api round trip. */
+/* -------------------------------------------------------------------- */
+
+/* per-pixel expectation: return the expected color for dst canvas (x,y),
+   or (uint32_t)-1 to skip the cell (region not covered by this op). */
+typedef uint32_t (*expect_pixel_fn)(const graph_t* g, uint32_t x,
+        uint32_t y, void* arg);
+
+/* full-region data check. tol is the per-channel tolerance absorbing
+   backend rounding (0 = exact match). */
+static int check_data(const char* label, const graph_t* g,
+        uint32_t x0, uint32_t y0, uint32_t w, uint32_t h,
+        expect_pixel_fn expect, void* arg, uint32_t tol, int* failures) {
+    uint32_t x;
+    uint32_t y;
+
+    if(g == NULL || g->buffer == NULL ||
+            x0 > (uint32_t)g->w || y0 > (uint32_t)g->h ||
+            w > (uint32_t)g->w - x0 || h > (uint32_t)g->h - y0) {
+        printf("FAIL %-22s bad region %ux%u@(%u,%u)\n", label, w, h, x0, y0);
+        (*failures)++;
+        return -1;
+    }
+    for(y = y0; y < y0 + h; y++) {
+        for(x = x0; x < x0 + w; x++) {
+            uint32_t e = expect(g, x, y, arg);
+            uint32_t got;
+            uint32_t bad;
+            unsigned c;
+
+            if(e == (uint32_t)-1)
+                continue;
+            got = g->buffer[(size_t)y * (uint32_t)g->w + x];
+            bad = 0;
+            if(tol == 0)
+                bad = (got != e);
+            else {
+                for(c = 0; c < 4 && !bad; c++) {
+                    int d = (int)((got >> (c * 8)) & 0xff) -
+                            (int)((e >> (c * 8)) & 0xff);
+                    if(d < 0)
+                        d = -d;
+                    if((unsigned)d > tol)
+                        bad = 1;
+                }
+            }
+            if(bad) {
+                printf("FAIL %-22s (%u,%u) %08x (expect %08x)\n",
+                        label, x, y, got, e);
+                (*failures)++;
+                return -1;
+            }
+        }
+    }
+    printf("PASS %-22s %ux%u data @(%u,%u)\n", label, w, h, x0, y0);
+    return 0;
+}
+
+/* simple "one filled rect over a bg color" canvas state */
+typedef struct {
+    uint32_t color;  /* color inside the rect */
+    uint32_t bg;     /* color outside */
+    int32_t x, y, w, h;
+} vrect_t;
+
+static uint32_t expect_rect(const graph_t* g, uint32_t x, uint32_t y,
+        void* arg) {
+    vrect_t* v = (vrect_t*)arg;
+    (void)g;
+    if(x >= (uint32_t)v->x && x < (uint32_t)(v->x + v->w) &&
+            y >= (uint32_t)v->y && y < (uint32_t)(v->y + v->h))
+        return v->color;
+    return v->bg;
+}
+
+/* state after two sequential fills: later rects win over earlier ones */
+typedef struct {
+    uint32_t colors[3];  /* [0] bg, [1] first rect, [2] second rect */
+    int32_t rx[2], ry[2], rw[2], rh[2];
+} vfill_t;
+
+static uint32_t expect_fill_state(const graph_t* g, uint32_t x, uint32_t y,
+        void* arg) {
+    vfill_t* v = (vfill_t*)arg;
+    int i;
+    (void)g;
+    for(i = 1; i >= 0; i--) {
+        if(x >= (uint32_t)v->rx[i] &&
+                x < (uint32_t)(v->rx[i] + v->rw[i]) &&
+                y >= (uint32_t)v->ry[i] &&
+                y < (uint32_t)(v->ry[i] + v->rh[i]))
+            return v->colors[i + 1];
+    }
+    return v->colors[0];
+}
+
+/* 1:1 copy or integer downsample of a source canvas into a dst rect */
+typedef struct {
+    const graph_t* src;
+    uint32_t bg;    /* dst backdrop for alpha blends */
+    int32_t dx, dy; /* dst origin */
+    int32_t scale;  /* 1 = 1:1, n = sample src every n-th pixel */
+} vblit_t;
+
+static uint32_t expect_blit_src(const graph_t* g, uint32_t x, uint32_t y,
+        void* arg) {
+    vblit_t* v = (vblit_t*)arg;
+    uint32_t sx;
+    uint32_t sy;
+    (void)g;
+    sx = (uint32_t)(((int32_t)x - v->dx) * v->scale);
+    sy = (uint32_t)(((int32_t)y - v->dy) * v->scale);
+    return v->src->buffer[(size_t)sy * (uint32_t)v->src->w + sx];
+}
+
+/* straight-alpha blend of the source pattern over the flat bg backdrop,
+   as the blt_alpha op must produce (exact for alpha 0/255, tolerant in
+   the translucent band) */
+static uint32_t expect_alpha_blend(const graph_t* g, uint32_t x, uint32_t y,
+        void* arg) {
+    vblit_t* v = (vblit_t*)arg;
+    uint32_t s;
+    uint32_t a;
+    uint32_t e;
+    unsigned c;
+    (void)g;
+    s = expect_blit_src(g, x, y, arg);
+    a = s >> 24;
+    if(a == 0)
+        return v->bg;
+    if(a == 255)
+        return s;
+    e = v->bg; /* dst stays fully opaque (bg is opaque) */
+    for(c = 0; c < 3; c++) {
+        uint32_t sc = (s >> (c * 8)) & 0xff;
+        uint32_t bc = (v->bg >> (c * 8)) & 0xff;
+        uint32_t out = (a * sc + (255u - a) * bc) / 255u;
+        e = (e & ~(0xffu << (c * 8))) | (out << (c * 8));
+    }
+    return e;
+}
+
+/* clockwise 90: dst(dx,dy) = src(dy, src_h-1-dx); dst is src_h x src_w */
+static uint32_t expect_rot90_cw(const graph_t* g, uint32_t x, uint32_t y,
+        void* arg) {
+    const graph_t* s = (const graph_t*)arg;
+    (void)g;
+    return s->buffer[(size_t)((uint32_t)s->h - 1 - x) *
+            (uint32_t)s->w + y];
+}
+
+/* 180: dst(x,y) = src(src_w-1-x, src_h-1-y), same size */
+static uint32_t expect_rot180(const graph_t* g, uint32_t x, uint32_t y,
+        void* arg) {
+    const graph_t* s = (const graph_t*)arg;
+    (void)g;
+    return s->buffer[(size_t)((uint32_t)s->h - 1 - y) *
+            (uint32_t)s->w + (uint32_t)s->w - 1 - x];
+}
+
+/* scale_to uses the corner-preserving nearest map u = X*(sw-1)/(dw-1)
+   (the same formula the driver documents for the scale_tl/scale_br
+   checks), so the whole dst has an exact expectation */
+static uint32_t expect_scale_corner(const graph_t* g, uint32_t x, uint32_t y,
+        void* arg) {
+    const graph_t* s = (const graph_t*)arg;
+    uint32_t sx = (uint32_t)(((uint64_t)x * ((uint32_t)s->w - 1u)) /
+            ((uint32_t)g->w - 1u));
+    uint32_t sy = (uint32_t)(((uint64_t)y * ((uint32_t)s->h - 1u)) /
+            ((uint32_t)g->h - 1u));
+    return s->buffer[(size_t)sy * (uint32_t)s->w + sx];
+}
+
+/* arbitrary-angle (45) output has no portable exact mapping, so the data
+   check is structural: every non-transparent pixel must come from the
+   source color set, the bbox corners must be clear (backend writes
+   transparent 0 outside the rotated content), and the content band must
+   actually cover the bbox center in a plausible amount. */
+static int check_rot45_data(const char* label, const graph_t* d,
+        const uint32_t* colors, int ncolors, int* failures) {
+    uint64_t nonzero = 0;
+    uint32_t cx = (uint32_t)d->w / 2;
+    uint32_t cy = (uint32_t)d->h / 2;
+    uint32_t x;
+    uint32_t y;
+    int center_hit = 0;
+    int bad = 0;
+
+    for(y = 0; y < (uint32_t)d->h && !bad; y++) {
+        for(x = 0; x < (uint32_t)d->w; x++) {
+            uint32_t got = d->buffer[(size_t)y * (uint32_t)d->w + x];
+            int k;
+            if(got == 0)
+                continue;
+            nonzero++;
+            if(x + 2 >= cx && x <= cx + 2 && y + 2 >= cy && y <= cy + 2)
+                center_hit = 1;
+            for(k = 0; k < ncolors; k++)
+                if(got == colors[k])
+                    break;
+            if(k == ncolors) {
+                printf("FAIL %-22s (%u,%u) %08x not from source set\n",
+                        label, x, y, got);
+                (*failures)++;
+                return -1;
+            }
+        }
+    }
+    if(d->buffer[0] != 0 || d->buffer[(size_t)d->w - 1] != 0 ||
+            d->buffer[(size_t)(d->h - 1) * (uint32_t)d->w] != 0 ||
+            d->buffer[(size_t)d->h * (uint32_t)d->w - 1] != 0) {
+        printf("FAIL %-22s bbox corner not transparent\n", label);
+        (*failures)++;
+        return -1;
+    }
+    if(!center_hit) {
+        printf("FAIL %-22s content missing at bbox center\n", label);
+        (*failures)++;
+        return -1;
+    }
+    {
+        uint64_t area = (uint64_t)d->w * (uint64_t)d->h;
+        if(nonzero * 100u < area * 10u || nonzero * 100u > area * 95u) {
+            printf("FAIL %-22s content area %llu of %llu out of range\n",
+                    label, (unsigned long long)nonzero,
+                    (unsigned long long)area);
+            (*failures)++;
+            return -1;
+        }
+    }
+    printf("PASS %-22s %ux%u rot45 data\n", label, d->w, d->h);
+    return 0;
+}
+
 /* fps benchmark: the op set (fill / opaque blit / alpha blit / mixed
    frame / rotate 180,90,45 / scale 1:1) runs once per resolution group,
    so ops at the same resolution compare directly. every blit and the
@@ -416,6 +655,11 @@ int main(int argc, char** argv) {
     check_pixel("fill_inside", canvas, 100, 60, fill_color, &failures);
     check_pixel("fill_edge", canvas, 24, 24, fill_color, &failures);
     check_pixel("fill_outside", canvas, 10, 10, bg_color, &failures);
+    {
+        vrect_t fr = { fill_color, bg_color, 24, 24, 220, 120 };
+        check_data("fill_rect_data", canvas, 0, 0, w0, h0,
+                expect_rect, &fr, 0, &failures);
+    }
 
     /* out-of-bounds rect is clipped, not rejected */
     g2d_fill_req_init(&fill, img_canvas(canvas),
@@ -423,6 +667,14 @@ int main(int argc, char** argv) {
     ret = g2d_fill_rect(&fill);
     check_ret("fill_rect_clip", ret, 1, &failures);
     check_pixel("fill_clip_inside", canvas, w0 - 5, h0 - 5, 0xff503040, &failures);
+    {
+        vfill_t fs = {
+            { bg_color, fill_color, 0xff503040u },
+            { 24, 780 }, { 24, 580 }, { 220, 80 }, { 120, 80 }
+        };
+        check_data("fill_clip_data", canvas, 0, 0, w0, h0,
+                expect_fill_state, &fs, 0, &failures);
+    }
 
     /* opaque 1:1 blit: canvas pixels become the pattern */
     g2d_blit_req_init(&blit,
@@ -436,6 +688,16 @@ int main(int argc, char** argv) {
     check_pixel("blit_pixel", canvas, 48, 72, opaque_img->buffer[0], &failures);
     check_pixel("blit_pixel2", canvas, 48 + 100, 72 + 60,
             opaque_img->buffer[60 * opaque_img->w + 100], &failures);
+    {
+        vblit_t bo = { opaque_img, 0, 48, 72, 1 };
+        check_data("blit_opaque_data", canvas, 48, 72,
+                (uint32_t)opaque_img->w, (uint32_t)opaque_img->h,
+                expect_blit_src, &bo, 0, &failures);
+        /* the blit must not disturb the clipped fill painted earlier */
+        check_pixel("blit_keeps_clip", canvas, 785, 590, 0xff503040u,
+                &failures);
+        check_pixel("blit_keeps_bg", canvas, 20, 590, bg_color, &failures);
+    }
 
     /* scaled blit keeps the corners (nearest neighbor) */
     g2d_blit_req_init(&blit,
@@ -447,6 +709,13 @@ int main(int argc, char** argv) {
     ret = g2d_blit(&blit);
     check_ret("blit_scale", ret, 1, &failures);
     check_pixel("blit_scale_tl", canvas, 260, 40, opaque_img->buffer[0], &failures);
+    {
+        /* 640x480 -> 160x120 is an exact 4x downsample, so every dst
+           pixel has an unambiguous source pixel */
+        vblit_t bs = { opaque_img, 0, 260, 40, 4 };
+        check_data("blit_scale_data", canvas, 260, 40, 160, 120,
+                expect_blit_src, &bs, 0, &failures);
+    }
 
     /* alpha blit: fully transparent source corners leave dst untouched */
     img_clear(canvas, bg_color);
@@ -463,6 +732,16 @@ int main(int argc, char** argv) {
             32 + alpha_img->w / 2, 32 + alpha_img->h / 2,
             alpha_img->buffer[(alpha_img->h / 2) * alpha_img->w + alpha_img->w / 2],
             &failures);
+    {
+        /* canvas was cleared to bg before the blit, so the whole 1:1
+           target rect is checkable: source alphas 0/255 must map to
+           bg/source exactly, the translucent band to the straight-alpha
+           blend within tolerance */
+        vblit_t ba = { alpha_img, bg_color, 32, 32, 1 };
+        check_data("blit_alpha_data", canvas, 32, 32,
+                (uint32_t)alpha_img->w, (uint32_t)alpha_img->h,
+                expect_alpha_blend, &ba, 3, &failures);
+    }
 
     /* rotate: corners travel clockwise. 90/270 swap the dimensions,
        the dst canvas must be created at the rotated size. */
@@ -485,6 +764,10 @@ int main(int argc, char** argv) {
         check_pixel("rot90_TR_from_TL", rotated, rotated->w - 1, 0, 0xff000001u, &failures);
         check_pixel("rot90_BR_from_TR", rotated, rotated->w - 1, rotated->h - 1, 0xff000002u, &failures);
         check_pixel("rot90_BL_from_BR", rotated, 0, rotated->h - 1, 0xff000003u, &failures);
+        /* every pixel of the rotated canvas: dst(dx,dy) = src(dy,h-1-dx) */
+        check_data("rot90_data", rotated, 0, 0,
+                (uint32_t)rotated->w, (uint32_t)rotated->h,
+                expect_rot90_cw, canvas, 0, &failures);
 
         /* wrong dst size is rejected */
         g2d_rotate_req_init(&rotate_req, img_canvas(canvas), img_canvas(canvas), 90);
@@ -504,6 +787,8 @@ int main(int argc, char** argv) {
         check_ret("rotate_180", ret, 1, &failures);
         check_pixel("rot180_TL_from_BR", scaled, 0, 0, 0xff000003u, &failures);
         check_pixel("rot180_BR_from_TL", scaled, w0 - 1, h0 - 1, 0xff000001u, &failures);
+        check_data("rot180_data", scaled, 0, 0, w0, h0,
+                expect_rot180, canvas, 0, &failures);
 
         /* arbitrary angle: dst canvas must match the rotated bounding box */
         canvas_free(scaled);
@@ -513,6 +798,14 @@ int main(int argc, char** argv) {
             g2d_rotate_req_init(&rotate_req, img_canvas(canvas), img_canvas(scaled), 45);
             ret = g2d_rotate(&rotate_req);
             check_ret("rotate_45", ret, 1, &failures);
+            {
+                /* arbitrary angle: no portable exact mapping, so check
+                   structurally - all pixels from the source color set or
+                   transparent 0, clear bbox corners, content at center */
+                uint32_t cset[5] = { bg_color, 0xff000001u, 0xff000002u,
+                        0xff000003u, 0xff000004u };
+                check_rot45_data("rot45_data", scaled, cset, 5, &failures);
+            }
 
             g2d_rotate_req_init(&rotate_req, img_canvas(canvas), img_canvas(scaled), -270);
             ret = g2d_rotate(&rotate_req);
@@ -530,6 +823,11 @@ int main(int argc, char** argv) {
             check_pixel("scale_tl", scaled, 0, 0, canvas->buffer[0], &failures);
             check_pixel("scale_br", scaled, 319, 239,
                     canvas->buffer[(h0 - 1) * w0 + w0 - 1], &failures);
+            /* full dst against the driver's corner-preserving nearest
+               map u = X*(sw-1)/(dw-1): exact everywhere */
+            check_data("scale_to_data", scaled, 0, 0,
+                    (uint32_t)scaled->w, (uint32_t)scaled->h,
+                    expect_scale_corner, canvas, 0, &failures);
         }
         canvas_free(scaled);
     }
@@ -562,6 +860,10 @@ int main(int argc, char** argv) {
             check_pixel("big_rot90_BR_from_TR", big_rot, 1919, 1079, 0xff000002u, &failures);
             check_pixel("big_rot90_BL_from_BR", big_rot, 0, 1079, 0xff000003u, &failures);
             check_pixel("big_rot90_body", big_rot, 960, 540, 0xff304050u, &failures);
+            /* full tiled-dispatch output, 2M pixels */
+            check_data("big_rot90_data", big_rot, 0, 0,
+                    (uint32_t)big_rot->w, (uint32_t)big_rot->h,
+                    expect_rot90_cw, big, 0, &failures);
         }
         canvas_free(big);
         canvas_free(big_rot);
@@ -586,6 +888,12 @@ int main(int argc, char** argv) {
                     0x00000000u, &failures);
             check_pixel("big_rot45_center", big45, r45big / 2, r45big / 2,
                     0xff664422u, &failures);
+            {
+                /* the source is one flat color, so the whole content band
+                   must be that color and the rest transparent 0 */
+                uint32_t cset[1] = { 0xff664422u };
+                check_rot45_data("big_rot45_data", big45, cset, 1, &failures);
+            }
         }
         canvas_free(big);
         canvas_free(big45);
