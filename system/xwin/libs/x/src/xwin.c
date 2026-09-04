@@ -74,6 +74,25 @@ static void xwin_registry_remove(xwin_t* xwin) {
     ipc_enable();
 }
 
+/*How many windows of this process still hold a present the server has not
+  taken. xwin_retry_pending_presents() reads it on every event-loop tick, so
+  the "nothing pending" case has to stay a single load: finding out by walking
+  the registry needs ipc_disable(), which is a retry loop that can sleep(0) -
+  far too heavy to pay at the widget frame rate in every X client for nothing.
+  Always written under the owning window's painting_lock.*/
+static volatile uint32_t _xwin_present_pending_num = 0;
+
+/*caller holds xwin->painting_lock*/
+static void xwin_present_pending_set(xwin_t* xwin, bool pending) {
+    if(xwin->present_pending == pending)
+        return;
+    xwin->present_pending = pending;
+    if(pending)
+        __sync_add_and_fetch(&_xwin_present_pending_num, 1);
+    else
+        __sync_sub_and_fetch(&_xwin_present_pending_num, 1);
+}
+
 xwin_t* xwin_find_by_handle(ewokos_addr_t handle) {
     if(handle == 0)
         return NULL;
@@ -117,7 +136,7 @@ static int xwin_update_info(xwin_t* xwin, uint8_t type) {
         /*the rebuild reallocates and clears ws_g, so a present that was
           skipped for the old canvas has nothing left to publish: drop it.
           Every rebuild is followed by a repaint which renders a fresh frame.*/
-        xwin->present_pending = false;
+        xwin_present_pending_set(xwin, false);
         xwin->present_ws_g_id = -1;
         pthread_mutex_unlock(&xwin->painting_lock);
     }
@@ -401,6 +420,9 @@ static bool xwin_flip_locked(xwin_t* xwin) {
 #define XWIN_FLIP_RETRY_MAX 16
 
 void xwin_retry_pending_presents(void) {
+    if(_xwin_present_pending_num == 0)
+        return;
+
     xwin_t* pending[XWIN_FLIP_RETRY_MAX];
     uint32_t num = 0;
 
@@ -426,14 +448,14 @@ void xwin_retry_pending_presents(void) {
             /*still the same canvas the skipped present rendered into, so ws_g
               holds exactly the picture that was never published*/
             if(xwin_flip_locked(xwin))
-                xwin->present_pending = false;
+                xwin_present_pending_set(xwin, false);
         }
         else {
             /*closed, rebuilt since, or downgraded to the blocking handshake
               (the server turns fps_async off per window when it cannot get
               the shm for ws_g2): that frame is gone, and the repaint which
               follows every rebuild publishes a fresh one*/
-            xwin->present_pending = false;
+            xwin_present_pending_set(xwin, false);
         }
         pthread_mutex_unlock(&xwin->painting_lock);
     }
@@ -442,6 +464,11 @@ void xwin_retry_pending_presents(void) {
 void xwin_destroy(xwin_t* xwin) {
     if(xwin != NULL) {
         xwin_registry_remove(xwin);
+        /*the object is going away, so a present still recorded on it can never
+          be published: drop it from the count or every later event-loop tick
+          walks the registry for nothing*/
+        if(xwin->present_pending)
+            __sync_sub_and_fetch(&_xwin_present_pending_num, 1);
         free(xwin);
     }
 }
@@ -551,10 +578,10 @@ void xwin_repaint(xwin_t* xwin) {
           frame and let the event loop publish it as soon as the server lets go
           of the handoff buffer (see xwin_retry_pending_presents).*/
         if(xwin_flip_locked(xwin)) {
-            xwin->present_pending = false;
+            xwin_present_pending_set(xwin, false);
         }
         else if(g.buffer != NULL && xwin->xinfo->visible) {
-            xwin->present_pending = true;
+            xwin_present_pending_set(xwin, true);
             xwin->present_ws_g_id = xwin->xinfo->ws_g_shm_id;
         }
         xwin->xinfo->update_theme = false;

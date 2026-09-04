@@ -332,27 +332,6 @@ xwin_t* x_get_win_by_name(x_t* x, const char* name) {
     return NULL;
 }
 
-/*
-static xwin_t* get_first_visible_win(x_t* x) {
-    xwin_t* ret = x->win_tail; 
-    while(ret != NULL) {
-        if(ret->xinfo->visible)
-            return ret;
-        ret = ret->prev;
-    }
-    return NULL;
-}
-*/
-
-static void unmark_dirty(x_t* x, xwin_t* win) {
-    (void)x;
-    xwin_t* v = win->next;
-    while(v != NULL) {
-        v->dirty_mark = false;
-        v = v->next;
-    }
-}
-
 static void mark_dirty_confirm(x_t* x, xwin_t* win) {
     xwin_t* v = win->next;
     while(v != NULL) {
@@ -401,8 +380,7 @@ static void mark_dirty(x_t* x, xwin_t* win) {
                     r.h == check_r->h) {
                 if(!top->xinfo->alpha &&
                     !need_repaint_desktop(x, top) &&
-                    (top->xinfo->focused ||
-                    (top->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) != 0)) {
+                    !win_bg_effect_active(x, top)) {
                     /*fully hidden by an opaque workspace above: stop extending
                       upward here, but keep the dirty marks collected so far so
                       the covering window can repaint its frame ring if needed.*/
@@ -446,7 +424,7 @@ bool need_repaint_frame(x_t* x, xwin_t* win) {
     if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0 && !win->xinfo->alpha)
         return false;
 
-    if(x->config.xwm_theme.bgEffect && !win->xinfo->focused)
+    if(win_bg_effect_active(x, win))
         return true;
     /*edge-to-edge windows (maximized/fullscreen) have no translucent frame
       pixels blending with what is below them, so a desktop repaint does not
@@ -466,7 +444,12 @@ bool need_repaint_desktop(x_t* x, xwin_t* win) {
         return true;
     if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0)
         return false;
-    if(x->config.xwm_theme.bgEffect && !win->xinfo->focused)
+    /*win_bg_effect_active, not a bare bgEffect test: xwm skips the blend for
+      XWIN_STYLE_NO_BG_EFFECT windows (as does xrender.c), and most system
+      apps set that style. Testing the theme alone made every unfocused one of
+      them escalate into a whole-display rebuild instead of an incremental
+      repaint.*/
+    if(win_bg_effect_active(x, win))
         return true;
     return false;
 }
@@ -649,22 +632,6 @@ void x_poll_updates(x_t* x) {
     }
 }
 
-/*
-static int xwin_set_visible(int fd, int from_pid, proto_t* in, x_t* x) {
-    if(fd < 0)
-        return -1;
-    
-    xwin_t* win = x_get_win(x, fd, from_pid);
-    if(win == NULL)
-        return -1;
-
-    win->xinfo->visible = proto_read_int(in);
-    win->dirty = true;
-    x_dirty(x, win->xinfo->display_index);
-    return 0;
-}
-*/
-
 /* whether rect r is fully covered by the opaque workspace of one window
    above 'from' (from==NULL means checking against all windows). */
 bool covered_by_opaque_win(x_t* x, xwin_t* from, uint32_t display_index, const grect_t* r) {
@@ -672,10 +639,14 @@ bool covered_by_opaque_win(x_t* x, xwin_t* from, uint32_t display_index, const g
     while(top != NULL) {
         if(top->ready && top->xinfo != NULL && top->xinfo->visible &&
                 top->xinfo->display_index == display_index) {
+            /*win_bg_effect_active, not a hand-rolled "focused || NO_BG_EFFECT":
+              the two are the same only while the theme actually has a bg
+              effect. With bgEffect == 0 (the ewokwm default) the old test
+              still demanded a focused covering window, so occlusion culling
+              silently never kicked in for ordinary unfocused ones.*/
             if(!top->xinfo->alpha &&
                     !need_repaint_desktop(x, top) &&
-                    (top->xinfo->focused ||
-                    (top->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) != 0)) {
+                    !win_bg_effect_active(x, top)) {
                 /*an edge-to-edge window is opaque across its whole winr:
                   the title strip is solid decoration drawn by xwm, so it
                   covers just like the workspace does*/

@@ -16,8 +16,6 @@
 #include "cursor.h"
 #include "xevtpool.h"
 
-#define X_EVENT_MAX 16
-
 /* a window stuck !ready (client stalled behind the input IPC storm after
    a resize/rebuild, or an fps_async present the client dropped because the
    server still owned the handoff buffer) must not throttle the whole display
@@ -109,7 +107,6 @@ typedef struct {
 
 typedef struct {
 	uint32_t fps;
-	bool force_fullscreen;
 	uint32_t bg_proc_priority;
 
 	graph_t* logo;

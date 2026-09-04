@@ -20,9 +20,7 @@ static void win_mark_frame_dirty(x_t* x, xwin_t* win) {
     /*the background effect mixes the desktop into the frame of an unfocused
       window, so its frame has to be built again whenever the content
       changed. Without such an effect the frame keeps its picture.*/
-    if(win->dirty && !win->xinfo->focused &&
-            x->config.xwm_theme.bgEffect != 0 &&
-            (win->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) == 0) {
+    if(win->dirty && win_bg_effect_active(x, win)) {
         win->frame_dirty = true;
         return;
     }
@@ -106,7 +104,6 @@ static void prepare_win_content(x_t* x, xwin_t* win) {
     if(!check_xwm(x))
         return;
 
-    //klog("win title: %s win->frame_dirty: %d\n", win->xinfo->title, win->frame_dirty);
     proto_t in;
     PF->format(&in, "i,i,i,m",
         (ewokos_addr_t)display->g_shm_id,
@@ -120,7 +117,6 @@ static void prepare_win_content(x_t* x, xwin_t* win) {
         PF->addi(&in, 0);
 
     ipc_call_wait(x->xwm_pid, XWM_CNTL_DRAW_FRAME, &in);
-    //ipc_call(x->xwm_pid, XWM_CNTL_DRAW_FRAME, &in, NULL);
     PF->clear(&in);
 }
 

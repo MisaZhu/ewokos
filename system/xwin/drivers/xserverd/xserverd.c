@@ -4,8 +4,7 @@
   configuration loading. The rest of the daemon is split into modules:
 
   - xserver.h     shared types (x_t, xwin_t, ...) and small helpers
-  - xshm.c        shared-memory allocation/teardown helpers
-  - xwin.c        window list, focus, client events, workspace snapshots
+  - xwin.c        window list, focus, client events, the shm update handshake
   - xrender.c     compositing: desktop, window content and frame drawing
   - xrepaint.c    per-display repaint pipeline and dirty rect collection
   - xinput.c      mouse/touch and IME input handling
@@ -89,7 +88,6 @@ static int x_init_display(x_t* x) {
         display->desktop_rect.y = 0;
         display->desktop_rect.w = g_display->w;
         display->desktop_rect.h = g_display->h;
-        //x_dirty(x, i);
     }
     return 0;
 }
@@ -134,8 +132,6 @@ static int32_t x_get_first_active_display(x_t* x) {
 }
 
 static int32_t read_config(x_t* x, const char* fname) {
-    x->config.fps = 60;
-
     json_var_t *conf_var = json_parse_file(fname);	
 
     json_var_t* display_arr_var = json_get_obj(conf_var, "displays");
@@ -208,31 +204,11 @@ static void x_close(x_t* x) {
 
 char* xserver_dev_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* p);
 
-/*
-static int doargs(int argc, char* argv[]) {
-    int c = 0;
-    while (c != -1) {
-        c = getopt (argc, argv, "d:");
-        if(c == -1)
-            break;
-
-        switch (c) {
-        case 'd':
-            _disp_index = atoi(optarg);
-            break;
-        default:
-            c = -1;
-            break;
-        }
-    }
-    return optind;
-}
-*/
-
 int main(int argc, char** argv) {
+    (void)argc;
+    (void)argv;
     const char* mnt_point = "/dev/x";
     const char* display_man = "/dev/displayman";
-    //doargs(argc, argv);
 
     x_t x;
     if(x_init(&x, display_man) != 0)
