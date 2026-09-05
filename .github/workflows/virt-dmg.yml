@@ -32,9 +32,10 @@ jobs:
 
       - name: Install tools
         run: |
-          brew install e2fsprogs qemu
-          # e2fsprogs (mke2fs/e2cp) is keg-only
+          brew install e2fsprogs e2tools qemu
+          # e2fsprogs (mke2fs) is keg-only; e2tools provides e2cp
           echo "$(brew --prefix e2fsprogs)/sbin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix e2tools)/bin" >> "$GITHUB_PATH"
           qemu-system-aarch64 --version
           mke2fs -V
 
