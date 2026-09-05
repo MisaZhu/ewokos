@@ -10,19 +10,19 @@ int32_t arch_clone_proc_vm(page_dir_entry_t* vm, page_dir_entry_t* kernel_vm) {
 }
 
 static uint32_t get_kmalloc_size(void) {
-    uint32_t ret = 8*MB;
+    if(_kernel_config.kmalloc_size > 0) 
+        return _kernel_config.kmalloc_size;
+   
+    uint32_t ret = 4*MB;
 
-    if(_kernel_config.kmalloc_size == 0) {
-        if(_sys_info.total_phy_mem_size >= 8ull*GB)
-            ret = 64*MB;
-        else if(_sys_info.total_phy_mem_size >= 4ull*GB)
-            ret = 32*MB;
-        else if(_sys_info.total_phy_mem_size >= 2ull*GB)
-            ret = 16*MB;
-    }
-    else {
-        ret = _kernel_config.kmalloc_size;
-    }
+    if(_sys_info.total_phy_mem_size >= 8ull*GB)
+        ret = 64*MB;
+    else if(_sys_info.total_phy_mem_size >= 4ull*GB)
+        ret = 32*MB;
+    else if(_sys_info.total_phy_mem_size >= 2ull*GB)
+        ret = 16*MB;
+    else if(_sys_info.total_phy_mem_size >= 1ull*GB)
+        ret = 8*MB;
 
 #if defined(__aarch64__) && defined(PAGE_SIZE_64K)
     /*
@@ -85,8 +85,7 @@ void sys_info_init(void) {
 }
 
 void sys_info_config(void) {
-    if(_sys_info.kmalloc_size == 0)
-        _sys_info.kmalloc_size = get_kmalloc_size();
+    _sys_info.kmalloc_size = get_kmalloc_size();
 
     _sys_info.allocable_phy_mem_base = V2P(KMALLOC_END);
 
