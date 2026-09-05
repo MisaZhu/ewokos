@@ -89,7 +89,7 @@ ewokos/
 │   └── system/               # Recommended QEMU virt rootfs target
 ├── machines/
 │   ├── docs/                 # SD card notes, screenshots, target-specific docs
-│   ├── clockwork/            # Clockwork Pi targets
+│   ├── clockwork/            # Clockwork Pi PicoCalc target
 │   ├── lego.ev3/             # LEGO Mindstorms EV3 port
 │   ├── miyoo/                # Miyoo handheld port
 │   ├── orangepi/             # Orange Pi port
@@ -144,7 +144,7 @@ Support below is based on the checked-in source tree and build recipes in this c
 | `machines/lego.ev3/` | ARM32 | LEGO Mindstorms EV3 | In-tree port | Includes EV3-specific drivers and packaging flow |
 | `machines/x2lite.rk3128/` | ARM32 | RK3128 target | In-tree port | Kernel and system recipes are present |
 | `machines/clockwork/picocalc/` | ARM target | Clockwork Pi PicoCalc | Specialized target | Separate board package with custom kernel/system setup |
-| `machines/clockwork/uconsole/` | console/display environment | Clockwork uConsole support files | Specialized support tree | Focused on device/display and board support assets |
+| `machines/raspix/3rd/clockwork/uconsole/` | console/display environment | Clockwork uConsole support files | Specialized support tree | `raspix` overlay focused on device/display and board support assets |
 
 ## Board and Peripheral Support
 
