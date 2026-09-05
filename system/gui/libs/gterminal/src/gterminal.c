@@ -605,6 +605,14 @@ void gterminal_init(gterminal_t* terminal) {
         return;
     memset(terminal, 0, sizeof(gterminal_t));
     terminal->textgrid = textgrid_new();
+    /* Default to an opaque background: gterminal_draw_char folds this into
+     * every cell's bg alpha and raw-writes it with graph_set, so a zeroed
+     * (fully transparent) default punches alpha-0 holes into the canvas -
+     * invisible under the opaque composite path, but xserverd alpha-blends
+     * the rounded-frame edge bands (frame_cuts_ws), letting the desktop
+     * bleed through the first/last character columns. Apps that want a
+     * translucent terminal set it explicitly via config (xterm uses 128). */
+    terminal->transparent = 0xff;
     terminal->show_curs = true;
     terminal->flash_show = true;
     terminal->scroll_top = 0;
