@@ -19,21 +19,22 @@ jobs:
           submodules: recursive
           fetch-depth: 1
 
-      - name: Install toolchain and tools
+      - name: Install cross toolchain (aarch64-none-elf-gcc with newlib)
         run: |
-          brew install aarch64-elf-gcc e2fsprogs qemu
-          # EwokOS expects the aarch64-none-elf-* prefix (GNU Arm Embedded
-          # style); Homebrew ships the same tools as aarch64-elf-*.
-          BREW_PREFIX="$(brew --prefix)"
-          for t in gcc g++ c++ ar as ld objcopy objdump; do
-            if [ -e "$BREW_PREFIX/bin/aarch64-elf-$t" ]; then
-              ln -sf "$BREW_PREFIX/bin/aarch64-elf-$t" "$BREW_PREFIX/bin/aarch64-none-elf-$t"
-            fi
-          done
+          # Homebrew's aarch64-elf-gcc ships without newlib (breaks on
+          # stdint.h), so use the xPack build of Arm's bare-metal toolchain.
+          XPACK_VER=14.2.1-1.1
+          curl -sL -o /tmp/xpack-gcc.tar.gz \
+            "https://github.com/xpack-dev-tools/aarch64-none-elf-gcc-xpack/releases/download/v${XPACK_VER}/xpack-aarch64-none-elf-gcc-${XPACK_VER}-darwin-arm64.tar.gz"
+          mkdir -p "$HOME/xpack" && tar xzf /tmp/xpack-gcc.tar.gz -C "$HOME/xpack"
+          echo "$HOME/xpack/xpack-aarch64-none-elf-gcc-${XPACK_VER}/bin" >> "$GITHUB_PATH"
+          "$HOME/xpack/xpack-aarch64-none-elf-gcc-${XPACK_VER}/bin/aarch64-none-elf-gcc" --version
+
+      - name: Install tools
+        run: |
+          brew install e2fsprogs qemu
           # e2fsprogs (mke2fs/e2cp) is keg-only
           echo "$(brew --prefix e2fsprogs)/sbin" >> "$GITHUB_PATH"
-          echo "$BREW_PREFIX/bin" >> "$GITHUB_PATH"
-          aarch64-none-elf-gcc --version
           qemu-system-aarch64 --version
           mke2fs -V
 
