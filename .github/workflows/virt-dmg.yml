@@ -1,0 +1,93 @@
+name: virt-dmg
+
+on:
+  push:
+    branches: [master, main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-virt-dmg:
+    runs-on: macos-15   # Apple Silicon: hvf-accelerated aarch64 build & run
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Install toolchain and tools
+        run: |
+          brew install aarch64-elf-gcc e2fsprogs qemu
+          # EwokOS expects the aarch64-none-elf-* prefix (GNU Arm Embedded
+          # style); Homebrew ships the same tools as aarch64-elf-*.
+          BREW_PREFIX="$(brew --prefix)"
+          for t in gcc g++ c++ ar as ld objcopy objdump; do
+            if [ -e "$BREW_PREFIX/bin/aarch64-elf-$t" ]; then
+              ln -sf "$BREW_PREFIX/bin/aarch64-elf-$t" "$BREW_PREFIX/bin/aarch64-none-elf-$t"
+            fi
+          done
+          # e2fsprogs (mke2fs/e2cp) is keg-only
+          echo "$(brew --prefix e2fsprogs)/sbin" >> "$GITHUB_PATH"
+          echo "$BREW_PREFIX/bin" >> "$GITHUB_PATH"
+          aarch64-none-elf-gcc --version
+          qemu-system-aarch64 --version
+          mke2fs -V
+
+      - name: Build kernel
+        run: make -C machine.virt/kernel -j$(sysctl -n hw.ncpu)
+
+      - name: Build rootfs
+        run: make -C machine.virt/system
+
+      - name: Create rootfs disk image
+        run: make -C machine.virt/system sd
+
+      - name: Package DMG
+        run: |
+          chmod +x tools/make_virt_dmg.sh
+          tools/make_virt_dmg.sh EwokOS-virt-aarch64.dmg
+
+      - name: Smoke test bundled qemu (from the DMG)
+        run: |
+          # mount the DMG and run the bundled, dependency-rewritten qemu from
+          # it: it must start, boot the kernel for 20s without crashing or
+          # exiting, and carry no references back to Homebrew paths.
+          hdiutil attach -nobrowse -readonly EwokOS-virt-aarch64.dmg -mountpoint /Volumes/EwokOS
+          APP=/Volumes/EwokOS/EwokOS-Virt.app
+          QEMU="$APP/Contents/MacOS/qemu-system-aarch64"
+          "$QEMU" --version
+          codesign -v "$QEMU"
+          if otool -L "$QEMU" | grep -q homebrew; then
+            echo "bundled qemu still references homebrew libs"; otool -L "$QEMU"; exit 1
+          fi
+          cp "$APP/Contents/Resources/root_aarch64.img" /tmp/smoke-root.img
+          ( sleep 20; pkill -x qemu-system-aarch64 ) &
+          set -o pipefail
+          "$QEMU" -M virt,highmem=on,accel=tcg -cpu cortex-a72 -m 1024 \
+            -serial mon:stdio -nographic \
+            -kernel "$APP/Contents/Resources/kernel8.img" \
+            -drive file=/tmp/smoke-root.img,format=raw,id=blk0,if=none \
+            -device virtio-blk-device,drive=blk0 \
+            -netdev user,id=net0 -device virtio-net-device,netdev=net0 > boot.log 2>&1 || true
+          # pkill terminating qemu (exit 143/signal 15) means it survived the
+          # full window without crashing on its own
+          grep -q "terminating on signal" boot.log && echo "bundled qemu smoke test OK" \
+            || { echo "qemu exited early:"; cat boot.log; exit 1; }
+          hdiutil detach /Volumes/EwokOS
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: EwokOS-virt-aarch64-dmg
+          path: EwokOS-virt-aarch64.dmg
+          if-no-files-found: error
+
+      - name: Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: EwokOS-virt-aarch64.dmg
