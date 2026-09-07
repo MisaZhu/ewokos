@@ -380,7 +380,28 @@ static inline uint32_t get_45deg_color(int cx, int cy, int r, uint32_t upper_col
     return (cx - cy <= 0) ? upper_color : lower_color;
 }
 
-// Helper function: draw 3D rounded corner (non-floating point implementation with 45-degree split)
+// Estimate disk coverage using 4x4 subpixel sampling over the pixel square,
+// same coverage model as round.c so 3d rings align with graph_fill_round.
+// The local pixel region is [px, px+1] x [py, py+1], measured from the
+// rounded corner's circle center toward the outer edges.
+static inline float round_disk_coverage_3d(float px, float py, float radius) {
+    static const float sample_offsets[4] = {0.125f, 0.375f, 0.625f, 0.875f};
+    float radius_sq = radius * radius;
+    int covered = 0;
+
+    for (int sy = 0; sy < 4; sy++) {
+        float y = py + sample_offsets[sy];
+        for (int sx = 0; sx < 4; sx++) {
+            float x = px + sample_offsets[sx];
+            if ((x * x + y * y) <= radius_sq)
+                covered++;
+        }
+    }
+
+    return (float)covered / 16.0f;
+}
+
+// Helper function: draw 3D rounded corner (quarter-circle ring coverage with 45-degree split)
 // corner_x, corner_y: starting coordinates of corner rectangle area
 // cx, cy: offset of corner center relative to corner
 // r: corner radius
@@ -395,18 +416,12 @@ static inline void draw_round_corner_3d(graph_t* g, int32_t corner_x, int32_t co
     uint8_t upper_alpha = (upper_color >> 24) & 0xFF;
     uint8_t lower_alpha = (lower_color >> 24) & 0xFF;
 
-    // Outer and inner circle radius squared
-    int32_t outer_r_sq = r * r;
-    int32_t inner_r = r - rw;
-    int32_t inner_r_sq = inner_r * inner_r;
-
-    // Anti-aliasing boundary (expanded to 1 pixel width for smoother effect)
-    int32_t outer_aa_sq = outer_r_sq + 2 * r;  // (r + 1)^2
-    int32_t inner_aa_sq = (inner_r > 0) ? inner_r_sq - 2 * inner_r + 1 : 0;  // (inner_r - 1)^2
-    if (inner_r <= 0) inner_aa_sq = 0;
-
-    // Calculate bounding box, limited to r-1 range to align with edges
-    int32_t max_dy = r - 1;
+    float outer_radius = (float)r;
+    float inner_radius = (float)(r - rw);
+    if (rw == 1)
+        inner_radius -= 0.5f;
+    if (inner_radius < 0.0f)
+        inner_radius = 0.0f;
 
     // Calculate clip bounds (like graph_fill_cpu)
     int32_t clip_min_x = 0, clip_min_y = 0, clip_max_x = g->w - 1, clip_max_y = g->h - 1;
@@ -417,47 +432,24 @@ static inline void draw_round_corner_3d(graph_t* g, int32_t corner_x, int32_t co
         clip_max_y = g->clip.y + g->clip.h - 1;
     }
 
-    // Scan line by line
-    for (int32_t dy = 0; dy <= max_dy; dy++) {
-        int32_t dy_sq = dy * dy;
-
-        // Calculate x range for this line within outer circle
-        int32_t outer_x_sq = outer_aa_sq - dy_sq;
-        if (outer_x_sq < 0) continue;
-
-        int32_t max_dx = 0;
-        while (max_dx * max_dx <= outer_x_sq && max_dx <= r - 1) {
-            max_dx++;
-        }
-        max_dx--;
-        if (max_dx < 0) max_dx = 0;
-
-        // Calculate x range for this line within inner circle
-        int32_t inner_x_sq = inner_r_sq - dy_sq;
-        int32_t inner_max_dx = 0;
-        if (inner_x_sq > 0) {
-            while (inner_max_dx * inner_max_dx <= inner_x_sq && inner_max_dx <= inner_r) {
-                inner_max_dx++;
-            }
-            inner_max_dx--;
-        }
-
-        // Draw this line
-        for (int32_t dx = 0; dx <= max_dx; dx++) {
-            int32_t dist_sq = dx * dx + dy_sq;
-
-            // Completely outside anti-aliasing area, skip
-            if (dist_sq > outer_aa_sq) continue;
-
-            // Completely inside inner circle (hollow part), skip
-            if (dist_sq < inner_aa_sq) continue;
-
+    for (int32_t dy = 0; dy < r; dy++) {
+        for (int32_t dx = 0; dx < r; dx++) {
             // Calculate pixel position
             int px = corner_x + cx + (mirror_x ? -dx : dx);
             int py = corner_y + cy + (mirror_y ? -dy : dy);
 
             // Check if within clip bounds (like graph_fill_cpu)
             if (px < clip_min_x || px > clip_max_x || py < clip_min_y || py > clip_max_y) continue;
+
+            float outer_cov = round_disk_coverage_3d((float)dx, (float)dy, outer_radius);
+            if (outer_cov <= 0.0f) continue;
+
+            float inner_cov = 0.0f;
+            if (inner_radius > 0.0f)
+                inner_cov = round_disk_coverage_3d((float)dx, (float)dy, inner_radius);
+
+            float cov = outer_cov - inner_cov;
+            if (cov <= 0.0f) continue;
 
             // Determine color (45-degree split)
             uint32_t color;
@@ -470,31 +462,7 @@ static inline void draw_round_corner_3d(graph_t* g, int32_t corner_x, int32_t co
                 fg_alpha = (dx - dy <= 0) ? upper_alpha : lower_alpha;
             }
 
-            uint8_t alpha = 0;
-
-            // Outer edge anti-aliasing area
-            if (dist_sq >= outer_r_sq && dist_sq <= outer_aa_sq) {
-                int32_t range = outer_aa_sq - outer_r_sq;
-                int32_t dist_from_outer = outer_aa_sq - dist_sq;
-                // Use square function for smoother transition
-                int32_t t = (dist_from_outer * 256) / range;
-                int32_t smoothed = (t * t) / 256;
-                alpha = (uint8_t)((fg_alpha * smoothed) / 256);
-            }
-            // Inner edge anti-aliasing area
-            else if (dist_sq >= inner_aa_sq && dist_sq <= inner_r_sq) {
-                int32_t range = inner_r_sq - inner_aa_sq;
-                int32_t dist_from_inner = dist_sq - inner_aa_sq;
-                // Use square function for smoother transition
-                int32_t t = (dist_from_inner * 256) / range;
-                int32_t smoothed = (t * t) / 256;
-                alpha = (uint8_t)((fg_alpha * smoothed) / 256);
-            }
-            // Inside ring (completely between inner and outer circles)
-            else if (dist_sq > inner_r_sq && dist_sq < outer_r_sq) {
-                alpha = fg_alpha;
-            }
-
+            uint8_t alpha = (uint8_t)(fg_alpha * cov);
             if (alpha > 0) {
                 draw_aa_pixel_int_ex(g, px, py, color, alpha);
             }

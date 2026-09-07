@@ -641,12 +641,12 @@ int main(int argc, char** argv) {
 
 	SwitchButton* fullinfoSwitch = new SwitchButton();
 	fullinfoSwitch->setName("fullinfoSwitch");
-	fullinfoSwitch->fix(56, 0);
+	fullinfoSwitch->fix(40, 0);
 	fullinfoSwitch->setOn(true);
 	swRow->add(fullinfoSwitch);
+	swRow->add(new Blank());
 
-	Blank* blank = new Blank();
-	c->add(blank);
+	c->add(new Blank());
 
 	MemInfo* memInfo = new MemInfo();
 	memInfo->fix(0, 20);
