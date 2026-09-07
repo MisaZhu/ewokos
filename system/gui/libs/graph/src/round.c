@@ -71,10 +71,13 @@ static inline void draw_round_corner_round(graph_t* g, int32_t corner_x, int32_t
                                            uint32_t color, int mirror_x, int mirror_y) {
     uint8_t fg_alpha = (color >> 24) & 0xFF;
 
-    float outer_radius = (float)r;
+    /*keep the radial width anchored on the inner side (inner = r - rw) so
+      the ring matches the rw-pixel straight edges at the junctions, but
+      push the outer edge half a pixel outwards: the arc apex bulges
+      slightly so it meets the straight edges smoothly instead of looking
+      recessed at the corners*/
+    float outer_radius = (float)r + 0.5f;
     float inner_radius = (float)(r - rw);
-    if (rw == 1)
-        inner_radius -= 0.5f;
     if (inner_radius < 0.0f)
         inner_radius = 0.0f;
 
