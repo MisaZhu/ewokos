@@ -32,6 +32,7 @@ LIB_WIDGET_OBJS =  $(ARCH)/src/Widget/Widget.o \
 		$(ARCH)/src/Widget/WidgetWin.o \
 		$(ARCH)/src/Widget/WidgetX.o \
 		$(ARCH)/src/Widget/RoundButton.o \
+		$(ARCH)/src/Widget/SwitchButton.o \
 		$(ARCH)/src/Widget/RoundLabelButton.o \
 		$(ARCH)/src/Widget/SpriteAnim.o \
 		\
