@@ -230,13 +230,13 @@ protected:
 		colNum = 0;
 		if(fullInfo) {
 			add("OWNER", 64);
-			add("PID", 32);
+			add("PID", 48);
 			add("CPU", 56);
 			add("STATE", 72);
 			add("HEAP", 64);
 		}
 		else {
-			add("PID", 32);
+			add("PID", 48);
 			add("CPU", 56);
 		}
 		add("CMD", 0);
