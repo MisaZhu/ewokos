@@ -79,6 +79,7 @@ EwokOS 是一个真实存在的、可运行的微内核操作系统（支持 ARM
 | 章节 | 内容 | 对应源码 |
 |------|------|----------|
 | [13 图形系统](13-图形系统与窗口系统.md) | Framebuffer、图形库、X 风格窗口系统 | `system/gui/`、`system/xwin/` |
+| [20 xwm 窗口管理器](20-xwm窗口管理器机制与实现.md) | 机制/策略分离、xwm↔xserverd IPC 协议、共享内存装饰绘制、写一个自己的 WM | `system/xwin/xwm/`、`system/xwin/libs/x/src/xwm.c` |
 | [14 烧录到树莓派](14-制作镜像并烧录到树莓派.md) | SD 卡镜像、分区、烧录、真机启动 | `tools/makesd.sh`、`tools/bootfs/` |
 | [15 调试与进阶](15-调试技巧与进阶路线.md) | GDB 调试、日志体系、接下来做什么 | — |
 
