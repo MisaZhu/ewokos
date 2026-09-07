@@ -32,7 +32,10 @@ static int log_read(vdevice_t* dev,
         i++;
     }
 
-    return i==0 ? VFS_ERR_RETRY : i;
+    /* Once the buffered log content is drained, report EOF (0) so the read
+     * finishes normally like a regular file, instead of returning
+     * VFS_ERR_RETRY which makes the reader block waiting for more logs. */
+    return i;
 }
 
 static bool _log_kmsg = false;
