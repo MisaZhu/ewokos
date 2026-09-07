@@ -380,6 +380,16 @@ static inline uint32_t get_45deg_color(int cx, int cy, int r, uint32_t upper_col
     return (cx - cy <= 0) ? upper_color : lower_color;
 }
 
+// Helper function: linear blend of two colors (t: 0.0 -> c1, 1.0 -> c2), rgb only
+static inline uint32_t blend_45deg_color(uint32_t c1, uint32_t c2, float t) {
+    int32_t r1 = (c1 >> 16) & 0xFF, g1 = (c1 >> 8) & 0xFF, b1 = c1 & 0xFF;
+    int32_t r2 = (c2 >> 16) & 0xFF, g2 = (c2 >> 8) & 0xFF, b2 = c2 & 0xFF;
+    uint32_t r = (uint32_t)(r1 + (float)(r2 - r1) * t);
+    uint32_t g = (uint32_t)(g1 + (float)(g2 - g1) * t);
+    uint32_t b = (uint32_t)(b1 + (float)(b2 - b1) * t);
+    return 0xFF000000 | (r << 16) | (g << 8) | b;
+}
+
 // Estimate disk coverage using 4x4 subpixel sampling over the pixel square,
 // same coverage model as round.c so 3d rings align with graph_fill_round.
 // The local pixel region is [px, px+1] x [py, py+1], measured from the
@@ -451,16 +461,22 @@ static inline void draw_round_corner_3d(graph_t* g, int32_t corner_x, int32_t co
             float cov = outer_cov - inner_cov;
             if (cov <= 0.0f) continue;
 
-            // Determine color (45-degree split)
-            uint32_t color;
-            uint8_t fg_alpha;
+            // Determine color (blend across the 45-degree light/shadow boundary)
+            uint32_t c_near = upper_color, c_far = lower_color;
+            uint8_t a_near = upper_alpha, a_far = lower_alpha;
             if (swap_45deg) {
-                color = get_45deg_color(dx, dy, r, lower_color, upper_color);
-                fg_alpha = (dx - dy <= 0) ? lower_alpha : upper_alpha;
-            } else {
-                color = get_45deg_color(dx, dy, r, upper_color, lower_color);
-                fg_alpha = (dx - dy <= 0) ? upper_alpha : lower_alpha;
+                c_near = lower_color; c_far = upper_color;
+                a_near = lower_alpha; a_far = upper_alpha;
             }
+            // signed distance to the diagonal (dx == dy) in pixels,
+            // blended over a band of r pixels so pure colors are reached
+            // right before the straight-edge junctions
+            float d = (float)(dx - dy) * 0.7071f;
+            float t = 0.5f + d / (float)r;
+            if (t < 0.0f) t = 0.0f;
+            else if (t > 1.0f) t = 1.0f;
+            uint32_t color = blend_45deg_color(c_near, c_far, t);
+            uint8_t fg_alpha = (uint8_t)((float)a_near + ((float)a_far - (float)a_near) * t);
 
             uint8_t alpha = (uint8_t)(fg_alpha * cov);
             if (alpha > 0) {
