@@ -370,12 +370,18 @@ int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
         }
         else if(frame_cuts_ws(x, win)) {
             /*for themed alpha frames the whole picture gets rebuilt in
-              frame_g (the rounded corners are cut into the content there),
-              so only the border ring needs blending; copy the middle
-              opaquely and blend the four edges. The edge width follows the
-              larger of frame width and round radius. Edge-to-edge windows
-              (maximized/fullscreen) have no translucent frame pixels and
-              must not take this path: their frame_g holds no content.*/
+              frame_g (the rounded corners are cut into the content there).
+              The ring is opaque apart from the corner arcs (border, title
+              and the workspace strips under the ring), so copy it on every
+              update; only the four corner squares and the shadow bands are
+              translucent and get blended once per placement, while the
+              background below them is pristine. Re-blending them on every
+              content update would stack alpha on alpha and darken them
+              until the next full repaint resets it (the flicker). The edge
+              width follows the larger of frame width and round radius.
+              Edge-to-edge windows (maximized/fullscreen) have no
+              translucent frame pixels and must not take this path: their
+              frame_g holds no content.*/
             int32_t edge = (int32_t)x->config.xwm_theme.frameW;
             if((int32_t)x->config.xwm_theme.round > edge)
                 edge = (int32_t)x->config.xwm_theme.round;
@@ -387,20 +393,63 @@ int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
             if(edge > 0) {
                 int32_t wx = win->xinfo->winr.x;
                 int32_t wy = win->xinfo->winr.y;
+                int32_t round = (int32_t)x->config.xwm_theme.round;
+                int32_t s_right = win->xinfo->winr.w -
+                        ((win->xinfo->wsr.x - win->xinfo->winr.x) +
+                         win->xinfo->wsr.w);
+                int32_t s_bottom = win->xinfo->winr.h -
+                        ((win->xinfo->wsr.y - win->xinfo->winr.y) +
+                         win->xinfo->wsr.h);
+                if(s_right < 0) s_right = 0;
+                if(s_bottom < 0) s_bottom = 0;
 
-                grect_t top = {0, 0, g->w, edge};
-                grect_t bottom = {0, g->h - edge, g->w, edge};
-                grect_t left = {0, edge, edge, g->h - 2*edge};
-                grect_t right = {g->w - edge, edge, edge, g->h - 2*edge};
-                grect_t mid = {edge, edge, g->w - 2*edge, g->h - 2*edge};
+                /*the frame rect: winr without the shadow bands*/
+                int32_t fw = g->w - s_right;
+                int32_t fh = g->h - s_bottom;
+                if(round > fw/2) round = fw/2;
+                if(round > fh/2) round = fh/2;
+                if(round < 0) round = 0;
 
-                blit_win_area(g, disp_g, wx, wy, &dmg, &top, true);
-                blit_win_area(g, disp_g, wx, wy, &dmg, &bottom, true);
-                blit_win_area(g, disp_g, wx, wy, &dmg, &left, true);
-                blit_win_area(g, disp_g, wx, wy, &dmg, &right, true);
+                /*opaque parts of the ring, plain copies every update*/
+                grect_t top = {round, 0, fw - 2*round, edge};
+                grect_t bottom = {round, fh - edge, fw - 2*round, edge};
+                grect_t left = {0, round, edge, fh - 2*round};
+                grect_t right = {fw - edge, round, edge, fh - 2*round};
+                grect_t mid = {edge, edge, fw - 2*edge, fh - 2*edge};
+
+                blit_win_area(g, disp_g, wx, wy, &dmg, &top, false);
+                blit_win_area(g, disp_g, wx, wy, &dmg, &bottom, false);
+                blit_win_area(g, disp_g, wx, wy, &dmg, &left, false);
+                blit_win_area(g, disp_g, wx, wy, &dmg, &right, false);
                 grect_t d = dmg;
                 if(grect_insect(&mid, &d))
                     blit_win_part(x, win, disp_g, &d, false);
+
+                /*translucent parts: the corner squares hold the arc AA (and
+                  the shadow wrap at the bottom right), the bands hold the
+                  straight shadow. Blend them only while they are not on the
+                  display for this placement yet.*/
+                bool decor_ok = win->shadow_valid &&
+                        memcmp(&win->shadow_rect, &win->xinfo->winr,
+                               sizeof(grect_t)) == 0;
+                if(!decor_ok) {
+                    grect_t whole = {0, 0, g->w, g->h};
+                    grect_t c0 = {0, 0, round, round};
+                    grect_t c1 = {fw - round, 0, round, round};
+                    grect_t c2 = {0, fh - round, round, round};
+                    grect_t c3 = {fw - round, fh - round, round, round};
+                    grect_t sr = {fw, 0, s_right, g->h};
+                    grect_t sb = {0, fh, fw, s_bottom};
+                    blit_win_area(g, disp_g, wx, wy, &whole, &c0, true);
+                    blit_win_area(g, disp_g, wx, wy, &whole, &c1, true);
+                    blit_win_area(g, disp_g, wx, wy, &whole, &c2, true);
+                    blit_win_area(g, disp_g, wx, wy, &whole, &c3, true);
+                    blit_win_area(g, disp_g, wx, wy, &whole, &sr, true);
+                    blit_win_area(g, disp_g, wx, wy, &whole, &sb, true);
+                    win->shadow_valid = true;
+                    memcpy(&win->shadow_rect, &win->xinfo->winr,
+                           sizeof(grect_t));
+                }
             }
             else {
                 blit_win_part(x, win, disp_g, &dmg, false);
@@ -421,15 +470,19 @@ int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
     return 0;
 }
 
-/*a region was just repainted fresh; where it reaches into the shadow bands
-  of the windows above, their shadow has been wiped away or sits blended on
-  top of stale pixels. Repair exactly those parts while the background is
-  still pristine: re-blending a whole band later would double the shadow on
-  the parts that were left alone. Not needed while the whole display is
-  being rebuilt: that pass repaints every window bottom to top, so each one
-  blends its bands onto a fresh background itself.*/
+/*a region was just repainted fresh; where it reaches into the translucent
+  parts of the windows above (shadow bands, and for alpha frames the corner
+  squares with the arc AA), their translucency has been wiped away or sits
+  blended on top of stale pixels. Repair exactly those parts while the
+  background is still pristine: re-blending a whole band later would double
+  the shadow on the parts that were left alone. Not needed while the whole
+  display is being rebuilt: that pass repaints every window bottom to top,
+  so each one blends its bands onto a fresh background itself.*/
 void refresh_shadows_above(x_t* x, xwin_t* below, const grect_t* region) {
-    if(x->config.xwm_theme.shadow <= 0)
+    int32_t shadow = x->config.xwm_theme.shadow;
+    int32_t round = x->config.xwm_theme.round;
+    bool frame_alpha = x->config.xwm_theme.frameAlpha;
+    if(shadow <= 0 && !(frame_alpha && round > 0))
         return;
     x_display_t* display = &x->displays[below->xinfo->display_index];
     xwin_t* w = below->next;
@@ -446,7 +499,9 @@ void refresh_shadows_above(x_t* x, xwin_t* below, const grect_t* region) {
             if(s_bottom < 0)
                 s_bottom = 0;
 
-            if(s_right > 0 || s_bottom > 0) {
+            bool has_bands = (s_right > 0 || s_bottom > 0);
+            bool has_corners = frame_alpha && round > 0;
+            if(has_bands || has_corners) {
                 bool bands_ok = w->shadow_valid &&
                         memcmp(&w->shadow_rect, &w->xinfo->winr, sizeof(grect_t)) == 0;
                 if(bands_ok) {
@@ -455,15 +510,40 @@ void refresh_shadows_above(x_t* x, xwin_t* below, const grect_t* region) {
                     grect_t d = *region;
                     d.x -= w->xinfo->winr.x;
                     d.y -= w->xinfo->winr.y;
-                    grect_t right = {w->frame_g->w - s_right, 0, s_right, w->frame_g->h};
-                    grect_t bottom = {0, w->frame_g->h - s_bottom,
-                            w->frame_g->w - s_right, s_bottom};
-                    blit_win_area(w->frame_g, display->g,
-                            w->xinfo->winr.x, w->xinfo->winr.y,
-                            &d, &right, true);
-                    blit_win_area(w->frame_g, display->g,
-                            w->xinfo->winr.x, w->xinfo->winr.y,
-                            &d, &bottom, true);
+                    if(has_bands) {
+                        grect_t right = {w->frame_g->w - s_right, 0, s_right, w->frame_g->h};
+                        grect_t bottom = {0, w->frame_g->h - s_bottom,
+                                w->frame_g->w - s_right, s_bottom};
+                        blit_win_area(w->frame_g, display->g,
+                                w->xinfo->winr.x, w->xinfo->winr.y,
+                                &d, &right, true);
+                        blit_win_area(w->frame_g, display->g,
+                                w->xinfo->winr.x, w->xinfo->winr.y,
+                                &d, &bottom, true);
+                    }
+                    if(has_corners) {
+                        int32_t fw = w->frame_g->w - s_right;
+                        int32_t fh = w->frame_g->h - s_bottom;
+                        int32_t r = round;
+                        if(r > fw/2) r = fw/2;
+                        if(r > fh/2) r = fh/2;
+                        grect_t c0 = {0, 0, r, r};
+                        grect_t c1 = {fw - r, 0, r, r};
+                        grect_t c2 = {0, fh - r, r, r};
+                        grect_t c3 = {fw - r, fh - r, r, r};
+                        blit_win_area(w->frame_g, display->g,
+                                w->xinfo->winr.x, w->xinfo->winr.y,
+                                &d, &c0, true);
+                        blit_win_area(w->frame_g, display->g,
+                                w->xinfo->winr.x, w->xinfo->winr.y,
+                                &d, &c1, true);
+                        blit_win_area(w->frame_g, display->g,
+                                w->xinfo->winr.x, w->xinfo->winr.y,
+                                &d, &c2, true);
+                        blit_win_area(w->frame_g, display->g,
+                                w->xinfo->winr.x, w->xinfo->winr.y,
+                                &d, &c3, true);
+                    }
                 }
                 else {
                     /*the bands were never blended for this placement: the

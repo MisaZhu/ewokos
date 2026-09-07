@@ -103,6 +103,9 @@ void x_unfocus(x_t* x) {
     e.value.window.event = XEVT_WIN_UNFOCUS;
     x->win_focus->xinfo->focused = false;
     x->win_focus->frame_dirty = true;
+    /*the frame recolours: its translucent corners/shadow have to be
+      blended again over what is below them*/
+    x->win_focus->shadow_valid = false;
     x_push_event(x, x->win_focus, &e);
 
     proc_priority(x->win_focus->from_pid, x->config.bg_proc_priority);
@@ -120,6 +123,7 @@ void try_focus(x_t* x, xwin_t* win) {
         e.value.window.event = XEVT_WIN_FOCUS;
         win->xinfo->focused = true;
         win->frame_dirty = true;
+        win->shadow_valid = false; /*recoloured frame, see x_unfocus*/
         x_push_event(x, win, &e);
         x->win_focus = win;
 
@@ -139,6 +143,10 @@ void push_win(x_t* x, xwin_t* win) {
         }
         return;
     }
+
+    /*new stacking position: what sits below the translucent corners and
+      shadow bands changed, they have to be blended again*/
+    win->shadow_valid = false;
 
     if((win->xinfo->style & XWIN_STYLE_SYSBOTTOM) != 0) { //push head if sysbottom style
         if(x->win_head != NULL) {
