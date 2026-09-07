@@ -44,19 +44,19 @@ void EwokWM:: markFrameRound(graph_t* frame_g, int r) {
 
 	graph_clear(mask, 0);
 	graph_fill_arc(mask, mask->w, mask->h, r, 90, 180, 0xffffffff);
-	graph_blt_alpha_mask(mask, 0, 0, mask->w, mask->h, frame_g, 1, 1, mask->w, mask->h);
+	graph_blt_alpha_mask(mask, 0, 0, mask->w, mask->h, frame_g, 0, 0, mask->w, mask->h);
 
 	graph_clear(mask, 0);
 	graph_fill_arc(mask, mask->w, 0, r, 180, 270, 0xffffffff);
-	graph_blt_alpha_mask(mask, 0, 0, mask->w, mask->h, frame_g, 1, frame_g->h-mask->h-1, mask->w, mask->h);
+	graph_blt_alpha_mask(mask, 0, 0, mask->w, mask->h, frame_g, 0, frame_g->h-mask->h, mask->w, mask->h);
 
 	graph_clear(mask, 0);
 	graph_fill_arc(mask, 0, mask->h, r, 0, 90, 0xffffffff);
-	graph_blt_alpha_mask(mask, 0, 0, mask->w, mask->h, frame_g, frame_g->w-mask->w-1, 1, mask->w, mask->h);
+	graph_blt_alpha_mask(mask, 0, 0, mask->w, mask->h, frame_g, frame_g->w-mask->w, 0, mask->w, mask->h);
 
 	graph_clear(mask, 0);
 	graph_fill_arc(mask, 0, 0, r, 270, 360, 0xffffffff);
-	graph_blt_alpha_mask(mask, 0, 0, mask->w, mask->h, frame_g, frame_g->w-mask->w-1, frame_g->h-mask->h-1, mask->w, mask->h);
+	graph_blt_alpha_mask(mask, 0, 0, mask->w, mask->h, frame_g, frame_g->w-mask->w, frame_g->h-mask->h, mask->w, mask->h);
 }
 
 void EwokWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinfo_t* info, grect_t* r, bool top) {
@@ -66,6 +66,13 @@ void EwokWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinf
 	if((info->style & XWIN_STYLE_NO_TITLE) == 0) {
 		//graph_rect(frame_g, r->x, r->y, r->w, xwm.theme.titleH+xwm.theme.frameW, fg);
 	}
+
+	/*the outermost frameW strip is not covered by the title/content fills
+	  (they start at frameW): paint it with the border color first, so the
+	  rounded-corner AA of graph_round blends over bg instead of the zeroed
+	  black buffer, which showed as dark dots where the arc meets the edges*/
+	for(uint32_t i = 0; i < xwm.theme.frameW; i++)
+		graph_rect(frame_g, r->x+i, r->y+i, r->w-i*2, r->h-i*2, bg);
 
 	/*the radius is part of the theme: xserverd needs it too, to know which
 	  pixels of the frame are translucent and blend only those*/
@@ -158,8 +165,7 @@ void EwokWM::drawMax(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 
-	graph_fill_circle(g, r->x+r->w/2, r->y+r->h/2, r->w/2-3, 0xff66aa22);
-	//graph_circle_3d(g, r->x+r->w/2, r->y+r->h/2, r->w/2-3, 1, bg, true);
+	graph_fill_circle_3d(g, r->x+r->w/2, r->y+r->h/2, r->w/2-3, 1, 0xff66aa22, false);
 }
 
 void EwokWM::drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
@@ -167,8 +173,7 @@ void EwokWM::drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 
-	graph_fill_circle(g, r->x+r->w/2, r->y+r->h/2, r->w/2-3, 0xffdd6666);
-	//graph_circle_3d(g, r->x+r->w/2, r->y+r->h/2, r->w/2-3, 1, bg, true);
+	graph_fill_circle_3d(g, r->x+r->w/2, r->y+r->h/2, r->w/2-3, 1, 0xffdd6666, false);
 }
 
 EwokWM::~EwokWM(void) {
