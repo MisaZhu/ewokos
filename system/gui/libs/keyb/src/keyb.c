@@ -117,8 +117,14 @@ int keyb_read(int keyb_fd, keyb_evt_t* evts, uint8_t num) {
 }
 
 int keyb_ctrl_value(int key){
-    if(key == 'c')
-        return 0x03;//Ctrl+c
+    /* Standard ASCII control-code mapping, mirroring keyb_shift_value() and
+       hid_keybd's do_ctrl(): Ctrl+a..Ctrl+z -> 0x01..0x1A, so Ctrl+c -> 0x03
+       (SIGINT), Ctrl+d -> 0x04 (EOF), Ctrl+p -> 0x10, Ctrl+u -> 0x15, etc.
+       Uppercase folds to the same codes; non-letters pass through unchanged. */
+    if(key >= 'a' && key <= 'z')
+        return key - 'a' + 1;
+    if(key >= 'A' && key <= 'Z')
+        return key - 'A' + 1;
     return key;
 } 
 
