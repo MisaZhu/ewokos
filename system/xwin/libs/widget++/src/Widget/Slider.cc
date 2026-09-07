@@ -2,15 +2,17 @@
 #include <Widget/Scrollable.h>
 #include <x++/XTheme.h>
 
+#define ROUND_R 6
+
 namespace Ewok {
 
 void Slider::drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
-    graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.bgColor, true);
+    graph_fill_round_3d(g, r.x, r.y + r.h/2-ROUND_R, r.w, ROUND_R*2, ROUND_R, 2, theme->basic.bgColor, true);
 }
 
 void Slider::drawPos(graph_t* g, XTheme* theme, const grect_t& r) {
-    graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.bgColor, false);
-    graph_fill_3d(g, r.x+4, r.y+4, r.w-8, r.h-8, theme->basic.bgColor, true);
+    graph_fill_round_3d(g, r.x, r.y, r.w, r.h, ROUND_R, 2, theme->basic.bgColor, false);
+    graph_round_3d(g, r.x+4, r.y+4, r.w-8, r.h-8, ROUND_R, 1, theme->basic.bgColor, true);
 }
 
 void Slider::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
@@ -51,6 +53,7 @@ void Slider::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 Slider::Slider(bool h) {
     range = 100;
     pos = 0;
+    alpha = true;
     horizontal = h;
     widget = NULL;
     isDragging = false;
