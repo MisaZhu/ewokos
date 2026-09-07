@@ -596,15 +596,10 @@ void graph_circle_3d(graph_t* g, int x, int y, int r, int rw, uint32_t color, bo
 
     uint8_t fg_alpha = (color >> 24) & 0xFF;
 
-    // Outer and inner circle radius squared
-    int32_t outer_r_sq = r * r;
-    int32_t inner_r = r - rw;
-    int32_t inner_r_sq = inner_r * inner_r;
-
-    // Anti-aliasing boundary (expanded to 1 pixel width for smoother effect)
-    int32_t outer_aa_sq = outer_r_sq + 2 * r;  // (r + 1)^2
-    int32_t inner_aa_sq = (inner_r > 0) ? inner_r_sq - 2 * inner_r + 1 : 0;  // (inner_r - 1)^2
-    if (inner_r <= 0) inner_aa_sq = 0;
+    // Ring edges: 1-pixel wide linear transition centered on the true radius,
+    // same pixel-center distance model as graph_fill_circle (r +/- 0.5)
+    float outer_radius = (float)r;
+    float inner_radius = (float)(r - rw);
 
     // Calculate bounding box
     int32_t min_y = y - r - 1;
@@ -636,59 +631,28 @@ void graph_circle_3d(graph_t* g, int x, int y, int r, int rw, uint32_t color, bo
 
         for (int32_t px = min_x; px <= max_x; px++) {
             int32_t dx = px - x;
-            int32_t dist_sq = dx * dx + dy_sq;
+            float dist = sqrtf((float)(dx * dx + dy_sq));
 
-            // Completely outside anti-aliasing area, skip
-            if (dist_sq > outer_aa_sq) continue;
+            // Outer edge coverage
+            float cov = outer_radius + 0.5f - dist;
+            if (cov <= 0.0f) continue;
+            if (cov > 1.0f) cov = 1.0f;
 
-            // Completely inside inner circle (hollow part), skip
-            if (dist_sq < inner_aa_sq) continue;
-
-            uint8_t alpha = 0;
-
-            // Outer edge anti-aliasing area
-            if (dist_sq >= outer_r_sq && dist_sq <= outer_aa_sq) {
-                int32_t range = outer_aa_sq - outer_r_sq;
-                int32_t dist_from_outer = outer_aa_sq - dist_sq;
-                int32_t t = (dist_from_outer * 256) / range;
-                int32_t smoothed = (t * t) / 256;
-                alpha = (uint8_t)((fg_alpha * smoothed) / 256);
-            }
-            // Inner edge anti-aliasing area
-            else if (dist_sq >= inner_aa_sq && dist_sq <= inner_r_sq) {
-                int32_t range = inner_r_sq - inner_aa_sq;
-                int32_t dist_from_inner = dist_sq - inner_aa_sq;
-                int32_t t = (dist_from_inner * 256) / range;
-                int32_t smoothed = (t * t) / 256;
-                alpha = (uint8_t)((fg_alpha * smoothed) / 256);
-            }
-            // Inside ring (completely between inner and outer circles)
-            else if (dist_sq > inner_r_sq && dist_sq < outer_r_sq) {
-                alpha = fg_alpha;
+            // Inner edge coverage (hollow part)
+            if (inner_radius > 0.0f) {
+                float cin = dist - (inner_radius - 0.5f);
+                if (cin <= 0.0f) continue;
+                if (cin < cov) cov = cin;
             }
 
+            uint8_t alpha = (uint8_t)((float)fg_alpha * cov);
             if (alpha > 0) {
-                // Determine color based on 45-degree diagonal
-                // For 3D effect with light source from top-left:
-                // - Top-left quadrant (dx < 0, dy < 0): highlight
-                // - Bottom-right quadrant (dx > 0, dy > 0): deep
-                // - Top-right and bottom-left quadrants: split by diagonal
-                uint32_t pixel_color;
-                if (dx <= 0 && dy <= 0) {
-                    // Top-left quadrant: highlight
-                    pixel_color = highlight_color;
-                } else if (dx >= 0 && dy >= 0) {
-                    // Bottom-right quadrant: deep
-                    pixel_color = deep_color;
-                } else if (dx > 0 && dy < 0) {
-                    // Top-right quadrant: split by dx + dy = 0
-                    // dx + dy <= 0 means closer to top-left (highlight)
-                    pixel_color = (dx + dy <= 0) ? highlight_color : deep_color;
-                } else {
-                    // Bottom-left quadrant (dx < 0, dy > 0): split by dx + dy = 0
-                    // dx + dy <= 0 means closer to top-left (highlight)
-                    pixel_color = (dx + dy <= 0) ? highlight_color : deep_color;
-                }
+                // Blend highlight/deep across the light axis (top-left -> bottom-right),
+                // smooth angular gradient over the whole ring
+                float t = 0.5f + (float)(dx + dy) * 0.7071f / (float)(2 * r);
+                if (t < 0.0f) t = 0.0f;
+                else if (t > 1.0f) t = 1.0f;
+                uint32_t pixel_color = blend_45deg_color(highlight_color, deep_color, t);
                 draw_aa_pixel_int_ex(g, px, py, pixel_color, alpha);
             }
         }
