@@ -531,23 +531,23 @@ static int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
     if(page_num <= 0)
         return 0;
 
-#ifdef __aarch64__
     /*
-     * When the identity-mapped shm-contig/DMA carve-outs were relocated to
-     * the top of RAM (see sys_info_config), the user heap may grow
-     * contiguously past 4GB up to that window. Stop there instead of
-     * overwriting driver DMA mappings.
+     * The identity-mapped sys_dma window is carried in every process's
+     * user half (clone_kernel_vm) - the sbrk heap must never grow into
+     * it. Without the high relocation it sits right above the kernel
+     * image (~1GB on most boards); with the relocation, at the top of
+     * RAM (see sys_info_config/arch_relocate_dma_high). Either way it is
+     * the hard ceiling for the heap.
      */
-    if(_sys_info.shm_contig.phy_base > (4ull*GB) &&
+    if(_sys_info.sys_dma.phy_base > (1*MB) &&
             proc->space->heap_size + (ewokos_addr_t)page_num * PAGE_SIZE >
-                _sys_info.shm_contig.phy_base) {
+                _sys_info.sys_dma.phy_base) {
         printf("proc expand hit heap limit 0x%llx, pid:%d(%s)\n",
-                (unsigned long long)_sys_info.shm_contig.phy_base,
+                (unsigned long long)_sys_info.sys_dma.phy_base,
                 proc->info.pid,
                 proc->info.cmd);
         return -1;
     }
-#endif
 
     for (i = 0; i < page_num; i++) {
         void *page = kalloc_page();

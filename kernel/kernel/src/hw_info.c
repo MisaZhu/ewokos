@@ -2,6 +2,20 @@
 #include <kernel/hw_info.h>
 sys_info_t _sys_info;
 
+/*
+ * BSP hook: opt in to carving the identity-mapped sys_dma + shm_contig
+ * windows from the top of RAM instead of right after the kernel image.
+ * That frees the low 4GB for one contiguous user heap (apps can malloc
+ * >4GB) but puts DMA buffers above the 32-bit address reach of limited
+ * controllers (DWC2) and of the firmware mailbox (32-bit bus addresses) -
+ * so only all-64-bit-clean platforms (QEMU virt) enable it. Weak default:
+ * keep the legacy low layout.
+ */
+__attribute__((weak))
+int32_t arch_relocate_dma_high(void) {
+    return 0;
+}
+
 __attribute__((weak))
 int32_t arch_clone_proc_vm(page_dir_entry_t* vm, page_dir_entry_t* kernel_vm) {
     (void)vm;
@@ -97,14 +111,16 @@ void sys_info_config(void) {
 
 #if defined(__aarch64__)
     /*
-     * On boards with RAM well above 4GB, carve the identity-mapped
-     * shm-contig + sys_dma windows from the TOP of RAM instead of right
-     * after the kernel image. The user sbrk heap then grows contiguously
-     * from the end of the ELF across the 4GB mark (apps can malloc >4GB)
-     * without colliding with those user-half identity mappings, and small
-     * processes keep 32-bit-safe low heap pointers.
+     * On boards with RAM well above 4GB, optionally carve the
+     * identity-mapped shm-contig + sys_dma windows from the TOP of RAM
+     * instead of right after the kernel image. The user sbrk heap then
+     * grows contiguously from the end of the ELF across the 4GB mark
+     * (apps can malloc >4GB) without colliding with those user-half
+     * identity mappings, and small processes keep 32-bit-safe low heap
+     * pointers. BSPs opt in through arch_relocate_dma_high().
      */
-    if((_sys_info.phy_offset + _sys_info.total_usable_mem_size) >
+    if(arch_relocate_dma_high() &&
+            (_sys_info.phy_offset + _sys_info.total_usable_mem_size) >
             (6ull*GB + _sys_info.sys_dma.size + _sys_info.shm_contig.size)) {
         ewokos_addr_t ram_top = _sys_info.phy_offset +
             _sys_info.total_usable_mem_size;

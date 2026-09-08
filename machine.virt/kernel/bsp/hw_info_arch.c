@@ -64,6 +64,14 @@ void sys_info_init_arch(void) {
 void arch_vm(page_dir_entry_t* vm) {
 }
 
+int32_t arch_relocate_dma_high(void) {
+    /* QEMU virt: every DMA user is 64-bit clean, so the sys_dma/shm_contig
+       windows can sit at the top of RAM, freeing one contiguous >4GB user
+       heap. Real boards keep the legacy low layout (32-bit DMA controllers,
+       32-bit firmware mailbox bus addresses). */
+    return 1;
+}
+
 int32_t arch_clone_proc_vm(page_dir_entry_t* vm, page_dir_entry_t* kernel_vm) {
     (void)vm;
     (void)kernel_vm;
