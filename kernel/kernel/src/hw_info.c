@@ -35,7 +35,7 @@ static uint32_t get_kmalloc_size(void) {
         ret = 32*MB;
     else if(_sys_info.total_phy_mem_size >= 2ull*GB)
         ret = 16*MB;
-    else if(_sys_info.total_phy_mem_size >= 1ull*GB)
+    else if(_sys_info.total_phy_mem_size >= 512*MB)
         ret = 8*MB;
 
 #if defined(__aarch64__) && defined(PAGE_SIZE_64K)
