@@ -106,6 +106,10 @@ void x_unfocus(x_t* x) {
     /*the frame recolours: its translucent corners/shadow have to be
       blended again over what is below them*/
     x->win_focus->shadow_valid = false;
+    /*a translucent window can only re-blend over a fresh background: an
+      incremental pass would stack its shadow on the old blend*/
+    if(x->win_focus->xinfo->alpha)
+        x_dirty(x, x->win_focus->xinfo->display_index);
     x_push_event(x, x->win_focus, &e);
 
     proc_priority(x->win_focus->from_pid, x->config.bg_proc_priority);
@@ -124,6 +128,8 @@ void try_focus(x_t* x, xwin_t* win) {
         win->xinfo->focused = true;
         win->frame_dirty = true;
         win->shadow_valid = false; /*recoloured frame, see x_unfocus*/
+        if(win->xinfo->alpha)
+            x_dirty(x, win->xinfo->display_index); /*see x_unfocus*/
         x_push_event(x, win, &e);
         x->win_focus = win;
 
@@ -147,6 +153,10 @@ void push_win(x_t* x, xwin_t* win) {
     /*new stacking position: what sits below the translucent corners and
       shadow bands changed, they have to be blended again*/
     win->shadow_valid = false;
+    /*for a translucent window the whole picture sits blended over what was
+      below: a new stack needs a fresh background to re-blend on*/
+    if(win->xinfo != NULL && win->xinfo->alpha)
+        x_dirty(x, win->xinfo->display_index);
 
     if((win->xinfo->style & XWIN_STYLE_SYSBOTTOM) != 0) { //push head if sysbottom style
         if(x->win_head != NULL) {

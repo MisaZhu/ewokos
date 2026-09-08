@@ -359,8 +359,71 @@ int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
             dmg.h = 0;
         }
         else if(win->xinfo->alpha) {
-            /*the window content itself is translucent, blend the whole window*/
-            blit_win_part(x, win, disp_g, &dmg, true);
+            /*the window content itself is translucent: the whole picture can
+              only be blended onto a background that does not carry it yet. A
+              fresh placement (rebuild, move, show) blends it once and gets
+              recorded; an incremental pass (a recoloured frame etc.) then
+              refreshes just the opaque pixels - blending the translucent
+              content, corner arcs or shadow bands again would stack alpha on
+              alpha until the bands turn black*/
+            bool place_ok = win->shadow_valid &&
+                    memcmp(&win->shadow_rect, &win->xinfo->winr,
+                           sizeof(grect_t)) == 0;
+            if(!place_ok) {
+                blit_win_part(x, win, disp_g, &dmg, true);
+                win->shadow_valid = true;
+                memcpy(&win->shadow_rect, &win->xinfo->winr, sizeof(grect_t));
+            }
+            else {
+                int32_t wx = win->xinfo->winr.x;
+                int32_t wy = win->xinfo->winr.y;
+                int32_t edge = (int32_t)x->config.xwm_theme.frameW;
+                if((int32_t)x->config.xwm_theme.round > edge)
+                    edge = (int32_t)x->config.xwm_theme.round;
+                if(edge > g->w/2)
+                    edge = g->w/2;
+                if(edge > g->h/2)
+                    edge = g->h/2;
+                int32_t round = (int32_t)x->config.xwm_theme.round;
+                int32_t s_right = win->xinfo->winr.w -
+                        ((win->xinfo->wsr.x - win->xinfo->winr.x) +
+                         win->xinfo->wsr.w);
+                int32_t s_bottom = win->xinfo->winr.h -
+                        ((win->xinfo->wsr.y - win->xinfo->winr.y) +
+                         win->xinfo->wsr.h);
+                if(s_right < 0) s_right = 0;
+                if(s_bottom < 0) s_bottom = 0;
+
+                int32_t fw = g->w - s_right;
+                int32_t fh = g->h - s_bottom;
+                if(round > fw/2) round = fw/2;
+                if(round > fh/2) round = fh/2;
+                if(round < 0) round = 0;
+
+                /*the opaque decoration ring, plain copies every update*/
+                grect_t top = {round, 0, fw - 2*round, edge};
+                grect_t bottom = {round, fh - edge, fw - 2*round, edge};
+                grect_t left = {0, round, edge, fh - 2*round};
+                grect_t right = {fw - edge, round, edge, fh - 2*round};
+                blit_win_area(g, disp_g, wx, wy, &dmg, &top, false);
+                blit_win_area(g, disp_g, wx, wy, &dmg, &bottom, false);
+                blit_win_area(g, disp_g, wx, wy, &dmg, &left, false);
+                blit_win_area(g, disp_g, wx, wy, &dmg, &right, false);
+
+                /*interior and corner squares: opaque pixels only (title,
+                  buttons, opaque content); the translucent ones already sit
+                  blended on the display and must not be touched*/
+                grect_t mid = {edge, edge, fw - 2*edge, fh - 2*edge};
+                grect_t c0 = {0, 0, round, round};
+                grect_t c1 = {fw - round, 0, round, round};
+                grect_t c2 = {0, fh - round, round, round};
+                grect_t c3 = {fw - round, fh - round, round, round};
+                blit_win_area_opaque(g, disp_g, wx, wy, &dmg, &mid);
+                blit_win_area_opaque(g, disp_g, wx, wy, &dmg, &c0);
+                blit_win_area_opaque(g, disp_g, wx, wy, &dmg, &c1);
+                blit_win_area_opaque(g, disp_g, wx, wy, &dmg, &c2);
+                blit_win_area_opaque(g, disp_g, wx, wy, &dmg, &c3);
+            }
         }
         else if(x->config.xwm_theme.shadow > 0 &&
                 !x->config.xwm_theme.frameAlpha) {
@@ -541,6 +604,20 @@ void refresh_shadows_above(x_t* x, xwin_t* below, const grect_t* region) {
         if(w->ready && w->xinfo != NULL && w->xinfo->visible &&
                 w->xinfo->display_index == below->xinfo->display_index &&
                 w->frame_g != NULL) {
+            if(w->xinfo->alpha) {
+                /*a translucent window keeps its whole picture blended on the
+                  display, so a fresh repaint below wipes content and shadow
+                  alike: refresh the whole intersection with what was just
+                  repainted, not just the decoration bands*/
+                grect_t d = *region;
+                d.x -= w->xinfo->winr.x;
+                d.y -= w->xinfo->winr.y;
+                grect_t bounds = {0, 0, w->xinfo->winr.w, w->xinfo->winr.h};
+                if(grect_insect(&bounds, &d))
+                    blit_win_part(x, w, display->g, &d, true);
+                w = w->next;
+                continue;
+            }
             int32_t s_right = w->xinfo->winr.w -
                     ((w->xinfo->wsr.x - w->xinfo->winr.x) + w->xinfo->wsr.w);
             int32_t s_bottom = w->xinfo->winr.h -
