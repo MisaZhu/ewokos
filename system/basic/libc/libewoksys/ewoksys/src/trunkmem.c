@@ -117,6 +117,74 @@ static int trunk_block_sane(mem_block_t* head, ewokos_addr_t heap_end,
     return 1;
 }
 
+/* Free blocks chain through two pointers stored at the start of their (dead)
+ * payload, so every allocation must be large enough to hold them. */
+#define TRUNK_FREE_LINK_BYTES (2 * (uint32_t)sizeof(mem_block_t*))
+
+static inline mem_block_t** fl_next_slot(mem_block_t* b) {
+    return (mem_block_t**)(void*)b->mem;
+}
+
+static inline mem_block_t** fl_prev_slot(mem_block_t* b) {
+    return (mem_block_t**)(void*)(b->mem + sizeof(mem_block_t*));
+}
+
+/* Class of a block, from its size: floor(log2(size)) - TRUNK_FREE_MIN_BITS,
+ * clamped to the valid range. Class 0 also absorbs anything smaller than the
+ * minimum allocation, and the top class is open-ended. */
+static inline int trunk_block_class(uint32_t size) {
+    int c;
+    if(size < (1u << TRUNK_FREE_MIN_BITS))
+        return 0;
+    c = (31 - __builtin_clz(size)) - TRUNK_FREE_MIN_BITS;
+    if(c >= TRUNK_FREE_CLASSES)
+        c = TRUNK_FREE_CLASSES - 1;
+    return c;
+}
+
+/* Lowest class in which EVERY block is >= size, so its head can be taken with
+ * no size check at all. That is what makes trunk_malloc O(1): it never has to
+ * search a class for a block that fits. */
+static inline int trunk_request_class(uint32_t size) {
+    int c;
+    if(size <= (1u << TRUNK_FREE_MIN_BITS))
+        return 0;
+    c = (32 - __builtin_clz(size - 1)) - TRUNK_FREE_MIN_BITS; /* ceil(log2) */
+    if(c >= TRUNK_FREE_CLASSES)
+        c = TRUNK_FREE_CLASSES - 1;
+    return c;
+}
+
+/* Push a free block onto its size class (LIFO). LIFO matters: the remainder
+ * carved off by the previous allocation lands at the head of its class, so the
+ * next allocation of a similar size reuses it immediately. */
+static void fl_push(malloc_t* m, mem_block_t* b) {
+    mem_block_t** head = &m->free_class[trunk_block_class(b->size)];
+    *fl_next_slot(b) = *head;
+    *fl_prev_slot(b) = NULL;
+    if(*head != NULL)
+        *fl_prev_slot(*head) = b;
+    *head = b;
+}
+
+/* Drop a block from its size class. Must be called while the block's payload
+ * still holds the links and its size is still the one it was pushed with --
+ * i.e. before it is merged into a neighbour, shrunk away, split, or handed out
+ * to a caller. */
+static void fl_unlink(malloc_t* m, mem_block_t* b) {
+    mem_block_t** head = &m->free_class[trunk_block_class(b->size)];
+    mem_block_t* nx = *fl_next_slot(b);
+    mem_block_t* pv = *fl_prev_slot(b);
+    if(pv != NULL)
+        *fl_next_slot(pv) = nx;
+    else
+        *head = nx;
+    if(nx != NULL)
+        *fl_prev_slot(nx) = pv;
+    *fl_next_slot(b) = NULL;
+    *fl_prev_slot(b) = NULL;
+}
+
 static mem_block_t* gen_block(char* p, uint32_t size) {
     uint32_t block_size = sizeof(mem_block_t);
     mem_block_t* block = (mem_block_t*)p;
@@ -161,23 +229,8 @@ static void try_break(malloc_t* m, mem_block_t* block, uint32_t size) {
     if(m->tail == block) 
         m->tail = newBlock;
 
-    /* a new free block just appeared: keep the free_max invariant */
-    if(newBlock->size > m->free_max)
-        m->free_max = newBlock->size;
-}
-
-/* Recompute free_max by walking the whole chain. Only called on the rare
- * paths where the largest free block may have disappeared (tail shrink, or
- * a first-fit walk that came up empty against an overestimated free_max). */
-static void trunk_rescan_free_max(malloc_t* m) {
-    uint32_t max = 0;
-    mem_block_t* block = m->head;
-    while(block != NULL) {
-        if(!block->used && block->size > max)
-            max = block->size;
-        block = block->next;
-    }
-    m->free_max = max;
+    /* a new free block just appeared: publish it on its size class */
+    fl_push(m, newBlock);
 }
 
 /* O(1) validation of a block candidate without scanning from head.
@@ -203,8 +256,6 @@ static mem_block_t* trunk_check_block(malloc_t* m, mem_block_t* b,
 }
 
 char* trunk_malloc(malloc_t* m, uint32_t size) {
-    mem_block_t* head;
-    mem_block_t* prev;
     mem_block_t* block;
     ewokos_addr_t heap_end;
     if(m == NULL)
@@ -212,65 +263,60 @@ char* trunk_malloc(malloc_t* m, uint32_t size) {
 
     trunk_lock_heap(m);
     size = ALIGN_UP(size, 8);
+    /* a freed block must be able to hold the intrusive free-list links */
+    if(size < TRUNK_FREE_LINK_BYTES)
+        size = TRUNK_FREE_LINK_BYTES;
     heap_end = trunk_heap_end(m);
-    /* No free block can satisfy this request: skip the first-fit walk
-     * entirely and expand. Without this short-circuit every allocation on a
-     * nearly-full heap walked the whole chain (O(block_count) with a
-     * per-block sanity check), which turned allocation-heavy workloads
-     * quadratic -- e.g. xBrowser parsing a CSS-heavy page spent minutes
-     * inside trunk_block_sane with hundreds of thousands of live blocks. */
-    if(size > m->free_max && m->head != NULL) {
-        /* free_max may only overestimate after consumes/shrinks are handled
-         * below, so when it claims "too small" the walk is provably futile. */
-    } else if(m->head != NULL) {
-        head = m->head;
-        prev = NULL;
-        block = head;
-        if(m->start != NULL) {
-            /* validate the rotate hint in O(1) instead of scanning from head;
-            on any inconsistency fall back to head (walk re-validates anyway) */
-            mem_block_t* sprev = NULL;
-            if(trunk_check_block(m, m->start, heap_end, &sprev) != NULL) {
-                block = m->start;
-                prev = sprev;
+
+    /* Take a block from the size-class free lists -- never walk the physical
+     * chain, which carries one node per live allocation and is overwhelmingly
+     * used blocks (xBrowser on a CSS-heavy page: ~1.3M blocks). Searching that
+     * chain cost milliseconds per allocation, so every tick overran its budget
+     * and the xwin event loop starved.
+     *
+     * From trunk_request_class(size) upwards every block in a class is by
+     * construction >= size, so taking a class head needs neither a size check
+     * nor a search: allocation stays O(1) however fragmented the heap gets.
+     * The single class below that may still hold a block big enough, so its
+     * head gets one opportunistic check to keep internal fragmentation down. */
+    {
+        int c = trunk_block_class(size);
+        int c_fit = trunk_request_class(size);
+        if(c < c_fit) {
+            mem_block_t* cur = m->free_class[c];
+            if(cur != NULL && !cur->used && cur->size >= size &&
+                    trunk_block_sane(m->head, heap_end, cur->prev, cur)) {
+                fl_unlink(m, cur);
+                cur->used = 1;
+                try_break(m, cur, size);
+                m->start = cur->next;
+                trunk_unlock_heap(m);
+                return cur->mem;
             }
         }
-        while(block != NULL) {
-            /* heap_end is hoisted out of the loop: get_mem_tail is an indirect
-             * call into libgloss, so re-deriving it per block made the walk
-             * far more expensive than the sanity check itself. */
-            if(!trunk_block_sane(head, heap_end, prev, block)) {
-                trunk_unlock_heap(m);
-                return NULL;
-            }
-            if(block->used || block->size < size) {
-                prev = block;
-                block = block->next;
-            }
-            else {
-                block->used = 1;
-                if(block->size == m->free_max &&
-                        (sizeof(mem_block_t)+size) > (uint32_t)(block->size/2)) {
-                    /* The largest free block was consumed whole (no break
-                     * will re-publish a remainder): rescan so free_max stays
-                     * exact and the next futile walk is short-circuited. */
-                    try_break(m, block, size);
-                    trunk_rescan_free_max(m);
-                } else {
-                    try_break(m, block, size);
+        for(c = c_fit; c < TRUNK_FREE_CLASSES; c++) {
+            mem_block_t* cur = m->free_class[c];
+            while(cur != NULL) {
+                mem_block_t* nx = *fl_next_slot(cur);
+                if(!cur->used && cur->size >= size &&
+                        trunk_block_sane(m->head, heap_end, cur->prev, cur)) {
+                    fl_unlink(m, cur);
+                    cur->used = 1;
+                    /* any remainder is republished on its own size class */
+                    try_break(m, cur, size);
+                    m->start = cur->next;
+                    trunk_unlock_heap(m);
+                    return cur->mem;
                 }
-                m->start = block->next;
-                trunk_unlock_heap(m);
-                return block->mem;
+                /* Only the open-ended top class can hold blocks that are too
+                 * small for the request, so this inner loop runs at most once
+                 * for every other class. */
+                if(c != TRUNK_FREE_CLASSES - 1)
+                    break;
+                cur = nx;
             }
         }
-        /* Walk came up empty although free_max promised a fit: the invariant
-         * overestimated (stale from merges/shrinks). Recompute it so the next
-         * oversized request takes the expand fast path. */
-        trunk_rescan_free_max(m);
-        if(size > m->free_max) {
-            /* fall through to expand */
-        }
+        /* no class holds a block for this size: fall through and expand */
     }
 
     /*Can't find any available block, expand pages*/
@@ -328,6 +374,10 @@ static mem_block_t* try_merge(malloc_t* m, mem_block_t* block) {
                  !trunk_ptr_in_heap(m->head, heap_end, bn) ||
                  !trunk_ptr_aligned(bn)))
             return ret; /* leave list untouched */
+        /* b is about to disappear into block: drop it from the free list while
+         * its payload still holds the links (afterwards those bytes belong to
+         * the merged block's payload and a stale entry would be fatal). */
+        fl_unlink(m, b);
         block->size += (b->size + block_size);
         block->next = bn;
         if(bn != NULL)
@@ -339,6 +389,7 @@ static mem_block_t* try_merge(malloc_t* m, mem_block_t* block) {
     //try left block	
     b = block->prev;
     if(b != NULL && b->used == 0) {
+        fl_unlink(m, b); /* see above: b absorbs block, so b's links must go */
         b->size += (block->size + block_size);
         b->next = block->next;
         if(b->next != NULL) 
@@ -364,18 +415,17 @@ static void try_shrink(malloc_t* m) {
         return;
 
     uint32_t pages = (m->tail->size+block_size) / m->seg_size;
-    /* The largest free block may be the one being returned to the kernel:
-     * unlink it first, then recompute the invariant so free_max never
-     * advertises a block that is already gone. */
-    int rescan = (m->tail->size >= m->free_max);
+    /* This block is about to be returned to the kernel: drop it from its size
+     * class first, while its payload still holds the links and its size is
+     * still the one it was pushed with. Leaving it on the list would hand out
+     * unmapped memory on the next allocation. */
+    fl_unlink(m, m->tail);
     m->tail = m->tail->prev;
     if(m->tail != NULL)
         m->tail->next = NULL;
     else
         m->head = NULL;
     m->shrink(m->arg, pages);
-    if(rescan)
-        trunk_rescan_free_max(m);
 }
 
 void trunk_free(malloc_t* m, char* p) {
@@ -402,9 +452,9 @@ void trunk_free(malloc_t* m, char* p) {
         trunk_unlock_heap(m);
         return;
     }
-    /* A (possibly merged) free block just grew: keep the free_max invariant. */
-    if(block->size > m->free_max)
-        m->free_max = block->size;
+    /* Publish the (possibly merged) free block on the size class matching its
+     * new, post-merge size. */
+    fl_push(m, block);
     if(m->start == 0 || m->start >= block)
         m->start = block->prev;
     if(m->shrink != NULL)
@@ -435,11 +485,14 @@ uint32_t trunk_msize(malloc_t* m, char* p) {
 }
 
 void trunk_stat(malloc_t* m, uint32_t* blocks, uint32_t* free_blocks,
-        uint32_t* used_bytes, uint32_t* free_bytes) {
+        uint32_t* used_bytes, uint32_t* free_bytes,
+        uint32_t* free_list_len, uint32_t* free_list_max) {
     uint32_t nblocks = 0;
     uint32_t nfree = 0;
     uint32_t used = 0;
     uint32_t freem = 0;
+    uint32_t nlist = 0;
+    uint32_t listmax = 0;
 
     if(m != NULL) {
         mem_block_t* block;
@@ -455,6 +508,18 @@ void trunk_stat(malloc_t* m, uint32_t* blocks, uint32_t* free_blocks,
             }
             block = block->next;
         }
+        /* Walk every size class: the total must match the free count found on
+         * the physical chain above, otherwise a class list drifted out of sync
+         * (a block changed size or disappeared while still linked). */
+        for(int c = 0; c < TRUNK_FREE_CLASSES && nlist <= nblocks + 1; c++) {
+            block = m->free_class[c];
+            while(block != NULL && nlist <= nblocks + 1) {
+                nlist++;
+                if(block->size > listmax)
+                    listmax = block->size;
+                block = *fl_next_slot(block);
+            }
+        }
         trunk_unlock_heap(m);
     }
 
@@ -466,6 +531,10 @@ void trunk_stat(malloc_t* m, uint32_t* blocks, uint32_t* free_blocks,
         *used_bytes = used;
     if(free_bytes != NULL)
         *free_bytes = freem;
+    if(free_list_len != NULL)
+        *free_list_len = nlist;
+    if(free_list_max != NULL)
+        *free_list_max = listmax;
 }
 
 #ifdef __cplusplus

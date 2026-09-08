@@ -1,5 +1,6 @@
 #include <bsp/bsp_g2d.h>
 #include <g2d_arch.h>
+#include <g2dclient/g2dclient.h>
 
 /* thin dispatch layer: every operation is implemented by the platform's
    arch_g2d_* back end (NEON software engine on virt, a hardware 2D engine
@@ -36,8 +37,10 @@ int32_t bsp_g2d_blt(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_conti
 
 /* software-only back end: the arch engine works on virtual pointers
    and this platform has no hardware 2d engine able to write a raw
-   physical range, so the scan-out push is declined; the caller
-   (displayd flush_g2d) falls back to the driver's cpu flush */
+   physical range. that is a missing capability, not a failed attempt,
+   and g2dd passes back end returns through to the client verbatim, so
+   answer G2D_ERR_NOT_SUPPORTED: displayd remembers it and stops paying
+   an ipc round trip per frame for an answer that cannot change. */
 int32_t bsp_g2d_blt_phy(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
 			int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 			ewokos_addr_t dst_phy, uint32_t dst_size, int32_t dst_w, int32_t dst_h,
@@ -48,7 +51,7 @@ int32_t bsp_g2d_blt_phy(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_c
 	(void)dst_phy; (void)dst_size; (void)dst_w; (void)dst_h;
 	(void)dst_pitch;
 	(void)dx; (void)dy; (void)dw; (void)dh;
-	return -1;
+	return G2D_ERR_NOT_SUPPORTED;
 }
 
 int32_t bsp_g2d_blt_alpha(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,

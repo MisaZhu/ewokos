@@ -36,9 +36,12 @@ int32_t bsp_g2d_blt(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_conti
    scan-out buffer): no dst virtual address exists in this process, the
    2d engine writes the physical range directly. dst_pitch is the row
    stride in bytes (>= dst_w*4, %4==0); [dst_phy, dst_phy+dst_size)
-   must be physically contiguous ram. returns -1 when the back end
-   cannot write the physical range: the caller falls back to its cpu
-   flush path. */
+   must be physically contiguous ram.
+   returns the g2d result codes (g2dclient/g2dclient.h), which g2dd
+   passes through to the client verbatim: G2D_ERR_FAILED (-1) when this
+   particular range could not be written, G2D_ERR_NOT_SUPPORTED (-2)
+   when the back end has no scan-out push at all - the caller then
+   stops asking and stays on its cpu flush path. */
 int32_t bsp_g2d_blt_phy(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
 			int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 			ewokos_addr_t dst_phy, uint32_t dst_size, int32_t dst_w, int32_t dst_h,

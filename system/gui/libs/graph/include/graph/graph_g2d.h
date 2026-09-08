@@ -18,6 +18,12 @@ int   graph_g2d_avaliable(graph_t* g);
 void  graph_g2d_reject_stats(uint32_t* num, uint32_t* noncontig,
 					uint32_t* small, uint64_t* pixels);
 
+/* every graph_*_g2d answers G2D_OK when the device did the work; any
+   non-zero (g2dclient's G2D_ERR_FAILED / G2D_ERR_NOT_SUPPORTED, see
+   g2dclient/g2dclient.h) means "not done" and the caller runs its own
+   cpu/arch pass instead. an op the driver declined with
+   G2D_ERR_NOT_SUPPORTED is remembered per op and never offloaded again;
+   the other ops keep using the device. */
 int   graph_fill_g2d(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
 int   graph_blt_g2d(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 					graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh);

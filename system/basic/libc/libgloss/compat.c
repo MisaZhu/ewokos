@@ -778,9 +778,11 @@ static void compat_heap_init(void) {
  * throttled once-per-second log is fine).
  */
 void ewok_heap_stat(uint32_t *blocks, uint32_t *free_blocks,
-                    uint32_t *used_bytes, uint32_t *free_bytes) {
+                    uint32_t *used_bytes, uint32_t *free_bytes,
+                    uint32_t *free_list_len, uint32_t *free_list_max) {
     compat_heap_init();
-    trunk_stat(&compat_heap, blocks, free_blocks, used_bytes, free_bytes);
+    trunk_stat(&compat_heap, blocks, free_blocks, used_bytes, free_bytes,
+               free_list_len, free_list_max);
 }
 
 /*
