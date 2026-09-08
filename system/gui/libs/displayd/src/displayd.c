@@ -31,6 +31,14 @@ static displayd_t* _fbdisplayd = NULL;
 static char _logo[256] = {0};
 static disp_shm_t* _cur_shm = NULL; /* live shm, for fbdisplayd_refresh() */
 
+/* sticky: a G2D_ERR_NOT_SUPPORTED from the scan-out push means the g2d
+   back end has no blit-to-phy capability at all (a software-only 2d
+   engine cannot address the fb physically), so asking again every frame
+   only burns an ipc round trip for an answer that cannot change. kept
+   for the process lifetime: flush_g2d then stays out of the way and the
+   driver's cpu flush handles every frame. */
+static int _g2d_blt_phy_unsupported = 0;
+
 static int disp_fcntl(vdevice_t* dev, int fd,
         int from_pid,
         fsinfo_t* info,
@@ -310,8 +318,11 @@ static inline int is_zoomed(void) {
   physically (src: contig shm segment, dst: the fb's physical base).
   The scan-out is a single contiguous block (firmware allocation or the
   sys_dma pool), so the no-mmu g2d engine can write it directly.
-  Returns the bytes written, or 0 to fall back to the driver flush.*/
+  Returns the bytes written, or 0 to fall back to the driver flush -
+  permanently, once the driver has declined the op as unsupported.*/
 static uint32_t flush_g2d(const disp_info_t* fbinfo, const graph_t* g) {
+    if(_g2d_blt_phy_unsupported)
+        return 0;
     if(has_g2d() != 0)
         return 0;
     if(g == NULL || g->buffer == NULL || g->shm_id <= 0 || !g->shm_contig)
@@ -342,7 +353,10 @@ static uint32_t flush_g2d(const disp_info_t* fbinfo, const graph_t* g) {
             fbinfo->phy_base + off, fbinfo->size - off,
             (int32_t)fbinfo->width, (int32_t)fbinfo->height, pitch,
             g2d_rect(0, 0, fbinfo->width, fbinfo->height));
-    if(g2d_blit_to_phy(&req) != 0)
+    int ret = g2d_blit_to_phy(&req);
+    if(ret == G2D_ERR_NOT_SUPPORTED)
+        _g2d_blt_phy_unsupported = 1;
+    if(ret != 0)
         return 0;
     return (uint32_t)g->w * (uint32_t)g->h * 4u;
 }

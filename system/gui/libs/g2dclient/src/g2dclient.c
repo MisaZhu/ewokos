@@ -42,7 +42,7 @@ static int g2d_send_struct(int cmd, const void* data, uint32_t size) {
 
     int pid = g2d_dev_pid();
     if(pid <= 0 || data == NULL || size == 0)
-        return -1;
+        return G2D_ERR_FAILED;
 
     PF->init(&in)->add(&in, data, size);
     PF->init(&out);
@@ -56,7 +56,7 @@ static int g2d_send_struct(int cmd, const void* data, uint32_t size) {
 
 int g2d_set_dev(const char* dev) {
     if(dev == NULL || dev[0] == 0)
-        return -1;
+        return G2D_ERR_FAILED;
 
     memset(_g2d_dev, 0, FS_FULL_NAME_MAX);
     strncpy(_g2d_dev, dev, FS_FULL_NAME_MAX-1);
@@ -82,7 +82,7 @@ int g2d_shm_alloc_phy(uint32_t size, int* shm_id, uint32_t** pixels,
     void* addr;
 
     if(size == 0 || shm_id == NULL || pixels == NULL)
-        return -1;
+        return G2D_ERR_FAILED;
 
     id = -1;
     for(int32_t i = 0; i < 16; i++) {
@@ -97,10 +97,10 @@ int g2d_shm_alloc_phy(uint32_t size, int* shm_id, uint32_t** pixels,
             break;
     }
     if(id <= 0)
-        return -1;
+        return G2D_ERR_FAILED;
     addr = shmat(id, 0, 0);
     if(addr == (void*)-1)
-        return -1;
+        return G2D_ERR_FAILED;
     *shm_id = id;
     *pixels = (uint32_t*)addr;
     if(phy != NULL) {
@@ -109,7 +109,7 @@ int g2d_shm_alloc_phy(uint32_t size, int* shm_id, uint32_t** pixels,
             shmdt(addr);
             *pixels = NULL;
             *shm_id = -1;
-            return -1;
+            return G2D_ERR_FAILED;
         }
     }
     return 0;
@@ -134,17 +134,18 @@ int g2d_blit_alpha(const g2d_blit_req_t* req) {
 
 int g2d_rotate(const g2d_rotate_req_t* req) {
     if(req == NULL)
-        return -1;
+        return G2D_ERR_FAILED;
     return g2d_send_struct(G2D_DEV_CNTL_ROTATE, req, sizeof(*req));
 }
 
 int g2d_scale_to(const g2d_scale_to_req_t* req) {
     if(req == NULL)
-        return -1;
+        return G2D_ERR_FAILED;
     return g2d_send_struct(G2D_DEV_CNTL_SCALE_TO, req, sizeof(*req));
 }
 
-/* the driver answers with a status int (0 = ok, -1 = cannot report)
+/* the driver answers with a status int (G2D_OK, or
+   G2D_ERR_NOT_SUPPORTED when the platform has no engine clock)
    followed by the engine clock in Hz, so this reads the payload
    directly instead of going through g2d_send_struct() */
 int g2d_get_clock(uint32_t* hz) {
@@ -154,12 +155,12 @@ int g2d_get_clock(uint32_t* hz) {
     int ret;
 
     if(hz == NULL)
-        return -1;
+        return G2D_ERR_FAILED;
     *hz = 0;
 
     int pid = g2d_dev_pid();
     if(pid <= 0)
-        return -1;
+        return G2D_ERR_FAILED;
 
     PF->init(&in)->add(&in, &dummy, sizeof(dummy));
     PF->init(&out);
@@ -176,6 +177,6 @@ int g2d_get_clock(uint32_t* hz) {
 
 int g2d_blit_to_phy(const g2d_blit_to_phy_req_t* req) {
     if(req == NULL)
-        return -1;
+        return G2D_ERR_FAILED;
     return g2d_send_struct(G2D_DEV_CNTL_BLIT_TO_PHY, req, sizeof(*req));
 }

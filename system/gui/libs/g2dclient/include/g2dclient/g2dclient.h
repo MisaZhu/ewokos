@@ -20,6 +20,21 @@ enum {
 	G2D_DEV_CNTL_BLIT_TO_PHY
 };
 
+/* result codes every g2dclient call below answers with (the driver
+   sends the same codes back on the wire):
+   G2D_OK                 the operation completed.
+   G2D_ERR_FAILED         the operation was attempted but failed (bad
+                          canvas, attach failure, back end error, ...).
+                          transient: a different request may succeed.
+   G2D_ERR_NOT_SUPPORTED  the driver has no such capability (unknown
+                          command, or the back end declined the op
+                          itself). sticky: asking again cannot change
+                          the answer, so the caller should run its own
+                          fallback and stop offloading that op. */
+#define G2D_OK                0
+#define G2D_ERR_FAILED        (-1)
+#define G2D_ERR_NOT_SUPPORTED (-2)
+
 enum {
 	G2D_FMT_ARGB8888 = 0
 };
@@ -271,6 +286,7 @@ int g2d_shm_alloc_phy(uint32_t size, int* shm_id, uint32_t** pixels,
                       ewokos_addr_t* phy);
 void g2d_shm_free(uint32_t* pixels);
 
+/* all of these answer with the G2D_* result codes above */
 int g2d_fill_rect(const g2d_fill_req_t* req);
 int g2d_blit(const g2d_blit_req_t* req);
 int g2d_blit_alpha(const g2d_blit_req_t* req);
@@ -279,9 +295,9 @@ int g2d_scale_to(const g2d_scale_to_req_t* req);
 int g2d_blit_to_phy(const g2d_blit_to_phy_req_t* req);
 
 /* query the g2d engine clock rate in Hz (as confirmed by the driver at
-   startup; hardware backends pin the GPU to its max rate). returns 0 on
-   success with *hz set (0 Hz when the platform has no engine clock),
-   -1 when the driver cannot report one. */
+   startup; hardware backends pin the GPU to its max rate). returns
+   G2D_OK with *hz set, G2D_ERR_NOT_SUPPORTED when the platform has no
+   engine clock to report. */
 int g2d_get_clock(uint32_t* hz);
 
 #ifdef __cplusplus

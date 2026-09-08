@@ -22,7 +22,12 @@
    carries its canvases (g2d_canvas_t) either as keyed shm segment ids
    the driver attaches to, or as dma addresses the driver mem-maps on
    attach. the driver operates in place and detaches shm canvases when
-   done. */
+   done.
+
+   answers carry the g2dclient result codes (G2D_OK / G2D_ERR_FAILED /
+   G2D_ERR_NOT_SUPPORTED). back end return values pass through verbatim,
+   so a platform can decline one op with G2D_ERR_NOT_SUPPORTED and the
+   client stops offloading just that op. */
 #define G2DD_DEBUG 0
 
 
@@ -111,10 +116,10 @@ static int32_t g2d_dma_map(ewokos_addr_t addr, uint32_t size, ewokos_addr_t* pad
 		return 0;
 	}
 	else
-		return -1;
+		return G2D_ERR_FAILED;
 
 	if(syscall3(SYS_MEM_MAP, addr, *paddr, size) != addr)
-		return -1;
+		return G2D_ERR_FAILED;
 	return 0;
 }
 
@@ -307,11 +312,11 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 	void* p;
 
 	if(canvas == NULL || at == NULL)
-		return -1;
+		return G2D_ERR_FAILED;
 	if(canvas->w == 0 || canvas->h == 0)
-		return -1;
+		return G2D_ERR_FAILED;
 	if(canvas->size < canvas->w * canvas->h * sizeof(uint32_t))
-		return -1;
+		return G2D_ERR_FAILED;
 
 	/* at is a caller stack variable: every field detach looks at has to
 	   be written here, cached/shm_id included */
@@ -323,9 +328,9 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 		/* dma canvas: addr is the dma buffer address in the allocator's
 		   sys_dma v window; map it into this process before use */
 		if(canvas->addr == 0)
-			return -1;
+			return G2D_ERR_FAILED;
 		if(g2d_dma_map(canvas->addr, canvas->size, &at->phy) != 0)
-			return -1;
+			return G2D_ERR_FAILED;
 		at->buffer = (uint32_t*)(uintptr_t)canvas->addr;
 		at->width = canvas->w;
 		at->height = canvas->h;
@@ -335,7 +340,7 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 	}
 
 	if(canvas->shm_id <= 0)
-		return -1;
+		return G2D_ERR_FAILED;
 
 	uint64_t now_ms = kernel_tic_ms(0);
 
@@ -343,7 +348,7 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 		/* bypass: plain attach, never published to the cache */
 		p = shmat(canvas->shm_id, 0, 0);
 		if(p == (void*)-1)
-			return -1;
+			return G2D_ERR_FAILED;
 		at->buffer = (uint32_t*)p;
 		at->width = canvas->w;
 		at->height = canvas->h;
@@ -401,7 +406,7 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 
 	p = shmat(canvas->shm_id, 0, 0);
 	if(p == (void*)-1)
-		return -1;
+		return G2D_ERR_FAILED;
 	_g2d_cache_misses++;
 	at->buffer = (uint32_t*)p;
 	at->width = canvas->w;
@@ -550,7 +555,7 @@ static int32_t g2d_alloc_surface(int32_t w, int32_t h, g2d_attached_t* surf) {
 	void* p;
 
 	if(surf == NULL || w <= 0 || h <= 0)
-		return -1;
+		return G2D_ERR_FAILED;
 	memset(surf, 0, sizeof(*surf));
 
 	size = (uint32_t)w * (uint32_t)h * sizeof(uint32_t);
@@ -571,13 +576,13 @@ static int32_t g2d_alloc_surface(int32_t w, int32_t h, g2d_attached_t* surf) {
 		}
 	}
 	if(shm_id <= 0)
-		return -1;
+		return G2D_ERR_FAILED;
 
 	p = shmat(shm_id, 0, 0);
 	if(p == (void*)-1) {
 		/* destroy the never-attached segment so it cannot leak */
 		shmctl(shm_id, IPC_RMID, NULL);
-		return -1;
+		return G2D_ERR_FAILED;
 	}
 
 	surf->buffer = (uint32_t*)p;
@@ -617,10 +622,10 @@ static int32_t g2d_blt_split(const g2d_attached_t* dst,
 		int32_t src_w, int32_t src_h, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		int32_t dx, int32_t dy, uint8_t use_alpha, uint8_t alpha) {
 	int32_t aw;
-	int32_t ret = -1;
+	int32_t ret = G2D_ERR_FAILED;
 
 	if(use_alpha != 0 && alpha == 0)
-		return -1;
+		return G2D_ERR_FAILED;
 
 	aw = sw - sw % G2D_PITCH_ALIGN_PX;
 	if(aw > 0) {
@@ -648,15 +653,15 @@ static int32_t g2d_blt_split(const g2d_attached_t* dst,
 static int32_t g2dd_handle_fill_rect(proto_t* in) {
 	g2d_fill_req_t req;
 	g2d_attached_t dst;
-	int32_t ret = -1;
+	int32_t ret = G2D_ERR_FAILED;
 
 	if(in == NULL)
-		return -1;
+		return G2D_ERR_FAILED;
 	if(proto_read_to(in, &req, sizeof(req)) != sizeof(req))
-		return -1;
+		return G2D_ERR_FAILED;
 
 	if(g2d_attach(&req.dst, &dst) != 0)
-		return -1;
+		return G2D_ERR_FAILED;
 
 	/* clip the fill rect to the canvas: the back end gets exact
 	   in-bounds coordinates only */
@@ -690,9 +695,9 @@ static int32_t g2d_blit_render(const g2d_attached_t* dst,
 	int32_t dh;
 
 	if(dst == NULL || dst->buffer == NULL || src_buf == NULL || req == NULL)
-		return -1;
+		return G2D_ERR_FAILED;
 	if(sw <= 0 || sh <= 0 || req->dw <= 0 || req->dh <= 0)
-		return -1;
+		return G2D_ERR_FAILED;
 
 	/* clip the dst rect to the dst canvas, scaling the src rect with the
 	   same proportion: the back end gets exact in-bounds coordinates
@@ -742,20 +747,20 @@ static int32_t g2dd_handle_blit(proto_t* in, uint8_t use_alpha) {
 	int32_t ret;
 
 	if(in == NULL)
-		return -1;
+		return G2D_ERR_FAILED;
 	if(proto_read_to(in, &req, sizeof(req)) != sizeof(req))
-		return -1;
+		return G2D_ERR_FAILED;
 	if(req.sw <= 0 || req.sh <= 0)
-		return -1;
+		return G2D_ERR_FAILED;
 
 	if(g2d_attach(&req.dst, &dst) != 0)
-		return -1;
+		return G2D_ERR_FAILED;
 	if(g2d_attach(&req.src, &src) != 0) {
 		g2d_detach(&dst);
-		return -1;
+		return G2D_ERR_FAILED;
 	}
 
-	ret = -1;
+	ret = G2D_ERR_FAILED;
 	/* clip the crop rect to the source canvas (cutting), scaling the dst
 	   rect with the same proportion; g2d_blit_render clips the dst side
 	   the same way */
@@ -809,7 +814,7 @@ static int32_t g2dd_handle_blit(proto_t* in, uint8_t use_alpha) {
 	bsp_g2d_rotated_size(req.sw, req.sh, degree, &rw, &rh);
 	if(rw <= 0 || rh <= 0) {
 		g2d_detach(&cropped);
-		ret = -1;
+		ret = G2D_ERR_FAILED;
 		goto done;
 	}
 	if(g2d_alloc_surface(rw, rh, &rotated) != 0) {
@@ -843,25 +848,25 @@ static int32_t g2dd_handle_rotate(proto_t* in) {
 	int32_t degree;
 	int32_t rw;
 	int32_t rh;
-	int32_t ret = -1;
+	int32_t ret = G2D_ERR_FAILED;
 
 	if(in == NULL)
-		return -1;
+		return G2D_ERR_FAILED;
 	if(proto_read_to(in, &req, sizeof(req)) != sizeof(req))
-		return -1;
+		return G2D_ERR_FAILED;
 
 	degree = g2d_norm_degree(req.rotate);
 	if(degree == 0)
-		return -1;
+		return G2D_ERR_FAILED;
 
 	if(g2d_attach(&req.src, &src) != 0)
-		return -1;
+		return G2D_ERR_FAILED;
 	if(g2d_attach(&req.dst, &dst) != 0) {
 		g2d_detach(&src);
-		return -1;
+		return G2D_ERR_FAILED;
 	}
 
-	ret = -1;
+	ret = G2D_ERR_FAILED;
 	bsp_g2d_rotated_size((int32_t)src.width, (int32_t)src.height,
 			degree, &rw, &rh);
 	if(rw == (int32_t)dst.width && rh == (int32_t)dst.height) {
@@ -878,18 +883,18 @@ static int32_t g2dd_handle_scale_to(proto_t* in) {
 	g2d_scale_to_req_t req;
 	g2d_attached_t src;
 	g2d_attached_t dst;
-	int32_t ret= -1;
+	int32_t ret = G2D_ERR_FAILED;
 
 	if(in == NULL)
-		return -1;
+		return G2D_ERR_FAILED;
 	if(proto_read_to(in, &req, sizeof(req)) != sizeof(req))
-		return -1;
+		return G2D_ERR_FAILED;
 
 	if(g2d_attach(&req.src, &src) != 0)
-		return -1;
+		return G2D_ERR_FAILED;
 	if(g2d_attach(&req.dst, &dst) != 0) {
 		g2d_detach(&src);
-		return -1;
+		return G2D_ERR_FAILED;
 	}
 
 	G2DD_LOG("g2dd_handle_scale_to %d x %d, src:contig: %d:(0x%08X), dst:contig: %d:(0x%08X)\n", src.width, src.height, src.contig, src.phy, dst.contig, dst.phy);
@@ -922,23 +927,23 @@ static int32_t g2dd_handle_blit_to_phy(proto_t* in) {
 	g2d_attached_t src;
 	int32_t sx, sy, sw, sh;
 	int32_t dx, dy, dw, dh;
-	int32_t ret = -1;
+	int32_t ret = G2D_ERR_FAILED;
 
 	if(in == NULL)
-		return -1;
+		return G2D_ERR_FAILED;
 	if(proto_read_to(in, &req, sizeof(req)) != sizeof(req))
-		return -1;
+		return G2D_ERR_FAILED;
 	if(req.sw <= 0 || req.sh <= 0 || req.dw <= 0 || req.dh <= 0 ||
 			req.dst_w <= 0 || req.dst_h <= 0 || req.dst_size == 0)
-		return -1;
+		return G2D_ERR_FAILED;
 	/* 1:1 copy only; the dst stride must be whole pixels */
 	if(req.sw != req.dw || req.sh != req.dh)
-		return -1;
+		return G2D_ERR_FAILED;
 	if(req.pitch < (uint32_t)req.dst_w * 4u || (req.pitch & 3u) != 0)
-		return -1;
+		return G2D_ERR_FAILED;
 
 	if(g2d_attach(&req.src, &src) != 0)
-		return -1;
+		return G2D_ERR_FAILED;
 	if(src.contig == 0 || src.phy == 0)
 		goto done;
 
@@ -1037,7 +1042,7 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 	(void)ret;
 	(void)p;
 
-	int res = -1;
+	int res = G2D_ERR_FAILED;
 	uint32_t clock_hz = 0;
 	int is_clock = (cmd == G2D_DEV_CNTL_GET_CLOCK);
 	g2d_task_lock();
@@ -1059,21 +1064,23 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 		res = g2dd_handle_scale_to(in);
 		break;
 	case G2D_DEV_CNTL_GET_CLOCK:
-		/* report the engine clock pinned at startup; 0 Hz on
-		   backends without one is "cannot report" */
+		/* report the engine clock pinned at startup; a backend
+		   without one has no clock capability to report */
 		clock_hz = bsp_g2d_clock_hz();
-		res = (clock_hz > 0) ? 0 : -1;
+		res = (clock_hz > 0) ? G2D_OK : G2D_ERR_NOT_SUPPORTED;
 		break;
 	case G2D_DEV_CNTL_BLIT_TO_PHY:
 		res = g2dd_handle_blit_to_phy(in);
 		break;
 	default:
-		res = -1;
+		/* an unknown command is a capability this driver does not
+		   have at all, not an operation that failed */
+		res = G2D_ERR_NOT_SUPPORTED;
 	}
 	g2d_task_unlock();
 
 	if(res != 0 && !is_clock) {
-		G2DD_LOG("g2d_dev_cntl: ret is not 0!\n");
+		G2DD_LOG("g2d_dev_cntl: cmd %d res %d\n", cmd, res);
 	}
 	PF->clear(ret)->addi(ret, res);
 	if(is_clock && res == 0)

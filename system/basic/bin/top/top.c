@@ -119,14 +119,106 @@ static int comp_load(const void* a, const void* b) {
 	return ea->proc->pid - eb->proc->pid; //stable order for equals
 }
 
-static uint32_t get_screen_rows(void) {
+/* How long to wait for a terminal to answer the cursor-position report.
+ * A real terminal replies within a few milliseconds even over a slow serial
+ * line, so the timeout only bounds the wait for terminals that never answer. */
+#define TOP_SIZE_PROBE_TIMEOUT_MS 200
+
+// Read the "ESC [ <row> ; <col> R" cursor-position report from stdin.
+// Returns true and fills *rows/*cols on success, false on timeout/garbage.
+static bool read_cursor_pos_reply(uint32_t* rows, uint32_t* cols) {
+	enum { WANT_ESC, WANT_BRACKET, WANT_PARAMS } state = WANT_ESC;
+	uint32_t row = 0, col = 0;
+	bool parsing_col = false;
+
+	for(;;) {
+		struct pollfd pfd;
+		pfd.fd = 0; //stdin
+		pfd.events = POLLIN;
+		pfd.revents = 0;
+		// The opening ESC may never arrive; the bytes after it come together.
+		int wait_ms = (state == WANT_ESC) ? TOP_SIZE_PROBE_TIMEOUT_MS : 100;
+		if(poll(&pfd, 1, wait_ms) <= 0)
+			return false;
+
+		char c;
+		if(read(0, &c, 1) != 1)
+			return false;
+
+		switch(state) {
+		case WANT_ESC:
+			if(c == '\033')
+				state = WANT_BRACKET;
+			break;
+		case WANT_BRACKET:
+			if(c == '[')
+				state = WANT_PARAMS;
+			else if(c != '\033')
+				return false;
+			break;
+		case WANT_PARAMS:
+			if(c >= '0' && c <= '9') {
+				if(parsing_col)
+					col = col*10 + (c - '0');
+				else
+					row = row*10 + (c - '0');
+			}
+			else if(c == ';')
+				parsing_col = true;
+			else if(c == 'R') {
+				*rows = row;
+				*cols = col;
+				return true;
+			}
+			else
+				return false;
+			break;
+		}
+	}
+}
+
+static uint32_t _term_rows = 0;
+static uint32_t _term_cols = 0;
+
+static void get_screen_size(uint32_t* rows, uint32_t* cols) {
+	// Preferred path: ask the terminal driver for its window size directly.
+	// The GUI consoles (consoled/xterm) publish their live textgrid geometry
+	// through TIOCGWINSZ. This is a single synchronous IPC with no round-trip
+	// race, so re-query every refresh to track window resizes.
 	if(isatty(0)) {
 		struct winsize ws;
 		memset(&ws, 0, sizeof(ws));
-		if(ioctl(0, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 0)
-			return ws.ws_row;
+		if(ioctl(0, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 0 && ws.ws_col > 0) {
+			_term_rows = ws.ws_row;
+			_term_cols = ws.ws_col;
+		}
 	}
-	return 24; //VT100 fallback for a silent terminal
+
+	if(_term_rows == 0 || _term_cols == 0) {
+		// Fallback: ask the terminal itself over the wire. Serial consoles
+		// (/dev/tty0) have no window size to report, so park the cursor at an
+		// absurd row/col (it clamps to the real bottom-right corner) and request
+		// a cursor-position report. This is how the geometry of whatever emulator
+		// is attached (e.g. macOS Terminal) is revealed. Probed only once: it
+		// consumes stdin, so running it per refresh could swallow key input.
+		if(isatty(0) && isatty(1)) { //stdin and stdout are the terminal
+			uint32_t r = 0, c = 0;
+			printf(ESC "[999;999H" ESC "[6n");
+			if(read_cursor_pos_reply(&r, &c) && r > 0 && c > 0) {
+				_term_rows = r;
+				_term_cols = c;
+			}
+			// we moved the cursor to the corner; put it back home
+			printf(ESC_CURSOR_TOPLEFT);
+		}
+		if(_term_rows == 0)
+			_term_rows = 24; //VT100 fallback for a silent terminal
+		if(_term_cols == 0)
+			_term_cols = 80;
+	}
+
+	*rows = _term_rows;
+	*cols = _term_cols;
 }
 
 static void refresh(int8_t thread) {
@@ -171,6 +263,9 @@ static void refresh(int8_t thread) {
 	}
 	qsort(entries, shown, sizeof(task_entry_t), comp_load);
 
+	uint32_t rows, cols;
+	get_screen_size(&rows, &cols);
+
 	printf(ESC_CURSOR_TOPLEFT);
 	printf("\033[1mtasks: %d, up %02d:%02d:%02d, memory: total %d MB, free %d MB, shm %d MB" ESC_CLEAR2EOL "\n",
 			num, csec/3600, (csec%3600)/60, csec%60, t_mem, fr_mem, shm_mem);
@@ -182,17 +277,37 @@ static void refresh(int8_t thread) {
 	printf("      ('q' quit, 't' threads)\033[0m" ESC_CLEAR2EOL "\n");
 	printf("\033[7mOWNER    PID  FATH  CORE   STATE     TIME     HEAP    SHM    PROC" ESC_CLEAR2EOL "\033[0m\n");
 
-	uint32_t rows = get_screen_rows();
 	int list_max = (rows > 4) ? (int)rows - 4 : 1; //2 summary + 1 title + 1 spare
 	if(shown > list_max)
 		shown = list_max;
+
+	int tail_max = (int)cols - 60; //the fixed columns before PROC take 60 chars
+	if(tail_max < 0)
+		tail_max = 0;
 
 	for(int i=0; i<shown; i++) {
 		procinfo_t* proc = entries[i].proc;
 		uint32_t sec = csec - proc->start_sec;
 		char heap_size[32] = {0};
 		char shm_size[32] = {0};
-		printf("%-8s %-4d %-4d  %-6s %-9s %02d:%02d:%02d %-6s  %-5s  %s",
+		char tail[PROC_INFO_MAX_CMD_LEN + 32];
+		snprintf(tail, sizeof(tail), "%s", get_cmd(proc));
+
+		if(proc->type == TASK_TYPE_THREAD) {
+			int n = strlen(tail);
+			snprintf(tail + n, sizeof(tail) - n, " [THRD:%d]", proc->father_pid);
+		}
+		else {
+			int tnum = (thread == 0) ? get_thread_num(procs, num, proc) : 0;
+			if(tnum > 0) {
+				int n = strlen(tail);
+				snprintf(tail + n, sizeof(tail) - n, " [%dt]", tnum);
+			}
+		}
+
+		//truncate the PROC column so a long path can never wrap the line and
+		//corrupt the full-screen redraw
+		printf("%-8s %-4d %-4d  %-6s %-9s %02d:%02d:%02d %-6s  %-5s  %.*s" ESC_CLEAR2EOL "\n",
 			get_owner(proc),
 			proc->pid,
 			proc->father_pid,
@@ -203,16 +318,7 @@ static void refresh(int8_t thread) {
 			sec % 60,
 			get_mem_size_desc(proc->heap_size, heap_size),
 			get_mem_size_desc(proc->shm_size, shm_size),
-			get_cmd(proc));
-
-		if(proc->type == TASK_TYPE_THREAD)
-			printf(" [THRD:%d]", proc->father_pid);
-		else {
-			int tnum = (thread == 0) ? get_thread_num(procs, num, proc) : 0;
-			if(tnum > 0)
-				printf(" [%dt]", tnum);
-		}
-		printf(ESC_CLEAR2EOL "\n");
+			tail_max, tail);
 	}
 	printf(ESC_CLEAR2EOS);
 
