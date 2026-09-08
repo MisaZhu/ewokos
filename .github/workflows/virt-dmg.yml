@@ -74,20 +74,35 @@ jobs:
             echo "bundled qemu still references homebrew libs"; otool -L "$QEMU"; exit 1
           fi
           cp "$APP/Contents/Resources/root_aarch64.img" /tmp/smoke-root.img
-          ( sleep 20; pkill -x qemu-system-aarch64 ) &
-          set -o pipefail
-          # accel=hvf: would fail loudly if the hypervisor entitlement was lost
-          "$QEMU" -M virt,highmem=on,accel=hvf -cpu host -m 8192 \
-            -serial mon:stdio -nographic \
-            -kernel "$APP/Contents/Resources/kernel8.img" \
-            -drive file=/tmp/smoke-root.img,format=raw,id=blk0,if=none \
-            -device virtio-blk-device,drive=blk0 \
-            -netdev user,id=net0 -device virtio-net-device,netdev=net0 > boot.log 2>&1 || true
-          # pkill terminating qemu (exit 143/signal 15) means it survived the
-          # full window without crashing on its own
-          grep -q "terminating on signal" boot.log && echo "bundled qemu smoke test OK" \
-            || { echo "qemu exited early:"; cat boot.log; exit 1; }
-          hdiutil detach /Volumes/EwokOS
+          smoke_boot() {
+            ( sleep 20; pkill -x qemu-system-aarch64 ) &
+            set +e
+            "$QEMU" "$@" \
+              -kernel "$APP/Contents/Resources/kernel8.img" \
+              -drive file=/tmp/smoke-root.img,format=raw,id=blk0,if=none \
+              -device virtio-blk-device,drive=blk0 \
+              -netdev user,id=net0 -device virtio-net-device,netdev=net0 \
+              > boot.log 2>&1
+            RC=$?
+            set -e
+            wait || true
+          }
+          set -e
+          # accel=hvf on a real Mac; hosted runners may lack nested
+          # virtualization, so fall back to tcg if hvf is refused
+          smoke_boot -M virt,highmem=on,accel=hvf -cpu host -m 8192 -serial mon:stdio -nographic || true
+          if [ "$RC" != "143" ] && grep -q "Could not access HVF" boot.log; then
+            echo "hvf unavailable on runner, retrying with tcg"
+            smoke_boot -M virt,highmem=on,accel=tcg -cpu cortex-a72 -m 1024 -serial mon:stdio -nographic || true
+          fi
+          # 143 = terminated by pkill: qemu survived the whole window
+          if [ "$RC" = "143" ] || grep -q "terminating on signal" boot.log; then
+            echo "bundled qemu smoke test OK"
+          else
+            echo "qemu exited early:"; cat boot.log; exit 1
+          fi
+          sleep 2
+          hdiutil detach /Volumes/EwokOS -force || true
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
