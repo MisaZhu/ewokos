@@ -30,6 +30,11 @@ QEMU_BIN=$(command -v qemu-system-aarch64) || { echo "qemu-system-aarch64 not fo
 
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources" "$APP_DIR/Contents/Frameworks"
 
+# app icon: the Ewok mascot from the OS artwork
+ICON_SRC="$ROOT_DIR/system/gui/usr/system/images/logos/ewok.png"
+[ -f "$ICON_SRC" ] || ICON_SRC=$(find "$ROOT_DIR/system" -name "ewok.png" -path "*logos*" 2>/dev/null | head -1)
+[ -n "$ICON_SRC" ] && [ -f "$ICON_SRC" ] || { echo "ewok.png icon not found"; exit 1; }
+
 # ---------------------------------------------------------------------------
 # Bundle qemu and every non-system dylib it (transitively) needs.
 # References are rewritten to @rpath/<basename> with rpath @loader_path so the
@@ -114,6 +119,7 @@ cat > "$APP_DIR/Contents/Info.plist" <<'PLIST'
     <key>CFBundleShortVersionString</key> <string>1.0</string>
     <key>CFBundlePackageType</key>     <string>APPL</string>
     <key>CFBundleExecutable</key>      <string>EwokOS-Virt</string>
+    <key>CFBundleIconFile</key>        <string>ewok</string>
     <key>LSMinimumSystemVersion</key>  <string>12.0</string>
     <key>NSHighResolutionCapable</key> <true/>
     <key>NSAppTransportSecurity</key>  <dict><key>NSAllowsArbitraryLoads</key><true/></dict>
@@ -125,6 +131,15 @@ PLIST
 # app support copy, the bundle itself may live on a read-only DMG).
 cp "$KERNEL_IMG" "$APP_DIR/Contents/Resources/kernel8.img"
 cp "$ROOTFS_IMG" "$APP_DIR/Contents/Resources/root_aarch64.img"
+
+# build the .icns from the ewok artwork (sips/iconutil ship with macOS)
+mkdir -p "$STAGE/ewok.iconset"
+for size in 16 32 128 256 512; do
+    double=$((size * 2))
+    sips -z $size $size "$ICON_SRC" --out "$STAGE/ewok.iconset/icon_${size}x${size}.png" >/dev/null
+    sips -z $double $double "$ICON_SRC" --out "$STAGE/ewok.iconset/icon_${size}x${size}@2x.png" >/dev/null
+done
+iconutil -c icns "$STAGE/ewok.iconset" -o "$APP_DIR/Contents/Resources/ewok.icns"
 
 cat > "$APP_DIR/Contents/Resources/ewokos-launch.sh" <<LAUNCHER
 #!/bin/bash
@@ -213,6 +228,11 @@ SSH into the guest: ssh -p 2222 root@127.0.0.1
 Guest rootfs writes persist in ~/Library/Application Support/EwokOS.
 To reset the guest disk, delete ~/Library/Application Support/EwokOS/root_aarch64.img." > "$STAGE/README.txt"
 cp "$ROOT_DIR/LICENSE" "$STAGE/LICENSE" 2>/dev/null || true
+
+# give the mounted DMG volume itself the ewok icon
+cp "$APP_DIR/Contents/Resources/ewok.icns" "$STAGE/.VolumeIcon.icns"
+# SetFile (from Xcode CLT) sets the custom-icon bit on the volume folder
+SetFile -a C "$STAGE" 2>/dev/null || true
 
 rm -f "$OUT_DMG"
 hdiutil create -volname "EwokOS" -srcfolder "$STAGE" -ov -format UDZO "$OUT_DMG"
