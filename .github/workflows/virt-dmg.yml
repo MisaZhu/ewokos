@@ -65,11 +65,15 @@ jobs:
           codesign -v "$QEMU"
           # regressions that make the app silently fail to start:
           # - qemu must keep the hypervisor entitlement (needed for hvf)
-          codesign -d --entitlements :- "$QEMU" 2>/dev/null | grep -q hypervisor \
-            || { echo "bundled qemu lost its hypervisor entitlement"; exit 1; }
+          #   (write the plist to a file: newer codesign prints it on stderr)
+          codesign -d --entitlements :/tmp/qemu.ent.plist "$QEMU" 2>/dev/null || true
+          if ! grep -q hypervisor /tmp/qemu.ent.plist 2>/dev/null; then
+            echo "bundled qemu lost its hypervisor entitlement"; exit 1
+          fi
           # - the main executable must be a Mach-O, not a shell script
-          file "$APP/Contents/MacOS/EwokOS-Virt" | grep -q Mach-O \
-            || { echo "main executable is not a Mach-O"; exit 1; }
+          if ! file "$APP/Contents/MacOS/EwokOS-Virt" | grep -q Mach-O; then
+            echo "main executable is not a Mach-O"; exit 1
+          fi
           if otool -L "$QEMU" | grep -q homebrew; then
             echo "bundled qemu still references homebrew libs"; otool -L "$QEMU"; exit 1
           fi
@@ -99,7 +103,9 @@ jobs:
           if [ "$RC" = "143" ] || grep -q "terminating on signal" boot.log; then
             echo "bundled qemu smoke test OK"
           else
-            echo "qemu exited early:"; cat boot.log; exit 1
+            echo "qemu exited early (rc=$RC):"
+            cat boot.log
+            exit 1
           fi
           sleep 2
           hdiutil detach /Volumes/EwokOS -force || true
