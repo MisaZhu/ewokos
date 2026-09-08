@@ -1,0 +1,67 @@
+name: virt-dmg
+
+on:
+  push:
+    branches: [master, main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-virt-dmg:
+    runs-on: macos-15   # Apple Silicon: hvf-accelerated aarch64 build & run
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Install cross toolchain (aarch64-none-elf-gcc with newlib)
+        run: |
+          # Homebrew's aarch64-elf-gcc ships without newlib (breaks on
+          # stdint.h), so use the xPack build of Arm's bare-metal toolchain.
+          XPACK_VER=14.2.1-1.1
+          curl -sL -o /tmp/xpack-gcc.tar.gz \
+            "https://github.com/xpack-dev-tools/aarch64-none-elf-gcc-xpack/releases/download/v${XPACK_VER}/xpack-aarch64-none-elf-gcc-${XPACK_VER}-darwin-arm64.tar.gz"
+          mkdir -p "$HOME/xpack" && tar xzf /tmp/xpack-gcc.tar.gz -C "$HOME/xpack"
+          echo "$HOME/xpack/xpack-aarch64-none-elf-gcc-${XPACK_VER}/bin" >> "$GITHUB_PATH"
+          "$HOME/xpack/xpack-aarch64-none-elf-gcc-${XPACK_VER}/bin/aarch64-none-elf-gcc" --version
+
+      - name: Install tools
+        run: |
+          brew install e2fsprogs e2tools qemu
+          # e2fsprogs (mke2fs) is keg-only; e2tools provides e2cp
+          echo "$(brew --prefix e2fsprogs)/sbin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix e2tools)/bin" >> "$GITHUB_PATH"
+          qemu-system-aarch64 --version
+          mke2fs -V
+
+      - name: Build kernel
+        run: make -C machine.virt/kernel -j$(sysctl -n hw.ncpu)
+
+      - name: Build rootfs
+        run: make -C machine.virt/system
+
+      - name: Create rootfs disk image
+        run: make -C machine.virt/system sd
+
+      - name: Package DMG
+        run: |
+          chmod +x tools/make_virt_dmg.sh
+          tools/make_virt_dmg.sh EwokOS-virt-aarch64.dmg
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: EwokOS-virt-aarch64-dmg
+          path: EwokOS-virt-aarch64.dmg
+          if-no-files-found: error
+
+      - name: Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: EwokOS-virt-aarch64.dmg

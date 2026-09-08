@@ -816,8 +816,15 @@ static void *ewok_reg_alloc(size_t size, size_t align) {
     uintptr_t addr;
     struct ewok_mem_reg *reg;
 
+    if (size > UINT32_MAX) {
+        errno = ENOMEM;
+        return NULL;
+    }
     compat_heap_init();
-    raw = trunk_malloc(&compat_heap, (uint32_t)(size + align));
+    if (align > 0 && size > UINT64_MAX - align) {
+        return NULL;
+    }
+    raw = trunk_malloc(&compat_heap, (ewokos_addr_t)(size + align));
     if (raw == NULL) {
         return NULL;
     }
@@ -828,7 +835,7 @@ static void *ewok_reg_alloc(size_t size, size_t align) {
     }
 
     reg = (struct ewok_mem_reg *)trunk_malloc(&compat_heap,
-            (uint32_t)sizeof(struct ewok_mem_reg));
+            (ewokos_addr_t)sizeof(struct ewok_mem_reg));
     if (reg == NULL) {
         trunk_free(&compat_heap, (char *)raw);
         return NULL;
@@ -875,13 +882,9 @@ void *malloc(size_t size) {
     if (size == 0) {
         size = 1;
     }
-    if (size > UINT32_MAX) {
-        errno = ENOMEM;
-        return NULL;
-    }
 
     compat_heap_init();
-    ptr = trunk_malloc(&compat_heap, (uint32_t)size);
+    ptr = trunk_malloc(&compat_heap, (ewokos_addr_t)size);
     if (ptr == NULL) {
         errno = ENOMEM;
     }
@@ -954,17 +957,13 @@ void *calloc(size_t nmemb, size_t size) {
 
 void *realloc(void *ptr, size_t size) {
     void *new_ptr;
-    size_t old_size;
+    ewokos_addr_t old_size;
 
     if (ptr == NULL) {
         return malloc(size);
     }
     if (size == 0) {
         free(ptr);
-        return NULL;
-    }
-    if (size > UINT32_MAX) {
-        errno = ENOMEM;
         return NULL;
     }
 

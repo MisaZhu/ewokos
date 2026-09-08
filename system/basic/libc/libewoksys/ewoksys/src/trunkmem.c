@@ -131,12 +131,13 @@ static inline mem_block_t** fl_prev_slot(mem_block_t* b) {
 
 /* Class of a block, from its size: floor(log2(size)) - TRUNK_FREE_MIN_BITS,
  * clamped to the valid range. Class 0 also absorbs anything smaller than the
- * minimum allocation, and the top class is open-ended. */
-static inline int trunk_block_class(uint32_t size) {
+ * minimum allocation, and the top class is open-ended. Sizes are address-width
+ * (63-bit payloads exist on aarch64), hence clzll. */
+static inline int trunk_block_class(ewokos_addr_t size) {
     int c;
     if(size < (1u << TRUNK_FREE_MIN_BITS))
         return 0;
-    c = (31 - __builtin_clz(size)) - TRUNK_FREE_MIN_BITS;
+    c = (int)(63 - __builtin_clzll(size)) - TRUNK_FREE_MIN_BITS;
     if(c >= TRUNK_FREE_CLASSES)
         c = TRUNK_FREE_CLASSES - 1;
     return c;
@@ -145,11 +146,11 @@ static inline int trunk_block_class(uint32_t size) {
 /* Lowest class in which EVERY block is >= size, so its head can be taken with
  * no size check at all. That is what makes trunk_malloc O(1): it never has to
  * search a class for a block that fits. */
-static inline int trunk_request_class(uint32_t size) {
+static inline int trunk_request_class(ewokos_addr_t size) {
     int c;
     if(size <= (1u << TRUNK_FREE_MIN_BITS))
         return 0;
-    c = (32 - __builtin_clz(size - 1)) - TRUNK_FREE_MIN_BITS; /* ceil(log2) */
+    c = (int)(64 - __builtin_clzll(size - 1)) - TRUNK_FREE_MIN_BITS; /* ceil(log2) */
     if(c >= TRUNK_FREE_CLASSES)
         c = TRUNK_FREE_CLASSES - 1;
     return c;
@@ -185,8 +186,8 @@ static void fl_unlink(malloc_t* m, mem_block_t* b) {
     *fl_prev_slot(b) = NULL;
 }
 
-static mem_block_t* gen_block(char* p, uint32_t size) {
-    uint32_t block_size = sizeof(mem_block_t);
+static mem_block_t* gen_block(char* p, ewokos_addr_t size) {
+    ewokos_addr_t block_size = sizeof(mem_block_t);
     mem_block_t* block = (mem_block_t*)p;
     block->next = block->prev = NULL;
     block->mem = p + block_size;
@@ -207,12 +208,12 @@ mem_block_t* get_block(char* p) {
 }
 
 /*if block size much bigger than the size required, break to two blocks*/
-static void try_break(malloc_t* m, mem_block_t* block, uint32_t size) {
-    uint32_t block_size = sizeof(mem_block_t);
+static void try_break(malloc_t* m, mem_block_t* block, ewokos_addr_t size) {
+    ewokos_addr_t block_size = sizeof(mem_block_t);
     //required more than half size of block. no break.
-    if((block_size+size) > (uint32_t)(block->size/2)) 
+    if((block_size+size) > (ewokos_addr_t)(block->size/2))
         return;
-    
+
     //do break;
     char* p = block->mem + size;
     mem_block_t* newBlock = gen_block(p, block->size - size);
@@ -226,7 +227,7 @@ static void try_break(malloc_t* m, mem_block_t* block, uint32_t size) {
     newBlock->prev = block;
     block->next = newBlock;
 
-    if(m->tail == block) 
+    if(m->tail == block)
         m->tail = newBlock;
 
     /* a new free block just appeared: publish it on its size class */
@@ -255,15 +256,16 @@ static mem_block_t* trunk_check_block(malloc_t* m, mem_block_t* b,
     return b;
 }
 
-char* trunk_malloc(malloc_t* m, uint32_t size) {
+char* trunk_malloc(malloc_t* m, ewokos_addr_t size) {
     mem_block_t* block;
     ewokos_addr_t heap_end;
     if(m == NULL)
         return NULL;
 
     trunk_lock_heap(m);
-    size = ALIGN_UP(size, 8);
-    /* a freed block must be able to hold the intrusive free-list links */
+    /* 16-byte payload alignment (NEON/C++ minimums on this tree); every
+       block is also large enough for the intrusive free-list links */
+    size = ALIGN_UP(size, 16);
     if(size < TRUNK_FREE_LINK_BYTES)
         size = TRUNK_FREE_LINK_BYTES;
     heap_end = trunk_heap_end(m);
@@ -320,12 +322,18 @@ char* trunk_malloc(malloc_t* m, uint32_t size) {
     }
 
     /*Can't find any available block, expand pages*/
-    uint32_t block_size = sizeof(mem_block_t);
-    uint32_t expand_size = size + block_size;
+    ewokos_addr_t block_size = sizeof(mem_block_t);
+    ewokos_addr_t expand_size = size + block_size;
 
-    uint32_t pages = expand_size / m->seg_size;	
+    ewokos_addr_t npages = expand_size / m->seg_size;
     if((expand_size % m->seg_size) > 0)
-        pages++;
+        npages++;
+    /* the expand callback takes a int32_t page count */
+    if(npages > 0x7fffffffu) {
+        trunk_unlock_heap(m);
+        return NULL;
+    }
+    uint32_t pages = (uint32_t)npages;
 
     char* p = (char*)m->get_mem_tail(m->arg);
     if(m->expand(m->arg, pages) != 0) {
@@ -333,7 +341,7 @@ char* trunk_malloc(malloc_t* m, uint32_t size) {
         return NULL;
     }
 
-    block = gen_block(p, pages*m->seg_size);
+    block = gen_block(p, (ewokos_addr_t)pages*m->seg_size);
     block->used = 1;
 
     if(m->head == NULL) {
@@ -363,7 +371,7 @@ static mem_block_t* try_merge(malloc_t* m, mem_block_t* block) {
     mem_block_t* ret = block;
     uint32_t block_size = sizeof(mem_block_t);
     ewokos_addr_t heap_end = trunk_heap_end(m);
-    //try next block	
+    //try next block
     b = block->next;
     if(b != NULL && b->used == 0) {
         mem_block_t* bn = b->next;
@@ -386,19 +394,19 @@ static mem_block_t* try_merge(malloc_t* m, mem_block_t* block) {
             m->tail = block;
     }
 
-    //try left block	
+    //try left block
     b = block->prev;
     if(b != NULL && b->used == 0) {
         fl_unlink(m, b); /* see above: b absorbs block, so b's links must go */
         b->size += (block->size + block_size);
         b->next = block->next;
-        if(b->next != NULL) 
+        if(b->next != NULL)
             b->next->prev = b;
         else
             m->tail = b;
         ret = b;
     }
-    
+
     return ret;
 }
 
@@ -408,13 +416,13 @@ try to shrink the pages.
 static void try_shrink(malloc_t* m) {
     uint32_t block_size = sizeof(mem_block_t);
     ewokos_addr_t addr = (ewokos_addr_t)m->tail;
-    //check if page aligned.	
+    //check if page aligned.
     if(m->tail == NULL ||
             m->tail->used == 1 ||
             (addr % (ewokos_addr_t)m->seg_size) != 0)
         return;
 
-    uint32_t pages = (m->tail->size+block_size) / m->seg_size;
+    uint32_t pages = (uint32_t)((m->tail->size+block_size) / m->seg_size);
     /* This block is about to be returned to the kernel: drop it from its size
      * class first, while its payload still holds the links and its size is
      * still the one it was pushed with. Leaving it on the list would hand out
@@ -462,7 +470,7 @@ void trunk_free(malloc_t* m, char* p) {
     trunk_unlock_heap(m);
 }
 
-uint32_t trunk_msize(malloc_t* m, char* p) {
+ewokos_addr_t trunk_msize(malloc_t* m, char* p) {
     if(m == NULL)
         return 0;
 
@@ -479,7 +487,7 @@ uint32_t trunk_msize(malloc_t* m, char* p) {
         return 0;
     }
 
-    uint32_t size = block->size;
+    ewokos_addr_t size = block->size;
     trunk_unlock_heap(m);
     return size;
 }
@@ -489,10 +497,10 @@ void trunk_stat(malloc_t* m, uint32_t* blocks, uint32_t* free_blocks,
         uint32_t* free_list_len, uint32_t* free_list_max) {
     uint32_t nblocks = 0;
     uint32_t nfree = 0;
-    uint32_t used = 0;
-    uint32_t freem = 0;
+    ewokos_addr_t used = 0;
+    ewokos_addr_t freem = 0;
     uint32_t nlist = 0;
-    uint32_t listmax = 0;
+    ewokos_addr_t listmax = 0;
 
     if(m != NULL) {
         mem_block_t* block;
@@ -528,13 +536,13 @@ void trunk_stat(malloc_t* m, uint32_t* blocks, uint32_t* free_blocks,
     if(free_blocks != NULL)
         *free_blocks = nfree;
     if(used_bytes != NULL)
-        *used_bytes = used;
+        *used_bytes = (uint32_t)used;
     if(free_bytes != NULL)
-        *free_bytes = freem;
+        *free_bytes = (uint32_t)freem;
     if(free_list_len != NULL)
         *free_list_len = nlist;
     if(free_list_max != NULL)
-        *free_list_max = listmax;
+        *free_list_max = (uint32_t)listmax;
 }
 
 #ifdef __cplusplus

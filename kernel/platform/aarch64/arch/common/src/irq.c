@@ -117,14 +117,42 @@ void sync_exception_handle(uint64_t esr, uint64_t far, context_t* ctx){
         return;
     }
 
+    /*
+     * EC == 0 (unknown reason): the recurring D0 external-abort family
+     * arrives through the SYNC vector with EC=0 (async/imprecise
+     * external abort; FAR in the low-RAM 0x2xxxx-0x34xxx band whenever
+     * the V3D runs).  Old behaviour dumped and killed the current
+     * process, taking g2dd and bystanders down although the GPU jobs
+     * complete.  Swallow it like serror_swallow: log (rate limited),
+     * set PSTATE.A in the saved SPSR so it stays masked, and return to
+     * the interrupted context.
+     */
+    if(EC == 0x00) {
+        static uint32_t ec0_cnt = 0;
+        uint32_t n = ++ec0_cnt;
+
+        if(n <= 8 || (n & 0xFF) == 0)
+            printf("kernel: ec0 #%u far=%08x%08x pc=%08x%08x spsr=%08x%08x pid=%d\n",
+                   n,
+                   SPLIT(far), SPLIT(ctx->pc), SPLIT(ctx->spsr_el1),
+                   cproc ? (int)cproc->info.pid : -1);
+        ctx->spsr_el1 |= 0x100u;    /* PSTATE.A: mask async aborts */
+        return;
+    }
+
     printf("\n--------------------core dump infomation------------------\n");
+    /* Harden the dump: print the essential line FIRST, before the full
+     * register dump - a dump_ctx that hangs on a smashed context/SP
+     * must not swallow the identity of the fault. */
     if(cproc){
         printf("PID:%d CMD:%s\n", cproc->info.pid,  cproc->info.cmd);
     }
-    printf("EC :%08x (%s)\n", EC, esr_ec_name(EC));
-    printf("IL :%08x\n", IL);
-    printf("ISS:%08x\n", ISS);
-    printf("FSC:%08x (%s)\n", DFSC, abort_fsc_name(DFSC));
+    printf("EC :%08x (%s) IL:%08x ISS:%08x FSC:%08x (%s)\n",
+           EC, esr_ec_name(EC), IL, ISS, DFSC, abort_fsc_name(DFSC));
+    printf("pc : %08x%08x\tlr : %08x%08x\tsp : %08x%08x\tspsr:%08x%08x\n",
+           SPLIT(ctx->pc), SPLIT(ctx->lr), SPLIT(ctx->sp),
+           SPLIT(ctx->spsr_el1));
+    printf("ESR:%08x%08x FAR:%08x%08x\n", SPLIT(esr), SPLIT(far));
     dump_ctx(ctx);
     if(cproc != 0) {
         dump_user_fault_words(cproc, ctx);

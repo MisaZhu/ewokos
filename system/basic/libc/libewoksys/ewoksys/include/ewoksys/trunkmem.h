@@ -6,14 +6,24 @@ extern "C" {
 #endif
 
 #include <stdint.h>
+#include <stddef.h>
 #include <pthread.h>
+#include <ewokos_config.h>
 
 typedef struct mem_block {
 	struct mem_block* next;
 	struct mem_block* prev;
-	
-	uint32_t size: 31;
-	uint32_t used: 1;
+
+	/*
+	 * Payload size and used flag share one address-width storage word: the
+	 * top bit is the flag, the remaining bits are the size. This keeps the
+	 * original compact bitfield design (32-byte header on 64-bit) while the
+	 * size field scales with the address width (63 bits on aarch64, 31 bits
+	 * on arm32 - the original 2GB single-block cap only existed because the
+	 * base type was uint32_t).
+	 */
+	ewokos_addr_t size : sizeof(ewokos_addr_t) * 8 - 1;
+	ewokos_addr_t used : 1;
 	char* mem;
 } mem_block_t;
 
@@ -54,9 +64,9 @@ typedef struct {
 	uint32_t lock_inited;
 } malloc_t;
 
-char* trunk_malloc(malloc_t* m, uint32_t size);
+char* trunk_malloc(malloc_t* m, ewokos_addr_t size);
 void  trunk_free(malloc_t* m, char* p);
-uint32_t  trunk_msize(malloc_t* m, char* p);
+ewokos_addr_t  trunk_msize(malloc_t* m, char* p);
 
 /* Walk the chain once and report heap shape. O(block_count), so this is for
  * diagnostics only -- never call it on an allocation path. Any of the output

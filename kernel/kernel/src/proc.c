@@ -528,6 +528,27 @@ static int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
     int32_t i;
     int32_t res = 0;
 
+    if(page_num <= 0)
+        return 0;
+
+    /*
+     * The identity-mapped sys_dma window is carried in every process's
+     * user half (clone_kernel_vm) - the sbrk heap must never grow into
+     * it. Without the high relocation it sits right above the kernel
+     * image (~1GB on most boards); with the relocation, at the top of
+     * RAM (see sys_info_config/arch_relocate_dma_high). Either way it is
+     * the hard ceiling for the heap.
+     */
+    if(_sys_info.sys_dma.phy_base > (1*MB) &&
+            proc->space->heap_size + (ewokos_addr_t)page_num * PAGE_SIZE >
+                _sys_info.sys_dma.phy_base) {
+        printf("proc expand hit heap limit 0x%llx, pid:%d(%s)\n",
+                (unsigned long long)_sys_info.sys_dma.phy_base,
+                proc->info.pid,
+                proc->info.cmd);
+        return -1;
+    }
+
     for (i = 0; i < page_num; i++) {
         void *page = kalloc_page();
         if(page == NULL) {
@@ -1389,10 +1410,10 @@ void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
     schedule(ctx);
 }
 
-void* proc_malloc(proc_t* proc, int32_t size) {
+void* proc_malloc(proc_t* proc, int64_t size) {
     int64_t delta;
     ewokos_addr_t size_abs;
-    uint32_t pages;
+    ewokos_addr_t pages;
 
     proc->space->heap_used += size;
     delta = (int64_t)proc->space->heap_used - (int64_t)proc->space->heap_size;
@@ -1410,17 +1431,18 @@ void* proc_malloc(proc_t* proc, int32_t size) {
         size_abs = ALIGN_UP((ewokos_addr_t)delta, PAGE_SIZE);
     }
 
-    pages = (uint32_t)(size_abs / PAGE_SIZE);
+    pages = size_abs / PAGE_SIZE;
     if(pages == 0)
         return (void*)proc->space->malloc_base;
 
     if(shrink != 0) {
         //printf("kproc shrink pages: %d, size: %d\n", pages, size);
-        proc_shrink_mem(proc, pages);
+        proc_shrink_mem(proc, (int32_t)pages);
     }
     else {
         //printf("kproc expand pages: %d, size: %d\n", pages, size);
-        if(proc_expand_mem(proc, pages) != 0)
+        if(pages > 0x7fffffffu ||
+                proc_expand_mem(proc, (int32_t)pages) != 0)
             return NULL;
     }
     return (void*)proc->space->malloc_base;
@@ -2126,7 +2148,7 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
                 AP_RW_R, PTE_ATTR_WRBACK); // set parent page table with read only permissions
     }
     flush_tlb();
-    child->space->heap_size = pages * PAGE_SIZE;
+    child->space->heap_size = (ewokos_addr_t)pages * PAGE_SIZE;
     /*
      * Preserve the parent's actual heap break. User-space allocators keep
      * their current break in process memory and continue from there after

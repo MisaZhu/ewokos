@@ -969,11 +969,17 @@ int vfs_seek(int fd, int offset) {
 
 #define VFS_BUF_SIZE (1024*256)
 
+#define VFS_READFILE_MAX (512*1024*1024)
+
 uint8_t* vfs_readfile(const char* fname, int* rsz) {
     char fullname[FS_FULL_NAME_MAX+1] = {0};
     vfs_fullname(fname, fullname, FS_FULL_NAME_MAX);
     fsinfo_t info;
     if(vfs_get_by_name(fullname, &info) != 0 || info.stat.size <= 0)
+        return NULL;
+    /*reject transient garbage sizes (e.g. an unset -1) before they turn into
+      a multi-GB malloc that would drain the whole machine*/
+    if((uint32_t)info.stat.size > VFS_READFILE_MAX)
         return NULL;
     uint8_t* buf = (uint8_t*)malloc(info.stat.size+1); //one more char for string end.
     if(buf == NULL)

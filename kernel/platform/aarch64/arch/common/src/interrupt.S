@@ -1,5 +1,21 @@
+/* Exception-code marker for the vector stubs below.  The old literal
+ * target (0xE8215040, an emulator-era trace address) is not mapped on
+ * real silicon, so the very first unexpected SError/FIQ made the DEBUG
+ * store itself fault and destroyed the real exception context.  Poke a
+ * kernel-mapped word instead; _exc_debug_mark holds the code of the
+ * most recent vector that fired (0x30..0x3f, see the table below). */
+	.data
+	.balign 8
+	.global _exc_debug_mark
+_exc_debug_mark:
+	.quad 0		/* +0:  most recent vector code (0x30..0x3f)  */
+	.quad 0		/* +8:  last swallowed SError ESR            */
+	.quad 0		/* +16: last swallowed SError FAR            */
+	.quad 0		/* +24: swallowed-SError counter             */
+	.text
+
 .macro DEBUG  char
-	ldr x28, =0xE8215040
+	ldr x28, =_exc_debug_mark
 	mov x29, \char
 	str x29, [x28]
 .endm
@@ -114,7 +130,7 @@ interrupt_table_start: /*interrupt table, with syscall and irq items*/
 	b _undef_exception_entry
 .balign 0x80	/*sError*/
     DEBUG #0x33
-	b _undef_exception_entry
+	b serror_swallow
 .balign 0x80	/*Synchronous*/
     #DEBUG #0x34
 	b sync_entry 
@@ -126,7 +142,7 @@ interrupt_table_start: /*interrupt table, with syscall and irq items*/
 	b _undef_exception_entry
 .balign 0x80	/*sError*/
     DEBUG #0x37
-	b _undef_exception_entry
+	b serror_swallow
 .balign 0x80	 /*Synchronous*/
     #DEBUG #0x38
 	b	sync_entry 
@@ -138,7 +154,7 @@ interrupt_table_start: /*interrupt table, with syscall and irq items*/
 	b _undef_exception_entry
 .balign 0x80	/*sError*/
     DEBUG #0x3B
-	b	_undef_exception_entry
+	b	serror_swallow
 .balign 0x80	 /*Synchronous*/
     DEBUG #0x3C
 	b _undef_exception_entry
@@ -150,7 +166,7 @@ interrupt_table_start: /*interrupt table, with syscall and irq items*/
 	b _undef_exception_entry
 .balign 0x80	/*sError*/
     DEBUG #0x3F
-	b _undef_exception_entry 
+	b serror_swallow 
 
 interrupt_table_end:
 .balign 0x80
@@ -195,3 +211,49 @@ _undef_exception_entry:
 	bl dump_ctx 
 _halt:
 	b _halt
+
+/*
+ * SError swallow (D0 external-abort experiment): an async external abort
+ * fires whenever the V3D runs under EwokOS on the 2GB/D0 board (FARs in
+ * the low-RAM 0x20000-0x40000 region); the kernel's previous behaviour -
+ * dump + kill the current process - destroyed g2dd and bystanders even
+ * though the GPU jobs themselves complete and verify.  This handler
+ * records ESR/FAR/count into the _exc_debug_mark block and returns to
+ * the interrupted context with PSTATE.A set, so later SErrors stay
+ * masked and nothing gets killed.  If the GPU ops then all pass, the
+ * recurring abort was a decoupled bus event whose only harm was the
+ * kill-on-SError policy.  SAVE_IRQ_CONTEXT leaves [sp]=ELR, [sp+8]=SPSR.
+ */
+serror_swallow:
+	SAVE_IRQ_CONTEXT
+	adrp x0, _exc_debug_mark
+	add  x0, x0, :lo12:_exc_debug_mark
+	mrs  x1, esr_el1
+	str  x1, [x0, #8]
+	mrs  x1, far_el1
+	str  x1, [x0, #16]
+	ldr  x2, [x0, #24]
+	add  x2, x2, #1
+	str  x2, [x0, #24]
+	/* print the first swallow only (rate-limited by the mask below) */
+	cmp  x2, #1
+	b.ne 1f
+	ldr  x3, [x0, #8]
+	ldr  x4, [x0, #16]
+	mov  w1, w2
+	mov  w2, w3
+	mov  w3, w4
+	adrp x0, serror_fmt
+	add  x0, x0, :lo12:serror_fmt
+	bl   printf
+1:
+	/* keep async aborts masked on return: set A (SPSR bit 8) */
+	ldr  x2, [sp, #8]
+	orr  x2, x2, #0x100
+	str  x2, [sp, #8]
+	RESTORE_IRQ_CONTEXT
+	eret
+
+	.section .rodata
+serror_fmt:
+	.asciz "kernel: SError swallowed cnt=%d esr=%08x far=%08x\n"
