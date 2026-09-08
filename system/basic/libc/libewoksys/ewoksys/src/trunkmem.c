@@ -415,6 +415,9 @@ try to shrink the pages.
 */
 static void try_shrink(malloc_t* m) {
     uint32_t block_size = sizeof(mem_block_t);
+    ewokos_addr_t heap_end;
+    ewokos_addr_t span;
+    uint32_t pages;
     ewokos_addr_t addr = (ewokos_addr_t)m->tail;
     //check if page aligned.
     if(m->tail == NULL ||
@@ -422,7 +425,27 @@ static void try_shrink(malloc_t* m) {
             (addr % (ewokos_addr_t)m->seg_size) != 0)
         return;
 
-    uint32_t pages = (uint32_t)((m->tail->size+block_size) / m->seg_size);
+    /* Never trust the tail's size field on its own. It lives in the block
+     * header, so a single wild write turns it into a huge value; the release
+     * below would then hand the kernel far more pages than the heap spans,
+     * driving the process break below the heap base. The next expansion would
+     * build its block at that stale low address and fault on the first store
+     * past the header. Validate the whole block and clamp the release to the
+     * span the heap actually covers. */
+    heap_end = trunk_heap_end(m);
+    if(!trunk_block_sane(m->head, heap_end, m->tail->prev, m->tail))
+        return;
+    if(heap_end <= addr)
+        return;
+    span = heap_end - addr;
+
+    pages = (uint32_t)((m->tail->size+block_size) / m->seg_size);
+    if(pages == 0)
+        return;
+    if((ewokos_addr_t)pages * (ewokos_addr_t)m->seg_size > span)
+        pages = (uint32_t)(span / (ewokos_addr_t)m->seg_size);
+    if(pages == 0)
+        return;
     /* This block is about to be returned to the kernel: drop it from its size
      * class first, while its payload still holds the links and its size is
      * still the one it was pushed with. Leaving it on the list would hand out
