@@ -3,20 +3,153 @@
 
 namespace std {
 
-// Simplified locale class for EwokOS
+/* A real std::locale owns a reference-counted vector of facet pointers and
+   looks facets up by facet::id, because a program may build arbitrarily many
+   locales that share facets.  EwokOS is C-locale-only: there is exactly one
+   locale and exactly one instance of each facet, so use_facet can hand back a
+   reference to a statically allocated object and nothing ever has to be
+   counted, copied or destroyed.
+
+   What is kept is the class shape, because that is what callers name. */
 class locale {
 public:
-    locale() {}
-    
-    static locale classic() {
-        return locale();
-    }
-    
+    /* The standard's facet base has a virtual destructor - a std::locale owns
+       its facets and deletes them through facet* - and that costs more than the
+       vtable.  A virtually-destructed type is not trivially constructible, so
+       `static const Facet instance` inside use_facet would need a dynamic
+       initializer, and EwokOS's crt0 never runs .init_array: the facet would
+       simply never be constructed.  Both constructors here are therefore
+       `= default` on their first declaration, which keeps them trivial, and
+       there is no virtual anything.  Nothing deletes a facet, so nothing needs
+       the virtual dispatch. */
+    class facet {
+    protected:
+        facet() = default;
+        ~facet() = default;
+    };
+
+    /* Defaulted, not `locale() {}`: a user-provided constructor would make
+       every locale non-trivially-constructible, with the same .init_array
+       consequence as above. */
+    locale() = default;
+
+    static const locale& classic();
+
     static locale global(const locale& loc) {
         (void)loc;
         return locale();
     }
 };
+
+/* Character classification and case conversion.  double-conversion.cc:431-435
+   is the only place in Qt's tree that names this:
+
+       static const std::ctype<char>& cType =
+           std::use_facet<std::ctype<char> >(std::locale::classic());
+       return cType.tolower(ch);
+
+   so that "Infinity" and "NAN" parse case-insensitively.
+
+   A single template rather than a primary plus a char specialization: the
+   conversions below are written on the character values themselves and are
+   correct for any character type whose letters are contiguous, which covers
+   both char and wchar_t on every platform EwokOS builds for.  In the "C"
+   locale - the only one here - the classification is ASCII by definition. */
+template <class CharT>
+class ctype : public locale::facet {
+public:
+    typedef CharT char_type;
+
+    /* The standard's mask bits.  The values are the ones libstdc++ uses, which
+       matter only in that they are distinct and fit in the mask. */
+    typedef unsigned short mask;
+    static const mask space  = 1 << 0;
+    static const mask print  = 1 << 1;
+    static const mask cntrl  = 1 << 2;
+    static const mask upper  = 1 << 3;
+    static const mask lower  = 1 << 4;
+    static const mask alpha  = 1 << 5;
+    static const mask digit  = 1 << 6;
+    static const mask punct  = 1 << 7;
+    static const mask xdigit = 1 << 8;
+    static const mask alnum  = alpha | digit;
+    static const mask graph  = alnum | punct;
+
+    ctype() = default;
+
+    bool is(mask m, CharT c) const {
+        /* Written as a chain of independent tests rather than a lookup table:
+           a table would be a static array needing an initializer, which is the
+           .init_array problem again. */
+        if ((m & space) && (c == ' ' || (c >= '\t' && c <= '\r'))) return true;
+        if ((m & cntrl) && (c < ' ' || c == 127)) return true;
+        if ((m & upper) && (c >= 'A' && c <= 'Z')) return true;
+        if ((m & lower) && (c >= 'a' && c <= 'z')) return true;
+        if ((m & alpha) && ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))) return true;
+        if ((m & digit) && (c >= '0' && c <= '9')) return true;
+        if ((m & xdigit) && ((c >= '0' && c <= '9') ||
+                             (c >= 'a' && c <= 'f') ||
+                             (c >= 'A' && c <= 'F'))) return true;
+        if ((m & punct) && (is_punct(c))) return true;
+        if ((m & print) && (c >= ' ' && c != 127)) return true;
+        return false;
+    }
+
+    CharT toupper(CharT c) const {
+        return (c >= 'a' && c <= 'z') ? static_cast<CharT>(c - ('a' - 'A')) : c;
+    }
+
+    CharT tolower(CharT c) const {
+        return (c >= 'A' && c <= 'Z') ? static_cast<CharT>(c + ('a' - 'A')) : c;
+    }
+
+    /* widen/narrow are the identity in the "C" locale, where the execution
+       character set is by definition the one char holds. */
+    CharT widen(char c) const { return static_cast<CharT>(c); }
+    char narrow(CharT c, char dfault) const {
+        /* Anything outside char's range has no narrow equivalent, so the
+           standard says to return the caller's fallback. */
+        char n = static_cast<char>(c);
+        return (static_cast<CharT>(n) == c) ? n : dfault;
+    }
+
+private:
+    static bool is_punct(CharT c) {
+        return (c >= '!' && c <= '/') || (c >= ':' && c <= '@') ||
+               (c >= '[' && c <= '`') || (c >= '{' && c <= '~');
+    }
+};
+
+/* Defined out of line so that it can return a reference to an object declared
+   after the class.  Internal linkage and a trivial type: no dynamic
+   initializer, no .init_array entry, one copy per translation unit, which for
+   an empty class is nothing. */
+namespace __ewok_locale_detail {
+    static const locale classic_locale;
+}
+
+inline const locale& locale::classic() {
+    return __ewok_locale_detail::classic_locale;
+}
+
+template <class Facet>
+inline const Facet& use_facet(const locale& loc) {
+    (void)loc;
+    /* Constant-initialized for the reason given on locale::facet: Facet derives
+       from it, and a base with a user-provided or virtual constructor would
+       make this object need a runtime initializer that never runs here. */
+    static const Facet instance;
+    return instance;
+}
+
+template <class Facet>
+inline bool has_facet(const locale& loc) {
+    (void)loc;
+    /* Every facet this header declares exists in the one locale there is.  A
+       facet from some other header would not, but there is no registry to ask,
+       and answering false would make use_facet above unreachable. */
+    return true;
+}
 
 // Simplified tolower/toupper using C functions
 inline char tolower(char c) {

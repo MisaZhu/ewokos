@@ -113,15 +113,30 @@ inline long double abs(long double x) { return __builtin_fabsl(x); }
 
 }
 
-/* isnan / isinf / isfinite arrive as macros from <math.h>.  They have to be
-   removed rather than temporarily hidden: with the macro still live, a caller's
+/* The classification and sign macros arrive from <math.h>.  They have to be
+   removed rather than temporarily hidden: with a macro still live, a caller's
    `std::isnan(x)` expands to `std::__builtin_isnan(x)` and fails to compile.
-   This is what libstdc++'s <cmath> does too.  Unqualified isnan(x) keeps
-   working via the using-declarations at the bottom, and C code is unaffected
-   because it includes <math.h>, never <cmath>. */
+   This is what libstdc++'s <cmath> does too, and it undefs the same set for the
+   same reason.  Unqualified isnan(x) keeps working via the using-declarations
+   at the bottom, and C code is unaffected because it includes <math.h>, never
+   <cmath>.
+
+   Which of these are actually macros is platform-dependent, so all six are
+   undef'd unconditionally: EwokOS's <math.h> defines isnan/isinf/isfinite and
+   fpclassify but not isnormal or signbit, while macOS's defines isnormal and
+   signbit too.  Undefining a macro that was never defined is a no-op, so being
+   generous here costs nothing and keeps the header compilable against any
+   libc's math.h - which matters because the verification harness builds these
+   headers on the host as well as for the target.
+
+   fpclassify is needed by qnumeric_p.h:121 and :125, which call std::fpclassify
+   for double and float. */
 #undef isnan
 #undef isinf
 #undef isfinite
+#undef isnormal
+#undef signbit
+#undef fpclassify
 
 namespace std {
 
@@ -139,6 +154,20 @@ inline bool isnormal(double x) { return __builtin_isnormal(x); }
 inline bool signbit(float x) { return __builtin_signbit(x) != 0; }
 inline bool signbit(double x) { return __builtin_signbit(x) != 0; }
 
+/* Returns one of FP_NAN, FP_INFINITE, FP_ZERO, FP_SUBNORMAL, FP_NORMAL, which
+   <math.h> defines.  The builtin's argument order is (nan, infinite, normal,
+   subnormal, zero, x); it is a compile-time reordering of the classification,
+   so there is no runtime cost and no libc dependency. */
+inline int fpclassify(float x) {
+    return __builtin_fpclassify(FP_NAN, FP_INFINITE, FP_NORMAL, FP_SUBNORMAL, FP_ZERO, x);
+}
+inline int fpclassify(double x) {
+    return __builtin_fpclassify(FP_NAN, FP_INFINITE, FP_NORMAL, FP_SUBNORMAL, FP_ZERO, x);
+}
+inline int fpclassify(long double x) {
+    return __builtin_fpclassify(FP_NAN, FP_INFINITE, FP_NORMAL, FP_SUBNORMAL, FP_ZERO, x);
+}
+
 }
 
 using std::isnan;
@@ -146,5 +175,6 @@ using std::isinf;
 using std::isfinite;
 using std::isnormal;
 using std::signbit;
+using std::fpclassify;
 
 #endif // EWOK_STL_CMATH_H

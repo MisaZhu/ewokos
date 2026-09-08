@@ -7,7 +7,7 @@
 
 namespace std {
 
-template <typename T>
+template <typename T, typename Alloc = void>
 class list {
     public:
         typedef T value_type;
@@ -15,7 +15,7 @@ class list {
         typedef const T& const_reference;
         typedef size_t size_type;
         /* The remaining names every container is required to have.  value_type was
-           already here, which is why std::back_inserter(std::list<T>) - the shape
+           already here, which is why std::back_inserter(std::list<T, Alloc>) - the shape
            qlinkedlist.h:273 uses - compiled; pointer and difference_type were not. */
         typedef T* pointer;
         typedef const T* const_pointer;
@@ -27,10 +27,10 @@ class list {
 
         list();
         list(size_t n, const T& val=T());
-        list(const list<T>& src);
+        list(const list<T, Alloc>& src);
         ~list();
 
-        list<T>& operator=(const list& rhs);
+        list<T, Alloc>& operator=(const list& rhs);
 
         iterator begin();
         const_iterator begin() const;

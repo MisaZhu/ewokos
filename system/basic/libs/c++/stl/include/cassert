@@ -1,0 +1,16 @@
+#ifndef EWOK_STL_CASSERT_H
+#define EWOK_STL_CASSERT_H
+
+/*
+ * <cassert> - the C <assert.h> names, in namespace std.
+ *
+ * assert is a macro and NDEBUG is a macro, so there is nothing to bring into
+ * namespace std - libstdc++'s <cassert> is likewise just an include of the C
+ * header.  The wrapper still has to exist because C++ code writes
+ * `#include <cassert>`, and with -nostdinc++ the toolchain's own C++ wrapper
+ * directory is not searched.
+ */
+
+#include <assert.h>
+
+#endif // EWOK_STL_CASSERT_H

@@ -1,6 +1,14 @@
 #ifndef EWOK_STL_FUNCTIONAL_H
 #define EWOK_STL_FUNCTIONAL_H
 
+#include <stddef.h>
+#include <new>
+#include <type_traits>
+#include <utility>
+/* std::bind below stores its bound arguments in a tuple and indexes them with
+   get<I>; index_sequence and decay come from <type_traits>. */
+#include <tuple>
+
 namespace std {
 
 // less functor
@@ -34,6 +42,433 @@ struct not_equal_to {
         return a != b;
     }
 };
+
+/* -----------------------------------------------------------------------
+   std::hash
+
+   The primary template is declared but deliberately left undefined, which is
+   what libstdc++ does as well.  There is no correct default hash for a type
+   nobody has thought about - hashing an object's raw bytes would, for anything
+   holding a pointer to a heap buffer, produce a value that differs between
+   runs and disagrees with operator== - so an unsupported type is a compile
+   error here instead of a container that silently loses elements.
+
+   Qt's qhashfunctions.h:180 expands QT_SPECIALIZE_STD_HASH_TO_CALL_QHASH into
+   `namespace std { template <> struct hash<QString> { ... }; }` for QString,
+   QStringRef, QStringView, QLatin1String, QByteArray and QBitArray, which
+   needs the primary template to exist, and its line 192 evaluates
+   std::hash<int>{}(0), which needs the int specialization to be defined.
+   Neither existed, and because qhashfunctions.h is reached from qglobal.h the
+   omission produced 1284 "is not a class template" plus 1284 "is not a
+   template" diagnostics across corelib.
+
+   Only the builtin types are specialized, never the fixed-width typedefs:
+   int32_t is int on some ports and long on others, and specializing a typedef
+   that collapses onto an already-specialized type is a redefinition error.
+   ----------------------------------------------------------------------- */
+template <typename T>
+struct hash;
+
+namespace __ewok_hash_detail {
+
+/* FNV-1a.  A handful of instructions, no lookup table, and it spreads the low
+   bits well enough to be used directly as a bucket index.  The offset basis
+   and prime are the published values for each width; sizeof is a constant
+   expression so the compiler keeps one branch. */
+inline size_t fnv1a(const void* p, size_t len) {
+    const unsigned char* b = static_cast<const unsigned char*>(p);
+    size_t h = (sizeof(size_t) == 8) ? static_cast<size_t>(0xcbf29ce484222325ULL)
+                                     : static_cast<size_t>(0x811c9dc5UL);
+    const size_t prime = (sizeof(size_t) == 8) ? static_cast<size_t>(0x100000001b3ULL)
+                                               : static_cast<size_t>(0x01000193UL);
+    for (size_t i = 0; i < len; ++i) {
+        h ^= static_cast<size_t>(b[i]);
+        h *= prime;
+    }
+    return h;
+}
+
+/* Integrals hash to themselves, matching libstdc++.  The values reaching a
+   hash container as integer keys are already well distributed, so mixing them
+   would only cost cycles. */
+template <typename T>
+struct hash_scalar {
+    typedef T argument_type;
+    typedef size_t result_type;
+    size_t operator()(T v) const { return static_cast<size_t>(v); }
+};
+
+/* Pointers and floating point are hashed over their bytes.
+
+   The floating point case is not fully conforming and is documented rather
+   than fixed: -0.0 and +0.0 compare equal but hash differently here, as do
+   two NaNs, and the standard requires the opposite.  Normalising costs more
+   than the hash itself, nothing in EwokOS or Qt keys an unordered container
+   on a float, and leaving the specialization out entirely would make
+   hash<double> a hard error for any code that merely names it.  Revisit before
+   using a floating point type as a key. */
+template <typename T>
+struct hash_bytes {
+    typedef T argument_type;
+    typedef size_t result_type;
+    size_t operator()(T v) const { return fnv1a(&v, sizeof(T)); }
+};
+
+} /* namespace __ewok_hash_detail */
+
+#define EWOK_STL_HASH_SCALAR(T) \
+    template <> struct hash<T> : __ewok_hash_detail::hash_scalar<T> {};
+
+EWOK_STL_HASH_SCALAR(bool)
+EWOK_STL_HASH_SCALAR(char)
+EWOK_STL_HASH_SCALAR(signed char)
+EWOK_STL_HASH_SCALAR(unsigned char)
+EWOK_STL_HASH_SCALAR(wchar_t)
+EWOK_STL_HASH_SCALAR(char16_t)
+EWOK_STL_HASH_SCALAR(char32_t)
+EWOK_STL_HASH_SCALAR(short)
+EWOK_STL_HASH_SCALAR(unsigned short)
+EWOK_STL_HASH_SCALAR(int)
+EWOK_STL_HASH_SCALAR(unsigned int)
+EWOK_STL_HASH_SCALAR(long)
+EWOK_STL_HASH_SCALAR(unsigned long)
+EWOK_STL_HASH_SCALAR(long long)
+EWOK_STL_HASH_SCALAR(unsigned long long)
+
+#undef EWOK_STL_HASH_SCALAR
+
+template <> struct hash<float> : __ewok_hash_detail::hash_bytes<float> {};
+template <> struct hash<double> : __ewok_hash_detail::hash_bytes<double> {};
+template <> struct hash<long double> : __ewok_hash_detail::hash_bytes<long double> {};
+
+/* A partial specialization, which is why the primary template above only has
+   to be declared.  Pointers to members and function pointers are not covered;
+   add them if anything needs them. */
+template <typename T>
+struct hash<T*> : __ewok_hash_detail::hash_bytes<T*> {};
+
+/* -----------------------------------------------------------------------
+   std::function<R(Args...)>
+
+   Qt needs std::function<void()> for QRunnable::create (qrunnable.cpp:139),
+   QThreadPool::start (qthreadpool.cpp:538) and QThreadPool::tryStart
+   (qthreadpool.cpp:594), and std::function<void(CreateProcessArguments*)> as
+   the CreateProcessArgumentModifier typedef in qprocess.h:219.  All are the
+   general R(Args...) form, so that is what is implemented.
+
+   Three deliberate simplifications:
+
+   1. The target is always heap allocated.  libstdc++ keeps small callables in
+      an inline buffer so that a captureless lambda costs nothing, which
+      roughly doubles the code here.  Qt allocates one of these per
+      QRunnable::create call rather than one per element of a container, so the
+      allocation is not on a hot path.
+
+   2. The dispatch hooks are three function pointers held per object, 32 bytes
+      in total, rather than one pointer to a shared static const table.  The
+      compact form needs a static whose initialiser GCC is free to treat as
+      dynamic, and EwokOS runs no .init_array - crt0.o leaves
+      __libc_init_array undefined and the link uses raw ld - so anything that
+      depends on static initialisation having happened is a latent bug here.
+      Three plain stores have no such dependency.
+
+   3. target_type() is absent.  It returns std::type_info and the tree is built
+      with -fno-rtti.
+
+   std::bind is implemented further down; it was absent, and the ten call sites
+   in qtransposeproxymodel.cpp were the last thing keeping that translation unit
+   from compiling.
+   ----------------------------------------------------------------------- */
+template <typename Signature>
+class function;                        /* primary: declared, never defined */
+
+template <typename R, typename... Args>
+class function<R(Args...)> {
+public:
+    typedef R result_type;
+
+    function() : target_(0), invoke_(0), clone_(0), destroy_(0) {}
+
+    function(decltype(nullptr)) : target_(0), invoke_(0), clone_(0), destroy_(0) {}
+
+    function(const function& other)
+        : target_(0), invoke_(other.invoke_), clone_(other.clone_),
+          destroy_(other.destroy_) {
+        if (clone_) {
+            target_ = clone_(other.target_);
+            /* A failed clone must not leave a function that looks callable
+               but dispatches through a null target. */
+            if (target_ == 0) { invoke_ = 0; clone_ = 0; destroy_ = 0; }
+        }
+    }
+
+    function(function&& other)
+        : target_(other.target_), invoke_(other.invoke_), clone_(other.clone_),
+          destroy_(other.destroy_) {
+        other.target_ = 0; other.invoke_ = 0; other.clone_ = 0; other.destroy_ = 0;
+    }
+
+    /* The enable_if keeps this from competing with the copy and move
+       constructors, which it would otherwise win for a non-const argument. */
+    template <typename F,
+              typename = typename enable_if<
+                  !is_same<typename decay<F>::type, function>::value>::type>
+    function(F f) : target_(0), invoke_(0), clone_(0), destroy_(0) {
+        install<typename decay<F>::type>(static_cast<F&&>(f));
+    }
+
+    ~function() { reset(); }
+
+    function& operator=(const function& other) {
+        if (this != &other) {
+            function tmp(other);
+            swap(tmp);
+        }
+        return *this;
+    }
+
+    function& operator=(function&& other) {
+        if (this != &other) {
+            reset();
+            steal(other);
+        }
+        return *this;
+    }
+
+    function& operator=(decltype(nullptr)) { reset(); return *this; }
+
+    template <typename F,
+              typename = typename enable_if<
+                  !is_same<typename decay<F>::type, function>::value>::type>
+    function& operator=(F f) {
+        function tmp(static_cast<F&&>(f));
+        swap(tmp);
+        return *this;
+    }
+
+    void swap(function& other) {
+        void*     t = target_;   InvokeFn  i = invoke_;
+        CloneFn   c = clone_;    DestroyFn d = destroy_;
+        target_ = other.target_; invoke_ = other.invoke_;
+        clone_  = other.clone_;  destroy_ = other.destroy_;
+        other.target_ = t; other.invoke_ = i;
+        other.clone_  = c; other.destroy_ = d;
+    }
+
+    explicit operator bool() const { return invoke_ != 0; }
+
+    R operator()(Args... args) const {
+        /* Calling an empty function is undefined in the standard, which
+           resolves it by throwing bad_function_call.  With -fno-exceptions
+           there is nothing to throw, so the choice is a null dereference or a
+           silent no-op.  The no-op is taken: it degrades to a dropped callback
+           instead of a crash, and every Qt call site guards with
+           `if (!functionToRun)` anyway.  For a non-void R this yields a
+           value-initialised result, which is why R() appears rather than a
+           bare return. */
+        if (invoke_ == 0) return R();
+        return invoke_(target_, static_cast<Args&&>(args)...);
+    }
+
+private:
+    typedef R     (*InvokeFn)(void*, Args...);
+    typedef void* (*CloneFn)(const void*);
+    typedef void  (*DestroyFn)(void*);
+
+    template <typename F>
+    static R do_invoke(void* p, Args... a) {
+        return (*static_cast<F*>(p))(static_cast<Args&&>(a)...);
+    }
+
+    template <typename F>
+    static void* do_clone(const void* p) {
+        void* mem = ::operator new(sizeof(F));
+        if (mem == 0) return 0;
+        ::new (mem) F(*static_cast<const F*>(p));
+        return mem;
+    }
+
+    template <typename F>
+    static void do_destroy(void* p) {
+        static_cast<F*>(p)->~F();
+        ::operator delete(p);
+    }
+
+    template <typename F, typename G>
+    void install(G&& g) {
+        void* mem = ::operator new(sizeof(F));
+        if (mem == 0) return;        /* stays empty; see operator() */
+        ::new (mem) F(static_cast<G&&>(g));
+        target_  = mem;
+        invoke_  = &function::template do_invoke<F>;
+        clone_   = &function::template do_clone<F>;
+        destroy_ = &function::template do_destroy<F>;
+    }
+
+    void reset() {
+        if (destroy_) destroy_(target_);
+        target_ = 0; invoke_ = 0; clone_ = 0; destroy_ = 0;
+    }
+
+    void steal(function& other) {
+        target_ = other.target_; invoke_ = other.invoke_;
+        clone_  = other.clone_;  destroy_ = other.destroy_;
+        other.target_ = 0; other.invoke_ = 0; other.clone_ = 0; other.destroy_ = 0;
+    }
+
+    void*     target_;
+    InvokeFn  invoke_;
+    CloneFn   clone_;
+    DestroyFn destroy_;
+};
+
+template <typename R, typename... Args>
+inline void swap(function<R(Args...)>& a, function<R(Args...)>& b) { a.swap(b); }
+
+/* -----------------------------------------------------------------------
+   std::bind, std::is_placeholder and std::placeholders::_1 ... _10.
+
+   qtransposeproxymodel.cpp:207-227 is the only caller in QtCore and it needs
+   one shape:
+
+       using namespace std::placeholders;
+       connect(d->model, &QAbstractItemModel::dataChanged, this,
+               std::bind(&QTransposeProxyModelPrivate::onDataChanged,
+                         d, _1, _2, _3));
+
+   - a pointer to member function, the object bound as a raw pointer, a run of
+     consecutive placeholders, and a result that stays copyable because
+     QObject::connect stores it by value inside a QSlotObject.
+
+   Three things the standard's bind does that this one does not:
+
+   1. Nested binds are not unwrapped.  bind(f, bind(g, _1)) would pass the inner
+      bind_t along as an ordinary bound argument instead of invoking it.  Nothing
+      in Qt does that.
+   2. std::ref / std::cref are not supported; reference_wrapper does not exist
+      here.  Every bound argument is decay-copied, which is what the standard
+      does for anything that is not a reference_wrapper.
+   3. operator() is const, so a stateful functor that mutates itself per call
+      will not.
+
+   std::invoke is C++17 and this tree is -std=c++14, so call_it below spells out
+   the two callable forms that matter: a direct call, and a member function
+   pointer whose object is a raw pointer or a reference.
+   ----------------------------------------------------------------------- */
+namespace __ewok_bind_detail {
+
+/* _N is an object of this type.  Substitution keys on N through is_placeholder
+   and never on the object's address, so it does not matter that every
+   translation unit ends up with its own copy. */
+template <int N>
+struct placeholder {};
+
+/* bind(&C::f, obj, ...) accepts obj as a pointer or as a reference.  The O*
+   overload is the more specialized of the two, so partial ordering picks it for
+   pointer arguments. */
+template <class C, class O> inline C& deref(O& obj) { return obj; }
+template <class C, class O> inline C& deref(O* obj) { return *obj; }
+
+/* Direct call: f is a function pointer, a lambda or a functor.  When f is a
+   member pointer the trailing decltype is invalid, so SFINAE drops this overload
+   in favour of the two below. */
+template <class F, class... A>
+inline auto call_it(const F& f, A&&... a) -> decltype(f(static_cast<A&&>(a)...)) {
+    return f(static_cast<A&&>(a)...);
+}
+
+template <class R, class C, class... FA, class O, class... A>
+inline R call_it(R (C::*pmf)(FA...), O&& obj, A&&... a) {
+    return (deref<C>(static_cast<O&&>(obj)).*pmf)(static_cast<A&&>(a)...);
+}
+
+template <class R, class C, class... FA, class O, class... A>
+inline R call_it(R (C::*pmf)(FA...) const, O&& obj, A&&... a) {
+    return (deref<C>(static_cast<O&&>(obj)).*pmf)(static_cast<A&&>(a)...);
+}
+
+/* Argument substitution for one bound slot.  This overload takes every
+   non-placeholder - is_placeholder<V>::value == 0 - and hands back the stored
+   decayed copy. */
+template <class V, class CT>
+inline const V& sel(integral_constant<int, 0>, const V& stored, const CT&) {
+    return stored;
+}
+
+/* This one takes placeholder<N> and hands back the Nth call argument.  The call
+   arguments arrive as a tuple of *pointers* to them, because tuple_leaf holds
+   its element by value and a tuple of reference members is not something this
+   STL's tuple can be relied on to build.  With N == 0 the get<N - 1> in the
+   trailing decltype finds no tuple_element specialization, so this overload
+   drops out and the one above wins. */
+template <int N, class V, class CT>
+inline auto sel(integral_constant<int, N>, const V&, const CT& callArgs)
+    -> decltype(*get<N - 1>(callArgs)) {
+    return *get<N - 1>(callArgs);
+}
+
+} /* namespace __ewok_bind_detail */
+
+template <class T>
+struct is_placeholder : integral_constant<int, 0> {};
+
+template <int N>
+struct is_placeholder<__ewok_bind_detail::placeholder<N> > : integral_constant<int, N> {};
+
+namespace placeholders {
+/* Namespace-scope `static const` gives each translation unit its own copy, which
+   is what lets these live in a header: the standard spelling is `extern const`
+   plus one definition, and libewokstl is not on Qt's link line to hold that
+   definition.  placeholder<N> is an empty class, so every copy is
+   constant-initialized - no .init_array entry, which matters because EwokOS's
+   crt0 never runs one. */
+static const __ewok_bind_detail::placeholder<1>  _1;
+static const __ewok_bind_detail::placeholder<2>  _2;
+static const __ewok_bind_detail::placeholder<3>  _3;
+static const __ewok_bind_detail::placeholder<4>  _4;
+static const __ewok_bind_detail::placeholder<5>  _5;
+static const __ewok_bind_detail::placeholder<6>  _6;
+static const __ewok_bind_detail::placeholder<7>  _7;
+static const __ewok_bind_detail::placeholder<8>  _8;
+static const __ewok_bind_detail::placeholder<9>  _9;
+static const __ewok_bind_detail::placeholder<10> _10;
+}
+
+template <class F, class... Bound>
+class bind_t {
+    typedef typename decay<F>::type Fn;
+    typedef tuple<typename decay<Bound>::type...> BoundTuple;
+
+    Fn         fn_;
+    BoundTuple bound_;
+
+    template <size_t... I, class... Args>
+    auto invoke(index_sequence<I...>, Args&&... args) const {
+        /* Brace-initialised, not parenthesised: with an empty Args pack
+           `tuple<> callArgs();` would parse as a function declaration. */
+        tuple<typename remove_reference<Args>::type*...> callArgs{&args...};
+        return call_it(fn_, __ewok_bind_detail::sel(
+            integral_constant<int,
+                is_placeholder<typename tuple_element<I, BoundTuple>::type>::value>(),
+            get<I>(bound_), callArgs)...);
+    }
+
+public:
+    template <class UF, class... UBound>
+    bind_t(UF&& f, UBound&&... b)
+        : fn_(static_cast<UF&&>(f)), bound_(static_cast<UBound&&>(b)...) {}
+
+    template <class... Args>
+    auto operator()(Args&&... args) const {
+        return invoke(make_index_sequence<sizeof...(Bound)>(),
+                      static_cast<Args&&>(args)...);
+    }
+};
+
+template <class F, class... Bound>
+inline bind_t<F, Bound...> bind(F&& f, Bound&&... b) {
+    return bind_t<F, Bound...>(static_cast<F&&>(f), static_cast<Bound&&>(b)...);
+}
 
 }
 

@@ -1,0 +1,17 @@
+#ifndef EWOK_STL_CLIMITS_H
+#define EWOK_STL_CLIMITS_H
+
+/*
+ * <climits> - the C <limits.h> names, in namespace std.
+ *
+ * Every name in <limits.h> is a macro (CHAR_BIT, INT_MAX, ...), so as with
+ * <cassert> there is nothing to inject into namespace std; the header exists
+ * only because -nostdinc++ hides the toolchain's own C++ wrapper.
+ *
+ * This is the *C* limits header.  It is unrelated to <limits> and
+ * std::numeric_limits, which is the C++ facility.
+ */
+
+#include <limits.h>
+
+#endif // EWOK_STL_CLIMITS_H

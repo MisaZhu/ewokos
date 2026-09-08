@@ -23,7 +23,7 @@ static inline T* vector_alloc_buffer(size_t count) {
  * @class vector
  * This class represents a dynamic contiguous array
  */
-template <typename T>
+template <typename T, typename Alloc = void>
 class vector {
     public:
         /* The value-type family was missing entirely: vector declared only the four
@@ -61,8 +61,17 @@ class vector {
          * Constructs a container with n elements. Each element is a copy of val
          * @param n The number of elements
          * @param val The value to fill the vector with
+         *
+         * Two overloads rather than one with a defaulted second parameter.  The
+         * old `vector(size_t n, const T& val = T())` filled by copying val, so
+         * even the one-argument form required T to be copy constructible - which
+         * makes vector<std::unique_ptr<X>> unusable, because merely declaring a
+         * resize or a fill construction instantiates that copy and hits the
+         * deleted copy constructor.  The n-only overload value-initializes
+         * instead, which is also what the standard specifies for it.
          */
-        vector(size_t n, const T& val=T());
+        vector(size_t n);
+        vector(size_t n, const T& val);
 
         /**
          * Range constructor
@@ -77,7 +86,21 @@ class vector {
          * Copy constructor
          * @param src The vector to copy
          */
-        vector(const vector<T>& src);
+        vector(const vector<T, Alloc>& src);
+
+        /**
+         * Move constructor / move assignment.
+         *
+         * Without these a vector is not MoveConstructible, and everything that
+         * assumes it is falls back to copying: std::swap in <utility> is
+         * implemented as three moves, so swapping two vector<unique_ptr<X>>
+         * instantiated the copy constructor and hit `use of deleted function`.
+         * Both are O(1) - the move constructor steals the buffer, the move
+         * assignment swaps, which also leaves the old elements to be freed by
+         * the source's destructor.
+         * @param src The vector to take ownership from
+         */
+        vector(vector<T, Alloc>&& src);
 
         /**
          * Destructor
@@ -89,7 +112,8 @@ class vector {
          * Assignment operator
          * @param rhs The vector to assign to this one
          */
-        vector<T>& operator=(const vector& rhs);
+        vector<T, Alloc>& operator=(const vector& rhs);
+        vector<T, Alloc>& operator=(vector<T, Alloc>&& rhs);
 
         /**
          * Return the iterator at the beginning of the vector
@@ -110,6 +134,15 @@ class vector {
          * Return a constant iterator referring to the past-the-end element in the vector
          */
         const_iterator end() const;
+
+        /**
+         * Return constant iterators.  qmimedata.cpp calls cend() on a const
+         * vector<QMimeDataStruct>; cbegin/cend are also the only way to obtain a
+         * const_iterator from a non-const container, so both halves are needed
+         * even though only cend was reported missing.
+         */
+        const_iterator cbegin() const;
+        const_iterator cend() const;
 
         /**
          * Return a reverse iterator at the beginning of the reversed vector
@@ -160,8 +193,15 @@ class vector {
          * current capacity.
          * @param n The new size of the vector
          * @param val The value to copy at the end of the vector, in case the new size is larger than our array's
+         *
+         * Split in two for the same reason as the fill constructor above: the old
+         * `resize(size_t n, T val = T())` took val *by value* and copy constructed
+         * every appended element from it, so resize(n) on a move-only element type
+         * failed to compile.  The n-only form now value-initializes, and the
+         * two-argument form takes val by const reference as the standard has it.
          */
-        void resize(size_t n, T val=T());
+        void resize(size_t n);
+        void resize(size_t n, const T& val);
 
         /**
          * Reserve memory for the vector. This reallocates memory to the array only if the requested capacity is greater than
@@ -274,21 +314,40 @@ class vector {
         void swap(vector& other);
 
     private:
+        /* Ensures capacity_ is at least n, moving the existing elements into the
+           new storage.  Shared by both resize overloads so that the growth policy
+           is written once; returns false if the allocation failed, leaving the
+           vector untouched.  Not part of the standard's interface. */
+        bool grow_to(size_t n);
         T*          data_;      /**< The contiguous dynamic array */
         size_t      length_;    /**< The length of the array */
         size_t      capacity_;  /**< The capacity of the array */
 };
 
-template <typename T>
-vector<T>::vector() : data_(nullptr), length_(0), capacity_(0) {
+template <typename T, typename Alloc>
+vector<T, Alloc>::vector() : data_(nullptr), length_(0), capacity_(0) {
     data_ = vector_alloc_buffer<T>(4);
     if (data_) {
         capacity_ = 4;
     }
 }
 
-template <typename T>
-vector<T>::vector(size_t n, const T& val) : length_(n), capacity_(n * 2) {
+template <typename T, typename Alloc>
+vector<T, Alloc>::vector(size_t n) : length_(n), capacity_(n * 2) {
+    if (capacity_ == 0) capacity_ = 1;
+    data_ = vector_alloc_buffer<T>(capacity_);
+    if (!data_) {
+        length_ = 0;
+        capacity_ = 0;
+        return;
+    }
+    for (size_t i = 0; i < length_; i++) {
+        new (&data_[i]) T();
+    }
+}
+
+template <typename T, typename Alloc>
+vector<T, Alloc>::vector(size_t n, const T& val) : length_(n), capacity_(n * 2) {
     if (capacity_ == 0) capacity_ = 1;
     data_ = vector_alloc_buffer<T>(capacity_);
     if (!data_) {
@@ -301,8 +360,8 @@ vector<T>::vector(size_t n, const T& val) : length_(n), capacity_(n * 2) {
     }
 }
 
-template <typename T>
-vector<T>::vector(iterator first, iterator last) {
+template <typename T, typename Alloc>
+vector<T, Alloc>::vector(iterator first, iterator last) {
     length_ = last - first;
     capacity_ = length_ * 2;
     if (capacity_ == 0) {
@@ -320,8 +379,8 @@ vector<T>::vector(iterator first, iterator last) {
     }
 }
 
-template <typename T>
-vector<T>::vector(const vector<T>& src) {
+template <typename T, typename Alloc>
+vector<T, Alloc>::vector(const vector<T, Alloc>& src) {
     length_ = src.length_;
     capacity_ = src.capacity_;
     data_ = vector_alloc_buffer<T>(capacity_);
@@ -336,14 +395,30 @@ vector<T>::vector(const vector<T>& src) {
     }
 }
 
-template <typename T>
-vector<T>::~vector() {
+template <typename T, typename Alloc>
+vector<T, Alloc>::vector(vector<T, Alloc>&& src)
+    : data_(src.data_), length_(src.length_), capacity_(src.capacity_) {
+    src.data_ = nullptr;
+    src.length_ = 0;
+    src.capacity_ = 0;
+}
+
+template <typename T, typename Alloc>
+vector<T, Alloc>::~vector() {
     clear();
     free(data_);
 }
 
-template <typename T>
-vector<T>& vector<T>::operator=(const vector& rhs) {
+template <typename T, typename Alloc>
+vector<T, Alloc>& vector<T, Alloc>::operator=(vector<T, Alloc>&& rhs) {
+    if (this != &rhs) {
+        swap(rhs);
+    }
+    return *this;
+}
+
+template <typename T, typename Alloc>
+vector<T, Alloc>& vector<T, Alloc>::operator=(const vector& rhs) {
     if (this != &rhs) {
         size_t newLength = rhs.length_;
         size_t newCapacity = rhs.capacity_;
@@ -364,90 +439,126 @@ vector<T>& vector<T>::operator=(const vector& rhs) {
     return *this;
 }
 
-template <typename T>
-typename vector<T>::iterator vector<T>::begin() {
+template <typename T, typename Alloc>
+typename vector<T, Alloc>::iterator vector<T, Alloc>::begin() {
     return iterator(data_);
 }
 
-template <typename T>
-typename vector<T>::const_iterator vector<T>::begin() const {
+template <typename T, typename Alloc>
+typename vector<T, Alloc>::const_iterator vector<T, Alloc>::begin() const {
     return const_iterator(data_);
 }
 
-template <typename T>
-typename vector<T>::iterator vector<T>::end() {
+template <typename T, typename Alloc>
+typename vector<T, Alloc>::iterator vector<T, Alloc>::end() {
     return iterator(data_ + length_);
 }
 
-template <typename T>
-typename vector<T>::const_iterator vector<T>::end() const {
+template <typename T, typename Alloc>
+typename vector<T, Alloc>::const_iterator vector<T, Alloc>::end() const {
     return const_iterator(data_ + length_);
 }
 
-template <typename T>
-typename vector<T>::reverse_iterator vector<T>::rbegin() {
+template <typename T, typename Alloc>
+typename vector<T, Alloc>::const_iterator vector<T, Alloc>::cbegin() const {
+    return const_iterator(data_);
+}
+
+template <typename T, typename Alloc>
+typename vector<T, Alloc>::const_iterator vector<T, Alloc>::cend() const {
+    return const_iterator(data_ + length_);
+}
+
+template <typename T, typename Alloc>
+typename vector<T, Alloc>::reverse_iterator vector<T, Alloc>::rbegin() {
     return reverse_iterator(end());
 }
 
-template <typename T>
-typename vector<T>::const_reverse_iterator vector<T>::rbegin() const {
+template <typename T, typename Alloc>
+typename vector<T, Alloc>::const_reverse_iterator vector<T, Alloc>::rbegin() const {
     return const_reverse_iterator(end());
 }
 
-template <typename T>
-typename vector<T>::reverse_iterator vector<T>::rend() {
+template <typename T, typename Alloc>
+typename vector<T, Alloc>::reverse_iterator vector<T, Alloc>::rend() {
     return reverse_iterator(begin());
 }
 
-template <typename T>
-typename vector<T>::const_reverse_iterator vector<T>::rend() const {
+template <typename T, typename Alloc>
+typename vector<T, Alloc>::const_reverse_iterator vector<T, Alloc>::rend() const {
     return const_reverse_iterator(begin());
 }
 
-template <typename T>
-T& vector<T>::front() {
+template <typename T, typename Alloc>
+T& vector<T, Alloc>::front() {
     return data_[0];
 }
 
-template <typename T>
-const T& vector<T>::front() const {
+template <typename T, typename Alloc>
+const T& vector<T, Alloc>::front() const {
     return data_[0];
 }
 
-template <typename T>
-T& vector<T>::back() {
+template <typename T, typename Alloc>
+T& vector<T, Alloc>::back() {
     return data_[length_ - 1];
 }
 
-template <typename T>
-const T& vector<T>::back() const {
+template <typename T, typename Alloc>
+const T& vector<T, Alloc>::back() const {
     return data_[length_ - 1];
 }
 
-template <typename T>
-void vector<T>::resize(size_t n, T val) {
+template <typename T, typename Alloc>
+bool vector<T, Alloc>::grow_to(size_t n) {
+    if (n <= capacity_) {
+        return true;
+    }
+    size_t newCapacity = n * 2;
+    T* newData = vector_alloc_buffer<T>(newCapacity);
+    if (!newData) {
+        return false;
+    }
+    for (size_t i = 0; i < length_; i++) {
+        new (&newData[i]) T(static_cast<T&&>(data_[i]));
+        data_[i].~T();
+    }
+
+    free(data_);
+    data_ = newData;
+    capacity_ = newCapacity;
+    return true;
+}
+
+template <typename T, typename Alloc>
+void vector<T, Alloc>::resize(size_t n) {
     if (n < length_) {
         for (size_t i = n; i < length_; i++) {
             data_[i].~T();
         }
         length_ = n;
     } else if (n > length_) {
-        if (n > capacity_) {
-            size_t newCapacity = n * 2;
-            T* newData = vector_alloc_buffer<T>(newCapacity);
-            if (!newData) {
-                return;
-            }
-            for (size_t i = 0; i < length_; i++) {
-                new (&newData[i]) T(static_cast<T&&>(data_[i]));
-                data_[i].~T();
-            }
-
-            free(data_);
-            data_ = newData;
-            capacity_ = newCapacity;
+        if (!grow_to(n)) {
+            return;
         }
+        for (size_t i = length_; i < n; i++) {
+            new (&data_[i]) T();
+        }
+        length_ = n;
+    }
+}
 
+template <typename T, typename Alloc>
+void vector<T, Alloc>::resize(size_t n, const T& val) {
+    if (n < length_) {
+        for (size_t i = n; i < length_; i++) {
+            data_[i].~T();
+        }
+        length_ = n;
+    } else if (n > length_) {
+        if (!grow_to(n)) {
+            return;
+        }
         for (size_t i = length_; i < n; i++) {
             new (&data_[i]) T(val);
         }
@@ -455,8 +566,8 @@ void vector<T>::resize(size_t n, T val) {
     }
 }
 
-template <typename T>
-void vector<T>::reserve(size_t n) {
+template <typename T, typename Alloc>
+void vector<T, Alloc>::reserve(size_t n) {
     if (n > capacity_) {
         T* newData = vector_alloc_buffer<T>(n);
         if (!newData) {
@@ -473,28 +584,28 @@ void vector<T>::reserve(size_t n) {
     }
 }
 
-template <typename T>
-T& vector<T>::operator[](size_t n) {
+template <typename T, typename Alloc>
+T& vector<T, Alloc>::operator[](size_t n) {
     return data_[n];
 }
 
-template <typename T>
-const T& vector<T>::operator[](size_t n) const {
+template <typename T, typename Alloc>
+const T& vector<T, Alloc>::operator[](size_t n) const {
     return data_[n];
 }
 
-template <typename T>
-T& vector<T>::at(size_t n) {
+template <typename T, typename Alloc>
+T& vector<T, Alloc>::at(size_t n) {
     return data_[n];
 }
 
-template <typename T>
-const T& vector<T>::at(size_t n) const {
+template <typename T, typename Alloc>
+const T& vector<T, Alloc>::at(size_t n) const {
     return data_[n];
 }
 
-template <typename T>
-void vector<T>::assign(iterator first, iterator last) {
+template <typename T, typename Alloc>
+void vector<T, Alloc>::assign(iterator first, iterator last) {
     clear();
 
     length_ = last - first;
@@ -505,8 +616,8 @@ void vector<T>::assign(iterator first, iterator last) {
     }
 }
 
-template <typename T>
-void vector<T>::assign(size_t n, const T& val) {
+template <typename T, typename Alloc>
+void vector<T, Alloc>::assign(size_t n, const T& val) {
     clear();
     reserve(n * 2);
 
@@ -517,8 +628,8 @@ void vector<T>::assign(size_t n, const T& val) {
     length_ = n;
 }
 
-template <typename T>
-void vector<T>::push_back(const T& val) {
+template <typename T, typename Alloc>
+void vector<T, Alloc>::push_back(const T& val) {
 	if (length_ + 1 >= capacity_) {
 		size_t newCapacity = capacity_ ? capacity_ * 2 : 4;
 		T* newData = vector_alloc_buffer<T>(newCapacity);
@@ -539,8 +650,8 @@ void vector<T>::push_back(const T& val) {
 	length_++;
 }
 
-template <typename T>
-void vector<T>::push_back(T&& val) {
+template <typename T, typename Alloc>
+void vector<T, Alloc>::push_back(T&& val) {
 	if (length_ + 1 >= capacity_) {
 		size_t newCapacity = capacity_ ? capacity_ * 2 : 4;
 		T* newData = vector_alloc_buffer<T>(newCapacity);
@@ -561,9 +672,9 @@ void vector<T>::push_back(T&& val) {
 	length_++;
 }
 
-template <typename T>
+template <typename T, typename Alloc>
 template <typename... Args>
-void vector<T>::emplace_back(Args&&... args) {
+void vector<T, Alloc>::emplace_back(Args&&... args) {
 	if (length_ + 1 >= capacity_) {
 		size_t newCapacity = capacity_ ? capacity_ * 2 : 4;
 		T* newData = vector_alloc_buffer<T>(newCapacity);
@@ -584,16 +695,16 @@ void vector<T>::emplace_back(Args&&... args) {
 	length_++;
 }
 
-template <typename T>
-void vector<T>::pop_back() {
+template <typename T, typename Alloc>
+void vector<T, Alloc>::pop_back() {
     if (length_ > 0) {
         length_ -= 1;
         data_[length_].~T();
     }
 }
 
-template <typename T>
-typename vector<T>::iterator vector<T>::insert(iterator position, const T& val) {
+template <typename T, typename Alloc>
+typename vector<T, Alloc>::iterator vector<T, Alloc>::insert(iterator position, const T& val) {
     size_t pos = length_;
     if (position.ptr_ != nullptr && length_ > 0) {
         pos = ((size_t)position.ptr_ - (size_t)data_) / sizeof(T);
@@ -630,8 +741,8 @@ typename vector<T>::iterator vector<T>::insert(iterator position, const T& val) 
     return begin() + pos;
 }
 
-template <typename T>
-typename vector<T>::iterator vector<T>::insert(iterator position, size_t n, const T& val) {
+template <typename T, typename Alloc>
+typename vector<T, Alloc>::iterator vector<T, Alloc>::insert(iterator position, size_t n, const T& val) {
     size_t pos = length_;
     if (position.ptr_ != nullptr && length_ > 0) {
         pos = ((size_t)position.ptr_ - (size_t)data_) / sizeof(T);
@@ -671,8 +782,8 @@ typename vector<T>::iterator vector<T>::insert(iterator position, size_t n, cons
     return begin() + pos;
 }
 
-template <typename T>
-typename vector<T>::iterator vector<T>::insert(iterator position, iterator first, iterator last) {
+template <typename T, typename Alloc>
+typename vector<T, Alloc>::iterator vector<T, Alloc>::insert(iterator position, iterator first, iterator last) {
     size_t pos = length_;
     size_t size = 0;
 
@@ -718,8 +829,8 @@ typename vector<T>::iterator vector<T>::insert(iterator position, iterator first
     return begin() + pos;
 }
 
-template <typename T>
-typename vector<T>::iterator vector<T>::erase(iterator position) {
+template <typename T, typename Alloc>
+typename vector<T, Alloc>::iterator vector<T, Alloc>::erase(iterator position) {
     if (length_ == 0) return begin();
 
     size_t pos = 0;
@@ -742,8 +853,8 @@ typename vector<T>::iterator vector<T>::erase(iterator position) {
     return begin() + pos;
 }
 
-template <typename T>
-typename vector<T>::iterator vector<T>::erase(iterator first, iterator last) {
+template <typename T, typename Alloc>
+typename vector<T, Alloc>::iterator vector<T, Alloc>::erase(iterator first, iterator last) {
     if (length_ == 0) return begin();
 
     size_t pos = 0;
@@ -778,16 +889,16 @@ typename vector<T>::iterator vector<T>::erase(iterator first, iterator last) {
     return begin() + pos;
 }
 
-template <typename T>
-void vector<T>::clear() {
+template <typename T, typename Alloc>
+void vector<T, Alloc>::clear() {
     for (size_t i = 0; i < length_; i++) {
         data_[i].~T();
     }
     length_ = 0;
 }
 
-template <typename T>
-void vector<T>::swap(vector& other) {
+template <typename T, typename Alloc>
+void vector<T, Alloc>::swap(vector& other) {
     T* tmpData = data_;
     size_t tmpLength = length_;
     size_t tmpCapacity = capacity_;

@@ -6,8 +6,36 @@
    <type_traits> and <stddef.h> and never includes <iterator>, so there is no
    cycle. */
 #include <utility>
+/* For std::less.  Qt's qcontainertools_impl.h includes exactly two headers,
+   <QtCore/qglobal.h> and <iterator>, and then defaults a template parameter to
+   std::less<const T *> (line 63).  libstdc++ satisfies that transitively
+   because its <iterator> reaches <bits/stl_function.h>; this one did not, and
+   qglobal.h is included by nearly everything, so the omission showed up as 13
+   "'less' in namespace 'std' does not name a template type" diagnostics.
+   No cycle: <functional> pulls in <new>, <type_traits> and <utility>, none of
+   which include <iterator>. */
+#include <functional>
 
 namespace std {
+
+/* begin/end for raw arrays.
+
+   qrandom.cpp:309 does `Q_ASSERT(end <= std::end(scratch))` where scratch is a
+   quint32[12].  The container forms below cannot match an array - it has no
+   .begin() member - so without these the call has no viable overload.  Placed
+   here at the top rather than at the bottom of the file because they depend on
+   nothing else in it. */
+template <typename T, size_t N>
+inline T* begin(T (&array)[N]) { return array; }
+
+template <typename T, size_t N>
+inline T* end(T (&array)[N]) { return array + N; }
+
+template <typename T, size_t N>
+inline const T* cbegin(const T (&array)[N]) { return array; }
+
+template <typename T, size_t N>
+inline const T* cend(const T (&array)[N]) { return array + N; }
 
 // Iterator tags
 struct input_iterator_tag {};
@@ -409,10 +437,29 @@ public:
     bool operator==(const base_iterator& rhs) const { return ptr_ == rhs.ptr_; }
     bool operator!=(const base_iterator& rhs) const { return ptr_ != rhs.ptr_; }
 
-    T& operator*() { return *ptr_; }
-    const T& operator*() const { return *ptr_; }
-    T* operator->() { return ptr_; }
-    const T* operator->() const { return ptr_; }
+    /* One pair of overloads, both const-qualified, returning T& and T*.
+
+       This used to be
+           T& operator*();            const T& operator*() const;
+           T* operator->();           const T* operator->() const;
+       which conflates a const *iterator* with an iterator to *const*.  A
+       `vector<T>::iterator` holds a `T*`; making the iterator object itself
+       const makes the pointer `T* const`, not `const T*`, so dereferencing it
+       must still yield a mutable element.  That is what every standard library
+       does and what two Qt call sites depend on:
+
+         qmimedata.cpp:98      const auto it = find(format); ... it->data = data;
+                               -> `passing 'const QVariant' as 'this' argument
+                                  discards qualifiers`
+         qmimedatabase.cpp:148 auto provider = std::move(*it);
+                               -> `*it` was a const lvalue, so the move decayed
+                                  to a copy of a unique_ptr.
+
+       Dropping the non-const overloads is what makes the const one reachable
+       from a non-const iterator object too; keeping both would leave the
+       non-const one winning there and the bug alive for const objects. */
+    T& operator*() const { return *ptr_; }
+    T* operator->() const { return ptr_; }
 
     T* base() const { return ptr_; }
 
@@ -704,6 +751,16 @@ struct iterator_traits<const_random_access_iterator<T>> {
 };
 
 // Iterator operations
+
+/* Swaps the values two iterators point at, rather than the iterators
+   themselves.  <algorithm>'s rotate and sort paths reach for it whenever they
+   work through a generic iterator instead of a raw pointer.  std::swap comes
+   from <utility>, which this header already includes. */
+template <typename ForwardIt1, typename ForwardIt2>
+void iter_swap(ForwardIt1 a, ForwardIt2 b) {
+    swap(*a, *b);
+}
+
 template <typename InputIterator>
 typename iterator_traits<InputIterator>::difference_type
 distance(InputIterator first, InputIterator last) {

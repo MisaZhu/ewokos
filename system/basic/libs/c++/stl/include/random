@@ -53,6 +53,22 @@
 #include <vector>            /* seed_seq's storage */
 #include <algorithm>         /* fill, equal, copy */
 
+/* <limits> is included for a caller, not for anything in this file.
+
+   qrandom.h includes only <algorithm> and <random>, then uses
+   std::numeric_limits<double>::digits and std::numeric_limits<quint64>::digits
+   at lines 107-108, 172-173 and 248-249.  It gets away with that everywhere
+   else because libstdc++'s <random> includes <limits> (random:44), and so does
+   this header now.  Omitting it produced 21 "numeric_limits is not a member of
+   std" errors in the corelib build even though <limits> itself was complete -
+   the header was never reached.
+
+   Keeping the include here rather than patching qrandom.h is the right call: it
+   reproduces upstream behaviour, so any other Qt file relying on the same
+   transitive include works too, and it keeps the port to a single edit in
+   qsystemdetection.h. */
+#include <limits>
+
 namespace std {
 
 namespace __random_detail {
@@ -440,6 +456,126 @@ typedef mersenne_twister_engine<uint_least64_t,
         0xfff7eee000000000ull,
         43,
         6364136223846793005ull> mt19937_64;
+
+/* linear_congruential_engine: x = (a * x + c) mod m.
+
+   qrandom.cpp:1206-1221 holds a std::minstd_rand inside QRandEngine, seeds it
+   with 1, calls operator(), names result_type and reseeds through seed().  The
+   rest of the engine is here too, because a partial one is a trap for the next
+   caller and because the whole thing is short.
+
+   The step uses Schrage's method rather than a naive (a * x + c) % m.  For
+   minstd_rand a is 48271 and m is 2^31-1, so a * x overflows a 32-bit
+   result_type for most x and the naive form silently yields a different - and
+   far shorter - sequence.  Schrage writes x as q*hi + lo with q = m / a, giving
+   a*x mod m == a*lo - r*hi (mod m) with r = m % a, and both products are
+   bounded by m.  It needs m > a and c < m; the standard's two instantiations
+   satisfy both and both have c == 0. */
+template <class UIntType, UIntType a, UIntType c, UIntType m>
+class linear_congruential_engine {
+public:
+    typedef UIntType result_type;
+
+    static constexpr result_type multiplier   = a;
+    static constexpr result_type increment    = c;
+    static constexpr result_type modulus      = m;
+    static constexpr result_type default_seed = 1u;
+
+    linear_congruential_engine() { seed(default_seed); }
+    explicit linear_congruential_engine(result_type s) { seed(s); }
+
+    void seed(result_type s = default_seed) {
+        if (m == 0) {
+            /* modulus 0 means "no modulus": the state runs over the whole range
+               of result_type and every value is usable. */
+            x_ = s;
+            return;
+        }
+        x_ = static_cast<result_type>(s % m);
+        /* Zero is a fixed point of a purely multiplicative generator (c == 0),
+           so the standard redirects it to the default seed instead of letting
+           the engine lock up at zero and return 0 forever. */
+        if (x_ == 0 && c == 0) {
+            x_ = static_cast<result_type>(default_seed % m);
+        }
+    }
+
+    static constexpr result_type min() { return c == 0 ? 1u : 0u; }
+
+    static constexpr result_type max() {
+        return m == 0 ? static_cast<result_type>(~static_cast<result_type>(0))
+                      : static_cast<result_type>(m - 1);
+    }
+
+    void discard(unsigned long long z) {
+        for (unsigned long long i = 0; i < z; ++i) {
+            (*this)();
+        }
+    }
+
+    result_type operator()() {
+        if (m == 0) {
+            x_ = static_cast<result_type>(a * x_ + c);
+            return x_;
+        }
+        const result_type q = static_cast<result_type>(m / a);
+        const result_type r = static_cast<result_type>(m % a);
+        const result_type hi = static_cast<result_type>(x_ / q);
+        const result_type lo = static_cast<result_type>(x_ % q);
+        /* The difference lies in (-m, m), which for m == 2^31-1 does not fit an
+           unsigned 32-bit result_type, so it is taken in a signed type at least
+           that wide.  a*lo and r*hi are each below m, so neither product
+           overflows it either. */
+        long long t = static_cast<long long>(a) * static_cast<long long>(lo)
+                    - static_cast<long long>(r) * static_cast<long long>(hi);
+        if (t <= 0) {
+            t += static_cast<long long>(m);
+        }
+        x_ = static_cast<result_type>(t);
+        if (c != 0) {
+            x_ = static_cast<result_type>(x_ + c);
+            if (x_ >= m) {
+                x_ = static_cast<result_type>(x_ - m);
+            }
+        }
+        return x_;
+    }
+
+private:
+    result_type x_;
+
+    /* Hidden friends: reachable by ADL for exactly these specializations and
+       invisible to unrelated overload resolution, which is what the standard
+       intends for the engine comparisons. */
+    friend bool operator==(const linear_congruential_engine& lhs,
+                           const linear_congruential_engine& rhs) {
+        return lhs.x_ == rhs.x_;
+    }
+
+    friend bool operator!=(const linear_congruential_engine& lhs,
+                           const linear_congruential_engine& rhs) {
+        return !(lhs == rhs);
+    }
+};
+
+/* Same reasoning as EWOK_STL_MT_DEFINE above: at C++14 these are declarations
+   only, so anything that ODR-uses one would not link. */
+#define EWOK_STL_LCE_DEFINE(type, name)                              \
+    template <class UIntType, UIntType a, UIntType c, UIntType m>    \
+    constexpr type linear_congruential_engine<UIntType, a, c, m>::name;
+
+EWOK_STL_LCE_DEFINE(UIntType, multiplier)
+EWOK_STL_LCE_DEFINE(UIntType, increment)
+EWOK_STL_LCE_DEFINE(UIntType, modulus)
+EWOK_STL_LCE_DEFINE(UIntType, default_seed)
+
+#undef EWOK_STL_LCE_DEFINE
+
+/* The two engines the standard predefines.  minstd_rand is the one
+   qrandom.cpp:1206 names; minstd_rand0 is its predecessor and differs only in
+   the multiplier. */
+typedef linear_congruential_engine<uint_least32_t, 16807, 0, 2147483647> minstd_rand0;
+typedef linear_congruential_engine<uint_least32_t, 48271, 0, 2147483647> minstd_rand;
 
 } // namespace std
 

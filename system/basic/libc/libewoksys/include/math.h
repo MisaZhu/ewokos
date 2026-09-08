@@ -14,6 +14,40 @@ extern "C" {
 #define isinf(x) __builtin_isinf_sign(x)
 #define isfinite(x) __builtin_isfinite(x)
 
+/* C99 7.12.3.1 classification.  The five FP_* values are the category numbers
+   fpclassify returns; C99 only requires that they be distinct integer constant
+   expressions, but these match newlib's (math.h:190-194) so that object code
+   and any third-party source written against the toolchain's headers agree on
+   the numbers.
+
+   The macro form is used because fpclassify has to work for float, double and
+   long double from a single name, exactly as isnan/isinf/isfinite above do.
+   Note __builtin_fpclassify's argument order is (nan, infinite, normal,
+   subnormal, zero, x) - not the FP_* declaration order - and getting it wrong
+   silently misclassifies rather than failing to compile.
+
+   <cmath> undefines this macro and replaces it with typed inline overloads,
+   the same arrangement it already uses for isnan/isinf/isfinite: leaving the
+   macro live would expand a caller's std::fpclassify(x) into
+   std::__builtin_fpclassify(...) and fail. */
+#ifndef FP_NAN
+#define FP_NAN       0
+#endif
+#ifndef FP_INFINITE
+#define FP_INFINITE  1
+#endif
+#ifndef FP_ZERO
+#define FP_ZERO      2
+#endif
+#ifndef FP_SUBNORMAL
+#define FP_SUBNORMAL 3
+#endif
+#ifndef FP_NORMAL
+#define FP_NORMAL    4
+#endif
+#define fpclassify(x) __builtin_fpclassify(FP_NAN, FP_INFINITE, FP_NORMAL, \
+                                           FP_SUBNORMAL, FP_ZERO, (x))
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif

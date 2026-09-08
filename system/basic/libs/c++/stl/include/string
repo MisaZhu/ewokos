@@ -4,6 +4,17 @@
 #include <assert.h>
 #include <stddef.h>
 #include <stdlib.h>
+/* For std::wstring, which qstring.h:931 names and which reaches this header
+   through qstring.h:31's #include <string>.  projects/browser/libs/litehtml
+   typedefs it as tstring, so it stays the standalone class it always was
+   rather than becoming basic_string<wchar_t>.
+
+   This must stay at file scope.  An earlier revision had it further down next
+   to the comment explaining it, which is inside `namespace std {` - that puts
+   the whole of newlib's <stdint.h> in namespace std, so uint8_t and friends
+   stop existing at global scope and libewoksys's <sys/types.h> fails to
+   compile in every translation unit that includes <string> before <stdio.h>. */
+#include "wstring"
 
 namespace std {
 
@@ -161,6 +172,313 @@ class string {
         size_t  length_;
         size_t  capacity_;
 };
+
+/* -----------------------------------------------------------------------
+   basic_string<CharT>, and the u16string / u32string typedefs.
+
+   qstring.h:931-938 declares fromStdWString / toStdWString /
+   fromStdU16String / toStdU16String / fromStdU32String / toStdU32String, the
+   u16 and u32 ones behind Q_STDLIB_UNICODE_STRINGS which GCC always defines,
+   and qstringview.h:93 partial-specializes IsCompatibleStdBasicStringHelper on
+   std::basic_string<Char, Args...>.  qstring.h:31 includes <string>, so this
+   header is where all three names have to come from.  None existed: 436
+   "'basic_string' is not a member of 'std'" and 872 each for wstring,
+   u16string and u32string.
+
+   Traits and Alloc are declared only so that the signature matches; both are
+   ignored.  Character operations are written directly against CharT and
+   storage comes from malloc, as it does for every other container here.  They
+   carry defaults so that std::basic_string<char16_t> and the variadic pattern
+   in qstringview.h:93 both resolve.
+
+   std::string is deliberately NOT basic_string<char>.  It is the hand-written
+   class above, whose 1215 lines of out-of-line definitions in src/string.cpp
+   every EwokOS component links against; templatizing it would mean moving all
+   of that into this header and would put the whole system's string handling at
+   risk to satisfy a signature Qt never instantiates.  The consequence is that
+   IsCompatibleStdBasicString<std::string> is false, so QStringView cannot be
+   built from a std::string.  QString::fromStdString / toStdString
+   (qstring.h:1548-1551) are the supported path and they are unaffected.
+
+   std::wstring is likewise the separate class in <wstring>, included below so
+   that qstring.h sees it.  projects/browser/libs/litehtml typedefs it as
+   tstring and uses it throughout, so it is not being folded into this template
+   either.
+   ----------------------------------------------------------------------- */
+
+template <typename CharT, typename Traits = void, typename Alloc = void>
+class basic_string {
+    public:
+        typedef CharT        value_type;
+        typedef CharT*       pointer;
+        typedef const CharT* const_pointer;
+        typedef CharT&       reference;
+        typedef const CharT& const_reference;
+        typedef size_t       size_type;
+        typedef ptrdiff_t    difference_type;
+        typedef CharT*       iterator;
+        typedef const CharT* const_iterator;
+
+        static const size_type npos = (size_type)-1;
+
+        basic_string() : data_(0), length_(0), capacity_(0) {
+            set_empty();
+        }
+
+        basic_string(const basic_string& s) : data_(0), length_(0), capacity_(0) {
+            assign_buf(s.data_, s.length_);
+        }
+
+        basic_string(size_type n, CharT c) : data_(0), length_(0), capacity_(0) {
+            set_empty();
+            reserve(n);
+            for (size_type i = 0; i < n; ++i) data_[i] = c;
+            length_ = n;
+            data_[n] = CharT(0);
+        }
+
+        basic_string(const CharT* s) : data_(0), length_(0), capacity_(0) {
+            assign_buf(s, chars_len(s));
+        }
+
+        /* Does not stop at an embedded terminator, which is what lets
+           qstring.h:1576 build a u16string straight from QString's UTF-16
+           buffer. */
+        basic_string(const CharT* s, size_type n) : data_(0), length_(0), capacity_(0) {
+            assign_buf(s, n);
+        }
+
+        ~basic_string() { free(data_); }
+
+        basic_string& operator=(const basic_string& s) {
+            if (this != &s) assign_buf(s.data_, s.length_);
+            return *this;
+        }
+        basic_string& operator=(const CharT* s) { assign_buf(s, chars_len(s)); return *this; }
+        basic_string& operator=(CharT c) { assign_buf(&c, 1); return *this; }
+
+        size_type size() const { return length_; }
+        size_type length() const { return length_; }
+        bool empty() const { return length_ == 0; }
+        /* capacity_ counts the terminator's slot, so the usable capacity is one
+           less.  A string that failed its first allocation reports 0. */
+        size_type capacity() const { return capacity_ ? capacity_ - 1 : 0; }
+        size_type max_size() const { return ((size_type)-1) / sizeof(CharT) - 1; }
+
+        void clear() { length_ = 0; if (data_) data_[0] = CharT(0); }
+
+        void reserve(size_type n = 0) {
+            size_type want = n + 1;
+            if (want <= capacity_) return;
+            CharT* p = (CharT*)realloc(data_, want * sizeof(CharT));
+            /* On failure the old buffer is still valid and still allocated, so
+               the string keeps its contents at its old capacity.  There are no
+               exceptions here to report length_error with. */
+            if (p == 0) return;
+            data_ = p;
+            capacity_ = want;
+        }
+
+        void resize(size_type n) { resize(n, CharT()); }
+
+        void resize(size_type n, CharT c) {
+            if (n > length_) {
+                reserve(n);
+                for (size_type i = length_; i < n; ++i) data_[i] = c;
+            }
+            length_ = n;
+            data_[length_] = CharT(0);
+        }
+
+        CharT& operator[](size_type i) { return data_[i]; }
+        const CharT& operator[](size_type i) const { return data_[i]; }
+
+        /* at() bounds-checks with assert rather than throwing out_of_range:
+           the tree is built with -fno-exceptions, so there is nothing to throw.
+           A violation aborts in a debug build and is unchecked in an NDEBUG one,
+           which is the same tradeoff the rest of this STL makes. */
+        CharT& at(size_type i) { assert(i < length_); return data_[i]; }
+        const CharT& at(size_type i) const { assert(i < length_); return data_[i]; }
+
+        CharT& front() { return data_[0]; }
+        const CharT& front() const { return data_[0]; }
+        CharT& back() { return data_[length_ - 1]; }
+        const CharT& back() const { return data_[length_ - 1]; }
+
+        /* Non-const data(), which the standard only requires from C++17 but
+           which qstring.h:1560 needs at C++14 to write through str.data(). */
+        CharT* data() { return data_; }
+        const CharT* data() const { return data_; }
+        const CharT* c_str() const { return data_; }
+
+        void push_back(CharT c) {
+            reserve(length_ + 1);
+            data_[length_++] = c;
+            data_[length_] = CharT(0);
+        }
+
+        basic_string& append(const CharT* s, size_type n) {
+            size_type old = length_;
+            reserve(old + n);
+            for (size_type i = 0; i < n; ++i) data_[old + i] = s[i];
+            length_ = old + n;
+            data_[length_] = CharT(0);
+            return *this;
+        }
+        basic_string& append(const basic_string& s) { return append(s.data_, s.length_); }
+        basic_string& append(const CharT* s) { return append(s, chars_len(s)); }
+        basic_string& append(size_type n, CharT c) {
+            size_type old = length_;
+            reserve(old + n);
+            for (size_type i = 0; i < n; ++i) data_[old + i] = c;
+            length_ = old + n;
+            data_[length_] = CharT(0);
+            return *this;
+        }
+
+        basic_string& assign(const CharT* s, size_type n) { assign_buf(s, n); return *this; }
+        basic_string& assign(const basic_string& s) { assign_buf(s.data_, s.length_); return *this; }
+
+        basic_string& operator+=(const basic_string& s) { return append(s); }
+        basic_string& operator+=(const CharT* s) { return append(s); }
+        basic_string& operator+=(CharT c) { push_back(c); return *this; }
+
+        basic_string substr(size_type pos = 0, size_type len = npos) const {
+            /* std: substr(pos) with pos == size() yields an empty string; only
+               pos > size() is out of range.  That would throw out_of_range, but
+               this STL has no exceptions, so it asserts and then clamps rather
+               than aborting the process - the same choice string::substr makes
+               in src/string.cpp.  libc++ throws here, which is why this path is
+               excluded from the differential probe. */
+            assert(pos <= length_);
+            if (pos > length_) pos = length_;
+            if (len == npos || pos + len > length_) len = length_ - pos;
+            return basic_string(data_ + pos, len);
+        }
+
+        size_type copy(CharT* s, size_type len, size_type pos = 0) const {
+            if (pos > length_) pos = length_;
+            if (len > length_ - pos) len = length_ - pos;
+            for (size_type i = 0; i < len; ++i) s[i] = data_[pos + i];
+            return len;
+        }
+
+        /* Lexicographic by code point.  Sorted-by-length comparison, which an
+           earlier version of the char string in this header did by mistake, is
+           not a valid ordering; this one compares element by element and only
+           then by length. */
+        int compare(const basic_string& s) const {
+            size_type n = (length_ < s.length_) ? length_ : s.length_;
+            for (size_type i = 0; i < n; ++i) {
+                if (data_[i] != s.data_[i]) return (data_[i] < s.data_[i]) ? -1 : 1;
+            }
+            if (length_ == s.length_) return 0;
+            return (length_ < s.length_) ? -1 : 1;
+        }
+        int compare(const CharT* s) const { return compare(basic_string(s)); }
+
+        size_type find(const basic_string& s, size_type pos = 0) const {
+            if (s.length_ > length_) return npos;
+            for (size_type i = pos; i + s.length_ <= length_; ++i) {
+                size_type j = 0;
+                while (j < s.length_ && data_[i + j] == s.data_[j]) ++j;
+                if (j == s.length_) return i;
+            }
+            return npos;
+        }
+        size_type find(CharT c, size_type pos = 0) const {
+            for (size_type i = pos; i < length_; ++i) {
+                if (data_[i] == c) return i;
+            }
+            return npos;
+        }
+        size_type find(const CharT* s, size_type pos = 0) const {
+            return find(basic_string(s), pos);
+        }
+
+        void swap(basic_string& s) {
+            CharT* d = data_; size_type l = length_, c = capacity_;
+            data_ = s.data_; length_ = s.length_; capacity_ = s.capacity_;
+            s.data_ = d; s.length_ = l; s.capacity_ = c;
+        }
+
+        iterator begin() { return data_; }
+        const_iterator begin() const { return data_; }
+        iterator end() { return data_ + length_; }
+        const_iterator end() const { return data_ + length_; }
+        const_iterator cbegin() const { return data_; }
+        const_iterator cend() const { return data_ + length_; }
+
+    private:
+        /* CharT-generic strlen.  Cannot be ::strlen, which exists only for
+           char; wchar_t and char16_t have no C runtime here at all. */
+        static size_type chars_len(const CharT* s) {
+            size_type n = 0;
+            while (s[n] != CharT(0)) ++n;
+            return n;
+        }
+
+        void set_empty() {
+            data_ = (CharT*)malloc(sizeof(CharT));
+            if (data_ == 0) { capacity_ = 0; return; }
+            data_[0] = CharT(0);
+            capacity_ = 1;
+        }
+
+        /* Replaces the contents, reusing the buffer when it is already large
+           enough.  Works for self-assignment of a substring because the copy
+           loop runs forward and reserve() has already sized the buffer. */
+        void assign_buf(const CharT* s, size_type n) {
+            reserve(n);
+            if (data_ == 0) { length_ = 0; return; }
+            for (size_type i = 0; i < n; ++i) data_[i] = s[i];
+            length_ = n;
+            data_[n] = CharT(0);
+        }
+
+        CharT*    data_;
+        size_type length_;
+        size_type capacity_;   /* includes the terminator's slot */
+};
+
+typedef basic_string<char16_t> u16string;
+typedef basic_string<char32_t> u32string;
+
+template <typename CharT, typename Tr, typename Al>
+inline bool operator==(const basic_string<CharT,Tr,Al>& a, const basic_string<CharT,Tr,Al>& b) {
+    return a.compare(b) == 0;
+}
+template <typename CharT, typename Tr, typename Al>
+inline bool operator!=(const basic_string<CharT,Tr,Al>& a, const basic_string<CharT,Tr,Al>& b) {
+    return a.compare(b) != 0;
+}
+template <typename CharT, typename Tr, typename Al>
+inline bool operator<(const basic_string<CharT,Tr,Al>& a, const basic_string<CharT,Tr,Al>& b) {
+    return a.compare(b) < 0;
+}
+template <typename CharT, typename Tr, typename Al>
+inline bool operator<=(const basic_string<CharT,Tr,Al>& a, const basic_string<CharT,Tr,Al>& b) {
+    return a.compare(b) <= 0;
+}
+template <typename CharT, typename Tr, typename Al>
+inline bool operator>(const basic_string<CharT,Tr,Al>& a, const basic_string<CharT,Tr,Al>& b) {
+    return a.compare(b) > 0;
+}
+template <typename CharT, typename Tr, typename Al>
+inline bool operator>=(const basic_string<CharT,Tr,Al>& a, const basic_string<CharT,Tr,Al>& b) {
+    return a.compare(b) >= 0;
+}
+
+template <typename CharT, typename Tr, typename Al>
+inline basic_string<CharT,Tr,Al> operator+(const basic_string<CharT,Tr,Al>& a,
+                                           const basic_string<CharT,Tr,Al>& b) {
+    basic_string<CharT,Tr,Al> r(a);
+    r.append(b);
+    return r;
+}
+
+template <typename CharT, typename Tr, typename Al>
+inline void swap(basic_string<CharT,Tr,Al>& a, basic_string<CharT,Tr,Al>& b) { a.swap(b); }
 
 // to_string functions
 inline string to_string(int val) {

@@ -1,0 +1,86 @@
+#ifndef EWOK_STL_CWCHAR_H
+#define EWOK_STL_CWCHAR_H
+
+/*
+ * <cwchar> - the wide-character functions Qt's POSIX collator needs.
+ *
+ * EwokOS has no wide-character runtime at all.  libewoksys's <wchar.h>
+ * deliberately shadows the toolchain's newlib header - newlib's cannot be
+ * compiled against EwokOS's stdio.h - and states that no conversion functions
+ * are provided or declared; it supplies only wchar_t, wint_t, WEOF and the
+ * WCHAR limits.  So there is nothing to pull into namespace std with a
+ * using-declaration, the way <cstring> and <cstdio> do: these have to be
+ * written here.
+ *
+ * qcollator_posix.cpp is the only consumer, and it uses exactly three
+ * functions - std::wcscoll (line 91), std::wcsxfrm (lines 105 and 108) and
+ * std::wcscmp (line 118).  wcslen is added because wcsxfrm needs it and
+ * because no wcs* function is useful without it.
+ *
+ * The collation functions are correct rather than stubbed, and the reason is
+ * worth stating because it looks like a shortcut: C99 and POSIX both specify
+ * that in the "C" locale wcscoll behaves as wcscmp, and wcsxfrm produces a
+ * string whose wcscmp ordering matches the original's wcscoll ordering.  An
+ * identity transform satisfies that exactly.  EwokOS is C-locale-only - there
+ * is no setlocale machinery and QCollatorPrivate::init() warns that only the C
+ * and default locales are supported - so there is no other locale whose
+ * collation rules these would be wrong for.  If locale support is ever added,
+ * these two functions are what must change.
+ *
+ * Defined in namespace std only, not at global scope.  Putting them in the
+ * global namespace would mean editing <wchar.h>, whose refusal to declare
+ * conversion functions is load-bearing for libcurses built with DISABLE_WCHAR.
+ */
+
+#include <wchar.h>
+#include <stddef.h>
+
+namespace std {
+
+/* Length in wide characters, excluding the terminator. */
+inline size_t wcslen(const wchar_t* s) {
+    size_t n = 0;
+    while (s[n] != 0) ++n;
+    return n;
+}
+
+/* Three-way comparison by code point value.  Comparing the unsigned form
+   rather than wchar_t itself keeps the result independent of whether the
+   platform's wchar_t is signed - it is on arm and aarch64 with this toolchain,
+   which would otherwise order every code point above 0x7fffffff below zero. */
+inline int wcscmp(const wchar_t* a, const wchar_t* b) {
+    for (; *a != 0 && *a == *b; ++a, ++b) {}
+    typedef unsigned long ULong;
+    ULong ua = static_cast<ULong>(*a);
+    ULong ub = static_cast<ULong>(*b);
+    return (ua > ub) ? 1 : ((ua < ub) ? -1 : 0);
+}
+
+/* In the "C" locale this is wcscmp by specification; see the header comment. */
+inline int wcscoll(const wchar_t* a, const wchar_t* b) {
+    return wcscmp(a, b);
+}
+
+/*
+ * Transforms src into dest, writing at most n wide characters including the
+ * terminator, and returns the length of the full transformed string excluding
+ * the terminator.  A return value of n or more means the buffer was too small
+ * and dest's contents are indeterminate, which is what qcollator_posix.cpp:106
+ * tests for before resizing and retrying.
+ *
+ * n == 0 is legal and means "just tell me how big it has to be"; dest may then
+ * be null and must not be touched.
+ */
+inline size_t wcsxfrm(wchar_t* dest, const wchar_t* src, size_t n) {
+    size_t total = wcslen(src);
+    if (n != 0) {
+        size_t c = (total < n - 1) ? total : (n - 1);
+        for (size_t i = 0; i < c; ++i) dest[i] = src[i];
+        dest[c] = 0;
+    }
+    return total;
+}
+
+}
+
+#endif /* EWOK_STL_CWCHAR_H */

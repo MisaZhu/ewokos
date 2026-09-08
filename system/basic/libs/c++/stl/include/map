@@ -22,8 +22,19 @@ struct map_node {
 };
 
 // Forward declaration
-template <typename Key, typename T>
+/* Compare and Alloc are declared and ignored, both defaulted to void.
+   qdebug.h:262 names std::map<Key, T, Compare, Alloc> as the parameter type of
+   an operator<< overload; that overload is a template Qt never instantiates for
+   the types EwokOS builds, so the parameters only have to exist.  The tree
+   below orders with operator< directly, which is what Compare defaults to. */
+template <typename Key, typename T, typename Compare = void, typename Alloc = void>
 class map;
+
+/* Declared, never defined.  qdebug.h:268 names std::multimap the same way, and
+   a forward declaration satisfies that name lookup without pretending to
+   provide an ordered-multimap implementation this STL does not have. */
+template <typename Key, typename T, typename Compare = void, typename Alloc = void>
+class multimap;
 
 // Map iterator class
 template <typename Key, typename T>
@@ -108,7 +119,7 @@ private:
     map_node<value_type>* node_;
 };
 
-template <typename Key, typename T>
+template <typename Key, typename T, typename Compare, typename Alloc>
 class map {
     public:
         typedef pair<Key, T> value_type;
@@ -123,7 +134,7 @@ class map {
             root_ = nil_;
         }
 
-        map(const map<Key, T>& src) : root_(nullptr), size_(0) {
+        map(const map<Key, T, Compare, Alloc>& src) : root_(nullptr), size_(0) {
             nil_ = new map_node<value_type>(value_type(), false, true);
             root_ = nil_;
             if (src.root_ != src.nil_) {
@@ -140,7 +151,7 @@ class map {
             delete nil_;
         }
 
-        map<Key, T>& operator=(const map& rhs) {
+        map<Key, T, Compare, Alloc>& operator=(const map& rhs) {
             if (this != &rhs) {
                 clear();
                 if (rhs.root_ != rhs.nil_) {

@@ -6,6 +6,11 @@
 #include <type_traits>
 #include <exception>
 #include <new>
+/* For iterator_traits, which the uninitialized_* algorithms below need to name
+   the element type they are constructing.  There is no cycle: <iterator> pulls
+   in only <stddef.h> and <utility>, and of the STL headers only <set> includes
+   <memory>. */
+#include <iterator>
 
 namespace std {
 
@@ -37,6 +42,29 @@ public:
 template <typename T>
 class default_delete {
     public:
+        default_delete() = default;
+
+        /* Constructible from default_delete<U>, so that unique_ptr's converting
+           move-assignment below can do
+
+               deleter_ = other.get_deleter();
+
+           qfileinfo.cpp assigns a unique_ptr<QFSFileEngine> to a
+           unique_ptr<QAbstractFileEngine>, and without this that line has no
+           viable operator= - which is the "no match for 'operator=' (operand
+           types are 'std::default_delete<QAbstractFileEngine>' and
+           'std::default_delete<QFSFileEngine>')" reported there.
+
+           A template is never a copy constructor, so the implicit copy
+           constructor still exists and still wins for U == T.
+
+           The standard constrains this with is_convertible<U*, T*>.  This one
+           does not: an invalid conversion fails at the delete expression in
+           operator() anyway, and threading SFINAE through here would mean
+           threading it through every converting member of unique_ptr too. */
+        template <typename U>
+        default_delete(const default_delete<U>&) noexcept {}
+
         void operator()(T* ptr) const {
             if (ptr) {
                 delete ptr;
@@ -47,6 +75,12 @@ class default_delete {
 template <typename T>
 class default_delete<T[]> {
     public:
+        default_delete() = default;
+
+        /* Same reasoning as the single-object version above. */
+        template <typename U>
+        default_delete(const default_delete<U[]>&) noexcept {}
+
         void operator()(T* ptr) const {
             if (ptr) {
                 delete[] ptr;
@@ -245,6 +279,114 @@ class unique_ptr<T[], Deleter> {
         T* ptr_;
         Deleter deleter_;
 };
+
+/* unique_ptr comparisons.  None of these existed, and Qt compares them to
+   nullptr constantly - qjsondocument.cpp's QJsonDocument::isNull is
+   `return d == nullptr;` and qfileinfo.cpp does the same with its file engine.
+
+   The mixed T/U overloads are what make `unique_ptr<Derived> == 
+   unique_ptr<Base>` work; the nullptr_t ones are needed in both argument
+   orders because `nullptr == p` does not match a `p == nullptr` overload.
+
+   The relational operators compare the stored pointers directly.  libstdc++
+   goes through std::less<common_type<T*, U*>> so that unrelated pointer types
+   still have a total order; that needs common_type, and for two unique_ptrs
+   whose element types are comparable at all - the only case that instantiates
+   here - plain pointer comparison gives the same answer. */
+template <typename T, typename D, typename U, typename E>
+inline bool operator==(const unique_ptr<T, D>& lhs, const unique_ptr<U, E>& rhs) {
+    return lhs.get() == rhs.get();
+}
+
+template <typename T, typename D, typename U, typename E>
+inline bool operator!=(const unique_ptr<T, D>& lhs, const unique_ptr<U, E>& rhs) {
+    return lhs.get() != rhs.get();
+}
+
+template <typename T, typename D, typename U, typename E>
+inline bool operator<(const unique_ptr<T, D>& lhs, const unique_ptr<U, E>& rhs) {
+    return lhs.get() < rhs.get();
+}
+
+template <typename T, typename D, typename U, typename E>
+inline bool operator<=(const unique_ptr<T, D>& lhs, const unique_ptr<U, E>& rhs) {
+    return lhs.get() <= rhs.get();
+}
+
+template <typename T, typename D, typename U, typename E>
+inline bool operator>(const unique_ptr<T, D>& lhs, const unique_ptr<U, E>& rhs) {
+    return lhs.get() > rhs.get();
+}
+
+template <typename T, typename D, typename U, typename E>
+inline bool operator>=(const unique_ptr<T, D>& lhs, const unique_ptr<U, E>& rhs) {
+    return lhs.get() >= rhs.get();
+}
+
+template <typename T, typename D>
+inline bool operator==(const unique_ptr<T, D>& lhs, nullptr_t) {
+    return !lhs;
+}
+
+template <typename T, typename D>
+inline bool operator==(nullptr_t, const unique_ptr<T, D>& rhs) {
+    return !rhs;
+}
+
+template <typename T, typename D>
+inline bool operator!=(const unique_ptr<T, D>& lhs, nullptr_t) {
+    return static_cast<bool>(lhs);
+}
+
+template <typename T, typename D>
+inline bool operator!=(nullptr_t, const unique_ptr<T, D>& rhs) {
+    return static_cast<bool>(rhs);
+}
+
+template <typename T, typename D>
+inline bool operator<(const unique_ptr<T, D>& lhs, nullptr_t) {
+    return lhs.get() < nullptr;
+}
+
+template <typename T, typename D>
+inline bool operator<(nullptr_t, const unique_ptr<T, D>& rhs) {
+    return nullptr < rhs.get();
+}
+
+template <typename T, typename D>
+inline bool operator<=(const unique_ptr<T, D>& lhs, nullptr_t) {
+    return lhs.get() <= nullptr;
+}
+
+template <typename T, typename D>
+inline bool operator<=(nullptr_t, const unique_ptr<T, D>& rhs) {
+    return nullptr <= rhs.get();
+}
+
+template <typename T, typename D>
+inline bool operator>(const unique_ptr<T, D>& lhs, nullptr_t) {
+    return lhs.get() > nullptr;
+}
+
+template <typename T, typename D>
+inline bool operator>(nullptr_t, const unique_ptr<T, D>& rhs) {
+    return nullptr > rhs.get();
+}
+
+template <typename T, typename D>
+inline bool operator>=(const unique_ptr<T, D>& lhs, nullptr_t) {
+    return lhs.get() >= nullptr;
+}
+
+template <typename T, typename D>
+inline bool operator>=(nullptr_t, const unique_ptr<T, D>& rhs) {
+    return nullptr >= rhs.get();
+}
+
+/* No swap(unique_ptr&, unique_ptr&) here: this file already has one further
+   down, next to make_shared and swap(shared_ptr&, shared_ptr&).  Adding a second
+   is a redefinition, not an overload - both are `template <class T, class D>
+   void swap(unique_ptr<T,D>&, unique_ptr<T,D>&)`. */
 
 // Forward declarations
 template <typename T> class shared_ptr;
@@ -1071,6 +1213,64 @@ bool operator==(const allocator<T>&, const allocator<U>&) noexcept { return true
 
 template <typename T, typename U>
 bool operator!=(const allocator<T>&, const allocator<U>&) noexcept { return false; }
+
+/* ------------------------------------------------------------------ */
+/* Uninitialised memory algorithms                                     */
+/* ------------------------------------------------------------------ */
+
+/* These construct rather than assign, which is the whole point of them: the
+   destination range is raw storage that holds no objects yet, so operator= is
+   not available and placement new is the only way in.
+
+   qvarlengtharray.h:251 is the one corelib call site -
+       std::uninitialized_fill_n(end(), increment, t);
+   - but it is in a header included by qmetatype.h and therefore by qobject.h,
+   so its absence produced 207 errors across the build rather than one.
+
+   The element type comes from iterator_traits rather than from
+   decltype(*first): for a const_iterator the latter is "const T&", and
+   placement-newing a const object is not something a container resizing itself
+   ever means. */
+
+template <typename ForwardIt, typename T>
+void uninitialized_fill(ForwardIt first, ForwardIt last, const T& value) {
+    typedef typename iterator_traits<ForwardIt>::value_type value_type;
+    for (; first != last; ++first) {
+        ::new (static_cast<void*>(std::addressof(*first))) value_type(value);
+    }
+}
+
+/* The counted form.  Size is a template parameter rather than a size_t for the
+   same reason <algorithm>'s fill_n takes one: qvarlengtharray.h passes an int
+   increment, and the caller's signedness is not ours to choose. */
+template <typename ForwardIt, typename Size, typename T>
+ForwardIt uninitialized_fill_n(ForwardIt first, Size n, const T& value) {
+    typedef typename iterator_traits<ForwardIt>::value_type value_type;
+    for (Size i = 0; i < n; ++i, (void)++first) {
+        ::new (static_cast<void*>(std::addressof(*first))) value_type(value);
+    }
+    return first;
+}
+
+template <typename InputIt, typename ForwardIt>
+ForwardIt uninitialized_copy(InputIt first, InputIt last, ForwardIt d_first) {
+    typedef typename iterator_traits<ForwardIt>::value_type value_type;
+    ForwardIt current = d_first;
+    for (; first != last; ++first, (void)++current) {
+        ::new (static_cast<void*>(std::addressof(*current))) value_type(*first);
+    }
+    return current;
+}
+
+template <typename InputIt, typename Size, typename ForwardIt>
+ForwardIt uninitialized_copy_n(InputIt first, Size n, ForwardIt d_first) {
+    typedef typename iterator_traits<ForwardIt>::value_type value_type;
+    ForwardIt current = d_first;
+    for (Size i = 0; i < n; ++i, (void)++first, (void)++current) {
+        ::new (static_cast<void*>(std::addressof(*current))) value_type(*first);
+    }
+    return current;
+}
 
 }
 

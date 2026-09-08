@@ -3,19 +3,19 @@
 
 namespace std {
 
-template <typename T>
-list<T>::list() : head_(nullptr), tail_(nullptr), size_(0) {
+template <typename T, typename Alloc>
+list<T, Alloc>::list() : head_(nullptr), tail_(nullptr), size_(0) {
 }
 
-template <typename T>
-list<T>::list(size_t n, const T& val) : head_(nullptr), tail_(nullptr), size_(0) {
+template <typename T, typename Alloc>
+list<T, Alloc>::list(size_t n, const T& val) : head_(nullptr), tail_(nullptr), size_(0) {
     for (size_t i = 0; i < n; i++) {
         push_back(val);
     }
 }
 
-template <typename T>
-list<T>::list(const list<T>& src) : head_(nullptr), tail_(nullptr), size_(0) {
+template <typename T, typename Alloc>
+list<T, Alloc>::list(const list<T, Alloc>& src) : head_(nullptr), tail_(nullptr), size_(0) {
     Node* current = src.head_;
     while (current != nullptr) {
         push_back(current->data);
@@ -23,13 +23,13 @@ list<T>::list(const list<T>& src) : head_(nullptr), tail_(nullptr), size_(0) {
     }
 }
 
-template <typename T>
-list<T>::~list() {
+template <typename T, typename Alloc>
+list<T, Alloc>::~list() {
     clear();
 }
 
-template <typename T>
-list<T>& list<T>::operator=(const list& rhs) {
+template <typename T, typename Alloc>
+list<T, Alloc>& list<T, Alloc>::operator=(const list& rhs) {
     if (this != &rhs) {
         clear();
         Node* current = rhs.head_;
@@ -41,58 +41,58 @@ list<T>& list<T>::operator=(const list& rhs) {
     return *this;
 }
 
-template <typename T>
-typename list<T>::iterator list<T>::begin() {
+template <typename T, typename Alloc>
+typename list<T, Alloc>::iterator list<T, Alloc>::begin() {
     return iterator(head_);
 }
 
-template <typename T>
-typename list<T>::const_iterator list<T>::begin() const {
+template <typename T, typename Alloc>
+typename list<T, Alloc>::const_iterator list<T, Alloc>::begin() const {
     return const_iterator(head_);
 }
 
-template <typename T>
-typename list<T>::iterator list<T>::end() {
+template <typename T, typename Alloc>
+typename list<T, Alloc>::iterator list<T, Alloc>::end() {
     return iterator(tail_ ? tail_->next : nullptr);
 }
 
-template <typename T>
-typename list<T>::const_iterator list<T>::end() const {
+template <typename T, typename Alloc>
+typename list<T, Alloc>::const_iterator list<T, Alloc>::end() const {
     return const_iterator(tail_ ? tail_->next : nullptr);
 }
 
-template <typename T>
-T& list<T>::front() {
+template <typename T, typename Alloc>
+T& list<T, Alloc>::front() {
     return head_->data;
 }
 
-template <typename T>
-const T& list<T>::front() const {
+template <typename T, typename Alloc>
+const T& list<T, Alloc>::front() const {
     return head_->data;
 }
 
-template <typename T>
-T& list<T>::back() {
+template <typename T, typename Alloc>
+T& list<T, Alloc>::back() {
     return tail_->data;
 }
 
-template <typename T>
-const T& list<T>::back() const {
+template <typename T, typename Alloc>
+const T& list<T, Alloc>::back() const {
     return tail_->data;
 }
 
-template <typename T>
-size_t list<T>::size() const {
+template <typename T, typename Alloc>
+size_t list<T, Alloc>::size() const {
     return size_;
 }
 
-template <typename T>
-bool list<T>::empty() const {
+template <typename T, typename Alloc>
+bool list<T, Alloc>::empty() const {
     return size_ == 0;
 }
 
-template <typename T>
-void list<T>::resize(size_t n, T val) {
+template <typename T, typename Alloc>
+void list<T, Alloc>::resize(size_t n, T val) {
     if (n > size_) {
         while (size_ < n) {
             push_back(val);
@@ -104,8 +104,8 @@ void list<T>::resize(size_t n, T val) {
     }
 }
 
-template <typename T>
-void list<T>::push_front(const T& val) {
+template <typename T, typename Alloc>
+void list<T, Alloc>::push_front(const T& val) {
     Node* new_node = new Node(val, nullptr, head_);
     if (head_ != nullptr) {
         head_->prev = new_node;
@@ -116,8 +116,8 @@ void list<T>::push_front(const T& val) {
     size_++;
 }
 
-template <typename T>
-void list<T>::pop_front() {
+template <typename T, typename Alloc>
+void list<T, Alloc>::pop_front() {
     if (head_ != nullptr) {
         Node* old_head = head_;
         head_ = head_->next;
@@ -131,8 +131,8 @@ void list<T>::pop_front() {
     }
 }
 
-template <typename T>
-void list<T>::push_back(const T& val) {
+template <typename T, typename Alloc>
+void list<T, Alloc>::push_back(const T& val) {
     Node* new_node = new Node(val, tail_, nullptr);
     if (tail_ != nullptr) {
         tail_->next = new_node;
@@ -143,8 +143,8 @@ void list<T>::push_back(const T& val) {
     size_++;
 }
 
-template <typename T>
-void list<T>::pop_back() {
+template <typename T, typename Alloc>
+void list<T, Alloc>::pop_back() {
     if (tail_ != nullptr) {
         Node* old_tail = tail_;
         tail_ = tail_->prev;
@@ -158,8 +158,8 @@ void list<T>::pop_back() {
     }
 }
 
-template <typename T>
-typename list<T>::iterator list<T>::insert(iterator position, const T& val) {
+template <typename T, typename Alloc>
+typename list<T, Alloc>::iterator list<T, Alloc>::insert(iterator position, const T& val) {
     Node* pos_node = position.node();
     Node* new_node = new Node(val, pos_node ? pos_node->prev : nullptr, pos_node);
 
@@ -179,8 +179,8 @@ typename list<T>::iterator list<T>::insert(iterator position, const T& val) {
     return iterator(new_node);
 }
 
-template <typename T>
-typename list<T>::iterator list<T>::insert(iterator position, size_t n, const T& val) {
+template <typename T, typename Alloc>
+typename list<T, Alloc>::iterator list<T, Alloc>::insert(iterator position, size_t n, const T& val) {
     iterator result = position;
     if (n > 0) {
         result = insert(position, val);
@@ -191,8 +191,8 @@ typename list<T>::iterator list<T>::insert(iterator position, size_t n, const T&
     return result;
 }
 
-template <typename T>
-typename list<T>::iterator list<T>::insert(iterator position, iterator first, iterator last) {
+template <typename T, typename Alloc>
+typename list<T, Alloc>::iterator list<T, Alloc>::insert(iterator position, iterator first, iterator last) {
     iterator result = position;
     bool first_inserted = false;
     while (first != last) {
@@ -207,8 +207,8 @@ typename list<T>::iterator list<T>::insert(iterator position, iterator first, it
     return result;
 }
 
-template <typename T>
-typename list<T>::iterator list<T>::erase(iterator position) {
+template <typename T, typename Alloc>
+typename list<T, Alloc>::iterator list<T, Alloc>::erase(iterator position) {
     Node* pos_node = position.node();
     if (pos_node == nullptr) {
         return position;
@@ -233,16 +233,16 @@ typename list<T>::iterator list<T>::erase(iterator position) {
     return iterator(next_node);
 }
 
-template <typename T>
-typename list<T>::iterator list<T>::erase(iterator first, iterator last) {
+template <typename T, typename Alloc>
+typename list<T, Alloc>::iterator list<T, Alloc>::erase(iterator first, iterator last) {
     while (first != last) {
         first = erase(first);
     }
     return first;
 }
 
-template <typename T>
-void list<T>::clear() {
+template <typename T, typename Alloc>
+void list<T, Alloc>::clear() {
     while (head_ != nullptr) {
         Node* next = head_->next;
         delete head_;
@@ -252,21 +252,21 @@ void list<T>::clear() {
     size_ = 0;
 }
 
-template <typename T>
-void list<T>::splice(iterator position, list& x) {
+template <typename T, typename Alloc>
+void list<T, Alloc>::splice(iterator position, list& x) {
     if (x.empty()) return;
     splice(position, x, x.begin(), x.end());
 }
 
-template <typename T>
-void list<T>::splice(iterator position, list& x, iterator i) {
+template <typename T, typename Alloc>
+void list<T, Alloc>::splice(iterator position, list& x, iterator i) {
     iterator j = i;
     ++j;
     splice(position, x, i, j);
 }
 
-template <typename T>
-void list<T>::splice(iterator position, list& x, iterator first, iterator last) {
+template <typename T, typename Alloc>
+void list<T, Alloc>::splice(iterator position, list& x, iterator first, iterator last) {
     if (first == last) return;
 
     Node* pos_node = position.node();
@@ -299,8 +299,8 @@ void list<T>::splice(iterator position, list& x, iterator first, iterator last) 
     x.size_ = 0;
 }
 
-template <typename T>
-void list<T>::remove(const T& val) {
+template <typename T, typename Alloc>
+void list<T, Alloc>::remove(const T& val) {
     iterator it = begin();
     while (it != end()) {
         if (*it == val) {
@@ -311,9 +311,9 @@ void list<T>::remove(const T& val) {
     }
 }
 
-template <typename T>
+template <typename T, typename Alloc>
 template <class Predicate>
-void list<T>::remove_if(Predicate pred) {
+void list<T, Alloc>::remove_if(Predicate pred) {
     iterator it = begin();
     while (it != end()) {
         if (pred(*it)) {
@@ -324,8 +324,8 @@ void list<T>::remove_if(Predicate pred) {
     }
 }
 
-template <typename T>
-void list<T>::unique() {
+template <typename T, typename Alloc>
+void list<T, Alloc>::unique() {
     if (size_ <= 1) return;
     iterator it = begin();
     T last_value = *it;
@@ -340,9 +340,9 @@ void list<T>::unique() {
     }
 }
 
-template <typename T>
+template <typename T, typename Alloc>
 template <class BinaryPredicate>
-void list<T>::unique(BinaryPredicate binary_pred) {
+void list<T, Alloc>::unique(BinaryPredicate binary_pred) {
     if (size_ <= 1) return;
     iterator it = begin();
     T last_value = *it;
@@ -357,8 +357,8 @@ void list<T>::unique(BinaryPredicate binary_pred) {
     }
 }
 
-template <typename T>
-void list<T>::merge(list& x) {
+template <typename T, typename Alloc>
+void list<T, Alloc>::merge(list& x) {
     if (this == &x) return;
 
     iterator this_it = begin();
@@ -380,9 +380,9 @@ void list<T>::merge(list& x) {
     }
 }
 
-template <typename T>
+template <typename T, typename Alloc>
 template <class Compare>
-void list<T>::merge(list& x, Compare comp) {
+void list<T, Alloc>::merge(list& x, Compare comp) {
     if (this == &x) return;
 
     iterator this_it = begin();
@@ -404,12 +404,12 @@ void list<T>::merge(list& x, Compare comp) {
     }
 }
 
-template <typename T>
-void list<T>::sort() {
+template <typename T, typename Alloc>
+void list<T, Alloc>::sort() {
     if (size_ <= 1) return;
 
-    list<T> result;
-    list<T> temp;
+    list<T, Alloc> result;
+    list<T, Alloc> temp;
 
     while (!empty()) {
         temp.splice(temp.begin(), *this, begin());
@@ -419,13 +419,13 @@ void list<T>::sort() {
     splice(result.begin(), result, result.begin(), result.end());
 }
 
-template <typename T>
+template <typename T, typename Alloc>
 template <class Compare>
-void list<T>::sort(Compare comp) {
+void list<T, Alloc>::sort(Compare comp) {
     if (size_ <= 1) return;
 
-    list<T> result;
-    list<T> temp;
+    list<T, Alloc> result;
+    list<T, Alloc> temp;
 
     while (!empty()) {
         temp.splice(temp.begin(), *this, begin());
@@ -435,8 +435,8 @@ void list<T>::sort(Compare comp) {
     splice(result.begin(), result, result.begin(), result.end());
 }
 
-template <typename T>
-void list<T>::reverse() {
+template <typename T, typename Alloc>
+void list<T, Alloc>::reverse() {
     if (size_ <= 1) return;
 
     Node* current = head_;
