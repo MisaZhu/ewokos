@@ -19,7 +19,10 @@ CFLAGS = -m64 \
 	-mno-red-zone \
 	-std=c99
 
+# -nostdinc++: EWOK_STL is the only C++ standard library in scope.  See the longer
+# note in system/platform/aarch64/make.rule.
 CXXFLAGS = -m64 \
+	-nostdinc++ \
 	-Wall -Wextra -fPIC \
 	-Wno-unused-parameter \
 	-pedantic \

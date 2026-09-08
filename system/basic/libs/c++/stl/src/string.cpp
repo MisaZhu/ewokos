@@ -980,22 +980,38 @@ string::iterator string::erase(iterator first, iterator last) {
     return data_ + pos;
 }
 
+/* Lexicographic, exactly as char_traits<char>::compare is: walk the common prefix
+   and only fall back to the lengths when one string is a prefix of the other.  The
+   previous version tested the lengths first,
+
+       if (length_ < str.length_) return -1;
+
+   which made "pear" (4) sort before "apple" (5).  Equality happened to survive it
+   - compare() returns 0 only when the lengths match and every character does - so
+   operator== and the containers' find() looked fine, and the bug only showed up
+   wherever the ordering matters: std::set<std::string>, std::map<std::string, ...>,
+   std::sort over a vector of strings.  std::set<std::string>{"pear","apple",
+   "quince"}.begin() pointed at "pear".
+
+   The characters are compared as unsigned char, which is what memcmp does and what
+   libstdc++ does.  It matters here more than usual because EwokOS is built for
+   several targets where char's signedness differs - unsigned on aarch64 and arm,
+   signed on x86 - so without the cast the same two strings would order differently
+   depending on which machine the OS was built for. */
 int string::compare(const string& str) const {
+    size_t n = length_ < str.length_ ? length_ : str.length_;
+    for (size_t i = 0; i < n; i++) {
+        unsigned char a = (unsigned char)data_[i];
+        unsigned char b = (unsigned char)str.data_[i];
+        if (a != b) {
+            return a < b ? -1 : 1;
+        }
+    }
+
     if (length_ < str.length_) {
         return -1;
     } else if (length_ > str.length_) {
         return 1;
-    }
-
-    int comp = 0;
-    for (size_t i = 0; i < length_; i++) {
-        comp = data_[i] - str.data_[i];
-        
-        if (comp < 0) {
-            return -1;
-        } else if (comp > 0) {
-            return 1;
-        }
     }
 
     return 0;

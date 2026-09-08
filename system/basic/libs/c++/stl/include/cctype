@@ -1,0 +1,35 @@
+#ifndef EWOK_STL_CCTYPE_H
+#define EWOK_STL_CCTYPE_H
+
+/*
+ * <cctype> - the C <ctype.h> names, in namespace std.
+ *
+ * EwokOS implements the whole classification set as `static inline` functions,
+ * so every name can be brought in with a plain using-declaration.  Nothing is
+ * missing here, unlike <cstring> / <cstdio>.
+ */
+
+#include <ctype.h>
+
+namespace std {
+
+using ::isalnum;
+using ::isalpha;
+using ::isblank;
+using ::iscntrl;
+using ::isdigit;
+using ::isgraph;
+using ::islower;
+using ::isprint;
+using ::ispunct;
+using ::isspace;
+using ::isupper;
+using ::isxdigit;
+using ::isascii;
+
+using ::tolower;
+using ::toupper;
+
+}
+
+#endif // EWOK_STL_CCTYPE_H

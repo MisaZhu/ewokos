@@ -235,7 +235,6 @@ typename list<T>::iterator list<T>::erase(iterator position) {
 
 template <typename T>
 typename list<T>::iterator list<T>::erase(iterator first, iterator last) {
-    iterator result = first;
     while (first != last) {
         first = erase(first);
     }

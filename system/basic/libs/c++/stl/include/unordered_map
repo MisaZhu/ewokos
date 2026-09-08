@@ -3,6 +3,11 @@
 
 #include "iterator"
 #include "utility"
+/* do_hash() below has a non-template overload taking const string&, but this
+   header never asked for it - it only compiled when the caller happened to
+   include <string> first.  <string> pulls in nothing but C headers, so there is
+   no cycle. */
+#include "string"
 
 #include <stddef.h>
 

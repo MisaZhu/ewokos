@@ -1,0 +1,35 @@
+#ifndef EWOK_STL_CSTDDEF_H
+#define EWOK_STL_CSTDDEF_H
+
+/*
+ * <cstddef> - the C <stddef.h> names, in namespace std.
+ *
+ * Qt's qglobal.h and QtCore headers name std::size_t / std::ptrdiff_t /
+ * std::nullptr_t directly (84 uses of std::nullptr_t alone), so these have to
+ * be visible in namespace std rather than only in the global namespace.
+ */
+
+#include <stddef.h>
+
+namespace std {
+
+using ::size_t;
+using ::ptrdiff_t;
+
+/* nullptr_t is decltype(nullptr); the compiler knows the type, it just is not
+   named in the global namespace. */
+typedef decltype(nullptr) nullptr_t;
+
+/* The platform's <stddef.h> does not name max_align_t.  On aarch64-none-elf
+   long double is IEEE binary128 - 16 bytes, 16-byte aligned, __LDBL_MANT_DIG__
+   is 113 - so it already has the greatest alignment of any standard type here
+   and can be used directly.  __int128 would want the same 16 and is a GCC
+   extension that -pedantic rejects anyway. */
+typedef long double max_align_t;
+
+/* std::byte is C++17; EwokOS builds QtCore/QtGui/QtWidgets with -std=c++14, so
+   it is deliberately not provided. */
+
+}
+
+#endif // EWOK_STL_CSTDDEF_H

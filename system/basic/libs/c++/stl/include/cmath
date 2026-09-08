@@ -1,0 +1,150 @@
+#ifndef EWOK_STL_CMATH_H
+#define EWOK_STL_CMATH_H
+
+/*
+ * <cmath> - the C <math.h> names, in namespace std.
+ *
+ * EwokOS's <math.h> implements fabs/sqrt and friends as `static inline` over
+ * GCC builtins, and isnan/isinf/isfinite as function-like MACROS.  A
+ * using-declaration cannot name a macro, so the classification functions are
+ * defined here as real overloads after #undef-ing the macros (see below).
+ */
+
+#include <math.h>
+
+namespace std {
+
+using ::fabs;
+using ::fabsf;
+using ::fabsl;
+
+using ::sqrt;
+using ::sqrtf;
+using ::cbrt;
+using ::cbrtf;
+using ::hypot;
+using ::hypotf;
+
+using ::sin;
+using ::sinf;
+using ::cos;
+using ::cosf;
+using ::tan;
+using ::tanf;
+using ::asin;
+using ::asinf;
+using ::acos;
+using ::acosf;
+using ::atan;
+using ::atanf;
+using ::atan2;
+using ::atan2f;
+
+using ::sinh;
+using ::sinhf;
+using ::cosh;
+using ::coshf;
+using ::tanh;
+using ::tanhf;
+using ::asinh;
+using ::asinhf;
+using ::acosh;
+using ::acoshf;
+using ::atanh;
+using ::atanhf;
+
+using ::exp;
+using ::expf;
+using ::exp2;
+using ::exp2f;
+using ::log;
+using ::logf;
+using ::log2;
+using ::log2f;
+using ::log10;
+using ::log10f;
+using ::pow;
+using ::powf;
+
+using ::ceil;
+using ::ceilf;
+using ::floor;
+using ::floorf;
+using ::round;
+using ::roundf;
+using ::lround;
+using ::lroundf;
+using ::llround;
+using ::llroundf;
+using ::trunc;
+using ::truncf;
+using ::rint;
+using ::rintf;
+using ::nearbyint;
+using ::nearbyintf;
+using ::lrint;
+using ::lrintf;
+using ::llrint;
+using ::llrintf;
+
+using ::fmod;
+using ::fmodf;
+using ::modf;
+using ::modff;
+using ::fmin;
+using ::fminf;
+using ::fmax;
+using ::fmaxf;
+using ::copysign;
+using ::copysignf;
+using ::ldexp;
+using ::ldexpf;
+using ::scalbn;
+using ::scalbnf;
+using ::frexp;
+using ::frexpf;
+
+/* C++ puts the floating-point abs() in <cmath>, while the integral ones live
+   in <cstdlib>.  The platform only offers fabs(), so spell the overloads out;
+   they coexist with ::abs(int) brought in by <cstdlib>. */
+inline float abs(float x) { return __builtin_fabsf(x); }
+inline double abs(double x) { return __builtin_fabs(x); }
+inline long double abs(long double x) { return __builtin_fabsl(x); }
+
+}
+
+/* isnan / isinf / isfinite arrive as macros from <math.h>.  They have to be
+   removed rather than temporarily hidden: with the macro still live, a caller's
+   `std::isnan(x)` expands to `std::__builtin_isnan(x)` and fails to compile.
+   This is what libstdc++'s <cmath> does too.  Unqualified isnan(x) keeps
+   working via the using-declarations at the bottom, and C code is unaffected
+   because it includes <math.h>, never <cmath>. */
+#undef isnan
+#undef isinf
+#undef isfinite
+
+namespace std {
+
+inline bool isnan(float x) { return __builtin_isnan(x); }
+inline bool isnan(double x) { return __builtin_isnan(x); }
+inline bool isnan(long double x) { return __builtin_isnan(x); }
+inline bool isinf(float x) { return __builtin_isinf_sign(x) != 0; }
+inline bool isinf(double x) { return __builtin_isinf_sign(x) != 0; }
+inline bool isinf(long double x) { return __builtin_isinf_sign(x) != 0; }
+inline bool isfinite(float x) { return __builtin_isfinite(x); }
+inline bool isfinite(double x) { return __builtin_isfinite(x); }
+inline bool isfinite(long double x) { return __builtin_isfinite(x); }
+inline bool isnormal(float x) { return __builtin_isnormal(x); }
+inline bool isnormal(double x) { return __builtin_isnormal(x); }
+inline bool signbit(float x) { return __builtin_signbit(x) != 0; }
+inline bool signbit(double x) { return __builtin_signbit(x) != 0; }
+
+}
+
+using std::isnan;
+using std::isinf;
+using std::isfinite;
+using std::isnormal;
+using std::signbit;
+
+#endif // EWOK_STL_CMATH_H

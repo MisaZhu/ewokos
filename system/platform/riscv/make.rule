@@ -31,7 +31,10 @@ CFLAGS = -mlittle-endian \
         -fno-builtin-unistd \
         -std=c99
 
+# -nostdinc++: EWOK_STL is the only C++ standard library in scope.  See the longer
+# note in system/platform/aarch64/make.rule.
 CXXFLAGS = \
+        -nostdinc++ \
         -pedantic -Wall -Wextra -fPIC  \
 		-msmall-data-limit=1 \
 		-mno-relax \

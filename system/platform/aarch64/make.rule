@@ -26,7 +26,16 @@ CFLAGS =  -march=armv8-a -Wno-incompatible-pointer-types -Wno-int-conversion \
         -mno-outline-atomics \
         -std=c99
 
+# -nostdinc++ closes off the toolchain's libstdc++ headers so that EWOK_STL, which
+# the STL_HEADERS_STAMP rule below installs into $(BUILD_DIR)/include, is the only
+# C++ standard library in scope.  Without it, a header EWOK_STL lacks silently falls
+# through to libstdc++ - and then fails to compile, because libstdc++'s internals
+# expect libstdc++'s <type_traits>/<utility> and find ours shadowing them instead
+# (<chrono> 37 errors, <mutex> 57, <future> 560).  It also makes __has_include()
+# report honestly, which is what Qt's feature detection is built on.  EWOK_LIB_X has
+# never listed -lstdc++, so nothing is given up at link time either.
 CXXFLAGS = -march=armv8-a \
+        -nostdinc++ \
         -Wall -Wextra -fPIC \
 		-fno-builtin-memcpy \
 		-fno-builtin-memmove \

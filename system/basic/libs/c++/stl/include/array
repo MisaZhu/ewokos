@@ -1,0 +1,175 @@
+#ifndef EWOK_STL_ARRAY_H
+#define EWOK_STL_ARRAY_H
+
+/*
+ * <array> - std::array, a fixed-size aggregate wrapper around a C array.
+ *
+ * Qt uses it in 22 places, and four of them pin down the design:
+ *
+ *   gui/painting/qicc.cpp:528   std::array<quint32_be, 3> parameters =
+ *                                   qFromUnaligned<decltype(parameters)>(ptr);
+ *   gui/image/qxpmhandler.cpp:1062  struct CharBuffer : std::array<char, N>
+ *   gui/rhi/qrhi_p.h:120        std::array<float, 4> m_rect { { 0.f, ... } };
+ *   corelib/tools/qmakearray_p.h:87 std::array<...::type, sizeof...(Types)>
+ *
+ * qFromUnaligned memcpy()s into the array, so it has to be trivially copyable
+ * and standard-layout.  qrhi_p.h initialises it with *double* braces, which only
+ * parses if the class has exactly one data member and that member is itself an
+ * aggregate - so no user-provided constructors, no base class, no private
+ * members.  CharBuffer derives from it and adds its own default constructor.
+ * And qmakearray_p.h sizes it from a parameter pack, so N can be 0.
+ *
+ * N == 0 is the awkward case: a zero-length array is a GNU extension that
+ * -pedantic rejects, so the storage type becomes an empty struct instead, which
+ * is what libstdc++ does and which leaves sizeof(array<T,0>) == 1.  Element
+ * access then has nothing to point at, so it goes through the two helpers in
+ * __array_traits, which return null for the empty case.  Routing operator[],
+ * fill() and swap() through those helpers also keeps them instantiable for
+ * N == 0, where indexing the empty struct directly would be a hard error.
+ */
+
+#include "cstddef"
+#include "iterator"
+#include "utility"
+
+namespace std {
+
+template <class T, size_t N>
+struct __array_traits {
+    typedef T _Type[N];
+    static T* _S_ptr(_Type& t) noexcept { return &t[0]; }
+    static const T* _S_ptr(const _Type& t) noexcept { return &t[0]; }
+};
+
+template <class T>
+struct __array_traits<T, 0> {
+    struct _Type {};
+    static T* _S_ptr(_Type&) noexcept { return 0; }
+    static const T* _S_ptr(const _Type&) noexcept { return 0; }
+};
+
+template <class T, size_t N>
+struct array {
+    typedef T value_type;
+    typedef T* pointer;
+    typedef const T* const_pointer;
+    typedef T& reference;
+    typedef const T& const_reference;
+    typedef T* iterator;
+    typedef const T* const_iterator;
+    typedef size_t size_type;
+    typedef ptrdiff_t difference_type;
+    /* Qualified with std:: on purpose: an unqualified reverse_iterator here would
+       name the member typedef being declared, not the template from <iterator>.
+       <vector> spells it the same way. */
+    typedef std::reverse_iterator<iterator> reverse_iterator;
+    typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
+
+private:
+    typedef __array_traits<T, N> __traits;
+
+public:
+    /* The only data member, and an aggregate one - see the header comment. */
+    typename __traits::_Type _M_elems;
+
+    void fill(const T& value) {
+        T* p = __traits::_S_ptr(_M_elems);
+        for (size_type i = 0; i < N; ++i)
+            p[i] = value;
+    }
+
+    void swap(array& other) {
+        T* a = __traits::_S_ptr(_M_elems);
+        T* b = __traits::_S_ptr(other._M_elems);
+        for (size_type i = 0; i < N; ++i)
+            std::swap(a[i], b[i]);
+    }
+
+    iterator begin() noexcept { return __traits::_S_ptr(_M_elems); }
+    const_iterator begin() const noexcept { return __traits::_S_ptr(_M_elems); }
+    iterator end() noexcept { return __traits::_S_ptr(_M_elems) + N; }
+    const_iterator end() const noexcept { return __traits::_S_ptr(_M_elems) + N; }
+
+    const_iterator cbegin() const noexcept { return begin(); }
+    const_iterator cend() const noexcept { return end(); }
+
+    reverse_iterator rbegin() noexcept { return reverse_iterator(end()); }
+    const_reverse_iterator rbegin() const noexcept { return const_reverse_iterator(end()); }
+    reverse_iterator rend() noexcept { return reverse_iterator(begin()); }
+    const_reverse_iterator rend() const noexcept { return const_reverse_iterator(begin()); }
+
+    const_reverse_iterator crbegin() const noexcept { return const_reverse_iterator(end()); }
+    const_reverse_iterator crend() const noexcept { return const_reverse_iterator(begin()); }
+
+    constexpr size_type size() const noexcept { return N; }
+    constexpr size_type max_size() const noexcept { return N; }
+    constexpr bool empty() const noexcept { return N == 0; }
+
+    reference operator[](size_type n) { return __traits::_S_ptr(_M_elems)[n]; }
+    /* Not constexpr, although the standard's is: the __array_traits helpers are
+       ordinary functions so that the N == 0 case needs no const_cast, and a
+       constexpr function may not call one.  size()/empty()/max_size() above do
+       not touch the elements, so they stay constexpr. */
+    const_reference operator[](size_type n) const { return __traits::_S_ptr(_M_elems)[n]; }
+
+    /* No bounds check, matching vector::at() and deque::at() in this STL.  The
+       standard throws std::out_of_range here; there is no exception runtime to
+       throw it with, and adding an abort() would make this the only container in
+       the library that traps. */
+    reference at(size_type n) { return __traits::_S_ptr(_M_elems)[n]; }
+    const_reference at(size_type n) const { return __traits::_S_ptr(_M_elems)[n]; }
+
+    /* Both require N > 0, exactly as the standard does. */
+    reference front() { return __traits::_S_ptr(_M_elems)[0]; }
+    const_reference front() const { return __traits::_S_ptr(_M_elems)[0]; }
+    reference back() { return __traits::_S_ptr(_M_elems)[N - 1]; }
+    const_reference back() const { return __traits::_S_ptr(_M_elems)[N - 1]; }
+
+    pointer data() noexcept { return __traits::_S_ptr(_M_elems); }
+    const_pointer data() const noexcept { return __traits::_S_ptr(_M_elems); }
+};
+
+template <class T, size_t N>
+bool operator==(const array<T, N>& a, const array<T, N>& b) {
+    const T* pa = a.data();
+    const T* pb = b.data();
+    for (size_t i = 0; i < N; ++i)
+        if (!(pa[i] == pb[i]))
+            return false;
+    return true;
+}
+
+template <class T, size_t N>
+bool operator!=(const array<T, N>& a, const array<T, N>& b) {
+    return !(a == b);
+}
+
+/* Lexicographic, so < <= > >= all follow from these two. */
+template <class T, size_t N>
+bool operator<(const array<T, N>& a, const array<T, N>& b) {
+    for (size_t i = 0; i < N; ++i) {
+        if (a[i] < b[i]) return true;
+        if (b[i] < a[i]) return false;
+    }
+    return false;
+}
+
+template <class T, size_t N>
+bool operator>(const array<T, N>& a, const array<T, N>& b) { return b < a; }
+
+template <class T, size_t N>
+bool operator<=(const array<T, N>& a, const array<T, N>& b) { return !(b < a); }
+
+template <class T, size_t N>
+bool operator>=(const array<T, N>& a, const array<T, N>& b) { return !(a < b); }
+
+template <class T, size_t N>
+void swap(array<T, N>& a, array<T, N>& b) { a.swap(b); }
+
+/* std::get / std::tuple_size / std::tuple_element specializations for array are
+   deliberately absent: nothing in Qt's corelib, gui, widgets or platformsupport
+   uses them, and structured bindings are C++17 while the SDK builds C++14. */
+
+}
+
+#endif // EWOK_STL_ARRAY_H

@@ -876,6 +876,9 @@ static int ewok_reg_try_free(void *ptr) {
     return handled;
 }
 
+/* Defined further down; used by malloc() to reject a corrupted result. */
+int ewok_ptr_in_heap(const void *p);
+
 void *malloc(size_t size) {
     void *ptr;
 
@@ -885,6 +888,13 @@ void *malloc(size_t size) {
 
     compat_heap_init();
     ptr = trunk_malloc(&compat_heap, (ewokos_addr_t)size);
+    if (ptr != NULL && !ewok_ptr_in_heap(ptr)) {
+        /* The allocator handed back an address outside the live heap, i.e.
+         * the block metadata or the process break was corrupted earlier.
+         * Refuse it here so callers see a checked OOM instead of storing
+         * through a wild pointer deep inside unrelated code. */
+        ptr = NULL;
+    }
     if (ptr == NULL) {
         errno = ENOMEM;
     }

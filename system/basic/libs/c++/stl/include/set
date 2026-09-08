@@ -1,77 +1,649 @@
 #ifndef EWOK_STL_SET_H
 #define EWOK_STL_SET_H
 
-#include "iterator"
+/*
+ * <set> - an ordered set, implemented as a red-black tree.
+ *
+ * This replaces the previous version, which had two defects that made it unusable
+ * for anything beyond a demonstration:
+ *
+ *  1. Every member was defined in src/set.cpp, which ended with a single
+ *     `template class set<int>;`.  A class template's definitions have to be
+ *     visible where the template is instantiated, so std::set<char> compiled fine
+ *     and then failed to link with "undefined reference to std::set<char>::insert".
+ *     Only set<int> ever worked.  Qt needs std::set<QRectF, UpdatedRectsCmp>
+ *     (qgraphicsscene_p.h:140), so everything now lives here and src/set.cpp is
+ *     gone from LIB_EWOKSTL_OBJS.
+ *
+ *  2. iterator was random_access_iterator<T>, built from &node->key.  That is a
+ *     T* pointing into the middle of a heap node, so ++it walked straight into the
+ *     node's colour, child and parent pointers and then out into unrelated heap.
+ *     You could insert and read *begin(), but you could not iterate - and Qt does
+ *     exactly that:
+ *
+ *         std::copy(updatedRects.cbegin(), updatedRects.cend(),
+ *                   std::back_inserter(oldUpdatedRects));   // qgraphicsscene.cpp:394
+ *
+ *     Iterators are now genuine bidirectional tree iterators.
+ *
+ * The node layout follows libstdc++: a base type carrying only the tree links and
+ * the colour, and a derived type adding the value.  The set owns one base node, the
+ * header, which is never a real element.  header_.parent is the root, header_.left
+ * the leftmost node and header_.right the rightmost, so end() is simply &header_.
+ * Storing the header by value rather than allocating it means an empty set needs no
+ * value_type default constructor.
+ *
+ * Unlike libstdc++, the root's parent is null rather than &header_.  That keeps the
+ * rotation and transplant code free of special cases, and the iterators recognise
+ * the top of the tree by running out of parents instead of by comparing against the
+ * header - see the `p != 0` guards in increment()/decrement(), which are what stop
+ * them dereferencing a null parent when climbing off the last or first element.
+ *
+ * Ordering goes through the Compare parameter rather than a hardcoded operator<,
+ * which is what lets Qt supply UpdatedRectsCmp.  Note that set's iterator yields
+ * const T& even when the iterator itself is non-const: keys are immutable, because
+ * changing one would break the ordering invariant.
+ */
+
+#include <functional>   /* less, the default Compare */
+#include <iterator>     /* bidirectional_iterator_tag, reverse_iterator */
+#include <memory>       /* allocator */
+#include <utility>      /* pair, swap */
 
 #include <stddef.h>
 
 namespace std {
 
-enum class Color { RED, BLACK };
+/* Prefixed rather than a plain `Color`, which the old header put into namespace
+   std - too generic a name to own there. */
+enum __set_color { __set_red, __set_black };
 
-template <typename T>
-struct set_node {
+struct __set_node_base {
+    __set_node_base* left;
+    __set_node_base* right;
+    __set_node_base* parent;
+    __set_color color;
+
+    explicit __set_node_base(__set_color c)
+        : left(0), right(0), parent(0), color(c) {}
+};
+
+template <class T>
+struct __set_node : __set_node_base {
     T key;
-    Color color;
-    set_node* left;
-    set_node* right;
-    set_node* parent;
-    bool is_nil;
 
-    set_node(const T& k, Color c = Color::RED, bool nil = false)
-        : key(k), color(c), left(nullptr), right(nullptr), parent(nullptr), is_nil(nil) {}
+    __set_node() : __set_node_base(__set_red), key() {}
+    explicit __set_node(const T& k) : __set_node_base(__set_red), key(k) {}
 };
 
-template <typename T>
+template <class T>
+class __set_iterator {
+public:
+    typedef T value_type;
+    typedef ptrdiff_t difference_type;
+    typedef const T* pointer;
+    typedef const T& reference;
+    typedef bidirectional_iterator_tag iterator_category;
+
+private:
+    __set_node_base* node_;
+    __set_node_base* header_;
+
+    static const T& key_of(__set_node_base* n) {
+        return static_cast<__set_node<T>*>(n)->key;
+    }
+
+    /* Successor in the in-order sequence.  Climbing off the rightmost element runs
+       out of parents, which is how end() is reached. */
+    static __set_node_base* increment(__set_node_base* x, __set_node_base* header) {
+        if (x == header) {
+            /* ++end() is undefined, but wrapping to the first element costs one
+               test and keeps a stray ++ from walking off into memory. */
+            return header->left ? header->left : header;
+        }
+        if (x->right != 0) {
+            x = x->right;
+            while (x->left != 0) x = x->left;
+            return x;
+        }
+        __set_node_base* p = x->parent;
+        while (p != 0 && x == p->right) { x = p; p = p->parent; }
+        return p ? p : header;
+    }
+
+    /* Predecessor.  --end() is the last element, the one case the standard does
+       define and the one reverse_iterator depends on. */
+    static __set_node_base* decrement(__set_node_base* x, __set_node_base* header) {
+        if (x == header) return header->right;
+        if (x->left != 0) {
+            __set_node_base* y = x->left;
+            while (y->right != 0) y = y->right;
+            return y;
+        }
+        __set_node_base* p = x->parent;
+        while (p != 0 && x == p->left) { x = p; p = p->parent; }
+        return p ? p : header;
+    }
+
+public:
+    __set_iterator() : node_(0), header_(0) {}
+    __set_iterator(__set_node_base* n, __set_node_base* h) : node_(n), header_(h) {}
+
+    reference operator*() const { return key_of(node_); }
+    pointer operator->() const { return &key_of(node_); }
+
+    __set_iterator& operator++() { node_ = increment(node_, header_); return *this; }
+    __set_iterator operator++(int) { __set_iterator t(*this); ++*this; return t; }
+    __set_iterator& operator--() { node_ = decrement(node_, header_); return *this; }
+    __set_iterator operator--(int) { __set_iterator t(*this); --*this; return t; }
+
+    bool operator==(const __set_iterator& o) const { return node_ == o.node_; }
+    bool operator!=(const __set_iterator& o) const { return node_ != o.node_; }
+
+    __set_node_base* base() const { return node_; }
+};
+
+template <class Key, class Compare = less<Key>, class Alloc = allocator<Key> >
 class set {
-    public:
-        typedef T value_type;
-        typedef T& reference;
-        typedef const T& const_reference;
-        typedef size_t size_type;
-        typedef random_access_iterator<T> iterator;
-        typedef const random_access_iterator<T> const_iterator;
+public:
+    typedef Key key_type;
+    typedef Key value_type;
+    typedef Compare key_compare;
+    typedef Compare value_compare;
+    typedef Alloc allocator_type;
+    typedef value_type& reference;
+    typedef const value_type& const_reference;
+    typedef value_type* pointer;
+    typedef const value_type* const_pointer;
+    typedef size_t size_type;
+    typedef ptrdiff_t difference_type;
 
-        set();
-        set(const set<T>& src);
-        ~set();
+    /* Keys are immutable, so iterator and const_iterator are the same type and
+       both hand out const references. */
+    typedef __set_iterator<Key> iterator;
+    typedef __set_iterator<Key> const_iterator;
+    typedef std::reverse_iterator<iterator> reverse_iterator;
+    typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
 
-        set<T>& operator=(const set& rhs);
+private:
+    typedef __set_node<Key> node_type;
 
-        iterator begin();
-        const_iterator begin() const;
-        iterator end();
-        const_iterator end() const;
+    __set_node_base header_;
+    size_type size_;
+    key_compare comp_;
 
-        size_t size() const;
-        bool empty() const;
+    /* header_ is a value member, so inside a const method header_.parent is a
+       `__set_node_base* const` - the pointer cannot be reseated, but reading it
+       still yields a non-const pointee.  One accessor therefore serves both. */
+    __set_node_base*& root_slot() { return header_.parent; }
+    __set_node_base*& leftmost_slot() { return header_.left; }
+    __set_node_base*& rightmost_slot() { return header_.right; }
+    __set_node_base* root() const { return header_.parent; }
+    __set_node_base* leftmost() const { return header_.left; }
+    __set_node_base* rightmost() const { return header_.right; }
+    __set_node_base* header_ptr() const { return const_cast<__set_node_base*>(&header_); }
 
-        void clear();
+    static const Key& key_of(__set_node_base* n) {
+        return static_cast<node_type*>(n)->key;
+    }
 
-        iterator find(const T& val);
-        const_iterator find(const T& val) const;
+    static bool is_black(const __set_node_base* n) {
+        return n == 0 || n->color == __set_black;
+    }
 
-        iterator insert(const T& val);
-        size_t erase(const T& val);
+    static __set_node_base* minimum(__set_node_base* x) {
+        while (x->left != 0) x = x->left;
+        return x;
+    }
 
-        void swap(set& other);
+    static __set_node_base* maximum(__set_node_base* x) {
+        while (x->right != 0) x = x->right;
+        return x;
+    }
 
-    private:
-        set_node<T>* root_;
-        set_node<T>* nil_;
-        size_t size_;
+    void left_rotate(__set_node_base* x) {
+        __set_node_base* y = x->right;
+        x->right = y->left;
+        if (y->left != 0) y->left->parent = x;
+        y->parent = x->parent;
+        if (x->parent == 0) root_slot() = y;
+        else if (x == x->parent->left) x->parent->left = y;
+        else x->parent->right = y;
+        y->left = x;
+        x->parent = y;
+    }
 
-        void left_rotate(set_node<T>* x);
-        void right_rotate(set_node<T>* x);
-        void insert_fixup(set_node<T>* z);
-        void transplant(set_node<T>* u, set_node<T>* v);
-        set_node<T>* minimum(set_node<T>* x) const;
-        set_node<T>* maximum(set_node<T>* x) const;
-        void erase_fixup(set_node<T>* x);
-        void delete_tree(set_node<T>* x);
-        set_node<T>* copy_tree(set_node<T>* node, set_node<T>* parent);
+    void right_rotate(__set_node_base* x) {
+        __set_node_base* y = x->left;
+        x->left = y->right;
+        if (y->right != 0) y->right->parent = x;
+        y->parent = x->parent;
+        if (x->parent == 0) root_slot() = y;
+        else if (x == x->parent->right) x->parent->right = y;
+        else x->parent->left = y;
+        y->right = x;
+        x->parent = y;
+    }
+
+    /* Replace u by v in u's parent, or in the root slot. */
+    void transplant(__set_node_base* u, __set_node_base* v) {
+        if (u->parent == 0) root_slot() = v;
+        else if (u == u->parent->left) u->parent->left = v;
+        else u->parent->right = v;
+        if (v != 0) v->parent = u->parent;
+    }
+
+    void insert_fixup(__set_node_base* z) {
+        while (z != root() && z->parent->color == __set_red) {
+            /* z->parent is red, therefore not the root, therefore has a parent. */
+            __set_node_base* gp = z->parent->parent;
+            if (z->parent == gp->left) {
+                __set_node_base* uncle = gp->right;
+                if (uncle != 0 && uncle->color == __set_red) {
+                    z->parent->color = __set_black;
+                    uncle->color = __set_black;
+                    gp->color = __set_red;
+                    z = gp;
+                } else {
+                    if (z == z->parent->right) { z = z->parent; left_rotate(z); }
+                    z->parent->color = __set_black;
+                    z->parent->parent->color = __set_red;
+                    right_rotate(z->parent->parent);
+                }
+            } else {
+                __set_node_base* uncle = gp->left;
+                if (uncle != 0 && uncle->color == __set_red) {
+                    z->parent->color = __set_black;
+                    uncle->color = __set_black;
+                    gp->color = __set_red;
+                    z = gp;
+                } else {
+                    if (z == z->parent->left) { z = z->parent; right_rotate(z); }
+                    z->parent->color = __set_black;
+                    z->parent->parent->color = __set_red;
+                    left_rotate(z->parent->parent);
+                }
+            }
+        }
+        root()->color = __set_black;
+    }
+
+    /* x may be null - that is precisely the case erase() most needs fixing up for -
+       so its parent is carried alongside it instead of being read from x.  The loop
+       only runs while x != root(), which guarantees x_parent is non-null. */
+    void erase_fixup(__set_node_base* x, __set_node_base* x_parent) {
+        while (x != root() && is_black(x)) {
+            if (x == x_parent->left) {
+                __set_node_base* w = x_parent->right;
+                if (w->color == __set_red) {
+                    w->color = __set_black;
+                    x_parent->color = __set_red;
+                    left_rotate(x_parent);
+                    w = x_parent->right;
+                }
+                if (is_black(w->left) && is_black(w->right)) {
+                    w->color = __set_red;
+                    x = x_parent;
+                    x_parent = x->parent;
+                } else {
+                    if (is_black(w->right)) {
+                        w->left->color = __set_black;
+                        w->color = __set_red;
+                        right_rotate(w);
+                        w = x_parent->right;
+                    }
+                    w->color = x_parent->color;
+                    x_parent->color = __set_black;
+                    w->right->color = __set_black;
+                    left_rotate(x_parent);
+                    x = root();   /* ends the loop: the root needs no fixup */
+                }
+            } else {
+                __set_node_base* w = x_parent->left;
+                if (w->color == __set_red) {
+                    w->color = __set_black;
+                    x_parent->color = __set_red;
+                    right_rotate(x_parent);
+                    w = x_parent->left;
+                }
+                if (is_black(w->right) && is_black(w->left)) {
+                    w->color = __set_red;
+                    x = x_parent;
+                    x_parent = x->parent;
+                } else {
+                    if (is_black(w->left)) {
+                        w->right->color = __set_black;
+                        w->color = __set_red;
+                        left_rotate(w);
+                        w = x_parent->left;
+                    }
+                    w->color = x_parent->color;
+                    x_parent->color = __set_black;
+                    w->left->color = __set_black;
+                    right_rotate(x_parent);
+                    x = root();
+                }
+            }
+        }
+        if (x != 0) x->color = __set_black;
+    }
+
+    /* Recomputed after erase, because the node that went may have been the leftmost
+       or rightmost one.  O(log n), and only on the erase path - insert maintains
+       them incrementally. */
+    void refresh_extremes() {
+        if (root() == 0) {
+            leftmost_slot() = 0;
+            rightmost_slot() = 0;
+        } else {
+            leftmost_slot() = minimum(root());
+            rightmost_slot() = maximum(root());
+        }
+    }
+
+    void erase_at(__set_node_base* z) {
+        __set_node_base* y = z;
+        __set_color y_original = y->color;
+        __set_node_base* x = 0;
+        __set_node_base* x_parent = 0;
+
+        if (z->left == 0) {
+            x = z->right;
+            x_parent = z->parent;
+            transplant(z, z->right);
+        } else if (z->right == 0) {
+            x = z->left;
+            x_parent = z->parent;
+            transplant(z, z->left);
+        } else {
+            y = minimum(z->right);
+            y_original = y->color;
+            x = y->right;
+            if (y->parent == z) {
+                x_parent = y;
+            } else {
+                x_parent = y->parent;
+                transplant(y, y->right);
+                y->right = z->right;
+                y->right->parent = y;
+            }
+            transplant(z, y);
+            y->left = z->left;
+            y->left->parent = y;
+            y->color = z->color;
+        }
+
+        refresh_extremes();
+        if (y_original == __set_black) erase_fixup(x, x_parent);
+
+        delete static_cast<node_type*>(z);
+        --size_;
+    }
+
+    void delete_tree(__set_node_base* x) {
+        if (x == 0) return;
+        delete_tree(x->left);
+        delete_tree(x->right);
+        delete static_cast<node_type*>(x);
+    }
+
+    __set_node_base* copy_tree(const __set_node_base* src, __set_node_base* parent) {
+        if (src == 0) return 0;
+        node_type* n = new node_type(key_of(const_cast<__set_node_base*>(src)));
+        n->color = src->color;
+        n->parent = parent;
+        n->left = copy_tree(src->left, n);
+        n->right = copy_tree(src->right, n);
+        return n;
+    }
+
+public:
+    set() : header_(__set_black), size_(0), comp_() {}
+
+    explicit set(const Compare& comp) : header_(__set_black), size_(0), comp_(comp) {}
+
+    template <class InputIt>
+    set(InputIt first, InputIt last) : header_(__set_black), size_(0), comp_() {
+        for (; first != last; ++first) insert(*first);
+    }
+
+    set(const set& src) : header_(__set_black), size_(0), comp_(src.comp_) {
+        root_slot() = copy_tree(src.root(), 0);
+        size_ = src.size_;
+        refresh_extremes();
+    }
+
+    ~set() { delete_tree(root()); }
+
+    set& operator=(const set& rhs) {
+        if (this != &rhs) {
+            clear();
+            comp_ = rhs.comp_;
+            root_slot() = copy_tree(rhs.root(), 0);
+            size_ = rhs.size_;
+            refresh_extremes();
+        }
+        return *this;
+    }
+
+    key_compare key_comp() const { return comp_; }
+    value_compare value_comp() const { return comp_; }
+    allocator_type get_allocator() const { return allocator_type(); }
+
+    iterator begin() { return iterator(leftmost() ? leftmost() : header_ptr(), header_ptr()); }
+    const_iterator begin() const { return const_iterator(leftmost() ? leftmost() : header_ptr(), header_ptr()); }
+    iterator end() { return iterator(header_ptr(), header_ptr()); }
+    const_iterator end() const { return const_iterator(header_ptr(), header_ptr()); }
+
+    const_iterator cbegin() const { return begin(); }
+    const_iterator cend() const { return end(); }
+
+    reverse_iterator rbegin() { return reverse_iterator(end()); }
+    const_reverse_iterator rbegin() const { return const_reverse_iterator(end()); }
+    reverse_iterator rend() { return reverse_iterator(begin()); }
+    const_reverse_iterator rend() const { return const_reverse_iterator(begin()); }
+
+    const_reverse_iterator crbegin() const { return const_reverse_iterator(end()); }
+    const_reverse_iterator crend() const { return const_reverse_iterator(begin()); }
+
+    bool empty() const { return size_ == 0; }
+    size_type size() const { return size_; }
+    size_type max_size() const { return static_cast<size_type>(-1); }
+
+    void clear() {
+        delete_tree(root());
+        root_slot() = 0;
+        leftmost_slot() = 0;
+        rightmost_slot() = 0;
+        size_ = 0;
+    }
+
+    /* No node points at its tree's header - the root's parent is null - so the two
+       trees can be exchanged by moving three pointers and two scalars. */
+    void swap(set& other) {
+        if (this == &other) return;
+        __set_node_base* r = root();
+        __set_node_base* l = leftmost();
+        __set_node_base* m = rightmost();
+        size_type s = size_;
+        key_compare c = comp_;
+
+        root_slot() = other.root();
+        leftmost_slot() = other.leftmost();
+        rightmost_slot() = other.rightmost();
+        size_ = other.size_;
+        comp_ = other.comp_;
+
+        other.root_slot() = r;
+        other.leftmost_slot() = l;
+        other.rightmost_slot() = m;
+        other.size_ = s;
+        other.comp_ = c;
+    }
+
+    pair<iterator, bool> insert(const value_type& val) {
+        __set_node_base* y = 0;
+        __set_node_base* x = root();
+        while (x != 0) {
+            y = x;
+            if (comp_(key_of(x), val)) x = x->right;
+            else if (comp_(val, key_of(x))) x = x->left;
+            else return pair<iterator, bool>(iterator(x, header_ptr()), false);
+        }
+
+        node_type* z = new node_type(val);
+        z->parent = y;
+        z->left = 0;
+        z->right = 0;
+        z->color = __set_red;
+
+        if (y == 0) {
+            root_slot() = z;
+            leftmost_slot() = z;
+            rightmost_slot() = z;
+        } else if (comp_(val, key_of(y))) {
+            y->left = z;
+            if (y == leftmost()) leftmost_slot() = z;
+        } else {
+            y->right = z;
+            if (y == rightmost()) rightmost_slot() = z;
+        }
+        ++size_;
+        insert_fixup(z);
+        return pair<iterator, bool>(iterator(z, header_ptr()), true);
+    }
+
+    iterator find(const key_type& val) {
+        __set_node_base* x = root();
+        while (x != 0) {
+            if (comp_(val, key_of(x))) x = x->left;
+            else if (comp_(key_of(x), val)) x = x->right;
+            else return iterator(x, header_ptr());
+        }
+        return end();
+    }
+
+    const_iterator find(const key_type& val) const {
+        __set_node_base* x = root();
+        while (x != 0) {
+            if (comp_(val, key_of(x))) x = x->left;
+            else if (comp_(key_of(x), val)) x = x->right;
+            else return const_iterator(x, header_ptr());
+        }
+        return end();
+    }
+
+    size_type count(const key_type& val) const { return find(val) == end() ? 0 : 1; }
+
+    iterator lower_bound(const key_type& val) {
+        __set_node_base* x = root();
+        __set_node_base* y = 0;
+        while (x != 0) {
+            if (!comp_(key_of(x), val)) { y = x; x = x->left; }
+            else x = x->right;
+        }
+        return iterator(y ? y : header_ptr(), header_ptr());
+    }
+
+    const_iterator lower_bound(const key_type& val) const {
+        __set_node_base* x = root();
+        __set_node_base* y = 0;
+        while (x != 0) {
+            if (!comp_(key_of(x), val)) { y = x; x = x->left; }
+            else x = x->right;
+        }
+        return const_iterator(y ? y : header_ptr(), header_ptr());
+    }
+
+    iterator upper_bound(const key_type& val) {
+        __set_node_base* x = root();
+        __set_node_base* y = 0;
+        while (x != 0) {
+            if (comp_(val, key_of(x))) { y = x; x = x->left; }
+            else x = x->right;
+        }
+        return iterator(y ? y : header_ptr(), header_ptr());
+    }
+
+    const_iterator upper_bound(const key_type& val) const {
+        __set_node_base* x = root();
+        __set_node_base* y = 0;
+        while (x != 0) {
+            if (comp_(val, key_of(x))) { y = x; x = x->left; }
+            else x = x->right;
+        }
+        return const_iterator(y ? y : header_ptr(), header_ptr());
+    }
+
+    pair<iterator, iterator> equal_range(const key_type& val) {
+        return pair<iterator, iterator>(lower_bound(val), upper_bound(val));
+    }
+
+    pair<const_iterator, const_iterator> equal_range(const key_type& val) const {
+        return pair<const_iterator, const_iterator>(lower_bound(val), upper_bound(val));
+    }
+
+    size_type erase(const key_type& val) {
+        iterator it = find(val);
+        if (it == end()) return 0;
+        erase_at(it.base());
+        return 1;
+    }
+
+    /* The successor is taken before the node goes, because after erase_at() the
+       tree no longer contains anything to advance from. */
+    iterator erase(iterator pos) {
+        if (pos == end()) return end();
+        iterator next = pos;
+        ++next;
+        erase_at(pos.base());
+        return next;
+    }
+
+    iterator erase(iterator first, iterator last) {
+        while (first != last) first = erase(first);
+        return last;
+    }
 };
+
+template <class Key, class Compare, class Alloc>
+void swap(set<Key, Compare, Alloc>& a, set<Key, Compare, Alloc>& b) { a.swap(b); }
+
+template <class Key, class Compare, class Alloc>
+bool operator==(const set<Key, Compare, Alloc>& a, const set<Key, Compare, Alloc>& b) {
+    if (a.size() != b.size()) return false;
+    typename set<Key, Compare, Alloc>::const_iterator i = a.begin();
+    typename set<Key, Compare, Alloc>::const_iterator j = b.begin();
+    for (; i != a.end(); ++i, ++j)
+        if (!(*i == *j)) return false;
+    return true;
+}
+
+template <class Key, class Compare, class Alloc>
+bool operator!=(const set<Key, Compare, Alloc>& a, const set<Key, Compare, Alloc>& b) {
+    return !(a == b);
+}
+
+template <class Key, class Compare, class Alloc>
+bool operator<(const set<Key, Compare, Alloc>& a, const set<Key, Compare, Alloc>& b) {
+    typename set<Key, Compare, Alloc>::const_iterator i = a.begin();
+    typename set<Key, Compare, Alloc>::const_iterator j = b.begin();
+    for (; i != a.end() && j != b.end(); ++i, ++j) {
+        if (*i < *j) return true;
+        if (*j < *i) return false;
+    }
+    return i == a.end() && j != b.end();
+}
+
+template <class Key, class Compare, class Alloc>
+bool operator>(const set<Key, Compare, Alloc>& a, const set<Key, Compare, Alloc>& b) { return b < a; }
+
+template <class Key, class Compare, class Alloc>
+bool operator<=(const set<Key, Compare, Alloc>& a, const set<Key, Compare, Alloc>& b) { return !(b < a); }
+
+template <class Key, class Compare, class Alloc>
+bool operator>=(const set<Key, Compare, Alloc>& a, const set<Key, Compare, Alloc>& b) { return !(a < b); }
 
 }
 
-#endif
+#endif // EWOK_STL_SET_H

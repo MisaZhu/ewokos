@@ -4,9 +4,10 @@
 #include "iterator"
 #include <stdlib.h>
 
-// Define placement new operator
-inline void* operator new(size_t, void* p) noexcept { return p; }
-inline void operator delete(void*, void*) noexcept {}
+/* Placement operator new/delete used to be declared here, at global scope, in a
+   container header.  They live in <new> now, which is where the standard puts
+   them and which also brings the nothrow forms. */
+#include <new>
 
 namespace std {
 
@@ -25,6 +26,25 @@ static inline T* vector_alloc_buffer(size_t count) {
 template <typename T>
 class vector {
     public:
+        /* The value-type family was missing entirely: vector declared only the four
+           iterator typedefs below.  Anything generic that names Container::value_type
+           therefore failed to compile, and Qt has a lot of that - std::back_inserter
+           alone appears 43 times, and its operator= is declared as
+
+               back_insert_iterator& operator=(const typename Container::value_type&);
+
+           which is instantiated the moment the adaptor is, giving
+           "no type named 'value_type' in 'class std::vector<RectF>'".  These are the
+           names the standard requires of every container, so they are added as a set
+           rather than one at a time as each breaks. */
+        typedef T value_type;
+        typedef T& reference;
+        typedef const T& const_reference;
+        typedef T* pointer;
+        typedef const T* const_pointer;
+        typedef size_t size_type;
+        typedef ptrdiff_t difference_type;
+
         typedef random_access_iterator<T> iterator;
         typedef const_random_access_iterator<T> const_iterator;
         typedef std::reverse_iterator<iterator> reverse_iterator;

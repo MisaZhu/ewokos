@@ -55,11 +55,16 @@ public:
             }
         } else {
             map_node<value_type>* parent = node_->parent;
-            while (parent != nullptr && node_ == parent->right) {
+            /* The root's parent is the map's nil_ sentinel, and erase() points
+               that sentinel back into the tree (CLRS delete-fixup needs it), so
+               the walk must stop there.  end() is the null node: landing on the
+               sentinel would yield a phantom empty element and then re-enter
+               the tree forever. */
+            while (parent != nullptr && !parent->is_nil && node_ == parent->right) {
                 node_ = parent;
                 parent = parent->parent;
             }
-            node_ = parent;
+            node_ = (parent == nullptr || parent->is_nil) ? nullptr : parent;
         }
         return *this;
     }
@@ -78,11 +83,12 @@ public:
             }
         } else {
             map_node<value_type>* parent = node_->parent;
-            while (parent != nullptr && node_ == parent->left) {
+            /* Stop at the nil_ sentinel, see operator++. */
+            while (parent != nullptr && !parent->is_nil && node_ == parent->left) {
                 node_ = parent;
                 parent = parent->parent;
             }
-            node_ = parent;
+            node_ = (parent == nullptr || parent->is_nil) ? nullptr : parent;
         }
         return *this;
     }
@@ -121,7 +127,10 @@ class map {
             nil_ = new map_node<value_type>(value_type(), false, true);
             root_ = nil_;
             if (src.root_ != src.nil_) {
-                root_ = copy_tree(src.root_, nullptr);
+                /* The copied root's parent must be OUR nil_ sentinel, not
+                   nullptr: every rotation/fixup guard tests `parent == nil_`,
+                   so a nullptr parent would be dereferenced as a node. */
+                root_ = copy_tree(src.root_, nil_);
                 size_ = src.size_;
             }
         }
@@ -135,7 +144,7 @@ class map {
             if (this != &rhs) {
                 clear();
                 if (rhs.root_ != rhs.nil_) {
-                    root_ = copy_tree(rhs.root_, nullptr);
+                    root_ = copy_tree(rhs.root_, nil_);
                     size_ = rhs.size_;
                 }
             }
@@ -341,19 +350,27 @@ class map {
         map_node<value_type>* nil_;
         size_t size_;
 
+        /* A node's parent is the sentinel when it is the root.  Tolerating a
+           stray nullptr here keeps rotations and fixups from ever storing
+           through a null parent pointer. */
+        map_node<value_type>* parent_of(map_node<value_type>* n) const {
+            return n->parent != nullptr ? n->parent : nil_;
+        }
+
         void left_rotate(map_node<value_type>* x) {
             map_node<value_type>* y = x->right;
             x->right = y->left;
             if (y->left != nil_) {
                 y->left->parent = x;
             }
-            y->parent = x->parent;
-            if (x->parent == nil_) {
+            map_node<value_type>* xp = parent_of(x);
+            y->parent = xp;
+            if (xp == nil_) {
                 root_ = y;
-            } else if (x == x->parent->left) {
-                x->parent->left = y;
+            } else if (x == xp->left) {
+                xp->left = y;
             } else {
-                x->parent->right = y;
+                xp->right = y;
             }
             y->left = x;
             x->parent = y;
@@ -365,66 +382,75 @@ class map {
             if (y->right != nil_) {
                 y->right->parent = x;
             }
-            y->parent = x->parent;
-            if (x->parent == nil_) {
+            map_node<value_type>* xp = parent_of(x);
+            y->parent = xp;
+            if (xp == nil_) {
                 root_ = y;
-            } else if (x == x->parent->right) {
-                x->parent->right = y;
+            } else if (x == xp->right) {
+                xp->right = y;
             } else {
-                x->parent->left = y;
+                xp->left = y;
             }
             y->right = x;
             x->parent = y;
         }
 
         void insert_fixup(map_node<value_type>* z) {
-            while (z->parent != nil_ && z->parent->is_red) {
-                if (z->parent == z->parent->parent->left) {
-                    map_node<value_type>* y = z->parent->parent->right;
-                    if (y->is_red) {
+            while (z->parent != nil_ && z->parent != nullptr && z->parent->is_red) {
+                /* A red parent is never the root, so it has a parent. */
+                map_node<value_type>* gp = parent_of(z->parent);
+                if (gp == nil_) {
+                    break;
+                }
+                if (z->parent == gp->left) {
+                    map_node<value_type>* y = gp->right;
+                    if (y != nullptr && y->is_red) {
                         z->parent->is_red = false;
                         y->is_red = false;
-                        z->parent->parent->is_red = true;
-                        z = z->parent->parent;
+                        gp->is_red = true;
+                        z = gp;
                     } else {
                         if (z == z->parent->right) {
                             z = z->parent;
                             left_rotate(z);
                         }
                         z->parent->is_red = false;
-                        z->parent->parent->is_red = true;
-                        right_rotate(z->parent->parent);
+                        parent_of(z->parent)->is_red = true;
+                        right_rotate(parent_of(z->parent));
                     }
                 } else {
-                    map_node<value_type>* y = z->parent->parent->left;
-                    if (y->is_red) {
+                    map_node<value_type>* y = gp->left;
+                    if (y != nullptr && y->is_red) {
                         z->parent->is_red = false;
                         y->is_red = false;
-                        z->parent->parent->is_red = true;
-                        z = z->parent->parent;
+                        gp->is_red = true;
+                        z = gp;
                     } else {
                         if (z == z->parent->left) {
                             z = z->parent;
                             right_rotate(z);
                         }
                         z->parent->is_red = false;
-                        z->parent->parent->is_red = true;
-                        left_rotate(z->parent->parent);
+                        parent_of(z->parent)->is_red = true;
+                        left_rotate(parent_of(z->parent));
                     }
                 }
             }
-            root_->is_red = false;
+            if (root_ != nullptr) {
+                root_->is_red = false;
+            }
         }
 
         void transplant(map_node<value_type>* u, map_node<value_type>* v) {
-            if (u->parent == nil_) {
+            map_node<value_type>* up = parent_of(u);
+            if (up == nil_) {
                 root_ = v;
-            } else if (u == u->parent->left) {
-                u->parent->left = v;
+            } else if (u == up->left) {
+                up->left = v;
             } else {
-                u->parent->right = v;
+                up->right = v;
             }
-            v->parent = u->parent;
+            v->parent = up;
         }
 
         map_node<value_type>* minimum(map_node<value_type>* x) const {
@@ -503,7 +529,10 @@ class map {
                 return nil_;
             }
             map_node<value_type>* new_node = new map_node<value_type>(node->key, node->is_red);
-            new_node->parent = parent;
+            /* Never leave a node with a null parent: the tree's "no parent"
+               value is the sentinel, and callers may pass nullptr for the
+               root. */
+            new_node->parent = parent != nullptr ? parent : nil_;
             new_node->left = copy_tree(node->left, new_node);
             new_node->right = copy_tree(node->right, new_node);
             return new_node;

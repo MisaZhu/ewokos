@@ -6,7 +6,13 @@ TARGET_DIR = $(BUILD_DIR)
 
 CXXFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_EWOKSTL_OBJS = $(ARCH)/src/string.o $(ARCH)/src/list.o $(ARCH)/src/set.o $(ARCH)/src/unordered_set.o $(ARCH)/src/new_delete.o $(ARCH)/src/iostream.o
+# Only the units with non-template definitions belong here.  set.o was dropped
+# because <set> is now header-only: a class template's members cannot be defined in
+# a single .cpp and still be instantiable for other types, and set.cpp's lone
+# `template class set<int>;` meant std::set<anything else> failed to link.
+# list.o and unordered_set.o have the same problem and go when those headers are
+# converted.  string/new_delete/iostream are ordinary non-template code.
+LIB_EWOKSTL_OBJS = $(ARCH)/src/string.o $(ARCH)/src/list.o $(ARCH)/src/unordered_set.o $(ARCH)/src/new_delete.o $(ARCH)/src/iostream.o
 
 EWOKSTL = $(TARGET_DIR)/lib/libewokstl.a
 

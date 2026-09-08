@@ -1,0 +1,70 @@
+#ifndef EWOK_STL_INITIALIZER_LIST_H
+#define EWOK_STL_INITIALIZER_LIST_H
+
+/*
+ * <initializer_list> - the type a braced-init-list turns into.
+ *
+ * This is the one standard header whose *layout* the compiler dictates.  GCC
+ * keeps its own builtin std::initializer_list template and checks any user
+ * definition against it; when the two disagree the error is not a layout
+ * complaint but
+ *
+ *   error: definition of 'class std::initializer_list<E>' does not match
+ *          '#include <initializer_list>'
+ *
+ * and it fires even though nothing else includes the header.  Reversing the two
+ * data members below is enough to trigger it, so _M_array has to come first and
+ * _M_len second, with exactly those names - GCC builds the object by writing
+ * those two fields directly when it sees `{ a, b, c }`.  Do not "clean up" the
+ * names.
+ *
+ * Qt uses std::initializer_list in 71 places, mostly as a container constructor
+ * parameter (17 as <T>, 12 as <std::pair<Key,T>>, plus QJsonValue, QString and
+ * assorted enum types), so this header is a prerequisite for the initializer_list
+ * constructors in <vector>, <map>, <unordered_map> and <string>.
+ */
+
+#include <cstddef>
+
+namespace std {
+
+template <class E>
+class initializer_list {
+public:
+    typedef E value_type;
+    typedef const E* iterator;
+    typedef const E* const_iterator;
+    typedef size_t size_type;
+    typedef const E& reference;
+    typedef const E& const_reference;
+
+private:
+    /* Order and names are fixed by the compiler - see the comment above. */
+    const E* _M_array;
+    size_type _M_len;
+
+public:
+    /* The compiler never calls this for a braced list; it exists so that
+       `std::initializer_list<int> x;` is a valid empty list. */
+    constexpr initializer_list() noexcept : _M_array(0), _M_len(0) {}
+
+    constexpr size_type size() const noexcept { return _M_len; }
+    constexpr const E* begin() const noexcept { return _M_array; }
+    constexpr const E* end() const noexcept { return _M_array + _M_len; }
+};
+
+/* The standard puts these free overloads in <initializer_list> too, so that
+   `for (auto v : some_list)` and generic begin()/end() code both work. */
+template <class E>
+constexpr const E* begin(initializer_list<E> il) noexcept {
+    return il.begin();
+}
+
+template <class E>
+constexpr const E* end(initializer_list<E> il) noexcept {
+    return il.end();
+}
+
+}
+
+#endif // EWOK_STL_INITIALIZER_LIST_H

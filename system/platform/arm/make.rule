@@ -24,7 +24,10 @@ CFLAGS = -marm \
         -fno-strict-aliasing \
         -std=c99
 
+# -nostdinc++: EWOK_STL is the only C++ standard library in scope.  See the longer
+# note in system/platform/aarch64/make.rule.
 CXXFLAGS = -marm \
+	-nostdinc++ \
 	-Wno-implicit-function-declaration \
 	-mfloat-abi=softfp \
         -Wall -Wextra -fPIC -mapcs-frame \

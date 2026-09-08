@@ -1,0 +1,55 @@
+#ifndef EWOK_STL_CSTDLIB_H
+#define EWOK_STL_CSTDLIB_H
+
+/*
+ * <cstdlib> - the C <stdlib.h> names, in namespace std.
+ *
+ * Only what EwokOS libc declares.  Absent from the platform: aligned_alloc,
+ * strtoll / strtoull / strtold, the multibyte and wide-char conversion family,
+ * and realpath.  div_t / ldiv_t / lldiv_t do exist and are re-exported.
+ */
+
+#include <stdlib.h>
+#include <cstddef>
+
+namespace std {
+
+using ::div_t;
+using ::ldiv_t;
+using ::lldiv_t;
+
+using ::malloc;
+using ::calloc;
+using ::realloc;
+using ::free;
+using ::posix_memalign;
+
+using ::abort;
+using ::exit;
+using ::atexit;
+using ::getenv;
+using ::system;
+
+using ::qsort;
+using ::bsearch;
+
+using ::abs;
+using ::labs;
+using ::llabs;
+using ::div;
+using ::ldiv;
+using ::lldiv;
+
+using ::atoi;
+using ::atol;
+using ::atof;
+using ::strtol;
+using ::strtoul;
+using ::strtod;
+
+using ::rand;
+using ::srand;
+
+}
+
+#endif // EWOK_STL_CSTDLIB_H

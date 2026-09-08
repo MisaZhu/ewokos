@@ -1,0 +1,90 @@
+#ifndef EWOK_STL_EXCEPTION_H
+#define EWOK_STL_EXCEPTION_H
+
+/*
+ * <exception> - std::exception and the terminate machinery.
+ *
+ * There is no exception runtime on this platform: libcxx.a exports only the
+ * __cxa_guard_* / operator new / operator delete symbols, there is no
+ * __cxa_throw and no unwinder, and the SDK builds everything with
+ * -fno-exceptions.  So terminate() can only be reached by an explicit call -
+ * which Qt does make, from Q_CHECK_PTR / qt_check_ptr in qglobal.cpp.  It has
+ * to be a real, callable function, everything else here is for source
+ * compatibility.
+ *
+ * std::exception used to be defined inside <memory>; it lives here now so that
+ * <memory>, <new> and <stdexcept> can share one definition.
+ */
+
+#include <cstdio>
+#include <cstdlib>
+
+namespace std {
+
+class exception {
+public:
+    exception() noexcept {}
+    exception(const exception&) noexcept {}
+    exception& operator=(const exception&) noexcept { return *this; }
+    virtual ~exception() noexcept {}
+    virtual const char* what() const noexcept { return "std::exception"; }
+};
+
+class bad_exception : public exception {
+public:
+    bad_exception() noexcept {}
+    /* Both special members have to name the base.  -Wextra (always passed by
+       make.rule) reports "base class should be explicitly initialized in the
+       copy constructor" for the empty forms these replace. */
+    bad_exception(const bad_exception& other) noexcept : exception(other) {}
+    bad_exception& operator=(const bad_exception& other) noexcept {
+        exception::operator=(other);
+        return *this;
+    }
+    ~bad_exception() noexcept override {}
+    const char* what() const noexcept override { return "std::bad_exception"; }
+};
+
+typedef void (*terminate_handler)();
+typedef void (*unexpected_handler)();
+
+/* A function-local static in an inline function is a single object across all
+   translation units, and zero-initialisation is constant initialisation, so
+   this needs no __cxa_guard_acquire and no .cpp file. */
+inline terminate_handler& __ewok_terminate_handler() noexcept {
+    static terminate_handler handler = 0;
+    return handler;
+}
+
+inline terminate_handler set_terminate(terminate_handler handler) noexcept {
+    terminate_handler previous = __ewok_terminate_handler();
+    __ewok_terminate_handler() = handler;
+    return previous;
+}
+
+inline terminate_handler get_terminate() noexcept {
+    return __ewok_terminate_handler();
+}
+
+inline void terminate() noexcept {
+    terminate_handler handler = get_terminate();
+    if (handler != 0) {
+        handler();
+    }
+    fprintf(stderr, "std::terminate called - aborting\n");
+    fflush(stderr);
+    abort();
+}
+
+inline void unexpected() { terminate(); }
+
+/* Nothing can ever be in flight without an unwinder. */
+inline bool uncaught_exception() noexcept { return false; }
+inline int uncaught_exceptions() noexcept { return 0; }
+
+inline unexpected_handler set_unexpected(unexpected_handler) noexcept { return 0; }
+inline unexpected_handler get_unexpected() noexcept { return 0; }
+
+}
+
+#endif // EWOK_STL_EXCEPTION_H

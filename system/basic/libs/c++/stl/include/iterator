@@ -2,6 +2,10 @@
 #define EWOK_STL_ITERATOR_H
 
 #include <stddef.h>
+/* For std::move in the insert iterators' rvalue assignment.  <utility> pulls in
+   <type_traits> and <stddef.h> and never includes <iterator>, so there is no
+   cycle. */
+#include <utility>
 
 namespace std {
 
@@ -277,6 +281,99 @@ typename iterator_traits<Iterator>::difference_type operator-(
     const reverse_iterator<Iterator>& lhs,
     const reverse_iterator<Iterator>& rhs) {
     return rhs.base() - lhs.base();
+}
+
+/* Output iterator adaptors.
+ *
+ * Qt leans on these hard, and on containers of its own rather than std ones:
+ *   corelib/tools/qlist.h:883        std::copy(first, last, std::back_inserter(*this));
+ *   corelib/tools/qvector.h:572      likewise
+ *   corelib/tools/qvarlengtharray.h:85  likewise
+ *   corelib/tools/qlinkedlist.h:273  std::copy(constBegin(), constEnd(),
+ *                                        std::back_inserter(tmp));   // tmp is std::list<T>
+ *   widgets/widgets/qmainwindowlayout.cpp:2219  std::inserter(item_list, ...)
+ *
+ * All the adaptor needs from its container is push_back() (or insert()), so it
+ * works for QList and friends without them being std containers.  43 uses of
+ * back_inserter, 1 of inserter, and front_inserter is used nowhere in corelib, gui,
+ * widgets or platformsupport - so it is the one adaptor deliberately left out.
+ */
+template <typename Container>
+class back_insert_iterator {
+public:
+    typedef Container container_type;
+    typedef void value_type;
+    typedef void difference_type;
+    typedef void pointer;
+    typedef void reference;
+    typedef output_iterator_tag iterator_category;
+
+protected:
+    Container* container_;
+
+public:
+    explicit back_insert_iterator(Container& c) : container_(&c) {}
+
+    back_insert_iterator& operator=(const typename Container::value_type& value) {
+        container_->push_back(value);
+        return *this;
+    }
+
+    back_insert_iterator& operator=(typename Container::value_type&& value) {
+        container_->push_back(std::move(value));
+        return *this;
+    }
+
+    /* An output iterator is written through and then advanced; dereferencing it
+       yields the iterator itself so that *it = v works. */
+    back_insert_iterator& operator*() { return *this; }
+    back_insert_iterator& operator++() { return *this; }
+    back_insert_iterator operator++(int) { return *this; }
+};
+
+template <typename Container>
+back_insert_iterator<Container> back_inserter(Container& c) {
+    return back_insert_iterator<Container>(c);
+}
+
+template <typename Container>
+class insert_iterator {
+public:
+    typedef Container container_type;
+    typedef void value_type;
+    typedef void difference_type;
+    typedef void pointer;
+    typedef void reference;
+    typedef output_iterator_tag iterator_category;
+
+protected:
+    Container* container_;
+    typename Container::iterator iter_;
+
+public:
+    insert_iterator(Container& c, typename Container::iterator it)
+        : container_(&c), iter_(it) {}
+
+    insert_iterator& operator=(const typename Container::value_type& value) {
+        iter_ = container_->insert(iter_, value);
+        ++iter_;
+        return *this;
+    }
+
+    insert_iterator& operator=(typename Container::value_type&& value) {
+        iter_ = container_->insert(iter_, std::move(value));
+        ++iter_;
+        return *this;
+    }
+
+    insert_iterator& operator*() { return *this; }
+    insert_iterator& operator++() { return *this; }
+    insert_iterator& operator++(int) { return *this; }
+};
+
+template <typename Container>
+insert_iterator<Container> inserter(Container& c, typename Container::iterator it) {
+    return insert_iterator<Container>(c, it);
 }
 
 // base_iterator (forward_iterator level)

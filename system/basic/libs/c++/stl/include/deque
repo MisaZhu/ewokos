@@ -7,6 +7,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* push_back()/push_front()/reserve() build elements with placement new, which is
+   declared in <new>.  Without it the header still compiles - a template member is
+   only checked once instantiated - and then any call fails with "no matching
+   function for call to 'operator new(size_t, T*)'".  <vector> already includes
+   <new>, which is why this went unnoticed: it only breaks in a TU that includes
+   <deque> (or <stack>/<queue>, which include nothing else) first. */
+#include <new>
+
 namespace std {
 
 template <typename T>
@@ -16,8 +24,17 @@ class deque {
         typedef T& reference;
         typedef const T& const_reference;
         typedef size_t size_type;
+        /* The rest of the names the standard requires of a container.  value_type was
+           already here, so back_inserter(deque) worked; pointer and difference_type
+           were not, so anything naming them - or anything feeding a deque iterator to
+           std::iterator_traits and asking for difference_type - did not. */
+        typedef T* pointer;
+        typedef const T* const_pointer;
+        typedef ptrdiff_t difference_type;
         typedef random_access_iterator<T> iterator;
         typedef const random_access_iterator<T> const_iterator;
+        typedef std::reverse_iterator<iterator> reverse_iterator;
+        typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
 
         deque() : data_(nullptr), size_(0), capacity_(0) {}
 
@@ -54,6 +71,21 @@ class deque {
         const_iterator begin() const { return const_iterator(data_); }
         iterator end() { return iterator(data_ + size_); }
         const_iterator end() const { return const_iterator(data_ + size_); }
+
+        /* The c-prefixed and reverse pairs.  Without rbegin()/rend() the
+           reverse_iterator typedefs above would name a type nothing can produce,
+           and without cbegin()/cend() a const_iterator cannot be obtained from a
+           non-const deque - which is the shape Qt writes when it copies out of a
+           container it is about to modify. */
+        const_iterator cbegin() const { return const_iterator(data_); }
+        const_iterator cend() const { return const_iterator(data_ + size_); }
+
+        reverse_iterator rbegin() { return reverse_iterator(end()); }
+        reverse_iterator rend() { return reverse_iterator(begin()); }
+        const_reverse_iterator rbegin() const { return const_reverse_iterator(end()); }
+        const_reverse_iterator rend() const { return const_reverse_iterator(begin()); }
+        const_reverse_iterator crbegin() const { return const_reverse_iterator(end()); }
+        const_reverse_iterator crend() const { return const_reverse_iterator(begin()); }
 
         T& operator[](size_t n) { return data_[n]; }
         const T& operator[](size_t n) const { return data_[n]; }

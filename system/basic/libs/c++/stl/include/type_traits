@@ -1,0 +1,575 @@
+#ifndef EWOK_STL_TYPE_TRAITS_H
+#define EWOK_STL_TYPE_TRAITS_H
+
+/*
+ * <type_traits> - the compile-time type query layer.
+ *
+ * Qt 5.15 corelib+gui+widgets uses std::enable_if 104 times, std::is_same 29,
+ * std::remove_cv 22, std::remove_pointer / std::declval 17 each, and another
+ * twenty traits between 1 and 14 times.  Until now these did not exist: a
+ * handful of hand-rolled traits sat inside <memory> purely to make
+ * make_unique's SFINAE compile, and one of them was wrong in a way that
+ * silently disabled SFINAE everywhere -
+ *
+ *     template <bool B, typename T, typename F = void>
+ *     struct enable_if { typedef T type; };
+ *     template <typename T, typename F>
+ *     struct enable_if<false, T, F> { typedef F type; };
+ *
+ * A false condition still produced a ::type, so make_unique's array and
+ * non-array overloads both stayed viable and were ambiguous.  The standard
+ * two-parameter form below has no ::type at all when the condition is false,
+ * which is what makes overload resolution work.
+ *
+ * is_base_of was also wrong (it only reported true for identical types); it now
+ * uses the compiler builtin, as do is_enum, is_convertible, is_constructible
+ * and friends.  All builtins used here were verified present in the
+ * aarch64-none-elf 13.3.1 compiler: __is_base_of, __is_convertible (not
+ * __is_convertible_to), __is_enum, __is_class, __is_union, __is_empty,
+ * __is_polymorphic, __is_abstract, __is_standard_layout, __is_trivial,
+ * __is_trivially_copyable, __is_constructible, __is_trivially_constructible,
+ * __is_assignable, __is_trivially_assignable, __has_trivial_destructor.
+ * __is_scoped_enum and __is_virtual_base_of are absent and unused.
+ *
+ * <memory> now includes this header instead of defining its own traits.
+ */
+
+#include <cstddef>
+
+namespace std {
+
+/* ------------------------------------------------------------------ */
+/* integral_constant and the enable_if / conditional primitives        */
+/* ------------------------------------------------------------------ */
+
+template <class T, T v>
+struct integral_constant {
+    static constexpr T value = v;
+    typedef T value_type;
+    typedef integral_constant<T, v> type;
+    constexpr operator value_type() const noexcept { return value; }
+    constexpr value_type operator()() const noexcept { return value; }
+};
+
+/* Under -std=c++14 a constexpr static data member still needs an out-of-line
+   definition when its address is taken. */
+template <class T, T v>
+constexpr T integral_constant<T, v>::value;
+
+typedef integral_constant<bool, true> true_type;
+typedef integral_constant<bool, false> false_type;
+
+template <bool B>
+using bool_constant = integral_constant<bool, B>;
+
+template <bool B, class T = void>
+struct enable_if {};
+
+template <class T>
+struct enable_if<true, T> {
+    typedef T type;
+};
+
+template <bool B, class T, class F>
+struct conditional {
+    typedef T type;
+};
+
+template <class T, class F>
+struct conditional<false, T, F> {
+    typedef F type;
+};
+
+/* C++17's conjunction / disjunction / negation, spelled without fold
+   expressions.  conjunction<> is true_type and disjunction<> is false_type,
+   matching the standard's identity elements. */
+template <class...> struct conjunction : true_type {};
+template <class B1> struct conjunction<B1> : B1 {};
+template <class B1, class... Bn>
+struct conjunction<B1, Bn...>
+    : conditional<bool(B1::value), conjunction<Bn...>, B1>::type {};
+
+template <class...> struct disjunction : false_type {};
+template <class B1> struct disjunction<B1> : B1 {};
+template <class B1, class... Bn>
+struct disjunction<B1, Bn...>
+    : conditional<bool(B1::value), B1, disjunction<Bn...>>::type {};
+
+template <class B> struct negation : bool_constant<!bool(B::value)> {};
+
+/* ------------------------------------------------------------------ */
+/* cv-qualification                                                    */
+/* ------------------------------------------------------------------ */
+
+template <class T> struct is_const : false_type {};
+template <class T> struct is_const<const T> : true_type {};
+template <class T> struct is_volatile : false_type {};
+template <class T> struct is_volatile<volatile T> : true_type {};
+
+template <class T> struct remove_const { typedef T type; };
+template <class T> struct remove_const<const T> { typedef T type; };
+template <class T> struct remove_volatile { typedef T type; };
+template <class T> struct remove_volatile<volatile T> { typedef T type; };
+template <class T>
+struct remove_cv {
+    typedef typename remove_volatile<typename remove_const<T>::type>::type type;
+};
+
+template <class T> struct add_const { typedef const T type; };
+template <class T> struct add_volatile { typedef volatile T type; };
+template <class T> struct add_cv { typedef const volatile T type; };
+
+/* ------------------------------------------------------------------ */
+/* void, references, declval                                           */
+/* ------------------------------------------------------------------ */
+
+template <class T> struct is_void : false_type {};
+template <> struct is_void<void> : true_type {};
+template <> struct is_void<const void> : true_type {};
+template <> struct is_void<volatile void> : true_type {};
+template <> struct is_void<const volatile void> : true_type {};
+
+template <class T> struct is_lvalue_reference : false_type {};
+template <class T> struct is_lvalue_reference<T&> : true_type {};
+template <class T> struct is_rvalue_reference : false_type {};
+template <class T> struct is_rvalue_reference<T&&> : true_type {};
+template <class T>
+struct is_reference : bool_constant<is_lvalue_reference<T>::value || is_rvalue_reference<T>::value> {};
+
+template <class T> struct remove_reference { typedef T type; };
+template <class T> struct remove_reference<T&> { typedef T type; };
+template <class T> struct remove_reference<T&&> { typedef T type; };
+
+/* "void&" and "void() &" are ill-formed, so references have to be added
+   conditionally. */
+template <class T, bool = is_void<T>::value>
+struct __add_lvalue_reference_helper { typedef T type; };
+template <class T>
+struct __add_lvalue_reference_helper<T, false> { typedef T& type; };
+template <class T>
+struct add_lvalue_reference { typedef typename __add_lvalue_reference_helper<T>::type type; };
+
+template <class T, bool = is_void<T>::value>
+struct __add_rvalue_reference_helper { typedef T type; };
+template <class T>
+struct __add_rvalue_reference_helper<T, false> { typedef T&& type; };
+template <class T>
+struct add_rvalue_reference { typedef typename __add_rvalue_reference_helper<T>::type type; };
+
+/* Declared, never defined - exactly as the standard specifies.  Only usable in
+   unevaluated contexts. */
+template <class T>
+typename add_rvalue_reference<T>::type declval() noexcept;
+
+/* ------------------------------------------------------------------ */
+/* functions, arrays, pointers                                         */
+/* ------------------------------------------------------------------ */
+
+/* A function type cannot be cv-qualified, so "const T" collapses to "T" and
+   is_const<const T> is false only for functions (and, separately, for
+   references - hence the second test).  This is libc++'s implementation and
+   avoids a 24-way specialization table. */
+template <class T>
+struct is_function
+    : bool_constant<!is_const<const T>::value && !is_reference<T>::value> {};
+
+template <class T> struct is_array : false_type {};
+template <class T> struct is_array<T[]> : true_type {};
+template <class T, size_t N> struct is_array<T[N]> : true_type {};
+
+template <class T> struct remove_extent { typedef T type; };
+template <class T> struct remove_extent<T[]> { typedef T type; };
+template <class T, size_t N> struct remove_extent<T[N]> { typedef T type; };
+template <class T> struct remove_all_extents { typedef T type; };
+template <class T> struct remove_all_extents<T[]> {
+    typedef typename remove_all_extents<T>::type type;
+};
+template <class T, size_t N> struct remove_all_extents<T[N]> {
+    typedef typename remove_all_extents<T>::type type;
+};
+
+template <class T> struct rank : integral_constant<size_t, 0> {};
+template <class T> struct rank<T[]> : integral_constant<size_t, rank<T>::value + 1> {};
+template <class T, size_t N> struct rank<T[N]> : integral_constant<size_t, rank<T>::value + 1> {};
+
+template <class T, size_t I = 0> struct extent : integral_constant<size_t, 0> {};
+template <class T> struct extent<T[], 0> : integral_constant<size_t, 0> {};
+template <class T, size_t I>
+struct extent<T[], I> : integral_constant<size_t, extent<T, I - 1>::value> {};
+template <class T, size_t N> struct extent<T[N], 0> : integral_constant<size_t, N> {};
+template <class T, size_t N, size_t I>
+struct extent<T[N], I> : integral_constant<size_t, extent<T, I - 1>::value> {};
+
+template <class T> struct add_pointer {
+    typedef typename remove_reference<T>::type* type;
+};
+
+template <class T> struct __remove_pointer_helper { typedef T type; };
+template <class T> struct __remove_pointer_helper<T*> { typedef T type; };
+template <class T> struct __remove_pointer_helper<T* const> { typedef T type; };
+template <class T> struct __remove_pointer_helper<T* volatile> { typedef T type; };
+template <class T> struct __remove_pointer_helper<T* const volatile> { typedef T type; };
+template <class T> struct remove_pointer {
+    typedef typename __remove_pointer_helper<T>::type type;
+};
+
+template <class T> struct is_pointer_helper : false_type {};
+template <class T> struct is_pointer_helper<T*> : true_type {};
+template <class T>
+struct is_pointer : is_pointer_helper<typename remove_cv<T>::type> {};
+
+/* ------------------------------------------------------------------ */
+/* member pointers                                                     */
+/* ------------------------------------------------------------------ */
+
+template <class T> struct is_member_object_pointer : false_type {};
+template <class T, class U>
+struct is_member_object_pointer<U T::*> : bool_constant<!is_function<U>::value> {};
+
+template <class T> struct is_member_function_pointer : false_type {};
+template <class T, class U>
+struct is_member_function_pointer<U T::*> : is_function<U> {};
+
+template <class T>
+struct is_member_pointer
+    : bool_constant<is_member_object_pointer<T>::value || is_member_function_pointer<T>::value> {};
+
+/* ------------------------------------------------------------------ */
+/* arithmetic categories                                               */
+/* ------------------------------------------------------------------ */
+
+template <class T> struct __is_integral_helper : false_type {};
+template <> struct __is_integral_helper<bool> : true_type {};
+template <> struct __is_integral_helper<char> : true_type {};
+template <> struct __is_integral_helper<signed char> : true_type {};
+template <> struct __is_integral_helper<unsigned char> : true_type {};
+template <> struct __is_integral_helper<wchar_t> : true_type {};
+template <> struct __is_integral_helper<char16_t> : true_type {};
+template <> struct __is_integral_helper<char32_t> : true_type {};
+template <> struct __is_integral_helper<short> : true_type {};
+template <> struct __is_integral_helper<unsigned short> : true_type {};
+template <> struct __is_integral_helper<int> : true_type {};
+template <> struct __is_integral_helper<unsigned int> : true_type {};
+template <> struct __is_integral_helper<long> : true_type {};
+template <> struct __is_integral_helper<unsigned long> : true_type {};
+template <> struct __is_integral_helper<long long> : true_type {};
+template <> struct __is_integral_helper<unsigned long long> : true_type {};
+template <class T>
+struct is_integral : __is_integral_helper<typename remove_cv<T>::type> {};
+
+template <class T> struct __is_floating_point_helper : false_type {};
+template <> struct __is_floating_point_helper<float> : true_type {};
+template <> struct __is_floating_point_helper<double> : true_type {};
+template <> struct __is_floating_point_helper<long double> : true_type {};
+template <class T>
+struct is_floating_point : __is_floating_point_helper<typename remove_cv<T>::type> {};
+
+template <class T>
+struct is_arithmetic : bool_constant<is_integral<T>::value || is_floating_point<T>::value> {};
+
+template <class T> struct is_enum : bool_constant<__is_enum(T)> {};
+template <class T> struct is_class : bool_constant<__is_class(T)> {};
+template <class T> struct is_union : bool_constant<__is_union(T)> {};
+
+template <class A, class B> struct is_same : false_type {};
+template <class A> struct is_same<A, A> : true_type {};
+
+template <class T>
+struct is_null_pointer
+    : bool_constant<is_same<typename remove_cv<T>::type, nullptr_t>::value> {};
+
+template <class Base, class Derived>
+struct is_base_of : bool_constant<__is_base_of(Base, Derived)> {};
+
+template <class From, class To>
+struct is_convertible : bool_constant<__is_convertible(From, To)> {};
+
+/* ------------------------------------------------------------------ */
+/* signedness                                                          */
+/* ------------------------------------------------------------------ */
+
+/* is_signed is true for floating point too - the standard says "signed
+   arithmetic type", not "signed integer type", so the gate is is_arithmetic. */
+template <class T, bool = is_arithmetic<T>::value>
+struct __is_signed_helper : false_type {};
+template <class T>
+struct __is_signed_helper<T, true> : bool_constant<(T(-1) < T(0))> {};
+template <class T> struct is_signed : __is_signed_helper<T> {};
+
+template <class T, bool = is_arithmetic<T>::value>
+struct __is_unsigned_helper : false_type {};
+template <class T>
+struct __is_unsigned_helper<T, true> : bool_constant<(T(-1) > T(0))> {};
+template <class T> struct is_unsigned : __is_unsigned_helper<T> {};
+
+/* ------------------------------------------------------------------ */
+/* composite categories                                                */
+/* ------------------------------------------------------------------ */
+
+template <class T>
+struct is_fundamental
+    : bool_constant<is_arithmetic<T>::value || is_void<T>::value ||
+                    is_null_pointer<T>::value> {};
+
+template <class T>
+struct is_scalar
+    : bool_constant<is_arithmetic<T>::value || is_enum<T>::value ||
+                    is_pointer<T>::value || is_member_pointer<T>::value ||
+                    is_null_pointer<T>::value> {};
+
+template <class T>
+struct is_object
+    : bool_constant<is_scalar<T>::value || is_array<T>::value ||
+                    is_union<T>::value || is_class<T>::value> {};
+
+template <class T> struct is_compound : bool_constant<!is_fundamental<T>::value> {};
+
+/* ------------------------------------------------------------------ */
+/* properties asked of the compiler directly                           */
+/* ------------------------------------------------------------------ */
+
+template <class T> struct is_empty : bool_constant<__is_empty(T)> {};
+template <class T> struct is_polymorphic : bool_constant<__is_polymorphic(T)> {};
+template <class T> struct is_abstract : bool_constant<__is_abstract(T)> {};
+template <class T> struct is_final : bool_constant<__is_final(T)> {};
+template <class T> struct is_standard_layout : bool_constant<__is_standard_layout(T)> {};
+template <class T> struct is_trivial : bool_constant<__is_trivial(T)> {};
+template <class T> struct is_trivially_copyable : bool_constant<__is_trivially_copyable(T)> {};
+template <class T> struct is_aggregate : bool_constant<__is_aggregate(T)> {};
+
+template <class T, bool = is_void<T>::value>
+struct __alignment_of_impl : integral_constant<size_t, alignof(T)> {};
+template <class T>
+struct __alignment_of_impl<T, true> : integral_constant<size_t, 0> {};
+template <class T> struct alignment_of : __alignment_of_impl<T> {};
+
+template <size_t Len, size_t Align = alignof(max_align_t)>
+struct aligned_storage {
+    struct type {
+        alignas(Align) unsigned char data[Len];
+    };
+};
+
+/* ------------------------------------------------------------------ */
+/* constructibility, assignability, destructibility                    */
+/* ------------------------------------------------------------------ */
+
+template <class T, class... Args>
+struct is_constructible : bool_constant<__is_constructible(T, Args...)> {};
+template <class T> struct is_default_constructible : is_constructible<T> {};
+template <class T> struct is_copy_constructible : is_constructible<T, const T&> {};
+template <class T> struct is_move_constructible : is_constructible<T, T&&> {};
+
+template <class T, class U>
+struct is_assignable : bool_constant<__is_assignable(T, U)> {};
+template <class T> struct is_copy_assignable : is_assignable<T&, const T&> {};
+template <class T> struct is_move_assignable : is_assignable<T&, T&&> {};
+
+template <class T, class... Args>
+struct is_trivially_constructible : bool_constant<__is_trivially_constructible(T, Args...)> {};
+template <class T> struct is_trivially_default_constructible : is_trivially_constructible<T> {};
+template <class T> struct is_trivially_copy_constructible : is_trivially_constructible<T, const T&> {};
+template <class T, class U>
+struct is_trivially_assignable : bool_constant<__is_trivially_assignable(T, U)> {};
+template <class T> struct is_trivially_copy_assignable : is_trivially_assignable<T&, const T&> {};
+
+/* The standard defines is_destructible via "declval<T&>().~T()".  Spelling
+   that out for array, function and void types is a grammar error rather than a
+   clean substitution failure, and the detection idioms that dodge it need a
+   reference-to-pointer cast which is itself ill-formed for reference types.
+   The set of types the expression accepts is exactly "non-array object type or
+   reference", so test that instead.  Deviation: a class whose destructor is
+   inaccessible reports true here and false in a conforming implementation. */
+template <class T>
+struct is_destructible
+    : bool_constant<(is_object<T>::value && !is_array<T>::value) ||
+                    is_reference<T>::value> {};
+
+template <class T, bool = is_destructible<T>::value>
+struct __is_trivially_destructible_impl : false_type {};
+template <class T>
+struct __is_trivially_destructible_impl<T, true>
+    : bool_constant<__has_trivial_destructor(T)> {};
+template <class T> struct is_trivially_destructible : __is_trivially_destructible_impl<T> {};
+template <class T> struct is_nothrow_destructible : is_destructible<T> {};
+
+/* ------------------------------------------------------------------ */
+/* decay, underlying_type, common_type                                 */
+/* ------------------------------------------------------------------ */
+
+template <class T>
+struct decay {
+    typedef typename remove_reference<T>::type U;
+    typedef typename conditional<
+        is_array<U>::value,
+        typename add_pointer<typename remove_extent<U>::type>::type,
+        typename conditional<is_function<U>::value,
+                             typename add_pointer<U>::type,
+                             typename remove_cv<U>::type>::type>::type type;
+};
+
+template <class T, bool = is_enum<T>::value>
+struct __underlying_type_impl {};
+template <class T>
+struct __underlying_type_impl<T, true> { typedef __underlying_type(T) type; };
+template <class T> struct underlying_type : __underlying_type_impl<T> {};
+
+template <class...>
+struct common_type;
+
+template <class T>
+struct common_type<T> { typedef typename decay<T>::type type; };
+
+template <class T, class U>
+struct common_type<T, U> {
+    typedef typename decay<decltype(true ? declval<T>() : declval<U>())>::type type;
+};
+
+template <class T, class U, class... V>
+struct common_type<T, U, V...> {
+    typedef typename common_type<typename common_type<T, U>::type, V...>::type type;
+};
+
+/* ------------------------------------------------------------------ */
+/* result_of / invoke_result                                           */
+/* ------------------------------------------------------------------ */
+
+template <class T>
+struct __invoke_result_impl {};
+template <class F, class... Args>
+struct __invoke_result_impl<F(Args...)> {
+    typedef decltype(declval<F>()(declval<Args>()...)) type;
+};
+template <class F, class... Args>
+struct invoke_result : __invoke_result_impl<F(Args...)> {};
+/* Deprecated in C++17 but Qt 5.15-era code may still name it. */
+template <class F, class... Args>
+struct result_of : invoke_result<F(Args...)> {};
+
+/* ------------------------------------------------------------------ */
+/* integer_sequence (needed by <functional>'s bind / function)         */
+/* ------------------------------------------------------------------ */
+
+template <class T, T... Ints>
+struct integer_sequence {
+    typedef T value_type;
+    static constexpr size_t size() noexcept { return sizeof...(Ints); }
+};
+
+template <size_t... Ints>
+using index_sequence = integer_sequence<size_t, Ints...>;
+
+template <class S1, class S2>
+struct __concat_sequence;
+template <class T, T... I1, T... I2>
+struct __concat_sequence<integer_sequence<T, I1...>, integer_sequence<T, I2...>> {
+    typedef integer_sequence<T, I1..., static_cast<T>(sizeof...(I1) + I2)...> type;
+};
+
+/* Halving recursion keeps instantiation depth logarithmic in N.  Every case has
+   to expose ::type, so the recursive one typedefs it rather than inheriting -
+   deriving from integer_sequence would leave __make_index_sequence_impl<N> with
+   no ::type of its own. */
+template <size_t N>
+struct __make_index_sequence_impl {
+    typedef typename __concat_sequence<
+        typename __make_index_sequence_impl<N / 2>::type,
+        typename __make_index_sequence_impl<N - N / 2>::type>::type type;
+};
+template <>
+struct __make_index_sequence_impl<0> {
+    typedef integer_sequence<size_t> type;
+};
+template <>
+struct __make_index_sequence_impl<1> {
+    typedef integer_sequence<size_t, 0> type;
+};
+
+template <size_t N>
+using make_index_sequence = typename __make_index_sequence_impl<N>::type;
+template <class... T>
+using index_sequence_for = make_index_sequence<sizeof...(T)>;
+
+/* ------------------------------------------------------------------ */
+/* make_signed / make_unsigned                                         */
+/* ------------------------------------------------------------------ */
+
+template <class T> struct __make_unsigned_impl { typedef T type; };
+template <> struct __make_unsigned_impl<char> { typedef unsigned char type; };
+template <> struct __make_unsigned_impl<signed char> { typedef unsigned char type; };
+template <> struct __make_unsigned_impl<short> { typedef unsigned short type; };
+template <> struct __make_unsigned_impl<int> { typedef unsigned int type; };
+template <> struct __make_unsigned_impl<long> { typedef unsigned long type; };
+template <> struct __make_unsigned_impl<long long> { typedef unsigned long long type; };
+template <> struct __make_unsigned_impl<unsigned char> { typedef unsigned char type; };
+template <> struct __make_unsigned_impl<unsigned short> { typedef unsigned short type; };
+template <> struct __make_unsigned_impl<unsigned int> { typedef unsigned int type; };
+template <> struct __make_unsigned_impl<unsigned long> { typedef unsigned long type; };
+template <> struct __make_unsigned_impl<unsigned long long> { typedef unsigned long long type; };
+
+template <class T> struct __make_signed_impl { typedef T type; };
+template <> struct __make_signed_impl<char> { typedef signed char type; };
+template <> struct __make_signed_impl<unsigned char> { typedef signed char type; };
+template <> struct __make_signed_impl<unsigned short> { typedef short type; };
+template <> struct __make_signed_impl<unsigned int> { typedef int type; };
+template <> struct __make_signed_impl<unsigned long> { typedef long type; };
+template <> struct __make_signed_impl<unsigned long long> { typedef long long type; };
+template <> struct __make_signed_impl<signed char> { typedef signed char type; };
+template <> struct __make_signed_impl<short> { typedef short type; };
+template <> struct __make_signed_impl<int> { typedef int type; };
+template <> struct __make_signed_impl<long> { typedef long type; };
+template <> struct __make_signed_impl<long long> { typedef long long type; };
+
+/* For enums the standard converts via the underlying type. */
+template <class T, bool = is_enum<T>::value>
+struct __make_unsigned_selector : __make_unsigned_impl<T> {};
+template <class T>
+struct __make_unsigned_selector<T, true>
+    : __make_unsigned_impl<typename underlying_type<T>::type> {};
+
+template <class T, bool = is_enum<T>::value>
+struct __make_signed_selector : __make_signed_impl<T> {};
+template <class T>
+struct __make_signed_selector<T, true>
+    : __make_signed_impl<typename underlying_type<T>::type> {};
+
+template <class T> struct make_unsigned : __make_unsigned_selector<T> {};
+template <class T> struct make_signed : __make_signed_selector<T> {};
+
+/* ------------------------------------------------------------------ */
+/* void_t and the C++14 _t aliases                                     */
+/* ------------------------------------------------------------------ */
+
+template <class...>
+struct __make_void { typedef void type; };
+template <class... Ts>
+using void_t = typename __make_void<Ts...>::type;
+
+#if __cplusplus >= 201402L
+template <bool B> using bool_constant_t = bool_constant<B>;
+template <class T> using remove_const_t = typename remove_const<T>::type;
+template <class T> using remove_volatile_t = typename remove_volatile<T>::type;
+template <class T> using remove_cv_t = typename remove_cv<T>::type;
+template <class T> using add_const_t = typename add_const<T>::type;
+template <class T> using add_volatile_t = typename add_volatile<T>::type;
+template <class T> using add_cv_t = typename add_cv<T>::type;
+template <class T> using remove_reference_t = typename remove_reference<T>::type;
+template <class T> using add_lvalue_reference_t = typename add_lvalue_reference<T>::type;
+template <class T> using add_rvalue_reference_t = typename add_rvalue_reference<T>::type;
+template <class T> using remove_pointer_t = typename remove_pointer<T>::type;
+template <class T> using add_pointer_t = typename add_pointer<T>::type;
+template <class T> using remove_extent_t = typename remove_extent<T>::type;
+template <class T> using remove_all_extents_t = typename remove_all_extents<T>::type;
+template <class T> using underlying_type_t = typename underlying_type<T>::type;
+template <class T> using decay_t = typename decay<T>::type;
+template <bool B, class T = void> using enable_if_t = typename enable_if<B, T>::type;
+template <bool B, class T, class F> using conditional_t = typename conditional<B, T, F>::type;
+template <class T> using make_signed_t = typename make_signed<T>::type;
+template <class T> using make_unsigned_t = typename make_unsigned<T>::type;
+template <class... T> using common_type_t = typename common_type<T...>::type;
+template <class F, class... A> using invoke_result_t = typename invoke_result<F, A...>::type;
+#endif
+
+}  // namespace std
+
+#endif // EWOK_STL_TYPE_TRAITS_H

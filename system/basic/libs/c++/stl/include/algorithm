@@ -1,16 +1,29 @@
 #ifndef EWOK_STL_ALGORITHM_H
 #define EWOK_STL_ALGORITHM_H
 
+/* <stdlib.h> was missing, which made the whole header uncompilable: stable_sort
+   calls malloc() at line ~315 and free() at ~347, and with no declaration in
+   scope GCC rejects it with "there are no arguments to 'malloc' that depend on
+   a template parameter".  92 Qt files include <algorithm>. */
 #include <stddef.h>
+#include <stdlib.h>
+#include <utility>
+/* For iterator_traits.  Every value_type below used to be spelled
+   typename Iterator::value_type, which only works when Iterator is a class:
+   std::array::iterator and std::string::iterator are raw pointers, where the
+   qualified lookup is a hard error - "'int*' is not a class, struct, or union
+   type".  <iterator> specializes iterator_traits<T*> and <const T*>, so the
+   traits spelling works for both. */
+#include <iterator>
+
+/* stable_sort_impl() builds its temporary buffer with placement new.  As with
+   <deque>, the omission is invisible until something actually calls stable_sort
+   in a TU that has not already included <new> via <vector>. */
+#include <new>
 
 namespace std {
 
-template <typename T>
-void swap(T& a, T& b) {
-    T tmp = a;
-    a = b;
-    b = tmp;
-}
+/* std::swap moved to <utility>, where the standard puts it. */
 
 template <typename T>
 const T& max(const T& a, const T& b) {
@@ -98,62 +111,109 @@ Iterator unique(Iterator first, Iterator last) {
     return ++result;
 }
 
+/* Defined at the bottom of this header.  Declared here so sort()'s
+   depth-exhaustion fallback below can call it. */
+template <typename Iterator, typename Compare>
+void stable_sort_impl(Iterator first, Iterator last, Compare comp);
+
+namespace ewok_sort_detail {
+
+/* operator< wrapper so the two-argument sort() can share one implementation
+   with the three-argument one.  A template member (not a generic lambda) to
+   stay within C++11. */
+struct default_less {
+    template <typename A, typename B>
+    bool operator()(const A& a, const B& b) const { return a < b; }
+};
+
+/* Ranges at or below this size go straight to insertion sort. */
+const size_t kInsertionThreshold = 16;
+
+/* 2 * floor(log2(n)) + 1: the recursion budget an ideal quicksort needs,
+   doubled so ordinary bad-luck pivots do not trip the fallback. */
+inline int depth_limit(size_t n) {
+    int d = 0;
+    while (n > 1) { n >>= 1; ++d; }
+    return d * 2 + 1;
+}
+
+/* Insertion sort.  Only ever swaps adjacent elements, so it needs neither a
+   value_type copy constructor nor a working move - relevant because the
+   containers in this STL hand-write both. */
+template <typename Iterator, typename Compare>
+void insertion_sort(Iterator first, Iterator last, Compare comp) {
+    if (first == last) return;
+    for (Iterator i = first + 1; i != last; ++i) {
+        for (Iterator j = i; j != first && comp(*j, *(j - 1)); --j) {
+            swap(*j, *(j - 1));
+        }
+    }
+}
+
+template <typename Iterator, typename Compare>
+void sort_loop(Iterator first, Iterator last, Compare comp, int depth) {
+    while (last - first > (typename iterator_traits<Iterator>::difference_type)kInsertionThreshold) {
+        if (depth <= 0) {
+            /* Budget exhausted (near-sorted or adversarial input).  Hand over
+               to the merge sort instead of degrading to O(n^2) or deepening
+               the recursion - EwokOS thread stacks are small. */
+            stable_sort_impl(first, last, comp);
+            return;
+        }
+        --depth;
+
+        /* Median-of-three, applied to the ELEMENTS.  The previous version
+           ordered a local array of three *iterators* and then returned for
+           n < 3, so a two-element range was left exactly as it was found.
+           Quicksort bottoms out at two-element ranges, which made the overall
+           result merely approximately sorted: callers that binary-search it
+           (litehtml's css::find_selector_bucket) silently failed to find keys
+           that were present. */
+        Iterator mid = first + (last - first) / 2;
+        Iterator hi = last - 1;
+        if (comp(*mid, *first)) swap(*mid, *first);
+        if (comp(*hi, *mid)) swap(*hi, *mid);
+        if (comp(*mid, *first)) swap(*mid, *first);
+
+        /* Park the median at the end and run a Lomuto partition around it.
+           The pivot stays at *hi for the whole scan, so no copy is needed. */
+        swap(*mid, *hi);
+        Iterator store = first;
+        for (Iterator i = first; i != hi; ++i) {
+            if (comp(*i, *hi)) {
+                swap(*i, *store);
+                ++store;
+            }
+        }
+        swap(*store, *hi);
+
+        /* Recurse into the smaller partition, loop on the larger one: bounds
+           stack depth to O(log n) regardless of pivot quality. */
+        if (store - first < last - (store + 1)) {
+            sort_loop(first, store, comp, depth);
+            first = store + 1;
+        } else {
+            sort_loop(store + 1, last, comp, depth);
+            last = store;
+        }
+    }
+    insertion_sort(first, last, comp);
+}
+
+} // namespace ewok_sort_detail
+
 template <typename Iterator>
 void sort(Iterator first, Iterator last) {
     if (first >= last) return;
-
-    typedef typename Iterator::value_type T;
-
-    Iterator arr[3] = {first, first + (last - first) / 2, last - 1};
-    if (*arr[2] < *arr[0]) { Iterator tmp = arr[0]; arr[0] = arr[2]; arr[2] = tmp; }
-    if (*arr[1] < *arr[0]) { Iterator tmp = arr[0]; arr[0] = arr[1]; arr[1] = tmp; }
-    if (*arr[2] < *arr[1]) { Iterator tmp = arr[1]; arr[1] = arr[2]; arr[2] = tmp; }
-
-    if (last - first < 3) return;
-
-    Iterator pivot_iter = arr[1];
-    T pivot = *pivot_iter;
-    swap(*pivot_iter, *(last - 1));
-
-    Iterator store = first;
-    for (Iterator i = first; i < last - 1; ++i) {
-        if (*i < pivot) {
-            swap(*i, *store);
-            ++store;
-        }
-    }
-    swap(*store, *(last - 1));
-
-    sort(first, store);
-    sort(store + 1, last);
+    ewok_sort_detail::sort_loop(first, last, ewok_sort_detail::default_less(),
+                                ewok_sort_detail::depth_limit((size_t)(last - first)));
 }
 
 template <typename Iterator, typename Compare>
 void sort(Iterator first, Iterator last, Compare comp) {
     if (first >= last) return;
-
-    Iterator arr[3] = {first, first + (last - first) / 2, last - 1};
-    if (comp(*arr[2], *arr[0])) { Iterator tmp = arr[0]; arr[0] = arr[2]; arr[2] = tmp; }
-    if (comp(*arr[1], *arr[0])) { Iterator tmp = arr[0]; arr[0] = arr[1]; arr[1] = tmp; }
-    if (comp(*arr[2], *arr[1])) { Iterator tmp = arr[1]; arr[1] = arr[2]; arr[2] = tmp; }
-
-    if (last - first < 3) return;
-
-    Iterator pivot_iter = arr[1];
-    typename Iterator::value_type pivot = *pivot_iter;
-    swap(*pivot_iter, *(last - 1));
-
-    Iterator store = first;
-    for (Iterator i = first; i < last - 1; ++i) {
-        if (comp(*i, pivot)) {
-            swap(*i, *store);
-            ++store;
-        }
-    }
-    swap(*store, *(last - 1));
-
-    sort(first, store, comp);
-    sort(store + 1, last, comp);
+    ewok_sort_detail::sort_loop(first, last, comp,
+                                ewok_sort_detail::depth_limit((size_t)(last - first)));
 }
 
 template <typename Iterator, typename T>
@@ -165,6 +225,24 @@ Iterator lower_bound(Iterator first, Iterator last, const T& value) {
         half = len / 2;
         middle = first + half;
         if (*middle < value) {
+            first = middle + 1;
+            len = len - half - 1;
+        } else {
+            len = half;
+        }
+    }
+    return first;
+}
+
+template <typename Iterator, typename T, typename Compare>
+Iterator lower_bound(Iterator first, Iterator last, const T& value, Compare comp) {
+    size_t len = last - first;
+    size_t half;
+    Iterator middle;
+    while (len > 0) {
+        half = len / 2;
+        middle = first + half;
+        if (comp(*middle, value)) {
             first = middle + 1;
             len = len - half - 1;
         } else {
@@ -210,6 +288,43 @@ void fill(Iterator first, Iterator last, const T& value) {
         *first = value;
         ++first;
     }
+}
+
+/* The counted form of fill.  qrandom.cpp:317 uses it to fill a fallback buffer:
+       std::fill_n(buffer, count, value);
+   and count there is a qsizetype, so Size has to be a template parameter rather
+   than a size_t - the caller's signedness is not ours to choose. */
+template <typename OutputIt, typename Size, typename T>
+OutputIt fill_n(OutputIt first, Size n, const T& value) {
+    for (Size i = 0; i < n; i++) {
+        *first = value;
+        ++first;
+    }
+    return first;
+}
+
+/* generate takes the generator by value, as the standard specifies, which is why
+   qrandom.cpp:314 can hand it a whole mersenne_twister_engine and qrandom.h:158
+   a lambda:
+       std::generate(ptr, ptr + left, generator);
+       std::generate(begin, end, [this]() { return generate(); });
+   Passing by value means the engine has to be copyable, and each call site gets
+   its own advancing copy rather than sharing state with the caller's. */
+template <typename OutputIt, typename Generator>
+void generate(OutputIt first, OutputIt last, Generator gen) {
+    while (first != last) {
+        *first = gen();
+        ++first;
+    }
+}
+
+template <typename OutputIt, typename Size, typename Generator>
+OutputIt generate_n(OutputIt first, Size n, Generator gen) {
+    for (Size i = 0; i < n; i++) {
+        *first = gen();
+        ++first;
+    }
+    return first;
 }
 
 template <typename Iterator1, typename Iterator2>
@@ -311,7 +426,7 @@ void stable_sort_impl(Iterator first, Iterator last, Compare comp) {
     stable_sort_impl(middle, last, comp);
 
     // Merge step - use a temporary buffer
-    typedef typename Iterator::value_type value_type;
+    typedef typename iterator_traits<Iterator>::value_type value_type;
     value_type* temp = (value_type*)malloc(n * sizeof(value_type));
 
     Iterator left = first;

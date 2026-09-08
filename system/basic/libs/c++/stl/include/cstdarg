@@ -1,0 +1,34 @@
+#ifndef EWOK_STL_CSTDARG_H
+#define EWOK_STL_CSTDARG_H
+
+/*
+ * <cstdarg> - variadic argument access, in namespace std.
+ *
+ * This header only became necessary once make.rule started passing -nostdinc++.
+ * Before that, libstdc++'s <cstdarg> was reachable as a fall-through, and it was
+ * one of the few libstdc++ headers that actually worked: it is a pure pass-through
+ * to <stdarg.h> and never touches <type_traits> or <utility>, so it did not collide
+ * with EWOK_STL the way <chrono>, <mutex> and <future> do.  With the C++ include
+ * path closed off it has to be provided here.
+ *
+ * projects/soft3d/libs/glcommon/include/glcommon/glslprogram.h:8 is the only
+ * includer in the tree, and it never actually names va_list - but the include
+ * still has to resolve.
+ *
+ * <stdarg.h> itself is a compiler-provided freestanding header that lives in GCC's
+ * own include directory rather than the C++ one, so -nostdinc++ does not remove it.
+ *
+ * Only va_list can be re-exported.  va_start, va_end, va_arg and va_copy are
+ * macros, and macros have no namespace - including <stdarg.h> is what makes them
+ * visible, exactly as it does in C.
+ */
+
+#include <stdarg.h>
+
+namespace std {
+
+using ::va_list;
+
+}
+
+#endif // EWOK_STL_CSTDARG_H

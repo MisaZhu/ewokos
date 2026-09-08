@@ -482,10 +482,25 @@ _sbrk (ptrdiff_t incr)
   char *prev_heap_end;
   void *result;
 
+  if(incr < 0) {
+    /* The break must never drop below the heap base: releasing more than the
+       heap spans desyncs __heap_end from the kernel break, and the next
+       expansion then builds its block at a stale, unmapped address. The
+       running __heap_size is exactly the distance from base to break. */
+    ptrdiff_t max_dec = (ptrdiff_t)__heap_size;
+    if(-incr > max_dec)
+      incr = -max_dec;
+  }
+
   result = proc_malloc_expand(incr);
   if(incr > 0 && result == NULL) {
     errno = ENOMEM;
     return (void *)-1;
+  }
+  if(incr > 0 && result != NULL && __heap_end != NULL && result != __heap_end) {
+    /* The kernel break moved behind our back (an expand that bypassed
+       _sbrk); resync so the region handed out is the one just mapped. */
+    __heap_end = result;
   }
 
   __heap_size += incr;

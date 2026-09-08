@@ -3,81 +3,26 @@
 
 #include <stddef.h>
 #include <utility>
+#include <type_traits>
+#include <exception>
+#include <new>
 
 namespace std {
 
-// Minimal exception base class for bad_weak_ptr
-class exception {
-public:
-    exception() noexcept {}
-    virtual ~exception() noexcept {}
-    virtual const char* what() const noexcept {
-        return "exception";
-    }
-};
+/* std::exception used to be defined here, along with a private set of type
+   traits (is_array, enable_if, remove_extent, is_base_of, bool_constant,
+   true_type, false_type) added just to make make_unique's SFINAE compile.  Two
+   of them were wrong in ways that mattered:
 
-// Type traits needed for make_unique SFINAE
-template <typename T>
-struct is_array {
-    static const bool value = false;
-};
+     - enable_if had a third parameter and a ::type even when the condition was
+       false, so make_unique's array and non-array overloads were both viable
+       and the call was ambiguous;
+     - is_base_of only reported true for identical types, so shared_ptr's
+       upcasting constructor silently did not participate in overload
+       resolution for real base/derived pairs.
 
-template <typename T>
-struct is_array<T[]> {
-    static const bool value = true;
-};
-
-template <typename T, size_t N>
-struct is_array<T[N]> {
-    static const bool value = true;
-};
-
-template <bool B, typename T, typename F = void>
-struct enable_if {
-    typedef T type;
-};
-
-template <typename T, typename F>
-struct enable_if<false, T, F> {
-    typedef F type;
-};
-
-template <typename T>
-struct remove_extent {
-    typedef T type;
-};
-
-template <typename T>
-struct remove_extent<T[]> {
-    typedef T type;
-};
-
-template <typename T, size_t N>
-struct remove_extent<T[N]> {
-    typedef T type;
-};
-
-// is_base_of type trait - simplified version
-// This checks if Derived can be converted to Base*
-template <typename Base, typename Derived>
-struct is_base_of {
-    static const bool value = false;
-};
-
-// Specialization for when Base and Derived are the same
-template <typename T>
-struct is_base_of<T, T> {
-    static const bool value = true;
-};
-
-// true_type and false_type for type traits
-template <bool B>
-struct bool_constant {
-    static const bool value = B;
-};
-
-typedef bool_constant<true> true_type;
-typedef bool_constant<false> false_type;
+   They now come from <exception> and <type_traits>, which implement them on the
+   compiler's own builtins. */
 
 // bad_weak_ptr exception class
 class bad_weak_ptr : public exception {
@@ -584,8 +529,14 @@ class shared_ptr {
             }
         }
 
-        // Copy constructor from compatible type
-        template <typename U>
+        /* Copy/move construction and assignment from a compatible type.  The
+           standard constrains these to Y* implicitly convertible to T*; the
+           constraint was missing, so shared_ptr<Derived>(a_base_ptr) was
+           accepted at the signature and then failed inside the body with
+           "invalid conversion from 'B*' to 'D*'" - a hard error rather than a
+           substitution failure.  It never showed up before because is_base_of
+           was broken, so no caller could reach these overloads. */
+        template <typename U, typename enable_if<is_convertible<U*, T*>::value, int>::type = 0>
         shared_ptr(const shared_ptr<U>& other) noexcept : ptr_(other.ptr_), control_block_(other.control_block_) {
             if (control_block_) {
                 control_block_->add_strong();
@@ -593,7 +544,7 @@ class shared_ptr {
         }
 
         // Move constructor from compatible type
-        template <typename U>
+        template <typename U, typename enable_if<is_convertible<U*, T*>::value, int>::type = 0>
         shared_ptr(shared_ptr<U>&& other) noexcept : ptr_(other.ptr_), control_block_(other.control_block_) {
             other.ptr_ = nullptr;
             other.control_block_ = nullptr;
@@ -639,15 +590,20 @@ class shared_ptr {
             return *this;
         }
 
+        /* These three all built a temporary shared_ptr<U> and called swap() on
+           it.  swap() takes a non-const lvalue reference, so binding a temporary
+           is ill-formed, and U was the wrong type anyway - swap() is a member of
+           shared_ptr<T>.  Named locals of the right type fix both problems. */
         // Copy assignment from compatible type
-        template <typename U>
+        template <typename U, typename enable_if<is_convertible<U*, T*>::value, int>::type = 0>
         shared_ptr& operator=(const shared_ptr<U>& other) noexcept {
-            shared_ptr<U>(other).swap(*this);
+            shared_ptr tmp(other);
+            tmp.swap(*this);
             return *this;
         }
 
         // Move assignment from compatible type
-        template <typename U>
+        template <typename U, typename enable_if<is_convertible<U*, T*>::value, int>::type = 0>
         shared_ptr& operator=(shared_ptr<U>&& other) noexcept {
             release();
             ptr_ = other.ptr_;
@@ -666,12 +622,14 @@ class shared_ptr {
 
         template <typename U>
         void reset(U* p) {
-            shared_ptr<U>(p).swap(*this);
+            shared_ptr tmp(p);
+            tmp.swap(*this);
         }
 
         template <typename U, typename Deleter>
         void reset(U* p, Deleter d) {
-            shared_ptr<U>(p, d).swap(*this);
+            shared_ptr tmp(p, d);
+            tmp.swap(*this);
         }
 
         // Swap
@@ -876,9 +834,16 @@ struct __esft_init_dispatcher<T, false> {
 };
 
 // Helper to initialize enable_shared_from_this
-template <typename T>
-void __try_init_enable_shared_from_this(const shared_ptr<T>& sp, T* p) {
-    __esft_init_dispatcher<T>::init(sp, p);
+/* Two independent template parameters: shared_ptr<Base> can be constructed from
+   a Derived*, and deducing a single T from both arguments made that fail with
+   "deduced conflicting types for parameter 'T'".  Dispatch stays on T because
+   enable_shared_from_this<T>::__do_init_weak_this reinterpret_casts the pointer
+   back to const shared_ptr<T>*, which is only sound when the types agree.  So
+   for shared_ptr<Base>(derived_ptr) where only Derived has the ESFT base, that
+   base is not initialised - the standard would initialise it. */
+template <typename T, typename U>
+void __try_init_enable_shared_from_this(const shared_ptr<T>& sp, U* p) {
+    __esft_init_dispatcher<T>::init(sp, static_cast<T*>(p));
 }
 
 // Free functions
@@ -1057,6 +1022,11 @@ class allocator {
 
         ~allocator() {}
 
+        template <typename U>
+        struct rebind {
+            typedef allocator<U> other;
+        };
+
         pointer allocate(size_type n, const void* = nullptr) {
             return static_cast<pointer>(::operator new(n * sizeof(T)));
         }
@@ -1064,7 +1034,37 @@ class allocator {
         void deallocate(pointer p, size_type) {
             ::operator delete(p);
         }
+
+        /* construct / destroy / max_size / address were missing, so allocator
+           could only hand back raw memory.  These are what containers and
+           generic code actually use. */
+        template <typename U, typename... Args>
+        void construct(U* p, Args&&... args) {
+            ::new (static_cast<void*>(p)) U(std::forward<Args>(args)...);
+        }
+
+        template <typename U>
+        void destroy(U* p) {
+            p->~U();
+        }
+
+        size_type max_size() const noexcept {
+            return static_cast<size_type>(-1) / sizeof(T);
+        }
+
+        pointer address(reference r) const noexcept { return &r; }
+        const_pointer address(const_reference r) const noexcept { return &r; }
 };
+
+/* std::addressof: the standard puts it in <memory>, and it is the only way to
+   take the address of an object whose class overloads operator&. */
+template <typename T>
+T* addressof(T& r) noexcept {
+    return __builtin_addressof(r);
+}
+
+template <typename T>
+const T* addressof(const T&&) = delete;
 
 template <typename T, typename U>
 bool operator==(const allocator<T>&, const allocator<U>&) noexcept { return true; }

@@ -1,0 +1,58 @@
+#ifndef EWOK_STL_CSTDIO_H
+#define EWOK_STL_CSTDIO_H
+
+/*
+ * <cstdio> - the C <stdio.h> names, in namespace std.
+ *
+ * Restricted to what EwokOS libc declares.  Notably absent from the platform
+ * and therefore not re-exported: fpos_t/fgetpos/fsetpos (the pair that breaks
+ * libstdc++'s <cstdio>), remove, rename, tmpnam, scanf/sscanf and the v*printf
+ * family other than vsnprintf.
+ */
+
+#include <stdio.h>
+#include <cstddef>
+
+namespace std {
+
+using ::FILE;
+
+using ::fopen;
+using ::fclose;
+using ::fread;
+using ::fwrite;
+using ::fgetc;
+using ::fputc;
+using ::fgets;
+using ::fputs;
+using ::fprintf;
+using ::printf;
+using ::sprintf;
+using ::snprintf;
+using ::vsnprintf;
+using ::fscanf;
+using ::getchar;
+using ::putchar;
+using ::putc;
+using ::feof;
+using ::ferror;
+using ::clearerr;
+using ::fseek;
+using ::ftell;
+using ::rewind;
+using ::fflush;
+using ::setbuf;
+using ::setvbuf;
+using ::tmpfile;
+using ::popen;
+using ::pclose;
+
+/* EwokOS declares these as plain `extern FILE *`, so a using-declaration
+   brings the objects themselves into namespace std - no wrapper needed. */
+using ::stdin;
+using ::stdout;
+using ::stderr;
+
+}
+
+#endif // EWOK_STL_CSTDIO_H

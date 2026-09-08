@@ -1,0 +1,368 @@
+#ifndef EWOK_STL_MUTEX_H
+#define EWOK_STL_MUTEX_H
+
+/* <mutex> - mutual exclusion.
+ *
+ * The whole header is built on EwokOS's pthread layer
+ * (system/basic/libc/libewoksys/src/pthread), which is where two facts come
+ * from that shaped the design:
+ *
+ * 1. pthread_mutex_t is `typedef int32_t` - a semaphore id, not a struct - and
+ *    PTHREAD_MUTEX_INITIALIZER is 0.  pthread_mutex_lock() allocates the
+ *    semaphore on first use if the id is still 0:
+ *
+ *        if(*mutex == 0)
+ *            *mutex = semaphore_alloc();
+ *
+ *    So a zeroed mutex is a fully usable mutex with no pthread_mutex_init().
+ *
+ * 2. Nothing on EwokOS runs .init_array.  The kernel's ELF loader
+ *    (kernel/kernel/src/proc.c) maps the PT_LOAD segments and then sets
+ *    ctx.pc straight to ELF_ENTRY(); there is no crt0, no __libc_init_array
+ *    and no constructor walker anywhere in the tree.  A namespace-scope object
+ *    with a dynamic initializer is therefore never constructed, and
+ *    make.rule's -fno-use-cxa-atexit means it would never be destructed
+ *    either.
+ *
+ * Put together, (1) and (2) mean the right design is the one the standard
+ * already asks for and the one libstdc++ uses: a constexpr constructor that
+ * constant-initializes the handle, and a trivial destructor.  Qt depends on
+ * exactly this - qmutex.h:133 is `constexpr QMutex() = default;` - so a
+ * namespace-scope QMutex lands in .bss and works.  std::mutex has to behave
+ * the same way or it is unusable at namespace scope on this target.
+ *
+ * Deliberately not provided:
+ *
+ *   timed_mutex, recursive_timed_mutex - their try_lock_for/try_lock_until take
+ *       std::chrono durations, and <chrono> is not part of this STL.  Qt does
+ *       not need it either: every std::chrono reference in qmutex.h sits behind
+ *       `#if __has_include(<chrono>)`, which -nostdinc++ makes correctly false.
+ *   scoped_lock - C++17.  qlocking_p.h only selects it under
+ *       `#if defined(__cpp_guaranteed_copy_elision)`, so at -std=c++14 it takes
+ *       the std::unique_lock branch instead, and __cpp_lib_scoped_lock is
+ *       correctly left undefined here.
+ *   once_flag, call_once - pthread_once() takes a bare `void (*)(void)` with no
+ *       user-data parameter, so a conforming call_once has to smuggle the
+ *       callable and its arguments through thread-local storage (libstdc++ uses
+ *       __once_callable).  Nothing in the tree calls it, and a version that
+ *       passed the callable through a static would be racy, so it is left out
+ *       rather than left wrong.
+ */
+
+#include <pthread.h>   /* pthread_mutex_t, pthread_mutex_lock/unlock/trylock */
+#include <stddef.h>    /* NULL */
+
+namespace std {
+
+/* ------------------------------------------------------------------ *
+ *   lock tag types
+ * ------------------------------------------------------------------ */
+
+struct defer_lock_t { };
+struct try_to_lock_t { };
+struct adopt_lock_t { };
+
+/* constexpr implies const, which at namespace scope implies internal linkage,
+   so each translation unit gets its own copy and there is no ODR problem -
+   this is what libstdc++ does too. */
+constexpr defer_lock_t defer_lock { };
+constexpr try_to_lock_t try_to_lock { };
+constexpr adopt_lock_t adopt_lock { };
+
+/* ------------------------------------------------------------------ *
+ *   mutex
+ * ------------------------------------------------------------------ */
+
+class mutex {
+public:
+    typedef pthread_mutex_t* native_handle_type;
+
+    /* Constant-initialized, for the reasons in the header comment.  Zero is
+       PTHREAD_MUTEX_INITIALIZER on EwokOS, and pthread_mutex_lock() turns it
+       into a real semaphore the first time it is used. */
+    constexpr mutex() noexcept : handle_(PTHREAD_MUTEX_INITIALIZER) { }
+
+    /* Trivial on purpose, and libstdc++'s is trivial too (~mutex() = default).
+       Calling pthread_mutex_destroy() here would make mutex a non-literal type,
+       and GCC would then want a static initializer around to register the
+       destructor - which would never run, and would cost the constant
+       initialization the constructor above provides.  There is nothing to
+       release anyway: the semaphore belongs to the process, and the kernel
+       reclaims all of it when the process dies. */
+    ~mutex() = default;
+
+    mutex(const mutex&) = delete;
+    mutex& operator=(const mutex&) = delete;
+
+    /* No error checking, matching array::at() and vector::at() in this STL:
+       pthread_mutex_lock() returns an int, but there is no exception runtime to
+       report it through and trapping here would make <mutex> the only part of
+       the library that does.  A failure means the semaphore could not be
+       allocated, which on EwokOS only happens if the process is out of them. */
+    void lock() { pthread_mutex_lock(&handle_); }
+    void unlock() { pthread_mutex_unlock(&handle_); }
+    bool try_lock() { return pthread_mutex_trylock(&handle_) == 0; }
+
+    /* condition_variable needs this to hand the same mutex to
+       pthread_cond_wait(). */
+    native_handle_type native_handle() { return &handle_; }
+
+private:
+    pthread_mutex_t handle_;
+};
+
+/* ------------------------------------------------------------------ *
+ *   recursive_mutex
+ * ------------------------------------------------------------------ */
+
+/* The recursion is tracked here rather than asked of pthread, because EwokOS's
+   pthread_mutex_init() throws the attributes away:
+
+       int pthread_mutex_init(pthread_mutex_t* mutex, const pthread_mutexattr_t *attr) {
+           (void)attr;
+           ...
+           *mutex = semaphore_alloc();
+
+   So PTHREAD_MUTEX_RECURSIVE - which libewoksys does define, locally in
+   pthread_attr_obj.c, though pthread.h never exports it - has no effect, and a
+   "recursive" pthread mutex on this target would simply deadlock on the second
+   lock() from the same thread.  Doing it in the wrapper is the only way to get
+   the behaviour the name promises.
+
+   owner_ and depth_ are read without holding the mutex on the fast path, which
+   is safe because the comparison is self-authenticating: only this thread ever
+   writes `self` into owner_, so a load that returns `self` can only be
+   returning a value this thread wrote.  A thread's own writes are always
+   visible to itself in program order, so it cannot read a stale `self` left over
+   from a lock it has since released - releasing writes 0 first, before the
+   pthread mutex is given up.  Any other value, stale or torn, simply fails the
+   comparison and falls through to the real lock, which is the correct thing to
+   do.  volatile keeps the compiler from caching the load across the branch. */
+class recursive_mutex {
+public:
+    typedef pthread_mutex_t* native_handle_type;
+
+    constexpr recursive_mutex() noexcept
+        : handle_(PTHREAD_MUTEX_INITIALIZER), owner_(0), depth_(0) { }
+
+    ~recursive_mutex() = default;
+
+    recursive_mutex(const recursive_mutex&) = delete;
+    recursive_mutex& operator=(const recursive_mutex&) = delete;
+
+    void lock() {
+        pthread_t self = pthread_self();
+        if (owner_ == self && depth_ != 0) {
+            ++depth_;
+            return;
+        }
+        pthread_mutex_lock(&handle_);
+        owner_ = self;
+        depth_ = 1;
+    }
+
+    void unlock() {
+        /* Clear the ownership record before giving up the mutex, so that the
+           next thread in can never see a stale owner_. */
+        if (--depth_ == 0) {
+            owner_ = 0;
+            pthread_mutex_unlock(&handle_);
+        }
+    }
+
+    bool try_lock() {
+        pthread_t self = pthread_self();
+        if (owner_ == self && depth_ != 0) {
+            ++depth_;
+            return true;
+        }
+        if (pthread_mutex_trylock(&handle_) != 0)
+            return false;
+        owner_ = self;
+        depth_ = 1;
+        return true;
+    }
+
+    native_handle_type native_handle() { return &handle_; }
+
+private:
+    pthread_mutex_t handle_;
+    volatile pthread_t owner_;
+    volatile int depth_;
+};
+
+/* ------------------------------------------------------------------ *
+ *   lock_guard
+ * ------------------------------------------------------------------ */
+
+/* The simple one: lock on construction, unlock on destruction, no way to
+   release early.  qfutureinterface.h uses it as `std::lock_guard<QMutex>
+   locker(mutex(0));`, where the Mutex is Qt's own rather than std::mutex -
+   which is the point of the template, and why nothing here may assume the
+   mutex_type is anything in particular beyond lock() and unlock(). */
+template <class Mutex>
+class lock_guard {
+public:
+    typedef Mutex mutex_type;
+
+    explicit lock_guard(mutex_type& m) : m_(m) { m_.lock(); }
+    lock_guard(mutex_type& m, adopt_lock_t) noexcept : m_(m) { }
+
+    ~lock_guard() { m_.unlock(); }
+
+    lock_guard(const lock_guard&) = delete;
+    lock_guard& operator=(const lock_guard&) = delete;
+
+private:
+    mutex_type& m_;
+};
+
+/* ------------------------------------------------------------------ *
+ *   unique_lock
+ * ------------------------------------------------------------------ */
+
+/* The one that actually gets used: qlocking_p.h's qt_unique_lock/qt_scoped_lock
+   both resolve to this at -std=c++14, and there are 106 call sites for them
+   across corelib, gui and widgets.  qobject.cpp:421 constructs one deferred and
+   locks it later:
+
+       std::unique_lock<QBasicMutex> lock(*senderMutex, std::defer_lock_t{});
+       ...
+       lock.lock();
+
+   and qlocking_p.h:112 needs the no-mutex default constructor plus a move
+   constructor, because it returns one by value:
+
+       return mutex ? Lock(*mutex) : Lock();
+
+   The move constructor has to exist even where the return is elided - at C++14
+   elision of a prvalue is permitted but not guaranteed, the way it is from
+   C++17 on.
+
+   As with lock_guard, Mutex is any BasicLockable, so the member functions that
+   need try_lock() are only usable when the mutex provides it.  They are members
+   of a class template, so they are instantiated on use and their absence from a
+   given mutex costs nothing until somebody calls them. */
+template <class Mutex>
+class unique_lock {
+public:
+    typedef Mutex mutex_type;
+
+    unique_lock() noexcept : m_(NULL), owns_(false) { }
+
+    explicit unique_lock(mutex_type& m) : m_(&m), owns_(true) { m_->lock(); }
+
+    unique_lock(mutex_type& m, defer_lock_t) noexcept : m_(&m), owns_(false) { }
+    unique_lock(mutex_type& m, try_to_lock_t) : m_(&m), owns_(m.try_lock()) { }
+    unique_lock(mutex_type& m, adopt_lock_t) noexcept : m_(&m), owns_(true) { }
+
+    ~unique_lock() { if (owns_) m_->unlock(); }
+
+    unique_lock(const unique_lock&) = delete;
+    unique_lock& operator=(const unique_lock&) = delete;
+
+    unique_lock(unique_lock&& other) noexcept : m_(other.m_), owns_(other.owns_) {
+        other.m_ = NULL;
+        other.owns_ = false;
+    }
+
+    unique_lock& operator=(unique_lock&& other) noexcept {
+        if (this != &other) {
+            if (owns_)
+                m_->unlock();
+            m_ = other.m_;
+            owns_ = other.owns_;
+            other.m_ = NULL;
+            other.owns_ = false;
+        }
+        return *this;
+    }
+
+    /* No re-entrancy check.  The standard throws
+       resource_deadlock_would_occur when owns_ is already true; with no
+       exception runtime there is nowhere to put it, and the same reasoning as
+       array::at() applies - trapping here would make <mutex> the only part of
+       the library that does.  Double-locking is the caller's bug either way. */
+    void lock() { m_->lock(); owns_ = true; }
+
+    bool try_lock() {
+        bool got = m_->try_lock();
+        owns_ = got;
+        return got;
+    }
+
+    void unlock() { m_->unlock(); owns_ = false; }
+
+    void swap(unique_lock& other) noexcept {
+        mutex_type* tm = m_;
+        m_ = other.m_;
+        other.m_ = tm;
+        bool to = owns_;
+        owns_ = other.owns_;
+        other.owns_ = to;
+    }
+
+    /* Hands over the mutex without unlocking it - the caller becomes
+       responsible for the unlock. */
+    mutex_type* release() noexcept {
+        mutex_type* r = m_;
+        m_ = NULL;
+        owns_ = false;
+        return r;
+    }
+
+    bool owns_lock() const noexcept { return owns_; }
+    explicit operator bool() const noexcept { return owns_; }
+
+    /* qwaitcondition_p.h:91 uses this to get at the underlying QMutex:
+           QWaitCondition::wait(lock.mutex()) */
+    mutex_type* mutex() const noexcept { return m_; }
+
+private:
+    mutex_type* m_;
+    bool owns_;
+};
+
+template <class Mutex>
+inline void swap(unique_lock<Mutex>& a, unique_lock<Mutex>& b) noexcept { a.swap(b); }
+
+/* ------------------------------------------------------------------ *
+ *   lock
+ * ------------------------------------------------------------------ */
+
+/* Lock two mutexes without deadlocking.  The trick is never to block on one
+   while holding the other: lock the first, try the second, and if the try
+   fails give the first back and come at them the other way round.  Two threads
+   doing this in opposite orders can spin against each other, but neither can
+   wedge, which is the property that matters.  Nothing in the tree calls it; it
+   is here because <mutex> is not complete without it.
+
+   The variadic form locks pairwise from the left.  That is not the optimal
+   strategy for three or more mutexes - libstdc++ uses a deferred-lock sweep
+   over the whole set - but it is deadlock-free for each pair it forms, and with
+   no call sites to justify the more elaborate algorithm this is the honest
+   trade. */
+template <class L1, class L2>
+void lock(L1& l1, L2& l2) {
+    while (true) {
+        l1.lock();
+        if (l2.try_lock())
+            return;
+        l1.unlock();
+
+        l2.lock();
+        if (l1.try_lock())
+            return;
+        l2.unlock();
+    }
+}
+
+template <class L1, class L2, class L3, class... Rest>
+void lock(L1& l1, L2& l2, L3& l3, Rest&... rest) {
+    lock(l1, l2);
+    lock(l3, rest...);
+}
+
+} // namespace std
+
+#endif // EWOK_STL_MUTEX_H

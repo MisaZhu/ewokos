@@ -14,6 +14,12 @@ class list {
         typedef T& reference;
         typedef const T& const_reference;
         typedef size_t size_type;
+        /* The remaining names every container is required to have.  value_type was
+           already here, which is why std::back_inserter(std::list<T>) - the shape
+           qlinkedlist.h:273 uses - compiled; pointer and difference_type were not. */
+        typedef T* pointer;
+        typedef const T* const_pointer;
+        typedef ptrdiff_t difference_type;
 
         // Forward declaration of iterator
         class iterator;

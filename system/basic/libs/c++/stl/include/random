@@ -1,0 +1,446 @@
+#ifndef EWOK_STL_RANDOM_H
+#define EWOK_STL_RANDOM_H
+
+/* <random> - the parts QtCore needs: std::seed_seq and the Mersenne twister.
+ *
+ * corelib/global/qrandom.h:45 includes <random> and then, at :189, spells the
+ * engine out in full rather than using the std::mt19937 alias:
+ *
+ *     using RandomEngine = std::mersenne_twister_engine<quint32,
+ *         32,624,397,31,0x9908b0df,11,0xffffffff,7,0x9d2c5680,15,0xefc60000,18,1812433253>;
+ *
+ * which is mt19937's exact parameter set with quint32 in place of
+ * uint_least32_t.  So the general fourteen-parameter template has to be here,
+ * not just the alias.  The rest of the requirement is read off the uses:
+ *
+ *     qrandom.h:195    RandomEngine twister;                  in a union
+ *     qrandom.h:204    is_trivially_destructible<RandomEngine>::value  must hold
+ *     qrandom.cpp:1147 new (&storage.engine()) RandomEngine(sseq);
+ *     qrandom.cpp:1125 storage.engine() = other.storage.engine();   copy assign
+ *     qrandom.cpp:1166 storage.engine().discard(z);
+ *     qrandom.cpp:1179 rng1.storage.engine() == rng2.storage.engine();
+ *     qrandom.cpp:1200 storage.engine()()                     operator()
+ *     qrandom.cpp:312  std::seed_seq sseq(scratch, end);      iterator-range ctor
+ *     qrandom.cpp:313  std::mt19937 generator(sseq);
+ *     qrandom.cpp:314  std::generate(ptr, ptr + left, generator);   by value
+ *
+ * Two consequences worth stating.  is_trivially_destructible has to come out
+ * true because Qt static_asserts on it - so the engine gets no user-declared
+ * destructor, and its members are an array plus an index, which is enough.  And
+ * std::generate takes its generator by value, so the engine has to be copyable;
+ * both fall out of not declaring any special members beyond the ones below.
+ *
+ * The algorithms are libstdc++ 13.3.1's, taken from bits/random.h and
+ * bits/random.tcc rather than written from memory, because the details are not
+ * guessable: seed_seq fills with 0x8b8b8b8b and its mixing function is
+ * x ^ (x >> 27), and the engine's seed() reduces modulo the state size rather
+ * than modulo 2^w.  Getting those wrong would still compile and still look
+ * random; it would just disagree with every other platform Qt runs on, and
+ * QRandomGenerator seeded from a seed_seq would produce different numbers here
+ * than anywhere else.
+ *
+ * Deliberately not provided: the stream inserters and extractors (they would
+ * drag <ostream> and <istream> in for something nothing here uses), and the
+ * distributions - uniform_int_distribution and friends have no call site in
+ * corelib, gui or widgets, since Qt does its own scaling in QRandomGenerator.
+ */
+
+#include <cstddef>           /* size_t */
+#include <cstdint>           /* uint_least32_t, uint_least64_t */
+#include <initializer_list>
+#include <iterator>          /* iterator_traits, for generate's value_type */
+#include <type_traits>       /* enable_if, is_class */
+#include <vector>            /* seed_seq's storage */
+#include <algorithm>         /* fill, equal, copy */
+
+namespace std {
+
+namespace __random_detail {
+
+/* 2^sh, or 0 when sh is the full width of UIntType.  Shifting by the width of
+   the type is undefined, so the two cases are separate specializations and only
+   the one that is selected ever forms the shift.  A value of 0 then means "the
+   type's own unsigned overflow does the reduction", which is how __mod_w below
+   reads it.  This is libstdc++'s __detail::_Shift (bits/random.h:100-110). */
+template <class UIntType, size_t sh, bool = (sh < sizeof(UIntType) * 8)>
+struct __pow2 {
+    static constexpr UIntType value = 0;
+};
+template <class UIntType, size_t sh>
+struct __pow2<UIntType, sh, true> {
+    static constexpr UIntType value = UIntType(1) << sh;
+};
+
+/* Reduce to w bits.  libstdc++ spells this __mod<UIntType, _Shift<UIntType,w>::__value>,
+   whose _Mod specialization skips the modulo entirely when the modulus is 0. */
+template <class UIntType, size_t w>
+inline UIntType __mod_w(UIntType v) {
+    const UIntType m = __pow2<UIntType, w>::value;
+    return m ? (v & (m - 1)) : v;
+}
+
+} // namespace __random_detail
+
+/* ------------------------------------------------------------------ *
+ *   seed_seq
+ * ------------------------------------------------------------------ */
+
+/* A seed sequence turns a short, possibly poor-quality seed into the full-width
+   initial state an engine wants.  Non-copyable, as the standard requires.
+
+   generate() is the whole algorithm, and it is reproduced step for step from
+   bits/random.tcc:1520-1600.  The shape is easier to follow than the standard's
+   prose because the k == 0 case is split out: with every element still equal to
+   the fill value, the three xor'd terms are identical and the mixing function
+   collapses to a constant, 1664525 * (0x8b8b8b8b ^ (0x8b8b8b8b >> 27)) ==
+   1371501266.  The loops that follow are the general case, split at s so that
+   the seed values stop being consumed once they run out. */
+class seed_seq {
+public:
+    typedef uint_least32_t result_type;
+
+    seed_seq() noexcept : v_() { }
+
+    template <class IntType,
+              class = typename enable_if<is_integral<IntType>::value>::type>
+    seed_seq(initializer_list<IntType> il) : v_() {
+        v_.reserve(il.size());
+        for (const IntType* p = il.begin(); p != il.end(); ++p)
+            v_.push_back((result_type)*p);
+    }
+
+    /* Left unconstrained, as libstdc++ leaves it, so seed_seq(a, b) with two
+       integers would try to treat them as iterators and fail in the body.  Qt
+       only ever passes pointer pairs (qrandom.cpp:312 and :1156), so there is
+       nothing to disambiguate. */
+    template <class InputIt>
+    seed_seq(InputIt first, InputIt last) : v_() {
+        /* Not v_(first, last): this vector's range constructor takes its own
+           iterator type, not a template, so a foreign pointer pair would not
+           bind.  Filling by hand also keeps the widening conversion to
+           result_type explicit, which is what the initializer_list form above
+           has to do anyway. */
+        for (InputIt it = first; it != last; ++it)
+            v_.push_back((result_type)*it);
+    }
+
+    seed_seq(const seed_seq&) = delete;
+    seed_seq& operator=(const seed_seq&) = delete;
+
+    size_t size() const noexcept { return v_.size(); }
+
+    template <class OutputIt>
+    void param(OutputIt dest) const { copy(v_.begin(), v_.end(), dest); }
+
+    template <class RandomAccessIt>
+    void generate(RandomAccessIt begin, RandomAccessIt end) {
+        typedef typename iterator_traits<RandomAccessIt>::value_type value_type;
+
+        if (begin == end)
+            return;
+
+        fill(begin, end, value_type(0x8b8b8b8bu));
+
+        const size_t n = (size_t)(end - begin);
+        const size_t s = v_.size();
+        const size_t t = (n >= 623) ? 11
+                       : (n >=  68) ? 7
+                       : (n >=  39) ? 5
+                       : (n >=   7) ? 3
+                       : (n - 1) / 2;
+        const size_t p = (n - t) / 2;
+        const size_t q = p + t;
+        const size_t m = (s + 1 > n) ? (s + 1) : n;
+
+        /* k == 0, where the xor of three equal fill values is the fill value. */
+        {
+            const uint_least32_t r1 = 1371501266u;
+            const uint_least32_t r2 = r1 + (uint_least32_t)s;
+            begin[p] += r1;
+            begin[q] = (uint_least32_t)begin[q] + r2;
+            begin[0] = r2;
+        }
+
+        for (size_t k = 1; k <= s; ++k) {
+            const size_t kn = k % n;
+            const size_t kpn = (k + p) % n;
+            const size_t kqn = (k + q) % n;
+            const uint_least32_t arg = (uint_least32_t)(begin[kn] ^ begin[kpn]
+                                                        ^ begin[(k - 1) % n]);
+            const uint_least32_t r1 = 1664525u * (arg ^ (arg >> 27));
+            const uint_least32_t r2 = r1 + (uint_least32_t)kn + v_[k - 1];
+            begin[kpn] = (uint_least32_t)begin[kpn] + r1;
+            begin[kqn] = (uint_least32_t)begin[kqn] + r2;
+            begin[kn] = r2;
+        }
+
+        for (size_t k = s + 1; k < m; ++k) {
+            const size_t kn = k % n;
+            const size_t kpn = (k + p) % n;
+            const size_t kqn = (k + q) % n;
+            const uint_least32_t arg = (uint_least32_t)(begin[kn] ^ begin[kpn]
+                                                        ^ begin[(k - 1) % n]);
+            const uint_least32_t r1 = 1664525u * (arg ^ (arg >> 27));
+            const uint_least32_t r2 = r1 + (uint_least32_t)kn;
+            begin[kpn] = (uint_least32_t)begin[kpn] + r1;
+            begin[kqn] = (uint_least32_t)begin[kqn] + r2;
+            begin[kn] = r2;
+        }
+
+        for (size_t k = m; k < m + n; ++k) {
+            const size_t kn = k % n;
+            const size_t kpn = (k + p) % n;
+            const size_t kqn = (k + q) % n;
+            const uint_least32_t arg = (uint_least32_t)((uint_least32_t)begin[kn]
+                                                        + (uint_least32_t)begin[kpn]
+                                                        + (uint_least32_t)begin[(k - 1) % n]);
+            const uint_least32_t r3 = 1566083941u * (arg ^ (arg >> 27));
+            const uint_least32_t r4 = r3 - (uint_least32_t)kn;
+            begin[kpn] ^= r3;
+            begin[kqn] ^= r4;
+            begin[kn] = r4;
+        }
+    }
+
+private:
+    vector<result_type> v_;
+};
+
+/* ------------------------------------------------------------------ *
+ *   mersenne_twister_engine
+ * ------------------------------------------------------------------ */
+
+template <class UIntType, size_t w, size_t n, size_t m, size_t r,
+          UIntType a, size_t u, UIntType d, size_t s,
+          UIntType b, size_t t, UIntType c, size_t l, UIntType f>
+class mersenne_twister_engine {
+public:
+    typedef UIntType result_type;
+
+    /* The parameter values, exposed under the names the standard gives them. */
+    static constexpr size_t      word_size                 = w;
+    static constexpr size_t      state_size                = n;
+    static constexpr size_t      shift_size                = m;
+    static constexpr size_t      mask_bits                 = r;
+    static constexpr result_type xor_mask                  = a;
+    static constexpr size_t      tempering_u               = u;
+    static constexpr result_type tempering_d               = d;
+    static constexpr size_t      tempering_s               = s;
+    static constexpr result_type tempering_b               = b;
+    static constexpr size_t      tempering_t               = t;
+    static constexpr result_type tempering_c               = c;
+    static constexpr size_t      tempering_l               = l;
+    static constexpr result_type initialization_multiplier = f;
+    static constexpr result_type default_seed              = 5489u;
+
+    /* No delegating constructor, unlike libstdc++'s: at C++14 delegating is
+       fine, but calling seed() directly keeps the body obvious and the
+       generated code identical. */
+    mersenne_twister_engine() { seed(default_seed); }
+
+    explicit mersenne_twister_engine(result_type sd) { seed(sd); }
+
+    /* Constrained two ways, and both constraints are load-bearing.
+       is_class keeps this from competing with the result_type constructor above.
+       !is_same<Sseq, mersenne_twister_engine> keeps it from competing with the
+       *copy* constructor, which is the subtler of the two: for `engine b(a);`
+       the copy constructor binds const mersenne_twister_engine&, while this
+       template binds mersenne_twister_engine& - a better match, since dropping
+       const is not a conversion.  Without the second constraint every copy of an
+       engine would be treated as a seed sequence and fail in seed()'s body.
+       Sseq is deduced from an lvalue reference parameter, so it can never carry
+       cv or ref qualifiers and needs no decay here.  This mirrors libstdc++'s
+       _If_seed_seq_for (bits/random.h:211-217), whose first condition is
+       __not_<is_same<__remove_cvref_t<_Sseq>, _Engine>>. */
+    template <class Sseq,
+              class = typename enable_if<is_class<Sseq>::value
+                      && !is_same<Sseq, mersenne_twister_engine>::value>::type>
+    explicit mersenne_twister_engine(Sseq& q) { seed(q); }
+
+    void seed(result_type sd = default_seed) {
+        x_[0] = __random_detail::__mod_w<UIntType, w>(sd);
+        for (size_t i = 1; i < n; ++i) {
+            UIntType x = x_[i - 1];
+            x ^= x >> (w - 2);
+            x *= f;
+            /* libstdc++ writes __mod<UIntType, n>(i) here.  i runs over
+               [1, n-1], so reducing it modulo n is the identity and the plain
+               add is the same value with one fewer division. */
+            x += (UIntType)i;
+            x_[i] = __random_detail::__mod_w<UIntType, w>(x);
+        }
+        p_ = n;
+    }
+
+    /* Same constraint as the constructor above: without !is_same, a call
+       seed(other_engine) would select this overload and fail. */
+    template <class Sseq,
+              class = typename enable_if<is_class<Sseq>::value
+                      && !is_same<Sseq, mersenne_twister_engine>::value>::type>
+    void seed(Sseq& q) {
+        /* Enough 32-bit words to cover the whole state, rounded up.  For w == 32
+           that is exactly n; for w == 64 it is 2n, and the loop below reassembles
+           each state word from k consecutive ones. */
+        const size_t k = (w + 31) / 32;
+        uint_least32_t arr[n * k];
+        q.generate(arr + 0, arr + n * k);
+
+        const UIntType upper = (~UIntType()) << r;
+        bool zero = true;
+        for (size_t i = 0; i < n; ++i) {
+            UIntType factor = 1u;
+            UIntType sum = 0u;
+            for (size_t j = 0; j < k; ++j) {
+                sum += (UIntType)arr[k * i + j] * factor;
+                factor *= __random_detail::__pow2<UIntType, 32>::value;
+            }
+            x_[i] = __random_detail::__mod_w<UIntType, w>(sum);
+
+            /* An all-zero state would make the twister generate nothing but
+               zeroes forever, so the standard requires it to be detected and
+               replaced.  Only the top w-r bits of x_[0] count towards that. */
+            if (zero) {
+                if (i == 0) {
+                    if ((x_[0] & upper) != 0u)
+                        zero = false;
+                } else if (x_[i] != 0u) {
+                    zero = false;
+                }
+            }
+        }
+        if (zero)
+            x_[0] = __random_detail::__pow2<UIntType, w - 1>::value;
+        p_ = n;
+    }
+
+    static constexpr result_type min() { return 0; }
+
+    /* When w is the full width, __pow2 is 0 and 0 - 1 wraps to all ones, which
+       is the right answer - the same trick libstdc++ uses. */
+    static constexpr result_type max() {
+        return __random_detail::__pow2<UIntType, w>::value - 1;
+    }
+
+    void discard(unsigned long long z) {
+        /* Advances the state without producing the values.  The loop always
+           makes progress even when p_ == n, because twist() resets p_ to 0. */
+        while (z > (unsigned long long)(n - p_)) {
+            z -= (unsigned long long)(n - p_);
+            twist();
+        }
+        p_ += (size_t)z;
+    }
+
+    result_type operator()() {
+        if (p_ >= n)
+            twist();
+
+        /* The tempering, in the standard's order. */
+        result_type z = x_[p_++];
+        z ^= (z >> u) & d;
+        z ^= (z << s) & b;
+        z ^= (z << t) & c;
+        z ^= (z >> l);
+        return z;
+    }
+
+    /* Friends so that they can see the private state; equality means "would
+       produce the same infinite sequence", which is the state plus the index. */
+    friend bool operator==(const mersenne_twister_engine& lhs,
+                           const mersenne_twister_engine& rhs) {
+        return equal(lhs.x_, lhs.x_ + n, rhs.x_) && lhs.p_ == rhs.p_;
+    }
+    friend bool operator!=(const mersenne_twister_engine& lhs,
+                           const mersenne_twister_engine& rhs) {
+        return !(lhs == rhs);
+    }
+
+private:
+    /* One turn of the twister: regenerate all n state words, then restart the
+       index.  Written as k - (n - m) rather than libstdc++'s k + (m - n); they
+       are the same index, but this way it is plain that the subscript is not
+       negative, instead of relying on size_t wraparound to land back in range. */
+    void twist() {
+        const UIntType upper = (~UIntType()) << r;
+        const UIntType lower = ~upper;
+
+        for (size_t k = 0; k < n - m; ++k) {
+            UIntType y = (x_[k] & upper) | (x_[k + 1] & lower);
+            x_[k] = x_[k + m] ^ (y >> 1) ^ ((y & 0x01) ? a : (UIntType)0);
+        }
+        for (size_t k = n - m; k < n - 1; ++k) {
+            UIntType y = (x_[k] & upper) | (x_[k + 1] & lower);
+            x_[k] = x_[k - (n - m)] ^ (y >> 1) ^ ((y & 0x01) ? a : (UIntType)0);
+        }
+        UIntType y = (x_[n - 1] & upper) | (x_[0] & lower);
+        x_[n - 1] = x_[m - 1] ^ (y >> 1) ^ ((y & 0x01) ? a : (UIntType)0);
+
+        p_ = 0;
+    }
+
+    /* No user-declared destructor, so the implicit one stays trivial and
+       is_trivially_destructible comes out true - which qrandom.h:204 asserts on. */
+    UIntType x_[n];
+    size_t   p_;
+};
+
+/* At C++14 an in-class constexpr static data member is only a declaration, so
+   anything that ODR-uses one - binding a reference, taking an address - would
+   not link.  libstdc++ spells all fourteen out at bits/random.tcc:198-320; the
+   macro says the same thing in a fraction of the space.  From C++17 these are
+   implicitly inline and the definitions become redundant, but they stay
+   harmless. */
+#define EWOK_STL_MT_DEFINE(type, name)                                       \
+    template <class UIntType, size_t w, size_t n, size_t m, size_t r,        \
+              UIntType a, size_t u, UIntType d, size_t s,                    \
+              UIntType b, size_t t, UIntType c, size_t l, UIntType f>        \
+    constexpr type mersenne_twister_engine<UIntType, w, n, m, r, a, u, d,    \
+                                           s, b, t, c, l, f>::name;
+
+EWOK_STL_MT_DEFINE(size_t, word_size)
+EWOK_STL_MT_DEFINE(size_t, state_size)
+EWOK_STL_MT_DEFINE(size_t, shift_size)
+EWOK_STL_MT_DEFINE(size_t, mask_bits)
+EWOK_STL_MT_DEFINE(UIntType, xor_mask)
+EWOK_STL_MT_DEFINE(size_t, tempering_u)
+EWOK_STL_MT_DEFINE(UIntType, tempering_d)
+EWOK_STL_MT_DEFINE(size_t, tempering_s)
+EWOK_STL_MT_DEFINE(UIntType, tempering_b)
+EWOK_STL_MT_DEFINE(size_t, tempering_t)
+EWOK_STL_MT_DEFINE(UIntType, tempering_c)
+EWOK_STL_MT_DEFINE(size_t, tempering_l)
+EWOK_STL_MT_DEFINE(UIntType, initialization_multiplier)
+EWOK_STL_MT_DEFINE(UIntType, default_seed)
+
+#undef EWOK_STL_MT_DEFINE
+
+/* The two engines the standard predefines.  mt19937 is the one Qt names
+   directly through RandomEngine; mt19937_64 is here because a <random> that
+   provides one and not the other is a trap for the next caller. */
+typedef mersenne_twister_engine<uint_least32_t,
+        32, 624, 397, 31,
+        0x9908b0dfu,
+        11,
+        0xffffffffu,
+        7,
+        0x9d2c5680u,
+        15,
+        0xefc60000u,
+        18,
+        1812433253u> mt19937;
+
+typedef mersenne_twister_engine<uint_least64_t,
+        64, 312, 156, 31,
+        0xb5026f5aa96619e9ull,
+        29,
+        0x5555555555555555ull,
+        17,
+        0x71d67fffeda60000ull,
+        37,
+        0xfff7eee000000000ull,
+        43,
+        6364136223846793005ull> mt19937_64;
+
+} // namespace std
+
+#endif // EWOK_STL_RANDOM_H

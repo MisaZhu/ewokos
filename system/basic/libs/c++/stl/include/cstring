@@ -1,0 +1,50 @@
+#ifndef EWOK_STL_CSTRING_H
+#define EWOK_STL_CSTRING_H
+
+/*
+ * <cstring> - the C <string.h> names, in namespace std.
+ *
+ * Only the functions EwokOS libc actually declares are re-exported.  This is
+ * deliberate: libstdc++'s <cstring> does `using ::strcoll;` unconditionally and
+ * EwokOS libc has neither strcoll nor strxfrm, which is what makes the
+ * toolchain wrapper unusable here.
+ */
+
+#include <string.h>
+#include <cstddef>
+
+namespace std {
+
+using ::memcpy;
+using ::memmove;
+using ::memset;
+using ::memcmp;
+using ::memchr;
+
+using ::strcpy;
+using ::strncpy;
+using ::strcat;
+using ::strncat;
+using ::strcmp;
+using ::strncmp;
+using ::strlen;
+using ::strchr;
+using ::strrchr;
+using ::strtok;
+using ::strtok_r;
+using ::strstr;
+using ::strspn;
+using ::strcspn;
+using ::strpbrk;
+using ::strnlen;
+using ::strdup;
+using ::strndup;
+using ::strerror;
+using ::strcasestr;
+
+/* strcoll / strxfrm are not provided by EwokOS libc; locale-aware collation is
+   simply unavailable, matching the platform's "no locale" stance. */
+
+}
+
+#endif // EWOK_STL_CSTRING_H

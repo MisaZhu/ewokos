@@ -24,6 +24,19 @@ struct tuple_leaf {
     
     T& get() { return value; }
     const T& get() const { return value; }
+
+    /* tuple_impl<I, Head, Tail...>::swap() calls head_type::swap(other), so without
+       this every tuple<T...> with at least one element has a swap() that fails to
+       compile.  Nothing noticed while swap was unreachable, but tuple's swap is the
+       one ADL picks over <utility>'s generic std::swap, so it is reachable from any
+       std::swap(a, b) on a pair of tuples.  A copy-based exchange rather than
+       std::swap, because <tuple> does not include <utility> for it and T need only
+       be copy assignable. */
+    void swap(tuple_leaf& other) {
+        T tmp = value;
+        value = other.value;
+        other.value = tmp;
+    }
 };
 
 // Recursive tuple implementation
@@ -111,10 +124,77 @@ const typename tuple_element<N, tuple<Types...>>::type& get(const tuple<Types...
 }
 
 // make_tuple
+/* decay, as the standard requires: without it make_tuple(some_array) deduces an
+   array element type and tuple<T[N]> cannot be built.  Qt only ever passes scalars
+   - qgraphicsscene_p.h:115 make_tuple(a.y(), a.x(), a.height(), a.width()) - but
+   the decayed form is what makes the deduction match std::tuple. */
 template <typename... Types>
-tuple<Types...> make_tuple(const Types&... args) {
-    return tuple<Types...>(args...);
+tuple<typename decay<Types>::type...> make_tuple(const Types&... args) {
+    return tuple<typename decay<Types>::type...>(args...);
 }
+
+/* Lexicographic comparison, which <tuple> was missing entirely.  Qt needs it:
+   the comparator of std::set<QRectF, UpdatedRectsCmp> in qgraphicsscene_p.h:140 is
+
+       return std::make_tuple(a.y(), a.x(), a.height(), a.width())
+            < std::make_tuple(b.y(), b.x(), b.height(), b.width());
+
+   so without operator< on tuple that set cannot even be declared.  The recursion
+   is on the element index and stops at the N == I specialisation, which is what
+   keeps get<N> - out of range, and therefore a hard error - from ever being
+   instantiated.  Comparing tuples of different lengths stops at the shorter one,
+   and the shorter is the lesser, exactly as the standard specifies. */
+template <size_t I, size_t N>
+struct __tuple_cmp {
+    template <class A, class B>
+    static bool less(const A& a, const B& b) {
+        if (get<I>(a) < get<I>(b)) return true;
+        if (get<I>(b) < get<I>(a)) return false;
+        return __tuple_cmp<I + 1, N>::less(a, b);
+    }
+    template <class A, class B>
+    static bool equal(const A& a, const B& b) {
+        if (!(get<I>(a) == get<I>(b))) return false;
+        return __tuple_cmp<I + 1, N>::equal(a, b);
+    }
+};
+
+template <size_t N>
+struct __tuple_cmp<N, N> {
+    template <class A, class B> static bool less(const A&, const B&) { return false; }
+    template <class A, class B> static bool equal(const A&, const B&) { return true; }
+};
+
+#define EWOK_STL_TUPLE_COMMON_LEN(A, B) \
+    (sizeof...(A) < sizeof...(B) ? sizeof...(A) : sizeof...(B))
+
+template <typename... A, typename... B>
+bool operator==(const tuple<A...>& a, const tuple<B...>& b) {
+    return sizeof...(A) == sizeof...(B)
+        && __tuple_cmp<0, EWOK_STL_TUPLE_COMMON_LEN(A, B)>::equal(a, b);
+}
+
+template <typename... A, typename... B>
+bool operator!=(const tuple<A...>& a, const tuple<B...>& b) { return !(a == b); }
+
+template <typename... A, typename... B>
+bool operator<(const tuple<A...>& a, const tuple<B...>& b) {
+    if (!__tuple_cmp<0, EWOK_STL_TUPLE_COMMON_LEN(A, B)>::equal(a, b))
+        return __tuple_cmp<0, EWOK_STL_TUPLE_COMMON_LEN(A, B)>::less(a, b);
+    /* Every element of the common prefix compared equal, so the shorter tuple is
+       the lesser one. */
+    return sizeof...(A) < sizeof...(B);
+}
+#undef EWOK_STL_TUPLE_COMMON_LEN
+
+template <typename... A, typename... B>
+bool operator>(const tuple<A...>& a, const tuple<B...>& b) { return b < a; }
+
+template <typename... A, typename... B>
+bool operator<=(const tuple<A...>& a, const tuple<B...>& b) { return !(b < a); }
+
+template <typename... A, typename... B>
+bool operator>=(const tuple<A...>& a, const tuple<B...>& b) { return !(a < b); }
 
 // swap
 template <typename... Types>

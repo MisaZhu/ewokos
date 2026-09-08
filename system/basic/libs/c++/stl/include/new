@@ -1,0 +1,86 @@
+#ifndef EWOK_STL_NEW_H
+#define EWOK_STL_NEW_H
+
+/*
+ * <new> - the allocation functions and std::nothrow.
+ *
+ * The placement forms used to be declared at the top of <vector>, which is the
+ * only reason placement new works in EWOK_STL today; they belong here, and
+ * <vector> now includes this header instead.
+ *
+ * The allocating forms are defined in src/new_delete.cpp, which is already part
+ * of libewokstl.a.  They are declared here as well so that a translation unit
+ * including only <new> is self-contained, and so that the nothrow forms - which
+ * the platform did not have at all, and which qtranslator.cpp needs for
+ * `new (std::nothrow) char[n]` - are visible.
+ *
+ * std::bad_alloc exists as a type for source compatibility.  Qt names it only
+ * inside QT_THROW / QT_CATCH, and with QT_NO_EXCEPTIONS those expand to
+ * qt_noop() and to `else`, so it is never actually thrown or caught here.
+ */
+
+#include <cstddef>
+#include <exception>
+
+namespace std {
+
+class bad_alloc : public exception {
+public:
+    bad_alloc() noexcept {}
+    /* The base has to be named explicitly: -Wextra (which make.rule always
+       passes) reports "base class should be explicitly initialized in the copy
+       constructor" otherwise. */
+    bad_alloc(const bad_alloc& other) noexcept : exception(other) {}
+    bad_alloc& operator=(const bad_alloc& other) noexcept {
+        exception::operator=(other);
+        return *this;
+    }
+    ~bad_alloc() noexcept override {}
+    const char* what() const noexcept override { return "std::bad_alloc"; }
+};
+
+class bad_array_new_length : public bad_alloc {
+public:
+    bad_array_new_length() noexcept {}
+    bad_array_new_length(const bad_array_new_length& other) noexcept : bad_alloc(other) {}
+    bad_array_new_length& operator=(const bad_array_new_length& other) noexcept {
+        bad_alloc::operator=(other);
+        return *this;
+    }
+    ~bad_array_new_length() noexcept override {}
+    const char* what() const noexcept override { return "std::bad_array_new_length"; }
+};
+
+struct nothrow_t {
+    explicit nothrow_t() {}
+};
+
+extern const nothrow_t nothrow;
+
+/* std::align_val_t and the aligned new/delete overloads are C++17.  The SDK
+   builds with -std=c++14, so they are deliberately absent. */
+
+}
+
+/* ---- allocating forms: defined in src/new_delete.cpp ------------------ */
+
+void* operator new(std::size_t);
+void* operator new[](std::size_t);
+void operator delete(void*) noexcept;
+void operator delete[](void*) noexcept;
+void operator delete(void*, std::size_t) noexcept;
+void operator delete[](void*, std::size_t) noexcept;
+
+void* operator new(std::size_t, const std::nothrow_t&) noexcept;
+void* operator new[](std::size_t, const std::nothrow_t&) noexcept;
+void operator delete(void*, const std::nothrow_t&) noexcept;
+void operator delete[](void*, const std::nothrow_t&) noexcept;
+
+/* ---- placement forms: inline, no library object required -------------- */
+
+inline void* operator new(std::size_t, void* p) noexcept { return p; }
+inline void* operator new[](std::size_t, void* p) noexcept { return p; }
+inline void operator delete(void*, void*) noexcept {}
+inline void operator delete[](void*, void*) noexcept {}
+
+#endif // EWOK_STL_NEW_H

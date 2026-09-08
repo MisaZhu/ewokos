@@ -1,0 +1,151 @@
+#ifndef EWOK_STL_NUMERIC_H
+#define EWOK_STL_NUMERIC_H
+
+/* <numeric> - the C++14 set: accumulate, inner_product, partial_sum,
+ * adjacent_difference, iota.
+ *
+ * The one QtCore actually needs is accumulate, and it needs both forms:
+ *
+ *   corelib/tools/qhashfunctions.h:47 includes <numeric> and then, at :149 and
+ *   :156, calls the four-argument form with a stateless functor whose operator()
+ *   is itself a template:
+ *
+ *       return std::accumulate(first, last, seed, QtPrivate::QHashCombine());
+ *
+ *       struct QHashCombine {
+ *           typedef uint result_type;
+ *           template <typename T>
+ *           Q_DECL_CONSTEXPR result_type operator()(uint seed, const T &t) const
+ *               noexcept(noexcept(qHash(t)))
+ *           { return seed + qHash(t); }
+ *       };
+ *
+ *   so the binary operation has to be called as binary_op(init, *first) with no
+ *   assumption about its parameter or return types beyond convertibility to T.
+ *
+ *   widgets/graphicsview/qgraphicsanchorlayout_p.cpp:2182 calls the three-argument
+ *   form with a double initialiser over an integer-ish container:
+ *
+ *       std::accumulate(c->variables.cbegin(), c->variables.cend(), qreal(0))
+ *
+ *   which is why T is a template parameter taken from `init` rather than from
+ *   iterator_traits<InputIt>::value_type - the accumulator is double there while
+ *   the elements are not, and deducing T from the value type would truncate every
+ *   term to int.
+ *
+ * The C++17 additions (reduce, transform_reduce, gcd, lcm, inclusive_scan,
+ * exclusive_scan) are not here: nothing in the tree names them and there is no
+ * execution-policy machinery to build them on.
+ */
+
+#include <stddef.h>   /* size_t */
+#include <iterator>   /* iterator_traits, for partial_sum/adjacent_difference's value_type */
+
+namespace std {
+
+/* acc = acc + *first, or acc = binary_op(acc, *first) in the second form.
+   T is deduced from init, so the caller chooses the accumulator's type and with
+   it whether the running total widens or truncates. */
+template <class InputIt, class T>
+T accumulate(InputIt first, InputIt last, T init) {
+    for (; first != last; ++first)
+        init = init + *first;
+    return init;
+}
+
+template <class InputIt, class T, class BinaryOp>
+T accumulate(InputIt first, InputIt last, T init, BinaryOp binary_op) {
+    for (; first != last; ++first)
+        init = binary_op(init, *first);
+    return init;
+}
+
+/* Two ranges folded together: init + (*first1 * *first2) + ...
+   The op forms take the two multipliers first and the accumulator second, in the
+   order the standard specifies. */
+template <class InputIt1, class InputIt2, class T>
+T inner_product(InputIt1 first1, InputIt1 last1, InputIt2 first2, T init) {
+    for (; first1 != last1; ++first1, ++first2)
+        init = init + (*first1 * *first2);
+    return init;
+}
+
+template <class InputIt1, class InputIt2, class T, class BinaryOp1, class BinaryOp2>
+T inner_product(InputIt1 first1, InputIt1 last1, InputIt2 first2, T init,
+                BinaryOp1 op1, BinaryOp2 op2) {
+    for (; first1 != last1; ++first1, ++first2)
+        init = op1(init, op2(*first1, *first2));
+    return init;
+}
+
+/* Running totals written out one per input element.  d_first must not be inside
+   [first, last) - the standard requires it and nothing here checks, in keeping
+   with the rest of this STL (see array::at()). */
+template <class InputIt, class OutputIt>
+OutputIt partial_sum(InputIt first, InputIt last, OutputIt d_first) {
+    if (first == last)
+        return d_first;
+    typename iterator_traits<InputIt>::value_type sum = *first;
+    *d_first = sum;
+    while (++first != last) {
+        sum = sum + *first;
+        *++d_first = sum;
+    }
+    return ++d_first;
+}
+
+template <class InputIt, class OutputIt, class BinaryOp>
+OutputIt partial_sum(InputIt first, InputIt last, OutputIt d_first, BinaryOp op) {
+    if (first == last)
+        return d_first;
+    typename iterator_traits<InputIt>::value_type sum = *first;
+    *d_first = sum;
+    while (++first != last) {
+        sum = op(sum, *first);
+        *++d_first = sum;
+    }
+    return ++d_first;
+}
+
+/* Each output is the difference from its predecessor; the first is the first
+   input unchanged.  Inverse of partial_sum, in the same shape. */
+template <class InputIt, class OutputIt>
+OutputIt adjacent_difference(InputIt first, InputIt last, OutputIt d_first) {
+    if (first == last)
+        return d_first;
+    typename iterator_traits<InputIt>::value_type acc = *first;
+    *d_first = acc;
+    while (++first != last) {
+        typename iterator_traits<InputIt>::value_type val = *first;
+        *++d_first = val - acc;
+        acc = val;
+    }
+    return ++d_first;
+}
+
+template <class InputIt, class OutputIt, class BinaryOp>
+OutputIt adjacent_difference(InputIt first, InputIt last, OutputIt d_first, BinaryOp op) {
+    if (first == last)
+        return d_first;
+    typename iterator_traits<InputIt>::value_type acc = *first;
+    *d_first = acc;
+    while (++first != last) {
+        typename iterator_traits<InputIt>::value_type val = *first;
+        *++d_first = op(val, acc);
+        acc = val;
+    }
+    return ++d_first;
+}
+
+/* Fills [first, last) with value, value+1, value+2, ...  Note that the counter
+   is incremented, not recomputed from the distance, so it works for a value type
+   with no operator+ against an integer. */
+template <class ForwardIt, class T>
+void iota(ForwardIt first, ForwardIt last, T value) {
+    for (; first != last; ++first)
+        *first = value++;
+}
+
+} // namespace std
+
+#endif // EWOK_STL_NUMERIC_H
