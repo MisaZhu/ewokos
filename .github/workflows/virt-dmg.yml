@@ -63,13 +63,21 @@ jobs:
           QEMU="$APP/Contents/MacOS/qemu-system-aarch64"
           "$QEMU" --version
           codesign -v "$QEMU"
+          # regressions that make the app silently fail to start:
+          # - qemu must keep the hypervisor entitlement (needed for hvf)
+          codesign -d --entitlements :- "$QEMU" 2>/dev/null | grep -q hypervisor \
+            || { echo "bundled qemu lost its hypervisor entitlement"; exit 1; }
+          # - the main executable must be a Mach-O, not a shell script
+          file "$APP/Contents/MacOS/EwokOS-Virt" | grep -q Mach-O \
+            || { echo "main executable is not a Mach-O"; exit 1; }
           if otool -L "$QEMU" | grep -q homebrew; then
             echo "bundled qemu still references homebrew libs"; otool -L "$QEMU"; exit 1
           fi
           cp "$APP/Contents/Resources/root_aarch64.img" /tmp/smoke-root.img
           ( sleep 20; pkill -x qemu-system-aarch64 ) &
           set -o pipefail
-          "$QEMU" -M virt,highmem=on,accel=tcg -cpu cortex-a72 -m 1024 \
+          # accel=hvf: would fail loudly if the hypervisor entitlement was lost
+          "$QEMU" -M virt,highmem=on,accel=hvf -cpu host -m 8192 \
             -serial mon:stdio -nographic \
             -kernel "$APP/Contents/Resources/kernel8.img" \
             -drive file=/tmp/smoke-root.img,format=raw,id=blk0,if=none \

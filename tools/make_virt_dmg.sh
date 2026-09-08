@@ -76,6 +76,14 @@ $FW/$base"; else queue="$FW/$base"; fi ;; esac
     done
     install_name_tool -add_rpath "@loader_path/../Frameworks" "$main" >/dev/null 2>&1 || true
 
+    # keep the original entitlements: qemu needs com.apple.security.hypervisor
+    # or HVF acceleration is refused
+    local ENT_FLAGS=""
+    if codesign -d --entitlements :"$STAGE/qemu.entitlements.plist" "$QEMU_BIN" >/dev/null 2>&1 \
+        && [ -s "$STAGE/qemu.entitlements.plist" ]; then
+        ENT_FLAGS="--entitlements $STAGE/qemu.entitlements.plist"
+    fi
+
     local f2 dep2
     for f2 in "$main" "$FW"/*; do
         for dep2 in $(otool -L "$f2" | tail -n +2 | sed -e 's/(.*//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'); do
@@ -89,9 +97,8 @@ $FW/$base"; else queue="$FW/$base"; fi ;; esac
     done
 
     # modifying the binaries invalidates their signatures: re-sign ad-hoc
-    codesign --force --sign - "$main" >/dev/null
+    codesign --force $ENT_FLAGS --sign - "$main" >/dev/null
     for lib in "$FW"/*; do codesign --force --sign - "$lib" >/dev/null; done
-    echo "bundled qemu with $(ls "$FW" | wc -l | tr -d ' ') shared libraries"
 }
 bundle_qemu
 
@@ -119,7 +126,7 @@ PLIST
 cp "$KERNEL_IMG" "$APP_DIR/Contents/Resources/kernel8.img"
 cp "$ROOTFS_IMG" "$APP_DIR/Contents/Resources/root_aarch64.img"
 
-cat > "$APP_DIR/Contents/MacOS/$APP_NAME" <<LAUNCHER
+cat > "$APP_DIR/Contents/Resources/ewokos-launch.sh" <<LAUNCHER
 #!/bin/bash
 # EwokOS QEMU virt launcher (aarch64, GUI)
 RES="\$(cd "\$(dirname "\$0")/../Resources" && pwd)"
@@ -135,25 +142,73 @@ fi
 
 # prefer hvf on Apple Silicon, fall back to tcg elsewhere
 ACCEL="-M virt,highmem=on,accel=hvf -cpu host"
-if ! \$QEMU -M help >/dev/null 2>&1 || ! sysctl -n kern.hv_support 2>/dev/null | grep -q 1; then
+if ! sysctl -n kern.hv_support 2>/dev/null | grep -q 1; then
     ACCEL="-M virt,highmem=on,accel=tcg -cpu cortex-a72"
 fi
 
-exec \$QEMU \$ACCEL -m 8192 -smp 4 \\
-    -serial mon:stdio \\
-    -device ramfb -display cocoa,zoom-to-fit=on,zoom-interpolation=on \\
-    -kernel "\$RES/kernel8.img" \\
-    -drive file="\$ROOTFS",format=raw,id=blk0,if=none -device virtio-blk-device,drive=blk0 \\
-    -netdev user,id=net0,hostfwd=tcp:127.0.0.1:2222-:22 -device virtio-net-device,netdev=net0 \\
-    -fsdev local,id=fsdev0,path="\$HOME",security_model=none -device virtio-9p-device,fsdev=fsdev0,mount_tag=hostshare \\
-    -device virtio-tablet-device -device virtio-keyboard-device \\
-    -audiodev coreaudio,id=audio0 -device virtio-sound-device,audiodev=audio0
+QEMU_ARGS=(\$ACCEL -m 8192 -smp 4
+    -serial mon:stdio
+    -device ramfb -display cocoa,zoom-to-fit=on,zoom-interpolation=on
+    -kernel "\$RES/kernel8.img"
+    -drive file="\$ROOTFS",format=raw,id=blk0,if=none -device virtio-blk-device,drive=blk0
+    -netdev user,id=net0,hostfwd=tcp:127.0.0.1:2222-:22 -device virtio-net-device,netdev=net0
+    -fsdev local,id=fsdev0,path="\$HOME",security_model=none -device virtio-9p-device,fsdev=fsdev0,mount_tag=hostshare
+    -device virtio-tablet-device -device virtio-keyboard-device
+    -audiodev coreaudio,id=audio0 -device virtio-sound-device,audiodev=audio0)
+
+if [ -t 0 ]; then
+    # launched from a terminal: stay attached
+    exec "\$QEMU" "\${QEMU_ARGS[@]}"
+fi
+
+# launched from Finder: no terminal, so capture output and surface failures
+LOG="\$(mktemp /tmp/ewokos-qemu-XXXXXX)"
+"\$QEMU" "\${QEMU_ARGS[@]}" >"\$LOG" 2>&1 &
+PID=\$!
+sleep 3
+if ! kill -0 \$PID 2>/dev/null; then
+    ERR=\$(tail -1 "\$LOG" | cut -c1-160)
+    osascript -e "display dialog \\"EwokOS failed to start: \${ERR//\\"/'} (log: \$LOG)\\" with title \\"EwokOS-Virt\\" buttons {\\"OK\\"} default button 1 with icon stop" >/dev/null 2>&1
+    exit 1
+fi
+wait \$PID
 LAUNCHER
-chmod +x "$APP_DIR/Contents/MacOS/$APP_NAME"
+
+# The bundle main executable must be a real Mach-O: LaunchServices on recent
+# macOS refuses to (re-)launch script-only bundles. Build a tiny stub that
+# just execs the bash launcher. The bash script lives in Resources/ — files
+# under MacOS/ are treated as signed nested code by codesign.
+cat > "$STAGE/launcher.c" <<'LAUNCHER_C'
+#include <mach-o/dyld.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <libgen.h>
+
+int main(int argc, char **argv) {
+    char exe[4096], script[4352];
+    uint32_t size = sizeof(exe);
+    if (_NSGetExecutablePath(exe, &size) != 0) return 126;
+    char *dir = dirname(exe);
+    snprintf(script, sizeof(script), "%s/../Resources/ewokos-launch.sh", dir);
+    char *args[] = { "/bin/bash", script, NULL };
+    execvp("/bin/bash", args);
+    perror("exec ewokos-launch.sh");
+    return 127;
+}
+LAUNCHER_C
+chmod +x "$APP_DIR/Contents/Resources/ewokos-launch.sh"
+cc -O2 -o "$APP_DIR/Contents/MacOS/$APP_NAME" "$STAGE/launcher.c"
+codesign --force --sign - "$APP_DIR/Contents/MacOS/$APP_NAME" >/dev/null
 
 echo "EwokOS virt (QEMU aarch64)
 Double-click EwokOS-Virt.app to boot the GUI system.
 No dependencies required: QEMU and all its libraries are bundled inside the app.
+
+If macOS reports the app is damaged (Gatekeeper blocks unsigned apps
+downloaded from the internet), run once:
+    xattr -dr com.apple.quarantine EwokOS-Virt.app
+
 SSH into the guest: ssh -p 2222 root@127.0.0.1
 Guest rootfs writes persist in ~/Library/Application Support/EwokOS.
 To reset the guest disk, delete ~/Library/Application Support/EwokOS/root_aarch64.img." > "$STAGE/README.txt"
