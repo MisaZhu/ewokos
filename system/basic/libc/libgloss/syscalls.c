@@ -745,7 +745,11 @@ _rename (const char * oldpath, const char * newpath)
 }
 
 void _exit(int err){
-  dbg_kout(__func__);
+  /* Must really terminate: abort()/assert() funnel into _exit(), and a no-op
+   * here turns any failed assert into an infinite `b .` spin that pins a
+   * core at 100% forever (xBrowser freeze on cleanpng.com, 2026-09). */
+  syscall1(SYS_EXIT, (ewokos_addr_t)err);
+  __builtin_unreachable();
 }
 
 void __malloc_init(void){

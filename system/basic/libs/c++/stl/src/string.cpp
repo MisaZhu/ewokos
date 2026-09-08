@@ -489,7 +489,12 @@ string& string::erase(size_t pos, size_t len) {
     if (pos == 0 && len == npos) {
         clear();
     } else {
-        assert(pos < length_);
+        /* std: erase(pos) with pos == size() erases nothing; only pos > size()
+         * is out of range. A hard assert here aborted xBrowser while parsing
+         * CSS declarations such as "--x:;" (pos+1 == size()). */
+        if (pos >= length_) {
+            return *this;
+        }
 
         // Copy the left part of the buffer
         char* leftBuffer = pos ? (char*)malloc(pos) : nullptr;
@@ -545,7 +550,10 @@ string& string::erase(size_t pos, size_t len) {
 }
 
 string& string::replace(size_t pos, size_t len, const string& str) {
-    assert(pos < length_);
+    assert(pos <= length_);
+    if (pos > length_) {
+        return *this;
+    }
 
     // We need a larger buffer
     if (len > (length_ - pos)) {
@@ -650,7 +658,10 @@ const char* string::data() const {
 }
 
 size_t string::copy(char* s, size_t len, size_t pos) {
-    assert(pos < length_);
+    assert(pos <= length_);
+    if (pos >= length_) {
+        return 0;
+    }
     size_t endPos = pos + len;
     if (endPos > length_) {
         endPos = length_;
@@ -665,11 +676,13 @@ size_t string::copy(char* s, size_t len, size_t pos) {
 }
 
 string string::substr(size_t pos, size_t len) const {
-    if (length_ == 0) {
+    /* std: substr(pos) with pos == size() yields an empty string; only
+     * pos > size() is out of range (would throw, but this embedded STL has
+     * no exceptions, so clamp instead of aborting the process). */
+    assert(pos <= length_);
+    if (pos >= length_) {
         return "";
     }
-
-    assert(pos < length_);
 
     if (len == npos) {
         len = length_ - pos;

@@ -773,6 +773,17 @@ static void compat_heap_init(void) {
 }
 
 /*
+ * Report the shape of the process heap. Diagnostics only: this walks the
+ * whole block chain, so callers must keep it off allocation-hot paths (a
+ * throttled once-per-second log is fine).
+ */
+void ewok_heap_stat(uint32_t *blocks, uint32_t *free_blocks,
+                    uint32_t *used_bytes, uint32_t *free_bytes) {
+    compat_heap_init();
+    trunk_stat(&compat_heap, blocks, free_blocks, used_bytes, free_bytes);
+}
+
+/*
  * mmap() and aligned allocations are backed by the regular heap, but the
  * returned pointers are not the raw heap-block heads, so trunk_free()
  * cannot release them directly. A small registry maps such pointers back

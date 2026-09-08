@@ -2,6 +2,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <ewoksys/ewokdef.h>
+#include <ewoksys/proc.h>
 #include <ewoksys/trunkmem.h>
 
 #ifdef __cplusplus
@@ -11,33 +12,51 @@ extern "C" {
 malloc for memory trunk management
 */
 
-static pthread_mutex_t trunkmem_init_lock = 0;
-
-static inline void trunk_ensure_lock(malloc_t* m) {
-    if(m == NULL || m->lock_inited != 0)
-        return;
-
-    pthread_mutex_lock(&trunkmem_init_lock);
-    if(m->lock_inited == 0) {
-        pthread_mutex_init(&m->lock, NULL);
-        m->lock_inited = 1;
-    }
-    pthread_mutex_unlock(&trunkmem_init_lock);
-}
+/*
+ * Heap lock.
+ *
+ * malloc()/free() take this lock on every single call. It used to be a
+ * pthread_mutex, which on EwokOS is backed by a kernel semaphore: each
+ * lock/unlock pair cost two syscalls (SYS_SEMAPHORE_TRY_ENTER then
+ * SYS_SEMAPHORE_QUIT). Allocation-heavy workloads therefore spent nearly
+ * all their time trapping into the kernel -- e.g. litehtml building the
+ * per-element CSS property std::map (a red-black tree that news/deletes one
+ * node per property) pinned a core at 100% and froze xBrowser for tens of
+ * seconds while loading a CSS-heavy page such as cleanpng.com.
+ *
+ * The guarded regions below are short and never block, so an uncontended
+ * userspace atomic test-and-set is sufficient and costs no syscall.
+ * Contention is rare (only the network worker allocates beside the main
+ * render thread); when it does happen we spin briefly and then proc_yield(),
+ * so a preempted holder can run instead of the waiter burning CPU.
+ *
+ * m->lock is a pthread_mutex_t, i.e. an int32_t; the heap struct is
+ * zero-initialised (static + memset in compat_heap_init), so the spin flag
+ * starts at 0 == unlocked and needs no lazy init.
+ */
+#define TRUNK_SPIN_YIELD_THRESHOLD 64
 
 static inline void trunk_lock_heap(malloc_t* m) {
+    volatile int32_t* lock;
+    int spins = 0;
+
     if(m == NULL)
         return;
 
-    trunk_ensure_lock(m);
-    pthread_mutex_lock(&m->lock);
+    lock = (volatile int32_t*)&m->lock;
+    while(__sync_lock_test_and_set(lock, 1)) {
+        if(++spins >= TRUNK_SPIN_YIELD_THRESHOLD) {
+            spins = 0;
+            proc_yield();
+        }
+    }
 }
 
 static inline void trunk_unlock_heap(malloc_t* m) {
-    if(m == NULL || m->lock_inited == 0)
+    if(m == NULL)
         return;
 
-    pthread_mutex_unlock(&m->lock);
+    __sync_lock_release((volatile int32_t*)&m->lock);
 }
 
 static inline ewokos_addr_t trunk_heap_end(malloc_t* m) {
@@ -98,34 +117,6 @@ static int trunk_block_sane(mem_block_t* head, ewokos_addr_t heap_end,
     return 1;
 }
 
-static mem_block_t* trunk_find_block_locked(malloc_t* m, mem_block_t* target) {
-    mem_block_t* head;
-    mem_block_t* prev;
-    mem_block_t* block;
-    ewokos_addr_t heap_end;
-
-    if(m == NULL || target == NULL)
-        return NULL;
-
-    head = m->head;
-    heap_end = trunk_heap_end(m);
-    if(head == NULL || heap_end == 0)
-        return NULL;
-
-    prev = NULL;
-    block = head;
-    while(block != NULL) {
-        if(!trunk_block_sane(head, heap_end, prev, block))
-            return NULL;
-        if(block == target)
-            return block;
-        prev = block;
-        block = block->next;
-    }
-
-    return NULL;
-}
-
 static mem_block_t* gen_block(char* p, uint32_t size) {
     uint32_t block_size = sizeof(mem_block_t);
     mem_block_t* block = (mem_block_t*)p;
@@ -169,6 +160,24 @@ static void try_break(malloc_t* m, mem_block_t* block, uint32_t size) {
 
     if(m->tail == block) 
         m->tail = newBlock;
+
+    /* a new free block just appeared: keep the free_max invariant */
+    if(newBlock->size > m->free_max)
+        m->free_max = newBlock->size;
+}
+
+/* Recompute free_max by walking the whole chain. Only called on the rare
+ * paths where the largest free block may have disappeared (tail shrink, or
+ * a first-fit walk that came up empty against an overestimated free_max). */
+static void trunk_rescan_free_max(malloc_t* m) {
+    uint32_t max = 0;
+    mem_block_t* block = m->head;
+    while(block != NULL) {
+        if(!block->used && block->size > max)
+            max = block->size;
+        block = block->next;
+    }
+    m->free_max = max;
 }
 
 /* O(1) validation of a block candidate without scanning from head.
@@ -196,42 +205,72 @@ static mem_block_t* trunk_check_block(malloc_t* m, mem_block_t* b,
 char* trunk_malloc(malloc_t* m, uint32_t size) {
     mem_block_t* head;
     mem_block_t* prev;
+    mem_block_t* block;
+    ewokos_addr_t heap_end;
     if(m == NULL)
         return NULL;
 
     trunk_lock_heap(m);
     size = ALIGN_UP(size, 8);
-    head = m->head;
-    prev = NULL;
-    mem_block_t* block = head;
-    if(m->start != NULL) {
-        /* validate the rotate hint in O(1) instead of scanning from head;
-        on any inconsistency fall back to head (walk re-validates anyway) */
-        mem_block_t* sprev = NULL;
-        if(trunk_check_block(m, m->start, trunk_heap_end(m), &sprev) != NULL) {
-            block = m->start;
-            prev = sprev;
+    heap_end = trunk_heap_end(m);
+    /* No free block can satisfy this request: skip the first-fit walk
+     * entirely and expand. Without this short-circuit every allocation on a
+     * nearly-full heap walked the whole chain (O(block_count) with a
+     * per-block sanity check), which turned allocation-heavy workloads
+     * quadratic -- e.g. xBrowser parsing a CSS-heavy page spent minutes
+     * inside trunk_block_sane with hundreds of thousands of live blocks. */
+    if(size > m->free_max && m->head != NULL) {
+        /* free_max may only overestimate after consumes/shrinks are handled
+         * below, so when it claims "too small" the walk is provably futile. */
+    } else if(m->head != NULL) {
+        head = m->head;
+        prev = NULL;
+        block = head;
+        if(m->start != NULL) {
+            /* validate the rotate hint in O(1) instead of scanning from head;
+            on any inconsistency fall back to head (walk re-validates anyway) */
+            mem_block_t* sprev = NULL;
+            if(trunk_check_block(m, m->start, heap_end, &sprev) != NULL) {
+                block = m->start;
+                prev = sprev;
+            }
         }
-    }
-    while(block != NULL) {
-        if(!trunk_block_sane(head, trunk_heap_end(m), prev, block)) {
-            trunk_unlock_heap(m);
-            return NULL;
+        while(block != NULL) {
+            /* heap_end is hoisted out of the loop: get_mem_tail is an indirect
+             * call into libgloss, so re-deriving it per block made the walk
+             * far more expensive than the sanity check itself. */
+            if(!trunk_block_sane(head, heap_end, prev, block)) {
+                trunk_unlock_heap(m);
+                return NULL;
+            }
+            if(block->used || block->size < size) {
+                prev = block;
+                block = block->next;
+            }
+            else {
+                block->used = 1;
+                if(block->size == m->free_max &&
+                        (sizeof(mem_block_t)+size) > (uint32_t)(block->size/2)) {
+                    /* The largest free block was consumed whole (no break
+                     * will re-publish a remainder): rescan so free_max stays
+                     * exact and the next futile walk is short-circuited. */
+                    try_break(m, block, size);
+                    trunk_rescan_free_max(m);
+                } else {
+                    try_break(m, block, size);
+                }
+                m->start = block->next;
+                trunk_unlock_heap(m);
+                return block->mem;
+            }
         }
-        if(block->used || block->size < size) {
-            prev = block;
-            block = block->next;
+        /* Walk came up empty although free_max promised a fit: the invariant
+         * overestimated (stale from merges/shrinks). Recompute it so the next
+         * oversized request takes the expand fast path. */
+        trunk_rescan_free_max(m);
+        if(size > m->free_max) {
+            /* fall through to expand */
         }
-        else {
-            block->used = 1;
-            try_break(m, block, size);
-            break;
-        }
-    }
-    if(block != NULL) {
-        m->start = block->next;
-        trunk_unlock_heap(m);
-        return block->mem;
     }
 
     /*Can't find any available block, expand pages*/
@@ -325,12 +364,18 @@ static void try_shrink(malloc_t* m) {
         return;
 
     uint32_t pages = (m->tail->size+block_size) / m->seg_size;
+    /* The largest free block may be the one being returned to the kernel:
+     * unlink it first, then recompute the invariant so free_max never
+     * advertises a block that is already gone. */
+    int rescan = (m->tail->size >= m->free_max);
     m->tail = m->tail->prev;
     if(m->tail != NULL)
         m->tail->next = NULL;
     else
         m->head = NULL;
     m->shrink(m->arg, pages);
+    if(rescan)
+        trunk_rescan_free_max(m);
 }
 
 void trunk_free(malloc_t* m, char* p) {
@@ -357,6 +402,9 @@ void trunk_free(malloc_t* m, char* p) {
         trunk_unlock_heap(m);
         return;
     }
+    /* A (possibly merged) free block just grew: keep the free_max invariant. */
+    if(block->size > m->free_max)
+        m->free_max = block->size;
     if(m->start == 0 || m->start >= block)
         m->start = block->prev;
     if(m->shrink != NULL)
@@ -369,7 +417,13 @@ uint32_t trunk_msize(malloc_t* m, char* p) {
         return 0;
 
     trunk_lock_heap(m);
-    mem_block_t* block = trunk_find_block_locked(m, get_block(p));
+    /* O(1) like trunk_free(): the block header sits right in front of p, so
+     * validating it locally is enough. This used to walk the whole chain from
+     * the head, making realloc() O(block_count) -- and since std::string and
+     * std::vector grow through realloc, an allocation-heavy workload such as
+     * litehtml parsing CSS became quadratic (hundreds of thousands of live
+     * blocks x a per-block sanity check on every growth step). */
+    mem_block_t* block = trunk_check_block(m, get_block(p), trunk_heap_end(m), NULL);
     if(block == NULL) {
         trunk_unlock_heap(m);
         return 0;
@@ -380,6 +434,39 @@ uint32_t trunk_msize(malloc_t* m, char* p) {
     return size;
 }
 
+void trunk_stat(malloc_t* m, uint32_t* blocks, uint32_t* free_blocks,
+        uint32_t* used_bytes, uint32_t* free_bytes) {
+    uint32_t nblocks = 0;
+    uint32_t nfree = 0;
+    uint32_t used = 0;
+    uint32_t freem = 0;
+
+    if(m != NULL) {
+        mem_block_t* block;
+        trunk_lock_heap(m);
+        block = m->head;
+        while(block != NULL) {
+            nblocks++;
+            if(block->used)
+                used += block->size;
+            else {
+                nfree++;
+                freem += block->size;
+            }
+            block = block->next;
+        }
+        trunk_unlock_heap(m);
+    }
+
+    if(blocks != NULL)
+        *blocks = nblocks;
+    if(free_blocks != NULL)
+        *free_blocks = nfree;
+    if(used_bytes != NULL)
+        *used_bytes = used;
+    if(free_bytes != NULL)
+        *free_bytes = freem;
+}
 
 #ifdef __cplusplus
 }

@@ -73,10 +73,10 @@ public:
 		}
 
 		// Update memory data
-		uint32_t totalMem = sysInfo.total_usable_mem_size / (1024*1024);
-		uint32_t freeMem = sysState.mem.free / (1024*1024);
-		uint32_t usedMem = totalMem - freeMem;
-		uint32_t usedPercent = (totalMem > 0) ? (usedMem * 100 / totalMem) : 0;
+		uint64_t totalMem = sysInfo.total_usable_mem_size;
+		uint64_t freeMem = sysState.mem.free;
+		uint64_t usedMem = (totalMem > freeMem) ? (totalMem - freeMem) : 0;
+		uint32_t usedPercent = (totalMem > 0) ? (uint32_t)(usedMem * 100 / totalMem) : 0;
 
 		memData[index] = usedPercent;
 
@@ -149,19 +149,31 @@ protected:
 		}
 	}
 
+	/*get_mem_size_desc truncates to uint32_t, overflows with >=4GB mem*/
+	static const char* memSizeStr(uint64_t size, char* ret, uint32_t len) {
+		if(size >= 1024ULL*1024*1024)
+			snprintf(ret, len, "%u.%uG", (uint32_t)(size>>30),
+					(uint32_t)(((size & 0x3FFFFFFFULL)*10)>>30));
+		else if(size >= 1024*1024)
+			snprintf(ret, len, "%uM", (uint32_t)(size>>20));
+		else
+			snprintf(ret, len, "%uK", (uint32_t)(size>>10));
+		return ret;
+	}
+
 	void drawMemTitle(graph_t* g, XTheme* theme, const grect_t& r) {
 		char s[64];
-		ewokos_addr_t totalMem = sysInfo.total_usable_mem_size / (1024*1024);
-		ewokos_addr_t freeMem = sysState.mem.free / (1024*1024);
-		ewokos_addr_t usedMem = totalMem - freeMem;
-		ewokos_addr_t usedPercent = (totalMem > 0) ? (usedMem * 100 / totalMem) : 0;
+		uint64_t totalMem = sysInfo.total_usable_mem_size;
+		uint64_t freeMem = sysState.mem.free;
+		uint64_t usedMem = (totalMem > freeMem) ? (totalMem - freeMem) : 0;
+		uint32_t usedPercent = (totalMem > 0) ? (uint32_t)(usedMem * 100 / totalMem) : 0;
 
 		char usedMemStr[32] = {0};
-		get_mem_size_desc(usedMem*1024*1024, usedMemStr);
+		memSizeStr(usedMem, usedMemStr, 31);
 		char totalMemStr[32] = {0};
-		get_mem_size_desc(totalMem*1024*1024, totalMemStr);
+		memSizeStr(totalMem, totalMemStr, 31);
 
-		snprintf(s, 63, "Mem: %s/%s (%d%%)", usedMemStr, totalMemStr, usedPercent);
+		snprintf(s, 63, "Mem: %s/%s (%u%%)", usedMemStr, totalMemStr, usedPercent);
 		graph_draw_text_font(g, r.x + x_off, r.y - y_off_bottom + 2, s, theme->getFont(), theme->basic.fontSize, theme->basic.fgColor);
 	}
 
