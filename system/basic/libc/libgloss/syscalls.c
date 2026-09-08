@@ -497,12 +497,12 @@ _sbrk (ptrdiff_t incr)
     errno = ENOMEM;
     return (void *)-1;
   }
-  if(incr > 0 && result != NULL && __heap_end != NULL && result != __heap_end) {
-    /* The kernel break moved behind our back (an expand that bypassed
-       _sbrk); resync so the region handed out is the one just mapped. */
-    __heap_end = result;
-  }
 
+  /* NOTE: proc_malloc_expand() (SYS_MALLOC_EXPAND) returns the process's fixed
+     heap base (malloc_base), NOT the current break. __heap_end is therefore
+     tracked here by accumulating incr; do not "resync" it from the return
+     value -- doing so resets the break to the base on every expand after the
+     first and corrupts the heap. */
   __heap_size += incr;
   __heap_ptr = result;
   if(incr > 0)
