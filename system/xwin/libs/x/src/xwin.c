@@ -74,6 +74,25 @@ static void xwin_registry_remove(xwin_t* xwin) {
     ipc_enable();
 }
 
+/*How many windows of this process still hold a present the server has not
+  taken. xwin_retry_pending_presents() reads it on every event-loop tick, so
+  the "nothing pending" case has to stay a single load: finding out by walking
+  the registry needs ipc_disable(), which is a retry loop that can sleep(0) -
+  far too heavy to pay at the widget frame rate in every X client for nothing.
+  Always written under the owning window's painting_lock.*/
+static volatile uint32_t _xwin_present_pending_num = 0;
+
+/*caller holds xwin->painting_lock*/
+static void xwin_present_pending_set(xwin_t* xwin, bool pending) {
+    if(xwin->present_pending == pending)
+        return;
+    xwin->present_pending = pending;
+    if(pending)
+        __sync_add_and_fetch(&_xwin_present_pending_num, 1);
+    else
+        __sync_sub_and_fetch(&_xwin_present_pending_num, 1);
+}
+
 xwin_t* xwin_find_by_handle(ewokos_addr_t handle) {
     if(handle == 0)
         return NULL;
@@ -114,6 +133,11 @@ static int xwin_update_info(xwin_t* xwin, uint8_t type) {
             xwin->ws_g2_shm = NULL;
             xwin->ws_g2_shm_id = -1;
         }
+        /*the rebuild reallocates and clears ws_g, so a present that was
+          skipped for the old canvas has nothing left to publish: drop it.
+          Every rebuild is followed by a repaint which renders a fresh frame.*/
+        xwin_present_pending_set(xwin, false);
+        xwin->present_ws_g_id = -1;
         pthread_mutex_unlock(&xwin->painting_lock);
     }
 
@@ -148,20 +172,6 @@ int xwin_top(xwin_t* xwin) {
     int ret = vfs_fcntl(xwin->fd, XWIN_CNTL_TOP, NULL, NULL);
     return ret;
 }
-
-/*
-static int  x_get_win_rect(int xfd, int style, int state, grect_t* wsr, grect_t* win_space) {
-    proto_t in, out;
-    PF->init(&out);
-    PF->format(&in, "i,i,m", (ewokos_addr_t)style, (ewokos_addr_t)state, wsr, sizeof(grect_t));
-    int ret = vfs_fcntl(xfd, XWIN_CNTL_WORK_SPACE, &in, &out);
-    PF->clear(&in);
-    if(ret == 0) 
-        proto_read_to(&out, win_space, sizeof(grect_t));
-    PF->clear(&out);
-    return ret;
-}
-*/
 
 xwin_t* xwin_open(x_t* xp, int32_t disp_index, int x, int y, int w, int h, const char* title, int style) {
     if(w <= 0 || h <= 0)
@@ -354,9 +364,97 @@ static graph_t* x_get_flip_graph(xwin_t* xwin, graph_t* g) {
     return g;
 }
 
+/*Perform the fps_async "flip": copy the rendered workspace ws_g onto the
+  handoff buffer ws_g2 and publish it to the server. Returns false when the
+  server still owns ws_g2 (update_requested != 0) or the buffers are not
+  usable. Caller holds painting_lock.
+
+  The copy is bracketed by the painting flag - it is the only write the
+  compositor's source buffer sees from this side, so while it runs the server
+  must not composite ws_g2 or hand it to xwm - and front_index is written
+  before the barrier with update_requested after it, so the server never reads
+  ws_g2 until the copy is fully visible.*/
+static bool xwin_flip_locked(xwin_t* xwin) {
+    if(xwin->xinfo == NULL || !xwin->xinfo->fps_async)
+        return false;
+    /*the invariant that keeps ws_g2 stable while the server composites it:
+      publish only once the previous submission was consumed*/
+    if(xwin->xinfo->update_requested != 0)
+        return false;
+
+    graph_t g;
+    if(xwin_fetch_graph(xwin, &g) == NULL || g.buffer == NULL)
+        return false;
+
+    graph_t front;
+    memset(&front, 0, sizeof(graph_t));
+    if(x_get_flip_graph(xwin, &front) == NULL || front.buffer == NULL)
+        return false;
+
+    xwin->xinfo->painting = 1;
+    __sync_synchronize();
+    graph_blt(&g, 0, 0, g.w, g.h, &front, 0, 0, front.w, front.h);
+    xwin->xinfo->front_index = 1;
+    xwin->xinfo->painting = 0;
+    __sync_synchronize();
+    xwin->xinfo->update_requested = 1;
+    return true;
+}
+
+/*how many skipped presents one event-loop tick retries at most; the rest are
+  picked up on the following tick*/
+#define XWIN_FLIP_RETRY_MAX 16
+
+void xwin_retry_pending_presents(void) {
+    if(_xwin_present_pending_num == 0)
+        return;
+
+    xwin_t* pending[XWIN_FLIP_RETRY_MAX];
+    uint32_t num = 0;
+
+    /*snapshot the list with IPC disabled so a concurrent xwin_open/xwin_close
+      on a painter thread cannot pull a window out from under the walk. The
+      flips themselves run outside that critical section: a full-frame blit
+      must not happen with IPC disabled.*/
+    ipc_disable();
+    xwin_t* w = _xwin_registry;
+    while(w != NULL && num < XWIN_FLIP_RETRY_MAX) {
+        if(w->present_pending)
+            pending[num++] = w;
+        w = w->reg_next;
+    }
+    ipc_enable();
+
+    for(uint32_t i = 0; i < num; i++) {
+        xwin_t* xwin = pending[i];
+        pthread_mutex_lock(&xwin->painting_lock);
+        if(xwin->fd > 0 && xwin->xinfo != NULL &&
+                xwin->xinfo->fps_async &&
+                xwin->present_ws_g_id == xwin->xinfo->ws_g_shm_id) {
+            /*still the same canvas the skipped present rendered into, so ws_g
+              holds exactly the picture that was never published*/
+            if(xwin_flip_locked(xwin))
+                xwin_present_pending_set(xwin, false);
+        }
+        else {
+            /*closed, rebuilt since, or downgraded to the blocking handshake
+              (the server turns fps_async off per window when it cannot get
+              the shm for ws_g2): that frame is gone, and the repaint which
+              follows every rebuild publishes a fresh one*/
+            xwin_present_pending_set(xwin, false);
+        }
+        pthread_mutex_unlock(&xwin->painting_lock);
+    }
+}
+
 void xwin_destroy(xwin_t* xwin) {
     if(xwin != NULL) {
         xwin_registry_remove(xwin);
+        /*the object is going away, so a present still recorded on it can never
+          be published: drop it from the count or every later event-loop tick
+          walks the registry for nothing*/
+        if(xwin->present_pending)
+            __sync_sub_and_fetch(&_xwin_present_pending_num, 1);
         free(xwin);
     }
 }
@@ -448,32 +546,29 @@ void xwin_repaint(xwin_t* xwin) {
 
     if(xwin->xinfo->fps_async) {
         /*Non-blocking, double-buffered submit. The client always renders into
-          ws_g (see x_get_graph); here we "flip" by copying the just-rendered
-          ws_g into the handoff buffer ws_g2, which is the buffer the server
-          snapshots. We only publish when the server has consumed the previous
-          submission (update_requested==0): that is the invariant which keeps
-          ws_g2 stable while the server reads it, so this copy never races the
-          snapshot and the client never blocks. While the server is still busy
-          we simply skip this frame - the client keeps its own fps, the display
-          fps stays the server's. front_index is written before the barrier and
-          update_requested after it, so the server never reads ws_g2 until the
-          copy is fully visible.*/
-        if(xwin->xinfo->update_requested == 0) {
-            graph_t front;
-            memset(&front, 0, sizeof(graph_t));
-            if(g.buffer != NULL && x_get_flip_graph(xwin, &front) != NULL &&
-                    front.buffer != NULL) {
-                /*the handoff copy is the only write the compositor's source
-                  buffer sees from this side, so bracket exactly it: while it
-                  runs the server must not composite ws_g2 or hand it to xwm*/
-                xwin->xinfo->painting = 1;
-                __sync_synchronize();
-                graph_blt(&g, 0, 0, g.w, g.h, &front, 0, 0, front.w, front.h);
-                xwin->xinfo->front_index = 1;
-                xwin->xinfo->painting = 0;
-                __sync_synchronize();
-                xwin->xinfo->update_requested = 1;
-            }
+          ws_g (see x_get_graph); xwin_flip_locked "flips" by copying that
+          just-rendered ws_g into the handoff buffer ws_g2, which is the buffer
+          the server composites. It only publishes while the server has consumed
+          the previous submission (update_requested==0), so the copy never races
+          the compositor and the client never blocks - the client keeps its own
+          fps and the display fps stays the server's.
+
+          A present the server is still busy with must NOT simply be dropped,
+          which is what this used to do: the picture exists only in ws_g, and
+          the caller above (RootWidget::repaintWin, Widget::repaint) has already
+          cleared doRefresh and every dirty flag on the way here, so nothing
+          will ever render it again. An event-driven app - which is every widget
+          app - then sits idle with front_index still 0, the server keeps
+          win_comp_src on the empty ws_g2 and the window never becomes ready:
+          the process runs, has painted, and stays invisible. Record the skipped
+          frame and let the event loop publish it as soon as the server lets go
+          of the handoff buffer (see xwin_retry_pending_presents).*/
+        if(xwin_flip_locked(xwin)) {
+            xwin_present_pending_set(xwin, false);
+        }
+        else if(g.buffer != NULL && xwin->xinfo->visible) {
+            xwin_present_pending_set(xwin, true);
+            xwin->present_ws_g_id = xwin->xinfo->ws_g_shm_id;
         }
         xwin->xinfo->update_theme = false;
         pthread_mutex_unlock(&xwin->painting_lock);

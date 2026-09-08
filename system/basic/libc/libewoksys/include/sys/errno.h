@@ -1,7 +1,15 @@
 #ifndef ERROR_NO_H
 #define ERROR_NO_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int *__errno(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #ifndef errno
 #define errno (*__errno())

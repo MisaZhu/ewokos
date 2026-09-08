@@ -622,14 +622,23 @@ sock_getsockopt(int id, int level, int optname, void *optval, int *optlen)
     
     if (level == SOL_SOCKET) {
         switch (optname) {
-        case SO_ERROR:
+        case SO_ERROR: {
             if (*optlen >= sizeof(int)) {
-                // Always return 0 (no error) for now
-                *(int *)optval = 0;
+                /*
+                 * Report the real pending error for stream sockets instead of a
+                 * hardcoded 0. A permanent 0 made non-blocking connect failures
+                 * and peer resets invisible to getsockopt(SO_ERROR) consumers
+                 * (TLS clients, ffmpeg, wolfSSL).
+                 */
+                int so_err = 0;
+                if (s->type == SOCK_STREAM && s->family == AF_INET)
+                    so_err = tcp_socket_error(s->desc);
+                *(int *)optval = so_err;
                 *optlen = sizeof(int);
                 return 0;
             }
             break;
+        }
         case SO_RCVTIMEO:
             if (*optlen >= sizeof(struct timeval)) {
                 memcpy(optval, &s->rcv_timeout, sizeof(struct timeval));

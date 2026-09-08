@@ -121,6 +121,21 @@ static bool do_keyb_spec(uint8_t* keys, uint8_t num) {
     return false;
 }
 
+/* Only the window-manager chords (Ctrl+Tab / Ctrl+H / Ctrl+E, the combos
+   do_keyb_spec() fires on release) are reserved. Every other Ctrl combo must
+   reach the focused app, exactly like Shift+key does, so xim can cook it via
+   keyb_ctrl_value() (Ctrl+C, Ctrl+P, Ctrl+U, ...). */
+static bool wm_combo_down(uint8_t* keys, uint8_t num) {
+    if(ctrl_down(keys, num) < 0)
+        return false;
+    for(int i=0; i<num; i++) {
+        uint8_t c = keys[i];
+        if(c == KEY_TAB || c == 'h' || c == 'e')
+            return true;
+    }
+    return false;
+}
+
 static int sel_down(uint8_t* keys, uint8_t num) {
     for(int i=0; i<num; i++) {
         if(keys[i] == JOYSTICK_SELECT)
@@ -225,7 +240,7 @@ static int vkeyb_loop(vdevice_t* dev, void* p){
     if(rd > 0) {
         memcpy(_keys, keys, rd);
         if(_keyb_type == 'k') {
-            if(ctrl_down(_keys, KEY_NUM) >= 0)
+            if(wm_combo_down(_keys, KEY_NUM))
                 rd = 0;
         }
         else if(_keyb_type == 'j') {

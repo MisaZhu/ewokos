@@ -3,6 +3,7 @@
 
 #include <sys/types.h>
 #include <sys/time.h>
+#include <signal.h>
 
 #ifndef FD_SETSIZE
 #define FD_SETSIZE 1024
@@ -32,7 +33,18 @@ typedef struct fd_set {
 #define FD_ISSET(fd, set) \
 	(((set)->fds_bits[(fd) / NFDBITS] & (1UL << ((fd) % NFDBITS))) != 0)
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
 		struct timeval *timeout);
+
+int pselect(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
+		const struct timespec *timeout, const sigset_t *sigmask);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

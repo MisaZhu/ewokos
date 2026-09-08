@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdarg.h>
 #include <sys/errno.h>
 #include <ewoksys/mstr.h>
 #include <ewoksys/ipc.h>
@@ -13,6 +14,8 @@
 #include <ewoksys/vfsc.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/klog.h>
+#include <ewoksys/vdevice.h>
+#include <ewoksys/ipc_serv.h>
 #include <sysinfo.h>
 #include <kevent.h>
 #include <procinfo.h>
@@ -334,6 +337,136 @@ static void do_proc_exit(kevent_t* kev) {
     PF->clear(&data);
 }
 
+static const char* core_dump_reason_str(uint32_t reason) {
+    switch(reason) {
+    case KEV_CORE_DUMP_UNDEF:    return "undef-instruction";
+    case KEV_CORE_DUMP_PREFETCH: return "prefetch-abort";
+    case KEV_CORE_DUMP_DATA:     return "data-abort";
+    default:                     return "unknown";
+    }
+}
+
+/* bounded vsnprintf appender: returns the new write offset, clamped to cap-1 */
+static int dump_appendf(char* buf, int cap, int off, const char* fmt, ...) {
+    if(off < 0 || off >= cap-1)
+        return off < 0 ? 0 : off;
+    va_list ap;
+    va_start(ap, fmt);
+    int n = vsnprintf(buf+off, cap-off, fmt, ap);
+    va_end(ap);
+    if(n < 0)
+        return off;
+    off += n;
+    if(off > cap-1)
+        off = cap-1;
+    return off;
+}
+
+/*
+ * A user proc died from an exception. The kernel already tore the proc down, so
+ * its procinfo may be gone; textualize the crash snapshot (header plus the full
+ * arch register file, mirroring the kernel's dump_ctx) and hand it straight to
+ * logd (CTRL_WRITE) instead of opening /dev/log.
+ */
+static void do_proc_core_dump(kevent_t* kev) {
+    kev_core_dump_t* d = &kev->core_dump;
+
+    int logd_pid = get_ipc_serv(IPC_SERV_LOG);
+    if(logd_pid <= 0)
+        return;
+
+    char buf[2048];
+    int cap = (int)sizeof(buf);
+    int off = dump_appendf(buf, cap, 0,
+            "[coredump] pid=%d core=%u reason=%s status=0x%x fault=0x%llx pc=0x%llx sp=0x%llx\n",
+            d->pid, d->core, core_dump_reason_str(d->reason), d->status,
+            (unsigned long long)d->fault_addr,
+            (unsigned long long)d->pc,
+            (unsigned long long)d->sp);
+
+#if defined(__aarch64__)
+    off = dump_appendf(buf, cap, off, "pc=0x%llx spsr=0x%llx sp=0x%llx lr=0x%llx\n",
+            (unsigned long long)d->regs.aarch64.pc,
+            (unsigned long long)d->regs.aarch64.spsr_el1,
+            (unsigned long long)d->regs.aarch64.sp,
+            (unsigned long long)d->regs.aarch64.lr);
+    for(int i=0; i<30; i++) {
+        if(i > 0 && i%4 == 0)
+            off = dump_appendf(buf, cap, off, "\n");
+        off = dump_appendf(buf, cap, off, "x%02d=0x%llx ", i,
+                (unsigned long long)d->regs.aarch64.gpr[i]);
+    }
+    off = dump_appendf(buf, cap, off, "\n");
+#elif defined(__arm__)
+    off = dump_appendf(buf, cap, off, "cpsr=0x%x pc=0x%x sp=0x%x lr=0x%x\n",
+            (unsigned int)d->regs.arm.cpsr,
+            (unsigned int)d->regs.arm.pc,
+            (unsigned int)d->regs.arm.sp,
+            (unsigned int)d->regs.arm.lr);
+    for(int i=0; i<13; i++) {
+        if(i > 0 && i%4 == 0)
+            off = dump_appendf(buf, cap, off, "\n");
+        off = dump_appendf(buf, cap, off, "r%d=0x%x ", i,
+                (unsigned int)d->regs.arm.gpr[i]);
+    }
+    off = dump_appendf(buf, cap, off, "\n");
+#elif defined(__x86_64__) || defined(__i386__)
+    off = dump_appendf(buf, cap, off, "cr2=0x%llx trap=0x%llx err=0x%llx\n",
+            (unsigned long long)d->regs.x86.cr2,
+            (unsigned long long)d->regs.x86.trap_no,
+            (unsigned long long)d->regs.x86.err_code);
+    off = dump_appendf(buf, cap, off, "pc=0x%llx lr=0x%llx sp=0x%llx cs=0x%llx ss=0x%llx flags=0x%llx\n",
+            (unsigned long long)d->regs.x86.pc,
+            (unsigned long long)d->regs.x86.lr,
+            (unsigned long long)d->regs.x86.sp,
+            (unsigned long long)d->regs.x86.cs,
+            (unsigned long long)d->regs.x86.ss,
+            (unsigned long long)d->regs.x86.rflags);
+    {
+        static const char* xnames[15] = {
+            "rdi","rsi","rdx","rcx","r8","r9","rax","rbx",
+            "rbp","r10","r11","r12","r13","r14","r15"
+        };
+        for(int i=0; i<15; i++) {
+            if(i > 0 && i%4 == 0)
+                off = dump_appendf(buf, cap, off, "\n");
+            off = dump_appendf(buf, cap, off, "%s=0x%llx ", xnames[i],
+                    (unsigned long long)d->regs.x86.gpr[i]);
+        }
+    }
+    off = dump_appendf(buf, cap, off, "\n");
+#elif defined(__riscv)
+    off = dump_appendf(buf, cap, off, "pc=0x%lx ra=0x%lx sp=0x%lx gp=0x%lx tp=0x%lx\n",
+            d->regs.riscv.pc, d->regs.riscv.ra, d->regs.riscv.sp,
+            d->regs.riscv.gp, d->regs.riscv.tp);
+    off = dump_appendf(buf, cap, off, "t0=0x%lx t1=0x%lx t2=0x%lx s0=0x%lx s1=0x%lx\n",
+            d->regs.riscv.t0, d->regs.riscv.t1, d->regs.riscv.t2,
+            d->regs.riscv.s0, d->regs.riscv.s1);
+    for(int i=0; i<8; i++)
+        off = dump_appendf(buf, cap, off, "a%d=0x%lx ", i, d->regs.riscv.gpr[i]);
+    off = dump_appendf(buf, cap, off, "\n");
+    off = dump_appendf(buf, cap, off,
+            "s2=0x%lx s3=0x%lx s4=0x%lx s5=0x%lx s6=0x%lx s7=0x%lx\n",
+            d->regs.riscv.s2, d->regs.riscv.s3, d->regs.riscv.s4,
+            d->regs.riscv.s5, d->regs.riscv.s6, d->regs.riscv.s7);
+    off = dump_appendf(buf, cap, off,
+            "s8=0x%lx s9=0x%lx s10=0x%lx s11=0x%lx t3=0x%lx t4=0x%lx t5=0x%lx t6=0x%lx\n",
+            d->regs.riscv.s8, d->regs.riscv.s9, d->regs.riscv.s10, d->regs.riscv.s11,
+            d->regs.riscv.t3, d->regs.riscv.t4, d->regs.riscv.t5, d->regs.riscv.t6);
+    off = dump_appendf(buf, cap, off, "sstatus=0x%lx sbadaddr=0x%lx scause=0x%lx\n",
+            d->regs.riscv.sstatus, d->regs.riscv.sbadaddr, d->regs.riscv.scause);
+#endif
+    if(off <= 0)
+        return;
+
+    proto_t in;
+    PF->init(&in)->adds(&in, buf);
+    ipc_enable();
+    dev_cntl_by_pid(logd_pid, CTRL_WRITE, &in, NULL);
+    ipc_disable();
+    PF->clear(&in);
+}
+
 static void handle_event(kevent_t* kev) {
     switch(kev->type) {
     case KEV_PROC_EXIT:
@@ -341,6 +474,9 @@ static void handle_event(kevent_t* kev) {
         return;
     case KEV_PROC_CREATED:
         do_proc_created(kev);
+        return;
+    case KEV_PROC_CORE_DUMP:
+        do_proc_core_dump(kev);
         return;
     }
 }

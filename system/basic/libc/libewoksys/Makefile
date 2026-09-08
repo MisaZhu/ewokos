@@ -76,6 +76,8 @@ LIB_EWOKSYS_OBJS =  \
 	$(ARCH)/src/unistd/ttyname.o \
 	$(ARCH)/src/unistd/ids.o \
 	$(ARCH)/src/unistd/alarm.o \
+	$(ARCH)/src/unistd/readlink.o \
+	$(ARCH)/src/unistd/get_current_dir_name.o \
 	\
 	$(ARCH)/src/libgen/basename.o \
 	$(ARCH)/src/libgen/dirname.o \
@@ -126,6 +128,7 @@ LIB_EWOKSYS_OBJS =  \
 	$(ARCH)/src/stdio/setvbuf.o \
 	$(ARCH)/src/stdio/ftello.o \
 	$(ARCH)/src/stdio/tmpfile.o \
+	$(ARCH)/src/stdio/popen.o \
 	\
 	$(ARCH)/src/dirent/readdir.o \
 	$(ARCH)/src/dirent/closedir.o \
@@ -164,6 +167,9 @@ LIB_EWOKSYS_OBJS =  \
 	$(ARCH)/src/termios/termios.o \
 	$(ARCH)/src/fnmatch/fnmatch.o \
 	$(ARCH)/src/glob/glob.o \
+	$(ARCH)/src/pwd/pwd.o \
+	$(ARCH)/src/grp/grp.o \
+	$(ARCH)/src/sys/inotify/inotify.o \
 	\
 	$(ARCH)/src/poll/poll.o \
 	\

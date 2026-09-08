@@ -103,6 +103,9 @@ void x_unfocus(x_t* x) {
     e.value.window.event = XEVT_WIN_UNFOCUS;
     x->win_focus->xinfo->focused = false;
     x->win_focus->frame_dirty = true;
+    /*the frame recolours: its translucent corners/shadow have to be
+      blended again over what is below them*/
+    x->win_focus->shadow_valid = false;
     x_push_event(x, x->win_focus, &e);
 
     proc_priority(x->win_focus->from_pid, x->config.bg_proc_priority);
@@ -120,6 +123,7 @@ void try_focus(x_t* x, xwin_t* win) {
         e.value.window.event = XEVT_WIN_FOCUS;
         win->xinfo->focused = true;
         win->frame_dirty = true;
+        win->shadow_valid = false; /*recoloured frame, see x_unfocus*/
         x_push_event(x, win, &e);
         x->win_focus = win;
 
@@ -139,6 +143,10 @@ void push_win(x_t* x, xwin_t* win) {
         }
         return;
     }
+
+    /*new stacking position: what sits below the translucent corners and
+      shadow bands changed, they have to be blended again*/
+    win->shadow_valid = false;
 
     if((win->xinfo->style & XWIN_STYLE_SYSBOTTOM) != 0) { //push head if sysbottom style
         if(x->win_head != NULL) {
@@ -332,27 +340,6 @@ xwin_t* x_get_win_by_name(x_t* x, const char* name) {
     return NULL;
 }
 
-/*
-static xwin_t* get_first_visible_win(x_t* x) {
-    xwin_t* ret = x->win_tail; 
-    while(ret != NULL) {
-        if(ret->xinfo->visible)
-            return ret;
-        ret = ret->prev;
-    }
-    return NULL;
-}
-*/
-
-static void unmark_dirty(x_t* x, xwin_t* win) {
-    (void)x;
-    xwin_t* v = win->next;
-    while(v != NULL) {
-        v->dirty_mark = false;
-        v = v->next;
-    }
-}
-
 static void mark_dirty_confirm(x_t* x, xwin_t* win) {
     xwin_t* v = win->next;
     while(v != NULL) {
@@ -401,8 +388,7 @@ static void mark_dirty(x_t* x, xwin_t* win) {
                     r.h == check_r->h) {
                 if(!top->xinfo->alpha &&
                     !need_repaint_desktop(x, top) &&
-                    (top->xinfo->focused ||
-                    (top->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) != 0)) {
+                    !win_bg_effect_active(x, top)) {
                     /*fully hidden by an opaque workspace above: stop extending
                       upward here, but keep the dirty marks collected so far so
                       the covering window can repaint its frame ring if needed.*/
@@ -446,7 +432,7 @@ bool need_repaint_frame(x_t* x, xwin_t* win) {
     if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0 && !win->xinfo->alpha)
         return false;
 
-    if(x->config.xwm_theme.bgEffect && !win->xinfo->focused)
+    if(win_bg_effect_active(x, win))
         return true;
     /*edge-to-edge windows (maximized/fullscreen) have no translucent frame
       pixels blending with what is below them, so a desktop repaint does not
@@ -466,7 +452,12 @@ bool need_repaint_desktop(x_t* x, xwin_t* win) {
         return true;
     if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0)
         return false;
-    if(x->config.xwm_theme.bgEffect && !win->xinfo->focused)
+    /*win_bg_effect_active, not a bare bgEffect test: xwm skips the blend for
+      XWIN_STYLE_NO_BG_EFFECT windows (as does xrender.c), and most system
+      apps set that style. Testing the theme alone made every unfocused one of
+      them escalate into a whole-display rebuild instead of an incremental
+      repaint.*/
+    if(win_bg_effect_active(x, win))
         return true;
     return false;
 }
@@ -508,6 +499,7 @@ static void x_accept_update(x_t* x, xwin_t* win) {
 
     win->ready = true;
     win->not_ready_ms = 0;
+    win->repaint_req_ms = 0;
     if(win->accept_ms == 0) {
         uint64_t now = kernel_tic_ms(0);
         win->accept_ms = (now == 0) ? 1 : now;
@@ -559,6 +551,31 @@ void x_update_release(x_t* x, xwin_t* win) {
     x_update_commit(x, win);
 }
 
+/*Abandon an accepted frame that never reached the compositor (its display
+  stayed busy or is inactive - see X_ACCEPT_TIMEOUT_MS). Handing the buffer
+  back is only half of it: from that moment the client may flip into ws_g2
+  again at any time, so the compositor must stop reading it too. A full
+  rebuild bypasses win_src_stable, so leaving win->dirty set here would let
+  draw_win (and the DRAW_FRAME it hands xwm) sample that buffer while the
+  client's next handoff copy is half done - a torn frame and garbled
+  decorations. Drop the damage instead; the area keeps whatever the scan-out
+  already holds, which is what it held before too since this frame never got
+  there, and ask the client for the picture again so an idle one does not
+  leave the window blank until its next spontaneous repaint.*/
+static void x_accept_abandon(x_t* x, xwin_t* win) {
+    win->dirty = false;
+    win->frame_dirty = false;
+    x_update_commit(x, win);
+
+    if(win->xinfo != NULL && win->xinfo->visible) {
+        xevent_t ev;
+        memset(&ev, 0, sizeof(xevent_t));
+        ev.type = XEVT_WIN;
+        ev.value.window.event = XEVT_WIN_REPAINT;
+        x_push_event(x, win, &ev);
+    }
+}
+
 /*runs once per step (under the server lock, before compositing): scans every
   window's shm handshake flag and accepts the frames that were published. This
   replaces the old XWIN_CNTL_UPDATE IPC path entirely - no vdevice dispatch, no
@@ -573,6 +590,14 @@ void x_poll_updates(x_t* x) {
     while(win != NULL) {
         if(win->xinfo != NULL) {
             if(win->xinfo->update_requested) {
+                /*the client published with a release barrier only; pair it here.
+                  Without this acquire the load of front_index (which selects
+                  ws_g2) and of the ws_g2 pixels themselves can be reordered
+                  ahead of the flag on this core: the compositor then blits the
+                  buffer graph_clear left empty, commits it as presented, and
+                  the window stays blank forever - the client believes its frame
+                  landed and an event-driven app never paints again.*/
+                __sync_synchronize();
                 if(win->xinfo->visible && win_comp_src(win) != NULL)
                     x_accept_update(x, win);
                 else
@@ -580,29 +605,40 @@ void x_poll_updates(x_t* x) {
             }
 
             /*an accepted frame that never reached the compositor still holds
-              its client off the buffer; bound that (see X_ACCEPT_TIMEOUT_MS)*/
+              its client off the buffer; bound that (see x_accept_abandon)*/
             if(win->accept_ms != 0 && (now - win->accept_ms) >= X_ACCEPT_TIMEOUT_MS)
-                x_update_commit(x, win);
+                x_accept_abandon(x, win);
+
+            /*a visible window that never became ready is simply not on screen:
+              the composite loop skips !ready windows. Its client may well think
+              it already presented - an fps_async present skipped while the
+              server still owned the handoff buffer is not re-issued by an
+              event-driven app whose widget layer already consumed its dirty
+              state, and ws_g2 (which win_comp_src picks) is still empty. Ask
+              for the frame again; ws_g holds the complete picture, so even a
+              client that redraws nothing on the event still flips it over.*/
+            if(win->xinfo->visible && !win->ready) {
+                if(win->not_ready_ms == 0)
+                    win->not_ready_ms = (now == 0) ? 1 : now;
+                else if((now - win->not_ready_ms) >= X_NOT_READY_TIMEOUT_MS &&
+                        (win->repaint_req_ms == 0 ||
+                        (now - win->repaint_req_ms) >= X_NOT_READY_TIMEOUT_MS)) {
+                    win->repaint_req_ms = (now == 0) ? 1 : now;
+                    xevent_t ev;
+                    memset(&ev, 0, sizeof(xevent_t));
+                    ev.type = XEVT_WIN;
+                    ev.value.window.event = XEVT_WIN_REPAINT;
+                    x_push_event(x, win, &ev);
+                }
+            }
+            else if(win->not_ready_ms != 0) {
+                win->not_ready_ms = 0;
+                win->repaint_req_ms = 0;
+            }
         }
         win = win->next;
     }
 }
-
-/*
-static int xwin_set_visible(int fd, int from_pid, proto_t* in, x_t* x) {
-    if(fd < 0)
-        return -1;
-    
-    xwin_t* win = x_get_win(x, fd, from_pid);
-    if(win == NULL)
-        return -1;
-
-    win->xinfo->visible = proto_read_int(in);
-    win->dirty = true;
-    x_dirty(x, win->xinfo->display_index);
-    return 0;
-}
-*/
 
 /* whether rect r is fully covered by the opaque workspace of one window
    above 'from' (from==NULL means checking against all windows). */
@@ -611,10 +647,14 @@ bool covered_by_opaque_win(x_t* x, xwin_t* from, uint32_t display_index, const g
     while(top != NULL) {
         if(top->ready && top->xinfo != NULL && top->xinfo->visible &&
                 top->xinfo->display_index == display_index) {
+            /*win_bg_effect_active, not a hand-rolled "focused || NO_BG_EFFECT":
+              the two are the same only while the theme actually has a bg
+              effect. With bgEffect == 0 (the ewokwm default) the old test
+              still demanded a focused covering window, so occlusion culling
+              silently never kicked in for ordinary unfocused ones.*/
             if(!top->xinfo->alpha &&
                     !need_repaint_desktop(x, top) &&
-                    (top->xinfo->focused ||
-                    (top->xinfo->style & XWIN_STYLE_NO_BG_EFFECT) != 0)) {
+                    !win_bg_effect_active(x, top)) {
                 /*an edge-to-edge window is opaque across its whole winr:
                   the title strip is solid decoration drawn by xwm, so it
                   covers just like the workspace does*/

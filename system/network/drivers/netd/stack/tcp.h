@@ -25,6 +25,8 @@ tcp_open_rfc793(struct ip_endpoint *local, struct ip_endpoint *foreign, int acti
 extern int
 tcp_state(int id);
 extern int
+tcp_socket_error(int id);
+extern int
 tcp_close(int id);
 extern ssize_t
 tcp_send(int id, uint8_t *data, size_t len);

@@ -22,8 +22,8 @@ uint32_t timer_set(uint32_t usec, timer_handle_t handle) {
     PF->init(&in);
     PF->init(&out);
     PF->addi(&in, usec);
-    PF->addi(&in, (ewokos_addr_t)_timer_handle);
-    PF->addi(&in, (ewokos_addr_t)handle);
+    PF->adda(&in, (ewokos_addr_t)_timer_handle);
+    PF->adda(&in, (ewokos_addr_t)handle);
     if(dev_cntl("/dev/timer", TIMER_SET, &in, &out) == 0)
         id = (uint32_t)proto_read_int(&out);
     PF->clear(&in);

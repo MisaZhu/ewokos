@@ -46,26 +46,50 @@ int textgrid_set_max_rows(textgrid_t* textgrid, uint32_t max_rows) {
 int textgrid_reset(textgrid_t* textgrid, uint32_t cols) {
     if(!textgrid || cols == 0)
         return -1;
-    textchar_t* p = textgrid->grid;
-    uint32_t max_rows = textgrid->max_rows;
-    uint32_t size = textgrid->cols * (textgrid->rows) + textgrid->tail_col+1;
-    memset(textgrid, 0, sizeof(textgrid_t));
-    textgrid->cols = cols;
-    textgrid->max_rows = max_rows;
+    uint32_t old_cols = textgrid->cols;
+    if(old_cols == cols)
+        return 0;
 
-    if(p == NULL || size == 0) {
-        if(p != NULL)
-            free(p);
+    textchar_t* p = textgrid->grid;
+    uint32_t rows = textgrid->rows;
+    uint32_t total_rows = textgrid->total_rows;
+    if(p == NULL || old_cols == 0 || total_rows == 0) {
+        textgrid->cols = cols;
         return 0;
     }
 
-    for(uint32_t i=0; i<size; i++) {
-        if(textgrid_push(textgrid, &p[i]) != 0)
-            break;
-    }
+    /* A push-based reflow is impossible here: the grid stores neither blank
+     * cells (textgrid_push drops c==0) nor row separators (CR/LF are cursor
+     * moves, never cells), so re-pushing glues every row into one dense
+     * character stream and turns the screen into garbage. Keep each produced
+     * row as its own row instead: copy the shared column span, truncate or
+     * pad the rest, and leave the unproduced capacity blank. */
+    uint32_t copy_cols = old_cols < cols ? old_cols : cols;
+    textchar_t* ng = (textchar_t*)malloc((size_t)cols * total_rows * sizeof(textchar_t));
+    if(ng == NULL)
+        return -1;
+    memset(ng, 0, (size_t)cols * total_rows * sizeof(textchar_t));
+    for(uint32_t r = 0; r < rows; r++)
+        memcpy(&ng[(size_t)r * cols], &p[(size_t)r * old_cols],
+                (size_t)copy_cols * sizeof(textchar_t));
+    free(p);
 
-    if(p != NULL)
-        free(p);
+    textgrid->grid = ng;
+    textgrid->cols = cols;
+    if(textgrid->curs_x >= (int32_t)cols)
+        textgrid->curs_x = (int32_t)cols - 1;
+
+    /* tail_col describes the last produced row, recompute it for the new stride. */
+    int32_t tail = 0;
+    if(rows > 0) {
+        for(uint32_t c = cols; c > 0; c--) {
+            if(ng[(size_t)(rows - 1) * cols + (c - 1)].c != 0) {
+                tail = (int32_t)(c - 1);
+                break;
+            }
+        }
+    }
+    textgrid->tail_col = tail;
     return 0;
 }
 

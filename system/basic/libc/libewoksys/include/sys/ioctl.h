@@ -4,6 +4,7 @@
 #define FIOCLEX  0x5451
 #define FIONCLEX 0x5450
 #define FIONBIO  0x5421
+#define FIONREAD 0x541B
 
 /* Terminal ioctls. Values follow the Linux ABI so ported code keeps working;
  * they are routed to the backing character device via dev_cntl. */

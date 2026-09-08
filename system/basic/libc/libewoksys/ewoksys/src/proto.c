@@ -115,7 +115,15 @@ inline static proto_factor_t* proto_add(proto_t* proto, const void* item, uint32
     return &_proto_factor;
 }
 
-inline static proto_factor_t* proto_add_int(proto_t* proto, ewokos_addr_t v) {
+inline static proto_factor_t* proto_add_int(proto_t* proto, int32_t v) {
+    /* 'int' factors always travel as a fixed 32-bit word so the wire format is
+     * identical on 32-bit and 64-bit targets. Address/handle values must use
+     * the addr factor (adda/proto_read_addr) which keeps ewokos_addr_t width. */
+    proto_add(proto, (void*)&v, sizeof(v));
+    return &_proto_factor;
+}
+
+inline static proto_factor_t* proto_add_addr(proto_t* proto, ewokos_addr_t v) {
     proto_add(proto, (void*)&v, sizeof(v));
     return &_proto_factor;
 }
@@ -158,6 +166,10 @@ inline static proto_factor_t* proto_format(proto_t* proto, const char* fmt, ... 
             ewokos_addr_t v = va_arg(args, ewokos_addr_t);
             PF->addi(proto, v);
         }
+        else if(c == 'a') {
+            ewokos_addr_t v = va_arg(args, ewokos_addr_t);
+            PF->adda(proto, v);
+        }
         else if(c == 'm') {
             void* v0 = va_arg(args, void*);
             int v1 = va_arg(args, int);
@@ -176,6 +188,7 @@ inline proto_factor_t* get_proto_factor() {
     _proto_factor.clear = proto_clear;
     _proto_factor.add = proto_add;
     _proto_factor.addi = proto_add_int;
+    _proto_factor.adda = proto_add_addr;
     _proto_factor.adds = proto_add_str;
     _proto_factor.format = proto_format;
     return &_proto_factor;
@@ -233,7 +246,16 @@ inline int32_t proto_read_proto(proto_t* proto, proto_t* to) {
     return 0;
 }
 
-inline ewokos_addr_t proto_read_int(proto_t* proto) {
+inline int32_t proto_read_int(proto_t* proto) {
+    void *p = proto_read(proto, NULL);
+    int32_t v = 0;
+    if(p == NULL)
+        return 0;
+    memcpy(&v, p, sizeof(v));
+    return v;
+}
+
+inline ewokos_addr_t proto_read_addr(proto_t* proto) {
     void *p = proto_read(proto, NULL);
     ewokos_addr_t v = 0;
     if(p == NULL)
@@ -251,10 +273,10 @@ void proto_free(proto_t* proto) {
     free(proto);
 }
 
-const char* get_mem_size_desc(ewokos_addr_t size, char ret[]) {
-    if(size >= (ewokos_addr_t)(1024*1024)) {
+const char* get_mem_size_desc(uint32_t size, char ret[]) {
+    if(size >= (1024*1024)) {
         uint32_t m = (uint32_t)(size/(1024*1024));
-        if((size % (ewokos_addr_t)(1024*1024)) != 0)
+        if((size % (1024*1024)) != 0)
             m++;
         snprintf(ret, 31, "%uM", m);
     }

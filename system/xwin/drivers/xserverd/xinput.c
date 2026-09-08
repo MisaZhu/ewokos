@@ -73,7 +73,6 @@ int x_cursor_set_busy(x_t* x, bool busy) {
         x->cursor.offset.x = x->cursor.offset_normal.x;
         x->cursor.offset.y = x->cursor.offset_normal.y;
     }
-    //refresh_cursor(x);
     x_repaint_req(x, x->current_display);
     return 0;
 }
@@ -163,16 +162,6 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
                 if(x->current.pos_delta.x != 0 ||
                     x->current.pos_delta.y != 0 ) {
                     ev->value.window.event = XEVT_WIN_RESIZE;
-                    /*graph_free(win->ws_g);
-                    shmdt(win->ws_g_shm);
-                    win->ws_g = NULL;
-                    win->ws_g_shm = NULL;
-
-                    if(win->ws_g_buffer != NULL) {
-                        graph_free(win->ws_g_buffer);
-                        win->ws_g_buffer = NULL;
-                    }
-                    */
                 }
             }
             else if(x->current.drag_state == X_win_DRAG_MOVE) {
@@ -191,8 +180,6 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
             if(pos == FRAME_R_CLOSE) { //window close
                 ev->type = XEVT_WIN;
                 ev->value.window.event = XEVT_WIN_CLOSE;
-                //win->xinfo->visible = false;
-                //x_dirty(x);
             }
             else if(pos == FRAME_R_MAX) {
                 ev->type = XEVT_WIN;
@@ -265,8 +252,6 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
             x->mouse_state.down_pos.x = ev->value.mouse.x;
             x->mouse_state.down_pos.y = ev->value.mouse.y;
         }
-        //else if(ev->value.mouse.from_x != ev->value.mouse.x ||
-            //		ev->value.mouse.from_y != ev->value.mouse.y ||
         else if(abs(x->mouse_state.last_pos.x - ev->value.mouse.x) > 3 ||
                 abs(x->mouse_state.last_pos.y - ev->value.mouse.y) > 3 ||
                     x->mouse_state.state == MOUSE_STATE_DRAG) {

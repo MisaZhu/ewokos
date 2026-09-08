@@ -26,6 +26,13 @@ inline void graph_pixel_argb_raw(graph_t* graph, int32_t x, int32_t y,
 
     register uint32_t oc = graph->buffer[y * graph->w + x];
     register uint8_t oa = (oc >> 24) & 0xff;
+    if(oa == 0) {
+        /*fully transparent dest: its RGB is meaningless (often zeroed by
+          alpha masks), blending with it darkens the source color; just
+          take the source RGB with the source alpha*/
+        graph->buffer[y * graph->w + x] = argb(a, r, g, b);
+        return;
+    }
     register uint8_t or = (oc >> 16) & 0xff;
     register uint8_t og = (oc >> 8)  & 0xff;
     register uint8_t ob = oc & 0xff;

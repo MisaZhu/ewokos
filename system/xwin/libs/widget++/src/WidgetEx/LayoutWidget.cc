@@ -6,6 +6,7 @@
 #include <Widget/Slider.h>
 #include <Widget/Button.h>
 #include <Widget/RoundButton.h>
+#include <Widget/SwitchButton.h>
 #include <Widget/RoundLabelButton.h>
 #include <Widget/LabelButton.h>
 #include <Widget/Label.h>
@@ -46,6 +47,9 @@ Widget* LayoutWidget::createByBasicType(const string& type) {
     }
     else if(type == "RoundButton") {
         return new RoundButton();
+    }
+    else if(type == "SwitchButton") {
+        return new SwitchButton();
     }
     else if(type == "EditLine") {
         return new EditLine();

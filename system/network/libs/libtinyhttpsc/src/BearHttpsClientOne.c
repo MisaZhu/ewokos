@@ -94,6 +94,24 @@ void ewok_freeaddrinfo_compat(struct addrinfo *res);
 
 #define EWOK_HTTPS_FAKE_URANDOM_FD (-0x7070)
 
+/*
+ * TLS handshake diagnostics. Off by default; build with
+ * -DEWOK_HTTPS_TLS_DEBUG=1 to re-enable the dns/read/write/http_tx traces.
+ * klog() lives in libewoksys, which this library already depends on at link
+ * time (kernel_tic/proc_usleep in the glue below). It is forward-declared here
+ * rather than including <ewoksys/klog.h> to avoid include-path coupling and to
+ * stay clear of the open/read/close/select/getsockopt macro remaps above.
+ */
+#ifndef EWOK_HTTPS_TLS_DEBUG
+#define EWOK_HTTPS_TLS_DEBUG 0
+#endif
+#if EWOK_HTTPS_TLS_DEBUG
+extern void klog(const char *format, ...);
+#define EWOK_TLS_LOG(...) klog(__VA_ARGS__)
+#else
+#define EWOK_TLS_LOG(...) ((void)0)
+#endif
+
 uint64_t ewok_https_entropy_state = 0;
 
 uint64_t ewok_https_entropy_word(void) {
@@ -94407,6 +94425,17 @@ static int private_BearHttps_connect_host(BearHttpsRequest *self, BearHttpsRespo
             Universal_in_addr addr;
             memcpy(&addr, he->h_addr_list[i], sizeof(Universal_in_addr));
             const char *ip_str = Universal_inet_ntoa(addr);
+            /*
+             * [diag] gethostbyname() is the ONLY active resolver here (the
+             * DNS-over-HTTPS fallback below is dead code and there is a
+             * "return -1" before it). If the system resolver hands back a
+             * poisoned/interceptor IP -- common for foreign domains behind a
+             * filtering network -- we would complete a TLS handshake with a
+             * middlebox and then get a bare FIN with no HTTP response, exactly
+             * the observed symptom. Log the resolved IP so it can be compared
+             * against a known-good resolution for the same hostname.
+             */
+            EWOK_TLS_LOG("[tinyhttps] dns: %s -> %s\n", host, ip_str ? ip_str : "(null)");
 
             if(ip_str != NULL) {
                 int sockfd = private_BearHttpsRequest_connect_ipv4_no_error_raise(ip_str, port, self->connection_timeout);
@@ -94677,8 +94706,13 @@ static int private_BearHttps_sock_read(void *ctx, unsigned char *buf, size_t len
             if (read_len < 0 && (errno == EINTR || errno == EAGAIN)) {
                 continue;
             }
+            EWOK_TLS_LOG("[tinyhttps] tls_read STOP fd=%d req=%d ret=%d errno=%d (%s)\n",
+                *(int*)ctx, (int)len, (int)read_len, errno,
+                read_len == 0 ? "peer FIN/orderly close" : "socket hard error");
             return -1;
         }
+        EWOK_TLS_LOG("[tinyhttps] tls_read ok fd=%d req=%d got=%d\n",
+            *(int*)ctx, (int)len, (int)read_len);
         return (int)read_len;
     }
 }
@@ -94693,8 +94727,12 @@ static int private_BearHttps_sock_write(void *ctx, const unsigned char *buf, siz
             if (write_len < 0 && (errno == EINTR || errno == EAGAIN)) {
                 continue;
             }
+            EWOK_TLS_LOG("[tinyhttps] tls_write STOP fd=%d req=%d ret=%d errno=%d\n",
+                *(int*)ctx, (int)len, (int)write_len, errno);
             return -1;
         }
+        EWOK_TLS_LOG("[tinyhttps] tls_write ok fd=%d req=%d sent=%d\n",
+            *(int*)ctx, (int)len, (int)write_len);
         return (int)write_len;
     }
 }
@@ -94871,7 +94909,19 @@ BearHttpsResponse * BearHttpsRequest_fetch(BearHttpsRequest *self){
          private_BearHttpsResponse_write(response, (unsigned char*)start_msg, private_BearsslHttps_strlen(start_msg));
          private_BearHttpsResponse_write(response, (unsigned char*)requisition_props->hostname, private_BearsslHttps_strlen(requisition_props->hostname));
          private_BearHttpsResponse_write(response, (unsigned char*)"\r\n", 2);
-       
+
+         /*
+          * Always request that the peer close after the response. The body
+          * reader terminates either on Content-Length, on the chunked
+          * terminator, or -- when a response carries neither -- by reading
+          * until recv() returns EOF. That default mode cannot terminate on an
+          * HTTP/1.1 keep-alive response with no Content-Length and no
+          * Transfer-Encoding (some redirects/204/304), so it would block until
+          * the socket timeout. "Connection: close" makes the peer close after
+          * the body, which the default mode handles correctly; it is valid for
+          * HTTP/1.0 as well, so send it unconditionally.
+          */
+         private_BearHttpsResponse_write(response, (unsigned char*)"Connection: close\r\n", 19);
 
          for (int i = 0; i < self->headers->size; i++) {
              private_BearHttpsKeyVal *keyval = self->headers->keyvals[i];
@@ -95007,7 +95057,16 @@ BearHttpsRequest * newBearHttpsRequest_with_url_ownership_config(char *url,short
     BearHttpsRequest_set_url_with_ownership_config(self,url,url_ownership_mode);
     self->headers = private_newBearHttpsHeaders();
     self->body_type =PRIVATE_BEARSSL_NO_BODY;
-    self->http_protocol = BEARSSL_HTTPS_HTTP1_0;
+    /*
+     * HTTP/1.1 is the correct default for a browser/API client. The old
+     * HTTP/1.0 default disabled keep-alive and chunked responses and, more
+     * importantly, some modern CDNs/TLS front-ends treat a bare HTTP/1.0
+     * request poorly. The request assembly below always adds
+     * "Connection: close", so the body reader's default read-until-EOF mode
+     * still terminates correctly (the peer closes after the body) while
+     * gaining HTTP/1.1 status-line/chunked semantics.
+     */
+    self->http_protocol = BEARSSL_HTTPS_HTTP1_1;
     self->header_chunk_read_size = BEARSSL_HEADER_CHUNK;
     self->header_chunk_reallocator_factor = BEARSSL_HEADER_REALLOC_FACTOR;
     self->connection_timeout = BEARSSL_TIMEOUT;
@@ -95203,7 +95262,21 @@ const unsigned char *BearHttpsResponse_read_body(BearHttpsResponse *self) {
         return NULL;
     }
 
-    self->body_size = self->body_readded_size;
+    /*
+     * body_readded_size is bumped by read_body_chunck_raw for EVERY recv, and
+     * in chunked mode that includes the framing bytes (the chunk-size digits
+     * and the CRLF delimiters), not just body payload, so it overcounts the
+     * real body length by the framing overhead. total_readded is the sum of
+     * what read_body_chunck actually wrote into self->body (payload only).
+     * Sizing the body with the inflated counter makes the caller
+     * (HttpsResponseReadBody -> loadURL) memcpy uninitialized bytes past the
+     * payload into the HTML buffer and report that inflated length, which
+     * litehtml then parses as markup -> bogus DOM nodes with corrupted
+     * child/parent pointers -> data abort in html_tag::find_adjacent_sibling.
+     * Terminate and size the body at the real payload length instead.
+     */
+    self->body[total_readded] = 0;
+    self->body_size = total_readded;
     self->body_completed_read = true;
     return self->body;
 }
@@ -95262,10 +95335,27 @@ int BearHttpsResponse_read_body_chunck_http1(BearHttpsResponse *self,unsigned ch
                 read_size = self->http1_reaming_to_read;
             }
 
-            long readded = BearHttpsResponse_read_body_chunck_raw(self, buffer, read_size);
+            /* The caller's buffer is full (remaning_to_read hit 0) while the
+             * current chunk still has bytes left. Return what we collected:
+             * http1_state / http1_reaming_to_read persist in self, so read_body
+             * will call us again to resume mid-chunk. Without this the loop keeps
+             * computing read_size=0 -> recv(0) -> br_sslio_read(0) -> 0 forever:
+             * an infinite CPU spin that never issues a real recv, hanging the
+             * whole fetch (netd sees no further SOCK_RECV, no tls_read). Also
+             * write at buffer+(size-remaning_to_read) so a second chunk consumed
+             * within the same call does not overwrite the first one. */
+            if(read_size <= 0){
+                return size - remaning_to_read;
+            }
+            long readded = BearHttpsResponse_read_body_chunck_raw(self, buffer + (size - remaning_to_read), read_size);
             if(readded < 0){
                 BearHttpsResponse_set_error(self,"error reading body chunk",BEARSSL_HTTPS_ERROR_READING_CHUNK);
                 return -1;  
+            }
+            if(readded == 0){
+                /* No progress (transport EOF / engine has no data right now):
+                 * return what we have instead of spinning on a zero-length read. */
+                return size - remaning_to_read;
             }
             remaning_to_read -= readded;
             self->http1_reaming_to_read -= readded;
@@ -95488,7 +95578,36 @@ int private_BearHttpsResponse_write(BearHttpsResponse *self,unsigned char *bufer
     }
 
     if(self->is_https){
-      return br_sslio_write_all(&self->ssl_io, bufer, size);
+      /*
+       * Dump the plaintext HTTP request pieces as they are handed to the TLS
+       * engine. br_sslio_write_all() buffers these and emits one record on
+       * flush, so logging here (not in the sock_write callback, which only sees
+       * ciphertext) is the only place the real request is visible. This tells us
+       * whether a server that FINs right after the request is rejecting a
+       * malformed request line/header or something else.
+       */
+      EWOK_TLS_LOG("[tinyhttps] http_tx %ld bytes: [%.*s]\n", size, (int)size, (char*)bufer);
+      int wret = br_sslio_write_all(&self->ssl_io, bufer, size);
+      /*
+       * The TLS handshake is driven by the first write: br_sslio_write_all()
+       * runs the ClientHello/ServerHello exchange before pushing app data.
+       * A failure here used to be returned but never recorded, so the real
+       * cause (ssl_state/ssl_err captured at the handshake) was masked and only
+       * surfaced much later as a generic INVALID_READ_CODE. Record it now, at
+       * the true stage, so a handshake failure is distinguishable from a
+       * post-handshake read failure.
+       */
+      if(wret < 0 && !BearHttpsResponse_error(self)){
+          char werr[128];
+          unsigned ssl_state = br_ssl_engine_current_state(&self->ssl_client.eng);
+          int ssl_err = br_ssl_engine_last_error(&self->ssl_client.eng);
+          snprintf(werr, sizeof(werr),
+              "tls handshake/write fail: ret=%d errno=%d ssl_state=0x%x ssl_err=%d",
+              wret, errno, ssl_state, ssl_err);
+          EWOK_TLS_LOG("[tinyhttps] %s\n", werr);
+          BearHttpsResponse_set_error(self, werr, BEARSSL_HTTPS_IMPOSSIBLE_TO_SEND_DATA);
+      }
+      return wret;
     }
     long sended  = 0;
     while(sended < size){

@@ -290,8 +290,8 @@ int vfs_get_by_node(ewokos_addr_t node, fsinfo_t* info) {
 
 int vfs_new_node(fsinfo_t* info, ewokos_addr_t node_to, bool vfs_node_only, bool vfs_write_over) {
     proto_t in, out;
-    PF->format(&in, "m,i,i,i,i", info, sizeof(fsinfo_t), node_to,
-            (ewokos_addr_t)vfs_node_only, (ewokos_addr_t)vfs_write_over);
+    PF->format(&in, "m,i,i,i", info, sizeof(fsinfo_t), node_to,
+            vfs_node_only, vfs_write_over);
     PF->init(&out);
     int res = ipc_call(get_vfsd_pid(), VFS_NEW_NODE, &in, &out);
     PF->clear(&in);

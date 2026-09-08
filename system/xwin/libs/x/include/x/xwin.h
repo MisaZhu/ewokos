@@ -25,6 +25,17 @@ typedef struct st_xwin {
 	xinfo_t xinfo_prev; //for backup the state before fullscreen/min/max.
 	pthread_mutex_t painting_lock;
 
+	/*fps_async only: a present was skipped because the server still owned the
+	  handoff buffer (update_requested != 0). ws_g already holds the complete
+	  frame and the widget layer has consumed its dirty state by then, so the
+	  flip has to be retried from the event loop - otherwise that picture never
+	  reaches ws_g2, front_index stays 0, the window never becomes ready on the
+	  server and simply stays invisible. present_ws_g_id is the ws_g the frame
+	  was rendered into: a rebuild publishes a new id and drops the pending
+	  frame with it, since ws_g was reallocated and cleared.*/
+	bool present_pending;
+	int32_t present_ws_g_id;
+
 	bool (*on_close)(struct st_xwin* xwin);
 	void (*on_min)(struct st_xwin* xwin);
 	void (*on_resize)(struct st_xwin* xwin);
@@ -64,6 +75,10 @@ gpos_t   xwin_get_inside_pos(xwin_t* xwin, int32_t x, int32_t y);
 gpos_t   xwin_get_screen_pos(xwin_t* xwin, int32_t x, int32_t y);
 void     xwin_busy(xwin_t* xwin, bool busy);
 void     xwin_hide_cursor(xwin_t* xwin, bool hide);
+/*retry fps_async presents that had to be skipped because the server was still
+  reading the handoff buffer. Cheap no-op when nothing is pending; meant to be
+  called once per iteration of the event loop (x_run does it).*/
+void     xwin_retry_pending_presents(void);
 
 #ifdef __cplusplus
 }

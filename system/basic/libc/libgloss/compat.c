@@ -888,6 +888,36 @@ void free(void *ptr) {
     trunk_free(&compat_heap, (char *)ptr);
 }
 
+/*
+ * O(1), non-dereferencing heap-membership test.
+ *
+ * Higher-level code (e.g. litehtml, whose shared_ptr ownership model was
+ * hand-ported to raw pointers) can be handed a stale slot that a heap overflow
+ * or use-after-free overwrote with a small integer pointing into the binary's
+ * text/data segment. Reading through such a pointer takes a data abort deep
+ * inside a DOM/CSS walk. This lets the caller reject the bad pointer WITHOUT
+ * dereferencing it: a live heap pointer always lies in [head, tail), and the
+ * observed corruption (tiny text-segment addresses) always falls below head.
+ * The bounds are read lock-free; the heap only grows upward and shrinks solely
+ * by releasing free tail space, so every still-allocated object stays inside
+ * [head, tail) and a momentarily stale tail can never reject a valid pointer.
+ *
+ * Returns 1 when p points inside the live trunk heap, 0 otherwise.
+ */
+int ewok_ptr_in_heap(const void *p) {
+    uintptr_t addr;
+    uintptr_t start;
+    uintptr_t end;
+
+    if (p == NULL || !compat_heap_ready || compat_heap.head == NULL) {
+        return 0;
+    }
+    addr  = (uintptr_t)p;
+    start = (uintptr_t)compat_heap.head;
+    end   = (uintptr_t)compat_heap_tail(NULL);
+    return (addr >= start && addr < end) ? 1 : 0;
+}
+
 __attribute__((noinline, optimize("O0")))
 void *calloc(size_t nmemb, size_t size) {
     size_t total;

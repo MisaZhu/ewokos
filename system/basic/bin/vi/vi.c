@@ -159,6 +159,9 @@ enum {
 // Cursor to given coordinate (1,1: top left)
 #define ESC_SET_CURSOR_POS ESC "[%u;%uH"
 #define ESC_SET_CURSOR_TOPLEFT ESC "[H"
+// Hide/show the cursor (VT100 DECTCEM), used while repainting
+#define ESC_CURSOR_HIDE ESC "[?25l"
+#define ESC_CURSOR_SHOW ESC "[?25h"
 
 // cmds modifying text[]
 static const char modifying_cmds[] = "aAcCdDiIJoOpPrRsxX<>~";
@@ -250,6 +253,9 @@ static char* last_search_pattern UDATA;   // last pattern from a '/' or '?' sear
 static int indentcol UDATA;               // column of recently autoindent, 0 or -1
 static int16_t cmd_error UDATA;
 
+static int16_t vi_visual UDATA;      // 1 while a visual ('v') selection is active
+static char* vi_visual_anchor UDATA; // position where 'v' was pressed
+
 // former statics
 static char* edit_file_cur_line UDATA;
 static int refresh_old_offset UDATA;
@@ -326,6 +332,28 @@ static void place_cursor(int row, int col) {
 
     sprintf(cm1, ESC_SET_CURSOR_POS, row + 1, col + 1);
     puts_no_eol(cm1);
+}
+
+//----- Keep the cursor out of sight while repainting ------------
+// Every repainted row first parks the cursor at that row's first changed
+// column, so a 'v' selection spanning rows makes the visible cursor hop over
+// the screen before it comes home. Hide it for the repaint instead; both
+// xterm and consoled render through gterminal, which honours DECTCEM, and a
+// terminal that does not simply ignores it and behaves as before.
+static int cursor_hidden UDATA; // whether the cursor is hidden right now
+
+static void hide_cursor(void) {
+    if (cursor_hidden)
+        return;
+    cursor_hidden = 1;
+    puts_no_eol(ESC_CURSOR_HIDE);
+}
+
+static void show_cursor(void) {
+    if (!cursor_hidden)
+        return;
+    cursor_hidden = 0;
+    puts_no_eol(ESC_CURSOR_SHOW);
 }
 
 //----- Erase from cursor to end of line -----------------------
@@ -629,6 +657,119 @@ static char* format_line(char* src /*, int li*/) {
     return dest;
 }
 
+//----- Visual selection drawing --------------------------------------
+// per-column selection mask of the screen line currently being refreshed
+static uint8_t vis_sel_buf[MAX_SCR_COLS + MAX_TABSTOP * 2] UDATA;
+// text[] top line as of the last refresh with an active selection
+static char* vis_last_screenbegin UDATA;
+
+// display column advance of one text[] char, mirroring format_line()
+static int vis_advance(uint8_t c, int co) {
+    if (c == '\t')
+        return next_tabstop(co);
+    if ((c & 0x80) && !is_asciionly(c))
+        return co + 1; // drawn as '.'
+    if (c < ' ' || c == 0x7f)
+        return co + 2; // drawn as ^X
+    return co + 1;
+}
+
+// fill sel[0..columns-1] with the columns of the text line starting at
+// line_start that fall inside [lo, hi] (both ends inclusive)
+static void visual_span_mask(char* line_start, char* lo, char* hi, uint8_t* sel) {
+    char* p;
+    int co = 0;
+
+    memset(sel, 0, columns);
+    for (p = line_start; p < end; p++) {
+        int start_co = co;
+        int sc;
+        if (*p == '\n') { // a selected newline shows one phantom cell past EOL
+            sc = co - offset;
+            if (p >= lo && p <= hi && sc >= 0 && sc < (int)columns)
+                sel[sc] = 1;
+            break;
+        }
+        co = vis_advance(*p, co);
+        if (p >= lo && p <= hi) {
+            for (sc = start_co - offset; sc < co - offset; sc++)
+                if (sc >= 0 && sc < (int)columns)
+                    sel[sc] = 1;
+        }
+    }
+}
+
+// same, for the live selection [vi_visual_anchor, dot]
+static void visual_line_mask(char* line_start, uint8_t* sel) {
+    char *lo = vi_visual_anchor, *hi = dot;
+
+    if (hi < lo) {
+        lo = dot;
+        hi = vi_visual_anchor;
+    }
+    visual_span_mask(line_start, lo, hi, sel);
+}
+
+// force a redraw of the screen columns a highlight change touches in [a, b]:
+// a highlight does not alter text[], so the char-only screen diff in refresh()
+// cannot see it - poison the virtual screen instead. Only the covered columns
+// are poisoned; poisoning whole rows would repaint every line the selection
+// touches and drag the cursor from its home to column 0 on each 'v' motion.
+static void visual_invalidate_span(char* a, char* b) {
+    char* t;
+    int li;
+
+    if (a == NULL || b == NULL)
+        return;
+    if (a > b) {
+        t = a;
+        a = b;
+        b = t;
+    }
+    t = screenbegin;
+    for (li = 0; li < (int)rows - 1 && t < end; li++) {
+        if (b >= t && a <= end_line(t)) {
+            int c0 = -1, c1 = -1, sc;
+            visual_span_mask(t, a, b, vis_sel_buf);
+            for (sc = 0; sc < (int)columns; sc++) {
+                if (vis_sel_buf[sc]) {
+                    if (c0 < 0)
+                        c0 = sc;
+                    c1 = sc;
+                }
+            }
+            if (c0 >= 0)
+                memset(&screen[li * columns + c0], 0xff, (size_t)(c1 - c0 + 1));
+        }
+        t = next_line(t);
+    }
+}
+
+//----- Write a screen slice, reverse-videoing the visual selection ----
+// vi has no syntax coloring, so a slice is written plain except for the
+// columns marked in sel[], which are shown in reverse video (standout).
+static void visual_write_slice(const char* vline, int from, int to, const uint8_t* sel) {
+    int n = (int)columns; // vline is exactly this wide (space padded)
+    if (to >= n)
+        to = n - 1;
+    if (to < from)
+        return;
+
+    int cur_sel = 0; // reverse video currently active
+    for (int i = from; i <= to; i++) {
+        int s = sel ? sel[i] : 0;
+        if (s != cur_sel) {
+            puts_no_eol(ESC_NORM_TEXT); // reset standout
+            if (s)
+                puts_no_eol(ESC_BOLD_TEXT); // reverse video on the selection
+            cur_sel = s;
+        }
+        putchar(vline[i]);
+    }
+    if (cur_sel)
+        puts_no_eol(ESC_NORM_TEXT);
+}
+
 //----- Refresh the changed screen lines -----------------------
 // Copy the source line from text[] into the buffer and note
 // if the current screenline is different from the new buffer.
@@ -638,9 +779,16 @@ static void refresh(int full_screen) {
 
     int li, changed;
     char *tp, *sp; // pointer into text[] and screen[]
+    uint8_t* sel;  // visual selection mask of the current line
 
     sync_cursor(dot, &crow, &ccol); // where cursor will be (on "dot")
     tp = screenbegin;               // index into text[] of top line
+
+    // scrolling with an active selection shifts every row's highlight,
+    // which the char-only diff below cannot see (think duplicated lines)
+    if (vi_visual && screenbegin != vis_last_screenbegin)
+        full_screen = true;
+    vis_last_screenbegin = vi_visual ? screenbegin : NULL;
 
     // compare text[] to screen[] and mark screen[] lines that need updating
     for (li = 0; li < rows - 1; li++) {
@@ -648,6 +796,13 @@ static void refresh(int full_screen) {
         char* out_buf;
         // format current text line
         out_buf = format_line(tp /*, li*/);
+
+        // columns of this line covered by the visual selection (if any)
+        sel = NULL;
+        if (vi_visual) {
+            visual_line_mask(tp, vis_sel_buf);
+            sel = vis_sel_buf;
+        }
 
         // skip to the end of the current text[] line
         if (tp < end) {
@@ -701,17 +856,18 @@ static void refresh(int full_screen) {
         }
         // is there a change between virtual screen and out_buf
         if (changed) {
+            hide_cursor(); // the row repaint parks the cursor on this row
             // copy changed part of buffer to virtual screen
             memcpy(sp + cs, out_buf + cs, ce - cs + 1);
             place_cursor(li, cs);
-            // write line out to terminal
-            for (int i = 0; i <= ce - cs; ++i)
-                putchar(sp[cs + i]);
+            // write line out to terminal (reverse-videoing the selection)
+            visual_write_slice(sp, cs, ce, sel);
             fflush(stdout);
         }
     }
 
     place_cursor(crow, ccol);
+    show_cursor(); // repaint done, the cursor belongs back on "dot"
 
     if (!keep_index)
         cindex = ccol + offset;
@@ -719,10 +875,32 @@ static void refresh(int full_screen) {
     refresh_old_offset = offset;
 }
 
-static int safe_poll(uint8_t* buffer) {
-    int c = getchar();
-    *buffer = c;
-    return 1;
+/* How long to wait for the tail of an ESC sequence once its leading ESC has
+ * been seen. A terminal emits a sequence as one unit, so this only has to
+ * bridge sequences split up by a slow serial or telnet link. Keeping it short
+ * is what makes a lone ESC (leave insert mode, abandon a 'v' selection) show
+ * up at once instead of hanging until the next keypress. */
+#define ESC_SEQ_TIMEOUT_MS 50
+
+/* Read one byte from stdin into *buffer.
+ * timeout < 0 blocks for the next keypress, 0 accepts only input that is
+ * already available, > 0 waits at most that many milliseconds.
+ * Returns 1 on success, 0 when no input arrived in time, -1 on error.
+ *
+ * Only the bounded waits go through poll(): the blocking read is the one path
+ * every terminal is known to support, and a driver that reports no readiness
+ * must not turn the main key loop into a spin. */
+static int safe_poll(uint8_t* buffer, int timeout) {
+    if (timeout >= 0) {
+        struct pollfd pfd;
+
+        pfd.fd = 0; // stdin
+        pfd.events = POLLIN;
+        pfd.revents = 0;
+        if (poll(&pfd, 1, timeout) <= 0)
+            return 0; // nothing available within the time limit
+    }
+    return (read(0, buffer, 1) == 1) ? 1 : -1;
 }
 
 /* Known escape sequences for cursor and function keys.
@@ -800,7 +978,7 @@ start_over:
          * When we were reading 3 bytes here, we were eating
          * "li" too, and cat was getting wrong input.
          */
-        n = safe_poll(buffer);
+        n = safe_poll(buffer, timeout);
         if (n <= 0) {
             return -1;
         }
@@ -834,7 +1012,7 @@ start_over:
                  * Timeout is needed to reconnect escape sequences
                  * split up by transmission over a serial console. */
                 errno = 0;
-                if (safe_poll(buffer + n) <= 0) {
+                if (safe_poll(buffer + n, ESC_SEQ_TIMEOUT_MS) <= 0) {
                     /* No more data!
                      * Array is sorted from shortest to longest,
                      * we can't match anything later in array -
@@ -1022,7 +1200,7 @@ static int format_edit_status(void) {
     trunc_at = columns < STATUS_BUFFER_LEN - 1 ? columns : STATUS_BUFFER_LEN - 1;
 
     ret = snprintf(status_buffer, trunc_at + 1, "%c %s%s %d/%d %d%%",
-                   cmd_mode_indicator[cmd_mode & 3],
+                   vi_visual ? 'V' : cmd_mode_indicator[cmd_mode & 3],
                    (current_filename != NULL ? current_filename : "No file"),
                    (modified_count ? " [Modified]" : ""), cur, format_edit_status_tot, percent);
 
@@ -1045,6 +1223,7 @@ static void redraw(int full_screen);
 static void Hit_Return(void) {
     int c;
 
+    show_cursor(); // we are about to sit and wait for the user
     standout_start();
     puts_no_eol("[Hit return to continue]");
     standout_end();
@@ -1064,6 +1243,7 @@ static void show_status_line(void) {
     }
     if (have_status_msg || ((cnt > 0 && last_status_cksum != cksum))) {
         last_status_cksum = cksum; // remember if we have seen this line
+        hide_cursor();             // the status line is drawn at the bottom row
         go_bottom_and_clear_to_eol();
         puts_no_eol(status_buffer);
         if (have_status_msg) {
@@ -1074,6 +1254,7 @@ static void show_status_line(void) {
             have_status_msg = 0;
         }
         place_cursor(crow, ccol); // put cursor back in correct place
+        show_cursor();
     }
     fflush(stdout);
 }
@@ -1256,6 +1437,8 @@ static ewokos_addr_t text_hole_make(char* p, int size) // at "p", make a 'size' 
                 if (mark[i])
                     mark[i] += bias;
         }
+        if (vi_visual_anchor != NULL) // keep the selection anchor in text[]
+            vi_visual_anchor += bias;
         text = new_text;
     }
     memmove(p + size, p, end - size - p);
@@ -2845,6 +3028,105 @@ static int find_range(char** start, char** stop, int cmd) {
 //  78 x     79 y     7a z     7b {     7c |     7d }     7e ~     7f del
 //---------------------------------------------------------------------
 
+//----- Visual (charwise) selection -------------------------------------
+// 'v' anchors a selection at "dot"; motions extend it, an operator key
+// applies to the whole selection, anything else cancels it.
+
+// keys that keep the selection alive: motions, counts and scroll/redraw
+static bool is_visual_motion(int c) {
+    switch (c) {
+    case KEYCODE_UP:
+    case KEYCODE_DOWN:
+    case KEYCODE_LEFT:
+    case KEYCODE_RIGHT:
+    case KEYCODE_HOME:
+    case KEYCODE_END:
+    case KEYCODE_PAGEUP:
+    case KEYCODE_PAGEDOWN:
+    case 2:    // ctrl-B  scroll up full screen
+    case 4:    // ctrl-D  scroll down half screen
+    case 5:    // ctrl-E  scroll down one line
+    case 6:    // ctrl-F  scroll down full screen
+    case 8:    // ctrl-H  move left
+    case 0x7f: // DEL     move left
+    case 12:   // ctrl-L  redraw
+    case 18:   // ctrl-R  redraw
+    case 21:   // ctrl-U  scroll up half screen
+    case 25:   // ctrl-Y  scroll up one line
+        return true;
+    default:
+        // digits accumulate cmdcnt, '"' prefixes a register for y/d/c
+        return c > 0 && strchr("hjkl \r\n+-0$^%|wWbBeE{}gGHLMfFtT;,/?nNz\"123456789", c) != NULL;
+    }
+}
+
+// apply operator c to the selection and leave visual mode
+static void visual_operate(int c) {
+    char *lo = vi_visual_anchor, *hi = dot, *t, *p;
+    int linewise = (c == 'X' || c == 'Y' || c == 'D' || c == 'C' || c == '>' || c == '<');
+
+    if (lo > hi) {
+        t = lo;
+        lo = hi;
+        hi = t;
+    }
+    if (lo < text)
+        lo = text;
+    if (hi > end - 1)
+        hi = end - 1;
+    vi_visual = 0;
+    last_status_cksum = 0; // force status update
+
+    if (c == '>' || c == '<') { // shift the selected lines left/right
+        int li = count_lines(text, lo);   // remember what line the range starts on
+        int nlines = count_lines(lo, hi); // # of lines we are shifting
+        int allow_undo = ALLOW_UNDO;
+        int j;
+        for (p = begin_line(lo); nlines > 0; nlines--, p = next_line(p)) {
+            if (c == '<') {
+                // shift left- remove tab or tabstop spaces
+                if (*p == '\t') {
+                    p = text_hole_delete(p, p, allow_undo);
+                } else if (*p == ' ') {
+                    for (j = 0; *p == ' ' && j < tabstop; j++) {
+                        p = text_hole_delete(p, p, allow_undo);
+                        allow_undo = ALLOW_UNDO_CHAIN;
+                    }
+                }
+            } else if (p != end_line(p)) {
+                // shift right -- add tab or tabstop spaces on non-empty lines
+                p = char_insert(p, '\t', allow_undo);
+            }
+            allow_undo = ALLOW_UNDO_CHAIN;
+        }
+        dot = find_line(li); // go back to the line the selection started on
+        dot_skip_over_ws();
+    } else {
+        int yf = (c == 'y' || c == 'Y') ? YANKONLY : YANKDEL;
+        int buftype =
+            linewise ? WHOLE : (begin_line(lo) == begin_line(hi) ? PARTIAL : MULTI);
+        char* savereg = reg[YDreg]; // yank_delete() may refuse a lone newline
+        dot = yank_delete(lo, hi, buftype, yf, ALLOW_UNDO);
+        if (linewise) {
+            if (c == 'C') { // like 'cc': leave one empty line behind
+                dot = char_insert(dot, '\n', ALLOW_UNDO_CHAIN);
+                if (dot != (end - 1))
+                    dot_prev();
+            } else {
+                dot_begin();
+                dot_skip_over_ws();
+            }
+        }
+        if (reg[YDreg] != savereg)
+            yank_status(yf == YANKONLY ? "Yank" : "Delete", reg[YDreg], 1);
+        if (c == 'c' || c == 'C') {
+            cmd_mode = 1;        // start inserting, as 'c' does
+            undo_queue_commit(); // commit queue when cmd_mode changes
+        }
+    }
+    end_cmd_q(); // stop adding to q
+}
+
 //----- Execute a Vi Command -----------------------------------
 static void do_cmd(int c) {
     char *p, *q, *save_dot;
@@ -2909,6 +3191,24 @@ static void do_cmd(int c) {
     }
 
 key_cmd_mode:
+    // a pending visual selection: motions extend it, operator keys apply to
+    // it, 'v'/ESC abandon it, any other key cancels it and runs normally
+    if (vi_visual && cmd_mode == 0) {
+        if (c == 27 || c == 'v') { // abandon the selection
+            vi_visual = 0;
+            end_cmd_q();           // stop adding to q
+            last_status_cksum = 0; // force status update
+            goto dc1;
+        }
+        if (c == KEYCODE_DELETE || (c > 0 && strchr("yYdDxXcC><", c) != NULL)) {
+            visual_operate(c);
+            goto dc1;
+        }
+        if (!is_visual_motion(c)) {
+            vi_visual = 0;
+            last_status_cksum = 0; // force status update
+        }
+    }
     switch (c) {
     default: // unrecognized command
         buf[0] = c;
@@ -3084,6 +3384,11 @@ key_cmd_mode:
         break;
     case 'u': // u- undo last operation
         undo_pop();
+        break;
+    case 'v': // v- start a charwise visual selection ('v' again cancels it)
+        vi_visual = 1;
+        vi_visual_anchor = dot;
+        last_status_cksum = 0; // force status update
         break;
     case '$':         // $- goto end of line
     case KEYCODE_END: // Cursor Key End
@@ -3632,6 +3937,8 @@ static void edit_file(char* fn) {
     ccol = 0;
 
     cmd_mode = 0; // 0=command  1=insert  2='R'eplace
+    vi_visual = 0;
+    vi_visual_anchor = NULL;
     cmdcnt = 0;
     offset = 0; // no horizontal offset
     c = '\0';
@@ -3651,18 +3958,41 @@ static void edit_file(char* fn) {
         }
         // If c is a command that changes text[],
         // (re)start remembering the input for the "." command.
-        if (!adding2q && ioq_start == NULL && cmd_mode == 0 // command mode
-            && c > '\0'                                     // exclude NUL and non-ASCII chars
-            && c < 0x7f                                     // (Unicode and such)
+        // (visual-mode operators act on the selection, a recorded
+        // replay of them would have no selection to work on)
+        if (!adding2q && ioq_start == NULL && cmd_mode == 0 && !vi_visual // command mode
+            && c > '\0'                                                   // exclude NUL and non-ASCII chars
+            && c < 0x7f                                                   // (Unicode and such)
             && strchr(modifying_cmds, c)) {
             start_new_cmd_q(c);
+        }
+        // remember the selection before the command moves "dot"
+        char *vis_lo = NULL, *vis_hi = NULL;
+        if (vi_visual) {
+            vis_lo = vi_visual_anchor < dot ? vi_visual_anchor : dot;
+            vis_hi = vi_visual_anchor < dot ? dot : vi_visual_anchor;
         }
         do_cmd(c); // execute the user command
 
         // poll to see if there is input already waiting. if we are
         // not able to display output fast enough to keep up, skip
         // the display update until we catch up with input.
-        if (!readbuffer[0]) {
+        // A selection that just ended (ESC or an operator key) is an exception:
+        // its highlight would stay on screen as stale state until the pending
+        // keys are consumed, so redraw as soon as it goes away.
+        if (!readbuffer[0] || (vis_lo != NULL && !vi_visual)) {
+            // a moved/removed selection is invisible to the char-only
+            // screen diff - force the columns it touches to redraw
+            if (vi_visual) {
+                char* lo = vi_visual_anchor < dot ? vi_visual_anchor : dot;
+                char* hi = vi_visual_anchor < dot ? dot : vi_visual_anchor;
+                if (vis_lo != lo || vis_hi != hi) {
+                    visual_invalidate_span(vis_lo, vis_hi);
+                    visual_invalidate_span(lo, hi);
+                }
+            } else if (vis_lo != NULL) {
+                visual_invalidate_span(vis_lo, vis_hi); // selection just ended
+            }
             // no input pending - so update output
             refresh(false);
             show_status_line();
@@ -3864,6 +4194,7 @@ int main(int argc, char** argv) {
     }
 done:
     flush_undo_data();
+    show_cursor(); // never leave the shell with an invisible cursor
     if (text)
         free(text);
     if (screen)

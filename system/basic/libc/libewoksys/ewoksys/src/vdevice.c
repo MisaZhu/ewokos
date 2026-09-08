@@ -1274,8 +1274,29 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int mode, bo
     if(dev->loop_step != NULL)
         ipc_flags |= IPC_NON_BLOCK;
 
-    if(multi_task)
+    if(multi_task) {
+        /*
+         * IPC_MULTI_TASK dispatches every request on a concurrent kernel
+         * worker task that shares THIS process's heap with the main context
+         * and with every other worker. newlib's malloc/free are only safe
+         * under that concurrency when __malloc_lock()/__malloc_unlock()
+         * actually take the guard, and those are gated on
+         * _proc_global_need_lock -- a flag otherwise flipped on solely by
+         * thread_create(). A multi-task server that spawns no libc thread of
+         * its own (netd leaves loop_step_threaded false and lets the kernel
+         * pool run the handlers, so the pthread_create() below never fires)
+         * would leave the heap UNPROTECTED: the main context and pool workers
+         * malloc/free proto_t and I/O buffers concurrently, corrupting the
+         * free list and wedging a worker inside the allocator. The stuck
+         * worker never replies, so the client's IPC (e.g. a socket recv)
+         * hangs forever even though the driver already holds the data -- the
+         * xBrowser stall right after a large HTTP response. Arm the guard
+         * while still single-threaded, BEFORE ipc_serv_run() opens the pool.
+         */
+        proc_malloc_lock_prepare();
+        _proc_global_need_lock = true;
         ipc_flags |= IPC_MULTI_TASK;
+    }
 
     ipc_serv_run(handle, device_handled, dev, ipc_flags);
 

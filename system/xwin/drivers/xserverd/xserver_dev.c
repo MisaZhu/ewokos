@@ -256,13 +256,24 @@ int xserver_step(vdevice_t* dev, void* p) {
 
     if(x->xwm_changed) {
         if(check_xwm(x)) {
-            xwin_t* win = x->win_head;
-            while(win != NULL) {
-                xwin_revalidate_geometry(x, win);
-                win = win->next;
-            }
             x->xwm_changed = false;
             x_dirty(x, -1);
+        }
+    }
+
+    /*revalidate every window's outer geometry and frame hit-test areas. A new
+      xwm leaves windows sized while the previous one was down holding a winr
+      equal to their wsr (the get_xwm_win_space fallback), which no decorated
+      window can have - but so does a single refused ipc_call during a resize
+      drag, and a refused GET_FRAME_AREAS leaves the cached rects describing
+      the pre-resize frame. Running this every step heals both on the next
+      frame; healthy windows bail out on the winr == wsr tell after a few
+      compares, so the scan costs nothing.*/
+    if(check_xwm(x)) {
+        xwin_t* win = x->win_head;
+        while(win != NULL) {
+            xwin_revalidate_geometry(x, win);
+            win = win->next;
         }
     }
 

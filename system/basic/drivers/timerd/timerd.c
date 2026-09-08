@@ -135,8 +135,8 @@ static int timer_dcntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto
             //sys_interrupt_setup(IRQ_TIMER0, &handler);
         }
         uint32_t usec = (uint32_t)proto_read_int(in);
-        ewokos_addr_t entry = proto_read_int(in);
-        ewokos_addr_t data = proto_read_int(in);
+        ewokos_addr_t entry = proto_read_addr(in);
+        ewokos_addr_t data = proto_read_addr(in);
         uint32_t id = interrupt_setup(from_pid, usec, entry, data);
         PF->addi(ret, id);
         update_timer_intr();

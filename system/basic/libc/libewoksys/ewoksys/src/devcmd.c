@@ -409,7 +409,7 @@ int dev_shm(int dev_pid, int fd, ewokos_addr_t node, uint8_t* contig, int* size)
 int dev_write_block(int pid, const void* buf, uint32_t size, int32_t index) {
     proto_t in, out;
     PF->init(&out);
-    PF->format(&in, "m,i", buf, size, (ewokos_addr_t)index);
+    PF->format(&in, "m,i", buf, size, index);
 
     int res = -1;
     if(ipc_call(pid, FS_CMD_WRITE_BLOCK, &in, &out) == 0) {
@@ -438,8 +438,7 @@ int dev_read_block(int pid, void* buf, uint32_t size, int32_t index) {
 
     proto_t in, out;
     PF->init(&out);
-    PF->format(&in, "i,i,i", (ewokos_addr_t)size, (ewokos_addr_t)index,
-            (ewokos_addr_t)shm_id);
+    PF->format(&in, "i,i,i", size, index, shm_id);
 
     int res = -1;
     if(ipc_call(pid, FS_CMD_READ_BLOCK, &in, &out) == 0) {

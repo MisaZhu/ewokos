@@ -8,7 +8,7 @@
     "font_size": 13,
     "title_h": 20,
     "frame_width": 1,
-    "shadow": 0,
+    "shadow": 3,
 
     "#round": "radius of the rounded frame corners, 0 = square",
     "round": 13,

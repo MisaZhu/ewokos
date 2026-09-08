@@ -118,11 +118,19 @@ struct stat {
 #define W_OK    2
 #define X_OK    1
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int mkdir(const char* name, mode_t mode);
 int stat(const char* name, struct stat* buf);
 int lstat(const char* name, struct stat* buf);
 int fstat(int fd, struct stat* buf);
 int mkfifo(const char* name, mode_t mode);
 mode_t umask(mode_t mask);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

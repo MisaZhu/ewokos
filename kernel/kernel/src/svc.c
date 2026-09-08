@@ -785,6 +785,23 @@ inline void svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t arg1, ew
         return;
     }
     kernel_lock();
+    /*
+     * The calling task may already have been terminated (ZOMBIE/UNUSED) by
+     * another core - e.g. its father proc exited, or it was killed - while it
+     * was still running in userspace on THIS core. Nothing forces it off the
+     * cpu immediately, so it can trap into a syscall before the next
+     * reschedule, and get_current_proc() then returns NULL. Dispatching the
+     * syscall on such a dead context makes every handler that dereferences the
+     * current proc (proc_ipc_call and many others) fault on a NULL pointer.
+     * Mirror what the timer-interrupt path already does safely through
+     * schedule()/proc_switch(): never resume a terminated context, schedule
+     * away instead and leave the dead task for the reaper.
+     */
+    if(get_current_proc() == NULL) {
+        schedule(ctx);
+        kernel_unlock();
+        return;
+    }
     _svc_handler(code, arg0, arg1, arg2, ctx);
     kernel_unlock();
 }

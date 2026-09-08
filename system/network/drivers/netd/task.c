@@ -843,7 +843,24 @@ uint32_t task_poll_events(uint32_t node) {
         /* No socket bound yet: never block writers on an unbound node. */
         events = VFS_EVT_WR;
     } else {
-        if (timeout_rd || sock_poll_readable(sock) > 0)
+        /*
+         * tcp_poll_readable()/tcp_poll_writable() take the stack mutex with a
+         * trylock and return -1 when it is held elsewhere -- e.g. the main
+         * thread is mid packet-burst during a bulk download. -1 means
+         * "readiness UNKNOWN right now", NOT "buffer empty" / "window closed".
+         * vfsd REPLACES the sticky RD/WR bits with this result, so the old
+         * `> 0` test folded -1 into "not ready" and ERASED a pending edge that
+         * already-buffered data (or an opened window) had earned. The parked
+         * reader then slept forever with a full receive buffer -- the xBrowser
+         * stall right after a large HTTP response, where tens of KB sat
+         * undrained in netd and no further segment arrived to re-raise the
+         * edge. Treat any nonzero (ready OR unknown) as ready: a spurious wake
+         * costs one blocking recv()/send() -- which takes the mutex properly,
+         * sees the true state, and re-parks via VFS_ERR_RETRY if genuinely not
+         * ready -- whereas a dropped edge hangs the connection permanently.
+         */
+        int pr = sock_poll_readable(sock);
+        if (timeout_rd || pr != 0)
             events |= VFS_EVT_RD;
         /*
          * tcp_poll_writable() already reports 1 while a connect() is still
@@ -851,7 +868,7 @@ uint32_t task_poll_events(uint32_t node) {
          * blocked connect() retry loop. Suppress WR until the handshake
          * resolves (the stack raises a WR edge on establishment).
          */
-        if (sock_poll_writable(sock) > 0 && !sock_connect_pending(sock))
+        if (sock_poll_writable(sock) != 0 && !sock_connect_pending(sock))
             events |= VFS_EVT_WR;
     }
 

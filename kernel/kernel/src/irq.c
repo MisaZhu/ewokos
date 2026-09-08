@@ -291,6 +291,85 @@ static inline uint8_t is_recoverable_user_data_fault(uint32_t status) {
 #endif
 }
 
+/*
+ * Snapshot a user proc exception and hand it to the core proc through the
+ * kevent queue (KEV_PROC_CORE_DUMP) before the proc is torn down, so the crash
+ * pid/pc/sp/fault address survive proc_exit. Only called for user procs; a
+ * kernel-mode fault (cproc == NULL) halts instead and never reaches here.
+ */
+static void push_proc_core_dump(proc_t* cproc, context_t* ctx, uint32_t reason,
+        uint32_t status, ewokos_addr_t fault_addr) {
+    kev_core_dump_t dump;
+    dump.pid = cproc->info.pid;
+    dump.core = cproc->info.core;
+    dump.reason = reason;
+    dump.status = status;
+    dump.fault_addr = fault_addr;
+    dump.pc = (ewokos_addr_t)ctx->pc;
+    dump.sp = (ewokos_addr_t)ctx->sp;
+
+    /* snapshot the full register file, mirroring dump_ctx()'s arch layout */
+#if defined(__aarch64__)
+    dump.regs.aarch64.pc = ctx->pc;
+    dump.regs.aarch64.spsr_el1 = ctx->spsr_el1;
+    dump.regs.aarch64.sp = ctx->sp;
+    dump.regs.aarch64.lr = ctx->lr;
+    for(int i=0; i<30; i++)
+        dump.regs.aarch64.gpr[i] = ctx->gpr[i];
+#elif defined(__arm__)
+    dump.regs.arm.cpsr = ctx->cpsr;
+    dump.regs.arm.pc = ctx->pc;
+    dump.regs.arm.sp = ctx->sp;
+    dump.regs.arm.lr = ctx->lr;
+    for(int i=0; i<13; i++)
+        dump.regs.arm.gpr[i] = ctx->gpr[i];
+#elif defined(__x86_64__) || defined(__i386__)
+    dump.regs.x86.cr2 = ctx->cr2;
+    dump.regs.x86.trap_no = ctx->trap_no;
+    dump.regs.x86.err_code = ctx->err_code;
+    dump.regs.x86.pc = ctx->pc;
+    dump.regs.x86.lr = ctx->lr;
+    dump.regs.x86.cs = ctx->cs;
+    dump.regs.x86.rflags = ctx->rflags;
+    dump.regs.x86.sp = ctx->sp;
+    dump.regs.x86.ss = ctx->ss;
+    for(int i=0; i<15; i++)
+        dump.regs.x86.gpr[i] = ctx->gpr[i];
+#elif defined(__riscv)
+    dump.regs.riscv.pc = ctx->pc;
+    dump.regs.riscv.ra = ctx->ra;
+    dump.regs.riscv.sp = ctx->sp;
+    dump.regs.riscv.gp = ctx->gp;
+    dump.regs.riscv.tp = ctx->tp;
+    dump.regs.riscv.t0 = ctx->t0;
+    dump.regs.riscv.t1 = ctx->t1;
+    dump.regs.riscv.t2 = ctx->t2;
+    dump.regs.riscv.s0 = ctx->s0;
+    dump.regs.riscv.s1 = ctx->s1;
+    for(int i=0; i<8; i++)
+        dump.regs.riscv.gpr[i] = ctx->gpr[i];
+    dump.regs.riscv.s2 = ctx->s2;
+    dump.regs.riscv.s3 = ctx->s3;
+    dump.regs.riscv.s4 = ctx->s4;
+    dump.regs.riscv.s5 = ctx->s5;
+    dump.regs.riscv.s6 = ctx->s6;
+    dump.regs.riscv.s7 = ctx->s7;
+    dump.regs.riscv.s8 = ctx->s8;
+    dump.regs.riscv.s9 = ctx->s9;
+    dump.regs.riscv.s10 = ctx->s10;
+    dump.regs.riscv.s11 = ctx->s11;
+    dump.regs.riscv.t3 = ctx->t3;
+    dump.regs.riscv.t4 = ctx->t4;
+    dump.regs.riscv.t5 = ctx->t5;
+    dump.regs.riscv.t6 = ctx->t6;
+    dump.regs.riscv.sstatus = ctx->sstatus;
+    dump.regs.riscv.sbadaddr = ctx->sbadaddr;
+    dump.regs.riscv.scause = ctx->scause;
+#endif
+
+    kev_push_core_dump(&dump);
+}
+
 void undef_abort_handler(context_t* ctx, uint32_t status) {
     (void)ctx;
     (void)status;
@@ -306,6 +385,7 @@ void undef_abort_handler(context_t* ctx, uint32_t status) {
     printf("pid: %d(%s), undef instrunction abort!! (core %d)\n", cproc->info.pid, cproc->info.cmd, core);
     dump_ctx(&cproc->ctx);
 
+    push_proc_core_dump(cproc, ctx, KEV_CORE_DUMP_UNDEF, status, (ewokos_addr_t)ctx->pc);
     proc_exit(ctx, proc_get_proc(cproc), -1);
 }
 
@@ -351,6 +431,7 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
     dump_user_stack_words(cproc, ctx);
 #endif
 
+    push_proc_core_dump(cproc, ctx, KEV_CORE_DUMP_PREFETCH, status, (ewokos_addr_t)ctx->pc);
     proc_exit(ctx, proc_get_proc(cproc), -1);
 }
 
@@ -419,6 +500,7 @@ void data_abort_handler(context_t* ctx, ewokos_addr_t addr_fault, uint32_t statu
 #if defined(__x86_64__) || defined(__aarch64__)
     dump_user_stack_words(cproc, ctx);
 #endif
+    push_proc_core_dump(cproc, ctx, KEV_CORE_DUMP_DATA, status, addr_fault);
     proc_exit(ctx, proc_get_proc(cproc), -1);
 }
 

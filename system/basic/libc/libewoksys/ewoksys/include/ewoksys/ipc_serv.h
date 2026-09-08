@@ -11,6 +11,7 @@ typedef void (*ipc_handled_t)(void* p);
 
 #define IPC_SERV_VFS      "ipc_serv.vfs"
 #define IPC_SERV_PROC     "ipc_serv.proc"
+#define IPC_SERV_LOG      "ipc_serv.log"
 
 int ipc_serv_reg(const char* ipc_serv_id);
 int ipc_serv_unreg(const char* ipc_serv_id);

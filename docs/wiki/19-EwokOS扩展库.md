@@ -12,7 +12,7 @@
 
 | 子模块 | 目录 | 定位 | 默认是否构建 |
 |--------|------|------|--------------|
-| **ewokos_extra** | [sw.extra/](../../sw.extra/) | 额外软件套件：SDL2 多媒体、curses 文本 UI、扩展控件，以及 vim/计算器/日历等应用 | 由 `make extra` 单独触发 |
+| **ewokos_extra** | [sw.extra/](../../sw.extra/) | 额外软件套件：SDL2 多媒体、curses 文本 UI，以及 vim/计算器/日历等应用 | 由 `make extra` 单独触发 |
 | **evokes.apps** | [projects/](../../projects/) | 更多应用：浏览器、视频、屏保、软 3D，以及一堆模拟器与游戏 | `projects/Makefile` 的 `DIRS` 列出哪些就建哪些 |
 
 两者都遵循 [16](16-EwokOS库生态总览.md) 章讲的"手动源码级依赖管理"：
@@ -56,17 +56,7 @@
 | **SDL2_gfx** | `-lSDL2_gfx` | 图形图元（画线/圆/多边形）、rotozoom 缩放旋转、帧率控制 |
 
 > SDL2 在 EwokOS 上把"窗口/输入/音频"映射到系统的 xwin、键鼠驱动与音频服务上，
-> 让原本为 Linux/Windows 写的 SDL 程序得以移植运行。`sw.extra/sdl2/` 是其 SDK/安装区。
-
-### widget++ 扩展控件
-
-[sw.extra/libs/widget++/](../../sw.extra/libs/widget++/) 在核心 `widget++`
-（见 [18](18-EwokOS常用库.md).3）之上补充了两个"重量级"控件：
-
-| 控件 | 用途 |
-|------|------|
-| **WidgetWebview** | 网页视图控件（嵌入浏览器内核渲染网页） |
-| **WidgetVideo** | 视频播放控件 |
+> 让原本为 Linux/Windows 写的 SDL 程序得以移植运行。`sw.extra/libs/SDL2/` 是其 SDK/安装区。
 
 ### 其它（应用与子模块）
 
@@ -128,7 +118,7 @@
 | 库 | 用途 |
 |----|------|
 | **ffmpeg** | 业界标准多媒体框架：解封装、解码音视频（`lib/` 是完整 ffmpeg 源码 + EwokOS 定制构建 `ewok.mk`） |
-| **widget++** | 视频项目本地控件变体（配合解码做播放界面） |
+| **widget++** | 视频项目本地的控件变体：在核心 `widget++`（见 [18](18-EwokOS常用库.md).3）之上补充两个"重量级"控件——**WidgetWebview**（网页视图，嵌入浏览器内核渲染网页）与 **WidgetVideo**（视频播放） |
 
 对应应用：[projects/video/apps/VideoPlayer](../../projects/video/apps/)、
 库自带的 [bin/mp4player.c](../../projects/video/libs/ffmpeg/bin/)。
@@ -147,7 +137,7 @@
 |--------|----------|------|
 | 做全屏文本/字符 UI（菜单、面板） | curses（libcurses + libterminfo） | `sw.extra/libs/curses` |
 | 用 SDL 写游戏/多媒体（跨平台） | SDL2 + image/mixer/ttf/gfx | `sw.extra/libs/SDL2` |
-| 在窗口里嵌网页/视频控件 | widget++（WidgetWebview/WidgetVideo） | `sw.extra/libs/widget++` |
+| 在窗口里嵌网页/视频控件 | widget++（WidgetWebview/WidgetVideo） | `projects/video/libs/widget++` |
 | 渲染 HTML/CSS 网页 | litehtml + gumbo | `projects/browser/libs` |
 | 做 3D/2D 图形数学运算 | cglm | `projects/saver/libs` |
 | 加 2D 物理（碰撞、刚体） | ferox | `projects/saver/libs` |
@@ -171,11 +161,10 @@
 ## 19.6 本章小结
 
 - **sw.extra**（ewokos_extra 子模块）：`curses`（文本 UI）、`SDL2` 家族
-  （SDL2/image/mixer/ttf/gfx 多媒体）、`widget++` 扩展控件（Webview/Video），
-  外加 vim/计算器/日历等应用与 mario_vm（JS 虚拟机）子模块；
+  （SDL2/image/mixer/ttf/gfx 多媒体），外加 vim/计算器/日历等应用与 mario_vm（JS 虚拟机）子模块；
 - **projects**（evokes.apps 子模块）：库随应用走——browser 用 `litehtml`+`gumbo`，
-  saver 用 `cglm`+`ferox`，soft3d 用 `portablegl`+`imgui`+`glcommon`，video 用 `ffmpeg`；
-  模拟器与游戏则直接链接核心库；
+  saver 用 `cglm`+`ferox`，soft3d 用 `portablegl`+`imgui`+`glcommon`，video 用 `ffmpeg`
+  与 `widget++` 扩展控件（WidgetWebview/WidgetVideo）；模拟器与游戏则直接链接核心库；
 - 扩展库是**选装件**：不进核心构建链，针对已装好的 SDK 交叉编译，按需链接；
 - 至此"ewokos 系列"覆盖了从 libc、核心库到扩展库的完整库版图。
 

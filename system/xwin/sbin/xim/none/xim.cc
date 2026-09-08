@@ -37,6 +37,7 @@ class XIM {
 				ev.value.im.shift = KEY_RSHIFT;
 			} else if (c == KEY_CTRL) {
 				ctrl = true;
+				ev.value.im.ctrl = KEY_CTRL;
 			}
 
 			if (shift) {

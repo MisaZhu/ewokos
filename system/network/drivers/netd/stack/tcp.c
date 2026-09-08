@@ -1399,7 +1399,25 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
             /* drop segment */
             return;
         }
-        pcb->rcv.nxt = seg->seq + 1;
+        /*
+         * The FIN occupies the sequence number right after this segment's
+         * payload. Consume it ONLY when it is the exact next expected byte
+         * (RCV.NXT). If a hole still precedes it -- a reordered FIN, or a
+         * data+FIN whose payload the seventh step could not buffer in-order --
+         * then setting RCV.NXT = seg->seq + 1 here would leap over the missing
+         * bytes AND (below) clear the out-of-order stash, so the peer's real
+         * in-order response segments that arrive right behind the FIN are then
+         * REJECTed as "behind RCV.NXT". That is the "HTTP response body lost
+         * -> xBrowser empty body" failure. Defer instead: the dup-ACK from the
+         * seventh step plus the one below keeps the peer retransmitting until
+         * the hole fills, after which the FIN is redelivered in-order.
+         */
+        uint32_t fin_seq = seg->seq + (uint32_t)len;
+        if (fin_seq != pcb->rcv.nxt) {
+            tcp_output(pcb, TCP_FLG_ACK, NULL, 0);
+            return;
+        }
+        pcb->rcv.nxt = fin_seq + 1;
         /*
          * Any out-of-order stash is dead now (no more data follows the FIN)
          * and would poison the tcp_receive() memmove-span math.
@@ -1770,6 +1788,41 @@ tcp_state(int id)
     state = pcb->state;
     mutex_unlock(&mutex);
     return state;
+}
+
+/*
+ * Pending socket error for getsockopt(SO_ERROR).
+ *
+ * Only a pcb parked in CLOSED with an abnormal close_reason represents a real
+ * pending error; a normal close (reason 0) and every live/in-progress state
+ * report 0. netd's sock_getsockopt() used to hardcode 0 here, which made a
+ * peer RST or a retransmit-timeout connect failure invisible to consumers that
+ * probe SO_ERROR after a connect (TLS clients, ffmpeg). Mirrors the
+ * close_reason -> errno mapping already used by tcp_send()/tcp_receive().
+ */
+int
+tcp_socket_error(int id)
+{
+    struct tcp_pcb *pcb;
+    int err = 0;
+
+    mutex_lock(&mutex);
+    pcb = tcp_pcb_get(id);
+    if (!pcb) {
+        mutex_unlock(&mutex);
+        return 0;
+    }
+    if (pcb->state == TCP_PCB_STATE_CLOSED) {
+        switch (pcb->close_reason) {
+        case 1:  err = ECONNRESET; break; /* RST from peer */
+        case 2:  err = ETIMEDOUT;  break; /* retransmit deadline */
+        case 3:  err = EIO;        break; /* tcp_output failure */
+        case 4:  err = EINTR;      break; /* interrupted */
+        default: err = 0;          break; /* normal close */
+        }
+    }
+    mutex_unlock(&mutex);
+    return err;
 }
 
 /*

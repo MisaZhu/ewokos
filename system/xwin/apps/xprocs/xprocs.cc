@@ -1,8 +1,10 @@
 #include <Widget/WidgetWin.h>
 #include <Widget/WidgetX.h>
 #include <Widget/Image.h>
+#include <Widget/Blank.h>
 #include <Widget/Label.h>
 #include <Widget/LabelButton.h>
+#include <Widget/SwitchButton.h>
 #include <Widget/List.h>
 #include <Widget/Splitter.h>
 #include <Widget/Columns.h>
@@ -138,11 +140,20 @@ static void refresh_sample(uint32_t timerStep) {
 
 class Procs: public Columns {
 	int coreIndex;
+	bool fullInfo;
 	procinfo_t* procs;
 	int* threadNums;
 	uint32_t* runUsecs; /*sum of proc and all its threads' run_usec*/
 	int procNum;
 protected:
+	/*translate visible column to full-mode column index*/
+	int logicalCol(int col) {
+		if(fullInfo)
+			return col;
+		static const int mini[3] = {1, 2, 5}; /*PID, CPU, CMD*/
+		return (col >= 0 && col < 3) ? mini[col] : -1;
+	}
+
 	void drawItem(graph_t* g, XTheme* theme, int row, int col, const grect_t& r) {
 		font_t* font = theme->getFont();
 		if(font == NULL || procs == NULL || row >= procNum)
@@ -151,6 +162,8 @@ protected:
 		procinfo_t* proc = &procs[row];
 		if(proc == NULL)
 			return;
+
+		col = logicalCol(col);
 
 		char s[32] = { 0 };
 		string str = "";
@@ -180,6 +193,15 @@ protected:
 			//char s[128] = { 0 };
 			//str = vfs_file_name(proc->cmd, s, 127);
 			str = proc->cmd;
+			if(!fullInfo) { /*short name only, no args and dir*/
+				char cmd[sizeof(proc->cmd)] = { 0 };
+				strncpy(cmd, proc->cmd, sizeof(cmd)-1);
+				char* p = strchr(cmd, ' ');
+				if(p != NULL)
+					*p = 0;
+				p = strrchr(cmd, '/');
+				str = (p != NULL) ? (p+1) : cmd;
+			}
 			if(threadNums != NULL && threadNums[row] > 0)
 				snprintf(s, sizeof(s), " [%dt]", threadNums[row]);
 			else
@@ -205,11 +227,18 @@ protected:
 	}
 
 	void build() {
-		add("OWNER", 64);
-		add("PID", 32);
-		add("CPU", 56);
-		add("STATE", 72);
-		add("HEAP", 64);
+		colNum = 0;
+		if(fullInfo) {
+			add("OWNER", 64);
+			add("PID", 48);
+			add("CPU", 56);
+			add("STATE", 72);
+			add("HEAP", 64);
+		}
+		else {
+			add("PID", 48);
+			add("CPU", 56);
+		}
 		add("CMD", 0);
 	}
 
@@ -247,7 +276,16 @@ public:
 		runUsecs = NULL;
 		coreIndex = -1;
 		procNum = 0;
+		fullInfo = true;
 		build();
+	}
+
+	void setFullInfo(bool full) {
+		if(fullInfo == full)
+			return;
+		fullInfo = full;
+		build();
+		update();
 	}
 
 	void setCore(uint32_t index) {
@@ -473,21 +511,6 @@ class CoreList: public List {
 protected:
 	void drawBG(graph_t* g, XTheme* theme, const grect_t& r) {
 		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.bgColor, false);
-
-		sys_info_t sys_info;
-		sys_state_t sys_state;
-		sys_get_sys_info(&sys_info);
-		syscall1(SYS_GET_SYS_STATE, (ewokos_addr_t)(uint64_t)&sys_state);
-		char txt[32] = { 0 };
-
-		char used_mem_str[32] = {0};
-		get_mem_size_desc((sys_info.total_usable_mem_size-sys_state.mem.free), used_mem_str);
-		char t_mem_str[32] = {0};
-		get_mem_size_desc(sys_info.total_usable_mem_size, t_mem_str);
-		snprintf(txt, 31, "%s/%s", used_mem_str, t_mem_str);
-
-		graph_draw_text_font(g, r.x , r.y + r.h - 16,
-				txt, theme->getFont(), 12, 0xFF000000);
 	}
 
 	void drawItem(graph_t* g, XTheme* theme, int32_t index, const grect_t& r) {
@@ -543,6 +566,48 @@ public:
 	}
 };
 
+class MemInfo: public Widget {
+	/*get_mem_size_desc truncates to uint32_t, overflows with >=4GB mem*/
+	static const char* memSizeStr(uint64_t size, char* ret, uint32_t len) {
+		if(size >= 1024ULL*1024*1024)
+			snprintf(ret, len, "%u.%uG", (uint32_t)(size>>30),
+					(uint32_t)(((size & 0x3FFFFFFFULL)*10)>>30));
+		else if(size >= 1024*1024)
+			snprintf(ret, len, "%uM", (uint32_t)(size>>20));
+		else
+			snprintf(ret, len, "%uK", (uint32_t)(size>>10));
+		return ret;
+	}
+
+protected:
+	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
+		graph_fill_rect(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
+
+		sys_info_t sys_info;
+		sys_state_t sys_state;
+		sys_get_sys_info(&sys_info);
+		syscall1(SYS_GET_SYS_STATE, (ewokos_addr_t)(uint64_t)&sys_state);
+		char txt[32] = { 0 };
+
+		uint64_t total = sys_info.total_usable_mem_size;
+		uint64_t free = sys_state.mem.free;
+		char used_mem_str[32] = {0};
+		memSizeStr(total - free, used_mem_str, 31);
+		char t_mem_str[32] = {0};
+		memSizeStr(total, t_mem_str, 31);
+		snprintf(txt, 31, "%s/%s", used_mem_str, t_mem_str);
+
+		graph_draw_text_font(g, r.x , r.y + r.h - 16,
+				txt, theme->getFont(), 12, 0xFF000000);
+	}
+
+	void onTimer(uint32_t timerFPS, uint32_t timerSteps) {
+		if((timerSteps % timerFPS) != 0)
+			return;
+		update();
+	}
+};
+
 int main(int argc, char** argv) {
 	X x;
 	WidgetWin win;
@@ -559,7 +624,33 @@ int main(int argc, char** argv) {
 	CoreList* list = new CoreList();
 	list->loadCores(0);
 	list->setItemSize(20);
+	list->fix(0, list->getItemNum()*20);
 	c->add(list);
+
+	Blank* gap = new Blank();
+	gap->fix(0, 8);
+	c->add(gap);
+
+	Container* swRow = new Container();
+	swRow->setType(Container::HORIZONTAL);
+	swRow->fix(0, 24);
+	c->add(swRow);
+
+	Label* swLabel = new Label("full ");
+	swRow->add(swLabel);
+
+	SwitchButton* fullinfoSwitch = new SwitchButton();
+	fullinfoSwitch->setName("fullinfoSwitch");
+	fullinfoSwitch->fix(40, 0);
+	fullinfoSwitch->setOn(true);
+	swRow->add(fullinfoSwitch);
+	swRow->add(new Blank());
+
+	c->add(new Blank());
+
+	MemInfo* memInfo = new MemInfo();
+	memInfo->fix(0, 20);
+	c->add(memInfo);
 
 	Cores* cores = new Cores();
 	cores->fix(0, 72);
@@ -572,6 +663,10 @@ int main(int argc, char** argv) {
 	Procs* procs = new Procs();
 	root->add(procs);
 	list->setprocs(procs);
+	fullinfoSwitch->setSwitchFunc([](SwitchButton* wd, bool on, void* arg) {
+		(void)wd;
+		((Procs*)arg)->setFullInfo(on);
+	}, procs);
 
 	Scroller* scrollerV = new Scroller();
 	scrollerV->fix(8, 0);

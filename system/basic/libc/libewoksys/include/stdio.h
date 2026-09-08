@@ -68,6 +68,9 @@ int fflush(FILE *stream);
 void setbuf(FILE *stream, char *buf);
 int setvbuf(FILE *stream, char *buf, int mode, size_t size);
 
+FILE *popen(const char *command, const char *type);
+int pclose(FILE *stream);
+
 #ifdef __cplusplus
 }
 #endif

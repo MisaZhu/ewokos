@@ -5,6 +5,7 @@
 
 void       kev_init(void);
 kevent_t*  kev_push(uint32_t type, uint32_t arg0, uint32_t arg1, uint32_t arg2);
+void       kev_push_core_dump(const kev_core_dump_t* dump);
 int32_t    kev_pop(kevent_t* kev);
 
 #endif

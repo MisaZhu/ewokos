@@ -132,6 +132,9 @@ int pause(void);
 
 void _exit(int status);
 
+ssize_t readlink(const char *path, char *buf, size_t bufsiz);
+char *get_current_dir_name(void);
+
 #ifdef __cplusplus
 }
 #endif
