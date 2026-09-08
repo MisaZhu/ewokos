@@ -221,6 +221,40 @@ static inline void blit_win_area(graph_t* g, graph_t* disp_g, int32_t win_x, int
                 disp_g, win_x + d.x, win_y + d.y, d.w, d.h);
 }
 
+/*copy only the fully opaque pixels of area that fall inside dmg. The corner
+  squares of a rounded frame hold workspace content whenever the radius
+  reaches past the frame edge (round > frameW), so they have to follow every
+  content update; the translucent pixels in them - the outside-arc holes and
+  the border/shadow AA - are static per placement and already sit blended on
+  the display. Copying them would stamp their raw colors over the background,
+  blending them again would stack alpha on alpha; skipping both keeps them
+  intact while the opaque content catches up.*/
+static void blit_win_area_opaque(graph_t* g, graph_t* disp_g, int32_t win_x, int32_t win_y,
+        const grect_t* dmg, const grect_t* area) {
+    grect_t d = *dmg;
+    if(!grect_insect(area, &d) || d.w <= 0 || d.h <= 0)
+        return;
+
+    /*the blt helpers clip against the destination internally; this
+      hand-rolled loop has to do it itself*/
+    grect_t dr = {win_x + d.x, win_y + d.y, d.w, d.h};
+    if(!rect_clip_to_graph(disp_g, &dr))
+        return;
+    d.x = dr.x - win_x;
+    d.y = dr.y - win_y;
+    d.w = dr.w;
+    d.h = dr.h;
+
+    for(int32_t y = 0; y < d.h; y++) {
+        const uint32_t* src = &g->buffer[(d.y + y) * g->w + d.x];
+        uint32_t* dst = &disp_g->buffer[(win_y + d.y + y) * disp_g->w + win_x + d.x];
+        for(int32_t x = 0; x < d.w; x++) {
+            if((src[x] & 0xff000000) == 0xff000000)
+                dst[x] = src[x];
+        }
+    }
+}
+
 /*blit the rect d (frame coordinates) of the window onto the display,
   sourcing the pixels split up: the workspace part comes straight from
   the buffer the client published (frame_g never received it), everything
@@ -449,6 +483,23 @@ int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
                     win->shadow_valid = true;
                     memcpy(&win->shadow_rect, &win->xinfo->winr,
                            sizeof(grect_t));
+                }
+                else {
+                    /*the placement-time blend left the corners on the
+                      display, but the squares are not all decoration:
+                      where the radius reaches past the frame edge they hold
+                      workspace content (and the top ones hold title bar),
+                      which changed under them. Refresh exactly those pixels
+                      - the opaque ones - and leave the translucent arc and
+                      shadow crescents to the placement blend.*/
+                    grect_t c0 = {0, 0, round, round};
+                    grect_t c1 = {fw - round, 0, round, round};
+                    grect_t c2 = {0, fh - round, round, round};
+                    grect_t c3 = {fw - round, fh - round, round, round};
+                    blit_win_area_opaque(g, disp_g, wx, wy, &dmg, &c0);
+                    blit_win_area_opaque(g, disp_g, wx, wy, &dmg, &c1);
+                    blit_win_area_opaque(g, disp_g, wx, wy, &dmg, &c2);
+                    blit_win_area_opaque(g, disp_g, wx, wy, &dmg, &c3);
                 }
             }
             else {

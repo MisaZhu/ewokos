@@ -384,7 +384,14 @@ void x_repaint(x_t* x, uint32_t display_index) {
                 else {
                     grect_t win_dirty;
                     if(draw_win(display->g, x, win, &win_dirty) == 0) {
-                        if(!display->dirty && x->config.xwm_theme.shadow > 0)
+                        /*the refresh repairs whatever this fresh repaint
+                          wiped of the translucent parts of the windows
+                          above: shadow bands, and for rounded frames the
+                          corner squares - so it is needed even with the
+                          shadow off whenever the theme cuts corners. The
+                          function itself early-returns when the theme has
+                          neither.*/
+                        if(!display->dirty)
                             refresh_shadows_above(x, win, &win_dirty);
                         x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &win_dirty);
                         do_flush = true;
