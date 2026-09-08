@@ -11,6 +11,10 @@ extern "C" {
 malloc for memory trunk management
 */
 
+/* malloc results must stay 16-byte aligned (NEON/C++ minimums); the block
+   header is padded so block->mem keeps that alignment */
+#define TRUNK_HDR_SIZE ALIGN_UP(sizeof(mem_block_t), 16)
+
 static pthread_mutex_t trunkmem_init_lock = 0;
 
 static inline void trunk_ensure_lock(malloc_t* m) {
@@ -71,7 +75,7 @@ static int trunk_block_sane(mem_block_t* head, ewokos_addr_t heap_end,
 
     block_addr = (ewokos_addr_t)block;
     mem_addr = (ewokos_addr_t)block->mem;
-    if(mem_addr != (block_addr + sizeof(mem_block_t)))
+    if(mem_addr != (block_addr + TRUNK_HDR_SIZE))
         return 0;
     if(mem_addr > heap_end)
         return 0;
@@ -126,8 +130,8 @@ static mem_block_t* trunk_find_block_locked(malloc_t* m, mem_block_t* target) {
     return NULL;
 }
 
-static mem_block_t* gen_block(char* p, uint32_t size) {
-    uint32_t block_size = sizeof(mem_block_t);
+static mem_block_t* gen_block(char* p, ewokos_addr_t size) {
+    ewokos_addr_t block_size = TRUNK_HDR_SIZE;
     mem_block_t* block = (mem_block_t*)p;
     block->next = block->prev = NULL;
     block->mem = p + block_size;
@@ -139,7 +143,7 @@ mem_block_t* get_block(char* p) {
     if(p == NULL)
         return NULL;
 
-    uint32_t block_size = sizeof(mem_block_t);
+    uint32_t block_size = TRUNK_HDR_SIZE;
     if(((ewokos_addr_t)p) < (ewokos_addr_t)block_size)
         return NULL;
 
@@ -148,10 +152,10 @@ mem_block_t* get_block(char* p) {
 }
 
 /*if block size much bigger than the size required, break to two blocks*/
-static void try_break(malloc_t* m, mem_block_t* block, uint32_t size) {
-    uint32_t block_size = sizeof(mem_block_t);
+static void try_break(malloc_t* m, mem_block_t* block, ewokos_addr_t size) {
+    ewokos_addr_t block_size = TRUNK_HDR_SIZE;
     //required more than half size of block. no break.
-    if((block_size+size) > (uint32_t)(block->size/2)) 
+    if((block_size+size) > (ewokos_addr_t)(block->size/2))
         return;
     
     //do break;
@@ -193,14 +197,14 @@ static mem_block_t* trunk_check_block(malloc_t* m, mem_block_t* b,
     return b;
 }
 
-char* trunk_malloc(malloc_t* m, uint32_t size) {
+char* trunk_malloc(malloc_t* m, ewokos_addr_t size) {
     mem_block_t* head;
     mem_block_t* prev;
     if(m == NULL)
         return NULL;
 
     trunk_lock_heap(m);
-    size = ALIGN_UP(size, 8);
+    size = ALIGN_UP(size, 16);
     head = m->head;
     prev = NULL;
     mem_block_t* block = head;
@@ -235,12 +239,14 @@ char* trunk_malloc(malloc_t* m, uint32_t size) {
     }
 
     /*Can't find any available block, expand pages*/
-    uint32_t block_size = sizeof(mem_block_t);
-    uint32_t expand_size = size + block_size;
+    ewokos_addr_t block_size = TRUNK_HDR_SIZE;
+    ewokos_addr_t expand_size = size + block_size;
 
-    uint32_t pages = expand_size / m->seg_size;	
+    ewokos_addr_t pages = expand_size / m->seg_size;
     if((expand_size % m->seg_size) > 0)
         pages++;
+    if(pages > 0x7fffffffu)
+        return NULL; /* int32_t page count would overflow */
 
     char* p = (char*)m->get_mem_tail(m->arg);
     if(m->expand(m->arg, pages) != 0) {
@@ -248,7 +254,7 @@ char* trunk_malloc(malloc_t* m, uint32_t size) {
         return NULL;
     }
 
-    block = gen_block(p, pages*m->seg_size);
+    block = gen_block(p, (ewokos_addr_t)pages*m->seg_size);
     block->used = 1;
 
     if(m->head == NULL) {
@@ -276,7 +282,7 @@ try to merge around free blocks.
 static mem_block_t* try_merge(malloc_t* m, mem_block_t* block) {
     mem_block_t* b;
     mem_block_t* ret = block;
-    uint32_t block_size = sizeof(mem_block_t);
+    uint32_t block_size = TRUNK_HDR_SIZE;
     ewokos_addr_t heap_end = trunk_heap_end(m);
     //try next block	
     b = block->next;
@@ -316,7 +322,7 @@ static mem_block_t* try_merge(malloc_t* m, mem_block_t* block) {
 try to shrink the pages.
 */
 static void try_shrink(malloc_t* m) {
-    uint32_t block_size = sizeof(mem_block_t);
+    uint32_t block_size = TRUNK_HDR_SIZE;
     ewokos_addr_t addr = (ewokos_addr_t)m->tail;
     //check if page aligned.	
     if(m->tail == NULL ||
@@ -324,7 +330,7 @@ static void try_shrink(malloc_t* m) {
             (addr % (ewokos_addr_t)m->seg_size) != 0)
         return;
 
-    uint32_t pages = (m->tail->size+block_size) / m->seg_size;
+    uint32_t pages = (uint32_t)((m->tail->size+block_size) / m->seg_size);
     m->tail = m->tail->prev;
     if(m->tail != NULL)
         m->tail->next = NULL;
@@ -364,7 +370,7 @@ void trunk_free(malloc_t* m, char* p) {
     trunk_unlock_heap(m);
 }
 
-uint32_t trunk_msize(malloc_t* m, char* p) {
+ewokos_addr_t trunk_msize(malloc_t* m, char* p) {
     if(m == NULL)
         return 0;
 
@@ -375,7 +381,7 @@ uint32_t trunk_msize(malloc_t* m, char* p) {
         return 0;
     }
 
-    uint32_t size = block->size;
+    ewokos_addr_t size = block->size;
     trunk_unlock_heap(m);
     return size;
 }

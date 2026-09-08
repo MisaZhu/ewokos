@@ -26,7 +26,7 @@ static km_vm_t* _km_vm_tail = NULL;
 
 void kmalloc_vm_init() {
     //share memory base address at virtual address 1GB
-    km_vm_mem_tail = (uint32_t)ALIGN_UP(KMALLOC_VM_BASE, PAGE_SIZE);
+    km_vm_mem_tail = ALIGN_UP((ewokos_addr_t)KMALLOC_VM_BASE, PAGE_SIZE);
     _km_vm_head = NULL;
     _km_vm_tail = NULL;
 }

@@ -3,6 +3,7 @@
    underscore) go in .c.  */
 
 #include <_ansi.h>
+#include <syscalls.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/fcntl.h>
@@ -18,7 +19,6 @@
 #include <stdlib.h>
 #include <sys/wait.h>
 #include <stdint.h>
-#include <syscalls.h>
 #include <sysinfo.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/devcmd.h>
@@ -474,7 +474,8 @@ _getpid (void)
 
 void *__heap_ptr = NULL;
 void *__heap_end = NULL;
-unsigned __heap_size = 0;
+size_t __heap_size = 0;
+
 void * __attribute__((weak))
 _sbrk (ptrdiff_t incr)
 {

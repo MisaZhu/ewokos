@@ -143,7 +143,7 @@ static void sys_usleep(context_t* ctx, uint32_t count) {
     proc_usleep(ctx, count);
 }
 
-static ewokos_addr_t sys_malloc(int32_t size) {
+static ewokos_addr_t sys_malloc(int64_t size) {
     return (ewokos_addr_t)proc_malloc(get_current_proc(), size);
 }
 

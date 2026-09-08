@@ -501,6 +501,14 @@ int main(int argc, char** argv) {
     dev.fcntl = pipe_fcntl;
     dev.check_poll_events = pipe_check_poll_events;
 
-    device_run(&dev, mnt_point, FS_TYPE_ANNOUNIMOUS | FS_TYPE_CHAR, 0666, true);
+    /* Single-task serving is REQUIRED (see the header comment): the lifecycle
+     * refcount protocol is only correct when request PROCESSING order matches
+     * ACCEPTANCE order. IPC_MULTI_TASK dispatches each request to a concurrent
+     * kernel worker (SMP), letting an out-of-order close drive the refcount to
+     * zero while descriptors still live and destroy/unmap the shm ring — a
+     * later worker then dereferences the freed ring (translation-fault data
+     * abort exactly like the "<error: illegel address!" dumps). Serve FIFO,
+     * one request at a time. */
+    device_run(&dev, mnt_point, FS_TYPE_ANNOUNIMOUS | FS_TYPE_CHAR, 0666, false);
     return 0;
 }

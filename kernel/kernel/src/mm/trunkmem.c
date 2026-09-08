@@ -105,8 +105,8 @@ static mem_block_t* trunk_find_block(malloc_t* m, mem_block_t* target) {
     return NULL;
 }
 
-static mem_block_t* gen_block(char* p, uint32_t size) {
-    uint32_t block_size = sizeof(mem_block_t);
+static mem_block_t* gen_block(char* p, ewokos_addr_t size) {
+    ewokos_addr_t block_size = sizeof(mem_block_t);
     mem_block_t* block = (mem_block_t*)p;
     block->next = block->prev = NULL;
     block->mem = p + block_size;
@@ -127,10 +127,10 @@ mem_block_t* get_block(char* p) {
 }
 
 /*if block size much bigger than the size required, break to two blocks*/
-static void try_break(malloc_t* m, mem_block_t* block, uint32_t size) {
-    uint32_t block_size = sizeof(mem_block_t);
+static void try_break(malloc_t* m, mem_block_t* block, ewokos_addr_t size) {
+    ewokos_addr_t block_size = sizeof(mem_block_t);
     //required more than half size of block. no break.
-    if((block_size+size) > (uint32_t)(block->size/2)) 
+    if((block_size+size) > (ewokos_addr_t)(block->size/2))
         return;
     
     //do break;
@@ -150,7 +150,7 @@ static void try_break(malloc_t* m, mem_block_t* block, uint32_t size) {
         m->tail = newBlock;
 }
 
-char* trunk_malloc(malloc_t* m, uint32_t size) {
+char* trunk_malloc(malloc_t* m, ewokos_addr_t size) {
     mem_block_t* prev;
     uintptr_t heap_begin;
     uintptr_t heap_end;
@@ -189,18 +189,19 @@ char* trunk_malloc(malloc_t* m, uint32_t size) {
     }
 
     /*Can't find any available block, expand pages*/
-    uint32_t block_size = sizeof(mem_block_t);
-    uint32_t expand_size = size + block_size;
+    ewokos_addr_t block_size = sizeof(mem_block_t);
+    ewokos_addr_t expand_size = size + block_size;
 
-    uint32_t pages = expand_size / PAGE_SIZE;	
+    ewokos_addr_t pages64 = expand_size / PAGE_SIZE;
     if((expand_size % PAGE_SIZE) > 0)
-        pages++;
+        pages64++;
+    uint32_t pages = (uint32_t)pages64;
 
     char* p = (char*)m->get_mem_tail(m->arg);
     if(m->expand(m->arg, pages) != 0)
         return NULL;
 
-    block = gen_block(p, pages*PAGE_SIZE);
+    block = gen_block(p, (ewokos_addr_t)pages*PAGE_SIZE);
     block->used = 1;
 
     if(m->head == NULL) {
@@ -221,13 +222,13 @@ char* trunk_malloc(malloc_t* m, uint32_t size) {
     return block->mem;
 }
 
-uint32_t trunk_free_size(malloc_t* m) {
+ewokos_addr_t trunk_free_size(malloc_t* m) {
     mem_block_t* prev;
     mem_block_t* block;
     uintptr_t heap_begin;
     uintptr_t heap_end;
     uintptr_t heap_top;
-    uint32_t ret;
+    ewokos_addr_t ret;
 
     if(m == NULL || m->get_mem_top == NULL || m->get_mem_tail == NULL)
         return 0;
@@ -238,7 +239,7 @@ uint32_t trunk_free_size(malloc_t* m) {
     if(heap_top < heap_end)
         return 0;
 
-    ret = (uint32_t)(heap_top - heap_end);
+    ret = (ewokos_addr_t)(heap_top - heap_end);
     //mem_block_t* block = m->start == NULL ? m->head : m->start;
     prev = NULL;
     block = m->head;
@@ -298,7 +299,7 @@ static void try_shrink(malloc_t* m) {
             (addr % (uintptr_t)PAGE_SIZE) != 0)
         return;
 
-    uint32_t pages = (m->tail->size+block_size) / PAGE_SIZE;
+    uint32_t pages = (uint32_t)((m->tail->size+block_size) / PAGE_SIZE);
     m->tail = m->tail->prev;
     if(m->tail != NULL)
         m->tail->next = NULL;
@@ -327,7 +328,7 @@ void trunk_free(malloc_t* m, char* p) {
         try_shrink(m);
 }
 
-uint32_t trunk_msize(malloc_t* m, char* p) {
+ewokos_addr_t trunk_msize(malloc_t* m, char* p) {
     if(m == NULL)
         return 0;
 

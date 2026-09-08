@@ -86,13 +86,40 @@ void sys_info_init(void) {
 
 void sys_info_config(void) {
     _sys_info.kmalloc_size = get_kmalloc_size();
-
     _sys_info.allocable_phy_mem_base = V2P(KMALLOC_END);
 
-    _sys_info.sys_dma.v_base = DMA_V_BASE;
-    _sys_info.sys_dma.phy_base = _sys_info.allocable_phy_mem_base;
     if(_sys_info.sys_dma.size == 0)
         _sys_info.sys_dma.size = get_dma_size();
+    if(_sys_info.shm_contig.size == 0)
+        _sys_info.shm_contig.size = get_shm_contig_size();
+
+    _sys_info.sys_dma.v_base = DMA_V_BASE;
+
+#if defined(__aarch64__)
+    /*
+     * On boards with RAM well above 4GB, carve the identity-mapped
+     * shm-contig + sys_dma windows from the TOP of RAM instead of right
+     * after the kernel image. The user sbrk heap then grows contiguously
+     * from the end of the ELF across the 4GB mark (apps can malloc >4GB)
+     * without colliding with those user-half identity mappings, and small
+     * processes keep 32-bit-safe low heap pointers.
+     */
+    if((_sys_info.phy_offset + _sys_info.total_usable_mem_size) >
+            (6ull*GB + _sys_info.sys_dma.size + _sys_info.shm_contig.size)) {
+        ewokos_addr_t ram_top = _sys_info.phy_offset +
+            _sys_info.total_usable_mem_size;
+        _sys_info.sys_dma.phy_base = ram_top - _sys_info.sys_dma.size;
+        _sys_info.shm_contig.phy_base = _sys_info.sys_dma.phy_base -
+            _sys_info.shm_contig.size;
+        _sys_info.shm_contig.v_base = 0; //unused.
+        /*the whole region between the kernel image and the high carve-outs
+          stays allocatable*/
+        _sys_info.allocable_phy_mem_top = _sys_info.shm_contig.phy_base;
+        return;
+    }
+#endif
+
+    _sys_info.sys_dma.phy_base = _sys_info.allocable_phy_mem_base;
     _sys_info.allocable_phy_mem_base += _sys_info.sys_dma.size;
 
     /* physically-contiguous slab for IPC_CONTIG shm segments, carved right
@@ -101,7 +128,5 @@ void sys_info_config(void) {
        dma window) */
     _sys_info.shm_contig.phy_base = _sys_info.allocable_phy_mem_base;
     _sys_info.shm_contig.v_base = 0; //unused.
-    if(_sys_info.shm_contig.size == 0)
-        _sys_info.shm_contig.size = get_shm_contig_size();
     _sys_info.allocable_phy_mem_base += _sys_info.shm_contig.size;
 }
