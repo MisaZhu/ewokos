@@ -23,6 +23,18 @@
 #define SEEK_END 2
 #endif
 
+/*
+ * POSIX.1-2008 monotonic clock option, and it is a real one here: time.h's
+ * CLOCK_MONOTONIC is served by clock_gettime() directly off the kernel's
+ * vsyscall tick counter, independent of the RTC-backed realtime clock.
+ * Declaring the option lets conforming callers pick the monotonic path at
+ * compile time instead of the gettimeofday()+times() fallback - which on this
+ * tree was not merely slower but wrong, because libgloss's times() never
+ * returned real ticks, and Qt's times()-based clock-change repair then pushed
+ * every timer's deadline forward on each event-loop pass so none ever fired.
+ */
+#define _POSIX_MONOTONIC_CLOCK 200809L
+
 /* sysconf() name values */
 #define _SC_ARG_MAX            0
 #define _SC_CHILD_MAX          1
@@ -59,6 +71,9 @@
  * chase, and an undefined identifier there is a compile error.
  */
 #define _SC_SYMLOOP_MAX        22
+/* POSIX's runtime query for _POSIX_MONOTONIC_CLOCK; the answer in sysconf.c
+ * is the macro itself, as the standard requires. */
+#define _SC_MONOTONIC_CLOCK  23
 
 /*
  * pathconf() keys.  Only two, because only two were ever asked for and both

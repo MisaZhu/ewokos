@@ -264,6 +264,8 @@ void x_del_win(x_t* x, xwin_t* win) {
         x->current.pos_delta.x = 0;
         x->current.pos_delta.y = 0;
     }
+    if(win == x->current.mouse_grab)
+        x->current.mouse_grab = NULL;
     if(win == x->im_state.win_xim) {
         x->im_state.win_xim = NULL;
         x->im_state.win_xim_actived = false;

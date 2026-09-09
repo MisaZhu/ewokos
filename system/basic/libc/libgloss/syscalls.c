@@ -681,15 +681,14 @@ _gettimeofday (struct timeval * tp, void * tzvp)
 clock_t 
 _clock (void)
 {
-  dbg_kout(__func__);
-  clock_t timeval;
-
-#ifdef ARM_RDI_MONITOR
-  timeval = do_AngelSWI (AngelSWI_Reason_Clock,NULL);
-#else
-  //asm ("swi %a1; mov %0, r0" : "=r" (timeval): "i" (SWI_Clock) : "r0");
-#endif
-  return timeval;
+  /* CLOCKS_PER_SEC is 1000000 (microseconds) and the kernel tick counter is
+     microseconds - hand it over.  The old body left `timeval` uninitialised
+     and returned stack garbage; with times() built on that, Qt's
+     clock-change repair saw phantom drift on every event-loop pass and kept
+     pushing every QTimer's deadline forward, so none ever fired. */
+  uint64_t usec = 0;
+  kernel_tic(NULL, &usec);
+  return (clock_t)usec;
 }
 
 /* Return a clock that ticks at 100Hz.  */

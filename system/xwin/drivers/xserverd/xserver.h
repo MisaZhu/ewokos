@@ -93,6 +93,11 @@ typedef struct st_xwin {
 
 typedef struct {
 	xwin_t* win_drag; //moving or resizing;
+	/*implicit pointer grab: the window a client-area button press went to
+	  keeps receiving DRAG/UP events until release, wherever the cursor is.
+	  Without it a drag that leaves the window (Qt toolbar undock, scrollbar
+	  pull past the edge) loses the event stream and never sees the release.*/
+	xwin_t* mouse_grab;
 	gpos_t old_pos;
 	gpos_t pos_delta;
 	uint32_t drag_state;

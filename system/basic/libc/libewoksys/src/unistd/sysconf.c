@@ -28,6 +28,11 @@ long sysconf(int name) {
         return 1;
     case _SC_VERSION:
         return 200809L;
+    case _SC_MONOTONIC_CLOCK:
+        /* POSIX: the runtime answer for the monotonic-clock option is the
+         * compile-time macro's value.  The clock itself is clock_gettime()'s
+         * CLOCK_MONOTONIC, straight off the kernel tick counter. */
+        return _POSIX_MONOTONIC_CLOCK;
     case _SC_PAGESIZE:
         return getpagesize();
     case _SC_THREAD_SAFE_FUNCTIONS:

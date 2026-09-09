@@ -124,6 +124,13 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
             x->current.old_pos.y = x->cursor.cpos.y;
             x->current.win_drag = win;
         }
+        else {
+            /*plain client-area press: grab the pointer for this window until
+              release, so a drag that runs past the window edge (or off every
+              window) still delivers its DRAG/UP events to the gesture owner
+              instead of dying on whatever happens to be under the cursor.*/
+            x->current.mouse_grab = win;
+        }
     }
     else if(ev->state ==  MOUSE_STATE_DRAG) {
         if(win->xinfo->state != XWIN_STATE_MAX &&
@@ -188,6 +195,7 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
         }
         x->current.win_drag = NULL;
         x->current.drag_state = 0;
+        x->current.mouse_grab = NULL;
     }
 
     if(x->current.win_drag == win && x->current.drag_state != 0) {
@@ -272,6 +280,8 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
     xwin_t* win = NULL;
     if(x->current.win_drag != NULL)
         win = x->current.win_drag;
+    else if(x->current.mouse_grab != NULL)
+        win = x->current.mouse_grab;
     else {
         win = get_mouse_owner(x, &pos);
     }
