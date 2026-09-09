@@ -127,6 +127,7 @@ LIB_EWOKSYS_OBJS =  \
 	$(ARCH)/src/string/strcasestr.o \
 	$(ARCH)/src/string/strcoll.o \
 	$(ARCH)/src/string/wcslen.o \
+	$(ARCH)/src/string/wcwidth.o \
 	$(ARCH)/src/string/bstrings.o \
 	\
 	$(ARCH)/src/stdio/putch.o \

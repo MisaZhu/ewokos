@@ -304,6 +304,21 @@ class wstring {
             return *this;
         }
 
+        /* append() is operator+= with a name and a couple of extra forms.
+           qtermwidget's TerminalCharacterDecoder builds its HTML output with
+           text.append(L"...") and text.append(QString(...).toStdWString()),
+           which is what forced these in; the (s, n) and (n, c) overloads ride
+           along because they reuse the same two lines each and their absence
+           would be the next stop. */
+        wstring& append(const wstring& str) { return operator+=(str); }
+        wstring& append(const wchar_t* s) { return operator+=(s); }
+        wstring& append(const wchar_t* s, size_t n) {
+            return operator+=(wstring(s, n));
+        }
+        wstring& append(size_t n, wchar_t c) {
+            return operator+=(wstring(n, c));
+        }
+
         const wchar_t* c_str() const { return data_; }
         const wchar_t* data() const { return data_; }
         wchar_t* data() { return data_; }

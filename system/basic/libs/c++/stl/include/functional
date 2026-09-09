@@ -288,6 +288,41 @@ template <typename T>
 struct hash<T*> : __ewok_hash_detail::hash_bytes<T*> {};
 
 /* -----------------------------------------------------------------------
+   INVOKE, the C++14 subset std::function and std::bind share: a direct call,
+   and a member function pointer whose object arrives as a raw pointer or a
+   reference.  std::invoke itself is C++17 and this tree is -std=c++14, so
+   call_it spells out just those forms.  It sits up here because std::function
+   below is one of its two consumers; std::bind further down is the other.
+   ----------------------------------------------------------------------- */
+namespace __ewok_bind_detail {
+
+/* call_it(&C::f, obj, ...) accepts obj as a pointer or as a reference.  The O*
+   overload is the more specialized of the two, so partial ordering picks it for
+   pointer arguments. */
+template <class C, class O> inline C& deref(O& obj) { return obj; }
+template <class C, class O> inline C& deref(O* obj) { return *obj; }
+
+/* Direct call: f is a function pointer, a lambda or a functor.  When f is a
+   member pointer the trailing decltype is invalid, so SFINAE drops this overload
+   in favour of the two below. */
+template <class F, class... A>
+inline auto call_it(const F& f, A&&... a) -> decltype(f(static_cast<A&&>(a)...)) {
+    return f(static_cast<A&&>(a)...);
+}
+
+template <class R, class C, class... FA, class O, class... A>
+inline R call_it(R (C::*pmf)(FA...), O&& obj, A&&... a) {
+    return (deref<C>(static_cast<O&&>(obj)).*pmf)(static_cast<A&&>(a)...);
+}
+
+template <class R, class C, class... FA, class O, class... A>
+inline R call_it(R (C::*pmf)(FA...) const, O&& obj, A&&... a) {
+    return (deref<C>(static_cast<O&&>(obj)).*pmf)(static_cast<A&&>(a)...);
+}
+
+} /* namespace __ewok_bind_detail */
+
+/* -----------------------------------------------------------------------
    std::function<R(Args...)>
 
    Qt needs std::function<void()> for QRunnable::create (qrunnable.cpp:139),
@@ -417,7 +452,12 @@ private:
 
     template <typename F>
     static R do_invoke(void* p, Args... a) {
-        return (*static_cast<F*>(p))(static_cast<Args&&>(a)...);
+        /* Through call_it rather than a plain call: qterminal stores a
+           pointer to member function in std::function<bool(MainWindow&,
+           QAction*)>, and INVOKE on a member pointer needs .* rather than
+           (). */
+        return __ewok_bind_detail::call_it(*static_cast<F*>(p),
+                                           static_cast<Args&&>(a)...);
     }
 
     template <typename F>
@@ -491,9 +531,10 @@ inline void swap(function<R(Args...)>& a, function<R(Args...)>& b) { a.swap(b); 
    3. operator() is const, so a stateful functor that mutates itself per call
       will not.
 
-   std::invoke is C++17 and this tree is -std=c++14, so call_it below spells out
-   the two callable forms that matter: a direct call, and a member function
-   pointer whose object is a raw pointer or a reference.
+   std::invoke is C++17 and this tree is -std=c++14, so call_it - hoisted above
+   std::function, which shares it - spells out the two callable forms that
+   matter: a direct call, and a member function pointer whose object is a raw
+   pointer or a reference.
    ----------------------------------------------------------------------- */
 namespace __ewok_bind_detail {
 
@@ -502,30 +543,6 @@ namespace __ewok_bind_detail {
    translation unit ends up with its own copy. */
 template <int N>
 struct placeholder {};
-
-/* bind(&C::f, obj, ...) accepts obj as a pointer or as a reference.  The O*
-   overload is the more specialized of the two, so partial ordering picks it for
-   pointer arguments. */
-template <class C, class O> inline C& deref(O& obj) { return obj; }
-template <class C, class O> inline C& deref(O* obj) { return *obj; }
-
-/* Direct call: f is a function pointer, a lambda or a functor.  When f is a
-   member pointer the trailing decltype is invalid, so SFINAE drops this overload
-   in favour of the two below. */
-template <class F, class... A>
-inline auto call_it(const F& f, A&&... a) -> decltype(f(static_cast<A&&>(a)...)) {
-    return f(static_cast<A&&>(a)...);
-}
-
-template <class R, class C, class... FA, class O, class... A>
-inline R call_it(R (C::*pmf)(FA...), O&& obj, A&&... a) {
-    return (deref<C>(static_cast<O&&>(obj)).*pmf)(static_cast<A&&>(a)...);
-}
-
-template <class R, class C, class... FA, class O, class... A>
-inline R call_it(R (C::*pmf)(FA...) const, O&& obj, A&&... a) {
-    return (deref<C>(static_cast<O&&>(obj)).*pmf)(static_cast<A&&>(a)...);
-}
 
 /* Argument substitution for one bound slot.  This overload takes every
    non-placeholder - is_placeholder<V>::value == 0 - and hands back the stored

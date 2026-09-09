@@ -1,0 +1,48 @@
+#ifndef EWOK_STL_CWCTYPE_H
+#define EWOK_STL_CWCTYPE_H
+
+/*
+ * <cwctype> - wide-character classification, or the sliver of it EwokOS needs.
+ *
+ * Like <cwchar> next door, there is nothing to re-export: libewoksys's
+ * <wchar.h> supplies only wchar_t, wint_t, WEOF and the limits, and no
+ * <wctype.h> exists at all, so the functions here are written in namespace
+ * std rather than pulled in with using-declarations.
+ *
+ * qtermwidget's TerminalCharacterDecoder.cpp is the consumer, and it uses
+ * exactly one function: std::iswspace (line 217), to trim trailing blanks
+ * from decoded terminal lines.  iswspace is also the one wctype function
+ * that can be implemented honestly without locale machinery: the set of
+ * Unicode whitespace code points is small, closed and enumerable below.
+ *
+ * The rest of the family (iswalpha, iswdigit, towlower, ...) is deliberately
+ * absent rather than stubbed: a correct implementation needs Unicode
+ * category tables, a wrong one silently misclassifies, and nothing in the
+ * tree names them.  Add them with real tables when something does.
+ */
+
+#include <wchar.h>
+
+namespace std {
+
+/* Nonzero for the Unicode whitespace code points: the ASCII set (tab through
+   carriage return, space), NEL, and the Zs/Zl/Zp separators.  U+00A0 NO-BREAK
+   SPACE and U+202F NARROW NO-BREAK SPACE are excluded, matching glibc:
+   non-breaking means not a place to split, and callers trimming line ends
+   should not eat them. */
+inline int iswspace(wint_t wc) {
+    unsigned long c = static_cast<unsigned long>(wc);
+    return (c >= 0x09 && c <= 0x0D)     /* HT LF VT FF CR */
+        || c == 0x20                    /* SPACE */
+        || c == 0x85                    /* NEL */
+        || c == 0x1680                  /* OGHAM SPACE MARK */
+        || (c >= 0x2000 && c <= 0x200A) /* EN QUAD .. HAIR SPACE */
+        || c == 0x2028                  /* LINE SEPARATOR */
+        || c == 0x2029                  /* PARAGRAPH SEPARATOR */
+        || c == 0x205F                  /* MEDIUM MATHEMATICAL SPACE */
+        || c == 0x3000;                 /* IDEOGRAPHIC SPACE */
+}
+
+}
+
+#endif // EWOK_STL_CWCTYPE_H

@@ -372,6 +372,15 @@ static int tab_complete(str_t* buf, uint32_t* pos, bool show,
 
 static telnet_console_t _telnet_console;
 
+/* True once a '\r' has been accepted as a line terminator, and it stays true
+   only until the next cmd_gets() call sees the byte that follows.  A "\r\n"
+   source - telnet/ssh, a CRLF script, piped Windows text - delivers its '\n'
+   on the call AFTER the one the '\r' ended, so the state has to outlive a
+   single call: without it that trailing '\n' is read back as a fresh, empty
+   command line.  Any other byte clears it, so a lone '\r' (qterminal's Enter)
+   or a lone '\n' (a Unix pipe) still terminates exactly one line each. */
+static bool _cr_awaiting_lf = false;
+
 int32_t cmd_gets(int fd, str_t* buf) {
     str_reset(buf);	
     old_cmd_t* head = NULL;
@@ -384,7 +393,7 @@ int32_t cmd_gets(int fd, str_t* buf) {
     bool tab_again = false;  /* a repeated TAB lists the candidates */
 
     while(1) {
-        char c, old_c;
+        char c;
         errno = 0;
         int i = telnet ? telnet_console_read(fd, &_telnet_console, &c) : read(fd, &c, 1);
         if(i == 0) {
@@ -531,15 +540,17 @@ int32_t cmd_gets(int fd, str_t* buf) {
             }
         }
         else {
-            if(c == '\r') {
-                old_c = c;
+            /* Fold CR, LF and CRLF into a single line terminator.  The '\n'
+               of a "\r\n" pair shows up on the next call (see _cr_awaiting_lf)
+               and is dropped here; a lone '\r' becomes '\n' and ends the line
+               below exactly as a lone '\n' does. */
+            if(c == '\n' && _cr_awaiting_lf) {
+                _cr_awaiting_lf = false;
+                continue;
+            }
+            _cr_awaiting_lf = (c == '\r');
+            if(c == '\r')
                 c = '\n';
-            }
-            else  {
-                old_c = 0;
-                if(c == '\n' && old_c == '\r')
-                    continue;
-            }
 
             if(buf->len == 0 && (c == '@' || c == '#'))
                 echo = false;

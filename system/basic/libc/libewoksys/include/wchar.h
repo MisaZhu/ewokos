@@ -70,6 +70,15 @@ extern "C" {
 
 size_t wcslen(const wchar_t *s);
 
+/*
+ * wcwidth clears the same bar wcslen does: a pure table lookup over the
+ * Unicode non-spacing and East Asian Wide ranges, no locale, no mbstate_t,
+ * no stdio.  Defined in src/string/wcwidth.c; the consumer that forced it is
+ * qtermwidget's terminal emulation, which asks for every cell whether a
+ * glyph spans one column or two.
+ */
+int wcwidth(wchar_t wc);
+
 #ifdef __cplusplus
 }
 #endif
