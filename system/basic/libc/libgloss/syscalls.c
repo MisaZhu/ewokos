@@ -832,6 +832,17 @@ _rename (const char * oldpath, const char * newpath)
 #endif
 }
 
+/* Public POSIX rename(). EwokOS used to expose only a ENOSYS stub for this in
+   libewoksys/src/unistd/rename.c (since removed), which made every ::rename()
+   fail - notably Qt's QSaveFile::commit() and therefore all QSettings writes.
+   The newlib toolchain libc.a used here does not supply its own rename(), so the
+   symbol must come from us; route it to the working _rename() hook above. */
+int
+rename (const char * oldpath, const char * newpath)
+{
+  return _rename(oldpath, newpath);
+}
+
 void _exit(int err){
   /* Must really terminate: abort()/assert() funnel into _exit(), and a no-op
    * here turns any failed assert into an infinite `b .` spin that pins a

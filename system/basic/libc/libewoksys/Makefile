@@ -63,7 +63,6 @@ LIB_EWOKSYS_OBJS =  \
 	$(ARCH)/src/unistd/pipe.o \
 	$(ARCH)/src/unistd/chown.o \
 	$(ARCH)/src/unistd/rmdir.o \
-	$(ARCH)/src/unistd/rename.o \
 	$(ARCH)/src/unistd/errno.o \
 	$(ARCH)/src/unistd/ftruncate.o \
 	$(ARCH)/src/unistd/truncate.o \
