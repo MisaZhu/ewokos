@@ -15,14 +15,24 @@
 #include <setenv.h>
 #include "shell.h"
 
-static int cd(const char* dir) {
+static int cd(const char* arg) {
     char cwd[FS_FULL_NAME_MAX];
+    char dir[FS_FULL_NAME_MAX];
     if(getcwd(cwd, FS_FULL_NAME_MAX-1) == NULL)
         return -1;
+    while(*arg == ' ') /*skip all space*/
+        arg++;
+
+    /*copy arg and trim trailing '/' (except root), so "cd xxx/"
+      or "cd ../" behaves the same as without the trailing slash*/
+    strncpy(dir, arg, FS_FULL_NAME_MAX-1);
+    dir[FS_FULL_NAME_MAX-1] = 0;
+    int dlen = strlen(dir);
+    while(dlen > 1 && dir[dlen-1] == '/')
+        dir[--dlen] = 0;
+
     if(strcmp(dir, ".") == 0)
         return 0;
-    while(*dir == ' ') /*skip all space*/
-        dir++;
     if(dir[0] == 0) {
         chdir("/");
         return 0;
@@ -55,6 +65,12 @@ static int cd(const char* dir) {
         }
         strcpy(cwd+len, dir);
     }
+
+    /*trim trailing '/' (except root), or "cd xxx/" leaves cwd
+      ending with '/' and the next "cd .." goes one level wrong*/
+    int clen = strlen(cwd);
+    while(clen > 1 && cwd[clen-1] == '/')
+        cwd[--clen] = 0;
 
     fsinfo_t info;
     if(vfs_get_by_name(cwd, &info) != 0)

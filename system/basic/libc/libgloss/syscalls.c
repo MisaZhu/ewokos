@@ -757,16 +757,78 @@ _rename (const char * oldpath, const char * newpath)
   block[3] = (ewokos_addr_t)strlen(newpath);
   return checkerror (do_AngelSWI (AngelSWI_Reason_Rename, block)) ? -1 : 0;
 #else
- // register int r0 asm("r0");
- // register int r1 asm("r1");
- // r0 = (int)oldpath;
- // r1 = (int)newpath;
- // asm ("swi %a3" 
- //      : "=r" (r0)
- //      : "0" (r0), "r" (r1), "i" (SWI_Rename));
- // return checkerror (r0);
-  errno = ENOSYS;
-  return -1;
+  /* EwokOS has no atomic rename in the vfs layer, so build it from the
+     primitives that do work: copy source -> destination, then unlink the
+     source. This is NOT atomic - a crash mid-copy can leave a partial
+     destination - but rename() must succeed at all for Qt's QSaveFile::commit()
+     (and therefore every QSettings write); the old ENOSYS stub made all of them
+     fail silently with AccessError. Same-directory copies keep the window small.
+     Only regular files are handled; directories/special nodes are rejected. */
+  if(oldpath == NULL || newpath == NULL) {
+    errno = EINVAL;
+    return -1;
+  }
+  if(strcmp(oldpath, newpath) == 0)
+    return 0;  /* POSIX: renaming a path onto itself succeeds as a no-op */
+
+  int in = _open(oldpath, O_RDONLY);
+  if(in < 0) {
+    errno = ENOENT;
+    return -1;
+  }
+
+  /* Carry the source mode across so, e.g., an executable doesn't come out 0644. */
+  struct stat st;
+  mode_t mode = 0644;
+  if(_stat(oldpath, &st) == 0) {
+    if(!S_ISREG(st.st_mode)) {
+      _close(in);
+      errno = EINVAL;
+      return -1;
+    }
+    mode = st.st_mode & 07777;
+  }
+
+  /* rename() replaces any existing destination. */
+  _unlink(newpath);
+
+  int out = _open(newpath, O_WRONLY | O_CREAT | O_TRUNC, mode);
+  if(out < 0) {
+    _close(in);
+    return -1;
+  }
+
+  char buf[4096];
+  int n;
+  bool ok = true;
+  while((n = _read(in, buf, sizeof(buf))) > 0) {
+    int off = 0;
+    while(off < n) {
+      int w = _write(out, buf + off, (size_t)(n - off));
+      if(w <= 0) {
+        ok = false;
+        break;
+      }
+      off += w;
+    }
+    if(!ok)
+      break;
+  }
+  if(n < 0)
+    ok = false;
+
+  _close(in);
+  if(_close(out) != 0)
+    ok = false;
+
+  if(!ok) {
+    _unlink(newpath);  /* never leave a half-written destination behind */
+    errno = EIO;
+    return -1;
+  }
+
+  _unlink(oldpath);
+  return 0;
 #endif
 }
 
