@@ -532,14 +532,17 @@ static int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
         return 0;
 
     /*
-     * The identity-mapped sys_dma window is carried in every process's
-     * user half (clone_kernel_vm) - the sbrk heap must never grow into
-     * it. Without the high relocation it sits right above the kernel
-     * image (~1GB on most boards); with the relocation, at the top of
-     * RAM (see sys_info_config/arch_relocate_dma_high). Either way it is
-     * the hard ceiling for the heap.
+     * Bound the sbrk heap only when the identity-mapped sys_dma window was
+     * relocated to the top of RAM (arch_relocate_dma_high, see
+     * sys_info_config): the heap then grows toward it and must stop at it.
+     * On the legacy low layout the window sits right above the kernel image
+     * - a few MB on boards that load low (e.g. raspix) - dead in the middle
+     * of the natural heap range, so no VA bound applies there; heaps that
+     * grow past it just overlay the (per-process, user-half) identity
+     * mapping in their own address space, as they always have. Real
+     * exhaustion is still caught below by kalloc_page().
      */
-    if(_sys_info.sys_dma.phy_base > (1*MB) &&
+    if(_sys_info.sys_dma.phy_base > (4ull*GB) &&
             proc->space->heap_size + (ewokos_addr_t)page_num * PAGE_SIZE >
                 _sys_info.sys_dma.phy_base) {
         printf("proc expand hit heap limit 0x%llx, pid:%d(%s)\n",
@@ -1442,8 +1445,17 @@ void* proc_malloc(proc_t* proc, int64_t size) {
     else {
         //printf("kproc expand pages: %d, size: %d\n", pages, size);
         if(pages > 0x7fffffffu ||
-                proc_expand_mem(proc, (int32_t)pages) != 0)
+                proc_expand_mem(proc, (int32_t)pages) != 0) {
+            /*
+             * Expand failed: the caller receives no memory, so the kernel
+             * side break (heap_used) must not move either. Leaving it
+             * inflated would make every later malloc compute a bogus huge
+             * delta, try to expand again and fail - permanently bricking
+             * the process's heap off one transient OOM.
+             */
+            proc->space->heap_used -= size;
             return NULL;
+        }
     }
     return (void*)proc->space->malloc_base;
 }
