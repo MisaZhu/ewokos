@@ -142,6 +142,12 @@ static inline const char* svc_name(int32_t code) {
         return "proc_priority";
     case SYS_SHM_CONTIG_PHY_ADDR:
         return "shm_contig_phy_addr";
+    case SYS_BLOCK_TIMEOUT:
+        return "block_timeout";
+    case SYS_SEMAPHORE_ENTER_TIMEOUT:
+        return "semaphore_enter_timeout";
+    case SYS_SEMAPHORE_ALLOC_COUNT:
+        return "semaphore_alloc_count";
     }
     return "unknown";
 }

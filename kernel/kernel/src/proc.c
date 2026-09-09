@@ -47,6 +47,32 @@ bool _core_proc_ready = false;
 int32_t _core_proc_pid = -1;
 uint32_t _ipc_uid = 0;
 
+/*
+ * Per-task user thread-local storage base.
+ *
+ * The cross toolchain is built single-threaded, so it lowers every
+ * __thread / thread_local to libgcc's emulated TLS rather than to a native
+ * TLS relocation, and libc backs that emulation with one block per task hung
+ * off the user thread register (see libewoksys src/tls/emutls.c). The register
+ * is free for that use: nothing else in the kernel reads or writes it, and it
+ * is not part of context_t, so the switch has to carry it explicitly.
+ *
+ * On architectures without such a register the field stays 0 and libc falls
+ * back to whatever the toolchain provides.
+ */
+#if defined(__aarch64__)
+static inline ewokos_addr_t proc_tls_base_read(void) {
+	ewokos_addr_t v;
+	__asm__ volatile("mrs %0, tpidr_el0" : "=r"(v));
+	return v;
+}
+
+static inline void proc_tls_base_write(ewokos_addr_t v) {
+	__asm__ volatile("msr tpidr_el0, %0" :: "r"(v));
+}
+#define PROC_HAS_TLS_BASE 1
+#endif
+
 #ifdef KERNEL_SMP
 static int32_t _proc_spin = 0;
 static int32_t _proc_lock_owner = -1;
@@ -897,6 +923,17 @@ proc_switch_done:
     proc_track_priority_update(to);
     if(cproc != to)
         set_current_proc(to);
+#ifdef PROC_HAS_TLS_BASE
+    /*
+     * Both sides are under the proc lock and interrupts cannot preempt the
+     * rest of the switch (the frame copy below depends on that too), so the
+     * outgoing value is stashed and the incoming one installed as a pair:
+     * whichever task the handler erets into finds its own thread_locals.
+     */
+    if(cproc != NULL)
+        cproc->tls_base = proc_tls_base_read();
+    proc_tls_base_write(to->tls_base);
+#endif
     memcpy(ctx, &to->ctx, sizeof(context_t));
     proc_lock_leave();
 }
@@ -1088,6 +1125,15 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 
     if(proc->info.type == TASK_TYPE_PROC) {
         semaphore_clear(proc->info.pid);
+        /*
+         * semaphore_clear() only resets semaphores this proc CREATED. The
+         * main task can also occupy - or sit in the wait queue of, with a
+         * granted-but-uncollected permit - a semaphore created by ANOTHER
+         * proc; threads get the same recovery in their branch below, and
+         * without it here a dying proc leaks that permit and leaves the
+         * lock occupied forever.
+         */
+        semaphore_clear_occupied(proc->info.pid);
         int32_t i;
         for (i = 0; i < _kernel_config.max_task_num; i++) {
             proc_t *p = _task_table[i];
@@ -1753,6 +1799,12 @@ int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
     proc->ctx.sp = ALIGN_DOWN(user_stack_base + pages*PAGE_SIZE, EWOK_STACK_ALIGN) - EWOK_STACK_INIT_BIAS;
     proc->ctx.pc = ELF_ENTRY(proc_image);
     proc->ctx.lr = ELF_ENTRY(proc_image);
+    /*
+     * A new image gets new thread_locals: the block the previous image hung
+     * off TPIDR_EL0 belongs to the old heap, and the new program must start
+     * from its own initial values rather than inherit stale ones.
+     */
+    proc->tls_base = 0;
     proc_ready(proc);
     shm_proc_unmap(proc, (void*)proc_image);
 

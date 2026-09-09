@@ -166,6 +166,8 @@ LIB_EWOKSYS_OBJS =  \
 	$(ARCH)/src/pthread/pthread_rwlock.o\
 	$(ARCH)/src/pthread/pthread_barrier.o\
 	\
+	$(ARCH)/src/tls/emutls.o\
+	\
 	$(ARCH)/src/semaphore/sem_init.o\
 	$(ARCH)/src/semaphore/sem_wait.o\
 	$(ARCH)/src/semaphore/sem_post.o\

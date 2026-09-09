@@ -1,39 +1,18 @@
 #include <semaphore.h>
 #include <ewoksys/semaphore.h>
-#include <ewoksys/syscall.h>
 #include <sys/time.h>
-#include <unistd.h>
 #include <errno.h>
 #include <stdint.h>
-
-static inline uint64_t sem_time_usec(void) {
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
-	return (uint64_t)tv.tv_sec * 1000000ULL + (uint64_t)tv.tv_usec;
-}
-
-/* Try to decrement the semaphore value once. Returns 1 on success. */
-static int sem_try_acquire(sem_t *sem) {
-	int got = 0;
-
-	if(semaphore_enter(sem->lock) != 0)
-		return -1;
-	if(sem->value > 0) {
-		sem->value--;
-		got = 1;
-	}
-	semaphore_quit(sem->lock);
-	return got;
-}
 
 int sem_trywait(sem_t *sem) {
 	if(sem == NULL || sem->magic != SEM_MAGIC) {
 		errno = EINVAL;
 		return -1;
 	}
-	if(sem_try_acquire(sem) == 1)
+	int res = semaphore_tryenter(sem->ksem);
+	if(res == SEM_RES_ACQUIRED)
 		return 0;
-	errno = EAGAIN;
+	errno = (res == SEM_RES_OCCUPIED) ? EAGAIN : EINVAL;
 	return -1;
 }
 
@@ -42,52 +21,61 @@ int sem_wait(sem_t *sem) {
 		errno = EINVAL;
 		return -1;
 	}
-	while(1) {
-		int res = sem_try_acquire(sem);
-		if(res == 1)
-			return 0;
-		if(res < 0) {
-			errno = EINVAL;
-			return -1;
-		}
-		syscall0(SYS_YIELD);
-	}
+	/*
+	 * Parks in the kernel until a permit is posted. This used to be a
+	 * try-and-yield loop around the userspace count, which pinned a core for
+	 * as long as the semaphore stayed empty.
+	 */
+	if(semaphore_enter(sem->ksem) == SEM_RES_ACQUIRED)
+		return 0;
+	errno = EINVAL;
+	return -1;
 }
 
 int sem_timedwait(sem_t *sem, const struct timespec *abs_timeout) {
-	uint64_t deadline;
-
 	if(sem == NULL || sem->magic != SEM_MAGIC || abs_timeout == NULL ||
 			abs_timeout->tv_nsec < 0 || abs_timeout->tv_nsec >= 1000000000L) {
 		errno = EINVAL;
 		return -1;
 	}
 
-	deadline = (uint64_t)abs_timeout->tv_sec * 1000000ULL +
-		(uint64_t)(abs_timeout->tv_nsec / 1000);
-
-	while(1) {
-		int res = sem_try_acquire(sem);
-		if(res == 1)
-			return 0;
-		if(res < 0) {
-			errno = EINVAL;
-			return -1;
-		}
-
-		uint64_t now = sem_time_usec();
-		if(now >= deadline) {
-			errno = ETIMEDOUT;
-			return -1;
-		}
-
-		uint64_t remaining = deadline - now;
-		if(remaining > 1000) {
-			usleep(1000);
-		} else if(remaining > 100) {
-			usleep((useconds_t)(remaining / 2));
-		} else {
-			syscall0(SYS_YIELD);
-		}
+	/*
+	 * A permit that is already available is taken even when abs_timeout is in
+	 * the past; reporting ETIMEDOUT there would fail a wait nobody is
+	 * contesting.
+	 */
+	int res = semaphore_tryenter(sem->ksem);
+	if(res == SEM_RES_ACQUIRED)
+		return 0;
+	if(res != SEM_RES_OCCUPIED) {
+		errno = EINVAL;
+		return -1;
 	}
+
+	// abs_timeout is a wall-clock (CLOCK_REALTIME) instant
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	uint64_t now = (uint64_t)tv.tv_sec * 1000000ULL + (uint64_t)tv.tv_usec;
+	uint64_t deadline = (uint64_t)abs_timeout->tv_sec * 1000000ULL +
+		(uint64_t)(abs_timeout->tv_nsec / 1000);
+	if(now >= deadline) {
+		errno = ETIMEDOUT;
+		return -1;
+	}
+
+	/*
+	 * What is left of the deadline, handed to the kernel as a duration. The
+	 * kernel measures it against its own monotonic tic, so a wall-clock
+	 * adjustment after this point cannot stretch or truncate the wait, and
+	 * there is no 1ms usleep() probe waking us up in between.
+	 */
+	uint64_t remaining = deadline - now;
+	if(remaining > 0xffffffffULL)
+		remaining = 0xffffffffULL;
+
+	res = semaphore_enter_timeout(sem->ksem, (uint32_t)remaining);
+	if(res == SEM_RES_ACQUIRED)
+		return 0;
+	errno = (res == SEM_RES_TIMEOUT) ? ETIMEDOUT : EINVAL;
+	return -1;
 }

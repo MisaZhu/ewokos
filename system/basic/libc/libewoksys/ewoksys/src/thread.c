@@ -14,7 +14,13 @@ static void thread_entry(thread_func_t func, void* p) {
      * Ewok pthreads are implemented as thread-like child tasks. They must not
      * run process atexit handlers on thread completion, otherwise libraries
      * such as SDL will execute global shutdown paths from the worker task.
+     *
+     * The task's thread_locals are released here rather than in pthread_exit:
+     * this is the one teardown every thread reaches, and it runs after the
+     * pthread_key destructors a pthread trampoline already fired - those may
+     * read thread_locals themselves, so the block has to outlive them.
      */
+    __ewok_emutls_thread_exit();
     proc_exit();
     syscall1(SYS_EXIT, 0);
 }

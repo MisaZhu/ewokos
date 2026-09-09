@@ -747,14 +747,23 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
     case SYS_SEMAPHORE_ALLOC:
         ctx->gpr[0] = semaphore_alloc();
         return;
+    case SYS_SEMAPHORE_ALLOC_COUNT:
+        ctx->gpr[0] = semaphore_alloc_count((int32_t)arg0);
+        return;
     case SYS_SEMAPHORE_FREE:
         semaphore_free(arg0);
         return;
     case SYS_SEMAPHORE_ENTER:
         semaphore_enter(ctx, arg0);
         return;
+    case SYS_SEMAPHORE_ENTER_TIMEOUT:
+        semaphore_enter_timeout(ctx, arg0, (uint32_t)arg1);
+        return;
     case SYS_SEMAPHORE_TRY_ENTER:
         semaphore_try_enter(ctx, arg0);
+        return;
+    case SYS_SEMAPHORE_GET_COUNT:
+        ctx->gpr[0] = semaphore_get_count(arg0);
         return;
     case SYS_SEMAPHORE_QUIT:
         ctx->gpr[0] = semaphore_quit(arg0);

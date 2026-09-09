@@ -15,9 +15,17 @@ extern "C" {
 
 #define SEM_MAGIC 0x53454d31u /* "SEM1" */
 
+/*
+ * A sem_t is a handle on a kernel counting semaphore: the permits live in the
+ * kernel, so sem_wait() blocks there and sem_post() wakes a waiter directly.
+ *
+ * It used to carry the count in userspace with a kernel binary semaphore as a
+ * spinlock around it, which meant sem_wait() on an empty semaphore could only
+ * poll - try to take the count, fail, SYS_YIELD, repeat - and burned a core per
+ * waiter. There is no userspace count left to protect.
+ */
 typedef struct sem_t {
-	volatile int32_t value;
-	int32_t lock;      /* kernel binary semaphore protecting value */
+	int32_t ksem;      /* kernel counting semaphore holding the permits */
 	uint32_t magic;
 } sem_t;
 

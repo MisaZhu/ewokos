@@ -91,6 +91,18 @@ typedef struct st_proc {
 	 */
 	uint8_t           wake_pending;
 
+	/*
+	 * User-space thread-local storage base - TPIDR_EL0 on aarch64. The
+	 * toolchain lowers every __thread / thread_local to libgcc's emulated
+	 * TLS, whose per-task block libc hangs off this register, so it belongs
+	 * to the task exactly like the register frame does. It is not part of
+	 * context_t, which means proc_switch() has to move it by hand; without
+	 * that every task of a process would read one shared copy of each
+	 * thread_local. 0 until the task first touches one, and 0 for a freshly
+	 * created task or a freshly loaded image.
+	 */
+	ewokos_addr_t     tls_base;
+
 	context_t         ctx;
 } proc_t;
 
