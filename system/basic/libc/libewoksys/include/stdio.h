@@ -9,7 +9,40 @@
 #define SEEK_SET 0
 #define SEEK_CUR 1
 #define SEEK_END 2
+
+/*
+ * BUFSIZ: the size of the buffer ISO C says a stream uses by default, and the
+ * value setvbuf() accepts as `size` when the caller passes NULL.  It was simply
+ * missing, which is invisible until a caller names it - HarfBuzz does, in
+ * hb_blob_create_from_file_or_fail(), where it sizes the staging buffer for
+ * reading a font file:
+ *
+ *     hb-blob.cc:752: error: 'BUFSIZ' was not declared in this scope
+ *
+ * That is on the path to QtGui's text engine, so the gap stopped the whole
+ * shaper rather than one optional feature.  1024 is the conventional value and
+ * matches what every other libc in this family uses; nothing here depends on a
+ * particular number, only on it existing and being large enough to make
+ * buffered reads worthwhile.
+ */
+#define BUFSIZ 1024
+
+/*
+ * The three setvbuf() buffering modes.  Only _IONBF existed, which left the set
+ * half-finished: code asking for full or line buffering could not even name
+ * what it wanted.
+ *
+ * The specific numbers are not load-bearing.  setvbuf() in src/stdio/setvbuf.c
+ * discards both `mode` and `size` and delegates to setbuf(), so buffering
+ * behaviour does not actually vary by mode on this target - the values only have
+ * to be distinct from each other so that a caller's comparisons and a switch on
+ * mode behave sanely.  _IONBF keeps its existing 0 rather than being renumbered
+ * to glibc's ordering, because it is already published and something may
+ * already depend on it; the two new ones follow from there.
+ */
 #define _IONBF 0
+#define _IOFBF 1
+#define _IOLBF 2
 
 #ifdef __cplusplus
 extern "C" {

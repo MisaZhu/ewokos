@@ -132,6 +132,50 @@ static int set_stderr(void) {
 void _libc_init(void);
 void _libc_exit(void);
 
+/*
+ * Static constructors.
+ *
+ * GCC collects the address of every namespace-scope object that has a
+ * non-trivial initializer into .init_array and expects the C runtime startup
+ * code to call them all before main().  EwokOS links applications with
+ * -nostartfiles and enters directly at _start() below, so there is no crt0 to
+ * do it and, without this loop, those constructors never run at all.
+ *
+ * Plain C programs mostly do not notice.  C++ ones cannot work: Qt builds its
+ * shared-empty container payloads, logging categories and codec tables out of
+ * globals initialized this way, and a QApplication whose constructors were
+ * skipped dereferences a null refcount almost immediately.
+ *
+ * The bounds come from PROVIDE_HIDDEN in the linker script, which defines them
+ * only because something now references them, and only if an .init_array output
+ * section survives into the image.  A program with no static constructors may
+ * still link with both left at zero, hence the weak declaration and the test
+ * rather than an assumption.  They are compared after decaying to pointers so
+ * that -Waddress has nothing to say about taking the address of an array.
+ *
+ * .fini_array is deliberately not run.  By the time the process is on its way
+ * out, proc_exit() has already torn down the IPC and vfs state a destructor
+ * would need in order to flush anything, so calling them would trade a clean
+ * exit for a crash.  Nothing in the tree registers a .fini_array entry that
+ * has to run.
+ */
+extern void (*__init_array_start[])(void) __attribute__((weak));
+extern void (*__init_array_end[])(void) __attribute__((weak));
+
+static void run_init_array(void) {
+    void (**p)(void) = __init_array_start;
+    void (**end)(void) = __init_array_end;
+
+    if(p == NULL || end == NULL)
+        return;
+
+    while(p < end) {
+        if(*p != NULL)
+            (*p)();
+        p++;
+    }
+}
+
 void _start(void) {
     char* argv[ARG_MAX] = {0};
     int32_t argc = 0;
@@ -174,7 +218,13 @@ void _start(void) {
 
     loadenv();
     set_stderr();
-    
+
+    /* Last thing before main(): every service a constructor might need - the
+       heap, the vfs, signals, the command line and the environment - is up by
+       now, and running them any earlier would leave a constructor that calls
+       malloc or getenv working against uninitialized state. */
+    run_init_array();
+
     int ret = main(argc, argv);
     /*
      * Let the process-exit path reclaim inherited stdio FDs in one place.

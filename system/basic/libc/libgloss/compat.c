@@ -1641,8 +1641,92 @@ double difftime(time_t time1, time_t time0) {
     return (double)((long long)time1 - (long long)time0);
 }
 
+/*
+ * The three POSIX timezone globals declared in <time.h>, and the tzset() that
+ * is specified to populate them.
+ *
+ * They used not to exist here at all, and tzset() was an empty function whose
+ * comment said TZ is re-read on every localtime() call.  That is true - both
+ * localtime() and mktime() call parse_tz_offset_seconds(getenv("TZ")) - but it
+ * left the globals undefined, so any program that reads them directly failed
+ * to link.  Qt does exactly that: qdatetime.cpp's qt_timezone() returns
+ * `timezone` and qt_tzname() returns `tzname[isDst]`.
+ *
+ * The sign convention is worth spelling out because it looks inverted.
+ * parse_tz_offset_seconds() follows the POSIX TZ format, in which the offset
+ * is positive for locations *west* of Greenwich: TZ=UTC+8 yields +28800 and
+ * means eight hours behind UTC.  That is also exactly how POSIX defines the
+ * `timezone` variable - "seconds west of Greenwich", so UTC+01:00 is -3600.
+ * The two agree, so the parsed value is stored without a sign flip.  This is
+ * the same value localtime() subtracts from the epoch.
+ *
+ * The buffers are static and fixed-size because tzname must point at storage
+ * that outlives the call; TZ names in practice are three to five letters, and
+ * POSIX guarantees at least TZNAME_MAX (6) which sysconf() reports.
+ */
+static char tzname_std[16] = "UTC";
+static char tzname_dst[16] = "UTC";
+char *tzname[2] = { tzname_std, tzname_dst };
+long timezone = 0;
+int daylight = 0;
+
+/* Copies the leading run of letters from a POSIX TZ string into dest.
+ * Falls back to "UTC" when there is no name, which is what an unset or empty
+ * TZ means everywhere else in this file. */
+static void set_tz_name(char *dest, size_t destsz, const char *src) {
+    size_t i = 0;
+
+    while (src != NULL && i + 1 < destsz &&
+            ((src[i] >= 'A' && src[i] <= 'Z') || (src[i] >= 'a' && src[i] <= 'z'))) {
+        dest[i] = src[i];
+        ++i;
+    }
+
+    if (i == 0) {
+        dest[0] = 'U';
+        dest[1] = 'T';
+        dest[2] = 'C';
+        i = 3;
+    }
+    dest[i] = '\0';
+}
+
 void tzset(void) {
-    /* TZ is re-read from the environment on every localtime() call. */
+    /* TZ is still re-read from the environment on every localtime() call, so
+     * the offset applied to a conversion never goes stale.  What this adds is
+     * making the globals agree with it. */
+    const char *tz = getenv("TZ");
+    const char *p = tz;
+
+    timezone = parse_tz_offset_seconds(tz);
+
+    /* std name, then skip past the std offset to look for a dst name. */
+    set_tz_name(tzname_std, sizeof(tzname_std), p);
+
+    if (p != NULL) {
+        while ((*p >= 'A' && *p <= 'Z') || (*p >= 'a' && *p <= 'z')) {
+            ++p;
+        }
+        /* optional sign and hh[:mm[:ss]] */
+        if (*p == '+' || *p == '-') {
+            ++p;
+        }
+        while ((*p >= '0' && *p <= '9') || *p == ':') {
+            ++p;
+        }
+    }
+
+    /* A second name means the TZ string specifies daylight saving time.
+     * Only the presence of DST is reported - EwokOS parses no transition
+     * rules, so the dst offset, if given, is not applied. */
+    if (p != NULL && ((*p >= 'A' && *p <= 'Z') || (*p >= 'a' && *p <= 'z'))) {
+        set_tz_name(tzname_dst, sizeof(tzname_dst), p);
+        daylight = 1;
+    }
+    else {
+        set_tz_name(tzname_dst, sizeof(tzname_dst), NULL);
+        daylight = 0;
+    }
 }
 
 time_t mktime(struct tm *tm) {

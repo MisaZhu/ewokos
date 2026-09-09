@@ -42,4 +42,36 @@ typedef unsigned int wint_t;
 #define WCHAR_MIN 0
 #endif
 
+/*
+ * wcslen - the one wide-character function that is not a conversion.
+ *
+ * The comment at the top of this file says no conversion functions are
+ * declared, and that refusal is load-bearing: libcurses is built with
+ * DISABLE_WCHAR against this header, and pulling in newlib's wcstombs/mbstowcs
+ * family would drag in a stdio/mbstate_t ABI EwokOS does not have.
+ *
+ * wcslen is different in kind.  It converts nothing - it counts wchar_t
+ * elements until a zero, needing no locale, no mbstate_t and no stdio.  It is
+ * therefore declared here and defined in src/string/wcslen.c, alongside the
+ * other byte-oriented string helpers.
+ *
+ * Two consumers, which is why it lands in the C header rather than only in the
+ * C++ <cwchar>:
+ *   qstring.cpp   QString::fromWCharArray / toStdWString paths call the
+ *                 *global* wcslen, where a namespace-std-only declaration is
+ *                 not visible.
+ *   <cwchar>      EWOK_STL's std::wcslen/wcsxfrm keep working unchanged;
+ *                 declaring ::wcslen does not conflict with it, because
+ *                 inside namespace std the std:: declaration is found first.
+ */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+size_t wcslen(const wchar_t *s);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif

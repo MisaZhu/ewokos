@@ -21,6 +21,29 @@
    in a TU that has not already included <new> via <vector>. */
 #include <new>
 
+/* numeric_limits.  Nothing in this header uses it; the include exists because
+   every Qt translation unit assumes <algorithm> brings it in, and the failure
+   is transitive, so it surfaces in a header far away from either one.
+   qglobal.h:142 includes <algorithm>, and qdrawhelper_p.h:550 does
+
+       Simd::v_dup(std::numeric_limits<float>::epsilon())
+
+   which produced, in ten gui translation units at once - qdrawhelper,
+   qdrawhelper_neon, qblendfunctions, qcolor, qcompositionfunctions,
+   qcosmeticstroker, qimage_conversions, qimagescale, qmemrotate, qrasterizer:
+
+       error: 'numeric_limits' is not a member of 'std'
+       error: expected primary-expression before 'float'
+
+   <limits> already supplies numeric_limits<float>::epsilon() from
+   __FLT_EPSILON__ via __limits_fp_traits<float>, so the values were never the
+   problem.  libstdc++ reaches the same place by a longer route (<algorithm> ->
+   stl_algobase.h -> <limits>), which is why Qt can rely on it without saying
+   so.  No cycle: <limits> includes only <type_traits>. */
+#include <limits>
+/* For the braced-list max() and min() at the bottom of this header. */
+#include <initializer_list>
+
 namespace std {
 
 /* std::swap moved to <utility>, where the standard puts it. */
@@ -105,6 +128,35 @@ Iterator unique(Iterator first, Iterator last) {
     Iterator result = first;
     while (++first != last) {
         if (!(*result == *first)) {
+            *++result = *first;
+        }
+    }
+    return ++result;
+}
+
+/* The predicate form, which qpathclipper.cpp:1627 needs:
+
+       y_coords.erase(std::unique(y_coords.begin(), y_coords.end(), fuzzyCompare),
+                      y_coords.end());
+
+   with `bool fuzzyCompare(qreal, qreal)` a free function, so the two-argument
+   version above matches nothing:
+
+       error: no matching function for call to 'unique(QVector<double>::iterator,
+              QVector<double>::iterator, bool (&)(qreal, qreal))'
+
+   pred takes the place of the equality test, inverted: consecutive elements
+   are duplicates when pred says they are equivalent, which for a fuzzy
+   comparison is the only thing "duplicate" can mean.  As in the two-argument
+   form, a run collapses to its first element and the values past the returned
+   iterator are left in an unspecified state, so the erase() at the call site is
+   what actually shortens the vector. */
+template <typename Iterator, typename BinaryPredicate>
+Iterator unique(Iterator first, Iterator last, BinaryPredicate pred) {
+    if (first == last) return last;
+    Iterator result = first;
+    while (++first != last) {
+        if (!pred(*result, *first)) {
             *++result = *first;
         }
     }
@@ -200,6 +252,65 @@ void sort_loop(Iterator first, Iterator last, Compare comp, int depth) {
     insertion_sort(first, last, comp);
 }
 
+/* Introselect - quickselect with the same recursion budget sort_loop gets, and
+   the same escape hatch when the budget runs out.
+
+   The fallback is not optional.  Plain quickselect is O(n) on average and O(n^2)
+   on adversarial or merely near-sorted input, and sort_loop above already
+   records why that is unacceptable here: EwokOS thread stacks are small.  When
+   depth hits zero the surviving range is handed to the merge sort, which is
+   O(n log n) worst case and needs no budget of its own, so the whole algorithm
+   is bounded by O(n log n) like sort() is.
+
+   Partitioning is copied verbatim from sort_loop - median-of-three on the
+   elements, pivot parked at the end, Lomuto scan - so the two cannot drift apart
+   on the cases that comment describes.  The difference is what happens after:
+   sort_loop recurses into the smaller partition and loops on the larger, whereas
+   this descends into only the one partition that still contains nth and stops
+   the moment nth lands on the pivot.
+
+   [first, nth) ends up <= *nth <= [nth, last), which is the whole
+   postcondition; the two sub-ranges are partitioned but not sorted, and callers
+   must not assume they are. */
+template <typename Iterator, typename Compare>
+void nth_element_loop(Iterator first, Iterator nth, Iterator last,
+                      Compare comp, int depth) {
+    while (last - first > 1) {
+        if (depth <= 0) {
+            stable_sort_impl(first, last, comp);
+            return;
+        }
+        --depth;
+
+        Iterator mid = first + (last - first) / 2;
+        Iterator hi = last - 1;
+        if (comp(*mid, *first)) swap(*mid, *first);
+        if (comp(*hi, *mid)) swap(*hi, *mid);
+        if (comp(*mid, *first)) swap(*mid, *first);
+
+        swap(*mid, *hi);
+        Iterator store = first;
+        for (Iterator i = first; i != hi; ++i) {
+            if (comp(*i, *hi)) {
+                swap(*i, *store);
+                ++store;
+            }
+        }
+        swap(*store, *hi);
+
+        /* *store is the pivot in its final sorted position.  If that is the
+           position we were asked for, stop; otherwise keep only the side of the
+           partition that nth falls in. */
+        if (nth == store) {
+            return;
+        } else if (nth < store) {
+            last = store;
+        } else {
+            first = store + 1;
+        }
+    }
+}
+
 } // namespace ewok_sort_detail
 
 template <typename Iterator>
@@ -214,6 +325,29 @@ void sort(Iterator first, Iterator last, Compare comp) {
     if (first >= last) return;
     ewok_sort_detail::sort_loop(first, last, comp,
                                 ewok_sort_detail::depth_limit((size_t)(last - first)));
+}
+
+/* nth_element.  QtConcurrent's Median<T>::median() is the caller that showed up
+   missing - qtconcurrentmedian.h:114 selects the middle of a sliding window of
+   timings - but it is a [alg.nth.element] requirement like any other, so it is
+   implemented properly rather than as `sort()` in disguise.
+
+   nth == last is legal and vacuous: the postcondition says nothing about where
+   any particular element goes, so returning is correct and avoids the loop
+   below partitioning against an iterator it must never dereference. */
+template <typename Iterator>
+void nth_element(Iterator first, Iterator nth, Iterator last) {
+    if (first == last || nth == last) return;
+    ewok_sort_detail::nth_element_loop(first, nth, last,
+                                       ewok_sort_detail::default_less(),
+                                       ewok_sort_detail::depth_limit((size_t)(last - first)));
+}
+
+template <typename Iterator, typename Compare>
+void nth_element(Iterator first, Iterator nth, Iterator last, Compare comp) {
+    if (first == last || nth == last) return;
+    ewok_sort_detail::nth_element_loop(first, nth, last, comp,
+                                       ewok_sort_detail::depth_limit((size_t)(last - first)));
 }
 
 template <typename Iterator, typename T>
@@ -297,6 +431,33 @@ Iterator upper_bound(Iterator first, Iterator last, const T& value, Compare comp
         }
     }
     return first;
+}
+
+/* equal_range is lower_bound and upper_bound as one result.  The caller that
+   showed up missing is qplatformtheme.cpp:654:
+
+       std::pair<const QKeyBinding *, const QKeyBinding *> range =
+           std::equal_range(QPlatformThemePrivate::keyBindings,
+                            QPlatformThemePrivate::keyBindings
+                                + QPlatformThemePrivate::numberOfKeyBindings,
+                            key, ByStandardKey());
+
+   `key` is a QKeySequence::StandardKey and the elements are QKeyBinding, so
+   ByStandardKey carries all four cross-typed operator() overloads.  That works
+   only because lower_bound calls comp(element, value) and upper_bound calls
+   comp(value, element) - a comparator written for a single type would not
+   compile here, and neither bound can be swapped for the other.  The return
+   type is pair<Iterator, Iterator>, which is what the call site declares. */
+template <typename Iterator, typename T>
+pair<Iterator, Iterator> equal_range(Iterator first, Iterator last, const T& value) {
+    return pair<Iterator, Iterator>(lower_bound(first, last, value),
+                                    upper_bound(first, last, value));
+}
+
+template <typename Iterator, typename T, typename Compare>
+pair<Iterator, Iterator> equal_range(Iterator first, Iterator last, const T& value, Compare comp) {
+    return pair<Iterator, Iterator>(lower_bound(first, last, value, comp),
+                                    upper_bound(first, last, value, comp));
 }
 
 template <typename Iterator1, typename Iterator2>
@@ -923,6 +1084,96 @@ OutputIt set_union(InputIt1 first1, InputIt1 last1,
     return copy(first2, last2, copy(first1, last1, d_first));
 }
 
+/* Both ranges sorted; true when every element of the second is present in the
+   first.  qshaderformat.cpp:113 is the caller:
+
+       std::includes(m_extensions.constBegin(), m_extensions.constEnd(),
+                     other.m_extensions.constBegin(), other.m_extensions.constEnd());
+
+   on a QByteArrayList, that is QList<QByteArray>.  The two ranges get
+   independent template parameters rather than one shared InputIt: constBegin()
+   and constEnd() happen to agree on QList, but that is a container detail and
+   not something [alg.set.operations] asks the caller to guarantee.
+
+   Single pass over both.  A first-range element sorting before the current
+   second-range element cannot match it and is skipped; one sorting after it
+   means the second range holds a value the first does not, which is the whole
+   question includes() answers. */
+template <typename InputIt1, typename InputIt2>
+bool includes(InputIt1 first1, InputIt1 last1, InputIt2 first2, InputIt2 last2) {
+    for (; first2 != last2; ++first1) {
+        if (first1 == last1 || *first2 < *first1) return false;
+        if (!(*first1 < *first2)) ++first2;
+    }
+    return true;
+}
+
+template <typename InputIt1, typename InputIt2, typename Compare>
+bool includes(InputIt1 first1, InputIt1 last1, InputIt2 first2, InputIt2 last2, Compare comp) {
+    for (; first2 != last2; ++first1) {
+        if (first1 == last1 || comp(*first2, *first1)) return false;
+        if (!comp(*first1, *first2)) ++first2;
+    }
+    return true;
+}
+
+/* The braced-list forms of max() and min().  qktxhandler.cpp:193 is the caller:
+
+       qCountLeadingZeroBits(std::max({ header.pixelWidth, header.pixelHeight,
+                                        header.pixelDepth }))
+
+   all three fields being quint32, so initializer_list<T> deduces cleanly.
+
+   Written as a loop rather than as max_element(ilist.begin(), ilist.end()) even
+   though that is the textbook definition.  max_element is declared further down
+   this header, and calling it from here would not compile: the lookup is
+   dependent, so it considers only declarations visible at the point of
+   definition plus whatever ADL finds at instantiation, and ADL on `const
+   quint32*` associates no namespace containing it.  Moving these four overloads
+   below max_element instead would separate them from the two-argument max()
+   directly above, which costs the next reader more than the loop costs.
+
+   The returned reference points into the initializer_list's backing array,
+   whose lifetime reaches the end of the full-expression - long enough for the
+   call site above, and the same rule the standard gives.  An empty list is
+   undefined behaviour there and dereferences begin() here; the return type is a
+   reference, so there is no way to report it. */
+template <typename T>
+const T& max(initializer_list<T> ilist) {
+    const T* best = ilist.begin();
+    for (const T* p = best + 1; p != ilist.end(); ++p) {
+        if (*best < *p) best = p;
+    }
+    return *best;
+}
+
+template <typename T, typename Compare>
+const T& max(initializer_list<T> ilist, Compare comp) {
+    const T* best = ilist.begin();
+    for (const T* p = best + 1; p != ilist.end(); ++p) {
+        if (comp(*best, *p)) best = p;
+    }
+    return *best;
+}
+
+template <typename T>
+const T& min(initializer_list<T> ilist) {
+    const T* best = ilist.begin();
+    for (const T* p = best + 1; p != ilist.end(); ++p) {
+        if (*p < *best) best = p;
+    }
+    return *best;
+}
+
+template <typename T, typename Compare>
+const T& min(initializer_list<T> ilist, Compare comp) {
+    const T* best = ilist.begin();
+    for (const T* p = best + 1; p != ilist.end(); ++p) {
+        if (comp(*p, *best)) best = p;
+    }
+    return *best;
+}
+
 template <typename InputIt1, typename InputIt2, typename OutputIt, typename Compare>
 OutputIt set_union(InputIt1 first1, InputIt1 last1,
                    InputIt2 first2, InputIt2 last2, OutputIt d_first, Compare comp) {
@@ -941,6 +1192,186 @@ OutputIt set_union(InputIt1 first1, InputIt1 last1,
         ++d_first;
     }
     return copy(first2, last2, copy(first1, last1, d_first));
+}
+
+/**
+ * inplace_merge / stable_partition.
+ *
+ * Both are here, at the bottom of the header, on purpose: they call rotate(),
+ * which is defined at line ~889.  A dependent call inside a template only sees
+ * declarations that exist at the point of definition (plus whatever ADL finds),
+ * and ADL on a raw pointer or on QVector's iterator associates no namespace that
+ * contains rotate - so placing these any earlier would compile to "rotate was
+ * not declared in this scope" at instantiation, far from the real cause.
+ *
+ * Why Qt needs them:
+ *   qgraphicsscenelinearindex_p.h:99 (a header, so it takes two widgets TUs down)
+ *     std::inplace_merge(m_items.begin(),
+ *                        m_items.begin() + m_numSortedElements,
+ *                        m_items.end());
+ *   on a QList<QGraphicsItem*>, immediately after std::sort() of the tail.
+ *
+ *   qmdiarea.cpp:490
+ *     const auto firstOut = std::stable_partition(source.begin(), source.end(),
+ *                                                containedInDomain);
+ *   on a QVector<QRect>, with the result used as a split point for a
+ *   back_inserter copy and then source.erase(firstOut, source.end()).
+ */
+
+/**
+ * Merge two consecutive sorted ranges in place.
+ *
+ * [first, middle) and [middle, last) are each already sorted; afterwards the
+ * whole of [first, last) is sorted.  The standard's complexity bound is at most
+ * (last - first) - 1 comparisons when enough memory is available, and the buffer
+ * version below hits exactly that.
+ *
+ * `comp(*right, *left)` rather than `comp(*left, *right)` is what makes this
+ * stable: an element from the left range is taken on a tie, so equal elements
+ * keep their relative order.  Getting that backwards compiles fine and silently
+ * breaks the stability guarantee, which is the only reason the whole function
+ * exists instead of just calling sort() again.
+ *
+ * The writeback uses MoveAssignable (`first[j] = static_cast<value_type&&>(...)`)
+ * because that is precisely what [alg.merge] requires of T - it does not ask for
+ * CopyAssignable, and requiring it here would break types like unique_ptr that
+ * the rest of this STL goes out of its way to support.
+ *
+ * On allocation failure this returns leaving the range untouched.  Sorting
+ * algorithms in this header have no way to report failure (no exceptions, and
+ * the return type is void), so "unchanged" is chosen over "half merged", which
+ * would corrupt a range the caller believes is sorted.
+ */
+template <typename Iterator, typename Compare>
+void inplace_merge(Iterator first, Iterator middle, Iterator last, Compare comp) {
+    typedef typename iterator_traits<Iterator>::value_type value_type;
+
+    size_t n = (size_t)(last - first);
+    if (n < 2 || first == middle || middle == last) {
+        return;
+    }
+
+    value_type* temp = (value_type*)malloc(n * sizeof(value_type));
+    if (!temp) {
+        return;
+    }
+
+    Iterator left = first;
+    Iterator right = middle;
+    size_t i = 0;
+    while (left != middle && right != last) {
+        if (comp(*right, *left)) {
+            new (&temp[i++]) value_type(static_cast<value_type&&>(*right));
+            ++right;
+        } else {
+            new (&temp[i++]) value_type(static_cast<value_type&&>(*left));
+            ++left;
+        }
+    }
+    /* Exactly one of these two runs; both are needed because whichever range
+       still has leftovers has them already in order. */
+    while (left != middle) {
+        new (&temp[i++]) value_type(static_cast<value_type&&>(*left));
+        ++left;
+    }
+    while (right != last) {
+        new (&temp[i++]) value_type(static_cast<value_type&&>(*right));
+        ++right;
+    }
+
+    for (size_t j = 0; j < n; j++) {
+        first[j] = static_cast<value_type&&>(temp[j]);
+        temp[j].~value_type();
+    }
+    free(temp);
+}
+
+template <typename Iterator>
+void inplace_merge(Iterator first, Iterator middle, Iterator last) {
+    inplace_merge(first, middle, last, ewok_sort_detail::default_less());
+}
+
+/**
+ * Allocation-free stable_partition, used only when malloc fails.
+ *
+ * O(n^2) element moves, but correct and stable: each time an element satisfying
+ * pred is found at `it`, rotate() moves it to the front of the not-yet-classified
+ * region without disturbing the order of anything it passes over.  `boundary`
+ * always points at the first element that is not known to satisfy pred.
+ *
+ * Declared before stable_partition() below because that one calls it, and see the
+ * note at the top of this section about dependent names.
+ */
+template <typename Iterator, typename Predicate>
+Iterator stable_partition_inplace(Iterator first, Iterator last, Predicate pred) {
+    Iterator boundary = first;
+    for (Iterator it = first; it != last; ) {
+        if (pred(*it)) {
+            if (it != boundary) {
+                rotate(boundary, it, it + 1);
+            }
+            ++boundary;
+        }
+        ++it;
+    }
+    return boundary;
+}
+
+/**
+ * Reorder so that every element satisfying pred precedes every element that does
+ * not, preserving the relative order within each group, and return an iterator to
+ * the first element of the second group.
+ *
+ * Exactly one call to pred per element, which matters because qmdiarea's predicate
+ * is a QRect::contains() lambda - cheap, but callers are entitled to assume this.
+ *
+ * Single pass into a temporary: satisfying elements are laid down from the front
+ * (temp[0..]), the rest from the back (temp[n-1..]).  The back group therefore
+ * ends up in reverse order of appearance and is written back reversed, which
+ * restores its original order.  Both groups stay stable, and only one traversal
+ * of the source is needed.
+ *
+ * Worked example - pred true for a and c in [a, b, c, d]:
+ *   temp becomes [a, c, d, b] with lo = 2
+ *   front writeback  first[0]=a, first[1]=c
+ *   back  writeback  first[2]=temp[3]=b, first[3]=temp[2]=d
+ *   result [a, c, b, d], returns first + 2
+ */
+template <typename Iterator, typename Predicate>
+Iterator stable_partition(Iterator first, Iterator last, Predicate pred) {
+    typedef typename iterator_traits<Iterator>::value_type value_type;
+
+    if (first == last) {
+        return first;
+    }
+    size_t n = (size_t)(last - first);
+
+    value_type* temp = (value_type*)malloc(n * sizeof(value_type));
+    if (!temp) {
+        return stable_partition_inplace(first, last, pred);
+    }
+
+    size_t lo = 0;
+    size_t hi = n;
+    for (Iterator it = first; it != last; ++it) {
+        if (pred(*it)) {
+            new (&temp[lo++]) value_type(static_cast<value_type&&>(*it));
+        } else {
+            new (&temp[--hi]) value_type(static_cast<value_type&&>(*it));
+        }
+    }
+
+    for (size_t j = 0; j < lo; j++) {
+        first[j] = static_cast<value_type&&>(temp[j]);
+        temp[j].~value_type();
+    }
+    for (size_t j = 0; j < n - lo; j++) {
+        first[lo + j] = static_cast<value_type&&>(temp[n - 1 - j]);
+        temp[n - 1 - j].~value_type();
+    }
+    free(temp);
+
+    return first + lo;
 }
 
 }

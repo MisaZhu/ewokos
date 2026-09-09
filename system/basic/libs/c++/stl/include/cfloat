@@ -1,0 +1,31 @@
+#ifndef EWOK_STL_CFLOAT_H
+#define EWOK_STL_CFLOAT_H
+
+/*
+ * <cfloat> - the C <float.h> limits, visible to C++ code.
+ *
+ * This is a pure pass-through, and unlike <cstddef> or <cstdarg> there is
+ * nothing to re-export into namespace std: every name <float.h> provides
+ * (FLT_MAX, DBL_EPSILON, LDBL_MANT_DIG, FLT_ROUNDS, ...) is a macro, and
+ * macros have no namespace.  Including the C header is the whole of the
+ * standard's requirement here - [c.files] asks only that the names be
+ * available, and for <cfloat> they all are by being macros.
+ *
+ * <float.h> is a compiler-provided freestanding header that lives in GCC's own
+ * include directory rather than the C++ one, so -nostdinc++ does not remove it -
+ * the same situation <cstdarg> documents for <stdarg.h>.
+ *
+ * It became necessary the moment QtGui and QtNetwork started compiling: 62
+ * translation units died with `fatal error: cfloat: No such file`, more than any
+ * other single cause in that round.  Before -nostdinc++ went into make.rule,
+ * libstdc++'s <cfloat> was reachable as a fall-through and hid the gap.
+ *
+ * <limits> is the C++-style alternative and already exists here, but it is a
+ * template and cannot answer `FLT_ROUNDS` or `FLT_EVAL_METHOD`, which are
+ * properties of the implementation rather than of a type - code that wants them
+ * spells them as macros and includes this header.
+ */
+
+#include <float.h>
+
+#endif // EWOK_STL_CFLOAT_H

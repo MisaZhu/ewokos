@@ -77,6 +77,8 @@ LIB_EWOKSYS_OBJS =  \
 	$(ARCH)/src/unistd/ids.o \
 	$(ARCH)/src/unistd/alarm.o \
 	$(ARCH)/src/unistd/readlink.o \
+	$(ARCH)/src/unistd/symlink.o \
+	$(ARCH)/src/unistd/link.o \
 	$(ARCH)/src/unistd/get_current_dir_name.o \
 	\
 	$(ARCH)/src/libgen/basename.o \
@@ -121,6 +123,8 @@ LIB_EWOKSYS_OBJS =  \
 	$(ARCH)/src/string/stpcpy.o \
 	$(ARCH)/src/string/memrchr.o \
 	$(ARCH)/src/string/strcasestr.o \
+	$(ARCH)/src/string/strcoll.o \
+	$(ARCH)/src/string/wcslen.o \
 	$(ARCH)/src/string/bstrings.o \
 	\
 	$(ARCH)/src/stdio/putch.o \
@@ -181,6 +185,8 @@ LIB_EWOKSYS_OBJS =  \
 	$(ARCH)/src/stdlib/tempnam.o \
 	$(ARCH)/src/stdlib/mkdtemp.o \
 	$(ARCH)/src/stdlib/realpath.o \
+	\
+	$(ARCH)/src/locale/locale.o \
 	\
 	$(ARCH)/src/time/strftime.o \
 	$(ARCH)/src/time/nanosleep.o \

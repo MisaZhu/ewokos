@@ -21,6 +21,21 @@
 #define O_NOFOLLOW  0x4000
 #define O_CLOEXEC   0x8000
 
+/*
+ * O_LARGEFILE selects 64-bit off_t on platforms where off_t is 32 bits.
+ * EwokOS has a single off_t and no open64/lseek64 family at all, so the
+ * flag has nothing to select - which is exactly why it is 0.
+ *
+ * 0 is safe in a way a made-up bit value would not be: open() ORs its flags
+ * together and passes them to the VFS, so any nonzero value we invented
+ * would land in the VFS's flag word and could be mistaken for a real mode
+ * bit.  A zero flag is a no-op, which is precisely the semantics wanted.
+ *
+ * Required by qfsfileengine_unix.cpp, which ORs it into the flags it builds
+ * for QFile::open on the !QT_NO_LARGEFILE path.
+ */
+#define O_LARGEFILE 0
+
 #define FD_CLOEXEC 0x0001
 
 #define F_GETFD  1

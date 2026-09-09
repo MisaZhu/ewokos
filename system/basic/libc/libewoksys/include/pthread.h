@@ -160,6 +160,47 @@ int pthread_barrier_init(pthread_barrier_t *barrier,
 int pthread_barrier_destroy(pthread_barrier_t *barrier);
 int pthread_barrier_wait(pthread_barrier_t *barrier);
 
+/*
+ * Thread cleanup handlers.
+ *
+ * POSIX specifies three ways a handler registered by pthread_cleanup_push()
+ * runs: pthread_cleanup_pop() with a nonzero execute argument, thread
+ * cancellation, and pthread_exit().  EwokOS can only do the first, and that is
+ * not a gap in these macros but a consequence of the rest of the pthread
+ * implementation: src/pthread/pthread_cancel.c states plainly that thread
+ * cancellation is not supported and only the API surface exists -
+ * pthread_cancel() returns ENOSYS and pthread_testcancel() is empty.  With no
+ * cancellation there is nothing to unwind, so there is no handler stack to
+ * maintain and no setjmp/longjmp frame to build.  The handler is a local that
+ * pop() calls.
+ *
+ * The one real difference from glibc: pthread_exit() called from inside the
+ * protected region will not run the handler.  glibc's does, by unwinding the
+ * per-thread handler stack.  Nothing in EwokOS does that today - Qt's only
+ * user, qthread_unix.cpp:308-356, has no pthread_exit() between its push and
+ * pop and relies on pop(1) - but it is the thing to fix first if a caller ever
+ * needs it.
+ *
+ * The do/while(0) wrapper is what makes the pair a single statement, so it
+ * behaves correctly under `if (x) pthread_cleanup_push(...);` and so that a
+ * `return` between push and pop is legal (it skips the handler, exactly as it
+ * does on glibc - POSIX does not list function return as a trigger).  The two
+ * void casts keep -Wunused-variable quiet when the region exits that way.
+ *
+ * push and pop must appear in the same block, at the same nesting level, which
+ * is the same restriction every other implementation imposes.
+ */
+#define pthread_cleanup_push(routine, arg) \
+	do { \
+		void (*__ewok_cleanup_fn)(void *) = (routine); \
+		void *__ewok_cleanup_arg = (void *)(arg); \
+		(void)__ewok_cleanup_fn; (void)__ewok_cleanup_arg;
+
+#define pthread_cleanup_pop(execute) \
+		if (execute) \
+			__ewok_cleanup_fn(__ewok_cleanup_arg); \
+	} while (0)
+
 /* internal: release TLS of the current thread (called from pthread_exit
  * and from the pthread_create trampoline) */
 void __pthread_tls_thread_exit(void);

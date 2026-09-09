@@ -98,6 +98,68 @@ void x_push_event(x_t* x, xevent_t* ev) {
     ipc_enable();
 }
 
+/*One /dev/x per process, so a file-static pid cache is not a simplification -
+  it is the same assumption x_run() already makes when it resolves the pid once
+  before entering its loop.  x_poll_event() is meant to be called every pass of
+  a foreign event loop, and dev_get_pid() is an IPC round trip, so re-resolving
+  it per call would dominate the cost of the poll itself.  A stale or failed
+  lookup is re-resolved on the next call rather than cached, which is why the
+  cache is only written on success.*/
+static int _xserv_pid = -1;
+
+static int x_xserv_pid(void) {
+    if(_xserv_pid < 0)
+        _xserv_pid = dev_get_pid("/dev/x");
+    return _xserv_pid;
+}
+
+int x_poll_event(x_t* x, xevent_t* ev) {
+    if(x == NULL || ev == NULL)
+        return -1;
+
+    /*Locally queued events first, exactly as x_run() does: x_push_event() is
+      how a client synthesizes an event for itself (xwin_repaint_req() is the
+      in-tree example), and those must not be starved by the server's queue.*/
+    if(x_pop_event(x, ev))
+        return 0;
+
+    int xserv_pid = x_xserv_pid();
+    if(xserv_pid < 0)
+        return -1;
+
+    /*block = false.  The blocking form parks on x->evt_node with vfs_block(),
+      which has no timeout, so a foreign loop that also drives timers would
+      stall for as long as the window server stayed quiet.  Callers that want
+      to idle should sleep between polls; x_run() itself only blocks when the
+      app registered no on_loop callback at all.*/
+    return x_get_event(x, xserv_pid, ev, false);
+}
+
+void xwin_dispatch_event(x_t* x, xevent_t* ev) {
+    (void)x;
+    if(ev == NULL)
+        return;
+
+    /*the server only echoes a window's shm handle in ev->win, so resolve it
+      against the process-wide window registry: menus, submenus and dialogs are
+      extra windows beyond main/prompt and must still receive their mouse and
+      focus events.*/
+    xwin_t* xwin = xwin_find_by_handle(ev->win);
+    if(xwin == NULL)
+        return;
+    if(xwin->fd < 0 || xwin->xinfo == NULL)
+        return;
+
+    if(ev->type == XEVT_WIN) {
+        xwin_event_handle(xwin, ev);
+    }
+    else if(xwin->on_event != NULL) {
+        if(xwin->x->prompt_win == NULL ||
+                xwin->x->prompt_win == xwin) //has prompt win, can't response
+            xwin->on_event(xwin, ev);
+    }
+}
+
 uint32_t x_get_display_id(int32_t index_def) {
     int32_t disp_index = index_def;
     if(index_def < 0) {
@@ -375,6 +437,13 @@ int  x_run(x_t* x, void* loop_data) {
         xwin_retry_pending_presents();
 
         int res = -1;
+        /*x_poll_event() + xwin_dispatch_event() are the two halves of this body,
+          published so a foreign event loop can drive them itself.  x_run() goes
+          through the same two calls rather than keeping a private copy, so the
+          routing cannot drift between the two entry points.  The one difference
+          is the pid: resolved once here instead of via the file-static cache,
+          because x_run() needs it before the loop to bail out early when there
+          is no server at all.*/
         if(x_pop_event(x, &xev)) {
             res = 0;
         }
@@ -382,23 +451,7 @@ int  x_run(x_t* x, void* loop_data) {
             res = x_get_event(x, xserv_pid, &xev, block);
         }
         if(res == 0) {
-            /*the server only echoes a window's shm handle in xev.win, so
-              resolve it against the process-wide window registry: menus,
-              submenus and dialogs are extra windows beyond main/prompt and
-              must still receive their mouse and focus events.*/
-            xwin_t* xwin = xwin_find_by_handle(xev.win);
-            if(xwin != NULL) {
-                if(xwin->fd < 0 || xwin->xinfo == NULL)
-                    continue;
-                if(xev.type == XEVT_WIN) {
-                    xwin_event_handle(xwin, &xev);
-                }	
-                else if(xwin->on_event != NULL) {
-                    if(xwin->x->prompt_win == NULL ||
-                            xwin->x->prompt_win == xwin) //has prompt win, can't response
-                        xwin->on_event(xwin, &xev);
-                }
-            }
+            xwin_dispatch_event(x, &xev);
         }
         else if(x->on_loop != NULL) {
             x->on_loop(loop_data);

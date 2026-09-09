@@ -44,6 +44,29 @@ char *ctime(const time_t *timer);
 char *ctime_r(const time_t *timer, char *buf);
 double difftime(time_t time1, time_t time0);
 void tzset(void);
+/*
+ * The three POSIX timezone globals, which tzset() is specified to set.
+ *
+ * EwokOS has no timezone database and no TZ handling: the system clock is
+ * UTC and localtime() returns UTC broken-down time.  So these are defined in
+ * src/time/tzvars.c to the values that state exactly that - tzname { "UTC",
+ * "UTC" }, timezone 0 (seconds west of Greenwich), daylight 0 (no DST).
+ * They are real variables, not macros, because tzset() may be called and
+ * because qdatetime.cpp takes their address indirectly through
+ * QString::fromLocal8Bit(tzname[isDst]).
+ *
+ * `long timezone` does not collide with `struct timezone` in <sys/time.h>:
+ * in C++ a struct name and a variable name occupy different lookup contexts,
+ * and `struct timezone` is only ever spelled with the `struct` keyword.  This
+ * was verified by compiling a TU that includes both headers and declares both.
+ *
+ * qdatetime.cpp:qt_timezone() and qt_tzname() reach these in their plain
+ * #else branches - not under QT_CONFIG(timezone) - so -no-feature-timezone
+ * would not have removed the errors.
+ */
+extern char *tzname[2];
+extern long timezone;
+extern int daylight;
 int clock_gettime(clockid_t clock_id, struct timespec *tp);
 int clock_settime(clockid_t clock_id, const struct timespec *tp);
 int clock_getres(clockid_t clock_id, struct timespec *res);

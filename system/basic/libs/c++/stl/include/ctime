@@ -1,0 +1,77 @@
+#ifndef EWOK_STL_CTIME_H
+#define EWOK_STL_CTIME_H
+
+/*
+ * <ctime> - the C <time.h> names, in namespace std.
+ *
+ * EwokOS's <time.h> is complete enough for this to be a straight re-export: it
+ * pulls <sys/types.h> for time_t, clock_t and size_t, <sys/time.h> for
+ * struct timeval, and declares the whole ISO C set plus the POSIX _r reentrant
+ * variants and the clock_* family.  Everything below is a real declaration in
+ * that header - nothing here invents a name libc does not have.
+ *
+ * Two deliberate omissions.
+ *
+ * struct timespec is NOT re-exported.  It is POSIX rather than ISO C, so it is
+ * outside [ctime.syn], and on this target it is only forward-declared by the
+ * <pwd.h> chain rather than defined by <time.h>'s own includes - a using-
+ * declaration on an incomplete type would compile here and then fail at the
+ * first call site that tried to size one.  Code that wants it includes <time.h>
+ * directly, which is what the Qt port's qtestsupport_core.cpp patch does for
+ * qSleep().
+ *
+ * CLOCKS_PER_SEC, CLOCK_REALTIME, CLOCK_MONOTONIC and TIMER_ABSTIME need no
+ * using-declaration: they are macros, and macros have no namespace.
+ *
+ * Note that `time`, `clock`, `asctime` and `ctime` are functions here, and
+ * `ctime` shares its spelling with this header's own name.  That is not a
+ * conflict - a header name is not an identifier - but it does mean `std::ctime`
+ * is the char-returning C function and not anything to do with this file.
+ */
+
+#include <time.h>
+
+namespace std {
+
+using ::time_t;
+using ::clock_t;
+using ::clockid_t;
+using ::tm;
+
+using ::clock;
+using ::difftime;
+using ::mktime;
+using ::time;
+
+using ::asctime;
+using ::ctime;
+using ::gmtime;
+using ::localtime;
+using ::strftime;
+
+/* The POSIX reentrant forms.  Not part of [ctime.syn], but they are what
+   multithreaded and signal-adjacent code must use in preference to the four
+   above, each of which returns a pointer into shared static storage. */
+using ::asctime_r;
+using ::ctime_r;
+using ::gmtime_r;
+using ::localtime_r;
+
+/* The POSIX clock_* family, which is how anything on this target reads a
+   monotonic timestamp - CLOCK_MONOTONIC via clock_gettime().  nanosleep() is
+   here too; it is what qSleep() calls, and it is implemented in
+   libewoksys/src/time/nanosleep.c by delegating to usleep(). */
+using ::clock_gettime;
+using ::clock_settime;
+using ::clock_getres;
+using ::clock_nanosleep;
+using ::nanosleep;
+
+/* strptime() and tzset() are POSIX extensions libc provides; strftime()'s
+   inverse and the timezone initializer respectively. */
+using ::strptime;
+using ::tzset;
+
+}
+
+#endif // EWOK_STL_CTIME_H

@@ -39,6 +39,46 @@ struct tuple_leaf {
     }
 };
 
+/* Partial specialization for reference leaves, without which std::tie cannot be
+   written at all.
+
+   The primary template stores `T value;` and default-constructs it.  For
+   T = QBezier& that member is a reference, which cannot be default-initialized,
+   so tuple_leaf<0, QBezier&> would be ill-formed the moment tuple<QBezier&,
+   QBezier&> were instantiated - and that is exactly what tie(b[1], b[0]) asks
+   for.
+
+   Two details that are easy to get wrong:
+
+   - get() const returns T&, not const T&.  Constness of the leaf does not
+     propagate through a reference member, and the free `get<N>(const tuple&)`
+     below declares its return type as
+     `const typename tuple_element<N, tuple<QBezier&, ...>>::type&`, which
+     collapses to plain QBezier&.  A const T& here would have to convert to a
+     QBezier& at that return, and would not.
+   - swap() exchanges the referents, not the references; a reference cannot be
+     rebound.  That is also why tuple<T&...> has no copy assignment: the leaf's
+     implicit one is deleted, and the standard says the same.
+
+   There is no T&& specialization.  forward_as_tuple would need one, and nothing
+   in the build asks for forward_as_tuple. */
+template <size_t I, typename T>
+struct tuple_leaf<I, T&> {
+    typedef T& value_type;
+    T& value;
+
+    tuple_leaf(T& v) : value(v) {}
+
+    T& get() { return value; }
+    T& get() const { return value; }
+
+    void swap(tuple_leaf& other) {
+        T tmp = value;
+        value = other.value;
+        other.value = tmp;
+    }
+};
+
 // Recursive tuple implementation
 template <size_t I, typename... Types>
 struct tuple_impl;
@@ -64,6 +104,11 @@ struct tuple_impl<I, Head, Tail...> : public tuple_leaf<I, Head>, public tuple_i
     }
 };
 
+/* Declared here, defined below get<>, because the assignment operator that
+   calls it is a member of tuple and get<> does not exist yet at that point. */
+template <typename Tuple, typename U1, typename U2>
+void __tuple_assign_pair(Tuple& t, const pair<U1, U2>& p);
+
 // Main tuple class
 template <typename... Types>
 class tuple : public tuple_impl<0, Types...> {
@@ -72,7 +117,32 @@ class tuple : public tuple_impl<0, Types...> {
 public:
     tuple() : base_type() {}
     tuple(const Types&... args) : base_type(args...) {}
-    
+
+    /* Assignment from a pair - the other half of what makes
+
+           std::tie(b[1], b[0]) = b->split();
+
+       compile, at qbezier.cpp:132, :168 and :425.  QBezier::split() returns
+       std::pair<QBezier, QBezier> (qbezier_p.h:110 declares it, :226 defines
+       it), so the left side has to accept a pair and write elementwise into the
+       references tie() bound.
+
+       A member function template is never a copy assignment operator, so this
+       does not suppress the implicit one; tuple<int, int> still assigns from
+       tuple<int, int> as before.
+
+       The body delegates to the free helper rather than calling get<0>(*this)
+       directly.  get<> is declared below this class, `get` here is a
+       non-dependent name looked up at the point of definition, and `get<0>` with
+       nothing named get in scope parses as (get < 0) > - the reason the helper
+       is forward-declared above at all.  __tuple_assign_pair(*this, p) IS
+       dependent, so its lookup is deferred and finds that declaration. */
+    template <typename U1, typename U2>
+    tuple& operator=(const pair<U1, U2>& p) {
+        __tuple_assign_pair(*this, p);
+        return *this;
+    }
+
     void swap(tuple& other) {
         base_type::swap(other);
     }
@@ -131,6 +201,30 @@ const typename tuple_element<N, tuple<Types...>>::type& get(const tuple<Types...
 template <typename... Types>
 tuple<typename decay<Types>::type...> make_tuple(const Types&... args) {
     return tuple<typename decay<Types>::type...>(args...);
+}
+
+/* tie: make_tuple without the decay, and with the references kept.  That
+   difference is the whole algorithm - make_tuple copies, tie binds.
+
+   The reference leaves above are what this returns into; see the note there for
+   why tuple_leaf<I, T&> has to exist separately.
+
+   Deliberately no std::ignore.  The standard specifies ignore as an object
+   assignable from anything, which in this header would mean a distinct type
+   plus an operator= template for it, and nothing in the Qt build uses it. */
+template <typename... Types>
+tuple<Types&...> tie(Types&... args) {
+    return tuple<Types&...>(args...);
+}
+
+/* Elementwise, so it works on tuple<T&...> whose implicit copy assignment is
+   deleted.  Two elements, unconditionally: it is only reachable from
+   tuple::operator=(const pair<U1,U2>&), which a tuple of any other size cannot
+   be given - a pair has exactly two members to offer. */
+template <typename Tuple, typename U1, typename U2>
+void __tuple_assign_pair(Tuple& t, const pair<U1, U2>& p) {
+    get<0>(t) = p.first;
+    get<1>(t) = p.second;
 }
 
 /* Lexicographic comparison, which <tuple> was missing entirely.  Qt needs it:

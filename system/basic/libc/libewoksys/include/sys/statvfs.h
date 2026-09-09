@@ -27,6 +27,23 @@ struct statvfs {
 int statvfs(const char *path, struct statvfs *buf);
 int fstatvfs(int fd, struct statvfs *buf);
 
+/*
+ * The LFS names.  glibc provides statvfs64/fstatvfs64 as real, distinct
+ * symbols for programs compiled with _FILE_OFFSET_BITS=64; EwokOS has one
+ * off_t and one struct, so the 64-bit names are aliases for the same things.
+ *
+ * A macro is the right tool here rather than typedefs and wrappers: it makes
+ * both `struct statvfs64 buf;` and a call to `::statvfs64(...)` resolve, with
+ * no second symbol to link and no layout to keep in sync.
+ *
+ * qstorageinfo_unix.cpp:retrieveVolumeInfo() declares `statvfs64 statfs_buf`
+ * and calls ::statvfs64 on the Linux path, which produced two errors:
+ * `aggregate ... has incomplete type` and `'::statvfs64' has not been
+ * declared`.
+ */
+#define statvfs64  statvfs
+#define fstatvfs64 fstatvfs
+
 #ifdef __cplusplus
 }
 #endif

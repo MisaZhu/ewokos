@@ -83,6 +83,35 @@ class vector {
         vector(iterator first, iterator last);
 
         /**
+         * Range constructor over an arbitrary input iterator pair.
+         *
+         * The overload above takes the container's own `iterator`, so it only
+         * ever accepted another vector's iterators.  qitemeditorfactory.cpp:204
+         * builds one from a QHash:
+         *
+         *     std::vector<QItemEditorCreatorBase*> creators(creatorMap.cbegin(),
+         *                                                   creatorMap.cend());
+         *
+         * and QHash<int, X>::const_iterator is neither that type nor convertible
+         * to it, so no candidate matched at all.
+         *
+         * The enable_if is what keeps this from swallowing vector(10, 20): with
+         * InputIterator = int, iterator_traits<int> is empty (see the note in
+         * <iterator>), the nested typename fails, and the substitution drops
+         * this overload instead of the call.  That is also precisely why QVector
+         * can offer the same pair of constructors, and it only started working
+         * here once iterator_traits became SFINAE-friendly.
+         *
+         * The non-template overload above stays: for two `iterator` arguments it
+         * is an exact match and wins, keeping its pre-sized allocation.
+         */
+        template <typename InputIterator,
+                  typename = typename enable_if<is_convertible<
+                      typename iterator_traits<InputIterator>::iterator_category,
+                      input_iterator_tag>::value, bool>::type>
+        vector(InputIterator first, InputIterator last);
+
+        /**
          * Copy constructor
          * @param src The vector to copy
          */
@@ -143,6 +172,24 @@ class vector {
          */
         const_iterator cbegin() const;
         const_iterator cend() const;
+
+        /**
+         * Return constant reverse iterators.
+         *
+         * rbegin() const and rend() const already existed and already returned
+         * these exact types - what was missing was only the c-prefixed names.
+         * qdatawidgetmapper.cpp:746 walks a std::vector<WidgetMapper> backwards:
+         *
+         *     for (auto it = copy.crbegin(), end = copy.crend(); it != end; ++it)
+         *
+         * GCC's suggestion was "did you mean 'cbegin'?", which is worth noting
+         * because taking it would have compiled and then iterated forwards,
+         * reversing the meaning of the loop instead of failing.  The second
+         * diagnostic there, "'end' was not declared in this scope", is the
+         * cascade from crend() being unknown as well, not a separate gap.
+         */
+        const_reverse_iterator crbegin() const;
+        const_reverse_iterator crend() const;
 
         /**
          * Return a reverse iterator at the beginning of the reversed vector
@@ -263,12 +310,31 @@ class vector {
         void pop_back();
 
         /**
-         * Insert a single element in the vector
-         * @param position An iterator specifying the position at which to insert the element
-         * @param val The value of the element to insert
-         * @return An iterator that points to the first of the newly inserted elements
+         * Single-element insert, copying and moving.  Only the const_iterator
+         * forms exist, which is what C++11 settled on: it dropped the old
+         * insert(iterator, const T&) overload entirely.  Keeping both that
+         * form and these two made
+         *
+         *     m_floats_left.insert(i, std::move(fb));   // litehtml html_tag.cpp
+         *
+         * ambiguous: with `i` an iterator, the (iterator, const T&) overload
+         * won on the position parameter (identity vs. conversion) but lost on
+         * the value (an rvalue binds better to T&& than to const T&), so
+         * neither candidate dominated.  An iterator position still works here
+         * because const_random_access_iterator converts implicitly from
+         * random_access_iterator, and both overloads return `iterator`, not
+         * const_iterator, as the standard requires.
+         *
+         * The T&& half was added for qtoolbox.cpp:375:
+         *
+         *     d->pageList.insert(d->pageList.cbegin() + index, std::move(newPage));
+         *
+         * on a std::vector<std::unique_ptr<Page>>: cbegin() cannot convert
+         * back to iterator, and a move-only element type cannot go through
+         * the const T& overload, which copies.
          */
-        iterator insert(iterator position, const T& val);
+        iterator insert(const_iterator position, const T& val);
+        iterator insert(const_iterator position, T&& val);
 
         /**
          * Insert several elements in the vector
@@ -319,6 +385,24 @@ class vector {
            is written once; returns false if the allocation failed, leaving the
            vector untouched.  Not part of the standard's interface. */
         bool grow_to(size_t n);
+
+        /* Resolves an insert position to an index.  Takes const T* so that both
+           iterator (whose ptr_ is public) and const_iterator (whose ptr_ is
+           protected but which exposes base()) can be handed to it without
+           vector having to be a friend of either.  Faithful to the guard the
+           insert overloads used to each carry inline: a null position, or an
+           empty vector, means append, and anything past the end is clamped
+           rather than rejected.  Not part of the standard's interface. */
+        size_t pos_of(const T* p) const;
+
+        /* The body of every single-element insert.  U&& is what lets one
+           implementation serve both the copying and the moving overload without
+           either one forcing the other's value category: static_cast<U&&> is a
+           copy when U deduced to const T& and a move when it deduced to T.
+           Not part of the standard's interface. */
+        template <typename U>
+        iterator insert_at(size_t pos, U&& val);
+
         T*          data_;      /**< The contiguous dynamic array */
         size_t      length_;    /**< The length of the array */
         size_t      capacity_;  /**< The capacity of the array */
@@ -379,6 +463,28 @@ vector<T, Alloc>::vector(iterator first, iterator last) {
     }
 }
 
+/**
+ * Definition of the templated range constructor declared above.
+ *
+ * Built by repeated emplace_back rather than by pre-sizing and placement-new the
+ * way the `iterator` overload does: an InputIterator can only be walked once, so
+ * `last - first` is not available to size the buffer up front.  Growing as we go
+ * is what the standard permits here, and it also means the elements are
+ * constructed from `*first` by whatever constructor T offers, instead of
+ * requiring a copy constructor specifically.
+ *
+ * Note the second template parameter is named but not defaulted here - the
+ * default lives on the declaration, and repeating it would be an error.
+ */
+template <typename T, typename Alloc>
+template <typename InputIterator, typename Enable>
+vector<T, Alloc>::vector(InputIterator first, InputIterator last)
+    : data_(nullptr), length_(0), capacity_(0) {
+    for (; first != last; ++first) {
+        emplace_back(*first);
+    }
+}
+
 template <typename T, typename Alloc>
 vector<T, Alloc>::vector(const vector<T, Alloc>& src) {
     length_ = src.length_;
@@ -412,7 +518,36 @@ vector<T, Alloc>::~vector() {
 template <typename T, typename Alloc>
 vector<T, Alloc>& vector<T, Alloc>::operator=(vector<T, Alloc>&& rhs) {
     if (this != &rhs) {
-        swap(rhs);
+        /* Tear ours down exactly as the destructor does, then take rhs's buffer
+           wholesale exactly as the move constructor does, leaving rhs empty.
+
+           This used to be `swap(rhs)`.  That is permitted - the standard leaves
+           the source of a move assignment in a "valid but unspecified state" -
+           but it is observably different from every other standard library,
+           which leaves the source empty.  Code written against that assumption
+           breaks quietly rather than loudly:
+
+               d->providers = std::move(tmp);
+               ...
+               tmp.push_back(x);   // believed discarded; under swap it still
+                                   // holds the old providers and keeps growing
+
+           The differential probe is what caught it.  Run against libc++ the
+           same assertions read element 0 of a vector libc++ had left empty, and
+           segfaulted; against the swap version they passed.  A probe that only
+           ever ran against EWOK_STL would have shipped this.
+
+           clear() destroys the elements but does not release the buffer - the
+           destructor relies on that same split, calling clear() and then
+           free(data_) - so the free() here is not a double release. */
+        clear();
+        free(data_);
+        data_ = rhs.data_;
+        length_ = rhs.length_;
+        capacity_ = rhs.capacity_;
+        rhs.data_ = nullptr;
+        rhs.length_ = 0;
+        rhs.capacity_ = 0;
     }
     return *this;
 }
@@ -480,12 +615,22 @@ typename vector<T, Alloc>::const_reverse_iterator vector<T, Alloc>::rbegin() con
 }
 
 template <typename T, typename Alloc>
+typename vector<T, Alloc>::const_reverse_iterator vector<T, Alloc>::crbegin() const {
+    return const_reverse_iterator(end());
+}
+
+template <typename T, typename Alloc>
 typename vector<T, Alloc>::reverse_iterator vector<T, Alloc>::rend() {
     return reverse_iterator(begin());
 }
 
 template <typename T, typename Alloc>
 typename vector<T, Alloc>::const_reverse_iterator vector<T, Alloc>::rend() const {
+    return const_reverse_iterator(begin());
+}
+
+template <typename T, typename Alloc>
+typename vector<T, Alloc>::const_reverse_iterator vector<T, Alloc>::crend() const {
     return const_reverse_iterator(begin());
 }
 
@@ -704,13 +849,15 @@ void vector<T, Alloc>::pop_back() {
 }
 
 template <typename T, typename Alloc>
-typename vector<T, Alloc>::iterator vector<T, Alloc>::insert(iterator position, const T& val) {
-    size_t pos = length_;
-    if (position.ptr_ != nullptr && length_ > 0) {
-        pos = ((size_t)position.ptr_ - (size_t)data_) / sizeof(T);
-        if (pos > length_) pos = length_;
-    }
+size_t vector<T, Alloc>::pos_of(const T* p) const {
+    if (p == nullptr || length_ == 0) return length_;
+    size_t pos = ((size_t)p - (size_t)data_) / sizeof(T);
+    return pos > length_ ? length_ : pos;
+}
 
+template <typename T, typename Alloc>
+template <typename U>
+typename vector<T, Alloc>::iterator vector<T, Alloc>::insert_at(size_t pos, U&& val) {
     if (length_ + 1 > capacity_) {
         size_t oldLength = length_;
         size_t newCapacity = (length_ + 1) * 2;
@@ -734,11 +881,25 @@ typename vector<T, Alloc>::iterator vector<T, Alloc>::insert(iterator position, 
         new (&data_[i]) T(static_cast<T&&>(data_[i-1]));
         data_[i-1].~T();
     }
-    // Use placement new instead of assignment to avoid issues with uninitialized memory
-    new (&data_[pos]) T(val);
+    /* Placement new rather than assignment: data_[pos] is raw storage by now,
+       because the loop above moved its old occupant up one slot and destroyed it
+       there.  static_cast<U&&> keeps whatever value category the caller passed,
+       which is the whole reason this is a template and not two copies of itself -
+       a copy here is a hard error on a move-only element type. */
+    new (&data_[pos]) T(static_cast<U&&>(val));
     length_ += 1;
 
     return begin() + pos;
+}
+
+template <typename T, typename Alloc>
+typename vector<T, Alloc>::iterator vector<T, Alloc>::insert(const_iterator position, const T& val) {
+    return insert_at(pos_of(position.base()), val);
+}
+
+template <typename T, typename Alloc>
+typename vector<T, Alloc>::iterator vector<T, Alloc>::insert(const_iterator position, T&& val) {
+    return insert_at(pos_of(position.base()), static_cast<T&&>(val));
 }
 
 template <typename T, typename Alloc>

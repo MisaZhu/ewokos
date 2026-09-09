@@ -1,0 +1,39 @@
+#ifndef EWOK_STL_CINTTYPES_H
+#define EWOK_STL_CINTTYPES_H
+
+/*
+ * <cinttypes> - the C <inttypes.h> names, in namespace std.
+ *
+ * This one is incomplete, and it is worth being precise about how and why
+ * rather than papering over it.
+ *
+ * EwokOS's <inttypes.h> supplies the two greatest-width integer typedefs and
+ * the whole PRI* / __EWOK_PRI64_PREFIX macro family - PRId8 through PRIX64 plus
+ * the MAX variants - and that is what code almost always wants this header for,
+ * since printf/scanf format strings for fixed-width types are otherwise
+ * unportable between the 32-bit arm and 64-bit aarch64 targets this tree builds
+ * for.  All of those are macros, so they need no using-declaration and are
+ * available the moment the C header is included.
+ *
+ * What libc does NOT provide, and what is therefore absent from namespace std
+ * here: imaxabs(), imaxdiv() and its imaxdiv_t result type, strtoimax(),
+ * strtoumax(), wcstoimax() and wcstoumax().  [cinttypes.syn] requires all of
+ * them.  They are left out on purpose instead of being implemented here:
+ * arithmetic helpers for a type the C library is supposed to own belong in libc,
+ * and defining them inside namespace std would put the STL in the business of
+ * supplying libc functionality, which is exactly the layering the rest of these
+ * <c*> wrappers are careful not to cross.  Nothing in QtCore, QtGui or QtWidgets
+ * calls any of them.  If that changes, the fix is to add them to
+ * system/basic/libc/libewoksys and then re-export them from here.
+ */
+
+#include <inttypes.h>
+
+namespace std {
+
+using ::intmax_t;
+using ::uintmax_t;
+
+}
+
+#endif // EWOK_STL_CINTTYPES_H

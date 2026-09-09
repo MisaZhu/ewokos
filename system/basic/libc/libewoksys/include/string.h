@@ -42,6 +42,19 @@ void *memrchr(const void *s, int c, size_t n);
 void *memccpy(void *dest, const void *src, int c, size_t n);
 char *strcasestr(const char *haystack, const char *needle);
 
+/*
+ * Locale-aware collation.  EwokOS is C-locale-only - there is no setlocale
+ * machinery and no LC_COLLATE data - and C99 specifies that in the "C" locale
+ * strcoll compares by the unsigned char values of the operands, which is
+ * strcmp.  src/string/strcoll.c therefore delegates to strcmp rather than
+ * stubbing: the result is correct for the only locale that exists here.
+ *
+ * If locale support is ever added, that one file is what has to change.
+ *
+ * Called by qstring.cpp:6582 (QString::localeAwareCompare's POSIX path).
+ */
+int strcoll(const char *s1, const char *s2);
+
 #ifdef __cplusplus
 }
 #endif

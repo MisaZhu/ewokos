@@ -54,15 +54,65 @@ struct random_access_iterator_tag;
 template <typename Char, typename Traits> class basic_streambuf;
 template <typename Char> struct char_traits;
 
-// iterator_traits primary template
+/* iterator_traits primary template, SFINAE-friendly.
+
+   This is not a refinement.  Without it QVector<int> cannot be constructed from
+   two ints, and qfontsubset.cpp:184 is exactly that:
+
+       QVector<int> reverseMap(0x10000, 0);
+
+   qvector.h offers two candidates - QVector(int size, const T &t) and, guarded
+   by QtPrivate::IfIsInputIterator<InputIterator>, the range constructor
+   QVector(InputIterator first, InputIterator last).  The guard expands to
+
+       enable_if<is_convertible<
+           typename iterator_traits<Iterator>::iterator_category,
+           input_iterator_tag>::value>
+
+   which asks iterator_traits<int> whether it has an iterator_category.  The
+   answer must be "no", reported as a substitution failure in the immediate
+   context, so that the range constructor drops out and (int, int) binds to
+   (size, t).
+
+   The unconditional form this replaces answered with a hard error instead:
+
+       iterator:60: error: 'int' is not a class, struct, or union type
+          using difference_type = typename Iterator::difference_type;
+
+   Implicitly instantiating a class template is not part of the immediate
+   context, so SFINAE could not catch it: the diagnostic escaped the
+   substitution and killed the translation unit.  [iterator.traits]/2 says the
+   same thing from the other direction - iterator_traits may be specialized only
+   for an iterator type, and for anything else the primary template has to be
+   empty.
+
+   Detection is a void_t specialization on all five member types at once, which
+   is the shape libstdc++ uses.  All five rather than only iterator_category
+   because a type supplying some of them is not an iterator, and half-populated
+   traits are what make a later `typename iterator_traits<X>::value_type` fail
+   somewhere far from the cause. */
+namespace ewok_iterator_detail {
+
+template <typename Iterator, typename = void>
+struct traits {};
+
 template <typename Iterator>
-struct iterator_traits {
+struct traits<Iterator, void_t<typename Iterator::difference_type,
+                               typename Iterator::value_type,
+                               typename Iterator::pointer,
+                               typename Iterator::reference,
+                               typename Iterator::iterator_category>> {
     using difference_type = typename Iterator::difference_type;
     using value_type = typename Iterator::value_type;
     using pointer = typename Iterator::pointer;
     using reference = typename Iterator::reference;
     using iterator_category = typename Iterator::iterator_category;
 };
+
+} // namespace ewok_iterator_detail
+
+template <typename Iterator>
+struct iterator_traits : ewok_iterator_detail::traits<Iterator> {};
 
 // iterator_traits specialization for pointers
 template <typename T>

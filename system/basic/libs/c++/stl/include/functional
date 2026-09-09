@@ -43,6 +43,146 @@ struct not_equal_to {
     }
 };
 
+/* The rest of [func.def], added as one block rather than one at a time.
+
+   Only the four comparison functors above existed, because those are what the
+   containers order with.  QtNetwork then asked for a bitwise one:
+
+       qpassworddigestor.cpp:179: error: 'bit_xor' is not a member of 'std'
+
+   which is std::transform(..., std::bit_xor<unsigned char>()) in the PBKDF2
+   inner loop.  Adding bit_xor alone would have left the same gap one letter away
+   in bit_and/bit_or, and the arithmetic set is missing for exactly the same
+   reason - nothing in QtCore happened to name it.  These are all one-line
+   wrappers with no state and no specialisation, so the cost of completing the
+   family is nil and the cost of not doing it is another build round per name.
+
+   Deliberately absent: the C++14 transparent specialisations (std::less<>,
+   std::bit_xor<> and friends, i.e. `template <typename T = void>` plus an
+   `is_transparent` member).  Nothing in QtCore/QtGui/QtWidgets asks for one,
+   they only pay off with heterogeneous lookup in the ordered containers, and
+   this STL's map does not implement heterogeneous lookup at all. */
+
+// less_equal functor
+template <typename T>
+struct less_equal {
+    bool operator()(const T& a, const T& b) const {
+        return a <= b;
+    }
+};
+
+// greater_equal functor
+template <typename T>
+struct greater_equal {
+    bool operator()(const T& a, const T& b) const {
+        return a >= b;
+    }
+};
+
+// plus functor
+template <typename T>
+struct plus {
+    T operator()(const T& a, const T& b) const {
+        return a + b;
+    }
+};
+
+// minus functor
+template <typename T>
+struct minus {
+    T operator()(const T& a, const T& b) const {
+        return a - b;
+    }
+};
+
+// multiplies functor
+template <typename T>
+struct multiplies {
+    T operator()(const T& a, const T& b) const {
+        return a * b;
+    }
+};
+
+// divides functor
+template <typename T>
+struct divides {
+    T operator()(const T& a, const T& b) const {
+        return a / b;
+    }
+};
+
+// modulus functor
+template <typename T>
+struct modulus {
+    T operator()(const T& a, const T& b) const {
+        return a % b;
+    }
+};
+
+// negate functor (unary)
+template <typename T>
+struct negate {
+    T operator()(const T& a) const {
+        return -a;
+    }
+};
+
+// logical_and functor
+template <typename T>
+struct logical_and {
+    bool operator()(const T& a, const T& b) const {
+        return a && b;
+    }
+};
+
+// logical_or functor
+template <typename T>
+struct logical_or {
+    bool operator()(const T& a, const T& b) const {
+        return a || b;
+    }
+};
+
+// logical_not functor (unary)
+template <typename T>
+struct logical_not {
+    bool operator()(const T& a) const {
+        return !a;
+    }
+};
+
+// bit_and functor
+template <typename T>
+struct bit_and {
+    T operator()(const T& a, const T& b) const {
+        return a & b;
+    }
+};
+
+// bit_or functor
+template <typename T>
+struct bit_or {
+    T operator()(const T& a, const T& b) const {
+        return a | b;
+    }
+};
+
+// bit_xor functor - the one QtNetwork actually named
+template <typename T>
+struct bit_xor {
+    T operator()(const T& a, const T& b) const {
+        return a ^ b;
+    }
+};
+
+// bit_not functor (unary)
+template <typename T>
+struct bit_not {
+    T operator()(const T& a) const {
+        return ~a;
+    }
+};
+
 /* -----------------------------------------------------------------------
    std::hash
 
@@ -415,6 +555,17 @@ struct is_placeholder : integral_constant<int, 0> {};
 template <int N>
 struct is_placeholder<__ewok_bind_detail::placeholder<N> > : integral_constant<int, N> {};
 
+/* And the const-qualified form, which is the one callers actually hit.
+   The placeholders below are declared `static const placeholder<N>`, so
+   decltype(_1) is `const placeholder<1>`; it matches neither the primary
+   template nor the specialization above and falls through to value 0.
+   bind_t itself was immune - BoundTuple is tuple<typename decay<Bound>::type...>,
+   and decay strips the const - which is why every functional test passed and
+   only an external `std::is_placeholder<decltype(_1)>` query answered wrong.
+   libc++ answers 1; the differential probe is what showed the disagreement. */
+template <int N>
+struct is_placeholder<const __ewok_bind_detail::placeholder<N> > : integral_constant<int, N> {};
+
 namespace placeholders {
 /* Namespace-scope `static const` gives each translation unit its own copy, which
    is what lets these live in a header: the standard spelling is `extern const`
@@ -447,7 +598,17 @@ class bind_t {
         /* Brace-initialised, not parenthesised: with an empty Args pack
            `tuple<> callArgs();` would parse as a function declaration. */
         tuple<typename remove_reference<Args>::type*...> callArgs{&args...};
-        return call_it(fn_, __ewok_bind_detail::sel(
+        /* Fully qualified, and it has to be.  bind_t lives in namespace std, so
+           an unqualified call_it() is looked up in std and in the enclosing
+           scopes of the call - never inside std::__ewok_bind_detail - and ADL
+           cannot rescue it either, because the associated namespaces of the
+           arguments are std (for fn_ and for the results of sel) and, for the
+           plain-data cases, none at all.  Both compilers said so in the same
+           words: GCC `'call_it' was not declared in this scope; did you mean
+           'std::__ewok_bind_detail::call_it'?`, clang `use of undeclared
+           identifier 'call_it'`.  sel() next to it was already qualified, which
+           is what made the omission easy to miss. */
+        return __ewok_bind_detail::call_it(fn_, __ewok_bind_detail::sel(
             integral_constant<int,
                 is_placeholder<typename tuple_element<I, BoundTuple>::type>::value>(),
             get<I>(bound_), callArgs)...);

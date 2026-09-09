@@ -1,0 +1,38 @@
+#ifndef EWOK_STL_CSETJMP_H
+#define EWOK_STL_CSETJMP_H
+
+/*
+ * <csetjmp> - the C <setjmp.h> names, in namespace std.
+ *
+ * EwokOS's <setjmp.h> already wraps its declarations in extern "C", so the
+ * using-declarations below bind to C-linkage functions and a call through
+ * std::longjmp reaches the same code as one through longjmp.
+ *
+ * jmp_buf is `long[24]` - 192 bytes, documented in that header as the aarch64
+ * callee-saved set: x19-x28, x29 (FP), x30 (LR), sp, and the low halves of
+ * d8-d15.  Being an array type, it decays to a pointer when passed, which is
+ * why setjmp/longjmp take it by value in the declaration and still share state.
+ *
+ * ewok_longjmp() is deliberately NOT re-exported.  It is an EwokOS extension
+ * sitting alongside the ISO pair, and namespace std is not the place to grow
+ * one; code that needs it includes <setjmp.h> and spells it unqualified.
+ *
+ * The usual warning applies with extra force on a target with no thread-local
+ * storage and no stack unwinding: longjmp past live non-trivial objects does
+ * not run their destructors, because there is nothing in this ABI that would.
+ * <exception> exists here, but -fno-exceptions is how Qt is built, so longjmp
+ * is genuinely the only non-local exit available and callers should treat it as
+ * a last resort rather than a control-flow primitive.
+ */
+
+#include <setjmp.h>
+
+namespace std {
+
+using ::jmp_buf;
+using ::setjmp;
+using ::longjmp;
+
+}
+
+#endif // EWOK_STL_CSETJMP_H

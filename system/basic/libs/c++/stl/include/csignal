@@ -1,0 +1,82 @@
+#ifndef EWOK_STL_CSIGNAL_H
+#define EWOK_STL_CSIGNAL_H
+
+/*
+ * <csignal> - the C <signal.h> names, in namespace std.
+ *
+ * Read the caveat before using any of this, because on EwokOS the interface is
+ * far wider than the mechanism underneath it.
+ *
+ * The kernel delivers exactly two signals: SYS_SIG_STOP (0) and SYS_SIG_KILL
+ * (1).  <signal.h> defines the whole familiar POSIX name set anyway - SIGINT,
+ * SIGTERM, SIGSEGV, SIGPIPE, SIGCHLD, SIGWINCH and the rest - but gives them
+ * numbers at or above SYS_SIG_NUM, and signal()/sigaction() treat those numbers
+ * as invalid.  Registering a handler for SIGINT therefore compiles, links, and
+ * quietly does nothing; the handler is never called because nothing ever raises
+ * it.  That is a deliberate design in libc's header, documented there, and it
+ * exists so ported code (libcurses job control, window-resize handling, the
+ * usual SIGPIPE-ignoring boilerplate) builds and runs rather than failing to
+ * compile.  It is not a working signal system, and code whose correctness
+ * depends on actually receiving one needs a different mechanism - an IPC
+ * message, or a file descriptor watched through select().
+ *
+ * SIGTERM and SIGKILL are both mapped to SYS_SIG_KILL, so raising either really
+ * does terminate the process.  Those two names are the ones that mean something.
+ *
+ * sig_atomic_t comes from libc rather than being defined here; see the comment
+ * on its typedef in <signal.h> for why int satisfies the guarantee on every
+ * architecture this tree targets.
+ *
+ * The macros - SIG_DFL, SIG_IGN, SIG_ERR, SIG_HOLD, SIG_BLOCK, SIG_UNBLOCK,
+ * SIG_SETMASK, SA_RESTART, SA_INTERRUPT, SA_RESETHAND and every SIGxxx number -
+ * need no using-declaration, being macros.
+ */
+
+#include <signal.h>
+
+namespace std {
+
+/* ISO C: the two functions and the one type that [csignal.syn] requires. */
+using ::sig_atomic_t;
+using ::signal;
+using ::raise;
+
+/* Types libc provides beyond the ISO set.  sighandler_t is the shape of a
+   handler as signal() takes and returns it; sigset_t is a plain unsigned long
+   here rather than a bitmask struct, which is consistent with there being two
+   real signals. */
+using ::sighandler_t;
+using ::sigset_t;
+
+/* The POSIX surface.  All of it is inert for the reasons described above except
+   kill() and raise(), which reach the kernel's two real signals. */
+using ::kill;
+using ::sigemptyset;
+using ::sigfillset;
+using ::sigaddset;
+using ::sigdelset;
+using ::sigismember;
+using ::sigprocmask;
+using ::sigaction;
+
+/* `using ::sigaction` exports the FUNCTION only, and that is worth stating
+   plainly because the opposite looks like it ought to be true.  At global scope
+   <signal.h> declares both `struct sigaction` and `int sigaction(int, const
+   struct sigaction*, struct sigaction*)`; in C++ the function name hides the
+   class name, so an unqualified use picks the function and a using-declaration
+   carries across just that one.  Attempting to name the type through the
+   alias is a compile error, not a subtlety:
+
+       std::sigaction sa;          // error: expected ';' before 'sa'
+                                   // warning: statement is a reference, not
+                                   //          call, to function 'sigaction'
+       struct sigaction sa;        // correct - elaborated type specifier
+
+   Nothing is lost by it.  sigaction is POSIX, not ISO C, so [csignal.syn] does
+   not ask for either entity, and the struct is reachable from C++ exactly as it
+   is on glibc - by spelling `struct`.  A using-declaration cannot name a hidden
+   class, and there is no spelling that would make one do so. */
+
+}
+
+#endif // EWOK_STL_CSIGNAL_H

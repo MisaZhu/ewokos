@@ -168,9 +168,9 @@ public:
     pos_type seekoff(off_type off, seekdir dir, int which = (in|out)) {
         if (!is_open_) return -1;
         int whence;
-        if (dir == beg) whence = 0;
-        else if (dir == cur) whence = 1;
-        else if (dir == end) whence = 2;
+        if (dir == ios_base::beg) whence = 0;
+        else if (dir == ios_base::cur) whence = 1;
+        else if (dir == ios_base::end) whence = 2;
         else return -1;
         return lseek(fd_, off * sizeof(char_type), whence);
     }
@@ -297,7 +297,7 @@ public:
     }
 
     pos_type tellg() {
-        return buf_.seekoff(0, cur, in);
+        return buf_.seekoff(0, ios_base::cur, in);
     }
 
     basic_ifstream& seekg(pos_type pos) {
@@ -431,7 +431,7 @@ public:
     }
 
     pos_type tellp() {
-        return buf_.seekoff(0, cur, out);
+        return buf_.seekoff(0, ios_base::cur, out);
     }
 
     basic_ofstream& seekp(pos_type pos) {
@@ -629,7 +629,7 @@ public:
     }
 
     pos_type tellg() {
-        return buf_.seekoff(0, cur, in);
+        return buf_.seekoff(0, ios_base::cur, in);
     }
 
     basic_fstream& seekg(pos_type pos) {
@@ -643,7 +643,7 @@ public:
     }
 
     pos_type tellp() {
-        return buf_.seekoff(0, cur, out);
+        return buf_.seekoff(0, ios_base::cur, out);
     }
 
     basic_fstream& seekp(pos_type pos) {

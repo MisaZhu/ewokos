@@ -8,7 +8,6 @@
 
 namespace std {
 
-enum seekdir { beg, cur, end };
 enum openmode { in, out, app, ate, binary, trunc_ };
 
 // streamsize is defined in streambuf
@@ -17,6 +16,30 @@ typedef long streamoff;
 typedef long streampos;
 
 struct ios_base {
+    /* seekdir has to live inside ios_base, which is where the standard puts it.
+       It used to be `enum seekdir { beg, cur, end };` at namespace scope, and
+       that stopped compiling once <initializer_list> gained the std::end()
+       overload the standard requires of it: an enumerator and a function
+       template with the same name in the same scope is a redeclaration as a
+       different kind of entity, and every later `dir == end` then resolved to
+       an unresolved overloaded function type instead of to the enumerator.
+       <iterator> declares two more std::end() overloads for arrays, so the
+       collision is not specific to one include order.
+
+       std::end is the side that cannot move - it is what makes range-for over
+       an initializer_list work - so the enumerator moved, and every use of beg,
+       cur and end in this header and in <fstream> is spelled ios_base::beg and
+       so on.  The typedef below keeps `seekdir` usable as a bare type name, so
+       only the enumerators had to be touched.  A using-declaration would have
+       been the more obvious way to re-export them, but GCC rejects one at
+       namespace scope ("using-declaration for member at non-class scope") and
+       re-exporting `end` that way would recreate the collision anyway.
+
+       openmode stays at namespace scope: none of its enumerators is a name the
+       standard also uses at namespace scope, so there is nothing to collide
+       with and no reason to churn the twenty-odd uses of in/out/app in
+       <fstream>. */
+    enum seekdir { beg, cur, end };
     enum fmtflags {
         boolalpha = 1, dec = 2, hex = 4, oct = 8,
         fixed = 16, scientific = 32, skipws = 64,
@@ -28,6 +51,9 @@ struct ios_base {
 private:
     fmtflags fmtflags_;
 };
+
+typedef ios_base::seekdir seekdir;
+typedef ios_base ios;
 
 template <typename Char>
 class basic_stringbuf {
@@ -50,18 +76,18 @@ public:
     size_t seekoff(size_t off, seekdir dir, int which = (int)(in|out)) {
         if (which & (int)in) {
             size_t new_pos;
-            if (dir == beg) new_pos = off;
-            else if (dir == cur) new_pos = rpos_ + off;
-            else if (dir == end) new_pos = str_.size() + off;
+            if (dir == ios_base::beg) new_pos = off;
+            else if (dir == ios_base::cur) new_pos = rpos_ + off;
+            else if (dir == ios_base::end) new_pos = str_.size() + off;
             else return (size_t)-1;
             if (new_pos > str_.size()) return (size_t)-1;
             rpos_ = new_pos;
         }
         if (which & (int)out) {
             size_t new_pos;
-            if (dir == beg) new_pos = off;
-            else if (dir == cur) new_pos = wpos_ + off;
-            else if (dir == end) new_pos = str_.size() + off;
+            if (dir == ios_base::beg) new_pos = off;
+            else if (dir == ios_base::cur) new_pos = wpos_ + off;
+            else if (dir == ios_base::end) new_pos = str_.size() + off;
             else return (size_t)-1;
             if (new_pos > str_.size()) return (size_t)-1;
             wpos_ = new_pos;

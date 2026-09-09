@@ -55,8 +55,27 @@ public:
         return *this;
     }
 
-    reference operator*() { return node_->key; }
-    pointer operator->() { return &node_->key; }
+    /* Both accessors are const-qualified, and that is load-bearing rather than
+       cosmetic.  `map::const_iterator` below is a typedef of this same
+       `map_iterator<Key, T>` - one iterator type, not two - so everything
+       reached through a const map method (`begin() const`, `find() const`)
+       hands back this type, and a caller that writes `const auto pos =
+       m.find(k)` is holding a *const map_iterator object*.  Without the
+       qualifier, dereferencing it is a hard error:
+
+           qhsts.cpp:158: error: passing 'const std::map_iterator<...>' as
+                          'this' argument discards qualifiers [-fpermissive]
+
+       Note what the const does and does not promise.  `pointer` is
+       `pair<Key, T>*`, so a const iterator object still yields a *mutable*
+       element: `pos->second = newPolicy` compiles, as it has to, because
+       writing through the iterator is the whole point of that call site.
+       Qualifying the method makes only the iterator's own node_ member
+       read-only - `pair<Key,T>* const`, in effect - and says nothing about the
+       pointee.  Inverting that is the classic way to silently turn a container's
+       moves into copies. */
+    reference operator*() const { return node_->key; }
+    pointer operator->() const { return &node_->key; }
 
     map_iterator& operator++() {
         if (node_->right != nullptr && !node_->right->is_nil) {
@@ -217,7 +236,7 @@ class map {
         iterator find(const Key& key) {
             map_node<value_type>* current = root_;
             while (current != nil_) {
-                if (current->key.first == key) {
+                if (keys_equal(current->key.first, key)) {
                     return iterator(current);
                 } else if (key < current->key.first) {
                     current = current->left;
@@ -231,7 +250,7 @@ class map {
         const_iterator find(const Key& key) const {
             map_node<value_type>* current = root_;
             while (current != nil_) {
-                if (current->key.first == key) {
+                if (keys_equal(current->key.first, key)) {
                     return const_iterator(current);
                 } else if (key < current->key.first) {
                     current = current->left;
@@ -282,7 +301,7 @@ class map {
         size_t erase(const Key& key) {
             map_node<value_type>* z = root_;
             while (z != nil_) {
-                if (z->key.first == key) {
+                if (keys_equal(z->key.first, key)) {
                     break;
                 } else if (key < z->key.first) {
                     z = z->left;
@@ -341,7 +360,7 @@ class map {
         T& operator[](const Key& key) {
             map_node<value_type>* current = root_;
             while (current != nil_) {
-                if (current->key.first == key) {
+                if (keys_equal(current->key.first, key)) {
                     return current->key.second;
                 } else if (key < current->key.first) {
                     current = current->left;
@@ -366,6 +385,38 @@ class map {
            through a null parent pointer. */
         map_node<value_type>* parent_of(map_node<value_type>* n) const {
             return n->parent != nullptr ? n->parent : nil_;
+        }
+
+        /* Key equality, derived from ordering rather than from operator==.
+
+           This is not a stylistic preference.  An associative container's only
+           requirement on its Key is a strict weak ordering - operator< - and
+           [associative.reqmts] defines equivalence as exactly this expression:
+           two keys are equivalent when neither compares less than the other.
+           Asking for operator== on top of that adds a requirement the standard
+           does not impose, and the key types that satisfy `<` alone are the
+           normal case, not an exotic one.
+
+           The cost of getting this wrong is a hard compile error at the first
+           instantiation of find(), erase() or operator[] for such a key, and it
+           lands on the caller rather than on whoever wrote the key type, who
+           did nothing wrong:
+
+               map:239: error: no match for 'operator==' (operand types are
+                        'HostName' and 'const HostName')
+
+           That diagnostic came out of the real qtbase build twice over -
+           QtNetwork's QHstsCache is a std::map<HostName, Policy> whose HostName
+           supplies operator< and nothing else - and out of the STL probe for the
+           same reason.  insert() never had the bug: it already branched on the
+           two `<` tests directly, which is why a map of `<`-only keys could be
+           populated and iterated but not searched.
+
+           Static and not const because it touches no member; the tree's own
+           Compare is declared and ignored (see the note at the top of this
+           file), so there is no comparator object to route through. */
+        static bool keys_equal(const Key& a, const Key& b) {
+            return !(a < b) && !(b < a);
         }
 
         void left_rotate(map_node<value_type>* x) {

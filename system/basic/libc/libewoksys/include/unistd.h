@@ -47,6 +47,37 @@
 #define _SC_GETGR_R_SIZE_MAX   19
 #define _SC_LOGIN_NAME_MAX     20
 #define _SC_TTY_NAME_MAX       21
+/*
+ * sysconf() key for SYMLOOP_MAX: the maximum number of symbolic links to
+ * follow while resolving a pathname.  This is the key, not the answer -
+ * src/unistd/sysconf.c returns the value.
+ *
+ * EwokOS's VFS has no symbolic links, so no resolution loop is possible and
+ * any positive answer is correct; sysconf.c returns 8, POSIX's minimum for
+ * SYMLOOP_MAX.  The key has to exist regardless: qfilesystemengine_unix.cpp
+ * calls sysconf(_SC_SYMLOOP_MAX) unconditionally when it caps its symlink
+ * chase, and an undefined identifier there is a compile error.
+ */
+#define _SC_SYMLOOP_MAX        22
+
+/*
+ * pathconf() keys.  Only two, because only two were ever asked for and both
+ * have real answers here; adding the rest of POSIX's _PC_ list as stubs would
+ * just hand callers a confident -1 for limits EwokOS does actually have.
+ *
+ * _PC_NAME_MAX is the one Qt needs, at qfiledialog.cpp:1860:
+ *
+ *     int QFileDialogPrivate::maxNameLength(const QString &path)
+ *     {
+ *     #if defined(Q_OS_UNIX)
+ *         return ::pathconf(QFile::encodeName(path).data(), _PC_NAME_MAX);
+ *     ...
+ *
+ * The call is inside `#if defined(Q_OS_UNIX)`, so it is live in this build, and
+ * the leading `::` means it must be a real global function - a macro would not do.
+ */
+#define _PC_NAME_MAX           0
+#define _PC_PATH_MAX           1
 
 #ifndef PATH_MAX
 #define PATH_MAX 1024
@@ -124,6 +155,21 @@ char *ttyname(int fd);
 int ttyname_r(int fd, char *buf, size_t buflen);
 char *ctermid(char *s);
 long sysconf(int name);
+
+/*
+ * Per-path limits.  Lives next to sysconf() and is defined in the same file,
+ * src/unistd/sysconf.c, because the two are the same POSIX facility and because
+ * that Makefile lists its objects by hand - a new translation unit would need
+ * registering there, and splitting two switch statements over two files buys
+ * nothing.
+ *
+ * Returns -1 with errno set to EINVAL for an unknown key.  Note that POSIX also
+ * allows -1 with errno untouched to mean "unlimited", which is why sysconf.c
+ * sets errno explicitly on the error path and why callers cannot just test the
+ * return value.
+ */
+long pathconf(const char *path, int name);
+
 int nice(int inc);
 int getpagesize(void);
 
@@ -133,6 +179,19 @@ int pause(void);
 void _exit(int status);
 
 ssize_t readlink(const char *path, char *buf, size_t bufsiz);
+/*
+ * symlink() and link().  EwokOS's VFS has no symbolic links and no link
+ * count on inodes, so both are declared here and defined in src/unistd/ to
+ * fail with ENOSYS - the same treatment readlink() already gets.  Declaring
+ * them matters even though they can never succeed: Qt calls them on paths it
+ * has decided to take at runtime, and an undeclared function is a compile
+ * error in C++.
+ *
+ *   qfilesystemengine_unix.cpp  QFileSystemEngine::createLink -> link()
+ *   qstorageinfo_unix.cpp       the /proc/mounts symlink probe
+ */
+int symlink(const char *target, const char *linkpath);
+int link(const char *oldpath, const char *newpath);
 char *get_current_dir_name(void);
 
 #ifdef __cplusplus

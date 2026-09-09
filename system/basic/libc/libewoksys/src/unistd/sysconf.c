@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <ewoksys/sys.h>
 #include <ewoksys/proc.h>
+#include <ewoksys/fsinfo.h>
 
 long sysconf(int name) {
     sys_info_t info;
@@ -40,6 +41,12 @@ long sysconf(int name) {
         return 256;
     case _SC_TTY_NAME_MAX:
         return 64;
+    case _SC_SYMLOOP_MAX:
+        /* No symbolic links in the EwokOS VFS, so no resolution loop is
+         * possible.  POSIX's minimum for SYMLOOP_MAX is 8; answering 8 is
+         * correct and lets a caller's `for (i = 0; i < symloop; ++i)` loop
+         * behave normally instead of erroring out. */
+        return 8;
     case _SC_NPROCESSORS_CONF:
     case _SC_NPROCESSORS_ONLN:
     case _SC_PHYS_PAGES:
@@ -64,4 +71,38 @@ long sysconf(int name) {
     if (info.page_size == 0)
         return 1024;
     return (long)(info.total_usable_mem_size / info.page_size);
+}
+
+/*
+ * pathconf().  Sits in this file rather than a new one for the reasons given at
+ * its declaration in include/unistd.h.
+ *
+ * `path` is accepted and then not consulted, which is honest rather than lazy:
+ * NAME_MAX on EwokOS comes from the VFS node structure, not from a per-mount
+ * setting, so every path in the system has the same answer and stat()ing the
+ * argument would only add a failure mode for paths that do not exist yet -
+ * which is exactly the case a file dialog asking "how long may the name I am
+ * about to create be?" cares about.
+ */
+long pathconf(const char *path, int name) {
+    if (path == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    switch (name) {
+    case _PC_NAME_MAX:
+        /* FS_NODE_NAME_MAX sizes the d_name buffer in fsinfo_t and includes the
+         * terminating NUL - it is documented as holding a null-terminated
+         * filename - while POSIX defines NAME_MAX as the number of bytes the
+         * implementation stores *excluding* the terminator.  Hence the -1.
+         * Answering 64 here would let a caller build a 64-character name that
+         * the VFS then refuses or truncates. */
+        return FS_NODE_NAME_MAX - 1;
+    case _PC_PATH_MAX:
+        return PATH_MAX;
+    default:
+        errno = EINVAL;
+        return -1;
+    }
 }

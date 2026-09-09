@@ -2,10 +2,57 @@
 #define EWOK_STL_LIST_H
 
 #include "iterator"
+#include "type_traits"
 
 #include <stddef.h>
 
+/*
+ * std::list, defined entirely in the header.
+ *
+ * It used to be declared here and defined in src/list.cpp, which ended with a
+ * single `template class list<int>;`.  That is the same trap <set> fell into: a
+ * class template's members cannot live in one .cpp and still be instantiable
+ * for any other type, so std::list<QSpanCollection::Span*> in qtableview.o and
+ * std::list<QFontEngine::GlyphCacheEntry> in qfontengine.o linked against
+ * symbols that were never emitted anywhere.  Both are members held by value -
+ * QTableViewPrivate::spanStack and QFontEngine's glyph cache hash - so this is
+ * not a corner case that can be designed around.
+ *
+ * Two things therefore have to stay exactly as they were while the bodies move
+ * here:
+ *
+ *   - The layout.  libQt5Gui.a and libQt5Widgets.a are already built, and they
+ *     embed this class by value, so sizeof and member offsets are part of an
+ *     ABI that cannot be renegotiated without rebuilding all of Qt.  Node is
+ *     still { data, prev, next }, the list is still { head_, tail_, size_ },
+ *     and an iterator is still a single Node*.
+ *
+ *   - The signatures the linker asked for.  push_back takes const T&, erase
+ *     takes iterator and not const_iterator, resize keeps its by-value T.  A
+ *     definition whose mangled name differs from the declaration those objects
+ *     were compiled against leaves the reference unsatisfied no matter how
+ *     correct the code is.
+ *
+ * There is no sentinel node: head_ is null on an empty list, and end() is a
+ * null Node*.  That makes end() unrepresentable as a real position, so every
+ * routine that walks backwards from an end iterator has to substitute tail_
+ * instead - splice() is the place that matters.
+ */
+
 namespace std {
+
+/* std::less and std::equal_to would come from <functional>, which does not
+   exist yet.  sort() and merge() need a default comparator, and pulling in a
+   whole header for two one-line functors is not the trade; they are local to
+   this file and named so they cannot collide with the real ones later. */
+namespace __ewok_list {
+
+template <class T>
+struct less {
+    bool operator()(const T& a, const T& b) const { return a < b; }
+};
+
+}
 
 template <typename T, typename Alloc = void>
 class list {
@@ -25,64 +72,6 @@ class list {
         class iterator;
         class const_iterator;
 
-        list();
-        list(size_t n, const T& val=T());
-        list(const list<T, Alloc>& src);
-        ~list();
-
-        list<T, Alloc>& operator=(const list& rhs);
-
-        iterator begin();
-        const_iterator begin() const;
-        iterator end();
-        const_iterator end() const;
-
-        T& front();
-        const T& front() const;
-        T& back();
-        const T& back() const;
-
-        size_t size() const;
-        bool empty() const;
-
-        void resize(size_t n, T val=T());
-
-        void push_front(const T& val);
-        void pop_front();
-        void push_back(const T& val);
-        void pop_back();
-
-        iterator insert(iterator position, const T& val);
-        iterator insert(iterator position, size_t n, const T& val);
-        iterator insert(iterator position, iterator first, iterator last);
-
-        iterator erase(iterator position);
-        iterator erase(iterator first, iterator last);
-
-        void clear();
-
-        void splice(iterator position, list& x);
-        void splice(iterator position, list& x, iterator i);
-        void splice(iterator position, list& x, iterator first, iterator last);
-
-        void remove(const T& val);
-        template <class Predicate>
-        void remove_if(Predicate pred);
-
-        void unique();
-        template <class BinaryPredicate>
-        void unique(BinaryPredicate binary_pred);
-
-        void merge(list& x);
-        template <class Compare>
-        void merge(list& x, Compare comp);
-
-        void sort();
-        template <class Compare>
-        void sort(Compare comp);
-
-        void reverse();
-
     private:
         struct Node {
             T data;
@@ -95,7 +84,385 @@ class list {
         Node* tail_;
         size_t size_;
 
+        /* Takes n out of the chain but does not free it and does not touch
+           size_; both callers want to move the count along with the nodes. */
+        void unlink(Node* n) {
+            if (n->prev != nullptr)
+                n->prev->next = n->next;
+            else
+                head_ = n->next;
+            if (n->next != nullptr)
+                n->next->prev = n->prev;
+            else
+                tail_ = n->prev;
+        }
+
+        /* Inserts n immediately before pos, or at the end when pos is null -
+           which is how end() is spelled here.  Maintains size_. */
+        void link_before(Node* pos, Node* n) {
+            n->next = pos;
+            n->prev = (pos != nullptr) ? pos->prev : tail_;
+            if (n->prev != nullptr)
+                n->prev->next = n;
+            else
+                head_ = n;
+            if (pos != nullptr)
+                pos->prev = n;
+            else
+                tail_ = n;
+            size_++;
+        }
+
     public:
+        list() : head_(nullptr), tail_(nullptr), size_(0) {}
+
+        list(size_t n, const T& val = T()) : head_(nullptr), tail_(nullptr), size_(0) {
+            for (size_t i = 0; i < n; i++)
+                push_back(val);
+        }
+
+        /* qlist.h:420 does `return std::list<T>(begin(), end());`.  The
+           enable_if is what keeps list(5, 3) out of this overload: without it
+           a template taking two arguments by value beats list(size_t, const T&)
+           on an exact match, and every two-int construction would silently
+           become a range walk. */
+        template <class InputIt,
+                  class = typename enable_if<!is_integral<InputIt>::value>::type>
+        list(InputIt first, InputIt last) : head_(nullptr), tail_(nullptr), size_(0) {
+            for (; first != last; ++first)
+                push_back(*first);
+        }
+
+        list(const list& src) : head_(nullptr), tail_(nullptr), size_(0) {
+            for (Node* cur = src.head_; cur != nullptr; cur = cur->next)
+                push_back(cur->data);
+        }
+
+        ~list() { clear(); }
+
+        list& operator=(const list& rhs) {
+            if (this != &rhs) {
+                clear();
+                for (Node* cur = rhs.head_; cur != nullptr; cur = cur->next)
+                    push_back(cur->data);
+            }
+            return *this;
+        }
+
+        iterator begin() { return iterator(head_); }
+        const_iterator begin() const { return const_iterator(head_); }
+        const_iterator cbegin() const { return const_iterator(head_); }
+
+        /* tail_->next is always null, so end() is a null node whether the list
+           is empty or not. */
+        iterator end() { return iterator(nullptr); }
+        const_iterator end() const { return const_iterator(nullptr); }
+        const_iterator cend() const { return const_iterator(nullptr); }
+
+        T& front() { return head_->data; }
+        const T& front() const { return head_->data; }
+        T& back() { return tail_->data; }
+        const T& back() const { return tail_->data; }
+
+        size_t size() const { return size_; }
+        bool empty() const { return size_ == 0; }
+        size_t max_size() const { return (size_t)-1 / sizeof(Node); }
+
+        /* T by value rather than by const reference: that is the signature the
+           already-built Qt objects were compiled against, and changing it
+           changes the mangled name. */
+        void resize(size_t n, T val = T()) {
+            while (size_ < n)
+                push_back(val);
+            while (size_ > n)
+                pop_back();
+        }
+
+        void push_front(const T& val) { link_before(head_, new Node(val)); }
+        void push_back(const T& val) { link_before(nullptr, new Node(val)); }
+
+        void pop_front() {
+            if (head_ == nullptr)
+                return;
+            Node* victim = head_;
+            unlink(victim);
+            size_--;
+            delete victim;
+        }
+
+        void pop_back() {
+            if (tail_ == nullptr)
+                return;
+            Node* victim = tail_;
+            unlink(victim);
+            size_--;
+            delete victim;
+        }
+
+        iterator insert(iterator position, const T& val) {
+            Node* n = new Node(val);
+            link_before(position.node(), n);
+            return iterator(n);
+        }
+
+        iterator insert(iterator position, size_t n, const T& val) {
+            iterator result = position;
+            for (size_t i = 0; i < n; i++) {
+                iterator inserted = insert(position, val);
+                if (i == 0)
+                    result = inserted;
+            }
+            return result;
+        }
+
+        iterator insert(iterator position, iterator first, iterator last) {
+            iterator result = position;
+            bool first_inserted = false;
+            for (; first != last; ++first) {
+                iterator inserted = insert(position, *first);
+                if (!first_inserted) {
+                    result = inserted;
+                    first_inserted = true;
+                }
+            }
+            return result;
+        }
+
+        iterator erase(iterator position) {
+            Node* n = position.node();
+            if (n == nullptr)
+                return position;
+            Node* following = n->next;
+            unlink(n);
+            size_--;
+            delete n;
+            return iterator(following);
+        }
+
+        iterator erase(iterator first, iterator last) {
+            while (first != last)
+                first = erase(first);
+            return first;
+        }
+
+        void clear() {
+            Node* cur = head_;
+            while (cur != nullptr) {
+                Node* next = cur->next;
+                delete cur;
+                cur = next;
+            }
+            head_ = nullptr;
+            tail_ = nullptr;
+            size_ = 0;
+        }
+
+        void splice(iterator position, list& x) {
+            splice(position, x, x.begin(), x.end());
+        }
+
+        void splice(iterator position, list& x, iterator i) {
+            if (i.node() == nullptr)
+                return;
+            iterator j = i;
+            ++j;
+            splice(position, x, i, j);
+        }
+
+        /*
+         * Moves [first, last) out of x and into *this before position.
+         *
+         * `last` is one past the range, and end() is a null node, so the last
+         * node actually being moved is last.node()->prev - or x.tail_ when last
+         * is end().  The previous version dereferenced position.node()->prev
+         * and last.node()->next unconditionally, which faulted on a splice at
+         * the front of the destination and on one reaching the end of the
+         * source, and it left head_ and tail_ pointing at nodes that had moved
+         * away whenever x was *this.
+         *
+         * Detaching before re-attaching is what makes the self-splice safe: by
+         * the time position is used, head_, tail_ and every prev/next link
+         * describe the list as it will look once the range is gone, which is
+         * the only consistent thing to insert into.  sort() depends on that,
+         * and so does anything rotating a list in place.
+         */
+        void splice(iterator position, list& x, iterator first, iterator last) {
+            Node* f = first.node();
+            if (f == nullptr)
+                return;
+
+            Node* l = last.node();
+            Node* range_last = (l != nullptr) ? l->prev : x.tail_;
+            if (range_last == nullptr)
+                return;
+
+            Node* pos = position.node();
+            if (pos == f || pos == l)   /* already exactly there */
+                return;
+
+            size_t moved = 0;
+            for (Node* n = f;; n = n->next) {
+                moved++;
+                if (n == range_last)
+                    break;
+            }
+
+            /* Out of x. */
+            Node* before = f->prev;
+            Node* after = range_last->next;
+            if (before != nullptr)
+                before->next = after;
+            else
+                x.head_ = after;
+            if (after != nullptr)
+                after->prev = before;
+            else
+                x.tail_ = before;
+            x.size_ -= moved;
+
+            /* Into *this, ahead of pos. */
+            f->prev = (pos != nullptr) ? pos->prev : tail_;
+            range_last->next = pos;
+            if (f->prev != nullptr)
+                f->prev->next = f;
+            else
+                head_ = f;
+            if (pos != nullptr)
+                pos->prev = range_last;
+            else
+                tail_ = range_last;
+            size_ += moved;
+        }
+
+        void remove(const T& val) {
+            Node* cur = head_;
+            while (cur != nullptr) {
+                Node* next = cur->next;
+                if (cur->data == val) {
+                    unlink(cur);
+                    size_--;
+                    delete cur;
+                }
+                cur = next;
+            }
+        }
+
+        template <class Predicate>
+        void remove_if(Predicate pred) {
+            Node* cur = head_;
+            while (cur != nullptr) {
+                Node* next = cur->next;
+                if (pred(cur->data)) {
+                    unlink(cur);
+                    size_--;
+                    delete cur;
+                }
+                cur = next;
+            }
+        }
+
+        /* Compares neighbours in place.  The old version copied *it into a T
+           and compared against that, which needed a copy assignment operator
+           for no reason and kept a stale value alive across a mutation. */
+        void unique() {
+            Node* cur = head_;
+            while (cur != nullptr && cur->next != nullptr) {
+                if (cur->data == cur->next->data) {
+                    Node* victim = cur->next;
+                    unlink(victim);
+                    size_--;
+                    delete victim;
+                } else {
+                    cur = cur->next;
+                }
+            }
+        }
+
+        template <class BinaryPredicate>
+        void unique(BinaryPredicate binary_pred) {
+            Node* cur = head_;
+            while (cur != nullptr && cur->next != nullptr) {
+                if (binary_pred(cur->data, cur->next->data)) {
+                    Node* victim = cur->next;
+                    unlink(victim);
+                    size_--;
+                    delete victim;
+                } else {
+                    cur = cur->next;
+                }
+            }
+        }
+
+        /* Both lists must already be sorted the same way.  Nodes are moved one
+           at a time rather than by range, so there is nothing to get wrong
+           about where the remainder of x starts. */
+        template <class Compare>
+        void merge(list& x, Compare comp) {
+            if (&x == this)
+                return;
+            Node* a = head_;
+            Node* b = x.head_;
+            while (a != nullptr && b != nullptr) {
+                if (comp(b->data, a->data)) {
+                    Node* following = b->next;
+                    x.unlink(b);
+                    x.size_--;
+                    link_before(a, b);
+                    b = following;
+                } else {
+                    a = a->next;
+                }
+            }
+            if (b != nullptr)
+                splice(end(), x, iterator(b), x.end());
+        }
+
+        void merge(list& x) { merge(x, __ewok_list::less<T>()); }
+
+        /*
+         * Split in half, sort both halves, merge.  Stable, and O(n log n).
+         *
+         * The previous version moved one node at a time into a temporary and
+         * merged that back, which is O(n^2) and - because it finished by
+         * splicing a list onto itself - rested entirely on the broken splice
+         * above.  This one splices too, but only ever between two different
+         * lists, so it would work even without the self-splice case.
+         */
+        template <class Compare>
+        void sort(Compare comp) {
+            if (size_ < 2)
+                return;
+            Node* mid = head_;
+            for (size_t i = size_ / 2; i > 0; i--)
+                mid = mid->next;
+            list second;
+            second.splice(second.begin(), *this, iterator(mid), end());
+            sort(comp);
+            second.sort(comp);
+            merge(second, comp);
+        }
+
+        void sort() { sort(__ewok_list::less<T>()); }
+
+        void reverse() {
+            Node* cur = head_;
+            while (cur != nullptr) {
+                Node* next = cur->next;
+                cur->next = cur->prev;
+                cur->prev = next;
+                cur = next;
+            }
+            Node* old_head = head_;
+            head_ = tail_;
+            tail_ = old_head;
+        }
+
+        void swap(list& other) {
+            Node* h = head_;  head_ = other.head_;  other.head_ = h;
+            Node* t = tail_;  tail_ = other.tail_;  other.tail_ = t;
+            size_t s = size_; size_ = other.size_;  other.size_ = s;
+        }
+
         // List iterator class
         class iterator {
         public:
@@ -206,6 +573,9 @@ class list {
             const Node* node_;
         };
 };
+
+template <class T, class Alloc>
+inline void swap(list<T, Alloc>& a, list<T, Alloc>& b) { a.swap(b); }
 
 }
 

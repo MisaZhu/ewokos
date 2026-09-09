@@ -8,10 +8,53 @@
  * <cassert> there is nothing to inject into namespace std; the header exists
  * only because -nostdinc++ hides the toolchain's own C++ wrapper.
  *
+ * Unlike <cfloat>, though, this is NOT a pure pass-through, and pretending it is
+ * costs a build round.  Three macros have to be supplied here:
+ *
+ *     LLONG_MIN, LLONG_MAX, ULLONG_MAX
+ *
+ * GCC's own <limits.h> defines them only under
+ *
+ *     #if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
+ *
+ * and __STDC_VERSION__ is not defined when compiling C++ - the compiler
+ * deliberately withholds the C99 long-long macros from C++ translation units,
+ * because libstdc++'s <climits> is the component that adds them back for
+ * C++11 and later.  Removing libstdc++ with -nostdinc++ therefore removed that
+ * step as well, and a bare `#include <limits.h>` leaves CHAR_BIT, INT_MAX,
+ * LONG_MAX and MB_LEN_MAX defined but the three long-long ones absent.  The
+ * effect is silent until something actually names them, and then it is not
+ * silent at all - HarfBuzz's hb-meta.hh specialises
+ * hb_integral_constant<signed long long, LLONG_MIN> at file scope, so the gap
+ * produced 62 x LLONG_MAX, 62 x LLONG_MIN, 62 x ULLONG_MAX and 186 cascading
+ * `template argument 2 is invalid` errors across the qtbase build, all of them
+ * downstream of one missing macro.
+ *
+ * The guard below is the same shape libstdc++ uses: __LONG_LONG_MAX__ is a GCC
+ * builtin macro that is correct for whatever target is being compiled - it is
+ * 0x7fffffffffffffff on aarch64 and 64-bit arm alike, and would be right on a
+ * target where long long differed.  Deriving the values from it rather than
+ * hardcoding 19-digit literals keeps this header correct for every architecture
+ * in the tree (arm, aarch64, riscv, x86) with no per-target editing.
+ *
+ * The #ifndef is load-bearing rather than defensive: if a libc ever does supply
+ * them, its values win and this block is inert.
+ *
  * This is the *C* limits header.  It is unrelated to <limits> and
- * std::numeric_limits, which is the C++ facility.
+ * std::numeric_limits, which is the C++ facility - though note that <limits>
+ * cannot substitute for it here, since numeric_limits<long long>::max() is a
+ * constexpr function call and is not usable as a template argument in the way
+ * hb-meta.hh needs a macro to be.
  */
 
 #include <limits.h>
+
+#if __cplusplus >= 201103L
+#ifndef LLONG_MAX
+#define LLONG_MAX __LONG_LONG_MAX__
+#define LLONG_MIN (-LLONG_MAX - 1LL)
+#define ULLONG_MAX (LLONG_MAX * 2ULL + 1ULL)
+#endif
+#endif
 
 #endif // EWOK_STL_CLIMITS_H

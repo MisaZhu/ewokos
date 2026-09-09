@@ -1,0 +1,46 @@
+#ifndef EWOK_STL_CERRNO_H
+#define EWOK_STL_CERRNO_H
+
+/*
+ * <cerrno> - the C <errno.h> names, visible to C++ code.
+ *
+ * A pure pass-through, for the same reason <cfloat> is: every name <errno.h>
+ * provides is a macro, and macros have no namespace, so there is nothing to
+ * re-export into namespace std.  That includes `errno` itself, which EwokOS
+ * defines in <sys/errno.h> as
+ *
+ *     #define errno (*__errno())
+ *
+ * i.e. a function call through a per-process accessor rather than a plain
+ * global int - there is no thread-local storage on this target, and __errno()
+ * returns the calling process's slot.  It is still an lvalue, so `errno = 0`
+ * and `if (errno == EINTR)` both work exactly as callers expect, and the
+ * standard's requirement that errno be a modifiable lvalue is met.
+ *
+ * The one non-macro name in the chain is __errno() itself, which is already
+ * wrapped in extern "C" by <sys/errno.h> and is not part of the C++ interface,
+ * so it gets no using-declaration.
+ *
+ * What made this header worth its own build round is that it is the second half
+ * of a pair.  HarfBuzz - which QtGui bundles and which shapes all of Qt's text -
+ * opens hb.hh with <cfloat> at line 197 and reaches `#  include <cerrno>` at
+ * line 415.  Until <cfloat> existed, all 57 harfbuzz translation units died at
+ * 197; adding it moved every one of them to 415 rather than clearing them, and
+ * the next build reported `fatal error: cerrno: No such file` 62 times (those 57
+ * plus 5 QtNetwork units).  Two rounds to cross one header, which is the argument
+ * for writing the whole <c*> set at once instead of one name per failure.
+ *
+ * hb.hh's list is now complete - cassert, cfloat, climits, cmath, cstdarg,
+ * cstddef, cstdio, cstdlib, cstring all existed already - so this unblocks the
+ * text shaper, and with it QtGui, and with it QtWidgets, which cannot start
+ * until the library it links against does.
+ *
+ * <system_error> and error_category are deliberately NOT built on top of this.
+ * They would need <string> plus a message table for the E* constants, and
+ * nothing in QtCore/QtGui/QtWidgets asks for them.  Code that wants the number
+ * reads errno; code that wants the text calls strerror() from <cstring>.
+ */
+
+#include <errno.h>
+
+#endif // EWOK_STL_CERRNO_H
