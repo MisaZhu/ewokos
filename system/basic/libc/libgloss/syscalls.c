@@ -16,6 +16,7 @@
 #include <reent.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <sys/wait.h>
 #include <stdint.h>
@@ -410,7 +411,17 @@ _open (const char * fname, int oflag, ...)
     fsinfo_t info;
     if(vfs_get_by_name(fname, &info) != 0) {
         if((oflag & O_CREAT) != 0) {
-            if(vfs_create(fname, &info, FS_TYPE_FILE, 0644, false, false) != 0){
+            /* POSIX: the mode vararg only exists when O_CREAT is set, and
+               the process umask filters it. The old hardcoded 0644 silently
+               dropped whatever the caller asked for. */
+            va_list ap;
+            va_start(ap, oflag);
+            mode_t mode = (mode_t)va_arg(ap, int);
+            va_end(ap);
+            mode_t mask = umask(0);
+            umask(mask);
+            mode &= ~mask;
+            if(vfs_create(fname, &info, FS_TYPE_FILE, mode, false, false) != 0){
                 dbg_kout(" create error");
                 return -1;
             }

@@ -160,7 +160,7 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    int fd_to = open(target, O_WRONLY | O_CREAT | O_TRUNC);
+    int fd_to = open(target, O_WRONLY | O_CREAT | O_TRUNC, st.st_mode & 0777);
     if(fd_to < 0) {
         printf("'%s' open failed!\n", target);
         close(fd_from);

@@ -60,7 +60,7 @@ graph_t* get_icon(const char* icon, uint32_t size) {
         }
     }
 
-    int fd = open(icon_file, O_WRONLY | O_CREAT);
+    int fd = open(icon_file, O_WRONLY | O_CREAT, 0666);
     if(fd < 0) {
         return ret;
     }

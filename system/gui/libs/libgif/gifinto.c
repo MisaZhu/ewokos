@@ -167,7 +167,7 @@ int main(int argc, char **argv) {
 #ifdef _WIN32
     char *tmpFN = _mktemp(FoutTmpName);
     if (tmpFN) {
-        FD = open(tmpFN, O_CREAT | O_EXCL | O_WRONLY);
+        FD = open(tmpFN, O_CREAT | O_EXCL | O_WRONLY, 0666);
     } else {
         FD = -1;
     }

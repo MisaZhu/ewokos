@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <ewoksys/wait.h>
 #include <string.h>
 #include <ewoksys/ipc.h>
@@ -55,6 +56,26 @@ static ramfs_file_t* ramfs_file_create(void) {
         return NULL;
     memset(file, 0, sizeof(*file));
     return file;
+}
+
+static int ramfs_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
+        int oflag, void* p) {
+    (void)dev;
+    (void)fd;
+    (void)from_pid;
+    (void)p;
+    /* vfsd clears the node stat.size on O_TRUNC, but the backing store is
+     * ours: without discarding it here, a shorter rewrite leaves the old
+     * tail behind and file->size pops back to the stale length on the next
+     * write (ramfs_write only grows size). sdfsd does the same via
+     * ext3_truncate in its open hook. */
+    if((oflag & O_TRUNC) != 0) {
+        ramfs_file_t* file = ramfs_get_file(info);
+        if(file != NULL)
+            file->size = 0;
+        info->stat.size = 0;
+    }
+    return 0;
 }
 
 static int ramfs_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
@@ -132,6 +153,7 @@ int main(int argc, char** argv) {
     vdevice_t dev;
     memset(&dev, 0, sizeof(vdevice_t));
     strcpy(dev.desc, "ramfs");
+    dev.open = ramfs_open;
     dev.read = ramfs_read;
     dev.write = ramfs_write;
     dev.unlink = ramfs_unlink;

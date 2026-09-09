@@ -176,7 +176,7 @@ int main(int argc, char* argv[])
     if(argc < 2)
         return -1;
 
-    int fd = open(argv[1], O_CREAT|O_WRONLY);
+    int fd = open(argv[1], O_CREAT|O_WRONLY, 0666);
     if(fd < 0){
         printf("open file error: %d", fd);
         return -1;

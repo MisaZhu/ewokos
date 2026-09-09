@@ -53,6 +53,7 @@ extern "C" {
 #endif
 
 int open(const char *pathname, int flags, ...);
+int creat(const char *pathname, mode_t mode);
 int fcntl(int fd, int cmd, ...);
 int chmod(const char *pathname, mode_t mode);
 int fchmod(int fd, mode_t mode);

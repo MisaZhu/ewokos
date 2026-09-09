@@ -1147,7 +1147,17 @@ int remove(const char *path) {
 }
 
 int open(const char *pathname, int flags, ...) {
-    return _open(pathname, flags, 0);
+    /* Forward the mode vararg to _open; it is only present (and only
+       meaningful) when O_CREAT is set. Passing a constant 0 here used to
+       make every O_CREAT open() ignore the caller's mode. */
+    int mode = 0;
+    if ((flags & O_CREAT) != 0) {
+        va_list args;
+        va_start(args, flags);
+        mode = va_arg(args, int);
+        va_end(args);
+    }
+    return _open(pathname, flags, mode);
 }
 
 int close(int fd) {
@@ -3077,7 +3087,7 @@ FILE *fopen(const char *path, const char *mode) {
         return NULL;
     }
 
-    stream->fd = open(path, flags, 0);
+    stream->fd = open(path, flags, 0666);
     if (stream->fd < 0) {
         free(stream);
         return NULL;

@@ -101,6 +101,7 @@ LIB_EWOKSYS_OBJS =  \
 	$(ARCH)/src/sys/stat/mkdir.o \
 	$(ARCH)/src/sys/stat/lstat.o \
 	$(ARCH)/src/sys/stat/mkfifo.o \
+	$(ARCH)/src/sys/stat/umask.o \
 	$(ARCH)/src/sys/select/select.o \
 	$(ARCH)/src/sys/utsname/uname.o \
 	$(ARCH)/src/sys/wait/wait.o \
@@ -111,6 +112,7 @@ LIB_EWOKSYS_OBJS =  \
 	\
 	$(ARCH)/src/fcntl/fchmod.o \
 	$(ARCH)/src/fcntl/chmod.o \
+	$(ARCH)/src/fcntl/creat.o \
 	$(ARCH)/src/fcntl/fcntl.o \
 	\
 	$(ARCH)/src/string/strcspn.o \
