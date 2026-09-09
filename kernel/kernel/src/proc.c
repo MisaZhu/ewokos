@@ -923,7 +923,7 @@ proc_switch_done:
     proc_track_priority_update(to);
     if(cproc != to)
         set_current_proc(to);
-#ifdef PROC_HAS_TLS_BASE
+#if defined(PROC_HAS_TLS_BASE) && !defined(PROC_TLS_BASE_DISABLE)
     /*
      * Both sides are under the proc lock and interrupts cannot preempt the
      * rest of the switch (the frame copy below depends on that too), so the
