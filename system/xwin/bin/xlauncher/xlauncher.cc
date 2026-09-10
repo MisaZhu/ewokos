@@ -11,6 +11,7 @@
 #include <ewoksys/proc.h>
 #include <tinyjson/tinyjson.h>
 #include <graph/graph_png.h>
+#include <iconbuf/iconbuf.h>
 #include <dirent.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -65,15 +66,11 @@ class AppList: public List {
 		int icon_size = iconSize < w ? iconSize : w;
 		graph_t* img = item->iconImg;
 		if(img == NULL) {
-			graph_t* i = png_image_new(icon);
-			if(i == NULL)
+			/* get_icon: smooth area-average downscale + /tmp cache, same
+			   path as xapps; raw graph_scalef aliases on small icons */
+			img = get_icon(icon, icon_size);
+			if(img == NULL)
 				return;
-			if(i->w != icon_size) {
-				img = graph_scalef(i, ((float)icon_size) / ((float)i->w));
-				graph_free(i);
-			}
-			else 
-				img = i;
 			item->iconImg = img;
 		}
 

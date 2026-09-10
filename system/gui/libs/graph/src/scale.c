@@ -233,6 +233,130 @@ graph_t* graph_scalef(graph_t* g, float scale) {
     return ret;
 }
 
+/**
+ * @brief Smooth downscale: area-average (box) filter with fractional edge
+ *        weights, so every source pixel lands in exactly one destination
+ *        box and no sampling aliasing (jaggies/moire) remains. Channels
+ *        accumulate premultiplied by alpha, keeping transparent borders
+ *        from bleeding RGB into icon edges. scale >= 1 falls back to
+ *        bilinear. One-shot cost, meant for icon/thumbnail generation.
+ * @param g source image
+ * @param dst output image, w/h must be pre-set to round(g->w*scale), round(g->h*scale)
+ * @param scale scaling factor
+ */
+void graph_scale_tof_smooth(graph_t* g, graph_t* dst, float scale)
+{
+    if(!g || !dst || !g->buffer || !dst->buffer) return;
+    if(scale <= 0.0f) return;
+    if(scale >= 1.0f) {
+        graph_scale_tof_cpu(g, dst, scale);
+        return;
+    }
+
+    int src_w = g->w;
+    int src_h = g->h;
+    int dst_w = dst->w;
+    int dst_h = dst->h;
+    if(src_w <= 0 || src_h <= 0 || dst_w <= 0 || dst_h <= 0) return;
+
+    /* per-axis 16.16 source step, i.e. the destination box size in source
+       pixels; weights below are overlap lengths in the same format */
+    uint64_t inv_x = ((uint64_t)src_w << FIXED_SHIFT) / dst_w;
+    uint64_t inv_y = ((uint64_t)src_h << FIXED_SHIFT) / dst_h;
+    /* per-box weight total: the axis weights telescope to inv_x / inv_y */
+    uint64_t box_w2 = inv_x * inv_y;
+
+    uint32_t *wx = (uint32_t*)malloc((size_t)src_w * sizeof(uint32_t));
+    uint32_t *wy = (uint32_t*)malloc((size_t)src_h * sizeof(uint32_t));
+    if(wx == NULL || wy == NULL) {
+        free(wx);
+        free(wy);
+        graph_scale_tof_cpu(g, dst, scale);
+        return;
+    }
+
+    for(int oy = 0; oy < dst_h; oy++) {
+        uint64_t y_start = (uint64_t)oy * inv_y;
+        uint64_t y_end = y_start + inv_y;
+        int y0 = (int)(y_start >> FIXED_SHIFT);
+        int y1 = (int)((y_end - 1) >> FIXED_SHIFT);
+        if(y1 >= src_h) y1 = src_h - 1;
+
+        for(int sy = y0; sy <= y1; sy++) {
+            uint64_t lo = ((uint64_t)sy << FIXED_SHIFT) > y_start ?
+                    ((uint64_t)sy << FIXED_SHIFT) : y_start;
+            uint64_t hi = ((uint64_t)(sy + 1) << FIXED_SHIFT) < y_end ?
+                    ((uint64_t)(sy + 1) << FIXED_SHIFT) : y_end;
+            wy[sy] = (uint32_t)(hi - lo);
+        }
+
+        uint32_t *drow = dst->buffer + (size_t)oy * dst_w;
+
+        for(int ox = 0; ox < dst_w; ox++) {
+            uint64_t x_start = (uint64_t)ox * inv_x;
+            uint64_t x_end = x_start + inv_x;
+            int x0 = (int)(x_start >> FIXED_SHIFT);
+            int x1 = (int)((x_end - 1) >> FIXED_SHIFT);
+            if(x1 >= src_w) x1 = src_w - 1;
+
+            for(int sx = x0; sx <= x1; sx++) {
+                uint64_t lo = ((uint64_t)sx << FIXED_SHIFT) > x_start ?
+                        ((uint64_t)sx << FIXED_SHIFT) : x_start;
+                uint64_t hi = ((uint64_t)(sx + 1) << FIXED_SHIFT) < x_end ?
+                        ((uint64_t)(sx + 1) << FIXED_SHIFT) : x_end;
+                wx[sx] = (uint32_t)(hi - lo);
+            }
+
+            uint64_t acc_a = 0, acc_r = 0, acc_g = 0, acc_b = 0;
+            for(int sy = y0; sy <= y1; sy++) {
+                uint32_t w_y = wy[sy];
+                if(w_y == 0) continue;
+                const uint32_t *srow = g->buffer + (size_t)sy * src_w;
+                for(int sx = x0; sx <= x1; sx++) {
+                    uint64_t w2 = (uint64_t)w_y * wx[sx];
+                    uint32_t p = srow[sx];
+                    /* premultiplied accumulation: weight the color by the
+                       pixel alpha so fully transparent pixels contribute
+                       nothing but their alpha */
+                    uint64_t pa = (uint64_t)((p >> 24) & 0xFF) * w2;
+                    acc_a += pa;
+                    acc_r += (uint64_t)((p >> 16) & 0xFF) * pa;
+                    acc_g += (uint64_t)((p >> 8) & 0xFF) * pa;
+                    acc_b += (uint64_t)(p & 0xFF) * pa;
+                }
+            }
+
+            uint32_t a = (uint32_t)((acc_a + box_w2 / 2) / box_w2);
+            uint32_t r = 0, gr = 0, b = 0;
+            if(a > 0) {
+                /* un-premultiply: sum(r*a*w) / sum(a*w) */
+                r  = (uint32_t)((acc_r + acc_a / 2) / acc_a);
+                gr = (uint32_t)((acc_g + acc_a / 2) / acc_a);
+                b  = (uint32_t)((acc_b + acc_a / 2) / acc_a);
+            }
+            if(a > 255) a = 255;
+            if(r > 255) r = 255;
+            if(gr > 255) gr = 255;
+            if(b > 255) b = 255;
+            drow[ox] = (a << 24) | (r << 16) | (gr << 8) | b;
+        }
+    }
+
+    free(wx);
+    free(wy);
+}
+
+graph_t* graph_scalef_smooth(graph_t* g, float scale) {
+    graph_t* ret = NULL;
+    if(scale <= 0.0)
+        return NULL;
+    ret = graph_new(NULL, g->w*scale, g->h*scale);
+    if(ret == NULL)
+        return NULL;
+    graph_scale_tof_smooth(g, ret, scale);
+    return ret;
+}
+
 void graph_scale_fit_tof_cpu(graph_t* src, graph_t* dst) {
     if (src == NULL || dst == NULL || src->buffer == NULL || dst->buffer == NULL)
         return;

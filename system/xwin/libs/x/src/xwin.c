@@ -546,7 +546,19 @@ void xwin_repaint(xwin_t* xwin) {
     graph_t g;
     if(xwin_fetch_graph(xwin, &g) != NULL) {
         if(xwin->on_repaint != NULL) {
+            /*An app may flip its alpha from inside here - widget++'s
+              ConsoleWidget::drawBG does. xwin_set_alpha then latches the server
+              notify instead of issuing it mid-frame; run it now that the
+              callback is done with the canvas.*/
+            xwin->in_repaint = true;
             xwin->on_repaint(xwin, &g);
+            xwin->in_repaint = false;
+            if(xwin->alpha_refresh_pending) {
+                xwin->alpha_refresh_pending = false;
+                /*the callback may have torn the window down*/
+                if(xwin->fd > 0 && xwin->xinfo != NULL)
+                    xwin_update_info(xwin, X_UPDATE_REFRESH);
+            }
         }
     }
     if(xwin->fd <= 0 || xwin->xinfo == NULL) {
@@ -787,9 +799,31 @@ int xwin_event_handle(xwin_t* xwin, xevent_t* ev) {
 }
 
 void xwin_set_alpha(xwin_t* xwin, bool alpha) {
-    if(xwin->xinfo == NULL)
+    if(xwin == NULL || xwin->xinfo == NULL)
+        return;
+    if(xwin->xinfo->alpha == alpha)
         return;
     xwin->xinfo->alpha = alpha;
+
+    /*Writing the flag alone is not enough. The compositor caches whether this
+      window's picture already sits blended on the display (shadow_valid and
+      shadow_rect, see draw_win in xrender.c) and, with that cache warm, copies
+      only the fully opaque pixels so it never stacks alpha on alpha. A window
+      that turns translucent mid-life therefore keeps showing the opaque blit it
+      got before: every one of its translucent pixels is skipped on every later
+      pass. REFRESH dirties the whole display, which is what drops shadow_valid
+      for every window. Deliberately not REBUILD - that reallocates and clears
+      the canvas the client is painting into.
+
+      Guarded on an actual change because widget++'s ConsoleWidget::drawBG calls
+      this on every background draw.*/
+    if(xwin->in_repaint) {
+        /*Inside on_repaint: latch it, xwin_repaint issues the notify as soon as
+          the callback returns and the app no longer holds the canvas.*/
+        xwin->alpha_refresh_pending = true;
+        return;
+    }
+    xwin_update_info(xwin, X_UPDATE_REFRESH);
 }
 
 void xwin_hide_cursor(xwin_t* xwin, bool hide) {

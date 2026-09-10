@@ -112,6 +112,16 @@ double log10(double x);
 float log10f(float x);
 double fmod(double x, double y);
 float fmodf(float x, float y);
+/* remainder() was missing from this list although libm has always provided it -
+ * nm libm.a shows `T remainder` and `T remainderf`, and openlibm_math.h declares
+ * both.  Callers that included <math.h> or <cmath> therefore got an implicit
+ * declaration in C and a hard `'remainder' was not declared in this scope' in
+ * C++, with no way to reach the symbol short of including <openlibm_math.h>,
+ * which nothing outside the libc build itself does.  It belongs next to fmod:
+ * both are the two-argument residue functions and differ only in rounding the
+ * quotient to nearest rather than toward zero. */
+double remainder(double x, double y);
+float remainderf(float x, float y);
 double modf(double x, double *iptr);
 float modff(float x, float *iptr);
 double fmin(double x, double y);

@@ -89,6 +89,8 @@ using ::llrintf;
 
 using ::fmod;
 using ::fmodf;
+using ::remainder;
+using ::remainderf;
 using ::modf;
 using ::modff;
 using ::fmin;

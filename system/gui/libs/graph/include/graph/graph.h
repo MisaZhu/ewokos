@@ -101,6 +101,8 @@ graph_t* graph_scalef(graph_t* g, float scale);
 graph_t* graph_scale_fitf(graph_t* g, int32_t w, int32_t h);
 void     graph_scale_tof_fast(graph_t* g, graph_t* dst, float scale);
 graph_t* graph_scalef_fast(graph_t* g, float scale);
+void     graph_scale_tof_smooth(graph_t* g, graph_t* dst, float scale);
+graph_t* graph_scalef_smooth(graph_t* g, float scale);
 
 void     graph_rect(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
 void     graph_fill_rect(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);

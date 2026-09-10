@@ -46,7 +46,13 @@ graph_t* get_icon(const char* icon, uint32_t size) {
     if(sz == 0 || size == sz)
         ret = img;
     else {
-        ret = graph_scalef_fast(img, ((float)size) / ((float)sz));
+        float f = ((float)size) / ((float)sz);
+        /* downscale with area averaging: point/bilinear sampling aliases
+           badly on small icons */
+        if(f < 1.0f)
+            ret = graph_scalef_smooth(img, f);
+        else
+            ret = graph_scalef_fast(img, f);
         graph_free(img);
     }
     

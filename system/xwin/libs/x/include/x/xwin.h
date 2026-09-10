@@ -36,6 +36,13 @@ typedef struct st_xwin {
 	bool present_pending;
 	int32_t present_ws_g_id;
 
+	/*xwin_set_alpha was called while on_repaint was running. The flag itself is
+	  already in xinfo, but the server notify is latched here and issued once the
+	  callback returns: UPDATE_INFO mid-frame can escalate to a buffer rebuild
+	  while the app still holds a live graph_t into ws_g.*/
+	bool in_repaint;
+	bool alpha_refresh_pending;
+
 	bool (*on_close)(struct st_xwin* xwin);
 	void (*on_min)(struct st_xwin* xwin);
 	void (*on_resize)(struct st_xwin* xwin);

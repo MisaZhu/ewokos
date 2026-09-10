@@ -1,0 +1,368 @@
+#ifndef EWOK_STL_BITSET_H
+#define EWOK_STL_BITSET_H
+
+/*
+ * <bitset> - std::bitset, a fixed-size run of N bits handled as one value.
+ *
+ * What made this header necessary is one line in one port: SimulIDE's 8-bit
+ * shift register declares
+ *
+ *   simulator/elements/logic/e-shiftreg.h:47,48
+ *       std::bitset<8> m_shiftReg;
+ *       std::bitset<8> m_latch;
+ *
+ * and with no <bitset> here the translation unit dies on the include, before
+ * any of the code that uses it is even read.  That code is worth listing because
+ * it is the whole of what the port needs, and it is narrower than what a
+ * standard header may supply:
+ *
+ *   e-shiftreg.cpp:41,42,75,76,103   reset()
+ *   e-shiftreg.cpp:116               m_shiftReg[i] = m_shiftReg[i-1]
+ *   e-shiftreg.cpp:120               setOut( m_shiftReg[7] )       bit to bool
+ *   e-shiftreg.cpp:126               m_shiftReg[0] = (volt > ...)   bool to bit
+ *   e-shiftreg.cpp:147,148           bool data = m_shiftReg[i]; m_latch[i] = data;
+ *   e-shiftreg.cpp:160               setOut( i, m_shiftReg[i] )
+ *
+ * Three members: reset(), and operator[] in both directions.  A header written
+ * to that size would compile this port and break the next caller, so this is the
+ * standard interface whole, minus the parts itemised at the end.
+ *
+ * Storage is an array of 64-bit words.  libstdc++ uses `unsigned long`, which
+ * is 4 bytes on the arm32 targets this STL builds for and 8 on aarch64; a word
+ * whose width moves with the platform would make the shift and mask code below
+ * mean different things on different targets, and would make sizeof(bitset<N>)
+ * differ too.  uint64_t is the same everywhere and is the widest this tree has
+ * any reason to name.
+ *
+ * Bits above N in the topmost word are padding and are held at zero.  Every
+ * operation that could fill them - set(), flip(), operator~(), the converting
+ * constructor - goes through _M_sanitise() on the way out, and the ones that
+ * combine two bitsets do not need to, because 0 & 0, 0 | 0 and 0 ^ 0 are all 0.
+ * That invariant is what lets any(), none(), count() and operator== be plain
+ * loops over the words with no masking at any of the call sites.
+ *
+ * N == 0 is allowed and still allocates one word.  A zero-length array is a GNU
+ * extension that -pedantic rejects; <array> in this STL dodges the same problem
+ * with an empty struct and a __array_traits specialisation, and here one spare
+ * word is cheaper than a second definition of the class.  The empty bitset then
+ * behaves as the standard says: size() 0, all() true, any() false, none() true,
+ * to_string() empty, and every shift resets it.
+ *
+ * Absent, deliberately:
+ *
+ *   operator<<(ostream&, const bitset&) and operator>>(istream&, bitset&)
+ *       There is no <ostream> or <istream> in this STL to declare them against -
+ *       only <iosfwd> and <iostream> - and to_string() covers formatting.
+ *   std::hash<std::bitset<N>>
+ *       <functional> here has no primary hash template to specialise.
+ *   to_string's charT/traits/allocator parameters
+ *       The standard's overload set exists so a caller can pick the string type;
+ *       there is one string type here, so there is nothing to pick.
+ *
+ * No bounds checking and no throw, matching <array>.  -fno-exceptions leaves no
+ * runtime to throw std::out_of_range with, so test() and operator[] index
+ * directly.  to_ulong() and to_ullong() likewise return the low word instead of
+ * reporting overflow: the standard throws overflow_error when the value does not
+ * fit, and truncating is the behaviour every other container here settles for.
+ */
+
+#include "cstddef"
+#include "cstdint"
+#include "string"
+
+namespace std {
+
+template <size_t N>
+class bitset {
+public:
+    /* A proxy for one bit, which is what the non-const operator[] has to hand
+       back.  `bs[i] = v` needs something assignable and `bool b = bs[i]` needs
+       something convertible, and a single bit inside a word has no address of
+       its own to return as a bool&.  Storing the position rather than a pointer
+       to the bit is the only option, so every operation here is a read-modify-
+       write through the owning bitset. */
+    class reference {
+        friend class bitset<N>;
+
+        bitset<N>* _M_bs;
+        size_t     _M_pos;
+
+        reference() : _M_bs(0), _M_pos(0) {}
+        reference(bitset<N>& bs, size_t pos) : _M_bs(&bs), _M_pos(pos) {}
+
+        /* Written out rather than left implicit.  A user-provided copy
+           assignment operator makes the implicit copy constructor deprecated,
+           and -Wextra reports it: operator[] below returns a reference by value,
+           so every instantiation of bitset would warn. */
+        reference(const reference& r) : _M_bs(r._M_bs), _M_pos(r._M_pos) {}
+
+    public:
+        reference& operator=(bool val) {
+            _M_bs->_M_setbit(_M_pos, val);
+            return *this;
+        }
+
+        /* Reads the source bit before writing the destination.  The two can be
+           the same bit - `bs[3] = bs[3]` is legal, and so is assigning a
+           reference to itself - and resolving it to a bool first makes that case
+           a no-op instead of something that depends on evaluation order. */
+        reference& operator=(const reference& r) {
+            _M_bs->_M_setbit(_M_pos, r._M_bs->_M_test(r._M_pos));
+            return *this;
+        }
+
+        operator bool() const { return _M_bs->_M_test(_M_pos); }
+        bool operator~() const { return !_M_bs->_M_test(_M_pos); }
+
+        reference& flip() {
+            _M_bs->_M_setbit(_M_pos, !_M_bs->_M_test(_M_pos));
+            return *this;
+        }
+    };
+
+private:
+    typedef uint64_t _WordT;
+
+    static const size_t _S_bits_per_word = 64;
+
+    /* One word even when there are no bits in it; see the N == 0 note above. */
+    static const size_t _S_num_words =
+        (N == 0) ? 1 : (N + _S_bits_per_word - 1) / _S_bits_per_word;
+
+    _WordT _M_w[_S_num_words];
+
+    static size_t _S_whichword(size_t pos) { return pos / _S_bits_per_word; }
+    static _WordT _S_whichbit(size_t pos)  { return _WordT(1) << (pos % _S_bits_per_word); }
+
+    bool _M_test(size_t pos) const {
+        return (_M_w[_S_whichword(pos)] & _S_whichbit(pos)) != 0;
+    }
+
+    void _M_setbit(size_t pos, bool val) {
+        if (val) _M_w[_S_whichword(pos)] |=  _S_whichbit(pos);
+        else     _M_w[_S_whichword(pos)] &= ~_S_whichbit(pos);
+    }
+
+    /* Clear the padding above bit N-1 in the topmost word.
+     *
+     * _S_used_bits counts the bits the last word actually owns, and is written
+     * as (N-1) % 64 + 1 rather than N % 64 because those two disagree in exactly
+     * the case that matters: N a multiple of 64 gives N % 64 == 0, which reads
+     * as "no bits" when it means "all 64".  N == 0 is folded onto the same
+     * answer on purpose - it owns no bits, so the mask comes out 0 and the
+     * spare word is cleared, which is what keeps any() false for an empty
+     * bitset that has just been through set().
+     *
+     * The shift by _S_used_bits is guarded because shifting a 64-bit value by 64
+     * is undefined; when the word is full the mask is all-ones and there is
+     * nothing to clear. */
+    void _M_sanitise() {
+        const size_t used = (N == 0) ? 0 : ((N - 1) % _S_bits_per_word) + 1;
+        _M_w[_S_num_words - 1] &=
+            (used == _S_bits_per_word) ? ~_WordT(0) : ((_WordT(1) << used) - 1);
+    }
+
+    /* operator== is a non-member so that both sides convert symmetrically, as in
+       <array>, and needs the word array to do it in one loop. */
+    template <size_t M>
+    friend bool operator==(const bitset<M>& a, const bitset<M>& b);
+
+public:
+    bitset() {
+        for (size_t i = 0; i < _S_num_words; ++i) _M_w[i] = 0;
+    }
+
+    /* Bits of val above N are dropped, which is what _M_sanitise() does. */
+    bitset(unsigned long long val) {
+        for (size_t i = 0; i < _S_num_words; ++i) _M_w[i] = 0;
+        _M_w[0] = _WordT(val);
+        _M_sanitise();
+    }
+
+    /* The default argument is on this overload and not on set(), so set() and
+       set(pos) stay distinguishable: the no-argument form fills every bit and
+       the one-argument form sets a single one. */
+    bitset& set() {
+        for (size_t i = 0; i < _S_num_words; ++i) _M_w[i] = ~_WordT(0);
+        _M_sanitise();
+        return *this;
+    }
+    bitset& set(size_t pos, bool val = true) {
+        _M_setbit(pos, val);
+        return *this;
+    }
+
+    bitset& reset() {
+        for (size_t i = 0; i < _S_num_words; ++i) _M_w[i] = 0;
+        return *this;
+    }
+    bitset& reset(size_t pos) {
+        _M_setbit(pos, false);
+        return *this;
+    }
+
+    bitset& flip() {
+        for (size_t i = 0; i < _S_num_words; ++i) _M_w[i] = ~_M_w[i];
+        _M_sanitise();
+        return *this;
+    }
+    bitset& flip(size_t pos) {
+        _M_setbit(pos, !_M_test(pos));
+        return *this;
+    }
+
+    /* The const form returns bool, not a reference: a const bitset has no bit to
+       hand out for writing, and a bool is all a reader can do with it anyway. */
+    bool operator[](size_t pos) const { return _M_test(pos); }
+    reference operator[](size_t pos) { return reference(*this, pos); }
+
+    bool test(size_t pos) const { return _M_test(pos); }
+
+    size_t size() const { return N; }
+
+    size_t count() const {
+        size_t n = 0;
+        /* Padding is always zero, so counting whole words is the same as
+           counting the first N bits. */
+        for (size_t i = 0; i < _S_num_words; ++i)
+            n += (size_t)__builtin_popcountll(_M_w[i]);
+        return n;
+    }
+
+    bool all() const { return count() == N; }
+
+    bool any() const {
+        for (size_t i = 0; i < _S_num_words; ++i)
+            if (_M_w[i] != 0) return true;
+        return false;
+    }
+    bool none() const { return !any(); }
+
+    /* Only the low word can survive in 64 bits, and on arm32 unsigned long is
+       narrower still, so to_ulong() truncates once more.  See the note at the
+       top about what the standard does here instead. */
+    unsigned long long to_ullong() const { return (unsigned long long)_M_w[0]; }
+    unsigned long to_ulong() const { return (unsigned long)_M_w[0]; }
+
+    /* Most significant bit first, so s[0] is bit N-1 and s[N-1] is bit 0. */
+    string to_string() const {
+        string s(N, '0');
+        for (size_t i = N; i-- > 0; )
+            if (_M_test(i)) s[N - 1 - i] = '1';
+        return s;
+    }
+
+    /* Padding is zero on both sides, so the three combining operators need no
+       _M_sanitise() - see the note at the top. */
+    bitset& operator&=(const bitset& r) {
+        for (size_t i = 0; i < _S_num_words; ++i) _M_w[i] &= r._M_w[i];
+        return *this;
+    }
+    bitset& operator|=(const bitset& r) {
+        for (size_t i = 0; i < _S_num_words; ++i) _M_w[i] |= r._M_w[i];
+        return *this;
+    }
+    bitset& operator^=(const bitset& r) {
+        for (size_t i = 0; i < _S_num_words; ++i) _M_w[i] ^= r._M_w[i];
+        return *this;
+    }
+
+    bitset operator~() const {
+        bitset<N> r(*this);
+        r.flip();
+        return r;
+    }
+
+    /* Shifting a whole word array, which is why both directions are written out
+       rather than expressed in terms of each other.  `pos >= N` catches the
+       empty-shift case as well as the shift-everything-out case, and for N == 0
+       it is true for every pos, so an empty bitset never reaches the word
+       arithmetic below. */
+    bitset& operator<<=(size_t pos) {
+        if (pos >= N) return reset();
+
+        const size_t wshift = pos / _S_bits_per_word;
+        const size_t across = pos % _S_bits_per_word;
+
+        if (across == 0) {
+            /* Whole words only.  Downwards, so that a destination is written
+               after the source it reads has been. */
+            for (size_t i = _S_num_words; i-- > wshift; )
+                _M_w[i] = _M_w[i - wshift];
+        } else {
+            /* Each destination takes the high bits of one source word and the
+               low bits of the one below it.  The bottom receiving word has no
+               word below it and is handled after the loop. */
+            for (size_t i = _S_num_words; i-- > wshift + 1; )
+                _M_w[i] = (_M_w[i - wshift] << across)
+                        | (_M_w[i - wshift - 1] >> (_S_bits_per_word - across));
+            _M_w[wshift] = _M_w[0] << across;
+        }
+        for (size_t i = 0; i < wshift; ++i) _M_w[i] = 0;
+
+        /* Bits shifted in above N land in the padding and have to be cleared. */
+        _M_sanitise();
+        return *this;
+    }
+
+    bitset& operator>>=(size_t pos) {
+        if (pos >= N) return reset();
+
+        const size_t wshift = pos / _S_bits_per_word;
+        const size_t across = pos % _S_bits_per_word;
+        const size_t limit  = _S_num_words - wshift;   /* words that receive */
+
+        if (across == 0) {
+            for (size_t i = 0; i < limit; ++i)
+                _M_w[i] = _M_w[i + wshift];
+        } else {
+            for (size_t i = 0; i + 1 < limit; ++i)
+                _M_w[i] = (_M_w[i + wshift] >> across)
+                        | (_M_w[i + wshift + 1] << (_S_bits_per_word - across));
+            _M_w[limit - 1] = _M_w[_S_num_words - 1] >> across;
+        }
+        for (size_t i = limit; i < _S_num_words; ++i) _M_w[i] = 0;
+
+        /* No _M_sanitise(): a right shift can only move bits downwards, and the
+           padding was already zero. */
+        return *this;
+    }
+};
+
+template <size_t N>
+bool operator==(const bitset<N>& a, const bitset<N>& b) {
+    for (size_t i = 0; i < bitset<N>::_S_num_words; ++i)
+        if (a._M_w[i] != b._M_w[i]) return false;
+    return true;
+}
+
+template <size_t N>
+bool operator!=(const bitset<N>& a, const bitset<N>& b) { return !(a == b); }
+
+/* By value on the left, so each is one call to the compound form on a copy. */
+template <size_t N>
+bitset<N> operator&(bitset<N> a, const bitset<N>& b) { a &= b; return a; }
+
+template <size_t N>
+bitset<N> operator|(bitset<N> a, const bitset<N>& b) { a |= b; return a; }
+
+template <size_t N>
+bitset<N> operator^(bitset<N> a, const bitset<N>& b) { a ^= b; return a; }
+
+template <size_t N>
+bitset<N> operator<<(const bitset<N>& a, size_t pos) {
+    bitset<N> r(a);
+    r <<= pos;
+    return r;
+}
+
+template <size_t N>
+bitset<N> operator>>(const bitset<N>& a, size_t pos) {
+    bitset<N> r(a);
+    r >>= pos;
+    return r;
+}
+
+}
+
+#endif // EWOK_STL_BITSET_H
