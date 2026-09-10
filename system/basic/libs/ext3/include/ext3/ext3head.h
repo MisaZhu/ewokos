@@ -17,7 +17,8 @@
 #define EXT3_FT_DIR  2
 
 /* i_mode file-type bits (what external ext2/ext3 tools/OSes look at;
- * the in-tree rebuild only reads the dirent file_type byte). */
+ * the in-tree rebuild only reads the dirent file_type byte. */
+#define EXT3_S_IFMT  0xF000
 #define EXT3_S_IFREG 0x8000
 #define EXT3_S_IFDIR 0x4000
 
@@ -123,10 +124,33 @@ typedef struct ext3_inode {
 	uint32_t	i_flags;	/* File flags */
 	uint32_t	dummy;
 	uint32_t	i_block[15];    /* Pointers to blocks */
-	uint32_t	pad[5];         /* opaque: generation/file_acl/dir_acl/faddr/osd2 */
+	uint32_t	i_generation;   /* 0x64 */
+	uint32_t	i_file_acl;     /* 0x68 */
+	uint32_t	i_size_high;    /* 0x6C: dirs=dir_acl; regular files=high 32 bits of size (LARGE_FILE) */
+	uint32_t	i_faddr;        /* 0x70 */
+	uint32_t	i_osd2;         /* 0x74 */
 	uint32_t	i_date;         /* MTX date */
 	uint32_t	i_time;         /* MTX time */
 } EXT3_INODE;
+
+_Static_assert(sizeof(EXT3_INODE) == 128, "ext3 inode layout");
+
+/* 64-bit file size (LARGE_FILE): for regular files the high 32 bits live in
+ * i_size_high (the ext2 dir_acl slot) under EXT2_FEATURE_RO_COMPAT_LARGE_FILE;
+ * for a directory that slot is dir_acl, so only the low 32 bits are the size.
+ * NB: named *_file_size to avoid colliding with ext3_inode_size(ext3_t*),
+ * which returns the on-disk inode struct size. */
+static inline uint64_t ext3_inode_file_size(const EXT3_INODE* n) {
+	if((n->i_mode & EXT3_S_IFMT) == EXT3_S_IFREG)
+		return (uint64_t)n->i_size | ((uint64_t)n->i_size_high << 32);
+	return n->i_size;
+}
+
+static inline void ext3_inode_set_file_size(EXT3_INODE* n, uint64_t sz) {
+	n->i_size = (uint32_t)(sz & 0xFFFFFFFFu);
+	if((n->i_mode & EXT3_S_IFMT) == EXT3_S_IFREG)
+		n->i_size_high = (uint32_t)(sz >> 32);
+}
 
 typedef struct ext3_dir_entry_2 {
 	uint32_t	inode;			/* Inode number */

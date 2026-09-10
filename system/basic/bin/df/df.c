@@ -19,7 +19,7 @@ static const char* get_cmd_name(char* cmd) {
 }
 
 typedef struct {
-    uint32_t used_bytes;
+    uint64_t used_bytes;
     uint32_t iused;
 } usage_t;
 
@@ -59,30 +59,30 @@ static void walk_usage(fsinfo_t* info, int32_t mount_pid, int depth, usage_t* ou
  * Format a byte count into a human-readable string (KB/MB/GB), following
  * the convention of get_mem_size_desc(): binary units, rounded up.
  */
-static const char* size_desc(uint32_t bytes, char* ret) {
+static const char* size_desc(uint64_t bytes, char* ret) {
     if(bytes == 0) {
         snprintf(ret, 31, "0");
         return ret;
     }
 
-    const uint32_t k = 1024;
-    const uint32_t m = 1024 * 1024;
-    const uint32_t g = 1024 * 1024 * 1024;
+    const uint64_t k = 1024;
+    const uint64_t m = 1024 * 1024;
+    const uint64_t g = 1024 * 1024 * 1024;
 
     if(bytes >= g) {
-        uint32_t v = bytes / g;
+        uint64_t v = bytes / g;
         if(bytes % g) v++;
-        snprintf(ret, 31, "%uG", v);
+        snprintf(ret, 31, "%lluG", (unsigned long long)v);
     }
     else if(bytes >= m) {
-        uint32_t v = bytes / m;
+        uint64_t v = bytes / m;
         if(bytes % m) v++;
-        snprintf(ret, 31, "%uM", v);
+        snprintf(ret, 31, "%lluM", (unsigned long long)v);
     }
     else {
-        uint32_t v = bytes / k;
+        uint64_t v = bytes / k;
         if(bytes % k) v++;
-        snprintf(ret, 31, "%uK", v);
+        snprintf(ret, 31, "%lluK", (unsigned long long)v);
     }
     return ret;
 }

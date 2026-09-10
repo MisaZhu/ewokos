@@ -76,7 +76,7 @@ static void mouse_emit_wheel_button(uint8_t button) {
 }
 
 static int _read(vdevice_t* dev, int fd, int from_pid, fsinfo_t *info,
-                      void *buf, int size, int offset, void *p)
+                      void *buf, int size, off_t offset, void *p)
 {
     (void)dev;
     (void)fd;

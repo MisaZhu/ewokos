@@ -49,10 +49,10 @@ static inline const char* get_show_mode(uint32_t mode, int32_t type) {
     return ret;
 }
 
-static uint32_t get_ksize(uint32_t sz) {
+static uint64_t get_ksize(uint64_t sz) {
     if(sz == 0)
         return 0;
-    uint32_t ret = sz/1024;
+    uint64_t ret = sz/1024;
     if((sz % 1024) != 0)
         ret += 1;
     return ret;
@@ -136,13 +136,13 @@ int main(int argc, char* argv[]) {
         gid[sizeof(gid) - 1] = 0;
 
         if(_list_mode == 0)
-            printf("%6dk %s\n", get_ksize(st.st_size), show_name);
+            printf("%6lluk %s\n", (unsigned long long)get_ksize(st.st_size), show_name);
         else
-            printf("%-10s %-6s %-6s %6dk %s\n",
+            printf("%-10s %-6s %-6s %6lluk %s\n",
                     show_mode,
                     info.user,
                     gid,
-                    get_ksize(st.st_size),
+                    (unsigned long long)get_ksize(st.st_size),
                     show_name);
     }
     closedir(dirp);

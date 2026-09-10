@@ -486,11 +486,12 @@ static void shm_cache_put(int32_t shm_id, void* addr) {
 }
 
 static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
-    int size, offset;
+    int size;
+    off_t offset;
     int fd = proto_read_int(in);
     ewokos_addr_t node = proto_read_int(in);
     size = proto_read_int(in);
-    offset = proto_read_int(in);
+    offset = proto_read_int64(in);
     int32_t shm_id = proto_read_int(in);
     fsinfo_t seed_info, finfo;
     char buffer[READ_BUF_SIZE];
@@ -559,10 +560,11 @@ static void do_read(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
 }
 
 static void do_write(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
-    int32_t size, offset;
+    int32_t size;
+    off_t offset;
     int fd = proto_read_int(in);
     ewokos_addr_t node = proto_read_int(in);
-    offset = proto_read_int(in);
+    offset = proto_read_int64(in);
     int32_t shm_id = proto_read_int(in);
     fsinfo_t seed_info, finfo;
     int32_t wr = -1;

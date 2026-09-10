@@ -241,7 +241,7 @@ static void set_fsinfo_stat(node_stat_t* stat, EXT3_INODE* inode) {
     stat->uid = inode->i_uid;
     stat->links_count = inode->i_links_count;
     stat->mode = inode->i_mode;
-    stat->size = inode->i_size;
+    stat->size = ext3_inode_file_size(inode);
 }
 
 static void set_inode_stat(node_stat_t* stat, EXT3_INODE* inode) {
@@ -257,7 +257,7 @@ static void set_inode_stat(node_stat_t* stat, EXT3_INODE* inode) {
     //keep the on-disk file-type bits (S_IFDIR/S_IFREG): the VFS stat
     //mode only carries permissions, a plain chmod must not wipe them.
     inode->i_mode = (inode->i_mode & 0xF000) | (stat->mode & 0x0FFF);
-    inode->i_size = stat->size;
+    ext3_inode_set_file_size(inode, stat->size);
 }
 
 #define NEW_NODES_BATCH 64
@@ -521,7 +521,7 @@ static fsinfo_t* sdext_kids(vdevice_t* dev, fsinfo_t* info_dir, uint32_t* num, v
 }
 
 static int sdext_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
-        void* buf, int size, int offset, void* p) {
+        void* buf, int size, off_t offset, void* p) {
     (void)dev;
 
     ext3_t* ext3 = (ext3_t*)p;
@@ -539,9 +539,9 @@ static int sdext_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
         return -1;
     }
 
-    int rsize = info->stat.size - offset;
+    off_t rsize = (off_t)info->stat.size - offset;
     if(rsize < size)
-        size = rsize;
+        size = (int)rsize;
     if(size < 0)
         size = -1;
 
@@ -553,7 +553,7 @@ static int sdext_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 }
 
 static int sdext_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
-        const void* buf, int size, int offset, void* p) {
+        const void* buf, int size, off_t offset, void* p) {
     (void)dev;
 
     ext3_t* ext3 = (ext3_t*)p;

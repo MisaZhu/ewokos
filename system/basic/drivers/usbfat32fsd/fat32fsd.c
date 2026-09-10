@@ -305,7 +305,7 @@ static int fat32fs_set(vdevice_t* dev, int from_pid, fsinfo_t* info, void* p) {
     if(info->stat.mtime != 0)
         fat32_unix2dt(info->stat.mtime, &node->wrt_date, &node->wrt_time);
     if((node->attr & FAT32_ATTR_DIRECTORY) == 0)
-        node->size = info->stat.size;
+        node->size = (uint32_t)info->stat.size; /* FAT32 size is 32-bit */
     return fat32_update_node(fat, node);
 }
 
@@ -355,7 +355,7 @@ static fsinfo_t* fat32fs_kids(vdevice_t* dev, fsinfo_t* info_dir, uint32_t* num,
 }
 
 static int fat32fs_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
-        void* buf, int size, int offset, void* p) {
+        void* buf, int size, off_t offset, void* p) {
     (void)dev;
     (void)fd;
     (void)from_pid;
@@ -363,19 +363,19 @@ static int fat32fs_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
     fat32_t* fat = (fat32_t*)p;
     fat32_node_t* node = node_of(info);
 
-    int rsize = info->stat.size - offset;
+    off_t rsize = (off_t)info->stat.size - offset;
     if(rsize < size)
-        size = rsize;
+        size = (int)rsize;
     if(size < 0)
         size = -1;
 
     if(size > 0)
-        size = fat32_read(fat, node, buf, size, offset);
+        size = fat32_read(fat, node, buf, size, (int32_t)offset); /* fat32 is 32-bit */
     return size;
 }
 
 static int fat32fs_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
-        const void* buf, int size, int offset, void* p) {
+        const void* buf, int size, off_t offset, void* p) {
     (void)dev;
     (void)fd;
     (void)from_pid;
@@ -385,7 +385,7 @@ static int fat32fs_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
     if(node == &_root_node)
         return -1;
 
-    size = fat32_write(fat, node, buf, size, offset);
+    size = fat32_write(fat, node, buf, size, (int32_t)offset); /* fat32 is 32-bit */
     if(size >= 0) {
         set_fsinfo_stat(&info->stat, node);
         fat32_update_node(fat, node);

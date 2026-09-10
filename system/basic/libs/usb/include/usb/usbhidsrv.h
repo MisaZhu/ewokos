@@ -66,7 +66,7 @@ int usbhid_vdev_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* node,
 int usbhid_vdev_close(vdevice_t* dev, int fd, int from_pid, ewokos_addr_t node,
         fsinfo_t* fsinfo, void* p);
 int usbhid_vdev_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* node,
-        void* buf, int size, int offset, void* p);
+        void* buf, int size, off_t offset, void* p);
 int usbhid_vdev_fcntl(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
         int cmd, proto_t* in, proto_t* out, void* p);
 uint32_t usbhid_vdev_check_poll_events(vdevice_t* dev, int fd, int from_pid,

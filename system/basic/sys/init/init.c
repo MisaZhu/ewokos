@@ -13,10 +13,10 @@
 #include <ewoksys/wait.h>
 #include <dirent.h>
 
-extern void* read_fs(const char* fname, int32_t* size);
+extern void* read_fs(const char* fname, off_t* size);
 
 static int32_t exec_from_sd(const char* prog) {
-    int32_t sz;
+    off_t sz;
     if(bsp_sd_init() != 0){
         printf("bsp init failed\n");
         return -1;

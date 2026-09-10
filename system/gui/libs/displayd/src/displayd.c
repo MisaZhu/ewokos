@@ -775,7 +775,7 @@ static void read_config(const char* conf_file, uint32_t index, uint32_t* w, uint
 
 
 static int disp_dev_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
-        void* buf, int size, int offset, void* p) {
+        void* buf, int size, off_t offset, void* p) {
     (void)dev;
     (void)fd;
     (void)from_pid;

@@ -56,7 +56,7 @@ int network_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int oflag
 }
 
 static int network_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
-        void* buf, int size, int offset, void* p) {
+        void* buf, int size, off_t offset, void* p) {
     (void)dev;
     (void)fd;
     (void)from_pid;
@@ -66,7 +66,7 @@ static int network_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 }
 
 static int network_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
-        const void* buf, int size, int offset, void* p) {
+        const void* buf, int size, off_t offset, void* p) {
     (void)dev;
     (void)fd;
     (void)from_pid;

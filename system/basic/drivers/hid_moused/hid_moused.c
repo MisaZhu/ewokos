@@ -165,7 +165,7 @@ static void mouse_handle_report(uint8_t btn, int8_t dx, int8_t dy, int8_t wheel)
 }
 
 static int _read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* node,
-        void* buf, int size, int offset, void* p) {
+        void* buf, int size, off_t offset, void* p) {
     (void)dev;
     (void)fd;
     (void)from_pid;

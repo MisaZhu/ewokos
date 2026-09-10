@@ -27,7 +27,7 @@ static uint32_t _idle_sleep_us = 400;
 #define VIRTNET_IDLE_SLEEP_MAX_US 50000U
 
 static int net_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t *info,
-                    void *buf, int size, int offset, void *p)
+                    void *buf, int size, off_t offset, void *p)
 {
     (void)dev;
     (void)fd;
@@ -45,7 +45,7 @@ static int net_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t *info,
 }
 
 static int net_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t *info,
-                     const void *buf, int size, int offset, void *p)
+                     const void *buf, int size, off_t offset, void *p)
 {
     (void)dev;
     (void)fd;

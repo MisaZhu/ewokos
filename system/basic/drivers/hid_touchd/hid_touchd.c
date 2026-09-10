@@ -120,7 +120,7 @@ static void touch_handle_report(uint16_t state, uint16_t x, uint16_t y) {
 }
 
 static int touch_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* node,
-        void* buf, int size, int offset, void* p) {
+        void* buf, int size, off_t offset, void* p) {
     (void)dev;
     (void)fd;
     (void)from_pid;

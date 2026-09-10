@@ -115,6 +115,11 @@ inline static proto_factor_t* proto_add(proto_t* proto, const void* item, uint32
     return &_proto_factor;
 }
 
+inline static proto_factor_t* proto_add_int64(proto_t* proto, int64_t v) {
+    proto_add(proto, (void*)&v, sizeof(v));
+    return &_proto_factor;
+}
+
 inline static proto_factor_t* proto_add_int(proto_t* proto, int32_t v) {
     /* 'int' factors always travel as a fixed 32-bit word so the wire format is
      * identical on 32-bit and 64-bit targets. Address/handle values must use
@@ -163,8 +168,12 @@ inline static proto_factor_t* proto_format(proto_t* proto, const char* fmt, ... 
             PF->adds(proto, v);
         }
         else if(c == 'i') {
-            ewokos_addr_t v = va_arg(args, ewokos_addr_t);
+            int32_t v = va_arg(args, int32_t);
             PF->addi(proto, v);
+        }
+        else if(c == 'I') {
+            int64_t v = va_arg(args, int64_t);
+            PF->addi64(proto, v);
         }
         else if(c == 'a') {
             ewokos_addr_t v = va_arg(args, ewokos_addr_t);
@@ -188,6 +197,7 @@ inline proto_factor_t* get_proto_factor() {
     _proto_factor.clear = proto_clear;
     _proto_factor.add = proto_add;
     _proto_factor.addi = proto_add_int;
+    _proto_factor.addi64 = proto_add_int64;
     _proto_factor.adda = proto_add_addr;
     _proto_factor.adds = proto_add_str;
     _proto_factor.format = proto_format;
@@ -249,6 +259,15 @@ inline int32_t proto_read_proto(proto_t* proto, proto_t* to) {
 inline int32_t proto_read_int(proto_t* proto) {
     void *p = proto_read(proto, NULL);
     int32_t v = 0;
+    if(p == NULL)
+        return 0;
+    memcpy(&v, p, sizeof(v));
+    return v;
+}
+
+inline int64_t proto_read_int64(proto_t* proto) {
+    void *p = proto_read(proto, NULL);
+    int64_t v = 0;
     if(p == NULL)
         return 0;
     memcpy(&v, p, sizeof(v));

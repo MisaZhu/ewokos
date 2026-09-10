@@ -161,7 +161,7 @@ static int console_write(vdevice_t* dev,
         fsinfo_t* info,
         const void* buf,
         int size,
-        int offset,
+        off_t offset,
         void* p) {
     (void)dev;
     (void)fd;
@@ -202,7 +202,7 @@ static int console_read(vdevice_t* dev,
         fsinfo_t* info,
         void* buf,
         int size,
-        int offset,
+        off_t offset,
         void* p) {
 
     (void)dev;

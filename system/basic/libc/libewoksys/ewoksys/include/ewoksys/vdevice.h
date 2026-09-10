@@ -24,8 +24,8 @@ typedef struct st_vdevice {
 	int (*stat)(struct st_vdevice* dev, int from_pid, fsinfo_t* info, node_stat_t* stat, void* p);
 	int (*create)(struct st_vdevice* dev, int from_pid, fsinfo_t *info_to, fsinfo_t* info, void* p);
 	int (*close)(struct st_vdevice* dev, int fd, int from_pid, ewokos_addr_t node, fsinfo_t* fsinfo, void* p);
-	int (*read)(struct st_vdevice* dev, int fd, int from_pid, fsinfo_t* info, void* buf, int size, int offset, void* p);
-	int (*write)(struct st_vdevice* dev, int fd, int from_pid, fsinfo_t* info, const void* buf, int size, int offset, void* p);
+	int (*read)(struct st_vdevice* dev, int fd, int from_pid, fsinfo_t* info, void* buf, int size, off_t offset, void* p);
+	int (*write)(struct st_vdevice* dev, int fd, int from_pid, fsinfo_t* info, const void* buf, int size, off_t offset, void* p);
 	int (*read_block)(struct st_vdevice* dev, int from_pid, void* buf, int size, int index, void* p);
 	int (*write_block)(struct st_vdevice* dev, int from_pid, const void* buf, int size, int index, void* p);
 	int32_t (*shm)(struct st_vdevice* dev, int fd, int from_pid, fsinfo_t* fsinfo, uint8_t* contig, int* size, void* p);

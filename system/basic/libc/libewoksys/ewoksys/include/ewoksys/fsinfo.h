@@ -1,6 +1,7 @@
 #ifndef FS_INFO_H
 #define FS_INFO_H
 
+#include "ewokdef.h"
 #include <stdint.h>
 #include <ewoksys/ewokdef.h>
 #ifdef __cplusplus 
@@ -71,7 +72,7 @@ typedef struct {
 	uint16_t	mode;		/* File mode */
 	uint16_t	uid;		/* Owner Uid */
 	uint16_t	gid;		/* Group Id */
-	uint32_t	size;		/* Size in bytes */
+	off_t	    size;		/* Size in bytes */
 	uint32_t	atime;	/* Access time */
 	uint32_t	ctime;	/* Creation time */
 	uint32_t	mtime;	/* Modification time */

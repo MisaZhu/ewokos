@@ -265,12 +265,12 @@ static fsinfo_t* _kids(vdevice_t *dev, fsinfo_t *info_dir, uint32_t *num, void *
 }
 
 static int _read(vdevice_t *dev, int fd, int from_pid, fsinfo_t *info,
-                 void *buf, int size, int offset, void *p)
+                 void *buf, int size, off_t offset, void *p)
 {
     (void)dev;
     (void)fd;
     (void)from_pid;
-    FS_DBG("virtfsd read %s %d offset:%d size:%d\n", info->name, info->data, offset, size);
+    FS_DBG("virtfsd read %s %d offset:%lld size:%d\n", info->name, info->data, (long long)offset, size);
     virtfs_t fs = (virtfs_t)p;
     if (virtfs_ensure_open(fs, (uint32_t)info->data, O_RDONLY) != 0)
     {
@@ -280,7 +280,7 @@ static int _read(vdevice_t *dev, int fd, int from_pid, fsinfo_t *info,
 }
 
 static int _write(vdevice_t *dev, int fd, int from_pid, fsinfo_t *info,
-                  const void *buf, int size, int offset, void *p)
+                  const void *buf, int size, off_t offset, void *p)
 {
     (void)dev;
     (void)fd;

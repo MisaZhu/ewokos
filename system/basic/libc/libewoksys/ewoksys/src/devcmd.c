@@ -226,7 +226,7 @@ void dev_io_on_fork(void) {
     }
 }
 
-int dev_read(int dev_pid, int fd, fsinfo_t* info, int32_t offset, void* buf, uint32_t size) {
+int dev_read(int dev_pid, int fd, fsinfo_t* info, off_t offset, void* buf, uint32_t size) {
     int32_t shm_id = -1;
     void* shm = NULL;
     if(size > SHM_ON) {
@@ -243,7 +243,7 @@ int dev_read(int dev_pid, int fd, fsinfo_t* info, int32_t offset, void* buf, uin
         addi(&in, fd)->
         addi(&in, info->node)->
         addi(&in, size)->
-        addi(&in, offset)->
+        addi64(&in, offset)->
         addi(&in, shm_id)->
         add(&in, info, sizeof(fsinfo_t));
 
@@ -266,7 +266,7 @@ int dev_read(int dev_pid, int fd, fsinfo_t* info, int32_t offset, void* buf, uin
     return res;
 }
 
-int dev_write(int dev_pid, int fd, fsinfo_t* info, int32_t offset, const void* buf, uint32_t size) {
+int dev_write(int dev_pid, int fd, fsinfo_t* info, off_t offset, const void* buf, uint32_t size) {
     int32_t shm_id = -1;
     void* shm = NULL;
     if(size >= SHM_ON) {
@@ -284,7 +284,7 @@ int dev_write(int dev_pid, int fd, fsinfo_t* info, int32_t offset, const void* b
     PF->init(&in)->
         addi(&in, fd)->
         addi(&in, info->node)->
-        addi(&in, offset)->
+        addi64(&in, offset)->
         addi(&in, shm_id)->
         add(&in, info, sizeof(fsinfo_t));
     if(shm_id == -1)

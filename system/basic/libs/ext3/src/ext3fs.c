@@ -432,7 +432,7 @@ static int32_t ext3_free_inode_data(ext3_t* ext3, EXT3_INODE* node) {
     node->i_block[12] = 0;
     node->i_block[13] = 0;
     node->i_block[14] = 0;
-    node->i_size = 0;
+    ext3_inode_set_file_size(node, 0);   /* clears i_size_high too, else a stale high word survives */
     node->i_blocks = 0;
     return 0;
 }
@@ -978,20 +978,20 @@ static int32_t ext3_rm_child(ext3_t* ext3, EXT3_INODE *ip, const char *name) {
     }
     return -1;
 }
-int32_t ext3_read_block(ext3_t* ext3, EXT3_INODE* node, char *buf, int32_t nbytes, int32_t offset) {
+int32_t ext3_read_block(ext3_t* ext3, EXT3_INODE* node, char *buf, int32_t nbytes, off_t offset) {
     //(2) count = 0
     // avil = fileSize - OFT's offset // number of bytes still available in file.
     int32_t count_read = 0;
     char *cq = buf;
-    int32_t avil = node->i_size - offset;
+    off_t avil = (off_t)ext3_inode_file_size(node) - offset;
     int32_t blk =0, lbk = 0, start_byte = 0, remain = 0;
     uint32_t block_size = ext3_block_size(ext3);
     //(3)
     /*(4) Compute LOGICAL BLOCK number lbk and start_byte in that block from offset;
         lbk       = oftp->offset / EXT3_BLOCK_SIZE;
         start_byte = oftp->offset % EXT3_BLOCK_SIZE;*/
-    lbk = offset / (int32_t)block_size;
-    start_byte = offset % (int32_t)block_size;
+    lbk = (int32_t)(offset / (off_t)block_size);
+    start_byte = (int32_t)(offset % (off_t)block_size);
     if(nbytes > ((int32_t)block_size - start_byte))
         nbytes = (int32_t)block_size - start_byte;
     //(5) READ
@@ -1030,7 +1030,7 @@ int32_t ext3_read_block(ext3_t* ext3, EXT3_INODE* node, char *buf, int32_t nbyte
     while(remain){
         int32_t min = 0;
         if(avil <= nbytes){
-            min = avil;
+            min = (int32_t)avil;
         }
         else{
             min = nbytes;
@@ -1049,18 +1049,18 @@ int32_t ext3_read_block(ext3_t* ext3, EXT3_INODE* node, char *buf, int32_t nbyte
     return count_read;
 }
 
-int32_t ext3_read(ext3_t* ext3, EXT3_INODE* node, char *buf, int32_t nbytes, int32_t offset) {
+int32_t ext3_read(ext3_t* ext3, EXT3_INODE* node, char *buf, int32_t nbytes, off_t offset) {
     char* p = buf;
     int32_t ret = nbytes;
-    int32_t avil = node->i_size - offset;
+    off_t avil = (off_t)ext3_inode_file_size(node) - offset;
     uint32_t block_size = ext3_block_size(ext3);
     while(nbytes > 0) {
-        if(offset >= (int32_t)node->i_size)
+        if(offset >= (off_t)ext3_inode_file_size(node))
             break;
-        if((offset % (int32_t)block_size) == 0 && nbytes >= (int32_t)block_size && avil >= (int32_t)block_size) {
-            int32_t start_lbk = offset / (int32_t)block_size;
+        if((offset % (off_t)block_size) == 0 && nbytes >= (int32_t)block_size && avil >= (int32_t)block_size) {
+            int32_t start_lbk = (int32_t)(offset / (off_t)block_size);
             int32_t first_blk = 0;
-            int32_t full_blocks = avil / (int32_t)block_size;
+            int32_t full_blocks = (int32_t)(avil / (off_t)block_size);
             int32_t max_blocks = nbytes / (int32_t)block_size;
 
             if(max_blocks > full_blocks)
@@ -1240,7 +1240,7 @@ int32_t ext3_create_file(ext3_t* ext3, uint32_t father_ino, EXT3_INODE* father_i
     inp->i_mode = EXT3_S_IFREG | (mode & 0x0FFF);
     inp->i_uid  = uid;
     inp->i_gid  = gid;
-    inp->i_size = 0;	        // Size in bytes
+    ext3_inode_set_file_size(inp, 0);	        // Size in bytes
     inp->i_links_count = 1;	  // the entry in the parent dir
     inp->i_atime = now;
     inp->i_ctime = now;
@@ -1442,7 +1442,7 @@ static int32_t ext3_ensure_data_block(ext3_t* ext3, EXT3_INODE* node, int32_t lb
     return -1;
 }
 
-int32_t ext3_write(ext3_t* ext3, EXT3_INODE* node, const char *data, int32_t nbytes, int32_t offset) {
+int32_t ext3_write(ext3_t* ext3, EXT3_INODE* node, const char *data, int32_t nbytes, off_t offset) {
     static char buf[EXT3_MAX_BLOCK_SIZE];
     const char *cq = data;
     char *cp;
@@ -1451,8 +1451,8 @@ int32_t ext3_write(ext3_t* ext3, EXT3_INODE* node, const char *data, int32_t nby
     int32_t blk =0, lbk = 0, start_byte = 0, remain = 0;
     int32_t nbytes_copy = 0;
     while(nbytes > 0) {
-        lbk = offset / (int32_t)block_size;
-        start_byte = offset % (int32_t)block_size;
+        lbk = (int32_t)(offset / (off_t)block_size);
+        start_byte = (int32_t)(offset % (off_t)block_size);
 
         if(start_byte == 0 && nbytes >= (int32_t)block_size) {
             int32_t max_blocks = nbytes / (int32_t)block_size;
@@ -1476,8 +1476,8 @@ int32_t ext3_write(ext3_t* ext3, EXT3_INODE* node, const char *data, int32_t nby
                 nbytes -= wrote;
                 offset += wrote;
                 cq += wrote;
-                if(offset > (int32_t)node->i_size)
-                    node->i_size = offset;
+                if((uint64_t)offset > ext3_inode_file_size(node))
+                    ext3_inode_set_file_size(node, (uint64_t)offset);
                 continue;
             }
 
@@ -1489,8 +1489,8 @@ int32_t ext3_write(ext3_t* ext3, EXT3_INODE* node, const char *data, int32_t nby
             nbytes -= (int32_t)block_size;
             offset += (int32_t)block_size;
             cq += block_size;
-            if(offset > (int32_t)node->i_size)
-                node->i_size = offset;
+            if((uint64_t)offset > ext3_inode_file_size(node))
+                ext3_inode_set_file_size(node, (uint64_t)offset);
         }
         else {
             int32_t fresh = 0;
@@ -1519,8 +1519,8 @@ int32_t ext3_write(ext3_t* ext3, EXT3_INODE* node, const char *data, int32_t nby
             remain -= min;
             offset += min;
             cq += min;
-            if(offset > (int32_t)node->i_size) {
-                node->i_size = offset;
+            if((uint64_t)offset > ext3_inode_file_size(node)) {
+                ext3_inode_set_file_size(node, (uint64_t)offset);
             }
 
             if(ext3_write_data_blk(ext3, (uint32_t)blk, buf) != 0)
@@ -1530,6 +1530,12 @@ int32_t ext3_write(ext3_t* ext3, EXT3_INODE* node, const char *data, int32_t nby
     if(nbytes_copy > 0) {
         node->i_mtime = now;
         node->i_ctime = now;
+        /* crossing 4 GiB: the high size bits are only honored by other
+         * ext2/3 implementations when LARGE_FILE is flagged. */
+        if((ext3_inode_file_size(node) >> 32) != 0) {
+            ext3->super.s_feature_ro_compat |= EXT2_FEATURE_RO_COMPAT_LARGE_FILE;
+            ext3->dirty_super = 1;   /* flushed by ext3_write_super_block via commit */
+        }
     }
     return nbytes_copy;
 }
@@ -2219,7 +2225,7 @@ void ext3_quit(ext3_t* ext3) {
     ext3_cache_free_all(ext3);
 }
 
-void* ext3_readfile(ext3_t* ext3, const char* fname, int32_t* size) {
+void* ext3_readfile(ext3_t* ext3, const char* fname, off_t* size) {
     void* ret = NULL;
     uint32_t block_size = ext3_block_size(ext3);
     if(size != NULL)
@@ -2232,25 +2238,29 @@ void* ext3_readfile(ext3_t* ext3, const char* fname, int32_t* size) {
             return ret;
         }
 
-        char *data = (char*)malloc(inode.i_size + 1);
+        /* boot loader path: read the whole (small) file into RAM. Use the
+         * 64-bit size helper so a >4 GiB file can't silently truncate the
+         * allocation/loop, and pass a 64-bit offset down to ext3_read. */
+        uint64_t fsize = ext3_inode_file_size(&inode);
+        char *data = (char*)malloc(fsize + 1);
         if(data != NULL) {
             ret = data;
-            uint32_t rd = 0;
-            while(rd < inode.i_size) {
+            uint64_t rd = 0;
+            while(rd < fsize) {
                 /* never ask for more than the buffer holds: the read
                  * chunk is bounded by the file's remaining size, not
                  * just the block size */
-                uint32_t chunk = inode.i_size - rd;
+                uint64_t chunk = fsize - rd;
                 if(chunk > block_size)
                     chunk = block_size;
-                int sz = ext3_read(ext3, &inode, data, (int32_t)chunk, (int32_t)rd);
+                int sz = ext3_read(ext3, &inode, data, (int32_t)chunk, (off_t)rd);
                 if(sz <= 0)
                     break;
                 data += sz;
                 rd += sz;
             }
             if(size != NULL)
-                *size = (int32_t)rd;
+                *size = (off_t)rd;
         }
     }
     return ret;

@@ -526,7 +526,7 @@ static void snd_apply_volume(void *buf, uint32_t size, int bit_depth, int volume
 }
 
 static int snd_write(vdevice_t* dev, int fd, int from_pid, fsinfo_t *info,
-                     const void *buf, int size, int offset, void *p)
+                     const void *buf, int size, off_t offset, void *p)
 {
     (void)dev;
     (void)fd;
@@ -627,7 +627,7 @@ static int snd_start_input_stream(void)
 }
 
 static int snd_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t *info,
-            void *buf, int size, int offset, void *p)
+            void *buf, int size, off_t offset, void *p)
 {
     (void)dev;
     (void)fd;

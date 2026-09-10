@@ -951,14 +951,14 @@ int vfs_umount(ewokos_addr_t node) {
     return res;
 }
 
-int vfs_tell(int fd) {
+off_t vfs_tell(int fd) {
     fsfile_t* buffer = vfs_get_file(fd);
     if(buffer == NULL)
         return 0;
     return buffer->offset;
 }
 
-int vfs_seek(int fd, int offset) {
+int vfs_seek(int fd, off_t offset) {
     fsfile_t* buffer = vfs_get_file(fd);
     if(buffer == NULL)
         return -1;
@@ -979,7 +979,7 @@ uint8_t* vfs_readfile(const char* fname, int* rsz) {
         return NULL;
     /*reject transient garbage sizes (e.g. an unset -1) before they turn into
       a multi-GB malloc that would drain the whole machine*/
-    if((uint32_t)info.stat.size > VFS_READFILE_MAX)
+    if(info.stat.size > VFS_READFILE_MAX)
         return NULL;
     uint8_t* buf = (uint8_t*)malloc(info.stat.size+1); //one more char for string end.
     if(buf == NULL)
@@ -987,7 +987,7 @@ uint8_t* vfs_readfile(const char* fname, int* rsz) {
 
     char* p = (char*)buf;
     int fd = vfs_open(&info, O_RDONLY);
-    int fsize = info.stat.size;
+    int fsize = (int)info.stat.size;
     if(fd >= 0) {
         while(fsize > 0) {
             int sz = read(fd, p, VFS_BUF_SIZE < fsize ? VFS_BUF_SIZE:fsize);
@@ -1014,7 +1014,7 @@ uint8_t* vfs_readfile(const char* fname, int* rsz) {
     }
 
     if(rsz != NULL)
-        *rsz = info.stat.size;
+        *rsz = (int)info.stat.size;
     buf[info.stat.size] = 0;
     return buf;
 }
@@ -1197,7 +1197,7 @@ int vfs_read_pipe(int fd, ewokos_addr_t node, void* buf, uint32_t size, bool blo
 
 int vfs_read(int fd, fsinfo_t *info, void* buf, uint32_t size) {
     errno = 0;
-    int offset = 0;
+    off_t offset = 0;
     if(FS_IS_TYPE(info->type, FS_TYPE_FILE) ||
             FS_IS_TYPE(info->type, FS_TYPE_CHAR)) {
         offset = vfs_tell(fd);
@@ -1235,7 +1235,7 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
     if(FS_IS_TYPE(info->type, FS_TYPE_DIR)) 
         return -1;
 
-    int offset = 0;
+    off_t offset = 0;
     fsfile_t* file = vfs_get_file(fd);
     if(FS_IS_TYPE(info->type, FS_TYPE_FILE)) {
         if(file != NULL && (file->flags & O_APPEND) != 0) {
@@ -1273,7 +1273,7 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
              */
             bool push = (file == NULL) ||
                     (file->info.data != info->data) ||
-                    (((uint32_t)offset >> 18) != ((uint32_t)file->info.stat.size >> 18));
+                    (((uint64_t)offset >> 18) != ((uint64_t)file->info.stat.size >> 18));
             vfs_update_file(info);
             if(push)
                 vfs_set_info(info);

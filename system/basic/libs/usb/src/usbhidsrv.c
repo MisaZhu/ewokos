@@ -257,7 +257,7 @@ int usbhid_vdev_close(vdevice_t* dev, int fd, int from_pid, ewokos_addr_t node,
 }
 
 int usbhid_vdev_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* node,
-        void* buf, int size, int offset, void* p) {
+        void* buf, int size, off_t offset, void* p) {
     fd_info_t* info;
     (void)dev;
     (void)node;

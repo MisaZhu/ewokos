@@ -15,7 +15,7 @@ extern "C" {
 typedef struct {
 	uint32_t flags;
 	uint32_t fd_flags;
-	uint32_t offset;
+	off_t offset;
 	fsinfo_t info;
 } fsfile_t;
 
@@ -54,8 +54,8 @@ uint32_t  vfs_get_poll_events(int fd);
 int       vfs_block_by_fd(int fd, int event);
 int       vfs_block_by_fd_timeout(int fd, int event, uint32_t timeout_usec);
 
-int       vfs_tell(int fd);
-int       vfs_seek(int fd, int offset);
+off_t   vfs_tell(int fd);
+int       vfs_seek(int fd, off_t offset);
 
 int       vfs_update(fsinfo_t* info, bool do_dev);
 int       vfs_get_mount_by_id(int id, mount_t* mount);

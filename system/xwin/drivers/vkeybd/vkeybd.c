@@ -25,7 +25,7 @@ static int vkeyb_read(vdevice_t* dev, int fd,
         fsinfo_t* info,
         void* buf,
         int size,
-        int offset,
+        off_t offset,
         void* p) {
 
     (void)dev;

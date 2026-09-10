@@ -3,6 +3,7 @@
 
 #include <ext3/ext3head.h>
 #include <ext3/jbd.h>
+#include <ewoksys/ewokdef.h>
 
 /*
  * ext3 filesystem library.
@@ -55,11 +56,11 @@ int32_t ext3_rmdir(ext3_t* ext3, const char* fname);
 
 int32_t ext3_unlink(ext3_t* ext3, const char* fname);
 
-int32_t ext3_read(ext3_t* ext3, EXT3_INODE* node, char *buf, int32_t nbytes, int32_t offset);
+int32_t ext3_read(ext3_t* ext3, EXT3_INODE* node, char *buf, int32_t nbytes, off_t offset);
 
-int32_t ext3_read_block(ext3_t* ext3, EXT3_INODE* node, char *buf, int32_t nbytes, int32_t offset);
+int32_t ext3_read_block(ext3_t* ext3, EXT3_INODE* node, char *buf, int32_t nbytes, off_t offset);
 
-int32_t ext3_write(ext3_t* ext3, EXT3_INODE* node, const char *data, int32_t nbytes, int32_t offset);
+int32_t ext3_write(ext3_t* ext3, EXT3_INODE* node, const char *data, int32_t nbytes, off_t offset);
 
 int32_t ext3_truncate(ext3_t* ext3, uint32_t ino, EXT3_INODE* node);
 
@@ -77,6 +78,6 @@ int32_t ext3_create_dir(ext3_t* ext3, uint32_t father_ino, EXT3_INODE* father_in
 int32_t ext3_create_file(ext3_t* ext3, uint32_t father_ino, EXT3_INODE* father_inp, const char *base,
 		uint16_t uid, uint16_t gid, uint16_t mode);
 
-void*   ext3_readfile(ext3_t* ext3, const char* fname, int32_t* size);
+void*   ext3_readfile(ext3_t* ext3, const char* fname, off_t* size);
 
 #endif

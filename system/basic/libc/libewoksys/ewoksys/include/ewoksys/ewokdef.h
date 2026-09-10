@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <sys/types.h>
 #include <ewokos_config.h>
-
 
 #endif
