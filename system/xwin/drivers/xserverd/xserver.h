@@ -98,6 +98,16 @@ typedef struct {
 	  Without it a drag that leaves the window (Qt toolbar undock, scrollbar
 	  pull past the edge) loses the event stream and never sees the release.*/
 	xwin_t* mouse_grab;
+	/*persistent popup pointer grab, armed by XWIN_CNTL_GRAB_MOUSE and held for
+	  the whole life of a popup rather than a single button press. While it is
+	  set every mouse event is delivered to the grabbing window raw - no frame
+	  hit-test, no drag arming, no focus change - regardless of what the cursor
+	  is physically over. This is the pointer-grab semantics Qt's popup menus
+	  need (QPlatformWindow::setMouseGrabEnabled): Qt redirects the raw global
+	  coordinate stream to the topmost popup itself and closes the cascade on a
+	  press outside it. Outranks win_drag and mouse_grab; the owner releases it
+	  explicitly, and it is dropped when the owner is deleted or hidden.*/
+	xwin_t* popup_grab;
 	gpos_t old_pos;
 	gpos_t pos_delta;
 	uint32_t drag_state;

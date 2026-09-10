@@ -54,6 +54,9 @@ int xserver_fcntl(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
     else if(cmd == XWIN_CNTL_SET_BUSY) {
         res = do_xwin_set_busy(fd, from_pid, in, x);
     }
+    else if(cmd == XWIN_CNTL_GRAB_MOUSE) {
+        res = do_xwin_grab_mouse(fd, from_pid, in, x);
+    }
     x_server_lock_leave();
     return res;
 }

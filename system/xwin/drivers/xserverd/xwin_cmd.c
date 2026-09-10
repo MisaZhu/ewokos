@@ -245,6 +245,46 @@ int do_xwin_set_busy(int fd, int from_pid, proto_t* in, x_t* x) {
     return 0;
 }
 
+/*Arm or release the persistent popup pointer grab (see x_current_t.popup_grab
+  and mouse_handle). Qt calls this through QPlatformWindow::setMouseGrabEnabled
+  on the top-level popup when a menu cascade opens, and on the same window when
+  the last popup closes; while it is held every mouse event routes to that
+  window raw so Qt can drive the whole cascade off one global-coordinate stream.*/
+int do_xwin_grab_mouse(int fd, int from_pid, proto_t* in, x_t* x) {
+    if(fd < 0)
+        return -1;
+
+    xwin_t* win = x_get_win(x, fd, from_pid);
+    if(win == NULL || win->xinfo == NULL)
+        return -1;
+
+    bool grab = (bool)proto_read_int(in);
+    if(grab) {
+        /*an invisible window cannot own the grab: Qt makes the popup visible
+          (show_sys) before it grabs (openPopup), so a refused grab here means
+          the window really is not up and the caller should know*/
+        if(!win->xinfo->visible)
+            return -1;
+        /*the owner takes over mouse routing entirely from here. Drop any
+          transient drag/press grab the click that opened the popup armed on
+          its own window: that click's release now goes to the popup raw and
+          never reaches mouse_xwin_handle's UP branch, so leaving win_drag or
+          mouse_grab latched would hijack routing once the popup closes.*/
+        x->current.win_drag = NULL;
+        x->current.drag_state = 0;
+        x->current.mouse_grab = NULL;
+        x->current.popup_grab = win;
+    }
+    else {
+        /*only the owner releases its own grab: a release arriving from another
+          window, or a stale one after the owner was replaced, must not drop
+          somebody else's*/
+        if(x->current.popup_grab == win)
+            x->current.popup_grab = NULL;
+    }
+    return 0;
+}
+
 static void mark_all_frame_dirty(x_t* x, int32_t disp_index) {
     xwin_t* w = x->win_tail; 
     while(w != NULL) {
@@ -486,8 +526,28 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
     }
     /*a hidden window's shadow gets painted over by whatever moves in below
       it, so it has to be blended fresh when the window shows again*/
-    if(!win->xinfo->visible)
+    if(!win->xinfo->visible) {
         win->shadow_valid = false;
+
+        /*hiding is not deleting: an invisible window keeps its list slot, so
+          nothing re-homes the server focus the way x_del_win does. A popup that
+          hid while it held the focus (Qt hides its menus exactly this way) would
+          leave x->win_focus dangling on a window nobody can see, and keyboard
+          and IME events would keep routing to it until the next click happened
+          to re-focus - the "app went dead after a submenu closed" symptom. Drop
+          a grab it still owned and hand focus to the topmost visible focusable
+          window: the parent menu while a cascade is still open, the application
+          window once the last popup is gone.*/
+        if(x->current.popup_grab == win)
+            x->current.popup_grab = NULL;
+        if(x->win_focus == win) {
+            xwin_t* nf = get_top_focus_win(x, false);
+            if(nf != NULL && nf != win)
+                try_focus(x, nf);
+            else
+                x_unfocus(x);
+        }
+    }
     return 0;
 }
 

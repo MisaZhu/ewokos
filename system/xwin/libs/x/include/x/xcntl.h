@@ -18,7 +18,13 @@ enum {
 	XWIN_CNTL_CALL_XIM,
 	XWIN_CNTL_TOP,
 	XWIN_CNTL_TRY_FOCUS,
-	XWIN_CNTL_SET_BUSY
+	XWIN_CNTL_SET_BUSY,
+	/*persistent pointer grab: while held, every mouse event routes to the
+	  grabbing window regardless of what the cursor is physically over, until
+	  the same window releases it. This is the popup-menu grab Qt needs (see
+	  QPlatformWindow::setMouseGrabEnabled); it outlives a single button press,
+	  unlike the implicit mouse_grab the server arms on a client-area press.*/
+	XWIN_CNTL_GRAB_MOUSE
 };
 
 enum {

@@ -156,6 +156,16 @@ void xwin_busy(xwin_t* xwin, bool busy) {
     PF->clear(&in);
 }
 
+int xwin_grab_mouse(xwin_t* xwin, bool grab) {
+    if(xwin == NULL || xwin->fd <= 0)
+        return -1;
+    proto_t in;
+    PF->init(&in)->addi(&in, grab);
+    int ret = vfs_fcntl_wait(xwin->fd, XWIN_CNTL_GRAB_MOUSE, &in);
+    PF->clear(&in);
+    return ret;
+}
+
 int xwin_call_xim(xwin_t* xwin, bool show) {
     proto_t in, out;
     PF->format(&in, "i", (ewokos_addr_t)show);

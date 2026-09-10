@@ -10,6 +10,8 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x);
 int do_xwin_top(int fd, int from_pid, x_t* x);
 int do_xwin_try_focus(int fd, int from_pid, x_t* x);
 int do_xwin_set_busy(int fd, int from_pid, proto_t* in, x_t* x);
+/*arm/release the persistent popup pointer grab (XWIN_CNTL_GRAB_MOUSE)*/
+int do_xwin_grab_mouse(int fd, int from_pid, proto_t* in, x_t* x);
 int x_win_space(x_t* x, proto_t* in, proto_t* out);
 int xwin_call_xim(x_t* x, proto_t* in, proto_t* out);
 

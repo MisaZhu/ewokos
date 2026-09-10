@@ -74,6 +74,13 @@ int      xwin_event_handle(xwin_t* xwin, xevent_t* ev);
 gpos_t   xwin_get_inside_pos(xwin_t* xwin, int32_t x, int32_t y);
 gpos_t   xwin_get_screen_pos(xwin_t* xwin, int32_t x, int32_t y);
 void     xwin_busy(xwin_t* xwin, bool busy);
+/*persistent popup pointer grab: while held, the server routes every mouse
+  event straight to this window regardless of what the cursor is physically
+  over, until the same window releases it. This is the pointer-grab semantics
+  Qt's popup menus need (see QPlatformWindow::setMouseGrabEnabled and the
+  server's XWIN_CNTL_GRAB_MOUSE). Returns 0 on success, -1 if the window is
+  gone or was not visible when arming.*/
+int      xwin_grab_mouse(xwin_t* xwin, bool grab);
 void     xwin_hide_cursor(xwin_t* xwin, bool hide);
 /*retry fps_async presents that had to be skipped because the server was still
   reading the handoff buffer. Cheap no-op when nothing is pending; meant to be

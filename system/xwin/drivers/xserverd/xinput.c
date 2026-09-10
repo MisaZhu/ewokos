@@ -276,6 +276,29 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
         ev->value.mouse.from_y = x->mouse_state.down_pos.y;
     }
 
+    /*persistent popup grab outranks every other routing rule: while a window
+      holds it, each mouse event is pushed to that window raw and the handler
+      returns - no frame hit-test, no win_drag/mouse_grab arming, no try_focus.
+      Qt owns the menu from here: it takes the global-coordinate stream on the
+      grabbing (top-level popup) window, redirects it to the topmost popup via
+      mapFromGlobal and dismisses the whole cascade on a press that lands
+      outside it. The owner releases the grab explicitly when the last popup
+      closes; if it was deleted or hidden without releasing, drop the stale
+      grab here and fall through to normal hit-testing for this event.*/
+    if(x->current.popup_grab != NULL) {
+        xwin_t* gwin = x->current.popup_grab;
+        if(gwin->xinfo == NULL || !gwin->xinfo->visible) {
+            x->current.popup_grab = NULL;
+        }
+        else {
+            x_cursor_set_busy(x, gwin->busy);
+            x_push_event(x, gwin, ev);
+            if(x_cursor_redraw_now(x, x->current_display))
+                display->cursor_task = false;
+            return 0;
+        }
+    }
+
     int pos = -1;
     xwin_t* win = NULL;
     if(x->current.win_drag != NULL)
