@@ -20,3 +20,6 @@
 [submodule "projects"]
 	path = projects
 	url = https://github.com/MisaZhu/ewokos.projects.git
+[submodule "browser"]
+	path = browser
+	url = https://github.com/MisaZhu/ewok.browser.git
