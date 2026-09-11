@@ -1710,23 +1710,22 @@ static void proc_load_segment(proc_t* proc,
     }
 }
 
-/* proc_load loads the given ELF process image into the given process. */
-int32_t proc_load_elf(proc_t *proc, const char *image, uint32_t size) {
+/* proc_load loads the given ELF process image into the given process.
+ * shm_id: shared memory id containing the ELF image (already populated by caller).
+ * size: size of the ELF image. */
+int32_t proc_load_elf(proc_t *proc, int32_t shm_id, uint32_t size) {
     uint32_t prog_header_offset = 0;
     uint32_t prog_header_count = 0;
     uint32_t i = 0;
 
     proc->info.uuid = ++_proc_uuid; //load elf means a totally new proc
-    int32_t shm_id = shm_get(0, size, 0666);
-    if(shm_id <= 0) {
-        return -1;
-    }
+
+    /* Map the shm containing the ELF image directly - no memcpy needed */
     uint8_t* proc_image = (uint8_t*)shm_proc_map(proc, shm_id);
     if(proc_image == NULL) {
-        // Don't unmap if mapping failed
         return -1;
     }
-    memcpy(proc_image, image, size);
+
     proc_free_heap(proc);
     proc->space->rw_heap_base = 0;
 

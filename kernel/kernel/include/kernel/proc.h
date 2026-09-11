@@ -113,7 +113,7 @@ extern int32_t _core_proc_pid;
 extern uint32_t _ipc_uid;
 
 extern int32_t procs_init(void);
-extern int32_t proc_load_elf(proc_t *proc, const char *proc_image, uint32_t size);
+extern int32_t proc_load_elf(proc_t *proc, int32_t shm_id, uint32_t size);
 extern int32_t proc_start(proc_t* proc, uint32_t entry);
 extern proc_t* proc_get_next_ready(void);
 extern proc_t* proc_get_core_ready(uint32_t core_id);

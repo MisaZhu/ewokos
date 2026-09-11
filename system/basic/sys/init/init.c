@@ -12,6 +12,7 @@
 #include <ewoksys/proc.h>
 #include <ewoksys/wait.h>
 #include <dirent.h>
+#include <sys/shm.h>
 
 extern void* read_fs(const char* fname, off_t* size);
 
@@ -23,14 +24,29 @@ static int32_t exec_from_sd(const char* prog) {
     }
 
     char* elf = read_fs(prog, &sz);
-    if(elf != NULL) {
-        int res = syscall3(SYS_EXEC_ELF, (ewokos_addr_t)prog, (ewokos_addr_t)elf, (ewokos_addr_t)sz);
+    if(elf == NULL)
+        return -1;
+
+    /* Allocate shm and copy ELF image into it */
+    int shm_id = shmget(0, (int)sz, 0666);
+    if(shm_id <= 0) {
         free(elf);
-        if(res == 0) {
-            return res;
-        }
+        return -1;
     }
-    return -1;
+    uint8_t* shm_buf = (uint8_t*)shmat(shm_id, NULL, 0);
+    if(shm_buf == NULL) {
+        shmctl(shm_id, IPC_RMID, NULL);
+        free(elf);
+        return -1;
+    }
+    memcpy(shm_buf, elf, sz);
+    free(elf);
+
+    int res = syscall3(SYS_EXEC_ELF, (ewokos_addr_t)prog, (ewokos_addr_t)shm_id, (ewokos_addr_t)sz);
+    /* If exec fails, clean up shm */
+    shmdt(shm_buf);
+    shmctl(shm_id, IPC_RMID, NULL);
+    return res;
 }
 
 static void run_before_vfs(const char* cmd) {

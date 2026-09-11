@@ -69,6 +69,7 @@ int       vfs_umount(ewokos_addr_t node);
 int       vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_node_only, bool autodir);
 int       vfs_create_uid(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_node_only, bool autodir, int uid, int gid);
 uint8_t*  vfs_readfile(const char* fname, int* sz);
+int       vfs_readfile_to_buf(const char* fname, uint8_t* buf, int buf_size);
 const char* vfs_dir_name(const char* fname, char* ret, uint32_t len);
 const char* vfs_file_name(const char* fname, char* ret, uint32_t len);
 const char* vfs_full_file_name(const char* fname, const char* ref_fname, char* ret, uint32_t len);

@@ -971,19 +971,17 @@ int vfs_seek(int fd, off_t offset) {
 
 #define VFS_READFILE_MAX (512*1024*1024)
 
-uint8_t* vfs_readfile(const char* fname, int* rsz) {
+/* Read file content into caller-provided buffer.
+ * Returns bytes read on success, -1 on failure.
+ * buf must have at least buf_size bytes available. */
+int vfs_readfile_to_buf(const char* fname, uint8_t* buf, int buf_size) {
     char fullname[FS_FULL_NAME_MAX+1] = {0};
     vfs_fullname(fname, fullname, FS_FULL_NAME_MAX);
     fsinfo_t info;
     if(vfs_get_by_name(fullname, &info) != 0 || info.stat.size <= 0)
-        return NULL;
-    /*reject transient garbage sizes (e.g. an unset -1) before they turn into
-      a multi-GB malloc that would drain the whole machine*/
-    if(info.stat.size > VFS_READFILE_MAX)
-        return NULL;
-    uint8_t* buf = (uint8_t*)malloc(info.stat.size+1); //one more char for string end.
-    if(buf == NULL)
-        return NULL;
+        return -1;
+    if(info.stat.size > buf_size)
+        return -1;
 
     char* p = (char*)buf;
     int fd = vfs_open(&info, O_RDONLY);
@@ -998,24 +996,40 @@ uint8_t* vfs_readfile(const char* fname, int* rsz) {
                 p += sz;
             }
             else {
-                /* fd became temporarily empty (VFS_ERR_RETRY): park on the
-                 * node's RD wait queue with a bounded deadline instead of
-                 * the old 1ms usleep probe loop; the driver's wake edge
-                 * releases us early. */
                 vfs_block_by_fd_timeout(fd, VFS_EVT_RD, 100*1000);
             }
         }
         close(fd);
     }
 
-    if(fsize != 0) {
+    if(fsize != 0)
+        return -1;
+    return (int)info.stat.size;
+}
+
+uint8_t* vfs_readfile(const char* fname, int* rsz) {
+    char fullname[FS_FULL_NAME_MAX+1] = {0};
+    vfs_fullname(fname, fullname, FS_FULL_NAME_MAX);
+    fsinfo_t info;
+    if(vfs_get_by_name(fullname, &info) != 0 || info.stat.size <= 0)
+        return NULL;
+    /*reject transient garbage sizes (e.g. an unset -1) before they turn into
+      a multi-GB malloc that would drain the whole machine*/
+    if(info.stat.size > VFS_READFILE_MAX)
+        return NULL;
+    uint8_t* buf = (uint8_t*)malloc(info.stat.size+1); //one more char for string end.
+    if(buf == NULL)
+        return NULL;
+
+    int rd = vfs_readfile_to_buf(fname, buf, info.stat.size);
+    if(rd < 0) {
         free(buf);
         return NULL;
     }
 
     if(rsz != NULL)
-        *rsz = (int)info.stat.size;
-    buf[info.stat.size] = 0;
+        *rsz = rd;
+    buf[rd] = 0;
     return buf;
 }
 

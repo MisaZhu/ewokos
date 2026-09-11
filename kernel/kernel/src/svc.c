@@ -201,9 +201,9 @@ static void sys_waitpid(context_t* ctx, int32_t pid) {
     proc_waitpid(ctx, pid);
 }
 
-static void sys_load_elf(context_t* ctx, const char* cmd, void* elf, uint32_t elf_size) {
-    if(elf == NULL) {
-        printf("Panic: load elf content is NULL!\n");
+static void sys_load_elf(context_t* ctx, const char* cmd, int32_t shm_id, uint32_t elf_size) {
+    if(shm_id <= 0) {
+        printf("Panic: load elf shm_id is invalid!\n");
         ctx->gpr[0] = -1;
         return;
     }
@@ -216,7 +216,7 @@ static void sys_load_elf(context_t* ctx, const char* cmd, void* elf, uint32_t el
 
     proc_t* cproc = get_current_proc();
     strcpy(cproc->info.cmd, cmd);
-    if(proc_load_elf(cproc, elf, elf_size) != 0) {
+    if(proc_load_elf(cproc, shm_id, elf_size) != 0) {
         ctx->gpr[0] = -1;
         return;
     }

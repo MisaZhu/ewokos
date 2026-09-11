@@ -13,7 +13,7 @@ extern "C" {
 int      get_vfsd_pid(void);
 int      get_cored_pid(void);
 
-void     proc_exec_elf(const char* cmd_line, const char* elf, int32_t size);
+void     proc_exec_elf(const char* cmd_line, int32_t shm_id, int32_t size);
 int      proc_getpid(int pid);
 int      proc_getpid_or_raw(int pid);
 int      proc_info(int pid, procinfo_t* info);

@@ -38,6 +38,7 @@
 #include <ewoksys/session.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/vfsc.h>
+#include <sys/shm.h>
 #include <ewoksys/wait.h>
 #include <setenv.h>
 #include <signal.h>
@@ -910,7 +911,7 @@ static int exec_program_direct(const char* name) {
     char exec_cmd[128];
     const char* suffix = NULL;
     int sz = 0;
-    uint8_t* buf;
+    fsinfo_t info;
 
     if(name == NULL || name[0] == 0)
         return -1;
@@ -926,26 +927,50 @@ static int exec_program_direct(const char* name) {
     if(suffix == NULL)
         suffix = name + strlen(name);
 
-    buf = vfs_readfile(fpath, &sz);
-    if(buf == NULL && fpath[0] != '/') {
-        for(size_t i = 0; i < sizeof(search_dirs) / sizeof(search_dirs[0]); i++) {
-            char resolved[sizeof(fpath)];
-
-            snprintf(resolved, sizeof(resolved), "%s%s", search_dirs[i], fpath);
-            buf = vfs_readfile(resolved, &sz);
-            if(buf != NULL) {
-                strncpy(fpath, resolved, sizeof(fpath) - 1);
-                fpath[sizeof(fpath) - 1] = 0;
-                break;
+    /* Try to find the file */
+    if(vfs_get_by_name(fpath, &info) != 0 || info.stat.size <= 0) {
+        if(fpath[0] != '/') {
+            bool found = false;
+            for(size_t i = 0; i < sizeof(search_dirs) / sizeof(search_dirs[0]); i++) {
+                char resolved[sizeof(fpath)];
+                snprintf(resolved, sizeof(resolved), "%s%s", search_dirs[i], fpath);
+                if(vfs_get_by_name(resolved, &info) == 0 && info.stat.size > 0) {
+                    strncpy(fpath, resolved, sizeof(fpath) - 1);
+                    fpath[sizeof(fpath) - 1] = 0;
+                    found = true;
+                    break;
+                }
             }
+            if(!found)
+                return -1;
+        } else {
+            return -1;
         }
     }
-    if(buf == NULL)
+    sz = (int)info.stat.size;
+
+    /* Allocate shm and read file directly into it */
+    int shm_id = shmget(0, sz, 0666);
+    if(shm_id <= 0)
         return -1;
+    uint8_t* shm_buf = (uint8_t*)shmat(shm_id, NULL, 0);
+    if(shm_buf == NULL) {
+        shmctl(shm_id, IPC_RMID, NULL);
+        return -1;
+    }
+
+    int rd = vfs_readfile_to_buf(fpath, shm_buf, sz);
+    if(rd < 0) {
+        shmdt(shm_buf);
+        shmctl(shm_id, IPC_RMID, NULL);
+        return -1;
+    }
 
     snprintf(exec_cmd, sizeof(exec_cmd), "%s%s", fpath, suffix);
-    proc_exec_elf(exec_cmd, (const char*)buf, sz);
-    free(buf);
+    proc_exec_elf(exec_cmd, shm_id, sz);
+    /* If exec fails, clean up shm */
+    shmdt(shm_buf);
+    shmctl(shm_id, IPC_RMID, NULL);
     return 0;
 }
 

@@ -11,6 +11,7 @@
 #include <ewoksys/core.h>
 #include <malloc.h>
 #include <fcntl.h>
+#include <sys/shm.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -231,8 +232,8 @@ inline void proc_wakeup_by(int32_t pid, ewokos_addr_t token) {
 }
 
 
-inline void proc_exec_elf(const char* cmd_line, const char* elf, int32_t size) {
-    if(syscall3(SYS_EXEC_ELF, (ewokos_addr_t)cmd_line, (ewokos_addr_t)elf, (ewokos_addr_t)size) != 0)
+inline void proc_exec_elf(const char* cmd_line, int32_t shm_id, int32_t size) {
+    if(syscall3(SYS_EXEC_ELF, (ewokos_addr_t)cmd_line, (ewokos_addr_t)shm_id, (ewokos_addr_t)size) != 0)
         exit(-1);
 }
 
@@ -283,14 +284,35 @@ int proc_exec(const char *name) {
             break;
         fpath[i] = name[i];
     }
-    void* buf = vfs_readfile(fpath, &sz);
 
-    if(buf == NULL) {
+    /* Get file size first */
+    fsinfo_t info;
+    if(vfs_get_by_name(fpath, &info) != 0 || info.stat.size <= 0)
+        return -1;
+    sz = (int)info.stat.size;
+
+    /* Allocate shm and read file directly into it */
+    int shm_id = shmget(0, sz, 0666);
+    if(shm_id <= 0)
+        return -1;
+    uint8_t* shm_buf = (uint8_t*)shmat(shm_id, NULL, 0);
+    if(shm_buf == NULL) {
+        shmctl(shm_id, IPC_RMID, NULL);
         return -1;
     }
+
+    int rd = vfs_readfile_to_buf(fpath, shm_buf, sz);
+    if(rd < 0) {
+        shmdt(shm_buf);
+        shmctl(shm_id, IPC_RMID, NULL);
+        return -1;
+    }
+
     close_on_exec_fds();
-    proc_exec_elf(name, buf, sz);
-    free(buf);
+    proc_exec_elf(name, shm_id, sz);
+    /* If exec fails, clean up shm */
+    shmdt(shm_buf);
+    shmctl(shm_id, IPC_RMID, NULL);
     return 0;
 }
 
