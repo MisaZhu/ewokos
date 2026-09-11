@@ -29,6 +29,7 @@ LIB_GRAPH_OBJS = \
 	$(ARCH)/src/rgb24.o \
 	$(ARCH)/src/pixel.o \
 	$(ARCH)/src/line.o \
+	$(ARCH)/src/curve.o \
 	$(ARCH)/src/box.o \
 	$(ARCH)/src/circle.o \
 	$(ARCH)/src/arc.o \
