@@ -1,18 +1,20 @@
 /*
- * usbhid.h: hardware-independent USB HID report-descriptor parsing.
+ * hid_report.h: transport-independent HID report-descriptor parsing.
  *
- * Shared by every usbhostd implementation: given a raw report descriptor
- * it classifies the device (keyboard/mouse/touch), extracts the bit
- * layout of mouse/touch reports, and normalizes incoming reports into
- * the fixed /dev/hid0 event formats. No controller or transfer code
- * lives here.
+ * Given a raw report descriptor - from USB GET_DESCRIPTOR(report), from
+ * a classic-Bluetooth SDP HIDDescriptorList, or from the HOGP Report Map
+ * characteristic - this classifies the device (keyboard/mouse/touch),
+ * extracts the bit layout of mouse/touch reports and normalizes incoming
+ * reports into the fixed subscriber event formats.
+ *
+ * No transport, controller or descriptor-fetching code lives here.
  */
-#ifndef __USBHID_H__
-#define __USBHID_H__
+#ifndef __HID_REPORT_H__
+#define __HID_REPORT_H__
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <usb/usb_defs.h>
+#include <hid/hid_defs.h>
 
 typedef enum {
     HID_DEV_TYPE_UNKNOWN = 0,
@@ -51,18 +53,6 @@ typedef struct {
     int wheel_size;
 } mouse_parser_t;
 
-/* one HID interface candidate found while walking a config descriptor */
-typedef struct {
-    bool valid;
-    uint8_t iface_num;
-    uint8_t subclass;
-    uint8_t protocol;
-    uint8_t ep_addr;
-    uint8_t interval; /* raw bInterval: the host layer decides how to use it */
-    uint16_t max_packet;
-    uint16_t report_desc_len;
-} hid_candidate_t;
-
 /* classify a device from its report descriptor */
 hid_dev_type_t hid_detect_device_type(const uint8_t* desc, int len);
 
@@ -86,7 +76,7 @@ bool hid_probe_mouse_report(const uint8_t* desc, int len, mouse_parser_t* out);
    for boot interfaces that can fall back to the boot layout instead */
 bool mouse_parser_sane(const mouse_parser_t* p, uint16_t max_packet, bool strict);
 
-/* normalize one raw report into a USB_POINTER_EVENT_SIZE byte event.
+/* normalize one raw report into a HID_POINTER_EVENT_SIZE byte event.
    Returns the event size or -1 when the report does not match the parser.
    touch_normalize_report additionally takes the endpoint's expected
    report length (variable-size reports arrive as full packets). */
@@ -95,4 +85,4 @@ int mouse_normalize_report(const mouse_parser_t* m,
 int touch_normalize_report(const touch_parser_t* t, uint8_t report_len,
         const uint8_t* report, int len, uint8_t* out);
 
-#endif /* __USBHID_H__ */
+#endif /* __HID_REPORT_H__ */

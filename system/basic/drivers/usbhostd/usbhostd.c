@@ -2,8 +2,8 @@
  * usbhostd: USB HID host daemon on /dev/hid0.
  *
  * Platform-neutral policy layer: device enumeration, HID report-descriptor
- * classification (libusb's usbhid), report-ID based fan-out to
- * hid_keybd/hid_moused/hid_touchd (libusb's usbhidsrv), and the vdevice
+ * classification (libhid's hid_report), report-ID based fan-out to
+ * hid_keybd/hid_moused/hid_touchd (libhid's hid_srv), and the vdevice
  * glue. All controller access goes through the machine's bsp_usb layer,
  * which rides on the concrete HCD in libs/arch_<HW> (xHCI on raspi5,
  * DWC2 on raspix, ...).
@@ -26,8 +26,9 @@
 #include <ewoksys/proc.h>
 #include <usb/bsp_usb.h>
 #include <usb/usb_defs.h>
-#include <usb/usbhid.h>
-#include <usb/usbhidsrv.h>
+#include <hid/hid_defs.h>
+#include <hid/hid_report.h>
+#include <hid/hid_srv.h>
 
 #define USB_MAX_INPUTS 8
 #define USB_MAX_DEVS 8
@@ -51,7 +52,7 @@
    controllers only clears with a bring-up from scratch) */
 #define USB_ENUM_FAIL_REINIT_AFTER 6u
 /* backlog wake re-assert: an edge wake can be swallowed by a consumer
-   parked in a generic token-0 IPC wait (see usbhid_backlog), so while a
+   parked in a generic token-0 IPC wait (see hid_backlog), so while a
    subscriber queue stays undrained its directed wake is re-fired at this
    cadence. Healthy consumers drain within a few ms, so this normally
    never fires */
@@ -82,7 +83,7 @@ typedef struct {
 
 typedef struct {
     bool present;
-    usb_input_type_t type;
+    hid_input_type_t type;
     int8_t dev_idx; /* _devs index */
     uint8_t iface_num;
     uint8_t ep_addr;
@@ -92,7 +93,7 @@ typedef struct {
     uint8_t mouse_report_id; /* composite only */
     mouse_parser_t mouse;
     touch_parser_t touch;
-    uint8_t last_report[USB_MAX_REPORT];
+    uint8_t last_report[HID_MAX_REPORT];
     uint8_t last_len;
     uint8_t last_mouse_btn;  /* buttons of the last dispatched mouse frame */
 } usb_input_dev_t;
@@ -308,23 +309,23 @@ static int usb_parse_candidates(const uint8_t* cfg, int cfg_len,
 
 /* open the interrupt endpoint and fill the common input slot fields */
 static int usb_input_setup(int dev_idx, const hid_candidate_t* cand,
-        usb_input_type_t type) {
+        hid_input_type_t type) {
     bsp_usb_dev_t* hdev = _devs[dev_idx].hdev;
     uint16_t mps = cand->max_packet == 0 ? 8 : cand->max_packet;
     int slot;
 
-    if (mps > USB_MAX_REPORT) {
-        mps = USB_MAX_REPORT;
+    if (mps > HID_MAX_REPORT) {
+        mps = HID_MAX_REPORT;
     }
     slot = usb_input_alloc();
     if (slot < 0) {
         slog("usbhostd: register %s failed no_slot iface=%u\n",
-                usbhid_input_type_name(type), cand->iface_num);
+                hid_input_type_name(type), cand->iface_num);
         return -1;
     }
     if (bsp_usb_int_in_open(hdev, cand->ep_addr, mps, cand->interval) != 0) {
         slog("usbhostd: register %s failed ep_open iface=%u ep=%02x\n",
-                usbhid_input_type_name(type), cand->iface_num, cand->ep_addr);
+                hid_input_type_name(type), cand->iface_num, cand->ep_addr);
         return -1;
     }
     memset(&_inputs[slot], 0, sizeof(_inputs[slot]));
@@ -351,7 +352,7 @@ static int usb_register_keyboard(int dev_idx, const hid_candidate_t* cand,
         (void)usb_hid_set_protocol(hdev, cand->iface_num, kbd_rid != 0 ? 1 : 0);
     }
     (void)usb_hid_set_idle(hdev, cand->iface_num);
-    slot = usb_input_setup(dev_idx, cand, USB_INPUT_KEYBOARD);
+    slot = usb_input_setup(dev_idx, cand, HID_INPUT_KEYBOARD);
     if (slot < 0) {
         return -1;
     }
@@ -400,7 +401,7 @@ static int usb_register_mouse(int dev_idx, const hid_candidate_t* cand, const mo
         (void)usb_hid_set_protocol(hdev, cand->iface_num, use_parser ? 1 : 0);
     }
     (void)usb_hid_set_idle(hdev, cand->iface_num);
-    slot = usb_input_setup(dev_idx, cand, USB_INPUT_MOUSE);
+    slot = usb_input_setup(dev_idx, cand, HID_INPUT_MOUSE);
     if (slot < 0) {
         return -1;
     }
@@ -432,7 +433,7 @@ static int usb_register_composite(int dev_idx, const hid_candidate_t* cand,
         (void)usb_hid_set_protocol(hdev, cand->iface_num, 1);
     }
     (void)usb_hid_set_idle(hdev, cand->iface_num);
-    slot = usb_input_setup(dev_idx, cand, USB_INPUT_COMPOSITE);
+    slot = usb_input_setup(dev_idx, cand, HID_INPUT_COMPOSITE);
     if (slot < 0) {
         return -1;
     }
@@ -471,7 +472,7 @@ static int usb_register_touch(int dev_idx, const hid_candidate_t* cand,
         (void)usb_hid_set_protocol(hdev, cand->iface_num, 1);
     }
     (void)usb_hid_set_idle(hdev, cand->iface_num);
-    slot = usb_input_setup(dev_idx, cand, USB_INPUT_TOUCH);
+    slot = usb_input_setup(dev_idx, cand, HID_INPUT_TOUCH);
     if (slot < 0) {
         return -1;
     }
@@ -1010,15 +1011,15 @@ static bool mouse_payload_idle(usb_input_dev_t* in, const uint8_t* payload) {
 }
 
 static bool usb_poll_inputs(vdevice_t* dev) {
-    uint8_t report[USB_MAX_REPORT];
-    uint8_t payload[USB_MAX_EVENT_SIZE];
+    uint8_t report[HID_MAX_REPORT];
+    uint8_t payload[HID_MAX_EVENT_SIZE];
     bool got = false;
     /* at least one subscriber queue went empty -> non-empty this pass */
     bool any_edge = false;
 
-    /* subscribers are woken directly inside usbhid_dispatch_evt() on the
+    /* subscribers are woken directly inside hid_dispatch_evt() on the
        empty -> non-empty edge of their own queue; no node broadcast here */
-    usbhid_set_node(dev->mnt_info.node);
+    hid_set_node(dev->mnt_info.node);
 
     for (int i = 0; i < USB_MAX_INPUTS; ++i) {
         usb_input_dev_t* in = &_inputs[i];
@@ -1043,7 +1044,7 @@ static bool usb_poll_inputs(vdevice_t* dev) {
             continue;
         }
 
-        if (in->type == USB_INPUT_KEYBOARD) {
+        if (in->type == HID_INPUT_KEYBOARD) {
             /* the endpoint may carry reports from other collections
                (consumer/media): keep only the keyboard collection's
                report ID */
@@ -1060,49 +1061,49 @@ static bool usb_poll_inputs(vdevice_t* dev) {
             if (in->kbd_report_id != 0) {
                 /* strip the report ID: consumers expect the plain body */
                 memcpy(payload, report + 1,
-                        (ret - 1) > USB_KEYBOARD_EVENT_SIZE ?
-                                USB_KEYBOARD_EVENT_SIZE : (ret - 1));
+                        (ret - 1) > HID_KEYBOARD_EVENT_SIZE ?
+                                HID_KEYBOARD_EVENT_SIZE : (ret - 1));
             }
             else {
                 memcpy(payload, report,
-                        ret > USB_KEYBOARD_EVENT_SIZE ? USB_KEYBOARD_EVENT_SIZE : ret);
+                        ret > HID_KEYBOARD_EVENT_SIZE ? HID_KEYBOARD_EVENT_SIZE : ret);
             }
-            if (usbhid_dispatch_evt(USB_REPORT_ID_KEYBOARD, payload, USB_KEYBOARD_EVENT_SIZE)) {
+            if (hid_dispatch_evt(HID_REPORT_ID_KEYBOARD, payload, HID_KEYBOARD_EVENT_SIZE)) {
                 any_edge = true;
             }
             got = true;
         }
-        else if (in->type == USB_INPUT_MOUSE) {
+        else if (in->type == HID_INPUT_MOUSE) {
             memset(payload, 0, sizeof(payload));
-            if (mouse_normalize_report(&in->mouse, report, ret, payload) == USB_POINTER_EVENT_SIZE) {
+            if (mouse_normalize_report(&in->mouse, report, ret, payload) == HID_POINTER_EVENT_SIZE) {
                 if (mouse_payload_idle(in, payload)) {
                     continue;
                 }
                 in->last_mouse_btn = payload[0];
             }
             else {
-                memcpy(payload, report, ret > USB_POINTER_EVENT_SIZE ? USB_POINTER_EVENT_SIZE : ret);
+                memcpy(payload, report, ret > HID_POINTER_EVENT_SIZE ? HID_POINTER_EVENT_SIZE : ret);
             }
-            if (usbhid_dispatch_evt(USB_REPORT_ID_MOUSE, payload, USB_POINTER_EVENT_SIZE)) {
+            if (hid_dispatch_evt(HID_REPORT_ID_MOUSE, payload, HID_POINTER_EVENT_SIZE)) {
                 any_edge = true;
             }
             got = true;
         }
-        else if (in->type == USB_INPUT_TOUCH) {
+        else if (in->type == HID_INPUT_TOUCH) {
             if ((uint8_t)ret == in->last_len && memcmp(in->last_report, report, ret) == 0) {
                 continue;
             }
             memcpy(in->last_report, report, ret);
             in->last_len = (uint8_t)ret;
             if (touch_normalize_report(&in->touch, in->report_len, report, ret, payload) ==
-                    USB_POINTER_EVENT_SIZE) {
-                if (usbhid_dispatch_evt(USB_REPORT_ID_TOUCH, payload, USB_POINTER_EVENT_SIZE)) {
+                    HID_POINTER_EVENT_SIZE) {
+                if (hid_dispatch_evt(HID_REPORT_ID_TOUCH, payload, HID_POINTER_EVENT_SIZE)) {
                     any_edge = true;
                 }
                 got = true;
             }
         }
-        else if (in->type == USB_INPUT_COMPOSITE) {
+        else if (in->type == HID_INPUT_COMPOSITE) {
             /* first byte is the HID report ID; strip it and route */
             uint8_t rid = report[0];
             if (ret < 2) {
@@ -1116,15 +1117,15 @@ static bool usb_poll_inputs(vdevice_t* dev) {
                 in->last_len = (uint8_t)ret;
                 memset(payload, 0, sizeof(payload));
                 memcpy(payload, report + 1,
-                        (ret - 1) > USB_KEYBOARD_EVENT_SIZE ? USB_KEYBOARD_EVENT_SIZE : (ret - 1));
-                if (usbhid_dispatch_evt(USB_REPORT_ID_KEYBOARD, payload, USB_KEYBOARD_EVENT_SIZE)) {
+                        (ret - 1) > HID_KEYBOARD_EVENT_SIZE ? HID_KEYBOARD_EVENT_SIZE : (ret - 1));
+                if (hid_dispatch_evt(HID_REPORT_ID_KEYBOARD, payload, HID_KEYBOARD_EVENT_SIZE)) {
                     any_edge = true;
                 }
                 got = true;
             }
             else if (rid == in->mouse_report_id) {
                 memset(payload, 0, sizeof(payload));
-                if (mouse_normalize_report(&in->mouse, report, ret, payload) == USB_POINTER_EVENT_SIZE) {
+                if (mouse_normalize_report(&in->mouse, report, ret, payload) == HID_POINTER_EVENT_SIZE) {
                     if (mouse_payload_idle(in, payload)) {
                         continue;
                     }
@@ -1132,9 +1133,9 @@ static bool usb_poll_inputs(vdevice_t* dev) {
                 }
                 else {
                     memcpy(payload, report + 1,
-                            (ret - 1) > USB_POINTER_EVENT_SIZE ? USB_POINTER_EVENT_SIZE : (ret - 1));
+                            (ret - 1) > HID_POINTER_EVENT_SIZE ? HID_POINTER_EVENT_SIZE : (ret - 1));
                 }
-                if (usbhid_dispatch_evt(USB_REPORT_ID_MOUSE, payload, USB_POINTER_EVENT_SIZE)) {
+                if (hid_dispatch_evt(HID_REPORT_ID_MOUSE, payload, HID_POINTER_EVENT_SIZE)) {
                     any_edge = true;
                 }
                 got = true;
@@ -1144,10 +1145,10 @@ static bool usb_poll_inputs(vdevice_t* dev) {
     }
 
     /*
-     * The edge wakes already fired inside usbhid_dispatch_evt(), directed
+     * The edge wakes already fired inside hid_dispatch_evt(), directed
      * at each subscriber's own proc. Arm the backlog re-assert in case an
      * edge was spent on a consumer's generic token-0 IPC wait before it
-     * reached its node block (see usbhid_backlog): while a queue stays
+     * reached its node block (see hid_backlog): while a queue stays
      * undrained, usb_step re-fires the directed wakes at a bounded rate.
      */
     if (any_edge) {
@@ -1185,13 +1186,13 @@ static int usb_step(vdevice_t* dev, void* p) {
 
     /*
      * Re-assert the directed wakes while a subscriber queue is still
-     * undrained (see usbhid_backlog): the original edge wake may have been
+     * undrained (see hid_backlog): the original edge wake may have been
      * spent on a consumer's generic IPC wait without ever reaching its node
      * block. Paced by USB_WAKE_REASSERT_MS so a wedged consumer costs at
      * most a few dozen syscalls per second instead of a per-report storm.
      */
-    if (kernel_tic_ms(0) >= _next_reassert_ms && usbhid_backlog()) {
-        usbhid_rewake_backlog();
+    if (kernel_tic_ms(0) >= _next_reassert_ms && hid_backlog()) {
+        hid_rewake_backlog();
         _next_reassert_ms = kernel_tic_ms(0) + USB_WAKE_REASSERT_MS;
     }
 
@@ -1243,11 +1244,11 @@ int main(int argc, char** argv) {
     memset(&dev, 0, sizeof(dev));
     strcpy(dev.desc, "usb-hid");
     dev.loop_step = usb_step;
-    dev.open = usbhid_vdev_open;
-    dev.close = usbhid_vdev_close;
-    dev.read = usbhid_vdev_read;
-    dev.fcntl = usbhid_vdev_fcntl;
-    dev.check_poll_events = usbhid_vdev_check_poll_events;
+    dev.open = hid_vdev_open;
+    dev.close = hid_vdev_close;
+    dev.read = hid_vdev_read;
+    dev.fcntl = hid_vdev_fcntl;
+    dev.check_poll_events = hid_vdev_check_poll_events;
     /* USBMSC_CMD_* sector I/O for a claimed mass-storage device;
        platforms without MSC always return -1 */
     dev.dev_cntl = usb_dev_cntl;

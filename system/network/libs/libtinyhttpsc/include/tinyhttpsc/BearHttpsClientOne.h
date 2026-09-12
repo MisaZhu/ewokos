@@ -33,6 +33,10 @@ SOFTWARE.
 #include <sys/types.h>
 #include <sys/socket.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Forward declarations */
 typedef struct BearHttpsRequest BearHttpsRequest;
 typedef struct BearHttpsResponse BearHttpsResponse;
@@ -105,5 +109,9 @@ void ewok_freeaddrinfo_compat(struct addrinfo *res);
 uint64_t ewok_https_entropy_word(void);
 int ewok_https_month_from_abbrev(const char *mon);
 int64_t ewok_https_days_from_civil(int year, unsigned month, unsigned day);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* BEARHTTPS_CLIENT_ONE_H */

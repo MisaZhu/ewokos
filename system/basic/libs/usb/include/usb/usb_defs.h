@@ -4,28 +4,22 @@
  * platforms (DWC2 on raspix, xHCI on raspi5, and future HCDs).
  *
  * Only spec-level definitions live here: request codes, descriptor
- * structures, class/protocol numbers, hub features, HID usages and the
- * mass-storage bulk-only wrappers. Controller registers and driver
- * policies belong to the per-machine bsp/arch layers.
+ * structures, class/protocol numbers, hub features and the mass-storage
+ * bulk-only wrappers. Controller registers and driver policies belong to
+ * the per-machine bsp/arch layers.
+ *
+ * The bus-independent HID pieces (report IDs, event sizes, usage codes,
+ * report-descriptor parsing) live in libhid - see hid/hid_defs.h.
  */
 #ifndef __USB_DEFS_H__
 #define __USB_DEFS_H__
 
 #include <stdint.h>
+#include <stdbool.h>
+#include <hid/hid_defs.h>
 
-/* /dev/hid0 event fan-out: report IDs delivered to subscribers via
-   fcntl(cmd 0), and the fixed event sizes read back from the device */
-#define USB_REPORT_ID_MOUSE 1u
-#define USB_REPORT_ID_KEYBOARD 2u
-#define USB_REPORT_ID_TOUCH 3u
-
-#define USB_QUEUE_DEPTH 32
-#define USB_MAX_EVENT_SIZE 8
-#define USB_POINTER_EVENT_SIZE 7
-#define USB_KEYBOARD_EVENT_SIZE 8
-#define USB_MAX_REPORT 64
+/* how many HID interface candidates one config-descriptor walk collects */
 #define USB_MAX_CANDIDATES 8
-#define USB_MAX_USAGE_LIST 32
 
 /* standard device requests (USB 2.0 spec table 9-4) */
 #define USB_REQ_GET_STATUS 0x00
@@ -110,22 +104,17 @@
 #define SCSI_OPCODE_WRITE10 0x2A
 #define SCSI_OPCODE_SYNC_CACHE10 0x35
 
-/* HID usage pages and usages referenced by the report parsers */
-#define HID_USAGE_PAGE_GENERIC_DESKTOP 0x01
-#define HID_USAGE_PAGE_BUTTON 0x09
-#define HID_USAGE_PAGE_DIGITIZER 0x0D
-#define HID_USAGE_POINTER 0x01
-#define HID_USAGE_MOUSE 0x02
-#define HID_USAGE_JOYSTICK 0x04
-#define HID_USAGE_GAMEPAD 0x05
-#define HID_USAGE_KEYBOARD 0x06
-#define HID_USAGE_TOUCH_SCREEN 0x04
-#define HID_USAGE_TOUCH_PAD 0x05
-#define HID_USAGE_FINGER 0x22
-#define HID_USAGE_TIP_SWITCH 0x42
-#define HID_USAGE_X 0x30
-#define HID_USAGE_Y 0x31
-#define HID_USAGE_WHEEL 0x38
+/* one HID interface candidate found while walking a config descriptor */
+typedef struct {
+    bool valid;
+    uint8_t iface_num;
+    uint8_t subclass;
+    uint8_t protocol;
+    uint8_t ep_addr;
+    uint8_t interval; /* raw bInterval: the host layer decides how to use it */
+    uint16_t max_packet;
+    uint16_t report_desc_len;
+} hid_candidate_t;
 
 typedef struct __attribute__((packed)) {
     uint8_t bmRequestType;

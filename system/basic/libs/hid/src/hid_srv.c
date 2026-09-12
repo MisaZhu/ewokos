@@ -1,10 +1,13 @@
 /*
- * usbhidsrv.c: /dev/hid0 subscriber fan-out shared by every usbhostd.
+ * hid_srv.c: transport-independent HID subscriber fan-out.
  *
- * Extracted from the usbhostd implementations: per-fd subscriber list,
- * ring queues, report-ID dispatch and the vdevice callbacks. All state
- * is private to this module; the daemon talks to it only through
- * usbhid_dispatch() and the usbhid_vdev_* callbacks.
+ * The /dev/hid0 (usbhostd) and /dev/bt0 (btd) char devices deliver input
+ * reports to their consumers through exactly the same contract: a client
+ * opens the node, subscribes to one report id with fcntl(cmd 0) and then
+ * reads fixed-size events. So the per-fd subscriber list, ring queues,
+ * report-ID dispatch and vdevice callbacks live here, and both daemons
+ * wire them straight into their vdevice_t; each daemon only supplies its
+ * own transport loop and calls hid_dispatch().
  */
 #include <stdlib.h>
 #include <stdint.h>
@@ -13,72 +16,73 @@
 #include <ewoksys/vdevice.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/proc.h>
-#include <usb/usb_defs.h>
-#include <usb/usbhidsrv.h>
+#include <hid/hid_defs.h>
+#include <hid/hid_srv.h>
 
 static fd_info_t* _fds = NULL;
-/* /dev/hid0 node id, cached by usbhostd after mount. Every subscriber
-   parks with proc_block_by(node), so a direct proc_wakeup_by(pid, node)
-   reaches exactly its own consumer -- see usbhid_dispatch_evt */
+/* node id of the daemon's own char device, cached after mount. Every
+   subscriber parks with proc_block_by(node), so a direct
+   proc_wakeup_by(pid, node) reaches exactly its own consumer -- see
+   hid_dispatch_evt */
 static ewokos_addr_t _node = 0;
 
-void usbhid_set_node(ewokos_addr_t node) {
+void hid_set_node(ewokos_addr_t node) {
     _node = node;
 }
 
-const char* usbhid_input_type_name(usb_input_type_t type) {
+const char* hid_input_type_name(hid_input_type_t type) {
     switch (type) {
-    case USB_INPUT_KEYBOARD:
+    case HID_INPUT_KEYBOARD:
         return "keyboard";
-    case USB_INPUT_MOUSE:
+    case HID_INPUT_MOUSE:
         return "mouse";
-    case USB_INPUT_TOUCH:
+    case HID_INPUT_TOUCH:
         return "touch";
-    case USB_INPUT_COMPOSITE:
+    case HID_INPUT_COMPOSITE:
         return "composite";
     default:
         return "unknown";
     }
 }
 
-static void queue_init(usb_queue_t* queue) {
+static void queue_init(hid_queue_t* queue) {
     memset(queue, 0, sizeof(*queue));
 }
 
-static void queue_clear(usb_queue_t* queue) {
+static void queue_clear(hid_queue_t* queue) {
     queue->rd = 0;
     queue->wr = 0;
 }
 
-static bool queue_has_data(const usb_queue_t* queue) {
+static bool queue_has_data(const hid_queue_t* queue) {
     return queue->rd != queue->wr;
 }
 
-static void queue_push(usb_queue_t* queue, const uint8_t* data, uint8_t len) {
-    if (len > USB_MAX_EVENT_SIZE) {
-        len = USB_MAX_EVENT_SIZE;
+static void queue_push(hid_queue_t* queue, const uint8_t* data, uint8_t len) {
+    if (len > HID_MAX_EVENT_SIZE) {
+        len = HID_MAX_EVENT_SIZE;
     }
     memcpy(queue->data[queue->wr], data, len);
-    if (len < USB_MAX_EVENT_SIZE) {
-        memset(queue->data[queue->wr] + len, 0, USB_MAX_EVENT_SIZE - len);
+    if (len < HID_MAX_EVENT_SIZE) {
+        memset(queue->data[queue->wr] + len, 0, HID_MAX_EVENT_SIZE - len);
     }
     queue->len[queue->wr] = len;
-    queue->wr = (uint8_t)((queue->wr + 1u) % USB_QUEUE_DEPTH);
+    queue->wr = (uint8_t)((queue->wr + 1u) % HID_QUEUE_DEPTH);
     if (queue->wr == queue->rd) {
-        queue->rd = (uint8_t)((queue->rd + 1u) % USB_QUEUE_DEPTH);
+        queue->rd = (uint8_t)((queue->rd + 1u) % HID_QUEUE_DEPTH);
     }
 }
 
 /*
  * Pop as many WHOLE queued events as fit into the caller's buffer and
  * return their combined byte count. A consumer draining with a buffer
- * sized for the full queue (USB_QUEUE_DEPTH * event size) empties a
+ * sized for the full queue (HID_QUEUE_DEPTH * event size) empties a
  * whole backlog in one read round-trip instead of one IPC per event.
  * Callers whose buffer fits a single event (the 8-byte keyboard read)
  * keep their one-event-per-read behaviour. An event larger than the
  * buffer is truncated and consumed anyway so the queue can never wedge.
  */
-static int queue_pop(usb_queue_t* queue, void* buf, int size) {
+static int queue_pop(hid_queue_t* queue, void* buf, int size) {
     uint8_t* dst = (uint8_t*)buf;
     int total = 0;
 
@@ -87,27 +91,27 @@ static int queue_pop(usb_queue_t* queue, void* buf, int size) {
     }
     while (queue_has_data(queue)) {
         int len = queue->len[queue->rd];
-        if (len > USB_MAX_EVENT_SIZE) {
-            len = USB_MAX_EVENT_SIZE;
+        if (len > HID_MAX_EVENT_SIZE) {
+            len = HID_MAX_EVENT_SIZE;
         }
         if (total + len > size) {
             break;
         }
         memcpy(dst + total, queue->data[queue->rd], len);
         total += len;
-        queue->rd = (uint8_t)((queue->rd + 1u) % USB_QUEUE_DEPTH);
+        queue->rd = (uint8_t)((queue->rd + 1u) % HID_QUEUE_DEPTH);
     }
     if (total == 0) {
         /* first event alone does not fit: legacy truncated copy */
         int len = queue->len[queue->rd];
-        if (len > USB_MAX_EVENT_SIZE) {
-            len = USB_MAX_EVENT_SIZE;
+        if (len > HID_MAX_EVENT_SIZE) {
+            len = HID_MAX_EVENT_SIZE;
         }
         if (len > size) {
             len = size;
         }
         memcpy(dst, queue->data[queue->rd], len);
-        queue->rd = (uint8_t)((queue->rd + 1u) % USB_QUEUE_DEPTH);
+        queue->rd = (uint8_t)((queue->rd + 1u) % HID_QUEUE_DEPTH);
         total = len;
     }
     return total;
@@ -146,6 +150,11 @@ static void fd_del(int fd, int from_pid) {
     }
 }
 
+uint8_t hid_srv_report_id(int fd, int from_pid) {
+    fd_info_t* info = fd_find(fd, from_pid);
+    return info == NULL ? 0 : info->report_id;
+}
+
 /*
  * Fan one event out to every subscriber of report_id and wake each
  * subscriber whose queue went EMPTY -> non-empty directly with
@@ -154,14 +163,14 @@ static void fd_del(int fd, int from_pid) {
  * only the edge wakes. The wake is directed at the subscriber's own proc:
  * the old path went through vfs_wakeup(), which forced a synchronous IPC
  * into vfsd per edge and then broadcast-waked EVERY waiter parked on the
- * /dev/hid0 node -- with hid_moused and hid_keybd both subscribed, every
+ * node -- with a mouse and a keyboard consumer both subscribed, every
  * mouse report cross-woke the keyboard consumer (~100 spurious empty-read
  * round trips per second) and vice versa. Subscribers still register a
  * VFS_BLOCK waiter and block on proc_block_by(node), so the CLOSE/exit
  * recovery path (node-token broadcast from vfsd) keeps working unchanged.
  * Returns true when at least one edge wake fired.
  */
-bool usbhid_dispatch_evt(uint8_t report_id, const uint8_t* data, uint8_t len) {
+bool hid_dispatch_evt(uint8_t report_id, const uint8_t* data, uint8_t len) {
     fd_info_t* cur = _fds;
     bool woke = false;
     while (cur != NULL) {
@@ -178,8 +187,8 @@ bool usbhid_dispatch_evt(uint8_t report_id, const uint8_t* data, uint8_t len) {
     return woke;
 }
 
-void usbhid_dispatch(uint8_t report_id, const uint8_t* data, uint8_t len) {
-    (void)usbhid_dispatch_evt(report_id, data, len);
+void hid_dispatch(uint8_t report_id, const uint8_t* data, uint8_t len) {
+    (void)hid_dispatch_evt(report_id, data, len);
 }
 
 /*
@@ -191,7 +200,7 @@ void usbhid_dispatch(uint8_t report_id, const uint8_t* data, uint8_t len) {
  * non-empty no further edge fires -- without the re-assert the queued
  * reports would sit there forever.
  */
-bool usbhid_backlog(void) {
+bool hid_backlog(void) {
     fd_info_t* cur = _fds;
     while (cur != NULL) {
         if (queue_has_data(&cur->queue)) {
@@ -205,11 +214,11 @@ bool usbhid_backlog(void) {
 /*
  * Directed re-assert of the edge wakes: re-fire proc_wakeup_by() for every
  * subscriber whose queue is still undrained. Same rationale as
- * usbhid_backlog's comment; unlike the old vfs_wakeup() re-assert this
+ * hid_backlog's comment; unlike the old vfs_wakeup() re-assert this
  * touches only the subscribers that actually still have data, never the
  * whole node wait queue. Returns true when at least one wake fired.
  */
-bool usbhid_rewake_backlog(void) {
+bool hid_rewake_backlog(void) {
     fd_info_t* cur = _fds;
     bool woke = false;
     if (_node == 0) {
@@ -225,7 +234,7 @@ bool usbhid_rewake_backlog(void) {
     return woke;
 }
 
-int usbhid_vdev_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* node,
+int hid_vdev_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* node,
         int oflag, void* p) {
     fd_info_t* info;
     (void)dev;
@@ -246,7 +255,7 @@ int usbhid_vdev_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* node,
     return 0;
 }
 
-int usbhid_vdev_close(vdevice_t* dev, int fd, int from_pid, ewokos_addr_t node,
+int hid_vdev_close(vdevice_t* dev, int fd, int from_pid, ewokos_addr_t node,
         fsinfo_t* fsinfo, void* p) {
     (void)dev;
     (void)node;
@@ -256,7 +265,7 @@ int usbhid_vdev_close(vdevice_t* dev, int fd, int from_pid, ewokos_addr_t node,
     return 0;
 }
 
-int usbhid_vdev_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* node,
+int hid_vdev_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* node,
         void* buf, int size, off_t offset, void* p) {
     fd_info_t* info;
     (void)dev;
@@ -270,7 +279,7 @@ int usbhid_vdev_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* node,
     return queue_pop(&info->queue, buf, size);
 }
 
-int usbhid_vdev_fcntl(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
+int hid_vdev_fcntl(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
         int cmd, proto_t* in, proto_t* out, void* p) {
     fd_info_t* item;
     (void)dev;
@@ -289,7 +298,7 @@ int usbhid_vdev_fcntl(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
     return -1;
 }
 
-uint32_t usbhid_vdev_check_poll_events(vdevice_t* dev, int fd, int from_pid,
+uint32_t hid_vdev_check_poll_events(vdevice_t* dev, int fd, int from_pid,
         fsinfo_t* node, void* p) {
     fd_info_t* info;
     (void)dev;

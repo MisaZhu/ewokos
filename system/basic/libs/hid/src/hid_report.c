@@ -1,16 +1,19 @@
 /*
- * usbhid.c: hardware-independent USB HID report-descriptor parsing.
+ * hid_report.c: transport-independent HID report-descriptor parsing.
  *
- * Extracted verbatim from the usbhostd implementations (raspi5 xHCI
- * variant plus the raspix keyboard report-ID lookup): device type
- * detection, composite report-ID discovery, touch/mouse bit-layout
- * extraction and report normalization into /dev/hid0 event formats.
+ * A HID report descriptor means the same thing whichever transport
+ * carried it, so this is shared by every HID host: usbhostd parses the
+ * descriptor fetched with GET_DESCRIPTOR(report) over the control
+ * endpoint, btd parses the HOGP Report Map read over GATT. It covers
+ * device type detection, composite report-ID discovery, touch/mouse
+ * bit-layout extraction and report normalization into the fixed
+ * subscriber event formats. No transport code lives here.
  */
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-#include <usb/usb_defs.h>
-#include <usb/usbhid.h>
+#include <hid/hid_defs.h>
+#include <hid/hid_report.h>
 
 static void clear_local_usages(uint32_t* usages, int* usage_count, bool* usage_range_valid) {
     (void)usages;
@@ -48,7 +51,7 @@ static int32_t hid_sign_extend(uint32_t value, int bits) {
 
 hid_dev_type_t hid_detect_device_type(const uint8_t* desc, int len) {
     uint32_t usage_page = 0;
-    uint32_t usages[USB_MAX_USAGE_LIST];
+    uint32_t usages[HID_MAX_USAGE_LIST];
     int usage_count = 0;
     uint32_t usage_min = 0;
     uint32_t usage_max = 0;
@@ -87,7 +90,7 @@ hid_dev_type_t hid_detect_device_type(const uint8_t* desc, int len) {
         else if (type == 2) {
             switch (tag) {
             case 0:
-                if (usage_count < USB_MAX_USAGE_LIST) {
+                if (usage_count < HID_MAX_USAGE_LIST) {
                     usages[usage_count++] = value;
                 }
                 break;
@@ -151,7 +154,7 @@ hid_dev_type_t hid_detect_device_type(const uint8_t* desc, int len) {
 int hid_parse_report_ids(const uint8_t* desc, int len,
         uint8_t* kbd_id, uint8_t* mouse_id) {
     uint32_t usage_page = 0;
-    uint32_t usages[USB_MAX_USAGE_LIST];
+    uint32_t usages[HID_MAX_USAGE_LIST];
     int usage_count = 0;
     int depth = 0;
     hid_dev_type_t cur_app = HID_DEV_TYPE_UNKNOWN;
@@ -197,7 +200,7 @@ int hid_parse_report_ids(const uint8_t* desc, int len,
             }
         }
         else if (type == 2) { /* local */
-            if (tag == 0 && usage_count < USB_MAX_USAGE_LIST) {
+            if (tag == 0 && usage_count < HID_MAX_USAGE_LIST) {
                 usages[usage_count++] = value;
             }
         }
@@ -241,7 +244,7 @@ int hid_parse_report_ids(const uint8_t* desc, int len,
    collection has no Report ID (plain boot layout). */
 uint8_t hid_find_kbd_report_id(const uint8_t* desc, int len) {
     uint32_t usage_page = 0;
-    uint32_t usages[USB_MAX_USAGE_LIST];
+    uint32_t usages[HID_MAX_USAGE_LIST];
     int usage_count = 0;
     int depth = 0;
     bool in_kbd = false;
@@ -276,7 +279,7 @@ uint8_t hid_find_kbd_report_id(const uint8_t* desc, int len) {
             }
         }
         else if (type == 2) { /* local */
-            if (tag == 0 && usage_count < USB_MAX_USAGE_LIST) {
+            if (tag == 0 && usage_count < HID_MAX_USAGE_LIST) {
                 usages[usage_count++] = value;
             }
         }
@@ -304,7 +307,7 @@ uint8_t hid_find_kbd_report_id(const uint8_t* desc, int len) {
 }
 
 int hid_parse_touch_report(const uint8_t* desc, int len, touch_parser_t* out) {
-    uint32_t usages[USB_MAX_USAGE_LIST];
+    uint32_t usages[HID_MAX_USAGE_LIST];
     int usage_count = 0;
     uint32_t usage_page = 0;
     uint32_t usage_min = 0;
@@ -385,7 +388,7 @@ int hid_parse_touch_report(const uint8_t* desc, int len, touch_parser_t* out) {
         else if (type == 2) {
             switch (tag) {
             case 0:
-                if (usage_count < USB_MAX_USAGE_LIST) {
+                if (usage_count < HID_MAX_USAGE_LIST) {
                     usages[usage_count++] = value;
                 }
                 break;
@@ -482,7 +485,7 @@ int hid_parse_touch_report(const uint8_t* desc, int len, touch_parser_t* out) {
 
     out->valid = true;
     out->report_bytes = (uint8_t)((report_bits[out->report_id] + 7u) / 8u);
-    if (out->report_bytes == 0 || out->report_bytes > USB_MAX_REPORT) {
+    if (out->report_bytes == 0 || out->report_bytes > HID_MAX_REPORT) {
         return -1;
     }
     return 0;
@@ -501,7 +504,7 @@ bool hid_probe_touch_report(const uint8_t* desc, int len, touch_parser_t* out) {
 }
 
 int hid_parse_mouse_report(const uint8_t* desc, int len, mouse_parser_t* out) {
-    uint32_t usages[USB_MAX_USAGE_LIST];
+    uint32_t usages[HID_MAX_USAGE_LIST];
     int usage_count = 0;
     uint32_t usage_page = 0;
     uint32_t usage_min = 0;
@@ -578,7 +581,7 @@ int hid_parse_mouse_report(const uint8_t* desc, int len, mouse_parser_t* out) {
         else if (type == 2) {
             switch (tag) {
             case 0:
-                if (usage_count < USB_MAX_USAGE_LIST) {
+                if (usage_count < HID_MAX_USAGE_LIST) {
                     usages[usage_count++] = value;
                 }
                 break;
@@ -699,7 +702,7 @@ int hid_parse_mouse_report(const uint8_t* desc, int len, mouse_parser_t* out) {
 
     out->valid = true;
     out->report_bytes = (uint8_t)((report_bits[out->report_id] + 7u) / 8u);
-    if (out->report_bytes == 0 || out->report_bytes > USB_MAX_REPORT) {
+    if (out->report_bytes == 0 || out->report_bytes > HID_MAX_REPORT) {
         return -1;
     }
     return 0;
@@ -815,12 +818,12 @@ int mouse_normalize_report(const mouse_parser_t* m,
                 m->wheel_size);
     }
 
-    memset(out, 0, USB_POINTER_EVENT_SIZE);
+    memset(out, 0, HID_POINTER_EVENT_SIZE);
     out[0] = buttons;
     out[1] = (uint8_t)hid_clamp_s8(x);
     out[2] = (uint8_t)hid_clamp_s8(y);
     out[3] = (uint8_t)hid_clamp_s8(wheel);
-    return USB_POINTER_EVENT_SIZE;
+    return HID_POINTER_EVENT_SIZE;
 }
 
 int touch_normalize_report(const touch_parser_t* t, uint8_t report_len,
@@ -858,5 +861,5 @@ int touch_normalize_report(const touch_parser_t* t, uint8_t report_len,
     out[4] = (uint8_t)((y >> 8) & 0xFFu);
     out[5] = 0;
     out[6] = 0;
-    return USB_POINTER_EVENT_SIZE;
+    return HID_POINTER_EVENT_SIZE;
 }
