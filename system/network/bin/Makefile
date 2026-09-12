@@ -1,5 +1,5 @@
 
-DIRS = ipconfig ping host https_test telnet ssh scp ws_test
+DIRS = ipconfig ping host telnet ssh scp ws_test
 all: $(DIRS)
 
 $(DIRS):

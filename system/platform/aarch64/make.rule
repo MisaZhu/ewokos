@@ -54,7 +54,7 @@ CXXFLAGS += -DARCH_BOOST
 
 EWOK_LIBC = --start-group -lewoksys -lc -lgloss --end-group
 EWOK_LIB_GRAPH = -lfont -lfreetype -liconbuf -lgraph -lg2dclient -lpng -ljpeg -lgif -ltga -lsvg -lz -lopenlibm -ldisplayman -ldisplay -lkeyb -lmouse  $(BSP_LFLAGS)
-EWOK_LIB_X = -lwidget++ -lx++ -lx -ltinyjson -lewokstl -ltinyhttpsc -lsocket
+EWOK_LIB_X = -lwidget++ -lx++ -lx -ltinyjson -lewokstl 
 
 ifeq ($(DEBUG),yes)
 CFLAGS +=  -g

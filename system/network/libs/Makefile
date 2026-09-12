@@ -1,13 +1,11 @@
 all: basic_libs
 	@echo "all done."
 
-DIRS = socket ntpc wolfssl libtinyhttpsc libwebsockets
+DIRS = socket ntpc wolfssl libwebsockets
 basic_libs: $(DIRS)
 
-# header dependencies: everything needs socket's sys/socket.h installed,
-# libtinyhttpsc also compiles against the installed wolfssl headers
+# header dependencies: everything needs socket's sys/socket.h installed
 ntpc wolfssl libwebsockets: socket
-libtinyhttpsc: socket wolfssl
 
 $(DIRS):
 	@$(MAKE) -C $@

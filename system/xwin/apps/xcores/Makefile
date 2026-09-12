@@ -17,7 +17,6 @@ LD_LIB_DEPS = \
 	$(BUILD_DIR)/lib/libx.a \
 	$(BUILD_DIR)/lib/libtinyjson.a \
 	$(BUILD_DIR)/lib/libewokstl.a \
-	$(BUILD_DIR)/lib/libtinyhttpsc.a \
 	$(BUILD_DIR)/lib/libsocket.a \
 	$(BUILD_DIR)/lib/libfont.a \
 	$(BUILD_DIR)/lib/libfreetype.a \
