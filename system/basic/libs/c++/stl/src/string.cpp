@@ -1,4 +1,5 @@
 #include "string"
+#include <ewoksys/klog.h>
 
 namespace std {
 
@@ -29,6 +30,28 @@ string::string() : data_(nullptr), length_(0), capacity_(1) {
 string::string(const string& str) {
     length_ = str.length_;
     capacity_ = str.capacity_;
+
+    /* Trap a corrupted or type-punned source object (e.g. a const char* cast
+     * to string&) before the byte loop below runs off the heap: a real string
+     * always has length_ + 1 <= capacity_. Log the caller so the bad site can
+     * be located in the disassembly. */
+    if (length_ + 1 > capacity_ || capacity_ > (size_t)64 * 1024 * 1024) {
+        klog("[stl] bad string copy: obj=%p len=%u cap=%u data=%p caller=%p head=%.16s\n",
+             &str, (unsigned)length_, (unsigned)capacity_, str.data_,
+             __builtin_return_address(0),
+             str.data_ ? str.data_ : "(null)");
+        length_ = 0;
+        capacity_ = 1;
+        /* Not set_empty_string_state(): this trap must not reference operator
+         * new/delete, or the linker extracts new_delete.o out of
+         * libewokstl.a and it collides with libcxx.a's cxx.o (see the
+         * cxx_runtime.cpp comment). */
+        data_ = alloc_string_buffer(1);
+        if (!data_) {
+            capacity_ = 0;
+        }
+        return;
+    }
 
     data_ = alloc_string_buffer(capacity_);
     if (!data_) {
