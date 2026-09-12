@@ -14,6 +14,7 @@ CFLAGS += -I $(SYS_DIR)/basic/libc/libewoksys/ewoksys/include \
 	-I $(SYS_DIR)/basic/libs/sd/include \
 	-I $(SYS_DIR)/basic/libs/gpio/include \
 	-I $(SYS_DIR)/basic/libs/usb/include \
+	-I $(SYS_DIR)/basic/libs/hid/include \
 	-I $(SYS_DIR)/gui/libs/graph/include \
 	-I $(SYS_DIR)/gui/libs/g2dclient/include \
 	-Iinclude -I $(TARGET_DIR)/include
