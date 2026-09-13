@@ -17,6 +17,7 @@ CFLAGS = -m64 \
 	-fno-strict-aliasing \
 	-ffreestanding \
 	-mno-red-zone \
+    -D__ewokos__=1 \
 	-std=c99
 
 # -nostdinc++: EWOK_STL is the only C++ standard library in scope.  See the longer
@@ -32,6 +33,7 @@ CXXFLAGS = -m64 \
 	-fno-use-cxa-atexit \
 	-ffreestanding \
 	-mno-red-zone \
+    -D__ewokos__=1 \
 	-std=c++14
 
 CFLAGS += -DARCH_BOOST

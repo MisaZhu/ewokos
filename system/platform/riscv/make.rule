@@ -29,6 +29,7 @@ CFLAGS = -mlittle-endian \
         -fno-builtin-exit \
         -fno-builtin-stdio \
         -fno-builtin-unistd \
+        -D__ewokos__=1 \
         -std=c99
 
 # -nostdinc++: EWOK_STL is the only C++ standard library in scope.  See the longer
@@ -54,6 +55,7 @@ CXXFLAGS = \
         -fno-rtti \
         -fno-exceptions \
         -fno-use-cxa-atexit \
+        -D__ewokos__=1 \
         -std=c++11
 
 CFLAGS += -D __bss_start__=__bss_start -D __bss_end__=__BSS_END__

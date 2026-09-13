@@ -24,7 +24,8 @@ CFLAGS =  -march=armv8-a -Wno-incompatible-pointer-types -Wno-int-conversion \
         -Wno-unused-parameter \
 		-mstrict-align \
         -mno-outline-atomics \
-        -std=c99
+        -std=c99 \
+		-D__ewokos__=1
 
 # -nostdinc++ closes off the toolchain's libstdc++ headers so that EWOK_STL, which
 # the STL_HEADERS_STAMP rule below installs into $(BUILD_DIR)/include, is the only
@@ -47,7 +48,8 @@ CXXFLAGS = -march=armv8-a \
         -mno-outline-atomics \
         -fno-exceptions \
         -fno-use-cxa-atexit \
-        -std=c++14
+        -std=c++14 \
+		-D__ewokos__=1
 
 CFLAGS += -DARCH_BOOST
 CXXFLAGS += -DARCH_BOOST

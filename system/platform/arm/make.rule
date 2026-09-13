@@ -16,12 +16,13 @@ CFLAGS = -marm \
 	-mfloat-abi=softfp \
         -Wall -Wextra -fPIC -mapcs-frame \
         -Wno-unused-parameter \
-		-Wno-int-conversion \
+	-Wno-int-conversion \
         -fno-builtin-memcpy \
         -fno-builtin-memmove \
         -fno-builtin-memset \
         -fno-builtin-calloc \
         -fno-strict-aliasing \
+        -D__ewokos__=1 \
         -std=c99
 
 # -nostdinc++: EWOK_STL is the only C++ standard library in scope.  See the longer
@@ -32,7 +33,7 @@ CXXFLAGS = -marm \
 	-mfloat-abi=softfp \
         -Wall -Wextra -fPIC -mapcs-frame \
         -Wno-unused-parameter \
-		-Wno-int-conversion \
+	-Wno-int-conversion \
         -fno-builtin-memcpy \
         -fno-builtin-memmove \
         -fno-builtin-memset \
@@ -42,6 +43,7 @@ CXXFLAGS = -marm \
         -fno-exceptions \
         -fno-strict-aliasing \
         -fno-use-cxa-atexit \
+        -D__ewokos__=1 \
         -std=c++14
 
 ifeq ($(ARCH_VER),v7)
