@@ -23,3 +23,6 @@
 [submodule "browser"]
 	path = browser
 	url = https://github.com/MisaZhu/ewok.browser.git
+[submodule "qt"]
+	path = qt
+	url = https://github.com/MisaZhu/ewokos.qt.git
