@@ -192,6 +192,8 @@ LIB_EWOKSYS_OBJS =  \
 	\
 	$(ARCH)/src/locale/locale.o \
 	\
+	$(ARCH)/src/ctype/ctype_.o \
+	\
 	$(ARCH)/src/time/strftime.o \
 	$(ARCH)/src/time/nanosleep.o \
 	$(ARCH)/src/time/clock_gettime.o \
