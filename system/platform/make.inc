@@ -45,6 +45,10 @@ projs:
 	cp -r $(EWOKOS_ROOT_DIR)/projects/usr $(EWOKOS_ROOT_DIR)/system/build_$(ARCH)/$(HW)/rootfs/
 	@$(MAKE) final
 
+qt:
+	$(MAKE) HW=$(HW) -C $(EWOKOS_ROOT_DIR)/qt
+	@$(MAKE) final
+
 browser:
 	$(MAKE) HW=$(HW) -C $(EWOKOS_ROOT_DIR)/browser
 	cp -r $(EWOKOS_ROOT_DIR)/browser/data $(EWOKOS_ROOT_DIR)/system/build_$(ARCH)/$(HW)/rootfs/
