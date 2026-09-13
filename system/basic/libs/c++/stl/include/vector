@@ -231,6 +231,18 @@ class vector {
          */
         const T& back() const;
 
+        /**
+         * Return a pointer to the underlying contiguous storage.  Callers such
+         * as litehtml's el_svg pass this straight to a C-style drawing API;
+         * data_ is always allocated (even when empty) so this is never null.
+         */
+        T* data() { return data_; }
+
+        /**
+         * Return a constant pointer to the underlying contiguous storage.
+         */
+        const T* data() const { return data_; }
+
         size_t size() const { return length_; }
         size_t capacity() const { return capacity_; }
         bool empty() const { return length_ == 0; }
