@@ -1,6 +1,8 @@
 #include "string"
 #include <ewoksys/klog.h>
 
+extern "C" int ewok_ptr_in_heap(const void* p);
+
 namespace std {
 
 static char* alloc_string_buffer(size_t size) {
@@ -34,12 +36,23 @@ string::string(const string& str) {
     /* Trap a corrupted or type-punned source object (e.g. a const char* cast
      * to string&) before the byte loop below runs off the heap: a real string
      * always has length_ + 1 <= capacity_. Log the caller so the bad site can
-     * be located in the disassembly. */
+     * be located in the disassembly.
+     *
+     * IMPORTANT: str.data_ is exactly the field we suspect is corrupt, so it
+     * must NOT be passed to a %s conversion - vsnprintf would strlen() it and
+     * take a second data abort inside the diagnostic itself (observed:
+     * strlen(0x8000000000000010) from the %.16s below). Only dereference it
+     * when ewok_ptr_in_heap() says the address lies inside the live trunk
+     * heap; otherwise report the raw pointer and a placeholder. */
     if (length_ + 1 > capacity_ || capacity_ > (size_t)64 * 1024 * 1024) {
+        const char* head = "(bad)";
+        if (str.data_ != nullptr && ewok_ptr_in_heap(str.data_)) {
+            head = str.data_;
+        }
         klog("[stl] bad string copy: obj=%p len=%u cap=%u data=%p caller=%p head=%.16s\n",
              &str, (unsigned)length_, (unsigned)capacity_, str.data_,
              __builtin_return_address(0),
-             str.data_ ? str.data_ : "(null)");
+             head);
         length_ = 0;
         capacity_ = 1;
         /* Not set_empty_string_state(): this trap must not reference operator
