@@ -15,6 +15,7 @@ int32_t shm_proc_unmap(proc_t* proc, void *p);
 int32_t shm_proc_unmap_by_id(proc_t* proc, uint32_t id, bool free_it);
 int32_t shm_ctrl(int32_t id, int32_t cmd);
 int32_t shm_set_owner(uint32_t id, int32_t pid);
+void    shm_release_orphans(int32_t owner_pid);
 ewokos_addr_t shm_contig_phy_addr(int32_t id, ewokos_addr_t vaddr);
 
 #endif

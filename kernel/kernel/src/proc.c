@@ -1333,6 +1333,16 @@ void proc_funeral(proc_t* proc) {
         /*unmap share mems*/
         proc_unmap_shms(proc);
 
+        /*
+         * Reap shm segments this proc created via shm_get(IPC_CREAT) but
+         * never attached: proc_unmap_shms only walks space->shms[], so an
+         * unattached segment with refs==0 is invisible to that sweep and
+         * would otherwise leak a VA window slot and (for contig) a slab
+         * pool run until reboot. Runs after the attached sweep so segments
+         * whose refs just dropped to zero have already been freed.
+         */
+        shm_release_orphans(proc->info.pid);
+
         set_translation_table_base(V2P(cproc->space->vm));
         free_page_tables(space->vm);
 

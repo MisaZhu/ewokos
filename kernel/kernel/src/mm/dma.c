@@ -149,9 +149,6 @@ ewokos_addr_t dma_v_addr(int32_t dma_block_id, ewokos_addr_t phy_addr) {
 }
 
 int32_t  dma_set(int32_t pid, ewokos_addr_t phy_base, ewokos_addr_t v_base, uint32_t size, bool shared) {
-    if(_dma_block_count >= DMA_BLOCK_MAX)
-        return -1;
-
     if(pid >= 0) {
         proc_t* cproc = proc_get(pid);
         if(cproc == NULL || cproc->info.uid != 0)
@@ -167,7 +164,55 @@ int32_t  dma_set(int32_t pid, ewokos_addr_t phy_base, ewokos_addr_t v_base, uint
             return -1;
         size -= PAGE_SIZE;
     }
-    
+
+    /*
+     * Reclaim a slot whose registered owner died. The physical carve-out
+     * is static (reserved by kernel.conf), so a driver that crashes and
+     * is respawned by init calls SYS_DMA_SET again on every restart.
+     * Without reclaim, _dma_block_count grows one slot per respawn until
+     * DMA_BLOCK_MAX is exhausted and dma_set starts failing permanently
+     * (reboot required).
+     *
+     * Reclaim iff the previous owner is either the current caller (pid
+     * was recycled to the same driver instance) or is fully gone from
+     * the task table, or is a ZOMBIE/UNUSED proc whose funeral is
+     * pending. Kernel-registered blocks (owner_pid < 0, e.g. the
+     * sys_dma pool seeded by dma_init) are never reclaimable.
+     *
+     * The sub-allocation list is rebuilt as one full-range free node so
+     * the new owner starts clean; the previous owner's dma_release has
+     * already run (or is a no-op on the emptied list) by the time the
+     * slot becomes reclaimable.
+     */
+    for(uint32_t i=0; i<_dma_block_count; i++) {
+        if(_dma_blocks[i].phy_base != phy_base || _dma_blocks[i].size != size)
+            continue;
+        int32_t prev_owner = _dma_blocks[i].owner_pid;
+        if(prev_owner < 0)
+            continue; // kernel-owned block (sys_dma pool), never reclaim
+        if(prev_owner != pid) {
+            proc_t* prev = proc_get(prev_owner);
+            if(prev != NULL &&
+                    prev->info.state != UNUSED &&
+                    prev->info.state != ZOMBIE)
+                continue; // live owner, don't steal
+        }
+        dma_t* d = _dma_blocks[i].head;
+        while(d != NULL) {
+            dma_t* next = d->next;
+            kfree(d);
+            d = next;
+        }
+        _dma_blocks[i].head = dma_new(phy_base, size);
+        _dma_blocks[i].owner_pid = pid;
+        _dma_blocks[i].v_base = v_base;
+        _dma_blocks[i].shared = shared;
+        return (int32_t)i;
+    }
+
+    if(_dma_block_count >= DMA_BLOCK_MAX)
+        return -1;
+
     _dma_blocks[_dma_block_count].owner_pid = pid; 
     _dma_blocks[_dma_block_count].phy_base = phy_base; 
     _dma_blocks[_dma_block_count].v_base = v_base; 

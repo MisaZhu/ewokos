@@ -576,6 +576,44 @@ int32_t shm_proc_unmap_by_id(proc_t* proc, uint32_t id, bool free_it) {
     return ret;
 }
 
+/*
+ * Reap shm segments owned by owner_pid that no proc has attached
+ * (refs <= 0). proc_unmap_shms walks only the ATTACHED set
+ * (proc->space->shms[]), so a segment created via shm_get(IPC_CREAT)
+ * but never shmat'd would otherwise linger forever, holding a VA
+ * window slot and - for contig segments - a slab pool run.
+ *
+ * Called from proc_funeral for TASK_TYPE_PROC right after
+ * proc_unmap_shms, so segments whose refs dropped to zero during the
+ * attached sweep have already been freed by shm_proc_unmap_it and
+ * are not double-processed here.
+ *
+ * Safe with surviving threads of a dying owner: refs == 0 means no
+ * thread has the segment in its shms[] either, so nothing to unmap
+ * from any vm. Kernel-registered / ownerless segments (owner_pid < 0)
+ * are never touched.
+ */
+void shm_release_orphans(int32_t owner_pid) {
+    if(owner_pid < 0)
+        return;
+    shm_lock();
+    share_mem_t* it = _shm_head;
+    while(it != NULL) {
+        if(it->used && it->owner_pid == owner_pid && it->refs <= 0) {
+            /*
+             * free_item may merge the freed block with a free prev or
+             * next neighbour; its return value is always the next safe
+             * traversal pointer after any merge it performed.
+             */
+            it = free_item(it);
+        }
+        else {
+            it = it->next;
+        }
+    }
+    shm_unlock();
+}
+
 /* shmctl() back end.
    IPC_RMID: destroy the segment only when no process has it attached
    (refs == 0). An unattached segment is invisible to every process, so
