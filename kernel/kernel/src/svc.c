@@ -331,6 +331,21 @@ static void sys_dma_free(int32_t dma_block_id, ewokos_addr_t vaddr) {
     flush_tlb();
 }
 
+/*
+ * Peer-side voluntary unmap of a cross-proc dma mapping installed by
+ * SYS_MEM_MAP on a sys_dma range. This is the protocol half of the
+ * dma peer-map tracking: a well-behaved peer (g2dd) drops the mapping
+ * when it is done with a client's canvas, so the client's dma_release
+ * never has to force-revoke it mid-use. Returns 0 when a tracked mapping
+ * was dropped, -1 when the caller had no such mapping.
+ */
+static int32_t sys_dma_unmap(ewokos_addr_t vaddr) {
+    proc_t* cproc = proc_get_proc(get_current_proc());
+    if(cproc == NULL)
+        return -1;
+    return dma_peer_unmap(cproc->info.pid, vaddr);
+}
+
 static int32_t sys_dma_set(ewokos_addr_t phy_base, uint32_t size, bool shared) {
     proc_t* cproc = get_current_proc();
     if(cproc == NULL)
@@ -369,6 +384,20 @@ static ewokos_addr_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint3
         size = ALIGN_UP(size, PAGE_SIZE);
         map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, PTE_ATTR_NOCACHE);
         flush_tlb();
+        /*
+         * Record the cross-proc mapping so the owner's dma_release() can
+         * revoke it when the owner dies; without this the physical range
+         * becomes reusable while this peer still has it mapped (g2dd
+         * attaching a client's dma canvas). -2 means the tracking table is
+         * full: refuse and roll back rather than leave an unrevocable
+         * mapping. -1 (range not inside a live allocation) is allowed and
+         * simply untracked - there is no owner to attribute it to.
+         */
+        if(dma_peer_map_by_paddr(cproc->info.pid, vaddr, paddr, size) == -2) {
+            unmap_pages(cproc->space->vm, vaddr, size / PAGE_SIZE);
+            flush_tlb();
+            return 0;
+        }
         return vaddr;
     }
 
@@ -689,6 +718,9 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
         return;
     case SYS_DMA_PHY_ADDR:
         ctx->gpr[0] = sys_dma_phy(arg0, (ewokos_addr_t)arg1);
+        return;
+    case SYS_DMA_UNMAP:
+        ctx->gpr[0] = sys_dma_unmap((ewokos_addr_t)arg0);
         return;
     case SYS_IPC_SETUP:
         sys_ipc_setup(ctx, arg0, arg1, arg2);

@@ -1313,6 +1313,16 @@ void proc_funeral(proc_t* proc) {
         (proc->info.type == TASK_TYPE_THREAD && proc->thread_stack_base != 0);
     set_translation_table_base(V2P(space->vm));
     dma_release(proc->info.pid);
+    /*
+     * dma_release() revoked the mappings OTHER procs made of this proc's
+     * dma ranges (this proc as owner). Now drop the tracking entries where
+     * this proc was the PEER (it mapped another owner's dma range via
+     * sys_mem_map). No unmap is needed here: free_page_tables() below tears
+     * down this proc's whole vm. This keeps the bounded peer-map table
+     * reusable and stops a later owner-side revoke from walking a stale
+     * entry for a pid that may already be recycled.
+     */
+    dma_peer_map_forget_peer(proc->info.pid);
     proc_free_user_stack(proc);
 
     if(proc->info.type == TASK_TYPE_PROC) {

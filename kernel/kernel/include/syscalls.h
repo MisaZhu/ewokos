@@ -100,6 +100,9 @@ enum {
 	SYS_SEMAPHORE_ENTER_TIMEOUT,
 	SYS_SEMAPHORE_ALLOC_COUNT,
 	SYS_SEMAPHORE_GET_COUNT,
+	/* drop a cross-proc dma mapping installed by SYS_MEM_MAP on a sys_dma
+	   range (peer-side voluntary unmap; see dma_peer_unmap) */
+	SYS_DMA_UNMAP,
 	SYS_CALL_NUM
 };
 

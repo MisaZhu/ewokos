@@ -459,8 +459,24 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 }
 
 static void g2d_detach(const g2d_attached_t* at) {
-	if(at == NULL || at->buffer == NULL || at->dma != 0)
+	if(at == NULL || at->buffer == NULL)
 		return;
+	if(at->dma != 0) {
+		/*
+		 * dma canvas: drop the cross-proc mapping g2d_dma_map() installed
+		 * via SYS_MEM_MAP. The kernel tracks that mapping against the
+		 * client's dma allocation; leaving it pinned here would keep the
+		 * client's physical range unreclaimable after the client dies, and
+		 * the kernel would then have to force-revoke it under us (the next
+		 * touch would fault). Voluntary unmap keeps the stateless protocol
+		 * clean: every dma attach is paired with a detach, mirroring the
+		 * shmdt path below. Safe under _g2d_task_lock - attach/use/detach
+		 * of a request are serialized, so no in-flight blit shares this
+		 * mapping.
+		 */
+		syscall1(SYS_DMA_UNMAP, (ewokos_addr_t)at->buffer);
+		return;
+	}
 	if(at->cached != 0) {
 		/* the cache owns the mapping and hands it to the next request;
 		   tearing it down here is exactly the churn this avoids */

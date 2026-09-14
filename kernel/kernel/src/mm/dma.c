@@ -1,7 +1,9 @@
 #include <mm/kmalloc.h>
 #include <mm/dma.h>
+#include <mm/mmu.h>
 #include <kernel/hw_info.h>
 #include <kernel/proc.h>
+#include <kernel/system.h>
 #include <stddef.h>
 
 typedef struct st_dma {
@@ -28,6 +30,37 @@ typedef struct {
 static uint32_t _dma_block_count = 0;
 static dma_block_t _dma_blocks[DMA_BLOCK_MAX];
 
+/*
+ * Cross-proc dma mapping tracker.
+ *
+ * dma_alloc() maps its buffer only into the allocator's vm, so another
+ * root daemon that needs the same physical range (g2dd attaching a
+ * client's dma canvas) pulls it in through sys_mem_map(). That peer
+ * mapping is invisible to the owner's dma_t, so when the owner dies
+ * dma_release() would mark the physical range free while the peer's
+ * page tables still point at it - the next dma_alloc hands the same
+ * memory to a third party and the peer silently corrupts it.
+ *
+ * Every sys_mem_map of a sys_dma range records (owner_pid, peer_pid,
+ * peer_vaddr, paddr, size) here. dma_release() revokes the peer's
+ * mapping before freeing the range (safety net); a well-behaved peer
+ * drops it voluntarily via SYS_DMA_UNMAP (protocol path); a peer that
+ * dies first is cleaned up by dma_peer_map_forget_peer() from its own
+ * proc_funeral. Bounded table: when full, sys_mem_map of a dma range
+ * is refused rather than tracked-but-unrevocable.
+ */
+#define DMA_PEER_MAP_MAX 64
+typedef struct {
+    int32_t owner_pid;        /* proc that owns the underlying dma_alloc */
+    int32_t peer_pid;         /* proc that mapped it via sys_mem_map */
+    ewokos_addr_t peer_vaddr; /* vaddr in the peer's vm */
+    ewokos_addr_t paddr;      /* physical base of the mapped range */
+    uint32_t size;            /* bytes mapped (page aligned) */
+    uint8_t used;
+} dma_peer_map_t;
+
+static dma_peer_map_t _dma_peer_maps[DMA_PEER_MAP_MAX];
+
 static dma_t* dma_new(ewokos_addr_t base, uint32_t size) {
     dma_t* ret = (dma_t*)kcalloc(1, sizeof(dma_t));
     ret->size = size;
@@ -44,6 +77,11 @@ void dma_init(void) {
         _dma_blocks[i].phy_base= 0;
         _dma_blocks[i].size = 0;
         _dma_blocks[i].shared = false;
+    }
+    for(uint32_t i=0; i<DMA_PEER_MAP_MAX; i++) {
+        _dma_peer_maps[i].used = 0;
+        _dma_peer_maps[i].owner_pid = 0;
+        _dma_peer_maps[i].peer_pid = 0;
     }
     dma_set(-1, _sys_info.sys_dma.phy_base, _sys_info.sys_dma.v_base, _sys_info.sys_dma.size, false);
 }
@@ -85,6 +123,18 @@ uint32_t  dma_size(int32_t dma_block_id, int32_t pid, ewokos_addr_t phy_addr) {
 }
 
 void dma_release(int32_t pid) {
+    /*
+     * Revoke cross-proc peer mappings of this owner's dma ranges BEFORE
+     * the sub-allocations are marked free. Without this the range becomes
+     * reusable while a peer (g2dd) still has it mapped, and the next
+     * dma_alloc hands the same physical memory to a third party. The peer
+     * is unmapped in its own vm (no TTBR switch needed: unmap_pages walks
+     * the passed page-dir); a global flush_tlb() drops any cached walk on
+     * every core. A peer that already died is skipped - its vm is torn
+     * down by its own proc_funeral.
+     */
+    dma_peer_map_revoke_owner(pid);
+
     for(uint32_t i=0; i<_dma_block_count; i++) {
         dma_t* d = _dma_blocks[i].head;
         while(d != NULL) {
@@ -105,6 +155,121 @@ void dma_release(int32_t pid) {
             d = next;
         }
     }
+}
+
+/*
+ * Live owner pid of the dma sub-allocation fully containing
+ * [paddr, paddr+size), or -1 when the range is not inside any live
+ * allocation. Used by sys_mem_map to attribute a cross-proc mapping to
+ * the owner whose dma_release() must later revoke it.
+ */
+static int32_t dma_find_owner(ewokos_addr_t paddr, uint32_t size) {
+    for(uint32_t i=0; i<_dma_block_count; i++) {
+        dma_t* d = _dma_blocks[i].head;
+        while(d != NULL) {
+            if(d->pid != 0 &&
+                    d->base <= paddr &&
+                    (d->base + d->size) >= (paddr + size))
+                return d->pid;
+            d = d->next;
+        }
+    }
+    return -1;
+}
+
+static int32_t dma_peer_map_track(int32_t owner_pid, int32_t peer_pid,
+        ewokos_addr_t peer_vaddr, ewokos_addr_t paddr, uint32_t size) {
+    if(owner_pid <= 0 || peer_pid <= 0)
+        return -1;
+    /* dedup: the same peer re-mapping the same range refreshes the entry
+       instead of consuming a second slot (g2dd's attach cache re-hits) */
+    for(uint32_t i=0; i<DMA_PEER_MAP_MAX; i++) {
+        dma_peer_map_t* m = &_dma_peer_maps[i];
+        if(m->used && m->peer_pid == peer_pid &&
+                m->peer_vaddr == peer_vaddr && m->paddr == paddr) {
+            m->owner_pid = owner_pid;
+            m->size = size;
+            return (int32_t)i;
+        }
+    }
+    for(uint32_t i=0; i<DMA_PEER_MAP_MAX; i++) {
+        dma_peer_map_t* m = &_dma_peer_maps[i];
+        if(!m->used) {
+            m->owner_pid = owner_pid;
+            m->peer_pid = peer_pid;
+            m->peer_vaddr = peer_vaddr;
+            m->paddr = paddr;
+            m->size = size;
+            m->used = 1;
+            return (int32_t)i;
+        }
+    }
+    return -2; /* table full: caller must refuse the map, an untracked
+                  mapping could never be revoked on owner death */
+}
+
+int32_t dma_peer_map_by_paddr(int32_t peer_pid, ewokos_addr_t peer_vaddr,
+        ewokos_addr_t paddr, uint32_t size) {
+    int32_t owner_pid = dma_find_owner(paddr, size);
+    if(owner_pid <= 0)
+        return -1; /* range not inside a live allocation: nothing to track,
+                      mapping still allowed (matches a free/reserved range) */
+    return dma_peer_map_track(owner_pid, peer_pid, peer_vaddr, paddr, size);
+}
+
+void dma_peer_map_revoke_owner(int32_t owner_pid) {
+    if(owner_pid <= 0)
+        return;
+    bool flushed = false;
+    for(uint32_t i=0; i<DMA_PEER_MAP_MAX; i++) {
+        dma_peer_map_t* m = &_dma_peer_maps[i];
+        if(!m->used || m->owner_pid != owner_pid)
+            continue;
+        proc_t* peer = proc_get(m->peer_pid);
+        if(peer != NULL && peer->space != NULL &&
+                peer->space->vm != NULL &&
+                peer->info.state != UNUSED) {
+            unmap_pages(peer->space->vm, m->peer_vaddr, m->size / PAGE_SIZE);
+            flushed = true;
+        }
+        m->used = 0;
+    }
+    if(flushed)
+        flush_tlb();
+}
+
+void dma_peer_map_forget_peer(int32_t peer_pid) {
+    if(peer_pid <= 0)
+        return;
+    /*
+     * No unmap here: this runs from the peer's own proc_funeral, where
+     * free_page_tables() tears down the peer's whole vm right after. Just
+     * drop the tracking slots so a later owner-side revoke does not walk
+     * a stale entry and so the table stays reusable.
+     */
+    for(uint32_t i=0; i<DMA_PEER_MAP_MAX; i++) {
+        dma_peer_map_t* m = &_dma_peer_maps[i];
+        if(m->used && m->peer_pid == peer_pid)
+            m->used = 0;
+    }
+}
+
+int32_t dma_peer_unmap(int32_t peer_pid, ewokos_addr_t peer_vaddr) {
+    if(peer_pid <= 0)
+        return -1;
+    for(uint32_t i=0; i<DMA_PEER_MAP_MAX; i++) {
+        dma_peer_map_t* m = &_dma_peer_maps[i];
+        if(!m->used || m->peer_pid != peer_pid || m->peer_vaddr != peer_vaddr)
+            continue;
+        proc_t* peer = proc_get(peer_pid);
+        if(peer != NULL && peer->space != NULL && peer->space->vm != NULL) {
+            unmap_pages(peer->space->vm, peer_vaddr, m->size / PAGE_SIZE);
+            flush_tlb();
+        }
+        m->used = 0;
+        return 0;
+    }
+    return -1;
 }
 
 ewokos_addr_t dma_alloc(int32_t dma_block_id, int32_t pid, uint32_t size) {
