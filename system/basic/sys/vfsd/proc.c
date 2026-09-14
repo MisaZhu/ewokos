@@ -108,6 +108,16 @@ static void vfs_proc_exit(int32_t cpid) {
 void clear_zombie(int32_t cpid) {
     if(cpid < 0)
         return;
+    /*
+     * Tear down any filesystem this process mounted BEFORE closing its fds.
+     * A driver that dies without vfs_umount() would otherwise strand its
+     * mount-table slot on a dead pid and leave the mounted subtree wired into
+     * the namespace (path lookups then route IPC to the dead mount_pid).
+     * Idle mounts detach here; mounts still referenced by surviving client
+     * descriptors are marked pending_umount and finish via proc_file_close()
+     * below (or when the last external holder closes).
+     */
+    vfs_umount_by_pid(cpid);
     vfs_remove_proc_waiters(cpid, _proc_fds_table[cpid].uuid);
     int32_t owner_pid = get_tracked_owner_pid(cpid);
 

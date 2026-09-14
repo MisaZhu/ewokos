@@ -5,6 +5,14 @@
 
 mount_t _vfs_mounts[FS_MOUNT_MAX];
 
+/*
+ * vfsd-internal reverse map: mounted fs-root node id per mount slot.
+ * mount_t only records org_node (the covered mount-point id), so exit-time
+ * teardown needs this to find the subtree root that carries mount_id.
+ * 0 means the slot is free. Guarded by _vfs_lock exactly like _vfs_mounts.
+ */
+static uint32_t _vfs_mount_node[FS_MOUNT_MAX];
+
 /* caller must hold _vfs_lock (read or write) */
 static int32_t vfs_get_mount_id(vfs_node_t* node) {
     while(node != NULL) {
@@ -82,6 +90,7 @@ int32_t vfsd_mount(int32_t pid, vfs_node_t* org, vfs_node_t* node, const char* d
 
     _vfs_mounts[id].pid = pid;
     _vfs_mounts[id].org_node = vfs_get_node_id(org);
+    _vfs_mount_node[id] = vfs_get_node_id(node);
     strcpy(_vfs_mounts[id].org_name, org_name);
     strncpy(_vfs_mounts[id].desc, desc, DESC_MAX-1);
     strcpy(node->fsinfo.name, org->fsinfo.name);
@@ -119,6 +128,7 @@ static void vfs_umount_now(vfs_node_t* node) {
         else
             vfs_add_node(0, father, org);
     }
+    _vfs_mount_node[node->mount_id] = 0;
     memset(&_vfs_mounts[node->mount_id], 0, sizeof(mount_t));
     node->pending_umount = 0;
 }
@@ -143,4 +153,44 @@ void vfsd_umount(int32_t pid, vfs_node_t* node) {
     }
 
     vfs_umount_now(node);
+}
+
+/*
+ * Force-tear down every mount owned by a process that is going away.
+ *
+ * A filesystem driver that dies without calling vfs_umount() would otherwise
+ * leave its mount-table slot owned by a dead pid and keep the mounted subtree
+ * wired into the namespace: every later path lookup under the mount point
+ * routes IPC to the dead mount_pid and stalls/fails, and the slot is never
+ * reclaimed (FS_MOUNT_MAX is only 32). Called from clear_zombie() under the
+ * write lock, this mirrors vfsd_umount()'s per-mount semantics: detach now
+ * when the mounted root is idle, otherwise mark pending_umount so teardown
+ * completes once the last open descriptor drops its ref. Either way the
+ * subtree nodes stay allocated and valid for those surviving descriptors.
+ *
+ * caller must hold _vfs_lock (write)
+ */
+void vfs_umount_by_pid(int32_t pid) {
+    if(pid <= 0)
+        return;
+
+    int32_t i;
+    for(i=0; i<FS_MOUNT_MAX; i++) {
+        if(_vfs_mounts[i].org_node == 0 || _vfs_mounts[i].pid != pid)
+            continue;
+
+        vfs_node_t* node = vfs_get_node_by_id(_vfs_mount_node[i]);
+        if(node == NULL || node->mount_id != i) {
+            /* mounted root already gone: just reclaim the slot */
+            _vfs_mount_node[i] = 0;
+            memset(&_vfs_mounts[i], 0, sizeof(mount_t));
+            continue;
+        }
+
+        if(node->refs > 0 || node->refs_w > 0) {
+            node->pending_umount = 1;
+            continue;
+        }
+        vfs_umount_now(node);
+    }
 }

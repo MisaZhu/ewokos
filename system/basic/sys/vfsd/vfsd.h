@@ -226,6 +226,7 @@ extern int32_t vfsd_get_mount_by_id(int32_t id, mount_t* mount);
 extern int32_t vfsd_mount(int32_t pid, vfs_node_t* org, vfs_node_t* node, const char* desc);
 extern void vfs_try_finish_umount(vfs_node_t* node);
 extern void vfsd_umount(int32_t pid, vfs_node_t* node);
+extern void vfs_umount_by_pid(int32_t pid);
 
 /* ---- fd.c ---- */
 extern int32_t vfs_fd_owner_pid(int32_t pid);
