@@ -47,6 +47,11 @@ const char* hid_input_type_name(hid_input_type_t type);
    where report id 0 selects the Bluetooth command/event text stream. */
 uint8_t hid_srv_report_id(int fd, int from_pid);
 
+/* how many subscribers currently hold report_id; a daemon reports it in
+   its own status command so a consumer can tell "no device" apart from
+   "device up but nobody listening" */
+int hid_srv_count(uint8_t report_id);
+
 /* cache the daemon's char-device node id for the directed subscriber
    wakes; the daemon calls this once its vdevice is mounted (node id is
    stable for the whole mount) */

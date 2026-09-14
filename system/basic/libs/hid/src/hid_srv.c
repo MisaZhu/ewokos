@@ -155,6 +155,19 @@ uint8_t hid_srv_report_id(int fd, int from_pid) {
     return info == NULL ? 0 : info->report_id;
 }
 
+int hid_srv_count(uint8_t report_id) {
+    fd_info_t* cur = _fds;
+    int n = 0;
+
+    while (cur != NULL) {
+        if (cur->report_id == report_id) {
+            ++n;
+        }
+        cur = cur->next;
+    }
+    return n;
+}
+
 /*
  * Fan one event out to every subscriber of report_id and wake each
  * subscriber whose queue went EMPTY -> non-empty directly with
