@@ -301,11 +301,20 @@ int strncmp(const char *s1, const char *s2, size_t n) {
 }
 
 size_t strlen(const char *s) {
-    size_t n = 0;
-    while (s != NULL && s[n] != 0) {
-        ++n;
+    const char *p;
+    if (s == NULL) return 0;
+    /* NOTE: use a pointer-walk loop instead of the index-counter form
+     * (while (s[n] != 0) ++n;). GCC's -ftree-loop-idiom recognizes the
+     * counter form as the strlen builtin and, at -O2, replaces the loop with
+     * a call to strlen itself -- turning this definition into infinite
+     * recursion (or a self tail-loop with -fno-builtin-strlen), which
+     * overflows the stack on long strings. The pointer-difference form below
+     * is not matched by the idiom recognizer and compiles to a correct loop. */
+    p = s;
+    while (*p != 0) {
+        ++p;
     }
-    return n;
+    return (size_t)(p - s);
 }
 
 char *strchr(const char *s, int c) {
