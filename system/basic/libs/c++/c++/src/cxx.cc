@@ -30,17 +30,34 @@ extern "C" {
 	}
 }
 
-void* operator new(size_t n) {
+/* operator new/delete are marked weak so that a link which pulls in BOTH
+   libcxx.a and libewokstl.a does not fail with "multiple definition".
+   libewokstl.a's new_delete.o provides a strict superset (array forms and
+   the nothrow forms Qt needs) with strong symbols, so when both archives
+   end up in the same link the strong definitions win and these weak ones
+   are silently dropped.  A program that links -lcxx without -lewokstl still
+   gets these definitions exactly as before - weak only affects which one
+   wins when there is a choice, not whether the symbol is available.
+
+   This is needed because ld extracts an archive member only when it
+   resolves a currently-undefined symbol, and cxx_runtime.o (libewokstl.a's
+   copy of the __cxa_* set) is not always extracted at -lewokstl time: if
+   the C++ libraries between -lewokstl and -lcxx are the first to reference
+   __cxa_pure_virtual or __cxa_guard_acquire, ld reaches -lcxx with those
+   symbols still undefined, extracts cxx.o for them, and cxx.o drags its
+   own operator new/delete in with it.  Making them weak removes the
+   collision without changing which archive provides the __cxa_* set. */
+__attribute__((weak)) void* operator new(size_t n) {
   void *p = malloc(n);
   return p;
 }
 
-void operator delete(void * p, size_t n) {
+__attribute__((weak)) void operator delete(void * p, size_t n) {
 	(void)n;
   free(p);
 }
 
-void operator delete(void * p) {
+__attribute__((weak)) void operator delete(void * p) {
   free(p);
 }
 
