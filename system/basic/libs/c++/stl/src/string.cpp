@@ -841,6 +841,58 @@ size_t string::find(char c, size_t pos) const {
     return npos;
 }
 
+size_t string::rfind(const string& str, size_t pos) const {
+    // An empty needle matches at min(pos, size()), as the standard requires.
+    if (str.length_ == 0) {
+        return (pos < length_) ? pos : length_;
+    }
+
+    if (str.length_ > length_) {
+        return npos;
+    }
+
+    // Last index at which str could still fit; pos only lowers it.
+    size_t start = length_ - str.length_;
+    if (pos < start) {
+        start = pos;
+    }
+
+    for (size_t i = start; i != (size_t)-1; i--) {
+        size_t j = 0;
+        while (j < str.length_ && data_[i + j] == str.data_[j]) {
+            j++;
+        }
+        if (j == str.length_) {
+            return i;
+        }
+    }
+
+    return npos;
+}
+
+size_t string::rfind(const char* s, size_t pos) const {
+    return rfind(string(s), pos);
+}
+
+size_t string::rfind(const char* s, size_t pos, size_t n) const {
+    return rfind(string(s, n), pos);
+}
+
+size_t string::rfind(char c, size_t pos) const {
+    if (length_ == 0) {
+        return npos;
+    }
+
+    size_t start = (pos == npos || pos >= length_) ? length_ - 1 : pos;
+    for (size_t i = start; i != (size_t)-1; i--) {
+        if (data_[i] == c) {
+            return i;
+        }
+    }
+
+    return npos;
+}
+
 size_t string::find_first_of(const string& str, size_t pos) const {
     if (pos >= length_ || str.length_ == 0) {
         return npos;

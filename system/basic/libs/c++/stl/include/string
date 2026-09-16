@@ -94,6 +94,11 @@ class string {
         size_t find(const char* s, size_t pos, size_t n) const;
         size_t find(char c, size_t pos=0) const;
 
+        size_t rfind(const string& str, size_t pos=npos) const;
+        size_t rfind(const char* s, size_t pos=npos) const;
+        size_t rfind(const char* s, size_t pos, size_t n) const;
+        size_t rfind(char c, size_t pos=npos) const;
+
         size_t find_first_of(const string& str, size_t pos=0) const;
         size_t find_first_of(const char* s, size_t pos=0) const;
         size_t find_first_of(const char* s, size_t pos, size_t n) const;
@@ -394,6 +399,32 @@ class basic_string {
         }
         size_type find(const CharT* s, size_type pos = 0) const {
             return find(basic_string(s), pos);
+        }
+
+        /* Largest i <= pos with substr(i, s.size()) == s; npos if none.  An
+           empty needle matches at min(pos, size()), as in the standard. */
+        size_type rfind(const basic_string& s, size_type pos = npos) const {
+            if (s.length_ == 0) return (pos < length_) ? pos : length_;
+            if (s.length_ > length_) return npos;
+            size_type start = length_ - s.length_;
+            if (pos < start) start = pos;
+            for (size_type i = start; i != (size_type)-1; --i) {
+                size_type j = 0;
+                while (j < s.length_ && data_[i + j] == s.data_[j]) ++j;
+                if (j == s.length_) return i;
+            }
+            return npos;
+        }
+        size_type rfind(CharT c, size_type pos = npos) const {
+            if (length_ == 0) return npos;
+            size_type start = (pos == npos || pos >= length_) ? length_ - 1 : pos;
+            for (size_type i = start; i != (size_type)-1; --i) {
+                if (data_[i] == c) return i;
+            }
+            return npos;
+        }
+        size_type rfind(const CharT* s, size_type pos = npos) const {
+            return rfind(basic_string(s), pos);
         }
 
         void swap(basic_string& s) {
