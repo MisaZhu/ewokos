@@ -30,8 +30,6 @@ int main(int argc, char** argv) {
     if(getpid() != 0)                // not pid 0? then you're a core's idle process
         idle();
 
-    syscall1(SYS_PROC_SET_CMD, (ewokos_addr_t)"/sbin/init");
-
     klog("\n[init process started]\n");
     run_before_vfs("/sbin/core");    // ① name service + system coordination
     run_before_vfs("/sbin/vfsd");    // ② the virtual filesystem

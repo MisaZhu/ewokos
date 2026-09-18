@@ -266,16 +266,6 @@ static int32_t sys_proc_get_cmd(int32_t pid, char* cmd, int32_t sz) {
     return proc_get_cmd_safe(pid, cmd, sz);
 }
 
-static void sys_proc_set_cmd(const char* cmd) {
-    proc_t* cproc = get_current_proc();
-    if(cproc->info.uid > 0)
-        return;
-    /* cmd is a user string; reject a kernel-space origin before sstrncpy reads it */
-    if(!user_ptr_ok(cproc, (ewokos_addr_t)cmd, 1))
-        return;
-    sstrncpy(cproc->info.cmd, cmd, PROC_INFO_MAX_CMD_LEN-1);
-}
-
 static int32_t	sys_get_sys_info(sys_info_t* info) {
     if(info == NULL)
         return -1;
@@ -729,9 +719,6 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
         return;
     case SYS_PROC_GET_CMD: 
         ctx->gpr[0] = sys_proc_get_cmd(arg0, (char*)arg1, arg2);
-        return;
-    case SYS_PROC_SET_CMD: 
-        sys_proc_set_cmd((const char*)arg0);
         return;
     case SYS_GET_SYS_INFO:
         ctx->gpr[0] = sys_get_sys_info((sys_info_t*)arg0);

@@ -54,8 +54,6 @@ static inline const char* svc_name(int32_t code) {
         return "ipc_ready";
     case SYS_PROC_GET_CMD:
         return "proc_get_cmd";
-    case SYS_PROC_SET_CMD:
-        return "proc_set_cmd";
     case SYS_PROC_GET_UID:
         return "proc_get_uid";
     case SYS_PROC_SET_UID:

@@ -25,8 +25,6 @@ int main(int argc, char** argv) {
     if(getpid() != 0)                // 不是 0 号？说明是核心空闲进程
         idle();
 
-    syscall1(SYS_PROC_SET_CMD, (ewokos_addr_t)"/sbin/init");
-
     klog("\n[init process started]\n");
     run_before_vfs("/sbin/core");    // ① 名字服务 + 系统协调
     run_before_vfs("/sbin/vfsd");    // ② 虚拟文件系统
