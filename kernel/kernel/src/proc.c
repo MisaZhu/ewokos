@@ -2563,6 +2563,11 @@ int32_t get_procs_num(void) {
 int32_t get_procs(int32_t num, procinfo_t* procs) {
     if(procs == NULL)
         return -1;
+    /* procs is a user buffer of num entries; a negative/oversized count wraps
+       and is rejected (isolation invariant, see user_ptr_ok) */
+    if(num < 0 || !user_ptr_ok(proc_get_proc(get_current_proc()),
+            (ewokos_addr_t)procs, (ewokos_addr_t)num * sizeof(procinfo_t)))
+        return -1;
 
     proc_lock_enter();
     proc_refresh_runtime_stats_internal(false, true, proc_account_now_usec());
@@ -2584,6 +2589,10 @@ int32_t get_procs(int32_t num, procinfo_t* procs) {
 }
 
 int32_t get_proc(int32_t pid, procinfo_t *info) {
+    /* info is a user buffer the kernel writes sizeof(procinfo_t) into; this
+       also rejects a NULL info the old code would have dereferenced */
+    if(!user_ptr_ok(proc_get_proc(get_current_proc()), (ewokos_addr_t)info, sizeof(procinfo_t)))
+        return -1;
     proc_lock_enter();
     proc_t* proc = proc_get(pid);
     if(proc == NULL) {

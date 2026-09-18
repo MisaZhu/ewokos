@@ -75,6 +75,10 @@ static inline bool svc_is_query_fastpath(int32_t code) {
 }
 
 static void sys_kprint(const char* s, uint32_t len) {
+    /* s is a user buffer of len bytes; never let the kernel read kernel VA on
+       the caller's behalf (isolation invariant, see user_ptr_ok) */
+    if(!user_ptr_ok(proc_get_proc(get_current_proc()), (ewokos_addr_t)s, len))
+        return;
     kout(s, len);
 }
 
@@ -207,8 +211,16 @@ static void sys_waitpid(context_t* ctx, int32_t pid) {
 }
 
 static void sys_load_elf(context_t* ctx, const char* cmd, int32_t shm_id, uint32_t elf_size) {
+    proc_t* cproc = get_current_proc();
     if(shm_id <= 0) {
         printf("Panic: load elf shm_id is invalid!\n");
+        ctx->gpr[0] = -1;
+        return;
+    }
+
+    /* cmd is a user string: reject a kernel-space origin before strlen walks
+       it (length is bounded by the PROC_INFO_MAX_CMD_LEN check just below) */
+    if(!user_ptr_ok(cproc, (ewokos_addr_t)cmd, 1)) {
         ctx->gpr[0] = -1;
         return;
     }
@@ -219,7 +231,6 @@ static void sys_load_elf(context_t* ctx, const char* cmd, int32_t shm_id, uint32
         return;
     }
 
-    proc_t* cproc = get_current_proc();
     strcpy(cproc->info.cmd, cmd);
     if(proc_load_elf(cproc, shm_id, elf_size) != 0) {
         ctx->gpr[0] = -1;
@@ -249,6 +260,9 @@ static int32_t sys_proc_set_gid(int32_t gid) {
 }
 
 static int32_t sys_proc_get_cmd(int32_t pid, char* cmd, int32_t sz) {
+    /* cmd is a user buffer of sz bytes that the kernel writes into */
+    if(sz < 0 || !user_ptr_ok(proc_get_proc(get_current_proc()), (ewokos_addr_t)cmd, (ewokos_addr_t)sz))
+        return -1;
     return proc_get_cmd_safe(pid, cmd, sz);
 }
 
@@ -256,11 +270,16 @@ static void sys_proc_set_cmd(const char* cmd) {
     proc_t* cproc = get_current_proc();
     if(cproc->info.uid > 0)
         return;
+    /* cmd is a user string; reject a kernel-space origin before sstrncpy reads it */
+    if(!user_ptr_ok(cproc, (ewokos_addr_t)cmd, 1))
+        return;
     sstrncpy(cproc->info.cmd, cmd, PROC_INFO_MAX_CMD_LEN-1);
 }
 
 static int32_t	sys_get_sys_info(sys_info_t* info) {
     if(info == NULL)
+        return -1;
+    if(!user_ptr_ok(proc_get_proc(get_current_proc()), (ewokos_addr_t)info, sizeof(sys_info_t)))
         return -1;
     memcpy(info, &_sys_info, sizeof(sys_info_t));
     info->max_proc_num = _kernel_config.max_proc_num;
@@ -272,6 +291,8 @@ static int32_t	sys_get_sys_info(sys_info_t* info) {
 
 static int32_t	sys_get_sys_state(sys_state_t* info) {
     if(info == NULL)
+        return -1;
+    if(!user_ptr_ok(proc_get_proc(get_current_proc()), (ewokos_addr_t)info, sizeof(sys_state_t)))
         return -1;
 
     info->mem.free = get_free_mem_size();
@@ -490,6 +511,9 @@ static void sys_proc_ready_ping(void) {
 
 static void sys_get_kevent(context_t* ctx, kevent_t* kev) {
     ctx->gpr[0] = -1;
+    /* kev is a user buffer the kernel writes an event into */
+    if(!user_ptr_ok(proc_get_proc(get_current_proc()), (ewokos_addr_t)kev, sizeof(kevent_t)))
+        return;
     if(kev_pop(kev) != 0) {
         //proc_block_on(ctx, -1, (uint32_t)kev_init);
         return;

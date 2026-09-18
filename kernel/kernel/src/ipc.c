@@ -47,6 +47,37 @@
 #define IPC_WAKE_BATCH_LIMIT 2
 
 /* ----------------------------------------------------------------------
+ * Syscall-boundary validation for a caller-supplied proto_t package.
+ *
+ * proto_t embeds an inline buffer[] AND a nested `data` pointer, and the
+ * IPC paths dereference BOTH: they read p->size / p->total_size / p->data
+ * from the struct, then proto_copy() either reads `size` bytes out of
+ * p->data (call, set_return) or writes up to `total_size` bytes into it
+ * (get_return, get_arg). The kernel image is mapped at KERNEL_BASE in
+ * every address space, so an unchecked p or p->data at/above KERNEL_BASE
+ * would let a caller steer those copies into kernel memory - and the write
+ * paths would become a kernel-write primitive. user_ptr_ok() is the shared
+ * range predicate (see proc.c); this wraps it for the two-level shape.
+ *
+ * NULL p (no payload) and p->data == NULL (empty proto) are both legal:
+ * every deref site skips them. Otherwise the struct and the nested buffer
+ * must lie in user VA; the buffer is bounded by max(size,total_size) so the
+ * read paths (size) and write paths (total_size) are both covered. The
+ * inline-buffer case passes naturally: p->data == (void*)p (buffer is the
+ * first member), which the struct check already placed in user VA.
+ * ---------------------------------------------------------------------- */
+static inline bool user_proto_ok(proc_t* proc, proto_t* p) {
+    if(p == NULL)
+        return true;
+    if(!user_ptr_ok(proc, (ewokos_addr_t)p, sizeof(proto_t)))
+        return false;
+    if(p->data == NULL)
+        return true;
+    ewokos_addr_t n = (p->size > p->total_size) ? p->size : p->total_size;
+    return user_ptr_ok(proc, (ewokos_addr_t)p->data, n);
+}
+
+/* ----------------------------------------------------------------------
  * Wait queue helpers. Clients blocked for server capacity park their
  * embedded ipc_queue_item_t (proc->ipc_wait_item) on a doubly linked
  * FIFO list inside the target server. The item lives inside the proc,
@@ -1141,6 +1172,13 @@ void proc_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, proto_t* a
         ctx->gpr[0] = IPC_ERROR_NO_READY;
         return;
     }
+    /* arg is a caller-owned proto_t (struct + nested data buffer) that
+       proc_ipc_req() copies OUT of; reject a kernel-space payload first.
+       NULL arg (no payload) is legal. */
+    if(!user_proto_ok(client_proc, arg)) {
+        ctx->gpr[0] = IPC_ERROR_NO_READY;
+        return;
+    }
     serv_pid = get_proc_pid(serv_pid);
     proc_t* serv_proc = proc_get(serv_pid);
 
@@ -1326,6 +1364,12 @@ void proc_ipc_get_return(context_t* ctx, int32_t serv_pid, uint32_t uid, proto_t
         ctx->gpr[0] = -2;
         return;
     }
+    /* data is a caller-owned proto_t the reply is copied INTO; reject a
+       kernel-space target before proto_copy writes through it */
+    if(!user_proto_ok(client_proc, data)) {
+        ctx->gpr[0] = -2;
+        return;
+    }
     serv_pid = get_proc_pid(serv_pid);
 
     ipc_res_t* res = proc_cur_ipc_res(client_proc);
@@ -1385,6 +1429,12 @@ int32_t proc_ipc_get_arg(uint32_t uid, int32_t* ipc_info, proto_t* arg) {
     if(cproc == NULL || cproc->space == NULL ||
             cproc->space->ipc_server.entry == 0)
         return -1;
+    /* ipc_info (2 ints) and arg (proto_t the request is copied INTO) are
+       caller-owned; reject kernel-space targets before writing through them */
+    if(!user_ptr_ok(cproc, (ewokos_addr_t)ipc_info, 2*sizeof(int32_t)))
+        return -1;
+    if(!user_proto_ok(cproc, arg))
+        return -1;
 
     ipc_task_t* ipc = proc_ipc_serving_task(cproc, uid);
     if(ipc == NULL)
@@ -1412,6 +1462,10 @@ void proc_ipc_set_return(uint32_t uid, proto_t* data) {
     proc_t* cproc = get_current_proc();
     if(cproc == NULL || cproc->space == NULL ||
             cproc->space->ipc_server.entry == 0)
+        return;
+    /* data is a caller-owned proto_t the reply is copied OUT of; reject a
+       kernel-space source before proto_copy reads through it */
+    if(!user_proto_ok(cproc, data))
         return;
 
     ipc_task_t* ipc = proc_ipc_serving_task(cproc, uid);
