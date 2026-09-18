@@ -267,7 +267,9 @@ static virtio_dev_t _virtio_irq_devs[VIRTIO_DEV_MAX] = {0};
 
 static int virtio_ensure_mmio(void)
 {
-    if (_mmio_base == 0 && mmio_map() == 0)
+    /* map only the virtio-mmio trap region (32 slots x 0x200 @0x0a000000),
+       never the whole MMIO window, so a CAP_FRAME cap can be scoped to it */
+    if (_mmio_base == 0 && mmio_map_offset(0x02000000, 0x4000) == 0)
     {
         return -1;
     }

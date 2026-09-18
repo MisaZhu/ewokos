@@ -22,7 +22,9 @@ struct fb_cfg {
 int32_t virt_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
     memset(&_fb_info, 0, sizeof(disp_info_t));
 
-    _mmio_base = mmio_map();
+    /* map only the fw_cfg page (@0x09020000) for the ramfb setup */
+    if(mmio_map_offset(0x01020000, 0x1000) == 0)
+        return -1;
     sys_info_t sysinfo;
     syscall1(SYS_GET_SYS_INFO, (ewokos_addr_t)&sysinfo);
 

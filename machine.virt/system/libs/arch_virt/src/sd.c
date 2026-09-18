@@ -12,7 +12,7 @@
 virtio_dev_t dev;
 
 int32_t virt_sd_init(void) {
-    _mmio_base = mmio_map();
+    /* virtio_get() maps the virtio-mmio region itself (narrowed) */
     dev = virtio_get(VIRTIO_ID_BLOCK);
         if (!dev || virtio_init(dev, (1u << 9)) != 0) {
         klog("Virtio-blk init failed\n");

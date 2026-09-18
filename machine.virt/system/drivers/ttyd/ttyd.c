@@ -9,6 +9,7 @@
 #include <ewoksys/proc.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/interrupt.h>
+#include <ewoksys/klog.h>
 
 /* memory mapping for the serial port */
 #define UART0 (_mmio_base+0x01000000)
@@ -133,7 +134,12 @@ static void interrupt_handle(uint32_t interrupt, ewokos_addr_t p) {
 
 int main(int argc, char** argv) {
     const char* mnt_point = argc > 1 ? argv[1]: "/dev/tty0";
-    _mmio_base = mmio_map();
+    /* map only the PL011 page (@0x09000000); _mmio_base stays the window
+       base, so the UART0 offset arithmetic below is unchanged */
+    if(mmio_map_offset(0x01000000, 0x1000) == 0) {
+        klog("ttyd: mmio_map_offset failed\n");
+        return -1;
+    }
     _buffer = charbuf_new(0);
     uart_init();
 

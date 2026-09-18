@@ -1,4 +1,5 @@
 #include <kernel/proc.h>
+#include <kernel/cap.h>
 #include <kernel/schedule.h>
 #include <kernel/system.h>
 #include <kernel/interrupt.h>
@@ -1158,6 +1159,17 @@ void proc_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, proto_t* a
     if(serv_proc->space->ipc_server.disabled) {
         ctx->gpr[0] = IPC_ERROR_RETRY; // blocked if server disabled, should retry
         proc_ipc_wait(ctx, serv_proc, client_proc);
+        return;
+    }
+
+    /*
+     * Servers registered with IPC_CAP_CHECK only accept callers holding a
+     * CAP_EP cap naming this server with CAP_X (CAP_ROOT bypasses). Default
+     * off: unrestricted pid-based ipc keeps its historical behaviour.
+     */
+    if((serv_proc->space->ipc_server.flags & IPC_CAP_CHECK) != 0 &&
+            !proc_cap_check_ep(client_proc, serv_pid, CAP_X)) {
+        ctx->gpr[0] = IPC_ERROR_NO_READY;
         return;
     }
 

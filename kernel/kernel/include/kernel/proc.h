@@ -8,6 +8,7 @@
 #include <mm/mmu.h>
 #include <mm/trunkmem.h>
 #include <procinfo.h>
+#include <cap.h>
 #include <stdbool.h>
 #include <queue.h>
 
@@ -103,6 +104,16 @@ typedef struct st_proc {
 	 */
 	ewokos_addr_t     tls_base;
 
+	/*
+	 * Capability node and security id. The cnode holds every capability
+	 * authorizing this proc's privileged operations (see kernel/cap.h);
+	 * threads inherit a copy but checks always resolve to the owner proc.
+	 * sid is a per-boot unique identity token a peer can validate before
+	 * accepting a cross-proc cap grant.
+	 */
+	cnode_t           cnode;
+	uint64_t          sid;
+
 	context_t         ctx;
 } proc_t;
 
@@ -142,6 +153,10 @@ extern void    proc_waitpid(context_t* ctx, int32_t pid);
 extern proc_t* proc_get(int32_t pid);
 extern proc_t* proc_get_by_uuid(uint32_t uuid);
 extern proc_t* proc_get_proc(proc_t* proc);
+/* validate a user-supplied buffer [ptr, ptr+size) lies entirely in user VA
+   (never kernel space) before the kernel dereferences it on the caller's
+   behalf - see the definition in proc.c for the exact predicate */
+extern bool    user_ptr_ok(proc_t* proc, ewokos_addr_t ptr, ewokos_addr_t size);
 extern int32_t get_proc_pid(int32_t pid);
 extern proc_t* proc_ipc_get_client(ipc_task_t* ipc);
 extern ipc_res_t* proc_cur_ipc_res(proc_t* proc);

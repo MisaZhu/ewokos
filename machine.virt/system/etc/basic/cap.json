@@ -1,0 +1,89 @@
+{
+    "version": 1,
+    "machine": "virt",
+    "_doc": [
+        "EwokOS capability policy for machine.virt (QEMU virt, arm/aarch64).",
+        "Read by /sbin/init, which pushes every entry into the kernel's",
+        "exec-time policy via SYS_CAP_POLICY_ADD. The kernel then grants a",
+        "rule's caps by itself whenever an image whose cmd (first token of",
+        "procinfo.cmd) matches the rule execs - process-start order and",
+        "restarts are irrelevant. With a policy file present, init runs the",
+        "boot scripts as uid 1 so these caps are what actually authorizes",
+        "the services; without it, scripts run as root like before.",
+        "",
+        "Entry forms:",
+        "  {\"type\":\"root\"                                                   \"rights\":\"rwxg\"}",
+        "  {\"type\":\"frame\", \"paddr\":\"0x...\", \"size\":\"0x...\", \"rights\":\"rw\"}",
+        "  {\"type\":\"irq\",   \"irq\":33 | [48,49,...],          \"rights\":\"w\"}",
+        "  {\"type\":\"dma\",   \"block\":0,                       \"rights\":\"rw\"}",
+        "rights letters: r=read, w=write, x=execute, g=grant (forwardable).",
+        "",
+        "QEMU virt layout notes:",
+        "- MMIO window 0x08000000..0x0c000000 (64MB). Drivers map only the",
+        "  sub-regions below via mmio_map_offset(), so frame caps are scoped",
+        "  per device instead of covering the whole window.",
+        "- PL011 UART0 @0x09000000 (one page), irq 33.",
+        "- fw_cfg @0x09020000 (one page), used by ramfb setup.",
+        "- virtio-mmio @0x0a000000, 32 slots x 0x200 = 0x4000, irqs 48+i;",
+        "  the configured range 48..55 covers the first 8 slots. Virtqueues",
+        "  and data buffers come from dma_user_alloc() (dma block 0)."
+    ],
+    "rules": [
+        { "cmd": "/sbin/sdfsd", "desc": "virtio-blk: sdcard root filesystem", "caps": [
+            {"type":"frame", "paddr":"0x0a000000", "size":"0x00004000", "rights":"rw"},
+            {"type":"irq", "irq":[48,49,50,51,52,53,54,55], "rights":"w"},
+            {"type":"dma", "block":0, "rights":"rw"}
+        ]},
+
+        { "cmd": "/drivers/virt/ttyd", "desc": "PL011 console", "caps": [
+            {"type":"frame", "paddr":"0x09000000", "size":"0x00001000", "rights":"rw"},
+            {"type":"irq", "irq":33, "rights":"w"}
+        ]},
+
+        { "cmd": "/drivers/timerd", "desc": "soft-timer service: sends soft irqs to clients (irq number not examined)", "caps": [
+            {"type":"irq", "irq":0, "rights":"x"}
+        ]},
+
+        { "cmd": "/drivers/virt/keybd", "desc": "virtio-input keyboard", "caps": [
+            {"type":"frame", "paddr":"0x0a000000", "size":"0x00004000", "rights":"rw"},
+            {"type":"irq", "irq":[48,49,50,51,52,53,54,55], "rights":"w"},
+            {"type":"dma", "block":0, "rights":"rw"}
+        ]},
+        { "cmd": "/drivers/virt/moused", "desc": "virtio-input tablet/mouse", "caps": [
+            {"type":"frame", "paddr":"0x0a000000", "size":"0x00004000", "rights":"rw"},
+            {"type":"irq", "irq":[48,49,50,51,52,53,54,55], "rights":"w"},
+            {"type":"dma", "block":0, "rights":"rw"}
+        ]},
+
+        { "cmd": "/drivers/virt/snd", "desc": "virtio-snd", "caps": [
+            {"type":"frame", "paddr":"0x0a000000", "size":"0x00004000", "rights":"rw"},
+            {"type":"irq", "irq":[48,49,50,51,52,53,54,55], "rights":"w"},
+            {"type":"dma", "block":0, "rights":"rw"}
+        ]},
+
+        { "cmd": "/drivers/virt/net", "desc": "virtio-net", "caps": [
+            {"type":"frame", "paddr":"0x0a000000", "size":"0x00004000", "rights":"rw"},
+            {"type":"irq", "irq":[48,49,50,51,52,53,54,55], "rights":"w"},
+            {"type":"dma", "block":0, "rights":"rw"}
+        ]},
+
+        { "cmd": "/drivers/virt/virtfsd", "desc": "virtio-9p host share", "caps": [
+            {"type":"frame", "paddr":"0x0a000000", "size":"0x00004000", "rights":"rw"},
+            {"type":"irq", "irq":[48,49,50,51,52,53,54,55], "rights":"w"},
+            {"type":"dma", "block":0, "rights":"rw"}
+        ]},
+
+        { "cmd": "/drivers/virt/fbdisplayd", "desc": "ramfb via fw_cfg @0x09020000 + dma-backed framebuffer", "caps": [
+            {"type":"frame", "paddr":"0x09020000", "size":"0x00001000", "rights":"rw"},
+            {"type":"dma", "block":0, "rights":"rw"}
+        ]},
+
+        { "cmd": "/drivers/virt/g2dd", "desc": "2d blit engine: peer-maps client dma canvases", "caps": [
+            {"type":"dma", "block":0, "rights":"rw"}
+        ]},
+
+        { "cmd": "/bin/login", "desc": "setuid boundary: switches uid/gid after auth (setuid-root equivalent)", "caps": [
+            {"type":"root", "rights":"rwxg"}
+        ]}
+    ]
+}

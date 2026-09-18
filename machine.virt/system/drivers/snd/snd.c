@@ -826,7 +826,7 @@ static int snd_loop_step(vdevice_t *dev, void *p)
 
 static int snd_init_device(void)
 {
-    _mmio_base = mmio_map();
+    /* virtio_snd_get() maps the virtio-mmio region itself (narrowed) */
     _snd.dev = virtio_snd_get();
     if (_snd.dev == NULL)
     {

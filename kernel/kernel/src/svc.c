@@ -10,6 +10,7 @@
 #include <kernel/kevqueue.h>
 #include <kernel/signal.h>
 #include <kernel/core.h>
+#include <kernel/cap.h>
 #include <mm/kalloc.h>
 #include <mm/shm.h>
 #include <mm/dma.h>
@@ -91,9 +92,13 @@ static void sys_signal(context_t* ctx, int32_t pid, int32_t sig) {
     ctx->gpr[0] = -1;
     proc_t* proc = proc_get(pid);
     proc_t* cproc = get_current_proc();
-    if((cproc->info.uid > 0 &&
-            cproc->info.uid != proc->info.uid) ||
-            proc->info.uid < 0) {
+    if(proc == NULL || proc->info.uid < 0)
+        return;
+    if(cproc->info.uid > 0 &&
+            cproc->info.uid != proc->info.uid &&
+            !proc_cap_check_proc(cproc, pid, CAP_W)) {
+        /* cross-user signalling needs a CAP_PROCESS cap on the target
+           (CAP_ROOT passes via the built-in bypass) */
         return;
     }
 
@@ -227,15 +232,17 @@ static void sys_load_elf(context_t* ctx, const char* cmd, int32_t shm_id, uint32
 
 static int32_t sys_proc_set_uid(int32_t uid) {
     proc_t* cproc = get_current_proc();
-    if(cproc->info.uid > 0)	
+    if(!proc_cap_has(cproc, CAP_ROOT, 0))
         return -1;
     cproc->info.uid = uid;
+    /* becoming a real user revokes every capability on the owner proc */
+    proc_cap_on_setuid(proc_get_proc(cproc), uid);
     return 0;
 }
 
 static int32_t sys_proc_set_gid(int32_t gid) {
     proc_t* cproc = get_current_proc();
-    if(cproc->info.uid > 0)	
+    if(!proc_cap_has(cproc, CAP_ROOT, 0))
         return -1;
     cproc->info.gid = gid;
     return 0;
@@ -247,6 +254,8 @@ static int32_t sys_proc_get_cmd(int32_t pid, char* cmd, int32_t sz) {
 
 static void sys_proc_set_cmd(const char* cmd) {
     proc_t* cproc = get_current_proc();
+    if(cproc->info.uid > 0)
+        return;
     sstrncpy(cproc->info.cmd, cmd, PROC_INFO_MAX_CMD_LEN-1);
 }
 
@@ -301,7 +310,7 @@ static int32_t sys_shm_ctrl(int32_t id, int32_t cmd) {
         
 static ewokos_addr_t sys_dma_alloc(int32_t dma_block_id, uint32_t size) {
     proc_t* cproc = proc_get_proc(get_current_proc());
-    if(cproc->info.uid > 0)
+    if(!proc_cap_has(cproc, CAP_DMA, CAP_W))
         return 0;
 
     ewokos_addr_t paddr = dma_alloc(dma_block_id, cproc->info.pid, size);
@@ -318,7 +327,7 @@ static ewokos_addr_t sys_dma_alloc(int32_t dma_block_id, uint32_t size) {
 
 static void sys_dma_free(int32_t dma_block_id, ewokos_addr_t vaddr) {
     proc_t* cproc = proc_get_proc(get_current_proc());
-    if(cproc->info.uid > 0)
+    if(!proc_cap_has(cproc, CAP_DMA, CAP_W))
         return;
 
     ewokos_addr_t paddr = dma_phy_addr(dma_block_id, vaddr);
@@ -350,6 +359,8 @@ static int32_t sys_dma_set(ewokos_addr_t phy_base, uint32_t size, bool shared) {
     proc_t* cproc = get_current_proc();
     if(cproc == NULL)
         return -1;
+    if(!proc_cap_has(cproc, CAP_DMA, CAP_W))
+        return -1;
     return dma_set(cproc->info.pid, phy_base, phy_base, size, shared);
 }
 
@@ -365,11 +376,27 @@ static ewokos_addr_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint3
     proc_t* cproc = proc_get_proc(get_current_proc());
     uint32_t attr;
     int32_t is_normal_ram;
-    if(cproc->info.uid > 0)
-        return 0;
-
     if(size == 0)
         return 0;
+
+    /*
+     * Constrain the caller-chosen virtual target. sys_mem_map legitimately
+     * maps device memory into the kernel-half device windows (MMIO at
+     * _sys_info.mmio.v_base, and DMA/framebuffer above it), which sit FAR above
+     * the kernel's own image - so the target must NOT be restricted to user VA.
+     * What it must never do is overlap the kernel's private core: the image,
+     * vsyscall page, page directories, allocable dirs and kmalloc arena, which
+     * are contiguous in [KERNEL_BASE, KMALLOC_END). Remapping over those would
+     * let a CAP_FRAME/CAP_DMA holder rewrite kernel text or page tables. The
+     * device windows and any user VA both fall outside that range and pass.
+     */
+    {
+        ewokos_addr_t mend = vaddr + ALIGN_UP(size, PAGE_SIZE);
+        if(mend < vaddr) /* wrap-around */
+            return 0;
+        if(vaddr < KMALLOC_END && mend > KERNEL_BASE)
+            return 0; /* range overlaps the kernel core */
+    }
 
     /*
      * The sys_dma pool is reserved driver memory carved out below the
@@ -381,6 +408,9 @@ static ewokos_addr_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint3
      */
     if(paddr >= _sys_info.sys_dma.phy_base &&
             (paddr + size) <= (_sys_info.sys_dma.phy_base + _sys_info.sys_dma.size)) {
+        /* peer mappings into the sys_dma pool are DMA authority */
+        if(!proc_cap_has(cproc, CAP_DMA, CAP_W))
+            return 0;
         size = ALIGN_UP(size, PAGE_SIZE);
         map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, PTE_ATTR_NOCACHE);
         flush_tlb();
@@ -406,6 +436,10 @@ static ewokos_addr_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint3
     if(check_mem_map_arch(paddr, size) != 0) {
         return 0;
     }
+    /* MMIO/framebuffer mappings need a covering CAP_FRAME cap with CAP_W
+       (CAP_ROOT bypasses, keeping every root driver working) */
+    if(!proc_cap_check_frame(cproc, paddr, size, CAP_W))
+        return 0;
     size = ALIGN_UP(size, PAGE_SIZE);
 
     /*
@@ -440,7 +474,7 @@ static int32_t sys_proc_ping(int32_t pid) {
 
 static void sys_proc_priority(int32_t pid, uint32_t priority) {
     proc_t* cproc = get_current_proc();
-    if(cproc->info.uid > 0)
+    if(!proc_cap_check_proc(cproc, pid, CAP_W))
         return;
 
     proc_t* proc = proc_get(pid);
@@ -535,14 +569,17 @@ static void sys_proc_wakeup(context_t* ctx, int32_t pid, ewokos_addr_t token) {
      * run as the same user. Cross-user wakes stay root-only.
      */
     if(cproc->info.uid > 0 &&
-            (proc == NULL || cproc->info.uid != proc->info.uid))
-        return;
+            (proc == NULL || cproc->info.uid != proc->info.uid)) {
+        /* CAP_PROCESS/CAP_W on the target overrides the same-uid rule */
+        if(proc == NULL || !proc_cap_check_proc(cproc, pid, CAP_W))
+            return;
+    }
     proc_wakeup_by(proc, token);
 }
 
 static void sys_core_proc_ready(void) {
     proc_t* cproc = get_current_proc();
-    if(cproc->info.uid > 0)
+    if(!proc_cap_has(cproc, CAP_ROOT, 0))
         return;
     _core_proc_ready = true;
     proc_set_core_pid_safe(cproc->info.pid);
@@ -564,7 +601,7 @@ static int32_t sys_get_kernel_tic(uint32_t* sec, uint32_t* hi, uint32_t* low) {
 
 static int32_t sys_interrupt_setup(uint32_t interrupt, ewokos_addr_t entry, ewokos_addr_t data) {
     proc_t * cproc = get_current_proc();
-    if(cproc->info.uid > 0)
+    if(!proc_cap_check_irq(cproc, interrupt, CAP_W))
         return -1;
     return interrupt_setup(cproc, interrupt, entry, data);
 }
@@ -576,7 +613,7 @@ static void sys_interrupt_end(context_t* ctx) {
 static inline void sys_soft_int(context_t* ctx, int32_t to_pid, ewokos_addr_t entry, ewokos_addr_t data) {
     ctx->gpr[0] = 0;
     proc_t* proc = proc_get_proc(get_current_proc());
-    if(proc->info.uid > 0)
+    if(!proc_cap_has(proc, CAP_IRQ, CAP_X))
         ctx->gpr[0] = -2;
     interrupt_soft_send(ctx, to_pid, entry, data);
 }
@@ -594,6 +631,13 @@ static inline void sys_mmio_rw(ewokos_addr_t arg0, uint32_t arg1, uint32_t arg2,
         uint32_t mask = arg2;
 
         if(arg0 >= MMIO_BASE && arg0 < (MMIO_BASE + _sys_info.mmio.size)) {
+        /* kernel-mediated mmio writes need CAP_FRAME/CAP_W on the backing
+           physical range; previously any user proc could poke any register */
+        ewokos_addr_t paddr = arg0 - _sys_info.mmio.v_base + _sys_info.mmio.phy_base;
+        if(!proc_cap_check_frame(get_current_proc(), paddr, sizeof(uint32_t), CAP_W)) {
+            ctx->gpr[0] = 0;
+            return;
+        }
         *reg &= ~(mask);
         *reg |= (val & mask);
         ctx->gpr[0] = *reg;
@@ -721,6 +765,21 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
         return;
     case SYS_DMA_UNMAP:
         ctx->gpr[0] = sys_dma_unmap((ewokos_addr_t)arg0);
+        return;
+    case SYS_CAP_MINT:
+        ctx->gpr[0] = proc_cap_mint((uint32_t)arg0, (uint32_t)arg1, (cap_mint_arg_t*)arg2);
+        return;
+    case SYS_CAP_REVOKE:
+        ctx->gpr[0] = proc_cap_revoke((uint32_t)arg0);
+        return;
+    case SYS_CAP_GRANT:
+        ctx->gpr[0] = proc_cap_grant((int32_t)arg0, (uint32_t)arg1, (uint32_t)arg2);
+        return;
+    case SYS_CAP_GET:
+        ctx->gpr[0] = proc_cap_get((int32_t)arg0, (cap_info_t*)arg1);
+        return;
+    case SYS_CAP_POLICY_ADD:
+        ctx->gpr[0] = proc_cap_policy_add((const cap_policy_add_t*)arg0);
         return;
     case SYS_IPC_SETUP:
         sys_ipc_setup(ctx, arg0, arg1, arg2);

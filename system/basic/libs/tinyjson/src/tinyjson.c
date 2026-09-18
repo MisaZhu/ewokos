@@ -1325,6 +1325,10 @@ void* json_get_raw(json_var_t* var, const char* name) {
     return v->value;
 }
 
+json_var_t* json_get_obj_member(json_var_t* obj, const char* name) {
+    return json_var_find_var(obj, name);
+}
+
 json_node_t* json_find(json_var_t* var, const char* path_name) {
     str_t *name = str_new("");
     bool end = false;

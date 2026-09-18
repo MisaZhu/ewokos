@@ -161,8 +161,8 @@ int main(int argc, char **argv)
     dev.check_poll_events = keybd_check_poll_events;
     dev.loop_step = keybd_loop_step;
 
-    _mmio_base = mmio_map();
-
+    /* virtio_input_get() maps the virtio-mmio region itself (narrowed);
+       no whole-window mmio_map() needed here */
     virtio_dev_t vio = virtio_input_get("QEMU Virtio Keyboard");
     if (!vio || virtio_init(vio, 0) != 0)
     {

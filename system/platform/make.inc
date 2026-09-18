@@ -2,6 +2,7 @@ KERNEL_DIR = $(EWOKOS_ROOT_DIR)/kernel
 KERNEL_H = \
 	$(KERNEL_DIR)/kernel/include/proto_t.h \
 	$(KERNEL_DIR)/kernel/include/syscalls.h \
+	$(KERNEL_DIR)/kernel/include/cap.h \
 	$(KERNEL_DIR)/kernel/include/signals.h \
 	$(KERNEL_DIR)/kernel/include/interrupt.h \
 	$(KERNEL_DIR)/kernel/include/sysinfo.h \

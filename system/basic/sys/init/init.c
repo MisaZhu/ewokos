@@ -14,6 +14,8 @@
 #include <dirent.h>
 #include <sys/shm.h>
 
+#include "cap_policy.h"
+
 extern void* read_fs(const char* fname, off_t* size);
 
 static int32_t exec_from_sd(const char* prog) {
@@ -74,8 +76,6 @@ static int run_init(const char* init_file) {
 
     int pid = fork();
     if(pid == 0) {
-        setuid(0);
-        setgid(0);
         char cmd[FS_FULL_NAME_MAX];
         snprintf(cmd, FS_FULL_NAME_MAX-1, "/bin/shell %s", init_file);
         //klog("\ninit: loading '%s' ... \n", init_file);
@@ -90,9 +90,13 @@ static int run_init(const char* init_file) {
     return 0;
 }
 
-static void switch_root(void) {
+static void switch_sys(int32_t u_id, int32_t g_id) {
     char initfile[32];
     uint8_t i = 0;
+
+    setuid(u_id);
+    setgid(g_id);
+
     while(i < 8) {
         snprintf(initfile, 31, "/etc/init%d.rd", i);
         if(run_init(initfile) != 0)
@@ -125,9 +129,16 @@ int main(int argc, char** argv) {
     run_before_vfs("/sbin/vfsd");
     run_before_vfs("/sbin/sdfsd");
 
-    switch_root();
-    while(true) {
-        usleep(100000);
+    if(access(CAP_CONF_FILE, R_OK) == 0) { /* no policy file: no cap setup */
+        cap_policy_load(CAP_CONF_FILE);
+        cap_policy_install(); /* kernel grants the caps at every matching exec */
+        switch_sys(1, 1); //run with sys user
     }
+    else {
+        switch_sys(0, 0); //run with root user
+    }
+
+    while(true)
+        usleep(100000);
     return 0;
 }

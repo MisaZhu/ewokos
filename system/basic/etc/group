@@ -1,3 +1,4 @@
 root:x:0:
+sys:x:1:
 misa:x:100:
 guest:x:1000:

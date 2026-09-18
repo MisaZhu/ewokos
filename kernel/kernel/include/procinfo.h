@@ -36,6 +36,8 @@ enum {
 #define IPC_NON_BLOCK        0x01
 #define IPC_MULTI_TASK       0x02
 #define IPC_MULTI_CORE       0x04
+/* server-side opt-in: ipc_call to this server needs a CAP_EP cap on it */
+#define IPC_CAP_CHECK        0x08
 #define IPC_NON_RETURN       0x80000000
 #define IPC_LAZY             0x40000000
 #define IPC_NON_RETURN_MASK  0x1fffffff

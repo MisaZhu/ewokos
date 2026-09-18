@@ -311,7 +311,7 @@ int main(int argc, char **argv)
 {
     (void)argc;
     (void)argv;
-    _mmio_base = mmio_map();
+    /* virtfs_init() maps the virtio-mmio region itself (narrowed) */
     virtfs_t fs = virtfs_init();
     if (fs == NULL)
     {

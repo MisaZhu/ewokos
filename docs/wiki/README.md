@@ -1,126 +1,143 @@
-# EwokOS 操作系统教学：从零到树莓派上的自己的 OS
+# EwokOS OS Tutorial: From Zero to Your Own OS on a Raspberry Pi
 
-这是一套写给**完全没有操作系统基础**的读者的教程。我们会从"操作系统到底是什么"讲起，
-一步步读懂并亲手搭建 EwokOS 的每一个部分，最终把一套自己参与构建的操作系统跑在真实的树莓派上。
+> Language: **English** | [中文](README.zh.md)
 
-EwokOS 是一个真实存在的、可运行的微内核操作系统（支持 ARM32 / AArch64 / RISC-V / x86），
-代码量适中、结构清晰，非常适合作为学习对象。本教程的所有代码讲解都直接对应本仓库的真实源码，
-不是玩具示例。
+This is a tutorial written for readers with **absolutely no operating-system background**.
+We start from "what an OS actually is" and, step by step, read and build every part of
+EwokOS with our own hands — ending with a system you helped build, running on a real
+Raspberry Pi.
 
-## 导读：操作系统没那么难
+EwokOS is a real, runnable microkernel operating system (ARM32 / AArch64 / RISC-V / x86)
+with a modest, clearly structured codebase — an ideal learning vehicle. Every code
+walkthrough in this tutorial maps directly onto real source files in this repository;
+there are no toy examples.
 
-很多人说操作系统难，其实难的不是知识本身，而是跨度太大——从"会写 hello world"
-到"看懂一个真实内核"中间隔着十万八千里。本教程的办法是把跨度切成若干小步，
-每一步都能看见结果：第一次打印、第一次中断、第一次穿越到用户态、第一次两个进程
-交替运行……你会逐渐发现：中断不过是一张函数指针表，虚拟内存不过是一张翻译表，
-系统调用不过是一次受控的跳转，fork 不过是复制一份数据结构。
+## Introduction: Operating Systems Are Not That Hard
 
-教程有一条**实验主线**：八个里程碑（"八套代码"），从裸机串口打印一路进化到
-多进程、可通信、可繁殖的迷你微内核，每一步都与 EwokOS 的真实实现一一对应：
+Many people say OS development is hard. What is actually hard is the *span*: between
+"can write hello world" and "can read a real kernel" there is a huge gap. This tutorial
+slices that gap into small steps, each with a visible result: first print, first
+interrupt, first crossing into userland, first two processes taking turns... You will
+gradually realize that an interrupt is just a table of function pointers, virtual
+memory is just a translation table, a system call is just a controlled jump, and fork
+is just copying a data structure.
 
-| 套数 | 里程碑 | 所在章节 |
+The tutorial has a **hands-on main line**: eight milestones ("eight code sets"),
+evolving from bare-metal UART printing all the way to a mini microkernel with
+multi-processing, communication, and reproduction — each one mapping to the real
+EwokOS implementation:
+
+| Set | Milestone | Chapters |
 |---|---|---|
-| 第 1 套 | 裸机串口打印：没什么比第一次顺利运行更让人开心 | [03](03-第一个裸机程序.md) |
-| —（解读） | 初步了解 ARM 指令和树莓派；不要犹豫，汇编其实很简单；C 与汇编混合、参数传递；首次解读设备接口（串口）与寄存器 | [03](03-第一个裸机程序.md) |
-| 第 2 套 | 中断与时钟：操作系统的心跳，赋予它生命 | [06](06-中断与定时器.md) |
-| 第 3 套 | 内存与地址：虚拟地址的意义与实现；ARM 运行状态和权限 | [05](05-内存管理与MMU.md)、[04](04-CPU特权级与异常处理.md) |
-| —（穿越） | 一次奇妙的时空穿梭：从内核态穿越到用户态，以及穿越时发生了什么 | [04](04-CPU特权级与异常处理.md)（4.6 节） |
-| 第 4 套 | 操作系统的第一个孩子：进程三要素与创建 | [07](07-进程与调度器.md)（7.1~7.2 节） |
-| 第 5 套 | 时空旅行的虫洞：系统调用；中断与系统调用的异同 | [08](08-系统调用.md) |
-| 第 6 套 | 上帝之手：进程运行状态、时钟中断与调度 | [07](07-进程与调度器.md)（7.3~7.5 节）、[06](06-中断与定时器.md) |
-| 第 7 套 | 微内核的精华：进程间通信实现方法、数据交换效率、通信即服务 | [09](09-IPC进程间通信.md) |
-| 第 8 套 | 生命在繁殖：fork 裂变、分道扬镳的父子关系、写时复制实现 | [07](07-进程与调度器.md)（7.6 节） |
+| #1 | Bare-metal UART printing: nothing beats seeing it run the first time | [03](03-baremetal.md) |
+| — (deep dive) | First contact with ARM instructions and the Pi; don't hesitate, assembly is really simple; mixing C and asm, argument passing; first reading of a device interface (UART) and its registers | [03](03-baremetal.md) |
+| #2 | Interrupts and clocks: the heartbeat that brings an OS to life | [06](06-interrupt.md) |
+| #3 | Memory and addresses: the meaning and implementation of virtual addresses; ARM execution states and privileges | [05](05-mmu.md), [04](04-exception.md) |
+| — (the crossing) | A magical journey through space-time: from kernel mode into userland, and what happens on the way | [04](04-exception.md) (§4.6) |
+| #4 | The OS's first child: the three essentials of a process and its creation | [07](07-process.md) (§7.1–7.2) |
+| #5 | The wormhole through space-time: system calls; interrupts vs system calls | [08](08-syscall.md) |
+| #6 | The hand of God: process run states, timer interrupts, and scheduling | [07](07-process.md) (§7.3–7.5), [06](06-interrupt.md) |
+| #7 | The essence of a microkernel: how IPC works, data-exchange efficiency, communication as service | [09](09-ipc.md) |
+| #8 | Life multiplies: fork fission, the parent/child parting of ways, copy-on-write | [07](07-process.md) (§7.6) |
 
-## 学习路线总览
+## Roadmap
 
 ```
-第 1 部分  起步（理解 + 环境 + 第一个裸机程序 + 汇编入门）
+Part 1  Getting started (concepts + environment + first bare-metal program + assembly primer)
    │
-第 2 部分  内核（异常 → 内存 → 中断 → 进程 → 系统调用 → IPC）
+Part 2  The kernel (exceptions → memory → interrupts → processes → system calls → IPC → Capability)
    │
-第 3 部分  用户态（文件系统 → init/shell → 写自己的应用）
+Part 3  Userland (filesystem → init/shell → writing your own apps)
    │
-第 4 部分  完整系统（图形界面 → 制作镜像 → 烧录树莓派实机）
+Part 4  The full system (graphics → building images → flashing a real Pi)
    │
-第 5 部分  ewokos 系列（库生态总览 → libc → 常用库 → 扩展库）
+Part 5  The ewokos library series (ecosystem overview → libc → common libs → extra libs)
 ```
 
-## 章节目录
+## Table of Contents
 
-### 第 1 部分：起步
+### Part 1: Getting Started
 
-| 章节 | 内容 | 你将获得 |
+| Chapter | Contents | You will gain |
 |------|------|----------|
-| [01 认识操作系统](01-认识操作系统.md) | 什么是/为什么需要 OS、微内核与宏内核之争、为什么写微内核、EwokOS 源码地图 | 对整个系统的心智模型 |
-| [02 开发环境搭建](02-开发环境搭建.md) | 交叉编译工具链、QEMU、硬件准备（树莓派/SD 卡/USB-TTL 接线）、首次编译运行 | 第一次看到 EwokOS 启动 |
-| [03 第一个裸机程序](03-第一个裸机程序.md) | 树莓派启动原理、MMIO、手写串口程序；ARM 指令与寄存器解读、C/汇编混合编程 | 第一套代码：属于自己的第一行内核代码 |
+| [01 Meet the Operating System](01-intro.md) | What/why an OS, microkernel vs monolithic, why write a microkernel, the EwokOS source map | A mental model of the whole system |
+| [02 Setting Up the Environment](02-setup.md) | Cross toolchain, QEMU, hardware prep (Pi / SD card / USB-TTL wiring), first build and run | Seeing EwokOS boot for the first time |
+| [03 The First Bare-Metal Program](03-baremetal.md) | Pi boot process, MMIO, a hand-written UART program; ARM instructions and registers, mixing C and assembly | Code set #1: your very first line of kernel code |
 
-### 第 2 部分：内核
+### Part 2: The Kernel
 
-| 章节 | 内容 | 对应源码 |
+| Chapter | Contents | Source |
 |------|------|----------|
-| [04 CPU 特权级与异常](04-CPU特权级与异常处理.md) | EL0~EL3、异常向量表、上下文保存、从内核态穿越到用户态 | `kernel/platform/aarch64/arch/v8/boot.S`、`interrupt.S` |
-| [05 内存管理与 MMU](05-内存管理与MMU.md) | 虚拟地址的意义、页表、内核内存布局、物理页分配 | `kernel/kernel/src/mm/` |
-| [06 中断与定时器](06-中断与定时器.md) | 树莓派中断源、中断处理四步法、时钟心跳 | `kernel/kernel/src/irq.c`、`interrupt.c` |
-| [07 进程与调度器](07-进程与调度器.md) | 进程三要素、第一个进程的创建、上下文切换、调度、fork 与写时复制 | `kernel/kernel/src/proc.c`、`schedule.c` |
-| [08 系统调用](08-系统调用.md) | 系统调用的意义、`svc #0`、分发、与中断的异同 | `kernel/kernel/src/svc.c` |
-| [09 IPC 进程间通信](09-IPC进程间通信.md) | IPC 实现方法、数据交换效率、同步 RPC、通信即服务 | `kernel/kernel/src/ipc.c` |
+| [04 CPU Privilege Levels & Exceptions](04-exception.md) | EL0–EL3, the exception vector table, context saving, crossing from kernel mode to userland | `kernel/platform/aarch64/arch/v8/boot.S`, `interrupt.S` |
+| [05 Memory Management & the MMU](05-mmu.md) | The meaning of virtual memory, page tables, the kernel memory layout, physical page allocation | `kernel/kernel/src/mm/` |
+| [06 Interrupts & Timers](06-interrupt.md) | Pi interrupt sources, the four-step interrupt handling, the clock heartbeat | `kernel/kernel/src/irq.c`, `interrupt.c` |
+| [07 Processes & the Scheduler](07-process.md) | The three essentials of a process, creating the first process, context switch, scheduling, fork and copy-on-write | `kernel/kernel/src/proc.c`, `schedule.c` |
+| [08 System Calls](08-syscall.md) | Why system calls exist, `svc #0`, dispatching, syscalls vs interrupts | `kernel/kernel/src/svc.c` |
+| [09 IPC: Inter-Process Communication](09-ipc.md) | How IPC works, data-exchange efficiency, synchronous RPC, communication as service | `kernel/kernel/src/ipc.c` |
+| [21 The Capability Permission Model](21-capability.md) | Capability tickets, the cnode, kernel checkpoints, mint/grant delegation, the declarative `/etc/cap.json` policy | `kernel/kernel/src/cap.c`, `system/basic/sys/init/cap_policy.c` |
 
-### 第 3 部分：用户态
+### Part 3: Userland
 
-| 章节 | 内容 | 对应源码 |
+| Chapter | Contents | Source |
 |------|------|----------|
-| [10 文件系统与存储](10-文件系统与存储设备.md) | SD 卡驱动、ext2、VFS 守护进程 | `kernel/lib/ext2/`、`system/basic/sys/vfsd/` |
-| [11 启动流程 init 与 shell](11-启动流程init与shell.md) | init 进程、`.rd` 启动脚本、终端会话 | `system/basic/sys/init/init.c` |
-| [12 编写自己的应用](12-编写自己的应用与命令.md) | 用户态构建体系、写一个自己的命令并跑起来 | `system/basic/bin/` |
+| [10 Filesystems & Storage](10-filesystem.md) | SD card driver, ext2, the VFS daemon | `kernel/lib/ext2/`, `system/basic/sys/vfsd/` |
+| [11 Boot Flow: init and the shell](11-init.md) | The init process, `.rd` boot scripts, terminal sessions | `system/basic/sys/init/init.c` |
+| [12 Writing Your Own Apps](12-apps.md) | The userland build system; write a command of your own and run it | `system/basic/bin/` |
 
-### 第 4 部分：完整系统
+### Part 4: The Full System
 
-| 章节 | 内容 | 对应源码 |
+| Chapter | Contents | Source |
 |------|------|----------|
-| [13 图形系统](13-图形系统与窗口系统.md) | Framebuffer、图形库、X 风格窗口系统 | `system/gui/`、`system/xwin/` |
-| [20 xwm 窗口管理器](20-xwm窗口管理器机制与实现.md) | 机制/策略分离、xwm↔xserverd IPC 协议、共享内存装饰绘制、写一个自己的 WM | `system/xwin/xwm/`、`system/xwin/libs/x/src/xwm.c` |
-| [14 烧录到树莓派](14-制作镜像并烧录到树莓派.md) | SD 卡镜像、分区、烧录、真机启动 | `tools/makesd.sh`、`tools/bootfs/` |
-| [15 调试与进阶](15-调试技巧与进阶路线.md) | GDB 调试、日志体系、接下来做什么 | — |
+| [13 Graphics & the Window System](13-graphics.md) | Framebuffer, the graphics library, an X-style window system | `system/gui/`, `system/xwin/` |
+| [20 The xwm Window Manager](20-xwm.md) | Mechanism/policy separation, the xwm↔xserverd IPC protocol, shared-memory decoration rendering, writing your own WM | `system/xwin/xwm/`, `system/xwin/libs/x/src/xwm.c` |
+| [14 Images & Flashing to a Pi](14-raspi-image.md) | SD card images, partitioning, flashing, booting real hardware | `tools/makesd.sh`, `tools/bootfs/` |
+| [15 Debugging & the Road Ahead](15-debug.md) | GDB debugging, the logging stack, what to do next | — |
 
-### 第 5 部分：EwokOS 库生态（ewokos 系列）
+### Part 5: The EwokOS Library Ecosystem (the ewokos series)
 
-一个独立的“系列”，专门盘点 EwokOS 的库：从 libc（C 运行时）到各类常用库。
-想写真实应用、想知道“干某件事该用哪个库”时，从这里查。
+A standalone "series" dedicated to the EwokOS libraries: from libc (the C runtime)
+to the assorted common libraries. When you want to write a real application, or
+wonder "which library do I use for X", look here.
 
-| 章节 | 内容 | 对应源码 |
+| Chapter | Contents | Source |
 |------|------|----------|
-| [16 库生态总览](16-EwokOS库生态总览.md) | 库为何自建、五层地图、目录结构、`EWOK_LIBC`/`EWOK_LIB_GRAPH`/`EWOK_LIB_X` 链接、构建安装流 | `system/platform/*/make.rule` |
-| [17 EwokOS 的 libc](17-EwokOS的libc.md) | C 运行时拼图：newlib + libgloss + libewoksys + openlibm + softfloat；`printf` 的完整调用链；errno | `system/basic/libc/` |
-| [18 EwokOS 常用库](18-EwokOS常用库.md) | 基础库/图形库/窗口库/网络库速查；“我想干什么→用哪个库”对照表 | `system/*/libs/` |
-| [19 EwokOS 扩展库](19-EwokOS扩展库.md) | `sw.extra`（SDL2/curses）与 `projects`（litehtml/cglm/ferox/portablegl/imgui/ffmpeg/widget++ 扩展控件）等选装库 | `sw.extra/`、`projects/` |
+| [16 Library Ecosystem Overview](16-libs-overview.md) | Why the libraries are self-built, the five-layer map, the directory layout, `EWOK_LIBC`/`EWOK_LIB_GRAPH`/`EWOK_LIB_X` linking, the build & install flow | `system/platform/*/make.rule` |
+| [17 The EwokOS libc](17-libc.md) | The C-runtime puzzle: newlib + libgloss + libewoksys + openlibm + softfloat; the full call chain of `printf`; errno | `system/basic/libc/` |
+| [18 Common Libraries](18-libs.md) | Quick reference for base/graphics/window/network libraries; an "I want to do X → use library Y" table | `system/*/libs/` |
+| [19 Extra Libraries](19-extra-libs.md) | Optional libraries in `sw.extra` (SDL2/curses) and `projects` (litehtml/cglm/ferox/portablegl/imgui/ffmpeg/widget++ extended widgets) | `sw.extra/`, `projects/` |
 
-### 附录
+### Appendix
 
-| 章节 | 内容 |
+| Chapter | Contents |
 |------|------|
-| [99 术语表·专业名词速查](99-术语表-专业名词速查.md) | 全部缩写与专业名词：英文全称、含义、首次出现章节 |
+| [99 Glossary: A Quick Terminology Reference](99-glossary.md) | Every abbreviation and term: full English name, meaning, first-appearance chapter |
 
-## 硬件要求
+## Hardware Requirements
 
-- 树莓派 **2B / 3B / 3B+ / Zero 2W / 4B** 任选其一（本仓库 `machines/raspix` 支持）
-- 一张 >= 4GB 的 SD 卡
-- 一根 USB 转 TTL 串口线（用于观察启动日志，强烈推荐）
-- 没有树莓派也可以：全程可以用 QEMU 模拟器完成学习
+- Any **Raspberry Pi 2B / 3B / 3B+ / Zero 2W / 4B** (supported by `machines/raspix` in this repository)
+- An SD card of at least 4 GB
+- A USB-to-TTL serial cable (for watching boot logs — highly recommended)
+- No Pi? The entire tutorial can be done in the QEMU emulator.
 
-## 如何使用本教程
+## How to Use This Tutorial
 
-1. **按顺序读**。每一章都默认你读懂了前面所有章节。
-2. **动手做每一章的"跟着做"**。所有代码都可以直接编译验证。
-3. **对照源码读**。文中所有文件链接都指向本仓库真实文件，请打开对照。
-4. 遇到不懂的缩写/术语，先查 **[99 术语表](99-术语表-专业名词速查.md)**——
-   收录了全部专业名词的英文全称与一句话解释；正文关键术语首次出现处也有就地标注。
-5. 遇到不懂的 ARM 汇编指令不必逐条查手册，教程会解释关键指令的作用。
+1. **Read in order.** Each chapter assumes you have understood all previous ones.
+2. **Do every "follow along".** All code can be compiled and verified directly.
+3. **Read against the source.** Every file link points at a real file in this
+   repository — open it side by side.
+4. When you hit an unfamiliar abbreviation or term, consult the
+   **[99 Glossary](99-glossary.md)** first — it collects the full English names
+   and one-line explanations of every term; key terms are also annotated where
+   they first appear in the text.
+5. Don't look up every ARM instruction in the manual; the tutorial explains the
+   important ones in place.
 
-## 约定
+## Conventions
 
-- `> ` 开头的行表示在终端里输入的命令
-- 代码块中的注释是教程的一部分，请认真阅读
-- 本教程以 **AArch64（树莓派 64 位）** 为主线讲解，32 位差异会单独说明
+- Lines starting with `> ` are commands typed into a terminal
+- Comments inside code blocks are part of the tutorial — read them carefully
+- The main line is **AArch64 (64-bit Raspberry Pi)**; 32-bit differences are
+  called out separately
 
-祝学习愉快。当你完成全部章节时，你对"计算机是怎么工作的"的理解将彻底不同。
+Happy learning. By the time you finish every chapter, your understanding of
+"how computers actually work" will never be the same.

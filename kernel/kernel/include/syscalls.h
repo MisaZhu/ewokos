@@ -103,6 +103,15 @@ enum {
 	/* drop a cross-proc dma mapping installed by SYS_MEM_MAP on a sys_dma
 	   range (peer-side voluntary unmap; see dma_peer_unmap) */
 	SYS_DMA_UNMAP,
+
+	//capability management (see cap.h)
+	SYS_CAP_MINT,
+	SYS_CAP_REVOKE,
+	SYS_CAP_GRANT,
+	SYS_CAP_GET,
+	/* install one entry into the kernel's exec-time capability policy
+	   (CAP_ROOT only); matching rules are granted automatically on exec */
+	SYS_CAP_POLICY_ADD,
 	SYS_CALL_NUM
 };
 

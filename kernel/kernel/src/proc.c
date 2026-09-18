@@ -1,5 +1,6 @@
 #include <kernel/system.h>
 #include <kernel/proc.h>
+#include <kernel/cap.h>
 #include <kernel/kernel.h>
 #include <kernel/schedule.h>
 #include <mm/kalloc.h>
@@ -438,6 +439,35 @@ static inline ewokos_addr_t proc_get_user_stack_base(proc_t* proc) {
     if(proc->info.type == TASK_TYPE_PROC)
         return USER_STACK_TOP - STACK_PAGES*PAGE_SIZE;
     return proc->thread_stack_base;
+}
+
+/*
+ * user_ptr_ok - validate a user-supplied buffer [ptr, ptr+size) before the
+ * kernel dereferences it on the caller's behalf.
+ *
+ * Syscalls run on the calling proc's page tables, and the kernel image is
+ * mapped at KERNEL_BASE in EVERY address space, so an unchecked pointer at or
+ * above KERNEL_BASE would let a process steer kernel reads/writes into kernel
+ * memory. This is a pure address-range predicate (no page-table walk): it
+ * rejects wrap-around, the null pointer, and any range reaching into kernel VA
+ * (USER_STACK_TOP == KERNEL_BASE - PAGE_SIZE, so the guard page below the
+ * kernel is excluded too). Legitimate buffers live in the program image, heap
+ * (base can be as low as 0x400), shm window or user stack - all strictly below
+ * USER_STACK_TOP - so they always pass. Deliberately does NOT require the
+ * range to be currently mapped: an unmapped-but-in-range pointer simply faults
+ * and is handled by the normal user data-fault path.
+ */
+bool user_ptr_ok(proc_t* proc, ewokos_addr_t ptr, ewokos_addr_t size) {
+    if(proc == NULL || proc->space == NULL)
+        return false;
+    ewokos_addr_t end = ptr + size;
+    if(end < ptr)              /* wrap-around / overflow */
+        return false;
+    if(ptr == 0)              /* null */
+        return false;
+    if(end > USER_STACK_TOP)  /* touches kernel VA or the guard page below it */
+        return false;
+    return true;
 }
 
 static void map_stack(proc_t* proc, ewokos_addr_t* stacks, ewokos_addr_t base, uint32_t pages) {
@@ -1402,6 +1432,8 @@ void proc_funeral(proc_t* proc) {
             proc_wake_thread_stack_waiters(space);
     }
 
+    /* drop every capability before the slot leaves the task table */
+    cap_cnode_init(&proc->cnode);
     _task_table[proc->info.pid] = NULL;
     kfree(proc);
 }
@@ -1666,6 +1698,25 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
     proto_init(&proc->ipc_res.data);
     proc->ipc_wait_item.owner = proc;
 
+    /*
+     * Capability bootstrap. Kernel-created procs (parent == NULL: init and
+     * the core idle tasks) hold the root authority; a forked child inherits
+     * its owner process's cnode verbatim. exec later re-bases the cnode on
+     * the proc's uid (proc_cap_on_exec), so a user shell forked off a root
+     * daemon still loses every cap the moment it execs its image.
+     */
+    proc->sid = cap_new_sid();
+    if(parent != NULL) {
+        proc_t* powner = proc_get_proc(parent);
+        if(powner != NULL)
+            cap_cnode_copy(&proc->cnode, &powner->cnode);
+        else
+            proc_cap_grant_root(proc);
+    }
+    else {
+        proc_cap_grant_root(proc);
+    }
+
     if(type == TASK_TYPE_PROC) {
         proc_init_space(proc);
     }
@@ -1824,6 +1875,12 @@ int32_t proc_load_elf(proc_t *proc, int32_t shm_id, uint32_t size) {
      * from its own initial values rather than inherit stale ones.
      */
     proc->tls_base = 0;
+    /*
+     * A new image re-bases the proc's authority on its current uid:
+     * privileged images (uid <= 0) get the root capset, user images start
+     * with an empty cnode regardless of what the fork parent held.
+     */
+    proc_cap_on_exec(proc);
     proc_ready(proc);
     shm_proc_unmap(proc, (void*)proc_image);
 

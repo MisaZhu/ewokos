@@ -132,6 +132,7 @@ KERNEL_OBJS = \
 			  $(KERNEL_DIR)/semaphore.o \
 			  $(KERNEL_DIR)/proc.o \
 			  $(KERNEL_DIR)/ipc.o \
+				  $(KERNEL_DIR)/cap.o \
 			  $(KERNEL_DIR)/signal.o \
 			  $(KERNEL_DIR)/interrupt.o \
 			  $(KERNEL_DIR)/schedule.o \

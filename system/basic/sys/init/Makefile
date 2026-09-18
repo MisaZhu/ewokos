@@ -8,7 +8,7 @@ LDFLAGS = -L $(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include
 
-INIT_OBJS = $(ARCH)/init.o $(ARCH)/readfs.o
+INIT_OBJS = $(ARCH)/init.o $(ARCH)/readfs.o $(ARCH)/cap_policy.o
 	
 INIT = $(TARGET_DIR)/sbin/init
 
@@ -16,8 +16,9 @@ $(INIT): $(INIT_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a  \
 		$(BUILD_DIR)/lib/libbsp.a \
 		$(BUILD_DIR)/lib/libsd.a \
+		$(BUILD_DIR)/lib/libtinyjson.a \
 		$(BUILD_DIR)/lib/libext3.a 
-	$(LD) -Ttext=100 $(INIT_OBJS) -o $(INIT) $(LDFLAGS)  $(BSP_LFLAGS) -lsd -lext3  $(EWOK_LIBC) 
+	$(LD) -Ttext=100 $(INIT_OBJS) -o $(INIT) $(LDFLAGS)  $(BSP_LFLAGS) -lsd -lext3 -ltinyjson  $(EWOK_LIBC) 
 
 clean:
 	rm -fr $(INIT) $(INIT_OBJS)
