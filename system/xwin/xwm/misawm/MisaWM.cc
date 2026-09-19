@@ -268,8 +268,10 @@ void MisaWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinf
 	  corner to transparent, blending the glass edge into the shadow. Same
 	  geometry ewokwm uses, so the compositor's frame_alpha path applies.*/
 	int round = (int)xwm.theme.round;
-	if(round > 0)
+	if(round > 0) {
 		markFrameRound(frame_g, r, round);
+		graph_round_3d(frame_g, r->x, r->y, r->w, r->h, round, 1, xwm.theme.frameBGColor, false);
+	}
 }
 
 void MisaWM::drawShadow(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top) {
