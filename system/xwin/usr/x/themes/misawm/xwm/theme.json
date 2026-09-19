@@ -4,7 +4,7 @@
 
     "#frame_bg_color": "RGB base of the frosted-glass tint; MisaWM blends it semi-transparently over the blurred desktop",
     "frame_bg_color": "0xff888e87",
-    "frame_fg_color": "0xff202428",
+    "frame_fg_color": "0xffffffff",
 
     "font_size": 13,
     "title_h": 24,
