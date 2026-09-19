@@ -357,42 +357,51 @@ void XWM::drawBGEffect(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinf
 	if(top || xwm.theme.bgEffect == BG_EFFECT_NONE)
 		return;
 
-	graph_blt_alpha(frame_g, 0, 0, 
-			info->winr.w,
-			info->winr.h,
-			desktop_g,
-			info->winr.x,
-			info->winr.y,
-			info->winr.w,
-			info->winr.h, 0x88);
-	
-	switch(xwm.theme.bgEffect) {
-		case BG_EFFECT_TRANSPARENT:
-			graph_blt(desktop_g, 
-				info->winr.x, info->winr.y, info->winr.w, info->winr.h, 
-				frame_g, 0, 0, info->winr.w, info->winr.h);
-			return;
-		case BG_EFFECT_DOT:
-			graph_draw_dot_pattern(desktop_g, 
-				info->wsr.x, info->wsr.y, info->wsr.w, info->wsr.h,
-				0x33ffffff, 0x33000000, 2, 1);	
-			graph_blt(desktop_g, 
-				info->winr.x, info->winr.y, info->winr.w, info->winr.h, 
-				frame_g, 0, 0, info->winr.w, info->winr.h);
-			return;
-		case BG_EFFECT_GLASS:
-			graph_glass(desktop_g, info->wsr.x, info->wsr.y, info->wsr.w, info->wsr.h, 3);
-			graph_blt(desktop_g, 
-				info->winr.x, info->winr.y, info->winr.w, info->winr.h, 
-				frame_g, 0, 0, info->winr.w, info->winr.h);
-			return;
-		case BG_EFFECT_GAUSSIAN:
-			graph_gaussian(desktop_g, info->wsr.x, info->wsr.y, info->wsr.w, info->wsr.h, 3);
-			graph_blt(desktop_g, 
-				info->winr.x, info->winr.y, info->winr.w, info->winr.h, 
-				frame_g, 0, 0, info->winr.w, info->winr.h);
-		return;
+	/*desktop_g is either the whole display (the window sits at winr.x/winr.y
+	  inside it) or, when frame_blur is on, a clean window-local backdrop
+	  snapshot xserverd handed us whose (0,0) already maps to the window
+	  top-left. Pick the source origin accordingly: using winr.x/winr.y on
+	  the window-local backdrop sampled far outside it and left the effect
+	  misaligned with the window.*/
+	int sx = info->winr.x;
+	int sy = info->winr.y;
+	if(desktop_g->w == (int)info->winr.w && desktop_g->h == (int)info->winr.h) {
+		sx = 0;
+		sy = 0;
 	}
+
+	int w = (int)info->winr.w;
+	int h = (int)info->winr.h;
+
+	/*work on a private copy of the backdrop, never on desktop_g itself: the
+	  frame_blur snapshot is reused across frames, so blurring it in place
+	  would feed the previous blur back and smear a bit more every frame.*/
+	graph_t* bg = graph_new(NULL, w, h);
+	if(bg == NULL)
+		return;
+	graph_blt(desktop_g, sx, sy, w, h, bg, 0, 0, w, h);
+
+	/*blend the decorations/content already in frame_g over the backdrop copy,
+	  then run the effect over the blended picture*/
+	graph_blt_alpha(frame_g, 0, 0, w, h, bg, 0, 0, w, h, 0x88);
+
+	switch(xwm.theme.bgEffect) {
+		case BG_EFFECT_DOT:
+			graph_draw_dot_pattern(bg, 0, 0, w, h, 0x33ffffff, 0x33000000, 2, 1);
+			break;
+		case BG_EFFECT_GLASS:
+			graph_glass(bg, 0, 0, w, h, 3);
+			break;
+		case BG_EFFECT_GAUSSIAN:
+			graph_gaussian(bg, 0, 0, w, h, 3);
+			break;
+		case BG_EFFECT_TRANSPARENT:
+		default:
+			break;
+	}
+
+	graph_blt(bg, 0, 0, w, h, frame_g, 0, 0, w, h);
+	graph_free(bg);
 }
 
 void XWM::getColor(uint32_t *fg, uint32_t* bg, bool top) {
