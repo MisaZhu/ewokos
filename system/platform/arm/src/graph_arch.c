@@ -321,180 +321,170 @@ static void graph_glass_neon(graph_t* g, int x, int y, int w, int h, int r) {
 static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
                        int x, int y, int w, int h, int radius) {
     if (radius <= 0) return;
-    
+
     // Boundary check
     if (x < 0) x = 0;
     if (y < 0) y = 0;
     if (x + w > width) w = width - x;
     if (y + h > height) h = height - y;
     if (w <= 0 || h <= 0) return;
-    
-    // Create Gaussian kernel
+
+    // Build the Gaussian kernel and quantize it to Q16 fixed point, so the
+    // inner loops use integer NEON multiply-accumulate instead of float.
     int kernel_size = radius * 2 + 1;
-    float* kernel = (float*)malloc(kernel_size * sizeof(float));
+    float* kf = (float*)malloc(kernel_size * sizeof(float));
+    uint16_t* wk = (uint16_t*)malloc(kernel_size * sizeof(uint16_t));
+    if (kf == NULL || wk == NULL) { free(kf); free(wk); return; }
+
     float sigma = radius / 2.0f;
     float sum = 0.0f;
-    
     for (int i = -radius; i <= radius; i++) {
         float val = expf(-(i * i) / (2 * sigma * sigma));
-        kernel[i + radius] = val;
+        kf[i + radius] = val;
         sum += val;
     }
-    
-    // Normalize
+    int wsum = 0;
     for (int i = 0; i < kernel_size; i++) {
-        kernel[i] /= sum;
+        int q = (int)lrintf(kf[i] / sum * 65536.0f);
+        if (q < 0) q = 0;
+        if (q > 65535) q = 65535;
+        wk[i] = (uint16_t)q;
+        wsum += q;
     }
-    
-    // Temporary buffer
-    uint32_t* temp = (uint32_t*)malloc(w * h * sizeof(uint32_t));
-    
-    // NEON optimized horizontal blur, process 4 pixels in parallel
+    // Preserve energy: force the weights to sum to exactly 65536 (Q16 1.0).
+    {
+        int c = (int)wk[radius] + (65536 - wsum);
+        if (c < 0) c = 0;
+        if (c > 65535) c = 65535;
+        wk[radius] = (uint16_t)c;
+    }
+    free(kf);
+
+    // Packed ARGB intermediate plus a per-row edge-padded source buffer, so the
+    // vectorized taps never need any per-lane clamping. ARM32 keeps an 8-pixel
+    // block to stay within its 16 NEON q-registers.
+    uint32_t* temp = (uint32_t*)malloc((size_t)w * h * sizeof(uint32_t));
+    uint32_t* padrow = (uint32_t*)malloc((size_t)(w + 2 * radius) * sizeof(uint32_t));
+    if (temp == NULL || padrow == NULL) { free(temp); free(padrow); free(wk); return; }
+
+    // Horizontal pass: temp[j][i] = sum_t wk[t] * src[j][clamp(i - r + t)].
     for (int j = 0; j < h; j++) {
-        for (int i = 0; i < w; i += 4) {
-            if (i + 4 > w) {
-                // Handle remaining less than 4 pixels
-                for (int k = i; k < w; k++) {
-                    float32x4_t accum = vdupq_n_f32(0.0f);
-                    
-                    for (int m = -radius; m <= radius; m++) {
-                        int px = x + k + m;
-                        if (px < x) px = x;
-                        if (px >= x + w) px = x + w - 1;
-                        
-                        uint32_t pixel = pixels[(y + j) * width + px];
-                        float weight = kernel[m + radius];
-                        
-                        // Extract ARGB channels
-                        uint8x8_t vPixel = vreinterpret_u8_u32(vdup_n_u32(pixel));
-                        uint16x8_t vPixel16 = vmovl_u8(vPixel);
-                        uint32x4_t vPixel32 = vmovl_u16(vget_low_u16(vPixel16));
-                        float32x4_t vPixelF = vcvtq_f32_u32(vPixel32);
-                        
-                        // Multiply by weight and accumulate
-                        accum = vmlaq_n_f32(accum, vPixelF, weight);
-                    }
-                    
-                    // Convert to integer and store
-                    uint32x4_t result = vcvtq_u32_f32(accum);
-                    uint8x8_t res8 = vmovn_u16(vcombine_u16(
-                        vmovn_u32(result),
-                        vmovn_u32(result)
-                    ));
-                    temp[j * w + k] = vget_lane_u32(vreinterpret_u32_u8(res8), 0);
-                }
-                break;
+        uint32_t* srow = &pixels[(y + j) * width + x];
+        for (int t = 0; t < radius; t++) padrow[t] = srow[0];
+        for (int i = 0; i < w; i++) padrow[radius + i] = srow[i];
+        for (int t = 0; t < radius; t++) padrow[radius + w + t] = srow[w - 1];
+
+        int i = 0;
+        for (; i + 8 <= w; i += 8) {
+            uint32x4_t aB0 = vdupq_n_u32(0), aB1 = vdupq_n_u32(0);
+            uint32x4_t aG0 = vdupq_n_u32(0), aG1 = vdupq_n_u32(0);
+            uint32x4_t aR0 = vdupq_n_u32(0), aR1 = vdupq_n_u32(0);
+            uint32x4_t aA0 = vdupq_n_u32(0), aA1 = vdupq_n_u32(0);
+
+            for (int t = 0; t < kernel_size; t++) {
+                uint8x8x4_t px = vld4_u8((const uint8_t*)(padrow + i + t));
+                uint16_t wv = wk[t];
+                uint16x8_t v;
+
+                v = vmovl_u8(px.val[0]);
+                aB0 = vmlal_n_u16(aB0, vget_low_u16(v), wv);
+                aB1 = vmlal_n_u16(aB1, vget_high_u16(v), wv);
+                v = vmovl_u8(px.val[1]);
+                aG0 = vmlal_n_u16(aG0, vget_low_u16(v), wv);
+                aG1 = vmlal_n_u16(aG1, vget_high_u16(v), wv);
+                v = vmovl_u8(px.val[2]);
+                aR0 = vmlal_n_u16(aR0, vget_low_u16(v), wv);
+                aR1 = vmlal_n_u16(aR1, vget_high_u16(v), wv);
+                v = vmovl_u8(px.val[3]);
+                aA0 = vmlal_n_u16(aA0, vget_low_u16(v), wv);
+                aA1 = vmlal_n_u16(aA1, vget_high_u16(v), wv);
             }
-            
-            float32x4_t accum[4] = {vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)};
-            
-            for (int m = -radius; m <= radius; m++) {
-                for (int k = 0; k < 4; k++) {
-                    int px = x + i + k + m;
-                    if (px < x) px = x;
-                    if (px >= x + w) px = x + w - 1;
-                    
-                    uint32_t pixel = pixels[(y + j) * width + px];
-                    float weight = kernel[m + radius];
-                    
-                    // Extract ARGB channels
-                    uint8x8_t vPixel = vreinterpret_u8_u32(vdup_n_u32(pixel));
-                    uint16x8_t vPixel16 = vmovl_u8(vPixel);
-                    uint32x4_t vPixel32 = vmovl_u16(vget_low_u16(vPixel16));
-                    float32x4_t vPixelF = vcvtq_f32_u32(vPixel32);
-                    
-                    // Multiply by weight and accumulate
-                    accum[k] = vmlaq_n_f32(accum[k], vPixelF, weight);
-                }
+
+            uint8x8x4_t out;
+            out.val[0] = vmovn_u16(vcombine_u16(vrshrn_n_u32(aB0, 16), vrshrn_n_u32(aB1, 16)));
+            out.val[1] = vmovn_u16(vcombine_u16(vrshrn_n_u32(aG0, 16), vrshrn_n_u32(aG1, 16)));
+            out.val[2] = vmovn_u16(vcombine_u16(vrshrn_n_u32(aR0, 16), vrshrn_n_u32(aR1, 16)));
+            out.val[3] = vmovn_u16(vcombine_u16(vrshrn_n_u32(aA0, 16), vrshrn_n_u32(aA1, 16)));
+            vst4_u8((uint8_t*)(temp + j * w + i), out);
+        }
+
+        for (; i < w; i++) {
+            uint32_t sB = 0, sG = 0, sR = 0, sA = 0;
+            for (int t = 0; t < kernel_size; t++) {
+                uint32_t p = padrow[i + t];
+                uint16_t wv = wk[t];
+                sB += (p & 0xff) * wv;
+                sG += ((p >> 8) & 0xff) * wv;
+                sR += ((p >> 16) & 0xff) * wv;
+                sA += ((p >> 24) & 0xff) * wv;
             }
-            
-            // Convert to integer and store
-            for (int k = 0; k < 4; k++) {
-                uint32x4_t result = vcvtq_u32_f32(accum[k]);
-                uint8x8_t res8 = vmovn_u16(vcombine_u16(
-                    vmovn_u32(result),
-                    vmovn_u32(result)
-                ));
-                temp[j * w + i + k] = vget_lane_u32(vreinterpret_u32_u8(res8), 0);
-            }
+            uint32_t B = (sB + 32768) >> 16, G = (sG + 32768) >> 16;
+            uint32_t R = (sR + 32768) >> 16, A = (sA + 32768) >> 16;
+            temp[j * w + i] = (A << 24) | (R << 16) | (G << 8) | B;
         }
     }
-    
-    // NEON optimized vertical blur, process 4 pixels in parallel
-    for (int j = 0; j < h; j += 4) {
-        if (j + 4 > h) {
-            // Handle remaining less than 4 pixels
-            for (int k = j; k < h; k++) {
-                for (int i = 0; i < w; i++) {
-                    float32x4_t accum = vdupq_n_f32(0.0f);
-                    
-                    for (int m = -radius; m <= radius; m++) {
-                        int py = y + k + m;
-                        if (py < y) py = y;
-                        if (py >= y + h) py = y + h - 1;
-                        
-                        uint32_t pixel = temp[(py - y) * w + i];
-                        float weight = kernel[m + radius];
-                        
-                        // Extract ARGB channels
-                        uint8x8_t vPixel = vreinterpret_u8_u32(vdup_n_u32(pixel));
-                        uint16x8_t vPixel16 = vmovl_u8(vPixel);
-                        uint32x4_t vPixel32 = vmovl_u16(vget_low_u16(vPixel16));
-                        float32x4_t vPixelF = vcvtq_f32_u32(vPixel32);
-                        
-                        // Multiply by weight and accumulate
-                        accum = vmlaq_n_f32(accum, vPixelF, weight);
-                    }
-                    
-                    // Convert to integer and store
-                    uint32x4_t result = vcvtq_u32_f32(accum);
-                    uint8x8_t res8 = vmovn_u16(vcombine_u16(
-                        vmovn_u32(result),
-                        vmovn_u32(result)
-                    ));
-                    pixels[(y + k) * width + (x + i)] = vget_lane_u32(vreinterpret_u32_u8(res8), 0);
-                }
-            }
-            break;
-        }
-        
-        for (int i = 0; i < w; i++) {
-            float32x4_t accum[4] = {vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f), vdupq_n_f32(0.0f)};
-            
+
+    // Vertical pass: pixels[j][i] = sum_m wk[m+r] * temp[clamp(j+m)][i].
+    for (int j = 0; j < h; j++) {
+        int i = 0;
+        for (; i + 8 <= w; i += 8) {
+            uint32x4_t aB0 = vdupq_n_u32(0), aB1 = vdupq_n_u32(0);
+            uint32x4_t aG0 = vdupq_n_u32(0), aG1 = vdupq_n_u32(0);
+            uint32x4_t aR0 = vdupq_n_u32(0), aR1 = vdupq_n_u32(0);
+            uint32x4_t aA0 = vdupq_n_u32(0), aA1 = vdupq_n_u32(0);
+
             for (int m = -radius; m <= radius; m++) {
-                for (int k = 0; k < 4; k++) {
-                    int py = y + j + k + m;
-                    if (py < y) py = y;
-                    if (py >= y + h) py = y + h - 1;
-                    
-                    uint32_t pixel = temp[(py - y) * w + i];
-                    float weight = kernel[m + radius];
-                    
-                    // Extract ARGB channels
-                    uint8x8_t vPixel = vreinterpret_u8_u32(vdup_n_u32(pixel));
-                    uint16x8_t vPixel16 = vmovl_u8(vPixel);
-                    uint32x4_t vPixel32 = vmovl_u16(vget_low_u16(vPixel16));
-                    float32x4_t vPixelF = vcvtq_f32_u32(vPixel32);
-                    
-                    // Multiply by weight and accumulate
-                    accum[k] = vmlaq_n_f32(accum[k], vPixelF, weight);
-                }
+                int py = j + m;
+                if (py < 0) py = 0;
+                if (py >= h) py = h - 1;
+                uint8x8x4_t px = vld4_u8((const uint8_t*)(temp + py * w + i));
+                uint16_t wv = wk[m + radius];
+                uint16x8_t v;
+
+                v = vmovl_u8(px.val[0]);
+                aB0 = vmlal_n_u16(aB0, vget_low_u16(v), wv);
+                aB1 = vmlal_n_u16(aB1, vget_high_u16(v), wv);
+                v = vmovl_u8(px.val[1]);
+                aG0 = vmlal_n_u16(aG0, vget_low_u16(v), wv);
+                aG1 = vmlal_n_u16(aG1, vget_high_u16(v), wv);
+                v = vmovl_u8(px.val[2]);
+                aR0 = vmlal_n_u16(aR0, vget_low_u16(v), wv);
+                aR1 = vmlal_n_u16(aR1, vget_high_u16(v), wv);
+                v = vmovl_u8(px.val[3]);
+                aA0 = vmlal_n_u16(aA0, vget_low_u16(v), wv);
+                aA1 = vmlal_n_u16(aA1, vget_high_u16(v), wv);
             }
-            
-            // Convert to integer and store
-            for (int k = 0; k < 4; k++) {
-                uint32x4_t result = vcvtq_u32_f32(accum[k]);
-                uint8x8_t res8 = vmovn_u16(vcombine_u16(
-                    vmovn_u32(result),
-                    vmovn_u32(result)
-                ));
-                pixels[(y + j + k) * width + (x + i)] = vget_lane_u32(vreinterpret_u32_u8(res8), 0);
+
+            uint8x8x4_t out;
+            out.val[0] = vmovn_u16(vcombine_u16(vrshrn_n_u32(aB0, 16), vrshrn_n_u32(aB1, 16)));
+            out.val[1] = vmovn_u16(vcombine_u16(vrshrn_n_u32(aG0, 16), vrshrn_n_u32(aG1, 16)));
+            out.val[2] = vmovn_u16(vcombine_u16(vrshrn_n_u32(aR0, 16), vrshrn_n_u32(aR1, 16)));
+            out.val[3] = vmovn_u16(vcombine_u16(vrshrn_n_u32(aA0, 16), vrshrn_n_u32(aA1, 16)));
+            vst4_u8((uint8_t*)(&pixels[(y + j) * width + (x + i)]), out);
+        }
+
+        for (; i < w; i++) {
+            uint32_t sB = 0, sG = 0, sR = 0, sA = 0;
+            for (int m = -radius; m <= radius; m++) {
+                int py = j + m;
+                if (py < 0) py = 0;
+                if (py >= h) py = h - 1;
+                uint32_t p = temp[py * w + i];
+                uint16_t wv = wk[m + radius];
+                sB += (p & 0xff) * wv;
+                sG += ((p >> 8) & 0xff) * wv;
+                sR += ((p >> 16) & 0xff) * wv;
+                sA += ((p >> 24) & 0xff) * wv;
             }
+            uint32_t B = (sB + 32768) >> 16, G = (sG + 32768) >> 16;
+            uint32_t R = (sR + 32768) >> 16, A = (sA + 32768) >> 16;
+            pixels[(y + j) * width + (x + i)] = (A << 24) | (R << 16) | (G << 8) | B;
         }
     }
-    
+
     free(temp);
-    free(kernel);
+    free(padrow);
+    free(wk);
 }
 
 static void graph_gaussian_neon(graph_t* g, int x, int y, int w, int h, int r) {
