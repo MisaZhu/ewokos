@@ -291,6 +291,10 @@ void x_del_win(x_t* x, xwin_t* win) {
         graph_free(win->frame_g);
         win->frame_g = NULL;
     }
+    if(win->backdrop != NULL) {
+        graph_free(win->backdrop);
+        win->backdrop = NULL;
+    }
     if(win->xinfo != NULL) {
         win->xinfo->ws_g_shm_id = -1;
         win->xinfo->ws_g_shm_contig = false;

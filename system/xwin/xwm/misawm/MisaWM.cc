@@ -1,0 +1,469 @@
+#include "MisaWM.h"
+#include <ewoksys/kernel_tic.h>
+#include <ewoksys/klog.h>
+#include <graph/graph_ex.h>
+#include <graph/graph_png.h>
+#include <x++/X.h>
+#include <stdlib.h>
+#include <string.h>
+
+using namespace Ewok;
+
+/*the tint laid over the frost. The RGB comes from the theme's frame background
+  so a theme can colour the glass; the alpha is fixed here and is what makes
+  the border semi-transparent. It is deliberately focus-independent: our own
+  last output must be a predictable function of the frost alone, otherwise
+  ensureFrost could not tell our pixels apart from fresh backdrop. graph_pixel
+  keeps the opaque alpha the backdrop copy brought in, so the compositor still
+  takes its opaque-ring copy path.*/
+uint32_t MisaWM::glassTint(void) {
+	uint32_t fg, bg;
+	getColor(&fg, &bg, true);
+	return ((uint32_t)0x40 << 24) | (bg & 0x00ffffff);
+}
+
+/*what graph_pixel(tint) writes over an opaque backdrop pixel: the exact value
+  our glass leaves on the display, used to recognise our own output again*/
+uint32_t MisaWM::blendPixel(uint32_t tint, uint32_t dst) {
+	uint32_t a = color_a(tint);
+	if(a == 0)
+		return dst;
+	uint32_t inv_a = 255 - a;
+	uint32_t r = (color_r(tint)*a + color_r(dst)*inv_a) / 255;
+	uint32_t g = (color_g(tint)*a + color_g(dst)*inv_a) / 255;
+	uint32_t b = (color_b(tint)*a + color_b(dst)*inv_a) / 255;
+	return argb(0xff, r, g, b);
+}
+
+bool MisaWM::decontam(graph_t* sharp, graph_t* pred, graph_t* desktop_g, xinfo_t* info,
+		int gx, int gy, int gw, int gh, uint32_t tint) {
+	if(gw <= 0 || gh <= 0)
+		return false;
+	int dw = desktop_g->w;
+	bool changed = false;
+	for(int py = gy; py < gy+gh; py++) {
+		for(int px = gx; px < gx+gw; px++) {
+			uint32_t disp = desktop_g->buffer[(info->winr.y+py)*dw + (info->winr.x+px)];
+			uint32_t own = blendPixel(tint, pred->buffer[py*pred->w + px]);
+			if(disp != own) {
+				sharp->buffer[py*sharp->w + px] = disp; //painted by someone else: fresh backdrop
+				changed = true;
+			}
+			/*else: still our own glass from last frame, carries no backdrop
+			  information; keep the backdrop already cached for this pixel*/
+		}
+	}
+	return changed;
+}
+
+void MisaWM::ensureFrost(graph_t* desktop_g, xinfo_t* info) {
+	int shadow = (int)xwm.theme.shadow;
+	int fw = (int)info->winr.w - shadow;
+	int fh = (int)info->winr.h - shadow;
+	if(fw <= 0 || fh <= 0)
+		return;
+	if(desktop_g == NULL || desktop_g->buffer == NULL)
+		return;
+
+	if(desktop_g->w == (int)info->winr.w && desktop_g->h == (int)info->winr.h) {
+		/*xserverd handed us the clean window-local snapshot of everything
+		  below the window (theme frame_blur): it never carries our own glass,
+		  so it can be blurred straight away. Re-blur only when the snapshot
+		  actually changed, so idle frames cost a compare only.*/
+		bool sameSize = frostValid && backdropSharp != NULL && frostCache != NULL &&
+				frostX == info->winr.x && frostY == info->winr.y &&
+				frostW == fw && frostH == fh;
+		if(!sameSize) {
+			if(backdropSharp != NULL) { graph_free(backdropSharp); backdropSharp = NULL; }
+			if(frostCache != NULL) { graph_free(frostCache); frostCache = NULL; }
+			frostValid = false;
+			backdropSharp = graph_new(NULL, fw, fh);
+			frostCache = graph_new(NULL, fw, fh);
+			if(backdropSharp == NULL || frostCache == NULL) {
+				if(backdropSharp != NULL) { graph_free(backdropSharp); backdropSharp = NULL; }
+				if(frostCache != NULL) { graph_free(frostCache); frostCache = NULL; }
+				return;
+			}
+			graph_blt(desktop_g, 0, 0, fw, fh, backdropSharp, 0, 0, fw, fh);
+		}
+		else {
+			bool changed = false;
+			for(int y = 0; y < fh; y++) {
+				const uint32_t* src = &desktop_g->buffer[y*desktop_g->w];
+				uint32_t* dst = &backdropSharp->buffer[y*fw];
+				if(memcmp(dst, src, (size_t)fw*4) != 0) {
+					memcpy(dst, src, (size_t)fw*4);
+					changed = true;
+				}
+			}
+			if(!changed)
+				return; //backdrop identical: the frost already matches it
+		}
+		/*blur FROM the sharp snapshot, never from the previous blur*/
+		memcpy(frostCache->buffer, backdropSharp->buffer, (size_t)fw*fh*4);
+		graph_gaussian(frostCache, 0, 0, fw, fh, GLASS_BLUR);
+		frostX = info->winr.x;
+		frostY = info->winr.y;
+		frostW = fw;
+		frostH = fh;
+		frostValid = true;
+		return;
+	}
+
+	bool same = frostValid && frostCache != NULL && backdropSharp != NULL &&
+			frostX == info->winr.x && frostY == info->winr.y &&
+			frostW == fw && frostH == fh;
+	if(same) {
+		/*same placement: the display under the glass still holds our own last
+		  output, except where a window below (or the desktop) repainted over
+		  it. Accept only those overwritten pixels as backdrop and keep the
+		  cached backdrop elsewhere, so our tint is never read back in.*/
+		uint32_t tint = glassTint();
+		int wd = (int)xwm.theme.frameW;
+		if(wd <= 0)
+			wd = 2;
+		int th = (int)xwm.theme.titleH;
+		bool changed = false;
+		changed |= decontam(backdropSharp, frostCache, desktop_g, info, 0, 0, fw, wd, tint);             //top
+		changed |= decontam(backdropSharp, frostCache, desktop_g, info, 0, fh-wd, fw, wd, tint);        //bottom
+		changed |= decontam(backdropSharp, frostCache, desktop_g, info, 0, wd, wd, fh-2*wd, tint);      //left
+		changed |= decontam(backdropSharp, frostCache, desktop_g, info, fw-wd, wd, wd, fh-2*wd, tint);  //right
+		/*title band: refresh everywhere except under the opaque paint (the two
+		  buttons and the centred title text), which would otherwise be read
+		  back as backdrop and ghost into the glass*/
+		gsize_t sz;
+		font_text_size(info->title, font, xwm.theme.fontSize, (uint32_t*)&sz.w, (uint32_t*)&sz.h);
+		int tx = (fw - (int)sz.w)/2;
+		int strip = (th - (int)sz.h)/2;
+		int bx = wd + 2*th; //right edge of the max button
+		changed |= decontam(backdropSharp, frostCache, desktop_g, info, 0, wd, fw, strip, tint);
+		changed |= decontam(backdropSharp, frostCache, desktop_g, info, bx, wd+strip, tx-bx, (int)sz.h, tint);
+		changed |= decontam(backdropSharp, frostCache, desktop_g, info, tx+(int)sz.w, wd+strip, tx, (int)sz.h, tint);
+		changed |= decontam(backdropSharp, frostCache, desktop_g, info, 0, wd+strip+(int)sz.h, fw, th-strip-(int)sz.h, tint);
+		if(changed) {
+			/*blur FROM the sharp backdrop, never from the previous blur, so the
+			  frost cannot accumulate smear frame over frame*/
+			memcpy(frostCache->buffer, backdropSharp->buffer, (size_t)fw*fh*4);
+			graph_gaussian(frostCache, 0, 0, fw, fh, GLASS_BLUR);
+		}
+		return;
+	}
+
+	if(frostCache != NULL) {
+		graph_free(frostCache);
+		frostCache = NULL;
+	}
+	if(backdropSharp != NULL) {
+		graph_free(backdropSharp);
+		backdropSharp = NULL;
+	}
+	frostValid = false;
+
+	/*fresh placement: the desktop is composited bottom-to-top, so the display
+	  under the window holds only what is really behind it*/
+	backdropSharp = graph_new(NULL, fw, fh);
+	frostCache = graph_new(NULL, fw, fh);
+	if(backdropSharp == NULL || frostCache == NULL) {
+		if(backdropSharp != NULL) { graph_free(backdropSharp); backdropSharp = NULL; }
+		if(frostCache != NULL) { graph_free(frostCache); frostCache = NULL; }
+		return;
+	}
+	graph_blt(desktop_g, info->winr.x, info->winr.y, fw, fh,
+			backdropSharp, 0, 0, fw, fh);
+	memcpy(frostCache->buffer, backdropSharp->buffer, (size_t)fw*fh*4);
+	graph_gaussian(frostCache, 0, 0, fw, fh, GLASS_BLUR);
+	frostX = info->winr.x;
+	frostY = info->winr.y;
+	frostW = fw;
+	frostH = fh;
+	frostValid = true;
+}
+
+void MisaWM::frostRegion(graph_t* desktop_g, graph_t* frame_g, xinfo_t* info,
+		int gx, int gy, int gw, int gh, uint32_t tint, int blur) {
+	(void)blur; //the blur already happened when the snapshot was taken
+	if(gw <= 0 || gh <= 0)
+		return;
+	if(frame_g == NULL || frame_g->buffer == NULL)
+		return;
+
+	ensureFrost(desktop_g, info);
+	if(frostCache == NULL)
+		return;
+
+	/*lay the cached frost into the frame, then wash it with a constant
+	  translucent tint. Neither step reads the live display, so a content
+	  update cannot feed the previous frame back into the glass.*/
+	graph_blt(frostCache, gx, gy, gw, gh, frame_g, gx, gy, gw, gh);
+	for(int py = gy; py < gy + gh; py++)
+		for(int px = gx; px < gx + gw; px++)
+			graph_pixel(frame_g, px, py, tint);
+}
+
+void MisaWM::drawDragFrame(graph_t* g, grect_t* r) {
+	int wd = xwm.theme.frameW;
+	if(wd <= 0)
+		wd = 2;
+	graph_frame(g, r->x-wd, r->y-wd,
+			r->w+wd*2, r->h+wd*2, wd, 0x88ffffff, false);
+}
+
+void MisaWM::markFrameRound(graph_t* frame_g, grect_t* fr, int r) {
+	if(r <= 0)
+		r = 10;
+
+	if(roundMask == NULL || roundMaskSize != r) {
+		if(roundMask != NULL)
+			graph_free(roundMask);
+		roundMask = graph_new(NULL, r, r);
+		roundMaskSize = (roundMask != NULL) ? r : 0;
+	}
+
+	graph_t* mask = roundMask;
+	if(mask == NULL)
+		return;
+
+	/*the corners of the frame rect fr, not of frame_g: the graph also holds
+	  the right/bottom shadow bands, masking at its edges would push the
+	  right/bottom corners into the shadow area*/
+	graph_clear(mask, 0);
+	graph_fill_arc(mask, mask->w, mask->h, r, 90, 180, 0xffffffff);
+	graph_blt_alpha_mask(mask, 0, 0, mask->w, mask->h, frame_g, fr->x, fr->y, mask->w, mask->h);
+
+	graph_clear(mask, 0);
+	graph_fill_arc(mask, mask->w, 0, r, 180, 270, 0xffffffff);
+	graph_blt_alpha_mask(mask, 0, 0, mask->w, mask->h, frame_g, fr->x, fr->y+fr->h-mask->h, mask->w, mask->h);
+
+	graph_clear(mask, 0);
+	graph_fill_arc(mask, 0, mask->h, r, 0, 90, 0xffffffff);
+	graph_blt_alpha_mask(mask, 0, 0, mask->w, mask->h, frame_g, fr->x+fr->w-mask->w, fr->y, mask->w, mask->h);
+
+	graph_clear(mask, 0);
+	graph_fill_arc(mask, 0, 0, r, 270, 360, 0xffffffff);
+	graph_blt_alpha_mask(mask, 0, 0, mask->w, mask->h, frame_g, fr->x+fr->w-mask->w, fr->y+fr->h-mask->h, mask->w, mask->h);
+}
+
+void MisaWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinfo_t* info, grect_t* r, bool top) {
+	(void)ws_g;
+
+	int fw = r->w;
+	int fh = r->h;
+	int wd = (int)xwm.theme.frameW;
+	if(wd <= 0)
+		wd = 2;
+
+	uint32_t tint = glassTint();
+
+	/*the border ring: frost the four bands that make up the frame edge. The
+	  title band is frosted in drawTitle, which runs before this and already
+	  carries the title text and the buttons, so the ring stops at the title
+	  and never paints over it. The client interior is left alone: the
+	  compositor sources it straight from the buffer the client published.*/
+	frostRegion(desktop_g, frame_g, info, r->x, r->y, fw, wd, tint, GLASS_BLUR);               //top
+	frostRegion(desktop_g, frame_g, info, r->x, r->y+fh-wd, fw, wd, tint, GLASS_BLUR);         //bottom
+	frostRegion(desktop_g, frame_g, info, r->x, r->y+wd, wd, fh-wd*2, tint, GLASS_BLUR);       //left
+	frostRegion(desktop_g, frame_g, info, r->x+fw-wd, r->y+wd, wd, fh-wd*2, tint, GLASS_BLUR); //right
+
+	/*round the corners: the arc mask cuts everything outside the rounded
+	  corner to transparent, blending the glass edge into the shadow. Same
+	  geometry ewokwm uses, so the compositor's frame_alpha path applies.*/
+	int round = (int)xwm.theme.round;
+	if(round > 0)
+		markFrameRound(frame_g, r, round);
+}
+
+void MisaWM::drawShadow(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top) {
+	int shadow = (int)xwm.theme.shadow;
+	if(shadow <= 0)
+		return;
+
+	/*the shadow lives in the right/bottom bands getWinSpace reserved in
+	  winr, so the rounded frame itself ends at fw/fh*/
+	int fw = (int)info->winr.w - shadow;
+	int fh = (int)info->winr.h - shadow;
+	int round = (int)xwm.theme.round;
+	if(round > fw/2) round = fw/2;
+	if(round > fh/2) round = fh/2;
+
+	if(round <= 0) { /*square frame: the stock band shadow fits*/
+		XWM::drawShadow(desktop_g, g, info, top);
+		return;
+	}
+
+	uint32_t color = 0x88000000;
+	uint8_t a = color_a(color);
+
+	/*a drop shadow is the window silhouette moved by (shadow,shadow) minus
+	  the window itself: a pixel gets shadow when it lies inside the offset
+	  rounded rect and outside the window's. The offset silhouette is what
+	  clips the crescents at the top-right/bottom-left arcs and rounds the
+	  outer edge of the bottom-right wrap, so no hand built band junctions
+	  are left to seam or spike. Doubled coordinates keep the pixel centers
+	  in integers; ring i = i pixels outside the window edge, fading like
+	  graph_shadow does.*/
+	int fw2 = fw*2, fh2 = fh*2, r2 = round*2, s2 = shadow*2;
+	int rr = r2*r2;
+	int x0 = fw - round; if(x0 < 0) x0 = 0;
+	int x1 = fw + shadow; if(x1 > g->w) x1 = g->w;
+	int y0 = fh - round; if(y0 < 0) y0 = 0;
+	int y1 = fh + shadow; if(y1 > g->h) y1 = g->h;
+
+	/*right strip: the shadow columns plus the corner squares left of them,
+	  full height down to the bottom shadow rows*/
+	for(int px = x0; px < x1; px++) {
+		int PX = px*2 + 1;
+		int dx = (PX > fw2 - r2) ? PX - (fw2 - r2) : ((PX < r2) ? r2 - PX : 0);
+		int ox = (PX > fw2 + s2 - r2) ? PX - (fw2 + s2 - r2)
+				: ((PX < s2 + r2) ? s2 + r2 - PX : 0);
+		for(int py = 0; py < y1; py++) {
+			int PY = py*2 + 1;
+			int dy = (PY > fh2 - r2) ? PY - (fh2 - r2) : ((PY < r2) ? r2 - PY : 0);
+			int dd = dx*dx + dy*dy;
+			if(dd < rr)
+				continue; //inside the window itself
+			int oy = (PY > fh2 + s2 - r2) ? PY - (fh2 + s2 - r2)
+					: ((PY < s2 + r2) ? s2 + r2 - PY : 0);
+			if(ox*ox + oy*oy >= rr)
+				continue; //outside the offset silhouette
+
+			int i = 0;
+			while(i < shadow) {
+				int t = r2 + (i+1)*2;
+				if(dd < t*t)
+					break;
+				i++;
+			}
+			if(i >= shadow)
+				continue;
+			uint8_t alpha = (uint8_t)(a * (shadow - i) / shadow);
+			graph_pixel(g, px, py,
+					((uint32_t)alpha << 24) | (color & 0x00ffffff));
+		}
+	}
+
+	/*bottom strip left of the right corner square (that one is done above)*/
+	for(int py = y0; py < y1; py++) {
+		int PY = py*2 + 1;
+		int dy = (PY > fh2 - r2) ? PY - (fh2 - r2) : ((PY < r2) ? r2 - PY : 0);
+		int oy = (PY > fh2 + s2 - r2) ? PY - (fh2 + s2 - r2)
+				: ((PY < s2 + r2) ? s2 + r2 - PY : 0);
+		for(int px = 0; px < x0; px++) {
+			int PX = px*2 + 1;
+			int dx = (PX > fw2 - r2) ? PX - (fw2 - r2) : ((PX < r2) ? r2 - PX : 0);
+			int dd = dx*dx + dy*dy;
+			if(dd < rr)
+				continue;
+			int ox = (PX > fw2 + s2 - r2) ? PX - (fw2 + s2 - r2)
+					: ((PX < s2 + r2) ? s2 + r2 - PX : 0);
+			if(ox*ox + oy*oy >= rr)
+				continue;
+
+			int i = 0;
+			while(i < shadow) {
+				int t = r2 + (i+1)*2;
+				if(dd < t*t)
+					break;
+				i++;
+			}
+			if(i >= shadow)
+				continue;
+			uint8_t alpha = (uint8_t)(a * (shadow - i) / shadow);
+			graph_pixel(g, px, py,
+					((uint32_t)alpha << 24) | (color & 0x00ffffff));
+		}
+	}
+}
+
+void MisaWM::drawTitle(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r, bool top) {
+	uint32_t fg, bg;
+	getColor(&fg, &bg, top);
+	(void)bg;
+
+	/*the title bar is part of the glass sheet: frost it first, then centre
+	  the title text on top. This runs before the buttons and before
+	  drawFrame, so nothing painted here gets overwritten by the ring.*/
+	frostRegion(desktop_g, g, info, r->x, r->y, r->w, r->h, glassTint(), GLASS_BLUR);
+
+	gsize_t sz;
+	font_text_size(info->title, font, xwm.theme.fontSize, (uint32_t*)&sz.w, (uint32_t*)&sz.h);
+	int pw = (r->w-sz.w)/2;
+	int ph = (r->h-sz.h)/2;
+	graph_draw_text_font(g, r->x+pw, r->y+ph, info->title, font, xwm.theme.fontSize, fg);
+}
+
+void MisaWM::getClose(xinfo_t* info, grect_t* rect) {
+	(void)info;
+	rect->x = xwm.theme.frameW;
+	rect->y = xwm.theme.frameW;
+	rect->w = xwm.theme.titleH;
+	rect->h = xwm.theme.titleH;
+}
+
+void MisaWM::getMax(xinfo_t* info, grect_t* rect) {
+	(void)info;
+	rect->x = xwm.theme.frameW + xwm.theme.titleH;
+	rect->y = xwm.theme.frameW;
+	rect->w = xwm.theme.titleH;
+	rect->h = xwm.theme.titleH;
+}
+
+void MisaWM::drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
+	(void)info;
+	if(!top)
+		return;
+	uint32_t fg, bg;
+	getColor(&fg, &bg, top);
+
+	uint32_t dark, bright;
+	graph_get_3d_color(bg, &dark, &bright);
+
+	graph_line(g,
+			r->x + r->w - xwm.theme.frameW + 1, r->y,
+			r->x + r->w, r->y, dark);
+	graph_line(g,
+			r->x + r->w - xwm.theme.frameW + 1, r->y + 1,
+			r->x + r->w, r->y + 1, bright);
+	graph_line(g,
+			r->x, r->y + r->h - xwm.theme.frameW + 1,
+			r->x, r->y + r->h, dark);
+	graph_line(g,
+			r->x + 1, r->y + r->h - xwm.theme.frameW + 1,
+			r->x + 1, r->y + r->h, bright);
+}
+
+void MisaWM::drawMin(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
+	(void)g; (void)info; (void)r; (void)top;
+}
+
+void MisaWM::drawMax(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
+	(void)info; (void)top;
+	graph_fill_circle_3d(g, r->x+r->w/2, r->y+r->h/2, r->w/2-3, 1, 0xff66aa22, false);
+}
+
+void MisaWM::drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
+	(void)info; (void)top;
+	graph_fill_circle_3d(g, r->x+r->w/2, r->y+r->h/2, r->w/2-3, 1, 0xffdd6666, false);
+}
+
+MisaWM::~MisaWM(void) {
+	if(roundMask != NULL)
+		graph_free(roundMask);
+	if(backdropSharp != NULL)
+		graph_free(backdropSharp);
+	if(frostCache != NULL)
+		graph_free(frostCache);
+}
+
+MisaWM::MisaWM(void) {
+	roundMask = NULL;
+	roundMaskSize = 0;
+	backdropSharp = NULL;
+	frostCache = NULL;
+	frostX = frostY = frostW = frostH = 0;
+	frostValid = false;
+	xwm.theme.desktopBGColor = 0xff555588;
+	xwm.theme.desktopFGColor = 0xff8888aa;
+	xwm.theme.frameBGColor = 0xffe8eef7;
+	xwm.theme.frameFGColor = 0xff202428;
+	xwm.theme.titleH = 24;
+}

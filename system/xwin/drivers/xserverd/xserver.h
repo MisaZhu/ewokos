@@ -39,6 +39,12 @@ typedef struct st_xwin {
 	graph_t* ws_g; //workspace graph, owns its shm canvas (graph_new_shm)
 	graph_t* ws_g2; //second workspace graph for fps_async double-buffering (graph_new_shm), NULL when fps_async=0
 	graph_t* frame_g; //frame graph, owns its shm canvas (graph_new_shm)
+	/*clean snapshot of everything below this window, in window-local coords,
+	  maintained by the compositor whenever something below repaints. Handed
+	  to xwm as the DRAW_FRAME desktop graph when the theme asks for a blurred
+	  (frosted) frame, so xwm never has to sample its own output. NULL unless
+	  the theme enables frame_blur.*/
+	graph_t* backdrop;
 
 	xinfo_t* xinfo;
 	bool dirty;

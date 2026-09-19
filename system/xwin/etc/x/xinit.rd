@@ -12,6 +12,9 @@
 @export XTHEME=ewokwm
 @/bin/ipcserv /sbin/x/xwm_ewok
 
+@export XTHEME=misawm
+@/bin/ipcserv /sbin/x/xwm_misa
+
 @/bin/x/statusbar &
 @/bin/x/xlauncher &
 @/bin/mp3player /usr/system/sounds/start.mp3 &

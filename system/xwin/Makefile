@@ -3,12 +3,12 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 ROOT_DIR = ..
 
 
-DIRS = libs drivers bin sbin xwm/opencde xwm/ewokwm apps
+DIRS = libs drivers bin sbin xwm/opencde xwm/ewokwm xwm/misawm apps
 all: mkdirs $(DIRS)
 	@echo "all done."
 
 # everything else links against the x libs
-drivers bin sbin xwm/opencde xwm/ewokwm apps: libs
+drivers bin sbin xwm/opencde xwm/ewokwm xwm/misawm apps: libs
 $(DIRS): mkdirs
 	@$(MAKE) -C $@
 

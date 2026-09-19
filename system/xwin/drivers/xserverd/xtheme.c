@@ -74,6 +74,7 @@ int x_load_xwm_theme(const char* name, xwm_theme_t* theme) {
     theme->bgEffect = json_get_int_def(conf_var, "bg_effect", 0);
     theme->frameAlpha = json_get_int_def(conf_var, "frame_alpha",
             json_get_int_def(conf_var, "alpha", 0));
+    theme->frameBlur = json_get_int_def(conf_var, "frame_blur", 0);
 
     /*a shadow is not a reason for frame alpha: it lives in its own strips
       right of and below the window, and the compositor handles those

@@ -14,6 +14,43 @@ static bool top_proc(x_t* x, xwin_t* win) {
     return false;
 }
 
+/*a frosted frame needs the real backdrop: xserverd keeps a clean per-window
+  snapshot of everything below the window and hands it to xwm instead of the
+  display, which under a placed window only carries that window's own glass*/
+static bool win_backdrop_active(x_t* x, xwin_t* win) {
+    return x->config.xwm_theme.frameBlur != 0 && frame_cuts_ws(x, win);
+}
+
+/*copy rect (display coords) of the current display into the window-local
+  backdrop. Only call while the display in rect holds exactly what is below
+  win: right after something below repainted it, or during a bottom-to-top
+  rebuild before win itself is composited.*/
+static void capture_backdrop(x_t* x, xwin_t* win, const grect_t* rect) {
+    if(!win_backdrop_active(x, win))
+        return;
+    x_display_t* display = &x->displays[win->xinfo->display_index];
+    if(display->g == NULL)
+        return;
+
+    int32_t ww = win->xinfo->winr.w;
+    int32_t wh = win->xinfo->winr.h;
+    if(win->backdrop == NULL || win->backdrop->w != ww || win->backdrop->h != wh) {
+        if(win->backdrop != NULL)
+            graph_free(win->backdrop);
+        win->backdrop = graph_new_shm(ww, wh);
+        if(win->backdrop == NULL)
+            return;
+    }
+
+    grect_t d = *rect;
+    grect_t bounds = {win->xinfo->winr.x, win->xinfo->winr.y, ww, wh};
+    if(!grect_insect(&bounds, &d) || d.w <= 0 || d.h <= 0)
+        return;
+    graph_blt(display->g, d.x, d.y, d.w, d.h,
+            win->backdrop, d.x - win->xinfo->winr.x, d.y - win->xinfo->winr.y,
+            d.w, d.h);
+}
+
 static void win_mark_frame_dirty(x_t* x, xwin_t* win) {
     x_display_t *display = &x->displays[win->xinfo->display_index];
 
@@ -105,10 +142,13 @@ static void prepare_win_content(x_t* x, xwin_t* win) {
         return;
 
     proto_t in;
+    graph_t* src = display->g;
+    if(win_backdrop_active(x, win) && win->backdrop != NULL)
+        src = win->backdrop; //window-local clean backdrop, not the display
     PF->format(&in, "i,i,i,m",
-        display->g_shm_id,
-        display->g->w,
-        display->g->h,
+        src == display->g ? display->g_shm_id : src->shm_id,
+        src->w,
+        src->h,
         win->xinfo, sizeof(xinfo_t));
 
     if(top_proc(x, win))
@@ -339,6 +379,15 @@ static void blit_win_part(x_t* x, xwin_t* win, graph_t* disp_g,
 /*out_dmg gets the area of disp_g the window actually touched*/
 int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
     win_mark_frame_dirty(x, win);
+
+    /*during a bottom-to-top rebuild the display under the window holds only
+      what is below it right now, and a changed placement exposes a place the
+      window never covered: both are clean backdrop worth snapshotting*/
+    x_display_t* bd = &x->displays[win->xinfo->display_index];
+    if(win_backdrop_active(x, win) &&
+            (bd->dirty || !win->shadow_valid ||
+             memcmp(&win->shadow_rect, &win->xinfo->winr, sizeof(grect_t)) != 0))
+        capture_backdrop(x, win, &win->xinfo->winr);
 
     prepare_win_content(x, win);
 
@@ -604,6 +653,10 @@ void refresh_shadows_above(x_t* x, xwin_t* below, const grect_t* region) {
         if(w->ready && w->xinfo != NULL && w->xinfo->visible &&
                 w->xinfo->display_index == below->xinfo->display_index &&
                 w->frame_g != NULL) {
+            /*the region was just repainted fresh from below upwards, so the
+              display in it holds exactly what is below w: refresh w's
+              backdrop before its own translucent parts get re-blended*/
+            capture_backdrop(x, w, region);
             if(w->xinfo->alpha) {
                 /*a translucent window keeps its whole picture blended on the
                   display, so a fresh repaint below wipes content and shadow

@@ -1,0 +1,27 @@
+{
+    "desktop_fg_color": "0xff555588",
+    "desktop_bg_color": "0xff6666aa",
+
+    "#frame_bg_color": "RGB base of the frosted-glass tint; MisaWM blends it semi-transparently over the blurred desktop",
+    "frame_bg_color": "0xffe8eef7",
+    "frame_fg_color": "0xff202428",
+
+    "font_size": 13,
+    "title_h": 24,
+    "#frame_width": "thickness of the frosted-glass border band; the glass border follows this exactly",
+    "frame_width": 1,
+    "shadow": 8,
+
+    "#round": "radius of the rounded frame corners, 0 = square",
+    "round": 12,
+
+    "#bg_effect": "0: none; 1: transparent; 2: dots; 3: glass; 4: gaussian",
+    "bg_effect": 0,
+    "frame_alpha": 1,
+    "#frame_blur": "xserverd keeps a clean per-window snapshot of what is below and hands it to xwm as the DRAW_FRAME desktop, so the frost blurs the real backdrop",
+    "frame_blur": 1,
+
+    "pattern": "/usr/system/images/wallpapers/wallpaper1.png",
+    "#pattern_mode": "0 auto, 1 tile, 2 center, 3 fit",
+    "pattern_mode": 0
+}

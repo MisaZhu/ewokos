@@ -59,6 +59,10 @@ typedef struct {
 	uint32_t desktopPatternMode;
 	uint32_t bgEffect;
 	bool     frameAlpha;
+	/*xserverd keeps a clean per-window snapshot of whatever sits below the
+	  window and hands it to xwm as the DRAW_FRAME desktop graph, so a frosted
+	  frame can blur the real backdrop without ever sampling its own output*/
+	uint32_t frameBlur;
 } xwm_theme_t;
 
 #ifdef __cplusplus
