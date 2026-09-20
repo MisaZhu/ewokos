@@ -50,6 +50,12 @@ class string {
         char& at(size_t pos);
         const char& at(size_t pos) const;
 
+        char& front();
+        const char& front() const;
+        char& back();
+        const char& back() const;
+        void pop_back();
+
         string& operator+=(const string& str);
         string& operator+=(const char* s);
         string& operator+=(char c);

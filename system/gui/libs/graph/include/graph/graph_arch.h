@@ -20,8 +20,6 @@ void  graph_scale_tof_fast_arch(graph_t* g, graph_t* dst, double scale);
 
 void graph_rotate_to_arch(graph_t* g, graph_t* ret, int rot);
 
-void  graph_glass_arch(graph_t* g, int x, int y, int w, int h, int r);
-
 void  graph_gaussian_arch(graph_t* g, int x, int y, int w, int h, int r);
 
 void argb_2_nv12_arch(uint8_t  *out,  uint32_t *in , int w, int h);

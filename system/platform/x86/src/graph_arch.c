@@ -22,7 +22,6 @@ void graph_blt_mask_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_
 void graph_scale_tof_cpu(graph_t* g, graph_t* dst, float scale);
 void graph_rotate_to_cpu(graph_t* g, graph_t* dst, int rot);
 void graph_gaussian_cpu(graph_t* g, int x, int y, int w, int h, int r);
-void graph_glass_cpu(graph_t* g, int x, int y, int w, int h, int r);
 
 #ifdef ARCH_BOOST
 static inline void x86_stream_copy_row(uint32_t* dst, const uint32_t* src, int32_t pixels) {
@@ -225,10 +224,6 @@ void graph_scale_tof_fast_arch(graph_t* g, graph_t* dst, double scale) {
 
 void graph_rotate_to_arch(graph_t* g, graph_t* dst, int rot) {
     graph_rotate_to_cpu(g, dst, rot);
-}
-
-void graph_glass_arch(graph_t* g, int x, int y, int w, int h, int r) {
-    graph_glass_cpu(g, x, y, w, h, r);
 }
 
 void graph_gaussian_arch(graph_t* g, int x, int y, int w, int h, int r) {

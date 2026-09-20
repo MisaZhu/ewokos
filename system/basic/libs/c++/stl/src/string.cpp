@@ -333,6 +333,34 @@ const char& string::at(size_t pos) const {
     return data_[pos];
 }
 
+char& string::front() {
+    assert(length_ > 0);
+    return data_[0];
+}
+
+const char& string::front() const {
+    assert(length_ > 0);
+    return data_[0];
+}
+
+char& string::back() {
+    assert(length_ > 0);
+    return data_[length_ - 1];
+}
+
+const char& string::back() const {
+    assert(length_ > 0);
+    return data_[length_ - 1];
+}
+
+void string::pop_back() {
+    assert(length_ > 0);
+    if (length_ > 0) {
+        --length_;
+        data_[length_] = '\0';
+    }
+}
+
 string& string::operator+=(const string& str) {
     size_t newSize = length_ + str.length_;
     if (newSize > (capacity_ - 1)) {

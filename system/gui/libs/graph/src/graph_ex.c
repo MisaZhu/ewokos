@@ -370,62 +370,6 @@ void graph_shadow(graph_t* g, int x, int y, int w, int h, uint8_t shadow, uint32
     graph_shadow_round(g, x, y, w, h, 0, shadow, color);
 }
 
-/**
- * 使用普通C实现的毛玻璃效果算法
- * @param args 图像数据，uint32_t ARGB格式
- * @param width 图像宽度
- * @param height 图像高度
- * @param x 处理区域左上角x坐标
- * @param y 处理区域左上角y坐标
- * @param w 处理区域宽度
- * @param h 处理区域高度
- * @param r 模糊半径
- */
-void graph_glass_cpu(graph_t* g, int x, int y, int w, int h, int r) {
-    uint32_t* args = g->buffer;
-    if(args == NULL)
-        return;
-
-    grect_t ir = {x, y, w, h};
-        if(!graph_insect(g, &ir))
-                return;
-        x = ir.x;
-        y = ir.y;
-        w = ir.w;
-        h = ir.h;
-
-    // Initialize random number generator (use fixed seed for consistent effect)
-    srand(0x12345678);
-    
-    // Process each pixel
-    for (int j = y; j < y + h; j++) {
-        for (int i = x; i < x + w; i++) {
-            // Randomly select a surrounding pixel
-            int rx = i + (rand() % (2 * r + 1)) - r;
-            int ry = j + (rand() % (2 * r + 1)) - r;
-            
-            // Boundary check
-            rx = (rx < x) ? x : ((rx >= x + w) ? x + w - 1 : rx);
-            ry = (ry < y) ? y : ((ry >= y + h) ? y + h - 1 : ry);
-            
-            // Get pixel value from random position in temporary buffer and write to original image
-            args[j * g->w + i] = args[ry * g->w + rx];
-        }
-    }
-}
-
-void graph_glass(graph_t* g, int x, int y, int w, int h, int r) {
-    if(r > w)
-        r = w;
-    if(r > h)
-        r = h;
-#ifdef ARCH_BOOST 
-    graph_glass_arch(g, x, y, w, h, r);
-#else
-    graph_glass_cpu(g, x, y, w, h, r);
-#endif
-}
-
 // Helper function: draw anti-aliased pixel (using integer alpha)
 static inline void draw_aa_pixel_int_ex(graph_t* g, int32_t x, int32_t y, uint32_t color, uint8_t alpha) {
     if (alpha <= 0) return;

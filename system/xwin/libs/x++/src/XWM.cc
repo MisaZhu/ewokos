@@ -392,9 +392,6 @@ void XWM::drawBGEffect(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinf
 		case BG_EFFECT_DOT:
 			graph_draw_dot_pattern(bg, 0, 0, w, h, 0x33ffffff, 0x33000000, 2, 1);
 			break;
-		case BG_EFFECT_GLASS:
-			graph_glass(bg, 0, 0, w, h, 3);
-			break;
 		case BG_EFFECT_GAUSSIAN:
 			graph_gaussian(bg, 0, 0, w, h, 3);
 			break;
