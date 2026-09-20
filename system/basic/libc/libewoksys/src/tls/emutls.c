@@ -59,6 +59,7 @@ typedef struct {
 	void**   slots;   /* slots[i] is this task's buffer for variable i   */
 	void**   chunks;  /* chunks[i] is the malloc it was carved out of    */
 	uint32_t capacity; /* entries in both arrays                          */
+	int32_t  tid;      /* cached kernel thread id, -1 until first stored  */
 } emutls_block_t;
 
 static volatile int _emutls_index_lock = 0;
@@ -118,6 +119,7 @@ static emutls_block_t* emutls_self(void) {
 	if(blk == NULL)
 		abort();
 	memset(blk, 0, sizeof(emutls_block_t));
+	blk->tid = -1;
 	emutls_tls_set(blk);
 	return blk;
 }
@@ -203,6 +205,58 @@ void __emutls_register_common(emutls_object_t* obj, uint64_t size, uint64_t alig
 }
 
 /*
+ * Per-task cache of the kernel thread id, so thread_get_id()/pthread_self()
+ * answers from a TPIDR_EL0 register read instead of trapping. This matters
+ * because thread_get_id() is called from inside the heap lock
+ * (__malloc_lock -> proc_global_lock) on every malloc/free, and it must never
+ * malloc there: a malloc would re-enter the heap lock and, needing the tid
+ * again, recurse without end. So only __ewok_tls_init_tid allocates, and it is
+ * called solely at a thread's entry point, before that thread can take the
+ * heap lock on its own behalf.
+ *
+ * __ewok_tls_get_tid:   the cached id, or -1 if this task has no block yet or
+ *                       the id was never stored. Never allocates.
+ * __ewok_tls_cache_tid: store into an EXISTING block only; a no-op when there
+ *                       is none. Never allocates, so it is safe on the slow
+ *                       path of thread_get_id() even under the heap lock.
+ * __ewok_tls_init_tid:  store, creating the block if needed. The malloc
+ *                       emutls_self() may perform is recursion-safe because
+ *                       the block is published to TPIDR_EL0 only after that
+ *                       malloc returns, so a re-entrant thread_get_id() still
+ *                       sees no block and takes one syscall rather than trying
+ *                       to create the block again.
+ */
+int32_t __ewok_tls_get_tid(void) {
+	emutls_block_t* blk = (emutls_block_t*)emutls_tls_get();
+	return (blk == NULL) ? -1 : blk->tid;
+}
+
+void __ewok_tls_cache_tid(int32_t tid) {
+	emutls_block_t* blk = (emutls_block_t*)emutls_tls_get();
+	if(blk != NULL)
+		blk->tid = tid;
+}
+
+void __ewok_tls_init_tid(int32_t tid) {
+	emutls_block_t* blk = emutls_self();
+	blk->tid = tid;
+}
+
+/*
+ * Clears the calling task's TLS block pointer (TPIDR_EL0). _start() calls this
+ * first thing: a new image must begin with fresh thread_locals, and although
+ * the kernel zeroes proc->tls_base for the new image it only reloads the
+ * physical register on the next proc_switch, so immediately after exec TPIDR_EL0
+ * still holds the pre-exec value - a pointer into the OLD image's heap, now
+ * unmapped. Left alone, the first emutls access treats that stale pointer as a
+ * live block and faults writing through it (e.g. __ewok_tls_init_tid storing
+ * the tid). Clearing it makes emutls_self() allocate a fresh block instead.
+ */
+void __ewok_tls_reset(void) {
+	emutls_tls_set(NULL);
+}
+
+/*
  * Releases everything the calling task's thread_locals occupy. Called from the
  * libc thread teardown path; the task is about to stop existing, so its
  * TPIDR_EL0 is cleared first - a block that is freed while the register still
@@ -232,6 +286,25 @@ void __ewok_emutls_thread_exit(void) {
  * before, and the teardown call from thread_create is a no-op.
  */
 void __ewok_emutls_thread_exit(void) {
+}
+
+/*
+ * The thread-id cache has nowhere to live without a kernel-carried TLS base,
+ * so thread_get_id() keeps trapping on these architectures, exactly as before.
+ */
+int32_t __ewok_tls_get_tid(void) {
+	return -1;
+}
+
+void __ewok_tls_cache_tid(int32_t tid) {
+	(void)tid;
+}
+
+void __ewok_tls_init_tid(int32_t tid) {
+	(void)tid;
+}
+
+void __ewok_tls_reset(void) {
 }
 
 #endif /* __aarch64__ */

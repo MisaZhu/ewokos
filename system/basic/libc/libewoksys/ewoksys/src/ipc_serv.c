@@ -1,6 +1,7 @@
 #include <ewoksys/ipc.h>
 #include <ewoksys/ipc_serv.h>
 #include <ewoksys/syscall.h>
+#include <ewoksys/thread.h>
 #include <ewoksys/core.h>
 
 #ifdef __cplusplus
@@ -101,6 +102,19 @@ extern "C"
 
     static void handle_ipc(uint32_t ipc_id, void *p)
     {
+        /*
+         * Kernel ipc workers (IPC_MULTI_TASK / IPC_MULTI_CORE) are spawned
+         * straight into this handler and never pass through thread_entry(), so
+         * cache the thread id in the worker's TLS block on its first request.
+         * Guarded by __ewok_tls_get_tid() (a TPIDR_EL0 read that never traps or
+         * mallocs), it is free once cached and keeps the heap lock's
+         * pthread_self() off the syscall path for the pool workers that malloc
+         * the most (netd, vfsd). In single-task mode this runs on the main
+         * context, whose id _start() already cached, so the guard skips it.
+         */
+        if(__ewok_tls_get_tid() < 0)
+            __ewok_tls_init_tid((int32_t)syscall0(SYS_GET_THREAD_ID));
+
         int32_t pid, cmd;
         proto_t in;
         PF->init(&in);

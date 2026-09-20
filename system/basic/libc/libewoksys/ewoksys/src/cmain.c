@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <ewoksys/syscall.h>
+#include <ewoksys/thread.h>
 #include <ewoksys/signal.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/vfs.h>
@@ -185,6 +186,16 @@ void _start(void) {
         *p++ = 0;
     }
 
+    /*
+     * A new image starts with fresh thread_locals. The kernel zeroes this proc's
+     * tls_base for the new image but only reloads the physical TPIDR_EL0 on the
+     * next context switch, so right after exec the register still points at the
+     * pre-exec image's (now unmapped) emutls block. Clear it before any TLS use,
+     * or __ewok_tls_init_tid() below would write the tid through that stale
+     * pointer and take a data abort.
+     */
+    __ewok_tls_reset();
+
     _current_pid = -1;
     _current_pid = getpid();
 
@@ -195,6 +206,15 @@ void _start(void) {
     _libc_init();
     //__ewok_malloc_init();
     proc_init();
+    /*
+     * Cache the main context's kernel thread id in its TLS block (see
+     * src/tls/emutls.c) so the heap lock's pthread_self() is a register read
+     * rather than a syscall once this process goes multi-threaded. Done while
+     * still single-threaded - before any thread_create() or ipc worker pool
+     * exists - so the malloc emutls_self() performs cannot recurse into the
+     * heap lock.
+     */
+    __ewok_tls_init_tid((int32_t)syscall0(SYS_GET_THREAD_ID));
     sys_signal_init();
     vfs_init();
     init_cmd();
