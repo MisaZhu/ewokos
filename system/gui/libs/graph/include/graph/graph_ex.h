@@ -26,6 +26,8 @@ void graph_glass(graph_t* g,int x, int y, int w, int h, int r);
 void graph_gaussian_cpu(graph_t* g,int x, int y, int w, int h, int r);
 void graph_gaussian(graph_t* g,int x, int y, int w, int h, int r);
 void graph_shadow(graph_t* g, int x, int y, int w, int h, uint8_t shadow, uint32_t color);
+/*same, for a box with rounded corners of radius round*/
+void graph_shadow_round(graph_t* g, int x, int y, int w, int h, int round, uint8_t shadow, uint32_t color);
 
 // Ring (annulus) drawing functions
 void graph_ring_arc(graph_t* g, int cx, int cy, int radius, int thickness, int rw,

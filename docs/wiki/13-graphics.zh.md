@@ -159,7 +159,9 @@ canvas.phy = shm_contig_phy_addr(g->shm_id, (ewokos_addr_t)g->buffer);
 （`ewokwm`、`mac1984`、`openlook` 等，由环境变量 `XTHEME` 选择）。
 xwm 本身是一个独立的用户态进程，它与 xserverd 之间的 IPC 协议、
 共享内存绘制机制以及“如何写一个自己的窗口管理器”，
-在 [第 20 章](20-xwm.zh.md) 专章详解。
+在 [第 20 章](20-xwm.zh.md) 专章详解。xserverd 自己这一侧——客户端怎样把
+画好的帧交给服务器、服务器如何只重画变化的窗口并只把脏矩形推给显示驱动——
+在 [第 22 章](22-xserverd-render.zh.md) 专章详解。
 
 ### ④ 启动画面与控制台
 
@@ -202,5 +204,6 @@ xwm 本身是一个独立的用户态进程，它与 xserverd 之间的 IPC 协�
 - `xserverd` 用 `IPC_MULTI_TASK` 多线程池并行处理请求，保证鼠标低延迟；
 - 窗口、主题、事件分发都在用户态，崩了也不会带垮系统。
 
-想继续深入窗口系统，可以先读 [第 20 章 xwm 窗口管理器](20-xwm.zh.md)；
+想继续深入窗口系统，可以先读 [第 20 章 xwm 窗口管理器](20-xwm.zh.md)，
+再读 [第 22 章 xserverd 合成器](22-xserverd-render.zh.md)；
 下一章：把这一切真正放进一块 SD 卡，点亮你的树莓派。

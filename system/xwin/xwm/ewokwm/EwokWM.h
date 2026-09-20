@@ -22,7 +22,6 @@ protected:
 	void drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top);
 	void drawDragFrame(graph_t* g, grect_t* r);
 	void drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinfo_t* info, grect_t* r, bool top);
-	void drawShadow(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top);
 	void drawTitle(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r, bool top);
 	void drawResize(graph_t* g, xinfo_t* info, grect_t* r, bool top);
 public:

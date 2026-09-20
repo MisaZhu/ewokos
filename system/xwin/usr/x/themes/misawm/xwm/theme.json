@@ -10,7 +10,7 @@
     "title_h": 24,
     "#frame_width": "thickness of the frosted-glass border band; the glass border follows this exactly",
     "frame_width": 1,
-    "shadow": 8,
+    "shadow": 5,
 
     "#round": "radius of the rounded frame corners, 0 = square",
     "round": 12,

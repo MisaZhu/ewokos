@@ -24,6 +24,7 @@ Part 3: Userland / 第 3 部分：用户态
 Part 4: The Full System / 第 4 部分：完整系统
 * 13. [Graphics & Windows](13-graphics) · [图形系统与窗口系统](13-graphics.zh)
 * 20. [xwm Window Manager](20-xwm) · [xwm 窗口管理器](20-xwm.zh)
+* 22. [xserverd Compositor](22-xserverd-render) · [xserverd 合成器与脏区机制](22-xserverd-render.zh)
 * 14. [Image & Flashing](14-raspi-image) · [制作镜像并烧录](14-raspi-image.zh)
 * 15. [Debugging & Beyond](15-debug) · [调试与进阶](15-debug.zh)
 

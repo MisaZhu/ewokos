@@ -558,3 +558,9 @@ at Ch. 13's layering diagram: from a piece of bare memory requested via
 the mailbox, to the graph library's brushes, to xserverd's compositing and
 dispatch, to xwm dressing every window — every layer is an ordinary
 userland process plus IPC. That is the beauty of a microkernel.
+
+This chapter treated xserverd only as "the side that calls xwm". How it
+accepts client frames, decides which windows need repainting, stitches
+`frame_g` and the client buffers into one frame and pushes only the dirty
+rectangles — read on in
+[Ch. 22: The xserverd Compositor: Rendering Flow and Dirty Regions](22-xserverd-render.md).

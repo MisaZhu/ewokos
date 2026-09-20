@@ -186,8 +186,11 @@ static void draw_frame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinf
 void XWM::drawShadow(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top) {
     if(xwm.theme.shadow == 0)
         return;
+	/*the shadow lives in the right/bottom bands getWinSpace reserved in
+	  winr; the silhouette follows the theme's corner radius*/
 	uint32_t color = 0x88000000;
-	graph_shadow(g, 0, 0, info->winr.w, info->winr.h, xwm.theme.shadow, color);
+	graph_shadow_round(g, 0, 0, info->winr.w, info->winr.h,
+			(int)xwm.theme.round, xwm.theme.shadow, color);
 }
 
 void draw_shadow(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top, void* p) {

@@ -273,29 +273,101 @@ void graph_gaussian(graph_t* g, int x, int y, int w, int h, int r) {
 #endif
 }
 
-void graph_shadow(graph_t* g, int x, int y, int w, int h, uint8_t shadow, uint32_t color) {
-    if(shadow == 0)
+/*drop shadow of a rounded rect: the silhouette of the box [x,y,w-shadow,h-shadow)
+  moved by shadow/2 and gaussian blurred by the rest, kept only outside the box
+  itself, so it fills the right/bottom bands of width shadow inside (x,y,w,h).*/
+void graph_shadow_round(graph_t* g, int x, int y, int w, int h, int round, uint8_t shadow, uint32_t color) {
+    if(g == NULL || g->buffer == NULL || shadow == 0)
         return;
-    // Right shadow, transparency decreases from left to right
-    int rightX = x + w - shadow;
-    int rightY = y + shadow;
-    int rightW = shadow;
-    int rightH = h - shadow;
-    uint8_t a =  color_a(color);
-    for (int i = 0; i < rightW; ++i) {
-        uint8_t alpha = (uint8_t)(a * (rightW-i)/rightW);
-        graph_line(g, rightX + i, rightY+i, rightX + i, rightY+i + rightH-(rightW), (alpha << 24) | (0x00FFFFFF & color));
+    int fw = w - shadow;
+    int fh = h - shadow;
+    if(fw <= 0 || fh <= 0)
+        return;
+    if(round < 0) round = 0;
+    if(round > fw/2) round = fw/2;
+    if(round > fh/2) round = fh/2;
+
+    /*off+blur == shadow so the falloff runs out exactly at the band edge*/
+    int off = shadow/2;
+    int blur = shadow - off;
+    int pad = shadow; /*>= blur: no read pixel ever has samples beyond the mask*/
+    int mw = fw + shadow + 2*pad;
+    int mh = fh + shadow + 2*pad;
+    graph_t* m = graph_new(NULL, mw, mh);
+    if(m == NULL)
+        return;
+
+    /*the silhouette lives in the RGB channels of an opaque mask: the NEON
+      gaussian blurs alpha too but the CPU fallback does not, intensity works
+      with both*/
+    graph_clear(m, 0xff000000);
+    graph_fill_round(m, pad+off, pad+off, fw, fh, round, 0xffffffff);
+
+    /*blur only the L the shadow occupies: a right strip of full height and the
+      bottom strip left of it. The split runs where the silhouette is uniform
+      along the axis the blur samples across, so clipping the kernel at the
+      split changes nothing; a box too small for that is blurred whole.*/
+    int xs = pad + fw - round - 2*shadow;
+    int ys = pad + fh - round - 2*shadow;
+    if(xs >= pad + off + round + blur && ys >= pad + off + round + blur) {
+        graph_gaussian(m, xs, 0, mw - xs, mh, blur);
+        graph_gaussian(m, 0, ys, xs, mh - ys, blur);
+    }
+    else {
+        graph_gaussian(m, 0, 0, mw, mh, blur);
     }
 
-    // Bottom shadow, transparency decreases from top to bottom
-    int bottomX = x + shadow;
-    int bottomY = y + h - shadow;
-    int bottomW = w - shadow*2-1;
-    int bottomH = shadow;
-    for (int i = 0; i < bottomH; ++i) {
-        uint8_t alpha = (uint8_t)(a * (bottomH-i)/bottomH);
-        graph_line(g, bottomX+i, bottomY + i, bottomX+ i + bottomW, bottomY + i, (alpha << 24) | (0x00FFFFFF & color));
+    /*calibrate on the straight right band at mid height: the innermost
+      column gets the full shadow colour, the outermost fades to nothing, so
+      the look does not depend on which blur kernel the platform ships*/
+    int my = pad + fh/2;
+    uint32_t hi = color_r(m->buffer[my*mw + pad + fw]);
+    uint32_t lo = color_r(m->buffer[my*mw + pad + fw + shadow - 1]);
+    if(hi <= lo) {
+        hi = 0xff;
+        lo = 0;
     }
+    uint32_t span = hi - lo;
+    uint32_t a = color_a(color);
+
+    /*doubled coordinates keep the pixel centers in integers for the inside
+      test: a pixel inside the box's own rounded rect is never touched*/
+    int fw2 = fw*2, fh2 = fh*2, r2 = round*2;
+    int rr = r2*r2;
+    int x0 = fw - round; if(x0 < 0) x0 = 0;
+    int x1 = fw + shadow;
+    int y0 = fh - round; if(y0 < 0) y0 = 0;
+    int y1 = fh + shadow;
+
+    for(int py = 0; py < y1; py++) {
+        int PY = py*2 + 1;
+        int dy = (PY > fh2 - r2) ? PY - (fh2 - r2) : ((PY < r2) ? r2 - PY : 0);
+        /*right strip: the shadow columns plus the corner squares left of
+          them; below y0 the row extends over the bottom strip as well*/
+        int px = (py < y0) ? x0 : 0;
+        for(; px < x1; px++) {
+            int PX = px*2 + 1;
+            int dx = (PX > fw2 - r2) ? PX - (fw2 - r2) : ((PX < r2) ? r2 - PX : 0);
+            int dd = dx*dx + dy*dy;
+            if(round > 0 ? dd < rr : dd == 0)
+                continue; //inside the box itself
+
+            uint32_t v = color_r(m->buffer[(py+pad)*mw + px + pad]);
+            if(v <= lo)
+                continue;
+            if(v > hi)
+                v = hi;
+            uint32_t alpha = a * (v - lo) / span;
+            if(alpha == 0)
+                continue;
+            graph_pixel(g, x + px, y + py, (alpha << 24) | (color & 0x00ffffff));
+        }
+    }
+    graph_free(m);
+}
+
+void graph_shadow(graph_t* g, int x, int y, int w, int h, uint8_t shadow, uint32_t color) {
+    graph_shadow_round(g, x, y, w, h, 0, shadow, color);
 }
 
 /**

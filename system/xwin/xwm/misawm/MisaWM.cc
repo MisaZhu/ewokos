@@ -9,7 +9,7 @@
 
 using namespace Ewok;
 /*blur radius of the frost, and the tint alpha (focused / unfocused)*/
-#define GLASS_BLUR  5;
+#define GLASS_BLUR  5
 
 /*the tint laid over the frost. The RGB comes from the theme's frame background
   so a theme can colour the glass; the alpha is fixed here and is what makes
@@ -273,108 +273,6 @@ void MisaWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinf
 	if(round > 0) {
 		markFrameRound(frame_g, r, round);
 		graph_round_3d(frame_g, r->x, r->y, r->w, r->h, round, 1, xwm.theme.frameBGColor, false);
-	}
-}
-
-void MisaWM::drawShadow(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top) {
-	int shadow = (int)xwm.theme.shadow;
-	if(shadow <= 0)
-		return;
-
-	/*the shadow lives in the right/bottom bands getWinSpace reserved in
-	  winr, so the rounded frame itself ends at fw/fh*/
-	int fw = (int)info->winr.w - shadow;
-	int fh = (int)info->winr.h - shadow;
-	int round = (int)xwm.theme.round;
-	if(round > fw/2) round = fw/2;
-	if(round > fh/2) round = fh/2;
-
-	if(round <= 0) { /*square frame: the stock band shadow fits*/
-		XWM::drawShadow(desktop_g, g, info, top);
-		return;
-	}
-
-	uint32_t color = 0x88000000;
-	uint8_t a = color_a(color);
-
-	/*a drop shadow is the window silhouette moved by (shadow,shadow) minus
-	  the window itself: a pixel gets shadow when it lies inside the offset
-	  rounded rect and outside the window's. The offset silhouette is what
-	  clips the crescents at the top-right/bottom-left arcs and rounds the
-	  outer edge of the bottom-right wrap, so no hand built band junctions
-	  are left to seam or spike. Doubled coordinates keep the pixel centers
-	  in integers; ring i = i pixels outside the window edge, fading like
-	  graph_shadow does.*/
-	int fw2 = fw*2, fh2 = fh*2, r2 = round*2, s2 = shadow*2;
-	int rr = r2*r2;
-	int x0 = fw - round; if(x0 < 0) x0 = 0;
-	int x1 = fw + shadow; if(x1 > g->w) x1 = g->w;
-	int y0 = fh - round; if(y0 < 0) y0 = 0;
-	int y1 = fh + shadow; if(y1 > g->h) y1 = g->h;
-
-	/*right strip: the shadow columns plus the corner squares left of them,
-	  full height down to the bottom shadow rows*/
-	for(int px = x0; px < x1; px++) {
-		int PX = px*2 + 1;
-		int dx = (PX > fw2 - r2) ? PX - (fw2 - r2) : ((PX < r2) ? r2 - PX : 0);
-		int ox = (PX > fw2 + s2 - r2) ? PX - (fw2 + s2 - r2)
-				: ((PX < s2 + r2) ? s2 + r2 - PX : 0);
-		for(int py = 0; py < y1; py++) {
-			int PY = py*2 + 1;
-			int dy = (PY > fh2 - r2) ? PY - (fh2 - r2) : ((PY < r2) ? r2 - PY : 0);
-			int dd = dx*dx + dy*dy;
-			if(dd < rr)
-				continue; //inside the window itself
-			int oy = (PY > fh2 + s2 - r2) ? PY - (fh2 + s2 - r2)
-					: ((PY < s2 + r2) ? s2 + r2 - PY : 0);
-			if(ox*ox + oy*oy >= rr)
-				continue; //outside the offset silhouette
-
-			int i = 0;
-			while(i < shadow) {
-				int t = r2 + (i+1)*2;
-				if(dd < t*t)
-					break;
-				i++;
-			}
-			if(i >= shadow)
-				continue;
-			uint8_t alpha = (uint8_t)(a * (shadow - i) / shadow);
-			graph_pixel(g, px, py,
-					((uint32_t)alpha << 24) | (color & 0x00ffffff));
-		}
-	}
-
-	/*bottom strip left of the right corner square (that one is done above)*/
-	for(int py = y0; py < y1; py++) {
-		int PY = py*2 + 1;
-		int dy = (PY > fh2 - r2) ? PY - (fh2 - r2) : ((PY < r2) ? r2 - PY : 0);
-		int oy = (PY > fh2 + s2 - r2) ? PY - (fh2 + s2 - r2)
-				: ((PY < s2 + r2) ? s2 + r2 - PY : 0);
-		for(int px = 0; px < x0; px++) {
-			int PX = px*2 + 1;
-			int dx = (PX > fw2 - r2) ? PX - (fw2 - r2) : ((PX < r2) ? r2 - PX : 0);
-			int dd = dx*dx + dy*dy;
-			if(dd < rr)
-				continue;
-			int ox = (PX > fw2 + s2 - r2) ? PX - (fw2 + s2 - r2)
-					: ((PX < s2 + r2) ? s2 + r2 - PX : 0);
-			if(ox*ox + oy*oy >= rr)
-				continue;
-
-			int i = 0;
-			while(i < shadow) {
-				int t = r2 + (i+1)*2;
-				if(dd < t*t)
-					break;
-				i++;
-			}
-			if(i >= shadow)
-				continue;
-			uint8_t alpha = (uint8_t)(a * (shadow - i) / shadow);
-			graph_pixel(g, px, py,
-					((uint32_t)alpha << 24) | (color & 0x00ffffff));
-		}
 	}
 }
 

@@ -192,7 +192,10 @@ supports multiple themes (`ewokwm`, `mac1984`, `openlook`, etc., chosen by
 the `XTHEME` environment variable). xwm itself is an independent userland
 process; the IPC protocol between it and xserverd, the shared-memory
 drawing mechanism, and "how to write your own window manager" are covered
-in a dedicated chapter — [Ch. 20](20-xwm.md).
+in a dedicated chapter — [Ch. 20](20-xwm.md). xserverd's own side — how a
+client hands a finished frame to the server, how the server repaints only the
+windows that changed and pushes only the dirty rectangles to the display
+driver — gets its own chapter too: [Ch. 22](22-xserverd-render.md).
 
 ### ④ The Splash Screen and the Console
 
@@ -248,5 +251,6 @@ routine as Ch. 12, just additionally linking the graphics library.
   take the system down.
 
 To go deeper into the window system, read
-[Ch. 20: the xwm window manager](20-xwm.md) first; next chapter: put all of
-this onto a real SD card and light up your Pi.
+[Ch. 20: the xwm window manager](20-xwm.md) first, then
+[Ch. 22: the xserverd compositor](22-xserverd-render.md); next chapter: put
+all of this onto a real SD card and light up your Pi.

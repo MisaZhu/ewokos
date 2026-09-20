@@ -90,6 +90,7 @@ Part 5  The ewokos library series (ecosystem overview → libc → common libs �
 |------|------|----------|
 | [13 Graphics & the Window System](13-graphics.md) | Framebuffer, the graphics library, an X-style window system | `system/gui/`, `system/xwin/` |
 | [20 The xwm Window Manager](20-xwm.md) | Mechanism/policy separation, the xwm↔xserverd IPC protocol, shared-memory decoration rendering, writing your own WM | `system/xwin/xwm/`, `system/xwin/libs/x/src/xwm.c` |
+| [22 The xserverd Compositor: Rendering Flow & Dirty Regions](22-xserverd-render.md) | The shared-memory UPDATE handshake, two-level dirty flags, `x_repaint` step by step, `draw_win` composite paths, dirty-rect packing and flush, cursor/drag fast paths | `system/xwin/drivers/xserverd/` |
 | [14 Images & Flashing to a Pi](14-raspi-image.md) | SD card images, partitioning, flashing, booting real hardware | `tools/makesd.sh`, `tools/bootfs/` |
 | [15 Debugging & the Road Ahead](15-debug.md) | GDB debugging, the logging stack, what to do next | — |
 
