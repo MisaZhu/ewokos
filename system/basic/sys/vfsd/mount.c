@@ -92,7 +92,14 @@ int32_t vfsd_mount(int32_t pid, vfs_node_t* org, vfs_node_t* node, const char* d
     _vfs_mounts[id].org_node = vfs_get_node_id(org);
     _vfs_mount_node[id] = vfs_get_node_id(node);
     strcpy(_vfs_mounts[id].org_name, org_name);
-    strncpy(_vfs_mounts[id].desc, desc, DESC_MAX-1);
+    /* desc comes from proto_read_str, which yields NULL for an absent OR
+     * empty string; strncpy(dst, NULL) would crash vfsd. Guard it and always
+     * NUL-terminate the fixed-width field. */
+    if(desc != NULL)
+        strncpy(_vfs_mounts[id].desc, desc, DESC_MAX-1);
+    else
+        _vfs_mounts[id].desc[0] = 0;
+    _vfs_mounts[id].desc[DESC_MAX-1] = 0;
     strcpy(node->fsinfo.name, org->fsinfo.name);
     node->mount_id = id;
 

@@ -111,18 +111,44 @@ void vfs_remove(int32_t pid, vfs_node_t* node) {
 }
 
 /* caller must hold _vfs_lock (write) */
-int32_t vfsd_del_node(vfs_node_t* node) {
+/*
+ * Bounded-depth worker for vfsd_del_node(). A client may graft a child under
+ * ANY node by id (do_vfs_new_node), so a malicious peer could otherwise build
+ * a chain deep enough to overflow a vfsd worker's kernel thread stack
+ * (THREAD_STACK_PAGES*PAGE_SIZE) and crash vfsd. Legitimate on-disk trees are
+ * bounded by path length (FS_FULL_NAME_MAX), far below this cap. When the cap
+ * trips the deletion returns -1 and, because a surviving child blocks its
+ * parent's free (below), the whole operation aborts freeing NOTHING - no node
+ * is left half torn down.
+ */
+#define VFS_DEL_MAX_DEPTH 512
+
+static int32_t vfsd_del_node_depth(vfs_node_t* node, int32_t depth) {
     if(node == NULL || node->refs > 0)
+        return -1;
+    if(depth >= VFS_DEL_MAX_DEPTH)
         return -1;
     /*free children*/
     vfs_node_t* c = node->first_kid;
     vfs_node_t* father = node->father;
+    bool child_survived = false;
 
     while(c != NULL) {
         vfs_node_t* next = c->next;
-        vfsd_del_node(c);
+        if(vfsd_del_node_depth(c, depth+1) != 0)
+            child_survived = true;
         c = next;
     }
+
+    /*
+     * A child that survived (still open, or its own subtree hit the depth cap)
+     * keeps this node as its father. Freeing here would leave that live child
+     * with a dangling father pointer - later walked by vfsd_fullname()/
+     * vfs_remove() as a use-after-free. Refuse instead; the node stays valid
+     * and the caller sees -1 (e.g. rmdir of a busy directory fails cleanly).
+     */
+    if(child_survived)
+        return -1;
 
     if(father != NULL) {
         if(father->first_kid == node)
@@ -162,6 +188,11 @@ int32_t vfsd_del_node(vfs_node_t* node) {
 }
 
 /* caller must hold _vfs_lock (write) */
+int32_t vfsd_del_node(vfs_node_t* node) {
+    return vfsd_del_node_depth(node, 0);
+}
+
+/* caller must hold _vfs_lock (write) */
 int32_t set_node_info(int32_t pid, vfs_node_t* node, fsinfo_t* info) {
     (void)pid;
     if(node == NULL || info == NULL)
@@ -182,9 +213,17 @@ vfs_node_t* vfs_root(void) {
  * caller must hold _vfs_lock (read or write).
  */
 void vfsd_fullname(vfs_node_t* node, char* out, uint32_t out_sz) {
+    if(out == NULL || out_sz == 0)
+        return;
+    out[0] = 0;
+
     str_t* s1 = str_new("");
+    if(s1 == NULL)
+        return;
     while(node != NULL) {
         str_t* s2 = str_new("");
+        if(s2 == NULL)   /* OOM mid-walk: keep what we have, never CS(NULL) */
+            break;
         str_cpy(s2, node->fsinfo.name);
         if(strlen(CS(s1)) != 0) {
             if(node->fsinfo.name[0] != '/')
@@ -196,8 +235,11 @@ void vfsd_fullname(vfs_node_t* node, char* out, uint32_t out_sz) {
         node = node->father;
     }
 
-    out[0] = 0;
+    /* Always NUL-terminate: a path longer than out_sz-1 (a peer can graft an
+     * arbitrarily deep/wide tree) would otherwise leave strncpy's output
+     * unterminated, and the caller strcpy()s it into a fixed mount field. */
     strncpy(out, CS(s1), out_sz-1);
+    out[out_sz-1] = 0;
     str_free(s1);
 }
 

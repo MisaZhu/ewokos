@@ -462,7 +462,7 @@ static int32_t vfs_fetch_kids_from_driver(int32_t mount_pid, const fsinfo_t* inf
     fsinfo_t* out_infos = NULL;
     if(*num > 0) {
         fsinfo_t* src = (fsinfo_t*)proto_read(&out, &sz);
-        if(src == NULL || sz < (int32_t)(sizeof(fsinfo_t) * (*num))) {
+        if(src == NULL || (uint64_t)sz < sizeof(fsinfo_t) * (uint64_t)(*num)) {
             PF->clear(&out);
             return -1;
         }

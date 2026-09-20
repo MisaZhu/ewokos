@@ -155,7 +155,10 @@ static void do_vfs_new_nodes(int pid, proto_t* in, proto_t* out) {
     int32_t num = proto_read_int(in);
     int32_t sz = 0;
     fsinfo_t* infos = (fsinfo_t*)proto_read(in, &sz);
-    if(infos == NULL || num <= 0 || sz < (int32_t)(sizeof(fsinfo_t)*num))
+    /* Compare in 64-bit: (int32_t)(sizeof(fsinfo_t)*num) truncates for a
+     * large client-supplied num, turning the bound negative and letting the
+     * loop below read infos[i] far past the proto buffer. */
+    if(infos == NULL || num <= 0 || (uint64_t)sz < sizeof(fsinfo_t)*(uint64_t)num)
         return;
 
     pthread_rwlock_wrlock(&_vfs_lock);

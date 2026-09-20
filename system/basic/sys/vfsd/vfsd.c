@@ -16,6 +16,9 @@ static void vfsd_init(void) {
     sys_get_sys_info(&sysinfo);
     _max_proc_table_num = sysinfo.max_task_num;
     _proc_fds_table = (proc_fds_t*)malloc(_max_proc_table_num*sizeof(proc_fds_t));
+    if(_proc_fds_table == NULL)
+        _max_proc_table_num = 0;   /* boot OOM: every handler's pid bounds
+                                    * check then rejects; never index NULL */
 
     for(i = 0; i<_max_proc_table_num; i++) {
         memset(&_proc_fds_table[i], 0, sizeof(proc_fds_t));
@@ -28,8 +31,11 @@ static void vfsd_init(void) {
     queue_init(&_driver_kids_results);
     pthread_rwlock_init(&_vfs_lock, NULL);
     _nodes_hash = hashmap_new(0);
-    _vfs_root = vfsd_new_node();
-    strcpy(_vfs_root->fsinfo.name, "/");
+    if(_nodes_hash != NULL) {
+        _vfs_root = vfsd_new_node();
+        if(_vfs_root != NULL)
+            strcpy(_vfs_root->fsinfo.name, "/");
+    }
 }
 
 int main(int argc, char** argv) {

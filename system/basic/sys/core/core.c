@@ -36,6 +36,13 @@ static void core_init(void) {
     sys_get_sys_info(&sysinfo);
     _max_proc_table_num = sysinfo.max_task_num;
     _proc_info_table = (proc_info_t*)malloc(_max_proc_table_num*sizeof(proc_info_t));
+    if(_proc_info_table == NULL) {
+        /* Out of memory at boot: force every handler's bounds check to reject
+         * (any pid >= 0 == _max_proc_table_num) rather than index a NULL table.
+         * core stays alive; the system has no memory to serve anything anyway. */
+        _max_proc_table_num = 0;
+        return;
+    }
 
     for(i = 0; i<_max_proc_table_num; i++) {
         _proc_info_table[i].cwd = str_new("/");
@@ -43,34 +50,95 @@ static void core_init(void) {
     }
 }
 
-static map_t _ipc_servs = NULL; //pids of ipc_servers
+/*
+ * One registered ipc server. Besides the owner pid we keep the owner's proc
+ * uuid so re-registration can tell "the same live owner refreshing its id" and
+ * "a legitimate restart after the owner died" apart from "a rogue process
+ * hijacking a live server's id" (see do_ipc_serv_reg).
+ */
+typedef struct {
+    int32_t  pid;
+    uint32_t uuid;
+} ipc_serv_t;
+
+static map_t _ipc_servs = NULL; //registered ipc servers, keyed by id
 static int get_ipc_serv(const char* key) {
-    int32_t *v;
-    if(hashmap_get(_ipc_servs, key, (void**)&v) == MAP_MISSING) {
+    ipc_serv_t *v;
+    if(_ipc_servs == NULL || key == NULL)
+        return -1;
+    if(hashmap_get(_ipc_servs, key, (void**)&v) != MAP_OK || v == NULL) {
         return -1;
     }
-    return *v;
+    return v->pid;
 }
 
 static void do_ipc_serv_get(proto_t* in, proto_t* out) {
     const char* ks_id = proto_read_str(in);
-    if(ks_id[0] == 0) {
+    if(ks_id == NULL || ks_id[0] == 0) {
         PF->addi(out, -1);
         return;
     }
     PF->addi(out, get_ipc_serv(ks_id));
 }
 
+/*
+ * Only a handful of real ipc servers exist (vfs/log/sessiond/splashd) and a
+ * server id is a short dotted name. Bound both the id length and the number of
+ * distinct ids so a malicious client cannot register unlimited unique ids (or
+ * an absurdly long one) and exhaust core's heap - core must stay alive no
+ * matter what any other process does.
+ */
+#define IPC_SERV_MAX     64
+#define IPC_SERV_ID_MAX  64
+
 static void do_ipc_serv_reg(int pid, proto_t* in, proto_t* out) {
     const char* ks_id = proto_read_str(in);
-    if(ks_id[0] == 0) {
+    if(_ipc_servs == NULL || ks_id == NULL || ks_id[0] == 0 ||
+            strlen(ks_id) >= IPC_SERV_ID_MAX) {
         PF->addi(out, -1);
         return;
     }
 
-    int32_t* v = (int32_t*)malloc(sizeof(int32_t));
-    *v = pid;
+    uint32_t uuid = proc_get_uuid(pid);
+
+    /* Update in place when the id already exists: hashmap_put() overwrites the
+     * stored value pointer WITHOUT freeing the old one, so re-registering via
+     * put would leak the record every time (a slow heap-exhaustion DoS). */
+    ipc_serv_t* v;
+    if(hashmap_get(_ipc_servs, ks_id, (void**)&v) == MAP_OK && v != NULL) {
+        /*
+         * The id is owned. A DIFFERENT process may take it over only once the
+         * recorded owner is gone: proc_check_uuid() returns non-zero solely
+         * while slot v->pid still holds generation v->uuid, and 0 once that
+         * proc died or the pid was reused by a new generation. This blocks a
+         * rogue process from hijacking e.g. "ipc_serv.vfs" (and so receiving
+         * core's forwarded VFS_PROC_EXIT/CLONE events) while still letting a
+         * crashed server's replacement re-register the same id.
+         */
+        if(v->pid != pid && proc_check_uuid(v->pid, v->uuid) != 0) {
+            PF->addi(out, -1);
+            return;
+        }
+        v->pid = pid;
+        v->uuid = uuid;
+        PF->addi(out, 0);
+        return;
+    }
+
+    if(hashmap_length(_ipc_servs) >= IPC_SERV_MAX) {
+        PF->addi(out, -1);
+        return;
+    }
+
+    v = (ipc_serv_t*)malloc(sizeof(ipc_serv_t));
+    if(v == NULL) {          /* OOM: must NOT write through NULL */
+        PF->addi(out, -1);
+        return;
+    }
+    v->pid = pid;
+    v->uuid = uuid;
     if(hashmap_put(_ipc_servs, ks_id, v) != MAP_OK) {
+        free(v);             /* put failed (rehash/key-dup OOM): don't leak v */
         PF->addi(out, -1);
         return;
     }
@@ -79,18 +147,18 @@ static void do_ipc_serv_reg(int pid, proto_t* in, proto_t* out) {
 
 static void do_ipc_serv_unreg(int pid, proto_t* in, proto_t* out) {
     const char* ks_id = proto_read_str(in);
-    if(ks_id[0] == 0) {
+    if(_ipc_servs == NULL || ks_id == NULL || ks_id[0] == 0) {
         PF->addi(out, -1);
         return;
     }
 
-    int32_t *v;
-    if(hashmap_get(_ipc_servs, ks_id, (void**)&v) == MAP_MISSING) {
+    ipc_serv_t *v;
+    if(hashmap_get(_ipc_servs, ks_id, (void**)&v) != MAP_OK || v == NULL) {
         PF->addi(out, -1);
         return;
     }
 
-    if(*v != pid) {
+    if(v->pid != pid) {
         PF->addi(out, -1);
         return;
     }
@@ -104,7 +172,10 @@ static void do_proc_get_cwd(int pid, proto_t* out) {
     PF->addi(out, -1);
     if(pid < 0 || pid >= _max_proc_table_num)
         return;
-    PF->clear(out)->addi(out, 0)->adds(out, CS(_proc_info_table[pid].cwd));
+    str_t* cwd = _proc_info_table[pid].cwd;
+    /* CS(NULL) would deref NULL if the boot-time str_new("/") ever failed;
+     * adds() maps a NULL string to "", so hand NULL through safely. */
+    PF->clear(out)->addi(out, 0)->adds(out, cwd == NULL ? NULL : CS(cwd));
 }
 
 static int get_fsinfo_by_name(const char* fname, fsinfo_t* info) {

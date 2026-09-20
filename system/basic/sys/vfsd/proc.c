@@ -106,7 +106,7 @@ static void vfs_proc_exit(int32_t cpid) {
 
 /* caller must hold _vfs_lock (write) */
 void clear_zombie(int32_t cpid) {
-    if(cpid < 0)
+    if(cpid < 0 || (uint32_t)cpid >= _max_proc_table_num)
         return;
     /*
      * Tear down any filesystem this process mounted BEFORE closing its fds.
