@@ -360,6 +360,10 @@ tcp_dump(const uint8_t *data, size_t len)
 static int pcb_alloc_count = 0;
 static int pcb_release_count = 0;
 
+/* Forward declaration: tcp_pcb_alloc() evicts a TIME_WAIT pcb (defined below)
+ * when the table is full. */
+static void tcp_pcb_release(struct tcp_pcb *pcb);
+
 static struct tcp_pcb *
 tcp_pcb_alloc(void)
 {
@@ -389,6 +393,41 @@ tcp_pcb_alloc(void)
         }
         free_count++;
     }
+
+    /*
+     * No FREE slot. Rather than refusing the connection outright ("no free
+     * PCB"), reclaim a TIME_WAIT slot. TIME_WAIT only lingers to absorb
+     * delayed segments from the old connection for 2MSL; RFC 793 explicitly
+     * allows killing it when a new connection needs the resource. With only
+     * TCP_PCB_SIZE slots, a burst of short HTTP(S) fetches (a web page pulling
+     * many assets, each closing into a 30s TIME_WAIT) otherwise saturates the
+     * table and new connects fail intermittently until old timers expire --
+     * exactly the "connection unstable under load" symptom. Pick the TIME_WAIT
+     * pcb whose timer is closest to expiry (oldest) to minimize the window in
+     * which a stray late segment from it could be mis-associated.
+     */
+    struct tcp_pcb *tw = NULL;
+    for (pcb = pcbs; pcb < tailof(pcbs); pcb++) {
+        if (pcb->state != TCP_PCB_STATE_TIME_WAIT)
+            continue;
+        if (tw == NULL || timercmp(&pcb->tw_timer, &tw->tw_timer, <))
+            tw = pcb;
+    }
+    if (tw != NULL) {
+        tcp_pcb_release(tw);
+        pcb = tw;
+        memset(pcb, 0, sizeof(*pcb));
+        pcb->state = TCP_PCB_STATE_CLOSED;
+        pcb->close_reason = 0;
+        sched_ctx_init(&pcb->state_ctx);
+        sched_ctx_init(&pcb->send_ctx);
+        sched_ctx_init(&pcb->recv_ctx);
+        pcb_alloc_count++;
+        infof("tcp_pcb_alloc: evicted TIME_WAIT, total=%d, released=%d",
+              pcb_alloc_count, pcb_release_count);
+        return pcb;
+    }
+
     errorf("tcp_pcb_alloc: no free PCB! total=%d, released=%d",
            pcb_alloc_count, pcb_release_count);
     return NULL;
