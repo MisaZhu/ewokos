@@ -16,7 +16,7 @@
     "round": 12,
 
     "#bg_effect": "0: none; 1: transparent; 2: dots; 3: glass; 4: gaussian",
-    "bg_effect": 4,
+    "bg_effect": 0,
     "frame_alpha": 1,
     "#frame_blur": "xserverd keeps a clean per-window snapshot of what is below and hands it to xwm as the DRAW_FRAME desktop, so the frost blurs the real backdrop",
     "frame_blur": 1,
