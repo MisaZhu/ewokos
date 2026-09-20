@@ -8,6 +8,8 @@
 #include <string.h>
 
 using namespace Ewok;
+/*blur radius of the frost, and the tint alpha (focused / unfocused)*/
+#define GLASS_BLUR  5;
 
 /*the tint laid over the frost. The RGB comes from the theme's frame background
   so a theme can colour the glass; the alpha is fixed here and is what makes

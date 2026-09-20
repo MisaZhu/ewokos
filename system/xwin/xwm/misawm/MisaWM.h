@@ -12,8 +12,6 @@ using namespace Ewok;
   translucent tint, instead of a flat opaque color. The rounded corners and
   the drop shadow are kept exactly as ewokwm draws them.*/
 class MisaWM : public XWM {
-	/*blur radius of the frost, and the tint alpha (focused / unfocused)*/
-	enum { GLASS_BLUR = 3 };
 
 	void markFrameRound(graph_t* frame_g, grect_t* fr, int r);
 	/*the constant translucent tint washed over the frost (focus-independent so
