@@ -606,7 +606,7 @@ void graph_blt_fit_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t
 
     if(!is_downscale) {
         for(int32_t y = dr.y; y < ey; y++) {
-            float src_fy = (y - dr.y) * scale_y + sy;
+            float src_fy = (y - dy) * scale_y + sy;
             int32_t src_y0 = (int32_t)src_fy;
             int32_t src_y1 = src_y0 + 1;
             if(src_y1 >= sy + sh) src_y1 = src_y0;
@@ -614,7 +614,7 @@ void graph_blt_fit_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t
             int32_t dst_offset_y = y * dst->w;
 
             for(int32_t x = dr.x; x < ex; x++) {
-                float src_fx = (x - dr.x) * scale_x + sx;
+                float src_fx = (x - dx) * scale_x + sx;
                 int32_t src_x0 = (int32_t)src_fx;
                 int32_t src_x1 = src_x0 + 1;
                 if(src_x1 >= sx + sw) src_x1 = src_x0;
@@ -660,8 +660,8 @@ void graph_blt_fit_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t
         }
     } else {
         for(int32_t y = dr.y; y < ey; y++) {
-            float src_start_y = (y - dr.y) * scale_y + sy;
-            float src_end_y = (y - dr.y + 1) * scale_y + sy;
+            float src_start_y = (y - dy) * scale_y + sy;
+            float src_end_y = (y - dy + 1) * scale_y + sy;
             if(src_start_y < sy) src_start_y = sy;
             if(src_end_y > sy + sh) src_end_y = sy + sh;
             int32_t src_y_start = (int32_t)src_start_y;
@@ -670,8 +670,8 @@ void graph_blt_fit_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t
             int32_t dst_offset_y = y * dst->w;
 
             for(int32_t x = dr.x; x < ex; x++) {
-                float src_start_x = (x - dr.x) * scale_x + sx;
-                float src_end_x = (x - dr.x + 1) * scale_x + sx;
+                float src_start_x = (x - dx) * scale_x + sx;
+                float src_end_x = (x - dx + 1) * scale_x + sx;
                 if(src_start_x < sx) src_start_x = sx;
                 if(src_end_x > sx + sw) src_end_x = sx + sw;
                 int32_t src_x_start = (int32_t)src_start_x;
@@ -741,7 +741,7 @@ void graph_blt_fit_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, i
 
     if(!is_downscale) {
         for(int32_t y = dr.y; y < ey; y++) {
-            float src_fy = (y - dr.y) * scale_y + sy;
+            float src_fy = (y - dy) * scale_y + sy;
             int32_t src_y0 = (int32_t)src_fy;
             int32_t src_y1 = src_y0 + 1;
             if(src_y1 >= sy + sh) src_y1 = src_y0;
@@ -749,7 +749,7 @@ void graph_blt_fit_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, i
             int32_t dst_offset_y = y * dst->w;
 
             for(int32_t x = dr.x; x < ex; x++) {
-                float src_fx = (x - dr.x) * scale_x + sx;
+                float src_fx = (x - dx) * scale_x + sx;
                 int32_t src_x0 = (int32_t)src_fx;
                 int32_t src_x1 = src_x0 + 1;
                 if(src_x1 >= sx + sw) src_x1 = src_x0;
@@ -798,8 +798,8 @@ void graph_blt_fit_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, i
         }
     } else {
         for(int32_t y = dr.y; y < ey; y++) {
-            float src_start_y = (y - dr.y) * scale_y + sy;
-            float src_end_y = (y - dr.y + 1) * scale_y + sy;
+            float src_start_y = (y - dy) * scale_y + sy;
+            float src_end_y = (y - dy + 1) * scale_y + sy;
             if(src_start_y < sy) src_start_y = sy;
             if(src_end_y > sy + sh) src_end_y = sy + sh;
             int32_t src_y_start = (int32_t)src_start_y;
@@ -809,8 +809,8 @@ void graph_blt_fit_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, i
             int32_t dst_offset_y = y * dst->w;
 
             for(int32_t x = dr.x; x < ex; x++) {
-                float src_start_x = (x - dr.x) * scale_x + sx;
-                float src_end_x = (x - dr.x + 1) * scale_x + sx;
+                float src_start_x = (x - dx) * scale_x + sx;
+                float src_end_x = (x - dx + 1) * scale_x + sx;
                 if(src_start_x < sx) src_start_x = sx;
                 if(src_end_x > sx + sw) src_end_x = sx + sw;
                 int32_t src_x_start = (int32_t)src_start_x;
