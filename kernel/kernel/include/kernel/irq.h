@@ -25,6 +25,13 @@ extern void irq_init(void);
 extern uint32_t abort_guard_enter(const char* what);
 extern void     abort_guard_leave(uint32_t core);
 
+/*
+ * Non-zero if the saved context faulted while the CPU was in KERNEL mode.
+ * Used by the abort handlers to halt-with-dump on a kernel bug instead of
+ * killing an innocent user proc (and then schedule()) on a misattributed fault.
+ */
+extern int abort_from_kernel(context_t* ctx);
+
 extern void irq_init_arch(void);
 extern void irq_enable_arch(uint32_t irq);
 extern void irq_enable_core_arch(uint32_t core, uint32_t irq);

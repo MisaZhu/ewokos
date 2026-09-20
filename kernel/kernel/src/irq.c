@@ -406,6 +406,37 @@ void abort_guard_leave(uint32_t core) {
         _abort_in_progress[core] = 0;
 }
 
+/*
+ * Was this fault taken while the CPU was running KERNEL code?
+ *
+ * The saved context carries the PRE-exception program status, so this reflects
+ * the privilege that actually faulted, not the handler's. A kernel-mode
+ * abort/undef is a KERNEL bug: blaming the current user proc would kill an
+ * innocent process and then schedule() with kernel state possibly half-updated
+ * or a lock held - an unclean, misleading teardown that can wedge or crash the
+ * system later. Such faults must halt with a dump instead of proc_exit.
+ * Returns non-zero for kernel mode, 0 for user mode.
+ */
+int abort_from_kernel(context_t* ctx) {
+    if(ctx == NULL)
+        return 1; /* unknown context: treat as kernel, never kill a proc on a guess */
+#if defined(__aarch64__)
+    /* SPSR_EL1 M[3:0]: 0b0000 = EL0t (user); 0b0100/0b0101 = EL1t/h (kernel) */
+    return (ctx->spsr_el1 & 0xF) != 0;
+#elif defined(__arm__)
+    /* CPSR M[4:0]: 0b10000 (0x10) = USR; SVC/SYS/ABT/IRQ/FIQ are kernel modes */
+    return (ctx->cpsr & 0x1F) != 0x10;
+#elif defined(__x86_64__) || defined(__i386__)
+    /* CS RPL: 0 = kernel (X86_KERNEL_CS 0x08), 3 = user (X86_USER_CS 0x23) */
+    return (ctx->cs & 0x3) == 0;
+#elif defined(__riscv)
+    /* sstatus.SPP (bit 8): 1 = trapped from S-mode (kernel), 0 = U-mode */
+    return (ctx->sstatus & (1UL << 8)) != 0;
+#else
+    return 0;
+#endif
+}
+
 void undef_abort_handler(context_t* ctx, uint32_t status) {
     (void)ctx;
     (void)status;
@@ -414,6 +445,12 @@ void undef_abort_handler(context_t* ctx, uint32_t status) {
     proc_t* cproc = get_current_proc();
     if(cproc == NULL) {
         printf("_kernel, undef instrunction abort!! (core %d)\n", core);
+        dump_ctx(ctx);
+        halt();
+    }
+
+    if(abort_from_kernel(ctx)) {
+        printf("_kernel, undef instruction abort in KERNEL mode!! (core %d) - kernel bug\n", core);
         dump_ctx(ctx);
         halt();
     }
@@ -453,6 +490,12 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
     }
     */
 
+    if(abort_from_kernel(ctx)) {
+        printf("_kernel, prefetch abort in KERNEL mode!! (core %d) code:0x%x - kernel bug\n", core, status);
+        dump_ctx(ctx);
+        halt();
+    }
+
     printf("pid: %d(%s), prefetch abort!! (core %d) code:0x%x\n", cproc->info.pid, cproc->info.cmd, core, status);
 #ifdef __x86_64__
     printf("live: pc=%x sp=%x cs=%x ss=%x trap=%x err=%x\n",
@@ -481,6 +524,12 @@ void data_abort_handler(context_t* ctx, ewokos_addr_t addr_fault, uint32_t statu
     if(cproc == NULL) {
         printf("_kernel, data abort!! core: %d, at: 0x%llX status: 0x%X\n", 
             get_core_id(), (unsigned long long)addr_fault, status);
+        dump_ctx(ctx);
+        halt();
+    }
+    if(abort_from_kernel(ctx)) {
+        printf("_kernel, data abort in KERNEL mode!! (core %d) at: 0x%llX status: 0x%X - kernel bug\n",
+            core, (unsigned long long)addr_fault, status);
         dump_ctx(ctx);
         halt();
     }

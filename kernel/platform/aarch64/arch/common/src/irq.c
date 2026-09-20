@@ -159,6 +159,10 @@ void sync_exception_handle(uint64_t esr, uint64_t far, context_t* ctx){
         dump_user_fault_words(cproc, ctx);
     }
     printf("\n----------------------------------------------------------\n");
+    if(abort_from_kernel(ctx)) {
+        printf("kernel: sync exception from KERNEL mode (EC=%x) - kernel bug, halting\n", EC);
+        while(1);
+    }
     if(cproc != 0) {
         proc_exit(ctx, proc_get_proc(cproc), -1);
         abort_guard_leave(abort_core);

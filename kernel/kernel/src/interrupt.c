@@ -194,7 +194,7 @@ proc_t* proc_interrupt_wakeup(struct st_proc* serv_proc) {
 }
 
 void proc_interrupt_wakeup_all(struct st_proc* serv_proc) {
-    if(serv_proc == NULL) {
+    if(serv_proc == NULL || serv_proc->space == NULL) {
         return;
     }
 

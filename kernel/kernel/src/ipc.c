@@ -1132,7 +1132,7 @@ proc_t* proc_ipc_wakeup(struct st_proc* serv_proc) {
  * re-enabled). Unlike proc_ipc_wakeup() there is no batch budget.
  */
 void proc_ipc_wakeup_all(struct st_proc* serv_proc) {
-    if(serv_proc == NULL)
+    if(serv_proc == NULL || serv_proc->space == NULL)
         return;
 
     while(true) {
