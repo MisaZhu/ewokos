@@ -1183,7 +1183,7 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
         proc_ipc_wakeup_all(proc);
         proc_interrupt_wakeup_all(proc);
     
-        if(proc->space->interrupt.state != INTR_STATE_IDLE) {
+        if(proc->space != NULL && proc->space->interrupt.state != INTR_STATE_IDLE) {
             if(proc->space->interrupt.interrupt != IRQ_SOFT) {
                 irq_enable_arch(proc->space->interrupt.interrupt);
             }
@@ -1506,7 +1506,20 @@ static inline void proc_kick_ready_core(proc_t* proc) {
 /* proc_free frees all resources allocated by proc. */
 void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
     (void)res;
-    if(proc->info.state != UNUSED && proc->info.state != ZOMBIE)
+    /*
+     * The abort handlers (undef/prefetch/data and aarch64 sync) reach this
+     * through proc_get_proc(cproc), which returns NULL when the faulting task
+     * is a thread whose owner proc has ALREADY died - proc_get() filters out
+     * ZOMBIE/UNUSED, so the father walk ends at NULL. Dereferencing that NULL
+     * (proc->info.state below) used to crash the kernel from inside the very
+     * handler that was trying to recover, turning a survivable user fault into
+     * a dead system. Fall back to the current task so the faulting context is
+     * still torn down, and never touch proc before the NULL check. If even the
+     * current task is gone, just schedule away from the faulted context.
+     */
+    if(proc == NULL)
+        proc = get_current_proc();
+    if(proc != NULL && proc->info.state != UNUSED && proc->info.state != ZOMBIE)
         proc_terminate(ctx, proc);
     schedule(ctx);
 }
