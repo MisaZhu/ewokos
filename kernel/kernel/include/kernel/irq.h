@@ -14,6 +14,17 @@ extern void prefetch_abort_handler(context_t* ctx, uint32_t status);
 extern void data_abort_handler(context_t* ctx, ewokos_addr_t addr_fault, uint32_t status);
 extern void irq_init(void);
 
+/*
+ * Per-core cascade guard shared with the arch fault dispatchers: an arch
+ * handler that dumps the dying proc and calls proc_exit directly (e.g. the
+ * aarch64 sync-exception generic path) wraps that tail with enter/leave so a
+ * fault re-triggered by the corrupt proc halts instead of recursing. Must NOT
+ * be entered around a call into data/prefetch_abort_handler - those take the
+ * guard themselves and a second enter would look like a nested abort.
+ */
+extern uint32_t abort_guard_enter(const char* what);
+extern void     abort_guard_leave(uint32_t core);
+
 extern void irq_init_arch(void);
 extern void irq_enable_arch(uint32_t irq);
 extern void irq_enable_core_arch(uint32_t core, uint32_t irq);

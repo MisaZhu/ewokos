@@ -370,11 +370,47 @@ static void push_proc_core_dump(proc_t* cproc, context_t* ctx, uint32_t reason,
     kev_push_core_dump(&dump);
 }
 
+/*
+ * Per-core guard against a cascading fault.
+ *
+ * The abort handlers walk the dying proc's OWN memory before tearing it down:
+ * dump_ctx(&cproc->ctx), dump_user_stack_words(), push_proc_core_dump() and
+ * then proc_exit -> proc_terminate. If that proc is already corrupt (smashed
+ * page tables, a bogus space, an inconsistent saved ctx - exactly the state
+ * that produced the fault in the first place), one of those accesses faults
+ * AGAIN.
+ *
+ * __irq_disable() masks IRQ/FIQ but NOT data/prefetch/undef aborts, and on ARM
+ * a nested abort re-enters on the same banked abort stack, overwriting the
+ * saved frame. Without a guard this recurses until the kernel stack overflows
+ * - a chain crash triggered by the very handler meant to contain the fault.
+ * Detecting re-entry on the same core and halting turns that unbounded cascade
+ * into a single, diagnosable stop.
+ */
+static uint8_t _abort_in_progress[CPU_MAX_CORES];
+
+uint32_t abort_guard_enter(const char* what) {
+    uint32_t core = get_core_id();
+    if(core >= CPU_MAX_CORES)
+        core = 0;
+    if(_abort_in_progress[core]) {
+        printf("kernel: nested %s abort on core %d, halting to stop cascade\n", what, core);
+        halt();
+    }
+    _abort_in_progress[core] = 1;
+    return core;
+}
+
+void abort_guard_leave(uint32_t core) {
+    if(core < CPU_MAX_CORES)
+        _abort_in_progress[core] = 0;
+}
+
 void undef_abort_handler(context_t* ctx, uint32_t status) {
     (void)ctx;
     (void)status;
     __irq_disable();
-    uint32_t core = get_core_id();
+    uint32_t core = abort_guard_enter("undef");
     proc_t* cproc = get_current_proc();
     if(cproc == NULL) {
         printf("_kernel, undef instrunction abort!! (core %d)\n", core);
@@ -387,12 +423,13 @@ void undef_abort_handler(context_t* ctx, uint32_t status) {
 
     push_proc_core_dump(cproc, ctx, KEV_CORE_DUMP_UNDEF, status, (ewokos_addr_t)ctx->pc);
     proc_exit(ctx, proc_get_proc(cproc), -1);
+    abort_guard_leave(core);
 }
 
 void prefetch_abort_handler(context_t* ctx, uint32_t status) {
     (void)ctx;
     __irq_disable();
-    uint32_t core = get_core_id();
+    uint32_t core = abort_guard_enter("prefetch");
 
     proc_t* cproc = get_current_proc();
     if(cproc == NULL) {
@@ -433,11 +470,13 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
 
     push_proc_core_dump(cproc, ctx, KEV_CORE_DUMP_PREFETCH, status, (ewokos_addr_t)ctx->pc);
     proc_exit(ctx, proc_get_proc(cproc), -1);
+    abort_guard_leave(core);
 }
 
 void data_abort_handler(context_t* ctx, ewokos_addr_t addr_fault, uint32_t status) {
     (void)ctx;
     __irq_disable();
+    uint32_t core = abort_guard_enter("data");
     proc_t* cproc = get_current_proc();
     if(cproc == NULL) {
         printf("_kernel, data abort!! core: %d, at: 0x%llX status: 0x%X\n", 
@@ -449,7 +488,8 @@ void data_abort_handler(context_t* ctx, ewokos_addr_t addr_fault, uint32_t statu
 
     uint32_t err = 0;
     const char* errmsg = "";
-    ewokos_addr_t legel_addr_base = cproc->space->rw_heap_base;
+    ewokos_addr_t legel_addr_base = (cproc->space != NULL) ? cproc->space->rw_heap_base : 0;
+    ewokos_addr_t legel_heap_size = (cproc->space != NULL) ? cproc->space->heap_size : 0;
     uint8_t recoverable = is_recoverable_user_data_fault(status);
     uint8_t in_user_heap_or_stack = is_user_heap_or_stack_fault(cproc, addr_fault);
     ewokos_addr_t fault_page_phy = 0;
@@ -459,14 +499,18 @@ void data_abort_handler(context_t* ctx, ewokos_addr_t addr_fault, uint32_t statu
 
     if(recoverable) {
         if(in_user_heap_or_stack) {
-            if (kernel_lock_check() > 0)
+            if (kernel_lock_check() > 0) {
+                abort_guard_leave(core);
                 return;
+            }
 
             kernel_lock();
             int32_t res = copy_on_write(cproc, addr_fault);
             kernel_unlock();
-            if(res == 0) 
+            if(res == 0) {
+                abort_guard_leave(core);
                 return;
+            }
             err = 1;
             errmsg = "copy on write failed";
         }
@@ -486,13 +530,13 @@ void data_abort_handler(context_t* ctx, ewokos_addr_t addr_fault, uint32_t statu
             recoverable,
             in_user_heap_or_stack,
             (unsigned long long)legel_addr_base,
-            (unsigned long long)cproc->space->heap_size,
+            (unsigned long long)legel_heap_size,
             (unsigned long long)fault_page_phy);
     if(err == 2) //illegel address
         printf("\terror: %s! heap(0x%llX->0x%llX)\n",
                 errmsg,
                 (unsigned long long)legel_addr_base,
-                (unsigned long long)cproc->space->heap_size);
+                (unsigned long long)legel_heap_size);
     else
         printf("\terror: %s!\n", errmsg);
 
@@ -502,6 +546,7 @@ void data_abort_handler(context_t* ctx, ewokos_addr_t addr_fault, uint32_t statu
 #endif
     push_proc_core_dump(cproc, ctx, KEV_CORE_DUMP_DATA, status, addr_fault);
     proc_exit(ctx, proc_get_proc(cproc), -1);
+    abort_guard_leave(core);
 }
 
 void irq_init(void) {

@@ -1173,7 +1173,22 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
                     if(p->info.type == TASK_TYPE_PROC)
                         proc_signal_send(ctx, p, SYS_SIG_STOP, false);
                     else
-                        proc_exit(ctx, p, 0);
+                        /*
+                         * Terminate a child THREAD with proc_terminate, NOT
+                         * proc_exit. proc_exit ends in schedule(ctx), which
+                         * would context-switch in the middle of this loop -
+                         * once per child - leaving the remaining children and
+                         * the parent's own ipc/irq teardown below running
+                         * against an already-switched-away ctx (and on SMP a
+                         * child RUNNING on another core makes a schedule on
+                         * THIS core meaningless). proc_terminate only marks
+                         * the child ZOMBIE and does its per-task cleanup; the
+                         * single schedule() at the end of the outer proc_exit
+                         * switches away once, after the whole scene is torn
+                         * down. The child's stack/space refs are released by
+                         * its proc_funeral once it is reaped.
+                         */
+                        proc_terminate(ctx, p);
                 }
             }
         }

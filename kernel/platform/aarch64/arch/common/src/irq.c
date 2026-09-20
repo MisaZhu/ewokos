@@ -140,6 +140,7 @@ void sync_exception_handle(uint64_t esr, uint64_t far, context_t* ctx){
         return;
     }
 
+    uint32_t abort_core = abort_guard_enter("sync");
     printf("\n--------------------core dump infomation------------------\n");
     /* Harden the dump: print the essential line FIRST, before the full
      * register dump - a dump_ctx that hangs on a smashed context/SP
@@ -160,6 +161,7 @@ void sync_exception_handle(uint64_t esr, uint64_t far, context_t* ctx){
     printf("\n----------------------------------------------------------\n");
     if(cproc != 0) {
         proc_exit(ctx, proc_get_proc(cproc), -1);
+        abort_guard_leave(abort_core);
         return;
     }
     while(1);
