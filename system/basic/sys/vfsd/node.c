@@ -6,6 +6,7 @@
 vfs_node_t* _vfs_root = NULL;
 map_t  _nodes_hash = NULL;
 static uint32_t _next_node_id = 1;
+static uint32_t _vfs_node_count = 0; /* live nodes, bounded by VFS_NODE_MAX */
 
 static uint32_t vfs_alloc_node_id(void) {
     uint32_t node_id = _next_node_id++;
@@ -41,6 +42,8 @@ static inline void node_hash_key(uint32_t node_id, char* key) {
 
 /* caller must hold _vfs_lock (write) */
 vfs_node_t* vfsd_new_node(void) {
+    if(_vfs_node_count >= VFS_NODE_MAX)
+        return NULL;
     vfs_node_t* ret = (vfs_node_t*)malloc(sizeof(vfs_node_t));
     if(ret == NULL)
         return NULL;
@@ -54,6 +57,7 @@ vfs_node_t* vfsd_new_node(void) {
         free(ret);
         return NULL;
     }
+    _vfs_node_count++;
     return ret;
 }
 
@@ -183,6 +187,8 @@ static int32_t vfsd_del_node_depth(vfs_node_t* node, int32_t depth) {
     char key[17];
     node_hash_key(node->node_id, key);
     hashmap_remove(_nodes_hash, key);
+    if(_vfs_node_count > 0)
+        _vfs_node_count--;
     free(node);
     return 0;
 }
@@ -200,6 +206,7 @@ int32_t set_node_info(int32_t pid, vfs_node_t* node, fsinfo_t* info) {
     uint32_t node_id = node->fsinfo.node;
     memcpy(&node->fsinfo, info, sizeof(fsinfo_t));
     node->fsinfo.node = node_id;
+    vfsd_fsinfo_terminate(&node->fsinfo);
     return 0;
 }
 
@@ -328,6 +335,29 @@ bool vfs_resolve_path(const char* name, uint32_t* node_id_out) {
         j = i+1;
     }
     return false;
+}
+
+/*
+ * Ownership check used by the structural operations (delete, mount) that
+ * have no POSIX mode bit of their own: root (uid<=0) or the node's owner.
+ * Drivers run as the 'sys' user once init switches uid, so a root-only gate
+ * is NOT usable here - they own the nodes they create (stat.uid=getuid()).
+ */
+int vfsd_check_owner(int pid, const fsinfo_t* info) {
+    procinfo_t procinfo;
+    if(info == NULL || proc_info(pid, &procinfo) != 0)
+        return -1;
+    if(procinfo.uid <= 0 || procinfo.uid == info->stat.uid)
+        return 0;
+    return -1;
+}
+
+/* root or the 'sys' driver user (see VFS_SYS_UID) */
+int vfsd_is_sys(int pid) {
+    procinfo_t procinfo;
+    if(proc_info(pid, &procinfo) != 0)
+        return -1;
+    return procinfo.uid <= VFS_SYS_UID ? 0 : -1;
 }
 
 /*

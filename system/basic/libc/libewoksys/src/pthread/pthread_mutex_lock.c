@@ -4,15 +4,18 @@
 
 int pthread_mutex_lock(pthread_mutex_t* mutex) {
     if(mutex == NULL)
-        return -1;
+        return EINVAL;
 
-    if(pthread_mutex_lazy_init(mutex) != 0)
-        return -1;
+    int32_t* w = (int32_t*)mutex;
 
     /*
-     * Blocks in the kernel until the permit is ours. semaphore_enter() only
-     * returns 0 (acquired) or -1 (the semaphore was freed under us), so there
-     * is no "occupied" case left for the caller to retry.
+     * Uncontended case: one CAS, no syscall. This is the whole point of the
+     * redesign - the old code turned every lock into a SYS_SEMAPHORE_ENTER
+     * that also took the kernel's global proc lock, even with nobody else
+     * anywhere near the mutex.
      */
-    return semaphore_enter(*mutex);
+    if(mtx_try_acquire(w))
+        return 0;
+
+    return mtx_lock_contended(w, NULL, 0);
 }

@@ -70,6 +70,7 @@ static void do_vfs_new_node(int pid, proto_t* in, proto_t* out) {
     fsinfo_t info;
     if(proto_read_to(in, &info, sizeof(fsinfo_t)) != sizeof(fsinfo_t))
         return;
+    vfsd_fsinfo_terminate(&info);
     uint32_t node_to_id = (uint32_t)proto_read_int(in);
     bool vfs_node_only = (bool)proto_read_int(in);
     bool vfs_write_over = (bool)proto_read_int(in);
@@ -93,9 +94,13 @@ static void do_vfs_new_node(int pid, proto_t* in, proto_t* out) {
             return;
         }
 
-        if(!vfs_node_only) {
-            if(vfsd_check_access(pid, &node_to->fsinfo, W_OK) != 0 ||
-                    vfsd_check_access(pid, &node_to->fsinfo, X_OK) != 0) {
+        /*
+         * vfs_node_only may skip the father W|X check, but only for root/sys
+         * (drivers creating their mount points under "/"); see VFS_SYS_UID.
+         */
+        if(vfsd_check_access(pid, &node_to->fsinfo, W_OK) != 0 ||
+                vfsd_check_access(pid, &node_to->fsinfo, X_OK) != 0) {
+            if(!vfs_node_only || vfsd_is_sys(pid) != 0) {
                 pthread_rwlock_unlock(&_vfs_lock);
                 PF->addi(out, EPERM);
                 return;
@@ -107,6 +112,18 @@ static void do_vfs_new_node(int pid, proto_t* in, proto_t* out) {
             if(!vfs_write_over) {
                 pthread_rwlock_unlock(&_vfs_lock);
                 PF->addi(out, EEXIST);
+                return;
+            }
+            /*
+             * Overwriting an EXISTING entry replaces its whole fsinfo (type,
+             * owner, mode...). vfs_node_only skips the father check above so
+             * 'sys'-uid drivers can create mount points under root-owned
+             * dirs, but it must never let a peer rewrite somebody else's
+             * node (e.g. take ownership of /dev/tty0 and then mount over it).
+             */
+            if(vfsd_check_access(pid, &node->fsinfo, W_OK) != 0) {
+                pthread_rwlock_unlock(&_vfs_lock);
+                PF->addi(out, EPERM);
                 return;
             }
         }
@@ -193,6 +210,7 @@ static void do_vfs_new_nodes(int pid, proto_t* in, proto_t* out) {
         infos[i].node = vfs_get_node_id(node);
         infos[i].mount_pid = -1;
         memcpy(&node->fsinfo, &infos[i], sizeof(fsinfo_t));
+        vfsd_fsinfo_terminate(&node->fsinfo);
         vfs_add_node(pid, node_to, node);
         ids[i] = infos[i].node;
     }
@@ -428,6 +446,7 @@ static void do_vfs_set_by_fd(int32_t pid, proto_t* in, proto_t* out) {
     file_t* file = vfs_check_fd(pid, fd);
     if(file != NULL && file->node != NULL) {
         memcpy(&file->fsinfo, &info, sizeof(fsinfo_t));
+        vfsd_fsinfo_terminate(&file->fsinfo);
         file->fsinfo.node = vfs_get_node_id(file->node);
         file->fsinfo.mount_pid = get_mount_pid(file->node);
         res = 0;
@@ -460,7 +479,6 @@ static void do_vfs_get_kids(int pid, proto_t* in, proto_t* out) {
 }
 
 static void do_vfs_del_node(int32_t pid, proto_t* in, proto_t* out) {
-    (void)pid;
     PF->addi(out, -1);
     uint32_t node_id = proto_read_int(in);
     if(node_id == 0)
@@ -470,6 +488,27 @@ static void do_vfs_del_node(int32_t pid, proto_t* in, proto_t* out) {
     vfs_node_t* node = vfs_get_node_by_id(node_id);
     if(node == NULL) {
         pthread_rwlock_unlock(&_vfs_lock);
+        return;
+    }
+    /*
+     * The live root can never be deleted: _vfs_root would dangle and the
+     * next path walk is a use-after-free. Every other node needs an owner:
+     * root, the node's owner (creators clean up their own failed creates),
+     * the filesystem serving it (unlink from a mount driver), or unlink
+     * permission on the directory. Anything else could silently remove e.g.
+     * /dev/null for the whole system as soon as nobody has it open.
+     */
+    if(node == _vfs_root) {
+        pthread_rwlock_unlock(&_vfs_lock);
+        PF->addi(out, EPERM);
+        return;
+    }
+    if(vfsd_check_owner(pid, &node->fsinfo) != 0 &&
+            get_mount_pid(node) != pid &&
+            (node->father == NULL ||
+             vfsd_check_access(pid, &node->father->fsinfo, W_OK) != 0)) {
+        pthread_rwlock_unlock(&_vfs_lock);
+        PF->addi(out, EPERM);
         return;
     }
     int res = vfsd_del_node(node);
@@ -499,9 +538,17 @@ static void do_vfs_mount(int32_t pid, proto_t* in, proto_t* out) {
         return;
     }
 
-    vfsd_mount(pid, node_to, node, desc);
+    if(vfsd_check_mount_access(pid, node_to) != 0) {
+        pthread_rwlock_unlock(&_vfs_lock);
+        PF->addi(out, EPERM);
+        return;
+    }
+
+    /* report the real outcome: a client told "0" for a refused mount goes on
+     * serving a node that is not in the namespace */
+    int32_t res = vfsd_mount(pid, node_to, node, desc);
     pthread_rwlock_unlock(&_vfs_lock);
-    PF->clear(out)->addi(out, 0);
+    PF->clear(out)->addi(out, res);
 }
 
 static void do_vfs_umount(int32_t pid, proto_t* in) {

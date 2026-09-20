@@ -41,10 +41,10 @@ typedef struct {
 
 // Condition variable definition
 typedef struct {
-	int32_t sem_wait;      // Waiter queue: kernel counting semaphore, one permit posted per signal
-	int32_t sem_signal;    // Binary semaphore guarding `waiters`
-	volatile int waiters;  // Waiter count
-	volatile int signaled; // unused; kept so the layout pthread_rwlock_t and pthread_barrier_t embed is unchanged
+	int32_t sem_wait;            // Waiter queue: kernel counting semaphore, one permit posted per signal
+	pthread_mutex_t state_lock;  // Guards `waiters`; uncontended path is a userspace CAS, no syscall
+	volatile int waiters;        // Waiter count
+	volatile int signaled;       // unused; kept so the layout pthread_rwlock_t and pthread_barrier_t embed is unchanged
 } pthread_cond_t;
 
 typedef struct {

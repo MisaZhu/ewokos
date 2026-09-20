@@ -180,9 +180,11 @@ static void do_proc_get_cwd(int pid, proto_t* out) {
 
 static int get_fsinfo_by_name(const char* fname, fsinfo_t* info) {
     proto_t in, out;
+    int pid = get_ipc_serv(IPC_SERV_VFS);
+    if(pid < 0 || fname == NULL)
+        return -1;
     PF->init(&in)->adds(&in, fname);
     PF->init(&out);
-    int pid = get_ipc_serv(IPC_SERV_VFS);
     int res = ipc_call(pid, VFS_GET_BY_NAME, &in, &out);
     PF->clear(&in);
     if(res == 0) {
@@ -205,6 +207,10 @@ static void do_proc_set_cwd(int pid, proto_t* in, proto_t* out) {
         return;
 
     const char* s = proto_read_str(in);
+    /* a cwd is a path: anything longer than vfsd's path limit can never
+     * resolve, so refuse it up front instead of copying an arbitrary blob */
+    if(s == NULL || strlen(s) >= FS_FULL_NAME_MAX)
+        return;
     fsinfo_t info;
     if(get_fsinfo_by_name(s, &info) != 0) {
         PF->addi(out, ENOENT);
@@ -230,17 +236,32 @@ static str_t* env_get(map_t envs, const char* key) {
     return NULL;
 }
 
+/*
+ * Per-process environment limits. Every process may set any number of
+ * variables of any length via CORE_CMD_SET_ENV; unbounded, a single peer can
+ * grow core's heap without limit (and core must never die). The caps are far
+ * above anything the shell/login/session actually export.
+ */
+#define ENV_NUM_MAX   256
+#define ENV_KEY_MAX   256
+#define ENV_VAL_MAX   4096
+
 static void set_env(map_t envs, const char* key, const char* val) {
     if(envs == NULL || key == NULL || val == NULL)
+        return;
+    if(key[0] == 0 || strlen(key) >= ENV_KEY_MAX || strlen(val) >= ENV_VAL_MAX)
         return;
     str_t* v = env_get(envs, key);
     if(v != NULL) {
         str_cpy(v, val);
     }
     else {
+        if(hashmap_length(envs) >= ENV_NUM_MAX)
+            return;
         v = str_new(val);
         if(v != NULL) {
-            hashmap_put(envs, key, v);
+            if(hashmap_put(envs, key, v) != MAP_OK)
+                str_free(v);   /* put failed (OOM): don't leak the value */
         }
     }
 }

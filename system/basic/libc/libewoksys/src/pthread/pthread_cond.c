@@ -12,7 +12,8 @@
  * and the kernel hands it a permit directly when a signal posts one, so a
  * condvar wait costs no cpu and wakes exactly the tasks that were signaled.
  *
- * sem_signal is an ordinary binary mutex guarding `waiters`.
+ * state_lock is a pthread_mutex guarding `waiters`; its uncontended path is a
+ * userspace CAS, so touching the counter costs no syscall.
  *
  * This replaces an implementation that had no way to sleep: it polled
  * semaphore_tryenter(sem_wait) with a SYS_YIELD in a forever loop, so every
@@ -26,11 +27,11 @@
  */
 
 static inline int cond_state_lock(pthread_cond_t* cond) {
-    return semaphore_enter(cond->sem_signal);
+    return pthread_mutex_lock(&cond->state_lock);
 }
 
 static inline void cond_state_unlock(pthread_cond_t* cond) {
-    semaphore_quit(cond->sem_signal);
+    pthread_mutex_unlock(&cond->state_lock);
 }
 
 // Get current time in microseconds
@@ -63,9 +64,13 @@ int pthread_cond_init(pthread_cond_t* cond, const pthread_condattr_t *attr) {
     if(cond->sem_wait == 0)
         return ENOMEM;
     
-    // Allocate signal notification semaphore
-    cond->sem_signal = semaphore_alloc();
-    if(cond->sem_signal == 0) {
+    /*
+     * Guard for `waiters`. A pthread_mutex, not a kernel semaphore: its
+     * uncontended path is a userspace CAS with no syscall, so the counter
+     * updates a signal/wait/broadcast performs no longer cost two
+     * SYS_SEMAPHORE_* traps each.
+     */
+    if(pthread_mutex_init(&cond->state_lock, NULL) != 0) {
         semaphore_free(cond->sem_wait);
         cond->sem_wait = 0;
         return ENOMEM;
@@ -92,10 +97,7 @@ int pthread_cond_destroy(pthread_cond_t* cond) {
         cond->sem_wait = 0;
     }
     
-    if(cond->sem_signal != 0) {
-        semaphore_free(cond->sem_signal);
-        cond->sem_signal = 0;
-    }
+    pthread_mutex_destroy(&cond->state_lock);
     
     cond->waiters = 0;
     cond->signaled = 0;
@@ -109,7 +111,7 @@ static int cond_wait_internal(pthread_cond_t* cond, pthread_mutex_t* mutex,
     if(cond == NULL || mutex == NULL)
         return EINVAL;
     
-    if(cond->sem_wait == 0 || cond->sem_signal == 0)
+    if(cond->sem_wait == 0)
         return EINVAL;
     
     /*
@@ -217,7 +219,7 @@ int pthread_cond_signal(pthread_cond_t* cond) {
     if(cond == NULL)
         return EINVAL;
     
-    if(cond->sem_wait == 0 || cond->sem_signal == 0)
+    if(cond->sem_wait == 0)
         return EINVAL;
     
     /*
@@ -240,7 +242,7 @@ int pthread_cond_broadcast(pthread_cond_t* cond) {
     if(cond == NULL)
         return EINVAL;
     
-    if(cond->sem_wait == 0 || cond->sem_signal == 0)
+    if(cond->sem_wait == 0)
         return EINVAL;
     
     cond_state_lock(cond);

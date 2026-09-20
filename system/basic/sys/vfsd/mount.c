@@ -73,12 +73,49 @@ int32_t vfsd_get_mount_by_id(int32_t id, mount_t* mount) {
     return 0;
 }
 
+/*
+ * Who may mount over 'org': root, or the owner of the covered node. Every
+ * mount point in the shipped configs (/dev/..., /tmp) is created by the very
+ * driver that then mounts onto it (vfs_create(..., node_only) records
+ * stat.uid = getuid()), and sdfsd covers the initial "/" as root, so this is
+ * compatible with drivers running as the 'sys' user. W_OK on the covered
+ * node is accepted too (writable directory). Without any check ANY process
+ * could mount its own node over "/" or "/dev/tty0" and hijack the whole
+ * namespace for everyone.
+ * caller must hold _vfs_lock (read or write)
+ */
+int32_t vfsd_check_mount_access(int32_t pid, vfs_node_t* org) {
+    if(org == NULL)
+        return -1;
+    if(vfsd_check_owner(pid, &org->fsinfo) == 0)
+        return 0;
+    if(vfsd_check_access(pid, &org->fsinfo, W_OK) == 0)
+        return 0;
+    return -1;
+}
+
 /* caller must hold _vfs_lock (write) */
 int32_t vfsd_mount(int32_t pid, vfs_node_t* org, vfs_node_t* node, const char* desc) {
-    if(org == NULL || node == NULL)
+    if(org == NULL || node == NULL || org == node)
         return -1;
 
     if(node->mount_id >= 0) //already been mounted
+        return -1;
+
+    /*
+     * Structural guards - node/org ids come straight from the client:
+     *  - 'node' must be detached (fresh vfs_new_node with father 0). Linking
+     *    an already-attached node into a second kid list without removing it
+     *    from the first corrupts both lists (a later walk/free crashes).
+     *  - 'node' must not be the live root: grafting the root under one of its
+     *    own descendants makes a cycle and every father-walk loops forever.
+     *  - a detached 'org' is only acceptable when it IS the root; otherwise
+     *    the father==NULL branch below would let any peer replace _vfs_root
+     *    with an arbitrary node.
+     */
+    if(node->father != NULL || node == _vfs_root)
+        return -1;
+    if(org->father == NULL && org != _vfs_root)
         return -1;
 
     int32_t id = vfs_get_free_mount_id();
@@ -116,27 +153,51 @@ int32_t vfsd_mount(int32_t pid, vfs_node_t* org, vfs_node_t* node, const char* d
 
 /* caller must hold _vfs_lock (write) */
 static void vfs_umount_now(vfs_node_t* node) {
-    if(node == NULL || node->mount_id < 0)
+    if(node == NULL || node->mount_id < 0 || node->mount_id >= FS_MOUNT_MAX)
         return;
 
-    vfs_node_t* org = vfs_get_node_by_id(_vfs_mounts[node->mount_id].org_node);
+    int32_t id = node->mount_id;
+    vfs_node_t* org = vfs_get_node_by_id(_vfs_mounts[id].org_node);
     if(org == NULL) {
         return;
     }
 
     vfs_node_t* father = node->father;
     if(father == NULL) {
-        _vfs_root = org;
+        /* only the live root may be swapped back; a detached mounted root
+         * (already removed from its father) has nowhere to relink 'org' */
+        if(node == _vfs_root)
+            _vfs_root = org;
     }
     else {
         vfs_remove(0, node);
-        if(org->mount_id < 0)
-            free(org);
+        if(org->mount_id < 0) {
+            /*
+             * The covered placeholder is dropped. It must go through
+             * vfsd_del_node(): a bare free() left it in _nodes_hash and in
+             * clients' hands (any peer that resolved the mount point before
+             * the mount still holds its id), so the next VFS_GET_BY_NODE on it
+             * was a use-after-free inside vfsd. vfsd_del_node also wakes its
+             * waiters and refuses (keeps it allocated) while it is still open.
+             * Clear the stale father first: vfsd_mount() unlinked org from
+             * that kid list long ago, so letting the delete "unlink" it again
+             * would corrupt the father's kids_num.
+             */
+            org->father = NULL;
+            vfsd_del_node(org);
+        }
         else
             vfs_add_node(0, father, org);
     }
-    _vfs_mount_node[node->mount_id] = 0;
-    memset(&_vfs_mounts[node->mount_id], 0, sizeof(mount_t));
+    _vfs_mount_node[id] = 0;
+    memset(&_vfs_mounts[id], 0, sizeof(mount_t));
+    /*
+     * The unmounted subtree no longer belongs to any slot. Leaving mount_id
+     * pointing at the freed slot made the detached tree inherit whatever
+     * driver mounts into that slot next (get_mount_pid routed to it, and that
+     * driver's umount could then re-run this teardown on our node).
+     */
+    node->mount_id = -1;
     node->pending_umount = 0;
 }
 

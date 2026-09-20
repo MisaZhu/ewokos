@@ -166,6 +166,36 @@ typedef struct {
 #define VFSD_WAKE_TOKEN_DRIVER_ASYNC 0x56464153U
 #define VFSD_WAKE_TOKEN_CLONE_DUP    0x56464450U
 
+/*
+ * Global cap on live vfs nodes. VFS_NEW_NODE(S) is open to every process
+ * (mount drivers must be able to mirror their trees), so without a ceiling a
+ * single peer can malloc vfsd to death one node at a time. Real trees are
+ * mirrored lazily per visited directory and stay far below this.
+ */
+#define VFS_NODE_MAX 65536
+
+/*
+ * init.c switch_sys(1,1): once a cap policy is installed every driver in
+ * init.rd runs as uid 1 ('sys'), yet still has to create its own mount point
+ * (/dev/xxx, /tmp) under the root-owned "/". vfs_node_only therefore skips
+ * the father W|X check - but ONLY for root/sys. A logged-in user (uid > 1)
+ * gets ordinary directory semantics, so it can neither litter /dev nor squat
+ * a driver's mount point name to make that driver's later mount fail.
+ */
+#define VFS_SYS_UID 1
+
+/*
+ * fsinfo_t arrives from clients as a raw struct copy; nothing guarantees
+ * name[] is NUL-terminated. Every later strcmp/strcpy/str_cpy on a stored
+ * name would otherwise run off the end of the node (with an attacker-filled
+ * stat/data/state there is no zero byte until deep into the neighbouring
+ * fields), so terminate at every ingestion point.
+ */
+static inline void vfsd_fsinfo_terminate(fsinfo_t* info) {
+    if(info != NULL)
+        info->name[FS_NODE_NAME_MAX-1] = 0;
+}
+
 extern vfs_node_t* _vfs_root;
 extern mount_t _vfs_mounts[FS_MOUNT_MAX];
 extern map_t  _nodes_hash;
@@ -219,10 +249,13 @@ extern void vfsd_fullname(vfs_node_t* node, char* out, uint32_t out_sz);
 extern vfs_node_t* vfs_find_kid_raw(vfs_node_t* father, const char* name);
 extern bool vfs_resolve_path(const char* name, uint32_t* node_id_out);
 extern int vfsd_check_access(int pid, fsinfo_t* info, int mode);
+extern int vfsd_check_owner(int pid, const fsinfo_t* info);
+extern int vfsd_is_sys(int pid);
 
 /* ---- mount.c ---- */
 extern int32_t get_mount_pid(vfs_node_t* node);
 extern int32_t vfsd_get_mount_by_id(int32_t id, mount_t* mount);
+extern int32_t vfsd_check_mount_access(int32_t pid, vfs_node_t* org);
 extern int32_t vfsd_mount(int32_t pid, vfs_node_t* org, vfs_node_t* node, const char* desc);
 extern void vfs_try_finish_umount(vfs_node_t* node);
 extern void vfsd_umount(int32_t pid, vfs_node_t* node);

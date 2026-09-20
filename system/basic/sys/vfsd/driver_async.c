@@ -419,14 +419,18 @@ static int32_t vfs_commit_kids_to_node(vfs_node_t* father, const fsinfo_t* infos
         fsinfo_t info;
         vfs_node_t* node;
 
-        if(vfs_find_kid_raw(father, infos[i].name) != NULL)
+        /* the mount driver is just another process: terminate its name
+         * before the strcmp in vfs_find_kid_raw and before storing it */
+        memcpy(&info, &infos[i], sizeof(fsinfo_t));
+        vfsd_fsinfo_terminate(&info);
+
+        if(vfs_find_kid_raw(father, info.name) != NULL)
             continue;
 
         node = vfsd_new_node();
         if(node == NULL)
             continue;
 
-        memcpy(&info, &infos[i], sizeof(fsinfo_t));
         info.node = vfs_get_node_id(node);
         info.mount_pid = -1;
         memcpy(&node->fsinfo, &info, sizeof(fsinfo_t));
