@@ -660,8 +660,8 @@ static int sdext_unlink(vdevice_t* dev, fsinfo_t* info, const char* fname, void*
 int main(int argc, char** argv) {
     (void)argc;
     (void)argv;
-    if((int16_t)getuid() >= 0) {
-        klog("this process can only loaded by kernel!\n");
+    if((int16_t)getuid() > 0) {
+        klog("this process can only loaded by root!\n");
         return -1;
     }
 

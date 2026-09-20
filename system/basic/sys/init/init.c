@@ -114,8 +114,8 @@ int main(int argc, char** argv) {
     (void)argc;
     (void)argv;
 
-    if(((int16_t)getuid()) >= 0) {
-        klog("process 'init' can only loaded by kernel!\n");
+    if(((int16_t)getuid()) > 0) {
+        klog("process 'init' can only loaded with root!\n");
         return -1;
     }
 
