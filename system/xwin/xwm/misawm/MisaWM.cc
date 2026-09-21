@@ -246,8 +246,6 @@ void MisaWM::markFrameRound(graph_t* frame_g, grect_t* fr, int r) {
 }
 
 void MisaWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinfo_t* info, grect_t* r, bool top) {
-	(void)ws_g;
-
 	int fw = r->w;
 	int fh = r->h;
 	int wd = (int)xwm.theme.frameW;
@@ -259,12 +257,31 @@ void MisaWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinf
 	/*the border ring: frost the four bands that make up the frame edge. The
 	  title band is frosted in drawTitle, which runs before this and already
 	  carries the title text and the buttons, so the ring stops at the title
-	  and never paints over it. The client interior is left alone: the
-	  compositor sources it straight from the buffer the client published.*/
+	  and never paints over it.*/
 	frostRegion(desktop_g, frame_g, info, r->x, r->y, fw, wd, tint, GLASS_BLUR);               //top
 	frostRegion(desktop_g, frame_g, info, r->x, r->y+fh-wd, fw, wd, tint, GLASS_BLUR);         //bottom
 	frostRegion(desktop_g, frame_g, info, r->x, r->y+wd, wd, fh-wd*2, tint, GLASS_BLUR);       //left
 	frostRegion(desktop_g, frame_g, info, r->x+fw-wd, r->y+wd, wd, fh-wd*2, tint, GLASS_BLUR); //right
+
+	/*the client area is glass too: the whole window sits on one frosted
+	  sheet, so frost the wsr as well and lay the client's published buffer
+	  back over it with alpha. Opaque content covers the glass completely and
+	  looks as before; translucent content now blends over the blurred
+	  backdrop instead of the raw copy prepare_win_content put here.*/
+	if(info->alpha) {
+		grect_t ws = {(int)info->wsr.x - (int)info->winr.x, (int)info->wsr.y - (int)info->winr.y,
+				(int)info->wsr.w, (int)info->wsr.h};
+		grect_t fr = {r->x, r->y, fw, fh};
+		if(grect_insect(&fr, &ws) && ws.w > 0 && ws.h > 0) {
+			frostRegion(desktop_g, frame_g, info, ws.x, ws.y, ws.w, ws.h, tint, GLASS_BLUR);
+			if(ws_g != NULL && ws_g->buffer != NULL) {
+				int sx = ws.x - ((int)info->wsr.x - (int)info->winr.x);
+				int sy = ws.y - ((int)info->wsr.y - (int)info->winr.y);
+				graph_blt_alpha(ws_g, sx, sy, ws.w, ws.h,
+						frame_g, ws.x, ws.y, ws.w, ws.h, 0xff);
+			}
+		}
+	}
 
 	/*round the corners: the arc mask cuts everything outside the rounded
 	  corner to transparent, blending the glass edge into the shadow. Same
