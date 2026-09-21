@@ -8,8 +8,6 @@
 #include <string.h>
 
 using namespace Ewok;
-/*blur radius of the frost, and the tint alpha (focused / unfocused)*/
-#define GLASS_BLUR  5
 
 /*the tint laid over the frost. The RGB comes from the theme's frame background
   so a theme can colour the glass; the alpha is fixed here and is what makes
@@ -103,7 +101,7 @@ void MisaWM::ensureFrost(graph_t* desktop_g, xinfo_t* info) {
 		}
 		/*blur FROM the sharp snapshot, never from the previous blur*/
 		memcpy(frostCache->buffer, backdropSharp->buffer, (size_t)fw*fh*4);
-		graph_gaussian(frostCache, 0, 0, fw, fh, GLASS_BLUR);
+		graph_gaussian(frostCache, 0, 0, fw, fh, xwm.theme.frameBlur);
 		frostX = info->winr.x;
 		frostY = info->winr.y;
 		frostW = fw;
@@ -146,7 +144,7 @@ void MisaWM::ensureFrost(graph_t* desktop_g, xinfo_t* info) {
 			/*blur FROM the sharp backdrop, never from the previous blur, so the
 			  frost cannot accumulate smear frame over frame*/
 			memcpy(frostCache->buffer, backdropSharp->buffer, (size_t)fw*fh*4);
-			graph_gaussian(frostCache, 0, 0, fw, fh, GLASS_BLUR);
+			graph_gaussian(frostCache, 0, 0, fw, fh, xwm.theme.frameBlur);
 		}
 		return;
 	}
@@ -173,7 +171,7 @@ void MisaWM::ensureFrost(graph_t* desktop_g, xinfo_t* info) {
 	graph_blt(desktop_g, info->winr.x, info->winr.y, fw, fh,
 			backdropSharp, 0, 0, fw, fh);
 	memcpy(frostCache->buffer, backdropSharp->buffer, (size_t)fw*fh*4);
-	graph_gaussian(frostCache, 0, 0, fw, fh, GLASS_BLUR);
+	graph_gaussian(frostCache, 0, 0, fw, fh, xwm.theme.frameBlur);
 	frostX = info->winr.x;
 	frostY = info->winr.y;
 	frostW = fw;
@@ -258,22 +256,22 @@ void MisaWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinf
 	  title band is frosted in drawTitle, which runs before this and already
 	  carries the title text and the buttons, so the ring stops at the title
 	  and never paints over it.*/
-	frostRegion(desktop_g, frame_g, info, r->x, r->y, fw, wd, tint, GLASS_BLUR);               //top
-	frostRegion(desktop_g, frame_g, info, r->x, r->y+fh-wd, fw, wd, tint, GLASS_BLUR);         //bottom
-	frostRegion(desktop_g, frame_g, info, r->x, r->y+wd, wd, fh-wd*2, tint, GLASS_BLUR);       //left
-	frostRegion(desktop_g, frame_g, info, r->x+fw-wd, r->y+wd, wd, fh-wd*2, tint, GLASS_BLUR); //right
+	frostRegion(desktop_g, frame_g, info, r->x, r->y, fw, wd, tint, xwm.theme.frameBlur);               //top
+	frostRegion(desktop_g, frame_g, info, r->x, r->y+fh-wd, fw, wd, tint, xwm.theme.frameBlur);         //bottom
+	frostRegion(desktop_g, frame_g, info, r->x, r->y+wd, wd, fh-wd*2, tint, xwm.theme.frameBlur);       //left
+	frostRegion(desktop_g, frame_g, info, r->x+fw-wd, r->y+wd, wd, fh-wd*2, tint, xwm.theme.frameBlur); //right
 
 	/*the client area is glass too: the whole window sits on one frosted
 	  sheet, so frost the wsr as well and lay the client's published buffer
 	  back over it with alpha. Opaque content covers the glass completely and
 	  looks as before; translucent content now blends over the blurred
 	  backdrop instead of the raw copy prepare_win_content put here.*/
-	if(info->alpha) {
+	if(info->alpha && xwm.theme.frameBlur > 0) {
 		grect_t ws = {(int)info->wsr.x - (int)info->winr.x, (int)info->wsr.y - (int)info->winr.y,
 				(int)info->wsr.w, (int)info->wsr.h};
 		grect_t fr = {r->x, r->y, fw, fh};
 		if(grect_insect(&fr, &ws) && ws.w > 0 && ws.h > 0) {
-			frostRegion(desktop_g, frame_g, info, ws.x, ws.y, ws.w, ws.h, tint, GLASS_BLUR);
+			frostRegion(desktop_g, frame_g, info, ws.x, ws.y, ws.w, ws.h, tint, xwm.theme.frameBlur);
 			if(ws_g != NULL && ws_g->buffer != NULL) {
 				int sx = ws.x - ((int)info->wsr.x - (int)info->winr.x);
 				int sy = ws.y - ((int)info->wsr.y - (int)info->winr.y);
@@ -301,7 +299,7 @@ void MisaWM::drawTitle(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r
 	/*the title bar is part of the glass sheet: frost it first, then centre
 	  the title text on top. This runs before the buttons and before
 	  drawFrame, so nothing painted here gets overwritten by the ring.*/
-	frostRegion(desktop_g, g, info, r->x, r->y, r->w, r->h, glassTint(), GLASS_BLUR);
+	frostRegion(desktop_g, g, info, r->x, r->y, r->w, r->h, glassTint(), xwm.theme.frameBlur);
 
 	gsize_t sz;
 	font_text_size(info->title, font, xwm.theme.fontSize, (uint32_t*)&sz.w, (uint32_t*)&sz.h);

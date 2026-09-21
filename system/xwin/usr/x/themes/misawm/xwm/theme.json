@@ -19,7 +19,7 @@
     "bg_effect": 0,
     "frame_alpha": 1,
     "#frame_blur": "xserverd keeps a clean per-window snapshot of what is below and hands it to xwm as the DRAW_FRAME desktop, so the frost blurs the real backdrop",
-    "frame_blur": 1,
+    "frame_blur": 8,
 
     "pattern": "/usr/system/images/wallpapers/wallpaper1.png",
     "#pattern_mode": "0 auto, 1 tile, 2 center, 3 fit",
