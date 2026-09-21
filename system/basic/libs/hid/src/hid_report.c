@@ -863,3 +863,58 @@ int touch_normalize_report(const touch_parser_t* t, uint8_t report_len,
     out[6] = 0;
     return HID_POINTER_EVENT_SIZE;
 }
+
+bool mouse_parser_is_absolute(const mouse_parser_t* m) {
+    if (!m->valid) {
+        return false;
+    }
+    /* Both axes wider than 8 bits strongly indicates absolute coordinates;
+       standard relative mice use 8-bit (boot) or at most 12-bit deltas,
+       but 12-bit relative is rare and always paired with a boot fallback.
+       Requiring both axes > 8 keeps false positives minimal. */
+    return m->x_size > 8 && m->y_size > 8;
+}
+
+int mouse_normalize_as_touch(const mouse_parser_t* m,
+        const uint8_t* report, int len, uint8_t* out) {
+    uint32_t x;
+    uint32_t y;
+    uint8_t pressed;
+
+    if (!m->valid) {
+        return -1;
+    }
+    if (m->has_report_id) {
+        if (len <= 0 || report[0] != m->report_id) {
+            return -1;
+        }
+    }
+    if (len < m->report_bytes) {
+        return -1;
+    }
+
+    /* button 1 (left) acts as tip-switch for absolute pointing devices */
+    pressed = 0;
+    if (m->button_bit[0] >= 0 &&
+            bit_extract_le(report, m->button_bit[0], m->button_size[0]) != 0) {
+        pressed = 1;
+    }
+
+    x = bit_extract_le(report, m->x_bit, m->x_size);
+    y = bit_extract_le(report, m->y_bit, m->y_size);
+    if (x > 0xFFFFu) {
+        x = 0xFFFFu;
+    }
+    if (y > 0xFFFFu) {
+        y = 0xFFFFu;
+    }
+
+    out[0] = pressed;
+    out[1] = (uint8_t)(x & 0xFFu);
+    out[2] = (uint8_t)((x >> 8) & 0xFFu);
+    out[3] = (uint8_t)(y & 0xFFu);
+    out[4] = (uint8_t)((y >> 8) & 0xFFu);
+    out[5] = 0;
+    out[6] = 0;
+    return HID_POINTER_EVENT_SIZE;
+}

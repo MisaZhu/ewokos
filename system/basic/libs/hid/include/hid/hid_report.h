@@ -85,4 +85,16 @@ int mouse_normalize_report(const mouse_parser_t* m,
 int touch_normalize_report(const touch_parser_t* t, uint8_t report_len,
         const uint8_t* report, int len, uint8_t* out);
 
+/* Normalize an absolute-coordinate mouse report into touch-event format.
+   Many USB touchscreens present as Generic Desktop/Mouse with absolute
+   X/Y (>=12 bits) instead of a proper Digitizer collection. This extracts
+   button[0] as tip-switch and the raw X/Y as absolute position.
+   Returns HID_POINTER_EVENT_SIZE on success, -1 on failure. */
+int mouse_normalize_as_touch(const mouse_parser_t* m,
+        const uint8_t* report, int len, uint8_t* out);
+
+/* True when the mouse parser looks like an absolute pointing device
+   (touchscreen) rather than a relative mouse: both axes > 8 bits. */
+bool mouse_parser_is_absolute(const mouse_parser_t* m);
+
 #endif /* __HID_REPORT_H__ */

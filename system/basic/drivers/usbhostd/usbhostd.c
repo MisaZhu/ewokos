@@ -61,10 +61,10 @@
 /* enumeration / bring-up logging; per-report traffic stays silent */
 #define USB_LOG_ENABLE 1
 #if USB_LOG_ENABLE
-#define slog(...) klog(__VA_ARGS__)
+//#define slog(...) klog(__VA_ARGS__)
 #else
 static inline void usb_log_none(const char* fmt, ...) { (void)fmt; }
-#define slog(...) usb_log_none(__VA_ARGS__)
+//#define slog(...) usb_log_none(__VA_ARGS__)
 #endif
 
 /* an enumerated USB device (input device or hub) */
@@ -408,11 +408,12 @@ static int usb_register_mouse(int dev_idx, const hid_candidate_t* cand, const mo
     if (use_parser) {
         _inputs[slot].mouse = *parser;
         _inputs[slot].report_len = parser->report_bytes;
-        slog("usbhostd: register mouse slot=%d dev=%d iface=%u ep=%02x report_id=%u report_len=%u maxpkt=%u x=%d/%d y=%d/%d wheel=%d/%d\n",
+        slog("usbhostd: register mouse slot=%d dev=%d iface=%u ep=%02x report_id=%u report_len=%u maxpkt=%u x=%d/%d y=%d/%d wheel=%d/%d%s\n",
                 slot, dev_idx, cand->iface_num, cand->ep_addr,
                 parser->report_id, parser->report_bytes, cand->max_packet,
                 parser->x_bit, parser->x_size, parser->y_bit, parser->y_size,
-                parser->wheel_bit, parser->wheel_size);
+                parser->wheel_bit, parser->wheel_size,
+                mouse_parser_is_absolute(parser) ? " [absolute->touch]" : "");
     }
     else {
         _inputs[slot].report_len = cand->max_packet > 0 ? (uint8_t)_inputs[slot].max_packet : 4;
@@ -1087,6 +1088,22 @@ static bool usb_poll_inputs(vdevice_t* dev) {
             if (hid_dispatch_evt(HID_REPORT_ID_MOUSE, payload, HID_POINTER_EVENT_SIZE)) {
                 any_edge = true;
             }
+            /*
+             * Absolute-coordinate mouse (USB touchscreen presenting as
+             * Generic Desktop/Mouse): also dispatch as touch so hid_touchd
+             * receives events.  The heuristic (both axes > 8 bits) rejects
+             * standard 8-bit boot mice and relative devices.
+             */
+            if (in->mouse.valid && mouse_parser_is_absolute(&in->mouse)) {
+                uint8_t tp[HID_MAX_EVENT_SIZE];
+                if (mouse_normalize_as_touch(&in->mouse, report, ret, tp) ==
+                        HID_POINTER_EVENT_SIZE) {
+                    if (hid_dispatch_evt(HID_REPORT_ID_TOUCH, tp,
+                            HID_POINTER_EVENT_SIZE)) {
+                        any_edge = true;
+                    }
+                }
+            }
             got = true;
         }
         else if (in->type == HID_INPUT_TOUCH) {
@@ -1101,6 +1118,17 @@ static bool usb_poll_inputs(vdevice_t* dev) {
                     any_edge = true;
                 }
                 got = true;
+            }
+            else {
+                /* normalize failed: log the first few so the user can
+                   diagnose descriptor/report-length mismatches */
+                static int touch_norm_fails = 0;
+                if (touch_norm_fails < 5) {
+                    touch_norm_fails++;
+                    slog("usbhostd: touch normalize FAILED slot=%d len=%d expect=%u rid=%u has_rid=%d report[0]=%02x\n",
+                            i, ret, in->report_len, in->touch.report_id,
+                            in->touch.has_report_id, ret > 0 ? report[0] : 0);
+                }
             }
         }
         else if (in->type == HID_INPUT_COMPOSITE) {
@@ -1127,6 +1155,16 @@ static bool usb_poll_inputs(vdevice_t* dev) {
                 memset(payload, 0, sizeof(payload));
                 if (mouse_normalize_report(&in->mouse, report, ret, payload) == HID_POINTER_EVENT_SIZE) {
                     if (mouse_payload_idle(in, payload)) {
+                        if (in->mouse.valid && mouse_parser_is_absolute(&in->mouse)) {
+                            uint8_t tp[HID_MAX_EVENT_SIZE];
+                            if (mouse_normalize_as_touch(&in->mouse, report, ret, tp) ==
+                                    HID_POINTER_EVENT_SIZE) {
+                                if (hid_dispatch_evt(HID_REPORT_ID_TOUCH, tp,
+                                        HID_POINTER_EVENT_SIZE)) {
+                                    any_edge = true;
+                                }
+                            }
+                        }
                         continue;
                     }
                     in->last_mouse_btn = payload[0];
@@ -1137,6 +1175,16 @@ static bool usb_poll_inputs(vdevice_t* dev) {
                 }
                 if (hid_dispatch_evt(HID_REPORT_ID_MOUSE, payload, HID_POINTER_EVENT_SIZE)) {
                     any_edge = true;
+                }
+                if (in->mouse.valid && mouse_parser_is_absolute(&in->mouse)) {
+                    uint8_t tp[HID_MAX_EVENT_SIZE];
+                    if (mouse_normalize_as_touch(&in->mouse, report, ret, tp) ==
+                            HID_POINTER_EVENT_SIZE) {
+                        if (hid_dispatch_evt(HID_REPORT_ID_TOUCH, tp,
+                                HID_POINTER_EVENT_SIZE)) {
+                            any_edge = true;
+                        }
+                    }
                 }
                 got = true;
             }
