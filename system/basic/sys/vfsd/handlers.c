@@ -95,16 +95,23 @@ static void do_vfs_new_node(int pid, proto_t* in, proto_t* out) {
         }
 
         /*
-         * vfs_node_only may skip the father W|X check, but only for root/sys
-         * (drivers creating their mount points under "/"); see VFS_SYS_UID.
+         * vfs_node_only publishes an in-memory node the caller itself serves:
+         * a driver's mount point under "/", or a logged-in user's private
+         * session device (xterm's /dev/xconsole<pid>). It skips the father
+         * W|X check for ANY uid - /dev and / are root/sys-owned, so demanding
+         * W there would stop a real user (uid > 1, e.g. misa on raspix where
+         * the session actually drops privilege) from publishing its own
+         * device, while uid<=1 sessions (virt) slipped through by accident.
+         * The anti-hijack guarantee does NOT rest on this father check: it
+         * comes from the existing-node W_OK check below (never overwrite a
+         * node you don't own) plus vfsd_check_mount_access() at mount time.
          */
-        if(vfsd_check_access(pid, &node_to->fsinfo, W_OK) != 0 ||
-                vfsd_check_access(pid, &node_to->fsinfo, X_OK) != 0) {
-            if(!vfs_node_only || vfsd_is_sys(pid) != 0) {
-                pthread_rwlock_unlock(&_vfs_lock);
-                PF->addi(out, EPERM);
-                return;
-            }
+        if(!vfs_node_only &&
+                (vfsd_check_access(pid, &node_to->fsinfo, W_OK) != 0 ||
+                 vfsd_check_access(pid, &node_to->fsinfo, X_OK) != 0)) {
+            pthread_rwlock_unlock(&_vfs_lock);
+            PF->addi(out, EPERM);
+            return;
         }
 
         node = vfs_find_kid_raw(node_to, info.name);

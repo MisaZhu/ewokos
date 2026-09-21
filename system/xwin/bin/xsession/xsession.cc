@@ -183,11 +183,7 @@ public:
 };
 
 int main(int argc, char* argv[]) {
-	if(getuid() > 0) {
-		run_xinit(NULL);
-		return 0;
-	}
-	else if(argc > 1) {
+	if(argc > 1) {
 		//no login check
 		session_info_t info;
 		if(session_get_by_name(argv[1], &info) == 0) {

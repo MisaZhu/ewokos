@@ -177,10 +177,14 @@ typedef struct {
 /*
  * init.c switch_sys(1,1): once a cap policy is installed every driver in
  * init.rd runs as uid 1 ('sys'), yet still has to create its own mount point
- * (/dev/xxx, /tmp) under the root-owned "/". vfs_node_only therefore skips
- * the father W|X check - but ONLY for root/sys. A logged-in user (uid > 1)
- * gets ordinary directory semantics, so it can neither litter /dev nor squat
- * a driver's mount point name to make that driver's later mount fail.
+ * (/dev/xxx, /tmp) under the root-owned "/". A logged-in user's session apps
+ * do the same for their private devices (xterm's /dev/xconsole<pid>), and on
+ * platforms without a cap policy (raspix) that session really runs as uid>1.
+ * vfs_node_only therefore skips the father W|X check for ANY uid: it only
+ * publishes an in-memory node the caller itself serves. Hijacking is still
+ * blocked - overwriting an EXISTING node needs W_OK on it, and mounting needs
+ * vfsd_check_mount_access() (owner or W_OK). VFS_SYS_UID marks the 'sys'
+ * driver user for the ownership helpers below.
  */
 #define VFS_SYS_UID 1
 

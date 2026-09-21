@@ -218,7 +218,7 @@ xwin_t* xwin_open(x_t* xp, int32_t disp_index, int x, int y, int w, int h, const
 
     key_t key = 0;
     uint32_t uuid = proc_get_uuid(getpid());
-    int32_t xinfo_shm_id = xwin_alloc_shm(uuid, sizeof(xinfo_t), 0600 |IPC_CREAT|IPC_EXCL, &key);
+    int32_t xinfo_shm_id = xwin_alloc_shm(uuid, sizeof(xinfo_t), 0666 |IPC_CREAT|IPC_EXCL, &key);
     if(xinfo_shm_id == -1) {
         /* #region debug-point B:shmget-xinfo */
         klog("[DEBUG][B] xwin_open shmget failed pid=%d uuid=%u key=%x title=%s ptr=%llx size=%d\n",
