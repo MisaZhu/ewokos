@@ -312,6 +312,19 @@ int x_get_desktop_space(int disp_index, grect_t* r) {
     return res;
 }
 
+/*The desktop is not a buffer of its own: xserverd draws it straight into the
+  display scan-out graph (display->g) and hands that same shm id to xwm via
+  XWM_CNTL_DRAW_DESKTOP, which xwm maps in fetch_desktop_graph(). A client can
+  only reach that segment through X_DCNTL_GET_INFO's g_shm_id - the very id
+  x_fetch_screen_graph() already attaches to and caches in _x_screens - so we
+  resolve disp_index (-1 means the current display, as the other desktop APIs
+  do) and reuse that cached mapping instead of shmat'ing the same segment a
+  second time.*/
+int x_fetch_desktop_graph(int disp_index, graph_t* g) {
+    disp_index = x_get_display_id(disp_index);
+    return x_fetch_screen_graph((uint32_t)disp_index, g);
+}
+
 int x_set_desktop_space(int disp_index, const grect_t* r) {
     int res = -1;
     proto_t out, in;

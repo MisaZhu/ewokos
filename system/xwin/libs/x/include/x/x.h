@@ -87,6 +87,7 @@ const char* x_get_theme_fname(const char* prefix,
 int      x_get_desktop_space(int disp_index, grect_t* r);
 int      x_set_desktop_space(int disp_index, const grect_t* r);
 const char* x_get_res_name(const char* name, char* ret, uint32_t len);
+int      x_fetch_desktop_graph(int disp_index, graph_t* g);
 
 #ifdef __cplusplus
 }
