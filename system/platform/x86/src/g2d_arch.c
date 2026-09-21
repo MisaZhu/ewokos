@@ -7,10 +7,16 @@
 #endif
 
 /* scalar per-pixel blend, same math as the C reference: effective alpha
-   (src_a * alpha) >> 8 is applied by the callers, then the /255 blend. */
+   (src_a * alpha) >> 8 is applied by the callers, then the /255 blend.
+   A fully transparent dest carries no colour (its RGB is usually zeroed
+   by alpha masks), so blending against it would darken the source: take
+   the source colour with the effective alpha instead, same as
+   graph_pixel_argb_raw. */
 static inline uint32_t g2d_blend_argb_scalar(uint32_t dst_color, uint8_t a,
 		uint8_t r, uint8_t g, uint8_t b) {
 	uint32_t oa = (dst_color >> 24) & 0xff;
+	if(oa == 0)
+		return ((uint32_t)a << 24) | ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
 	uint32_t dr = (dst_color >> 16) & 0xff;
 	uint32_t dg = (dst_color >> 8) & 0xff;
 	uint32_t db = dst_color & 0xff;
@@ -34,6 +40,10 @@ static inline uint32_t x86_fill_blend_px(uint32_t dst, uint32_t color, uint32_t 
 	uint32_t da = (dst >> 24) & 0xff;
 	uint32_t div255;
 
+	/* transparent dest: source colour with the fill alpha, unblended */
+	if(da == 0)
+		return (a << 24) | (color & 0x00ffffff);
+
 	div255 = ((color & 0xff) * a + db * inv_a);
 	db = (div255 + 1 + (div255 >> 8)) >> 8;
 	div255 = (((color >> 8) & 0xff) * a + dg * inv_a);
@@ -55,11 +65,13 @@ static inline __m128i x86_div255_epu16(__m128i v) {
 
 /* Source-over blend of 4 pixels against a constant color. Lanes hold
    [b,g,r,a,b,g,r,a] after the byte unpack; the alpha lane is replaced
-   with bg_a + div255((255-bg_a)*a) via alpha_mask. dst must be 16-byte
-   aligned. */
+   with bg_a + div255((255-bg_a)*a) via alpha_mask. Pixels whose dest
+   alpha is 0 take fg32 (the fill colour with its alpha) unblended. dst
+   must be 16-byte aligned. */
 static inline void x86_blend_4px(uint32_t* dst, __m128i cpa16, __m128i a16,
-		__m128i inv_a16, __m128i alpha_mask, __m128i full16, __m128i zero) {
+		__m128i inv_a16, __m128i alpha_mask, __m128i full16, __m128i zero, __m128i fg32) {
 	__m128i bg = _mm_load_si128((const __m128i*)dst);
+	__m128i bg_clear = _mm_cmpeq_epi32(_mm_srli_epi32(bg, 24), zero);
 	__m128i lo = _mm_unpacklo_epi8(bg, zero);
 	__m128i hi = _mm_unpackhi_epi8(bg, zero);
 
@@ -72,7 +84,9 @@ static inline void x86_blend_4px(uint32_t* dst, __m128i cpa16, __m128i a16,
 	lo = _mm_or_si128(_mm_and_si128(alpha_mask, oa_lo), _mm_andnot_si128(alpha_mask, blend_lo));
 	hi = _mm_or_si128(_mm_and_si128(alpha_mask, oa_hi), _mm_andnot_si128(alpha_mask, blend_hi));
 
-	_mm_store_si128((__m128i*)dst, _mm_packus_epi16(lo, hi));
+	__m128i out = _mm_packus_epi16(lo, hi);
+	out = _mm_or_si128(_mm_and_si128(bg_clear, fg32), _mm_andnot_si128(bg_clear, out));
+	_mm_store_si128((__m128i*)dst, out);
 }
 
 /* alpha fill: simd rows of 4 pixels with a scalar head for 16-byte
@@ -110,6 +124,7 @@ int32_t arch_g2d_fill_alpha(uint32_t* argb, int32_t argb_w, int32_t argb_h,
 		__m128i alpha_mask = _mm_set_epi32((int)0xFFFF0000, 0, (int)0xFFFF0000, 0);
 		__m128i full16 = _mm_set1_epi16(255);
 		__m128i zero = _mm_setzero_si128();
+		__m128i fg32 = _mm_set1_epi32((int)color);
 
 		for(int32_t row = y; row < y + h; row++) {
 			uint32_t* dp = argb + row * argb_w + x;
@@ -122,7 +137,7 @@ int32_t arch_g2d_fill_alpha(uint32_t* argb, int32_t argb_w, int32_t argb_h,
 			}
 
 			for(; i + 4 <= w; i += 4)
-				x86_blend_4px(dp + i, cpa16, a16, inv_a16, alpha_mask, full16, zero);
+				x86_blend_4px(dp + i, cpa16, a16, inv_a16, alpha_mask, full16, zero, fg32);
 
 			/* scalar tail, at most 3 pixels per row */
 			for(; i < w; i++)

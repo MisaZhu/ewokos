@@ -186,6 +186,9 @@ void Widget::repaint(graph_t* g, XTheme* theme) {
 	if(this->themePrivate != NULL)
 		theme = this->themePrivate;
 
+	if(color_a(theme->basic.bgColor) != 0xff)
+		setAlpha(true);
+
 	grect_t r = getRootArea();
 	if(r.w <= 0 || r.h <= 0) {
 		dirty = false;

@@ -12,6 +12,11 @@ extern "C" {
 static inline uint32_t graph_blend_argb(uint32_t dst_color,
         uint8_t a, uint8_t r, uint8_t g, uint8_t b) {
     uint8_t oa = (dst_color >> 24) & 0xff;
+    /*fully transparent dest: its RGB is meaningless (often zeroed by alpha
+      masks), blending with it darkens the source; take the source colour
+      with the source alpha, same as graph_pixel_argb_raw*/
+    if(oa == 0)
+        return ((uint32_t)a << 24) | ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
     uint8_t or = (dst_color >> 16) & 0xff;
     uint8_t og = (dst_color >> 8) & 0xff;
     uint8_t ob = dst_color & 0xff;

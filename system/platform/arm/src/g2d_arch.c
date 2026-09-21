@@ -21,10 +21,15 @@ extern "C" {
 
 /* scalar per-pixel blend, same math as the C reference: effective alpha
    (src_a * alpha) >> 8 is applied by the callers, then the /255 blend.
-   shared by the simd tails and the cpu blt below. */
+   shared by the simd tails and the cpu blt below. A fully transparent
+   dest carries no colour (its RGB is usually zeroed by alpha masks), so
+   blending against it would darken the source: take the source colour
+   with the effective alpha instead, same as graph_pixel_argb_raw. */
 static inline uint32_t g2d_blend_argb_scalar(uint32_t dst_color, uint8_t a,
 		uint8_t r, uint8_t g, uint8_t b) {
 	uint32_t oa = (dst_color >> 24) & 0xff;
+	if(oa == 0)
+		return ((uint32_t)a << 24) | ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
 	uint32_t dr = (dst_color >> 16) & 0xff;
 	uint32_t dg = (dst_color >> 8) & 0xff;
 	uint32_t db = dst_color & 0xff;
@@ -542,6 +547,9 @@ static inline void g2d_alpha16_blend_core(uint32_t *dp, uint8x16x4_t fg,
     uint8x16_t inv_a = vsubq_u8(full, a);
 
     uint8x16x4_t out;
+    /* transparent dest pixels hold no colour: their lanes take the source
+       colour unblended (see g2d_blend_argb_scalar) */
+    uint8x16_t bg_clear = vceqq_u8(bg.val[3], vdupq_n_u8(0));
     /* out = div255(fg*a + bg*(255-a)) per channel, low/high halves widened */
     for(int c = 0; c < 3; c++) {
         uint16x8_t lo = vmull_u8(vget_low_u8(fg.val[c]), a_lo);
@@ -549,8 +557,9 @@ static inline void g2d_alpha16_blend_core(uint32_t *dp, uint8x16x4_t fg,
         uint16x8_t hi = vmull_u8(vget_high_u8(fg.val[c]), a_hi);
         hi = vmlal_u8(hi, vget_high_u8(bg.val[c]), vget_high_u8(inv_a));
         out.val[c] = vcombine_u8(vmovn_u16(neon_div255_u16(lo)), vmovn_u16(neon_div255_u16(hi)));
+        out.val[c] = vbslq_u8(bg_clear, fg.val[c], out.val[c]);
     }
-    /* out_a = bg_a + div255((255-bg_a)*a) */
+    /* out_a = bg_a + div255((255-bg_a)*a); for bg_a == 0 this is exactly a */
     uint16x8_t oa_lo = neon_div255_u16(vmull_u8(vsub_u8(vget_low_u8(full), vget_low_u8(bg.val[3])), a_lo));
     uint16x8_t oa_hi = neon_div255_u16(vmull_u8(vsub_u8(vget_high_u8(full), vget_high_u8(bg.val[3])), a_hi));
     out.val[3] = vcombine_u8(
