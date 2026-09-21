@@ -19,7 +19,10 @@ using namespace Ewok;
 uint32_t MisaWM::glassTint(void) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, true);
-	return ((uint32_t)0x40 << 24) | (bg & 0x00ffffff);
+
+	if(color_a(bg) == 255)
+		return (bg & 0x88ffffff);
+	return bg;
 }
 
 /*what graph_pixel(tint) writes over an opaque backdrop pixel: the exact value
