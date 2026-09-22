@@ -46,6 +46,7 @@ typedef struct st_vdevice {
 	fsinfo_t* (*kids)(struct st_vdevice* dev, fsinfo_t* info_dir, uint32_t* num, void* p);
 	char* (*cmd)(struct st_vdevice* dev, int from_pid, int argc, char**argv, void* p);
 	int (*mount)(struct st_vdevice* dev, fsinfo_t* mnt_point, void* p);
+	int (*mounted)(struct st_vdevice* dev, ewokos_addr_t node, void* p);
 	int (*umount)(struct st_vdevice* dev, ewokos_addr_t node, void* p);
 	int (*unlink)(struct st_vdevice* dev, fsinfo_t* info, const char* fname, void* p);
 	int (*clear_buffer)(struct st_vdevice* dev, ewokos_addr_t node, void* p);

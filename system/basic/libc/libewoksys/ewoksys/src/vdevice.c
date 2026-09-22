@@ -1327,22 +1327,28 @@ int device_run(vdevice_t* dev, const char* mnt_point, int mnt_type, int mode, bo
 
     ipc_serv_run(handle, device_handled, dev, ipc_flags);
 
-    if(dev->loop_step != NULL && dev->loop_step_threaded) {
-        if(pthread_create(&loop_tid, NULL, device_loop_thread_entry, dev) == 0) {
-            pthread_detach(loop_tid);
-            loop_thread_started = true;
-        }
-    }
+    int res = 0;
+    if(dev->mounted != NULL)
+        res = dev->mounted(dev, dev->mnt_info.node, dev->extra_data);
 
-    while(!dev->terminated) {
-        if(loop_thread_started) {
-            usleep(100000);
+    if(res == 0) {
+        if(dev->loop_step != NULL && dev->loop_step_threaded) {
+            if(pthread_create(&loop_tid, NULL, device_loop_thread_entry, dev) == 0) {
+                pthread_detach(loop_tid);
+                loop_thread_started = true;
+            }
         }
-        else if(dev->loop_step != NULL) {
-            dev->loop_step(dev, dev->extra_data);
-        }
-        else {
-            usleep(100000);
+
+        while(!dev->terminated) {
+            if(loop_thread_started) {
+                usleep(100000);
+            }
+            else if(dev->loop_step != NULL) {
+                dev->loop_step(dev, dev->extra_data);
+            }
+            else {
+                usleep(100000);
+            }
         }
     }
 

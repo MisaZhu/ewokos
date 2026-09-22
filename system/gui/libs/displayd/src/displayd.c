@@ -447,7 +447,10 @@ static uint32_t _disp_shm_seq = 1;
   IPC_CONTIG is an EwokOS-specific flag: the segment is backed by the
   kernel's reserved physically-contiguous slab instead of scattered pages,
   because display hardware (and DMA) needs a single contiguous physical
-  buffer; creation fails strictly if the slab is unconfigured or exhausted.*/
+  buffer; creation fails strictly if the slab is unconfigured or exhausted.
+  The kernel maps a contig segment Non-Cacheable in every process (the g2d
+  hardware reads/writes it without snooping the CPU caches), so it is only
+  worth asking for when a g2d device is actually present - see disp_shm_init.*/
 static int32_t shm_new_segment(uint32_t tag, uint32_t sz, bool contig) {
     for(uint32_t i = 0; i < 4; i++) {
         uint32_t seq = _disp_shm_seq++;
@@ -471,8 +474,17 @@ static int disp_shm_init(disp_shm_t* shm) {
     memset(shm, 0, sizeof(disp_shm_t));
     uint32_t sz = _zwidth * _zheight * 4;
 
+    /*the only consumer of a contig canvas is the g2d engine (flush_g2d and
+      the zero-copy ops xserverd routes through /dev/g2d). Without one the
+      canvas is purely CPU-side: xserverd blends into it and the driver's
+      flush() reads it back every frame, and a Non-Cacheable mapping turns
+      those reads into uncached DRAM traffic (tens of MB/s on BCM2711) -
+      the whole UI, and with it mouse/keyboard response, crawls. Same rule
+      graph_new_shm() applies: contig only when g2d is there to use it.*/
     bool contig = false;
-    shm->shm_id = shm_new_segment(0x4642444d, sz, true); //pixels only
+    shm->shm_id = -1;
+    if(has_g2d() == 0)
+        shm->shm_id = shm_new_segment(0x4642444d, sz, true); //pixels only
     if(shm->shm_id > 0)
         contig = true;
     else
