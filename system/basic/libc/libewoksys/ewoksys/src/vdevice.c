@@ -976,10 +976,35 @@ static void do_clear_buffer(vdevice_t* dev, int from_pid, proto_t *in, proto_t* 
 
 static void do_dev_cntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
     PF->addi(out, -1);
-    if(dev == NULL || dev->dev_cntl == NULL)
+    if(dev == NULL)
         return;
 
     int cmd = proto_read_int(in);
+
+    /*
+     * DEV_CMD_UMOUNT is a framework-level command handled here for every
+     * mounted daemon, whether or not the driver also implements dev_cntl --
+     * drivers must NOT special-case it. The driver finalizes the unmount
+     * through its dev->umount hook when it provides one (flush caches etc.);
+     * otherwise the mount is detached directly. Then release the mount and
+     * stop the service so device_run()'s teardown unwinds cleanly. dev->umount
+     * is cleared so the teardown does not run the finalize hook a second time.
+     */
+    if(cmd == DEV_CMD_UMOUNT) {
+        if(dev->umount != NULL) {
+            dev->umount(dev, dev->mnt_info.node, dev->extra_data);
+            dev->umount = NULL;
+        }
+        vfs_umount(dev->mnt_info.node);
+        device_stop(dev);
+        PF->clear(out)->addi(out, 0);
+        return;
+    }
+
+    /* every other command is driver-specific; nothing to do without a handler */
+    if(dev->dev_cntl == NULL)
+        return;
+
     int32_t  sz;
     void* data = proto_read(in, &sz);
     

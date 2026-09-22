@@ -12,6 +12,16 @@ extern "C" {
 
 #define MAX_TRUST_PID 10
 
+/*
+ * Framework-level FS_CMD_DEV_CNTL sub-commands. Deliberately placed in the
+ * high (0x8000_0000+) range so the whole low command space stays free for
+ * driver/vendor-defined dev_cntl commands. DEV_CMD_UMOUNT asks a mounted
+ * daemon to finalize and release its mount and then stop: a driver with a
+ * dev_cntl handler owns the flow, otherwise the vdevice framework performs
+ * the default detach (dev->umount hook when present, else a direct umount).
+ */
+#define DEV_CMD_UMOUNT ((int)0x80000001)
+
 typedef struct st_vdevice {
 	bool terminated;
     bool loop_step_threaded;

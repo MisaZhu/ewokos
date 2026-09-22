@@ -215,7 +215,8 @@ static int fat32fs_umount(vdevice_t* dev, ewokos_addr_t node, void* p) {
     return 0;
 }
 
-/* umount command from userspace / quit hint from usbhostd on unplug */
+/* quit hint from usbhostd on unplug; umount is handled by the framework via
+   the dev->umount hook (fat32fs_umount), not special-cased here */
 static int fat32fs_dev_cntl(vdevice_t* dev, int from_pid, int cmd,
         proto_t* in, proto_t* out, void* p) {
     (void)from_pid;
@@ -224,15 +225,6 @@ static int fat32fs_dev_cntl(vdevice_t* dev, int from_pid, int cmd,
     fat32_t* fat = (fat32_t*)p;
 
     switch(cmd) {
-    case USBFS_CMD_UMOUNT:
-        fat32_flush(fat);
-        fat_flush_device();
-        /* this daemon owns the mount, so the detach is permitted; vfsd
-           defers it while files are still open, which reads as "busy" */
-        if(vfs_umount(dev->mnt_info.node) != 0)
-            return -1;
-        device_stop(dev);
-        return 0;
     case USBFS_CMD_QUIT:
         fat32_flush(fat);
         device_stop(dev);

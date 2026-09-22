@@ -44,11 +44,24 @@ int32_t get_mount_pid(vfs_node_t* node) {
     return -1;
 }
 
+/*
+ * Who may detach a mount: the driver that created it, or root. Drivers run as
+ * the 'sys' user and unmount their own node on teardown (device_run ->
+ * vfs_umount); root is additionally allowed so a privileged umount tool can
+ * detach a mount whose owning daemon is gone or does not cooperate. The 'sys'
+ * driver user alone is NOT enough here - that would let any driver tear down
+ * another driver's mount.
+ * caller must hold _vfs_lock (read or write)
+ */
 static inline int32_t check_mount(int32_t pid, vfs_node_t* node) {
     int32_t mnt_pid = get_mount_pid(node);
-    if(mnt_pid != pid) //current proc not the mounting one.
-        return -1;
-    return 0;
+    if(mnt_pid == pid) //the mounting proc itself.
+        return 0;
+
+    procinfo_t procinfo;
+    if(proc_info(pid, &procinfo) == 0 && procinfo.uid <= 0) //root.
+        return 0;
+    return -1;
 }
 
 /* caller must hold _vfs_lock (read or write) */
