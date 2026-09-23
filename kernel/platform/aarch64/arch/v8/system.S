@@ -18,7 +18,7 @@ __set_vector_table:
  * flush or invalidate one level cache.
  *
  * x0: cache level
- * x1: 0 clean & invalidate, 1 invalidate only
+ * x1: 0 clean & invalidate, 1 invalidate only, 2 clean only
  * x2~x9: clobbered
  */
 .globl __asm_dcache_level
@@ -47,10 +47,15 @@ loop_way:
     orr    x9, x12, x7        /* map way and level to cisw value */
     lsl    x7, x4, x2
     orr    x9, x9, x7        /* map set number to cisw value */
-    tbz    w1, #0, 1f
-    dc    isw, x9
+    cmp    w1, #1
+    b.eq   3f
+    cmp    w1, #2
+    b.eq   4f
+    dc    cisw, x9        /* clean & invalidate by set/way */
     b    2f
-1:    dc    cisw, x9        /* clean & invalidate by set/way */
+3:  dc    isw, x9         /* invalidate by set/way */
+    b    2f
+4:  dc    csw, x9         /* clean by set/way */
 2:    subs    x6, x6, #1        /* decrement the way */
     b.ge    loop_way
     subs    x4, x4, #1        /* decrement the set */
@@ -121,11 +126,42 @@ __invalidate_dcache_all:
     b    __asm_dcache_all
     ret
 
+/* clean (write back, keep) all data cache by SET/WAY */
+.globl __clean_dcache_all
+__clean_dcache_all:
+    mov    x0, #2
+    b    __asm_dcache_all
+    ret
+
+/*
+ * Page tables are walked as inner-shareable write-back memory (TCR IRGN/ORGN)
+ * so a dsb is all that is needed to publish PTE stores to the walker; no
+ * D-cache maintenance belongs in any of the TLB paths below.
+ */
 .global __flush_tlb
 __flush_tlb:
     dsb ishst
     tlbi vmalle1is
-	dsb sy
+	dsb ish
+	isb
+	ret
+
+/* void __flush_tlb_asid(uint64_t asid): drop every entry tagged with one ASID */
+.global __flush_tlb_asid
+__flush_tlb_asid:
+    lsl x0, x0, #48
+    dsb ishst
+    tlbi aside1is, x0
+	dsb ish
+	isb
+	ret
+
+/* local-core-only full invalidate, for the no-ASID switch fallback */
+.global __flush_tlb_local
+__flush_tlb_local:
+    dsb nshst
+    tlbi vmalle1
+	dsb nsh
 	isb
 	ret
 
@@ -135,6 +171,69 @@ __set_translation_table_base:
 	msr ttbr1_el1, x0
 	isb
 	ret
+
+/*
+ * void __set_translation_table_base_asid(uint64_t base, uint64_t asid)
+ * TCR.A1=0: the ASID lives in TTBR0[63:48]. Switching only the base+ASID
+ * needs no TLBI because user (nG) entries of other spaces stay tagged with
+ * their own ASID and the kernel half is global and identical everywhere.
+ */
+.global __set_translation_table_base_asid
+__set_translation_table_base_asid:
+	msr ttbr1_el1, x0
+	orr x0, x0, x1, lsl #48
+	msr ttbr0_el1, x0
+	isb
+	ret
+
+/*
+ * void __dcache_clean_pou_range(uint64_t start, uint64_t end)
+ * Clean freshly written code to the point of unification so instruction
+ * fetch (which does not snoop the L1 D-cache) sees it. Line size from CTR_EL0.
+ */
+.global __dcache_clean_pou_range
+__dcache_clean_pou_range:
+    mrs x2, ctr_el0
+    ubfx x2, x2, #16, #4        /* DminLine: log2(words) */
+    mov x3, #4
+    lsl x3, x3, x2              /* line size in bytes */
+    sub x4, x3, #1
+    bic x0, x0, x4
+1:  dc cvau, x0
+    add x0, x0, x3
+    cmp x0, x1
+    b.lo 1b
+    dsb ish
+    ret
+
+/* invalidate the whole I-cache on every core of the inner-shareable domain */
+.global __invalidate_icache_all_is
+__invalidate_icache_all_is:
+    ic ialluis
+    dsb ish
+    isb
+    ret
+
+/*
+ * void __dcache_flush_poc_range(uint64_t start, uint64_t end)
+ * Clean & invalidate a VA range to the point of coherency, for data the
+ * kernel wrote through a cacheable alias that a non-coherent master (GPU,
+ * dma engine) or a Non-Cacheable alias will read from DRAM.
+ */
+.global __dcache_flush_poc_range
+__dcache_flush_poc_range:
+    mrs x2, ctr_el0
+    ubfx x2, x2, #16, #4        /* DminLine: log2(words) */
+    mov x3, #4
+    lsl x3, x3, x2              /* line size in bytes */
+    sub x4, x3, #1
+    bic x0, x0, x4
+1:  dc civac, x0
+    add x0, x0, x3
+    cmp x0, x1
+    b.lo 1b
+    dsb sy
+    ret
 
 .global __irq_enable
 __irq_enable:

@@ -331,7 +331,7 @@ static ewokos_addr_t sys_dma_alloc(int32_t dma_block_id, uint32_t size) {
     if(vaddr == 0)
         return 0;
 
-    map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, PTE_ATTR_NOCACHE);
+    map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, PTE_ATTR_SYS_DMA);
     flush_tlb();
     return vaddr;
 }
@@ -423,7 +423,7 @@ static ewokos_addr_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint3
         if(!proc_cap_has(cproc, CAP_DMA, CAP_W))
             return 0;
         size = ALIGN_UP(size, PAGE_SIZE);
-        map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, PTE_ATTR_NOCACHE);
+        map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, PTE_ATTR_SYS_DMA);
         flush_tlb();
         /*
          * Record the cross-proc mapping so the owner's dma_release() can

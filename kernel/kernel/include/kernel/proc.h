@@ -126,6 +126,18 @@ extern uint32_t _ipc_uid;
 extern int32_t procs_init(void);
 extern int32_t proc_load_elf(proc_t *proc, int32_t shm_id, uint32_t size);
 extern int32_t proc_start(proc_t* proc, uint32_t entry);
+
+/*
+ * TLB tag of an address space: pde_index+1 so it is never 0 (0 is the
+ * kernel-vm/"no ASID" value). Threads share their owner's space and hence
+ * its ASID. Only aarch64 acts on it today; other archs ignore the value.
+ */
+static inline uint32_t proc_space_asid(const proc_space_t* space) {
+	return space->pde_index + 1;
+}
+
+/* make space->vm the live translation table on this core */
+extern void proc_space_activate(proc_space_t* space);
 extern proc_t* proc_get_next_ready(void);
 extern proc_t* proc_get_core_ready(uint32_t core_id);
 extern void    proc_switch_multi_core(context_t* ctx, proc_t* to, uint32_t core);

@@ -186,7 +186,7 @@ static int32_t shm_map_pages(ewokos_addr_t addr, uint32_t pages) {
         map_page(_kernel_info.kernel_vm,
                 addr,
                 V2P(page),
-                AP_RW_D, PTE_ATTR_NOCACHE);
+                AP_RW_D, PTE_ATTR_WRBACK);
         flush_tlb_addr(addr); /* scope invalidation to just this page */
         addr += PAGE_SIZE;
     }
@@ -196,10 +196,16 @@ static int32_t shm_map_pages(ewokos_addr_t addr, uint32_t pages) {
 /* map a run of already reserved contiguous physical pages into the shm
    window. zeroing must go through the kernel direct map (P2V, set up in
    map_allocable_pages), NOT the window VA: the window sits in the private
-   user half of the address space and is unmapped in kernel/syscall context */
+   user half of the address space and is unmapped in kernel/syscall context.
+   contig segments are shared with non-coherent hardware (g2d/V3D, dma
+   engines) and are mapped NOCACHE everywhere - see shm_proc_map */
 static int32_t shm_map_pages_contig(ewokos_addr_t addr, ewokos_addr_t paddr, uint32_t pages) {
     uint32_t i;
     memset((void*)P2V(paddr), 0, pages * PAGE_SIZE);
+    /* the zeroing went through the cacheable direct map; push it to DRAM
+       and drop the lines, or a later eviction would overwrite what the
+       GPU/CPU write through the NOCACHE alias below */
+    dcache_flush_range((void*)P2V(paddr), pages * PAGE_SIZE);
     for (i = 0; i < pages; i++) {
         map_page(_kernel_info.kernel_vm,
                 addr,
@@ -506,13 +512,22 @@ void* shm_proc_map(proc_t* proc, int32_t id) {
     else
         access = AP_RW_R;
 
+    /*
+     * A contig segment is the CPU<->accelerator exchange buffer (g2d canvas,
+     * dma target). The hardware drivers rely on it being Non-Cacheable in
+     * every process and do no cache maintenance by VA, so the process view
+     * MUST be NOCACHE too. Ordinary shm is CPU-only and stays write-back.
+     * (Before ASID switching, flush_tlb() cleaned the whole D-cache on every
+     * context switch and hid a cacheable contig mapping; it no longer does.)
+     */
+    uint32_t attr = it->contig ? PTE_ATTR_NOCACHE : PTE_ATTR_WRBACK;
     ewokos_addr_t addr = it->addr;
     for (i = 0; i < it->pages; i++) {
         ewokos_addr_t physical_addr = resolve_phy_address(_kernel_info.kernel_vm, addr);
         map_page(proc->space->vm,
                 addr,
                 physical_addr,
-                access, PTE_ATTR_WRBACK);
+                access, attr);
         flush_tlb_addr(addr); /* scope invalidation to just this page */
         addr += PAGE_SIZE;
     }
