@@ -84,7 +84,7 @@ static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
 }
 
 static int network_dup(vdevice_t* dev, int from_fd, int from_pid, int dup_fd, int dup_pid,
-        ewokos_addr_t node, fsinfo_t* fsinfo, void* p) {
+        uint32_t node, fsinfo_t* fsinfo, void* p) {
     (void)dev;
     (void)from_fd;
     (void)from_pid;
@@ -109,7 +109,7 @@ static int network_dup(vdevice_t* dev, int from_fd, int from_pid, int dup_fd, in
     return 0;
 }
 
-static int network_close(vdevice_t* dev, int fd, int from_pid, ewokos_addr_t node, fsinfo_t* fsinfo,void* p) {
+static int network_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fsinfo_t* fsinfo,void* p) {
     (void)dev;
     (void)fd;
     (void)from_pid;
@@ -311,6 +311,14 @@ static int network_loop_step(vdevice_t* dev, void* p) {
     return 0;
 }
 
+static int network_mounted(vdevice_t* dev, ewokos_addr_t node, void* p) {
+    start_task();
+    if(setup() != 0) {
+        return -1;
+    }
+    return 0;
+}
+
 int main(int argc, char** argv) {
     const char* mnt_point = argc > 1 ? argv[1]: "/dev/net0";
     const char* net_dev = argc > 2 ? argv[2]: "/dev/eth0";
@@ -330,15 +338,11 @@ int main(int argc, char** argv) {
     vdevice_t dev;
     memset(&dev, 0, sizeof(vdevice_t));
     strcpy(dev.desc, "networkd");
+    strcpy(ETHER_TAP_NAME, net_dev);
 
     pthread_mutex_init(&task_list_lock, NULL);
-    start_task();
-    strcpy(ETHER_TAP_NAME, net_dev);
-    if(setup() != 0) {
-        pthread_mutex_destroy(&task_list_lock);
-        return -1;
-    }
-    
+        
+    dev.mounted = network_mounted;
     dev.fcntl = network_fcntl;
     dev.open = network_open;
     dev.dup = network_dup;

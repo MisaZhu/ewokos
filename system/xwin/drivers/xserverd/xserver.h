@@ -307,7 +307,7 @@ int xserver_step(vdevice_t* dev, void* p);
 int xserver_fcntl(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
 		int cmd, proto_t* in, proto_t* out, void* p);
 int xserver_win_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int oflag, void* p);
-int xserver_win_close(vdevice_t* dev, int fd, int from_pid, ewokos_addr_t node, fsinfo_t* fsinfo, void* p);
+int xserver_win_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fsinfo_t* fsinfo, void* p);
 int xserver_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto_t* ret, void* p);
 
 #endif
