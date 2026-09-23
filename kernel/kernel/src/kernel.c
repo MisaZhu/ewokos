@@ -80,12 +80,20 @@ static void reset_kernel_vm(void) {
 
 static void map_allocable_pages(page_dir_entry_t* vm) {
     //map kernel dma memory
-    map_pages_size(vm, _sys_info.sys_dma.phy_base, _sys_info.sys_dma.phy_base, _sys_info.sys_dma.size, AP_RW_D, PTE_ATTR_NOCACHE);
+    map_pages_size(vm, _sys_info.sys_dma.phy_base, _sys_info.sys_dma.phy_base, _sys_info.sys_dma.size, AP_RW_D, PTE_ATTR_SYS_DMA);
+#if defined(EWOK_SWITCH_PROBE) && EWOK_SWITCH_PROBE == 4
+    /* probe 4: a kernel-only write-back alias of the dma window, so that
+       the per-switch clean+invalidate by VA (dma_flush_owned) is issued
+       through a Cacheable translation and cannot be dropped as a NOP the
+       way it may be for the Non-Cacheable identity window. The P2V hole
+       between KMALLOC_END and the shm_contig direct map is otherwise unused. */
+    map_pages_size(vm, P2V(_sys_info.sys_dma.phy_base), _sys_info.sys_dma.phy_base, _sys_info.sys_dma.size, AP_RW_D, PTE_ATTR_WRBACK);
+#endif
     //direct-map the reserved contiguous shm slab so the kernel can zero it
     //(the shm window itself lives in the private user half and is not
     //accessible from kernel/syscall context)
     if(_sys_info.shm_contig.size > 0)
-        map_pages_size(vm, P2V(_sys_info.shm_contig.phy_base), _sys_info.shm_contig.phy_base, _sys_info.shm_contig.size, AP_RW_D, PTE_ATTR_WRBACK);
+        map_pages_size(vm, P2V(_sys_info.shm_contig.phy_base), _sys_info.shm_contig.phy_base, _sys_info.shm_contig.size, AP_RW_D, PTE_ATTR_NOCACHE);
     map_pages(vm,
             P2V(_sys_info.allocable_phy_mem_base),
             _sys_info.allocable_phy_mem_base,
@@ -148,7 +156,7 @@ static void clone_kernel_vm(page_dir_entry_t* vm) {
      * through arch_clone_proc_vm().
      */
     map_pages_size(vm, _sys_info.sys_dma.phy_base, _sys_info.sys_dma.phy_base,
-            _sys_info.sys_dma.size, AP_RW_D, PTE_ATTR_NOCACHE);
+            _sys_info.sys_dma.size, AP_RW_D, PTE_ATTR_SYS_DMA);
     if(arch_clone_proc_vm(vm, _kernel_info.kernel_vm) != 0)
         return;
     flush_dcache();

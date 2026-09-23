@@ -136,6 +136,7 @@ slave_core:
 #endif
 
  #define TCREL1VAL  ((0x0ul << 37) | /* TBI=0, no tagging */\
+                     (0x1ul << 36) | /* AS=1, 16-bit ASID in TTBR0[63:48] (RES0 on 8-bit-ASID cores, see asid_bits()) */\
                      (0x2ul << 32) | /* IPS= 32 bit ... 000 = 32bit, 001 = 36bit, 010 = 40bit */\
                      TCR_TG1_VAL   | /* options are 10=4KB, 01=16KB, 11=64KB ... take care differs from TG0 */\
                      (0x3ul << 28) | /* SH1=3 inner ... options 00 = Non-shareable, 01 = INVALID, 10 = Outer Shareable, 11 = Inner Shareable */\

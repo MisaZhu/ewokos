@@ -122,6 +122,31 @@ uint32_t  dma_size(int32_t dma_block_id, int32_t pid, ewokos_addr_t phy_addr) {
     return 0;
 }
 
+#ifdef EWOK_SWITCH_PROBE
+/*
+ * Probe helper (see proc_switch_probe): clean+invalidate by VA every sys_dma
+ * sub-allocation owned by pid. Probe 3 goes through the Non-Cacheable
+ * identity window (which the architecture allows to be a NOP); probe 4 goes
+ * through the write-back P2V alias set up in map_allocable_pages, so the
+ * maintenance is guaranteed to reach every cache level holding those PAs.
+ */
+void dma_flush_owned(int32_t pid) {
+    if(_dma_block_count == 0 || pid <= 0)
+        return;
+    dma_t* d = _dma_blocks[0].head;
+    while(d != NULL) {
+        if(d->pid == pid) {
+#if EWOK_SWITCH_PROBE == 4
+            dcache_flush_range((const void*)(uintptr_t)P2V(d->base), d->size);
+#else
+            dcache_flush_range((const void*)(uintptr_t)d->base, d->size);
+#endif
+        }
+        d = d->next;
+    }
+}
+#endif
+
 void dma_release(int32_t pid) {
     /*
      * Revoke cross-proc peer mappings of this owner's dma ranges BEFORE

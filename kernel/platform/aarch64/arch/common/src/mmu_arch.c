@@ -34,6 +34,9 @@ int32_t map_page(page_dir_entry_t *vm, ewokos_addr_t virtual_addr,
     l3_table[l3_index].S2AP = permissions;
     pte_set_address(&l3_table[l3_index], (uint64_t)physical >> PAGE_SHIFT);
     set_pte_flags(&l3_table[l3_index], pte_attr);
+    /* user-half entries are ASID-tagged (nG) so a switch needs no TLBI;
+       the shared kernel half stays global */
+    l3_table[l3_index].PTE_NG = (virtual_addr < KERNEL_BASE) ? 1 : 0;
     return 0;
 #else
     page_table_entry_t *l2_table = 0;
@@ -77,6 +80,7 @@ int32_t map_page(page_dir_entry_t *vm, ewokos_addr_t virtual_addr,
     pte_set_address(&l3_table[l3_index], (uint64_t)physical >> PAGE_SHIFT);
 
     set_pte_flags(&l3_table[l3_index], pte_attr);
+    l3_table[l3_index].PTE_NG = (virtual_addr < KERNEL_BASE) ? 1 : 0;
     return 0;
 #endif
 }
@@ -274,6 +278,10 @@ void dump_page_tables(page_dir_entry_t *vm){
 #endif
 }
 
+/*
+ * Push a kernel-written buffer out to DRAM for a non-coherent peer (mailbox,
+ * firmware): clean & invalidate by VA. Data only - no I-cache work here.
+ */
 inline void clear_cache(void *start, void *end) {
     uintptr_t addr = (uintptr_t)start;
     uintptr_t end_addr = (uintptr_t)end;
@@ -286,8 +294,5 @@ inline void clear_cache(void *start, void *end) {
         __asm volatile("dc civac, %0" :: "r"(addr));
     }
 
-    // Keep the instruction cache in sync with IC IALLU.
-    __asm volatile("ic iallu");
     __asm volatile("dsb sy");  // Data synchronization barrier
-    __asm volatile("isb");      // Instruction synchronization barrier
 }

@@ -641,6 +641,44 @@ static int32_t get_free_pde(void) {
     return -1;
 }
 
+void proc_space_activate(proc_space_t* space) {
+    set_translation_table_base_asid(V2P(space->vm), proc_space_asid(space));
+}
+
+#ifdef EWOK_SWITCH_PROBE
+/*
+ * Hardware A/B probes for the raspi5 dwc2 regression (kernel-only builds,
+ * -DEWOK_SWITCH_PROBE=<n>). A whole D-cache clean+invalidate by set/way on
+ * every switch makes USB work; these isolate which property of that sweep
+ * matters: 1 = clean-only sweep, 2 = an equal busy delay with no cache
+ * work, 3 = by-VA clean+invalidate of just the switching procs' sys_dma
+ * blocks through their Non-Cacheable identity window, 4 = the same by-VA
+ * clean+invalidate but through a write-back kernel alias (cannot be a NOP),
+ * 5 = no switch work at all, sys_dma mapped write-back everywhere
+ * (PTE_ATTR_SYS_DMA), 6 = a 2ms busy delay to bound the timing theory.
+ */
+extern void __clean_dcache_all(void);
+extern void _delay_usec(uint64_t count);
+static void proc_switch_probe(proc_t* from, proc_t* to) {
+#if EWOK_SWITCH_PROBE == 1
+    (void)from; (void)to;
+    __clean_dcache_all();
+#elif EWOK_SWITCH_PROBE == 2
+    (void)from; (void)to;
+    _delay_usec(200);
+#elif EWOK_SWITCH_PROBE == 3 || EWOK_SWITCH_PROBE == 4
+    if(from != NULL && from->info.state != UNUSED)
+        dma_flush_owned(proc_get_proc(from)->info.pid);
+    dma_flush_owned(proc_get_proc(to)->info.pid);
+#elif EWOK_SWITCH_PROBE == 6
+    (void)from; (void)to;
+    _delay_usec(2000);
+#else
+    (void)from; (void)to;
+#endif
+}
+#endif
+
 static int32_t proc_init_space(proc_t* proc) {
     int32_t pde_index = get_free_pde();
     if(pde_index < 0) {
@@ -654,6 +692,8 @@ static int32_t proc_init_space(proc_t* proc) {
 
     proc->space->pde_index = pde_index;
     proc->space->vm = vm;
+    /* fresh owner of this ASID: nothing from the previous holder may linger */
+    flush_tlb_asid(proc_space_asid(proc->space));
     proc->space->heap_size = 0;
     proc->space->heap_used = 0;
     proto_init(&proc->space->signal.saved_ipc_res.data);
@@ -885,8 +925,10 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
      */
     if(cproc != to &&
             (cproc == NULL || cproc->space != to->space)) {
-        page_dir_entry_t *vm = to->space->vm;
-        set_translation_table_base(V2P(vm));
+#ifdef EWOK_SWITCH_PROBE
+        proc_switch_probe(cproc, to);
+#endif
+        proc_space_activate(to->space);
     }
 
     /*
@@ -1356,7 +1398,7 @@ void proc_funeral(proc_t* proc) {
 
     bool freed_thread_stack =
         (proc->info.type == TASK_TYPE_THREAD && proc->thread_stack_base != 0);
-    set_translation_table_base(V2P(space->vm));
+    proc_space_activate(space);
     dma_release(proc->info.pid);
     /*
      * dma_release() revoked the mappings OTHER procs made of this proc's
@@ -1398,7 +1440,14 @@ void proc_funeral(proc_t* proc) {
          */
         shm_release_orphans(proc->info.pid);
 
-        set_translation_table_base(V2P(cproc->space->vm));
+        proc_space_activate(cproc->space);
+        /*
+         * The ASID goes back to the pool with the pde slot below; drop any
+         * walk-cache/TLB entry still tagged with it before the table pages
+         * are freed and reused, so the next owner of this slot never
+         * resolves through them.
+         */
+        flush_tlb_asid(proc_space_asid(space));
         free_page_tables(space->vm);
 
         if(_proc_vm_mark == NULL) {
@@ -1437,7 +1486,7 @@ void proc_funeral(proc_t* proc) {
             thread_stack_free(proc, proc->thread_stack_base);
             proc->thread_stack_base = 0;
         }
-        set_translation_table_base(V2P(cproc->space->vm));
+        proc_space_activate(cproc->space);
         /*
          * This thread's stack slot only just became reusable; let multi_task
          * ipc callers blocked on the owner retry their worker spawn at once
@@ -1781,7 +1830,8 @@ static void proc_load_segment(proc_t* proc,
         uint32_t vaddr,
         const uint8_t* src,
         uint32_t filesz,
-        uint32_t memsz) {
+        uint32_t memsz,
+        bool exec) {
     uint32_t copied = 0;
 
     while (copied < filesz) {
@@ -1793,6 +1843,13 @@ static void proc_load_segment(proc_t* proc,
 
         ewokos_addr_t kaddr = resolve_kernel_address(proc->space->vm, cur_vaddr);
         memcpy((void*)kaddr, src + copied, chunk);
+        /*
+         * Code written through the kernel alias sits in this core's L1 D;
+         * push it to the point of unification so instruction fetch (after
+         * the I-cache drop at the end of proc_load_elf) reads the new image.
+         */
+        if(exec)
+            dcache_clean_code_range((const void*)kaddr, chunk);
         copied += chunk;
     }
 
@@ -1845,6 +1902,7 @@ int32_t proc_load_elf(proc_t *proc, int32_t shm_id, uint32_t size) {
         uint32_t flags = ELF_PFLAGS(proc_image, i);
 
         uint8_t rdonly = 0; 
+        bool exec = (flags & 0x1) != 0; /* PF_X */
         if((flags & 0x2) == 0) {
             rdonly = 1;
         }
@@ -1871,10 +1929,10 @@ int32_t proc_load_elf(proc_t *proc, int32_t shm_id, uint32_t size) {
             uint32_t copy_filesz = filesz;
             if (copy_filesz > (size - offset))
                 copy_filesz = size - offset;
-            proc_load_segment(proc, vaddr, proc_image + offset, copy_filesz, memsz);
+            proc_load_segment(proc, vaddr, proc_image + offset, copy_filesz, memsz, exec);
         }
         else
-            proc_load_segment(proc, vaddr, proc_image, 0, memsz);
+            proc_load_segment(proc, vaddr, proc_image, 0, memsz, exec);
         prog_header_offset += sizeof(struct elf_program_header);
 
         if(rdonly) {
@@ -1886,11 +1944,23 @@ int32_t proc_load_elf(proc_t *proc, int32_t shm_id, uint32_t size) {
                     AP_RW_R, PTE_ATTR_WRBACK);
                 old_heap_size += PAGE_SIZE;
             }
+            /*
+             * RW->RO downgrade of live PTEs: publish it now. The address-
+             * space switch no longer invalidates the TLB (ASID tagging), so
+             * a writable entry must not be left to outlive this remap.
+             */
+            flush_tlb();
         }
     }
 
     if(proc->space->rw_heap_base < 0x400)
             proc->space->rw_heap_base = 0x400; //1024
+    /*
+     * Every executable segment has been cleaned to PoU above; now drop the
+     * I-cache on all cores so no line of the previous image (same VAs after
+     * an exec, or another core that ran it) can be fetched.
+     */
+    invalidate_icache_all();
     proc->space->malloc_base = proc->space->heap_size;
     ewokos_addr_t user_stack_base =  proc_get_user_stack_base(proc);
     uint32_t pages = proc_get_user_stack_pages(proc);

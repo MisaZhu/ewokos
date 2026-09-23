@@ -21,8 +21,7 @@ int32_t load_init_proc(void) {
     proc_t *proc = proc_create(TASK_TYPE_PROC, NULL);
     strcpy(proc->info.cmd, prog);
     proc->info.uid = 0;
-    page_dir_entry_t *vm = proc->space->vm;
-    set_translation_table_base(V2P(vm));
+    proc_space_activate(proc->space);
 
     /* Allocate shm and map it into the new process, then copy ELF image */
     int32_t shm_id = shm_get(0, sz, 0666);

@@ -9,6 +9,14 @@
 
 #define DMA_MAGIC   0xCAFECAFF
 
+/* SYS_SEMAPHORE_ALLOC: arg0=0 allocates a private semaphore (legacy ABI).
+ * Nonzero keys retrieve kernel-owned hardware locks. Successful lookups
+ * return SYS_SEM_HANDLE_TAG | id; old kernels return an untagged private id,
+ * which callers must free and reject rather than running without a lock. */
+#define SYS_SEM_VC_MAILBOX 1u
+#define SYS_SEM_COUNT      1u
+#define SYS_SEM_HANDLE_TAG 0x40000000u
+
 enum {
 	SYS_NONE = 0,
 	SYS_KPRINT, 
