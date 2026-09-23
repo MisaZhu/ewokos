@@ -1,5 +1,6 @@
 #include <vprintf.h>
 #include <kstring.h>
+#include <kprintf.h>
 #include <stdarg.h>
 #include <stddef.h>
 
@@ -185,8 +186,11 @@ void v_printf(outc_func_t outc, void* p, const char *format, va_list ap) {
         }
         /* hexadecimal */
         case 'x': {
+            kout_str("<x1>");
             uint64_t uint_arg = v_arg_unsigned(&ap, len);
+            kout_str("<x2>");
             print_uint_in_base(outc, p, uint_arg, 16, width, zero, 0);
+            kout_str("<x3>");
             break;
         }
         case 'X': {
@@ -266,12 +270,15 @@ static void print_int(outc_func_t outc, void* p, int64_t number, int32_t width, 
 static void print_uint_in_base(outc_func_t outc, void* p, uint64_t number, uint32_t base, int32_t width, uint8_t zero, uint8_t cap) {
     char s[65];
     int32_t pos = 0;
+    kout_str("<u1>");
     memset(s, 0, sizeof(s));
+    kout_str("<u2>");
     do {
         uint32_t digit = (uint32_t)(number % (uint64_t)base);
         s[pos++] = cap ? DIGITS_CAP[digit] : DIGITS[digit];
         number /= (uint64_t)base;
     } while(number != 0 && pos < (int32_t)(sizeof(s) - 1));
+    kout_str("<u3>");
 
     int32_t len = width - pos;
     int32_t i = 0;
@@ -281,6 +288,7 @@ static void print_uint_in_base(outc_func_t outc, void* p, uint64_t number, uint3
             outc('0', p);
         }
     }
+    kout_str("<u4>");
 
     int32_t j = pos - 1;
     while(j >= 0) {
@@ -289,11 +297,13 @@ static void print_uint_in_base(outc_func_t outc, void* p, uint64_t number, uint3
         outc(s[j--], p);
         i++;
     }
+    kout_str("<u5>");
 
     while(i < width) {
         outc(' ', p);
         i++;
     }
+    kout_str("<u6>");
 }
 
 typedef struct {

@@ -368,9 +368,9 @@ static uint32_t flush(const disp_info_t* fbinfo, const disp_shm_t* shm, int rota
     int zoomed = is_zoomed();
     graph_t g;
     if(rotate == G_ROTATE_270 || rotate == G_ROTATE_90)
-        graph_init(&g, shm->shm, _zheight, _zwidth);
+        graph_init(&g, (const uint32_t*)shm->shm, _zheight, _zwidth);
     else
-        graph_init(&g, shm->shm, _zwidth, _zheight);
+        graph_init(&g, (const uint32_t*)shm->shm, _zwidth, _zheight);
     /*the client frame IS the display shm canvas: restore the canvas
       identity graph_init drops, so graph_scale_tof/graph_blt and the
       g2d scan-out push below can route it through /dev/g2d instead of
