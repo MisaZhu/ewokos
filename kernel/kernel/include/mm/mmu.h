@@ -47,13 +47,8 @@
 #define KMALLOC_END                   (KMALLOC_BASE + _sys_info.kmalloc_size)
 
 /* attribute shared by every mapping of the sys_dma window (kernel identity,
-   per-process identity, dma_alloc, peer map). Probe 5 maps it write-back to
-   test whether the dwc2/xhci masters are IO-coherent with the CPU caches. */
-#if defined(EWOK_SWITCH_PROBE) && EWOK_SWITCH_PROBE == 5
-#define PTE_ATTR_SYS_DMA              PTE_ATTR_WRBACK
-#else
+   per-process identity, dma_alloc, peer map). */
 #define PTE_ATTR_SYS_DMA              PTE_ATTR_NOCACHE
-#endif
 
 #ifndef MAX_USABLE_MEM_SIZE
 #ifdef __aarch64__

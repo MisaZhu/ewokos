@@ -240,6 +240,8 @@ inline void irq_handler(context_t* ctx) {
 }
 
 static int32_t copy_on_write(proc_t* proc, ewokos_addr_t v_addr) {
+    if(proc == NULL || proc->space == NULL || proc->space->vm == NULL)
+        return -1;
     v_addr = ALIGN_DOWN(v_addr, PAGE_SIZE);
     ewokos_addr_t phy_addr = resolve_phy_address(proc->space->vm, v_addr);
     char *page = kalloc_page();

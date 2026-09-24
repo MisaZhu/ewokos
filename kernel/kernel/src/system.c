@@ -50,6 +50,15 @@ static inline uint32_t asid_limit(void) {
 }
 #endif
 
+#if defined(ARM_V7)
+/* ARMv7 cache maintenance by VA. Addresses are 32-bit here, unlike aarch64.
+   Page-table walks are cacheable inner-shareable (see v7/system.S TTBR0), so
+   these range ops replace the historical whole-D-cache clean in flush_tlb(). */
+extern void __dcache_clean_pou_range(uint32_t start, uint32_t end);
+extern void __dcache_flush_poc_range(uint32_t start, uint32_t end);
+extern void __invalidate_icache_all_is(void);
+#endif
+
 #ifdef KERNEL_SMP
 
 inline void flush_dcache(void) {
@@ -61,7 +70,7 @@ inline void invalidate_dcache(void) {
 }
 
 inline void invalidate_icache_all(void) {
-#if defined(__aarch64__)
+#if defined(__aarch64__) || defined(ARM_V7)
     __invalidate_icache_all_is();
 #else
     __invalidate_icache_all();
@@ -78,6 +87,16 @@ inline void flush_tlb(void) {
      * mapping change and every process switch) and the I-cache drop bought
      * nothing for TLB correctness; exec keeps its own code-coherency step
      * (dcache_clean_code_range + invalidate_icache_all).
+     */
+    __flush_tlb();
+#elif defined(ARM_V7)
+    /*
+     * Same model as aarch64: TTBR0 IRGN/RGN/S make page-table walks cacheable
+     * inner-shareable, so the walker snoops the coherent D-cache and PTE stores
+     * need only the dsb inside __flush_tlb (a pure TLBIALLIS broadcast). The
+     * whole-D-cache clean and I-cache drop are gone; exec keeps its own
+     * code-coherency step (dcache_clean_code_range + invalidate_icache_all) and
+     * the DMA/NOCACHE handoff uses dcache_flush_range.
      */
     __flush_tlb();
 #else
@@ -100,14 +119,18 @@ inline void invalidate_dcache(void) {
 inline void invalidate_icache_all(void) {
 #if defined(__aarch64__)
     __invalidate_icache_all_is();
+#elif defined(ARM_V7)
+    __invalidate_icache_all(); /* UP: a local ICIALLU is enough */
 #else
-    /* arm32 UP keeps whole-cache maintenance inside flush_tlb() */
+    /* arm32 v5/v6 UP keeps whole-cache maintenance inside flush_tlb() */
 #endif
 }
 
 inline void flush_tlb(void) {
 #if defined(__aarch64__)
     __flush_tlb(); /* see the SMP variant for why no D-cache work is needed */
+#elif defined(ARM_V7)
+    __flush_tlb(); /* cacheable inner-shareable walks: pure TLB invalidate */
 #else
     flush_dcache();
     __flush_tlb();
@@ -117,8 +140,8 @@ inline void flush_tlb(void) {
 
 /*
  * Make code the kernel just wrote (ELF load) visible to instruction fetch.
- * Only aarch64 needs an explicit step: its flush_tlb() no longer cleans the
- * whole D-cache, and the L1 I-cache does not snoop L1 D. Other archs still
+ * aarch64 and ARMv7 need an explicit step: their flush_tlb() no longer cleans
+ * the whole D-cache, and the L1 I-cache does not snoop L1 D. arm32 v5/v6 still
  * run the full clean inside flush_tlb() right after the load.
  */
 inline void dcache_clean_code_range(const void* start, uint32_t size) {
@@ -126,6 +149,10 @@ inline void dcache_clean_code_range(const void* start, uint32_t size) {
     if(size == 0)
         return;
     __dcache_clean_pou_range((uint64_t)start, (uint64_t)start + size);
+#elif defined(ARM_V7)
+    if(size == 0)
+        return;
+    __dcache_clean_pou_range((uint32_t)start, (uint32_t)start + size);
 #else
     (void)start;
     (void)size;
@@ -136,7 +163,7 @@ inline void dcache_clean_code_range(const void* start, uint32_t size) {
  * Push data the kernel wrote through a cacheable alias out to DRAM and drop
  * the lines, so a Non-Cacheable alias of the same frame (contig shm, dma)
  * or a non-coherent master reads what was written and no later eviction
- * overwrites what they wrote. aarch64 does it by VA; the other archs still
+ * overwrites what they wrote. aarch64 and ARMv7 do it by VA; arm32 v5/v6 still
  * clean the whole D-cache inside flush_tlb() and need nothing here.
  */
 inline void dcache_flush_range(const void* start, uint32_t size) {
@@ -144,6 +171,10 @@ inline void dcache_flush_range(const void* start, uint32_t size) {
     if(size == 0)
         return;
     __dcache_flush_poc_range((uint64_t)start, (uint64_t)start + size);
+#elif defined(ARM_V7)
+    if(size == 0)
+        return;
+    __dcache_flush_poc_range((uint32_t)start, (uint32_t)start + size);
 #else
     (void)start;
     (void)size;
@@ -178,14 +209,29 @@ inline void flush_tlb_addr(ewokos_addr_t addr) {
         "dsb ish\n"
         "isb\n"
         :: "r"(page) : "memory");
+#elif defined(ARM_V7)
+    /*
+     * ARMv7: TTBR0 IRGN/RGN/S (set in __set_translation_table_base) make
+     * page-table walks cacheable inner-shareable, so the leading dsb publishes
+     * the PTE store to the coherent walker and TLBIMVAAIS drops the stale entry
+     * (all ASIDs) on every core of the inner-shareable domain. The MVA operand
+     * is the VA itself; hardware ignores bits[11:0] - do NOT shift it (unlike
+     * the aarch64 VA[55:12] operand above).
+     */
+    __asm__ volatile(
+        "dsb\n"
+        "mcr p15, 0, %0, c8, c3, 1\n"  /* TLBIMVAAIS */
+        "dsb\n"
+        "isb\n"
+        :: "r"((uint32_t)addr) : "memory");
 #elif defined(__arm__)
-    /* ARMv7 and older: __set_translation_table_base() programs TTBR0 with
+    /* arm32 v6/v5: __set_translation_table_base() programs TTBR0 with
      * IRGN/ORGN/S bits all zero, so the table walker fetches page tables as
      * non-cacheable memory and does NOT snoop the D-cache. PTE stores made
      * through the cacheable kernel mapping stay in the D-cache and a bare
-     * dsb+TLBIMVAIS never publishes them to the walker (hangs real Cortex-A7
-     * boards like miyoo; QEMU does not model this). Keep the historical full
-     * flush (D-cache clean + global TLB invalidate) on arm32. */
+     * dsb+TLBI never publishes them to the walker (hangs real Cortex-A7
+     * boards; QEMU does not model this). Keep the historical full flush
+     * (D-cache clean + global TLB invalidate) on these older cores. */
     (void)addr;
     flush_tlb();
 #elif defined(__riscv)

@@ -126,6 +126,7 @@ halt:
 
 .global load_boot_pgt
 load_boot_pgt:
+    orr r0, r0, #0x0B            // TTBR0: IRGN=WBWA(bit0), S=shareable(bit1), RGN=WBWA(bit3)
     mcr p15, 0, r0, c2, c0, 0
 
     ldr r1, =0x55555555

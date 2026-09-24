@@ -165,20 +165,92 @@ __invalidate_icache_all:
 .global __flush_tlb
 __flush_tlb:
 	mov r0, #0
-	mcr p15, 0, r0, c7, c5, 0    // flush icache all
-	mcr p15, 0, r0, c7, c5, 6    // flush branch prediction
-	mcr p15, 0, r0, c8, c7, 0    //unified tlb invalidation
-	mcr p15, 0, r0, c8, c6, 0    //data tlb invalidation
-	mcr p15, 0, r0, c8, c5, 0    //instruction tlb invalidation
-	isb
+	/*
+	 * Page-table walks are cacheable write-back inner-shareable (TTBR0
+	 * IRGN/RGN/S set in __set_translation_table_base), so the walker
+	 * snoops the coherent D-cache and PTE stores only need the leading
+	 * dsb to be published. No whole-D-cache clean or I-cache drop belongs
+	 * here; exec keeps its own code-coherency step
+	 * (dcache_clean_code_range + invalidate_icache_all).
+	 * TLBIALLIS broadcasts to every core of the inner-shareable domain.
+	 */
 	dsb
+	mcr p15, 0, r0, c8, c3, 0    // invalidate all TLB, inner-shareable
+	dsb
+	isb
 	mov pc, lr
 
 .global __set_translation_table_base
 __set_translation_table_base:
+	/*
+	 * TTBR0 attribute bits: IRGN=write-back write-allocate (bit0),
+	 * S=shareable (bit1), RGN=write-back write-allocate (bit3). This makes
+	 * page-table walks cacheable + inner-shareable so the walker snoops the
+	 * coherent D-cache; SCTLR.N is left 0 by boot, and the first-level table
+	 * is 16KB-aligned (base bits[13:0]=0), so ORing 0x0B is safe.
+	 */
+	orr r0, r0, #0x0B
 	mcr p15, 0, r0, c2, c0, 0    //set ttbase user
 	//mcr p15, 0, r0, c2, c0, 1    //set ttbase kernel
 	dmb
+	mov pc, lr
+
+/*
+ * Invalidate the whole I-cache on every core of the inner-shareable domain
+ * (ICIALLUIS). Used after loading code so a core other than the loader does
+ * not fetch stale instructions from a reused physical page.
+ */
+.global __invalidate_icache_all_is
+__invalidate_icache_all_is:
+	mov r0, #0
+	mcr p15, 0, r0, c7, c1, 0    // ICIALLUIS
+	dsb
+	isb
+	mov pc, lr
+
+/*
+ * void __dcache_flush_poc_range(uint32_t start, uint32_t end)
+ * Clean & invalidate a VA range to the point of coherency (DCCIMVAC), for
+ * data the kernel wrote through a cacheable alias that a non-coherent master
+ * (VC4 g2d, dma engine) or a Non-Cacheable alias will read from DRAM. Mirrors
+ * aarch64 DC CIVAC. Line size from CTR.DminLine. Caller guarantees start<end.
+ */
+.global __dcache_flush_poc_range
+__dcache_flush_poc_range:
+	mrc p15, 0, r2, c0, c0, 1    // read CTR
+	lsr r2, r2, #16
+	and r2, r2, #0xf             // DminLine: log2(words)
+	mov r3, #4
+	lsl r3, r3, r2               // line size in bytes = 4 << DminLine
+	sub r2, r3, #1
+	bic r0, r0, r2               // align start down to a line
+1:	mcr p15, 0, r0, c7, c14, 1   // DCCIMVAC
+	add r0, r0, r3
+	cmp r0, r1
+	blo 1b
+	dsb
+	mov pc, lr
+
+/*
+ * void __dcache_clean_pou_range(uint32_t start, uint32_t end)
+ * Clean freshly written code to the point of unification (DCCMVAU) so an
+ * instruction fetch that does not snoop the L1 D-cache sees it. Mirrors
+ * aarch64 DC CVAU. Caller guarantees start<end.
+ */
+.global __dcache_clean_pou_range
+__dcache_clean_pou_range:
+	mrc p15, 0, r2, c0, c0, 1    // read CTR
+	lsr r2, r2, #16
+	and r2, r2, #0xf             // DminLine: log2(words)
+	mov r3, #4
+	lsl r3, r3, r2               // line size in bytes = 4 << DminLine
+	sub r2, r3, #1
+	bic r0, r0, r2               // align start down to a line
+1:	mcr p15, 0, r0, c7, c11, 1   // DCCMVAU
+	add r0, r0, r3
+	cmp r0, r1
+	blo 1b
+	dsb
 	mov pc, lr
 
 .global __set_vector_table

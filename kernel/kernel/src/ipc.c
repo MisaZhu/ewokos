@@ -776,12 +776,24 @@ static void ipc_pool_bind_locked(ipc_server_t* server, proc_t* worker, ipc_task_
     worker->ipc_task = ipc;
     ipc->handler_pid = worker->info.pid;
     ipc->handler_uuid = worker->info.uuid;
+    /*
+     * worker->ctx is also read/written by proc_switch()'s frame memcpy under
+     * the proc lock (a timer-driven schedule on the worker's own core can run
+     * concurrently with this bind on another core). Rewriting the saved frame
+     * under only the server lock lets the two interleave and tear the 192-byte
+     * context, so the worker resumes on a foreign stack at a garbage pc. Take
+     * the proc lock for the frame write - lock order server->proc matches
+     * proc_ipc_pool_park(), and proc_switch() never takes the server lock
+     * while holding proc (proc_ipc_get_task() is lock-free), so no deadlock.
+     */
+    proc_lock_enter();
     worker->ctx.pc = server->entry;
     worker->ctx.lr = server->entry;
     worker->ctx.gpr[0] = ipc->uid;
     worker->ctx.gpr[1] = server->extra_data;
     worker->ctx.sp = ALIGN_DOWN(worker->thread_stack_base +
             THREAD_STACK_PAGES*PAGE_SIZE, EWOK_STACK_ALIGN) - EWOK_STACK_INIT_BIAS;
+    proc_lock_leave();
 }
 
 /*

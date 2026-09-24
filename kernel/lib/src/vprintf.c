@@ -21,8 +21,6 @@ static void print_string(outc_func_t outc, void* p, const char *str, int32_t wid
 static void print_int(outc_func_t outc, void* p, int64_t number, int32_t width, uint8_t zero);
 static void print_uint_in_base(outc_func_t outc, void* p, uint64_t number, uint32_t base, int32_t width, uint8_t zero, uint8_t cap);
 static fmt_len_t v_length(const char* format, int32_t* format_index);
-static int64_t v_arg_signed(va_list* ap, fmt_len_t len);
-static uint64_t v_arg_unsigned(va_list* ap, fmt_len_t len);
 
 static int32_t is_digit(char c) {
     return (c >= '0') && (c <= '9');
@@ -90,37 +88,41 @@ static fmt_len_t v_length(const char* format, int32_t* format_index) {
     return LEN_DEF;
 }
 
-static int64_t v_arg_signed(va_list* ap, fmt_len_t len) {
-    switch(len) {
-    case LEN_L:
-        return (int64_t)va_arg(*ap, long);
-    case LEN_LL:
-    case LEN_J:
-        return (int64_t)va_arg(*ap, long long);
-    case LEN_Z:
-        return (int64_t)va_arg(*ap, long);
-    case LEN_T:
-        return (int64_t)va_arg(*ap, ptrdiff_t);
-    default:
-        return (int64_t)va_arg(*ap, int);
-    }
-}
+/*
+ * These must be macros, not functions taking va_list*.
+ *
+ * va_list is a scalar pointer on aarch64/arm but an ARRAY type
+ * (__va_list_tag[1]) on x86_64. A function parameter of type va_list therefore
+ * decays to a plain pointer on x86_64, so passing "&ap" hands the helper the
+ * address of that local pointer variable; dereferencing it as va_list* then
+ * reinterprets the 8-byte pointer (plus adjacent stack) as the 24-byte
+ * __va_list_tag struct, yielding a bogus reg_save_area/overflow_arg_area and
+ * garbage (or faulting) argument reads. Expanding va_arg(ap, ...) directly in
+ * v_printf's scope operates on the real va_list object on every platform.
+ */
+#define V_ARG_SIGNED(ap, len) __extension__({ \
+    int64_t _r; \
+    switch(len) { \
+    case LEN_L:  _r = (int64_t)va_arg(ap, long); break; \
+    case LEN_LL: \
+    case LEN_J:  _r = (int64_t)va_arg(ap, long long); break; \
+    case LEN_Z:  _r = (int64_t)va_arg(ap, long); break; \
+    case LEN_T:  _r = (int64_t)va_arg(ap, ptrdiff_t); break; \
+    default:     _r = (int64_t)va_arg(ap, int); break; \
+    } \
+    _r; })
 
-static uint64_t v_arg_unsigned(va_list* ap, fmt_len_t len) {
-    switch(len) {
-    case LEN_L:
-        return (uint64_t)va_arg(*ap, unsigned long);
-    case LEN_LL:
-    case LEN_J:
-        return (uint64_t)va_arg(*ap, unsigned long long);
-    case LEN_Z:
-        return (uint64_t)va_arg(*ap, size_t);
-    case LEN_T:
-        return (uint64_t)va_arg(*ap, ptrdiff_t);
-    default:
-        return (uint64_t)va_arg(*ap, unsigned int);
-    }
-}
+#define V_ARG_UNSIGNED(ap, len) __extension__({ \
+    uint64_t _r; \
+    switch(len) { \
+    case LEN_L:  _r = (uint64_t)va_arg(ap, unsigned long); break; \
+    case LEN_LL: \
+    case LEN_J:  _r = (uint64_t)va_arg(ap, unsigned long long); break; \
+    case LEN_Z:  _r = (uint64_t)va_arg(ap, size_t); break; \
+    case LEN_T:  _r = (uint64_t)va_arg(ap, ptrdiff_t); break; \
+    default:     _r = (uint64_t)va_arg(ap, unsigned int); break; \
+    } \
+    _r; })
 
 /*
  *   - %s: strings,
@@ -168,29 +170,29 @@ void v_printf(outc_func_t outc, void* p, const char *format, va_list ap) {
         }
         /* signed integer */
         case 'd': {
-            int64_t int_arg = v_arg_signed(&ap, len);
+            int64_t int_arg = V_ARG_SIGNED(ap, len);
             print_int(outc, p, int_arg, width, zero);
             break;
         }
         case 'i': {
-            int64_t int_arg = v_arg_signed(&ap, len);
+            int64_t int_arg = V_ARG_SIGNED(ap, len);
             print_int(outc, p, int_arg, width, zero);
             break;
         }
         /* unsigned integer */
         case 'u': {
-            uint64_t uint_arg = v_arg_unsigned(&ap, len);
+            uint64_t uint_arg = V_ARG_UNSIGNED(ap, len);
             print_uint_in_base(outc, p, uint_arg, 10, width, zero, 0);
             break;
         }
         /* hexadecimal */
         case 'x': {
-            uint64_t uint_arg = v_arg_unsigned(&ap, len);
+            uint64_t uint_arg = V_ARG_UNSIGNED(ap, len);
             print_uint_in_base(outc, p, uint_arg, 16, width, zero, 0);
             break;
         }
         case 'X': {
-            uint64_t uint_arg = v_arg_unsigned(&ap, len);
+            uint64_t uint_arg = V_ARG_UNSIGNED(ap, len);
             print_uint_in_base(outc, p, uint_arg, 16, width, zero, 1);
             break;
         }

@@ -30,8 +30,8 @@ ASFLAGS += -DKERNEL_SMP
 endif
 
 ifeq ($(ARCH_VER),v7)
-CFLAGS += -mfpu=neon-vfpv3 -DFPU_ENABLED
-ASFLAGS += -mfpu=neon-vfpv3 -DFPU_ENABLED
+CFLAGS += -mfpu=neon-vfpv3 -DFPU_ENABLED -DARM_V7
+ASFLAGS += -mfpu=neon-vfpv3 -DFPU_ENABLED -DARM_V7
 endif
 
 ifeq ($(DEBUG),yes)

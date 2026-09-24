@@ -84,7 +84,7 @@ static uint32_t network_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
 }
 
 static int network_dup(vdevice_t* dev, int from_fd, int from_pid, int dup_fd, int dup_pid,
-        uint32_t node, fsinfo_t* fsinfo, void* p) {
+        ewokos_addr_t node, fsinfo_t* fsinfo, void* p) {
     (void)dev;
     (void)from_fd;
     (void)from_pid;
@@ -109,7 +109,7 @@ static int network_dup(vdevice_t* dev, int from_fd, int from_pid, int dup_fd, in
     return 0;
 }
 
-static int network_close(vdevice_t* dev, int fd, int from_pid, uint32_t node, fsinfo_t* fsinfo,void* p) {
+static int network_close(vdevice_t* dev, int fd, int from_pid, ewokos_addr_t node, fsinfo_t* fsinfo,void* p) {
     (void)dev;
     (void)fd;
     (void)from_pid;

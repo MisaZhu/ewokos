@@ -80,11 +80,6 @@ static int32_t _proc_lock_owner = -1;
 static uint32_t _proc_lock_depth = 0;
 #endif
 
-#ifdef __x86_64__
-static uint32_t _x86_ap_switch_trace_count = 0;
-static uint32_t _x86_core_attach_trace_count = 0;
-#endif
-
 static inline uint64_t proc_account_now_usec(void) {
     return irq_accounting_now_usec();
 }
@@ -645,39 +640,6 @@ void proc_space_activate(proc_space_t* space) {
     set_translation_table_base_asid(V2P(space->vm), proc_space_asid(space));
 }
 
-#ifdef EWOK_SWITCH_PROBE
-/*
- * Hardware A/B probes for the raspi5 dwc2 regression (kernel-only builds,
- * -DEWOK_SWITCH_PROBE=<n>). A whole D-cache clean+invalidate by set/way on
- * every switch makes USB work; these isolate which property of that sweep
- * matters: 1 = clean-only sweep, 2 = an equal busy delay with no cache
- * work, 3 = by-VA clean+invalidate of just the switching procs' sys_dma
- * blocks through their Non-Cacheable identity window, 4 = the same by-VA
- * clean+invalidate but through a write-back kernel alias (cannot be a NOP),
- * 5 = no switch work at all, sys_dma mapped write-back everywhere
- * (PTE_ATTR_SYS_DMA), 6 = a 2ms busy delay to bound the timing theory.
- */
-extern void __clean_dcache_all(void);
-extern void _delay_usec(uint64_t count);
-static void proc_switch_probe(proc_t* from, proc_t* to) {
-#if EWOK_SWITCH_PROBE == 1
-    (void)from; (void)to;
-    __clean_dcache_all();
-#elif EWOK_SWITCH_PROBE == 2
-    (void)from; (void)to;
-    _delay_usec(200);
-#elif EWOK_SWITCH_PROBE == 3 || EWOK_SWITCH_PROBE == 4
-    if(from != NULL && from->info.state != UNUSED)
-        dma_flush_owned(proc_get_proc(from)->info.pid);
-    dma_flush_owned(proc_get_proc(to)->info.pid);
-#elif EWOK_SWITCH_PROBE == 6
-    (void)from; (void)to;
-    _delay_usec(2000);
-#else
-    (void)from; (void)to;
-#endif
-}
-#endif
 
 static int32_t proc_init_space(proc_t* proc) {
     int32_t pde_index = get_free_pde();
@@ -925,9 +887,6 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
      */
     if(cproc != to &&
             (cproc == NULL || cproc->space != to->space)) {
-#ifdef EWOK_SWITCH_PROBE
-        proc_switch_probe(cproc, to);
-#endif
         proc_space_activate(to->space);
     }
 
@@ -1795,7 +1754,11 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
     }
 
     if(type == TASK_TYPE_PROC) {
-        proc_init_space(proc);
+        if(proc_init_space(proc) != 0) {
+            _task_table[index] = NULL;
+            kfree(proc);
+            return NULL;
+        }
     }
     else {
         proc->space = parent->space;
@@ -2615,27 +2578,54 @@ void proc_ipc_pool_park(context_t* ctx, proc_t* worker, proc_t* serv_proc, proc_
     }
 
     /*
-     * Lost-bind self heal (SMP): a new request may have been bound to this
-     * worker in the window between the BLOCK transition above and
-     * schedule() saving the live frame - ipc_pool_bind_locked() rewrote
-     * worker->ctx, but the save in proc_switch() then clobbered the
-     * rewrite, so the worker resumes HERE instead of at the server entry
-     * while worker->ipc_task is set. Re-enter the ipc entry directly: ctx
-     * is the live trap frame the syscall epilogue will restore, so fixing
-     * it up here lands the worker in the handler with the right uid and a
-     * fresh stack. A NULL ipc_task is a plain spurious wake - fall
-     * through and let userspace re-park via the no-task SYS_IPC_END path.
+     * Re-arm the parked frame so the worker ALWAYS re-enters the server
+     * entry when it is next scheduled. EwokOS resumes a woken task in
+     * USERSPACE at its saved ctx.pc (the scheduler's proc_switch() loads
+     * worker->ctx and the trap epilogue iretq's into it) - it never re-enters
+     * this kernel function. proc_switch()/schedule() above saved the live
+     * frame, whose pc is the userspace instruction right after the worker's
+     * SYS_IPC_END syscall. Leaving that as the resume point is fatal: a worker
+     * woken WITHOUT a fresh bind (the idle-shrink quit wake from
+     * renew_kernel_sec(), or any spurious/node wake) would resume there, fall
+     * off the end of the userspace ipc handler and execute its `ret` - but a
+     * pool worker was launched straight onto a bare stack top with no return
+     * address pushed, so the `ret` pops garbage and jumps to an unmapped pc
+     * (the deterministic pc=0x47 vfsd/sdfsd crash).
+     *
+     * Pointing ctx.pc back at the entry with uid 0 makes any such wake re-run
+     * the handler: ipc_get_info(0) fails (proc_ipc_serving_task rejects uid 0),
+     * the handler calls SYS_IPC_END again and re-parks - and the quitting check
+     * above then sees the shrink quit mark and exits cleanly. A real bind
+     * overwrites this frame with the request's uid before the worker runs.
+     *
+     * This also covers the lost-bind race (SMP): a request bound between the
+     * BLOCK transition and the frame save had its rewrite clobbered by the
+     * save; re-arming from worker->ipc_task restores it. `ctx` (the trap frame)
+     * now holds the NEXT task, so it is patched only when the scheduler
+     * re-picked THIS worker - patching it otherwise would launch an unrelated
+     * task at the server entry on this worker's stack.
      */
     proc_ipc_server_lock(server);
     ipc_task_t* ipc = worker->ipc_task;
-    if(ipc != NULL) {
-        ctx->pc = server->entry;
-        ctx->lr = server->entry;
-        ctx->gpr[0] = ipc->uid;
+    ewokos_addr_t entry = server->entry;
+    ewokos_addr_t stack = ALIGN_DOWN(worker->thread_stack_base +
+            THREAD_STACK_PAGES*PAGE_SIZE, EWOK_STACK_ALIGN) - EWOK_STACK_INIT_BIAS;
+    /* same torn-frame hazard as ipc_pool_bind_locked(): the frame write
+     * must be serialized against proc_switch()'s memcpy under proc lock. */
+    proc_lock_enter();
+    worker->ctx.pc = entry;
+    worker->ctx.lr = entry;
+    worker->ctx.gpr[0] = (ipc != NULL) ? ipc->uid : 0;
+    worker->ctx.gpr[1] = server->extra_data;
+    worker->ctx.sp = stack;
+    if(worker == get_current_proc()) {
+        ctx->pc = entry;
+        ctx->lr = entry;
+        ctx->gpr[0] = (ipc != NULL) ? ipc->uid : 0;
         ctx->gpr[1] = server->extra_data;
-        ctx->sp = ALIGN_DOWN(worker->thread_stack_base +
-                THREAD_STACK_PAGES*PAGE_SIZE, EWOK_STACK_ALIGN) - EWOK_STACK_INIT_BIAS;
+        ctx->sp = stack;
     }
+    proc_lock_leave();
     proc_ipc_server_unlock(server);
 
     if(worker == get_current_proc())
