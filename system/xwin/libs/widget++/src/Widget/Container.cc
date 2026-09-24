@@ -164,6 +164,9 @@ void  Container::repaint(graph_t* g, XTheme* theme) {
 	if(g == NULL || theme == NULL)
 		return;
 
+	if(theme->basic.noWindowBG)
+		setAlpha(true);
+
 	if(dirty) {
 		grect_t r = getRootArea();
 		graph_set_clip(g, r.x, r.y, r.w, r.h);

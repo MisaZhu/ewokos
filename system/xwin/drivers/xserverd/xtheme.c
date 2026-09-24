@@ -37,6 +37,7 @@ int x_load_theme(const char* name, x_theme_t* theme) {
 
     theme->titleColor = json_get_int_def(conf_var, "title_color", 0);
     theme->titleBGColor = json_get_int_def(conf_var, "title_bg_color", 0);
+    theme->noWindowBG = json_get_int_def(conf_var, "no_window_bg", 0);
 
     if(conf_var != NULL)
         json_var_unref(conf_var);

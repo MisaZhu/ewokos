@@ -14,6 +14,8 @@
     "title_color": "0xffdddddd",
     "title_bg_color": "0xff5890a4",
 
+    "no_window_bg": 1,
+
     "font": "system",
     "font_size": 12
 }

@@ -35,6 +35,8 @@ typedef struct {
 
 	uint32_t titleColor;
 	uint32_t titleBGColor;
+
+	bool noWindowBG;
 } x_theme_t;
 
 enum {
