@@ -41,6 +41,10 @@ typedef struct {
 typedef struct {
     bool valid;
     bool has_report_id;
+    /* X/Y declared with the HID Input "Relative" bit set: a genuine relative
+       mouse/touchpad. Distinguishes a high-resolution 16-bit relative mouse
+       from an absolute touchscreen, which axis width alone cannot do. */
+    bool axis_relative;
     uint8_t report_id;
     uint8_t report_bytes;
     int button_bit[3];

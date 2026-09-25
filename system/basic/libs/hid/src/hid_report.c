@@ -602,6 +602,11 @@ int hid_parse_mouse_report(const uint8_t* desc, int len, mouse_parser_t* out) {
             case 8: {
                 bool constant = (value & 0x1u) != 0;
                 bool variable = (value & 0x2u) != 0;
+                /* bit 2 = Relative: set on a mouse/touchpad X/Y, clear on an
+                   absolute pointing device (touchscreen/tablet). This is the
+                   only reliable relative-vs-absolute discriminator -- axis
+                   width is not (high-resolution mice use 16-bit deltas). */
+                bool relative = (value & 0x4u) != 0;
 
                 if (mouse_active && !constant && variable) {
                     bool report_match = (selected_report_id < 0) ||
@@ -637,6 +642,9 @@ int hid_parse_mouse_report(const uint8_t* desc, int len, mouse_parser_t* out) {
                             out->x_size = (int)report_size;
                             out->has_report_id = current_report_id != 0;
                             out->report_id = current_report_id;
+                            if (relative) {
+                                out->axis_relative = true;
+                            }
                         }
                         else if (usage_page == HID_USAGE_PAGE_GENERIC_DESKTOP &&
                                 usage == HID_USAGE_Y && out->y_bit < 0) {
@@ -647,6 +655,9 @@ int hid_parse_mouse_report(const uint8_t* desc, int len, mouse_parser_t* out) {
                             out->y_size = (int)report_size;
                             out->has_report_id = current_report_id != 0;
                             out->report_id = current_report_id;
+                            if (relative) {
+                                out->axis_relative = true;
+                            }
                         }
                         else if (usage_page == HID_USAGE_PAGE_GENERIC_DESKTOP &&
                                 usage == HID_USAGE_WHEEL && out->wheel_bit < 0) {
@@ -741,10 +752,23 @@ static int8_t hid_clamp_s8(int32_t value) {
     return (int8_t)value;
 }
 
+/* True when two bit fields [a_bit, a_bit+a_size) and [b_bit, b_bit+b_size)
+   share any bit. A field with a negative bit position or non-positive size
+   is "absent" and never overlaps anything. */
+static bool bit_ranges_overlap(int a_bit, int a_size, int b_bit, int b_size) {
+    if (a_bit < 0 || b_bit < 0 || a_size <= 0 || b_size <= 0) {
+        return false;
+    }
+    return a_bit < b_bit + b_size && b_bit < a_bit + a_size;
+}
+
 /* A wrong parser result (garbled descriptor read, unusual descriptor) makes
    normalize decode X/Y from the wrong bits -- typically X still looks fine
-   while Y reads a padding/wheel field and stays 0 or barely moves.  Only
-   trust the parser when the layout is plausible.  strict is used for boot
+   while Y reads a padding/wheel field and stays 0 or barely moves.  The same
+   instability can leave X/Y correct while a BUTTON points at a padding or
+   axis bit: the cursor then tracks perfectly but clicks fire on the wrong
+   bit, fire spuriously, or never fire.  Only trust the parser when the whole
+   layout (axes AND buttons) is plausible.  strict is used for boot
    interfaces where we can fall back to the guaranteed [btn,dx,dy,wheel]
    boot layout instead. */
 bool mouse_parser_sane(const mouse_parser_t* p, uint16_t max_packet, bool strict) {
@@ -771,6 +795,35 @@ bool mouse_parser_sane(const mouse_parser_t* p, uint16_t max_packet, bool strict
     if (max_packet > 0 && p->report_bytes > max_packet) {
         return false;
     }
+    /*
+     * Every declared button must be a real 1..8-bit field inside the report
+     * and must not collide with the axes, the wheel, or another button. An
+     * overlap means the descriptor was misparsed (buttons landing on X/Y or
+     * padding bits) -- exactly the "movement fine, clicks wrong" failure.
+     */
+    for (int i = 0; i < 3; ++i) {
+        int b_bit = p->button_bit[i];
+        int b_size = p->button_size[i];
+        if (b_bit < 0) {
+            continue; /* button not present in this descriptor */
+        }
+        if (b_size <= 0 || b_size > 8) {
+            return false;
+        }
+        if ((uint32_t)b_bit + (uint32_t)b_size > total) {
+            return false;
+        }
+        if (bit_ranges_overlap(b_bit, b_size, p->x_bit, p->x_size) ||
+                bit_ranges_overlap(b_bit, b_size, p->y_bit, p->y_size) ||
+                bit_ranges_overlap(b_bit, b_size, p->wheel_bit, p->wheel_size)) {
+            return false;
+        }
+        for (int j = i + 1; j < 3; ++j) {
+            if (bit_ranges_overlap(b_bit, b_size, p->button_bit[j], p->button_size[j])) {
+                return false;
+            }
+        }
+    }
     if (strict) {
         if ((p->x_bit % 8) != 0 || (p->y_bit % 8) != 0) {
             return false;
@@ -779,6 +832,17 @@ bool mouse_parser_sane(const mouse_parser_t* p, uint16_t max_packet, bool strict
             return false;
         }
         if (p->y_size != 8 && p->y_size != 16) {
+            return false;
+        }
+        /*
+         * A boot interface must expose at least the left button. If the
+         * parser lost it we can still fall back to the boot layout, where
+         * byte 0 is guaranteed to hold the buttons, so reject it here rather
+         * than run with dead clicks. (For report-protocol-only mice we keep
+         * a button-less-but-otherwise-valid parser: rejecting it would drop
+         * to a raw fallback that also breaks the working X/Y.)
+         */
+        if (p->button_bit[0] < 0) {
             return false;
         }
     }
@@ -868,10 +932,19 @@ bool mouse_parser_is_absolute(const mouse_parser_t* m) {
     if (!m->valid) {
         return false;
     }
-    /* Both axes wider than 8 bits strongly indicates absolute coordinates;
-       standard relative mice use 8-bit (boot) or at most 12-bit deltas,
-       but 12-bit relative is rare and always paired with a boot fallback.
-       Requiring both axes > 8 keeps false positives minimal. */
+    /*
+     * Trust the descriptor's Relative bit first: a device that declares its
+     * X/Y as Relative is a genuine relative mouse/touchpad no matter how wide
+     * the axes are. High-resolution mice report 16-bit signed deltas, which
+     * the old width-only heuristic mistook for absolute coordinates -- it then
+     * fed those deltas to the touch path as positions near (0,0), dragging the
+     * cursor to the top-left corner. Only when the axes are NOT relative fall
+     * back to the width heuristic (both axes > 8 bits) to catch absolute
+     * pointing devices whose descriptor omits a usable Rel/Abs distinction.
+     */
+    if (m->axis_relative) {
+        return false;
+    }
     return m->x_size > 8 && m->y_size > 8;
 }
 

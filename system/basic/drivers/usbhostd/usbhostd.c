@@ -387,8 +387,11 @@ static int usb_register_mouse(int dev_idx, const hid_candidate_t* cand, const mo
     use_parser = parser != NULL && parser->valid &&
             mouse_parser_sane(parser, mps, boot);
     if (parser != NULL && parser->valid && !use_parser) {
-        slog("usbhostd: mouse parser rejected dev=%d iface=%u rid=%u bytes=%u x=%d/%d y=%d/%d wheel=%d/%d maxpkt=%u fallback=%s\n",
+        slog("usbhostd: mouse parser rejected dev=%d iface=%u rid=%u bytes=%u btn=%d/%d,%d/%d,%d/%d x=%d/%d y=%d/%d wheel=%d/%d maxpkt=%u fallback=%s\n",
                 dev_idx, cand->iface_num, parser->report_id, parser->report_bytes,
+                parser->button_bit[0], parser->button_size[0],
+                parser->button_bit[1], parser->button_size[1],
+                parser->button_bit[2], parser->button_size[2],
                 parser->x_bit, parser->x_size, parser->y_bit, parser->y_size,
                 parser->wheel_bit, parser->wheel_size, cand->max_packet,
                 boot ? "boot" : "raw");
@@ -408,9 +411,12 @@ static int usb_register_mouse(int dev_idx, const hid_candidate_t* cand, const mo
     if (use_parser) {
         _inputs[slot].mouse = *parser;
         _inputs[slot].report_len = parser->report_bytes;
-        slog("usbhostd: register mouse slot=%d dev=%d iface=%u ep=%02x report_id=%u report_len=%u maxpkt=%u x=%d/%d y=%d/%d wheel=%d/%d%s\n",
+        slog("usbhostd: register mouse slot=%d dev=%d iface=%u ep=%02x report_id=%u report_len=%u maxpkt=%u btn=%d/%d,%d/%d,%d/%d x=%d/%d y=%d/%d wheel=%d/%d%s\n",
                 slot, dev_idx, cand->iface_num, cand->ep_addr,
                 parser->report_id, parser->report_bytes, cand->max_packet,
+                parser->button_bit[0], parser->button_size[0],
+                parser->button_bit[1], parser->button_size[1],
+                parser->button_bit[2], parser->button_size[2],
                 parser->x_bit, parser->x_size, parser->y_bit, parser->y_size,
                 parser->wheel_bit, parser->wheel_size,
                 mouse_parser_is_absolute(parser) ? " [absolute->touch]" : "");
