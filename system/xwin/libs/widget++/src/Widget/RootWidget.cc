@@ -16,7 +16,7 @@ void RootWidget::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 	if(color_a(theme->basic.bgColor) != 0xff)
 		setAlpha(true);
 
-	if(!theme->basic.noWindowBG)
+	if(!theme->basic.noWindowBG || !alpha)
 		graph_fill_rect(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
 }
  

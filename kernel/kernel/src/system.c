@@ -57,6 +57,27 @@ static inline uint32_t asid_limit(void) {
 extern void __dcache_clean_pou_range(uint32_t start, uint32_t end);
 extern void __dcache_flush_poc_range(uint32_t start, uint32_t end);
 extern void __invalidate_icache_all_is(void);
+/* ASID-tagged address-space switch: TTBR0 + CONTEXTIDR, no TLBI (user entries
+   are nG, kernel entries global). See v7/system.S and mmu_arch.c. */
+extern void __set_translation_table_base_asid(uint32_t base, uint32_t asid);
+extern void __flush_tlb_asid(uint32_t asid);
+
+/*
+ * ARMv7 ASID width: ID_MMFR0.ASID (bits[7:4]) == 2 means 16-bit, else 8-bit.
+ * asid = pde_index+1 must fit; a space whose ASID does not fit (only possible
+ * when max_proc_num exceeds the core's ASID count) falls back to the
+ * whole-TLB flush-on-switch path in set_translation_table_base_asid().
+ */
+static uint32_t _asid_limit = 0;
+
+static inline uint32_t asid_limit(void) {
+    if(_asid_limit == 0) {
+        uint32_t mmfr0;
+        __asm__ volatile("mrc p15, 0, %0, c0, c1, 4" : "=r"(mmfr0));
+        _asid_limit = (((mmfr0 >> 4) & 0xf) == 2) ? (1u << 16) : (1u << 8);
+    }
+    return _asid_limit;
+}
 #endif
 
 #ifdef KERNEL_SMP
@@ -269,6 +290,20 @@ inline void set_translation_table_base_asid(ewokos_addr_t tlb_base, uint32_t asi
     }
     __set_translation_table_base(tlb_base);
     __flush_tlb_local();
+#elif defined(ARM_V7)
+    /*
+     * User-half entries are nG and CONTEXTIDR carries the ASID, so loading
+     * TTBR0+ASID is the whole TLB side of the switch - no TLBI. Only a space
+     * whose ASID does not fit the core's width (or asid 0) takes the fallback:
+     * park it on the reserved ASID 0 and do a full invalidate, so its nG
+     * entries can never resolve through another space's leftovers.
+     */
+    if(asid != 0 && asid < asid_limit()) {
+        __set_translation_table_base_asid((uint32_t)tlb_base, asid);
+        return;
+    }
+    __set_translation_table_base_asid((uint32_t)tlb_base, 0);
+    flush_tlb();
 #else
     (void)asid;
     set_translation_table_base(tlb_base);
@@ -283,6 +318,11 @@ inline void set_translation_table_base_asid(ewokos_addr_t tlb_base, uint32_t asi
  */
 inline void flush_tlb_asid(uint32_t asid) {
 #if defined(__aarch64__)
+    if(asid != 0 && asid < asid_limit())
+        __flush_tlb_asid(asid);
+    else
+        flush_tlb();
+#elif defined(ARM_V7)
     if(asid != 0 && asid < asid_limit())
         __flush_tlb_asid(asid);
     else

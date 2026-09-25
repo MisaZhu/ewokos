@@ -47,8 +47,11 @@ CXXFLAGS = -marm \
         -std=c++14
 
 ifeq ($(ARCH_VER),v7)
-CFLAGS += -mfpu=neon-vfpv3 -DARCH_BOOST -mfloat-abi=softfp
-CXXFLAGS += -mfpu=neon-vfpv3 -DARCH_BOOST -mfloat-abi=softfp
+# -march=armv7-a is required so GCC emits inline ldrex/strex for the __sync_*
+# atomic builtins; the baseline (armv4t) codegen instead calls __sync_*_4 out
+# of libgcc, and the arm-none-eabi base libgcc.a does not provide them.
+CFLAGS += -march=armv7-a -mfpu=neon-vfpv3 -DARCH_BOOST -mfloat-abi=softfp
+CXXFLAGS += -march=armv7-a -mfpu=neon-vfpv3 -DARCH_BOOST -mfloat-abi=softfp
 endif
        
 EWOK_LIBC = --start-group -lewoksys -lc -lgloss -lsoftfloat --end-group $(LIBGCC)

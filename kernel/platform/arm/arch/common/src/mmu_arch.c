@@ -39,6 +39,17 @@ int32_t map_page(page_dir_entry_t *vm, ewokos_addr_t virtual_addr,
     page_table[page_index].base = PAGE_TO_BASE(physical);
     page_table[page_index].ap = permissions;
     set_pte_flags(&page_table[page_index], pte_attr);
+#ifdef ARM_V7
+    /*
+     * ASID tagging (v7 only): user-half entries are non-global so a
+     * TTBR0+CONTEXTIDR switch needs no TLBI - the previous space's entries
+     * simply stop matching. The kernel half (>= KERNEL_BASE) stays global and
+     * is identical in every space, so its entries match under any ASID. v5/v6
+     * keep every entry global and still do the whole-TLB flush on switch, so
+     * ng must stay 0 there (never set outside this guard).
+     */
+    page_table[page_index].ng = (virtual_addr < KERNEL_BASE) ? 1 : 0;
+#endif
     return 0;
 }
 

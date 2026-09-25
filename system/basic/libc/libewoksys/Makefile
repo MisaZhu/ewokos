@@ -211,6 +211,7 @@ prep_obj_dirs:
 	@mkdir -p $(OBJ_DIRS)
 
 $(EWOKSYS): $(LIB_EWOKSYS_OBJS)   $(LIB_EWOKSYS_SYS_OBJS)
+	rm -f $(EWOKSYS)
 	$(AR) rcs $(EWOKSYS) $(LIB_EWOKSYS_OBJS) 
 
 install_headers:

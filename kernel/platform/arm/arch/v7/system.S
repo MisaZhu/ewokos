@@ -196,6 +196,38 @@ __set_translation_table_base:
 	mov pc, lr
 
 /*
+ * void __set_translation_table_base_asid(uint32_t base, uint32_t asid)
+ * Address-space switch without a TLB invalidate. TTBR0 gets the same cacheable
+ * inner-shareable attributes as __set_translation_table_base; CONTEXTIDR[7:0]
+ * carries the ASID. User-half entries are nG (ASID-tagged, see mmu_arch.c) and
+ * the kernel half is global, so the previous space's entries simply stop
+ * matching and no TLBI is needed. The isb publishes the new context. asid 0 is
+ * reserved for the kernel/no-space fallback.
+ */
+.global __set_translation_table_base_asid
+__set_translation_table_base_asid:
+	orr r0, r0, #0x0B
+	mcr p15, 0, r0, c2, c0, 0    // TTBR0 = base | IRGN/S/RGN
+	mcr p15, 0, r1, c13, c0, 1   // CONTEXTIDR = ASID (bits[7:0])
+	isb
+	mov pc, lr
+
+/*
+ * void __flush_tlb_asid(uint32_t asid)
+ * Drop every TLB entry tagged with one ASID on all cores of the inner-shareable
+ * domain (TLBIASIDIS, Rt = ASID). Used when a pde slot - and thus its ASID - is
+ * reassigned or its page tables are freed, so a recycled ASID never resolves
+ * through the previous owner's leftovers.
+ */
+.global __flush_tlb_asid
+__flush_tlb_asid:
+	dsb
+	mcr p15, 0, r0, c8, c3, 2    // TLBIASIDIS
+	dsb
+	isb
+	mov pc, lr
+
+/*
  * Invalidate the whole I-cache on every core of the inner-shareable domain
  * (ICIALLUIS). Used after loading code so a core other than the loader does
  * not fetch stale instructions from a reused physical page.

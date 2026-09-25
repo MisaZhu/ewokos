@@ -129,6 +129,9 @@ load_boot_pgt:
     orr r0, r0, #0x0B            // TTBR0: IRGN=WBWA(bit0), S=shareable(bit1), RGN=WBWA(bit3)
     mcr p15, 0, r0, c2, c0, 0
 
+    mov r1, #0
+    mcr p15, 0, r1, c13, c0, 1   // CONTEXTIDR ASID = 0 (kernel/global context)
+
     ldr r1, =0x55555555
     mcr p15, 0, r1, c3, c0, 0
     dmb

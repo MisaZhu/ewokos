@@ -56,8 +56,8 @@
 @/bin/ipcserv /drivers/piped           /dev/pipe0
 @/bin/ipcserv /drivers/ramfsd          /tmp
 
-@/bin/splash -m "mount /mnt/share" -p 78
-@/bin/ipcserv /drivers/virt/virtfsd
+#@/bin/splash -m "mount /mnt/share" -p 78
+#@/bin/ipcserv /drivers/virt/virtfsd
 
 @/bin/splash -m "load fonts" -p 80
 @/bin/load_font

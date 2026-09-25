@@ -164,8 +164,8 @@ void  Container::repaint(graph_t* g, XTheme* theme) {
 	if(g == NULL || theme == NULL)
 		return;
 
-	if(theme->basic.noWindowBG)
-		setAlpha(true);
+	//if(theme->basic.noWindowBG)
+		//setAlpha(true);
 
 	if(dirty) {
 		grect_t r = getRootArea();
