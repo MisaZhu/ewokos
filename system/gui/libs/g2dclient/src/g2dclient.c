@@ -180,3 +180,9 @@ int g2d_blit_to_phy(const g2d_blit_to_phy_req_t* req) {
         return G2D_ERR_FAILED;
     return g2d_send_struct(G2D_DEV_CNTL_BLIT_TO_PHY, req, sizeof(*req));
 }
+
+int g2d_gaussian_blur(const g2d_gaussian_blur_req_t* req) {
+    if(req == NULL)
+        return G2D_ERR_FAILED;
+    return g2d_send_struct(G2D_DEV_CNTL_GAUSSIAN_BLUR, req, sizeof(*req));
+}

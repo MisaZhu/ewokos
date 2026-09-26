@@ -1052,6 +1052,45 @@ static char* g2d_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* 
 	return NULL;
 }
 
+/* whole-surface gaussian blur, in place on the dst canvas; tmp is the
+   caller's scratch canvas, handed to the back end unchanged.  geometry
+   the back end cannot run (radius other than 2/4, width not a multiple
+   of 16) answers G2D_ERR_NOT_SUPPORTED so the client keeps its own blur;
+   a failed dispatch answers G2D_ERR_FAILED (transient). */
+static int32_t g2dd_handle_gaussian_blur(proto_t* in) {
+	g2d_gaussian_blur_req_t req;
+	g2d_attached_t dst;
+	g2d_attached_t tmp;
+	int32_t ret;
+
+	if(in == NULL)
+		return G2D_ERR_FAILED;
+	if(proto_read_to(in, &req, sizeof(req)) != sizeof(req))
+		return G2D_ERR_FAILED;
+	if(req.radius != 2 && req.radius != 4)
+		return G2D_ERR_NOT_SUPPORTED;
+	if((req.dst.w & 15) != 0 ||
+			req.tmp.size < (uint32_t)req.dst.w * req.dst.h * 4u)
+		return G2D_ERR_NOT_SUPPORTED;
+
+	if(g2d_attach(&req.dst, &dst) != 0)
+		return G2D_ERR_FAILED;
+	if(g2d_attach(&req.tmp, &tmp) != 0) {
+		g2d_detach(&dst);
+		return G2D_ERR_FAILED;
+	}
+
+	G2DD_LOG("g2d_gaussian_blur dst: %d x %d radius: %d, contig: %d:(0x%08X)\n",
+			dst.width, dst.height, req.radius, dst.contig, dst.phy);
+
+	ret = bsp_g2d_gaussian_blur(dst.buffer, dst.phy, dst.contig,
+			tmp.buffer, tmp.phy, tmp.contig,
+			(int32_t)dst.width, (int32_t)dst.height, req.radius);
+	g2d_detach(&tmp);
+	g2d_detach(&dst);
+	return ret; /* 0 = G2D_OK, -1 = G2D_ERR_FAILED */
+}
+
 static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
 	(void)dev;
 	(void)from_pid;
@@ -1087,6 +1126,9 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 		break;
 	case G2D_DEV_CNTL_BLIT_TO_PHY:
 		res = g2dd_handle_blit_to_phy(in);
+		break;
+	case G2D_DEV_CNTL_GAUSSIAN_BLUR:
+		res = g2dd_handle_gaussian_blur(in);
 		break;
 	default:
 		/* an unknown command is a capability this driver does not

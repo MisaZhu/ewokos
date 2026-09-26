@@ -18,6 +18,69 @@
 #define ROT45_FP   11585
 #define ROT45_BITS 14
 
+/* gaussian blur backend state: the correctness item clears this when the
+   driver accepted and bit-exactly matched a blur, gating the PERF row
+   (machines without a blur backend skip it) */
+static int g_gauss_ok = 0;
+
+/* fixed Q16 weights of the backend blur (sigma = radius/2, normalized to
+   exactly 65536 with the center weight absorbing the rounding) - must
+   match the backend's tables bit-for-bit */
+static const uint16_t gauss_wk2[5] = { 25386, 5664, 3436, 5664, 25386 };
+static const uint16_t gauss_wk4[9] = { 17608, 7340, 3929, 2700, 2382,
+        2700, 3929, 7340, 17608 };
+
+/* scalar two-pass gaussian blur - the bit-exact reference: the same Q16
+   weights, edge replication and round half-up as the GPU kernels */
+static void gauss_ref_scalar(const uint32_t* src, uint32_t* dst,
+        uint32_t* tmp, uint32_t w, uint32_t h, int radius) {
+    const uint16_t* wk = (radius == 2) ? gauss_wk2 : gauss_wk4;
+    uint32_t x, y, t, ks = (uint32_t)(radius * 2 + 1);
+
+    for(y = 0; y < h; y++) {
+        for(x = 0; x < w; x++) {
+            uint32_t sb = 0, sg = 0, sr = 0, sa = 0;
+            for(t = 0; t < ks; t++) {
+                int32_t xx = (int32_t)x + (int32_t)t - radius;
+                uint32_t p, wv;
+                if(xx < 0) xx = 0;
+                if(xx >= (int32_t)w) xx = (int32_t)w - 1;
+                p = src[y * w + (uint32_t)xx];
+                wv = wk[t];
+                sb += (p & 0xff) * wv;
+                sg += ((p >> 8) & 0xff) * wv;
+                sr += ((p >> 16) & 0xff) * wv;
+                sa += ((p >> 24) & 0xff) * wv;
+            }
+            tmp[y * w + x] = (((sa + 32768) >> 16) << 24) |
+                             (((sr + 32768) >> 16) << 16) |
+                             (((sg + 32768) >> 16) << 8) |
+                             ((sb + 32768) >> 16);
+        }
+    }
+    for(y = 0; y < h; y++) {
+        for(x = 0; x < w; x++) {
+            uint32_t sb = 0, sg = 0, sr = 0, sa = 0;
+            for(t = 0; t < ks; t++) {
+                int32_t yy = (int32_t)y + (int32_t)t - radius;
+                uint32_t p, wv;
+                if(yy < 0) yy = 0;
+                if(yy >= (int32_t)h) yy = (int32_t)h - 1;
+                p = tmp[(uint32_t)yy * w + x];
+                wv = wk[t];
+                sb += (p & 0xff) * wv;
+                sg += ((p >> 8) & 0xff) * wv;
+                sr += ((p >> 16) & 0xff) * wv;
+                sa += ((p >> 24) & 0xff) * wv;
+            }
+            dst[y * w + x] = (((sa + 32768) >> 16) << 24) |
+                             (((sr + 32768) >> 16) << 16) |
+                             (((sg + 32768) >> 16) << 8) |
+                             ((sb + 32768) >> 16);
+        }
+    }
+}
+
 static uint32_t rotated45_size(uint32_t w, uint32_t h) {
     uint64_t sum = (uint64_t)(w + h) * ROT45_FP;
     return (uint32_t)((sum + (1u << ROT45_BITS) - 1) >> ROT45_BITS);
@@ -406,6 +469,7 @@ typedef struct {
     graph_t* rot45_dst;  /* rotate 45 dst, rotated bounding box of canvas */
     graph_t* scale_src;  /* scale_to source (group-sized) */
     graph_t* scale_same; /* scale_to 1:1 dst (same size as scale src) */
+    graph_t* gauss_tmp;  /* gaussian blur scratch (same size as canvas) */
     uint32_t seq;    /* frame counter, varies positions/colors between frames */
     uint32_t rot_swap;   /* rotate 90 ping-pong phase selector */
 } bench_ctx_t;
@@ -553,6 +617,18 @@ static int bench_frame_scale_1to1(void* p) {
     return g2d_scale_to(&req);
 }
 
+/* whole-canvas gaussian blur r2, in place: the canvas converges to a
+   smooth blur after the first frames; one blur is the throughput unit */
+static int bench_frame_gaussian(void* p) {
+    bench_ctx_t* ctx = (bench_ctx_t*)p;
+    g2d_gaussian_blur_req_t req;
+
+    g2d_gaussian_blur_req_init(&req, img_canvas(ctx->canvas),
+            img_canvas(ctx->gauss_tmp), 2);
+    ctx->seq++;
+    return g2d_gaussian_blur(&req);
+}
+
 static void bench_run(const char* label, bench_frame_fn fn,
         bench_ctx_t* ctx, int* failures) {
     uint32_t frames = 0;
@@ -600,6 +676,10 @@ int main(int argc, char** argv) {
     graph_t* opaque_img;
     graph_t* alpha_img;
     graph_t* wide;
+    graph_t* gblur = NULL;   /* gaussian blur canvas (GPU-visible) */
+    graph_t* gtmp = NULL;    /* gaussian blur scratch (GPU-visible) */
+    uint32_t* ref = NULL;    /* gaussian blur reference / pattern copy */
+    uint32_t* scratch = NULL; /* gaussian blur reference scratch */
     bench_ctx_t bench_ctx;
     uint32_t bg_color = 0xff101820;
     uint32_t fill_color = 0xff204060;
@@ -648,6 +728,13 @@ int main(int argc, char** argv) {
     fill_pattern(opaque_img);
     fill_alpha_circle(alpha_img);
     img_clear(canvas, bg_color);
+
+    /* gaussian blur canvases: allocated while the contiguous shm slab is
+       still fresh.  the blur item runs at the end of the suite, after the
+       big rotate canvases may have fragmented it, and the GPU back end
+       cannot run a non-contiguous canvas at all. */
+    gblur = canvas_create(320, 240);
+    gtmp = canvas_create(320, 240);
 
     /* fill: inside the rect becomes the color, outside stays */
     g2d_fill_req_init(&fill, img_canvas(canvas), g2d_rect(24, 24, 220, 120), fill_color);
@@ -938,6 +1025,76 @@ int main(int argc, char** argv) {
         canvas_free(big45);
     }
 
+    /* gaussian blur (radius 2 and 4): the driver blurs the whole canvas
+       in place through its back end; the expected image comes from a
+       scalar two-pass reference with the same fixed Q16 weights, so the
+       comparison is bit-exact.  the canvases are created early in main
+       (while the contiguous shm slab is fresh): the GPU back end cannot
+       run a non-contiguous canvas, and late in the suite the big rotate
+       canvases may have exhausted it - such a run reports SKIP. */
+    if(gblur == NULL || gtmp == NULL) {
+        printf("FAIL %-22s create canvases failed\n", "gaussian_blur");
+        failures++;
+    }
+    else if(gblur->shm_contig == 0 || gtmp->shm_contig == 0) {
+        printf("SKIP %-22s canvas not GPU-visible\n", "gaussian_blur");
+    }
+    else if((ref = (uint32_t*)malloc(320u * 240u * 4u)) == NULL ||
+            (scratch = (uint32_t*)malloc(320u * 240u * 4u)) == NULL) {
+        printf("FAIL %-22s out of memory\n", "gaussian_blur");
+        failures++;
+    }
+    else {
+        int radius;
+
+        for(radius = 2; radius <= 4; radius += 2) {
+            g2d_gaussian_blur_req_t greq;
+            uint32_t i, mism = 0, first = 0;
+            char label[24];
+
+            snprintf(label, sizeof(label), "gaussian_blur_r%d", radius);
+            fill_pattern(gblur);
+            memcpy(ref, gblur->buffer, 320u * 240u * 4u);
+            /* three DISTINCT buffer roles: the H pass writes tmp while
+               still reading a lookahead of up to radius+1 source pixels
+               of the same row - src == tmp would corrupt its own input */
+            gauss_ref_scalar(ref, ref, scratch, 320, 240, radius);
+            g2d_gaussian_blur_req_init(&greq, img_canvas(gblur),
+                    img_canvas(gtmp), radius);
+            ret = g2d_gaussian_blur(&greq);
+            if(ret == G2D_ERR_NOT_SUPPORTED) {
+                printf("SKIP %-22s backend has no blur\n", label);
+                continue;
+            }
+            if(ret != 0) {
+                printf("FAIL %-22s ret=%d\n", label, ret);
+                failures++;
+                continue;
+            }
+            for(i = 0; i < 320u * 240u; i++) {
+                if(gblur->buffer[i] != ref[i]) {
+                    if(mism == 0)
+                        first = i;
+                    mism++;
+                }
+            }
+            if(mism == 0) {
+                printf("PASS %-22s bit-exact\n", label);
+                if(radius == 2)
+                    g_gauss_ok = 1;
+            }
+            else {
+                printf("FAIL %-22s %u mismatches, first (%u,%u) "
+                       "got 0x%08X want 0x%08X\n", label, mism,
+                       first % 320u, first / 320u,
+                       gblur->buffer[first], ref[first]);
+                failures++;
+            }
+        }
+    }
+    free(ref);
+    free(scratch);
+
     /* fps benchmark: the full op set runs once per resolution group */
     printf("--- fps benchmark ---\n");
     printf("PERF %-30s %8s %8s %8s %8s\n", "label", "frames", "us", "fps", "us/frame");
@@ -1030,6 +1187,23 @@ int main(int argc, char** argv) {
         bench_ctx.scale_same = g_scale_same;
         bench_run_group("scale_to_1to1", bench_frame_scale_1to1, gw, gh, &bench_ctx, &failures);
 
+        /* stage d: gaussian blur r2 blurs the pattern src in place and
+           uses a dedicated scratch canvas; skipped when the machine has
+           no blur backend (the correctness item clears g_gauss_ok) */
+        if(g_gauss_ok) {
+            graph_t* g_gtmp = canvas_create(gw, gh);
+            if(g_gtmp == NULL) {
+                printf("create group %ux%u stage d shm failed, blur bench skipped\n", gw, gh);
+                failures++;
+            }
+            else {
+                bench_ctx.gauss_tmp = g_gtmp;
+                fill_pattern(g_src);
+                bench_run_group("gaussian_blur_r2", bench_frame_gaussian, gw, gh, &bench_ctx, &failures);
+                canvas_free(g_gtmp);
+            }
+        }
+
         canvas_free(g_scale_same);
         canvas_free(g_src);
         canvas_free(g_canvas);
@@ -1038,6 +1212,8 @@ int main(int argc, char** argv) {
     printf("g2dtest summary: %s (%d failure)\n", failures == 0 ? "PASS" : "FAIL", failures);
     usleep(50000);
 
+    canvas_free(gtmp);
+    canvas_free(gblur);
     canvas_free(alpha_img);
     canvas_free(opaque_img);
     canvas_free(canvas);

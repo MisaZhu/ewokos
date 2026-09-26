@@ -17,7 +17,8 @@ enum {
 	G2D_DEV_CNTL_ROTATE,
 	G2D_DEV_CNTL_SCALE_TO,
 	G2D_DEV_CNTL_GET_CLOCK,
-	G2D_DEV_CNTL_BLIT_TO_PHY
+	G2D_DEV_CNTL_BLIT_TO_PHY,
+	G2D_DEV_CNTL_GAUSSIAN_BLUR
 };
 
 /* result codes every g2dclient call below answers with (the driver
@@ -144,6 +145,22 @@ typedef struct {
 	int32_t rotate;
 } g2d_blit_req_t;
 
+/* whole-surface separable Gaussian blur of the dst canvas, in place
+   (the default blur algorithm).  radius 2 or 4; the backend uses its own
+   fixed per-radius Q16 weights (sigma = radius/2), so the request carries
+   no coefficients.  tmp is the caller's scratch canvas: same geometry
+   class as dst, size >= dst.w*dst.h*4, GPU-visible like dst (the driver
+   only passes it through to the backend and never reads it).
+   G2D_OK on success; G2D_ERR_NOT_SUPPORTED when the backend has no blur
+   or the geometry is not runnable (radius other than 2/4, width not a
+   multiple of 16) - sticky, the caller should keep its own blur;
+   G2D_ERR_FAILED for bad canvases or a failed dispatch (transient). */
+typedef struct {
+	g2d_canvas_t dst;
+	g2d_canvas_t tmp;
+	int32_t radius;
+} g2d_gaussian_blur_req_t;
+
 static inline g2d_rect_t g2d_rect(int32_t x, int32_t y, int32_t w, int32_t h) {
 	g2d_rect_t rect;
 	rect.x = x;
@@ -248,6 +265,16 @@ static inline void g2d_scale_to_req_init(g2d_scale_to_req_t* req, g2d_canvas_t s
 	req->dst = dst;
 }
 
+static inline void g2d_gaussian_blur_req_init(g2d_gaussian_blur_req_t* req,
+		g2d_canvas_t dst, g2d_canvas_t tmp, int32_t radius) {
+	if(req == NULL)
+		return;
+	memset(req, 0, sizeof(*req));
+	req->dst = dst;
+	req->tmp = tmp;
+	req->radius = radius;
+}
+
 static inline void g2d_blit_to_phy_req_init(g2d_blit_to_phy_req_t* req,
 		g2d_canvas_t src,
 		g2d_rect_t src_rect,
@@ -293,6 +320,7 @@ int g2d_blit_alpha(const g2d_blit_req_t* req);
 int g2d_rotate(const g2d_rotate_req_t* req);
 int g2d_scale_to(const g2d_scale_to_req_t* req);
 int g2d_blit_to_phy(const g2d_blit_to_phy_req_t* req);
+int g2d_gaussian_blur(const g2d_gaussian_blur_req_t* req);
 
 /* query the g2d engine clock rate in Hz (as confirmed by the driver at
    startup; hardware backends pin the GPU to its max rate). returns
