@@ -147,18 +147,18 @@ typedef struct {
 
 /* separable Gaussian blur of a sub-rect of the dst canvas, in place (the
    default blur algorithm). rect is clamped into dst by the driver; a rect
-   covering the whole canvas blurs everything. the hardware (GPU) back end
-   only runs a whole-canvas rect at a width that is a multiple of 16 with
-   radius 2 or 4 (its own fixed per-radius Q16 weights, sigma = radius/2, so
-   the request carries no coefficients); any other rect / width / radius is
-   served by the driver's software arch engine, which blurs arbitrary
-   geometry (NEON 16-wide blocks plus an edge-clamped scalar tail). tmp is
-   the scratch canvas the hardware back end needs: same geometry class as
-   dst, size >= dst.w*dst.h*4, GPU-visible like dst (the driver only passes
-   it through and never reads it); the software path ignores it, so a caller
-   that knows its rect is not GPU-eligible may leave tmp zeroed. G2D_OK on
-   success; G2D_ERR_FAILED for a bad canvas, an empty rect, a non-positive
-   radius or a failed dispatch (transient). */
+   covering the whole canvas blurs everything. the driver is GPU-only
+   (no CPU fallback, same as fill/blit/rotate): the back end runs a
+   whole-canvas blur at a width that is a multiple of 16 with any
+   radius >= 1 (radius 1..4 dispatch their own separable kernel pair
+   with fixed per-radius Q16 weights, sigma = radius/2, so the request
+   carries no coefficients; larger radii compose the same stages), and
+   needs the tmp scratch canvas: same geometry class as dst, size >=
+   dst.w*dst.h*4, GPU-visible like dst (the driver only passes it
+   through and never reads it). a partial rect or a non-aligned width
+   is not runnable - G2D_ERR_FAILED, nothing submitted (run your own
+   software blur); G2D_ERR_FAILED also covers a bad canvas, an empty
+   rect, a non-positive radius or a failed dispatch (transient). */
 typedef struct {
 	g2d_canvas_t dst;
 	g2d_canvas_t tmp;

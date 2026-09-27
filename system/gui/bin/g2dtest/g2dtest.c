@@ -26,15 +26,18 @@ static int g_gauss_ok = 0;
 /* fixed Q16 weights of the backend blur (sigma = radius/2, normalized to
    exactly 65536 with the center weight absorbing the rounding) - must
    match the backend's tables bit-for-bit */
-static const uint16_t gauss_wk2[5] = { 25386, 5664, 3436, 5664, 25386 };
-static const uint16_t gauss_wk4[9] = { 17608, 7340, 3929, 2700, 2382,
-        2700, 3929, 7340, 17608 };
+static const uint16_t gauss_wk[5][9] = {
+        [1] = { 30691, 4154, 30691 },
+        [2] = { 25386, 5664, 3436, 5664, 25386 },
+        [3] = { 20926, 6889, 3537, 2832, 3537, 6889, 20926 },
+        [4] = { 17608, 7340, 3929, 2700, 2382, 2700, 3929, 7340, 17608 },
+};
 
 /* scalar two-pass gaussian blur - the bit-exact reference: the same Q16
    weights, edge replication and round half-up as the GPU kernels */
 static void gauss_ref_scalar(const uint32_t* src, uint32_t* dst,
         uint32_t* tmp, uint32_t w, uint32_t h, int radius) {
-    const uint16_t* wk = (radius == 2) ? gauss_wk2 : gauss_wk4;
+    const uint16_t* wk = gauss_wk[radius];
     uint32_t x, y, t, ks = (uint32_t)(radius * 2 + 1);
 
     for(y = 0; y < h; y++) {
@@ -1048,7 +1051,7 @@ int main(int argc, char** argv) {
     else {
         int radius;
 
-        for(radius = 2; radius <= 4; radius += 2) {
+        for(radius = 1; radius <= 4; radius++) {
             g2d_gaussian_blur_req_t greq;
             uint32_t i, mism = 0, first = 0;
             char label[24];
@@ -1090,6 +1093,48 @@ int main(int argc, char** argv) {
                        first % 320u, first / 320u,
                        gblur->buffer[first], ref[first]);
                 failures++;
+            }
+        }
+        /* composed radius 6 (= r4+r4+r2, greedy split of 36): the
+           reference applies the same stage sequence with the same
+           per-stage rounding, so the check stays bit-exact */
+        {
+            static const int st[3] = { 4, 4, 2 };
+            g2d_gaussian_blur_req_t greq;
+            uint32_t i, mism = 0, first = 0;
+            char label[24];
+            int si;
+
+            fill_pattern(gblur);
+            memcpy(ref, gblur->buffer, 320u * 240u * 4u);
+            for(si = 0; si < 3; si++)
+                gauss_ref_scalar(ref, ref, scratch, 320, 240, st[si]);
+            g2d_gaussian_blur_req_init(&greq, img_canvas(gblur),
+                    img_canvas(gtmp),
+                    g2d_rect(0, 0, gblur->w, gblur->h), 6);
+            ret = g2d_gaussian_blur(&greq);
+            snprintf(label, sizeof(label), "gaussian_blur_r6");
+            if(ret != 0) {
+                printf("FAIL %-22s ret=%d\n", label, ret);
+                failures++;
+            }
+            else {
+                for(i = 0; i < 320u * 240u; i++) {
+                    if(gblur->buffer[i] != ref[i]) {
+                        if(mism == 0)
+                            first = i;
+                        mism++;
+                    }
+                }
+                if(mism == 0)
+                    printf("PASS %-22s bit-exact (composed)\n", label);
+                else {
+                    printf("FAIL %-22s %u mismatches, first (%u,%u) "
+                           "got 0x%08X want 0x%08X\n", label, mism,
+                           first % 320u, first / 320u,
+                           gblur->buffer[first], ref[first]);
+                    failures++;
+                }
             }
         }
     }

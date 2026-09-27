@@ -1052,20 +1052,16 @@ static char* g2d_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* 
 	return NULL;
 }
 
-/* gaussian blur of a sub-rect of the dst canvas, in place. the caller
-   imposes no geometry restriction: the rect, the width alignment and the
-   radius are all resolved here.
-
-   the hardware (GPU) back end can only blur the WHOLE canvas at a width
-   that is a multiple of 16 with radius 2 or 4 (its fixed Q16 weights) and
-   needs the caller's tmp scratch; that is the only path that uses tmp. any
-   other request - a partial rect, a non-aligned width, or another radius -
-   runs on the software arch engine (arch_g2d_gaussian), which blurs an
-   arbitrary rect at any width/radius (NEON 16-wide blocks plus an
-   edge-clamped scalar tail) and allocates its own scratch, so tmp is not
-   even attached. a non-positive radius or an empty (fully clipped) rect
-   answers G2D_ERR_FAILED (transient); the software engine always exists so
-   this op never reports G2D_ERR_NOT_SUPPORTED. */
+/* gaussian blur of a sub-rect of the dst canvas, in place.  GPU-only
+   semantics, same as fill/blit/rotate: the back end runs a WHOLE-canvas
+   blur at a width that is a multiple of 16 with any radius >= 1 (radius
+   1..4 dispatch their own separable kernel pair, larger radii compose
+   the same stages) and needs the caller's tmp scratch; a request the
+   back end cannot run - a partial rect or a non-aligned width - answers
+   G2D_ERR_FAILED directly, with no driver-level CPU fallback and
+   nothing submitted (the caller keeps its own software blur).  a
+   non-positive radius or an empty (fully clipped) rect answers
+   G2D_ERR_FAILED too. */
 static int32_t g2dd_handle_gaussian_blur(proto_t* in) {
 	g2d_gaussian_blur_req_t req;
 	g2d_attached_t dst;
@@ -1096,12 +1092,16 @@ static int32_t g2dd_handle_gaussian_blur(proto_t* in) {
 		return G2D_ERR_FAILED;
 	}
 
-	/* the GPU back end only takes a whole-canvas, 16-aligned, radius-2/4
-	   blur with a big enough scratch; everything else is software */
+	/* the GPU back end takes a whole-canvas, 16-aligned blur of any
+	   radius >= 1 with a big enough scratch (radius 1..4 dispatch its
+	   own kernel pair; larger radii compose the same stages) - on
+	   machines whose back end has no GPU blur the bsp answers in
+	   software at any radius; everything else (partial rect,
+	   non-aligned width) is software */
 	gpu_eligible = (x == 0 && y == 0 &&
 			w == (int32_t)dst.width && h == (int32_t)dst.height &&
 			(dst.width & 15) == 0 &&
-			(req.radius == 2 || req.radius == 4) &&
+			req.radius >= 1 &&
 			req.tmp.size >= (uint32_t)dst.width * (uint32_t)dst.height * 4u);
 
 	if(gpu_eligible) {
@@ -1119,14 +1119,13 @@ static int32_t g2dd_handle_gaussian_blur(proto_t* in) {
 		return ret; /* 0 = G2D_OK, -1 = G2D_ERR_FAILED */
 	}
 
-	/* software path: arbitrary rect / width / radius, tmp unused */
-	G2DD_LOG("g2d_gaussian_blur(sw) rect: %d,%d %dx%d radius: %d, contig: %d:(0x%08X)\n",
-			x, y, w, h, req.radius, dst.contig, dst.phy);
-	ret = arch_g2d_gaussian(dst.buffer, dst.phy, dst.contig,
-			(int32_t)dst.width, (int32_t)dst.height,
+	/* not runnable on the back end: fail without submitting anything
+	   (no CPU fallback in the driver - the caller decides) */
+	G2DD_LOG("g2d_gaussian_blur rejected: rect %d,%d %dx%d radius %d "
+			"(whole-canvas + width%%16 only)\n",
 			x, y, w, h, req.radius);
 	g2d_detach(&dst);
-	return ret;
+	return G2D_ERR_FAILED;
 }
 
 static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
