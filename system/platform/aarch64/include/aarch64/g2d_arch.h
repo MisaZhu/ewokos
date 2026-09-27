@@ -30,6 +30,12 @@ int32_t arch_g2d_blt_alpha(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t sr
 			uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h,
 			int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha);
 
+/* in-place gaussian blur of a sub-rect, clipped to the buffer bounds:
+   separable Q16 kernel (sigma = radius/2), edge-clamped taps, alpha
+   blurred along with the colours. radius <= 0 is a no-op. */
+int32_t arch_g2d_gaussian(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32_t argb_w, int32_t argb_h,
+			int32_t x, int32_t y, int32_t w, int32_t h, int32_t radius);
+
 int32_t arch_g2d_scale_to(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
 			uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h);
 

@@ -184,10 +184,14 @@ __flush_tlb:
 __set_translation_table_base:
 	/*
 	 * TTBR0 attribute bits: IRGN=write-back write-allocate (bit0),
-	 * S=shareable (bit1), RGN=write-back write-allocate (bit3). This makes
-	 * page-table walks cacheable + inner-shareable so the walker snoops the
-	 * coherent D-cache; SCTLR.N is left 0 by boot, and the first-level table
-	 * is 16KB-aligned (base bits[13:0]=0), so ORing 0x0B is safe.
+	 * S=shareable (bit1), RGN=write-back write-allocate (bit3). NOTE: these
+	 * are only honored by the walker when SCTLR.TRE=1. The current build does
+	 * NOT set TRE (see boot.S), so walks are Non-cacheable and PTE-store
+	 * coherency is provided by the whole-D-cache clean inside flush_tlb()
+	 * (kernel/kernel/src/system.c ARM_V7 fallback), not by these bits. They
+	 * are kept ORed in so a future TRE=1 re-enable of the optimized path needs
+	 * no further edit here. SCTLR.N is left 0 by boot and the first-level
+	 * table is 16KB-aligned (base bits[13:0]=0), so ORing 0x0B is safe.
 	 */
 	orr r0, r0, #0x0B
 	mcr p15, 0, r0, c2, c0, 0    //set ttbase user

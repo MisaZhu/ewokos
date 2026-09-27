@@ -70,4 +70,13 @@ int32_t bsp_g2d_rotated_size(int32_t src_w, int32_t src_h, int32_t degree,
 int32_t bsp_g2d_rotate(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
 			uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h, int32_t degree);
 
+/* whole-surface separable gaussian blur: delegated to the platform's
+   arch_g2d_* back end (the NEON software engine), which blurs in place
+   and allocates its own scratch, so tmp/tmp_phy/tmp_contig are unused.
+   radius is any positive value (g2dd pre-validates 2/4 and width %16);
+   returns 0 (G2D_OK). */
+int32_t bsp_g2d_gaussian_blur(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig,
+			uint32_t* tmp, ewokos_addr_t tmp_phy, uint8_t tmp_contig,
+			int32_t argb_w, int32_t argb_h, int32_t radius);
+
 #endif

@@ -112,13 +112,14 @@ inline void flush_tlb(void) {
     __flush_tlb();
 #elif defined(ARM_V7)
     /*
-     * Same model as aarch64: TTBR0 IRGN/RGN/S make page-table walks cacheable
-     * inner-shareable, so the walker snoops the coherent D-cache and PTE stores
-     * need only the dsb inside __flush_tlb (a pure TLBIALLIS broadcast). The
-     * whole-D-cache clean and I-cache drop are gone; exec keeps its own
-     * code-coherency step (dcache_clean_code_range + invalidate_icache_all) and
-     * the DMA/NOCACHE handoff uses dcache_flush_range.
+     * Real-hardware fallback: an ARMv7 table walker only snoops the D-cache
+     * when SCTLR.TRE=1 makes the TTBR walk attributes effective, and even with
+     * TRE the zero-clean path proved unreliable on real Cortex-A7. Restore the
+     * whole D-cache clean + I-cache drop so every flush publishes PTE stores to
+     * DRAM for a possibly Non-cacheable walker. Slower, but correct everywhere.
      */
+    flush_dcache();
+    invalidate_icache_all();
     __flush_tlb();
 #else
     flush_dcache();
@@ -151,7 +152,11 @@ inline void flush_tlb(void) {
 #if defined(__aarch64__)
     __flush_tlb(); /* see the SMP variant for why no D-cache work is needed */
 #elif defined(ARM_V7)
-    __flush_tlb(); /* cacheable inner-shareable walks: pure TLB invalidate */
+    /* Real-hardware fallback: publish PTE stores to a possibly Non-cacheable
+       walker (see the SMP variant for the full rationale). */
+    flush_dcache();
+    invalidate_icache_all();
+    __flush_tlb();
 #else
     flush_dcache();
     __flush_tlb();
@@ -232,19 +237,13 @@ inline void flush_tlb_addr(ewokos_addr_t addr) {
         :: "r"(page) : "memory");
 #elif defined(ARM_V7)
     /*
-     * ARMv7: TTBR0 IRGN/RGN/S (set in __set_translation_table_base) make
-     * page-table walks cacheable inner-shareable, so the leading dsb publishes
-     * the PTE store to the coherent walker and TLBIMVAAIS drops the stale entry
-     * (all ASIDs) on every core of the inner-shareable domain. The MVA operand
-     * is the VA itself; hardware ignores bits[11:0] - do NOT shift it (unlike
-     * the aarch64 VA[55:12] operand above).
+     * Real-hardware fallback: a single-VA TLBI does not publish a PTE store to
+     * a Non-cacheable walker (SCTLR.TRE not guaranteed), so do the full
+     * flush_tlb() - whole-D-cache clean + broadcast TLBI. Matches the
+     * pre-optimization path verified to boot real Cortex-A7 boards.
      */
-    __asm__ volatile(
-        "dsb\n"
-        "mcr p15, 0, %0, c8, c3, 1\n"  /* TLBIMVAAIS */
-        "dsb\n"
-        "isb\n"
-        :: "r"((uint32_t)addr) : "memory");
+    (void)addr;
+    flush_tlb();
 #elif defined(__arm__)
     /* arm32 v6/v5: __set_translation_table_base() programs TTBR0 with
      * IRGN/ORGN/S bits all zero, so the table walker fetches page tables as
@@ -292,18 +291,14 @@ inline void set_translation_table_base_asid(ewokos_addr_t tlb_base, uint32_t asi
     __flush_tlb_local();
 #elif defined(ARM_V7)
     /*
-     * User-half entries are nG and CONTEXTIDR carries the ASID, so loading
-     * TTBR0+ASID is the whole TLB side of the switch - no TLBI. Only a space
-     * whose ASID does not fit the core's width (or asid 0) takes the fallback:
-     * park it on the reserved ASID 0 and do a full invalidate, so its nG
-     * entries can never resolve through another space's leftovers.
+     * Real-hardware fallback: the zero-TLBI ASID switch needs cache-coherent
+     * walks (SCTLR.TRE=1) so the walker sees PTE stores still dirty in the
+     * D-cache; that path did not boot on real Cortex-A7. Always take the full
+     * route - __set_translation_table_base + flush_tlb() (whole-D-cache clean +
+     * broadcast TLBI) on every switch. asid is ignored.
      */
-    if(asid != 0 && asid < asid_limit()) {
-        __set_translation_table_base_asid((uint32_t)tlb_base, asid);
-        return;
-    }
-    __set_translation_table_base_asid((uint32_t)tlb_base, 0);
-    flush_tlb();
+    (void)asid;
+    set_translation_table_base(tlb_base);
 #else
     (void)asid;
     set_translation_table_base(tlb_base);
@@ -323,10 +318,9 @@ inline void flush_tlb_asid(uint32_t asid) {
     else
         flush_tlb();
 #elif defined(ARM_V7)
-    if(asid != 0 && asid < asid_limit())
-        __flush_tlb_asid(asid);
-    else
-        flush_tlb();
+    /* Real-hardware fallback: ASID tagging disabled; a full flush covers all. */
+    (void)asid;
+    flush_tlb();
 #else
     (void)asid;
 #endif
