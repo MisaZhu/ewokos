@@ -354,6 +354,8 @@ int graph_gaussian_blur_g2d(graph_t* g, int x, int y, int w, int h, int r) {
 
 	if(!g2d_check_graph(g)) {
 		_g2d_blur_fb_canvas++;
+		blur_fallback_klog("canvas not shm/contig",
+				   _g2d_blur_fb_canvas);
 		return g2d_reject(g, NULL, w, h);
 	}
 

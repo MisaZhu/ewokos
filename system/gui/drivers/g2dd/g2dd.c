@@ -1090,8 +1090,12 @@ static int32_t g2dd_handle_gaussian_blur(proto_t* in) {
 	if(req.radius <= 0)
 		return G2D_ERR_FAILED;
 
-	if(g2d_attach(&req.dst, &dst) != 0)
+	if(g2d_attach(&req.dst, &dst) != 0) {
+		G2DD_BLUR_LOG("g2d_gaussian_blur rejected: dst attach failed "
+				"(dst shm %d, contig %u)\n",
+				req.dst.shm_id, (unsigned)req.dst.contig);
 		return G2D_ERR_FAILED;
+	}
 
 	/* clamp the requested rect into the dst canvas (same rule the arch
 	   engine and graph_gaussian_cpu use) */
@@ -1120,6 +1124,10 @@ static int32_t g2dd_handle_gaussian_blur(proto_t* in) {
 
 	if(gpu_eligible) {
 		if(g2d_attach(&req.tmp, &tmp) != 0) {
+			G2DD_BLUR_LOG("g2d_gaussian_blur rejected: tmp attach "
+					"failed (tmp shm %d, contig %u)\n",
+					req.tmp.shm_id,
+					(unsigned)req.tmp.contig);
 			g2d_detach(&dst);
 			return G2D_ERR_FAILED;
 		}
