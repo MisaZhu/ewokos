@@ -145,19 +145,24 @@ typedef struct {
 	int32_t rotate;
 } g2d_blit_req_t;
 
-/* whole-surface separable Gaussian blur of the dst canvas, in place
-   (the default blur algorithm).  radius 2 or 4; the backend uses its own
-   fixed per-radius Q16 weights (sigma = radius/2), so the request carries
-   no coefficients.  tmp is the caller's scratch canvas: same geometry
-   class as dst, size >= dst.w*dst.h*4, GPU-visible like dst (the driver
-   only passes it through to the backend and never reads it).
-   G2D_OK on success; G2D_ERR_NOT_SUPPORTED when the backend has no blur
-   or the geometry is not runnable (radius other than 2/4, width not a
-   multiple of 16) - sticky, the caller should keep its own blur;
-   G2D_ERR_FAILED for bad canvases or a failed dispatch (transient). */
+/* separable Gaussian blur of a sub-rect of the dst canvas, in place (the
+   default blur algorithm). rect is clamped into dst by the driver; a rect
+   covering the whole canvas blurs everything. the hardware (GPU) back end
+   only runs a whole-canvas rect at a width that is a multiple of 16 with
+   radius 2 or 4 (its own fixed per-radius Q16 weights, sigma = radius/2, so
+   the request carries no coefficients); any other rect / width / radius is
+   served by the driver's software arch engine, which blurs arbitrary
+   geometry (NEON 16-wide blocks plus an edge-clamped scalar tail). tmp is
+   the scratch canvas the hardware back end needs: same geometry class as
+   dst, size >= dst.w*dst.h*4, GPU-visible like dst (the driver only passes
+   it through and never reads it); the software path ignores it, so a caller
+   that knows its rect is not GPU-eligible may leave tmp zeroed. G2D_OK on
+   success; G2D_ERR_FAILED for a bad canvas, an empty rect, a non-positive
+   radius or a failed dispatch (transient). */
 typedef struct {
 	g2d_canvas_t dst;
 	g2d_canvas_t tmp;
+	g2d_rect_t rect;
 	int32_t radius;
 } g2d_gaussian_blur_req_t;
 
@@ -266,12 +271,13 @@ static inline void g2d_scale_to_req_init(g2d_scale_to_req_t* req, g2d_canvas_t s
 }
 
 static inline void g2d_gaussian_blur_req_init(g2d_gaussian_blur_req_t* req,
-		g2d_canvas_t dst, g2d_canvas_t tmp, int32_t radius) {
+		g2d_canvas_t dst, g2d_canvas_t tmp, g2d_rect_t rect, int32_t radius) {
 	if(req == NULL)
 		return;
 	memset(req, 0, sizeof(*req));
 	req->dst = dst;
 	req->tmp = tmp;
+	req->rect = rect;
 	req->radius = radius;
 }
 

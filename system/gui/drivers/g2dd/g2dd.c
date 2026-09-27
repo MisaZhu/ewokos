@@ -1052,43 +1052,81 @@ static char* g2d_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* 
 	return NULL;
 }
 
-/* whole-surface gaussian blur, in place on the dst canvas; tmp is the
-   caller's scratch canvas, handed to the back end unchanged.  geometry
-   the back end cannot run (radius other than 2/4, width not a multiple
-   of 16) answers G2D_ERR_NOT_SUPPORTED so the client keeps its own blur;
-   a failed dispatch answers G2D_ERR_FAILED (transient). */
+/* gaussian blur of a sub-rect of the dst canvas, in place. the caller
+   imposes no geometry restriction: the rect, the width alignment and the
+   radius are all resolved here.
+
+   the hardware (GPU) back end can only blur the WHOLE canvas at a width
+   that is a multiple of 16 with radius 2 or 4 (its fixed Q16 weights) and
+   needs the caller's tmp scratch; that is the only path that uses tmp. any
+   other request - a partial rect, a non-aligned width, or another radius -
+   runs on the software arch engine (arch_g2d_gaussian), which blurs an
+   arbitrary rect at any width/radius (NEON 16-wide blocks plus an
+   edge-clamped scalar tail) and allocates its own scratch, so tmp is not
+   even attached. a non-positive radius or an empty (fully clipped) rect
+   answers G2D_ERR_FAILED (transient); the software engine always exists so
+   this op never reports G2D_ERR_NOT_SUPPORTED. */
 static int32_t g2dd_handle_gaussian_blur(proto_t* in) {
 	g2d_gaussian_blur_req_t req;
 	g2d_attached_t dst;
 	g2d_attached_t tmp;
+	int32_t x, y, w, h;
+	int32_t gpu_eligible;
 	int32_t ret;
 
 	if(in == NULL)
 		return G2D_ERR_FAILED;
 	if(proto_read_to(in, &req, sizeof(req)) != sizeof(req))
 		return G2D_ERR_FAILED;
-	if(req.radius != 2 && req.radius != 4)
-		return G2D_ERR_NOT_SUPPORTED;
-	if((req.dst.w & 15) != 0 ||
-			req.tmp.size < (uint32_t)req.dst.w * req.dst.h * 4u)
-		return G2D_ERR_NOT_SUPPORTED;
+	if(req.radius <= 0)
+		return G2D_ERR_FAILED;
 
 	if(g2d_attach(&req.dst, &dst) != 0)
 		return G2D_ERR_FAILED;
-	if(g2d_attach(&req.tmp, &tmp) != 0) {
+
+	/* clamp the requested rect into the dst canvas (same rule the arch
+	   engine and graph_gaussian_cpu use) */
+	x = req.rect.x; y = req.rect.y; w = req.rect.w; h = req.rect.h;
+	if(x < 0) { w += x; x = 0; }
+	if(y < 0) { h += y; y = 0; }
+	if(x + w > (int32_t)dst.width) w = (int32_t)dst.width - x;
+	if(y + h > (int32_t)dst.height) h = (int32_t)dst.height - y;
+	if(w <= 0 || h <= 0) {
 		g2d_detach(&dst);
 		return G2D_ERR_FAILED;
 	}
 
-	G2DD_LOG("g2d_gaussian_blur dst: %d x %d radius: %d, contig: %d:(0x%08X)\n",
-			dst.width, dst.height, req.radius, dst.contig, dst.phy);
+	/* the GPU back end only takes a whole-canvas, 16-aligned, radius-2/4
+	   blur with a big enough scratch; everything else is software */
+	gpu_eligible = (x == 0 && y == 0 &&
+			w == (int32_t)dst.width && h == (int32_t)dst.height &&
+			(dst.width & 15) == 0 &&
+			(req.radius == 2 || req.radius == 4) &&
+			req.tmp.size >= (uint32_t)dst.width * (uint32_t)dst.height * 4u);
 
-	ret = bsp_g2d_gaussian_blur(dst.buffer, dst.phy, dst.contig,
-			tmp.buffer, tmp.phy, tmp.contig,
-			(int32_t)dst.width, (int32_t)dst.height, req.radius);
-	g2d_detach(&tmp);
+	if(gpu_eligible) {
+		if(g2d_attach(&req.tmp, &tmp) != 0) {
+			g2d_detach(&dst);
+			return G2D_ERR_FAILED;
+		}
+		G2DD_LOG("g2d_gaussian_blur dst: %d x %d radius: %d, contig: %d:(0x%08X)\n",
+				dst.width, dst.height, req.radius, dst.contig, dst.phy);
+		ret = bsp_g2d_gaussian_blur(dst.buffer, dst.phy, dst.contig,
+				tmp.buffer, tmp.phy, tmp.contig,
+				(int32_t)dst.width, (int32_t)dst.height, req.radius);
+		g2d_detach(&tmp);
+		g2d_detach(&dst);
+		return ret; /* 0 = G2D_OK, -1 = G2D_ERR_FAILED */
+	}
+
+	/* software path: arbitrary rect / width / radius, tmp unused */
+	G2DD_LOG("g2d_gaussian_blur(sw) rect: %d,%d %dx%d radius: %d, contig: %d:(0x%08X)\n",
+			x, y, w, h, req.radius, dst.contig, dst.phy);
+	ret = arch_g2d_gaussian(dst.buffer, dst.phy, dst.contig,
+			(int32_t)dst.width, (int32_t)dst.height,
+			x, y, w, h, req.radius);
 	g2d_detach(&dst);
-	return ret; /* 0 = G2D_OK, -1 = G2D_ERR_FAILED */
+	return ret;
 }
 
 static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {

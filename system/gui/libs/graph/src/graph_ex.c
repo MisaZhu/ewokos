@@ -294,7 +294,7 @@ void graph_shadow_round(graph_t* g, int x, int y, int w, int h, int round, uint8
 
     /*off+blur == shadow so the falloff runs out exactly at the band edge*/
     int off = shadow/2;
-    int blur = shadow - off;
+    int blur = 2;
     int pad = shadow; /*>= blur: no read pixel ever has samples beyond the mask*/
     int mw = fw + shadow + 2*pad;
     int mh = fh + shadow + 2*pad;

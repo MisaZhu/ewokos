@@ -624,7 +624,8 @@ static int bench_frame_gaussian(void* p) {
     g2d_gaussian_blur_req_t req;
 
     g2d_gaussian_blur_req_init(&req, img_canvas(ctx->canvas),
-            img_canvas(ctx->gauss_tmp), 2);
+            img_canvas(ctx->gauss_tmp),
+            g2d_rect(0, 0, ctx->canvas->w, ctx->canvas->h), 2);
     ctx->seq++;
     return g2d_gaussian_blur(&req);
 }
@@ -1060,7 +1061,7 @@ int main(int argc, char** argv) {
                of the same row - src == tmp would corrupt its own input */
             gauss_ref_scalar(ref, ref, scratch, 320, 240, radius);
             g2d_gaussian_blur_req_init(&greq, img_canvas(gblur),
-                    img_canvas(gtmp), radius);
+                    img_canvas(gtmp), g2d_rect(0, 0, gblur->w, gblur->h), radius);
             ret = g2d_gaussian_blur(&greq);
             if(ret == G2D_ERR_NOT_SUPPORTED) {
                 printf("SKIP %-22s backend has no blur\n", label);

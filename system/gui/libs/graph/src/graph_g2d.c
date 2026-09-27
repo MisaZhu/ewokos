@@ -239,59 +239,64 @@ int graph_rotate_to_g2d(graph_t* g, graph_t* ret, int rot) {
 	return g2d_op_result(G2D_CAP_ROTATE, g2d_rotate(&req));
 }
 
-/* whole-surface in-place gaussian blur on the device. the back end blurs
-   the entire dst canvas and needs a scratch canvas of its own (it only
-   maps it, never reads it), so this can serve a request only when it
-   covers the whole graph at one of the two radii the driver implements
-   (2 or 4) and the width is a multiple of 16; every other shape falls
-   back to the cpu/arch pass. the scratch is allocated GPU-visible
-   (contig, like dst) per call and freed after: caching it would pin a
-   full-canvas shm segment for the life of the process with no owner to
-   release it. */
+/* in-place gaussian blur of a sub-rect on the device. the caller imposes no
+   geometry restriction: the rect (x,y,w,h), the width alignment and the
+   GPU-vs-software choice are all resolved by g2dd (a partial rect or a
+   non-aligned width runs on the driver's software arch engine). only the
+   radius is filtered here - a radius other than 2/4 can never reach the
+   hardware back end, and blurring it in-process (the arch/cpu pass the
+   dispatcher falls back to) is cheaper than a round trip to the daemon for
+   the very same software engine, so those are simply not offloaded.
+
+   the hardware (GPU) back end needs a scratch canvas (tmp) and only runs a
+   whole-canvas, 16-aligned, radius-2/4 blur; that is the only case tmp is
+   allocated for. any other rect goes to the driver's software engine, which
+   ignores tmp, so a zeroed tmp canvas is sent and no shm is allocated. tmp
+   is freed right after the call: caching it would pin a full-canvas shm
+   segment for the life of the process with no owner to release it. */
 int graph_gaussian_blur_g2d(graph_t* g, int x, int y, int w, int h, int r) {
 	g2d_gaussian_blur_req_t req;
 	g2d_canvas_t tmp;
 	uint32_t* tmp_pixels = NULL;
 	int tmp_shm_id = -1;
 	ewokos_addr_t tmp_phy = 0;
-	uint32_t tmp_size;
+	int gpu_path;
 	int ret;
 
 	if(!g2d_op_supported(G2D_CAP_GAUSSIAN_BLUR))
 		return G2D_ERR_NOT_SUPPORTED;
 
-	/* the driver only implements radius 2 and 4; filter the rest here so
-	   an unusable radius never reaches it. its G2D_ERR_NOT_SUPPORTED would
-	   otherwise mark the whole gaussian op sticky-off, even for the radii
-	   it does support. this is a per-request mismatch, not a missing
-	   capability, so it fails transiently (G2D_ERR_FAILED) and falls back. */
+	/* only radius 2/4 can reach the hardware back end; other radii are left
+	   to the in-process arch/cpu pass instead of round-tripping to the
+	   daemon for the same software engine. transient (G2D_ERR_FAILED), so
+	   the op is never marked unsupported. */
 	if(r != 2 && r != 4)
 		return G2D_ERR_FAILED;
 
 	if(!g2d_check_graph(g))
 		return g2d_reject(g, NULL, w, h);
 
-	/* the device blurs the whole canvas in place: a partial region or a
-	   width that is not a multiple of 16 is not something it can do. these
-	   are properties of this request, not of the driver, so fall back
-	   without marking the op and without counting a reject. */
-	if(x != 0 || y != 0 || w != g->w || h != g->h)
-		return G2D_ERR_FAILED;
-	if((g->w & 15) != 0)
-		return G2D_ERR_FAILED;
+	/* the hardware path is reachable only for a whole-canvas, 16-aligned
+	   blur; that is the only case that needs (and allocates) the scratch.
+	   every other rect still offloads, but on the driver's software engine
+	   which ignores tmp. */
+	gpu_path = (x == 0 && y == 0 && w == g->w && h == g->h && (g->w & 15) == 0);
 
-	tmp_size = (uint32_t)g->w * (uint32_t)g->h * sizeof(uint32_t);
-	if(g2d_shm_alloc_phy(tmp_size, &tmp_shm_id, &tmp_pixels, &tmp_phy) != 0)
-		return G2D_ERR_FAILED;
-	klog("ok\n");
+	memset(&tmp, 0, sizeof(tmp));
+	if(gpu_path) {
+		uint32_t tmp_size = (uint32_t)g->w * (uint32_t)g->h * sizeof(uint32_t);
+		if(g2d_shm_alloc_phy(tmp_size, &tmp_shm_id, &tmp_pixels, &tmp_phy) != 0)
+			return G2D_ERR_FAILED;
+		tmp = g2d_canvas(tmp_shm_id, tmp_size, (uint32_t)g->w, (uint32_t)g->h, 1);
+		tmp.phy = tmp_phy;
+	}
 
-	tmp = g2d_canvas(tmp_shm_id, tmp_size, (uint32_t)g->w, (uint32_t)g->h, 1);
-	tmp.phy = tmp_phy;
-
-	g2d_gaussian_blur_req_init(&req, g2d_graph_canvas(g), tmp, r);
+	g2d_gaussian_blur_req_init(&req, g2d_graph_canvas(g), tmp,
+			g2d_rect(x, y, w, h), r);
 	ret = g2d_op_result(G2D_CAP_GAUSSIAN_BLUR, g2d_gaussian_blur(&req));
 
-	g2d_shm_free(tmp_pixels);
+	if(tmp_pixels != NULL)
+		g2d_shm_free(tmp_pixels);
 	return ret;
 }
 
