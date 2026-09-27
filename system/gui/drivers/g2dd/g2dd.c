@@ -1066,15 +1066,15 @@ static char* g2d_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* 
 }
 
 /* gaussian blur of a sub-rect of the dst canvas, in place.  GPU-only
-   semantics, same as fill/blit/rotate: the back end runs a WHOLE-canvas
-   blur at a width that is a multiple of 16 with any radius >= 1 (radius
-   1..4 dispatch their own separable kernel pair, larger radii compose
-   the same stages) and needs the caller's tmp scratch; a request the
-   back end cannot run - a partial rect or a non-aligned width - answers
-   G2D_ERR_FAILED directly, with no driver-level CPU fallback and
-   nothing submitted (the caller keeps its own software blur).  a
-   non-positive radius or an empty (fully clipped) rect answers
-   G2D_ERR_FAILED too. */
+   semantics, same as fill/blit/rotate: the back end runs ANY rect of
+   the canvas (clipped like the arch engine does) with any radius >= 1
+   (radius 1..4 dispatch their own separable kernel pair, larger radii
+   compose the same stages) and needs the caller's tmp scratch - a
+   pitch-strided (h - 1)-row region of the canvas pitch plus one rect
+   row.  a request the back end cannot run answers G2D_ERR_FAILED
+   directly, with no driver-level CPU fallback and nothing submitted
+   (the caller keeps its own software blur).  a non-positive radius or
+   an empty (fully clipped) rect answers G2D_ERR_FAILED too. */
 static int32_t g2dd_handle_gaussian_blur(proto_t* in) {
 	g2d_gaussian_blur_req_t req;
 	g2d_attached_t dst;
@@ -1105,28 +1105,30 @@ static int32_t g2dd_handle_gaussian_blur(proto_t* in) {
 		return G2D_ERR_FAILED;
 	}
 
-	/* the GPU back end takes a whole-canvas blur of any radius >= 1 at
-	   any width (the kernels tail-mask the final partial 16-px group of
-	   each row through the driver scratch) with a big enough scratch
-	   (radius 1..4 dispatch their own kernel pair; larger radii compose
-	   the same stages) - on machines whose back end has no GPU blur the
-	   bsp answers in software at any radius; a partial rect is not
-	   runnable and the bsp answers -1 with nothing submitted */
-	gpu_eligible = (x == 0 && y == 0 &&
-			w == (int32_t)dst.width && h == (int32_t)dst.height &&
-			req.radius >= 1 &&
-			req.tmp.size >= (uint32_t)dst.width * (uint32_t)dst.height * 4u);
+	/* the GPU back end runs any rect of the canvas at any width (the
+	   kernels tail-mask the final partial 16-px group of each row
+	   through the driver scratch) with a big enough scratch - a
+	   pitch-strided (h - 1)-row region plus one rect row (radius 1..4
+	   dispatch their own kernel pair; larger radii compose the same
+	   stages) - on machines whose back end has no GPU blur the bsp
+	   answers in software at any rect; everything else answers -1 with
+	   nothing submitted */
+	gpu_eligible = (req.radius >= 1 &&
+			req.tmp.size >=
+				(uint32_t)(h - 1) * (uint32_t)dst.width * 4u +
+				(uint32_t)w * 4u);
 
 	if(gpu_eligible) {
 		if(g2d_attach(&req.tmp, &tmp) != 0) {
 			g2d_detach(&dst);
 			return G2D_ERR_FAILED;
 		}
-		G2DD_BLUR_LOG("g2d_gaussian_blur dst: %d x %d radius: %d, contig: %d:(0x%08X)\n",
-				dst.width, dst.height, req.radius, dst.contig, dst.phy);
+		G2DD_BLUR_LOG("g2d_gaussian_blur dst: %d x %d rect %d,%d %dx%d radius: %d, contig: %d:(0x%08X)\n",
+				dst.width, dst.height, x, y, w, h, req.radius, dst.contig, dst.phy);
 		ret = bsp_g2d_gaussian_blur(dst.buffer, dst.phy, dst.contig,
 				tmp.buffer, tmp.phy, tmp.contig,
-				(int32_t)dst.width, (int32_t)dst.height, req.radius);
+				(int32_t)dst.width, (int32_t)dst.height,
+				x, y, w, h, req.radius);
 		g2d_detach(&tmp);
 		g2d_detach(&dst);
 		return ret; /* 0 = G2D_OK, -1 = G2D_ERR_FAILED */
@@ -1135,7 +1137,7 @@ static int32_t g2dd_handle_gaussian_blur(proto_t* in) {
 	/* not runnable on the back end: fail without submitting anything
 	   (no CPU fallback in the driver - the caller decides) */
 	G2DD_LOG("g2d_gaussian_blur rejected: rect %d,%d %dx%d radius %d "
-			"(whole-canvas + width%%16 only)\n",
+			"(scratch too small)\n",
 			x, y, w, h, req.radius);
 	g2d_detach(&dst);
 	return G2D_ERR_FAILED;

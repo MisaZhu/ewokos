@@ -77,6 +77,9 @@ int32_t bsp_g2d_rotate(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_co
    returns 0 (G2D_OK). */
 int32_t bsp_g2d_gaussian_blur(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig,
 			uint32_t* tmp, ewokos_addr_t tmp_phy, uint8_t tmp_contig,
-			int32_t argb_w, int32_t argb_h, int32_t radius);
+			int32_t argb_w, int32_t argb_h,
+			int32_t rect_x, int32_t rect_y,
+			int32_t rect_w, int32_t rect_h,
+			int32_t radius);
 
 #endif

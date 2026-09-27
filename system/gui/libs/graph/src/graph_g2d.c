@@ -356,28 +356,29 @@ int graph_gaussian_blur_g2d(graph_t* g, int x, int y, int w, int h, int r) {
 		return g2d_reject(g, NULL, w, h);
 	}
 
-	/* the hardware back end takes a whole-canvas blur of any radius >= 1
-	   at any width (the kernels tail-mask the final partial 16-px group
-	   of each row) - that is the only case that needs the scratch.  a
-	   partial rect is not runnable on the back end (the driver answers
-	   -1 with nothing submitted), so fail locally and let the caller
-	   fall back in-process instead of a guaranteed-to-fail ipc round
-	   trip. */
-	gpu_path = (x == 0 && y == 0 && w == g->w && h == g->h);
+	/* the hardware back end runs any rect of the canvas at any width
+	   (the kernels tail-mask the final partial 16-px group of each
+	   row).  an out-of-canvas rect is refused locally - the driver
+	   would answer -1 with nothing submitted. */
+	gpu_path = (x >= 0 && y >= 0 && w > 0 && h > 0 &&
+			x <= g->w - w && y <= g->h - h);
 	if(!gpu_path) {
 		_g2d_blur_fb_rect++;
 		return G2D_ERR_FAILED;
 	}
 
 	memset(&tmp, 0, sizeof(tmp));
-	if(blur_tmp_get((uint32_t)g->w * (uint32_t)g->h * sizeof(uint32_t),
+	/* the scratch is a pitch-strided (h - 1)-row region of the canvas
+	   pitch plus one rect row (see bsp_g2d.h) */
+	if(blur_tmp_get((uint32_t)(h - 1) * (uint32_t)g->w * 4u +
+				(uint32_t)w * 4u,
 			&tmp_shm_id, &tmp_pixels, &tmp_phy) != 0) {
 		_g2d_blur_fb_tmp++;
 		blur_fallback_klog("scratch alloc failed", _g2d_blur_fb_tmp);
 		return G2D_ERR_FAILED;
 	}
 	tmp = g2d_canvas(tmp_shm_id, _blur_tmp_size, (uint32_t)g->w,
-			(uint32_t)g->h, 1);
+			(uint32_t)h, 1);
 	tmp.phy = tmp_phy;
 
 	g2d_gaussian_blur_req_init(&req, g2d_graph_canvas(g), tmp,
