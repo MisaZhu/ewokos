@@ -1135,10 +1135,16 @@ static int32_t g2dd_handle_gaussian_blur(proto_t* in) {
 	}
 
 	/* not runnable on the back end: fail without submitting anything
-	   (no CPU fallback in the driver - the caller decides) */
-	G2DD_LOG("g2d_gaussian_blur rejected: rect %d,%d %dx%d radius %d "
-			"(scratch too small)\n",
-			x, y, w, h, req.radius);
+	   (no CPU fallback in the driver - the caller decides).  always-on
+	   rate-limited log: a silent reject here is indistinguishable from
+	   a driver bug from the client's fallback counter alone. */
+	G2DD_BLUR_LOG("g2d_gaussian_blur rejected: rect %d,%d %dx%d radius %d "
+			"dst %dx%d tmp.size %u need %u\n",
+			x, y, w, h, req.radius,
+			dst.width, dst.height,
+			(unsigned)req.tmp.size,
+			(unsigned)((uint32_t)(h - 1) * dst.width * 4u +
+				   (uint32_t)w * 4u));
 	g2d_detach(&dst);
 	return G2D_ERR_FAILED;
 }

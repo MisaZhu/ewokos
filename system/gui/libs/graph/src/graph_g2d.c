@@ -3,6 +3,7 @@
 #include <ewoksys/shm.h>
 #include <ewoksys/klog.h>
 #include <ewoksys/kernel_tic.h>
+#include <stdio.h>
 #include <string.h>
 
 #ifdef __cplusplus 
@@ -384,11 +385,15 @@ int graph_gaussian_blur_g2d(graph_t* g, int x, int y, int w, int h, int r) {
 	g2d_gaussian_blur_req_init(&req, g2d_graph_canvas(g), tmp,
 			g2d_rect(x, y, w, h), r);
 	ret = g2d_op_result(G2D_CAP_GAUSSIAN_BLUR, g2d_gaussian_blur(&req));
-	if(ret == 0)
+	if(ret == 0) {
 		_g2d_blur_gpu++;
+	}
 	else {
+		char why[48];
+
 		_g2d_blur_fb_drv++;
-		blur_fallback_klog("driver refused", _g2d_blur_fb_drv);
+		snprintf(why, sizeof(why), "driver refused ret=%d", ret);
+		blur_fallback_klog(why, _g2d_blur_fb_drv);
 	}
 	return ret;
 }
