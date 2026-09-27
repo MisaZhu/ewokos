@@ -70,6 +70,19 @@ static inline void g2d_task_unlock(void) {
 #define G2DD_LOG(fmt, ...)
 #endif
 
+/* the blur dispatch is the one line worth seeing even in non-debug
+   builds: xwm routes whole-window frost/frame blurs here every frame,
+   and "is it on the gpu" is invisible otherwise. rate-limited to one
+   line per second, and only while blur requests actually arrive. */
+#define G2DD_BLUR_LOG(fmt, ...) do { \
+	static uint64_t _last_ms = 0; \
+	uint64_t _now_ms = kernel_tic_ms(0); \
+	if(_last_ms == 0 || _now_ms - _last_ms >= 1000) { \
+		slog("[g2dd/blur] " fmt, ##__VA_ARGS__); \
+		_last_ms = _now_ms; \
+	} \
+} while(0)
+
 /* byte alignment the 1:1 blit width is split at: the aligned part goes
    to the back end, the sub-alignment tail stays on the cpu. any
    multiple of 4 bytes (a whole pixel group) works; */
@@ -1109,7 +1122,7 @@ static int32_t g2dd_handle_gaussian_blur(proto_t* in) {
 			g2d_detach(&dst);
 			return G2D_ERR_FAILED;
 		}
-		G2DD_LOG("g2d_gaussian_blur dst: %d x %d radius: %d, contig: %d:(0x%08X)\n",
+		G2DD_BLUR_LOG("g2d_gaussian_blur dst: %d x %d radius: %d, contig: %d:(0x%08X)\n",
 				dst.width, dst.height, req.radius, dst.contig, dst.phy);
 		ret = bsp_g2d_gaussian_blur(dst.buffer, dst.phy, dst.contig,
 				tmp.buffer, tmp.phy, tmp.contig,

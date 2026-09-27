@@ -163,9 +163,12 @@ void MisaWM::ensureFrost(graph_t* desktop_g, xinfo_t* info) {
 	frostValid = false;
 
 	/*fresh placement: the desktop is composited bottom-to-top, so the display
-	  under the window holds only what is really behind it*/
+	  under the window holds only what is really behind it.
+	  frostCache must be shm-backed (graph_new_shm): only those canvases can
+	  route to the g2d device, a plain graph_new here blurs the whole window
+	  on the cpu every placement.*/
 	backdropSharp = graph_new(NULL, fw, fh);
-	frostCache = graph_new(NULL, fw, fh);
+	frostCache = graph_new_shm(fw, fh);
 	if(backdropSharp == NULL || frostCache == NULL) {
 		if(backdropSharp != NULL) { graph_free(backdropSharp); backdropSharp = NULL; }
 		if(frostCache != NULL) { graph_free(frostCache); frostCache = NULL; }

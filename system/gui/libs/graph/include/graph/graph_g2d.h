@@ -18,6 +18,15 @@ int   graph_g2d_avaliable(graph_t* g);
 void  graph_g2d_reject_stats(uint32_t* num, uint32_t* noncontig,
 					uint32_t* small, uint64_t* pixels);
 
+/* gaussian-blur routing counters: gpu = dispatched to /dev/g2d,
+   fb_* = fell back to the caller's cpu pass with the reason:
+   notsup (op marked unsupported), canvas (non-shm/contig or too small),
+   rect (partial rect, refused by design), tmp (scratch alloc failed),
+   drv (driver refused an otherwise-eligible request). all optional. */
+void  graph_g2d_blur_stats(uint32_t* gpu, uint32_t* fb_notsup,
+					uint32_t* fb_canvas, uint32_t* fb_rect,
+					uint32_t* fb_tmp, uint32_t* fb_drv);
+
 /* every graph_*_g2d answers G2D_OK when the device did the work; any
    non-zero (g2dclient's G2D_ERR_FAILED / G2D_ERR_NOT_SUPPORTED, see
    g2dclient/g2dclient.h) means "not done" and the caller runs its own

@@ -47,7 +47,17 @@ char* xserver_dev_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void*
         snprintf(item, sizeof(item),
                 "g2d rejects: %u (noncontig %u, small %u), cpu-moved: %uK px\n",
                 rj_num, rj_noncontig, rj_small, (uint32_t)(rj_px / 1024));
-        str_add(str, item);
+        {
+            uint32_t b_gpu = 0, b_notsup = 0, b_canvas = 0, b_rect = 0;
+            uint32_t b_tmp = 0, b_drv = 0;
+            graph_g2d_blur_stats(&b_gpu, &b_notsup, &b_canvas, &b_rect,
+                    &b_tmp, &b_drv);
+            snprintf(item, sizeof(item),
+                    "g2d blur: gpu %u, cpu fallback: notsup %u canvas %u "
+                    "rect %u tmp %u drv %u\n",
+                    b_gpu, b_notsup, b_canvas, b_rect, b_tmp, b_drv);
+            str_add(str, item);
+        }
 
         x_server_lock_enter();
         for(uint32_t i = 0; i < DISP_MAX; i++) {

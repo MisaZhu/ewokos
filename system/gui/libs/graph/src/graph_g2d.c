@@ -1,6 +1,8 @@
 #include <graph/graph_g2d.h>
 #include <g2dclient/g2dclient.h>
 #include <ewoksys/shm.h>
+#include <ewoksys/klog.h>
+#include <ewoksys/kernel_tic.h>
 #include <string.h>
 
 #ifdef __cplusplus 
@@ -80,6 +82,49 @@ void graph_g2d_reject_stats(uint32_t* num, uint32_t* noncontig,
    without contig backing is the interesting one (graph_new_shm falls back
    to a plain segment when shmget(IPC_CONTIG) cannot be satisfied), a
    below-G2D_MIN_SIZE canvas is expected and cheap. */
+/* gaussian-blur routing counters: the blur has fallback reasons the
+   generic reject stats cannot see (per-call scratch allocation, the
+   driver refusing an otherwise-eligible request), and xwm blurs whole
+   windows every frame - when one of those quietly drops to the cpu pass
+   the compositor's cpu time spikes with no error anywhere. All pointers
+   optional. */
+static uint32_t _g2d_blur_gpu = 0;      /* dispatched to /dev/g2d */
+static uint32_t _g2d_blur_fb_notsup = 0;  /* op marked unsupported */
+static uint32_t _g2d_blur_fb_canvas = 0;  /* non-shm/contig/too-small */
+static uint32_t _g2d_blur_fb_rect = 0;    /* partial rect (by design) */
+static uint32_t _g2d_blur_fb_tmp = 0;     /* scratch alloc failed */
+static uint32_t _g2d_blur_fb_drv = 0;     /* driver answered non-zero */
+
+void graph_g2d_blur_stats(uint32_t* gpu, uint32_t* fb_notsup,
+		uint32_t* fb_canvas, uint32_t* fb_rect, uint32_t* fb_tmp,
+		uint32_t* fb_drv) {
+	if(gpu != NULL) *gpu = _g2d_blur_gpu;
+	if(fb_notsup != NULL) *fb_notsup = _g2d_blur_fb_notsup;
+	if(fb_canvas != NULL) *fb_canvas = _g2d_blur_fb_canvas;
+	if(fb_rect != NULL) *fb_rect = _g2d_blur_fb_rect;
+	if(fb_tmp != NULL) *fb_tmp = _g2d_blur_fb_tmp;
+	if(fb_drv != NULL) *fb_drv = _g2d_blur_fb_drv;
+}
+
+/* one line per second per reason while the condition persists: enough
+   to see a routing break in /dev/log, quiet when routing works */
+static void blur_fallback_klog(const char* why, uint32_t n) {
+	static uint64_t _last_ms[4];
+	static uint32_t _last_cnt[4];
+	int slot = (why[0] >> 1) & 3;
+	uint64_t now = kernel_tic_ms(0);
+
+	if(_last_ms[slot] != 0 && now - _last_ms[slot] >= 1000) {
+		klog("graph: blur fell back to cpu (%s) x%u in the last %ums\n",
+				why, n - _last_cnt[slot],
+				(unsigned)(now - _last_ms[slot]));
+	}
+	if(_last_ms[slot] == 0 || now - _last_ms[slot] >= 1000) {
+		_last_ms[slot] = now;
+		_last_cnt[slot] = n;
+	}
+}
+
 static int g2d_reject(const graph_t* a, const graph_t* b, int32_t w, int32_t h) {
 	_g2d_reject_num++;
 	if(w > 0 && h > 0)
@@ -253,50 +298,97 @@ int graph_rotate_to_g2d(graph_t* g, graph_t* ret, int rot) {
    ignores tmp, so a zeroed tmp canvas is sent and no shm is allocated. tmp
    is freed right after the call: caching it would pin a full-canvas shm
    segment for the life of the process with no owner to release it. */
+/* the blur scratch is an inter-pass working surface the driver never
+   reads after the dispatch: cache one per process and grow it on demand
+   instead of allocating and freeing a w*h*4 contig segment per frame -
+   the per-call shm round trip is pure cpu overhead in the compositor's
+   frame path and fragmentation-prone on the contig pool. */
+static int _blur_tmp_shm_id = -1;
+static uint32_t* _blur_tmp_pixels = NULL;
+static uint32_t _blur_tmp_size = 0;
+static ewokos_addr_t _blur_tmp_phy = 0;
+
+static int blur_tmp_get(uint32_t size, int* shm_id, uint32_t** pixels,
+		ewokos_addr_t* phy) {
+	if(_blur_tmp_pixels != NULL && _blur_tmp_size >= size) {
+		*shm_id = _blur_tmp_shm_id;
+		*pixels = _blur_tmp_pixels;
+		*phy = _blur_tmp_phy;
+		return 0;
+	}
+	if(_blur_tmp_pixels != NULL) {
+		g2d_shm_free(_blur_tmp_pixels);
+		_blur_tmp_pixels = NULL;
+		_blur_tmp_shm_id = -1;
+		_blur_tmp_size = 0;
+		_blur_tmp_phy = 0;
+	}
+	if(g2d_shm_alloc_phy(size, &_blur_tmp_shm_id, &_blur_tmp_pixels,
+			&_blur_tmp_phy) != 0)
+		return -1;
+	_blur_tmp_size = size;
+	*shm_id = _blur_tmp_shm_id;
+	*pixels = _blur_tmp_pixels;
+	*phy = _blur_tmp_phy;
+	return 0;
+}
+
 int graph_gaussian_blur_g2d(graph_t* g, int x, int y, int w, int h, int r) {
 	g2d_gaussian_blur_req_t req;
 	g2d_canvas_t tmp;
-	uint32_t* tmp_pixels = NULL;
 	int tmp_shm_id = -1;
+	uint32_t* tmp_pixels = NULL;
 	ewokos_addr_t tmp_phy = 0;
 	int gpu_path;
 	int ret;
 
-	if(!g2d_op_supported(G2D_CAP_GAUSSIAN_BLUR))
+	if(!g2d_op_supported(G2D_CAP_GAUSSIAN_BLUR)) {
+		_g2d_blur_fb_notsup++;
+		blur_fallback_klog("op unsupported", _g2d_blur_fb_notsup);
 		return G2D_ERR_NOT_SUPPORTED;
+	}
 
 	if(r <= 0)
 		return G2D_ERR_FAILED;
 
-	if(!g2d_check_graph(g))
+	if(!g2d_check_graph(g)) {
+		_g2d_blur_fb_canvas++;
 		return g2d_reject(g, NULL, w, h);
+	}
 
-	/* the hardware back end takes a whole-canvas, 16-aligned blur of any
-	   radius >= 1 (radius 1..4 dispatch their own separable kernel pair,
-	   larger radii compose the same stage sequence) - that is the only
-	   case that needs (and allocates) the scratch.  a partial rect is not
-	   runnable on the back end (the driver answers -1 with nothing
-	   submitted), so fail locally and let the caller fall back in-process
-	   instead of a guaranteed-to-fail ipc round trip. */
+	/* the hardware back end takes a whole-canvas blur of any radius >= 1
+	   at any width (the kernels tail-mask the final partial 16-px group
+	   of each row) - that is the only case that needs the scratch.  a
+	   partial rect is not runnable on the back end (the driver answers
+	   -1 with nothing submitted), so fail locally and let the caller
+	   fall back in-process instead of a guaranteed-to-fail ipc round
+	   trip. */
 	gpu_path = (x == 0 && y == 0 && w == g->w && h == g->h);
-	if(!gpu_path)
+	if(!gpu_path) {
+		_g2d_blur_fb_rect++;
 		return G2D_ERR_FAILED;
+	}
 
 	memset(&tmp, 0, sizeof(tmp));
-	if(gpu_path) {
-		uint32_t tmp_size = (uint32_t)g->w * (uint32_t)g->h * sizeof(uint32_t);
-		if(g2d_shm_alloc_phy(tmp_size, &tmp_shm_id, &tmp_pixels, &tmp_phy) != 0)
-			return G2D_ERR_FAILED;
-		tmp = g2d_canvas(tmp_shm_id, tmp_size, (uint32_t)g->w, (uint32_t)g->h, 1);
-		tmp.phy = tmp_phy;
+	if(blur_tmp_get((uint32_t)g->w * (uint32_t)g->h * sizeof(uint32_t),
+			&tmp_shm_id, &tmp_pixels, &tmp_phy) != 0) {
+		_g2d_blur_fb_tmp++;
+		blur_fallback_klog("scratch alloc failed", _g2d_blur_fb_tmp);
+		return G2D_ERR_FAILED;
 	}
+	tmp = g2d_canvas(tmp_shm_id, _blur_tmp_size, (uint32_t)g->w,
+			(uint32_t)g->h, 1);
+	tmp.phy = tmp_phy;
 
 	g2d_gaussian_blur_req_init(&req, g2d_graph_canvas(g), tmp,
 			g2d_rect(x, y, w, h), r);
 	ret = g2d_op_result(G2D_CAP_GAUSSIAN_BLUR, g2d_gaussian_blur(&req));
-
-	if(tmp_pixels != NULL)
-		g2d_shm_free(tmp_pixels);
+	if(ret == 0)
+		_g2d_blur_gpu++;
+	else {
+		_g2d_blur_fb_drv++;
+		blur_fallback_klog("driver refused", _g2d_blur_fb_drv);
+	}
 	return ret;
 }
 
