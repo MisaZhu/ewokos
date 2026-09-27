@@ -89,6 +89,14 @@ int pthread_create(pthread_t* thread,
 
 pthread_t pthread_self(void);
 
+/*
+ * BSD/Darwin extension (_np = non-portable): stack size of `thread`. EwokOS
+ * pthreads are kernel tasks with a single fixed stack size, so the argument is
+ * advisory and the same value is returned for every thread. Provided so ported
+ * code (e.g. the ewebview wasm runtime) links without #ifdef'ing the call out.
+ */
+size_t pthread_get_stacksize_np(pthread_t thread);
+
 int pthread_equal(pthread_t t1, pthread_t t2);
 
 int pthread_join(pthread_t thread, void **retval);

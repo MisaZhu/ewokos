@@ -154,6 +154,7 @@ LIB_EWOKSYS_OBJS =  \
 	$(ARCH)/src/pthread/pthread_mutex_unlock.o \
 	$(ARCH)/src/pthread/pthread_mutex_timedlock.o\
 	$(ARCH)/src/pthread/pthread_self.o\
+	$(ARCH)/src/pthread/pthread_get_stacksize_np.o\
 	$(ARCH)/src/pthread/pthread_equal.o\
 	$(ARCH)/src/pthread/pthread_join.o\
 	$(ARCH)/src/pthread/pthread_detach.o\
