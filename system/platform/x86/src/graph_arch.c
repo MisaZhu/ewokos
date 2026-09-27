@@ -21,7 +21,7 @@ void graph_blt_mask_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_
         graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh);
 void graph_scale_tof_cpu(graph_t* g, graph_t* dst, float scale);
 void graph_rotate_to_cpu(graph_t* g, graph_t* dst, int rot);
-void graph_gaussian_cpu(graph_t* g, int x, int y, int w, int h, int r);
+void graph_gaussian_blur_cpu(graph_t* g, int x, int y, int w, int h, int r);
 
 #ifdef ARCH_BOOST
 static inline void x86_stream_copy_row(uint32_t* dst, const uint32_t* src, int32_t pixels) {
@@ -226,8 +226,8 @@ void graph_rotate_to_arch(graph_t* g, graph_t* dst, int rot) {
     graph_rotate_to_cpu(g, dst, rot);
 }
 
-void graph_gaussian_arch(graph_t* g, int x, int y, int w, int h, int r) {
-    graph_gaussian_cpu(g, x, y, w, h, r);
+void graph_gaussian_blur_arch(graph_t* g, int x, int y, int w, int h, int r) {
+    graph_gaussian_blur_cpu(g, x, y, w, h, r);
 }
 
 #ifdef __cplusplus

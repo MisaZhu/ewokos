@@ -34,6 +34,8 @@ int   graph_scale_tof_g2d(graph_t* g, graph_t* dst, double scale);
 
 int   graph_rotate_to_g2d(graph_t* g, graph_t* ret, int rot);
 
+int   graph_gaussian_blur_g2d(graph_t* g, int x, int y, int w, int h, int r);
+
 #ifdef __cplusplus 
 }
 #endif

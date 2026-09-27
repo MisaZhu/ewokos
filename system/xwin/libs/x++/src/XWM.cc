@@ -379,7 +379,7 @@ void XWM::drawBGEffect(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinf
 	/*work on a private copy of the backdrop, never on desktop_g itself: the
 	  frame_blur snapshot is reused across frames, so blurring it in place
 	  would feed the previous blur back and smear a bit more every frame.*/
-	graph_t* bg = graph_new(NULL, w, h);
+	graph_t* bg = graph_new_shm(w, h);
 	if(bg == NULL)
 		return;
 	graph_blt(desktop_g, sx, sy, w, h, bg, 0, 0, w, h);
@@ -393,7 +393,7 @@ void XWM::drawBGEffect(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinf
 			graph_draw_dot_pattern(bg, 0, 0, w, h, 0x33ffffff, 0x33000000, 2, 1);
 			break;
 		case BG_EFFECT_GAUSSIAN:
-			graph_gaussian(bg, 0, 0, w, h, 3);
+			graph_gaussian_blur(bg, 0, 0, w, h, 3);
 			break;
 		case BG_EFFECT_TRANSPARENT:
 		default:

@@ -41,7 +41,8 @@ enum {
 	G2D_CAP_BLT,
 	G2D_CAP_BLIT_ALPHA,
 	G2D_CAP_ROTATE,
-	G2D_CAP_SCALE_TO
+	G2D_CAP_SCALE_TO,
+	G2D_CAP_GAUSSIAN_BLUR
 };
 
 static uint32_t _g2d_unsupported = 0;
@@ -236,6 +237,62 @@ int graph_rotate_to_g2d(graph_t* g, graph_t* ret, int rot) {
 
 	g2d_rotate_req_init(&req, g2d_graph_canvas(g), g2d_graph_canvas(ret), degree);
 	return g2d_op_result(G2D_CAP_ROTATE, g2d_rotate(&req));
+}
+
+/* whole-surface in-place gaussian blur on the device. the back end blurs
+   the entire dst canvas and needs a scratch canvas of its own (it only
+   maps it, never reads it), so this can serve a request only when it
+   covers the whole graph at one of the two radii the driver implements
+   (2 or 4) and the width is a multiple of 16; every other shape falls
+   back to the cpu/arch pass. the scratch is allocated GPU-visible
+   (contig, like dst) per call and freed after: caching it would pin a
+   full-canvas shm segment for the life of the process with no owner to
+   release it. */
+int graph_gaussian_blur_g2d(graph_t* g, int x, int y, int w, int h, int r) {
+	g2d_gaussian_blur_req_t req;
+	g2d_canvas_t tmp;
+	uint32_t* tmp_pixels = NULL;
+	int tmp_shm_id = -1;
+	ewokos_addr_t tmp_phy = 0;
+	uint32_t tmp_size;
+	int ret;
+
+	if(!g2d_op_supported(G2D_CAP_GAUSSIAN_BLUR))
+		return G2D_ERR_NOT_SUPPORTED;
+
+	/* the driver only implements radius 2 and 4; filter the rest here so
+	   an unusable radius never reaches it. its G2D_ERR_NOT_SUPPORTED would
+	   otherwise mark the whole gaussian op sticky-off, even for the radii
+	   it does support. this is a per-request mismatch, not a missing
+	   capability, so it fails transiently (G2D_ERR_FAILED) and falls back. */
+	if(r != 2 && r != 4)
+		return G2D_ERR_FAILED;
+
+	if(!g2d_check_graph(g))
+		return g2d_reject(g, NULL, w, h);
+
+	/* the device blurs the whole canvas in place: a partial region or a
+	   width that is not a multiple of 16 is not something it can do. these
+	   are properties of this request, not of the driver, so fall back
+	   without marking the op and without counting a reject. */
+	if(x != 0 || y != 0 || w != g->w || h != g->h)
+		return G2D_ERR_FAILED;
+	if((g->w & 15) != 0)
+		return G2D_ERR_FAILED;
+
+	tmp_size = (uint32_t)g->w * (uint32_t)g->h * sizeof(uint32_t);
+	if(g2d_shm_alloc_phy(tmp_size, &tmp_shm_id, &tmp_pixels, &tmp_phy) != 0)
+		return G2D_ERR_FAILED;
+	klog("ok\n");
+
+	tmp = g2d_canvas(tmp_shm_id, tmp_size, (uint32_t)g->w, (uint32_t)g->h, 1);
+	tmp.phy = tmp_phy;
+
+	g2d_gaussian_blur_req_init(&req, g2d_graph_canvas(g), tmp, r);
+	ret = g2d_op_result(G2D_CAP_GAUSSIAN_BLUR, g2d_gaussian_blur(&req));
+
+	g2d_shm_free(tmp_pixels);
+	return ret;
 }
 
 #ifdef __cplusplus 

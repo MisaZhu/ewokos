@@ -81,7 +81,7 @@ void MisaWM::ensureFrost(graph_t* desktop_g, xinfo_t* info) {
 			if(frostCache != NULL) { graph_free(frostCache); frostCache = NULL; }
 			frostValid = false;
 			backdropSharp = graph_new(NULL, fw, fh);
-			frostCache = graph_new(NULL, fw, fh);
+			frostCache = graph_new_shm(fw, fh);
 			if(backdropSharp == NULL || frostCache == NULL) {
 				if(backdropSharp != NULL) { graph_free(backdropSharp); backdropSharp = NULL; }
 				if(frostCache != NULL) { graph_free(frostCache); frostCache = NULL; }
@@ -104,7 +104,7 @@ void MisaWM::ensureFrost(graph_t* desktop_g, xinfo_t* info) {
 		}
 		/*blur FROM the sharp snapshot, never from the previous blur*/
 		memcpy(frostCache->buffer, backdropSharp->buffer, (size_t)fw*fh*4);
-		graph_gaussian(frostCache, 0, 0, fw, fh, xwm.theme.frameBlur);
+		graph_gaussian_blur(frostCache, 0, 0, fw, fh, xwm.theme.frameBlur);
 		frostX = info->winr.x;
 		frostY = info->winr.y;
 		frostW = fw;
@@ -147,7 +147,7 @@ void MisaWM::ensureFrost(graph_t* desktop_g, xinfo_t* info) {
 			/*blur FROM the sharp backdrop, never from the previous blur, so the
 			  frost cannot accumulate smear frame over frame*/
 			memcpy(frostCache->buffer, backdropSharp->buffer, (size_t)fw*fh*4);
-			graph_gaussian(frostCache, 0, 0, fw, fh, xwm.theme.frameBlur);
+			graph_gaussian_blur(frostCache, 0, 0, fw, fh, xwm.theme.frameBlur);
 		}
 		return;
 	}
@@ -174,7 +174,7 @@ void MisaWM::ensureFrost(graph_t* desktop_g, xinfo_t* info) {
 	graph_blt(desktop_g, info->winr.x, info->winr.y, fw, fh,
 			backdropSharp, 0, 0, fw, fh);
 	memcpy(frostCache->buffer, backdropSharp->buffer, (size_t)fw*fh*4);
-	graph_gaussian(frostCache, 0, 0, fw, fh, xwm.theme.frameBlur);
+	graph_gaussian_blur(frostCache, 0, 0, fw, fh, xwm.theme.frameBlur);
 	frostX = info->winr.x;
 	frostY = info->winr.y;
 	frostW = fw;

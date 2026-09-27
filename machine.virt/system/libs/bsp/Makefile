@@ -6,15 +6,20 @@ TARGET_DIR = $(BUILD_DIR)
 
 LDFLAGS = -L $(TARGET_DIR)/lib
 
-# g2dclient headers come from the source tree, not $(TARGET_DIR)/include:
-# bsp is built in the basic_sys phase, while gui_sys installs libg2dclient's
-# headers only later, so the installed copy would not exist on a clean build
+# g2dclient / openlibm headers come from the source tree, not
+# $(TARGET_DIR)/include: bsp is built in the basic_sys phase (via -C libs),
+# which runs before $(SYS_ROOT_DIR)/basic installs openlibm's headers and
+# before gui_sys installs libg2dclient's headers, so on a clean build the
+# installed copies do not exist yet. g2d_arch.o (built here) includes
+# <openlibm.h> under ARCH_BOOST, hence the openlibm source include.
 CFLAGS += -I $(SYS_DIR)/basic/libc/libewoksys/ewoksys/include \
 	-I $(SYS_DIR)/platform/$(ARCH)/include/$(ARCH) \
 	-I $(SYS_DIR)/basic/libs/sd/include \
 	-I $(SYS_DIR)/basic/libs/gpio/include \
 	-I $(SYS_DIR)/basic/libs/usb/include \
 	-I $(SYS_DIR)/basic/libs/hid/include \
+	-I $(SYS_DIR)/basic/libs/openlibm/include \
+	-I $(SYS_DIR)/basic/libs/openlibm/src \
 	-I $(SYS_DIR)/gui/libs/graph/include \
 	-I $(SYS_DIR)/gui/libs/g2dclient/include \
 	-Iinclude -I $(TARGET_DIR)/include

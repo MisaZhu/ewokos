@@ -131,7 +131,7 @@ void graph_gradation(graph_t* graph, int x, int y, int w, int h, uint32_t c1, ui
         }
 }
 
-void graph_gaussian_cpu(graph_t* g, int x, int y, int w, int h, int r) {
+void graph_gaussian_blur_cpu(graph_t* g, int x, int y, int w, int h, int r) {
     if (g == NULL || r <= 0) {
         return;
     }
@@ -261,15 +261,20 @@ void graph_gaussian_cpu(graph_t* g, int x, int y, int w, int h, int r) {
     free(line_buffer);
 }
 
-void graph_gaussian(graph_t* g, int x, int y, int w, int h, int r) {
+void graph_gaussian_blur(graph_t* g, int x, int y, int w, int h, int r) {
     if(r > w)
         r = w;
     if(r > h)
         r = h;
+
+    if(graph_g2d_avaliable(g) == 0) {
+        if(graph_gaussian_blur_g2d(g, x, y, w, h, r) == 0)
+            return;
+    }
 #ifdef ARCH_BOOST 
-    graph_gaussian_arch(g, x, y, w, h, r);
+    graph_gaussian_blur_arch(g, x, y, w, h, r);
 #else
-    graph_gaussian_cpu(g, x, y, w, h, r);
+    graph_gaussian_blur_cpu(g, x, y, w, h, r);
 #endif
 }
 
@@ -293,7 +298,7 @@ void graph_shadow_round(graph_t* g, int x, int y, int w, int h, int round, uint8
     int pad = shadow; /*>= blur: no read pixel ever has samples beyond the mask*/
     int mw = fw + shadow + 2*pad;
     int mh = fh + shadow + 2*pad;
-    graph_t* m = graph_new(NULL, mw, mh);
+    graph_t* m = graph_new_shm(mw, mh);
     if(m == NULL)
         return;
 
@@ -310,11 +315,11 @@ void graph_shadow_round(graph_t* g, int x, int y, int w, int h, int round, uint8
     int xs = pad + fw - round - 2*shadow;
     int ys = pad + fh - round - 2*shadow;
     if(xs >= pad + off + round + blur && ys >= pad + off + round + blur) {
-        graph_gaussian(m, xs, 0, mw - xs, mh, blur);
-        graph_gaussian(m, 0, ys, xs, mh - ys, blur);
+        graph_gaussian_blur(m, xs, 0, mw - xs, mh, blur);
+        graph_gaussian_blur(m, 0, ys, xs, mh - ys, blur);
     }
     else {
-        graph_gaussian(m, 0, 0, mw, mh, blur);
+        graph_gaussian_blur(m, 0, 0, mw, mh, blur);
     }
 
     /*calibrate on the straight right band at mid height: the innermost

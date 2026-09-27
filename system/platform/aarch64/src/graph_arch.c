@@ -241,7 +241,7 @@ static void graph_gaussian_neon(graph_t* g, int x, int y, int w, int h, int r) {
     arch_g2d_gaussian(g->buffer, graph_g2d_phy(g), g->shm_contig ? 1 : 0, g->w, g->h, x, y, w, h, r);
 }
 
-inline void graph_gaussian_arch(graph_t* g, int x, int y, int w, int h, int r) {
+inline void graph_gaussian_blur_arch(graph_t* g, int x, int y, int w, int h, int r) {
     graph_gaussian_neon(g, x, y, w, h, r);
 }
 

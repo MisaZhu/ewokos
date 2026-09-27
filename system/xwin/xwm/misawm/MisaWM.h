@@ -11,7 +11,7 @@ using namespace Ewok;
   bar show a blurred copy of whatever sits behind the window, washed with a
   translucent tint, instead of a flat opaque color. The rounded corners are
   kept as ewokwm draws them; the drop shadow is the stock graph_shadow_round,
-  the window silhouette blurred with the same graph_gaussian the frost uses.*/
+  the window silhouette blurred with the same graph_gaussian_blur the frost uses.*/
 class MisaWM : public XWM {
 
 	void markFrameRound(graph_t* frame_g, grect_t* fr, int r);
