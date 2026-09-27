@@ -1092,15 +1092,15 @@ static int32_t g2dd_handle_gaussian_blur(proto_t* in) {
 		return G2D_ERR_FAILED;
 	}
 
-	/* the GPU back end takes a whole-canvas, 16-aligned blur of any
-	   radius >= 1 with a big enough scratch (radius 1..4 dispatch its
-	   own kernel pair; larger radii compose the same stages) - on
-	   machines whose back end has no GPU blur the bsp answers in
-	   software at any radius; everything else (partial rect,
-	   non-aligned width) is software */
+	/* the GPU back end takes a whole-canvas blur of any radius >= 1 at
+	   any width (the kernels tail-mask the final partial 16-px group of
+	   each row through the driver scratch) with a big enough scratch
+	   (radius 1..4 dispatch their own kernel pair; larger radii compose
+	   the same stages) - on machines whose back end has no GPU blur the
+	   bsp answers in software at any radius; a partial rect is not
+	   runnable and the bsp answers -1 with nothing submitted */
 	gpu_eligible = (x == 0 && y == 0 &&
 			w == (int32_t)dst.width && h == (int32_t)dst.height &&
-			(dst.width & 15) == 0 &&
 			req.radius >= 1 &&
 			req.tmp.size >= (uint32_t)dst.width * (uint32_t)dst.height * 4u);
 

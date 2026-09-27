@@ -240,10 +240,9 @@ int graph_rotate_to_g2d(graph_t* g, graph_t* ret, int rot) {
 }
 
 /* in-place gaussian blur of a sub-rect on the device. the caller imposes no
-   geometry restriction: the rect (x,y,w,h), the width alignment and the
-   GPU-vs-software choice are all resolved by g2dd (a partial rect or a
-   non-aligned width runs on the driver's software arch engine). only the
-   radius is filtered here - a radius other than 2/4 can never reach the
+   geometry restriction: the rect (x,y,w,h) and the GPU-vs-software choice
+   are all resolved by g2dd (a partial rect is refused by the back end).
+   only the radius is filtered here - a radius other than 2/4 can never reach the
    hardware back end, and blurring it in-process (the arch/cpu pass the
    dispatcher falls back to) is cheaper than a round trip to the daemon for
    the very same software engine, so those are simply not offloaded.
@@ -279,7 +278,7 @@ int graph_gaussian_blur_g2d(graph_t* g, int x, int y, int w, int h, int r) {
 	   runnable on the back end (the driver answers -1 with nothing
 	   submitted), so fail locally and let the caller fall back in-process
 	   instead of a guaranteed-to-fail ipc round trip. */
-	gpu_path = (x == 0 && y == 0 && w == g->w && h == g->h && (g->w & 15) == 0);
+	gpu_path = (x == 0 && y == 0 && w == g->w && h == g->h);
 	if(!gpu_path)
 		return G2D_ERR_FAILED;
 
