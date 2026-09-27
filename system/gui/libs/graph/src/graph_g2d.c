@@ -266,21 +266,22 @@ int graph_gaussian_blur_g2d(graph_t* g, int x, int y, int w, int h, int r) {
 	if(!g2d_op_supported(G2D_CAP_GAUSSIAN_BLUR))
 		return G2D_ERR_NOT_SUPPORTED;
 
-	/* only radius 2/4 can reach the hardware back end; other radii are left
-	   to the in-process arch/cpu pass instead of round-tripping to the
-	   daemon for the same software engine. transient (G2D_ERR_FAILED), so
-	   the op is never marked unsupported. */
-	if(r != 2 && r != 4)
+	if(r <= 0)
 		return G2D_ERR_FAILED;
 
 	if(!g2d_check_graph(g))
 		return g2d_reject(g, NULL, w, h);
 
-	/* the hardware path is reachable only for a whole-canvas, 16-aligned
-	   blur; that is the only case that needs (and allocates) the scratch.
-	   every other rect still offloads, but on the driver's software engine
-	   which ignores tmp. */
+	/* the hardware back end takes a whole-canvas, 16-aligned blur of any
+	   radius >= 1 (radius 1..4 dispatch their own separable kernel pair,
+	   larger radii compose the same stage sequence) - that is the only
+	   case that needs (and allocates) the scratch.  a partial rect is not
+	   runnable on the back end (the driver answers -1 with nothing
+	   submitted), so fail locally and let the caller fall back in-process
+	   instead of a guaranteed-to-fail ipc round trip. */
 	gpu_path = (x == 0 && y == 0 && w == g->w && h == g->h && (g->w & 15) == 0);
+	if(!gpu_path)
+		return G2D_ERR_FAILED;
 
 	memset(&tmp, 0, sizeof(tmp));
 	if(gpu_path) {
