@@ -147,6 +147,27 @@ inline void flush_tlb(void) {
 #endif
 
 /*
+ * TLB-only invalidate for mappings whose descriptors are already visible to
+ * the table walker. On ARMv7, map_page/unmap_page publish each changed
+ * descriptor to PoC by VA (DCCIMVAC) and __flush_tlb()'s leading DSB orders
+ * the invalidate after that clean, so no whole-D-cache sweep is needed. On
+ * aarch64 the walk is PIPT-coherent and the DSB inside __flush_tlb() publishes
+ * the PTE store, so flush_tlb_nosweep() is identical to flush_tlb() there. It
+ * skips both the whole-D-cache clean+invalidate and the I-cache drop, so it is
+ * valid only for data mappings (stack/heap/COW) that no non-coherent master
+ * reads through a cacheable alias; the context-switch sweep still covers any
+ * such alias. Bulk and board-level table copies, and the exec code path, keep
+ * using flush_tlb(). Older ARM versions have no per-line publish and fall back.
+ */
+inline void flush_tlb_nosweep(void) {
+#if defined(__aarch64__) || defined(ARM_V7)
+    __flush_tlb();
+#else
+    flush_tlb();
+#endif
+}
+
+/*
  * Make code the kernel just wrote (ELF load) visible to instruction fetch.
  * On aarch64 and ARMv7, ELF loading does not rely on side effects of TLB
  * maintenance: clean the code lines first, then invalidate the I-cache of

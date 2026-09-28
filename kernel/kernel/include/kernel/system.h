@@ -22,6 +22,11 @@ extern void set_translation_table_base(ewokos_addr_t);
 /* per-space switch: asid 0 means "no ASID, flush on switch" */
 extern void set_translation_table_base_asid(ewokos_addr_t, uint32_t asid);
 extern void flush_tlb(void);
+/* TLB-only invalidate after map_page/unmap_page already published the changed
+ * descriptors to PoC (ARMv7) or the walk is PIPT-coherent (aarch64): skips the
+ * whole-D-cache sweep and I-cache drop. Data mappings only - never for bulk or
+ * board-level table copies, and not a substitute for the switch-time sweep. */
+extern void flush_tlb_nosweep(void);
 extern void flush_tlb_addr(ewokos_addr_t);
 extern void flush_tlb_asid(uint32_t asid);
 extern void flush_dcache(void);

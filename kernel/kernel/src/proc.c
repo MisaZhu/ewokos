@@ -481,7 +481,9 @@ static void map_stack(proc_t* proc, ewokos_addr_t* stacks, ewokos_addr_t base, u
         }
 #endif
     }
-    flush_tlb();
+    /* stack pages are WRBACK and their descriptors were published per-line by
+     * map_page: a TLB-only invalidate is enough (no whole-D-cache sweep). */
+    flush_tlb_nosweep();
 }
 
 static void unmap_stack(proc_t* proc, ewokos_addr_t* stacks, ewokos_addr_t base, uint32_t pages) {
@@ -490,7 +492,8 @@ static void unmap_stack(proc_t* proc, ewokos_addr_t* stacks, ewokos_addr_t base,
         unmap_page(proc->space->vm, base + PAGE_SIZE*i);
         kfree_page((void*)stacks[i]);
     }
-    flush_tlb();
+    /* unmap_page published the invalid descriptor per-line: TLB-only. */
+    flush_tlb_nosweep();
 }
 
 ewokos_addr_t thread_stack_alloc(proc_t* proc) {
@@ -575,7 +578,8 @@ static void proc_shrink_mem(proc_t* proc, int32_t page_num) {
         if (proc->space->heap_size == 0)
             break;
     }
-    flush_tlb();
+    /* heap descriptors published per-line by unmap_page_ref: TLB-only. */
+    flush_tlb_nosweep();
 }
 
 /* proc_exapnad_memory expands the heap size of the given process. */
@@ -626,7 +630,10 @@ static int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
                 AP_RW_RW, PTE_ATTR_WRBACK);
         proc->space->heap_size += PAGE_SIZE;
     }
-    flush_tlb();
+    /* heap descriptors published per-line by map_page_ref: TLB-only. The
+     * memset zeros stay dirty in the PIPT-coherent D-cache, exactly as on
+     * aarch64; any DMA/GPU handoff is cleaned by the driver or the switch. */
+    flush_tlb_nosweep();
     return res;
 }
 
@@ -2363,7 +2370,8 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
                 phy_page_addr,
                 AP_RW_R, PTE_ATTR_WRBACK); // set parent page table with read only permissions
     }
-    flush_tlb();
+    /* COW descriptors published per-line by map_page/map_page_ref: TLB-only. */
+    flush_tlb_nosweep();
     child->space->heap_size = (ewokos_addr_t)pages * PAGE_SIZE;
     /*
      * Preserve the parent's actual heap break. User-space allocators keep
