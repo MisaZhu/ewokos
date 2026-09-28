@@ -497,6 +497,8 @@ ewokos_addr_t thread_stack_alloc(proc_t* proc) {
     uint32_t i;
     if(proc->space->thread_stacks == NULL) {
         proc->space->thread_stacks = (thread_stack_t*)kmalloc(_kernel_config.max_task_per_proc*sizeof(thread_stack_t));
+        if(proc->space->thread_stacks == NULL)
+            return 0;
         memset(proc->space->thread_stacks, 0, _kernel_config.max_task_per_proc*sizeof(thread_stack_t));
     }
 
@@ -512,9 +514,11 @@ ewokos_addr_t thread_stack_alloc(proc_t* proc) {
 
     ewokos_addr_t base = USER_STACK_TOP - STACK_PAGES*PAGE_SIZE - THREAD_STACK_PAGES*PAGE_SIZE*(i+1);
     uint32_t pages = THREAD_STACK_PAGES;
-    proc->space->thread_stacks[i].base = base;
     if(proc->space->thread_stacks[i].stacks == NULL) 
         proc->space->thread_stacks[i].stacks = kmalloc(THREAD_STACK_PAGES*sizeof(void*));
+    if(proc->space->thread_stacks[i].stacks == NULL)
+        return 0;
+    proc->space->thread_stacks[i].base = base;
     memset(proc->space->thread_stacks[i].stacks, 0, THREAD_STACK_PAGES*sizeof(void*));
     map_stack(proc, proc->space->thread_stacks[i].stacks, base, pages);
     return base;
@@ -647,9 +651,13 @@ static int32_t proc_init_space(proc_t* proc) {
         return -1;
     }
 
+    proc->space = (proc_space_t*)kmalloc(sizeof(proc_space_t));
+    if(proc->space == NULL) {
+        _proc_vm_mark[pde_index] = 0;
+        return -1;
+    }
     page_dir_entry_t *vm = _proc_vm[pde_index].pde;
     set_vm(vm);
-    proc->space = (proc_space_t*)kmalloc(sizeof(proc_space_t));
     memset(proc->space, 0, sizeof(proc_space_t));
 
     proc->space->pde_index = pde_index;
@@ -1714,6 +1722,8 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
             at = at % _kernel_config.max_task_num;
         if (_task_table[at] == NULL) {
             _task_table[at] = (proc_t*)kmalloc(sizeof(proc_t));
+            if(_task_table[at] == NULL) /* kmalloc exhausted */
+                return NULL;
             index = at;
             break;
         }
@@ -1761,12 +1771,17 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
         }
     }
     else {
+        if(parent->space->thread_stacks == NULL) {
+            parent->space->thread_stacks = (thread_stack_t*)kmalloc(_kernel_config.max_task_per_proc*sizeof(thread_stack_t));
+            if(parent->space->thread_stacks == NULL) {
+                _task_table[index] = NULL;
+                kfree(proc);
+                return NULL;
+            }
+            memset(parent->space->thread_stacks, 0, _kernel_config.max_task_per_proc*sizeof(thread_stack_t));
+        }
         proc->space = parent->space;
         proc->space->refs++;
-        if(proc->space->thread_stacks == NULL) {
-            proc->space->thread_stacks = (thread_stack_t*)kmalloc(_kernel_config.max_task_per_proc*sizeof(thread_stack_t));
-            memset(proc->space->thread_stacks, 0, _kernel_config.max_task_per_proc*sizeof(thread_stack_t));
-        }
     }
 
     if(parent != NULL) {
