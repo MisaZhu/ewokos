@@ -199,11 +199,57 @@ void MisaWM::frostRegion(graph_t* desktop_g, graph_t* frame_g, xinfo_t* info,
 
 	/*lay the cached frost into the frame, then wash it with a constant
 	  translucent tint. Neither step reads the live display, so a content
-	  update cannot feed the previous frame back into the glass.*/
+	  update cannot feed the previous frame back into the glass.
+	  the tint wash is a solid fill: graph_fill_rect runs the optimized
+	  row path (and the gpu fill when the canvas is g2d-visible), the
+	  per-pixel graph_pixel loop this replaces called a clipping check
+	  per pixel five times per window per repaint.*/
 	graph_blt(frostCache, gx, gy, gw, gh, frame_g, gx, gy, gw, gh);
-	for(int py = gy; py < gy + gh; py++)
-		for(int px = gx; px < gx + gw; px++)
-			graph_pixel(frame_g, px, py, tint);
+	/*the tint is translucent, so this must stay a per-pixel BLEND - a
+	  solid fill would destroy the frost.  but the tint is CONSTANT:
+	  clip once, hoist the color decomposition and the inverse alpha out
+	  of the loops, and write the buffer directly.  the graph_pixel loop
+	  this replaces re-evaluated the clip and re-decoded the color for
+	  every pixel, five regions per window per repaint.*/
+	{
+		uint8_t ta = (uint8_t)((tint >> 24) & 0xff);
+		int32_t tr = (int32_t)((tint >> 16) & 0xff);
+		int32_t tg = (int32_t)((tint >> 8) & 0xff);
+		int32_t tb = (int32_t)(tint & 0xff);
+		int32_t x0 = gx > 0 ? gx : 0;
+		int32_t y0 = gy > 0 ? gy : 0;
+		int32_t x1 = gx + gw < frame_g->w ? gx + gw : frame_g->w;
+		int32_t y1 = gy + gh < frame_g->h ? gy + gh : frame_g->h;
+
+		if(ta == 0xff) {
+			for(int32_t py = y0; py < y1; py++) {
+				uint32_t* row = frame_g->buffer +
+					(size_t)py * frame_g->w;
+				for(int32_t px = x0; px < x1; px++)
+					row[px] = tint;
+			}
+		}
+		else if(ta > 0) {
+			int32_t inv_a = 255 - ta;
+			for(int32_t py = y0; py < y1; py++) {
+				uint32_t* row = frame_g->buffer +
+					(size_t)py * frame_g->w;
+				for(int32_t px = x0; px < x1; px++) {
+					uint32_t oc = row[px];
+					int32_t oa = (int32_t)((oc >> 24) & 0xff);
+					int32_t orr = (int32_t)((oc >> 16) & 0xff);
+					int32_t ogg = (int32_t)((oc >> 8) & 0xff);
+					int32_t obb = (int32_t)(oc & 0xff);
+					int32_t na = oa + ((255 - oa) * ta) / 255;
+					row[px] = argb(
+							(uint8_t)na,
+							(uint8_t)((tr * ta + orr * inv_a) / 255),
+							(uint8_t)((tg * ta + ogg * inv_a) / 255),
+							(uint8_t)((tb * ta + obb * inv_a) / 255));
+				}
+			}
+		}
+	}
 }
 
 void MisaWM::drawDragFrame(graph_t* g, grect_t* r) {

@@ -360,6 +360,21 @@ void graph_shadow_round(graph_t* g, int x, int y, int w, int h, int round, uint8
     uint32_t span = hi - lo;
     uint32_t a = color_a(color);
 
+    /*the falloff maps mask level -> alpha through a divide per pixel;
+       a 256-entry table of that function replaces it - the mask levels
+       and the span are constants for this call*/
+    uint8_t alpha_lut[256];
+    for(int v = 0; v < 256; v++) {
+        uint32_t lvl = (uint32_t)v;
+        if(lvl <= lo)
+            alpha_lut[v] = 0;
+        else {
+            if(lvl > hi)
+                lvl = hi;
+            alpha_lut[v] = (uint8_t)(a * (lvl - lo) / span);
+        }
+    }
+
     /*doubled coordinates keep the pixel centers in integers for the inside
       test: a pixel inside the box's own rounded rect is never touched*/
     int fw2 = fw*2, fh2 = fh*2, r2 = round*2;
@@ -382,12 +397,8 @@ void graph_shadow_round(graph_t* g, int x, int y, int w, int h, int round, uint8
             if(round > 0 ? dd < rr : dd == 0)
                 continue; //inside the box itself
 
-            uint32_t v = color_r(m->buffer[(py+pad)*mw + px + pad]);
-            if(v <= lo)
-                continue;
-            if(v > hi)
-                v = hi;
-            uint32_t alpha = a * (v - lo) / span;
+            uint32_t alpha =
+                alpha_lut[color_r(m->buffer[(py+pad)*mw + px + pad])];
             if(alpha == 0)
                 continue;
             graph_pixel(g, x + px, y + py, (alpha << 24) | (color & 0x00ffffff));
