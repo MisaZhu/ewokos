@@ -9,8 +9,8 @@
 #@export XTHEME=opencde
 #@/bin/ipcserv /sbin/x/xwm_opencde
 
-@export XTHEME=ewokwm
-@/bin/ipcserv /sbin/x/xwm_ewok
+#@export XTHEME=ewokwm
+#@/bin/ipcserv /sbin/x/xwm_ewok
 
 @export XTHEME=misawm
 @/bin/ipcserv /sbin/x/xwm_misa
