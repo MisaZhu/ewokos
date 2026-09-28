@@ -342,6 +342,7 @@ int graph_gaussian_blur_g2d(graph_t* g, int x, int y, int w, int h, int r) {
 	ewokos_addr_t tmp_phy = 0;
 	int gpu_path;
 	int ret;
+	uint64_t t0, t1;
 
 	if(!g2d_op_supported(G2D_CAP_GAUSSIAN_BLUR)) {
 		_g2d_blur_fb_notsup++;
@@ -386,18 +387,24 @@ int graph_gaussian_blur_g2d(graph_t* g, int x, int y, int w, int h, int r) {
 
 	g2d_gaussian_blur_req_init(&req, g2d_graph_canvas(g), tmp,
 			g2d_rect(x, y, w, h), r);
+	t0 = kernel_tic_ms(0);
 	ret = g2d_op_result(G2D_CAP_GAUSSIAN_BLUR, g2d_gaussian_blur(&req));
+	t1 = kernel_tic_ms(0);
 	if(ret == 0) {
 		_g2d_blur_gpu++;
 	}
 	else {
-		char why[96];
+		char why[128];
 
 		_g2d_blur_fb_drv++;
+		/* the elapsed round-trip separates an ipc queue timeout
+		   (g2dd busy - the request may never have been processed)
+		   from a genuine refusal (fast answer) */
 		snprintf(why, sizeof(why),
-				"driver refused ret=%d (canvas %dx%d, rect "
+				"blur ret=%d after %ums (canvas %dx%d, rect "
 				"%d,%d %dx%d, r=%d)",
-				ret, g->w, g->h, x, y, w, h, r);
+				ret, (unsigned)(t1 - t0),
+				g->w, g->h, x, y, w, h, r);
 		blur_fallback_klog(why, _g2d_blur_fb_drv);
 	}
 	return ret;
