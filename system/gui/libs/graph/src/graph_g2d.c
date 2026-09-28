@@ -391,10 +391,13 @@ int graph_gaussian_blur_g2d(graph_t* g, int x, int y, int w, int h, int r) {
 		_g2d_blur_gpu++;
 	}
 	else {
-		char why[48];
+		char why[96];
 
 		_g2d_blur_fb_drv++;
-		snprintf(why, sizeof(why), "driver refused ret=%d", ret);
+		snprintf(why, sizeof(why),
+				"driver refused ret=%d (canvas %dx%d, rect "
+				"%d,%d %dx%d, r=%d)",
+				ret, g->w, g->h, x, y, w, h, r);
 		blur_fallback_klog(why, _g2d_blur_fb_drv);
 	}
 	return ret;

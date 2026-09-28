@@ -1085,10 +1085,23 @@ static int32_t g2dd_handle_gaussian_blur(proto_t* in) {
 
 	if(in == NULL)
 		return G2D_ERR_FAILED;
-	if(proto_read_to(in, &req, sizeof(req)) != sizeof(req))
+	if(proto_read_to(in, &req, sizeof(req)) != sizeof(req)) {
+		G2DD_BLUR_LOG("rejected: proto read failed\n");
 		return G2D_ERR_FAILED;
-	if(req.radius <= 0)
+	}
+	/* entry trace: with several client processes blurring at once, the
+	   accept log alone cannot tie a refusal to its request */
+	G2DD_BLUR_LOG("g2d_gaussian_blur req: dst %dx%d shm %d contig %u, "
+			"rect %d,%d %dx%d radius %d, tmp size %u shm %d\n",
+			req.dst.w, req.dst.h, req.dst.shm_id,
+			(unsigned)req.dst.contig,
+			req.rect.x, req.rect.y, req.rect.w, req.rect.h,
+			req.radius, (unsigned)req.tmp.size,
+			req.tmp.shm_id);
+	if(req.radius <= 0) {
+		G2DD_BLUR_LOG("rejected: radius <= 0\n");
 		return G2D_ERR_FAILED;
+	}
 
 	if(g2d_attach(&req.dst, &dst) != 0) {
 		G2DD_BLUR_LOG("g2d_gaussian_blur rejected: dst attach failed "
@@ -1105,6 +1118,8 @@ static int32_t g2dd_handle_gaussian_blur(proto_t* in) {
 	if(x + w > (int32_t)dst.width) w = (int32_t)dst.width - x;
 	if(y + h > (int32_t)dst.height) h = (int32_t)dst.height - y;
 	if(w <= 0 || h <= 0) {
+		G2DD_BLUR_LOG("rejected: rect empty after clip (%d,%d %dx%d in "
+				"%dx%d)\n", x, y, w, h, dst.width, dst.height);
 		g2d_detach(&dst);
 		return G2D_ERR_FAILED;
 	}
