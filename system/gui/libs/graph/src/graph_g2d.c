@@ -381,7 +381,14 @@ int graph_gaussian_blur_g2d(graph_t* g, int x, int y, int w, int h, int r) {
 		blur_fallback_klog("scratch alloc failed", _g2d_blur_fb_tmp);
 		return G2D_ERR_FAILED;
 	}
-	tmp = g2d_canvas(tmp_shm_id, _blur_tmp_size, (uint32_t)g->w,
+	/* describe the scratch as its LOGICAL rw x rh geometry: the attach
+	   validation checks size >= w*h*4, and (h - 1) rows of the CANVAS
+	   pitch plus one rect row can be smaller than canvas_w * rect_h *
+	   4 whenever the rect is narrower than the canvas (the shadow
+	   strips) - those requests were rejected at attach as undersized
+	   even though the scratch provably holds every row the kernels
+	   read or write */
+	tmp = g2d_canvas(tmp_shm_id, _blur_tmp_size, (uint32_t)w,
 			(uint32_t)h, 1);
 	tmp.phy = tmp_phy;
 
