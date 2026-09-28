@@ -257,7 +257,7 @@ int32_t procs_init(void) {
         _proc_vm_mark[i] = 0;
     }
 
-    size = _kernel_config.max_task_num*sizeof(proc_t);
+    size = _kernel_config.max_task_num*sizeof(proc_t*);
     _task_table = (proc_t**)kmalloc(size);
     for (i = 0; i < _kernel_config.max_task_num; i++) {
         _task_table[i] = NULL;
