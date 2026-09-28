@@ -301,20 +301,29 @@ void graph_shadow_round(graph_t* g, int x, int y, int w, int h, int round, uint8
 
     /*the mask is a pure function of (fw, fh, round, shadow) - color is
       applied later from the calibrated falloff - and it is read-only
-      after the blur, so cache it per geometry.  rebuilding it per call
-      cost a clear + rounded fill + two blur dispatches (plus their shm
-      churn) on every shadowed-window render, which animating desktops
-      hit several times a second.*/
-    static graph_t* _mask;
-    static int _mask_fw, _mask_fh, _mask_round, _mask_shadow;
-    graph_t* m;
-    if(_mask != NULL && _mask_fw == fw && _mask_fh == fh &&
-            _mask_round == round && _mask_shadow == shadow) {
-        m = _mask;
+      after the blur, so cache it per geometry.  a desktop renders
+      several differently-sized shadowed windows per frame, so this is
+      a small multi-slot set: a single slot thrashed every window
+      switch and rebuilt (clear + rounded fill + blur dispatches + a
+      full-size shm round trip) per render even though every geometry
+      was stable across frames.*/
+    #define SHADOW_MASK_SLOTS 8
+    static graph_t* _mask_slot[SHADOW_MASK_SLOTS];
+    static int _mask_fw[SHADOW_MASK_SLOTS], _mask_fh[SHADOW_MASK_SLOTS];
+    static int _mask_round[SHADOW_MASK_SLOTS], _mask_shadow[SHADOW_MASK_SLOTS];
+    static uint32_t _mask_evict;
+    graph_t* m = NULL;
+    for(int i = 0; i < SHADOW_MASK_SLOTS; i++) {
+        if(_mask_slot[i] != NULL && _mask_fw[i] == fw && _mask_fh[i] == fh &&
+                _mask_round[i] == round && _mask_shadow[i] == shadow) {
+            m = _mask_slot[i];
+            break;
+        }
     }
-    else {
-        if(_mask != NULL)
-            graph_free(_mask);
+    if(m == NULL) {
+        int slot = _mask_evict++ % SHADOW_MASK_SLOTS;
+        if(_mask_slot[slot] != NULL)
+            graph_free(_mask_slot[slot]);
         m = graph_new_shm(mw, mh);
         if(m == NULL)
             return;
@@ -340,11 +349,11 @@ void graph_shadow_round(graph_t* g, int x, int y, int w, int h, int round, uint8
         else {
             graph_gaussian_blur(m, 0, 0, mw, mh, blur);
         }
-        _mask = m;
-        _mask_fw = fw;
-        _mask_fh = fh;
-        _mask_round = round;
-        _mask_shadow = shadow;
+        _mask_slot[slot] = m;
+        _mask_fw[slot] = fw;
+        _mask_fh[slot] = fh;
+        _mask_round[slot] = round;
+        _mask_shadow[slot] = shadow;
     }
 
     /*calibrate on the straight right band at mid height: the innermost
