@@ -38,20 +38,23 @@ int32_t map_page(page_dir_entry_t *vm, ewokos_addr_t virtual_addr,
     }
 
 #ifdef ARM_V7
-    /* 先在栈上构造完整描述符，再用一次对齐的 32 位写入发布。
-     * 不能让并发走查看到 type 已有效、base/TEX/AP 却尚未更新的页表项。 */
+    /* Build the whole descriptor on the stack first, then publish it with a
+     * single aligned 32-bit store. A concurrent walk must never see an entry
+     * whose type is already valid while base/TEX/AP are not yet updated. */
     page_table_entry_t entry = {0};
     entry.type = SMALL_PAGE_TYPE;
     entry.base = PAGE_TO_BASE(physical);
     entry.ap = permissions;
-    entry.ng = 0; /* 当前 ARMv7 切换仍使用全局页和本核全 TLB 失效。 */
+    entry.ng = 0; /* ARMv7 switches still use global pages and a full local TLB invalidate. */
     set_pte_flags(&entry, pte_attr);
 
     page_table_entry_t old = page_table[page_index];
     if(old.type != 0 && (old.base != entry.base || old.tex != entry.tex ||
             old.cacheable != entry.cacheable || old.writeback != entry.writeback ||
             old.sharable != entry.sharable)) {
-        /* 更换物理页或内存类型时先撤销旧映射，完成跨核失效后再建立新映射。 */
+        /* When the physical page or memory type changes, revoke the old
+         * mapping and finish the cross-core invalidate before installing
+         * the new one. */
         page_table_entry_t invalid = {0};
         page_table[page_index] = invalid;
         dcache_flush_range(&page_table[page_index], sizeof(entry));
@@ -59,7 +62,8 @@ int32_t map_page(page_dir_entry_t *vm, ewokos_addr_t virtual_addr,
     }
     page_table[page_index] = entry;
     if(new_table) {
-        /* 包括其余无效项：先发布整个 L2，再让 L1 指向它。 */
+        /* Including the remaining invalid entries: publish the whole L2
+         * table before pointing L1 at it. */
         dcache_flush_range(page_table, PAGE_TABLE_SIZE);
         page_dir_entry_t dir = {0};
         dir.type = PAGE_DIR_2LEVEL_TYPE;

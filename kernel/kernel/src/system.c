@@ -51,14 +51,16 @@ static inline uint32_t asid_limit(void) {
 #endif
 
 #if defined(ARM_V7)
-/* ARMv7 的页表行由 map_page/unmap_page 显式发布到 PoC。
- * TTBR0 的 IRGN/RGN/S 决定走查属性；SCTLR.TRE 只控制 TEX 重映射，
- * 不是页表走查 cacheability 的开关。 */
+/* On ARMv7, map_page/unmap_page explicitly publish page-table lines to PoC.
+ * The TTBR0 IRGN/RGN/S bits set the walk attributes; SCTLR.TRE only controls
+ * TEX remapping and is not a switch for table-walk cacheability. */
 extern void __dcache_clean_pou_range(uint32_t start, uint32_t end);
 extern void __dcache_flush_poc_range(uint32_t start, uint32_t end);
 extern void __invalidate_icache_all_is(void);
-/* ARMv7 保持 ASID 禁用：切换地址空间清本核 TLB，修改映射则广播失效。
- * 两种操作不能混同；同一地址空间的另一核可能一直运行而不切换 TTBR。 */
+/* ARMv7 keeps ASIDs disabled: an address-space switch invalidates the local
+ * TLB, while a mapping change broadcasts the invalidation. The two must not
+ * be conflated; another core may keep running the same address space
+ * without ever reloading TTBR. */
 #endif
 
 #ifdef KERNEL_SMP
@@ -73,7 +75,8 @@ inline void invalidate_dcache(void) {
 
 inline void invalidate_icache_all(void) {
 #if defined(__aarch64__) || defined(ARM_V7)
-    /* ELF 可能由另一核运行，必须使所有核放弃复用物理页中的旧指令。 */
+    /* The ELF may run on another core, so every core must drop stale
+     * instructions cached from reused physical pages. */
     __invalidate_icache_all_is();
 #else
     __invalidate_icache_all();
@@ -93,8 +96,10 @@ inline void flush_tlb(void) {
      */
     __flush_tlb();
 #elif defined(ARM_V7)
-    /* 批量建表和板级页表复制仍保留整 D-cache 发布；映射修改必须跨核失效。
-     * 单页路径已有页表行发布，不再付出整 cache 清理开销。 */
+    /* Bulk table construction and board-level page-table copies still rely
+     * on a whole D-cache publish; mapping changes must be invalidated on all
+     * cores. The single-page path already publishes its table lines and no
+     * longer pays for a whole-cache clean. */
     flush_dcache();
     __invalidate_icache_all();
     __flush_tlb();
@@ -129,7 +134,8 @@ inline void flush_tlb(void) {
 #if defined(__aarch64__)
     __flush_tlb(); /* see the SMP variant for why no D-cache work is needed */
 #elif defined(ARM_V7)
-    /* 与 SMP 的批量建表发布语义一致；汇编在 UP 下使用本核 TLBI。 */
+    /* Same bulk-table publish semantics as SMP; on UP the assembly uses a
+     * local TLBI. */
     flush_dcache();
     invalidate_icache_all();
     __flush_tlb();
@@ -142,8 +148,9 @@ inline void flush_tlb(void) {
 
 /*
  * Make code the kernel just wrote (ELF load) visible to instruction fetch.
- * aarch64 和 ARMv7 的 ELF 加载不依赖 TLB 操作的副作用：先清理代码行，
- * 再失效所有运行核的 I-cache。arm32 v5/v6 保留原有全量维护路径。
+ * On aarch64 and ARMv7, ELF loading does not rely on side effects of TLB
+ * maintenance: clean the code lines first, then invalidate the I-cache of
+ * every running core. arm32 v5/v6 keep the original whole-cache path.
  */
 inline void dcache_clean_code_range(const void* start, uint32_t size) {
 #if defined(__aarch64__)
@@ -183,10 +190,12 @@ inline void dcache_flush_range(const void* start, uint32_t size) {
 }
 
 /*
- * 仅失效受影响页的 TLB 项。ARMv7 的 map_page/unmap_page 已将描述符
- * 显式发布到 PoC；aarch64 的走查使用 cacheable、inner-shareable 属性，
- * 由 TLBI 前的 DSB 发布 PTE 写入。两者均在失效后等待完成并同步上下文。
- * 因此这些单页路径不再需要全量 D-cache 清理；旧 ARM 版本保留全量路径。
+ * Invalidate only the TLB entries of the affected page. On ARMv7,
+ * map_page/unmap_page have already published the descriptor to PoC; on
+ * aarch64 the walker uses cacheable, inner-shareable attributes and the DSB
+ * before the TLBI publishes the PTE store. Both wait for completion and
+ * synchronize context after the invalidation, so these single-page paths no
+ * longer need a whole D-cache clean. Older ARM versions keep the full path.
  */
 inline void flush_tlb_addr(ewokos_addr_t addr) {
 #if defined(__aarch64__)
@@ -203,8 +212,9 @@ inline void flush_tlb_addr(ewokos_addr_t addr) {
         "isb\n"
         :: "r"(page) : "memory");
 #elif defined(ARM_V7)
-    /* map_page/unmap_page 已发布描述符；TLBI 操作数是 VA[31:12] 原位，
-     * 不是 aarch64 的 addr >> 12。使用全 ASID 形式也覆盖全局页。 */
+    /* map_page/unmap_page have published the descriptor. The TLBI operand is
+     * VA[31:12] in place, not addr >> 12 as on aarch64. The all-ASID form
+     * also covers global pages. */
     ewokos_addr_t page = addr & ~(ewokos_addr_t)0xfff;
     __asm__ volatile(
         "dsb\n"
@@ -217,8 +227,9 @@ inline void flush_tlb_addr(ewokos_addr_t addr) {
         "isb\n"
         :: "r"(page) : "memory");
 #elif defined(__arm__)
-    /* ARMv5/v6 没有 ARMv7 的页表行发布路径，保留原有全量 D-cache
-     * 清理和 TLB 失效语义，避免只做 TLBI 而未发布脏页表。 */
+    /* ARMv5/v6 lack the ARMv7 table-line publish path, so keep the original
+     * whole D-cache clean plus TLB invalidate; a bare TLBI would leave dirty
+     * page tables unpublished. */
     (void)addr;
     flush_tlb();
 #elif defined(__riscv)
@@ -233,8 +244,10 @@ inline void flush_tlb_addr(ewokos_addr_t addr) {
 
 inline void set_translation_table_base(ewokos_addr_t tlb_base) {
 #if defined(ARM_V7)
-    /* 必须先发布新页表，再装载 TTBR；汇编完成本核 TLB 失效和 ISB。
-     * 保留全量发布以覆盖 clone_kernel_vm 和板级直接复制的页表。 */
+    /* The new page table must be published before TTBR is loaded; the
+     * assembly does the local TLB invalidate and ISB. The whole-cache publish
+     * is kept to cover tables copied by clone_kernel_vm and directly by board
+     * code. */
     flush_dcache();
     __invalidate_icache_all();
     __set_translation_table_base(tlb_base);
@@ -265,7 +278,8 @@ inline void set_translation_table_base_asid(ewokos_addr_t tlb_base, uint32_t asi
     __set_translation_table_base(tlb_base);
     __flush_tlb_local();
 #elif defined(ARM_V7)
-    /* 保持当前全局页方案，不重新启用 ASID 免失效切换。 */
+    /* Keep the current global-page scheme; do not re-enable the ASID-based
+     * switch without TLB invalidation. */
     (void)asid;
     set_translation_table_base(tlb_base);
 #else

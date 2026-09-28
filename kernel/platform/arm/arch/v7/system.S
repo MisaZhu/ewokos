@@ -164,7 +164,8 @@ __invalidate_icache_all:
 
 .global __flush_tlb
 __flush_tlb:
-	/* 页表修改必须覆盖所有运行核；DSB 完成失效后，ISB 才同步取指。 */
+	/* Page-table changes must reach every running core; the DSB completes
+	 * the invalidation before the ISB resynchronizes instruction fetch. */
 	mov r0, #0
 	dsb
 #ifdef KERNEL_SMP
@@ -178,23 +179,27 @@ __flush_tlb:
 
 .global __set_translation_table_base
 __set_translation_table_base:
-	/* 恢复历史 TTBR0 属性：IRGN/RGN=0，走查直接读取已发布的页表。
-	 * TTBCR.N=0，L1 按 16KB 对齐；调用者须先将页表清理到 PoC。
-	 * ASID 禁用，必须在返回用户态前清除本核上一地址空间的全局项。 */
+	/* Restore the historical TTBR0 attributes: IRGN/RGN=0, so the walker
+	 * reads the published page tables directly from memory.
+	 * TTBCR.N=0 and L1 is 16KB aligned; the caller must clean the tables
+	 * to PoC first. ASIDs are disabled, so the previous address space's
+	 * global entries on this core must be purged before returning to
+	 * user mode. */
 	dsb
 	mcr p15, 0, r0, c2, c0, 0
 	isb
 	mov r0, #0
 	mcr p15, 0, r0, c13, c0, 1   // CONTEXTIDR = 0
-	mcr p15, 0, r0, c8, c7, 0    // TLBIALL：切换只影响本核
+	mcr p15, 0, r0, c8, c7, 0    // TLBIALL: a switch only affects this core
 	mcr p15, 0, r0, c7, c5, 6    // BPIALL
 	dsb
 	isb
 	bx lr
 
-/* 当前 ARMv7 使用全局 PTE，不具备免 TLBI 切换的 ASID 前提。
- * 即使直接调用此兼容入口，也须使用相同的非缓存走查与本核失效路径；
- * 调用者仍负责先将新页表发布到 PoC。 */
+/* ARMv7 currently uses global PTEs, so the ASID precondition for a switch
+ * without TLBI does not hold. Even when this compatibility entry is called
+ * directly it must take the same non-cached walk and local invalidate path;
+ * the caller is still responsible for publishing the new table to PoC. */
 .global __set_translation_table_base_asid
 __set_translation_table_base_asid:
 	b __set_translation_table_base

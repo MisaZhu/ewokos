@@ -777,17 +777,17 @@ int freeaddrinfo(struct addrinfo **res){
     while (current) {
         struct addrinfo *next = current->ai_next;
         
-        // 释放ai_addr指向的内存
+        // free the memory pointed to by ai_addr
         if (current->ai_addr) {
             free(current->ai_addr);
         }
         
-        // 释放ai_canonname指向的内存
+        // free the memory pointed to by ai_canonname
         if (current->ai_canonname) {
             free(current->ai_canonname);
         }
         
-        // 释放当前addrinfo结构体
+        // free the current addrinfo struct
         free(current);
         
         current = next;

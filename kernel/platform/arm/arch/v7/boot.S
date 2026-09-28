@@ -126,13 +126,15 @@ halt:
 
 .global load_boot_pgt
 load_boot_pgt:
-    /* 不继承引导器的长描述符、TTBR 分割或 TEX/AP 重映射配置。 */
+    /* Do not inherit the bootloader's long-descriptor, TTBR split or TEX/AP
+     * remap configuration. */
     mov r1, #0
-    mcr p15, 0, r1, c2, c0, 2   // TTBCR: EAE=0、N=0
+    mcr p15, 0, r1, c2, c0, 2   // TTBCR: EAE=0, N=0
     mcr p15, 0, r1, c13, c0, 1  // CONTEXTIDR = 0
-    /* 与旧 miyoo 启动路径一致：IRGN/RGN=0，页表走查不缓存。
-     * 0x0B 的 IRGN 实为 Write-through，并非 WBWA；不能沿用该配置。
-     * 此时 D-cache 关闭，DSB 保证引导页表写入完成后再使能 MMU。 */
+    /* Match the old miyoo boot path: IRGN/RGN=0, table walks are not cached.
+     * The IRGN encoded by 0x0B is actually Write-through, not WBWA, so that
+     * setting must not be reused. The D-cache is off here; the DSB makes sure
+     * the boot page-table stores complete before the MMU is enabled. */
     dsb
     mcr p15, 0, r0, c2, c0, 0
 
@@ -144,9 +146,9 @@ load_boot_pgt:
     isb
 
     mrc p15, 0, r0, c1, c0, 0
-    bic r0, r0, #(1 << 28)      // TRE=0：按 TEX/C/B 解释内存类型
-    bic r0, r0, #(1 << 29)      // AFE=0：按 AP[2:0] 解释访问权限
-    /* 恢复原有的分阶段使能：先建立地址翻译，再打开 cache。 */
+    bic r0, r0, #(1 << 28)      // TRE=0: memory type from TEX/C/B
+    bic r0, r0, #(1 << 29)      // AFE=0: access permissions from AP[2:0]
+    /* Restore the original staged enable: translation first, caches later. */
     orr r0, r0, #1
     mcr p15, 0, r0, c1, c0, 0
     isb

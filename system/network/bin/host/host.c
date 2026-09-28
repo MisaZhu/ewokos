@@ -16,7 +16,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
     
-    // 打印IP地址
+    // Print the IP address
     printf("IP addresses: ");
     char **addr_list = host->h_addr_list;
     while (*addr_list != NULL) {
