@@ -196,13 +196,36 @@ __set_translation_table_base:
 	isb
 	bx lr
 
-/* ARMv7 currently uses global PTEs, so the ASID precondition for a switch
- * without TLBI does not hold. Even when this compatibility entry is called
- * directly it must take the same non-cached walk and local invalidate path;
- * the caller is still responsible for publishing the new table to PoC. */
+/*
+ * void __set_translation_table_base_asid(ewokos_addr_t base, uint32_t asid)
+ * ASID-tagged address-space switch with no TLBI. User-half PTEs are non-global
+ * (map_page sets nG for VA < KERNEL_BASE) and are tagged with CONTEXTIDR.ASID,
+ * so switching spaces only needs TTBR0 and CONTEXTIDR updated: the outgoing
+ * space's user entries stop matching and stay warm for when it runs again,
+ * while the shared kernel half stays global and identical in every space.
+ * CONTEXTIDR.ASID is 8 bits and proc_space_asid() = pde_index+1 reserves 0, so
+ * the caller only takes this path for 1 <= asid < 256 and otherwise falls back
+ * to the full-TLBIALL switch.
+ *
+ * Changing the ASID follows the ARMv7 two-register hazard sequence: park
+ * CONTEXTIDR on the reserved ASID 0, context-synchronize, write the new TTBR0,
+ * then publish the real ASID, with an isb between each step. The caller has
+ * already cleaned the new table to PoC (the walk is Non-cacheable, IRGN/RGN=0)
+ * and keeps the switch-time D-cache sweep that non-coherent DMA/graphics
+ * doorbells rely on; the leading dsb drains prior stores before the writes.
+ * Clobbers r2.
+ */
 .global __set_translation_table_base_asid
 __set_translation_table_base_asid:
-	b __set_translation_table_base
+	dsb
+	mov r2, #0
+	mcr p15, 0, r2, c13, c0, 1   // CONTEXTIDR.ASID = 0 (reserved)
+	isb
+	mcr p15, 0, r0, c2, c0, 0    // TTBR0 = base
+	isb
+	mcr p15, 0, r1, c13, c0, 1   // CONTEXTIDR.ASID = asid
+	isb
+	bx lr
 
 /*
  * void __flush_tlb_asid(uint32_t asid)

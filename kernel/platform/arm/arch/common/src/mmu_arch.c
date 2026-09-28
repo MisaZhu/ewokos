@@ -45,7 +45,11 @@ int32_t map_page(page_dir_entry_t *vm, ewokos_addr_t virtual_addr,
     entry.type = SMALL_PAGE_TYPE;
     entry.base = PAGE_TO_BASE(physical);
     entry.ap = permissions;
-    entry.ng = 0; /* ARMv7 switches still use global pages and a full local TLB invalidate. */
+    /* User-half entries are ASID-tagged (nG) so an address-space switch needs
+     * no TLBI; the shared kernel half (VA >= KERNEL_BASE) stays global and
+     * identical in every space. This nG split is the invariant that makes the
+     * CONTEXTIDR/ASID switch in __set_translation_table_base_asid safe. */
+    entry.ng = (virtual_addr < KERNEL_BASE) ? 1 : 0;
     set_pte_flags(&entry, pte_attr);
 
     page_table_entry_t old = page_table[page_index];

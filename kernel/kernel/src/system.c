@@ -51,16 +51,19 @@ static inline uint32_t asid_limit(void) {
 #endif
 
 #if defined(ARM_V7)
-/* On ARMv7, map_page/unmap_page explicitly publish page-table lines to PoC.
- * The TTBR0 IRGN/RGN/S bits set the walk attributes; SCTLR.TRE only controls
- * TEX remapping and is not a switch for table-walk cacheability. */
+/* On ARMv7, map_page/unmap_page explicitly publish page-table lines to PoC and
+ * the walk is Non-cacheable (TTBR0 IRGN/RGN=0, SCTLR.TRE=0), so PTE visibility
+ * does not depend on cache snooping or the TEX-remap enable. */
 extern void __dcache_clean_pou_range(uint32_t start, uint32_t end);
 extern void __dcache_flush_poc_range(uint32_t start, uint32_t end);
 extern void __invalidate_icache_all_is(void);
-/* ARMv7 keeps ASIDs disabled: an address-space switch invalidates the local
- * TLB, while a mapping change broadcasts the invalidation. The two must not
- * be conflated; another core may keep running the same address space
- * without ever reloading TTBR. */
+extern void __flush_tlb_asid(uint32_t asid);
+extern void __set_translation_table_base_asid(ewokos_addr_t base, uint32_t asid);
+/* CONTEXTIDR.ASID is 8 bits on ARMv7-A short-descriptor translation and
+ * proc_space_asid() = pde_index+1 reserves 0, so usable ASIDs are 1..255. A
+ * space whose ASID does not fit falls back to the full-TLBIALL switch instead
+ * of silently truncating and aliasing another space. */
+static inline uint32_t asid_limit(void) { return 256; }
 #endif
 
 #ifdef KERNEL_SMP
@@ -299,9 +302,19 @@ inline void set_translation_table_base_asid(ewokos_addr_t tlb_base, uint32_t asi
     __set_translation_table_base(tlb_base);
     __flush_tlb_local();
 #elif defined(ARM_V7)
-    /* Keep the current global-page scheme; do not re-enable the ASID-based
-     * switch without TLB invalidation. */
-    (void)asid;
+    if(asid != 0 && asid < asid_limit()) {
+        /* Keep the switch-time whole-D-cache sweep: on ARMv7 it is load-bearing
+         * for non-coherent DMA/graphics doorbell ordering (removing it freezes
+         * X on real boards; an I-cache-only or bare-dsb variant does not
+         * substitute). The ASID write replaces the per-switch TLBIALL/BPIALL so
+         * each space keeps its own warm, ASID-tagged user TLB entries. */
+        flush_dcache();
+        __set_translation_table_base_asid(tlb_base, asid);
+        return;
+    }
+    /* ASID does not fit the 8-bit CONTEXTIDR field: take the full-invalidate
+     * switch (CONTEXTIDR=0 + TLBIALL), which also stops shared-ASID-0 fallback
+     * spaces from colliding in the TLB. */
     set_translation_table_base(tlb_base);
 #else
     (void)asid;
@@ -322,9 +335,13 @@ inline void flush_tlb_asid(uint32_t asid) {
     else
         flush_tlb();
 #elif defined(ARM_V7)
-    /* Real-hardware fallback: ASID tagging disabled; a full flush covers all. */
-    (void)asid;
-    flush_tlb();
+    /* Evict a recycled ASID's tagged entries on all cores (TLBIASIDIS) so a
+     * reused pde slot never resolves through the previous owner. An out-of-
+     * range ASID uses the full flush, which covers every ASID. */
+    if(asid != 0 && asid < asid_limit())
+        __flush_tlb_asid(asid);
+    else
+        flush_tlb();
 #else
     (void)asid;
 #endif
