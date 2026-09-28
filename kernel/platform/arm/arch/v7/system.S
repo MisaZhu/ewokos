@@ -64,7 +64,7 @@ skip:
 finished:
     mov    r10, #0                    @ swith back to cache level 0
     mcr    p15, 2, r10, c0, c0, 0     @ select current cache level in cssr
-    dsb    st
+    dsb
     isb
     bx    lr
 ENDPROC(__v7_flush_dcache_all)
@@ -135,7 +135,7 @@ inval_skip:
 inval_finished:
     mov    r10, #0                  @ swith back to cache level 0
     mcr    p15, 2, r10, c0, c0, 0   @ select current cache level in cssr
-    dsb    st
+    dsb
     isb
     bx    lr
 ENDPROC(__v7_invalidate_dcache_all)
@@ -164,57 +164,40 @@ __invalidate_icache_all:
 
 .global __flush_tlb
 __flush_tlb:
+	/* 页表修改必须覆盖所有运行核；DSB 完成失效后，ISB 才同步取指。 */
 	mov r0, #0
-	/*
-	 * Page-table walks are cacheable write-back inner-shareable (TTBR0
-	 * IRGN/RGN/S set in __set_translation_table_base), so the walker
-	 * snoops the coherent D-cache and PTE stores only need the leading
-	 * dsb to be published. No whole-D-cache clean or I-cache drop belongs
-	 * here; exec keeps its own code-coherency step
-	 * (dcache_clean_code_range + invalidate_icache_all).
-	 * TLBIALLIS broadcasts to every core of the inner-shareable domain.
-	 */
 	dsb
-	mcr p15, 0, r0, c8, c3, 0    // invalidate all TLB, inner-shareable
+#ifdef KERNEL_SMP
+	mcr p15, 0, r0, c8, c3, 0    // TLBIALLIS
+#else
+	mcr p15, 0, r0, c8, c7, 0    // TLBIALL
+#endif
 	dsb
 	isb
-	mov pc, lr
+	bx lr
 
 .global __set_translation_table_base
 __set_translation_table_base:
-	/*
-	 * TTBR0 attribute bits: IRGN=write-back write-allocate (bit0),
-	 * S=shareable (bit1), RGN=write-back write-allocate (bit3). NOTE: these
-	 * are only honored by the walker when SCTLR.TRE=1. The current build does
-	 * NOT set TRE (see boot.S), so walks are Non-cacheable and PTE-store
-	 * coherency is provided by the whole-D-cache clean inside flush_tlb()
-	 * (kernel/kernel/src/system.c ARM_V7 fallback), not by these bits. They
-	 * are kept ORed in so a future TRE=1 re-enable of the optimized path needs
-	 * no further edit here. SCTLR.N is left 0 by boot and the first-level
-	 * table is 16KB-aligned (base bits[13:0]=0), so ORing 0x0B is safe.
-	 */
-	orr r0, r0, #0x0B
-	mcr p15, 0, r0, c2, c0, 0    //set ttbase user
-	//mcr p15, 0, r0, c2, c0, 1    //set ttbase kernel
-	dmb
-	mov pc, lr
+	/* 恢复历史 TTBR0 属性：IRGN/RGN=0，走查直接读取已发布的页表。
+	 * TTBCR.N=0，L1 按 16KB 对齐；调用者须先将页表清理到 PoC。
+	 * ASID 禁用，必须在返回用户态前清除本核上一地址空间的全局项。 */
+	dsb
+	mcr p15, 0, r0, c2, c0, 0
+	isb
+	mov r0, #0
+	mcr p15, 0, r0, c13, c0, 1   // CONTEXTIDR = 0
+	mcr p15, 0, r0, c8, c7, 0    // TLBIALL：切换只影响本核
+	mcr p15, 0, r0, c7, c5, 6    // BPIALL
+	dsb
+	isb
+	bx lr
 
-/*
- * void __set_translation_table_base_asid(uint32_t base, uint32_t asid)
- * Address-space switch without a TLB invalidate. TTBR0 gets the same cacheable
- * inner-shareable attributes as __set_translation_table_base; CONTEXTIDR[7:0]
- * carries the ASID. User-half entries are nG (ASID-tagged, see mmu_arch.c) and
- * the kernel half is global, so the previous space's entries simply stop
- * matching and no TLBI is needed. The isb publishes the new context. asid 0 is
- * reserved for the kernel/no-space fallback.
- */
+/* 当前 ARMv7 使用全局 PTE，不具备免 TLBI 切换的 ASID 前提。
+ * 即使直接调用此兼容入口，也须使用相同的非缓存走查与本核失效路径；
+ * 调用者仍负责先将新页表发布到 PoC。 */
 .global __set_translation_table_base_asid
 __set_translation_table_base_asid:
-	orr r0, r0, #0x0B
-	mcr p15, 0, r0, c2, c0, 0    // TTBR0 = base | IRGN/S/RGN
-	mcr p15, 0, r1, c13, c0, 1   // CONTEXTIDR = ASID (bits[7:0])
-	isb
-	mov pc, lr
+	b __set_translation_table_base
 
 /*
  * void __flush_tlb_asid(uint32_t asid)

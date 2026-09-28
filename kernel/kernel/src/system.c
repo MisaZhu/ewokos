@@ -51,33 +51,14 @@ static inline uint32_t asid_limit(void) {
 #endif
 
 #if defined(ARM_V7)
-/* ARMv7 cache maintenance by VA. Addresses are 32-bit here, unlike aarch64.
-   Page-table walks are cacheable inner-shareable (see v7/system.S TTBR0), so
-   these range ops replace the historical whole-D-cache clean in flush_tlb(). */
+/* ARMv7 的页表行由 map_page/unmap_page 显式发布到 PoC。
+ * TTBR0 的 IRGN/RGN/S 决定走查属性；SCTLR.TRE 只控制 TEX 重映射，
+ * 不是页表走查 cacheability 的开关。 */
 extern void __dcache_clean_pou_range(uint32_t start, uint32_t end);
 extern void __dcache_flush_poc_range(uint32_t start, uint32_t end);
 extern void __invalidate_icache_all_is(void);
-/* ASID-tagged address-space switch: TTBR0 + CONTEXTIDR, no TLBI (user entries
-   are nG, kernel entries global). See v7/system.S and mmu_arch.c. */
-extern void __set_translation_table_base_asid(uint32_t base, uint32_t asid);
-extern void __flush_tlb_asid(uint32_t asid);
-
-/*
- * ARMv7 ASID width: ID_MMFR0.ASID (bits[7:4]) == 2 means 16-bit, else 8-bit.
- * asid = pde_index+1 must fit; a space whose ASID does not fit (only possible
- * when max_proc_num exceeds the core's ASID count) falls back to the
- * whole-TLB flush-on-switch path in set_translation_table_base_asid().
- */
-static uint32_t _asid_limit = 0;
-
-static inline uint32_t asid_limit(void) {
-    if(_asid_limit == 0) {
-        uint32_t mmfr0;
-        __asm__ volatile("mrc p15, 0, %0, c0, c1, 4" : "=r"(mmfr0));
-        _asid_limit = (((mmfr0 >> 4) & 0xf) == 2) ? (1u << 16) : (1u << 8);
-    }
-    return _asid_limit;
-}
+/* ARMv7 保持 ASID 禁用：切换地址空间清本核 TLB，修改映射则广播失效。
+ * 两种操作不能混同；同一地址空间的另一核可能一直运行而不切换 TTBR。 */
 #endif
 
 #ifdef KERNEL_SMP
@@ -92,6 +73,7 @@ inline void invalidate_dcache(void) {
 
 inline void invalidate_icache_all(void) {
 #if defined(__aarch64__) || defined(ARM_V7)
+    /* ELF 可能由另一核运行，必须使所有核放弃复用物理页中的旧指令。 */
     __invalidate_icache_all_is();
 #else
     __invalidate_icache_all();
@@ -111,15 +93,10 @@ inline void flush_tlb(void) {
      */
     __flush_tlb();
 #elif defined(ARM_V7)
-    /*
-     * Real-hardware fallback: an ARMv7 table walker only snoops the D-cache
-     * when SCTLR.TRE=1 makes the TTBR walk attributes effective, and even with
-     * TRE the zero-clean path proved unreliable on real Cortex-A7. Restore the
-     * whole D-cache clean + I-cache drop so every flush publishes PTE stores to
-     * DRAM for a possibly Non-cacheable walker. Slower, but correct everywhere.
-     */
+    /* 批量建表和板级页表复制仍保留整 D-cache 发布；映射修改必须跨核失效。
+     * 单页路径已有页表行发布，不再付出整 cache 清理开销。 */
     flush_dcache();
-    invalidate_icache_all();
+    __invalidate_icache_all();
     __flush_tlb();
 #else
     flush_dcache();
@@ -152,8 +129,7 @@ inline void flush_tlb(void) {
 #if defined(__aarch64__)
     __flush_tlb(); /* see the SMP variant for why no D-cache work is needed */
 #elif defined(ARM_V7)
-    /* Real-hardware fallback: publish PTE stores to a possibly Non-cacheable
-       walker (see the SMP variant for the full rationale). */
+    /* 与 SMP 的批量建表发布语义一致；汇编在 UP 下使用本核 TLBI。 */
     flush_dcache();
     invalidate_icache_all();
     __flush_tlb();
@@ -166,9 +142,8 @@ inline void flush_tlb(void) {
 
 /*
  * Make code the kernel just wrote (ELF load) visible to instruction fetch.
- * aarch64 and ARMv7 need an explicit step: their flush_tlb() no longer cleans
- * the whole D-cache, and the L1 I-cache does not snoop L1 D. arm32 v5/v6 still
- * run the full clean inside flush_tlb() right after the load.
+ * aarch64 和 ARMv7 的 ELF 加载不依赖 TLB 操作的副作用：先清理代码行，
+ * 再失效所有运行核的 I-cache。arm32 v5/v6 保留原有全量维护路径。
  */
 inline void dcache_clean_code_range(const void* start, uint32_t size) {
 #if defined(__aarch64__)
@@ -208,18 +183,10 @@ inline void dcache_flush_range(const void* start, uint32_t size) {
 }
 
 /*
- * Range-scoped TLB invalidation for a single page.
- *
- * map_page()/unmap_page() write PTEs but emit no barriers of their own; the
- * global flush_tlb() (flush_dcache() + __flush_tlb + dsb) used to both publish
- * the PTE store and invalidate every TLB entry. For shm map/unmap we only touch
- * a handful of pages, so a full flush (whole D-cache clean + broadcast
- * invalidate of the entire TLB) is wasteful and adds cross-core TLB pressure.
- *
- * Invalidate just the affected VA instead. The dsb before the TLBI publishes
- * the PTE write to the walker (page tables are cacheable/coherent in the inner-
- * shareable domain), so the separate whole-D-cache clean is not needed on the
- * archs handled here. Unknown archs fall back to the safe global flush_tlb().
+ * 仅失效受影响页的 TLB 项。ARMv7 的 map_page/unmap_page 已将描述符
+ * 显式发布到 PoC；aarch64 的走查使用 cacheable、inner-shareable 属性，
+ * 由 TLBI 前的 DSB 发布 PTE 写入。两者均在失效后等待完成并同步上下文。
+ * 因此这些单页路径不再需要全量 D-cache 清理；旧 ARM 版本保留全量路径。
  */
 inline void flush_tlb_addr(ewokos_addr_t addr) {
 #if defined(__aarch64__)
@@ -236,22 +203,22 @@ inline void flush_tlb_addr(ewokos_addr_t addr) {
         "isb\n"
         :: "r"(page) : "memory");
 #elif defined(ARM_V7)
-    /*
-     * Real-hardware fallback: a single-VA TLBI does not publish a PTE store to
-     * a Non-cacheable walker (SCTLR.TRE not guaranteed), so do the full
-     * flush_tlb() - whole-D-cache clean + broadcast TLBI. Matches the
-     * pre-optimization path verified to boot real Cortex-A7 boards.
-     */
-    (void)addr;
-    flush_tlb();
+    /* map_page/unmap_page 已发布描述符；TLBI 操作数是 VA[31:12] 原位，
+     * 不是 aarch64 的 addr >> 12。使用全 ASID 形式也覆盖全局页。 */
+    ewokos_addr_t page = addr & ~(ewokos_addr_t)0xfff;
+    __asm__ volatile(
+        "dsb\n"
+#ifdef KERNEL_SMP
+        "mcr p15, 0, %0, c8, c3, 3\n" /* TLBIMVAAIS */
+#else
+        "mcr p15, 0, %0, c8, c7, 3\n" /* TLBIMVAA */
+#endif
+        "dsb\n"
+        "isb\n"
+        :: "r"(page) : "memory");
 #elif defined(__arm__)
-    /* arm32 v6/v5: __set_translation_table_base() programs TTBR0 with
-     * IRGN/ORGN/S bits all zero, so the table walker fetches page tables as
-     * non-cacheable memory and does NOT snoop the D-cache. PTE stores made
-     * through the cacheable kernel mapping stay in the D-cache and a bare
-     * dsb+TLBI never publishes them to the walker (hangs real Cortex-A7
-     * boards; QEMU does not model this). Keep the historical full flush
-     * (D-cache clean + global TLB invalidate) on these older cores. */
+    /* ARMv5/v6 没有 ARMv7 的页表行发布路径，保留原有全量 D-cache
+     * 清理和 TLB 失效语义，避免只做 TLBI 而未发布脏页表。 */
     (void)addr;
     flush_tlb();
 #elif defined(__riscv)
@@ -265,8 +232,16 @@ inline void flush_tlb_addr(ewokos_addr_t addr) {
 }
 
 inline void set_translation_table_base(ewokos_addr_t tlb_base) {
+#if defined(ARM_V7)
+    /* 必须先发布新页表，再装载 TTBR；汇编完成本核 TLB 失效和 ISB。
+     * 保留全量发布以覆盖 clone_kernel_vm 和板级直接复制的页表。 */
+    flush_dcache();
+    __invalidate_icache_all();
+    __set_translation_table_base(tlb_base);
+#else
     __set_translation_table_base(tlb_base);
     flush_tlb();
+#endif
 }
 
 /*
@@ -290,13 +265,7 @@ inline void set_translation_table_base_asid(ewokos_addr_t tlb_base, uint32_t asi
     __set_translation_table_base(tlb_base);
     __flush_tlb_local();
 #elif defined(ARM_V7)
-    /*
-     * Real-hardware fallback: the zero-TLBI ASID switch needs cache-coherent
-     * walks (SCTLR.TRE=1) so the walker sees PTE stores still dirty in the
-     * D-cache; that path did not boot on real Cortex-A7. Always take the full
-     * route - __set_translation_table_base + flush_tlb() (whole-D-cache clean +
-     * broadcast TLBI) on every switch. asid is ignored.
-     */
+    /* 保持当前全局页方案，不重新启用 ASID 免失效切换。 */
     (void)asid;
     set_translation_table_base(tlb_base);
 #else
