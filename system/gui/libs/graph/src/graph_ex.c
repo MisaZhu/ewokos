@@ -298,28 +298,53 @@ void graph_shadow_round(graph_t* g, int x, int y, int w, int h, int round, uint8
     int pad = shadow; /*>= blur: no read pixel ever has samples beyond the mask*/
     int mw = fw + shadow + 2*pad;
     int mh = fh + shadow + 2*pad;
-    graph_t* m = graph_new_shm(mw, mh);
-    if(m == NULL)
-        return;
 
-    /*the silhouette lives in the RGB channels of an opaque mask: the NEON
-      gaussian blurs alpha too but the CPU fallback does not, intensity works
-      with both*/
-    graph_clear(m, 0xff000000);
-    graph_fill_round(m, pad+off, pad+off, fw, fh, round, 0xffffffff);
-
-    /*blur only the L the shadow occupies: a right strip of full height and the
-      bottom strip left of it. The split runs where the silhouette is uniform
-      along the axis the blur samples across, so clipping the kernel at the
-      split changes nothing; a box too small for that is blurred whole.*/
-    int xs = pad + fw - round - 2*shadow;
-    int ys = pad + fh - round - 2*shadow;
-    if(xs >= pad + off + round + blur && ys >= pad + off + round + blur) {
-        graph_gaussian_blur(m, xs, 0, mw - xs, mh, blur);
-        graph_gaussian_blur(m, 0, ys, xs, mh - ys, blur);
+    /*the mask is a pure function of (fw, fh, round, shadow) - color is
+      applied later from the calibrated falloff - and it is read-only
+      after the blur, so cache it per geometry.  rebuilding it per call
+      cost a clear + rounded fill + two blur dispatches (plus their shm
+      churn) on every shadowed-window render, which animating desktops
+      hit several times a second.*/
+    static graph_t* _mask;
+    static int _mask_fw, _mask_fh, _mask_round, _mask_shadow;
+    graph_t* m;
+    if(_mask != NULL && _mask_fw == fw && _mask_fh == fh &&
+            _mask_round == round && _mask_shadow == shadow) {
+        m = _mask;
     }
     else {
-        graph_gaussian_blur(m, 0, 0, mw, mh, blur);
+        if(_mask != NULL)
+            graph_free(_mask);
+        m = graph_new_shm(mw, mh);
+        if(m == NULL)
+            return;
+
+        /*the silhouette lives in the RGB channels of an opaque mask: the
+          NEON gaussian blurs alpha too but the CPU fallback does not,
+          intensity works with both*/
+        graph_clear(m, 0xff000000);
+        graph_fill_round(m, pad+off, pad+off, fw, fh, round, 0xffffffff);
+
+        /*blur only the L the shadow occupies: a right strip of full height
+          and the bottom strip left of it. The split runs where the
+          silhouette is uniform along the axis the blur samples across, so
+          clipping the kernel at the split changes nothing; a box too small
+          for that is blurred whole.*/
+        int xs = pad + fw - round - 2*shadow;
+        int ys = pad + fh - round - 2*shadow;
+        if(xs >= pad + off + round + blur &&
+                ys >= pad + off + round + blur) {
+            graph_gaussian_blur(m, xs, 0, mw - xs, mh, blur);
+            graph_gaussian_blur(m, 0, ys, xs, mh - ys, blur);
+        }
+        else {
+            graph_gaussian_blur(m, 0, 0, mw, mh, blur);
+        }
+        _mask = m;
+        _mask_fw = fw;
+        _mask_fh = fh;
+        _mask_round = round;
+        _mask_shadow = shadow;
     }
 
     /*calibrate on the straight right band at mid height: the innermost
@@ -368,7 +393,7 @@ void graph_shadow_round(graph_t* g, int x, int y, int w, int h, int round, uint8
             graph_pixel(g, x + px, y + py, (alpha << 24) | (color & 0x00ffffff));
         }
     }
-    graph_free(m);
+    /*m stays cached per geometry - freed on the next rebuild*/
 }
 
 void graph_shadow(graph_t* g, int x, int y, int w, int h, uint8_t shadow, uint32_t color) {
