@@ -341,12 +341,12 @@ void MisaWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinf
 	  back over it with alpha. Opaque content covers the glass completely and
 	  looks as before; translucent content now blends over the blurred
 	  backdrop instead of the raw copy prepare_win_content put here.*/
-	if(info->alpha && xwm.theme.frameBlur > 0) {
+	if(info->alpha && xwm.theme.wsBlur > 0) {
 		grect_t ws = {(int)info->wsr.x - (int)info->winr.x, (int)info->wsr.y - (int)info->winr.y,
 				(int)info->wsr.w, (int)info->wsr.h};
 		grect_t fr = {r->x, r->y, fw, fh};
 		if(grect_insect(&fr, &ws) && ws.w > 0 && ws.h > 0) {
-			frostRegion(desktop_g, frame_g, info, ws.x, ws.y, ws.w, ws.h, tint, xwm.theme.frameBlur);
+			frostRegion(desktop_g, frame_g, info, ws.x, ws.y, ws.w, ws.h, tint, xwm.theme.wsBlur);
 			if(ws_g != NULL && ws_g->buffer != NULL) {
 				int sx = ws.x - ((int)info->wsr.x - (int)info->winr.x);
 				int sy = ws.y - ((int)info->wsr.y - (int)info->winr.y);
