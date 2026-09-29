@@ -63,6 +63,24 @@
 | **shm** | Shared Memory | Two processes mapping the same physical page, for zero-copy transfer of big data. | Ch. 09/13 |
 | **page fault** | — | The exception triggered by accessing an unmapped virtual page; the kernel uses it to allocate physical pages on demand. | Ch. 05 |
 
+## 3b. Cache & Coherency
+
+| Term | Full name | Meaning and explanation | Appears in |
+|---|---|---|---|
+| **D-cache / I-cache** | Data / Instruction Cache | The separate data and instruction caches; a byte written to D-cache is not automatically seen by an I-cache fetch. | Ch. 23 |
+| **Clean** | — | Write a dirty cache line back to the next level but keep it cached. | Ch. 23 |
+| **Invalidate** | — | Drop a cache line without writing it back (dirty data is lost). | Ch. 23 |
+| **Flush** | — | Clean + invalidate: write back and drop the line. | Ch. 23 |
+| **PoU** | Point of Unification | The point where D-cache, I-cache and the walker agree; code is cleaned here for instruction fetch. | Ch. 23 |
+| **PoC** | Point of Coherency | The point where all observers (CPU, DMA, cores) see the same bytes; device data is flushed here. | Ch. 23 |
+| **set/way** | — | Addressing cache lines geometrically by set and way; the only way to hit the whole cache, slow and working-set-destroying. | Ch. 23 |
+| **by VA** | by Virtual Address | Operating on one cache line at a time by address; cheap and surgical, used by hot paths. | Ch. 23 |
+| **ASID** | Address Space Identifier | A tag on TLB entries letting each space keep its own warm entries, so a switch needs no TLBI. | Ch. 23 |
+| **nG** | non-global | A PTE bit marking user pages as ASID-tagged rather than global. | Ch. 23 |
+| **inner-shareable (IS)** | — | The broadcast domain for cache/TLB maintenance on SMP; the `is` suffix on `tlbi`/`ic` ops. | Ch. 23 |
+| **MESI** | Modified/Exclusive/Shared/Invalid | The x86 hardware cache-coherence protocol; makes ARM-style software clean/invalidate unnecessary. | Ch. 23 |
+| **wbinvd** | Write Back and Invalidate Cache | The x86 whole-cache flush; degraded to `mfence` in EwokOS except for MTRR/PAT changes. | Ch. 23 |
+
 ## 4. Processes and Scheduling
 
 | Term | Full name | Meaning and explanation | Appears in |

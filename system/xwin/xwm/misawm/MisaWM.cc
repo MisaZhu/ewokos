@@ -16,7 +16,7 @@ using namespace Ewok;
   ensureFrost could not tell our pixels apart from fresh backdrop. graph_pixel
   keeps the opaque alpha the backdrop copy brought in, so the compositor still
   takes its opaque-ring copy path.*/
-uint32_t MisaWM::glassTint(void) {
+inline uint32_t MisaWM::glassTint(void) {
 	uint32_t fg, bg;
 	getColor(&fg, &bg, true);
 
@@ -25,9 +25,19 @@ uint32_t MisaWM::glassTint(void) {
 	return bg;
 }
 
+/*exact unsigned divide-by-255 for n in [0,65025]. The per-pixel tint blend
+  below does four of these per pixel; on ARM a hardware sdiv is one of the
+  slowest ALU ops. Every numerator here is a product/sum of two <=255 values
+  (ta+inv_a==255), so it never exceeds 255*255==65025 and the shift form is
+  bit-exact. NOTE: the identity breaks at n==65535, so do not reuse this
+  helper for a wider range without re-checking.*/
+static inline int32_t div255(int32_t n) {
+	return (n + 1 + (n >> 8)) >> 8;
+}
+
 /*what graph_pixel(tint) writes over an opaque backdrop pixel: the exact value
   our glass leaves on the display, used to recognise our own output again*/
-uint32_t MisaWM::blendPixel(uint32_t tint, uint32_t dst) {
+inline uint32_t MisaWM::blendPixel(uint32_t tint, uint32_t dst) {
 	uint32_t a = color_a(tint);
 	if(a == 0)
 		return dst;
@@ -38,7 +48,7 @@ uint32_t MisaWM::blendPixel(uint32_t tint, uint32_t dst) {
 	return argb(0xff, r, g, b);
 }
 
-bool MisaWM::decontam(graph_t* sharp, graph_t* pred, graph_t* desktop_g, xinfo_t* info,
+inline bool MisaWM::decontam(graph_t* sharp, graph_t* pred, graph_t* desktop_g, xinfo_t* info,
 		int gx, int gy, int gw, int gh, uint32_t tint) {
 	if(gw <= 0 || gh <= 0)
 		return false;
@@ -188,12 +198,16 @@ void MisaWM::ensureFrost(graph_t* desktop_g, xinfo_t* info) {
 void MisaWM::frostRegion(graph_t* desktop_g, graph_t* frame_g, xinfo_t* info,
 		int gx, int gy, int gw, int gh, uint32_t tint, int blur) {
 	(void)blur; //the blur already happened when the snapshot was taken
-	if(gw <= 0 || gh <= 0)
+	if(gw <= 1 || gh <= 1)
 		return;
 	if(frame_g == NULL || frame_g->buffer == NULL)
 		return;
 
-	ensureFrost(desktop_g, info);
+	/*ensureFrost is hoisted to the callers (drawTitle/drawFrame): it does a
+	  whole-window backdrop memcmp, and running it per frosted band scanned
+	  the full window six times per repaint even though only the first pass
+	  can ever find a change. frostCache is already valid here.*/
+	(void)desktop_g;
 	if(frostCache == NULL)
 		return;
 
@@ -230,7 +244,11 @@ void MisaWM::frostRegion(graph_t* desktop_g, graph_t* frame_g, xinfo_t* info,
 			}
 		}
 		else if(ta > 0) {
+			/*ta+inv_a == 255, so the tint RGB scaled by ta is a per-channel
+			  constant: hoist it out and turn the four per-pixel divides into
+			  the exact div255 shift form.*/
 			int32_t inv_a = 255 - ta;
+			int32_t tra = tr * ta, tga = tg * ta, tba = tb * ta;
 			for(int32_t py = y0; py < y1; py++) {
 				uint32_t* row = frame_g->buffer +
 					(size_t)py * frame_g->w;
@@ -240,12 +258,12 @@ void MisaWM::frostRegion(graph_t* desktop_g, graph_t* frame_g, xinfo_t* info,
 					int32_t orr = (int32_t)((oc >> 16) & 0xff);
 					int32_t ogg = (int32_t)((oc >> 8) & 0xff);
 					int32_t obb = (int32_t)(oc & 0xff);
-					int32_t na = oa + ((255 - oa) * ta) / 255;
+					int32_t na = oa + div255((255 - oa) * ta);
 					row[px] = argb(
 							(uint8_t)na,
-							(uint8_t)((tr * ta + orr * inv_a) / 255),
-							(uint8_t)((tg * ta + ogg * inv_a) / 255),
-							(uint8_t)((tb * ta + obb * inv_a) / 255));
+							(uint8_t)div255(tra + orr * inv_a),
+							(uint8_t)div255(tga + ogg * inv_a),
+							(uint8_t)div255(tba + obb * inv_a));
 				}
 			}
 		}
@@ -304,6 +322,11 @@ void MisaWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinf
 
 	uint32_t tint = glassTint();
 
+	/*ensure the frost once for the whole frame: the four border bands and the
+	  optional client-area band below all blit from the same cache, so a single
+	  backdrop scan here replaces the five this method used to trigger.*/
+	ensureFrost(desktop_g, info);
+
 	/*the border ring: frost the four bands that make up the frame edge. The
 	  title band is frosted in drawTitle, which runs before this and already
 	  carries the title text and the buttons, so the ring stops at the title
@@ -351,6 +374,7 @@ void MisaWM::drawTitle(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r
 	/*the title bar is part of the glass sheet: frost it first, then centre
 	  the title text on top. This runs before the buttons and before
 	  drawFrame, so nothing painted here gets overwritten by the ring.*/
+	ensureFrost(desktop_g, info);
 	frostRegion(desktop_g, g, info, r->x, r->y, r->w, r->h, glassTint(), xwm.theme.frameBlur);
 
 	gsize_t sz;
