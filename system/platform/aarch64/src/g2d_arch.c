@@ -1708,7 +1708,14 @@ int32_t arch_g2d_fill_alpha(uint32_t* argb, int32_t argb_w, int32_t argb_h,
    edge-padded source buffer keeps the vector taps branch-free, and each
    16px block is de-interleaved once per tap via vld4q, widened with
    vmovl_u8, accumulated with vmlal_n_u16 and narrowed with vrshrn_n_u32.
-   16 u32x4 accumulators fit the 32 aarch64 q-registers. */
+   16 u32x4 accumulators fit the 32 aarch64 q-registers.
+
+   Symmetric kernel folding: the gaussian kernel satisfies wk[t]==wk[2R-t],
+   so each pass iterates radius pairs plus one center tap instead of
+   kernel_size taps. Every symmetric pair is pre-summed with vaddl_u8 (a
+   widening add; two 8-bit pixels peak at 510, still u16) before a single
+   vmlal_n_u16, halving the multiply-accumulate count while producing
+   bit-identical output (the accumulator still peaks at 255*65536 < 2^32). */
 static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
                        int x, int y, int w, int h, int radius) {
     if (radius <= 0) return;
@@ -1722,10 +1729,13 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
 
     // Build the Gaussian kernel and quantize it to Q16 fixed point, so the
     // inner loops can use integer NEON multiply-accumulate instead of float.
+    // kf/wk live on the stack (no malloc round-trip); radius is capped so the
+    // fixed arrays always fit. The kernel is symmetric (wk[t]==wk[2R-t]), which
+    // the inner loops exploit to halve the multiply-accumulate count.
+    if (radius > 32) return; // unreasonable for embedded blur
     int kernel_size = radius * 2 + 1;
-    float* kf = (float*)malloc(kernel_size * sizeof(float));
-    uint16_t* wk = (uint16_t*)malloc(kernel_size * sizeof(uint16_t));
-    if (kf == NULL || wk == NULL) { free(kf); free(wk); return; }
+    float kf[65];
+    uint16_t wk[65];
 
     float sigma = radius / 2.0f;
     float sum = 0.0f;
@@ -1749,17 +1759,17 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
         if (c > 65535) c = 65535;
         wk[radius] = (uint16_t)c;
     }
-    free(kf);
 
     // Packed ARGB intermediate (horizontal result) plus a per-row edge-padded
     // source buffer, so the vectorized taps never need any per-lane clamping.
     uint32_t* temp = (uint32_t*)malloc((size_t)w * h * sizeof(uint32_t));
     uint32_t* padrow = (uint32_t*)malloc((size_t)(w + 2 * radius) * sizeof(uint32_t));
-    if (temp == NULL || padrow == NULL) { free(temp); free(padrow); free(wk); return; }
+    if (temp == NULL || padrow == NULL) { free(temp); free(padrow); return; }
 
     // Horizontal pass: temp[j][i] = sum_t wk[t] * src[j][clamp(i - r + t)].
-    // Deinterleave 16 packed pixels per tap (vld4q) and accumulate in Q16,
-    // so each source pixel is loaded/expanded once per tap, never per output.
+    // Symmetric folding: radius pairs (t, 2R-t) pre-summed with vaddl_u8 plus
+    // one center tap, so each 16px block does radius+1 vmlal rounds instead of
+    // kernel_size. Bit-identical to the unfolded sum.
     for (int j = 0; j < h; j++) {
         uint32_t* srow = &pixels[(y + j) * width + x];
         for (int t = 0; t < radius; t++) padrow[t] = srow[0];
@@ -1777,9 +1787,48 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
             uint32x4_t aA0 = vdupq_n_u32(0), aA1 = vdupq_n_u32(0);
             uint32x4_t aA2 = vdupq_n_u32(0), aA3 = vdupq_n_u32(0);
 
-            for (int t = 0; t < kernel_size; t++) {
-                uint8x16x4_t px = vld4q_u8((const uint8_t*)(padrow + i + t));
+            // Symmetric pairs: taps t and kernel_size-1-t share weight wk[t].
+            // Pre-sum the two 8-bit pixels with vaddl_u8 (max 510, fits u16),
+            // then one vmlal per sub-block instead of two.
+            for (int t = 0; t < radius; t++) {
+                uint8x16x4_t px1 = vld4q_u8((const uint8_t*)(padrow + i + t));
+                uint8x16x4_t px2 = vld4q_u8((const uint8_t*)(padrow + i + kernel_size - 1 - t));
                 uint16_t wv = wk[t];
+                uint16x8_t s_lo, s_hi;
+
+                s_lo = vaddl_u8(vget_low_u8(px1.val[0]), vget_low_u8(px2.val[0]));
+                s_hi = vaddl_u8(vget_high_u8(px1.val[0]), vget_high_u8(px2.val[0]));
+                aB0 = vmlal_n_u16(aB0, vget_low_u16(s_lo), wv);
+                aB1 = vmlal_n_u16(aB1, vget_high_u16(s_lo), wv);
+                aB2 = vmlal_n_u16(aB2, vget_low_u16(s_hi), wv);
+                aB3 = vmlal_n_u16(aB3, vget_high_u16(s_hi), wv);
+
+                s_lo = vaddl_u8(vget_low_u8(px1.val[1]), vget_low_u8(px2.val[1]));
+                s_hi = vaddl_u8(vget_high_u8(px1.val[1]), vget_high_u8(px2.val[1]));
+                aG0 = vmlal_n_u16(aG0, vget_low_u16(s_lo), wv);
+                aG1 = vmlal_n_u16(aG1, vget_high_u16(s_lo), wv);
+                aG2 = vmlal_n_u16(aG2, vget_low_u16(s_hi), wv);
+                aG3 = vmlal_n_u16(aG3, vget_high_u16(s_hi), wv);
+
+                s_lo = vaddl_u8(vget_low_u8(px1.val[2]), vget_low_u8(px2.val[2]));
+                s_hi = vaddl_u8(vget_high_u8(px1.val[2]), vget_high_u8(px2.val[2]));
+                aR0 = vmlal_n_u16(aR0, vget_low_u16(s_lo), wv);
+                aR1 = vmlal_n_u16(aR1, vget_high_u16(s_lo), wv);
+                aR2 = vmlal_n_u16(aR2, vget_low_u16(s_hi), wv);
+                aR3 = vmlal_n_u16(aR3, vget_high_u16(s_hi), wv);
+
+                s_lo = vaddl_u8(vget_low_u8(px1.val[3]), vget_low_u8(px2.val[3]));
+                s_hi = vaddl_u8(vget_high_u8(px1.val[3]), vget_high_u8(px2.val[3]));
+                aA0 = vmlal_n_u16(aA0, vget_low_u16(s_lo), wv);
+                aA1 = vmlal_n_u16(aA1, vget_high_u16(s_lo), wv);
+                aA2 = vmlal_n_u16(aA2, vget_low_u16(s_hi), wv);
+                aA3 = vmlal_n_u16(aA3, vget_high_u16(s_hi), wv);
+            }
+
+            // Center tap (t == radius), no symmetric partner.
+            {
+                uint8x16x4_t px = vld4q_u8((const uint8_t*)(padrow + i + radius));
+                uint16_t wv = wk[radius];
                 uint16x8_t lo, hi;
 
                 lo = vmovl_u8(vget_low_u8(px.val[0]));
@@ -1825,9 +1874,18 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
 
         for (; i < w; i++) {
             uint32_t sB = 0, sG = 0, sR = 0, sA = 0;
-            for (int t = 0; t < kernel_size; t++) {
-                uint32_t p = padrow[i + t];
+            for (int t = 0; t < radius; t++) {
+                uint32_t p1 = padrow[i + t];
+                uint32_t p2 = padrow[i + kernel_size - 1 - t];
                 uint16_t wv = wk[t];
+                sB += ((p1 & 0xff) + (p2 & 0xff)) * wv;
+                sG += (((p1 >> 8) & 0xff) + ((p2 >> 8) & 0xff)) * wv;
+                sR += (((p1 >> 16) & 0xff) + ((p2 >> 16) & 0xff)) * wv;
+                sA += (((p1 >> 24) & 0xff) + ((p2 >> 24) & 0xff)) * wv;
+            }
+            {
+                uint32_t p = padrow[i + radius];
+                uint16_t wv = wk[radius];
                 sB += (p & 0xff) * wv;
                 sG += ((p >> 8) & 0xff) * wv;
                 sR += ((p >> 16) & 0xff) * wv;
@@ -1840,7 +1898,8 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
     }
 
     // Vertical pass: pixels[j][i] = sum_m wk[m+r] * temp[clamp(j+m)][i].
-    // For a fixed tap the 16 columns are contiguous, so vld4q reuses one load.
+    // Symmetric folding: rows j-d and j+d share weight wk[radius+d], so the
+    // pair is pre-summed with vaddl_u8 before one vmlal per sub-block.
     for (int j = 0; j < h; j++) {
         int i = 0;
         for (; i + 16 <= w; i += 16) {
@@ -1853,12 +1912,53 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
             uint32x4_t aA0 = vdupq_n_u32(0), aA1 = vdupq_n_u32(0);
             uint32x4_t aA2 = vdupq_n_u32(0), aA3 = vdupq_n_u32(0);
 
-            for (int m = -radius; m <= radius; m++) {
-                int py = j + m;
+            for (int d = 1; d <= radius; d++) {
+                int py1 = j - d, py2 = j + d;
+                if (py1 < 0) py1 = 0;
+                if (py1 >= h) py1 = h - 1;
+                if (py2 < 0) py2 = 0;
+                if (py2 >= h) py2 = h - 1;
+                uint8x16x4_t px1 = vld4q_u8((const uint8_t*)(temp + py1 * w + i));
+                uint8x16x4_t px2 = vld4q_u8((const uint8_t*)(temp + py2 * w + i));
+                uint16_t wv = wk[radius + d];
+                uint16x8_t s_lo, s_hi;
+
+                s_lo = vaddl_u8(vget_low_u8(px1.val[0]), vget_low_u8(px2.val[0]));
+                s_hi = vaddl_u8(vget_high_u8(px1.val[0]), vget_high_u8(px2.val[0]));
+                aB0 = vmlal_n_u16(aB0, vget_low_u16(s_lo), wv);
+                aB1 = vmlal_n_u16(aB1, vget_high_u16(s_lo), wv);
+                aB2 = vmlal_n_u16(aB2, vget_low_u16(s_hi), wv);
+                aB3 = vmlal_n_u16(aB3, vget_high_u16(s_hi), wv);
+
+                s_lo = vaddl_u8(vget_low_u8(px1.val[1]), vget_low_u8(px2.val[1]));
+                s_hi = vaddl_u8(vget_high_u8(px1.val[1]), vget_high_u8(px2.val[1]));
+                aG0 = vmlal_n_u16(aG0, vget_low_u16(s_lo), wv);
+                aG1 = vmlal_n_u16(aG1, vget_high_u16(s_lo), wv);
+                aG2 = vmlal_n_u16(aG2, vget_low_u16(s_hi), wv);
+                aG3 = vmlal_n_u16(aG3, vget_high_u16(s_hi), wv);
+
+                s_lo = vaddl_u8(vget_low_u8(px1.val[2]), vget_low_u8(px2.val[2]));
+                s_hi = vaddl_u8(vget_high_u8(px1.val[2]), vget_high_u8(px2.val[2]));
+                aR0 = vmlal_n_u16(aR0, vget_low_u16(s_lo), wv);
+                aR1 = vmlal_n_u16(aR1, vget_high_u16(s_lo), wv);
+                aR2 = vmlal_n_u16(aR2, vget_low_u16(s_hi), wv);
+                aR3 = vmlal_n_u16(aR3, vget_high_u16(s_hi), wv);
+
+                s_lo = vaddl_u8(vget_low_u8(px1.val[3]), vget_low_u8(px2.val[3]));
+                s_hi = vaddl_u8(vget_high_u8(px1.val[3]), vget_high_u8(px2.val[3]));
+                aA0 = vmlal_n_u16(aA0, vget_low_u16(s_lo), wv);
+                aA1 = vmlal_n_u16(aA1, vget_high_u16(s_lo), wv);
+                aA2 = vmlal_n_u16(aA2, vget_low_u16(s_hi), wv);
+                aA3 = vmlal_n_u16(aA3, vget_high_u16(s_hi), wv);
+            }
+
+            // Center tap (d == 0, row j itself).
+            {
+                int py = j;
                 if (py < 0) py = 0;
                 if (py >= h) py = h - 1;
                 uint8x16x4_t px = vld4q_u8((const uint8_t*)(temp + py * w + i));
-                uint16_t wv = wk[m + radius];
+                uint16_t wv = wk[radius];
                 uint16x8_t lo, hi;
 
                 lo = vmovl_u8(vget_low_u8(px.val[0]));
@@ -1904,12 +2004,26 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
 
         for (; i < w; i++) {
             uint32_t sB = 0, sG = 0, sR = 0, sA = 0;
-            for (int m = -radius; m <= radius; m++) {
-                int py = j + m;
+            for (int d = 1; d <= radius; d++) {
+                int py1 = j - d, py2 = j + d;
+                if (py1 < 0) py1 = 0;
+                if (py1 >= h) py1 = h - 1;
+                if (py2 < 0) py2 = 0;
+                if (py2 >= h) py2 = h - 1;
+                uint32_t p1 = temp[py1 * w + i];
+                uint32_t p2 = temp[py2 * w + i];
+                uint16_t wv = wk[radius + d];
+                sB += ((p1 & 0xff) + (p2 & 0xff)) * wv;
+                sG += (((p1 >> 8) & 0xff) + ((p2 >> 8) & 0xff)) * wv;
+                sR += (((p1 >> 16) & 0xff) + ((p2 >> 16) & 0xff)) * wv;
+                sA += (((p1 >> 24) & 0xff) + ((p2 >> 24) & 0xff)) * wv;
+            }
+            {
+                int py = j;
                 if (py < 0) py = 0;
                 if (py >= h) py = h - 1;
                 uint32_t p = temp[py * w + i];
-                uint16_t wv = wk[m + radius];
+                uint16_t wv = wk[radius];
                 sB += (p & 0xff) * wv;
                 sG += ((p >> 8) & 0xff) * wv;
                 sR += ((p >> 16) & 0xff) * wv;
@@ -1923,7 +2037,6 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
 
     free(temp);
     free(padrow);
-    free(wk);
 }
 
 /* in-place gaussian blur of a sub-rect. The software engine works on the
