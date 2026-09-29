@@ -44,4 +44,37 @@ extern uint32_t irq_get_unified_arch(uint32_t irq_raw);
 extern void irq_eoi_arch(uint32_t irq_raw);
 extern uint64_t irq_accounting_now_usec(void);
 
+/*
+ * Arch hooks that let the common kernel/kernel/src/irq.c stay free of
+ * architecture #if macros. Each is implemented in the per-platform
+ * kernel/platform/<arch>/arch/common/src/irq.c. See that file for the exact
+ * per-arch behaviour these reproduce.
+ */
+#include <kevent.h>
+
+/* raw interrupt vector for this trap: x86 reads it from the trap frame, the
+   other arches ask the controller through irq_get_arch(). */
+extern uint32_t arch_irq_raw(context_t* ctx);
+/* acknowledge/clear the timer source after a timer0 tick (no-op on x86, which
+   accounts the PIT tick in arch_irq_prologue instead). */
+extern void arch_irq_timer_ack(void);
+/* per-arch work done at the very top of irq_handler() before accounting the
+   current proc (x86 bumps the PIT software tick; others no-op). */
+extern void arch_irq_prologue(context_t* ctx);
+/* idle CPU pause in the irq tail (wfi on arm/aarch64/riscv; no-op on x86). */
+extern void arch_irq_idle(void);
+/* whether a data-abort status describes a recoverable user page fault. */
+extern uint8_t arch_fault_recoverable(uint32_t status);
+/* snapshot the arch register file into a core-dump event. */
+extern void arch_fill_core_dump_regs(kev_core_dump_t* dump, context_t* ctx);
+/* format+print the user words around a faulting address (arch word layout). */
+extern void arch_dump_addr_words(const uint8_t* page_ptr, uint32_t page_off,
+        uint32_t avail, const char* tag);
+/* dump the dying user proc's stack/pc/lr words; no-op on arches that never
+   enabled the user-word dump. */
+extern void arch_dump_user_fault(proc_t* proc, context_t* ctx);
+/* arch-specific extra line printed by prefetch_abort_handler (x86 prints the
+   live trap-frame summary; others no-op). */
+extern void arch_dump_prefetch_extra(context_t* ctx);
+
 #endif

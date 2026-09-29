@@ -76,12 +76,15 @@ CFLAGS += $(OPTM) -Wno-incompatible-pointer-types -Wno-int-conversion \
 ARCH_OBJS += \
   		   $(ARCH_DIR)/$(ARCH_VER)/boot.o \
   		   $(ARCH_DIR)/$(ARCH_VER)/system.o \
+  		   $(ARCH_DIR)/$(ARCH_VER)/system_arch.o \
   		   $(ARCH_DIR)/$(ARCH_VER)/mmu_pte_flags.o \
   		   $(ARCH_DIR)/common/src/interrupt.o \
   		   $(ARCH_DIR)/common/src/gic.o \
   		   $(ARCH_DIR)/common/src/irq.o \
   		   $(ARCH_DIR)/common/src/memcpy.o \
-  		   $(ARCH_DIR)/common/src/mmu_arch.o
+  		   $(ARCH_DIR)/common/src/proc_arch.o \
+  		   $(ARCH_DIR)/common/src/mmu_arch.o \
+  		   $(ARCH_DIR)/common/src/kernel_arch.o
 
 LIB_EXT2_DIR=$(SRC_DIR)/lib/ext2
 LIB_EXT2_OBJS = $(LIB_EXT2_DIR)/src/partition.o $(LIB_EXT2_DIR)/src/ext2read.o 

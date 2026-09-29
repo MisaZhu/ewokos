@@ -147,6 +147,19 @@ extern void    set_current_proc(proc_t* proc);
 extern void    proc_map_page(page_dir_entry_t *vm, ewokos_addr_t vaddr, ewokos_addr_t paddr, uint32_t permissions);
 extern void    proc_unmap_page(page_dir_entry_t *vm, ewokos_addr_t vaddr);
 
+/*
+ * Arch hooks used by the common proc.c so it stays free of architecture #if
+ * macros. Weak defaults live in proc.c; aarch64 provides strong overrides in
+ * kernel/platform/aarch64/arch/common/src/proc_arch.c.
+ *   - carry the user thread register (TLS base) across a context switch;
+ *     platforms without such a register read 0 / write nothing.
+ *   - mark freshly mapped stack pages execute-never; platforms without a
+ *     per-page UXN/XN bit do nothing.
+ */
+extern ewokos_addr_t arch_proc_tls_base_read(void);
+extern void          arch_proc_tls_base_write(ewokos_addr_t v);
+extern void          arch_mark_stack_pte_noexec(page_dir_entry_t* vm, ewokos_addr_t vaddr);
+
 extern void    proc_funeral(proc_t* proc);
 extern void    proc_zombie_funeral(void);
 extern void    proc_exit(context_t* ctx, proc_t *proc, int32_t res);

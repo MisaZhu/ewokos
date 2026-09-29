@@ -1,6 +1,9 @@
 #include <kernel/irq.h>
 #include <kprintf.h>
 #include <kernel/proc.h>
+#include <kernel/system.h>
+#include <dev/timer.h>
+#include <stdint.h>
 
 #define SPLIT(x)	((uint32_t)(((uint64_t)x)>>32)),((uint32_t)(x))
 
@@ -169,4 +172,92 @@ void sync_exception_handle(uint64_t esr, uint64_t far, context_t* ctx){
         return;
     }
     while(1);
+}
+
+/* ---- arch hooks declared in <kernel/irq.h> (see common kernel/src/irq.c) ---- */
+
+uint32_t arch_irq_raw(context_t* ctx) {
+    (void)ctx;
+    return irq_get_arch();
+}
+
+void arch_irq_timer_ack(void) {
+    timer_clear_interrupt(0);
+}
+
+void arch_irq_prologue(context_t* ctx) {
+    (void)ctx;
+}
+
+void arch_irq_idle(void) {
+    wfi();
+}
+
+uint8_t arch_fault_recoverable(uint32_t status) {
+    /*
+     * AArch64 ESR_EL1.ISS[5:0] uses FSC/DFSC values:
+     *   0x4..0x7  translation fault
+     *   0x8..0xB  access flag fault
+     *   0xC..0xF  permission fault
+     * Heap COW and lazily reserved heap/stack pages can legally fault in any of
+     * these groups, so treat them all as recoverable user page faults.
+     */
+    uint32_t fsc = status & 0x3f;
+    return (uint8_t)(fsc >= 0x4 && fsc <= 0xF);
+}
+
+int abort_from_kernel(context_t* ctx) {
+    if(ctx == NULL)
+        return 1; /* unknown context: treat as kernel, never kill a proc on a guess */
+    /* SPSR_EL1 M[3:0]: 0b0000 = EL0t (user); 0b0100/0b0101 = EL1t/h (kernel) */
+    return (ctx->spsr_el1 & 0xF) != 0;
+}
+
+void arch_fill_core_dump_regs(kev_core_dump_t* dump, context_t* ctx) {
+    dump->regs.aarch64.pc = ctx->pc;
+    dump->regs.aarch64.spsr_el1 = ctx->spsr_el1;
+    dump->regs.aarch64.sp = ctx->sp;
+    dump->regs.aarch64.lr = ctx->lr;
+    for(int i=0; i<30; i++)
+        dump->regs.aarch64.gpr[i] = ctx->gpr[i];
+}
+
+void arch_dump_addr_words(const uint8_t* page_ptr, uint32_t page_off,
+        uint32_t avail, const char* tag) {
+    if(avail >= sizeof(uint64_t)) {
+        uint32_t i;
+        uint32_t count = avail / sizeof(uint64_t);
+        if(count > 6) {
+            count = 6;
+        }
+        printf("%s64:", tag);
+        for(i = 0; i < count; ++i) {
+            uint64_t val = ((const uint64_t*)(page_ptr + page_off))[i];
+            printf(" %08x%08x",
+                    (uint32_t)(val >> 32),
+                    (uint32_t)val);
+        }
+        printf("\n");
+    }
+    if(avail >= sizeof(uint32_t)) {
+        uint32_t i;
+        uint32_t count32 = avail / sizeof(uint32_t);
+        if(count32 > 8) {
+            count32 = 8;
+        }
+        printf("%s32:", tag);
+        for(i = 0; i < count32; ++i) {
+            uint32_t val = ((const uint32_t*)(page_ptr + page_off))[i];
+            printf(" %08x", val);
+        }
+        printf("\n");
+    }
+}
+
+void arch_dump_user_fault(proc_t* proc, context_t* ctx) {
+    dump_user_fault_words(proc, ctx);
+}
+
+void arch_dump_prefetch_extra(context_t* ctx) {
+    (void)ctx;
 }

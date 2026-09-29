@@ -12,11 +12,14 @@ extern uint32_t x86_apic_id_to_core_id(uint32_t apic_id) __attribute__((weak));
 
 inline uint32_t get_core_id(void) {
     uint32_t core_id = __core_id();
-#ifdef __x86_64__
+    /*
+     * x86 enumerates cores by APIC id, so it provides a weak
+     * x86_apic_id_to_core_id() mapper (see kernel/platform/x86). On other arches
+     * the weak symbol stays NULL and the physical core id is used as-is.
+     */
     if (x86_apic_id_to_core_id != NULL) {
         core_id = x86_apic_id_to_core_id(core_id);
     }
-#endif
     return core_id;
 }
 

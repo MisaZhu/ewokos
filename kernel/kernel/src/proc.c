@@ -60,19 +60,24 @@ uint32_t _ipc_uid = 0;
  *
  * On architectures without such a register the field stays 0 and libc falls
  * back to whatever the toolchain provides.
+ *
+ * These are arch hooks (declared in <kernel/proc.h>): the weak defaults below
+ * keep platforms without a user thread register building unchanged, and
+ * aarch64 provides strong overrides in
+ * kernel/platform/aarch64/arch/common/src/proc_arch.c.
  */
-#if defined(__aarch64__)
-static inline ewokos_addr_t proc_tls_base_read(void) {
-	ewokos_addr_t v;
-	__asm__ volatile("mrs %0, tpidr_el0" : "=r"(v));
-	return v;
+__attribute__((weak)) ewokos_addr_t arch_proc_tls_base_read(void) {
+	return 0;
 }
 
-static inline void proc_tls_base_write(ewokos_addr_t v) {
-	__asm__ volatile("msr tpidr_el0, %0" :: "r"(v));
+__attribute__((weak)) void arch_proc_tls_base_write(ewokos_addr_t v) {
+	(void)v;
 }
-#define PROC_HAS_TLS_BASE 1
-#endif
+
+__attribute__((weak)) void arch_mark_stack_pte_noexec(page_dir_entry_t* vm, ewokos_addr_t vaddr) {
+	(void)vm;
+	(void)vaddr;
+}
 
 #ifdef KERNEL_SMP
 static int32_t _proc_spin = 0;
@@ -468,18 +473,12 @@ bool user_ptr_ok(proc_t* proc, ewokos_addr_t ptr, ewokos_addr_t size) {
 static void map_stack(proc_t* proc, ewokos_addr_t* stacks, ewokos_addr_t base, uint32_t pages) {
     uint32_t i;
     for(i=0; i<pages; i++) {
-        page_table_entry_t* pte;
         stacks[i] = (ewokos_addr_t)kalloc_page();
         map_page(proc->space->vm,
             base + PAGE_SIZE*i,
             V2P(stacks[i]),
             AP_RW_RW, PTE_ATTR_WRBACK);
-#ifdef __aarch64__
-        pte = get_page_table_entry(proc->space->vm, base + PAGE_SIZE*i);
-        if(pte != NULL) {
-            pte->UXN = 1;
-        }
-#endif
+        arch_mark_stack_pte_noexec(proc->space->vm, base + PAGE_SIZE*i);
     }
     /* stack pages are WRBACK and their descriptors were published per-line by
      * map_page: a TLB-only invalidate is enough (no whole-D-cache sweep). */
@@ -969,7 +968,7 @@ proc_switch_done:
     proc_track_priority_update(to);
     if(cproc != to)
         set_current_proc(to);
-#if defined(PROC_HAS_TLS_BASE) && !defined(PROC_TLS_BASE_DISABLE)
+#ifndef PROC_TLS_BASE_DISABLE
     /*
      * Both sides are under the proc lock and interrupts cannot preempt the
      * rest of the switch (the frame copy below depends on that too), so the
@@ -977,8 +976,8 @@ proc_switch_done:
      * whichever task the handler erets into finds its own thread_locals.
      */
     if(cproc != NULL)
-        cproc->tls_base = proc_tls_base_read();
-    proc_tls_base_write(to->tls_base);
+        cproc->tls_base = arch_proc_tls_base_read();
+    arch_proc_tls_base_write(to->tls_base);
 #endif
     memcpy(ctx, &to->ctx, sizeof(context_t));
     proc_lock_leave();

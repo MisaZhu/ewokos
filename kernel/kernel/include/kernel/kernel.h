@@ -41,4 +41,19 @@ typedef struct {
 extern kernel_conf_t _kernel_config;
 extern void load_kernel_config(void);
 
+/*
+ * Arch hooks that keep the common kernel/kernel/src/kernel.c free of
+ * architecture #if macros. Weak defaults live in kernel.c; the platform
+ * override (if any) lives in kernel/platform/<arch>/arch/common/src/kernel_arch.c.
+ */
+/* boot banner + memory-layout dump (address widths are arch specific) */
+extern void arch_show_config(void);
+/* very early per-arch entry fixup before bss clear (x86 masks interrupts) */
+extern void arch_kernel_entry_early(void);
+/* install the kernel view into a fresh per-process address space (page-table
+   layout is arch specific) */
+extern void arch_set_proc_vm(page_dir_entry_t* vm);
+/* resolve the logical core a secondary/AP core binds to during bring-up */
+extern uint32_t arch_slave_resolve_core(uint32_t boot_core_id, uint32_t detected_cid);
+
 #endif

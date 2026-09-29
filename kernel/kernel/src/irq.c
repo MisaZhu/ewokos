@@ -68,49 +68,9 @@ static void dump_user_addr_words_internal(proc_t* proc, ewokos_addr_t addr, cons
     page_off = ((uint32_t)addr) & (PAGE_SIZE - 1);
     avail = PAGE_SIZE - page_off;
 
-#ifdef __x86_64__
-    ewokos_addr_t words[4];
-    memset(words, 0, sizeof(words));
-    memcpy(words, page_ptr + page_off, avail < sizeof(words) ? avail : sizeof(words));
-    printf("%s: %08x %08x %08x %08x\n",
-            tag,
-            (uint32_t)words[0],
-            (uint32_t)words[1],
-            (uint32_t)words[2],
-            (uint32_t)words[3]);
-#else
-    if(avail >= sizeof(uint64_t)) {
-        uint32_t i;
-        uint32_t count = avail / sizeof(uint64_t);
-        if(count > 6) {
-            count = 6;
-        }
-        printf("%s64:", tag);
-        for(i = 0; i < count; ++i) {
-            uint64_t val = ((uint64_t*)(page_ptr + page_off))[i];
-            printf(" %08x%08x",
-                    (uint32_t)(val >> 32),
-                    (uint32_t)val);
-        }
-        printf("\n");
-    }
-    if(avail >= sizeof(uint32_t)) {
-        uint32_t i;
-        uint32_t count32 = avail / sizeof(uint32_t);
-        if(count32 > 8) {
-            count32 = 8;
-        }
-        printf("%s32:", tag);
-        for(i = 0; i < count32; ++i) {
-            uint32_t val = ((uint32_t*)(page_ptr + page_off))[i];
-            printf(" %08x", val);
-        }
-        printf("\n");
-    }
-#endif
+    arch_dump_addr_words(page_ptr, page_off, avail, tag);
 }
 
-#if defined(__x86_64__) || defined(__aarch64__)
 void dump_user_addr_words(proc_t* proc, ewokos_addr_t addr, const char* tag) {
     if(tag == NULL) {
         tag = "user";
@@ -130,15 +90,6 @@ void dump_user_fault_words(proc_t* proc, context_t* ctx) {
         dump_user_addr_words_internal(proc, (ewokos_addr_t)ctx->lr, "user_lr");
     }
 }
-#endif
-
-#if defined(__x86_64__) || defined(__aarch64__)
-static void dump_user_stack_words(proc_t* proc, context_t* ctx) {
-    dump_user_fault_words(proc, ctx);
-}
-#endif
-
-
 
 #ifdef KERNEL_SMP
 
@@ -171,20 +122,12 @@ static inline void irq_do_timer0(context_t* ctx) {
     }
     renew_kernel_tic(usec_gap);
     
-#ifndef __x86_64__
-    timer_clear_interrupt(0);
-#endif
+    arch_irq_timer_ack();
 
     schedule(ctx);
 }
 static inline void _irq_handler(uint32_t cid, context_t* ctx) {
-    uint32_t irq_raw;
-#ifdef __x86_64__
-    /* x86 trap entry already records the raw vector in the trap frame. */
-    irq_raw = (uint32_t)ctx->trap_no;
-#else
-    irq_raw = irq_get_arch();
-#endif
+    uint32_t irq_raw = arch_irq_raw(ctx);
     uint32_t irq = irq_get_unified_arch(irq_raw);
 
     //handle irq
@@ -213,17 +156,7 @@ static inline void _irq_handler(uint32_t cid, context_t* ctx) {
 
 inline void irq_handler(context_t* ctx) {
     __irq_disable();
-#ifdef __x86_64__
-    if(get_core_id() == 0 && irq_get_unified_arch((uint32_t)ctx->trap_no) == IRQ_TIMER0) {
-        /*
-         * x86 PIT time only advances when timer_clear_interrupt() bumps the
-         * software tick counter. Account that tick before pausing the current
-         * task, otherwise core0 loses almost the entire last slice and shows up
-         * as fake 100% kernel residual.
-         */
-        timer_clear_interrupt(0);
-    }
-#endif
+    arch_irq_prologue(ctx);
     proc_account_pause_current();
     uint32_t cid = get_core_id();
     kernel_lock();
@@ -233,9 +166,7 @@ inline void irq_handler(context_t* ctx) {
 
     proc_t* cproc = get_current_proc();
     if(cproc != NULL && cproc->is_core_idle_proc) {
-#ifndef __x86_64__
-        wfi();
-#endif
+        arch_irq_idle();
     }
 }
 
@@ -276,21 +207,7 @@ static inline uint8_t is_user_heap_or_stack_fault(proc_t* proc, ewokos_addr_t ad
 }
 
 static inline uint8_t is_recoverable_user_data_fault(uint32_t status) {
-#if __aarch64__
-    /*
-     * AArch64 ESR_EL1.ISS[5:0] uses FSC/DFSC values:
-     *   0x4..0x7  translation fault
-     *   0x8..0xB  access flag fault
-     *   0xC..0xF  permission fault
-     *
-     * Heap COW and lazily reserved heap/stack pages can legally fault in any of
-     * these groups, so treat them all as recoverable user page faults.
-     */
-    uint32_t fsc = status & 0x3f;
-    return (uint8_t)(fsc >= 0x4 && fsc <= 0xF);
-#else
-    return (uint8_t)(((status & 0x5) == 0x5) || ((status & 0xD) == 0xD));
-#endif
+    return arch_fault_recoverable(status);
 }
 
 /*
@@ -311,63 +228,7 @@ static void push_proc_core_dump(proc_t* cproc, context_t* ctx, uint32_t reason,
     dump.sp = (ewokos_addr_t)ctx->sp;
 
     /* snapshot the full register file, mirroring dump_ctx()'s arch layout */
-#if defined(__aarch64__)
-    dump.regs.aarch64.pc = ctx->pc;
-    dump.regs.aarch64.spsr_el1 = ctx->spsr_el1;
-    dump.regs.aarch64.sp = ctx->sp;
-    dump.regs.aarch64.lr = ctx->lr;
-    for(int i=0; i<30; i++)
-        dump.regs.aarch64.gpr[i] = ctx->gpr[i];
-#elif defined(__arm__)
-    dump.regs.arm.cpsr = ctx->cpsr;
-    dump.regs.arm.pc = ctx->pc;
-    dump.regs.arm.sp = ctx->sp;
-    dump.regs.arm.lr = ctx->lr;
-    for(int i=0; i<13; i++)
-        dump.regs.arm.gpr[i] = ctx->gpr[i];
-#elif defined(__x86_64__) || defined(__i386__)
-    dump.regs.x86.cr2 = ctx->cr2;
-    dump.regs.x86.trap_no = ctx->trap_no;
-    dump.regs.x86.err_code = ctx->err_code;
-    dump.regs.x86.pc = ctx->pc;
-    dump.regs.x86.lr = ctx->lr;
-    dump.regs.x86.cs = ctx->cs;
-    dump.regs.x86.rflags = ctx->rflags;
-    dump.regs.x86.sp = ctx->sp;
-    dump.regs.x86.ss = ctx->ss;
-    for(int i=0; i<15; i++)
-        dump.regs.x86.gpr[i] = ctx->gpr[i];
-#elif defined(__riscv)
-    dump.regs.riscv.pc = ctx->pc;
-    dump.regs.riscv.ra = ctx->ra;
-    dump.regs.riscv.sp = ctx->sp;
-    dump.regs.riscv.gp = ctx->gp;
-    dump.regs.riscv.tp = ctx->tp;
-    dump.regs.riscv.t0 = ctx->t0;
-    dump.regs.riscv.t1 = ctx->t1;
-    dump.regs.riscv.t2 = ctx->t2;
-    dump.regs.riscv.s0 = ctx->s0;
-    dump.regs.riscv.s1 = ctx->s1;
-    for(int i=0; i<8; i++)
-        dump.regs.riscv.gpr[i] = ctx->gpr[i];
-    dump.regs.riscv.s2 = ctx->s2;
-    dump.regs.riscv.s3 = ctx->s3;
-    dump.regs.riscv.s4 = ctx->s4;
-    dump.regs.riscv.s5 = ctx->s5;
-    dump.regs.riscv.s6 = ctx->s6;
-    dump.regs.riscv.s7 = ctx->s7;
-    dump.regs.riscv.s8 = ctx->s8;
-    dump.regs.riscv.s9 = ctx->s9;
-    dump.regs.riscv.s10 = ctx->s10;
-    dump.regs.riscv.s11 = ctx->s11;
-    dump.regs.riscv.t3 = ctx->t3;
-    dump.regs.riscv.t4 = ctx->t4;
-    dump.regs.riscv.t5 = ctx->t5;
-    dump.regs.riscv.t6 = ctx->t6;
-    dump.regs.riscv.sstatus = ctx->sstatus;
-    dump.regs.riscv.sbadaddr = ctx->sbadaddr;
-    dump.regs.riscv.scause = ctx->scause;
-#endif
+    arch_fill_core_dump_regs(&dump, ctx);
 
     kev_push_core_dump(&dump);
 }
@@ -411,33 +272,11 @@ void abort_guard_leave(uint32_t core) {
 /*
  * Was this fault taken while the CPU was running KERNEL code?
  *
- * The saved context carries the PRE-exception program status, so this reflects
- * the privilege that actually faulted, not the handler's. A kernel-mode
- * abort/undef is a KERNEL bug: blaming the current user proc would kill an
- * innocent process and then schedule() with kernel state possibly half-updated
- * or a lock held - an unclean, misleading teardown that can wedge or crash the
- * system later. Such faults must halt with a dump instead of proc_exit.
- * Returns non-zero for kernel mode, 0 for user mode.
+ * abort_from_kernel() is arch specific (it reads the pre-exception program
+ * status saved in the context) and now lives in each platform's
+ * kernel/platform/<arch>/arch/common/src/irq.c; it is declared extern in
+ * <kernel/irq.h>.
  */
-int abort_from_kernel(context_t* ctx) {
-    if(ctx == NULL)
-        return 1; /* unknown context: treat as kernel, never kill a proc on a guess */
-#if defined(__aarch64__)
-    /* SPSR_EL1 M[3:0]: 0b0000 = EL0t (user); 0b0100/0b0101 = EL1t/h (kernel) */
-    return (ctx->spsr_el1 & 0xF) != 0;
-#elif defined(__arm__)
-    /* CPSR M[4:0]: 0b10000 (0x10) = USR; SVC/SYS/ABT/IRQ/FIQ are kernel modes */
-    return (ctx->cpsr & 0x1F) != 0x10;
-#elif defined(__x86_64__) || defined(__i386__)
-    /* CS RPL: 0 = kernel (X86_KERNEL_CS 0x08), 3 = user (X86_USER_CS 0x23) */
-    return (ctx->cs & 0x3) == 0;
-#elif defined(__riscv)
-    /* sstatus.SPP (bit 8): 1 = trapped from S-mode (kernel), 0 = U-mode */
-    return (ctx->sstatus & (1UL << 8)) != 0;
-#else
-    return 0;
-#endif
-}
 
 void undef_abort_handler(context_t* ctx, uint32_t status) {
     (void)ctx;
@@ -499,19 +338,9 @@ void prefetch_abort_handler(context_t* ctx, uint32_t status) {
     }
 
     printf("pid: %d(%s), prefetch abort!! (core %d) code:0x%x\n", cproc->info.pid, cproc->info.cmd, core, status);
-#ifdef __x86_64__
-    printf("live: pc=%x sp=%x cs=%x ss=%x trap=%x err=%x\n",
-            (uint32_t)ctx->pc,
-            (uint32_t)ctx->sp,
-            (uint32_t)ctx->cs,
-            (uint32_t)ctx->ss,
-            (uint32_t)ctx->trap_no,
-            (uint32_t)ctx->err_code);
-#endif
+    arch_dump_prefetch_extra(ctx);
     dump_ctx(&cproc->ctx);
-#if defined(__x86_64__) || defined(__aarch64__)
-    dump_user_stack_words(cproc, ctx);
-#endif
+    arch_dump_user_fault(cproc, ctx);
 
     push_proc_core_dump(cproc, ctx, KEV_CORE_DUMP_PREFETCH, status, (ewokos_addr_t)ctx->pc);
     proc_exit(ctx, proc_get_proc(cproc), -1);
@@ -592,9 +421,7 @@ void data_abort_handler(context_t* ctx, ewokos_addr_t addr_fault, uint32_t statu
         printf("\terror: %s!\n", errmsg);
 
     dump_ctx(ctx);
-#if defined(__x86_64__) || defined(__aarch64__)
-    dump_user_stack_words(cproc, ctx);
-#endif
+    arch_dump_user_fault(cproc, ctx);
     push_proc_core_dump(cproc, ctx, KEV_CORE_DUMP_DATA, status, addr_fault);
     proc_exit(ctx, proc_get_proc(cproc), -1);
     abort_guard_leave(core);
