@@ -374,6 +374,7 @@ Hello, OS! I am a bare-metal kernel.
 
 ```c
 void _kernel_entry_c(void) {
+    arch_kernel_entry_early();         // arch 钩子（x86 在这里关中断；ARM 上为空）
     memset(_bss_start, 0, ...);        // 和你的 start.S 一样：清 BSS
     sys_info_init();                   // 收集硬件信息（内存大小、MMIO 地址）
     init_kernel_vm();                  // 建立内核虚拟内存（第 05 章）

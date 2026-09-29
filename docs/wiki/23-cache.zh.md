@@ -20,11 +20,20 @@
 | 层次 | 文件 |
 |---|---|
 | 可移植 API（声明） | [`kernel/kernel/include/kernel/system.h`](../../kernel/kernel/include/kernel/system.h) |
-| 可移植 wrapper（C 语言，按架构 `#if`） | [`kernel/kernel/src/system.c`](../../kernel/kernel/src/system.c) |
-| AArch64 汇编 | [`kernel/platform/aarch64/arch/v8/system.S`](../../kernel/platform/aarch64/arch/v8/system.S) |
+| 与平台无关的辅助函数（延时、内核锁、halt） | [`kernel/kernel/src/system.c`](../../kernel/kernel/src/system.c) |
+| 按架构的 C wrapper（策略） | `kernel/platform/<arch>/arch/<ver>/system_arch.c` —— [aarch64/v8](../../kernel/platform/aarch64/arch/v8/system_arch.c)、[arm/v7](../../kernel/platform/arm/arch/v7/system_arch.c)、[x86/x64](../../kernel/platform/x86/arch/x64/system_arch.c)、[riscv/rv64](../../kernel/platform/riscv/arch/rv64/system_arch.c) |
+| AArch64 汇编（机制） | [`kernel/platform/aarch64/arch/v8/system.S`](../../kernel/platform/aarch64/arch/v8/system.S) |
 | ARMv7 汇编 | [`kernel/platform/arm/arch/v7/system.S`](../../kernel/platform/arm/arch/v7/system.S) |
 | x86 汇编 | [`kernel/platform/x86/arch/x64/system.S`](../../kernel/platform/x86/arch/x64/system.S) |
 | 调用方 | `mm/mmu.c`、`mm/shm.c`、`mm/dma.c`、`proc.c`、`svc.c`、`irq.c` |
+
+> **近期重构（“kernel arch porting friendly”）**：所有缓存 / TLB / 地址空间维护原语
+> 过去都挤在一份共享的 `system.c` 里，靠 `#if defined(__aarch64__) / ARM_V7 / …`
+> 分支区分架构。如今每个分支都被原样搬进了按架构独立的
+> `kernel/platform/<arch>/arch/<ver>/system_arch.c`（由各平台的 `make.rule` 接入
+> 构建）。共享的 `kernel/kernel/src/system.c` 只剩与平台无关的辅助函数
+> （`_delay*`、`kernel_lock*`、`halt`），**完全不再含按架构的条件编译**——移植到
+> 新架构时只需新写一份 `system_arch.c`，不必再碰共享代码。
 
 ## 23.1 缓存为什么给内核制造麻烦
 
@@ -101,36 +110,43 @@ extern void dcache_flush_range(const void* start, uint32_t size);
 extern void invalidate_icache_all(void);  // 丢弃 I-cache（SMP 下广播）
 ```
 
-它们**不是**裸指令，而是
-[`kernel/kernel/src/system.c`](../../kernel/kernel/src/system.c) 里的薄 C wrapper，通过
-`#if defined(__aarch64__) / ARM_V7 / …` 为不同目标选择正确行为——包括“是否压根需要全量
-D-cache 刷写”。这些 wrapper 是核心设计决策：**策略（“改一次映射需不需要整缓存 clean？”）
-放在可移植的 C 里；只有机制（具体指令）放在汇编里。**
+它们**不是**裸指令。每个接口都按架构实现在
+`kernel/platform/<arch>/arch/<ver>/system_arch.c` 里（例如
+[`aarch64/v8/system_arch.c`](../../kernel/platform/aarch64/arch/v8/system_arch.c)、
+[`arm/v7/system_arch.c`](../../kernel/platform/arm/arch/v7/system_arch.c)），作为同目录
+`system.S` 里汇编原语之上的薄 C wrapper，各自为本架构决定正确行为——包括“是否压根
+需要全量 D-cache 刷写”。这些 wrapper 是核心设计决策：**策略（“改一次映射需不需要
+整缓存 clean？”）放在按架构的 C 里；只有机制（具体指令）放在汇编里。**共享的
+`system.c` 已完全不再参与此事。
 
 ## 23.4 `flush_tlb()`：最微妙的一个 wrapper
 
 只要页表被批量改动，就会调用 `flush_tlb()`。它的函数体因架构而天差地别，读它是理解每个
 平台内存模型最快的方式。
 
-**AArch64（SMP 分支）：**
+**AArch64**（[`v8/system_arch.c`](../../kernel/platform/aarch64/arch/v8/system_arch.c)）：
 
 ```c
-inline void flush_tlb(void) {
-#if defined(__aarch64__)
+void flush_tlb(void) {
     /* 页表通过 D-cache 走查（TCR IRGN/ORGN write-back、inner shareable），
      * 用户内存是 PIPT 一致的，所以发布 PTE 存储只需要 __flush_tlb 里的 dsb。 */
     __flush_tlb();
-#elif defined(ARM_V7)
-    flush_dcache();               // 为批量建表做整 D-cache 发布
-    __invalidate_icache_all();
-    __flush_tlb();
-#else
-    flush_dcache();
-    invalidate_icache_all();
-    __flush_tlb();
-#endif
 }
 ```
+
+**ARMv7**（[`v7/system_arch.c`](../../kernel/platform/arm/arch/v7/system_arch.c)）：
+
+```c
+void flush_tlb(void) {
+    /* 批量建表与板级页表拷贝仍依赖一次整 D-cache 发布；…… */
+    flush_dcache();
+    __invalidate_icache_all();
+    __flush_tlb();
+}
+```
+
+**x86 / RISC-V / ARMv5 / ARMv6** 各自的 `system_arch.c` 里也有自己的版本（x86 与
+RISC-V：`flush_dcache()` + `__flush_tlb()`，在 `KERNEL_SMP` 下再加一次 I-cache 丢弃）。
 
 在 AArch64 上，*整个* D-cache 刷写被**移除**了。为什么这样安全？因为启动代码把
 `TCR_EL1`（Translation Control Register，翻译控制寄存器）配成让页表走查器以
@@ -164,27 +180,40 @@ __flush_tlb:
 
 ### `flush_tlb_addr(addr)`——失效单个页
 
+AArch64（[`v8/system_arch.c`](../../kernel/platform/aarch64/arch/v8/system_arch.c)）：
+
 ```c
-inline void flush_tlb_addr(ewokos_addr_t addr) {
-#if defined(__aarch64__)
-    ewokos_addr_t page = addr >> 12;   // TLBI VA 操作数恒为 VA[55:12]
+void flush_tlb_addr(ewokos_addr_t addr) {
+    ewokos_addr_t page = addr >> 12; /* TLBI VA 操作数恒为 VA[55:12]，与粒度无关 */
     __asm__ volatile(
         "dsb ishst\n"
         "tlbi vaae1is, %0\n"          // 全 ASID 形式：用户页是 nG
-        "dsb ish\n" "isb\n"
+        "dsb ish\n"
+        "isb\n"
         :: "r"(page) : "memory");
-#elif defined(ARM_V7)
-    ewokos_addr_t page = addr & ~(ewokos_addr_t)0xfff; // VA[31:12] 原位保留
-    ...  "mcr p15, 0, %0, c8, c3, 3\n" // TLBIMVAAIS
-#elif defined(__arm__)
-    flush_tlb();                       // ARMv5/v6：无逐行发布，回退全量
-#elif defined(__riscv)
-    __asm__ volatile("sfence.vma %0" :: "r"(addr) : "memory");
-#elif defined(__i386__) || defined(__x86_64__)
-    __asm__ volatile("invlpg (%0)" :: "r"(addr) : "memory");
-#endif
 }
 ```
+
+ARMv7（[`v7/system_arch.c`](../../kernel/platform/arm/arch/v7/system_arch.c)）：
+
+```c
+void flush_tlb_addr(ewokos_addr_t addr) {
+    ewokos_addr_t page = addr & ~(ewokos_addr_t)0xfff; // VA[31:12] 原位保留
+    __asm__ volatile(
+        "dsb\n"
+#ifdef KERNEL_SMP
+        "mcr p15, 0, %0, c8, c3, 3\n" /* TLBIMVAAIS */
+#else
+        "mcr p15, 0, %0, c8, c7, 3\n" /* TLBIMVAA */
+#endif
+        "dsb\n"
+        "isb\n"
+        :: "r"(page) : "memory");
+}
+```
+
+其余架构在各自的 `system_arch.c` 里：ARMv5/v6 回退到完整的 `flush_tlb()`（那里没有
+逐行发布路径）；RISC-V 发 `sfence.vma addr`；x86 发 `invlpg (addr)`。
 
 这里有两个细节是“承重”的，而且各自都曾是一个真实 bug 的根源：
 
@@ -204,12 +233,14 @@ inline void flush_tlb_addr(ewokos_addr_t addr) {
 PIPT 一致的（AArch64），一个只动了数据映射的调用方就能完全跳过整缓存刷写：
 
 ```c
-inline void flush_tlb_nosweep(void) {
-#if defined(__aarch64__) || defined(ARM_V7)
+/* aarch64 与 arm/v7 的 system_arch.c： */
+void flush_tlb_nosweep(void) {
     __flush_tlb();     // 只做 TLBI；描述符已对走查器可见
-#else
-    flush_tlb();       // 更老的 ARM：回退到全量路径
-#endif
+}
+
+/* arm/v5、arm/v6、riscv、x86 的 system_arch.c： */
+void flush_tlb_nosweep(void) {
+    flush_tlb();       // 没有逐行发布路径：回退到全量形式
 }
 ```
 
@@ -225,10 +256,10 @@ ARMv7（`raspix`、`machine.virt` arm32）最初以**非缓存**方式走查页�
 *可缓存*线性映射（`P2V`）写 PTE 的，于是一条脏 PTE 行可能滞留在 D-cache 中而走查器永远
 看不到——这就是为什么每次改映射都需要一次**整 D-cache clean** 作为粗暴的兜底安全网。
 
-改造（由加进
-[`kernel/platform/arm/make.rule`](../../kernel/platform/arm/make.rule) 的 `-DARM_V7` 宏
-守护，好让共享的 `system.c` 能把 v7 与 v5/v6 区分开）把走查变成可缓存、inner-shareable，
-与 AArch64 完全一致：
+改造（[`kernel/platform/arm/make.rule`](../../kernel/platform/arm/make.rule) 里的
+`-DARM_V7` 宏仍用于把 v7 的汇编与 v5/v6 区分开，而 C 策略如今住在专属的
+[`v7/system_arch.c`](../../kernel/platform/arm/arch/v7/system_arch.c) 而非共享代码里）
+把走查变成可缓存、inner-shareable，与 AArch64 完全一致：
 
 ```asm
 __set_translation_table_base:
@@ -270,8 +301,10 @@ __invalidate_icache_all_is:          // 广播式 I-cache 失效
     mcr p15, 0, r0, c7, c1, 0        // ICIALLUIS
 ```
 
-ARMv5/v6（`__arm__` 但没有 `ARM_V7`）保持原有语义：非缓存走查、`flush_tlb()` 内做整缓存
-维护、`dcache_flush_range` / `dcache_clean_code_range` 是*空*实现。
+ARMv5/v6（[`v5/system_arch.c`](../../kernel/platform/arm/arch/v5/system_arch.c)、
+[`v6/system_arch.c`](../../kernel/platform/arm/arch/v6/system_arch.c)）保持原有语义：
+非缓存走查、`flush_tlb()` 内做整缓存维护、`dcache_flush_range` /
+`dcache_clean_code_range` 是*空*实现。
 
 ## 23.7 x86：MESI 让大部分工作变得多余
 
@@ -403,9 +436,10 @@ dcache_flush_range((void*)P2V(paddr), pages * PAGE_SIZE);
   I-cache、页表走查器、DMA 设备、以及其他核。
 - **clean** 写回并保留；**invalidate** 不写回直接丢弃；**flush** 两者都做。代码针对 **PoU**，
   设备数据针对 **PoC**。优先用**按 VA** 而非**按 set/way**。
-- EwokOS 把*策略*放在可移植的 C wrapper 里
-  （[`system.c`](../../kernel/kernel/src/system.c)），只把*机制*放在按架构的汇编里，由
-  `#if defined(__aarch64__)/ARM_V7/…` 选择。
+- EwokOS 把*策略*放在按架构的 C wrapper 里
+  （`kernel/platform/<arch>/arch/<ver>/system_arch.c`），只把*机制*放在同目录的按架构
+  汇编（`system.S`）里；共享的 [`system.c`](../../kernel/kernel/src/system.c) 只剩与
+  平台无关的辅助函数，不再含任何架构 `#if`。
 - AArch64 和（改造后的）ARMv7 以**可缓存 + inner-shareable** 方式走查页表，于是 `flush_tlb()`
   坍缩成一条广播 TLBI 加一条 `dsb`。ARMv7 仍在切换时保留整 D-cache 刷写以照顾 DMA/图形。x86
   靠 MESI 几乎什么都不需要——`wbinvd` 被降级成了 `mfence`。

@@ -25,11 +25,23 @@ Every code reference below points at a real file:
 | Layer | File |
 |---|---|
 | Portable API (declarations) | [`kernel/kernel/include/kernel/system.h`](../../kernel/kernel/include/kernel/system.h) |
-| Portable wrappers (C, per-arch `#if`) | [`kernel/kernel/src/system.c`](../../kernel/kernel/src/system.c) |
-| AArch64 assembly | [`kernel/platform/aarch64/arch/v8/system.S`](../../kernel/platform/aarch64/arch/v8/system.S) |
+| Platform-independent helpers (delay, kernel lock, halt) | [`kernel/kernel/src/system.c`](../../kernel/kernel/src/system.c) |
+| Per-arch C wrappers (policy) | `kernel/platform/<arch>/arch/<ver>/system_arch.c` — [aarch64/v8](../../kernel/platform/aarch64/arch/v8/system_arch.c), [arm/v7](../../kernel/platform/arm/arch/v7/system_arch.c), [x86/x64](../../kernel/platform/x86/arch/x64/system_arch.c), [riscv/rv64](../../kernel/platform/riscv/arch/rv64/system_arch.c) |
+| AArch64 assembly (mechanism) | [`kernel/platform/aarch64/arch/v8/system.S`](../../kernel/platform/aarch64/arch/v8/system.S) |
 | ARMv7 assembly | [`kernel/platform/arm/arch/v7/system.S`](../../kernel/platform/arm/arch/v7/system.S) |
 | x86 assembly | [`kernel/platform/x86/arch/x64/system.S`](../../kernel/platform/x86/arch/x64/system.S) |
 | Callers | `mm/mmu.c`, `mm/shm.c`, `mm/dma.c`, `proc.c`, `svc.c`, `irq.c` |
+
+> **Recent refactor ("kernel arch porting friendly")**: every cache / TLB /
+> address-space primitive used to live in one shared `system.c` behind
+> `#if defined(__aarch64__) / ARM_V7 / …`. Each of those branches has been
+> moved out, verbatim in behaviour, into a per-arch
+> `kernel/platform/<arch>/arch/<ver>/system_arch.c` (wired into the build via
+> each platform's `make.rule`). The shared `kernel/kernel/src/system.c` now
+> contains only platform-independent helpers (`_delay*`, `kernel_lock*`,
+> `halt`) and carries **no per-arch conditional compilation at all** — which
+> is what makes porting to a new architecture a matter of adding one new
+> `system_arch.c` instead of touching shared code.
 
 ## 23.1 Why a Cache Creates a Problem for the Kernel
 
@@ -116,13 +128,17 @@ extern void dcache_flush_range(const void* start, uint32_t size);
 extern void invalidate_icache_all(void);  // drop the I-cache (broadcast on SMP)
 ```
 
-These are **not** the raw instructions. They are thin C wrappers in
-[`kernel/kernel/src/system.c`](../../kernel/kernel/src/system.c) that select, via
-`#if defined(__aarch64__) / ARM_V7 / …`, the correct behaviour for the target —
-including whether a full D-cache sweep is even necessary. The wrappers are the
-key design decision: **the *policy* ("does a mapping change need a whole-cache
-clean?") lives in portable C; only the *mechanism* (the instruction) lives in
-assembly.**
+These are **not** the raw instructions. Each one is implemented per
+architecture in
+`kernel/platform/<arch>/arch/<ver>/system_arch.c` (e.g.
+[`aarch64/v8/system_arch.c`](../../kernel/platform/aarch64/arch/v8/system_arch.c),
+[`arm/v7/system_arch.c`](../../kernel/platform/arm/arch/v7/system_arch.c)) as a
+thin C wrapper over the assembly primitives in the neighbouring `system.S`.
+The wrappers decide, for their own architecture, the correct behaviour —
+including whether a full D-cache sweep is even necessary. They are the key
+design decision: **the *policy* ("does a mapping change need a whole-cache
+clean?") lives in per-arch C; only the *mechanism* (the instruction) lives in
+assembly.** The shared `system.c` no longer participates in this at all.
 
 ## 23.4 `flush_tlb()`: The Most Delicate Wrapper
 
@@ -130,26 +146,32 @@ assembly.**
 dramatically by architecture, and reading it is the fastest way to understand
 each platform's memory model.
 
-**AArch64 (SMP path):**
+**AArch64** ([`v8/system_arch.c`](../../kernel/platform/aarch64/arch/v8/system_arch.c)):
 
 ```c
-inline void flush_tlb(void) {
-#if defined(__aarch64__)
+void flush_tlb(void) {
     /* Page tables are walked through the D-cache (TCR IRGN/ORGN write-back,
      * inner shareable) and user memory is PIPT-coherent, so publishing PTE
      * stores only needs the dsb inside __flush_tlb. */
     __flush_tlb();
-#elif defined(ARM_V7)
-    flush_dcache();               // whole-D-cache publish for bulk table builds
-    __invalidate_icache_all();
-    __flush_tlb();
-#else
-    flush_dcache();
-    invalidate_icache_all();
-    __flush_tlb();
-#endif
 }
 ```
+
+**ARMv7** ([`v7/system_arch.c`](../../kernel/platform/arm/arch/v7/system_arch.c)):
+
+```c
+void flush_tlb(void) {
+    /* Bulk table construction and board-level page-table copies still rely
+     * on a whole D-cache publish; ... */
+    flush_dcache();
+    __invalidate_icache_all();
+    __flush_tlb();
+}
+```
+
+**x86 / RISC-V / ARMv5 / ARMv6** each carry their own variant in their own
+`system_arch.c` (x86 and RISC-V: `flush_dcache()` + `__flush_tlb()`, plus an
+I-cache drop under `KERNEL_SMP`).
 
 On AArch64 the *entire* D-cache sweep was **removed**. Why is that safe? Because
 the boot code programs `TCR_EL1` so that the page-table walker reads tables as
@@ -186,27 +208,41 @@ EwokOS has two surgical wrappers, both used heavily by `proc.c`, `shm.c` and
 
 ### `flush_tlb_addr(addr)` — invalidate one page
 
+AArch64 ([`v8/system_arch.c`](../../kernel/platform/aarch64/arch/v8/system_arch.c)):
+
 ```c
-inline void flush_tlb_addr(ewokos_addr_t addr) {
-#if defined(__aarch64__)
-    ewokos_addr_t page = addr >> 12;   // TLBI VA operand is always VA[55:12]
+void flush_tlb_addr(ewokos_addr_t addr) {
+    ewokos_addr_t page = addr >> 12; /* TLBI VA operand: VA[55:12], granule-independent */
     __asm__ volatile(
         "dsb ishst\n"
         "tlbi vaae1is, %0\n"          // all-ASID form: user pages are nG
-        "dsb ish\n" "isb\n"
+        "dsb ish\n"
+        "isb\n"
         :: "r"(page) : "memory");
-#elif defined(ARM_V7)
-    ewokos_addr_t page = addr & ~(ewokos_addr_t)0xfff; // VA[31:12] IN PLACE
-    ...  "mcr p15, 0, %0, c8, c3, 3\n" // TLBIMVAAIS
-#elif defined(__arm__)
-    flush_tlb();                       // ARMv5/v6: no per-line publish, fall back
-#elif defined(__riscv)
-    __asm__ volatile("sfence.vma %0" :: "r"(addr) : "memory");
-#elif defined(__i386__) || defined(__x86_64__)
-    __asm__ volatile("invlpg (%0)" :: "r"(addr) : "memory");
-#endif
 }
 ```
+
+ARMv7 ([`v7/system_arch.c`](../../kernel/platform/arm/arch/v7/system_arch.c)):
+
+```c
+void flush_tlb_addr(ewokos_addr_t addr) {
+    ewokos_addr_t page = addr & ~(ewokos_addr_t)0xfff; // VA[31:12] IN PLACE
+    __asm__ volatile(
+        "dsb\n"
+#ifdef KERNEL_SMP
+        "mcr p15, 0, %0, c8, c3, 3\n" /* TLBIMVAAIS */
+#else
+        "mcr p15, 0, %0, c8, c7, 3\n" /* TLBIMVAA */
+#endif
+        "dsb\n"
+        "isb\n"
+        :: "r"(page) : "memory");
+}
+```
+
+The remaining architectures in their own `system_arch.c`: ARMv5/v6 fall back
+to the full `flush_tlb()` (no per-line table publish there); RISC-V issues
+`sfence.vma addr`; x86 issues `invlpg (addr)`.
 
 Two details here are load-bearing and were each the source of a real bug:
 
@@ -229,12 +265,14 @@ PoC (ARMv7 does this per-line) or the walk is PIPT-coherent (AArch64), a caller
 that only touched data mappings can skip the whole-cache sweep entirely:
 
 ```c
-inline void flush_tlb_nosweep(void) {
-#if defined(__aarch64__) || defined(ARM_V7)
+/* aarch64 & arm/v7 system_arch.c: */
+void flush_tlb_nosweep(void) {
     __flush_tlb();     // TLBI only; descriptors already visible to the walker
-#else
-    flush_tlb();       // older ARM: fall back to the full path
-#endif
+}
+
+/* arm/v5, arm/v6, riscv, x86 system_arch.c: */
+void flush_tlb_nosweep(void) {
+    flush_tlb();       // no per-line publish path: fall back to the full form
 }
 ```
 
@@ -252,9 +290,11 @@ writes PTEs through its *cacheable* linear mapping (`P2V`), so a dirty PTE line
 could sit in the D-cache and the walker would never see it — hence the need for
 a **whole-D-cache clean** on every mapping change, as a blunt safety net.
 
-The refactor (guarded by a `-DARM_V7` macro added to
-[`kernel/platform/arm/make.rule`](../../kernel/platform/arm/make.rule) so the
-shared `system.c` can tell v7 apart from v5/v6) turned the walk cacheable and
+The refactor (whose `-DARM_V7` macro in
+[`kernel/platform/arm/make.rule`](../../kernel/platform/arm/make.rule) still
+tells the v7 assembly apart from v5/v6, and whose C policy now lives in the
+dedicated [`v7/system_arch.c`](../../kernel/platform/arm/arch/v7/system_arch.c)
+rather than in shared code) turned the walk cacheable and
 inner-shareable, exactly like AArch64:
 
 ```asm
@@ -299,9 +339,11 @@ __invalidate_icache_all_is:          // broadcast I-cache invalidate
     mcr p15, 0, r0, c7, c1, 0        // ICIALLUIS
 ```
 
-ARMv5/v6 (`__arm__` without `ARM_V7`) keep the original semantics: a
-non-cacheable walk, whole-cache maintenance inside `flush_tlb()`, and *empty*
-`dcache_flush_range` / `dcache_clean_code_range` wrappers.
+ARMv5/v6 ([`v5/system_arch.c`](../../kernel/platform/arm/arch/v5/system_arch.c),
+[`v6/system_arch.c`](../../kernel/platform/arm/arch/v6/system_arch.c)) keep the
+original semantics: a non-cacheable walk, whole-cache maintenance inside
+`flush_tlb()`, and *empty* `dcache_flush_range` / `dcache_clean_code_range`
+wrappers.
 
 ## 23.7 x86: MESI Makes Most of This Unnecessary
 
@@ -458,9 +500,11 @@ careful:
 - **Clean** writes back and keeps; **invalidate** drops without write-back;
   **flush** does both. Target **PoU** for code, **PoC** for device data. Prefer
   **by-VA** over **by-set-way**.
-- EwokOS puts the *policy* in portable C wrappers
-  ([`system.c`](../../kernel/kernel/src/system.c)) and only the *mechanism* in
-  per-arch assembly, selected by `#if defined(__aarch64__)/ARM_V7/…`.
+- EwokOS puts the *policy* in per-arch C wrappers
+  (`kernel/platform/<arch>/arch/<ver>/system_arch.c`) and only the *mechanism*
+  in the neighbouring per-arch assembly (`system.S`); the shared
+  [`system.c`](../../kernel/kernel/src/system.c) keeps just the
+  platform-independent helpers and no arch `#if`s at all.
 - AArch64 and (after refactor) ARMv7 walk page tables **cacheable +
   inner-shareable**, so `flush_tlb()` collapses to a broadcast TLBI plus a `dsb`.
   ARMv7 still keeps a whole-D-cache sweep at switch time for DMA/graphics.

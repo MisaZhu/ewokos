@@ -403,6 +403,7 @@ Now savor the EwokOS kernel's "main function"
 
 ```c
 void _kernel_entry_c(void) {
+    arch_kernel_entry_early();         // per-arch hook (x86 masks interrupts; a no-op on ARM)
     memset(_bss_start, 0, ...);        // same as your start.S: clear BSS
     sys_info_init();                   // collect hardware info (RAM size, MMIO base)
     init_kernel_vm();                  // build kernel virtual memory (Ch. 05)
