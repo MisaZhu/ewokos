@@ -59,6 +59,12 @@ void rgb2nv12_cpu(uint8_t  *out,  uint32_t *in , int w, int h)
     return;
 }
 
+__attribute__((weak))
+void argb_2_nv12_arch(uint8_t  *out,  uint32_t *in , int w, int h)
+{
+    rgb2nv12_cpu(out,  in , w, h);
+}
+
 inline void argb_2_nv12(uint8_t  *out,  uint32_t *in , int w, int h) {
 #ifdef ARCH_BOOST
     argb_2_nv12_arch(out,  in , w, h);
