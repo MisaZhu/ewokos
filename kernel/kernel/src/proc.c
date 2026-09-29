@@ -257,7 +257,7 @@ int32_t procs_init(void) {
         _proc_vm_mark[i] = 0;
     }
 
-    size = _kernel_config.max_task_num*sizeof(proc_t);
+    size = _kernel_config.max_task_num*sizeof(proc_t*);
     _task_table = (proc_t**)kmalloc(size);
     for (i = 0; i < _kernel_config.max_task_num; i++) {
         _task_table[i] = NULL;
@@ -481,7 +481,9 @@ static void map_stack(proc_t* proc, ewokos_addr_t* stacks, ewokos_addr_t base, u
         }
 #endif
     }
-    flush_tlb();
+    /* stack pages are WRBACK and their descriptors were published per-line by
+     * map_page: a TLB-only invalidate is enough (no whole-D-cache sweep). */
+    flush_tlb_nosweep();
 }
 
 static void unmap_stack(proc_t* proc, ewokos_addr_t* stacks, ewokos_addr_t base, uint32_t pages) {
@@ -490,13 +492,16 @@ static void unmap_stack(proc_t* proc, ewokos_addr_t* stacks, ewokos_addr_t base,
         unmap_page(proc->space->vm, base + PAGE_SIZE*i);
         kfree_page((void*)stacks[i]);
     }
-    flush_tlb();
+    /* unmap_page published the invalid descriptor per-line: TLB-only. */
+    flush_tlb_nosweep();
 }
 
 ewokos_addr_t thread_stack_alloc(proc_t* proc) {
     uint32_t i;
     if(proc->space->thread_stacks == NULL) {
         proc->space->thread_stacks = (thread_stack_t*)kmalloc(_kernel_config.max_task_per_proc*sizeof(thread_stack_t));
+        if(proc->space->thread_stacks == NULL)
+            return 0;
         memset(proc->space->thread_stacks, 0, _kernel_config.max_task_per_proc*sizeof(thread_stack_t));
     }
 
@@ -512,9 +517,11 @@ ewokos_addr_t thread_stack_alloc(proc_t* proc) {
 
     ewokos_addr_t base = USER_STACK_TOP - STACK_PAGES*PAGE_SIZE - THREAD_STACK_PAGES*PAGE_SIZE*(i+1);
     uint32_t pages = THREAD_STACK_PAGES;
-    proc->space->thread_stacks[i].base = base;
     if(proc->space->thread_stacks[i].stacks == NULL) 
         proc->space->thread_stacks[i].stacks = kmalloc(THREAD_STACK_PAGES*sizeof(void*));
+    if(proc->space->thread_stacks[i].stacks == NULL)
+        return 0;
+    proc->space->thread_stacks[i].base = base;
     memset(proc->space->thread_stacks[i].stacks, 0, THREAD_STACK_PAGES*sizeof(void*));
     map_stack(proc, proc->space->thread_stacks[i].stacks, base, pages);
     return base;
@@ -571,7 +578,8 @@ static void proc_shrink_mem(proc_t* proc, int32_t page_num) {
         if (proc->space->heap_size == 0)
             break;
     }
-    flush_tlb();
+    /* heap descriptors published per-line by unmap_page_ref: TLB-only. */
+    flush_tlb_nosweep();
 }
 
 /* proc_exapnad_memory expands the heap size of the given process. */
@@ -622,7 +630,10 @@ static int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
                 AP_RW_RW, PTE_ATTR_WRBACK);
         proc->space->heap_size += PAGE_SIZE;
     }
-    flush_tlb();
+    /* heap descriptors published per-line by map_page_ref: TLB-only. The
+     * memset zeros stay dirty in the PIPT-coherent D-cache, exactly as on
+     * aarch64; any DMA/GPU handoff is cleaned by the driver or the switch. */
+    flush_tlb_nosweep();
     return res;
 }
 
@@ -647,9 +658,13 @@ static int32_t proc_init_space(proc_t* proc) {
         return -1;
     }
 
+    proc->space = (proc_space_t*)kmalloc(sizeof(proc_space_t));
+    if(proc->space == NULL) {
+        _proc_vm_mark[pde_index] = 0;
+        return -1;
+    }
     page_dir_entry_t *vm = _proc_vm[pde_index].pde;
     set_vm(vm);
-    proc->space = (proc_space_t*)kmalloc(sizeof(proc_space_t));
     memset(proc->space, 0, sizeof(proc_space_t));
 
     proc->space->pde_index = pde_index;
@@ -1714,6 +1729,8 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
             at = at % _kernel_config.max_task_num;
         if (_task_table[at] == NULL) {
             _task_table[at] = (proc_t*)kmalloc(sizeof(proc_t));
+            if(_task_table[at] == NULL) /* kmalloc exhausted */
+                return NULL;
             index = at;
             break;
         }
@@ -1761,12 +1778,17 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
         }
     }
     else {
+        if(parent->space->thread_stacks == NULL) {
+            parent->space->thread_stacks = (thread_stack_t*)kmalloc(_kernel_config.max_task_per_proc*sizeof(thread_stack_t));
+            if(parent->space->thread_stacks == NULL) {
+                _task_table[index] = NULL;
+                kfree(proc);
+                return NULL;
+            }
+            memset(parent->space->thread_stacks, 0, _kernel_config.max_task_per_proc*sizeof(thread_stack_t));
+        }
         proc->space = parent->space;
         proc->space->refs++;
-        if(proc->space->thread_stacks == NULL) {
-            proc->space->thread_stacks = (thread_stack_t*)kmalloc(_kernel_config.max_task_per_proc*sizeof(thread_stack_t));
-            memset(proc->space->thread_stacks, 0, _kernel_config.max_task_per_proc*sizeof(thread_stack_t));
-        }
     }
 
     if(parent != NULL) {
@@ -2348,7 +2370,8 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
                 phy_page_addr,
                 AP_RW_R, PTE_ATTR_WRBACK); // set parent page table with read only permissions
     }
-    flush_tlb();
+    /* COW descriptors published per-line by map_page/map_page_ref: TLB-only. */
+    flush_tlb_nosweep();
     child->space->heap_size = (ewokos_addr_t)pages * PAGE_SIZE;
     /*
      * Preserve the parent's actual heap break. User-space allocators keep

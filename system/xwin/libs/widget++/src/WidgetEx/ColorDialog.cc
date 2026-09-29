@@ -7,7 +7,7 @@
 
 using namespace Ewok;
 
-// 生成 64 种颜色
+// generate 64 colors
 std::vector<uint32_t> generate64Colors() {
     std::vector<uint32_t> colors;
     for (int i = 3; i >= 0; --i) {
@@ -76,11 +76,11 @@ protected:
     void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
         graph_fill_rect(g, r.x, r.y, r.w, r.h, theme->basic.bgColor);
 
-        // 固定每行 16 个颜色
+        // fixed 16 colors per row
         const int cols = 16;
         int rows = (colors.size() + cols - 1) / cols;
 
-        // 确保色彩块填满 widget
+        // make sure the color blocks fill the widget
         int cellWidth = r.w / cols;
         int cellHeight = r.h / rows;
 
@@ -90,7 +90,7 @@ protected:
             graph_fill_rect(g, x, y, cellWidth, cellHeight, colors[i]);
 
             if (static_cast<int>(i) == selectedIndex) {
-                // 绘制选中边框
+                // draw the selection border
                 graph_box_3d(g, x, y, cellWidth, cellHeight, 0xFF000000, 0xFFffffff);
             }
         }
@@ -100,11 +100,11 @@ protected:
         if (ev->state == MOUSE_STATE_CLICK) {
             gpos_t pos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
 
-            // 固定每行 16 个颜色
+            // fixed 16 colors per row
             const int cols = 16;
             int rows = (colors.size() + cols - 1) / cols;
 
-            // 确保色彩块填满 widget
+            // make sure the color blocks fill the widget
             int cellWidth = area.w / cols;
             int cellHeight = area.h / rows;
 
@@ -283,7 +283,7 @@ void ColorDialog::onBuild() {
     c->add(cancelButton);
     setAlpha(true);
     
-    // 设置颜色
+    // set the color
     if(color != 0)
         colorWidget->setColor(color);
 }

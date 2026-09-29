@@ -24,8 +24,9 @@ inline void set_pte_flags(page_table_entry_t* pte, uint32_t pte_attr) {
         pte->writeback = 1;
     }
     else if(pte_attr == PTE_ATTR_NOCACHE) {
-        /* TRE=0：TEX=001、C=B=0 表示 Normal Non-cacheable。
-         * TEX=000、B=1 是 Device，不能用于普通 RAM 的非对齐访问。 */
+        /* With TRE=0, TEX=001 and C=B=0 mean Normal Non-cacheable.
+         * TEX=000 with B=1 is Device, which cannot take the unaligned
+         * accesses ordinary RAM needs. */
         pte->tex = 1;
     }
     else if(pte_attr == PTE_ATTR_STRONG_ORDER) { //strong ordered mem
