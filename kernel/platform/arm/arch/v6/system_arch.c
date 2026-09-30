@@ -1,25 +1,27 @@
 /*
- * ARMv6 (legacy arm32) cache / TLB / address-space maintenance.
+ * ARMv6 (ARM1136/ARM1176 class) cache / TLB / address-space maintenance.
  *
  * Platform-specific implementation of the interfaces declared in
  * <kernel/system.h>. Reproduces the `#else` (non-aarch64, non-ARM_V7) branch
  * that used to live in the common kernel/kernel/src/system.c.
  *
- * ARMv5/v6 lack the ARMv7 per-line table publish path: the walk is
- * Non-cacheable, so a bare TLBI would leave dirty page tables unpublished and
- * flush_tlb() keeps the original whole D-cache clean. The range-based clean /
- * flush helpers are no-ops here.
+ * Page-table walks are Non-cacheable and the non-ARM_V7 map_page/unmap_page
+ * path does not publish descriptors per line, so flush_tlb() keeps the whole
+ * D-cache clean ahead of the TLB invalidate: without it a dirty page-table
+ * line would never reach memory. Unlike v5 (ARM926) this core implements
+ * whole-cache clean ops, so __flush_dcache_all is a single c7,c14,0 and the
+ * range helpers are real by-MVA loops rather than no-ops.
  */
 #include <kernel/system.h>
 #include <kernel/core.h>
 
 extern void __flush_dcache_all(void);
 extern void __invalidate_dcache_all(void);
+extern void __invalidate_icache_all(void);
 extern void __flush_tlb(void);
 extern void __set_translation_table_base(ewokos_addr_t base);
-#ifdef KERNEL_SMP
-extern void __invalidate_icache_all(void);
-#endif
+extern void __dcache_clean_pou_range(uint32_t start, uint32_t end);
+extern void __dcache_flush_poc_range(uint32_t start, uint32_t end);
 
 void flush_dcache(void) {
     __flush_dcache_all();
@@ -30,11 +32,7 @@ void invalidate_dcache(void) {
 }
 
 void invalidate_icache_all(void) {
-#ifdef KERNEL_SMP
     __invalidate_icache_all();
-#else
-    /* arm32 v5/v6 UP keeps whole-cache maintenance inside flush_tlb() */
-#endif
 }
 
 void flush_tlb(void) {
@@ -54,13 +52,15 @@ void flush_tlb_nosweep(void) {
 }
 
 void dcache_clean_code_range(const void* start, uint32_t size) {
-    (void)start;
-    (void)size;
+    if(size == 0)
+        return;
+    __dcache_clean_pou_range((uint32_t)start, (uint32_t)start + size);
 }
 
 void dcache_flush_range(const void* start, uint32_t size) {
-    (void)start;
-    (void)size;
+    if(size == 0)
+        return;
+    __dcache_flush_poc_range((uint32_t)start, (uint32_t)start + size);
 }
 
 void flush_tlb_addr(ewokos_addr_t addr) {

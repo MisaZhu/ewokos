@@ -34,6 +34,13 @@ CFLAGS += -mfpu=neon-vfpv3 -DFPU_ENABLED -DARM_V7
 ASFLAGS += -mfpu=neon-vfpv3 -DFPU_ENABLED -DARM_V7
 endif
 
+# ARM1136/ARM1176 class: WFI (c7,c0,4) and the whole-cache clean ops
+# (c7,c14,0) exist from ARMv6K on, and there is no NEON.
+ifeq ($(ARCH_VER),v6)
+CFLAGS += -DARM_V6 -DARM_V6K
+ASFLAGS += -DARM_V6 -DARM_V6K
+endif
+
 ifeq ($(DEBUG),yes)
 OPTM = -g 
 else
