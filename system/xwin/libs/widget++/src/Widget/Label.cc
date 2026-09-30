@@ -13,6 +13,7 @@ void Label::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 }
 
 Label::Label(const string& str) {
+	alpha = true;
 	label = str;
 }
 
