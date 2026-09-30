@@ -4,9 +4,17 @@ __cpu_dcache_clean_flush:
 
 .global	__flush_dcache_all
 __flush_dcache_all:
+	/*
+	 * ARM926EJ-S has no whole-cache clean/invalidate op (c7,c14,0 and
+	 * c7,c10,0 are UNDEFINED here). Walk the D-cache with test-clean-
+	 * invalidate: each MRC writes back and drops one dirty line and sets Z
+	 * once nothing dirty is left. A single pass only handled one line, which
+	 * silently threw the rest away as soon as the D-cache was enabled.
+	 */
+1:	MRC p15, 0, r15, c7, c14, 3
+	bne 1b
 	mov r0, #0
-	MRC p15, 0, r0, c7, c10, 3
-	MCR p15, 0, r0, c7, c6, 0
+	MCR p15, 0, r0, c7, c10, 4 // drain write buffer
 	bx lr
 .global	__invalidate_dcache_all
 __invalidate_dcache_all:
@@ -21,7 +29,8 @@ __flush_tlb:
 #	mcr p15, 0, r0, c7, c5, 4  // isb
 	mcr p15, 0, r0, c7, c5, 0  // flush icache all
 #	mcr p15, 0, r0, c7, c5, 6  // flush branch prediction
-	mcr p15, 0, r0, c7, c7, 0  // invalidate both data and instruction
+	// no c7,c7,0 here: callers already ran __flush_dcache_all, and an
+	// invalidate-only pass would discard anything dirtied since
 #	mcr p15, 0, r0, c8, c7, 0  //unified tlb invalidation
 	mcr p15, 0, r0, c8, c6, 0  //data tlb invalidation
 #	mcr p15, 0, r0, c8, c5, 0  //instruction tlb invalidation
