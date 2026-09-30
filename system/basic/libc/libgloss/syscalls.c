@@ -1113,6 +1113,19 @@ uint32_t __sync_fetch_and_sub_4(volatile void* ptr, uint32_t val) {
     return __atomic_fetch_sub_4(ptr, val, __SYNC_SEQ_CST);
 }
 
+/* __sync_add_and_fetch / __sync_sub_and_fetch return the NEW value (the
+ * fetch_and_* variants above return the OLD one). GCC lowers them to these
+ * distinct out-of-line helpers; libgcc does not provide them for the armv4t
+ * baseline (arm v5 targets such as lego.ev3), so build them on top of the
+ * already-exported __atomic_fetch_* helpers. */
+uint32_t __sync_add_and_fetch_4(volatile void* ptr, uint32_t val) {
+    return __atomic_fetch_add_4(ptr, val, __SYNC_SEQ_CST) + val;
+}
+
+uint32_t __sync_sub_and_fetch_4(volatile void* ptr, uint32_t val) {
+    return __atomic_fetch_sub_4(ptr, val, __SYNC_SEQ_CST) - val;
+}
+
 uint32_t __sync_fetch_and_and_4(volatile void* ptr, uint32_t val) {
     return __atomic_fetch_and_4(ptr, val, __SYNC_SEQ_CST);
 }

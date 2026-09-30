@@ -53,7 +53,7 @@ static uint32_t get_kmalloc_size(void) {
 }
 
 static uint32_t get_dma_size(void) {
-    uint32_t ret = 16*MB;
+    uint32_t ret = 4*MB;
 
     if(_kernel_config.dma_size == 0) {
         if(_sys_info.total_phy_mem_size >= 8ull*GB)
@@ -62,6 +62,8 @@ static uint32_t get_dma_size(void) {
             ret = 64*MB;
         else if(_sys_info.total_phy_mem_size >= 2ull*GB)
             ret = 32*MB;
+        else if(_sys_info.total_phy_mem_size >= 512*MB)
+            ret = 8*MB;
     }
     else {
         ret = _kernel_config.dma_size;
