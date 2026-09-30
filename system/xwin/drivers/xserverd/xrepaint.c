@@ -124,7 +124,7 @@ void hide_cursor(x_t* x) {
 
 static inline void refresh_cursor(x_t* x) {
     x_display_t* display = &x->displays[x->current_display];
-    if(display->g == NULL || x->cursor.saved == NULL)
+    if(display->g == NULL || x->show_cursor || x->cursor.saved == NULL)
         return;
     int32_t mx = x->cursor.cpos.x - x->cursor.offset.x;
     int32_t my = x->cursor.cpos.y - x->cursor.offset.y;

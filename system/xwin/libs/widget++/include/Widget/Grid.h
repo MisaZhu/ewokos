@@ -26,6 +26,7 @@ public:
 	Grid();
 	~Grid(void);
 
+	void select(int sel);
 	void setItemSize(uint32_t itemW, uint32_t itemH);
 	inline gsize_t getItemSize() { gsize_t r = {itemW, itemH}; return r;}
 };

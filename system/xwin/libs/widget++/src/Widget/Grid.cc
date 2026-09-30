@@ -175,6 +175,24 @@ bool Grid::onIM(xevent_t* ev) {
 	return false;
 }
 
+/* scroll the selected item into view (row-aligned), same adjustment
+ * onIM() does for the focused-key path, so programmatic selection
+ * also scrolls */
+void Grid::select(int sel) {
+	if(cols > 0 && rows > 0 && sel >= 0 && sel < (int32_t)itemNum) {
+		int32_t c = (int32_t)cols;
+		int32_t rowStart = sel - (sel % c);
+		if(sel < itemStart)
+			itemStart = rowStart;
+		else if(sel >= itemStart + c*(int32_t)rows)
+			itemStart = rowStart - (int32_t)(rows - 1)*c;
+		if(itemStart < 0)
+			itemStart = 0;
+		updateScroller();
+	}
+	ListBase::select(sel);
+}
+
 void Grid::setItemSize(uint32_t iw, uint32_t ih) {
 	if(iw > 0)
 		itemW = iw;
