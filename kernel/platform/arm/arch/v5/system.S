@@ -22,6 +22,39 @@ __invalidate_dcache_all:
 	MCR p15, 0, r0, c7, c6, 0
 	bx lr
 
+.global __invalidate_icache_all
+__invalidate_icache_all:
+	mov r0, #0
+	mcr p15, 0, r0, c7, c5, 0  // invalidate icache all
+	bx lr
+
+	/*
+	 * Range ops, [r0, r1) by MVA, 32-byte ARM926 lines. The caches are
+	 * VIVT, so these only reach lines that were filled through the very
+	 * VA passed in - which is what the kernel-alias writers want.
+	 */
+.global __dcache_clean_range
+__dcache_clean_range:
+	bic r0, r0, #31
+1:	mcr p15, 0, r0, c7, c10, 1 // clean D line by MVA
+	add r0, r0, #32
+	cmp r0, r1
+	blo 1b
+	mov r0, #0
+	mcr p15, 0, r0, c7, c10, 4 // drain write buffer
+	bx lr
+
+.global __dcache_flush_range
+__dcache_flush_range:
+	bic r0, r0, #31
+1:	mcr p15, 0, r0, c7, c14, 1 // clean+invalidate D line by MVA
+	add r0, r0, #32
+	cmp r0, r1
+	blo 1b
+	mov r0, #0
+	mcr p15, 0, r0, c7, c10, 4 // drain write buffer
+	bx lr
+
 .global __flush_tlb
 __flush_tlb:
 	mov r0, #0
@@ -31,9 +64,9 @@ __flush_tlb:
 #	mcr p15, 0, r0, c7, c5, 6  // flush branch prediction
 	// no c7,c7,0 here: callers already ran __flush_dcache_all, and an
 	// invalidate-only pass would discard anything dirtied since
-#	mcr p15, 0, r0, c8, c7, 0  //unified tlb invalidation
-	mcr p15, 0, r0, c8, c6, 0  //data tlb invalidation
-#	mcr p15, 0, r0, c8, c5, 0  //instruction tlb invalidation
+	// ARM926EJ-S has one unified TLB (DDI0198E 2.3.9): c8,c5/c6/c7 all hit
+	// it, use the architectural "invalidate all" form
+	mcr p15, 0, r0, c8, c7, 0  //unified tlb invalidation
 	mcr p15, 0, r0, c7, c10, 4 // dsb
 #	mcr p15, 0, r0, c7, c5, 4  // isb
 	mov pc, lr
