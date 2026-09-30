@@ -142,6 +142,7 @@ static int32_t read_config(x_t* x, const char* fname) {
     x->config.fps_async = json_get_int_def(conf_var, "fps_async", 0);
     x->config.bg_proc_priority = json_get_int_def(conf_var, "bg_proc_priority", 2);
 
+    x->show_cursor = true;
     const char* v = json_get_str_def(conf_var, "cursor", "");
     if(strcmp(v, "touch") == 0)
         x->cursor.type = CURSOR_TOUCH;
@@ -183,7 +184,6 @@ static int x_init(x_t* x, const char* display_man) {
     x->cursor.cpos.y = display->g->h/2;
     x->mouse_state.last_pos.x = x->cursor.cpos.x;
     x->mouse_state.last_pos.y = x->cursor.cpos.y;
-    x->show_cursor = true;
 
     xevent_pool_init();
     return 0;
