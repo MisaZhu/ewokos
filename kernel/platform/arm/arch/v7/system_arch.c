@@ -5,9 +5,10 @@
  * <kernel/system.h>. Reproduces the branch that used to live behind
  * `#elif defined(ARM_V7)` in the common kernel/kernel/src/system.c.
  *
- * On ARMv7, map_page/unmap_page explicitly publish page-table lines to PoC and
- * the walk is cacheable/inner-shareable (see v7/system.S + v7/boot.S), so PTE
- * visibility does not depend on a whole-cache sweep for single-page changes.
+ * On ARMv7 the table walk is Non-cacheable (TTBR0 IRGN/RGN=0, see v7/boot.S
+ * and __set_translation_table_base in v7/system.S), so map_page/unmap_page
+ * explicitly publish every page-table line to PoC with dcache_flush_range and
+ * PTE visibility does not depend on a whole-cache sweep for single-page changes.
  */
 #include <kernel/system.h>
 #include <kernel/core.h>
