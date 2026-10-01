@@ -18,6 +18,11 @@ BSP_DIR=bsp
 
 BUILD_DIR = .
 
+# Object isolation is handled generically in common_objs.mk: objects are keyed
+# by the owning machine (MACHINE), so an SMP board (miyoo/x2lite/picocalc) can
+# never link a UP board's (orangepi/lego.ev3) objects. Do not set a coarser
+# KERNEL_OBJ_DIR here.
+
 include $(SRC_DIR)/platform/common_objs.mk
 .DEFAULT_GOAL := all
 
@@ -191,6 +196,12 @@ OBJS = $(ARCH_OBJS) \
 	$(KERNEL_OBJS) \
 	$(DEV_OBJS) 
 
+# Auto-generated header dependencies (common_objs.mk compiles with -MMD -MP).
+# Included after OBJS so editing a shared kernel header rebuilds the affected
+# objects instead of make reporting "Nothing to be done".
+DEP_FILES = $(OBJS:.o=.d)
+-include $(DEP_FILES)
+
 LDFLAGS = -L $(ARCH_DIR)/$(ARCH_VER) $(ARCH_LD_FLAGS) $(LIBGCC)
 
 all: $(OS_IMG) 
@@ -200,5 +211,5 @@ $(OS_IMG): $(OBJS) $(LDS)
 	$(OBJCOPY) -O binary $(BUILD_DIR)/$(OS_ELF) $(BUILD_DIR)/$(OS_IMG)
 
 clean:
-	rm -f $(OBJS)
+	rm -f $(OBJS) $(DEP_FILES)
 	rm -f $(OS_IMG) $(OS_ELF)

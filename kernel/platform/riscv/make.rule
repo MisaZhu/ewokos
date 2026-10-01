@@ -183,6 +183,12 @@ OBJS = $(ARCH_OBJS) \
 	$(KERNEL_OBJS) \
 	$(DEV_OBJS) 
 
+# Auto-generated header dependencies (common_objs.mk compiles with -MMD -MP).
+# Included after OBJS so editing a shared kernel header rebuilds the affected
+# objects instead of make reporting "Nothing to be done".
+DEP_FILES = $(OBJS:.o=.d) $(START_OBJ:.o=.d)
+-include $(DEP_FILES)
+
 LDFLAGS = -L $(ARCH_DIR)/$(ARCH)
 
 all: $(OS_IMG) 
@@ -214,6 +220,6 @@ gdb:
 	#gdb-multiarch $(BUILD_DIR)/$(OS_ELF) -x /tmp/gdbinit #for ubuntu 18.04 without riscv64-linux-gnu-gdb
 
 clean:
-	rm -f $(OBJS) $(START_OBJ)
+	rm -f $(OBJS) $(START_OBJ) $(DEP_FILES)
 	rm -f $(OS_IMG) $(OS_ELF)
 	rm -f $(OS_QEMU_IMG) $(OS_QEMU_ELF)

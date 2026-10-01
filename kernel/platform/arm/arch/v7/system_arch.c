@@ -24,12 +24,6 @@ extern void __set_translation_table_base_asid(ewokos_addr_t base, uint32_t asid)
 extern void __dcache_clean_pou_range(uint32_t start, uint32_t end);
 extern void __dcache_flush_poc_range(uint32_t start, uint32_t end);
 
-/* CONTEXTIDR.ASID is 8 bits on ARMv7-A short-descriptor translation and
- * proc_space_asid() = pde_index+1 reserves 0, so usable ASIDs are 1..255. A
- * space whose ASID does not fit falls back to the full-TLBIALL switch instead
- * of silently truncating and aliasing another space. */
-static inline uint32_t asid_limit(void) { return 256; }
-
 void flush_dcache(void) {
     __flush_dcache_all();
 }
@@ -78,20 +72,22 @@ void dcache_flush_range(const void* start, uint32_t size) {
 }
 
 void flush_tlb_addr(ewokos_addr_t addr) {
-    /* map_page/unmap_page have published the descriptor. The TLBI operand is
-     * VA[31:12] in place, not addr >> 12 as on aarch64. The all-ASID form
-     * also covers global pages. */
-    ewokos_addr_t page = addr & ~(ewokos_addr_t)0xfff;
-    __asm__ volatile(
-        "dsb\n"
-#ifdef KERNEL_SMP
-        "mcr p15, 0, %0, c8, c3, 3\n" /* TLBIMVAAIS */
-#else
-        "mcr p15, 0, %0, c8, c7, 3\n" /* TLBIMVAA */
-#endif
-        "dsb\n"
-        "isb\n"
-        :: "r"(page) : "memory");
+    /*
+     * ARMv7 walks page tables as non-cacheable memory (TTBR0 IRGN/ORGN/S=0,
+     * see v7/boot.S and __set_translation_table_base), so the walker does NOT
+     * snoop the D-cache. A PTE store made through the cacheable kernel mapping
+     * stays in the D-cache, and a bare dsb + scoped TLBIMVAA here never
+     * publishes it to the walker -> intermittent translation faults during
+     * early boot (shm.c map/unmap, proc_load_elf). On real Cortex-A7 (miyoo)
+     * this is the pre-logo black screen that only some power-on boots hit;
+     * QEMU virt arm32 does not model walker/D-cache incoherence so it never
+     * reproduces. Keep the historical full flush (whole-D-cache clean to PoC +
+     * global TLB invalidate) -- this is the configuration verified to boot on
+     * the board (matches the pre-optimization arm32 flush_tlb_addr). Do NOT
+     * re-optimize to a scoped TLBI without re-validating on hardware.
+     */
+    (void)addr;
+    flush_tlb();
 }
 
 void set_translation_table_base(ewokos_addr_t tlb_base) {
@@ -106,32 +102,25 @@ void set_translation_table_base(ewokos_addr_t tlb_base) {
 
 /*
  * Address-space switch. See the common contract in <kernel/system.h>.
+ *
+ * ARMv7 keeps the global-page scheme: every switch is the full
+ * TTBR0 + CONTEXTIDR=0 + TLBIALL + BPIALL sequence behind a whole-D-cache
+ * clean. The ASID-tagged switch without TLB invalidation
+ * (__set_translation_table_base_asid) does not boot reliably on the real
+ * Cortex-A7 boards (miyoo: intermittent black screen on power-up), while this
+ * sequence is the one verified on hardware. Do not re-enable the ASID path
+ * here without re-validating on a board.
  */
 void set_translation_table_base_asid(ewokos_addr_t tlb_base, uint32_t asid) {
-    if(asid != 0 && asid < asid_limit()) {
-        /* Keep the switch-time whole-D-cache sweep: on ARMv7 it is load-bearing
-         * for non-coherent DMA/graphics doorbell ordering (removing it freezes
-         * X on real boards; an I-cache-only or bare-dsb variant does not
-         * substitute). The ASID write replaces the per-switch TLBIALL/BPIALL so
-         * each space keeps its own warm, ASID-tagged user TLB entries. */
-        flush_dcache();
-        __set_translation_table_base_asid(tlb_base, asid);
-        return;
-    }
-    /* ASID does not fit the 8-bit CONTEXTIDR field: take the full-invalidate
-     * switch (CONTEXTIDR=0 + TLBIALL), which also stops shared-ASID-0 fallback
-     * spaces from colliding in the TLB. */
+    (void)asid;
     set_translation_table_base(tlb_base);
 }
 
 void flush_tlb_asid(uint32_t asid) {
-    /* Evict a recycled ASID's tagged entries on all cores (TLBIASIDIS) so a
-     * reused pde slot never resolves through the previous owner. An out-of-
-     * range ASID uses the full flush, which covers every ASID. */
-    if(asid != 0 && asid < asid_limit())
-        __flush_tlb_asid(asid);
-    else
-        flush_tlb();
+    /* Global-page scheme: there are no ASID-private entries to evict, a
+     * recycled pde slot is covered by the full flush on all cores. */
+    (void)asid;
+    flush_tlb();
 }
 
 void wfi(void) {
