@@ -8,12 +8,19 @@ __flush_dcache_all:
 	 * ARM926EJ-S has no whole-cache clean/invalidate op (c7,c14,0 and
 	 * c7,c10,0 are UNDEFINED here). Walk the D-cache with test-clean-
 	 * invalidate: each MRC writes back and drops one dirty line and sets Z
-	 * once nothing dirty is left. A single pass only handled one line, which
-	 * silently threw the rest away as soon as the D-cache was enabled.
+	 * once nothing dirty is left.
+	 *
+	 * CRITICAL: the loop above only removes DIRTY lines.  Clean lines
+	 * survive and, because the cache is VIVT without ASID, they alias
+	 * across address-space switches — process B reading user VA X hits a
+	 * stale clean line left by process A (different physical page, same
+	 * virtual tag).  A full invalidate (c7,c6,0) after the loop drops
+	 * every remaining line so the D-cache is truly empty.
 	 */
 1:	MRC p15, 0, r15, c7, c14, 3
 	bne 1b
 	mov r0, #0
+	MCR p15, 0, r0, c7, c6, 0  // invalidate entire D-cache (clean lines)
 	MCR p15, 0, r0, c7, c10, 4 // drain write buffer
 	bx lr
 .global	__invalidate_dcache_all
