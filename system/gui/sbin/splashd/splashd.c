@@ -45,7 +45,7 @@ static void paint_bg(void) {
         graph_gradation(g, 0, 0, g->w, g->h, 0xff444488, 0xff000000, true);
     }
     else {
-        graph_gradation(g, 0, 0, g->w, g->h, 0xffffffff, 0xff8888ff , true);
+        graph_gradation(g, 0, 0, g->w, g->h, 0xffffffff, 0xffaaaaff , true);
     }
 
     /*
