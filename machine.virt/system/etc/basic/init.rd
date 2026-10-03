@@ -6,4 +6,5 @@
 @/bin/ipcserv /drivers/nulld           /dev/null
 
 @/bin/ipcserv /sbin/sessiond
+@/bin/bgrun /sbin/cron
 @/bin/bgrun /bin/session -r -t /dev/tty0

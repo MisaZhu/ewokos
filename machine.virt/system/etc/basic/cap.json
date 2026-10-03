@@ -90,6 +90,10 @@
             {"type":"root", "rights":"rwxg"}
         ]},
 
+        { "cmd": "/sbin/cron", "desc": "setuid boundary: runs scheduled /etc/crontab jobs as their named user", "caps": [
+            {"type":"root", "rights":"rwxg"}
+        ]},
+
         { "cmd": "/bin/x/xsession", "desc": "setuid boundary: switches uid/gid after auth (setuid-root equivalent)", "caps": [
             {"type":"root", "rights":"rwxg"}
         ]}
