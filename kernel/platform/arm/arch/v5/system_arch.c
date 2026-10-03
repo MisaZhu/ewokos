@@ -104,3 +104,23 @@ void wfi(void) {
     __asm__("WFI");
 #endif
 }
+
+/*
+ * GCC lowers __sync_synchronize() to an out-of-line call on ARMv5/v6 (there is
+ * no DMB instruction below ARMv7), but arm-none-eabi libgcc does not ship the
+ * helper, so proc.c's vsyscall seqlock store-release fence fails to link. On
+ * ARMv7+ the same builtin inlines to `dmb`, which is why only this legacy
+ * target needs a definition.
+ *
+ * This board is single-core, so a compiler barrier alone would already order
+ * the seqlock stores against each other, but issue the CP15 drain-write-buffer
+ * (DSB) as well: it makes the fence a true full barrier for any DMA/other
+ * observer and matches what GCC inlines on ARMv7+. Runs once per tick, so the
+ * cost is irrelevant. The dummy Rd operand is bound to a register the compiler
+ * picks (the DSB encoding ignores its value, ARM ARM says SBZ) rather than
+ * hard-coding r0, which would silently clobber a live value in the caller.
+ */
+void __sync_synchronize(void) {
+    uint32_t tmp = 0;
+    __asm__ __volatile__("mcr p15, 0, %0, c7, c10, 4" :: "r"(tmp) : "memory");
+}

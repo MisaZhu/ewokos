@@ -527,7 +527,16 @@ ip_output_core(struct ip_iface *iface, uint8_t protocol, const uint8_t *data, si
 static uint16_t
 ip_generate_id(void)
 {
-    static uint16_t id = 128;
+    /*
+     * uint32_t, not uint16_t: GCC lowers __sync_fetch_and_add on a 16-bit
+     * operand to the out-of-line __sync_fetch_and_add_2 helper, which libgloss
+     * does not provide for the ARMv5 baseline (lego.ev3) - only the 32-bit _4
+     * family exists there (ARMv7+ inlines it as ldrexh/strexh, so those builds
+     * never emit the _2 symbol). The value is truncated to 16 bits for the
+     * header below anyway, so a wider counter yields the identical on-wire id
+     * sequence while using the atomic helper that is actually available.
+     */
+    static uint32_t id = 128;
     /*
      * ip_output() runs concurrently on IPC worker threads (TCP under the tcp
      * mutex, UDP/ICMP/raw under a *different* mutex or none) and on the main
