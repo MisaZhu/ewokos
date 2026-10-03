@@ -1,3 +1,4 @@
+@/bin/ipcserv /drivers/logd  /dev/log
 @/bin/ipcserv /drivers/virt/ttyd /dev/tty0
 
 @/bin/ipcserv /drivers/timerd          
