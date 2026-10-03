@@ -309,8 +309,8 @@ static int wait_avail(struct pcm *pcm, int *avail, int time_out_ms)
         if (pcm->hook != NULL) {
             pcm->hook(pcm->private);
         } else {
-            //proc_usleep(PCM_WAIT_SLEEP_MS * 1000);
-            proc_yield();
+            //usleep(PCM_WAIT_SLEEP_MS * 1000);
+            sched_yield();
         }
     }
 
@@ -344,7 +344,7 @@ static int pcm_write(struct pcm *pcm, const void* data, unsigned int count) {
             pcm->prepared = 0;
             pcm->running = 0;
             if (pcm_prepare(pcm) != 0) {
-                proc_usleep(10000);
+                usleep(10000);
             }
             continue;
         }
@@ -364,7 +364,7 @@ static int pcm_write(struct pcm *pcm, const void* data, unsigned int count) {
             pcm->prepared = 0;
             pcm->running = 0;
             if (pcm_prepare(pcm) != 0) {
-                proc_usleep(10000);
+                usleep(10000);
             }
             continue;
         }

@@ -218,3 +218,31 @@ void arch_dump_user_fault(proc_t* proc, context_t* ctx) {
 void arch_dump_prefetch_extra(context_t* ctx) {
     (void)ctx;
 }
+
+/*
+ * <dev/timer.h>: the `time` CSR, published to userspace so libc can
+ * interpolate the vsyscall clock between scheduler ticks.
+ *
+ * The frequency must match the one machines/virt.riscv/kernel/bsp/timer.c
+ * divides by in timer_read_sys_usec() (`csr_read(CSR_TIME)/10`), otherwise
+ * libc's interpolated nsec drifts away from the kernel's own usec. QEMU virt
+ * runs the timebase at exactly 10MHz; a board with a different timebase should
+ * override this weak symbol in its BSP rather than change the constant.
+ */
+#define RISCV_TIMEBASE_HZ 10000000U
+
+__attribute__((weak)) uint32_t timer_fine_cnt(uint64_t* cnt) {
+    if(cnt != NULL)
+        *cnt = (uint64_t)csr_read(CSR_TIME);
+    return RISCV_TIMEBASE_HZ;
+}
+
+/*
+ * <kernel/irq.h>: a U-mode `rdtime` traps unless scounteren.TM is set. OpenSBI
+ * already sets mcounteren.TM (it enables cycle/time/instret by default), so
+ * this S-mode bit is the only missing link. Per-core CSR, but scounteren is
+ * written by each hart on entry - the common kernel calls this per core.
+ */
+void arch_enable_user_cnt(void) {
+    csr_set(CSR_SCOUNTEREN, 0x2);   /* TM: bit 1 */
+}

@@ -150,13 +150,13 @@ ether_tap_close(struct net_device *dev)
  * behind by a nowait flush simply rides the next flush.
  */
 static ssize_t
-ether_tap_write_batch_once(struct ether_tap *tap, int nowait)
+ether_tap_write_batch_once(struct ether_tap *tap, uint8_t *buf, size_t len, int nowait)
 {
     int ret;
     struct pollfd pfd;
 
     for (;;) {
-        ret = write(tap->fd, tap->batch, tap->batch_len);
+        ret = write(tap->fd, buf, len);
         if (ret >= 0) {
             return ret;
         }
@@ -195,7 +195,7 @@ ether_tap_write_batch_once(struct ether_tap *tap, int nowait)
          * room and only helps when the fd itself has gone bad.
          */
         if (ether_tap_reopen_locked(tap) == 0) {
-            ret = write(tap->fd, tap->batch, tap->batch_len);
+            ret = write(tap->fd, buf, len);
         }
         return ret >= 0 ? ret : -1;
     }
@@ -210,7 +210,7 @@ static int
 ether_tap_flush_locked(struct ether_tap *tap, int nowait)
 {
     while (tap->batch_len > 0) {
-        ssize_t n = ether_tap_write_batch_once(tap, nowait);
+        ssize_t n = ether_tap_write_batch_once(tap, tap->batch, tap->batch_len, nowait);
         if (n <= 0) {
             return (int)n; /* -1 or NET_DEVICE_TX_AGAIN: batch retained */
         }
@@ -277,7 +277,7 @@ ether_tap_write(struct net_device *dev, const uint8_t *frame, size_t flen)
         mutex_lock(&tap->lock);
         memcpy(tap->batch_single, single, 2 + flen);
         tap->batch_len = 2 + flen;
-        ret = (int)ether_tap_write_batch_once(tap, 0);
+        ret = (int)ether_tap_write_batch_once(tap, tap->batch_single, 2 + flen, 0);
         tap->batch_len = 0;
         mutex_unlock(&tap->lock);
         TRACE();
@@ -320,7 +320,21 @@ ether_tap_read(struct net_device *dev, uint8_t *buf, size_t size)
     struct ether_tap *tap = PRIV(dev);
     ssize_t len;
     TRACE();
-    mutex_lock(&tap->lock);
+    /*
+     * trylock, not mutex_lock: this runs on the main protocol thread's RX
+     * drain. A bulk writer on an IPC worker can be inside ether_tap_write()'s
+     * batch-full flush, holding tap->lock across a blocking ETHER_TAP_TX_WAIT_MS
+     * POLLOUT park. Blocking here would freeze the whole main thread (timers,
+     * task wakeups, further RX) behind that park -- exactly what the nowait
+     * ether_tap_tryflush() path was introduced to avoid. If the lock is taken,
+     * report "no data" (-1) and let intr_step() service the rest of its round
+     * and retry next cadence; the frames stay queued in the device. The lock is
+     * only held long across a bounded TX park, so RX is deferred, never lost.
+     */
+    if (pthread_mutex_trylock(&tap->lock) != 0) {
+        TRACE();
+        return -1;
+    }
     len = read(tap->fd, buf, size);
     if (len < 0 && errno != EAGAIN && errno != EINTR) {
         /*

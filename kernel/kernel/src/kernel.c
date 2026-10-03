@@ -160,6 +160,13 @@ void __attribute__((optimize("O0"))) _slave_kernel_entry_c(uint32_t boot_core_id
     uint32_t cid = arch_slave_resolve_core(boot_core_id, get_core_id());
     set_translation_table_base(V2P((ewokos_addr_t)_kernel_info.kernel_vm));
     cpu_core_ready(cid);
+    /*
+     * The counter-access enable is a per-core control register (CNTKCTL_EL1 on
+     * arm/aarch64, scounteren on riscv), so a task migrated to this AP would
+     * take an EL0 trap reading the clock libc interpolates from. irq_init()
+     * only covers the boot core.
+     */
+    arch_enable_user_cnt();
     _cpu_cores[cid].actived = true;
     flush_dcache();
     proc_t* idle_proc = _cpu_cores[cid].idle_proc;

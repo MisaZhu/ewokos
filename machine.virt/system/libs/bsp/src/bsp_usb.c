@@ -490,7 +490,7 @@ static int msc_attach(bsp_usb_dev_t* dev, uint8_t iface_num,
             if (ready == 0) {
                 break;
             }
-            proc_usleep(100000);
+            usleep(100000);
         }
         if (ready != 0) {
             klog("bsp_usb: msc not_ready slot=%u\n", dev->xdev.slot_id);

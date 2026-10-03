@@ -181,9 +181,9 @@ static int timer_loop(vdevice_t* dev, void* p) {
     ipc_enable();
 
     if(_min_timer_usec == 0)
-        proc_usleep(100000);
+        usleep(100000);
     else {
-        proc_usleep(_min_timer_usec/2);
+        usleep(_min_timer_usec/2);
     }
 }
 

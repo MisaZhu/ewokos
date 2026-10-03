@@ -91,7 +91,7 @@ int main (int argc, char **argv) {
     char c;
     if(read(0, &c, 1) == 1 && (c == '\r' || c == '\n'))
       break;
-    proc_usleep(100000);
+    usleep(100000);
     counter++;
   }
 

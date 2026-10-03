@@ -52,7 +52,7 @@ static int write_all_retry(int fd, const void* buf, size_t len) {
             continue;
         }
         if(errno == EAGAIN || errno == EINTR) {
-            proc_usleep(1000);
+            usleep(1000);
             continue;
         }
         if(wr == 0 && errno == 0)
@@ -409,14 +409,14 @@ int32_t cmd_gets(int fd, str_t* buf) {
                 uint32_t ev = vfs_get_poll_events(fd);
                 if(ev == 0 || (ev & (VFS_EVT_CLOSE | VFS_EVT_NVAL | VFS_EVT_ERR)) != 0)
                     return -1;
-                proc_usleep(10000);
+                usleep(10000);
                 continue;
             }
             return -1;
         }
         if(i < 0) {
             if(errno == EAGAIN || errno == EINTR || errno == 0) {
-                proc_usleep(10000);
+                usleep(10000);
                 continue;
             }
             return -1;
@@ -429,7 +429,7 @@ int32_t cmd_gets(int fd, str_t* buf) {
             }
         }
         if(c == 0 || i < 0) {
-            proc_usleep(10000);
+            usleep(10000);
             continue;
         }
 

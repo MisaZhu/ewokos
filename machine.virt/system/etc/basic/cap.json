@@ -96,6 +96,10 @@
 
         { "cmd": "/bin/x/xsession", "desc": "setuid boundary: switches uid/gid after auth (setuid-root equivalent)", "caps": [
             {"type":"root", "rights":"rwxg"}
+        ]},
+
+        { "cmd": "/sbin/sshd", "desc": "setuid boundary: switches uid/gid after SSH auth to run the user session", "caps": [
+            {"type":"root", "rights":"rwxg"}
         ]}
     ]
 }

@@ -63,6 +63,16 @@ extern void arch_irq_timer_ack(void);
 extern void arch_irq_prologue(context_t* ctx);
 /* idle CPU pause in the irq tail (wfi on arm/aarch64/riscv; no-op on x86). */
 extern void arch_irq_idle(void);
+/*
+ * Permit userspace to read the fine-grained free-running counter that libc
+ * interpolates the vsyscall clock from (CNTKCTL_EL1.EL0VCTEN on aarch64,
+ * CNTKCTL.PL0VCTEN on armv7, scounteren.TM on riscv, no-op on x86 and on arm
+ * SoCs without a generic timer). These are per-core control registers, so this
+ * must run on every core before any user task is dispatched there - the common
+ * kernel calls it from irq_init() for the boot core and from
+ * _slave_kernel_entry_c() for each AP.
+ */
+extern void arch_enable_user_cnt(void);
 /* whether a data-abort status describes a recoverable user page fault. */
 extern uint8_t arch_fault_recoverable(uint32_t status);
 /* snapshot the arch register file into a core-dump event. */

@@ -459,7 +459,7 @@ static void terminate_shell_session(void) {
 	for(int i = 0; i < 100; i++) {
 		if(proc_get_uuid(_shell_pid) == 0)
 			break;
-		proc_usleep(10000);
+		usleep(10000);
 	}
 }
 
@@ -592,7 +592,7 @@ static uint32_t console_check_poll_events(vdevice_t* dev, int fd, int from_pid, 
 static int console_loop(vdevice_t* dev, void* p) {
 	(void)dev;
 	(void)p;
-	proc_usleep(20000);
+	usleep(20000);
 	return 0;
 }
 
@@ -642,7 +642,7 @@ int run(const char* mnt_point) {
 	pthread_create(&tid, NULL, thread_loop, NULL);
 
 	while(!_win_opened)
-		proc_usleep(100000);
+		usleep(100000);
 
 	/* Without a window there is nothing to attach a shell to; bail out instead
 	 * of publishing a console device that can never show anything. */
@@ -686,7 +686,7 @@ int main(int argc, char* argv[]) {
 	while(set_stdio(dev) != 0) {
 		if(child_uuid == 0 || proc_get_uuid(pid) != child_uuid)
 			exit(-1);
-		proc_usleep(10000);
+		usleep(10000);
 	}
 	proc_exec("/bin/shell");
 	ewok_waitpid(pid);

@@ -407,7 +407,7 @@ static void task_wait_other_ops(net_task_t *task, int self_ops) {
         pthread_mutex_unlock(&task->lock);
         if (!busy)
             return;
-        proc_usleep(TASK_DRAIN_POLL_US);
+        usleep(TASK_DRAIN_POLL_US);
     }
     slog("netd: task node=%d close drain timed out\n", task->node);
 }

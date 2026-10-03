@@ -458,7 +458,7 @@ static int wait_usb_device_ready(void) {
         PF->clear(&out);
         if(present)
             return 0;
-        proc_usleep(100000);
+        usleep(100000);
     }
     return -1;
 }

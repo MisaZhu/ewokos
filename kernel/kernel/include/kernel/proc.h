@@ -214,7 +214,12 @@ extern void    proc_untrack_interrupt_timeout(proc_t* proc);
 extern void    proc_track_ipc_timeout(proc_t* proc);
 extern void    proc_untrack_ipc_timeout(proc_t* proc);
 
-extern int32_t renew_kernel_tic(uint32_t usec);
+/*
+ * fine_cnt/fine_hz come from timer_fine_cnt() sampled by the caller
+ * immediately after timer_read_sys_usec(); see renew_vsyscall_info() for why
+ * the two clock reads must stay adjacent.
+ */
+extern int32_t renew_kernel_tic(uint32_t usec, uint64_t fine_cnt, uint32_t fine_hz);
 extern void    renew_kernel_sec(void);
 extern void    proc_usleep(context_t* ctx, uint32_t usec);
 extern void    proc_ready(proc_t* proc);

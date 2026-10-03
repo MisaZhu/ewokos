@@ -55,7 +55,7 @@ static uint32_t gSignel[SIGMAX] = {0};
 static mutex_t gSignelLock = MUTEX_INITIALIZER;
 
 /*
- * proc_usleep() is quantised to kernel timer ticks: sleep_counter is only
+ * usleep() is quantised to kernel timer ticks: sleep_counter is only
  * decremented from the timer IRQ (irq_do_timer0 -> renew_kernel_tic ->
  * renew_sleep_counter), so a request of N us actually costs
  * ceil(N / tick_period) ticks. With the shipped timer_freq of 1024Hz

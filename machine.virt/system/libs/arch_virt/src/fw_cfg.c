@@ -53,7 +53,7 @@ void fw_cfg_dma_transfer(void* address, uint32_t length, uint32_t control) {
 
     *dma_address = BE64(&fw_cfg_paddr->dma);
     while (BE32(fw_cfg_vaddr->dma.control) & ~0x01){
-        proc_usleep(0);
+        sched_yield();
     }
 }
 

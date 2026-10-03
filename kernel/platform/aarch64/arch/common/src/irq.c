@@ -261,3 +261,48 @@ void arch_dump_user_fault(proc_t* proc, context_t* ctx) {
 void arch_dump_prefetch_extra(context_t* ctx) {
     (void)ctx;
 }
+
+/*
+ * <dev/timer.h>: the raw counter behind timer_read_sys_usec(), published to
+ * userspace so libc can interpolate the vsyscall clock between scheduler
+ * ticks. Every aarch64 target in this tree times off the ARM generic virtual
+ * counter, and CNTVCT_EL0 is the same register the BSPs read, so the kernel's
+ * usec and libc's interpolated nsec can never disagree about the source.
+ *
+ * Weak: a board whose CNTFRQ_EL0 does not match its actual counter rate can
+ * override this in its BSP.
+ */
+__attribute__((weak)) uint32_t timer_fine_cnt(uint64_t* cnt) {
+    uint64_t frq;
+    __asm__ volatile("mrs %0, CNTFRQ_EL0" : "=r" (frq) : : "memory");
+    if(frq == 0)
+        return 0;
+    if(cnt != NULL)
+        __asm__ volatile("mrs %0, CNTVCT_EL0" : "=r" (*cnt) : : "memory");
+    return (uint32_t)frq;
+}
+
+/*
+ * <kernel/irq.h>: CNTKCTL_EL1 resets UNKNOWN, so without this a userland
+ * `mrs CNTVCT_EL0` takes an EL0 trap instead of reading the counter. Per-core
+ * register - the common kernel calls this on the boot core and on every AP.
+ *
+ * This MUST be a read-modify-write of bits [1:0] (EL0PCTEN|EL0VCTEN) and never
+ * a blind store. CNTKCTL_EL1 also carries the event-stream controls (EVNTEN and
+ * friends), and the kernel's global SMP spinlock in arch/v8/system.S parks on
+ * `wfe` and is kicked by `sev`. Clobbering the register to 0x3 turns the event
+ * stream off, which removes the periodic wakeup that makes a lost `sev`
+ * self-healing - the lock then deadlocks and everything downstream of it (init's
+ * exec_from_sd, vfsd's ipc_serv registration) fails. OR-ing the two enable bits
+ * leaves the reset/firmware configuration of every other field untouched.
+ *
+ * CNTFRQ_EL0 reads are not gated by this register at all.
+ */
+void arch_enable_user_cnt(void) {
+    uint64_t val;
+    __asm__ volatile("mrs %0, CNTKCTL_EL1" : "=r" (val) : : "memory");
+    val |= 0x3; /* EL0PCTEN | EL0VCTEN */
+    __asm__ volatile("msr CNTKCTL_EL1, %0":: "r"(val): "memory");
+    /* context-synchronise: an EL0 counter read must not predate the enable */
+    __asm__ volatile("isb" ::: "memory");
+}

@@ -27,7 +27,7 @@ malloc for memory trunk management
  * The guarded regions below are short and never block, so an uncontended
  * userspace atomic test-and-set is sufficient and costs no syscall.
  * Contention is rare (only the network worker allocates beside the main
- * render thread); when it does happen we spin briefly and then proc_yield(),
+ * render thread); when it does happen we spin briefly and then sched_yield(),
  * so a preempted holder can run instead of the waiter burning CPU.
  *
  * m->lock is a pthread_mutex_t, i.e. an int32_t; the heap struct is
@@ -47,7 +47,7 @@ static inline void trunk_lock_heap(malloc_t* m) {
     while(__sync_lock_test_and_set(lock, 1)) {
         if(++spins >= TRUNK_SPIN_YIELD_THRESHOLD) {
             spins = 0;
-            proc_yield();
+            sched_yield();
         }
     }
 }

@@ -224,7 +224,7 @@ static int touch_loop(vdevice_t* dev, void* p) {
     (void)p;
 
     if (!hid_connect()) {
-        proc_usleep(HID_CONNECT_SLEEP_US);
+        usleep(HID_CONNECT_SLEEP_US);
         return 0;
     }
 
@@ -272,7 +272,7 @@ static int touch_loop(vdevice_t* dev, void* p) {
         close(hid);
         hid = -1;
         memset(&_hid_info, 0, sizeof(fsinfo_t));
-        proc_usleep(HID_CONNECT_SLEEP_US);
+        usleep(HID_CONNECT_SLEEP_US);
         return 0;
     }
 
@@ -289,7 +289,7 @@ static int touch_loop(vdevice_t* dev, void* p) {
         uint64_t now = kernel_tic_ms(0);
         uint64_t next = last_flush_ms + TOUCH_FLUSH_MS;
         if (now < next)
-            proc_usleep((uint32_t)((next - now) * 1000u));
+            usleep((uint32_t)((next - now) * 1000u));
         touch_flush_pending();
     }
 

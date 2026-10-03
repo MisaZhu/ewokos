@@ -73,7 +73,7 @@ public:
 			keybFD = open(keyb_dev, O_RDONLY);
 			if(keybFD >= 0)
 				break;
-			proc_usleep(300000);
+			usleep(300000);
 		}
 	}
 
@@ -140,7 +140,7 @@ int main(int argc, char* argv[]) {
 		/* blocks inside vfsd while no key is down (zero IPCs); returns
 		   at once with the live snapshot while keys are held */
 		xim.read();
-		proc_usleep(_timer);
+		usleep(_timer);
 	}
 	return 0;
 }

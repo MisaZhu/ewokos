@@ -748,7 +748,7 @@ static int usb_hub_attach_port(int dev_idx, uint8_t port) {
             return -1;
         }
         for (int waited = 0; waited < 20; ++waited) {
-            proc_usleep(10000);
+            usleep(10000);
             if (usb_hub_port_status(dev->hdev, port, &status, &change) != 0) {
                 return -1;
             }
@@ -761,14 +761,14 @@ static int usb_hub_attach_port(int dev_idx, uint8_t port) {
         if (enabled) {
             break;
         }
-        proc_usleep(50000);
+        usleep(50000);
     }
     if (!enabled) {
         slog("usbhostd: hub dev=%d port=%u reset_failed status=%04x\n",
                 dev_idx, port, status);
         return -1;
     }
-    proc_usleep(50000);
+    usleep(50000);
 
     if (status & USB_HUB_PS_LOW_SPEED) {
         speed = BSP_USB_SPEED_LOW;
@@ -826,7 +826,7 @@ static int usb_enumerate_hub(int dev_idx) {
     if (pwr_ms > USB_HUB_PWR_WAIT_MAX_MS) {
         pwr_ms = USB_HUB_PWR_WAIT_MAX_MS;
     }
-    proc_usleep(pwr_ms * 1000u);
+    usleep(pwr_ms * 1000u);
 
     /* Scan ports until every port is handled, with a bounded grace window
        for devices that debounce slowly after power-good: a device missed
@@ -868,7 +868,7 @@ static int usb_enumerate_hub(int dev_idx) {
         if (all_done || kernel_tic_ms(0) >= grace_deadline) {
             break;
         }
-        proc_usleep(20000);
+        usleep(20000);
     }
     /* the hub device itself stays registered even with no children yet:
        the periodic scan keeps watching its ports */
@@ -1315,7 +1315,7 @@ static int usb_step(vdevice_t* dev, void* p) {
             _idle_sleep_us = USB_IDLE_SLEEP_MAX_US;
         }
     }
-    proc_usleep(have_inputs ? _idle_sleep_us : USB_NO_INPUT_SLEEP_US);
+    usleep(have_inputs ? _idle_sleep_us : USB_NO_INPUT_SLEEP_US);
     return 0;
 }
 

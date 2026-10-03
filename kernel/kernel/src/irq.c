@@ -109,6 +109,19 @@ static inline void irq_do_raw(context_t* ctx, uint32_t irq) {
 
 static inline void irq_do_timer0(context_t* ctx) {
     uint64_t usec = timer_read_sys_usec();
+    /*
+     * Sample the free-running counter back-to-back with the usec it will be
+     * published alongside. renew_vsyscall_info() hands userland the pair
+     * (uptime_usec, base_cnt) and libc interpolates between ticks, so the skew
+     * between these two reads becomes a fixed lag in the user-visible clock,
+     * inherited until the next tick. That lag must not vary: renew_kernel_sec()
+     * below walks the entire task table once a second, so a sample taken after
+     * it lands hundreds of microseconds late and the clock then jumps FORWARD
+     * by that much on the following tick. nanosleep() spins on this clock, so
+     * the jump surfaces as an early return.
+     */
+    uint64_t fine_cnt = 0;
+    uint32_t fine_hz = timer_fine_cnt(&fine_cnt);
     uint32_t usec_gap = usec - _irq_tic_last_usec;
 
     _irq_tic_last_usec = usec;
@@ -120,7 +133,7 @@ static inline void irq_do_timer0(context_t* ctx) {
         _irq_tic_second = 0;
         renew_kernel_sec();
     }
-    renew_kernel_tic(usec_gap);
+    renew_kernel_tic(usec_gap, fine_cnt, fine_hz);
     
     arch_irq_timer_ack();
 
@@ -430,6 +443,11 @@ void data_abort_handler(context_t* ctx, ewokos_addr_t addr_fault, uint32_t statu
 void irq_init(void) {
     irq_init_arch();
     interrupt_init();
+    /*
+     * Boot core only. CNTKCTL_EL1/scounteren are per-core, so each AP repeats
+     * this in _slave_kernel_entry_c() before it can host a user task.
+     */
+    arch_enable_user_cnt();
     _kernel_info.uptime_sec = 0;
     _kernel_info.uptime_usec = 0;
     _irq_tic_second = 0;

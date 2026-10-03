@@ -3051,15 +3051,137 @@ static int32_t renew_priority_counter(uint32_t usec) {
     return 0;
 }
 
-static void renew_vsyscall_info(void) {
+static uint32_t _fine_cnt_hz = 0xffffffffU;  /* 0xffffffff = not probed yet */
+static uint64_t _fine_nsec_q32 = 0;
+static uint32_t _fine_cnt_div = 0;           /* counter ticks per microsecond */
+
+/*
+ * Slack for the instructions between timer_read_sys_usec() and
+ * timer_fine_cnt() in irq_do_timer0. The sample is therefore a few ticks past
+ * the counter value uptime_usec was truncated from, so without this allowance
+ * the alignment check below fails whenever that truncation remainder happens to
+ * land at the top of its range - roughly one tick in div, which at div=24 is
+ * often enough to leave a visible microsecond step in the user clock.
+ *
+ * Widening the upper bound does not weaken detection of a BSP whose usec is not
+ * a true division: those compute an `aligned` that runs away from the sample as
+ * uptime grows, so they trip the bound within milliseconds and stay tripped.
+ */
+#define FINE_ALIGN_SKEW 64
+
+/*
+ * Release barrier for the vsyscall publication below. A plain compiler
+ * barrier is not enough here: the page is read by userland on *other* cores,
+ * and on aarch64/arm/riscv stores to normal shareable memory may become
+ * visible out of order. Without this a reader on core 2 can observe the new
+ * (even) seq while base_cnt still holds the previous tick's sample; the
+ * interpolation then divides a too-large counter delta and the user-visible
+ * clock reads AHEAD of real time, which makes nanosleep() return early.
+ * Runs once per tick, so a full fence is cheap enough to stay portable.
+ */
+#define VSYSCALL_STORE_BARRIER() __sync_synchronize()
+
+/*
+ * Republish the vsyscall page: the tick-quantized uptime plus the sub-tick
+ * interpolation base libc needs for nanosecond timestamps (see
+ * vsyscall_fine_clock_t in <sysinfo.h>).
+ *
+ * usec_gap is the measured tick period, published so libc can reserve exactly
+ * one tick of spin slack when a precise sleep is longer than the spin window;
+ * it is measured rather than derived from _kernel_config.timer_freq because
+ * not every BSP honours that setting.
+ *
+ * fine_cnt/fine_hz are sampled by the caller (irq_do_timer0) immediately
+ * after timer_read_sys_usec() rather than read here. The pair
+ * (uptime_usec, base_cnt) defines a fixed offset between the published clock
+ * and real time, and libc inherits that offset until the next tick republishes
+ * it. Sampling here instead would put everything this handler ran in between
+ * into the offset - and once a second that includes renew_kernel_sec(), which
+ * walks the whole task table. The offset would then swing by hundreds of
+ * microseconds from tick to tick, and since the user clock tracks
+ * real_time - offset, a shrinking offset makes it jump FORWARD. Sampling at
+ * the top of the handler bounds the skew to a few instructions.
+ */
+static void renew_vsyscall_info(uint32_t usec_gap, uint64_t fine_cnt, uint32_t fine_hz) {
     if(_kernel_info.vsyscall_info == NULL)
         return;
 
-    _kernel_info.vsyscall_info->kernel_usec = _kernel_info.uptime_usec;
+    vsyscall_info_t* v = _kernel_info.vsyscall_info;
+    /*
+     * Latch once: base_cnt is derived from this value and published alongside
+     * it, so the two must come from the same read. irq_do_timer0 stores
+     * uptime_usec before calling in and runs only on core 0, so it cannot move
+     * under us here - but reading it twice would silently depend on that.
+     */
+    uint64_t uptime_usec = _kernel_info.uptime_usec;
+    uint64_t base_cnt = fine_cnt;
+
+    if(fine_hz != _fine_cnt_hz) {
+        _fine_cnt_hz = fine_hz;
+        /*
+         * 2^32 * 1e9 == 4.29e18, which fits in uint64, so the reciprocal is a
+         * single 64-bit divide computed once per platform rather than on every
+         * userland clock read.
+         */
+        _fine_nsec_q32 = (fine_hz != 0) ? ((0x100000000ULL * 1000000000ULL) / fine_hz) : 0;
+        _fine_cnt_div = (fine_hz >= 1000000) ? (fine_hz / 1000000) : 0;
+    }
+
+    /*
+     * Anchor the interpolation on a counter value derived from uptime_usec
+     * rather than on the raw sample, whenever the BSP's timer_read_sys_usec()
+     * really is counter/div.
+     *
+     * uptime_usec truncates. Anchoring on the raw sample therefore leaves the
+     * user clock lagging real time by (counter mod div), and because the tick
+     * period is not a whole number of div ticks that remainder differs on every
+     * tick. The lag is re-latched ~1000 times a second, so the clock steps by
+     * up to a microsecond - forwards AND backwards - at each tick boundary,
+     * which breaks CLOCK_MONOTONIC and shows up as nanosleep() waking early.
+     * Anchoring on uptime_usec*div cancels the truncation instead: the
+     * published clock becomes a deterministic function of the counter alone, so
+     * it is strictly monotone with no step at all.
+     *
+     * The range check is what makes this safe on boards whose usec is not a
+     * true division - the fast_div64_24 magic-multiplier BSPs are ~0.2% off, so
+     * there `aligned` overshoots the sample, the check fails, and the raw
+     * sample is kept (today's behaviour, no regression).
+     */
+    if(_fine_cnt_div != 0) {
+        uint64_t aligned = uptime_usec * (uint64_t)_fine_cnt_div;
+        if(fine_cnt >= aligned && (fine_cnt - aligned) < _fine_cnt_div + FINE_ALIGN_SKEW)
+            base_cnt = aligned;
+    }
+
+    uint32_t seq = v->fine.seq;
+    v->fine.seq = seq | 1u;
+    VSYSCALL_STORE_BARRIER();
+
+    /*
+     * Everything a reader interpolates from goes inside the lock, including
+     * hz/q32/tick_usec. Publishing those outside lets a reader pair a new
+     * fine_cnt_hz with a half-updated reciprocal.
+     *
+     * kernel_usec is stored BEFORE the base_cnt paired with it, so a reader
+     * that somehow straddles the two sees the older usec with the newer base
+     * and reports a time slightly BEHIND real - a deadline is then met a hair
+     * late rather than early. Reversing the two would let sleepers wake short,
+     * which is the failure that actually breaks bit-banged bus timings.
+     */
+    v->fine.fine_cnt_hz = fine_hz;
+    v->fine.nsec_q32_hi = (uint32_t)(_fine_nsec_q32 >> 32);
+    v->fine.nsec_q32_lo = (uint32_t)(_fine_nsec_q32 & 0xffffffffULL);
+    if(usec_gap > 0 && usec_gap < 1000000)
+        v->fine.tick_usec = usec_gap;
+    v->kernel_usec = uptime_usec;
+    v->fine.base_cnt = base_cnt;
+
+    VSYSCALL_STORE_BARRIER();
+    v->fine.seq = seq + 2u;
 }
 
-int32_t renew_kernel_tic(uint32_t usec) {
-    renew_vsyscall_info();
+int32_t renew_kernel_tic(uint32_t usec, uint64_t fine_cnt, uint32_t fine_hz) {
+    renew_vsyscall_info(usec, fine_cnt, fine_hz);
     renew_priority_counter(usec);
     renew_interrupt_counter(usec);
     renew_ipc_counter(usec);

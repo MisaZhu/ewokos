@@ -440,7 +440,7 @@ static void waitX() {
 		int pid = dev_get_pid("/dev/x");
 		if(pid > 0)
 			break;
-		proc_usleep(300000);
+		usleep(300000);
 	}
 }
 

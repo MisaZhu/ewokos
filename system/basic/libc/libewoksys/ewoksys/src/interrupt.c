@@ -29,7 +29,7 @@ int32_t sys_soft_intr(int32_t pid, ewokos_addr_t entry, ewokos_addr_t data) {
         if(res != -1)
             break;
         cnt++;
-        sleep(0);
+        sched_yield();
     }
 
     //if(res != 0)

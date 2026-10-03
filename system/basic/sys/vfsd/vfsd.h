@@ -222,7 +222,7 @@ extern pthread_mutex_t _driver_kids_results_lock;
  *  - every mutating handler takes it exclusive.
  *
  * Hard rules while holding _vfs_lock:
- *  - NEVER sleep, proc_usleep(), proc_block_by() or wait on a driver;
+ *  - NEVER sleep, usleep(), proc_block_by() or wait on a driver;
  *  - NEVER issue IPC to a mount driver (FS_CMD_*): the driver can call
  *    back into vfsd (vfs_wakeup/vfs_new_nodes) and that callback lands in
  *    a DIFFERENT vfsd worker which would then deadlock on this lock while

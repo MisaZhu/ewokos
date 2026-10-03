@@ -478,7 +478,7 @@ static int telnet_open_server_socket(int port) {
     while(1) {
         int serv_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         if(serv_sock < 0) {
-            proc_usleep(200000);
+            usleep(200000);
             continue;
         }
 
@@ -493,7 +493,7 @@ static int telnet_open_server_socket(int port) {
         }
 
         close(serv_sock);
-        proc_usleep(200000);
+        usleep(200000);
     }
 }
 

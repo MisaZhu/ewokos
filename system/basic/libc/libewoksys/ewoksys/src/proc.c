@@ -4,6 +4,7 @@
 #include <ewoksys/vfs.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/sys.h>
+#include <ewoksys/kernel_tic.h>
 #include <pthread.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -345,27 +346,111 @@ inline uint32_t proc_malloc_size(void) {
     return syscall0(SYS_MALLOC_SIZE);
 }
 
-static inline void proc_usleep_tic(uint32_t usecs) {
-    uint64_t tic_start;
-    uint64_t tic_now;
-    kernel_tic(NULL, &tic_start);
-    while(1) {
-        kernel_tic(NULL, &tic_now);
-        if(tic_now - tic_start > usecs)
-            break;
+/*
+ * Largest tick period proc_nsleep_precise() will trust as a spin budget, and
+ * the budget it clamps to when the measured tick is larger or not yet known.
+ * Reserving costs busy CPU per call, so on platforms with a coarse tick
+ * (virt.riscv 4096us, lego.ev3 3906us, x86 10000us) the budget is capped here
+ * instead of tracking the tick: a long sleep then overshoots its coarse part by
+ * up to a tick, which the absolute spin target absorbs, and the spin itself
+ * stays bounded. Platforms with no user-readable counter at all (x86, lego.ev3)
+ * never reach this and keep tick resolution.
+ */
+#define PROC_SLEEP_SPIN_MAX_US   1200
+
+/*
+ * Hard iteration cap on the spin loop. If the fine clock ever stops advancing -
+ * a counter the kernel published that this libc cannot actually read, or a stuck
+ * timer - this converts an infinite busy loop into a normal sleep syscall.
+ * 2e6 iterations is ~25x the worst case a PROC_SLEEP_SPIN_MAX_US window needs,
+ * so it never trips on healthy hardware.
+ */
+#define PROC_SLEEP_SPIN_ITERS    2000000
+
+/* keeps the coarse part of a long sleep inside a uint32 usec count */
+#define PROC_SLEEP_CHUNK_US      60000000
+
+/* coarse sleep via the kernel; chunked so a uint64 nsec request cannot wrap */
+static void proc_usleep_syscall(uint64_t usecs) {
+    while(usecs > 0) {
+        uint32_t chunk = (usecs > PROC_SLEEP_CHUNK_US) ? PROC_SLEEP_CHUNK_US : (uint32_t)usecs;
+        syscall1(SYS_USLEEP, (ewokos_addr_t)chunk);
+        usecs -= chunk;
     }
 }
 
-int proc_usleep(uint32_t usecs) {
-    if(usecs <= 200)
-        proc_usleep_tic(usecs);
-    else
-        syscall1(SYS_USLEEP, (ewokos_addr_t)usecs);
-    return 0;
-}
+/*
+ * Precise sleep: coarse syscall for the bulk, exact spin for the tail.
+ *
+ * Spinning the whole duration would be accurate but holds a core, which is
+ * unacceptable beyond a few hundred microseconds. Instead sleep for
+ * (nsecs - one tick) and spin out the rest. SYS_USLEEP can only overshoot its
+ * request, never undershoot, so on return at least the reserved tick is still
+ * owed: the spin is guaranteed shorter than one tick and the wake still lands
+ * on the nanosecond. Net cost for any sleep longer than a tick is exactly the
+ * one syscall it already took, plus a sub-tick busy tail - no extra context
+ * switches.
+ *
+ * The spin runs against the raw hardware counter (kernel_tic_spin_until), not
+ * against kernel_tic_nsec(). The interpolated clock re-derives its offset from
+ * real time every time the kernel republishes its base, and a republish that
+ * shrinks the offset moves the clock forward - which would let the spin reach
+ * its deadline before the time had actually elapsed. Measuring the counter
+ * delta directly has no such discontinuity.
+ *
+ * Returns -1 when this platform cannot do better than tick resolution (no
+ * user-readable counter, or a tick too coarse to reserve), leaving the caller
+ * to fall back.
+ */
+int proc_nsleep_precise(uint64_t nsecs) {
+    uint32_t tick_usec;
+    uint64_t spin_ns;
+    uint64_t start_cnt;
 
-inline void proc_yield(void) {
-    syscall0(SYS_YIELD);
+    if(nsecs == 0)
+        return 0;
+
+    if(!kernel_tic_fine_available())
+        return -1;
+
+    /*
+     * Clamp the spin budget rather than giving up when the measured tick is out
+     * of range. tick_usec is republished from the *measured* gap on every tick,
+     * so a single late tick - routine under a hypervisor, where the host can
+     * deschedule the guest for milliseconds - would otherwise inflate spin_ns
+     * to the measured gap and turn every sleep up to that length into a pure
+     * busy-spin holding a core for milliseconds.
+     *
+     * Clamping costs nothing: the budget only bounds how much of a long sleep is
+     * spun, and overshooting a coarse sleep is absorbed by the absolute spin
+     * target below. Being late is recoverable; being early is not.
+     */
+    tick_usec = kernel_tic_tick_usec();
+    if(tick_usec == 0 || tick_usec > PROC_SLEEP_SPIN_MAX_US)
+        tick_usec = PROC_SLEEP_SPIN_MAX_US;
+
+    /*
+     * Snapshot before anything can block: the spin target is absolute, so
+     * whatever the coarse sleep overshoots by comes off the spin rather than
+     * being added to the total.
+     */
+    if(kernel_tic_fine_cnt(&start_cnt) != 0)
+        return -1;
+
+    spin_ns = (uint64_t)tick_usec * 1000ULL;
+    if(nsecs > spin_ns)
+        proc_usleep_syscall((nsecs - spin_ns) / 1000ULL);
+
+    if(kernel_tic_spin_until(start_cnt, nsecs, PROC_SLEEP_SPIN_ITERS) == 0)
+        return 0;
+
+    /*
+     * The spin cap tripped, so the counter is not advancing as expected. Finish
+     * with a syscall rather than returning early - being late is recoverable,
+     * being early is not.
+     */
+    proc_usleep_syscall(nsecs / 1000ULL + 1);
+    return 0;
 }
 
 #ifdef __cplusplus

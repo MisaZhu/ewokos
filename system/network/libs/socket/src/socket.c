@@ -81,7 +81,7 @@ static int do_vfs_fcntl(int fd, int cmd, proto_t* arg_in, proto_t* arg_out){
         if(ret != VFS_ERR_RETRY)
             break;
         if(wait_event == 0 || info.node == 0) {
-            proc_usleep(fcntl_retry_backoff_us(wait_event));
+            usleep(fcntl_retry_backoff_us(wait_event));
             continue;
         }
         /*
@@ -97,7 +97,7 @@ static int do_vfs_fcntl(int fd, int cmd, proto_t* arg_in, proto_t* arg_out){
         } else if(vfs_block(info.node, wait_event) != 0) {
             return -1;
         }
-        proc_usleep(fcntl_retry_backoff_us(wait_event));
+        usleep(fcntl_retry_backoff_us(wait_event));
     };
 
     return ret;

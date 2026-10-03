@@ -540,6 +540,8 @@ static int sdext_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info,
     }
 
     off_t rsize = (off_t)info->stat.size - offset;
+    if(rsize < 0)
+        rsize = 0; /* reads at/ past EOF are end-of-file (0), not an error */
     if(rsize < size)
         size = (int)rsize;
     if(size < 0)

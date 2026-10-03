@@ -5,7 +5,6 @@
 
 int clock_gettime(clockid_t clock_id, struct timespec *tp) {
     struct timeval tv;
-    uint64_t usec;
 
     if (tp == NULL) {
         errno = EINVAL;
@@ -22,12 +21,13 @@ int clock_gettime(clockid_t clock_id, struct timespec *tp) {
     }
 
     if (clock_id == CLOCK_MONOTONIC) {
-        if (kernel_tic(NULL, &usec) != 0) {
+        uint64_t nsec;
+        if (kernel_tic_nsec(&nsec) != 0) {
             errno = EIO;
             return -1;
         }
-        tp->tv_sec = (long)(usec / 1000000ULL);
-        tp->tv_nsec = (long)((usec % 1000000ULL) * 1000ULL);
+        tp->tv_sec = (long)(nsec / 1000000000ULL);
+        tp->tv_nsec = (long)(nsec % 1000000000ULL);
         return 0;
     }
 

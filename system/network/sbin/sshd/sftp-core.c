@@ -664,6 +664,21 @@ static int handle_read(sftp_server_t *srv, const uint8_t *buf, size_t len) {
         return send_status(srv, id, SSH_FX_FAILURE, "out of memory");
     n = read(srv->handles[h].fd, data, rlen);
     if (n < 0) {
+        /*
+         * A read whose offset lies at/after end-of-file is EOF, not an error.
+         * SFTP clients (OpenSSH scp/sftp) pipeline speculative reads past EOF
+         * and expect SSH_FX_EOF; replying SSH_FX_FAILURE makes them flag a
+         * read error ("read remote ... : End of file") even though the transfer
+         * completed. Some EwokOS fs drivers signal this as read() == -1 with
+         * errno == 0 rather than the POSIX 0, so confirm against the file size
+         * before reporting a hard failure.
+         */
+        struct stat st;
+        if (fstat(srv->handles[h].fd, &st) == 0 &&
+                roff >= (uint64_t)st.st_size) {
+            free(data);
+            return send_status(srv, id, SSH_FX_EOF, "");
+        }
         free(data);
         return send_status(srv, id, SSH_FX_FAILURE, strerror(errno));
     }

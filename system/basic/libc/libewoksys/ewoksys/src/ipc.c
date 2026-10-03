@@ -28,7 +28,7 @@ extern "C"
                 return 0;
             if (proc_info(pid, &info) != 0 || info.state == UNUSED || info.state == ZOMBIE)
                 return -1;
-            proc_usleep(10000);
+            usleep(10000);
         }
     }
 
@@ -39,7 +39,7 @@ extern "C"
             int res = syscall0(SYS_IPC_DISABLE);
             if (res == 0)
                 break;
-            sleep(0);
+            sched_yield();
         }
         return 0;
     }

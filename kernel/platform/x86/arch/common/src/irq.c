@@ -168,3 +168,19 @@ void arch_dump_prefetch_extra(context_t* ctx) {
             (uint32_t)ctx->trap_no,
             (uint32_t)ctx->err_code);
 }
+
+/*
+ * <dev/timer.h>: the x86 tick comes from the PIT, an IO-port device with no
+ * userspace-visible counter, and this tree has no calibrated TSC frequency -
+ * rdtsc would supply a fine counter but nothing trustworthy to convert it to
+ * nanoseconds with. Publish hz == 0 so libc keeps using the tick-quantized
+ * clock rather than producing plausible-looking but meaningless timestamps.
+ */
+__attribute__((weak)) uint32_t timer_fine_cnt(uint64_t* cnt) {
+    (void)cnt;
+    return 0;
+}
+
+void arch_enable_user_cnt(void) {
+    /* nothing to gate: there is no user-readable counter on this platform */
+}

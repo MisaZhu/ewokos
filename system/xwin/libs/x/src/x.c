@@ -53,7 +53,7 @@ static int x_get_event(x_t* x, int xserv_pid, xevent_t* ev, bool block) {
             vfs_block(x->evt_node, VFS_EVT_RD);
         }
         else {
-            proc_usleep(1000);
+            usleep(1000);
         }
     }
 

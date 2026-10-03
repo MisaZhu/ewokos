@@ -18,7 +18,7 @@ int32_t cmd_gets(int fd, str_t* buf) {
         if(i <= 0 || c == 0) {
             if(i == 0)
                 return -1;
-            proc_usleep(10000);
+            usleep(10000);
             continue;
         }
 

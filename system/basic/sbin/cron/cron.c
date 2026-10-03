@@ -498,7 +498,7 @@ int main(int argc, char* argv[]) {
                 }
             }
         }
-        proc_usleep(1000000);   /* 1s poll; cheap and drift-tolerant */
+        usleep(1000000);   /* 1s poll; cheap and drift-tolerant */
     }
     return 0;
 }
