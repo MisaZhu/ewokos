@@ -1,0 +1,26 @@
+# /etc/sudoers - who may run /bin/sudo, as whom, and for which commands.
+#
+# Format (a simplified subset of the classic sudoers grammar):
+#   <spec> <host>=(<runas>) [NOPASSWD:] <command>[,<command>...]
+#
+#   <spec>    user name, "%group" (group name or gid), or ALL
+#   <host>    ignored on this single-host system; keep it ALL by convention
+#   <runas>   the target user, "user:group" (group part ignored), or ALL
+#   <command> ALL, or absolute program paths (comma separated)
+#
+# Notes:
+#   - Lines beginning with '#' and blank lines are ignored.
+#   - The LAST matching rule for a request decides (as in real sudo).
+#   - root (uid 0) is always allowed and never consults this file.
+#   - If this file is missing, non-root users are denied (secure default).
+#   - NOPASSWD: skips the invoking user's password prompt for that rule.
+#
+# Examples:
+#   root    ALL=(ALL) ALL
+#   misa    ALL=(ALL) ALL                 # misa may run anything as anyone
+#   misa    ALL=(root) NOPASSWD: ALL      # ... as root, without a password
+#   %wheel  ALL=(ALL) ALL                 # any member of group "wheel"
+#   guest   ALL=(root) /bin/ls,/bin/cat    # only these commands, as root
+
+root    ALL=(ALL) ALL
+misa    ALL=(ALL) ALL
