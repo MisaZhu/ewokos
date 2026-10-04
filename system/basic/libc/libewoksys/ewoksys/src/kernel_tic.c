@@ -1,5 +1,6 @@
 #include <ewoksys/sys.h>
 #include <ewoksys/kernel_tic.h>
+#include <ewoksys/fine_cnt.h>
 #include <unistd.h>
 
 #ifdef __cplusplus
@@ -28,72 +29,12 @@ static inline uint64_t mulhi64(uint64_t a, uint64_t b) {
 }
 
 /*
- * Read the free-running counter the kernel interpolated the clock from. It MUST
- * be the same counter timer_fine_cnt() samples in the kernel, otherwise every
- * timestamp is silently wrong.
- *
- * The arch test uses compiler-predefined macros on purpose: arm32 userspace is
- * only assembled with -march=armv7-a when ARCH_VER=v7, so emitting the CP14
- * mrrc unconditionally would be a build error on lego.ev3 (ARM926EJ-S, v5) even
- * before considering that the core has no generic timer to read.
- *
- * FINE_CNT_READABLE is the compile-time half of that decision. It is checked
- * next to the kernel's runtime fine_cnt_hz before anything spins on this clock,
- * so a platform whose kernel has a counter but whose libc was built without one
- * degrades to the tick clock instead of spinning on a constant forever.
+ * fine_cnt_read() - the arch-specific reader for the counter this clock is
+ * interpolated from - and the FINE_CNT_READABLE compile-time gate are declared in
+ * <ewoksys/fine_cnt.h>. Each arch supplies the reader in fine_cnt_<arch>.c, pulled
+ * in by the build the same way syscall_<arch>.S is, so this file stays arch-agnostic
+ * and only consumes the two symbols.
  */
-#if defined(__aarch64__) || defined(__riscv) || defined(__x86_64__) || \
-    defined(__i386__) || defined(__ARM_ARCH_7A__) || \
-    defined(__ARM_ARCH_7_) || (defined(__ARM_ARCH) && (__ARM_ARCH >= 7))
-#define FINE_CNT_READABLE 1
-#else
-#define FINE_CNT_READABLE 0
-#endif
-
-static inline uint64_t fine_cnt_read(void) {
-#if defined(__aarch64__)
-    uint64_t v;
-    __asm__ volatile("mrs %0, CNTVCT_EL0" : "=r"(v) :: "memory");
-    return v;
-#elif defined(__riscv)
-    uint64_t v;
-#if __riscv_xlen == 64
-    __asm__ volatile("rdtime %0" : "=r"(v) :: "memory");
-#else
-    /* rv32 has no single-instruction 64-bit time read; loop until the high word
-       is stable across the low read. */
-    uint32_t hi, lo, hi2;
-    do {
-        __asm__ volatile("rdtimeh %0" : "=r"(hi) :: "memory");
-        __asm__ volatile("rdtime  %0" : "=r"(lo) :: "memory");
-        __asm__ volatile("rdtimeh %0" : "=r"(hi2) :: "memory");
-    } while(hi != hi2);
-    v = ((uint64_t)hi << 32) | lo;
-#endif
-    return v;
-#elif defined(__ARM_ARCH_7A__) || defined(__ARM_ARCH_7_) || \
-      (defined(__ARM_ARCH) && (__ARM_ARCH >= 7))
-    uint64_t v;
-    __asm__ volatile("mrrc p15, 1, %Q0, %R0, c14" : "=r"(v) :: "memory"); /* CNTVCT */
-    return v;
-#elif defined(__x86_64__) || defined(__i386__)
-    uint32_t lo, hi;
-    /*
-     * The calibrated TSC, matching the counter timer_fine_cnt() samples in the
-     * kernel (machines/x86/kernel/bsp/timer.c). rdtsc is not serializing, but the
-     * "memory" clobber keeps the compiler from hoisting it across the seqlock
-     * fences; a slightly out-of-order read only ever overshoots a spin deadline,
-     * which kernel_tic_spin_until treats as acceptable (late is recoverable, early
-     * is not). Gated at runtime by fine_cnt_hz: a BSP that published no calibrated
-     * frequency never reaches this path.
-     */
-    __asm__ volatile("rdtsc" : "=a"(lo), "=d"(hi) :: "memory");
-    return ((uint64_t)hi << 32) | lo;
-#else
-    /* pre-v7 arm (ev3): no user-readable counter. */
-    return 0;
-#endif
-}
 
 /* acquire ordering: pairs with the kernel's publication of seq/base/kernel_usec */
 static inline void read_barrier(void) {
