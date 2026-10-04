@@ -480,8 +480,10 @@ static void map_stack(proc_t* proc, ewokos_addr_t* stacks, ewokos_addr_t base, u
             AP_RW_RW, PTE_ATTR_WRBACK);
         arch_mark_stack_pte_noexec(proc->space->vm, base + PAGE_SIZE*i);
     }
-    /* stack pages are WRBACK and their descriptors were published per-line by
-     * map_page: a TLB-only invalidate is enough (no whole-D-cache sweep). */
+    /* Descriptor publication is arch-specific: aarch64 walks tables as
+     * cacheable/PIPT-coherent so a TLB-only invalidate suffices, while ARMv7
+     * walks non-cacheable and its flush_tlb_nosweep() does the full D-cache
+     * publish. Either way the fresh stack PTEs are visible to the walker. */
     flush_tlb_nosweep();
 }
 
@@ -629,9 +631,12 @@ static int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
                 AP_RW_RW, PTE_ATTR_WRBACK);
         proc->space->heap_size += PAGE_SIZE;
     }
-    /* heap descriptors published per-line by map_page_ref: TLB-only. The
-     * memset zeros stay dirty in the PIPT-coherent D-cache, exactly as on
-     * aarch64; any DMA/GPU handoff is cleaned by the driver or the switch. */
+    /* Descriptor publication is arch-specific: aarch64 walks tables as
+     * cacheable/PIPT-coherent (TLB-only invalidate is enough), while ARMv7
+     * walks non-cacheable and its flush_tlb_nosweep() does the full D-cache
+     * publish so the new heap PTEs reach the walker. The memset zeros stay
+     * dirty in the coherent D-cache; any DMA/GPU handoff is cleaned by the
+     * driver or the address-space switch. */
     flush_tlb_nosweep();
     return res;
 }
@@ -2439,10 +2444,27 @@ proc_t* kfork(context_t* ctx, int32_t type) {
     proc_t* child = kfork_raw(ctx, type, cproc);
     core_attach(child);
 
-    if(_core_proc_ready && child->info.type == TASK_TYPE_PROC) {
-        kev_push(KEV_PROC_CREATED, cproc->info.pid, child->info.pid, 0);
-    }
-    else
+    /*
+     * A PROC forked while the core daemon is live is completed asynchronously:
+     * core.c do_proc_created() clones its env/cwd, then wakes parent+child. The
+     * KEV_PROC_CREATED push is DEFERRED to sys_fork(), which parks BOTH the
+     * child and the forking parent in BLOCK first and only then publishes the
+     * event. Pushing it here -- before sys_fork has blocked them -- let the
+     * daemon on the other core run do_proc_created() -> proc_wakeup(cpid) +
+     * proc_wakeup(fpid) while the child was still CREATED and the parent still
+     * RUNNING. proc_wakeup_by() then only LATCHES wake_pending (it wakes a proc
+     * directly only when state == BLOCK), and sys_fork's subsequent raw
+     * "state = BLOCK" clobbered the pair without ever consuming that latch, so
+     * the forked parent (and child) slept forever with their wake already spent.
+     * That is the intermittent miyoo (dual Cortex-A7, SMP) boot hang at a fork
+     * boundary -- init.rd line 50 "@/bin/bgrun /sbin/x/xmouse": bgrun's parent
+     * blocks in fork(), the shell's waitpid never returns, the line-51 probe
+     * never renders. A single-core QEMU cannot run the daemon concurrently
+     * between the push and the block, so it never reproduces there.
+     * Threads and early-boot PROC forks (no daemon up yet) are readied inline
+     * exactly as before.
+     */
+    if(!(_core_proc_ready && child->info.type == TASK_TYPE_PROC))
         proc_ready(child);
     return child;
 }

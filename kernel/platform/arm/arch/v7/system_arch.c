@@ -6,9 +6,12 @@
  * `#elif defined(ARM_V7)` in the common kernel/kernel/src/system.c.
  *
  * On ARMv7 the table walk is Non-cacheable (TTBR0 IRGN/RGN=0, see v7/boot.S
- * and __set_translation_table_base in v7/system.S), so map_page/unmap_page
- * explicitly publish every page-table line to PoC with dcache_flush_range and
- * PTE visibility does not depend on a whole-cache sweep for single-page changes.
+ * and __set_translation_table_base in v7/system.S), so descriptor visibility
+ * requires the written PTE/PDE lines to reach PoC. NOTE: the ARM common
+ * map_page/unmap_page (arch/common/src/mmu_arch.c) do NOT publish their
+ * descriptor line, so single-page changes still depend on a whole-D-cache
+ * clean; flush_tlb_nosweep()/flush_tlb_addr() therefore fall back to the full
+ * flush_tlb() here rather than a scoped TLBI.
  */
 #include <kernel/system.h>
 #include <kernel/core.h>
@@ -52,11 +55,28 @@ void flush_tlb(void) {
     __flush_tlb();
 }
 
-/* See the flush_tlb_nosweep() contract in <kernel/system.h>: descriptors are
- * already published to PoC by map_page/unmap_page and __flush_tlb()'s leading
- * DSB orders the invalidate after that clean, so no whole-D-cache sweep. */
 void flush_tlb_nosweep(void) {
-    __flush_tlb();
+    /*
+     * The <kernel/system.h> contract for the "nosweep" fast path assumes
+     * map_page/unmap_page publish every changed descriptor line to PoC, so a
+     * TLB-only invalidate would suffice. On this ARM common mmu_arch.c they do
+     * NOT: map_page/unmap_page only store the PTE/PDE through the cacheable
+     * kernel alias and never dcache_flush_range() it. The ARMv7 table walk is
+     * Non-cacheable (TTBR0 IRGN/RGN=0) and does not snoop the D-cache, so a bare
+     * __flush_tlb() leaves the freshly written descriptors dirty in the D-cache
+     * and invisible to the walker -> intermittent translation faults on the
+     * exec/fork path (proc_expand_mem heap growth and map_stack both call
+     * map_page_ref + flush_tlb_nosweep via proc_load_elf). On real Cortex-A7
+     * (miyoo) this is the same only-some-boots failure the flush_tlb_addr()
+     * comment below documents; QEMU virt arm32 does not model walker/D-cache
+     * incoherence so it never reproduces. Do the full publish (whole-D-cache
+     * clean to PoC + I-cache drop + global TLBI), matching ARMv5/v6 and the
+     * hardware-validated flush_tlb_addr()/set_translation_table_base_asid()
+     * fallbacks in this file. Do NOT re-optimize to a scoped TLBI without both
+     * adding the per-line PoC publish to map_page/unmap_page AND re-validating
+     * on a board.
+     */
+    flush_tlb();
 }
 
 void dcache_clean_code_range(const void* start, uint32_t size) {

@@ -179,11 +179,31 @@ static void sys_fork(context_t* ctx) {
     ctx->gpr[0] = proc->info.pid;
 
     if(proc->info.state == CREATED && _core_proc_ready) {
-        proc->info.state = BLOCK;
-
         proc_t* cproc = get_current_proc();
+
+        /*
+         * Park the child and this parent in BLOCK *before* publishing
+         * KEV_PROC_CREATED (kfork defers the push to here for exactly this
+         * reason). The core daemon is the only waker and runs on the other
+         * core; the instant the event is visible it calls proc_wakeup(cpid) +
+         * proc_wakeup(fpid). With both procs already BLOCK, those wakeups take
+         * the clean BLOCK->READY path in proc_wakeup_by() instead of merely
+         * latching wake_pending on a still-RUNNING parent / CREATED child -- a
+         * latch the raw state=BLOCK stores below would then clobber and never
+         * consume, stranding both forever (the intermittent SMP-only miyoo
+         * boot hang at this fork boundary).
+         *
+         * kev_push() re-enters proc_lock through proc_wakeup(core), so it must
+         * run OUTSIDE any proc_lock we hold; its internal mcore_lock/unlock
+         * barriers publish the two BLOCK stores to the other core before the
+         * event is queued. The parent/child are not reachable by any other core
+         * until the push, so the unlocked stores before it are safe.
+         */
+        proc->info.state = BLOCK;
         cproc->info.state = BLOCK;
         cproc->ctx.gpr[0] = proc->info.pid;
+
+        kev_push(KEV_PROC_CREATED, cproc->info.pid, proc->info.pid, 0);
         schedule(ctx);
     }
 }
