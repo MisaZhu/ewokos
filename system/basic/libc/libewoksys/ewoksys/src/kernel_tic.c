@@ -42,7 +42,8 @@ static inline uint64_t mulhi64(uint64_t a, uint64_t b) {
  * so a platform whose kernel has a counter but whose libc was built without one
  * degrades to the tick clock instead of spinning on a constant forever.
  */
-#if defined(__aarch64__) || defined(__riscv) || defined(__ARM_ARCH_7A__) || \
+#if defined(__aarch64__) || defined(__riscv) || defined(__x86_64__) || \
+    defined(__i386__) || defined(__ARM_ARCH_7A__) || \
     defined(__ARM_ARCH_7_) || (defined(__ARM_ARCH) && (__ARM_ARCH >= 7))
 #define FINE_CNT_READABLE 1
 #else
@@ -75,8 +76,21 @@ static inline uint64_t fine_cnt_read(void) {
     uint64_t v;
     __asm__ volatile("mrrc p15, 1, %Q0, %R0, c14" : "=r"(v) :: "memory"); /* CNTVCT */
     return v;
+#elif defined(__x86_64__) || defined(__i386__)
+    uint32_t lo, hi;
+    /*
+     * The calibrated TSC, matching the counter timer_fine_cnt() samples in the
+     * kernel (machines/x86/kernel/bsp/timer.c). rdtsc is not serializing, but the
+     * "memory" clobber keeps the compiler from hoisting it across the seqlock
+     * fences; a slightly out-of-order read only ever overshoots a spin deadline,
+     * which kernel_tic_spin_until treats as acceptable (late is recoverable, early
+     * is not). Gated at runtime by fine_cnt_hz: a BSP that published no calibrated
+     * frequency never reaches this path.
+     */
+    __asm__ volatile("rdtsc" : "=a"(lo), "=d"(hi) :: "memory");
+    return ((uint64_t)hi << 32) | lo;
 #else
-    /* x86 (PIT) and pre-v7 arm (ev3): no user-readable counter. */
+    /* pre-v7 arm (ev3): no user-readable counter. */
     return 0;
 #endif
 }

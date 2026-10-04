@@ -171,16 +171,31 @@ void arch_dump_prefetch_extra(context_t* ctx) {
 
 /*
  * <dev/timer.h>: the x86 tick comes from the PIT, an IO-port device with no
- * userspace-visible counter, and this tree has no calibrated TSC frequency -
- * rdtsc would supply a fine counter but nothing trustworthy to convert it to
- * nanoseconds with. Publish hz == 0 so libc keeps using the tick-quantized
- * clock rather than producing plausible-looking but meaningless timestamps.
+ * userspace-visible counter. rdtsc does supply a free-running counter, but only a
+ * board that has CALIBRATED its frequency can convert it to nanoseconds - an
+ * uncalibrated TSC would produce plausible-looking but meaningless timestamps.
+ * This weak default therefore publishes hz == 0 (tick-quantized clock); a BSP that
+ * calibrates the TSC (see machines/x86/kernel/bsp/timer.c) overrides this symbol
+ * with the measured frequency and its own rdtsc read.
  */
 __attribute__((weak)) uint32_t timer_fine_cnt(uint64_t* cnt) {
     (void)cnt;
     return 0;
 }
 
+/*
+ * <kernel/irq.h>: a userland rdtsc takes a #GP while CR4.TSD (bit 2) is set. TSD
+ * resets clear and this kernel never sets it, but clear it explicitly so the
+ * userspace counter libc interpolates from is guaranteed not to fault. CR4 is
+ * per-core, and the common kernel calls this on the boot core and on every AP -
+ * mirroring the CNTKCTL/scounteren enable on arm/aarch64/riscv. Harmless on a BSP
+ * that publishes no counter (fine_cnt_hz == 0 gates the userspace read off).
+ */
 void arch_enable_user_cnt(void) {
-    /* nothing to gate: there is no user-readable counter on this platform */
+    uint64_t cr4;
+    __asm__ volatile("mov %%cr4, %0" : "=r"(cr4));
+    if(cr4 & (1ULL << 2)) {          /* TSD */
+        cr4 &= ~(1ULL << 2);
+        __asm__ volatile("mov %0, %%cr4" :: "r"(cr4));
+    }
 }
