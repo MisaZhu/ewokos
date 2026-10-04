@@ -29,6 +29,11 @@ file_t* vfs_check_fd(int32_t pid, int32_t fd) {
     file_t* f = vfs_get_file(owner, fd);
     if(f == NULL || f->node == NULL)
         return NULL;
+    if(!vfs_valid_node_ptr(f->node)) {
+        vfsd_note_corruption("check_fd", owner, fd, f->node);
+        memset(f, 0, sizeof(file_t));
+        return NULL;
+    }
     return f;
 }
 
@@ -49,6 +54,8 @@ static int32_t get_free_fd(int32_t pid) {
 int32_t vfsd_open(int32_t pid, vfs_node_t* node, int32_t flags) {
     int32_t owner = vfs_fd_owner_pid(pid);
     if(node == NULL)
+        return -1;
+    if(!vfs_valid_node_ptr(node))
         return -1;
     if(owner < 0 || (uint32_t)owner >= _max_proc_table_num)
         return -1;
@@ -147,6 +154,12 @@ void vfsd_close(int32_t pid, int32_t fd) {
 
     file_t* f = vfs_get_file(owner, fd);
     if(f != NULL && f->node != NULL) {
+        if(!vfs_valid_node_ptr(f->node)) {
+            /* corrupt slot: neutralize it instead of dereferencing garbage */
+            vfsd_note_corruption("close", owner, fd, f->node);
+            memset(f, 0, sizeof(file_t));
+            return;
+        }
         /*
          * Do NOT send FS_CMD_CLOSE here — the user-space vfsd_close() already
          * sends FS_CMD_CLOSE directly to the device driver before calling
@@ -230,26 +243,32 @@ vfs_node_t* vfsd_dup2(int32_t pid, int32_t from, int32_t to,
      */
     file_t* f_old = vfs_get_file(owner, to);
     if(f_old != NULL && f_old->node != NULL) {
-        uint32_t type = FS_BASE_TYPE(f_old->fsinfo.type);
-        if(type != FS_TYPE_FILE &&
-                type != FS_TYPE_DIR &&
-                type != FS_TYPE_LINK &&
-                f_old->driver_ref &&
-                f_old->fsinfo.mount_pid > 0 &&
-                f_old->fsinfo.node != 0) {
-            driver_close_task_t* task =
-                (driver_close_task_t*)malloc(sizeof(driver_close_task_t));
-            if(task != NULL) {
-                task->pid = owner;
-                task->owner_pid = owner;
-                task->fd = to;
-                task->file = *f_old;
-                if(FS_IS_TYPE(f_old->fsinfo.type, FS_TYPE_PIPE) &&
-                        pipe_victim != NULL) {
-                    task->job_type = DRIVER_ASYNC_JOB_CLOSE;
-                    *pipe_victim = task;
-                } else {
-                    enqueue_driver_close_task(task);
+        if(!vfs_valid_node_ptr(f_old->node)) {
+            vfsd_note_corruption("dup2_victim", owner, to, f_old->node);
+            memset(f_old, 0, sizeof(file_t));
+        }
+        else {
+            uint32_t type = FS_BASE_TYPE(f_old->fsinfo.type);
+            if(type != FS_TYPE_FILE &&
+                    type != FS_TYPE_DIR &&
+                    type != FS_TYPE_LINK &&
+                    f_old->driver_ref &&
+                    f_old->fsinfo.mount_pid > 0 &&
+                    f_old->fsinfo.node != 0) {
+                driver_close_task_t* task =
+                    (driver_close_task_t*)malloc(sizeof(driver_close_task_t));
+                if(task != NULL) {
+                    task->pid = owner;
+                    task->owner_pid = owner;
+                    task->fd = to;
+                    task->file = *f_old;
+                    if(FS_IS_TYPE(f_old->fsinfo.type, FS_TYPE_PIPE) &&
+                            pipe_victim != NULL) {
+                        task->job_type = DRIVER_ASYNC_JOB_CLOSE;
+                        *pipe_victim = task;
+                    } else {
+                        enqueue_driver_close_task(task);
+                    }
                 }
             }
         }

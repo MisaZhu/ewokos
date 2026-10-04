@@ -58,6 +58,9 @@ loop2:
     subs    r4, r4, #1                @ decrement the way
     bge    loop1
 skip:
+    /* Cortex-A7 erratum 814220: complete this level before an outer-level
+     * set/way operation can overtake it. A DSB only at finished is too late. */
+    dsb
     add    r10, r10, #2               @ increment cache number
     cmp    r3, r10
     bgt    flush_levels
@@ -129,6 +132,7 @@ inval_loop2:
     subs    r4, r4, #1              @ decrement the way
     bge    inval_loop1
 inval_skip:
+    dsb                           @ Cortex-A7 erratum 814220: order cache levels
     add    r10, r10, #2             @ increment cache number
     cmp    r3, r10
     bgt    inval_levels

@@ -186,6 +186,9 @@ loop2:
     subs    r4, r4, #1                @ decrement the way
     bge    loop1
 skip:
+    /* Cortex-A7 erratum 814220 also applies before the MMU is enabled:
+     * complete the inner-level clean before starting the outer level. */
+    dsb
     add    r10, r10, #2               @ increment cache number
     cmp    r3, r10
     bgt    flush_levels

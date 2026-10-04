@@ -29,7 +29,7 @@ static int32_t vfs_get_mount(vfs_node_t* node, mount_t* mount) {
         return -1;
 
     int32_t mount_id = vfs_get_mount_id(node);
-    if(mount_id < 0)
+    if(mount_id < 0 || mount_id >= FS_MOUNT_MAX)
         return -1;
     memcpy(mount, &_vfs_mounts[mount_id], sizeof(mount_t));
     return 0;

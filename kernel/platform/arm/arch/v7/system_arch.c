@@ -46,10 +46,10 @@ void invalidate_icache_all(void) {
 }
 
 void flush_tlb(void) {
-    /* Bulk table construction and board-level page-table copies still rely
-     * on a whole D-cache publish; mapping changes must be invalidated on all
-     * cores. The single-page path already publishes its table lines and no
-     * longer pays for a whole-cache clean. */
+    /* Both bulk table construction and single-page changes rely on this
+     * D-cache publish; ARM map_page/unmap_page do not clean descriptors.
+     * The set/way sweep orders cache levels for Cortex-A7 erratum 814220.
+     * Invalidate translations on all cores after publishing the tables. */
     flush_dcache();
     __invalidate_icache_all();
     __flush_tlb();

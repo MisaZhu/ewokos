@@ -2,11 +2,57 @@
  * node.c - node allocation/hash, tree operations and path resolving.
  */
 #include "vfsd.h"
+#include <stdint.h>
 
 vfs_node_t* _vfs_root = NULL;
 map_t  _nodes_hash = NULL;
 static uint32_t _next_node_id = 1;
 static uint32_t _vfs_node_count = 0; /* live nodes, bounded by VFS_NODE_MAX */
+
+/* libc heap bounds (system/basic/libc/libgloss/syscalls.c): __heap_ptr is the
+ * fixed malloc base, __heap_end the current break. Every vfs_node_t comes from
+ * malloc, so a live node pointer always lies in [base, break). */
+extern void* __heap_ptr;
+extern void* __heap_end;
+
+/*
+ * Heap-range predicate used to contain out-of-contract fd-slot/node corruption
+ * (miyoo: fds[].node observed as 0x4FBC0000, an unmapped user VA). Callers must
+ * treat false as "this slot is corrupt": neutralize the slot and fail the single
+ * operation - never follow the pointer.
+ */
+bool vfs_valid_node_ptr(const void* p) {
+    uintptr_t v = (uintptr_t)p;
+    uintptr_t base = (uintptr_t)__heap_ptr;
+    uintptr_t end = (uintptr_t)__heap_end;
+    if(p == NULL || v < base)
+        return false;
+    if(v < end)
+        return true;
+    /* Borderline: another worker thread may be inside _sbrk() right now and
+     * __heap_end has not landed yet; re-read after a full barrier before
+     * condemning a node that was malloc'd concurrently. */
+    __sync_synchronize();
+    return v < (uintptr_t)__heap_end;
+}
+
+void vfsd_note_corruption(const char* where, int32_t pid, int32_t fd,
+        const void* bad) {
+    static uint32_t noted = 0;
+    if(noted >= 8)
+        return;
+    noted++;
+    /*
+     * klog ONLY. slog()/sout() lazily open /dev/log through the VFS client,
+     * i.e. an IPC back into vfsd itself; from a pool worker that call needs
+     * another free pool worker to answer it, and under _vfs_lock (or with the
+     * pool busy) it wedges the whole daemon forever - exactly the miyoo boot
+     * wedge where every worker parked behind one such self-IPC. Kernel prints
+     * never leave the syscall.
+     */
+    klog("vfsd: CORRUPT %s pid=%d fd=%d ptr=%p (slot neutralized)\n",
+            where, pid, fd, bad);
+}
 
 static uint32_t vfs_alloc_node_id(void) {
     uint32_t node_id = _next_node_id++;
@@ -67,6 +113,11 @@ vfs_node_t* vfs_get_node_by_id(uint32_t node_id) {
     char key[17];
     node_hash_key(node_id, key);
     hashmap_get(_nodes_hash, key, (void**)&node);
+    /* a smashed hash bucket must not hand out an unmapped pointer */
+    if(node != NULL && !vfs_valid_node_ptr(node)) {
+        vfsd_note_corruption("node_by_id", -1, -1, node);
+        return NULL;
+    }
     return node;
 }
 

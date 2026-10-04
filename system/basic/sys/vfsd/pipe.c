@@ -13,10 +13,14 @@
 
 /* caller must hold _vfs_lock (write) */
 void proc_file_close(int pid, int fd, file_t* file) {
-    (void)pid;
-    (void)fd;
     if(file == NULL || file->node == NULL)
         return;
+    if(!vfs_valid_node_ptr(file->node)) {
+        /* last-line defence: never deref a smashed node pointer */
+        vfsd_note_corruption("file_close", pid, fd, file->node);
+        file->node = NULL;
+        return;
+    }
     vfs_node_t* node = file->node;
 
     if(node->refs > 0)

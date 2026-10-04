@@ -361,7 +361,8 @@ proc_t* proc_get(int32_t pid) {
         return NULL;
 
     proc_t* p = _task_table[pid];
-    if(p->info.state == UNUSED || p->info.state == ZOMBIE)
+    /* Slots are NULL before creation and after proc_funeral(). */
+    if(p == NULL || p->info.state == UNUSED || p->info.state == ZOMBIE)
         return NULL;
     return p;
 }
@@ -2445,24 +2446,10 @@ proc_t* kfork(context_t* ctx, int32_t type) {
     core_attach(child);
 
     /*
-     * A PROC forked while the core daemon is live is completed asynchronously:
-     * core.c do_proc_created() clones its env/cwd, then wakes parent+child. The
-     * KEV_PROC_CREATED push is DEFERRED to sys_fork(), which parks BOTH the
-     * child and the forking parent in BLOCK first and only then publishes the
-     * event. Pushing it here -- before sys_fork has blocked them -- let the
-     * daemon on the other core run do_proc_created() -> proc_wakeup(cpid) +
-     * proc_wakeup(fpid) while the child was still CREATED and the parent still
-     * RUNNING. proc_wakeup_by() then only LATCHES wake_pending (it wakes a proc
-     * directly only when state == BLOCK), and sys_fork's subsequent raw
-     * "state = BLOCK" clobbered the pair without ever consuming that latch, so
-     * the forked parent (and child) slept forever with their wake already spent.
-     * That is the intermittent miyoo (dual Cortex-A7, SMP) boot hang at a fork
-     * boundary -- init.rd line 50 "@/bin/bgrun /sbin/x/xmouse": bgrun's parent
-     * blocks in fork(), the shell's waitpid never returns, the line-51 probe
-     * never renders. A single-core QEMU cannot run the daemon concurrently
-     * between the push and the block, so it never reproduces there.
-     * Threads and early-boot PROC forks (no daemon up yet) are readied inline
-     * exactly as before.
+     * Process forks completed by the core daemon remain CREATED here.
+     * sys_fork parks parent and child before publishing KEV_PROC_CREATED;
+     * the daemon clones their userspace metadata and wakes them afterward.
+     * Threads and early-boot process forks are readied directly.
      */
     if(!(_core_proc_ready && child->info.type == TASK_TYPE_PROC))
         proc_ready(child);
