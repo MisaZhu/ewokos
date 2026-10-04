@@ -58,6 +58,20 @@ static fsinfo_t _hid_info;
 static uint8_t _mod = 0;
 static uint8_t _keys[MAX_KEY];
 static int _key_count = 0;
+/*
+ * Transient ("tap") keys. One drain pass spans several HID snapshots, and a
+ * key pressed AND released inside that burst is already gone from the newest
+ * snapshot. Exposing only the newest snapshot drops it entirely: /dev/keyb0
+ * reports no held key, so keyb_check_poll_events() never signals RD, the
+ * consumer's blocking read is never woken, and keyb.c's diff never sees the
+ * press -- the whole keystroke is lost (fast taps, and every key of a quick
+ * multi-key burst). Latch such keys here and expose them on exactly ONE read
+ * so the consumer diffs a clean press; its release follows on the next key,
+ * exactly like a normally-held key's deferred release.
+ */
+static uint8_t _tap_keys[MAX_KEY];
+static uint8_t _tap_mods[MAX_KEY];
+static int _tap_count = 0;
 /* timestamp of the last drain pass, for the KEYB_PASS_MS rate cap */
 static uint64_t _last_pass_ms = 0;
 
@@ -133,6 +147,20 @@ static int get_key_code(char *buf, int size) {
             buf[num++] = (char)_keys[i];
         }
     }
+    /* Expose each latched transient tap once, then drop it: the next read
+       shows it gone, so keyb.c turns the appear/disappear into a press then
+       a (deferred) release instead of never seeing the press at all. */
+    if (_tap_count > 0) {
+        for (int i = 0; i < _tap_count && num < size; i++) {
+            uint8_t c = getKeyChar(_tap_mods[i], _tap_keys[i]);
+            if (c != 0) {
+                buf[num++] = (char)c;
+            } else {
+                buf[num++] = (char)_tap_keys[i];
+            }
+        }
+        _tap_count = 0;
+    }
     return num;
 }
 
@@ -156,7 +184,7 @@ static uint32_t keyb_check_poll_events(vdevice_t* dev, int fd, int from_pid, fsi
     (void)node;
     (void)p;
 
-    return _key_count > 0 ? VFS_EVT_RD : 0;
+    return (_key_count > 0 || _tap_count > 0) ? VFS_EVT_RD : 0;
 }
 
 static int set_report_id(int fd, int id) {
@@ -274,8 +302,9 @@ static int loop(vdevice_t* dev, void* p) {
      * previous one, so a 1000Hz keyboard cannot drive the loop above 100Hz.
      * Reports arriving during this paced sleep queue up on /dev/hid0 (the
      * edge wakeup is latched, so the next hid_wait_report() returns at
-     * once), and since the drain below keeps only the newest full snapshot
-     * nothing is lost - the reader always sees the current key state. The
+     * once). Batching is safe because the drain below keeps the newest held
+     * snapshot AND latches every key touched during the burst, so a press
+     * that was already released inside the batch is still delivered. The
      * keys-held path already sleeps 20ms in hid_wait_report(), so this is
      * a no-op there and only bites on the idle/edge-driven path.
      */
@@ -286,11 +315,17 @@ static int loop(vdevice_t* dev, void* p) {
 
     /*
      * Drain every queued snapshot in one pass: reads are O_NONBLOCK, so the
-     * loop stops at the first EAGAIN. Only the LAST snapshot matters - each
-     * report is a full state image, earlier ones in the same burst are stale.
+     * loop stops at the first EAGAIN. The LAST snapshot is the current held
+     * state; the union of all snapshots in the burst feeds the transient-tap
+     * latch below so a quick press/release is not collapsed away.
      */
     ipc_disable();
     bool failed = false;
+    /* union of every keycode seen across this burst, with the modifier it was
+       pressed under, so a key released before the newest snapshot is kept */
+    uint8_t burst_keys[MAX_KEY];
+    uint8_t burst_mods[MAX_KEY];
+    int burst_count = 0;
     while(true) {
         uint8_t buf[HID_KEYBOARD_REPORT_SIZE] = {0};
         int res = read(hid, buf, HID_KEYBOARD_REPORT_SIZE);
@@ -306,6 +341,20 @@ static int loop(vdevice_t* dev, void* p) {
             _mod = buf[0];
             _key_count = count;
             memcpy(_keys, keys, sizeof(keys));
+            for (int i = 0; i < count && burst_count < MAX_KEY; i++) {
+                bool dup = false;
+                for (int j = 0; j < burst_count; j++) {
+                    if (burst_keys[j] == keys[i]) {
+                        dup = true;
+                        break;
+                    }
+                }
+                if (!dup) {
+                    burst_keys[burst_count] = keys[i];
+                    burst_mods[burst_count] = buf[0];
+                    burst_count++;
+                }
+            }
             continue;
         }
         if (res < 0 && errno != EAGAIN) {
@@ -317,10 +366,43 @@ static int loop(vdevice_t* dev, void* p) {
     ipc_enable();
     _last_pass_ms = kernel_tic_ms(0);
 
+    /*
+     * Latch the burst's transient taps: keys that were pressed at some point
+     * but are absent from the newest held snapshot. Only replace a still
+     * pending latch when this burst actually produced taps, so a later empty
+     * drain cannot clear a tap the consumer has not read yet.
+     */
+    if (!failed && burst_count > 0) {
+        uint8_t taps[MAX_KEY];
+        uint8_t tap_mods[MAX_KEY];
+        int n = 0;
+        for (int i = 0; i < burst_count && n < MAX_KEY; i++) {
+            bool held = false;
+            for (int j = 0; j < _key_count; j++) {
+                if (_keys[j] == burst_keys[i]) {
+                    held = true;
+                    break;
+                }
+            }
+            if (!held) {
+                taps[n] = burst_keys[i];
+                tap_mods[n] = burst_mods[i];
+                n++;
+            }
+        }
+        if (n > 0) {
+            memcpy(_tap_keys, taps, sizeof(taps));
+            memcpy(_tap_mods, tap_mods, sizeof(tap_mods));
+            _tap_count = n;
+        }
+    }
+
     if (failed) {
         close(hid);
         hid = -1;
         memset(&_hid_info, 0, sizeof(fsinfo_t));
+        _key_count = 0;
+        _tap_count = 0;
         usleep(HID_CONNECT_SLEEP_US);
         return 0;
     }
@@ -333,9 +415,11 @@ static int loop(vdevice_t* dev, void* p) {
      * edge they were woken by got consumed while keys remain held, they
      * could sleep with data still visible. Re-asserting on every pass where
      * keys are held keeps them fed - at the bounded hid_wait_report()
-     * cadence, not a busy loop.
+     * cadence, not a busy loop. A pending transient tap wakes the reader too:
+     * it is the only signal that a press/release burst produced a keystroke,
+     * and without it a blocked reader would sleep straight through the tap.
      */
-    if(_key_count > 0) {
+    if(_key_count > 0 || _tap_count > 0) {
         vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
     }
     return 0;
