@@ -224,12 +224,6 @@ vfs_node_t* vfsd_dup2(int32_t pid, int32_t from, int32_t to,
     if(from == to)
         return f->node;
 
-    if(from < 0 || from > MAX_OPEN_FILE_PER_PROC ||
-            to < 0 || to > MAX_OPEN_FILE_PER_PROC)
-        return NULL;
-    if(owner < 0 || (uint32_t)owner >= _max_proc_table_num)
-        return NULL;
-
     /*
      * dup2 atomically replaces the target fd; user space never gets a
      * chance to close() the overwritten file, so unlike the explicit

@@ -67,7 +67,6 @@ static void vfs_node_init(vfs_node_t* node) {
     node->node_id = vfs_alloc_node_id();
     node->fsinfo.node = node->node_id;
     node->mount_id = -1;
-    node->pending_umount = 0;
     queue_init(&node->read_wait_queue);
     queue_init(&node->write_wait_queue);
 }
@@ -261,10 +260,6 @@ int32_t set_node_info(int32_t pid, vfs_node_t* node, fsinfo_t* info) {
     return 0;
 }
 
-vfs_node_t* vfs_root(void) {
-    return _vfs_root;
-}
-
 /*
  * Build the full path of a node into a CALLER buffer: the old static
  * return buffer was a data race between concurrent mount handlers.
@@ -431,12 +426,7 @@ int vfsd_check_access(int pid, fsinfo_t* info, int mode) {
     int ucheck = 0400;
     int gcheck = 040;
     int acheck = 04;
-    if(mode == R_OK) {
-        ucheck = 0400;
-        gcheck = 040;
-        acheck = 04;
-    }
-    else if(mode == W_OK) {
+    if(mode == W_OK) {
         ucheck = 0200;
         gcheck = 020;
         acheck = 02;
