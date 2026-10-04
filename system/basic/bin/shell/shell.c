@@ -335,6 +335,31 @@ void prompt(void) {
     }
 }
 
+/*
+ * A background child calls proc_detach() (father_pid=0) as its first act, but
+ * fork() parks it in BLOCK until cored clones it, so this shell can reach
+ * exit() first. proc_terminate() then SIG_STOPs every task still carrying
+ * father_pid==<this shell>, killing the child before it ever execs - the
+ * intermittent "/bin/x/xlauncher did not start" boot failure (xlauncher is the
+ * last `cmd &` in xinit.rd, so it has the smallest window). Block until the
+ * child has actually detached (or is gone) so a trailing background command
+ * always survives this shell's exit.
+ */
+static void wait_child_detached(int32_t pid) {
+    if(pid <= 0)
+        return;
+    procinfo_t info;
+    uint32_t waited = 0;
+    while(waited < 2000000) { /* 2s ceiling: detach normally lands in a few ms */
+        if(proc_info(pid, &info) != 0 || info.uuid == 0)
+            return;         /* child gone / slot freed */
+        if(info.father_pid == 0)
+            return;         /* detached: it now survives our exit */
+        usleep(1000);
+        waited += 1000;
+    }
+}
+
 static int doargs(int argc, char* argv[]) {
     int c = 0;
     while (c != -1) {
@@ -423,6 +448,11 @@ int main(int argc, char* argv[]) {
         }
         else if(fg != 0) {
             ewok_waitpid(child_pid);
+        }
+        else {
+            /* background: make sure the child has detached before we go on
+             * (and possibly exit), or the kernel kills it with us. */
+            wait_child_detached(child_pid);
         }
     }
     if(fd_in > 0) //close initrd file
