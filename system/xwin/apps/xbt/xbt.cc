@@ -24,7 +24,8 @@ using namespace Ewok;
      state   -> "state powered=1 ready=1 scanning=0 devices=3 pending=0"
      devices -> "0: device AA:BB:.. class=0x5A020C rssi=-60 connected=1
                  paired=0 name=My Headset\n...\ndevices_done count=N"
-   Commands sent: open/close, scan, stop, connect/pair/disconnect <bdaddr>. */
+   Commands sent: open/close, scan, stop, connect/pair/unpair/disconnect
+   <bdaddr>. */
 static const char* BT_DEV = "/dev/bt0";
 
 /* must be >= btd's MAX_BT_DEVICES so a full cache is never truncated */
@@ -284,7 +285,7 @@ protected:
 		/* two status glyphs: '*' connected, 'K' paired (link key stored) */
 		char status[3];
 		status[0] = item.connected ? '*' : ' ';
-		status[1] = item.paired ? 'K' : ' ';
+		status[1] = item.paired ? 'P' : ' ';
 		status[2] = 0;
 
 		const char* shown = item.name.empty() ? item.addr.c_str() : item.name.c_str();
@@ -351,6 +352,7 @@ public:
 	}
 	static void connectClick(Widget* wd, xevent_t* evt, void* arg) { click(wd, evt, arg, &BtWin::connectSelected); }
 	static void pairClick(Widget* wd, xevent_t* evt, void* arg)    { click(wd, evt, arg, &BtWin::pairSelected); }
+	static void unpairClick(Widget* wd, xevent_t* evt, void* arg)  { click(wd, evt, arg, &BtWin::unpairSelected); }
 	static void disconnectClick(Widget* wd, xevent_t* evt, void* arg) { click(wd, evt, arg, &BtWin::disconnectSelected); }
 	static void scanClick(Widget* wd, xevent_t* evt, void* arg)    { click(wd, evt, arg, &BtWin::manualScan); }
 	static void powerClick(Widget* wd, xevent_t* evt, void* arg)   { click(wd, evt, arg, &BtWin::togglePower); }
@@ -458,6 +460,17 @@ public:
 			snprintf(cmd, sizeof(cmd), "pair %s", item->addr.c_str());
 		else
 			snprintf(cmd, sizeof(cmd), "pair %s %s", item->addr.c_str(), pin.c_str());
+		sendCmd(cmd);
+		refreshState();
+		refreshList();
+	}
+
+	void unpairSelected() {
+		const BtItem* item = selectedItem();
+		if(item == NULL)
+			return;
+		char cmd[128];
+		snprintf(cmd, sizeof(cmd), "unpair %s", item->addr.c_str());
 		sendCmd(cmd);
 		refreshState();
 		refreshList();
@@ -702,9 +715,9 @@ int main(int argc, char** argv) {
 	gap->fix(6, 0);
 	row1->add(gap);
 
-	LabelButton* discBtn = new LabelButton("disconnect");
-	discBtn->setEventFunc(BtWin::disconnectClick, &win);
-	row1->add(discBtn);
+	LabelButton* unpairBtn = new LabelButton("unpair");
+	unpairBtn->setEventFunc(BtWin::unpairClick, &win);
+	row1->add(unpairBtn);
 
 	gap = new Blank();
 	gap->fix(0, 6);
@@ -714,6 +727,14 @@ int main(int argc, char** argv) {
 	row2->setType(Container::HORIZONTAL);
 	row2->fix(0, 34);
 	controls->add(row2);
+
+	LabelButton* discBtn = new LabelButton("disconnect");
+	discBtn->setEventFunc(BtWin::disconnectClick, &win);
+	row2->add(discBtn);
+
+	gap = new Blank();
+	gap->fix(6, 0);
+	row2->add(gap);
 
 	LabelButton* scanBtn = new LabelButton("scan");
 	scanBtn->setEventFunc(BtWin::scanClick, &win);
