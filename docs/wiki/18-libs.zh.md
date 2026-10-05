@@ -41,7 +41,6 @@
 | 库 | 链接名 | 头文件 | 用途 |
 |----|--------|--------|------|
 | [gpio](../../system/basic/libs/gpio/) | `-lgpio` | `gpio/gpio.h` | GPIO 引脚读写（点灯、读按键、 bit-bang 协议） |
-| [usb](../../system/gui/libs/usb/) | `-lusb` | `usb/usb_defs.h`、`usb/bsp_usb.h`、`usb/usbhid.h`、`usb/usbhidsrv.h` | USB 主机栈与 HID（键鼠）设备支持 |
 
 ### C++ 支持
 
@@ -109,6 +108,17 @@ EwokOS 的 GUI 与不少应用用 C++ 写，C++ 运行时也在基础库里
 > 依赖关系（摘自 Makefile）：`graph` 依赖各图像编解码库与 `g2dclient`；
 > `font` 依赖 `freetype`；`display`/`libiconbuf` 依赖 `graph`；
 > `textgrid`/`gterminal` 依赖 `font`+`graph`，且 `gterminal` 依赖 `textgrid`。
+
+### 硬件访问
+
+总线栈同样放在图形层，因为消费它们的守护进程（`usbhostd`、`btd`、
+`hid_keybd`/`hid_moused`/`hid_touchd`、`usbfat32fsd`）也在这一层构建：
+
+| 库 | 链接名 | 头文件 | 用途 |
+|----|--------|--------|------|
+| [usb](../../system/gui/libs/usb/) | `-lusb` | `usb/usb_defs.h`、`usb/bsp_usb.h`、`usb/usbhid.h`、`usb/usbhidsrv.h` | USB 主机栈与 HID（键鼠）设备支持 |
+| [hid](../../system/gui/libs/hid/) | `-lhid` | `hid/hid_defs.h`、`hid/hid_report.h`、`hid/hid_srv.h` | 与总线无关的 HID 报告解析，以及 USB/蓝牙守护进程共用的订阅队列服务 |
+| [bt](../../system/gui/libs/bt/) | 仅头文件 | `bt/bsp_bt.h` | 每台机器的蓝牙 HCI 传输契约，由各 libbsp 实现 |
 
 ## 18.3 窗口库（system/xwin/libs）
 

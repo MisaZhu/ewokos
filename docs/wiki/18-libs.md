@@ -46,7 +46,6 @@ Low-level libraries dealing with hardware, filesystems, and data formats
 | Library | Link name | Headers | Purpose |
 |----|--------|--------|------|
 | [gpio](../../system/basic/libs/gpio/) | `-lgpio` | `gpio/gpio.h` | GPIO pin read-write (light LEDs, read buttons, bit-bang protocols) |
-| [usb](../../system/gui/libs/usb/) | `-lusb` | `usb/usb_defs.h`, `usb/bsp_usb.h`, `usb/usbhid.h`, `usb/usbhidsrv.h` | the USB host stack and HID (keyboard/mouse) device support |
 
 ### C++ Support
 
@@ -118,6 +117,18 @@ linked as a bundle via `EWOK_LIB_GRAPH`.
 > libraries and `g2dclient`; `font` depends on `freetype`;
 > `display`/`libiconbuf` depend on `graph`; `textgrid`/`gterminal` depend
 > on `font`+`graph`, and `gterminal` depends on `textgrid`.
+
+### Hardware Access
+
+The bus stacks live in the graphics layer as well, because the daemons that
+consume them (`usbhostd`, `btd`, `hid_keybd`/`hid_moused`/`hid_touchd`,
+`usbfat32fsd`) are built here:
+
+| Library | Link name | Headers | Purpose |
+|----|--------|--------|------|
+| [usb](../../system/gui/libs/usb/) | `-lusb` | `usb/usb_defs.h`, `usb/bsp_usb.h`, `usb/usbhid.h`, `usb/usbhidsrv.h` | the USB host stack and HID (keyboard/mouse) device support |
+| [hid](../../system/gui/libs/hid/) | `-lhid` | `hid/hid_defs.h`, `hid/hid_report.h`, `hid/hid_srv.h` | bus-independent HID report parsing plus the subscriber-queue service shared by the USB and bluetooth daemons |
+| [bt](../../system/gui/libs/bt/) | headers only | `bt/bsp_bt.h` | the per-machine bluetooth HCI transport contract that every libbsp implements |
 
 ## 18.3 The Window Libraries (system/xwin/libs)
 

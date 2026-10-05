@@ -49,7 +49,8 @@ exist, and upper layers depend on lower ones:
 (network/)   (xwin/libs)      (gui/libs)      (basic/libs)
  socket        x / x++         graph/font     sd/ext2/fat32
  wolfssl       widget++        freetype/png  tinyjson/zlib
- libwebsockets                 display/g2d   usb/gpio/c++
+ libwebsockets                 display/g2d   gpio/c++
+                               usb/hid/bt
    │             │               │                │
    └─────────────┴───────┬───────┴────────────────┘
                          │
@@ -147,7 +148,7 @@ them. Look at the basic libraries'
 ([system/basic/libs/Makefile](../../system/basic/libs/Makefile)):
 
 ```make
-DIRS = sd ext2 ext3 fat32 elf tinyjson openlibm zlib gpio usb \
+DIRS = sd ext2 ext3 fat32 elf tinyjson openlibm zlib gpio \
        c++/c++ c++/stl c++/object++
 
 # dependencies between libraries: ext2/ext3 need sd's headers installed first
@@ -159,10 +160,10 @@ c++/stl c++/object++: c++/c++
 The graphics layer
 ([system/gui/libs/Makefile](../../system/gui/libs/Makefile)) does the same,
 declaring that `graph` depends on the image codec libraries, `font` depends
-on `freetype`, `display`/`textgrid` depend on `graph`, and so on. The build
-system uses these to decide the compile order, guaranteeing "depended-upon
-libraries install their headers first; only then do their dependents start
-compiling".
+on `freetype`, `display`/`textgrid` depend on `graph`, `usb` depends on
+`hid`, and so on. The build system uses these to decide the compile order,
+guaranteeing "depended-upon libraries install their headers first; only then
+do their dependents start compiling".
 
 > **The build flow in one sentence**: each library `make`s → produces a
 > `.a` + installs headers into `build_<arch>/<hw>/` → upper libraries/apps

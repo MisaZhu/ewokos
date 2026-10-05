@@ -7,7 +7,7 @@
 
 /*
  * bsp_bt: per-machine bluetooth HCI transport contract, the bluetooth twin
- * of bsp_usb. The shared btd daemon (system/basic/drivers/btd) owns the
+ * of bsp_usb. The shared btd daemon (system/gui/drivers/btd) owns the
  * HCI/L2CAP/HIDP/HOGP stack and the /dev/bt0 device surface; each machine's
  * libbsp implements the five hooks below so the daemon never touches a
  * UART, a pin or a mailbox itself.

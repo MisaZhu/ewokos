@@ -39,7 +39,8 @@ EwokOS 的库是**分层**的，下层不知道上层的存在，上层依赖下
 (network/)   (xwin/libs)     (gui/libs)     (basic/libs)
  socket        x / x++        graph/font     sd/ext2/fat32
  wolfssl       widget++       freetype/png   tinyjson/zlib
- libwebsockets                display/g2d    usb/gpio/c++
+ libwebsockets                display/g2d    gpio/c++
+                              usb/hid/bt
    │             │               │                │
    └─────────────┴───────┬───────┴────────────────┘
                          │
@@ -123,7 +124,7 @@ EWOK_LIB_X = -lwidget++ -lx++ -lx -ltinyjson -lewokstl -ltinyhttpsc -lsocket
 （[system/basic/libs/Makefile](../../system/basic/libs/Makefile)）：
 
 ```make
-DIRS = sd ext2 ext3 fat32 elf tinyjson openlibm zlib gpio usb \
+DIRS = sd ext2 ext3 fat32 elf tinyjson openlibm zlib gpio \
        c++/c++ c++/stl c++/object++
 
 # 库之间的依赖：ext2/ext3 需要 sd 的头先装好
@@ -134,7 +135,7 @@ c++/stl c++/object++: c++/c++
 
 图形层（[system/gui/libs/Makefile](../../system/gui/libs/Makefile)）同理，
 声明了 `graph` 依赖各图像编解码库、`font` 依赖 `freetype`、
-`display`/`textgrid` 依赖 `graph` 等。构建系统据此决定编译顺序，
+`display`/`textgrid` 依赖 `graph`、`usb` 依赖 `hid` 等。构建系统据此决定编译顺序，
 保证"被依赖的库先把头文件装好，依赖它的库才开编"。
 
 > **一句话总结构建流**：每个库 `make` → 产出 `.a` + 安装头文件到 `build_<arch>/<hw>/` →
