@@ -157,11 +157,13 @@ bool List::onIM(xevent_t* ev) {
 			select(sel);
 			return true;
 		}
-	}
-	else if(ev->state == XIM_STATE_RELEASE) {
-		if(ev->value.im.value == KEY_ENTER ||
+		else if(ev->value.im.value == KEY_ENTER ||
 				ev->value.im.value == JOYSTICK_START ||
 				ev->value.im.value == JOYSTICK_A) {
+			/* 按下沿触发 (与方向键一致)。曾在 RELEASE 沿触发: 释放沿依赖
+			 * "按键从快照消失"的差分, 中间一拍状态未被采样到时释放沿丢失,
+			 * 启动被压到下一个按键事件才带出 (Enter 无响应, 光标键一按才
+			 * 响应)。按下沿即启动, 不依赖释放沿的送达。 */
 			enter(itemSelected);
 			return true;
 		}

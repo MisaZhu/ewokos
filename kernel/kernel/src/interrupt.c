@@ -80,13 +80,14 @@ static int32_t interrupt_send_raw(context_t* ctx, uint32_t interrupt,  interrupt
 
     if(proc->space->interrupt.state != INTR_STATE_IDLE) {
         if(interrupt != IRQ_SOFT) {
+            irq_disable_arch(interrupt);
             proc->space->interrupt.pending = 1;
             ctx->gpr[0] = 0;
             return 0;
         }
         ctx->gpr[0] = -1;
         return -1;
-    }	
+    }
 
     if(interrupt != IRQ_SOFT)
         irq_disable_arch(interrupt);

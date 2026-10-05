@@ -169,6 +169,7 @@ static void x86_lapic_send_ipi_raw(uint32_t apic_id, uint32_t icr_low) {
 }
 
 static void x86_lapic_init(void) {
+    x86_lapic_mode_fixup();                  /* x2APIC 交接降级 (真机固件) */
     uint64_t apic_base = x86_rdmsr(IA32_APIC_BASE_MSR);
     if ((apic_base & IA32_APIC_BASE_ENABLE) == 0) {
         x86_wrmsr(IA32_APIC_BASE_MSR, apic_base | IA32_APIC_BASE_ENABLE);

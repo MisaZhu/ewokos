@@ -98,6 +98,8 @@ inline void flush_tlb(void) {
     flush_dcache();
     __invalidate_icache_all();
     __flush_tlb();
+#elif defined(__i386__) || defined(__x86_64__)
+    __flush_tlb();
 #else
     flush_dcache();
     invalidate_icache_all();
@@ -133,6 +135,8 @@ inline void flush_tlb(void) {
     flush_dcache();
     invalidate_icache_all();
     __flush_tlb();
+#elif defined(__i386__) || defined(__x86_64__)
+    __flush_tlb(); /* 与 SMP 变体同理：CR3 重载即完整失效，无需 WBINVD */
 #else
     flush_dcache();
     __flush_tlb();
@@ -237,6 +241,8 @@ inline void set_translation_table_base(ewokos_addr_t tlb_base) {
      * 保留全量发布以覆盖 clone_kernel_vm 和板级直接复制的页表。 */
     flush_dcache();
     __invalidate_icache_all();
+    __set_translation_table_base(tlb_base);
+#elif defined(__i386__) || defined(__x86_64__)
     __set_translation_table_base(tlb_base);
 #else
     __set_translation_table_base(tlb_base);

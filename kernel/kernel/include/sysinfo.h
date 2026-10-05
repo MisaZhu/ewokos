@@ -23,6 +23,8 @@ typedef struct {
 	ewokos_addr_t v_base;
 } dma_info_t;
 
+#define PLATFORM_DATA_SIZE  64
+
 #define MAX_CORE_NUM 8
 #define MAX_PROC_NUM 512
 #define MACHINE_MAX  32
@@ -56,6 +58,7 @@ typedef struct {
 	uint32_t       max_task_num;
 	uint32_t       max_task_per_proc;
 	uint32_t       page_size;
+	uint8_t        platform_data[PLATFORM_DATA_SIZE];
 } sys_info_t;
 
 /*dynamic attr*/

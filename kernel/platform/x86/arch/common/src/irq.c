@@ -83,5 +83,24 @@ void handle_trap(uint64_t vector, uint64_t err, context_t* ctx) {
         return;
     }
 
+    if (vector == X86_VECTOR_SPURIOUS) {
+        /* LAPIC spurious interrupt: per SDM it carries no information and
+         * must never be EOI'd; halting on it turned one stray vector
+         * (seen around x2APIC handoff / IPI bursts on real firmware)
+         * into a silently dead machine. */
+        return;
+    }
+
+    if (vector == 2) {
+        /* Chipset NMI (SERR/PERR/EC): no kernel meaning here. Log the first
+         * few, then stay silent but keep running - an NMI must not freeze
+         * the box; a genuine machine check still lands on the #MC panic. */
+        static uint32_t _nmi_ignored = 0;
+        if(_nmi_ignored < 8) {
+            printf("kernel: nmi ignored (%d)\n", ++_nmi_ignored);
+        }
+        return;
+    }
+
     trap_panic(vector, ctx);
 }

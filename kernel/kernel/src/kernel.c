@@ -447,6 +447,11 @@ void _kernel_entry_c(void) {
     }
     printf("[ok]\n");
 
+#ifdef __x86_64__
+	extern void console_handoff(void);
+    console_handoff();
+#endif
+
     kfork_core_halt(0);
     if(_cpu_cores[0].idle_proc != NULL) {
         _cpu_cores[0].idle_proc->info.state = RUNNING;
