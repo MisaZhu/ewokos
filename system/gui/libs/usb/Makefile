@@ -15,7 +15,7 @@ USB_HEADERS = $(wildcard include/usb/*.h)
 USB = $(TARGET_DIR)/lib/libusb.a
 
 # libusb is header-only now: the bus-independent HID implementation moved to
-# libhid (system/basic/libs/hid). The empty archive is still produced so that
+# libhid (system/gui/libs/hid). The empty archive is still produced so that
 # existing -lusb link lines and make dependencies keep working.
 $(USB): $(USB_HEADERS)
 	mkdir -p $(TARGET_DIR)/lib $(TARGET_DIR)/include

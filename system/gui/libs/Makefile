@@ -1,10 +1,11 @@
 all: basic_libs
 	@echo "all done."
 
-DIRS = minimp3 keyb mouse libpng libjpeg libgif libtga libsvg freetype g2dclient graph font display displayman displayd textgrid gterminal libogg libvorbis libiconbuf clipboard
+DIRS = hid usb bt minimp3 keyb mouse libpng libjpeg libgif libtga libsvg freetype g2dclient graph font display displayman displayd textgrid gterminal libogg libvorbis libiconbuf clipboard
 basic_libs: $(DIRS)
 
 # header dependencies between libs
+usb: hid
 graph: g2dclient libpng libjpeg libgif libtga libsvg
 font: freetype
 font display libiconbuf: graph

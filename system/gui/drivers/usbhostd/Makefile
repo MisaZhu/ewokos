@@ -7,8 +7,8 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 LDFLAGS = -L $(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include \
-          -I $(SYS_DIR)/basic/libs/usb/include \
-          -I $(SYS_DIR)/basic/libs/hid/include
+          -I $(SYS_DIR)/gui/libs/usb/include \
+          -I $(SYS_DIR)/gui/libs/hid/include
 
 USBHOSTD_OBJS = $(ARCH)/usbhostd.o
 

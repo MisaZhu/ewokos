@@ -7,8 +7,8 @@ TARGET_DIR = $(BUILD_DIR)/rootfs
 LDFLAGS = -L $(BUILD_DIR)/lib
 
 CFLAGS += -I $(BUILD_DIR)/include \
-          -I $(SYS_DIR)/basic/libs/bt/include \
-          -I $(SYS_DIR)/basic/libs/hid/include
+          -I $(SYS_DIR)/gui/libs/bt/include \
+          -I $(SYS_DIR)/gui/libs/hid/include
 
 BTD_OBJS = $(ARCH)/btd.o $(ARCH)/btd_known.o $(ARCH)/btd_classic.o \
            $(ARCH)/btd_l2cap.o $(ARCH)/btd_hid.o $(ARCH)/btd_le.o

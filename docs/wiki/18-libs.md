@@ -46,7 +46,7 @@ Low-level libraries dealing with hardware, filesystems, and data formats
 | Library | Link name | Headers | Purpose |
 |----|--------|--------|------|
 | [gpio](../../system/basic/libs/gpio/) | `-lgpio` | `gpio/gpio.h` | GPIO pin read-write (light LEDs, read buttons, bit-bang protocols) |
-| [usb](../../system/basic/libs/usb/) | `-lusb` | `usb/usb_defs.h`, `usb/bsp_usb.h`, `usb/usbhid.h`, `usb/usbhidsrv.h` | the USB host stack and HID (keyboard/mouse) device support |
+| [usb](../../system/gui/libs/usb/) | `-lusb` | `usb/usb_defs.h`, `usb/bsp_usb.h`, `usb/usbhid.h`, `usb/usbhidsrv.h` | the USB host stack and HID (keyboard/mouse) device support |
 
 ### C++ Support
 

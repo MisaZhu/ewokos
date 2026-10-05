@@ -7,8 +7,8 @@ TARGET_DIR = $(BUILD_DIR)
 LDFLAGS = -L $(TARGET_DIR)/lib
 
 CFLAGS += -I $(SYS_DIR)/basic/libc/libewoksys/ewoksys/include \
-	-I $(SYS_DIR)/basic/libs/usb/include \
-	-I $(SYS_DIR)/basic/libs/hid/include \
+	-I $(SYS_DIR)/gui/libs/usb/include \
+	-I $(SYS_DIR)/gui/libs/hid/include \
 	-Iinclude -I $(TARGET_DIR)/include
 
 LIB_ARCH_virt_OBJS = $(ARCH)/src/dma.o $(ARCH)/src/virtio.o $(ARCH)/src/virtfs.o $(ARCH)/src/framebuffer.o $(ARCH)/src/sd.o $(ARCH)/src/fw_cfg.o $(ARCH)/src/pci.o $(ARCH)/src/xhci.o

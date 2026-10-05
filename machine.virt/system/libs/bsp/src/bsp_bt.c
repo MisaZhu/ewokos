@@ -1,5 +1,5 @@
 /* bsp_bt.c: machine.virt (qemu) has no bluetooth controller - no-op stub so
-   the shared btd daemon links (bsp_bt contract, system/basic/libs/bt), the
+   the shared btd daemon links (bsp_bt contract, system/gui/libs/bt), the
    same role the bsp_usb stub plays on machines without USB host.
    bsp_bt_init() always fails, so even if btd were launched it would just
    sit in its bounded bring-up retry loop; init.rd never launches it. */

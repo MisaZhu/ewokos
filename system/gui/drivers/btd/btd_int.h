@@ -3,7 +3,7 @@
    includes this for the common constants, types, shared globals
    (extern) and the cross-module function prototypes.
    The daemon is machine-neutral: all UART/pin/firmware access goes
-   through the bsp_bt hooks (see system/basic/libs/bt), which each
+   through the bsp_bt hooks (see system/gui/libs/bt), which each
    machine's libbsp implements (raspi5, raspix; no-op stubs elsewhere). */
 #ifndef BTD_INT_H
 #define BTD_INT_H

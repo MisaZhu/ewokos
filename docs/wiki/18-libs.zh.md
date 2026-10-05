@@ -41,7 +41,7 @@
 | 库 | 链接名 | 头文件 | 用途 |
 |----|--------|--------|------|
 | [gpio](../../system/basic/libs/gpio/) | `-lgpio` | `gpio/gpio.h` | GPIO 引脚读写（点灯、读按键、 bit-bang 协议） |
-| [usb](../../system/basic/libs/usb/) | `-lusb` | `usb/usb_defs.h`、`usb/bsp_usb.h`、`usb/usbhid.h`、`usb/usbhidsrv.h` | USB 主机栈与 HID（键鼠）设备支持 |
+| [usb](../../system/gui/libs/usb/) | `-lusb` | `usb/usb_defs.h`、`usb/bsp_usb.h`、`usb/usbhid.h`、`usb/usbhidsrv.h` | USB 主机栈与 HID（键鼠）设备支持 |
 
 ### C++ 支持
 
