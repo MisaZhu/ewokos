@@ -1014,19 +1014,44 @@ static void usb_scan_root_ports(void) {
  * wedged port state (reset succeeds, then no SETUP ever gets answered)
  * that only a bring-up from scratch clears.
  */
+/*
+ * Root-port bring-up failed this pass. Retry tighter than the normal scan
+ * tick -- devices whose firmware needs a moment after power-up come back
+ * fast -- backing off stepwise towards the scan interval. After a streak
+ * of failures re-initialize the whole controller: some controllers latch a
+ * wedged port state (reset succeeds, then no SETUP ever gets answered)
+ * that only a bring-up from scratch clears.
+ *
+ * The escalation is GATED on having no registered inputs: bsp_usb_reinit()
+ * resets the whole controller, destroying every device on it - including a
+ * working keyboard/mouse. Real-machine evidence (USB3 stick on xHCI): its
+ * failing enumeration escalated to a controller reset every few seconds,
+ * killing and re-enumerating the mouse each cycle ("stutter"), until one
+ * reset left the controller wedged and input died for good. A controller
+ * with live HID traffic demonstrably works; a failing new device must
+ * never cost the working ones more than a retry pause.
+ */
 static void usb_enum_failed(void) {
     uint64_t now = kernel_tic_ms(0);
     uint32_t retry_ms;
+    bool have_inputs = false;
+
+    for (int i = 0; i < USB_MAX_INPUTS; ++i) {
+        if (_inputs[i].present) {
+            have_inputs = true;
+            break;
+        }
+    }
 
     _enum_fail_streak++;
     retry_ms = 200u + (_enum_fail_streak - 1u) * 100u;
     if (retry_ms > USB_SCAN_INTERVAL_MS) {
         retry_ms = USB_SCAN_INTERVAL_MS;
     }
-    if (_enum_fail_streak >= USB_ENUM_FAIL_REINIT_AFTER) {
+    if (_enum_fail_streak >= USB_ENUM_FAIL_REINIT_AFTER && !have_inputs) {
         _enum_fail_streak = 0;
         if (bsp_usb_reinit() == 0) {
-            slog("usbhostd: controller re-init after repeated enumeration failures\n");
+            klog("usbhostd: controller re-init after repeated enumeration failures\n");
             /* the controller forgot every device (all addresses and
                endpoints are gone): drop the policy tables too, stale bsp
                handles must never be polled -- the next scan re-enumerates
@@ -1035,6 +1060,9 @@ static void usb_enum_failed(void) {
             memset(_inputs, 0, sizeof(_inputs));
             retry_ms = 500u; /* let the controller settle */
         }
+    }
+    else if (_enum_fail_streak == USB_ENUM_FAIL_REINIT_AFTER && have_inputs) {
+        klog("usbhostd: enum keeps failing but inputs are live, reinit skipped\n");
     }
     if (now + retry_ms < _next_scan_ms) {
         _next_scan_ms = now + retry_ms;
