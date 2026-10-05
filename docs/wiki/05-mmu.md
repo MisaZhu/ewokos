@@ -156,7 +156,7 @@ Low addresses (TTBR0's domain, different per process)
 
 Why place the kernel at high addresses? **Switching processes only requires
 swapping the lower half of the page table; the upper half (the kernel) is
-shared by all processes** — Ch. 07's `clone_kernel_vm` does exactly this.
+shared by all processes** — §5.8's `arch_set_proc_vm` does exactly this.
 
 ## 5.5 Boot Hurdle #1: the Boot Page Table
 
@@ -337,14 +337,34 @@ kmalloc_init();              // bring up the minimal kernel heap first, so struc
 init_allocable_mem();        // then bring all remaining physical memory under management
 ```
 
-## 5.8 A Process's Private Memory: clone_kernel_vm
+## 5.8 A Process's Private Memory: set_vm and arch_set_proc_vm
 
-Every new process needs its own page table. See
-[the kernel's clone_kernel_vm](../../kernel/kernel/src/kernel.c) (AArch64
-version):
+Every new process needs its own page table. The shared entry point is
+[set_vm in kernel.c](../../kernel/kernel/src/kernel.c), which delegates to an
+arch hook (declared in
+[kernel/kernel.h](../../kernel/kernel/include/kernel/kernel.h)):
 
 ```c
-static void clone_kernel_vm(page_dir_entry_t* vm) {
+/* Weak default: rebuild the full kernel mapping + the allocable direct map.
+   Used by riscv and any arch without a shared high-half; x86/aarch64/arm
+   override it in kernel/platform/<arch>/arch/common/src/kernel_arch.c. */
+__attribute__((weak)) void arch_set_proc_vm(page_dir_entry_t* vm) {
+    set_kernel_vm(vm);
+    map_allocable_pages(vm);
+}
+
+void set_vm(page_dir_entry_t* vm) {
+    arch_set_proc_vm(vm);
+}
+```
+
+The AArch64 override
+([kernel_arch.c](../../kernel/platform/aarch64/arch/common/src/kernel_arch.c))
+shares the kernel high-half tables instead of rebuilding them (this used to
+be the `clone_kernel_vm()` that lived inline in kernel.c):
+
+```c
+void arch_set_proc_vm(page_dir_entry_t* vm) {
     uint32_t kernel_l1_base = PAGE_ROOT_INDEX(KERNEL_BASE);
     memset(vm, 0, PAGE_DIR_SIZE);
 
@@ -354,7 +374,7 @@ static void clone_kernel_vm(page_dir_entry_t* vm) {
         vm[i] = _kernel_info.kernel_vm[i];
 
     // lower half (user): empty, waiting for the process's own
-    // code/data/heap/stack to be mapped in
+    // code/data/heap/stack to be mapped in (plus the common DMA window)
     ...
 }
 ```

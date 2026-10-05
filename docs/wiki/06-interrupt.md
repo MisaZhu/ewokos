@@ -158,14 +158,15 @@ inline void write_cntv_tval(uint32_t tval) {
 
 ### What Happens When the Interrupt Arrives
 
-The interrupt entry point is in [irq.c](../../kernel/kernel/src/irq.c); the
-core logic:
+The generic interrupt entry point is in [irq.c](../../kernel/kernel/src/irq.c);
+the timer branch (`irq_do_timer0`) boils down to:
 
 ```c
 // Timer interrupt handling (simplified):
-timer_clear_interrupt(0);   // ① clear the flag and reload the next countdown
-...
-schedule(ctx);              // ② take the chance to schedule! switch to the next process
+renew_kernel_tic(usec_gap);   // ① keep the time accounts
+arch_irq_timer_ack();         // ② clear the flag / reload (an arch hook — on
+                              //    the Pi it lands in the board's timer code)
+schedule(ctx);                // ③ take the chance to schedule! switch to the next process
 ```
 
 The key design: **every timer interrupt is an opportunity for a "forced
@@ -180,21 +181,33 @@ what the `ps` command displays.
 
 ## 6.6 The Layers of Kernel Interrupt Handling
 
-EwokOS's interrupt code comes in three layers with clear duties:
+EwokOS's interrupt code comes in four layers with clear duties:
 
 ```
-① platform assembly layer  interrupt.S          save/restore all registers (Ch. 04)
-        │
-② board layer      machines/raspix/bsp/  decide which interrupt (read the board's
-        │                                  interrupt registers); clear the flag,
-        ▼                                  EOI (End Of Interrupt)
-③ generic kernel   kernel/kernel/src/    irq.c: dispatch to the concrete handler
-   layer           irq.c / interrupt.c   - timer → scheduling
-                                         - other hardware IRQs → forwarded to the
-                                           user process that registered them
+① platform assembly layer  interrupt.S           save/restore all registers (Ch. 04)
+        │                  kernel/platform/<arch>/arch/
+② generic kernel layer     kernel/kernel/src/    irq.c: dispatch, accounting,
+        │                  irq.c / interrupt.c   timer → schedule; other IRQs →
+        │                                          forward to the user process
+        ▼                                          that registered them
+③ arch C layer             kernel/platform/      implement the arch_* hooks the
+        │                  <arch>/arch/common/   generic layer calls: arch_irq_raw
+        │                  src/irq.c             (which IRQ fired), arch_irq_timer_ack,
+        │                                          irq_eoi_arch (EOI), …
+④ board layer              machines/raspix/bsp/  read the board's interrupt
+                           irq_pix.c             registers; clear the flag, EOI
 ```
 
-Layer ③ has a microkernel specialty: hardware interrupts can be **forwarded
+The split between ② and ③ is the recent "kernel arch porting friendly"
+refactor: the generic [irq.c](../../kernel/kernel/src/irq.c) contains **no
+architecture `#if`s** anymore — everything arch-specific (how to read the raw
+IRQ vector, how to acknowledge the timer, how to EOI, how to dump a faulting
+context) is declared as an `arch_*` hook in
+[kernel/irq.h](../../kernel/kernel/include/kernel/irq.h) and implemented per
+platform in `kernel/platform/<arch>/arch/common/src/irq.c`. Porting to a new
+architecture means writing that one file, not patching shared code.
+
+Layer ② has a microkernel specialty: hardware interrupts can be **forwarded
 to userland driver processes**
 ([interrupt.c](../../kernel/kernel/src/interrupt.c)):
 
@@ -246,7 +259,10 @@ __irq_enable();
    each process's `cpu` time statistics — they all come from the timer
    interrupt's bookkeeping;
 2. Read the `IRQ_TIMER0` branch in [irq.c](../../kernel/kernel/src/irq.c)
-   and confirm the "timer interrupt → `schedule()`" path;
+   (`irq_do_timer0`) and the matching `arch_irq_timer_ack()` /
+   `arch_irq_raw()` implementations under
+   `kernel/platform/aarch64/arch/common/src/irq.c`, and confirm the "timer
+   interrupt → `schedule()`" path;
 3. Food for thought: what happens if the timer frequency is set to 1 (once
    per second)? (Hint: a process's time slice becomes 1 second, and
    interactive programs get visibly laggy. Change `timer_freq` in
@@ -262,8 +278,9 @@ __irq_enable();
   interrupts; the kernel enables/masks them via registers;
 - The timer interrupt beats at `timer_freq` (default 1024) times per second,
   driving preemptive scheduling — the moment the system "comes alive";
-- Interrupt handling has three layers: assembly saves the scene → the board
-  layer identifies the interrupt → the generic kernel dispatches it;
+- Interrupt handling has four layers: assembly saves the scene → the generic
+  kernel dispatches → the arch C layer implements the `arch_*` hooks → the
+  board layer talks to the actual interrupt controller;
 - A microkernel forwards hardware interrupts to userland driver processes;
 - Critical sections are protected by masking interrupts / spinlocks — but
   keep them short.

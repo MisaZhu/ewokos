@@ -349,7 +349,7 @@ class SoundPlayerWin : public WidgetWin {
             } else if (cmd == CMD_STOP) {
                 player->stop();
                 syncSnapshot(true);
-                proc_usleep(PLAYBACK_IDLE_SLEEP_US);
+                usleep(PLAYBACK_IDLE_SLEEP_US);
                 continue;
             } else if (cmd == CMD_SEEK) {
                 if (player->isLoaded()) {
@@ -362,12 +362,12 @@ class SoundPlayerWin : public WidgetWin {
             if (player->isPlaying()) {
                 bool decoded = player->decodeFrame();
                 syncSnapshot(false);
-                proc_usleep(decoded ? PLAYBACK_ACTIVE_SLEEP_US : PLAYBACK_IDLE_SLEEP_US);
+                usleep(decoded ? PLAYBACK_ACTIVE_SLEEP_US : PLAYBACK_IDLE_SLEEP_US);
                 continue;
             }
 
             syncSnapshot(false);
-            proc_usleep(PLAYBACK_IDLE_SLEEP_US);
+            usleep(PLAYBACK_IDLE_SLEEP_US);
         }
 
         player->stop();

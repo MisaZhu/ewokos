@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <pthread.h>
 #include "../platform.h"
 
 #include "util.h"
@@ -46,6 +47,23 @@ const ip_addr_t IP_ADDR_BROADCAST = 0xffffffff; /* 255.255.255.255 */
 static struct ip_iface *ifaces;
 static struct ip_protocol *protocols;
 static struct ip_route *routes;
+
+/*
+ * Guards the `routes` and `ifaces` list *linkage* against concurrent access.
+ *
+ * netd runs IPC_MULTI_TASK: ip_output() (and thus ip_route_lookup()/
+ * ip_iface_select()) executes on kernel IPC worker threads, while the DHCP
+ * lease-change path (main protocol thread) calls ip_iface_update() ->
+ * ip_route_add() to prepend a route AFTER net_run(). A bare prepend lets a
+ * weakly-ordered (ARM/aarch64) reader observe the new `routes` head before
+ * `route->next` is published -- a wild-pointer walk. ip_mutex is a LEAF lock:
+ * it is only ever taken inside these list helpers and never held while
+ * calling back into tcp/udp/arp, so the order stack-mutex -> ip_mutex stays
+ * consistent and cannot invert. Route/iface nodes are immutable once
+ * published and never freed, so callers may keep using a returned pointer
+ * after the lock drops.
+ */
+static mutex_t ip_mutex = MUTEX_INITIALIZER;
 
 int
 ip_addr_pton(const char *p, ip_addr_t *n)
@@ -165,8 +183,12 @@ ip_route_add(ip_addr_t network, ip_addr_t netmask, ip_addr_t nexthop, struct ip_
     route->netmask = netmask;
     route->nexthop = nexthop;
     route->iface = iface;
+    /* Publish atomically: see ip_mutex. A concurrent lock-free-unsafe reader
+     * on an IPC worker must never see the new head before route->next. */
+    mutex_lock(&ip_mutex);
     route->next = routes;
     routes = route;
+    mutex_unlock(&ip_mutex);
     infof("network=%s, netmask=%s, nexthop=%s, iface=%s dev=%s",
         ip_addr_ntop(route->network, addr1, sizeof(addr1)),
         ip_addr_ntop(route->netmask, addr2, sizeof(addr2)),
@@ -182,6 +204,7 @@ ip_route_lookup(ip_addr_t dst)
 {
     struct ip_route *route, *candidate = NULL;
 
+    mutex_lock(&ip_mutex);
     for (route = routes; route; route = route->next) {
         if ((dst & route->netmask) == route->network) {
             if (!candidate || candidate->netmask < route->netmask) {
@@ -189,6 +212,9 @@ ip_route_lookup(ip_addr_t dst)
             }
         }
     }
+    mutex_unlock(&ip_mutex);
+    /* Route nodes are immutable once published and never freed, so the
+     * caller may keep dereferencing `candidate` after the lock drops. */
     return candidate;
 }
 
@@ -289,8 +315,10 @@ ip_iface_register(struct net_device *dev, struct ip_iface *iface)
         errorf("ip_route_add() failure");
         return -1;
     }
+    mutex_lock(&ip_mutex);
     iface->next = ifaces;
     ifaces = iface;
+    mutex_unlock(&ip_mutex);
     infof("registered: dev=%s, unicast=%s, netmask=%s, broadcast=%s",
         dev->name,
         ip_addr_ntop(iface->unicast, addr1, sizeof(addr1)),
@@ -304,11 +332,13 @@ ip_iface_select(ip_addr_t addr)
 {
     struct ip_iface *entry;
 
+    mutex_lock(&ip_mutex);
     for (entry = ifaces; entry; entry = entry->next) {
         if (entry->unicast == addr) {
             break;
         }
     }
+    mutex_unlock(&ip_mutex);
     return entry;
 }
 
@@ -317,12 +347,19 @@ ip_iface_itor(struct ip_iface *priv)
 {
     struct ip_iface *entry;
 
-    if(priv == NULL)
-        return ifaces;
-    for (entry = ifaces; entry; entry = entry->next) {
-        if(entry == priv)
-            return entry->next;
+    mutex_lock(&ip_mutex);
+    if(priv == NULL) {
+        entry = ifaces;
+    } else {
+        entry = NULL;
+        for (struct ip_iface *e = ifaces; e; e = e->next) {
+            if(e == priv) {
+                entry = e->next;
+                break;
+            }
+        }
     }
+    mutex_unlock(&ip_mutex);
     return entry;
 }
 
@@ -490,8 +527,25 @@ ip_output_core(struct ip_iface *iface, uint8_t protocol, const uint8_t *data, si
 static uint16_t
 ip_generate_id(void)
 {
-    static uint16_t id = 128;
-    return id++;
+    /*
+     * uint32_t, not uint16_t: GCC lowers __sync_fetch_and_add on a 16-bit
+     * operand to the out-of-line __sync_fetch_and_add_2 helper, which libgloss
+     * does not provide for the ARMv5 baseline (lego.ev3) - only the 32-bit _4
+     * family exists there (ARMv7+ inlines it as ldrexh/strexh, so those builds
+     * never emit the _2 symbol). The value is truncated to 16 bits for the
+     * header below anyway, so a wider counter yields the identical on-wire id
+     * sequence while using the atomic helper that is actually available.
+     */
+    static uint32_t id = 128;
+    /*
+     * ip_output() runs concurrently on IPC worker threads (TCP under the tcp
+     * mutex, UDP/ICMP/raw under a *different* mutex or none) and on the main
+     * protocol thread, so a bare id++ is a data race that can hand two
+     * datagrams the same IP id. Harmless while fragments are rejected, but
+     * make the shared counter atomic so it stays correct if fragmentation is
+     * ever added.
+     */
+    return (uint16_t)__sync_fetch_and_add(&id, 1);
 }
 
 ssize_t

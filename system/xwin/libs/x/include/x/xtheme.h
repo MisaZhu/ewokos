@@ -65,6 +65,7 @@ typedef struct {
 	  window and hands it to xwm as the DRAW_FRAME desktop graph, so a frosted
 	  frame can blur the real backdrop without ever sampling its own output*/
 	uint32_t frameBlur;
+	uint32_t wsBlur;
 } xwm_theme_t;
 
 #ifdef __cplusplus

@@ -157,9 +157,10 @@ char* trunk_malloc(malloc_t* m, ewokos_addr_t size) {
     if(m == NULL)
         return NULL;
 
-    /* cap_t 及包含 cnode 的 proc_t 要求 16 字节对齐。
-     * 堆按页扩展，块头在 32/64 位下分别为 16/32 字节；分割尺寸也必须
-     * 保持 16 的倍数，才能让后续分配和合并后的块继续满足此约束。 */
+    /* cap_t and the proc_t that embeds a cnode require 16-byte alignment.
+     * The heap grows by pages and the block header is 16/32 bytes on 32/64
+     * bit, so split sizes must also stay multiples of 16 for later
+     * allocations and merged blocks to keep meeting this constraint. */
     size = ALIGN_UP(size, 16);
     heap_begin = trunk_heap_begin(m);
     heap_end = trunk_heap_end(m);

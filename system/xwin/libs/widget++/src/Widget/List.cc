@@ -102,6 +102,20 @@ bool List::onScroll(int step, bool horizontal) {
 	return true;
 }
 
+/* scroll the selected item into view: the same itemStart adjustment
+ * onIM() does for the focused-key path, so programmatic selection
+ * (brick buttons handled by the window, etc.) also scrolls */
+void List::select(int sel) {
+	if(itemNumInView > 0 && sel >= 0 && sel < (int32_t)itemNum) {
+		if(sel < itemStart)
+			itemStart = sel;
+		else if(sel >= itemStart + (int32_t)itemNumInView)
+			itemStart = sel - (int32_t)itemNumInView + 1;
+		updateScroller();
+	}
+	ListBase::select(sel);
+}
+
 void List::selectByMouse(xevent_t* ev) {
 	gpos_t ipos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
 	if(itemSize == 0)

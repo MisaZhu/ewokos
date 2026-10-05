@@ -24,28 +24,38 @@ void graph_rotate_to_cpu(graph_t* g, graph_t* dst, int rot);
 void graph_gaussian_blur_cpu(graph_t* g, int x, int y, int w, int h, int r);
 
 #ifdef ARCH_BOOST
-static inline void x86_stream_copy_row(uint32_t* dst, const uint32_t* src, int32_t pixels) {
+/* Copy one row of pixels with aligned 16-byte SSE stores.
+   NOTE: these are deliberately TEMPORAL (_mm_store_si128), NOT the
+   non-temporal _mm_stream_si128 that were here before. NT stores route
+   through the weakly-ordered write-combine buffers, which on the UC-
+   mapped scan-out framebuffer commit lazily and show up as intermittent
+   incomplete refresh / tearing, and on the write-back compositor canvas
+   they bypass the cache that the very next flush memcpy re-reads - a pure
+   loss. Temporal aligned stores are cache-coherent, strongly ordered and
+   just as fast at these sizes. A scalar head of at most 3 pixels brings
+   the destination to a 16-byte boundary so the aligned stores stay legal. */
+static inline void x86_copy_row(uint32_t* dst, const uint32_t* src, int32_t pixels) {
     int32_t i = 0;
 
     if (pixels <= 0) {
         return;
     }
 
-    /* Streaming stores require aligned destinations; handle the prefix first. */
+    /* aligned stores require an aligned destination; handle the prefix first */
     while (i < pixels && (((ewokos_addr_t)(dst + i)) & 0x0F) != 0) {
         dst[i] = src[i];
         ++i;
     }
 
     for (; i + 16 <= pixels; i += 16) {
-        _mm_stream_si128((__m128i*)(dst + i + 0), _mm_loadu_si128((const __m128i*)(src + i + 0)));
-        _mm_stream_si128((__m128i*)(dst + i + 4), _mm_loadu_si128((const __m128i*)(src + i + 4)));
-        _mm_stream_si128((__m128i*)(dst + i + 8), _mm_loadu_si128((const __m128i*)(src + i + 8)));
-        _mm_stream_si128((__m128i*)(dst + i + 12), _mm_loadu_si128((const __m128i*)(src + i + 12)));
+        _mm_store_si128((__m128i*)(dst + i + 0), _mm_loadu_si128((const __m128i*)(src + i + 0)));
+        _mm_store_si128((__m128i*)(dst + i + 4), _mm_loadu_si128((const __m128i*)(src + i + 4)));
+        _mm_store_si128((__m128i*)(dst + i + 8), _mm_loadu_si128((const __m128i*)(src + i + 8)));
+        _mm_store_si128((__m128i*)(dst + i + 12), _mm_loadu_si128((const __m128i*)(src + i + 12)));
     }
 
     for (; i + 4 <= pixels; i += 4) {
-        _mm_stream_si128((__m128i*)(dst + i), _mm_loadu_si128((const __m128i*)(src + i)));
+        _mm_store_si128((__m128i*)(dst + i), _mm_loadu_si128((const __m128i*)(src + i)));
     }
 
     for (; i < pixels; ++i) {
@@ -53,7 +63,7 @@ static inline void x86_stream_copy_row(uint32_t* dst, const uint32_t* src, int32
     }
 }
 
-static inline int x86_can_stream_blt(graph_t* src, const grect_t* sr,
+static inline int x86_can_fast_blt(graph_t* src, const grect_t* sr,
         graph_t* dst, const grect_t* dr) {
     const uint32_t* src_begin;
     const uint32_t* src_end;
@@ -85,8 +95,9 @@ static inline int x86_can_stream_blt(graph_t* src, const grect_t* sr,
 }
 
 /* Fill a run of pixels with a constant color. A scalar head of at most
-   3 pixels brings the destination to a 16-byte boundary so the streaming
-   stores stay aligned; the caller issues one _mm_sfence after all runs. */
+   3 pixels brings the destination to a 16-byte boundary so the aligned
+   temporal stores stay legal (same rationale as x86_copy_row: no NT
+   stores, so no write-combine visibility hazard on the framebuffer). */
 static inline void x86_fill_run(uint32_t* dst, int32_t pixels, uint32_t color, __m128i vc) {
     int32_t i = 0;
 
@@ -100,14 +111,14 @@ static inline void x86_fill_run(uint32_t* dst, int32_t pixels, uint32_t color, _
     }
 
     for (; i + 16 <= pixels; i += 16) {
-        _mm_stream_si128((__m128i*)(dst + i + 0), vc);
-        _mm_stream_si128((__m128i*)(dst + i + 4), vc);
-        _mm_stream_si128((__m128i*)(dst + i + 8), vc);
-        _mm_stream_si128((__m128i*)(dst + i + 12), vc);
+        _mm_store_si128((__m128i*)(dst + i + 0), vc);
+        _mm_store_si128((__m128i*)(dst + i + 4), vc);
+        _mm_store_si128((__m128i*)(dst + i + 8), vc);
+        _mm_store_si128((__m128i*)(dst + i + 12), vc);
     }
 
     for (; i + 4 <= pixels; i += 4) {
-        _mm_stream_si128((__m128i*)(dst + i), vc);
+        _mm_store_si128((__m128i*)(dst + i), vc);
     }
 
     for (; i < pixels; ++i) {
@@ -189,11 +200,11 @@ void graph_blt_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh
             if(dy < 0)
                 sr.y -= dy;
 
-            if(x86_can_stream_blt(src, &sr, dst, &dr)) {
+            if(x86_can_fast_blt(src, &sr, dst, &dr)) {
                 for(int32_t row = 0; row < sr.h; ++row) {
                     uint32_t* dst_row = dst->buffer + (dr.y + row) * dst->w + dr.x;
                     const uint32_t* src_row = src->buffer + (sr.y + row) * src->w + sr.x;
-                    x86_stream_copy_row(dst_row, src_row, sr.w);
+                    x86_copy_row(dst_row, src_row, sr.w);
                 }
                 _mm_sfence();
                 return;

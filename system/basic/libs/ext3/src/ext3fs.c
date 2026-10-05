@@ -2244,7 +2244,6 @@ void* ext3_readfile(ext3_t* ext3, const char* fname, off_t* size) {
         uint64_t fsize = ext3_inode_file_size(&inode);
         char *data = (char*)malloc(fsize + 1);
         if(data != NULL) {
-            ret = data;
             uint64_t rd = 0;
             while(rd < fsize) {
                 /* never ask for more than the buffer holds: the read
@@ -2253,14 +2252,27 @@ void* ext3_readfile(ext3_t* ext3, const char* fname, off_t* size) {
                 uint64_t chunk = fsize - rd;
                 if(chunk > block_size)
                     chunk = block_size;
-                int sz = ext3_read(ext3, &inode, data, (int32_t)chunk, (off_t)rd);
+                int sz = ext3_read(ext3, &inode, data + rd, (int32_t)chunk, (off_t)rd);
                 if(sz <= 0)
                     break;
-                data += sz;
                 rd += sz;
             }
-            if(size != NULL)
-                *size = (off_t)rd;
+            /* A short read (an I/O error or a truncated last block) must not
+             * be handed back as a valid buffer.  Callers - init's read_fs,
+             * which loads every daemon ELF and config through here - treat a
+             * non-NULL return as success and would exec/parse a partial file,
+             * turning a recoverable read error into a silently corrupted load
+             * that stalls the boot after the failing daemon never reports
+             * ready.  Fail the same way as every other error path above. */
+            if(rd == fsize) {
+                data[rd] = '\0';
+                ret = data;
+                if(size != NULL)
+                    *size = (off_t)rd;
+            }
+            else {
+                free(data);
+            }
         }
     }
     return ret;

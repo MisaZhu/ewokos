@@ -222,7 +222,7 @@ extern pthread_mutex_t _driver_kids_results_lock;
  *  - every mutating handler takes it exclusive.
  *
  * Hard rules while holding _vfs_lock:
- *  - NEVER sleep, proc_usleep(), proc_block_by() or wait on a driver;
+ *  - NEVER sleep, usleep(), proc_block_by() or wait on a driver;
  *  - NEVER issue IPC to a mount driver (FS_CMD_*): the driver can call
  *    back into vfsd (vfs_wakeup/vfs_new_nodes) and that callback lands in
  *    a DIFFERENT vfsd worker which would then deadlock on this lock while
@@ -245,6 +245,16 @@ extern pthread_rwlock_t _vfs_lock;
 extern uint32_t vfs_get_node_id(vfs_node_t* node);
 extern vfs_node_t* vfsd_new_node(void); /* caller must hold _vfs_lock (write) */
 extern vfs_node_t* vfs_get_node_by_id(uint32_t node_id);
+/*
+ * Corruption containment (see node.c): true only for pointers inside the live
+ * libc heap range. Callers must treat false as "this fd slot/node pointer is
+ * corrupt": neutralize the slot (memset / NULL) and fail the single operation,
+ * never follow the pointer. Recorded on the miyoo boot hang where a smashed
+ * fds[].node (0x4FBC0000) otherwise took vfsd down via data abort.
+ */
+extern bool vfs_valid_node_ptr(const void* p);
+extern void vfsd_note_corruption(const char* where, int32_t pid, int32_t fd,
+        const void* bad);
 extern int32_t vfs_add_node(int32_t pid, vfs_node_t* father, vfs_node_t* node);
 extern void vfs_remove(int32_t pid, vfs_node_t* node);
 extern int32_t vfsd_del_node(vfs_node_t* node);

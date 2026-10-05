@@ -129,7 +129,7 @@ AArch64 用 **4 级页表**（像目录套目录）翻译 48 位虚拟地址：
 ```
 
 为什么内核放高地址？**切换进程时只需要换低半部分的页表，
-高半部分（内核）所有进程共享**——第 07 章的 `clone_kernel_vm` 就是这么干的。
+高半部分（内核）所有进程共享**——本章 5.8 节的 `arch_set_proc_vm` 就是这么干的。
 
 ## 5.5 启动第一关：启动页表
 
@@ -289,13 +289,32 @@ kmalloc_init();              // 先开最小内核堆，才能创建各种数据
 init_allocable_mem();        // 把剩余物理内存全部纳入管理
 ```
 
-## 5.8 进程的独立内存：clone_kernel_vm
+## 5.8 进程的独立内存：set_vm 与 arch_set_proc_vm
 
-每个新进程需要自己的页表。看
-[内核的 clone_kernel_vm](../../kernel/kernel/src/kernel.c)（AArch64 版）：
+每个新进程需要自己的页表。共享入口是
+[kernel.c 里的 set_vm](../../kernel/kernel/src/kernel.c)，它把活派给一个 arch 钩子
+（声明在 [kernel/kernel.h](../../kernel/kernel/include/kernel/kernel.h)）：
 
 ```c
-static void clone_kernel_vm(page_dir_entry_t* vm) {
+/* weak 默认实现：重建完整的内核映射 + 可分配内存直接映射。
+   riscv 以及任何没有共享高半部的架构用它；x86/aarch64/arm 在
+   kernel/platform/<arch>/arch/common/src/kernel_arch.c 里覆盖它。 */
+__attribute__((weak)) void arch_set_proc_vm(page_dir_entry_t* vm) {
+    set_kernel_vm(vm);
+    map_allocable_pages(vm);
+}
+
+void set_vm(page_dir_entry_t* vm) {
+    arch_set_proc_vm(vm);
+}
+```
+
+AArch64 的覆盖版（[kernel_arch.c](../../kernel/platform/aarch64/arch/common/src/kernel_arch.c)）
+直接共享内核高半部页表而不重建（它过去就是内联在 kernel.c 里的
+`clone_kernel_vm()`）：
+
+```c
+void arch_set_proc_vm(page_dir_entry_t* vm) {
     uint32_t kernel_l1_base = PAGE_ROOT_INDEX(KERNEL_BASE);
     memset(vm, 0, PAGE_DIR_SIZE);
 
@@ -304,6 +323,7 @@ static void clone_kernel_vm(page_dir_entry_t* vm) {
         vm[i] = _kernel_info.kernel_vm[i];
 
     // 低半部分（用户）：空的，等待进程自己的代码/数据/堆/栈映射进来
+    //（外加公共的 DMA 窗口）
     ...
 }
 ```

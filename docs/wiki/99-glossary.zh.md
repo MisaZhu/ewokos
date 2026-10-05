@@ -61,6 +61,24 @@
 | **shm** | Shared Memory | 共享内存，两进程映射同一物理页，用于零拷贝传大数据。 | 09/13 章 |
 | **缺页异常** | Page Fault | 访问了无映射的虚拟页触发的异常，内核借此按需分配物理页。 | 05 章 |
 
+## 三之二、缓存与一致性
+
+| 术语 | 英文全称 | 含义与解释 | 出现于 |
+|---|---|---|---|
+| **D-cache / I-cache** | Data / Instruction Cache | 数据缓存与指令缓存，两者分离；写进 D-cache 的字节不会自动被 I-cache 取指看到。 | 23 章 |
+| **Clean（清）** | — | 把脏行写回下一级，但保留在缓存中。 | 23 章 |
+| **Invalidate（失效）** | — | 不写回就丢弃缓存行（脏数据丢失）。 | 23 章 |
+| **Flush（刷）** | — | clean + invalidate：既写回又丢弃该行。 | 23 章 |
+| **PoU** | Point of Unification | 统一点，D-cache、I-cache 与走查器在此一致；代码 clean 到此供取指。 | 23 章 |
+| **PoC** | Point of Coherency | 一致性点，所有观察者（CPU、DMA、各核）在此看到相同字节；设备数据 flush 到此。 | 23 章 |
+| **set/way** | — | 按组/路几何式寻址缓存行；是命中整缓存的唯一办法，慢且摧毁工作集。 | 23 章 |
+| **按 VA** | by Virtual Address | 按地址一次操作一条缓存行；便宜精准，热路径使用。 | 23 章 |
+| **ASID** | Address Space Identifier | 地址空间标识符，给 TLB 表项打标签，让每个空间保留自己的温热表项，切换无需 TLBI。 | 23 章 |
+| **nG** | non-global | 一个 PTE 位，把用户页标为带 ASID 标记而非全局。 | 23 章 |
+| **inner-shareable（IS）** | — | SMP 上缓存/TLB 维护的广播域；`tlbi`/`ic` 操作上的 `is` 后缀。 | 23 章 |
+| **MESI** | Modified/Exclusive/Shared/Invalid | x86 硬件缓存一致性协议；使 ARM 式软件 clean/invalidate 变得多余。 | 23 章 |
+| **wbinvd** | Write Back and Invalidate Cache | x86 整缓存刷写；EwokOS 中除改 MTRR/PAT 外降级为 `mfence`。 | 23 章 |
+
 ## 四、进程与调度
 
 | 术语 | 英文全称 | 含义与解释 | 出现于 |

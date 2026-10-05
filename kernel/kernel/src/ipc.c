@@ -1206,6 +1206,24 @@ void proc_ipc_call(context_t* ctx, int32_t serv_pid, int32_t call_id, proto_t* a
         return;
     }
 
+    /*
+     * A THREAD of the server process is not "self" by pid (its pid differs
+     * from the proc pid the check above compares), yet the request it issues
+     * can only be answered by a worker of its own process: if every pool
+     * worker is busy or blocked behind a lock the caller holds, the reply can
+     * never run and the whole daemon wedges forever (observed on miyoo: a
+     * vfsd pool worker lazily opening /dev/log through the VFS client stalled
+     * in SYS_IPC_GET_RETURN to vfsd's own pid while holding _vfs_lock, and
+     * every other worker parked on that lock). Same address space == same
+     * service: reject like self ipc so the caller gets an error instead of an
+     * eternal park.
+     */
+    if(client_proc->space != NULL && client_proc->space == serv_proc->space) {
+        printf("ipc can't call own service (client: %d, server: %d, call: 0x%x\n", client_proc->info.pid, serv_pid, call_id);
+        ctx->gpr[0] = IPC_ERROR_SELF;
+        return;
+    }
+
     if(serv_proc->space->ipc_server.disabled) {
         ctx->gpr[0] = IPC_ERROR_RETRY; // blocked if server disabled, should retry
         proc_ipc_wait(ctx, serv_proc, client_proc);

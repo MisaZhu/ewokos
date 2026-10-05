@@ -135,13 +135,15 @@ inline void write_cntv_tval(uint32_t tval) {
 
 ### 中断到来时发生什么
 
-中断总入口在 [irq.c](../../kernel/kernel/src/irq.c)，核心逻辑：
+中断总入口在通用层的 [irq.c](../../kernel/kernel/src/irq.c)，定时器分支
+（`irq_do_timer0`）的核心逻辑：
 
 ```c
 // 定时器中断处理（简化）：
-timer_clear_interrupt(0);   // ① 清中断标志，并重装下一次倒计时
-...
-schedule(ctx);              // ② 趁机做调度！换下一个进程运行
+renew_kernel_tic(usec_gap);   // ① 记时间账
+arch_irq_timer_ack();         // ② 清中断标志/重装倒计时（arch 钩子——
+                              //    在树莓派上最终落到板级 timer 代码）
+schedule(ctx);                // ③ 趁机做调度！换下一个进程运行
 ```
 
 关键设计：**每次定时器中断都是一次"强制换人"的机会**。
@@ -154,20 +156,29 @@ schedule(ctx);              // ② 趁机做调度！换下一个进程运行
 
 ## 6.6 内核中断处理的分层
 
-EwokOS 的中断代码分三层，职责清晰：
+EwokOS 的中断代码分四层，职责清晰：
 
 ```
-① 平台汇编层  interrupt.S          保存/恢复全部寄存器（第 04 章）
-        │
-② 板级层     machines/raspix/bsp/  判断是哪个中断（读板子的中断寄存器）
-        │                          清中断标志、EOI（End Of Interrupt，结束中断）
-        ▼
-③ 通用内核层  kernel/kernel/src/    irq.c：分发到具体处理
-             irq.c / interrupt.c    - 定时器 → 调度
-                                    - 其他硬件中断 → 派发给注册了该中断的用户进程
+① 平台汇编层  interrupt.S           保存/恢复全部寄存器（第 04 章）
+        │      kernel/platform/<arch>/arch/
+② 通用内核层  kernel/kernel/src/     irq.c：分发、记账；定时器 → 调度；
+        │      irq.c / interrupt.c   其他硬件中断 → 派发给注册了该中断
+        ▼                            的用户进程
+③ 架构 C 层   kernel/platform/       实现通用层调用的 arch_* 钩子：
+        │      <arch>/arch/common/   arch_irq_raw（哪个中断来了）、
+        │      src/irq.c             arch_irq_timer_ack、irq_eoi_arch（EOI）…
+④ 板级层      machines/raspix/bsp/   读板子的中断寄存器；清中断标志、EOI
+               irq_pix.c             （End Of Interrupt，结束中断）
 ```
 
-第 ③ 层有个微内核特色：硬件中断可以**转发给用户态驱动进程**
+② 与 ③ 的拆分来自近期的“kernel arch porting friendly”重构：通用层的
+[irq.c](../../kernel/kernel/src/irq.c) 里**不再含任何架构 `#if`**——所有与架构相关的
+部分（怎么读原始中断号、怎么确认定时器、怎么 EOI、怎么 dump 出错现场）都以
+`arch_*` 钩子的形式声明在 [kernel/irq.h](../../kernel/kernel/include/kernel/irq.h)，
+并按平台实现在 `kernel/platform/<arch>/arch/common/src/irq.c` 里。移植到新架构
+只需写这一个文件，不必再改共享代码。
+
+第 ② 层有个微内核特色：硬件中断可以**转发给用户态驱动进程**
 （[interrupt.c](../../kernel/kernel/src/interrupt.c)）：
 
 ```c
@@ -211,8 +222,10 @@ __irq_enable();
 
 1. 在 `machines/raspix/system` 启动系统后运行 `ps`，
    观察各进程的 `cpu` 时间统计——它们全部来自定时器中断的记账；
-2. 阅读 [irq.c](../../kernel/kernel/src/irq.c) 中处理 `IRQ_TIMER0` 的分支，
-   确认"定时器中断 → `schedule()`"这条路径；
+2. 阅读 [irq.c](../../kernel/kernel/src/irq.c) 中处理 `IRQ_TIMER0` 的分支
+   （`irq_do_timer0`），再对照 `kernel/platform/aarch64/arch/common/src/irq.c`
+   里的 `arch_irq_timer_ack()` / `arch_irq_raw()` 实现，
+   确认“定时器中断 → `schedule()`”这条路径；
 3. 思考题：如果定时器中断频率调成 1（每秒一次），系统会发生什么？
    （提示：进程时间片变成 1 秒，交互程序会明显卡顿。可以改
    `/etc/kernel/kernel.conf` 的 `timer_freq` 实际体验。）
@@ -224,7 +237,8 @@ __irq_enable();
 - 中断控制器（GIC/博通中断控制器）汇集和分发中断，内核通过寄存器使能/屏蔽；
 - 定时器中断以 `timer_freq`（默认 1024）次/秒的心跳驱动抢占式调度——
   这是系统"活过来"的时刻；
-- 中断处理分三层：汇编保存现场 → 板级识别中断 → 通用内核分发；
+- 中断处理分四层：汇编保存现场 → 通用内核分发 → 架构 C 层实现 `arch_*` 钩子 →
+  板级层操作真正的中断控制器；
 - 微内核把硬件中断转发给用户态驱动进程处理；
 - 临界区用关中断/自旋锁保护，但要尽量短。
 

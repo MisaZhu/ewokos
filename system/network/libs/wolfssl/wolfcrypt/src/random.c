@@ -5449,7 +5449,7 @@ int wc_GenerateSeed(OS_Seed* os, byte* output, word32 sz)
 
             if (sz) {
     #if defined(BLOCKING) || defined(WC_RNG_BLOCKING)
-                sleep(0);             /* context switch */
+                sched_yield();             /* context switch */
     #else
                 ret = RAN_BLOCK_E;
                 break;

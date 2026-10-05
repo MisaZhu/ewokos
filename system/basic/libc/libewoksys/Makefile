@@ -11,6 +11,7 @@ CFLAGS += -Iewoksys/include -Iinclude -I $(TARGET_DIR)/include
 LIB_EWOKSYS_OBJS =  \
 	$(ARCH)/ewoksys/src/syscall_$(ARCH).o \
 	$(ARCH)/ewoksys/src/setjmp_$(ARCH).o \
+	$(ARCH)/ewoksys/src/fine_cnt_$(ARCH).o \
 	$(ARCH)/ewoksys/src/mstr.o \
 	$(ARCH)/ewoksys/src/utf8unicode.o \
 	$(ARCH)/ewoksys/src/klog.o \

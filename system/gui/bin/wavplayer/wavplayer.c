@@ -151,7 +151,7 @@ void *push_data_to_pcm(void *data)
     struct pcm *wpcm = mgr->wpcm;
     int ret = 0;
 
-    proc_usleep(200 * 1000);
+    usleep(200 * 1000);
     if ((mgr->p_size == 0) && (mgr->q_size == 0)) {
         LOGD("%s() No available data, should not happen!", __func__);
     }
@@ -166,7 +166,7 @@ void *push_data_to_pcm(void *data)
 
         if ((p_size == 0) && (q_size == 0)) {
             //LOGD("%s() No available data, sleep and try again", __func__);
-            proc_usleep(1000);
+            usleep(1000);
             continue;
         }
 

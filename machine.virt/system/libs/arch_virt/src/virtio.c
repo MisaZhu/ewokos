@@ -309,7 +309,7 @@ static uintptr_t virtio_find_device(int dev_id, const char *input_name, int *int
             put32(base + VIRTIO_MMIO_CONFIG, VIRTIO_INPUT_CFG_ID_NAME);
             put32(base + VIRTIO_MMIO_CONFIG + 4, 0);
             put32(base + VIRTIO_MMIO_CONFIG + 8, sizeof(id_name));
-            proc_usleep(0);
+            sched_yield();
             for (int j = 0; j < MIN(cfg->size, (uint8_t)sizeof(id_name)); j++)
             {
                 id_name[j] = cfg->u.string[j];
@@ -440,7 +440,7 @@ static int virtio_send_request_queue(uintptr_t base, struct virtq_t *virtq, uint
             }
             return (int)resp_len;
         }
-        proc_usleep(sleep_us);
+        usleep(sleep_us);
     }
 
     return 0;
@@ -620,7 +620,7 @@ static int virtio_snd_wait_slot(virtio_dev_t dev, struct virtio_snd_state *snd, 
                 return 0;
             }
         }
-        proc_usleep(1000);
+        usleep(1000);
     }
     return -1;
 }
@@ -1230,10 +1230,10 @@ int virtio_blk_transfer(virtio_dev_t dev, uint64_t sector, void *buffer, uint32_
         /*
          * Wait on used.idx (plain DMA-coherent memory) instead of reading
          * the MMIO interrupt status every iteration: each MMIO read is a
-         * VM exit, and proc_usleep(0) costs two kernel_tic syscalls, so
-         * the old loop burned several traps per poll. Spin briefly (QEMU
-         * usually completes within microseconds), then yield; ack the
-         * interrupt once after completion.
+         * VM exit. Spin briefly (QEMU usually completes within
+         * microseconds), then yield the core via a single SYS_YIELD so
+         * other ready processes can run while we wait; ack the interrupt
+         * once after completion.
          */
         uint8_t completed = 0;
         for (uint32_t i = 0; i < VIRTIO_TIMEOUT_LOOPS; i++)
@@ -1246,7 +1246,7 @@ int virtio_blk_transfer(virtio_dev_t dev, uint64_t sector, void *buffer, uint32_
             }
             if (i >= 128)
             {
-                proc_usleep(0);
+                sched_yield();
             }
         }
         virtio_ack_interrupt(base, 0x1);
@@ -1322,7 +1322,7 @@ int virtio_blk_flush(virtio_dev_t dev)
                 }
                 if (i >= 128)
                 {
-                        proc_usleep(0);
+                        sched_yield();
                 }
         }
         virtio_ack_interrupt(base, 0x1);

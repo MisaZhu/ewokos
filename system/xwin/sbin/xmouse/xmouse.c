@@ -77,7 +77,7 @@ int main(int argc, char** argv) {
             height = scr.size.h;
             break;
         }	
-        proc_usleep(100000);
+        usleep(100000);
     }
 
     while(true) {
@@ -144,7 +144,7 @@ int main(int argc, char** argv) {
             }
             */
         }
-        proc_usleep(3000);
+        usleep(3000);
     }
 
     close(fd);

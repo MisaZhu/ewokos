@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
+#include <time.h>
 /* fsinfo_t / vfs_get_by_fd() come from <ewoksys/vfs.h>, pulled in by <poll.h>. */
 
 /*
@@ -113,9 +114,19 @@ static int do_select(int nfds, fd_set *readfds, fd_set *writefds,
         /*
          * POSIX: with no descriptors this is a portable way to sleep for the
          * timeout; the sets (if any) are zeroed and 0 is returned.
+         *
+         * Route through nanosleep() rather than usleep(): nanosleep() prefers
+         * proc_nsleep_precise(), which lands the wake on the requested
+         * deadline instead of the next scheduler tick (~976us at
+         * timer_freq=1024). select(0, ..., 1ms) used to overshoot by up to a
+         * full tick; userspace usleep() stays tick-quantized on purpose
+         * because driver polling loops depend on that quantum as pacing.
          */
         if (timeout_ms > 0) {
-            usleep((useconds_t)timeout_ms * 1000U);
+            struct timespec ts;
+            ts.tv_sec = timeout_ms / 1000;
+            ts.tv_nsec = (long)(timeout_ms % 1000) * 1000000L;
+            nanosleep(&ts, NULL);
         }
         if (readfds != NULL) {
             FD_ZERO(readfds);

@@ -86,7 +86,19 @@
             {"type":"root", "rights":"rwxg"}
         ]},
 
+        { "cmd": "/bin/sudo", "desc": "setuid boundary: switches uid/gid after auth to run a command as another user (root by default)", "caps": [
+            {"type":"root", "rights":"rwxg"}
+        ]},
+
+        { "cmd": "/sbin/cron", "desc": "setuid boundary: runs scheduled /etc/crontab jobs as their named user", "caps": [
+            {"type":"root", "rights":"rwxg"}
+        ]},
+
         { "cmd": "/bin/x/xsession", "desc": "setuid boundary: switches uid/gid after auth (setuid-root equivalent)", "caps": [
+            {"type":"root", "rights":"rwxg"}
+        ]},
+
+        { "cmd": "/sbin/sshd", "desc": "setuid boundary: switches uid/gid after SSH auth to run the user session", "caps": [
             {"type":"root", "rights":"rwxg"}
         ]}
     ]

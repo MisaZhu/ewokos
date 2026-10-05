@@ -125,6 +125,11 @@ void clear_zombie(int32_t cpid) {
     for(i=0; i<MAX_OPEN_FILE_PER_PROC; i++) {
         file_t *f = &_proc_fds_table[cpid].fds[i];
         if(f->node != NULL) {
+            if(!vfs_valid_node_ptr(f->node)) {
+                vfsd_note_corruption("zombie", cpid, i, f->node);
+                memset(f, 0, sizeof(file_t));
+                continue;
+            }
             file_t closing = *f;
             memset(f, 0, sizeof(file_t));
             uint32_t type = FS_BASE_TYPE(closing.fsinfo.type);

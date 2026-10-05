@@ -8,7 +8,12 @@ void queue_init(queue_t* q) {
 }
 
 void queue_push(queue_t* q, void* data) {
+    if(q == NULL)
+        return;
+
     queue_item_t* it = (queue_item_t*)malloc(sizeof(queue_item_t));
+    if(it == NULL)
+        return;
     memset(it, 0, sizeof(queue_item_t));
     it->data = data;
 
@@ -24,7 +29,12 @@ void queue_push(queue_t* q, void* data) {
 }
 
 void queue_push_head(queue_t* q, void* data) {
+    if(q == NULL)
+        return;
+
     queue_item_t* it = (queue_item_t*)malloc(sizeof(queue_item_t));
+    if(it == NULL)
+        return;
     memset(it, 0, sizeof(queue_item_t));
     it->data = data;
 

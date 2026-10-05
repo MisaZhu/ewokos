@@ -13,14 +13,14 @@ protected:
     uint32_t range;
     uint32_t pos;
     bool horizontal;
-    bool isDragging; // 标记是否正在拖动
-    int lastMousePos; // 记录上次鼠标位置
-    int lastMouseOffset; // 记录上次鼠标位置
+    bool isDragging; // marks whether it is being dragged
+    int lastMousePos; // records the last mouse position
+    int lastMouseOffset; // records the last mouse position
 
     void onRepaint(graph_t* g, XTheme* theme, const grect_t& r);
     virtual void drawBG(graph_t* g, XTheme* theme, const grect_t& r);
     virtual void drawPos(graph_t* g, XTheme* theme, const grect_t& r);
-    bool onMouse(xevent_t* ev); // 处理鼠标事件
+    bool onMouse(xevent_t* ev); // handle mouse events
     virtual void onPosChange() {};
 
 public:

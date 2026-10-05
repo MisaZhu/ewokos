@@ -118,7 +118,7 @@ int main(int argc, char *argv[]) {
         int n = recvfrom(sockfd, recv_buf, sizeof(recv_buf), 0, (struct sockaddr *)&recv_addr, &addr_len);
         if (n < 0) {
             printf("Request timeout\n");
-            proc_usleep(1000000); // 1 second
+            usleep(1000000); // 1 second
             continue;
         }
 
@@ -143,7 +143,7 @@ int main(int argc, char *argv[]) {
             printf("%d bytes from %s: icmp_seq=%d time=%.1f ms\n", n - ip_len, resolved_ip, ntohs(recv_icmp->seq), rtt_ms);
         }
 
-        proc_usleep(1000000); // 1 second
+        usleep(1000000); // 1 second
     }
 
     close(sockfd);

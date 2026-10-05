@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
 	LayoutWidget* layout = win.getLayoutWidget();
 	layout->setMenuItemFunc(onMenuItemFunc);
 	layout->setEventFunc(onEventFunc);
-	win.loadConfig(argv[1]); // 加载布局文件
+	win.loadConfig(argv[1]); // load the layout file
 
 	win.open(&x, -1, -1, -1, 0, 0, argv[1], XWIN_STYLE_NORMAL);
 	win.setTimer(16);

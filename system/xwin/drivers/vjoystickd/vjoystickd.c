@@ -192,6 +192,25 @@ static int vjoy_loop(vdevice_t* dev, void* p){
     uint32_t tm = 1000/_fps;
     uint8_t keys[KEY_NUM] = {0};
 
+    /*
+     * Deferred side effects. vfs_wakeup() is a synchronous round-trip into
+     * vfsd and x_show_cursor() a synchronous round-trip into xserverd. They
+     * must NOT run inside the ipc_disable() window below: while this server is
+     * disabled every /dev/vjoystick client (xmouse, xim_*) that issues an IPC
+     * gets IPC_ERROR_RETRY and parks on our wait queue until ipc_enable(), so
+     * holding the disable across a peer round-trip stretches that deaf window
+     * by the full latency of vfsd/xserverd -- and if the peer is itself busy
+     * the joystick device goes deaf indefinitely. Neither call touches the
+     * shared read state (_keys/_rd/_release/_minfo), so it is safe to record
+     * the intent here and fire both AFTER ipc_enable(). read(_joys_fd) stays
+     * inside the window: _joys_fd is O_NONBLOCK, so _read() breaks out on
+     * EAGAIN instead of parking (see libgloss/syscalls.c), and it can never
+     * block us here.
+     */
+    bool do_show_cursor = false;
+    bool show_cursor_val = false;
+    bool do_wakeup = false;
+
     ipc_disable();
 
     int32_t rd = read(_joys_fd, keys, KEY_NUM);
@@ -202,7 +221,8 @@ static int vjoy_loop(vdevice_t* dev, void* p){
                 if(_keys[i] == _switch_key) {
                     _mouse_mode = !_mouse_mode;
                     _release = false;
-                    x_show_cursor(_mouse_mode);
+                    do_show_cursor = true;
+                    show_cursor_val = _mouse_mode;
                     break;
                 }
             }
@@ -234,22 +254,25 @@ static int vjoy_loop(vdevice_t* dev, void* p){
         else
             _j_speed_up = 0;
 
-        if(rd > 0 || _release) {
-            vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
-        }
+        if(rd > 0 || _release)
+            do_wakeup = true;
     }
     else {
         _rd = rd;
-        if(_rd > 0 || _release) {
-            vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
-        }
+        if(_rd > 0 || _release)
+            do_wakeup = true;
     }
     ipc_enable();
+
+    if(do_show_cursor)
+        x_show_cursor(show_cursor_val);
+    if(do_wakeup)
+        vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
 
     uint32_t gap = (uint32_t)(kernel_tic_ms(0) - tik);
     if(gap < tm) {
         gap = tm - gap;
-        proc_usleep(gap*1000);
+        usleep(gap*1000);
     }
     return 0;
 }

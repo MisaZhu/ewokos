@@ -591,7 +591,7 @@ int main(int argc, char** argv) {
             ipc_enable();
         }
         else
-            proc_usleep(50000);
+            usleep(50000);
     }
 
     hashmap_free(_ipc_servs);

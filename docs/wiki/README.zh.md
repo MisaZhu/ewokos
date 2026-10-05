@@ -63,7 +63,8 @@ EwokOS 是一个真实存在的、可运行的微内核操作系统（支持 ARM
 |------|------|----------|
 | [04 CPU 特权级与异常](04-exception.zh.md) | EL0~EL3、异常向量表、上下文保存、从内核态穿越到用户态 | `kernel/platform/aarch64/arch/v8/boot.S`、`interrupt.S` |
 | [05 内存管理与 MMU](05-mmu.zh.md) | 虚拟地址的意义、页表、内核内存布局、物理页分配 | `kernel/kernel/src/mm/` |
-| [06 中断与定时器](06-interrupt.zh.md) | 树莓派中断源、中断处理四步法、时钟心跳 | `kernel/kernel/src/irq.c`、`interrupt.c` |
+| [23 缓存维护](23-cache.zh.md) | 缓存为何破坏一致性；clean/invalidate/flush、PoC/PoU、按 set/way 与按 VA；可移植缓存 API 及其 AArch64/ARMv7/x86 实现；TLB/ASID、代码加载与 DMA 交接；SMP 广播 | `kernel/platform/<arch>/arch/<ver>/system_arch.c`、`system.S` |
+| [06 中断与定时器](06-interrupt.zh.md) | 树莓派中断源、中断处理四步法、时钟心跳 | `kernel/kernel/src/irq.c`、`interrupt.c`、`kernel/platform/<arch>/arch/common/src/irq.c` |
 | [07 进程与调度器](07-process.zh.md) | 进程三要素、第一个进程的创建、上下文切换、调度、fork 与写时复制 | `kernel/kernel/src/proc.c`、`schedule.c` |
 | [08 系统调用](08-syscall.zh.md) | 系统调用的意义、`svc #0`、分发、与中断的异同 | `kernel/kernel/src/svc.c` |
 | [09 IPC 进程间通信](09-ipc.zh.md) | IPC 实现方法、数据交换效率、同步 RPC、通信即服务 | `kernel/kernel/src/ipc.c` |

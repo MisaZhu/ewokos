@@ -77,7 +77,7 @@ static void xwin_registry_remove(xwin_t* xwin) {
 /*How many windows of this process still hold a present the server has not
   taken. xwin_retry_pending_presents() reads it on every event-loop tick, so
   the "nothing pending" case has to stay a single load: finding out by walking
-  the registry needs ipc_disable(), which is a retry loop that can sleep(0) -
+  the registry needs ipc_disable(), which is a retry loop that can sched_yield() -
   far too heavy to pay at the widget frame rate in every X client for nothing.
   Always written under the owning window's painting_lock.*/
 static volatile uint32_t _xwin_present_pending_num = 0;

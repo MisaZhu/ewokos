@@ -10,6 +10,7 @@ Part 1: Getting Started / 第 1 部分：起步
 Part 2: The Kernel / 第 2 部分：内核
 * 04. [Privilege & Exceptions](04-exception) · [CPU 特权级与异常](04-exception.zh)
 * 05. [Memory & MMU](05-mmu) · [内存管理与 MMU](05-mmu.zh)
+* 23. [Cache Maintenance](23-cache) · [缓存维护](23-cache.zh)
 * 06. [Interrupts & Timers](06-interrupt) · [中断与定时器](06-interrupt.zh)
 * 07. [Processes & Scheduler](07-process) · [进程与调度器](07-process.zh)
 * 08. [System Calls](08-syscall) · [系统调用](08-syscall.zh)

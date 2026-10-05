@@ -159,10 +159,24 @@ bool XWin::open(X* xp, int32_t dispIndex, int x, int y, uint32_t w, uint32_t h,
 
 	uint32_t minW = scr.size.w*2/3;
 	uint32_t minH = scr.size.h*2/3;
-	if(w == 0)
-		w = minW + random_to(scr.size.w - minW);
-	if(h == 0)
-		h = minH + random_to(scr.size.h - minH - 32);
+	/* The display info may not be published yet when a session/app opens its
+	   first window at boot (a race with fbdisplayd): scr.size is then 0, minW/
+	   minH are 0, and the auto-size math below would call random_to(0) and hand
+	   xwin_open a 0-width / garbage-height window. Fall back to a sane default
+	   so the window opens and can be re-laid-out (e.g. max()) once the real
+	   screen size is known. */
+	if(scr.size.w == 0 || scr.size.h == 0) {
+		if(w == 0)
+			w = 640;
+		if(h == 0)
+			h = 480;
+	}
+	else {
+		if(w == 0)
+			w = minW + random_to(scr.size.w - minW);
+		if(h == 0)
+			h = minH + random_to(scr.size.h - minH - 32);
+	}
 
 	if(x < 0) {
 		x = 0;

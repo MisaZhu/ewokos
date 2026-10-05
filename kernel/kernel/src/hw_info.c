@@ -38,11 +38,13 @@ static uint32_t get_kmalloc_size(void) {
     else if(_sys_info.total_phy_mem_size >= 512*MB)
         ret = 8*MB;
 
-#if defined(__aarch64__) && defined(PAGE_SIZE_64K)
+#if defined(PAGE_SIZE_64K)
     /*
      * With 64KB granules each per-process top-level page directory grows to
      * 64KB. The default 128 proc_vm_t entries alone consume about 8MB, so the
      * historic 8MB kmalloc pool on 1GB boards is no longer sufficient.
+     * PAGE_SIZE_64K is a page-granule config macro (only set by BSPs that build
+     * with 64KB pages), not an architecture discriminator.
      */
     if(ret < 16*MB)
         ret = 16*MB;
@@ -51,7 +53,7 @@ static uint32_t get_kmalloc_size(void) {
 }
 
 static uint32_t get_dma_size(void) {
-    uint32_t ret = 16*MB;
+    uint32_t ret = 4*MB;
 
     if(_kernel_config.dma_size == 0) {
         if(_sys_info.total_phy_mem_size >= 8ull*GB)
@@ -60,6 +62,8 @@ static uint32_t get_dma_size(void) {
             ret = 64*MB;
         else if(_sys_info.total_phy_mem_size >= 2ull*GB)
             ret = 32*MB;
+        else if(_sys_info.total_phy_mem_size >= 512*MB)
+            ret = 8*MB;
     }
     else {
         ret = _kernel_config.dma_size;
@@ -109,7 +113,6 @@ void sys_info_config(void) {
 
     _sys_info.sys_dma.v_base = DMA_V_BASE;
 
-#if defined(__aarch64__)
     /*
      * On boards with RAM well above 4GB, optionally carve the
      * identity-mapped shm-contig + sys_dma windows from the TOP of RAM
@@ -117,7 +120,8 @@ void sys_info_config(void) {
      * grows contiguously from the end of the ELF across the 4GB mark
      * (apps can malloc >4GB) without colliding with those user-half
      * identity mappings, and small processes keep 32-bit-safe low heap
-     * pointers. BSPs opt in through arch_relocate_dma_high().
+     * pointers. BSPs opt in through the weak arch_relocate_dma_high()
+     * hook (default 0 keeps the legacy low layout on every platform).
      */
     if(arch_relocate_dma_high() &&
             (_sys_info.phy_offset + _sys_info.total_usable_mem_size) >
@@ -133,7 +137,6 @@ void sys_info_config(void) {
         _sys_info.allocable_phy_mem_top = _sys_info.shm_contig.phy_base;
         return;
     }
-#endif
 
     _sys_info.sys_dma.phy_base = _sys_info.allocable_phy_mem_base;
     _sys_info.allocable_phy_mem_base += _sys_info.sys_dma.size;

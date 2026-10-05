@@ -298,6 +298,12 @@ static RSA* g_host_rsa = NULL;
 static uint8_t g_hostkey_blob[512];
 static size_t g_hostkey_blob_len = 0;
 static char g_error[256];
+/*
+ * g_error is a process-global written by both the session main thread and the
+ * internal SFTP thread (send/parse failures race on the shared buffer). Serialize
+ * it. 0 == valid, unlocked (PTHREAD_MUTEX_INITIALIZER), so no pthread_mutex_init.
+ */
+static pthread_mutex_t g_error_lock = PTHREAD_MUTEX_INITIALIZER;
 static pid_t g_tracked_workers[SSHD_MAX_TRACKED_WORKERS];
 
 static int write_ssh_string(uint8_t* buf, size_t cap, size_t* off,
@@ -389,7 +395,9 @@ static void sshd_set_error(const char* fmt, ...) {
     va_list ap;
 
     va_start(ap, fmt);
+    pthread_mutex_lock(&g_error_lock);
     vsnprintf(g_error, sizeof(g_error), fmt, ap);
+    pthread_mutex_unlock(&g_error_lock);
     va_end(ap);
 }
 
@@ -801,7 +809,9 @@ static int ssh_write_n(sshd_session_t* s, const void* buf, size_t len) {
     const uint8_t* p = (const uint8_t*)buf;
     size_t total = 0;
 
+    pthread_mutex_lock(&g_error_lock);
     g_error[0] = 0;
+    pthread_mutex_unlock(&g_error_lock);
 
     while(total < len) {
         int saved_errno;
@@ -1128,6 +1138,11 @@ static int ssh_packet_send_locked(sshd_session_t* s, const ssh_packet_t* packet)
     *p++ = packet->type;
     memcpy(p, packet->payload, packet->payload_len);
     p += packet->payload_len;
+    /*
+     * Padding from rand(), seeded per-connection in session_init() from a
+     * short-lived wolfSSL CSPRNG (see the note there for why we do not keep a
+     * persistent WC_RNG). Serialized by send_lock, so it is thread-safe here.
+     */
     for(uint32_t i = 0; i < padding_len; i++)
         *p++ = (uint8_t)(rand() & 0xff);
 
@@ -3477,6 +3492,26 @@ static int handle_session_packets(sshd_session_t* s) {
         }
         maybe_close_child_stdin(s);
 
+        /*
+         * sftp-server never terminates on its own: it blocks in read(stdin)
+         * waiting for the next request, and on EwokOS closing the stdin
+         * write-end does not reliably wake that blocked reader (see the
+         * SIGKILL note in the teardown at the end of this function). Because
+         * the relay only emits CHANNEL_EOF/CLOSE once the child has exited,
+         * while the client only sends its own CLOSE after receiving ours, a
+         * finished scp/sftp transfer would otherwise deadlock. SFTP is
+         * strictly request/response and the client sends CHANNEL_EOF only
+         * after it has received the final CLOSE status, so once its stdin is
+         * closed the session is definitively over: terminate the child here.
+         * The next drain_child_output() then observes the EOF and sends
+         * exit-status + CHANNEL_EOF/CLOSE, letting scp/sftp exit cleanly.
+         */
+        if(s->child_is_sftp && (s->peer_eof || s->peer_close) &&
+                s->child_pid > 1 && !s->child_eof_seen &&
+                s->child_stdin[CHILD_STDIN_WRITE] < 0) {
+            kill(s->child_pid, SIGKILL);
+        }
+
         /* Drain shell output (non-blocking, window-capped) */
         drain_child_output(s);
         if(s->closing)
@@ -3519,11 +3554,22 @@ static int handle_session_packets(sshd_session_t* s) {
     pthread_cond_broadcast(&s->sftp_cv);
     pthread_mutex_unlock(&s->sftp_lock);
     session_signal_close(s);
+    /*
+     * Join the SFTP thread BEFORE closing the socket. It may still be inside
+     * ssh_write_n() on s->socket; closing the fd first lets a concurrent
+     * open() (SFTP file ops) reuse the same fd number, after which the thread
+     * would write SSH wire bytes to the wrong descriptor. closing is already
+     * set and signalled above, and wait_session_fd_ready() re-checks it under
+     * a bounded (<=1s) poll, so the join cannot hang. Clear the flag so the
+     * later session_destroy() does not pthread_join() the same tid twice (UB).
+     */
+    if(s->internal_sftp_started) {
+        pthread_join(s->internal_sftp_tid, NULL);
+        s->internal_sftp_started = 0;
+    }
     session_close_socket(s);
     close_fd_if_valid(&s->child_stdin[CHILD_STDIN_WRITE]);
     close_fd_if_valid(&s->child_stdout[CHILD_STDOUT_READ]);
-    if(s->internal_sftp_started)
-        pthread_join(s->internal_sftp_tid, NULL);
     /*
      * Kill the login process (sftp-server / shell) which is our parent.
      * In EwokOS closing the stdin pipe write-end does not reliably unblock
@@ -3567,6 +3613,30 @@ static int session_init(sshd_session_t* s, int sock) {
     s->rx_packet_buf = (uint8_t*)malloc(4 + SSH_PACKET_WIRE_MAX);
     if(s->rx_packet_buf == NULL)
         return -1;
+    /*
+     * Seed this connection's packet-padding PRNG from a short-lived wolfSSL
+     * CSPRNG. Runs in the forked child, so every connection gets independent,
+     * unpredictable padding (the old fixed srand(42) made all connections emit
+     * the identical stream).
+     *
+     * The RNG is created and freed here, entirely BEFORE do_key_exchange() runs
+     * its own wc_InitRng/wc_FreeRng cycle. Do NOT keep a persistent WC_RNG in
+     * the session: on this port the entropy backend is a global singleton, so
+     * KEX's wc_FreeRng invalidates a still-open session RNG and the first
+     * post-KEX send's wc_RNG_GenerateBlock fails -- which dropped the
+     * connection right after login. rand() for padding is serialized by
+     * send_lock, so it is safe to use from both the main and SFTP threads.
+     */
+    {
+        WC_RNG seed_rng;
+        unsigned int seed = 0;
+        memset(&seed_rng, 0, sizeof(seed_rng));
+        if(wc_InitRng(&seed_rng) == 0) {
+            if(wc_RNG_GenerateBlock(&seed_rng, (byte*)&seed, sizeof(seed)) == 0)
+                srand(seed);
+            wc_FreeRng(&seed_rng);
+        }
+    }
     pthread_mutex_init(&s->state_lock, NULL);
     pthread_mutex_init(&s->send_lock, NULL);
     pthread_mutex_init(&s->sftp_lock, NULL);
@@ -3585,10 +3655,14 @@ static void session_destroy(sshd_session_t* s) {
     pthread_cond_broadcast(&s->sftp_cv);
     pthread_mutex_unlock(&s->sftp_lock);
     session_signal_close(s);
+    /* Join the SFTP thread before closing the socket (see handle_session_packets).
+     * If that path already ran, internal_sftp_started is clear and this is a no-op. */
+    if(s->internal_sftp_started) {
+        pthread_join(s->internal_sftp_tid, NULL);
+        s->internal_sftp_started = 0;
+    }
     session_close_socket(s);
     close_child_fds(s);
-    if(s->internal_sftp_started)
-        pthread_join(s->internal_sftp_tid, NULL);
     if(s->child_pid > 1) {
         kill(s->child_pid, SIGKILL);
         ewok_waitpid(s->child_pid);
@@ -3623,7 +3697,7 @@ static int open_server_socket(int port) {
     while(true) {
         int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         if(sock < 0) {
-            proc_usleep(200000);
+            usleep(200000);
             continue;
         }
         memset(&addr, 0, sizeof(addr));
@@ -3634,7 +3708,7 @@ static int open_server_socket(int port) {
             return sock;
         }
         close(sock);
-        proc_usleep(200000);
+        usleep(200000);
     }
 }
 
@@ -3781,7 +3855,11 @@ int main(int argc, char* argv[]) {
             OPENSSL_INIT_ADD_ALL_CIPHERS |
             OPENSSL_INIT_ADD_ALL_DIGESTS, NULL);
     OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS, NULL);
-    srand(42);
+    /*
+     * No srand(42) here: packet padding now comes from a per-session wolfSSL
+     * CSPRNG seeded after fork (see session_init). A fixed global seed made
+     * every connection emit the identical rand() padding stream.
+     */
 
     if(init_host_key() < 0) {
         return -1;
@@ -3796,7 +3874,7 @@ int main(int argc, char* argv[]) {
         reap_finished_workers();
         int client_sock = accept(server_sock, (struct sockaddr*)&client_addr, &client_len);
         if(client_sock < 0) {
-            proc_usleep(10000);
+            usleep(10000);
             continue;
         }
         if(pipe(sync_pipe) != 0) {

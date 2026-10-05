@@ -342,8 +342,8 @@ static int wait_avail(struct pcm_t *pcm, int *avail, int time_out_ms)
             break;
         }
 
-        //proc_yield();
-        proc_usleep(1000);
+        //sched_yield();
+        usleep(1000);
     }
 
     return ret;
@@ -377,7 +377,7 @@ static int pcm_write(struct pcm_t *pcm, const void* data, unsigned int count) {
             pcm->prepared = 0;
             pcm->running = 0;
             if (pcm_prepare(pcm) != 0) {
-                proc_usleep(10000);
+                usleep(10000);
             }
             continue;
         }
@@ -397,7 +397,7 @@ static int pcm_write(struct pcm_t *pcm, const void* data, unsigned int count) {
             pcm->prepared = 0;
             pcm->running = 0;
             if (pcm_prepare(pcm) != 0) {
-                proc_usleep(10000);
+                usleep(10000);
             }
             continue;
         }

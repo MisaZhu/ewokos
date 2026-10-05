@@ -70,7 +70,8 @@ Part 5  The ewokos library series (ecosystem overview → libc → common libs �
 |------|------|----------|
 | [04 CPU Privilege Levels & Exceptions](04-exception.md) | EL0–EL3, the exception vector table, context saving, crossing from kernel mode to userland | `kernel/platform/aarch64/arch/v8/boot.S`, `interrupt.S` |
 | [05 Memory Management & the MMU](05-mmu.md) | The meaning of virtual memory, page tables, the kernel memory layout, physical page allocation | `kernel/kernel/src/mm/` |
-| [06 Interrupts & Timers](06-interrupt.md) | Pi interrupt sources, the four-step interrupt handling, the clock heartbeat | `kernel/kernel/src/irq.c`, `interrupt.c` |
+| [23 Cache Maintenance](23-cache.md) | Why caches break coherence; clean/invalidate/flush, PoC/PoU, by-set-way vs by-VA; the portable cache API and its AArch64/ARMv7/x86 implementations; TLB/ASID, code-load and DMA handoff; SMP broadcast | `kernel/platform/<arch>/arch/<ver>/system_arch.c`, `system.S` |
+| [06 Interrupts & Timers](06-interrupt.md) | Pi interrupt sources, the four-step interrupt handling, the clock heartbeat | `kernel/kernel/src/irq.c`, `interrupt.c`, `kernel/platform/<arch>/arch/common/src/irq.c` |
 | [07 Processes & the Scheduler](07-process.md) | The three essentials of a process, creating the first process, context switch, scheduling, fork and copy-on-write | `kernel/kernel/src/proc.c`, `schedule.c` |
 | [08 System Calls](08-syscall.md) | Why system calls exist, `svc #0`, dispatching, syscalls vs interrupts | `kernel/kernel/src/svc.c` |
 | [09 IPC: Inter-Process Communication](09-ipc.md) | How IPC works, data-exchange efficiency, synchronous RPC, communication as service | `kernel/kernel/src/ipc.c` |

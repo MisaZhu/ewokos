@@ -162,6 +162,18 @@ sock_free(struct sock *s)
     return 0;
 }
 
+/*
+ * Look up a socket by id and return a pointer into the static socks[] array.
+ *
+ * No lock here on purpose. `socks` is a static array, so the returned pointer
+ * is always valid memory -- the only hazard is a concurrent sock_free()
+ * zeroing the slot. That cannot happen for a by-id lookup: the netd task layer
+ * keeps an op "inflight" for this id and defers sock_close()/sock_free() until
+ * inflight drains, so a worker holding a live id is never racing its own free.
+ * Whole-array scans that touch *other* sockets (sock_get_timeout,
+ * sock_add_icmp_packet) DO take socks_lock, since those are not covered by the
+ * caller's inflight guarantee.
+ */
 static struct sock *
 sock_get(int id)
 {
@@ -665,17 +677,31 @@ sock_getsockopt(int id, int level, int optname, void *optval, int *optlen)
 struct timeval*
 sock_get_timeout(int desc, int type, int timeout_type)
 {
+    struct timeval *ret = NULL;
+
+    /*
+     * Whole-array scan: it reads *other* sockets' used/type/desc, which a
+     * concurrent sock_free() memsets under socks_lock. Take the leaf lock so
+     * the match is consistent. Callers may already hold a stack mutex
+     * (udp_recvfrom holds the udp mutex here); socks_lock is always the inner
+     * lock, so the order stack-mutex -> socks_lock never inverts. The returned
+     * pointer stays valid: the matching socket cannot be freed while its own
+     * stack mutex is held by the caller.
+     */
+    pthread_mutex_lock(&socks_lock);
     for (int i = 0; i < countof(socks); i++) {
         struct sock *s = &socks[i];
         if (s->used && s->type == type && s->desc == desc) {
             if (timeout_type == SO_RCVTIMEO) {
-                return &s->rcv_timeout;
+                ret = &s->rcv_timeout;
             } else if (timeout_type == SO_SNDTIMEO) {
-                return &s->snd_timeout;
+                ret = &s->snd_timeout;
             }
+            break;
         }
     }
-    return NULL;
+    pthread_mutex_unlock(&socks_lock);
+    return ret;
 }
 
 // Get socket absolute timeout for a given descriptor

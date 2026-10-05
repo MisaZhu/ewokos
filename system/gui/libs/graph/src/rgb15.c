@@ -29,6 +29,12 @@ void rgb2rgb15_cpu(uint16_t  *out,  uint32_t *in , int w, int h)
     return;
 }
 
+__attribute__((weak))
+void argb_2_rgb15_arch(uint16_t  *out,  uint32_t *in , int w, int h)
+{
+    rgb2rgb15_cpu(out,  in , w, h);
+}
+
 inline void argb_2_rgb15(uint16_t  *out,  uint32_t *in , int w, int h) {
 #ifdef ARCH_BOOST
     argb_2_rgb15_arch(out,  in , w, h);
@@ -56,6 +62,12 @@ static void rgb15_2_argb_cpu(uint32_t *out, uint16_t *in, int w, int h)
 {
 	for (int i = 0; i < w * h; i++)
 		out[i] = rgb15_pixel_to_argb(in[i]);
+}
+
+__attribute__((weak))
+void rgb15_2_argb_arch(uint32_t *out, uint16_t *in, int w, int h)
+{
+	rgb15_2_argb_cpu(out, in, w, h);
 }
 
 void rgb15_2_argb(uint32_t *out, uint16_t *in, int w, int h) {

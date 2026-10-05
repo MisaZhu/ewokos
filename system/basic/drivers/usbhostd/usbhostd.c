@@ -47,6 +47,11 @@
 #define USB_HUB_PWR_WAIT_MAX_MS 500u
 #define USB_HUB_CONNECT_GRACE_MS 300u
 #define USB_HUB_RETRY_INTERVAL_MS 500u
+/* a hub that answers no port status at all for this many consecutive scan
+   passes is treated as gone (see usb_hub_scan). More than one, because a
+   single control transfer can fail on a busy bus and dropping a working
+   hub over that would cost its children a needless re-enumeration */
+#define USB_HUB_DEAD_POLLS 3u
 /* root-port bring-up failures: after this many consecutive failures the
    whole controller is re-initialized (a wedged port state on some
    controllers only clears with a bring-up from scratch) */
@@ -78,6 +83,7 @@ typedef struct {
     uint8_t depth;
     int root_port;       /* bsp flat root port this tree hangs off */
     uint64_t port_retry_ms[9]; /* per hub port: next allowed attach retry */
+    uint8_t hub_dead_polls;    /* consecutive scans the hub answered nothing */
     bsp_usb_dev_t* hdev;
 } usb_dev_t;
 
@@ -523,6 +529,12 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
     dev->hdev = bsp_usb_device_attach(root_port, speed,
             parent >= 0 ? _devs[parent].hdev : NULL, hub_port);
     if (dev->hdev == NULL) {
+        /* the bsp layer refuses or fails SET_ADDRESS here, and for a device
+           behind a hub this used to be the one silent spot in the whole
+           walk: the hub stays registered, the child is simply never seen
+           again, and "keyboard does nothing" arrives with no log at all */
+        slog("usbhostd: enumerate attach_failed root=%d speed=%d parent=%d hub_port=%u\n",
+                root_port, speed, parent, hub_port);
         return -1;
     }
     dev->present = true;
@@ -736,7 +748,7 @@ static int usb_hub_attach_port(int dev_idx, uint8_t port) {
             return -1;
         }
         for (int waited = 0; waited < 20; ++waited) {
-            proc_usleep(10000);
+            usleep(10000);
             if (usb_hub_port_status(dev->hdev, port, &status, &change) != 0) {
                 return -1;
             }
@@ -749,14 +761,14 @@ static int usb_hub_attach_port(int dev_idx, uint8_t port) {
         if (enabled) {
             break;
         }
-        proc_usleep(50000);
+        usleep(50000);
     }
     if (!enabled) {
         slog("usbhostd: hub dev=%d port=%u reset_failed status=%04x\n",
                 dev_idx, port, status);
         return -1;
     }
-    proc_usleep(50000);
+    usleep(50000);
 
     if (status & USB_HUB_PS_LOW_SPEED) {
         speed = BSP_USB_SPEED_LOW;
@@ -814,7 +826,7 @@ static int usb_enumerate_hub(int dev_idx) {
     if (pwr_ms > USB_HUB_PWR_WAIT_MAX_MS) {
         pwr_ms = USB_HUB_PWR_WAIT_MAX_MS;
     }
-    proc_usleep(pwr_ms * 1000u);
+    usleep(pwr_ms * 1000u);
 
     /* Scan ports until every port is handled, with a bounded grace window
        for devices that debounce slowly after power-good: a device missed
@@ -856,12 +868,14 @@ static int usb_enumerate_hub(int dev_idx) {
         if (all_done || kernel_tic_ms(0) >= grace_deadline) {
             break;
         }
-        proc_usleep(20000);
+        usleep(20000);
     }
     /* the hub device itself stays registered even with no children yet:
        the periodic scan keeps watching its ports */
     return registered;
 }
+
+static void usb_enum_failed(void);
 
 static bool hub_port_has_child(int dev_idx, uint8_t port) {
     for (int i = 0; i < USB_MAX_DEVS; ++i) {
@@ -877,6 +891,7 @@ static bool hub_port_has_child(int dev_idx, uint8_t port) {
 static void usb_hub_scan(int dev_idx) {
     usb_dev_t* dev = &_devs[dev_idx];
     uint64_t now = kernel_tic_ms(0);
+    int probed = 0;
 
     for (uint8_t port = 1; port <= dev->hub_ports; ++port) {
         uint16_t status = 0, change = 0;
@@ -884,6 +899,7 @@ static void usb_hub_scan(int dev_idx) {
         if (usb_hub_port_status(dev->hdev, port, &status, &change) != 0) {
             continue;
         }
+        probed++;
         if ((change & USB_HUB_PC_CONNECTION) != 0) {
             usb_hub_port_feature(dev->hdev, port, USB_HUB_FEAT_C_PORT_CONNECTION, false);
 
@@ -918,9 +934,37 @@ static void usb_hub_scan(int dev_idx) {
             }
         }
     }
-}
 
-static void usb_enum_failed(void);
+    /*
+     * Not one port status came back. That is what a controller re-init looks
+     * like from up here: the bsp layer forgot every address it had handed
+     * out, so this hub's handle is dead and no amount of per-port retrying
+     * can revive it -- the port never even reports a connection change, so
+     * nothing else in the tree walk notices either. Drop the tree and let
+     * the next scan re-walk it from the root.
+     *
+     * This is also what makes a link-speed downgrade the bsp layer latched
+     * take effect: raspix forces FS/LS-only when an FS/LS device turns up
+     * behind a high-speed hub, the one topology a DWC2 without split
+     * transactions cannot serve, and it does that from inside the failed
+     * attach of the hub's child. Without this escalation the dead hub is
+     * polled forever, the keyboard behind it never appears, and the only
+     * symptom is silence.
+     */
+    if (probed == 0 && dev->hub_ports > 0) {
+        if (++dev->hub_dead_polls >= USB_HUB_DEAD_POLLS) {
+            int root_port = dev->root_port;
+            slog("usbhostd: hub dev=%d unreachable for %u scans, dropping the tree\n",
+                    dev_idx, (uint32_t)USB_HUB_DEAD_POLLS);
+            usb_root_remove(root_port);
+            usb_enum_failed();
+            return;
+        }
+    }
+    else {
+        dev->hub_dead_polls = 0;
+    }
+}
 
 /* check the bsp root ports for connect/disconnect */
 static void usb_scan_root_ports(void) {
@@ -1271,7 +1315,7 @@ static int usb_step(vdevice_t* dev, void* p) {
             _idle_sleep_us = USB_IDLE_SLEEP_MAX_US;
         }
     }
-    proc_usleep(have_inputs ? _idle_sleep_us : USB_NO_INPUT_SLEEP_US);
+    usleep(have_inputs ? _idle_sleep_us : USB_NO_INPUT_SLEEP_US);
     return 0;
 }
 

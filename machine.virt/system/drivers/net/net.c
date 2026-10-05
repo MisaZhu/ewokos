@@ -14,7 +14,7 @@ static bool _wr_ready = true;
 static uint32_t _idle_sleep_us = 400;
 
 /*
- * proc_usleep() only re-checks sleep_counter from the kernel timer IRQ, so a
+ * usleep() only re-checks sleep_counter from the kernel timer IRQ, so a
  * request of N us costs ceil(N / tick) ticks. With timer_freq = 1024 the tick
  * is 976us, which made the previous 1000us busy value always sleep TWO ticks
  * (~1.95ms) and halved the rate at which this driver reaped TX completions
@@ -181,7 +181,7 @@ static int net_loop_step(vdevice_t* dev, void *p)
             _idle_sleep_us = VIRTNET_IDLE_SLEEP_MAX_US;
         }
     }
-    proc_usleep(_idle_sleep_us);
+    usleep(_idle_sleep_us);
     return 0;
 }
 

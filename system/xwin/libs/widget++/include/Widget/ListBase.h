@@ -29,7 +29,7 @@ public:
 	~ListBase(void);
 
 	void setItemNum(uint32_t itemNum);
-	void select(int sel);
+	virtual void select(int sel);
 	void enter(int sel);
 
 	void setItemMargin(uint32_t margin);

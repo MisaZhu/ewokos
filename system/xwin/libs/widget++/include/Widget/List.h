@@ -27,6 +27,7 @@ public:
 
 	void setItemSize(uint32_t itemSize);
 	void setItemNumInView(uint32_t itemSize);
+	void select(int sel);
 	inline uint32_t getItemSize() { return itemSize; }
 	inline uint32_t getItemNumInView() { return itemNumInView; }
 };

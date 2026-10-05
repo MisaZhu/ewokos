@@ -51,7 +51,7 @@ static inline int32_t uart_basic_trans(char c) {
   while(get32(UART0 + UART_FLAGS) & UART_TRANSMIT){
     if(++spins > 10000)
       return -1;
-    proc_usleep(0);
+    sched_yield();
   }
 
   /* write the character */

@@ -179,11 +179,22 @@ static void sys_fork(context_t* ctx) {
     ctx->gpr[0] = proc->info.pid;
 
     if(proc->info.state == CREATED && _core_proc_ready) {
-        proc->info.state = BLOCK;
-
         proc_t* cproc = get_current_proc();
+
+        /*
+         * Park both tasks before publishing the clone request. The core
+         * daemon wakes them after cloning the userspace process metadata.
+         * svc_handler holds kernel_lock across this sequence; event retrieval
+         * and wakeup syscalls take that same lock, so they cannot interleave
+         * here. Keep the state-before-event ordering explicit as well.
+         * kev_push takes proc_lock via proc_wakeup, so do not hold proc_lock
+         * around this call.
+         */
+        proc->info.state = BLOCK;
         cproc->info.state = BLOCK;
         cproc->ctx.gpr[0] = proc->info.pid;
+
+        kev_push(KEV_PROC_CREATED, cproc->info.pid, proc->info.pid, 0);
         schedule(ctx);
     }
 }

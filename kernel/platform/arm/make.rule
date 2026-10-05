@@ -18,6 +18,11 @@ BSP_DIR=bsp
 
 BUILD_DIR = .
 
+# Object isolation is handled generically in common_objs.mk: objects are keyed
+# by the owning machine (MACHINE), so an SMP board (miyoo/x2lite/picocalc) can
+# never link a UP board's (orangepi/lego.ev3) objects. Do not set a coarser
+# KERNEL_OBJ_DIR here.
+
 include $(SRC_DIR)/platform/common_objs.mk
 .DEFAULT_GOAL := all
 
@@ -32,6 +37,13 @@ endif
 ifeq ($(ARCH_VER),v7)
 CFLAGS += -mfpu=neon-vfpv3 -DFPU_ENABLED -DARM_V7
 ASFLAGS += -mfpu=neon-vfpv3 -DFPU_ENABLED -DARM_V7
+endif
+
+# ARM1136/ARM1176 class: WFI (c7,c0,4) and the whole-cache clean ops
+# (c7,c14,0) exist from ARMv6K on, and there is no NEON.
+ifeq ($(ARCH_VER),v6)
+CFLAGS += -DARM_V6 -DARM_V6K
+ASFLAGS += -DARM_V6 -DARM_V6K
 endif
 
 ifeq ($(DEBUG),yes)
@@ -71,11 +83,13 @@ ARCH_OBJS += \
 	$(ARCH_DIR)/$(ARCH_VER)/boot.o \
 	$(ARCH_DIR)/$(ARCH_VER)/interrupt.o \
 	$(ARCH_DIR)/$(ARCH_VER)/system.o \
+	$(ARCH_DIR)/$(ARCH_VER)/system_arch.o \
 	$(ARCH_DIR)/$(ARCH_VER)/mmu_pte_flags.o \
 	$(ARCH_DIR)/common/src/gic.o \
 	$(ARCH_DIR)/common/src/irq.o \
 	$(ARCH_DIR)/common/src/memcpy.o \
 	$(ARCH_DIR)/common/src/mmu_arch.o \
+	$(ARCH_DIR)/common/src/kernel_arch.o \
 	$(ARCH_DIR)/common/src/arm32_aeabi_divmod_a32.o \
 	$(ARCH_DIR)/common/src/arm32_aeabi_divmod.o
 
@@ -182,6 +196,12 @@ OBJS = $(ARCH_OBJS) \
 	$(KERNEL_OBJS) \
 	$(DEV_OBJS) 
 
+# Auto-generated header dependencies (common_objs.mk compiles with -MMD -MP).
+# Included after OBJS so editing a shared kernel header rebuilds the affected
+# objects instead of make reporting "Nothing to be done".
+DEP_FILES = $(OBJS:.o=.d)
+-include $(DEP_FILES)
+
 LDFLAGS = -L $(ARCH_DIR)/$(ARCH_VER) $(ARCH_LD_FLAGS) $(LIBGCC)
 
 all: $(OS_IMG) 
@@ -191,5 +211,5 @@ $(OS_IMG): $(OBJS) $(LDS)
 	$(OBJCOPY) -O binary $(BUILD_DIR)/$(OS_ELF) $(BUILD_DIR)/$(OS_IMG)
 
 clean:
-	rm -f $(OBJS)
+	rm -f $(OBJS) $(DEP_FILES)
 	rm -f $(OS_IMG) $(OS_ELF)

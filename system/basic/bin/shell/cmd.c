@@ -98,7 +98,7 @@ static int write_all_retry(int fd, const void* buf, size_t len) {
             continue;
         }
         if(errno == EAGAIN || errno == EINTR) {
-            proc_usleep(1000);
+            usleep(1000);
             continue;
         }
         if(wr == 0 && errno == 0)

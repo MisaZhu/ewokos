@@ -17,6 +17,24 @@ static int run(const char* cmd) {
             exit(-1);
         }
     }
+    else if(pid > 0) {
+        /*
+         * The child only survives our exit once it has run proc_detach()
+         * (father_pid=0); fork() parks it in BLOCK until cored clones it, so
+         * bgrun can otherwise exit first and proc_terminate() SIG_STOPs the
+         * still-attached child before it execs. Wait until it has detached.
+         */
+        procinfo_t info;
+        uint32_t waited = 0;
+        while(waited < 2000000) { /* 2s ceiling: detach normally lands in a few ms */
+            if(proc_info(pid, &info) != 0 || info.uuid == 0)
+                break;          /* child gone / slot freed */
+            if(info.father_pid == 0)
+                break;          /* detached: it now survives our exit */
+            usleep(1000);
+            waited += 1000;
+        }
+    }
     return 0;
 }
 

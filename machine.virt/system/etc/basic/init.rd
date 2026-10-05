@@ -1,3 +1,4 @@
+@/bin/ipcserv /drivers/logd  /dev/log
 @/bin/ipcserv /drivers/virt/ttyd /dev/tty0
 
 @/bin/ipcserv /drivers/timerd          
@@ -6,4 +7,5 @@
 @/bin/ipcserv /drivers/nulld           /dev/null
 
 @/bin/ipcserv /sbin/sessiond
+@/bin/bgrun /sbin/cron
 @/bin/bgrun /bin/session -r -t /dev/tty0

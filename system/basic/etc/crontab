@@ -1,0 +1,31 @@
+# /etc/crontab - system-wide scheduled jobs, read by /sbin/cron.
+#
+# This is the classic Linux system-crontab format. Unlike a per-user crontab,
+# every job line carries the user name to run as. cron re-reads this file once
+# a minute, so edits take effect without restarting the daemon.
+#
+# Environment for the jobs that follow (later assignments override earlier):
+SHELL=/bin/shell
+PATH=/sbin:/bin:/bin/x
+HOME=/
+
+# Job definition:
+# .---------------- minute        (0 - 59)
+# |  .------------- hour          (0 - 23)
+# |  |  .---------- day of month  (1 - 31)
+# |  |  |  .------- month         (1 - 12) or jan,feb,mar,apr ...
+# |  |  |  |  .---- day of week   (0 - 6, Sunday=0 or 7) or sun,mon,tue ...
+# |  |  |  |  |
+# *  *  *  *  *  user  command to be executed
+#
+# A time field accepts '*', ranges 'a-b', steps '*/n' or 'a-b/n', and comma
+# lists such as '0,30'. As in classic cron, when BOTH day-of-month and
+# day-of-week are restricted the job runs when either one matches.
+#
+# The command runs through $SHELL, so pipes, redirection and '&&' work; its
+# output is discarded (redirect it to a file to keep it). Examples:
+#
+# 0   *  *  *  *  root  /bin/df > /tmp/df.log           # top of every hour
+# */5 *  *  *  *  misa  /bin/echo tick                  # every 5 minutes
+# 30  6  *  *  sun  root /bin/date                       # 06:30 every Sunday
+# 0   0  1  *  *  root /bin/echo "new month"             # midnight, 1st month

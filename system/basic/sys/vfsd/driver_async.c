@@ -285,7 +285,7 @@ void clone_dup_ctx_wait(clone_dup_ctx_t* ctx, int32_t mount_pid) {
         }
         ctx->waiter = pthread_self();
         pthread_mutex_unlock(&ctx->lock);
-        proc_usleep(step);
+        usleep(step);
         waited += step;
         step *= 2;
         if(step > CLONE_DUP_WAIT_STEP_MAX_US)
@@ -650,7 +650,7 @@ void vfs_ensure_kids_loaded(uint32_t node_id) {
             return;
         }
 
-        proc_usleep(step);
+        usleep(step);
         waited += step;
         step *= 2;
         if(step > KIDS_LOAD_WAIT_STEP_MAX_US)

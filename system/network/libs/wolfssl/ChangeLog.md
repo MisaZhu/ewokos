@@ -4157,7 +4157,7 @@ Release 3.15.0 of wolfSSL embedded TLS has bug fixes and new features including:
 * Improvements to `wc_PBKDF1` to support more hash types and the non-standard extra data option.
 * Fix TLS 1.3 with ECC disabled and CURVE25519 enabled.
 * Added new define `NO_DEV_URANDOM` to disable the use of `/dev/urandom`.
-* Added `WC_RNG_BLOCKING` to indicate block w/sleep(0) is okay.
+* Added `WC_RNG_BLOCKING` to indicate block w/sched_yield() is okay.
 * Fix for `HAVE_EXT_CACHE` callbacks not being available without `OPENSSL_EXTRA` defined.
 * Fix for ECC max bits `MAX_ECC_BITS` not always calculating correctly due to macro order.
 * Added support for building and using PKCS7 without RSA (assuming ECC is enabled).

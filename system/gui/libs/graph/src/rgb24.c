@@ -21,6 +21,18 @@ static void rgb24_2_argb_cpu(uint32_t *out, uint32_t *in, int w, int h)
 		out[i] = 0xff000000u | (in[i] & 0x00ffffffu);
 }
 
+__attribute__((weak))
+void argb_2_rgb24_arch(uint32_t *out, uint32_t *in, int w, int h)
+{
+	argb_2_rgb24_cpu(out, in, w, h);
+}
+
+__attribute__((weak))
+void rgb24_2_argb_arch(uint32_t *out, uint32_t *in, int w, int h)
+{
+	rgb24_2_argb_cpu(out, in, w, h);
+}
+
 void argb_2_rgb24(uint32_t *out, uint32_t *in, int w, int h) {
 #ifdef ARCH_BOOST
 	argb_2_rgb24_arch(out, in, w, h);

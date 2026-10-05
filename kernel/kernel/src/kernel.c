@@ -45,7 +45,7 @@ static void set_kernel_vm(page_dir_entry_t* vm) {
     memset(vm, 0, PAGE_DIR_SIZE);
     flush_dcache();
 
-#ifndef __aarch64__
+#ifdef INTERRUPT_VECTOR_BASE
     //map interrupt vector to high(virtual) mem
     map_pages_size(vm, INTERRUPT_VECTOR_BASE, _sys_info.vector_base, PAGE_SIZE, AP_RW_D, PTE_ATTR_WRBACK);
 #endif
@@ -94,104 +94,22 @@ static void map_allocable_pages(page_dir_entry_t* vm) {
     flush_tlb();
 }
 
-#ifdef __x86_64__
-static inline page_table_entry_t* entry_to_table_local(page_table_entry_t* entry) {
-    return (page_table_entry_t*)P2V((ewokos_addr_t)(entry->Address << 12));
-}
-
-static void clone_kernel_vm(page_dir_entry_t* vm) {
-    page_table_entry_t* kernel_pdpt;
-    page_table_entry_t* proc_pdpt;
-
-    memset(vm, 0, PAGE_DIR_SIZE);
-    flush_dcache();
-
-    proc_pdpt = kalloc_page();
-    if (proc_pdpt == NULL) {
-        return;
-    }
-    memset(proc_pdpt, 0, PAGE_TABLE_SIZE);
-
-    vm[0].value = 0;
-    vm[0].present = 1;
-    vm[0].rw = 1;
-    vm[0].us = 1;
-    vm[0].Address = (uint64_t)V2P(proc_pdpt) >> 12;
-
-    kernel_pdpt = entry_to_table_local(&_kernel_info.kernel_vm[0]);
-    proc_pdpt[2] = kernel_pdpt[2];
-    proc_pdpt[3] = kernel_pdpt[3];
-
-    // Keep the low DMA identity window available while leaving the rest of
-    // the user half private for per-process mappings.
-    map_pages_size(vm, _sys_info.sys_dma.phy_base, _sys_info.sys_dma.phy_base,
-            _sys_info.sys_dma.size, AP_RW_D, PTE_ATTR_NOCACHE);
-    flush_tlb();
-}
-#elif defined(__aarch64__)
-static void clone_kernel_vm(page_dir_entry_t* vm) {
-    uint32_t kernel_l1_base = PAGE_ROOT_INDEX(KERNEL_BASE);
-
-    memset(vm, 0, PAGE_DIR_SIZE);
-
-    /*
-     * Share the kernel high-half tables directly so each process does not
-     * rebuild the full allocable-RAM direct map. Leave the user half private.
-     */
-    for(uint32_t i = kernel_l1_base; i < PAGE_DIR_NUM; i++) {
-        vm[i] = _kernel_info.kernel_vm[i];
-    }
-
-    /*
-     * Keep the common low DMA identity window available in the per-process
-     * user half. Boards that need additional private mappings can extend this
-     * through arch_clone_proc_vm().
-     */
-    map_pages_size(vm, _sys_info.sys_dma.phy_base, _sys_info.sys_dma.phy_base,
-            _sys_info.sys_dma.size, AP_RW_D, PTE_ATTR_SYS_DMA);
-    if(arch_clone_proc_vm(vm, _kernel_info.kernel_vm) != 0)
-        return;
-    flush_dcache();
-    flush_tlb();
-}
-#elif defined(__arm__)
-static void clone_kernel_vm(page_dir_entry_t* vm) {
-    uint32_t kernel_dir_base = PAGE_DIR_INDEX(KERNEL_BASE);
-
-    memset(vm, 0, PAGE_DIR_SIZE);
-
-    /*
-     * Share the kernel high-half L1 entries so processes reuse the same 1KB
-     * second-level tables for kernel image, direct-mapped RAM, MMIO and vectors.
-     */
-    for(uint32_t i = kernel_dir_base; i < PAGE_DIR_NUM; i++) {
-        vm[i] = _kernel_info.kernel_vm[i];
-    }
-
-    /*
-     * Keep the common low DMA identity window private per process. Boards that
-     * need additional low-half mappings can extend this through arch_clone_proc_vm().
-     */
-    map_pages_size(vm, _sys_info.sys_dma.phy_base, _sys_info.sys_dma.phy_base,
-            _sys_info.sys_dma.size, AP_RW_D, PTE_ATTR_NOCACHE);
-    if(arch_clone_proc_vm(vm, _kernel_info.kernel_vm) != 0)
-        return;
-    flush_dcache();
-    flush_tlb();
-}
-#endif
-
-void set_vm(page_dir_entry_t* vm) {
-#ifdef __x86_64__
-    clone_kernel_vm(vm);
-#elif defined(__aarch64__)
-    clone_kernel_vm(vm);
-#elif defined(__arm__)
-    clone_kernel_vm(vm);
-#else
+/*
+ * Install the kernel view into a fresh per-process address space. The page
+ * table layout is arch specific, so the actual clone is an arch hook (declared
+ * in <kernel/kernel.h>): this weak default rebuilds the full kernel mapping
+ * plus the allocable direct map (used by riscv and any arch without a shared
+ * high-half), while x86/aarch64/arm override it in
+ * kernel/platform/<arch>/arch/common/src/kernel_arch.c to share the kernel
+ * high-half tables and keep only the user half private.
+ */
+__attribute__((weak)) void arch_set_proc_vm(page_dir_entry_t* vm) {
     set_kernel_vm(vm);
     map_allocable_pages(vm);
-#endif
+}
+
+void set_vm(page_dir_entry_t* vm) {
+    arch_set_proc_vm(vm);
 }
 
 static void init_kernel_vm(void) {
@@ -222,33 +140,33 @@ static void init_allocable_mem(void) {
 }
 
 #ifdef KERNEL_SMP
-void __attribute__((optimize("O0"))) _slave_kernel_entry_c(uint32_t boot_core_id) {
-    uint32_t cid = get_core_id();
-#ifdef __x86_64__
-    /*
-     * The x86 AP trampoline passes the target logical core id explicitly in the
-     * first argument register. Use it before relying on APIC-id based lookup so
-     * each AP binds to the correct per-core idle slot during early bring-up.
-     */
-    if (boot_core_id < _sys_info.cores) {
-        cid = boot_core_id;
-    }
-    /*
-     * The AP trampoline runs on bootstrap tables that map only early kernel
-     * memory. Switch to the full kernel VM before touching LAPIC/MMIO state in
-     * cpu_core_ready(), otherwise APs fault on high-half MMIO accesses.
-     */
-    set_translation_table_base(V2P((ewokos_addr_t)_kernel_info.kernel_vm));
-#else
+/*
+ * Resolve which logical core a secondary (AP) core binds to during bring-up.
+ * Weak default keeps the detected core id; x86 overrides it in
+ * kernel/platform/x86/arch/common/src/kernel_arch.c because its AP trampoline
+ * passes the target logical core id explicitly.
+ */
+__attribute__((weak)) uint32_t arch_slave_resolve_core(uint32_t boot_core_id, uint32_t detected_cid) {
     (void)boot_core_id;
+    return detected_cid;
+}
+
+void __attribute__((optimize("O0"))) _slave_kernel_entry_c(uint32_t boot_core_id) {
     /*
-     * ARM secondary cores run board bring-up through cpu_core_ready(), which can
-     * touch GIC/MMIO mappings. Keep the pre-x86 behavior and switch to the full
-     * kernel VM before that stage.
+     * Bind this AP to its logical core (arch hook), then switch to the full
+     * kernel VM before cpu_core_ready() touches LAPIC/GIC/MMIO state - the AP
+     * trampoline runs on bootstrap tables that map only early kernel memory.
      */
+    uint32_t cid = arch_slave_resolve_core(boot_core_id, get_core_id());
     set_translation_table_base(V2P((ewokos_addr_t)_kernel_info.kernel_vm));
-#endif
     cpu_core_ready(cid);
+    /*
+     * The counter-access enable is a per-core control register (CNTKCTL_EL1 on
+     * arm/aarch64, scounteren on riscv), so a task migrated to this AP would
+     * take an EL0 trap reading the clock libc interpolates from. irq_init()
+     * only covers the boot core.
+     */
+    arch_enable_user_cnt();
     _cpu_cores[cid].actived = true;
     flush_dcache();
     proc_t* idle_proc = _cpu_cores[cid].idle_proc;
@@ -281,51 +199,14 @@ static void logo(void) {
             "(______/(_______)(______)|_/  \\_/ (______)\\______)\n");
 }
 
-static void show_config(void) {
-#ifdef __aarch64__
-#define SPLIT_ADDR(x) ((uint32_t)(((uint64_t)(x)) >> 32)), ((uint32_t)(x))
-    printf("\n"
-          "  machine              %s\n" 
-          "  arch                 %s-%dk\n"
-          "  cores                %d\n"
-          "  kernel_timer_freq    %d\n"
-          "  mem_offset           0x%08x%08x\n"
-          "  phy mem size         %d MB\n"
-          "  usable mem size      %d MB\n"
-          "  mmio_base            Phy:0x%08x%08x V:0x%08x%08x (%d MB)\n"
-          "  kernel image         Phy:0x%08x%08x ~ 0x%08x%08x (%d KB)\n"
-          "  vsyscall info        Phy:0x%08x%08x ~ 0x%08x%08x (%d KB)\n"
-          "  kernel page dir      Phy:0x%08x%08x ~ 0x%08x%08x (%d KB)\n"
-          "  allocable page dir   Phy:0x%08x%08x ~ 0x%08x%08x (%d MB)\n"
-          "  kmalloc              Phy:0x%08x%08x ~ 0x%08x%08x (%d MB)\n"
-          "  sys_dma_base         Phy:0x%08x%08x ~ 0x%08x%08x (%d MB)\n"
-          "  sys_shm_contig_base  Phy:0x%08x%08x ~ 0x%08x%08x (%d MB)\n"
-          "  allocable mem info   Phy:0x%08x%08x ~ 0x%08x%08x (%d MB)\n"
-          "  max proc num         %d\n"
-          "  max task total       %d\n"
-          "  max task per proc    %d\n"
-          "-----------------------------------------------------\n",
-            _sys_info.machine,
-            _sys_info.arch, PAGE_SIZE/1024,
-            _kernel_config.cores,
-            _kernel_config.timer_freq,
-            SPLIT_ADDR(_sys_info.phy_offset),
-            _sys_info.total_phy_mem_size/(1*MB),
-            _sys_info.total_usable_mem_size / (1*MB),
-            SPLIT_ADDR(_sys_info.mmio.phy_base), SPLIT_ADDR(_sys_info.mmio.v_base), _sys_info.mmio.size/(1*MB),
-            SPLIT_ADDR(V2P(_kernel_start)), SPLIT_ADDR(V2P(_kernel_end)), (_kernel_end - _kernel_start) / (1*KB),
-            SPLIT_ADDR(V2P(KERNEL_VSYSCALL_INFO_BASE)), SPLIT_ADDR(V2P(KERNEL_VSYSCALL_INFO_END)), KERNEL_VSYSCALL_INFO_SIZE / (1*KB),
-            SPLIT_ADDR(V2P(KERNEL_PAGE_DIR_BASE)), SPLIT_ADDR(V2P(KERNEL_PAGE_DIR_END)), KERNEL_PAGE_DIR_SIZE / (1*KB),
-            SPLIT_ADDR(V2P(ALLOCABLE_PAGE_DIR_BASE)), SPLIT_ADDR(V2P(ALLOCABLE_PAGE_DIR_END)), ALLOCABLE_PAGE_DIR_SIZE / (1*MB),
-            SPLIT_ADDR(V2P(KMALLOC_BASE)), SPLIT_ADDR(V2P(KMALLOC_END)), _sys_info.kmalloc_size / (1*MB),
-            SPLIT_ADDR(_sys_info.sys_dma.phy_base), SPLIT_ADDR(_sys_info.sys_dma.phy_base+_sys_info.sys_dma.size), _sys_info.sys_dma.size/(1*MB),
-            SPLIT_ADDR(_sys_info.shm_contig.phy_base), SPLIT_ADDR(_sys_info.shm_contig.phy_base+_sys_info.shm_contig.size), _sys_info.shm_contig.size/(1*MB),
-            SPLIT_ADDR(_sys_info.allocable_phy_mem_base), SPLIT_ADDR(_sys_info.allocable_phy_mem_top), (uint32_t)(get_free_mem_size() / (1*MB)),
-            _kernel_config.max_proc_num,
-            _kernel_config.max_task_num,
-            _kernel_config.max_task_per_proc);
-#undef SPLIT_ADDR
-#else
+/*
+ * Boot banner + memory-layout dump. Address widths are arch specific, so the
+ * whole thing is an arch hook (declared in <kernel/kernel.h>). This weak
+ * default prints 32-bit addresses and is used by arm/riscv/x86; aarch64
+ * overrides it in kernel/platform/aarch64/arch/common/src/kernel_arch.c to
+ * print full 64-bit addresses split into hi/lo words.
+ */
+__attribute__((weak)) void arch_show_config(void) {
     printf("\n"
           "  machine              %s\n" 
           "  arch                 %s-%dk\n"
@@ -364,14 +245,20 @@ static void show_config(void) {
             _kernel_config.max_proc_num,
             _kernel_config.max_task_num,
             _kernel_config.max_task_per_proc);
-#endif
 }
 
 int32_t load_init_proc(void);
+
+/*
+ * Very early per-arch entry fixup, run before the bss clear. Weak no-op
+ * default; x86 overrides it in
+ * kernel/platform/x86/arch/common/src/kernel_arch.c to mask interrupts.
+ */
+__attribute__((weak)) void arch_kernel_entry_early(void) {
+}
+
 void _kernel_entry_c(void) {
-#ifdef __x86_64__
-    __asm__ volatile("cli");
-#endif
+    arch_kernel_entry_early();
     //clear bss
 #if defined(PAGE_SIZE_16K) || defined(PAGE_SIZE_64K)
     for(volatile char* p = _bss_start; p < (volatile char*)_bss_end; p++)
@@ -413,7 +300,7 @@ void _kernel_entry_c(void) {
     //printf("[ok] (%d MB)\n", (get_free_mem_size() / (1*MB)));
 
     logo();
-    show_config();
+    arch_show_config();
 
     kout_str("kernel: init kernel event      ... ");
     kev_init();

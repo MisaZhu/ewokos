@@ -58,6 +58,9 @@ loop2:
     subs    r4, r4, #1                @ decrement the way
     bge    loop1
 skip:
+    /* Cortex-A7 erratum 814220: complete this level before an outer-level
+     * set/way operation can overtake it. A DSB only at finished is too late. */
+    dsb
     add    r10, r10, #2               @ increment cache number
     cmp    r3, r10
     bgt    flush_levels
@@ -129,6 +132,7 @@ inval_loop2:
     subs    r4, r4, #1              @ decrement the way
     bge    inval_loop1
 inval_skip:
+    dsb                           @ Cortex-A7 erratum 814220: order cache levels
     add    r10, r10, #2             @ increment cache number
     cmp    r3, r10
     bgt    inval_levels
@@ -164,7 +168,8 @@ __invalidate_icache_all:
 
 .global __flush_tlb
 __flush_tlb:
-	/* 页表修改必须覆盖所有运行核；DSB 完成失效后，ISB 才同步取指。 */
+	/* Page-table changes must reach every running core; the DSB completes
+	 * the invalidation before the ISB resynchronizes instruction fetch. */
 	mov r0, #0
 	dsb
 #ifdef KERNEL_SMP
@@ -178,26 +183,53 @@ __flush_tlb:
 
 .global __set_translation_table_base
 __set_translation_table_base:
-	/* 恢复历史 TTBR0 属性：IRGN/RGN=0，走查直接读取已发布的页表。
-	 * TTBCR.N=0，L1 按 16KB 对齐；调用者须先将页表清理到 PoC。
-	 * ASID 禁用，必须在返回用户态前清除本核上一地址空间的全局项。 */
+	/* Restore the historical TTBR0 attributes: IRGN/RGN=0, so the walker
+	 * reads the published page tables directly from memory.
+	 * TTBCR.N=0 and L1 is 16KB aligned; the caller must clean the tables
+	 * to PoC first. ASIDs are disabled, so the previous address space's
+	 * global entries on this core must be purged before returning to
+	 * user mode. */
 	dsb
 	mcr p15, 0, r0, c2, c0, 0
 	isb
 	mov r0, #0
 	mcr p15, 0, r0, c13, c0, 1   // CONTEXTIDR = 0
-	mcr p15, 0, r0, c8, c7, 0    // TLBIALL：切换只影响本核
+	mcr p15, 0, r0, c8, c7, 0    // TLBIALL: a switch only affects this core
 	mcr p15, 0, r0, c7, c5, 6    // BPIALL
 	dsb
 	isb
 	bx lr
 
-/* 当前 ARMv7 使用全局 PTE，不具备免 TLBI 切换的 ASID 前提。
- * 即使直接调用此兼容入口，也须使用相同的非缓存走查与本核失效路径；
- * 调用者仍负责先将新页表发布到 PoC。 */
+/*
+ * void __set_translation_table_base_asid(ewokos_addr_t base, uint32_t asid)
+ * ASID-tagged address-space switch with no TLBI. User-half PTEs are non-global
+ * (map_page sets nG for VA < KERNEL_BASE) and are tagged with CONTEXTIDR.ASID,
+ * so switching spaces only needs TTBR0 and CONTEXTIDR updated: the outgoing
+ * space's user entries stop matching and stay warm for when it runs again,
+ * while the shared kernel half stays global and identical in every space.
+ * CONTEXTIDR.ASID is 8 bits and proc_space_asid() = pde_index+1 reserves 0, so
+ * the caller only takes this path for 1 <= asid < 256 and otherwise falls back
+ * to the full-TLBIALL switch.
+ *
+ * Changing the ASID follows the ARMv7 two-register hazard sequence: park
+ * CONTEXTIDR on the reserved ASID 0, context-synchronize, write the new TTBR0,
+ * then publish the real ASID, with an isb between each step. The caller has
+ * already cleaned the new table to PoC (the walk is Non-cacheable, IRGN/RGN=0)
+ * and keeps the switch-time D-cache sweep that non-coherent DMA/graphics
+ * doorbells rely on; the leading dsb drains prior stores before the writes.
+ * Clobbers r2.
+ */
 .global __set_translation_table_base_asid
 __set_translation_table_base_asid:
-	b __set_translation_table_base
+	dsb
+	mov r2, #0
+	mcr p15, 0, r2, c13, c0, 1   // CONTEXTIDR.ASID = 0 (reserved)
+	isb
+	mcr p15, 0, r0, c2, c0, 0    // TTBR0 = base
+	isb
+	mcr p15, 0, r1, c13, c0, 1   // CONTEXTIDR.ASID = asid
+	isb
+	bx lr
 
 /*
  * void __flush_tlb_asid(uint32_t asid)

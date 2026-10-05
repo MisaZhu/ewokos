@@ -4,14 +4,62 @@ __cpu_dcache_clean_flush:
 
 .global	__flush_dcache_all
 __flush_dcache_all:
+	/*
+	 * ARM926EJ-S has no whole-cache clean/invalidate op (c7,c14,0 and
+	 * c7,c10,0 are UNDEFINED here). Walk the D-cache with test-clean-
+	 * invalidate: each MRC writes back and drops one dirty line and sets Z
+	 * once nothing dirty is left.
+	 *
+	 * CRITICAL: the loop above only removes DIRTY lines.  Clean lines
+	 * survive and, because the cache is VIVT without ASID, they alias
+	 * across address-space switches — process B reading user VA X hits a
+	 * stale clean line left by process A (different physical page, same
+	 * virtual tag).  A full invalidate (c7,c6,0) after the loop drops
+	 * every remaining line so the D-cache is truly empty.
+	 */
+1:	MRC p15, 0, r15, c7, c14, 3
+	bne 1b
 	mov r0, #0
-	MRC p15, 0, r0, c7, c10, 3
-	MCR p15, 0, r0, c7, c6, 0
+	MCR p15, 0, r0, c7, c6, 0  // invalidate entire D-cache (clean lines)
+	MCR p15, 0, r0, c7, c10, 4 // drain write buffer
 	bx lr
 .global	__invalidate_dcache_all
 __invalidate_dcache_all:
 	mov r0, #0
 	MCR p15, 0, r0, c7, c6, 0
+	bx lr
+
+.global __invalidate_icache_all
+__invalidate_icache_all:
+	mov r0, #0
+	mcr p15, 0, r0, c7, c5, 0  // invalidate icache all
+	bx lr
+
+	/*
+	 * Range ops, [r0, r1) by MVA, 32-byte ARM926 lines. The caches are
+	 * VIVT, so these only reach lines that were filled through the very
+	 * VA passed in - which is what the kernel-alias writers want.
+	 */
+.global __dcache_clean_range
+__dcache_clean_range:
+	bic r0, r0, #31
+1:	mcr p15, 0, r0, c7, c10, 1 // clean D line by MVA
+	add r0, r0, #32
+	cmp r0, r1
+	blo 1b
+	mov r0, #0
+	mcr p15, 0, r0, c7, c10, 4 // drain write buffer
+	bx lr
+
+.global __dcache_flush_range
+__dcache_flush_range:
+	bic r0, r0, #31
+1:	mcr p15, 0, r0, c7, c14, 1 // clean+invalidate D line by MVA
+	add r0, r0, #32
+	cmp r0, r1
+	blo 1b
+	mov r0, #0
+	mcr p15, 0, r0, c7, c10, 4 // drain write buffer
 	bx lr
 
 .global __flush_tlb
@@ -21,10 +69,11 @@ __flush_tlb:
 #	mcr p15, 0, r0, c7, c5, 4  // isb
 	mcr p15, 0, r0, c7, c5, 0  // flush icache all
 #	mcr p15, 0, r0, c7, c5, 6  // flush branch prediction
-	mcr p15, 0, r0, c7, c7, 0  // invalidate both data and instruction
-#	mcr p15, 0, r0, c8, c7, 0  //unified tlb invalidation
-	mcr p15, 0, r0, c8, c6, 0  //data tlb invalidation
-#	mcr p15, 0, r0, c8, c5, 0  //instruction tlb invalidation
+	// no c7,c7,0 here: callers already ran __flush_dcache_all, and an
+	// invalidate-only pass would discard anything dirtied since
+	// ARM926EJ-S has one unified TLB (DDI0198E 2.3.9): c8,c5/c6/c7 all hit
+	// it, use the architectural "invalidate all" form
+	mcr p15, 0, r0, c8, c7, 0  //unified tlb invalidation
 	mcr p15, 0, r0, c7, c10, 4 // dsb
 #	mcr p15, 0, r0, c7, c5, 4  // isb
 	mov pc, lr

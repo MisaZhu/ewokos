@@ -820,7 +820,7 @@ static int snd_loop_step(vdevice_t *dev, void *p)
     else if (idle_ms < 50)
         idle_ms += 5;
 
-    proc_usleep(idle_ms * 1000);
+    usleep(idle_ms * 1000);
     return err;
 }
 

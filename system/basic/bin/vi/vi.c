@@ -21,6 +21,7 @@
 #include <poll.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include <ewokos_config.h>
 #include <ewoksys/proc.h>
 
@@ -304,7 +305,7 @@ static char* undo_queue_spos UDATA; // Start position of queued operation
 static int undo_q UDATA;
 static char undo_queue[VI_UNDO_QUEUE_MAX] UDATA;
 
-static int argc UDATA, optind UDATA;
+static int argc UDATA, vi_optind UDATA;
 
 //----- Terminal Drawing ---------------------------------------
 // The terminal is made up of 'rows' line of 'columns' columns.
@@ -1274,7 +1275,7 @@ static void redraw(int full_screen) {
 static void flash(int ms) {
     standout_start();
     redraw(true);
-    proc_usleep(ms);
+    usleep(ms);
     standout_end();
     redraw(true);
 }
@@ -1931,7 +1932,7 @@ static void showmatching(char* p) {
         save_dot = dot; // remember where we are
         dot = q;        // go to new loc
         refresh(false); // let the user see it
-        proc_usleep(1000); // give user some time
+        usleep(1000); // give user some time
         dot = save_dot; // go back to old loc
         refresh(false);
     }
@@ -2579,7 +2580,7 @@ static void colon(char* buf) {
             goto ret;
         }
         // are there other file to edit
-        n = argc - optind - 1;
+        n = argc - vi_optind - 1;
         if (*cmd == 'q' && n > 0) {
             status_line_bold("%u more file(s) to edit", n);
             goto ret;
@@ -2590,11 +2591,11 @@ static void colon(char* buf) {
         }
         if (*cmd == 'p') {
             // are there previous files to edit
-            if (optind < 2) {
+            if (vi_optind < 2) {
                 status_line_bold("No previous files to edit");
                 goto ret;
             }
-            optind -= 2;
+            vi_optind -= 2;
         }
         editing = 0;
     } else if (strncmp(cmd, "read", i) == 0) { // read file into text[]
@@ -2638,7 +2639,7 @@ static void colon(char* buf) {
             status_line_bold("No write since last change (:%s! overrides)", cmd);
         } else {
             // reset the filenames to edit
-            optind = 0; // start from 0th file
+            vi_optind = 0; // start from 0th file
             editing = 0;
         }
     } else if (strncmp(cmd, "set", i) == 0) { // set or clear features
@@ -2815,11 +2816,11 @@ static void colon(char* buf) {
                     editing = 0;
                 } else if (cmd[0] == 'x' || cmd[1] == 'q') {
                     // are there other files to edit?
-                    int n = argc - optind - 1;
+                    int n = argc - vi_optind - 1;
                     if (n > 0) {
                         if (useforce) {
                             // force end of argv list
-                            optind = argc;
+                            vi_optind = argc;
                         } else {
                             status_line_bold("%u more file(s) to edit", n);
                             goto ret;
@@ -3730,7 +3731,7 @@ key_cmd_mode:
             editing = 0;
         }
         // are there other files to edit?
-        j = argc - optind - 1;
+        j = argc - vi_optind - 1;
         if (editing == 0 && j > 0) {
             editing = 1;
             modified_count = 0;
@@ -4033,11 +4034,8 @@ static void* xmalloc_open_read_close(const char* filename) {
  * line, so the timeout only bounds the wait for terminals that never answer. */
 #define VI_SIZE_PROBE_TIMEOUT_MS 200
 
-// vi cannot include <unistd.h> (it declares a non-static optind that clashes
-// with vi's own static one), so declare the libc helpers we need here.
-// <sys/ioctl.h> is unistd-free and gives us TIOCGWINSZ / struct winsize.
-int isatty(int fd);
-int ioctl(int fd, int request, ...);
+// isatty() and ioctl() come from <unistd.h> (included above); <sys/ioctl.h>
+// provides TIOCGWINSZ / struct winsize.
 
 // Read the "ESC [ <row> ; <col> R" cursor-position report from stdin.
 // Returns true and fills *rows/*cols on success, false on timeout/garbage.
@@ -4182,13 +4180,13 @@ int main(int argc, char** argv) {
     // This is the main file handling loop
     if (argc == 0)
         argc++;
-    optind = 0;
+    vi_optind = 0;
     if(argc < 2)
         edit_file(NULL); // might be NULL on 1st iteration
     else {
-        for (optind = 1; optind < argc; optind++)
-            if (argv[optind])
-                edit_file(argv[optind]);
+        for (vi_optind = 1; vi_optind < argc; vi_optind++)
+            if (argv[vi_optind])
+                edit_file(argv[vi_optind]);
             else
                 edit_file(NULL); // might be NULL on 1st iteration
     }
