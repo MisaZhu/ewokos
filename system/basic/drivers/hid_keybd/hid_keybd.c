@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
@@ -38,6 +39,30 @@
 #define HID_CONNECT_SLEEP_US 200000u
 
 /*
+ * BT mode (argv[3] == "bt"): the upstream is btd's /dev/bt0 instead of
+ * usbhostd's /dev/hid0. The wire protocol is identical (libhid subscriber
+ * queue, report id 2); the deltas are:
+ *  - the idle wait is bounded (BT_WAIT_REPORT_US): an idle BT keyboard
+ *    produces zero traffic, so the daemon must wake on its own to run
+ *    the attach poller;
+ *  - every BT_ATTACH_POLL_MS the poller asks btd for the HID session
+ *    state and, while none is up, issues "hid_open <addr>" to the first
+ *    connected peripheral of the "devices" listing.
+ */
+#define BT_WAIT_REPORT_US 500000u
+#define BT_ATTACH_POLL_MS 2000u
+
+/*
+ * Subscriber-queue protocol (libs/hid): fixed 8-byte keyboard snapshots,
+ * queue depth 32. One read sized for the whole queue drains an entire
+ * backlog in a single vfsd round-trip (same batching hid_moused uses);
+ * the old one-report-per-read drain paid that round-trip per snapshot,
+ * which a 1000Hz gaming keyboard or a BLE report burst drives hard.
+ */
+#define HID_QUEUE_DEPTH 32
+#define KEYB_DRAIN_SIZE (HID_QUEUE_DEPTH * HID_KEYBOARD_REPORT_SIZE)
+
+/*
  * Cap the drain/wakeup pass rate at 100Hz: gaming keyboards report at up
  * to 1000Hz, and without pacing every report would wake the loop for a
  * full drain pass. Pacing is lossless here - every report is a complete
@@ -50,6 +75,7 @@
 
 static int hid = -1;
 static const char* _dev_point = "/dev/hid0";
+static bool _bt_mode = false;
 /* cached fsinfo of the open /dev/hid0 fd: node id and mount pid stay stable
    for the whole mount, so the wait path does not pay a VFS_GET_BY_FD IPC */
 static fsinfo_t _hid_info;
@@ -273,9 +299,56 @@ static void hid_wait_report(void) {
          */
         proc_block_timeout(_hid_info.node, HID_WAIT_FALLBACK_US);
     }
+    else if (_bt_mode) {
+        /* BT mode, bounded idle wait: an idle BT keyboard produces no
+           wakeup traffic, so the daemon must wake on its own or the
+           attach poller in loop() would never run */
+        proc_block_timeout(_hid_info.node, BT_WAIT_REPORT_US);
+    }
     else {
         proc_block_by(_hid_info.node);
     }
+}
+
+/*
+ * BT mode only: walk btd's device list and open a HID session on the first
+ * connected device that can carry reports - a classic peripheral whose
+ * class of device marks a keyboard/pointer (major 0x05, minor non-zero),
+ * or any LE device (hid_open on an LE address drives the LE/HOGP bring-up
+ * inside btd). One session at a time; the caller paces the retries.
+ */
+static void bt_try_attach_hid(void) {
+    char* list = dev_cmd(_dev_point, "devices");
+    if (list == NULL)
+        return;
+
+    char* save = NULL;
+    for (char* line = strtok_r(list, "\n", &save); line != NULL;
+            line = strtok_r(NULL, "\n", &save)) {
+        char addr[24];
+        unsigned int cod = 0;
+        int connected = 0;
+        int le = 0;
+
+        if (strstr(line, "device ") == NULL)
+            continue;
+        if (sscanf(line, "%*d: device %23s class=0x%x rssi=%*d connected=%d paired=%*d le=%d",
+                addr, &cod, &connected, &le) != 4)
+            continue;
+        if (!connected)
+            continue;
+        if (!((((cod >> 8) & 0x1f) == 0x05 && (cod & 0xc0) != 0) || le))
+            continue;
+
+        char cmd[40];
+        snprintf(cmd, sizeof(cmd), "hid_open %s", addr);
+        char* ret = dev_cmd(_dev_point, cmd);
+        printf("hid_keybd: attach %s: %s\n", addr, ret != NULL ? ret : "no_reply");
+        if (ret != NULL)
+            free(ret);
+        break;
+    }
+    free(list);
 }
 
 static int loop(vdevice_t* dev, void* p) {
@@ -326,34 +399,41 @@ static int loop(vdevice_t* dev, void* p) {
     uint8_t burst_keys[MAX_KEY];
     uint8_t burst_mods[MAX_KEY];
     int burst_count = 0;
+    uint8_t buf[KEYB_DRAIN_SIZE];
     while(true) {
-        uint8_t buf[HID_KEYBOARD_REPORT_SIZE] = {0};
-        int res = read(hid, buf, HID_KEYBOARD_REPORT_SIZE);
-        if(res == HID_KEYBOARD_REPORT_SIZE) {
+        int res = read(hid, buf, sizeof(buf));
+        if (res >= HID_KEYBOARD_REPORT_SIZE) {
             /* each report is a full snapshot: mod, reserved, keycodes */
-            uint8_t keys[MAX_KEY];
-            int count = 0;
-            for (int i = HID_KEYBOARD_FIRST_KEY_IDX; i < HID_KEYBOARD_REPORT_SIZE; i++) {
-                if (buf[i] != 0) {
-                    keys[count++] = buf[i];
-                }
-            }
-            _mod = buf[0];
-            _key_count = count;
-            memcpy(_keys, keys, sizeof(keys));
-            for (int i = 0; i < count && burst_count < MAX_KEY; i++) {
-                bool dup = false;
-                for (int j = 0; j < burst_count; j++) {
-                    if (burst_keys[j] == keys[i]) {
-                        dup = true;
-                        break;
+            for (int off = 0; off + HID_KEYBOARD_REPORT_SIZE <= res;
+                    off += HID_KEYBOARD_REPORT_SIZE) {
+                uint8_t* rep = buf + off;
+                uint8_t keys[MAX_KEY];
+                int count = 0;
+                for (int i = HID_KEYBOARD_FIRST_KEY_IDX; i < HID_KEYBOARD_REPORT_SIZE; i++) {
+                    if (rep[i] != 0) {
+                        keys[count++] = rep[i];
                     }
                 }
-                if (!dup) {
-                    burst_keys[burst_count] = keys[i];
-                    burst_mods[burst_count] = buf[0];
-                    burst_count++;
+                _mod = rep[0];
+                _key_count = count;
+                memcpy(_keys, keys, sizeof(keys));
+                for (int i = 0; i < count && burst_count < MAX_KEY; i++) {
+                    bool dup = false;
+                    for (int j = 0; j < burst_count; j++) {
+                        if (burst_keys[j] == keys[i]) {
+                            dup = true;
+                            break;
+                        }
+                    }
+                    if (!dup) {
+                        burst_keys[burst_count] = keys[i];
+                        burst_mods[burst_count] = rep[0];
+                        burst_count++;
+                    }
                 }
+            }
+            if (res < (int)sizeof(buf)) {
+                break; /* short batch: the queue ran dry */
             }
             continue;
         }
@@ -407,6 +487,24 @@ static int loop(vdevice_t* dev, void* p) {
         return 0;
     }
 
+    /* BT mode: keep the HID session attach attempt going while no session
+       is up (a BT keyboard asleep at boot, or paired after the daemon
+       started, connects through this poller; the bounded wait above is
+       what lets it run with zero report traffic) */
+    if (_bt_mode) {
+        static uint64_t last_attach_ms = 0;
+        uint64_t now = kernel_tic_ms(0);
+        if (now - last_attach_ms >= BT_ATTACH_POLL_MS) {
+            last_attach_ms = now;
+            char* st = dev_cmd(_dev_point, "hid_state");
+            bool session_up = st != NULL && strstr(st, "active=1") != NULL;
+            if (st != NULL)
+                free(st);
+            if (!session_up)
+                bt_try_attach_hid();
+        }
+    }
+
     /*
      * Level-triggered wakeup: re-assert VFS_EVT_RD whenever keys are still
      * held, not only on the edge when a new report arrives. /dev/keyb0
@@ -429,6 +527,10 @@ int main(int argc, char** argv) {
     const char* mnt_point = argc > 1 ? argv[1]: "/dev/keyb0";
     if (argc > 2) {
         _dev_point = argv[2];
+    }
+    /* argv[3] == "bt": the upstream is btd (e.g. /dev/bt0), run in BT mode */
+    if (argc > 3 && strcmp(argv[3], "bt") == 0) {
+        _bt_mode = true;
     }
 
     vdevice_t dev;

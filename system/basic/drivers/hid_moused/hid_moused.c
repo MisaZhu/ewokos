@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
@@ -7,6 +8,7 @@
 #include <ewoksys/ipc.h>
 #include <ewoksys/vdevice.h>
 #include <ewoksys/mmio.h>
+#include <ewoksys/proc.h>
 #include <ewoksys/kernel_tic.h>
 #include <mouse/mouse.h>
 #include <fcntl.h>
@@ -31,6 +33,24 @@
 #define MOUSE_FLUSH_MS 10u
 
 /*
+ * BT mode (argv[3] == "bt"): the upstream is btd's /dev/bt0 instead of
+ * usbhostd's /dev/hid0. The wire protocol is identical (libhid subscriber
+ * queue, report id 1); the deltas are:
+ *  - the wait is bounded (BT_WAIT_REPORT_US): an idle BT mouse produces
+ *    zero traffic, so the daemon must wake on its own to run the attach
+ *    poller and to hit the flush grid below;
+ *  - every BT_ATTACH_POLL_MS the poller asks btd for the HID session state
+ *    and, while none is up, issues "hid_open <addr>" to the first
+ *    connected pointing device of the "devices" listing;
+ *  - the flush grid is 20ms (radio-friendly instead of the USB 10ms) and
+ *    is enforced by parking until the deadline inside the bounded wait
+ *    rather than by an inline sleep after the drain.
+ */
+#define BT_WAIT_REPORT_US 500000u
+#define BT_ATTACH_POLL_MS 2000u
+#define MOUSE_FLUSH_MS_BT 20u
+
+/*
  * /dev/hid0 subscriber-queue protocol (see libs/usb/usb_defs.h): fixed
  * 7-byte pointer events, queue depth 32. One read sized for the whole
  * queue drains an entire backlog in a single vfsd/usbhostd round-trip;
@@ -43,6 +63,8 @@
 
 static int hid = -1;
 static const char* _dev_point = "/dev/hid0";
+static bool _bt_mode = false;
+static uint32_t _flush_ms = MOUSE_FLUSH_MS;
 /* cached fsinfo of the open /dev/hid0 fd: node id and mount pid stay stable
    for the whole mount, so the wait path does not pay a VFS_GET_BY_FD IPC */
 static fsinfo_t _hid_info;
@@ -273,7 +295,66 @@ static bool hid_connect(void) {
  * registration never goes away.
  */
 static void hid_wait_report(void) {
-    proc_block_by(_hid_info.node);
+    if (!_bt_mode) {
+        proc_block_by(_hid_info.node);
+        return;
+    }
+    /* BT mode, bounded wait: an idle BT mouse produces no wakeup traffic,
+       so the daemon parks at most BT_WAIT_REPORT_US - and only up to the
+       next flush-grid point when movement is pending, so the 20ms cadence
+       is kept without a separate timer. */
+    uint32_t wait_us = BT_WAIT_REPORT_US;
+    if (pend_dx != 0 || pend_dy != 0 || pend_wheel != 0) {
+        uint64_t now = kernel_tic_ms(0);
+        uint64_t next = last_flush_ms + _flush_ms;
+        if (now >= next)
+            return; /* grid point reached: flush first, wait afterwards */
+        uint32_t grid_us = (uint32_t)(next - now) * 1000u;
+        if (grid_us < wait_us)
+            wait_us = grid_us;
+    }
+    proc_block_timeout(_hid_info.node, wait_us);
+}
+
+/*
+ * BT mode only: walk btd's device list and open a HID session on the first
+ * connected device that can carry reports - a classic peripheral whose
+ * class of device marks a keyboard/pointer (major 0x05, minor non-zero),
+ * or any LE device (hid_open on an LE address drives the LE/HOGP bring-up
+ * inside btd). One session at a time; the caller paces the retries.
+ */
+static void bt_try_attach_hid(void) {
+    char* list = dev_cmd(_dev_point, "devices");
+    if (list == NULL)
+        return;
+
+    char* save = NULL;
+    for (char* line = strtok_r(list, "\n", &save); line != NULL;
+            line = strtok_r(NULL, "\n", &save)) {
+        char addr[24];
+        unsigned int cod = 0;
+        int connected = 0;
+        int le = 0;
+
+        if (strstr(line, "device ") == NULL)
+            continue;
+        if (sscanf(line, "%*d: device %23s class=0x%x rssi=%*d connected=%d paired=%*d le=%d",
+                addr, &cod, &connected, &le) != 4)
+            continue;
+        if (!connected)
+            continue;
+        if (!((((cod >> 8) & 0x1f) == 0x05 && (cod & 0xc0) != 0) || le))
+            continue;
+
+        char cmd[40];
+        snprintf(cmd, sizeof(cmd), "hid_open %s", addr);
+        char* ret = dev_cmd(_dev_point, cmd);
+        printf("hid_moused: attach %s: %s\n", addr, ret != NULL ? ret : "no_reply");
+        if (ret != NULL)
+            free(ret);
+        break;
+    }
+    free(list);
 }
 
 static int _loop(vdevice_t* dev, void* p) {
@@ -334,20 +415,46 @@ static int _loop(vdevice_t* dev, void* p) {
         return 0;
     }
 
+    /* BT mode: keep the HID session attach attempt going while no session
+       is up (a BT mouse asleep at boot, or paired after the daemon
+       started, connects through this poller; the bounded wait above is
+       what lets it run with zero report traffic) */
+    if (_bt_mode) {
+        static uint64_t last_attach_ms = 0;
+        uint64_t now = kernel_tic_ms(0);
+        if (now - last_attach_ms >= BT_ATTACH_POLL_MS) {
+            last_attach_ms = now;
+            char* st = dev_cmd(_dev_point, "hid_state");
+            bool session_up = st != NULL && strstr(st, "active=1") != NULL;
+            if (st != NULL)
+                free(st);
+            if (!session_up)
+                bt_try_attach_hid();
+        }
+    }
+
     /*
-     * Flush coalesced movement/wheel at most once per MOUSE_FLUSH_MS so the
-     * event rate on /dev/mouse0 never exceeds 100Hz. Button edges were
-     * already pushed during the drain above; reports arriving while we
-     * sleep here queue up on /dev/hid0 and are drained (buttons included,
-     * none lost) on the next loop pass - a click during the window waits
-     * at most one flush interval.
+     * Flush coalesced movement/wheel at most once per _flush_ms so the
+     * event rate on /dev/mouse0 never exceeds the cadence. Button edges
+     * were already pushed during the drain above; reports arriving while
+     * we sleep here queue up on the upstream node and are drained
+     * (buttons included, none lost) on the next loop pass - a click
+     * during the window waits at most one flush interval.
+     * USB mode sleeps inline to the grid point; BT mode already enforced
+     * the deadline by parking in hid_wait_report(), so it only checks.
      */
     if (pend_dx != 0 || pend_dy != 0 || pend_wheel != 0) {
         uint64_t now = kernel_tic_ms(0);
-        uint64_t next = last_flush_ms + MOUSE_FLUSH_MS;
-        if (now < next)
-            usleep((uint32_t)((next - now) * 1000u));
-        mouse_flush_pending();
+        if (_bt_mode) {
+            if (now - last_flush_ms >= _flush_ms)
+                mouse_flush_pending();
+        }
+        else {
+            uint64_t next = last_flush_ms + _flush_ms;
+            if (now < next)
+                usleep((uint32_t)((next - now) * 1000u));
+            mouse_flush_pending();
+        }
     }
 
     /*
@@ -366,6 +473,11 @@ int main(int argc, char** argv) {
     const char* mnt_point = argc > 1 ? argv[1]: "/dev/mouse0";
     if (argc > 2) {
         _dev_point = argv[2];
+    }
+    /* argv[3] == "bt": the upstream is btd (e.g. /dev/bt0), run in BT mode */
+    if (argc > 3 && strcmp(argv[3], "bt") == 0) {
+        _bt_mode = true;
+        _flush_ms = MOUSE_FLUSH_MS_BT;
     }
 
     vdevice_t dev;

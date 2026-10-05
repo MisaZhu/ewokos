@@ -65,13 +65,13 @@ network_sys: basic_sys
 	@mkdir -p ${TARGET_DIR}/etc
 	@cp -Rp etc/network/. ${TARGET_DIR}/etc/
 
-gui_sys: network_sys
+gui_sys: basic_sys
 	$(MAKE) -C $(SYS_ROOT_DIR)/gui
 	$(MAKE) -C drivers gui
 	@mkdir -p ${TARGET_DIR}/etc
 	@cp -Rp etc/gui/. ${TARGET_DIR}/etc/
 
-x_sys: gui_sys
+x_sys: gui_sys network_sys
 	$(MAKE) -C $(SYS_ROOT_DIR)/xwin
 	@mkdir -p ${TARGET_DIR}/etc
 	@cp -Rp etc/xwin/. ${TARGET_DIR}/etc/
