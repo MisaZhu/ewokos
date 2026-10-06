@@ -24,6 +24,7 @@
 #include <ewoksys/kernel_tic.h>
 #include <ewoksys/klog.h>
 #include <ewoksys/proc.h>
+#include <ewoksys/usbhci.h>
 #include <usb/bsp_usb.h>
 #include <usb/usb_defs.h>
 #include <hid/hid_defs.h>
@@ -210,7 +211,8 @@ static int usb_dev_alloc(void) {
      * for mass storage though: its sector I/O would die mid-flight.
      */
     for (int i = 0; i < USB_MAX_DEVS; ++i) {
-        if (_devs[i].unsupported && !bsp_usb_msc_attached(_devs[i].hdev)) {
+        if (_devs[i].unsupported && !bsp_usb_msc_attached(_devs[i].hdev) &&
+                !bsp_usb_bt_attached(_devs[i].hdev)) {
             usb_dev_remove(i);
             return i;
         }
@@ -238,6 +240,7 @@ static void usb_dev_remove(int idx) {
         }
     }
     bsp_usb_msc_detach(_devs[idx].hdev);
+    bsp_usb_bt_detach(_devs[idx].hdev);
     bsp_usb_device_detach(_devs[idx].hdev);
     memset(&_devs[idx], 0, sizeof(_devs[idx]));
 }
@@ -620,6 +623,15 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
        return -1 and the device falls through to HID/unsupported) */
     if (bsp_usb_msc_probe(dev->hdev, cfg_buf, total_len) == 0) {
         slog("usbhostd: msc claimed dev=%d\n", dev_idx);
+        registered++;
+    }
+
+    /* same claim slot for a bluetooth HCI interface (Intel combo cards):
+       the bsp runs the whole firmware setup here and serves the H4
+       stream to btd over dev_cntl (USBHCI_CMD_*) */
+    if (bsp_usb_bt_probe(dev->hdev, dev_desc.idVendor, dev_desc.idProduct,
+            cfg_buf, total_len) == 0) {
+        slog("usbhostd: bt claimed dev=%d\n", dev_idx);
         registered++;
     }
 
@@ -1288,6 +1300,9 @@ static bool usb_poll_inputs(vdevice_t* dev) {
 static int usb_dev_cntl(vdevice_t* dev, int from_pid, int cmd,
         proto_t* in, proto_t* out, void* p) {
     (void)p;
+    if (cmd >= USBHCI_CMD_INFO && cmd <= USBHCI_CMD_SETUP) {
+        return bsp_usb_bt_cntl(dev, from_pid, cmd, in, out);
+    }
     return bsp_usb_msc_cntl(dev, from_pid, cmd, in, out);
 }
 

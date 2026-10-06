@@ -34,6 +34,19 @@ static int      _init_state    = 0;
 static uint64_t _init_retry_ms = 0;
 static bool     _known_loaded  = false;
 
+/* deferred adapter work: devcmd handlers must answer at once (an xbt click
+   blocks on the reply), so "open"'s firmware reload and the known-device
+   autoconnect run from bt_loop instead of inside the command handler.
+   _autoconnect_due_ms doubles as pending-flag (0 = none) and drop-deadline. */
+static bool     _open_pending = false;
+static uint64_t _autoconnect_due_ms = 0;
+#define BT_AUTOCONNECT_DEFER_MS 15000
+
+/* the handle of the last user-requested disconnect: the command is sent
+   fire-and-forget, so its async Command Status is where a rejection gets
+   reported from */
+static uint16_t _disc_pending_handle = 0;
+
 static void bt_wakeup_readers(void) {
     if (_bt_dev != NULL && _bt_dev->mnt_info.node != 0) {
         vfs_wakeup(_bt_dev->mnt_info.node, VFS_EVT_RD);
@@ -224,6 +237,32 @@ static void bt_handle_command_status(const uint8_t* payload, size_t len) {
     _wait_debug.last_opcode = opcode;
     _wait_debug.last_status = status;
     bt_update_wait_cmd_complete(opcode, status);
+
+    if (_wait_cmd.active && _wait_cmd.opcode == opcode) {
+        return; /* claimed by a synchronous wait (bring-up, autoconnect) */
+    }
+
+    /* completions for fire-and-forget commands: the devcmd reply could not
+       wait for them, so a rejection is surfaced here instead */
+    if (opcode == HCI_OPCODE(HCI_OGF_LINK_CTRL, HCI_OCF_CREATE_CONN)) {
+        if (status != 0 &&
+                (_pending.type == BT_PENDING_CONNECT ||
+                 _pending.type == BT_PENDING_PAIR)) {
+            char addr_str[24];
+            bt_addr_to_str(_pending.addr, addr_str, sizeof(addr_str));
+            bt_emit("%s_fail %s status=%d\n",
+                _pending.type == BT_PENDING_PAIR ? "pair" : "connect",
+                addr_str, status);
+            bt_clear_pending();
+        }
+    }
+    else if (opcode == HCI_OPCODE(HCI_OGF_LINK_CTRL, HCI_OCF_DISCONNECT)) {
+        if (status != 0 && _disc_pending_handle != 0) {
+            bt_emit("disconnect_fail handle=0x%04X status=%d\n",
+                _disc_pending_handle, status);
+        }
+        _disc_pending_handle = 0;
+    }
 }
 
 int bt_hci_command_sync_ret(uint16_t ogf, uint16_t ocf,
@@ -706,15 +745,10 @@ static int bt_start_connection(const uint8_t* addr, bool pair, const char* pin,
         return ret;
     }
 
-    ret = bt_wait_for_opcode(HCI_OPCODE(HCI_OGF_LINK_CTRL, HCI_OCF_CREATE_CONN), 1500);
-    if (ret != 0) {
-        bt_clear_pending();
-        if (ret_text != NULL && ret_text_sz != 0) {
-            snprintf(ret_text, ret_text_sz, "%s_fail %s status=%d\n", action, addr_str, ret);
-        }
-        return ret;
-    }
-
+    /* no wait for the Command Status: this reply must come back at once
+       (xbt's click blocks on it). A controller rejection is reported by the
+       asynchronous command-status handler; success and page failure both
+       arrive as Connection Complete events. */
     if (ret_text != NULL && ret_text_sz != 0) {
         snprintf(ret_text, ret_text_sz, "%s_begin %s", action, addr_str);
     }
@@ -940,16 +974,15 @@ static int bt_unpair_device(const char* arg, char* ret, size_t ret_sz) {
     }
 
     /* every live link to the peer goes down first: the classic link on
-       dev->handle, plus any LE session carrying this address (their
-       disconnect-complete handlers do the session/channel teardown) */
+       dev->handle, plus any LE session carrying this address. All sends are
+       fire-and-forget (this reply must not stall): the disconnect-complete
+       events do the session/channel teardown through the normal handlers. */
     if (dev != NULL && dev->connected) {
         bt_hci_disconnect(dev->handle);
-        (void)bt_wait_for_opcode(HCI_OPCODE(HCI_OGF_LINK_CTRL, HCI_OCF_DISCONNECT), 1500);
     }
     for (s = 0; s < MAX_LE_SESSIONS; ++s) {
         if (_les[s].le.handle_valid && bt_addr_equal(_les[s].le.addr, addr)) {
             bt_hci_disconnect(_les[s].le.handle);
-            (void)bt_wait_for_opcode(HCI_OPCODE(HCI_OGF_LINK_CTRL, HCI_OCF_DISCONNECT), 1500);
         }
     }
 
@@ -967,8 +1000,8 @@ static int bt_unpair_device(const char* arg, char* ret, size_t ret_sz) {
         uint8_t p[7];
         p[0] = id_addr_type;
         memcpy(p + 1, id_addr, 6);
-        (void)bt_hci_command_sync(HCI_OGF_LE, HCI_OCF_LE_REMOVE_DEV_RESOLV_LIST,
-                p, sizeof(p), 1000);
+        (void)bt_hci_send_command(HCI_OGF_LE, HCI_OCF_LE_REMOVE_DEV_RESOLV_LIST,
+                p, sizeof(p));
     }
 
     if (dev != NULL) {
@@ -1129,13 +1162,11 @@ static int bt_disconnect_target(const char* arg, char* ret_text, size_t ret_text
         handle = (uint16_t)value;
     }
 
+    /* fire-and-forget: the link teardown rides the Disconnection Complete
+       event like any other drop; a rejection surfaces through the async
+       command-status handler (_disc_pending_handle) */
     bt_hci_disconnect(handle);
-    if (bt_wait_for_opcode(HCI_OPCODE(HCI_OGF_LINK_CTRL, HCI_OCF_DISCONNECT), 1500) != 0) {
-        if (ret_text != NULL && ret_text_sz != 0) {
-            snprintf(ret_text, ret_text_sz, "disconnect_fail handle=0x%04X reason=cmd_status\n", handle);
-        }
-        return -1;
-    }
+    _disc_pending_handle = handle;
     if (ret_text != NULL && ret_text_sz != 0) {
         snprintf(ret_text, ret_text_sz, "disconnect_begin handle=0x%04X\n", handle);
     }
@@ -1177,10 +1208,11 @@ static void bt_mark_all_disconnected(void) {
 
 /* "open": bring the radio up. A cold open power-cycles BT_ON and reloads the
    firmware via bt_driver_init(); a warm open just re-enables scan so the
-   adapter is discoverable + connectable again. */
+   adapter is discoverable + connectable again. Both reply at once: the cold
+   path takes seconds, so it is deferred to bt_loop (_open_pending) and the
+   known-device autoconnect always runs from bt_loop (_autoconnect_due_ms). */
 static int bt_open_adapter(char* ret, size_t ret_sz) {
     uint8_t scan_enable = 0x03;
-    int r;
 
     /* the background bring-up in bt_loop owns the firmware download until it
        reports ready; an "open" arriving before that must not start a second
@@ -1193,28 +1225,23 @@ static int bt_open_adapter(char* ret, size_t ret_sz) {
     }
 
     if (_ready && _powered) {
-        r = bt_hci_command_sync(HCI_OGF_HOST_CTRL, HCI_OCF_WRITE_SCAN_ENABLE,
-                &scan_enable, 1, 1000);
+        (void)bt_hci_send_command(HCI_OGF_HOST_CTRL, HCI_OCF_WRITE_SCAN_ENABLE,
+                &scan_enable, 1);
         bt_emit("power_on state=already_on\n");
-        bt_autoconnect_known();
+        _autoconnect_due_ms = kernel_tic_ms(0) + BT_AUTOCONNECT_DEFER_MS;
         if (ret != NULL && ret_sz != 0) {
-            snprintf(ret, ret_sz, "open_ok state=already_on scan=%d\n", r == 0 ? 1 : 0);
+            snprintf(ret, ret_sz, "open_ok state=already_on\n");
         }
         return 0;
     }
 
-    r = bt_driver_init();
-    if (r != 0) {
-        if (ret != NULL && ret_sz != 0) {
-            snprintf(ret, ret_sz, "open_fail reason=init status=%d\n", r);
-        }
-        return r;
-    }
-    _powered = true;
-    bt_emit("power_on state=powered_on\n");
-    bt_autoconnect_known();
+    /* cold open: the firmware reload is seconds of blocking HCI traffic, so
+       it is armed here and executed from bt_loop; progress is observable
+       through the state poll and the power_on/open_fail events */
+    _open_pending = true;
+    bt_emit("power_on state=powering_on\n");
     if (ret != NULL && ret_sz != 0) {
-        snprintf(ret, ret_sz, "open_ok state=powered_on\n");
+        snprintf(ret, ret_sz, "open_begin state=powering_on\n");
     }
     return 0;
 }
@@ -1224,6 +1251,10 @@ static int bt_open_adapter(char* ret, size_t ret_sz) {
    the same combo module keeps running. */
 static int bt_close_adapter(char* ret, size_t ret_sz) {
     uint8_t scan_enable = 0x00;
+
+    /* a close cancels any deferred power-on work */
+    _open_pending = false;
+    _autoconnect_due_ms = 0;
 
     if (!_powered) {
         _ready = false;
@@ -1242,8 +1273,8 @@ static int bt_close_adapter(char* ret, size_t ret_sz) {
     }
     bt_disconnect_all();
     if (_ready) {
-        (void)bt_hci_command_sync(HCI_OGF_HOST_CTRL, HCI_OCF_WRITE_SCAN_ENABLE,
-                &scan_enable, 1, 500);
+        (void)bt_hci_send_command(HCI_OGF_HOST_CTRL, HCI_OCF_WRITE_SCAN_ENABLE,
+                &scan_enable, 1);
     }
 
     /* BT_ON low (the machine's bsp leaves the WiFi side of a combo chip
@@ -1666,6 +1697,24 @@ int bt_loop(vdevice_t* dev, void* p) {
        MMIO window the UART registers are not readable */
     bt_bringup_step();
 
+    /* deferred "open" from the devcmd handler: the firmware reload blocks
+       for seconds, so it runs here (exactly like the boot bring-up) and the
+       command reply already went out as open_begin */
+    if (_open_pending && _init_state == 1 && !_ready) {
+        int r;
+        _open_pending = false;
+        r = bt_driver_init();
+        if (r == 0) {
+            _powered = true;
+            bt_emit("power_on state=powered_on\n");
+            _autoconnect_due_ms = kernel_tic_ms(0) + BT_AUTOCONNECT_DEFER_MS;
+        }
+        else {
+            slog("bluetooth deferred open_failed ret=%d\n", r);
+            bt_emit("open_fail status=%d\n", r);
+        }
+    }
+
     while (bt_poll_once(0) > 0) {
         ++packets;
         l2cap_step();
@@ -1688,6 +1737,21 @@ int bt_loop(vdevice_t* dev, void* p) {
 
     /* a bonded mouse asleep at power-on still auto-connects once it wakes */
     bt_le_autoconnect_retry_step();
+
+    /* deferred known-device autoconnect from "open": paging each known
+       device is bounded but not instant, so it never runs inside the devcmd
+       reply. The deadline drops the request when the radio stayed busy
+       (the user started a scan/connect of their own right after power-on). */
+    if (_autoconnect_due_ms != 0) {
+        if ((int64_t)(kernel_tic_ms(0) - _autoconnect_due_ms) >= 0) {
+            _autoconnect_due_ms = 0;
+        }
+        else if (_ready && _powered && !_scanning &&
+                _pending.type == BT_PENDING_NONE && !_le_req_active) {
+            _autoconnect_due_ms = 0;
+            bt_autoconnect_known();
+        }
+    }
 
     /* a mouse subscriber's edge wake can get spent on a generic IPC wait:
        re-assert while queues still hold undrained events */

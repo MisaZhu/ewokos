@@ -18,14 +18,17 @@
 
 using namespace Ewok;
 
-/* btd (machines/raspix/system/drivers/btd) exposes the classic-BT HCI adapter
+/* btd (system/gui/drivers/btd) exposes the classic-BT HCI adapter
    on /dev/bt0. Unlike wland (which answers in json) btd's dev.cmd replies with
    plain "key=value" text lines, so this app parses text instead of json:
      state   -> "state powered=1 ready=1 scanning=0 devices=3 pending=0"
      devices -> "0: device AA:BB:.. class=0x5A020C rssi=-60 connected=1
                  paired=0 name=My Headset\n...\ndevices_done count=N"
    Commands sent: open/close, scan, stop, connect/pair/unpair/disconnect
-   <bdaddr>. */
+   <bdaddr>. Every btd verb answers at once (fire-and-forget), so no click
+   can stall the UI: connect/pair reply "<verb>_begin" and the outcome shows
+   up through the state/devices polls (pending= in state, connected=/paired=
+   per device). */
 static const char* BT_DEV = "/dev/bt0";
 
 /* must be >= btd's MAX_BT_DEVICES so a full cache is never truncated */
@@ -329,6 +332,7 @@ class BtWin: public WidgetWin {
 	bool powered;
 	bool ready;
 	bool scanning;
+	int32_t pendingType; /* btd state pending=: 1 connect / 2 pair in flight */
 	uint32_t scanWaitTicks;
 
 public:
@@ -341,6 +345,7 @@ public:
 		powered = false;
 		ready = false;
 		scanning = false;
+		pendingType = 0;
 		scanWaitTicks = 0;
 	}
 
@@ -510,6 +515,7 @@ public:
 			powered = false;
 			ready = false;
 			scanning = false;
+			pendingType = 0;
 			updateEmptyHint();
 			updateInfo();
 			return;
@@ -521,6 +527,8 @@ public:
 			ready = (v != 0);
 		if(parseIntField(ret, "scanning=", &v))
 			scanning = (v != 0);
+		if(parseIntField(ret, "pending=", &v))
+			pendingType = v;
 		free(ret);
 
 		if(powerBtn != NULL)
@@ -571,7 +579,13 @@ public:
 		info += '\n';
 
 		if(powered) {
-			const char* st = scanning ? "scanning" : (ready ? "ready" : "init");
+			const char* st;
+			if(pendingType == 1)
+				st = "connecting";
+			else if(pendingType == 2)
+				st = "pairing";
+			else
+				st = scanning ? "scanning" : (ready ? "ready" : "init");
 			snprintf(line, sizeof(line), "status: %s", st);
 			info += line;
 			info += '\n';

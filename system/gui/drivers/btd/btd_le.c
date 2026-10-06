@@ -617,6 +617,27 @@ static int bt_le_scan_params(void) {
             sizeof(params), 1000);
 }
 
+/* fire-and-forget twin of bt_le_scan_enable: no Command Complete wait, so
+   a devcmd handler (xbt's stop/scan/power clicks) never stalls here. The
+   controller executes commands in wire order, so a following
+   LE_Create_Connection / Inquiry still sees scanning off. */
+static int bt_le_scan_enable_async(bool enable, bool filter_dup) {
+    uint8_t params[2];
+    int ret;
+
+    if (!_le_supported) {
+        return -1;
+    }
+    params[0] = enable ? 0x01 : 0x00;
+    params[1] = filter_dup ? 0x01 : 0x00;
+    ret = bt_hci_send_command(HCI_OGF_LE, HCI_OCF_LE_SET_SCAN_ENABLE, params,
+            sizeof(params));
+    if (ret == 0) {
+        _le_scan_enabled = enable;
+    }
+    return ret;
+}
+
 /* LE 5.0 extended scanning. Scanning_PHYs = LE 1M only (bit 0): every HID
    peripheral advertises on 1M, and adding the Coded PHY would double the
    per-PHY parameter block for no benefit here. One Scan_Type/Interval/Window
@@ -649,6 +670,23 @@ static int bt_le_ext_scan_enable(bool enable, bool filter_dup) {
     params[4] = 0x00; params[5] = 0x00; /* Period: 0 = continuous */
     ret = bt_hci_command_sync(HCI_OGF_LE, HCI_OCF_LE_SET_EXT_SCAN_ENABLE,
             params, sizeof(params), 1000);
+    if (ret == 0) {
+        _le_scan_enabled = enable;
+    }
+    return ret;
+}
+
+/* fire-and-forget twin of bt_le_ext_scan_enable: see bt_le_scan_enable_async */
+static int bt_le_ext_scan_enable_async(bool enable, bool filter_dup) {
+    uint8_t params[6];
+    int ret;
+
+    params[0] = enable ? 0x01 : 0x00;
+    params[1] = filter_dup ? 0x01 : 0x00;
+    params[2] = 0x00; params[3] = 0x00; /* Duration: 0 = until disabled */
+    params[4] = 0x00; params[5] = 0x00; /* Period: 0 = continuous */
+    ret = bt_hci_send_command(HCI_OGF_LE, HCI_OCF_LE_SET_EXT_SCAN_ENABLE,
+            params, sizeof(params));
     if (ret == 0) {
         _le_scan_enabled = enable;
     }
@@ -1903,17 +1941,20 @@ static int bt_classic_inquiry_start(int slice_ms) {
 }
 
 static void bt_scan_slice_stop(void) {
+    /* all fire-and-forget: a slice stop is on xbt's click path (stop before
+       connect/pair, scan, power off), and a synchronous wait here froze the
+       caller for up to a second per outstanding command */
     if (_scan_slice == BT_SCAN_SLICE_LE && _le_scan_enabled) {
         if (_le_scan_extended) {
-            (void)bt_le_ext_scan_enable(false, false);
+            (void)bt_le_ext_scan_enable_async(false, false);
         }
         else {
-            (void)bt_le_scan_enable(false, false);
+            (void)bt_le_scan_enable_async(false, false);
         }
     }
     if (_scan_slice == BT_SCAN_SLICE_CLASSIC && _inquiry_running) {
-        (void)bt_hci_command_sync(HCI_OGF_LINK_CTRL, HCI_OCF_INQUIRY_CANCEL,
-                NULL, 0, 1000);
+        (void)bt_hci_send_command(HCI_OGF_LINK_CTRL, HCI_OCF_INQUIRY_CANCEL,
+                NULL, 0);
     }
     _inquiry_running = false;
     _le_scan_enabled = false;

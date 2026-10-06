@@ -27,6 +27,7 @@
 #define BSP_USB_SPEED_LOW  0
 #define BSP_USB_SPEED_FULL 1
 #define BSP_USB_SPEED_HIGH 2
+#define BSP_USB_SPEED_SUPER 3
 
 typedef struct bsp_usb_dev bsp_usb_dev_t;
 
@@ -74,11 +75,15 @@ int  bsp_usb_int_in_open(bsp_usb_dev_t* dev, uint8_t ep_addr, uint16_t mps,
 int  bsp_usb_int_in_poll(bsp_usb_dev_t* dev, uint8_t ep_addr, void* buf,
         int size);
 
-/* bulk endpoints (mass storage): optional, may return -1 when the
-   platform controller driver does not implement them */
+/* bulk endpoints (mass storage, bluetooth HCI): optional, may return -1
+   when the platform controller driver does not implement them */
 int  bsp_usb_bulk_open(bsp_usb_dev_t* dev, uint8_t ep_addr, uint16_t mps);
 int  bsp_usb_bulk_xfer(bsp_usb_dev_t* dev, uint8_t ep_addr, void* data,
         int len, bool dir_in);
+/* non-blocking bulk-IN read (ep_addr carries USB_ENDPOINT_IN):
+   >0 data bytes, 0 no data yet, -1 transient error, -2 stalled */
+int  bsp_usb_bulk_in_poll(bsp_usb_dev_t* dev, uint8_t ep_addr, void* buf,
+        int size);
 
 /* clear the device-side endpoint halt and resync controller state;
    needed after a STALL or the endpoint stays dead until replug */
@@ -96,6 +101,24 @@ void bsp_usb_msc_detach(bsp_usb_dev_t* dev);
 bool bsp_usb_msc_attached(bsp_usb_dev_t* dev);
 /* USBMSC_CMD_* served on the vdevice node for the claimed disk */
 int  bsp_usb_msc_cntl(vdevice_t* vdev, int from_pid, int cmd,
+        proto_t* in, proto_t* out);
+
+/* bluetooth HCI: platforms may claim a BT USB interface (e.g. the Intel
+   AX211/AX411/BE202 bluetooth function, VID 0x8087) during enumeration,
+   run its firmware setup synchronously and serve the H4 byte stream to
+   the btd daemon over the device node's dev_cntl (USBHCI_CMD_* in
+   ewoksys/usbhci.h). Platforms without BT support stub all four out
+   (same role as the MSC stubs). */
+/* scan a freshly configured device for a claimable BT interface;
+   0 claimed (setup may still have failed - see USBHCI_CMD_INFO),
+   -1 nothing for this platform */
+int  bsp_usb_bt_probe(bsp_usb_dev_t* dev, uint16_t vid, uint16_t pid,
+        const uint8_t* cfg, int cfg_len);
+/* device (or its tree) is being removed: tear the claim down */
+void bsp_usb_bt_detach(bsp_usb_dev_t* dev);
+bool bsp_usb_bt_attached(bsp_usb_dev_t* dev);
+/* USBHCI_CMD_* served on the vdevice node for the claimed adapter */
+int  bsp_usb_bt_cntl(vdevice_t* vdev, int from_pid, int cmd,
         proto_t* in, proto_t* out);
 
 #endif /* __BSP_USB_H__ */
