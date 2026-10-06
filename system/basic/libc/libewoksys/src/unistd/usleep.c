@@ -4,10 +4,6 @@
 
 /*
  * usleep(): "at least N microseconds" semantics, hybrid dispatch.
- *
- *   usecs == 0    -> proc_nsleep_precise(0) returns 0 immediately (no-op).
- *                    Callers that need an explicit yield should call
- *                    proc_yield() / sched_yield() directly.
  *   usecs <= 200  -> precise fine-counter spin: exact N us wall-clock,
  *                    CPU cost bounded by 200us. On platforms without a
  *                    user-readable fine counter (x86, lego.ev3) precise

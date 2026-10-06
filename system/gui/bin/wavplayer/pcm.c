@@ -223,7 +223,7 @@ int wait_avail(struct pcm *pcm, int *avail, int time_out_ms)
         if (pcm->hook != NULL) {
             pcm->hook(pcm->private);
         } else {
-            sched_yield();
+            usleep(PCM_WAIT_SLEEP_MS * 1000);
         }
     }
 

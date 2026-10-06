@@ -9,6 +9,11 @@
 #define BE64(x) __builtin_bswap64(x)
 #define BE32(x) __builtin_bswap32(x)
 
+/* Safety-net bound on the fw_cfg DMA completion poll. QEMU completes the
+ * transfer synchronously, so the loop exits on the first test; this only
+ * stops a wedged device from hanging the boot forever. */
+#define FW_CFG_DMA_SPIN_LIMIT 10000000
+
 #define fw_cfg_base ((uint8_t*)(_mmio_base + 0x1020000))
 #define selector_register ((uint16_t*)(fw_cfg_base + 8))
 #define data_register ((uint64_t*)(fw_cfg_base + 0))
@@ -52,8 +57,16 @@ void fw_cfg_dma_transfer(void* address, uint32_t length, uint32_t control) {
     fw_cfg_vaddr->dma.length = BE32(length);
 
     *dma_address = BE64(&fw_cfg_paddr->dma);
-    while (BE32(fw_cfg_vaddr->dma.control) & ~0x01){
-        sched_yield();
+    /* Per the QEMU fw_cfg DMA spec the device clears the control command bits
+     * (leaving 0, or ERROR bit 0 which the ~0x01 mask ignores) before the
+     * guest re-reads, so this normally exits on the first test. Poll tightly
+     * like U-Boot's fw_cfg_dma_transfer(): sched_yield() would add a scheduler
+     * round-trip to a sub-microsecond op and usleep() would park a whole tick.
+     * Bounded so a wedged device cannot hang the boot. */
+    uint32_t spins = 0;
+    while (BE32(fw_cfg_vaddr->dma.control) & ~0x01) {
+        if (++spins > FW_CFG_DMA_SPIN_LIMIT)
+            break;
     }
 }
 
