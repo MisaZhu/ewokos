@@ -66,10 +66,10 @@ void graph_rotate_to(graph_t* g, graph_t* ret, int rot) {
     }
 
 #ifdef ARCH_BOOST
-    graph_rotate_to_arch(g, ret, rot);
-#else
-    graph_rotate_to_cpu(g, ret, rot);
+    if(graph_rotate_to_arch(g, ret, rot) == 0)
+        return;
 #endif
+    graph_rotate_to_cpu(g, ret, rot);
 }
 
 inline graph_t* graph_rotate(graph_t* g, int rot) {

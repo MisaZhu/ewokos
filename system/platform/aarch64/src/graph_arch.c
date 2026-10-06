@@ -22,33 +22,34 @@ static inline ewokos_addr_t graph_g2d_phy(const graph_t* g) {
     return g->shm_contig ? shm_contig_phy_addr(g->shm_id, (ewokos_addr_t)g->buffer) : 0;
 }
 
-void graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
+int graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
     if(g == NULL || w <= 0 || h <= 0)
-        return;
+        return -1;
     grect_t r = {x, y, w, h};
     if(!graph_insect(g, &r))
-        return;
+        return 0;
     if(g->clip.w > 0 && g->clip.h > 0)
         grect_insect(&g->clip, &r);
     if(r.w <= 0 || r.h <= 0)
-        return;
+        return 0;
 
     /* opaque fill: handled by the g2d engine (memset / NEON row stores) */
     if(color_a(color) == 0xff) {
         arch_g2d_fill(g->buffer, graph_g2d_phy(g), g->shm_contig ? 1 : 0, g->w, g->h, r.x, r.y, r.w, r.h, color);
-        return;
+        return 0;
     }
 
     /* translucent fill: handled by the g2d engine alpha fill (simd rows
        with scalar head/tail alignment, same blend math as blit alpha) */
     arch_g2d_fill_alpha(g->buffer, g->w, g->h, r.x, r.y, r.w, r.h, color);
+    return 0;
 }
 
-inline void graph_blt_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+inline int graph_blt_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
         graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
 
     if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
-        return;
+        return -1;
 
     grect_t sr = {sx, sy, sw, sh};
     grect_t dr = {dx, dy, dw, dh};
@@ -57,7 +58,7 @@ inline void graph_blt_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int
         grect_insect(&dst->clip, &dr);
 
     if(!graph_insect_with(src, &sr, dst, &dr))
-        return;
+        return 0;
 
     if(dx < 0)
         sr.x -= dx;
@@ -68,16 +69,17 @@ inline void graph_blt_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int
        copies within one buffer safe (memmove ordering) */
     arch_g2d_blt(src->buffer, graph_g2d_phy(src), src->shm_contig ? 1 : 0, src->w, src->h, sr.x, sr.y, sr.w, sr.h,
             dst->buffer, graph_g2d_phy(dst), dst->shm_contig ? 1 : 0, dst->w, dst->h, dr.x, dr.y, sr.w, sr.h);
+    return 0;
 }
 
-inline void graph_blt_alpha_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+inline int graph_blt_alpha_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
         graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
     if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
-        return;
+        return -1;
 
     /* Global alpha 0: nothing visible, skip entirely */
     if(alpha == 0)
-        return;
+        return 0;
 
     grect_t sr = {sx, sy, sw, sh};
     grect_t dr = {dx, dy, dw, dh};
@@ -86,7 +88,7 @@ inline void graph_blt_alpha_arch(graph_t* src, int32_t sx, int32_t sy, int32_t s
         grect_insect(&dst->clip, &dr);
 
     if(!graph_insect_with(src, &sr, dst, &dr))
-        return;
+        return 0;
 
     if(dx < 0)
         sr.x -= dx;
@@ -97,6 +99,7 @@ inline void graph_blt_alpha_arch(graph_t* src, int32_t sx, int32_t sy, int32_t s
        per-block transparent/opaque fast paths and div255 blend math */
     arch_g2d_blt_alpha(src->buffer, graph_g2d_phy(src), src->shm_contig ? 1 : 0, src->w, src->h, sr.x, sr.y, sr.w, sr.h,
             dst->buffer, graph_g2d_phy(dst), dst->shm_contig ? 1 : 0, dst->w, dst->h, dr.x, dr.y, sr.w, sr.h, alpha);
+    return 0;
 }
 
 
@@ -161,10 +164,10 @@ static inline void graph_pixel_alpha_mask_neon(graph_t *graph, int32_t x, int32_
     }
 }
 
-inline void graph_blt_alpha_mask_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+inline int graph_blt_alpha_mask_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
         graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
     if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
-        return;
+        return -1;
 
     grect_t sr = {sx, sy, sw, sh};
     grect_t dr = {dx, dy, dw, dh};
@@ -173,7 +176,7 @@ inline void graph_blt_alpha_mask_arch(graph_t* src, int32_t sx, int32_t sy, int3
         grect_insect(&dst->clip, &dr);
 
     if(!graph_insect_with(src, &sr, dst, &dr))
-        return;
+        return 0;
 
     if(dx < 0)
         sr.x -= dx;
@@ -222,47 +225,54 @@ inline void graph_blt_alpha_mask_arch(graph_t* src, int32_t sx, int32_t sy, int3
             graph_pixel_alpha_mask_neon(dst, dx, dy, &src->buffer[offset + sx], MIN(ex - sx, 16));
         }
     }
+    return 0;
 }
 
 
-static void graph_gaussian_neon(graph_t* g, int x, int y, int w, int h, int r) {
-    if (g == NULL || r == 0) {
-        return;
+static int graph_gaussian_neon(graph_t* g, int x, int y, int w, int h, int r) {
+    if (g == NULL) {
+        return -1;
+    }
+    if (r == 0) {
+        return 0;
     }
 
     grect_t ir = {x, y, w, h};
     if(!graph_insect(g, &ir))
-        return;
+        return 0;
     x = ir.x;
     y = ir.y;
     w = ir.w;
     h = ir.h;
 
     arch_g2d_gaussian(g->buffer, graph_g2d_phy(g), g->shm_contig ? 1 : 0, g->w, g->h, x, y, w, h, r);
+    return 0;
 }
 
-inline void graph_gaussian_blur_arch(graph_t* g, int x, int y, int w, int h, int r) {
-    graph_gaussian_neon(g, x, y, w, h, r);
+inline int graph_gaussian_blur_arch(graph_t* g, int x, int y, int w, int h, int r) {
+    return graph_gaussian_neon(g, x, y, w, h, r);
 }
 
-void graph_scale_tof_arch(graph_t* g, graph_t* dst, double scale) {
+int graph_scale_tof_arch(graph_t* g, graph_t* dst, double scale) {
     if(scale <= 0.0 ||
             dst->w < (int)(g->w*scale) ||
             dst->h < (int)(g->h*scale))
-        return;
+        return -1;
 
     /* whole-surface scale: handled by the g2d engine (bilinear with
        integer-decimation and separable-upscale fast paths) */
     arch_g2d_scale_to(g->buffer, graph_g2d_phy(g), g->shm_contig ? 1 : 0, g->w, g->h, dst->buffer, graph_g2d_phy(dst), dst->shm_contig ? 1 : 0, dst->w, dst->h);
+    return 0;
 }
 
-void graph_scale_tof_fast_arch(graph_t* g, graph_t* dst, double scale) {
+int graph_scale_tof_fast_arch(graph_t* g, graph_t* dst, double scale) {
     if(scale <= 0.0 ||
             dst->w < (int)(g->w*scale) ||
             dst->h < (int)(g->h*scale))
-        return;
+        return -1;
 
     arch_g2d_scale_to(g->buffer, graph_g2d_phy(g), g->shm_contig ? 1 : 0, g->w, g->h, dst->buffer, graph_g2d_phy(dst), dst->shm_contig ? 1 : 0, dst->w, dst->h);
+    return 0;
 }
 
 static inline uint32x4_t neon_reverse_u32x4(uint32x4_t v) {
@@ -313,9 +323,9 @@ static inline uint32_t rgb2nv12_get_src_pixel(const uint32_t *in, int w, int h, 
     return in[(h - 1 - y) * w + (w - 1 - x)];
 }
 
-void argb_2_nv12_arch(uint8_t *out, uint32_t *in, int w, int h) {
+int argb_2_nv12_arch(uint8_t *out, uint32_t *in, int w, int h) {
     if(out == NULL || in == NULL || w <= 0 || h <= 0)
-        return;
+        return -1;
 
     uint8_t *y_plane = out;
     uint8_t *uv_plane = out + w * h;
@@ -404,6 +414,7 @@ void argb_2_nv12_arch(uint8_t *out, uint32_t *in, int w, int h) {
             }
         }
     }
+    return 0;
 }
 
 static inline uint16_t rgb_to_555_scalar_bsp(uint32_t pixel) {
@@ -422,9 +433,9 @@ static inline uint16x8_t neon_rgb_to_555_u8x8(uint8x8_t b8, uint8x8_t g8, uint8x
     return d;
 }
 
-void argb_2_rgb15_arch(uint16_t *out, uint32_t *in, int w, int h) {
+int argb_2_rgb15_arch(uint16_t *out, uint32_t *in, int w, int h) {
     if(out == NULL || in == NULL || w <= 0 || h <= 0)
-        return;
+        return -1;
 
     for(int y = 0; y < h; y++) {
         uint16_t *dst_row = out + y * w;
@@ -452,15 +463,16 @@ void argb_2_rgb15_arch(uint16_t *out, uint32_t *in, int w, int h) {
             dst_row[x] = rgb_to_555_scalar_bsp(rgb2nv12_get_src_pixel(in, w, h, y, x));
         }
     }
+    return 0;
 }
 
 /*
  *  XRGB1555 -> ARGB8888 (NEON, 16 pixels per iteration).
  *  Straight linear scan (no rotation), the inverse of argb_2_rgb15_arch.
  */
-void rgb15_2_argb_arch(uint32_t *out, uint16_t *in, int w, int h) {
+int rgb15_2_argb_arch(uint32_t *out, uint16_t *in, int w, int h) {
     if(out == NULL || in == NULL || w <= 0 || h <= 0)
-        return;
+        return -1;
 
     const uint16x8_t mask_r = vdupq_n_u16(0x7c00);
     const uint16x8_t mask_g = vdupq_n_u16(0x03e0);
@@ -520,14 +532,15 @@ void rgb15_2_argb_arch(uint32_t *out, uint16_t *in, int w, int h) {
             dst_row[x] = 0xff000000u | (r << 16) | (g << 8) | b;
         }
     }
+    return 0;
 }
 
 /*
  *  ARGB8888 -> RGB24 (NEON, 8 pixels per iteration): strip alpha.
  */
-void argb_2_rgb24_arch(uint32_t *out, uint32_t *in, int w, int h) {
+int argb_2_rgb24_arch(uint32_t *out, uint32_t *in, int w, int h) {
     if(out == NULL || in == NULL || w <= 0 || h <= 0)
-        return;
+        return -1;
 
     const uint32x4_t mask = vdupq_n_u32(0x00ffffffu);
 
@@ -546,14 +559,15 @@ void argb_2_rgb24_arch(uint32_t *out, uint32_t *in, int w, int h) {
         for(; x < w; ++x)
             dst_row[x] = src_row[x] & 0x00ffffffu;
     }
+    return 0;
 }
 
 /*
  *  RGB24 -> ARGB8888 (NEON, 8 pixels per iteration): set alpha to 0xFF.
  */
-void rgb24_2_argb_arch(uint32_t *out, uint32_t *in, int w, int h) {
+int rgb24_2_argb_arch(uint32_t *out, uint32_t *in, int w, int h) {
     if(out == NULL || in == NULL || w <= 0 || h <= 0)
-        return;
+        return -1;
 
     const uint32x4_t alpha = vdupq_n_u32(0xff000000u);
     const uint32x4_t mask  = vdupq_n_u32(0x00ffffffu);
@@ -573,6 +587,7 @@ void rgb24_2_argb_arch(uint32_t *out, uint32_t *in, int w, int h) {
         for(; x < w; ++x)
             dst_row[x] = 0xff000000u | (src_row[x] & 0x00ffffffu);
     }
+    return 0;
 }
 
 /*
@@ -580,10 +595,10 @@ void rgb24_2_argb_arch(uint32_t *out, uint32_t *in, int w, int h) {
  * vrev32_u8 reverses each 32-bit word from [00][RR][GG][BB] to [RR][GG][BB][00],
  * then we OR in the alpha byte.
  */
-void rgb24be_2_argb_arch(uint32_t *out, const uint8_t *in, int bpr, int w, int h)
+int rgb24be_2_argb_arch(uint32_t *out, const uint8_t *in, int bpr, int w, int h)
 {
     if(out == NULL || in == NULL || w <= 0 || h <= 0)
-        return;
+        return -1;
 
     const uint32x4_t alpha = vdupq_n_u32(0xff000000u);
 
@@ -609,6 +624,7 @@ void rgb24be_2_argb_arch(uint32_t *out, const uint8_t *in, int bpr, int w, int h
                           (uint32_t)p[3];
         }
     }
+    return 0;
 }
 
 /*
@@ -616,10 +632,10 @@ void rgb24be_2_argb_arch(uint32_t *out, const uint8_t *in, int bpr, int w, int h
  * vrev32_u8 swaps each 32-bit word so the two 16-bit halves
  * become host-order XRGB1555, then expands 5-bit channels to 8.
  */
-void rgb15be_2_argb_arch(uint32_t *out, const uint8_t *in, int bpr, int w, int h)
+int rgb15be_2_argb_arch(uint32_t *out, const uint8_t *in, int bpr, int w, int h)
 {
     if(out == NULL || in == NULL || w <= 0 || h <= 0)
-        return;
+        return -1;
 
     const uint16x8_t mask_r = vdupq_n_u16(0x7c00);
     const uint16x8_t mask_g = vdupq_n_u16(0x03e0);
@@ -683,28 +699,30 @@ void rgb15be_2_argb_arch(uint32_t *out, const uint8_t *in, int bpr, int w, int h
             dst_row[x] = 0xff000000u | (r << 16) | (g << 8) | b;
         }
     }
+    return 0;
 }
 
-void graph_rotate_to_arch(graph_t* g, graph_t* ret, int rot) {
+int graph_rotate_to_arch(graph_t* g, graph_t* ret, int rot) {
     if(g == NULL || ret == NULL ||
             g->buffer == NULL || ret->buffer == NULL ||
             g->w <= 0 || g->h <= 0)
-        return;
+        return -1;
 
     if(rot == G_ROTATE_90 || rot == G_ROTATE_270) {
         if(ret->w < g->h || ret->h < g->w)
-            return;
+            return -1;
     }
     else if(rot == G_ROTATE_180) {
         if(ret->w < g->w || ret->h < g->h)
-            return;
+            return -1;
     }
     else
-        return;
+        return -1;
 
     /* quadrant rotations are implemented by the g2d engine (rot codes map
        1:1 to clockwise degrees) */
     arch_g2d_rotate(g->buffer, graph_g2d_phy(g), g->shm_contig ? 1 : 0, g->w, g->h, ret->buffer, graph_g2d_phy(ret), ret->shm_contig ? 1 : 0, ret->w, ret->h, rot * 90);
+    return 0;
 }
 
 #endif

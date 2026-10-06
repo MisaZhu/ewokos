@@ -21,32 +21,20 @@ static void rgb24_2_argb_cpu(uint32_t *out, uint32_t *in, int w, int h)
 		out[i] = 0xff000000u | (in[i] & 0x00ffffffu);
 }
 
-__attribute__((weak))
-void argb_2_rgb24_arch(uint32_t *out, uint32_t *in, int w, int h)
-{
-	argb_2_rgb24_cpu(out, in, w, h);
-}
-
-__attribute__((weak))
-void rgb24_2_argb_arch(uint32_t *out, uint32_t *in, int w, int h)
-{
-	rgb24_2_argb_cpu(out, in, w, h);
-}
-
 void argb_2_rgb24(uint32_t *out, uint32_t *in, int w, int h) {
 #ifdef ARCH_BOOST
-	argb_2_rgb24_arch(out, in, w, h);
-#else
-	argb_2_rgb24_cpu(out, in, w, h);
+	if(argb_2_rgb24_arch(out, in, w, h) == 0)
+		return;
 #endif
+	argb_2_rgb24_cpu(out, in, w, h);
 }
 
 void rgb24_2_argb(uint32_t *out, uint32_t *in, int w, int h) {
 #ifdef ARCH_BOOST
-	rgb24_2_argb_arch(out, in, w, h);
-#else
-	rgb24_2_argb_cpu(out, in, w, h);
+	if(rgb24_2_argb_arch(out, in, w, h) == 0)
+		return;
 #endif
+	rgb24_2_argb_cpu(out, in, w, h);
 }
 
 /*
@@ -68,16 +56,10 @@ static void rgb24be_2_argb_cpu(uint32_t *out, const uint8_t *in, int bpr, int w,
 	}
 }
 
-__attribute__((weak))
-void rgb24be_2_argb_arch(uint32_t *out, const uint8_t *in, int bpr, int w, int h)
-{
-	rgb24be_2_argb_cpu(out, in, bpr, w, h);
-}
-
 void rgb24be_2_argb(uint32_t *out, const uint8_t *in, int bpr, int w, int h) {
 #ifdef ARCH_BOOST
-	rgb24be_2_argb_arch(out, in, bpr, w, h);
-#else
-	rgb24be_2_argb_cpu(out, in, bpr, w, h);
+	if(rgb24be_2_argb_arch(out, in, bpr, w, h) == 0)
+		return;
 #endif
+	rgb24be_2_argb_cpu(out, in, bpr, w, h);
 }

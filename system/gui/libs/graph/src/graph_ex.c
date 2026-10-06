@@ -271,11 +271,11 @@ void graph_gaussian_blur(graph_t* g, int x, int y, int w, int h, int r) {
         if(graph_gaussian_blur_g2d(g, x, y, w, h, r) == 0)
             return;
     }
-#ifdef ARCH_BOOST 
-    graph_gaussian_blur_arch(g, x, y, w, h, r);
-#else
-    graph_gaussian_blur_cpu(g, x, y, w, h, r);
+#ifdef ARCH_BOOST
+    if(graph_gaussian_blur_arch(g, x, y, w, h, r) == 0)
+        return;
 #endif
+    graph_gaussian_blur_cpu(g, x, y, w, h, r);
 }
 
 /*drop shadow of a rounded rect: the silhouette of the box [x,y,w-shadow,h-shadow)

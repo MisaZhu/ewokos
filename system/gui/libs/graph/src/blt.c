@@ -203,10 +203,10 @@ inline void graph_fill_rect(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t
     }
 
 #ifdef ARCH_BOOST
-    graph_fill_arch(g, x, y, w, h, color);
-#else
-    graph_fill_cpu(g, x, y, w, h, color);
+    if(graph_fill_arch(g, x, y, w, h, color) == 0)
+        return;
 #endif
+    graph_fill_cpu(g, x, y, w, h, color);
 }
 
 void graph_blt_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
@@ -354,10 +354,10 @@ inline void graph_blt(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t 
     }
 
 #ifdef ARCH_BOOST
-        graph_blt_arch(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
-#else
-        graph_blt_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
+    if(graph_blt_arch(src, sx, sy, sw, sh, dst, dx, dy, dw, dh) == 0)
+        return;
 #endif
+    graph_blt_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
 }
 
 void graph_blt_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
@@ -526,10 +526,10 @@ inline void graph_blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, in
     }
 
 #ifdef ARCH_BOOST
-    graph_blt_alpha_arch(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
-#else
-    graph_blt_alpha_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
+    if(graph_blt_alpha_arch(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha) == 0)
+        return;
 #endif
+    graph_blt_alpha_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
 }
 
 void graph_blt_mask_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
@@ -581,10 +581,10 @@ void graph_blt_mask_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_
 inline void graph_blt_alpha_mask(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
         graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
 #ifdef ARCH_BOOST
-    graph_blt_alpha_mask_arch(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
-#else
-    graph_blt_mask_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
+    if(graph_blt_alpha_mask_arch(src, sx, sy, sw, sh, dst, dx, dy, dw, dh) == 0)
+        return;
 #endif
+    graph_blt_mask_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
 }
 
 void graph_blt_fit_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
@@ -712,12 +712,8 @@ void graph_blt_fit_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t
 
 inline void graph_blt_fit(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
         graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
-#ifdef ARCH_BOOST
-        //graph_blt_fit_bsp(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
-        graph_blt_fit_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
-#else
-        graph_blt_fit_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
-#endif
+    /* no arch hook for fit-blt yet; always the CPU path */
+    graph_blt_fit_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh);
 }
 
 void graph_blt_fit_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
@@ -853,12 +849,8 @@ void graph_blt_fit_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, i
 
 inline void graph_blt_fit_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
         graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
-#ifdef ARCH_BOOST
-        //graph_blt_fit_alpha_bsp(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
-        graph_blt_fit_alpha_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
-#else
-        graph_blt_fit_alpha_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
-#endif
+    /* no arch hook for fit-blt-alpha yet; always the CPU path */
+    graph_blt_fit_alpha_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
 }
 
 inline bool check_in_rect(int32_t x, int32_t y, grect_t* rect) {

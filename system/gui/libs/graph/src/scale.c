@@ -189,12 +189,11 @@ inline void graph_scale_tof(graph_t* g, graph_t* dst, float scale) {
             return;
     }
 
-#if ARCH_BOOST
-    //graph_scale_tof_cpu(g, dst, scale);
-    graph_scale_tof_arch(g, dst, scale);
-#else
-    graph_scale_tof_cpu(g, dst, scale);
+#ifdef ARCH_BOOST
+    if(graph_scale_tof_arch(g, dst, scale) == 0)
+        return;
 #endif
+    graph_scale_tof_cpu(g, dst, scale);
 }
 
 inline void graph_scale_tof_fast(graph_t* g, graph_t* dst, float scale) {
@@ -202,12 +201,11 @@ inline void graph_scale_tof_fast(graph_t* g, graph_t* dst, float scale) {
         if(graph_scale_tof_g2d(g, dst, scale) == 0)
             return;
     }
-#if ARCH_BOOST
-    //graph_scale_tof_cpu(g, dst, scale);
-    graph_scale_tof_fast_arch(g, dst, scale);
-#else
-    graph_scale_tof_cpu(g, dst, scale);
+#ifdef ARCH_BOOST
+    if(graph_scale_tof_fast_arch(g, dst, scale) == 0)
+        return;
 #endif
+    graph_scale_tof_cpu(g, dst, scale);
 }
 
 graph_t* graph_scalef_fast(graph_t* g, float scale) {
@@ -461,11 +459,8 @@ void graph_scale_fit_tof_cpu(graph_t* src, graph_t* dst) {
 }
 
 void graph_scale_fit_tof(graph_t* src, graph_t* dst) {
-#if ARCH_BOOST
+    /* no arch hook for fit-scale yet; always the CPU path */
     graph_scale_fit_tof_cpu(src, dst);
-#else
-    graph_scale_fit_tof_cpu(src, dst);
-#endif
 }
 
 graph_t* graph_scale_fitf(graph_t* g, int32_t w, int32_t h) {
