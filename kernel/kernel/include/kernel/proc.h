@@ -160,6 +160,19 @@ extern ewokos_addr_t arch_proc_tls_base_read(void);
 extern void          arch_proc_tls_base_write(ewokos_addr_t v);
 extern void          arch_mark_stack_pte_noexec(page_dir_entry_t* vm, ewokos_addr_t vaddr);
 
+#ifdef ARCH_FPU_STATE_SIZE
+/*
+ * Arch FPU save/restore/init primitives (x86: fxsave/fxrstor in system.S),
+ * operating on the context_t.fpu image. arch_fpu_init seeds a clean, valid
+ * fxsave image into a zeroed buffer so a freshly created proc does not fxrstor
+ * an all-zero (SSE-exceptions-unmasked) image. Only declared when the arch
+ * carries an fpu image in its context_t.
+ */
+extern void          arch_fpu_save(void* state);
+extern void          arch_fpu_restore(void* state);
+extern void          arch_fpu_init(void* state);
+#endif
+
 extern void    proc_funeral(proc_t* proc);
 extern void    proc_zombie_funeral(void);
 extern void    proc_exit(context_t* ctx, proc_t *proc, int32_t res);

@@ -217,6 +217,44 @@ void graph_blt_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh
 
 void graph_blt_alpha_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
         graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
+#ifdef ARCH_BOOST
+    /* translucent compositing hot path: replicate graph_blt_alpha_cpu's exact
+       clip sequence, then hand a clean, fully in-bounds 1:1 blit to the SSE2
+       engine (bit-identical per-pixel blend). anything else - scaled blits,
+       self-overlap, or a rect the dx<0/dy<0 quirk pushed out of bounds - falls
+       through to the cpu reference so the result is unchanged. */
+    if(src != NULL && dst != NULL && src != dst &&
+            src->buffer != NULL && dst->buffer != NULL &&
+            sw > 0 && sh > 0 && dw > 0 && dh > 0 && alpha != 0) {
+        grect_t sr = {sx, sy, sw, sh};
+        grect_t dr = {dx, dy, dw, dh};
+        graph_insect(dst, &dr);
+        if(dst->clip.w > 0 && dst->clip.h > 0)
+            grect_insect(&dst->clip, &dr);
+
+        if(graph_insect_with(src, &sr, dst, &dr)) {
+            if(dx < 0)
+                sr.x -= dx;
+            if(dy < 0)
+                sr.y -= dy;
+
+            /* 1:1 and in-bounds on both buffers: the engine's internal
+               proportional clip is then a guaranteed no-op, so it reproduces
+               the cpu 1:1 loop exactly */
+            if(sr.w == dr.w && sr.h == dr.h &&
+                    sr.x >= 0 && sr.y >= 0 &&
+                    sr.x + sr.w <= src->w && sr.y + sr.h <= src->h &&
+                    dr.x >= 0 && dr.y >= 0 &&
+                    dr.x + dr.w <= dst->w && dr.y + dr.h <= dst->h) {
+                arch_g2d_blt_alpha(src->buffer, 0, 0, src->w, src->h,
+                        sr.x, sr.y, sr.w, sr.h,
+                        dst->buffer, 0, 0, dst->w, dst->h,
+                        dr.x, dr.y, dr.w, dr.h, alpha);
+                return;
+            }
+        }
+    }
+#endif
     graph_blt_alpha_cpu(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha);
 }
 
@@ -226,10 +264,34 @@ void graph_blt_alpha_mask_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw,
 }
 
 void graph_scale_tof_arch(graph_t* g, graph_t* dst, double scale) {
+#ifdef ARCH_BOOST
+    /* derive the 16.16 source step from the scale factor exactly the way
+       graph_scale_tof_cpu does ((uint32_t)(FIXED_SCALE/scale)), NOT from the
+       src/dst dimension ratio, so the SSE2 separable bilinear stays bit-exact
+       with the cpu reference. any allocation failure falls back to the cpu. */
+    if(g != NULL && dst != NULL && g->buffer != NULL && dst->buffer != NULL &&
+            scale > 0.0 && g->w > 0 && g->h > 0 && dst->w > 0 && dst->h > 0) {
+        float fscale = (float)scale;
+        uint32_t inv = (uint32_t)(65536.0f / fscale);
+        if(arch_g2d_scale_inv(g->buffer, 0, 0, g->w, g->h,
+                dst->buffer, 0, 0, dst->w, dst->h, inv, inv) == 0)
+            return;
+    }
+#endif
     graph_scale_tof_cpu(g, dst, (float)scale);
 }
 
 void graph_scale_tof_fast_arch(graph_t* g, graph_t* dst, double scale) {
+#ifdef ARCH_BOOST
+    if(g != NULL && dst != NULL && g->buffer != NULL && dst->buffer != NULL &&
+            scale > 0.0 && g->w > 0 && g->h > 0 && dst->w > 0 && dst->h > 0) {
+        float fscale = (float)scale;
+        uint32_t inv = (uint32_t)(65536.0f / fscale);
+        if(arch_g2d_scale_inv(g->buffer, 0, 0, g->w, g->h,
+                dst->buffer, 0, 0, dst->w, dst->h, inv, inv) == 0)
+            return;
+    }
+#endif
     graph_scale_tof_cpu(g, dst, (float)scale);
 }
 

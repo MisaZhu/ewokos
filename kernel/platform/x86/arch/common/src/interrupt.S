@@ -27,7 +27,18 @@
 .equ CTX_SP, 176
 .equ CTX_SS, 184
 .equ CTX_IRET, 192
-.equ CTX_SIZE, 240
+/*
+ * CTX_SIZE must equal sizeof(context_t) so the on-stack trap frame can hold a
+ * full context: proc_switch() does memcpy(ctx, &to->ctx, sizeof(context_t))
+ * into this frame and memcpy(&cproc->ctx, ctx, ...) out of it. context_t is
+ * {192 bytes of GPR/iret fields} + {ARCH_FPU_STATE_SIZE(=512) fpu image} = 704.
+ * The fpu image is the last member (offset CTX_FPU), filled/read only by the C
+ * arch_fpu_save/arch_fpu_restore, never by this asm; CTX_IRET(192) rebuilds the
+ * 5-qword iret frame in place over the (already-restored) fpu scratch. If
+ * ARCH_FPU_STATE_SIZE changes in ewokos_config.h, CTX_SIZE must change to match.
+ */
+.equ CTX_FPU, 192
+.equ CTX_SIZE, 704
 .equ X86_KERNEL_DS, 0x10
 
 .macro ISR_NOERR vec

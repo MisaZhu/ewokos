@@ -39,6 +39,14 @@ int32_t arch_g2d_gaussian(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig
 int32_t arch_g2d_scale_to(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
 			uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h);
 
+/* bilinear scale with explicit per-axis 16.16 source steps, so callers that
+   derive the step from a float scale factor (graph_scale_tof_arch) stay
+   bit-exact with graph_scale_tof_cpu. returns non-zero on allocation failure
+   so the caller can fall back to the cpu path. */
+int32_t arch_g2d_scale_inv(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
+			uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h,
+			uint32_t inv_x, uint32_t inv_y);
+
 /* smallest size able to hold src_w x src_h rotated clockwise by degree
    (any angle). exact swap/keep for multiples of 90, rotated bounding
    box otherwise. */

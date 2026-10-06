@@ -895,6 +895,17 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
         }
         else {
             memcpy(&cproc->ctx, ctx, sizeof(context_t));
+#ifdef ARCH_FPU_STATE_SIZE
+            /*
+             * Capture the outgoing proc's still-live x87/SSE state. Nothing in
+             * the kernel touched xmm on the way here (-mno-sse, memcpy is rep
+             * movsq), so fxsave reflects exactly what the proc left in the
+             * registers. Not done in the restore_pending branch above: that
+             * path discards the transient injection-handler state and resumes
+             * cproc's saved ctx, whose fpu image is already in cproc->ctx.fpu.
+             */
+            arch_fpu_save(cproc->ctx.fpu);
+#endif
         }
     }
 
@@ -984,6 +995,14 @@ proc_switch_done:
     if(cproc != NULL)
         cproc->tls_base = arch_proc_tls_base_read();
     arch_proc_tls_base_write(to->tls_base);
+#endif
+#ifdef ARCH_FPU_STATE_SIZE
+    /*
+     * Load the incoming proc's x87/SSE image before returning to user code.
+     * Paired with the fxsave above; both run under the proc lock with the
+     * frame copy below, and nothing between here and iretq touches xmm.
+     */
+    arch_fpu_restore(to->ctx.fpu);
 #endif
     memcpy(ctx, &to->ctx, sizeof(context_t));
     proc_lock_leave();
@@ -1747,6 +1766,16 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
 
     proc_t *proc = _task_table[index];
     memset(proc, 0, sizeof(proc_t));
+#ifdef ARCH_FPU_STATE_SIZE
+    /*
+     * Seed a valid clean fxsave image (FCW/MXCSR with all exceptions masked)
+     * into the zeroed context so the first fxrstor of this proc does not load
+     * MXCSR=0, which would unmask all six SSE exceptions and raise spurious
+     * #XF. Covers normal procs, threads and the idle proc (all funnel through
+     * this alloc+memset site).
+     */
+    arch_fpu_init(proc->ctx.fpu);
+#endif
     proc->info.wait_for = -1;
     proc->info.uuid = ++_proc_uuid;
     proc->info.pid = index;
@@ -2423,6 +2452,17 @@ proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
     else
         memcpy(&child->ctx, &parent->ctx, sizeof(context_t));
     child->ctx.gpr[0] = 0;
+#ifdef ARCH_FPU_STATE_SIZE
+    /*
+     * The memcpy above also copied context_t.fpu. When ctx is a trap frame its
+     * fpu region is uninitialized kernel-stack garbage (interrupt.S never
+     * fxsave's into the on-stack frame), which a later fxrstor would fault on.
+     * Re-capture the live FPU state instead: the kernel is -mno-sse so xmm
+     * still holds the forking parent's user state, giving the child a valid
+     * image and correct fork inheritance.
+     */
+    arch_fpu_save(child->ctx.fpu);
+#endif
 
     if(type == TASK_TYPE_PROC) {
         if(proc_clone(child, parent) != 0) {

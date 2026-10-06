@@ -96,6 +96,39 @@ x86_runtime_init:
     pop rbx
     ret
 
+/*
+ * Per-proc SSE/x87 context save-restore.
+ *
+ * The kernel is built -mno-sse and __memcpy32 is rep movsq, so nothing in the
+ * kernel ever touches xmm; the only cross-context clobber is one user proc's
+ * live SIMD state being overwritten by another proc that runs in between.
+ * proc_switch() calls these around the GPR/tls_base hand-off (mirrors aarch64,
+ * which carries fpu[] inside its context_t). x86 fxsave/fxrstor need a
+ * 16-byte-aligned operand, which is why the state lives in a compiler-aligned
+ * proc_t field rather than in the 8-aligned trap frame. CR4.OSFXSR/OSXMMEXCPT
+ * and CR0.MP (EM/TS clear) are already enabled by x86_runtime_init above.
+ *
+ * arch_fpu_init seeds a clean, valid image into a zeroed buffer: fxrstor of an
+ * all-zero image would set MXCSR=0, i.e. all six SSE exceptions UNMASKED, and
+ * cause spurious #XF on the first SIMD fault the proc takes.
+ */
+.global arch_fpu_save
+arch_fpu_save:
+    fxsave [rdi]
+    ret
+
+.global arch_fpu_restore
+arch_fpu_restore:
+    fxrstor [rdi]
+    ret
+
+.global arch_fpu_init
+arch_fpu_init:
+    mov word ptr [rdi + 0], 0x037f     /* FCW: all x87 exceptions masked */
+    mov dword ptr [rdi + 24], 0x1f80   /* MXCSR: all six SSE exceptions masked */
+    mov dword ptr [rdi + 28], 0xffff   /* MXCSR_MASK */
+    ret
+
 .global __core_id
 __core_id:
     push rbx

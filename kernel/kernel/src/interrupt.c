@@ -243,6 +243,16 @@ void interrupt_end(context_t* ctx) {
 
     if(pending != 0 && interrupt != IRQ_SOFT) {
         memcpy(&cproc->ctx, ctx, sizeof(context_t));
+#ifdef ARCH_FPU_STATE_SIZE
+        /*
+         * The trap frame's fpu region is uninitialized scratch, so the memcpy
+         * left cproc->ctx.fpu holding garbage. Re-capture the live FPU (kernel
+         * is -mno-sse, so xmm still holds cproc's user state) so that when
+         * cproc resumes after the injected handler its fxrstor loads a valid
+         * image rather than faulting on garbage MXCSR.
+         */
+        arch_fpu_save(cproc->ctx.fpu);
+#endif
         proc_save_state(cproc, &intr->saved_state, &intr->saved_ipc_res);
         intr->interrupt = interrupt;
         intr->entry = entry;

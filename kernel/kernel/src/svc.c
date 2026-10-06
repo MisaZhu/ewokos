@@ -176,6 +176,16 @@ static void sys_fork(context_t* ctx) {
 
     memcpy(&proc->ctx, ctx, sizeof(context_t));
     proc->ctx.gpr[0] = 0;
+#ifdef ARCH_FPU_STATE_SIZE
+    /*
+     * The trap frame's fpu region is uninitialized scratch (interrupt.S never
+     * fxsave's into it), so the memcpy above left proc->ctx.fpu holding garbage
+     * that a later fxrstor would fault on. Capture the live FPU instead: the
+     * kernel is -mno-sse, so xmm still holds the forking parent's state, which
+     * is exactly what the child should inherit.
+     */
+    arch_fpu_save(proc->ctx.fpu);
+#endif
     ctx->gpr[0] = proc->info.pid;
 
     if(proc->info.state == CREATED && _core_proc_ready) {
