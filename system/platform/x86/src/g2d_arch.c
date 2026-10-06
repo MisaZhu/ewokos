@@ -539,12 +539,494 @@ int32_t arch_g2d_scale_inv(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t sr
 		return 0;
 	return g2d_scale_fixed(argb_src, src_w, src_h, argb_dst, dst_w, dst_h, inv_x, inv_y);
 }
+
+/* ------------------------------------------------------------------ *
+ * gaussian blur (in place)                                           *
+ * ------------------------------------------------------------------ *
+ * Bit-identical to graph_gaussian_blur_cpu, which is NOT a weighted
+ * gaussian: it is a count-normalized BOX average with edge clipping
+ * (out-of-bounds taps are skipped, so the divisor is the number of
+ * in-bounds taps, not 2r+1), truncating integer division, the alpha
+ * channel copied verbatim from the LAST in-bounds sampled pixel (never
+ * averaged), and an in-place vertical pass that reads the already
+ * written rows above and the still-original rows below. XWM drop
+ * shadows and frosted glass rely on that alpha passthrough and box
+ * response, so a true gaussian would wash them out. SSE2 only
+ * vectorizes the accumulation and the divide of the interior columns
+ * (where the tap count is a per-row constant); the clipped edges and
+ * the sub-vector tails use the identical scalar reference math. */
+
+/* trunc(sum / count) through a correctly-rounded float divide. Exact for
+   this kernel: sum <= (2r+1)*255 and count <= 2r+1, so sum/count is never
+   within one float ulp of an integer boundary from below and cvttps's
+   truncation equals the C integer division. */
+static inline __m128i x86_box_div(__m128i sum, float count) {
+	return _mm_cvttps_epi32(_mm_div_ps(_mm_cvtepi32_ps(sum), _mm_set1_ps(count)));
+}
+
+static void gaussian_blur_x86(uint32_t* px, int W, int H, int x, int y, int w, int h, int r) {
+	const __m128i maskFF = _mm_set1_epi32(0xff);
+	uint32_t* line_buffer;
+	int iy;
+
+	(void)H;
+	if(px == NULL || r <= 0 || w <= 0 || h <= 0)
+		return;
+	/* keep the reference's line_buffer[w] indexing in bounds (the public
+	   dispatcher clamps r to the pre-clip rect; re-clamp to the clipped one) */
+	if(r > w) r = w;
+	if(r > h) r = h;
+
+	line_buffer = (uint32_t*)malloc((size_t)w * sizeof(uint32_t));
+	if(line_buffer == NULL)
+		return;
+
+	for(iy = 0; iy < h; ++iy) {
+		uint32_t* row = px + (size_t)(y + iy) * W + x;   /* row[nx] = source column */
+		uint32_t* orow = row;                            /* written in place */
+		int ny_hi = iy + r; if(ny_hi > h - 1) ny_hi = h - 1;
+		int ny_lo = iy - r; if(ny_lo < 0) ny_lo = 0;
+		int ix = 0;
+
+		/* ---- horizontal pass into line_buffer[0..w) ---- */
+		/* leading clipped edge (scalar) */
+		for(; ix < r && ix < w; ++ix) {
+			int lo = ix - r; if(lo < 0) lo = 0;
+			int hi = ix + r; if(hi > w - 1) hi = w - 1;
+			uint32_t sR = 0, sG = 0, sB = 0, alpha = 0xff;
+			int nx, count = 0;
+			for(nx = lo; nx <= hi; ++nx) {
+				uint32_t p = row[nx];
+				alpha = (p >> 24) & 0xff;
+				sR += (p >> 16) & 0xff; sG += (p >> 8) & 0xff; sB += p & 0xff;
+				count++;
+			}
+			line_buffer[ix] = (alpha << 24) | ((sR / count) << 16) | ((sG / count) << 8) | (sB / count);
+		}
+		/* interior with a full 2r+1 window: 4 columns at a time */
+		{
+			float cnt = (float)(2 * r + 1);
+			for(; ix + 4 <= w - r; ix += 4) {
+				__m128i accB = _mm_setzero_si128();
+				__m128i accG = _mm_setzero_si128();
+				__m128i accR = _mm_setzero_si128();
+				__m128i av, out;
+				int dx;
+				for(dx = -r; dx <= r; ++dx) {
+					__m128i v = _mm_loadu_si128((const __m128i*)(row + ix + dx));
+					accB = _mm_add_epi32(accB, _mm_and_si128(v, maskFF));
+					accG = _mm_add_epi32(accG, _mm_and_si128(_mm_srli_epi32(v, 8), maskFF));
+					accR = _mm_add_epi32(accR, _mm_and_si128(_mm_srli_epi32(v, 16), maskFF));
+				}
+				/* alpha comes from the last in-bounds tap (column ix+r) */
+				av = _mm_and_si128(_mm_srli_epi32(_mm_loadu_si128((const __m128i*)(row + ix + r)), 24), maskFF);
+				out = _mm_or_si128(_mm_or_si128(_mm_slli_epi32(av, 24), _mm_slli_epi32(x86_box_div(accR, cnt), 16)),
+						_mm_or_si128(_mm_slli_epi32(x86_box_div(accG, cnt), 8), x86_box_div(accB, cnt)));
+				_mm_storeu_si128((__m128i*)(line_buffer + ix), out);
+			}
+		}
+		/* interior remainder + right clipped edge (scalar, same box math) */
+		for(; ix < w; ++ix) {
+			int lo = ix - r; if(lo < 0) lo = 0;
+			int hi = ix + r; if(hi > w - 1) hi = w - 1;
+			uint32_t sR = 0, sG = 0, sB = 0, alpha = 0xff;
+			int nx, count = 0;
+			for(nx = lo; nx <= hi; ++nx) {
+				uint32_t p = row[nx];
+				alpha = (p >> 24) & 0xff;
+				sR += (p >> 16) & 0xff; sG += (p >> 8) & 0xff; sB += p & 0xff;
+				count++;
+			}
+			line_buffer[ix] = (alpha << 24) | ((sR / count) << 16) | ((sG / count) << 8) | (sB / count);
+		}
+
+		/* ---- vertical pass, written back in place ---- */
+		{
+			int count_v = ny_hi - ny_lo + 1;
+			float cntv = (float)count_v;
+			ix = 0;
+			for(; ix + 4 <= w; ix += 4) {
+				__m128i accB = _mm_setzero_si128();
+				__m128i accG = _mm_setzero_si128();
+				__m128i accR = _mm_setzero_si128();
+				const uint32_t* ap;
+				__m128i av, out;
+				int ny;
+				for(ny = ny_lo; ny <= ny_hi; ++ny) {
+					const uint32_t* sp = (ny == iy) ? (line_buffer + ix)
+							: (px + (size_t)(y + ny) * W + x + ix);
+					__m128i v = _mm_loadu_si128((const __m128i*)sp);
+					accB = _mm_add_epi32(accB, _mm_and_si128(v, maskFF));
+					accG = _mm_add_epi32(accG, _mm_and_si128(_mm_srli_epi32(v, 8), maskFF));
+					accR = _mm_add_epi32(accR, _mm_and_si128(_mm_srli_epi32(v, 16), maskFF));
+				}
+				/* alpha from the last in-bounds row (ny_hi) */
+				ap = (ny_hi == iy) ? (line_buffer + ix) : (px + (size_t)(y + ny_hi) * W + x + ix);
+				av = _mm_and_si128(_mm_srli_epi32(_mm_loadu_si128((const __m128i*)ap), 24), maskFF);
+				out = _mm_or_si128(_mm_or_si128(_mm_slli_epi32(av, 24), _mm_slli_epi32(x86_box_div(accR, cntv), 16)),
+						_mm_or_si128(_mm_slli_epi32(x86_box_div(accG, cntv), 8), x86_box_div(accB, cntv)));
+				_mm_storeu_si128((__m128i*)(orow + ix), out);
+			}
+			for(; ix < w; ++ix) {
+				uint32_t sR = 0, sG = 0, sB = 0, alpha = 0xff;
+				int ny, count = 0;
+				for(ny = ny_lo; ny <= ny_hi; ++ny) {
+					uint32_t p = (ny == iy) ? line_buffer[ix] : px[(size_t)(y + ny) * W + x + ix];
+					alpha = (p >> 24) & 0xff;
+					sR += (p >> 16) & 0xff; sG += (p >> 8) & 0xff; sB += p & 0xff;
+					count++;
+				}
+				orow[ix] = (alpha << 24) | ((sR / count) << 16) | ((sG / count) << 8) | (sB / count);
+			}
+		}
+	}
+
+	free(line_buffer);
+}
+
+int32_t arch_g2d_gaussian(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32_t argb_w, int32_t argb_h,
+		int32_t x, int32_t y, int32_t w, int32_t h, int32_t radius) {
+	(void)argb_phy; (void)contig;
+	if(argb == NULL || argb_w <= 0 || argb_h <= 0 || radius <= 0)
+		return 0;
+	gaussian_blur_x86(argb, argb_w, argb_h, x, y, w, h, radius);
+	return 0;
+}
+
+/* ------------------------------------------------------------------ *
+ * quadrant rotation                                                  *
+ * ------------------------------------------------------------------ *
+ * Pure data movement matching graph_rotate_to_cpu. 90/270 are a 4x4
+ * transpose walking DESTINATION row bands so every dst row is written
+ * left-to-right (ascending), which keeps the write-combine buffers on
+ * the scan-out framebuffer merging into sequential bursts; the strided
+ * reads come from cacheable source memory. 180 is a per-row reversal.
+ * Unaligned loads/stores are free on x86, so no realignment head is
+ * needed (unlike the -mstrict-align aarch64 back end). */
+
+static inline __m128i x86_rev4_epu32(__m128i v) {
+	return _mm_shuffle_epi32(v, _MM_SHUFFLE(0, 1, 2, 3));
+}
+
+/* dst is (height x width); dst[y][x] = src[height-1-x][y] */
+static inline void x86_rotate_90_cw(const uint32_t* src, uint32_t* dst, int width, int height) {
+	int y = 0;
+	for(; y + 4 <= width; y += 4) {
+		uint32_t* d0 = dst + (size_t)(y + 0) * height;
+		uint32_t* d1 = dst + (size_t)(y + 1) * height;
+		uint32_t* d2 = dst + (size_t)(y + 2) * height;
+		uint32_t* d3 = dst + (size_t)(y + 3) * height;
+		int x = 0;
+		for(; x + 4 <= height; x += 4) {
+			const uint32_t* s0 = src + (size_t)(height - 1 - x) * width + y;
+			const uint32_t* s1 = s0 - width;
+			const uint32_t* s2 = s1 - width;
+			const uint32_t* s3 = s2 - width;
+			__m128i v0 = _mm_loadu_si128((const __m128i*)s0);
+			__m128i v1 = _mm_loadu_si128((const __m128i*)s1);
+			__m128i v2 = _mm_loadu_si128((const __m128i*)s2);
+			__m128i v3 = _mm_loadu_si128((const __m128i*)s3);
+			__m128i b0 = _mm_unpacklo_epi32(v0, v1);
+			__m128i b1 = _mm_unpackhi_epi32(v0, v1);
+			__m128i b2 = _mm_unpacklo_epi32(v2, v3);
+			__m128i b3 = _mm_unpackhi_epi32(v2, v3);
+			_mm_storeu_si128((__m128i*)(d0 + x), _mm_unpacklo_epi64(b0, b2));
+			_mm_storeu_si128((__m128i*)(d1 + x), _mm_unpackhi_epi64(b0, b2));
+			_mm_storeu_si128((__m128i*)(d2 + x), _mm_unpacklo_epi64(b1, b3));
+			_mm_storeu_si128((__m128i*)(d3 + x), _mm_unpackhi_epi64(b1, b3));
+		}
+		for(; x < height; ++x) {
+			d0[x] = src[(size_t)(height - 1 - x) * width + y + 0];
+			d1[x] = src[(size_t)(height - 1 - x) * width + y + 1];
+			d2[x] = src[(size_t)(height - 1 - x) * width + y + 2];
+			d3[x] = src[(size_t)(height - 1 - x) * width + y + 3];
+		}
+	}
+	for(; y < width; ++y) {
+		uint32_t* d = dst + (size_t)y * height;
+		for(int x = 0; x < height; ++x)
+			d[x] = src[(size_t)(height - 1 - x) * width + y];
+	}
+}
+
+/* dst is (height x width); dst[y][x] = src[x][width-1-y] */
+static inline void x86_rotate_270_cw(const uint32_t* src, uint32_t* dst, int width, int height) {
+	int y = 0;
+	for(; y + 4 <= width; y += 4) {
+		uint32_t* d0 = dst + (size_t)(y + 0) * height;
+		uint32_t* d1 = dst + (size_t)(y + 1) * height;
+		uint32_t* d2 = dst + (size_t)(y + 2) * height;
+		uint32_t* d3 = dst + (size_t)(y + 3) * height;
+		int x = 0;
+		for(; x + 4 <= height; x += 4) {
+			const uint32_t* s0 = src + (size_t)(x + 0) * width + (width - 4 - y);
+			const uint32_t* s1 = s0 + width;
+			const uint32_t* s2 = s1 + width;
+			const uint32_t* s3 = s2 + width;
+			__m128i v0 = _mm_loadu_si128((const __m128i*)s0);
+			__m128i v1 = _mm_loadu_si128((const __m128i*)s1);
+			__m128i v2 = _mm_loadu_si128((const __m128i*)s2);
+			__m128i v3 = _mm_loadu_si128((const __m128i*)s3);
+			__m128i b0 = _mm_unpacklo_epi32(v0, v1);
+			__m128i b1 = _mm_unpackhi_epi32(v0, v1);
+			__m128i b2 = _mm_unpacklo_epi32(v2, v3);
+			__m128i b3 = _mm_unpackhi_epi32(v2, v3);
+			/* c_k[j] = v_j[k]; dst row y+k takes column 3-k */
+			_mm_storeu_si128((__m128i*)(d0 + x), _mm_unpackhi_epi64(b1, b3));
+			_mm_storeu_si128((__m128i*)(d1 + x), _mm_unpacklo_epi64(b1, b3));
+			_mm_storeu_si128((__m128i*)(d2 + x), _mm_unpackhi_epi64(b0, b2));
+			_mm_storeu_si128((__m128i*)(d3 + x), _mm_unpacklo_epi64(b0, b2));
+		}
+		for(; x < height; ++x) {
+			d0[x] = src[(size_t)(x + 0) * width + width - 1 - (y + 0)];
+			d1[x] = src[(size_t)(x + 0) * width + width - 1 - (y + 1)];
+			d2[x] = src[(size_t)(x + 0) * width + width - 1 - (y + 2)];
+			d3[x] = src[(size_t)(x + 0) * width + width - 1 - (y + 3)];
+		}
+	}
+	for(; y < width; ++y) {
+		uint32_t* d = dst + (size_t)y * height;
+		for(int x = 0; x < height; ++x)
+			d[x] = src[(size_t)x * width + width - 1 - y];
+	}
+}
+
+/* dst is (width x height); dst[y][x] = src[height-1-y][width-1-x] */
+static inline void x86_rotate_180(const uint32_t* src, uint32_t* dst, int width, int height) {
+	int y = 0;
+	for(; y + 4 <= height; y += 4) {
+		uint32_t* d0 = dst + (size_t)(y + 0) * width;
+		uint32_t* d1 = dst + (size_t)(y + 1) * width;
+		uint32_t* d2 = dst + (size_t)(y + 2) * width;
+		uint32_t* d3 = dst + (size_t)(y + 3) * width;
+		const uint32_t* s0 = src + (size_t)(height - 1 - (y + 0)) * width;
+		const uint32_t* s1 = src + (size_t)(height - 1 - (y + 1)) * width;
+		const uint32_t* s2 = src + (size_t)(height - 1 - (y + 2)) * width;
+		const uint32_t* s3 = src + (size_t)(height - 1 - (y + 3)) * width;
+		int x = 0;
+		for(; x + 4 <= width; x += 4) {
+			_mm_storeu_si128((__m128i*)(d0 + x), x86_rev4_epu32(_mm_loadu_si128((const __m128i*)(s0 + width - x - 4))));
+			_mm_storeu_si128((__m128i*)(d1 + x), x86_rev4_epu32(_mm_loadu_si128((const __m128i*)(s1 + width - x - 4))));
+			_mm_storeu_si128((__m128i*)(d2 + x), x86_rev4_epu32(_mm_loadu_si128((const __m128i*)(s2 + width - x - 4))));
+			_mm_storeu_si128((__m128i*)(d3 + x), x86_rev4_epu32(_mm_loadu_si128((const __m128i*)(s3 + width - x - 4))));
+		}
+		for(; x < width; ++x) {
+			d0[x] = s0[width - 1 - x];
+			d1[x] = s1[width - 1 - x];
+			d2[x] = s2[width - 1 - x];
+			d3[x] = s3[width - 1 - x];
+		}
+	}
+	for(; y < height; ++y) {
+		uint32_t* d = dst + (size_t)y * width;
+		const uint32_t* s = src + (size_t)(height - 1 - y) * width;
+		for(int x = 0; x < width; ++x)
+			d[x] = s[width - 1 - x];
+	}
+}
+
+int32_t arch_g2d_rotated_size(int32_t src_w, int32_t src_h, int32_t degree,
+		int32_t* dst_w, int32_t* dst_h) {
+	if(dst_w == NULL || dst_h == NULL)
+		return 0;
+	*dst_w = 0;
+	*dst_h = 0;
+	if(src_w <= 0 || src_h <= 0)
+		return 0;
+	degree = ((degree % 360) + 360) % 360;
+	if(degree == 90 || degree == 270) {
+		*dst_w = src_h;
+		*dst_h = src_w;
+	}
+	else {
+		*dst_w = src_w;
+		*dst_h = src_h;
+	}
+	return 0;
+}
+
+int32_t arch_g2d_rotate(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
+		uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h, int32_t degree) {
+	(void)src_phy; (void)src_contig; (void)dst_phy; (void)dst_contig;
+	if(argb_src == NULL || argb_dst == NULL ||
+			src_w <= 0 || src_h <= 0 || dst_w <= 0 || dst_h <= 0)
+		return 0;
+
+	degree = ((degree % 360) + 360) % 360;
+	if(degree == 90 || degree == 270) {
+		/* quadrant rotations that swap dimensions cannot be done in place */
+		if(argb_src == argb_dst || dst_w < src_h || dst_h < src_w)
+			return 0;
+		if(degree == 90)
+			x86_rotate_90_cw(argb_src, argb_dst, src_w, src_h);
+		else
+			x86_rotate_270_cw(argb_src, argb_dst, src_w, src_h);
+		return 0;
+	}
+	if(degree == 180) {
+		if(dst_w < src_w || dst_h < src_h)
+			return 0;
+		if(argb_src == argb_dst) {
+			uint32_t* lo = argb_src;
+			uint32_t* hi = argb_src + (size_t)src_w * src_h - 1;
+			while(lo < hi) {
+				uint32_t t = *lo; *lo = *hi; *hi = t;
+				lo++; hi--;
+			}
+			return 0;
+		}
+		x86_rotate_180(argb_src, argb_dst, src_w, src_h);
+		return 0;
+	}
+	/* degree 0 or a non-quadrant angle: graph_rotate_to_cpu leaves the
+	   destination untouched for these, so match that and do nothing. */
+	return 0;
+}
+
+/* --------------------------------------------------------------- fill --- */
+
+/* Fill a run of pixels with a constant color. A scalar head of at most
+   3 pixels brings the destination to a 16-byte boundary so the aligned
+   temporal stores stay legal. These are deliberately TEMPORAL stores
+   (_mm_store_si128), NOT non-temporal: NT stores route through the
+   weakly-ordered write-combine buffers, which on the UC-mapped scan-out
+   framebuffer commit lazily (intermittent tearing) and on the write-back
+   compositor canvas bypass the cache the next flush memcpy re-reads. */
+static inline void x86_fill_run(uint32_t* dst, int32_t pixels, uint32_t color, __m128i vc) {
+	int32_t i = 0;
+	if(pixels <= 0)
+		return;
+	while(i < pixels && (((ewokos_addr_t)(dst + i)) & 0x0F) != 0) {
+		dst[i] = color;
+		++i;
+	}
+	for(; i + 16 <= pixels; i += 16) {
+		_mm_store_si128((__m128i*)(dst + i + 0), vc);
+		_mm_store_si128((__m128i*)(dst + i + 4), vc);
+		_mm_store_si128((__m128i*)(dst + i + 8), vc);
+		_mm_store_si128((__m128i*)(dst + i + 12), vc);
+	}
+	for(; i + 4 <= pixels; i += 4)
+		_mm_store_si128((__m128i*)(dst + i), vc);
+	for(; i < pixels; ++i)
+		dst[i] = color;
+}
+
+/* opaque solid fill of a sub-rect, clipped to the buffer bounds; the
+   translucent path is arch_g2d_fill_alpha. reproduces graph_fill_cpu's
+   opaque branch (graph_set_pixel of a constant) bit-for-bit. */
+int32_t arch_g2d_fill(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32_t argb_w, int32_t argb_h,
+		int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
+	(void)argb_phy; (void)contig;
+	if(argb == NULL || argb_w <= 0 || argb_h <= 0 || w <= 0 || h <= 0)
+		return 0;
+	/* defensive clip to the buffer (callers already intersect) */
+	if(x < 0) { w += x; x = 0; }
+	if(y < 0) { h += y; y = 0; }
+	if(x + w > argb_w) w = argb_w - x;
+	if(y + h > argb_h) h = argb_h - y;
+	if(w <= 0 || h <= 0)
+		return 0;
+
+	uint8_t cb = (uint8_t)color;
+	int same_bytes = (((color >> 8) & 0xff) == cb) &&
+			(((color >> 16) & 0xff) == cb) &&
+			(((color >> 24) & 0xff) == cb);
+	/* whole-width rectangles are one contiguous block in memory */
+	int full_rows = (x == 0 && w == argb_w);
+
+	if(same_bytes) {
+		/* all four channel bytes equal: a byte memset fills whole pixels */
+		if(full_rows)
+			memset(argb + (size_t)y * argb_w, cb, (size_t)w * h * 4);
+		else
+			for(int32_t row = 0; row < h; ++row)
+				memset(argb + (size_t)(y + row) * argb_w + x, cb, (size_t)w * 4);
+		return 0;
+	}
+
+	__m128i vc = _mm_set1_epi32((int)color);
+	if(full_rows)
+		x86_fill_run(argb + (size_t)y * argb_w, w * h, color, vc);
+	else
+		for(int32_t row = 0; row < h; ++row)
+			x86_fill_run(argb + (size_t)(y + row) * argb_w + x, w, color, vc);
+	_mm_sfence();
+	return 0;
+}
+
+/* ---------------------------------------------------------------- blt --- */
+
+/* Copy one row of pixels with aligned 16-byte temporal SSE stores (same
+   rationale as x86_fill_run: no NT stores, so no write-combine visibility
+   hazard on the framebuffer). A scalar head of at most 3 pixels brings the
+   destination to a 16-byte boundary so the aligned stores stay legal. */
+static inline void x86_copy_row(uint32_t* dst, const uint32_t* src, int32_t pixels) {
+	int32_t i = 0;
+	if(pixels <= 0)
+		return;
+	while(i < pixels && (((ewokos_addr_t)(dst + i)) & 0x0F) != 0) {
+		dst[i] = src[i];
+		++i;
+	}
+	for(; i + 16 <= pixels; i += 16) {
+		_mm_store_si128((__m128i*)(dst + i + 0), _mm_loadu_si128((const __m128i*)(src + i + 0)));
+		_mm_store_si128((__m128i*)(dst + i + 4), _mm_loadu_si128((const __m128i*)(src + i + 4)));
+		_mm_store_si128((__m128i*)(dst + i + 8), _mm_loadu_si128((const __m128i*)(src + i + 8)));
+		_mm_store_si128((__m128i*)(dst + i + 12), _mm_loadu_si128((const __m128i*)(src + i + 12)));
+	}
+	for(; i + 4 <= pixels; i += 4)
+		_mm_store_si128((__m128i*)(dst + i), _mm_loadu_si128((const __m128i*)(src + i)));
+	for(; i < pixels; ++i)
+		dst[i] = src[i];
+}
+
+/* 1:1 copy of a sw x sh region (dw/dh ignored, mirroring aarch64's blit
+   which passes sr.w/sr.h for both). overlapping copies within one buffer
+   stay safe with memmove ordering, exactly like graph_copy_rows. */
+int32_t arch_g2d_blt(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
+		int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+		uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h,
+		int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
+	(void)src_phy; (void)src_contig; (void)dst_phy; (void)dst_contig; (void)dw; (void)dh;
+	if(argb_src == NULL || argb_dst == NULL || sw <= 0 || sh <= 0)
+		return 0;
+
+	size_t row_bytes = (size_t)sw * sizeof(uint32_t);
+
+	/* same buffer: memmove per row, walking backwards when the destination
+	   region starts after the source so rows are not overwritten before they
+	   are read (identical ordering to graph_copy_rows) */
+	if(argb_src == argb_dst) {
+		if(dy > sy || (dy == sy && dx > sx)) {
+			for(int32_t row = sh - 1; row >= 0; --row)
+				memmove(argb_dst + (size_t)(dy + row) * dst_w + dx,
+						argb_src + (size_t)(sy + row) * src_w + sx, row_bytes);
+		} else {
+			for(int32_t row = 0; row < sh; ++row)
+				memmove(argb_dst + (size_t)(dy + row) * dst_w + dx,
+						argb_src + (size_t)(sy + row) * src_w + sx, row_bytes);
+		}
+		return 0;
+	}
+
+	/* distinct buffers cannot overlap: fast aligned SSE row copies */
+	for(int32_t row = 0; row < sh; ++row)
+		x86_copy_row(argb_dst + (size_t)(dy + row) * dst_w + dx,
+				argb_src + (size_t)(sy + row) * src_w + sx, sw);
+	_mm_sfence();
+	return 0;
+}
 #endif /* ARCH_BOOST */
 
 int32_t arch_g2d_init(void) {
     return 0;
 }
 
+#ifndef ARCH_BOOST
+/* the accelerated fill/blt engines live in the ARCH_BOOST block above;
+   without ARCH_BOOST nothing references them (blt.c/fill.c dispatch
+   straight to the *_cpu reference), so these are inert. */
 int32_t arch_g2d_fill(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32_t argb_w, int32_t argb_h,
 			int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) { return 0; }
 
@@ -553,24 +1035,18 @@ int32_t arch_g2d_blt(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_cont
 			uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h,
 			int32_t dx, int32_t dy, int32_t dw, int32_t dh) { return 0; }
 
+/* the accelerated gaussian/rotate engines live in the ARCH_BOOST block
+   above; without ARCH_BOOST nothing references them (graph_ex.c/rotate.c
+   dispatch straight to the *_cpu reference), so these are inert. */
 int32_t arch_g2d_gaussian(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32_t argb_w, int32_t argb_h,
 			int32_t x, int32_t y, int32_t w, int32_t h, int32_t radius) { return 0; }
 
-/* smallest size able to hold src_w x src_h rotated clockwise by degree
-   (any angle). exact swap/keep for multiples of 90, rotated bounding
-   box otherwise. */
 int32_t arch_g2d_rotated_size(int32_t src_w, int32_t src_h, int32_t degree,
 			int32_t* dst_w, int32_t* dst_h) { return 0; }
 
-/* rotate the whole source surface clockwise by degree (any angle).
-   dst must be at least the size given by arch_g2d_rotated_size(); for
-   angles other than 0/90/180/270 pixels outside the rotated content
-   become transparent.
-   in-place (argb_src == argb_dst) is only valid for 0/180. */
 int32_t arch_g2d_rotate(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
 			uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h, int32_t degree) { return 0; }
 
-#ifndef ARCH_BOOST
 /* cpu back end for alpha fills: blend a solid color over a sub-rect,
    clipped to the buffer bounds, exact per-pixel access with the same
    blend math as the simd paths. alpha == 0 or an empty/fully clipped
