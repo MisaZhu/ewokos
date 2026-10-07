@@ -89,6 +89,13 @@ static void xwin_close(x_t* x, xwin_t* win) {
     if(win == NULL || win == x->win_launcher)
         return;
 
+    /* Launcher-style windows (the app drawer) must survive the global
+       close-focus chord (Ctrl+E / HOME / END). Guard on the style itself
+       rather than only the registered x->win_launcher pointer, which tracks
+       just the single last-created launcher and can lag behind. */
+    if(win->xinfo != NULL && (win->xinfo->style & XWIN_STYLE_LAUNCHER) != 0)
+        return;
+
     xevent_t ev;
     ev.type = XEVT_WIN;
     ev.value.window.event = XEVT_WIN_CLOSE;

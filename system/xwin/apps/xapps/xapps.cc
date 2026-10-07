@@ -132,7 +132,8 @@ protected:
 
 	bool onIM(xevent_t* ev) {
 		if(ev->value.im.value == KEY_ESC) {
-			getWin()->close();
+			if(!_launcher)
+				getWin()->close();
 			return true;
 		}
 		return Grid::onIM(ev);
