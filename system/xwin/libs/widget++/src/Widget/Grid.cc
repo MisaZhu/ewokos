@@ -162,11 +162,7 @@ bool Grid::onIM(xevent_t* ev) {
 			select(sel);
 			return true;
 		}
-	}
-	else if(ev->state == XIM_STATE_PRESS) {
-		/* 按下沿触发 (与 List::onIM 同理): 释放沿依赖"按键从快照消失"
-		 * 的差分, 中间一拍未采样到时释放沿丢失, 动作被压到下一个事件。 */
-		if(ev->value.im.value == KEY_ENTER ||
+		else if(ev->value.im.value == KEY_ENTER ||
 				ev->value.im.value == JOYSTICK_START ||
 				ev->value.im.value == JOYSTICK_A) {
 			enter(itemSelected);
