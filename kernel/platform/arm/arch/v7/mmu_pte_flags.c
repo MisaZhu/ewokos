@@ -23,11 +23,13 @@ inline void set_pte_flags(page_table_entry_t* pte, uint32_t pte_attr) {
         pte->cacheable = 0;
         pte->writeback = 1;
     }
-    else if(pte_attr == PTE_ATTR_NOCACHE) {
-        /* With TRE=0, TEX=001 and C=B=0 mean Normal Non-cacheable.
-         * TEX=000 with B=1 is Device, which cannot take the unaligned
-         * accesses ordinary RAM needs. */
-        pte->tex = 1;
+    else if(pte_attr == PTE_ATTR_NOCACHE) { //nocache mem
+        /* Device (TEX=000,C=0,B=1), matched with the 0922 boot.S path that
+         * does NOT force TRE=0. Forcing Normal-NC (TEX=1) here together with
+         * TRE=0/AFE=0 in boot.S caused the intermittent miyoo cold-boot hang.
+         * Do not change without board re-validation. */
+        pte->cacheable = 0;
+        pte->writeback = 1;
     }
     else if(pte_attr == PTE_ATTR_STRONG_ORDER) { //strong ordered mem
         pte->cacheable = 0;
