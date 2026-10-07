@@ -88,11 +88,23 @@ void bt_hid_step(void) {
 
 /* ---------------- HIDP ---------------- */
 
-/* A boot-protocol report is self-identifying by length: a keyboard always
-   sends the 8-byte [modifiers, reserved, key1..key6] layout, a mouse the
-   3- or 4-byte [buttons, dx, dy, (wheel)] one. We only ever ask for boot
-   protocol (SET_PROTOCOL), so the length is enough to route the report to
-   the right subscriber report id. */
+/* Cursor gain for the combo touchpad's report-protocol pointer axes (see
+   bt_hid_handle_report). Its raw 12-bit deltas are much smaller than a mouse's
+   per-report counts, so they are multiplied by this before the int8 clamp.
+   3 roughly matches a normal mouse; raise for faster, lower for finer. */
+#define BT_TOUCHPAD_GAIN 3
+
+/* Route one report from the classic interrupt channel.
+
+   A boot-protocol report is self-identifying by length: a keyboard always
+   sends the 8-byte [modifiers, reserved, key1..key6] layout, a boot mouse the
+   3- or 4-byte [buttons, dx, dy, (wheel)] one. But SET_PROTOCOL BOOT is
+   per-interface, and a combo peripheral (folding keyboard + touchpad) forces
+   only its keyboard into boot while the touchpad keeps REPORT protocol: it
+   then sends a longer frame carrying a leading Report ID. Such a frame must
+   NOT go through the boot length heuristic - the Report ID would be misread
+   as the button byte (0x07 = all three buttons stuck) and the axes would be
+   off by one, which is exactly a touchpad that "moves wrong". */
 void bt_hid_handle_report(const uint8_t* data, size_t len) {
     uint8_t evt[HID_MAX_EVENT_SIZE];
 
@@ -100,6 +112,59 @@ void bt_hid_handle_report(const uint8_t* data, size_t len) {
         memset(evt, 0, sizeof(evt));
         memcpy(evt, data, HID_KEYBOARD_REPORT_SIZE);
         bt_hid_dispatch_keyboard(evt);
+        return;
+    }
+    /* Report-protocol pointer with a leading Report ID. This combo touchpad
+       packs two signed 12-bit RELATIVE axes into three bytes:
+         data[2]       = X[7:0]
+         data[3] low   = X[11:8]  (sign extension of X)
+         data[3] high  = Y[3:0]
+         data[4]       = Y[11:4]
+       Both axes are relative deltas. Reading data[4] alone as dy only grabs
+       Y's top 8 bits (Y>>4), which is why Y crawled. A plain report-protocol
+       mouse is [id][btn][dx][dy][wheel] (len 5), both axes int8 relatives. */
+    if (len >= 5) {
+        memset(evt, 0, sizeof(evt));
+        evt[0] = data[1]; /* buttons (data[0] is the Report ID) */
+        if (len >= 7) {
+            int32_t x = (int32_t)((((uint32_t)data[3] & 0x0f) << 8) | data[2]);
+            int32_t y = (int32_t)((((uint32_t)data[4]) << 4) |
+                    (((uint32_t)data[3] & 0xf0) >> 4));
+            if (x & 0x800) {
+                x -= 0x1000;
+            }
+            if (y & 0x800) {
+                y -= 0x1000;
+            }
+            /* A touchpad's finger resolution is far coarser than a mouse's DPI:
+               its raw 12-bit deltas (only a few tens per report) drive the
+               cursor too slowly when passed 1:1. Scale both axes by a fixed
+               gain; the int8 payload clamp below caps the resulting top
+               speed. Raise/lower BT_TOUCHPAD_GAIN to taste. */
+            x *= BT_TOUCHPAD_GAIN;
+            y *= BT_TOUCHPAD_GAIN;
+            if (x > 127) {
+                x = 127;
+            }
+            else if (x < -127) {
+                x = -127;
+            }
+            if (y > 127) {
+                y = 127;
+            }
+            else if (y < -127) {
+                y = -127;
+            }
+            evt[1] = (uint8_t)x; /* dx (signed relative) */
+            evt[2] = (uint8_t)y; /* dy (signed relative) */
+            evt[3] = data[6];    /* wheel */
+        }
+        else {
+            evt[1] = data[2]; /* dx (signed) */
+            evt[2] = data[3]; /* dy (signed) */
+            evt[3] = data[4]; /* wheel */
+        }
+        bt_hid_dispatch_mouse(evt);
         return;
     }
     if (len < 3) {
