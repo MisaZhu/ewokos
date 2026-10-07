@@ -43,6 +43,7 @@ static int32_t _last_create_pid = 0;
 static uint64_t _run_window_start_usec = 0;
 static void proc_wakeup_all_state(proc_t* proc);
 static inline void proc_ready_with_order(proc_t* proc, bool push_head);
+static inline void proc_queue_remove_all(proc_t* proc);
 
 bool _core_proc_ready = false;
 int32_t _core_proc_pid = -1;
@@ -856,9 +857,10 @@ void proc_switch_multi_core(context_t* ctx, proc_t* to, uint32_t core) {
         if(to->info.state != RUNNING) {
             proc_wakeup_all_state(to);
         }
-        proc_lock_leave();
-        to->info.state = RUNNING;
+        /* Keep wake bookkeeping and the direct handoff atomic. proc_switch
+         * consumes the target's ready membership before marking it RUNNING. */
         proc_switch(ctx, to, true);
+        proc_lock_leave();
     }
     else {
 #ifdef KERNEL_SMP
@@ -883,6 +885,11 @@ void proc_switch(context_t* ctx, proc_t* to, bool quick){
         proc_lock_leave();
         return;
     }
+
+    /* schedule() pops its target, but IPC dispatch and pool completion can
+     * hand off directly after proc_wakeup() enqueues it. Consume membership
+     * here for every switch path, including a switch back to the same task. */
+    proc_queue_remove_all(to);
 
     if(cproc != NULL && cproc->info.state != UNUSED) {
         if(cproc->info.type == TASK_TYPE_PROC &&
@@ -973,6 +980,9 @@ proc_switch_done:
             cproc != _cpu_cores[cproc->info.core].idle_proc) {
             //halt proc can't be pushed into ready queue, can't be scheduled.
         if(cproc->info.state == RUNNING) {
+            /* A consumed early wake can leave the current task queued even
+             * though proc_block_by() kept it running. Requeue it only once. */
+            proc_queue_remove_all(cproc);
             cproc->info.state = READY;
             if(quick)
                 queue_push_head(&_ready_queue[cproc->info.core], cproc);
@@ -1127,13 +1137,8 @@ proc_t* proc_get_next_ready(void) {
 }
 
 static inline void proc_unready_locked(proc_t* proc, int32_t state) {
-#ifdef __x86_64__
+    /* No ready-queue pointer may survive a block or task teardown. */
     proc_queue_remove_all(proc);
-#else
-    queue_item_t* it = queue_in(&_ready_queue[proc->info.core], proc);
-    if(it != NULL)
-        queue_remove(&_ready_queue[proc->info.core], it);
-#endif
     proc_untrack_priority_update(proc);
     proc->info.state = state;
 }
@@ -1534,9 +1539,10 @@ static proc_t* proc_take_next_zombie(void) {
 
     proc_lock_enter();
     for(int32_t i = 0; i < _kernel_config.max_task_num; i++) {
-        proc = _task_table[i];
-        if(!proc_can_reap_locked(proc))
+        proc_t* candidate = _task_table[i];
+        if(!proc_can_reap_locked(candidate))
             continue;
+        proc = candidate;
         _task_table[i] = NULL;
         break;
     }

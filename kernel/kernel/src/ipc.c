@@ -621,19 +621,55 @@ void proc_ipc_task_abort(proc_t* serv_proc, ipc_task_t* ipc) {
     }
 }
 
-/* Discard every in-flight task of a server (used when the server exits). */
+/* Release accepted requests as well as their reply waiters on server exit. */
 void proc_ipc_clear(proc_t* serv_proc) {
     if(serv_proc == NULL || serv_proc->space == NULL)
         return;
     ipc_server_t* server = &serv_proc->space->ipc_server;
+    proc_t* clients[IPC_CTX_MAX];
+    uint32_t client_num = 0;
     proc_untrack_ipc_timeout(serv_proc);
     proc_ipc_server_lock(server);
-    while(!ipc_taskq_is_empty(server)) {
-        ipc_task_t* ipc = ipc_taskq_head(server);
+    /* Pool requests can occupy noncontiguous slots; they are not a FIFO. */
+    for(uint32_t i = 0; i < IPC_CTX_MAX; i++) {
+        ipc_task_t* ipc = &server->tasks[i];
+        if(ipc->uid == 0 || ipc->state == IPC_IDLE)
+            continue;
+
+        proc_t* handler = proc_get(ipc->handler_pid);
+        if(handler != NULL && handler->info.uuid == ipc->handler_uuid &&
+                handler->ipc_task == ipc)
+            handler->ipc_task = NULL;
+
+        if((ipc->call_id & IPC_NON_RETURN) == 0) {
+            proc_t* client = proc_ipc_get_client(ipc);
+            if(client != NULL) {
+                /* Keep a reply already published by SET_RETURN. Otherwise
+                 * GET_RETURN will see the removed uid and report failure. */
+                ipc_res_t* res = proc_ipc_client_res(client, ipc);
+                if(res != NULL && res->uid == ipc->uid &&
+                        res->state != IPC_RETURN) {
+                    res->uid = 0;
+                    res->state = IPC_IDLE;
+                    proto_clear(&res->data);
+                }
+                clients[client_num++] = client;
+            }
+        }
         ipc_free(ipc);
-        ipc_taskq_pop_head(server);
     }
+    server->task_head = 0;
+    server->task_tail = 0;
+    server->task_num = 0;
+    server->do_switch = false;
+    server->restore_pending = 0;
     proc_ipc_server_unlock(server);
+
+    /* Reply waiters are not on wait_head. Wake outside the server lock:
+     * proc_wakeup can cancel an admission wait and acquire that lock again.
+     * Teardown holds kernel_lock, so client identities remain stable here. */
+    for(uint32_t i = 0; i < client_num; i++)
+        proc_wakeup(clients[i]);
 }
 
 /*
@@ -1405,23 +1441,15 @@ void proc_ipc_get_return(context_t* ctx, int32_t serv_pid, uint32_t uid, proto_t
     ipc_res_t* res = proc_cur_ipc_res(client_proc);
     if(res->state != IPC_RETURN) { //block retry for serv return
         proc_t* serv_proc = proc_get(serv_pid);
-        ipc_task_t* ipc;
-        /*
-         * multi_task servers complete requests out of order in worker
-         * threads, so the queue head says nothing about THIS call - look
-         * the task up by its uid instead.
-         */
-        if(serv_proc != NULL && serv_proc->space != NULL &&
-                serv_proc->space->ipc_server.multi_task)
-            ipc = proc_ipc_find_task(serv_proc, uid);
-        else
-            ipc = proc_ipc_get_task(serv_proc);
-        if(ipc == NULL) {
+        /* An aborted request must not wait on an unrelated queue head,
+         * including after the old server's pid has been reused. */
+        ipc_task_t* ipc = proc_ipc_find_task(serv_proc, uid);
+        if(ipc == NULL || proc_ipc_get_client(ipc) != client_proc) {
             ctx->gpr[0] = -2;
             return;
         }
 
-        if((ipc->call_id & IPC_NON_RETURN) == 0 || ipc->uid != uid) {
+        if((ipc->call_id & IPC_NON_RETURN) == 0) {
             ctx->gpr[0] = -1;
             proc_block(ctx, client_proc);
             return;
@@ -1643,10 +1671,14 @@ void proc_ipc_end(context_t* ctx) {
          * metadata-heavy workloads into multi-second boot tails.
          */
         proc_wakeup(client_proc);
-        if(!throughput_mode && next_ipc == NULL) {
+        if(!throughput_mode && next_ipc == NULL &&
+                client_proc->info.core == serv_proc->info.core) {
             proc_switch_multi_core(ctx, client_proc, serv_proc->info.core);
             return;
         }
+        /* A remote caller was already woken above. Fall through to the
+         * local scheduler: the restored server may still be SLEEPING/WAIT,
+         * and a remote wake alone does not switch this exception frame. */
     }
 
     if(next_ipc != NULL) {

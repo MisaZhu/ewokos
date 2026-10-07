@@ -1191,7 +1191,7 @@ int32_t vfs_shm(int fd, uint8_t* contig, int* size) {
 int vfs_flush(int fd, bool wait) {
     fsinfo_t info;
     if(vfs_get_by_fd(fd, &info) != 0)
-        return 0; //error
+        return -1;
 
     return dev_flush(info.mount_pid, fd, info.node, wait);
 }

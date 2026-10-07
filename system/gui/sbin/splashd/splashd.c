@@ -100,7 +100,7 @@ static void paint_msg(const char* msg, int32_t off_y) {
     }
 }
 
-static void paint(uint32_t persantage, const char* msg, const char* img_fname) {
+static int paint(uint32_t persantage, const char* msg, const char* img_fname) {
     paint_bg();
     paint_img(img_fname);
     graph_t* g = _splash_info.scr_g;
@@ -111,7 +111,7 @@ static void paint(uint32_t persantage, const char* msg, const char* img_fname) {
     off_y += _splash_info.item_h;
     paint_msg(msg, off_y);
 
-    display_flush(_splash_info.display, true);
+    return display_flush(_splash_info.display, true);
 }
 
 static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
@@ -130,7 +130,7 @@ static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 
             const char* msg = proto_read_str(in);
             const char* img_fname = proto_read_str(in);
-            paint(persantage, msg, img_fname);
+            PF->addi(out, paint(persantage, msg, img_fname));
         }
         return;
     }
@@ -187,8 +187,12 @@ int main(int argc, char** argv) {
     _splash_info.font_size = _font_size;
     _splash_info.item_h = _splash_info.font_size+4;
     _splash_info.scr_g = display_fetch_graph(&display);
+    if(_splash_info.scr_g == NULL)
+        return -1;
     _splash_info.img = NULL;
     _splash_info.font = font_new(DEFAULT_SYSTEM_FONT, true);
+    if(_splash_info.font == NULL)
+        return -1;
     _splash_info.display = &display;
 
     if(ipc_serv_reg("sys.splashd") != 0) {
@@ -196,7 +200,8 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    ipc_serv_run(handle_ipc, NULL, NULL, IPC_NON_BLOCK);
+    if(ipc_serv_run(handle_ipc, NULL, NULL, IPC_NON_BLOCK) != 0)
+        return -1;
     while(_splash_info.persantage < 100) {
         usleep(300000);
     }

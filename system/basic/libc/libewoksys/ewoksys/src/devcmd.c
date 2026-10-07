@@ -381,8 +381,16 @@ int dev_flush(int dev_pid, int fd, ewokos_addr_t node, int8_t wait) {
     PF->init(&in)->addi(&in, fd)->addi(&in, node);
 
     int res = -1;
-    if(wait)
-        res = ipc_call_wait(dev_pid, FS_CMD_FLUSH, &in);
+    if(wait) {
+        proto_t out;
+        PF->init(&out);
+        res = ipc_call(dev_pid, FS_CMD_FLUSH, &in, &out);
+        /* Preserve the status-only API even when a driver returns a byte
+         * count, but do not turn its negative result into success. */
+        if(res == 0 && out.size >= sizeof(int32_t) && proto_read_int(&out) < 0)
+            res = -1;
+        PF->clear(&out);
+    }
     else
         res = ipc_call(dev_pid, FS_CMD_FLUSH, &in, NULL);
     PF->clear(&in);

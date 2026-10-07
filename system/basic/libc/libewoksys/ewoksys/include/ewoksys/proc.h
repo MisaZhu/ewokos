@@ -44,6 +44,7 @@ extern int _vfsd_pid;
 extern int _cored_pid;
 extern int _current_pid;
 extern bool _proc_global_need_lock;
+/* Compatibility no-op; the heap mutex is statically initialized. */
 void proc_malloc_lock_prepare(void);
 
 #ifdef __cplusplus

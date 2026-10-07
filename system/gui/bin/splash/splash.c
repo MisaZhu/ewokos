@@ -19,7 +19,13 @@ static int splash(uint32_t persantage, const char* msg, const char* img_fname) {
     proto_t in;
     PF->format(&in, "i,s,s", (ewokos_addr_t)persantage, msg, img_fname);
 
-    int res = ipc_call_wait(pid, 0, &in);
+    proto_t out;
+    PF->init(&out);
+    int res = ipc_call(pid, 0, &in, &out);
+    /* Older splashd versions acknowledge with an empty reply. */
+    if(res == 0 && out.size >= sizeof(int32_t))
+        res = proto_read_int(&out);
+    PF->clear(&out);
     PF->clear(&in);
     return res;
 }
@@ -59,6 +65,5 @@ int main(int argc, char** argv) {
     _msg = "";
 
     doargs(argc, argv);
-    splash(_persantage, _msg, _img_fname);
-    return 0;
+    return splash(_persantage, _msg, _img_fname) == 0 ? 0 : 1;
 }
