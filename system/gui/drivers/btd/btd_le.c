@@ -10,8 +10,10 @@ le_session_t _les[MAX_LE_SESSIONS];
 
 int _le_cur = 0;  /* session index used by blocking GATT/SMP code */
 
-/* map a controller connection handle back to the session that owns it */
-static int le_session_by_handle(uint16_t handle) {
+/* map a controller connection handle back to the session that owns it.
+   Exported so the classic-HID paths can recognise an LE handle and never
+   bind classic HIDP to it (see bt_hid_start / the hid_open handler). */
+int le_session_by_handle(uint16_t handle) {
     int i;
     for (i = 0; i < MAX_LE_SESSIONS; ++i) {
         if (_les[i].le.handle_valid && _les[i].le.handle == handle)
@@ -3145,9 +3147,14 @@ int bt_le_connect(bt_device_t* dev, bool pair,
             uint16_t chandle = _hid.acl_handle;
             char caddr[24];
             bt_addr_to_str(cdev->addr, caddr, sizeof(caddr));
-            slog("bluetooth hid_classic_drop %s reason=hogp_contention\n", caddr);
             bt_hid_stop();
-            if (chandle != 0) {
+            /* Drop only a genuine classic transport. Were a classic session
+               ever aliased onto this live LE handle, disconnecting it would
+               tear down the very HOGP link just brought up (the pad drops at
+               READY and reconnect-loops), so an LE-session handle is left
+               connected; bt_hid_start already refuses to bind one. */
+            if (chandle != 0 && le_session_by_handle(chandle) < 0) {
+                slog("bluetooth hid_classic_drop %s reason=hogp_contention\n", caddr);
                 bt_hci_disconnect(chandle);
             }
         }

@@ -126,25 +126,37 @@ halt:
 
 .global load_boot_pgt
 load_boot_pgt:
+    /* Do not inherit the bootloader's long-descriptor, TTBR split or TEX/AP
+     * remap configuration. */
+    mov r1, #0
+    mcr p15, 0, r1, c2, c0, 2   // TTBCR: EAE=0, N=0
+    mcr p15, 0, r1, c13, c0, 1  // CONTEXTIDR = 0
+    /* Match the old miyoo boot path: IRGN/RGN=0, table walks are not cached.
+     * The IRGN encoded by 0x0B is actually Write-through, not WBWA, so that
+     * setting must not be reused. The D-cache is off here; the DSB makes sure
+     * the boot page-table stores complete before the MMU is enabled. */
+    dsb
     mcr p15, 0, r0, c2, c0, 0
 
     ldr r1, =0x55555555
     mcr p15, 0, r1, c3, c0, 0
-    dmb
-
-    mrc p15, 0, r0, c1, c0, 0
-    orr r0, r0, #0x001
-    mcr p15, 0, r0, c1, c0, 0
+    mov r1, #0
+    mcr p15, 0, r1, c8, c7, 0
     dsb
+    isb
 
     mrc p15, 0, r0, c1, c0, 0
+    bic r0, r0, #(1 << 28)      // TRE=0: memory type from TEX/C/B
+    bic r0, r0, #(1 << 29)      // AFE=0: access permissions from AP[2:0]
+    /* Restore the original staged enable: translation first, caches later. */
+    orr r0, r0, #1
+    mcr p15, 0, r0, c1, c0, 0
+    isb
+    dsb
     ldr r1, =0x00003804
     orr r0, r0, r1
     mcr p15, 0, r0, c1, c0, 0
-
-    mov r0, #0
-    mcr p15, 0, r0, c8, c7, 0
-    mcr p15, 0, r0, c7, c10, 4
+    isb
     bx lr
 
 v7_flush_dcache_all:
@@ -195,7 +207,7 @@ skip:
 finished:
     mov    r10, #0                    @ swith back to cache level 0
     mcr    p15, 2, r10, c0, c0, 0     @ select current cache level in cssr
-    dsb    st
+    dsb
     isb
     bx    lr
 
@@ -219,6 +231,7 @@ arm_smp_enable:
 	mrc p15, 0, r0, c1, c0, 1   // set SMP bit in ACTLR
 	orr r0, r0, #0x40
 	mcr p15, 0, r0, c1, c0, 1
+	isb
 	bx lr
 
 .globl cpu_mmu_disable

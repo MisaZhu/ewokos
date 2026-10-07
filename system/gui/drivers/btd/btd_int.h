@@ -903,6 +903,7 @@ bool bt_cod_is_gamepad(uint32_t cod);
 
 /* btd_le.c */
 int le_session_free(void);
+int le_session_by_handle(uint16_t handle);
 int le_session_ready_by_addr(const uint8_t* addr);
 int bt_le_controller_init(void);
 void bt_handle_le_meta(const uint8_t* payload, size_t len);

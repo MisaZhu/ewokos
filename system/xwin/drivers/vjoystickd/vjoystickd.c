@@ -160,19 +160,42 @@ static int vjoystick_read(vdevice_t* dev, int fd,
         return sizeof(mouse_evt_t);
     }
 
-    //key mode
-    if(_rd > 0)
-        memcpy(buf, _keys, _rd);
-    else {
-        if(!_release)
-            return 0;
-            //return VFS_ERR_RETRY;
-        else
-            _release = false;
+    /* Key mode is a LEVEL-triggered held snapshot, exactly like vkeyb_read
+       and hid_joystickd's js_read: keep returning the current held keys on
+       every read and never clear _rd here -- vjoy_loop() refreshes it from
+       the upstream device. The downstream consumer (xim_none via keyb.c)
+       diffs CONSECUTIVE reads to derive HOLD/REPEAT and only emits a RELEASE
+       once a key is absent from a snapshot. The old code zeroed _rd after
+       each read, so a reader that polled between two vjoy_loop refreshes
+       (routine once nesemu's CPU load stretches the 60fps loop past xim's
+       ~20ms cadence) observed an empty snapshot -> a spurious RELEASE -> a
+       held button chopped into short presses. */
+    if(_rd > 0) {
+        int ret = _rd;
+        if(ret > size)
+            ret = size;
+        memcpy(buf, _keys, ret);
+        return ret;
     }
-    int ret = _rd;
-    _rd = 0;
-    return ret;	
+    /* idle: serve exactly ONE empty snapshot after a full release so keyb.c
+       can emit the deferred RELEASE, then park the blocking reader */
+    if(_release) {
+        _release = false;
+        return 0;
+    }
+    return VFS_ERR_RETRY;
+}
+
+static uint32_t vjoy_check_poll_events(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, void* p) {
+    (void)dev;
+    (void)fd;
+    (void)from_pid;
+    (void)info;
+    (void)p;
+
+    if(_mouse_mode)
+        return (_minfo_index < _minfo_num || _release) ? VFS_EVT_RD : 0;
+    return (_rd > 0 || _release) ? VFS_EVT_RD : 0;
 }
 
 
@@ -221,6 +244,12 @@ static int vjoy_loop(vdevice_t* dev, void* p){
                 if(_keys[i] == _switch_key) {
                     _mouse_mode = !_mouse_mode;
                     _release = false;
+                    /* mode switch: drop both modes' stale state so a held-key
+                       snapshot can't leak into mouse mode (reads no longer
+                       self-clear _rd) and buffered mouse motion can't leak
+                       into key mode */
+                    _rd = 0;
+                    _minfo_num = _minfo_index = 0;
                     do_show_cursor = true;
                     show_cursor_val = _mouse_mode;
                     break;
@@ -258,7 +287,9 @@ static int vjoy_loop(vdevice_t* dev, void* p){
             do_wakeup = true;
     }
     else {
-        _rd = rd;
+        /* rd may be VFS_ERR_RETRY (negative) when the upstream is idle;
+           never publish a negative held-count into the level snapshot */
+        _rd = rd > 0 ? rd : 0;
         if(_rd > 0 || _release)
             do_wakeup = true;
     }
@@ -332,6 +363,7 @@ int main(int argc, char** argv) {
     strcpy(dev.desc, "vjoystick");
     dev.read = vjoystick_read;
     dev.loop_step = vjoy_loop;
+    dev.check_poll_events = vjoy_check_poll_events;
 
     device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444, false);
 

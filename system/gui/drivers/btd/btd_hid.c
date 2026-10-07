@@ -362,6 +362,16 @@ void bt_hid_start(uint16_t handle, const uint8_t* addr) {
     if (handle == 0) {
         return;
     }
+    /* Never bind classic HIDP to an LE handle. An LE peripheral is served by
+       HOGP over GATT; classic L2CAP channels cannot ride an LE link, and if
+       _hid.acl_handle were aliased to a live LE handle the duplicate-transport
+       suppression at the end of bt_le_connect would disconnect the very HOGP
+       link it is meant to protect (a dual-mode gamepad drops right after READY
+       and loops). A dual-mode pad reached over LE is refused here; one truly
+       on a classic ACL is not an LE-session handle and proceeds normally. */
+    if (le_session_by_handle(handle) >= 0) {
+        return;
+    }
     bt_hid_session_init(handle, addr);
     if (_hid.ctrl == NULL || _hid.ctrl->state != L2CAP_STATE_OPEN) {
         _hid.ctrl = l2cap_chan_open(handle, L2CAP_PSM_HID_CTRL);

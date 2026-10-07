@@ -179,7 +179,8 @@ static bool do_joys_spec(uint8_t* keys, uint8_t num, uint8_t* ret_key) {
             }
         }
         else if(c == KEY_HOME) {
-            x_launcher();
+            //x_launcher();
+            x_close_focus();
             return true;
         }
         else if(c == KEY_END) {

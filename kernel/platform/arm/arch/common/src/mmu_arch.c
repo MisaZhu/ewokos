@@ -47,6 +47,10 @@ void unmap_page(page_dir_entry_t *vm, ewokos_addr_t virtual_addr) {
     page_table_entry_t *page_table = 0;
     ewokos_addr_t page_dir_index = PAGE_DIR_INDEX(virtual_addr);
     ewokos_addr_t page_index = PAGE_INDEX(virtual_addr);
+    /* guard: an L1 slot that was never populated has a zero/garbage base, so
+     * dereferencing it would write to a bogus physical page */
+    if(vm[page_dir_index].type == 0)
+        return;
     page_table = (void *) P2V(BASE_TO_PAGE_TABLE(vm[page_dir_index].base));
     page_table[page_index].type = 0;
 }

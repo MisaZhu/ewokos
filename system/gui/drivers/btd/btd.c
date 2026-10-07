@@ -1445,9 +1445,18 @@ static int bt_handle_cmd_args(int argc, char** argv, char* ret, size_t ret_sz) {
            A dual-mode peripheral that is ALREADY streaming reports through
            HOGP must not be given classic channels too: the radio scheduling
            conflict between the L2CAP retries and the LE connection interval
-           kills the LE link (the keyboard drops off after a few seconds). */
+           kills the LE link (the keyboard drops off after a few seconds).
+           The same holds while its LE bring-up is still mid-flight: the
+           attach pollers fire hid_open every 2s and hid_state reads active=0
+           until the session reaches READY, so without the handle test below a
+           dual-mode pad in DISCOVERING would fall through to bt_hid_start on
+           the LE handle - aliasing it into _hid.acl_handle and letting the
+           end-of-connect duplicate-transport suppression disconnect the very
+           link it just brought up (the pad drops at READY and reconnect-loops).
+           Any device whose current handle owns an LE session belongs to HOGP. */
         if (dev->le && (!dev->classic ||
-                le_session_ready_by_addr(dev->addr) >= 0)) {
+                le_session_ready_by_addr(dev->addr) >= 0 ||
+                le_session_by_handle(dev->handle) >= 0)) {
             int rsi = le_session_ready_by_addr(dev->addr);
             if (rsi >= 0) {
                 snprintf(ret, ret_sz, "hid_open_ok %s le=1 handle=0x%04X\n",
