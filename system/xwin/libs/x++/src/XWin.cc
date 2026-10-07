@@ -284,6 +284,12 @@ void XWin::max(void) {
 	xwin_max(xwin);
 }
 
+void XWin::fullscreen(void) {
+	if(xwin == NULL)	
+		return;
+	xwin_fullscreen(xwin);
+}
+
 void XWin::resize(int dw, int dh) {
 	if(xwin == NULL)	
 		return;

@@ -90,6 +90,7 @@ public:
 	void resizeTo(int w, int h);
 	void resize(int dw, int dh);
 	void max(void);
+	void fullscreen(void);
 	void moveTo(int x, int y);
 	void move(int dx, int dy);
 	void setDisplay(int index);
