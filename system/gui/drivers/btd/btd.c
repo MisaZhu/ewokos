@@ -1729,8 +1729,10 @@ int bt_loop(vdevice_t* dev, void* p) {
 
     /* LE discovery slicing, queued LE bring-ups and the LE link's own
        deadlines all live here instead of in the command handlers, which
-       have to stay short enough for a click in xbt to feel instant */
-    bt_le_step();
+       have to stay short enough for a click in xbt to feel instant. This is
+       the daemon's main context, so a queued bring-up's blocking waits here
+       can still be preempted by an incoming dev.cmd IPC (from_loop=true). */
+    bt_le_step(true);
 
     /* keep the live RSSI of connected links fresh for xbt's signal readout */
     bt_rssi_poll_step();

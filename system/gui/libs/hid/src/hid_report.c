@@ -59,6 +59,7 @@ hid_dev_type_t hid_detect_device_type(const uint8_t* desc, int len) {
     bool found_keyboard = false;
     bool found_mouse = false;
     bool found_touch = false;
+    bool found_joystick = false;
 
     for (int off = 0; off < len; ) {
         uint8_t prefix = desc[off++];
@@ -116,6 +117,9 @@ hid_dev_type_t hid_detect_device_type(const uint8_t* desc, int len) {
                     else if (usage == HID_USAGE_MOUSE || usage == HID_USAGE_POINTER) {
                         found_mouse = true;
                     }
+                    else if (usage == HID_USAGE_JOYSTICK || usage == HID_USAGE_GAMEPAD) {
+                        found_joystick = true;
+                    }
                 }
                 else if (collection_type == 1 && usage_page == HID_USAGE_PAGE_DIGITIZER) {
                     uint32_t usage = hid_usage_for_index(usages, usage_count,
@@ -143,6 +147,9 @@ hid_dev_type_t hid_detect_device_type(const uint8_t* desc, int len) {
     }
     if (found_mouse) {
         return HID_DEV_TYPE_MOUSE;
+    }
+    if (found_joystick) {
+        return HID_DEV_TYPE_JOYSTICK;
     }
     return HID_DEV_TYPE_UNKNOWN;
 }
@@ -990,4 +997,373 @@ int mouse_normalize_as_touch(const mouse_parser_t* m,
     out[5] = 0;
     out[6] = 0;
     return HID_POINTER_EVENT_SIZE;
+}
+
+/* ---------------- generic joystick/gamepad ---------------- */
+
+/* Extract the bit layout of a Joystick/Gamepad application collection. This
+   is the descriptor-driven counterpart of hid_parse_mouse_report: instead of
+   a per-device byte table it records where each field lives (buttons run,
+   hat switch, the six Generic-Desktop axes and up to two sliders) together
+   with the logical range declared for it, so joystick_normalize_report can
+   scale any conforming gamepad. It covers the uConsole's USBComposite
+   joystick (32 buttons + 4-bit hat + X/Y/Rx/Ry + 2 sliders, all 10-bit) and
+   ordinary standard-HID USB gamepads alike. */
+int hid_parse_joystick_report(const uint8_t* desc, int len, joystick_parser_t* out) {
+    uint32_t usages[HID_MAX_USAGE_LIST];
+    int usage_count = 0;
+    uint32_t usage_page = 0;
+    uint32_t usage_min = 0;
+    uint32_t usage_max = 0;
+    bool usage_range_valid = false;
+    uint32_t report_size = 0;
+    uint32_t report_count = 0;
+    uint8_t current_report_id = 0;
+    uint32_t report_bits[256];
+    int collection_depth = 0;
+    int js_collection_depth = -1;
+    bool js_active = false;
+    int slider_idx = 0;
+    int32_t logical_min = 0;
+    int32_t logical_max = 0;
+
+    memset(report_bits, 0, sizeof(report_bits));
+    memset(out, 0, sizeof(*out));
+    out->button_bit = -1;
+    out->hat_bit = -1;
+
+    for (int off = 0; off < len; ) {
+        uint8_t prefix = desc[off++];
+        uint32_t value = 0;
+        int size_code, size, type, tag;
+
+        if (prefix == 0xFE) {
+            if (off + 2 > len) break;
+            size = desc[off];
+            off += 2 + size;
+            continue;
+        }
+        size_code = prefix & 0x3;
+        size = (size_code == 3) ? 4 : size_code;
+        type = (prefix >> 2) & 0x3;
+        tag = (prefix >> 4) & 0xF;
+        if (off + size > len) break;
+        for (int i = 0; i < size; ++i) {
+            value |= (uint32_t)desc[off + i] << (i * 8);
+        }
+        off += size;
+
+        if (type == 1) { /* global */
+            switch (tag) {
+            case 0:
+                usage_page = value;
+                break;
+            case 1:
+                logical_min = hid_sign_extend(value, size * 8);
+                break;
+            case 2:
+                logical_max = hid_sign_extend(value, size * 8);
+                break;
+            case 7:
+                report_size = value;
+                break;
+            case 8:
+                current_report_id = (uint8_t)value;
+                if (report_bits[current_report_id] == 0) {
+                    report_bits[current_report_id] = 8;
+                }
+                break;
+            case 9:
+                report_count = value;
+                break;
+            default:
+                break;
+            }
+        }
+        else if (type == 2) { /* local */
+            switch (tag) {
+            case 0:
+                if (usage_count < HID_MAX_USAGE_LIST) {
+                    usages[usage_count++] = value;
+                }
+                break;
+            case 1:
+                usage_min = value;
+                usage_range_valid = true;
+                break;
+            case 2:
+                usage_max = value;
+                usage_range_valid = true;
+                break;
+            default:
+                break;
+            }
+        }
+        else if (type == 0) { /* main */
+            switch (tag) {
+            case 8: { /* Input */
+                bool constant = (value & 0x1u) != 0;
+                bool variable = (value & 0x2u) != 0;
+
+                if (js_active && !constant && variable && report_size > 0) {
+                    for (uint32_t idx = 0; idx < report_count; ++idx) {
+                        uint32_t usage = hid_usage_for_index(usages, usage_count,
+                                usage_range_valid, usage_min, usage_max, (int)idx);
+                        int bit = (int)report_bits[current_report_id] +
+                                (int)(idx * report_size);
+
+                        if (usage_page == HID_USAGE_PAGE_BUTTON) {
+                            /* a contiguous run of 1-bit-per-usage buttons; keep
+                               the first and derive the rest by index */
+                            if (out->button_bit < 0) {
+                                out->button_bit = bit;
+                                out->button_size = (int)report_size;
+                                out->button_count = (int)report_count;
+                                out->button_usage_min = usage;
+                                out->has_report_id = current_report_id != 0;
+                                out->report_id = current_report_id;
+                            }
+                            break; /* whole run captured at once */
+                        }
+                        if (usage_page != HID_USAGE_PAGE_GENERIC_DESKTOP) {
+                            continue;
+                        }
+                        if (usage == HID_USAGE_HAT_SWITCH) {
+                            if (out->hat_bit < 0) {
+                                out->hat_bit = bit;
+                                out->hat_size = (int)report_size;
+                                out->hat_min = logical_min;
+                                out->hat_max = logical_max;
+                                out->has_report_id = current_report_id != 0;
+                                out->report_id = current_report_id;
+                            }
+                        }
+                        else if (usage >= HID_USAGE_X && usage <= HID_USAGE_RZ) {
+                            int ax = (int)(usage - HID_USAGE_X); /* 0..5 */
+                            if (ax >= 0 && ax < JS_AXIS_COUNT && !out->axis[ax].present) {
+                                out->axis[ax].present = true;
+                                out->axis[ax].bit = bit;
+                                out->axis[ax].size = (int)report_size;
+                                out->axis[ax].logical_min = logical_min;
+                                out->axis[ax].logical_max = logical_max;
+                                out->has_report_id = current_report_id != 0;
+                                out->report_id = current_report_id;
+                            }
+                        }
+                        else if (usage == HID_USAGE_SLIDER) {
+                            if (slider_idx < 2) {
+                                out->slider[slider_idx].present = true;
+                                out->slider[slider_idx].bit = bit;
+                                out->slider[slider_idx].size = (int)report_size;
+                                out->slider[slider_idx].logical_min = logical_min;
+                                out->slider[slider_idx].logical_max = logical_max;
+                                out->has_report_id = current_report_id != 0;
+                                out->report_id = current_report_id;
+                                slider_idx++;
+                            }
+                        }
+                    }
+                }
+                report_bits[current_report_id] += report_size * report_count;
+                clear_local_usages(usages, &usage_count, &usage_range_valid);
+                break;
+            }
+            case 10: { /* Collection */
+                uint32_t usage = hid_usage_for_index(usages, usage_count,
+                        usage_range_valid, usage_min, usage_max, 0);
+                uint8_t collection_type = (uint8_t)value;
+
+                if (!js_active && collection_type == 1 &&
+                        usage_page == HID_USAGE_PAGE_GENERIC_DESKTOP &&
+                        (usage == HID_USAGE_JOYSTICK || usage == HID_USAGE_GAMEPAD)) {
+                    js_collection_depth = collection_depth + 1;
+                    js_active = true;
+                }
+                collection_depth++;
+                clear_local_usages(usages, &usage_count, &usage_range_valid);
+                break;
+            }
+            case 12: /* End Collection */
+                if (collection_depth == js_collection_depth) {
+                    js_active = false;
+                    js_collection_depth = -1;
+                }
+                if (collection_depth > 0) {
+                    collection_depth--;
+                }
+                clear_local_usages(usages, &usage_count, &usage_range_valid);
+                break;
+            default:
+                clear_local_usages(usages, &usage_count, &usage_range_valid);
+                break;
+            }
+        }
+    }
+
+    /* a usable gamepad needs at least one button or one analog axis */
+    bool any_axis = false;
+    for (int i = 0; i < JS_AXIS_COUNT; ++i) {
+        if (out->axis[i].present) {
+            any_axis = true;
+            break;
+        }
+    }
+    if (out->button_bit < 0 && !any_axis) {
+        return -1;
+    }
+
+    out->valid = true;
+    out->report_bytes = (uint8_t)((report_bits[out->report_id] + 7u) / 8u);
+    if (out->report_bytes == 0 || out->report_bytes > HID_MAX_REPORT) {
+        return -1;
+    }
+    return 0;
+}
+
+bool hid_probe_joystick_report(const uint8_t* desc, int len, joystick_parser_t* out) {
+    joystick_parser_t parser;
+
+    if (hid_parse_joystick_report(desc, len, &parser) != 0) {
+        return false;
+    }
+    if (out != NULL) {
+        *out = parser;
+    }
+    return true;
+}
+
+/* map an HID Button usage (1-based) onto the physical js_evt_t button bits.
+   HID button usages carry no inherent A/B/X/Y meaning, so this fixes one
+   project-wide convention for the face-button diamond (1=X 2=A 3=B 4=Y),
+   then 5=LB 6=RB 7=LT 8=RT 9=Back/Select 10=Start 11=L3 12=R3 13=Home. */
+static uint32_t js_button_from_usage(uint32_t usage) {
+    switch (usage) {
+    case 1:  return JS_BTN_X;
+    case 2:  return JS_BTN_A;
+    case 3:  return JS_BTN_B;
+    case 4:  return JS_BTN_Y;
+    case 5:  return JS_BTN_LB;
+    case 6:  return JS_BTN_RB;
+    case 7:  return JS_BTN_LT;
+    case 8:  return JS_BTN_RT;
+    case 9:  return JS_BTN_SELECT;
+    case 10: return JS_BTN_START;
+    case 11: return JS_BTN_LS;
+    case 12: return JS_BTN_RS;
+    case 13: return JS_BTN_HOME;
+    default: return 0;
+    }
+}
+
+/* read one analog field, sign-extending only when its logical range is
+   signed (an unsigned 0..1023 axis must NOT be treated as a 10-bit int) */
+static int32_t js_axis_raw(const js_axis_t* a, const uint8_t* report) {
+    uint32_t v = bit_extract_le(report, a->bit, a->size);
+    if (a->logical_min < 0) {
+        return hid_sign_extend(v, a->size);
+    }
+    return (int32_t)v;
+}
+
+/* scale a raw axis value from its logical range onto out_lo..out_hi */
+static int32_t js_axis_scale(int32_t raw, const js_axis_t* a,
+        int32_t out_lo, int32_t out_hi) {
+    int32_t lo = a->logical_min;
+    int32_t hi = a->logical_max;
+    int64_t num;
+    int64_t den;
+
+    if (hi <= lo) {
+        return out_lo;
+    }
+    if (raw < lo) {
+        raw = lo;
+    }
+    if (raw > hi) {
+        raw = hi;
+    }
+    num = (int64_t)(raw - lo) * (int64_t)(out_hi - out_lo);
+    den = (int64_t)(hi - lo);
+    return (int32_t)(out_lo + num / den);
+}
+
+static int16_t js_axis_to_stick(const js_axis_t* a, const uint8_t* report) {
+    int32_t v = js_axis_scale(js_axis_raw(a, report), a, -32768, 32767);
+    if (v > 32767) v = 32767;
+    if (v < -32768) v = -32768;
+    return (int16_t)v;
+}
+
+static uint16_t js_axis_to_trigger(const js_axis_t* a, const uint8_t* report) {
+    int32_t v = js_axis_scale(js_axis_raw(a, report), a, 0, 65535);
+    if (v > 65535) v = 65535;
+    if (v < 0) v = 0;
+    return (uint16_t)v;
+}
+
+int joystick_normalize_report(const joystick_parser_t* j,
+        const uint8_t* report, int len, js_evt_t* out) {
+    const js_axis_t* rx;
+    const js_axis_t* ry;
+
+    if (!j->valid) {
+        return -1;
+    }
+    if (j->has_report_id) {
+        if (len <= 0 || report[0] != j->report_id) {
+            return -1;
+        }
+    }
+    if (len < j->report_bytes) {
+        return -1;
+    }
+
+    memset(out, 0, sizeof(*out));
+    out->dpad = JS_DPAD_NONE;
+
+    /* buttons: a contiguous run of button_count fields */
+    if (j->button_bit >= 0) {
+        uint32_t b = 0;
+        for (int i = 0; i < j->button_count && i < JS_MAX_BUTTONS; ++i) {
+            int bit = j->button_bit + i * j->button_size;
+            if (bit_extract_le(report, bit, j->button_size) != 0) {
+                b |= js_button_from_usage(j->button_usage_min + (uint32_t)i);
+            }
+        }
+        out->buttons = b;
+    }
+
+    /* hat switch: 0..7 compass relative to logical_min, else released */
+    if (j->hat_bit >= 0) {
+        int32_t v = (int32_t)bit_extract_le(report, j->hat_bit, j->hat_size);
+        v -= j->hat_min;
+        out->dpad = (v >= 0 && v <= 7) ? (uint8_t)v : JS_DPAD_NONE;
+    }
+
+    /* left stick = X/Y */
+    if (j->axis[0].present) {
+        out->lx = js_axis_to_stick(&j->axis[0], report);
+    }
+    if (j->axis[1].present) {
+        out->ly = js_axis_to_stick(&j->axis[1], report);
+    }
+    /* right stick = Rx/Ry when present, else fall back to Z/Rz */
+    rx = j->axis[3].present ? &j->axis[3] : (j->axis[2].present ? &j->axis[2] : NULL);
+    ry = j->axis[4].present ? &j->axis[4] : (j->axis[5].present ? &j->axis[5] : NULL);
+    if (rx != NULL) {
+        out->rx = js_axis_to_stick(rx, report);
+    }
+    if (ry != NULL) {
+        out->ry = js_axis_to_stick(ry, report);
+    }
+    /* analog triggers from the sliders when the descriptor declares them */
+    if (j->slider[0].present) {
+        out->lt = js_axis_to_trigger(&j->slider[0], report);
+    }
+    if (j->slider[1].present) {
+        out->rt = js_axis_to_trigger(&j->slider[1], report);
+    }
+
+    out->connected = 1;
+    return 0;
 }

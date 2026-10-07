@@ -29,6 +29,7 @@
 #include <usb/usb_defs.h>
 #include <hid/hid_defs.h>
 #include <hid/hid_report.h>
+#include <hid/hid_joystick.h>
 #include <hid/hid_srv.h>
 
 #define USB_MAX_INPUTS 8
@@ -98,11 +99,15 @@ typedef struct {
     uint8_t report_len;
     uint8_t kbd_report_id;   /* report-ID keyboard / composite */
     uint8_t mouse_report_id; /* composite only */
+    uint8_t joystick_report_id; /* composite: the gamepad collection's id */
     mouse_parser_t mouse;
     touch_parser_t touch;
+    joystick_parser_t joystick;
     uint8_t last_report[HID_MAX_REPORT];
     uint8_t last_len;
     uint8_t last_mouse_btn;  /* buttons of the last dispatched mouse frame */
+    js_evt_t last_js;        /* last dispatched joystick frame (dedupe) */
+    bool last_js_valid;
 } usb_input_dev_t;
 
 static usb_dev_t _devs[USB_MAX_DEVS];
@@ -439,7 +444,8 @@ static int usb_register_mouse(int dev_idx, const hid_candidate_t* cand, const mo
 }
 
 static int usb_register_composite(int dev_idx, const hid_candidate_t* cand,
-        uint8_t kbd_id, uint8_t mouse_id, const mouse_parser_t* parser) {
+        uint8_t kbd_id, uint8_t mouse_id, const mouse_parser_t* parser,
+        const joystick_parser_t* joy) {
     bsp_usb_dev_t* hdev = _devs[dev_idx].hdev;
     int slot;
 
@@ -468,9 +474,18 @@ static int usb_register_composite(int dev_idx, const hid_candidate_t* cand,
                     cand->max_packet);
         }
     }
-    slog("usbhostd: register composite slot=%d dev=%d iface=%u ep=%02x kbd_id=%u mouse_id=%u mouse_len=%u\n",
+    /* a composite device (e.g. the uConsole keyboard) may also multiplex a
+       joystick/gamepad collection behind its own report id on the very same
+       interrupt endpoint; carry its parser so the poll loop can route it */
+    if (joy != NULL && joy->valid && joy->report_id != kbd_id &&
+            joy->report_id != mouse_id) {
+        _inputs[slot].joystick = *joy;
+        _inputs[slot].joystick_report_id = joy->report_id;
+    }
+    slog("usbhostd: register composite slot=%d dev=%d iface=%u ep=%02x kbd_id=%u mouse_id=%u mouse_len=%u joy_id=%u\n",
             slot, dev_idx, cand->iface_num, cand->ep_addr, kbd_id, mouse_id,
-            _inputs[slot].mouse.valid ? _inputs[slot].mouse.report_bytes : 0);
+            _inputs[slot].mouse.valid ? _inputs[slot].mouse.report_bytes : 0,
+            _inputs[slot].joystick_report_id);
     return 0;
 }
 
@@ -497,6 +512,33 @@ static int usb_register_touch(int dev_idx, const hid_candidate_t* cand,
     slog("usbhostd: register touch slot=%d dev=%d iface=%u ep=%02x report_id=%u report_len=%u tip=%d x=%d y=%d\n",
             slot, dev_idx, cand->iface_num, cand->ep_addr, parser->report_id,
             parser->report_bytes, parser->tip_bit, parser->x_bit, parser->y_bit);
+    return 0;
+}
+
+/* A standalone joystick/gamepad interface. Its reports are variable-size and
+   (when the descriptor declares one) prefixed by a report id, so request a
+   full packet and let the descriptor-driven normalizer pick the fields out. */
+static int usb_register_joystick(int dev_idx, const hid_candidate_t* cand,
+        const joystick_parser_t* parser) {
+    bsp_usb_dev_t* hdev = _devs[dev_idx].hdev;
+    int slot;
+
+    if (cand->subclass == USB_SUBCLASS_BOOT) {
+        (void)usb_hid_set_protocol(hdev, cand->iface_num, 1);
+    }
+    (void)usb_hid_set_idle(hdev, cand->iface_num);
+    slot = usb_input_setup(dev_idx, cand, HID_INPUT_JOYSTICK);
+    if (slot < 0) {
+        return -1;
+    }
+    _inputs[slot].joystick = *parser;
+    _inputs[slot].joystick_report_id = parser->report_id;
+    /* variable-size reports: always request a full packet */
+    _inputs[slot].report_len = (uint8_t)_inputs[slot].max_packet;
+    slog("usbhostd: register joystick slot=%d dev=%d iface=%u ep=%02x report_id=%u report_len=%u btn=%d/%dx%d hat=%d maxpkt=%u\n",
+            slot, dev_idx, cand->iface_num, cand->ep_addr, parser->report_id,
+            _inputs[slot].report_len, parser->button_bit, parser->button_size,
+            parser->button_count, parser->hat_bit, cand->max_packet);
     return 0;
 }
 
@@ -644,10 +686,12 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
         bool desc_ok = false;
         bool mouse_desc_ok = false;
         bool touch_desc_ok = false;
+        bool joy_desc_ok = false;
         uint8_t kbd_id = 0, mouse_id = 0;
         hid_dev_type_t dev_type = HID_DEV_TYPE_UNKNOWN;
         mouse_parser_t mouse_probe;
         touch_parser_t touch_probe;
+        joystick_parser_t joy_probe;
 
         if (!candidates[i].valid) {
             continue;
@@ -666,8 +710,11 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
                     candidates[i].report_desc_len, &mouse_probe);
             touch_desc_ok = hid_probe_touch_report(report_desc,
                     candidates[i].report_desc_len, &touch_probe);
+            joy_desc_ok = hid_probe_joystick_report(report_desc,
+                    candidates[i].report_desc_len, &joy_probe);
             dev_type = hid_detect_device_type(report_desc, candidates[i].report_desc_len);
-            if (!mouse_desc_ok && !touch_desc_ok && dev_type == HID_DEV_TYPE_UNKNOWN) {
+            if (!mouse_desc_ok && !touch_desc_ok && !joy_desc_ok &&
+                    dev_type == HID_DEV_TYPE_UNKNOWN) {
                 /* nothing recognized: the control read may have returned
                    garbled data of the right length -- refetch once */
                 if (usb_get_descriptor(dev->hdev, USB_REQTYPE_STD_IFACE_IN,
@@ -677,11 +724,16 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
                             candidates[i].report_desc_len, &mouse_probe);
                     touch_desc_ok = hid_probe_touch_report(report_desc,
                             candidates[i].report_desc_len, &touch_probe);
+                    joy_desc_ok = hid_probe_joystick_report(report_desc,
+                            candidates[i].report_desc_len, &joy_probe);
                     dev_type = hid_detect_device_type(report_desc, candidates[i].report_desc_len);
                 }
             }
             if (mouse_desc_ok && dev_type == HID_DEV_TYPE_UNKNOWN) {
                 dev_type = HID_DEV_TYPE_MOUSE;
+            }
+            if (joy_desc_ok && dev_type == HID_DEV_TYPE_UNKNOWN) {
+                dev_type = HID_DEV_TYPE_JOYSTICK;
             }
             if (touch_desc_ok) {
                 dev_type = HID_DEV_TYPE_TOUCH;
@@ -693,12 +745,18 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
         if (desc_ok && hid_parse_report_ids(report_desc,
                 candidates[i].report_desc_len, &kbd_id, &mouse_id) == 0) {
             if (usb_register_composite(dev_idx, &candidates[i], kbd_id, mouse_id,
-                    mouse_desc_ok ? &mouse_probe : NULL) == 0) {
+                    mouse_desc_ok ? &mouse_probe : NULL,
+                    joy_desc_ok ? &joy_probe : NULL) == 0) {
                 registered++;
             }
         }
         else if (dev_type == HID_DEV_TYPE_TOUCH && touch_desc_ok) {
             if (usb_register_touch(dev_idx, &candidates[i], &touch_probe) == 0) {
+                registered++;
+            }
+        }
+        else if (dev_type == HID_DEV_TYPE_JOYSTICK && joy_desc_ok) {
+            if (usb_register_joystick(dev_idx, &candidates[i], &joy_probe) == 0) {
                 registered++;
             }
         }
@@ -1101,6 +1159,33 @@ static bool mouse_payload_idle(usb_input_dev_t* in, const uint8_t* payload) {
     return true;
 }
 
+/* Normalize one raw gamepad report with the descriptor-driven parser and
+   fan it out on the joystick report id as a js_evt_t (zero-padded to the
+   fixed HID_JOYSTICK_RAW_SIZE stride, which is what hid_joystickd's USB-mode
+   pass-through expects). Coalesces identical consecutive frames so an idle
+   pad that ignores Set_Idle cannot spin the dispatch/wake chain. Returns
+   true when a frame was dispatched. */
+static bool usb_dispatch_joystick(usb_input_dev_t* in, const uint8_t* report,
+        int ret, bool* any_edge) {
+    uint8_t payload[HID_MAX_EVENT_SIZE];
+    js_evt_t evt;
+
+    if (joystick_normalize_report(&in->joystick, report, ret, &evt) != 0) {
+        return false;
+    }
+    if (in->last_js_valid && memcmp(&in->last_js, &evt, sizeof(js_evt_t)) == 0) {
+        return false;
+    }
+    in->last_js = evt;
+    in->last_js_valid = true;
+    memset(payload, 0, sizeof(payload));
+    memcpy(payload, &evt, sizeof(js_evt_t));
+    if (hid_dispatch_evt(HID_REPORT_ID_JOYSTICK, payload, HID_JOYSTICK_RAW_SIZE)) {
+        *any_edge = true;
+    }
+    return true;
+}
+
 static bool usb_poll_inputs(vdevice_t* dev) {
     uint8_t report[HID_MAX_REPORT];
     uint8_t payload[HID_MAX_EVENT_SIZE];
@@ -1221,6 +1306,11 @@ static bool usb_poll_inputs(vdevice_t* dev) {
                 }
             }
         }
+        else if (in->type == HID_INPUT_JOYSTICK) {
+            if (usb_dispatch_joystick(in, report, ret, &any_edge)) {
+                got = true;
+            }
+        }
         else if (in->type == HID_INPUT_COMPOSITE) {
             /* first byte is the HID report ID; strip it and route */
             uint8_t rid = report[0];
@@ -1278,7 +1368,14 @@ static bool usb_poll_inputs(vdevice_t* dev) {
                 }
                 got = true;
             }
-            /* other report IDs (gamepad etc.): no consumer yet, drop */
+            else if (in->joystick_report_id != 0 && rid == in->joystick_report_id) {
+                /* the uConsole-style composite keyboard also carries a
+                   joystick/gamepad collection behind its own report id */
+                if (usb_dispatch_joystick(in, report, ret, &any_edge)) {
+                    got = true;
+                }
+            }
+            /* any other report id (consumer/media etc.): no consumer, drop */
         }
     }
 

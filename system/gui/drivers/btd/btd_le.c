@@ -36,6 +36,18 @@ uint8_t _local_addr_type = BT_LE_ADDR_TYPE_PUBLIC;
 
 bool _le_supported = false;
 
+/* LE Secure Connections controller material. The local P-256 public key is
+   read once at bring-up and cached; ECDH via HCI_LE_Generate_DHKey handles
+   one peer at a time, which is fine because a bring-up is a single blocking
+   sequence. Both results arrive asynchronously in an LE Meta sub-event, so
+   a "done" flag releases the waiter even when the status byte is non-zero. */
+static uint8_t _local_p256[64];
+static bool _local_p256_valid = false;
+static bool _p256_done = false;
+static uint8_t _dhkey[32];
+static bool _dhkey_valid = false;
+static bool _dhkey_done = false;
+
 /* An LE bring-up is queued here instead of running inside the command
    handler: it blocks for seconds and the caller is an IPC command from
    xbt or bt_moused. bt_le_step picks the request up. */
@@ -324,6 +336,184 @@ static void smp_s1(const uint8_t tk[16], const uint8_t r1_air[16],
     smp_rev16(tmp, stk_air);
 }
 
+/* ---------- LE Secure Connections crypto (Vol 3 Part H 2.2) -------------
+   f4/f5/f6 are AES-CMAC constructions. The CMAC core below is RFC 4493 in
+   the same most-significant-octet-first domain aes128_encrypt already uses
+   (that is what the verified legacy c1 feeds it), so each helper reverses
+   its over-the-air (LSB-first) inputs to MSB-first, runs the CMAC and
+   reverses the 16-byte result back to air order for the wire / LTK. */
+
+/* reverse n octets: over-the-air LSB-first <-> crypto MSB-first */
+static void smp_rev(const uint8_t* in, uint8_t* out, size_t n) {
+    size_t i;
+
+    for (i = 0; i < n; ++i) {
+        out[i] = in[n - 1 - i];
+    }
+}
+
+static void cmac_shift_left1(const uint8_t in[16], uint8_t out[16]) {
+    uint8_t carry = 0;
+    int i;
+
+    for (i = 15; i >= 0; --i) {
+        out[i] = (uint8_t)((in[i] << 1) | carry);
+        carry = (uint8_t)(in[i] >> 7);
+    }
+}
+
+/* RFC 4493 AES-128-CMAC over an arbitrary-length MSB-first message. */
+static void aes128_cmac(const uint8_t key[16], const uint8_t* msg, size_t len,
+        uint8_t mac[16]) {
+    uint8_t zero[16];
+    uint8_t l[16];
+    uint8_t k1[16];
+    uint8_t k2[16];
+    uint8_t m_last[16];
+    uint8_t x[16];
+    size_t n;
+    size_t i;
+    int complete;
+
+    memset(zero, 0, sizeof(zero));
+    aes128_encrypt(key, zero, l);
+    cmac_shift_left1(l, k1);
+    if (l[0] & 0x80) {
+        k1[15] ^= 0x87;
+    }
+    cmac_shift_left1(k1, k2);
+    if (k1[0] & 0x80) {
+        k2[15] ^= 0x87;
+    }
+
+    n = (len + 15) / 16;
+    if (n == 0) {
+        n = 1;
+        complete = 0;
+    }
+    else {
+        complete = (len % 16) == 0;
+    }
+
+    if (complete) {
+        memcpy(m_last, msg + (n - 1) * 16, 16);
+        for (i = 0; i < 16; ++i) {
+            m_last[i] ^= k1[i];
+        }
+    }
+    else {
+        size_t rem = len % 16;
+        memset(m_last, 0, 16);
+        memcpy(m_last, msg + (n - 1) * 16, rem);
+        m_last[rem] = 0x80;
+        for (i = 0; i < 16; ++i) {
+            m_last[i] ^= k2[i];
+        }
+    }
+
+    memset(x, 0, 16);
+    for (i = 0; i + 1 < n; ++i) {
+        size_t j;
+        for (j = 0; j < 16; ++j) {
+            x[j] ^= msg[i * 16 + j];
+        }
+        aes128_encrypt(key, x, x);
+    }
+    for (i = 0; i < 16; ++i) {
+        x[i] ^= m_last[i];
+    }
+    aes128_encrypt(key, x, mac);
+}
+
+/* f4(U, V, X, Z) = AES-CMAC_X(U || V || Z). U and V are the 32-byte
+   x-coordinates of the two public keys, X a 16-byte nonce (the CMAC key),
+   Z a single octet (0 for Just Works). All inputs air order, output air
+   order. Used for the LESC Pairing Confirm value. */
+static void smp_f4(const uint8_t u[32], const uint8_t v[32], const uint8_t x[16],
+        uint8_t z, uint8_t out_air[16]) {
+    uint8_t m[65];
+    uint8_t key[16];
+    uint8_t mac[16];
+
+    smp_rev(u, m, 32);
+    smp_rev(v, m + 32, 32);
+    m[64] = z;
+    smp_rev(x, key, 16);
+    aes128_cmac(key, m, sizeof(m), mac);
+    smp_rev(mac, out_air, 16);
+}
+
+/* f5(W, N1, N2, A1, A2) -> MacKey || LTK. W is the 32-byte DHKey, N1/N2 the
+   two 16-byte nonces, A1/A2 the two 6-byte addresses plus their type
+   octets, all air order. MacKey (Counter=0) and LTK (Counter=1) come out in
+   air order, so the LTK drops straight into LE_Start_Encryption. */
+static void smp_f5(const uint8_t w[32], const uint8_t n1[16], const uint8_t n2[16],
+        uint8_t a1type, const uint8_t a1[6], uint8_t a2type, const uint8_t a2[6],
+        uint8_t mackey_air[16], uint8_t ltk_air[16]) {
+    /* SALT = 0x6C888391AAF5A53860370BDB5A6083BE (Vol 3 Part H 2.2.7),
+       written MSB-first exactly as the crypto domain expects it. */
+    static const uint8_t salt[16] = {
+        0x6C, 0x88, 0x83, 0x91, 0xAA, 0xF5, 0xA5, 0x38,
+        0x60, 0x37, 0x0B, 0xDB, 0x5A, 0x60, 0x83, 0xBE
+    };
+    uint8_t w_msb[32];
+    uint8_t t[16];
+    uint8_t m[53];
+    uint8_t mac[16];
+
+    smp_rev(w, w_msb, 32);
+    aes128_cmac(salt, w_msb, 32, t);
+
+    /* m = Counter(1) || keyID "btle"(4) || N1(16) || N2(16) || A1(7) ||
+       A2(7) || Length=256(2) = 53 octets, all MSB-first. */
+    m[1] = 0x62; /* 'b' */
+    m[2] = 0x74; /* 't' */
+    m[3] = 0x6C; /* 'l' */
+    m[4] = 0x65; /* 'e' */
+    smp_rev(n1, m + 5, 16);
+    smp_rev(n2, m + 21, 16);
+    m[37] = (uint8_t)(a1type & 0x01);
+    smp_rev(a1, m + 38, 6);
+    m[44] = (uint8_t)(a2type & 0x01);
+    smp_rev(a2, m + 45, 6);
+    m[51] = 0x01; /* Length = 256, most significant octet */
+    m[52] = 0x00;
+
+    m[0] = 0x00; /* Counter = 0 -> MacKey */
+    aes128_cmac(t, m, sizeof(m), mac);
+    smp_rev(mac, mackey_air, 16);
+    m[0] = 0x01; /* Counter = 1 -> LTK */
+    aes128_cmac(t, m, sizeof(m), mac);
+    smp_rev(mac, ltk_air, 16);
+}
+
+/* f6(W, N1, N2, R, IOcap, A1, A2) = AES-CMAC_W(N1||N2||R||IOcap||A1||A2).
+   W is the MacKey, N1/N2/R 16 octets, IOcap the 3-octet [AuthReq, OOB,
+   IOCap] of the side being checked, A1/A2 the 6-byte addresses with type
+   octets. R is all-zero for Just Works. Output air order. */
+static void smp_f6(const uint8_t w[16], const uint8_t n1[16], const uint8_t n2[16],
+        const uint8_t r[16], const uint8_t iocap[3],
+        uint8_t a1type, const uint8_t a1[6], uint8_t a2type, const uint8_t a2[6],
+        uint8_t out_air[16]) {
+    uint8_t m[65];
+    uint8_t key[16];
+    uint8_t mac[16];
+
+    smp_rev(n1, m, 16);
+    smp_rev(n2, m + 16, 16);
+    smp_rev(r, m + 32, 16);
+    m[48] = iocap[0]; /* AuthReq  (most significant octet of IOcap) */
+    m[49] = iocap[1]; /* OOB flag */
+    m[50] = iocap[2]; /* IO capability */
+    m[51] = (uint8_t)(a1type & 0x01);
+    smp_rev(a1, m + 52, 6);
+    m[58] = (uint8_t)(a2type & 0x01);
+    smp_rev(a2, m + 59, 6);
+    smp_rev(w, key, 16);
+    aes128_cmac(key, m, sizeof(m), mac);
+    smp_rev(mac, out_air, 16);
+}
+
 /* ---------- random ----------
    The controller's own generator (HCI_LE_Rand) is the good source; the
    xorshift below only covers a controller that refuses it, and is seeded
@@ -533,6 +723,79 @@ static void bt_le_resolving_note_bond(const bt_device_t* dev) {
     }
 }
 
+/* ---------- LE Secure Connections: controller-side ECDH ------------------ */
+
+static bool p256_done_pred(void* ctx) {
+    (void)ctx;
+    return _p256_done;
+}
+
+static bool dhkey_done_pred(void* ctx) {
+    (void)ctx;
+    return _dhkey_done;
+}
+
+/* LE Read Local P-256 Public Key Complete sub-event: [status, key(64)].
+   The public key is Qx || Qy, each 32 octets little-endian, exactly the
+   order the Pairing Public Key PDU and HCI_LE_Generate_DHKey expect. */
+static void bt_le_handle_local_p256(const uint8_t* p, size_t len) {
+    if (len >= 65 && p[0] == 0) {
+        memcpy(_local_p256, p + 1, 64);
+        _local_p256_valid = true;
+    }
+    else {
+        _local_p256_valid = false;
+    }
+    _p256_done = true;
+}
+
+/* LE Generate DHKey Complete sub-event: [status, dhkey(32)] */
+static void bt_le_handle_dhkey(const uint8_t* p, size_t len) {
+    if (len >= 33 && p[0] == 0) {
+        memcpy(_dhkey, p + 1, 32);
+        _dhkey_valid = true;
+    }
+    else {
+        _dhkey_valid = false;
+    }
+    _dhkey_done = true;
+}
+
+/* Read and cache the controller's local P-256 public key. Success is the
+   proof that this controller implements LE Secure Connections; on failure
+   _local_p256_valid stays false and the SMP layer never offers the SC bit,
+   so every existing legacy-only peripheral keeps working unchanged. */
+static int bt_le_read_local_p256(void) {
+    _p256_done = false;
+    _local_p256_valid = false;
+    if (bt_hci_command_sync(HCI_OGF_LE, HCI_OCF_LE_READ_LOCAL_P256, NULL, 0,
+            1000) != 0) {
+        return -1;
+    }
+    if (!bt_poll_until(p256_done_pred, NULL, 2000) || !_local_p256_valid) {
+        slog("bluetooth le_local_p256_failed\n");
+        return -1;
+    }
+    return 0;
+}
+
+/* ECDH: hand the controller the peer's 64-byte public key and wait for the
+   32-byte shared secret. Blocking, but a bring-up only ever pairs one peer
+   (the spec forbids concurrent Generate_DHKey anyway). */
+static int bt_le_generate_dhkey(const uint8_t peer_pub[64]) {
+    _dhkey_done = false;
+    _dhkey_valid = false;
+    if (bt_hci_command_sync(HCI_OGF_LE, HCI_OCF_LE_GENERATE_DHKEY, peer_pub, 64,
+            1000) != 0) {
+        return -1;
+    }
+    if (!bt_poll_until(dhkey_done_pred, NULL, 5000) || !_dhkey_valid) {
+        slog("bluetooth le_dhkey_failed\n");
+        return -1;
+    }
+    return 0;
+}
+
 int bt_le_controller_init(void) {
     uint8_t le_mask[8];
     uint8_t buf_ret[8];
@@ -574,6 +837,11 @@ int bt_le_controller_init(void) {
 
     _le_supported = true;
     bt_le_provision_own_addr();
+    /* Cache the controller's local P-256 public key. If it comes back we
+       support LE Secure Connections and the SMP layer offers the SC bit,
+       which is what an Xbox pad (and any SC-only peripheral) requires to
+       bond; a controller without it just leaves SC off and stays legacy. */
+    (void)bt_le_read_local_p256();
     /* rebuild the resolving list from the bonds loaded at mount and turn on
        address resolution before any scan, so a peer that rotates a
        resolvable private address is reported by its stable identity address
@@ -870,7 +1138,10 @@ static bt_device_t* bt_find_le_bonded_by_name(const char* name,
    CoD major class, so an LE HID peripheral would otherwise read "Unknown".
    Synthesize a Peripheral-major (0x05) CoD with the keyboard/pointing minor
    bits once we know what the device actually is. */
-static uint32_t bt_le_synth_cod(bool is_mouse, bool is_kbd) {
+static uint32_t bt_le_synth_cod(bool is_mouse, bool is_kbd, bool is_gamepad) {
+    if (is_gamepad) {
+        return 0x002508; /* peripheral: gamepad */
+    }
     if (is_mouse && is_kbd) {
         return 0x0025C0; /* peripheral: keyboard + pointing combo */
     }
@@ -922,7 +1193,7 @@ static void bt_le_admit_adv(const uint8_t* addr, uint8_t addr_type,
         if (dev->class_of_device == 0 &&
                 (appearance >> 6) == AD_APPEARANCE_CATEGORY_HID) {
             uint8_t sub = (uint8_t)(appearance & 0x3f);
-            dev->class_of_device = bt_le_synth_cod(sub == 2, sub == 1);
+            dev->class_of_device = bt_le_synth_cod(sub == 2, sub == 1, false);
         }
     }
     if (adv_hid) {
@@ -1253,6 +1524,12 @@ void bt_handle_le_meta(const uint8_t* payload, size_t len) {
     case LE_EVT_LTK_REQUEST:
         bt_le_handle_ltk_request(payload + 1, len - 1);
         break;
+    case LE_EVT_READ_LOCAL_P256:
+        bt_le_handle_local_p256(payload + 1, len - 1);
+        break;
+    case LE_EVT_GENERATE_DHKEY:
+        bt_le_handle_dhkey(payload + 1, len - 1);
+        break;
     /* remote feature reads and periodic-advertising reports are not part
        of the bring-up; the extended advertising report (0x0d) is handled
        above whenever the controller accepted extended scanning */
@@ -1418,6 +1695,39 @@ static void bt_le_handle_notify(int si, uint16_t value_handle,
         return;
     }
     if (a->uuid == GATT_CHR_REPORT) {
+        /* A LE gamepad's Report characteristic carries the descriptor-driven
+           joystick layout. HOGP omits the Report ID octet from the value (it
+           lives in the Report Reference descriptor) while the parser's bit
+           offsets include it, so rebuild [id || body] before normalizing -
+           exactly like the mouse path below. The normalized js_evt_t is
+           forwarded under the reserved 0x05 tag that hid_joystickd's BT mode
+           passes straight through. */
+        if (h->is_gamepad && h->joystick_ok &&
+                (!a->has_report_ref || h->joystick_report_id == 0 ||
+                 a->report_id == h->joystick_report_id)) {
+            uint8_t jbuf[65];
+            const uint8_t* jp = value;
+            int jlen = (int)len;
+            js_evt_t je;
+            uint8_t frame[1 + sizeof(js_evt_t)];
+
+            if (h->joystick.has_report_id &&
+                    jlen == h->joystick.report_bytes - 1 &&
+                    jlen + 1 <= (int)sizeof(jbuf)) {
+                jbuf[0] = h->joystick.report_id;
+                memcpy(jbuf + 1, value, (size_t)jlen);
+                jp = jbuf;
+                jlen += 1;
+            }
+            if (joystick_normalize_report(&h->joystick, jp, jlen, &je) == 0) {
+                frame[0] = 0x05; /* normalized js_evt_t follows */
+                memcpy(frame + 1, &je, sizeof(js_evt_t));
+                bt_hid_dispatch_joystick(frame, sizeof(frame));
+                return;
+            }
+            /* normalize bailed: fall through to the heuristics below */
+        }
+
         /* Classify the Report characteristic by the Report Map's own
            collection IDs, exactly like usbhostd routes a composite device:
            a keyboard body shorter than 8 octets (the WiWU sends 6) is
@@ -2012,6 +2322,16 @@ static bool smp_random_pred(void* ctx) {
     return _smp.got_srand || _smp.failed;
 }
 
+static bool smp_peer_pub_pred(void* ctx) {
+    (void)ctx;
+    return _smp.got_peer_pub || _smp.failed;
+}
+
+static bool smp_dhkey_check_pred(void* ctx) {
+    (void)ctx;
+    return _smp.got_dhkey_check || _smp.failed;
+}
+
 static bool smp_keys_pred(void* ctx) {
     (void)ctx;
     return (_smp.got_peer_ltk && _smp.got_peer_ident) || _smp.failed;
@@ -2030,12 +2350,14 @@ static bool smp_security_request_pred(void* ctx) {
 }
 
 /* Pairing Request from the central. NoInputNoOutput with the MITM bit
-   clear is what makes Just Works the negotiated method, and clearing the
-   SC bit keeps a Secure-Connections-capable peripheral on the legacy flow
-   implemented here. RespKeyDist asks for the LTK (reconnection re-encrypts
-   with it) and the IRK + identity address (the resolving list uses them to
-   collapse a rotating private address to one stable identity). We still
-   distribute nothing ourselves, which would risk a 30s SMP timeout. */
+   clear makes Just Works the negotiated association model. When the
+   controller gave us a local P-256 public key we also offer the SC bit: a
+   Secure-Connections-capable peer (an Xbox pad mandates it) then answers
+   with SC set and smp_run takes the LESC path, while a legacy-only peer
+   clears SC and falls back to the c1/s1 flow. RespKeyDist asks for the LTK
+   (reconnection re-encrypts with it) and the IRK + identity address (the
+   resolving list uses them to collapse a rotating private address to one
+   stable identity). We still distribute nothing ourselves. */
 static int smp_start_pairing(uint16_t handle) {
     uint8_t pdu[7];
 
@@ -2043,6 +2365,10 @@ static int smp_start_pairing(uint16_t handle) {
     pdu[1] = SMP_IO_NO_INPUT_NO_OUTPUT;
     pdu[2] = 0x00; /* OOB data not available */
     pdu[3] = SMP_AUTHREQ_BONDING;
+    _smp.sc_local = _local_p256_valid;
+    if (_smp.sc_local) {
+        pdu[3] |= SMP_AUTHREQ_SC;
+    }
     pdu[4] = 0x10; /* maximum encryption key size */
     pdu[5] = 0x00; /* initiator key distribution: none */
     pdu[6] = SMP_DIST_ENCKEY | SMP_DIST_IDKEY;
@@ -2084,6 +2410,18 @@ static void smp_handle_rx(uint16_t handle, const uint8_t* pdu, size_t len) {
             _smp.got_srand = true;
         }
         break;
+    case SMP_CMD_PAIRING_PUBLIC_KEY:
+        if (len >= 65 && !_smp.got_peer_pub) {
+            memcpy(_smp.peer_pub, pdu + 1, 64);
+            _smp.got_peer_pub = true;
+        }
+        break;
+    case SMP_CMD_PAIRING_DHKEY_CHECK:
+        if (len >= 17 && !_smp.got_dhkey_check) {
+            memcpy(_smp.peer_dhkey_check, pdu + 1, 16);
+            _smp.got_dhkey_check = true;
+        }
+        break;
     case SMP_CMD_PAIRING_FAILED:
         _smp.failed = true;
         _smp.fail_reason = len >= 2 ? pdu[1] : 0;
@@ -2091,6 +2429,8 @@ static void smp_handle_rx(uint16_t handle, const uint8_t* pdu, size_t len) {
         _smp.got_pres = true;
         _smp.got_sconfirm = true;
         _smp.got_srand = true;
+        _smp.got_peer_pub = true;
+        _smp.got_dhkey_check = true;
         slog("bluetooth smp_failed reason=0x%02x\n", _smp.fail_reason);
         break;
     case SMP_CMD_ENCRYPTION_INFO:
@@ -2155,6 +2495,187 @@ static int smp_start_encryption(uint16_t handle, const uint8_t* ltk,
             params, sizeof(params), 2000);
 }
 
+/* Phase 3 key collection, shared by the legacy and LESC runs. On the legacy
+   path the peripheral also distributes its LTK (take_peer_ltk); under LE
+   Secure Connections the LTK is the f5 output and is never sent over SMP, so
+   only the IRK + identity address are collected. Rekeying the stored bond
+   onto the identity address is what keeps one rotating private address from
+   turning into one bt.json entry per rotation. */
+static void smp_collect_keys(bt_device_t* dev, bool take_peer_ltk) {
+    if (take_peer_ltk && (_smp.pres[6] & SMP_DIST_ENCKEY) != 0 && dev != NULL &&
+            bt_poll_until(smp_keys_pred, NULL, 3000) &&
+            _smp.got_peer_ltk && _smp.got_peer_ident) {
+        memcpy(dev->ltk, _smp.peer_ltk, 16);
+        dev->ediv = _smp.peer_ediv;
+        memcpy(dev->ltk_rand, _smp.peer_rand, 8);
+        dev->has_ltk = true;
+    }
+
+    /* The peer's IRK + identity address (when it honoured the IdKey request)
+       let the controller's resolving list turn its rotating private address
+       back into one stable identity. */
+    if ((_smp.pres[6] & SMP_DIST_IDKEY) != 0 && dev != NULL) {
+        (void)bt_poll_until(smp_ident_pred, NULL, 2000);
+    }
+    if (dev != NULL && _smp.got_peer_irk && _smp.got_peer_id_addr) {
+        memcpy(dev->irk, _smp.peer_irk, 16);
+        dev->has_irk = true;
+        memcpy(dev->id_addr, _smp.peer_id_addr, 6);
+        dev->id_addr_type = _smp.peer_id_addr_type;
+        dev->has_id_addr = true;
+        memcpy(dev->addr, dev->id_addr, 6);
+        dev->addr_type = dev->id_addr_type;
+        memcpy(_le.addr, dev->id_addr, 6);
+        _le.addr_type = dev->id_addr_type;
+        bt_le_resolving_note_bond(dev);
+    }
+}
+
+/* LE Secure Connections pairing, Just Works association model. We are the
+   initiator (we sent the Pairing Request), so we drive the P-256 public-key
+   exchange, run the ECDH on the controller, check the confirm/random pair
+   and the DHKey Check round, and derive MacKey + LTK from f5. Called from
+   smp_run once the Pairing Response has arrived and both sides set SC.
+   Returns 0 on a valid bond. The argument order of every f4/f5/f6 call
+   mirrors the initiator branch of the reference SMP stack: A1 is always our
+   address and A2 the peer's, with the nonces Na=ours and Nb=peer. */
+static int smp_run_lesc(uint16_t handle, bt_device_t* dev,
+        const char* addr_str) {
+    uint8_t pdu[65];
+    uint8_t zero[16];
+    uint8_t iocap[3];
+    uint8_t cb_check[16];
+    uint8_t mackey[16];
+    uint8_t ltk[16];
+    uint8_t ea[16];
+    uint8_t eb_expected[16];
+
+    memset(zero, 0, sizeof(zero));
+
+    /* 1. Send our P-256 public key (Qx || Qy), the initiator goes first. */
+    pdu[0] = SMP_CMD_PAIRING_PUBLIC_KEY;
+    memcpy(pdu + 1, _local_p256, 64);
+    if (smp_send(handle, pdu, 65) != 0) {
+        return -1;
+    }
+
+    /* 2. Wait for the peer's public key, then let the controller do ECDH. */
+    if (!bt_poll_until(smp_peer_pub_pred, NULL, BT_LE_SMP_TIMEOUT_MS)) {
+        slog("bluetooth smp_no_public_key %s\n", addr_str);
+        return -1;
+    }
+    if (_smp.failed) {
+        return -1;
+    }
+    if (bt_le_generate_dhkey(_smp.peer_pub) != 0) {
+        slog("bluetooth smp_dhkey_failed %s\n", addr_str);
+        return -1;
+    }
+
+    /* 3. The responder answers with its Pairing Confirm (Cb) right after its
+          public key; we then send our Pairing Random (Na). */
+    if (!bt_poll_until(smp_confirm_pred, NULL, BT_LE_SMP_TIMEOUT_MS)) {
+        slog("bluetooth smp_no_confirm %s\n", addr_str);
+        return -1;
+    }
+    if (_smp.failed) {
+        return -1;
+    }
+    pdu[0] = SMP_CMD_PAIRING_RANDOM;
+    memcpy(pdu + 1, _smp.mrand, 16);
+    if (smp_send(handle, pdu, 17) != 0) {
+        return -1;
+    }
+
+    /* 4. The peer's Pairing Random (Nb). */
+    if (!bt_poll_until(smp_random_pred, NULL, BT_LE_SMP_TIMEOUT_MS)) {
+        slog("bluetooth smp_no_random %s\n", addr_str);
+        return -1;
+    }
+    if (_smp.failed) {
+        return -1;
+    }
+
+    /* 5. Cb = f4(PKbx, PKax, Nb, 0): PKb the responder (peer), PKa us; each
+          takes only the 32-byte x coordinate, which is the first half of the
+          64-byte public key. */
+    smp_f4(_smp.peer_pub, _local_p256, _smp.srand, 0, cb_check);
+    if (memcmp(cb_check, _smp.sconfirm, 16) != 0) {
+        uint8_t fail[2];
+
+        slog("bluetooth smp_confirm_mismatch %s\n", addr_str);
+        fail[0] = SMP_CMD_PAIRING_FAILED;
+        fail[1] = SMP_REASON_CONFIRM_VALUE_FAILED;
+        (void)smp_send(handle, fail, sizeof(fail));
+        return -1;
+    }
+
+    /* 6. MacKey || LTK = f5(DHKey, Na, Nb, A1=us, A2=peer). */
+    smp_f5(_dhkey, _smp.mrand, _smp.srand, _local_addr_type, _local_addr,
+            _le.addr_type, _le.addr, mackey, ltk);
+
+    /* 7. Ea = f6(MacKey, Na, Nb, R=0, IOcap(ours), A1=us, A2=peer); send it.
+          IOcap is the 3-octet [AuthReq, OOB, IOCap] of our Pairing Request. */
+    iocap[0] = _smp.preq[3];
+    iocap[1] = _smp.preq[2];
+    iocap[2] = _smp.preq[1];
+    smp_f6(mackey, _smp.mrand, _smp.srand, zero, iocap,
+            _local_addr_type, _local_addr, _le.addr_type, _le.addr, ea);
+    pdu[0] = SMP_CMD_PAIRING_DHKEY_CHECK;
+    memcpy(pdu + 1, ea, 16);
+    if (smp_send(handle, pdu, 17) != 0) {
+        return -1;
+    }
+
+    /* 8. The peer's DHKey Check (Eb). */
+    if (!bt_poll_until(smp_dhkey_check_pred, NULL, BT_LE_SMP_TIMEOUT_MS)) {
+        slog("bluetooth smp_no_dhkey_check %s\n", addr_str);
+        return -1;
+    }
+    if (_smp.failed) {
+        return -1;
+    }
+
+    /* 9. Eb = f6(MacKey, Nb, Na, R=0, IOcap(peer), A1=peer, A2=us): the
+          responder swaps the nonces, its own IOcap and the two addresses. */
+    iocap[0] = _smp.pres[3];
+    iocap[1] = _smp.pres[2];
+    iocap[2] = _smp.pres[1];
+    smp_f6(mackey, _smp.srand, _smp.mrand, zero, iocap,
+            _le.addr_type, _le.addr, _local_addr_type, _local_addr, eb_expected);
+    if (memcmp(eb_expected, _smp.peer_dhkey_check, 16) != 0) {
+        uint8_t fail[2];
+
+        slog("bluetooth smp_dhkey_check_mismatch %s\n", addr_str);
+        fail[0] = SMP_CMD_PAIRING_FAILED;
+        fail[1] = SMP_REASON_DHKEY_CHECK_FAILED;
+        (void)smp_send(handle, fail, sizeof(fail));
+        return -1;
+    }
+
+    /* 10. The f5 LTK encrypts the link; EDIV and Rand stay zero for a fresh
+           LESC bond (Vol 3 Part H 2.4.4.1). */
+    memcpy(_smp.ltk, ltk, 16);
+    if (dev != NULL) {
+        memcpy(dev->ltk, ltk, 16);
+        dev->ediv = 0;
+        memset(dev->ltk_rand, 0, 8);
+        dev->has_ltk = true;
+    }
+    if (smp_start_encryption(handle, ltk, 0, NULL) != 0) {
+        slog("bluetooth smp_start_encryption_failed %s\n", addr_str);
+        return -1;
+    }
+    if (!bt_poll_until(le_encrypted_pred, NULL, 5000) || !_le.encrypted) {
+        slog("bluetooth smp_no_encryption %s\n", addr_str);
+        return -1;
+    }
+
+    /* 11. Phase 3: the peer may still distribute its IRK + identity address. */
+    smp_collect_keys(dev, false);
+    return 0;
+}
+
 /* Legacy pairing with Just Works: TK is all zeroes, each confirm value is
    c1 over one side's random, and the key that encrypts the link is
    s1(randoms). The whole exchange runs as a bounded blocking sequence,
@@ -2184,6 +2705,16 @@ static int smp_run(uint16_t handle, bt_device_t* dev) {
     }
     if (_smp.failed) {
         return -1;
+    }
+
+    /* Both sides advertised LE Secure Connections: take the LESC path. A
+       Secure-Connections-only peer (an Xbox pad mandates it) never treats a
+       legacy Just Works bond as valid, so the legacy flow leaves it stuck in
+       pairing mode streaming no input. When the peer cleared SC we fall
+       through to the c1/s1 flow below unchanged. */
+    if ((_smp.preq[3] & SMP_AUTHREQ_SC) != 0 &&
+            (_smp.pres[3] & SMP_AUTHREQ_SC) != 0) {
+        return smp_run_lesc(handle, dev, addr_str);
     }
 
     smp_c1(tk, _smp.mrand, _smp.preq, _smp.pres, _local_addr_type,
@@ -2238,39 +2769,9 @@ static int smp_run(uint16_t handle, bt_device_t* dev) {
         return -1;
     }
 
-    /* the peripheral distributes its LTK when it set the EncKey bit, and
-       that is what turns the next power-on into a re-encryption instead
-       of a full pairing round */
-    if ((_smp.pres[6] & SMP_DIST_ENCKEY) != 0 && dev != NULL &&
-            bt_poll_until(smp_keys_pred, NULL, 3000) &&
-            _smp.got_peer_ltk && _smp.got_peer_ident) {
-        memcpy(dev->ltk, _smp.peer_ltk, 16);
-        dev->ediv = _smp.peer_ediv;
-        memcpy(dev->ltk_rand, _smp.peer_rand, 8);
-        dev->has_ltk = true;
-    }
-
-    /* The peer's IRK + identity address (when it honoured the IdKey request)
-       let the controller's resolving list turn its rotating private address
-       back into one stable identity. Rekey this entry and the link onto the
-       identity address so the bond is stored under the address every future
-       resolved connection reports - that is what stops the device list (and
-       bt.json) accumulating one entry per address rotation. */
-    if ((_smp.pres[6] & SMP_DIST_IDKEY) != 0 && dev != NULL) {
-        (void)bt_poll_until(smp_ident_pred, NULL, 2000);
-    }
-    if (dev != NULL && _smp.got_peer_irk && _smp.got_peer_id_addr) {
-        memcpy(dev->irk, _smp.peer_irk, 16);
-        dev->has_irk = true;
-        memcpy(dev->id_addr, _smp.peer_id_addr, 6);
-        dev->id_addr_type = _smp.peer_id_addr_type;
-        dev->has_id_addr = true;
-        memcpy(dev->addr, dev->id_addr, 6);
-        dev->addr_type = dev->id_addr_type;
-        memcpy(_le.addr, dev->id_addr, 6);
-        _le.addr_type = dev->id_addr_type;
-        bt_le_resolving_note_bond(dev);
-    }
+    /* Phase 3: the peripheral distributes its LTK (re-encryption on the next
+       power-on) plus its IRK + identity address. */
+    smp_collect_keys(dev, true);
     return 0;
 }
 
@@ -2378,6 +2879,20 @@ static int hogp_bringup(uint16_t handle) {
        mouse by length alone, so the notify path routes on these IDs. */
     _hogp.kbd_report_id =
             hid_find_kbd_report_id(_hogp.report_map, (int)_hogp.report_map_len);
+    /* A LE gamepad (an Xbox/8BitDo pad) exposes a Generic Desktop Joystick or
+       Game Pad collection in its Report Map instead of a mouse or keyboard.
+       When it parses as one - and the map was not already claimed as a mouse
+       or keyboard - latch the descriptor-driven parser so the notify path can
+       normalize its Report characteristic into a js_evt_t for hid_joystickd,
+       exactly like usbhostd does for a USB pad. */
+    if (!_hogp.mouse_ok && _hogp.kbd_report_id == 0 &&
+            hid_probe_joystick_report(_hogp.report_map,
+                (int)_hogp.report_map_len, &_hogp.joystick)) {
+        _hogp.is_gamepad = true;
+        _hogp.joystick_ok = true;
+        _hogp.joystick_report_id = _hogp.joystick.report_id;
+        slog("bluetooth le_gamepad report_id=%u\n", _hogp.joystick_report_id);
+    }
     /* the Report Map is the authoritative classification for a connected LE
        HID peripheral (appearance is optional and often absent); give the
        device a Peripheral-class CoD so xbt's type column is not Unknown */
@@ -2385,7 +2900,7 @@ static int hogp_bringup(uint16_t handle) {
         bt_device_t* d = bt_find_device_by_handle(handle);
         if (d != NULL && d->class_of_device == 0) {
             d->class_of_device = bt_le_synth_cod(_hogp.mouse_ok,
-                    _hogp.kbd_report_id != 0);
+                    _hogp.kbd_report_id != 0, _hogp.is_gamepad);
         }
     }
     for (i = 0; i < _hogp.n_attrs; ++i) {
@@ -2751,11 +3266,51 @@ int bt_le_request(bt_device_t* dev, bool pair,
     return 0;
 }
 
+/* True while an LE bring-up owns the radio exclusively: bt_le_connect is
+   blocked in bt_poll_until on the daemon's main context, driving one session
+   through CONNECTING -> LINK_UP -> PAIRING -> ENCRYPTING -> DISCOVERING.
+   During that window no scan slice may be armed. xbt fires a "scan 10"
+   dev.cmd once a second; that handler runs on the kernel IPC interrupt and
+   preempts the blocked bring-up, and bt_scan_enter_le -> bt_le_slice_start
+   issues synchronous scan HCI (bt_le_[ext_]scan_params/enable all call
+   bt_hci_command_sync). Two failures follow: (1) the radio is toggled between
+   initiating and scanning, so the pending LE_Create_Connection is starved or
+   aborted -> le_connect_timeout (then a late status=0x02 from the
+   create-conn-cancel race) and the pad drops back to advertising (keeps
+   blinking); (2) bt_wait_for_opcode keeps a single global _wait_cmd slot, so
+   the nested command-sync memsets it and clobbers whichever synchronous
+   command the bring-up is itself waiting on. Refusing the scan during a
+   bring-up lets the connection establish; xbt retries next second and the
+   scan proceeds once the link is up or the attempt has failed. */
+static bool le_bringup_busy(void) {
+    int i;
+
+    for (i = 0; i < MAX_LE_SESSIONS; ++i) {
+        le_state_t s = _les[i].le.state;
+        if (s >= LE_ST_CONNECTING && s <= LE_ST_DISCOVERING) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /* One tick of LE work: failure retry deadlines, queued bring-ups, and the
    discovery slice alternation. Everything that may block for seconds lives
    here rather than in a command handler, which has to stay short enough
-   for a click in xbt to feel instant. */
-void bt_le_step(void) {
+   for a click in xbt to feel instant.
+
+   from_loop distinguishes the two callers. Only bt_loop (the daemon's main
+   context) may run a queued bring-up: a dev.cmd handler runs on the kernel's
+   IPC interrupt, and while it is inside that interrupt every OTHER client's
+   ipc_call to /dev/bt0 comes back IPC_ERROR_RETRY and parks until it unwinds
+   (kernel ipc.c proc_ipc_call). A bring-up blocks for tens of seconds (LESC
+   public-key/DHKey/confirm rounds plus HOGP discovery), so running it from a
+   handler -- bt_start_scan reaches here via the "scan" verb, which xbt fires
+   once a second -- freezes the whole xbt UI for its duration. bt_start_scan
+   therefore passes false: the scan slice still arms at once, but the queued
+   bring-up is left for the next bt_loop tick, exactly where a blocking wait
+   can be preempted by an incoming IPC. */
+void bt_le_step(bool from_loop) {
     uint64_t now = kernel_tic_ms(0);
     bool want_le;
     int i;
@@ -2773,7 +3328,7 @@ void bt_le_step(void) {
         }
     }
 
-    if (_le_req_active) {
+    if (from_loop && _le_req_active) {
         bt_device_t* dev = bt_find_device(_le_req_addr, false);
         bool was_autoconnect = _le_autoconnect;
         int saved = _le_cur;
@@ -2796,6 +3351,16 @@ void bt_le_step(void) {
                the next known device now that this one is up or failed */
             bt_autoconnect_known();
         }
+        return;
+    }
+
+    /* A bring-up already in flight owns the radio: never arm, flip or stop a
+       scan slice underneath it (see le_bringup_busy). This is the choke point
+       that actually issues scan HCI, so guarding here protects every caller -
+       in particular a re-entrant bt_le_step(false) from bt_start_scan running
+       on the "scan" IPC interrupt while bt_le_connect blocks on the main
+       context. */
+    if (le_bringup_busy()) {
         return;
     }
 
@@ -2875,6 +3440,14 @@ int bt_start_scan(int seconds) {
     if (!_ready) {
         return -1;
     }
+    /* Refuse outright while a bring-up owns the radio (see le_bringup_busy):
+       arming a scan here would issue synchronous scan HCI from this dev.cmd
+       handler that both aborts the pending LE_Create_Connection and clobbers
+       the bring-up's own _wait_cmd. xbt re-fires "scan" every second, so the
+       discovery simply resumes once the connection is up or has failed. */
+    if (le_bringup_busy()) {
+        return -1;
+    }
     if (seconds <= 0) {
         seconds = 10;
     }
@@ -2885,7 +3458,10 @@ int bt_start_scan(int seconds) {
     bt_scan_suspend();
     _scan_total_end_ms = kernel_tic_ms(0) + (uint64_t)seconds * 1000u;
     _scanning = true;
-    bt_le_step(); /* enter the first slice right away */
+    bt_le_step(false); /* enter the first slice right away; never run a
+                          queued bring-up from here -- this can be reached
+                          from the "scan" dev.cmd handler (interrupt ctx),
+                          where a blocking bring-up would freeze xbt */
 
     if (_scan_slice == BT_SCAN_SLICE_NONE && le_session_free() >= 0 &&
             !_le_req_active) {

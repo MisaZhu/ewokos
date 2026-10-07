@@ -24,13 +24,23 @@
 #define HID_REPORT_ID_JOYSTICK 4u
 
 /*
- * The joystick report id carries the RAW gamepad report prefix (not a
- * normalized event): btd/usbhostd forward the leading HID_JOYSTICK_RAW_SIZE
- * bytes of every gamepad report, zero-padded to that fixed size, and
- * hid_joystickd does the device-layout decoding (DualShock 4/5, Xbox GIP)
- * on its side -- exactly how hid_keybd owns the keyboard layout instead of
- * the transport. Fixed-size framing keeps the drain loop's per-event
- * stride deterministic, so btd MUST dispatch with len == HID_JOYSTICK_RAW_SIZE.
+ * The joystick report id carries a fixed HID_JOYSTICK_RAW_SIZE-stride frame,
+ * but its CONTENT depends on the transport, because only the host that
+ * fetched the report descriptor can decode a descriptor-driven layout:
+ *
+ *  - btd (Bluetooth) forwards the RAW gamepad report prefix, zero-padded to
+ *    the fixed stride; hid_joystickd owns the device-layout decoding by
+ *    leading report id (DualShock 4/5, Xbox GIP) -- exactly how hid_keybd
+ *    owns the keyboard layout instead of the transport.
+ *  - usbhostd (USB) has already run the descriptor-driven joystick parser
+ *    (libhid hid_report), so it forwards a NORMALIZED js_evt_t
+ *    (hid/hid_joystick.h) zero-padded to the same stride. A generic USB
+ *    gamepad has no fixed report id the daemon could key on, and the daemon
+ *    never sees the report descriptor, so the parse must happen host-side.
+ *
+ * hid_joystickd selects raw-decode vs pass-through by its mode (BT vs USB).
+ * Fixed-size framing keeps the drain loop's per-event stride deterministic,
+ * so both hosts MUST dispatch with len == HID_JOYSTICK_RAW_SIZE.
  */
 #define HID_JOYSTICK_RAW_SIZE 24
 
@@ -69,6 +79,12 @@
 #define HID_USAGE_TIP_SWITCH 0x42
 #define HID_USAGE_X 0x30
 #define HID_USAGE_Y 0x31
+#define HID_USAGE_Z 0x32
+#define HID_USAGE_RX 0x33
+#define HID_USAGE_RY 0x34
+#define HID_USAGE_RZ 0x35
+#define HID_USAGE_SLIDER 0x36
 #define HID_USAGE_WHEEL 0x38
+#define HID_USAGE_HAT_SWITCH 0x39
 
 #endif /* __HID_DEFS_H__ */

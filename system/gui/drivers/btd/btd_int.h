@@ -109,6 +109,11 @@
 #define HCI_OCF_LE_START_ENCRYPTION 0x0019
 #define HCI_OCF_LE_LTK_REQ_REPLY 0x001a
 #define HCI_OCF_LE_LTK_REQ_NEG_REPLY 0x001b
+/* LE Secure Connections: the controller does the P-256 ECDH. Read_Local_P256
+   and Generate_DHKey both answer with a Command Complete (status only) and
+   then deliver the result asynchronously via an LE Meta sub-event. */
+#define HCI_OCF_LE_READ_LOCAL_P256 0x0025
+#define HCI_OCF_LE_GENERATE_DHKEY 0x0026
 /* LE privacy (resolving list): hand the controller a peer's IRK + identity
    address once and it maps that peer's rotating private address back to the
    stable identity address in every advertising report and connection
@@ -166,6 +171,8 @@
 #define LE_EVT_CONN_UPDATE 0x03
 #define LE_EVT_LTK_REQUEST 0x05
 #define LE_EVT_REMOTE_FEATURES 0x04
+#define LE_EVT_READ_LOCAL_P256 0x08
+#define LE_EVT_GENERATE_DHKEY 0x09
 #define LE_EVT_ENHANCED_CONN_COMPLETE 0x0a
 #define LE_EVT_EXT_ADV_REPORT 0x0d
 
@@ -305,6 +312,10 @@
 #define SMP_CMD_IDENTITY_ADDR_INFO 0x09
 #define SMP_CMD_SIGNING_INFO 0x0a
 #define SMP_CMD_SECURITY_REQUEST 0x0b
+/* LE Secure Connections phase-2 PDUs (Vol 3 Part H 3.5) */
+#define SMP_CMD_PAIRING_PUBLIC_KEY 0x0c
+#define SMP_CMD_PAIRING_DHKEY_CHECK 0x0d
+#define SMP_CMD_PAIRING_KEYPRESS 0x0e
 
 #define SMP_IO_NO_INPUT_NO_OUTPUT 0x03
 
@@ -320,6 +331,7 @@
 #define SMP_REASON_PAIRING_NOT_SUPPORTED 0x05
 #define SMP_REASON_CMD_NOT_SUPPORTED 0x07
 #define SMP_REASON_UNSPECIFIED 0x08
+#define SMP_REASON_DHKEY_CHECK_FAILED 0x0b
 #define SMP_REASON_TIMEOUT 0x0c
 
 /* GAP AD structures inside an advertising / scan-response payload */
@@ -615,11 +627,12 @@ typedef struct {
     uint16_t err_handle;
 } att_client_t;
 
-/* LE Security Manager on the fixed CID 0x0006, legacy pairing with Just
-   Works (TK = 0). NoInputNoOutput on both sides is what makes Just Works
-   the negotiated method, and our AuthReq clears the SC bit so a
-   Secure-Connections-capable peripheral still falls back to the legacy
-   flow we implement. */
+/* LE Security Manager on the fixed CID 0x0006. NoInputNoOutput on both
+   sides makes Just Works the negotiated association model. The Pairing
+   Request advertises the SC bit whenever the controller handed us a local
+   P-256 public key, so a Secure-Connections-capable peripheral (an Xbox
+   pad mandates it) negotiates the LESC flow in smp_run_lesc; a peer that
+   clears SC in its response falls back to the legacy c1/s1 exchange. */
 typedef struct {
     bool active;
     uint8_t preq[7];
@@ -651,6 +664,12 @@ typedef struct {
        comes up; honour that instead of racing it with our own request */
     bool security_request_seen;
     uint8_t security_request_auth;
+    /* ---- LE Secure Connections (LESC) ---- */
+    bool sc_local;              /* our Pairing Request offered the SC bit */
+    uint8_t peer_pub[64];       /* peer P-256 public key, air order (Qx||Qy) */
+    bool got_peer_pub;
+    uint8_t peer_dhkey_check[16];
+    bool got_dhkey_check;
 } smp_state_t;
 
 /* one discovered characteristic of the HID Service */
@@ -686,6 +705,16 @@ typedef struct {
        length - so routing must key off this, exactly like usbhostd does. */
     uint8_t kbd_report_id;
     int n_subscribed;
+    /* A LE gamepad (an Xbox/8BitDo pad) exposes a Generic Desktop Joystick
+       or Game Pad collection in its Report Map rather than a mouse or
+       keyboard. Detect it here so the notify path routes its Report
+       characteristic to the joystick dispatch instead of the boot
+       keyboard/mouse length heuristic, and hand the parser to libhid's
+       descriptor-driven normalizer. */
+    bool is_gamepad;
+    joystick_parser_t joystick;
+    bool joystick_ok;
+    uint8_t joystick_report_id;
 } hogp_state_t;
 
 /* LE link, ATT/GATT client, SMP and HID-over-GATT state.
@@ -883,7 +912,7 @@ int bt_le_connect(bt_device_t* dev, bool pair, char* ret_text, size_t ret_text_s
 void bt_le_link_closed(uint16_t handle, uint8_t reason);
 void bt_le_l2cap_rx(uint16_t handle, uint16_t cid, const uint8_t* data, size_t len);
 int bt_le_request(bt_device_t* dev, bool pair, char* ret_text, size_t ret_text_sz);
-void bt_le_step(void);
+void bt_le_step(bool from_loop);
 int bt_start_scan(int seconds);
 int bt_stop_scan(void);
 
