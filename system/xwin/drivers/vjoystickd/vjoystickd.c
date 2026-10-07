@@ -177,25 +177,19 @@ static int vjoystick_read(vdevice_t* dev, int fd,
         memcpy(buf, _keys, ret);
         return ret;
     }
-    /* idle: serve exactly ONE empty snapshot after a full release so keyb.c
-       can emit the deferred RELEASE, then park the blocking reader */
-    if(_release) {
-        _release = false;
-        return 0;
-    }
-    return VFS_ERR_RETRY;
-}
-
-static uint32_t vjoy_check_poll_events(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, void* p) {
-    (void)dev;
-    (void)fd;
-    (void)from_pid;
-    (void)info;
-    (void)p;
-
-    if(_mouse_mode)
-        return (_minfo_index < _minfo_num || _release) ? VFS_EVT_RD : 0;
-    return (_rd > 0 || _release) ? VFS_EVT_RD : 0;
+    /* Idle MUST return an empty snapshot (0), never VFS_ERR_RETRY. This node
+       is shared by a mouse reader (xmouse, size==sizeof(mouse_evt_t)) and a
+       key reader (xim_none via keyb.c, size==KEYB_EVT_MAX), and in mouse mode
+       _rd is never populated. check_poll_events() cannot tell the two reader
+       types apart (poll carries no read size), so a RETRY here would let a
+       blocking key reader park while poll reports RD off the _minfo queue:
+       read()->RETRY + poll()->RD with no sleep between is a tight IPC livelock
+       that pegs a core, floods this server, and stalls xserverd startup so
+       xmouse/xim_vkey wait forever on /dev/x. Busy-poll (return 0) is the
+       original contract; keyb.c still emits exactly one RELEASE off the first
+       empty snapshot via its own state machine. (vkeybd, a key-ONLY device,
+       can safely use RETRY because its poll and read states always agree.) */
+    return 0;
 }
 
 
@@ -363,7 +357,6 @@ int main(int argc, char** argv) {
     strcpy(dev.desc, "vjoystick");
     dev.read = vjoystick_read;
     dev.loop_step = vjoy_loop;
-    dev.check_poll_events = vjoy_check_poll_events;
 
     device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444, false);
 

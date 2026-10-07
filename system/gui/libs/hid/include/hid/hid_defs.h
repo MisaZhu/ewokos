@@ -66,6 +66,7 @@
 
 /* HID usage pages and usages referenced by the report parsers */
 #define HID_USAGE_PAGE_GENERIC_DESKTOP 0x01
+#define HID_USAGE_PAGE_SIMULATION 0x02
 #define HID_USAGE_PAGE_BUTTON 0x09
 #define HID_USAGE_PAGE_DIGITIZER 0x0D
 #define HID_USAGE_POINTER 0x01
@@ -86,5 +87,10 @@
 #define HID_USAGE_SLIDER 0x36
 #define HID_USAGE_WHEEL 0x38
 #define HID_USAGE_HAT_SWITCH 0x39
+/* Simulation Controls page: Xbox pads declare the analog triggers here
+   (left trigger = Brake, right trigger = Accelerator) instead of as
+   Generic-Desktop sliders, so a gamepad parser must look for these too. */
+#define HID_USAGE_ACCELERATOR 0xC4
+#define HID_USAGE_BRAKE 0xC5
 
 #endif /* __HID_DEFS_H__ */

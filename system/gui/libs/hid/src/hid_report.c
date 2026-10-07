@@ -1125,6 +1125,27 @@ int hid_parse_joystick_report(const uint8_t* desc, int len, joystick_parser_t* o
                             }
                             break; /* whole run captured at once */
                         }
+                        if (usage_page == HID_USAGE_PAGE_SIMULATION &&
+                                (usage == HID_USAGE_BRAKE ||
+                                 usage == HID_USAGE_ACCELERATOR)) {
+                            /* Xbox pads expose the analog triggers as
+                               Simulation-page Brake (LT) and Accelerator (RT),
+                               each a separate 10-bit Input item, rather than
+                               as Generic-Desktop sliders. Capture them into
+                               the trigger slots or the pad decodes with
+                               LT/RT permanently 0. */
+                            int si = (usage == HID_USAGE_BRAKE) ? 0 : 1;
+                            if (!out->slider[si].present) {
+                                out->slider[si].present = true;
+                                out->slider[si].bit = bit;
+                                out->slider[si].size = (int)report_size;
+                                out->slider[si].logical_min = logical_min;
+                                out->slider[si].logical_max = logical_max;
+                                out->has_report_id = current_report_id != 0;
+                                out->report_id = current_report_id;
+                            }
+                            continue;
+                        }
                         if (usage_page != HID_USAGE_PAGE_GENERIC_DESKTOP) {
                             continue;
                         }

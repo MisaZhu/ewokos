@@ -83,6 +83,33 @@ static int x_close_focus(void) {
     return res;
 }
 
+/*
+ * Window-manager side effects (dev_cntl round-trips into xserverd) must NOT be
+ * fired from inside vkeyb_loop()'s ipc_disable() window. This is the exact
+ * hazard vjoystickd was hardened against: while /dev/vkeyb is disabled every
+ * client that issues an IPC gets IPC_ERROR_RETRY and parks until ipc_enable(),
+ * and dev_cntl("/dev/x") is a synchronous round-trip whose latency is bounded
+ * only by xserverd -- so holding the disable window across it makes the whole
+ * keyboard/joystick chain (vkeybd -> vjoystickd -> xmouse/xim) deaf for that
+ * full latency, indefinitely if xserverd is itself busy (e.g. during startup).
+ * The loop therefore only CLASSIFIES the chord here and defers the actual call.
+ */
+enum {
+    XACT_NONE = 0,
+    XACT_NEXT_FOCUS,
+    XACT_LAUNCHER,
+    XACT_CLOSE_FOCUS
+};
+
+static void x_action_fire(int act) {
+    switch(act) {
+    case XACT_NEXT_FOCUS:  x_next_focus();  break;
+    case XACT_LAUNCHER:    x_launcher();    break;
+    case XACT_CLOSE_FOCUS: x_close_focus(); break;
+    default: break;
+    }
+}
+
 static int ctrl_down(uint8_t* keys, uint8_t num) {
     for(int i=0; i<num; i++) {
         if(keys[i] == KEY_CTRL)
@@ -91,30 +118,30 @@ static int ctrl_down(uint8_t* keys, uint8_t num) {
     return -1;
 }
 
-static bool do_keyb_spec(uint8_t* keys, uint8_t num) {
+static bool do_keyb_spec(uint8_t* keys, uint8_t num, int* act) {
     int i = ctrl_down(keys, num);
     for(int j=0; j<num; j++) {
         uint8_t c = keys[j];
         if(i >= 0) {
             if(c == KEY_TAB) { //tab for focus
-                x_next_focus();
+                *act = XACT_NEXT_FOCUS;
                 return true;
             }
             else if(c == 'h') { //h for launcher 
-                x_launcher();
+                *act = XACT_LAUNCHER;
                 return true;
             }
             else if(c == 'e') { //e for close
-                x_close_focus();
+                *act = XACT_CLOSE_FOCUS;
                 return true;
             }
         }
         else if(c == JOYSTICK_L1) {
-            x_launcher();
+            *act = XACT_LAUNCHER;
             return true;
         }
         else if(c == KEY_END || c == KEY_HOME) {
-            x_close_focus();
+            *act = XACT_CLOSE_FOCUS;
             return true;
         }
     }
@@ -154,7 +181,7 @@ static uint32_t vkeyb_check_poll_events(vdevice_t* dev, int fd, int from_pid, fs
     return (_rd > 0 || _release) ? VFS_EVT_RD : 0;
 }
 
-static bool do_joys_spec(uint8_t* keys, uint8_t num, uint8_t* ret_key) {
+static bool do_joys_spec(uint8_t* keys, uint8_t num, uint8_t* ret_key, int* act) {
     int i = sel_down(keys, num);
     for(int j=0; j<num; j++) {
         uint8_t c = keys[j];
@@ -166,7 +193,7 @@ static bool do_joys_spec(uint8_t* keys, uint8_t num, uint8_t* ret_key) {
                 return true;
             }
             else if(c == JOYSTICK_X) { //X for next focus
-                x_next_focus();
+                *act = XACT_NEXT_FOCUS;
                 return true;
             }
             else if(c == JOYSTICK_B) { 
@@ -174,17 +201,17 @@ static bool do_joys_spec(uint8_t* keys, uint8_t num, uint8_t* ret_key) {
                 return true;
             }
             else if(c == KEY_HOME || c == JOYSTICK_START) { 
-                x_close_focus();
+                *act = XACT_CLOSE_FOCUS;
                 return true;
             }
         }
         else if(c == KEY_HOME) {
             //x_launcher();
-            x_close_focus();
+            *act = XACT_CLOSE_FOCUS;
             return true;
         }
         else if(c == KEY_END) {
-            x_close_focus();
+            *act = XACT_CLOSE_FOCUS;
             return true;
         }
     }
@@ -198,6 +225,18 @@ static int vkeyb_loop(vdevice_t* dev, void* p){
     uint64_t tik = kernel_tic_ms(0);
     uint32_t tm = 1000/_fps;
     uint8_t keys[KEY_NUM] = {0};
+
+    /*
+     * Deferred side effects, mirroring vjoystickd. Neither the xserverd chord
+     * action nor vfs_wakeup() (a synchronous round-trip into vfsd) may run
+     * inside the ipc_disable() window below: doing so holds /dev/vkeyb deaf for
+     * the full peer latency and stalls the vkeybd -> vjoystickd -> xmouse/xim
+     * chain. Both are recorded here and fired AFTER ipc_enable(). read(_keyb_fd)
+     * stays inside the window: _keyb_fd is O_NONBLOCK, so _read() breaks out on
+     * EAGAIN instead of parking, and it never touches a peer server.
+     */
+    int  deferred_act = XACT_NONE;
+    bool do_wakeup = false;
 
     ipc_disable();
 
@@ -221,13 +260,13 @@ static int vkeyb_loop(vdevice_t* dev, void* p){
 
     if(_release) {
         if(_keyb_type == 'k') {
-            if(do_keyb_spec(_keys, KEY_NUM)) {
+            if(do_keyb_spec(_keys, KEY_NUM, &deferred_act)) {
                 rd = 0;
             }
         }
         else if(_keyb_type == 'j') {
             uint8_t ret_key = 0;
-            if(do_joys_spec(_keys, KEY_NUM, &ret_key)) {
+            if(do_joys_spec(_keys, KEY_NUM, &ret_key, &deferred_act)) {
                 rd = 0;
                 if(ret_key > 0) {
                     rd = 1;
@@ -253,9 +292,16 @@ static int vkeyb_loop(vdevice_t* dev, void* p){
     _rd = rd;
 
     if(_rd > 0 || _release) {
-        vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
+        do_wakeup = true;
     }
     ipc_enable();
+
+    /* Fire the peer round-trips only now that IPC is re-enabled. The chord
+       action preserves its original ordering ahead of the reader wakeup. */
+    if(deferred_act != XACT_NONE)
+        x_action_fire(deferred_act);
+    if(do_wakeup)
+        vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
 
     uint32_t gap = (uint32_t)(kernel_tic_ms(0) - tik);
     if(gap < tm) {
