@@ -561,6 +561,11 @@ typedef struct {
     l2cap_chan_t* intr;
     bool boot_protocol_pending;
     bool boot_protocol_ok; /* SET_PROTOCOL(boot) handshake succeeded */
+    /* Class-of-Device says joystick/gamepad: reports are full-length
+       report-protocol frames that must NOT go through the boot
+       keyboard/mouse length heuristic, and SET_PROTOCOL(boot) is skipped
+       (boot protocol is only defined for keyboards and mice). */
+    bool is_gamepad;
     bool up;               /* both channels open: reports flow */
     uint64_t intr_wait_ms;  /* bounded wait for a peer-initiated interrupt channel */
 } bt_hid_chan_t;
@@ -854,9 +859,18 @@ void bt_hid_handle_report(const uint8_t* data, size_t len);
 void bt_hid_handle_ctrl(l2cap_chan_t* ch, const uint8_t* data, size_t len);
 void bt_hid_dispatch_mouse(const uint8_t* evt);
 void bt_hid_dispatch_keyboard(const uint8_t* evt);
+/* forward the raw gamepad report prefix under HID_REPORT_ID_JOYSTICK; len is
+   the report length, truncated/zero-padded to HID_JOYSTICK_RAW_SIZE */
+void bt_hid_dispatch_joystick(const uint8_t* raw, size_t len);
 void bt_hid_accept(l2cap_chan_t* ch);
 void bt_hid_start(uint16_t handle, const uint8_t* addr);
 void bt_hid_stack_reset(void);
+
+/* btd_classic.c */
+/* CoD major 0x05 (Peripheral) whose minor marks a joystick/gamepad, as
+   opposed to a keyboard/pointing device. DualShock 4/DualSense report a
+   gamepad CoD (0x002508); many Xbox-layout pads report joystick (0x002504). */
+bool bt_cod_is_gamepad(uint32_t cod);
 
 /* btd_le.c */
 int le_session_free(void);

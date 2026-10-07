@@ -21,6 +21,7 @@ typedef enum {
     HID_INPUT_KEYBOARD,
     HID_INPUT_MOUSE,
     HID_INPUT_TOUCH,
+    HID_INPUT_JOYSTICK,
     HID_INPUT_COMPOSITE, /* one interrupt source carrying kbd+mouse via report IDs */
 } hid_input_type_t;
 

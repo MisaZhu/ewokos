@@ -38,6 +38,8 @@ const char* hid_input_type_name(hid_input_type_t type) {
         return "mouse";
     case HID_INPUT_TOUCH:
         return "touch";
+    case HID_INPUT_JOYSTICK:
+        return "joystick";
     case HID_INPUT_COMPOSITE:
         return "composite";
     default:

@@ -21,8 +21,11 @@ void bt_hid_check_up(void) {
     }
     _hid.up = true;
     /* HID setup is complete only after BOTH L2CAP channels are configured.
-       Sending SET_PROTOCOL on control alone races the peer's interrupt setup. */
-    {
+       Sending SET_PROTOCOL on control alone races the peer's interrupt setup.
+       A gamepad has no boot protocol (it is defined only for keyboards and
+       mice) and always reports in report protocol, so skip the request and
+       let its full frames flow straight to bt_hid_handle_report. */
+    if (!_hid.is_gamepad) {
         uint8_t hidp = HIDP_TRANS_SET_PROTOCOL | HIDP_PROTOCOL_BOOT;
         _hid.boot_protocol_ok = false;
         _hid.boot_protocol_pending = l2cap_send_pdu(_hid.acl_handle,
@@ -141,6 +144,29 @@ static void bt_hid_dispatch_mouse_rel(uint8_t btn, int32_t dx, int32_t dy,
    off by one, which is exactly a touchpad that "moves wrong". */
 void bt_hid_handle_report(const uint8_t* data, size_t len) {
     uint8_t evt[HID_MAX_EVENT_SIZE];
+
+    if (len < 1) {
+        return;
+    }
+    /*
+     * Gamepad: a CoD-flagged pad, or a full report-protocol frame matching a
+     * known PlayStation input report even when the pad reconnected with a
+     * zero CoD (bond store): the expanded Bluetooth reports (0x11 DualShock
+     * 4, 0x31 DualSense) are far longer than a boot frame, and the default
+     * truncated report is exactly 10 bytes with Report ID 0x01. Without this
+     * guard the >=8 length heuristic below would misread the stick bytes as
+     * keycodes. Forward the raw prefix to the joystick subscribers and let
+     * hid_joystickd decode the device-specific layout. The match latches
+     * is_gamepad so every later frame routes correctly.
+     */
+    if (_hid.is_gamepad ||
+            (len > HID_KEYBOARD_REPORT_SIZE &&
+             (data[0] == 0x11 || data[0] == 0x31)) ||
+            (len == 10 && data[0] == 0x01)) {
+        _hid.is_gamepad = true;
+        bt_hid_dispatch_joystick(data, len);
+        return;
+    }
 
     if (len >= HID_KEYBOARD_REPORT_SIZE) {
         memset(evt, 0, sizeof(evt));
@@ -267,6 +293,24 @@ void bt_hid_dispatch_keyboard(const uint8_t* evt) {
     }
 }
 
+/* Forward the raw gamepad report to the joystick subscribers. The prefix is
+   truncated/zero-padded to the fixed HID_JOYSTICK_RAW_SIZE so every queued
+   event has an identical stride and hid_joystickd can frame its drain loop;
+   all the input fields of the DualShock 4/5 and Xbox GIP reports live inside
+   that window. */
+void bt_hid_dispatch_joystick(const uint8_t* raw, size_t len) {
+    uint8_t evt[HID_JOYSTICK_RAW_SIZE];
+
+    memset(evt, 0, sizeof(evt));
+    if (len > sizeof(evt)) {
+        len = sizeof(evt);
+    }
+    memcpy(evt, raw, len);
+    if (hid_dispatch_evt(HID_REPORT_ID_JOYSTICK, evt, HID_JOYSTICK_RAW_SIZE)) {
+        _sub_reassert_ms = kernel_tic_ms(0) + BT_HID_REASSERT_MS;
+    }
+}
+
 static void bt_hid_session_init(uint16_t handle, const uint8_t* addr) {
     if (handle == 0) {
         return;
@@ -291,6 +335,13 @@ static void bt_hid_session_init(uint16_t handle, const uint8_t* addr) {
         bt_device_t* d = bt_find_device_by_handle(handle);
         if (d != NULL && d->class_of_device == 0) {
             d->class_of_device = 0x002500;
+        }
+        /* A joystick/gamepad CoD marks a full report-protocol pad: flag the
+           session so bt_hid_handle_report forwards its raw frames to the
+           joystick subscribers instead of the boot keyboard/mouse heuristic,
+           and bt_hid_check_up skips the boot-protocol SET_PROTOCOL. */
+        if (d != NULL) {
+            _hid.is_gamepad = bt_cod_is_gamepad(d->class_of_device);
         }
     }
 }

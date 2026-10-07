@@ -1,7 +1,7 @@
 all: drivers
 	@echo "all done."
 
-DIRS = fontd displaymand consoled g2dd usbhostd usbfat32fsd btd hid_keybd hid_moused hid_touchd
+DIRS = fontd displaymand consoled g2dd usbhostd usbfat32fsd btd hid_keybd hid_moused hid_touchd hid_joystickd
 drivers: $(DIRS)
 
 $(DIRS):

@@ -21,9 +21,23 @@
 #define HID_REPORT_ID_MOUSE 1u
 #define HID_REPORT_ID_KEYBOARD 2u
 #define HID_REPORT_ID_TOUCH 3u
+#define HID_REPORT_ID_JOYSTICK 4u
+
+/*
+ * The joystick report id carries the RAW gamepad report prefix (not a
+ * normalized event): btd/usbhostd forward the leading HID_JOYSTICK_RAW_SIZE
+ * bytes of every gamepad report, zero-padded to that fixed size, and
+ * hid_joystickd does the device-layout decoding (DualShock 4/5, Xbox GIP)
+ * on its side -- exactly how hid_keybd owns the keyboard layout instead of
+ * the transport. Fixed-size framing keeps the drain loop's per-event
+ * stride deterministic, so btd MUST dispatch with len == HID_JOYSTICK_RAW_SIZE.
+ */
+#define HID_JOYSTICK_RAW_SIZE 24
 
 #define HID_QUEUE_DEPTH 32
-#define HID_MAX_EVENT_SIZE 8
+/* wide enough for a raw gamepad report prefix; keyboard/mouse events still
+   carry their own smaller sizes, so their framing is unaffected */
+#define HID_MAX_EVENT_SIZE HID_JOYSTICK_RAW_SIZE
 #define HID_POINTER_EVENT_SIZE 7
 #define HID_KEYBOARD_EVENT_SIZE 8
 #define HID_MAX_REPORT 64

@@ -220,10 +220,21 @@ void bt_handle_remote_name_complete(const uint8_t* payload, size_t len) {
     bt_emit("name %s status=%u value=%s\n", addr, payload[0], dev->name[0] ? dev->name : "-");
 }
 
-/* CoD major class 0x05 (Peripheral) with any minor bits: a mouse, keyboard
-   or other HID device. Used to decide the classic security-then-HID flow. */
+/* CoD major class 0x05 (Peripheral) with the keyboard/pointing minor bits:
+   a mouse, keyboard or combo. Used to decide the classic security-then-HID
+   flow. */
 static bool bt_cod_is_hid_peripheral(uint32_t cod) {
     return ((cod >> 8) & 0x1f) == 0x05 && (cod & 0xc0) != 0;
+}
+
+/* CoD major class 0x05 (Peripheral) with the joystick (minor bit 2) or
+   gamepad (minor bit 3) marker. Real values: joystick 0x002504, gamepad
+   0x002508 (what a DualShock 4 / DualSense reports). These carry HID over
+   the same control+interrupt L2CAP channels as a keyboard/mouse and also
+   need the link secured before reports flow, so they are admitted into the
+   same security-then-HID path. */
+bool bt_cod_is_gamepad(uint32_t cod) {
+    return ((cod >> 8) & 0x1f) == 0x05 && (cod & 0x0c) != 0;
 }
 
 /* When HOGP is already streaming, the only case where classic HIDP must be
@@ -270,10 +281,11 @@ void bt_handle_connection_complete(const uint8_t* payload, size_t len) {
         dev->handle = handle;
         bt_known_touch_from_device(dev);
         bt_emit("connect_ok %s handle=0x%04X\n", addr, handle);
-        if (bt_cod_is_hid_peripheral(dev->class_of_device) &&
+        if ((bt_cod_is_hid_peripheral(dev->class_of_device) ||
+                bt_cod_is_gamepad(dev->class_of_device)) &&
                 !bt_hogp_blocks_classic(dev)) {
-            /* A classic HID peripheral (mouse/keyboard) will not send input
-               reports over a plain link: secure it first. Authenticate now,
+            /* A classic HID peripheral (mouse/keyboard/gamepad) will not send
+               input reports over a plain link: secure it first. Authenticate now,
                request encryption from the auth-complete handler, and only bring
                the L2CAP HID channels up from the encryption-change event.
                Opening them here - on the still-unauthenticated link - is what
