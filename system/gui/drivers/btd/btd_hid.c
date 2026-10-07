@@ -94,6 +94,40 @@ void bt_hid_step(void) {
    3 roughly matches a normal mouse; raise for faster, lower for finer. */
 #define BT_TOUCHPAD_GAIN 3
 
+/* Fan a relative pointer report whose scaled deltas may be wider than the
+   single signed byte the 7-byte pointer event carries. Clamping to that byte
+   (what a plain bt_hid_dispatch_mouse does) silently drops the excess, so a
+   large high-resolution touchpad moves the cursor LESS than the finger every
+   report and feels both slow and laggy. Emit the full delta as a short run of
+   <=127 events instead; hid_moused coalesces consecutive moves inside its
+   flush window, so the run collapses back to one cursor displacement equal to
+   the full delta. The run length is bounded to stay well clear of the 32-deep
+   subscriber queue even for a maximum-magnitude report. */
+#define BT_MOUSE_MAX_SPLIT 8
+static void bt_hid_dispatch_mouse_rel(uint8_t btn, int32_t dx, int32_t dy,
+        int8_t wheel) {
+    int n = 0;
+
+    while (n < BT_MOUSE_MAX_SPLIT) {
+        int32_t cx = dx > 127 ? 127 : (dx < -127 ? -127 : dx);
+        int32_t cy = dy > 127 ? 127 : (dy < -127 ? -127 : dy);
+        uint8_t evt[HID_MAX_EVENT_SIZE];
+
+        memset(evt, 0, sizeof(evt));
+        evt[0] = btn;
+        evt[1] = (uint8_t)cx;
+        evt[2] = (uint8_t)cy;
+        evt[3] = (uint8_t)(n == 0 ? wheel : 0);
+        bt_hid_dispatch_mouse(evt);
+        dx -= cx;
+        dy -= cy;
+        n++;
+        if (dx == 0 && dy == 0) {
+            break;
+        }
+    }
+}
+
 /* Route one report from the classic interrupt channel.
 
    A boot-protocol report is self-identifying by length: a keyboard always
@@ -124,8 +158,6 @@ void bt_hid_handle_report(const uint8_t* data, size_t len) {
        Y's top 8 bits (Y>>4), which is why Y crawled. A plain report-protocol
        mouse is [id][btn][dx][dy][wheel] (len 5), both axes int8 relatives. */
     if (len >= 5) {
-        memset(evt, 0, sizeof(evt));
-        evt[0] = data[1]; /* buttons (data[0] is the Report ID) */
         if (len >= 7) {
             int32_t x = (int32_t)((((uint32_t)data[3] & 0x0f) << 8) | data[2]);
             int32_t y = (int32_t)((((uint32_t)data[4]) << 4) |
@@ -138,33 +170,26 @@ void bt_hid_handle_report(const uint8_t* data, size_t len) {
             }
             /* A touchpad's finger resolution is far coarser than a mouse's DPI:
                its raw 12-bit deltas (only a few tens per report) drive the
-               cursor too slowly when passed 1:1. Scale both axes by a fixed
-               gain; the int8 payload clamp below caps the resulting top
-               speed. Raise/lower BT_TOUCHPAD_GAIN to taste. */
+               cursor too slowly when passed 1:1, so scale both axes by a fixed
+               gain. On a LARGE touchpad the scaled delta of an ordinary swipe
+               routinely exceeds the single signed byte the pointer event
+               carries; clamping it here (the old behaviour) threw away the
+               excess every report, so the cursor travelled less than the finger
+               and the pad felt slow and laggy. bt_hid_dispatch_mouse_rel emits
+               the whole distance as a short run of <=127 events that hid_moused
+               coalesces back into one move. Raise/lower the gain to taste. */
             x *= BT_TOUCHPAD_GAIN;
             y *= BT_TOUCHPAD_GAIN;
-            if (x > 127) {
-                x = 127;
-            }
-            else if (x < -127) {
-                x = -127;
-            }
-            if (y > 127) {
-                y = 127;
-            }
-            else if (y < -127) {
-                y = -127;
-            }
-            evt[1] = (uint8_t)x; /* dx (signed relative) */
-            evt[2] = (uint8_t)y; /* dy (signed relative) */
-            evt[3] = data[6];    /* wheel */
+            bt_hid_dispatch_mouse_rel(data[1], x, y, (int8_t)data[6]);
         }
         else {
+            memset(evt, 0, sizeof(evt));
+            evt[0] = data[1]; /* buttons (data[0] is the Report ID) */
             evt[1] = data[2]; /* dx (signed) */
             evt[2] = data[3]; /* dy (signed) */
             evt[3] = data[4]; /* wheel */
+            bt_hid_dispatch_mouse(evt);
         }
-        bt_hid_dispatch_mouse(evt);
         return;
     }
     if (len < 3) {
