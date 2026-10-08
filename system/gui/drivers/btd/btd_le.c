@@ -832,11 +832,12 @@ int bt_le_controller_init(void) {
        controller that refuses this command keeps its old behavior. */
     {
         uint8_t host_sup[2] = { 0x01, 0x00 }; /* LE supported, no simul */
-        if (bt_hci_command_sync(HCI_OGF_HOST_CTRL,
+        int hret = bt_hci_command_sync(HCI_OGF_HOST_CTRL,
                 HCI_OCF_WRITE_LE_HOST_SUPPORTED, host_sup, sizeof(host_sup),
-                1000) != 0) {
-            slog("bluetooth le_host_supported refused\n");
-        }
+                1000);
+        /* positive boot marker: doubles as the field-deployment proof that
+           this btd carries the conn-param-request handling */
+        slog("bluetooth le_host_supported %s\n", hret == 0 ? "ok" : "refused");
     }
 
     /* Our own address (hashed by c1, and used as Own_Address_Type/address by
@@ -1415,6 +1416,15 @@ static void bt_le_handle_conn_complete(const uint8_t* p, size_t len,
 
     bt_addr_to_str(_le.addr, addr_str, sizeof(addr_str));
 
+    /* the negotiated link parameters decide how the peripheral behaves on
+       this link, and /dev/log never saw them before (bt_emit only feeds the
+       xbt socket): log them once per link so a supervision timeout can be
+       told apart from a bad interval pick */
+    slog("bluetooth le_link_up %s handle=0x%04x itv=%u lat=%u to=%u\n",
+            addr_str, handle, interval,
+            att_le16(enhanced ? p + 25 : p + 13),
+            att_le16(enhanced ? p + 27 : p + 15));
+
     dev = bt_find_device(_le.addr, true);
     if (dev != NULL) {
         dev->le = true;
@@ -1436,6 +1446,14 @@ static void bt_le_handle_conn_update(const uint8_t* p, size_t len) {
     if (p[0] != 0) {
         slog("bluetooth le_conn_update_failed status=0x%02x handle=0x%04x\n",
             p[0], att_le16(p + 1) & 0x0fff);
+    }
+    else {
+        /* Status(1) Handle(2) Interval(2) Latency(2) Timeout(2): a param
+           change is what an input device's report rate lives on, so the
+           applied values have to be visible in /dev/log */
+        slog("bluetooth le_conn_updated handle=0x%04x itv=%u lat=%u to=%u\n",
+            att_le16(p + 1) & 0x0fff, att_le16(p + 3), att_le16(p + 5),
+            att_le16(p + 7));
     }
 }
 
@@ -1531,7 +1549,10 @@ static void bt_le_handle_ltk_request(const uint8_t* p, size_t len) {
    unanswered the LL transaction times out and the peer walks away from a
    perfectly healthy link - ATT goes deaf and the link ends in a supervision
    timeout. Accept anything sane by echoing the requested values (what BlueZ
-   does); refuse only absurd ranges. */
+   does); refuse only absurd ranges. The replies go out fire-and-forget:
+   this handler runs inside bt_poll_once while a bring-up wait is in flight,
+   and a nested bt_hci_command_sync would clobber the single global
+   _wait_cmd slot the outer wait depends on. */
 static void bt_le_handle_remote_conn_param_req(const uint8_t* p, size_t len) {
     uint8_t params[10];
     uint16_t handle;
@@ -1558,14 +1579,13 @@ static void bt_le_handle_remote_conn_param_req(const uint8_t* p, size_t len) {
     params[1] = (uint8_t)(handle >> 8);
     if (ok) {
         memcpy(params + 2, p + 3, 8); /* echo the requested parameters */
-        (void)bt_hci_command_sync(HCI_OGF_LE,
-                HCI_OCF_LE_REMOTE_CONN_PARAM_REPLY, params, sizeof(params),
-                1000);
+        (void)bt_hci_send_command(HCI_OGF_LE,
+                HCI_OCF_LE_REMOTE_CONN_PARAM_REPLY, params, sizeof(params));
     }
     else {
         params[2] = 0x3b; /* Unacceptable Connection Parameters */
-        (void)bt_hci_command_sync(HCI_OGF_LE,
-                HCI_OCF_LE_REMOTE_CONN_PARAM_NEG_REPLY, params, 3, 1000);
+        (void)bt_hci_send_command(HCI_OGF_LE,
+                HCI_OCF_LE_REMOTE_CONN_PARAM_NEG_REPLY, params, 3);
     }
     slog("bluetooth le_conn_param_req handle=0x%04x itv=%u-%u lat=%u to=%u %s\n",
             handle, itv_min, itv_max, latency, timeout,
@@ -3092,10 +3112,10 @@ static int bt_le_ext_create_connection(void) {
     p[11] = (uint8_t)(BT_LE_SCAN_INTERVAL >> 8);
     p[12] = (uint8_t)(BT_LE_SCAN_WINDOW & 0xff);
     p[13] = (uint8_t)(BT_LE_SCAN_WINDOW >> 8);
-    p[14] = (uint8_t)(BT_LE_CONN_ITV_MIN & 0xff);
-    p[15] = (uint8_t)(BT_LE_CONN_ITV_MIN >> 8);
-    p[16] = (uint8_t)(BT_LE_CONN_ITV_MAX & 0xff);
-    p[17] = (uint8_t)(BT_LE_CONN_ITV_MAX >> 8);
+    p[14] = (uint8_t)(BT_LE_CONN_ITV_INIT_MIN & 0xff);
+    p[15] = (uint8_t)(BT_LE_CONN_ITV_INIT_MIN >> 8);
+    p[16] = (uint8_t)(BT_LE_CONN_ITV_INIT_MAX & 0xff);
+    p[17] = (uint8_t)(BT_LE_CONN_ITV_INIT_MAX >> 8);
     p[18] = (uint8_t)(BT_LE_CONN_LATENCY & 0xff);
     p[19] = (uint8_t)(BT_LE_CONN_LATENCY >> 8);
     p[20] = (uint8_t)(BT_LE_CONN_TIMEOUT & 0xff);
@@ -3198,10 +3218,10 @@ retry_link:
         p[6 + i] = _le.addr[i];
     }
     p[12] = _local_addr_type;
-    p[13] = (uint8_t)(BT_LE_CONN_ITV_MIN & 0xff);
-    p[14] = (uint8_t)(BT_LE_CONN_ITV_MIN >> 8);
-    p[15] = (uint8_t)(BT_LE_CONN_ITV_MAX & 0xff);
-    p[16] = (uint8_t)(BT_LE_CONN_ITV_MAX >> 8);
+    p[13] = (uint8_t)(BT_LE_CONN_ITV_INIT_MIN & 0xff);
+    p[14] = (uint8_t)(BT_LE_CONN_ITV_INIT_MIN >> 8);
+    p[15] = (uint8_t)(BT_LE_CONN_ITV_INIT_MAX & 0xff);
+    p[16] = (uint8_t)(BT_LE_CONN_ITV_INIT_MAX >> 8);
     p[17] = (uint8_t)(BT_LE_CONN_LATENCY & 0xff);
     p[18] = (uint8_t)(BT_LE_CONN_LATENCY >> 8);
     p[19] = (uint8_t)(BT_LE_CONN_TIMEOUT & 0xff);

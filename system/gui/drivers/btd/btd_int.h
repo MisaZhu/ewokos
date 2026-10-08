@@ -373,10 +373,22 @@
 #define BT_LE_ADDR_TYPE_PUBLIC 0x00
 #define BT_LE_ADDR_TYPE_RANDOM 0x01
 
-/* the controller picks a connection interval inside this window. The old
-   30ms ceiling let a mouse settle at ~33Hz, which feels sluggish under fast
-   motion; 15ms (66Hz) is the responsiveness floor for a pointing device and
-   is well within what any BLE mouse sustains while awake. */
+/* Initial link establishment window. Every mainstream host (BlueZ, Android,
+   iOS, Windows - i.e. every host an Xbox pad's firmware is validated
+   against) creates LE connections at 30-50ms and only tightens later if
+   needed. The old 7.5-15ms request was an outlier: it polls the peripheral
+   up to 4x more often than it ever sees in the field, and on the Pi's
+   shared WiFi/BT radio it multiplies the coex slots a BLE link can starve
+   on while ssh/DHCP traffic runs. Peripherals that want a different pace
+   ask for it themselves - both request paths (LE sub-event 0x06 and L2CAP
+   0x12) are answered permissively. */
+#define BT_LE_CONN_ITV_INIT_MIN 0x0018 /* 30ms */
+#define BT_LE_CONN_ITV_INIT_MAX 0x0028 /* 50ms */
+
+/* the fast window conn_update_fast pulls an input device into after READY.
+   The old 30ms ceiling let a mouse settle at ~33Hz, which feels sluggish
+   under fast motion; 15ms (66Hz) is the responsiveness floor for a pointing
+   device and is well within what any BLE mouse sustains while awake. */
 #define BT_LE_CONN_ITV_MIN 0x0006 /* 7.5ms */
 #define BT_LE_CONN_ITV_MAX 0x000c /* 15ms */
 #define BT_LE_CONN_LATENCY 0x0000
