@@ -827,9 +827,23 @@ void bt_autoconnect_known(void) {
    that was asleep (or out of range) at power-on still reconnects on its own
    once it advertises again. Deliberately lightweight and non-blocking: it
    never pages classic devices and never waits, it only starts a scan session
-   when some known LE peripheral is still not on a session. */
-#define BT_LE_AUTOCONNECT_RETRY_MS 30000
+   when some known LE peripheral is still not on a session.
+   The cadence has to stay tight: an Xbox controller only advertises for a
+   ~10s window after power-on, and a 30s arm cycle left the radio blind
+   two thirds of the time, so the window was routinely missed and the pad
+   never came back. With a 10s scan and a 3s re-arm gap the reconnect scan
+   is near-continuous while nothing is linked; once a session is live the
+   loop below finds it and stops arming, and bt_le_step suspends the slices
+   while any HID link is streaming, so this costs radio time only when some
+   known peripheral is actually absent. */
+#define BT_LE_AUTOCONNECT_RETRY_MS 3000
 static uint64_t _le_autoconnect_retry_ms = 0;
+
+/* arm the reconnect scan on the next bt_loop tick (e.g. right after an LE
+   link dropped, instead of waiting out the retry interval) */
+void bt_le_autoconnect_kick(void) {
+    _le_autoconnect_retry_ms = 0;
+}
 
 static void bt_le_autoconnect_retry_step(void) {
     uint64_t now = kernel_tic_ms(0);

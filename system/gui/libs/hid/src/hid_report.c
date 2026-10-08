@@ -1254,25 +1254,52 @@ bool hid_probe_joystick_report(const uint8_t* desc, int len, joystick_parser_t* 
 }
 
 /* map an HID Button usage (1-based) onto the physical js_evt_t button bits.
-   HID button usages carry no inherent A/B/X/Y meaning, so this fixes one
-   project-wide convention for the face-button diamond (1=X 2=A 3=B 4=Y),
-   then 5=LB 6=RB 7=LT 8=RT 9=Back/Select 10=Start 11=L3 12=R3 13=Home. */
-static uint32_t js_button_from_usage(uint32_t usage) {
-    switch (usage) {
-    case 1:  return JS_BTN_X;
-    case 2:  return JS_BTN_A;
-    case 3:  return JS_BTN_B;
-    case 4:  return JS_BTN_Y;
-    case 5:  return JS_BTN_LB;
-    case 6:  return JS_BTN_RB;
-    case 7:  return JS_BTN_LT;
-    case 8:  return JS_BTN_RT;
-    case 9:  return JS_BTN_SELECT;
-    case 10: return JS_BTN_START;
-    case 11: return JS_BTN_LS;
-    case 12: return JS_BTN_RS;
-    case 13: return JS_BTN_HOME;
-    default: return 0;
+   HID button usages carry no inherent A/B/X/Y meaning, so the mapping
+   depends on the device profile selected by the caller. */
+static uint32_t js_button_from_usage(uint32_t usage, js_map_type_t map_type) {
+    switch (map_type) {
+    case JS_MAP_XBOX:
+        /* Xbox Wireless Controller (unified BLE report descriptor), measured
+           on real hardware: the button run packs the physical buttons in
+           pairs with reserved bits between them -
+           1=A 2=B 3=pad 4=X 5=Y 6=pad 7=LB 8=RB 9,10=pad
+           11=View 12=Menu 13=L3 14=R3 15=Guide.
+           The triggers are analog-only (Simulation-page Brake/Accelerator
+           sliders), so no digital LT/RT bits exist in this run. */
+        switch (usage) {
+        case 1:  return JS_BTN_A;
+        case 2:  return JS_BTN_B;
+        case 4:  return JS_BTN_X;
+        case 5:  return JS_BTN_Y;
+        case 7:  return JS_BTN_LB;
+        case 8:  return JS_BTN_RB;
+        case 11: return JS_BTN_SELECT;
+        case 12: return JS_BTN_START;
+        case 13: return JS_BTN_LS;
+        case 14: return JS_BTN_RS;
+        case 15: return JS_BTN_HOME;
+        default: return 0;
+        }
+    case JS_MAP_DEFAULT:
+    default:
+        /* Default/uConsole: 1=X, 2=A, 3=B, 4=Y, then 5=LB 6=RB 7=LT 8=RT
+           9=Back/Select 10=Start 11=L3 12=R3 13=Home. */
+        switch (usage) {
+        case 1:  return JS_BTN_X;
+        case 2:  return JS_BTN_A;
+        case 3:  return JS_BTN_B;
+        case 4:  return JS_BTN_Y;
+        case 5:  return JS_BTN_LB;
+        case 6:  return JS_BTN_RB;
+        case 7:  return JS_BTN_LT;
+        case 8:  return JS_BTN_RT;
+        case 9:  return JS_BTN_SELECT;
+        case 10: return JS_BTN_START;
+        case 11: return JS_BTN_LS;
+        case 12: return JS_BTN_RS;
+        case 13: return JS_BTN_HOME;
+        default: return 0;
+        }
     }
 }
 
@@ -1348,7 +1375,8 @@ int joystick_normalize_report(const joystick_parser_t* j,
         for (int i = 0; i < j->button_count && i < JS_MAX_BUTTONS; ++i) {
             int bit = j->button_bit + i * j->button_size;
             if (bit_extract_le(report, bit, j->button_size) != 0) {
-                b |= js_button_from_usage(j->button_usage_min + (uint32_t)i);
+                b |= js_button_from_usage(j->button_usage_min + (uint32_t)i,
+                        j->map_type);
             }
         }
         out->buttons = b;

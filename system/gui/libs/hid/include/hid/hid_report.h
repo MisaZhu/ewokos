@@ -78,6 +78,14 @@ typedef struct {
 #define JS_MAX_BUTTONS 32
 #define JS_AXIS_COUNT 6 /* X, Y, Z, Rx, Ry, Rz */
 
+/* Button mapping profiles. Different gamepads use different HID Button
+   usage orders for the face-button diamond. The parser latches one of
+   these based on device name or descriptor hints. */
+typedef enum {
+    JS_MAP_DEFAULT = 0,  /* 1=X 2=A 3=B 4=Y (uConsole, generic HID) */
+    JS_MAP_XBOX,         /* 1=A 2=B 3=X 4=Y (Xbox standard) */
+} js_map_type_t;
+
 typedef struct {
     bool valid;
     bool has_report_id;
@@ -98,6 +106,8 @@ typedef struct {
     js_axis_t axis[JS_AXIS_COUNT];
     /* up to two sliders (Generic Desktop 0x36), used as analog triggers */
     js_axis_t slider[2];
+    /* button mapping profile, set by the caller after parsing */
+    js_map_type_t map_type;
 } joystick_parser_t;
 
 

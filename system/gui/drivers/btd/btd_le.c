@@ -55,6 +55,13 @@ static bool _dhkey_done = false;
    xbt or bt_moused. bt_le_step picks the request up. */
 bool _le_req_active = false;
 
+/* set while bt_le_connect is actually running on the main context: the
+   relink retry inside it passes through LE_ST_FAILED / LE_ST_IDLE windows
+   that le_bringup_busy's state scan cannot see, and a re-entrant
+   bt_le_step(false) landing there would flip a scan slice underneath the
+   pending LE_Create_Connection */
+static bool _le_connect_inflight = false;
+
 uint8_t _le_req_addr[6];
 
 bool _le_req_pair = false;
@@ -816,6 +823,22 @@ int bt_le_controller_init(void) {
         return -1;
     }
 
+    /* Declare LE Host Support so the controller escalates a peer's
+       LL_CONNECTION_PARAM_REQ to us (sub-event 0x06) instead of refusing it
+       autonomously. An Xbox pad asks for its preferred interval right after
+       the link encrypts, and a firmware-auto-refusal makes some units walk
+       away from an otherwise healthy link: radio silence, then supervision
+       timeout - the recurring "deaf after security" bring-up failure. A
+       controller that refuses this command keeps its old behavior. */
+    {
+        uint8_t host_sup[2] = { 0x01, 0x00 }; /* LE supported, no simul */
+        if (bt_hci_command_sync(HCI_OGF_HOST_CTRL,
+                HCI_OCF_WRITE_LE_HOST_SUPPORTED, host_sup, sizeof(host_sup),
+                1000) != 0) {
+            slog("bluetooth le_host_supported refused\n");
+        }
+    }
+
     /* Our own address (hashed by c1, and used as Own_Address_Type/address by
        LE_Set_Scan_Parameters and LE_Create_Connection) is provisioned once at
        the end of this bring-up, after LE is marked supported so the
@@ -1503,6 +1526,52 @@ static void bt_le_handle_ltk_request(const uint8_t* p, size_t len) {
     _le_cur = saved;
 }
 
+/* LE Remote Connection Parameter Request (sub-event 0x06), escalated once
+   LE Host Support is declared. The peer waits for a Link Layer answer; left
+   unanswered the LL transaction times out and the peer walks away from a
+   perfectly healthy link - ATT goes deaf and the link ends in a supervision
+   timeout. Accept anything sane by echoing the requested values (what BlueZ
+   does); refuse only absurd ranges. */
+static void bt_le_handle_remote_conn_param_req(const uint8_t* p, size_t len) {
+    uint8_t params[10];
+    uint16_t handle;
+    uint16_t itv_min;
+    uint16_t itv_max;
+    uint16_t latency;
+    uint16_t timeout;
+    bool ok;
+
+    /* Status(1) Handle(2) Interval_Min(2) Interval_Max(2) Latency(2)
+       Timeout(2) */
+    if (len < 11 || p[0] != 0) {
+        return;
+    }
+    handle = att_le16(p + 1);
+    itv_min = att_le16(p + 3);
+    itv_max = att_le16(p + 5);
+    latency = att_le16(p + 7);
+    timeout = att_le16(p + 9);
+
+    ok = (itv_min >= 0x0006 && itv_min <= itv_max && itv_max <= 0x0c80 &&
+            latency <= 0x01f4 && timeout >= 0x000a && timeout <= 0x0c80);
+    params[0] = (uint8_t)(handle & 0xff);
+    params[1] = (uint8_t)(handle >> 8);
+    if (ok) {
+        memcpy(params + 2, p + 3, 8); /* echo the requested parameters */
+        (void)bt_hci_command_sync(HCI_OGF_LE,
+                HCI_OCF_LE_REMOTE_CONN_PARAM_REPLY, params, sizeof(params),
+                1000);
+    }
+    else {
+        params[2] = 0x3b; /* Unacceptable Connection Parameters */
+        (void)bt_hci_command_sync(HCI_OGF_LE,
+                HCI_OCF_LE_REMOTE_CONN_PARAM_NEG_REPLY, params, 3, 1000);
+    }
+    slog("bluetooth le_conn_param_req handle=0x%04x itv=%u-%u lat=%u to=%u %s\n",
+            handle, itv_min, itv_max, latency, timeout,
+            ok ? "accept" : "reject");
+}
+
 void bt_handle_le_meta(const uint8_t* payload, size_t len) {
     if (len < 1) {
         return;
@@ -1525,6 +1594,9 @@ void bt_handle_le_meta(const uint8_t* payload, size_t len) {
         break;
     case LE_EVT_LTK_REQUEST:
         bt_le_handle_ltk_request(payload + 1, len - 1);
+        break;
+    case LE_EVT_REMOTE_CONN_PARAM_REQ:
+        bt_le_handle_remote_conn_param_req(payload + 1, len - 1);
         break;
     case LE_EVT_READ_LOCAL_P256:
         bt_le_handle_local_p256(payload + 1, len - 1);
@@ -1799,6 +1871,13 @@ static void bt_le_handle_notify(int si, uint16_t value_handle,
                      kdata[0] == a->report_id)) {
                 kdata++;
                 klen--;
+            }
+            /* A gamepad/vendor frame that failed to normalize must never be
+               guessed as a keyboard report: its axis and hat bytes decode as
+               phantom key codes and flood the focused terminal with garbage
+               while the pad sits idle. A keyboard body is at most 8 octets. */
+            if (klen > HID_KEYBOARD_REPORT_SIZE) {
+                return;
             }
             bt_hid_handle_report(kdata, klen);
         }
@@ -2821,6 +2900,14 @@ static int hogp_read_report_map(uint16_t handle) {
     return 0;
 }
 
+/* The link can die mid-bring-up: a pad that walks away (or is pulled off by
+   another host) stops answering while the supervision timeout is still
+   counting, and every remaining phase would then burn its full ATT timeout
+   on a dead handle before the failure surfaces. */
+static bool le_link_alive(void) {
+    return _le.handle_valid && _le.state != LE_ST_FAILED;
+}
+
 /* Boot Protocol first: a mouse or keyboard that accepts it delivers
    reports in a layout the HID spec fixes, so no descriptor has to be
    parsed at all. Report Protocol is the fallback for peripherals that
@@ -2838,8 +2925,16 @@ static int hogp_bringup(uint16_t handle) {
         /* 23 octets still fits every request we send, so carry on */
         slog("bluetooth le_mtu_exchange_failed mtu=%u\n", _hogp.mtu);
     }
+    if (!le_link_alive()) {
+        slog("bluetooth le_bringup_link_dead stage=mtu\n");
+        return -1;
+    }
     if (gatt_find_hid_service(handle) != 0) {
         slog("bluetooth le_no_hid_service\n");
+        return -1;
+    }
+    if (!le_link_alive()) {
+        slog("bluetooth le_bringup_link_dead stage=service\n");
         return -1;
     }
     if (gatt_discover_chars(handle) != 0) {
@@ -2867,6 +2962,10 @@ static int hogp_bringup(uint16_t handle) {
         mode = GATT_PROTOCOL_MODE_REPORT;
         (void)gatt_write_value(handle, pm->value_handle, &mode, 1);
     }
+    if (!le_link_alive()) {
+        slog("bluetooth le_bringup_link_dead stage=report_map\n");
+        return -1;
+    }
     if (hogp_read_report_map(handle) != 0) {
         slog("bluetooth le_no_report_map\n");
         return -1;
@@ -2893,6 +2992,23 @@ static int hogp_bringup(uint16_t handle) {
         _hogp.is_gamepad = true;
         _hogp.joystick_ok = true;
         _hogp.joystick_report_id = _hogp.joystick.report_id;
+        /* Select button mapping profile by device name. Xbox controllers
+           use 1=A 2=B 3=X 4=Y; most other pads (uConsole, generic HID)
+           use 1=X 2=A 3=B 4=Y. */
+        {
+            bt_device_t* d = bt_find_device_by_handle(handle);
+            if (d != NULL && d->name[0] != 0) {
+                if (strstr(d->name, "Xbox") != NULL ||
+                        strstr(d->name, "X-Box") != NULL ||
+                        strstr(d->name, "XB") != NULL) {
+                    _hogp.joystick.map_type = JS_MAP_XBOX;
+                } else {
+                    _hogp.joystick.map_type = JS_MAP_DEFAULT;
+                }
+            } else {
+                _hogp.joystick.map_type = JS_MAP_DEFAULT;
+            }
+        }
         slog("bluetooth le_gamepad report_id=%u\n", _hogp.joystick_report_id);
     }
     /* the Report Map is the authoritative classification for a connected LE
@@ -3025,15 +3141,45 @@ static void bt_le_conn_update_fast(uint16_t handle) {
             p, sizeof(p), 1000);
 }
 
+/* The stored LTK was just refused by the peer (Encryption Change status
+   0x06): the peer no longer knows this bond, so keeping it around only
+   guarantees the same refusal on every later connect attempt and boot.
+   Drop it from the runtime device AND the persistent store - the exact
+   state a deleted /etc/bt/bt.json would produce - so the next link pairs
+   from scratch and re-bonds. */
+static void bt_le_drop_stale_ltk(bt_device_t* dev) {
+    bt_known_t* k = bt_known_find(dev->addr);
+
+    dev->has_ltk = false;
+    memset(dev->ltk, 0, sizeof(dev->ltk));
+    dev->ediv = 0;
+    memset(dev->ltk_rand, 0, sizeof(dev->ltk_rand));
+    if (k != NULL && k->has_ltk) {
+        k->has_ltk = false;
+        memset(k->ltk, 0, sizeof(k->ltk));
+        k->ediv = 0;
+        memset(k->ltk_rand, 0, sizeof(k->ltk_rand));
+        bt_known_save();
+    }
+}
+
+/* Disconnect_Complete of a link we just tore down ourselves */
+static bool le_link_down_pred(void* ctx) {
+    (void)ctx;
+    return !_le.handle_valid || _le.state == LE_ST_FAILED;
+}
+
 int bt_le_connect(bt_device_t* dev, bool pair,
         char* ret_text, size_t ret_text_sz) {
     uint8_t p[25];
     char addr_str[24];
     bool ext_conn;
+    bool relink = false;
     int i;
 
     (void)pair;
     ext_conn = dev->ext_adv; /* capture before dev is re-resolved below */
+retry_link:
     bt_le_stack_reset();
     memcpy(_le.addr, dev->addr, 6);
     _le.addr_type = dev->addr_type;
@@ -3106,23 +3252,63 @@ int bt_le_connect(bt_device_t* dev, bool pair,
     smp_reset();
     _smp.active = true;
     /* a peripheral usually asks for pairing itself; give it the chance so
-       our Pairing Request does not cross with its Security Request */
-    (void)bt_poll_until(smp_security_request_pred, NULL, 300);
+       our Pairing Request does not cross with its Security Request.
+       Xbox controllers in particular need up to ~1.5s after link-up before
+       they emit Security Request; 300ms was too short and our preemptive
+       Pairing Request got ignored (smp_no_pairing_response). */
+    (void)bt_poll_until(smp_security_request_pred, NULL, 2000);
 
     if (dev->has_ltk) {
         if (smp_start_encryption(_le.handle, dev->ltk, dev->ediv,
                 dev->ltk_rand) != 0 ||
                 !bt_poll_until(le_encrypted_pred, NULL, 4000) ||
                 !_le.encrypted) {
-            /* rejected or expired key: drop it and pair from scratch */
+            /* rejected or expired key: drop it everywhere (runtime device
+               and /etc/bt/bt.json) so no later attempt or boot retries the
+               poisoned key */
             slog("bluetooth le_reencrypt_failed %s\n", addr_str);
-            dev->has_ltk = false;
+            bt_le_drop_stale_ltk(dev);
             _le.encrypted = false;
+            /* A peer that just refused an Encryption Request can keep its
+               ATT server silent for the rest of this link (Xbox: the fresh
+               pairing that follows succeeds, yet every ATT request then
+               runs into att_timeout req=0x02 and the link dies at the
+               supervision timeout). Reconnect once so the from-scratch
+               pairing runs on a clean link, exactly like the bond-less
+               first pairing that always works. */
+            if (!relink) {
+                uint8_t dp[3];
+
+                relink = true;
+                slog("bluetooth le_relink_stale_bond %s\n", addr_str);
+                dp[0] = (uint8_t)(_le.handle & 0xff);
+                dp[1] = (uint8_t)(_le.handle >> 8);
+                dp[2] = 0x13;
+                (void)bt_hci_command_sync(HCI_OGF_LINK_CTRL,
+                        HCI_OCF_DISCONNECT, dp, sizeof(dp), 2000);
+                (void)bt_poll_until(le_link_down_pred, NULL, 3000);
+                goto retry_link;
+            }
         }
     }
     if (!_le.encrypted && smp_run(_le.handle, dev) != 0) {
         bt_le_fail("pairing");
         return -1;
+    }
+
+    /* Let the peripheral settle after SMP/encryption. Xbox controllers need
+       several seconds after a fresh pairing before they answer ATT requests;
+       without this the first Exchange MTU times out and the link dies at
+       DISCOVERING (att_timeout req=0x02 -> supervision timeout reason=0x08).
+       3s is long enough for the worst-case cold-boot pairing yet short
+       enough that a genuinely dead peer is detected within the 10s
+       supervision window. */
+    {
+        uint64_t settle_end = kernel_tic_ms(0) + 3000;
+        while (kernel_tic_ms(0) < settle_end) {
+            bt_poll_once(2);
+            l2cap_step();
+        }
     }
 
     _le.state = LE_ST_DISCOVERING;
@@ -3136,8 +3322,13 @@ int bt_le_connect(bt_device_t* dev, bool pair,
     bt_emit("hid_up %s handle=0x%04X le=1 boot=%d reports=%d\n", addr_str,
             _le.handle, _hogp.boot_mode_ok ? 1 : 0, _hogp.n_subscribed);
     /* reports start flowing now: pull the link to the fast input interval
-       before the mouse gets a chance to stretch it for power saving */
-    bt_le_conn_update_fast(_le.handle);
+       before the mouse gets a chance to stretch it for power saving.
+       Gamepads (Xbox controllers in particular) reject the 7.5-15ms floor
+       and terminate the link with reason=0x13, so they keep the initial
+       interval negotiated by LE_Create_Connection. */
+    if (!_hogp.is_gamepad) {
+        bt_le_conn_update_fast(_le.handle);
+    }
 
     /* Suppress a duplicate transport only for a device already served by
        HOGP. A separate classic keyboard must remain connected. */
@@ -3188,6 +3379,10 @@ void bt_le_link_closed(uint16_t handle, uint8_t reason) {
     _les[si].le.encrypted = false;
     _les[si].le.state = LE_ST_FAILED;
     _les[si].le.deadline_ms = kernel_tic_ms(0) + 3000;
+    /* the peripheral may already be re-advertising (a power-cycled pad only
+       keeps its reconnect window open for seconds): arm the autoconnect
+       scan at once instead of waiting out the retry interval */
+    bt_le_autoconnect_kick();
 }
 
 /* The LE fixed channels never go through L2CAP signalling, so they are
@@ -3218,8 +3413,15 @@ void bt_le_l2cap_rx(uint16_t handle, uint16_t cid,
         /* request body: interval_min(2) interval_max(2) latency(2) timeout(2)
            after the 4-byte code/id/length signalling header. */
         if (len >= 12) {
-            uint16_t itv_min = att_le16(data + 4);
-            accept = (itv_min <= BT_LE_INPUT_ITV_MAX);
+            uint16_t itv_max = att_le16(data + 6);
+            uint16_t lat = att_le16(data + 8);
+            /* Refusing a peripheral's preference buys nothing and provokes
+               walk-aways (an Xbox pad whose interval request is rejected can
+               go radio-silent on the spot). Accept anything sane; a live
+               input device that needs speed is pulled back to the fast
+               interval by conn_update_fast after READY anyway. */
+            accept = (itv_max >= 0x0006 && itv_max <= 0x0c80 &&
+                    lat <= 0x01f4);
         }
 
         cmd[0] = L2CAP_SIG_LE_CONN_PARAM_UPDATE_RSP;
@@ -3292,6 +3494,13 @@ int bt_le_request(bt_device_t* dev, bool pair,
 static bool le_bringup_busy(void) {
     int i;
 
+    /* a queued or already-running bring-up owns the radio even when no
+       session state shows it: between bt_le_queue_request and the bt_le_step
+       tick that starts it, and inside bt_le_connect's relink window
+       (LE_ST_FAILED / reset-to-IDLE), the state scan below sees nothing */
+    if (_le_req_active || _le_connect_inflight) {
+        return true;
+    }
     for (i = 0; i < MAX_LE_SESSIONS; ++i) {
         le_state_t s = _les[i].le.state;
         if (s >= LE_ST_CONNECTING && s <= LE_ST_DISCOVERING) {
@@ -3351,7 +3560,9 @@ void bt_le_step(bool from_loop) {
         }
         _le_cur = _le_req_slot;   /* bring the target session up */
         bt_scan_suspend();
+        _le_connect_inflight = true;
         (void)bt_le_connect(dev, _le_req_pair, NULL, 0);
+        _le_connect_inflight = false;
         _le_cur = saved;          /* back to the primary setup session */
         if (was_autoconnect) {
             /* the session was armed for autoconnect, so hand the radio to

@@ -87,6 +87,10 @@
 #define HCI_OCF_READ_LOCAL_VERSION 0x0001
 #define HCI_OCF_WRITE_SCAN_ENABLE 0x001a
 #define HCI_OCF_WRITE_AUTH_ENABLE 0x0020
+/* declaring LE Host Support makes the controller escalate a peer's
+   LL_CONNECTION_PARAM_REQ to the host (LE sub-event 0x06) instead of
+   answering it autonomously */
+#define HCI_OCF_WRITE_LE_HOST_SUPPORTED 0x006d
 #define HCI_OCF_WRITE_INQUIRY_MODE 0x0045
 #define HCI_OCF_WRITE_SIMPLE_PAIRING_MODE 0x0056
 
@@ -109,6 +113,8 @@
 #define HCI_OCF_LE_START_ENCRYPTION 0x0019
 #define HCI_OCF_LE_LTK_REQ_REPLY 0x001a
 #define HCI_OCF_LE_LTK_REQ_NEG_REPLY 0x001b
+#define HCI_OCF_LE_REMOTE_CONN_PARAM_REPLY 0x0020
+#define HCI_OCF_LE_REMOTE_CONN_PARAM_NEG_REPLY 0x0021
 /* LE Secure Connections: the controller does the P-256 ECDH. Read_Local_P256
    and Generate_DHKey both answer with a Command Complete (status only) and
    then deliver the result asynchronously via an LE Meta sub-event. */
@@ -170,6 +176,7 @@
 #define LE_EVT_ADV_REPORT 0x02
 #define LE_EVT_CONN_UPDATE 0x03
 #define LE_EVT_LTK_REQUEST 0x05
+#define LE_EVT_REMOTE_CONN_PARAM_REQ 0x06
 #define LE_EVT_REMOTE_FEATURES 0x04
 #define LE_EVT_READ_LOCAL_P256 0x08
 #define LE_EVT_GENERATE_DHKEY 0x09
@@ -373,7 +380,12 @@
 #define BT_LE_CONN_ITV_MIN 0x0006 /* 7.5ms */
 #define BT_LE_CONN_ITV_MAX 0x000c /* 15ms */
 #define BT_LE_CONN_LATENCY 0x0000
-#define BT_LE_CONN_TIMEOUT 0x01f4 /* 5s */
+/* Supervision timeout: 10s instead of the BLE-minimum 5s. Xbox controllers
+   need several seconds after SMP before they answer the first ATT request;
+   with 5s the link dies at DISCOVERING (reason=0x08) before the MTU
+   exchange even times out. 10s still detects a genuinely dead peer quickly
+   enough for the UI. */
+#define BT_LE_CONN_TIMEOUT 0x03e8 /* 10s */
 #define BT_LE_CONN_CE_LEN 0x0000
 
 /* Input-responsiveness floor for a peripheral's LE Connection Parameter
@@ -385,7 +397,15 @@
    latency outranks the peripheral's power preference while it is in use. */
 #define BT_LE_INPUT_ITV_MAX 0x000c /* 15ms */
 
-#define BT_LE_CONNECT_TIMEOUT_MS 12000
+/* Ceiling on the LE bring-up's first phase (LE_Create_Connection ->
+   LE_(Enhanced_)Connection_Complete). A peripheral that is actually in
+   pairing mode answers CONNECT_IND within a couple of seconds; anything
+   longer means the user has not put the peer into discoverable/pairing
+   state yet, and holding the radio in initiating for the full window
+   blocks every other client of /dev/bt0 while xbt's "connect" click feels
+   dead. 8s is long enough to survive a slow advertiser's first connection
+   event but short enough that a mistimed click retries quickly. */
+#define BT_LE_CONNECT_TIMEOUT_MS 8000
 #define BT_LE_ATT_TIMEOUT_MS 6000
 #define BT_LE_SMP_TIMEOUT_MS 15000
 
@@ -916,5 +936,6 @@ int bt_le_request(bt_device_t* dev, bool pair, char* ret_text, size_t ret_text_s
 void bt_le_step(bool from_loop);
 int bt_start_scan(int seconds);
 int bt_stop_scan(void);
+void bt_le_autoconnect_kick(void);
 
 #endif /* BTD_INT_H */
