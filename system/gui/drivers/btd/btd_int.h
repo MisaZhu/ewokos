@@ -619,10 +619,10 @@ typedef struct {
     uint64_t retry_ms;     /* handshake retry or open SDP idle deadline */
 } l2cap_chan_t;
 
-/* Two classic HID peripherals (control + interrupt channel pair each) may be
+/* Four classic HID peripherals (control + interrupt channel pair each) may be
    live at once; LE sessions have their own slots. The L2CAP table must hold
-   both HID pairs plus transient SDP discovery channels. */
-#define MAX_CLASSIC_HID_SESSIONS 2
+   all HID pairs plus transient SDP discovery channels. */
+#define MAX_CLASSIC_HID_SESSIONS 4
 
 #define MAX_L2CAP_CHANS (MAX_CLASSIC_HID_SESSIONS * 2 + 2)
 
@@ -830,12 +830,13 @@ typedef struct {
 
    The BCM43455 controller supports several simultaneous LE connections, so
    these are bundled into a session struct and kept in a small array rather
-   than as singletons: one BLE keyboard and one BLE mouse can then be live at
-   the same time. The macro shim below keeps every existing _le.xxx /
-   _att.xxx / _smp.xxx / _hogp.xxx reference working, resolving them against
-   the session currently being set up (_le_cur). Only the routing logic and
-   the step/auto-connect machinery need to address sessions explicitly. */
-#define MAX_LE_SESSIONS 2
+   than as singletons: several BLE peripherals (e.g. a keyboard, a mouse and
+   a gamepad) can then be live at the same time. The macro shim below keeps
+   every existing _le.xxx / _att.xxx / _smp.xxx / _hogp.xxx reference working,
+   resolving them against the session currently being set up (_le_cur). Only
+   the routing logic and the step/auto-connect machinery need to address
+   sessions explicitly. */
+#define MAX_LE_SESSIONS 4
 
 typedef struct {
     le_link_t    le;
