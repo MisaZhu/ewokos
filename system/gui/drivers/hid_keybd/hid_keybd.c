@@ -98,6 +98,17 @@ static int _key_count = 0;
 static uint8_t _tap_keys[MAX_KEY];
 static uint8_t _tap_mods[MAX_KEY];
 static int _tap_count = 0;
+/*
+ * Full-release latch (mirrors hid_joystickd). keyb.c diffs CONSECUTIVE reads
+ * and only emits a key RELEASE once it observes a snapshot where that key is
+ * absent. When the last held key goes up _key_count drops to 0; if keyb_read
+ * then returns VFS_ERR_RETRY the blocking reader (xim_none) parks and never
+ * observes the empty snapshot, so the final RELEASE never reaches X and
+ * xim_none's shift/ctrl latch stays set until an unrelated key forces a diff.
+ * Set this on the active->idle transition and serve exactly ONE empty
+ * (0-length) read so keyb.c emits the deferred release, then park again.
+ */
+static bool _release_pending = false;
 /* timestamp of the last drain pass, for the KEYB_PASS_MS rate cap */
 static uint64_t _last_pass_ms = 0;
 
@@ -200,7 +211,22 @@ static int keyb_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* node,
     (void)node;
 
     int num = get_key_code(buf, size);
-    return num ? num : VFS_ERR_RETRY;
+    if (num > 0) {
+        /* a transient tap served with nothing held leaves the consumer in
+           the same spot as a full release: it must see one empty snapshot
+           next, or the tap stays in HOLD until an unrelated key is pressed */
+        if (_key_count == 0) {
+            _release_pending = true;
+        }
+        return num;
+    }
+    /* idle: hand the blocking consumer ONE empty snapshot after a full
+       release so keyb.c can emit the deferred RELEASE, then park again */
+    if (_release_pending) {
+        _release_pending = false;
+        return 0;
+    }
+    return VFS_ERR_RETRY;
 }
 
 static uint32_t keyb_check_poll_events(vdevice_t* dev, int fd, int from_pid, fsinfo_t* node, void* p) {
@@ -210,7 +236,8 @@ static uint32_t keyb_check_poll_events(vdevice_t* dev, int fd, int from_pid, fsi
     (void)node;
     (void)p;
 
-    return (_key_count > 0 || _tap_count > 0) ? VFS_EVT_RD : 0;
+    return (_key_count > 0 || _tap_count > 0 || _release_pending) ?
+            VFS_EVT_RD : 0;
 }
 
 static int set_report_id(int fd, int id) {
@@ -394,6 +421,8 @@ static int loop(vdevice_t* dev, void* p) {
      */
     ipc_disable();
     bool failed = false;
+    bool got_state = false;
+    int prev_key_count = _key_count;
     /* union of every keycode seen across this burst, with the modifier it was
        pressed under, so a key released before the newest snapshot is kept */
     uint8_t burst_keys[MAX_KEY];
@@ -403,6 +432,7 @@ static int loop(vdevice_t* dev, void* p) {
     while(true) {
         int res = read(hid, buf, sizeof(buf));
         if (res >= HID_KEYBOARD_REPORT_SIZE) {
+            got_state = true;
             /* each report is a full snapshot: mod, reserved, keycodes */
             for (int off = 0; off + HID_KEYBOARD_REPORT_SIZE <= res;
                     off += HID_KEYBOARD_REPORT_SIZE) {
@@ -481,8 +511,17 @@ static int loop(vdevice_t* dev, void* p) {
         close(hid);
         hid = -1;
         memset(&_hid_info, 0, sizeof(fsinfo_t));
+        /* the upstream is gone (btd/usbhostd restarted): whatever it last
+           showed as held is released, and the consumer must see that too */
+        if (_key_count > 0) {
+            _release_pending = true;
+        }
         _key_count = 0;
+        _mod = 0;
         _tap_count = 0;
+        if (_release_pending) {
+            vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
+        }
         usleep(HID_CONNECT_SLEEP_US);
         return 0;
     }
@@ -500,9 +539,30 @@ static int loop(vdevice_t* dev, void* p) {
             bool session_up = st != NULL && strstr(st, "active=1") != NULL;
             if (st != NULL)
                 free(st);
-            if (!session_up)
+            if (!session_up) {
+                /*
+                 * No link, so nothing can be held: a snapshot left over from
+                 * a keyboard that dropped mid-press would otherwise keep
+                 * /dev/keyb0 readable forever and the consumer (keyb.c under
+                 * xim_none) auto-repeating a key nobody is pressing. btd
+                 * synthesizes the release on teardown; this is the backstop
+                 * for a release that never reached us. A latched tap is left
+                 * alone: it is a real keystroke and clears itself on one read.
+                 */
+                if (_key_count > 0) {
+                    _key_count = 0;
+                    _mod = 0;
+                    _release_pending = true;
+                }
                 bt_try_attach_hid();
+            }
         }
+    }
+
+    /* full release (had keys, now none): latch so the next idle read serves
+       one empty snapshot and the diffing consumer emits the deferred RELEASE */
+    if (got_state && prev_key_count > 0 && _key_count == 0) {
+        _release_pending = true;
     }
 
     /*
@@ -516,8 +576,10 @@ static int loop(vdevice_t* dev, void* p) {
      * cadence, not a busy loop. A pending transient tap wakes the reader too:
      * it is the only signal that a press/release burst produced a keystroke,
      * and without it a blocked reader would sleep straight through the tap.
+     * So does a pending full release: it is the only way the reader ever
+     * observes the empty snapshot that closes out the last held key.
      */
-    if(_key_count > 0 || _tap_count > 0) {
+    if(_key_count > 0 || _tap_count > 0 || _release_pending) {
         vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
     }
     return 0;

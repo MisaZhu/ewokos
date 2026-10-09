@@ -29,9 +29,7 @@ static int bt_hci_set_conn_encrypt(uint16_t handle) {
     params[0] = (uint8_t)(handle & 0xff);
     params[1] = (uint8_t)(handle >> 8);
     params[2] = 0x01; /* enable link encryption */
-    int ret = bt_hci_send_command(HCI_OGF_LINK_CTRL, HCI_OCF_SET_CONN_ENCRYPT, params, sizeof(params));
-    slog("bt input_security phase=encrypt_send h=%04x ret=%d\n", handle, ret);
-    return ret;
+    return bt_hci_send_command(HCI_OGF_LINK_CTRL, HCI_OCF_SET_CONN_ENCRYPT, params, sizeof(params));
 }
 
 int bt_hci_disconnect(uint16_t handle) {
@@ -374,8 +372,6 @@ void bt_handle_connection_complete(const uint8_t* payload, size_t len) {
     }
 
     bt_addr_to_str(dev->addr, addr, sizeof(addr));
-    slog("bt input_security phase=connect h=%04x status=%02x type=%u encrypted=%u\n",
-        handle, status, payload[9], payload[10]);
     if (status == 0) {
         dev->connected = true;
         dev->handle = handle;
@@ -501,8 +497,6 @@ void bt_handle_auth_complete(const uint8_t* payload, size_t len) {
     }
 
     bt_addr_to_str(dev->addr, addr, sizeof(addr));
-    slog("bt input_security phase=auth_event h=%04x status=%02x hid_wait=%u\n",
-        handle, payload[0], dev->hid_after_sec ? 1u : 0u);
     if (payload[0] == 0) {
         bt_known_touch_from_device(dev);
         bt_emit("pair_ok %s handle=0x%04X\n", addr, handle);
@@ -567,6 +561,10 @@ void bt_handle_link_key_request(const uint8_t* payload, size_t len) {
     if (dev == NULL || !dev->has_link_key) {
         bt_hci_send_command(HCI_OGF_LINK_CTRL, HCI_OCF_LINK_KEY_REQ_NEG_REPLY, payload, 6);
         bt_emit("link_key_miss %s\n", addr);
+        /* bt_emit only feeds /dev/bt0 subscribers; mirror the bond decisions
+           into /dev/log so a fresh pairing is distinguishable from a
+           stored-key reconnect in a plain log capture */
+        slog("bt link_key_miss %s\n", addr);
         return;
     }
 
@@ -574,6 +572,7 @@ void bt_handle_link_key_request(const uint8_t* payload, size_t len) {
     memcpy(params + 6, dev->link_key, 16);
     bt_hci_send_command(HCI_OGF_LINK_CTRL, HCI_OCF_LINK_KEY_REQ_REPLY, params, sizeof(params));
     bt_emit("link_key_use %s\n", addr);
+    slog("bt link_key_use %s\n", addr);
 }
 
 void bt_handle_link_key_notify(const uint8_t* payload, size_t len) {
@@ -594,6 +593,9 @@ void bt_handle_link_key_notify(const uint8_t* payload, size_t len) {
     bt_known_touch_from_device(dev);
     bt_addr_to_str(dev->addr, addr, sizeof(addr));
     bt_emit("link_key_saved %s type=%u\n", addr, payload[22]);
+    /* key type is the Secure-Connections verdict: 0x07/0x08 = P-256,
+       0x04/0x05 = legacy P-192, so it must be visible in /dev/log */
+    slog("bt link_key_saved %s type=%u\n", addr, (unsigned)payload[22]);
 }
 
 void bt_handle_conn_request(const uint8_t* payload, size_t len) {
@@ -621,9 +623,15 @@ void bt_handle_io_capability_request(const uint8_t* payload, size_t len) {
 
     memset(params, 0, sizeof(params));
     memcpy(params, payload, 6);
-    /* IO_Capability NoInputNoOutput: a mouse/keyboard has no display and no
-       yes/no input, so SSP falls back to the Just Works association model */
-    params[6] = 0x03;
+    /* IO_Capability DisplayYesNo: this host HAS a screen and confirm input,
+       and it is what Windows/BlueZ answer. Against a DisplayYesNo pad the
+       SSP model becomes Numeric Comparison with an AUTHENTICATED
+       combination key (type 5/8) instead of the unauthenticated type 4
+       that NoInputNoOutput produced; Xbox-lineage firmware treats the
+       unauthenticated bond as second-class. NoInputNoOutput peers (mice,
+       keyboards) still degrade to Just Works, so existing devices pair
+       unchanged. */
+    params[6] = 0x01;
     /* no OOB pairing data present */
     params[7] = 0x00;
     /* Authentication_Requirements = MITM Not Required - General Bonding.
@@ -635,6 +643,7 @@ void bt_handle_io_capability_request(const uint8_t* payload, size_t len) {
     bt_hci_send_command(HCI_OGF_LINK_CTRL, HCI_OCF_IO_CAPABILITY_REQ_REPLY, params, sizeof(params));
     bt_addr_to_str(payload, addr, sizeof(addr));
     bt_emit("pair_io_cap %s capability=noinput bonding=general\n", addr);
+    slog("bt pair_io_cap %s\n", addr);
 }
 
 void bt_handle_user_confirmation_request(const uint8_t* payload, size_t len) {
@@ -648,10 +657,12 @@ void bt_handle_user_confirmation_request(const uint8_t* payload, size_t len) {
     if (_pending.type == BT_PENDING_PAIR && bt_pending_matches_addr(payload)) {
         bt_hci_send_command(HCI_OGF_LINK_CTRL, HCI_OCF_USER_CONFIRM_REQ_REPLY, payload, 6);
         bt_emit("pair_confirm %s auto=yes\n", addr);
+        slog("bt pair_confirm %s auto=yes\n", addr);
     }
     else {
         bt_hci_send_command(HCI_OGF_LINK_CTRL, HCI_OCF_USER_CONFIRM_REQ_NEG_REPLY, payload, 6);
         bt_emit("pair_confirm %s auto=no\n", addr);
+        slog("bt pair_confirm %s auto=no\n", addr);
     }
 }
 

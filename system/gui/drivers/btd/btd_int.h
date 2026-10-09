@@ -57,6 +57,7 @@
 #define HCI_PKT_EVENT 0x04
 
 #define HCI_OGF_LINK_CTRL 0x01
+#define HCI_OGF_LINK_POLICY 0x02
 #define HCI_OGF_HOST_CTRL 0x03
 #define HCI_OGF_INFO 0x04
 #define HCI_OGF_STATUS 0x05
@@ -82,18 +83,27 @@
 #define HCI_OCF_USER_PASSKEY_REQ_REPLY 0x002e
 #define HCI_OCF_USER_PASSKEY_REQ_NEG_REPLY 0x002f
 
+/* Link policy (OGF 0x02). The controller answers a peer's LMP sniff /
+   role-switch requests on its own, gated only by this bitmap; the reset
+   default 0x0000 rejects every one of them. */
+#define HCI_OCF_WRITE_DEF_LINK_POLICY 0x000f
+#define HCI_LP_ROLE_SWITCH 0x0001
+#define HCI_LP_SNIFF 0x0004
+
 #define HCI_OCF_SET_EVENT_MASK 0x0001
 #define HCI_OCF_RESET 0x0003
 #define HCI_OCF_READ_BUFFER_SIZE 0x0005
 #define HCI_OCF_READ_LOCAL_VERSION 0x0001
 #define HCI_OCF_WRITE_SCAN_ENABLE 0x001a
 #define HCI_OCF_WRITE_AUTH_ENABLE 0x0020
+#define HCI_OCF_WRITE_CLASS_OF_DEVICE 0x0024
 /* declaring LE Host Support makes the controller escalate a peer's
    LL_CONNECTION_PARAM_REQ to the host (LE sub-event 0x06) instead of
    answering it autonomously */
 #define HCI_OCF_WRITE_LE_HOST_SUPPORTED 0x006d
 #define HCI_OCF_WRITE_INQUIRY_MODE 0x0045
 #define HCI_OCF_WRITE_SIMPLE_PAIRING_MODE 0x0056
+#define HCI_OCF_WRITE_SECURE_CONN_HOST 0x0c7a
 
 #define HCI_OCF_VENDOR_RESET_CHIP 0x0003
 #define HCI_OCF_VENDOR_LOAD_FIRMWARE 0x002e
@@ -168,6 +178,9 @@
 #define EVT_EXTENDED_INQUIRY_RESULT 0x2f
 #define EVT_NUM_COMPLETED_PKTS 0x13
 #define EVT_ENCRYPTION_CHANGE 0x08
+/* with Secure-Connections bonds the controller reports re-encryption via
+   this event instead of ENCRYPTION_CHANGE; payload is [status, handle] */
+#define EVT_ENCRYPTION_KEY_REFRESH 0x30
 /* every LE controller event is wrapped in this one; the first payload
    byte is the sub-event code */
 #define EVT_LE_META 0x3e
@@ -458,14 +471,23 @@
 /* HIDP transaction headers (high nibble = message type) */
 #define HIDP_TRANS_HANDSHAKE 0x00
 #define HIDP_TRANS_HID_CONTROL 0x10
+#define HIDP_TRANS_GET_REPORT 0x40
+#define HIDP_TRANS_SET_REPORT 0x50
+#define HIDP_TRANS_SET_IDLE 0x90
 #define HIDP_TRANS_SET_PROTOCOL 0x70
 #define HIDP_TRANS_DATA 0xA0
 
 #define HIDP_HANDSHAKE_SUCCESS 0x00
 #define HIDP_HID_CONTROL_VC_UNPLUG 0x15
 #define HIDP_DATA_INPUT 0xA1 /* DATA | input report */
+#define HIDP_DATA_OUTPUT 0xA2 /* DATA | output report */
 
 #define HIDP_PROTOCOL_BOOT 0x00
+#define HIDP_PROTOCOL_REPORT 0x01
+
+/* GET_REPORT/SET_REPORT low-nibble report type */
+#define HIDP_REPORT_INPUT 0x01
+#define HIDP_REPORT_OUTPUT 0x02
 
 typedef struct {
     bool used;
@@ -582,6 +604,7 @@ typedef struct {
 typedef struct {
     bool used;
     bool incoming;       /* peer initiated this channel, independent of ACL role */
+    bool sdp_client;     /* our outgoing report-map query, not the peer's SDP */
     uint16_t acl_handle;
     uint16_t psm;
     uint16_t local_cid;   /* our dynamic source cid (0x0040+) */
@@ -593,11 +616,28 @@ typedef struct {
     bool conf_rsp_sent;
     uint8_t sig_id;       /* identifier of the outstanding request */
     uint8_t retries;
-    uint8_t sdp_diag_count; /* bounded service-discovery trace, reset on close */
     uint64_t retry_ms;     /* handshake retry or open SDP idle deadline */
 } l2cap_chan_t;
 
-#define MAX_L2CAP_CHANS 4
+/* Two classic HID peripherals (control + interrupt channel pair each) may be
+   live at once; LE sessions have their own slots. The L2CAP table must hold
+   both HID pairs plus transient SDP discovery channels. */
+#define MAX_CLASSIC_HID_SESSIONS 2
+
+#define MAX_L2CAP_CHANS (MAX_CLASSIC_HID_SESSIONS * 2 + 2)
+
+/* What the /dev/bt0 subscribers currently see as HELD from one link. Every
+   report is a full state snapshot and the consumers (hid_keybd, hid_moused)
+   reconstruct press/release by diffing successive snapshots, so a link that
+   drops while a key or button is down leaves them stuck on the last
+   non-idle snapshot forever (hid_keybd keeps /dev/keyb0 readable, keyb.c
+   auto-repeats the key, xim_none floods X with events). The teardown paths
+   use these flags to synthesize the all-released snapshot the peer never
+   got to send. */
+typedef struct {
+    bool kbd;        /* last keyboard snapshot had a modifier or key down */
+    bool mouse_btn;  /* last pointer event had a button down */
+} bt_hid_held_t;
 
 /* HID host state for one ACL link (control + interrupt channel pair) */
 typedef struct {
@@ -608,6 +648,7 @@ typedef struct {
     l2cap_chan_t* intr;
     bool boot_protocol_pending;
     bool boot_protocol_ok; /* SET_PROTOCOL(boot) handshake succeeded */
+    bt_hid_held_t held;
     /* Class-of-Device says joystick/gamepad: reports are full-length
        report-protocol frames that must NOT go through the boot
        keyboard/mouse length heuristic, and SET_PROTOCOL(boot) is skipped
@@ -615,13 +656,38 @@ typedef struct {
     bool is_gamepad;
     bool up;               /* both channels open; input delivery is separate */
     uint64_t intr_wait_ms;  /* bounded wait for a peer-initiated interrupt channel */
-    /* Temporary input diagnostics; counters reset with this classic session. */
-    uint64_t diag_next_ms, diag_ctrl_ms, diag_intr_ms, diag_report_ms;
-    uint32_t diag_acl, diag_pdu, diag_ctrl, diag_intr, diag_reports;
-    uint32_t diag_dispatch, diag_bad_cid, diag_non_input, diag_strip_id;
-    uint32_t diag_tx, diag_tx_failed, diag_tx_completed, diag_sig_tx, diag_sig_rx;
-    uint16_t diag_acl_len, diag_cid;
-    uint8_t diag_pb;
+    /* Classic-side report-map discovery: a real HID host reads the device's
+       HID service record over SDP once per connection; its HIDDescriptorList
+       attribute carries the report descriptor that defines the pad's report
+       IDs and payload layout. One bounded client query per session. */
+    l2cap_chan_t* sdp;
+    uint16_t sdp_tid;
+    uint16_t sdp_map_off;
+    uint8_t sdp_cont[17]; /* continuation state: length byte + up to 16 bytes */
+    uint8_t sdp_cont_iters;
+    bool sdp_map_started;
+    /* Every real HID host (Windows bthhid, BlueZ input, Android btif) reads
+       the device's HID record over SDP BEFORE opening the HID channels; a
+       Zikway-firmware pad classifies its host at channel arrival and
+       withholds input when no enumeration happened. Gamepad sessions
+       therefore defer PSM 0x0011/0x0013 until the fetch completed
+       (sdp_map_done) or the bounded wait in bt_hid_step expired. */
+    bool sdp_map_done;
+    uint64_t sdp_deadline_ms;
+    /* The response's AttributeLists bytes, reassembled across continuation
+       fragments (one HID record is ~600 bytes), so HIDDescriptorList (0x0206)
+       can be parsed once the fetch completes. */
+    uint8_t sdp_rec[768];
+    uint16_t sdp_rec_len;
+    /* Descriptor-driven joystick layout from that descriptor, same parser
+       usbhostd and the HOGP path use. joystick_ok selects normalization in
+       bt_hid_handle_report; a pad whose descriptor did not parse keeps the
+       raw-prefix forwarding. */
+    joystick_parser_t joystick;
+    bool joystick_ok;
+    /* Grace after enumeration during which the pad gets to open the HID
+       channels itself before we open them outbound (see bt_hid_start). */
+    uint64_t peer_open_until_ms;
 } bt_hid_chan_t;
 
 /* one /dev/bt0 subscriber fd lives in libhid now (fd_info_t): the queue,
@@ -757,6 +823,7 @@ typedef struct {
     joystick_parser_t joystick;
     bool joystick_ok;
     uint8_t joystick_report_id;
+    bt_hid_held_t held;  /* see bt_hid_held_t: released in bt_le_link_closed */
 } hogp_state_t;
 
 /* LE link, ATT/GATT client, SMP and HID-over-GATT state.
@@ -817,7 +884,7 @@ extern uint16_t _l2_next_cid;
 extern uint8_t _l2_next_sig_id;
 
 /* btd_hid.c */
-extern bt_hid_chan_t _hid;
+extern bt_hid_chan_t _hids[MAX_CLASSIC_HID_SESSIONS];
 extern uint64_t _sub_reassert_ms;
 
 /* btd_le.c */
@@ -928,17 +995,33 @@ l2cap_chan_t* l2cap_chan_open(uint16_t handle, uint16_t psm);
 void l2cap_chan_close(l2cap_chan_t* ch, bool send_req);
 void l2cap_step(void);
 void l2cap_dispatch(uint16_t handle, const uint8_t* pdu, size_t len);
+/* host-initiated SDP query for the session's HID record (report map) */
+void bt_sdp_client_kick(bt_hid_chan_t* h);
 
 /* btd_hid.c */
-void bt_hid_check_up(void);
+/* Session lookup by ACL handle: bt_hid_by_handle returns the live session
+   owning the link (NULL when none), bt_hid_slot_free a slot available for a
+   new session (NULL when both are taken). Every classic-HID access must
+   resolve the session this way - handles are shared with LE links. */
+bt_hid_chan_t* bt_hid_by_handle(uint16_t handle);
+bt_hid_chan_t* bt_hid_slot_free(void);
+void bt_hid_check_up(bt_hid_chan_t* h);
 void bt_hid_step(void);
 void bt_hid_link_closed(uint16_t handle, const char* reason);
-void bt_hid_stop(void);
-void bt_hid_diag_dump(const char* stage, const uint8_t* data, size_t len);
-void bt_hid_handle_report(const uint8_t* data, size_t len);
+void bt_hid_stop(bt_hid_chan_t* h);
+/* h is the session the report arrived on; NULL means the LE heuristic
+   fallback, which has no classic session to latch.
+   held is the link's held-input tracker (the LE caller passes its own
+   session's), NULL to skip tracking. */
+void bt_hid_handle_report(bt_hid_chan_t* h, bt_hid_held_t* held,
+        const uint8_t* data, size_t len);
 void bt_hid_handle_ctrl(l2cap_chan_t* ch, const uint8_t* data, size_t len);
-void bt_hid_dispatch_mouse(const uint8_t* evt);
-void bt_hid_dispatch_keyboard(const uint8_t* evt);
+/* held may be NULL; otherwise it records whether this event leaves a
+   key/button down so bt_hid_release_held can undo it on link loss */
+void bt_hid_dispatch_mouse(bt_hid_held_t* held, const uint8_t* evt);
+void bt_hid_dispatch_keyboard(bt_hid_held_t* held, const uint8_t* evt);
+/* link gone: push the all-released snapshot(s) the peer never sent */
+void bt_hid_release_held(bt_hid_held_t* held);
 /* forward the raw gamepad report prefix under HID_REPORT_ID_JOYSTICK; len is
    the report length, truncated/zero-padded to HID_JOYSTICK_RAW_SIZE */
 void bt_hid_dispatch_joystick(const uint8_t* raw, size_t len);

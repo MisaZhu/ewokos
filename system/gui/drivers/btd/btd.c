@@ -194,11 +194,6 @@ static void bt_handle_command_complete(const uint8_t* payload, size_t len) {
     _wait_debug.last_status = status;
     bt_update_wait_cmd_complete(opcode, status);
 
-    if (opcode == HCI_OPCODE(HCI_OGF_LINK_CTRL, HCI_OCF_SET_CONN_ENCRYPT)) {
-        slog("bt input_security phase=cmd_complete opcode=%04x status=%02x\n",
-            opcode, status);
-    }
-
     /* classic HID fallback: Set_Connection_Encryption was rejected (the peer
        does not support link encryption), so no Encryption_Change event will
        arrive. The link is still authenticated, which is enough for many
@@ -242,14 +237,6 @@ static void bt_handle_command_status(const uint8_t* payload, size_t len) {
     _wait_debug.last_opcode = opcode;
     _wait_debug.last_status = status;
     bt_update_wait_cmd_complete(opcode, status);
-
-    /* Command Status precedes the auth/encryption event. Record rejections
-       here too; Set Connection Encryption normally does not use Complete. */
-    if (opcode == HCI_OPCODE(HCI_OGF_LINK_CTRL, HCI_OCF_AUTH_REQ) ||
-            opcode == HCI_OPCODE(HCI_OGF_LINK_CTRL, HCI_OCF_SET_CONN_ENCRYPT)) {
-        slog("bt input_security phase=cmd_status opcode=%04x status=%02x\n",
-            opcode, status);
-    }
 
     if (_wait_cmd.active && _wait_cmd.opcode == opcode) {
         return; /* claimed by a synchronous wait (bring-up, autoconnect) */
@@ -393,6 +380,20 @@ static void bt_handle_event(uint8_t event_code, const uint8_t* payload, size_t l
     case EVT_ENCRYPTION_CHANGE:
         bt_handle_encryption_change(payload, len);
         break;
+    case EVT_ENCRYPTION_KEY_REFRESH: {
+        /* SC bonds re-encrypt with a key refresh (no enable byte), not a
+           change event; normalize to the change layout or the deferred
+           classic HID bring-up would never fire on an SC reconnect. */
+        uint8_t norm[4];
+        if (len >= 3) {
+            norm[0] = payload[0];
+            norm[1] = payload[1];
+            norm[2] = payload[2];
+            norm[3] = payload[0] == 0 ? 1 : 0;
+            bt_handle_encryption_change(norm, sizeof(norm));
+        }
+        break;
+    }
     case EVT_LE_META:
         bt_handle_le_meta(payload, len);
         break;
@@ -472,11 +473,6 @@ int bt_poll_once(uint32_t first_timeout_ms) {
         acl_len = (uint16_t)hdr[2] | ((uint16_t)hdr[3] << 8);
         handle = (uint16_t)(((uint16_t)hdr[0] | ((uint16_t)hdr[1] << 8)) & 0x0fff);
         pb = (uint8_t)((hdr[1] >> 4) & 0x03);
-        if (_hid.active && _hid.is_gamepad && _hid.acl_handle == handle) {
-            ++_hid.diag_acl;
-            _hid.diag_acl_len = acl_len;
-            _hid.diag_pb = pb;
-        }
 
         {
             uint8_t fragment[4 + L2CAP_MTU_DEFAULT];
@@ -614,6 +610,21 @@ static int bt_configure_controller(void) {
     uint8_t auth_enable = 0x01;
     uint8_t inquiry_mode = 0x02;
     uint8_t simple_pair = 0x01;
+    uint8_t sec_conn = 0x01;
+    /* Present as a laptop-class host (Windows CoD): the firmware default
+       0x000000 makes us a classless host to anything that reads our FHS at
+       page time, and host-adaptive device firmware classifies by it before
+       it ever browses SDP. */
+    uint8_t host_cod[3] = {0x0c, 0x01, 0x7a};
+    /* Allow peer-initiated sniff mode and role switch, as Linux, Windows
+       and the BTstack HID host all do. A HID peripheral parks its link in
+       sniff mode right after setup to save power; at the reset default
+       (0x0000) the controller answers every LMP_sniff_req with
+       LMP_not_accepted and the host never learns about it. Hold and park
+       stay disabled: neither is used by HID devices. */
+    uint8_t link_policy[2] = {
+        (uint8_t)(HCI_LP_ROLE_SWITCH | HCI_LP_SNIFF), 0x00
+    };
     uint8_t buf_ret[8];
     uint8_t buf_ret_len = 0;
 
@@ -630,8 +641,22 @@ static int bt_configure_controller(void) {
         _acl_credits = 8; /* sane fallback if the controller stays mute */
     }
     (void)bt_hci_command_sync(HCI_OGF_HOST_CTRL, HCI_OCF_WRITE_AUTH_ENABLE, &auth_enable, 1, 1000);
+    (void)bt_hci_command_sync(HCI_OGF_HOST_CTRL, HCI_OCF_WRITE_CLASS_OF_DEVICE, host_cod, sizeof(host_cod), 1000);
+    (void)bt_hci_command_sync(HCI_OGF_LINK_POLICY,
+        HCI_OCF_WRITE_DEF_LINK_POLICY, link_policy, sizeof(link_policy), 1000);
     (void)bt_hci_command_sync(HCI_OGF_HOST_CTRL, HCI_OCF_WRITE_INQUIRY_MODE, &inquiry_mode, 1, 1000);
     (void)bt_hci_command_sync(HCI_OGF_HOST_CTRL, HCI_OCF_WRITE_SIMPLE_PAIRING_MODE, &simple_pair, 1, 1000);
+    /* Pair like every real host (Windows/macOS/BlueZ all enable this): with
+       Secure Connections host support, NEW bonds derive the link key over
+       P-256/AES instead of legacy E22. Existing legacy bonds keep working
+       unchanged, and a controller that rejects the command just stays at
+       legacy behavior — log the result so the re-pair test can tell
+       "controller refused" apart from "pad negotiated legacy anyway". */
+    {
+        int sc_ret = bt_hci_command_sync(HCI_OGF_HOST_CTRL,
+            HCI_OCF_WRITE_SECURE_CONN_HOST, &sec_conn, 1, 1000);
+        slog("bluetooth sec_conn ret=%d\n", sc_ret);
+    }
     (void)bt_hci_command_sync(HCI_OGF_HOST_CTRL, HCI_OCF_WRITE_SCAN_ENABLE, &scan_enable, 1, 1000);
     /* LE support is optional: a controller that refuses LE_Set_Event_Mask
        simply leaves _le_supported clear and discovery stays classic-only */
@@ -1113,6 +1138,7 @@ static int bt_unpair_device(const char* arg, char* ret, size_t ret_sz) {
         if (ret != NULL && ret_sz != 0) {
             snprintf(ret, ret_sz, "unpair_fail %s reason=not_paired\n", arg);
         }
+        slog("bt unpair_fail %s reason=not_paired\n", arg);
         return -1;
     }
 
@@ -1164,6 +1190,9 @@ static int bt_unpair_device(const char* arg, char* ret, size_t ret_sz) {
         bt_known_save();
     }
     bt_emit("unpair_ok %s\n", arg);
+    /* mirror into /dev/log: a re-pair test is otherwise impossible to
+       verify from a plain log capture (bt_emit only feeds /dev/bt0) */
+    slog("bt unpair_ok %s\n", arg);
     if (ret != NULL && ret_sz != 0) {
         snprintf(ret, ret_sz, "unpair_ok %s\n", arg);
     }
@@ -1611,7 +1640,7 @@ static int bt_handle_cmd_args(int argc, char** argv, char* ret, size_t ret_sz) {
            attach pollers fire hid_open every 2s and hid_state reads active=0
            until the session reaches READY, so without the handle test below a
            dual-mode pad in DISCOVERING would fall through to bt_hid_start on
-           the LE handle - aliasing it into _hid.acl_handle and letting the
+           the LE handle - aliasing it into a session's acl_handle and letting the
            end-of-connect duplicate-transport suppression disconnect the very
            link it just brought up (the pad drops at READY and reconnect-loops).
            Any device whose current handle owns an LE session belongs to HOGP. */
@@ -1661,29 +1690,52 @@ static int bt_handle_cmd_args(int argc, char** argv, char* ret, size_t ret_sz) {
         snprintf(ret, ret_sz, "hid_open_begin handle=0x%04X\n", dev->handle);
     }
     else if (strcmp(cmd, "hid_close") == 0) {
-        if (!_hid.active) {
+        int i;
+        int closed = 0;
+
+        /* no address argument: every live classic session is closed */
+        for (i = 0; i < MAX_CLASSIC_HID_SESSIONS; ++i) {
+            if (_hids[i].active) {
+                bt_hid_stop(&_hids[i]);
+                ++closed;
+            }
+        }
+        if (closed == 0) {
             snprintf(ret, ret_sz, "hid_close_fail reason=no_session\n");
             return 0;
         }
-        bt_hid_stop();
-        snprintf(ret, ret_sz, "hid_close_ok\n");
+        snprintf(ret, ret_sz, "hid_close_ok count=%d\n", closed);
     }
     else if (strcmp(cmd, "hid_state") == 0) {
         char haddr[24];
         int sub_cnt = hid_srv_count(HID_REPORT_ID_MOUSE);
+        int i;
+        size_t off = 0;
 
         /* bt_moused polls this string and only attaches while active=0, so
-           it has to say active=1 for an LE session too */
-        if (_hid.active) {
-            bt_addr_to_str(_hid.addr, haddr, sizeof(haddr));
-            snprintf(ret, ret_sz,
+           it has to say active=1 for an LE session too. One line per live
+           classic session, in slot order; the pollers strstr for "active=1",
+           so multiple lines and the trailing slot key are safe. */
+        for (i = 0; i < MAX_CLASSIC_HID_SESSIONS; ++i) {
+            int n;
+
+            if (!_hids[i].active) {
+                continue;
+            }
+            bt_addr_to_str(_hids[i].addr, haddr, sizeof(haddr));
+            n = snprintf(ret + off, off < ret_sz ? ret_sz - off : 0,
                 "hid_state active=1 addr=%s handle=0x%04X up=%d boot=%d "
-                "ctrl=%d intr=%d le=0 mouse_subs=%d\n",
-                haddr, _hid.acl_handle, _hid.up ? 1 : 0,
-                _hid.boot_protocol_ok ? 1 : 0,
-                _hid.ctrl != NULL ? _hid.ctrl->state : -1,
-                _hid.intr != NULL ? _hid.intr->state : -1,
-                sub_cnt);
+                "ctrl=%d intr=%d le=0 mouse_subs=%d slot=%d\n",
+                haddr, _hids[i].acl_handle, _hids[i].up ? 1 : 0,
+                _hids[i].boot_protocol_ok ? 1 : 0,
+                _hids[i].ctrl != NULL ? _hids[i].ctrl->state : -1,
+                _hids[i].intr != NULL ? _hids[i].intr->state : -1,
+                sub_cnt, i);
+            if (n > 0) {
+                off += (size_t)n;
+            }
+        }
+        if (off != 0) {
             return 0;
         }
         /* with several LE links live, report the first READY session; the
@@ -1774,8 +1826,10 @@ static uint32_t bt_check_poll_events(vdevice_t* dev, int fd, int from_pid, fsinf
    connected the daemon is only scanning, and polling can relax. */
 bool bt_hid_live(void) {
     int i;
-    if (_hid.active && _hid.up) {
-        return true;
+    for (i = 0; i < MAX_CLASSIC_HID_SESSIONS; ++i) {
+        if (_hids[i].active && _hids[i].up) {
+            return true;
+        }
     }
     for (i = 0; i < MAX_LE_SESSIONS; ++i) {
         if (_les[i].le.state == LE_ST_READY && _les[i].le.handle_valid) {

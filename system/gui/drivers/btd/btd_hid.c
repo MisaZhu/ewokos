@@ -4,135 +4,168 @@
    constants and cross-module declarations live in btd_int.h. */
 #include "btd_int.h"
 
-bt_hid_chan_t _hid;
+bt_hid_chan_t _hids[MAX_CLASSIC_HID_SESSIONS];
 
 uint64_t _sub_reassert_ms = 0;
 
-/* Callers rate-limit these gamepad-only samples; never dump bond material. */
-void bt_hid_diag_dump(const char* stage, const uint8_t* data, size_t len) {
-    static const char hex[] = "0123456789abcdef";
-    char raw[24 * 3 + 1];
-    size_t n = len < 24 ? len : 24;
-    for (size_t i = 0; i < n; ++i) {
-        raw[i * 3] = hex[data[i] >> 4];
-        raw[i * 3 + 1] = hex[data[i] & 15];
-        raw[i * 3 + 2] = ' ';
+/* The live session owning this ACL link, NULL when the link has none. */
+bt_hid_chan_t* bt_hid_by_handle(uint16_t handle) {
+    int i;
+
+    if (handle == 0) {
+        return NULL;
     }
-    raw[n * 3] = 0;
-    slog("bt input_raw stage=%s h=%04x len=%u data=%s\n",
-        stage, (unsigned)_hid.acl_handle, (unsigned)len, raw);
-}
-
-static bool bt_hid_chan_up(void) {
-    return _hid.active && _hid.ctrl != NULL && _hid.intr != NULL &&
-        _hid.ctrl->state == L2CAP_STATE_OPEN && _hid.intr->state == L2CAP_STATE_OPEN;
-}
-
-void bt_hid_check_up(void) {
-    char addr[24];
-
-    if (!_hid.active || _hid.up || !bt_hid_chan_up()) {
-        return;
-    }
-    _hid.up = true;
-    /* HID setup is complete only after BOTH L2CAP channels are configured.
-       Sending SET_PROTOCOL on control alone races the peer's interrupt setup.
-       A gamepad has no boot protocol (it is defined only for keyboards and
-       mice) and always reports in report protocol, so skip the request and
-       let its full frames flow straight to bt_hid_handle_report. */
-    if (!_hid.is_gamepad) {
-        uint8_t hidp = HIDP_TRANS_SET_PROTOCOL | HIDP_PROTOCOL_BOOT;
-        _hid.boot_protocol_ok = false;
-        _hid.boot_protocol_pending = l2cap_send_pdu(_hid.acl_handle,
-            _hid.ctrl->remote_cid, &hidp, 1) == 0;
-        if (!_hid.boot_protocol_pending) {
-            slog("bluetooth hid set_protocol_send_failed h=0x%04x\n", _hid.acl_handle);
+    for (i = 0; i < MAX_CLASSIC_HID_SESSIONS; ++i) {
+        if (_hids[i].active && _hids[i].acl_handle == handle) {
+            return &_hids[i];
         }
     }
-    bt_addr_to_str(_hid.addr, addr, sizeof(addr));
-    bt_emit("hid_ok %s handle=0x%04X\n", addr, _hid.acl_handle);
-    if (_hid.is_gamepad) {
-        slog("bt input_up h=%04x ctrl=%04x/%04x intr=%04x/%04x js_subs=%d setup=report_default\n",
-            (unsigned)_hid.acl_handle,
-            (unsigned)_hid.ctrl->local_cid, (unsigned)_hid.ctrl->remote_cid,
-            (unsigned)_hid.intr->local_cid, (unsigned)_hid.intr->remote_cid,
-            hid_srv_count(HID_REPORT_ID_JOYSTICK));
-    }
+    return NULL;
 }
 
-/* both channels of one link are gone: forget the HID session */
+/* A slot available for a new session, NULL when both are taken. */
+bt_hid_chan_t* bt_hid_slot_free(void) {
+    int i;
+
+    for (i = 0; i < MAX_CLASSIC_HID_SESSIONS; ++i) {
+        if (!_hids[i].active) {
+            return &_hids[i];
+        }
+    }
+    return NULL;
+}
+
+static bool bt_hid_chan_up(const bt_hid_chan_t* h) {
+    return h->active && h->ctrl != NULL && h->intr != NULL &&
+        h->ctrl->state == L2CAP_STATE_OPEN && h->intr->state == L2CAP_STATE_OPEN;
+}
+
+void bt_hid_check_up(bt_hid_chan_t* h) {
+    char addr[24];
+
+    if (h == NULL || !h->active || h->up || !bt_hid_chan_up(h)) {
+        return;
+    }
+    h->up = true;
+    /* HID setup is complete only after BOTH L2CAP channels are configured.
+       Sending SET_PROTOCOL on control alone races the peer's interrupt setup.
+       Keyboards/mice get BOOT so their fixed-length frames parse by length;
+       a gamepad gets REPORT instead: cheap pad firmware (observed on the
+       Zikway "Xbox Wireless Controller" clone, whose own record says
+       VirtualCable=FALSE) powers up in boot protocol and only starts
+       streaming input after the host's SET_PROTOCOL(REPORT), the same
+       request real hosts send while enumerating a BT HID device. */
+    {
+        uint8_t hidp = HIDP_TRANS_SET_PROTOCOL |
+            (h->is_gamepad ? HIDP_PROTOCOL_REPORT : HIDP_PROTOCOL_BOOT);
+        h->boot_protocol_ok = false;
+        h->boot_protocol_pending = l2cap_send_pdu(h->acl_handle,
+            h->ctrl->remote_cid, &hidp, 1) == 0;
+        if (!h->boot_protocol_pending) {
+            slog("bluetooth hid set_protocol_send_failed h=0x%04x\n", h->acl_handle);
+        }
+    }
+    bt_addr_to_str(h->addr, addr, sizeof(addr));
+    bt_emit("hid_ok %s handle=0x%04X\n", addr, h->acl_handle);
+}
+
+/* both channels of one link are gone: forget that HID session */
 void bt_hid_link_closed(uint16_t handle, const char* reason) {
     char addr[24];
     bool was_up;
+    bt_hid_chan_t* h = bt_hid_by_handle(handle);
 
-    if (!_hid.active || _hid.acl_handle != handle) {
+    if (h == NULL) {
         return;
     }
-    was_up = _hid.up;
-    bt_addr_to_str(_hid.addr, addr, sizeof(addr));
-    memset(&_hid, 0, sizeof(_hid));
+    was_up = h->up;
+    bt_addr_to_str(h->addr, addr, sizeof(addr));
+    /* a key or button still down at the drop would otherwise stay down on
+       the consumer side forever (hid_keybd auto-repeat through xim_none) */
+    bt_hid_release_held(&h->held);
+    memset(h, 0, sizeof(*h));
     if (was_up) {
         bt_emit("hid_disconnect %s reason=%s\n", addr, reason);
     }
 }
 
-void bt_hid_stop(void) {
-    if (!_hid.active) {
+void bt_hid_stop(bt_hid_chan_t* h) {
+    if (h == NULL || !h->active) {
         return;
     }
     /* HID disconnect order is interrupt first, then control. */
-    if (_hid.intr != NULL) {
-        l2cap_chan_close(_hid.intr, true);
+    if (h->intr != NULL) {
+        l2cap_chan_close(h->intr, true);
     }
-    if (_hid.ctrl != NULL) {
-        l2cap_chan_close(_hid.ctrl, true);
+    if (h->ctrl != NULL) {
+        l2cap_chan_close(h->ctrl, true);
     }
-    bt_hid_link_closed(_hid.acl_handle, "closed");
+    bt_hid_link_closed(h->acl_handle, "closed");
 }
+
+/* Upper bound for a gamepad's SDP record enumeration before its HID channels
+   open anyway: generous against a slow fetch, short against a pad that
+   ignores our SDP connection entirely. */
+#define BT_HID_SDP_MAP_MS 3000
+
+/* Head start a gamepad gets to open its own HID channels after enumeration
+   before we open them outbound (bt_hid_start). The self-reconnecting pad
+   does so within milliseconds; a host-waiting pad costs this much latency. */
+#define BT_HID_PEER_OPEN_MS 3000
 
 /* A peer that never opens interrupt must not leave an active half-session
    blocking attachment forever. Repeated start requests do not extend this wait. */
 void bt_hid_step(void) {
-    if (_hid.active && _hid.ctrl != NULL && _hid.ctrl->incoming &&
-            _hid.ctrl->state == L2CAP_STATE_OPEN && _hid.intr == NULL) {
-        uint64_t now = kernel_tic_ms(0);
-        if (_hid.intr_wait_ms == 0) {
-            _hid.intr_wait_ms = now +
-                L2CAP_STEP_TIMEOUT_MS * (L2CAP_STEP_MAX_RETRIES + 1);
+    int i;
+
+    for (i = 0; i < MAX_CLASSIC_HID_SESSIONS; ++i) {
+        bt_hid_chan_t* h = &_hids[i];
+
+        if (!h->active) {
+            continue;
         }
-        else if (now >= _hid.intr_wait_ms) {
-            slog("bluetooth hid peer_intr_timeout h=0x%04x\n", _hid.acl_handle);
-            bt_hid_stop();
+        if (h->ctrl != NULL && h->ctrl->incoming &&
+                h->ctrl->state == L2CAP_STATE_OPEN && h->intr == NULL) {
+            uint64_t now = kernel_tic_ms(0);
+            if (h->intr_wait_ms == 0) {
+                h->intr_wait_ms = now +
+                    L2CAP_STEP_TIMEOUT_MS * (L2CAP_STEP_MAX_RETRIES + 1);
+            }
+            else if (now >= h->intr_wait_ms) {
+                slog("bluetooth hid peer_intr_timeout h=0x%04x\n", h->acl_handle);
+                bt_hid_stop(h);
+                continue;
+            }
         }
-    }
-    else {
-        _hid.intr_wait_ms = 0;
-    }
-    /* Report silence does not establish LE support. Channel setup timeouts
-       are handled by l2cap_step; never disconnect an open classic link or
-       discard its bond merely because no input report has arrived. */
-    bt_hid_check_up();
-    /* A heartbeat distinguishes zero received traffic from missing log calls.
-       Observation only: no report deadline, link teardown or transport change. */
-    if (_hid.active && _hid.is_gamepad) {
-        uint64_t now = kernel_tic_ms(0);
-        if (_hid.diag_next_ms == 0 || now >= _hid.diag_next_ms) {
-            _hid.diag_next_ms = now + 3000;
-            slog("bt input_path h=%04x up=%d acl=%u pdu=%u ctrl=%u intr=%u "
-                "non_a1=%u strip_id=%u report=%u dispatch=%u js_subs=%d\n",
-                (unsigned)_hid.acl_handle, _hid.up ? 1 : 0,
-                (unsigned)_hid.diag_acl, (unsigned)_hid.diag_pdu,
-                (unsigned)_hid.diag_ctrl, (unsigned)_hid.diag_intr,
-                (unsigned)_hid.diag_non_input, (unsigned)_hid.diag_strip_id,
-                (unsigned)_hid.diag_reports, (unsigned)_hid.diag_dispatch,
-                hid_srv_count(HID_REPORT_ID_JOYSTICK));
-            slog("bt input_acl h=%04x last_pb=%u last_len=%u last_cid=%04x bad_cid=%u "
-                "tx=%u tx_fail=%u completed=%u credits=%u\n",
-                (unsigned)_hid.acl_handle, (unsigned)_hid.diag_pb,
-                (unsigned)_hid.diag_acl_len, (unsigned)_hid.diag_cid,
-                (unsigned)_hid.diag_bad_cid, (unsigned)_hid.diag_tx,
-                (unsigned)_hid.diag_tx_failed, (unsigned)_hid.diag_tx_completed,
-                (unsigned)_acl_credits);
+        else {
+            h->intr_wait_ms = 0;
+        }
+        /* Report silence does not establish LE support. Channel setup timeouts
+           are handled by l2cap_step; never disconnect an open classic link or
+           discard its bond merely because no input report has arrived. */
+        bt_hid_check_up(h);
+        /* Gamepad enumeration-first state machine: the record fetch normally
+           completes well inside the deadline; a pad that ignores our SDP
+           connection must not block HID setup longer than BT_HID_SDP_MAP_MS. */
+        if (h->is_gamepad && !h->sdp_map_done) {
+            uint64_t now = kernel_tic_ms(0);
+            if (h->sdp_deadline_ms == 0) {
+                h->sdp_deadline_ms = now + BT_HID_SDP_MAP_MS;
+            }
+            if (!h->sdp_map_started) {
+                bt_sdp_client_kick(h);
+            }
+            if (now >= h->sdp_deadline_ms) {
+                slog("bt sdp_cli_skip h=%04x\n", (unsigned)h->acl_handle);
+                if (h->sdp != NULL) {
+                    l2cap_chan_close(h->sdp, true);
+                }
+                h->sdp_map_done = true;
+            }
+        }
+        /* Enumeration done and nothing in flight: (re)start the channels. */
+        if (h->is_gamepad && h->sdp_map_done && !h->up && h->ctrl == NULL) {
+            bt_hid_start(h->acl_handle, h->addr);
         }
     }
 }
@@ -155,8 +188,8 @@ void bt_hid_step(void) {
    the full delta. The run length is bounded to stay well clear of the 32-deep
    subscriber queue even for a maximum-magnitude report. */
 #define BT_MOUSE_MAX_SPLIT 8
-static void bt_hid_dispatch_mouse_rel(uint8_t btn, int32_t dx, int32_t dy,
-        int8_t wheel) {
+static void bt_hid_dispatch_mouse_rel(bt_hid_held_t* held, uint8_t btn,
+        int32_t dx, int32_t dy, int8_t wheel) {
     int n = 0;
 
     while (n < BT_MOUSE_MAX_SPLIT) {
@@ -169,7 +202,7 @@ static void bt_hid_dispatch_mouse_rel(uint8_t btn, int32_t dx, int32_t dy,
         evt[1] = (uint8_t)cx;
         evt[2] = (uint8_t)cy;
         evt[3] = (uint8_t)(n == 0 ? wheel : 0);
-        bt_hid_dispatch_mouse(evt);
+        bt_hid_dispatch_mouse(held, evt);
         dx -= cx;
         dy -= cy;
         n++;
@@ -190,7 +223,8 @@ static void bt_hid_dispatch_mouse_rel(uint8_t btn, int32_t dx, int32_t dy,
    NOT go through the boot length heuristic - the Report ID would be misread
    as the button byte (0x07 = all three buttons stuck) and the axes would be
    off by one, which is exactly a touchpad that "moves wrong". */
-void bt_hid_handle_report(const uint8_t* data, size_t len) {
+void bt_hid_handle_report(bt_hid_chan_t* h, bt_hid_held_t* held,
+        const uint8_t* data, size_t len) {
     uint8_t evt[HID_MAX_EVENT_SIZE];
 
     if (len < 1) {
@@ -205,22 +239,38 @@ void bt_hid_handle_report(const uint8_t* data, size_t len) {
      * guard the >=8 length heuristic below would misread the stick bytes as
      * keycodes. Forward the raw prefix to the joystick subscribers and let
      * hid_joystickd decode the device-specific layout. The match latches
-     * is_gamepad so every later frame routes correctly.
+     * is_gamepad so every later frame routes correctly. The LE fallback
+     * caller passes h == NULL: it has no session to latch, and an unrelated
+     * classic session must not misroute this report.
      */
-    if (_hid.is_gamepad ||
+    if ((h != NULL && h->is_gamepad) ||
             (len > HID_KEYBOARD_REPORT_SIZE &&
              (data[0] == 0x11 || data[0] == 0x31)) ||
             (len == 10 && data[0] == 0x01)) {
-        _hid.is_gamepad = true;
-        ++_hid.diag_reports;
-        uint64_t now = kernel_tic_ms(0);
-        if (_hid.diag_report_ms == 0 || now >= _hid.diag_report_ms) {
-            _hid.diag_report_ms = now + 2000;
-            bt_hid_diag_dump("report", data, len);
+        if (h != NULL) {
+            h->is_gamepad = true;
+            /* Descriptor-driven layout from the pad's own SDP HID record
+               (the Zikway "Xbox" clone streams a 17-byte report 0x01 that
+               hid_joystickd would otherwise misread as a PlayStation
+               truncated report). Normalize here and forward the js_evt_t
+               under the reserved 0x05 tag, exactly like the HOGP path; the
+               pad's non-input reports (battery 0x02, ...) are dropped. */
+            if (h->joystick_ok) {
+                if (h->joystick.has_report_id &&
+                        data[0] != h->joystick.report_id) {
+                    return;
+                }
+                js_evt_t je;
+                uint8_t frame[1 + sizeof(js_evt_t)];
+                if (joystick_normalize_report(&h->joystick, data, (int)len, &je) == 0) {
+                    frame[0] = 0x05;
+                    memcpy(frame + 1, &je, sizeof(js_evt_t));
+                    bt_hid_dispatch_joystick(frame, sizeof(frame));
+                    return;
+                }
+                /* length mismatch etc.: fall back to the raw-prefix path */
+            }
         }
-        /* Count classic dispatch attempts here; the shared dispatcher is also
-           used by LE. Subscriber count in input_path determines the audience. */
-        ++_hid.diag_dispatch;
         bt_hid_dispatch_joystick(data, len);
         return;
     }
@@ -228,7 +278,7 @@ void bt_hid_handle_report(const uint8_t* data, size_t len) {
     if (len >= HID_KEYBOARD_REPORT_SIZE) {
         memset(evt, 0, sizeof(evt));
         memcpy(evt, data, HID_KEYBOARD_REPORT_SIZE);
-        bt_hid_dispatch_keyboard(evt);
+        bt_hid_dispatch_keyboard(held, evt);
         return;
     }
     /* Report-protocol pointer with a leading Report ID. This combo touchpad
@@ -263,7 +313,7 @@ void bt_hid_handle_report(const uint8_t* data, size_t len) {
                coalesces back into one move. Raise/lower the gain to taste. */
             x *= BT_TOUCHPAD_GAIN;
             y *= BT_TOUCHPAD_GAIN;
-            bt_hid_dispatch_mouse_rel(data[1], x, y, (int8_t)data[6]);
+            bt_hid_dispatch_mouse_rel(held, data[1], x, y, (int8_t)data[6]);
         }
         else {
             memset(evt, 0, sizeof(evt));
@@ -271,7 +321,7 @@ void bt_hid_handle_report(const uint8_t* data, size_t len) {
             evt[1] = data[2]; /* dx (signed) */
             evt[2] = data[3]; /* dy (signed) */
             evt[3] = data[4]; /* wheel */
-            bt_hid_dispatch_mouse(evt);
+            bt_hid_dispatch_mouse(held, evt);
         }
         return;
     }
@@ -285,23 +335,63 @@ void bt_hid_handle_report(const uint8_t* data, size_t len) {
     if (len >= 4) {
         evt[3] = data[3]; /* wheel on report-protocol mice */
     }
-    bt_hid_dispatch_mouse(evt);
+    bt_hid_dispatch_mouse(held, evt);
 }
 
 void bt_hid_handle_ctrl(l2cap_chan_t* ch, const uint8_t* data, size_t len) {
     char addr[24];
+    bt_hid_chan_t* h;
 
     if (len < 1) {
         return;
     }
+    h = bt_hid_by_handle(ch->acl_handle);
     switch (data[0] & 0xF0) {
     case HIDP_TRANS_HANDSHAKE:
-        if (!_hid.active || _hid.ctrl != ch || !_hid.boot_protocol_pending) {
+        if (h == NULL || h->ctrl != ch || !h->boot_protocol_pending) {
             break;
         }
-        _hid.boot_protocol_pending = false;
+        h->boot_protocol_pending = false;
         if (data[0] == HIDP_HANDSHAKE_SUCCESS) {
-            _hid.boot_protocol_ok = true;
+            h->boot_protocol_ok = true;
+            if (h->is_gamepad) {
+                /* the pad accepted REPORT protocol: input may start now.
+                   Xbox One-style firmware (the Zikway clone advertises a PID
+                   DC-Enable-Actuators output as its report ID 3) holds back
+                   input reports until the host enables the actuators once.
+                   Zero magnitudes: this wakes the stream without rumbling. */
+                static const uint8_t ff_init[] = {
+                    HIDP_DATA_OUTPUT, 0x03, 0x0F, 0, 0, 0, 0, 0, 0, 0
+                };
+                if (h->intr != NULL) {
+                    (void)l2cap_send_pdu(h->acl_handle,
+                        h->intr->remote_cid, ff_init, sizeof(ff_init));
+                }
+                /* Same enable as SET_REPORT on the control channel: the
+                   classic equivalent of the GATT report write xpadneo-style
+                   firmware actually honors, where the interrupt-channel
+                   DATA|OUTPUT twin above is silently ignored. */
+                static const uint8_t ff_init_sr[] = {
+                    HIDP_TRANS_SET_REPORT | HIDP_REPORT_OUTPUT,
+                    0x03, 0x0F, 0, 0, 0, 0, 0, 0, 0
+                };
+                (void)l2cap_send_pdu(h->acl_handle,
+                    h->ctrl->remote_cid, ff_init_sr, sizeof(ff_init_sr));
+                /* SET_IDLE 0 disables the pad's idle timer so its report
+                   stream never parks; cheap firmware arms its input only
+                   after this standard request. */
+                static const uint8_t set_idle[] = { HIDP_TRANS_SET_IDLE, 0x00 };
+                (void)l2cap_send_pdu(h->acl_handle,
+                    h->ctrl->remote_cid, set_idle, sizeof(set_idle));
+                /* GET_REPORT(Input 1) is mandatory in HIDP: poll-driven
+                   firmware answers it on this channel, and streaming
+                   firmware often starts streaming after the first pull. */
+                static const uint8_t get_in[] = {
+                    HIDP_TRANS_GET_REPORT | HIDP_REPORT_INPUT, 0x01
+                };
+                (void)l2cap_send_pdu(h->acl_handle,
+                    h->ctrl->remote_cid, get_in, sizeof(get_in));
+            }
         }
         else {
             /* not a boot device or busy: reports keep arriving in
@@ -310,12 +400,19 @@ void bt_hid_handle_ctrl(l2cap_chan_t* ch, const uint8_t* data, size_t len) {
             slog("bluetooth hid set_protocol refused=0x%02x\n", data[0] & 0x0f);
         }
         break;
+    case HIDP_TRANS_DATA:
+        /* A GET_REPORT reply arrives on the control channel: strip the a1
+           header and route it exactly like an interrupt-channel report. */
+        if (h != NULL && data[0] == HIDP_DATA_INPUT && len > 1) {
+            bt_hid_handle_report(h, &h->held, data + 1, len - 1);
+        }
+        break;
     case HIDP_TRANS_HID_CONTROL:
-        if (data[0] == HIDP_HID_CONTROL_VC_UNPLUG) {
+        if (data[0] == HIDP_HID_CONTROL_VC_UNPLUG && h != NULL) {
             /* the mouse wants its virtual cable unplugged: close the
                channels and the ACL link, the pairing itself survives */
-            bt_addr_to_str(_hid.addr, addr, sizeof(addr));
-            bt_hid_stop();
+            bt_addr_to_str(h->addr, addr, sizeof(addr));
+            bt_hid_stop(h);
             if (ch->acl_handle != 0) {
                 bt_hci_disconnect(ch->acl_handle);
             }
@@ -338,16 +435,53 @@ void bt_hid_handle_ctrl(l2cap_chan_t* ch, const uint8_t* data, size_t len) {
    queue's empty -> non-empty edge (directed proc_wakeup_by). That edge can
    be spent on a generic IPC wait, so arm the bounded re-assert bt_loop
    runs while hid_backlog() still holds. */
-void bt_hid_dispatch_mouse(const uint8_t* evt) {
+void bt_hid_dispatch_mouse(bt_hid_held_t* held, const uint8_t* evt) {
+    if (held != NULL) {
+        held->mouse_btn = evt[0] != 0;
+    }
     if (hid_dispatch_evt(HID_REPORT_ID_MOUSE, evt, HID_POINTER_EVENT_SIZE)) {
         _sub_reassert_ms = kernel_tic_ms(0) + BT_HID_REASSERT_MS;
     }
 }
 
-void bt_hid_dispatch_keyboard(const uint8_t* evt) {
+void bt_hid_dispatch_keyboard(bt_hid_held_t* held, const uint8_t* evt) {
+    if (held != NULL) {
+        int i;
+
+        held->kbd = false;
+        for (i = 0; i < HID_KEYBOARD_REPORT_SIZE; ++i) {
+            if (evt[i] != 0) {
+                held->kbd = true;
+                break;
+            }
+        }
+    }
     if (hid_dispatch_evt(HID_REPORT_ID_KEYBOARD, evt, HID_KEYBOARD_EVENT_SIZE)) {
         _sub_reassert_ms = kernel_tic_ms(0) + BT_HID_REASSERT_MS;
     }
+}
+
+/* The peer dropped (out of range, battery, power switch) after a press and
+   before its release report: nothing will ever clear that snapshot on the
+   consumer side, so send it here. An all-zero keyboard snapshot is "no
+   modifier, no key" and an all-zero pointer event is "no button, no motion",
+   which is exactly what the peer would have sent. Idle links send nothing,
+   so a disconnect never costs the subscribers a spurious wake. */
+void bt_hid_release_held(bt_hid_held_t* held) {
+    uint8_t evt[HID_MAX_EVENT_SIZE];
+
+    if (held == NULL) {
+        return;
+    }
+    memset(evt, 0, sizeof(evt));
+    if (held->kbd) {
+        bt_hid_dispatch_keyboard(held, evt);
+    }
+    if (held->mouse_btn) {
+        bt_hid_dispatch_mouse(held, evt);
+    }
+    held->kbd = false;
+    held->mouse_btn = false;
 }
 
 /* Forward the raw gamepad report to the joystick subscribers. The prefix is
@@ -368,20 +502,27 @@ void bt_hid_dispatch_joystick(const uint8_t* raw, size_t len) {
     }
 }
 
-static void bt_hid_session_init(uint16_t handle, const uint8_t* addr) {
+/* Find the session owning this link, or claim a free slot for it. Returns
+   NULL only when both sessions are taken by other links; the L2CAP admission
+   gate refuses channels before that can happen, so this is defensive. */
+static bt_hid_chan_t* bt_hid_session_init(uint16_t handle, const uint8_t* addr) {
+    bt_hid_chan_t* h;
+
     if (handle == 0) {
-        return;
+        return NULL;
     }
-    /* a stale session on a dead handle must not leak its channels */
-    if (_hid.active && _hid.acl_handle != handle) {
-        bt_hid_stop();
-    }
-    if (!_hid.active) {
-        memset(&_hid, 0, sizeof(_hid));
-        _hid.active = true;
-        _hid.acl_handle = handle;
+    h = bt_hid_by_handle(handle);
+    if (h == NULL) {
+        h = bt_hid_slot_free();
+        if (h == NULL) {
+            slog("bluetooth hid no_free_session h=0x%04x\n", handle);
+            return NULL;
+        }
+        memset(h, 0, sizeof(*h));
+        h->active = true;
+        h->acl_handle = handle;
         if (addr != NULL) {
-            memcpy(_hid.addr, addr, 6);
+            memcpy(h->addr, addr, 6);
         }
     }
     /* A classic peripheral paged straight from the bond store never went
@@ -396,60 +537,118 @@ static void bt_hid_session_init(uint16_t handle, const uint8_t* addr) {
         /* A joystick/gamepad CoD marks a full report-protocol pad: flag the
            session so bt_hid_handle_report forwards its raw frames to the
            joystick subscribers instead of the boot keyboard/mouse heuristic,
-           and bt_hid_check_up skips the boot-protocol SET_PROTOCOL. */
+           bt_hid_start defers its channels behind the SDP record
+           enumeration, and bt_hid_check_up switches it to REPORT protocol. */
         if (d != NULL) {
-            _hid.is_gamepad = bt_cod_is_gamepad(d->class_of_device);
+            h->is_gamepad = bt_cod_is_gamepad(d->class_of_device);
         }
     }
+    return h;
 }
 
 /* Accepting a peer's channel must not originate the other half of the pair. */
 void bt_hid_accept(l2cap_chan_t* ch) {
+    bt_hid_chan_t* h;
+
     if (ch->psm != L2CAP_PSM_HID_CTRL && ch->psm != L2CAP_PSM_HID_INTR) {
         return;
     }
-    bt_device_t* dev = bt_find_device_by_handle(ch->acl_handle);
-    bt_hid_session_init(ch->acl_handle, dev != NULL ? dev->addr : NULL);
+    {
+        bt_device_t* dev = bt_find_device_by_handle(ch->acl_handle);
+        h = bt_hid_session_init(ch->acl_handle, dev != NULL ? dev->addr : NULL);
+    }
+    if (h == NULL) {
+        /* both sessions taken: refuse the channel rather than corrupt one */
+        l2cap_chan_close(ch, true);
+        return;
+    }
     if (ch->psm == L2CAP_PSM_HID_CTRL) {
-        _hid.ctrl = ch;
+        h->ctrl = ch;
     }
     else {
-        _hid.intr = ch;
+        h->intr = ch;
     }
 }
 
 void bt_hid_start(uint16_t handle, const uint8_t* addr) {
+    bt_hid_chan_t* h;
+
     if (handle == 0) {
         return;
     }
     /* Never bind classic HIDP to an LE handle. An LE peripheral is served by
        HOGP over GATT; classic L2CAP channels cannot ride an LE link, and if
-       _hid.acl_handle were aliased to a live LE handle the duplicate-transport
-       suppression at the end of bt_le_connect would disconnect the very HOGP
-       link it is meant to protect (a dual-mode gamepad drops right after READY
-       and loops). A dual-mode pad reached over LE is refused here; one truly
-       on a classic ACL is not an LE-session handle and proceeds normally. */
+       a session's acl_handle were aliased to a live LE handle the
+       duplicate-transport suppression at the end of bt_le_connect would
+       disconnect the very HOGP link it is meant to protect (a dual-mode
+       gamepad drops right after READY and loops). A dual-mode pad reached
+       over LE is refused here; one truly on a classic ACL is not an
+       LE-session handle and proceeds normally. */
     if (le_session_by_handle(handle) >= 0) {
         return;
     }
-    bt_hid_session_init(handle, addr);
-    if (_hid.ctrl == NULL || _hid.ctrl->state != L2CAP_STATE_OPEN) {
-        _hid.ctrl = l2cap_chan_open(handle, L2CAP_PSM_HID_CTRL);
+    h = bt_hid_session_init(handle, addr);
+    if (h == NULL) {
+        return;
+    }
+    /* A gamepad's channels wait until the SDP record enumeration finished
+       (or bt_hid_step's bounded wait gave up): real hosts always enumerate
+       first, and the Zikway-firmware pad withholds input from a host that
+       opens HID channels without ever having read its record. */
+    if (h->is_gamepad && !h->sdp_map_done) {
+        if (h->sdp_deadline_ms == 0) {
+            h->sdp_deadline_ms = kernel_tic_ms(0) + BT_HID_SDP_MAP_MS;
+        }
+        if (!h->sdp_map_started) {
+            bt_sdp_client_kick(h);
+        }
+        return;
+    }
+    /* Enumeration done. A pad whose record says HIDReconnectInitiate opens
+       both HID channels itself the moment our SDP channel closes (observed:
+       its PSM 0x0011 request lands in the same millisecond as ours). Racing
+       it crosses the two control requests, and however the cross is
+       resolved this firmware ends up without a working HID binding: the
+       zombie channel left by collapsing ours drew invalid-CID rejects, and
+       disconnecting it instead killed its HIDP responses and started a
+       signaling loop. Real hosts don't race a device that reconnects by
+       itself (BlueZ ReconnectMode=device accepts and waits), so give the
+       pad a bounded head start; the outbound open below stays as the
+       fallback for a pad that waits for the host. */
+    if (h->is_gamepad && h->ctrl == NULL) {
+        uint64_t now = kernel_tic_ms(0);
+        if (h->peer_open_until_ms == 0) {
+            h->peer_open_until_ms = now + BT_HID_PEER_OPEN_MS;
+        }
+        if (now < h->peer_open_until_ms) {
+            return;
+        }
+    }
+    if (h->ctrl == NULL || h->ctrl->state != L2CAP_STATE_OPEN) {
+        h->ctrl = l2cap_chan_open(handle, L2CAP_PSM_HID_CTRL);
     }
     /* HID 5.2.2: the control-channel initiator also initiates interrupt.
        A peer-initiated reconnect waits for the peer, even on repeated starts
        from an attach poll or security callback. BlueZ follows the same split. */
-    if (_hid.ctrl != NULL && _hid.ctrl->state == L2CAP_STATE_OPEN &&
-            !_hid.ctrl->incoming &&
-            (_hid.intr == NULL || _hid.intr->state != L2CAP_STATE_OPEN)) {
-        _hid.intr = l2cap_chan_open(handle, L2CAP_PSM_HID_INTR);
+    if (h->ctrl != NULL && h->ctrl->state == L2CAP_STATE_OPEN &&
+            !h->ctrl->incoming &&
+            (h->intr == NULL || h->intr->state != L2CAP_STATE_OPEN)) {
+        h->intr = l2cap_chan_open(handle, L2CAP_PSM_HID_INTR);
     }
 }
 
 /* drop every L2CAP channel (the ACL links die with the radio anyway) */
 void bt_hid_stack_reset(void) {
+    int i;
+
+    /* the links are being dropped wholesale: let go of anything they hold */
+    for (i = 0; i < MAX_CLASSIC_HID_SESSIONS; ++i) {
+        if (_hids[i].active) {
+            bt_hid_release_held(&_hids[i].held);
+        }
+    }
     memset(&_l2chans, 0, sizeof(_l2chans));
-    memset(&_hid, 0, sizeof(_hid));
+    memset(&_hids, 0, sizeof(_hids));
     l2cap_rx_reset();
     _acl_credits = 0;
     bt_le_stack_reset();

@@ -1745,10 +1745,6 @@ void bt_handle_encryption_change(const uint8_t* payload, size_t len) {
         return;
     }
 
-    /* Log the actual result: classic HID setup below also runs on failure. */
-    slog("bt input_security phase=encrypt_event h=%04x status=%02x enabled=%u\n",
-        handle, payload[0], payload[3]);
-
     /* classic (BR/EDR) link: HID bring-up was deferred until the link is
        secured. Whether encryption ended up enabled or was refused, the link
        is authenticated now, so open the L2CAP HID channels - unless HOGP is
@@ -1858,7 +1854,7 @@ static void bt_le_handle_notify(int si, uint16_t value_handle,
         }
         memset(evt, 0, sizeof(evt));
         memcpy(evt, value, HID_KEYBOARD_REPORT_SIZE);
-        bt_hid_dispatch_keyboard(evt);
+        bt_hid_dispatch_keyboard(&h->held, evt);
         return;
     }
     if (a->uuid == GATT_CHR_BOOT_MOUSE_INPUT) {
@@ -1872,7 +1868,7 @@ static void bt_le_handle_notify(int si, uint16_t value_handle,
         if (len >= 4) {
             evt[3] = value[3]; /* wheel */
         }
-        bt_hid_dispatch_mouse(evt);
+        bt_hid_dispatch_mouse(&h->held, evt);
         return;
     }
     if (a->uuid == GATT_CHR_REPORT) {
@@ -1939,7 +1935,7 @@ static void bt_le_handle_notify(int si, uint16_t value_handle,
             }
             if (mouse_normalize_report(&h->mouse, rp, rlen, evt) ==
                     HID_POINTER_EVENT_SIZE) {
-                bt_hid_dispatch_mouse(evt);
+                bt_hid_dispatch_mouse(&h->held, evt);
                 return;
             }
             /* normalize bailed: fall through to the length heuristic below */
@@ -1960,7 +1956,7 @@ static void bt_le_handle_notify(int si, uint16_t value_handle,
             memset(evt, 0, sizeof(evt));
             memcpy(evt, kp, klen < HID_KEYBOARD_REPORT_SIZE ?
                     klen : HID_KEYBOARD_REPORT_SIZE);
-            bt_hid_dispatch_keyboard(evt);
+            bt_hid_dispatch_keyboard(&h->held, evt);
             return;
         }
 
@@ -1986,7 +1982,10 @@ static void bt_le_handle_notify(int si, uint16_t value_handle,
             if (klen > HID_KEYBOARD_REPORT_SIZE) {
                 return;
             }
-            bt_hid_handle_report(kdata, klen);
+            /* No classic session rides an LE link: pass NULL so an unrelated
+               classic gamepad session cannot latch this report as its own;
+               the held tracking still belongs to this LE session. */
+            bt_hid_handle_report(NULL, &h->held, kdata, klen);
         }
     }
 }
@@ -3106,27 +3105,6 @@ static int hogp_bringup(uint16_t handle) {
         slog("bluetooth le_no_report_map\n");
         return -1;
     }
-    /* TEMP DIAGNOSTIC (remove once the GameSir decode is confirmed): hex-dump
-       the raw Report Map in 32-byte chunks. js_cls already proved the parser
-       rejects this 318-byte map (probe=0), so the descriptor itself has to be
-       read to find exactly which collection/usage hid_parse_joystick_report
-       fails on, instead of guessing at it. */
-    {
-        uint16_t roff;
-        for (roff = 0; roff < _hogp.report_map_len; roff += 32) {
-            char line[128];
-            int lp = 0;
-            uint16_t j;
-            lp += snprintf(line + lp, sizeof(line) - (size_t)lp, "bt rmap %03u:",
-                    (unsigned)roff);
-            for (j = roff; j < (uint16_t)(roff + 32) && j < _hogp.report_map_len;
-                    ++j) {
-                lp += snprintf(line + lp, sizeof(line) - (size_t)lp, " %02x",
-                        _hogp.report_map[j]);
-            }
-            slog("%s\n", line);
-        }
-    }
     if (hid_parse_mouse_report(_hogp.report_map, (int)_hogp.report_map_len,
             &_hogp.mouse) == 0 &&
             mouse_parser_sane(&_hogp.mouse, 64, false)) {
@@ -3155,18 +3133,6 @@ static int hogp_bringup(uint16_t handle) {
        latched before still latches - no regression for the genuine Xbox. */
     bool js_probe = hid_probe_joystick_report(_hogp.report_map,
             (int)_hogp.report_map_len, &_hogp.joystick);
-    /* TEMP DIAGNOSTIC (remove once the GameSir decode is confirmed): the full
-       classification decision, so "connected but is_gamepad never latched" is
-       resolved from real on-device values - whether the Report Map parsed as a
-       joystick at all (probe), whether a composite mouse/kbd claim was present,
-       and the latched report geometry. */
-    slog("bt js_cls maplen=%u probe=%d appear_gp=%d mouse_ok=%d kbd_rid=%u "
-            "jsrid=%u hasrid=%d rbytes=%u\n",
-            (unsigned)_hogp.report_map_len, js_probe ? 1 : 0,
-            appear_gamepad ? 1 : 0, _hogp.mouse_ok ? 1 : 0,
-            (unsigned)_hogp.kbd_report_id, (unsigned)_hogp.joystick.report_id,
-            _hogp.joystick.has_report_id ? 1 : 0,
-            (unsigned)_hogp.joystick.report_bytes);
     if (js_probe) {
         _hogp.is_gamepad = true;
         _hogp.joystick_ok = true;
@@ -3240,6 +3206,12 @@ static void bt_le_fail(const char* reason) {
 }
 
 void bt_le_stack_reset(void) {
+    int s;
+
+    /* every LE link dies with the radio: release what each one holds */
+    for (s = 0; s < MAX_LE_SESSIONS; ++s) {
+        bt_hid_release_held(&_les[s].hogp.held);
+    }
     memset(&_le, 0, sizeof(_le));
     memset(&_att, 0, sizeof(_att));
     memset(&_smp, 0, sizeof(_smp));
@@ -3561,21 +3533,27 @@ retry_link:
 
     /* Suppress a duplicate transport only for a device already served by
        HOGP. A separate classic keyboard must remain connected. */
-    if (_hid.active) {
-        bt_device_t* cdev = bt_find_device(_hid.addr, false);
-        if (cdev != NULL && bt_hogp_blocks_classic(cdev)) {
-            uint16_t chandle = _hid.acl_handle;
-            char caddr[24];
-            bt_addr_to_str(cdev->addr, caddr, sizeof(caddr));
-            bt_hid_stop();
-            /* Drop only a genuine classic transport. Were a classic session
-               ever aliased onto this live LE handle, disconnecting it would
-               tear down the very HOGP link just brought up (the pad drops at
-               READY and reconnect-loops), so an LE-session handle is left
-               connected; bt_hid_start already refuses to bind one. */
-            if (chandle != 0 && le_session_by_handle(chandle) < 0) {
-                slog("bluetooth hid_classic_drop %s reason=hogp_contention\n", caddr);
-                bt_hci_disconnect(chandle);
+    {
+        int cs;
+        for (cs = 0; cs < MAX_CLASSIC_HID_SESSIONS; ++cs) {
+            if (!_hids[cs].active) {
+                continue;
+            }
+            bt_device_t* cdev = bt_find_device(_hids[cs].addr, false);
+            if (cdev != NULL && bt_hogp_blocks_classic(cdev)) {
+                uint16_t chandle = _hids[cs].acl_handle;
+                char caddr[24];
+                bt_addr_to_str(cdev->addr, caddr, sizeof(caddr));
+                bt_hid_stop(&_hids[cs]);
+                /* Drop only a genuine classic transport. Were a classic session
+                   ever aliased onto this live LE handle, disconnecting it would
+                   tear down the very HOGP link just brought up (the pad drops at
+                   READY and reconnect-loops), so an LE-session handle is left
+                   connected; bt_hid_start already refuses to bind one. */
+                if (chandle != 0 && le_session_by_handle(chandle) < 0) {
+                    slog("bluetooth hid_classic_drop %s reason=hogp_contention\n", caddr);
+                    bt_hci_disconnect(chandle);
+                }
             }
         }
     }
@@ -3601,6 +3579,9 @@ void bt_le_link_closed(uint16_t handle, uint8_t reason) {
     bt_emit("le_disconnected handle=0x%04X reason=%u\n", handle, reason);
     slog("bluetooth le_link_closed handle=0x%04x reason=%u state=%d\n",
             handle, reason, (int)_les[si].le.state);
+    /* a HOGP key or button still down at the drop would otherwise stay
+       down on the consumer side forever (hid_keybd auto-repeat) */
+    bt_hid_release_held(&_les[si].hogp.held);
     /* FAILED rather than a full reset: a bring-up in flight is blocked on
        a predicate and has to be released now, and bt_le_step clears the
        session once its retry deadline passes. */

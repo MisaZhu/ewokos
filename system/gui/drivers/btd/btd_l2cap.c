@@ -131,10 +131,6 @@ static int bt_hci_send_acl(uint16_t handle, const uint8_t* data, size_t len) {
         slog("bluetooth acl no_credits handle=0x%04x\n", handle);
     }
     int ret = bt_hci_send_packet(HCI_PKT_ACL, pkt, 4 + len);
-    if (_hid.active && _hid.is_gamepad && _hid.acl_handle == handle) {
-        if (ret == 0) ++_hid.diag_tx;
-        else ++_hid.diag_tx_failed;
-    }
     return ret;
 }
 
@@ -150,11 +146,6 @@ void bt_handle_num_completed_pkts(const uint8_t* payload, size_t len) {
         uint16_t completed = (uint16_t)payload[3 + i * 4] |
             ((uint16_t)payload[4 + i * 4] << 8);
         _acl_credits = (uint16_t)(_acl_credits + completed);
-        uint16_t handle = ((uint16_t)payload[1 + i * 4] |
-            ((uint16_t)payload[2 + i * 4] << 8)) & 0x0fff;
-        if (_hid.active && _hid.is_gamepad && _hid.acl_handle == handle) {
-            _hid.diag_tx_completed += completed;
-        }
     }
 }
 
@@ -221,23 +212,6 @@ int l2cap_send_pdu(uint16_t handle, uint16_t cid,
     return bt_hci_send_acl(handle, pdu, 4 + payload_len);
 }
 
-/* Only signaling bodies are sampled here, never security key material.
-   Limit each direction to the first 16 commands of a gamepad HID session. */
-static void l2cap_diag_signal(uint16_t handle, bool tx, uint8_t code, uint8_t id,
-        const uint8_t* data, size_t len, int ret) {
-    if (!_hid.active || !_hid.is_gamepad || _hid.acl_handle != handle) {
-        return;
-    }
-    uint32_t* count = tx ? &_hid.diag_sig_tx : &_hid.diag_sig_rx;
-    if (*count >= 16) {
-        return;
-    }
-    ++*count;
-    slog("bt input_sig h=%04x dir=%s n=%u code=%02x id=%u len=%u ret=%d\n",
-        handle, tx ? "tx" : "rx", (unsigned)*count, code, id, (unsigned)len, ret);
-    bt_hid_diag_dump(tx ? "sig_tx" : "sig_rx", data, len);
-}
-
 static int l2cap_send_signal(uint16_t handle, uint8_t code, uint8_t id,
         const uint8_t* data, uint8_t data_len) {
     uint8_t cmd[4 + 64];
@@ -252,9 +226,7 @@ static int l2cap_send_signal(uint16_t handle, uint8_t code, uint8_t id,
     if (data_len > 0) {
         memcpy(cmd + 4, data, data_len);
     }
-    int ret = l2cap_send_pdu(handle, L2CAP_CID_SIGNAL, cmd, 4 + data_len);
-    l2cap_diag_signal(handle, true, code, id, data, data_len, ret);
-    return ret;
+    return l2cap_send_pdu(handle, L2CAP_CID_SIGNAL, cmd, 4 + data_len);
 }
 
 static void l2cap_send_conn_req(l2cap_chan_t* ch) {
@@ -329,6 +301,11 @@ l2cap_chan_t* l2cap_chan_open(uint16_t handle, uint16_t psm) {
     l2cap_chan_t* ch = l2cap_find_any(handle, psm);
     int i;
 
+    if (ch != NULL && psm == L2CAP_PSM_SDP && ch->incoming) {
+        /* SDP has a channel per direction: the pad's inbound browse must
+           not satisfy our outbound record-fetch open. */
+        ch = NULL;
+    }
     if (ch != NULL) {
         /* A closing channel still owns its CID until the response/timeout.
            ACL disconnect cleanup, not an unrelated start, releases it. */
@@ -360,25 +337,31 @@ l2cap_chan_t* l2cap_chan_open(uint16_t handle, uint16_t psm) {
 }
 
 void l2cap_chan_close(l2cap_chan_t* ch, bool send_req) {
+    bt_hid_chan_t* h;
+
     if (ch == NULL || !ch->used) {
         return;
     }
-    if (_hid.up && (_hid.ctrl == ch || _hid.intr == ch)) {
+    h = bt_hid_by_handle(ch->acl_handle);
+    if (h != NULL && h->sdp == ch) {
+        h->sdp = NULL; /* report-map client channel, unrelated to HID attach */
+    }
+    if (h != NULL && h->up && (h->ctrl == ch || h->intr == ch)) {
         char addr[24];
-        bt_addr_to_str(_hid.addr, addr, sizeof(addr));
+        bt_addr_to_str(h->addr, addr, sizeof(addr));
         bt_emit("hid_disconnect %s reason=l2cap_channel_closed\n", addr);
     }
-    if (_hid.ctrl == ch || _hid.intr == ch) {
-        _hid.boot_protocol_pending = false;
+    if (h != NULL && (h->ctrl == ch || h->intr == ch)) {
+        h->boot_protocol_pending = false;
     }
-    if (_hid.ctrl == ch) {
-        _hid.ctrl = NULL;
-        _hid.up = false;
-        _hid.boot_protocol_ok = false;
+    if (h != NULL && h->ctrl == ch) {
+        h->ctrl = NULL;
+        h->up = false;
+        h->boot_protocol_ok = false;
     }
-    if (_hid.intr == ch) {
-        _hid.intr = NULL;
-        _hid.up = false;
+    if (h != NULL && h->intr == ch) {
+        h->intr = NULL;
+        h->up = false;
     }
     if (send_req && ch->state == L2CAP_STATE_CLOSING) {
         return;
@@ -400,28 +383,28 @@ void l2cap_chan_close(l2cap_chan_t* ch, bool send_req) {
     memset(ch, 0, sizeof(*ch));
 }
 
+static void sdp_client_send(l2cap_chan_t* ch);
+static void sdp_client_data(l2cap_chan_t* ch, const uint8_t* data, size_t len);
+
 /* Called only after configuration completes in both directions. */
 static void l2cap_mark_open(l2cap_chan_t* ch) {
+    bt_hid_chan_t* h;
+
     ch->state = L2CAP_STATE_OPEN;
     if (ch->psm == L2CAP_PSM_SDP) {
+        if (ch->sdp_client) {
+            sdp_client_send(ch);
+            return;
+        }
         ch->retry_ms = kernel_tic_ms(0) + SDP_IDLE_TIMEOUT_MS;
-        slog("bt sdp_open h=%04x local=%04x remote=%04x\n",
-            ch->acl_handle, ch->local_cid, ch->remote_cid);
         return; /* SDP never owns or advances either HID channel. */
     }
-    if (_hid.active && _hid.is_gamepad && _hid.acl_handle == ch->acl_handle) {
-        slog("bt input_config h=%04x psm=%04x local=%04x remote=%04x incoming=%u "
-            "req_tx=%u req_rx=%u rsp_tx=%u rsp_rx=%u\n",
-            ch->acl_handle, ch->psm, ch->local_cid, ch->remote_cid,
-            ch->incoming ? 1u : 0u, ch->conf_req_sent ? 1u : 0u,
-            ch->conf_req_recv ? 1u : 0u, ch->conf_rsp_sent ? 1u : 0u,
-            ch->conf_rsp_recv ? 1u : 0u);
-    }
-    if (ch->psm == L2CAP_PSM_HID_CTRL && _hid.active && _hid.ctrl == ch) {
+    h = bt_hid_by_handle(ch->acl_handle);
+    if (ch->psm == L2CAP_PSM_HID_CTRL && h != NULL && h->ctrl == ch) {
         /* Preserve the control channel's initiator when progressing the pair. */
-        bt_hid_start(ch->acl_handle, _hid.addr);
+        bt_hid_start(ch->acl_handle, h->addr);
     }
-    bt_hid_check_up();
+    bt_hid_check_up(h);
 }
 
 /* drive every channel's handshake forward; called from bt_loop and from
@@ -518,8 +501,10 @@ static void l2cap_handle_conn_req(uint16_t handle, uint8_t id,
             return;
         }
     }
-    if (psm != L2CAP_PSM_SDP && _hid.active && _hid.acl_handle != handle) {
-        /* This driver has one classic HID session; SDP is independent. */
+    if (psm != L2CAP_PSM_SDP && bt_hid_by_handle(handle) == NULL &&
+            bt_hid_slot_free() == NULL) {
+        /* Both classic HID sessions are taken by other links; SDP stays
+           independent and is never counted against them. */
         l2cap_send_conn_rsp(handle, id, 0, rcid, 0x0004);
         return;
     }
@@ -527,6 +512,19 @@ static void l2cap_handle_conn_req(uint16_t handle, uint8_t id,
        If requests cross, accept the peer's direction with a fresh local CID;
        a late response to the abandoned outbound request then cannot match. */
     ch = l2cap_find_any(handle, psm);
+    if (psm == L2CAP_PSM_SDP && ch != NULL &&
+            (!ch->incoming || ch->remote_cid != rcid ||
+             ch->state == L2CAP_STATE_CONN_REQ_SENT)) {
+        /* SDP is exempt from the cross-collapse above: both directions are
+           independent channels and routinely coexist (our device-record
+           fetch while the pad browses our PnP record). l2cap_find_any
+           returns our OUTBOUND client channel first, and reusing it here
+           would wipe it — the late response to our request then matches
+           nothing and the peer's config request on the CID it opened gets
+           an invalid-CID reject. Only a same-rcid incoming channel is a
+           retransmit of this request. */
+        ch = NULL;
+    }
     if (ch != NULL && ch->state != L2CAP_STATE_CONN_REQ_SENT) {
         if (ch->remote_cid == rcid && ch->state != L2CAP_STATE_CLOSING) {
             l2cap_send_conn_rsp(handle, id, ch->local_cid, rcid, L2CAP_CONN_SUCCESS);
@@ -543,8 +541,9 @@ static void l2cap_handle_conn_req(uint16_t handle, uint8_t id,
                 ++sdp_channels;
             }
         }
-        /* Discovery must leave room for a complete control/interrupt pair. */
-        if (sdp_channels >= MAX_L2CAP_CHANS - 2) {
+        /* Discovery must leave room for every session's control/interrupt
+           pair. */
+        if (sdp_channels >= MAX_L2CAP_CHANS - MAX_CLASSIC_HID_SESSIONS * 2) {
             l2cap_send_conn_rsp(handle, id, 0, rcid, 0x0004);
             return;
         }
@@ -599,6 +598,10 @@ static void l2cap_handle_conn_rsp(uint16_t handle, uint8_t id,
 
     ch = l2cap_find_by_local(handle, scid);
     if (ch == NULL || ch->state != L2CAP_STATE_CONN_REQ_SENT || ch->sig_id != id) {
+        /* Includes the late answer to an outbound request a crossed inbound
+           one collapsed: leave the peer's channel alone. Disconnecting it
+           was tried and made the Zikway pad drop its HID binding outright;
+           bt_hid_start's peer head start keeps the cross from happening. */
         return;
     }
     if (result == L2CAP_CONN_PENDING) {
@@ -697,9 +700,11 @@ static void l2cap_handle_disconn_req(uint16_t handle, uint8_t id,
     if (ch != NULL && ch->remote_cid == scid) {
         bool hid_channel = ch->psm == L2CAP_PSM_HID_CTRL || ch->psm == L2CAP_PSM_HID_INTR;
         l2cap_chan_close(ch, false);
-        if (hid_channel && _hid.active && _hid.acl_handle == handle &&
-                _hid.ctrl == NULL && _hid.intr == NULL) {
-            bt_hid_link_closed(handle, "l2cap_disconnect");
+        if (hid_channel) {
+            bt_hid_chan_t* h = bt_hid_by_handle(handle);
+            if (h != NULL && h->ctrl == NULL && h->intr == NULL) {
+                bt_hid_link_closed(handle, "l2cap_disconnect");
+            }
         }
     }
     (void)scid;
@@ -750,7 +755,6 @@ static void l2cap_handle_signal(uint16_t handle, const uint8_t* pdu, size_t len)
             off += 4 + clen; /* identifier zero is reserved */
             continue;
         }
-        l2cap_diag_signal(handle, false, code, id, data, clen, 0);
         switch (code) {
         case L2CAP_SIG_CONN_REQ:
             l2cap_handle_conn_req(handle, id, data, clen);
@@ -821,16 +825,47 @@ static void l2cap_handle_signal(uint16_t handle, const uint8_t* pdu, size_t len)
 #define SDP_CONT_SIZE 6
 #define SDP_ATTR_CHUNK (SDP_RSP_MAX - 5 - 2 - 1 - SDP_CONT_SIZE)
 
-/* The well-known Service Discovery Server record, handle zero. Only advertise
-   the service implemented here: a HID host is not a HID device. In particular,
-   do not invent a Device ID vendor/product record to imitate another host.
-   Each row is a uint16 attribute ID followed by a five-byte data element. */
-static const uint8_t _sdp_record[][8] = {
-    {0x09, 0x00, 0x00, 0x0a, 0x00, 0x00, 0x00, 0x00}, /* record handle */
-    {0x09, 0x00, 0x01, 0x35, 0x03, 0x19, 0x10, 0x00}, /* service class */
-    {0x09, 0x02, 0x00, 0x35, 0x03, 0x09, 0x01, 0x00}, /* SDP version 1.0 */
-    {0x09, 0x02, 0x01, 0x0a, 0x00, 0x00, 0x00, 0x01}  /* static DB state */
+/* Two records. The well-known Service Discovery Server record (handle zero),
+   plus the PnP Information record every consumer host publishes: classic
+   gamepads classify the host over SDP before streaming (observed on the
+   GameSir/Xbox-mode pad: after its HIDP probe it ServiceSearchAttributes
+   UUID 0x1200 for all attributes, then holds back input when the answer
+   comes back empty). Only advertise what is true here: a HID host is not
+   a HID device, so there is deliberately no 0x1124 record. Each row is a
+   0x09 uint16 attribute ID header followed by one data element. */
+static const uint8_t _sdp_server_attrs[] = {
+    0x09, 0x00, 0x00, 0x0a, 0x00, 0x00, 0x00, 0x00, /* record handle 0 */
+    0x09, 0x00, 0x01, 0x35, 0x03, 0x19, 0x10, 0x00, /* SDP server class */
+    0x09, 0x02, 0x00, 0x35, 0x03, 0x09, 0x01, 0x00, /* SDP version 1.0 */
+    0x09, 0x02, 0x01, 0x0a, 0x00, 0x00, 0x00, 0x01  /* static DB state */
 };
+
+/* DID 1.3 identifying a PC-class host (Microsoft vendor via the Bluetooth
+   SIG vendor source), the identity pads pair with in their PC/Xbox mode. */
+static const uint8_t _sdp_did_attrs[] = {
+    0x09, 0x00, 0x00, 0x0a, 0x00, 0x00, 0x00, 0x01, /* record handle 1 */
+    0x09, 0x00, 0x01, 0x35, 0x03, 0x19, 0x12, 0x00, /* PnP Information */
+    0x09, 0x02, 0x00, 0x09, 0x01, 0x03,             /* DID spec 1.3 */
+    0x09, 0x02, 0x01, 0x09, 0x04, 0x5e,             /* vendor: Microsoft */
+    0x09, 0x02, 0x02, 0x09, 0x00, 0x01,             /* product 1 */
+    0x09, 0x02, 0x03, 0x09, 0x01, 0x00,             /* version 1.0 */
+    0x09, 0x02, 0x04, 0x28, 0x01,                   /* primary record */
+    0x09, 0x02, 0x05, 0x09, 0x00, 0x01              /* vendor source: SIG */
+};
+
+typedef struct {
+    uint32_t handle;
+    uint16_t class_uuid; /* sole ServiceClassIDList entry and search key */
+    const uint8_t* attrs;
+    uint16_t attrs_len;
+} sdp_record_t;
+
+static const sdp_record_t _sdp_records[] = {
+    {0, 0x1000, _sdp_server_attrs, sizeof(_sdp_server_attrs)},
+    {1, 0x1200, _sdp_did_attrs, sizeof(_sdp_did_attrs)}
+};
+
+#define SDP_RECORD_COUNT (sizeof(_sdp_records) / sizeof(_sdp_records[0]))
 
 typedef struct {
     const uint8_t* data;
@@ -874,58 +909,150 @@ static bool sdp_sequence(sdp_cursor_t* in, sdp_cursor_t* seq) {
     return true;
 }
 
-static bool sdp_search_pattern(sdp_cursor_t* in, bool* matches) {
-    static const uint8_t server_uuid[16] = {
-        0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x10, 0x00,
-        0x80, 0x00, 0x00, 0x80, 0x5f, 0x9b, 0x34, 0xfb
+/* Search pattern UUIDs widened to 32 bits; 0xffffffff marks a 128-bit UUID
+   outside the Bluetooth base, which no 16-bit class list can ever match. */
+typedef struct {
+    uint32_t uuids[12];
+    unsigned count;
+} sdp_pattern_t;
+
+typedef struct {
+    uint16_t first, last;
+} sdp_range_t;
+
+#define SDP_MAX_RANGES 8
+
+static bool sdp_search_pattern(sdp_cursor_t* in, sdp_pattern_t* pat) {
+    static const uint8_t base[12] = {
+        0x00, 0x00, 0x10, 0x00, 0x80, 0x00,
+        0x00, 0x80, 0x5f, 0x9b, 0x34, 0xfb
     };
     sdp_cursor_t seq;
+
     if (!sdp_sequence(in, &seq) || seq.len == 0) return false;
-    unsigned count = 0;
-    *matches = true;
+    pat->count = 0;
     while (seq.len != 0) {
         uint8_t type = seq.data[0];
         size_t n = type == 0x19 ? 2 : type == 0x1a ? 4 : type == 0x1c ? 16 : 0;
-        if (n == 0 || n + 1 > seq.len || ++count > 12) return false;
-        bool match = n == 2 ? sdp_be16(seq.data + 1) == 0x1000 :
-            n == 4 ? sdp_be32(seq.data + 1) == 0x1000 :
-            memcmp(seq.data + 1, server_uuid, sizeof(server_uuid)) == 0;
-        *matches = *matches && match; /* SDP patterns AND all UUIDs */
+        uint32_t uuid;
+
+        if (n == 0 || n + 1 > seq.len || pat->count >= 12) return false;
+        if (n == 2) {
+            uuid = sdp_be16(seq.data + 1);
+        }
+        else if (n == 4) {
+            uuid = sdp_be32(seq.data + 1);
+        }
+        else {
+            uuid = seq.data[1] == 0 && seq.data[2] == 0 &&
+                memcmp(seq.data + 5, base, sizeof(base)) == 0 ?
+                sdp_be16(seq.data + 3) : 0xffffffffu;
+        }
+        pat->uuids[pat->count++] = uuid;
         seq.data += n + 1;
         seq.len -= n + 1;
     }
     return true;
 }
 
-static bool sdp_attribute_ids(sdp_cursor_t* in, uint8_t* mask) {
+/* SDP patterns AND all UUIDs; a single-UUID class list matches only when
+   every pattern UUID equals it. */
+static bool sdp_record_matches(const sdp_record_t* rec, const sdp_pattern_t* pat) {
+    unsigned i;
+
+    for (i = 0; i < pat->count; ++i) {
+        if (pat->uuids[i] != rec->class_uuid) return false;
+    }
+    return true;
+}
+
+static bool sdp_attribute_ids(sdp_cursor_t* in, sdp_range_t* ranges,
+        unsigned* count) {
     sdp_cursor_t seq;
+
     if (!sdp_sequence(in, &seq) || seq.len == 0) return false;
-    *mask = 0;
+    *count = 0;
     while (seq.len != 0) {
         uint8_t type = seq.data[0];
         size_t n = type == 0x09 ? 2 : type == 0x0a ? 4 : 0;
-        if (n == 0 || n + 1 > seq.len) return false;
-        uint16_t first = sdp_be16(seq.data + 1);
-        uint16_t last = n == 2 ? first : sdp_be16(seq.data + 3);
-        if (first > last) return false;
-        for (size_t i = 0; i < sizeof(_sdp_record) / sizeof(_sdp_record[0]); ++i) {
-            uint16_t id = sdp_be16(_sdp_record[i] + 1);
-            if (id >= first && id <= last) *mask |= (uint8_t)(1u << i);
-        }
+
+        if (n == 0 || n + 1 > seq.len || *count >= SDP_MAX_RANGES) return false;
+        ranges[*count].first = sdp_be16(seq.data + 1);
+        ranges[*count].last = n == 2 ? ranges[*count].first : sdp_be16(seq.data + 3);
+        if (ranges[*count].first > ranges[*count].last) return false;
+        ++*count;
         seq.data += n + 1;
         seq.len -= n + 1;
     }
     return true;
 }
 
-static size_t sdp_attributes(uint8_t* out, uint8_t mask) {
-    size_t pos = 2;
-    out[0] = 0x35;
-    for (size_t i = 0; i < sizeof(_sdp_record) / sizeof(_sdp_record[0]); ++i) {
-        if ((mask & (1u << i)) != 0) {
-            memcpy(out + pos, _sdp_record[i], sizeof(_sdp_record[i]));
-            pos += sizeof(_sdp_record[i]);
+/* One hand-built row: 0x09 + uint16 ID + one data element. Returns the row
+   length and the attribute ID, 0 when the bytes are not a complete row. */
+static size_t sdp_row_len(const uint8_t* p, size_t left, uint16_t* id) {
+    size_t elem;
+
+    if (left < 4 || p[0] != 0x09) return 0;
+    switch (p[3]) {
+    case 0x09: case 0x19: elem = 3; break; /* uint16/uuid16 */
+    case 0x0a: case 0x1a: elem = 5; break; /* uint32/uuid32 */
+    case 0x28: elem = 2; break;            /* boolean */
+    case 0x35:                             /* SEQ8 */
+        if (left < 5) return 0;
+        elem = (size_t)p[4] + 2;
+        break;
+    default: return 0;
+    }
+    if (elem > left - 3) return 0;
+    *id = sdp_be16(p + 1);
+    return 3 + elem;
+}
+
+static uint8_t sdp_attr_mask(const sdp_record_t* rec,
+        const sdp_range_t* ranges, unsigned count) {
+    uint8_t mask = 0;
+    const uint8_t* p = rec->attrs;
+    size_t left = rec->attrs_len;
+    unsigned bit = 0;
+
+    while (left != 0 && bit < 8) {
+        uint16_t id;
+        size_t row = sdp_row_len(p, left, &id);
+        unsigned i;
+
+        if (row == 0) break;
+        for (i = 0; i < count; ++i) {
+            if (id >= ranges[i].first && id <= ranges[i].last) {
+                mask |= (uint8_t)(1u << bit);
+                break;
+            }
         }
+        p += row;
+        left -= row;
+        ++bit;
+    }
+    return mask;
+}
+
+static size_t sdp_attributes(uint8_t* out, const sdp_record_t* rec, uint8_t mask) {
+    size_t pos = 2;
+    const uint8_t* p = rec->attrs;
+    size_t left = rec->attrs_len;
+    unsigned bit = 0;
+
+    out[0] = 0x35;
+    while (left != 0 && bit < 8) {
+        uint16_t id;
+        size_t row = sdp_row_len(p, left, &id);
+
+        if (row == 0) break;
+        if ((mask & (1u << bit)) != 0) {
+            memcpy(out + pos, p, row);
+            pos += row;
+        }
+        p += row;
+        left -= row;
+        ++bit;
     }
     out[1] = (uint8_t)(pos - 2);
     return pos;
@@ -951,7 +1078,8 @@ static void sdp_reply(l2cap_chan_t* ch, uint16_t tid, uint8_t pdu,
     sdp_put16(rsp + 3, (uint16_t)len);
     memcpy(rsp + 5, params, len);
     int ret = l2cap_send_pdu(ch->acl_handle, ch->remote_cid, rsp, (uint16_t)(len + 5));
-    if (ch->sdp_diag_count <= 16) {
+    /* Only failures are worth a line; a successful browse is routine. */
+    if (pdu == SDP_ERROR_RSP || ret != 0) {
         slog("bt sdp_tx h=%04x tid=%u pdu=%02x len=%u error=%04x ret=%d\n",
             ch->acl_handle, tid, pdu, (unsigned)(len + 5),
             pdu == SDP_ERROR_RSP ? sdp_be16(params) : 0, ret);
@@ -967,19 +1095,6 @@ static void sdp_error(l2cap_chan_t* ch, uint16_t tid, uint16_t error) {
 static void sdp_handle_data(l2cap_chan_t* ch, const uint8_t* data, size_t len) {
     if (len < 3) return; /* no complete transaction ID to echo */
     ch->retry_ms = kernel_tic_ms(0) + SDP_IDLE_TIMEOUT_MS;
-    if (ch->sdp_diag_count < 17) ++ch->sdp_diag_count;
-    if (ch->sdp_diag_count <= 16) {
-        static const char hex[] = "0123456789abcdef";
-        char raw[64 * 3 + 1];
-        size_t n = len < 64 ? len : 64;
-        for (size_t i = 0; i < n; ++i) {
-            raw[i * 3] = hex[data[i] >> 4];
-            raw[i * 3 + 1] = hex[data[i] & 15];
-            raw[i * 3 + 2] = ' ';
-        }
-        raw[n * 3] = 0;
-        slog("bt sdp_rx h=%04x len=%u data=%s\n", ch->acl_handle, (unsigned)len, raw);
-    }
     uint16_t tid = sdp_be16(data + 1);
     if (len < 5 || sdp_be16(data + 3) != len - 5) {
         sdp_error(ch, tid, SDP_ERR_SIZE);
@@ -987,11 +1102,12 @@ static void sdp_handle_data(l2cap_chan_t* ch, const uint8_t* data, size_t len) {
     }
     uint8_t pdu = data[0];
     sdp_cursor_t in = {data + 5, len - 5};
-    bool matches = false;
-    uint8_t mask = 0;
+    sdp_pattern_t pat = {{0}, 0}; /* parsed only on the search PDUs */
+    sdp_range_t ranges[SDP_MAX_RANGES];
+    unsigned range_count = 0;
     uint32_t handle = 0;
     if (pdu == SDP_SEARCH_REQ || pdu == SDP_SEARCH_ATTR_REQ) {
-        if (!sdp_search_pattern(&in, &matches)) goto syntax_error;
+        if (!sdp_search_pattern(&in, &pat)) goto syntax_error;
     }
     else if (pdu == SDP_ATTR_REQ) {
         if (in.len < 4) goto syntax_error;
@@ -1007,37 +1123,63 @@ static void sdp_handle_data(l2cap_chan_t* ch, const uint8_t* data, size_t len) {
     in.data += 2;
     in.len -= 2;
     if (maximum < (pdu == SDP_SEARCH_REQ ? 1 : 7)) goto syntax_error;
-    if (pdu != SDP_SEARCH_REQ && !sdp_attribute_ids(&in, &mask)) goto syntax_error;
+    if (pdu != SDP_SEARCH_REQ &&
+            !sdp_attribute_ids(&in, ranges, &range_count)) goto syntax_error;
     if (in.len == 0 || in.data[0] > 16 || in.len != (size_t)in.data[0] + 1) {
         sdp_error(ch, tid, SDP_ERR_CONT);
         return;
     }
     if (pdu == SDP_SEARCH_REQ) {
-        /* One record always fits, so no search continuation is ever issued. */
+        /* Two handles always fit, so no search continuation is ever issued. */
         if (in.data[0] != 0) {
             sdp_error(ch, tid, SDP_ERR_CONT);
             return;
         }
-        uint8_t params[9] = {0};
-        sdp_put16(params, matches ? 1 : 0);
-        sdp_put16(params + 2, matches ? 1 : 0);
-        /* handle zero and final continuation byte are already zero */
-        sdp_reply(ch, tid, SDP_SEARCH_RSP, params, matches ? 9 : 5);
+        uint8_t params[4 + SDP_RECORD_COUNT * 4 + 1];
+        size_t total = 0;
+        size_t i;
+        for (i = 0; i < SDP_RECORD_COUNT; ++i) {
+            if (sdp_record_matches(&_sdp_records[i], &pat)) {
+                sdp_put32(params + 4 + total * 4, _sdp_records[i].handle);
+                ++total;
+            }
+        }
+        sdp_put16(params, (uint16_t)total);
+        sdp_put16(params + 2, (uint16_t)total);
+        params[4 + total * 4] = 0; /* final continuation state */
+        sdp_reply(ch, tid, SDP_SEARCH_RSP, params, 5 + total * 4);
         return;
     }
-    if (pdu == SDP_ATTR_REQ && handle != 0) {
-        sdp_error(ch, tid, SDP_ERR_HANDLE);
-        return;
-    }
-    uint8_t list[4 + sizeof(_sdp_record)];
+    /* 2 outer header + 2 list header per record + all attribute bytes */
+    const sdp_record_t* rec = NULL;
+    uint8_t list[2 + 2 * 2 + sizeof(_sdp_server_attrs) + sizeof(_sdp_did_attrs)];
     size_t total;
     if (pdu == SDP_ATTR_REQ) {
-        total = sdp_attributes(list, mask);
+        size_t i;
+        for (i = 0; i < SDP_RECORD_COUNT; ++i) {
+            if (_sdp_records[i].handle == handle) rec = &_sdp_records[i];
+        }
+        if (rec == NULL) {
+            sdp_error(ch, tid, SDP_ERR_HANDLE);
+            return;
+        }
+        total = sdp_attributes(list, rec,
+            sdp_attr_mask(rec, ranges, range_count));
     }
     else {
+        size_t pos = 2;
+        size_t i;
         list[0] = 0x35;
-        list[1] = matches && mask != 0 ? (uint8_t)sdp_attributes(list + 2, mask) : 0;
-        total = 2 + list[1]; /* no matching attributes: an empty outer sequence */
+        for (i = 0; i < SDP_RECORD_COUNT; ++i) {
+            const sdp_record_t* r = &_sdp_records[i];
+            uint8_t mask;
+            if (!sdp_record_matches(r, &pat)) continue;
+            mask = sdp_attr_mask(r, ranges, range_count);
+            if (mask == 0) continue; /* matched record without requested attrs */
+            pos += sdp_attributes(list + pos, r, mask);
+        }
+        list[1] = (uint8_t)(pos - 2);
+        total = pos; /* no matching attributes: an empty outer sequence */
     }
     uint32_t cookie = sdp_query_cookie(ch, pdu, data + 5, (size_t)(in.data - data - 5));
     size_t offset = 0;
@@ -1077,36 +1219,234 @@ syntax_error:
     sdp_error(ch, tid, SDP_ERR_SYNTAX);
 }
 
-static void l2cap_chan_data(l2cap_chan_t* ch, const uint8_t* payload, size_t len) {
-    if (ch->psm == L2CAP_PSM_SDP) {
-        sdp_handle_data(ch, payload, len);
+/* ---------------- SDP client (report-map discovery) ----------------
+   A real HID host reads the device's HID service record over SDP once per
+   connection; the HIDDescriptorList attribute carries the report descriptor
+   that defines this pad's report IDs and payload layout, and some pads hold
+   back input streaming until such a host-style discovery has happened. One
+   bounded query per gamepad session, kicked from bt_hid_step once the HID
+   pair is up; the raw attribute bytes are dumped for offline decoding. */
+
+#define SDP_CLI_MAX_BYTE_COUNT 0x02a0
+#define SDP_CLI_MAX_CONT 4
+#define SDP_CLI_REQ_TIMEOUT_MS 5000
+
+void bt_sdp_client_kick(bt_hid_chan_t* h) {
+    l2cap_chan_t* ch = NULL;
+    int i;
+
+    if (h == NULL || !h->active || h->sdp_map_started) {
         return;
     }
-    bool diag = _hid.active && _hid.is_gamepad &&
-        _hid.acl_handle == ch->acl_handle;
-    if (ch->psm == L2CAP_PSM_HID_CTRL) {
-        if (diag) {
-            ++_hid.diag_ctrl;
-            uint64_t now = kernel_tic_ms(0);
-            if (_hid.diag_ctrl_ms == 0 || now >= _hid.diag_ctrl_ms) {
-                _hid.diag_ctrl_ms = now + 2000;
-                bt_hid_diag_dump("ctrl", payload, len);
-            }
+    for (i = 0; i < MAX_L2CAP_CHANS; ++i) {
+        if (!_l2chans[i].used) {
+            ch = &_l2chans[i];
+            break;
         }
+    }
+    if (ch == NULL) {
+        return; /* not latched: bt_hid_step retries once a channel frees */
+    }
+    h->sdp_map_started = true;
+    memset(ch, 0, sizeof(*ch));
+    ch->used = true;
+    ch->sdp_client = true;
+    ch->local_cid = l2cap_alloc_cid();
+    ch->acl_handle = h->acl_handle;
+    ch->psm = L2CAP_PSM_SDP;
+    ch->state = L2CAP_STATE_CONN_REQ_SENT;
+    ch->retries = 0;
+    ch->retry_ms = kernel_tic_ms(0) + L2CAP_STEP_TIMEOUT_MS;
+    h->sdp = ch;
+    l2cap_send_conn_req(ch);
+}
+
+static void sdp_client_send(l2cap_chan_t* ch) {
+    static const uint8_t query[] = {
+        0x35, 0x03, 0x19, 0x11, 0x24, /* search pattern: UUID16 HID service */
+        0x02, 0xa0, /* MaxAttributeByteCount 672: one response fits our MTU */
+        0x35, 0x05, 0x0a, 0x00, 0x00, 0xff, 0xff /* attribute ID range: all */
+    };
+    bt_hid_chan_t* h = bt_hid_by_handle(ch->acl_handle);
+    uint8_t req[5 + sizeof(query) + 17];
+    size_t n = 5;
+
+    if (h == NULL || h->sdp != ch) {
+        l2cap_chan_close(ch, true);
+        return;
+    }
+    if (++h->sdp_tid == 0) {
+        ++h->sdp_tid;
+    }
+    req[0] = SDP_SEARCH_ATTR_REQ;
+    sdp_put16(req + 1, h->sdp_tid);
+    memcpy(req + n, query, sizeof(query));
+    n += sizeof(query);
+    if (h->sdp_cont[0] >= 1 && h->sdp_cont[0] <= 16) {
+        memcpy(req + n, h->sdp_cont, (size_t)h->sdp_cont[0] + 1);
+        n += (size_t)h->sdp_cont[0] + 1;
+    }
+    else {
+        req[n++] = 0; /* no continuation state */
+    }
+    sdp_put16(req + 3, (uint16_t)(n - 5));
+    ch->retry_ms = kernel_tic_ms(0) + SDP_CLI_REQ_TIMEOUT_MS;
+    l2cap_send_pdu(ch->acl_handle, ch->remote_cid, req, (uint16_t)n);
+}
+
+/* SDP data element header: type in the top five bits, size index in the low
+   three (0..4 fixed 1/2/4/8/16 bytes, 5..7 a 1/2/4-byte length follows).
+   Fills header and payload sizes; false when the element overruns len. */
+static bool sdp_elem(const uint8_t* p, size_t len, uint8_t* type,
+        size_t* hdr, size_t* dlen) {
+    static const size_t fixed[5] = {1, 2, 4, 8, 16};
+    size_t idx, n;
+
+    if (len < 1) return false;
+    *type = p[0] >> 3;
+    idx = p[0] & 7;
+    if (idx < 5) {
+        *hdr = 1;
+        n = *type == 0 ? 0 : fixed[idx]; /* nil has no payload */
+    }
+    else {
+        size_t lb = (size_t)1 << (idx - 5);
+        if (len < 1 + lb) return false;
+        n = 0;
+        for (size_t i = 0; i < lb; ++i) n = (n << 8) | p[1 + i];
+        *hdr = 1 + lb;
+    }
+    if (n > len - *hdr) return false;
+    *dlen = n;
+    return true;
+}
+
+/* Walk the reassembled AttributeLists for the HID record's HIDDescriptorList
+   (0x0206): DES { DES { uint8 class type, string descriptor } ... }. The
+   Report descriptor (class type 0x22) is fed to the shared joystick probe
+   so bt_hid_handle_report can normalize this pad's frames by its real
+   layout instead of guessing from the leading report ID. */
+static void sdp_client_parse_hid(bt_hid_chan_t* h) {
+    const uint8_t* p = h->sdp_rec;
+    size_t len = h->sdp_rec_len, hdr, n;
+    uint8_t type;
+
+    h->joystick_ok = false;
+    if (!sdp_elem(p, len, &type, &hdr, &n) || type != 6) return;
+    p += hdr; len = n;                 /* list of records */
+    while (len != 0) {
+        if (!sdp_elem(p, len, &type, &hdr, &n) || type != 6) return;
+        const uint8_t* rec = p + hdr;
+        size_t rlen = n;
+        p += hdr + n; len -= hdr + n;
+        while (rlen != 0) {
+            size_t ahdr, alen, vhdr, vlen;
+            uint8_t at, vt;
+            if (!sdp_elem(rec, rlen, &at, &ahdr, &alen) || at != 1 || alen != 2) return;
+            uint16_t id = sdp_be16(rec + ahdr);
+            rec += ahdr + alen; rlen -= ahdr + alen;
+            if (!sdp_elem(rec, rlen, &vt, &vhdr, &vlen)) return;
+            if (id == 0x0206 && vt == 6) {
+                const uint8_t* d = rec + vhdr;
+                size_t dlen = vlen;
+                while (dlen != 0) {
+                    size_t ihdr, ilen;
+                    uint8_t it;
+                    if (!sdp_elem(d, dlen, &it, &ihdr, &ilen) || it != 6) return;
+                    const uint8_t* e = d + ihdr;
+                    size_t elen = ilen;
+                    d += ihdr + ilen; dlen -= ihdr + ilen;
+                    size_t chdr, clen, shdr, slen;
+                    uint8_t ct, st;
+                    if (!sdp_elem(e, elen, &ct, &chdr, &clen) || ct != 1 || clen != 1) return;
+                    uint8_t class_type = e[chdr];
+                    e += chdr + clen; elen -= chdr + clen;
+                    if (!sdp_elem(e, elen, &st, &shdr, &slen) || st != 4) return;
+                    if (class_type != 0x22) continue;
+                    h->joystick_ok = hid_probe_joystick_report(e + shdr, (int)slen, &h->joystick);
+                    if (h->joystick_ok) {
+                        /* Same profile choice as the HOGP path: Xbox-lineage
+                           pads number their face buttons 1=A 2=B 3=X 4=Y. */
+                        bt_device_t* dev = bt_find_device_by_handle(h->acl_handle);
+                        h->joystick.map_type = bt_dev_is_xbox_gamepad(dev) ?
+                            JS_MAP_XBOX : JS_MAP_DEFAULT;
+                    }
+                    return;
+                }
+            }
+            rec += vhdr + vlen; rlen -= vhdr + vlen;
+        }
+    }
+}
+
+static void sdp_client_data(l2cap_chan_t* ch, const uint8_t* data, size_t len) {
+    bt_hid_chan_t* h = bt_hid_by_handle(ch->acl_handle);
+    size_t params, total, cont;
+
+    if (h == NULL || h->sdp != ch || len < 5) {
+        l2cap_chan_close(ch, true);
+        return;
+    }
+    if (data[0] == SDP_ERROR_RSP) {
+        slog("bt sdp_cli_error h=%04x tid=%u error=%04x\n",
+            (unsigned)ch->acl_handle, sdp_be16(data + 1),
+            len >= 7 ? sdp_be16(data + 5) : 0);
+        h->sdp_map_done = true; /* failed: unblock the deferred HID channels */
+        l2cap_chan_close(ch, true);
+        return;
+    }
+    if (data[0] != SDP_SEARCH_ATTR_RSP || sdp_be16(data + 1) != h->sdp_tid ||
+            sdp_be16(data + 3) != len - 5) {
+        return; /* late or foreign traffic: our response/timeout decides */
+    }
+    params = len - 5;
+    if (params < 3) {
+        h->sdp_map_done = true;
+        l2cap_chan_close(ch, true);
+        return;
+    }
+    total = sdp_be16(data + 5); /* AttributeListsByteCount */
+    if (total > params - 3) {
+        h->sdp_map_done = true;
+        l2cap_chan_close(ch, true);
+        return;
+    }
+    cont = 2 + total; /* offset of the continuation state in params */
+    if (data[5 + cont] > 16 || params != cont + 1 + data[5 + cont]) {
+        h->sdp_map_done = true;
+        l2cap_chan_close(ch, true);
+        return;
+    }
+    h->sdp_map_off = (uint16_t)(h->sdp_map_off + total);
+    if (total != 0 && h->sdp_rec_len + total <= sizeof(h->sdp_rec)) {
+        memcpy(h->sdp_rec + h->sdp_rec_len, data + 7, total);
+        h->sdp_rec_len = (uint16_t)(h->sdp_rec_len + total);
+    }
+    if (data[5 + cont] == 0 || ++h->sdp_cont_iters > SDP_CLI_MAX_CONT) {
+        sdp_client_parse_hid(h);
+        h->sdp_map_done = true; /* enumeration complete: HID channels may open */
+        l2cap_chan_close(ch, true);
+        return;
+    }
+    memcpy(h->sdp_cont, data + 5 + cont, data[5 + cont] + 1);
+    sdp_client_send(ch);
+}
+
+static void l2cap_chan_data(l2cap_chan_t* ch, const uint8_t* payload, size_t len) {
+    if (ch->psm == L2CAP_PSM_SDP) {
+        if (ch->sdp_client) {
+            sdp_client_data(ch, payload, len);
+        }
+        else {
+            sdp_handle_data(ch, payload, len);
+        }
+        return;
+    }
+    bt_hid_chan_t* h = bt_hid_by_handle(ch->acl_handle);
+    if (ch->psm == L2CAP_PSM_HID_CTRL) {
         bt_hid_handle_ctrl(ch, payload, len);
     }
     else if (ch->psm == L2CAP_PSM_HID_INTR) {
-        if (diag) {
-            ++_hid.diag_intr;
-            if (len == 0 || payload[0] != HIDP_DATA_INPUT) {
-                ++_hid.diag_non_input;
-            }
-            uint64_t now = kernel_tic_ms(0);
-            if (_hid.diag_intr_ms == 0 || now >= _hid.diag_intr_ms) {
-                _hid.diag_intr_ms = now + 2000;
-                bt_hid_diag_dump("intr", payload, len);
-            }
-        }
         if (len >= 1 && payload[0] == HIDP_DATA_INPUT) {
             const uint8_t* report = payload + 1;
             size_t rlen = len - 1;
@@ -1121,13 +1461,10 @@ static void l2cap_chan_data(l2cap_chan_t* ch, const uint8_t* payload, size_t len
                byte - a permanent phantom LCTRL that turns letters into
                control codes while digits/symbols pass through. */
             if (rlen == HID_KEYBOARD_REPORT_SIZE + 1) {
-                if (diag) {
-                    ++_hid.diag_strip_id;
-                }
                 report++;
                 rlen--;
             }
-            bt_hid_handle_report(report, rlen);
+            bt_hid_handle_report(h, h != NULL ? &h->held : NULL, report, rlen);
         }
     }
 }
@@ -1142,11 +1479,6 @@ void l2cap_dispatch(uint16_t handle, const uint8_t* pdu, size_t len) {
     }
     pdu_len = (uint16_t)pdu[0] | ((uint16_t)pdu[1] << 8);
     cid = (uint16_t)pdu[2] | ((uint16_t)pdu[3] << 8);
-    bool diag = _hid.active && _hid.is_gamepad && _hid.acl_handle == handle;
-    if (diag) {
-        ++_hid.diag_pdu;
-        _hid.diag_cid = cid;
-    }
     if (pdu_len != len - 4) {
         return; /* only complete, correctly framed PDUs may change state */
     }
@@ -1166,9 +1498,6 @@ void l2cap_dispatch(uint16_t handle, const uint8_t* pdu, size_t len) {
     }
     ch = l2cap_find_by_local(handle, cid);
     if (ch == NULL || ch->state != L2CAP_STATE_OPEN) {
-        if (diag) {
-            ++_hid.diag_bad_cid;
-        }
         return;
     }
     l2cap_chan_data(ch, pdu + 4, pdu_len);
