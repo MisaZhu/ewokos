@@ -27,6 +27,7 @@
 #include <ewoksys/proc.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/kernel_tic.h>
+#include <ewoksys/klog.h>
 
 #include <bt/bsp_bt.h>
 
@@ -214,6 +215,7 @@
 #define L2CAP_CONF_SUCCESS 0x0000
 #define L2CAP_CONF_PENDING 0x0004
 
+#define L2CAP_PSM_SDP 0x0001
 #define L2CAP_PSM_HID_CTRL 0x0011
 #define L2CAP_PSM_HID_INTR 0x0013
 
@@ -228,16 +230,6 @@
 
 #define L2CAP_STEP_TIMEOUT_MS 2000
 #define L2CAP_STEP_MAX_RETRIES 3
-
-/* A classic gamepad HIDP session that has delivered NO input report within
-   this window is a dead end: the pad accepted a BR/EDR ACL and may even open
-   both HIDP channels, but only serves input reports over LE/HOGP (Xbox
-   Wireless Controller and its GameSir Xinput masquerade). 8000ms ==
-   L2CAP_STEP_TIMEOUT_MS * (L2CAP_STEP_MAX_RETRIES + 1), i.e. the full L2CAP
-   retry budget, so a channel that will be refused or time out has already
-   closed by the time this fires; a genuine classic gamepad streams its first
-   report within ~1-2s and never trips it. */
-#define BT_HID_GAMEPAD_LE_FALLBACK_MS 8000
 
 /*
  * Bluetooth LE hosts a different L2CAP flavour: the HID traffic does not
@@ -586,7 +578,7 @@ typedef struct {
     uint8_t id_addr_type;
 } bt_known_t;
 
-/* one L2CAP connection-oriented channel (HID control or interrupt) */
+/* one L2CAP connection-oriented channel (SDP or HID control/interrupt) */
 typedef struct {
     bool used;
     bool incoming;       /* peer initiated this channel, independent of ACL role */
@@ -601,7 +593,8 @@ typedef struct {
     bool conf_rsp_sent;
     uint8_t sig_id;       /* identifier of the outstanding request */
     uint8_t retries;
-    uint64_t retry_ms;
+    uint8_t sdp_diag_count; /* bounded service-discovery trace, reset on close */
+    uint64_t retry_ms;     /* handshake retry or open SDP idle deadline */
 } l2cap_chan_t;
 
 #define MAX_L2CAP_CHANS 4
@@ -620,25 +613,15 @@ typedef struct {
        keyboard/mouse length heuristic, and SET_PROTOCOL(boot) is skipped
        (boot protocol is only defined for keyboards and mice). */
     bool is_gamepad;
-    bool up;               /* both channels open: reports flow */
-    /* Set once ANY input report has been decoded from this classic session.
-       A genuine classic gamepad (PS4/DS4) streams its first report within
-       ~1-2s of "up"; an LE-only pad (Xbox Wireless Controller masquerade,
-       GameSir Xinput mode) opens both HIDP channels yet never sends a single
-       report over BR/EDR - it serves input only over HOGP. report_seen is
-       what separates a working classic link from a silent dead end, and it
-       survives the attach poller's repeated bt_hid_start (session_init does
-       not memset an already-active same-handle session). */
-    bool report_seen;
+    bool up;               /* both channels open; input delivery is separate */
     uint64_t intr_wait_ms;  /* bounded wait for a peer-initiated interrupt channel */
-    /* Deadline for a classic gamepad session that has NOT yet delivered any
-       report (report_seen false), whether because its HIDP channels never
-       both opened OR because they opened but the pad stays silent (the
-       proven GameSir Xinput / Xbox Wireless Controller masquerade). On expiry
-       the dead classic session is torn down and the pad re-driven over LE.
-       0 = not armed yet. Sized to outlast the L2CAP give-up budget below so a
-       real classic gamepad always delivers its first report before it fires. */
-    uint64_t gamepad_up_ms;
+    /* Temporary input diagnostics; counters reset with this classic session. */
+    uint64_t diag_next_ms, diag_ctrl_ms, diag_intr_ms, diag_report_ms;
+    uint32_t diag_acl, diag_pdu, diag_ctrl, diag_intr, diag_reports;
+    uint32_t diag_dispatch, diag_bad_cid, diag_non_input, diag_strip_id;
+    uint32_t diag_tx, diag_tx_failed, diag_tx_completed, diag_sig_tx, diag_sig_rx;
+    uint16_t diag_acl_len, diag_cid;
+    uint8_t diag_pb;
 } bt_hid_chan_t;
 
 /* one /dev/bt0 subscriber fd lives in libhid now (fd_info_t): the queue,
@@ -950,6 +933,7 @@ void bt_hid_check_up(void);
 void bt_hid_step(void);
 void bt_hid_link_closed(uint16_t handle, const char* reason);
 void bt_hid_stop(void);
+void bt_hid_diag_dump(const char* stage, const uint8_t* data, size_t len);
 void bt_hid_handle_report(const uint8_t* data, size_t len);
 void bt_hid_handle_ctrl(l2cap_chan_t* ch, const uint8_t* data, size_t len);
 void bt_hid_dispatch_mouse(const uint8_t* evt);
@@ -967,14 +951,9 @@ void bt_hid_stack_reset(void);
    gamepad CoD (0x002508); many Xbox-layout pads report joystick (0x002504). */
 bool bt_cod_is_gamepad(uint32_t cod);
 
-/* True when the device name marks an official Xbox Wireless Controller, which
-   serves HID only over LE/HOGP and must be migrated off a classic ACL. */
+/* Controller-family hints only; neither predicate proves LE-only support. */
 bool bt_dev_is_xbox_gamepad(const bt_device_t* dev);
-
-/* True when the device name marks a gamepad that serves HID only over LE/HOGP
-   (an official Xbox pad, or a GameSir pad), so a classic ACL to it is a dead
-   end and must be migrated off. */
-bool bt_dev_is_le_only_gamepad(const bt_device_t* dev);
+bool bt_dev_is_named_gamepad(const bt_device_t* dev);
 
 /* btd_le.c */
 /* True when a GAP appearance value denotes a HID joystick (963) or gamepad

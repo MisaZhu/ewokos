@@ -8,6 +8,21 @@ bt_hid_chan_t _hid;
 
 uint64_t _sub_reassert_ms = 0;
 
+/* Callers rate-limit these gamepad-only samples; never dump bond material. */
+void bt_hid_diag_dump(const char* stage, const uint8_t* data, size_t len) {
+    static const char hex[] = "0123456789abcdef";
+    char raw[24 * 3 + 1];
+    size_t n = len < 24 ? len : 24;
+    for (size_t i = 0; i < n; ++i) {
+        raw[i * 3] = hex[data[i] >> 4];
+        raw[i * 3 + 1] = hex[data[i] & 15];
+        raw[i * 3 + 2] = ' ';
+    }
+    raw[n * 3] = 0;
+    slog("bt input_raw stage=%s h=%04x len=%u data=%s\n",
+        stage, (unsigned)_hid.acl_handle, (unsigned)len, raw);
+}
+
 static bool bt_hid_chan_up(void) {
     return _hid.active && _hid.ctrl != NULL && _hid.intr != NULL &&
         _hid.ctrl->state == L2CAP_STATE_OPEN && _hid.intr->state == L2CAP_STATE_OPEN;
@@ -36,6 +51,13 @@ void bt_hid_check_up(void) {
     }
     bt_addr_to_str(_hid.addr, addr, sizeof(addr));
     bt_emit("hid_ok %s handle=0x%04X\n", addr, _hid.acl_handle);
+    if (_hid.is_gamepad) {
+        slog("bt input_up h=%04x ctrl=%04x/%04x intr=%04x/%04x js_subs=%d setup=report_default\n",
+            (unsigned)_hid.acl_handle,
+            (unsigned)_hid.ctrl->local_cid, (unsigned)_hid.ctrl->remote_cid,
+            (unsigned)_hid.intr->local_cid, (unsigned)_hid.intr->remote_cid,
+            hid_srv_count(HID_REPORT_ID_JOYSTICK));
+    }
 }
 
 /* both channels of one link are gone: forget the HID session */
@@ -68,50 +90,6 @@ void bt_hid_stop(void) {
     bt_hid_link_closed(_hid.acl_handle, "closed");
 }
 
-/* A classic BR/EDR gamepad session that never delivers an input report is an
-   LE-only pad (Xbox Wireless Controller, or a GameSir in Xinput masquerade):
-   it accepts the ACL and shows connected=yes, and may even bring both HIDP
-   channels up, but serves its input reports only over HOGP, so the classic
-   link is a dead end that would otherwise stay connected-but-silent forever
-   (autoconnect skips connected devices and the connect verb short-circuits on
-   them). Tear the classic link down, mark the device LE-only in both the
-   runtime table and the persistent store (dropping the useless classic link
-   key so the next boot's autoconnect takes the LE scan branch), and re-drive
-   it over LE where its reports actually flow. */
-static void bt_hid_gamepad_le_fallback(void) {
-    uint16_t handle = _hid.acl_handle;
-    bt_device_t* dev = bt_find_device_by_handle(handle);
-
-    slog("bluetooth hid_gamepad_le_fallback h=0x%04x\n", handle);
-    bt_hid_stop();
-    if (handle != 0) {
-        bt_hci_disconnect(handle);
-    }
-    if (dev != NULL) {
-        dev->connected = false;
-        dev->handle = 0;
-        dev->hid_after_sec = false;
-        /* proven LE-only: prefer LE in every routing gate from now on */
-        dev->le = true;
-        dev->classic = false;
-        dev->has_link_key = false;
-        bt_known_prefer_le(dev->addr);
-        /* Drop any classic connect/pair bookkeeping this dead link left behind:
-           the LE retry step refuses to arm while _pending is set. */
-        if (_pending.type != BT_PENDING_NONE) {
-            bt_clear_pending();
-        }
-        /* Do NOT bt_le_request(dev,...): that queues a direct connect to
-           dev->addr, the CLASSIC address this ACL arrived on - the pad's
-           working LE identity is a DIFFERENT BDADDR (its "_G"-suffixed
-           advertiser), so a direct connect here just times out on a
-           classic-only address. Arm the autoconnect scan instead; the
-           appearance-gated LE admit connects the real peripheral when it
-           advertises. */
-        bt_le_autoconnect_kick();
-    }
-}
-
 /* A peer that never opens interrupt must not leave an active half-session
    blocking attachment forever. Repeated start requests do not extend this wait. */
 void bt_hid_step(void) {
@@ -130,33 +108,33 @@ void bt_hid_step(void) {
     else {
         _hid.intr_wait_ms = 0;
     }
-    /* Dead-end detection for a classic gamepad: a session that stays active
-       but never delivers a single input report within the L2CAP retry budget
-       is an LE-only pad on a BR/EDR ACL (see bt_hid_gamepad_le_fallback).
-       Gated on !report_seen rather than !up so it fires for BOTH dead ends:
-       (a) the HIDP channels never both open, and (b) they open (up=1) yet the
-       pad streams nothing over classic - the proven GameSir Xinput / Xbox
-       Wireless Controller masquerade, which serves input only over HOGP.
-       Armed on the first active tick and preserved across the attach poller's
-       repeated bt_hid_start (session_init does not memset an already active
-       same-handle session), so the deadline is not endlessly deferred. A
-       genuine classic gamepad streams its first report in ~1-2s, latching
-       report_seen and resetting this. */
-    if (_hid.active && _hid.is_gamepad && !_hid.report_seen) {
-        uint64_t now = kernel_tic_ms(0);
-        if (_hid.gamepad_up_ms == 0) {
-            _hid.gamepad_up_ms = now + BT_HID_GAMEPAD_LE_FALLBACK_MS;
-        }
-        else if (now >= _hid.gamepad_up_ms) {
-            _hid.gamepad_up_ms = 0;
-            bt_hid_gamepad_le_fallback();
-            return;
-        }
-    }
-    else {
-        _hid.gamepad_up_ms = 0;
-    }
+    /* Report silence does not establish LE support. Channel setup timeouts
+       are handled by l2cap_step; never disconnect an open classic link or
+       discard its bond merely because no input report has arrived. */
     bt_hid_check_up();
+    /* A heartbeat distinguishes zero received traffic from missing log calls.
+       Observation only: no report deadline, link teardown or transport change. */
+    if (_hid.active && _hid.is_gamepad) {
+        uint64_t now = kernel_tic_ms(0);
+        if (_hid.diag_next_ms == 0 || now >= _hid.diag_next_ms) {
+            _hid.diag_next_ms = now + 3000;
+            slog("bt input_path h=%04x up=%d acl=%u pdu=%u ctrl=%u intr=%u "
+                "non_a1=%u strip_id=%u report=%u dispatch=%u js_subs=%d\n",
+                (unsigned)_hid.acl_handle, _hid.up ? 1 : 0,
+                (unsigned)_hid.diag_acl, (unsigned)_hid.diag_pdu,
+                (unsigned)_hid.diag_ctrl, (unsigned)_hid.diag_intr,
+                (unsigned)_hid.diag_non_input, (unsigned)_hid.diag_strip_id,
+                (unsigned)_hid.diag_reports, (unsigned)_hid.diag_dispatch,
+                hid_srv_count(HID_REPORT_ID_JOYSTICK));
+            slog("bt input_acl h=%04x last_pb=%u last_len=%u last_cid=%04x bad_cid=%u "
+                "tx=%u tx_fail=%u completed=%u credits=%u\n",
+                (unsigned)_hid.acl_handle, (unsigned)_hid.diag_pb,
+                (unsigned)_hid.diag_acl_len, (unsigned)_hid.diag_cid,
+                (unsigned)_hid.diag_bad_cid, (unsigned)_hid.diag_tx,
+                (unsigned)_hid.diag_tx_failed, (unsigned)_hid.diag_tx_completed,
+                (unsigned)_acl_credits);
+        }
+    }
 }
 
 /* ---------------- HIDP ---------------- */
@@ -218,12 +196,6 @@ void bt_hid_handle_report(const uint8_t* data, size_t len) {
     if (len < 1) {
         return;
     }
-    /* Any decoded report proves this classic session really delivers input,
-       which cancels the gamepad LE-fallback deadline armed in bt_hid_step. An
-       LE-only pad (Xbox / GameSir Xinput masquerade) opens both HIDP channels
-       but never sends a report over BR/EDR, so report_seen stays false and
-       the dead classic link is torn down and re-driven over LE. */
-    _hid.report_seen = true;
     /*
      * Gamepad: a CoD-flagged pad, or a full report-protocol frame matching a
      * known PlayStation input report even when the pad reconnected with a
@@ -240,27 +212,15 @@ void bt_hid_handle_report(const uint8_t* data, size_t len) {
              (data[0] == 0x11 || data[0] == 0x31)) ||
             (len == 10 && data[0] == 0x01)) {
         _hid.is_gamepad = true;
-        /* TEMP DIAGNOSTIC (remove once the GameSir decode is confirmed):
-           rate-limited dump of the raw classic-HIDP gamepad frame. The classic
-           path forwards the report prefix un-normalized for hid_joystickd to
-           decode, so this proves whether frames arrive at all over classic and
-           their exact layout, instead of guessing whether the pad serves Xinput
-           over BR/EDR or only over LE. */
-        {
-            static uint64_t _cjs_ms = 0;
-            uint64_t _cn = kernel_tic_ms(0);
-            if ((uint32_t)(_cn - _cjs_ms) >= 250) {
-                _cjs_ms = _cn;
-                slog("bt cjs_diag h=%04x len=%u raw=%02x %02x %02x %02x %02x "
-                        "%02x %02x %02x %02x %02x\n",
-                        (unsigned)_hid.acl_handle, (unsigned)len,
-                        len > 0 ? data[0] : 0, len > 1 ? data[1] : 0,
-                        len > 2 ? data[2] : 0, len > 3 ? data[3] : 0,
-                        len > 4 ? data[4] : 0, len > 5 ? data[5] : 0,
-                        len > 6 ? data[6] : 0, len > 7 ? data[7] : 0,
-                        len > 8 ? data[8] : 0, len > 9 ? data[9] : 0);
-            }
+        ++_hid.diag_reports;
+        uint64_t now = kernel_tic_ms(0);
+        if (_hid.diag_report_ms == 0 || now >= _hid.diag_report_ms) {
+            _hid.diag_report_ms = now + 2000;
+            bt_hid_diag_dump("report", data, len);
         }
+        /* Count classic dispatch attempts here; the shared dispatcher is also
+           used by LE. Subscriber count in input_path determines the audience. */
+        ++_hid.diag_dispatch;
         bt_hid_dispatch_joystick(data, len);
         return;
     }
@@ -445,6 +405,9 @@ static void bt_hid_session_init(uint16_t handle, const uint8_t* addr) {
 
 /* Accepting a peer's channel must not originate the other half of the pair. */
 void bt_hid_accept(l2cap_chan_t* ch) {
+    if (ch->psm != L2CAP_PSM_HID_CTRL && ch->psm != L2CAP_PSM_HID_INTR) {
+        return;
+    }
     bt_device_t* dev = bt_find_device_by_handle(ch->acl_handle);
     bt_hid_session_init(ch->acl_handle, dev != NULL ? dev->addr : NULL);
     if (ch->psm == L2CAP_PSM_HID_CTRL) {

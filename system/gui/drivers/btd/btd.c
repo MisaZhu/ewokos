@@ -194,6 +194,11 @@ static void bt_handle_command_complete(const uint8_t* payload, size_t len) {
     _wait_debug.last_status = status;
     bt_update_wait_cmd_complete(opcode, status);
 
+    if (opcode == HCI_OPCODE(HCI_OGF_LINK_CTRL, HCI_OCF_SET_CONN_ENCRYPT)) {
+        slog("bt input_security phase=cmd_complete opcode=%04x status=%02x\n",
+            opcode, status);
+    }
+
     /* classic HID fallback: Set_Connection_Encryption was rejected (the peer
        does not support link encryption), so no Encryption_Change event will
        arrive. The link is still authenticated, which is enough for many
@@ -237,6 +242,14 @@ static void bt_handle_command_status(const uint8_t* payload, size_t len) {
     _wait_debug.last_opcode = opcode;
     _wait_debug.last_status = status;
     bt_update_wait_cmd_complete(opcode, status);
+
+    /* Command Status precedes the auth/encryption event. Record rejections
+       here too; Set Connection Encryption normally does not use Complete. */
+    if (opcode == HCI_OPCODE(HCI_OGF_LINK_CTRL, HCI_OCF_AUTH_REQ) ||
+            opcode == HCI_OPCODE(HCI_OGF_LINK_CTRL, HCI_OCF_SET_CONN_ENCRYPT)) {
+        slog("bt input_security phase=cmd_status opcode=%04x status=%02x\n",
+            opcode, status);
+    }
 
     if (_wait_cmd.active && _wait_cmd.opcode == opcode) {
         return; /* claimed by a synchronous wait (bring-up, autoconnect) */
@@ -459,6 +472,11 @@ int bt_poll_once(uint32_t first_timeout_ms) {
         acl_len = (uint16_t)hdr[2] | ((uint16_t)hdr[3] << 8);
         handle = (uint16_t)(((uint16_t)hdr[0] | ((uint16_t)hdr[1] << 8)) & 0x0fff);
         pb = (uint8_t)((hdr[1] >> 4) & 0x03);
+        if (_hid.active && _hid.is_gamepad && _hid.acl_handle == handle) {
+            ++_hid.diag_acl;
+            _hid.diag_acl_len = acl_len;
+            _hid.diag_pb = pb;
+        }
 
         {
             uint8_t fragment[4 + L2CAP_MTU_DEFAULT];

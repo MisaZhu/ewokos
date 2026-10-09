@@ -1738,6 +1738,10 @@ void bt_handle_encryption_change(const uint8_t* payload, size_t len) {
         return;
     }
 
+    /* Log the actual result: classic HID setup below also runs on failure. */
+    slog("bt input_security phase=encrypt_event h=%04x status=%02x enabled=%u\n",
+        handle, payload[0], payload[3]);
+
     /* classic (BR/EDR) link: HID bring-up was deferred until the link is
        secured. Whether encryption ended up enabled or was refused, the link
        is authenticated now, so open the L2CAP HID channels - unless HOGP is
