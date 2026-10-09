@@ -89,6 +89,26 @@ bt_device_t* bt_find_device_by_handle(uint16_t handle) {
     return NULL;
 }
 
+/* Release a runtime slot that carries no identity at all: no name, no class,
+   no link key, no LTK, neither LE nor classic and not connected.
+   bt_find_device(create=true) leaves exactly this bare shell (rssi=127, all
+   else zeroed) when the event that created it turns out to describe no real
+   device - a failed classic connection-complete (status != 0) or a remote
+   name lookup that returned nothing for a rotating secondary BDADDR. Left in
+   place it is a permanent phantom `devices` row (class=0x000000, name=-).
+   A slot with any identity is kept. Returns true if the slot was freed. */
+bool bt_device_drop_if_identity_less(bt_device_t* dev) {
+    if (dev == NULL || !dev->used) {
+        return false;
+    }
+    if (dev->name[0] != 0 || dev->class_of_device != 0 || dev->connected ||
+            dev->has_link_key || dev->has_ltk || dev->le || dev->classic) {
+        return false;
+    }
+    dev->used = false;
+    return true;
+}
+
 void bt_trim_name(char* name) {
     int len;
 
@@ -311,6 +331,66 @@ static void bt_known_sanitize_name(char* name) {
     }
 }
 
+/* A dual-address peripheral (an Xbox controller answers under a second
+   BDADDR as well as its classic one) can leave a bare store record behind:
+   a name, but no link key, no LTK and le=0. Seeded at boot it becomes a
+   second `devices` row for the SAME controller. When a bonded record with
+   the identical name exists, that bare twin is redundant, so drop it. Only
+   name-only, unbonded, non-LE entries are eligible - anything carrying a
+   key, an LTK or an LE identity is kept. Returns the number removed. */
+static int bt_known_prune_dupes(void) {
+    int removed = 0;
+    int i;
+    int j;
+
+    for (i = 0; i < MAX_BT_KNOWN; ++i) {
+        if (!_known[i].used || _known[i].name[0] == 0) {
+            continue;
+        }
+        if (_known[i].paired || _known[i].has_key || _known[i].has_ltk ||
+                _known[i].le) {
+            continue;
+        }
+        for (j = 0; j < MAX_BT_KNOWN; ++j) {
+            if (j == i || !_known[j].used) {
+                continue;
+            }
+            if (!(_known[j].paired || _known[j].has_key || _known[j].has_ltk)) {
+                continue;
+            }
+            if (strcmp(_known[j].name, _known[i].name) == 0) {
+                _known[i].used = false;
+                ++removed;
+                break;
+            }
+        }
+    }
+    return removed;
+}
+
+/* Drop store records that carry no identity at all: no name, no link key, no
+   LTK and not flagged LE. These are nameless phantoms persisted from a
+   classic glimpse of a peripheral's rotating secondary BDADDR before its name
+   resolved (the `devices` row with class=0x000000, name=-). They can never be
+   reconnected or paired, so they are pure junk in the store. Returns the
+   number removed. */
+static int bt_known_prune_empties(void) {
+    int removed = 0;
+    int i;
+
+    for (i = 0; i < MAX_BT_KNOWN; ++i) {
+        if (!_known[i].used) {
+            continue;
+        }
+        if (_known[i].name[0] == 0 && !_known[i].has_key &&
+                !_known[i].has_ltk && !_known[i].le && !_known[i].paired) {
+            _known[i].used = false;
+            ++removed;
+        }
+    }
+    return removed;
+}
+
 int bt_known_load(void) {
     char* buf;
     char* p;
@@ -403,6 +483,17 @@ int bt_known_load(void) {
         p = obj_end + 1;
     }
     free(buf);
+    /* collapse a name-only unbonded twin of a bonded same-name device so one
+       physical controller (e.g. an Xbox pad under two BDADDRs) seeds a single
+       device row instead of a phantom duplicate; persist so it stays gone */
+    {
+        int removed = bt_known_prune_dupes();
+        removed += bt_known_prune_empties();
+        if (removed > 0) {
+            count -= removed;
+            bt_known_save();
+        }
+    }
     return count;
 }
 
@@ -501,6 +592,16 @@ int bt_known_save(void) {
 void bt_known_touch_from_device(const bt_device_t* dev) {
     bt_known_t* k = NULL;
 
+    /* Never persist an identity-less glimpse: no name, no link key, no LTK and
+       not flagged LE. This is a peripheral's rotating secondary BDADDR caught
+       mid classic reconnect before its name resolved; storing it leaves a
+       permanent nameless phantom row in `devices` (class=0x000000, name=-). A
+       real bond is always re-touched at auth-complete (link key) or LE READY
+       (LTK), so skipping the empty glimpse loses nothing. */
+    if (dev->name[0] == 0 && !dev->has_link_key && !dev->has_ltk && !dev->le) {
+        return;
+    }
+
     /* A rotating-private-address (NRPA) LE peripheral lands on a fresh address
        every reconnect; keying its bond by address would add another entry for
        the SAME device each time - the duplicate list xbt shows. Once we know
@@ -556,6 +657,59 @@ void bt_known_touch_from_device(const bt_device_t* dev) {
         k->id_addr_type = dev->id_addr_type;
     }
     bt_known_save();
+}
+
+/* Record that a device proven to be LE-only must be reached over LE from now
+   on. Called by the classic-gamepad HIDP fallback: persist le=1 and drop the
+   useless classic link key so bt_autoconnect_known's LE branch (le && !has_key)
+   picks it up over an LE scan instead of paging BR/EDR again next boot. */
+void bt_known_prefer_le(const uint8_t* addr) {
+    bt_known_t* k = bt_known_find(addr);
+
+    if (k == NULL) {
+        return;
+    }
+    k->le = true;
+    k->has_key = false;
+    memset(k->key, 0, sizeof(k->key));
+    bt_known_save();
+}
+
+/* Same as bt_known_prefer_le but keyed on the device NAME instead of the
+   address. An Xbox pad storms classic reconnects while cycling its BDADDR
+   (F8:..:C0 -> C1 -> ...), so an address-keyed conversion either misses the
+   real bond or leaves a stale classic record behind. Converting every record
+   that carries this name drops the classic key(s) once and marks them LE, so
+   bt_autoconnect_known stops paging BR/EDR and bt_le_autoconnect_retry_step
+   arms its LE scan regardless of which address the pad is on now. Only
+   rewrites the store when something actually changed. */
+void bt_known_prefer_le_by_name(const char* name) {
+    bool changed = false;
+    int i;
+
+    if (name == NULL || name[0] == 0) {
+        return;
+    }
+    for (i = 0; i < MAX_BT_KNOWN; ++i) {
+        if (!_known[i].used || _known[i].name[0] == 0) {
+            continue;
+        }
+        if (strcmp(_known[i].name, name) != 0) {
+            continue;
+        }
+        if (!_known[i].le) {
+            _known[i].le = true;
+            changed = true;
+        }
+        if (_known[i].has_key) {
+            _known[i].has_key = false;
+            memset(_known[i].key, 0, sizeof(_known[i].key));
+            changed = true;
+        }
+    }
+    if (changed) {
+        bt_known_save();
+    }
 }
 
 /* push stored link keys/names into the runtime cache so the controller's

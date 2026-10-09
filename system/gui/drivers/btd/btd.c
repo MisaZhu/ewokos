@@ -845,6 +845,69 @@ void bt_le_autoconnect_kick(void) {
     _le_autoconnect_retry_ms = 0;
 }
 
+/* Discovery window for a first-time (not yet bonded) LE-only gamepad. The
+   known-record loop in bt_le_autoconnect_retry_step can only keep the scan
+   armed for a device that is already in the bond store; a pad that has never
+   been paired has no such record, so on a fresh store nothing would ever scan
+   for it and it could never be discovered. When one pages classic
+   (bt_le_only_classic_migrate) it is physically present and trying to
+   connect, so open a bounded window during which the retry step keeps the
+   scan armed on its behalf.
+
+   The window SLIDES: every kick refreshes the deadline. A pad in pairing mode
+   re-pages classic every ~15s and only advertises its real LE identity BETWEEN
+   pages, so the discovery scan must stay armed continuously or the LE link
+   never wins and the classic migrate/disconnect loop runs forever (the pad's
+   LE identity is never on the air at the instant a one-shot scan happens to be
+   listening). Because a kick only arrives while the pad is physically present
+   and re-paging, the window is self-limiting: it lapses BT_LE_DISCOVERY_MS
+   after the pad goes quiet, and once the LE link is up bt_hid_live() stops the
+   retry step re-arming it at all.
+
+   The two harms an always-open window would cause are handled elsewhere, so
+   the slide is safe: (1) a manual `scan` preempts the background scan and
+   installs a cooldown via bt_le_discovery_close (so it never sees scan_busy),
+   and (2) bt_le_step alternates LE/classic slices while the window is open and
+   no HID link is live (so BR/EDR inquiry is never starved and an Xbox pad stays
+   discoverable). The _le_discovery_not_before_ms cooldown is therefore ONLY a
+   manual-scan guard, not a per-window throttle. */
+#define BT_LE_DISCOVERY_MS 30000
+#define BT_LE_DISCOVERY_GAP_MS 30000
+static uint64_t _le_discovery_until_ms = 0;
+static uint64_t _le_discovery_not_before_ms = 0;
+
+void bt_le_discovery_kick(void) {
+    uint64_t now = kernel_tic_ms(0);
+
+    /* Honour ONLY the cooldown a manual `scan` installed
+       (bt_le_discovery_close) so the foreground scan gets uninterrupted radio
+       time; otherwise slide the deadline so a looping pad keeps the LE scan
+       armed until its LE identity is caught. */
+    if (now < _le_discovery_not_before_ms) {
+        return;
+    }
+    _le_discovery_until_ms = now + BT_LE_DISCOVERY_MS;
+    bt_le_autoconnect_kick();
+}
+
+/* Close the discovery window and start its cooldown immediately. A manual
+   `scan` calls this so the background window cannot re-arm over the user's
+   foreground scan; auto-connect resumes on a later kick once the gap elapses. */
+static void bt_le_discovery_close(void) {
+    _le_discovery_until_ms = 0;
+    _le_discovery_not_before_ms = kernel_tic_ms(0) + BT_LE_DISCOVERY_GAP_MS;
+}
+
+/* True while a first-time discovery window opened by bt_le_discovery_kick is
+   still running. bt_le_step uses this to tell a first-time discovery scan apart
+   from a background known-device reconnect: the reconnect stays LE-only so it
+   cannot page-scan over a live HID link, but a first-time window alternates
+   LE/classic slices so it cannot starve BR/EDR inquiry and hide other
+   controllers. */
+bool bt_le_discovery_active(void) {
+    return _le_discovery_until_ms != 0 && kernel_tic_ms(0) < _le_discovery_until_ms;
+}
+
 static void bt_le_autoconnect_retry_step(void) {
     uint64_t now = kernel_tic_ms(0);
     int i, s;
@@ -854,8 +917,38 @@ static void bt_le_autoconnect_retry_step(void) {
     }
     _le_autoconnect_retry_ms = now + BT_LE_AUTOCONNECT_RETRY_MS;
 
+    /* Never arm a reconnect scan while an input link is live. The by-address
+       "live" test below only matches a record whose OWN address is on a
+       session; a dual-identity pad migrated off classic (a GameSir whose LE
+       BDADDR differs from its classic one, converted by
+       bt_known_prefer_le_by_name) leaves a le&&!has_key record whose classic
+       address never goes live, so without this gate the step re-arms a scan
+       every 3s even while the pad streams - and the latched _le_autoconnect
+       defeats bt_le_step's radio-contention suspension, starving the live
+       link. bt_hid_live() is the transport-independent "something is streaming"
+       test that restores the intended stop-while-live behaviour; it clears the
+       moment the link drops, so reconnect re-arms normally. */
     if (!_ready || !_le_supported || _scanning || _le_req_active ||
-            _pending.type != BT_PENDING_NONE || le_session_free() < 0) {
+            _pending.type != BT_PENDING_NONE || le_session_free() < 0 ||
+            bt_hid_live()) {
+        return;
+    }
+    /* Bounded first-time discovery window opened by bt_le_only_classic_migrate
+       when a never-bonded LE-only pad pages classic. The known-record loop
+       below can only arm a scan for a device already in the bond store; a
+       first-time GameSir has no `le && !has_key` record (its real LE identity
+       is a DIFFERENT BDADDR that has never been seen), so without this window
+       nothing ever arms the scan and the pad's appearance-964 BLE identity is
+       never discovered even while it advertises. Presence is proven by the
+       incoming classic page, so arm discovery on the window alone, independent
+       of store contents. The window slides (see bt_le_discovery_kick): every
+       re-page refreshes the deadline so the LE scan stays armed continuously
+       until the pad's LE identity is caught, and it lapses BT_LE_DISCOVERY_MS
+       after the pad goes quiet. A manual `scan` and the LE/classic alternation
+       in bt_le_step keep it from locking out the user or starving inquiry. */
+    if (_le_discovery_until_ms != 0 && now < _le_discovery_until_ms) {
+        _le_autoconnect = true;
+        (void)bt_start_scan(BT_LE_AUTOCONNECT_SCAN_S);
         return;
     }
     for (i = 0; i < MAX_BT_KNOWN; ++i) {
@@ -879,12 +972,30 @@ static void bt_le_autoconnect_retry_step(void) {
     }
 }
 
+/* A peer belongs in the live `devices` list only while it is actually on the
+   air: connected now, or detected within the last BT_DEVICE_PRESENT_MS. A bond
+   seeded from /etc/bt/bt.json that is not currently answering (last_seen_ms ==
+   0, or stale) is left out - presence governs the live list, while the
+   persistent bond stays visible in `known`. last_seen_ms is stamped on every
+   live sighting (LE advertising report, classic inquiry result, connection
+   complete); the != 0 guard keeps a never-seeded-never-seen store record from
+   passing the window test during the first BT_DEVICE_PRESENT_MS after boot. */
+#define BT_DEVICE_PRESENT_MS 30000
+static bool bt_device_present(const bt_device_t* dev, uint64_t now) {
+    if (dev->connected) {
+        return true;
+    }
+    return dev->last_seen_ms != 0 &&
+            (uint32_t)(now - dev->last_seen_ms) < BT_DEVICE_PRESENT_MS;
+}
+
 static void bt_list_devices_ret(char* ret, size_t ret_sz) {
+    uint64_t now = kernel_tic_ms(0);
     int i;
     int count = 0;
 
     for (i = 0; i < MAX_BT_DEVICES; ++i) {
-        if (!_devices[i].used) {
+        if (!_devices[i].used || !bt_device_present(&_devices[i], now)) {
             continue;
         }
         bt_ret_append_device_line(i, ret, ret_sz, "device", &_devices[i]);
@@ -1377,6 +1488,18 @@ static int bt_handle_cmd_args(int argc, char** argv, char* ret, size_t ret_sz) {
         if (!_ready) {
             snprintf(ret, ret_sz, "scan_fail reason=not_ready\n");
             return 0;
+        }
+        /* A manual scan is a foreground operation and must not be locked out by
+           the background LE autoconnect/discovery scan, which keeps _scanning
+           set and would otherwise make every manual scan return scan_busy while
+           a pad sits in pairing mode (so neither a GameSir nor an Xbox pad could
+           be found). Preempt a BACKGROUND autoconnect scan - never one the user
+           already started, since _le_autoconnect is latched only by the
+           background paths - and close the discovery window with its cooldown so
+           the retry step does not immediately re-arm over the user's scan. */
+        if (_scanning && _le_autoconnect) {
+            bt_le_discovery_close();
+            bt_stop_scan();
         }
         if (_scanning) {
             snprintf(ret, ret_sz, "scan_busy\n");

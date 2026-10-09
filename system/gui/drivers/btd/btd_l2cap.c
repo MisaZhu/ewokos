@@ -731,6 +731,28 @@ static void l2cap_chan_data(l2cap_chan_t* ch, const uint8_t* payload, size_t len
         bt_hid_handle_ctrl(ch, payload, len);
     }
     else if (ch->psm == L2CAP_PSM_HID_INTR) {
+        /* TEMP DIAGNOSTIC (remove once the GameSir classic decode is confirmed):
+           HIDP is fully up (ctrl=3 intr=3 up=1) yet no report ever reaches
+           bt_hid_handle_report, so cjs_diag never fires and there is zero input.
+           The ONLY silent drop between an open interrupt channel and the decoder
+           is the payload[0]==HIDP_DATA_INPUT (0xA1) filter below: a pad that
+           frames its input with any other HIDP header is discarded here with no
+           trace. Log every interrupt-channel PDU's raw header/length (rate
+           limited) to prove whether the pad sends anything on classic at all and
+           with what header byte, instead of guessing. */
+        {
+            static uint64_t _intr_diag_ms = 0;
+            uint64_t _in = kernel_tic_ms(0);
+            if ((uint32_t)(_in - _intr_diag_ms) >= 250) {
+                _intr_diag_ms = _in;
+                slog("bt intr_diag h=%04x len=%u hdr=%02x b=%02x %02x %02x %02x %02x %02x\n",
+                    (unsigned)ch->acl_handle, (unsigned)len,
+                    len > 0 ? payload[0] : 0, len > 1 ? payload[1] : 0,
+                    len > 2 ? payload[2] : 0, len > 3 ? payload[3] : 0,
+                    len > 4 ? payload[4] : 0, len > 5 ? payload[5] : 0,
+                    len > 6 ? payload[6] : 0);
+            }
+        }
         if (len >= 1 && payload[0] == HIDP_DATA_INPUT) {
             const uint8_t* report = payload + 1;
             size_t rlen = len - 1;

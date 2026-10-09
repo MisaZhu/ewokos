@@ -72,6 +72,18 @@ int _le_req_slot = 0;   /* which session slot to connect into */
 
 bool _le_autoconnect = false;
 
+/* While an Xbox pad migrated off classic is being brought up over LE, btd
+   stops auto-accepting incoming classic pages (page scan off, inquiry scan
+   kept). bt_autoconnect_known never pages a le&&!has_key record, so every
+   classic ACL seen during bring-up is pad-initiated; accepting it pulls the
+   pad off the LE air and starves the pending LE_Create_Connection
+   (le_connect_timeout). Suspending page scan makes those pages fail so the
+   pad stays advertising and the LE link can establish. Restored once an LE
+   session reaches READY or the bounded deadline expires. */
+#define BT_XBOX_PAGE_SUSP_MS 15000
+static bool _xbox_page_susp = false;
+static uint64_t _xbox_page_susp_deadline = 0;
+
 bt_scan_slice_t _scan_slice = BT_SCAN_SLICE_NONE;
 
 uint64_t _scan_slice_end_ms = 0;
@@ -1180,6 +1192,18 @@ static uint32_t bt_le_synth_cod(bool is_mouse, bool is_kbd, bool is_gamepad) {
     return 0x002500; /* peripheral: unspecified HID */
 }
 
+/* True when a GAP appearance value denotes a HID joystick (963) or gamepad
+   (964): category 15 (HID) with sub-category 3 or 4. Vendor-neutral, so it
+   recognizes any BLE pad that declares itself over the air (GameSir, 8BitDo,
+   Xbox) without relying on a name substring - the same test hogp_bringup uses
+   to latch appear_gamepad. */
+bool bt_appearance_is_gamepad(uint16_t appearance) {
+    uint8_t sub = (uint8_t)(appearance & 0x3f);
+
+    return (appearance >> 6) == AD_APPEARANCE_CATEGORY_HID &&
+           (sub == 3 || sub == 4);
+}
+
 static void bt_le_admit_adv(const uint8_t* addr, uint8_t addr_type,
         const uint8_t* data, uint8_t data_len, int8_t rssi, bool ext_pdu) {
     uint16_t appearance = 0;
@@ -1264,10 +1288,37 @@ static void bt_le_admit_adv(const uint8_t* addr, uint8_t addr_type,
         bt_emit_device_line("device", dev);
     }
 
-    /* a bonded peripheral that just showed up reconnects by itself;
-       has_ltk already means we paired with it once, so it is a HID
-       device whatever this particular advertisement happens to carry */
-    if (_le_autoconnect && dev->has_ltk && !dev->connected) {
+    /* Admit an advertiser for auto-connect on two vendor-neutral grounds:
+       (1) has_ltk - we bonded with it before, so it is a HID peripheral
+       whatever this particular advertisement carries; (2) it declares a HID
+       Joystick/GamePad appearance (963/964), so an unbonded BLE pad is
+       connected and paired on first sight. Appearance is authoritative: a
+       GameSir pad's real BLE identity ("GameSir-...", appearance 964) is
+       admitted, while the SAME pad's classic identity - which masquerades as
+       "Xbox Wireless Controller" and also emits a stray LE advertisement at
+       that classic-only address carrying appearance 0 and no LTK - is not.
+       The earlier name-substring clause (bt_dev_is_xbox_gamepad) admitted that
+       classic masquerade on its name alone and queued an LE connect to an
+       address that never accepts one: le_connect_timeout in a loop that
+       starved the real BLE identity. Keying on appearance instead stops the
+       futile chase yet still admits any self-declaring pad, Xbox included.
+
+       The trigger is `_le_autoconnect || _scanning`, NOT `_le_autoconnect`
+       alone. _le_autoconnect is latched only by the background paths - the
+       first-time discovery window (which opens ONLY on an incoming classic
+       page) and the known-store reconnect. A pure-BLE pairing-mode pad never
+       pages classic, so its window never opens; and a manual `scan` (bt_start_
+       scan) never sets _le_autoconnect at all. Gating the admit on that latch
+       alone therefore left a first-time BLE gamepad listed-but-never-connected
+       unless it happened to page classic first. Any active scan is a legitimate
+       context to auto-connect a self-declared gamepad (or a bonded peripheral),
+       so admit on _scanning too. This does NOT touch the LE-only slice lock in
+       bt_le_step (that stays keyed on _le_autoconnect), so a manual scan still
+       alternates LE/classic and keeps an Xbox pad discoverable; and the
+       appearance/has_ltk gate still refuses the appearance-0 classic
+       masquerade, so no phantom LE chase is reintroduced. */
+    if ((_le_autoconnect || _scanning) && !dev->connected &&
+            (dev->has_ltk || bt_appearance_is_gamepad(dev->appearance))) {
         char addr_str[24];
 
         if (bt_le_queue_request(dev, false)) {
@@ -1395,6 +1446,31 @@ static void bt_le_handle_conn_complete(const uint8_t* p, size_t len,
             _le_cur = i;
             break;
         }
+    }
+
+    /* No session is mid-connect, so this completion is orphaned: a late event
+       that lost the LE_Create_Conn_Cancel race (see the timeout path in
+       bt_le_connect) or a link btd never asked for. Binding it to whichever
+       slot _le_cur happens to name would leave that session LINK_UP on a live
+       handle with no bring-up driving it - the device then reads connected=yes
+       yet never reaches HOGP READY, so no reports flow and the RSSI read fails
+       on the half-driven link, and nothing ever recovers it (autoconnect skips
+       connected devices, the connect verb short-circuits on connected, and
+       bt_le_queue_request rejects an already-linked address). Drop the stray
+       link instead so the peripheral returns to advertising and the normal
+       autoconnect path re-establishes it under a driven session. */
+    if (i >= MAX_LE_SESSIONS) {
+        _le_cur = saved;
+        if (p[0] == 0) {
+            uint8_t dp[3];
+            slog("bluetooth le_conn_orphan handle=0x%04x\n", handle);
+            dp[0] = (uint8_t)(handle & 0xff);
+            dp[1] = (uint8_t)(handle >> 8);
+            dp[2] = 0x13;
+            (void)bt_hci_send_command(HCI_OGF_LINK_CTRL, HCI_OCF_DISCONNECT,
+                    dp, sizeof(dp));
+        }
+        return;
     }
 
     if (p[0] != 0) {
@@ -1789,6 +1865,30 @@ static void bt_le_handle_notify(int si, uint16_t value_handle,
         return;
     }
     if (a->uuid == GATT_CHR_REPORT) {
+        /* TEMP DIAGNOSTIC (remove once the GameSir decode is confirmed):
+           rate-limited dump of every Report-characteristic notification.
+           Proves whether the pad streams at all, whether is_gamepad and
+           joystick_ok latched, the latched report id / expected report
+           length, and the raw prefix bytes, so the decode can be checked
+           against real on-device values instead of guessed. */
+        {
+            static uint64_t _js_diag_ms = 0;
+            uint64_t _jn = kernel_tic_ms(0);
+            if ((uint32_t)(_jn - _js_diag_ms) >= 250) {
+                _js_diag_ms = _jn;
+                slog("bt js_diag h=%04x rid=%u len=%u gp=%d jok=%d jsrid=%u hasrid=%d rbytes=%u raw=%02x %02x %02x %02x %02x %02x %02x %02x\n",
+                    (unsigned)_les[si].le.handle, (unsigned)a->report_id,
+                    (unsigned)len, h->is_gamepad ? 1 : 0,
+                    h->joystick_ok ? 1 : 0, (unsigned)h->joystick_report_id,
+                    h->joystick.has_report_id ? 1 : 0,
+                    (unsigned)h->joystick.report_bytes,
+                    len > 0 ? value[0] : 0, len > 1 ? value[1] : 0,
+                    len > 2 ? value[2] : 0, len > 3 ? value[3] : 0,
+                    len > 4 ? value[4] : 0, len > 5 ? value[5] : 0,
+                    len > 6 ? value[6] : 0, len > 7 ? value[7] : 0);
+            }
+        }
+
         /* A LE gamepad's Report characteristic carries the descriptor-driven
            joystick layout. HOGP omits the Report ID octet from the value (it
            lives in the Report Reference descriptor) while the parser's bit
@@ -1814,10 +1914,32 @@ static void bt_le_handle_notify(int si, uint16_t value_handle,
                 jlen += 1;
             }
             if (joystick_normalize_report(&h->joystick, jp, jlen, &je) == 0) {
+                /* TEMP DIAGNOSTIC: the decoded, normalized gamepad state */
+                static uint64_t _js_evt_ms = 0;
+                uint64_t _en = kernel_tic_ms(0);
+                if ((uint32_t)(_en - _js_evt_ms) >= 100) {
+                    _js_evt_ms = _en;
+                    slog("bt js_evt btn=%08x dpad=%u lx=%d ly=%d rx=%d ry=%d lt=%u rt=%u\n",
+                        (unsigned)je.buttons, (unsigned)je.dpad, je.lx, je.ly,
+                        je.rx, je.ry, (unsigned)je.lt, (unsigned)je.rt);
+                }
                 frame[0] = 0x05; /* normalized js_evt_t follows */
                 memcpy(frame + 1, &je, sizeof(js_evt_t));
                 bt_hid_dispatch_joystick(frame, sizeof(frame));
                 return;
+            }
+            /* TEMP DIAGNOSTIC: a gamepad report arrived but normalize bailed */
+            {
+                static uint64_t _js_fail_ms = 0;
+                uint64_t _fn = kernel_tic_ms(0);
+                if ((uint32_t)(_fn - _js_fail_ms) >= 250) {
+                    _js_fail_ms = _fn;
+                    slog("bt js_norm_fail rid=%u jlen=%d rbytes=%u hasrid=%d jsrid=%u\n",
+                        (unsigned)a->report_id, jlen,
+                        (unsigned)h->joystick.report_bytes,
+                        h->joystick.has_report_id ? 1 : 0,
+                        (unsigned)h->joystick.report_id);
+                }
             }
             /* normalize bailed: fall through to the heuristics below */
         }
@@ -2445,9 +2567,15 @@ static bool smp_ident_pred(void* ctx) {
     return (_smp.got_peer_irk && _smp.got_peer_id_addr) || _smp.failed;
 }
 
+/* Also releases on _smp.failed / LE_ST_FAILED: bt_le_link_closed marks the
+   session failed the moment the peer drops the link, so a bring-up sitting
+   in this pre-pairing wait returns at once instead of burning the full
+   2s window on a session that no longer exists. Matches the contract in
+   the block comment above ("every predicate also releases on LE_ST_FAILED"). */
 static bool smp_security_request_pred(void* ctx) {
     (void)ctx;
-    return _smp.security_request_seen;
+    return _smp.security_request_seen || _smp.failed ||
+           _le.state == LE_ST_FAILED;
 }
 
 /* Pairing Request from the central. NoInputNoOutput with the MITM bit
@@ -2936,10 +3064,32 @@ static int hogp_bringup(uint16_t handle) {
     hogp_attr_t* pm;
     uint8_t mode;
     int i;
+    bool appear_gamepad = false;
 
     memset(&_hogp, 0, sizeof(_hogp));
     _hogp.active = true;
     _hogp.mtu = L2CAP_LE_MTU_DEFAULT;
+
+    /* A peripheral that advertises a Joystick/GamePad appearance must be
+       driven over Report Protocol. Boot Protocol is defined only for
+       keyboards and mice, so writing BOOT to a pad either fails or makes it
+       stream on a characteristic we then treat as a boot mouse/keyboard -
+       the boot short-circuit below would leave it subscribed yet silent, and
+       is_gamepad would never latch (no Report Map read), so every >8-octet
+       report is dropped by the length heuristic in bt_le_handle_notify.
+       Latch the appearance up front to skip the boot path and let the
+       Report-Map joystick probe win even when the pad's map also carries a
+       mouse or keyboard collection (composite pads do). */
+    {
+        bt_device_t* bdev = bt_find_device_by_handle(handle);
+        if (bdev != NULL &&
+                (bdev->appearance >> 6) == AD_APPEARANCE_CATEGORY_HID) {
+            uint8_t sub = (uint8_t)(bdev->appearance & 0x3f);
+            if (sub == 3 || sub == 4) { /* 3 = joystick, 4 = gamepad */
+                appear_gamepad = true;
+            }
+        }
+    }
 
     if (gatt_exchange_mtu(handle) != 0) {
         /* 23 octets still fits every request we send, so carry on */
@@ -2964,7 +3114,8 @@ static int hogp_bringup(uint16_t handle) {
     (void)gatt_discover_descriptors(handle);
 
     pm = hogp_find(GATT_CHR_PROTOCOL_MODE);
-    if (pm != NULL && (pm->props & GATT_CHR_PROP_WRITE) != 0) {
+    if (!appear_gamepad && pm != NULL &&
+            (pm->props & GATT_CHR_PROP_WRITE) != 0) {
         mode = GATT_PROTOCOL_MODE_BOOT;
         if (gatt_write_value(handle, pm->value_handle, &mode, 1) == 0) {
             _hogp.boot_mode_ok = true;
@@ -2990,6 +3141,27 @@ static int hogp_bringup(uint16_t handle) {
         slog("bluetooth le_no_report_map\n");
         return -1;
     }
+    /* TEMP DIAGNOSTIC (remove once the GameSir decode is confirmed): hex-dump
+       the raw Report Map in 32-byte chunks. js_cls already proved the parser
+       rejects this 318-byte map (probe=0), so the descriptor itself has to be
+       read to find exactly which collection/usage hid_parse_joystick_report
+       fails on, instead of guessing at it. */
+    {
+        uint16_t roff;
+        for (roff = 0; roff < _hogp.report_map_len; roff += 32) {
+            char line[128];
+            int lp = 0;
+            uint16_t j;
+            lp += snprintf(line + lp, sizeof(line) - (size_t)lp, "bt rmap %03u:",
+                    (unsigned)roff);
+            for (j = roff; j < (uint16_t)(roff + 32) && j < _hogp.report_map_len;
+                    ++j) {
+                lp += snprintf(line + lp, sizeof(line) - (size_t)lp, " %02x",
+                        _hogp.report_map[j]);
+            }
+            slog("%s\n", line);
+        }
+    }
     if (hid_parse_mouse_report(_hogp.report_map, (int)_hogp.report_map_len,
             &_hogp.mouse) == 0 &&
             mouse_parser_sane(&_hogp.mouse, 64, false)) {
@@ -3002,16 +3174,40 @@ static int hogp_bringup(uint16_t handle) {
             hid_find_kbd_report_id(_hogp.report_map, (int)_hogp.report_map_len);
     /* A LE gamepad (an Xbox/8BitDo pad) exposes a Generic Desktop Joystick or
        Game Pad collection in its Report Map instead of a mouse or keyboard.
-       When it parses as one - and the map was not already claimed as a mouse
-       or keyboard - latch the descriptor-driven parser so the notify path can
-       normalize its Report characteristic into a js_evt_t for hid_joystickd,
-       exactly like usbhostd does for a USB pad. */
-    if (!_hogp.mouse_ok && _hogp.kbd_report_id == 0 &&
-            hid_probe_joystick_report(_hogp.report_map,
-                (int)_hogp.report_map_len, &_hogp.joystick)) {
+       The Report Map is the AUTHORITATIVE classification for a connected LE
+       HID peripheral: GAP appearance is optional and frequently absent (this
+       pad advertises appearance=0, so appear_gamepad is false), and gating the
+       joystick latch on `appear_gamepad || (!mouse_ok && !kbd_report_id)` left
+       a genuine gamepad whose map ALSO carries a mouse/keyboard collection
+       classified as unspecified HID - is_gamepad never latched, so every
+       report fell through to the length heuristic in bt_le_handle_notify and
+       was dropped (zero input). A Generic Desktop Joystick/GamePad collection
+       in the map IS a gamepad regardless of appearance and regardless of any
+       composite mouse/keyboard collection, so the probe now wins on its own
+       and the mouse/keyboard claim is dropped so its reports never fall
+       through to the length heuristic. This is a strict widening of the old
+       gate (which always required the probe to succeed), so any device that
+       latched before still latches - no regression for the genuine Xbox. */
+    bool js_probe = hid_probe_joystick_report(_hogp.report_map,
+            (int)_hogp.report_map_len, &_hogp.joystick);
+    /* TEMP DIAGNOSTIC (remove once the GameSir decode is confirmed): the full
+       classification decision, so "connected but is_gamepad never latched" is
+       resolved from real on-device values - whether the Report Map parsed as a
+       joystick at all (probe), whether a composite mouse/kbd claim was present,
+       and the latched report geometry. */
+    slog("bt js_cls maplen=%u probe=%d appear_gp=%d mouse_ok=%d kbd_rid=%u "
+            "jsrid=%u hasrid=%d rbytes=%u\n",
+            (unsigned)_hogp.report_map_len, js_probe ? 1 : 0,
+            appear_gamepad ? 1 : 0, _hogp.mouse_ok ? 1 : 0,
+            (unsigned)_hogp.kbd_report_id, (unsigned)_hogp.joystick.report_id,
+            _hogp.joystick.has_report_id ? 1 : 0,
+            (unsigned)_hogp.joystick.report_bytes);
+    if (js_probe) {
         _hogp.is_gamepad = true;
         _hogp.joystick_ok = true;
         _hogp.joystick_report_id = _hogp.joystick.report_id;
+        _hogp.mouse_ok = false;
+        _hogp.kbd_report_id = 0;
         /* Select button mapping profile by device name. Xbox controllers
            use 1=A 2=B 3=X 4=Y; most other pads (uConsole, generic HID)
            use 1=X 2=A 3=B 4=Y. */
@@ -3255,7 +3451,32 @@ retry_link:
 
         (void)bt_hci_command_sync(HCI_OGF_LE, HCI_OCF_LE_CREATE_CONN_CANCEL,
                 NULL, 0, 1000);
+        /* The cancel's command_sync pumps the event queue, so a Connection-
+           Complete that lost the race can land here: with the session still
+           LE_ST_CONNECTING the binding loop adopts it, marking the device
+           connected on a live handle. The reset below then forgets the
+           session but not _devices[], leaking a connected=yes link that no
+           bring-up ever drives (no reports, RSSI read fails, nothing
+           recovers it). Capture the stray handle before the reset wipes it,
+           then tear the link down and clear the device so the peripheral
+           returns to advertising and the autoconnect path re-establishes it
+           under a driven session. */
+        uint16_t stray = _le.handle_valid ? _le.handle : 0;
         bt_le_stack_reset();
+        if (stray != 0) {
+            bt_device_t* sdev = bt_find_device_by_handle(stray);
+            if (sdev != NULL) {
+                sdev->connected = false;
+                sdev->handle = 0;
+            }
+            slog("bluetooth le_conn_cancel_stray handle=0x%04x\n", stray);
+            uint8_t dp[3];
+            dp[0] = (uint8_t)(stray & 0xff);
+            dp[1] = (uint8_t)(stray >> 8);
+            dp[2] = 0x13;
+            (void)bt_hci_send_command(HCI_OGF_LINK_CTRL, HCI_OCF_DISCONNECT,
+                    dp, sizeof(dp));
+        }
         bt_emit("connect_fail %s reason=%s\n", addr_str,
                 refused ? "le_conn_refused" : "le_timeout");
         slog("bluetooth le_connect_%s %s\n", refused ? "refused" : "timeout",
@@ -3277,6 +3498,23 @@ retry_link:
        they emit Security Request; 300ms was too short and our preemptive
        Pairing Request got ignored (smp_no_pairing_response). */
     (void)bt_poll_until(smp_security_request_pred, NULL, 2000);
+
+    /* The wait above releases early when bt_le_link_closed marks the session
+       failed (peer dropped the link before any SMP PDU could flow - reason
+       0x3E "Connection Failed to be Established" is the classic pattern for
+       an LE HID peripheral that is already bonded to another master or not
+       in explicit pairing mode). Bail out here rather than fall into
+       smp_run: smp_run() calls smp_reset() (wiping the failed flag) and
+       overwrites state to LE_ST_PAIRING, so the link-down signal is lost
+       and the caller would then sit out the full BT_LE_SMP_TIMEOUT_MS on a
+       dead handle before mislabelling the failure as "pairing". The
+       has_ltk path has the same trap: smp_start_encryption on a dead
+       handle would time out and bt_le_drop_stale_ltk would then discard a
+       perfectly good stored bond. */
+    if (_le.state == LE_ST_FAILED) {
+        bt_le_fail("link_dropped");
+        return -1;
+    }
 
     if (dev->has_ltk) {
         if (smp_start_encryption(_le.handle, dev->ltk, dev->ediv,
@@ -3399,6 +3637,15 @@ void bt_le_link_closed(uint16_t handle, uint8_t reason) {
     _les[si].le.encrypted = false;
     _les[si].le.state = LE_ST_FAILED;
     _les[si].le.deadline_ms = kernel_tic_ms(0) + 3000;
+    /* Release every in-flight SMP wait on this session: with the link gone
+       no further SMP PDU can arrive, so without this each smp_*_pred would
+       sit out its full BT_LE_SMP_TIMEOUT_MS (15s) on a dead handle. All of
+       them already OR in _smp.failed, and smp_run's post-poll
+       "if (_smp.failed) return -1" turns the release into a clean abort.
+       fail_reason 0xFF distinguishes "link dropped" from a real peer
+       SMP_CMD_PAIRING_FAILED (whose reason codes are 0x01..0x0E). */
+    _les[si].smp.failed = true;
+    _les[si].smp.fail_reason = 0xFF;
     /* the peripheral may already be re-advertising (a power-cycled pad only
        keeps its reconnect window open for seconds): arm the autoconnect
        scan at once instead of waiting out the retry interval */
@@ -3546,10 +3793,58 @@ static bool le_bringup_busy(void) {
    therefore passes false: the scan slice still arms at once, but the queued
    bring-up is left for the next bt_loop tick, exactly where a blocking wait
    can be preempted by an incoming IPC. */
+/* Suspend classic page scan (inquiry scan kept) so an Xbox pad's repeated
+   classic pages fail and it stays on the LE air for bring-up. Idempotent:
+   re-arming just pushes the restore deadline out while the pad keeps paging,
+   so page scan stays off for as long as the classic storm continues. */
+void bt_xbox_page_scan_suspend(void) {
+    uint8_t scan_enable = 0x01; /* inquiry scan only: not classic-connectable */
+
+    (void)bt_hci_send_command(HCI_OGF_HOST_CTRL, HCI_OCF_WRITE_SCAN_ENABLE,
+            &scan_enable, 1);
+    if (!_xbox_page_susp) {
+        slog("bluetooth xbox_page_scan_suspend\n");
+    }
+    _xbox_page_susp = true;
+    _xbox_page_susp_deadline = kernel_tic_ms(0) + BT_XBOX_PAGE_SUSP_MS;
+}
+
+/* Restore classic page scan once the Xbox LE bring-up resolved: some LE
+   session reached READY (HID streaming) or the bounded deadline expired.
+   Runs every bt_loop tick from bt_le_step; a fire-and-forget command, so it
+   never blocks the loop. */
+static void bt_xbox_page_scan_step(void) {
+    uint8_t scan_enable = 0x03; /* inquiry + page scan */
+    bool ready = false;
+    int i;
+
+    if (!_xbox_page_susp) {
+        return;
+    }
+    for (i = 0; i < MAX_LE_SESSIONS; ++i) {
+        if (_les[i].le.state == LE_ST_READY) {
+            ready = true;
+            break;
+        }
+    }
+    if (!ready && kernel_tic_ms(0) < _xbox_page_susp_deadline) {
+        return;
+    }
+    (void)bt_hci_send_command(HCI_OGF_HOST_CTRL, HCI_OCF_WRITE_SCAN_ENABLE,
+            &scan_enable, 1);
+    _xbox_page_susp = false;
+    slog("bluetooth xbox_page_scan_restore reason=%s\n",
+            ready ? "le_ready" : "deadline");
+}
+
 void bt_le_step(bool from_loop) {
     uint64_t now = kernel_tic_ms(0);
     bool want_le;
     int i;
+
+    if (from_loop) {
+        bt_xbox_page_scan_step();
+    }
 
     /* retry deadlines: clear any session that failed long enough ago, so its
        slot becomes free for the next candidate without disturbing the other */
@@ -3649,9 +3944,19 @@ void bt_le_step(bool from_loop) {
        itself fails. bt_scan_slice_stop leaves _scan_slice alone so the
        choice below still sees which mode is being given up. */
     bt_scan_slice_stop();
-    if (_le_autoconnect) {
-        /* Known BLE peripherals cannot be found by classic inquiry. Keep
-           background reconnect LE-only so it cannot page-scan over HID. */
+    /* Known BLE peripherals cannot be found by classic inquiry, so a background
+       reconnect scan stays LE-only and cannot page-scan over a live HID link. A
+       FIRST-TIME discovery window is different: a pad left in pairing mode
+       re-pages classic forever, self-refreshing the window, and an LE-only lock
+       would then starve classic BR/EDR inquiry indefinitely - so a second
+       controller (an Xbox pad, discovered over classic) could never be found
+       while the GameSir sits in pairing mode. While the window is open and no
+       HID link is live, fall through to the alternating LE/classic slices below:
+       the LE slices still admit the pad's appearance-964 identity (the admit
+       gate keys on _le_autoconnect), and the classic slices keep every other
+       device discoverable. Once a link IS live, stay LE-only so classic inquiry
+       cannot contend with the streaming pad. */
+    if (_le_autoconnect && !(bt_le_discovery_active() && !bt_hid_live())) {
         if (!bt_scan_enter_le(now)) {
             _scan_slice = BT_SCAN_SLICE_NONE;
             _scan_slice_end_ms = now;

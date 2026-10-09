@@ -95,6 +95,10 @@ static void bt_handle_inquiry_result_common(
     dev->class_of_device = class_of_device;
     dev->clock_offset = clock_offset;
     dev->rssi = rssi;
+    /* an inquiry response is a live sighting: stamp it so the live-devices
+       freshness test treats this peer as on the air, exactly like an LE
+       advertising report does */
+    dev->last_seen_ms = kernel_tic_ms(0);
     if (name != NULL && name[0] != 0) {
         strncpy(dev->name, name, sizeof(dev->name) - 1);
         dev->name[sizeof(dev->name) - 1] = 0;
@@ -218,6 +222,12 @@ void bt_handle_remote_name_complete(const uint8_t* payload, size_t len) {
     bt_trim_name(dev->name);
     bt_addr_to_str(dev->addr, addr, sizeof(addr));
     bt_emit("name %s status=%u value=%s\n", addr, payload[0], dev->name[0] ? dev->name : "-");
+    /* A name request that came back empty (failed lookup on a rotating
+       secondary BDADDR) created a bare slot at bt_find_device above and
+       wrote nothing into it. Release it if it still carries no identity, so
+       it cannot linger as a nameless phantom `devices` row. A resolved name
+       or any pre-existing identity (class/key/connected) keeps the slot. */
+    bt_device_drop_if_identity_less(dev);
 }
 
 /* CoD major class 0x05 (Peripheral) with the keyboard/pointing minor bits:
@@ -235,6 +245,40 @@ static bool bt_cod_is_hid_peripheral(uint32_t cod) {
    same security-then-HID path. */
 bool bt_cod_is_gamepad(uint32_t cod) {
     return ((cod >> 8) & 0x1f) == 0x05 && (cod & 0x0c) != 0;
+}
+
+/* An official Xbox Wireless Controller answers a BR/EDR page and reports the
+   gamepad CoD, but it serves its input reports ONLY over LE/HOGP: the classic
+   ACL either never brings HIDP up or dies at a supervision timeout, and while
+   it is held the pad stays off the air so LE can never be discovered. CoD
+   cannot separate it from a DualShock/DualSense (same 0x002508, and those DO
+   work over classic HIDP), so discriminate on the name - the same token the
+   HOGP button-map selector already keys on. */
+bool bt_dev_is_xbox_gamepad(const bt_device_t* dev) {
+    if (dev == NULL || dev->name[0] == 0) {
+        return false;
+    }
+    return strstr(dev->name, "Xbox") != NULL ||
+           strstr(dev->name, "X-Box") != NULL ||
+           strstr(dev->name, "XB") != NULL;
+}
+
+/* True when the device name marks a gamepad that serves its input ONLY over
+   LE/HOGP, so a classic ACL to it is a dead end and must be migrated off (see
+   bt_le_only_classic_migrate). CoD 0x002508 cannot separate these from a
+   DualShock/DualSense that genuinely works over classic HIDP, so discriminate
+   on the name. Covers the two LE-only families met in the field: an official
+   Xbox pad, and a GameSir pad whose classic side announces itself as
+   "GameSir-..." (the same pad can also masquerade as "Xbox Wireless
+   Controller", already caught above). */
+bool bt_dev_is_le_only_gamepad(const bt_device_t* dev) {
+    if (dev == NULL || dev->name[0] == 0) {
+        return false;
+    }
+    if (bt_dev_is_xbox_gamepad(dev)) {
+        return true;
+    }
+    return strstr(dev->name, "GameSir") != NULL;
 }
 
 /* When HOGP is already streaming, the only case where classic HIDP must be
@@ -258,6 +302,98 @@ bool bt_hogp_blocks_classic(bt_device_t* dev) {
     return false; /* different device: classic HID is fine */
 }
 
+/* Rate-limit the migration slog/emit: an LE-only pad holding a stale classic
+   bond re-pages BR/EDR in a tight loop (several reconnects per second while
+   cycling its BDADDR), and logging every one buries /dev/log without adding
+   information. */
+static uint64_t _le_migrate_log_ms = 0;
+
+/* Migrate an LE-only gamepad (Xbox, GameSir) off a classic ACL it keeps
+   re-establishing. The pad serves HID only over LE/HOGP, and holding the
+   BR/EDR link keeps it off the air so the LE autoconnect scan can never bond
+   it. Convert its bond store record(s) to LE by NAME (rotation-proof: the pad
+   cycles its BDADDR while it storms, so an address-keyed conversion would
+   miss) so autoconnect arms the LE scan instead of paging BR/EDR next boot,
+   drop this ACL, and kick the LE scan re-arm. Cheap and idempotent, so a
+   reconnect storm costs no flash writes after the first and no log spam. */
+static bool bt_le_only_classic_migrate(bt_device_t* dev, uint16_t handle,
+        const char* addr) {
+    uint64_t now = kernel_tic_ms(0);
+    /* Does THIS address answer LE? Reuse the autoconnect admit gate's own
+       evidence test (an LE bond, or a self-declared HID gamepad appearance
+       received over the air) - the test that already refuses to chase a
+       GameSir pad's classic-only BDADDR or an Xbox pad's non-connectable
+       stray advertisement. A shared-BDADDR pad (an official Xbox controller)
+       passes: its classic and LE identities are one address, so flagging it
+       LE routes hid_open to a bring-up that succeeds. A split-identity pad (a
+       GameSir, whose working LE identity "GameSir-..._G" is a DIFFERENT
+       BDADDR) fails: flagging its classic address LE manufactures a phantom
+       target that hid_open chases with LE_Create_Connection in a
+       le_connect_timeout loop, which suspends the discovery scan and holds
+       the single LE-connect slot, starving the pad's real LE identity. Keep
+       such an address classic so no LE connect is ever aimed at it; the pad's
+       true LE identity is discovered and connected by the appearance-gated
+       admit scan instead. */
+    bool le_proven = dev->has_ltk || bt_appearance_is_gamepad(dev->appearance);
+
+    /* No positive evidence this address answers LE (no LE bond, no gamepad
+       appearance seen over the air): do NOT tear down the classic ACL. A
+       genuine classic gamepad - e.g. a GameSir in Xinput/PC mode announcing
+       "Xbox Wireless Controller." with a gamepad CoD (0x002508) but no BLE
+       advertiser - serves its reports over classic HIDP, and disconnecting
+       here (as an earlier revision did unconditionally) left it connected=0
+       with no link on either transport and zero input. Decline and let the
+       caller run the classic HIDP bring-up; if the pad really is LE-only its
+       HIDP channels never both open and bt_hid_gamepad_le_fallback re-drives
+       it over LE on the deadline, so a genuine Xbox is not stranded. */
+    if (!le_proven) {
+        dev->le = false;
+        dev->classic = true;
+        return false;
+    }
+
+    bt_known_prefer_le_by_name(dev->name);
+    dev->le = true;
+    dev->classic = false;
+    dev->hid_after_sec = false;
+
+    /* Abandon any classic connect/pair bookkeeping for this pad. On the first
+       conn-complete the name is not resolved yet, so bt_dev_is_le_only_gamepad
+       is false and the CoD-gamepad path latches _pending=BT_PENDING_PAIR and
+       requests a classic auth the pad never answers. Once the name is known we
+       migrate here instead, but the disconnect-complete only clears _pending on
+       an exact handle match, which the pad's alternating handles (0x000b/0x000c)
+       defeat - leaving BT_PENDING_PAIR stuck forever. Both bt_autoconnect_known
+       and bt_le_autoconnect_retry_step bail while _pending.type != NONE, so the
+       LE scan is never armed and the pad is never bonded even while it adverts.
+       Migration abandons the classic path, so drop the pending with it. */
+    if (_pending.type != BT_PENDING_NONE) {
+        bt_clear_pending();
+    }
+
+    if ((uint32_t)(now - _le_migrate_log_ms) >= 2000) {
+        _le_migrate_log_ms = now;
+        slog("bluetooth le_only_classic_to_le %s h=0x%04x\n", addr, handle);
+        bt_emit("le_migrate %s\n", addr);
+    }
+    /* Stop auto-accepting the pad's classic re-pages BEFORE dropping this ACL,
+       otherwise the controller immediately accepts the next page and the pad
+       never stays on the LE air long enough for LE_Create_Connection to win. */
+    bt_xbox_page_scan_suspend();
+    bt_hci_disconnect(handle);
+    /* Open the bounded LE discovery window, not just an autoconnect kick. This
+       pad is presence-proved (it just paged classic) but a first-time GameSir
+       has no `le && !has_key` bond-store record, which is the ONLY thing
+       bt_le_autoconnect_retry_step arms a scan for - so without this window its
+       real LE identity (a DIFFERENT BDADDR, appearance 964) is never scanned
+       for, the bring-up never starts, and page scan restores on the deadline
+       only for the pad to re-page classic in an endless migrate/disconnect
+       loop. The window is independent of store contents and self-refreshes
+       while the pad keeps re-paging. */
+    bt_le_discovery_kick();
+    return true;
+}
+
 void bt_handle_connection_complete(const uint8_t* payload, size_t len) {
     bt_device_t* dev;
     uint8_t status;
@@ -279,6 +415,22 @@ void bt_handle_connection_complete(const uint8_t* payload, size_t len) {
     if (status == 0) {
         dev->connected = true;
         dev->handle = handle;
+        /* the peer just came up on our radio: stamp it seen so it does not
+           fall out of the live-devices list the instant it later disconnects */
+        dev->last_seen_ms = kernel_tic_ms(0);
+        /* An LE-only gamepad (Xbox, GameSir) answers the classic page but
+           serves input only over LE/HOGP. Migrate it BEFORE touching the bond
+           store: persisting a classic bond here would add one dead record (and
+           one flash write) per rotating BDADDR while the pad storms classic
+           reconnects. */
+        if (bt_dev_is_le_only_gamepad(dev) &&
+                bt_le_only_classic_migrate(dev, handle, addr)) {
+            return;
+        }
+        /* Migration declined (no positive LE evidence): fall through to the
+           classic HIDP bring-up below, which serves a genuine classic gamepad
+           directly and re-drives a true LE-only pad over LE via
+           bt_hid_gamepad_le_fallback if its HIDP channels never open. */
         bt_known_touch_from_device(dev);
         bt_emit("connect_ok %s handle=0x%04X\n", addr, handle);
         if ((bt_cod_is_hid_peripheral(dev->class_of_device) ||
@@ -321,6 +473,12 @@ void bt_handle_connection_complete(const uint8_t* payload, size_t len) {
         if (bt_pending_matches_addr(dev->addr)) {
             bt_clear_pending();
         }
+        /* A failed connection still created a bare slot at bt_find_device
+           above; if it carries no identity (never named, no class, no key)
+           release it so a failed page to a rotating BDADDR cannot leave a
+           phantom `devices` row behind. A known device we merely failed to
+           reconnect keeps its identity and is untouched. */
+        bt_device_drop_if_identity_less(dev);
     }
 }
 
@@ -341,6 +499,59 @@ void bt_handle_disconnection_complete(const uint8_t* payload, size_t len) {
         dev->hid_after_sec = false;
         bt_addr_to_str(dev->addr, addr, sizeof(addr));
         bt_emit("disconnect %s status=%u reason=%u\n", addr, payload[0], payload[3]);
+        /* A name-identified LE-only gamepad (Xbox / GameSir) bonded as CLASSIC
+           (le=0) is self-paged over BR/EDR by bt_autoconnect_known every cycle:
+           any store record that is not `le && !has_key` is paged via
+           bt_hci_create_connection, which is an unconditional HCI_CREATE_CONN.
+           But such a pad serves input only over LE/HOGP, so the classic ACL
+           comes up then drops - supervision timeout 0x08 / remote-term 0x13 /
+           accept timeout 0x10 - and never streams a report. Neither existing
+           recovery can fire: bt_le_only_classic_migrate declines for lack of LE
+           evidence (appearance=0, no LTK) that can never be gathered while the
+           radio is monopolised paging classic, and bt_hid_gamepad_le_fallback
+           needs a stable BT_HID_GAMEPAD_LE_FALLBACK_MS session but the link
+           drops first (bt_hid_link_closed memsets _hid, clearing report_seen and
+           the deadline). The result is an endless classic re-page loop with the
+           pad never reaching LE. Break it here: on an involuntary classic drop,
+           convert the bond to LE (by NAME, rotation-proof) so the next
+           autoconnect arms the LE discovery scan instead of re-paging BR/EDR.
+           Gated on !dev->le so a genuine LE-bonded Xbox streaming over HOGP is
+           never touched and its LTK never cleared; reason 0x16 is our own
+           teardown during migration/fallback and is already handled there. */
+        if (bt_dev_is_le_only_gamepad(dev) && !dev->le && payload[3] != 0x16) {
+            uint64_t now = kernel_tic_ms(0);
+            /* Convert the STORE record to LE by NAME only (rotation-proof), so
+               bt_autoconnect_known counts it for the bounded LE discovery scan
+               (le && !has_key) instead of self-paging its classic BDADDR. Do
+               NOT flip this RUNTIME dev to le=true: this is a split-identity pad
+               whose working LE identity is a DIFFERENT BDADDR, so aiming an
+               LE_Create_Connection at the classic address - which is exactly
+               what bt_start_connection does for dev->le && !dev->classic via
+               bt_le_request - only produces an endless le_connect_timeout that
+               holds the single LE-connect slot and starves the discovery scan of
+               the pad's real LE identity (device-verified: le_connect_timeout /
+               le_conn_failed status=0x02 on the classic F8:Cx address). This
+               mirrors bt_le_only_classic_migrate's le_proven gate, which keeps a
+               split-identity classic address classic for the same reason. The
+               discovery scan, not a direct connect, must find the true LE
+               identity by appearance. */
+            bt_known_prefer_le_by_name(dev->name);
+            if (_pending.type != BT_PENDING_NONE) {
+                bt_clear_pending();
+            }
+            bt_le_discovery_kick();
+            if ((uint32_t)(now - _le_migrate_log_ms) >= 2000) {
+                _le_migrate_log_ms = now;
+                slog("bluetooth le_only_classic_drop_to_le %s reason=0x%02x\n",
+                    addr, payload[3]);
+            }
+        }
+        /* Release an identity-less runtime slot on drop: a peripheral's
+           rotating secondary BDADDR caught mid classic reconnect before its
+           name resolved leaves a phantom `devices` row (class=0x000000,
+           name=-). A real bond carries a name/class/key/LTK or the LE flag,
+           so it is kept. */
+        bt_device_drop_if_identity_less(dev);
     }
     else {
         bt_emit("disconnect handle=0x%04X status=%u reason=%u\n",

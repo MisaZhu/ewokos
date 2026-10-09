@@ -229,6 +229,16 @@
 #define L2CAP_STEP_TIMEOUT_MS 2000
 #define L2CAP_STEP_MAX_RETRIES 3
 
+/* A classic gamepad HIDP session that has delivered NO input report within
+   this window is a dead end: the pad accepted a BR/EDR ACL and may even open
+   both HIDP channels, but only serves input reports over LE/HOGP (Xbox
+   Wireless Controller and its GameSir Xinput masquerade). 8000ms ==
+   L2CAP_STEP_TIMEOUT_MS * (L2CAP_STEP_MAX_RETRIES + 1), i.e. the full L2CAP
+   retry budget, so a channel that will be refused or time out has already
+   closed by the time this fires; a genuine classic gamepad streams its first
+   report within ~1-2s and never trips it. */
+#define BT_HID_GAMEPAD_LE_FALLBACK_MS 8000
+
 /*
  * Bluetooth LE hosts a different L2CAP flavour: the HID traffic does not
  * ride a PSM but the ATT fixed channel, and pairing rides the SMP fixed
@@ -611,7 +621,24 @@ typedef struct {
        (boot protocol is only defined for keyboards and mice). */
     bool is_gamepad;
     bool up;               /* both channels open: reports flow */
+    /* Set once ANY input report has been decoded from this classic session.
+       A genuine classic gamepad (PS4/DS4) streams its first report within
+       ~1-2s of "up"; an LE-only pad (Xbox Wireless Controller masquerade,
+       GameSir Xinput mode) opens both HIDP channels yet never sends a single
+       report over BR/EDR - it serves input only over HOGP. report_seen is
+       what separates a working classic link from a silent dead end, and it
+       survives the attach poller's repeated bt_hid_start (session_init does
+       not memset an already-active same-handle session). */
+    bool report_seen;
     uint64_t intr_wait_ms;  /* bounded wait for a peer-initiated interrupt channel */
+    /* Deadline for a classic gamepad session that has NOT yet delivered any
+       report (report_seen false), whether because its HIDP channels never
+       both opened OR because they opened but the pad stays silent (the
+       proven GameSir Xinput / Xbox Wireless Controller masquerade). On expiry
+       the dead classic session is torn down and the pad re-driven over LE.
+       0 = not armed yet. Sized to outlast the L2CAP give-up budget below so a
+       real classic gamepad always delivers its first report before it fires. */
+    uint64_t gamepad_up_ms;
 } bt_hid_chan_t;
 
 /* one /dev/bt0 subscriber fd lives in libhid now (fd_info_t): the queue,
@@ -868,6 +895,7 @@ int bt_pending_matches_addr(const uint8_t* addr);
 void bt_clear_pending(void);
 bt_device_t* bt_find_device(const uint8_t* addr, bool create);
 bt_device_t* bt_find_device_by_handle(uint16_t handle);
+bool bt_device_drop_if_identity_less(bt_device_t* dev);
 void bt_trim_name(char* name);
 bt_known_t* bt_known_find(const uint8_t* addr);
 bt_known_t* bt_known_find_by_ltk(uint16_t ediv, const uint8_t* rand8);
@@ -877,6 +905,12 @@ int bt_known_load(void);
 int bt_known_save(void);
 void bt_known_touch_from_device(const bt_device_t* dev);
 void bt_known_seed_devices(void);
+/* Record that a device proven to be LE-only (a classic gamepad whose BR/EDR
+   HIDP never came up) must be reached over LE from now on: persist le=1 and
+   drop the useless classic link key so bt_autoconnect_known takes the LE
+   scan branch instead of paging BR/EDR again on the next boot. */
+void bt_known_prefer_le(const uint8_t* addr);
+void bt_known_prefer_le_by_name(const char* name);
 void bt_parse_eir_name(const uint8_t* eir, size_t len, char* out, size_t out_sz);
 void bt_emit_device_line(const char* prefix, const bt_device_t* dev);
 void bt_ret_append_device_line(int dev_id, char* ret, size_t ret_sz, const char* prefix, const bt_device_t* dev);
@@ -933,7 +967,21 @@ void bt_hid_stack_reset(void);
    gamepad CoD (0x002508); many Xbox-layout pads report joystick (0x002504). */
 bool bt_cod_is_gamepad(uint32_t cod);
 
+/* True when the device name marks an official Xbox Wireless Controller, which
+   serves HID only over LE/HOGP and must be migrated off a classic ACL. */
+bool bt_dev_is_xbox_gamepad(const bt_device_t* dev);
+
+/* True when the device name marks a gamepad that serves HID only over LE/HOGP
+   (an official Xbox pad, or a GameSir pad), so a classic ACL to it is a dead
+   end and must be migrated off. */
+bool bt_dev_is_le_only_gamepad(const bt_device_t* dev);
+
 /* btd_le.c */
+/* True when a GAP appearance value denotes a HID joystick (963) or gamepad
+   (964): the vendor-neutral, on-air proof that an address is a connectable
+   BLE pad. Shared by the LE autoconnect admit gate and the classic->LE
+   migration, which must agree on which addresses may be chased over LE. */
+bool bt_appearance_is_gamepad(uint16_t appearance);
 int le_session_free(void);
 int le_session_by_handle(uint16_t handle);
 int le_session_ready_by_addr(const uint8_t* addr);
@@ -949,5 +997,17 @@ void bt_le_step(bool from_loop);
 int bt_start_scan(int seconds);
 int bt_stop_scan(void);
 void bt_le_autoconnect_kick(void);
+/* Open a bounded LE discovery window for a first-time (never-bonded) LE-only
+   gamepad that just paged classic. The retry step's known-record loop can only
+   arm a scan for a device already in the bond store; this window lets the
+   classic->LE migration arm discovery on presence alone (the pad is physically
+   here and trying), so its real - different-BDADDR - LE identity can be found. */
+void bt_le_discovery_kick(void);
+/* True while the bounded first-time LE discovery window is still open. Lets
+   bt_le_step alternate LE/classic slices during first-time discovery instead of
+   locking LE-only, so a pad stuck in pairing mode cannot starve classic BR/EDR
+   inquiry and hide every other controller. */
+bool bt_le_discovery_active(void);
+void bt_xbox_page_scan_suspend(void);
 
 #endif /* BTD_INT_H */
