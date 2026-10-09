@@ -58,9 +58,10 @@ vim. It consists of two static libraries:
 
 ### The SDL2 Family — a Cross-Platform Multimedia Layer
 
-[sw.extra/libs/SDL2/](../../sw.extra/libs/SDL2/) comes from the "Raspberry
+[system/xwin/libs/SDL2/](../../system/xwin/libs/SDL2/) comes from the "Raspberry
 Pi Baremetal" port — a complete set of SDL2 and its official extension
-libraries (sources in the `libs/` subdirectory, plus `apps/` and `bin/`):
+libraries, now built in the core `xwin` phase (the `sdltest` tool and the
+`sdl_tetris` demo stay here in `sw.extra/bin/` and `sw.extra/apps/`):
 
 | Library | Link name | Purpose |
 |----|--------|------|
@@ -73,7 +74,8 @@ libraries (sources in the `libs/` subdirectory, plus `apps/` and `bin/`):
 > On EwokOS, SDL2 maps "windows/input/audio" onto the system's xwin,
 > keyboard/mouse drivers, and audio services, letting SDL programs
 > originally written for Linux/Windows be ported and run.
-> `sw.extra/libs/SDL2/` is its SDK/installation area.
+> The libraries and headers are installed into the system SDK
+> (`system/build_$(ARCH)/$(HW)/{lib,include/SDL2}`).
 
 ### Others (Applications and Submodules)
 
@@ -162,7 +164,7 @@ extension libraries. Their source code itself is a fine example of "porting
 | I want to… | Use this library | Where |
 |--------|----------|------|
 | build fullscreen text/character UIs (menus, panels) | curses (libcurses + libterminfo) | `sw.extra/libs/curses` |
-| write games/multimedia with SDL (cross-platform) | SDL2 + image/mixer/ttf/gfx | `sw.extra/libs/SDL2` |
+| write games/multimedia with SDL (cross-platform) | SDL2 + image/mixer/ttf/gfx | `system/xwin/libs/SDL2` |
 | embed web/video widgets in a window | widget++ (WidgetWebview/WidgetVideo) | `projects/video/libs/widget++` |
 | render HTML/CSS pages | litehtml + gumbo | `projects/browser/libs` |
 | do 3D/2D graphics math | cglm | `projects/saver/libs` |

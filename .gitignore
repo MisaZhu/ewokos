@@ -22,6 +22,7 @@ build*
 machine/versatilepb/kernel/config.mk
 *.lo
 *.dirstamp
+.tmp
 
 # OpenSSL demo/test keys that trigger GitHub push protection
 system/network/libs/openssl/apps/*.pem

@@ -207,8 +207,9 @@ The repo also has a separate submodule
 [sw.extra/](../../sw.extra/), collecting larger third-party suites and
 applications, for example:
 
-- **SDL2** ([sw.extra/libs/SDL2/](../../sw.extra/libs/SDL2/)) — a
-  cross-platform multimedia/game development layer;
+- **SDL2** ([system/xwin/libs/SDL2/](../../system/xwin/libs/SDL2/), built
+  with the core `xwin` libs) — a cross-platform multimedia/game development
+  layer; its `sdltest`/`sdl_tetris` programs live in `sw.extra`;
 - **curses** ([sw.extra/libs/curses/](../../sw.extra/libs/curses/)) — text
   terminal UI (`libcurses` + `libterminfo`);
 - **vim**, a calculator, a calendar, and other applications (the `widget++`

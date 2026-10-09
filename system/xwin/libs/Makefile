@@ -1,12 +1,13 @@
 all: x_libs
 	@echo "all done."
 
-DIRS = x x++ widget++
+DIRS = x x++ widget++ SDL2
 x_libs: $(DIRS)
 
-# build chain: x -> x++ -> widget++
+# build chain: x -> x++ -> widget++; SDL2's video backend sits on libx
 x++: x
 widget++: x++
+SDL2: x
 
 $(DIRS):
 	@$(MAKE) -C $@

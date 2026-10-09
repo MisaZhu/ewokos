@@ -193,7 +193,7 @@ Grid  Columns  Split  Splitter  Stage  Blank  SpriteAnim  SpriteWin
 本章列的是**核心系统自带**的库。仓库里还有一个独立的子模块
 [sw.extra/](../../sw.extra/)，收录了更大的第三方套件与应用，例如：
 
-- **SDL2**（[sw.extra/libs/SDL2/](../../sw.extra/libs/SDL2/)）——跨平台多媒体/游戏开发层；
+- **SDL2**（[system/xwin/libs/SDL2/](../../system/xwin/libs/SDL2/)，随核心 `xwin` 库一起构建）——跨平台多媒体/游戏开发层，其 `sdltest`/`sdl_tetris` 程序留在 `sw.extra`；
 - **curses**（[sw.extra/libs/curses/](../../sw.extra/libs/curses/)）——文本终端 UI（`libcurses` + `libterminfo`）；
 - **vim**、计算器、日历等应用（`widget++` 的扩展控件则在 `projects` 里，见 [19](19-extra-libs.zh.md)）。
 

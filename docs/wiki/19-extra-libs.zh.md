@@ -46,8 +46,9 @@
 
 ### SDL2 家族——跨平台多媒体层
 
-[sw.extra/libs/SDL2/](../../sw.extra/libs/SDL2/) 来自"Raspberry Pi Baremetal"移植，
-是一整套 SDL2 及其官方扩展库（源码在 `libs/` 子目录，另有 `apps/`、`bin/`）：
+[system/xwin/libs/SDL2/](../../system/xwin/libs/SDL2/) 来自"Raspberry Pi Baremetal"移植，
+是一整套 SDL2 及其官方扩展库，现已随核心系统的 `xwin` 阶段一起构建
+（`sdltest` 工具与 `sdl_tetris` 示例仍留在 `sw.extra/bin/`、`sw.extra/apps/`）：
 
 | 库 | 链接名 | 用途 |
 |----|--------|------|
@@ -58,7 +59,8 @@
 | **SDL2_gfx** | `-lSDL2_gfx` | 图形图元（画线/圆/多边形）、rotozoom 缩放旋转、帧率控制 |
 
 > SDL2 在 EwokOS 上把"窗口/输入/音频"映射到系统的 xwin、键鼠驱动与音频服务上，
-> 让原本为 Linux/Windows 写的 SDL 程序得以移植运行。`sw.extra/libs/SDL2/` 是其 SDK/安装区。
+> 让原本为 Linux/Windows 写的 SDL 程序得以移植运行。库与头文件安装到系统 SDK
+> （`system/build_$(ARCH)/$(HW)/{lib,include/SDL2}`）。
 
 ### 其它（应用与子模块）
 
@@ -138,7 +140,7 @@
 | 我想…… | 用这个库 | 在哪 |
 |--------|----------|------|
 | 做全屏文本/字符 UI（菜单、面板） | curses（libcurses + libterminfo） | `sw.extra/libs/curses` |
-| 用 SDL 写游戏/多媒体（跨平台） | SDL2 + image/mixer/ttf/gfx | `sw.extra/libs/SDL2` |
+| 用 SDL 写游戏/多媒体（跨平台） | SDL2 + image/mixer/ttf/gfx | `system/xwin/libs/SDL2` |
 | 在窗口里嵌网页/视频控件 | widget++（WidgetWebview/WidgetVideo） | `projects/video/libs/widget++` |
 | 渲染 HTML/CSS 网页 | litehtml + gumbo | `projects/browser/libs` |
 | 做 3D/2D 图形数学运算 | cglm | `projects/saver/libs` |
