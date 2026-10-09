@@ -575,9 +575,16 @@ static int loop(vdevice_t* dev, void* p) {
         close(hid);
         hid = -1;
         memset(&_hid_info, 0, sizeof(fsinfo_t));
+        /* the upstream is gone (btd/usbhostd restarted): whatever it last
+           showed as held is released, and the consumer must see that too */
+        if (_key_count > 0) {
+            _release_pending = true;
+        }
         _key_count = 0;
         _tap_count = 0;
-        _release_pending = false;
+        if (_release_pending) {
+            vfs_wakeup(dev->mnt_info.node, VFS_EVT_RD);
+        }
         usleep(HID_CONNECT_SLEEP_US);
         return 0;
     }
@@ -594,6 +601,21 @@ static int loop(vdevice_t* dev, void* p) {
                 free(st);
             }
             if (!session_up) {
+                /*
+                 * No link, so nothing can be held: a snapshot left over from
+                 * a pad that dropped mid-press would otherwise keep
+                 * /dev/joystick0 readable forever and the consumer (keyb.c
+                 * under xim_none) auto-repeating a button nobody is pressing.
+                 * btd synthesizes an all-released report for keyboard/mouse
+                 * on teardown but NOT for the joystick, so this is the
+                 * backstop that clears the stale held state and arms one
+                 * empty read so the deferred RELEASE reaches X. A latched tap
+                 * is left alone: it is a real press and clears on one read.
+                 */
+                if (_key_count > 0) {
+                    _key_count = 0;
+                    _release_pending = true;
+                }
                 bt_try_attach_hid();
             }
         }
