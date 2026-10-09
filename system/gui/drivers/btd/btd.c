@@ -1403,6 +1403,7 @@ static int bt_close_adapter(char* ret, size_t ret_sz) {
         _ready = false;
         _scanning = false;
         _le_autoconnect = false;
+        _scan_manual = false;
         bt_clear_pending();
         bt_emit("power_off state=already_off\n");
         if (ret != NULL && ret_sz != 0) {
@@ -1428,6 +1429,7 @@ static int bt_close_adapter(char* ret, size_t ret_sz) {
     _ready = false;
     _scanning = false;
     _le_autoconnect = false;
+    _scan_manual = false;
     bt_clear_pending();
     bt_mark_all_disconnected();
     bt_emit("power_off state=powered_off\n");
@@ -1508,14 +1510,18 @@ static int bt_handle_cmd_args(int argc, char** argv, char* ret, size_t ret_sz) {
             return 0;
         }
         /* A manual scan is a foreground operation and must not be locked out by
-           the background LE autoconnect/discovery scan, which keeps _scanning
-           set and would otherwise make every manual scan return scan_busy while
-           a pad sits in pairing mode (so neither a GameSir nor an Xbox pad could
-           be found). Preempt a BACKGROUND autoconnect scan - never one the user
-           already started, since _le_autoconnect is latched only by the
-           background paths - and close the discovery window with its cooldown so
-           the retry step does not immediately re-arm over the user's scan. */
-        if (_scanning && _le_autoconnect) {
+           any background session that keeps _scanning set: neither the LE
+           autoconnect/discovery scan (which would make every manual scan return
+           scan_busy while a pad sits in pairing mode) nor a leftover "zombie"
+           session - e.g. the autoconnect scan that just brought a mouse up,
+           whose _le_autoconnect latch was cleared on connect, leaving
+           _scanning set while the radio-contention guard suspends its slice.
+           Keying the preempt on !_scan_manual (not _le_autoconnect) catches
+           both, since only a user scan latches _scan_manual; a scan the user
+           already started is never preempted, it just reports scan_busy. Close
+           the discovery window with its cooldown so the retry step does not
+           immediately re-arm over the user's scan. */
+        if (_scanning && !_scan_manual) {
             bt_le_discovery_close();
             bt_stop_scan();
         }

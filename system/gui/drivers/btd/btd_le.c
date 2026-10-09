@@ -72,6 +72,13 @@ int _le_req_slot = 0;   /* which session slot to connect into */
 
 bool _le_autoconnect = false;
 
+/* Set while a user-initiated foreground scan (the "scan" dev.cmd) owns the
+   session, cleared for the background autoconnect/reconnect scans. bt_start_
+   scan derives it from _le_autoconnect (only the background paths latch that),
+   and bt_le_step uses it to let a manual scan keep discovering while a HID
+   link is live instead of being suspended by the radio-contention guard. */
+bool _scan_manual = false;
+
 /* While an Xbox pad migrated off classic is being brought up over LE, btd
    stops auto-accepting incoming classic pages (page scan off, inquiry scan
    kept). bt_autoconnect_known never pages a le&&!has_key record, so every
@@ -1869,30 +1876,6 @@ static void bt_le_handle_notify(int si, uint16_t value_handle,
         return;
     }
     if (a->uuid == GATT_CHR_REPORT) {
-        /* TEMP DIAGNOSTIC (remove once the GameSir decode is confirmed):
-           rate-limited dump of every Report-characteristic notification.
-           Proves whether the pad streams at all, whether is_gamepad and
-           joystick_ok latched, the latched report id / expected report
-           length, and the raw prefix bytes, so the decode can be checked
-           against real on-device values instead of guessed. */
-        {
-            static uint64_t _js_diag_ms = 0;
-            uint64_t _jn = kernel_tic_ms(0);
-            if ((uint32_t)(_jn - _js_diag_ms) >= 250) {
-                _js_diag_ms = _jn;
-                slog("bt js_diag h=%04x rid=%u len=%u gp=%d jok=%d jsrid=%u hasrid=%d rbytes=%u raw=%02x %02x %02x %02x %02x %02x %02x %02x\n",
-                    (unsigned)_les[si].le.handle, (unsigned)a->report_id,
-                    (unsigned)len, h->is_gamepad ? 1 : 0,
-                    h->joystick_ok ? 1 : 0, (unsigned)h->joystick_report_id,
-                    h->joystick.has_report_id ? 1 : 0,
-                    (unsigned)h->joystick.report_bytes,
-                    len > 0 ? value[0] : 0, len > 1 ? value[1] : 0,
-                    len > 2 ? value[2] : 0, len > 3 ? value[3] : 0,
-                    len > 4 ? value[4] : 0, len > 5 ? value[5] : 0,
-                    len > 6 ? value[6] : 0, len > 7 ? value[7] : 0);
-            }
-        }
-
         /* A LE gamepad's Report characteristic carries the descriptor-driven
            joystick layout. HOGP omits the Report ID octet from the value (it
            lives in the Report Reference descriptor) while the parser's bit
@@ -1918,32 +1901,10 @@ static void bt_le_handle_notify(int si, uint16_t value_handle,
                 jlen += 1;
             }
             if (joystick_normalize_report(&h->joystick, jp, jlen, &je) == 0) {
-                /* TEMP DIAGNOSTIC: the decoded, normalized gamepad state */
-                static uint64_t _js_evt_ms = 0;
-                uint64_t _en = kernel_tic_ms(0);
-                if ((uint32_t)(_en - _js_evt_ms) >= 100) {
-                    _js_evt_ms = _en;
-                    slog("bt js_evt btn=%08x dpad=%u lx=%d ly=%d rx=%d ry=%d lt=%u rt=%u\n",
-                        (unsigned)je.buttons, (unsigned)je.dpad, je.lx, je.ly,
-                        je.rx, je.ry, (unsigned)je.lt, (unsigned)je.rt);
-                }
                 frame[0] = 0x05; /* normalized js_evt_t follows */
                 memcpy(frame + 1, &je, sizeof(js_evt_t));
                 bt_hid_dispatch_joystick(frame, sizeof(frame));
                 return;
-            }
-            /* TEMP DIAGNOSTIC: a gamepad report arrived but normalize bailed */
-            {
-                static uint64_t _js_fail_ms = 0;
-                uint64_t _fn = kernel_tic_ms(0);
-                if ((uint32_t)(_fn - _js_fail_ms) >= 250) {
-                    _js_fail_ms = _fn;
-                    slog("bt js_norm_fail rid=%u jlen=%d rbytes=%u hasrid=%d jsrid=%u\n",
-                        (unsigned)a->report_id, jlen,
-                        (unsigned)h->joystick.report_bytes,
-                        h->joystick.has_report_id ? 1 : 0,
-                        (unsigned)h->joystick.report_id);
-                }
             }
             /* normalize bailed: fall through to the heuristics below */
         }
@@ -3584,13 +3545,19 @@ retry_link:
     bt_emit("hid_up %s handle=0x%04X le=1 boot=%d reports=%d\n", addr_str,
             _le.handle, _hogp.boot_mode_ok ? 1 : 0, _hogp.n_subscribed);
     /* reports start flowing now: pull the link to the fast input interval
-       before the mouse gets a chance to stretch it for power saving.
-       Gamepads (Xbox controllers in particular) reject the 7.5-15ms floor
-       and terminate the link with reason=0x13, so they keep the initial
-       interval negotiated by LE_Create_Connection. */
-    if (!_hogp.is_gamepad) {
-        bt_le_conn_update_fast(_le.handle);
-    }
+       before the peripheral gets a chance to stretch it for power saving.
+       Applies to gamepads as well. Historical note: an earlier revision
+       skipped this for is_gamepad because Xbox BLE pads were observed to
+       drop the link with reason=0x13 shortly after READY, and the fast
+       update was the closest host-side action. That attribution was later
+       falsified (real cause was bond/firmware side, see the Xbox HOGP
+       investigation); meanwhile the LE_Create_Connection initial interval
+       (BT_LE_CONN_ITV_INIT_MIN/MAX = 30-50ms) is the dominant latency
+       source for BLE gamepads and produces a visible ~30-50ms lag. Any
+       pad that still rejects the 7.5-15ms floor surfaces here as an
+       le_conn_update_failed status or an acl_disconnect reason in slog,
+       which is where a per-device quirk list should hang off if needed. */
+    bt_le_conn_update_fast(_le.handle);
 
     /* Suppress a duplicate transport only for a device already served by
        HOGP. A separate classic keyboard must remain connected. */
@@ -3841,6 +3808,21 @@ static void bt_xbox_page_scan_step(void) {
             ready ? "le_ready" : "deadline");
 }
 
+/* True while an LE (HOGP) link is streaming. A classic BR/EDR inquiry starves
+   a live LE connection specifically - a classic ACL time-shares with inquiry
+   far better - so this narrower test (vs bt_hid_live, which also reports a
+   classic HID link) decides whether a manual scan must stay LE-only to protect
+   the link, or may keep alternating LE/classic slices. */
+static bool bt_le_hid_live(void) {
+    int i;
+    for (i = 0; i < MAX_LE_SESSIONS; ++i) {
+        if (_les[i].le.state == LE_ST_READY && _les[i].le.handle_valid) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void bt_le_step(bool from_loop) {
     uint64_t now = kernel_tic_ms(0);
     bool want_le;
@@ -3909,14 +3891,28 @@ void bt_le_step(bool from_loop) {
        two session slots, one connected mouse still leaves a "free" slot, so
        without this guard scanning keeps alternating LE/inquiry slices right
        alongside the active mouse and produces exactly that multi-second lag.
-       While any HID device is streaming, suspend scanning and dedicate the
-       radio to it. bt_scan_suspend leaves _scanning set, so an in-progress
-       scan session resumes on its own once no HID link is live (e.g. the
-       mouse disconnects), keeping autoconnect/reconnect working. */
-    if (bt_hid_live() && !_le_autoconnect) {
-        if (_scan_slice != BT_SCAN_SLICE_NONE) {
-            bt_scan_suspend();
-        }
+
+       Two carve-outs keep discovery alive while a link is up, so this guard is
+       reached only by a session that is neither: _le_autoconnect is a
+       background reconnect scan, forced LE-only below so it never runs a
+       starving inquiry; _scan_manual is a user-initiated foreground scan, let
+       through and likewise restricted to LE-only slices when an LE link is
+       live. What is left is a "zombie" session - typically the autoconnect
+       scan that just brought a HID device up, whose _le_autoconnect latch was
+       cleared on connect while _scanning stayed set. The old behaviour
+       suspended its slice but kept _scanning set, so it discovered nothing
+       while the link stayed live AND made every later manual `scan` report
+       scan_busy until the device disconnected - the exact "can only see other
+       devices after disconnecting" symptom. End it here instead:
+       bt_le_autoconnect_retry_step re-arms its own reconnect scan once no HID
+       link is live, bt_autoconnect_known can now re-arm for a next known
+       device (it bails while _scanning is set), and a manual scan starts
+       cleanly. */
+    if (bt_hid_live() && !_le_autoconnect && !_scan_manual) {
+        bt_scan_slice_stop();
+        _scan_slice = BT_SCAN_SLICE_NONE;
+        _scan_slice_end_ms = 0;
+        _scanning = false;
         return;
     }
 
@@ -3928,6 +3924,7 @@ void bt_le_step(bool from_loop) {
 
     if (!_scanning) {
         _le_autoconnect = false;
+        _scan_manual = false;
         return;
     }
     if (now >= _scan_total_end_ms) {
@@ -3936,6 +3933,7 @@ void bt_le_step(bool from_loop) {
         _scan_slice_end_ms = 0;
         _scanning = false;
         _le_autoconnect = false;
+        _scan_manual = false;
         bt_emit("scan_done status=0\n");
         return;
     }
@@ -3961,6 +3959,18 @@ void bt_le_step(bool from_loop) {
        device discoverable. Once a link IS live, stay LE-only so classic inquiry
        cannot contend with the streaming pad. */
     if (_le_autoconnect && !(bt_le_discovery_active() && !bt_hid_live())) {
+        if (!bt_scan_enter_le(now)) {
+            _scan_slice = BT_SCAN_SLICE_NONE;
+            _scan_slice_end_ms = now;
+        }
+        return;
+    }
+    /* A manual scan while an LE link is streaming stays LE-only for the same
+       starvation reason as the autoconnect lock above: a classic inquiry slice
+       would freeze the live HOGP cursor for seconds. When only a classic HID
+       link is live (bt_le_hid_live false), fall through to the alternating
+       LE/classic slices so classic-only devices remain discoverable. */
+    if (_scan_manual && bt_le_hid_live()) {
         if (!bt_scan_enter_le(now)) {
             _scan_slice = BT_SCAN_SLICE_NONE;
             _scan_slice_end_ms = now;
@@ -4005,6 +4015,9 @@ int bt_start_scan(int seconds) {
     bt_scan_suspend();
     _scan_total_end_ms = kernel_tic_ms(0) + (uint64_t)seconds * 1000u;
     _scanning = true;
+    /* only the background autoconnect/reconnect paths latch _le_autoconnect
+       before arming a session, so its absence marks a user-initiated scan */
+    _scan_manual = !_le_autoconnect;
     bt_le_step(false); /* enter the first slice right away; never run a
                           queued bring-up from here -- this can be reached
                           from the "scan" dev.cmd handler (interrupt ctx),
@@ -4013,6 +4026,7 @@ int bt_start_scan(int seconds) {
     if (_scan_slice == BT_SCAN_SLICE_NONE && le_session_free() >= 0 &&
             !_le_req_active) {
         _scanning = false;
+        _scan_manual = false;
         return -1;
     }
     return 0;
@@ -4028,5 +4042,6 @@ int bt_stop_scan(void) {
     _scan_total_end_ms = 0;
     _scanning = false;
     _le_autoconnect = false;
+    _scan_manual = false;
     return 0;
 }

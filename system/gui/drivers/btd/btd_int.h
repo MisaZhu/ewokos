@@ -442,7 +442,7 @@
    usbhostd's /dev/hid0: fcntl cmd 0 selects the report id, then read()
    pops fixed-size events from the per-fd queue. Report id 0 stays btd's
    own command/event text stream. */
-#define BT_HID_REASSERT_MS 30
+#define BT_HID_REASSERT_MS 5
 
 /* Idle polling backoff. The HCI UART runs in polled mode (IER=0, no IRQ),
    so an input report sits in the RX FIFO until the next bt_poll_once: the
@@ -833,6 +833,7 @@ extern bool _le_req_pair;
 extern uint64_t _le_req_ms;
 extern int _le_req_slot;
 extern bool _le_autoconnect;
+extern bool _scan_manual;
 extern bt_scan_slice_t _scan_slice;
 extern uint64_t _scan_slice_end_ms;
 extern uint64_t _scan_total_end_ms;

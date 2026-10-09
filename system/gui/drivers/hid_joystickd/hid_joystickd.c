@@ -53,8 +53,10 @@
 
 /* re-check cadence while keys are held: a gamepad that honours Set_Idle goes
    silent between the press and the release report, so an unbounded kernel
-   block would stall the level-triggered wakeups of /dev/joystick0 readers */
-#define HID_WAIT_FALLBACK_US 20000u
+   block would stall the level-triggered wakeups of /dev/joystick0 readers.
+   5ms keeps the held-snapshot re-publish tight enough that a missed directed
+   wake recovers in one tick instead of four. */
+#define HID_WAIT_FALLBACK_US 5000u
 
 /*
  * BT mode (argv[3] == "bt"): the upstream is btd's /dev/bt0. The subscriber
@@ -68,8 +70,9 @@
 /* drain one read sized for the whole subscriber queue in a single round-trip */
 #define JS_DRAIN_SIZE (HID_QUEUE_DEPTH * HID_JOYSTICK_RAW_SIZE)
 
-/* cap the drain/normalize pass rate; BT pads report ~125-250Hz */
-#define JS_PASS_MS 5u
+/* cap the drain/normalize pass rate; aligned with btd's 2ms poll floor so
+   the consumer never adds latency on top of the transport */
+#define JS_PASS_MS 2u
 
 /*
  * Key-code snapshot capacity. Consumers (vkeybd -t j, vjoystickd) read only
@@ -117,48 +120,6 @@ static bool _release_pending = false;
 
 /* timestamp of the last drain pass, for the JS_PASS_MS rate cap */
 static uint64_t _last_pass_ms = 0;
-
-/* Temporary BT diagnostics. Capture inside the drain, log only outside its
-   IPC-disabled section. Counters are per daemon, not per controller. */
-static struct {
-    uint64_t next_ms;
-    uint32_t frames, decoded, rejected, short_reads, reads, key_reads;
-    int last_read, last_errno;
-    bool ok;
-    uint8_t raw[HID_JOYSTICK_RAW_SIZE];
-    js_evt_t evt;
-} _input_diag;
-
-static void js_input_diag(void) {
-    uint64_t now = kernel_tic_ms(0);
-    if (!_bt_mode || (_input_diag.next_ms != 0 && now < _input_diag.next_ms)) {
-        return;
-    }
-    _input_diag.next_ms = now + 3000;
-    slog("js input_path src=%s fd=%d frames=%u decoded=%u rejected=%u short=%u "
-        "last_read=%d errno=%d keys=%d reads=%u key_reads=%u\n",
-        _dev_point, hid, (unsigned)_input_diag.frames,
-        (unsigned)_input_diag.decoded, (unsigned)_input_diag.rejected,
-        (unsigned)_input_diag.short_reads, _input_diag.last_read,
-        _input_diag.last_errno, _key_count, (unsigned)_input_diag.reads,
-        (unsigned)_input_diag.key_reads);
-    if (_input_diag.frames != 0) {
-        static const char hex[] = "0123456789abcdef";
-        char raw[HID_JOYSTICK_RAW_SIZE * 3 + 1];
-        for (size_t i = 0; i < HID_JOYSTICK_RAW_SIZE; ++i) {
-            raw[i * 3] = hex[_input_diag.raw[i] >> 4];
-            raw[i * 3 + 1] = hex[_input_diag.raw[i] & 15];
-            raw[i * 3 + 2] = ' ';
-        }
-        raw[HID_JOYSTICK_RAW_SIZE * 3] = 0;
-        slog("js input_raw ok=%d data=%s\n", _input_diag.ok ? 1 : 0, raw);
-        slog("js input_decoded btn=%08x hat=%u lx=%d ly=%d rx=%d ry=%d lt=%u rt=%u\n",
-            (unsigned)_input_diag.evt.buttons, (unsigned)_input_diag.evt.dpad,
-            (int)_input_diag.evt.lx, (int)_input_diag.evt.ly,
-            (int)_input_diag.evt.rx, (int)_input_diag.evt.ry,
-            (unsigned)_input_diag.evt.lt, (unsigned)_input_diag.evt.rt);
-    }
-}
 
 /* ------------- normalization (raw report prefix -> js_evt_t) ------------- */
 
@@ -378,9 +339,6 @@ static int js_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* node,
     if (size <= 0) {
         return -1;
     }
-    if (_bt_mode) {
-        ++_input_diag.reads;
-    }
     /* keep returning the held snapshot until the loop observes a change, and
        expose each latched transient tap exactly once (mirrors hid_keybd) */
     int num = 0;
@@ -395,9 +353,6 @@ static int js_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* node,
         _tap_count = 0;
     }
     if (num > 0) {
-        if (_bt_mode) {
-            ++_input_diag.key_reads;
-        }
         return num;
     }
     /* idle: hand the blocking consumer ONE empty snapshot after a full
@@ -520,7 +475,6 @@ static int loop(vdevice_t* dev, void* p) {
     (void)p;
 
     if (!hid_connect()) {
-        js_input_diag();
         usleep(HID_CONNECT_SLEEP_US);
         return 0;
     }
@@ -552,13 +506,6 @@ static int loop(vdevice_t* dev, void* p) {
     uint8_t buf[JS_DRAIN_SIZE];
     while (true) {
         int res = read(hid, buf, sizeof(buf));
-        if (_bt_mode) {
-            _input_diag.last_read = res;
-            _input_diag.last_errno = res < 0 ? errno : 0;
-            if (res > 0 && res % HID_JOYSTICK_RAW_SIZE != 0) {
-                ++_input_diag.short_reads;
-            }
-        }
         if (res >= HID_JOYSTICK_RAW_SIZE) {
             for (int off = 0; off + HID_JOYSTICK_RAW_SIZE <= res;
                     off += HID_JOYSTICK_RAW_SIZE) {
@@ -566,14 +513,6 @@ static int loop(vdevice_t* dev, void* p) {
                 bool ok = _bt_mode ?
                         js_normalize(buf + off, HID_JOYSTICK_RAW_SIZE, &evt) :
                         js_decode_normalized(buf + off, &evt);
-                if (_bt_mode) {
-                    ++_input_diag.frames;
-                    if (ok) ++_input_diag.decoded;
-                    else ++_input_diag.rejected;
-                    _input_diag.ok = ok;
-                    _input_diag.evt = evt;
-                    memcpy(_input_diag.raw, buf + off, HID_JOYSTICK_RAW_SIZE);
-                }
                 if (!ok) {
                     continue;
                 }
@@ -607,7 +546,6 @@ static int loop(vdevice_t* dev, void* p) {
     }
     ipc_enable();
     _last_pass_ms = kernel_tic_ms(0);
-    js_input_diag();
 
     /* latch taps: keys seen during the burst but absent from the newest
        snapshot; only replace a still-pending latch when this burst made taps

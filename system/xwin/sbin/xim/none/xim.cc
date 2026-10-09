@@ -99,14 +99,19 @@ public:
 
 /*
  * Pacing between reads while keys are HELD. keybFD is opened blocking:
- * while no key is down, hid_keybd reports no VFS_EVT_RD and this proc
- * parks inside vfsd's node wait queue with zero IPCs, so an idle
- * keyboard costs nothing in the whole USB HID chain. While keys are
- * held the read keeps returning the live snapshot immediately
- * (level-triggered RD), and this sleep is what keeps that loop at a
- * sane cadence and paces keyb.c's KEY_REPEAT state machine.
+ * while no key is down, hid_keybd/hid_joystickd report no VFS_EVT_RD and
+ * this proc parks inside vfsd's node wait queue with zero IPCs, so an idle
+ * input device costs nothing in the whole chain. While keys are held the
+ * read keeps returning the live snapshot immediately (level-triggered RD),
+ * and this sleep is what keeps that loop at a sane cadence and paces
+ * keyb.c's KEY_REPEAT state machine.
+ *
+ * 2ms floor: KEY_REPEAT_TIMEOUT is 50ms and KEY_HOLD_TIMEOUT is 150ms, so
+ * a 2ms tick gives 25 checks per repeat period -- plenty of resolution --
+ * while cutting the worst-case consumer-side latency from 20ms to 2ms.
+ * Idle cost is unchanged because read() parks in vfsd regardless.
  */
-static uint32_t _timer = 20000;
+static uint32_t _timer = 5000;
 
 static int doargs(int argc, char* argv[]) {
 	int c = 0;
@@ -128,7 +133,7 @@ static int doargs(int argc, char* argv[]) {
 }
 
 int main(int argc, char* argv[]) {
-	_timer = 20000;
+	_timer = 5000;
 	int argind = doargs(argc, argv);
 
 	const char* keyb_dev = "/dev/keyb0";
