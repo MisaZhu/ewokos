@@ -135,7 +135,7 @@ Support below is based on the checked-in source tree and build recipes in this c
 |------------|--------------|-------------|-----------------------|-------|
 | `machine.virt/` | ARM32 / AArch64 | QEMU bring-up and development | Recommended, most complete | SMP, ext3 rootfs, VirtIO block/net/input/sound, 9P host share |
 | `machines/raspix/` | ARM family | Raspberry Pi family | Strong, board-focused | Broad add-on ecosystem under `3rd/`, Wi-Fi, camera, audio, LCD/touch overlays |
-| `machines/raspi5/` | AArch64 | Raspberry Pi 5 | Active and advancing | WLAN, USB host, fan control, NVMe FS daemon, LCD HAT integrations |
+| `machines/raspi5/` | AArch64 | Raspberry Pi 5 | Active and advancing | WLAN, USB host, Bluetooth HID (keyboard/mouse/gamepad), fan control, NVMe FS daemon, LCD HAT integrations |
 | `machines/x86/` | x86 / x86_64 | PC-style QEMU target | Strong | Full machine-local kernel and system recipes with GUI/X stack |
 | `machines/virt.riscv/` | RISC-V 64 | QEMU RISC-V virt | Good kernel and desktop bring-up | Base, GUI, and X flow present; network integration is lighter than `machine.virt` |
 | `machines/versatilepb/` | ARM32 | QEMU ARM versatilepb | Stable classic target | Useful for smaller ARM bring-up and testing |
@@ -164,6 +164,7 @@ The tree already includes a large amount of board-specific and peripheral work.
 - X-like desktop window system
 - Multi-display work is actively landing
 - USB keyboard and mouse support on QEMU and x86-style targets
+- Bluetooth keyboard, mouse, and gamepad support on Raspberry Pi targets through the unified `btd` daemon: both classic BR/EDR HID and BLE HOGP links, with pairing/bonding persistence (`/etc/bt/bt.json`), several simultaneous classic and LE sessions, and per-link release synthesis so a dropped device never leaves a stuck key. Reports are re-published by `hid_keybd`, `hid_moused`, and `hid_joystickd` and feed the standard X input stack (`xim_none`/`xmouse`), so Bluetooth devices drop into the same chain as USB ones
 - Touch controller integrations under Raspberry Pi add-on trees such as `gt911` and `xpt2046`
 - Many LCD HAT and Waveshare-style overlay trees for Raspberry Pi boards
 
