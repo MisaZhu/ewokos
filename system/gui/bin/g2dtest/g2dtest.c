@@ -1,5 +1,6 @@
 #include <g2dclient/g2dclient.h>
 #include <graph/graph.h>
+#include <graph/graph_ex.h>
 #ifdef ARCH_BOOST
 #include <graph/graph_arch.h>
 #endif
@@ -228,6 +229,7 @@ static int check_data(const char* label, const graph_t* g,
         expect_pixel_fn expect, void* arg, uint32_t tol, int* failures) {
     uint32_t x;
     uint32_t y;
+    uint32_t mism = 0;
 
     if(g == NULL || g->buffer == NULL ||
             x0 > (uint32_t)g->w || y0 > (uint32_t)g->h ||
@@ -260,12 +262,22 @@ static int check_data(const char* label, const graph_t* g,
                 }
             }
             if(bad) {
-                printf("FAIL %-22s (%u,%u) %08x (expect %08x)\n",
-                        label, x, y, got, e);
-                (*failures)++;
-                return -1;
+                /* keep counting so the FAIL line carries the shape of the
+                   damage (one lane, one column, a whole row...) and not
+                   just its first pixel; the first few positions are
+                   printed since a per-lane pattern shows up within one
+                   16-pixel group */
+                if(mism < 4)
+                    printf("%s %-22s (%u,%u) %08x (expect %08x)\n",
+                            mism == 0 ? "FAIL" : "    ", label, x, y, got, e);
+                mism++;
             }
         }
+    }
+    if(mism != 0) {
+        printf("     %-22s %u of %u pixels mismatch\n", label, mism, w * h);
+        (*failures)++;
+        return -1;
     }
     printf("PASS %-22s %ux%u data @(%u,%u)\n", label, w, h, x0, y0);
     return 0;
@@ -373,16 +385,28 @@ static uint32_t expect_rot180(const graph_t* g, uint32_t x, uint32_t y,
             (uint32_t)s->w + (uint32_t)s->w - 1 - x];
 }
 
-/* scale_to uses the corner-preserving nearest map u = X*(sw-1)/(dw-1)
-   (the same formula the driver documents for the scale_tl/scale_br
-   checks), so the whole dst has an exact expectation */
+/* scale_to's corner-preserving nearest map in the driver's exact Q15
+   form: u = (X * pu) >> 15 with pu = ceil(((sw-1) << 15) / (dw-1)), so
+   X = 0 reads column 0 and X = dw-1 reads column sw-1.  The quantised
+   slope IS the contract - not the rational X*(sw-1)/(dw-1) it
+   approximates: the two differ where the rational's fraction sits within
+   X*(pu*(dw-1) - ((sw-1)<<15)) / 2^15 of the next integer (800->320:
+   X=212, 530.997 vs 531), and no integer Q15 slope reproduces the
+   rational's floor at every X (its admissible interval there is
+   [82074.08, 82074.57)), so the GPU cannot be made to match it. */
+static uint32_t scale_q15_slope(uint32_t sw, uint32_t dw) {
+    if(dw <= 1)
+        return 0;
+    return (uint32_t)(((((uint64_t)sw - 1u) << 15) + dw - 2u) / (dw - 1u));
+}
+
 static uint32_t expect_scale_corner(const graph_t* g, uint32_t x, uint32_t y,
         void* arg) {
     const graph_t* s = (const graph_t*)arg;
-    uint32_t sx = (uint32_t)(((uint64_t)x * ((uint32_t)s->w - 1u)) /
-            ((uint32_t)g->w - 1u));
-    uint32_t sy = (uint32_t)(((uint64_t)y * ((uint32_t)s->h - 1u)) /
-            ((uint32_t)g->h - 1u));
+    uint32_t pu = scale_q15_slope((uint32_t)s->w, (uint32_t)g->w);
+    uint32_t qv = scale_q15_slope((uint32_t)s->h, (uint32_t)g->h);
+    uint32_t sx = (uint32_t)(((uint64_t)x * pu) >> 15);
+    uint32_t sy = (uint32_t)(((uint64_t)y * qv) >> 15);
     return s->buffer[(size_t)sy * (uint32_t)s->w + sx];
 }
 
@@ -831,6 +855,96 @@ static void bench_breakeven(int* failures) {
     }
 }
 
+/* software gaussian blur: the NEON engine when ARCH_BOOST is active,
+   otherwise the portable CPU reference - the same code path the client
+   falls back to when the driver rejects a blur.  Mirrors sw_blit_alpha
+   so the GPU column and this column run identical semantics. */
+static void sw_gaussian(graph_t* g, int r) {
+#ifdef ARCH_BOOST
+    if(graph_gaussian_blur_arch(g, 0, 0, g->w, g->h, r) == 0)
+        return;
+#endif
+    graph_gaussian_blur_cpu(g, 0, 0, g->w, g->h, r);
+}
+
+/* gaussian blur gpu-vs-neon break-even: for each canvas size and radius,
+   time the full-canvas in-place blur through the g2d driver (GPU back
+   end, scratch canvas for the H pass) against the same blur run locally
+   on the CPU/NEON engine.  us per op so the two columns compare
+   directly; the ratio is gpu_us / sw_us (>1.0 means the GPU is slower).
+   Iterations scale with area so the large sizes stay within a sane
+   runtime while the small sizes get enough samples. */
+static void bench_gauss_breakeven(int* failures) {
+    static const int radii[2] = { 2, 4 };
+    uint32_t i;
+    int ri;
+
+    printf("--- gaussian gpu/neon break-even ---\n");
+    printf("GAUSS %-10s %4s %8s %10s %10s %8s\n",
+            "size", "r", "iters", "gpu_us", "neon_us", "gpu/sw");
+
+    for(i = 0; i < BREAKEVEN_SIZES; i++) {
+        uint32_t sz = breakeven_size[i];
+        graph_t* dst = canvas_create(sz, sz);
+        graph_t* tmp = canvas_create(sz, sz);
+        uint32_t iters;
+        uint64_t pix_budget;
+
+        if(dst == NULL || tmp == NULL) {
+            printf("create gauss break-even %ux%u shm failed, size skipped\n", sz, sz);
+            (*failures)++;
+            canvas_free(dst);
+            canvas_free(tmp);
+            continue;
+        }
+        fill_pattern(dst);
+
+        /* ~64 Mpix of work per cell, clamped to [10, 200] iterations */
+        pix_budget = (uint64_t)sz * sz;
+        iters = pix_budget ? (uint32_t)((64ull * 1024ull * 1024ull) / pix_budget) : 200u;
+        if(iters > 200u) iters = 200u;
+        if(iters < 10u) iters = 10u;
+
+        for(ri = 0; ri < 2; ri++) {
+            int r = radii[ri];
+            g2d_gaussian_blur_req_t req;
+            uint32_t gpu_us = 0, sw_us = 0, t0, n;
+            char label[24];
+
+            /* GPU column: through the driver, in place, with the scratch */
+            t0 = bench_now_usec();
+            for(n = 0; n < iters; n++) {
+                g2d_gaussian_blur_req_init(&req, img_canvas(dst), img_canvas(tmp),
+                        g2d_rect(0, 0, sz, sz), r);
+                if(g2d_gaussian_blur(&req) != 0)
+                    break;
+            }
+            gpu_us = (n == iters) ? bench_now_usec() - t0 : 0;
+
+            /* NEON/CPU column: identical blur, run locally */
+            t0 = bench_now_usec();
+            for(n = 0; n < iters; n++)
+                sw_gaussian(dst, r);
+            sw_us = bench_now_usec() - t0;
+
+            snprintf(label, sizeof(label), "%ux%u", sz, sz);
+            if(gpu_us == 0) {
+                printf("GAUSS %-10s %4d %8u %10s %10u %8s\n", label, r, iters,
+                        "n/a", sw_us / iters, "n/a");
+            }
+            else {
+                uint32_t gu = gpu_us / iters, su = sw_us / iters;
+                printf("GAUSS %-10s %4d %8u %10u %10u %7u.%02u\n", label, r,
+                        iters, gu, su, su ? gu / su : 0,
+                        su ? (gu * 100 / su) % 100 : 0);
+            }
+        }
+
+        canvas_free(tmp);
+        canvas_free(dst);
+    }
+}
+
 int main(int argc, char** argv) {
     g2d_fill_req_t fill;
     g2d_blit_req_t blit;
@@ -1153,7 +1267,8 @@ int main(int argc, char** argv) {
             check_pixel("scale_br", scaled, 319, 239,
                     canvas->buffer[(h0 - 1) * w0 + w0 - 1], &failures);
             /* full dst against the driver's corner-preserving nearest
-               map u = X*(sw-1)/(dw-1): exact everywhere */
+               map in its Q15 form (see expect_scale_corner): exact
+               everywhere */
             check_data("scale_to_data", scaled, 0, 0,
                     (uint32_t)scaled->w, (uint32_t)scaled->h,
                     expect_scale_corner, canvas, 0, &failures);
@@ -1458,6 +1573,8 @@ int main(int argc, char** argv) {
     }
 
     bench_breakeven(&failures);
+
+    bench_gauss_breakeven(&failures);
 
     printf("g2dtest summary: %s (%d failure)\n", failures == 0 ? "PASS" : "FAIL", failures);
     usleep(50000);
