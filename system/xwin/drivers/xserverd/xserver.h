@@ -229,8 +229,7 @@ static inline graph_t* win_comp_src(xwin_t* win) {
   no frame, shadow or rounded corners for them, so no translucent frame
   pixels cut into their workspace*/
 static inline bool win_edge_to_edge(xwin_t* win) {
-	return win->xinfo->state == XWIN_STATE_MAX ||
-			win->xinfo->state == XWIN_STATE_FULL_SCREEN;
+	return win->xinfo->state == XWIN_STATE_MAX;
 }
 
 /*whether an alpha window can be re-blended in place over its clean backdrop

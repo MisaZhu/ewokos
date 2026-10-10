@@ -343,6 +343,7 @@ int graph_gaussian_blur_g2d(graph_t* g, int x, int y, int w, int h, int r) {
 	int tmp_shm_id = -1;
 	uint32_t* tmp_pixels = NULL;
 	ewokos_addr_t tmp_phy = 0;
+	uint32_t tmp_pitch;
 	int gpu_path;
 	int ret;
 	uint64_t t0, t1;
@@ -386,9 +387,15 @@ int graph_gaussian_blur_g2d(graph_t* g, int x, int y, int w, int h, int r) {
 
 	memset(&tmp, 0, sizeof(tmp));
 	/* the scratch is a pitch-strided (h - 1)-row region of the canvas
-	   pitch plus one rect row (see bsp_g2d.h) */
-	if(blur_tmp_get((uint32_t)(h - 1) * (uint32_t)g->w * 4u +
-				(uint32_t)w * 4u,
+	   pitch plus one rect row (see bsp_g2d.h).  the pitch is padded by
+	   one 64 B cache line when it is 4 KiB-aligned so the driver's
+	   V-pass (2r+1)-row gather does not alias onto the same L2T sets -
+	   this sizing MUST match bsp_g2d.c and vc_g2d.c gpu_gaussian_blur_op
+	   or the driver rejects the scratch as undersized. */
+	tmp_pitch = (uint32_t)g->w * 4u;
+	if((tmp_pitch & 4095u) == 0u)
+		tmp_pitch += 64u;
+	if(blur_tmp_get((uint32_t)(h - 1) * tmp_pitch + (uint32_t)w * 4u,
 			&tmp_shm_id, &tmp_pixels, &tmp_phy) != 0) {
 		_g2d_blur_fb_tmp++;
 		blur_fallback_klog("scratch alloc failed", _g2d_blur_fb_tmp);

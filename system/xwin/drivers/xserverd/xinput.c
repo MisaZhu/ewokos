@@ -133,8 +133,7 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
         }
     }
     else if(ev->state ==  MOUSE_STATE_DRAG) {
-        if(win->xinfo->state != XWIN_STATE_MAX &&
-                win->xinfo->state != XWIN_STATE_FULL_SCREEN) {
+        if(win->xinfo->state != XWIN_STATE_MAX) {
             if(pos == FRAME_R_TITLE) {//window title 
                 x->current.old_pos.x = x->cursor.cpos.x;
                 x->current.old_pos.y = x->cursor.cpos.y;
@@ -160,8 +159,7 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
 
         if(x->current.win_drag == win &&
                 x->current.drag_state != 0 &&
-                win->xinfo->state != XWIN_STATE_MAX &&
-                win->xinfo->state != XWIN_STATE_FULL_SCREEN) {
+                win->xinfo->state != XWIN_STATE_MAX) {
             ev->type = XEVT_WIN;
             ev->value.window.v0 =  x->current.pos_delta.x;
             ev->value.window.v1 =  x->current.pos_delta.y;

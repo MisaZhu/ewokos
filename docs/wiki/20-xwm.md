@@ -321,7 +321,6 @@ if(win->frame_dirty)
 
 // frameless windows skip xwm; fullscreen windows stick to the edges, no decorations to draw
 if((style & XWIN_STYLE_NO_FRAME) && !bg_effect)  return;
-if(state == XWIN_STATE_FULL_SCREEN && !bg_effect) return;
 
 if(!check_xwm(x)) return;         // no xwm? skip decorations; the window runs naked
 
@@ -361,8 +360,7 @@ An engineering detail worth noting: **the combination logic of style bits
 and states is concentrated in this one place**. `XWIN_STYLE_NO_TITLE` only
 removes the title bar and buttons; the borders are still drawn.
 `XWIN_STATE_MAX` keeps the title bar but removes the borders and shadow (an
-edge-to-edge window has no decoration space). `XWIN_STATE_FULL_SCREEN`
-draws nothing. Concrete WM implementations (EwokWM etc.) needn't worry
+edge-to-edge window has no decoration space). Concrete WM implementations (EwokWM etc.) needn't worry
 about these combinations anymore — they only care about "given a rectangle,
 how do I draw it beautifully".
 

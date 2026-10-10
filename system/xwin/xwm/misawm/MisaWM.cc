@@ -327,14 +327,16 @@ void MisaWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinf
 	  backdrop scan here replaces the five this method used to trigger.*/
 	ensureFrost(desktop_g, info);
 
-	/*the border ring: frost the four bands that make up the frame edge. The
-	  title band is frosted in drawTitle, which runs before this and already
-	  carries the title text and the buttons, so the ring stops at the title
-	  and never paints over it.*/
-	frostRegion(desktop_g, frame_g, info, r->x, r->y, fw, wd, tint, xwm.theme.frameBlur);               //top
-	frostRegion(desktop_g, frame_g, info, r->x, r->y+fh-wd, fw, wd, tint, xwm.theme.frameBlur);         //bottom
-	frostRegion(desktop_g, frame_g, info, r->x, r->y+wd, wd, fh-wd*2, tint, xwm.theme.frameBlur);       //left
-	frostRegion(desktop_g, frame_g, info, r->x+fw-wd, r->y+wd, wd, fh-wd*2, tint, xwm.theme.frameBlur); //right
+    if((info->style & XWIN_STYLE_NO_FRAME) == 0) {
+		/*the border ring: frost the four bands that make up the frame edge. The
+		title band is frosted in drawTitle, which runs before this and already
+		carries the title text and the buttons, so the ring stops at the title
+		and never paints over it.*/
+		frostRegion(desktop_g, frame_g, info, r->x, r->y, fw, wd, tint, xwm.theme.frameBlur);               //top
+		frostRegion(desktop_g, frame_g, info, r->x, r->y+fh-wd, fw, wd, tint, xwm.theme.frameBlur);         //bottom
+		frostRegion(desktop_g, frame_g, info, r->x, r->y+wd, wd, fh-wd*2, tint, xwm.theme.frameBlur);       //left
+		frostRegion(desktop_g, frame_g, info, r->x+fw-wd, r->y+wd, wd, fh-wd*2, tint, xwm.theme.frameBlur); //right
+	}
 
 	/*the client area is glass too: the whole window sits on one frosted
 	  sheet, so frost the wsr as well and lay the client's published buffer
@@ -346,7 +348,7 @@ void MisaWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinf
 				(int)info->wsr.w, (int)info->wsr.h};
 		grect_t fr = {r->x, r->y, fw, fh};
 		if(grect_insect(&fr, &ws) && ws.w > 0 && ws.h > 0) {
-			frostRegion(desktop_g, frame_g, info, ws.x, ws.y, ws.w, ws.h, tint, xwm.theme.wsBlur);
+			frostRegion(desktop_g, frame_g, info, ws.x, ws.y, ws.w, ws.h, tint, xwm.theme.frameBlur);
 			if(ws_g != NULL && ws_g->buffer != NULL) {
 				int sx = ws.x - ((int)info->wsr.x - (int)info->winr.x);
 				int sy = ws.y - ((int)info->wsr.y - (int)info->winr.y);
@@ -356,13 +358,15 @@ void MisaWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinf
 		}
 	}
 
-	/*round the corners: the arc mask cuts everything outside the rounded
-	  corner to transparent, blending the glass edge into the shadow. Same
-	  geometry ewokwm uses, so the compositor's frame_alpha path applies.*/
-	int round = (int)xwm.theme.round;
-	if(round > 0) {
-		markFrameRound(frame_g, r, round);
-		graph_round_3d(frame_g, r->x, r->y, r->w, r->h, round, 1, xwm.theme.frameBGColor, false);
+    if((info->style & XWIN_STYLE_NO_FRAME) == 0) {
+		/*round the corners: the arc mask cuts everything outside the rounded
+		corner to transparent, blending the glass edge into the shadow. Same
+		geometry ewokwm uses, so the compositor's frame_alpha path applies.*/
+		int round = (int)xwm.theme.round;
+		if(round > 0) {
+			markFrameRound(frame_g, r, round);
+			graph_round_3d(frame_g, r->x, r->y, r->w, r->h, round, 1, xwm.theme.frameBGColor, false);
+		}
 	}
 }
 

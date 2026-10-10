@@ -162,15 +162,21 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
         free_win_graph(&frame_g, shm_id);
         return;
     }
+
+    grect_t rframe;
+    memset(&rframe, 0, sizeof(grect_t));
+    if(xwm->get_frame != NULL) {
+        xwm->get_frame(&info, &rframe, xwm->data);
+    }
+    bool framed = false;
     
     if((info.style & XWIN_STYLE_NO_FRAME) == 0) {
-        grect_t rtitle, rclose, rmax, rmin, rresize, rframe;
+        grect_t rtitle, rclose, rmax, rmin, rresize;
         memset(&rtitle, 0, sizeof(grect_t));
         memset(&rclose, 0, sizeof(grect_t));
         memset(&rmax, 0, sizeof(grect_t));
         memset(&rmin, 0, sizeof(grect_t));
         memset(&rresize, 0, sizeof(grect_t));
-        memset(&rframe, 0, sizeof(grect_t));
 
         if(xwm->get_title != NULL)
             xwm->get_title(&info, &rtitle, xwm->data);
@@ -182,14 +188,8 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
             xwm->get_min(&info, &rmin, xwm->data);
         if(xwm->get_resize != NULL)
             xwm->get_resize(&info, &rresize, xwm->data);
-        if(xwm->get_frame != NULL)
-            xwm->get_frame(&info, &rframe, xwm->data);
 
-        /*a fullscreen window fills the display edge to edge: no title,
-          buttons, frame or shadow may be drawn over its content*/
-        bool full_screen = (info.state == XWIN_STATE_FULL_SCREEN);
-
-        if((info.style & XWIN_STYLE_NO_TITLE) == 0 && !full_screen) {
+        if((info.style & XWIN_STYLE_NO_TITLE) == 0) {
             if(xwm->draw_title != NULL && rtitle.w > 0 && rtitle.h > 0)
                 xwm->draw_title(&desktop_g, &frame_g, &info, &rtitle, top, xwm->data);
 
@@ -204,9 +204,11 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
                 xwm->draw_close(&frame_g, &info, &rclose, top, xwm->data);
         }
 
-        if(info.state != XWIN_STATE_MAX && !full_screen) {
-            if(xwm->draw_frame != NULL)
+        if(info.state != XWIN_STATE_MAX) {
+            if(xwm->draw_frame != NULL) {
                 xwm->draw_frame(&desktop_g, &frame_g, &ws_g, &info, &rframe, top, xwm->data);
+                framed = true;
+            }
 
             if((info.style & XWIN_STYLE_NO_TITLE) == 0) {
                 if((info.style & XWIN_STYLE_NO_RESIZE) == 0) {
@@ -218,6 +220,11 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
             if(xwm->draw_shadow!= NULL && xwm->theme.shadow > 0)
                 xwm->draw_shadow(&desktop_g, &frame_g, &info, top, xwm->data);
         }
+    }
+
+    if(xwm->theme.wsBlur != 0 && !framed) {
+        if(xwm->draw_frame != NULL)
+            xwm->draw_frame(&desktop_g, &frame_g, &ws_g, &info, &rframe, top, xwm->data);
     }
 
     if((info.style & XWIN_STYLE_NO_BG_EFFECT) == 0 &&
@@ -241,8 +248,7 @@ static void get_frame_areas(xwm_t* xwm, proto_t* in, proto_t* out) {
     memset(&rresize, 0, sizeof(grect_t));
 
     if((info.style & XWIN_STYLE_NO_TITLE) == 0 &&
-            (info.style & XWIN_STYLE_NO_FRAME) == 0 &&
-            info.state != XWIN_STATE_FULL_SCREEN) {
+            (info.style & XWIN_STYLE_NO_FRAME) == 0) {
 
         if(xwm->get_title != NULL)
             xwm->get_title(&info, &rtitle, xwm->data);

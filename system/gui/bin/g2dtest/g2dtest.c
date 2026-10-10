@@ -886,7 +886,12 @@ static void bench_gauss_breakeven(int* failures) {
     for(i = 0; i < BREAKEVEN_SIZES; i++) {
         uint32_t sz = breakeven_size[i];
         graph_t* dst = canvas_create(sz, sz);
-        graph_t* tmp = canvas_create(sz, sz);
+        /* +16 rows of slack: the driver pads the scratch pitch by 64 B when
+           the canvas pitch is 4 KiB-aligned (sz a multiple of 1024), so the
+           scratch needs (sz-1)*64 extra bytes; sz*16*4 = sz*64 >= (sz-1)*64.
+           Without the slack gpu_phys rejects the scratch and the GPU column
+           reads "n/a" at exactly the aliased size we want to measure. */
+        graph_t* tmp = canvas_create(sz, sz + 16);
         uint32_t iters;
         uint64_t pix_budget;
 

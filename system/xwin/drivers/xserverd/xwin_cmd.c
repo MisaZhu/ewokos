@@ -138,10 +138,8 @@ void xwin_revalidate_geometry(x_t* x, xwin_t* win) {
 
     if(check_xwm(x)) {
         /*mirrors what xwm's getWinSpace adds around the workspace*/
-        bool edge = win->xinfo->state == XWIN_STATE_MAX ||
-                win->xinfo->state == XWIN_STATE_FULL_SCREEN;
+        bool edge = win->xinfo->state == XWIN_STATE_MAX;
         bool deco = ((win->xinfo->style & XWIN_STYLE_NO_TITLE) == 0 &&
-                win->xinfo->state != XWIN_STATE_FULL_SCREEN &&
                 x->config.xwm_theme.titleH > 0) ||
                 (!edge && (x->config.xwm_theme.frameW > 0 ||
                 x->config.xwm_theme.shadow > 0));
@@ -363,9 +361,6 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
             win->xinfo->wsr.h = minh;
 
         int32_t maxh = x->displays[win->xinfo->display_index].g->h - x->config.xwm_theme.titleH;
-        /*a fullscreen window has no title, so the display height is its limit*/
-        if(win->xinfo->state == XWIN_STATE_FULL_SCREEN)
-            maxh = x->displays[win->xinfo->display_index].g->h;
         if(win->xinfo->wsr.h > maxh)
             win->xinfo->wsr.h = maxh;
     }
@@ -557,7 +552,7 @@ int x_win_space(x_t* x, proto_t* in, proto_t* out) {
     int state = proto_read_int(in);
     /*a query out of range is treated as a normal window, the same way an
       unknown state would be*/
-    if(state < XWIN_STATE_NORMAL || state > XWIN_STATE_FULL_SCREEN)
+    if(state < XWIN_STATE_NORMAL || state > XWIN_STATE_MAX)
         state = XWIN_STATE_NORMAL;
     proto_read_to(in, &r, sizeof(grect_t));
     get_xwm_win_space(x, style, state, &r, &r); 

@@ -14,7 +14,7 @@
 using namespace Ewok;
 
 static inline bool edgeToEdgeState(int state) {
-	return state == XWIN_STATE_MAX || state == XWIN_STATE_FULL_SCREEN;
+	return state == XWIN_STATE_MAX;
 }
 
 static inline int effectiveFrameW(const xwm_theme_t& theme, int state) {
@@ -35,8 +35,7 @@ void XWM::getWinSpace(int style, int state, grect_t* xr, grect_t* winr) {
 	/*fullscreen windows fill the display edge to edge, so they get no title
 	  either; maximized ones keep theirs*/
 	if((style & XWIN_STYLE_NO_TITLE) == 0 &&
-			(style & XWIN_STYLE_NO_FRAME) == 0 &&
-			state != XWIN_STATE_FULL_SCREEN) {
+			(style & XWIN_STYLE_NO_FRAME) == 0) {
 		winr->y = xr->y - xwm.theme.titleH;
 		winr->h = xr->h + xwm.theme.titleH;
 	}

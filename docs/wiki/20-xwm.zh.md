@@ -275,7 +275,6 @@ if(win->frame_dirty)
 
 // 无边框窗口跳过 xwm；全屏窗口贴边到底，也没有装饰可画
 if((style & XWIN_STYLE_NO_FRAME) && !背景特效)  return;
-if(state == XWIN_STATE_FULL_SCREEN && !背景特效) return;
 
 if(!check_xwm(x)) return;         // xwm 不在？跳过装饰，窗口裸奔
 
@@ -312,7 +311,6 @@ if(允许背景特效 && 失焦)
 值得注意的工程细节：**风格位与状态的组合逻辑集中在这一处**。
 `XWIN_STYLE_NO_TITLE` 只砍标题栏和按钮，边框照画；
 `XWIN_STATE_MAX` 保留标题栏但去掉边框和阴影（贴边窗口没有装饰空间）；
-`XWIN_STATE_FULL_SCREEN` 什么都不画。具体的 WM 实现（EwokWM 等）
 不需要再操心这些组合——它们只管"给我个矩形我怎么画好看"。
 
 ## 20.6 实现方法：三层代码写一个窗口管理器

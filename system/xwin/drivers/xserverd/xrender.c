@@ -22,20 +22,28 @@ static bool win_backdrop_active(x_t* x, xwin_t* win) {
 }
 
 /*whether the compositor should maintain a clean per-window backdrop snapshot.
-  Two independent reasons:
+  Three independent reasons:
   - the theme wants a frosted frame, so xwm needs the pristine pixels below
     the window as the DRAW_FRAME source (win_backdrop_active);
   - the window is an edge-to-edge alpha one (a fullscreen launcher, say):
     its whole content is translucent and updates in place, so restoring the
     snapshot before each re-blend lets the compositor avoid escalating every
     present into a whole-display rebuild (desktop IPC + every window's frame
-    IPC + full recomposite + full flush). The snapshot is window-private and
-    never handed to xwm in this case.*/
+    IPC + full recomposite + full flush);
+  - the theme blurs the client area of a translucent window (ws_blur): xwm
+    needs the pristine pixels below it for the same reason, and an edge-to-edge
+    one is not the only case - any alpha window under ws_blur visits xwm on
+    every present.
+  The snapshot is window-private; draw_win hands it to xwm whenever it exists
+  (see prepare_win_content), because the display under a placed translucent
+  window carries that window's own glass.*/
 static bool win_keeps_backdrop(x_t* x, xwin_t* win) {
     if(win_backdrop_active(x, win))
         return true;
-    if(win->xinfo != NULL && win->xinfo->alpha && win_edge_to_edge(win))
-        return true;
+    if(win->xinfo != NULL && win->xinfo->alpha) {
+        if(win_edge_to_edge(win) || x->config.xwm_theme.wsBlur != 0)
+            return true;
+    }
     return false;
 }
 
@@ -142,7 +150,7 @@ static void prepare_win_content(x_t* x, xwin_t* win) {
         }
     }
 
-    if(!win->frame_dirty)
+    if(!win->frame_dirty && x->config.xwm_theme.wsBlur == 0)
         return;
 
     /*a frameless window only visits xwm for the background effect;
@@ -150,10 +158,7 @@ static void prepare_win_content(x_t* x, xwin_t* win) {
       round trip is skipped. A fullscreen window is edge to edge and has
       no decorations at all, so it gets the same treatment.*/
     if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0 &&
-            !win_bg_effect_active(x, win))
-        return;
-    if(win->xinfo->state == XWIN_STATE_FULL_SCREEN &&
-            !win_bg_effect_active(x, win))
+            !win_bg_effect_active(x, win) && x->config.xwm_theme.wsBlur == 0)
         return;
 
     if(!check_xwm(x))
@@ -161,7 +166,16 @@ static void prepare_win_content(x_t* x, xwin_t* win) {
 
     proto_t in;
     graph_t* src = display->g;
-    if(win_backdrop_active(x, win) && win->backdrop != NULL)
+    /*the display under a placed window carries that window's own glass, so
+      whenever a clean backdrop snapshot exists it is the source xwm has to
+      read - not only for a frosted frame. An in-place alpha present (the
+      win_alpha_inplace_ok path) leaves display->g holding exactly the
+      previous blend of this window, and a theme that blurs the client area
+      (ws_blur) would then blur its own last output: the frost feeds itself
+      and smears and darkens a little more on every present, which is the
+      flicker a fullscreen launcher shows while its selection moves.*/
+    if(win->backdrop != NULL &&
+            (win_backdrop_active(x, win) || win->xinfo->alpha))
         src = win->backdrop; //window-local clean backdrop, not the display
     PF->format(&in, "i,i,i,m",
         src == display->g ? display->g_shm_id : src->shm_id,
@@ -334,7 +348,7 @@ static void blit_win_part(x_t* x, xwin_t* win, graph_t* disp_g,
 
     graph_t* ws = win_comp_src(win);
     if(win_bg_effect_active(x, win) || frame_cuts_ws(x, win) ||
-            ws == NULL) {
+            ws == NULL || x->config.xwm_theme.wsBlur != 0) {
         if(alpha)
             graph_blt_alpha(ring, d->x, d->y, d->w, d->h,
                     disp_g, win_x + d->x, win_y + d->y, d->w, d->h, 0xff);
