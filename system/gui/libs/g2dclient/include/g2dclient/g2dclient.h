@@ -18,7 +18,8 @@ enum {
 	G2D_DEV_CNTL_SCALE_TO,
 	G2D_DEV_CNTL_GET_CLOCK,
 	G2D_DEV_CNTL_BLIT_TO_PHY,
-	G2D_DEV_CNTL_GAUSSIAN_BLUR
+	G2D_DEV_CNTL_GAUSSIAN_BLUR,
+	G2D_DEV_CNTL_ROTATE_TO_PHY
 };
 
 /* result codes every g2dclient call below answers with (the driver
@@ -128,6 +129,32 @@ typedef struct {
 	int32_t dw;
 	int32_t dh;
 } g2d_blit_to_phy_req_t;
+
+/* right-angle rotation (90/180/270) of a src crop straight into a RAW
+   PHYSICAL destination (the scan-out of a rotated panel): same dst
+   model as g2d_blit_to_phy_req_t. the rotated crop lands with its
+   top-left at (dx,dy); its size is the rotated (sw,sh), so the request
+   carries no dst size. the driver clips nothing here - a crop outside
+   the src canvas, or a landing rect outside the dst geometry, fails
+   (G2D_ERR_FAILED) because a partial rotate would land in the wrong
+   place. G2D_ERR_NOT_SUPPORTED (sticky) when the back end has no such
+   path; a geometry the engine declines answers G2D_ERR_FAILED without
+   touching dst, so the caller runs its own rotate for that rect. */
+typedef struct {
+	g2d_canvas_t src;
+	int32_t sx;
+	int32_t sy;
+	int32_t sw;
+	int32_t sh;
+	ewokos_addr_t dst_phy;
+	uint32_t dst_size;  /* bytes available at dst_phy */
+	int32_t dst_w;      /* visible surface geometry */
+	int32_t dst_h;
+	uint32_t pitch;     /* row stride in bytes (>= dst_w*4, %4==0) */
+	int32_t dx;
+	int32_t dy;
+	int32_t rotate;     /* clockwise degrees, normalized by the driver */
+} g2d_rotate_to_phy_req_t;
 
 typedef struct {
 	g2d_canvas_t dst;
@@ -308,6 +335,30 @@ static inline void g2d_blit_to_phy_req_init(g2d_blit_to_phy_req_t* req,
 	req->dh = dst_rect.h;
 }
 
+static inline void g2d_rotate_to_phy_req_init(g2d_rotate_to_phy_req_t* req,
+		g2d_canvas_t src,
+		g2d_rect_t src_rect,
+		ewokos_addr_t dst_phy, uint32_t dst_size,
+		int32_t dst_w, int32_t dst_h, uint32_t pitch,
+		int32_t dx, int32_t dy, int32_t rotate) {
+	if(req == NULL)
+		return;
+	memset(req, 0, sizeof(*req));
+	req->src = src;
+	req->sx = src_rect.x;
+	req->sy = src_rect.y;
+	req->sw = src_rect.w;
+	req->sh = src_rect.h;
+	req->dst_phy = dst_phy;
+	req->dst_size = dst_size;
+	req->dst_w = dst_w;
+	req->dst_h = dst_h;
+	req->pitch = pitch;
+	req->dx = dx;
+	req->dy = dy;
+	req->rotate = rotate;
+}
+
 int has_g2d(void);
 int g2d_set_dev(const char* dev);
 
@@ -328,6 +379,7 @@ int g2d_blit_alpha(const g2d_blit_req_t* req);
 int g2d_rotate(const g2d_rotate_req_t* req);
 int g2d_scale_to(const g2d_scale_to_req_t* req);
 int g2d_blit_to_phy(const g2d_blit_to_phy_req_t* req);
+int g2d_rotate_to_phy(const g2d_rotate_to_phy_req_t* req);
 int g2d_gaussian_blur(const g2d_gaussian_blur_req_t* req);
 
 /* query the g2d engine clock rate in Hz (as confirmed by the driver at

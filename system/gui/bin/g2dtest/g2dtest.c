@@ -31,10 +31,10 @@ static int g_gauss_ok = 0;
    exactly 65536 with the center weight absorbing the rounding) - must
    match the backend's tables bit-for-bit */
 static const uint16_t gauss_wk[5][9] = {
-        [1] = { 30691, 4154, 30691 },
-        [2] = { 25386, 5664, 3436, 5664, 25386 },
-        [3] = { 20926, 6889, 3537, 2832, 3537, 6889, 20926 },
-        [4] = { 17608, 7340, 3929, 2700, 2382, 2700, 3929, 7340, 17608 },
+        [1] = { 6980, 51576, 6980 },
+        [2] = { 3571, 16004, 26386, 16004, 3571 },
+        [3] = { 2401, 7293, 14205, 17738, 14205, 7293, 2401 },
+        [4] = { 1811, 4344, 8115, 11808, 13380, 11808, 8115, 4344, 1811 },
 };
 
 /* scalar two-pass gaussian blur - the bit-exact reference: the same Q16

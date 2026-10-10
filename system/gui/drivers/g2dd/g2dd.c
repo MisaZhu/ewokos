@@ -47,13 +47,13 @@ static uint64_t _g2dd_req_cnt = 0;
    end's own per-dispatch phase counters (bsp_g2d_cmd "stat") it isolates
    the attach/clip/CPU share of a request. Plain atomics: a stat, like
    _g2dd_req_cnt. */
-#define G2DD_STAT_FILL_ALPHA (G2D_DEV_CNTL_GAUSSIAN_BLUR + 1) /* FILL_RECT, a<0xff */
+#define G2DD_STAT_FILL_ALPHA (G2D_DEV_CNTL_ROTATE_TO_PHY + 1) /* FILL_RECT, a<0xff */
 #define G2DD_STAT_CMDS (G2DD_STAT_FILL_ALPHA + 1)
 static uint64_t _g2dd_stat_cnt[G2DD_STAT_CMDS];
 static uint64_t _g2dd_stat_ns[G2DD_STAT_CMDS];
 static const char* const _g2dd_stat_name[G2DD_STAT_CMDS] = {
 	"fill", "blit", "blit_alpha", "rotate", "scale", "clock", "blit_phy", "blur",
-	"fill_alpha"
+	"rotate_phy", "fill_alpha"
 };
 
 /* g2dd runs multi-task (device_run with multi_task=true): dev_cntl
@@ -85,6 +85,10 @@ static const char* const _g2dd_stat_name[G2DD_STAT_CMDS] = {
    - _g2d_dma_lock serializes dma canvas attach/use/detach (SYS_MEM_MAP
      + SYS_DMA_UNMAP) independently of the shm cache, so a dma blit
      never blocks a shm cache lookup and vice versa.
+
+   - _g2d_tmp_lock guards the rotated blit's scratch surface pool
+     (g2d_tmp_acquire/release): private segments nobody else attaches,
+     so only the table and its counters need the lock.
 
    GPU dispatch serialization now lives inside v3d_g2d_run() /
    v3d_g2d_run_vc4() (the innermost hardware dispatch entry points in
@@ -742,9 +746,138 @@ static int32_t g2d_alloc_surface(int32_t w, int32_t h, g2d_attached_t* surf) {
 	surf->height = (uint32_t)h;
 	surf->dma = 0;
 	surf->contig = contig;
+	surf->shm_id = shm_id;
 	if(contig != 0)
 		surf->phy = shm_contig_phy_addr(shm_id, (ewokos_addr_t)p);
 	return 0;
+}
+
+/* temp surface pool: a rotated blit needs two scratch canvases (the crop
+   and its rotation) and a compositor issues the same rotated blit every
+   frame at the same size. Allocating them per request is two shmget +
+   two shmat + two shmdt - each a per-page kernel walk (see the attach
+   cache comment) plus a contig slab alloc/free - for canvases that are
+   then thrown away. The pool keeps a handful of released scratch
+   segments mapped and hands them out again by capacity (grow-only
+   fit: a wider surface serves any smaller request, the row pitch is the
+   requested width since the caller writes it packed).
+
+   The segments are private to g2dd (random IPC_EXCL keys, never shared
+   with a client), so the repeat-shmat hazard of the attach cache does
+   not arise and a plain spinlock around the table is enough. Idle
+   entries are dropped after a TTL so a one-off giant rotate does not
+   pin slab forever; a surface that finds no free slot is simply
+   detached on release as before. */
+#define G2D_TMP_POOL_MAX 4
+#define G2D_TMP_POOL_TTL_MS 1000
+
+typedef struct {
+	g2d_attached_t surf; /* as allocated: width*height*4 is the capacity */
+	uint32_t bytes;
+	uint8_t busy;
+	uint8_t used;
+	uint64_t last_ms;
+} g2d_tmp_entry_t;
+
+static g2d_tmp_entry_t _g2d_tmp_pool[G2D_TMP_POOL_MAX];
+static spinlock_t _g2d_tmp_lock = SPINLOCK_INIT;
+static uint64_t _g2d_tmp_hits = 0;
+static uint64_t _g2d_tmp_misses = 0;
+
+static void g2d_tmp_drop(g2d_tmp_entry_t* e) {
+	shmdt(e->surf.buffer);
+	memset(e, 0, sizeof(*e));
+}
+
+/* hand out a pooled surface of at least w x h, or allocate a fresh one.
+   The returned surf reports the REQUESTED geometry; its backing may be
+   bigger. */
+static int32_t g2d_tmp_acquire(int32_t w, int32_t h, g2d_attached_t* surf) {
+	uint64_t now_ms;
+	uint32_t need;
+	g2d_tmp_entry_t* best = NULL;
+	g2d_tmp_entry_t* slot = NULL;
+	int32_t ret;
+
+	if(surf == NULL || w <= 0 || h <= 0)
+		return G2D_ERR_FAILED;
+	need = (uint32_t)w * (uint32_t)h * sizeof(uint32_t);
+	now_ms = kernel_tic_ms(0);
+
+	spin_lock(&_g2d_tmp_lock);
+	for(uint32_t i = 0; i < G2D_TMP_POOL_MAX; i++) {
+		g2d_tmp_entry_t* e = &_g2d_tmp_pool[i];
+		if(!e->used || e->busy)
+			continue;
+		if((now_ms - e->last_ms) >= G2D_TMP_POOL_TTL_MS) {
+			g2d_tmp_drop(e);
+			continue;
+		}
+		/* tightest fit, so a small request does not burn the big slot */
+		if(e->bytes >= need && (best == NULL || e->bytes < best->bytes))
+			best = e;
+	}
+	if(best != NULL) {
+		best->busy = 1;
+		best->last_ms = now_ms;
+		*surf = best->surf;
+		surf->width = (uint32_t)w;
+		surf->height = (uint32_t)h;
+		_g2d_tmp_hits++;
+		spin_unlock(&_g2d_tmp_lock);
+		return 0;
+	}
+	_g2d_tmp_misses++;
+	spin_unlock(&_g2d_tmp_lock);
+
+	ret = g2d_alloc_surface(w, h, surf);
+	if(ret != 0)
+		return ret;
+
+	/* park the new mapping in a free slot (or the least recently used
+	   idle one) so its release keeps it; no slot => plain detach later */
+	spin_lock(&_g2d_tmp_lock);
+	for(uint32_t i = 0; i < G2D_TMP_POOL_MAX; i++) {
+		g2d_tmp_entry_t* e = &_g2d_tmp_pool[i];
+		if(!e->used) {
+			slot = e;
+			break;
+		}
+		if(e->busy)
+			continue;
+		if(slot == NULL || e->last_ms < slot->last_ms)
+			slot = e;
+	}
+	if(slot != NULL) {
+		if(slot->used)
+			g2d_tmp_drop(slot);
+		slot->surf = *surf;
+		slot->bytes = need;
+		slot->busy = 1;
+		slot->used = 1;
+		slot->last_ms = now_ms;
+	}
+	spin_unlock(&_g2d_tmp_lock);
+	return 0;
+}
+
+static void g2d_tmp_release(const g2d_attached_t* surf) {
+	if(surf == NULL || surf->buffer == NULL)
+		return;
+	spin_lock(&_g2d_tmp_lock);
+	for(uint32_t i = 0; i < G2D_TMP_POOL_MAX; i++) {
+		g2d_tmp_entry_t* e = &_g2d_tmp_pool[i];
+		if(e->used && e->surf.buffer == surf->buffer) {
+			e->busy = 0;
+			e->last_ms = kernel_tic_ms(0);
+			spin_unlock(&_g2d_tmp_lock);
+			return;
+		}
+	}
+	spin_unlock(&_g2d_tmp_lock);
+	/* not pooled (every slot was in flight): the segment dies with its
+	   only attach, as the per-request path always did */
+	g2d_detach(surf);
 }
 
 /* cpu fallback for widths below G2D_PITCH_ALIGN: dispatches to the
@@ -957,38 +1090,38 @@ static int32_t g2dd_handle_blit(proto_t* in, uint8_t use_alpha) {
 
 	/* rotated path: crop into a temp surface, then rotate into another;
 	   the temp surfaces are shm-backed so they carry phy/contig to the
-	   back end like any client canvas. */
-	if(g2d_alloc_surface(req.sw, req.sh, &cropped) != 0)
+	   back end like any client canvas, and pooled across requests. */
+	if(g2d_tmp_acquire(req.sw, req.sh, &cropped) != 0)
 		goto done;
 	ret = g2d_blt_split(&cropped, src.buffer, src.phy, src.contig,
 			(int32_t)src.width, (int32_t)src.height,
 			req.sx, req.sy, req.sw, req.sh, 0, 0, 0, 0xff);
 	if(ret != 0) {
-		g2d_detach(&cropped);
+		g2d_tmp_release(&cropped);
 		goto done;
 	}
 
 	bsp_g2d_rotated_size(req.sw, req.sh, degree, &rw, &rh);
 	if(rw <= 0 || rh <= 0) {
-		g2d_detach(&cropped);
+		g2d_tmp_release(&cropped);
 		ret = G2D_ERR_FAILED;
 		goto done;
 	}
-	if(g2d_alloc_surface(rw, rh, &rotated) != 0) {
-		g2d_detach(&cropped);
+	if(g2d_tmp_acquire(rw, rh, &rotated) != 0) {
+		g2d_tmp_release(&cropped);
 		goto done;
 	}
 	ret = bsp_g2d_rotate(cropped.buffer, cropped.phy, cropped.contig, req.sw, req.sh,
 			rotated.buffer, rotated.phy, rotated.contig, rw, rh, degree);
-	g2d_detach(&cropped);
+	g2d_tmp_release(&cropped);
 	if(ret != 0) {
-		g2d_detach(&rotated);
+		g2d_tmp_release(&rotated);
 		goto done;
 	}
 
 	ret = g2d_blit_render(&dst, rotated.buffer, rotated.phy, rotated.contig, rw, rh,
 			0, 0, rw, rh, &req, use_alpha);
-	g2d_detach(&rotated);
+	g2d_tmp_release(&rotated);
 
 done:
 	g2d_detach(&src);
@@ -1134,6 +1267,60 @@ done:
 	return ret;
 }
 
+/* rotate a src crop by a right angle straight into a raw physical
+   destination (rotated-panel scan-out). unlike blit_to_phy nothing is
+   clipped: the crop must lie inside the src canvas and the rotated rect
+   inside the declared dst geometry, otherwise the request fails before
+   the back end sees it. the back end answers -1 for a geometry it has
+   no engine path for (nothing written) and the client runs that rect on
+   its own; G2D_ERR_NOT_SUPPORTED means no such path at all. */
+static int32_t g2dd_handle_rotate_to_phy(proto_t* in) {
+	g2d_rotate_to_phy_req_t req;
+	g2d_attached_t src;
+	int32_t degree;
+	int32_t rw, rh;
+	int32_t ret = G2D_ERR_FAILED;
+
+	if(in == NULL)
+		return G2D_ERR_FAILED;
+	if(proto_read_to(in, &req, sizeof(req)) != sizeof(req))
+		return G2D_ERR_FAILED;
+	if(req.sw <= 0 || req.sh <= 0 || req.sx < 0 || req.sy < 0 ||
+			req.dst_w <= 0 || req.dst_h <= 0 || req.dst_size == 0 ||
+			req.dx < 0 || req.dy < 0)
+		return G2D_ERR_FAILED;
+	if(req.pitch < (uint32_t)req.dst_w * 4u || (req.pitch & 3u) != 0)
+		return G2D_ERR_FAILED;
+	degree = g2d_norm_degree(req.rotate);
+	if(degree != 90 && degree != 180 && degree != 270)
+		return G2D_ERR_FAILED;
+
+	if(g2d_attach(&req.src, &src) != 0)
+		return G2D_ERR_FAILED;
+	if(src.contig == 0 || src.phy == 0)
+		goto done;
+	if(req.sx > (int32_t)src.width - req.sw || req.sy > (int32_t)src.height - req.sh)
+		goto done;
+
+	bsp_g2d_rotated_size(req.sw, req.sh, degree, &rw, &rh);
+	if(rw <= 0 || rh <= 0 || req.dx > req.dst_w - rw || req.dy > req.dst_h - rh)
+		goto done;
+	/* the touched rows must fit the declared physical segment */
+	if((uint64_t)(req.dy + rh - 1) * req.pitch +
+			(uint64_t)(req.dx + rw) * 4u > req.dst_size)
+		goto done;
+
+	G2DD_LOG("g2dd_handle_rotate_to_phy %d x %d crop %d,%d %dx%d rot %d -> 0x%08X +%d,%d\n",
+			src.width, src.height, req.sx, req.sy, req.sw, req.sh, degree, req.dst_phy, req.dx, req.dy);
+	ret = bsp_g2d_rotate_phy(src.buffer, src.phy, src.contig,
+			(int32_t)src.width, (int32_t)src.height, req.sx, req.sy, req.sw, req.sh,
+			req.dst_phy, req.dst_size, req.dst_w, req.dst_h, req.pitch,
+			req.dx, req.dy, degree);
+done:
+	g2d_detach(&src);
+	return ret;
+}
+
 static char* g2d_strdup(const char* s) {
 	size_t len;
 	char* ret;
@@ -1164,7 +1351,7 @@ static char* g2d_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* 
 	   table walk, its counters and the drain all run under _g2d_map_lock
 	   (see the lock comment at the top of this file). */
 	if(strcmp(argv[0], "cache") == 0) {
-		char buf[192];
+		char buf[320];
 		uint32_t slots = 0;
 		int32_t on;
 		uint64_t hits, misses, swept, evicts, bytes;
@@ -1191,8 +1378,24 @@ static char* g2d_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* 
 		bytes = _g2d_cache_bytes;
 		g2d_map_unlock();
 
+		/* the rotated-blit scratch pool reports alongside: a low hit rate
+		   there means per-frame rotated blits are still paying shmget */
+		uint64_t thits, tmisses;
+		uint32_t tslots = 0, tbytes = 0;
+		spin_lock(&_g2d_tmp_lock);
+		for(uint32_t i = 0; i < G2D_TMP_POOL_MAX; i++) {
+			if(_g2d_tmp_pool[i].used) {
+				tslots++;
+				tbytes += _g2d_tmp_pool[i].bytes;
+			}
+		}
+		thits = _g2d_tmp_hits;
+		tmisses = _g2d_tmp_misses;
+		spin_unlock(&_g2d_tmp_lock);
+
 		snprintf(buf, sizeof(buf),
-				"cache %s hits %llu miss %llu sweep %llu evict %llu slots %u/%u pin %uKB/%uKB",
+				"cache %s hits %llu miss %llu sweep %llu evict %llu slots %u/%u pin %uKB/%uKB "
+				"tmp hits %llu miss %llu slots %u/%u pin %uKB",
 				enabled ? "on" : "off",
 				(unsigned long long)hits,
 				(unsigned long long)misses,
@@ -1201,7 +1404,12 @@ static char* g2d_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* 
 				(unsigned int)slots,
 				(unsigned int)G2D_ATTACH_CACHE_MAX,
 				(unsigned int)(bytes / 1024),
-				(unsigned int)(g2d_cache_budget() / 1024));
+				(unsigned int)(g2d_cache_budget() / 1024),
+				(unsigned long long)thits,
+				(unsigned long long)tmisses,
+				(unsigned int)tslots,
+				(unsigned int)G2D_TMP_POOL_MAX,
+				(unsigned int)(tbytes / 1024));
 		return g2d_strdup(buf);
 	}
 
@@ -1410,6 +1618,9 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 		break;
 	case G2D_DEV_CNTL_GAUSSIAN_BLUR:
 		res = g2dd_handle_gaussian_blur(in);
+		break;
+	case G2D_DEV_CNTL_ROTATE_TO_PHY:
+		res = g2dd_handle_rotate_to_phy(in);
 		break;
 	default:
 		/* an unknown command is a capability this driver does not

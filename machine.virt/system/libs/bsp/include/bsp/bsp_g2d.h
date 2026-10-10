@@ -55,6 +55,18 @@ int32_t bsp_g2d_blt_phy(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_c
 			ewokos_addr_t dst_phy, uint32_t dst_size, int32_t dst_w, int32_t dst_h,
 			uint32_t dst_pitch,
 			int32_t dx, int32_t dy, int32_t dw, int32_t dh);
+/* rotate a src rect (sx,sy,sw,sh) clockwise by degree (90/180/270 only)
+   straight into a RAW PHYSICAL destination (the scan-out buffer): the
+   rotated rect lands with its top-left at (dx,dy) of the dst_w x dst_h
+   surface; its size is the rotated (sw,sh). dst_pitch/dst_size as in
+   bsp_g2d_blt_phy. returns -1 when the geometry is not eligible for the
+   engine (nothing written) or the dispatch failed. */
+int32_t bsp_g2d_rotate_phy(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
+int32_t sx, int32_t sy, int32_t sw, int32_t sh,
+ewokos_addr_t dst_phy, uint32_t dst_size, int32_t dst_w, int32_t dst_h,
+uint32_t dst_pitch,
+int32_t dx, int32_t dy, int32_t degree);
+
 
 int32_t bsp_g2d_blt_alpha(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
 			int32_t sx, int32_t sy, int32_t sw, int32_t sh,

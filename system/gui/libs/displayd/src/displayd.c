@@ -10,6 +10,7 @@
 #include <display/display.h>
 #include <displayd/displayd.h>
 #include <graph/graph_image.h>
+#include <graph/graph_g2d.h>
 #include <g2dclient/g2dclient.h>
 #include <tinyjson/tinyjson.h>
 
@@ -38,6 +39,11 @@ static disp_shm_t* _cur_shm = NULL; /* live shm, for fbdisplayd_refresh() */
    for the process lifetime: flush_g2d then stays out of the way and the
    driver's cpu flush handles every frame. */
 static int _g2d_blt_phy_unsupported = 0;
+/* same contract for the rotate-into-scan-out op: a back end without a
+   physical-destination rotate says so once and is never asked again. a
+   plain G2D_ERR_FAILED (geometry the engine cannot take) is NOT sticky;
+   the caller runs its two-pass path for that frame only. */
+static int _g2d_rot_phy_unsupported = 0;
 
 static int disp_fcntl(vdevice_t* dev, int fd,
         int from_pid,
@@ -145,6 +151,95 @@ static uint32_t disp_pitch32(const disp_info_t* fbi) {
     return pitch;
 }
 
+/*common gate for the g2d scan-out pushes: the src must be a contig shm
+  canvas (so the no-mmu engine can address it physically) and the fb must
+  expose a physical base. fills *off with the byte offset of the visible
+  origin inside the fb segment and *phy with the canvas base. */
+static int g2d_scanout_ok(const disp_info_t* fbinfo, const graph_t* g,
+        uint32_t* off, ewokos_addr_t* phy) {
+    if(has_g2d() != 0)
+        return 0;
+    if(g == NULL || g->buffer == NULL || g->shm_id <= 0 || !g->shm_contig)
+        return 0;
+    if(fbinfo == NULL || fbinfo->pointer == 0 || fbinfo->depth != 32 ||
+            fbinfo->phy_base == 0 || fbinfo->size == 0)
+        return 0;
+    uint32_t pitch = disp_pitch32(fbinfo);
+    uint32_t o = (uint32_t)(fbinfo->yoffset * pitch + fbinfo->xoffset * 4);
+    if(o >= fbinfo->size)
+        return 0;
+    ewokos_addr_t p = shm_contig_phy_addr(g->shm_id, (ewokos_addr_t)g->buffer);
+    if(p == 0)
+        return 0;
+    *off = o;
+    *phy = p;
+    return 1;
+}
+
+static g2d_canvas_t g2d_scanout_canvas(const graph_t* g, ewokos_addr_t phy) {
+    g2d_canvas_t canvas = g2d_canvas(g->shm_id,
+            (uint32_t)g->w * (uint32_t)g->h * 4u,
+            (uint32_t)g->w, (uint32_t)g->h, 1);
+    canvas.phy = phy;
+    return canvas;
+}
+
+/*1:1 push of the client rect (sx,sy,w,h) of a contig shm canvas to panel
+  position (dx,dy) via g2d blit-to-phy. Returns the bytes written, or 0 to
+  fall back to the cpu - permanently, once the driver has declined the op
+  as unsupported.*/
+static uint32_t blit_g2d_rect(const disp_info_t* fbinfo, const graph_t* g,
+        int32_t sx, int32_t sy, int32_t w, int32_t h, int32_t dx, int32_t dy) {
+    uint32_t off;
+    ewokos_addr_t src_phy;
+    if(_g2d_blt_phy_unsupported)
+        return 0;
+    if(w <= 0 || h <= 0 || !g2d_scanout_ok(fbinfo, g, &off, &src_phy))
+        return 0;
+
+    g2d_blit_to_phy_req_t req;
+    g2d_blit_to_phy_req_init(&req, g2d_scanout_canvas(g, src_phy),
+            g2d_rect(sx, sy, w, h),
+            fbinfo->phy_base + off, fbinfo->size - off,
+            (int32_t)fbinfo->width, (int32_t)fbinfo->height, disp_pitch32(fbinfo),
+            g2d_rect(dx, dy, w, h));
+    int ret = g2d_blit_to_phy(&req);
+    if(ret == G2D_ERR_NOT_SUPPORTED)
+        _g2d_blt_phy_unsupported = 1;
+    if(ret != 0)
+        return 0;
+    return (uint32_t)w * (uint32_t)h * 4u;
+}
+
+/*rotate the client rect (sx,sy,w,h) of a contig shm canvas by rotate and
+  land it with its top-left at panel (dx,dy), in ONE g2d dispatch straight
+  into the scan-out: no intermediate canvas, no cpu touch of NC memory.
+  Returns the bytes of the source rect, or 0 when the driver declined
+  (unsupported => never asked again; failed => this geometry only).*/
+static uint32_t rotate_g2d_rect(const disp_info_t* fbinfo, const graph_t* g,
+        int32_t sx, int32_t sy, int32_t w, int32_t h, int32_t dx, int32_t dy,
+        int rotate) {
+    uint32_t off;
+    ewokos_addr_t src_phy;
+    if(_g2d_rot_phy_unsupported)
+        return 0;
+    if(w <= 0 || h <= 0 || !g2d_scanout_ok(fbinfo, g, &off, &src_phy))
+        return 0;
+
+    g2d_rotate_to_phy_req_t req;
+    g2d_rotate_to_phy_req_init(&req, g2d_scanout_canvas(g, src_phy),
+            g2d_rect(sx, sy, w, h),
+            fbinfo->phy_base + off, fbinfo->size - off,
+            (int32_t)fbinfo->width, (int32_t)fbinfo->height, disp_pitch32(fbinfo),
+            dx, dy, rotate);
+    int ret = g2d_rotate_to_phy(&req);
+    if(ret == G2D_ERR_NOT_SUPPORTED)
+        _g2d_rot_phy_unsupported = 1;
+    if(ret != 0)
+        return 0;
+    return (uint32_t)w * (uint32_t)h * 4u;
+}
+
 uint32_t fbdisplayd_rotate_to(const disp_info_t* fbinfo, const graph_t* g, int rotate) {
     if (fbinfo == NULL || g == NULL || g->buffer == NULL)
         return 0;
@@ -164,6 +259,14 @@ uint32_t fbdisplayd_rotate_to(const disp_info_t* fbinfo, const graph_t* g, int r
     if ((uint32_t)dw != fbinfo->width || (uint32_t)dh != fbinfo->height)
         return 0;
 
+    /*best case: the engine rotates the whole client frame straight into
+      the scan-out, one dispatch, zero cpu bytes. g still carries the
+      display shm identity (flush() restores it), which is what the
+      physical-address path needs. */
+    uint32_t res = rotate_g2d_rect(fbinfo, g, 0, 0, g->w, g->h, 0, 0, rotate);
+    if (res > 0)
+        return res;
+
     uint32_t pitch = disp_pitch32(fbinfo);
     uint8_t* base = (uint8_t*)(ewokos_addr_t)fbinfo->pointer +
             fbinfo->yoffset * pitch + fbinfo->xoffset * 4;
@@ -173,11 +276,20 @@ uint32_t fbdisplayd_rotate_to(const disp_info_t* fbinfo, const graph_t* g, int r
      * the NC scan-out buffer. Rotating directly into NC memory (the old
      * packed path) writes through 4 strided WC streams which is far
      * slower than a cache-backed rotation + graph_blt (NEON streaming copy).
+     * graph_rotate_to itself goes through g2d when both canvases are
+     * contig shm (the _rotate_g cache is allocated that way).
      */
     graph_t* tmp = ensure_graph(&_rotate_g, dw, dh);
     if (tmp == NULL)
         return 0;
     graph_rotate_to((graph_t*)g, tmp, rotate);
+
+    /*the copy-out prefers the engine too: tmp is a contig shm canvas, the
+      fb is physical, so blit-to-phy moves it without the cpu ever touching
+      NC memory; the arch memcpy stays as the fallback */
+    res = blit_g2d_rect(fbinfo, tmp, 0, 0, dw, dh, 0, 0);
+    if (res > 0)
+        return res;
 
     graph_t dst_g;
     graph_init(&dst_g, (uint32_t*)base, dw, dh);
@@ -251,6 +363,23 @@ uint32_t fbdisplayd_flush_rect_to(const disp_info_t* fbinfo, const graph_t* g, c
     return (uint32_t)r->w * (uint32_t)r->h * 2;
 }
 
+/*grow [*a0,*a1) outwards to 16px boundaries, clamped to [0,limit). when
+  the far edge clamps, pull the near edge back so the span stays a
+  multiple of 16 if the frame allows it (tile engines want 16-aligned
+  rotate geometry; the over-draw is at most 15px per side). */
+static void align_span16(int32_t* a0, int32_t* a1, int32_t limit) {
+    int32_t s0 = *a0 & ~15;
+    int32_t s1 = (*a1 + 15) & ~15;
+    if(s1 > limit) {
+        s1 = limit;
+        s0 = s1 - ((s1 - s0 + 15) & ~15);
+        if(s0 < 0)
+            s0 = 0;
+    }
+    *a0 = s0;
+    *a1 = s1;
+}
+
 /*rotate a single client-space rect straight into the scan-out. Mirrors the
   exact mapping of fbdisplayd_rotate_to, but only for the damaged region:
   the rect is extracted into a packed graph, rotated with graph_rotate_to,
@@ -273,6 +402,33 @@ static uint32_t fbdisplayd_rotate_rect_to(const disp_info_t* fbi, const graph_t*
     int32_t ry1 = r->y + r->h; if(ry1 > sh) ry1 = sh;
     if(rx0 >= rx1 || ry0 >= ry1)
         return 0;
+
+    /*engine first: one dispatch rotates the rect from the client shm
+      straight into its panel-space landing. the rect is widened to 16px
+      boundaries so the rotate kernels' strip geometry fits; the driver
+      declines (not sticky) anything it still cannot take. only worth the
+      ipc round trip for a rect the engine would accept anyway. */
+    if(!_g2d_rot_phy_unsupported && g->shm_id > 0 && g->shm_contig &&
+            (int64_t)(rx1 - rx0) * (ry1 - ry0) >= G2D_MIN_SIZE) {
+        int32_t ax0 = rx0, ax1 = rx1, ay0 = ry0, ay1 = ry1;
+        align_span16(&ax0, &ax1, sw);
+        align_span16(&ay0, &ay1, sh);
+        int32_t aw = ax1 - ax0, ah = ay1 - ay0;
+        int32_t gy, gx;
+        if(rotate == G_ROTATE_90) {
+            gy = ax0;      gx = sh - ay1;
+        }
+        else if(rotate == G_ROTATE_270) {
+            gy = sw - ax1; gx = ay0;
+        }
+        else {
+            gy = sh - ay1; gx = sw - ax1;
+        }
+        uint32_t n = rotate_g2d_rect(fbi, g, ax0, ay0, aw, ah, gx, gy, rotate);
+        if(n > 0)
+            return n;
+    }
+
     int32_t rw = rx1 - rx0, rh = ry1 - ry0;
 
     /*rotated rect dims */
@@ -284,7 +440,8 @@ static uint32_t fbdisplayd_rotate_rect_to(const disp_info_t* fbi, const graph_t*
     if(src_cache == NULL || rot_cache == NULL)
         return 0;
 
-    /*extract the damaged rect into a packed graph */
+    /*extract the damaged rect into a packed graph; both legs route through
+      g2d on their own when g and the caches are contig shm */
     graph_blt((graph_t*)g, rx0, ry0, rw, rh, src_cache, 0, 0, rw, rh);
     graph_rotate_to(src_cache, rot_cache, rotate);
 
@@ -299,6 +456,11 @@ static uint32_t fbdisplayd_rotate_rect_to(const disp_info_t* fbi, const graph_t*
     else {                              /* fb rows [sh-ry1, sh-ry0), cols [sw-rx1, sw-rx0) */
         dy0 = sh - ry1; dx0 = sw - rx1;
     }
+
+    /*copy-out: the engine writes the scan-out physically when it can,
+      otherwise the arch memcpy into the NC mapping */
+    if(blit_g2d_rect(fbi, rot_cache, 0, 0, dw, dh, dx0, dy0) > 0)
+        return (uint32_t)rw * (uint32_t)rh * 4;
 
     uint32_t pitch = disp_pitch32(fbi);
     uint8_t* base = (uint8_t*)(ewokos_addr_t)fbi->pointer +
@@ -321,44 +483,11 @@ static inline int is_zoomed(void) {
   Returns the bytes written, or 0 to fall back to the driver flush -
   permanently, once the driver has declined the op as unsupported.*/
 static uint32_t flush_g2d(const disp_info_t* fbinfo, const graph_t* g) {
-    if(_g2d_blt_phy_unsupported)
-        return 0;
-    if(has_g2d() != 0)
-        return 0;
-    if(g == NULL || g->buffer == NULL || g->shm_id <= 0 || !g->shm_contig)
-        return 0;
-    if(fbinfo == NULL || fbinfo->pointer == 0 || fbinfo->depth != 32 ||
-            fbinfo->phy_base == 0 || fbinfo->size == 0)
+    if(g == NULL || fbinfo == NULL)
         return 0;
     if((uint32_t)g->w != fbinfo->width || (uint32_t)g->h != fbinfo->height)
         return 0;
-
-    uint32_t pitch = disp_pitch32(fbinfo);
-    uint32_t off = (uint32_t)(fbinfo->yoffset * pitch + fbinfo->xoffset * 4);
-    if(off >= fbinfo->size)
-        return 0;
-
-    ewokos_addr_t src_phy = shm_contig_phy_addr(g->shm_id,
-            (ewokos_addr_t)g->buffer);
-    if(src_phy == 0)
-        return 0;
-
-    g2d_blit_to_phy_req_t req;
-    g2d_canvas_t canvas = g2d_canvas(g->shm_id,
-            (uint32_t)g->w * (uint32_t)g->h * 4u,
-            (uint32_t)g->w, (uint32_t)g->h, 1);
-    canvas.phy = src_phy;
-    g2d_blit_to_phy_req_init(&req, canvas,
-            g2d_rect(0, 0, g->w, g->h),
-            fbinfo->phy_base + off, fbinfo->size - off,
-            (int32_t)fbinfo->width, (int32_t)fbinfo->height, pitch,
-            g2d_rect(0, 0, fbinfo->width, fbinfo->height));
-    int ret = g2d_blit_to_phy(&req);
-    if(ret == G2D_ERR_NOT_SUPPORTED)
-        _g2d_blt_phy_unsupported = 1;
-    if(ret != 0)
-        return 0;
-    return (uint32_t)g->w * (uint32_t)g->h * 4u;
+    return blit_g2d_rect(fbinfo, g, 0, 0, g->w, g->h, 0, 0);
 }
 
 static uint32_t flush(const disp_info_t* fbinfo, const disp_shm_t* shm, int rotate) {
@@ -639,6 +768,11 @@ static int32_t flush_dirty(disp_shm_t* shm, const grect_t* rects, uint32_t num) 
     graph_t g;
     memset(&g, 0, sizeof(graph_t));
     graph_init(&g, (const uint32_t*)shm->shm, gw, gh);
+    /*as in flush(): graph_init drops the canvas identity, and without it
+      every rect leg (extract, rotate, scan-out push) is a cpu pass over
+      uncached memory instead of a g2d dispatch */
+    g.shm_id = shm->shm_id;
+    g.shm_contig = shm->shm_contig;
 
     /*clip to the frame first, then coalesce into at most DISPLAY_DIRTY_MAX
       dispatches (do_flush already guarantees num <= DISPLAY_DIRTY_MAX) */
@@ -665,9 +799,18 @@ static int32_t flush_dirty(disp_shm_t* shm, const grect_t* rects, uint32_t num) 
     int32_t res = 0;
     for(uint32_t i = 0; i < mnum; i++) {
         grect_t r = merged[i];
-        uint32_t n = (_rotate == G_ROTATE_0)
-                ? _flush_rect(&_fbinfo, &g, &r)
-                : fbdisplayd_rotate_rect_to(&_fbinfo, &g, &r, _rotate);
+        uint32_t n = 0;
+        if(_rotate == G_ROTATE_0) {
+            /*a big enough rect goes to the engine as a physical blit; the
+              driver's rect hook (cpu into the NC mapping) takes the rest */
+            if(gw == _fbinfo.width && gh == _fbinfo.height &&
+                    (int64_t)r.w * r.h >= G2D_MIN_SIZE)
+                n = blit_g2d_rect(&_fbinfo, &g, r.x, r.y, r.w, r.h, r.x, r.y);
+            if(n == 0)
+                n = _flush_rect(&_fbinfo, &g, &r);
+        }
+        else
+            n = fbdisplayd_rotate_rect_to(&_fbinfo, &g, &r, _rotate);
         if(n == 0) //hook refused this geometry
             return -1;
         res += (int32_t)n;
