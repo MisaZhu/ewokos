@@ -39,6 +39,23 @@
    _g2d_task_lock, see below, and none of them covers the counter). */
 static uint64_t _g2dd_req_cnt = 0;
 
+/* per-command request accounting for `devcmd /dev/g2d stat`: count and
+   wall time (fine clock, no syscall) of each dev_cntl handler, from
+   proto decode to answer - attach, clipping, the back end's dispatch
+   and detach, but not the IPC transport around it. Against a client-
+   measured round trip this isolates the IPC cost; against the back
+   end's own per-dispatch phase counters (bsp_g2d_cmd "stat") it isolates
+   the attach/clip/CPU share of a request. Plain atomics: a stat, like
+   _g2dd_req_cnt. */
+#define G2DD_STAT_FILL_ALPHA (G2D_DEV_CNTL_GAUSSIAN_BLUR + 1) /* FILL_RECT, a<0xff */
+#define G2DD_STAT_CMDS (G2DD_STAT_FILL_ALPHA + 1)
+static uint64_t _g2dd_stat_cnt[G2DD_STAT_CMDS];
+static uint64_t _g2dd_stat_ns[G2DD_STAT_CMDS];
+static const char* const _g2dd_stat_name[G2DD_STAT_CMDS] = {
+	"fill", "blit", "blit_alpha", "rotate", "scale", "clock", "blit_phy", "blur",
+	"fill_alpha"
+};
+
 /* g2dd runs multi-task (device_run with multi_task=true): dev_cntl
    handlers execute on concurrent ipc worker threads. The kernel pins
    requests to the requesting client's core and serializes requests
@@ -655,17 +672,6 @@ static int32_t g2d_clip_dst(int32_t dst_w, int32_t dst_h,
 	return (*sw > 0 && *sh > 0 && *dw > 0 && *dh > 0);
 }
 
-/* alpha fill: the bsp back end's translucent fill, handed the canvas's
-   physical base like bsp_g2d_fill so a hardware back end (raspi5: the
-   V3D argb_alpha kernel over a constant source) can run it; software
-   back ends blend on the cpu. The caller hands in a rect already clipped
-   to the canvas bounds. */
-static int32_t g2d_fill_alpha(const g2d_attached_t* dst,
-		int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
-	return bsp_g2d_fill_alpha(dst->buffer, dst->phy, dst->contig,
-			(int32_t)dst->width, (int32_t)dst->height, x, y, w, h, color);
-}
-
 /* temp surfaces for the rotated path: backed by keyed shm segments the
    same way graph_new_shm() does it (keyed 0666, IPC_EXCL, a fresh key
    per attempt), so the backing is physically contiguous and the back
@@ -796,7 +802,9 @@ static int32_t g2d_blt_split(const g2d_attached_t* dst,
 	return ret;
 }
 
-static int32_t g2dd_handle_fill_rect(proto_t* in) {
+/* slot: stat index for this request - translucent fills are a different
+   back-end path (blend read-modify-write) and are accounted separately */
+static int32_t g2dd_handle_fill_rect(proto_t* in, int* slot) {
 	g2d_fill_req_t req;
 	g2d_attached_t dst;
 	int32_t ret = G2D_ERR_FAILED;
@@ -824,7 +832,9 @@ static int32_t g2dd_handle_fill_rect(proto_t* in) {
 				req.rect.x, req.rect.y, req.rect.w, req.rect.h, req.color);
 	}
 	else {
-		ret = g2d_fill_alpha(&dst, req.rect.x, req.rect.y, req.rect.w, req.rect.h, req.color);
+		*slot = G2DD_STAT_FILL_ALPHA;
+		ret = bsp_g2d_fill_alpha(dst.buffer, dst.phy, dst.contig, (int32_t)dst.width, (int32_t)dst.height,
+			req.rect.x, req.rect.y, req.rect.w, req.rect.h, req.color);
 	}
 	g2d_detach(&dst);
 	return ret;
@@ -1194,6 +1204,51 @@ static char* g2d_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* 
 				(unsigned int)(g2d_cache_budget() / 1024));
 		return g2d_strdup(buf);
 	}
+
+	/* `devcmd /dev/g2d stat` reports per-command request counts and
+	   average handler time, then whatever the back end has to add
+	   (bsp_g2d_cmd, e.g. the GPU's per-dispatch phase split);
+	   `devcmd /dev/g2d stat reset` reports and zeroes both. A snapshot
+	   of relaxed atomics: counts and times from one command may be
+	   off by an in-flight request, which is noise against the
+	   thousands a benchmark run produces. */
+	if(strcmp(argv[0], "stat") == 0) {
+		char buf[512];
+		char bsp[256];
+		int reset = (argc > 1 && argv[1] != NULL && strcmp(argv[1], "reset") == 0);
+		size_t off = 0;
+		int n;
+
+		for(int i = 0; i < G2DD_STAT_CMDS; i++) {
+			uint64_t cnt = __atomic_load_n(&_g2dd_stat_cnt[i], __ATOMIC_RELAXED);
+			uint64_t ns = __atomic_load_n(&_g2dd_stat_ns[i], __ATOMIC_RELAXED);
+			if(reset) {
+				__atomic_store_n(&_g2dd_stat_cnt[i], 0, __ATOMIC_RELAXED);
+				__atomic_store_n(&_g2dd_stat_ns[i], 0, __ATOMIC_RELAXED);
+			}
+			if(cnt == 0)
+				continue;
+			n = snprintf(buf + off, sizeof(buf) - off, "%s %llu avg %lluus\n",
+					_g2dd_stat_name[i],
+					(unsigned long long)cnt,
+					(unsigned long long)(ns / cnt / 1000u));
+			if(n < 0 || (size_t)n >= sizeof(buf) - off)
+				break;
+			off += (size_t)n;
+		}
+		if(bsp_g2d_cmd(argc, argv, bsp, sizeof(bsp)) == 0)
+			snprintf(buf + off, sizeof(buf) - off, "%s\n", bsp);
+		else if(off == 0)
+			snprintf(buf, sizeof(buf), "no requests\n");
+		return g2d_strdup(buf);
+	}
+
+	/* anything else is the back end's to answer or ignore */
+	{
+		char buf[256];
+		if(bsp_g2d_cmd(argc, argv, buf, sizeof(buf)) == 0)
+			return g2d_strdup(buf);
+	}
 	return NULL;
 }
 
@@ -1313,6 +1368,8 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 	int res = G2D_ERR_FAILED;
 	uint32_t clock_hz = 0;
 	int is_clock = (cmd == G2D_DEV_CNTL_GET_CLOCK);
+	uint64_t t0 = 0, t1 = 0;
+	int slot = cmd;
 
 	/* No outer lock: each handler takes _g2d_map_lock for its attach /
 	   detach steps; GPU dispatch serialization lives inside v3d_g2d_run()
@@ -1322,10 +1379,11 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 	   stat - bump it atomically instead of dragging a lock in for one
 	   increment. */
 	__atomic_add_fetch(&_g2dd_req_cnt, 1, __ATOMIC_RELAXED);
+	kernel_tic_nsec(&t0);
 
 	switch (cmd) {
 	case G2D_DEV_CNTL_FILL_RECT:
-		res = g2dd_handle_fill_rect(in);
+		res = g2dd_handle_fill_rect(in, &slot);
 		break;
 	case G2D_DEV_CNTL_BLIT:
 		res = g2dd_handle_blit(in, 0);
@@ -1357,6 +1415,12 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 		/* an unknown command is a capability this driver does not
 		   have at all, not an operation that failed */
 		res = G2D_ERR_NOT_SUPPORTED;
+	}
+
+	if(slot >= 0 && slot < G2DD_STAT_CMDS) {
+		kernel_tic_nsec(&t1);
+		__atomic_add_fetch(&_g2dd_stat_cnt[slot], 1, __ATOMIC_RELAXED);
+		__atomic_add_fetch(&_g2dd_stat_ns[slot], t1 - t0, __ATOMIC_RELAXED);
 	}
 
 	if(res != 0 && !is_clock) {

@@ -1,5 +1,8 @@
 #include <g2dclient/g2dclient.h>
 #include <graph/graph.h>
+#ifdef ARCH_BOOST
+#include <graph/graph_arch.h>
+#endif
 #include <ewoksys/kernel_tic.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -500,6 +503,24 @@ static int bench_frame_fill(void* p) {
     return 0;
 }
 
+/* translucent full-canvas fill: a dst read-modify-write stream (the GPU
+   blends the constant colour from its 16x16 source block, the CPU path
+   is arch_g2d_fill_alpha), so it benches differently from the opaque
+   write-only fill */
+static int bench_frame_fill_alpha(void* p) {
+    bench_ctx_t* ctx = (bench_ctx_t*)p;
+    g2d_fill_req_t fill;
+    uint32_t seed = ctx->seq * 31u;
+
+    g2d_fill_req_init(&fill, img_canvas(ctx->canvas),
+            g2d_rect(0, 0, ctx->canvas->w, ctx->canvas->h),
+            0x80000000u | (seed & 0xffffffu));
+    if(g2d_fill_rect(&fill) != 0)
+        return -1;
+    ctx->seq++;
+    return 0;
+}
+
 static int bench_frame_blit(void* p) {
     bench_ctx_t* ctx = (bench_ctx_t*)p;
     g2d_blit_req_t blit;
@@ -667,6 +688,147 @@ static void bench_run_group(const char* op, bench_frame_fn fn,
 
     snprintf(label, sizeof(label), "%s@%ux%u", op, gw, gh);
     bench_run(label, fn, ctx, failures);
+}
+
+/* gpu/cpu break-even: the same full-canvas fill and 1:1 blit at small
+   square sizes, once through /dev/g2d (synchronous round trip, what a
+   graph_fill_rect/graph_blt caller pays) and once through libgraph's
+   in-process engine (the arch NEON/SSE path when built with ARCH_BOOST,
+   the plain cpu loop otherwise - the same fallback graph_fill_rect
+   takes when it skips g2dd). graph_g2d.h routes rects to g2dd from
+   G2D_MIN_SIZE (128x128 pixels) up on every platform; this table shows
+   where the crossover sits on this machine. fixed iteration counts, not
+   a time budget, so both columns do identical work; a g2d failure
+   (unsupported size) prints 0 for that column and is not a test
+   failure. */
+#define BREAKEVEN_ITERS 200u
+
+static const uint32_t breakeven_size[] = { 64u, 96u, 128u, 192u, 256u, 384u, 512u,
+                                           768u, 1024u };
+#define BREAKEVEN_SIZES (sizeof(breakeven_size) / sizeof(breakeven_size[0]))
+
+static void sw_fill(graph_t* g, uint32_t color) {
+#ifdef ARCH_BOOST
+    if(graph_fill_arch(g, 0, 0, g->w, g->h, color) == 0)
+        return;
+#endif
+    graph_fill_cpu(g, 0, 0, g->w, g->h, color);
+}
+
+static void sw_blit(graph_t* src, graph_t* dst) {
+#ifdef ARCH_BOOST
+    if(graph_blt_arch(src, 0, 0, src->w, src->h, dst, 0, 0, dst->w, dst->h) == 0)
+        return;
+#endif
+    graph_blt_cpu(src, 0, 0, src->w, src->h, dst, 0, 0, dst->w, dst->h);
+}
+
+static void sw_blit_alpha(graph_t* src, graph_t* dst, uint8_t alpha) {
+#ifdef ARCH_BOOST
+    if(graph_blt_alpha_arch(src, 0, 0, src->w, src->h, dst, 0, 0, dst->w, dst->h, alpha) == 0)
+        return;
+#endif
+    graph_blt_alpha_cpu(src, 0, 0, src->w, src->h, dst, 0, 0, dst->w, dst->h, alpha);
+}
+
+static void bench_breakeven(int* failures) {
+    uint32_t i;
+
+    printf("--- gpu/cpu break-even (%u iterations each) ---\n", BREAKEVEN_ITERS);
+    printf("BREAKEVEN %-10s %10s %10s %10s %10s %10s %10s %10s %10s\n",
+            "size", "fill_g2d", "fill_sw", "falpha_g2d", "falpha_sw",
+            "blit_g2d", "blit_sw", "balpha_g2d", "balpha_sw");
+    for(i = 0; i < BREAKEVEN_SIZES; i++) {
+        uint32_t sz = breakeven_size[i];
+        graph_t* dst = canvas_create(sz, sz);
+        graph_t* src = canvas_create(sz, sz);
+        g2d_fill_req_t fill;
+        g2d_blit_req_t blit;
+        uint32_t fill_g2d = 0, fill_sw = 0, blit_g2d = 0, blit_sw = 0;
+        uint32_t falpha_g2d = 0, falpha_sw = 0;
+        uint32_t balpha_g2d = 0, balpha_sw = 0;
+        uint32_t t0;
+        uint32_t n;
+        char label[24];
+
+        if(dst == NULL || src == NULL) {
+            printf("create break-even %ux%u shm failed, size skipped\n", sz, sz);
+            (*failures)++;
+            canvas_free(dst);
+            canvas_free(src);
+            continue;
+        }
+        fill_pattern(src);
+
+        t0 = bench_now_usec();
+        for(n = 0; n < BREAKEVEN_ITERS; n++) {
+            g2d_fill_req_init(&fill, img_canvas(dst), g2d_rect(0, 0, sz, sz),
+                    0xff000000u | (n * 31u));
+            if(g2d_fill_rect(&fill) != 0)
+                break;
+        }
+        fill_g2d = (n == BREAKEVEN_ITERS) ? bench_now_usec() - t0 : 0;
+
+        t0 = bench_now_usec();
+        for(n = 0; n < BREAKEVEN_ITERS; n++)
+            sw_fill(dst, 0xff000000u | (n * 31u));
+        fill_sw = bench_now_usec() - t0;
+
+        /* translucent fill: alpha 0x80 so both paths really blend */
+        t0 = bench_now_usec();
+        for(n = 0; n < BREAKEVEN_ITERS; n++) {
+            g2d_fill_req_init(&fill, img_canvas(dst), g2d_rect(0, 0, sz, sz),
+                    0x80000000u | (n * 31u));
+            if(g2d_fill_rect(&fill) != 0)
+                break;
+        }
+        falpha_g2d = (n == BREAKEVEN_ITERS) ? bench_now_usec() - t0 : 0;
+
+        t0 = bench_now_usec();
+        for(n = 0; n < BREAKEVEN_ITERS; n++)
+            sw_fill(dst, 0x80000000u | (n * 31u));
+        falpha_sw = bench_now_usec() - t0;
+
+        t0 = bench_now_usec();
+        for(n = 0; n < BREAKEVEN_ITERS; n++) {
+            g2d_blit_req_init(&blit, img_canvas(dst), img_canvas(src),
+                    g2d_rect(0, 0, sz, sz), g2d_rect(0, 0, sz, sz), 0xff);
+            if(g2d_blit(&blit) != 0)
+                break;
+        }
+        blit_g2d = (n == BREAKEVEN_ITERS) ? bench_now_usec() - t0 : 0;
+
+        t0 = bench_now_usec();
+        for(n = 0; n < BREAKEVEN_ITERS; n++)
+            sw_blit(src, dst);
+        blit_sw = bench_now_usec() - t0;
+
+        /* translucent blit: global alpha 0x80, the three-stream blend */
+        t0 = bench_now_usec();
+        for(n = 0; n < BREAKEVEN_ITERS; n++) {
+            g2d_blit_req_init(&blit, img_canvas(dst), img_canvas(src),
+                    g2d_rect(0, 0, sz, sz), g2d_rect(0, 0, sz, sz), 0x80);
+            if(g2d_blit_alpha(&blit) != 0)
+                break;
+        }
+        balpha_g2d = (n == BREAKEVEN_ITERS) ? bench_now_usec() - t0 : 0;
+
+        t0 = bench_now_usec();
+        for(n = 0; n < BREAKEVEN_ITERS; n++)
+            sw_blit_alpha(src, dst, 0x80);
+        balpha_sw = bench_now_usec() - t0;
+
+        /* per-operation microseconds */
+        snprintf(label, sizeof(label), "%ux%u", sz, sz);
+        printf("BREAKEVEN %-10s %10u %10u %10u %10u %10u %10u %10u %10u\n", label,
+                fill_g2d / BREAKEVEN_ITERS, fill_sw / BREAKEVEN_ITERS,
+                falpha_g2d / BREAKEVEN_ITERS, falpha_sw / BREAKEVEN_ITERS,
+                blit_g2d / BREAKEVEN_ITERS, blit_sw / BREAKEVEN_ITERS,
+                balpha_g2d / BREAKEVEN_ITERS, balpha_sw / BREAKEVEN_ITERS);
+
+        canvas_free(src);
+        canvas_free(dst);
+    }
 }
 
 int main(int argc, char** argv) {
@@ -1151,7 +1313,9 @@ int main(int argc, char** argv) {
                     g2d_rect(0, 0, gblur->w, gblur->h), 6);
             ret = g2d_gaussian_blur(&greq);
             snprintf(label, sizeof(label), "gaussian_blur_r6");
-            if(ret != 0) {
+            if(ret == G2D_ERR_NOT_SUPPORTED)
+                printf("SKIP %-22s backend has no blur\n", label);
+            else if(ret != 0) {
                 printf("FAIL %-22s ret=%d\n", label, ret);
                 failures++;
             }
@@ -1224,6 +1388,7 @@ int main(int argc, char** argv) {
         bench_ctx.seq = 0;
         bench_ctx.rot_swap = 0;
         bench_run_group("fill_rect", bench_frame_fill, gw, gh, &bench_ctx, &failures);
+        bench_run_group("fill_alpha", bench_frame_fill_alpha, gw, gh, &bench_ctx, &failures);
         bench_run_group("blit_opaque", bench_frame_blit, gw, gh, &bench_ctx, &failures);
         bench_run_group("blit_alpha", bench_frame_blit_alpha, gw, gh, &bench_ctx, &failures);
         bench_run_group("mixed_frame", bench_frame_mixed, gw, gh, &bench_ctx, &failures);
@@ -1291,6 +1456,8 @@ int main(int argc, char** argv) {
         canvas_free(g_src);
         canvas_free(g_canvas);
     }
+
+    bench_breakeven(&failures);
 
     printf("g2dtest summary: %s (%d failure)\n", failures == 0 ? "PASS" : "FAIL", failures);
     usleep(50000);

@@ -197,7 +197,7 @@ void graph_set(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t 
 }
 
 inline void graph_fill_rect(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
-    if(graph_g2d_avaliable(g) == 0) {
+    if(graph_g2d_avaliable(g) == 0 && color_a(color) != 0xff) { //fill without alpha never run with g2dd
         if(graph_fill_g2d(g, x, y, w, h, color) == 0)
             return;
     }

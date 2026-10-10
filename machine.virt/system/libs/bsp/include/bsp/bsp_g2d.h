@@ -14,6 +14,11 @@ int32_t bsp_g2d_init(void);
    (software backends) or the rate could not be confirmed. */
 uint32_t bsp_g2d_clock_hz(void);
 
+/* backend diagnostics for `devcmd /dev/g2d <args>`: formats the reply
+   into buf and returns 0 when the backend recognises argv[0], -1 when it
+   does not (g2dd then answers nothing). this backend has no diagnostics of its own and always returns -1. */
+int32_t bsp_g2d_cmd(int argc, char** argv, char* buf, uint32_t len);
+
 /* contig/src_contig/dst_contig: != 0 when the buffer backing is
    physically contiguous (contig shm slab or dma memory), required by
    hardware 2d paths that work on physical addresses. *_phy carries the
