@@ -62,9 +62,11 @@ typedef struct {
    of its own, every request carries the canvases it works on.
    contig != 0 tells the driver the shm backing is physically
    contiguous (allocated with IPC_CONTIG), needed by hardware 2d paths
-   that work on physical addresses; phy then carries the resolved
-   physical base of the segment (shm_contig_phy_addr on the client
-   side), 0 when unknown.
+   that work on physical addresses; phy may carry the resolved physical
+   base of the segment, or 0 (the usual case) to let the driver resolve
+   it with shm_contig_phy_addr when it first attaches the segment - the
+   driver caches the attach, so a client-side translation would be a
+   syscall per canvas per request for nothing.
    when dma != 0 the canvas lives in dma memory instead: addr is the
    buffer address returned by dma_alloc() (a vaddr in the sys_dma v
    window, mapped only into the allocator; the g2d driver mem-maps it

@@ -160,18 +160,16 @@ static int g2d_check_graph(const graph_t* g, int32_t w, int32_t h) {
 	return 1;
 }
 
+/* phy is left 0 on purpose: the driver resolves it itself with
+   shm_contig_phy_addr() when it first attaches the segment and keeps it
+   in its attach cache, so a client-side translation here would be one
+   syscall per canvas per request that the driver ignores on every cache
+   hit (the common case for a compositor's full-frame canvases). */
 static g2d_canvas_t g2d_graph_canvas(const graph_t* g) {
-	g2d_canvas_t canvas = g2d_canvas(g->shm_id,
+	return g2d_canvas(g->shm_id,
 			(uint32_t)g->w * (uint32_t)g->h * sizeof(uint32_t),
 			(uint32_t)g->w, (uint32_t)g->h,
 			g->shm_contig ? 1 : 0);
-	/* contig shm canvases travel with their resolved physical base so
-	   the driver's hardware 2d path can work on physical addresses
-	   directly (the shm window is mapped at the same vaddr in every
-	   process, so the client-side translation is valid driver-side) */
-	if(g->shm_contig)
-		canvas.phy = shm_contig_phy_addr(g->shm_id, (ewokos_addr_t)g->buffer);
-	return canvas;
 }
 
 int graph_fill_g2d(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
@@ -359,6 +357,16 @@ int graph_gaussian_blur_g2d(graph_t* g, int x, int y, int w, int h, int r) {
 		return G2D_ERR_FAILED;
 
 	if(!g2d_check_graph(g, w, h)) {
+		/* a shm/contig canvas whose rect is below G2D_MIN_SIZE is the
+		   by-design cheap case (graph_shadow_round blurs two thin
+		   strips of its mask per window geometry): count it with the
+		   partial-rect refusals and stay quiet. only a canvas that
+		   really lost its shm/contig backing is worth a log line. */
+		if(g != NULL && g->buffer != NULL && g->shm_id > 0 &&
+				g->shm_contig) {
+			_g2d_blur_fb_rect++;
+			return g2d_reject(g, NULL, w, h);
+		}
 		_g2d_blur_fb_canvas++;
 		blur_fallback_klog("canvas not shm/contig",
 				   _g2d_blur_fb_canvas);

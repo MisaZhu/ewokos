@@ -806,6 +806,43 @@ int main(int argc, char** argv) {
         wide = NULL;
     }
 
+    /* translucent fill: the colour's alpha byte is the blend alpha, so the
+       rect must become the /255 source-over of the colour onto bg (the
+       hardware back ends blend with >>8, hence the tolerance) and nothing
+       outside the rect may change.  Own canvas so the main canvas state
+       the later blit checks depend on is untouched; the rect width is a
+       16-pixel multiple, the only shape every back end accepts (VC4
+       declines others before writing and the client then blends itself,
+       which would not exercise the driver). */
+    wide = canvas_create(256, 64);
+    if(wide == NULL) {
+        printf("FAIL %-22s create 256x64 failed\n", "fill_alpha");
+        failures++;
+    } else {
+        uint32_t fa_color = 0x80c03020u;
+        uint32_t a = fa_color >> 24;
+        uint32_t blended = 0xff000000u;
+        unsigned c;
+
+        for(c = 0; c < 3; c++) {
+            uint32_t sc = (fa_color >> (c * 8)) & 0xff;
+            uint32_t bc = (bg_color >> (c * 8)) & 0xff;
+            blended |= ((a * sc + (255u - a) * bc) / 255u) << (c * 8);
+        }
+        img_clear(wide, bg_color);
+        g2d_fill_req_init(&fill, img_canvas(wide), g2d_rect(32, 8, 160, 48),
+                fa_color);
+        ret = g2d_fill_rect(&fill);
+        check_ret("fill_alpha", ret, 1, &failures);
+        if(ret == 0) {
+            vrect_t fr = { blended, bg_color, 32, 8, 160, 48 };
+            check_data("fill_alpha_data", wide, 0, 0, wide->w, wide->h,
+                    expect_rect, &fr, 3, &failures);
+        }
+        canvas_free(wide);
+        wide = NULL;
+    }
+
     /* opaque 1:1 blit: canvas pixels become the pattern */
     g2d_blit_req_init(&blit,
             img_canvas(canvas),

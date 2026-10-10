@@ -90,7 +90,7 @@ void MisaWM::ensureFrost(graph_t* desktop_g, xinfo_t* info) {
 			if(backdropSharp != NULL) { graph_free(backdropSharp); backdropSharp = NULL; }
 			if(frostCache != NULL) { graph_free(frostCache); frostCache = NULL; }
 			frostValid = false;
-			backdropSharp = graph_new(NULL, fw, fh);
+			backdropSharp = graph_new_shm(fw, fh);
 			frostCache = graph_new_shm(fw, fh);
 			if(backdropSharp == NULL || frostCache == NULL) {
 				if(backdropSharp != NULL) { graph_free(backdropSharp); backdropSharp = NULL; }
@@ -177,7 +177,7 @@ void MisaWM::ensureFrost(graph_t* desktop_g, xinfo_t* info) {
 	  frostCache must be shm-backed (graph_new_shm): only those canvases can
 	  route to the g2d device, a plain graph_new here blurs the whole window
 	  on the cpu every placement.*/
-	backdropSharp = graph_new(NULL, fw, fh);
+	backdropSharp = graph_new_shm(fw, fh);
 	frostCache = graph_new_shm(fw, fh);
 	if(backdropSharp == NULL || frostCache == NULL) {
 		if(backdropSharp != NULL) { graph_free(backdropSharp); backdropSharp = NULL; }

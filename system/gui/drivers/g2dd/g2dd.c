@@ -73,12 +73,12 @@ static uint64_t _g2dd_req_cnt = 0;
    v3d_g2d_run_vc4() (the innermost hardware dispatch entry points in
    libvideocore), so bsp_g2d_* calls from different workers are free
    to overlap when they take CPU-only paths (g2d_cpu_blt tail,
-   bsp_g2d_fill_alpha, arch_g2d_* NEON).
+   software back ends' bsp_g2d_fill_alpha, arch_g2d_* NEON).
 
    Lock order: never hold two at once. Handlers acquire map_lock (shm)
    or dma_lock (dma) for attach/detach, release it, then call bsp_g2d_*
    (which internally acquires the v3d run lock only when a GPU dispatch
-   is needed). The cache counters (hits/misses/evicts/stale/swept/bytes)
+   is needed). The cache counters (hits/misses/evicts/swept/bytes)
    live under map_lock with the table they describe; the request counter
    uses __atomic_add_fetch. G2DD_LOG's per-call-site rate-limit statics
    may race harmlessly (worst case one duplicate or dropped log line per
@@ -207,11 +207,15 @@ static int32_t g2d_dma_map(ewokos_addr_t addr, uint32_t size, ewokos_addr_t* pad
    turns all of that into a table lookup.
 
    Two properties keep this correct:
-   - a hit is revalidated with shmctl(IPC_SHM_IS_CONTIG), which fails
-     once the segment is gone. Ids grow monotonically so a freed id is
-     never handed out again, but shm_alloc() DOES reuse the shm window
-     ADDRESS of a freed block for a new segment - a stale entry would
-     then quietly serve a buffer belonging to somebody else.
+   - a cached mapping can never go stale. The kernel frees a segment
+     only when its last attach goes away (every free_item() call in
+     mm/shm.c - the unmap path, IPC_RMID and the owner-death reaper - is
+     gated on refs <= 0), and the entry's own shmat IS one of those
+     attaches. So while an entry stands, the id it names is alive and
+     its window address still belongs to that segment; no per-hit
+     revalidation (an earlier shmctl(IPC_SHM_IS_CONTIG) syscall per
+     canvas per request) is needed. Ids grow monotonically on top of
+     that, so a freed id is never handed out again either.
    - entries are dropped again (idle TTL, plus LRU eviction when the
      table is full). graph_free() only shmdt()s and the kernel frees a
      segment once its last attach goes away, so holding a mapping
@@ -232,7 +236,6 @@ typedef struct {
 	ewokos_addr_t phy;
 	uint32_t bytes; /* segment size: the cache budgets what it pins */
 	uint32_t refs; /* in-flight attaches; >0 pins the entry */
-	uint8_t stale; /* segment died while pinned: drop it on the last release */
 	uint8_t filling; /* placeholder: shmat in progress outside the lock */
 	uint64_t last_ms; /* kernel_tic_ms of the most recent attach */
 	uint8_t used;
@@ -258,7 +261,6 @@ static int32_t _g2d_cache_enabled = 1;
 static uint64_t _g2d_cache_hits = 0;
 static uint64_t _g2d_cache_misses = 0;
 static uint64_t _g2d_cache_evicts = 0;
-static uint64_t _g2d_cache_stale = 0;
 static uint64_t _g2d_cache_bytes = 0;
 /* TTL drops are accounted separately from evictions: an eviction means the
    table or its byte budget was full, a sweep drop means the entry simply
@@ -295,7 +297,6 @@ static void g2d_cache_drop(g2d_attach_entry_t* e) {
 	_g2d_cache_bytes -= e->bytes;
 	e->buffer = NULL;
 	e->bytes = 0;
-	e->stale = 0;
 	e->filling = 0;
 	e->used = 0;
 }
@@ -364,16 +365,13 @@ static g2d_attach_entry_t* g2d_cache_alloc(void) {
 	return oldest;
 }
 
+/* unpin one in-flight reference; the mapping stays for the next request
+   (the sweep / LRU eviction decide when it finally goes) */
 static void g2d_cache_release(int32_t shm_id) {
 	g2d_attach_entry_t* e = g2d_cache_find(shm_id);
 	if(e == NULL || e->refs == 0)
 		return;
 	e->refs--;
-	if(e->refs > 0 || !e->stale)
-		return;
-	/* last in-flight user of a segment that turned out to be gone: drop the
-	   mapping right here, the sweep would keep skipping a pinned entry */
-	g2d_cache_drop(e);
 }
 
 /* hand every unpinned mapping back at once. Called when the cache is
@@ -468,33 +466,11 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 
 	g2d_cache_sweep(now_ms);
 
+	/* a standing entry is authoritative: its own shmat pins the segment
+	   in the kernel (see the attach-cache comment above), so there is
+	   nothing to revalidate - the hit path is a table walk and no
+	   syscall */
 	g2d_attach_entry_t* e = g2d_cache_find(canvas->shm_id);
-	if(e != NULL) {
-		/* the segment may have been freed and its window address handed
-		   to a new one since this entry was filled: shmctl fails on a
-		   gone id, and the contig backing is a property of the segment
-		   so a mismatch means the entry describes something else */
-		int32_t alive = shmctl(canvas->shm_id, IPC_SHM_IS_CONTIG, NULL);
-		if(alive < 0 || (uint8_t)alive != e->contig) {
-			_g2d_cache_stale++;
-			if(e->refs > 0) {
-				/* pinned by this very request (src and dst naming one
-				   segment). Our own attach is a kernel reference, so the
-				   segment cannot have been freed underneath us and the
-				   mapping is good for the rest of this request. Falling
-				   through to a bare shmat/shmdt is exactly what would
-				   tear it down while the entry still points at it, so the
-				   entry is reused and marked for the matching release to
-				   drop. */
-				e->stale = 1;
-			}
-			else {
-				g2d_cache_drop(e);
-				e = NULL;
-			}
-		}
-	}
-
 	if(e != NULL) {
 		_g2d_cache_hits++;
 		e->refs++;
@@ -540,7 +516,6 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 		e->phy = 0;
 		e->bytes = canvas->size;
 		e->refs = 1;
-		e->stale = 0;
 		e->filling = 1;
 		e->last_ms = now_ms;
 		e->used = 1;
@@ -680,12 +655,15 @@ static int32_t g2d_clip_dst(int32_t dst_w, int32_t dst_h,
 	return (*sw > 0 && *sh > 0 && *dw > 0 && *dh > 0);
 }
 
-/* alpha fill: thin wrapper over the arch back end's scalar/simd alpha
-   fill (arch_g2d_fill_alpha); the caller hands in a rect already
-   clipped to the canvas bounds, same blend math as the blit paths. */
-static int32_t g2d_fill_alpha(uint32_t* buf, int32_t bw, int32_t bh,
+/* alpha fill: the bsp back end's translucent fill, handed the canvas's
+   physical base like bsp_g2d_fill so a hardware back end (raspi5: the
+   V3D argb_alpha kernel over a constant source) can run it; software
+   back ends blend on the cpu. The caller hands in a rect already clipped
+   to the canvas bounds. */
+static int32_t g2d_fill_alpha(const g2d_attached_t* dst,
 		int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
-	return bsp_g2d_fill_alpha(buf, bw, bh, x, y, w, h, color);
+	return bsp_g2d_fill_alpha(dst->buffer, dst->phy, dst->contig,
+			(int32_t)dst->width, (int32_t)dst->height, x, y, w, h, color);
 }
 
 /* temp surfaces for the rotated path: backed by keyed shm segments the
@@ -846,8 +824,7 @@ static int32_t g2dd_handle_fill_rect(proto_t* in) {
 				req.rect.x, req.rect.y, req.rect.w, req.rect.h, req.color);
 	}
 	else {
-		ret = g2d_fill_alpha(dst.buffer, (int32_t)dst.width, (int32_t)dst.height,
-				req.rect.x, req.rect.y, req.rect.w, req.rect.h, req.color);
+		ret = g2d_fill_alpha(&dst, req.rect.x, req.rect.y, req.rect.w, req.rect.h, req.color);
 	}
 	g2d_detach(&dst);
 	return ret;
@@ -1180,7 +1157,7 @@ static char* g2d_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* 
 		char buf[192];
 		uint32_t slots = 0;
 		int32_t on;
-		uint64_t hits, misses, swept, evicts, stale, bytes;
+		uint64_t hits, misses, swept, evicts, bytes;
 		int32_t enabled;
 
 		g2d_map_lock();
@@ -1201,18 +1178,16 @@ static char* g2d_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* 
 		misses = _g2d_cache_misses;
 		swept = _g2d_cache_swept;
 		evicts = _g2d_cache_evicts;
-		stale = _g2d_cache_stale;
 		bytes = _g2d_cache_bytes;
 		g2d_map_unlock();
 
 		snprintf(buf, sizeof(buf),
-				"cache %s hits %llu miss %llu sweep %llu evict %llu stale %llu slots %u/%u pin %uKB/%uKB",
+				"cache %s hits %llu miss %llu sweep %llu evict %llu slots %u/%u pin %uKB/%uKB",
 				enabled ? "on" : "off",
 				(unsigned long long)hits,
 				(unsigned long long)misses,
 				(unsigned long long)swept,
 				(unsigned long long)evicts,
-				(unsigned long long)stale,
 				(unsigned int)slots,
 				(unsigned int)G2D_ATTACH_CACHE_MAX,
 				(unsigned int)(bytes / 1024),

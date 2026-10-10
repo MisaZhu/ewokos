@@ -20,8 +20,9 @@ void  graph_g2d_reject_stats(uint32_t* num, uint32_t* noncontig,
 
 /* gaussian-blur routing counters: gpu = dispatched to /dev/g2d,
    fb_* = fell back to the caller's cpu pass with the reason:
-   notsup (op marked unsupported), canvas (non-shm/contig or too small),
-   rect (partial rect, refused by design), tmp (scratch alloc failed),
+   notsup (op marked unsupported), canvas (non-shm/contig canvas),
+   rect (partial or below-G2D_MIN_SIZE rect, refused by design),
+   tmp (scratch alloc failed),
    drv (driver refused an otherwise-eligible request). all optional. */
 void  graph_g2d_blur_stats(uint32_t* gpu, uint32_t* fb_notsup,
 					uint32_t* fb_canvas, uint32_t* fb_rect,

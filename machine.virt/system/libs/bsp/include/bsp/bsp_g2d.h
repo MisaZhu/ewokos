@@ -21,10 +21,13 @@ uint32_t bsp_g2d_clock_hz(void);
 int32_t bsp_g2d_fill(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32_t argb_w, int32_t argb_h,
 			int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
 
-/* scalar cpu alpha fill of a sub-rect, clipped to the buffer bounds:
-   exact per-pixel access, no alignment/contiguity/simd requirements;
-   same blend math as bsp_g2d_blt_alpha. alpha == 0 is a no-op. */
-int32_t bsp_g2d_fill_alpha(uint32_t* argb, int32_t argb_w, int32_t argb_h,
+/* translucent colour fill of a sub-rect, clipped to the buffer bounds:
+   source-over blend of color (its alpha byte is the blend alpha) onto
+   the rect, same blend math as bsp_g2d_blt_alpha. alpha == 0 is a no-op.
+   argb_phy/contig as for bsp_g2d_fill; this platform's fill runs on the
+   cpu and ignores them (exact per-pixel access, no alignment/contiguity
+   requirement). */
+int32_t bsp_g2d_fill_alpha(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32_t argb_w, int32_t argb_h,
 			int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
 
 int32_t bsp_g2d_blt(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
