@@ -348,7 +348,7 @@ void MisaWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinf
 				(int)info->wsr.w, (int)info->wsr.h};
 		grect_t fr = {r->x, r->y, fw, fh};
 		if(grect_insect(&fr, &ws) && ws.w > 0 && ws.h > 0) {
-			frostRegion(desktop_g, frame_g, info, ws.x, ws.y, ws.w, ws.h, tint, xwm.theme.frameBlur);
+			frostRegion(desktop_g, frame_g, info, ws.x, ws.y, ws.w, ws.h, tint, xwm.theme.wsBlur);
 			if(ws_g != NULL && ws_g->buffer != NULL) {
 				int sx = ws.x - ((int)info->wsr.x - (int)info->winr.x);
 				int sy = ws.y - ((int)info->wsr.y - (int)info->winr.y);
