@@ -366,8 +366,16 @@ static void mark_dirty_confirm(x_t* x, xwin_t* win) {
             v->dirty_mark = false;
 
             if(v != win && v->xinfo != NULL) {
-                if(need_repaint_desktop(x, v))
-                    x_dirty(x, v->xinfo->display_index);
+                if(need_repaint_desktop(x, v)) {
+                    /*an edge-to-edge alpha window above with a valid backdrop
+                      snapshot can be re-blended in place over that snapshot
+                      (see draw_win's alpha branch in xrender.c), and
+                      refresh_shadows_above already re-captured the region
+                      that just changed below it - so a whole-display rebuild
+                      is not needed here either*/
+                    if(!win_alpha_inplace_ok(v))
+                        x_dirty(x, v->xinfo->display_index);
+                }
                 else if(frame_cuts_ws(x, v))
                     v->frame_dirty = true;
             }
@@ -485,7 +493,13 @@ static void win_dirty(x_t* x, xwin_t* win) {
     mark_dirty(x, win);
     if(win->dirty) {
         if(need_repaint_desktop(x, win)) {
-            x_dirty(x, win->xinfo->display_index);
+            /*an alpha window that stays in place and has a clean backdrop
+              snapshot can be re-blended over that snapshot instead of
+              dragging the whole display (desktop + every window below) into
+              a full rebuild on every present. draw_win's alpha branch does
+              the actual restore + blend when it sees the same conditions.*/
+            if(!win_alpha_inplace_ok(win))
+                x_dirty(x, win->xinfo->display_index);
         }
         else if(frame_cuts_ws(x, win))
             win->frame_dirty = true;

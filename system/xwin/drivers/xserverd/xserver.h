@@ -55,6 +55,13 @@ typedef struct st_xwin {
 	  blended again after what is below them was repainted*/
 	bool shadow_valid;
 	grect_t shadow_rect; //winr the shadow bands were blended for
+	/*set by draw_win when the pass just finished left the window's
+	  translucent decoration (shadow bands, and for alpha frames the corner
+	  crescents) untouched on the display: those pixels still carry the
+	  blend of the windows above, so refresh_shadows_above must keep its
+	  backdrop capture and its re-blend out of them or alpha stacks on
+	  alpha until the strips turn black*/
+	bool bands_kept;
 	bool dirty_mark;
 	bool busy;
 
@@ -224,6 +231,32 @@ static inline graph_t* win_comp_src(xwin_t* win) {
 static inline bool win_edge_to_edge(xwin_t* win) {
 	return win->xinfo->state == XWIN_STATE_MAX ||
 			win->xinfo->state == XWIN_STATE_FULL_SCREEN;
+}
+
+/*whether an alpha window can be re-blended in place over its clean backdrop
+  snapshot instead of forcing a whole-display rebuild. All of these must hold:
+  - the window is translucent (alpha) and edge-to-edge (no decoration ring
+    that would need xwm to redraw it);
+  - a backdrop snapshot exists (allocated lazily by capture_backdrop);
+  - the last full/placement blend landed at the current winr (shadow_valid +
+    shadow_rect match), so the snapshot still describes exactly what is under
+    the window right now.
+  When true, win_dirty / mark_dirty_confirm skip the x_dirty escalation and
+  draw_win's alpha branch restores the snapshot before blending the new
+  content over it. Any structural change (move, resize, restack, wallpaper
+  refresh, a lower window escalating for its own reasons) invalidates one of
+  these and the full rebuild path runs as before.*/
+static inline bool win_alpha_inplace_ok(xwin_t* win) {
+	if(win->xinfo == NULL || !win->xinfo->alpha)
+		return false;
+	if(win->backdrop == NULL || !win->shadow_valid)
+		return false;
+	if(!win_edge_to_edge(win))
+		return false;
+	return win->shadow_rect.x == win->xinfo->winr.x &&
+			win->shadow_rect.y == win->xinfo->winr.y &&
+			win->shadow_rect.w == win->xinfo->winr.w &&
+			win->shadow_rect.h == win->xinfo->winr.h;
 }
 
 /*theme alpha here only means the frame has translucent edge/corner pixels;

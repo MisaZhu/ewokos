@@ -21,12 +21,30 @@ static bool win_backdrop_active(x_t* x, xwin_t* win) {
     return x->config.xwm_theme.frameBlur != 0 && frame_cuts_ws(x, win);
 }
 
+/*whether the compositor should maintain a clean per-window backdrop snapshot.
+  Two independent reasons:
+  - the theme wants a frosted frame, so xwm needs the pristine pixels below
+    the window as the DRAW_FRAME source (win_backdrop_active);
+  - the window is an edge-to-edge alpha one (a fullscreen launcher, say):
+    its whole content is translucent and updates in place, so restoring the
+    snapshot before each re-blend lets the compositor avoid escalating every
+    present into a whole-display rebuild (desktop IPC + every window's frame
+    IPC + full recomposite + full flush). The snapshot is window-private and
+    never handed to xwm in this case.*/
+static bool win_keeps_backdrop(x_t* x, xwin_t* win) {
+    if(win_backdrop_active(x, win))
+        return true;
+    if(win->xinfo != NULL && win->xinfo->alpha && win_edge_to_edge(win))
+        return true;
+    return false;
+}
+
 /*copy rect (display coords) of the current display into the window-local
   backdrop. Only call while the display in rect holds exactly what is below
   win: right after something below repainted it, or during a bottom-to-top
   rebuild before win itself is composited.*/
 static void capture_backdrop(x_t* x, xwin_t* win, const grect_t* rect) {
-    if(!win_backdrop_active(x, win))
+    if(!win_keeps_backdrop(x, win))
         return;
     x_display_t* display = &x->displays[win->xinfo->display_index];
     if(display->g == NULL)
@@ -379,12 +397,13 @@ static void blit_win_part(x_t* x, xwin_t* win, graph_t* disp_g,
 /*out_dmg gets the area of disp_g the window actually touched*/
 int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
     win_mark_frame_dirty(x, win);
+    win->bands_kept = false;
 
     /*during a bottom-to-top rebuild the display under the window holds only
       what is below it right now, and a changed placement exposes a place the
       window never covered: both are clean backdrop worth snapshotting*/
     x_display_t* bd = &x->displays[win->xinfo->display_index];
-    if(win_backdrop_active(x, win) &&
+    if(win_keeps_backdrop(x, win) &&
             (bd->dirty || !win->shadow_valid ||
              memcmp(&win->shadow_rect, &win->xinfo->winr, sizeof(grect_t)) != 0))
         capture_backdrop(x, win, &win->xinfo->winr);
@@ -422,6 +441,25 @@ int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
                 blit_win_part(x, win, disp_g, &dmg, true);
                 win->shadow_valid = true;
                 memcpy(&win->shadow_rect, &win->xinfo->winr, sizeof(grect_t));
+            }
+            else if(win->backdrop != NULL && win_edge_to_edge(win) &&
+                    !bd->dirty) {
+                /*edge-to-edge alpha window (a fullscreen launcher, say) whose
+                  placement did not change and whose clean backdrop snapshot
+                  is still valid: the display under it still carries the
+                  previous blend, so put the snapshot back first and then
+                  blend the new content over it. This is what keeps a single
+                  present from escalating into a whole-display rebuild
+                  (desktop IPC + every window's frame IPC + full recomposite
+                  + full flush) - see win_alpha_inplace_ok() in xwin.c for
+                  the matching skip on the dirty-escalation side.*/
+                int32_t wx = win->xinfo->winr.x;
+                int32_t wy = win->xinfo->winr.y;
+                graph_blt(win->backdrop, 0, 0,
+                        win->backdrop->w, win->backdrop->h,
+                        disp_g, wx, wy,
+                        win->backdrop->w, win->backdrop->h);
+                blit_win_part(x, win, disp_g, &dmg, true);
             }
             else {
                 int32_t wx = win->xinfo->winr.x;
@@ -472,6 +510,7 @@ int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
                 blit_win_area_opaque(g, disp_g, wx, wy, &dmg, &c1);
                 blit_win_area_opaque(g, disp_g, wx, wy, &dmg, &c2);
                 blit_win_area_opaque(g, disp_g, wx, wy, &dmg, &c3);
+                win->bands_kept = true; //translucent pixels left as they sat
             }
         }
         else if(x->config.xwm_theme.shadow > 0 &&
@@ -513,6 +552,7 @@ int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
                 win->shadow_valid = true;
                 memcpy(&win->shadow_rect, &win->xinfo->winr, sizeof(grect_t));
             }
+            win->bands_kept = bands_ok;
         }
         else if(frame_cuts_ws(x, win)) {
             /*for themed alpha frames the whole picture gets rebuilt in
@@ -613,6 +653,7 @@ int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
                     blit_win_area_opaque(g, disp_g, wx, wy, &dmg, &c2);
                     blit_win_area_opaque(g, disp_g, wx, wy, &dmg, &c3);
                 }
+                win->bands_kept = decor_ok;
             }
             else {
                 blit_win_part(x, win, disp_g, &dmg, false);
@@ -647,27 +688,88 @@ void refresh_shadows_above(x_t* x, xwin_t* below, const grect_t* region) {
     bool frame_alpha = x->config.xwm_theme.frameAlpha;
     if(shadow <= 0 && !(frame_alpha && round > 0))
         return;
+
+    /*the sub-rects of region that below actually overwrote with opaque
+      pixels this pass. Where below kept its translucent decoration (the
+      shadow bands, and for alpha frames the corner crescents) the display
+      still carries the previous blend of the windows above it: capturing
+      that into a backdrop, or re-blending over it, stacks alpha on alpha
+      until the strips turn black. What an opaque-only update rewrote is
+      the frame rect (winr without the shadow bands) minus the four corner
+      squares, which decomposes into three slabs.*/
+    grect_t fresh[3];
+    uint32_t fresh_num = 0;
+    if(!below->bands_kept) {
+        fresh[fresh_num++] = *region;
+    }
+    else {
+        const grect_t* winr = &below->xinfo->winr;
+        int32_t s_right = winr->w -
+                ((below->xinfo->wsr.x - winr->x) + below->xinfo->wsr.w);
+        int32_t s_bottom = winr->h -
+                ((below->xinfo->wsr.y - winr->y) + below->xinfo->wsr.h);
+        if(s_right < 0) s_right = 0;
+        if(s_bottom < 0) s_bottom = 0;
+        int32_t fw = winr->w - s_right;
+        int32_t fh = winr->h - s_bottom;
+        int32_t cr = 0;
+        if(frame_cuts_ws(x, below)) {
+            cr = round;
+            if(cr > fw/2) cr = fw/2;
+            if(cr > fh/2) cr = fh/2;
+            if(cr < 0) cr = 0;
+        }
+        grect_t slabs[3];
+        uint32_t slab_num;
+        if(cr <= 0) {
+            slabs[0] = (grect_t){winr->x, winr->y, fw, fh};
+            slab_num = 1;
+        }
+        else {
+            slabs[0] = (grect_t){winr->x + cr, winr->y, fw - 2*cr, cr};
+            slabs[1] = (grect_t){winr->x, winr->y + cr, fw, fh - 2*cr};
+            slabs[2] = (grect_t){winr->x + cr, winr->y + fh - cr,
+                    fw - 2*cr, cr};
+            slab_num = 3;
+        }
+        for(uint32_t i = 0; i < slab_num; i++) {
+            grect_t f = slabs[i];
+            if(f.w <= 0 || f.h <= 0)
+                continue;
+            if(!grect_insect(region, &f) || f.w <= 0 || f.h <= 0)
+                continue;
+            fresh[fresh_num++] = f;
+            if(fresh_num == 3)
+                break;
+        }
+        if(fresh_num == 0)
+            return; /*nothing opaque was rewritten: nothing to refresh*/
+    }
+
     x_display_t* display = &x->displays[below->xinfo->display_index];
     xwin_t* w = below->next;
     while(w != NULL) {
         if(w->ready && w->xinfo != NULL && w->xinfo->visible &&
                 w->xinfo->display_index == below->xinfo->display_index &&
                 w->frame_g != NULL) {
-            /*the region was just repainted fresh from below upwards, so the
-              display in it holds exactly what is below w: refresh w's
+            /*the slabs were just repainted fresh from below upwards, so the
+              display in them holds exactly what is below w: refresh w's
               backdrop before its own translucent parts get re-blended*/
-            capture_backdrop(x, w, region);
+            for(uint32_t i = 0; i < fresh_num; i++)
+                capture_backdrop(x, w, &fresh[i]);
             if(w->xinfo->alpha) {
                 /*a translucent window keeps its whole picture blended on the
                   display, so a fresh repaint below wipes content and shadow
-                  alike: refresh the whole intersection with what was just
+                  alike: refresh the intersection with what was just
                   repainted, not just the decoration bands*/
-                grect_t d = *region;
-                d.x -= w->xinfo->winr.x;
-                d.y -= w->xinfo->winr.y;
-                grect_t bounds = {0, 0, w->xinfo->winr.w, w->xinfo->winr.h};
-                if(grect_insect(&bounds, &d))
-                    blit_win_part(x, w, display->g, &d, true);
+                for(uint32_t i = 0; i < fresh_num; i++) {
+                    grect_t d = fresh[i];
+                    d.x -= w->xinfo->winr.x;
+                    d.y -= w->xinfo->winr.y;
+                    grect_t bounds = {0, 0, w->xinfo->winr.w, w->xinfo->winr.h};
+                    if(grect_insect(&bounds, &d))
+                        blit_win_part(x, w, display->g, &d, true);
+                }
                 w = w->next;
                 continue;
             }
@@ -687,43 +789,45 @@ void refresh_shadows_above(x_t* x, xwin_t* below, const grect_t* region) {
                         memcmp(&w->shadow_rect, &w->xinfo->winr, sizeof(grect_t)) == 0;
                 if(bands_ok) {
                     /*the untouched parts of the bands are still fine: fix
-                      only what the fresh region wiped*/
-                    grect_t d = *region;
-                    d.x -= w->xinfo->winr.x;
-                    d.y -= w->xinfo->winr.y;
-                    if(has_bands) {
-                        grect_t right = {w->frame_g->w - s_right, 0, s_right, w->frame_g->h};
-                        grect_t bottom = {0, w->frame_g->h - s_bottom,
-                                w->frame_g->w - s_right, s_bottom};
-                        blit_win_area(w->frame_g, display->g,
-                                w->xinfo->winr.x, w->xinfo->winr.y,
-                                &d, &right, true);
-                        blit_win_area(w->frame_g, display->g,
-                                w->xinfo->winr.x, w->xinfo->winr.y,
-                                &d, &bottom, true);
-                    }
-                    if(has_corners) {
-                        int32_t fw = w->frame_g->w - s_right;
-                        int32_t fh = w->frame_g->h - s_bottom;
-                        int32_t r = round;
-                        if(r > fw/2) r = fw/2;
-                        if(r > fh/2) r = fh/2;
-                        grect_t c0 = {0, 0, r, r};
-                        grect_t c1 = {fw - r, 0, r, r};
-                        grect_t c2 = {0, fh - r, r, r};
-                        grect_t c3 = {fw - r, fh - r, r, r};
-                        blit_win_area(w->frame_g, display->g,
-                                w->xinfo->winr.x, w->xinfo->winr.y,
-                                &d, &c0, true);
-                        blit_win_area(w->frame_g, display->g,
-                                w->xinfo->winr.x, w->xinfo->winr.y,
-                                &d, &c1, true);
-                        blit_win_area(w->frame_g, display->g,
-                                w->xinfo->winr.x, w->xinfo->winr.y,
-                                &d, &c2, true);
-                        blit_win_area(w->frame_g, display->g,
-                                w->xinfo->winr.x, w->xinfo->winr.y,
-                                &d, &c3, true);
+                      only what the fresh slabs wiped*/
+                    for(uint32_t i = 0; i < fresh_num; i++) {
+                        grect_t d = fresh[i];
+                        d.x -= w->xinfo->winr.x;
+                        d.y -= w->xinfo->winr.y;
+                        if(has_bands) {
+                            grect_t right = {w->frame_g->w - s_right, 0, s_right, w->frame_g->h};
+                            grect_t bottom = {0, w->frame_g->h - s_bottom,
+                                    w->frame_g->w - s_right, s_bottom};
+                            blit_win_area(w->frame_g, display->g,
+                                    w->xinfo->winr.x, w->xinfo->winr.y,
+                                    &d, &right, true);
+                            blit_win_area(w->frame_g, display->g,
+                                    w->xinfo->winr.x, w->xinfo->winr.y,
+                                    &d, &bottom, true);
+                        }
+                        if(has_corners) {
+                            int32_t fw = w->frame_g->w - s_right;
+                            int32_t fh = w->frame_g->h - s_bottom;
+                            int32_t r = round;
+                            if(r > fw/2) r = fw/2;
+                            if(r > fh/2) r = fh/2;
+                            grect_t c0 = {0, 0, r, r};
+                            grect_t c1 = {fw - r, 0, r, r};
+                            grect_t c2 = {0, fh - r, r, r};
+                            grect_t c3 = {fw - r, fh - r, r, r};
+                            blit_win_area(w->frame_g, display->g,
+                                    w->xinfo->winr.x, w->xinfo->winr.y,
+                                    &d, &c0, true);
+                            blit_win_area(w->frame_g, display->g,
+                                    w->xinfo->winr.x, w->xinfo->winr.y,
+                                    &d, &c1, true);
+                            blit_win_area(w->frame_g, display->g,
+                                    w->xinfo->winr.x, w->xinfo->winr.y,
+                                    &d, &c2, true);
+                            blit_win_area(w->frame_g, display->g,
+                                    w->xinfo->winr.x, w->xinfo->winr.y,
+                                    &d, &c3, true);
+                        }
                     }
                 }
                 else {
