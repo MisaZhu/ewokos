@@ -4,7 +4,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
-#include <pthread.h>
+#include <sched.h>
+#include <ewoksys/spinlock.h>
 #include <sys/shm.h>
 #include <ewoksys/proto.h>
 #include <ewoksys/klog.h>
@@ -33,23 +34,81 @@
 
 /* g2d request counter: each debug line reports how many requests were
    served in the ~1s window since the previous line at that call site
-   (a per-second rate, not a running total); guarded by _g2d_task_lock */
+   (a per-second rate, not a running total); incremented atomically at
+   dev_cntl entry - no lock (three fine-grained locks replaced the old
+   _g2d_task_lock, see below, and none of them covers the counter). */
 static uint64_t _g2dd_req_cnt = 0;
 
 /* g2dd runs multi-task (device_run with multi_task=true): dev_cntl
-   handlers execute on concurrent ipc worker threads, so serialize the
-   whole request with a plain mutex. the critical section covers the
-   request counter, the rate-limited log state, the shm key PRNG and
-   the bsp_g2d back end calls (simd/hardware paths may carry shared
-   state). */
-static pthread_mutex_t _g2d_task_lock = PTHREAD_MUTEX_INITIALIZER;
+   handlers execute on concurrent ipc worker threads. The kernel pins
+   requests to the requesting client's core and serializes requests
+   from ONE requester (see kernel/kernel/src/ipc.c header comment), so
+   the concurrency we see here is xapps + xserverd + xwm arriving at
+   the same time - each on its own worker. Three fine-grained locks
+   replace the previous single _g2d_task_lock so those workers overlap
+   the phases that have nothing to do with each other:
 
-static inline void g2d_task_lock(void) {
-	pthread_mutex_lock(&_g2d_task_lock);
+   - _g2d_map_lock guards the shm attach-cache table, every
+     shmdt/SYS_MEM_MAP/SYS_DMA_UNMAP the driver issues, and the
+     placeholder protocol that serializes concurrent shmats of the
+     SAME id. The kernel's shm_proc_map returns the existing address
+     WITHOUT bumping it->refs on a repeat attach (kernel/kernel/src/
+     mm/shm.c), so two workers shmat'ing the same id off-lock would
+     each think they own the mapping and the first shmdt would tear it
+     out from under the second. The placeholder (filling=1) + cond_wait
+     in g2d_cache_find prevents this: only one worker shmats a given
+     id; others wait. Workers attaching DIFFERENT ids release the lock
+     before their shmat and run in parallel. dma canvases still hold
+     map_lock across their attach/use/detach triple so no in-flight
+     blit shares a SYS_DMA_UNMAP'd mapping (see g2d_detach).
+
+   - _g2d_prng_lock guards rand() in g2d_tmp_shm_key (rotated blit's
+     temp surface alloc); rand() is not thread-safe.
+
+   - _g2d_dma_lock serializes dma canvas attach/use/detach (SYS_MEM_MAP
+     + SYS_DMA_UNMAP) independently of the shm cache, so a dma blit
+     never blocks a shm cache lookup and vice versa.
+
+   GPU dispatch serialization now lives inside v3d_g2d_run() /
+   v3d_g2d_run_vc4() (the innermost hardware dispatch entry points in
+   libvideocore), so bsp_g2d_* calls from different workers are free
+   to overlap when they take CPU-only paths (g2d_cpu_blt tail,
+   bsp_g2d_fill_alpha, arch_g2d_* NEON).
+
+   Lock order: never hold two at once. Handlers acquire map_lock (shm)
+   or dma_lock (dma) for attach/detach, release it, then call bsp_g2d_*
+   (which internally acquires the v3d run lock only when a GPU dispatch
+   is needed). The cache counters (hits/misses/evicts/stale/swept/bytes)
+   live under map_lock with the table they describe; the request counter
+   uses __atomic_add_fetch. G2DD_LOG's per-call-site rate-limit statics
+   may race harmlessly (worst case one duplicate or dropped log line per
+   second) and stay unlocked. */
+static spinlock_t _g2d_map_lock = SPINLOCK_INIT;
+static spinlock_t _g2d_dma_lock = SPINLOCK_INIT;
+static spinlock_t _g2d_prng_lock = SPINLOCK_INIT;
+
+static inline void g2d_map_lock(void) {
+	spin_lock(&_g2d_map_lock);
 }
 
-static inline void g2d_task_unlock(void) {
-	pthread_mutex_unlock(&_g2d_task_lock);
+static inline void g2d_map_unlock(void) {
+	spin_unlock(&_g2d_map_lock);
+}
+
+static inline void g2d_dma_lock(void) {
+	spin_lock(&_g2d_dma_lock);
+}
+
+static inline void g2d_dma_unlock(void) {
+	spin_unlock(&_g2d_dma_lock);
+}
+
+static inline void g2d_prng_lock(void) {
+	spin_lock(&_g2d_prng_lock);
+}
+
+static inline void g2d_prng_unlock(void) {
+	spin_unlock(&_g2d_prng_lock);
 }
 
 /* debug logs are rate-limited to one line per second per call site:
@@ -160,8 +219,9 @@ static int32_t g2d_dma_map(ewokos_addr_t addr, uint32_t size, ewokos_addr_t* pad
      slab the whole display stack allocates from. An entry still
      referenced by an in-flight request is never evicted.
 
-   Everything runs under _g2d_task_lock (g2d_dev_cntl takes it before
-   dispatching any handler), so the table needs no locking of its own. */
+   Table access, its counters, and every shmat/shmdt issued on its
+   behalf run under _g2d_map_lock (see the lock comment at the top of
+   this file for why shmat must be inside the lock). */
 #define G2D_ATTACH_CACHE_MAX 32
 #define G2D_ATTACH_CACHE_TTL_MS 250
 
@@ -173,6 +233,7 @@ typedef struct {
 	uint32_t bytes; /* segment size: the cache budgets what it pins */
 	uint32_t refs; /* in-flight attaches; >0 pins the entry */
 	uint8_t stale; /* segment died while pinned: drop it on the last release */
+	uint8_t filling; /* placeholder: shmat in progress outside the lock */
 	uint64_t last_ms; /* kernel_tic_ms of the most recent attach */
 	uint8_t used;
 } g2d_attach_entry_t;
@@ -235,13 +296,26 @@ static void g2d_cache_drop(g2d_attach_entry_t* e) {
 	e->buffer = NULL;
 	e->bytes = 0;
 	e->stale = 0;
+	e->filling = 0;
 	e->used = 0;
 }
 
 static g2d_attach_entry_t* g2d_cache_find(int32_t shm_id) {
 	for(uint32_t i = 0; i < G2D_ATTACH_CACHE_MAX; i++) {
-		if(_g2d_attach_cache[i].used && _g2d_attach_cache[i].shm_id == shm_id)
-			return &_g2d_attach_cache[i];
+		if(_g2d_attach_cache[i].used && _g2d_attach_cache[i].shm_id == shm_id) {
+			g2d_attach_entry_t* e = &_g2d_attach_cache[i];
+			/* another worker is doing shmat for this id outside the
+			   lock: wait until it finishes (or fails and clears the
+			   placeholder). */
+			while(e->filling) {
+				spin_unlock(&_g2d_map_lock);
+				sched_yield();
+				spin_lock(&_g2d_map_lock);
+				if(!e->used || e->shm_id != shm_id)
+					return NULL; /* placeholder was recycled */
+			}
+			return e;
+		}
 	}
 	return NULL;
 }
@@ -320,9 +394,17 @@ static void g2d_cache_drain(void) {
 }
 
 /* attach a request canvas; rejects undersized segments so the mapping
-   can never be written past its end */
+   can never be written past its end. The shm cache path uses a
+   placeholder + cond_wait protocol: the table slot is reserved under
+   _g2d_map_lock (filling=1, refs=1) so no second worker duplicates the
+   shmat for the same id, then the lock is released for the expensive
+   page-table walk. Workers attaching DIFFERENT ids shmat in parallel;
+   a worker hitting the SAME id cond_waits until the filler broadcasts.
+   The dma path uses its own _g2d_dma_lock so dma attach/detach never
+   blocks shm cache operations and vice versa. */
 static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 	void* p;
+	int32_t rc;
 
 	if(canvas == NULL || at == NULL)
 		return G2D_ERR_FAILED;
@@ -339,26 +421,37 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 
 	if(canvas->dma != 0) {
 		/* dma canvas: addr is the dma buffer address in the allocator's
-		   sys_dma v window; map it into this process before use */
+		   sys_dma v window; map it into this process before use.
+		   Serialized by _g2d_dma_lock (not map_lock) so different
+		   dma addresses still overlap with shm cache work. */
 		if(canvas->addr == 0)
 			return G2D_ERR_FAILED;
-		if(g2d_dma_map(canvas->addr, canvas->size, &at->phy) != 0)
+		g2d_dma_lock();
+		rc = g2d_dma_map(canvas->addr, canvas->size, &at->phy);
+		if(rc != 0) {
+			g2d_dma_unlock();
 			return G2D_ERR_FAILED;
+		}
 		at->buffer = (uint32_t*)(uintptr_t)canvas->addr;
 		at->width = canvas->w;
 		at->height = canvas->h;
 		at->dma = 1;
 		at->contig = canvas->contig;
+		g2d_dma_unlock();
 		return 0;
 	}
 
 	if(canvas->shm_id <= 0)
 		return G2D_ERR_FAILED;
 
+	g2d_map_lock();
+
 	uint64_t now_ms = kernel_tic_ms(0);
 
 	if(_g2d_cache_enabled == 0) {
-		/* bypass: plain attach, never published to the cache */
+		/* bypass: release the lock before shmat so different ids
+		   proceed in parallel; no cache state to update. */
+		g2d_map_unlock();
 		p = shmat(canvas->shm_id, 0, 0);
 		if(p == (void*)-1)
 			return G2D_ERR_FAILED;
@@ -414,30 +507,15 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 		at->phy = e->phy;
 		at->cached = 1;
 		at->shm_id = canvas->shm_id;
+		g2d_map_unlock();
 		return 0;
 	}
 
-	p = shmat(canvas->shm_id, 0, 0);
-	if(p == (void*)-1)
-		return G2D_ERR_FAILED;
-	_g2d_cache_misses++;
-	at->buffer = (uint32_t*)p;
-	at->width = canvas->w;
-	at->height = canvas->h;
-	at->dma = 0;
-	at->contig = canvas->contig;
-	/* contig shm canvases carry their physical base from the client
-	   (the shm window is mapped at the same vaddr in every process,
-	   so the client-side translation is valid here); resolve it here
-	   when the client left it empty */
-	at->phy = canvas->phy;
-	if(at->contig != 0 && at->phy == 0)
-		at->phy = shm_contig_phy_addr(canvas->shm_id, (ewokos_addr_t)p);
-
-	/* make room inside the pin budget before adopting the mapping: shed
-	   the least recently used unpinned entries first, and when nothing
-	   is sheddable (or the segment alone exceeds the budget) this attach
-	   simply stays uncached and detaches the old way */
+	/* Cache miss: make room inside the pin budget, then reserve a
+	   placeholder slot BEFORE releasing the lock for shmat. The
+	   placeholder (filling=1, refs=1) prevents a second worker from
+	   duplicating the shmat for the same id; the second worker's
+	   g2d_cache_find() will cond_wait until we fill or clear it. */
 	while(_g2d_cache_bytes + canvas->size > g2d_cache_budget()) {
 		g2d_attach_entry_t* lru = NULL;
 		for(uint32_t i = 0; i < G2D_ATTACH_CACHE_MAX; i++) {
@@ -455,22 +533,74 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 
 	e = g2d_cache_alloc();
 	if(e != NULL && _g2d_cache_bytes + canvas->size <= g2d_cache_budget()) {
+		/* reserve the placeholder under the lock */
 		e->shm_id = canvas->shm_id;
-		e->buffer = (uint32_t*)p;
+		e->buffer = NULL;
 		e->contig = canvas->contig;
-		e->phy = at->phy;
+		e->phy = 0;
 		e->bytes = canvas->size;
 		e->refs = 1;
 		e->stale = 0;
+		e->filling = 1;
 		e->last_ms = now_ms;
 		e->used = 1;
 		_g2d_cache_bytes += canvas->size;
+		g2d_map_unlock();
+
+		/* expensive page-table walk happens outside the lock so
+		   workers attaching different ids run in parallel */
+		p = shmat(canvas->shm_id, 0, 0);
+		ewokos_addr_t phy = canvas->phy;
+		if(p != (void*)-1 && canvas->contig != 0 && phy == 0)
+			phy = shm_contig_phy_addr(canvas->shm_id, (ewokos_addr_t)p);
+
+		g2d_map_lock();
+		if(p == (void*)-1) {
+			/* shmat failed: clear the placeholder so waiters
+			   don't hang, then let them retry on their own. */
+			e->used = 0;
+			e->filling = 0;
+			_g2d_cache_bytes -= canvas->size;
+			g2d_map_unlock();
+			return G2D_ERR_FAILED;
+		}
+		/* fill the entry and wake anyone waiting on this id */
+		e->buffer = (uint32_t*)p;
+		e->phy = phy;
+		e->filling = 0;
+		_g2d_cache_misses++;
+		at->buffer = (uint32_t*)p;
+		at->width = canvas->w;
+		at->height = canvas->h;
+		at->dma = 0;
+		at->contig = e->contig;
+		at->phy = phy;
 		at->cached = 1;
 		at->shm_id = canvas->shm_id;
+		g2d_map_unlock();
+		return 0;
 	}
+
+	/* no slot available (all pinned or over budget): plain shmat outside
+	   the lock, uncached - same semantics as the old fallback path. */
+	g2d_map_unlock();
+	p = shmat(canvas->shm_id, 0, 0);
+	if(p == (void*)-1)
+		return G2D_ERR_FAILED;
+	__atomic_add_fetch(&_g2d_cache_misses, 1, __ATOMIC_RELAXED);
+	at->buffer = (uint32_t*)p;
+	at->width = canvas->w;
+	at->height = canvas->h;
+	at->dma = 0;
+	at->contig = canvas->contig;
+	at->phy = canvas->phy;
+	if(at->contig != 0 && at->phy == 0)
+		at->phy = shm_contig_phy_addr(canvas->shm_id, (ewokos_addr_t)p);
 	return 0;
 }
 
+/* Each path takes its own lock: dma uses _g2d_dma_lock, shm cache and
+   bare shmdt use _g2d_map_lock. The two never overlap. */
 static void g2d_detach(const g2d_attached_t* at) {
 	if(at == NULL || at->buffer == NULL)
 		return;
@@ -483,23 +613,27 @@ static void g2d_detach(const g2d_attached_t* at) {
 		 * the kernel would then have to force-revoke it under us (the next
 		 * touch would fault). Voluntary unmap keeps the stateless protocol
 		 * clean: every dma attach is paired with a detach, mirroring the
-		 * shmdt path below. Safe under _g2d_task_lock - attach/use/detach
-		 * of a request are serialized, so no in-flight blit shares this
-		 * mapping.
+		 * shmdt path below. Serialized by _g2d_dma_lock so no in-flight
+		 * blit shares this mapping.
 		 */
+		g2d_dma_lock();
 		syscall1(SYS_DMA_UNMAP, (ewokos_addr_t)at->buffer);
+		g2d_dma_unlock();
 		return;
 	}
+	g2d_map_lock();
 	if(at->cached != 0) {
 		/* the cache owns the mapping and hands it to the next request;
 		   tearing it down here is exactly the churn this avoids */
 		g2d_cache_release(at->shm_id);
+		g2d_map_unlock();
 		return;
 	}
 	/* a temp surface from g2d_alloc_surface, or an attach the full cache
 	   could not adopt: this process is the only one left holding it, so
 	   the shmdt is what lets the kernel free the segment */
 	shmdt(at->buffer);
+	g2d_map_unlock();
 }
 
 /* window clipping at the driver boundary: every rect handed to bsp_g2d
@@ -548,7 +682,7 @@ static int32_t g2d_clip_dst(int32_t dst_w, int32_t dst_h,
 
 /* alpha fill: thin wrapper over the arch back end's scalar/simd alpha
    fill (arch_g2d_fill_alpha); the caller hands in a rect already
-   clipped to the canvas bounds, same blend math as the blit paths */
+   clipped to the canvas bounds, same blend math as the blit paths. */
 static int32_t g2d_fill_alpha(uint32_t* buf, int32_t bw, int32_t bh,
 		int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
 	return bsp_g2d_fill_alpha(buf, bw, bh, x, y, w, h, color);
@@ -565,16 +699,21 @@ static int32_t g2d_fill_alpha(uint32_t* buf, int32_t bw, int32_t bh,
    pid-derived key space would repeat itself across restarts. seed a
    PRNG once from the wall clock plus address entropy and draw a fresh
    32-bit id per attempt; IPC_EXCL + retry still resolves any rare
-   collision. */
+   collision. rand() is not thread-safe, so the whole draw runs under
+   _g2d_prng_lock. */
 static key_t g2d_tmp_shm_key(void) {
 	static int32_t seeded = 0;
+	key_t k;
 
+	g2d_prng_lock();
 	if(seeded == 0) {
 		seeded = 1;
 		srand((unsigned int)(time(NULL) ^ (uintptr_t)&seeded));
 	}
-	return (key_t)(0x47324430u +
+	k = (key_t)(0x47324430u +
 			((((uint32_t)rand() & 0xffffu) << 16) | ((uint32_t)rand() & 0xffffu)));
+	g2d_prng_unlock();
+	return k;
 }
 
 static int32_t g2d_alloc_surface(int32_t w, int32_t h, g2d_attached_t* surf) {
@@ -714,6 +853,8 @@ static int32_t g2dd_handle_fill_rect(proto_t* in) {
 	return ret;
 }
 
+/* Render one clipped src->dst blit; picks between the 1:1 pitch-split
+   path and the scaled bsp dispatch. */
 static int32_t g2d_blit_render(const g2d_attached_t* dst,
 		uint32_t* src_buf, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
 		int32_t sx, int32_t sy, int32_t sw, int32_t sh,
@@ -829,7 +970,7 @@ static int32_t g2dd_handle_blit(proto_t* in, uint8_t use_alpha) {
 
 	/* rotated path: crop into a temp surface, then rotate into another;
 	   the temp surfaces are shm-backed so they carry phy/contig to the
-	   back end like any client canvas */
+	   back end like any client canvas. */
 	if(g2d_alloc_surface(req.sw, req.sh, &cropped) != 0)
 		goto done;
 	ret = g2d_blt_split(&cropped, src.buffer, src.phy, src.contig,
@@ -1032,33 +1173,49 @@ static char* g2d_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* 
 		return g2d_strdup("stateless argb8888 shm canvases via soft");
 
 	/* `devcmd /dev/g2d cache 0|1` toggles the attach cache at runtime,
-	   `devcmd /dev/g2d cache` reports the hit/miss/evict counters */
+	   `devcmd /dev/g2d cache` reports the hit/miss/evict counters. The
+	   table walk, its counters and the drain all run under _g2d_map_lock
+	   (see the lock comment at the top of this file). */
 	if(strcmp(argv[0], "cache") == 0) {
 		char buf[192];
 		uint32_t slots = 0;
-		for(uint32_t i = 0; i < G2D_ATTACH_CACHE_MAX; i++) {
-			if(_g2d_attach_cache[i].used)
-				slots++;
-		}
+		int32_t on;
+		uint64_t hits, misses, swept, evicts, stale, bytes;
+		int32_t enabled;
+
+		g2d_map_lock();
 		if(argc > 1 && argv[1] != NULL) {
-			int32_t on = (atoi(argv[1]) != 0) ? 1 : 0;
+			on = (atoi(argv[1]) != 0) ? 1 : 0;
 			/* never leave cached mappings behind a bypass: their shmdt
 			   would come from a path the cache cannot see */
 			if(on == 0 && _g2d_cache_enabled != 0)
 				g2d_cache_drain();
 			_g2d_cache_enabled = on;
 		}
+		for(uint32_t i = 0; i < G2D_ATTACH_CACHE_MAX; i++) {
+			if(_g2d_attach_cache[i].used)
+				slots++;
+		}
+		enabled = _g2d_cache_enabled;
+		hits = _g2d_cache_hits;
+		misses = _g2d_cache_misses;
+		swept = _g2d_cache_swept;
+		evicts = _g2d_cache_evicts;
+		stale = _g2d_cache_stale;
+		bytes = _g2d_cache_bytes;
+		g2d_map_unlock();
+
 		snprintf(buf, sizeof(buf),
 				"cache %s hits %llu miss %llu sweep %llu evict %llu stale %llu slots %u/%u pin %uKB/%uKB",
-				_g2d_cache_enabled ? "on" : "off",
-				(unsigned long long)_g2d_cache_hits,
-				(unsigned long long)_g2d_cache_misses,
-				(unsigned long long)_g2d_cache_swept,
-				(unsigned long long)_g2d_cache_evicts,
-				(unsigned long long)_g2d_cache_stale,
+				enabled ? "on" : "off",
+				(unsigned long long)hits,
+				(unsigned long long)misses,
+				(unsigned long long)swept,
+				(unsigned long long)evicts,
+				(unsigned long long)stale,
 				(unsigned int)slots,
 				(unsigned int)G2D_ATTACH_CACHE_MAX,
-				(unsigned int)(_g2d_cache_bytes / 1024),
+				(unsigned int)(bytes / 1024),
 				(unsigned int)(g2d_cache_budget() / 1024));
 		return g2d_strdup(buf);
 	}
@@ -1181,8 +1338,16 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 	int res = G2D_ERR_FAILED;
 	uint32_t clock_hz = 0;
 	int is_clock = (cmd == G2D_DEV_CNTL_GET_CLOCK);
-	g2d_task_lock();
-	_g2dd_req_cnt++;
+
+	/* No outer lock: each handler takes _g2d_map_lock for its attach /
+	   detach steps; GPU dispatch serialization lives inside v3d_g2d_run()
+	   in libvideocore. Two workers from different requesters overlap the
+	   phases that have nothing to do with each other (see the lock
+	   comment at the top of this file). The request counter is a plain
+	   stat - bump it atomically instead of dragging a lock in for one
+	   increment. */
+	__atomic_add_fetch(&_g2dd_req_cnt, 1, __ATOMIC_RELAXED);
+
 	switch (cmd) {
 	case G2D_DEV_CNTL_FILL_RECT:
 		res = g2dd_handle_fill_rect(in);
@@ -1201,7 +1366,9 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 		break;
 	case G2D_DEV_CNTL_GET_CLOCK:
 		/* report the engine clock pinned at startup; a backend
-		   without one has no clock capability to report */
+		   without one has no clock capability to report. The value is
+		   set once by bsp_g2d_init and read-only thereafter, so no
+		   lock is needed for the read. */
 		clock_hz = bsp_g2d_clock_hz();
 		res = (clock_hz > 0) ? G2D_OK : G2D_ERR_NOT_SUPPORTED;
 		break;
@@ -1216,7 +1383,6 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 		   have at all, not an operation that failed */
 		res = G2D_ERR_NOT_SUPPORTED;
 	}
-	g2d_task_unlock();
 
 	if(res != 0 && !is_clock) {
 		G2DD_LOG("g2d_dev_cntl: cmd %d res %d\n", cmd, res);
