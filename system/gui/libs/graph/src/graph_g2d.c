@@ -138,17 +138,24 @@ static int g2d_reject(const graph_t* a, const graph_t* b, int32_t w, int32_t h) 
 	return G2D_ERR_FAILED;
 }
 
-static int g2d_check_graph(const graph_t* g) {
+/* w/h describe the rect the operation actually touches: offloading is
+   only worth the ipc round trip when that rect carries enough pixels, a
+   canvas-only check would still send every thin frame band to the device.
+   a 0 w or h means "no rect of my own" (rotate, scale) and falls back to
+   the full canvas dimensions. */
+static int g2d_check_graph(const graph_t* g, int32_t w, int32_t h) {
 	if(g == NULL || g->buffer == NULL)
 		return 0;
 	if(g->shm_id <= 0 || !g->shm_contig)
 		return 0;
-	/*
-	if(g->w <= 0 || g->h <= 0)
+	if(w <= 0)
+		w = g->w;
+	if(h <= 0)
+		h = g->h;
+	if(w <= 0 || h <= 0)
 		return 0;
-	*/
 
-	if((g->w * g->h) < G2D_MIN_SIZE)
+	if((w * h) < G2D_MIN_SIZE)
 		return 0;
 	return 1;
 }
@@ -174,7 +181,7 @@ int graph_fill_g2d(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint3
 	if(!g2d_op_supported(G2D_CAP_FILL))
 		return G2D_ERR_NOT_SUPPORTED;
 
-	if(!g2d_check_graph(g) || (w * h < G2D_MIN_SIZE))
+	if(!g2d_check_graph(g, w, h))
 		return g2d_reject(g, NULL, w, h);
 
 	/* same clipping as graph_fill_cpu */
@@ -199,8 +206,6 @@ static int g2d_do_blt(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t 
 
 	if(!g2d_op_supported(cap))
 		return G2D_ERR_NOT_SUPPORTED;
-	if(!g2d_check_graph(src) || !g2d_check_graph(dst))
-		return G2D_ERR_FAILED;
 	if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
 		return G2D_ERR_FAILED;
 
@@ -220,7 +225,7 @@ int graph_blt_g2d(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
 	if(!g2d_op_supported(G2D_CAP_BLT))
 		return G2D_ERR_NOT_SUPPORTED;
-	if(!g2d_check_graph(src) || !g2d_check_graph(dst))
+	if(!g2d_check_graph(src, sw, sh) || !g2d_check_graph(dst, dw, dh))
 		return g2d_reject(src, dst, dw, dh);
 	return g2d_do_blt(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, 0xff, 0);
 }
@@ -232,7 +237,7 @@ int graph_blt_alpha_g2d(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_
 
 	if(!g2d_op_supported(G2D_CAP_BLIT_ALPHA))
 		return G2D_ERR_NOT_SUPPORTED;
-	if(!g2d_check_graph(src) || !g2d_check_graph(dst))
+	if(!g2d_check_graph(src, sw, sh) || !g2d_check_graph(dst, dw, dh))
 		return g2d_reject(src, dst, dw, dh);
 	return g2d_do_blt(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha, 1);
 }
@@ -252,7 +257,7 @@ int graph_scale_tof_g2d(graph_t* g, graph_t* dst, double scale) {
 		return 0;
 	if(!g2d_op_supported(G2D_CAP_SCALE_TO))
 		return G2D_ERR_NOT_SUPPORTED;
-	if(!g2d_check_graph(g) && !g2d_check_graph(dst))
+	if(!g2d_check_graph(g, 0, 0) && !g2d_check_graph(dst, 0, 0))
 		return G2D_ERR_FAILED;
 	return g2d_do_scale(g, dst, scale);
 }
@@ -274,7 +279,7 @@ int graph_rotate_to_g2d(graph_t* g, graph_t* ret, int rot) {
 	if(!g2d_op_supported(G2D_CAP_ROTATE))
 		return G2D_ERR_NOT_SUPPORTED;
 
-	if(!g2d_check_graph(g) || !g2d_check_graph(ret))
+	if(!g2d_check_graph(g, 0, 0) || !g2d_check_graph(ret, 0, 0))
 		return G2D_ERR_FAILED;
 
 	degree = g2d_rot_degree(rot);
@@ -353,7 +358,7 @@ int graph_gaussian_blur_g2d(graph_t* g, int x, int y, int w, int h, int r) {
 	if(r <= 0)
 		return G2D_ERR_FAILED;
 
-	if(!g2d_check_graph(g)) {
+	if(!g2d_check_graph(g, w, h)) {
 		_g2d_blur_fb_canvas++;
 		blur_fallback_klog("canvas not shm/contig",
 				   _g2d_blur_fb_canvas);
