@@ -222,7 +222,10 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
         }
     }
 
-    if(xwm->theme.wsBlur != 0 && !framed) {
+    /*ws_blur only frosts the client area of a translucent window (the frame
+      hook itself blends ws_g over the glass for alpha ones only); an opaque
+      frameless/maximized window would just pay the backdrop scan for nothing*/
+    if(xwm->theme.wsBlur != 0 && info.alpha && !framed) {
         if(xwm->draw_frame != NULL)
             xwm->draw_frame(&desktop_g, &frame_g, &ws_g, &info, &rframe, top, xwm->data);
     }

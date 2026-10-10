@@ -357,8 +357,8 @@ int graph_gaussian_blur_g2d(graph_t* g, int x, int y, int w, int h, int r) {
 	if(r <= 0)
 		return G2D_ERR_FAILED;
 
-	if(!g2d_check_graph(g, w, h)) {
-		/* a shm/contig canvas whose rect is below G2D_MIN_SIZE is the
+	if(!g2d_check_graph(g, w*2, h*2)) {
+		/* a shm/contig canvas whose rect is below G2D_MIN_SIZE/4 is the
 		   by-design cheap case (graph_shadow_round blurs two thin
 		   strips of its mask per window geometry): count it with the
 		   partial-rect refusals and stay quiet. only a canvas that

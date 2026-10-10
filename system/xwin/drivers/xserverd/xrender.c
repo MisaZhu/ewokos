@@ -21,6 +21,19 @@ static bool win_backdrop_active(x_t* x, xwin_t* win) {
     return x->config.xwm_theme.frameBlur != 0 && frame_cuts_ws(x, win);
 }
 
+/*the theme's ws_blur frosts the client area and lays the published buffer
+  back over it inside frame_g - but xwm only does that for a translucent
+  (alpha) window; an opaque one covers the glass completely, so xwm leaves
+  its frame_g workspace untouched. Routing an opaque window through the
+  frame_g path would then composite a workspace nobody ever filled (a
+  frameless/maximized opaque window has no other reason to copy its content
+  into frame_g), and it would pay a DRAW_FRAME IPC on every present for
+  nothing. So ws_blur only steers the compositor for alpha windows.*/
+static bool ws_blur_active(x_t* x, xwin_t* win) {
+    return x->config.xwm_theme.wsBlur != 0 &&
+            win->xinfo != NULL && win->xinfo->alpha;
+}
+
 /*whether the compositor should maintain a clean per-window backdrop snapshot.
   Three independent reasons:
   - the theme wants a frosted frame, so xwm needs the pristine pixels below
@@ -41,7 +54,7 @@ static bool win_keeps_backdrop(x_t* x, xwin_t* win) {
     if(win_backdrop_active(x, win))
         return true;
     if(win->xinfo != NULL && win->xinfo->alpha) {
-        if(win_edge_to_edge(win) || x->config.xwm_theme.wsBlur != 0)
+        if(win_edge_to_edge(win) || ws_blur_active(x, win))
             return true;
     }
     return false;
@@ -150,7 +163,7 @@ static void prepare_win_content(x_t* x, xwin_t* win) {
         }
     }
 
-    if(!win->frame_dirty && x->config.xwm_theme.wsBlur == 0)
+    if(!win->frame_dirty && !ws_blur_active(x, win))
         return;
 
     /*a frameless window only visits xwm for the background effect;
@@ -158,7 +171,7 @@ static void prepare_win_content(x_t* x, xwin_t* win) {
       round trip is skipped. A fullscreen window is edge to edge and has
       no decorations at all, so it gets the same treatment.*/
     if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0 &&
-            !win_bg_effect_active(x, win) && x->config.xwm_theme.wsBlur == 0)
+            !win_bg_effect_active(x, win) && !ws_blur_active(x, win))
         return;
 
     if(!check_xwm(x))
@@ -348,7 +361,7 @@ static void blit_win_part(x_t* x, xwin_t* win, graph_t* disp_g,
 
     graph_t* ws = win_comp_src(win);
     if(win_bg_effect_active(x, win) || frame_cuts_ws(x, win) ||
-            ws == NULL || x->config.xwm_theme.wsBlur != 0) {
+            ws == NULL || ws_blur_active(x, win)) {
         if(alpha)
             graph_blt_alpha(ring, d->x, d->y, d->w, d->h,
                     disp_g, win_x + d->x, win_y + d->y, d->w, d->h, 0xff);
