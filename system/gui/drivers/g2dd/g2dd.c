@@ -150,19 +150,6 @@ static inline void g2d_prng_unlock(void) {
 #define G2DD_LOG(fmt, ...)
 #endif
 
-/* the blur dispatch is the one line worth seeing even in non-debug
-   builds: xwm routes whole-window frost/frame blurs here every frame,
-   and "is it on the gpu" is invisible otherwise. rate-limited to one
-   line per second, and only while blur requests actually arrive. */
-#define G2DD_BLUR_LOG(fmt, ...) do { \
-	static uint64_t _last_ms = 0; \
-	uint64_t _now_ms = kernel_tic_ms(0); \
-	if(_last_ms == 0 || _now_ms - _last_ms >= 1000) { \
-		slog("[g2dd/blur] " fmt, ##__VA_ARGS__); \
-		_last_ms = _now_ms; \
-	} \
-} while(0)
-
 /* byte alignment the 1:1 blit width is split at: the aligned part goes
    to the back end, the sub-alignment tail stays on the cpu. any
    multiple of 4 bytes (a whole pixel group) works; */
@@ -1481,27 +1468,13 @@ static int32_t g2dd_handle_gaussian_blur(proto_t* in) {
 	if(in == NULL)
 		return G2D_ERR_FAILED;
 	if(proto_read_to(in, &req, sizeof(req)) != sizeof(req)) {
-		G2DD_BLUR_LOG("rejected: proto read failed\n");
 		return G2D_ERR_FAILED;
 	}
-	/* entry trace: with several client processes blurring at once, the
-	   accept log alone cannot tie a refusal to its request */
-	G2DD_BLUR_LOG("g2d_gaussian_blur req: dst %dx%d shm %d contig %u, "
-			"rect %d,%d %dx%d radius %d, tmp size %u shm %d\n",
-			req.dst.w, req.dst.h, req.dst.shm_id,
-			(unsigned)req.dst.contig,
-			req.rect.x, req.rect.y, req.rect.w, req.rect.h,
-			req.radius, (unsigned)req.tmp.size,
-			req.tmp.shm_id);
 	if(req.radius <= 0) {
-		G2DD_BLUR_LOG("rejected: radius <= 0\n");
 		return G2D_ERR_FAILED;
 	}
 
 	if(g2d_attach(&req.dst, &dst) != 0) {
-		G2DD_BLUR_LOG("g2d_gaussian_blur rejected: dst attach failed "
-				"(dst shm %d, contig %u)\n",
-				req.dst.shm_id, (unsigned)req.dst.contig);
 		return G2D_ERR_FAILED;
 	}
 
@@ -1513,8 +1486,6 @@ static int32_t g2dd_handle_gaussian_blur(proto_t* in) {
 	if(x + w > (int32_t)dst.width) w = (int32_t)dst.width - x;
 	if(y + h > (int32_t)dst.height) h = (int32_t)dst.height - y;
 	if(w <= 0 || h <= 0) {
-		G2DD_BLUR_LOG("rejected: rect empty after clip (%d,%d %dx%d in "
-				"%dx%d)\n", x, y, w, h, dst.width, dst.height);
 		g2d_detach(&dst);
 		return G2D_ERR_FAILED;
 	}
@@ -1534,15 +1505,9 @@ static int32_t g2dd_handle_gaussian_blur(proto_t* in) {
 
 	if(gpu_eligible) {
 		if(g2d_attach(&req.tmp, &tmp) != 0) {
-			G2DD_BLUR_LOG("g2d_gaussian_blur rejected: tmp attach "
-					"failed (tmp shm %d, contig %u)\n",
-					req.tmp.shm_id,
-					(unsigned)req.tmp.contig);
 			g2d_detach(&dst);
 			return G2D_ERR_FAILED;
 		}
-		G2DD_BLUR_LOG("g2d_gaussian_blur dst: %d x %d rect %d,%d %dx%d radius: %d, contig: %d:(0x%08X)\n",
-				dst.width, dst.height, x, y, w, h, req.radius, dst.contig, dst.phy);
 		ret = bsp_g2d_gaussian_blur(dst.buffer, dst.phy, dst.contig,
 				tmp.buffer, tmp.phy, tmp.contig,
 				(int32_t)dst.width, (int32_t)dst.height,
@@ -1553,16 +1518,7 @@ static int32_t g2dd_handle_gaussian_blur(proto_t* in) {
 	}
 
 	/* not runnable on the back end: fail without submitting anything
-	   (no CPU fallback in the driver - the caller decides).  always-on
-	   rate-limited log: a silent reject here is indistinguishable from
-	   a driver bug from the client's fallback counter alone. */
-	G2DD_BLUR_LOG("g2d_gaussian_blur rejected: rect %d,%d %dx%d radius %d "
-			"dst %dx%d tmp.size %u need %u\n",
-			x, y, w, h, req.radius,
-			dst.width, dst.height,
-			(unsigned)req.tmp.size,
-			(unsigned)((uint32_t)(h - 1) * dst.width * 4u +
-				   (uint32_t)w * 4u));
+	   (no CPU fallback in the driver - the caller decides). */
 	g2d_detach(&dst);
 	return G2D_ERR_FAILED;
 }

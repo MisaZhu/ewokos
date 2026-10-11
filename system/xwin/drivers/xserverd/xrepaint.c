@@ -273,25 +273,48 @@ void x_repaint(x_t* x, uint32_t display_index) {
     }
     display->wait_ready = 0;
 
-    if(display->dirty) {
-        /*a full rebuild paints the desktop over everything, so a window whose
-          painter is mid-frame cannot simply be skipped the way an incremental
-          repaint skips it - that would leave a hole. Hold the whole rebuild
-          back until the painter publishes, with the same small budget
-          all_win_ready uses; win_src_stable bounds the wait per window too, so
-          an idle client cannot stall a rebuild forever.*/
+    /*the frame must reach the panel whole, so hold the ENTIRE step back while
+      any window that owes a repaint is still mid-frame, then composite and
+      flush once. Compositing the ready windows now and a deferred one on a
+      later flush is what shows a multi-window frame drawing in piece by piece.
+      A full rebuild paints the desktop over everything, so it checks every
+      visible window (skipping a mid-frame one there would leave a hole); an
+      incremental step only checks the dirty ones. Bounded by the same budget
+      all_win_ready uses, and win_src_stable bounds the wait per window, so one
+      stuck client cannot freeze the display - after the budget the frame
+      proceeds with whatever is stable. Deferring here, before anything is
+      composited, loses no work: a window's dirty flags are only cleared inside
+      draw_win, so the held windows are still owed next step.*/
+    {
         bool painting = false;
         xwin_t* w = x->win_head;
         while(w != NULL) {
             if(w->ready && w->xinfo != NULL && w->xinfo->visible &&
                     w->xinfo->display_index == display_index &&
+                    (display->dirty || w->dirty || w->frame_dirty) &&
                     !win_src_stable(x, w)) {
                 painting = true;
                 break;
             }
             w = w->next;
         }
-        if(painting && display->paint_wait < X_WAIT_READY_MAX) {
+        /*hold the whole step until win_src_stable's own X_PAINT_TIMEOUT_MS
+          would release the pending window, so that window is composited into
+          THIS frame instead of the pre-pass giving up and degrading to a
+          partial flush (the "windows/regions appear in sequence" artifact).
+          The budget has to be wall-clock, not a fixed step count: at fps 60
+          the old X_WAIT_READY_MAX=4 steps (~66ms) expired before the 100ms
+          paint timeout, so an fps_async client that painted for more than
+          ~66ms split its frame across two flushes. Deriving it from the
+          configured fps makes the hold always span X_PAINT_TIMEOUT_MS (+1 step
+          of margin) whatever the cadence; win_src_stable still bounds the real
+          wait per window, so a stuck client cannot freeze the display. Only a
+          genuinely slow single paint is held - a client that publishes each
+          frame sets update_requested, win_src_stable returns true at once and
+          the pre-pass never engages.*/
+        uint32_t fps = x->config.fps ? x->config.fps : 30;
+        uint32_t paint_budget = (fps * X_PAINT_TIMEOUT_MS) / 1000 + 1;
+        if(painting && display->paint_wait < paint_budget) {
             display->paint_wait++;
             return;
         }

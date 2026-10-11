@@ -83,7 +83,10 @@ static int x_init_display(x_t* x) {
             continue;
         display->g_display = g_display;
         display->g = g_display;
-        display->g_shm_id = display->display.shm_id;
+        /*g_display is the off-screen back buffer returned by display_fetch_graph;
+          xwm must draw the desktop/decoration into the SAME canvas the compositor
+          reads, so hand xwm the canvas's shm id (tracks the cache, not the fb).*/
+        display->g_shm_id = g_display->shm_id;
         display->desktop_rect.x = 0;
         display->desktop_rect.y = 0;
         display->desktop_rect.w = g_display->w;

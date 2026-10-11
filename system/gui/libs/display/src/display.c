@@ -74,9 +74,58 @@ int display_info(display_t* display, int* w, int* h, int* bpp) {
     return 0;
 }
 
+/*upper bound (in ~1ms parks) a blocking flush waits for the device to finish
+  the previous presentation before pushing. Bounded so a daemon that died with
+  busy latched cannot hang the compositor forever.*/
+#define DISPLAY_FLUSH_BUSY_WAIT_MAX 200
+
 int display_flush(display_t* display, bool waiting) {
     if(display == NULL || display->fd < 0)
         return -1;
+
+    /*presentation-completion gate. ctrl->busy is held by the daemon for the
+      whole time it pushes the previous frame to the physical panel (reading
+      this framebuffer shm for scan-out, or streaming it over SPI). Flushing
+      now would either race that read (a half-synced shm reaches the panel) or
+      start a new presentation on top of an unfinished one, so we never push
+      cache_g while the device is still drawing:
+        - opportunistic flush (waiting==false, e.g. the cursor fast path):
+          skip it. The frame is already complete in cache_g and is presented by
+          the next flush, so intermediate frames simply coalesce (nothing lost).
+        - blocking flush (waiting==true): wait for the device to go idle (with a
+          bound, so a dead daemon cannot hang us), then present the full frame.*/
+    if(display->ctrl != NULL) {
+        volatile uint8_t* busy = &display->ctrl->busy;
+        if(*busy != 0) {
+            if(!waiting)
+                return 0;
+            uint32_t guard = DISPLAY_FLUSH_BUSY_WAIT_MAX;
+            while(*busy != 0 && guard > 0) {
+                usleep(1000);
+                guard--;
+            }
+        }
+    }
+
+    /*sync the completed frame from the off-screen back buffer into the
+      framebuffer shm, bounded by the declared dirty rects (or the whole frame
+      when none). This is the single point where a fully-composited frame
+      reaches the daemon/panel, so no partial drawing is ever scanned out.*/
+    if(display->cache_g != NULL && display->g != NULL) {
+        display_ctrl_t* ctrl = display->ctrl;
+        if(ctrl != NULL && ctrl->dirty_num > 0 && ctrl->dirty_num <= DISPLAY_DIRTY_MAX) {
+            for(uint8_t i = 0; i < ctrl->dirty_num; i++) {
+                grect_t* r = &ctrl->dirty[i];
+                graph_blt(display->cache_g, r->x, r->y, r->w, r->h,
+                        display->g, r->x, r->y, r->w, r->h);
+            }
+        }
+        else {
+            graph_blt(display->cache_g, 0, 0, display->g->w, display->g->h,
+                    display->g, 0, 0, display->g->w, display->g->h);
+        }
+    }
+
     return vfs_flush(display->fd, waiting);
 }
 
@@ -86,6 +135,10 @@ int display_close(display_t* display) {
     if(display->g != NULL) {
         graph_free(display->g);
         shmdt(display->shm);
+    }
+    if(display->cache_g != NULL) {
+        graph_free(display->cache_g); //also detaches its own shm backing
+        display->cache_g = NULL;
     }
     if(display->ctrl != NULL)
         shmdt(display->ctrl);
@@ -164,13 +217,17 @@ graph_t* display_fetch_graph(display_t* display) {
         return NULL;
 
     if(display->g != NULL && display->g->w == w && display->g->h == h)
-        return display->g;
+        return (display->cache_g != NULL) ? display->cache_g : display->g;
 
     if(display->g != NULL) {
         graph_free(display->g);
         shmdt(display->shm);
         display->g = NULL;
         display->shm = NULL;
+    }
+    if(display->cache_g != NULL) {
+        graph_free(display->cache_g); //also detaches its own shm backing
+        display->cache_g = NULL;
     }
 
     shm_id = vfs_shm(display->fd, &contig, NULL);
@@ -189,6 +246,15 @@ graph_t* display_fetch_graph(display_t* display) {
     display->shm = shm;
     display->shm_id = shm_id;
     display->g = g;
+
+    /*off-screen back buffer: every fill/alpha/blt of a frame lands here and is
+      synced to the framebuffer once per flush, so a partially-composited frame
+      is never scanned out. contig when a g2d device is present so the sync blit
+      is hardware-accelerated. On allocation failure fall back to drawing
+      straight into the framebuffer (today's behavior, no regression).*/
+    display->cache_g = graph_new_shm(w, h);
+    if(display->cache_g != NULL)
+        return display->cache_g;
     return g;
 }
 

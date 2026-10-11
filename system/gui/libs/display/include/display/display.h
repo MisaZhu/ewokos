@@ -26,7 +26,8 @@ typedef struct {
 	void* shm;
 	int32_t shm_id; //shm id of the pixel buffer, so it can be shared with other procs
 	display_ctrl_t* ctrl; //attached ctrl block (its own shm segment)
-	graph_t* g;
+	graph_t* g; //the framebuffer shm canvas (what the daemon scans out)
+	graph_t* cache_g; //off-screen back buffer; all drawing lands here, synced to g on flush
 } display_t;
 
 enum {

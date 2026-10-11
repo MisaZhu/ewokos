@@ -284,8 +284,8 @@ int main(int argc, char** argv) {
 	/*show window first so the alpha background appears right away,
 	  apps are then loaded and drawn progressively in the event loop*/
 	apps->startLoadApps();
-	win.setVisible(true);
 	win.fullscreen();
+	win.setVisible(true);
 
 	widgetXRun(&x, &win);
 	return 0;
